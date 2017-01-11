@@ -264,9 +264,9 @@ free_pref(gpointer data, gpointer user_data _U_)
         break;
     case PREF_RANGE:
     case PREF_DECODE_AS_RANGE:
-        g_free(*pref->varp.range);
+        wmem_free(wmem_epan_scope(), *pref->varp.range);
         *pref->varp.range = NULL;
-        g_free(pref->default_val.range);
+        wmem_free(wmem_epan_scope(), pref->default_val.range);
         pref->default_val.range = NULL;
         break;
     case PREF_CUSTOM:
@@ -787,6 +787,7 @@ register_preference(module_t *module, const char *name, const char *title,
 {
     pref_t *preference;
     const gchar *p;
+    const char *name_prefix = (module->name != NULL) ? module->name : module->parent->name;
 
     preference = g_new(pref_t,1);
     preference->name = name;
@@ -834,9 +835,32 @@ register_preference(module_t *module, const char *name, const char *title,
             g_error("Preference %s begins with the module name", name);
     }
 
+    /* The title shows up in the preferences dialog. Make sure it's UI-friendly. */
+    if (preference->title) {
+        const char *cur_char;
+        if (preference->type != PREF_STATIC_TEXT && g_utf8_strlen(preference->title, -1) > 80) { // Arbitrary.
+            g_error("Title for preference %s.%s is too long: %s", name_prefix, preference->name, preference->title);
+        }
+
+        if (!g_utf8_validate(preference->title, -1, NULL)) {
+            g_error("Title for preference %s.%s isn't valid UTF-8.", name_prefix, preference->name);
+        }
+
+        for (cur_char = preference->title; *cur_char; cur_char = g_utf8_next_char(cur_char)) {
+            if (!g_unichar_isprint(g_utf8_get_char(cur_char))) {
+                g_error("Title for preference %s.%s isn't printable UTF-8.", name_prefix, preference->name);
+            }
+        }
+    }
+
+    if (preference->description) {
+        if (!g_utf8_validate(preference->description, -1, NULL)) {
+            g_error("Description for preference %s.%s isn't valid UTF-8.", name_prefix, preference->name);
+        }
+    }
+
     /*
-     * There isn't already one with that name, so add the
-     * preference.
+     * We passed all of our checks. Add the preference.
      */
     module->prefs = g_list_append(module->prefs, preference);
     if (title != NULL)
@@ -1156,9 +1180,9 @@ prefs_register_range_preference_common(module_t *module, const char *name,
      * If the value is a null pointer, make it an empty range.
      */
     if (*var == NULL)
-        *var = range_empty();
+        *var = range_empty(wmem_epan_scope());
     preference->varp.range = var;
-    preference->default_val.range = range_copy(*var);
+    preference->default_val.range = range_copy(wmem_epan_scope(), *var);
     preference->stashed_val.range = NULL;
 }
 
@@ -1180,17 +1204,17 @@ prefs_set_range_value_work(pref_t *pref, const gchar *value,
 {
     range_t *newrange;
 
-    if (range_convert_str_work(&newrange, value, pref->info.max_value,
+    if (range_convert_str_work(wmem_epan_scope(), &newrange, value, pref->info.max_value,
                                return_range_errors) != CVT_NO_ERROR) {
         return FALSE;        /* number was bad */
     }
 
     if (!ranges_are_equal(*pref->varp.range, newrange)) {
         *changed = TRUE;
-        g_free(*pref->varp.range);
+        wmem_free(wmem_epan_scope(), *pref->varp.range);
         *pref->varp.range = newrange;
     } else {
-        g_free(newrange);
+        wmem_free(wmem_epan_scope(), newrange);
     }
     return TRUE;
 }
@@ -1202,6 +1226,56 @@ gboolean
 prefs_set_range_value(pref_t *pref, const gchar *value, gboolean *changed)
 {
     return prefs_set_range_value_work(pref, value, TRUE, changed);
+}
+
+gboolean
+prefs_set_stashed_range_value(pref_t *pref, const gchar *value)
+{
+    range_t *newrange;
+
+    if (range_convert_str_work(wmem_epan_scope(), &newrange, value, pref->info.max_value,
+                               TRUE) != CVT_NO_ERROR) {
+        return FALSE;        /* number was bad */
+    }
+
+    if (!ranges_are_equal(pref->stashed_val.range, newrange)) {
+        wmem_free(wmem_epan_scope(), pref->stashed_val.range);
+        pref->stashed_val.range = newrange;
+    } else {
+        wmem_free(wmem_epan_scope(), newrange);
+    }
+    return TRUE;
+
+}
+
+gboolean
+prefs_set_stashed_range(pref_t *pref, range_t *value)
+{
+    if (!ranges_are_equal(pref->stashed_val.range, value)) {
+        wmem_free(wmem_epan_scope(), pref->stashed_val.range);
+        pref->stashed_val.range = range_copy(wmem_epan_scope(), value);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+range_t *
+prefs_get_stashed_range(pref_t *pref)
+{
+    return pref->stashed_val.range;
+}
+
+void
+prefs_range_add_value(pref_t *pref, guint32 val)
+{
+    range_add_value(wmem_epan_scope(), pref->varp.range, val);
+}
+
+void
+prefs_range_remove_value(pref_t *pref, guint32 val)
+{
+    range_remove_value(wmem_epan_scope(), pref->varp.range, val);
 }
 
 /*
@@ -1360,6 +1434,284 @@ prefs_set_preference_obsolete(pref_t *pref)
         return PREFS_SET_OK;
     }
     return PREFS_SET_NO_SUCH_PREF;
+}
+
+guint
+pref_stash(pref_t *pref, gpointer unused _U_)
+{
+    switch (pref->type) {
+
+    case PREF_DECODE_AS_UINT:
+        pref->stashed_val.uint = *pref->varp.uint;
+        break;
+
+    case PREF_UINT:
+        pref->stashed_val.uint = *pref->varp.uint;
+        break;
+
+    case PREF_BOOL:
+        pref->stashed_val.boolval = *pref->varp.boolp;
+        break;
+
+    case PREF_ENUM:
+        pref->stashed_val.enumval = *pref->varp.enump;
+        break;
+
+    case PREF_STRING:
+    case PREF_FILENAME:
+    case PREF_DIRNAME:
+        g_free(pref->stashed_val.string);
+        pref->stashed_val.string = g_strdup(*pref->varp.string);
+        break;
+
+    case PREF_DECODE_AS_RANGE:
+    case PREF_RANGE:
+        wmem_free(wmem_epan_scope(), pref->stashed_val.range);
+        pref->stashed_val.range = range_copy(wmem_epan_scope(), *pref->varp.range);
+        break;
+
+    case PREF_COLOR:
+        pref->stashed_val.color = *pref->varp.colorp;
+        break;
+
+    case PREF_STATIC_TEXT:
+    case PREF_UAT:
+    case PREF_CUSTOM:
+        break;
+
+    case PREF_OBSOLETE:
+        g_assert_not_reached();
+        break;
+    }
+    return 0;
+}
+
+guint
+pref_unstash(pref_t *pref, gpointer unstash_data_p)
+{
+    pref_unstash_data_t *unstash_data = (pref_unstash_data_t *)unstash_data_p;
+    dissector_table_t sub_dissectors = NULL;
+    dissector_handle_t handle = NULL;
+
+    /* Revert the preference to its saved value. */
+    switch (pref->type) {
+
+    case PREF_DECODE_AS_UINT:
+        if (*pref->varp.uint != pref->stashed_val.uint) {
+            unstash_data->module->prefs_changed = TRUE;
+
+            if (unstash_data->handle_decode_as) {
+                if (*pref->varp.uint != pref->default_val.uint) {
+                    dissector_reset_uint(pref->name, *pref->varp.uint);
+                }
+            }
+
+            *pref->varp.uint = pref->stashed_val.uint;
+
+            if (unstash_data->handle_decode_as) {
+                sub_dissectors = find_dissector_table(pref->name);
+                if (sub_dissectors != NULL) {
+                    handle = dissector_table_get_dissector_handle(sub_dissectors, (gchar*)unstash_data->module->title);
+                    if (handle != NULL) {
+                        dissector_change_uint(pref->name, *pref->varp.uint, handle);
+                    }
+                }
+            }
+        }
+        break;
+
+    case PREF_UINT:
+        if (*pref->varp.uint != pref->stashed_val.uint) {
+            unstash_data->module->prefs_changed = TRUE;
+            *pref->varp.uint = pref->stashed_val.uint;
+        }
+        break;
+
+    case PREF_BOOL:
+        if (*pref->varp.boolp != pref->stashed_val.boolval) {
+            unstash_data->module->prefs_changed = TRUE;
+            *pref->varp.boolp = pref->stashed_val.boolval;
+        }
+        break;
+
+    case PREF_ENUM:
+        if (*pref->varp.enump != pref->stashed_val.enumval) {
+            unstash_data->module->prefs_changed = TRUE;
+            *pref->varp.enump = pref->stashed_val.enumval;
+        }
+        break;
+
+    case PREF_STRING:
+    case PREF_FILENAME:
+    case PREF_DIRNAME:
+        if (strcmp(*pref->varp.string, pref->stashed_val.string) != 0) {
+            unstash_data->module->prefs_changed = TRUE;
+            g_free(*pref->varp.string);
+            *pref->varp.string = g_strdup(pref->stashed_val.string);
+        }
+        break;
+
+    case PREF_DECODE_AS_RANGE:
+        if (!ranges_are_equal(*pref->varp.range, pref->stashed_val.range)) {
+            guint32 i, j;
+            unstash_data->module->prefs_changed = TRUE;
+
+            if (unstash_data->handle_decode_as) {
+                sub_dissectors = find_dissector_table(pref->name);
+                if (sub_dissectors != NULL) {
+                    handle = dissector_table_get_dissector_handle(sub_dissectors, (gchar*)unstash_data->module->title);
+                    if (handle != NULL) {
+                        /* Delete all of the old values from the dissector table */
+                        for (i = 0; i < (*pref->varp.range)->nranges; i++) {
+                            for (j = (*pref->varp.range)->ranges[i].low; j < (*pref->varp.range)->ranges[i].high; j++) {
+                                dissector_delete_uint(pref->name, j, handle);
+                                decode_build_reset_list(pref->name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER(j), NULL, NULL);
+                            }
+
+                            dissector_delete_uint(pref->name, (*pref->varp.range)->ranges[i].high, handle);
+                            decode_build_reset_list(pref->name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER((*pref->varp.range)->ranges[i].high), NULL, NULL);
+                        }
+                    }
+                }
+            }
+
+            wmem_free(wmem_epan_scope(), *pref->varp.range);
+            *pref->varp.range = range_copy(wmem_epan_scope(), pref->stashed_val.range);
+
+            if (unstash_data->handle_decode_as) {
+                if ((sub_dissectors != NULL) && (handle != NULL)) {
+
+                    /* Add new values to the dissector table */
+                    for (i = 0; i < (*pref->varp.range)->nranges; i++) {
+
+                        for (j = (*pref->varp.range)->ranges[i].low; j < (*pref->varp.range)->ranges[i].high; j++) {
+                            dissector_change_uint(pref->name, j, handle);
+                            decode_build_reset_list(pref->name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER(j), NULL, NULL);
+                        }
+
+                        dissector_change_uint(pref->name, (*pref->varp.range)->ranges[i].high, handle);
+                        decode_build_reset_list(pref->name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER((*pref->varp.range)->ranges[i].high), NULL, NULL);
+                    }
+                }
+            }
+        }
+        break;
+
+    case PREF_RANGE:
+        if (!ranges_are_equal(*pref->varp.range, pref->stashed_val.range)) {
+            unstash_data->module->prefs_changed = TRUE;
+            wmem_free(wmem_epan_scope(), *pref->varp.range);
+            *pref->varp.range = range_copy(wmem_epan_scope(), pref->stashed_val.range);
+        }
+    break;
+
+    case PREF_COLOR:
+        *pref->varp.colorp = pref->stashed_val.color;
+        break;
+
+    case PREF_STATIC_TEXT:
+    case PREF_UAT:
+    case PREF_CUSTOM:
+        break;
+
+    case PREF_OBSOLETE:
+        g_assert_not_reached();
+        break;
+    }
+    return 0;
+}
+
+void
+reset_stashed_pref(pref_t *pref) {
+    switch (pref->type) {
+
+    case PREF_DECODE_AS_UINT:
+        pref->stashed_val.uint = pref->default_val.uint;
+        break;
+
+    case PREF_UINT:
+        pref->stashed_val.uint = pref->default_val.uint;
+        break;
+
+    case PREF_BOOL:
+        pref->stashed_val.boolval = pref->default_val.boolval;
+        break;
+
+    case PREF_ENUM:
+        pref->stashed_val.enumval = pref->default_val.enumval;
+        break;
+
+    case PREF_STRING:
+    case PREF_FILENAME:
+    case PREF_DIRNAME:
+        g_free(pref->stashed_val.string);
+        pref->stashed_val.string = g_strdup(pref->default_val.string);
+        break;
+
+    case PREF_DECODE_AS_RANGE:
+    case PREF_RANGE:
+        wmem_free(wmem_epan_scope(), pref->stashed_val.range);
+        pref->stashed_val.range = range_copy(wmem_epan_scope(), pref->default_val.range);
+        break;
+
+    case PREF_COLOR:
+        memcpy(&pref->stashed_val.color, &pref->default_val.color, sizeof(color_t));
+        break;
+
+    case PREF_STATIC_TEXT:
+    case PREF_UAT:
+    case PREF_CUSTOM:
+        break;
+
+    case PREF_OBSOLETE:
+        g_assert_not_reached();
+        break;
+    }
+}
+
+guint
+pref_clean_stash(pref_t *pref, gpointer unused _U_)
+{
+    switch (pref->type) {
+
+    case PREF_UINT:
+    case PREF_DECODE_AS_UINT:
+        break;
+
+    case PREF_BOOL:
+        break;
+
+    case PREF_ENUM:
+        break;
+
+    case PREF_STRING:
+    case PREF_FILENAME:
+    case PREF_DIRNAME:
+        if (pref->stashed_val.string != NULL) {
+            g_free(pref->stashed_val.string);
+            pref->stashed_val.string = NULL;
+        }
+        break;
+
+    case PREF_DECODE_AS_RANGE:
+    case PREF_RANGE:
+        if (pref->stashed_val.range != NULL) {
+            wmem_free(wmem_epan_scope(), pref->stashed_val.range);
+            pref->stashed_val.range = NULL;
+        }
+        break;
+
+    case PREF_STATIC_TEXT:
+    case PREF_UAT:
+    case PREF_COLOR:
+    case PREF_CUSTOM:
+        break;
+
+    case PREF_OBSOLETE:
+        g_assert_not_reached();
+        break;
+    }
+    return 0;
 }
 
 #if 0
@@ -2436,13 +2788,15 @@ prefs_register_modules(void)
                        (gint*)(void*)(&prefs.gui_version_placement), gui_version_placement_type, FALSE);
 
     prefs_register_bool_preference(gui_module, "auto_scroll_on_expand",
-                                   "Automatically scroll the recently expanded item",
-                                   "Automatically scroll the recently expanded item",
+                                   "Automatically scroll packet details",
+                                   "When selecting a new packet, automatically scroll"
+                                   "to the packet detail item that matches the most"
+                                   "recently selected item",
                                    &prefs.gui_auto_scroll_on_expand);
 
     prefs_register_uint_preference(gui_module, "auto_scroll_percentage",
-                                   "The percentage down the view the recently expanded item should be scrolled",
-                                   "The percentage down the view the recently expanded item should be scrolled",
+                                   "Packet detail scroll percentage",
+                                   "The percentage down the view the recently expanded detail item should be scrolled",
                                    10,
                                    &prefs.gui_auto_scroll_percentage);
 
@@ -2500,6 +2854,13 @@ prefs_register_modules(void)
                                    "Show hidden interfaces",
                                    "Show all interfaces, including interfaces marked as hidden",
                                    &prefs.gui_interfaces_show_hidden);
+
+#ifdef HAVE_PCAP_REMOTE
+    prefs_register_bool_preference(gui_module, "interfaces_remote_display",
+                                   "Show Remote interfaces",
+                                   "Show remote interfaces in the interface selection",
+                                   &prefs.gui_interfaces_remote_display);
+#endif
 
     register_string_like_preference(gui_module, "interfaces_hidden_types", "Hide interface types in list",
         "Hide the given interface types in the startup list",
@@ -3176,6 +3537,9 @@ pre_init_prefs(void)
     if (prefs.gui_interfaces_hide_types) g_free (prefs.gui_interfaces_hide_types);
     prefs.gui_interfaces_hide_types = g_strdup("");
     prefs.gui_interfaces_show_hidden = FALSE;
+#ifdef HAVE_PCAP_REMOTE
+    prefs.gui_interfaces_remote_display = TRUE;
+#endif
 
     prefs.gui_qt_packet_list_separator = FALSE;
 
@@ -3286,8 +3650,8 @@ reset_pref(pref_t *pref)
 
     case PREF_RANGE:
     case PREF_DECODE_AS_RANGE:
-        g_free(*pref->varp.range);
-        *pref->varp.range = range_copy(pref->default_val.range);
+        wmem_free(wmem_epan_scope(), *pref->varp.range);
+        *pref->varp.range = range_copy(wmem_epan_scope(), pref->default_val.range);
         break;
 
     case PREF_STATIC_TEXT:
@@ -3786,6 +4150,22 @@ prefs_set_pref(char *prefarg)
     return ret;
 }
 
+guint prefs_get_uint_value(const char *module_name, const char* pref_name)
+{
+    pref_t *pref = prefs_find_preference(prefs_find_module(module_name), pref_name);
+    g_assert(pref != NULL);
+
+    return *pref->varp.uint;
+}
+
+range_t* prefs_get_range_value(const char *module_name, const char* pref_name)
+{
+    pref_t *pref = prefs_find_preference(prefs_find_module(module_name), pref_name);
+    g_assert(pref != NULL);
+
+    return *pref->varp.range;
+}
+
 /*
  * Returns TRUE if the given device is hidden
  */
@@ -4032,6 +4412,8 @@ deprecated_heur_dissector_pref(gchar *pref_name, const gchar *value)
         {"gvsp.enable_heuristic", "gvsp_udp", 0},
         {"hdcp2.enable", "hdcp2_tcp", 0},
         {"hislip.enable_heuristic", "hislip_tcp", 0},
+        {"infiniband.dissect_eoib", "mellanox_eoib", 1},
+        {"infiniband.identify_payload", "eth_over_ib", 0},
         {"jxta.udp.heuristic", "jxta_udp", 0},
         {"jxta.tcp.heuristic", "jxta_tcp", 0},
         {"jxta.sctp.heuristic", "jxta_sctp", 0},
@@ -4073,6 +4455,38 @@ deprecated_heur_dissector_pref(gchar *pref_name, const gchar *value)
         }
     }
 
+
+    return FALSE;
+}
+
+static gboolean
+deprecated_enable_dissector_pref(gchar *pref_name, const gchar *value)
+{
+    struct dissector_pref_name
+    {
+        const char* pref_name;
+        const char* short_name;
+    };
+
+    struct dissector_pref_name dissector_prefs[] = {
+        {"transum.tsumenabled", "TRANSUM"},
+        {"snort.enable_snort_dissector", "Snort"},
+        {"prp.enable", "PRP"},
+    };
+
+    unsigned int i;
+    int proto_id;
+
+    for (i = 0; i < sizeof(dissector_prefs)/sizeof(struct dissector_pref_name); i++)
+    {
+        if (strcmp(pref_name, dissector_prefs[i].pref_name) == 0)
+        {
+            proto_id = proto_get_id_by_short_name(dissector_prefs[i].short_name);
+            if (proto_id >= 0)
+                proto_set_decoding(proto_id, ((g_ascii_strcasecmp(value, "true") == 0) ? TRUE : FALSE));
+            return TRUE;
+        }
+    }
 
     return FALSE;
 }
@@ -4393,6 +4807,8 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
         }
     } else if (deprecated_heur_dissector_pref(pref_name, value)) {
          /* Handled within deprecated_heur_dissector_pref() if found */
+    } else if (deprecated_enable_dissector_pref(pref_name, value)) {
+         /* Handled within deprecated_enable_dissector_pref() if found */
     } else if (deprecated_port_pref(pref_name, value)) {
          /* Handled within deprecated_port_pref() if found */
     } else {
@@ -4854,13 +5270,13 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
             dissector_handle_t handle;
             guint32 i, j;
 
-            if (range_convert_str_work(&newrange, value, pref->info.max_value,
+            if (range_convert_str_work(wmem_epan_scope(), &newrange, value, pref->info.max_value,
                                        return_range_errors) != CVT_NO_ERROR) {
                 return PREFS_SET_SYNTAX_ERR;        /* number was bad */
             }
 
             if (!ranges_are_equal(*pref->varp.range, newrange)) {
-                g_free(*pref->varp.range);
+                wmem_free(wmem_epan_scope(), *pref->varp.range);
                 *pref->varp.range = newrange;
                 containing_module->prefs_changed = TRUE;
 
@@ -4895,7 +5311,7 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
                     }
                 }
             } else {
-                g_free(newrange);
+                wmem_free(wmem_epan_scope(), newrange);
             }
             break;
         }
@@ -5131,7 +5547,7 @@ prefs_pref_type_description(pref_t *pref)
     return g_strdup(type_desc);
 }
 
-static gboolean
+gboolean
 prefs_pref_is_default(pref_t *pref)
 {
     int type;
@@ -5341,6 +5757,7 @@ write_pref(gpointer data, gpointer user_data)
     int type;
 
     type = pref->type;
+
     if (IS_PREF_OBSOLETE(type)) {
         /*
          * This preference is no longer supported; it's not a

@@ -122,6 +122,7 @@ static expert_field ei_h223_al2_crc = EI_INIT;
 /* These are the handles of our subdissectors */
 static dissector_handle_t data_handle;
 static dissector_handle_t srp_handle;
+static dissector_handle_t h223_bitswapped;
 
 static const fragment_items h223_mux_frag_items _U_ = {
     &ett_h223_mux_fragment,
@@ -1645,7 +1646,7 @@ void proto_register_h223 (void)
         proto_register_protocol ("ITU-T Recommendation H.223", "H.223", "h223");
     /* Create a H.223 "placeholder" to remove confusion with Decode As" */
     proto_h223_bitswapped =
-        proto_register_protocol ("ITU-T Recommendation H.223 (Bitswapped)", "H.223 (Bitswapped)", "h223_bitswapped");
+        proto_register_protocol_in_name_only ("ITU-T Recommendation H.223 (Bitswapped)", "H.223 (Bitswapped)", "h223_bitswapped", proto_h223, FT_PROTOCOL);
 
     proto_register_field_array (proto_h223, hf, array_length (hf));
     proto_register_subtree_array (ett, array_length (ett));
@@ -1653,7 +1654,7 @@ void proto_register_h223 (void)
     expert_register_field_array(expert_h223, ei, array_length(ei));
 
     register_dissector("h223", dissect_h223_circuit_data, proto_h223);
-    register_dissector("h223_bitswapped", dissect_h223_bitswapped, proto_h223_bitswapped);
+    h223_bitswapped = register_dissector("h223_bitswapped", dissect_h223_bitswapped, proto_h223_bitswapped);
 
     /* register our init routine to be called at the start of a capture,
        to clear out our hash tables etc */
@@ -1666,7 +1667,6 @@ void proto_register_h223 (void)
 
 void proto_reg_handoff_h223(void)
 {
-    dissector_handle_t h223_bitswapped = find_dissector("h223_bitswapped");
     data_handle = find_dissector("data");
     srp_handle = find_dissector("srp");
 

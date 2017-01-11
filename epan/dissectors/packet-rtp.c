@@ -147,6 +147,7 @@ static const fragment_items rtp_fragment_items = {
 };
 
 static dissector_handle_t rtp_handle;
+static dissector_handle_t rtp_rfc4571_handle;
 static dissector_handle_t rtcp_handle;
 static dissector_handle_t classicstun_handle;
 static dissector_handle_t stun_handle;
@@ -154,6 +155,9 @@ static dissector_handle_t classicstun_heur_handle;
 static dissector_handle_t stun_heur_handle;
 static dissector_handle_t t38_handle;
 static dissector_handle_t zrtp_handle;
+static dissector_handle_t rtp_rfc2198_handle;
+static dissector_handle_t rtp_hdr_ext_ed137_handle;
+static dissector_handle_t rtp_hdr_ext_ed137a_handle;
 
 static dissector_handle_t sprt_handle;
 static dissector_handle_t v150fw_handle;
@@ -273,6 +277,9 @@ static int hf_rtp_ext_rfc5285_length = -1;
 static int hf_rtp_ext_rfc5285_appbits = -1;
 static int hf_rtp_ext_rfc5285_data = -1;
 
+/* RFC 4571 Header extension */
+static int hf_rfc4571_header_len = -1;
+
 #define RTP0_INVALID 0
 #define RTP0_STUN    1
 #define RTP0_CLASSICSTUN    2
@@ -297,7 +304,7 @@ void proto_reg_handoff_pkt_ccc(void);
 
 static gint dissect_rtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data);
 static void show_setup_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree);
-static void get_conv_info(packet_info *pinfo, struct _rtp_info *rtp_info);
+static struct _rtp_conversation_info *get_conv_info(packet_info *pinfo, struct _rtp_info *rtp_info);
 
 /* Preferences bool to control whether or not setup info should be shown */
 static gboolean global_rtp_show_setup_info = TRUE;
@@ -1006,6 +1013,27 @@ rtp_dyn_payload_t* rtp_dyn_payload_new(void)
     return rtp_dyn_payload;
 }
 
+/* Creates a copy of the given dynamic payload information. */
+rtp_dyn_payload_t* rtp_dyn_payload_dup(rtp_dyn_payload_t *rtp_dyn_payload)
+{
+    rtp_dyn_payload_t *rtp_dyn_payload2 = rtp_dyn_payload_new();
+    GHashTableIter iter;
+    gpointer key, value;
+
+    g_hash_table_iter_init(&iter, rtp_dyn_payload->table);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        const guint pt = GPOINTER_TO_UINT(key);
+        encoding_name_and_rate_t *encoding_name_and_rate_pt =
+            (encoding_name_and_rate_t *)value;
+
+        rtp_dyn_payload_insert(rtp_dyn_payload2, pt,
+                encoding_name_and_rate_pt->encoding_name,
+                encoding_name_and_rate_pt->sample_rate);
+    }
+
+    return rtp_dyn_payload2;
+}
+
 static rtp_dyn_payload_t*
 rtp_dyn_payload_ref(rtp_dyn_payload_t *rtp_dyn_payload)
 {
@@ -1214,7 +1242,7 @@ bluetooth_add_address(packet_info *pinfo, address *addr, guint32 stream_number,
 
 /* Set up an SRTP conversation */
 void
-srtp_add_address(packet_info *pinfo, address *addr, int port, int other_port,
+srtp_add_address(packet_info *pinfo, const port_type ptype, address *addr, int port, int other_port,
          const gchar *setup_method, guint32 setup_frame_number,
          gboolean is_video _U_, rtp_dyn_payload_t *rtp_dyn_payload,
          struct srtp_info *srtp_info)
@@ -1228,13 +1256,13 @@ srtp_add_address(packet_info *pinfo, address *addr, int port, int other_port,
      * we've already done this work, so we don't need to do it
      * again.
      */
-    if ((pinfo->fd->flags.visited) || (rtp_handle == NULL))
+    if ((pinfo->fd->flags.visited) || (rtp_handle == NULL) || (rtp_rfc4571_handle == NULL))
     {
         return;
     }
 
-    DPRINT(("#%u: %srtp_add_address(%s, %u, %u, %s, %u)",
-            pinfo->num, (srtp_info)?"s":"", address_to_str(wmem_packet_scope(), addr), port,
+    DPRINT(("#%u: %srtp_add_address(%d, %s, %u, %u, %s, %u)",
+            pinfo->num, (srtp_info)?"s":"", ptype, address_to_str(wmem_packet_scope(), addr), port,
             other_port, setup_method, setup_frame_number));
     DINDENT();
 
@@ -1244,7 +1272,7 @@ srtp_add_address(packet_info *pinfo, address *addr, int port, int other_port,
      * Check if the ip address and port combination is not
      * already registered as a conversation.
      */
-    p_conv = find_conversation(setup_frame_number, addr, &null_addr, PT_UDP, port, other_port,
+    p_conv = find_conversation(setup_frame_number, addr, &null_addr, ptype, port, other_port,
                    NO_ADDR_B | (!other_port ? NO_PORT_B : 0));
 
     DENDENT();
@@ -1254,13 +1282,19 @@ srtp_add_address(packet_info *pinfo, address *addr, int port, int other_port,
      * If not, create a new conversation.
      */
     if (!p_conv || p_conv->setup_frame != setup_frame_number) {
-        p_conv = conversation_new(setup_frame_number, addr, &null_addr, PT_UDP,
+        p_conv = conversation_new(setup_frame_number, addr, &null_addr, ptype,
                                   (guint32)port, (guint32)other_port,
                       NO_ADDR2 | (!other_port ? NO_PORT2 : 0));
     }
 
     /* Set dissector */
-    conversation_set_dissector(p_conv, rtp_handle);
+    if (ptype == PT_UDP) {
+        conversation_set_dissector(p_conv, rtp_handle);
+    } else if (ptype == PT_TCP) {
+        conversation_set_dissector(p_conv, rtp_rfc4571_handle);
+    } else {
+        DISSECTOR_ASSERT(FALSE);
+    }
 
     /*
      * Check if the conversation has data associated with it.
@@ -1314,11 +1348,11 @@ srtp_add_address(packet_info *pinfo, address *addr, int port, int other_port,
 
 /* Set up an RTP conversation */
 void
-rtp_add_address(packet_info *pinfo, address *addr, int port, int other_port,
+rtp_add_address(packet_info *pinfo, const port_type ptype, address *addr, int port, int other_port,
         const gchar *setup_method, guint32 setup_frame_number,
         gboolean is_video , rtp_dyn_payload_t *rtp_dyn_payload)
 {
-    srtp_add_address(pinfo, addr, port, other_port, setup_method, setup_frame_number, is_video, rtp_dyn_payload, NULL);
+    srtp_add_address(pinfo, ptype, addr, port, other_port, setup_method, setup_frame_number, is_video, rtp_dyn_payload, NULL);
 }
 
 static gboolean
@@ -1417,7 +1451,6 @@ process_rtp_payload(tvbuff_t *newtvb, packet_info *pinfo, proto_tree *tree,
             proto_tree *rtp_tree, unsigned int payload_type)
 {
     struct _rtp_conversation_info *p_conv_data;
-    gboolean found_match = FALSE;
     int payload_len;
     struct srtp_info *srtp_info;
     int offset = 0;
@@ -1440,7 +1473,6 @@ process_rtp_payload(tvbuff_t *newtvb, packet_info *pinfo, proto_tree *tree,
         {
             if (rtp_tree)
                 proto_tree_add_item(rtp_tree, hf_srtp_encrypted_payload, newtvb, offset, payload_len, ENC_NA);
-            found_match = TRUE; /* use this flag to prevent dissection below */
         }
         offset += payload_len;
 
@@ -1453,32 +1485,11 @@ process_rtp_payload(tvbuff_t *newtvb, packet_info *pinfo, proto_tree *tree,
             proto_tree_add_item(rtp_tree, hf_srtp_auth_tag, newtvb, offset, srtp_info->auth_tag_len, ENC_NA);
             /*offset += srtp_info->auth_tag_len;*/
         }
-    } else if (p_conv_data && !p_conv_data->bta2dp_info && !p_conv_data->btvdp_info &&
-            payload_type >= PT_UNDF_96 && payload_type <= PT_UNDF_127) {
-        /* if the payload type is dynamic, we check if the conv is set and we look for the pt definition */
-        if (p_conv_data->rtp_dyn_payload) {
-            const gchar *payload_type_str = rtp_dyn_payload_get_name(p_conv_data->rtp_dyn_payload, payload_type);
-            if (payload_type_str) {
-                int len;
-                len = dissector_try_string(rtp_dyn_pt_dissector_table,
-                                   payload_type_str, newtvb, pinfo, tree, NULL);
-                /* If payload type string set from conversation and
-                 * no matching dissector found it's probably because no subdissector
-                 * exists. Don't call the dissectors based on payload number
-                 * as that'd probably be the wrong dissector in this case.
-                 * Just add it as data.
-                 */
-                if(len == 0)
-                    proto_tree_add_item( rtp_tree, hf_rtp_data, newtvb, 0, -1, ENC_NA );
-                return;
-            }
+        return;
 
-        }
-    } else if (p_conv_data && p_conv_data->bta2dp_info) {
+    } if (p_conv_data && p_conv_data->bta2dp_info) {
         tvbuff_t  *nexttvb;
         gint       suboffset = 0;
-
-        found_match = TRUE;
 
         if (p_conv_data->bta2dp_info->content_protection_type == BTAVDTP_CONTENT_PROTECTION_TYPE_SCMS_T) {
             nexttvb = tvb_new_subset_length(newtvb, 0, 1);
@@ -1491,11 +1502,12 @@ process_rtp_payload(tvbuff_t *newtvb, packet_info *pinfo, proto_tree *tree,
             call_dissector_with_data(p_conv_data->bta2dp_info->codec_dissector, nexttvb, pinfo, tree, p_conv_data->bta2dp_info);
         else
             call_data_dissector(nexttvb, pinfo, tree);
-    } else if (p_conv_data && p_conv_data->btvdp_info) {
+
+        return;
+
+    } if (p_conv_data && p_conv_data->btvdp_info) {
         tvbuff_t  *nexttvb;
         gint       suboffset = 0;
-
-        found_match = TRUE;
 
         if (p_conv_data->btvdp_info->content_protection_type == BTAVDTP_CONTENT_PROTECTION_TYPE_SCMS_T) {
             nexttvb = tvb_new_subset_length(newtvb, 0, 1);
@@ -1508,10 +1520,33 @@ process_rtp_payload(tvbuff_t *newtvb, packet_info *pinfo, proto_tree *tree,
             call_dissector_with_data(p_conv_data->btvdp_info->codec_dissector, nexttvb, pinfo, tree, p_conv_data->btvdp_info);
         else
             call_data_dissector(nexttvb, pinfo, tree);
+
+        return;
+    }
+    /* We have checked for !p_conv_data->bta2dp_info && !p_conv_data->btvdp_info above*/
+    if (p_conv_data && payload_type >= PT_UNDF_96 && payload_type <= PT_UNDF_127) {
+        /* if the payload type is dynamic, we check if the conv is set and we look for the pt definition */
+        if (p_conv_data->rtp_dyn_payload) {
+            const gchar *payload_type_str = rtp_dyn_payload_get_name(p_conv_data->rtp_dyn_payload, payload_type);
+            if (payload_type_str) {
+                int len;
+                len = dissector_try_string(rtp_dyn_pt_dissector_table,
+                    payload_type_str, newtvb, pinfo, tree, NULL);
+                /* If payload type string set from conversation and
+                * no matching dissector found it's probably because no subdissector
+                * exists. Don't call the dissectors based on payload number
+                * as that'd probably be the wrong dissector in this case.
+                * Just add it as data.
+                */
+                if (len == 0)
+                    proto_tree_add_item(rtp_tree, hf_rtp_data, newtvb, 0, -1, ENC_NA);
+                return;
+            }
+        }
     }
 
     /* if we don't found, it is static OR could be set static from the preferences */
-    if (!found_match && !dissector_try_uint(rtp_pt_dissector_table, payload_type, newtvb, pinfo, tree))
+    if (!dissector_try_uint(rtp_pt_dissector_table, payload_type, newtvb, pinfo, tree))
         proto_tree_add_item( rtp_tree, hf_rtp_data, newtvb, 0, -1, ENC_NA );
 
 }
@@ -1727,8 +1762,6 @@ dissect_rtp_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     pinfo->desegment_len = 0;
 }
 
-
-
 static int
 dissect_rtp_rfc2198(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
@@ -1816,6 +1849,32 @@ dissect_rtp_rfc2198(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         hdr_last = hdr_last->next;
     }
     return tvb_captured_length(tvb);
+}
+
+static int
+dissect_rtp_rfc4571(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+{
+    gint offset = 0;
+    unsigned int packet_len;
+    unsigned int rtp_packet_len;
+    tvbuff_t  *nexttvb;
+
+    packet_len = tvb_reported_length(tvb);
+    if ( packet_len < 2 )
+        return 0;
+
+    packet_len -= 2;
+
+    /* Is packet longer than length item */
+    rtp_packet_len = tvb_get_ntohs( tvb, offset );
+    if (packet_len != rtp_packet_len)
+        return 0;
+
+    proto_tree_add_uint( tree, hf_rfc4571_header_len, tvb, offset, 2, rtp_packet_len);
+    offset += 2;
+
+    nexttvb = tvb_new_subset_remaining( tvb, offset);
+    return dissect_rtp( nexttvb, pinfo, tree, data );
 }
 
 static void
@@ -2052,6 +2111,8 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     rtp_info->info_setup_frame_num = 0;
     rtp_info->info_payload_type_str = NULL;
     rtp_info->info_payload_rate = 0;
+    rtp_info->info_is_ed137 = FALSE;
+    rtp_info->info_ed137_info = NULL;
 
     /*
      * Do we have all the data?
@@ -2087,8 +2148,7 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     }
 
     /* Look for conv and add to the frame if found */
-    get_conv_info(pinfo, rtp_info);
-    p_conv_data = (struct _rtp_conversation_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_rtp, 0);
+    p_conv_data = get_conv_info(pinfo, rtp_info);
 
     if (p_conv_data)
         rtp_info->info_is_video = p_conv_data->is_video;
@@ -2098,10 +2158,8 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 
     col_set_str( pinfo->cinfo, COL_PROTOCOL, (is_srtp) ? "SRTP" : "RTP" );
 
-    /* check if this is added as an SRTP stream - if so, don't try to dissect the payload data for now */
-    p_conv_data = (struct _rtp_conversation_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_rtp, 0);
-
 #if 0 /* XXX: srtp_offset never actually used ?? */
+    /* check if this is added as an SRTP stream - if so, don't try to dissect the payload data for now */
     if (p_conv_data && p_conv_data->srtp_info) {
         srtp_info = p_conv_data->srtp_info;
         if (rtp_info->info_all_data_present) {
@@ -2132,6 +2190,18 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
                         payload_type, payload_type_str));
                 rtp_info->info_payload_type_str = payload_type_str;
                 rtp_info->info_payload_rate     = sample_rate;
+            }
+        } else {
+            /* See if we have a dissector tied to the dynamic payload trough preferences*/
+            dissector_handle_t pt_dissector_handle;
+            const char *name;
+
+            pt_dissector_handle = dissector_get_uint_handle(rtp_pt_dissector_table, payload_type);
+            if (pt_dissector_handle) {
+                name = dissector_handle_get_dissector_name(pt_dissector_handle);
+                if (name) {
+                    rtp_info->info_payload_type_str = name;
+                }
             }
         }
     }
@@ -2220,20 +2290,18 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 
         /* Defined by profile field is 16 bits (2 octets) */
         hdr_extension_id = tvb_get_ntohs( tvb, offset );
-        if ( tree ) proto_tree_add_uint( rtp_tree, hf_rtp_prof_define, tvb, offset, 2, hdr_extension_id );
+        proto_tree_add_uint( rtp_tree, hf_rtp_prof_define, tvb, offset, 2, hdr_extension_id );
         offset += 2;
 
         hdr_extension_len = tvb_get_ntohs( tvb, offset );
-        if ( tree ) proto_tree_add_uint( rtp_tree, hf_rtp_length, tvb, offset, 2, hdr_extension_len);
+        proto_tree_add_uint( rtp_tree, hf_rtp_length, tvb, offset, 2, hdr_extension_len);
         offset += 2;
         if ( hdr_extension_len > 0 ) {
             proto_tree *rtp_hext_tree = NULL;
             tvbuff_t   *newtvb;
 
-            if ( tree ) {
-                ti = proto_tree_add_item(rtp_tree, hf_rtp_hdr_exts, tvb, offset, hdr_extension_len * 4, ENC_NA);
-                rtp_hext_tree = proto_item_add_subtree( ti, ett_hdr_ext );
-            }
+            ti = proto_tree_add_item(rtp_tree, hf_rtp_hdr_exts, tvb, offset, hdr_extension_len * 4, ENC_NA);
+            rtp_hext_tree = proto_item_add_subtree( ti, ett_hdr_ext );
 
             /* pass interpretation of header extension to a registered subdissector */
             newtvb = tvb_new_subset_length(tvb, offset, hdr_extension_len * 4);
@@ -2247,15 +2315,13 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
                     pinfo, rtp_hext_tree);
             }
             else {
-                if ( !(dissector_try_uint(rtp_hdr_ext_dissector_table, hdr_extension_id, newtvb, pinfo, rtp_hext_tree)) ) {
-                    if ( tree ) {
-                        unsigned int hdrext_offset;
+                if ( !(dissector_try_uint_new(rtp_hdr_ext_dissector_table, hdr_extension_id, newtvb, pinfo, rtp_hext_tree, FALSE, rtp_info)) ) {
+                    unsigned int hdrext_offset;
 
-                        hdrext_offset = offset;
-                        for ( i = 0; i < hdr_extension_len; i++ ) {
-                            proto_tree_add_uint( rtp_hext_tree, hf_rtp_hdr_ext, tvb, hdrext_offset, 4, tvb_get_ntohl( tvb, hdrext_offset ) );
-                            hdrext_offset += 4;
-                        }
+                    hdrext_offset = offset;
+                    for ( i = 0; i < hdr_extension_len; i++ ) {
+                        proto_tree_add_uint( rtp_hext_tree, hf_rtp_hdr_ext, tvb, hdrext_offset, 4, tvb_get_ntohl( tvb, hdrext_offset ) );
+                        hdrext_offset += 4;
                     }
                 }
             }
@@ -2352,7 +2418,7 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
              * show all but the last byte as padding
              * data.
              */
-            if ( tree ) proto_tree_add_item( rtp_tree, hf_rtp_padding_data,
+            proto_tree_add_item( rtp_tree, hf_rtp_padding_data,
                 tvb, offset, padding_count - 1, ENC_NA );
             offset += padding_count - 1;
         }
@@ -2360,7 +2426,7 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
          * Show the last byte in the PDU as the padding
          * count.
          */
-        if ( tree ) proto_tree_add_item( rtp_tree, hf_rtp_padding_count,
+        proto_tree_add_item( rtp_tree, hf_rtp_padding_count,
             tvb, offset, 1, ENC_BIG_ENDIAN );
     }
     else {
@@ -2409,10 +2475,16 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     return offset;
 }
 
+/* We do not need to allocate/free strings */
+static char *ed137_ptt_only = "PTT";
+static char *ed137_squ_only = "SQU";
+static char *ed137_ptt_and_squ = "PTT+SQU";
+
 static int
-dissect_rtp_hdr_ext_ed137(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_ )
+dissect_rtp_hdr_ext_ed137(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
     unsigned int hdr_extension_len;
+    struct _rtp_info *rtp_info=(struct _rtp_info *)data;
 
     hdr_extension_len = tvb_reported_length(tvb)/4;
 
@@ -2421,25 +2493,50 @@ dissect_rtp_hdr_ext_ed137(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
         unsigned int  offset = 0;
         unsigned int  hdrext_offset = 0;
         unsigned int  i;
+        gboolean ed137_ptt = FALSE;
+        gboolean ed137_squ = FALSE;
 
+        if (rtp_info != NULL) {
+            rtp_info->info_is_ed137 = TRUE;
+        }
         if ( tree ) {
             proto_item *ti;
             ti = proto_tree_add_item(tree, hf_rtp_hdr_ed137s, tvb, offset, hdr_extension_len * 4, ENC_NA);
             rtp_hext_tree = proto_item_add_subtree( ti, ett_hdr_ext_ed137s );
         }
+
         for(i=0; i<hdr_extension_len; i++) {
+            proto_item *ti2;
+            proto_tree *rtp_hext_tree2;
             guint32 ext_value = tvb_get_ntohl( tvb, hdrext_offset );
 
             if (RTP_ED137_ptt_mask(ext_value)) {
                 col_append_str(pinfo->cinfo, COL_INFO, ", PTT");
+                ed137_ptt = TRUE;
             }
             if (RTP_ED137_squ_mask(ext_value)) {
                 col_append_str(pinfo->cinfo, COL_INFO, ", SQU");
+                ed137_squ = TRUE;
             }
-            if ( tree ) {
-                proto_item *ti2;
-                proto_tree *rtp_hext_tree2;
 
+            /* Map PTT/SQU bits to string */
+            if (rtp_info != NULL) {
+                if (ed137_ptt) {
+                    if (ed137_squ) {
+                        rtp_info->info_ed137_info = ed137_ptt_and_squ;
+                    } else {
+                        rtp_info->info_ed137_info = ed137_ptt_only;
+                    }
+                } else {
+                    if (ed137_squ) {
+                        rtp_info->info_ed137_info = ed137_squ_only;
+                    } else {
+                        rtp_info->info_ed137_info = NULL;
+                    }
+                }
+            }
+
+            if ( rtp_hext_tree ) {
                 ti2 = proto_tree_add_item(rtp_hext_tree, hf_rtp_hdr_ed137, tvb, hdrext_offset, 4, ENC_NA);
                 rtp_hext_tree2 = proto_item_add_subtree( ti2, ett_hdr_ext_ed137 );
 
@@ -2500,9 +2597,10 @@ dissect_rtp_hdr_ext_ed137(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
 }
 
 static int
-dissect_rtp_hdr_ext_ed137a(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_ )
+dissect_rtp_hdr_ext_ed137a(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
     unsigned int hdr_extension_len;
+    struct _rtp_info *rtp_info=(struct _rtp_info *)data;
 
     hdr_extension_len = tvb_reported_length(tvb)/4;
 
@@ -2511,25 +2609,50 @@ dissect_rtp_hdr_ext_ed137a(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         unsigned int offset = 0;
         unsigned int hdrext_offset = 0;
         unsigned int i;
+        gboolean ed137_ptt = FALSE;
+        gboolean ed137_squ = FALSE;
 
+        if (rtp_info != NULL) {
+            rtp_info->info_is_ed137 = TRUE;
+        }
         if ( tree ) {
             proto_item *ti;
             ti = proto_tree_add_item(tree, hf_rtp_hdr_ed137s, tvb, offset, hdr_extension_len * 4, ENC_NA);
             rtp_hext_tree = proto_item_add_subtree( ti, ett_hdr_ext_ed137s );
         }
+
         for(i=0; i<hdr_extension_len; i++) {
+            proto_item *ti2;
+            proto_tree *rtp_hext_tree2;
             guint32 ext_value = tvb_get_ntohl( tvb, hdrext_offset );
 
             if (RTP_ED137A_ptt_mask(ext_value)) {
                 col_append_str(pinfo->cinfo, COL_INFO, ", PTT");
+                ed137_ptt = TRUE;
             }
             if (RTP_ED137A_squ_mask(ext_value)) {
                 col_append_str(pinfo->cinfo, COL_INFO, ", SQU");
+                ed137_squ = TRUE;
             }
-            if ( tree ) {
-                proto_item *ti2;
-                proto_tree *rtp_hext_tree2;
 
+            /* Map PTT/SQU bits to string */
+            if (rtp_info != NULL) {
+                if (ed137_ptt) {
+                    if (ed137_squ) {
+                        rtp_info->info_ed137_info = ed137_ptt_and_squ;
+                    } else {
+                        rtp_info->info_ed137_info = ed137_ptt_only;
+                    }
+                } else {
+                    if (ed137_squ) {
+                        rtp_info->info_ed137_info = ed137_squ_only;
+                    } else {
+                        rtp_info->info_ed137_info = NULL;
+                    }
+                }
+            }
+
+            if ( rtp_hext_tree ) {
                 ti2 = proto_tree_add_item(rtp_hext_tree, hf_rtp_hdr_ed137a, tvb, hdrext_offset, 4, ENC_NA);
                 rtp_hext_tree2 = proto_item_add_subtree( ti2, ett_hdr_ext_ed137a );
 
@@ -2609,7 +2732,7 @@ calculate_extended_seqno(guint32 previous_seqno, guint16 raw_seqno)
 }
 
 /* Look for conversation info */
-static void
+static struct _rtp_conversation_info *
 get_conv_info(packet_info *pinfo, struct _rtp_info *rtp_info)
 {
     /* Conversation and current data */
@@ -2659,7 +2782,10 @@ get_conv_info(packet_info *pinfo, struct _rtp_info *rtp_info)
             }
         }
     }
-    if (p_conv_data) rtp_info->info_setup_frame_num = p_conv_data->frame_number;
+    if (p_conv_data) {
+        rtp_info->info_setup_frame_num = p_conv_data->frame_number;
+    }
+    return p_conv_data;
 }
 
 
@@ -3524,6 +3650,18 @@ proto_register_rtp(void)
                 HFILL
             }
         },
+        {
+            &hf_rfc4571_header_len,
+            {
+                "RFC 4571 packet len",
+                "rtp.rfc4571.len",
+                FT_UINT16,
+                BASE_DEC,
+                NULL,
+                0x0,
+                NULL, HFILL
+            }
+        },
 
         /* reassembly stuff */
         {&hf_rtp_fragments,
@@ -3637,8 +3775,9 @@ proto_register_rtp(void)
     expert_rtp = expert_register_protocol(proto_rtp);
     expert_register_field_array(expert_rtp, ei, array_length(ei));
 
-    register_dissector("rtp", dissect_rtp, proto_rtp);
-    register_dissector("rtp.rfc2198", dissect_rtp_rfc2198, proto_rtp);
+    rtp_handle = register_dissector("rtp", dissect_rtp, proto_rtp);
+    rtp_rfc2198_handle = register_dissector("rtp.rfc2198", dissect_rtp_rfc2198, proto_rtp);
+    rtp_rfc4571_handle = register_dissector("rtp.rfc4571", dissect_rtp_rfc4571, proto_rtp);
 
     rtp_tap = register_tap("rtp");
 
@@ -3653,8 +3792,8 @@ proto_register_rtp(void)
     rtp_hdr_ext_rfc5285_dissector_table = register_dissector_table("rtp.ext.rfc5285.id",
                                     "RTP Generic header extension (RFC 5285)", proto_rtp, FT_UINT8, BASE_DEC);
 
-    register_dissector("rtp.ext.ed137", dissect_rtp_hdr_ext_ed137, proto_rtp);
-    register_dissector("rtp.ext.ed137a", dissect_rtp_hdr_ext_ed137a, proto_rtp);
+    rtp_hdr_ext_ed137_handle = register_dissector("rtp.ext.ed137", dissect_rtp_hdr_ext_ed137, proto_rtp);
+    rtp_hdr_ext_ed137a_handle = register_dissector("rtp.ext.ed137a", dissect_rtp_hdr_ext_ed137a, proto_rtp);
 
     rtp_module = prefs_register_protocol(proto_rtp, proto_reg_handoff_rtp);
 
@@ -3692,24 +3831,17 @@ void
 proto_reg_handoff_rtp(void)
 {
     static gboolean rtp_prefs_initialized = FALSE;
-    static dissector_handle_t rtp_rfc2198_handle;
     static guint rtp_saved_rfc2198_pt;
 
     if (!rtp_prefs_initialized) {
-        dissector_handle_t rtp_hdr_ext_ed137_handle;
-        dissector_handle_t rtp_hdr_ext_ed137a_handle;
-
-        rtp_handle = find_dissector("rtp");
-        rtp_rfc2198_handle = find_dissector("rtp.rfc2198");
 
         dissector_add_for_decode_as("udp.port", rtp_handle);
+        dissector_add_for_decode_as("tcp.port", rtp_rfc4571_handle);
         dissector_add_string("rtp_dyn_payload_type", "red", rtp_rfc2198_handle);
         heur_dissector_add( "udp", dissect_rtp_heur_udp,  "RTP over UDP", "rtp_udp", proto_rtp, HEURISTIC_DISABLE);
         heur_dissector_add("stun", dissect_rtp_heur_app, "RTP over TURN", "rtp_stun", proto_rtp, HEURISTIC_DISABLE);
         heur_dissector_add("rtsp", dissect_rtp_heur_app, "RTP over RTSP", "rtp_rtsp", proto_rtp, HEURISTIC_DISABLE);
 
-        rtp_hdr_ext_ed137_handle = find_dissector("rtp.ext.ed137");
-        rtp_hdr_ext_ed137a_handle = find_dissector("rtp.ext.ed137a");
         dissector_add_uint("rtp.hdr_ext", RTP_ED137_SIG, rtp_hdr_ext_ed137_handle);
         dissector_add_uint("rtp.hdr_ext", RTP_ED137A_SIG, rtp_hdr_ext_ed137a_handle);
         dissector_add_for_decode_as("flip.payload", rtp_handle );

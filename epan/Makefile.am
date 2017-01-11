@@ -75,6 +75,7 @@ LIBWIRESHARK_SRC = \
 	ex-opt.c		\
 	except.c		\
 	expert.c		\
+	export_object.c		\
 	exported_pdu.c		\
 	plugin_if.c		\
 	filter_expressions.c	\
@@ -94,7 +95,7 @@ LIBWIRESHARK_SRC = \
 	oids.c			\
 	osi-utils.c		\
 	oui.c			\
-	packet-range.c		\
+	packet_range.c		\
 	packet.c		\
 	prefs.c			\
 	print.c			\
@@ -127,6 +128,7 @@ LIBWIRESHARK_SRC = \
 	tvbuff_zlib.c		\
 	tvbuff.c		\
 	uat.c			\
+	unit_strings.c		\
 	value_string.c		\
 	xdlc.c
 
@@ -218,6 +220,7 @@ LIBWIRESHARK_INCLUDES = \
 	except.h		\
 	exceptions.h		\
 	expert.h		\
+	export_object.h		\
 	exported_pdu.h		\
 	plugin_if.h		\
 	filter_expressions.h	\
@@ -244,7 +247,7 @@ LIBWIRESHARK_INCLUDES = \
 	oids.h			\
 	osi-utils.h		\
 	oui.h			\
-	packet-range.h		\
+	packet_range.h		\
 	packet.h		\
 	packet_info.h		\
 	params.h		\
@@ -288,6 +291,7 @@ LIBWIRESHARK_INCLUDES = \
 	tvbuff-int.h		\
 	uat.h			\
 	uat-int.h		\
+	unit_strings.h		\
 	value_string.h		\
 	x264_prt_id.h		\
 	xdlc.h
@@ -304,7 +308,7 @@ libwireshark_la_SOURCES = \
 libwireshark_la_CPPFLAGS = $(AM_CPPFLAGS) -DWS_BUILD_DLL
 
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-libwireshark_la_LDFLAGS = -version-info 0:0:0 @LDFLAGS_SHAREDLIB@
+libwireshark_la_LDFLAGS = -version-info 0:0:0 @LDFLAGS_BIGSHAREDLIB@ @LDFLAGS_SHAREDLIB@
 
 #
 # Add the object files for missing routines, if any.

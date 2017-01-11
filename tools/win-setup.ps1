@@ -99,8 +99,8 @@ Param(
 # trouble instead of trying to catch exceptions everywhere.
 $ErrorActionPreference = "Stop"
 
-$Win64CurrentTag = "2016-10-26"
-$Win32CurrentTag = "2016-10-26"
+$Win64CurrentTag = "2016-12-12"
+$Win32CurrentTag = "2016-12-12"
 
 # Archive file / subdir.
 $Win64Archives = @{
@@ -119,8 +119,9 @@ $Win64Archives = @{
     "portaudio_v19_2.zip" = "";
     "sbc-1.3-win64ws.zip" = "";
     "snappy-1.1.3-win64ws.zip" = "";
+    "spandsp-0.0.6-win64ws.zip" = "";
     "upx303w.zip" = "";
-    "WinSparkle-0.3-44-g2c8d9d3-win64ws.zip" = "";
+    "WinSparkle-0.5.3.zip" = "";
     "WpdPack_4_1_2.zip" = "";
     "zlib-1.2.8-ws.zip" = "";
 }
@@ -141,8 +142,9 @@ $Win32Archives = @{
     "portaudio_v19_2.zip" = "";
     "sbc-1.3-win32ws.zip" = "";
     "snappy-1.1.3-win32ws.zip" = "";
+    "spandsp-0.0.6-win32ws.zip" = "";
     "upx303w.zip" = "";
-    "WinSparkle-0.3-44-g2c8d9d3-win32ws.zip" = "";
+    "WinSparkle-0.5.3.zip" = "";
     "WpdPack_4_1_2.zip" = "";
     "zlib-1.2.8-ws.zip" = "";
 }
@@ -191,14 +193,17 @@ $CleanupItems = @(
     "portaudio_v19_2"
     "sbc-1.3-win??ws"
     "snappy-1.1.3-win??ws"
+    "spandsp-0.0.6-win??ws"
     "upx301w"
     "upx303w"
     "user-guide"
     "zlib-1.2.5"
     "zlib-1.2.8"
+    "zlib-1.2.8-ws"
     "AirPcap_Devpack_4_1_0_1622"
     "GeoIP-1.*-win??ws"
     "WinSparkle-0.3-44-g2c8d9d3-win??ws"
+    "WinSparkle-0.5.?"
     "WpdPack"
     "current-tag.txt"
 )

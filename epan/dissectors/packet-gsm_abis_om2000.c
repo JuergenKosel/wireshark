@@ -1070,9 +1070,11 @@ dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *t
 			offset += 2;
 			break;
 		case 0x90: /* Negotiation Record I */
+			offset++; /* skip len field */
 			offset += dissect_om2k_negotiation_record1(tvb, offset, tree);
 			break;
 		case 0x91: /* Negotiation Record II */
+			offset++; /* skip len field */
 			offset += dissect_om2k_negotiation_record2(tvb, offset, tree);
 			break;
 		case 0x92: /* Encryption Algorithm */
@@ -1564,12 +1566,12 @@ proto_register_abis_om2000(void)
 		},
 		{ &hf_om2k_conl_ccp,
 		  { "CON Connection Point", "gsm_abis_om2000.con_list.cpp",
-		    FT_UINT16, BASE_DEC, NULL, 0x3ff,
+		    FT_UINT16, BASE_DEC, NULL, 0x7ff,
 		    NULL, HFILL }
 		},
 		{ &hf_om2k_conl_ci,
 		  { "Contiguity Index", "gsm_abis_om2000.con_list.ci",
-		    FT_UINT8, BASE_DEC, NULL, 0x7,
+		    FT_UINT8, BASE_DEC, NULL, 0,
 		    NULL, HFILL }
 		},
 		{ &hf_om2k_conl_tag,

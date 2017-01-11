@@ -47,7 +47,9 @@ TSHARK_TAP_SRC = \
 	tap-comparestat.c	\
 	tap-diameter-avp.c	\
 	tap-endpoints.c		\
+	tap-endpoints.c		\
 	tap-expert.c		\
+	tap-exportobject.c	\
 	tap-follow.c		\
 	tap-funnel.c		\
 	tap-gsm_astat.c		\
@@ -75,6 +77,7 @@ TSHARK_TAP_SRC = \
 	tap-wspstat.c
 
 noinst_HEADERS = \
+	tap-exportobject.h 	\
 	tshark-tap.h
 
 # All sources that should be put in the source distribution tarball

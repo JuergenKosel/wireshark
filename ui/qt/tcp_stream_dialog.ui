@@ -89,7 +89,37 @@
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="graphTypeComboBox"/>
+      <widget class="QComboBox" name="graphTypeComboBox">
+       <property name="frame">
+        <bool>false</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="maWindowSizeLabel">
+       <property name="text">
+        <string>MA Window (s)</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="maWindowSizeSpinBox" />
+     </item>
+     <item>
+      <widget class="QCheckBox" name="selectSACKsCheckBox">
+       <property name="toolTip">
+        <string>Allow SACK segments as well as data packets to be selected by clicking on the graph</string>
+       </property>
+       <property name="text">
+        <string>select SACKs</string>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
+      </widget>
      </item>
      <item>
       <spacer name="horizontalSpacer">
@@ -146,6 +176,9 @@
        <property name="checkable">
         <bool>true</bool>
        </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
        <attribute name="buttonGroup">
         <string notr="true">mouseButtonGroup</string>
        </attribute>
@@ -161,6 +194,9 @@
        </property>
        <property name="checkable">
         <bool>true</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
        </property>
        <attribute name="buttonGroup">
         <string notr="true">mouseButtonGroup</string>

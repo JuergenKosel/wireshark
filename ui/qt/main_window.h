@@ -182,6 +182,9 @@ private:
     QMenu *dock_menu_;
 #endif
 
+#ifdef HAVE_SOFTWARE_UPDATE
+    QAction *update_action_;
+#endif
 
     QWidget* getLayoutWidget(layout_pane_content_e type);
 
@@ -292,6 +295,8 @@ private slots:
 
     void initViewColorizeMenu();
     void initConversationMenus();
+    static void addExportObjectsMenuItem(gpointer data, gpointer user_data);
+    void initExportObjectsMenus();
 
     // in main_window_slots.cpp
     /**
@@ -356,6 +361,10 @@ private slots:
 
     void byteViewTabChanged(int tab_index);
 
+#ifdef HAVE_SOFTWARE_UPDATE
+    void softwareUpdateRequested();
+#endif
+
     // Automatically connected slots ("on_<object>_<signal>").
     //
     // The slots below follow the naming conventaion described in
@@ -387,11 +396,6 @@ private slots:
     void on_actionFileExportAsPDML_triggered();
     void on_actionFileExportAsJSON_triggered();
     void on_actionFileExportPacketBytes_triggered();
-    void on_actionFileExportObjectsDICOM_triggered();
-    void on_actionFileExportObjectsHTTP_triggered();
-    void on_actionFileExportObjectsIMF_triggered();
-    void on_actionFileExportObjectsSMB_triggered();
-    void on_actionFileExportObjectsTFTP_triggered();
     void on_actionFilePrint_triggered();
 
     void on_actionFileExportPDU_triggered();
@@ -489,6 +493,7 @@ private slots:
     void on_actionAnalyzePAFOrNotSelected_triggered();
 
     void applyConversationFilter();
+    void applyExportObject();
 
     void on_actionAnalyzeEnabledProtocols_triggered();
     void on_actionAnalyzeDecodeAs_triggered();

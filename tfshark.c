@@ -393,12 +393,15 @@ main(int argc, char *argv[])
   print_current_user();
 
   /*
-   * Attempt to get the pathname of the executable file.
+   * Attempt to get the pathname of the directory containing the
+   * executable file.
    */
   init_progfile_dir_error = init_progfile_dir(argv[0], main);
   if (init_progfile_dir_error != NULL) {
-    fprintf(stderr, "tfshark: Can't get pathname of tfshark program: %s.\n",
+    fprintf(stderr,
+            "tfshark: Can't get pathname of directory containing the tfshark program: %s.\n",
             init_progfile_dir_error);
+    g_free(init_progfile_dir_error);
   }
 
   initialize_funnel_ops();
@@ -499,7 +502,7 @@ main(int argc, char *argv[])
   timestamp_set_precision(TS_PREC_AUTO);
   timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
-  init_open_routines();
+  wtap_init();
 
 #ifdef HAVE_PLUGINS
   /* Register all the plugin types we have. */
@@ -618,6 +621,8 @@ main(int argc, char *argv[])
 
   /* Read the disabled protocols file. */
   read_disabled_protos_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
+                            &dp_path, &dp_open_errno, &dp_read_errno);
+  read_enabled_protos_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
                             &dp_path, &dp_open_errno, &dp_read_errno);
   read_disabled_heur_dissector_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
                             &dp_path, &dp_open_errno, &dp_read_errno);
@@ -932,6 +937,7 @@ main(int argc, char *argv[])
   /* disabled protocols as per configuration file */
   if (gdp_path == NULL && dp_path == NULL) {
     set_disabled_protos_list();
+    set_enabled_protos_list();
     set_disabled_heur_dissector_list();
   }
 

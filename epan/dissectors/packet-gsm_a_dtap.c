@@ -759,6 +759,7 @@ static dissector_table_t u2u_dissector_table;
 
 static dissector_handle_t gsm_map_handle;
 static dissector_handle_t rp_handle;
+static dissector_handle_t dtap_handle;
 
 static proto_tree *g_tree;
 
@@ -3637,7 +3638,6 @@ de_tp_ue_test_loop_mode(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     guint32 curr_offset;
     guchar  oct;
     guint8  lb_setup_length,i,j;
-    guint16 value;
     proto_tree* subtree;
 
     curr_offset = offset;
@@ -3655,8 +3655,7 @@ de_tp_ue_test_loop_mode(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
         for (i=0,j=0; (i<lb_setup_length) && (j<4); i+=3,j++)
         {
             subtree = proto_tree_add_subtree_format(tree, tvb, curr_offset, 3, ett_ue_test_loop_mode, NULL, "LB setup RB IE: %d",j+1);
-            value = tvb_get_ntohs(tvb, curr_offset);
-            proto_tree_add_uint_format_value(subtree, hf_gsm_a_dtap_uplink_rlc_sdu_size, tvb, curr_offset, 2, value, "%d bits", value);
+            proto_tree_add_item(subtree, hf_gsm_a_dtap_uplink_rlc_sdu_size, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
             curr_offset += 2;
             proto_tree_add_item(subtree, hf_gsm_a_dtap_radio_bearer, tvb, curr_offset, 1, ENC_NA);
             curr_offset+= 1;
@@ -8191,7 +8190,7 @@ proto_register_gsm_a_dtap(void)
         },
         { &hf_gsm_a_dtap_uplink_rlc_sdu_size,
           { "Uplink RLC SDU size", "gsm_a_dtap.uplink_rlc_sdu_size",
-          FT_UINT16, BASE_DEC, NULL, 0x0,
+          FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_bit_bits, 0x0,
           NULL, HFILL }
         },
         { &hf_gsm_a_dtap_radio_bearer,
@@ -8313,7 +8312,7 @@ proto_register_gsm_a_dtap(void)
 
 
     /* subdissector code */
-    register_dissector("gsm_a_dtap", dissect_dtap, proto_a_dtap);
+    dtap_handle = register_dissector("gsm_a_dtap", dissect_dtap, proto_a_dtap);
     u2u_dissector_table = register_dissector_table("gsm_a.dtap.u2u_prot_discr", "GSM User to User Signalling",
                                                   proto_a_dtap, FT_UINT8, BASE_DEC);
 }
@@ -8321,9 +8320,6 @@ proto_register_gsm_a_dtap(void)
 void
 proto_reg_handoff_gsm_a_dtap(void)
 {
-    dissector_handle_t dtap_handle;
-
-    dtap_handle = find_dissector("gsm_a_dtap");
     dissector_add_uint("bssap.pdu_type", BSSAP_PDU_TYPE_DTAP, dtap_handle);
     dissector_add_uint("ranap.nas_pdu", BSSAP_PDU_TYPE_DTAP, dtap_handle);
     dissector_add_uint("llcgprs.sapi", 1 , dtap_handle); /* GPRS Mobility Management */

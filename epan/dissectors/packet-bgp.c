@@ -1408,6 +1408,8 @@ static int hf_bgp_notify_minor_cease = -1;
 static int hf_bgp_notify_minor_cap_msg = -1;
 static int hf_bgp_notify_minor_unknown = -1;
 static int hf_bgp_notify_data = -1;
+static int hf_bgp_notify_communication_length = -1;
+static int hf_bgp_notify_communication = -1;
 
 /* BGP route refresh header field */
 
@@ -2199,7 +2201,7 @@ decode_path_prefix4(proto_tree *tree, packet_info *pinfo, int hf_path_id, int hf
  */
 static int
 decode_prefix4(proto_tree *tree, packet_info *pinfo, proto_item *parent_item, int hf_addr, tvbuff_t *tvb, gint offset,
-               guint16 tlen, const char *tag)
+               const char *tag)
 {
     proto_tree *prefix_tree;
     union {
@@ -2222,7 +2224,7 @@ decode_prefix4(proto_tree *tree, packet_info *pinfo, proto_item *parent_item, in
     /* put prefix into protocol tree */
     set_address(&addr, AT_IPv4, 4, ip_addr.addr_bytes);
     prefix_tree = proto_tree_add_subtree_format(tree, tvb, offset,
-            tlen != 0 ? tlen : 1 + length, ett_bgp_prefix, NULL,
+            1 + length, ett_bgp_prefix, NULL,
             "%s/%u", address_to_str(wmem_packet_scope(), &addr), plen);
 
     proto_item_append_text(parent_item, " (%s/%u)",
@@ -2748,7 +2750,7 @@ decode_flowspec_nlri(proto_tree *tree, tvbuff_t *tvb, gint offset, guint16 afi, 
             cursor_fspec++;
             if (afi == AFNUM_INET)
                 filter_len = decode_prefix4(filter_tree, pinfo, filter_item, hf_bgp_flowspec_nlri_dst_pref_ipv4,
-                                            tvb, offset+cursor_fspec, 0, "Destination IP filter");
+                                            tvb, offset+cursor_fspec, "Destination IP filter");
             else /* AFNUM_INET6 */
                 filter_len = decode_fspec_match_prefix6(filter_tree, filter_item, hf_bgp_flowspec_nlri_dst_ipv6_pref,
                                                         tvb, offset+cursor_fspec, 0, pinfo);
@@ -2759,7 +2761,7 @@ decode_flowspec_nlri(proto_tree *tree, tvbuff_t *tvb, gint offset, guint16 afi, 
             cursor_fspec++;
             if (afi == AFNUM_INET)
                 filter_len = decode_prefix4(filter_tree, pinfo, filter_item, hf_bgp_flowspec_nlri_src_pref_ipv4,
-                                            tvb, offset+cursor_fspec, 0, "Source IP filter");
+                                            tvb, offset+cursor_fspec, "Source IP filter");
             else /* AFNUM_INET6 */
                 filter_len = decode_fspec_match_prefix6(filter_tree, filter_item, hf_bgp_flowspec_nlri_src_ipv6_pref,
                                                         tvb, offset+cursor_fspec, 0, pinfo);
@@ -3378,8 +3380,6 @@ static int decode_bgp_link_node_nlri_common_fields(tvbuff_t *tvb,
                 "Unknown data in Link-State Link NLRI! length = %d bytes", length);
         return dissected_length;
     }
-    if (length < 1)
-        return dissected_length;
 
     tmp_length = decode_bgp_link_node_nlri_tlvs(tvb, tree, offset, pinfo,
                                                 BGP_NLRI_TLV_LOCAL_NODE_DESCRIPTORS);
@@ -3642,7 +3642,7 @@ static int decode_bgp_link_nlri_prefix_descriptors(tvbuff_t *tvb,
 
             case BGP_NLRI_TLV_IP_REACHABILITY_INFORMATION:
                 if (decode_prefix4(tlv_sub_tree, pinfo, tlv_sub_item, hf_bgp_ls_nlri_ip_reachability_prefix_ip,
-                               tvb, offset + 4, 0, "Reachability") == -1)
+                               tvb, offset + 4, "Reachability") == -1)
                     return diss_length;
             break;
         }
@@ -4747,7 +4747,7 @@ decode_prefix_MP(proto_tree *tree, int hf_addr4, int hf_addr6,
             case SAFNUM_UNICAST:
             case SAFNUM_MULCAST:
             case SAFNUM_UNIMULC:
-                total_length = decode_prefix4(tree, pinfo, NULL,hf_addr4, tvb, offset, 0, tag);
+                total_length = decode_prefix4(tree, pinfo, NULL,hf_addr4, tvb, offset, tag);
                 if (total_length < 0)
                     return -1;
                 break;
@@ -7374,7 +7374,7 @@ dissect_bgp_update(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
             }
         } else {
             while (o < end) {
-                i = decode_prefix4(subtree, pinfo, NULL, hf_bgp_withdrawn_prefix, tvb, o, len,
+                i = decode_prefix4(subtree, pinfo, NULL, hf_bgp_withdrawn_prefix, tvb, o,
                     "Withdrawn route");
                 if (i < 0)
                     return;
@@ -7417,8 +7417,7 @@ dissect_bgp_update(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
             } else {
                 /* Standard prefixes */
                 while (o < end) {
-                    i = decode_prefix4(subtree, pinfo, NULL, hf_bgp_nlri_prefix, tvb, o, 0,
-                           "NLRI");
+                    i = decode_prefix4(subtree, pinfo, NULL, hf_bgp_nlri_prefix, tvb, o, "NLRI");
                     if (i < 0)
                         return;
                     o += i;
@@ -7438,6 +7437,8 @@ dissect_bgp_notification(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
     int                     offset;
     guint                   major_error;
     proto_item              *ti;
+    guint8                  clen;
+    guint8                  minor_cease;
 
     hlen =  tvb_get_ntohs(tvb, BGP_MARKER_SIZE);
     offset = BGP_MARKER_SIZE + 2 + 1;
@@ -7479,7 +7480,17 @@ dissect_bgp_notification(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
 
     /* only print if there is optional data */
     if (hlen > BGP_MIN_NOTIFICATION_MSG_SIZE) {
-        proto_tree_add_item(tree, hf_bgp_notify_data, tvb, offset, hlen - BGP_MIN_NOTIFICATION_MSG_SIZE, ENC_NA);
+        minor_cease = tvb_get_guint8(tvb, offset - 1);
+        clen = tvb_get_guint8(tvb, offset);
+        /* Might be a idr-shutdown communication, first byte is length, max length being 128) */
+        if (clen <= 128 && hlen - BGP_MIN_NOTIFICATION_MSG_SIZE - 1 == clen && major_error == BGP_MAJOR_ERROR_CEASE && minor_cease == 2) {
+            proto_tree_add_item(tree, hf_bgp_notify_communication_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+            offset += 1;
+            proto_tree_add_item(tree, hf_bgp_notify_communication, tvb, offset, hlen - BGP_MIN_NOTIFICATION_MSG_SIZE - 1, ENC_UTF_8|ENC_NA);
+        /* otherwise just dump the hex data */
+        } else {
+            proto_tree_add_item(tree, hf_bgp_notify_data, tvb, offset, hlen - BGP_MIN_NOTIFICATION_MSG_SIZE, ENC_NA);
+        }
     }
 }
 
@@ -7585,7 +7596,7 @@ example 2
             proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_prefixmask_upper, tvb, p, 1, ENC_BIG_ENDIAN);
             p++;
 
-            advance = decode_prefix4(subtree1, pinfo, NULL, hf_bgp_route_refresh_orf_entry_ip, tvb, p, 0, "ORF");
+            advance = decode_prefix4(subtree1, pinfo, NULL, hf_bgp_route_refresh_orf_entry_ip, tvb, p, "ORF");
             if (advance < 0)
                     break;
             entrylen = 7 + 1 + advance;
@@ -8022,6 +8033,12 @@ proto_register_bgp(void)
           NULL, 0x0, NULL, HFILL }},
       { &hf_bgp_notify_data,
         { "Data", "bgp.notify.minor_data", FT_BYTES, BASE_NONE,
+           NULL, 0x0, NULL, HFILL }},
+      { &hf_bgp_notify_communication_length,
+        { "BGP Shutdown Communication Length", "bgp.notify.communication_length", FT_UINT8, BASE_DEC,
+          NULL, 0x0, NULL, HFILL }},
+      { &hf_bgp_notify_communication,
+        { "Shutdown Communication", "bgp.notify.commmunication", FT_STRING, BASE_NONE,
           NULL, 0x0, NULL, HFILL }},
 
         /* Route Refresh */

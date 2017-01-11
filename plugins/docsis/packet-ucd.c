@@ -127,6 +127,8 @@ static gint ett_docsis_ucd = -1;
 static gint ett_docsis_tlv = -1;
 static gint ett_docsis_burst_tlv = -1;
 
+static dissector_handle_t docsis_ucd_handle;
+
 static const value_string channel_tlv_vals[] = {
   {UCD_SYMBOL_RATE,  "Symbol Rate"},
   {UCD_FREQUENCY,    "Frequency"},
@@ -404,11 +406,11 @@ dissect_ucd (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data 
                 endtlvpos = pos + length - 1;
                 while (pos < endtlvpos)
                   {
+                    tlvtype = tvb_get_guint8 (tvb, pos);
                     burst_tree = proto_tree_add_subtree (tlv_tree, tvb, pos, -1,
                                                          ett_docsis_burst_tlv, &burst_item,
-                                                         val_to_str(type, burst_tlv_vals,
+                                                         val_to_str(tlvtype, burst_tlv_vals,
                                                          "Unknown TLV (%u)"));
-                    tlvtype = tvb_get_guint8 (tvb, pos);
                     proto_tree_add_uint (burst_tree, hf_docsis_ucd_burst_type, tvb, pos++, 1, tlvtype);
                     tlvlen = tvb_get_guint8 (tvb, pos);
                     proto_tree_add_uint (burst_tree, hf_docsis_ucd_burst_length, tvb, pos++, 1, tlvlen);
@@ -558,11 +560,11 @@ dissect_ucd (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data 
                 endtlvpos = pos + length - 1;
                 while (pos < endtlvpos)
                   {
+                    tlvtype = tvb_get_guint8 (tvb, pos);
                     burst_tree = proto_tree_add_subtree (tlv_tree, tvb, pos, -1,
                                                          ett_docsis_burst_tlv, &burst_item,
-                                                         val_to_str(type, burst_tlv_vals,
+                                                         val_to_str(tlvtype, burst_tlv_vals,
                                                          "Unknown TLV (%u)"));
-                    tlvtype = tvb_get_guint8 (tvb, pos);
                     proto_tree_add_uint (burst_tree, hf_docsis_ucd_burst_type, tvb, pos++, 1, tlvtype);
                     tlvlen = tvb_get_guint8 (tvb, pos);
                     proto_tree_add_uint (burst_tree, hf_docsis_ucd_burst_length, tvb, pos++, 1, tlvlen);
@@ -785,7 +787,7 @@ proto_register_docsis_ucd (void)
     },
     {&hf_docsis_ucd_burst_type,
      {"Type", "docsis_ucd.burst.tlvtype",
-      FT_UINT8, BASE_DEC, VALS(channel_tlv_vals), 0x0,
+      FT_UINT8, BASE_DEC, VALS(burst_tlv_vals), 0x0,
       "Burst TLV type", HFILL}
     },
     {&hf_docsis_ucd_burst_length,
@@ -996,15 +998,12 @@ proto_register_docsis_ucd (void)
   expert_docsis_ucd = expert_register_protocol(proto_docsis_ucd);
   expert_register_field_array(expert_docsis_ucd, ei, array_length(ei));
 
-  register_dissector ("docsis_ucd", dissect_ucd, proto_docsis_ucd);
+  docsis_ucd_handle = register_dissector ("docsis_ucd", dissect_ucd, proto_docsis_ucd);
 }
 
 void
 proto_reg_handoff_docsis_ucd (void)
 {
-   dissector_handle_t docsis_ucd_handle;
-
-   docsis_ucd_handle = find_dissector ("docsis_ucd");
    dissector_add_uint ("docsis_mgmt", 0x02, docsis_ucd_handle);
 }
 

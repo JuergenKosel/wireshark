@@ -3107,7 +3107,7 @@ proto_register_iscsi(void)
 
     prefs_register_bool_preference(iscsi_module,
                                    "desegment_iscsi_messages",
-                                   "Reassemble iSCSI messages\nspanning multiple TCP segments",
+                                   "Reassemble iSCSI messages spanning multiple TCP segments",
                                    "Whether the iSCSI dissector should reassemble messages spanning multiple TCP segments."
                                    " To use this option, you must also enable \"Allow subdissectors to reassemble TCP streams\" in the TCP protocol settings.",
                                    &iscsi_desegment);
@@ -3131,7 +3131,7 @@ proto_register_iscsi(void)
                                    10,
                                    &bogus_pdu_data_length_threshold);
 
-    range_convert_str(&global_iscsi_port_range, TCP_PORT_ISCSI_RANGE, MAX_TCP_PORT);
+    range_convert_str(wmem_epan_scope(), &global_iscsi_port_range, TCP_PORT_ISCSI_RANGE, MAX_TCP_PORT);
     prefs_register_range_preference(iscsi_module,
                                     "target_ports",
                                     "Target Ports Range",

@@ -37,11 +37,11 @@ BASIC_LIST="libgtk2.0-dev libpcap-dev bison flex make automake \
 	libtool python perl"
 
 ADDITIONAL_LIST="libnl-3-dev qttools5-dev qttools5-dev-tools libgtk-3-dev \
-		libc-ares-dev libssh-dev libkrb5-dev libqt5svg5-dev lynx libsmi2-dev \
+		libc-ares-dev libkrb5-dev libqt5svg5-dev lynx libsmi2-dev \
 		portaudio19-dev asciidoc libgcrypt-dev libsbc-dev libgeoip-dev \
-		libgnutls-dev qtmultimedia5-dev liblua5.2-dev libnl-cli-3-dev \
+		qtmultimedia5-dev liblua5.2-dev libnl-cli-3-dev \
 		libparse-yapp-perl qt5-default cmake libcap-dev \
-		liblz4-dev libsnappy-dev"
+		liblz4-dev libsnappy-dev libspandsp-dev"
 
 # Adds package $2 to list variable $1 if the package is found
 add_package() {
@@ -53,12 +53,6 @@ add_package() {
 	# package is found, append it to list
 	eval "${list}=\"\${${list}} \${pkgname}\""
 }
-
-# Check for lsb_release command in $PATH
-if ! which lsb_release > /dev/null; then
-	echo "ERROR: lsb_release not found in \$PATH" >&2
-	exit 1;
-fi
 
 # only needed for newer distro versions where "libtool" binary is separated.
 # Debian >= jessie, Ubuntu >= 16.04
@@ -74,6 +68,11 @@ add_package ADDITIONAL_LIST libssh-gcrypt-dev ||
 add_package ADDITIONAL_LIST libssh-dev ||
 echo "libssh-gcrypt-dev and libssh-dev are unavailable" >&2
 
+# libgnutls-dev: Debian <= jessie, Ubuntu <= 16.04
+# libgnutls28-dev: Debian >= wheezy-backports, Ubuntu >= 12.04
+add_package ADDITIONAL_LIST libgnutls28-dev ||
+add_package ADDITIONAL_LIST libgnutls-dev ||
+echo "libgnutls28-dev and libgnutls-dev are unavailable" >&2
 
 # Install basic packages
 apt-get install $BASIC_LIST $OPTIONS

@@ -85,8 +85,15 @@
 #include "ui/ui_util.h"
 #include "ui/decode_as_utils.h"
 #include "ui/cli/tshark-tap.h"
+#include "ui/cli/tap-exportobject.h"
 #include "ui/tap_export_pdu.h"
 #include "ui/dissect_opts.h"
+#if defined(HAVE_LIBSMI)
+#include "epan/oids.h"
+#endif
+#if defined(HAVE_GEOIP)
+#include "epan/geoip_db.h"
+#endif
 #include "register.h"
 #include "filter_files.h"
 #include <epan/epan_dissect.h>
@@ -396,6 +403,8 @@ print_usage(FILE *output)
   fprintf(output, "  --capture-comment <comment>\n");
   fprintf(output, "                           add a capture comment to the newly created\n");
   fprintf(output, "                           output file (only for pcapng)\n");
+  fprintf(output, "  --export-objects <protocol>,<destdir> save exported objects for a protocol to\n");
+  fprintf(output, "                           a directory named \"destdir\"\n");
 
   fprintf(output, "\n");
   fprintf(output, "Miscellaneous:\n");
@@ -443,6 +452,7 @@ glossary_option_help(void)
   fprintf(output, "Preference reports:\n");
   fprintf(output, "  -G currentprefs          dump current preferences and exit\n");
   fprintf(output, "  -G defaultprefs          dump default preferences and exit\n");
+  fprintf(output, "  -G folders               dump about:folders\n");
   fprintf(output, "\n");
 }
 
@@ -526,6 +536,95 @@ get_tshark_runtime_version_info(GString *str)
     epan_get_runtime_version_info(str);
 }
 
+static void
+about_folders(void)
+{
+  const char           *constpath;
+  char                 *path;
+#if defined(HAVE_LIBSMI) || defined(HAVE_GEOIP) || defined(HAVE_EXTCAP)
+  gint                  i;
+  gchar               **resultArray;
+#endif
+
+  /* "file open" */
+
+  /*
+   * Fetching the "File" dialogs folder not implemented.
+   * This is arguably just a pwd for a ui/cli .
+   */
+
+  /* temp */
+  printf("%-21s\t%s\n", "Temp:", g_get_tmp_dir());
+
+  /* pers conf */
+  path = get_persconffile_path("", FALSE);
+  printf("%-21s\t%s\n", "Personal configuration:", path);
+  g_free(path);
+
+  /* global conf */
+  constpath = get_datafile_dir();
+  if (constpath != NULL) {
+    printf("%-21s\t%s\n", "Global configuration:", constpath);
+  }
+
+  /* system */
+  constpath = get_systemfile_dir();
+  printf("%-21s\t%s\n", "System:", constpath);
+
+  /* program */
+  constpath = get_progfile_dir();
+  printf("%-21s\t%s\n", "Program:", constpath);
+
+#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
+  /* pers plugins */
+  path = get_plugins_pers_dir();
+
+  printf("%-21s\t%s\n", "Personal Plugins:", path);
+
+  g_free(path);
+
+  /* global plugins */
+  printf("%-21s\t%s\n", "Global Plugins:", get_plugin_dir());
+#endif
+
+#ifdef HAVE_GEOIP
+  /* GeoIP */
+  path = geoip_db_get_paths();
+
+  resultArray = g_strsplit(path, G_SEARCHPATH_SEPARATOR_S, 10);
+
+  for(i = 0; resultArray[i]; i++)
+    printf("%-21s\t%s\n", "GeoIP path:", g_strstrip(resultArray[i]));
+
+  g_strfreev(resultArray);
+  g_free(path);
+#endif
+
+#ifdef HAVE_LIBSMI
+  /* SMI MIBs/PIBs */
+  path = oid_get_default_mib_path();
+  resultArray = g_strsplit(path, G_SEARCHPATH_SEPARATOR_S, 10);
+
+  for(i = 0; resultArray[i]; i++)
+    printf("%-21s\t%s\n", "MIB/PIB path:", g_strstrip(resultArray[i]));
+
+  g_strfreev(resultArray);
+  g_free(path);
+#endif
+
+#ifdef HAVE_EXTCAP
+  /* Extcap */
+  constpath = get_extcap_dir();
+
+  resultArray = g_strsplit(constpath, G_SEARCHPATH_SEPARATOR_S, 10);
+  for(i = 0; resultArray[i]; i++)
+    printf("%-21s\t%s\n", "Extcap path:", g_strstrip(resultArray[i]));
+
+  g_strfreev(resultArray);
+#endif
+
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -538,6 +637,7 @@ main(int argc, char *argv[])
     {"version", no_argument, NULL, 'v'},
     LONGOPT_CAPTURE_COMMON
     LONGOPT_DISSECT_COMMON
+    {"export-objects", required_argument, NULL, LONGOPT_EXPORT_OBJECTS},
     {0, 0, 0, 0 }
   };
   gboolean             arg_error = FALSE;
@@ -636,12 +736,17 @@ main(int argc, char *argv[])
   print_current_user();
 
   /*
-   * Attempt to get the pathname of the executable file.
+   * Attempt to get the pathname of the directory containing the
+   * executable file.
    */
   init_progfile_dir_error = init_progfile_dir(argv[0], main);
   if (init_progfile_dir_error != NULL) {
-    fprintf(stderr, "tshark: Can't get pathname of tshark program: %s.\n",
+    fprintf(stderr,
+            "tshark: Can't get pathname of directory containing the tshark program: %s.\n"
+            "It won't be possible to capture traffic.\n"
+            "Report this to the Wireshark developers.",
             init_progfile_dir_error);
+    g_free(init_progfile_dir_error);
   }
 
   initialize_funnel_ops();
@@ -776,12 +881,11 @@ main(int argc, char *argv[])
   timestamp_set_precision(TS_PREC_AUTO);
   timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
-  init_open_routines();
+  wtap_init();
 
 #ifdef HAVE_PLUGINS
   /* Register all the plugin types we have. */
   epan_register_plugin_types(); /* Types known to libwireshark */
-  wtap_register_plugin_types(); /* Types known to libwiretap */
 
   /* Scan for plugins.  This does *not* call their registration routines;
      that's done later. */
@@ -850,6 +954,8 @@ main(int argc, char *argv[])
         return proto_registrar_dump_fieldcount();
       } else if (strcmp(argv[2], "fields") == 0)
         proto_registrar_dump_fields();
+      else if (strcmp(argv[2], "folders") == 0)
+        about_folders();
       else if (strcmp(argv[2], "ftypes") == 0)
         proto_registrar_dump_ftypes();
       else if (strcmp(argv[2], "heuristic-decodes") == 0)
@@ -917,6 +1023,8 @@ main(int argc, char *argv[])
 
   /* Read the disabled protocols file. */
   read_disabled_protos_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
+                            &dp_path, &dp_open_errno, &dp_read_errno);
+  read_enabled_protos_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
                             &dp_path, &dp_open_errno, &dp_read_errno);
   read_disabled_heur_dissector_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
                             &dp_path, &dp_open_errno, &dp_read_errno);
@@ -1279,8 +1387,18 @@ main(int argc, char *argv[])
     case LONGOPT_DISABLE_PROTOCOL: /* disable dissection of protocol */
     case LONGOPT_ENABLE_HEURISTIC: /* enable heuristic dissection of protocol */
     case LONGOPT_DISABLE_HEURISTIC: /* disable heuristic dissection of protocol */
+    case LONGOPT_ENABLE_PROTOCOL: /* enable dissection of protocol (that is disabled by default) */
       if (!dissect_opts_handle_opt(opt, optarg))
           return 1;
+      break;
+    case LONGOPT_EXPORT_OBJECTS:   /* --export-objects */
+      if (strcmp("help", optarg) == 0) {
+        fprintf(stderr, "tshark: The available export object types for the \"--export-objects\" option are:\n");
+        eo_list_object_types();
+        return 0;
+      }
+      if (!eo_tap_opt_add(optarg))
+        return 1;
       break;
     default:
     case '?':        /* Bad flag - print usage message */
@@ -1572,6 +1690,9 @@ main(int argc, char *argv[])
      of the filter.  We can now process all the "-z" arguments. */
   start_requested_stats();
 
+  /* We can also enable specified taps for export object */
+  start_exportobjects();
+
   /* At this point MATE will have registered its field array so we can
      check if the fields specified by the user are all good.
    */
@@ -1619,6 +1740,7 @@ main(int argc, char *argv[])
   /* disabled protocols as per configuration file */
   if (gdp_path == NULL && dp_path == NULL) {
     set_disabled_protos_list();
+    set_enabled_protos_list();
     set_disabled_heur_dissector_list();
   }
 
@@ -1630,9 +1752,17 @@ main(int argc, char *argv[])
     }
   }
 
-  if(global_dissect_options.disable_heur_slist) {
+  if(global_dissect_options.enable_protocol_slist) {
+    GSList *proto_enable;
+    for (proto_enable = global_dissect_options.enable_protocol_slist; proto_enable != NULL; proto_enable = g_slist_next(proto_enable))
+    {
+      proto_enable_proto_by_name((char*)proto_enable->data);
+    }
+  }
+
+  if(global_dissect_options.enable_heur_slist) {
     GSList *heur_enable;
-    for (heur_enable = global_dissect_options.disable_heur_slist; heur_enable != NULL; heur_enable = g_slist_next(heur_enable))
+    for (heur_enable = global_dissect_options.enable_heur_slist; heur_enable != NULL; heur_enable = g_slist_next(heur_enable))
     {
       proto_enable_heuristic_by_name((char*)heur_enable->data, TRUE);
     }

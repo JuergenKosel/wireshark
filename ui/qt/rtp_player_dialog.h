@@ -46,6 +46,9 @@ class RtpAudioStream;
 class RtpPlayerDialog : public WiresharkDialog
 {
     Q_OBJECT
+#ifdef QT_MULTIMEDIA_LIB
+    Q_PROPERTY(QString currentOutputDeviceName READ currentOutputDeviceName)
+#endif
 
 public:
     explicit RtpPlayerDialog(QWidget &parent, CaptureFile &cf);
@@ -92,10 +95,14 @@ private slots:
     void rescanPackets(bool rescale_axes = false);
     void updateWidgets();
     void graphClicked(QMouseEvent *event);
-    void mouseMoved(QMouseEvent *);
+    void updateHintLabel();
     void resetXAxis();
 
     void setPlayPosition(double secs);
+    void setPlaybackError(const QString playback_error) {
+        playback_error_ = playback_error;
+        updateHintLabel();
+    }
     void on_playButton_clicked();
     void on_stopButton_clicked();
     void on_actionReset_triggered();
@@ -117,6 +124,7 @@ private:
     QMenu *ctx_menu_;
     double start_rel_time_;
     QCPItemStraightLine *cur_play_pos_;
+    QString playback_error_;
 
 //    const QString streamKey(const struct _rtp_stream_info *rtp_stream);
 //    const QString streamKey(const packet_info *pinfo, const struct _rtp_info *rtpinfo);
@@ -132,6 +140,7 @@ private:
     double getLowestTimestamp();
     const QString getHoveredTime();
     int getHoveredPacket();
+    QString currentOutputDeviceName();
 
 #else // QT_MULTIMEDIA_LIB
 private:

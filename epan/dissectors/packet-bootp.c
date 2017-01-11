@@ -475,6 +475,8 @@ static int hf_bootp_option_civic_location_country = -1;			/* 99 */
 static int hf_bootp_option_civic_location_ca_type = -1;			/* 99 */
 static int hf_bootp_option_civic_location_ca_length = -1;		/* 99 */
 static int hf_bootp_option_civic_location_ca_value = -1;		/* 99 */
+static int hf_bootp_option_tz_pcode = -1;				/* 100 */
+static int hf_bootp_option_tz_tcode = -1;				/* 101 */
 static int hf_bootp_option_netinfo_parent_server_address = -1;		/* 112 */
 static int hf_bootp_option_netinfo_parent_server_tag = -1;		/* 113 */
 static int hf_bootp_option_dhcp_auto_configuration = -1;		/* 116 */
@@ -507,6 +509,7 @@ static int hf_bootp_option_vi_class_data_length = -1;			/* 124 */
 static int hf_bootp_option_vi_class_data = -1;				/* 124 */
 
 static int hf_bootp_option125_enterprise = -1;
+static int hf_bootp_option125_length = -1;
 static int hf_bootp_option125_value = -1;				/* 125 suboption value */
 static int hf_bootp_option125_value_8 = -1;				/* 125 suboption value */
 static int hf_bootp_option125_value_16 = -1;				/* 125 suboption value */
@@ -530,6 +533,7 @@ static int hf_bootp_option_subnet_selection_option = -1;		/* 118 */
 static int hf_bootp_option_lost_server_domain_name = -1;		/* 137 */
 static int hf_bootp_option_capwap_access_controller = -1;		/* 138 */
 static int hf_bootp_option_tftp_server_address = -1;			/* 150 */
+static int hf_bootp_option_mudurl = -1;					/* 161 */
 static int hf_bootp_option_pxe_config_file = -1;			/* 209 */
 static int hf_bootp_option_pxe_path_prefix = -1;			/* 210 */
 static int hf_bootp_option_6RD_ipv4_mask_len = -1;			/* 212 */
@@ -1025,13 +1029,11 @@ static const value_string opt53_text[] = {
 	{ 11,	"Lease Unassigned" },		/* RFC4388 */
 	{ 12,	"Lease Unknown" },		/* RFC4388 */
 	{ 13,	"Lease Active" },		/* RFC4388 */
-	/* draft-ietf-dhc-leasequery-09.txt
-	{ 13,	"Lease query" },			*/
-	{ 14,	"Lease known" },
-	{ 15,	"Lease unknown" },
-	{ 16,	"Lease active" },
-	{ 17,	"Unimplemented" },
-
+	{ 14,	"Bulk Lease Query" },		/* RFC6926 */
+	{ 15,	"Lease Query Done" },		/* RFC6926 */
+	{ 16,	"Active LeaseQuery" },		/* RFC7724 */
+	{ 17,	"Lease Query Status" },		/* RFC7724 */
+	{ 18,	"TLS" },			/* RFC7724 */
 	{ 0,	NULL }
 };
 
@@ -1314,8 +1316,8 @@ static struct opt_info default_bootp_opt[BOOTP_OPT_NUM] = {
 /*  97 */ { "UUID/GUID-based Client Identifier",	special, NULL},
 /*  98 */ { "Open Group's User Authentication [TODO:RFC2485]",	opaque, NULL },
 /*  99 */ { "Civic Addresses Configuration",		special, NULL},
-/* 100 */ { "PCode [TODO:RFC4833]",			opaque, NULL },
-/* 101 */ { "TCode [TODO:RFC4833]",			opaque, NULL },
+/* 100 */ { "PCode", 					string, &hf_bootp_option_tz_pcode },
+/* 101 */ { "TCode",					string, &hf_bootp_option_tz_tcode },
 /* 102 */ { "Removed/unassigned",			opaque, NULL },
 /* 103 */ { "Removed/unassigned",			opaque, NULL },
 /* 104 */ { "Removed/unassigned",			opaque, NULL },
@@ -1375,7 +1377,7 @@ static struct opt_info default_bootp_opt[BOOTP_OPT_NUM] = {
 /* 158 */ { "Unassigned",				opaque, NULL },
 /* 159 */ { "Unassigned",				opaque, NULL },
 /* 160 */ { "Unassigned",				opaque, NULL },
-/* 161 */ { "Unassigned",				opaque, NULL },
+/* 161 */ { "Manufacturer Usage Description",		string, &hf_bootp_option_mudurl},
 /* 162 */ { "Unassigned",				opaque, NULL },
 /* 163 */ { "Unassigned",				opaque, NULL },
 /* 164 */ { "Unassigned",				opaque, NULL },
@@ -2853,7 +2855,7 @@ bootp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, proto_item 
 	case 125: {	/* V-I Vendor-specific Information (RFC 3925) */
 		int enterprise = 0;
 		int s_end = 0;
-		int s_option_len = 0;
+		int option_data_len = 0;
 		proto_tree *e_tree = 0;
 
 		optend = optoff + optlen;
@@ -2868,19 +2870,22 @@ bootp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, proto_item 
 
 			enterprise = tvb_get_ntohl(tvb, optoff);
 			vti = proto_tree_add_item(v_tree, hf_bootp_option125_enterprise, tvb, optoff, 4, ENC_BIG_ENDIAN);
+			e_tree = proto_item_add_subtree(vti, ett_bootp_option);
 
-			s_option_len = tvb_get_guint8(tvb, optoff + 4);
+			optoff += 4;
+			optleft -= 4;
 
-			optoff += 5;
-			optleft -= 5;
+			proto_tree_add_item_ret_uint(e_tree, hf_bootp_option125_length, tvb, optoff, 1, ENC_NA, &option_data_len);
 
-			s_end = optoff + s_option_len;
+			optoff += 1;
+			optleft -= 1;
+
+			s_end = optoff + option_data_len;
 			if ( s_end > optend ) {
 				expert_add_info_format(pinfo, vti, &ei_bootp_option125_enterprise_malformed, "no room left in option for enterprise %u data", enterprise);
 				break;
 			}
 
-			e_tree = proto_item_add_subtree(vti, ett_bootp_option);
 			while (optoff < s_end) {
 				switch (enterprise) {
 
@@ -2897,7 +2902,7 @@ bootp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, proto_item 
 				break;
 				}
 			}
-			optleft -= s_option_len;
+			optleft -= option_data_len;
 		}
 		break;
 	}
@@ -3987,21 +3992,36 @@ dissect_vendor_bsdp_suboption(packet_info *pinfo, proto_item *v_ti, proto_tree *
 }
 
 static int
-dissect_vendor_generic_suboption(packet_info *pinfo _U_, proto_item *v_ti _U_, proto_tree *v_tree,
-				 tvbuff_t *tvb, int optoff, int optend _U_)
+dissect_vendor_generic_suboption(packet_info *pinfo, proto_item *v_ti, proto_tree *v_tree,
+				 tvbuff_t *tvb, int optoff, int optend)
 {
 	int	    suboptoff = optoff;
-	guint8	    subopt_len;
+	guint8	subopt;
+	int	    subopt_len;
 	proto_item *item;
 	proto_tree *sub_tree;
 
-	item = proto_tree_add_item(v_tree, hf_bootp_vendor_unknown_suboption, tvb, optoff, 1, ENC_BIG_ENDIAN);
+	item = proto_tree_add_item(v_tree, hf_bootp_vendor_unknown_suboption, tvb, optoff, 1, ENC_NA);
+	subopt = tvb_get_guint8(tvb, optoff);
+
 	suboptoff+=1;
 
+	if (suboptoff >= optend) {
+		expert_add_info_format(pinfo, v_ti, &ei_bootp_missing_subopt_length,
+									"Suboption %d: no room left in option for suboption length", subopt);
+		return (optend);
+	}
+
 	sub_tree = proto_item_add_subtree(item, ett_bootp_option125_suboption);
-	subopt_len = tvb_get_guint8(tvb,suboptoff);
-	proto_tree_add_item(sub_tree, hf_bootp_suboption_length, tvb, suboptoff, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_item_ret_uint(sub_tree, hf_bootp_suboption_length, tvb, suboptoff, 1, ENC_NA, &subopt_len);
 	suboptoff++;
+
+	if (suboptoff+subopt_len > optend) {
+		expert_add_info_format(pinfo, item, &ei_bootp_missing_subopt_value,
+						"Suboption %d: no room left in option for suboption value", subopt);
+		return (optend);
+	}
+
 	proto_tree_add_item(sub_tree, hf_bootp_suboption_data, tvb, suboptoff, subopt_len, ENC_NA);
 	suboptoff+= subopt_len;
 
@@ -4630,8 +4650,7 @@ dissect_packetcable_mta_cap(proto_tree *v_tree, packet_info *pinfo, tvbuff_t *tv
 			"Bogus length: %s", asc_val);
 		return;
 	} else {
-		proto_tree_add_uint_format_value(v_tree, hf_bootp_pkt_mta_cap_len, tvb, off, 2,
-				tlv_len, "%d", tlv_len);
+		proto_tree_add_uint(v_tree, hf_bootp_pkt_mta_cap_len, tvb, off, 2, tlv_len);
 		off += 2;
 
 		while (off - voff < len) {
@@ -5133,8 +5152,7 @@ dissect_docsis_cm_cap(proto_tree *v_tree, tvbuff_t *tvb, int voff, int len, gboo
 		tlv_type = tvb_get_guint8(tvb, off);
 		/* Length */
 		tlv_len	 = tvb_get_guint8(tvb, off+1);
-		proto_tree_add_uint_format_value(v_tree, hf_bootp_docsis_cm_cap_len, tvb, off+1, 1,
-						 tlv_len, "%d", tlv_len);
+		proto_tree_add_uint(v_tree, hf_bootp_docsis_cm_cap_len, tvb, off+1, 1, tlv_len);
 	}
 	else
 	{
@@ -5939,8 +5957,7 @@ dissect_bootp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
 	 */
 	secs = tvb_get_letohs(tvb, 8);
 	if (secs > 0 && secs <= 0xff) {
-		ti = proto_tree_add_uint_format_value(bp_tree, hf_bootp_secs, tvb,
-			    8, 2, secs, "%u", secs);
+		ti = proto_tree_add_uint(bp_tree, hf_bootp_secs, tvb, 8, 2, secs);
 		expert_add_info_format(pinfo, ti, &ei_bootp_secs_le, "Seconds elapsed appears to be encoded as little-endian");
 	} else {
 		proto_tree_add_item(bp_tree, hf_bootp_secs, tvb,
@@ -8058,6 +8075,16 @@ proto_register_bootp(void)
 		    FT_STRINGZ, BASE_NONE, NULL, 0x0,
 		    "Option 99: CA Value", HFILL }},
 
+		{ &hf_bootp_option_tz_pcode,
+		  { "TZ PCode", "bootp.option.tz_pcode",
+		    FT_STRING, BASE_NONE, NULL, 0x0,
+		    "Option 100: TZ PCode", HFILL  }},
+
+		{ &hf_bootp_option_tz_tcode,
+		  { "TZ TCode", "bootp.option.tz_tcode",
+		    FT_STRING, BASE_NONE, NULL, 0x0,
+		    "Option 101: TZ TCode", HFILL  }},
+
 		{ &hf_bootp_option_netinfo_parent_server_address,
 		  { "NetInfo Parent Server Address", "bootp.option.netinfo_parent_server_address",
 		    FT_IPv4, BASE_NONE, NULL, 0x00,
@@ -8213,6 +8240,11 @@ proto_register_bootp(void)
 		    FT_UINT32, BASE_DEC|BASE_EXT_STRING, &sminmpec_values_ext, 0x00,
 		    "Option 125: Enterprise", HFILL }},
 
+		{ &hf_bootp_option125_length,
+		  { "Length", "bootp.option.vi.length",
+		    FT_UINT8, BASE_DEC, NULL, 0x00,
+		    "Option 125: Length", HFILL }},
+
 		{ &hf_bootp_option125_value,
 		  { "Value", "bootp.option.vi.value",
 		    FT_BYTES, BASE_NONE, NULL, 0x0,
@@ -8322,6 +8354,11 @@ proto_register_bootp(void)
 		  { "TFTP Server Address", "bootp.option.tftp_server_address",
 		    FT_IPv4, BASE_NONE, NULL, 0x00,
 		    "Option 150: TFTP Server Address", HFILL }},
+
+		{ &hf_bootp_option_mudurl,
+		  { "MUDURL", "bootp.option.mudurl",
+		    FT_STRING, BASE_NONE, NULL, 0x0,
+		    "Option 161: MUDURL", HFILL  }},
 
 		{ &hf_bootp_option_pxe_config_file,
 		  { "PXELINUX configuration file", "bootp.option.pxe_config_file",

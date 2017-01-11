@@ -67,10 +67,10 @@
 
 void proto_register_sip(void);
 
-static dissector_handle_t sip_tcp_handle;
-
 static gint sip_tap = -1;
 static gint exported_pdu_tap = -1;
+static dissector_handle_t sip_handle;
+static dissector_handle_t sip_tcp_handle;
 static dissector_handle_t sigcomp_handle;
 static dissector_handle_t sip_diag_handle;
 static dissector_handle_t sip_uri_userinfo_handle;
@@ -192,6 +192,10 @@ static gint hf_sip_via_received           = -1;
 static gint hf_sip_via_ttl                = -1;
 static gint hf_sip_via_comp               = -1;
 static gint hf_sip_via_sigcomp_id         = -1;
+static gint hf_sip_via_oc                 = -1;
+static gint hf_sip_via_oc_algo            = -1;
+static gint hf_sip_via_oc_validity        = -1;
+static gint hf_sip_via_oc_seq             = -1;
 
 static gint hf_sip_rack_rseq_no           = -1;
 static gint hf_sip_rack_cseq_no           = -1;
@@ -219,6 +223,7 @@ static gint hf_sip_session_id_param       = -1;
 static gint hf_sip_session_id_local_uuid  = -1;
 static gint hf_sip_session_id_remote_uuid = -1;
 static gint hf_sip_continuation           = -1;
+static gint hf_sip_feature_cap            = -1;
 
 static gint hf_sip_p_acc_net_i_acc_type   = -1;
 static gint hf_sip_p_acc_net_i_ucid_3gpp  = -1;
@@ -255,6 +260,7 @@ static gint ett_sip_ppi_uri               = -1;
 static gint ett_sip_tc_uri                = -1;
 static gint ett_sip_session_id            = -1;
 static gint ett_sip_p_access_net_info     = -1;
+static gint ett_sip_feature_caps          = -1;
 
 static expert_field ei_sip_unrecognized_header = EI_INIT;
 static expert_field ei_sip_header_no_colon = EI_INIT;
@@ -724,7 +730,11 @@ static header_parameter_t via_parameters_hf_array[] =
     {"received",      &hf_sip_via_received},
     {"ttl",           &hf_sip_via_ttl},
     {"comp",          &hf_sip_via_comp},
-    {"sigcomp-id",    &hf_sip_via_sigcomp_id}
+    {"sigcomp-id",    &hf_sip_via_sigcomp_id},
+    {"oc",            &hf_sip_via_oc},
+    {"oc-validity",   &hf_sip_via_oc_validity },
+    {"oc-seq",        &hf_sip_via_oc_seq},
+    {"oc-algo",       &hf_sip_via_oc_algo}
 };
 
 
@@ -2801,6 +2811,56 @@ static void dissect_sip_p_access_network_info_header(tvbuff_t *tvb, proto_tree *
     }
 }
 
+/*
+https://tools.ietf.org/html/rfc6809
+The ABNF for the Feature-Caps header fields is:
+
+Feature-Caps = "Feature-Caps" HCOLON fc-value
+*(COMMA fc-value)
+fc-value     = "*" *(SEMI feature-cap)
+
+The ABNF for the feature-capability indicator is:
+
+feature-cap       =  "+" fcap-name [EQUAL LDQUOT (fcap-value-list
+/ fcap-string-value ) RDQUOT]
+fcap-name         =  ftag-name
+fcap-value-list   =  tag-value-list
+fcap-string-value =  string-value
+;; ftag-name, tag-value-list, string-value defined in RFC 3840
+
+NOTE: In comparison with media feature tags, the "+" sign in front of
+the feature-capability indicator name is mandatory.
+
+*/
+static void
+dissect_sip_p_feature_caps(tvbuff_t *tvb, proto_tree *tree, gint start_offset, gint line_end_offset)
+{
+    gint current_offset, next_offset, length;
+    guint16 semi_plus = 0x3b2b;
+
+    /* skip Spaces and Tabs */
+    next_offset = tvb_skip_wsp(tvb, start_offset, line_end_offset - start_offset);
+
+    if (next_offset >= line_end_offset) {
+        /* Nothing to parse */
+        return;
+    }
+
+    while (next_offset < line_end_offset) {
+        /* Find the end of feature cap or start of feature cap parameter, ";+" should indicate the start of a new feature-cap */
+        current_offset = next_offset;
+        next_offset = tvb_find_guint16(tvb, current_offset, line_end_offset - current_offset, semi_plus);
+        if (next_offset == -1) {
+            length = line_end_offset - current_offset;
+            next_offset = line_end_offset;
+        }
+        else {
+            length = next_offset - current_offset;
+            next_offset += 2;
+        }
+        proto_tree_add_item(tree, hf_sip_feature_cap, tvb, current_offset, length, ENC_UTF_8 | ENC_NA);
+    }
+}
 
 /* Code to actually dissect the packets */
 static int
@@ -3028,7 +3088,21 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "SIP");
 
     if (!pinfo->flags.in_error_pkt && have_tap_listener(exported_pdu_tap)) {
-        export_sip_pdu(pinfo,tvb);
+        wmem_list_frame_t *cur;
+        guint proto_id;
+        const gchar *proto_name;
+        void *tmp;
+
+        /* For SIP messages with other sip messages embeded in the body, dont export those individually.
+         * E.g. if we are called from the mime_multipart dissector don't export the message.
+         */
+        cur = wmem_list_frame_prev(wmem_list_tail(pinfo->layers));
+        tmp = wmem_list_frame_data(cur);
+        proto_id = GPOINTER_TO_UINT(tmp);
+        proto_name = proto_get_protocol_filter_name(proto_id);
+        if (strcmp(proto_name, "mime_multipart") != 0) {
+            export_sip_pdu(pinfo, tvb);
+        }
     }
 
     DPRINT2(("------------------------------ dissect_sip_common ------------------------------"));
@@ -4033,6 +4107,19 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                             sip_proto_set_format_text(hdr_tree, sip_element_item, tvb, offset, linelen);
                             p_access_net_info_tree = proto_item_add_subtree(sip_element_item, ett_sip_p_access_net_info);
                             dissect_sip_p_access_network_info_header(tvb, p_access_net_info_tree, value_offset, line_end_offset);
+                        }
+                        break;
+                    case POS_FEATURE_CAPS:
+                        if (hdr_tree) {
+                            proto_tree *feature_caps_tree;
+
+                            sip_element_item = sip_proto_tree_add_string(hdr_tree,
+                                hf_header_array[hf_index], tvb,
+                                offset, next_offset - offset,
+                                value_offset, value_len);
+                            sip_proto_set_format_text(hdr_tree, sip_element_item, tvb, offset, linelen);
+                            feature_caps_tree = proto_item_add_subtree(sip_element_item, ett_sip_feature_caps);
+                            dissect_sip_p_feature_caps(tvb, feature_caps_tree, value_offset, line_end_offset);
                         }
                         break;
                     default :
@@ -6460,6 +6547,26 @@ void proto_register_sip(void)
             FT_STRING, BASE_NONE, NULL, 0x0,
             "SIP Via sigcomp identifier", HFILL}
         },
+        { &hf_sip_via_oc,
+        { "Overload Control",  "sip.Via.oc",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_sip_via_oc_validity,
+        { "Overload Control Validity",  "sip.Via.oc_validity",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_sip_via_oc_seq,
+        { "Overload Control Sequence",  "sip.Via.oc_seq",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_sip_via_oc_algo,
+        { "Overload Control Algorithm",  "sip.Via.oc_algo",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_sip_p_acc_net_i_acc_type,
            { "access-type", "sip.P-Access-Network-Info.access-type",
              FT_STRING, BASE_NONE, NULL, 0x0,
@@ -6589,6 +6696,12 @@ void proto_register_sip(void)
           { "Continuation data",  "sip.continuation",
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
+        },
+        {
+            &hf_sip_feature_cap,
+            { "Feature Cap",  "sip.feature_cap",
+                FT_STRING, BASE_NONE, NULL, 0x0,
+                NULL, HFILL }
         }
     };
 
@@ -6632,7 +6745,8 @@ void proto_register_sip(void)
         &ett_sip_from_uri,
         &ett_sip_curi,
         &ett_sip_session_id,
-        &ett_sip_p_access_net_info
+        &ett_sip_p_access_net_info,
+        &ett_sip_feature_caps
     };
     static gint *ett_raw[] = {
         &ett_raw_text,
@@ -6686,8 +6800,8 @@ void proto_register_sip(void)
     proto_sip = proto_register_protocol("Session Initiation Protocol", "SIP", "sip");
     proto_raw_sip = proto_register_protocol("Session Initiation Protocol (SIP as raw text)",
                                             "Raw_SIP", "raw_sip");
-    register_dissector("sip", dissect_sip, proto_sip);
-    register_dissector("sip.tcp", dissect_sip_tcp, proto_sip);
+    sip_handle = register_dissector("sip", dissect_sip, proto_sip);
+    sip_tcp_handle = register_dissector("sip.tcp", dissect_sip_tcp, proto_sip);
 
     /* Required function calls to register the header fields and subtrees used */
     proto_register_field_array(proto_sip, hf, array_length(hf));
@@ -6811,9 +6925,6 @@ proto_reg_handoff_sip(void)
     static gboolean sip_prefs_initialized = FALSE;
 
     if (!sip_prefs_initialized) {
-        dissector_handle_t sip_handle;
-        sip_handle = find_dissector("sip");
-        sip_tcp_handle = find_dissector("sip.tcp");
         sigcomp_handle = find_dissector_add_dependency("sigcomp", proto_sip);
         sip_diag_handle = find_dissector("sip.diagnostic");
         sip_uri_userinfo_handle = find_dissector("sip.uri_userinfo");
@@ -6825,6 +6936,7 @@ proto_reg_handoff_sip(void)
 
         dissector_add_uint_range_with_preference("udp.port", DEFAULT_SIP_PORT_RANGE, sip_handle);
         dissector_add_string("media_type", "message/sip", sip_handle);
+        dissector_add_string("ws.protocol", "sip", sip_handle);  /* RFC 7118 */
 
         dissector_add_uint_range_with_preference("tcp.port", DEFAULT_SIP_PORT_RANGE, sip_tcp_handle);
 

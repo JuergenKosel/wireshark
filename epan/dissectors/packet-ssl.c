@@ -1514,6 +1514,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
     guint8          next_byte;
     proto_tree     *ti;
     proto_tree     *ssl_record_tree;
+    proto_item     *pi;
     guint32         available_bytes;
 
     ti = NULL;
@@ -1635,8 +1636,11 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
     offset += 2;
 
     /* add the length */
-    proto_tree_add_uint(ssl_record_tree, hf_ssl_record_length, tvb,
+    pi = proto_tree_add_uint(ssl_record_tree, hf_ssl_record_length, tvb,
                         offset, 2, record_length);
+    if (record_length > TLS_MAX_RECORD_LENGTH) {
+        expert_add_info(pinfo, pi, &dissect_ssl3_hf.ei.record_length_invalid);
+    }
     offset += 2;    /* move past length field itself */
 
     /*
@@ -2057,7 +2061,7 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
 
             case SSL_HND_HELLO_RETRY_REQUEST:
                 ssl_dissect_hnd_hello_retry_request(&dissect_ssl3_hf, tvb, pinfo, ssl_hand_tree,
-                                                    offset, length, session, ssl);
+                                                    offset, length, session, ssl, FALSE);
                 break;
 
             case SSL_HND_CERTIFICATE:
@@ -4232,8 +4236,7 @@ proto_register_ssl(void)
     /* heuristic dissectors for any premable e.g. CredSSP before RDP */
     ssl_heur_subdissector_list = register_heur_dissector_list("ssl", proto_ssl);
 
-    register_dissector("ssl", dissect_ssl, proto_ssl);
-    ssl_handle = find_dissector("ssl");
+    ssl_handle = register_dissector("ssl", dissect_ssl, proto_ssl);
 
     register_init_routine(ssl_init);
     register_cleanup_routine(ssl_cleanup);

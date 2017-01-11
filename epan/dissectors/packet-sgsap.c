@@ -78,6 +78,8 @@ static int ett_sgsap_sel_cs_dmn_op = -1;
 static expert_field ei_sgsap_extraneous_data = EI_INIT;
 static expert_field ei_sgsap_missing_mandatory_element = EI_INIT;
 
+static dissector_handle_t sgsap_handle;
+
 static void get_sgsap_msg_params(guint8 oct, const gchar **msg_str, int *ett_tree, int *hf_idx, msg_fcn *msg_fcn_p);
 
 /*
@@ -1708,10 +1710,10 @@ void proto_register_sgsap(void) {
     expert_register_field_array(expert_sgsap, ei, array_length(ei));
 
     /* Register dissector */
-    register_dissector(PFNAME, dissect_sgsap, proto_sgsap);
+    sgsap_handle = register_dissector(PFNAME, dissect_sgsap, proto_sgsap);
 
    /* Set default SCTP ports */
-    range_convert_str(&global_sgsap_port_range, SGSAP_SCTP_PORT_RANGE, MAX_SCTP_PORT);
+    range_convert_str(wmem_epan_scope(), &global_sgsap_port_range, SGSAP_SCTP_PORT_RANGE, MAX_SCTP_PORT);
 
     sgsap_module = prefs_register_protocol(proto_sgsap, proto_reg_handoff_sgsap);
 
@@ -1729,10 +1731,8 @@ proto_reg_handoff_sgsap(void)
      * The payload protocol identifier to be used for SGsAP is 0.
      */
     static gboolean Initialized = FALSE;
-    static dissector_handle_t sgsap_handle;
     static range_t *sgsap_port_range;
 
-    sgsap_handle = find_dissector("sgsap");
     gsm_a_dtap_handle = find_dissector_add_dependency("gsm_a_dtap", proto_sgsap);
 
     if (!Initialized) {
@@ -1740,10 +1740,10 @@ proto_reg_handoff_sgsap(void)
         Initialized=TRUE;
     } else {
         dissector_delete_uint_range("sctp.port", sgsap_port_range, sgsap_handle);
-        g_free(sgsap_port_range);
+        wmem_free(wmem_epan_scope(), sgsap_port_range);
     }
 
-    sgsap_port_range = range_copy(global_sgsap_port_range);
+    sgsap_port_range = range_copy(wmem_epan_scope(), global_sgsap_port_range);
     dissector_add_uint_range("sctp.port", sgsap_port_range, sgsap_handle);
 }
 

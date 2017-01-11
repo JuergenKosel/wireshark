@@ -113,6 +113,8 @@ void UatDialog::setUat(epan_uat *uat)
 
         connect(uat_model_, SIGNAL(dataChanged(QModelIndex,QModelIndex)),
                 this, SLOT(modelDataChanged(QModelIndex)));
+        connect(uat_model_, SIGNAL(rowsRemoved(QModelIndex, int, int)),
+                this, SLOT(modelRowsRemoved()));
         connect(ui->uatTreeView, SIGNAL(currentItemChanged(QModelIndex,QModelIndex)),
                 this, SLOT(viewCurrentChanged(QModelIndex,QModelIndex)));
         ok_button_->setEnabled(!uat_model_->hasErrors());
@@ -132,6 +134,14 @@ void UatDialog::setUat(epan_uat *uat)
 void UatDialog::modelDataChanged(const QModelIndex &topLeft)
 {
     checkForErrorHint(topLeft, QModelIndex());
+    ok_button_->setEnabled(!uat_model_->hasErrors());
+}
+
+// Invoked after a row has been removed from the model.
+void UatDialog::modelRowsRemoved()
+{
+    const QModelIndex &current = ui->uatTreeView->currentIndex();
+    checkForErrorHint(current, QModelIndex());
     ok_button_->setEnabled(!uat_model_->hasErrors());
 }
 
@@ -188,7 +198,7 @@ bool UatDialog::trySetErrorHintFromField(const QModelIndex &index)
     const QVariant &data = uat_model_->data(index, Qt::UserRole + 1);
     if (!data.isNull()) {
         // use HTML instead of PlainText because that handles wordwrap properly
-        ui->hintLabel->setText(html_escape(data.toString()));
+        ui->hintLabel->setText("<small><i>" + html_escape(data.toString()) + "</i></small>");
         return true;
     }
     return false;

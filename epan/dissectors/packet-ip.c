@@ -262,6 +262,7 @@ static expert_field ei_ip_ttl_too_small = EI_INIT;
 static expert_field ei_ip_cipso_tag = EI_INIT;
 static expert_field ei_ip_bogus_ip_version = EI_INIT;
 
+static dissector_handle_t ip_handle;
 
 #ifdef HAVE_GEOIP
 static gint ett_geoip_info = -1;
@@ -569,7 +570,7 @@ ip_defragment_cleanup(void)
   reassembly_table_destroy(&ip_reassembly_table);
 }
 
-gboolean
+static gboolean
 capture_ip(const guchar *pd, int offset, int len, capture_packet_info_t *cpinfo, const union wtap_pseudo_header *pseudo_header _U_) {
   if (!BYTES_ARE_IN_FRAME(offset, len, IPH_MIN_LEN))
     return FALSE;
@@ -1528,9 +1529,8 @@ dissect_ipopt_qs(const ip_tcp_opt *optp, tvbuff_t *tvb, int offset,
     proto_tree_add_item(field_tree, hf_ip_opt_qs_rate, tvb, offset + 2, 1, ENC_NA);
     proto_tree_add_item(field_tree, hf_ip_opt_qs_ttl, tvb, offset + 3, 1, ENC_NA);
     ttl_diff = (iph->ip_ttl - tvb_get_guint8(tvb, offset + 3) % 256);
-    ti = proto_tree_add_uint_format_value(field_tree, hf_ip_opt_qs_ttl_diff,
-                                          tvb, offset + 3, 1, ttl_diff,
-                                          "%u", ttl_diff);
+    ti = proto_tree_add_uint(field_tree, hf_ip_opt_qs_ttl_diff,
+                                          tvb, offset + 3, 1, ttl_diff);
     PROTO_ITEM_SET_GENERATED(ti);
     proto_item_append_text(tf, ", %s, QS TTL %u, QS TTL diff %u",
                            val_to_str_ext(rate, &qs_rate_vals_ext, "Unknown (%u)"),
@@ -3121,7 +3121,7 @@ proto_register_ip(void)
     "Try to decode a packet using an heuristic sub-dissector before using a sub-dissector registered to a specific port",
     &try_heuristic_first);
 
-  register_dissector("ip", dissect_ip, proto_ip);
+  ip_handle = register_dissector("ip", dissect_ip, proto_ip);
   register_init_routine(ip_defragment_init);
   register_cleanup_routine(ip_defragment_cleanup);
   ip_tap = register_tap("ip");
@@ -3136,12 +3136,10 @@ proto_register_ip(void)
 void
 proto_reg_handoff_ip(void)
 {
-  dissector_handle_t ip_handle;
   dissector_handle_t ipv4_handle;
   capture_dissector_handle_t clip_cap_handle;
   int proto_clip;
 
-  ip_handle = find_dissector("ip");
   ipv6_handle = find_dissector("ipv6");
   ipv4_handle = create_dissector_handle(dissect_ip_v4, proto_ip);
 

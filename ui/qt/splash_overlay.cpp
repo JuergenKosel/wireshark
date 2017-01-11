@@ -33,6 +33,10 @@
 #include "epan/wslua/init_wslua.h"
 #endif
 
+#ifdef HAVE_EXTCAP
+#include "../../extcap.h"
+#endif
+
 // Uncomment to slow the update progress
 //#define THROTTLE_STARTUP 1
 
@@ -54,11 +58,15 @@ SplashOverlay::SplashOverlay(QWidget *parent) :
 {
     so_ui_->setupUi(this);
 
-    // Number of register action transitions (e.g. RA_NONE -> RA_DISSECTORS,
-    // RA_DISSECTORS -> RA_PLUGIN_REGISTER) minus two.
-    int register_add = 5;
+    // 6 for:
+    // dissectors, listeners, registering plugins, handingoff plugins,
+    // preferences, and interfaces
+    int register_add = 6;
 #ifdef HAVE_LUA
-      register_add += wslua_count_plugins();   /* get count of lua plugins */
+    register_add += wslua_count_plugins();   /* get count of lua plugins */
+#endif
+#ifdef HAVE_EXTCAP
+    register_add += extcap_count(); /* get count of extcap binaries */
 #endif
     so_ui_->progressBar->setMaximum((int)register_count() + register_add);
     elapsed_timer_.start();
@@ -139,6 +147,9 @@ void SplashOverlay::splashUpdate(register_action_e action, const char *message)
     case RA_LISTENERS:
         action_msg = tr("Initializing tap listeners");
         break;
+    case RA_EXTCAP:
+        action_msg = tr("Initializing extcap");
+        break;
     case RA_REGISTER:
         action_msg = tr("Registering dissectors");
         break;
@@ -162,9 +173,6 @@ void SplashOverlay::splashUpdate(register_action_e action, const char *message)
         break;
     case RA_INTERFACES:
         action_msg = tr("Finding local interfaces");
-        break;
-    case RA_CONFIGURATION:
-        action_msg = tr("Loading configuration files");
         break;
     default:
         action_msg = tr("(Unknown action)");

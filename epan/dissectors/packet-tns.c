@@ -43,7 +43,6 @@ static int hf_tns_packet_checksum = -1;
 static int hf_tns_header_checksum = -1;
 static int hf_tns_packet_type = -1;
 static int hf_tns_reserved_byte = -1;
-static int hf_tns_connect = -1;
 static int hf_tns_version = -1;
 static int hf_tns_compat_version = -1;
 
@@ -100,32 +99,26 @@ static int hf_tns_trace_cf1 = -1;
 static int hf_tns_trace_cf2 = -1;
 static int hf_tns_trace_cid = -1;
 
-static int hf_tns_accept = -1;
 static int hf_tns_accept_data_length = -1;
 static int hf_tns_accept_data_offset = -1;
 static int hf_tns_accept_data = -1;
 
-static int hf_tns_refuse = -1;
 static int hf_tns_refuse_reason_user = -1;
 static int hf_tns_refuse_reason_system = -1;
 static int hf_tns_refuse_data_length = -1;
 static int hf_tns_refuse_data = -1;
 
-static int hf_tns_abort = -1;
 static int hf_tns_abort_reason_user = -1;
 static int hf_tns_abort_reason_system = -1;
 static int hf_tns_abort_data = -1;
 
-static int hf_tns_marker = -1;
 static int hf_tns_marker_type = -1;
 static int hf_tns_marker_data_byte = -1;
 /* static int hf_tns_marker_data = -1; */
 
-static int hf_tns_redirect = -1;
 static int hf_tns_redirect_data_length = -1;
 static int hf_tns_redirect_data = -1;
 
-static int hf_tns_control = -1;
 static int hf_tns_control_cmd = -1;
 static int hf_tns_control_data = -1;
 
@@ -139,7 +132,20 @@ static int hf_tns_data_flag_eof = -1;
 static int hf_tns_data_flag_dic = -1;
 static int hf_tns_data_flag_rts = -1;
 static int hf_tns_data_flag_sntt = -1;
-static int hf_tns_data = -1;
+
+static int hf_tns_data_id = -1;
+static int hf_tns_data_length = -1;
+static int hf_tns_data_oci_id = -1;
+static int hf_tns_data_piggyback_id = -1;
+
+static int hf_tns_data_setp_acc_version = -1;
+static int hf_tns_data_setp_cli_plat = -1;
+static int hf_tns_data_setp_version = -1;
+static int hf_tns_data_setp_banner = -1;
+
+static int hf_tns_data_sns_cli_vers = -1;
+static int hf_tns_data_sns_srv_vers = -1;
+static int hf_tns_data_sns_srvcnt = -1;
 
 static gint ett_tns = -1;
 static gint ett_tns_connect = -1;
@@ -152,12 +158,37 @@ static gint ett_tns_attention = -1;
 static gint ett_tns_control = -1;
 static gint ett_tns_data = -1;
 static gint ett_tns_data_flag = -1;
+static gint ett_tns_acc_versions = -1;
 static gint ett_tns_sopt_flag = -1;
 static gint ett_tns_ntp_flag = -1;
 static gint ett_tns_conn_flag = -1;
 static gint ett_sql = -1;
 
 #define TCP_PORT_TNS			1521 /* Not IANA registered */
+
+static const int * tns_connect_flags[] = {
+	&hf_tns_conn_flag_nareq,
+	&hf_tns_conn_flag_nalink,
+	&hf_tns_conn_flag_enablena,
+	&hf_tns_conn_flag_ichg,
+	&hf_tns_conn_flag_wantna,
+	NULL
+};
+
+static const int * tns_service_options[] = {
+	&hf_tns_sopt_flag_bconn,
+	&hf_tns_sopt_flag_pc,
+	&hf_tns_sopt_flag_hc,
+	&hf_tns_sopt_flag_fd,
+	&hf_tns_sopt_flag_hd,
+	&hf_tns_sopt_flag_dc1,
+	&hf_tns_sopt_flag_dc2,
+	&hf_tns_sopt_flag_dio,
+	&hf_tns_sopt_flag_ap,
+	&hf_tns_sopt_flag_ra,
+	&hf_tns_sopt_flag_sa,
+	NULL
+};
 
 static const value_string tns_type_vals[] = {
 	{TNS_TYPE_CONNECT,   "Connect" },
@@ -175,6 +206,198 @@ static const value_string tns_type_vals[] = {
 	{0, NULL}
 };
 
+static const value_string tns_data_funcs[] = {
+	{SQLNET_SET_PROTOCOL,     "Set Protocol"},
+	{SQLNET_SET_DATATYPES,    "Set Datatypes"},
+	{SQLNET_USER_OCI_FUNC,    "User OCI Functions"},
+	{SQLNET_RETURN_STATUS,    "Return Status"},
+	{SQLNET_ACCESS_USR_ADDR,  "Access User Address Space"},
+	{SQLNET_ROW_TRANSF_HDR,   "Row Transfer Header"},
+	{SQLNET_ROW_TRANSF_DATA,  "Row Transfer Data"},
+	{SQLNET_RETURN_OPI_PARAM, "Return OPI Parameter"},
+	{SQLNET_FUNCCOMPLETE,     "Function Complete"},
+	{SQLNET_NERROR_RET_DEF,   "N Error return definitions follow"},
+	{SQLNET_IOVEC_4FAST_UPI,  "Sending I/O Vec only for fast UPI"},
+	{SQLNET_LONG_4FAST_UPI,   "Sending long for fast UPI"},
+	{SQLNET_INVOKE_USER_CB,   "Invoke user callback"},
+	{SQLNET_LOB_FILE_DF,      "LOB/FILE data follows"},
+	{SQLNET_WARNING,          "Warning messages - may be a set of them"},
+	{SQLNET_DESCRIBE_INFO,    "Describe Information"},
+	{SQLNET_PIGGYBACK_FUNC,   "Piggy back function follow"},
+	{SQLNET_SIG_4UCS,         "Signals special action for untrusted callout support"},
+	{SQLNET_FLUSH_BIND_DATA,  "Flush Out Bind data in DML/w RETURN when error"},
+	{SQLNET_XTRN_PROCSERV_R1, "External Procedures and Services Registrations"},
+	{SQLNET_XTRN_PROCSERV_R2, "External Procedures and Services Registrations"},
+	{SQLNET_SNS,              "Secure Network Services"},
+	{0, NULL}
+};
+
+static const value_string tns_data_oci_subfuncs[] = {
+	{1, "Logon to Oracle"},
+	{2, "Open Cursor"},
+	{3, "Parse a Row"},
+	{4, "Execute a Row"},
+	{5, "Fetch a Row"},
+	{8, "Close Cursor"},
+	{9, "Logoff of Oracle"},
+	{10, "Describe a select list column"},
+	{11, "Define where the column goes"},
+	{12, "Auto commit on"},
+	{13, "Auto commit off"},
+	{14, "Commit"},
+	{15, "Rollback"},
+	{16, "Set fatal error options"},
+	{17, "Resume current operation"},
+	{18, "Get Oracle version-date string"},
+	{19, "Until we get rid of OASQL"},
+	{20, "Cancel the current operation"},
+	{21, "Get error message"},
+	{22, "Exit Oracle command"},
+	{23, "Special function"},
+	{24, "Abort"},
+	{25, "Dequeue by RowID"},
+	{26, "Fetch a long column value"},
+	{27, "Create Access Module"},
+	{28, "Save Access Module Statement"},
+	{29, "Save Access Module"},
+	{30, "Parse Access Module Statement"},
+	{31, "How many items?"},
+	{32, "Initialize Oracle"},
+	{33, "Change User ID"},
+	{34, "Bind by reference positional"},
+	{35, "Get n'th Bind Variable"},
+	{36, "Get n'th Into Variable"},
+	{37, "Bind by reference"},
+	{38, "Bind by reference numeric"},
+	{39, "Parse and Execute"},
+	{40, "Parse for syntax (only)"},
+	{41, "Parse for syntax and SQL Dictionary lookup"},
+	{42, "Continue serving after EOF"},
+	{43, "Array describe"},
+	{44, "Init sys pars command table"},
+	{45, "Finalize sys pars command table"},
+	{46, "Put sys par in command table"},
+	{47, "Get sys pars from command table"},
+	{48, "Start Oracle (V6)"},
+	{49, "Shutdown Oracle (V6)"},
+	{50, "Run Independent Process (V6)"},
+	{51, "Test RAM (V6)"},
+	{52, "Archive operation (V6)"},
+	{53, "Media Recovery - start (V6)"},
+	{54, "Media Recovery - record tablespace to recover (V6)"},
+	{55, "Media Recovery - get starting log seq # (V6)"},
+	{56, "Media Recovery - recover using offline log (V6)"},
+	{57, "Media Recovery - cancel media recovery (V6)"},
+	{58, "Logon to Oracle (V6)"},
+	{59, "Get Oracle version-date string in new format"},
+	{60, "Initialize Oracle"},
+	{61, "Reserved for MAC; close all cursors"},
+	{62, "Bundled execution call"},
+	{65, "For direct loader: functions"},
+	{66, "For direct loader: buffer transfer"},
+	{67, "Distrib. trans. mgr. RPC"},
+	{68, "Describe indexes for distributed query"},
+	{69, "Session operations"},
+	{70, "Execute using synchronized system commit numbers"},
+	{71, "Fast UPI calls to OPIAL7"},
+	{72, "Long Fetch (V7)"},
+	{73, "Call OPIEXE from OPIALL: no two-task access"},
+	{74, "Parse Call (V7) to deal with various flavours"},
+	{76, "RPC call from PL/SQL"},
+	{77, "Do a KGL operation"},
+	{78, "Execute and Fetch"},
+	{79, "X/Open XA operation"},
+	{80, "New KGL operation call"},
+	{81, "2nd Half of Logon"},
+	{82, "1st Half of Logon"},
+	{83, "Do Streaming Operation"},
+	{84, "Open Session (71 interface)"},
+	{85, "X/Open XA operations (71 interface)"},
+	{86, "Debugging operations"},
+	{87, "Special debugging operations"},
+	{88, "XA Start"},
+	{89, "XA Switch and Commit"},
+	{90, "Direct copy from db buffers to client address"},
+	{91, "OKOD Call (In Oracle <= 7 this used to be Connect"},
+	{93, "RPI Callback with ctxdef"},
+	{94, "Bundled execution call (V7)"},
+	{95, "Do Streaming Operation without begintxn"},
+	{96, "LOB and FILE related calls"},
+	{97, "File Create call"},
+	{98, "Describe query (V8) call"},
+	{99, "Connect (non-blocking attach host)"},
+	{100, "Open a recursive cursor"},
+	{101, "Bundled KPR Execution"},
+	{102, "Bundled PL/SQL execution"},
+	{103, "Transaction start, attach, detach"},
+	{104, "Transaction commit, rollback, recover"},
+	{105, "Cursor close all"},
+	{106, "Failover into piggyback"},
+	{107, "Session switching piggyback (V8)"},
+	{108, "Do Dummy Defines"},
+	{109, "Init sys pars (V8)"},
+	{110, "Finalize sys pars (V8)"},
+	{111, "Put sys par in par space (V8)"},
+	{112, "Terminate sys pars (V8)"},
+	{114, "Init Untrusted Callbacks"},
+	{115, "Generic authentication call"},
+	{116, "FailOver Get Instance call"},
+	{117, "Oracle Transaction service Commit remote sites"},
+	{118, "Get the session key"},
+	{119, "Describe any (V8)"},
+	{120, "Cancel All"},
+	{121, "AQ Enqueue"},
+	{122, "AQ Dequeue"},
+	{123, "Object transfer"},
+	{124, "RFS Call"},
+	{125, "Kernel programmatic notification"},
+	{126, "Listen"},
+	{127, "Oracle Transaction service Commit remote sites (V >= 8.1.3)"},
+	{128, "Dir Path Prepare"},
+	{129, "Dir Path Load Stream"},
+	{130, "Dir Path Misc. Ops"},
+	{131, "Memory Stats"},
+	{132, "AQ Properties Status"},
+	{134, "Remote Fetch Archive Log FAL"},
+	{135, "Client ID propagation"},
+	{136, "DR Server CNX Process"},
+	{138, "SPFILE parameter put"},
+	{139, "KPFC exchange"},
+	{140, "Object Transfer (V8.2)"},
+	{141, "Push Transaction"},
+	{142, "Pop Transaction"},
+	{143, "KFN Operation"},
+	{144, "Dir Path Unload Stream"},
+	{145, "AQ batch enqueue dequeue"},
+	{146, "File Transfer"},
+	{147, "Ping"},
+	{148, "TSM"},
+	{150, "Begin TSM"},
+	{151, "End TSM"},
+	{152, "Set schema"},
+	{153, "Fetch from suspended result set"},
+	{154, "Key/Value pair"},
+	{155, "XS Create session Operation"},
+	{156, "XS Session Roundtrip Operation"},
+	{157, "XS Piggyback Operation"},
+	{158, "KSRPC Execution"},
+	{159, "Streams combined capture apply"},
+	{160, "AQ replay information"},
+	{161, "SSCR"},
+	{162, "Session Get"},
+	{163, "Session RLS"},
+	{165, "Workload replay data"},
+	{166, "Replay statistic data"},
+	{167, "Query Cache Stats"},
+	{168, "Query Cache IDs"},
+	{169, "RPC Test Stream"},
+	{170, "Replay PL/SQL RPC"},
+	{171, "XStream Out"},
+	{172, "Golden Gate RPC"},
+	{0, NULL}
+};
+static value_string_ext tns_data_oci_subfuncs_ext = VALUE_STRING_EXT_INIT(tns_data_oci_subfuncs);
+
 static const value_string tns_marker_types[] = {
 	{0, "Data Marker - 0 Data Bytes"},
 	{1, "Data Marker - 1 Data Bytes"},
@@ -188,411 +411,331 @@ static const value_string tns_control_cmds[] = {
 };
 
 void proto_reg_handoff_tns(void);
-static guint get_tns_pdu_len(packet_info *pinfo, tvbuff_t *tvb, int offset, void *data);
 static int dissect_tns_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_);
 
-static void dissect_tns_service_options(tvbuff_t *tvb, int offset,
-	proto_tree *sopt_tree)
+static guint get_data_func_id(tvbuff_t *tvb, int offset)
 {
+	/* Determine Data Function id */
+	guint8 first_byte;
 
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_bconn, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_pc, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_hc, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_fd, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_hd, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_dc1, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_dc2, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_dio, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_ap, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_ra, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(sopt_tree, hf_tns_sopt_flag_sa, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
+	first_byte =
+	    tvb_reported_length_remaining(tvb, offset) > 0 ? tvb_get_guint8(tvb, offset) : 0;
 
-}
-
-static void dissect_tns_connect_flag(tvbuff_t *tvb, int offset,
-	proto_tree *cflag_tree)
-{
-
-	proto_tree_add_item(cflag_tree, hf_tns_conn_flag_nareq, tvb, offset, 1, ENC_BIG_ENDIAN);
-	proto_tree_add_item(cflag_tree, hf_tns_conn_flag_nalink, tvb, offset, 1, ENC_BIG_ENDIAN);
-	proto_tree_add_item(cflag_tree, hf_tns_conn_flag_enablena, tvb, offset, 1, ENC_BIG_ENDIAN);
-	proto_tree_add_item(cflag_tree, hf_tns_conn_flag_ichg, tvb, offset, 1, ENC_BIG_ENDIAN);
-	proto_tree_add_item(cflag_tree, hf_tns_conn_flag_wantna, tvb, offset, 1, ENC_BIG_ENDIAN);
-}
-
-static void dissect_tns_data(tvbuff_t *tvb, int offset, packet_info *pinfo,
-	proto_tree *tree, proto_tree *tns_tree)
-{
-	proto_tree *data_tree = NULL, *ti;
-	proto_item *hidden_item;
-	int is_sns = 0;
-
-	if ( tvb_bytes_exist(tvb, offset+2, 4) )
+	if ( tvb_bytes_exist(tvb, offset, 4) && first_byte == 0xDE &&
+	     tvb_get_guint24(tvb, offset+1, ENC_BIG_ENDIAN) == 0xADBEEF )
 	{
-		if ( tvb_get_guint8(tvb, offset+2) == 0xDE &&
-		     tvb_get_guint8(tvb, offset+3) == 0xAD &&
-		     tvb_get_guint8(tvb, offset+4) == 0xBE &&
-		     tvb_get_guint8(tvb, offset+5) == 0xEF )
-		{
-			is_sns = 1;
-		}
-	}
-
-	if ( tree )
-	{
-		if ( is_sns )
-		{
-			data_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
-			    ett_tns_data, NULL, "Secure Network Services");
-		}
-		else
-		{
-			data_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
-			    ett_tns_data, NULL, "Data");
-		}
-
-		hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_data, tvb, 0, 0,
-					TRUE);
-		PROTO_ITEM_SET_HIDDEN(hidden_item);
-	}
-
-	if ( tree )
-	{
-		proto_tree *df_tree = NULL;
-
-		ti = proto_tree_add_item(data_tree, hf_tns_data_flag, tvb, offset, 2, ENC_BIG_ENDIAN);
-
-		df_tree = proto_item_add_subtree(ti, ett_tns_data_flag);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_send, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_rc, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_c, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_more, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_eof, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_dic, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_rts, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(df_tree, hf_tns_data_flag_sntt, tvb, offset, 2, ENC_BIG_ENDIAN);
-	}
-	offset += 2;
-
-	if ( is_sns )
-	{
-		col_append_str(pinfo->cinfo, COL_INFO, ", SNS");
+		return SQLNET_SNS;
 	}
 	else
 	{
-		col_append_str(pinfo->cinfo, COL_INFO, ", Data");
+		return (guint)first_byte;
+	}
+}
+
+static void vsnum_to_vstext_basecustom(gchar *result, guint32 vsnum)
+{
+	/*
+	 * Translate hex value to human readable version value, described at
+	 * http://docs.oracle.com/cd/B28359_01/server.111/b28310/dba004.htm
+	 */
+	g_snprintf(result, ITEM_LABEL_LENGTH, "%d.%d.%d.%d.%d",
+		 vsnum >> 24,
+		(vsnum >> 20) & 0xf,
+		(vsnum >> 12) & 0xf,
+		(vsnum >>  8) & 0xf,
+		 vsnum & 0xff);
+}
+
+static void dissect_tns_data(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tns_tree)
+{
+	proto_tree *data_tree;
+	guint data_func_id;
+	gboolean is_request;
+	static const int * flags[] = {
+		&hf_tns_data_flag_send,
+		&hf_tns_data_flag_rc,
+		&hf_tns_data_flag_c,
+		&hf_tns_data_flag_reserved,
+		&hf_tns_data_flag_more,
+		&hf_tns_data_flag_eof,
+		&hf_tns_data_flag_dic,
+		&hf_tns_data_flag_rts,
+		&hf_tns_data_flag_sntt,
+		NULL
+	};
+
+	is_request = pinfo->match_uint == pinfo->destport;
+	data_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1, ett_tns_data, NULL, "Data");
+
+	proto_tree_add_bitmask(data_tree, tvb, offset, hf_tns_data_flag, ett_tns_data_flag, flags, ENC_BIG_ENDIAN);
+	offset += 2;
+	data_func_id = get_data_func_id(tvb, offset);
+
+	/* Do this only if the Data message have a body. Otherwise, there are only Data flags. */
+	if ( tvb_reported_length_remaining(tvb, offset) > 0 )
+	{
+		col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", val_to_str_const(data_func_id, tns_data_funcs, "unknown"));
+
+		if ( (data_func_id != SQLNET_SNS) && (try_val_to_str(data_func_id, tns_data_funcs) != NULL) )
+		{
+			proto_tree_add_item(data_tree, hf_tns_data_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+			offset += 1;
+		}
+	}
+
+	/* Handle data functions that have more than just ID */
+	switch (data_func_id)
+	{
+		case SQLNET_SET_PROTOCOL:
+		{
+			proto_tree *versions_tree;
+			proto_item *ti;
+			char sep;
+			if ( is_request )
+			{
+				versions_tree = proto_tree_add_subtree(data_tree, tvb, offset, -1, ett_tns_acc_versions, &ti, "Accepted Versions");
+				sep = ':';
+				for (;;) {
+					/*
+					 * Add each accepted version as a
+					 * separate item.
+					 */
+					guint8 vers;
+
+					vers = tvb_get_guint8(tvb, offset);
+					if (vers == 0) {
+						/*
+						 * A version of 0 terminates
+						 * the list.
+						 */
+						break;
+					}
+					proto_item_append_text(ti, "%c %u", sep, vers);
+					sep = ',';
+					proto_tree_add_uint(versions_tree, hf_tns_data_setp_acc_version, tvb, offset, 1, vers);
+					offset += 1;
+				}
+				offset += 1; /* skip the 0 terminator */
+				proto_item_set_end(ti, tvb, offset);
+				proto_tree_add_item(data_tree, hf_tns_data_setp_cli_plat, tvb, offset, -1, ENC_ASCII|ENC_NA);
+
+				return; /* skip call_data_dissector */
+			}
+			else
+			{
+				gint len;
+				versions_tree = proto_tree_add_subtree(data_tree, tvb, offset, -1, ett_tns_acc_versions, &ti, "Versions");
+				sep = ':';
+				for (;;) {
+					/*
+					 * Add each version as a separate item.
+					 */
+					guint8 vers;
+
+					vers = tvb_get_guint8(tvb, offset);
+					if (vers == 0) {
+						/*
+						 * A version of 0 terminates
+						 * the list.
+						 */
+						break;
+					}
+					proto_item_append_text(ti, "%c %u", sep, vers);
+					sep = ',';
+					proto_tree_add_uint(versions_tree, hf_tns_data_setp_version, tvb, offset, 1, vers);
+					offset += 1;
+				}
+				offset += 1; /* skip the 0 terminator */
+				proto_item_set_end(ti, tvb, offset);
+				proto_tree_add_item_ret_length(data_tree, hf_tns_data_setp_banner, tvb, offset, -1, ENC_ASCII|ENC_NA, &len);
+				offset += len;
+			}
+			break;
+		}
+
+		case SQLNET_USER_OCI_FUNC:
+			proto_tree_add_item(data_tree, hf_tns_data_oci_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+			offset += 1;
+			break;
+
+		case SQLNET_PIGGYBACK_FUNC:
+			proto_tree_add_item(data_tree, hf_tns_data_piggyback_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+			offset += 1;
+			break;
+
+		case SQLNET_SNS:
+		{
+			proto_tree_add_item(data_tree, hf_tns_data_id, tvb, offset, 4, ENC_BIG_ENDIAN);
+			offset += 4;
+			proto_tree_add_item(data_tree, hf_tns_data_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset += 2;
+
+			if ( is_request )
+			{
+				proto_tree_add_item(data_tree, hf_tns_data_sns_cli_vers, tvb, offset, 4, ENC_BIG_ENDIAN);
+			}
+			else
+			{
+				proto_tree_add_item(data_tree, hf_tns_data_sns_srv_vers, tvb, offset, 4, ENC_BIG_ENDIAN);
+			}
+			offset += 4;
+
+			proto_tree_add_item(data_tree, hf_tns_data_sns_srvcnt, tvb, offset, 2, ENC_BIG_ENDIAN);
+
+			/* move back, to include data_id into data_dissector */
+			offset -= 10;
+			break;
+		}
 	}
 
 	call_data_dissector(tvb_new_subset_remaining(tvb, offset), pinfo, data_tree);
-
-	return;
 }
 
-static void dissect_tns_connect(tvbuff_t *tvb, int offset, packet_info *pinfo,
-	proto_tree *tree, proto_tree *tns_tree)
+static void dissect_tns_connect(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tns_tree)
 {
-	proto_tree *connect_tree = NULL, *ti;
-	proto_item *hidden_item;
-	int cd_offset;
-	int cd_len;
+	proto_tree *connect_tree;
+	guint32 cd_offset, cd_len;
 	int tns_offset = offset-8;
+	static const int * flags[] = {
+		&hf_tns_ntp_flag_hangon,
+		&hf_tns_ntp_flag_crel,
+		&hf_tns_ntp_flag_tduio,
+		&hf_tns_ntp_flag_srun,
+		&hf_tns_ntp_flag_dtest,
+		&hf_tns_ntp_flag_cbio,
+		&hf_tns_ntp_flag_asio,
+		&hf_tns_ntp_flag_pio,
+		&hf_tns_ntp_flag_grant,
+		&hf_tns_ntp_flag_handoff,
+		&hf_tns_ntp_flag_sigio,
+		&hf_tns_ntp_flag_sigpipe,
+		&hf_tns_ntp_flag_sigurg,
+		&hf_tns_ntp_flag_urgentio,
+		&hf_tns_ntp_flag_fdio,
+		&hf_tns_ntp_flag_testop,
+		NULL
+	};
 
-	if ( tree )
-	{
-		connect_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
-		    ett_tns_connect, NULL, "Connect");
+	connect_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
+		ett_tns_connect, NULL, "Connect");
 
-		hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_connect, tvb,
-				    0, 0, TRUE);
-		PROTO_ITEM_SET_HIDDEN(hidden_item);
-	}
-
-	col_append_str(pinfo->cinfo, COL_INFO, ", Connect");
-
-	if ( connect_tree )
-	{
-		proto_tree_add_item(connect_tree, hf_tns_version, tvb,
+	proto_tree_add_item(connect_tree, hf_tns_version, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
-	}
 	offset += 2;
 
-	if ( connect_tree )
-	{
-		proto_tree_add_item(connect_tree, hf_tns_compat_version, tvb,
+	proto_tree_add_item(connect_tree, hf_tns_compat_version, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
-	}
 	offset += 2;
 
-	if ( connect_tree )
-	{
-		proto_tree *sopt_tree = NULL;
-
-		ti = proto_tree_add_item(connect_tree, hf_tns_service_options, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-
-		sopt_tree = proto_item_add_subtree(ti, ett_tns_sopt_flag);
-
-		dissect_tns_service_options(tvb, offset, sopt_tree);
-
-
-	}
+	proto_tree_add_bitmask(connect_tree, tvb, offset, hf_tns_service_options, ett_tns_sopt_flag, tns_service_options, ENC_BIG_ENDIAN);
 	offset += 2;
 
-	if ( connect_tree )
-	{
-		proto_tree_add_item(connect_tree, hf_tns_sdu_size, tvb,
+	proto_tree_add_item(connect_tree, hf_tns_sdu_size, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
-	}
 	offset += 2;
 
-	if ( connect_tree )
-	{
-		proto_tree_add_item(connect_tree, hf_tns_max_tdu_size, tvb,
+	proto_tree_add_item(connect_tree, hf_tns_max_tdu_size, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
-	}
 	offset += 2;
 
-	if ( connect_tree )
-	{
-		proto_tree *ntp_tree = NULL;
-
-		ti = proto_tree_add_item(connect_tree, hf_tns_nt_proto_characteristics, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
-
-		ntp_tree = proto_item_add_subtree(ti, ett_tns_ntp_flag);
-
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_hangon, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_crel, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_tduio, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_srun, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_dtest, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_cbio, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_asio, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_pio, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_grant, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_handoff, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_sigio, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_sigpipe, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_sigurg, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_urgentio, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_fdio, tvb, offset, 2, ENC_BIG_ENDIAN);
-		proto_tree_add_item(ntp_tree, hf_tns_ntp_flag_testop, tvb, offset, 2, ENC_BIG_ENDIAN);
-	}
+	proto_tree_add_bitmask(connect_tree, tvb, offset, hf_tns_nt_proto_characteristics, ett_tns_ntp_flag, flags, ENC_BIG_ENDIAN);
 	offset += 2;
 
-	if ( connect_tree )
-	{
-		proto_tree_add_item(connect_tree, hf_tns_line_turnaround, tvb,
+	proto_tree_add_item(connect_tree, hf_tns_line_turnaround, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
-	}
 	offset += 2;
 
-	if ( connect_tree )
-	{
-		proto_tree_add_item(connect_tree, hf_tns_value_of_one, tvb,
+	proto_tree_add_item(connect_tree, hf_tns_value_of_one, tvb,
 			offset, 2, ENC_NA);
-	}
 	offset += 2;
 
-	cd_len = tvb_get_ntohs(tvb, offset);
-	if ( connect_tree )
-	{
-		proto_tree_add_uint(connect_tree, hf_tns_connect_data_length, tvb,
-			offset, 2, cd_len);
-	}
+	proto_tree_add_item_ret_uint(connect_tree, hf_tns_connect_data_length, tvb,
+			offset, 2, ENC_BIG_ENDIAN, &cd_len);
 	offset += 2;
 
-	cd_offset = tvb_get_ntohs(tvb, offset);
-	if ( connect_tree )
-	{
-		proto_tree_add_uint(connect_tree, hf_tns_connect_data_offset, tvb,
-			offset, 2, cd_offset);
-	}
+	proto_tree_add_item_ret_uint(connect_tree, hf_tns_connect_data_offset, tvb,
+			offset, 2, ENC_BIG_ENDIAN, &cd_offset);
 	offset += 2;
 
-	if ( connect_tree )
-	{
-		proto_tree_add_item(connect_tree, hf_tns_connect_data_max, tvb,
+	proto_tree_add_item(connect_tree, hf_tns_connect_data_max, tvb,
 			offset, 4, ENC_BIG_ENDIAN);
-	}
 	offset += 4;
 
-	if ( connect_tree )
-	{
-		proto_tree *cflag_tree = NULL;
-
-		ti = proto_tree_add_item(connect_tree, hf_tns_connect_flags0, tvb,
-			offset, 1, ENC_BIG_ENDIAN);
-
-		cflag_tree = proto_item_add_subtree(ti, ett_tns_conn_flag);
-
-		dissect_tns_connect_flag(tvb, offset, cflag_tree);
-	}
+	proto_tree_add_bitmask(connect_tree, tvb, offset, hf_tns_connect_flags0, ett_tns_conn_flag, tns_connect_flags, ENC_BIG_ENDIAN);
 	offset += 1;
 
-	if ( connect_tree )
-	{
-		proto_tree *cflag_tree = NULL;
-
-		ti = proto_tree_add_item(connect_tree, hf_tns_connect_flags1, tvb,
-			offset, 1, ENC_BIG_ENDIAN);
-
-		cflag_tree = proto_item_add_subtree(ti, ett_tns_conn_flag);
-
-		dissect_tns_connect_flag(tvb, offset, cflag_tree);
-	}
+	proto_tree_add_bitmask(connect_tree, tvb, offset, hf_tns_connect_flags1, ett_tns_conn_flag, tns_connect_flags, ENC_BIG_ENDIAN);
 	offset += 1;
 
 	/*
 	 * XXX - sometimes it appears that this stuff isn't present
 	 * in the packet.
 	 */
-	if (offset + 16 <= tns_offset+cd_offset)
+	if ((guint32)(offset + 16) <= tns_offset+cd_offset)
 	{
-		if ( connect_tree )
-		{
-			proto_tree_add_item(connect_tree, hf_tns_trace_cf1, tvb,
+		proto_tree_add_item(connect_tree, hf_tns_trace_cf1, tvb,
 				offset, 4, ENC_BIG_ENDIAN);
-		}
 		offset += 4;
 
-		if ( connect_tree )
-		{
-			proto_tree_add_item(connect_tree, hf_tns_trace_cf2, tvb,
+		proto_tree_add_item(connect_tree, hf_tns_trace_cf2, tvb,
 				offset, 4, ENC_BIG_ENDIAN);
-		}
 		offset += 4;
 
-		if ( connect_tree )
-		{
-			proto_tree_add_item(connect_tree, hf_tns_trace_cid, tvb,
+		proto_tree_add_item(connect_tree, hf_tns_trace_cid, tvb,
 				offset, 8, ENC_BIG_ENDIAN);
-		}
 		/* offset += 8;*/
 	}
 
-	if ( connect_tree && cd_len > 0)
+	if ( cd_len > 0)
 	{
 		proto_tree_add_item(connect_tree, hf_tns_connect_data, tvb,
 			tns_offset+cd_offset, -1, ENC_ASCII|ENC_NA);
 	}
-	return;
 }
 
-static void dissect_tns_accept(tvbuff_t *tvb, int offset, packet_info *pinfo,
-	proto_tree *tree _U_, proto_tree *tns_tree)
+static void dissect_tns_accept(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tns_tree)
 {
-	proto_tree *accept_tree, *ti;
-	proto_item *hidden_item;
-	int accept_offset;
-	int accept_len;
+	proto_tree *accept_tree;
+	guint32 accept_offset, accept_len;
 	int tns_offset = offset-8;
 
 	accept_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
 		    ett_tns_accept, NULL, "Accept");
 
-	hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_accept, tvb,
-				    0, 0, TRUE);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
-
-	col_append_str(pinfo->cinfo, COL_INFO, ", Accept");
-
 	proto_tree_add_item(accept_tree, hf_tns_version, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
 	offset += 2;
 
-	if ( accept_tree )
-	{
-		proto_tree *sopt_tree = NULL;
-
-		ti = proto_tree_add_item(accept_tree, hf_tns_service_options,
-			tvb, offset, 2, ENC_BIG_ENDIAN);
-
-		sopt_tree = proto_item_add_subtree(ti, ett_tns_sopt_flag);
-
-		dissect_tns_service_options(tvb, offset, sopt_tree);
-
-	}
+	proto_tree_add_bitmask(accept_tree, tvb, offset, hf_tns_service_options, ett_tns_sopt_flag, tns_service_options, ENC_BIG_ENDIAN);
 	offset += 2;
 
-	if ( accept_tree )
-	{
-		proto_tree_add_item(accept_tree, hf_tns_sdu_size, tvb,
+	proto_tree_add_item(accept_tree, hf_tns_sdu_size, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
-	}
 	offset += 2;
 
-	if ( accept_tree )
-	{
-		proto_tree_add_item(accept_tree, hf_tns_max_tdu_size, tvb,
+	proto_tree_add_item(accept_tree, hf_tns_max_tdu_size, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
-	}
 	offset += 2;
 
-	if ( accept_tree )
-	{
-		proto_tree_add_item(accept_tree, hf_tns_value_of_one, tvb,
+	proto_tree_add_item(accept_tree, hf_tns_value_of_one, tvb,
 			offset, 2, ENC_NA);
-	}
 	offset += 2;
 
-	accept_len = tvb_get_ntohs(tvb, offset);
-	if ( accept_tree )
-	{
-		proto_tree_add_uint(accept_tree, hf_tns_accept_data_length, tvb,
-			offset, 2, accept_len);
-	}
+	proto_tree_add_item_ret_uint(accept_tree, hf_tns_accept_data_length, tvb,
+			offset, 2, ENC_BIG_ENDIAN, &accept_len);
 	offset += 2;
 
-	accept_offset = tvb_get_ntohs(tvb, offset);
-	if ( accept_tree )
-	{
-		proto_tree_add_uint(accept_tree, hf_tns_accept_data_offset, tvb,
-			offset, 2, accept_offset);
-	}
+	proto_tree_add_item_ret_uint(accept_tree, hf_tns_accept_data_offset, tvb,
+			offset, 2, ENC_BIG_ENDIAN, &accept_offset);
 	offset += 2;
 
-	if ( accept_tree )
-	{
-		proto_tree *cflag_tree = NULL;
-
-		ti = proto_tree_add_item(accept_tree, hf_tns_connect_flags0, tvb,
-			offset, 1, ENC_BIG_ENDIAN);
-
-		cflag_tree = proto_item_add_subtree(ti, ett_tns_conn_flag);
-
-		dissect_tns_connect_flag(tvb, offset, cflag_tree);
-
-	}
+	proto_tree_add_bitmask(accept_tree, tvb, offset, hf_tns_connect_flags0, ett_tns_conn_flag, tns_connect_flags, ENC_BIG_ENDIAN);
 	offset += 1;
 
-	if ( accept_tree )
-	{
-		proto_tree *cflag_tree = NULL;
-
-		ti = proto_tree_add_item(accept_tree, hf_tns_connect_flags1, tvb,
-			offset, 1, ENC_BIG_ENDIAN);
-
-		cflag_tree = proto_item_add_subtree(ti, ett_tns_conn_flag);
-
-		dissect_tns_connect_flag(tvb, offset, cflag_tree);
-
-	}
+	proto_tree_add_bitmask(accept_tree, tvb, offset, hf_tns_connect_flags1, ett_tns_conn_flag, tns_connect_flags, ENC_BIG_ENDIAN);
 	/* offset += 1; */
 
-	if ( accept_tree && accept_len > 0)
+	if ( accept_len > 0)
 	{
 		proto_tree_add_item(accept_tree, hf_tns_accept_data, tvb,
 			tns_offset+accept_offset, -1, ENC_ASCII|ENC_NA);
@@ -601,20 +744,12 @@ static void dissect_tns_accept(tvbuff_t *tvb, int offset, packet_info *pinfo,
 }
 
 
-static void dissect_tns_refuse(tvbuff_t *tvb, int offset, packet_info *pinfo,
-	proto_tree *tree _U_, proto_tree *tns_tree)
+static void dissect_tns_refuse(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tns_tree)
 {
 	proto_tree *refuse_tree;
-	proto_item *hidden_item;
 
 	refuse_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
 		    ett_tns_refuse, NULL, "Refuse");
-
-	hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_refuse, tvb,
-				    0, 0, TRUE);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
-
-	col_append_str(pinfo->cinfo, COL_INFO, ", Refuse");
 
 	proto_tree_add_item(refuse_tree, hf_tns_refuse_reason_user, tvb,
 			offset, 1, ENC_BIG_ENDIAN);
@@ -633,20 +768,12 @@ static void dissect_tns_refuse(tvbuff_t *tvb, int offset, packet_info *pinfo,
 }
 
 
-static void dissect_tns_abort(tvbuff_t *tvb, int offset, packet_info *pinfo,
-	proto_tree *tree _U_, proto_tree *tns_tree)
+static void dissect_tns_abort(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tns_tree)
 {
 	proto_tree *abort_tree;
-	proto_item *hidden_item;
 
 	abort_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
 		    ett_tns_abort, NULL, "Abort");
-
-	hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_abort, tvb,
-				    0, 0, TRUE);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
-
-	col_append_str(pinfo->cinfo, COL_INFO, ", Abort");
 
 	proto_tree_add_item(abort_tree, hf_tns_abort_reason_user, tvb,
 			offset, 1, ENC_BIG_ENDIAN);
@@ -661,28 +788,20 @@ static void dissect_tns_abort(tvbuff_t *tvb, int offset, packet_info *pinfo,
 }
 
 
-static void dissect_tns_marker(tvbuff_t *tvb, int offset, packet_info *pinfo,
-	proto_tree *tree _U_, proto_tree *tns_tree, int is_attention)
+static void dissect_tns_marker(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tns_tree, int is_attention)
 {
 	proto_tree *marker_tree;
-	proto_item *hidden_item;
 
 	if ( is_attention )
 	{
-		col_append_str(pinfo->cinfo, COL_INFO, ", Marker");
 		marker_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
 			    ett_tns_marker, NULL, "Marker");
 	}
 	else
 	{
-		col_append_str(pinfo->cinfo, COL_INFO, ", Attention");
 		marker_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
 			    ett_tns_marker, NULL, "Attention");
 	}
-
-	hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_marker, tvb,
-				    0, 0, TRUE);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
 
 	proto_tree_add_item(marker_tree, hf_tns_marker_type, tvb,
 			offset, 1, ENC_BIG_ENDIAN);
@@ -697,20 +816,12 @@ static void dissect_tns_marker(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	/*offset += 1;*/
 }
 
-static void dissect_tns_redirect(tvbuff_t *tvb, int offset, packet_info *pinfo,
-	proto_tree *tree _U_, proto_tree *tns_tree)
+static void dissect_tns_redirect(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tns_tree)
 {
 	proto_tree *redirect_tree;
-	proto_item *hidden_item;
 
 	redirect_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
 		    ett_tns_redirect, NULL, "Redirect");
-
-	hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_redirect, tvb,
-				    0, 0, TRUE);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
-
-	col_append_str(pinfo->cinfo, COL_INFO, ", Redirect");
 
 	proto_tree_add_item(redirect_tree, hf_tns_redirect_data_length, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
@@ -720,20 +831,12 @@ static void dissect_tns_redirect(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			offset, -1, ENC_ASCII|ENC_NA);
 }
 
-static void dissect_tns_control(tvbuff_t *tvb, int offset, packet_info *pinfo,
-	proto_tree *tree _U_, proto_tree *tns_tree)
+static void dissect_tns_control(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tns_tree)
 {
 	proto_tree *control_tree;
-	proto_item *hidden_item;
 
 	control_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1,
 		    ett_tns_control, NULL, "Control");
-
-	hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_control, tvb,
-				    0, 0, TRUE);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
-
-	col_append_str(pinfo->cinfo, COL_INFO, ", Control");
 
 	proto_tree_add_item(control_tree, hf_tns_control_cmd, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
@@ -747,15 +850,26 @@ static guint
 get_tns_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
 {
 	/*
-	 * Get the length of the TNS message, including header
+	 * Get the 16-bit length of the TNS message, including header
 	 */
 	return tvb_get_ntohs(tvb, offset);
+}
+
+static guint
+get_tns_pdu_len_nochksum(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
+{
+	/*
+	 * Get the 32-bit length of the TNS message, including header
+	 */
+	return tvb_get_ntohl(tvb, offset);
 }
 
 static int
 dissect_tns(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-	guint8 type;
+	guint32 length;
+	guint16 chksum;
+	guint8  type;
 
 	/*
 	 * First, do a sanity check to make sure what we have
@@ -771,70 +885,86 @@ dissect_tns(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 			return 0;	/* it's not a known type */
 	}
 
-	tcp_dissect_pdus(tvb, pinfo, tree, tns_desegment, 2,
-	    get_tns_pdu_len, dissect_tns_pdu, data);
+	/*
+	 * In some messages (observed in Oracle12c) packet length has 4 bytes
+	 * instead of 2.
+	 *
+	 * If packet length has 2 bytes, length and checksum equals two unsigned
+	 * 16-bit numbers. Packet checksum is generally unused (equal zero),
+	 * but 10g client may set 2nd byte to 4.
+	 *
+	 * Else, Oracle 12c combine these two 16-bit numbers into one 32-bit.
+	 * This number represents the packet length. Checksum is omitted.
+	 */
+	chksum = tvb_get_ntohs(tvb, 2);
+
+	length = (chksum == 0 || chksum == 4) ? 2 : 4;
+
+	tcp_dissect_pdus(tvb, pinfo, tree, tns_desegment, length,
+			(length == 2 ? get_tns_pdu_len : get_tns_pdu_len_nochksum),
+			dissect_tns_pdu, data);
+
 	return tvb_captured_length(tvb);
 }
 
 static int
 dissect_tns_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-	proto_tree      *tns_tree = NULL, *ti;
+	proto_tree *tns_tree, *ti;
 	proto_item *hidden_item;
 	int offset = 0;
-	guint16 length;
-	guint16 type;
+	guint32 length;
+	guint16 chksum;
+	guint8  type;
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "TNS");
 
 	col_set_str(pinfo->cinfo, COL_INFO,
 			(pinfo->match_uint == pinfo->destport) ? "Request" : "Response");
 
-	if (tree)
+	ti = proto_tree_add_item(tree, proto_tns, tvb, 0, -1, ENC_NA);
+	tns_tree = proto_item_add_subtree(ti, ett_tns);
+
+	if (pinfo->match_uint == pinfo->destport)
 	{
-		ti = proto_tree_add_item(tree, proto_tns, tvb, 0, -1, ENC_NA);
-		tns_tree = proto_item_add_subtree(ti, ett_tns);
-
-		if (pinfo->match_uint == pinfo->destport)
-		{
-			hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_request,
-					   tvb, offset, 0, TRUE);
-		}
-		else
-		{
-			hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_response,
-					    tvb, offset, 0, TRUE);
-		}
-		PROTO_ITEM_SET_HIDDEN(hidden_item);
+		hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_request,
+					tvb, offset, 0, TRUE);
 	}
-
-	length = tvb_get_ntohs(tvb, offset);
-	if (tree)
+	else
 	{
-		proto_tree_add_uint(tns_tree, hf_tns_length, tvb,
-			offset, 2, length);
+		hidden_item = proto_tree_add_boolean(tns_tree, hf_tns_response,
+					tvb, offset, 0, TRUE);
 	}
-	offset += 2;
+	PROTO_ITEM_SET_HIDDEN(hidden_item);
 
-	proto_tree_add_checksum(tns_tree, tvb, offset, hf_tns_packet_checksum, -1, NULL, pinfo, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
-	offset += 2;
+	chksum = tvb_get_ntohs(tvb, offset+2);
+	if (chksum == 0 || chksum == 4)
+	{
+		proto_tree_add_item_ret_uint(tns_tree, hf_tns_length, tvb, offset,
+					2, ENC_BIG_ENDIAN, &length);
+		offset += 2;
+		proto_tree_add_checksum(tns_tree, tvb, offset, hf_tns_packet_checksum,
+					-1, NULL, pinfo, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
+		offset += 2;
+	}
+	else
+	{
+		/* Oracle 12c uses checksum bytes as part of the packet length. */
+		proto_tree_add_item_ret_uint(tns_tree, hf_tns_length, tvb, offset,
+					4, ENC_BIG_ENDIAN, &length);
+		offset += 4;
+	}
 
 	type = tvb_get_guint8(tvb, offset);
-	if ( tree )
-	{
-		proto_tree_add_uint(tns_tree, hf_tns_packet_type, tvb,
+	proto_tree_add_uint(tns_tree, hf_tns_packet_type, tvb,
 			offset, 1, type);
-	}
 	offset += 1;
 
 	col_append_fstr(pinfo->cinfo, COL_INFO, ", %s (%u)",
 			val_to_str_const(type, tns_type_vals, "Unknown"), type);
 
-	if ( tree )
-	{
-		proto_tree_add_item(tns_tree, hf_tns_reserved_byte, tvb,
+	proto_tree_add_item(tns_tree, hf_tns_reserved_byte, tvb,
 			offset, 1, ENC_NA);
-	}
 	offset += 1;
 
 	proto_tree_add_checksum(tns_tree, tvb, offset, hf_tns_header_checksum, -1, NULL, pinfo, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
@@ -843,31 +973,31 @@ dissect_tns_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
 	switch (type)
 	{
 		case TNS_TYPE_CONNECT:
-			dissect_tns_connect(tvb,offset,pinfo,tree,tns_tree);
+			dissect_tns_connect(tvb,offset,pinfo,tns_tree);
 			break;
 		case TNS_TYPE_ACCEPT:
-			dissect_tns_accept(tvb,offset,pinfo,tree,tns_tree);
+			dissect_tns_accept(tvb,offset,pinfo,tns_tree);
 			break;
 		case TNS_TYPE_REFUSE:
-			dissect_tns_refuse(tvb,offset,pinfo,tree,tns_tree);
+			dissect_tns_refuse(tvb,offset,pinfo,tns_tree);
 			break;
 		case TNS_TYPE_REDIRECT:
-			dissect_tns_redirect(tvb,offset,pinfo,tree,tns_tree);
+			dissect_tns_redirect(tvb,offset,pinfo,tns_tree);
 			break;
 		case TNS_TYPE_ABORT:
-			dissect_tns_abort(tvb,offset,pinfo,tree,tns_tree);
+			dissect_tns_abort(tvb,offset,pinfo,tns_tree);
 			break;
 		case TNS_TYPE_MARKER:
-			dissect_tns_marker(tvb,offset,pinfo,tree,tns_tree, 0);
+			dissect_tns_marker(tvb,offset,pinfo,tns_tree, 0);
 			break;
 		case TNS_TYPE_ATTENTION:
-			dissect_tns_marker(tvb,offset,pinfo,tree,tns_tree, 1);
+			dissect_tns_marker(tvb,offset,pinfo,tns_tree, 1);
 			break;
 		case TNS_TYPE_CONTROL:
-			dissect_tns_control(tvb,offset,pinfo,tree,tns_tree);
+			dissect_tns_control(tvb,offset,pinfo,tns_tree);
 			break;
 		case TNS_TYPE_DATA:
-			dissect_tns_data(tvb,offset,pinfo,tree,tns_tree);
+			dissect_tns_data(tvb,offset,pinfo,tns_tree);
 			break;
 		default:
 			call_data_dissector(tvb_new_subset_remaining(tvb, offset), pinfo,
@@ -1012,9 +1142,6 @@ void proto_register_tns(void)
 			"Value of 1 in Hardware", "tns.value_of_one", FT_BYTES, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
 
-		{ &hf_tns_connect, {
-			"Connect", "tns.connect", FT_BOOLEAN, BASE_NONE,
-			NULL, 0x0, NULL, HFILL }},
 		{ &hf_tns_connect_data_length, {
 			"Length of Connect Data", "tns.connect_data_length", FT_UINT16, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }},
@@ -1062,9 +1189,6 @@ void proto_register_tns(void)
 			"Connect Data", "tns.connect_data", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
 
-		{ &hf_tns_accept, {
-			"Accept", "tns.accept", FT_BOOLEAN, BASE_NONE,
-			NULL, 0x0, NULL, HFILL }},
 		{ &hf_tns_accept_data_length, {
 			"Accept Data Length", "tns.accept_data_length", FT_UINT16, BASE_DEC,
 			NULL, 0x0, "Length of Accept Data", HFILL }},
@@ -1075,10 +1199,6 @@ void proto_register_tns(void)
 			"Offset to Accept Data", "tns.accept_data_offset", FT_UINT16, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }},
 
-
-		{ &hf_tns_refuse, {
-			"Refuse", "tns.refuse", FT_BOOLEAN, BASE_NONE,
-			NULL, 0x0, NULL, HFILL }},
 		{ &hf_tns_refuse_reason_user, {
 			"Refuse Reason (User)", "tns.refuse_reason_user", FT_UINT8, BASE_HEX,
 			NULL, 0x0, "Refuse Reason from Application", HFILL }},
@@ -1092,9 +1212,6 @@ void proto_register_tns(void)
 			"Refuse Data", "tns.refuse_data", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
 
-		{ &hf_tns_abort, {
-			"Abort", "tns.abort", FT_BOOLEAN, BASE_NONE,
-			NULL, 0x0, NULL, HFILL }},
 		{ &hf_tns_abort_reason_user, {
 			"Abort Reason (User)", "tns.abort_reason_user", FT_UINT8, BASE_HEX,
 			NULL, 0x0, "Abort Reason from Application", HFILL }},
@@ -1105,9 +1222,6 @@ void proto_register_tns(void)
 			"Abort Data", "tns.abort_data", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
 
-		{ &hf_tns_marker, {
-			"Marker", "tns.marker", FT_BOOLEAN, BASE_NONE,
-			NULL, 0x0, NULL, HFILL }},
 		{ &hf_tns_marker_type, {
 			"Marker Type", "tns.marker.type", FT_UINT8, BASE_HEX,
 			VALS(tns_marker_types), 0x0, NULL, HFILL }},
@@ -1120,9 +1234,6 @@ void proto_register_tns(void)
 			NULL, 0x0, NULL, HFILL }},
 #endif
 
-		{ &hf_tns_control, {
-			"Control", "tns.control", FT_BOOLEAN, BASE_NONE,
-			NULL, 0x0, NULL, HFILL }},
 		{ &hf_tns_control_cmd, {
 			"Control Command", "tns.control.cmd", FT_UINT16, BASE_HEX,
 			VALS(tns_control_cmds), 0x0, NULL, HFILL }},
@@ -1130,18 +1241,11 @@ void proto_register_tns(void)
 			"Control Data", "tns.control.data", FT_BYTES, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
 
-		{ &hf_tns_redirect, {
-			"Redirect", "tns.redirect", FT_BOOLEAN, BASE_NONE,
-			NULL, 0x0, NULL, HFILL }},
 		{ &hf_tns_redirect_data_length, {
 			"Redirect Data Length", "tns.redirect_data_length", FT_UINT16, BASE_DEC,
 			NULL, 0x0, "Length of Redirect Data", HFILL }},
 		{ &hf_tns_redirect_data, {
 			"Redirect Data", "tns.redirect_data", FT_STRING, BASE_NONE,
-			NULL, 0x0, NULL, HFILL }},
-
-		{ &hf_tns_data, {
-			"Data", "tns.data", FT_BOOLEAN, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
 
 		{ &hf_tns_data_flag, {
@@ -1175,6 +1279,46 @@ void proto_register_tns(void)
 			"Send NT Trailer", "tns.data_flag.sntt", FT_BOOLEAN, 16,
 			NULL, 0x200, NULL, HFILL }},
 
+		{ &hf_tns_data_id, {
+			"Data ID", "tns.data_id", FT_UINT8, BASE_HEX,
+			VALS(tns_data_funcs), 0x0, NULL, HFILL }},
+		{ &hf_tns_data_length, {
+			"Data Length", "tns.data_length", FT_UINT16, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }},
+
+		{ &hf_tns_data_oci_id, {
+			"Call ID", "tns.data_oci.id", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+			&tns_data_oci_subfuncs_ext, 0x00, NULL, HFILL }},
+
+		{ &hf_tns_data_piggyback_id, {
+			/* Also Call ID.
+			   Piggyback is a message what calls a small subset of functions
+			   declared in tns_data_oci_subfuncs. */
+			"Call ID", "tns.data_piggyback.id", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+			&tns_data_oci_subfuncs_ext, 0x00, NULL, HFILL }},
+
+		{ &hf_tns_data_setp_acc_version, {
+			"Accepted Version", "tns.data_setp_req.acc_vers", FT_UINT8, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_setp_cli_plat, {
+			"Client Platform", "tns.data_setp_req.cli_plat", FT_STRINGZ, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_setp_version, {
+			"Version", "tns.data_setp_resp.version", FT_UINT8, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_setp_banner, {
+			"Server Banner", "tns.data_setp_resp.banner", FT_STRINGZ, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }},
+
+		{ &hf_tns_data_sns_cli_vers, {
+			"Client Version", "tns.data_sns.cli_vers", FT_UINT32, BASE_CUSTOM,
+			CF_FUNC(vsnum_to_vstext_basecustom), 0x0, NULL, HFILL }},
+		{ &hf_tns_data_sns_srv_vers, {
+			"Server Version", "tns.data_sns.srv_vers", FT_UINT32, BASE_CUSTOM,
+			CF_FUNC(vsnum_to_vstext_basecustom), 0x0, NULL, HFILL }},
+		{ &hf_tns_data_sns_srvcnt, {
+			"Services", "tns.data_sns.srvcnt", FT_UINT16, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }},
 
 		{ &hf_tns_reserved_byte, {
 			"Reserved Byte", "tns.reserved_byte", FT_BYTES, BASE_NONE,
@@ -1197,6 +1341,7 @@ void proto_register_tns(void)
 		&ett_tns_control,
 		&ett_tns_data,
 		&ett_tns_data_flag,
+		&ett_tns_acc_versions,
 		&ett_tns_sopt_flag,
 		&ett_tns_ntp_flag,
 		&ett_tns_conn_flag,

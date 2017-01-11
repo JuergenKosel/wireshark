@@ -170,7 +170,14 @@ plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
             dot = strrchr(name, '.');
             if (dot == NULL || strcmp(dot+1, G_MODULE_SUFFIX) != 0)
                 continue;
-
+#if WIN32
+            if (strncmp(name, "nordic_ble.dll", 14) == 0)
+                /*
+                 * Skip the Nordic BLE Sniffer dll on WIN32 because
+                 * the dissector has been added as internal.
+                 */
+                continue;
+#endif
             g_snprintf(filename, FILENAME_LEN, "%s" G_DIR_SEPARATOR_S "%s",
                        dirname, name);
             if ((handle = g_module_open(filename, G_MODULE_BIND_LOCAL)) == NULL)
@@ -276,9 +283,9 @@ scan_plugins(plugin_load_failure_mode mode)
     char *plugin_dir_path;
     char *plugins_pers_dir;
     WS_DIR *dir;                /* scanned directory */
-    WS_DIRENT *file;                /* current file */
+    WS_DIRENT *file;            /* current file */
 
-    if (plugin_list == NULL)      /* ensure scan_plugins is only run once */
+    if (plugin_list == NULL)    /* only scan for plugins once */
     {
         /*
          * Scan the global plugin directory.
@@ -288,6 +295,11 @@ scan_plugins(plugin_load_failure_mode mode)
          * they will contain plugins in the case of an in-tree build.
          */
         plugin_dir = get_plugin_dir();
+        if (plugin_dir == NULL)
+        {
+            /* We couldn't find the plugin directory. */
+            return;
+        }
         if (running_in_build_directory())
         {
             if ((dir = ws_dir_open(plugin_dir, 0, NULL)) != NULL)

@@ -94,10 +94,17 @@ void
 software_update_init(void) {
     const char *update_url = get_appcast_update_url(prefs.gui_update_channel);
 
+    /*
+     * According to the WinSparkle 0.5 documentation these must be called
+     * once, before win_sparkle_init. We can't update them dynamically when
+     * our preferences change.
+     */
     win_sparkle_set_registry_path("Software\\Wireshark\\WinSparkle Settings");
     win_sparkle_set_appcast_url(update_url);
     win_sparkle_set_automatic_check_for_updates(prefs.gui_update_enabled ? 1 : 0);
     win_sparkle_set_update_check_interval(prefs.gui_update_interval);
+    win_sparkle_set_can_shutdown_callback(software_update_can_shutdown_callback);
+    win_sparkle_set_shutdown_request_callback(software_update_shutdown_request_callback);
     win_sparkle_init();
 }
 
@@ -131,10 +138,20 @@ software_update_check(void) {
 }
 
 /** Clean up software update checking.
- *
- * Does nothing on platforms that don't support software updates.
  */
-extern void software_update_cleanup(void) {
+void software_update_cleanup(void) {
+}
+
+/** Check to see if Wireshark can shut down safely (e.g. offer to save the
+ *  current capture).
+ */
+int software_update_can_shutdown_callback(void) {
+    return FALSE;
+}
+
+/** Shut down Wireshark in preparation for an upgrade.
+ */
+void software_update_shutdown_request_callback(void) {
 }
 
 #endif /* defined(HAVE_SOFTWARE_UPDATE) && defined (_WIN32) */

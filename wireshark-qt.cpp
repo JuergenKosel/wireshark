@@ -63,9 +63,7 @@
 #include <epan/dissectors/packet-kerberos.h>
 #endif
 
-#ifdef HAVE_PLUGINS
 #include <codecs/codecs.h>
-#endif
 
 #ifdef HAVE_EXTCAP
 #include <extcap.h>
@@ -125,6 +123,21 @@
 #if (QT_VERSION < QT_VERSION_CHECK(5, 0, 0))
 #include <QTextCodec>
 #endif
+
+//#define DEBUG_STARTUP_TIME 1
+/*
+# Log level
+# Console log level (for debugging)
+# A bitmask of log levels:
+# ERROR    = 4
+# CRITICAL = 8
+# WARNING  = 16
+# MESSAGE  = 32
+# INFO     = 64
+# DEBUG    = 128
+
+*/
+#define DEBUG_STARTUP_TIME_LOGLEVEL 252
 
 /* update the main window */
 void main_window_update(void)
@@ -218,6 +231,8 @@ get_gui_compiled_info(GString *str)
 #else
     g_string_append(str, "without AirPcap");
 #endif
+
+    codec_get_compiled_version_info(str);
 }
 
 // xxx copied from ../gtk/main.c
@@ -340,7 +355,15 @@ int main(int argc, char *qt_argv[])
     GString             *runtime_info_str = NULL;
 
     QString              dfilter, read_filter;
-
+    /* Start time in microseconds*/
+    guint64 start_time = g_get_monotonic_time();
+#ifdef DEBUG_STARTUP_TIME
+    /* At least on Windows there is a problem with the loging as the preferences is taken
+     * into account and the preferences are loaded pretty late in the startup process.
+     */
+    prefs.console_log_level = DEBUG_STARTUP_TIME_LOGLEVEL;
+    prefs.gui_console_open = console_open_always;
+#endif /* DEBUG_STARTUP_TIME */
     cmdarg_err_init(wireshark_cmdarg_err, wireshark_cmdarg_err_cont);
 
     // In Qt 5, C strings are treated always as UTF-8 when converted to
@@ -375,7 +398,8 @@ int main(int argc, char *qt_argv[])
     relinquish_special_privs_perm();
 
     /*
-     * Attempt to get the pathname of the executable file.
+     * Attempt to get the pathname of the directory containing the
+     * executable file.
      */
     /* init_progfile_dir_error = */ init_progfile_dir(argv[0],
         (int (*)(int, char **)) get_gui_compiled_info);
@@ -527,6 +551,9 @@ int main(int argc, char *qt_argv[])
 #endif
 
     set_console_log_handler();
+#ifdef DEBUG_STARTUP_TIME
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "set_console_log_handler, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
 
 #ifdef HAVE_LIBPCAP
     /* Set the initial values in the capture options. This might be overwritten
@@ -537,12 +564,11 @@ int main(int argc, char *qt_argv[])
     init_report_err(vfailure_alert_box, open_failure_alert_box,
                     read_failure_alert_box, write_failure_alert_box);
 
-    init_open_routines();
+    wtap_init();
 
 #ifdef HAVE_PLUGINS
     /* Register all the plugin types we have. */
     epan_register_plugin_types(); /* Types known to libwireshark */
-    wtap_register_plugin_types(); /* Types known to libwiretap */
     codec_register_plugin_types(); /* Types known to libwscodecs */
 
     /* Scan for plugins.  This does *not* call their registration routines;
@@ -551,11 +577,15 @@ int main(int argc, char *qt_argv[])
 
     /* Register all libwiretap plugin modules. */
     register_all_wiretap_modules();
+#endif
 
     /* Register all audio codec plugins. */
     register_all_codecs();
-#endif
 
+    splash_update(RA_DISSECTORS, NULL, NULL);
+#ifdef DEBUG_STARTUP_TIME
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling epan init, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
     /* Register all dissectors; we must do this before checking for the
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
@@ -565,6 +595,12 @@ int main(int argc, char *qt_argv[])
         SimpleDialog::displayQueuedMessages(main_w);
         return 2;
     }
+#ifdef DEBUG_STARTUP_TIME
+    /* epan_init resets the preferences */
+    prefs.console_log_level = DEBUG_STARTUP_TIME_LOGLEVEL;
+    prefs.gui_console_open = console_open_always;
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "epan done, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
 
     // Read the dynamic part of the recent file. This determines whether or
     // not the recent list appears in the main window so the earlier we can
@@ -577,7 +613,9 @@ int main(int argc, char *qt_argv[])
     }
 
     splash_update(RA_LISTENERS, NULL, NULL);
-
+#ifdef DEBUG_STARTUP_TIME
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Register all tap listeners, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
     /* Register all tap listeners; we do this before we parse the arguments,
        as the "-z" argument can specify a registered tap. */
 
@@ -586,10 +624,6 @@ int main(int argc, char *qt_argv[])
             by stats_tree_stat.c and need to registered before that */
 #ifdef HAVE_PLUGINS
     register_all_plugin_tap_listeners();
-#endif
-
-#ifdef HAVE_EXTCAP
-    extcap_register_preferences();
 #endif
 
     register_all_tap_listeners();
@@ -603,7 +637,15 @@ int main(int argc, char *qt_argv[])
         in_file_type = open_info_name_to_type(ex_opt_get_next("read_format"));
     }
 
+#ifdef HAVE_EXTCAP
+#ifdef DEBUG_STARTUP_TIME
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling extcap_register_preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
+    splash_update(RA_EXTCAP, NULL, NULL);
+    extcap_register_preferences();
+#endif
     splash_update(RA_PREFERENCES, NULL, NULL);
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling module preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 
     global_commandline_info.prefs_p = ws_app.readConfigurationFiles(&gdp_path, &dp_path, false);
 
@@ -627,6 +669,9 @@ int main(int argc, char *qt_argv[])
     timestamp_set_seconds_type (recent.gui_seconds_format);
 
 #ifdef HAVE_LIBPCAP
+#ifdef DEBUG_STARTUP_TIME
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling fill_in_local_interfaces, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
     splash_update(RA_INTERFACES, NULL, NULL);
 
     fill_in_local_interfaces(main_window_update);
@@ -686,9 +731,13 @@ int main(int argc, char *qt_argv[])
     capture_opts_trim_ring_num_files(&global_capture_opts);
 #endif /* HAVE_LIBPCAP */
 
+
     /* Notify all registered modules that have had any of their preferences
        changed either from one of the preferences file or from the command
        line that their preferences have changed. */
+#ifdef DEBUG_STARTUP_TIME
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling prefs_apply_all, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
     prefs_apply_all();
     wsApp->emitAppSignal(WiresharkApplication::PreferencesChanged);
 
@@ -713,6 +762,7 @@ int main(int argc, char *qt_argv[])
     /* disabled protocols as per configuration file */
     if (gdp_path == NULL && dp_path == NULL) {
         set_disabled_protos_list();
+        set_enabled_protos_list();
         set_disabled_heur_dissector_list();
     }
 
@@ -721,6 +771,14 @@ int main(int argc, char *qt_argv[])
         for (proto_disable = global_dissect_options.disable_protocol_slist; proto_disable != NULL; proto_disable = g_slist_next(proto_disable))
         {
             proto_disable_proto_by_name((char*)proto_disable->data);
+        }
+    }
+
+    if(global_dissect_options.enable_protocol_slist) {
+        GSList *proto_enable;
+        for (proto_enable = global_dissect_options.enable_protocol_slist; proto_enable != NULL; proto_enable = g_slist_next(proto_enable))
+        {
+            proto_enable_proto_by_name((char*)proto_enable->data);
         }
     }
 
@@ -777,7 +835,7 @@ int main(int argc, char *qt_argv[])
 #endif /* HAVE_LIBPCAP */
 
     wsApp->allSystemsGo();
-    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Wireshark is up and ready to go");
+    g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Wireshark is up and ready to go, elapsed time %" G_GUINT64_FORMAT "us \n", g_get_monotonic_time() - start_time);
     SimpleDialog::displayQueuedMessages(main_w);
 
     /* User could specify filename, or display filter, or both */

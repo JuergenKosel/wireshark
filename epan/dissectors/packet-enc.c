@@ -42,10 +42,12 @@ struct enchdr {
 };
 #define BSD_ENC_HDRLEN    12
 
-#define BSD_ENC_M_CONF          0x0400  /* payload encrypted */
-#define BSD_ENC_M_AUTH          0x0800  /* payload authenticated */
-#define BSD_ENC_M_COMP          0x1000  /* payload compressed */
-#define BSD_ENC_M_AUTH_AH       0x2000  /* header authenticated */
+#define BSD_ENC_M_CONF          0x00000400  /* payload encrypted */
+#define BSD_ENC_M_AUTH          0x00000800  /* payload authenticated */
+#define BSD_ENC_M_COMP          0x00001000  /* payload compressed */
+#define BSD_ENC_M_AUTH_AH       0x00002000  /* header authenticated */
+
+#define BSD_ENC_M_RESERVED      0xFFFFC3FF  /* Reserved/unused flags */
 
 static dissector_table_t enc_dissector_table;
 
@@ -58,6 +60,7 @@ static int hf_enc_flags_payload_enc = -1;
 static int hf_enc_flags_payload_auth = -1;
 static int hf_enc_flags_payload_compress = -1;
 static int hf_enc_flags_header_auth = -1;
+static int hf_enc_flags_reserved = -1;
 
 static gint ett_enc = -1;
 static gint ett_enc_flag = -1;
@@ -93,12 +96,13 @@ dissect_enc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     &hf_enc_flags_payload_auth,
     &hf_enc_flags_payload_compress,
     &hf_enc_flags_header_auth,
+    &hf_enc_flags_reserved,
     NULL
   };
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "ENC");
 
-  ench.af = tvb_get_ntohl(tvb, 0);
+  ench.af = tvb_get_h_guint32(tvb, 0);
   ench.spi = tvb_get_ntohl(tvb, 4);
 
   if (tree) {
@@ -109,9 +113,9 @@ dissect_enc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                                         ench.spi);
     enc_tree = proto_item_add_subtree(ti, ett_enc);
 
-    proto_tree_add_item(enc_tree, hf_enc_af, tvb, 0, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item(enc_tree, hf_enc_af, tvb, 0, 4, ENC_HOST_ENDIAN);
     proto_tree_add_item(enc_tree, hf_enc_spi, tvb, 4, 4, ENC_BIG_ENDIAN);
-    proto_tree_add_bitmask(enc_tree, tvb, 8, hf_enc_flags, ett_enc_flag, flags, ENC_BIG_ENDIAN);
+    proto_tree_add_bitmask(enc_tree, tvb, 8, hf_enc_flags, ett_enc_flag, flags, ENC_HOST_ENDIAN);
   }
 
   /* Set the tvbuff for the payload after the header */
@@ -139,13 +143,16 @@ proto_register_enc(void)
       { "Payload encrypted", "enc.flags.payload_enc", FT_BOOLEAN, 32, NULL, BSD_ENC_M_CONF,
         NULL, HFILL }},
     { &hf_enc_flags_payload_auth,
-      { "Payload encrypted", "enc.flags.payload_auth", FT_BOOLEAN, 32, NULL, BSD_ENC_M_AUTH,
+      { "Payload authenticated", "enc.flags.payload_auth", FT_BOOLEAN, 32, NULL, BSD_ENC_M_AUTH,
         NULL, HFILL }},
     { &hf_enc_flags_payload_compress,
-      { "Payload encrypted", "enc.flags.payload_compress", FT_BOOLEAN, 32, NULL, BSD_ENC_M_COMP,
+      { "Payload compressed", "enc.flags.payload_compress", FT_BOOLEAN, 32, NULL, BSD_ENC_M_COMP,
         NULL, HFILL }},
     { &hf_enc_flags_header_auth,
-      { "Payload encrypted", "enc.flags.header_auth", FT_BOOLEAN, 32, NULL, BSD_ENC_M_AUTH_AH,
+      { "Header authenticated", "enc.flags.header_auth", FT_BOOLEAN, 32, NULL, BSD_ENC_M_AUTH_AH,
+        NULL, HFILL }},
+    { &hf_enc_flags_reserved,
+      { "Reserved", "enc.flags.reserved", FT_UINT32, BASE_HEX, NULL, BSD_ENC_M_RESERVED,
         NULL, HFILL }},
   };
   static gint *ett[] =

@@ -153,6 +153,8 @@ static gint ett_bfd_auth = -1;
 static expert_field ei_bfd_auth_len_invalid = EI_INIT;
 static expert_field ei_bfd_auth_no_data = EI_INIT;
 
+static dissector_handle_t bfd_control_handle = NULL;
+
 static gint hf_mep_type = -1;
 static gint hf_mep_len = -1;
 static gint hf_mep_global_id = -1;
@@ -480,8 +482,7 @@ dissect_bfd_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
                                          bfd_detect_time_multiplier,
                                          bfd_detect_time_multiplier * (bfd_desired_min_tx_interval/1000));
 
-        proto_tree_add_uint_format_value(bfd_tree, hf_bfd_message_length, tvb, 3, 1, bfd_length,
-                "%u bytes", bfd_length);
+        proto_tree_add_uint(bfd_tree, hf_bfd_message_length, tvb, 3, 1, bfd_length);
 
         proto_tree_add_uint(bfd_tree, hf_bfd_my_discriminator, tvb, 4,
                                  4, bfd_my_discriminator);
@@ -713,7 +714,7 @@ proto_register_bfd(void)
         },
         { &hf_bfd_message_length,
           { "Message Length", "bfd.message_length",
-            FT_UINT8, BASE_DEC, NULL, 0x0,
+            FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0,
             "Length of the BFD Control packet, in bytes", HFILL }
         },
         { &hf_bfd_my_discriminator,
@@ -853,7 +854,7 @@ proto_register_bfd(void)
     proto_bfd = proto_register_protocol("Bidirectional Forwarding Detection Control Message",
                                         "BFD Control",
                                         "bfd");
-    register_dissector("bfd", dissect_bfd_control, proto_bfd);
+    bfd_control_handle = register_dissector("bfd", dissect_bfd_control, proto_bfd);
 
     /* Required function calls to register the header fields and subtrees used */
     proto_register_field_array(proto_bfd, hf, array_length(hf));
@@ -865,9 +866,6 @@ proto_register_bfd(void)
 void
 proto_reg_handoff_bfd(void)
 {
-    dissector_handle_t bfd_control_handle;
-
-    bfd_control_handle = find_dissector("bfd");
     dissector_add_uint_range_with_preference("udp.port", UDP_PORT_RANGE_BFD, bfd_control_handle);
 
     dissector_add_uint("pwach.channel_type", PW_ACH_TYPE_BFD_CC, bfd_control_handle);

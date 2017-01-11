@@ -2403,9 +2403,8 @@ dissect_ptp_v2_timeInterval(tvbuff_t *tvb, guint16 *cur_offset, proto_tree *tree
     proto_tree_add_uint64_format_value(ptptimeInterval_subtree,
         hf_ptp_v2_timeInterval_ns, tvb, *cur_offset, 6, time_ns, "Ns: %" G_GINT64_MODIFIER "d nanoseconds", time_ns);
 
-    proto_tree_add_double_format_value(ptptimeInterval_subtree,
-        hf_ptp_v2_timeInterval_subns, tvb, *cur_offset+6, 2, (time_subns/65536.0),
-        "%f nanoseconds", (time_subns/65536.0));
+    proto_tree_add_double(ptptimeInterval_subtree,
+        hf_ptp_v2_timeInterval_subns, tvb, *cur_offset+6, 2, (time_subns/65536.0));
 
     *cur_offset = *cur_offset + 8;
 }
@@ -3103,7 +3102,6 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                     gint8   log_inter_message_period;
                     gdouble period = 0.0f;
                     gdouble rate   = 0.0f;
-                    guint32 duration_field;
 
                     proto_item *ptp_tlv_period;
                     proto_tree *ptp_tlv_period_tree;
@@ -3151,10 +3149,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                                                                 tlv_offset + PTP_V2_SIG_TLV_LOG_INTER_MESSAGE_PERIOD_OFFSET, PTP_V2_SIG_TLV_LOG_INTER_MESSAGE_PERIOD_LEN, log_inter_message_period, "%lg packets/sec", rate);
 
                                 /* 16.1.4.1.5 durationField */
-                                duration_field = tvb_get_ntohl(tvb, tlv_offset + PTP_V2_SIG_TLV_DURATION_FIELD_OFFSET);
-
-                                proto_tree_add_uint_format_value(ptp_tlv_tree, hf_ptp_v2_sig_tlv_durationField, tvb,
-                                                                 tlv_offset + PTP_V2_SIG_TLV_DURATION_FIELD_OFFSET, PTP_V2_SIG_TLV_DURATION_FIELD_LEN, duration_field, "%u seconds", duration_field);
+                                proto_tree_add_item(ptp_tlv_tree, hf_ptp_v2_sig_tlv_durationField, tvb,
+                                                                 tlv_offset + PTP_V2_SIG_TLV_DURATION_FIELD_OFFSET, PTP_V2_SIG_TLV_DURATION_FIELD_LEN, ENC_BIG_ENDIAN);
 
                                 break;
 
@@ -3182,10 +3178,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                                                                 tlv_offset + PTP_V2_SIG_TLV_LOG_INTER_MESSAGE_PERIOD_OFFSET, PTP_V2_SIG_TLV_LOG_INTER_MESSAGE_PERIOD_LEN, log_inter_message_period, "%lg packets/sec", rate);
 
                                 /* 16.1.4.2.5 durationField */
-                                duration_field = tvb_get_ntohl(tvb, tlv_offset + PTP_V2_SIG_TLV_DURATION_FIELD_OFFSET);
-
-                                proto_tree_add_uint_format_value(ptp_tlv_tree, hf_ptp_v2_sig_tlv_durationField, tvb,
-                                                                 tlv_offset + PTP_V2_SIG_TLV_DURATION_FIELD_OFFSET, PTP_V2_SIG_TLV_DURATION_FIELD_LEN, duration_field, "%u seconds", duration_field);
+                                proto_tree_add_item(ptp_tlv_tree, hf_ptp_v2_sig_tlv_durationField, tvb,
+                                                                 tlv_offset + PTP_V2_SIG_TLV_DURATION_FIELD_OFFSET, PTP_V2_SIG_TLV_DURATION_FIELD_LEN, ENC_BIG_ENDIAN);
 
                                 /* 16.1.4.2.6 renewalInvited */
                                 proto_tree_add_item(ptp_tlv_tree, hf_ptp_v2_sig_tlv_renewalInvited, tvb,
@@ -5032,7 +5026,7 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_correctionsubns,
           { "correctionSubNs",           "ptp.v2.correction.subns",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_clockidentity,
@@ -5451,7 +5445,7 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_sig_tlv_durationField,
           { "durationField",                "ptp.v2.sig.tlv.durationField",
-            FT_UINT32, BASE_DEC, NULL, 0x00,
+            FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_second_seconds, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_renewalInvited,
@@ -5933,7 +5927,7 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_mm_offset_subns,
           { "SubNs",           "ptp.v2.mm.offset.subns",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_pathDelay_ns,
@@ -5943,7 +5937,7 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_mm_pathDelay_subns,
           { "SubNs",           "ptp.v2.mm.pathDelay.subns",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_PortNumber,
@@ -5968,7 +5962,7 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_mm_peerMeanPathDelay_subns,
           { "SubNs",           "ptp.v2.mm.peerMeanPathDelay.subns",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_logAnnounceInterval,

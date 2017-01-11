@@ -64,8 +64,8 @@ static gboolean lbm_uimflow_add_to_graph(seq_analysis_info_t * seq_info, packet_
     }
     if (stream_info->endpoint_a.type == lbm_uim_instance_stream)
     {
-        rc = memcmp((void *)stream_info->endpoint_a.stream_info.ctxinst.ctxinst,
-            (void *)stream_info->endpoint_b.stream_info.ctxinst.ctxinst,
+        rc = memcmp((const void *)stream_info->endpoint_a.stream_info.ctxinst.ctxinst,
+            (const void *)stream_info->endpoint_b.stream_info.ctxinst.ctxinst,
             LBM_CONTEXT_INSTANCE_BLOCK_SZ);
         if (rc <= 0)
         {
@@ -565,7 +565,7 @@ void LBMUIMFlowDialog::resetAxes(bool keep_lower)
         left_pos = sp->xAxis2->range().lower;
     }
 
-    double range_ratio = sp->xAxis2->axisRect()->width() / m_node_label_width;
+    double range_ratio = sp->xAxis2->axisRect()->width() / m_node_label_width * sp->axisRect()->rangeZoomFactor(Qt::Horizontal);
     sp->xAxis2->setRange(left_pos, range_ratio + left_pos);
 
     range_ratio = sp->yAxis->axisRect()->height() / (m_one_em * 1.5);

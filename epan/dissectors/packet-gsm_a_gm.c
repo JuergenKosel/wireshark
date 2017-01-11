@@ -57,7 +57,7 @@
  *   Mobile radio interface Layer 3 specification;
  *   Core network protocols;
  *   Stage 3
- *   (3GPP TS 24.008 version 13.7.0 Release 13)
+ *   (3GPP TS 24.008 version 13.8.0 Release 13)
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -551,12 +551,15 @@ static gint ett_sm_pco = -1;
 static expert_field ei_gsm_a_gm_extraneous_data = EI_INIT;
 static expert_field ei_gsm_a_gm_not_enough_data = EI_INIT;
 static expert_field ei_gsm_a_gm_undecoded = EI_INIT;
+static expert_field ei_gsm_a_gm_apn_too_long = EI_INIT;
 
 static dissector_handle_t rrc_irat_ho_info_handle;
 static dissector_handle_t lte_rrc_ue_eutra_cap_handle;
 static dissector_handle_t nbifom_handle;
 
 static dissector_table_t gprs_sm_pco_subdissector_table; /* GPRS SM PCO PPP Protocols */
+
+static const unit_name_string units_message_messages = { " message", " messages" };
 
 #define	NUM_GSM_GM_ELEM (sizeof(gsm_gm_elem_strings)/sizeof(value_string))
 gint ett_gsm_gm_elem[NUM_GSM_GM_ELEM];
@@ -1439,7 +1442,7 @@ static const value_string gsm_a_gm_ul_egprs2_vals[] = {
 	{ 0x00, "The mobile station does not support either EGPRS2-A or EGPRS2-B in the uplink" },
 	{ 0x01, "The mobile station supports EGPRS2-A in the uplink" },
 	{ 0x02, "The mobile station supports both EGPRS2-A and EGPRS2-B in the uplink" },
-	{ 0x03, "This value is not used in this release/version of the specifications. If received it shall be interpreted as 'The mobile station supports both EGPRS2-A and EGPRS2-B in the uplink'" },
+	{ 0x03, "The mobile station supports both EGPRS2-A and EGPRS2-B in the uplink" },
 	{ 0, NULL }
 };
 
@@ -1447,15 +1450,15 @@ static const value_string gsm_a_gm_dl_egprs2_vals[] = {
 	{ 0x00, "The mobile station does not support either EGPRS2-A or EGPRS2-B in the downlink" },
 	{ 0x01, "The mobile station supports EGPRS2-A in the downlink" },
 	{ 0x02, "The mobile station supports both EGPRS2-A and EGPRS2-B in the downlink" },
-	{ 0x03, "This value is not used in this release/version of the specifications. If received it shall be interpreted as 'The mobile station supports both EGPRS2-A and EGPRS2-B in the downlink'" },
+	{ 0x03, "The mobile station supports both EGPRS2-A and EGPRS2-B in the downlink" },
 	{ 0, NULL }
 };
 
 static const value_string gsm_a_gm_geran_to_eutra_support_in_geran_ptm_vals[] = {
 	{ 0x00, "None" },
-	{ 0x01, "E-UTRAN Neighbour Cell measurements and MS autonomous cell reselection to E-UTRAN supported" },
-	{ 0x02, "CCN towards E-UTRAN, E-UTRAN Neighbour Cell measurement reporting and Network controlled cell reselection to E-UTRAN supported in addition to capabilities indicated by '01'" },
-	{ 0x03, "PS Handover to E-UTRAN supported in addition to capabilities indicated by '01' and '10'" },
+	{ 0x01, "E-UTRAN neighbour cell measurements and MS autonomous cell reselection to E-UTRAN supported" },
+	{ 0x02, "E-UTRAN neighbour cell meas and report, MS autonomous cell resel, CCN and network controlled cell reselection to E-UTRAN" },
+	{ 0x03, "E-UTRAN neighbour cell meas and report, MS autonomous cell resel, CCN, network controlled cell reselection and PS Handover to E-UTRAN" },
 	{ 0, NULL }
 };
 
@@ -4172,23 +4175,20 @@ de_gc_device_properties(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
 /*
  * [7] 10.5.6.1
  */
-#define MAX_APN_LENGTH		100
-
 guint16
 de_sm_apn(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
 {
-	guint32	curr_offset;
-	guint	curr_len;
-	guint8	str[MAX_APN_LENGTH+1];
+	guint32     curr_offset;
+	guint       curr_len;
+	guint8     *str;
+	proto_item *pi;
 
 	curr_offset = offset;
 
-	/* init buffer and copy it */
-	memset(str, 0, MAX_APN_LENGTH+1);
-	tvb_memcpy(tvb, str, offset, len<MAX_APN_LENGTH?len:MAX_APN_LENGTH);
+	str = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, len, ENC_ASCII|ENC_NA);
 
 	curr_len = 0;
-	while ((curr_len < len) && (curr_len < MAX_APN_LENGTH))
+	while (curr_len < len)
 	{
 		guint step    = str[curr_len];
 		str[curr_len] = '.';
@@ -4196,8 +4196,11 @@ de_sm_apn(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, g
 	}
 
 	/* Highlight bytes including the first length byte */
-	proto_tree_add_string(tree, hf_gsm_a_gm_apn, tvb, curr_offset, len, str+1);
-	curr_offset +=  len;
+	pi = proto_tree_add_string(tree, hf_gsm_a_gm_apn, tvb, curr_offset, len, str+1);
+	if (len > 100) {
+		expert_add_info(pinfo, pi, &ei_gsm_a_gm_apn_too_long);
+	}
+	curr_offset += len;
 
 	EXTRANEOUS_DATA_CHECK(len, curr_offset - offset, pinfo, &ei_gsm_a_gm_extraneous_data);
 
@@ -4229,7 +4232,7 @@ de_sm_nsapi(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
  */
 static const range_string gsm_a_sm_pco_ms2net_prot_vals[] = {
 	{ 0x0001, 0x0001, "P-CSCF IPv6 Address Request" },
-	{ 0x0002, 0x0002, "IM CN Subsystem Signalling Flag" },
+	{ 0x0002, 0x0002, "IM CN Subsystem Signaling Flag" },
 	{ 0x0003, 0x0003, "DNS Server IPv6 Address Request" },
 	{ 0x0004, 0x0004, "Not Supported" },
 	{ 0x0005, 0x0005, "MS Support of Network Requested Bearer Control indicator" },
@@ -4255,7 +4258,7 @@ static const range_string gsm_a_sm_pco_ms2net_prot_vals[] = {
 };
 static const range_string gsm_a_sm_pco_net2ms_prot_vals[] = {
 	{ 0x0001, 0x0001, "P-CSCF IPv6 Address" },
-	{ 0x0002, 0x0002, "IM CN Subsystem Signalling Flag" },
+	{ 0x0002, 0x0002, "IM CN Subsystem Signaling Flag" },
 	{ 0x0003, 0x0003, "DNS Server IPv6 Address" },
 	{ 0x0004, 0x0004, "Policy Control rejection code" },
 	{ 0x0005, 0x0005, "Selected Bearer Control Mode" },
@@ -4441,8 +4444,7 @@ de_sm_pco(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, g
 				break;
 			case 0x0010:
 				if ((link_dir == P2P_DIR_DL) && (e_len == 2)) {
-					pco_item = proto_tree_add_item(pco_tree, hf_gsm_a_gm_sm_pco_ipv4_link_mtu_size, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
-					proto_item_append_text(pco_item, " octets");
+					proto_tree_add_item(pco_tree, hf_gsm_a_gm_sm_pco_ipv4_link_mtu_size, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
 				}
 				break;
 			case 0x0014:
@@ -4452,8 +4454,7 @@ de_sm_pco(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, g
 				break;
 			case 0x0015:
 				if ((link_dir == P2P_DIR_DL) && (e_len == 2)) {
-					pco_item = proto_tree_add_item(pco_tree, hf_gsm_a_gm_sm_pco_non_ip_link_mtu_size, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
-					proto_item_append_text(pco_item, " octets");
+					proto_tree_add_item(pco_tree, hf_gsm_a_gm_sm_pco_non_ip_link_mtu_size, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
 				}
 				break;
 			case 0x0016:
@@ -4462,8 +4463,7 @@ de_sm_pco(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, g
 					proto_tree_add_item(tree, hf_gsm_a_gm_sm_pco_apn_rate_ctrl_params_aer, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
 					proto_tree_add_item(tree, hf_gsm_a_gm_sm_pco_apn_rate_ctrl_params_ul_time_unit, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
 					if (e_len >= 4) {
-						pco_item = proto_tree_add_item(tree, hf_gsm_a_gm_sm_pco_apn_rate_ctrl_params_max_ul_rate, tvb, curr_offset+1, 3, ENC_BIG_ENDIAN);
-						proto_item_append_text(pco_item, " messages");
+						proto_tree_add_item(tree, hf_gsm_a_gm_sm_pco_apn_rate_ctrl_params_max_ul_rate, tvb, curr_offset+1, 3, ENC_BIG_ENDIAN);
 					}
 				}
 				break;
@@ -5361,7 +5361,7 @@ de_sm_pflow_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offs
  */
 /* TFT operation code (octet 3) */
 static const value_string gsm_a_sm_tft_op_code_vals[] = {
-	{ 0,		"Spare"},
+	{ 0,		"Ignore this IE"},
 	{ 1,		"Create new TFT"},
 	{ 2,		"Delete existing TFT"},
 	{ 3,		"Add packet filters to existing TFT"},
@@ -8035,7 +8035,7 @@ proto_register_gsm_a_gm(void)
 		},
 		{ &hf_gsm_a_gm_pco_pid,
 		  { "Protocol or Container ID", "gsm_a.gm.sm.pco_pid",
-		    FT_UINT16, BASE_DEC, NULL, 0x0,
+		    FT_UINT16, BASE_HEX, NULL, 0x0,
 		    NULL, HFILL }
 		},
 		{ &hf_gsm_a_gm_pco_app_spec_info,
@@ -8850,7 +8850,7 @@ proto_register_gsm_a_gm(void)
 		},
 		{ &hf_gsm_a_gm_sm_pco_apn_rate_ctrl_params_max_ul_rate,
 		  { "Maximum uplink rate", "gsm_a.gm.sm.pco.apn_rate_ctrl_params.max_ul_rate",
-		    FT_UINT24, BASE_DEC, NULL, 0x0,
+		    FT_UINT24, BASE_DEC|BASE_UNIT_STRING, &units_message_messages, 0x0,
 		    NULL, HFILL }
 		},
 		/* Generated from convert_proto_tree_add_text.pl */
@@ -8878,9 +8878,9 @@ proto_register_gsm_a_gm(void)
 		{ &hf_gsm_a_gm_sm_pco_dsmipv6_home_agent_ipv4, { "IPv4", "gsm_a.gm.sm.pco.dsmipv6_home_agent.ipv4", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 		{ &hf_gsm_a_gm_sm_pco_pcscf_ipv4, { "IPv4", "gsm_a.gm.sm.pco.pcscf.ipv4", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 		{ &hf_gsm_a_gm_sm_pco_dns_ipv4, { "IPv4", "gsm_a.gm.sm.pco.dns.ipv4", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-		{ &hf_gsm_a_gm_sm_pco_ipv4_link_mtu_size, { "IPv4 link MTU size", "gsm_a.gm.sm.pco.ipv4_link_mtu_size", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+		{ &hf_gsm_a_gm_sm_pco_ipv4_link_mtu_size, { "IPv4 link MTU size", "gsm_a.gm.sm.pco.ipv4_link_mtu_size", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_octet_octets, 0x0, NULL, HFILL }},
 		{ &hf_gsm_a_gm_sm_pco_nbifom_mode, { "NBIFOM mode", "gsm_a.gm.sm.pco.nbifom_mode", FT_UINT8, BASE_HEX, VALS(gsm_a_gm_nbifom_mode_vals), 0x0, NULL, HFILL }},
-		{ &hf_gsm_a_gm_sm_pco_non_ip_link_mtu_size, { "Non-IP link MTU size", "gsm_a.gm.sm.pco.non_ip_link_mtu_size", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+		{ &hf_gsm_a_gm_sm_pco_non_ip_link_mtu_size, { "Non-IP link MTU size", "gsm_a.gm.sm.pco.non_ip_link_mtu_size", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_octet_octets, 0x0, NULL, HFILL }},
 		{ &hf_gsm_a_gm_sm_pco_sel_bearer_ctrl_mode, { "Selected Bearer Control Mode", "gsm_a.gm.sm.pco.sel_bearer_ctrl_mode", FT_UINT8, BASE_DEC, VALS(gsm_a_gm_sel_bearer_ctrl_mode_vals), 0x0, NULL, HFILL }},
 		{ &hf_gsm_a_sm_pdp_type_number, { "PDP type number", "gsm_a.gm.sm.pdp_type_number", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
 		{ &hf_gsm_a_sm_pdp_address, { "PDP address", "gsm_a.gm.sm.pdp_address", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
@@ -8901,6 +8901,7 @@ proto_register_gsm_a_gm(void)
 		{ &ei_gsm_a_gm_extraneous_data, { "gsm_a.gm.extraneous_data", PI_PROTOCOL, PI_NOTE, "Extraneous Data, dissector bug or later version spec (report to wireshark.org)", EXPFILL }},
 		{ &ei_gsm_a_gm_not_enough_data, { "gsm_a.gm.not_enough_data", PI_PROTOCOL, PI_WARN, "Not enough data", EXPFILL }},
 		{ &ei_gsm_a_gm_undecoded, { "gsm_a.gm.undecoded", PI_UNDECODED, PI_WARN, "Not decoded", EXPFILL }},
+		{ &ei_gsm_a_gm_apn_too_long, { "gsm_a.gm.apn_to_long", PI_PROTOCOL, PI_ERROR, "APN encoding has more than 100 octets", EXPFILL }}
 	};
 
 	expert_module_t* expert_gsm_a_gm;

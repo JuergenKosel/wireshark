@@ -580,7 +580,7 @@ proto_register_vp8(void)
                             "; Values must be in the range 96 - 127",
                             &temp_dynamic_payload_type_range, 127);
 
-    register_dissector("vp8", dissect_vp8, proto_vp8);
+    vp8_handle = register_dissector("vp8", dissect_vp8, proto_vp8);
 }
 
 static void
@@ -602,15 +602,14 @@ proto_reg_handoff_vp8(void)
     static gboolean  vp8_prefs_initialized      = FALSE;
 
     if (!vp8_prefs_initialized) {
-        vp8_handle = find_dissector("vp8");
         dissector_add_string("rtp_dyn_payload_type" , "VP8", vp8_handle);
         vp8_prefs_initialized = TRUE;
     } else {
         range_foreach(dynamic_payload_type_range, range_delete_vp8_rtp_pt_callback);
-        g_free(dynamic_payload_type_range);
+        wmem_free(wmem_epan_scope(), dynamic_payload_type_range);
     }
 
-    dynamic_payload_type_range = range_copy(temp_dynamic_payload_type_range);
+    dynamic_payload_type_range = range_copy(wmem_epan_scope(), temp_dynamic_payload_type_range);
     range_foreach(dynamic_payload_type_range, range_add_vp8_rtp_pt_callback);
 }
 

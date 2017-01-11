@@ -120,6 +120,9 @@ static expert_field ei_mpls_pw_ach_res = EI_INIT;
 static expert_field ei_mpls_pw_mcw_error_processing_message = EI_INIT;
 static expert_field ei_mpls_invalid_label = EI_INIT;
 
+static dissector_handle_t mpls_handle;
+static dissector_handle_t mpls_pwcw_handle;
+
 #if 0 /*not used yet*/
 /*
  * MPLS PW types
@@ -310,12 +313,24 @@ dissect_try_cw_first_nibble( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     switch ( nibble )
     {
         case 6:
+            /*
+             * XXX - this could be from an pseudo-wire without a control
+             * word, with the packet's first nibble being 6.
+             */
             call_dissector(dissector_ipv6, tvb, pinfo, tree);
             return TRUE;
         case 4:
+            /*
+             * XXX - this could be from an pseudo-wire without a control
+             * word, with the packet's first nibble being 4.
+             */
             call_dissector(dissector_ip, tvb, pinfo, tree);
             return TRUE;
         case 1:
+            /*
+             * XXX - this could be from an pseudo-wire without a control
+             * word, with the packet's first nibble being 1.
+             */
             call_dissector(dissector_pw_ach, tvb, pinfo, tree );
             return TRUE;
         default:
@@ -452,30 +467,57 @@ dissect_mpls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 
     next_tvb = tvb_new_subset_remaining(tvb, offset);
 
-    /* 1) explicit label-to-dissector binding ? */
+    /*
+     * Is there an explicit label-to-dissector binding?
+     * If so, use it.
+     */
     found = dissector_try_uint_new(mpls_subdissector_table, label,
                                next_tvb, pinfo, tree, FALSE, &mplsinfo);
-    if (found)
+    if (found) {
+        /* Yes, there is. */
         return tvb_captured_length(tvb);
+    }
 
-    /* 2) use the 1st nibble logic (see BCP 4928, RFC 4385 and 5586) */
+    /*
+     * No, there isn't, so use the 1st nibble logic (see BCP 4928,
+     * RFC 4385 and 5586).
+     */
     switch(first_nibble) {
     case 4:
+        /*
+         * XXX - this could be from an Ethernet pseudo-wire without a
+         * control word, with the MAC address's first nibble being 4.
+         */
         call_dissector(dissector_ip, next_tvb, pinfo, tree);
         /* IP dissector may reduce the length of the tvb.
            We need to do the same, so that ethernet trailer is detected. */
         set_actual_length(tvb, offset+tvb_reported_length(next_tvb));
         break;
     case 6:
+        /*
+         * XXX - this could be from an Ethernet pseudo-wire without a
+         * control word, with the MAC address's first nibble being 6.
+         */
         call_dissector(dissector_ipv6, next_tvb, pinfo, tree);
         /* IPv6 dissector may reduce the length of the tvb.
            We need to do the same, so that ethernet trailer is detected. */
         set_actual_length(tvb, offset+tvb_reported_length(next_tvb));
         break;
     case 1:
+        /*
+         * XXX - this could be from an Ethernet pseudo-wire without a
+         * control word, with the MAC address's first nibble being 1.
+         */
         call_dissector(dissector_pw_ach, next_tvb, pinfo, tree);
         break;
     case 0:
+        /*
+         * If this is an Ethernet pseudo-wire, this could either be
+         * Ethernet without a control word and with the first nibble
+         * of the destination MAC address being 0 or it could be
+         * Ethernet with a control word.  Let the "pw_eth_heuristic"
+         * dissector try to figure it out.
+         */
         call_dissector(dissector_pw_eth_heuristic, next_tvb, pinfo, tree);
         break;
     default:
@@ -599,7 +641,8 @@ proto_register_mpls(void)
     expert_mpls = expert_register_protocol(proto_mpls);
     expert_register_field_array(expert_mpls, ei, array_length(ei));
 
-    register_dissector("mpls", dissect_mpls, proto_mpls);
+    mpls_handle = register_dissector("mpls", dissect_mpls, proto_mpls);
+    mpls_pwcw_handle = register_dissector("mplspwcw", dissect_pw_mcw, proto_pw_mcw );
 
     /* FF: mpls subdissector table is indexed by label */
     mpls_subdissector_table = register_dissector_table("mpls.label",
@@ -626,9 +669,6 @@ proto_register_mpls(void)
 void
 proto_reg_handoff_mpls(void)
 {
-    dissector_handle_t mpls_handle, mpls_pwcw_handle;
-
-    mpls_handle = find_dissector("mpls");
     dissector_add_uint("ethertype", ETHERTYPE_MPLS, mpls_handle);
     dissector_add_uint("ethertype", ETHERTYPE_MPLS_MULTI, mpls_handle);
     dissector_add_uint("ppp.protocol", PPP_MPLS_UNI, mpls_handle);
@@ -648,7 +688,6 @@ proto_reg_handoff_mpls(void)
     dissector_add_uint_with_preference("udp.port", UDP_PORT_MPLS_OVER_UDP, mpls_handle);
     dissector_add_uint("vxlan.next_proto", VXLAN_MPLS, mpls_handle);
 
-    mpls_pwcw_handle = create_dissector_handle( dissect_pw_mcw, proto_pw_mcw );
     dissector_add_uint( "mpls.label", MPLS_LABEL_INVALID, mpls_pwcw_handle );
 
     dissector_ipv6                  = find_dissector_add_dependency("ipv6", proto_pw_mcw );

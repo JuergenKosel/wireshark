@@ -331,6 +331,8 @@ static gint ett_bap_call_status_opt = -1;
 
 static expert_field ei_bap_sub_option_length = EI_INIT;
 
+static dissector_handle_t ppp_hdlc_handle, ppp_handle;
+
 static int proto_comp_data = -1;
 
 #if 0  /* see dissect_comp_data() */
@@ -1977,7 +1979,7 @@ decode_fcs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *fh_tree, int fcs_decod
     return next_tvb;
 }
 
-gboolean
+static gboolean
 capture_ppp_hdlc(const guchar *pd, int offset, int len, capture_packet_info_t *cpinfo, const union wtap_pseudo_header *pseudo_header _U_)
 {
     if (!BYTES_ARE_IN_FRAME(offset, len, 2))
@@ -3791,12 +3793,10 @@ dissect_bap_link_type_opt(const ip_tcp_opt *optp, tvbuff_t *tvb, int offset,
     guint length, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
 {
     proto_tree *field_tree;
-    guint16     link_speed;
 
     field_tree = proto_tree_add_subtree(tree, tvb, offset, length, *optp->subtree_index, NULL, optp->name);
 
-    link_speed = tvb_get_ntohs(tvb, offset + 2);
-    proto_tree_add_uint_format_value(field_tree, hf_bacp_link_speed, tvb, offset + 2, 2, link_speed, "%u kbps", link_speed);
+    proto_tree_add_item(field_tree, hf_bacp_link_speed, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
     proto_tree_add_item(field_tree, hf_bacp_link_type, tvb, offset + 4, 1, ENC_BIG_ENDIAN);
 }
 
@@ -4563,6 +4563,8 @@ dissect_bcp_bpdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
         /* TODO? */
         break;
     }
+
+    proto_item_set_len(ti, offset);
 
     if (!(flags & BCP_IS_BCONTROL)) {
         captured_length = tvb_captured_length_remaining(tvb, offset);
@@ -6018,9 +6020,9 @@ proto_register_ppp(void)
     ppp_subdissector_table = register_dissector_table("ppp.protocol",
         "PPP protocol", proto_ppp, FT_UINT16, BASE_HEX);
 
-    register_dissector("ppp_hdlc", dissect_ppp_hdlc, proto_ppp);
+    ppp_hdlc_handle = register_dissector("ppp_hdlc", dissect_ppp_hdlc, proto_ppp);
     register_dissector("ppp_lcp_options", dissect_lcp_options, proto_ppp);
-    register_dissector("ppp", dissect_ppp, proto_ppp);
+    ppp_handle = register_dissector("ppp", dissect_ppp, proto_ppp);
 
     /* Register the preferences for the ppp protocol */
     ppp_module = prefs_register_protocol(proto_ppp, NULL);
@@ -6039,17 +6041,13 @@ proto_register_ppp(void)
 void
 proto_reg_handoff_ppp(void)
 {
-    dissector_handle_t ppp_hdlc_handle, ppp_handle;
-
     /*
      * Get a handle for the CHDLC dissector.
      */
     chdlc_handle = find_dissector_add_dependency("chdlc", proto_ppp);
 
-    ppp_handle = find_dissector("ppp");
     dissector_add_uint("fr.nlpid", NLPID_PPP, ppp_handle);
 
-    ppp_hdlc_handle = find_dissector("ppp_hdlc");
     dissector_add_uint("wtap_encap", WTAP_ENCAP_PPP, ppp_hdlc_handle);
     dissector_add_uint("wtap_encap", WTAP_ENCAP_PPP_WITH_PHDR,
         ppp_hdlc_handle);
@@ -7079,7 +7077,7 @@ proto_register_bacp(void)
     static hf_register_info hf[] = {
       /* Generated from convert_proto_tree_add_text.pl */
       { &hf_bacp_magic_number, { "Magic number", "bacp.magic_number", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-      { &hf_bacp_link_speed, { "Link Speed", "bacp.link_speed", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+      { &hf_bacp_link_speed, { "Link Speed", "bacp.link_speed", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_kbps, 0x0, NULL, HFILL }},
       { &hf_bacp_link_type, { "Link Type", "bacp.link_type", FT_UINT8, BASE_DEC, VALS(bap_link_type_vals), 0x0, NULL, HFILL }},
     };
 
@@ -7586,10 +7584,10 @@ proto_register_iphc_crtp(void)
 
     proto_iphc_crtp = proto_register_protocol("CRTP", "CRTP", "crtp");
     /* Created to remove Decode As confusion */
-    proto_iphc_crtp_cudp16 = proto_register_protocol("CRTP (CUDP 16)", "CRTP (CUDP 16)", "crtp_cudp16");
-    proto_iphc_crtp_cudp8 = proto_register_protocol("CRTP (CUDP 8)", "CRTP (CUDP 8)", "crtp_cudp8");
-    proto_iphc_crtp_cs = proto_register_protocol("CRTP (CS)", "CRTP (CS)", "crtp_cs");
-    proto_iphc_crtp_cntcp = proto_register_protocol("CRTP (CNTCP)", "CRTP (CNTCP)", "crtp_cntcp");
+    proto_iphc_crtp_cudp16 = proto_register_protocol_in_name_only("CRTP (CUDP 16)", "CRTP (CUDP 16)", "crtp_cudp16", proto_iphc_crtp, FT_PROTOCOL);
+    proto_iphc_crtp_cudp8 = proto_register_protocol_in_name_only("CRTP (CUDP 8)", "CRTP (CUDP 8)", "crtp_cudp8", proto_iphc_crtp, FT_PROTOCOL);
+    proto_iphc_crtp_cs = proto_register_protocol_in_name_only("CRTP (CS)", "CRTP (CS)", "crtp_cs", proto_iphc_crtp, FT_PROTOCOL);
+    proto_iphc_crtp_cntcp = proto_register_protocol_in_name_only("CRTP (CNTCP)", "CRTP (CNTCP)", "crtp_cntcp", proto_iphc_crtp, FT_PROTOCOL);
 
     proto_register_field_array(proto_iphc_crtp, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));

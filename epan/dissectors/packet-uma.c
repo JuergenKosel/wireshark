@@ -1539,7 +1539,7 @@ dissect_uma_IE(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset)
 		}
 		if((!pinfo->fd->flags.visited) && RTP_UDP_port!=0){
 
-			rtp_add_address(pinfo, &src_addr, RTP_UDP_port, 0, "UMA", pinfo->num, FALSE, 0);
+			rtp_add_address(pinfo, PT_UDP, &src_addr, RTP_UDP_port, 0, "UMA", pinfo->num, FALSE, 0);
 			if ((RTP_UDP_port & 0x1) == 0){ /* Even number RTP port RTCP should follow on odd number */
 				RTCP_UDP_port = RTP_UDP_port + 1;
 				rtcp_add_address(pinfo, &src_addr, RTCP_UDP_port, 0, "UMA", pinfo->num);
@@ -1752,8 +1752,6 @@ dissect_uma_urlc_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
 void
 proto_reg_handoff_uma(void)
 {
-	uma_tcp_handle = find_dissector("umatcp");
-	uma_udp_handle = find_dissector("umaudp");
 	dissector_add_for_decode_as_with_preference("udp.port", uma_udp_handle);
 	rtcp_handle = find_dissector_add_dependency("rtcp", proto_uma);
 	llc_handle = find_dissector_add_dependency("llcgprs", proto_uma);
@@ -2288,8 +2286,9 @@ proto_register_uma(void)
 /* Register the protocol name and description */
 	proto_uma = proto_register_protocol("Unlicensed Mobile Access","UMA", "uma");
 	/* subdissector code */
-	register_dissector("umatcp", dissect_uma_tcp, proto_uma);
-	register_dissector("umaudp", dissect_uma_urlc_udp, proto_uma);
+	uma_tcp_handle = register_dissector("umatcp", dissect_uma_tcp, proto_uma);
+	uma_udp_handle = register_dissector("umaudp", dissect_uma_urlc_udp, proto_uma);
+
 
 /* Required function calls to register the header fields and subtrees used */
 	proto_register_field_array(proto_uma, hf, array_length(hf));

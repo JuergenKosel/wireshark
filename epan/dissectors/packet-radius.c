@@ -217,6 +217,8 @@ static radius_vendor_info_t no_vendor = {"Unknown Vendor", 0, NULL, -1, 1, 1, FA
 static radius_attr_info_t no_dictionary_entry = {"Unknown-Attribute", 0, FALSE, FALSE, radius_octets, NULL, NULL, -1, -1, -1, -1, -1, NULL };
 
 static dissector_handle_t eap_handle;
+static dissector_handle_t radius_handle;
+
 
 static const gchar *shared_secret = "";
 static gboolean validate_authenticator = FALSE;
@@ -1381,7 +1383,6 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 
 	while (length > 0) {
 		radius_attr_info_t *dictionary_entry = NULL;
-		gint tvb_len;
 		guint32 avp_type;
 		guint32 avp_length;
 		guint32 vendor_id;
@@ -1596,13 +1597,15 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 			PROTO_ITEM_SET_GENERATED(avp_len_item);
 		}
 
-		tvb_len = tvb_captured_length_remaining(tvb, offset);
-
-		if ((gint)avp_length < tvb_len)
-			tvb_len = avp_length;
-
 		if (avp_type == RADIUS_ATTR_TYPE_EAP_MESSAGE) {
+			gint tvb_len;
+
 			eap_seg_num++;
+
+			tvb_len = tvb_captured_length_remaining(tvb, offset);
+
+			if ((gint)avp_length < tvb_len)
+				tvb_len = avp_length;
 
 			/* Show this as an EAP fragment. */
 			proto_tree_add_item(avp_tree, hf_radius_eap_fragment, tvb, offset, tvb_len, ENC_NA);
@@ -2631,7 +2634,7 @@ proto_register_radius(void)
 	module_t *radius_module;
 
 	proto_radius = proto_register_protocol("RADIUS Protocol", "RADIUS", "radius");
-	register_dissector("radius", dissect_radius, proto_radius);
+	radius_handle = register_dissector("radius", dissect_radius, proto_radius);
 	register_init_routine(&radius_init_protocol);
 	radius_module = prefs_register_protocol(proto_radius, NULL);
 	prefs_register_string_preference(radius_module, "shared_secret", "Shared Secret",
@@ -2661,9 +2664,6 @@ proto_register_radius(void)
 void
 proto_reg_handoff_radius(void)
 {
-	dissector_handle_t radius_handle;
-
-	radius_handle = find_dissector("radius");
 	eap_handle = find_dissector_add_dependency("eap", proto_radius);
 	dissector_add_uint_range_with_preference("udp.port", DEFAULT_RADIUS_PORT_RANGE, radius_handle);
 }

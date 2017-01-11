@@ -21,7 +21,8 @@
 include $(top_srcdir)/Makefile.am.inc
 
 AM_CPPFLAGS = $(INCLUDEDIRS) -I$(top_srcdir)/epan $(WS_CPPFLAGS) \
-	$(GLIB_CFLAGS) $(LIBGNUTLS_CFLAGS) $(LIBGCRYPT_CFLAGS)
+	$(GLIB_CFLAGS) $(LIBGNUTLS_CFLAGS) $(LIBGCRYPT_CFLAGS) \
+	$(KRB5_CFLAGS)
 
 include Custom.common
 
@@ -156,6 +157,7 @@ ASN1_DISSECTOR_SRC = \
 	packet-mms.c		\
 	packet-mpeg-audio.c	\
 	packet-mpeg-pes.c	\
+	packet-mudurl.c		\
 	packet-nbap.c		\
 	packet-novell_pkis.c	\
 	packet-ns_cert_exts.c	\
@@ -262,27 +264,6 @@ DISSECTOR_SRC = \
 	packet-afp.c		\
 	packet-afs.c		\
 	packet-agentx.c		\
-	packet-aim-admin.c	\
-	packet-aim-adverts.c	\
-	packet-aim-bos.c	\
-	packet-aim-buddylist.c	\
-	packet-aim-chat.c	\
-	packet-aim-chatnav.c	\
-	packet-aim-directory.c	\
-	packet-aim-email.c	\
-	packet-aim-generic.c	\
-	packet-aim-icq.c	\
-	packet-aim-invitation.c	\
-	packet-aim-location.c	\
-	packet-aim-messaging.c	\
-	packet-aim-oft.c	\
-	packet-aim-popup.c	\
-	packet-aim-signon.c	\
-	packet-aim-ssi.c	\
-	packet-aim-sst.c	\
-	packet-aim-stats.c	\
-	packet-aim-translate.c	\
-	packet-aim-userlookup.c	\
 	packet-aim.c		\
 	packet-ajp13.c		\
 	packet-alcap.c		\
@@ -684,6 +665,7 @@ DISSECTOR_SRC = \
 	packet-gsm_sms_ud.c	\
 	packet-gsm_um.c		\
 	packet-gsmtap.c		\
+	packet-gsmtap_log.c	\
 	packet-gssapi.c		\
 	packet-gtp.c		\
 	packet-gtpv2.c		\
@@ -722,6 +704,7 @@ DISSECTOR_SRC = \
 	packet-hislip.c		\
 	packet-homeplug-av.c	\
 	packet-homeplug.c	\
+	packet-homepna.c	\
 	packet-hp-erm.c		\
 	packet-hpext.c		\
 	packet-hpfeeds.c	\
@@ -1025,6 +1008,8 @@ DISSECTOR_SRC = \
 	packet-ntlmssp.c	\
 	packet-ntp.c		\
 	packet-null.c		\
+	packet-nvme.c		\
+	packet-nvme-rdma.c	\
 	packet-nwmtp.c		\
 	packet-nwp.c		\
 	packet-oampdu.c		\
@@ -1244,6 +1229,7 @@ DISSECTOR_SRC = \
 	packet-snaeth.c		\
 	packet-sndcp-xid.c	\
 	packet-sndcp.c		\
+	packet-snort.c		\
 	packet-socketcan.c	\
 	packet-socks.c		\
 	packet-soupbintcp.c	\
@@ -1336,6 +1322,7 @@ DISSECTOR_SRC = \
 	packet-usb-dfu.c	\
 	packet-usb-hid.c	\
 	packet-usb-hub.c	\
+	packet-usb-i1d3.c	\
 	packet-usb-masstorage.c	\
 	packet-usb-video.c	\
 	packet-usb.c		\
@@ -1459,7 +1446,6 @@ DISSECTOR_INCLUDES = \
 	packet-actrace.h	\
 	packet-adb_service.h	\
 	packet-afp.h		\
-	packet-aim.h		\
 	packet-alcap.h		\
 	packet-ansi_a.h		\
 	packet-ansi_map.h	\
@@ -1526,6 +1512,7 @@ DISSECTOR_INCLUDES = \
 	packet-dcom-dispatch.h	\
 	packet-dcm.h		\
 	packet-diameter.h	\
+	packet-diameter_3gpp.h	\
 	packet-diffserv-mpls-common.h	\
 	packet-disp.h		\
 	packet-dns.h		\
@@ -1538,6 +1525,7 @@ DISSECTOR_INCLUDES = \
 	packet-erf.h		\
 	packet-e164.h		\
 	packet-e212.h		\
+	packet-eapol.h		\
 	packet-edonkey.h	\
 	packet-eigrp.h		\
 	packet-epmd.h		\
@@ -1571,6 +1559,7 @@ DISSECTOR_INCLUDES = \
 	packet-gsm_osmux.h	\
 	packet-gsm_rlcmac.h	\
 	packet-gsm_sms.h	\
+	packet-gsmtap.h		\
 	packet-gssapi.h		\
 	packet-gtp.h		\
 	packet-gtpv2.h		\
@@ -1658,6 +1647,7 @@ DISSECTOR_INCLUDES = \
 	packet-nlm.h		\
 	packet-ntlmssp.h	\
 	packet-ntp.h		\
+        packet-nvme.h		\
 	packet-ocsp.h		\
 	packet-opensafety.h	\
 	packet-osi.h		\
@@ -1820,6 +1810,7 @@ DISSECTOR_INCLUDES = \
 	packet-zep.h		\
 	packet-ziop.h		\
 	read_keytab_file.h	\
+	snort-config.h		\
 	$(GENERATED_HEADER_FILES)	\
 	$(CUSTOM_HEADER_FILES)
 
@@ -1828,6 +1819,7 @@ DISSECTOR_INCLUDES = \
 # used to generate "register.c").
 DISSECTOR_SUPPORT_SRC =	\
 	packet-dcerpc-nt.c	\
+	snort-config.c		\
 	usb.c			\
 	register.c
 

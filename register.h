@@ -35,6 +35,7 @@ typedef enum {
   RA_NONE,              /* For initialization */
   RA_DISSECTORS,        /* Initializing dissectors */
   RA_LISTENERS,         /* Tap listeners */
+  RA_EXTCAP,            /* extcap register preferences */
   RA_REGISTER,          /* Built-in register */
   RA_PLUGIN_REGISTER,   /* Plugin register */
   RA_HANDOFF,           /* Built-in handoff */
@@ -42,8 +43,7 @@ typedef enum {
   RA_LUA_PLUGINS,       /* Lua plugin register */
   RA_LUA_DEREGISTER,    /* Lua plugin deregister */
   RA_PREFERENCES,       /* Module preferences */
-  RA_INTERFACES,        /* Local interfaces */
-  RA_CONFIGURATION      /* Configuration files */
+  RA_INTERFACES         /* Local interfaces */
 } register_action_e;
 
 typedef void (*register_cb)(register_action_e action, const char *message, gpointer client_data);

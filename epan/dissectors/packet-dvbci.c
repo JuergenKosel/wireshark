@@ -921,6 +921,7 @@ static int hf_dvbci_spdu_tag = -1;
 static int hf_dvbci_sess_status = -1;
 static int hf_dvbci_sess_nb = -1;
 static int hf_dvbci_close_sess_status = -1;
+static int hf_dvbci_res_id = -1;
 static int hf_dvbci_res_id_type = -1;
 static int hf_dvbci_res_class = -1;
 static int hf_dvbci_res_type = -1;
@@ -1104,6 +1105,14 @@ static int hf_dvbci_sas_app_id = -1;
 static int hf_dvbci_sas_sess_state = -1;
 static int hf_dvbci_sas_msg_nb = -1;
 static int hf_dvbci_sas_msg_len = -1;
+
+static const int *dvb_ci_res_id_fields[] = {
+  &hf_dvbci_res_id_type,
+  &hf_dvbci_res_class,
+  &hf_dvbci_res_type,
+  &hf_dvbci_res_ver,
+  NULL
+};
 
 static const int *dvbci_opp_dlv_sys_hint_fields[] = {
     &hf_dvbci_dlv_sys_hint_t,
@@ -2657,10 +2666,6 @@ static proto_item *
 dissect_res_id(tvbuff_t *tvb, gint offset, packet_info *pinfo,
         proto_tree *tree, guint32 res_id, gboolean show_col_info)
 {
-    proto_item *ti       = NULL;
-    proto_tree *res_tree = NULL;
-    gint        tvb_data_len;
-
     /* there's two possible inputs for this function
         the resource id is either in a tvbuff_t (tvb!=NULL, res_id==0)
         or in a guint32 (tvb==NULL, res_id!=0) */
@@ -2670,7 +2675,6 @@ dissect_res_id(tvbuff_t *tvb, gint offset, packet_info *pinfo,
         if (res_id!=0)
             return NULL;
         res_id = tvb_get_ntohl(tvb, offset);
-        tvb_data_len = RES_ID_LEN;
     }
     else {
         /* resource id comes in via guint32 */
@@ -2679,7 +2683,6 @@ dissect_res_id(tvbuff_t *tvb, gint offset, packet_info *pinfo,
         /* we'll call proto_tree_add_...( tvb==NULL, offset==0, length==0 )
            this creates a filterable item without any reference to a tvb */
         offset = 0;
-        tvb_data_len = 0;
     }
 
     if (show_col_info) {
@@ -2689,21 +2692,9 @@ dissect_res_id(tvbuff_t *tvb, gint offset, packet_info *pinfo,
                 RES_VER(res_id));
     }
 
-    res_tree = proto_tree_add_subtree_format(tree, tvb, offset, tvb_data_len,
-            ett_dvbci_res, &ti, "Resource ID: 0x%04x", res_id);
-
-    /* parameter "value" == complete resource id,
-       RES_..._MASK will be applied by the hf definition */
-    proto_tree_add_uint(res_tree, hf_dvbci_res_id_type,
-            tvb, offset, tvb_data_len, res_id);
-    proto_tree_add_uint(res_tree, hf_dvbci_res_class,
-            tvb, offset, tvb_data_len, res_id);
-    proto_tree_add_uint(res_tree, hf_dvbci_res_type,
-            tvb, offset, tvb_data_len, res_id);
-    proto_tree_add_uint(res_tree, hf_dvbci_res_ver,
-            tvb, offset, tvb_data_len, res_id);
-
-    return ti;
+    return proto_tree_add_bitmask_value_with_flags(tree, tvb, offset,
+            hf_dvbci_res_id, ett_dvbci_res, dvb_ci_res_id_fields, res_id,
+            BMT_NO_APPEND);
 }
 
 /* dissect the body of a resource manager apdu */
@@ -5443,6 +5434,10 @@ proto_register_dvbci(void)
         { &hf_dvbci_close_sess_status,
           { "Session Status", "dvb-ci.close_session_status",
             FT_UINT8, BASE_HEX, VALS(dvbci_close_sess_status), 0, NULL, HFILL }
+        },
+        { &hf_dvbci_res_id,
+          { "Resource ID", "dvb-ci.res.id",
+            FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }
         },
         { &hf_dvbci_res_id_type,
           { "Resource ID Type", "dvb-ci.res.id_type",

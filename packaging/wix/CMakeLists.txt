@@ -124,7 +124,7 @@ SET(unique_component "")
 foreach(_dll ${GLIB2_DLLS} ${CARES_DLL} ${GCRYPT_DLLS} ${GEOIP_DLL}
 		${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLL} ${LUA_DLL}
 		${LZ4_DLL} ${NGHTTP2_DLL} ${SBC_DLL} ${SMI_DLL} ${SNAPPY_DLL}
-		${WINSPARKLE_DLL} ${ZLIB_DLL}
+		${SPANDSP_DLL} ${WINSPARKLE_DLL} ${ZLIB_DLL}
 	)
 	#ensure uniqueness of files
 	IF(NOT "${unique_component}" MATCHES "(^|;)${_dll}(;|$)")
@@ -149,7 +149,7 @@ SET(unique_file "")
 foreach(_dll ${GLIB2_DLLS} ${CARES_DLL} ${GCRYPT_DLLS} ${GEOIP_DLL}
 		${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLL} ${LUA_DLL}
 		${LZ4_DLL} ${NGHTTP2_DLL} ${SBC_DLL} ${SMI_DLL} ${SNAPPY_DLL}
-		${WINSPARKLE_DLL} ${ZLIB_DLL}
+		${SPANDSP_DLL} ${WINSPARKLE_DLL} ${ZLIB_DLL}
 	)
 	#ensure uniqueness of files
 	IF(NOT "${unique_file}" MATCHES "(^|;)${_dll}(;|$)")
@@ -334,7 +334,7 @@ macro( ADD_WIX_PACKAGE_TARGET )
 
 	# QtDependentComponents.wxs. Created using Wireshark.exe.
 	add_custom_command(OUTPUT ${_wix_binary_dir}/QtDependentComponents.wxs
-		COMMAND set "PATH=%PATH%;${QT_BIN_PATH}"
+		COMMAND set "PATH=${QT_BIN_PATH};%PATH%"
 		COMMAND ${POWERSHELL_COMMAND} "${_wix_source_dir}/windeployqt-to-wix.ps1"
 			-Executable $<TARGET_FILE:wireshark>
 			-FilePath ${_wix_binary_dir}/QtDependentComponents.wxs

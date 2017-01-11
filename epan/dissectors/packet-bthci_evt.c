@@ -389,6 +389,7 @@ static int hf_bthci_evt_mws_to_mws_baud_rate = -1;
 static int hf_bthci_evt_mws_from_mws_baud_rates = -1;
 static int hf_bthci_evt_mws_from_mws_baud_rates_tranport_item = -1;
 static int hf_bthci_evt_mws_from_mws_baud_rate = -1;
+static int hf_bthci_evt_selected_tx_power = -1;
 
 static const int *hfx_bthci_evt_le_features[] = {
     &hf_bthci_evt_le_features_encryption,
@@ -739,6 +740,15 @@ static const value_string evt_le_meta_subevent[] = {
     { 0x09, "LE Generate DHKey Complete" },
     { 0x0A, "LE Enhanced Connection Complete" },
     { 0x0B, "LE Direct Advertising Report" },
+    { 0x0C, "LE PHY Update Complete" },
+    { 0x0D, "LE Extended Advertising Report" },
+    { 0x0E, "LE Periodic Advertising Sync Established" },
+    { 0x0F, "LE Periodic Advertising Report" },
+    { 0x10, "LE Periodic Advertising Sync Lost" },
+    { 0x11, "LE Scan Timeout" },
+    { 0x12, "LE Advertising Set Terminated" },
+    { 0x13, "LE Scan Request Received" },
+    { 0x14, "LE Channel Selection Algorithm" },
     { 0, NULL }
 };
 
@@ -777,6 +787,8 @@ static const value_string mws_transport_layer_vals[] = {
     { 0x02,  "WCI-2 Transport" },
     { 0, NULL }
 };
+
+static const unit_name_string units_number_events = { " (number events)", NULL };
 
 void proto_register_bthci_evt(void);
 void proto_reg_handoff_bthci_evt(void);
@@ -2043,8 +2055,7 @@ dissect_bthci_evt_le_meta(tvbuff_t *tvb, int offset, packet_info *pinfo,
             proto_item_append_text(item, " (%g msec)", tvb_get_letohs(tvb, offset)*1.25);
             offset += 2;
 
-            item = proto_tree_add_item(tree, hf_bthci_evt_le_con_latency,         tvb, offset, 2, ENC_LITTLE_ENDIAN);
-            proto_item_append_text(item, " (number events)");
+            proto_tree_add_item(tree, hf_bthci_evt_le_con_latency,                tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset += 2;
 
             item = proto_tree_add_item(tree, hf_bthci_evt_le_supervision_timeout, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -2141,8 +2152,7 @@ dissect_bthci_evt_le_meta(tvbuff_t *tvb, int offset, packet_info *pinfo,
             item = proto_tree_add_item(tree, hf_bthci_evt_le_con_interval,        tvb, offset, 2, ENC_LITTLE_ENDIAN);
             proto_item_append_text(item, " (%g msec)", tvb_get_letohs(tvb, offset)*1.25);
             offset += 2;
-            item = proto_tree_add_item(tree, hf_bthci_evt_le_con_latency,         tvb, offset, 2, ENC_LITTLE_ENDIAN);
-            proto_item_append_text(item, " (number events)");
+            proto_tree_add_item(tree, hf_bthci_evt_le_con_latency,                tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset += 2;
             item = proto_tree_add_item(tree, hf_bthci_evt_le_supervision_timeout, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             proto_item_append_text(item, " (%g sec)",                             tvb_get_letohs(tvb, offset)*0.01);
@@ -2183,8 +2193,7 @@ dissect_bthci_evt_le_meta(tvbuff_t *tvb, int offset, packet_info *pinfo,
             proto_item_append_text(item, " (%g msec)", tvb_get_letohs(tvb, offset) * 1.25);
             offset += 2;
 
-            item = proto_tree_add_item(tree, hf_bthci_evt_le_con_latency,         tvb, offset, 2, ENC_LITTLE_ENDIAN);
-            proto_item_append_text(item, " (number events)");
+            proto_tree_add_item(tree, hf_bthci_evt_le_con_latency,                tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset += 2;
 
             item = proto_tree_add_item(tree, hf_bthci_evt_le_supervision_timeout, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -2255,8 +2264,7 @@ dissect_bthci_evt_le_meta(tvbuff_t *tvb, int offset, packet_info *pinfo,
             proto_item_append_text(item, " (%g msec)", tvb_get_letohs(tvb, offset)*1.25);
             offset += 2;
 
-            item = proto_tree_add_item(tree, hf_bthci_evt_le_con_latency,         tvb, offset, 2, ENC_LITTLE_ENDIAN);
-            proto_item_append_text(item, " (number events)");
+            proto_tree_add_item(tree, hf_bthci_evt_le_con_latency,                tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset += 2;
 
             item = proto_tree_add_item(tree, hf_bthci_evt_le_supervision_timeout, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -2679,6 +2687,27 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
         case 0x2014: /* LE Set Host Channel Classification */
         case 0x201d: /* LE Receiver Test */
         case 0x201e: /* LE Transmitter Test */
+        case 0x2031: /* LE Set Default PHY */
+        case 0x2033: /* LE Enhanced Receiver Test */
+        case 0x2034: /* LE Enhanced Transmitter Test */
+        case 0x2035: /* LE Set Advertising Set Random Address */
+        case 0x2037: /* LE Set Extended Advertising Data */
+        case 0x2038: /* LE Set Extended Scan Response Data */
+        case 0x2039: /* LE Set Extended Advertising Enable */
+        case 0x203C: /* LE Remove Advertising Set */
+        case 0x203D: /* LE Clear Advertising Sets */
+        case 0x203E: /* LE Set Periodic Advertising Parameters */
+        case 0x203F: /* LE Set Periodic Advertising Data */
+        case 0x2040: /* LE Set Periodic Advertising Enable */
+        case 0x2041: /* LE Set Extended Scan Parameters */
+        case 0x2042: /* LE Set Extended Scan Enable */
+        case 0x2045: /* LE Periodic Advertising Create Sync Cancel */
+        case 0x2046: /* LE Periodic Advertising Terminate Sync */
+        case 0x2047: /* LE Add Device To Periodic Advertiser List */
+        case 0x2048: /* LE Remove Device From Periodic Advertiser List */
+        case 0x2049: /* LE Clear Periodic Advertiser List */
+        case 0x204D: /* LE Write RF Path Compensation */
+        case 0x204E: /* LE Set Privacy Mode */
             proto_tree_add_item(tree, hf_bthci_evt_status, tvb, offset, 1, ENC_LITTLE_ENDIAN);
             send_hci_summary_status_tap(tvb_get_guint8(tvb, offset), pinfo, bluetooth_data);
             offset += 1;
@@ -3971,6 +4000,16 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
             break;
         }
 
+        case 0x2036: /* LE Set Extended Advertising Parameters */
+        {
+            proto_tree_add_item(tree, hf_bthci_evt_status, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            send_hci_summary_status_tap(tvb_get_guint8(tvb, offset), pinfo, bluetooth_data);
+            offset += 1;
+            proto_tree_add_item(tree, hf_bthci_evt_selected_tx_power, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset += 1;
+            break;
+        }
+
         case 0x140C: /* Get MWS Transport Layer Configuration */ {
             guint8       transports;
             guint8       i_transport;
@@ -5250,13 +5289,11 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
             nstime_delta(&delta, &lastest_bthci_cmd_data->pending_abs_ts, &lastest_bthci_cmd_data->command_abs_ts);
             sub_item = proto_tree_add_double(bthci_evt_tree, hf_command_pending_time_delta, tvb, 0, 0, nstime_to_msec(&delta));
-            proto_item_append_text(sub_item, " ms");
             PROTO_ITEM_SET_GENERATED(sub_item);
 
             if (lastest_bthci_cmd_data->response_in_frame < max_disconnect_in_frame) {
                 nstime_delta(&delta, &lastest_bthci_cmd_data->response_abs_ts, &lastest_bthci_cmd_data->pending_abs_ts);
                 sub_item = proto_tree_add_double(bthci_evt_tree, hf_pending_response_time_delta, tvb, 0, 0, nstime_to_msec(&delta));
-                proto_item_append_text(sub_item, " ms");
                 PROTO_ITEM_SET_GENERATED(sub_item);
             }
         }
@@ -5271,13 +5308,11 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
                 nstime_delta(&delta, &lastest_bthci_cmd_data->response_abs_ts, &lastest_bthci_cmd_data->pending_abs_ts);
                 sub_item = proto_tree_add_double(bthci_evt_tree, hf_pending_response_time_delta, tvb, 0, 0, nstime_to_msec(&delta));
-                proto_item_append_text(sub_item, " ms");
                 PROTO_ITEM_SET_GENERATED(sub_item);
             }
 
             nstime_delta(&delta, &lastest_bthci_cmd_data->response_abs_ts, &lastest_bthci_cmd_data->command_abs_ts);
             sub_item = proto_tree_add_double(bthci_evt_tree, hf_command_response_time_delta, tvb, 0, 0, nstime_to_msec(&delta));
-            proto_item_append_text(sub_item, " ms");
             PROTO_ITEM_SET_GENERATED(sub_item);
         }
     }
@@ -6620,7 +6655,7 @@ proto_register_bthci_evt(void)
         },
         { &hf_bthci_evt_le_con_latency,
           { "Connection Latency", "bthci_evt.le_con_latency",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_number_events, 0x0,
             NULL, HFILL }
         },
         { &hf_bthci_evt_le_supervision_timeout,
@@ -6850,12 +6885,12 @@ proto_register_bthci_evt(void)
         },
         { &hf_command_pending_time_delta,
             { "Command-Pending Delta",          "bthci_evt.command_pending_delta",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_milliseconds, 0x00,
             NULL, HFILL }
         },
         { &hf_pending_response_time_delta,
             { "Pending-Response Delta",          "bthci_evt.pending_response_delta",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_milliseconds, 0x00,
             NULL, HFILL }
         },
         { &hf_bthci_evt_le_features,
@@ -6904,8 +6939,8 @@ proto_register_bthci_evt(void)
             NULL, HFILL }
         },
         { &hf_bthci_evt_le_features_reserved,
-            { "Reserved",                                  "bthci_evt.pending_response_delta",
-            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0xFFFFFFFFFFFFFF00),
+            { "Reserved",                                  "bthci_evt.le_features.reserved",
+            FT_UINT64, BASE_HEX, NULL, G_GUINT64_CONSTANT(0xFFFFFFFFFFFFFF00),
             NULL, HFILL }
         },
         { &hf_bthci_evt_mws_number_of_transports,
@@ -6961,6 +6996,11 @@ proto_register_bthci_evt(void)
         { &hf_bthci_evt_mws_from_mws_baud_rate,
           { "From MWS Baud Rate",                          "bthci_evt.mws.from_mws_baud_rates.item.baud_rate",
             FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_evt_selected_tx_power,
+          { "Selected TX Power (dBm)",                     "bthci_evt.transmit_power_level",
+            FT_INT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         }
     };

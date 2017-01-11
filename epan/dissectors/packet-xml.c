@@ -83,8 +83,6 @@ static xml_ns_t *root_ns;
 
 static gboolean pref_heuristic_unicode    = FALSE;
 
-static range_t *xml_tcp_range        = NULL;
-
 
 #define XML_CDATA       -1000
 #define XML_SCOPED_NAME -1001
@@ -151,6 +149,7 @@ static const gchar *default_media_types[] = {
     "application/xml-dtd",
     "application/xpidf+xml",
     "application/xslt+xml",
+    "application/x-crd+xml",
     "application/x-wms-logconnectstats",
     "application/x-wms-logplaystats",
     "application/x-wms-sendevent",
@@ -1457,13 +1456,9 @@ proto_register_xml(void)
 
     g_array_free(ett_arr, TRUE);
 
-    register_dissector("xml", dissect_xml, xml_ns.hf_tag);
+    xml_handle = register_dissector("xml", dissect_xml, xml_ns.hf_tag);
 
     init_xml_parser();
-
-    xml_tcp_range = range_empty();
-
-
 }
 
 static void
@@ -1475,8 +1470,6 @@ add_dissector_media(gpointer k, gpointer v _U_, gpointer p _U_)
 void
 proto_reg_handoff_xml(void)
 {
-    xml_handle = find_dissector("xml");
-
     g_hash_table_foreach(media_types, add_dissector_media, NULL);
     dissector_add_uint_range_with_preference("tcp.port", "", xml_handle);
 

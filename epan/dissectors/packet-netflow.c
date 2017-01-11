@@ -2012,6 +2012,9 @@ static int      hf_pie_ixia_user_agent                  = -1;
 static int      hf_pie_ixia_host_name                   = -1;
 static int      hf_pie_ixia_uri                         = -1;
 static int      hf_pie_ixia_dns_txt                     = -1;
+static int      hf_pie_ixia_source_as_name              = -1;
+static int      hf_pie_ixia_dest_as_name                = -1;
+static int      hf_pie_ixia_transaction_latency         = -1;
 
 static int      hf_pie_netscaler                                         = -1;
 static int      hf_pie_netscaler_roundtriptime                           = -1;
@@ -6516,6 +6519,18 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
         case ((VENDOR_IXIA << 16) | 185):
             ti = proto_tree_add_item(pdutree, hf_pie_ixia_dns_txt,
                                      tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_IXIA << 16) | 186):
+            ti = proto_tree_add_item(pdutree, hf_pie_ixia_source_as_name,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_IXIA << 16) | 187):
+            ti = proto_tree_add_item(pdutree, hf_pie_ixia_dest_as_name,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_IXIA << 16) | 188):
+            ti = proto_tree_add_item(pdutree, hf_pie_ixia_transaction_latency,
+                                     tvb, offset, length, ENC_BIG_ENDIAN);
             break;
             /* END Ixia Communications */
 
@@ -11063,6 +11078,27 @@ proto_register_netflow(void)
           "TXT record in DNS query", HFILL}
         },
 
+        /* ixia, 3054 / 186 */
+        {&hf_pie_ixia_source_as_name,
+         {"Source AS Name", "cflow.pie.ixia.src-as-name",
+          FT_STRING, STR_ASCII, NULL, 0x0,
+          NULL, HFILL}
+        },
+
+        /* ixia, 3054 / 187 */
+        {&hf_pie_ixia_dest_as_name,
+         {"Destination AS Name", "cflow.pie.ixia.dest-as-name",
+          FT_STRING, STR_ASCII, NULL, 0x0,
+          NULL, HFILL}
+        },
+
+        /* ixia, 3054 / 188 */
+        {&hf_pie_ixia_transaction_latency,
+         {"Transaction Latency (ms)", "cflow.pie.ixia.transact-latency-ms",
+          FT_UINT32, BASE_DEC, NULL, 0x0,
+          NULL, HFILL}
+        },
+
         /* Netscaler root (a hidden item to allow filtering) */
         {&hf_pie_netscaler,
          {"Netscaler", "cflow.pie.netscaler",
@@ -11975,8 +12011,8 @@ proto_register_netflow(void)
     netflow_module = prefs_register_protocol(proto_netflow, proto_reg_handoff_netflow);
 
     /* Set default Netflow port(s) */
-    range_convert_str(&global_netflow_ports, NETFLOW_UDP_PORTS, MAX_UDP_PORT);
-    range_convert_str(&global_ipfix_ports,  IPFIX_UDP_PORTS,   MAX_UDP_PORT);
+    range_convert_str(wmem_epan_scope(), &global_netflow_ports, NETFLOW_UDP_PORTS, MAX_UDP_PORT);
+    range_convert_str(wmem_epan_scope(), &global_ipfix_ports,  IPFIX_UDP_PORTS,   MAX_UDP_PORT);
 
     prefs_register_obsolete_preference(netflow_module, "udp.port");
 
@@ -12039,13 +12075,13 @@ proto_reg_handoff_netflow(void)
         dissector_add_uint_range_with_preference("tcp.port", IPFIX_UDP_PORTS, netflow_handle);
     } else {
         dissector_delete_uint_range("udp.port", netflow_ports, netflow_handle);
-        g_free(netflow_ports);
+        wmem_free(wmem_epan_scope(), netflow_ports);
         range_foreach(ipfix_ports, ipfix_delete_callback);
-        g_free(ipfix_ports);
+        wmem_free(wmem_epan_scope(), ipfix_ports);
     }
 
-    netflow_ports = range_copy(global_netflow_ports);
-    ipfix_ports = range_copy(global_ipfix_ports);
+    netflow_ports = range_copy(wmem_epan_scope(), global_netflow_ports);
+    ipfix_ports = range_copy(wmem_epan_scope(), global_ipfix_ports);
 
     dissector_add_uint_range("udp.port", netflow_ports, netflow_handle);
     range_foreach(ipfix_ports, ipfix_add_callback);

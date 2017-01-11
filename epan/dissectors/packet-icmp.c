@@ -32,6 +32,7 @@
 
 #include "config.h"
 
+#include <stdlib.h>
 
 #include <epan/packet.h>
 #include <epan/prefs.h>
@@ -173,6 +174,8 @@ static gint ett_icmp_mpls_stack_object = -1;
 static expert_field ei_icmp_resp_not_found = EI_INIT;
 static expert_field ei_icmp_checksum = EI_INIT;
 static expert_field ei_icmp_ext_checksum = EI_INIT;
+
+static dissector_handle_t icmp_handle;
 
 
 /* ICMP definitions */
@@ -1314,7 +1317,7 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 				tvb_get_ntohs(tvb, 4), tvb_get_ntohs(tvb,
 								     6),
 				tvb_get_letohs(tvb, 6));
-                if (iph != NULL) {
+		if (iph != NULL) {
 			col_append_fstr(pinfo->cinfo, COL_INFO,
 					", ttl=%u",
 					iph->ip_ttl);
@@ -1424,7 +1427,7 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 		} else {
 			/* There is a collision between RFC 1812 and draft-ietf-mpls-icmp-02.
 			   We don't know how to decode the 128th and following bytes of the ICMP payload.
-			   According to draft-ietf-mpls-icmp-02, these bytes should be decoded as MPLS extensios
+			   According to draft-ietf-mpls-icmp-02, these bytes should be decoded as MPLS extensions
 			   whereas RFC 1812 tells us to decode them as a portion of the original packet.
 			   Let the user decide.
 
@@ -1509,13 +1512,13 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 		 */
 		ts.secs = tvb_get_ntohl(tvb, 8);
 		ts.nsecs = tvb_get_ntohl(tvb, 8 + 4);	/* Leave at microsec resolution for now */
-		if ((guint32) (ts.secs - pinfo->abs_ts.secs) >=
+		if (abs((int)(ts.secs - pinfo->abs_ts.secs)) >=
 		    3600 * 24 || ts.nsecs >= 1000000) {
 			/* Timestamp does not look right in BE, try LE representation */
 			ts.secs = tvb_get_letohl(tvb, 8);
 			ts.nsecs = tvb_get_letohl(tvb, 8 + 4);	/* Leave at microsec resolution for now */
 		}
-		if ((guint32) (ts.secs - pinfo->abs_ts.secs) <
+		if (abs((int)(ts.secs - pinfo->abs_ts.secs)) <
 		    3600 * 24 && ts.nsecs < 1000000) {
 			ts.nsecs *= 1000;	/* Convert to nanosec resolution */
 			proto_tree_add_time(icmp_tree, hf_icmp_data_time,
@@ -2019,20 +2022,18 @@ void proto_register_icmp(void)
 				       "Whether the 128th and following bytes of the ICMP payload should be decoded as MPLS extensions or as a portion of the original packet",
 				       &favor_icmp_mpls_ext);
 
-	register_dissector("icmp", dissect_icmp, proto_icmp);
+	icmp_handle = register_dissector("icmp", dissect_icmp, proto_icmp);
 	icmp_tap = register_tap("icmp");
 }
 
 void proto_reg_handoff_icmp(void)
 {
-	dissector_handle_t icmp_handle;
 	capture_dissector_handle_t icmp_cap_handle;
 
 	/*
 	 * Get handle for the IP dissector.
 	 */
 	ip_handle = find_dissector_add_dependency("ip", proto_icmp);
-	icmp_handle = find_dissector("icmp");
 
 	dissector_add_uint("ip.proto", IP_PROTO_ICMP, icmp_handle);
 	icmp_cap_handle = create_capture_dissector_handle(capture_icmp, proto_icmp);

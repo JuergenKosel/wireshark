@@ -87,6 +87,8 @@
 #define OUI_HYTEC_GER       0x30B216    /* Hytec Geraetebau GmbH */
 #define OUI_WFA             0x506F9A    /* Wi-Fi Alliance */
 #define OUI_3GPP2           0xCF0002    /* 3GPP2 */
+#define OUI_MERU            0x000ce6    /* Meru Network (Fortinet) */
+#define OUI_ZEBRA_EXTREME   0x00A0F8    /* Extreme/WING (Zebra) */
 
 extern const value_string oui_vals[];
 

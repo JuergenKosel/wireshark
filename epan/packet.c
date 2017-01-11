@@ -148,7 +148,9 @@ static GHashTable* heuristic_short_names  = NULL;
 static void
 destroy_heuristic_dissector_entry(gpointer data, gpointer user_data _U_)
 {
-	g_free(((heur_dtbl_entry_t*)data)->list_name);
+	heur_dtbl_entry_t *hdtbl_entry = (heur_dtbl_entry_t *)data;
+	g_free(hdtbl_entry->list_name);
+	g_free(hdtbl_entry->short_name);
 	g_slice_free(heur_dtbl_entry_t, data);
 }
 
@@ -238,8 +240,8 @@ set_actual_length(tvbuff_t *tvb, const guint specified_len)
 /* List of routines that are called before we make a pass through a capture file
  * and dissect all its packets. See register_init_routine and
  * register_cleanup_routine in packet.h */
-static GSList *init_routines;
-static GSList *cleanup_routines;
+static GSList *init_routines = NULL;
+static GSList *cleanup_routines = NULL;
 
 void
 register_init_routine(void (*func)(void))
@@ -642,7 +644,7 @@ call_dissector_through_handle(dissector_handle_t handle, tvbuff_t *tvb,
 
 	saved_proto = pinfo->current_proto;
 
-	if (handle->protocol != NULL) {
+	if ((handle->protocol != NULL) && (!proto_is_pino(handle->protocol))) {
 		pinfo->current_proto =
 			proto_get_protocol_short_name(handle->protocol);
 	}
@@ -702,7 +704,7 @@ call_dissector_work(dissector_handle_t handle, tvbuff_t *tvb, packet_info *pinfo
 	 */
 	pinfo->saved_can_desegment = saved_can_desegment;
 	pinfo->can_desegment = saved_can_desegment-(saved_can_desegment>0);
-	if (handle->protocol != NULL) {
+	if ((handle->protocol != NULL) && (!proto_is_pino(handle->protocol))) {
 		pinfo->current_proto =
 			proto_get_protocol_short_name(handle->protocol);
 
@@ -1051,8 +1053,7 @@ void dissector_add_uint_range_with_preference(const char *abbrev, const char* ra
 		table value would default to 0.
 		Set up a preference value with that information
 	 */
-	range = wmem_new(wmem_epan_scope(), range_t*);
-	*range = range_empty();
+	range = wmem_new0(wmem_epan_scope(), range_t*);
 
 	/* If the dissector already has a preference module, use it */
 	module = prefs_find_module(proto_get_protocol_filter_name(proto_id));
@@ -1089,7 +1090,7 @@ void dissector_add_uint_range_with_preference(const char *abbrev, const char* ra
 			g_assert_not_reached();
 		}
 
-		range_convert_str(range, range_str, max_value);
+		range_convert_str(wmem_epan_scope(), range, range_str, max_value);
 		prefs_register_decode_as_range_preference(module, abbrev, title, description, range, max_value);
 	}
 
@@ -2457,18 +2458,18 @@ heur_dissector_add(const char *name, heur_dissector_t dissector, const char *dis
 	hdtbl_entry->dissector = dissector;
 	hdtbl_entry->protocol  = find_protocol_by_id(proto);
 	hdtbl_entry->display_name = display_name;
-	hdtbl_entry->short_name = short_name;
+	hdtbl_entry->short_name = g_strdup(short_name);
 	hdtbl_entry->list_name = g_strdup(name);
 	hdtbl_entry->enabled   = (enable == HEURISTIC_ENABLE);
 
 	/* do the table insertion */
-	g_hash_table_insert(heuristic_short_names, (gpointer)short_name, hdtbl_entry);
+	g_hash_table_insert(heuristic_short_names, (gpointer)hdtbl_entry->short_name, hdtbl_entry);
 
 	sub_dissectors->dissectors = g_slist_prepend(sub_dissectors->dissectors,
 	    (gpointer)hdtbl_entry);
 
 	/* XXX - could be optimized to pass hdtbl_entry directly */
-	proto_add_heuristic_dissector(hdtbl_entry->protocol, short_name);
+	proto_add_heuristic_dissector(hdtbl_entry->protocol, hdtbl_entry->short_name);
 
 	/* Add the dissector as a dependency
 	  (some heuristic tables don't have protocol association, so there is
@@ -2507,6 +2508,7 @@ heur_dissector_delete(const char *name, heur_dissector_t dissector, const int pr
 		heur_dtbl_entry_t *found_hdtbl_entry = (heur_dtbl_entry_t *)(found_entry->data);
 		g_free(found_hdtbl_entry->list_name);
 		g_hash_table_remove(heuristic_short_names, found_hdtbl_entry->short_name);
+		g_free(found_hdtbl_entry->short_name);
 		g_slice_free(heur_dtbl_entry_t, found_entry->data);
 		sub_dissectors->dissectors = g_slist_delete_link(sub_dissectors->dissectors,
 		    found_entry);
@@ -3045,11 +3047,18 @@ void call_heur_dissector_direct(heur_dtbl_entry_t *heur_dtbl_entry, tvbuff_t *tv
 
 }
 
+static gint
+find_matching_proto_name(gconstpointer arg1, gconstpointer arg2)
+{
+	const char    *protocol_name = (const char*)arg1;
+	const gchar   *name   = (const gchar *)arg2;
+
+	return strcmp(protocol_name, name);
+}
+
 gboolean register_depend_dissector(const char* parent, const char* dependent)
 {
-	guint                  i, list_size;
 	GSList                *list_entry;
-	const char            *protocol_name;
 	depend_dissector_list_t sub_dissectors;
 
 	if ((parent == NULL) || (dependent == NULL))
@@ -3067,14 +3076,9 @@ gboolean register_depend_dissector(const char* parent, const char* dependent)
 	}
 
 	/* Verify that sub-dissector is not already in the list */
-	list_size = g_slist_length(sub_dissectors->dissectors);
-	for (i = 0; i < list_size; i++)
-	{
-		list_entry = g_slist_nth(sub_dissectors->dissectors, i);
-		protocol_name = (const char*)list_entry->data;
-		if (strcmp(dependent, protocol_name) == 0)
-			return TRUE; /* Dependency already exists */
-	}
+	list_entry = g_slist_find_custom(sub_dissectors->dissectors, (gpointer)dependent, find_matching_proto_name);
+	if (list_entry != NULL)
+		return TRUE; /* Dependency already exists */
 
 	sub_dissectors->dissectors = g_slist_prepend(sub_dissectors->dissectors, (gpointer)g_strdup(dependent));
 	return TRUE;

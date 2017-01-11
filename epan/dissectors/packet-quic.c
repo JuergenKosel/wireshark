@@ -162,6 +162,7 @@ static int hf_quic_tag_ctim = -1;
 static int hf_quic_tag_mids = -1;
 static int hf_quic_tag_fhol = -1;
 static int hf_quic_tag_sttl = -1;
+static int hf_quic_tag_smhl = -1;
 
 /* Public Reset Tags */
 static int hf_quic_tag_rnon = -1;
@@ -390,6 +391,7 @@ static const value_string message_tag_vals[] = {
 #define TAG_MIDS 0x4D494453
 #define TAG_FHOL 0x46484F4C
 #define TAG_STTL 0x5354544C
+#define TAG_SMHL 0x534D484C
 
 /* Public Reset Tag */
 #define TAG_RNON 0x524E4F4E
@@ -434,6 +436,7 @@ static const value_string tag_vals[] = {
     { TAG_MIDS, "Max incoming dynamic streams" },
     { TAG_FHOL, "Force Head Of Line blocking" },
     { TAG_STTL, "Server Config TTL" },
+    { TAG_SMHL, "Support Max Header List (size)" },
 
     { TAG_RNON, "Public Reset Nonce Proof" },
     { TAG_RSEQ, "Rejected Packet Number" },
@@ -483,7 +486,7 @@ static const value_string cadr_type_vals[] = {
 /**************************************************************************/
 /*                      Error Code                                        */
 /**************************************************************************/
-/* See https://chromium.googlesource.com/chromium/src.git/+/master/net/quic/core/quic_protocol.h */
+/* See https://chromium.googlesource.com/chromium/src.git/+/master/net/quic/core/quic_error_codes.h */
 
 enum QuicErrorCode {
     QUIC_NO_ERROR = 0,
@@ -631,6 +634,8 @@ enum QuicErrorCode {
     /* A crypto message was received that contained a parameter with too few
        values. */
     QUIC_CRYPTO_MESSAGE_INDEX_NOT_FOUND = 37,
+    /* A demand for an unsupport proof type was received. */
+    QUIC_UNSUPPORTED_PROOF_DEMAND = 94,
     /* An internal error occurred in crypto processing. */
     QUIC_CRYPTO_INTERNAL_ERROR = 38,
     /* A crypto handshake message specified an unsupported version. */
@@ -687,8 +692,14 @@ enum QuicErrorCode {
     /* Stream frames arrived too discontiguously so that stream sequencer buffer maintains too many gaps. */
     QUIC_TOO_MANY_FRAME_GAPS = 93,
 
+    /* Sequencer buffer get into weird state where continuing read/write will lead
+       to crash. */
+    QUIC_STREAM_SEQUENCER_INVALID_STATE = 95,
+    /* Connection closed because of server hits max number of sessions allowed. */
+    QUIC_TOO_MANY_SESSIONS_ON_SERVER = 96,
+
     /* No error. Used as bound while iterating. */
-    QUIC_LAST_ERROR = 94
+    QUIC_LAST_ERROR = 97
 };
 
 
@@ -789,6 +800,9 @@ static const value_string error_code_vals[] = {
     { QUIC_MULTIPATH_PATH_DOES_NOT_EXIST, "A path is supposed to exist but does not" },
     { QUIC_MULTIPATH_PATH_NOT_ACTIVE, "A path is supposed to be active but is not" },
     { QUIC_TOO_MANY_FRAME_GAPS, "Stream frames arrived too discontiguously so that stream sequencer buffer maintains too many gaps" },
+    { QUIC_UNSUPPORTED_PROOF_DEMAND, "A demand for an unsupport proof type was received" },
+    { QUIC_STREAM_SEQUENCER_INVALID_STATE, "Sequencer buffer get into weird state where continuing read/write will lead to crash" },
+    { QUIC_TOO_MANY_SESSIONS_ON_SERVER, "Connection closed because of server hits max number of sessions allowed" },
     { QUIC_LAST_ERROR, "No error. Used as bound while iterating" },
     { 0, NULL }
 };
@@ -798,7 +812,7 @@ static value_string_ext error_code_vals_ext = VALUE_STRING_EXT_INIT(error_code_v
 /**************************************************************************/
 /*                      RST Stream Error Code                             */
 /**************************************************************************/
-/* See https://chromium.googlesource.com/chromium/src.git/+/master/net/quic/core/quic_protocol.h (enum QuicRstStreamErrorCode) */
+/* See https://chromium.googlesource.com/chromium/src.git/+/master/net/quic/core/quic_error_codes.h (enum QuicRstStreamErrorCode) */
 
 enum QuicRstStreamErrorCode {
   /* Complete response has been sent, sending a RST to ask the other endpoint to stop sending request data without discarding the response. */
@@ -830,6 +844,10 @@ enum QuicRstStreamErrorCode {
   QUIC_PROMISE_VARY_MISMATCH,
   /* Only GET and HEAD methods allowed. */
   QUIC_INVALID_PROMISE_METHOD,
+  // The push stream is unclaimed and timed out.
+  QUIC_PUSH_STREAM_TIMED_OUT,
+  // Received headers were too large.
+  QUIC_HEADERS_TOO_LARGE,
   /* No error. Used as bound while iterating. */
   QUIC_STREAM_LAST_ERROR,
 };
@@ -849,6 +867,8 @@ static const value_string rststream_error_code_vals[] = {
     { QUIC_DUPLICATE_PROMISE_URL, "Can't have more than one active PUSH_PROMISE per URL" },
     { QUIC_PROMISE_VARY_MISMATCH, "Vary check failed" },
     { QUIC_INVALID_PROMISE_METHOD, "Only GET and HEAD methods allowed" },
+    { QUIC_PUSH_STREAM_TIMED_OUT, "The push stream is unclaimed and timed out" },
+    { QUIC_HEADERS_TOO_LARGE, "Received headers were too large" },
     { QUIC_STREAM_LAST_ERROR, "No error. Used as bound while iterating" },
     { 0, NULL }
 };
@@ -1606,7 +1626,12 @@ dissect_quic_tag(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree, guint
                 tag_offset += 8;
                 tag_len -= 8;
             break;
-
+            case TAG_SMHL:
+                proto_tree_add_item(tag_tree, hf_quic_tag_smhl, tvb, tag_offset_start + tag_offset, 4, ENC_LITTLE_ENDIAN);
+                proto_item_append_text(ti_tag, ": %u", tvb_get_letohl(tvb, tag_offset_start + tag_offset));
+                tag_offset += 4;
+                tag_len -= 4;
+            break;
             default:
                 proto_tree_add_item(tag_tree, hf_quic_tag_unknown, tvb, tag_offset_start + tag_offset, tag_len, ENC_NA);
                 expert_add_info_format(pinfo, ti_tag, &ei_quic_tag_undecoded,
@@ -2490,7 +2515,7 @@ proto_register_quic(void)
               "Specifying one less than the number of sequential nacks in the range", HFILL }
         },
         { &hf_quic_frame_type_ack_num_revived,
-            { "Num Ranges", "quic.frame_type.ack.num_revived",
+            { "Num Revived", "quic.frame_type.ack.num_revived",
                FT_UINT8, BASE_DEC, NULL, 0x0,
               "Specifying the number of revived packets, recovered via FEC", HFILL }
         },
@@ -2815,6 +2840,11 @@ proto_register_quic(void)
         },
         { &hf_quic_tag_sttl,
             { "Server Config TTL", "quic.tag.sttl",
+               FT_UINT64, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_quic_tag_smhl,
+            { "Support Max Header List (size)", "quic.tag.smhl",
                FT_UINT64, BASE_DEC, NULL, 0x0,
               NULL, HFILL }
         },

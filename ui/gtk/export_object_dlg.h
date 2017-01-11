@@ -25,10 +25,8 @@
 #ifndef __EXPORT_OBJECT_DLG_H__
 #define __EXPORT_OBJECT_DLG_H__
 
-/* Protocol specific */
-void eo_dicom_cb(GtkWidget *widget _U_, gpointer data _U_);
-void eo_http_cb(GtkWidget *widget _U_, gpointer data _U_);
-void eo_smb_cb(GtkWidget *widget _U_, gpointer data _U_);
-void eo_tftp_cb(GtkWidget *widget _U_, gpointer data _U_);
+#include <epan/export_object.h>
+
+void exportobject_cb(register_eo_t *eo);
 
 #endif /* __EXPORT_OBJECT_DLG_H__ */

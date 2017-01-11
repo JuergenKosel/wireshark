@@ -155,6 +155,7 @@ static int hf_enip_cpf_data = -1;
 static int hf_enip_response_in = -1;
 static int hf_enip_response_to = -1;
 static int hf_enip_time = -1;
+static int hf_enip_fwd_open_in = -1;
 static int hf_enip_connection_transport_data = -1;
 
 /* Parsed Attributes */
@@ -376,6 +377,8 @@ static dissector_handle_t  arp_handle;
 static dissector_handle_t  cipsafety_handle;
 static dissector_handle_t  cipmotion_handle;
 static dissector_handle_t  cip_implicit_handle;
+static dissector_handle_t  enip_tcp_handle;
+static dissector_handle_t  enipio_handle;
 
 static gboolean enip_desegment  = TRUE;
 static gboolean enip_OTrun_idle = TRUE;
@@ -2259,6 +2262,13 @@ dissect_cpf(enip_request_key_t *request_key, int command, tvbuff_t *tvb,
                    proto_item_append_text(enip_item, ", Connection ID: 0x%08X", tvb_get_letohl(tvb, offset + 6));
                }
 
+               if (conn_info)
+               {
+                   proto_item *it;
+                   it = proto_tree_add_uint(tree, hf_enip_fwd_open_in, tvb, 0, 0, conn_info->open_frame);
+                   PROTO_ITEM_SET_GENERATED(it);
+               }
+
                break;
 
             case UNCONNECTED_MSG_DTLS:
@@ -2571,6 +2581,13 @@ dissect_cpf(enip_request_key_t *request_key, int command, tvbuff_t *tvb,
                conn_info = enip_get_io_connid( pinfo, tvb_get_letohl( tvb, offset+6 ), &connid_type);
                proto_tree_add_item(item_tree, hf_enip_cpf_sai_connid, tvb, offset+6,  4, ENC_LITTLE_ENDIAN );
                proto_tree_add_item(item_tree, hf_enip_cpf_sai_seqnum, tvb, offset+10, 4, ENC_LITTLE_ENDIAN );
+
+               if (conn_info)
+               {
+                   proto_item *it;
+                   it = proto_tree_add_uint(tree, hf_enip_fwd_open_in, tvb, 0, 0, conn_info->open_frame);
+                   PROTO_ITEM_SET_GENERATED(it);
+               }
 
                /* Add info to column */
                col_add_fstr(pinfo->cinfo, COL_INFO, "Connection:  ID=0x%08X, SEQ=%010d",
@@ -3220,8 +3237,8 @@ proto_register_enip(void)
 
       /* Connected Data Item */
       { &hf_enip_cpf_cdi_seqcnt,
-        { "Sequence Count", "enip.cpf.cdi.seqcnt",
-          FT_UINT16, BASE_HEX, NULL, 0,
+        { "CIP Sequence Count", "enip.cpf.cdi.seqcnt",
+          FT_UINT16, BASE_DEC, NULL, 0,
           "Common Packet Format: Connected Data Item, Sequence Count", HFILL }},
 
       { &hf_enip_cpf_cdi_32bitheader,
@@ -3277,7 +3294,7 @@ proto_register_enip(void)
           "Common Packet Format: Sequenced Address Item, Connection Identifier", HFILL }},
 
       { &hf_enip_cpf_sai_seqnum,
-        { "Sequence Number", "enip.cpf.sai.seq",
+        { "Encapsulation Sequence Number", "enip.cpf.sai.seq",
           FT_UINT32, BASE_DEC, NULL, 0,
           "Common Packet Format: Sequenced Address Item, Sequence Number", HFILL }},
 
@@ -3301,6 +3318,10 @@ proto_register_enip(void)
         { "Time", "enip.time",
           FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
           "The time between the Call and the Reply", HFILL }},
+
+      { &hf_enip_fwd_open_in,
+        { "Forward Open Request In", "enip.fwd_open_in",
+        FT_FRAMENUM, BASE_NONE, NULL, 0, NULL, HFILL } },
 
       { &hf_enip_connection_transport_data,
         { "Data", "enip.connection_transport_data",
@@ -4360,8 +4381,8 @@ proto_register_enip(void)
    proto_enip = proto_register_protocol("EtherNet/IP (Industrial Protocol)", "ENIP", "enip");
    proto_enipio = proto_register_protocol("EtherNet/IP I/O", "ENIP I/O", "enip_io");
 
-   register_dissector("enip", dissect_enip_tcp, proto_enip);
-   register_dissector("enip_io", dissect_enipio, proto_enipio);
+   enip_tcp_handle = register_dissector("enip", dissect_enip_tcp, proto_enip);
+   enipio_handle = register_dissector("enip_io", dissect_enipio, proto_enipio);
 
    /* Required function calls to register the header fields and subtrees used */
    proto_register_field_array(proto_enip, hf, array_length(hf));
@@ -4417,12 +4438,10 @@ proto_register_enip(void)
 void
 proto_reg_handoff_enip(void)
 {
-   dissector_handle_t enip_udp_handle, enip_tcp_handle;
-   dissector_handle_t enipio_handle;
+   dissector_handle_t enip_udp_handle;
    dissector_handle_t dlr_handle;
 
    /* Register for EtherNet/IP, using TCP */
-   enip_tcp_handle = find_dissector("enip");
    dissector_add_uint_with_preference("tcp.port", ENIP_ENCAP_PORT, enip_tcp_handle);
 
    /* Register for EtherNet/IP, using UDP */
@@ -4430,7 +4449,6 @@ proto_reg_handoff_enip(void)
    dissector_add_uint_with_preference("udp.port", ENIP_ENCAP_PORT, enip_udp_handle);
 
    /* Register for EtherNet/IP IO data (UDP) */
-   enipio_handle = find_dissector("enip_io");
    dissector_add_uint_with_preference("udp.port", ENIP_IO_PORT, enipio_handle);
 
    /* Register for EtherNet/IP TLS */

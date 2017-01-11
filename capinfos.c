@@ -1405,6 +1405,7 @@ main(int argc, char *argv[])
 {
   GString *comp_info_str;
   GString *runtime_info_str;
+  char  *init_progfile_dir_error;
   wtap  *wth;
   int    err;
   gchar *err_info;
@@ -1417,9 +1418,6 @@ main(int argc, char *argv[])
   };
 
   int status = 0;
-#ifdef HAVE_PLUGINS
-  char  *init_progfile_dir_error;
-#endif
 #ifdef HAVE_LIBGCRYPT
   FILE  *fh;
   char  *hash_buf = NULL;
@@ -1458,29 +1456,34 @@ main(int argc, char *argv[])
    * Get credential information for later use.
    */
   init_process_policies();
-  init_open_routines();
+
+  /*
+   * Attempt to get the pathname of the directory containing the
+   * executable file.
+   */
+  init_progfile_dir_error = init_progfile_dir(argv[0], main);
+  if (init_progfile_dir_error != NULL) {
+    fprintf(stderr,
+            "capinfos: Can't get pathname of directory containing the capinfos program: %s.\n",
+            init_progfile_dir_error);
+    g_free(init_progfile_dir_error);
+  }
+
+  wtap_init();
 
 #ifdef HAVE_PLUGINS
-  if ((init_progfile_dir_error = init_progfile_dir(argv[0], main))) {
-    g_warning("capinfos: init_progfile_dir(): %s", init_progfile_dir_error);
-    g_free(init_progfile_dir_error);
-  } else {
-    /* Register all the plugin types we have. */
-    wtap_register_plugin_types(); /* Types known to libwiretap */
+  init_report_err(failure_message, NULL, NULL, NULL);
 
-    init_report_err(failure_message, NULL, NULL, NULL);
+  /* Scan for plugins.  This does *not* call their registration routines;
+     that's done later.
 
-    /* Scan for plugins.  This does *not* call their registration routines;
-       that's done later.
+     Don't report failures to load plugins because most (non-wiretap)
+     plugins *should* fail to load (because we're not linked against
+     libwireshark and dissector plugins need libwireshark). */
+  scan_plugins(DONT_REPORT_LOAD_FAILURE);
 
-       Don't report failures to load plugins because most (non-wiretap)
-       plugins *should* fail to load (because we're not linked against
-       libwireshark and dissector plugins need libwireshark). */
-    scan_plugins(DONT_REPORT_LOAD_FAILURE);
-
-    /* Register all libwiretap plugin modules. */
-    register_all_wiretap_modules();
-  }
+  /* Register all libwiretap plugin modules. */
+  register_all_wiretap_modules();
 #endif
 
   /* Process the options */
@@ -1717,7 +1720,7 @@ main(int argc, char *argv[])
         fprintf(stderr, "(%s)\n", err_info);
         g_free(err_info);
       }
-      overall_error_status = 1; /* remember that an error has occurred */
+      overall_error_status = 2; /* remember that an error has occurred */
       if (!continue_after_wtap_open_offline_failure)
         goto exit;
     }

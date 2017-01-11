@@ -169,16 +169,16 @@ static const value_string auth_vals[] = {
 #define OSPF_LSTYPE_ASEXT7      7
 #define OSPF_LSTYPE_EXTATTR     8
 #define OSPF_LSTYPE_BASE        OSPF_LSTYPE_ROUTER
-#define OSPF_V3_LSTYPE_ROUTER                0x2001
-#define OSPF_V3_LSTYPE_NETWORK               0x2002
-#define OSPF_V3_LSTYPE_INTER_AREA_PREFIX     0x2003
-#define OSPF_V3_LSTYPE_INTER_AREA_ROUTER     0x2004
-#define OSPF_V3_LSTYPE_AS_EXTERNAL           0x4005
-#define OSPF_V3_LSTYPE_GROUP_MEMBERSHIP      0x2006
-#define OSPF_V3_LSTYPE_NSSA                  0x2007
-#define OSPF_V3_LSTYPE_LINK                  0x0008
-#define OSPF_V3_LSTYPE_INTRA_AREA_PREFIX     0x2009
-#define OSPF_V3_LSTYPE_OPAQUE_RI             0x800c
+#define OSPF_V3_LSTYPE_ROUTER                1
+#define OSPF_V3_LSTYPE_NETWORK               2
+#define OSPF_V3_LSTYPE_INTER_AREA_PREFIX     3
+#define OSPF_V3_LSTYPE_INTER_AREA_ROUTER     4
+#define OSPF_V3_LSTYPE_AS_EXTERNAL           5
+#define OSPF_V3_LSTYPE_GROUP_MEMBERSHIP      6
+#define OSPF_V3_LSTYPE_NSSA                  7
+#define OSPF_V3_LSTYPE_LINK                  8
+#define OSPF_V3_LSTYPE_INTRA_AREA_PREFIX     9
+#define OSPF_V3_LSTYPE_OPAQUE_RI            12
 
 /* Opaque LSA types */
 #define OSPF_LSTYPE_OP_BASE      8
@@ -244,18 +244,42 @@ static const value_string grace_tlv_type_vals[] = {
     {0, NULL}
 };
 
-/* Opaque-LSA - Router Informational Capabilities: TLV Types*/
-#define OPT_RI_TLV       1
-#define DYN_HOSTNAME_TLV 7
+/* http://www.iana.org/assignments/ospf-parameters/ospf-parameters.xhtml#ri-tlv */
 
-#if 0
+/* Opaque-LSA - Router Informational Capabilities: TLV Types*/
+#define OPAQUE_TLV_RI               1
+#define OPAQUE_TLV_RF               2
+#define OPAQUE_TLV_TMG_IP4          3
+#define OPAQUE_TLV_TMG_IP6          4
+#define OPAQUE_TLV_TNCD             5
+#define OPAQUE_TLV_PCED             6
+#define OPAQUE_TLV_DH               7
+#define OPAQUE_TLV_SA               8
+#define OPAQUE_TLV_SLR              9
+#define OPAQUE_TLV_NAT              10
+#define OPAQUE_TLV_SBD              11
+
 /* The Opaque RI LSA TLV types definitions. */
 static const value_string ri_tlv_type_vals[] = {
-    {OPT_RI_TLV,          "Optional Router Informational Capabilities TLV"},
-    {DYN_HOSTNAME_TLV,    "Dynamic Hostname TLV"},
+    {OPAQUE_TLV_RI,                 "Router Informational Capabilities"  },
+    {OPAQUE_TLV_RF,                 "Router Functional Capabilities"     },
+    {OPAQUE_TLV_TMG_IP4,            "TE-MESH-GROUP TLV (IPv4)"           },
+    {OPAQUE_TLV_TMG_IP6,            "TE-MESH-GROUP TLV (IPv6)"           },
+    {OPAQUE_TLV_TNCD,               "TE Node Capability Descriptor"      },
+    {OPAQUE_TLV_PCED,               "PCED"                               },
+    {OPAQUE_TLV_DH,                 "OSPF Dynamic Hostname"              },
+    {OPAQUE_TLV_SA,                 "SR-Algorithm "                      },
+    {OPAQUE_TLV_SLR,                "SID/Label Range "                   },
+    {OPAQUE_TLV_NAT,                "Node Admin Tag "                    },
+    {OPAQUE_TLV_SBD,                "S-BFD Discriminator"                },
     {0, NULL}
 };
-#endif
+
+static const value_string ri_lsa_sa_tlv_type_vals[] = {
+    {0,                             "Shortest Path First"                },
+    {1,                             "Strict Shortest Path First"         },
+    {0, NULL}
+};
 
 static const value_string ls_type_vals[] = {
     {OSPF_LSTYPE_ROUTER,                  "Router-LSA"                   },
@@ -293,6 +317,20 @@ static const value_string v3_ls_type_vals[] = {
     {OSPF_V3_LSTYPE_OPAQUE_RI,            "Router Information Opaque-LSA"},
     {0,                                   NULL                           }
 };
+
+static const value_string v3_ls_type_s12_vals[] = {
+    {0, "Link-Local Scoping - Flooded only on originating link"          },
+    {1, "Area Scoping - Flooded only in originating area"                },
+    {2, "AS Scoping - Flooded throughout AS"                             },
+    {3, "Reserved"                                                       },
+    {0, NULL                                                             }
+};
+
+static const true_false_string tfs_v3_ls_type_u = {
+    "Treat the LSA as if it had link-local flooding scope",
+    "Store and flood the LSA as if the type is understood"
+};
+
 
 static const value_string lls_tlv_type_vals[] = {
     {1,                                   "Extended options TLV"         },
@@ -407,7 +445,8 @@ static gint ett_ospf_lsa_oif_tna_stlv = -1;
 static gint ett_ospf_lsa_grace_tlv = -1;
 static gint ett_ospf_lsa_opaque_ri = -1;
 static gint ett_ospf_lsa_ri_tlv = -1;
-static gint ett_ospf_lsa_dyn_hostname_tlv = -1;
+static gint ett_ospf_lsa_dh_tlv = -1;
+static gint ett_ospf_lsa_sa_tlv = -1;
 static gint ett_ospf_lsa_unknown_tlv = -1;
 
 
@@ -482,7 +521,10 @@ static int *hf_ospf_ls_type_array[] = {
         &hf_ospf_ls_opaque
 };
 
+static int hf_ospf_v3_ls_type_u = -1;
+static int hf_ospf_v3_ls_type_s12 = -1;
 static int hf_ospf_v3_ls_type = -1;
+
 /* OSPF V3 LSA Type */
 static int hf_ospf_v3_ls_router = -1;
 static int hf_ospf_v3_ls_network = -1;
@@ -535,6 +577,8 @@ static int hf_ospf_v2_options_dc = -1;
 static int hf_ospf_v2_options_o = -1;
 static int hf_ospf_v2_options_dn = -1;
 
+static int hf_ospf_tlv_type_opaque = -1;
+
 static int hf_ospf_ri_options = -1;
 /* OSPF Router Informational Capabilities Options */
 static int hf_ospf_ri_options_grc = -1;
@@ -585,7 +629,8 @@ static int hf_ospf_v3_prefix_option_la = -1;
 static int hf_ospf_v3_prefix_option_mc = -1;
 static int hf_ospf_v3_prefix_option_p = -1;
 static int hf_ospf_dyn_hostname = -1;
-static int hf_ospf_unknown_tlv_txt = -1;
+static int hf_ospf_lsa_sa = -1;
+static int hf_ospf_unknown_tlv = -1;
 static int hf_ospf_v2_grace_tlv = -1;
 static int hf_ospf_v2_grace_period = -1;
 static int hf_ospf_v2_grace_reason = -1;
@@ -1471,8 +1516,7 @@ dissect_ospf_lls_data_block(tvbuff_t *tvb, packet_info *pinfo, int offset, proto
 
     /* TODO: verify checksum */
     proto_tree_add_checksum(ospf_lls_data_block_tree, tvb, offset, hf_ospf_lls_checksum, -1, NULL, pinfo, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
-    proto_tree_add_uint_format_value(ospf_lls_data_block_tree, hf_ospf_lls_data_length, tvb, offset + 2, 2,
-                        ospf_lls_len, "%d bytes", ospf_lls_len);
+    proto_tree_add_uint(ospf_lls_data_block_tree, hf_ospf_lls_data_length, tvb, offset + 2, 2, ospf_lls_len);
 
     offset += 4;
     DISSECTOR_ASSERT((version == OSPF_VERSION_2) || (version == OSPF_VERSION_3));
@@ -2351,41 +2395,52 @@ dissect_ospf_lsa_opaque_ri(tvbuff_t *tvb, int offset, proto_tree *tree,
 
         switch(tlv_type) {
 
-        case OPT_RI_TLV:
-           tlv_tree = proto_tree_add_subtree(ri_tree, tvb, offset, tlv_length+4,
-                                    ett_ospf_lsa_ri_tlv, NULL, "RI TLV");
+        case OPAQUE_TLV_RI:
+            tlv_tree = proto_tree_add_subtree_format(ri_tree, tvb, offset, tlv_length+4,
+                                    ett_ospf_lsa_ri_tlv, NULL, "%s", val_to_str_const(tlv_type, ri_tlv_type_vals, "Unknown Opaque RI LSA TLV"));
 
-           proto_tree_add_uint_format_value(tlv_tree, hf_ospf_tlv_type, tvb, offset, 2,
-                        tlv_type, "Router Informational Capabilities TLV (%u)", tlv_type);
+            proto_tree_add_item(tlv_tree, hf_ospf_tlv_type_opaque, tvb, offset, 2, ENC_BIG_ENDIAN);
 
-           proto_tree_add_item(tlv_tree, hf_ospf_tlv_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(tlv_tree, hf_ospf_tlv_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
 
-           dissect_ospf_bitfield(tlv_tree, tvb, offset + 4, &bfinfo_ri_options);
-           break;
+            dissect_ospf_bitfield(tlv_tree, tvb, offset + 4, &bfinfo_ri_options);
+            break;
 
-        case DYN_HOSTNAME_TLV:
-           tlv_tree = proto_tree_add_subtree(ri_tree, tvb, offset, tlv_length+4,
-                                    ett_ospf_lsa_dyn_hostname_tlv, NULL, "Dynamic Hostname TLV");
+        case OPAQUE_TLV_DH:
+            tlv_tree = proto_tree_add_subtree_format(ri_tree, tvb, offset, tlv_length+4,
+                                    ett_ospf_lsa_dh_tlv, NULL, "%s", val_to_str_const(tlv_type, ri_tlv_type_vals, "Unknown Opaque RI LSA TLV"));
 
-           proto_tree_add_uint_format_value(tlv_tree, hf_ospf_tlv_type, tvb, offset, 2,
-                               tlv_type, "Dynamic Hostname TLV (%u)", tlv_type);
+            proto_tree_add_item(tlv_tree, hf_ospf_tlv_type_opaque, tvb, offset, 2, ENC_BIG_ENDIAN);
 
-           proto_tree_add_item(tlv_tree, hf_ospf_tlv_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(tlv_tree, hf_ospf_tlv_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
 
-           proto_tree_add_item(tlv_tree, hf_ospf_dyn_hostname, tvb, offset+4, tlv_length, ENC_ASCII|ENC_NA);
-           break;
+            proto_tree_add_item(tlv_tree, hf_ospf_dyn_hostname, tvb, offset+4, tlv_length, ENC_ASCII|ENC_NA);
+            break;
 
+        case OPAQUE_TLV_SA:{
+            int sa_number;
+            tlv_tree = proto_tree_add_subtree_format(ri_tree, tvb, offset, tlv_length+4,
+                                    ett_ospf_lsa_sa_tlv, NULL, "%s", val_to_str_const(tlv_type, ri_tlv_type_vals, "Unknown Opaque RI LSA TLV"));
+
+            proto_tree_add_item(tlv_tree, hf_ospf_tlv_type_opaque, tvb, offset, 2, ENC_BIG_ENDIAN);
+
+            proto_tree_add_item(tlv_tree, hf_ospf_tlv_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
+
+            for(sa_number = 0; sa_number < tlv_length; sa_number++){
+                proto_tree_add_item(tlv_tree, hf_ospf_lsa_sa, tvb, offset+sa_number+4, 1, ENC_ASCII|ENC_NA);
+            }
+            break;
+            }
         default:
-           tlv_tree = proto_tree_add_subtree(ri_tree, tvb, offset, tlv_length+4,
-                                    ett_ospf_lsa_unknown_tlv, NULL, "Unknown Opaque RI LSA TLV");
+            tlv_tree = proto_tree_add_subtree_format(ri_tree, tvb, offset, tlv_length+4,
+                                    ett_ospf_lsa_unknown_tlv, NULL, "%s", val_to_str_const(tlv_type, ri_tlv_type_vals, "Unknown Opaque RI LSA TLV"));
 
-           proto_tree_add_uint_format_value(tlv_tree, hf_ospf_tlv_length, tvb, offset, 2,
-                               tlv_type, "Unknown TLV (%u)", tlv_type);
+            proto_tree_add_item(tlv_tree, hf_ospf_tlv_type_opaque, tvb, offset, 2, ENC_BIG_ENDIAN);
 
-           proto_tree_add_item(tlv_tree, hf_ospf_tlv_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(tlv_tree, hf_ospf_tlv_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
 
-           proto_tree_add_item(tlv_tree, hf_ospf_unknown_tlv_txt, tvb, offset+4, tlv_length, ENC_ASCII|ENC_NA);
-           break;
+            proto_tree_add_item(tlv_tree, hf_ospf_unknown_tlv, tvb, offset+4, tlv_length, ENC_NA);
+            break;
 
         }
 
@@ -2743,7 +2798,7 @@ dissect_ospf_v3_lsa(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *t
     guint8               flags;
 
 
-    ls_type = tvb_get_ntohs(tvb, offset + 2);
+    ls_type = tvb_get_ntohs(tvb, offset + 2) & 0x1FFF;
     ls_length = tvb_get_ntohs(tvb, offset + 18);
     end_offset = offset + ls_length;
 
@@ -2755,8 +2810,10 @@ dissect_ospf_v3_lsa(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *t
     proto_tree_add_item(ospf_lsa_tree, hf_ospf_ls_age, tvb, offset, 2, ENC_BIG_ENDIAN);
     proto_tree_add_item(ospf_lsa_tree, hf_ospf_v3_lsa_do_not_age, tvb, offset, 2, ENC_BIG_ENDIAN);
 
-    proto_tree_add_item(ospf_lsa_tree, hf_ospf_v3_ls_type, tvb,
-                        offset + 2, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ospf_lsa_tree, hf_ospf_v3_ls_type_u, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ospf_lsa_tree, hf_ospf_v3_ls_type_s12, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ospf_lsa_tree, hf_ospf_v3_ls_type, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
+
     if (ospf_v3_ls_type_to_filter(ls_type) != -1) {
         hidden_item = proto_tree_add_item(ospf_lsa_tree,
                                           *hf_ospf_v3_ls_type_array[ospf_v3_ls_type_to_filter(ls_type)], tvb,
@@ -3061,7 +3118,7 @@ dissect_ospf_v3_lsa(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *t
     default:
         /* unknown LSA type */
         expert_add_info_format(pinfo, type_item, &ei_ospf_lsa_unknown_type,
-                            "Unknown LSA Type 0x%04x",ls_type);
+                            "Unknown LSA Type %u",ls_type);
         offset += ls_length;
         break;
     }
@@ -3338,8 +3395,14 @@ proto_register_ospf(void)
 
         /* OSPFv3 LS Types */
         {&hf_ospf_v3_ls_type,
-         { "LS Type", "ospf.v3.lsa", FT_UINT16, BASE_HEX,
-           VALS(v3_ls_type_vals), 0x0, NULL, HFILL }},
+         { "LS Type", "ospf.v3.lsa", FT_UINT16, BASE_DEC, VALS(v3_ls_type_vals),0x1FFF,
+           NULL, HFILL }},
+        {&hf_ospf_v3_ls_type_u,
+         { "LSA Handling", "ospf.v3.lsa.u", FT_BOOLEAN, 16, TFS(&tfs_v3_ls_type_u),0x8000,
+           NULL, HFILL }},
+        {&hf_ospf_v3_ls_type_s12,
+         { "Flooding Scope", "ospf.v3.lsa.s12", FT_UINT16, BASE_HEX, VALS(v3_ls_type_s12_vals),0x6000,
+           NULL, HFILL }},
 
         {&hf_ospf_v3_ls_router,
          { "Router-LSA", "ospf.v3.lsa.router", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
@@ -3482,6 +3545,10 @@ proto_register_ospf(void)
          { "(ETE) Experimental TE", "ospf.ri.options.ete", FT_BOOLEAN, 8,
            TFS(&tfs_capable_not_capable), OSPF_RI_OPTIONS_ETE, NULL, HFILL }},
 
+        {&hf_ospf_tlv_type_opaque,
+         { "TLV Type", "ospf.tlv_type.opaque", FT_UINT16, BASE_DEC, VALS(ri_tlv_type_vals), 0x0,
+           NULL, HFILL }},
+
         /* An MBZ field for the 24-bits of type field of Opaque RI LSA */
         {&hf_ospf_opaque_lsa_mbz,
          { "MBZ", "ospf.ri.mbz", FT_UINT16, BASE_HEX,
@@ -3606,9 +3673,12 @@ proto_register_ospf(void)
         {&hf_ospf_dyn_hostname,
          { "Dynamic Hostname", "ospf.dynhostname", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
-        /* text contained in the Unknown TLV of the Opaque RI LSA */
-        {&hf_ospf_unknown_tlv_txt,
-         { "Text in the Unknown TLV", "ospf.unknown_text", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+        {&hf_ospf_lsa_sa,
+         { "SR-Algorithm", "ospf.lsa_sa", FT_UINT8, BASE_DEC, VALS(ri_lsa_sa_tlv_type_vals), 0x0, NULL, HFILL }},
+
+        /* the Unknown TLV of the Opaque RI LSA */
+        {&hf_ospf_unknown_tlv,
+         { "Unknown TLV", "ospf.tlv.unknown", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
         /* OSPF Restart TLVs  */
         {&hf_ospf_v2_grace_tlv,
@@ -3695,7 +3765,7 @@ proto_register_ospf(void)
       { &hf_ospf_v3_lls_request_from, { "Request From", "ospf.v3.lls.request_from", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_ospf_v3_lls_full_state_for, { "Full State For", "ospf.v3.lls.full_state_for", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_ospf_lls_checksum, { "Checksum", "ospf.lls.checksum", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-      { &hf_ospf_lls_data_length, { "LLS Data Length", "ospf.lls.data_length", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+      { &hf_ospf_lls_data_length, { "LLS Data Length", "ospf.lls.data_length", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
       { &hf_ospf_db_interface_mtu, { "Interface MTU", "ospf.db.interface_mtu", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_ospf_db_dd_sequence, { "DD Sequence", "ospf.db.dd_sequence", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_ospf_link_state_id, { "Link State ID", "ospf.link_state_id", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
@@ -3766,7 +3836,8 @@ proto_register_ospf(void)
         &ett_ospf_lsa_mpls_link_stlv_admingrp,
         &ett_ospf_lsa_opaque_ri,
         &ett_ospf_lsa_ri_tlv,
-        &ett_ospf_lsa_dyn_hostname_tlv,
+        &ett_ospf_lsa_dh_tlv,
+        &ett_ospf_lsa_sa_tlv,
         &ett_ospf_lsa_unknown_tlv,
         &ett_ospf_lsa_oif_tna,
         &ett_ospf_lsa_oif_tna_stlv,

@@ -43,6 +43,7 @@
 #include "ui/commandline.h"
 
 #include "epan/color_filters.h"
+#include "epan/export_object.h"
 
 #include "wsutil/file_util.h"
 #include "wsutil/filesystem.h"
@@ -102,6 +103,7 @@
 #include "dissector_tables_dialog.h"
 #include "endpoint_dialog.h"
 #include "expert_info_dialog.h"
+#include "export_object_action.h"
 #include "export_object_dialog.h"
 #include "export_pdu_dialog.h"
 #ifdef HAVE_EXTCAP
@@ -318,7 +320,6 @@ void MainWindow::layoutPanes()
     if (cur_layout_ == new_layout) return;
 
     QSplitter *parents[3];
-    int current_row = capture_file_.currentRow();
 
     // Reparent all widgets and add them back in the proper order below.
     // This hides each widget as well.
@@ -395,8 +396,7 @@ void MainWindow::layoutPanes()
     proto_tree_->setVisible(ms_children.contains(proto_tree_) && recent.tree_view_show);
     byte_view_tab_->setVisible(ms_children.contains(byte_view_tab_) && recent.byte_view_show);
 
-    packet_list_->thaw();
-    cf_select_packet(capture_file_.capFile(), current_row);  // XXX Doesn't work for row 0?
+    packet_list_->thaw(true);
     cur_layout_ = new_layout;
 }
 
@@ -1651,6 +1651,17 @@ void MainWindow::byteViewTabChanged(int tab_index)
     }
 }
 
+#ifdef HAVE_SOFTWARE_UPDATE
+void MainWindow::softwareUpdateRequested() {
+    // We could call testCaptureFileClose here, but that would give us yet
+    // another dialog. Just try again later.
+    if (capture_file_.capFile() && capture_file_.capFile()->state != FILE_CLOSED) {
+        wsApp->rejectSoftwareUpdate();
+    }
+}
+#endif
+
+
 // File Menu
 
 void MainWindow::on_actionFileOpen_triggered()
@@ -1863,34 +1874,9 @@ void MainWindow::on_actionFileExportSSLSessionKeys_triggered()
     }
 }
 
-void MainWindow::on_actionFileExportObjectsDICOM_triggered()
-{
-    new ExportObjectDialog(*this, capture_file_, ExportObjectDialog::Dicom);
-}
-
 void MainWindow::on_actionStatisticsHpfeeds_triggered()
 {
     openStatisticsTreeDialog("hpfeeds");
-}
-
-void MainWindow::on_actionFileExportObjectsHTTP_triggered()
-{
-    new ExportObjectDialog(*this, capture_file_, ExportObjectDialog::Http);
-}
-
-void MainWindow::on_actionFileExportObjectsIMF_triggered()
-{
-    new ExportObjectDialog(*this, capture_file_, ExportObjectDialog::Imf);
-}
-
-void MainWindow::on_actionFileExportObjectsSMB_triggered()
-{
-    new ExportObjectDialog(*this, capture_file_, ExportObjectDialog::Smb);
-}
-
-void MainWindow::on_actionFileExportObjectsTFTP_triggered()
-{
-    new ExportObjectDialog(*this, capture_file_, ExportObjectDialog::Tftp);
 }
 
 void MainWindow::on_actionFilePrint_triggered()
@@ -2643,6 +2629,15 @@ void MainWindow::applyConversationFilter()
         df_combo_box_->lineEdit()->setText(conv_filter);
         df_combo_box_->applyDisplayFilter();
     }
+}
+
+void MainWindow::applyExportObject()
+{
+    ExportObjectAction *export_action = qobject_cast<ExportObjectAction*>(sender());
+    if (!export_action)
+        return;
+
+    new ExportObjectDialog(*this, capture_file_, export_action->exportObject());
 }
 
 // XXX We could probably create the analyze and prepare actions

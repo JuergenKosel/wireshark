@@ -2083,9 +2083,7 @@ looks_like_rpc_call(tvbuff_t *tvb, int offset)
 		if (version > 10)
 			return NULL;
 
-		rpc_prog = wmem_new(wmem_packet_scope(), rpc_prog_info_value);
-		rpc_prog->proto = NULL;
-		rpc_prog->proto_id = 0;
+		rpc_prog = wmem_new0(wmem_packet_scope(), rpc_prog_info_value);
 		rpc_prog->ett = ett_rpc_unknown_program;
 		rpc_prog->progname = wmem_strdup_printf(wmem_packet_scope(), "Unknown RPC program %u", rpc_prog_key);
 	}
@@ -2847,7 +2845,7 @@ dissect_rpc_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		tmp_item=proto_tree_add_uint(ptree,
 				hf_rpc_programversion, tvb, 0, 0, vers);
 		PROTO_ITEM_SET_GENERATED(tmp_item);
-		if (rpc_prog && (rpc_prog->procedure_hfs->len > vers) )
+		if (rpc_prog && rpc_prog->procedure_hfs && (rpc_prog->procedure_hfs->len > vers) )
 			procedure_hf = g_array_index(rpc_prog->procedure_hfs, int, vers);
 		else {
 			/*
@@ -4375,7 +4373,7 @@ proto_register_rpc(void)
 
 	rpc_module = prefs_register_protocol(proto_rpc, NULL);
 	prefs_register_bool_preference(rpc_module, "desegment_rpc_over_tcp",
-	    "Reassemble RPC over TCP messages\nspanning multiple TCP segments",
+	    "Reassemble RPC over TCP messages spanning multiple TCP segments",
 	    "Whether the RPC dissector should reassemble messages spanning multiple TCP segments."
 	    " To use this option, you must also enable \"Allow subdissectors to reassemble TCP streams\" in the TCP protocol settings.",
 		&rpc_desegment);
@@ -4400,8 +4398,8 @@ proto_register_rpc(void)
 		"Whether the RPC dissector should attempt to locate RPC PDU boundaries when initial fragment alignment is not known.  This may cause false positives, or slow operation.",
 		&rpc_find_fragment_start);
 
-	register_dissector("rpc", dissect_rpc, proto_rpc);
-	register_dissector("rpc-tcp", dissect_rpc_tcp, proto_rpc);
+	rpc_handle = register_dissector("rpc", dissect_rpc, proto_rpc);
+	rpc_tcp_handle = register_dissector("rpc-tcp", dissect_rpc_tcp, proto_rpc);
 	rpc_tap = register_tap("rpc");
 
 	register_srt_table(proto_rpc, NULL, 1, rpcstat_packet, rpcstat_init, rpcstat_param);
@@ -4435,9 +4433,7 @@ proto_reg_handoff_rpc(void)
 	   probably RPC traffic from some randomly-chosen port that happens
 	   to match some port for which we have a dissector)
 	*/
-	rpc_tcp_handle = find_dissector("rpc-tcp");
 	dissector_add_uint_with_preference("tcp.port", RPC_TCP_PORT, rpc_tcp_handle);
-	rpc_handle = find_dissector("rpc");
 	dissector_add_uint_with_preference("udp.port", RPC_TCP_PORT, rpc_handle);
 
 	heur_dissector_add("tcp", dissect_rpc_tcp_heur, "RPC over TCP", "rpc_tcp", proto_rpc, HEURISTIC_ENABLE);

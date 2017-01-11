@@ -1875,6 +1875,8 @@ get_gui_compiled_info(GString *str)
 #else
     g_string_append(str, "without AirPcap");
 #endif
+
+    codec_get_compiled_version_info(str);
 }
 
 void
@@ -1968,6 +1970,8 @@ read_configuration_files(char **gdp_path, char **dp_path)
 
     /* Read the disabled protocols file. */
     read_disabled_protos_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
+                              dp_path, &dp_open_errno, &dp_read_errno);
+    read_enabled_protos_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
                               dp_path, &dp_open_errno, &dp_read_errno);
     read_disabled_heur_dissector_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
                               dp_path, &dp_open_errno, &dp_read_errno);
@@ -2113,7 +2117,8 @@ main(int argc, char *argv[])
     relinquish_special_privs_perm();
 
     /*
-     * Attempt to get the pathname of the executable file.
+     * Attempt to get the pathname of the directory containing the
+     * executable file.
      */
     init_progfile_dir_error = init_progfile_dir(argv[0], main);
 
@@ -2278,19 +2283,18 @@ main(int argc, char *argv[])
     splash_win = splash_new("Loading Wireshark ...");
     if (init_progfile_dir_error != NULL) {
         simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                      "Can't get pathname of Wireshark: %s.\n"
+                      "Can't get pathname of directory containing Wireshark: %s.\n"
                       "It won't be possible to capture traffic.\n"
                       "Report this to the Wireshark developers.",
                       init_progfile_dir_error);
         g_free(init_progfile_dir_error);
     }
 
-    init_open_routines();
+    wtap_init();
 
 #ifdef HAVE_PLUGINS
     /* Register all the plugin types we have. */
     epan_register_plugin_types(); /* Types known to libwireshark */
-    wtap_register_plugin_types(); /* Types known to libwiretap */
     codec_register_plugin_types(); /* Types known to libwscodecs */
 
     /* Scan for plugins.  This does *not* call their registration routines;
@@ -2299,10 +2303,10 @@ main(int argc, char *argv[])
 
     /* Register all libwiretap plugin modules. */
     register_all_wiretap_modules();
+#endif
 
     /* Register all audio codec plugins. */
     register_all_codecs();
-#endif
 
     splash_update(RA_DISSECTORS, NULL, (gpointer)splash_win);
 
@@ -2327,16 +2331,17 @@ main(int argc, char *argv[])
     register_all_plugin_tap_listeners();
 #endif
 
-#ifdef HAVE_EXTCAP
-    extcap_register_preferences();
-#endif
-
     register_all_tap_listeners();
     conversation_table_set_gui_info(init_conversation_table);
     hostlist_table_set_gui_info(init_hostlist_table);
     srt_table_iterate_tables(register_service_response_tables, NULL);
     rtd_table_iterate_tables(register_response_time_delay_tables, NULL);
     new_stat_tap_iterate_tables(register_simple_stat_tables, NULL);
+
+#ifdef HAVE_EXTCAP
+    splash_update(RA_EXTCAP, NULL, (gpointer)splash_win);
+    extcap_register_preferences();
+#endif
 
     splash_update(RA_PREFERENCES, NULL, (gpointer)splash_win);
 
@@ -2345,7 +2350,6 @@ main(int argc, char *argv[])
      * https://code.wireshark.org/review/gitweb?p=wireshark.git;a=commit;h=9e277ae6154fd04bf6a0a34ec5655a73e5a736a3
      */
 
-    splash_update(RA_CONFIGURATION, NULL, (gpointer)splash_win);
     cap_file_init(&cfile);
 
     /* Fill in capture options with values from the preferences */
@@ -2401,28 +2405,28 @@ main(int argc, char *argv[])
                     g_free(err_str);
                     exit(2);
                 }
-            if (caps->data_link_types == NULL) {
-                cmdarg_err("The capture device \"%s\" has no data link types.", device.name);
-                exit(2);
-            }
+                if (caps->data_link_types == NULL) {
+                    cmdarg_err("The capture device \"%s\" has no data link types.", device.name);
+                    exit(2);
+                }
 #ifdef _WIN32
-            create_console();
+                create_console();
 #endif /* _WIN32 */
 #if defined(HAVE_PCAP_CREATE)
-            capture_opts_print_if_capabilities(caps, device.name, device.monitor_mode_supported);
+                capture_opts_print_if_capabilities(caps, device.name, device.monitor_mode_supported);
 #else
-            capture_opts_print_if_capabilities(caps, device.name, FALSE);
+                capture_opts_print_if_capabilities(caps, device.name, FALSE);
 #endif
 #ifdef _WIN32
-            destroy_console();
+                destroy_console();
 #endif /* _WIN32 */
-            free_if_capabilities(caps);
+                free_if_capabilities(caps);
             }
         }
         exit(0);
     }
-  capture_opts_trim_snaplen(&global_capture_opts, MIN_PACKET_SIZE);
-  capture_opts_trim_ring_num_files(&global_capture_opts);
+    capture_opts_trim_snaplen(&global_capture_opts, MIN_PACKET_SIZE);
+    capture_opts_trim_ring_num_files(&global_capture_opts);
 #endif /* HAVE_LIBPCAP */
 
     /* Notify all registered modules that have had any of their preferences
@@ -2460,6 +2464,7 @@ main(int argc, char *argv[])
     /* disabled protocols as per configuration file */
     if (gdp_path == NULL && dp_path == NULL) {
         set_disabled_protos_list();
+        set_enabled_protos_list();
         set_disabled_heur_dissector_list();
     }
 
@@ -2468,6 +2473,14 @@ main(int argc, char *argv[])
         for (proto_disable = global_dissect_options.disable_protocol_slist; proto_disable != NULL; proto_disable = g_slist_next(proto_disable))
         {
             proto_disable_proto_by_name((char*)proto_disable->data);
+        }
+    }
+
+    if(global_dissect_options.enable_protocol_slist) {
+        GSList *proto_enable;
+        for (proto_enable = global_dissect_options.enable_protocol_slist; proto_enable != NULL; proto_enable = g_slist_next(proto_enable))
+        {
+            proto_enable_proto_by_name((char*)proto_enable->data);
         }
     }
 
@@ -3344,6 +3357,7 @@ void change_configuration_profile (const gchar *profile_name)
     proto_enable_all();
     if (gdp_path == NULL && dp_path == NULL) {
         set_disabled_protos_list();
+        set_enabled_protos_list();
         set_disabled_heur_dissector_list();
     }
 
@@ -3411,6 +3425,22 @@ void redissect_packets(void)
     cf_redissect_packets(&cfile);
     status_expert_update();
 }
+
+#ifdef HAVE_SOFTWARE_UPDATE
+/** Check to see if Wireshark can shut down safely (e.g. offer to save the
+ *  current capture).
+ * Dummy.
+ */
+int software_update_can_shutdown_callback(void) {
+    return FALSE;
+}
+
+/** Shut down Wireshark in preparation for an upgrade.
+ * Dummy.
+ */
+void software_update_shutdown_request_callback(void) {
+}
+#endif
 
 /*
  * Editor modelines

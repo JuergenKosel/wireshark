@@ -116,7 +116,8 @@ FIELDDISPLAY    --For FT_UINT{8,16,24,32,40,48,56,64} and
 
                   BASE_DEC, BASE_HEX, BASE_OCT, BASE_DEC_HEX, BASE_HEX_DEC,
                   BASE_CUSTOM, or BASE_NONE, possibly ORed with
-                  BASE_RANGE_STRING, BASE_EXT_STRING or BASE_VAL64_STRING.
+                  BASE_RANGE_STRING, BASE_EXT_STRING, BASE_VAL64_STRING,
+                  BASE_ALLOW_ZERO, BASE_UNIT_STRING or BASE_NO_DISPLAY_VALUE
 
                   BASE_NONE may be used with a non-NULL FIELDCONVERT when the
                   numeric value of the field itself is not of significance to
@@ -124,6 +125,11 @@ FIELDDISPLAY    --For FT_UINT{8,16,24,32,40,48,56,64} and
                   When this is the case the numeric value is not shown to the
                   user in the protocol decode nor is it used when preparing
                   filters for the field in question.
+
+                  BASE_NO_DISPLAY_VALUE will just display the field name with
+                  no value.  It is intended for byte arrays (FT_BYTES) or
+                  header fields above a subtree.  The value will still be
+                  filterable, just not displayed.
 
                 --For FT_UINT16:
 
@@ -988,6 +994,34 @@ used is a guint64 (instead of guint32). Instead of using the VALS()
 macro for the 'strings' field in the header_field_info struct array,
 'VALS64()' is used.
 
+-- Unit string
+Some integer fields, of type FT_UINT* and float fiels, of type FT_FLOAT
+or FT_DOUBLE, need units of measurement to help convey the field value.
+
+A 'unit_name_string' structure is a way to add a unit suffix to a field.
+
+    typedef struct unit_name_string {
+        char *singular;     /* name to use for 1 unit */
+        char *plural;       /* name to use for < 1 or > 1 units */
+    } unit_name_string;
+
+For fields with that unit name, you would declare a "unit_name_string":
+
+    static const unit_name_string unitname[] =
+        { "single item name" , "multiple item name" };
+
+(the second entry can be NULL if there is no plural form of the unit name.
+This is typically the case when abbreviations are used instead of full words.)
+
+There are several "common" unit name structures already defined in
+epan/unit_strings.h.  Dissector authors may choose to add the unit name
+structure there rather than locally in a dissector.
+
+For hf[] array FT_(U)INT*, FT_FlOAT and FT_DOUBLE fields that need a
+'unit_name_string' struct, the 'strings' field would be set to
+'&units_second_seconds'. Furthermore, the 'display' field must be ORed
+with 'BASE_UNIT_STRING' (e.g. BASE_DEC|BASE_UNIT_STRING).
+
 -- Ranges
 If the field has a numeric type that might logically fit in ranges of values
 one can use a range_string struct.
@@ -1826,6 +1860,9 @@ arguments are a "printf"-style format and any arguments for that format.
 With these routines, unlike the proto_tree_add_XXX_format() routines,
 the name of the field is added automatically as in the
 proto_tree_add_XXX() functions; only the value is added with the format.
+One use case for this would be to add a unit of measurement string to
+the value of the field, however using BASE_UNIT_STRING in the hf_
+definition is now preferred.
 
 proto_tree_add_checksum()
 ----------------------------
@@ -3308,7 +3345,32 @@ The arguments to udp_dissect_pdus are:
     a void pointer to user data that is passed to the length-determining
     routine, and the dissector routine referenced in the previous parameter.
 
-2.9 Creating Decode As functionality.
+2.9 PINOs (Protocols in name only)
+
+For the typical dissector there is a 1-1 relationship between it and it's
+protocol.  However, there are times when a protocol needs multiple "names"
+because it has multiple dissection functions going into the same dissector
+table. The muliple names removes confusion when picking dissection through
+Decode As functionality.
+
+Once the "main" protocol name has been created through proto_register_protocol,
+additional "pinos" can be created with proto_register_protocol_in_name_only.
+These pinos have all of the naming conventions of a protocol, but are stored
+separately as to remove confusion from real protocols.  "pinos" the main
+protocol's properties for things like enable/disable.  i.e.  If the "main"
+protocol has been disabled, all of its pinos will be disabled as well.
+Pinos should not have any fields registered with them or heuristic tables
+associated with them.
+
+Another use case for pinos is when a protocol contains a TLV design and it
+wants to create a dissector table to handle dissection of the "V". Dissector
+tables require a "protocol", but the dissection functions for that table
+typically aren't a protocol.  In this case proto_register_protocol_in_name_only
+creates the necessary placeholder for the dissector table.  In addition, because
+a dissector table exists, "V"s of the TLVs can be dissected outside of the
+original dissector file.
+
+2.10 Creating Decode As functionality.
 
 While the Decode As functionality is available through the GUI, the underlying
 functionality is controlled by dissectors themselves. To create Decode As
@@ -3344,7 +3406,11 @@ to the dissector table through Decode As GUI functionality.  For dissector
 tables that are an integer or string type, the provided "default" handling
 functions shown in the example should suffice.
 
-2.10 ptvcursors.
+All entries into a dissector table that use Decode As must have a unique
+protocol ID. If a protocol wants multiple entries into a dissector table,
+a pino should be used (see section 2.9)
+
+2.11 ptvcursors.
 
 The ptvcursor API allows a simpler approach to writing dissectors for
 simple protocols. The ptvcursor API works best for protocols whose fields
@@ -3377,7 +3443,7 @@ To use the ptvcursor API, include the "ptvcursor.h" file. The PGM dissector
 is an example of how to use it. You don't need to look at it as a guide;
 instead, the API description here should be good enough.
 
-2.10.1 ptvcursor API.
+2.11.1 ptvcursor API.
 
 ptvcursor_t*
 ptvcursor_new(proto_tree* tree, tvbuff_t* tvb, gint offset)
@@ -3433,7 +3499,7 @@ If the length is unknown, length may be defined as SUBTREE_UNDEFINED_LENGTH.
 In this case, at the next pop, the item length will be equal to the advancement
 of the cursor since the creation of the subtree.
 
-2.9.2 Miscellaneous functions.
+2.11.2 Miscellaneous functions.
 
 tvbuff_t*
 ptvcursor_tvbuff(ptvcursor_t* ptvc)
@@ -3456,7 +3522,7 @@ ptvcursor_set_subtree(ptvcursor_t* ptvc, proto_item* it, gint ett_subtree);
     Creates a subtree and adds it to the cursor as the working tree but does
 not save the old working tree.
 
-2.11 Optimizations
+2.12 Optimizations
 
 A protocol dissector may be called in 2 different ways - with, or
 without a non-null "tree" argument.

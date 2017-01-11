@@ -151,7 +151,6 @@
 #include <epan/show_exception.h>
 #include <epan/reassemble.h>
 #include <epan/prefs.h>
-#include <epan/prefs-int.h>
 #include <epan/expert.h>
 #include "packet-tcp.h"
 
@@ -1148,6 +1147,8 @@ static const value_string prelogin_encryption_options[] = {
     {3, "Encryption is required"},
     {0, NULL}
 };
+
+static const unit_name_string units_characters = { " character", " characters" };
 
 #define TDS_MAX_COLUMNS 256
 
@@ -2749,8 +2750,8 @@ static int
 dissect_tds_error_token(tvbuff_t *tvb, guint offset, proto_tree *tree, tds_conv_info_t *tds_info)
 {
     guint cur = offset;
-    guint16 msg_len;
-    guint8 srvr_len, proc_len;
+    guint32 msg_len;
+    guint32 srvr_len, proc_len;
     int encoding = tds_little_endian ? ENC_LITTLE_ENDIAN : ENC_BIG_ENDIAN;
 
     proto_tree_add_item(tree, hf_tds_error_length, tvb, cur, 2, ENC_LITTLE_ENDIAN);
@@ -2763,17 +2764,14 @@ dissect_tds_error_token(tvbuff_t *tvb, guint offset, proto_tree *tree, tds_conv_
     proto_tree_add_item(tree, hf_tds_error_class, tvb, cur, 1, ENC_NA);
     cur +=1;
 
-    msg_len = tvb_get_guint16(tvb, cur, encoding);
-    proto_tree_add_uint_format_value(tree, hf_tds_error_msgtext_length, tvb, cur, 2, msg_len, "%u characters", msg_len);
+    proto_tree_add_item_ret_uint(tree, hf_tds_error_msgtext_length, tvb, cur, 2, encoding, &msg_len);
     cur +=2;
 
     msg_len *= 2;
     proto_tree_add_item(tree, hf_tds_error_msgtext, tvb, cur, msg_len, ENC_UTF_16|ENC_LITTLE_ENDIAN);
     cur += msg_len;
 
-    srvr_len = tvb_get_guint8(tvb, cur);
-
-    proto_tree_add_uint_format_value(tree, hf_tds_error_servername_length, tvb, cur, 1, srvr_len, "%u characters", srvr_len);
+    proto_tree_add_item_ret_uint(tree, hf_tds_error_servername_length, tvb, cur, 1, ENC_NA, &srvr_len);
     cur +=1;
     if(srvr_len) {
         srvr_len *=2;
@@ -2781,9 +2779,7 @@ dissect_tds_error_token(tvbuff_t *tvb, guint offset, proto_tree *tree, tds_conv_
         cur += srvr_len;
     }
 
-    proc_len = tvb_get_guint8(tvb, cur);
-
-    proto_tree_add_uint_format_value(tree, hf_tds_error_procname_length, tvb, cur, 1, proc_len, "%u characters", proc_len);
+    proto_tree_add_item_ret_uint(tree, hf_tds_error_procname_length, tvb, cur, 1, ENC_NA, &proc_len);
     cur +=1;
     if(proc_len) {
         proc_len *=2;
@@ -2806,8 +2802,8 @@ static int
 dissect_tds_info_token(tvbuff_t *tvb, guint offset, proto_tree *tree, tds_conv_info_t *tds_info)
 {
     guint cur = offset;
-    guint16 msg_len;
-    guint8 srvr_len, proc_len;
+    guint32 msg_len;
+    guint32 srvr_len, proc_len;
     int encoding = tds_little_endian ? ENC_LITTLE_ENDIAN : ENC_BIG_ENDIAN;
 
     proto_tree_add_item(tree, hf_tds_info_length, tvb, cur, 2, ENC_LITTLE_ENDIAN);
@@ -2820,17 +2816,14 @@ dissect_tds_info_token(tvbuff_t *tvb, guint offset, proto_tree *tree, tds_conv_i
     proto_tree_add_item(tree, hf_tds_info_class, tvb, cur, 1, ENC_NA);
     cur +=1;
 
-    msg_len = tvb_get_guint16(tvb, cur, encoding);
-    proto_tree_add_uint_format_value(tree, hf_tds_info_msgtext_length, tvb, cur, 2, msg_len, "%u characters", msg_len);
+    proto_tree_add_item_ret_uint(tree, hf_tds_info_msgtext_length, tvb, cur, 2, encoding, &msg_len);
     cur +=2;
 
     msg_len *= 2;
     proto_tree_add_item(tree, hf_tds_info_msgtext, tvb, cur, msg_len, ENC_UTF_16|ENC_LITTLE_ENDIAN);
     cur += msg_len;
 
-    srvr_len = tvb_get_guint8(tvb, cur);
-
-    proto_tree_add_uint_format_value(tree, hf_tds_info_servername_length, tvb, cur, 1, srvr_len, "%u characters", srvr_len);
+    proto_tree_add_item_ret_uint(tree, hf_tds_info_servername_length, tvb, cur, 1, ENC_NA, &srvr_len);
     cur +=1;
     if(srvr_len) {
         srvr_len *=2;
@@ -2838,9 +2831,7 @@ dissect_tds_info_token(tvbuff_t *tvb, guint offset, proto_tree *tree, tds_conv_i
         cur += srvr_len;
     }
 
-    proc_len = tvb_get_guint8(tvb, cur);
-
-    proto_tree_add_uint_format_value(tree, hf_tds_info_procname_length, tvb, cur, 1, proc_len, "%u characters", proc_len);
+    proto_tree_add_item_ret_uint(tree, hf_tds_info_procname_length, tvb, cur, 1, ENC_NA, &proc_len);
     cur +=1;
     if(proc_len) {
         proc_len *=2;
@@ -4225,9 +4216,7 @@ version_convert( gchar *result, guint32 hexver )
 
 static void
 apply_tds_prefs(void) {
-    pref_t *tds_ports = prefs_find_preference(prefs_find_module("tds"), "tcp.port");
-
-    tds_tcp_ports = range_copy(*tds_ports->varp.range);
+    tds_tcp_ports = prefs_get_range_value("tds", "tcp.port");
 }
 
 /* Register the protocol with Wireshark */
@@ -4647,7 +4636,7 @@ proto_register_tds(void)
         },
         { &hf_tds_error_msgtext_length,
           { "Error message length", "tds.error.msgtext_length",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_characters, 0x0,
             NULL, HFILL }
         },
         { &hf_tds_error_msgtext,
@@ -4657,7 +4646,7 @@ proto_register_tds(void)
         },
         { &hf_tds_error_servername_length,
           { "Server name length", "tds.error.servername_length",
-          FT_UINT8, BASE_DEC, NULL, 0x0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_characters, 0x0,
           NULL, HFILL }
         },
         { &hf_tds_error_servername,
@@ -4667,7 +4656,7 @@ proto_register_tds(void)
         },
         { &hf_tds_error_procname_length,
           { "Process name length", "tds.error.procname_length",
-          FT_UINT8, BASE_DEC, NULL, 0x0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_characters, 0x0,
           NULL, HFILL }
         },
         { &hf_tds_error_procname,
@@ -4743,7 +4732,7 @@ proto_register_tds(void)
         },
         { &hf_tds_info_msgtext_length,
           { "Error message length", "tds.info.msgtext_length",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_characters, 0x0,
             NULL, HFILL }
         },
         { &hf_tds_info_msgtext,
@@ -4753,7 +4742,7 @@ proto_register_tds(void)
         },
         { &hf_tds_info_servername_length,
           { "Server name length", "tds.info.servername_length",
-          FT_UINT8, BASE_DEC, NULL, 0x0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_characters, 0x0,
           NULL, HFILL }
         },
         { &hf_tds_info_servername,
@@ -4763,7 +4752,7 @@ proto_register_tds(void)
         },
         { &hf_tds_info_procname_length,
           { "Process name length", "tds.info.procname_length",
-          FT_UINT8, BASE_DEC, NULL, 0x0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_characters, 0x0,
           NULL, HFILL }
         },
         { &hf_tds_info_procname,

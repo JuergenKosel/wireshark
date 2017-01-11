@@ -1750,9 +1750,8 @@ dissect_fhandle_data_NETAPP_GX_v3(tvbuff_t* tvb, packet_info *pinfo _U_, proto_t
 
 		/* = utility = */
 		utility = tvb_get_guint8(tvb, offset);
-		tf = proto_tree_add_uint_format_value(tree, hf_nfs3_gxfh_utlfield, tvb,
-						offset, 1, utility,
-						"0x%02x", utility);
+		tf = proto_tree_add_uint(tree, hf_nfs3_gxfh_utlfield, tvb,
+						offset, 1, utility);
 
 		field_tree = proto_item_add_subtree(tf, ett_nfs3_gxfh_utlfield);
 		if (utility & NFS3GX_FH_TREE_MASK) {
@@ -14029,21 +14028,21 @@ proto_register_nfs(void)
 	proto_nfs = proto_register_protocol("Network File System", "NFS", "nfs");
 
 	/* "protocols" registered just for Decode As */
-	proto_nfs_unknown = proto_register_protocol("Unknown", "unknown", "nfs.unknown");
-	proto_nfs_svr4 = proto_register_protocol("SVR4", "svr4", "nfs.svr4");
-	proto_nfs_knfsd_le = proto_register_protocol("KNFSD_LE", "knfsd_le", "nfs.knfsd_le");
-	proto_nfs_nfsd_le = proto_register_protocol("NFSD_LE", "nfsd_le", "nfs.nfsd_le");
-	proto_nfs_knfsd_new = proto_register_protocol("KNFSD_NEW", "knfsd_new", "nfs.knfsd_new");
-	proto_nfs_ontap_v3 = proto_register_protocol("ONTAP_V3", "ontap_v3", "nfs.ontap_v3");
-	proto_nfs_ontap_v4 = proto_register_protocol("ONTAP_V4", "ontap_v4", "nfs.ontap_v4");
-	proto_nfs_ontap_gx_v3 = proto_register_protocol("ONTAP_GX_V3", "ontap_gx_v3", "nfs.ontap_gx_v3");
-	proto_nfs_celerra_vnx = proto_register_protocol("CELERRA_VNX", "celerra_vnx", "nfs.celerra_vnx");
-	proto_nfs_gluster = proto_register_protocol("GLUSTER", "gluster", "nfs.gluster");
-	proto_nfs_dcache = proto_register_protocol("dCache", "dcache", "nfs.dcache");
-	proto_nfs_primary_data = proto_register_protocol("Primary_Data", "pd", "nfs.primary_data");
+	proto_nfs_unknown = proto_register_protocol_in_name_only("Unknown", "unknown", "nfs.unknown", proto_nfs, FT_PROTOCOL);
+	proto_nfs_svr4 = proto_register_protocol_in_name_only("SVR4", "svr4", "nfs.svr4", proto_nfs, FT_PROTOCOL);
+	proto_nfs_knfsd_le = proto_register_protocol_in_name_only("KNFSD_LE", "knfsd_le", "nfs.knfsd_le", proto_nfs, FT_PROTOCOL);
+	proto_nfs_nfsd_le = proto_register_protocol_in_name_only("NFSD_LE", "nfsd_le", "nfs.nfsd_le", proto_nfs, FT_PROTOCOL);
+	proto_nfs_knfsd_new = proto_register_protocol_in_name_only("KNFSD_NEW", "knfsd_new", "nfs.knfsd_new", proto_nfs, FT_PROTOCOL);
+	proto_nfs_ontap_v3 = proto_register_protocol_in_name_only("ONTAP_V3", "ontap_v3", "nfs.ontap_v3", proto_nfs, FT_PROTOCOL);
+	proto_nfs_ontap_v4 = proto_register_protocol_in_name_only("ONTAP_V4", "ontap_v4", "nfs.ontap_v4", proto_nfs, FT_PROTOCOL);
+	proto_nfs_ontap_gx_v3 = proto_register_protocol_in_name_only("ONTAP_GX_V3", "ontap_gx_v3", "nfs.ontap_gx_v3", proto_nfs, FT_PROTOCOL);
+	proto_nfs_celerra_vnx = proto_register_protocol_in_name_only("CELERRA_VNX", "celerra_vnx", "nfs.celerra_vnx", proto_nfs, FT_PROTOCOL);
+	proto_nfs_gluster = proto_register_protocol_in_name_only("GLUSTER", "gluster", "nfs.gluster", proto_nfs, FT_PROTOCOL);
+	proto_nfs_dcache = proto_register_protocol_in_name_only("dCache", "dcache", "nfs.dcache", proto_nfs, FT_PROTOCOL);
+	proto_nfs_primary_data = proto_register_protocol_in_name_only("Primary_Data", "pd", "nfs.primary_data", proto_nfs, FT_PROTOCOL);
 
 	/* "protocols" registered just for ONC-RPC Service Response Time */
-	proto_nfs_cb = proto_register_protocol("Network File System CB", "NFS CB", "nfs.cb");
+	proto_nfs_cb = proto_register_protocol_in_name_only("Network File System CB", "NFS CB", "nfs.cb", proto_nfs, FT_PROTOCOL);
 
 	proto_register_field_array(proto_nfs, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));

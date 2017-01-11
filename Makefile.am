@@ -224,6 +224,7 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.meinberg \
 	radius/dictionary.merit \
 	radius/dictionary.meru \
+	radius/dictionary.microsemi \
 	radius/dictionary.microsoft \
 	radius/dictionary.mikrotik \
 	radius/dictionary.motorola \
@@ -280,6 +281,7 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.rfc7155 \
 	radius/dictionary.rfc7268 \
 	radius/dictionary.rfc7499 \
+	radius/dictionary.rfc7930 \
 	radius/dictionary.riverbed \
 	radius/dictionary.riverstone \
 	radius/dictionary.roaringpenguin \
@@ -1090,7 +1092,7 @@ rpm-package: dist
 	  rm -f SOURCES/$(distdir).tar.xz ../../$(distdir).tar.xz
 else
 rpm-package:
-	@echo "RPM executable not available." ; \
+	@echo "'rpmbuild' executable not available." ; \
 	  false
 endif
 
@@ -1204,5 +1206,5 @@ gen-authors:
 	cd $(top_srcdir) && $(PERL) tools/generate_authors.pl AUTHORS.src > AUTHORS
 
 dist-hook:
-	printf "git_description=%s\n" "$$(git -C $(top_srcdir) describe)" \
+	printf "git_description=%s\n" "$$(git -C $(top_srcdir) describe --match 'v[1-9]*')" \
 		> $(top_distdir)/version.conf

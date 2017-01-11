@@ -429,6 +429,13 @@ else()
 		# The Qt headers generate a ton of shortening errors on 64-bit systems
 		# so only enable this for C for now.
 		-Wshorten-64-to-32
+
+		#
+		# Implicit function declarations are an error in C++ and most
+		# likely a programming error in C. Turn -Wimplicit-int and
+		# -Wimplicit-function-declaration into an error by default.
+		#
+		-Werror=implicit
 	)
 
 	set(CXX_WARN_FLAGS
@@ -858,6 +865,10 @@ if(ENABLE_SBC)
 	set(PACKAGELIST ${PACKAGELIST} SBC)
 endif()
 
+if(ENABLE_SPANDSP)
+	set(PACKAGELIST ${PACKAGELIST} SPANDSP)
+endif()
+
 # Capabilities
 if(ENABLE_CAP)
 	set(PACKAGELIST ${PACKAGELIST} CAP SETCAP)
@@ -965,6 +976,9 @@ if(HAVE_LIBNL AND HAVE_AIRPCAP)
 endif()
 if(HAVE_LIBSBC)
 	set(HAVE_SBC 1)
+endif()
+if(SPANDSP_FOUND)
+	set(HAVE_SPANDSP 1)
 endif()
 if(EXTCAP_ANDROIDDUMP_LIBPCAP)
 	set(ANDROIDDUMP_USE_LIBPCAP 1)
@@ -1191,7 +1205,14 @@ if(LIBSSH_FOUND)
 	endif()
 endif()
 
-# Location of our plugins. PLUGIN_DIRECTORY should allow running
+# Directory where plugins and Lua dissectors can be found.
+if (WIN32)
+	set(PLUGIN_INSTALL_DIR "plugins/${CPACK_PACKAGE_VERSION}")
+else ()
+	set(PLUGIN_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/${CPACK_PACKAGE_NAME}/plugins/${CPACK_PACKAGE_VERSION}")
+endif()
+
+# Location of our plugins. PLUGIN_DIR should allow running
 # from the build directory similar to DATAFILE_DIR above.
 if(ENABLE_PLUGINS)
 	# Target platform locations
@@ -1201,11 +1222,6 @@ if(ENABLE_PLUGINS)
 	set(HAVE_PLUGINS 1)
 	add_custom_target(plugins)
 	set_target_properties(plugins PROPERTIES FOLDER "Plugins")
-	if (WIN32)
-		set(PLUGIN_INSTALL_DIR "plugins/${CPACK_PACKAGE_VERSION}")
-	else ()
-		set(PLUGIN_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/${CPACK_PACKAGE_NAME}/plugins/${CPACK_PACKAGE_VERSION}")
-	endif()
 	set(PLUGIN_SRC_DIRS
 		plugins/docsis
 		plugins/ethercat
@@ -1216,6 +1232,7 @@ if(ENABLE_PLUGINS)
 		plugins/opcua
 		plugins/profinet
 		plugins/stats_tree
+		plugins/transum
 		plugins/unistim
 		plugins/wimax
 		plugins/wimaxasncp
@@ -1333,6 +1350,7 @@ endforeach()
 include(FeatureSummary)
 #SET_FEATURE_INFO(NAME DESCRIPTION [URL [COMMENT] ])
 SET_FEATURE_INFO(SBC "SBC Codec for Bluetooth A2DP stream playing" "www: http://git.kernel.org/cgit/bluetooth/sbc.git" )
+SET_FEATURE_INFO(SPANDSP "Support for G.722 and G.726 codecs in RTP player" "http://www.soft-switch.org/" )
 SET_FEATURE_INFO(LIBSSH "libssh is library for ssh connections and it is needed to build sshdump/ciscodump" "www: https://www.libssh.org/get-it/" )
 
 FEATURE_SUMMARY(WHAT ALL)
@@ -1385,6 +1403,7 @@ set(TSHARK_TAP_SRC
 	ui/cli/tap-comparestat.c
 	ui/cli/tap-diameter-avp.c
 	ui/cli/tap-expert.c
+	ui/cli/tap-exportobject.c
 	ui/cli/tap-endpoints.c
 	ui/cli/tap-follow.c
 	ui/cli/tap-funnel.c
@@ -1604,6 +1623,13 @@ if(WIN32)
 				"${_dll_output_dir}"
 		)
 	endif(SBC_FOUND)
+	if (SPANDSP_FOUND)
+		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
+				"${SPANDSP_DLL_DIR}/${SPANDSP_DLL}"
+				"${_dll_output_dir}"
+		)
+	endif(SPANDSP_FOUND)
 	if (SMI_FOUND)
 		# Wireshark.nsi wants SMI_DIR which is the base SMI directory
 		get_filename_component(SMI_DIR ${SMI_DLL_DIR} DIRECTORY)
@@ -2008,7 +2034,7 @@ if(BUILD_wireshark AND QT_FOUND)
 			# be smart enough to copy debug DLLs when needed.
 			add_custom_command(TARGET copy_qt_dlls
 				POST_BUILD
-				COMMAND set "PATH=%PATH%;${QT_BIN_PATH}"
+				COMMAND set "PATH=${QT_BIN_PATH};%PATH%"
 				COMMAND "${QT_WINDEPLOYQT_EXECUTABLE}"
 					$<$<CONFIG:Debug>:--debug>
 					$<$<NOT:$<CONFIG:Debug>>:--release>
@@ -2580,7 +2606,7 @@ if(ENABLE_EXTCAP AND BUILD_udpdump)
 	set(udpdump_LIBS
 		${GLIB2_LIBRARIES}
 		${CMAKE_DL_LIBS}
-		${LIBEPAN_LIBS}
+		wsutil
 		writecap
 	)
 	set(udpdump_FILES
@@ -2701,6 +2727,36 @@ install(
 	DESTINATION
 		${CMAKE_INSTALL_DATADIR}/${CPACK_PACKAGE_NAME}
 )
+
+# Install icons and other desktop files for Freedesktop.org-compliant desktops.
+if(((BUILD_wireshark AND QT_FOUND) OR BUILD_wireshark_gtk) AND NOT (WIN32 OR APPLE))
+	install(FILES wireshark-mime-package.xml
+		DESTINATION "${CMAKE_INSTALL_DATADIR}/mime/packages"
+		RENAME wireshark.xml
+	)
+	install(FILES wireshark.appdata.xml
+		DESTINATION "${CMAKE_INSTALL_DATADIR}/appdata"
+	)
+	if(BUILD_wireshark AND QT_FOUND)
+		install(FILES wireshark.desktop
+			DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
+	endif()
+	if(BUILD_wireshark_gtk)
+		install(FILES wireshark-gtk.desktop
+			DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
+	endif()
+	foreach(size 16 24 32 48 64 128 256)
+		install(FILES image/wsicon${size}.png
+			DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps"
+			RENAME wireshark.png)
+		install(FILES image/WiresharkDoc-${size}.png
+			DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/mimetypes"
+			RENAME application-wireshark-doc.png)
+	endforeach()
+	install(FILES image/wsicon.svg
+		DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps"
+		RENAME wireshark.svg)
+endif()
 
 install(
 	FILES

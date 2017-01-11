@@ -242,6 +242,7 @@ main(int argc, char *argv[])
 {
   GString            *comp_info_str;
   GString            *runtime_info_str;
+  char               *init_progfile_dir_error;
   int                 opt;
   static const struct option long_options[] = {
       {"help", no_argument, NULL, 'h'},
@@ -257,7 +258,6 @@ main(int argc, char *argv[])
 #else
   int                 file_type          = WTAP_FILE_TYPE_SUBTYPE_PCAP; /* default to pcapng format */
 #endif
-  int                 out_fd;
   int                 err                = 0;
   gchar              *err_info           = NULL;
   int                 err_fileno;
@@ -266,10 +266,6 @@ main(int argc, char *argv[])
   idb_merge_mode      mode               = IDB_MERGE_MODE_MAX;
   gboolean            use_stdout         = FALSE;
   merge_progress_callback_t cb;
-
-#ifdef HAVE_PLUGINS
-  char  *init_progfile_dir_error;
-#endif
 
   cmdarg_err_init(mergecap_cmdarg_err, mergecap_cmdarg_err_cont);
 
@@ -298,30 +294,34 @@ main(int argc, char *argv[])
    * Get credential information for later use.
    */
   init_process_policies();
-  init_open_routines();
+
+  /*
+   * Attempt to get the pathname of the directory containing the
+   * executable file.
+   */
+  init_progfile_dir_error = init_progfile_dir(argv[0], main);
+  if (init_progfile_dir_error != NULL) {
+    fprintf(stderr,
+            "mergecap: Can't get pathname of directory containing the mergecap program: %s.\n",
+            init_progfile_dir_error);
+    g_free(init_progfile_dir_error);
+  }
+
+  wtap_init();
 
 #ifdef HAVE_PLUGINS
-  /* Register wiretap plugins */
-  if ((init_progfile_dir_error = init_progfile_dir(argv[0], main))) {
-    g_warning("mergecap: init_progfile_dir(): %s", init_progfile_dir_error);
-    g_free(init_progfile_dir_error);
-  } else {
-    /* Register all the plugin types we have. */
-    wtap_register_plugin_types(); /* Types known to libwiretap */
+  init_report_err(failure_message,NULL,NULL,NULL);
 
-    init_report_err(failure_message,NULL,NULL,NULL);
+  /* Scan for plugins.  This does *not* call their registration routines;
+     that's done later.
 
-    /* Scan for plugins.  This does *not* call their registration routines;
-       that's done later.
+     Don't report failures to load plugins because most (non-wiretap)
+     plugins *should* fail to load (because we're not linked against
+     libwireshark and dissector plugins need libwireshark).*/
+  scan_plugins(DONT_REPORT_LOAD_FAILURE);
 
-       Don't report failures to load plugins because most (non-wiretap)
-       plugins *should* fail to load (because we're not linked against
-       libwireshark and dissector plugins need libwireshark).*/
-    scan_plugins(DONT_REPORT_LOAD_FAILURE);
-
-    /* Register all libwiretap plugin modules. */
-    register_all_wiretap_modules();
-  }
+  /* Register all libwiretap plugin modules. */
+  register_all_wiretap_modules();
 #endif
 
   /* Process the options first */
@@ -428,24 +428,20 @@ main(int argc, char *argv[])
 
   /* open the outfile */
   if (strcmp(out_filename, "-") == 0) {
-    /* use stdout as the outfile */
+    /* merge the files to the standard output */
     use_stdout = TRUE;
-    out_fd = 1 /*stdout*/;
+    status = merge_files_to_stdout(file_type,
+                                   (const char *const *) &argv[optind],
+                                   in_file_count, do_append, mode, snaplen,
+                                   "mergecap", verbose ? &cb : NULL,
+                                   &err, &err_info, &err_fileno);
   } else {
-    /* open the outfile */
-    out_fd = ws_open(out_filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
-    if (out_fd == -1) {
-      fprintf(stderr, "mergecap: Couldn't open output file %s: %s\n",
-              out_filename, g_strerror(errno));
-      exit(1);
-    }
+    /* merge the files to the outfile */
+    status = merge_files(out_filename, file_type,
+                         (const char *const *) &argv[optind], in_file_count,
+                         do_append, mode, snaplen, "mergecap", verbose ? &cb : NULL,
+                         &err, &err_info, &err_fileno);
   }
-
-  /* merge the files */
-  status = merge_files(out_fd, out_filename, file_type,
-                       (const char *const *) &argv[optind], in_file_count,
-                       do_append, mode, snaplen, "mergecap", verbose ? &cb : NULL,
-                       &err, &err_info, &err_fileno);
 
   switch (status) {
     case MERGE_OK:
@@ -462,10 +458,13 @@ main(int argc, char *argv[])
       break;
 
     case MERGE_ERR_CANT_OPEN_OUTFILE:
-      fprintf(stderr, "mergecap: Can't open or create %s: %s\n", out_filename,
-                  wtap_strerror(err));
-      if (!use_stdout)
-        ws_close(out_fd);
+      if (use_stdout) {
+        fprintf(stderr, "mergecap: Can't set up the standard output: %s\n",
+                    wtap_strerror(err));
+      } else {
+        fprintf(stderr, "mergecap: Can't open or create %s: %s\n", out_filename,
+                    wtap_strerror(err));
+      }
       break;
 
     case MERGE_ERR_CANT_READ_INFILE:      /* fall through */

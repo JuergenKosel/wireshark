@@ -430,6 +430,7 @@ WS_DLL_PUBLIC WS_NORETURN void proto_report_dissector_bug(const char *message);
 #define ENC_CP437			0x00000032
 #define ENC_ASCII_7BITS			0x00000034
 #define ENC_T61				0x00000036
+#define ENC_EBCDIC_CP037		0x00000038
 
 /*
  * TODO:
@@ -503,6 +504,10 @@ WS_DLL_PUBLIC WS_NORETURN void proto_report_dissector_bug(const char *message);
 /** FIELD_DISPLAY_E_MASK selects the field_display_e value. */
 #define FIELD_DISPLAY_E_MASK 0xFF
 
+/*
+ * Note that this enum values are parsed in make-init-lua.pl so make sure
+ * any changes here still makes valid entries in init.lua.
+ */
 typedef enum {
 /* Integral types */
 	BASE_NONE    = 0,   /**< none */
@@ -517,11 +522,12 @@ typedef enum {
 	BASE_FLOAT   = BASE_NONE, /**< decimal-format float */
 
 /* String types */
-	STR_ASCII    = BASE_NONE, /**< shows non-printable ASCII characters as C-style escapes */
+	STR_ASCII    = 0,   /**< shows non-printable ASCII characters as C-style escapes */
 	/* XXX, support for format_text_wsp() ? */
 	STR_UNICODE  = 7,   /**< shows non-printable UNICODE characters as \\uXXXX (XXX for now non-printable characters display depends on UI) */
 
-/* Byte types */
+/* Byte separators */
+	SEP_NONE     = 0,   /**< hexadecimal bytes with no separator */
 	SEP_DOT      = 8,   /**< hexadecimal bytes with a period (.) between each byte */
 	SEP_DASH     = 9,   /**< hexadecimal bytes with a dash (-) between each byte */
 	SEP_COLON    = 10,  /**< hexadecimal bytes with a colon (:) between each byte */
@@ -541,10 +547,14 @@ typedef enum {
 
 /* Following constants have to be ORed with a field_display_e when dissector
  * want to use specials value-string MACROs for a header_field_info */
-#define BASE_RANGE_STRING 0x100
-#define BASE_EXT_STRING   0x200
-#define BASE_VAL64_STRING 0x400
-#define BASE_ALLOW_ZERO   0x800  /**< Display <none> instead of <MISSING> for zero sized byte array */
+#define BASE_RANGE_STRING       0x0100
+#define BASE_EXT_STRING         0x0200
+#define BASE_VAL64_STRING       0x0400
+#define BASE_ALLOW_ZERO         0x0800  /**< Display <none> instead of <MISSING> for zero sized byte array */
+#define BASE_UNIT_STRING        0x1000  /**< Add unit text to the field value */
+#define BASE_NO_DISPLAY_VALUE   0x2000  /**< Just display the field name with no value.  Intended for
+                                             byte arrays or header fields above a subtree */
+#define BASE_PROTOCOL_INFO      0x4000  /**< protocol_t in [FIELDCONVERT].  Internal use only. */
 
 /** BASE_ values that cause the field value to be displayed twice */
 #define IS_BASE_DUAL(b) ((b)==BASE_DEC_HEX||(b)==BASE_HEX_DEC)
@@ -573,7 +583,7 @@ struct _header_field_info {
 	int			 display;           /**< [FIELDDISPLAY] one of BASE_, or field bit-width if FT_BOOLEAN and non-zero bitmask */
 	const void		*strings;           /**< [FIELDCONVERT] value_string, val64_string, range_string or true_false_string,
 				                         typically converted by VALS(), RVALS() or TFS().
-				                         If this is an FT_PROTOCOL then it points to the
+				                         If this is an FT_PROTOCOL or BASE_PROTOCOL_INFO then it points to the
 				                         associated protocol_t structure */
 	guint64			 bitmask;           /**< [BITMASK] bitmask of interesting bits */
 	const char		*blurb;             /**< [FIELDDESCR] Brief description of field */
@@ -2087,6 +2097,23 @@ proto_item_fill_label(field_info *fi, gchar *label_str);
 WS_DLL_PUBLIC int
 proto_register_protocol(const char *name, const char *short_name, const char *filter_name);
 
+/** Register a "helper" protocol (pino - protocol in name only).
+ This is for dissectors that need distinguishing names and don't need the other
+ features (like enable/disable).  One use case is a protocol with multiple dissection
+ functions in a single dissector table needing unique "dissector names" to remove
+ confusion with Decode As dialog.  Another use case is for a dissector table set
+ up to handle TLVs within a single protocol (and allow "external" TLVs being
+ registered through the dissector table).
+ @param name the full name of the new protocol
+ @param short_name abbreviated name of the new protocol
+ @param filter_name protocol name used for a display filter string
+ @param parent_proto the "real" protocol for the helper.  The parent decides enable/disable
+ @param field_type FT_PROTOCOL or FT_BYTES.  Allows removal of "protocol highlighting" (FT_BYTES)
+ if pino is part of TLV.
+ @return the new protocol handle */
+WS_DLL_PUBLIC int
+proto_register_protocol_in_name_only(const char *name, const char *short_name, const char *filter_name, int parent_proto, enum ftenum field_type);
+
 /** Deregister a protocol.
  @param short_name abbreviated name of the protocol
  @return TRUE if protocol is removed */
@@ -2242,6 +2269,14 @@ WS_DLL_PUBLIC const char *proto_get_protocol_long_name(const protocol_t *protoco
 /** Is protocol's decoding enabled ?
  @return TRUE if decoding is enabled, FALSE if not */
 WS_DLL_PUBLIC gboolean proto_is_protocol_enabled(const protocol_t *protocol);
+
+/** Is protocol's enabled by default (most are)?
+ @return TRUE if decoding is enabled by default, FALSE if not */
+WS_DLL_PUBLIC gboolean proto_is_protocol_enabled_by_default(const protocol_t *protocol);
+
+/** Is this a protocol in name only (i.e. not a real one)?
+ @return TRUE if helper, FALSE if not */
+WS_DLL_PUBLIC gboolean proto_is_pino(const protocol_t *protocol);
 
 /** Get a protocol's filter name by its item number.
  @param proto_id protocol id (0-indexed)
@@ -2960,6 +2995,9 @@ proto_custom_set(proto_tree* tree, GSList *field_id,
 
 #define proto_tree_add_uint(tree, hfinfo, tvb, start, length, value) \
 	proto_tree_add_uint(tree, (hfinfo)->id, tvb, start, length, value)
+
+#define proto_tree_add_float(tree, hfinfo, tvb, start, length, value) \
+	proto_tree_add_float(tree, (hfinfo)->id, tvb, start, length, value)
 
 #define proto_tree_add_float_format_value(tree, hfinfo, \
                   tvb, start, length, value, format, ...) \

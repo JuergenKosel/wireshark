@@ -341,7 +341,7 @@ static const value_string cip_axis_control_vals[] =
 {
    { 0,    "No Request"               },
    { 1,    "Enable Request"           },
-   { 2,    "Disble Request"           },
+   { 2,    "Disable Request"          },
    { 3,    "Shutdown Request"         },
    { 4,    "Shutdown Reset Request"   },
    { 5,    "Abort Request"            },
@@ -454,7 +454,7 @@ static const value_string cip_sc_vals[] = {
    { SC_RUN_MOTOR_TEST,            "Run Motor Test"            },
    { SC_GET_MOTOR_TEST_DATA,       "Get Motor Test Data"       },
    { SC_RUN_INERTIA_TEST,          "Run Inertia Test"          },
-   { SC_GET_INERTIA_TEST_DATA,     "Get Intertia Test Data"    },
+   { SC_GET_INERTIA_TEST_DATA,     "Get Inertia Test Data"     },
    { SC_RUN_HOOKUP_TEST,           "Run Hookup Test"           },
    { SC_GET_HOOKUP_TEST_DATA,      "Get Hookup Test Data"      },
    { 0,                            NULL                        }
@@ -1520,7 +1520,6 @@ static void
 dissect_var_inst_header(tvbuff_t* tvb, proto_tree* tree, guint32 offset, guint8* inst_number, guint32* cyc_size,
                         guint32* cyc_blk_size, guint32* evnt_size, guint32* servc_size)
 {
-   guint8      temp_data;
    proto_tree *header_tree;
 
    /* Create the tree for the entire instance data header */
@@ -1533,37 +1532,29 @@ dissect_var_inst_header(tvbuff_t* tvb, proto_tree* tree, guint32 offset, guint8*
    proto_tree_add_item(header_tree, hf_var_devce_instance, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
    /* The "size" fields in the instance data block header are all stored as number of 32-bit words the
-   * block uses since all blocks should pad up to 32-bits so to convert to bytes each is mulitplied by 4 */
+   * block uses since all blocks should pad up to 32-bits so to convert to bytes each is multiplied by 4 */
 
    /* Read the instance block size field in bytes from the instance data header */
-   temp_data = tvb_get_guint8(tvb, offset + 2);
-   proto_tree_add_uint_format_value(header_tree, hf_var_devce_instance_block_size,
-                                    tvb, offset + 2, 1, temp_data, "%d words", temp_data);
+   proto_tree_add_item(header_tree, hf_var_devce_instance_block_size, tvb, offset + 2, 1, ENC_NA);
 
    /* Read the cyclic block size field in bytes from the instance data header */
-   temp_data = tvb_get_guint8(tvb, offset + 3);
-   proto_tree_add_uint_format_value(header_tree, hf_var_devce_cyclic_block_size,
-                                    tvb, offset + 3, 1, temp_data, "%d words", temp_data);
+   proto_tree_add_item(header_tree, hf_var_devce_cyclic_block_size, tvb, offset + 3, 1, ENC_NA);
 
    /* Read the cyclic command block size field in bytes from the instance data header */
    *cyc_size = (tvb_get_guint8(tvb, offset + 4) * 4);
-   proto_tree_add_uint_format_value(header_tree, hf_var_devce_cyclic_data_block_size,
-                                    tvb, offset + 4, 1, (*cyc_size)/4, "%d words", (*cyc_size)/4);
+   proto_tree_add_item(header_tree, hf_var_devce_cyclic_data_block_size, tvb, offset + 4, 1, ENC_NA);
 
    /* Read the cyclic write block size field in bytes from the instance data header */
    *cyc_blk_size = (tvb_get_guint8(tvb, offset + 5) * 4);
-   proto_tree_add_uint_format_value(header_tree, hf_var_devce_cyclic_rw_block_size,
-                                    tvb, offset + 5, 1, (*cyc_blk_size)/4, "%d words", (*cyc_blk_size)/4);
+   proto_tree_add_item(header_tree, hf_var_devce_cyclic_rw_block_size, tvb, offset + 5, 1, ENC_NA);
 
    /* Read the event block size in bytes from the instance data header */
    *evnt_size = (tvb_get_guint8(tvb, offset + 6) * 4);
-   proto_tree_add_uint_format_value(header_tree, hf_var_devce_event_block_size,
-                                    tvb, offset + 6, 1, (*evnt_size)/4, "%d words", (*evnt_size)/4);
+   proto_tree_add_item(header_tree, hf_var_devce_event_block_size, tvb, offset + 6, 1, ENC_NA);
 
    /* Read the service block size in bytes from the instance data header */
    *servc_size = (tvb_get_guint8(tvb, offset + 7) * 4);
-   proto_tree_add_uint_format_value(header_tree, hf_var_devce_service_block_size,
-                                    tvb, offset + 7, 1, (*servc_size)/4, "%d words", (*servc_size)/4);
+   proto_tree_add_item(header_tree, hf_var_devce_service_block_size, tvb, offset + 7, 1, ENC_NA);
 }
 
 /*
@@ -1923,7 +1914,7 @@ proto_register_cipmotion(void)
       },
 
       { &hf_cip_class1_seqnum,
-        { "CIP Class 1 Sequence Number", "cipm.class1seqnum",
+        { "CIP Class 1 Sequence Count", "cipm.class1seqnum",
           FT_UINT16, BASE_DEC, NULL, 0,
           NULL, HFILL }
       },
@@ -2143,7 +2134,7 @@ proto_register_cipmotion(void)
       { &hf_cip_act_data_pos,
         { "Actual Position", "cipm.act.pos",
           FT_BOOLEAN, 8, TFS(&tfs_true_false), ACTUAL_DATA_SET_POSITION,
-          "Acutal Data Set: Actual Position", HFILL}
+          "Actual Data Set: Actual Position", HFILL}
       },
       { &hf_cip_act_data_vel,
         { "Actual Velocity", "cipm.act.vel",
@@ -2562,7 +2553,7 @@ proto_register_cipmotion(void)
       },
       { &hf_cip_svc_code,
         { "Service Code", "cipm.svc.code",
-          FT_UINT8, BASE_DEC, VALS(cip_sc_vals), 0,
+          FT_UINT8, BASE_HEX, VALS(cip_sc_vals), 0,
           "Service Data Block: Service Code", HFILL}
       },
       { &hf_cip_svc_sts,
@@ -2675,32 +2666,32 @@ proto_register_cipmotion(void)
       },
       { &hf_var_devce_instance_block_size,
         { "Instance Block Size", "cipm.var_devce.header.instance_block_size",
-          FT_UINT8, BASE_DEC, NULL, 0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_word_words, 0,
           "Variable Device Header: Instance Block Size", HFILL}
       },
       { &hf_var_devce_cyclic_block_size,
         { "Cyclic Block Size", "cipm.var_devce.header.cyclic_block_size",
-          FT_UINT8, BASE_DEC, NULL, 0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_word_words, 0,
           "Variable Device Header: Cyclic Block Size", HFILL}
       },
       { &hf_var_devce_cyclic_data_block_size,
         { "Cyclic Data Block Size", "cipm.var_devce.header.cyclic_data_block_size",
-          FT_UINT8, BASE_DEC, NULL, 0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_word_words, 0,
           "Variable Device Header: Cyclic Data Block Size", HFILL}
       },
       { &hf_var_devce_cyclic_rw_block_size,
         { "Cyclic Read/Write Block Size", "cipm.var_devce.header.cyclic_rw_block_size",
-          FT_UINT8, BASE_DEC, NULL, 0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_word_words, 0,
           "Variable Device Header: Cyclic Read/Write Block Size", HFILL}
       },
       { &hf_var_devce_event_block_size,
         { "Event Block Size", "cipm.var_devce.header.event_block_size",
-          FT_UINT8, BASE_DEC, NULL, 0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_word_words, 0,
           "Variable Device Header: Event Block Size", HFILL}
       },
       { &hf_var_devce_service_block_size,
         { "Service Block Size", "cipm.var_devce.header.service_block_size",
-          FT_UINT8, BASE_DEC, NULL, 0,
+          FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_word_words, 0,
           "Variable Device Header: Service Block Size", HFILL}
       },
 
@@ -2712,7 +2703,7 @@ proto_register_cipmotion(void)
       { &hf_cip_axis_sts_local_ctrl,
         { "Local Control", "cipm.axis.local",
           FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000001,
-          "Axis Status Data Set: Local Contol", HFILL }
+          "Axis Status Data Set: Local Control", HFILL }
       },
       { &hf_cip_axis_sts_alarm,
         { "Alarm", "cipm.axis.alarm",

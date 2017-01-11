@@ -526,15 +526,16 @@ parse_service_line (char *line)
         return;
     }
 
-    if (CVT_NO_ERROR != range_convert_str(&port_rng, port, max_port)) {
+    if (CVT_NO_ERROR != range_convert_str(NULL, &port_rng, port, max_port)) {
         /* some assertion here? */
+        wmem_free (NULL, port_rng);
         return;
     }
 
     cb_service = service;
     cb_proto = proto;
     range_foreach(port_rng, add_serv_port_cb);
-    g_free (port_rng);
+    wmem_free (NULL, port_rng);
     cb_proto = PT_NONE;
 } /* parse_service_line */
 
@@ -1131,7 +1132,8 @@ get_ethbyaddr(const guint8 *addr)
 
 } /* get_ethbyaddr */
 
-static hashmanuf_t *manuf_hash_new_entry(const guint8 *addr, char* name)
+static hashmanuf_t *
+manuf_hash_new_entry(const guint8 *addr, char* name)
 {
     int    *manuf_key;
     hashmanuf_t *manuf_value;
@@ -1143,7 +1145,6 @@ static hashmanuf_t *manuf_hash_new_entry(const guint8 *addr, char* name)
     manuf_value = wmem_new(wmem_epan_scope(), hashmanuf_t);
 
     memcpy(manuf_value->addr, addr, 3);
-    manuf_value->status = (name != NULL) ? HASHETHER_STATUS_RESOLVED_NAME : HASHETHER_STATUS_UNRESOLVED;
     if (name != NULL) {
         g_strlcpy(manuf_value->resolved_name, name, MAXNAMELEN);
         manuf_value->status = HASHETHER_STATUS_RESOLVED_NAME;
@@ -1161,37 +1162,36 @@ static hashmanuf_t *manuf_hash_new_entry(const guint8 *addr, char* name)
 }
 
 static void
-add_manuf_name(const guint8 *addr, unsigned int mask, gchar *name)
+wka_hash_new_entry(const guint8 *addr, char* name)
 {
     guint8 *wka_key;
-
-    /*
-     * XXX - can we use Standard Annotation Language annotations to
-     * note that mask, as returned by parse_ethe)r_address() (and thus
-     * by the routines that call it, and thus passed to us) cannot be > 48,
-     * or is SAL too weak to express that?
-     */
-    if (mask >= 48) {
-        /* This is a well-known MAC address; just add this to the Ethernet
-           hash table */
-        add_eth_name(addr, name);
-        return;
-    }
-
-    if (mask == 0) {
-        /* This is a manufacturer ID; add it to the manufacturer ID hash table */
-        manuf_hash_new_entry(addr, name);
-        return;
-    } /* mask == 0 */
-
-    /* This is a range of well-known addresses; add it to the appropriate
-       well-known-address table, creating that table if necessary. */
 
     wka_key = (guint8 *)wmem_alloc(wmem_epan_scope(), 6);
     memcpy(wka_key, addr, 6);
 
     wmem_map_insert(wka_hashtable, wka_key, wmem_strdup(wmem_epan_scope(), name));
+}
 
+static void
+add_manuf_name(const guint8 *addr, unsigned int mask, gchar *name)
+{
+    switch (mask)
+    {
+    case 0:
+        /* This is a manufacturer ID; add it to the manufacturer ID hash table */
+        manuf_hash_new_entry(addr, name);
+        break;
+
+    case 48:
+        /* This is a well-known MAC address; add it to the Ethernet hash table */
+        add_eth_name(addr, name);
+        break;
+
+    default:
+        /* This is a range of well-known addresses; add it to the well-known-address table */
+        wka_hash_new_entry(addr, name);
+        break;
+    }
 } /* add_manuf_name */
 
 static hashmanuf_t *
@@ -1349,7 +1349,7 @@ eth_addr_resolve(hashether_t *tp) {
         /* Unknown name.  Try looking for it in the well-known-address
            tables for well-known address ranges smaller than 2^24. */
         mask = 7;
-        for (;;) {
+        do {
             /* Only the topmost 5 bytes participate fully */
             if ((name = wka_name_lookup(addr, mask+40)) != NULL) {
                 g_snprintf(tp->resolved_name, MAXNAMELEN, "%s_%02x",
@@ -1357,13 +1357,10 @@ eth_addr_resolve(hashether_t *tp) {
                 tp->status = HASHETHER_STATUS_RESOLVED_DUMMY;
                 return tp;
             }
-            if (mask == 0)
-                break;
-            mask--;
-        }
+        } while (mask--);
 
         mask = 7;
-        for (;;) {
+        do {
             /* Only the topmost 4 bytes participate fully */
             if ((name = wka_name_lookup(addr, mask+32)) != NULL) {
                 g_snprintf(tp->resolved_name, MAXNAMELEN, "%s_%02x:%02x",
@@ -1371,13 +1368,10 @@ eth_addr_resolve(hashether_t *tp) {
                 tp->status = HASHETHER_STATUS_RESOLVED_DUMMY;
                 return tp;
             }
-            if (mask == 0)
-                break;
-            mask--;
-        }
+        } while (mask--);
 
         mask = 7;
-        for (;;) {
+        do {
             /* Only the topmost 3 bytes participate fully */
             if ((name = wka_name_lookup(addr, mask+24)) != NULL) {
                 g_snprintf(tp->resolved_name, MAXNAMELEN, "%s_%02x:%02x:%02x",
@@ -1385,10 +1379,7 @@ eth_addr_resolve(hashether_t *tp) {
                 tp->status = HASHETHER_STATUS_RESOLVED_DUMMY;
                 return tp;
             }
-            if (mask == 0)
-                break;
-            mask--;
-        }
+        } while (mask--);
 
         /* Now try looking in the manufacturer table. */
         manuf_value = manuf_name_lookup(addr);
@@ -1402,7 +1393,7 @@ eth_addr_resolve(hashether_t *tp) {
         /* Now try looking for it in the well-known-address
            tables for well-known address ranges larger than 2^24. */
         mask = 7;
-        for (;;) {
+        do {
             /* Only the topmost 2 bytes participate fully */
             if ((name = wka_name_lookup(addr, mask+16)) != NULL) {
                 g_snprintf(tp->resolved_name, MAXNAMELEN, "%s_%02x:%02x:%02x:%02x",
@@ -1411,13 +1402,10 @@ eth_addr_resolve(hashether_t *tp) {
                 tp->status = HASHETHER_STATUS_RESOLVED_DUMMY;
                 return tp;
             }
-            if (mask == 0)
-                break;
-            mask--;
-        }
+        } while (mask--);
 
         mask = 7;
-        for (;;) {
+        do {
             /* Only the topmost byte participates fully */
             if ((name = wka_name_lookup(addr, mask+8)) != NULL) {
                 g_snprintf(tp->resolved_name, MAXNAMELEN, "%s_%02x:%02x:%02x:%02x:%02x",
@@ -1426,12 +1414,10 @@ eth_addr_resolve(hashether_t *tp) {
                 tp->status = HASHETHER_STATUS_RESOLVED_DUMMY;
                 return tp;
             }
-            if (mask == 0)
-                break;
-            mask--;
-        }
+        } while (mask--);
 
-        for (mask = 7; mask > 0; mask--) {
+        mask = 7;
+        do {
             /* Not even the topmost byte participates fully */
             if ((name = wka_name_lookup(addr, mask)) != NULL) {
                 g_snprintf(tp->resolved_name, MAXNAMELEN, "%s_%02x:%02x:%02x:%02x:%02x:%02x",
@@ -1440,7 +1426,7 @@ eth_addr_resolve(hashether_t *tp) {
                 tp->status = HASHETHER_STATUS_RESOLVED_DUMMY;
                 return tp;
             }
-        }
+        } while (--mask); /* Work down to the last bit */
 
         /* No match whatsoever. */
         set_address(&ether_addr, AT_ETHER, 6, addr);
@@ -1499,6 +1485,7 @@ eth_name_lookup(const guint8 *addr, const gboolean resolve)
     hashether_t  *tp;
 
     tp = (hashether_t *)wmem_map_lookup(eth_hashtable, addr);
+
     if (tp == NULL) {
         tp = eth_hash_new_entry(addr, resolve);
     } else {
@@ -1918,8 +1905,8 @@ initialize_vlans(void)
     g_assert(vlan_hash_table == NULL);
     vlan_hash_table = wmem_map_new(wmem_epan_scope(), g_int_hash, g_int_equal);
 
-    /* Set g_pipxnets_path here, but don't actually do anything
-     * with it. It's used in get_ipxnetbyname() and get_ipxnetbyaddr()
+    /* Set g_pvlan_path here, but don't actually do anything
+     * with it. It's used in get_vlannamebyid()
      */
     if (g_pvlan_path == NULL)
         g_pvlan_path = get_persconffile_path(ENAME_VLANS, FALSE);
@@ -2470,7 +2457,8 @@ addr_resolve_pref_init(module_t *nameres)
 {
     prefs_register_bool_preference(nameres, "mac_name",
             "Resolve MAC addresses",
-            "Resolve Ethernet MAC address to manufacturer names",
+            "Resolve Ethernet MAC addresses to host names from the preferences"
+            " or system's Ethers file, or to a manufacturer based name.",
             &gbl_resolv_flags.mac_name);
 
     prefs_register_bool_preference(nameres, "transport_name",
@@ -2525,21 +2513,17 @@ addr_resolve_pref_init(module_t *nameres)
 
     prefs_register_bool_preference(nameres, "vlan_name",
             "Resolve VLAN IDs",
-            "Resolve VLAN IDs to describing names."
-            " To do so you need a file called vlans in your"
-            " user preference directory. Format of the file is:"
-            "  \"ID<Tab>Name\""
-            " One line per VLAN.",
+            "Resolve VLAN IDs to network names from the preferences \"vlans\" file."
+            " Format of the file is: \"ID<Tab>Name\"."
+            " One line per VLAN, e.g.: 1 Management",
             &gbl_resolv_flags.vlan_name);
 
     prefs_register_bool_preference(nameres, "ss7_pc_name",
-        "Resolve SS7 PCs",
-        "Resolve SS7 Point Codes to describing names."
-        " To do so you need a file called ss7pcs in your"
-        " user preference directory. Format of the file is:"
-        "  \"Network_Indicator<Dash>PC_Decimal<Tab>Name\""
-        " One line per Point Code. e.g.: 2-1234 MyPointCode1",
-        &gbl_resolv_flags.ss7pc_name);
+            "Resolve SS7 PCs",
+            "Resolve SS7 Point Codes to node names from the profiles \"ss7pcs\" file."
+            " Format of the file is: \"Network_Indicator<Dash>PC_Decimal<Tab>Name\"."
+            " One line per Point Code, e.g.: 2-1234 MyPointCode1",
+            &gbl_resolv_flags.ss7pc_name);
 
 }
 
@@ -2974,7 +2958,7 @@ get_ether_name_if_known(const guint8 *addr)
     g_assert(tp != NULL);
 
     if (tp->status == HASHETHER_STATUS_RESOLVED_NAME) {
-        /* Name is from an ethers file (or is a "well-known" MAC address name from the manuf file) */
+        /* Name is from an ethers file */
         return tp->resolved_name;
     }
     else {
@@ -3110,7 +3094,7 @@ get_manuf_name_if_known(const guint8 *addr)
     manuf_key = manuf_key | oct;
 
     manuf_value = (hashmanuf_t *)wmem_map_lookup(manuf_hashtable, &manuf_key);
-    if ((manuf_value == NULL) || (manuf_value->status != HASHETHER_STATUS_UNRESOLVED)) {
+    if ((manuf_value == NULL) || (manuf_value->status == HASHETHER_STATUS_UNRESOLVED)) {
         return NULL;
     }
 
@@ -3124,7 +3108,7 @@ uint_get_manuf_name_if_known(const guint manuf_key)
     hashmanuf_t *manuf_value;
 
     manuf_value = (hashmanuf_t *)wmem_map_lookup(manuf_hashtable, &manuf_key);
-    if ((manuf_value == NULL) || (manuf_value->status != HASHETHER_STATUS_UNRESOLVED)) {
+    if ((manuf_value == NULL) || (manuf_value->status == HASHETHER_STATUS_UNRESOLVED)) {
         return NULL;
     }
 

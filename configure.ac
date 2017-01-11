@@ -88,7 +88,7 @@ if test ! -z "$CXX"; then
 	# system, and AC_PROG_CXX looks for, among other things,
 	# "CC" as a C++ compiler, and, if you have a case-insensitive
 	# file system and a C compiler named "cc" (both true, by
-	# default, on OS X), AC_PROG_CXX may end up thinking it's
+	# default, on macOS), AC_PROG_CXX may end up thinking it's
 	# the C++ compiler.
 	#
 	# So we check by feeding the purported C++ compiler a
@@ -222,7 +222,7 @@ if test -z "$PKG_CONFIG"; then
 fi
 
 #
-# Add configure argument to select OSX deployment target.
+# Add configure argument to select macOS deployment target.
 #
 AC_WIRESHARK_OSX_DEPLOY_TARGET
 
@@ -523,7 +523,7 @@ AM_CONDITIONAL(HAVE_RPM, [test "x$have_rpm" = xyes])
 # Debian
 AC_CHECK_PROG(HAVE_DPKG_BUILDPACKAGE, dpkg-buildpackage, "yes", "no")
 
-# OS X
+# macOS
 AC_CHECK_PROG(HAVE_XCODEBUILD, xcodebuild, "yes", "no")
 AC_CHECK_PROG(HAVE_HDIUTIL, hdiutil, "yes", "no")
 AC_CHECK_PROG(HAVE_BLESS, bless, "yes", "no")
@@ -537,7 +537,7 @@ fi
 AC_SUBST(HAVE_OSX_PACKAGING)
 
 #
-# Use this as a proxy for "is this OS X" (just in case somebody actually
+# Use this as a proxy for "is this macOS" (just in case somebody actually
 # built and installed Darwin as an OS, perhaps with some X11-based GUI,
 # don't look for Darwin).
 #
@@ -656,6 +656,13 @@ AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wjump-misses-init, C)
 # The Qt headers generate a ton of shortening errors on 64-bit systems
 # so only enable this for C for now.
 AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wshorten-64-to-32, C)
+
+#
+# Implicit function declarations are an error in C++ and most
+# likely a programming error in C. Turn -Wimplicit-int and
+# -Wimplicit-function-declaration into an error by default.
+#
+AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Werror=implicit, C)
 
 # Clang only. Avoid "argument unused during compilation" warnings
 # (for example, when getting the -gsplit-dwarf option or
@@ -1063,6 +1070,22 @@ fi
 #
 AC_MSG_CHECKING(for platform-specific linker flags)
 case "$host_os" in
+aix*)
+	#
+	# If this is GCC or Clang, Add -Wl,-bbigtoc for big libraries.
+	# XXX - what if we're using xlc?  Is that necessary?  The
+	# xlc 7.0 manual says "Specifying -qpic=large has the same
+	# effect as passing -bbigtoc to ld"; do we need to tell xlc,
+	# when it's compiling, to generate different code for a large
+	# TOC, or is that just a linker flag?  For that matter, do we
+	# have to tell GCC or Clang to generate different code for a
+	# large TOC?
+	#
+	if test "x$GCC" = "xyes" -o "x$CC" = "xclang" ; then
+		LDFLAGS_BIGSHAREDLIB="-Wl,-bbigtoc"
+		AC_MSG_RESULT([AIX linker with GCC or Clang - added -Wl,-bbigtoc to large shared library linker flags and -Wl,-headerpad_max_install_names -Wl,-search_paths_first and -Wl,-headerpad_max_install_names to all linker flags])
+	fi
+	;;
 darwin*)
 	#
 	# Add -Wl,-single_module to the LDFLAGS used with shared
@@ -1092,16 +1115,17 @@ cygwin*)
 	# undefined symbols.
 	#
 	WS_LDFLAGS="$WS_LDFLAGS -no-undefined"
-	AC_MSG_RESULT(CygWin GNU ld - added -no-undefined)
+	AC_MSG_RESULT(Cygwin GNU ld - added -no-undefined)
 	;;
 *)
 	AC_MSG_RESULT(none needed)
 	;;
 esac
+AC_SUBST(LDFLAGS_BIGSHAREDLIB)
 AC_SUBST(LDFLAGS_SHAREDLIB)
 
 #
-# On "Darwin", which we assume to mean "OS X" rather than "iOS" or
+# On "Darwin", which we assume to mean "macOS" rather than "iOS" or
 # "just Darwin" (as we don't currently support iOS, and as I don't
 # think you can build and run "just Darwin" as an OS for PCs), we
 # arrange to build some programs with Application Services so they
@@ -1117,13 +1141,13 @@ have_os_x_frameworks=no
 case "$host_os" in
 darwin*)
 	have_os_x_frameworks=yes
-	AC_DEFINE(HAVE_OS_X_FRAMEWORKS, 1, [Define to 1 if you have OS X frameworks])
+	AC_DEFINE(HAVE_OS_X_FRAMEWORKS, 1, [Define to 1 if you have macOS frameworks])
 	APPLICATIONSERVICES_FRAMEWORKS="-framework ApplicationServices"
 	SYSTEMCONFIGURATION_FRAMEWORKS="-framework SystemConfiguration"
 	COREFOUNDATION_FRAMEWORKS="-framework CoreFoundation"
 
 	#
-	# OK, so we have the OS X frameworks; do they include
+	# OK, so we have the macOS frameworks; do they include
 	# CFPropertyListCreateWithStream, or do we have
 	# to fall back on CFPropertyListCreateFromStream?
 	# (They only differ in the error return, which we
@@ -1293,18 +1317,19 @@ if test "x$enable_wireshark" = "xyes"; then
 			AC_SUBST(LRELEASE)
 
 			#
-			# On Darwin, find where the Qt frameworks are
-			# located, and add that to the rpath, just in
-			# case this is Qt 5.5 or later and the frameworks
-			# have an install name that begins with @rpath
-			# and aren't installed in a frameworks directory
-			# that's searched by default.
+			# On Darwin, make sure we're using Qt5 or later.
+			# If so, find where the Qt frameworks are located
+			# and add that to the rpath, just in case this is
+			# Qt 5.5 or later and the frameworks have an
+			# install name that begins with @rpath and aren't
+			# installed in a frameworks directory that's
+			# searched by default.
 			#
 			case "$host_os" in
 			darwin*)
 				if test $qt_version -le 4
 				then
-					Qt_LDFLAGS="-Wl,-rpath,"`$PKG_CONFIG --libs QtCore | sed -e 's/-F//' -e 's/ -framework.*//'`
+					AC_MSG_ERROR([macOS builds should use Qt5])
 				else
 					Qt_LDFLAGS="-Wl,-rpath,"`$PKG_CONFIG --libs Qt${qt_version}Core | sed -e 's/-F//' -e 's/ -framework.*//'`
 				fi
@@ -1433,15 +1458,13 @@ if test "$have_gtk" = "yes" -a "$have_qt" = "yes" ; then
 	wireshark_bin="wireshark\$(EXEEXT) wireshark-gtk\$(EXEEXT)"
 	wireshark_man="wireshark.1"
 	wireshark_SUBDIRS="codecs ui/qt ui/gtk"
-fi
-if test "$have_gtk" = "no" -a "$have_qt" = "yes" ; then
+elif test "$have_gtk" = "no" -a "$have_qt" = "yes" ; then
 	# We don't have GTK+ but we have Qt.
 
 	wireshark_bin="wireshark\$(EXEEXT)"
 	wireshark_man="wireshark.1"
 	wireshark_SUBDIRS="codecs ui/qt"
-fi
-if test "$have_gtk" = "yes" -a "$have_qt" = "no" ; then
+elif test "$have_gtk" = "yes" -a "$have_qt" = "no" ; then
 	# We have GTK+ but not Qt.
 
 	wireshark_bin="wireshark-gtk\$(EXEEXT)"
@@ -1449,8 +1472,7 @@ if test "$have_gtk" = "yes" -a "$have_qt" = "no" ; then
 	wireshark_SUBDIRS="codecs ui/gtk"
 	OSX_APP_FLAGS="$OSX_APP_FLAGS -gtk"
 	OSX_DMG_FLAGS="-gtk"
-fi
-if test "$have_gtk" = "no" -a "$have_qt" = "no" ; then
+elif test "$have_gtk" = "no" -a "$have_qt" = "no" ; then
 	# We have neither GTK+ nor Qt.
 	#
 	# If they didn't explicitly say "--disable-wireshark",
@@ -1460,7 +1482,15 @@ if test "$have_gtk" = "no" -a "$have_qt" = "no" ; then
 	# problem).
 	#
 	if test "x$enable_wireshark" = "xyes"; then
-		AC_MSG_ERROR([Neither Qt nor GTK+ are available, so Wireshark can't be compiled])
+		if test "$with_qt" != "no" -a "$with_gtk" != "no" ; then
+			AC_MSG_ERROR([Neither Qt nor GTK+ are available, so Wireshark can't be compiled])
+		elif test "$with_qt" != "no" -a "$with_gtk" = "no" ; then
+			AC_MSG_ERROR([Qt is not available and GTK+ was not requested, so Wireshark can't be compiled])
+		elif test "$with_qt" = "no" -a "$with_gtk" != "no" ; then
+			AC_MSG_ERROR([Qt was not requested and GTK+ is not available, so Wireshark can't be compiled])
+		elif test "$with_qt" = "no" -a "$with_gtk" = "no" ; then
+			AC_MSG_ERROR([Neither Qt nor GTK+ were requested, so Wireshark can't be compiled])
+		fi
 	fi
 	wireshark_bin=""
 	wireshark_man=""
@@ -1576,15 +1606,15 @@ fi
 if test "x$have_gtk" = "xyes"
 then
     #
-    # We have GTK+; do we want the OS X integration functions and,
+    # We have GTK+; do we want the macOS integration functions and,
     # if so, do we have them and, if so, which versions do we have,
     # the old Carbon-based ones or the new Cocoa-based ones?
     #
-    AC_MSG_CHECKING(whether to use OS X integration functions)
+    AC_MSG_CHECKING(whether to use macOS integration functions)
 
     AC_ARG_WITH(osx-integration,
       AC_HELP_STRING( [--with-osx-integration],
-		      [use OS X integration functions @<:@default=yes, if available@:>@]),
+		      [use macOS integration functions @<:@default=yes, if available@:>@]),
     [
 	if test $withval = no
 	then
@@ -2532,6 +2562,27 @@ else
 fi
 AM_CONDITIONAL(HAVE_SBC, test "x$have_sbc" = "xyes")
 
+#`
+# Check SpanDSP library for RTP Player
+# http://www.soft-switch.org/
+AC_ARG_WITH([spandsp],
+  AC_HELP_STRING( [--with-spandsp=@<:@yes/no@:>@],
+                 [use SpanDSP to play G.722/G.726 codecs @<:@default=yes, if available@:>@]),
+  with_spandsp="$withval"; want_spandsp="yes", with_spandsp="yes")
+
+PKG_CHECK_MODULES(SPANDSP, spandsp, [have_spandsp=yes], [have_spandsp=no])
+if test "x$with_spandsp" != "xno"; then
+    if (test "${have_spandsp}" = "yes"); then
+        AC_DEFINE(HAVE_SPANDSP, 1, [Define if you have the SpanDSP library])
+    elif test "x$want_spandsp" = "xyes"; then
+        # Error out if the user explicitly requested the SpanDSP library
+        AC_MSG_ERROR([SpanDSP library was requested, but is not available])
+    fi
+else
+    have_spandsp=no
+fi
+AM_CONDITIONAL(HAVE_SPANDSP, test "x$have_spandsp" = "xyes")
+
 dnl
 dnl check whether plugins should be enabled and, if they should be,
 dnl check for plugins directory - stolen from Amanda's configure.ac
@@ -2860,6 +2911,7 @@ AC_CONFIG_FILES(
   epan/dissectors/asn1/mms/Makefile
   epan/dissectors/asn1/mpeg-audio/Makefile
   epan/dissectors/asn1/mpeg-pes/Makefile
+  epan/dissectors/asn1/mudurl/Makefile
   epan/dissectors/asn1/nbap/Makefile
   epan/dissectors/asn1/ns_cert_exts/Makefile
   epan/dissectors/asn1/novell_pkis/Makefile
@@ -2959,6 +3011,7 @@ AC_CONFIG_FILES(
   plugins/opcua/Makefile
   plugins/profinet/Makefile
   plugins/stats_tree/Makefile
+  plugins/transum/Makefile
   plugins/unistim/Makefile
   plugins/wimax/Makefile
   plugins/wimaxasncp/Makefile
@@ -2983,7 +3036,7 @@ AC_OUTPUT
 if test "x$have_gtk" = "xyes"; then
 	gtk_lib_message=" (with GTK+ v$GTK_VERSION"
 	if test "x$have_ige_mac" = "xyes"; then
-		gtk_lib_message="$gtk_lib_message and OS X integration)"
+		gtk_lib_message="$gtk_lib_message and macOS integration)"
 	else
 		gtk_lib_message="$gtk_lib_message)"
 	fi
@@ -3145,6 +3198,7 @@ echo "                 Use libssh library : $libssh_message"
 echo "            Have ssh_userauth_agent : $ssh_userauth_agent_message"
 echo "                     Use nl library : $libnl_message"
 echo "              Use SBC codec library : $have_sbc"
+echo "                Use SpanDSP library : $have_spandsp"
 echo "                Use nghttp2 library : $nghttp2_message"
 echo "                    Use LZ4 library : $have_lz4"
 echo "                 Use Snappy library : $have_snappy"

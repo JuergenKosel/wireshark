@@ -2212,11 +2212,6 @@ fragment_add_seq_single_work(reassembly_table *table, tvbuff_t *tvb,
 					}
 				}
 				prev_fd->next = NULL;
-				if (new_fh->next == NULL) {
-					old_tvb_data = fragment_delete(table, pinfo, id-frag_number, data);
-					if (old_tvb_data)
-						tvb_free(old_tvb_data);
-				}
 				break;
 			}
 		}
@@ -2230,14 +2225,23 @@ fragment_add_seq_single_work(reassembly_table *table, tvbuff_t *tvb,
 				}
 			}
 			MERGE_FRAG(fh, fd);
-			/* If we've moved a Last packet, change the datalen.
-			 * Second part of this test should be unnecessary. */
-			if (new_fh->flags & FD_DATALEN_SET &&
-			    new_fh->datalen >= frag_number) {
-				fh->flags |= FD_DATALEN_SET;
-				fh->datalen = new_fh->datalen - frag_number;
-				new_fh->flags &= ~FD_DATALEN_SET;
-				new_fh->datalen = 0;
+			if (new_fh != NULL) {
+				/* If we've moved a Last packet, change datalen.
+			         * Second part of this test prob. redundant? */
+				if (new_fh->flags & FD_DATALEN_SET &&
+				    new_fh->datalen >= frag_number) {
+					fh->flags |= FD_DATALEN_SET;
+					fh->datalen = new_fh->datalen - frag_number;
+					new_fh->flags &= ~FD_DATALEN_SET;
+					new_fh->datalen = 0;
+				}
+				/* If we've moved all the fragments,
+				 * delete the old head */
+				if (new_fh->next == NULL) {
+					old_tvb_data = fragment_delete(table, pinfo, id-frag_number, data);
+					if (old_tvb_data)
+						tvb_free(old_tvb_data);
+				}
 			} else {
 			/* Look forward and take off the next (this is
 			 * necessary in some edge cases where max_frags
@@ -2423,14 +2427,15 @@ fragment_start_seq_check(reassembly_table *table, const packet_info *pinfo,
 		/* Create list-head. */
 		fd_head = g_slice_new(fragment_head);
 		fd_head->next = NULL;
-		fd_head->datalen = tot_len;
+		fd_head->frame = 0;
 		fd_head->offset = 0;
-		fd_head->fragment_nr_offset = 0;
 		fd_head->len = 0;
-		fd_head->flags = FD_BLOCKSEQUENCE|FD_DATALEN_SET;
-		fd_head->tvb_data = NULL;
+		fd_head->fragment_nr_offset = 0;
+		fd_head->datalen = tot_len;
 		fd_head->reassembled_in = 0;
 		fd_head->reas_in_layer_num = 0;
+		fd_head->flags = FD_BLOCKSEQUENCE|FD_DATALEN_SET;
+		fd_head->tvb_data = NULL;
 		fd_head->error = NULL;
 
 		insert_fd_head(table, fd_head, pinfo, id, data);

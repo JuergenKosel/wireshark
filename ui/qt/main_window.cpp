@@ -30,6 +30,7 @@
 #include <epan/prefs.h>
 #include <epan/stats_tree_priv.h>
 #include <epan/plugin_if.h>
+#include <epan/export_object.h>
 
 #include "ui/commandline.h"
 
@@ -54,6 +55,7 @@
 #include "capture_interfaces_dialog.h"
 #endif
 #include "conversation_colorize_action.h"
+#include "export_object_action.h"
 #include "display_filter_edit.h"
 #include "export_dissection_dialog.h"
 #include "file_set_dialog.h"
@@ -318,6 +320,9 @@ MainWindow::MainWindow(QWidget *parent) :
     // iterates over *all* of our children, looking for matching "on_" slots.
     // The fewer children we have at this point the better.
     main_ui_->setupUi(this);
+#ifdef HAVE_SOFTWARE_UPDATE
+    update_action_ = new QAction(tr("Check for Updates" UTF8_HORIZONTAL_ELLIPSIS), main_ui_->menuHelp);
+#endif
     setWindowIcon(wsApp->normalIcon());
     setTitlebarForCaptureFile();
     setMenusForCaptureFile();
@@ -347,6 +352,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(wsApp, SIGNAL(appInitialized()), this, SLOT(addDynamicMenus()));
     connect(wsApp, SIGNAL(appInitialized()), this, SLOT(addExternalMenus()));
     connect(wsApp, SIGNAL(appInitialized()), this, SLOT(initConversationMenus()));
+    connect(wsApp, SIGNAL(appInitialized()), this, SLOT(initExportObjectsMenus()));
 
     connect(wsApp, SIGNAL(profileChanging()), this, SLOT(saveWindowGeometry()));
     connect(wsApp, SIGNAL(preferencesChanged()), this, SLOT(layoutPanes()));
@@ -357,6 +363,13 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(wsApp, SIGNAL(updateRecentCaptureStatus(const QString &, qint64, bool)), this, SLOT(updateRecentCaptures()));
     updateRecentCaptures();
+
+#ifdef HAVE_SOFTWARE_UPDATE
+    connect(wsApp, SIGNAL(softwareUpdateRequested()), this, SLOT(softwareUpdateRequested()),
+        Qt::BlockingQueuedConnection);
+    connect(wsApp, SIGNAL(softwareUpdateClose()), this, SLOT(close()),
+        Qt::BlockingQueuedConnection);
+#endif
 
     df_combo_box_ = new DisplayFilterCombo();
     const DisplayFilterEdit *df_edit = dynamic_cast<DisplayFilterEdit *>(df_combo_box_->lineEdit());
@@ -446,9 +459,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
 #ifdef HAVE_SOFTWARE_UPDATE
     QAction *update_sep = main_ui_->menuHelp->insertSeparator(main_ui_->actionHelpAbout);
-    QAction *update_action = new QAction(tr("Check for Updates" UTF8_HORIZONTAL_ELLIPSIS), main_ui_->menuHelp);
-    main_ui_->menuHelp->insertAction(update_sep, update_action);
-    connect(update_action, SIGNAL(triggered()), this, SLOT(checkForUpdates()));
+    main_ui_->menuHelp->insertAction(update_sep, update_action_);
+    connect(update_action_, SIGNAL(triggered()), this, SLOT(checkForUpdates()));
 #endif
     master_split_.setObjectName("splitterMaster");
     extra_split_.setObjectName("splitterExtra");
@@ -1072,22 +1084,21 @@ void MainWindow::mergeCaptureFile()
         file_type = capture_file_.capFile()->cd_t;
 
         /* Try to merge or append the two files */
-        tmpname = NULL;
         if (merge_dlg.mergeType() == 0) {
             /* chronological order */
             in_filenames[0] = g_strdup(capture_file_.capFile()->filename);
             in_filenames[1] = qstring_strdup(file_name);
-            merge_status = cf_merge_files(&tmpname, 2, in_filenames, file_type, FALSE);
+            merge_status = cf_merge_files_to_tempfile(&tmpname, 2, in_filenames, file_type, FALSE);
         } else if (merge_dlg.mergeType() <= 0) {
             /* prepend file */
             in_filenames[0] = qstring_strdup(file_name);
             in_filenames[1] = g_strdup(capture_file_.capFile()->filename);
-            merge_status = cf_merge_files(&tmpname, 2, in_filenames, file_type, TRUE);
+            merge_status = cf_merge_files_to_tempfile(&tmpname, 2, in_filenames, file_type, TRUE);
         } else {
             /* append file */
             in_filenames[0] = g_strdup(capture_file_.capFile()->filename);
             in_filenames[1] = qstring_strdup(file_name);
-            merge_status = cf_merge_files(&tmpname, 2, in_filenames, file_type, TRUE);
+            merge_status = cf_merge_files_to_tempfile(&tmpname, 2, in_filenames, file_type, TRUE);
         }
 
         g_free(in_filenames[0]);
@@ -1493,7 +1504,6 @@ void MainWindow::exportDissections(export_type_e export_type) {
 
 void MainWindow::fileAddExtension(QString &file_name, int file_type, bool compressed) {
     QString file_name_lower;
-    QString file_suffix;
     GSList  *extensions_list;
     gboolean add_extension;
 
@@ -1514,7 +1524,7 @@ void MainWindow::fileAddExtension(QString &file_name, int file_type, bool compre
         /* OK, see if the file has one of those extensions. */
         for (extension = extensions_list; extension != NULL;
              extension = g_slist_next(extension)) {
-            file_suffix += tr(".") + (char *)extension->data;
+            QString file_suffix = tr(".") + (char *)extension->data;
             if (file_name_lower.endsWith(file_suffix)) {
                 /*
                  * The file name has one of the extensions for
@@ -1927,6 +1937,27 @@ void MainWindow::initConversationMenus()
     connect(colorize_action, SIGNAL(triggered()), this, SLOT(colorizeActionTriggered()));
 }
 
+void MainWindow::addExportObjectsMenuItem(gpointer data, gpointer user_data)
+{
+    register_eo_t *eo = (register_eo_t*)data;
+    MainWindow *window = (MainWindow*)user_data;
+
+    ExportObjectAction *export_action = new ExportObjectAction(window->main_ui_->menuFileExportObjects, eo);
+    window->main_ui_->menuFileExportObjects->addAction(export_action);
+
+    //initially disable until a file is loaded (then file signals will take over)
+    export_action->setEnabled(false);
+
+    connect(&window->capture_file_, SIGNAL(captureFileOpened()), export_action, SLOT(captureFileOpened()));
+    connect(&window->capture_file_, SIGNAL(captureFileClosed()), export_action, SLOT(captureFileClosed()));
+    connect(export_action, SIGNAL(triggered()), window, SLOT(applyExportObject()));
+}
+
+void MainWindow::initExportObjectsMenus()
+{
+    eo_iterate_tables(addExportObjectsMenuItem, this);
+}
+
 // Titlebar
 void MainWindow::setTitlebarForCaptureFile()
 {
@@ -2068,6 +2099,11 @@ void MainWindow::setMenusForCaptureFile(bool force_disable)
     }
 
     main_ui_->actionViewReload->setEnabled(enable);
+
+#ifdef HAVE_SOFTWARE_UPDATE
+    // We might want to enable or disable automatic checks here as well.
+    update_action_->setEnabled(!can_save);
+#endif
 }
 
 void MainWindow::setMenusForCaptureInProgress(bool capture_in_progress) {
@@ -2094,6 +2130,10 @@ void MainWindow::setMenusForCaptureInProgress(bool capture_in_progress) {
 
     main_ui_->menuFileSet->setEnabled(!capture_in_progress);
     main_ui_->actionFileQuit->setEnabled(true);
+#ifdef HAVE_SOFTWARE_UPDATE
+    // We might want to enable or disable automatic checks here as well.
+    update_action_->setEnabled(!capture_in_progress);
+#endif
 
     main_ui_->actionStatisticsCaptureFileProperties->setEnabled(capture_in_progress);
 
@@ -2118,6 +2158,9 @@ void MainWindow::setMenusForCaptureInProgress(bool capture_in_progress) {
 
 void MainWindow::setMenusForCaptureStopping() {
     main_ui_->actionFileQuit->setEnabled(false);
+#ifdef HAVE_SOFTWARE_UPDATE
+    update_action_->setEnabled(false);
+#endif
     main_ui_->actionStatisticsCaptureFileProperties->setEnabled(false);
 #ifdef HAVE_LIBPCAP
     main_ui_->actionCaptureStart->setChecked(false);

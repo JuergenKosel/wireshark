@@ -389,6 +389,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
     }
 
     /* Initialize with default values */
+    dissect_opts_init();
     global_commandline_info.jump_backwards = SD_FORWARD;
     global_commandline_info.go_to_packet = 0;
     global_commandline_info.jfilter = NULL;
@@ -549,6 +550,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
             case LONGOPT_DISABLE_PROTOCOL: /* disable dissection of protocol */
             case LONGOPT_ENABLE_HEURISTIC: /* enable heuristic dissection of protocol */
             case LONGOPT_DISABLE_HEURISTIC: /* disable heuristic dissection of protocol */
+            case LONGOPT_ENABLE_PROTOCOL: /* enable dissection of protocol (that is disabled by default) */
                 if (!dissect_opts_handle_opt(opt, optarg))
                    exit(1);
                 break;

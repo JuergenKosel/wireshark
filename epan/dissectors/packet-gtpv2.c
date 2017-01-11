@@ -42,6 +42,7 @@
 #include "packet-ntp.h"
 #include "packet-gtpv2.h"
 #include "packet-diameter.h"
+#include "packet-diameter_3gpp.h"
 #include "packet-ip.h"
 
 void proto_register_gtpv2(void);
@@ -294,9 +295,9 @@ static int hf_gtpv2_tra_info_lenb_uu = -1;
 
 static int hf_gtpv2_ti = -1;
 
-static int hf_gtpv2_bearer_qos_pvi= -1;
-static int hf_gtpv2_bearer_qos_pl= -1;
 static int hf_gtpv2_bearer_qos_pci= -1;
+static int hf_gtpv2_bearer_qos_pl= -1;
+static int hf_gtpv2_bearer_qos_pvi= -1;
 static int hf_gtpv2_bearer_qos_label_qci = -1;
 static int hf_gtpv2_bearer_qos_mbr_up = -1;
 static int hf_gtpv2_bearer_qos_mbr_down = -1;
@@ -560,6 +561,13 @@ static int hf_gtpv2_twan_relay_id_ipv6 = -1;
 static int hf_gtpv2_twan_circuit_id_len = -1;
 static int hf_gtpv2_twan_circuit_id = -1;
 static int hf_gtpv2_integer_number_val = -1;
+static int hf_gtpv2_ran_nas_protocol_type = -1;
+static int hf_gtpv2_ran_nas_cause_type = -1;
+static int hf_gtpv2_ran_nas_cause_value = -1;
+static int hf_gtpv2_emm_cause = -1;
+static int hf_gtpv2_esm_cause = -1;
+static int hf_gtpv2_diameter_cause = -1;
+static int hf_gtpv2_ikev2_cause = -1;
 
 static gint ett_gtpv2 = -1;
 static gint ett_gtpv2_flags = -1;
@@ -627,7 +635,6 @@ static expert_field ei_gtpv2_mbms_session_duration_days = EI_INIT;
 static expert_field ei_gtpv2_mbms_session_duration_secs = EI_INIT;
 static expert_field ei_gtpv2_ie = EI_INIT;
 static expert_field ei_gtpv2_int_size_not_handled = EI_INIT;
-
 
 /* Definition of User Location Info (AVP 22) masks */
 #define GTPv2_ULI_CGI_MASK          0x01
@@ -2178,9 +2185,9 @@ static void
 dissect_gtpv2_bearer_qos(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length _U_, guint8 message_type _U_, guint8 instance _U_, session_args_t * args _U_)
 {
     int offset = 0;
-    proto_tree_add_item(tree, hf_gtpv2_bearer_qos_pvi,       tvb, offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_gtpv2_bearer_qos_pl,        tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_gtpv2_bearer_qos_pci,       tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gtpv2_bearer_qos_pl,        tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gtpv2_bearer_qos_pvi,       tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
     proto_tree_add_item(tree, hf_gtpv2_bearer_qos_label_qci, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
@@ -3363,7 +3370,7 @@ dissect_gtpv2_authentication_quintuplets(tvbuff_t *tvb, proto_tree *tree, int of
 {
     proto_tree *auth_qui_tree;
     int         i;
-    guint8      xres_len, autn_len;
+    guint32      tmp;
 
     for (i = 0; i < nr_qui; i++) {
         auth_qui_tree = proto_tree_add_subtree_format(tree, tvb, offset, 0,
@@ -3380,20 +3387,18 @@ dissect_gtpv2_authentication_quintuplets(tvbuff_t *tvb, proto_tree *tree, int of
         */
         proto_tree_add_item(auth_qui_tree, hf_gtpv2_mm_context_rand, tvb, offset, 16, ENC_NA);
         offset += 16;
-        xres_len = tvb_get_guint8(tvb, offset);
-        proto_tree_add_item(auth_qui_tree, hf_gtpv2_mm_context_xres_len, tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(auth_qui_tree, hf_gtpv2_mm_context_xres_len, tvb, offset, 1, ENC_NA, &tmp);
         offset += 1;
-        proto_tree_add_item(auth_qui_tree, hf_gtpv2_mm_context_xres, tvb, offset, xres_len, ENC_NA);
-        offset += xres_len;
+        proto_tree_add_item(auth_qui_tree, hf_gtpv2_mm_context_xres, tvb, offset, tmp, ENC_NA);
+        offset += tmp;
         proto_tree_add_item(auth_qui_tree, hf_gtpv2_ck, tvb, offset, 16, ENC_NA);
         offset += 16;
         proto_tree_add_item(auth_qui_tree, hf_gtpv2_ik, tvb, offset, 16, ENC_NA);
         offset += 16;
-        autn_len = tvb_get_guint8(tvb, offset);
-        proto_tree_add_item(auth_qui_tree, hf_gtpv2_mm_context_autn_len, tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(auth_qui_tree, hf_gtpv2_mm_context_autn_len, tvb, offset, 1, ENC_NA, &tmp);
         offset += 1;
-        proto_tree_add_item(auth_qui_tree, hf_gtpv2_mm_context_autn, tvb, offset, autn_len, ENC_NA);
-        offset += autn_len;
+        proto_tree_add_item(auth_qui_tree, hf_gtpv2_mm_context_autn, tvb, offset, tmp, ENC_NA);
+        offset += tmp;
     }
 
     return offset;
@@ -3404,22 +3409,24 @@ static int
 dissect_gtpv2_authentication_quadruplets(tvbuff_t *tvb, proto_tree *tree, int offset, guint8  nr_qui)
 {
     proto_tree *auth_qua_tree;
-    guint8      tmp;
+    guint32     tmp;
     int         i;
 
     for (i = 0; i < nr_qui; i++) {
-        auth_qua_tree = proto_tree_add_subtree(tree, tvb, offset, 0,
-            ett_gtpv2_mm_context_auth_qua, NULL, "Authentication Quadruplet");
+        auth_qua_tree = proto_tree_add_subtree_format(tree, tvb, offset, 0,
+            ett_gtpv2_mm_context_auth_qua, NULL, "Authentication Quadruplet %u",i+1);
 
         proto_tree_add_item(auth_qua_tree, hf_gtpv2_mm_context_rand, tvb, offset, 16, ENC_NA);
         offset += 16;
 
-        tmp = tvb_get_guint8(tvb, offset++);
+        proto_tree_add_item_ret_uint(auth_qua_tree, hf_gtpv2_mm_context_xres_len, tvb, offset, 1, ENC_NA, &tmp);
+        offset++;
 
         proto_tree_add_item(auth_qua_tree, hf_gtpv2_mm_context_xres, tvb, offset, tmp, ENC_NA);
         offset += tmp;
 
-        tmp = tvb_get_guint8(tvb, offset++);
+        proto_tree_add_item_ret_uint(auth_qua_tree, hf_gtpv2_mm_context_autn_len, tvb, offset, 1, ENC_NA, &tmp);
+        offset++;
 
         proto_tree_add_item(auth_qua_tree, hf_gtpv2_mm_context_autn, tvb, offset, tmp, ENC_NA);
         offset += tmp;
@@ -3442,7 +3449,6 @@ dissect_gtpv2_mm_context_common_data(tvbuff_t *tvb, packet_info *pinfo, proto_tr
 {
     proto_tree *net_cap_tree, *msnt_cap_tree;
     guint8      ue_net_cap_len, ms_net_cap_len, mei_len;
-    guint32     tmp;
 
     /*
      * If SAMBRI (Subscribed UE AMBR Indicator), bit 1 of octet 6, is set to "1",
@@ -3450,13 +3456,11 @@ dissect_gtpv2_mm_context_common_data(tvbuff_t *tvb, packet_info *pinfo, proto_tr
      */
     if (samb_ri) {
         /* j to (j+3) Uplink Subscribed UE AMBR */
-        tmp = tvb_get_ntohl(tvb, offset);
-        proto_tree_add_uint_format_value(tree, hf_gtpv2_uplink_subscribed_ue_ambr, tvb, offset, 4, tmp, "%d Kbps", tmp);
+        proto_tree_add_item(tree, hf_gtpv2_uplink_subscribed_ue_ambr, tvb, offset, 4, ENC_BIG_ENDIAN);
 
         offset += 4;
         /* (j+4) to (j+7) Downlink Subscribed UE AMBR */
-        tmp = tvb_get_ntohl(tvb, offset);
-        proto_tree_add_uint_format_value(tree, hf_gtpv2_downlink_subscribed_ue_ambr, tvb, offset, 4, tmp, "%d Kbps", tmp);
+        proto_tree_add_item(tree, hf_gtpv2_downlink_subscribed_ue_ambr, tvb, offset, 4, ENC_BIG_ENDIAN);
 
         offset += 4;
     }
@@ -3466,13 +3470,11 @@ dissect_gtpv2_mm_context_common_data(tvbuff_t *tvb, packet_info *pinfo, proto_tr
      */
     if (uamb_ri) {
         /* i to (i+3) Uplink Used UE AMBR  */
-        tmp = tvb_get_ntohl(tvb, offset);
-        proto_tree_add_uint_format_value(tree, hf_gtpv2_uplink_used_ue_ambr, tvb, offset, 4, tmp, "%d Kbps", tmp);
+        proto_tree_add_item(tree, hf_gtpv2_uplink_used_ue_ambr, tvb, offset, 4, ENC_BIG_ENDIAN);
 
         offset += 4;
         /* (i+4) to (i+7) Downlink Used UE AMBR */
-        tmp = tvb_get_ntohl(tvb, offset);
-        proto_tree_add_uint_format_value(tree, hf_gtpv2_downlink_used_ue_ambr, tvb, offset, 4, tmp, "%d Kbps", tmp);
+        proto_tree_add_item(tree, hf_gtpv2_downlink_used_ue_ambr, tvb, offset, 4, ENC_BIG_ENDIAN);
 
         offset += 4;
     }
@@ -3936,7 +3938,6 @@ dissect_gtpv2_mm_context_eps_qq(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
      * Hop Chaining Count) are both present, otherwise their octets are not present.
      */
     tmp = tvb_get_guint8(tvb, offset);
-    osci = tmp & 1;
     nhi = (tmp & 0x10) >> 4;
     drxi = (tmp & 0x08) >> 3;
     proto_tree_add_item(flag_tree, hf_gtpv2_mm_context_drxi, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -3954,6 +3955,7 @@ dissect_gtpv2_mm_context_eps_qq(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
     nr_qua = tmp & 0x1c;
     nr_qua >>= 2;
     uamb_ri = (tmp & 0x2) >> 1;
+    osci = tmp & 1;
 
     proto_tree_add_item(flag_tree, hf_gtpv2_mm_context_nr_qui, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(flag_tree, hf_gtpv2_mm_context_nr_qua, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -4084,11 +4086,11 @@ dissect_gtpv2_mm_context_eps_qq(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
 
     if (paging_len) {
         proto_tree_add_item(tree, hf_gtpv2_ue_radio_capability_for_paging_information, tvb, offset, paging_len, ENC_NA);
-        offset = +paging_len;
+        offset +=paging_len;
     }
 
     if (offset < (gint)length){
-        proto_tree_add_expert_format(flag_tree, pinfo, &ei_gtpv2_ie_data_not_dissected, tvb, offset, -1, "The rest of the IE not dissected yet");
+        proto_tree_add_expert_format(tree, pinfo, &ei_gtpv2_ie_data_not_dissected, tvb, offset, length - offset, "The rest of the IE not dissected yet");
     }
 }
 
@@ -5954,10 +5956,51 @@ dissect_gtpv2_mbms_flags(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 /*
  * 8.103        RAN/NAS Cause
  */
+static const value_string ran_nas_prot_type_vals[] = {
+    { 1, "S1AP Cause" },
+    { 2, "EMM Cause" },
+    { 3, "ESM Cause" },
+    { 4, "Diameter Cause" },
+    { 5, "IKEv2 Cause" },
+    { 0, NULL },
+};
+
 static void
 dissect_gtpv2_ran_nas_cause(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length _U_, guint8 message_type _U_, guint8 instance _U_, session_args_t * args _U_)
 {
-    proto_tree_add_expert(tree, pinfo, &ei_gtpv2_ie_data_not_dissected, tvb, 0, length);
+    int offset = 0;
+    guint8 octet = tvb_get_guint8(tvb, offset);
+    guint8 proto_type = (octet >> 4);
+    int cause_type = 0;
+
+    proto_tree_add_item(tree, hf_gtpv2_ran_nas_protocol_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+
+    if (proto_type == 1) {
+        proto_tree_add_item(tree, hf_gtpv2_ran_nas_cause_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+        cause_type = octet & 0x0F;
+    }
+    offset += 1;
+
+    switch (proto_type) {
+        case 1:
+                dissect_gtpv2_s1ap_cause(tvb, pinfo, tree, offset, cause_type);
+                break;
+        case 2:
+                proto_tree_add_item(tree, hf_gtpv2_emm_cause, tvb, offset, 1, ENC_BIG_ENDIAN);
+                break;
+        case 3:
+                proto_tree_add_item(tree, hf_gtpv2_esm_cause, tvb, offset, 1, ENC_BIG_ENDIAN);
+                break;
+        case 4:
+                proto_tree_add_item(tree, hf_gtpv2_diameter_cause, tvb, offset, 2, ENC_BIG_ENDIAN);
+                break;
+        case 5:
+                proto_tree_add_item(tree, hf_gtpv2_ikev2_cause, tvb, offset, 2, ENC_BIG_ENDIAN);
+                break;
+        default:
+                proto_tree_add_item(tree, hf_gtpv2_ran_nas_cause_value, tvb, offset, length - offset, ENC_BIG_ENDIAN);
+                break;
+    }
 }
 /*
  * 8.104        CN Operator Selection Entity
@@ -7858,23 +7901,6 @@ void proto_register_gtpv2(void)
            FT_BYTES, BASE_NONE, NULL, 0x0,
            NULL, HFILL}
         },
-        /* Bit 1 - PVI (Pre-emption Vulnerability): See 3GPP TS 29.212[29],
-         * clause 5.3.47 Pre-emption-Vulnerability AVP.
-         * 5.3.47 Pre-emption-Vulnerability AVP
-         * The following values are defined:
-         * PRE-EMPTION_VULNERABILITY_ENABLED (0)
-         * PRE-EMPTION_VULNERABILITY_DISABLED (1)
-         */
-        {&hf_gtpv2_bearer_qos_pvi,
-         {"PVI (Pre-emption Vulnerability)", "gtpv2.bearer_qos_pvi",
-          FT_BOOLEAN, 8, TFS(&tfs_disabled_enabled), 0x01,
-          NULL, HFILL}
-        },
-        {&hf_gtpv2_bearer_qos_pl,
-         {"PL (Priority Level)", "gtpv2.bearer_qos_pl",
-          FT_UINT8, BASE_DEC, NULL, 0x3c,
-          NULL, HFILL}
-        },
         /* Bit 7 - PCI (Pre-emption Capability): See 3GPP TS 29.212[29], clause 5.3.46 Pre-emption-Capability AVP.
          * clause 5.3.46 Pre-emption-Capability AVP.
          * 5.3.46 Pre-emption-Capability AVP
@@ -7885,6 +7911,23 @@ void proto_register_gtpv2(void)
         {&hf_gtpv2_bearer_qos_pci,
          {"PCI (Pre-emption Capability)", "gtpv2.bearer_qos_pci",
           FT_BOOLEAN, 8, TFS(&tfs_disabled_enabled), 0x40,
+          NULL, HFILL}
+        },
+        {&hf_gtpv2_bearer_qos_pl,
+         {"PL (Priority Level)", "gtpv2.bearer_qos_pl",
+          FT_UINT8, BASE_DEC, NULL, 0x3c,
+          NULL, HFILL}
+        },
+        /* Bit 1 - PVI (Pre-emption Vulnerability): See 3GPP TS 29.212[29],
+         * clause 5.3.47 Pre-emption-Vulnerability AVP.
+         * 5.3.47 Pre-emption-Vulnerability AVP
+         * The following values are defined:
+         * PRE-EMPTION_VULNERABILITY_ENABLED (0)
+         * PRE-EMPTION_VULNERABILITY_DISABLED (1)
+         */
+        {&hf_gtpv2_bearer_qos_pvi,
+         {"PVI (Pre-emption Vulnerability)", "gtpv2.bearer_qos_pvi",
+          FT_BOOLEAN, 8, TFS(&tfs_disabled_enabled), 0x01,
           NULL, HFILL}
         },
         {&hf_gtpv2_bearer_qos_label_qci,
@@ -8389,8 +8432,8 @@ void proto_register_gtpv2(void)
         },
         { &hf_gtpv2_mm_context_osci,
           {"OSCI", "gtpv2.mm_context_osci",
-           FT_BOOLEAN, 8, NULL, 0x02,
-           NULL, HFILL}
+           FT_BOOLEAN, 8, NULL, 0x01,
+           "Old Security Context Indicator", HFILL}
         },
         { &hf_gtpv2_mm_context_samb_ri,
           {"SAMB RI", "gtpv2.mm_context_samb_ri",
@@ -8969,10 +9012,10 @@ void proto_register_gtpv2(void)
       { &hf_gtpv2_drx_parameter, { "DRX parameter", "gtpv2.drx_parameter", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_gtpv2_mm_context_sres, { "SRES'", "gtpv2.mm_context_sres", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_gtpv2_mm_context_kc, { "Kc'", "gtpv2.mm_context_kc", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-      { &hf_gtpv2_uplink_subscribed_ue_ambr, { "Uplink Subscribed UE AMBR", "gtpv2.uplink_subscribed_ue_ambr", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-      { &hf_gtpv2_downlink_subscribed_ue_ambr, { "Downlink Subscribed UE AMBR", "gtpv2.downlink_subscribed_ue_ambr", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-      { &hf_gtpv2_uplink_used_ue_ambr, { "Uplink Used UE AMBR", "gtpv2.uplink_used_ue_ambr", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-      { &hf_gtpv2_downlink_used_ue_ambr, { "Downlink Used UE AMBR", "gtpv2.downlink_used_ue_ambr", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+      { &hf_gtpv2_uplink_subscribed_ue_ambr, { "Uplink Subscribed UE AMBR", "gtpv2.uplink_subscribed_ue_ambr", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_kbps, 0x0, NULL, HFILL }},
+      { &hf_gtpv2_downlink_subscribed_ue_ambr, { "Downlink Subscribed UE AMBR", "gtpv2.downlink_subscribed_ue_ambr", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_kbps, 0x0, NULL, HFILL }},
+      { &hf_gtpv2_uplink_used_ue_ambr, { "Uplink Used UE AMBR", "gtpv2.uplink_used_ue_ambr", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_kbps, 0x0, NULL, HFILL }},
+      { &hf_gtpv2_downlink_used_ue_ambr, { "Downlink Used UE AMBR", "gtpv2.downlink_used_ue_ambr", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_kbps, 0x0, NULL, HFILL }},
       { &hf_gtpv2_voice_domain_and_ue_usage_setting, { "Voice Domain Preference and UE's Usage Setting", "gtpv2.voice_domain_and_ue_usage_setting", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_gtpv2_ue_radio_capability_for_paging_information,{ "UE Radio Capability for Paging information", "gtpv2.UE_Radio_Capability_for_Paging_information", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
       { &hf_gtpv2_authentication_quadruplets, { "Authentication Quadruplets", "gtpv2.authentication_quadruplets", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
@@ -9018,6 +9061,13 @@ void proto_register_gtpv2(void)
       { &hf_gtpv2_twan_circuit_id_len,{ "Relay Identity Type Length", "gtpv2.twan_id.relay_id_type_len", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
       { &hf_gtpv2_twan_circuit_id,{ "Circuit-ID", "gtpv2.twan_id.circuit_id", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
       { &hf_gtpv2_integer_number_val,{ "Value", "gtpv2.integer_number_val", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+      { &hf_gtpv2_ran_nas_protocol_type, {"RAN/NAS Protocol Type", "gtpv2.ran_nas.protocol_type", FT_UINT8, BASE_DEC, VALS(ran_nas_prot_type_vals), 0xF0, NULL, HFILL} },
+      { &hf_gtpv2_ran_nas_cause_type, {"RAN/NAS S1AP Cause Type", "gtpv2.ran_nas.s1ap_type", FT_UINT8, BASE_DEC, VALS(s1ap_Cause_vals), 0x0F, NULL, HFILL} },
+      { &hf_gtpv2_ran_nas_cause_value, {"RAN/NAS Cause Value", "gtpv2.ran_nas.cause_value", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL} },
+      { &hf_gtpv2_emm_cause, {"EMM Cause Value", "gtpv2.ran_nas.emm_cause", FT_UINT8, BASE_DEC, VALS(nas_eps_emm_cause_values), 0x0, NULL, HFILL} },
+      { &hf_gtpv2_esm_cause, {"ESM Cause Value", "gtpv2.ran_nas.esm_cause", FT_UINT8, BASE_DEC, VALS(nas_eps_esm_cause_vals), 0x0, NULL, HFILL} },
+      { &hf_gtpv2_diameter_cause, {"Diameter Cause Value", "gtpv2.ran_nas.diameter_cause", FT_UINT16, BASE_DEC, VALS(diameter_3gpp_termination_cause_vals), 0x0, NULL, HFILL} },
+      { &hf_gtpv2_ikev2_cause, {"IKEv2 Cause Value", "gtpv2.ran_nas.ikev2_cause", FT_UINT16, BASE_DEC, VALS(diameter_3gpp_IKEv2_error_type_vals), 0x0, NULL, HFILL} },
     };
 
     static gint *ett_gtpv2_array[] = {

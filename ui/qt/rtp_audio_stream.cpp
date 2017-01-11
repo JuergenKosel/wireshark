@@ -42,6 +42,7 @@
 #include <QAudioOutput>
 #include <QDir>
 #include <QTemporaryFile>
+#include <QVariant>
 
 // To do:
 // - Only allow one rtp_stream_info_t per RtpAudioStream?
@@ -138,7 +139,7 @@ void RtpAudioStream::addRtpPacket(const struct _packet_info *pinfo, const struct
     rtp_packet_t *rtp_packet = g_new0(rtp_packet_t, 1);
     rtp_packet->info = (struct _rtp_info *) g_memdup(rtp_info, sizeof(struct _rtp_info));
     if (rtp_info->info_all_data_present && (rtp_info->info_payload_len != 0)) {
-        rtp_packet->payload_data = (guint8 *) g_memdup(&(rtp_info->info_data[rtp_info->info_payload_offset]), (guint) rtp_info->info_payload_len);
+        rtp_packet->payload_data = (guint8 *) g_memdup(&(rtp_info->info_data[rtp_info->info_payload_offset]), rtp_info->info_payload_len);
     }
 
     if (rtp_packets_.size() < 1) { // First packet
@@ -252,7 +253,13 @@ void RtpAudioStream::decode()
         }
         last_sequence = rtp_packet->info->info_seq_num;
 
-        double rtp_time = (double)(rtp_packet->info->info_timestamp-start_timestamp)/sample_rate - start_rtp_time;
+        unsigned rtp_clock_rate = sample_rate;
+        if (rtp_packet->info->info_payload_type == PT_G722) {
+            // G.722 sample rate is 16kHz, but RTP clock rate is 8kHz for historic reasons.
+            rtp_clock_rate = 8000;
+        }
+
+        double rtp_time = (double)(rtp_packet->info->info_timestamp-start_timestamp)/rtp_clock_rate - start_rtp_time;
         double arrive_time;
         if (timing_mode_ == RtpTimestamp) {
             arrive_time = rtp_time;
@@ -351,7 +358,7 @@ void RtpAudioStream::decode()
             }
 
             speex_resampler_process_int(audio_resampler_, 0, decode_buff, &in_len, resample_buff, &out_len);
-            write_buff = (char *) decode_buff;
+            write_buff = (char *) resample_buff;
             write_bytes = out_len * sample_bytes_;
         }
 
@@ -515,9 +522,45 @@ QAudio::State RtpAudioStream::outputState() const
     return audio_output_->state();
 }
 
+const QString RtpAudioStream::formatDescription(const QAudioFormat &format)
+{
+    QString fmt_descr = QString("%1 Hz, ").arg(format.sampleRate());
+    switch (format.sampleType()) {
+    case QAudioFormat::SignedInt:
+        fmt_descr += "Int";
+        break;
+    case QAudioFormat::UnSignedInt:
+        fmt_descr += "UInt";
+        break;
+    case QAudioFormat::Float:
+        fmt_descr += "Float";
+        break;
+    default:
+        fmt_descr += "Unknown";
+        break;
+    }
+    fmt_descr += QString::number(format.sampleSize());
+    fmt_descr += format.byteOrder() == QAudioFormat::BigEndian ? "BE" : "LE";
+
+    return fmt_descr;
+}
+
 void RtpAudioStream::startPlaying()
 {
     if (audio_output_) return;
+
+    if (audio_out_rate_ == 0) {
+        emit playbackError(tr("RTP stream is empty or codec is unsupported."));
+        return;
+    }
+
+    QAudioDeviceInfo cur_out_device = QAudioDeviceInfo::defaultOutputDevice();
+    QString cur_out_name = parent()->property("currentOutputDeviceName").toString();
+    foreach (QAudioDeviceInfo out_device, QAudioDeviceInfo::availableDevices(QAudio::AudioOutput)) {
+        if (cur_out_name == out_device.deviceName()) {
+            cur_out_device = out_device;
+        }
+    }
 
     QAudioFormat format;
     format.setSampleRate(audio_out_rate_);
@@ -530,7 +573,15 @@ void RtpAudioStream::startPlaying()
     //                 tempfile_->fileName().toUtf8().constData(),
     //                 (int) tempfile_->size(), audio_out_rate_);
 
-    audio_output_ = new QAudioOutput(format, this);
+    if (!cur_out_device.isFormatSupported(format)) {
+        QString playback_error = tr("%1 does not support PCM at %2. Preferred format is %3")
+                .arg(cur_out_device.deviceName())
+                .arg(formatDescription(format))
+                .arg(formatDescription(cur_out_device.nearestFormat(format)));
+        emit playbackError(playback_error);
+    }
+
+    audio_output_ = new QAudioOutput(cur_out_device, format, this);
     audio_output_->setNotifyInterval(65); // ~15 fps
     connect(audio_output_, SIGNAL(stateChanged(QAudio::State)), this, SLOT(outputStateChanged(QAudio::State)));
     connect(audio_output_, SIGNAL(notify()), this, SLOT(outputNotify()));
@@ -576,6 +627,9 @@ void RtpAudioStream::outputStateChanged(QAudio::State new_state)
     switch (new_state) {
     case QAudio::StoppedState:
         // RTP_STREAM_DEBUG("stopped %f", audio_output_->processedUSecs() / 100000.0);
+        // Detach from parent (RtpAudioStream) to prevent deleteLater from being
+        // run during destruction of this class.
+        audio_output_->setParent(0);
         audio_output_->disconnect();
         audio_output_->deleteLater();
         audio_output_ = NULL;

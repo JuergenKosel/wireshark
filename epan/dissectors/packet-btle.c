@@ -47,6 +47,7 @@ static int hf_access_address = -1;
 static int hf_crc = -1;
 static int hf_master_bd_addr = -1;
 static int hf_slave_bd_addr = -1;
+static int hf_length = -1;
 static int hf_advertising_header = -1;
 static int hf_advertising_header_pdu_type = -1;
 static int hf_advertising_header_rfu_1 = -1;
@@ -514,6 +515,8 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
         proto_tree_add_item(advertising_header_tree, hf_advertising_header_rfu_2, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         proto_tree_add_item(advertising_header_tree, hf_advertising_header_length, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        item = proto_tree_add_uint(btle_tree, hf_length, tvb, offset, 1, tvb_get_guint8(tvb, offset) & 0x3F);
+        PROTO_ITEM_SET_HIDDEN(item);
         length = tvb_get_guint8(tvb, offset) & 0x3f;
         offset += 1;
 
@@ -857,6 +860,8 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
         proto_tree_add_item(data_header_tree, hf_data_header_rfu, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         proto_tree_add_item(data_header_tree, hf_data_header_length, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        item = proto_tree_add_uint(btle_tree, hf_length, tvb, offset, 1, tvb_get_guint8(tvb, offset) & 0x1F);
+        PROTO_ITEM_SET_HIDDEN(item);
         length = tvb_get_guint8(tvb, offset) & 0x1f;
         offset += 1;
 
@@ -1146,15 +1151,13 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 proto_tree_add_item(btle_tree, hf_control_max_rx_octets, tvb, offset, 2, ENC_LITTLE_ENDIAN);
                 offset += 2;
 
-                sub_item = proto_tree_add_item(btle_tree, hf_control_max_rx_time, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                proto_item_append_text (sub_item, " microseconds");
+                proto_tree_add_item(btle_tree, hf_control_max_rx_time, tvb, offset, 2, ENC_LITTLE_ENDIAN);
                 offset += 2;
 
                 proto_tree_add_item(btle_tree, hf_control_max_tx_octets, tvb, offset, 2, ENC_LITTLE_ENDIAN);
                 offset += 2;
 
-                sub_item = proto_tree_add_item(btle_tree, hf_control_max_tx_time, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                proto_item_append_text (sub_item, " microseconds");
+                proto_tree_add_item(btle_tree, hf_control_max_tx_time, tvb, offset, 2, ENC_LITTLE_ENDIAN);
                 offset += 2;
 
                 break;
@@ -1237,6 +1240,11 @@ proto_register_btle(void)
         { &hf_slave_bd_addr,
             { "Slave Address",                   "btle.slave_bd_addr",
             FT_ETHER, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_length,
+            { "Length",                          "btle.length",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_advertising_header,
@@ -1596,7 +1604,7 @@ proto_register_btle(void)
         },
         { &hf_control_max_rx_time,
             { "Max RX time",     "btle.control.max_rx_time",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_microsecond_microseconds, 0x0,
             NULL, HFILL }
         },
         { &hf_control_max_tx_octets,
@@ -1606,7 +1614,7 @@ proto_register_btle(void)
         },
         { &hf_control_max_tx_time,
             { "Max TX time",     "btle.control.max_tx_time",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_microsecond_microseconds, 0x0,
             NULL, HFILL }
         },
         { &hf_l2cap_fragment,

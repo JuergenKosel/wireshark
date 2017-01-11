@@ -27,7 +27,6 @@
 
 #include <stdlib.h>
 
-
 #include "../../globals.h"
 #include "ui/simple_dialog.h"
 
@@ -35,7 +34,7 @@
 #include "ui/gtk/dlg_utils.h"
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/help_dlg.h"
-
+#include "ui/gtk/packet_list.h"
 
 /* Capture callback data keys */
 #define E_GOTO_FNUMBER_KEY     "goto_fnumber_te"
@@ -146,13 +145,13 @@ goto_framenum_cb(GtkWidget *w _U_, gpointer data _U_)
 void
 goto_top_frame_cb(GtkWidget *w _U_, gpointer d _U_)
 {
-  cf_goto_top_frame();
+  packet_list_select_first_row();
 }
 
 void
 goto_bottom_frame_cb(GtkWidget *w _U_, gpointer d _U_)
 {
-  cf_goto_bottom_frame();
+  packet_list_select_last_row();
 }
 
 void

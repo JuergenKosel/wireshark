@@ -627,6 +627,7 @@ File "${STAGING_DIR}\radius\dictionary.manzara"
 File "${STAGING_DIR}\radius\dictionary.meinberg"
 File "${STAGING_DIR}\radius\dictionary.merit"
 File "${STAGING_DIR}\radius\dictionary.meru"
+File "${STAGING_DIR}\radius\dictionary.microsemi"
 File "${STAGING_DIR}\radius\dictionary.microsoft"
 File "${STAGING_DIR}\radius\dictionary.mikrotik"
 File "${STAGING_DIR}\radius\dictionary.motorola"
@@ -683,6 +684,7 @@ File "${STAGING_DIR}\radius\dictionary.rfc7055"
 File "${STAGING_DIR}\radius\dictionary.rfc7155"
 File "${STAGING_DIR}\radius\dictionary.rfc7268"
 File "${STAGING_DIR}\radius\dictionary.rfc7499"
+File "${STAGING_DIR}\radius\dictionary.rfc7930"
 File "${STAGING_DIR}\radius\dictionary.riverbed"
 File "${STAGING_DIR}\radius\dictionary.riverstone"
 File "${STAGING_DIR}\radius\dictionary.roaringpenguin"
@@ -1024,6 +1026,13 @@ SetOutPath '$INSTDIR\plugins\${VERSION}'
 File "${STAGING_DIR}\plugins\mate.dll"
 SectionEnd
 
+
+Section "TRANSUM - network and application performance analysis" SecTransum
+;-------------------------------------------
+SetOutPath '$INSTDIR\plugins\${VERSION}'
+File "${STAGING_DIR}\plugins\transum.dll"
+SectionEnd
+
 Section "Configuration Profiles" SecProfiles
 ;-------------------------------------------
 ; This should be a function or macro
@@ -1164,6 +1173,7 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SecPlugins} "Additional protocol dissectors."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecStatsTree} "Extended statistics."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMate} "Plugin - Meta Analysis and Tracing Engine (Experimental)."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecTransum} "TRANSUM plugin - network and application performance analysis."
 
   !insertmacro MUI_DESCRIPTION_TEXT ${SecProfiles} "Configuration profiles"
 

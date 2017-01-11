@@ -53,6 +53,7 @@
 #include "packet-x509if.h"
 #include "packet-ssl-utils.h"
 #include "packet-ssl.h"
+#include "packet-dtls.h"
 #if defined(HAVE_LIBGNUTLS) && defined(HAVE_LIBGCRYPT)
 #include <gnutls/abstract.h>
 #endif
@@ -1171,7 +1172,8 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_EARLY_DATA, "early_data" }, /* TLS 1.3 https://tools.ietf.org/html/draft-ietf-tls-tls13 */
     { SSL_HND_HELLO_EXT_SUPPORTED_VERSIONS, "supported_versions" }, /* TLS 1.3 https://tools.ietf.org/html/draft-ietf-tls-tls13 */
     { SSL_HND_HELLO_EXT_COOKIE, "cookie" }, /* TLS 1.3 https://tools.ietf.org/html/draft-ietf-tls-tls13 */
-    { SSL_HND_HELLO_EXT_NPN, "next_protocol_negotiation"}, /* http://technotes.googlecode.com/git/nextprotoneg.html */
+    { SSL_HND_HELLO_EXT_PSK_KEY_EXCHANGE_MODES, "psk_key_exchange_modes" }, /* TLS 1.3 https://tools.ietf.org/html/draft-ietf-tls-tls13 */
+    { SSL_HND_HELLO_EXT_NPN, "next_protocol_negotiation"}, /* https://tools.ietf.org/id/draft-agl-tls-nextprotoneg-03.html */
     { SSL_HND_HELLO_EXT_CHANNEL_ID_OLD, "channel_id_old" }, /* http://tools.ietf.org/html/draft-balfanz-tls-channelid-00
        https://twitter.com/ericlaw/status/274237352531083264 */
     { SSL_HND_HELLO_EXT_CHANNEL_ID, "channel_id" }, /* http://tools.ietf.org/html/draft-balfanz-tls-channelid-01
@@ -1186,28 +1188,10 @@ const value_string tls_hello_ext_server_name_type_vs[] = {
     { 0, NULL }
 };
 
-/* draft-ietf-tls-tls13-15 4.2.5 */
+/* draft-ietf-tls-tls13-18 4.2.7 */
 const value_string tls_hello_ext_psk_ke_mode[] = {
     { 0, "PSK-only key establishment (psk_ke)" },
     { 1, "PSK key establishment with (EC)DHE key establishment (psk_dhe_ke)" },
-    { 0, NULL }
-};
-
-static const value_string tls_hello_ext_psk_ke_mode_short[] = {
-    { 0, "psk_ke" },
-    { 1, "psk_dhe_ke" },
-    { 0, NULL }
-};
-
-const value_string tls_hello_ext_psk_auth_mode[] = {
-    { 0, "PSK-only authentication (psk_auth)" },
-    { 1, "PSK authentication plus digital signature (psk_sign_auth)" },
-    { 0, NULL }
-};
-
-static const value_string tls_hello_ext_psk_auth_mode_short[] = {
-    { 0, "psk_auth" },
-    { 1, "psk_sign_auth" },
     { 0, NULL }
 };
 
@@ -5549,6 +5533,22 @@ ssl_dissect_hnd_hello_ext_pre_shared_key(ssl_common_dissect_t *hf, tvbuff_t *tvb
                                          proto_tree *tree, guint32 offset, guint32 ext_len,
                                          guint8 hnd_type)
 {
+    /*  struct {
+     *      opaque identity<0..2^16-1>;
+     *      uint32 obfuscated_ticket_age;
+     *  } PskIdentity;
+     *  opaque PskBinderEntry<32..255>;
+     *  struct {
+     *      select (Handshake.msg_type) {
+     *          case client_hello:
+     *              PskIdentity identities<6..2^16-1>;
+     *              PskBinderEntry binders<33..2^16-1>;
+     *          case server_hello:
+     *              uint16 selected_identity;
+     *      };
+     *  } PreSharedKeyExtension;
+     */
+
     proto_tree *psk_tree;
     guint32 offset_end = offset + ext_len;
 
@@ -5560,63 +5560,51 @@ ssl_dissect_hnd_hello_ext_pre_shared_key(ssl_common_dissect_t *hf, tvbuff_t *tvb
 
     switch (hnd_type){
         case SSL_HND_CLIENT_HELLO: {
+            guint32 identities_length, identities_end, binders_length;
 
-            proto_tree_add_item(psk_tree, hf->hf.hs_ext_psk_identities_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item_ret_uint(psk_tree, hf->hf.hs_ext_psk_identities_length, tvb, offset, 2, ENC_BIG_ENDIAN, &identities_length);
             offset += 2;
 
-            while (offset < offset_end) {
-                guint32 identity_length, ke_modes_length, auth_modes_length;
-                guint32 ke_mode, auth_mode, i;
+            if (offset_end - offset < identities_length) {
+                /* XXX expert info */
+                return offset;
+            }
+
+            identities_end = offset + identities_length;
+            while (offset < identities_end) {
+                guint32 identity_length;
                 proto_tree *identity_tree;
 
                 identity_tree = proto_tree_add_subtree(psk_tree, tvb, offset, 4, hf->ett.hs_ext_psk_identity, NULL, "PSK Identity (");
 
-                proto_tree_add_item_ret_uint(identity_tree, hf->hf.hs_ext_psk_identity_ke_modes_length, tvb, offset, 1, ENC_NA, &ke_modes_length);
-                offset += 1;
-
-                if (ke_modes_length > offset_end - offset) {
-                    offset = offset_end;
-                    break; /* XXX expert info? */
-                }
-                if (ke_modes_length) {
-                    proto_item_append_text(identity_tree, "KE: ");
-                }
-                for(i = 0; i < ke_modes_length; i++) {
-                    proto_tree_add_item_ret_uint(identity_tree, hf->hf.hs_ext_psk_identity_ke_mode, tvb, offset, 1, ENC_NA, &ke_mode);
-                    offset += 1;
-                    proto_item_append_text(identity_tree, i == 0 ? "%s" : ", %s", val_to_str(ke_mode, tls_hello_ext_psk_ke_mode_short, "Unknown (%u)"));
-                }
-
-                proto_tree_add_item_ret_uint(identity_tree, hf->hf.hs_ext_psk_identity_auth_modes_length, tvb, offset, 1, ENC_NA, &auth_modes_length);
-                offset += 1;
-
-                if (auth_modes_length > offset_end - offset) {
-                    offset = offset_end;
-                    break; /* XXX expert info? */
-                }
-                if (auth_modes_length) {
-                    proto_item_append_text(identity_tree, "%sAuth: ", ke_modes_length == 0 ? "" : ", ");
-                }
-                for(i = 0; i < auth_modes_length; i++) {
-                    proto_tree_add_item_ret_uint(identity_tree, hf->hf.hs_ext_psk_identity_auth_mode, tvb, offset, 1, ENC_NA, &auth_mode);
-                    offset += 1;
-                    proto_item_append_text(identity_tree, i == 0 ? "%s" : ", %s", val_to_str(auth_mode, tls_hello_ext_psk_auth_mode_short, "Unknown (%u)"));
-                }
-
-                proto_tree_add_item_ret_uint(identity_tree, hf->hf.hs_ext_psk_identity_length, tvb, offset, 2, ENC_BIG_ENDIAN, &identity_length);
+                proto_tree_add_item_ret_uint(identity_tree, hf->hf.hs_ext_psk_identity_identity_length, tvb, offset, 2, ENC_BIG_ENDIAN, &identity_length);
                 offset += 2;
-                proto_item_append_text(identity_tree, ", Identity length: %u)", identity_length);
+                proto_item_append_text(identity_tree, "length: %u)", identity_length);
 
-                if (identity_length > offset_end - offset) {
-                    offset = offset_end;
-                    break; /* XXX expert info? */
+                if (identity_length > identities_end - offset) {
+                    /* XXX expert info */
+                    return offset;
                 }
 
-                proto_tree_add_item(identity_tree, hf->hf.hs_ext_psk_identity, tvb, offset, identity_length, ENC_NA);
+                proto_tree_add_item(identity_tree, hf->hf.hs_ext_psk_identity_identity, tvb, offset, identity_length, ENC_BIG_ENDIAN);
                 offset += identity_length;
 
-                proto_item_set_len(identity_tree, 1 + ke_modes_length + 1 + auth_modes_length + 2 + identity_length);
+                proto_tree_add_item(identity_tree, hf->hf.hs_ext_psk_identity_obfuscated_ticket_age, tvb, offset, 4, ENC_BIG_ENDIAN);
+                offset += 4;
+
+                proto_item_set_len(identity_tree, 2 + identity_length + 4);
             }
+
+            proto_tree_add_item_ret_uint(psk_tree, hf->hf.hs_ext_psk_binders_length, tvb, offset, 2, ENC_BIG_ENDIAN, &binders_length);
+            offset += 2;
+
+            if (binders_length > offset_end - offset) {
+                /* XXX expert info */
+                return offset;
+            }
+
+            proto_tree_add_item(psk_tree, hf->hf.hs_ext_psk_binders, tvb, offset, binders_length, ENC_NA);
+            offset += binders_length;
         }
         break;
         case SSL_HND_SERVER_HELLO: {
@@ -5691,6 +5679,40 @@ ssl_dissect_hnd_hello_ext_cookie(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     return offset;
 }
 
+static gint
+ssl_dissect_hnd_hello_ext_psk_key_exchange_modes(ssl_common_dissect_t *hf, tvbuff_t *tvb,
+                                                 proto_tree *tree, guint32 offset, guint32 ext_len)
+{
+    /*
+     * enum { psk_ke(0), psk_dhe_ke(1), (255) } PskKeyExchangeMode;
+     *
+     * struct {
+     *     PskKeyExchangeMode ke_modes<1..255>;
+     * } PskKeyExchangeModes;
+     */
+    guint32 offset_end = offset + ext_len;
+    guint32 ke_modes_length, i;
+
+    if (ext_len < 1) {
+        /* XXX expert info, there must be at least 1 ke mode */
+        return offset;
+    }
+
+    proto_tree_add_item_ret_uint(tree, hf->hf.hs_ext_psk_ke_modes_len, tvb, offset, 1, ENC_NA, &ke_modes_length);
+    offset += 1;
+
+    if (ke_modes_length > offset_end - offset) {
+        ke_modes_length = offset_end - offset;
+        /* XXX expert info: size too large */
+    }
+
+    for (i = 0; i < ke_modes_length; i++) {
+        proto_tree_add_item(tree, hf->hf.hs_ext_psk_ke_mode, tvb, offset, 1, ENC_NA);
+        offset += 1;
+    }
+
+    return offset;
+}
 
 static gint
 ssl_dissect_hnd_hello_ext_server_name(ssl_common_dissect_t *hf, tvbuff_t *tvb,
@@ -6128,7 +6150,8 @@ ssl_try_set_version(SslSession *session, SslDecryptSession *ssl,
 static gint
 ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                           packet_info* pinfo, guint32 offset, guint32 left, guint8 hnd_type,
-                          SslSession *session, SslDecryptSession *ssl);
+                          SslSession *session, SslDecryptSession *ssl,
+                          gboolean is_dtls);
 void
 ssl_dissect_hnd_cli_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                           packet_info *pinfo, proto_tree *tree, guint32 offset,
@@ -6243,7 +6266,7 @@ ssl_dissect_hnd_cli_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     if (length > offset - start_offset) {
         ssl_dissect_hnd_hello_ext(hf, tvb, tree, pinfo, offset,
                                   length - (offset - start_offset), SSL_HND_CLIENT_HELLO,
-                                  session, ssl);
+                                  session, ssl, dtls_hfs != NULL);
     }
 }
 
@@ -6327,7 +6350,7 @@ ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     if (length > offset - start_offset) {
         ssl_dissect_hnd_hello_ext(hf, tvb, tree, pinfo, offset,
                                   length - (offset - start_offset), SSL_HND_SERVER_HELLO,
-                                  session, ssl);
+                                  session, ssl, is_dtls);
     }
 }
 /* Client Hello and Server Hello dissections. }}} */
@@ -6384,7 +6407,8 @@ ssl_dissect_hnd_new_ses_ticket(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 void
 ssl_dissect_hnd_hello_retry_request(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                                     packet_info* pinfo, proto_tree *tree, guint32 offset, guint32 length,
-                                    SslSession *session, SslDecryptSession *ssl)
+                                    SslSession *session, SslDecryptSession *ssl,
+                                    gboolean is_dtls)
 {
     /* struct {
      *     ProtocolVersion server_version;
@@ -6401,7 +6425,7 @@ ssl_dissect_hnd_hello_retry_request(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     if (length > offset - start_offset) {
         ssl_dissect_hnd_hello_ext(hf, tvb, tree, pinfo, offset,
                                   length - (offset - start_offset), SSL_HND_HELLO_RETRY_REQUEST,
-                                  session, ssl);
+                                  session, ssl, is_dtls);
     }
 }
 
@@ -6768,7 +6792,8 @@ ssl_dissect_hnd_cert_url(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tr
 static gint
 ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                           packet_info* pinfo, guint32 offset, guint32 left, guint8 hnd_type,
-                          SslSession *session, SslDecryptSession *ssl)
+                          SslSession *session, SslDecryptSession *ssl,
+                          gboolean is_dtls)
 {
     guint16     extension_length;
     guint16     ext_type;
@@ -6848,6 +6873,9 @@ ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
         case SSL_HND_HELLO_EXT_COOKIE:
             offset = ssl_dissect_hnd_hello_ext_cookie(hf, tvb, ext_tree, offset, ext_len);
             break;
+        case SSL_HND_HELLO_EXT_PSK_KEY_EXCHANGE_MODES:
+            offset = ssl_dissect_hnd_hello_ext_psk_key_exchange_modes(hf, tvb, ext_tree, offset, ext_len);
+            break;
         case SSL_HND_HELLO_EXT_DRAFT_VERSION_TLS13:
             proto_tree_add_item(ext_tree, hf->hf.hs_ext_draft_version_tls13,
                                 tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -6855,6 +6883,14 @@ ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             break;
         case SSL_HND_HELLO_EXT_SERVER_NAME:
             offset = ssl_dissect_hnd_hello_ext_server_name(hf, tvb, ext_tree, offset, ext_len);
+            break;
+        case SSL_HND_HELLO_EXT_USE_SRTP:
+            if (is_dtls) {
+                offset = dtls_dissect_hnd_hello_ext_use_srtp(tvb, ext_tree, offset, ext_len);
+            } else {
+                // XXX expert info: This extension MUST only be used with DTLS, and not with TLS.
+                offset += ext_len;
+            }
             break;
         case SSL_HND_HELLO_EXT_HEARTBEAT:
             proto_tree_add_item(ext_tree, hf->hf.hs_ext_heartbeat_mode,

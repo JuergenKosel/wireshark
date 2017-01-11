@@ -21,9 +21,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "randpkt_core.h"
-
 #include <config.h>
+
+#include "randpkt_core.h"
 
 #include <time.h>
 #include <errno.h>
@@ -704,7 +704,7 @@ void randpkt_example_init(randpkt_example* example, char* produce_filename, int 
 		pkt_rand = g_rand_new();
 	}
 
-	wtap_opttypes_initialize();
+	wtap_init();
 
 	if (strcmp(produce_filename, "-") == 0) {
 		/* Write to the standard output. */

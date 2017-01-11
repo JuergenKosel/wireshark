@@ -36,6 +36,7 @@
 #include <QDialog>
 #include <QMenu>
 #include <QRubberBand>
+#include <QTimer>
 
 namespace Ui {
 class TCPStreamDialog;
@@ -54,6 +55,7 @@ signals:
 
 public slots:
     void setCaptureFile(capture_file *cf);
+    void updateGraph();
 
 protected:
     void showEvent(QShowEvent *event);
@@ -76,6 +78,8 @@ private:
     QCPGraph *tput_graph_;
     QCPGraph *seg_graph_;
     QCPGraph *ack_graph_;
+    QCPGraph *sack_graph_;
+    QCPGraph *sack2_graph_;
     QCPGraph *rwin_graph_;
     QCPItemTracer *tracer_;
     QRectF axis_bounds_;
@@ -86,12 +90,33 @@ private:
     QPoint rb_origin_;
     QMenu ctx_menu_;
 
+    class GraphUpdater {
+    public:
+        GraphUpdater(TCPStreamDialog *dialog) :
+            dialog_(dialog),
+            graph_update_timer_(NULL),
+            reset_axes_(false) {}
+        void triggerUpdate(int timeout, bool reset_axes = false);
+        void clearPendingUpdate();
+        void doUpdate();
+        bool hasPendingUpdate() { return graph_update_timer_ != NULL; }
+    private:
+        TCPStreamDialog *dialog_;
+        QTimer *graph_update_timer_;
+        bool reset_axes_;
+    };
+    friend class GraphUpdater;
+    GraphUpdater graph_updater_;
+
     int num_dsegs_;
     int num_acks_;
     int num_sack_ranges_;
 
+    double ma_window_size_;
+
     void findStream();
-    void fillGraph();
+    void fillGraph(bool reset_axes = true, bool set_focus = true);
+    void showWidgetsForGraphType();
     void zoomAxes(bool in);
     void zoomXAxis(bool in);
     void zoomYAxis(bool in);
@@ -117,6 +142,10 @@ private slots:
     void on_graphTypeComboBox_currentIndexChanged(int index);
     void on_resetButton_clicked();
     void on_streamNumberSpinBox_valueChanged(int new_stream);
+    void on_streamNumberSpinBox_editingFinished();
+    void on_maWindowSizeSpinBox_valueChanged(double new_ma_size);
+    void on_maWindowSizeSpinBox_editingFinished();
+    void on_selectSACKsCheckBox_stateChanged(int state);
     void on_otherDirectionButton_clicked();
     void on_dragRadioButton_toggled(bool checked);
     void on_zoomRadioButton_toggled(bool checked);

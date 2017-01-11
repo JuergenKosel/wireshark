@@ -28,6 +28,7 @@
 
 #include "randpkt_core/randpkt_core.h"
 #include <wsutil/strtoi.h>
+#include <wsutil/filesystem.h>
 
 #define RANDPKT_EXTCAP_INTERFACE "randpkt"
 #define RANDPKTDUMP_VERSION_MAJOR "0"
@@ -143,10 +144,13 @@ int main(int argc, char *argv[])
 #endif  /* _WIN32 */
 
 	extcap_parameters * extcap_conf = g_new0(extcap_parameters, 1);
+	char* help_url;
 	char* help_header = NULL;
 
+	help_url = data_file_url("randpktdump.html");
 	extcap_base_set_util_info(extcap_conf, argv[0], RANDPKTDUMP_VERSION_MAJOR, RANDPKTDUMP_VERSION_MINOR,
-		RANDPKTDUMP_VERSION_RELEASE, NULL);
+		RANDPKTDUMP_VERSION_RELEASE, help_url);
+	g_free(help_url);
 	extcap_base_register_interface(extcap_conf, RANDPKT_EXTCAP_INTERFACE, "Random packet generator", 147, "Generator dependent DLT");
 
 	help_header = g_strdup_printf(

@@ -12,7 +12,9 @@
 %global with_lz4_and_snappy 1
 %global with_c_ares 1
 %global with_portaudio 0
+%global with_spandsp 0
 %global with_nghttp2 1
+%global with_extcap 1
 
 # Set at most one of these two:
 # Note that setcap requires rpmbuild 4.7.0 or later.
@@ -234,6 +236,10 @@ BuildRequires:	update-desktop-files
 BuildRequires:	portaudio-devel
 Requires:	portaudio
 %endif
+%if %{with_spandsp}
+BuildRequires:	spandsp-devel
+Requires:	spandsp
+%endif
 
 # Uncomment these if you want to be sure you get them...
 #BuildRequires:	GeoIP-devel
@@ -267,6 +273,14 @@ This package contains the GTK+ Wireshark GUI and desktop integration files.
 %endif
 %if %{with_portaudio}
   --with-portaudio \
+%endif
+%if %{with_spandsp}
+  --with-spandsp \
+%endif
+%if %{with_extcap}
+  --with-extcap \
+  %else
+  --with-extcap=no \
 %endif
 %if %{with qt}
   --with-qt=4 \
@@ -462,7 +476,13 @@ fi
 %endif
 
 %changelog
-* Mon Oct 18 2016 Benoit Canet
+* Tue Dec 20 2016 Anders Broman
+- Add with extcap (as an option, defaulting to yes).
+
+* Mon Dec  5 2016 Jeff Morriss
+- Add spandsp (as an option, defaulting to not required).
+
+* Tue Oct 18 2016 Benoit Canet
 - Add LZ4 and snappy compression support.
 
 * Mon Aug 29 2016 Jeff Morriss

@@ -2319,7 +2319,7 @@ proto_register_diameter(void)
 	proto_diameter = proto_register_protocol ("Diameter Protocol", "DIAMETER", "diameter");
 
 	/* Allow dissector to find be found by name. */
-	register_dissector("diameter", dissect_diameter, proto_diameter);
+	diameter_sctp_handle = register_dissector("diameter", dissect_diameter, proto_diameter);
 
 	/* Delay registration of Diameter fields */
 	proto_register_prefix("diameter", register_diameter_fields);
@@ -2332,7 +2332,7 @@ proto_register_diameter(void)
 	diameter_expr_result_vnd_table = register_dissector_table("diameter.vnd_exp_res", "DIAMETER Experimental-Result-Code", proto_diameter, FT_UINT32, BASE_DEC);
 
 	/* Set default TCP ports */
-	range_convert_str(&global_diameter_sctp_port_range, DEFAULT_DIAMETER_PORT_RANGE, MAX_SCTP_PORT);
+	range_convert_str(wmem_epan_scope(), &global_diameter_sctp_port_range, DEFAULT_DIAMETER_PORT_RANGE, MAX_SCTP_PORT);
 
 	/* Register configuration options for ports */
 	diameter_module = prefs_register_protocol(proto_diameter, proto_reg_handoff_diameter);
@@ -2345,7 +2345,7 @@ proto_register_diameter(void)
 
 	/* Desegmentation */
 	prefs_register_bool_preference(diameter_module, "desegment",
-				       "Reassemble Diameter messages\nspanning multiple TCP segments",
+				       "Reassemble Diameter messages spanning multiple TCP segments",
 				       "Whether the Diameter dissector should reassemble messages spanning multiple TCP segments."
 				       " To use this option, you must also enable \"Allow subdissectors to reassemble TCP streams\" in the TCP protocol settings.",
 				       &gbl_diameter_desegment);
@@ -2375,7 +2375,6 @@ proto_reg_handoff_diameter(void)
 	static range_t *diameter_sctp_port_range;
 
 	if (!Initialized) {
-		diameter_sctp_handle = find_dissector("diameter");
 		diameter_tcp_handle = create_dissector_handle(dissect_diameter_tcp,
 							      proto_diameter);
 		diameter_udp_handle = create_dissector_handle(dissect_diameter, proto_diameter);
@@ -2421,11 +2420,11 @@ proto_reg_handoff_diameter(void)
 		Initialized=TRUE;
 	} else {
 		dissector_delete_uint_range("sctp.port", diameter_sctp_port_range, diameter_sctp_handle);
-		g_free(diameter_sctp_port_range);
+		wmem_free(wmem_epan_scope(), diameter_sctp_port_range);
 	}
 
 	/* set port for future deletes */
-	diameter_sctp_port_range = range_copy(global_diameter_sctp_port_range);
+	diameter_sctp_port_range = range_copy(wmem_epan_scope(), global_diameter_sctp_port_range);
 	dissector_add_uint_range("sctp.port", diameter_sctp_port_range, diameter_sctp_handle);
 
 	exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);

@@ -112,6 +112,7 @@ set(LIBWIRESHARK_FILES
 	ex-opt.c
 	except.c
 	expert.c
+	export_object.c
 	exported_pdu.c
 	plugin_if.c
 	filter_expressions.c
@@ -131,7 +132,7 @@ set(LIBWIRESHARK_FILES
 	oids.c
 	osi-utils.c
 	oui.c
-	packet-range.c
+	packet_range.c
 	packet.c
 	print.c
 	print_stream.c
@@ -166,6 +167,7 @@ set(LIBWIRESHARK_FILES
 	tvbuff_zlib.c
 	uat.c
 	value_string.c
+	unit_strings.c
 	xdlc.c
 	${CMAKE_SOURCE_DIR}/ws_version_info.c
 )

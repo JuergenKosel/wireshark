@@ -101,6 +101,8 @@ static int hf_isakmp_rspi         = -1;
 static int hf_isakmp_typepayload     = -1;
 static int hf_isakmp_nextpayload     = -1;
 static int hf_isakmp_criticalpayload = -1;
+static int hf_isakmp_reserved7       = -1;
+static int hf_isakmp_reserved        = -1;
 static int hf_isakmp_datapayload     = -1;
 static int hf_isakmp_extradata       = -1;
 static int hf_isakmp_version         = -1;
@@ -382,6 +384,7 @@ static gint ett_isakmp_sa = -1;
 static gint ett_isakmp_attr = -1;
 static gint ett_isakmp_id = -1;
 static gint ett_isakmp_notify_data = -1;
+static gint ett_isakmp_ts = -1;
 #ifdef HAVE_LIBGCRYPT
 /* For decrypted IKEv2 Encrypted payload*/
 static gint ett_isakmp_decrypted_data = -1;
@@ -397,6 +400,8 @@ static expert_field ei_isakmp_payload_bad_length = EI_INIT;
 static expert_field ei_isakmp_bad_fragment_number = EI_INIT;
 
 static dissector_handle_t eap_handle = NULL;
+static dissector_handle_t isakmp_handle;
+
 
 static reassembly_table isakmp_cisco_reassembly_table;
 static reassembly_table isakmp_ike2_reassembly_table;
@@ -454,7 +459,7 @@ static const fragment_items isakmp_frag_items = {
  */
 #define IKEV2_TS_IPV4_ADDR_RANGE        7
 #define IKEV2_TS_IPV6_ADDR_RANGE        8
-#define IKEV2_TS_FC_ADDR_RANGE          9
+#define IKEV2_TS_FC_ADDR_RANGE          9  /* RFC 4595 */
 /*
  * Configuration Payload Attribute Types
  *   draft-ietf-ipsec-isakmp-mode-cfg-05.txt for IKEv1
@@ -2198,7 +2203,7 @@ static int dissect_vid(tvbuff_t *, int, int, proto_tree *);
 static void dissect_config(tvbuff_t *, packet_info *, int, int, proto_tree *, int, gboolean);
 static void dissect_nat_discovery(tvbuff_t *, int, int, proto_tree * );
 static void dissect_nat_original_address(tvbuff_t *, int, int, proto_tree *, int );
-static void dissect_ts(tvbuff_t *, int, int, proto_tree *);
+static void dissect_ts_payload(tvbuff_t *, int, int, proto_tree *);
 static tvbuff_t * dissect_enc(tvbuff_t *, int, int, proto_tree *, packet_info *, guint8, gboolean, void*, gboolean);
 static void dissect_eap(tvbuff_t *, int, int, proto_tree *, packet_info *);
 static void dissect_gspm(tvbuff_t *, int, int, proto_tree *);
@@ -3003,7 +3008,7 @@ dissect_payloads(tvbuff_t *tvb, proto_tree *tree,
             break;
           case PLOAD_IKE2_TSI:
           case PLOAD_IKE2_TSR:
-            dissect_ts(tvb, offset + 4, payload_length - 4, ntree);
+            dissect_ts_payload(tvb, offset + 4, payload_length - 4, ntree);
             break;
           case PLOAD_IKE2_SK:
             if(isakmp_version == 2)
@@ -3305,8 +3310,11 @@ dissect_payload_header(tvbuff_t *tvb, packet_info *pinfo, int offset, int length
 
   proto_tree_add_item(ntree, hf_isakmp_nextpayload, tvb, offset, 1, ENC_BIG_ENDIAN);
 
-  if (isakmp_version == 2) {
+  if (isakmp_version == 1) {
+    proto_tree_add_item(ntree, hf_isakmp_reserved, tvb, offset + 1, 1, ENC_NA);
+  } else if (isakmp_version == 2) {
     proto_tree_add_item(ntree, hf_isakmp_criticalpayload, tvb, offset+1, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ntree, hf_isakmp_reserved7, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
   }
   proto_tree_add_item(ntree, hf_isakmp_payloadlen, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
 
@@ -3543,7 +3551,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf_ui
       guint8 val;
       val = tvb_get_guint8(tvb, offset);
 
-      proto_tree_add_uint_format_value(tree, hf_uint32, tvb, offset, len, val, "%u", val);
+      proto_tree_add_uint(tree, hf_uint32, tvb, offset, len, val);
       proto_item_append_text(ti, ": %u", val);
       break;
     }
@@ -3551,7 +3559,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf_ui
       guint16 val;
       val = tvb_get_ntohs(tvb, offset);
 
-      proto_tree_add_uint_format_value(tree, hf_uint32, tvb, offset, len, val, "%u", val);
+      proto_tree_add_uint(tree, hf_uint32, tvb, offset, len, val);
       proto_item_append_text(ti, ": %u", val);
       break;
     }
@@ -3559,7 +3567,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf_ui
       guint32 val;
       val = tvb_get_ntoh24(tvb, offset);
 
-      proto_tree_add_uint_format_value(tree, hf_uint32, tvb, offset, len, val, "%u", val);
+      proto_tree_add_uint(tree, hf_uint32, tvb, offset, len, val);
       proto_item_append_text(ti, ": %u", val);
       break;
     }
@@ -3567,7 +3575,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf_ui
       guint32 val;
       val = tvb_get_ntohl(tvb, offset);
 
-      proto_tree_add_uint_format_value(tree, hf_uint32, tvb, offset, len, val, "%u", val);
+      proto_tree_add_uint(tree, hf_uint32, tvb, offset, len, val);
       proto_item_append_text(ti, ": %u", val);
       break;
     }
@@ -3958,7 +3966,10 @@ dissect_transform(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, pro
       proto_tree_add_item(tree, hf_isakmp_trans_id, tvb, offset, 1, ENC_BIG_ENDIAN);
       break;
     }
-    offset += 3;
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 2, ENC_NA);
+    offset += 2;
 
     if (protocol_id == 1 && transform_id == 1) {
 #ifdef HAVE_LIBGCRYPT
@@ -3993,7 +4004,8 @@ dissect_transform(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, pro
     proto_tree_add_item(tree, hf_isakmp_trans_type, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
-    offset += 1; /* Reserved */
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 1, ENC_NA);
+    offset += 1;
 
     switch(transform_type){
     case TF_IKE2_ENCR:
@@ -4036,8 +4048,12 @@ dissect_key_exch(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int is
 {
   if (isakmp_version == 2) {
     proto_tree_add_item(tree, hf_isakmp_key_exch_dh_group, tvb, offset, 2, ENC_BIG_ENDIAN);
-    offset += 4;
-    length -= 4;
+    offset += 2;
+    length -= 2;
+
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 2, ENC_NA);
+    offset += 2;
+    length -= 2;
   }
 
   proto_tree_add_item(tree, hf_isakmp_key_exch_data, tvb, offset, length, ENC_NA);
@@ -4082,26 +4098,32 @@ dissect_id(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int isakmp_v
   offset += 1;
   length -= 1;
 
-  protocol_id= tvb_get_guint8(tvb, offset);
-  if (protocol_id == 0)
-    proto_tree_add_uint_format_value(tree, hf_isakmp_id_protoid, tvb, offset,1,
-                               protocol_id, "Unused");
-  else
-    proto_tree_add_item(tree, hf_isakmp_id_protoid, tvb, offset, 1, ENC_BIG_ENDIAN);
+  if (isakmp_version == 1) {
+    protocol_id = tvb_get_guint8(tvb, offset);
+    if (protocol_id == 0)
+      proto_tree_add_uint_format_value(tree, hf_isakmp_id_protoid, tvb, offset, 1,
+                                 protocol_id, "Unused");
+    else
+      proto_tree_add_item(tree, hf_isakmp_id_protoid, tvb, offset, 1, ENC_BIG_ENDIAN);
 
-  offset += 1;
-  length -= 1;
+    offset += 1;
+    length -= 1;
 
-  port = tvb_get_ntohs(tvb, offset);
-  if (port == 0)
-    proto_tree_add_uint_format_value(tree, hf_isakmp_id_port, tvb, offset, 2,
-                               port, "Unused");
-  else
-    proto_tree_add_item(tree, hf_isakmp_id_port, tvb, offset, 2, ENC_BIG_ENDIAN);
+    port = tvb_get_ntohs(tvb, offset);
+    if (port == 0)
+      proto_tree_add_uint_format_value(tree, hf_isakmp_id_port, tvb, offset, 2,
+                                 port, "Unused");
+    else
+      proto_tree_add_item(tree, hf_isakmp_id_port, tvb, offset, 2, ENC_BIG_ENDIAN);
 
-  offset += 2;
-  length -= 2;
+    offset += 2;
+    length -= 2;
 
+  } else if (isakmp_version == 2) {
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 3, ENC_NA);
+    offset += 3;
+    length -= 3;
+  }
 
   /*
    * It shows strings of all types though some of types are not
@@ -4252,9 +4274,12 @@ dissect_auth(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
 {
 
   proto_tree_add_item(tree, hf_isakmp_auth_meth, tvb, offset, 1, ENC_BIG_ENDIAN);
+  offset += 1;
+  length -= 1;
 
-  offset += 4;
-  length -= 4;
+  proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 3, ENC_NA);
+  offset += 3;
+  length -= 3;
 
   proto_tree_add_item(tree, hf_isakmp_auth_data, tvb, offset, length, ENC_NA);
 
@@ -5048,15 +5073,21 @@ dissect_config(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, proto_
   if (isakmp_version == 1) {
 
     proto_tree_add_item(tree, hf_isakmp_cfg_type_v1,tvb, offset, 1, ENC_BIG_ENDIAN);
-    offset += 2;
+    offset += 1;
 
-    proto_tree_add_item(tree, hf_isakmp_cfg_identifier,tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 1, ENC_NA);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_cfg_identifier, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
   } else if (isakmp_version == 2) {
 
     proto_tree_add_item(tree, hf_isakmp_cfg_type_v2,tvb, offset, 1, ENC_BIG_ENDIAN);
-    offset += 4;
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 3, ENC_NA);
+    offset += 3;
 
   } else {
     /* Skip attribute dissection for unknown IKE versions. */
@@ -5106,132 +5137,129 @@ dissect_nat_original_address(tvbuff_t *tvb, int offset, int length _U_, proto_tr
   }
 }
 
-static void
-dissect_ts(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
+static int
+dissect_ts(tvbuff_t *tvb, int offset, proto_tree *payload_tree)
 {
-  guint8        num, tstype, protocol_id;
+  guint8        tstype, protocol_id;
+  guint16       len;
+  proto_item    *ts_item;
+  proto_tree    *tree;
+  const gchar   *ts_typename;
+
+  len = tvb_get_guint16(tvb, offset + 2, ENC_BIG_ENDIAN);
+  if (len < 4)
+    return 4;
+
+  ts_item = proto_tree_add_item(payload_tree, hf_isakmp_ts_data, tvb, offset, len, ENC_NA);
+  tree = proto_item_add_subtree(ts_item, ett_isakmp_ts);
+
+  tstype = tvb_get_guint8(tvb, offset);
+  proto_tree_add_item(tree, hf_isakmp_ts_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+  ts_typename = rval_to_str(tstype, traffic_selector_type, "Unknown Type (%d)");
+  proto_item_append_text(ts_item, ": %s", ts_typename);
+
+  offset += 1;
+
+  switch (tstype) {
+  case IKEV2_TS_IPV4_ADDR_RANGE:
+    protocol_id = tvb_get_guint8(tvb, offset);
+    if (protocol_id == 0)
+        proto_tree_add_uint_format_value(tree, hf_isakmp_ts_protoid, tvb, offset,1,
+                           protocol_id, "Unused");
+    else
+        proto_tree_add_item(tree, hf_isakmp_ts_protoid, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_selector_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_start_port, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_end_port, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_start_addr_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
+    offset += 4;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_end_addr_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
+    break;
+
+  case IKEV2_TS_IPV6_ADDR_RANGE:
+    protocol_id = tvb_get_guint8(tvb, offset);
+    if (protocol_id == 0)
+        proto_tree_add_uint_format_value(tree, hf_isakmp_ts_protoid, tvb, offset,1,
+                           protocol_id, "Unused");
+    else
+        proto_tree_add_item(tree, hf_isakmp_ts_protoid, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_selector_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_start_port, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_end_port, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_start_addr_ipv6, tvb, offset, 16, ENC_NA);
+    offset += 16;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_end_addr_ipv6, tvb, offset, 16, ENC_NA);
+    break;
+
+  case IKEV2_TS_FC_ADDR_RANGE:
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 1, ENC_NA);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_selector_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 1, ENC_NA);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_start_addr_fc, tvb, offset, 3, ENC_BIG_ENDIAN);
+    offset += 3;
+
+    proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 1, ENC_NA);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_end_addr_fc, tvb, offset, 3, ENC_BIG_ENDIAN);
+    offset += 3;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_start_r_ctl, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_end_r_ctl, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_start_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_isakmp_ts_end_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+    break;
+  }
+
+  return len;
+}
+
+static void
+dissect_ts_payload(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
+{
+  guint8        num;
+  int           offset_end = offset + length;
 
   num = tvb_get_guint8(tvb, offset);
   proto_item_append_text(tree," # %d", num);
   proto_tree_add_item(tree, hf_isakmp_ts_number_of_ts, tvb, offset, 1, ENC_BIG_ENDIAN);
-
   offset += 1;
-  length -= 1;
 
-  offset += 3; /* Reserved */
-  length -= 3;
+  proto_tree_add_item(tree, hf_isakmp_reserved, tvb, offset, 3, ENC_NA);
+  offset += 3;
 
-  while (length > 0) {
-    tstype = tvb_get_guint8(tvb, offset);
-    proto_tree_add_item(tree, hf_isakmp_ts_type, tvb, offset, 1, ENC_BIG_ENDIAN);
-
-    offset += 1;
-    length -= 1;
-    switch (tstype) {
-    case IKEV2_TS_IPV4_ADDR_RANGE:
-      protocol_id = tvb_get_guint8(tvb, offset);
-      if (protocol_id == 0)
-          proto_tree_add_uint_format_value(tree, hf_isakmp_ts_protoid, tvb, offset,1,
-                             protocol_id, "Unused");
-      else
-          proto_tree_add_item(tree, hf_isakmp_ts_protoid, tvb, offset, 1, ENC_BIG_ENDIAN);
-      offset += 1;
-      length -= 1;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_selector_length, tvb, offset, 2, ENC_BIG_ENDIAN);
-      offset += 2;
-      length -= 2;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_start_port, tvb, offset, 2, ENC_BIG_ENDIAN);
-      offset += 2;
-      length -= 2;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_end_port, tvb, offset, 2, ENC_BIG_ENDIAN);
-      offset += 2;
-      length -= 2;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_start_addr_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
-      offset += 4;
-      length -= 4;
-      proto_tree_add_item(tree, hf_isakmp_ts_end_addr_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
-      offset += 4;
-      length -= 4;
-      break;
-    case IKEV2_TS_IPV6_ADDR_RANGE:
-      protocol_id = tvb_get_guint8(tvb, offset);
-      if (protocol_id == 0)
-          proto_tree_add_uint_format_value(tree, hf_isakmp_ts_protoid, tvb, offset,1,
-                             protocol_id, "Unused");
-      else
-          proto_tree_add_item(tree, hf_isakmp_ts_protoid, tvb, offset, 1, ENC_BIG_ENDIAN);
-      offset += 1;
-      length -= 1;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_selector_length, tvb, offset, 2, ENC_BIG_ENDIAN);
-      offset += 2;
-      length -= 2;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_start_port, tvb, offset, 2, ENC_BIG_ENDIAN);
-      offset += 2;
-      length -= 2;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_end_port, tvb, offset, 2, ENC_BIG_ENDIAN);
-      offset += 2;
-      length -= 2;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_start_addr_ipv6, tvb, offset, 16, ENC_NA);
-      offset += 16;
-      length -= 16;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_end_addr_ipv6, tvb, offset, 16, ENC_NA);
-      offset += 16;
-      length -= 16;
-      break;
-
-    case IKEV2_TS_FC_ADDR_RANGE:
-      offset += 1; /* Reserved */
-      length -= 1;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_selector_length, tvb, offset, 2, ENC_BIG_ENDIAN);
-      offset += 2;
-      length -= 2;
-
-      offset += 1; /* Reserved */
-      length -= 1;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_start_addr_fc, tvb, offset, 3, ENC_BIG_ENDIAN);
-      offset += 3;
-      length -= 3;
-
-      offset += 1; /* Reserved */
-      length -= 1;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_end_addr_fc, tvb, offset, 3, ENC_BIG_ENDIAN);
-      offset += 3;
-      length -= 3;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_start_r_ctl, tvb, offset, 1, ENC_BIG_ENDIAN);
-      offset += 1;
-      length -= 1;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_end_r_ctl, tvb, offset, 1, ENC_BIG_ENDIAN);
-      offset += 1;
-      length -= 1;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_start_type, tvb, offset, 1, ENC_BIG_ENDIAN);
-      offset += 1;
-      length -= 1;
-
-      proto_tree_add_item(tree, hf_isakmp_ts_end_type, tvb, offset, 1, ENC_BIG_ENDIAN);
-      offset += 1;
-      length -= 1;
-      break;
-    default:
-      proto_tree_add_item(tree, hf_isakmp_ts_data, tvb, offset, length, ENC_NA);
-      offset += length;
-      length -= length;
-      break;
-    }
+  while (offset < offset_end) {
+    offset += dissect_ts(tvb, offset, tree);
   }
 }
 
@@ -5874,6 +5902,14 @@ proto_register_isakmp(void)
       { "Critical Bit", "isakmp.criticalpayload",
         FT_BOOLEAN, 8,TFS(&criticalpayload), 0x80,
         "IKEv2 Critical Payload", HFILL }},
+    { &hf_isakmp_reserved7,
+      { "Reserved", "isakmp.reserved7",
+        FT_UINT8, BASE_HEX, NULL, 0x7F,
+        NULL, HFILL }},
+    { &hf_isakmp_reserved,
+      { "Reserved", "isakmp.reserved",
+        FT_BYTES, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }},
     { &hf_isakmp_extradata,
       { "Extra data", "isakmp.extradata",
         FT_BYTES, BASE_NONE, NULL, 0x0,
@@ -6389,9 +6425,9 @@ proto_register_isakmp(void)
         FT_UINT8, BASE_DEC, NULL, 0x0,
         NULL, HFILL }},
     { &hf_isakmp_ts_data,
-      { "Traffic Selector Data", "isakmp.ts.data",
-        FT_BYTES, BASE_NONE, NULL, 0x0,
-        NULL, HFILL }},
+      { "Traffic Selector", "isakmp.ts.data",
+        FT_NONE, BASE_NONE, NULL, 0x0,
+        "An individual traffic selector", HFILL }},
 
     { &hf_isakmp_num_spis,
       { "Number of SPIs", "isakmp.spinum",
@@ -7057,6 +7093,7 @@ proto_register_isakmp(void)
     &ett_isakmp_attr,
     &ett_isakmp_id,
     &ett_isakmp_notify_data,
+    &ett_isakmp_ts,
 #ifdef HAVE_LIBGCRYPT
     &ett_isakmp_decrypted_data,
     &ett_isakmp_decrypted_payloads
@@ -7103,7 +7140,7 @@ proto_register_isakmp(void)
   register_init_routine(&isakmp_init_protocol);
   register_cleanup_routine(&isakmp_cleanup_protocol);
 
-  register_dissector("isakmp", dissect_isakmp, proto_isakmp);
+  isakmp_handle = register_dissector("isakmp", dissect_isakmp, proto_isakmp);
 
 #ifdef HAVE_LIBGCRYPT
   isakmp_module = prefs_register_protocol(proto_isakmp, NULL);
@@ -7153,9 +7190,6 @@ proto_register_isakmp(void)
 void
 proto_reg_handoff_isakmp(void)
 {
-  dissector_handle_t isakmp_handle;
-
-  isakmp_handle = find_dissector("isakmp");
   eap_handle = find_dissector_add_dependency("eap", proto_isakmp);
   dissector_add_uint_with_preference("udp.port", UDP_PORT_ISAKMP, isakmp_handle);
   dissector_add_uint_with_preference("tcp.port", TCP_PORT_ISAKMP, isakmp_handle);

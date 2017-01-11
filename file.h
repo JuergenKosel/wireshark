@@ -28,7 +28,7 @@
 #include <epan/epan.h>
 
 #include <epan/print.h>
-#include <epan/packet-range.h>
+#include <epan/packet_range.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -558,20 +558,6 @@ gboolean cf_find_packet_marked(capture_file *cf, search_direction dir);
 gboolean cf_find_packet_time_reference(capture_file *cf, search_direction dir);
 
 /**
- * GoTo Packet in first row.
- *
- * @return TRUE if the first row exists, FALSE otherwise
- */
-gboolean cf_goto_top_frame(void);
-
-/**
- * GoTo Packet in last row.
- *
- * @return TRUE if last row exists, FALSE otherwise
- */
-gboolean cf_goto_bottom_frame(void);
-
-/**
  * GoTo Packet with the given row.
  *
  * @param cf the capture file
@@ -645,12 +631,11 @@ void cf_ignore_frame(capture_file *cf, frame_data *frame);
 void cf_unignore_frame(capture_file *cf, frame_data *frame);
 
 /**
- * Merge two (or more) capture files into one.
+ * Merge two or more capture files into a temporary file.
  * @todo is this the right place for this function? It doesn't have to do a lot with capture_file.
  *
- * @param out_filename pointer to output filename; if output filename is
- * NULL, a temporary file name is generated and *out_filename is set
- * to point to the generated file name
+ * @param out_filenamep Points to a pointer that's set to point to the
+ *        pathname of the temporary file; it's allocated with g_malloc()
  * @param in_file_count the number of input files to merge
  * @param in_filenames array of input filenames
  * @param file_type the output filetype
@@ -658,8 +643,9 @@ void cf_unignore_frame(capture_file *cf, frame_data *frame);
  * @return one of cf_status_t
  */
 cf_status_t
-cf_merge_files(char **out_filename, int in_file_count,
-               char *const *in_filenames, int file_type, gboolean do_append);
+cf_merge_files_to_tempfile(char **out_filenamep, int in_file_count,
+                           char *const *in_filenames, int file_type,
+                           gboolean do_append);
 
 
 /**

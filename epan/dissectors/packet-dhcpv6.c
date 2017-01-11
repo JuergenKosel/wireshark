@@ -27,6 +27,7 @@
  * RFC7598.txt (Configuration of Softwire Address and Port-Mapped Clients)
  * draft-ietf-dhc-dhcpv6-opt-timeconfig-03.txt
  * draft-ietf-dhc-dhcpv6-opt-lifetime-00.txt
+ * draft-ietf-opsawg-mud-02.txt (Manufacturer Usage Descriptions + IANA assignment)
  * CL-SP-CANN-DHCP-Reg-I10-130808.pdf
  *
  * Note that protocol constants are still subject to change, based on IANA
@@ -155,6 +156,7 @@ static int hf_dhcpv6_hopcount = -1;
 static int hf_dhcpv6_xid = -1;
 static int hf_dhcpv6_peeraddr = -1;
 static int hf_dhcpv6_linkaddr = -1;
+static int hf_opt_mudurl = -1;
 static int hf_option_ntpserver_type = -1;
 static int hf_option_ntpserver_length = -1;
 static int hf_option_ntpserver_addr = -1;
@@ -382,6 +384,7 @@ static dissector_handle_t dhcpv6_handle;
 #define OPTION_ANI_AP_BSSID          108 /* RFC 7839 */
 #define OPTION_ANI_OPERATOR_ID       109 /* RFC 7839 */
 #define OPTION_ANI_OPERATOR_REALM    110 /* RFC 7839 */
+#define OPTION_MUDURL                112 /* MUDURL */
 #define OPTION_IPv6_ADDRESS_ANDSF    143 /* RFC 6153 */
 
 /* temporary value until defined by IETF */
@@ -528,6 +531,7 @@ static const value_string opttype_vals[] = {
     { OPTION_ANI_AP_BSSID,           "Access Point BSSID" },
     { OPTION_ANI_OPERATOR_ID,        "Access Network Operator ID" },
     { OPTION_ANI_OPERATOR_REALM,     "Access Network Operator Realm" },
+    { OPTION_MUDURL,                 "Manufacturer Usage Description" },
     { OPTION_IPv6_ADDRESS_ANDSF,     "ANDSF IPv6 Address" },
     { OPTION_MIP6_HA,                "Mobile IPv6 Home Agent" },
     { OPTION_MIP6_HOA,               "Mobile IPv6 Home Address" },
@@ -1768,8 +1772,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
         }
 
         temp_optlen = tvb_get_ntohs(tvb, off);
-        proto_tree_add_uint_format_value(subtree, hf_elapsed_time, tvb, off,
-                                    2, temp_optlen*10, "%u ms", temp_optlen*10);
+        proto_tree_add_uint(subtree, hf_elapsed_time, tvb, off, 2, temp_optlen*10);
         break;
     case OPTION_RELAY_MSG:
         if (optlen == 0) {
@@ -2023,6 +2026,12 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
         if (optlen > 0)
             proto_tree_add_item(subtree, hf_opt_tzdb, tvb, off, optlen, ENC_ASCII|ENC_NA);
         break;
+
+    case OPTION_MUDURL:
+        if (optlen > 0)
+            proto_tree_add_item(subtree, hf_opt_mudurl, tvb, off, optlen, ENC_ASCII|ENC_NA);
+        break;
+
     case OPTION_LQ_QUERY:
     {
         guint8 query_type;
@@ -2402,7 +2411,7 @@ proto_register_dhcpv6(void)
         { &hf_option_preference,
           { "Pref-value", "dhcpv6.option_preference", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL}},
         { &hf_elapsed_time,
-          { "Elapsed time", "dhcpv6.elapsed_time", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL}},
+          { "Elapsed time", "dhcpv6.elapsed_time", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_milliseconds, 0, NULL, HFILL}},
         { &hf_auth_protocol,
           { "Protocol", "dhcpv6.auth.protocol", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL}},
         { &hf_auth_algorithm,
@@ -2613,6 +2622,8 @@ proto_register_dhcpv6(void)
           { "PSID length", "dhcpv6.s46_portparam.psid_len", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
         { &hf_option_s46_portparam_psid,
           { "PSID", "dhcpv6.s46_portparam.psid", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
+        { &hf_opt_mudurl,
+          { "MUDURL", "dhcpv6.mudurl", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
     };
 
     static gint *ett[] = {

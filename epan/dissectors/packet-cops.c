@@ -798,6 +798,8 @@ static gint ett_cops_subtree = -1;
 
 static gint ett_docsis_request_transmission_policy = -1;
 
+static dissector_handle_t cops_handle;
+
 /* For request/response matching */
 typedef struct _cops_conv_info_t {
     wmem_map_t *pdus_tree;
@@ -1052,7 +1054,29 @@ dissect_cops_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
         }
 
         if (!pinfo->fd->flags.visited) {
-            cops_call = wmem_new(wmem_file_scope(), cops_call_t);
+            /*
+             * XXX - yes, we're setting all the fields in this
+             * structure, but there's padding between op_code
+             * and solicited, and that can't be set.
+             *
+             * For some reason, on some platforms, valgrind is
+             * complaining about a test of the solicited field
+             * accessing uninitialized data, perhaps because
+             * the 8 bytes containing op_code and solicited is
+             * being loaded as a unit.  If the compiler is, for
+             * example, turning a test of
+             *
+             *   cops_call->op_code == COPS_MSG_KA && !(cops_call->solicited)
+             *
+             * into a load of those 8 bytes and a comparison against a value
+             * with op_code being COPS_MSG_KA, solicited being false (0),
+             * *and* the padding being zero, it's buggy, but overly-"clever"
+             * buggy compilers do exist, so....)
+             *
+             * So we use wmem_new0() to forcibly zero out the entire
+             * structure before filling it in.
+             */
+            cops_call = wmem_new0(wmem_file_scope(), cops_call_t);
             cops_call->op_code = op_code;
             cops_call->solicited = is_solicited;
             cops_call->req_num = pinfo->num;
@@ -2820,7 +2844,7 @@ void proto_register_cops(void)
     expert_register_field_array(expert_cops, ei, array_length(ei));
 
     /* Make dissector findable by name */
-    register_dissector("cops", dissect_cops, proto_cops);
+    cops_handle = register_dissector("cops", dissect_cops, proto_cops);
 
     /* Register our configuration options for cops */
     cops_module = prefs_register_protocol(proto_cops, NULL);
@@ -2845,9 +2869,6 @@ void proto_register_cops(void)
 
 void proto_reg_handoff_cops(void)
 {
-    dissector_handle_t cops_handle;
-
-    cops_handle = find_dissector("cops");
     /* These could use a separate "preference name" (to avoid collision),
         but they are IANA registered and users could still use Decode As */
     dissector_add_uint("tcp.port", TCP_PORT_PKTCABLE_COPS, cops_handle);

@@ -112,6 +112,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	packet-mms.c
 	packet-mpeg-audio.c
 	packet-mpeg-pes.c
+	packet-mudurl.c
 	packet-nbap.c
 	packet-novell_pkis.c
 	packet-ns_cert_exts.c
@@ -241,27 +242,6 @@ set(DISSECTOR_SRC
 	packet-afp.c
 	packet-afs.c
 	packet-agentx.c
-	packet-aim-admin.c
-	packet-aim-adverts.c
-	packet-aim-bos.c
-	packet-aim-buddylist.c
-	packet-aim-chat.c
-	packet-aim-chatnav.c
-	packet-aim-directory.c
-	packet-aim-email.c
-	packet-aim-generic.c
-	packet-aim-icq.c
-	packet-aim-invitation.c
-	packet-aim-location.c
-	packet-aim-messaging.c
-	packet-aim-oft.c
-	packet-aim-popup.c
-	packet-aim-signon.c
-	packet-aim-ssi.c
-	packet-aim-sst.c
-	packet-aim-stats.c
-	packet-aim-translate.c
-	packet-aim-userlookup.c
 	packet-aim.c
 	packet-ajp13.c
 	packet-alcap.c
@@ -663,6 +643,7 @@ set(DISSECTOR_SRC
 	packet-gsm_sms_ud.c
 	packet-gsm_um.c
 	packet-gsmtap.c
+	packet-gsmtap_log.c
 	packet-gssapi.c
 	packet-gtp.c
 	packet-gtpv2.c
@@ -702,6 +683,7 @@ set(DISSECTOR_SRC
 	packet-hl7.c
 	packet-homeplug-av.c
 	packet-homeplug.c
+	packet-homepna.c
 	packet-hp-erm.c
 	packet-hpext.c
 	packet-hpfeeds.c
@@ -1004,6 +986,8 @@ set(DISSECTOR_SRC
 	packet-ntlmssp.c
 	packet-ntp.c
 	packet-null.c
+	packet-nvme.c
+	packet-nvme-rdma.c
 	packet-nwmtp.c
 	packet-nwp.c
 	packet-oampdu.c
@@ -1223,6 +1207,7 @@ set(DISSECTOR_SRC
 	packet-snaeth.c
 	packet-sndcp-xid.c
 	packet-sndcp.c
+	packet-snort.c
 	packet-socketcan.c
 	packet-socks.c
 	packet-soupbintcp.c
@@ -1315,6 +1300,7 @@ set(DISSECTOR_SRC
 	packet-usb-dfu.c
 	packet-usb-hid.c
 	packet-usb-hub.c
+	packet-usb-i1d3.c
 	packet-usb-masstorage.c
 	packet-usb-video.c
 	packet-usb.c
@@ -1423,6 +1409,7 @@ set(DISSECTOR_SRC
 set(DISSECTOR_SUPPORT_SRC
 	packet-dcerpc-nt.c
 	usb.c
+	snort-config.c
 	register.c
 )
 source_group(dissector-support FILES ${DISSECTOR_SUPPORT_SRC})
@@ -1476,7 +1463,7 @@ set_target_properties(dissectors PROPERTIES
 
 set(CHECKAPI_FILE_LIST "${CMAKE_CURRENT_BINARY_DIR}/files.txt")
 file(GLOB DISSECTOR_HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.h")
-file(WRITE "${CHECKAPI_FILE_LIST}" "${DISSECTOR_FILES}" "${CORBA_IDL_DISSECTOR_SRC}")
+file(WRITE "${CHECKAPI_FILE_LIST}" "${DISSECTOR_FILES}" ";" "${CORBA_IDL_DISSECTOR_SRC}")
 CHECKAPI(
 	NAME
 	  dissectors

@@ -42,13 +42,15 @@ struct _rtp_info {
 	guint32       info_sync_src;
 	guint         info_data_len;       /* length of raw rtp data as reported */
 	gboolean      info_all_data_present; /* FALSE if data is cut off */
-	size_t        info_payload_offset; /* start of payload relative to info_data */
-	size_t        info_payload_len;    /* length of payload (incl padding) */
+	guint         info_payload_offset; /* start of payload relative to info_data */
+	guint         info_payload_len;    /* length of payload (incl padding) */
 	gboolean      info_is_srtp;
 	guint32       info_setup_frame_num; /* the frame num of the packet that set this RTP connection */
 	const guint8* info_data;           /* pointer to raw rtp data */
 	const gchar   *info_payload_type_str;
 	gint          info_payload_rate;
+	gboolean      info_is_ed137;
+	const gchar   *info_ed137_info;
 	/*
 	* info_data: pointer to raw rtp data = header + payload incl. padding.
 	* That should be safe because the "epan_dissect_t" constructed for the packet
@@ -120,6 +122,9 @@ typedef struct _rtp_dyn_payload_t rtp_dyn_payload_t;
 WS_DLL_PUBLIC
 rtp_dyn_payload_t* rtp_dyn_payload_new(void);
 
+/* Creates a copy of the given dynamic payload information. */
+rtp_dyn_payload_t* rtp_dyn_payload_dup(rtp_dyn_payload_t *rtp_dyn_payload);
+
 /* Inserts the given payload type key, for the encoding name and sample rate, into the hash table.
    This makes copies of the encoding name, scoped to the life of the capture file or sooner if
    rtp_dyn_payload_free is called. */
@@ -190,6 +195,7 @@ struct _rtp_conversation_info
 /* Add an RTP conversation with the given details */
 WS_DLL_PUBLIC
 void rtp_add_address(packet_info *pinfo,
+                     const port_type ptype,
                      address *addr, int port,
                      int other_port,
                      const gchar *setup_method,
@@ -200,6 +206,7 @@ void rtp_add_address(packet_info *pinfo,
 /* Add an SRTP conversation with the given details */
 WS_DLL_PUBLIC
 void srtp_add_address(packet_info *pinfo,
+                     const port_type ptype,
                      address *addr, int port,
                      int other_port,
                      const gchar *setup_method,

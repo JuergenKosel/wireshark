@@ -193,6 +193,9 @@ typedef struct _e_prefs {
   layout_pane_content_e gui_layout_content_3;
   gchar       *gui_interfaces_hide_types;
   gboolean     gui_interfaces_show_hidden;
+#ifdef HAVE_PCAP_REMOTE
+  gboolean     gui_interfaces_remote_display;
+#endif
   gint         console_log_level;
   gchar       *capture_device;
   gchar       *capture_devices_linktypes;
@@ -421,8 +424,16 @@ WS_DLL_PUBLIC void prefs_register_uint_preference(module_t *module, const char *
     const char *title, const char *description, guint base, guint *var);
 
 /*
+ * prefs_register_ callers must conform to the following:
+ *
+ * Names must be in lowercase letters only (underscore allowed).
+ * Titles and descriptions must be valid UTF-8 or NULL.
+ * Titles must be short (less than 80 characters)
+ * Titles must not contain newlines.
+ */
+
+/*
  * Register a preference with an Boolean value.
- * Note that the name must be in lowercase letters only (underscore allowed).
  */
 WS_DLL_PUBLIC void prefs_register_bool_preference(module_t *module, const char *name,
     const char *title, const char *description, gboolean *var);
@@ -623,6 +634,17 @@ WS_DLL_PUBLIC prefs_set_pref_e prefs_set_pref(char *prefarg);
 gboolean prefs_get_preference_obsolete(pref_t *pref);
 prefs_set_pref_e prefs_set_preference_obsolete(pref_t *pref);
 
+/*
+ * Get current  preference uint value. This allows the preference structure
+ * to remain hidden from those that doesn't really need it
+ */
+WS_DLL_PUBLIC guint prefs_get_uint_value(const char *module_name, const char* pref_name);
+
+/*
+ * Get the current range preference value (maintained by pref, so it doesn't need to be freed). This allows the
+ * preference structure to remain hidden from those that doesn't really need it.
+ */
+WS_DLL_PUBLIC range_t* prefs_get_range_value(const char *module_name, const char* pref_name);
 
 /*
  * Returns TRUE if the given device is hidden

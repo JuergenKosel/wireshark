@@ -886,7 +886,20 @@ get_datafile_dir(void)
          * Use the top-level source directory as the datafile directory
          * because most of our data files (radius/, COPYING) are there.
          */
-        datafile_dir = g_strdup(TOP_SRCDIR);
+#ifdef TOP_SRCDIR
+        /*
+         * When TOP_SRCDIR is defined, assume autotools where files are not
+         * copied to the build directory. This fallback location is relied on by
+         * wslua_get_actual_filename().
+         */
+        datafile_dir = TOP_SRCDIR;
+#else
+        /*
+         * Otherwise assume CMake. Here, data files (console.lua, radius/, etc.)
+         * are copied to the build directory during the build.
+         */
+        datafile_dir = BUILD_TIME_DATAFILE_DIR;
+#endif
         return datafile_dir;
     } else {
         if (g_getenv("WIRESHARK_DATA_DIR") && !started_with_special_privs()) {
@@ -925,20 +938,24 @@ get_datafile_dir(void)
 /*
  * Find the directory where the plugins are stored.
  *
- * On Windows, we use the "plugin" subdirectory of the datafile directory.
+ * On Windows, we use the plugin/{VERSION} subdirectory of the datafile
+ * directory, where {VERSION} is the version number of this version of
+ * Wireshark.
  *
- * On UN*X, we use the PLUGIN_INSTALL_DIR value supplied by the configure
- * script, unless we think we're being run from the build directory,
- * in which case we use the "plugin" subdirectory of the datafile directory.
+ * On UN*X:
  *
- * In both cases, we then use the subdirectory of that directory whose
- * name is the version number.
+ *    if we appear to be run from the build directory, we use the
+ *    "plugin" subdirectory of the datafile directory;
  *
- * XXX - if we think we're being run from the build directory, perhaps we
- * should have the plugin code not look in the version subdirectory
- * of the plugin directory, but look in all of the subdirectories
- * of the plugin directory, so it can just fetch the plugins built
- * as part of the build process.
+ *    otherwise, if the WIRESHARK_PLUGIN_DIR environment variable is
+ *    set and we aren't running with special privileges, we use the
+ *    value of that environment variable;
+ *
+ *    otherwise, if we're running from an app bundle in macOS, we
+ *    use the Contents/PlugIns/wireshark subdirectory of the app bundle;
+ *
+ *    otherwise, we use the PLUGIN_INSTALL_DIR value supplied by the
+ *    configure script.
  */
 static char *plugin_dir = NULL;
 
@@ -2115,6 +2132,29 @@ copy_file_binary_mode(const char *from_filename, const char *to_filename)
 done:
     g_free(pd);
     return FALSE;
+}
+
+gchar *
+data_file_url(const gchar *filename)
+{
+    gchar *file_path;
+    gchar *uri;
+
+    /* Absolute path? */
+    if(g_path_is_absolute(filename)) {
+        file_path = g_strdup(filename);
+    } else if(running_in_build_directory()) {
+        file_path = g_strdup_printf("%s/doc/%s", get_datafile_dir(), filename);
+    } else {
+        file_path = g_strdup_printf("%s/%s", get_datafile_dir(), filename);
+    }
+
+    /* XXX - check, if the file is really existing, otherwise display a simple_dialog about the problem */
+
+    /* convert filename to uri */
+    uri = g_filename_to_uri(file_path, NULL, NULL);
+    g_free(file_path);
+    return uri;
 }
 
 /*

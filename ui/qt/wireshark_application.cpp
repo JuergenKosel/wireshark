@@ -196,6 +196,21 @@ extern "C" void menu_recent_file_write_all(FILE *rf) {
     }
 }
 
+#ifdef HAVE_SOFTWARE_UPDATE
+/** Check to see if Wireshark can shut down safely (e.g. offer to save the
+ *  current capture).
+ */
+extern "C" int software_update_can_shutdown_callback(void) {
+    return wsApp->softwareUpdateCanShutdown();
+}
+
+/** Shut down Wireshark in preparation for an upgrade.
+ */
+extern "C" void software_update_shutdown_request_callback(void) {
+    wsApp->softwareUpdateShutdownRequest();
+}
+#endif // HAVE_SOFTWARE_UPDATE
+
 // Check each recent item in a separate thread so that we don't hang while
 // calling stat(). This is called periodically because files and entire
 // volumes can disappear and reappear at any time.
@@ -396,6 +411,7 @@ void WiresharkApplication::setConfigurationProfile(const gchar *profile_name)
     proto_enable_all();
     if (gdp_path == NULL && dp_path == NULL) {
         set_disabled_protos_list();
+        set_enabled_protos_list();
         set_disabled_heur_dissector_list();
     }
 
@@ -682,6 +698,9 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
 #endif
     qApp->setStyleSheet(app_style_sheet);
 
+#ifdef HAVE_SOFTWARE_UPDATE
+    connect(this, SIGNAL(softwareUpdateQuit()), this, SLOT(quit()), Qt::QueuedConnection);
+#endif
     connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(cleanup()));
 }
 
@@ -1011,6 +1030,8 @@ _e_prefs *WiresharkApplication::readConfigurationFiles(char **gdp_path, char **d
     /* Read the disabled protocols file. */
     read_disabled_protos_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
                               dp_path, &dp_open_errno, &dp_read_errno);
+    read_enabled_protos_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
+                              dp_path, &dp_open_errno, &dp_read_errno);
     read_disabled_heur_dissector_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
                               dp_path, &dp_open_errno, &dp_read_errno);
     if (*gdp_path != NULL) {
@@ -1147,6 +1168,35 @@ void WiresharkApplication::doTriggerMenuItem(MainMenuItem menuItem)
         break;
     }
 }
+
+#ifdef HAVE_SOFTWARE_UPDATE
+bool WiresharkApplication::softwareUpdateCanShutdown() {
+    software_update_ok_ = true;
+    // At this point the update is ready to install, but WinSparkle has
+    // not yet run the installer. We need to close our "Wireshark is
+    // running" mutexes along with those of our child processes, e.g.
+    // dumpcap.
+
+    // Step 1: See if we have any open files.
+    emit softwareUpdateRequested();
+    if (software_update_ok_ == true) {
+
+        // Step 2: Close the "running" mutexes.
+        emit softwareUpdateClose();
+        close_app_running_mutex();
+    }
+    return software_update_ok_;
+}
+
+void WiresharkApplication::softwareUpdateShutdownRequest() {
+    // At this point the installer has been launched. Neither Wireshark nor
+    // its children should have any "Wireshark is running" mutexes open.
+    // The main window should be closed.
+
+    // Step 3: Quit.
+    emit softwareUpdateQuit();
+}
+#endif
 
 /*
  * Editor modelines

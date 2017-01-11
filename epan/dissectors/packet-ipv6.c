@@ -338,6 +338,7 @@ static expert_field ei_ipv6_bogus_ipv6_version = EI_INIT;
 static expert_field ei_ipv6_invalid_header = EI_INIT;
 static expert_field ei_ipv6_opt_header_mismatch = EI_INIT;
 
+static dissector_handle_t ipv6_handle;
 
 #define set_address_ipv6(dst, src_ip6) \
     set_address((dst), AT_IPv6, IPv6_ADDR_SIZE, (src_ip6))
@@ -654,7 +655,7 @@ static const value_string routing_header_type[] = {
     { 0, NULL }
 };
 
-gboolean
+static gboolean
 capture_ipv6(const guchar *pd, int offset, int len, capture_packet_info_t *cpinfo, const union wtap_pseudo_header *pseudo_header)
 {
     guint8 nxt;
@@ -670,7 +671,7 @@ capture_ipv6(const guchar *pd, int offset, int len, capture_packet_info_t *cpinf
     return try_capture_dissector("ip.proto", nxt, pd, offset, len, cpinfo, pseudo_header);
 }
 
-gboolean
+static gboolean
 capture_ipv6_exthdr(const guchar *pd, int offset, int len, capture_packet_info_t *cpinfo, const union wtap_pseudo_header *pseudo_header)
 {
     guint8 nxt;
@@ -1199,7 +1200,6 @@ dissect_routing6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
 
     rthdr_ti.len = proto_tree_add_item(rthdr_tree, hf_ipv6_routing_len, tvb, offset, 1, ENC_BIG_ENDIAN);
     ti = proto_tree_add_uint(rthdr_tree, hf_ipv6_routing_len_oct, tvb, offset, 1, len);
-    proto_item_append_text(ti, " bytes");
     PROTO_ITEM_SET_GENERATED(ti);
     if (ipv6_exthdr_hide_len_oct_field) {
         PROTO_ITEM_SET_HIDDEN(ti);
@@ -1861,7 +1861,6 @@ dissect_opts(tvbuff_t *tvb, int offset, proto_tree *tree, packet_info *pinfo, ws
 
     ti_len = proto_tree_add_item(exthdr_tree, hf_exthdr_item_len, tvb, offset, 1, ENC_BIG_ENDIAN);
     ti = proto_tree_add_uint(exthdr_tree, hf_exthdr_item_len_oct, tvb, offset, 1, len);
-    proto_item_append_text(ti, " bytes");
     PROTO_ITEM_SET_GENERATED(ti);
     if (ipv6_exthdr_hide_len_oct_field) {
         PROTO_ITEM_SET_HIDDEN(ti);
@@ -3091,7 +3090,7 @@ proto_register_ipv6(void)
         },
         { &hf_ipv6_hopopts_len_oct,
             { "Length", "ipv6.hopopts.len_oct",
-                FT_UINT16, BASE_DEC, NULL, 0x0,
+                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0,
                 "Extension header length in octets", HFILL }
         }
     };
@@ -3109,7 +3108,7 @@ proto_register_ipv6(void)
         },
         { &hf_ipv6_dstopts_len_oct,
             { "Length", "ipv6.dstopts.len_oct",
-                FT_UINT16, BASE_DEC, NULL, 0x0,
+                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0,
                 "Extension header length in octets", HFILL }
         }
     };
@@ -3129,7 +3128,7 @@ proto_register_ipv6(void)
         },
         { &hf_ipv6_routing_len_oct,
             { "Length", "ipv6.routing.len_oct",
-                FT_UINT16, BASE_DEC, NULL, 0x0,
+                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0,
                 "Extension header length in octets", HFILL }
         },
         { &hf_ipv6_routing_type,
@@ -3501,8 +3500,8 @@ proto_register_ipv6(void)
 
     /* RPL Strict Header Checking */
     prefs_register_bool_preference(ipv6_module, "perform_strict_rpl_srh_rfc_checking",
-                                   "Perform strict checking for adherence to the RFC for RPL Source Routing Headers (RFC 6554)",
-                                   "Whether to check that all RPL Source Routed packets do not visit a node more than once",
+                                   "Perform strict checking for RPL Source Routing Headers (RFC 6554)",
+                                   "Check that all RPL Source Routed packets conform to RFC 6554 and do not visit a node more than once",
                                    &g_ipv6_rpl_srh_strict_rfc_checking);
 
     prefs_register_bool_preference(ipv6_module, "try_heuristic_first",
@@ -3520,7 +3519,7 @@ proto_register_ipv6(void)
                                    "If enabled the Length field in octets will be hidden",
                                    &ipv6_exthdr_hide_len_oct_field);
 
-    register_dissector("ipv6", dissect_ipv6, proto_ipv6);
+    ipv6_handle = register_dissector("ipv6", dissect_ipv6, proto_ipv6);
     register_init_routine(ipv6_reassemble_init);
     register_cleanup_routine(ipv6_reassemble_cleanup);
     ip6_hdr_tap = register_tap("ipv6");
@@ -3541,7 +3540,6 @@ proto_register_ipv6(void)
 void
 proto_reg_handoff_ipv6(void)
 {
-    dissector_handle_t ipv6_handle;
     dissector_handle_t ipv6_hopopts_handle;
     dissector_handle_t ipv6_routing_handle;
     dissector_handle_t ipv6_fraghdr_handle;
@@ -3549,7 +3547,6 @@ proto_reg_handoff_ipv6(void)
     capture_dissector_handle_t ipv6_cap_handle;
     capture_dissector_handle_t ipv6_ext_cap_handle;
 
-    ipv6_handle = find_dissector("ipv6");
     dissector_add_uint("ethertype", ETHERTYPE_IPv6, ipv6_handle);
     dissector_add_uint("erf.types.type", ERF_TYPE_IPV6, ipv6_handle);
     dissector_add_uint("ppp.protocol", PPP_IPV6, ipv6_handle);

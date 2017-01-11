@@ -52,8 +52,10 @@ bundle="Wireshark.app"
 # Name of the Wireshark executable
 wireshark_bin_name="wireshark"
 
-binary_list="
-	$wireshark_bin_name
+#
+# Command-line executables
+#
+cli_binary_list="
 	capinfos
 	dftest
 	dumpcap
@@ -65,7 +67,13 @@ binary_list="
 	tshark
 "
 
-extcap_binaries="androiddump randpktdump sshdump ciscodump"
+extcap_binaries="
+	androiddump
+	ciscodump
+	randpktdump
+	sshdump
+	udpdump
+"
 
 for extcap_binary in $extcap_binaries
 do
@@ -181,7 +189,12 @@ fi
 if [ "$create_bundle" = "true" ]; then
 	echo -e "\nCREATE WIRESHARK APP BUNDLE\n"
 
-	for binary in $binary_list ; do
+	if [ ! -x "$binary_path/$wireshark_bin_name" ]; then
+		echo "Couldn't find $binary_path/$wireshark_bin_name (or it's not executable)" >&2
+		exit 1
+	fi
+
+	for binary in $cli_binary_list ; do
 		binary=$( basename $binary )
 		if [ ! -x "$binary_path/$binary" ]; then
 			echo "Couldn't find $binary (or it's not executable)" >&2
@@ -227,7 +240,7 @@ exclude_prefixes="$exclude_prefixes|$qt_frameworks_dir"
 # Package paths
 pkgexec="$bundle/Contents/MacOS"
 pkgres="$bundle/Contents/Resources"
-pkgbin="$pkgexec"
+pkgbin="$pkgres/bin"
 pkglib="$bundle/Contents/Frameworks"
 pkgplugin="$bundle/Contents/PlugIns/wireshark"
 
@@ -252,18 +265,17 @@ create_bundle() {
 	mkdir -p "$pkgbin"
 	mkdir -p "$pkgplugin"
 
-	cp -v "$binary_path/$wireshark_bin_name" "$pkgexec/Wireshark"
-
 	# Copy all files into the bundle
 	#----------------------------------------------------------
 	echo -e "\nFilling app bundle and utility directory...\n"
 
 	# Wireshark executables
-	for binary in $binary_list ; do
-		# Copy the binary to its destination
-		bin_dest="$pkgexec"
-		cp -v "$binary_path/$binary" "$bin_dest"
-		cs_binary_list="$cs_binary_list $bin_dest/$binary"
+	cp -v "$binary_path/$wireshark_bin_name" "$pkgexec/Wireshark"
+	cs_binary_list="$cs_binary_list $pkgexec/Wireshark"
+	for binary in $cli_binary_list ; do
+		# Copy the binary to the executable directory
+		cp -v "$binary_path/$binary" "$pkgexec"
+		cs_binary_list="$cs_binary_list $pkgexec/$binary"
 	done
 
 	#
@@ -275,6 +287,21 @@ create_bundle() {
 		bin_dest="$pkgexec/extcap"
 		cp -v "$extcap_path/$binary" "$bin_dest"
 		cs_binary_list="$cs_binary_list $bin_dest/$binary"
+	done
+
+	#
+	# Executable launchers in $pkgbin
+	#
+	# We can't just symbolically link to the executables, as
+	# that means that the executable won't be in Contents/MacOS,
+	# which means that all @executable_path-relative references
+	# will go to the wrong place if we run the executables using
+	# the symlink, which means that the executables could fail
+	# (they *do* fail to find the Cocoa Qt plugin, for example).
+	#
+	cp utility-launcher/wireshark $pkgbin
+	for binary in $cli_binary_list ; do
+		ln -s ./wireshark $pkgbin/$binary
 	done
 
 	# The rest of the Wireshark installation (we handled bin above)
@@ -314,7 +341,7 @@ if [ "$create_bundle" = "true" ]; then
 fi
 
 if [ -z "$cs_binary_list" ]; then
-	for binary in Wireshark $binary_list ; do
+	for binary in Wireshark $cli_binary_list ; do
 		cs_binary_list="$cs_binary_list $pkgexec/$binary"
 	done
 fi
@@ -329,9 +356,8 @@ nfiles=0
 endl=true
 lib_dep_search_list="
 	$pkglib/*
-	$pkgbin/*-bin
-	$pkgbin/extcap/*
-	$pkgexec/Wireshark
+	$pkgexec/*
+	$pkgexec/extcap/*
 	"
 
 while $endl; do
@@ -382,7 +408,7 @@ macdeployqt "$bundle" -verbose=2 || exit 1
 # pointing to the directory containing the Qt frameworks; remove
 # that entry from the Wireshark binary in the package.
 #
-/usr/bin/install_name_tool -delete_rpath "$qt_frameworks_dir" $pkgbin/Wireshark
+/usr/bin/install_name_tool -delete_rpath "$qt_frameworks_dir" $pkgexec/Wireshark
 
 # NOTE: we must rpathify *all* files, *including* Qt libraries etc.,
 #
@@ -544,10 +570,10 @@ rpathify_files () {
 	# Fix bundle deps
 	#
 	rpathify_dir "$pkglib" "*.dylib"
-	rpathify_dir "$pkgbin" "*"
+	rpathify_dir "$pkgexec" "*"
 	rpathify_dir "$pkgplugin" "*"
 
-	rpathify_dir "$pkgbin/extcap" "*"
+	rpathify_dir "$pkgexec/extcap" "*"
 }
 
 PATHLENGTH=`echo $LIBPREFIX | wc -c`

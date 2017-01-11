@@ -351,6 +351,18 @@ static int hf_bthci_cmd_le_peer_irk = -1;
 static int hf_bthci_cmd_le_local_irk = -1;
 static int hf_bthci_cmd_le_address_resolution_enable = -1;
 static int hf_bthci_cmd_le_rpa_timeout = -1;
+static int hf_bthci_cmd_advertising_handle = -1;
+static int hf_bthci_cmd_advertising_event_properties = -1;
+static int hf_bthci_cmd_primary_advertising_phy = -1;
+static int hf_bthci_cmd_sec_adv_max_skip = -1;
+static int hf_bthci_cmd_secondary_advertising_phy = -1;
+static int hf_bthci_cmd_advertising_sid = -1;
+static int hf_bthci_cmd_scan_req_notif_en = -1;
+static int hf_bthci_cmd_le_adv_data_operation = -1;
+static int hf_bthci_cmd_le_adv_data_frag_pref = -1;
+static int hf_bthci_cmd_le_adv_en_sets = -1;
+static int hf_bthci_cmd_le_adv_duration = -1;
+static int hf_bthci_cmd_le_adv_max_extended_events = -1;
 
 
 static const int *hfx_bthci_cmd_le_event_mask[] = {
@@ -929,7 +941,38 @@ value_string_ext bthci_cmd_ocf_testing_vals_ext = VALUE_STRING_EXT_INIT(bthci_cm
     { (base) | 0x02C,  "LE Read Local Resolvable Address" }, \
     { (base) | 0x02D,  "LE Set Address Resolution Enable" }, \
     { (base) | 0x02E,  "LE Set Resolvable Private Address Timeout" }, \
-    { (base) | 0x02F,  "LE Read Maximum Data Length" }
+    { (base) | 0x02F,  "LE Read Maximum Data Length" }, \
+    { (base) | 0x030,  "LE Read PHY" }, \
+    { (base) | 0x031,  "LE Set Default PHY" }, \
+    { (base) | 0x032,  "LE Set PHY" }, \
+    { (base) | 0x033,  "LE Enhanced Receiver Test" }, \
+    { (base) | 0x034,  "LE Enhanced Transmitter Test" }, \
+    { (base) | 0x035,  "LE Set Advertising Set Random Address" }, \
+    { (base) | 0x036,  "LE Set Extended Advertising Parameters" }, \
+    { (base) | 0x037,  "LE Set Extended Advertising Data" }, \
+    { (base) | 0x038,  "LE Set Extended Scan Response Data" }, \
+    { (base) | 0x039,  "LE Set Extended Advertising Enable" }, \
+    { (base) | 0x03A,  "LE Read Maximum Advertising Data Length" }, \
+    { (base) | 0x03B,  "LE Read Number of Supported Advertising Sets" }, \
+    { (base) | 0x03C,  "LE Remove Advertising Set" }, \
+    { (base) | 0x03D,  "LE Clear Advertising Sets" }, \
+    { (base) | 0x03E,  "LE Set Periodic Advertising Parameters" }, \
+    { (base) | 0x03F,  "LE Set Periodic Advertising Data" }, \
+    { (base) | 0x040,  "LE Set Periodic Advertising Enable" }, \
+    { (base) | 0x041,  "LE Set Extended Scan Parameters" }, \
+    { (base) | 0x042,  "LE Set Extended Scan Enable" }, \
+    { (base) | 0x043,  "LE Extended Create Connection" }, \
+    { (base) | 0x044,  "LE Periodic Advertising Create Sync" }, \
+    { (base) | 0x045,  "LE Periodic Advertising Create Sync Cancel" }, \
+    { (base) | 0x046,  "LE Periodic Advertising Terminate Sync" }, \
+    { (base) | 0x047,  "LE Add Device To Periodic Advertiser List" }, \
+    { (base) | 0x048,  "LE Remove Device From Periodic Advertiser List" }, \
+    { (base) | 0x049,  "LE Clear Periodic Advertiser List" }, \
+    { (base) | 0x04A,  "LE Read Periodic Advertiser List Size" }, \
+    { (base) | 0x04B,  "LE Read Transmit Power" }, \
+    { (base) | 0x04C,  "LE Read RF Path Compensation" }, \
+    { (base) | 0x04D,  "LE Write RF Path Compensation" }, \
+    { (base) | 0x04E,  "LE Set Privacy Mode" }
 
 static const value_string bthci_cmd_ocf_low_energy_vals[] = {
     LOW_ENERGY_VALS(0x0),
@@ -1016,6 +1059,10 @@ static const value_string bthci_cmd_status_vals[] = {
     {0x3E, "Connection Failed to be Established"},
     {0x3F, "MAC Connection Failed"},
     {0x40, "Coarse Clock Adjustment Rejected but Will Try to Adjust Using Clock Dragging"},
+    {0x41, "Type0 Submap Not Defined"},
+    {0x42, "Unknown Advertising Identifier"},
+    {0x43, "Limit Reached"},
+    {0x44, "Operation Cancelled by Host"},
     {0, NULL }
 };
 value_string_ext bthci_cmd_status_vals_ext = VALUE_STRING_EXT_INIT(bthci_cmd_status_vals);
@@ -1632,6 +1679,33 @@ static const value_string tds_transport_state_vals[] = {
     { 0x02, "Temporarily Unavailable" },
     { 0x03, "RFU" },
     {0, NULL }
+};
+
+static const value_string cmd_le_primary_advertising_phy[] = {
+    { 0x01, "Primary advertisement PHY is LE 1M" },
+    { 0x03, "Primary advertisement PHY is LE Coded" },
+    { 0, NULL }
+};
+
+static const value_string cmd_le_secondary_advertising_phy[] = {
+    { 0x01, "Secondary advertisement PHY is LE 1M" },
+    { 0x02, "Secondary advertisement PHY is LE 2M" },
+    { 0x03, "Secondary advertisement PHY is LE Coded" },
+    { 0, NULL }
+};
+
+static const value_string cmd_le_adv_data_operation[] = {
+    { 0x00, "Intermediate fragment of fragmented data" },
+    { 0x01, "First fragment of fragmented data" },
+    { 0x02, "Last fragment of fragmented data" },
+    { 0x03, "Complete scan response data" },
+    { 0, NULL }
+};
+
+static const value_string cmd_le_adv_data_frag_pref[] = {
+    { 0x00, "The Controller may fragment all Host data" },
+    { 0x01, "The Controller should not fragment or should minimize fragmentation of Host data" },
+    { 0, NULL }
 };
 
 void proto_register_bthci_cmd(void);
@@ -3355,6 +3429,93 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             offset+=2;
             break;
 
+        case 0x035: /* LE Set Advertising Set Random Address */
+            proto_tree_add_item(tree, hf_bthci_cmd_advertising_handle, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset+=1;
+            offset = dissect_bd_addr(hf_bthci_cmd_bd_addr, pinfo, tree, tvb, offset, FALSE, bluetooth_data->interface_id, bluetooth_data->adapter_id, NULL);
+            break;
+
+        case 0x036: /* LE Set Extended Advertising Parameters */
+            proto_tree_add_item(tree, hf_bthci_cmd_advertising_handle, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset+=1;
+            proto_tree_add_item(tree, hf_bthci_cmd_advertising_event_properties, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset+=2;
+            item = proto_tree_add_item(tree, hf_bthci_cmd_le_advts_interval_min, tvb, offset, 3, ENC_LITTLE_ENDIAN);
+            proto_item_append_text(item, " (%g msec)",  tvb_get_letohs(tvb, offset)*0.625);
+            offset+=3;
+            item = proto_tree_add_item(tree, hf_bthci_cmd_le_advts_interval_max, tvb, offset, 3, ENC_LITTLE_ENDIAN);
+            proto_item_append_text(item, " (%g msec)",  tvb_get_letohs(tvb, offset)*0.625);
+            offset+=3;
+            proto_tree_add_item(tree, hf_bthci_cmd_le_advts_channel_map_1, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item(tree, hf_bthci_cmd_le_advts_channel_map_2, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item(tree, hf_bthci_cmd_le_advts_channel_map_3, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(tree, hf_bthci_cmd_le_own_address_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(tree, hf_bthci_cmd_le_peer_address_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            offset = dissect_bd_addr(hf_bthci_cmd_bd_addr, pinfo, tree, tvb, offset, FALSE, bluetooth_data->interface_id, bluetooth_data->adapter_id, NULL);
+            proto_tree_add_item(tree, hf_bthci_cmd_le_advts_filter_policy, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(tree, hf_bthci_cmd_tx_power, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(tree, hf_bthci_cmd_primary_advertising_phy, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(tree, hf_bthci_cmd_sec_adv_max_skip, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(tree, hf_bthci_cmd_secondary_advertising_phy, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(tree, hf_bthci_cmd_advertising_sid, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(tree, hf_bthci_cmd_scan_req_notif_en, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            break;
+
+        case 0x037: /* LE Set Extended Advertising Data */
+        case 0x038: /* LE Set Extended Scan Response Data */
+            {
+            proto_tree_add_item(tree, hf_bthci_cmd_advertising_handle, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset+=1;
+            proto_tree_add_item(tree, hf_bthci_cmd_le_adv_data_operation, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset+=1;
+            proto_tree_add_item(tree, hf_bthci_cmd_le_adv_data_frag_pref, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset+=1;
+
+            bluetooth_eir_ad_data_t *ad_data;
+            ad_data = wmem_new0(wmem_packet_scope(), bluetooth_eir_ad_data_t);
+            ad_data->interface_id = bluetooth_data->interface_id;
+            ad_data->adapter_id = bluetooth_data->adapter_id;
+            ad_data->bd_addr = NULL;
+
+            guint8 data_length = tvb_get_guint8(tvb, offset);
+            proto_tree_add_item(tree, hf_bthci_cmd_le_data_length, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            call_dissector_with_data(btcommon_ad_handle, tvb_new_subset_length(tvb, offset, data_length), pinfo, tree, ad_data);
+            save_local_device_name_from_eir_ad(tvb, offset, pinfo, data_length, bluetooth_data);
+            offset += data_length;
+            }
+            break;
+
+        case 0x039: /* LE Set Extended Advertising Enable */
+            {
+            proto_tree_add_item(tree, hf_bthci_cmd_le_advts_enable, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+
+            guint8 number_of_sets = tvb_get_guint8(tvb, offset);
+            proto_tree_add_item(tree, hf_bthci_cmd_le_adv_en_sets, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+
+            for (int i = 0; i< number_of_sets; i++) {
+                proto_tree_add_item(tree, hf_bthci_cmd_advertising_handle, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+                offset+=1;
+                proto_tree_add_item(tree, hf_bthci_cmd_le_adv_duration, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+                offset+=2;
+                proto_tree_add_item(tree, hf_bthci_cmd_le_adv_max_extended_events, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+                offset+=1;
+            }
+            }
+            break;
+
         case 0x002: /* LE Read Buffer Size */
         case 0x003: /* LE Read Local Supported Features */
         case 0x007: /* LE Read Advertising Channel Tx Power */
@@ -3369,6 +3530,14 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
         case 0x029: /* LE Clear Resolving List */
         case 0x02A: /* LE Read Resolving List Size */
         case 0x02F: /* LE Read Maximum Data Length */
+        case 0x03A: /* LE Read Maximum Advertising Data Length */
+        case 0x03B: /* LE Read Number of Supported Advertising Sets */
+        case 0x03D: /* LE Clear Advertising Sets */
+        case 0x045: /* LE Periodic Advertising Create Sync Cancel */
+        case 0x049: /* LE Clear Periodic Advertiser List */
+        case 0x04A: /* LE Read Periodic Advertiser List Size */
+        case 0x04B: /* LE Read Transmit Power */
+        case 0x04C: /* LE Read RF Path Compensation */
 
             /* NOTE: No parameters */
             break;
@@ -3622,7 +3791,6 @@ dissect_bthci_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
         nstime_delta(&delta, &bthci_cmd_data->pending_abs_ts, &bthci_cmd_data->command_abs_ts);
         sub_item = proto_tree_add_double(bthci_cmd_tree, hf_command_pending_time_delta, tvb, 0, 0, nstime_to_msec(&delta));
-        proto_item_append_text(sub_item, " ms");
         PROTO_ITEM_SET_GENERATED(sub_item);
     }
     if (bthci_cmd_data && bthci_cmd_data->response_in_frame < max_disconnect_in_frame) {
@@ -3633,7 +3801,6 @@ dissect_bthci_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
         nstime_delta(&delta, &bthci_cmd_data->response_abs_ts, &bthci_cmd_data->command_abs_ts);
         sub_item = proto_tree_add_double(bthci_cmd_tree, hf_command_response_time_delta, tvb, 0, 0, nstime_to_msec(&delta));
-        proto_item_append_text(sub_item, " ms");
         PROTO_ITEM_SET_GENERATED(sub_item);
     }
 
@@ -5108,7 +5275,7 @@ proto_register_bthci_cmd(void)
         },
         { &hf_command_response_time_delta,
             { "Command-Response Delta",          "bthci_cmd.command_response_delta",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_milliseconds, 0x00,
             NULL, HFILL }
         },
         { &hf_pending_in_frame,
@@ -5118,7 +5285,7 @@ proto_register_bthci_cmd(void)
         },
         { &hf_command_pending_time_delta,
             { "Command-Pending Delta",          "bthci_cmd.command_pending_delta",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_milliseconds, 0x00,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_le_tx_octets,
@@ -5164,6 +5331,66 @@ proto_register_bthci_cmd(void)
         { &hf_bthci_cmd_le_rpa_timeout,
           { "RPA Timeout", "bthci_cmd.le_rpa_timeout",
             FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_advertising_handle,
+          { "Advertising Handle", "bthci_cmd.advertising_handle",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_advertising_event_properties,
+          { "Advertising Event Properties", "bthci_cmd.advertising_event_properties",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_primary_advertising_phy,
+          { "Primary Advertising PHY", "bthci_cmd.primary_advertising_phy",
+            FT_UINT8, BASE_HEX, VALS(cmd_le_primary_advertising_phy), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_sec_adv_max_skip,
+          { "Secondary Advertising Max Skip", "bthci_cmd.secondary_advertising_max_skip",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_secondary_advertising_phy,
+          { "Secondary Advertising PHY", "bthci_cmd.secondary_advertising_phy",
+            FT_UINT8, BASE_HEX, VALS(cmd_le_secondary_advertising_phy), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_advertising_sid,
+          { "Advertising SID", "bthci_cmd.advertising_sid",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_scan_req_notif_en,
+          { "Scan Request Notification Enable", "bthci_cmd.scan_request_notification_enable",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_adv_data_operation,
+          { "Data Operation", "bthci_cmd.adv_data_operation",
+            FT_UINT8, BASE_HEX, VALS(cmd_le_adv_data_operation), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_adv_data_frag_pref,
+          { "Fragment Preference", "bthci_cmd.adv_fragment_preference",
+            FT_UINT8, BASE_HEX, VALS(cmd_le_adv_data_frag_pref), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_adv_en_sets,
+          { "Number of Sets", "bthci_cmd.adv_num_sets",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_adv_duration,
+          { "Duration", "bthci_cmd.adv_duration",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_adv_max_extended_events,
+          { "Max Extended Events", "bthci_cmd.max_extended_advertising_events",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
     };

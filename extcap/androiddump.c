@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <time.h>
 #include <wsutil/strtoi.h>
+#include <wsutil/filesystem.h>
 
 #ifdef HAVE_NETINET_IN_H
 #    include <netinet/in.h>
@@ -46,6 +47,10 @@
 
 #ifdef HAVE_ARPA_INET_H
     #include <arpa/inet.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+    #include <sys/time.h>
 #endif
 
 /* Configuration options */
@@ -250,18 +255,21 @@ static inline int is_specified_interface(char *interface, const char *interface_
 }
 
 static void useSndTimeout(socket_handle_t  sock) {
+    int res;
 #ifdef _WIN32
     const DWORD socket_timeout = SOCKET_SEND_TIMEOUT_MS;
 
-    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char *) &socket_timeout, sizeof(socket_timeout));
+    res = setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char *) &socket_timeout, sizeof(socket_timeout));
 #else
     const struct timeval socket_timeout = {
         .tv_sec = SOCKET_SEND_TIMEOUT_MS / 1000,
         .tv_usec = (SOCKET_SEND_TIMEOUT_MS % 1000) * 1000
     };
 
-    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &socket_timeout, sizeof(socket_timeout));
+    res = setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &socket_timeout, sizeof(socket_timeout));
 #endif
+    if (res != 0)
+        g_debug("Can't set socket timeout, using default");
 }
 
 static struct extcap_dumper extcap_dumper_open(char *fifo, int encap) {
@@ -293,9 +301,8 @@ static struct extcap_dumper extcap_dumper_open(char *fifo, int encap) {
 #else
     int err = 0;
 
-    init_open_routines();
+    wtap_init();
 #ifdef HAVE_PLUGINS
-    wtap_register_plugin_types();
     register_all_wiretap_modules();
 #endif
 
@@ -694,6 +701,7 @@ static int register_interfaces(extcap_parameters * extcap_conf, const char *adb_
     const char            *adb_hcidump_version    = "0017""shell:hcidump --version";
     const char            *adb_ps_droid_bluetooth = "0018""shell:ps droid.bluetooth";
     const char            *adb_ps_bluetooth_app   = "001E""shell:ps com.android.bluetooth";
+    const char            *adb_ps_with_grep       = "0025""shell:ps | grep com.android.bluetooth";
     const char            *adb_tcpdump_help       = "0010""shell:tcpdump -h";
     char                   serial_number[SERIAL_NUMBER_LENGTH_MAX];
     size_t                 serial_number_length;
@@ -980,7 +988,9 @@ static int register_interfaces(extcap_parameters * extcap_conf, const char *adb_
                 return EXIT_CODE_GENERIC;
             }
 
-            if (api_level >= 23) {
+            if (api_level >= 24) {
+                response = adb_send_and_read(sock, adb_ps_with_grep, helpful_packet, sizeof(helpful_packet), &data_length);
+            } else if (api_level >= 23) {
                 response = adb_send_and_read(sock, adb_ps_bluetooth_app, helpful_packet, sizeof(helpful_packet), &data_length);
             }  else
                 response = adb_send_and_read(sock, adb_ps_droid_bluetooth, helpful_packet, sizeof(helpful_packet), &data_length);
@@ -997,7 +1007,11 @@ static int register_interfaces(extcap_parameters * extcap_conf, const char *adb_
                 memset(pid, 0, sizeof(pid));
                 response[data_length] = '\0';
 
-                data_str = strchr(response, '\n');
+                if (api_level >= 24)
+                    data_str = response;
+                else
+                    data_str = strchr(response, '\n');
+
                 if (data_str && sscanf(data_str, "%*s %s", pid) == 1) {
                     g_debug("Android Bluetooth application PID for %s is %s", serial_number, pid);
 
@@ -2570,6 +2584,7 @@ int main(int argc, char **argv) {
     const char      *default_bt_local_ip = "127.0.0.1";
     unsigned short   default_bt_local_tcp_port  = 4330;
     extcap_parameters * extcap_conf = NULL;
+    char            *help_url;
     char            *help_header = NULL;
 
 #ifdef _WIN32
@@ -2580,8 +2595,10 @@ int main(int argc, char **argv) {
 
     extcap_conf = g_new0(extcap_parameters, 1);
 
+    help_url = data_file_url("androiddump.html");
     extcap_base_set_util_info(extcap_conf, argv[0], ANDROIDDUMP_VERSION_MAJOR, ANDROIDDUMP_VERSION_MINOR,
-        ANDROIDDUMP_VERSION_RELEASE, NULL);
+        ANDROIDDUMP_VERSION_RELEASE, help_url);
+    g_free(help_url);
 
     help_header = g_strdup_printf(
         " %s --extcap-interfaces [--adb-server-ip=<arg>] [--adb-server-tcp-port=<arg>]\n"

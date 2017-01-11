@@ -773,6 +773,7 @@ typedef struct _sccp_user_t {
 static sccp_user_t *sccp_users;
 static guint        num_sccp_users;
 
+static dissector_handle_t sccp_handle;
 static dissector_handle_t data_handle;
 static dissector_handle_t tcap_handle;
 static dissector_handle_t ranap_handle;
@@ -3451,17 +3452,20 @@ sccp_users_update_cb(void *r, char **err)
   struct _sccp_ul *c;
   range_t *empty;
 
-  empty = range_empty();
+  empty = range_empty(NULL);
   if (ranges_are_equal(u->called_pc, empty)) {
           *err = g_strdup("Must specify a PC");
+          wmem_free(NULL, empty);
           return FALSE;
   }
 
   if (ranges_are_equal(u->called_ssn, empty)) {
           *err = g_strdup("Must specify an SSN");
+          wmem_free(NULL, empty);
           return FALSE;
   }
 
+  wmem_free(NULL, empty);
   for (c=user_list; c->handlep; c++) {
     if (c->id == u->user) {
       u->uses_tcap = c->uses_tcap;
@@ -3487,9 +3491,9 @@ sccp_users_copy_cb(void *n, const void *o, size_t siz _U_)
   un->handlep   = u->handlep;
 
   if (u->called_pc)
-    un->called_pc  = range_copy(u->called_pc);
+    un->called_pc  = range_copy(NULL, u->called_pc);
   if (u->called_ssn)
-    un->called_ssn = range_copy(u->called_ssn);
+    un->called_ssn = range_copy(NULL, u->called_ssn);
 
   return n;
 }
@@ -3498,8 +3502,8 @@ static void
 sccp_users_free_cb(void *r)
 {
   sccp_user_t *u = (sccp_user_t *)r;
-  if (u->called_pc) g_free(u->called_pc);
-  if (u->called_ssn) g_free(u->called_ssn);
+  if (u->called_pc) wmem_free(NULL, u->called_pc);
+  if (u->called_ssn) wmem_free(NULL, u->called_ssn);
 }
 
 
@@ -4104,7 +4108,7 @@ proto_register_sccp(void)
   /* Register the protocol name and description */
   proto_sccp = proto_register_protocol("Signalling Connection Control Part", "SCCP", "sccp");
 
-  register_dissector("sccp", dissect_sccp, proto_sccp);
+  sccp_handle = register_dissector("sccp", dissect_sccp, proto_sccp);
 
   /* Required function calls to register the header fields and subtrees used */
   proto_register_field_array(proto_sccp, hf, array_length(hf));
@@ -4170,13 +4174,9 @@ proto_register_sccp(void)
 void
 proto_reg_handoff_sccp(void)
 {
-  dissector_handle_t sccp_handle;
-
   static gboolean initialised = FALSE;
 
   if (!initialised) {
-    sccp_handle = find_dissector("sccp");
-
     dissector_add_uint("wtap_encap", WTAP_ENCAP_SCCP, sccp_handle);
     dissector_add_uint("mtp3.service_indicator", MTP_SI_SCCP, sccp_handle);
     dissector_add_string("tali.opcode", "sccp", sccp_handle);

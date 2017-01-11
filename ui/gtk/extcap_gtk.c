@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include <gtk/gtk.h>
+#include <glib.h>
 
 #include <ui/gtk/gui_utils.h>
 #include <wsutil/filesystem.h>
@@ -134,6 +135,11 @@ GHashTable *extcap_gtk_get_state(GtkWidget *widget) {
 
     int multi_num = 0;
 
+    guint year = 0;
+    guint month = 0;
+    guint day = 0;
+    guint64 unix_ts = 0;
+
     widget_list = (GSList *) g_object_get_data(G_OBJECT(widget),
     EXTCAP_GTK_DATA_KEY_WIDGETLIST);
 
@@ -181,6 +187,19 @@ GHashTable *extcap_gtk_get_state(GtkWidget *widget) {
                     gtk_entry_get_text(GTK_ENTRY(entry_widget)));
             if (parsed_complex == NULL) {
                 continue;
+            }
+            break;
+        case EXTCAP_ARG_TIMESTAMP: {
+                struct tm t;
+                gtk_calendar_get_date((GtkCalendar*)list_widget, &year, &month, &day);
+                t.tm_year = year;
+                t.tm_mon = month;
+                t.tm_mday = day;
+                t.tm_hour = 0;
+                t.tm_min = 0;
+                t.tm_sec = 0;
+                unix_ts = mktime(&t);
+                call_string = g_strdup_printf("%" G_GINT64_MODIFIER "u", unix_ts);
             }
             break;
         case EXTCAP_ARG_RADIO:
@@ -765,7 +784,7 @@ GSList *extcap_populate_gtk_vbox(GList *arguments, GtkWidget *vbox,
     extcap_arg *arg_iter = NULL;
 
     extcap_complex *prev_complex = NULL;
-    gchar *prev_call, *default_str;
+    gchar *prev_call = NULL, *default_str;
 
     GList * arg_list = g_list_first(arguments);
     if ( arg_list == NULL )
@@ -849,6 +868,22 @@ GSList *extcap_populate_gtk_vbox(GList *arguments, GtkWidget *vbox,
             item = extcap_create_gtk_fileselect(arg_iter, prev_map, default_str);
             if (default_str != NULL)
                 g_free(default_str);
+            break;
+        case EXTCAP_ARG_TIMESTAMP:
+            default_str = NULL;
+            if (prev_complex != NULL)
+                default_str = extcap_get_complex_as_string(prev_complex);
+            else if (arg_iter->default_complex != NULL)
+                default_str = extcap_get_complex_as_string(
+                        arg_iter->default_complex);
+            label = gtk_label_new(arg_iter->display);
+            gtk_misc_set_alignment(GTK_MISC(label), 0.0f, 0.1f);
+            if (default_str != NULL) {
+                gtk_entry_set_text(GTK_ENTRY(item), default_str);
+                g_free(default_str);
+            }
+
+            item = gtk_calendar_new();
             break;
         case EXTCAP_ARG_BOOLEAN:
         case EXTCAP_ARG_BOOLFLAG:
