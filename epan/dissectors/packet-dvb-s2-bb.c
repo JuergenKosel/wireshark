@@ -104,6 +104,7 @@ static int hf_dvb_s2_gse_hdr_start = -1;
 static int hf_dvb_s2_gse_hdr_stop = -1;
 static int hf_dvb_s2_gse_hdr_labeltype = -1;
 static int hf_dvb_s2_gse_hdr_length = -1;
+static int hf_dvb_s2_gse_padding = -1;
 static int hf_dvb_s2_gse_proto = -1;
 static int hf_dvb_s2_gse_label6 = -1;
 static int hf_dvb_s2_gse_label3 = -1;
@@ -559,42 +560,52 @@ static guint8 compute_crc8(tvbuff_t *p, guint8 len, guint8 offset)
 }
 
 /* *** Code to actually dissect the packets *** */
-static int dissect_dvb_s2_gse(tvbuff_t *tvb, int cur_off, proto_tree *tree, packet_info *pinfo)
+static int dissect_dvb_s2_gse(tvbuff_t *tvb, int cur_off, proto_tree *tree, packet_info *pinfo, int bytes_available)
 {
     int         new_off                      = 0;
     int         frag_len;
-    guint16     gse_hdr, data_len, gse_proto = 0;
+    guint16     gse_hdr, data_len, padding_len, gse_proto = 0;
 
-    proto_item *ti, *tf;
-    proto_tree *dvb_s2_gse_tree, *dvb_s2_gse_hdr_tree;
+    proto_item *ti;
+    proto_tree *dvb_s2_gse_tree;
 
     tvbuff_t   *next_tvb;
 
-    col_append_str(pinfo->cinfo, COL_INFO, "GSE");
+    static const int * gse_header_bitfields[] = {
+        &hf_dvb_s2_gse_hdr_start,
+        &hf_dvb_s2_gse_hdr_stop,
+        &hf_dvb_s2_gse_hdr_labeltype,
+        &hf_dvb_s2_gse_hdr_length,
+        NULL
+    };
 
-    /* get header and determine length */
+    col_append_str(pinfo->cinfo, COL_INFO, " GSE");
+
+    /* get the GSE header */
     gse_hdr = tvb_get_ntohs(tvb, cur_off + DVB_S2_GSE_OFFS_HDR);
-    new_off += 2;
-    frag_len = (gse_hdr & DVB_S2_GSE_HDR_LENGTH_MASK)+2;
 
-    ti = proto_tree_add_item(tree, proto_dvb_s2_gse, tvb, cur_off, frag_len, ENC_NA);
-    dvb_s2_gse_tree = proto_item_add_subtree(ti, ett_dvb_s2_gse);
-
-    tf = proto_tree_add_item(dvb_s2_gse_tree, hf_dvb_s2_gse_hdr, tvb, cur_off + DVB_S2_GSE_OFFS_HDR, 2, gse_hdr);
-
-    dvb_s2_gse_hdr_tree = proto_item_add_subtree(tf, ett_dvb_s2_gse_hdr);
-    proto_tree_add_item(dvb_s2_gse_hdr_tree, hf_dvb_s2_gse_hdr_start, tvb, cur_off + DVB_S2_GSE_OFFS_HDR, 2, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_gse_hdr_tree, hf_dvb_s2_gse_hdr_stop, tvb, cur_off + DVB_S2_GSE_OFFS_HDR, 2, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_gse_hdr_tree, hf_dvb_s2_gse_hdr_labeltype, tvb,
-                        cur_off + DVB_S2_GSE_OFFS_HDR, 2, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_gse_hdr_tree, hf_dvb_s2_gse_hdr_length, tvb, cur_off + DVB_S2_GSE_OFFS_HDR, 2, ENC_BIG_ENDIAN);
-
+    /* check if this is just padding, which takes up the rest of the frame */
     if (BIT_IS_CLEAR(gse_hdr, DVB_S2_GSE_HDR_START_POS) &&
         BIT_IS_CLEAR(gse_hdr, DVB_S2_GSE_HDR_STOP_POS) &&
         BIT_IS_CLEAR(gse_hdr, DVB_S2_GSE_HDR_LABELTYPE_POS1) && BIT_IS_CLEAR(gse_hdr, DVB_S2_GSE_HDR_LABELTYPE_POS2)) {
-        col_append_str(pinfo->cinfo, COL_INFO, " ");
+
+        padding_len = bytes_available;
+        proto_tree_add_uint_format(tree, hf_dvb_s2_gse_padding, tvb, cur_off + new_off, padding_len, padding_len,
+                                   "DVB-S2 GSE Padding, Length: %d", padding_len);
+        col_append_str(pinfo->cinfo, COL_INFO, " pad");
+        new_off += padding_len;
+
         return new_off;
     } else {
+        /* Not padding, parse as a GSE Header */
+        new_off += 2;
+        frag_len = (gse_hdr & DVB_S2_GSE_HDR_LENGTH_MASK)+2;
+        ti = proto_tree_add_item(tree, proto_dvb_s2_gse, tvb, cur_off, frag_len, ENC_NA);
+        dvb_s2_gse_tree = proto_item_add_subtree(ti, ett_dvb_s2_gse);
+
+        proto_tree_add_bitmask_with_flags(dvb_s2_gse_tree, tvb, cur_off + DVB_S2_GSE_OFFS_HDR, hf_dvb_s2_gse_hdr,
+            ett_dvb_s2_gse_hdr, gse_header_bitfields, ENC_BIG_ENDIAN, BMT_NO_TFS);
+
         if (BIT_IS_CLEAR(gse_hdr, DVB_S2_GSE_HDR_START_POS) || BIT_IS_CLEAR(gse_hdr, DVB_S2_GSE_HDR_STOP_POS)) {
 
             proto_tree_add_item(dvb_s2_gse_tree, hf_dvb_s2_gse_fragid, tvb, cur_off + new_off, 1, ENC_BIG_ENDIAN);
@@ -717,13 +728,23 @@ static gboolean test_dvb_s2_crc(tvbuff_t *tvb, guint offset) {
 
 static int dissect_dvb_s2_bb(tvbuff_t *tvb, int cur_off, proto_tree *tree, packet_info *pinfo)
 {
-    proto_item *ti, *tf;
-    proto_tree *dvb_s2_bb_tree, *dvb_s2_bb_matype1_tree;
+    proto_item *ti;
+    proto_tree *dvb_s2_bb_tree;
 
     guint8      input8;
     guint16     input16, bb_data_len = 0;
 
     int         sub_dissected        = 0, flag_is_ms = 0, new_off = 0;
+
+    static const int * bb_header_bitfields[] = {
+        &hf_dvb_s2_bb_matype1_gs,
+        &hf_dvb_s2_bb_matype1_mis,
+        &hf_dvb_s2_bb_matype1_acm,
+        &hf_dvb_s2_bb_matype1_issyi,
+        &hf_dvb_s2_bb_matype1_npd,
+        &hf_dvb_s2_bb_matype1_ro,
+        NULL
+    };
 
     col_append_str(pinfo->cinfo, COL_PROTOCOL, "BB ");
     col_append_str(pinfo->cinfo, COL_INFO, "Baseband ");
@@ -738,20 +759,8 @@ static int dissect_dvb_s2_bb(tvbuff_t *tvb, int cur_off, proto_tree *tree, packe
     if (BIT_IS_CLEAR(input8, DVB_S2_BB_MIS_POS))
         flag_is_ms = 1;
 
-    tf = proto_tree_add_item(dvb_s2_bb_tree, hf_dvb_s2_bb_matype1, tvb, cur_off + DVB_S2_BB_OFFS_MATYPE1, 1, input8);
-    dvb_s2_bb_matype1_tree = proto_item_add_subtree(tf, ett_dvb_s2_bb_matype1);
-    proto_tree_add_item(dvb_s2_bb_matype1_tree, hf_dvb_s2_bb_matype1_gs, tvb,
-                        cur_off + DVB_S2_BB_OFFS_MATYPE1, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_bb_matype1_tree, hf_dvb_s2_bb_matype1_mis, tvb,
-                        cur_off + DVB_S2_BB_OFFS_MATYPE1, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_bb_matype1_tree, hf_dvb_s2_bb_matype1_acm, tvb,
-                        cur_off + DVB_S2_BB_OFFS_MATYPE1, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_bb_matype1_tree, hf_dvb_s2_bb_matype1_issyi, tvb,
-                        cur_off + DVB_S2_BB_OFFS_MATYPE1, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_bb_matype1_tree, hf_dvb_s2_bb_matype1_npd, tvb,
-                        cur_off + DVB_S2_BB_OFFS_MATYPE1, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_bb_matype1_tree, hf_dvb_s2_bb_matype1_ro, tvb,
-                        cur_off + DVB_S2_BB_OFFS_MATYPE1, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_bitmask_with_flags(dvb_s2_bb_tree, tvb, cur_off + DVB_S2_BB_OFFS_MATYPE1, hf_dvb_s2_bb_matype1,
+        ett_dvb_s2_bb_matype1, bb_header_bitfields, ENC_BIG_ENDIAN, BMT_NO_FLAGS);
 
     input8 = tvb_get_guint8(tvb, cur_off + DVB_S2_BB_OFFS_MATYPE2);
     new_off += 1;
@@ -790,7 +799,7 @@ static int dissect_dvb_s2_bb(tvbuff_t *tvb, int cur_off, proto_tree *tree, packe
 
     while (bb_data_len) {
         /* start DVB-GSE dissector */
-        sub_dissected = dissect_dvb_s2_gse(tvb, cur_off + new_off, tree, pinfo);
+        sub_dissected = dissect_dvb_s2_gse(tvb, cur_off + new_off, tree, pinfo, bb_data_len);
         new_off += sub_dissected;
 
         if ((sub_dissected <= bb_data_len) && (sub_dissected >= DVB_S2_GSE_MINSIZE)) {
@@ -808,11 +817,17 @@ static int dissect_dvb_s2_modeadapt(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 {
     int         cur_off = 0, dvb_s2_modeadapt_len = -1;
 
-    proto_item *ti, *tf;
+    proto_item *ti;
     proto_tree *dvb_s2_modeadapt_tree;
-    proto_tree *dvb_s2_modeadapt_acm_tree;
 
     guint8      byte;
+
+    static const int * modeadapt_acm_bitfields[] = {
+        &hf_dvb_s2_modeadapt_acm_fecframe,
+        &hf_dvb_s2_modeadapt_acm_pilot,
+        &hf_dvb_s2_modeadapt_acm_modcod,
+        NULL
+    };
 
     /* Check that there's enough data */
     if (tvb_captured_length(tvb) < 1)
@@ -844,17 +859,9 @@ static int dissect_dvb_s2_modeadapt(tvbuff_t *tvb, packet_info *pinfo, proto_tre
     proto_tree_add_item(dvb_s2_modeadapt_tree, hf_dvb_s2_modeadapt_sync, tvb, DVB_S2_MODEADAPT_OFFS_SYNCBYTE, 1, ENC_BIG_ENDIAN);
 
     cur_off++;
-    tf = proto_tree_add_item(dvb_s2_modeadapt_tree, hf_dvb_s2_modeadapt_acm, tvb,
-                             DVB_S2_MODEADAPT_OFFS_ACMBYTE, 1, ENC_BIG_ENDIAN);
 
-    dvb_s2_modeadapt_acm_tree = proto_item_add_subtree(tf, ett_dvb_s2_modeadapt_acm);
-
-    proto_tree_add_item(dvb_s2_modeadapt_acm_tree, hf_dvb_s2_modeadapt_acm_fecframe, tvb,
-                        DVB_S2_MODEADAPT_OFFS_ACMBYTE, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_modeadapt_acm_tree, hf_dvb_s2_modeadapt_acm_pilot, tvb,
-                        DVB_S2_MODEADAPT_OFFS_ACMBYTE, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(dvb_s2_modeadapt_acm_tree, hf_dvb_s2_modeadapt_acm_modcod, tvb,
-                        DVB_S2_MODEADAPT_OFFS_ACMBYTE, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_bitmask_with_flags(dvb_s2_modeadapt_tree, tvb, DVB_S2_MODEADAPT_OFFS_ACMBYTE, hf_dvb_s2_modeadapt_acm,
+        ett_dvb_s2_modeadapt_acm, modeadapt_acm_bitfields, ENC_BIG_ENDIAN, BMT_NO_FLAGS);
 
     if (dvb_s2_modeadapt_len > 2) {
         cur_off++;
@@ -1025,6 +1032,11 @@ void proto_register_dvb_s2_modeadapt(void)
                 "Length", "dvb-s2_gse.hdr.length",
                 FT_UINT16, BASE_DEC, NULL, DVB_S2_GSE_HDR_LENGTH_MASK,
                 "GSE Length", HFILL}
+        },
+        {&hf_dvb_s2_gse_padding, {
+                "GSE Padding", "dvb-s2_gse.padding",
+                FT_UINT16, BASE_DEC, NULL, 0x0,
+                "GSE Padding Bytes", HFILL}
         },
         {&hf_dvb_s2_gse_proto, {
                 "Protocol", "dvb-s2_gse.proto",

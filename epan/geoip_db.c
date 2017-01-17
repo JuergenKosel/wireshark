@@ -142,9 +142,7 @@ static void geoip_db_path_free_cb(void* p) {
     g_free(m->path);
 }
 
-/* called every time the user presses "Apply" or "OK in the list of
- * GeoIP directories, and also once on startup */
-static void geoip_db_post_update_cb(void) {
+static void geoip_dat_cleanup(void) {
     GeoIP *gi;
     guint i;
 
@@ -172,7 +170,17 @@ static void geoip_db_post_update_cb(void) {
         }
         /* finally, free the array itself */
         g_array_free(geoip_dat_arr, TRUE);
+        geoip_dat_arr = NULL;
     }
+}
+
+/* called every time the user presses "Apply" or "OK in the list of
+ * GeoIP directories, and also once on startup */
+static void geoip_db_post_update_cb(void) {
+    guint i;
+    GeoIP* gi;
+
+    geoip_dat_cleanup();
 
     /* allocate the array */
     geoip_dat_arr = g_array_new(FALSE, FALSE, sizeof(GeoIP *));
@@ -203,6 +211,11 @@ static void geoip_db_post_update_cb(void) {
     g_array_append_val(geoip_dat_arr, gi);
 }
 
+static void geoip_db_cleanup(void)
+{
+    geoip_dat_cleanup();
+}
+
 /**
  * Initialize GeoIP lookups
  */
@@ -228,6 +241,7 @@ geoip_db_pref_init(module_t *nameres)
             NULL,
             geoip_db_path_free_cb,
             geoip_db_post_update_cb,
+            geoip_db_cleanup,
             geoip_db_paths_fields);
 
     prefs_register_uat_preference(nameres,
@@ -279,9 +293,10 @@ geoip_db_lookup_latlon4(guint32 addr, float *lat, float *lon) {
                 case GEOIP_CITY_EDITION_REV0:
                 case GEOIP_CITY_EDITION_REV1:
                     gir = GeoIP_record_by_ipnum(gi, addr);
-                    if(gir) {
+                    if (gir) {
                         *lat = gir->latitude;
                         *lon = gir->longitude;
+                        GeoIPRecord_delete(gir);
                         return 0;
                     }
                     return -1;
@@ -351,6 +366,8 @@ geoip_db_lookup_ipv4(guint dbnum, guint32 addr, const char *not_found) {
                 } else if (gir && gir->city) {
                     ret = db_val_to_utf_8(gir->city, gi);
                 }
+                if (gir)
+                    GeoIPRecord_delete(gir);
                 break;
 
             case GEOIP_ORG_EDITION:
