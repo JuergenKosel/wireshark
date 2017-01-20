@@ -1171,7 +1171,7 @@ DISSECTOR_SRC = \
 	packet-s5066dts.c	\
 	packet-s7comm.c		\
 	packet-s7comm_szl_ids.c	\
-	packet-s7comm_plus.c    \
+	s7commwireshark/src/s7comm_plus/packet-s7comm_plus.c    \
 	packet-sadmind.c	\
 	packet-sametime.c	\
 	packet-sap.c		\
@@ -1710,7 +1710,7 @@ DISSECTOR_INCLUDES = \
 	packet-s5066sis.h	\
 	packet-s7comm.h		\
 	packet-s7comm_szl_ids.h	\
-	packet-s7comm_plus.h    \
+	s7commwireshark/src/s7comm_plus/packet-s7comm_plus.h    \
 	packet-sccp.h		\
 	packet-scsi.h		\
 	packet-scsi-mmc.h	\
