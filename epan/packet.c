@@ -121,11 +121,11 @@ struct depend_dissector_list {
 /* Maps char *dissector_name to depend_dissector_list_t */
 static GHashTable *depend_dissector_lists = NULL;
 
-/* List of routines that are called before we make a pass through a capture file
- * and dissect all its packets. See register_init_routine and
- * register_cleanup_routine in packet.h */
-static GSList *init_routines = NULL;
-static GSList *cleanup_routines = NULL;
+/* Allow protocols to register a "cleanup" routine to be
+ * run after the initial sequential run through the packets.
+ * Note that the file can still be open after this; this is not
+ * the final cleanup. */
+static GSList *postseq_cleanup_routines;
 
 static void
 destroy_depend_dissector_list(void *data)
@@ -215,16 +215,36 @@ packet_cache_proto_handles(void)
 	g_assert(proto_malformed != -1);
 }
 
+/* List of routines that are called before we make a pass through a capture file
+ * and dissect all its packets. See register_init_routine, register_cleanup_routine
+ * and register_shutdown_routine in packet.h */
+static GSList *init_routines = NULL;
+static GSList *cleanup_routines = NULL;
+static GSList *shutdown_routines = NULL;
+
+typedef void (*void_func_t)(void);
+
+/* Initialize all data structures used for dissection. */
+static void
+call_routine(gpointer routine, gpointer dummy _U_)
+{
+	void_func_t func = (void_func_t)routine;
+	(*func)();
+}
+
 void
 packet_cleanup(void)
 {
 	g_slist_free(init_routines);
 	g_slist_free(cleanup_routines);
+	g_slist_free(postseq_cleanup_routines);
 	g_hash_table_destroy(dissector_tables);
 	g_hash_table_destroy(registered_dissectors);
 	g_hash_table_destroy(depend_dissector_lists);
 	g_hash_table_destroy(heur_dissector_lists);
 	g_hash_table_destroy(heuristic_short_names);
+	g_slist_foreach(shutdown_routines, &call_routine, NULL);
+	g_slist_free(shutdown_routines);
 }
 
 /*
@@ -257,16 +277,14 @@ register_cleanup_routine(void (*func)(void))
 	cleanup_routines = g_slist_prepend(cleanup_routines, (gpointer)func);
 }
 
-typedef void (*void_func_t)(void);
-
-/* Initialize all data structures used for dissection. */
-static void
-call_routine(gpointer routine, gpointer dummy _U_)
+/* register a new shutdown routine */
+void
+register_shutdown_routine(void (*func)(void))
 {
-	void_func_t func = (void_func_t)routine;
-	(*func)();
+	shutdown_routines = g_slist_prepend(shutdown_routines, (gpointer)func);
 }
 
+/* Initialize all data structures used for dissection. */
 void
 init_dissection(void)
 {
@@ -323,12 +341,6 @@ cleanup_dissection(void)
 	host_name_lookup_cleanup();
 }
 
-/* Allow protocols to register a "cleanup" routine to be
- * run after the initial sequential run through the packets.
- * Note that the file can still be open after this; this is not
- * the final cleanup. */
-static GSList *postseq_cleanup_routines;
-
 void
 register_postseq_cleanup_routine(void_func_t func)
 {
@@ -337,18 +349,11 @@ register_postseq_cleanup_routine(void_func_t func)
 }
 
 /* Call all the registered "postseq_cleanup" routines. */
-static void
-call_postseq_cleanup_routine(gpointer routine, gpointer dummy _U_)
-{
-	void_func_t func = (void_func_t)routine;
-	(*func)();
-}
-
 void
 postseq_cleanup_all_protocols(void)
 {
 	g_slist_foreach(postseq_cleanup_routines,
-			&call_postseq_cleanup_routine, NULL);
+			&call_routine, NULL);
 }
 
 /*
@@ -430,19 +435,11 @@ register_final_registration_routine(void (*func)(void))
 }
 
 /* Call all the registered "final_registration" routines. */
-static void
-call_final_registration_routine(gpointer routine, gpointer dummy _U_)
-{
-	void_func_t func = (void_func_t)routine;
-
-	(*func)();
-}
-
 void
 final_registration_all_protocols(void)
 {
 	g_slist_foreach(final_registration_routines,
-			&call_final_registration_routine, NULL);
+			&call_routine, NULL);
 }
 
 
