@@ -63,6 +63,7 @@ typedef enum {
     SSL_HND_HELLO_VERIFY_REQUEST   = 3,
     SSL_HND_NEWSESSION_TICKET      = 4,
     SSL_HND_HELLO_RETRY_REQUEST    = 6,
+    SSL_HND_ENCRYPTED_EXTENSIONS   = 8,
     SSL_HND_CERTIFICATE            = 11,
     SSL_HND_SERVER_KEY_EXCHG       = 12,
     SSL_HND_CERT_REQUEST           = 13,
@@ -74,7 +75,7 @@ typedef enum {
     SSL_HND_CERT_STATUS            = 22,
     SSL_HND_SUPPLEMENTAL_DATA      = 23,
     /* Encrypted Extensions was NextProtocol in draft-agl-tls-nextprotoneg-03
-     * and changed in draft 04 */
+     * and changed in draft 04. Not to be confused with TLS 1.3 EE. */
     SSL_HND_ENCRYPTED_EXTS         = 67
 } HandshakeType;
 
@@ -268,8 +269,16 @@ typedef enum {
     MODE_CCM_8      /* AEAD_AES_{128,256}_CCM with 8 byte auth tag */
 } ssl_cipher_mode_t;
 
-/* Explicit nonce length */
-#define SSL_EX_NONCE_LEN_GCM    8 /* RFC 5288 - section 3 */
+/* Explicit and implicit nonce length (RFC 5116 - Section 3.2.1) */
+#define IMPLICIT_NONCE_LEN  4
+#define EXPLICIT_NONCE_LEN  8
+
+/* TLS 1.3 Record type for selecting the appropriate secret. */
+typedef enum {
+    TLS_SECRET_0RTT_APP,
+    TLS_SECRET_HANDSHAKE,
+    TLS_SECRET_APP,
+} TLSRecordType;
 
 #define SSL_DEBUG_USE_STDERR "-"
 
@@ -302,7 +311,7 @@ typedef struct _SslDecoder {
     StringInfo write_iv; /* for AEAD ciphers (at least GCM, CCM) */
     SSL_CIPHER_CTX evp;
     SslDecompress *decomp;
-    guint32 seq;
+    guint64 seq;    /**< Implicit (TLS) or explicit (DTLS) record sequence number. */
     guint16 epoch;
     SslFlow *flow;
 } SslDecoder;
@@ -327,6 +336,7 @@ typedef struct _SslDecoder {
 #define KEX_SRP_SHA_DSS 0x21
 #define KEX_SRP_SHA_RSA 0x22
 #define KEX_IS_DH(n)    ((n) >= KEX_DHE_DSS && (n) <= KEX_ECDH_RSA)
+#define KEX_TLS13       0x23
 
 #define ENC_DES         0x30
 #define ENC_3DES        0x31
@@ -352,24 +362,19 @@ typedef struct {
 } SslDigestAlgo;
 
 typedef struct _SslRecordInfo {
-    guchar *real_data;
-    gint data_len;
-    gint id;
+    guchar *plain_data;     /**< Decrypted data. */
+    guint   data_len;       /**< Length of decrypted data. */
+    gint    id;             /**< Identifies the exact record within a frame
+                                 (there can be multiple records in a frame). */
+    ContentType type;       /**< Content type of the decrypted record data. */
+    SslFlow *flow;          /**< Flow where this record fragment is a part of.
+                                 Can be NULL if this record type may not be fragmented. */
+    guint32 seq;            /**< Data offset within the flow. */
     struct _SslRecordInfo* next;
 } SslRecordInfo;
 
-typedef struct _SslDataInfo {
-    gint key;
-    StringInfo plain_data;
-    guint32 seq;
-    guint32 nxtseq;
-    SslFlow *flow;
-    struct _SslDataInfo *next;
-} SslDataInfo;
-
 typedef struct {
-    SslDataInfo *appl_data;
-    SslRecordInfo* handshake_data;
+    SslRecordInfo *records; /**< Decrypted records within this frame. */
 } SslPacketInfo;
 
 typedef struct _SslSession {
@@ -405,6 +410,7 @@ typedef struct _SslDecryptSession {
     StringInfo server_random;
     StringInfo client_random;
     StringInfo master_secret;
+    StringInfo traffic_secret;  /**< TLS 1.3 traffic secret, wmem file scope. */
     StringInfo handshake_data;
     /* the data store for this StringInfo must be allocated explicitly with a capture lifetime scope */
     StringInfo pre_master_secret;
@@ -450,6 +456,12 @@ typedef struct {
     GHashTable *pre_master; /* First 8 bytes of encrypted pre-master secret to
                                pre-master secret */
     GHashTable *pms;        /* Client Random to unencrypted pre-master secret */
+
+    /* For TLS 1.3: maps Client Random to derived secret. */
+    GHashTable *tls13_client_handshake;
+    GHashTable *tls13_server_handshake;
+    GHashTable *tls13_client_appdata;
+    GHashTable *tls13_server_appdata;
 } ssl_master_key_map_t;
 
 gint ssl_get_keyex_alg(gint cipher);
@@ -543,6 +555,7 @@ ssl_change_cipher(SslDecryptSession *ssl_session, gboolean server);
  @param ssl ssl_session the store all the session data
  @param decoder the stream decoder to be used
  @param ct the content type of this ssl record
+ @param record_version the version as contained in the record
  @param in a pointer to the ssl record to be decrypted
  @param inl the record length
  @param comp_str a pointer to the store the compression data
@@ -550,8 +563,8 @@ ssl_change_cipher(SslDecryptSession *ssl_session, gboolean server);
  @param outl the decrypted data len
  @return 0 on success */
 extern gint
-ssl_decrypt_record(SslDecryptSession* ssl,SslDecoder* decoder, gint ct,
-        const guchar* in, guint inl, StringInfo* comp_str, StringInfo* out_str, guint* outl);
+ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint16 record_version,
+        const guchar *in, guint16 inl, StringInfo *comp_str, StringInfo *out_str, guint *outl);
 
 
 /* Common part bitween SSL and DTLS dissectors */
@@ -581,17 +594,11 @@ ssl_packet_from_server(SslSession *session, dissector_table_t table, packet_info
 
 /* add to packet data a copy of the specified real data */
 extern void
-ssl_add_record_info(gint proto, packet_info *pinfo, guchar* data, gint data_len, gint record_id);
+ssl_add_record_info(gint proto, packet_info *pinfo, const guchar *data, gint data_len, gint record_id, SslFlow *flow, ContentType type);
 
 /* search in packet data for the specified id; return a newly created tvb for the associated data */
 extern tvbuff_t*
-ssl_get_record_info(tvbuff_t *parent_tvb, gint proto, packet_info *pinfo, gint record_id);
-
-void
-ssl_add_data_info(gint proto, packet_info *pinfo, guchar* data, gint data_len, gint key, SslFlow *flow);
-
-SslDataInfo*
-ssl_get_data_info(int proto, packet_info *pinfo, gint key);
+ssl_get_record_info(tvbuff_t *parent_tvb, gint proto, packet_info *pinfo, gint record_id, SslRecordInfo **matched_record);
 
 /* initialize/reset per capture state data (ssl sessions cache) */
 extern void
@@ -617,9 +624,19 @@ ssl_save_session(SslDecryptSession* ssl, GHashTable *session_hash);
 #ifdef  HAVE_LIBGCRYPT
 extern void
 ssl_finalize_decryption(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map);
+
+extern void
+tls13_change_key(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,
+                 gboolean is_from_server, TLSRecordType type);
 #else /* ! HAVE_LIBGCRYPT */
 static inline void
 ssl_finalize_decryption(SslDecryptSession *ssl _U_, ssl_master_key_map_t *mk_map _U_)
+{
+}
+
+static inline void
+tls13_change_key(SslDecryptSession *ssl _U_, ssl_master_key_map_t *mk_map _U_,
+                 gboolean is_from_server _U_, TLSRecordType type _U_)
 {
 }
 #endif /* ! HAVE_LIBGCRYPT */
@@ -762,6 +779,8 @@ typedef struct ssl_common_dissect {
         gint hs_ext_draft_version_tls13;
         gint hs_ext_psk_ke_modes_len;
         gint hs_ext_psk_ke_mode;
+        gint hs_certificate_request_context;
+        gint hs_certificate_request_context_length;
 
         /* do not forget to update SSL_COMMON_LIST_T and SSL_COMMON_HF_LIST! */
     } hf;
@@ -847,6 +866,12 @@ ssl_dissect_hnd_hello_retry_request(ssl_common_dissect_t *hf, tvbuff_t *tvb, pac
                                     gboolean is_dtls);
 
 extern void
+ssl_dissect_hnd_encrypted_extensions(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info* pinfo,
+                                     proto_tree *tree, guint32 offset, guint32 length,
+                                     SslSession *session, SslDecryptSession *ssl,
+                                     gboolean is_dtls);
+
+extern void
 ssl_dissect_hnd_new_ses_ticket(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                                proto_tree *tree, guint32 offset,
                                SslDecryptSession *ssl,
@@ -897,7 +922,7 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1,                                     \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1,                             \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
@@ -1506,6 +1531,16 @@ ssl_common_dissect_t name = {   \
       { "PSK Key Exchange Mode", prefix ".handshake.psk_ke_mode",       \
         FT_UINT8, BASE_DEC, VALS(tls_hello_ext_psk_ke_mode), 0x0,       \
         "Key exchange modes where the client supports use of PSKs", HFILL } \
+    },                                                                  \
+    { & name .hf.hs_certificate_request_context_length,                 \
+      { "Certificate Request Context Length", prefix ".handshake.certificate_request_context_length", \
+        FT_UINT8, BASE_DEC, NULL, 0x0,                                  \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_certificate_request_context,                        \
+      { "Certificate Request Context", prefix ".handshake.certificate_request_context", \
+        FT_BYTES, BASE_NONE, NULL, 0x0,                                 \
+        "Value from CertificateRequest or empty for server auth", HFILL } \
     }
 /* }}} */
 

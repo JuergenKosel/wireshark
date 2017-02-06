@@ -304,9 +304,9 @@ get_wep_key(pref_t *pref, gpointer ud)
     /* Retrieve user data info */
     user_data = (keys_cb_data_t*)ud;
 
-    if (g_ascii_strcasecmp(pref->name, "wep_key_table") == 0 && pref->type == PREF_UAT)
+    if (g_ascii_strcasecmp(prefs_get_name(pref), "wep_key_table") == 0 && prefs_get_type(pref) == PREF_UAT)
     {
-        uat = pref->varp.uat;
+        uat = prefs_get_uat_value(pref);
         /* This is just a sanity check.  UAT should be loaded */
         if (!uat->loaded)
         {
@@ -368,9 +368,9 @@ set_wep_key(pref_t *pref, gpointer ud _U_)
     /* Retrieve user data info */
     user_data = (keys_cb_data_t*)ud;
 
-    if (g_ascii_strcasecmp(pref->name, "wep_key_table") == 0 && pref->type == PREF_UAT)
+    if (g_ascii_strcasecmp(prefs_get_name(pref), "wep_key_table") == 0 && prefs_get_type(pref) == PREF_UAT)
     {
-        uat = pref->varp.uat;
+        uat = prefs_get_uat_value(pref);
         if (!uat->loaded)
         {
             /* UAT will only be loaded if previous keys exist, so it may need
@@ -882,6 +882,7 @@ print_key_list(GList* key_list)
 {
     gint n,i;
     decryption_key_t* tmp;
+    gchar* ssid;
 
     if (key_list == NULL)
     {
@@ -912,9 +913,10 @@ print_key_list(GList* key_list)
         else
             g_print("TYPE: %s\n","???");
 
-        g_print("SSID: %s\n",(tmp->ssid != NULL) ?
-                format_text((guchar *)tmp->ssid->data, tmp->ssid->len) : "---");
+        ssid = format_text(NULL, (guchar *)tmp->ssid->data, tmp->ssid->len);
+        g_print("SSID: %s\n",(tmp->ssid != NULL) ? ssid : "---");
         g_print("\n");
+        wmem_free(NULL, ssid);
     }
 
     g_print("\n*****************************\n\n");
@@ -1099,18 +1101,13 @@ static guint
 test_if_on(pref_t *pref, gpointer ud)
 {
     gboolean *is_on;
-    gboolean  number;
 
     /* Retrieve user data info */
     is_on = (gboolean*)ud;
 
-
-    if (g_ascii_strncasecmp(pref->name, "enable_decryption", 17) == 0 && pref->type == PREF_BOOL)
+    if (g_ascii_strncasecmp(prefs_get_name(pref), "enable_decryption", 17) == 0 && prefs_get_gui_type(pref) == PREF_BOOL)
     {
-        number = *pref->varp.boolp;
-
-        if (number) *is_on = TRUE;
-        else *is_on = FALSE;
+        *is_on = prefs_get_bool_value(pref, pref_current);
 
         return 1;
     }
@@ -1446,14 +1443,9 @@ set_on_off(pref_t *pref, gpointer ud)
     /* Retrieve user data info */
     is_on = (gboolean*)ud;
 
-    if (g_ascii_strncasecmp(pref->name, "enable_decryption", 17) == 0 && pref->type == PREF_BOOL)
+    if (g_ascii_strncasecmp(prefs_get_name(pref), "enable_decryption", 17) == 0 && prefs_get_type(pref) == PREF_BOOL)
     {
-
-        if (*is_on)
-            *pref->varp.boolp = TRUE;
-        else
-            *pref->varp.boolp = FALSE;
-
+        prefs_set_bool_value(pref, *is_on, pref_current);
         return 1;
     }
     return 0;
@@ -1577,7 +1569,7 @@ airpcap_add_key_to_list(GtkListStore *key_list_store, gchar* type, gchar* key, g
 void
 airpcap_fill_key_list(GtkListStore *key_list_store)
 {
-    const gchar*       s = NULL;
+    gchar*             s = NULL;
     unsigned int       i,n;
     airpcap_if_info_t* fake_if_info;
     GList*             wireshark_key_list = NULL;
@@ -1605,16 +1597,23 @@ airpcap_fill_key_list(GtkListStore *key_list_store)
         else if (curr_key->type == AIRPDCAP_KEY_TYPE_WPA_PWD)
         {
             if (curr_key->ssid != NULL)
-                s = format_uri(curr_key->ssid, ":");
+            {
+                s = format_uri(NULL, curr_key->ssid, ":");
+                gtk_list_store_insert_with_values(key_list_store , &iter, G_MAXINT,
+                    KL_COL_TYPE, AIRPCAP_WPA_PWD_KEY_STRING,
+                    KL_COL_KEY, curr_key->key->str,
+                    KL_COL_SSID, s,
+                    -1);
+                wmem_free(NULL, s);
+            }
             else
-                s = "";
-
+            {
             gtk_list_store_insert_with_values(key_list_store , &iter, G_MAXINT,
                 KL_COL_TYPE, AIRPCAP_WPA_PWD_KEY_STRING,
                 KL_COL_KEY, curr_key->key->str,
-                KL_COL_SSID, s,
+                KL_COL_SSID, "",
                 -1);
-
+            }
         }
         else if (curr_key->type == AIRPDCAP_KEY_TYPE_WPA_PMK)
         {

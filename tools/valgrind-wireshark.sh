@@ -39,7 +39,7 @@ TOOL="memcheck"
 while getopts ":2a:b:C:lmnpP:rstTYwcevWdG" OPTCHAR ; do
     case $OPTCHAR in
         2) COMMAND_ARGS="-2 $COMMAND_ARGS" ;;
-        a) ADDITIONAL_SUPPRESSION_FILE="--suppressions=$OPTARG" ;;
+        a) ADDITIONAL_SUPPRESSION_FILE="$ADDITIONAL_SUPPRESSION_FILE --suppressions=$OPTARG" ;;
         b) WIRESHARK_BIN_DIR=$OPTARG ;;
         C) COMMAND_ARGS="-C $OPTARG $COMMAND_ARGS" ;;
         l) LEAK_CHECK="--leak-check=full" ;;
@@ -131,6 +131,7 @@ else
 fi
 
 cmdline="$LIBTOOL valgrind --suppressions=`dirname $0`/vg-suppressions $ADDITIONAL_SUPPRESSION_FILE \
+--suppressions=`dirname $0`/gtk.suppression \
 --tool=$TOOL $CALLGRIND_OUT_FILE $VERBOSE $LEAK_CHECK $REACHABLE $GEN_SUPPRESSIONS $TRACK_ORIGINS \
 $COMMAND $COMMAND_ARGS $PCAP $COMMAND_ARGS2"
 

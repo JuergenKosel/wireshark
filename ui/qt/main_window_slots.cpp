@@ -178,7 +178,7 @@
 
 static const char *dfe_property_ = "display filter expression"; //TODO : Fix Translate
 
-bool MainWindow::openCaptureFile(QString cf_path, QString read_filter, unsigned int type)
+bool MainWindow::openCaptureFile(QString cf_path, QString read_filter, unsigned int type, gboolean is_tempfile)
 {
     QString file_name = "";
     dfilter_t *rfcode = NULL;
@@ -232,7 +232,7 @@ bool MainWindow::openCaptureFile(QString cf_path, QString read_filter, unsigned 
 
         /* Try to open the capture file. This closes the current file if it succeeds. */
         CaptureFile::globalCapFile()->window = this;
-        if (cf_open(CaptureFile::globalCapFile(), cf_path.toUtf8().constData(), type, FALSE, &err) != CF_OK) {
+        if (cf_open(CaptureFile::globalCapFile(), cf_path.toUtf8().constData(), type, is_tempfile, &err) != CF_OK) {
             /* We couldn't open it; don't dismiss the open dialog box,
                just leave it around so that the user can, after they
                dismiss the alert box popped up for the open error,
@@ -756,6 +756,19 @@ void MainWindow::captureFileRetapFinished()
     thaw();
 }
 
+void MainWindow::captureFileMergeStarted()
+{
+    main_ui_->statusBar->popFileStatus();
+    QString msg = tr("Merging files");
+    QString msgtip = QString();
+    main_ui_->statusBar->pushFileStatus(msg, msgtip);
+}
+
+void MainWindow::captureFileMergeFinished()
+{
+    main_ui_->statusBar->popFileStatus();
+}
+
 void MainWindow::captureFileFlushTapsData()
 {
     draw_tap_listeners(FALSE);
@@ -769,6 +782,7 @@ void MainWindow::captureFileClosing() {
     // Reset expert information indicator
     main_ui_->statusBar->captureFileClosing();
     main_ui_->searchFrame->animatedHide();
+    main_ui_->goToFrame->animatedHide();
 //    gtk_widget_show(expert_info_none);
     emit setCaptureFile(NULL);
     emit setDissectedCaptureFile(NULL);

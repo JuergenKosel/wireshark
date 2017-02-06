@@ -237,6 +237,8 @@ static int hf_smb2_fsctl_range_length = -1;
 static int hf_smb2_ioctl_function_method = -1;
 static int hf_smb2_ioctl_resiliency_timeout = -1;
 static int hf_smb2_ioctl_resiliency_reserved = -1;
+static int hf_smb2_ioctl_shared_virtual_disk_support = -1;
+static int hf_smb2_ioctl_shared_virtual_disk_handle_state = -1;
 static int hf_windows_sockaddr_family = -1;
 static int hf_windows_sockaddr_port = -1;
 static int hf_windows_sockaddr_in_addr = -1;
@@ -1559,8 +1561,10 @@ static const value_string smb2_ioctl_vals[] = {
 	{0x000900DF, "FSCTL_WRITE_RAW_ENCRYPTED"},
 	{0x000900E3, "FSCTL_READ_RAW_ENCRYPTED"},
 	{0x000900F0, "FSCTL_EXTEND_VOLUME"},
+	{0x00090244, "FSCTL_CSV_TUNNEL_REQUEST"},
 	{0x0009027C, "FSCTL_GET_INTEGRITY_INFORMATION"},
-	{0x00090284, "FSCTL_QUERY_FILE_REGIONS"},
+	{0x00090284, "FSCTL_QUERY_FILE_REGIONS"},                     /* dissector implemented */
+	{0x000902c8, "FSCTL_CSV_SYNC_TUNNEL_REQUEST"},
 	{0x00090300, "FSCTL_QUERY_SHARED_VIRTUAL_DISK_SUPPORT"},      /* dissector implemented */
 	{0x00090304, "FSCTL_SVHDX_SYNC_TUNNEL_REQUEST"},              /* dissector implemented */
 	{0x00090308, "FSCTL_SVHDX_SET_INITIATOR_INFORMATION"},
@@ -1569,6 +1573,7 @@ static const value_string smb2_ioctl_vals[] = {
 	{0x00090314, "FSCTL_DELETE_EXTERNAL_BACKING"},
 	{0x00090318, "FSCTL_ENUM_EXTERNAL_BACKING"},
 	{0x0009031F, "FSCTL_ENUM_OVERLAY"},
+	{0x00090350, "FSCTL_STORAGE_QOS_CONTROL"},
 	{0x00090364, "FSCTL_SVHDX_ASYNC_TUNNEL_REQUEST"},             /* dissector implemented */
 	{0x000940B3, "FSCTL_ENUM_USN_DATA"},
 	{0x000940B7, "FSCTL_SECURITY_ID_CHECK"},
@@ -1680,6 +1685,19 @@ static const value_string smb2_ioctl_method_vals[] = {
 	{ 0x01, "METHOD_IN_DIRECT" },
 	{ 0x02, "METHOD_OUT_DIRECT" },
 	{ 0x03, "METHOD_NEITHER" },
+	{ 0, NULL }
+};
+
+static const value_string smb2_ioctl_shared_virtual_disk_vals[] = {
+	{ 0x01, "SharedVirtualDisksSupported" },
+	{ 0x07, "SharedVirtualDiskCDPSnapshotsSupported" },
+	{ 0, NULL }
+};
+
+static const value_string smb2_ioctl_shared_virtual_disk_hstate_vals[] = {
+	{ 0x00, "HandleStateNone" },
+	{ 0x01, "HandleStateFileShared" },
+	{ 0x03, "HandleStateShared" },
 	{ 0, NULL }
 };
 
@@ -4854,20 +4872,6 @@ smb2_pipe_set_file_id(packet_info *pinfo, smb2_info_t *si)
 static gboolean smb2_pipe_reassembly = TRUE;
 static reassembly_table smb2_pipe_reassembly_table;
 
-static void
-smb2_pipe_reassembly_init(void)
-{
-	/*
-	 * XXX - addresses_ports_reassembly_table_functions?
-	 * Probably correct for SMB-over-NBT and SMB-over-TCP,
-	 * as stuff from two different connections should
-	 * probably not be combined, but what about other
-	 * transports for SMB, e.g. NBF or Netware?
-	 */
-	reassembly_table_init(&smb2_pipe_reassembly_table,
-	    &addresses_reassembly_table_functions);
-}
-
 static int
 dissect_file_data_smb2_pipe(tvbuff_t *raw_tvb, packet_info *pinfo, proto_tree *tree _U_, int offset, guint32 datalen, proto_tree *top_tree, void *data)
 {
@@ -5542,7 +5546,10 @@ dissect_smb2_FSCTL_QUERY_SHARED_VIRTUAL_DISK_SUPPORT(tvbuff_t *tvb _U_, packet_i
 		return;
 	}
 
-	/* There is nothing to do here ... */
+	proto_tree_add_item(tree, hf_smb2_ioctl_shared_virtual_disk_support, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	proto_tree_add_item(tree, hf_smb2_ioctl_shared_virtual_disk_handle_state, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 }
 
 static void
@@ -9887,6 +9894,16 @@ proto_register_smb2(void)
 			NULL, 0, "Resiliency reserved", HFILL }
 		},
 
+		{ &hf_smb2_ioctl_shared_virtual_disk_support,
+			{ "SharedVirtualDiskSupport", "smb2.ioctl.function.shared_virtual_disk_support", FT_UINT32, BASE_HEX,
+			VALS(smb2_ioctl_shared_virtual_disk_vals), 0, "Supported shared capabilities", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_shared_virtual_disk_handle_state,
+			{ "SharedVirtualDiskHandleState", "smb2.ioctl.function.shared_virtual_disk_handle_state", FT_UINT32, BASE_HEX,
+			VALS(smb2_ioctl_shared_virtual_disk_hstate_vals), 0, "State of shared disk handle", HFILL }
+		},
+
 		{ &hf_windows_sockaddr_family,
 			{ "Socket Family", "smb2.windows.sockaddr.family", FT_UINT16, BASE_DEC,
 			NULL, 0, "The socket address family (on windows)", HFILL }
@@ -11039,7 +11056,15 @@ proto_register_smb2(void)
 		"Whether the dissector should reassemble Named Pipes over SMB2 commands",
 		&smb2_pipe_reassembly);
 	smb2_pipe_subdissector_list = register_heur_dissector_list("smb2_pipe_subdissectors", proto_smb2);
-	register_init_routine(smb2_pipe_reassembly_init);
+	/*
+	 * XXX - addresses_ports_reassembly_table_functions?
+	 * Probably correct for SMB-over-NBT and SMB-over-TCP,
+	 * as stuff from two different connections should
+	 * probably not be combined, but what about other
+	 * transports for SMB, e.g. NBF or Netware?
+	 */
+	reassembly_table_register(&smb2_pipe_reassembly_table,
+	    &addresses_reassembly_table_functions);
 
 	smb2_tap = register_tap("smb2");
 	smb2_eo_tap = register_tap("smb_eo"); /* SMB Export Object tap */

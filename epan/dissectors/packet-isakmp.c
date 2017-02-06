@@ -213,6 +213,8 @@ static int hf_isakmp_vid_cisco_unity_major = -1;
 static int hf_isakmp_vid_cisco_unity_minor = -1;
 static int hf_isakmp_vid_ms_nt5_isakmpoakley = -1;
 static int hf_isakmp_vid_aruba_via_auth_profile = -1;
+static int hf_isakmp_vid_fortinet_fortigate_release = -1;
+static int hf_isakmp_vid_fortinet_fortigate_build = -1;
 static int hf_isakmp_ts_number_of_ts = -1;
 static int hf_isakmp_ts_type = -1;
 static int hf_isakmp_ts_protoid = -1;
@@ -2773,6 +2775,21 @@ static const guint8 VID_MS_IKEE_20080212_MS_NDC[] = { /* MS-Negotiation Discover
         0x16, 0xb7, 0xe5, 0xbe, 0x08, 0x55, 0xf1, 0x20
 };
 
+static const guint8 VID_FORTINET_FORTIGATE[] = { /* Fortigate (Fortinet) */
+        0x82, 0x99, 0x03, 0x17, 0x57, 0xA3, 0x60, 0x82,
+        0xC6, 0xA6, 0x21, 0xDE
+};
+
+static const guint8 VID_FORTINET_FORTICLIENT_CONNECT[] = { /* Forticlient Connect license (Fortinet) */
+        0x4C, 0x53, 0x42, 0x7B, 0x6D, 0x46, 0x5D, 0x1B,
+        0x33, 0x7B, 0xB7, 0x55, 0xA3, 0x7A, 0x7F, 0xEF
+};
+
+static const guint8 VID_FORTINET_ENDPOINT_CONTROL[] = { /* Endpoint Control (Fortinet) */
+        0xB4, 0xF0, 0x1C, 0xA9, 0x51, 0xE9, 0xDA, 0x8D,
+        0x0B, 0xAF, 0xBB, 0xD3, 0x4A, 0xD3, 0x04, 0x4E
+};
+
 /* Based from value_string.c/h */
 static const byte_string vendor_id[] = {
   { VID_SSH_IPSEC_EXPRESS_1_1_0, sizeof(VID_SSH_IPSEC_EXPRESS_1_1_0), "Ssh Communications Security IPSEC Express version 1.1.0" },
@@ -2881,6 +2898,9 @@ static const byte_string vendor_id[] = {
   { VID_ARUBA_VIA_AUTH_PROFILE, sizeof(VID_ARUBA_VIA_AUTH_PROFILE), "VIA Auth Profile (Aruba Networks)" },
   { VID_MS_IKEE_20080212_CGA1, sizeof(VID_MS_IKEE_20080212_CGA1), "IKE CGA Version 1" },
   { VID_MS_IKEE_20080212_MS_NDC, sizeof(VID_MS_IKEE_20080212_MS_NDC), "MS-Negotiation Discovery Capable" },
+  { VID_FORTINET_FORTIGATE, sizeof(VID_FORTINET_FORTIGATE), "Fortigate (Fortinet)" },
+  { VID_FORTINET_FORTICLIENT_CONNECT, sizeof(VID_FORTINET_FORTICLIENT_CONNECT), "Forticlient connect license (Fortinet)" },
+  { VID_FORTINET_ENDPOINT_CONTROL, sizeof(VID_FORTINET_ENDPOINT_CONTROL), "Endpoint Control (Fortinet)" },
   { 0, 0, NULL }
 };
 
@@ -4800,6 +4820,16 @@ dissect_vid(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
     proto_tree_add_item(tree, hf_isakmp_vid_aruba_via_auth_profile, tvb, offset, length-19, ENC_ASCII|ENC_NA);
     offset += 4;
   }
+
+  /* VID_FORTIGATE (Fortinet) */
+  if (length >= 12 && memcmp(pVID, VID_FORTINET_FORTIGATE, 12) == 0)
+  {
+    offset += 12;
+    proto_tree_add_item(tree, hf_isakmp_vid_fortinet_fortigate_release, tvb, offset, 2, ENC_ASCII|ENC_NA);
+    offset += 2;
+    proto_tree_add_item(tree, hf_isakmp_vid_fortinet_fortigate_build, tvb, offset, 2, ENC_ASCII|ENC_NA);
+    offset += 2;
+  }
   return offset;
 }
 
@@ -5744,11 +5774,6 @@ isakmp_init_protocol(void) {
   decrypt_data_t *decr;
   guint8   *ic_key;
 #endif /* HAVE_LIBGCRYPT */
-  reassembly_table_init(&isakmp_cisco_reassembly_table,
-                        &addresses_reassembly_table_functions);
-  reassembly_table_init(&isakmp_ike2_reassembly_table,
-                        &addresses_reassembly_table_functions);
-
 #ifdef HAVE_LIBGCRYPT
   isakmp_hash = g_hash_table_new_full(isakmp_hash_func, isakmp_equal_func,
       free_cookie_key, free_cookie_value);
@@ -5776,8 +5801,6 @@ isakmp_init_protocol(void) {
 
 static void
 isakmp_cleanup_protocol(void) {
-  reassembly_table_destroy(&isakmp_cisco_reassembly_table);
-  reassembly_table_destroy(&isakmp_ike2_reassembly_table);
 #ifdef HAVE_LIBGCRYPT
   g_hash_table_destroy(isakmp_hash);
   g_hash_table_destroy(ikev2_key_hash);
@@ -6359,6 +6382,16 @@ proto_register_isakmp(void)
       { "Auth Profile", "isakmp.vid.aruba_via_auth_profile",
         FT_STRING, BASE_NONE, NULL, 0x0,
         "Aruba Networks Auth Profile for VIA Client", HFILL }},
+
+    { &hf_isakmp_vid_fortinet_fortigate_release,
+      { "Release", "isakmp.vid.fortinet.fortigate.release",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
+        "Release of Fortigate", HFILL }},
+
+    { &hf_isakmp_vid_fortinet_fortigate_build,
+      { "Build", "isakmp.vid.fortinet.fortigate.build",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
+        "Build of Fortigate", HFILL }},
 
     { &hf_isakmp_ts_number_of_ts,
       { "Number of Traffic Selectors", "isakmp.ts.number",
@@ -7139,6 +7172,10 @@ proto_register_isakmp(void)
   expert_register_field_array(expert_isakmp, ei, array_length(ei));
   register_init_routine(&isakmp_init_protocol);
   register_cleanup_routine(&isakmp_cleanup_protocol);
+  reassembly_table_register(&isakmp_cisco_reassembly_table,
+                        &addresses_reassembly_table_functions);
+  reassembly_table_register(&isakmp_ike2_reassembly_table,
+                        &addresses_reassembly_table_functions);
 
   isakmp_handle = register_dissector("isakmp", dissect_isakmp, proto_isakmp);
 

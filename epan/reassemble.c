@@ -41,6 +41,8 @@ typedef struct _fragment_addresses_key {
 	guint32 id;
 } fragment_addresses_key;
 
+GList* reassembly_table_list = NULL;
+
 static guint
 fragment_addresses_hash(gconstpointer k)
 {
@@ -409,6 +411,31 @@ free_fragments(gpointer data, gpointer user_data _U_)
 	if (fd_head->tvb_data)
 		tvb_free(fd_head->tvb_data);
 	g_slice_free(fragment_item, fd_head);
+}
+
+typedef struct register_reassembly_table {
+	reassembly_table *table;
+	const reassembly_table_functions *funcs;
+} register_reassembly_table_t;
+
+/*
+ * Register a reassembly table.
+ */
+void
+reassembly_table_register(reassembly_table *table,
+		      const reassembly_table_functions *funcs)
+{
+	register_reassembly_table_t* reg_table;
+
+	DISSECTOR_ASSERT(table);
+	DISSECTOR_ASSERT(funcs);
+
+	reg_table = g_new(register_reassembly_table_t,1);
+
+	reg_table->table = table;
+	reg_table->funcs = funcs;
+
+	reassembly_table_list = g_list_prepend(reassembly_table_list, reg_table);
 }
 
 /*
@@ -2784,6 +2811,53 @@ show_fragment_seq_tree(fragment_head *fd_head, const fragment_items *fit,
 	}
 
 	return show_fragment_errs_in_col(fd_head, fit, pinfo);
+}
+
+static void
+reassembly_table_init_reg_table(gpointer p, gpointer user_data _U_)
+{
+	register_reassembly_table_t* reg_table = (register_reassembly_table_t*)p;
+	reassembly_table_init(reg_table->table, reg_table->funcs);
+}
+
+static void
+reassembly_table_init_reg_tables(void)
+{
+	g_list_foreach(reassembly_table_list, reassembly_table_init_reg_table, NULL);
+}
+
+static void
+reassembly_table_cleanup_reg_table(gpointer p, gpointer user_data _U_)
+{
+	register_reassembly_table_t* reg_table = (register_reassembly_table_t*)p;
+	reassembly_table_destroy(reg_table->table);
+}
+
+static void
+reassembly_table_cleanup_reg_tables(void)
+{
+	g_list_foreach(reassembly_table_list, reassembly_table_cleanup_reg_table, NULL);
+}
+
+void reassembly_tables_init(void)
+{
+	register_init_routine(&reassembly_table_init_reg_tables);
+	register_cleanup_routine(&reassembly_table_cleanup_reg_tables);
+}
+
+static void
+reassembly_table_free(gpointer p, gpointer user_data _U_)
+{
+	register_reassembly_table_t* reg_table = (register_reassembly_table_t*)p;
+	reassembly_table_destroy(reg_table->table);
+	g_free(reg_table);
+}
+
+void
+reassembly_table_cleanup(void)
+{
+	g_list_foreach(reassembly_table_list, reassembly_table_free, NULL);
+	g_list_free(reassembly_table_list);
 }
 
 /*

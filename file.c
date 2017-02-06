@@ -1217,6 +1217,7 @@ read_packet(capture_file *cf, dfilter_t *dfcode, epan_dissect_t *edt,
 
 
 typedef struct _callback_data_t {
+  gpointer         pd_window;
   gint64           f_len;
   GTimeVal         start_time;
   progdlg_t       *progbar;
@@ -1271,7 +1272,7 @@ merge_callback(merge_event event, int num _U_,
            large file, we might take considerably longer than that standard
            time in order to get to the next progress bar step). */
         if (cb_data->progbar == NULL) {
-          cb_data->progbar = delayed_create_progress_dlg(NULL, "Merging", "files",
+          cb_data->progbar = delayed_create_progress_dlg(cb_data->pd_window, "Merging", "files",
             FALSE, &cb_data->stop_flag, &cb_data->start_time, 0.0f);
         }
 
@@ -1323,19 +1324,23 @@ merge_callback(merge_event event, int num _U_,
 
 
 cf_status_t
-cf_merge_files_to_tempfile(char **out_filenamep, int in_file_count,
-                           char *const *in_filenames, int file_type,
-                           gboolean do_append)
+cf_merge_files_to_tempfile(gpointer pd_window, char **out_filenamep,
+                           int in_file_count, char *const *in_filenames,
+                           int file_type, gboolean do_append)
 {
   int                        err      = 0;
   gchar                     *err_info = NULL;
   guint                      err_fileno;
   merge_result               status;
   merge_progress_callback_t  cb;
+  callback_data_t           *cb_data = g_new0(callback_data_t, 1);
 
   /* prepare our callback routine */
+  cb_data->pd_window = pd_window;
   cb.callback_func = merge_callback;
-  cb.data = g_malloc0(sizeof(callback_data_t));
+  cb.data = cb_data;
+
+  cf_callback_invoke(cf_cb_file_merge_started, NULL);
 
   /* merge the files */
   status = merge_files_to_tempfile(out_filenamep, "wireshark", file_type,
@@ -1375,6 +1380,8 @@ cf_merge_files_to_tempfile(char **out_filenamep, int in_file_count,
   }
 
   g_free(err_info);
+
+  cf_callback_invoke(cf_cb_file_merge_finished, NULL);
 
   if (status != MERGE_OK) {
     /* Callers aren't expected to treat an error or an explicit abort
@@ -2511,7 +2518,7 @@ write_pdml_packet(capture_file *cf, frame_data *fdata,
   epan_dissect_run(&args->edt, cf->cd_t, phdr, frame_tvbuff_new(fdata, pd), fdata, NULL);
 
   /* Write out the information in that tree. */
-  write_pdml_proto_tree(NULL, NULL, &args->edt, args->fh);
+  write_pdml_proto_tree(NULL, NULL, PF_NONE, &args->edt, args->fh);
 
   epan_dissect_reset(&args->edt);
 
@@ -2805,7 +2812,7 @@ write_json_packet(capture_file *cf, frame_data *fdata,
   epan_dissect_run(&args->edt, cf->cd_t, phdr, frame_tvbuff_new(fdata, pd), fdata, NULL);
 
   /* Write out the information in that tree. */
-  write_json_proto_tree(NULL, args->print_args, NULL, &args->edt, args->fh);
+  write_json_proto_tree(NULL, args->print_args, NULL, PF_NONE, &args->edt, args->fh);
 
   epan_dissect_reset(&args->edt);
 

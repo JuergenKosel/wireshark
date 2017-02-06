@@ -325,7 +325,7 @@ megacostat_filtercheck(const char *opt_arg _U_, const char **filter _U_, char** 
         return;
     }
 
-    if (!*megaco_ctx_track->varp.boolp || !*h248_ctx_track->varp.boolp) {
+    if (!prefs_get_bool_value(megaco_ctx_track, pref_current) || !prefs_get_bool_value(h248_ctx_track, pref_current)) {
         *err = g_strdup_printf("Track Context option at Protocols -> MEGACO and Protocols -> H248 preferences\n"
                                 "has to be set to true to enable measurement of service response times.\n");
     }
@@ -2700,7 +2700,7 @@ dissect_megaco_topologydescriptor(tvbuff_t *tvb, proto_tree *megaco_tree_command
     tokenlen =  (tvb_RBRKT+1) - tvb_previous_offset;
     proto_tree_add_string(megaco_tree_command_line, hf_megaco_topology_descriptor, tvb,
                             tvb_previous_offset, tokenlen,
-                            tvb_format_text_wsp(tvb, tvb_previous_offset,
+                            tvb_format_text_wsp(wmem_packet_scope(), tvb, tvb_previous_offset,
                             tokenlen));
 
 }

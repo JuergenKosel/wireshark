@@ -330,6 +330,9 @@ static GList *pino_protocols = NULL;
 static GPtrArray *deregistered_fields = NULL;
 static GPtrArray *deregistered_data = NULL;
 
+/* indexed by prefix, contains initializers */
+static GHashTable* prefixes = NULL;
+
 /* Contains information about a field when a dissector calls
  * proto_tree_add_item.  */
 #define FIELD_INFO_NEW(pool, fi)  fi = wmem_new(pool, field_info)
@@ -643,6 +646,9 @@ proto_cleanup(void)
 
 	g_free(tree_is_expanded);
 	tree_is_expanded = NULL;
+
+	if (prefixes)
+		g_hash_table_destroy(prefixes);
 }
 
 static gboolean
@@ -903,11 +909,6 @@ prefix_equal (gconstpointer ap, gconstpointer bp) {
 
 	return FALSE;
 }
-
-
-/* indexed by prefix, contains initializers */
-static GHashTable* prefixes = NULL;
-
 
 /* Register a new prefix for "delayed" initialization of field arrays */
 void
@@ -1338,6 +1339,7 @@ proto_tree_add_format_wsp_text(proto_tree *tree, tvbuff_t *tvb, gint start, gint
 {
 	proto_item	  *pi;
 	header_field_info *hfinfo;
+    gchar* str;
 
 	CHECK_FOR_NULL_TREE(tree);
 
@@ -1347,7 +1349,9 @@ proto_tree_add_format_wsp_text(proto_tree *tree, tvbuff_t *tvb, gint start, gint
 
 	TRY_TO_FAKE_THIS_REPR(pi);
 
-	proto_item_set_text(pi, "%s", tvb_format_text_wsp(tvb, start, length));
+	str = tvb_format_text_wsp(NULL, tvb, start, length);
+	proto_item_set_text(pi, "%s", str);
+	wmem_free(NULL, str);
 
 	return pi;
 }
@@ -4825,22 +4829,22 @@ proto_tree_set_representation(proto_item *pi, const char *format, va_list ap)
 	}
 }
 
-static const char *
+static char *
 hfinfo_format_text(const header_field_info *hfinfo, const guchar *string)
 {
 	switch (hfinfo->display) {
 		case STR_ASCII:
-			return format_text(string, strlen(string));
+			return format_text(NULL, string, strlen(string));
 /*
 		case STR_ASCII_WSP
 			return format_text_wsp(string, strlen(string));
  */
 		case STR_UNICODE:
 			/* XXX, format_unicode_text() */
-			return string;
+			return wmem_strdup(NULL, string);
 	}
 
-	return format_text(string, strlen(string));
+	return format_text(NULL, string, strlen(string));
 }
 
 static int
@@ -5308,9 +5312,10 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 					case FT_UINT_STRING:
 					case FT_STRINGZPAD:
 						bytes = (guint8 *)fvalue_get(&finfo->value);
+						str = hfinfo_format_text(hfinfo, bytes);
 						offset_r += protoo_strlcpy(result+offset_r,
-								hfinfo_format_text(hfinfo, bytes),
-								size-offset_r);
+								str, size-offset_r);
+						wmem_free(NULL, str);
 						break;
 
 					case FT_IEEE_11073_SFLOAT:
@@ -7680,7 +7685,9 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_UINT_STRING:
 		case FT_STRINGZPAD:
 			bytes = (guint8 *)fvalue_get(&fi->value);
-			label_fill(label_str, 0, hfinfo, hfinfo_format_text(hfinfo, bytes));
+			tmp = hfinfo_format_text(hfinfo, bytes);
+			label_fill(label_str, 0, hfinfo, tmp);
+			wmem_free(NULL, tmp);
 			break;
 
 		case FT_IEEE_11073_SFLOAT:

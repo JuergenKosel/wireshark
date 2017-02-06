@@ -48,7 +48,6 @@
 #include <log.h>
 
 #include <epan/prefs.h>
-#include <epan/prefs-int.h>
 
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
@@ -589,6 +588,16 @@ void extcap_cleanup(void)
     if (extcap_prefs_dynamic_vals)
     {
         g_hash_table_destroy(extcap_prefs_dynamic_vals);
+    }
+
+    if (ifaces)
+    {
+        g_hash_table_destroy(ifaces);
+    }
+
+    if (tools)
+    {
+        g_hash_table_destroy(tools);
     }
 }
 

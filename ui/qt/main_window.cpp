@@ -542,6 +542,10 @@ MainWindow::MainWindow(QWidget *parent) :
             this, SLOT(captureFileRetapStarted()));
     connect(&capture_file_, SIGNAL(captureFileRetapFinished()),
             this, SLOT(captureFileRetapFinished()));
+    connect(&capture_file_, SIGNAL(captureFileMergeStarted()),
+            this, SLOT(captureFileMergeStarted()));
+    connect(&capture_file_, SIGNAL(captureFileMergeFinished()),
+            this, SLOT(captureFileMergeFinished()));
     connect(&capture_file_, SIGNAL(captureFileFlushTapsData()),
             this, SLOT(captureFileFlushTapsData()));
     connect(&capture_file_, SIGNAL(captureFileClosing()),
@@ -864,28 +868,75 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     wsApp->quit();
 }
 
+// XXX On windows the drag description is "Copy". It should be "Open" or
+// "Merge" as appropriate. It looks like we need access to IDataObject in
+// order to set DROPDESCRIPTION.
 void MainWindow::dragEnterEvent(QDragEnterEvent *event)
 {
-    bool accept = false;
+    if (!main_ui_->actionFileOpen->isEnabled()) {
+        // We could alternatively call setAcceptDrops(!capture_in_progress)
+        // in setMenusForCaptureInProgress but that wouldn't provide feedback.
+
+        main_ui_->statusBar->pushTemporaryStatus(tr("Unable to drop files during capture."));
+        event->setDropAction(Qt::IgnoreAction);
+        event->ignore();
+        return;
+    }
+
+    bool have_files = false;
     foreach (QUrl drag_url, event->mimeData()->urls()) {
         if (!drag_url.toLocalFile().isEmpty()) {
-            accept = true;
+            have_files = true;
             break;
         }
     }
-    if (accept) event->acceptProposedAction();
+
+    if (have_files) {
+        event->acceptProposedAction();
+    }
 }
 
 void MainWindow::dropEvent(QDropEvent *event)
 {
+    QList<QByteArray> local_files;
+
     foreach (QUrl drop_url, event->mimeData()->urls()) {
-        QString local_file = drop_url.toLocalFile();
-        if (!local_file.isEmpty()) {
-            event->acceptProposedAction();
-            openCaptureFile(local_file);
-            break;
+        QString drop_file = drop_url.toLocalFile();
+        if (!drop_file.isEmpty()) {
+            local_files << drop_file.toUtf8();
         }
     }
+
+    if (local_files.size() < 1) {
+        return;
+    }
+    event->acceptProposedAction();
+
+
+    if (local_files.size() == 1) {
+        openCaptureFile(local_files.at(0));
+        return;
+    }
+
+    char **in_filenames = (char **)g_malloc(sizeof(char*) * local_files.size());
+    char *tmpname = NULL;
+
+    for (int i = 0; i < local_files.size(); i++) {
+        in_filenames[i] = (char *) local_files.at(i).constData();
+    }
+
+    /* merge the files in chronological order */
+    if (cf_merge_files_to_tempfile(this, &tmpname, local_files.size(),
+                                   in_filenames, WTAP_FILE_TYPE_SUBTYPE_PCAPNG,
+                                   FALSE) == CF_OK) {
+        /* Merge succeeded; close the currently-open file and try
+           to open the merged capture file. */
+        openCaptureFile(tmpname, QString(), WTAP_TYPE_AUTO, TRUE);
+    }
+
+    g_free(tmpname);
+    g_free(in_filenames);
+
 }
 
 // Apply recent settings to the main window geometry.
@@ -1088,17 +1139,17 @@ void MainWindow::mergeCaptureFile()
             /* chronological order */
             in_filenames[0] = g_strdup(capture_file_.capFile()->filename);
             in_filenames[1] = qstring_strdup(file_name);
-            merge_status = cf_merge_files_to_tempfile(&tmpname, 2, in_filenames, file_type, FALSE);
+            merge_status = cf_merge_files_to_tempfile(this, &tmpname, 2, in_filenames, file_type, FALSE);
         } else if (merge_dlg.mergeType() <= 0) {
             /* prepend file */
             in_filenames[0] = qstring_strdup(file_name);
             in_filenames[1] = g_strdup(capture_file_.capFile()->filename);
-            merge_status = cf_merge_files_to_tempfile(&tmpname, 2, in_filenames, file_type, TRUE);
+            merge_status = cf_merge_files_to_tempfile(this, &tmpname, 2, in_filenames, file_type, TRUE);
         } else {
             /* append file */
             in_filenames[0] = g_strdup(capture_file_.capFile()->filename);
             in_filenames[1] = qstring_strdup(file_name);
-            merge_status = cf_merge_files_to_tempfile(&tmpname, 2, in_filenames, file_type, TRUE);
+            merge_status = cf_merge_files_to_tempfile(this, &tmpname, 2, in_filenames, file_type, TRUE);
         }
 
         g_free(in_filenames[0]);
@@ -1473,6 +1524,8 @@ void MainWindow::exportSelectedPackets() {
                any packets that no longer have comments. */
             if (discard_comments)
                 packet_list_queue_draw();
+            /* Add this filename to the list of recent files in the "Recent Files" submenu */
+            add_menu_recent_capture_file(file_name.toUtf8().constData());
             return;
 
         case CF_WRITE_ERROR:

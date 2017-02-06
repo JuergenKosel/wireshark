@@ -127,6 +127,9 @@ static GHashTable *depend_dissector_lists = NULL;
  * the final cleanup. */
 static GSList *postseq_cleanup_routines;
 
+static GPtrArray* post_dissectors = NULL;
+static guint num_of_postdissectors = 0;
+
 static void
 destroy_depend_dissector_list(void *data)
 {
@@ -245,6 +248,8 @@ packet_cleanup(void)
 	g_hash_table_destroy(heuristic_short_names);
 	g_slist_foreach(shutdown_routines, &call_routine, NULL);
 	g_slist_free(shutdown_routines);
+	if (post_dissectors)
+		g_ptr_array_free(post_dissectors, TRUE);
 }
 
 /*
@@ -396,6 +401,23 @@ get_data_source_tvb(const struct data_source *src)
 {
 	return src->tvb;
 }
+
+/*
+ * Find and return the tvb associated with the given data source name
+ */
+tvbuff_t *
+get_data_source_tvb_by_name(packet_info *pinfo, const char *name)
+{
+	GSList *source;
+	for (source = pinfo->data_src; source; source = source->next) {
+		struct data_source *this_source = (struct data_source *)source;
+		if (this_source->name && strcmp(this_source->name, name) == 0) {
+			return this_source->tvb;
+		}
+	}
+	return NULL;
+}
+
 
 /*
  * Free up a frame's list of data sources.
@@ -3231,9 +3253,6 @@ dissector_dump_dissector_tables(void)
 	g_list_foreach(list, dissector_dump_dissector_tables_display, NULL);
 	g_list_free(list);
 }
-
-static GPtrArray* post_dissectors = NULL;
-static guint num_of_postdissectors = 0;
 
 void
 register_postdissector(dissector_handle_t handle)

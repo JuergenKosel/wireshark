@@ -59,6 +59,11 @@
 #include "stat_tap_ui.h"
 #include "follow.h"
 #include "disabled_protos.h"
+#include "decode_as.h"
+#include "dissector_filters.h"
+#include "conversation_table.h"
+#include "reassemble.h"
+#include "srt_table.h"
 
 #ifdef HAVE_LUA
 #include <lua.h>
@@ -167,6 +172,7 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 		expert_init();
 		packet_init();
 		capture_dissector_init();
+		reassembly_tables_init();
 		proto_init(register_all_protocols_func, register_all_handoffs_func,
 		    cb, client_data);
 		packet_cache_proto_handles();
@@ -207,6 +213,11 @@ epan_cleanup(void)
 	dfilter_cleanup();
 	proto_cleanup();
 	prefs_cleanup();
+	decode_clear_all();
+	conversation_table_cleanup();
+	conversation_filters_cleanup();
+	reassembly_table_cleanup();
+	tap_cleanup();
 	packet_cleanup();
 	expert_cleanup();
 	capture_dissector_cleanup();
@@ -215,6 +226,7 @@ epan_cleanup(void)
 	stat_tap_table_cleanup();
 	follow_cleanup();
 	disabled_protos_cleanup();
+	cleanup_srt_table();
 #ifdef HAVE_LUA
 	wslua_cleanup();
 #endif
