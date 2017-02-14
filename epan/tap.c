@@ -177,6 +177,13 @@ register_all_plugin_tap_listeners(void)
 {
 	g_slist_foreach(tap_plugins, register_tap_plugin_listener, NULL);
 }
+
+static void
+tap_plugin_destroy(gpointer p)
+{
+	g_free(p);
+}
+
 #endif /* HAVE_PLUGINS */
 
 /* **********************************************************************
@@ -763,6 +770,10 @@ void tap_cleanup(void)
 		g_free((char*)elem_dl->name);
 		g_free((gpointer)elem_dl);
 	}
+
+#ifdef HAVE_PLUGINS
+	g_slist_free_full(tap_plugins, tap_plugin_destroy);
+#endif
 }
 
 /*

@@ -193,11 +193,9 @@
 #include <stdio.h>
 #include <glib.h>
 
-#ifdef HAVE_LIBGCRYPT
 #include <wsutil/wsgcrypt.h>
-#if (defined GCRYPT_VERSION_NUMBER) && (GCRYPT_VERSION_NUMBER  >= 0x010600)
+#if GCRYPT_VERSION_NUMBER >= 0x010600 /* 1.6.0 */
 #define LIBGCRYPT_OK
-#endif
 #endif
 
 #include <epan/packet.h>
@@ -12431,6 +12429,36 @@ static void dof_cleanup_routine(void)
     dof_trp_cleanup();
 }
 
+static void
+dof_shutdown_routine(void)
+{
+    guint i;
+
+    for (i = 0; i < global_security.identity_data_count; i++) {
+        g_free(global_security.identity_data[i].identity);
+        g_free(global_security.identity_data[i].domain);
+        g_free(global_security.identity_data[i].secret);
+    }
+    g_free(global_security.identity_data);
+
+    for (i = 0; i < global_security.group_data_count; i++) {
+        g_free(global_security.group_data[i].domain);
+        g_free(global_security.group_data[i].identity);
+        g_free(global_security.group_data[i].kek);
+    }
+
+    if (addr_port_to_id)
+        g_hash_table_destroy(addr_port_to_id);
+    if (dpp_opid_to_packet_data)
+        g_hash_table_destroy(dpp_opid_to_packet_data);
+    if (node_key_to_sid_id)
+        g_hash_table_destroy(node_key_to_sid_id);
+    if (sid_buffer_to_sid_id)
+        g_hash_table_destroy(sid_buffer_to_sid_id);
+    if (sid_id_to_sid_buffer)
+        g_hash_table_destroy(sid_id_to_sid_buffer);
+}
+
 /**
  * This is the first entry point into the dissector, called on program launch.
  */
@@ -12451,6 +12479,7 @@ void proto_register_dof(void)
 
     register_init_routine(&dof_reset_routine);
     register_cleanup_routine(&dof_cleanup_routine);
+    register_shutdown_routine(&dof_shutdown_routine);
 }
 
 /**

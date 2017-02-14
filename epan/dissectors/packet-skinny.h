@@ -40,17 +40,32 @@
 /* Container for tapping relevant data */
 typedef struct _skinny_info_t
 {
-	guint32 messId;
-	guint32 maxProtocolVersion;
-	guint32 lineId;
-	guint32 callId;
-	guint32 passThruId;
-	const gchar *messageName;
-	guint32 callState;
-	gchar *callingParty;
-	gchar *calledParty;
-	gboolean hasCallInfo;
-	guint openreceiveStatus;
-	guint startmediatransmisionStatus;
+  guint32       messId;
+  guint32       maxProtocolVersion;
+  gint32        lineId;
+  guint32       callId;
+  guint32       passThruId;
+  const gchar * messageName;
+  guint32       callState;
+  gboolean      hasCallInfo;
+  gchar       * callingParty;
+  gchar       * calledParty;
+  gint32        mediaReceptionStatus;
+  gint32        mediaTransmissionStatus;
+  gint32        multimediaReceptionStatus;
+  gint32        multimediaTransmissionStatus;
+  gint32        multicastReceptionStatus;
 } skinny_info_t;
 
+/*
+ * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ *
+ * Local variables:
+ * c-basic-offset: 2
+ * tab-width: 8
+ * indent-tabs-mode: nil
+ * End:
+ *
+ * vi: set shiftwidth=2 tabstop=8 expandtab:
+ * :indentSize=2:tabSize=8:noTabs=true:
+ */

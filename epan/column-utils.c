@@ -98,6 +98,9 @@ col_cleanup(column_info *cinfo)
   int i;
   col_item_t* col_item;
 
+  if (!cinfo)
+    return;
+
   for (i = 0; i < cinfo->num_cols; i++) {
     col_item = &cinfo->columns[i];
     g_free(col_item->fmt_matx);
@@ -122,7 +125,8 @@ col_cleanup(column_info *cinfo)
    */
   g_free((gchar **)cinfo->col_expr.col_expr);
   g_free(cinfo->col_expr.col_expr_val);
-  g_regex_unref(cinfo->prime_regex);
+  if (cinfo->prime_regex)
+    g_regex_unref(cinfo->prime_regex);
 }
 
 /* Initialize the data structures for constructing column data. */

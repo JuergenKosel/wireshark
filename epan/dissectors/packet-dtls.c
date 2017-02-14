@@ -168,9 +168,7 @@ static FILE               *dtls_keylog_file          = NULL;
 static uat_t *dtlsdecrypt_uat      = NULL;
 static const gchar *dtls_keys_list = NULL;
 static ssl_common_options_t dtls_options = { NULL, NULL};
-#ifdef HAVE_LIBGCRYPT
 static const gchar *dtls_debug_file_name = NULL;
-#endif
 
 static heur_dissector_list_t heur_subdissector_list;
 
@@ -275,7 +273,7 @@ dtls_parse_uat(void)
   dissector_add_for_decode_as("udp.port", dtls_handle);
 }
 
-#if defined(HAVE_LIBGCRYPT) && defined(HAVE_LIBGNUTLS)
+#if defined(HAVE_LIBGNUTLS)
 static void
 dtls_reset_uat(void)
 {
@@ -1279,8 +1277,8 @@ dissect_dtls_handshake(tvbuff_t *tvb, packet_info *pinfo,
           case SSL_HND_NEWSESSION_TICKET:
             /* no need to load keylog file here as it only links a previous
              * master key with this Session Ticket */
-            ssl_dissect_hnd_new_ses_ticket(&dissect_dtls_hf, sub_tvb,
-                                           ssl_hand_tree, 0, ssl,
+            ssl_dissect_hnd_new_ses_ticket(&dissect_dtls_hf, sub_tvb, pinfo,
+                                           ssl_hand_tree, 0, length, session, ssl,
                                            dtls_master_key_map.tickets);
             break;
 
@@ -1290,7 +1288,7 @@ dissect_dtls_handshake(tvbuff_t *tvb, packet_info *pinfo,
             break;
 
           case SSL_HND_CERTIFICATE:
-            ssl_dissect_hnd_cert(&dissect_dtls_hf, sub_tvb, ssl_hand_tree, 0,
+            ssl_dissect_hnd_cert(&dissect_dtls_hf, sub_tvb, ssl_hand_tree, 0, length,
                 pinfo, session, ssl, dtls_key_hash, is_from_server);
             break;
 
@@ -1299,7 +1297,7 @@ dissect_dtls_handshake(tvbuff_t *tvb, packet_info *pinfo,
             break;
 
           case SSL_HND_CERT_REQUEST:
-            ssl_dissect_hnd_cert_req(&dissect_dtls_hf, sub_tvb, ssl_hand_tree, 0, pinfo, session);
+            ssl_dissect_hnd_cert_req(&dissect_dtls_hf, sub_tvb, pinfo, ssl_hand_tree, 0, length, session);
             break;
 
           case SSL_HND_SVR_HELLO_DONE:
@@ -1328,12 +1326,13 @@ dissect_dtls_handshake(tvbuff_t *tvb, packet_info *pinfo,
 
           case SSL_HND_FINISHED:
             ssl_dissect_hnd_finished(&dissect_dtls_hf, sub_tvb, ssl_hand_tree,
-                                     0, session, NULL);
+                                     0, length, session, NULL);
             break;
 
           case SSL_HND_CERT_URL:
           case SSL_HND_CERT_STATUS:
           case SSL_HND_SUPPLEMENTAL_DATA:
+          case SSL_HND_KEY_UPDATE:
           case SSL_HND_ENCRYPTED_EXTS:
           case SSL_HND_ENCRYPTED_EXTENSIONS: /* TLS 1.3 */
             /* TODO: does this need further dissection? */
@@ -1559,7 +1558,7 @@ looks_like_dtls(tvbuff_t *tvb, guint32 offset)
 
 /* UAT */
 
-#if defined(HAVE_LIBGNUTLS) && defined(HAVE_LIBGCRYPT)
+#if defined(HAVE_LIBGNUTLS)
 static void
 dtlsdecrypt_free_cb(void* r)
 {
@@ -1581,7 +1580,7 @@ dtlsdecrypt_update_cb(void* r _U_, const char** err _U_)
 }
 #endif
 
-#if defined(HAVE_LIBGNUTLS) && defined(HAVE_LIBGCRYPT)
+#if defined(HAVE_LIBGNUTLS)
 static void *
 dtlsdecrypt_copy_cb(void* dest, const void* orig, size_t len _U_)
 {
@@ -1890,7 +1889,6 @@ proto_register_dtls(void)
   expert_dtls = expert_register_protocol(proto_dtls);
   expert_register_field_array(expert_dtls, ei, array_length(ei));
 
-#ifdef HAVE_LIBGCRYPT
   {
     module_t *dtls_module = prefs_register_protocol(proto_dtls, proto_reg_handoff_dtls);
 
@@ -1936,7 +1934,6 @@ proto_register_dtls(void)
                                      &dtls_keys_list);
     ssl_common_register_options(dtls_module, &dtls_options);
   }
-#endif
 
   dtls_handle = register_dissector("dtls", dissect_dtls, proto_dtls);
 

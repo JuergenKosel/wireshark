@@ -279,6 +279,37 @@ struct CNatLanguageRestriction {
 
 #define PROP_LENGTH 255
 
+enum aggtype {
+	DBAGGTTYPE_BYNONE = 0x0,
+	DBAGGTTYPE_SUM,
+	DBAGGTTYPE_MAX,
+	DBAGGTTYPE_MIN,
+	DBAGGTTYPE_AVG,
+	DBAGGTTYPE_COUNT,
+	DBAGGTTYPE_CHILDCOUNT,
+	DBAGGTTYPE_BYFREQ,
+	DBAGGTTYPE_FIRST,
+	DBAGGTTYPE_DATERANGE,
+	DBAGGTTYPE_REPRESENTATIVEOF,
+	DBAGGTTYPE_EDITDISTANCE,
+};
+
+static const value_string DBAGGTTYPE[] = {
+	{DBAGGTTYPE_BYNONE, "DBAGGTTYPE_BYNONE"},
+	{DBAGGTTYPE_SUM, "DBAGGTTYPE_SUM"},
+	{DBAGGTTYPE_MAX, "DBAGGTTYPE_MAX"},
+	{DBAGGTTYPE_MIN, "DBAGGTTYPE_MIN"},
+	{DBAGGTTYPE_AVG, "DBAGGTTYPE_AVG"},
+	{DBAGGTTYPE_COUNT, "DBAGGTTYPE_COUNT"},
+	{DBAGGTTYPE_CHILDCOUNT, "DBAGGTTYPE_CHILDCOUNT"},
+	{DBAGGTTYPE_BYFREQ, "DBAGGTTYPE_BYFREQ"},
+	{DBAGGTTYPE_FIRST, "DBAGGTTYPE_FIRST"},
+	{DBAGGTTYPE_DATERANGE, "DBAGGTTYPE_DATERANGE"},
+	{DBAGGTTYPE_REPRESENTATIVEOF, "DBAGGTTYPE_REPRESENTATIVEOF"},
+	{DBAGGTTYPE_EDITDISTANCE, "DBAGGTTYPE_EDITDISTANCE"},
+	{0, NULL}
+};
+
 /* 2.2.1.44 */
 struct CTableColumn {
 	/*struct CFullPropSpec propspec;*/
@@ -295,7 +326,7 @@ struct CTableColumn {
 	char name[PROP_LENGTH];
 };
 /* minimum size in bytes on the wire CTableColumn can be */
-#define MIN_CTABLECOL_SIZE 8
+#define MIN_CTABLECOL_SIZE 32
 
 /* 2.2.3.10 */
 
@@ -430,6 +461,8 @@ static int hf_mswsp_caggregspec_type = -1;
 static int hf_mswsp_caggregspec_ccalias = -1;
 static int hf_mswsp_caggregspec_alias = -1;
 static int hf_mswsp_caggregspec_idcolumn = -1;
+static int hf_mswsp_caggregspec_ulmaxnumtoreturn = -1;
+static int hf_mswsp_caggregspec_idrepresentative = -1;
 static int hf_mswsp_caggregset_count = -1;
 static int hf_mswsp_caggregsortkey_order = -1;
 static int hf_mswsp_csortaggregset_count = -1;
@@ -471,7 +504,6 @@ static int hf_mswsp_msg_cpmcreatequery_size = -1;
 static int hf_mswsp_msg_cpmcreatequery_ccolumnsetpresent = -1;
 static int hf_mswsp_msg_cpmcreatequery_crestrictionpresent = -1;
 static int hf_mswsp_msg_cpmcreatequery_csortpresent = -1;
-static int hf_mswsp_msg_cpmcreatequery_csortset_xxx = -1;
 static int hf_mswsp_msg_cpmcreatequery_ccategpresent = -1;
 static int hf_mswsp_msg_cpmcreatequery_ccateg_count = -1;
 static int hf_mswsp_msg_cpmcreatequery_trueseq = -1;
@@ -3213,21 +3245,7 @@ static int parse_CSortSet(tvbuff_t *tvb, int offset, proto_tree *parent_tree, pr
 
 static int parse_CTableColumn(tvbuff_t *tvb, int offset, proto_tree *parent_tree, proto_tree *pad_tree, struct CTableColumn *col, const char *fmt, ...)
 {
-	static const value_string DBAGGTTYPE[] = {
-		{0x0, "DBAGGTTYPE_BYNONE"},
-		{0x1, "DBAGGTTYPE_SUM"},
-		{0x2, "DBAGGTTYPE_MAX"},
-		{0x3, "DBAGGTTYPE_MIN"},
-		{0x4, "DBAGGTTYPE_AVG"},
-		{0x5, "DBAGGTTYPE_COUNT"},
-		{0x6, "DBAGGTTYPE_CHILDCOUNT"},
-		{0x7, "DBAGGTTYPE_BYFREQ"},
-		{0x8, "DBAGGTTYPE_FIRST"},
-		{0x9, "DBAGGTTYPE_DATERANGE"},
-		{0xA, "DBAGGTTYPE_REPRESENTATIVEOF"},
-		{0xB, "DBAGGTTYPE_EDITDISTANCE"},
-		{0, NULL}
-	};
+
 
 	proto_item *item;
 	proto_tree *tree;
@@ -3293,7 +3311,7 @@ static int parse_CTableColumn(tvbuff_t *tvb, int offset, proto_tree *parent_tree
 
 	used = tvb_get_guint8(tvb, offset);
 	col->statusused = used;
-	proto_tree_add_uint(tree, hf_mswsp_ctablecolumn_statused, tvb, offset, 2, used);
+	proto_tree_add_uint(tree, hf_mswsp_ctablecolumn_statused, tvb, offset, 1, used);
 	offset += 1;
 
 	if (used) {
@@ -3305,12 +3323,12 @@ static int parse_CTableColumn(tvbuff_t *tvb, int offset, proto_tree *parent_tree
 	}
 
 	used = tvb_get_guint8(tvb, offset);
-	proto_tree_add_uint(tree, hf_mswsp_ctablecolumn_lenused, tvb, offset, 2, used);
+	proto_tree_add_uint(tree, hf_mswsp_ctablecolumn_lenused, tvb, offset, 1, used);
 	col->lengthused = used;
 	offset += 1;
 
 	if (used) {
-		offset = parse_padding(tvb, offset, 2, pad_tree, "padding_Lenght");
+		offset = parse_padding(tvb, offset, 2, pad_tree, "padding_Length");
 
 		col->lengthoffset = tvb_get_letohs(tvb, offset);
 		proto_tree_add_uint(tree, hf_mswsp_ctablecolumn_lenoffset, tvb, offset, 2, col->lengthoffset);
@@ -4706,8 +4724,7 @@ static int parse_CAggregSpec(tvbuff_t *tvb, int offset, proto_tree *parent_tree,
 	proto_item *item;
 	proto_tree *tree;
 	va_list ap;
-	guint8 type;
-	guint32 ccAlias, idColumn;
+	guint32 type, ccAlias, idColumn;
 	const char *txt;
 
 	va_start(ap, fmt);
@@ -4715,23 +4732,32 @@ static int parse_CAggregSpec(tvbuff_t *tvb, int offset, proto_tree *parent_tree,
 	va_end(ap);
 	tree = proto_tree_add_subtree(parent_tree, tvb, offset, 0, ett_CAggregSpec, &item, txt);
 
-	type = tvb_get_guint8(tvb, offset);
-	proto_tree_add_uint(tree, hf_mswsp_caggregspec_type, tvb, offset, 1, type);
-	proto_item_append_text(item, "type: %u", type);
+	proto_tree_add_item_ret_uint(tree, hf_mswsp_caggregspec_type, tvb, offset, 1, ENC_LITTLE_ENDIAN, &type);
 	offset += 1;
 
 	offset = parse_padding(tvb, offset, 4, pad_tree, "padding");
 
-	ccAlias = tvb_get_letohl(tvb, offset);
-	proto_tree_add_uint(tree, hf_mswsp_caggregspec_ccalias, tvb, offset, 1, ccAlias);
+	proto_tree_add_item_ret_uint(tree, hf_mswsp_caggregspec_ccalias, tvb, offset, 4, ENC_LITTLE_ENDIAN, &ccAlias);
 	offset += 4;
 
 	proto_tree_add_item(tree, hf_mswsp_caggregspec_alias, tvb, offset, 2*ccAlias, ENC_LITTLE_ENDIAN | ENC_UCS_2);
 	offset += 2*ccAlias;
 
-	idColumn = tvb_get_letohl(tvb, offset);
-	proto_tree_add_uint(tree, hf_mswsp_caggregspec_idcolumn, tvb, offset, 1, idColumn);
+	proto_tree_add_item_ret_uint(tree, hf_mswsp_caggregspec_idcolumn, tvb, offset, 4, ENC_LITTLE_ENDIAN, &idColumn);
 	offset += 4;
+	if (type == DBAGGTTYPE_REPRESENTATIVEOF
+	    || type == DBAGGTTYPE_BYFREQ
+	    || type == DBAGGTTYPE_FIRST) {
+		proto_tree_add_uint(tree,
+				    hf_mswsp_caggregspec_ulmaxnumtoreturn,
+				    tvb, offset, 4, idColumn);
+		offset += 4;
+		if (type == DBAGGTTYPE_REPRESENTATIVEOF) {
+			proto_tree_add_uint(tree,
+				    hf_mswsp_caggregspec_idrepresentative,
+				    tvb, offset, 4, idColumn);
+		}
+	}
 	/* Optional ???
 	   ulMaxNumToReturn, idRepresentative;
 	*/
@@ -4874,7 +4900,7 @@ static int parse_CInGroupSortAggregSet(tvbuff_t *tvb, int offset, proto_tree *pa
 		offset = parse_CBaseStorageVariant(tvb, offset, tree, pad_tree, &id, "inGroupId");
 	}
 
-	offset = parse_CSortAggregSet(tvb, offset, tree, pad_tree, "SortAggregSet");
+	offset = parse_CSortSet(tvb, offset, tree, pad_tree, "SortSet");
 
 	proto_item_set_end(item, tvb, offset);
 	return offset;
@@ -5283,17 +5309,19 @@ static int parse_VariantColVector(tvbuff_t *tvb, int offset, proto_tree *tree, g
 	sub_tree = proto_tree_add_subtree(tree, tvb, buf_offset, 0, ett_CRowVariant_Vector, NULL, "values");
 	for (i = 0; i < count; i++) {
 		guint64 item_address = 0;
+		gint address_of_address = 0;
 		int size;
 		union vt_single value;
 		int len;
 		if (is_64bit) {
 			size = 8;
-			item_address = tvb_get_letoh64(tvb, buf_offset + (i * size));
-			proto_tree_add_uint64_format(sub_tree, hf_mswsp_rowvariant_item_address64, tvb, buf_offset, size, item_address, "address[%d] 0x%" G_GINT64_MODIFIER "x", i, item_address);
+			address_of_address = buf_offset + (i * size);
+			item_address = tvb_get_letoh64(tvb, address_of_address);
+			proto_tree_add_uint64_format(sub_tree, hf_mswsp_rowvariant_item_address64, tvb, address_of_address, size, item_address, "address[%d] 0x%" G_GINT64_MODIFIER "x", i, item_address);
 		} else {
 			size = 4;
 			item_address = tvb_get_letohl(tvb, buf_offset + (i * size));
-			proto_tree_add_uint_format(sub_tree, hf_mswsp_rowvariant_item_address32, tvb, buf_offset, size, (guint32)item_address, "address[%d] 0x%x", i, (guint32)item_address);
+			proto_tree_add_uint_format(sub_tree, hf_mswsp_rowvariant_item_address32, tvb, address_of_address, size, (guint32)item_address, "address[%d] 0x%x", i, (guint32)item_address);
 		}
 		strbuf = wmem_strbuf_new(wmem_packet_scope(), "");
 		if (vt_list_type->size == -1) {
@@ -5609,11 +5637,8 @@ static int dissect_CPMCreateQuery(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
 		if (CSortSetPresent) {
 			offset = parse_padding(tvb, offset, 4, tree, "paddingCSortSetPresent");
+			offset = parse_CInGroupSortAggregSets(tvb, offset, tree, pad_tree, "GroupSortAggregSets");
 
-			proto_tree_add_item(tree, hf_mswsp_msg_cpmcreatequery_csortset_xxx, tvb, offset, 8, ENC_LITTLE_ENDIAN);
-			offset += 8;
-
-			offset = parse_CSortSet(tvb, offset, tree, pad_tree, "SortSet");
 		}
 
 		CCategorizationSetPresent = tvb_get_guint8(tvb, offset);
@@ -7001,14 +7026,14 @@ proto_register_mswsp(void)
 			&hf_mswsp_caggregspec_type,
 			{
 				"type", "mswsp.caggregspec.type",
-				FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+				FT_UINT8, BASE_DEC, VALS(DBAGGTTYPE), 0, NULL, HFILL
 			}
 		},
 		{
 			&hf_mswsp_caggregspec_ccalias,
 			{
 				"ccAlias", "mswsp.caggregspec.ccalias",
-				FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+				FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL
 			}
 		},
 		{
@@ -7022,7 +7047,23 @@ proto_register_mswsp(void)
 			&hf_mswsp_caggregspec_idcolumn,
 			{
 				"idColumn", "mswsp.caggregspec.idcolumn",
-				FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+				FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL
+			}
+		},
+		{
+			&hf_mswsp_caggregspec_ulmaxnumtoreturn,
+			{
+				"ulMaxNumToReturn",
+				"mswsp.caggregspec.ulmaxnumtoreturn",
+				FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL
+			}
+		},
+		{
+			&hf_mswsp_caggregspec_idrepresentative,
+			{
+				"idRepresentative",
+				"mswsp.caggregspec.idrepresentative",
+				FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL
 			}
 		},
 		{
@@ -7310,13 +7351,6 @@ proto_register_mswsp(void)
 			{
 				"CSortPresent", "mswsp.cpmcreatequery.csortpresent",
 				FT_BOOLEAN, 8, NULL, 0x01, NULL, HFILL
-			}
-		},
-		{
-			&hf_mswsp_msg_cpmcreatequery_csortset_xxx,
-			{
-				"XXX - (undocumented bytes)", "mswsp.cpmcreatequery.csortset.xxx",
-				FT_UINT64, BASE_HEX, NULL, 0, NULL, HFILL
 			}
 		},
 		{

@@ -64,6 +64,7 @@
 #include "conversation_table.h"
 #include "reassemble.h"
 #include "srt_table.h"
+#include "stats_tree.h"
 
 #ifdef HAVE_LUA
 #include <lua.h>
@@ -89,7 +90,7 @@ epan_get_version(void) {
 	return VERSION;
 }
 
-#if defined(HAVE_LIBGCRYPT) && defined(_WIN32)
+#if defined(_WIN32)
 // Libgcrypt prints all log messages to stderr by default. This is noisier
 // than we would like on Windows. In particular slow_gatherer tends to print
 //     "NOTE: you should run 'diskperf -y' to enable the disk statistics"
@@ -118,7 +119,7 @@ quiet_gcrypt_logger (void *dummy _U_, int level, const char *format, va_list arg
 	}
 	g_logv(NULL, log_level, format, args);
 }
-#endif // HAVE_LIBGCRYPT && _WIN32
+#endif // _WIN32
 
 /*
  * Register all the plugin types that are part of libwireshark, namely
@@ -154,15 +155,14 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 	addr_resolv_init();
 
 	except_init();
-#ifdef HAVE_LIBGCRYPT
 	/* initialize libgcrypt (beware, it won't be thread-safe) */
+
 	gcry_check_version(NULL);
-#if defined(HAVE_LIBGCRYPT) && defined(_WIN32)
+#if defined(_WIN32)
 	gcry_set_log_handler (quiet_gcrypt_logger, NULL);
 #endif
 	gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
 	gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
-#endif
 #ifdef HAVE_LIBGNUTLS
 	gnutls_global_init();
 #endif
@@ -171,6 +171,7 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 		prefs_init();
 		expert_init();
 		packet_init();
+		conversation_init();
 		capture_dissector_init();
 		reassembly_tables_init();
 		proto_init(register_all_protocols_func, register_all_handoffs_func,
@@ -222,11 +223,8 @@ epan_cleanup(void)
 	expert_cleanup();
 	capture_dissector_cleanup();
 	export_pdu_cleanup();
-	export_object_cleanup();
-	stat_tap_table_cleanup();
-	follow_cleanup();
 	disabled_protos_cleanup();
-	cleanup_srt_table();
+	stats_tree_cleanup();
 #ifdef HAVE_LUA
 	wslua_cleanup();
 #endif
@@ -273,6 +271,15 @@ epan_get_interface_name(const epan_t *session, guint32 interface_id)
 	return NULL;
 }
 
+const char *
+epan_get_interface_description(const epan_t *session, guint32 interface_id)
+{
+	if (session->get_interface_description)
+		return session->get_interface_description(session->data, interface_id);
+
+	return NULL;
+}
+
 const nstime_t *
 epan_get_frame_ts(const epan_t *session, guint32 frame_num)
 {
@@ -301,13 +308,7 @@ epan_free(epan_t *session)
 void
 epan_conversation_init(void)
 {
-	conversation_init();
-}
-
-void
-epan_conversation_cleanup(void)
-{
-	conversation_cleanup();
+	conversation_epan_reset();
 }
 
 void
@@ -594,11 +595,7 @@ epan_get_compiled_version_info(GString *str)
 
 	/* Gcrypt */
 	g_string_append(str, ", ");
-#ifdef HAVE_LIBGCRYPT
 	g_string_append(str, "with Gcrypt " GCRYPT_VERSION);
-#else
-	g_string_append(str, "without Gcrypt");
-#endif /* HAVE_LIBGCRYPT */
 
 	/* Kerberos */
 	/* XXX - I don't see how to get the version number, at least for KfW */
@@ -652,11 +649,7 @@ epan_get_compiled_version_info(GString *str)
  * Get runtime information for libraries used by libwireshark.
  */
 void
-epan_get_runtime_version_info(GString *str
-#if !defined(HAVE_LIBGNUTLS) && !defined(HAVE_LIBGCRYPT)
-_U_
-#endif
-)
+epan_get_runtime_version_info(GString *str)
 {
 	/* GnuTLS */
 #ifdef HAVE_LIBGNUTLS
@@ -664,9 +657,7 @@ _U_
 #endif /* HAVE_LIBGNUTLS */
 
 	/* Gcrypt */
-#ifdef HAVE_LIBGCRYPT
 	g_string_append_printf(str, ", with Gcrypt %s", gcry_check_version(NULL));
-#endif /* HAVE_LIBGCRYPT */
 }
 
 /*

@@ -405,6 +405,10 @@ prefs_cleanup(void)
 
     /* Clean the uats */
     uat_cleanup();
+
+    g_free(prefs.saved_at_version);
+    g_free(gpf_path);
+    gpf_path = NULL;
 }
 
 /*
@@ -1206,6 +1210,10 @@ gboolean prefs_get_bool_value(pref_t *pref, pref_source_t source)
 
 /*
  * Register a preference with an enumerated value.
+ */
+/*
+ * XXX Should we get rid of the radio_buttons parameter and make that
+ * behavior automatic depending on the number of items?
  */
 void
 prefs_register_enum_preference(module_t *module, const char *name,

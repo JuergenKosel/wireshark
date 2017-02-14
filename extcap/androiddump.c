@@ -2785,6 +2785,9 @@ int main(int argc, char **argv) {
 end:
     /* clean up stuff */
     extcap_base_cleanup(&extcap_conf);
+#ifndef ANDROIDDUMP_USE_LIBPCAP
+    wtap_cleanup();
+#endif
 
     return ret;
 }

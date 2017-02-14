@@ -90,6 +90,35 @@ add_filter_entry(GList *fl, const char *filt_name, const char *filt_expr)
     return g_list_append(fl, filt);
 }
 
+static void
+free_filter_entry(gpointer data)
+{
+    filter_def *filt = (filter_def*)data;
+    g_free(filt->name);
+    g_free(filt->strval);
+    g_free(filt);
+}
+
+void free_filter_lists(void)
+{
+  if (capture_filters) {
+    g_list_free_full(capture_filters, free_filter_entry);
+    capture_filters = NULL;
+  }
+  if (display_filters) {
+    g_list_free_full(display_filters, free_filter_entry);
+    display_filters = NULL;
+  }
+  if (capture_edited_filters) {
+    g_list_free_full(capture_edited_filters, free_filter_entry);
+    capture_edited_filters = NULL;
+  }
+  if (display_edited_filters) {
+    g_list_free_full(display_edited_filters, free_filter_entry);
+    display_edited_filters = NULL;
+  }
+}
+
 static GList *
 remove_filter_entry(GList *fl, GList *fl_entry)
 {

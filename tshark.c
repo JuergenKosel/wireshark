@@ -2200,6 +2200,10 @@ clean_exit:
 #ifdef HAVE_LIBPCAP
   capture_opts_cleanup(&global_capture_opts);
 #endif
+  col_cleanup(&cfile.cinfo);
+  free_filter_lists();
+  wtap_cleanup();
+  cf_close(&cfile);
   return exit_status;
 }
 
@@ -2345,6 +2349,7 @@ tshark_epan_new(capture_file *cf)
   epan->data = cf;
   epan->get_frame_ts = tshark_get_frame_ts;
   epan->get_interface_name = cap_file_get_interface_name;
+  epan->get_interface_description = cap_file_get_interface_description;
   epan->get_user_comment = NULL;
 
   return epan;
@@ -2839,9 +2844,11 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
 
   frame_data_init(&fdlocal, framenum, whdr, offset, cum_bytes);
 
-  /* If we're going to print packet information, or we're going to
-     run a read filter, or display filter, or we're going to process taps, set up to
-     do a dissection and do so. */
+  /* If we're going to run a read filter or a display filter, set up to
+     do a dissection and do so.  (This is the first pass of two passes
+     over the packets, so we will not be printing any information
+     from the dissection or running taps on the packet; if we're doing
+     any of that, we'll do it in the second pass.) */
   if (edt) {
     if (gbl_resolv_flags.mac_name || gbl_resolv_flags.network_name ||
         gbl_resolv_flags.transport_name)
@@ -2914,7 +2921,9 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt, frame_data *fd
 
   /* If we're going to print packet information, or we're going to
      run a read filter, or we're going to process taps, set up to
-     do a dissection and do so. */
+     do a dissection and do so.  (This is the second pass of two
+     passes over the packets; that's the pass where we print
+     packet information or run taps.) */
   if (edt) {
     if (gbl_resolv_flags.mac_name || gbl_resolv_flags.network_name ||
         gbl_resolv_flags.transport_name)
@@ -3550,7 +3559,9 @@ process_packet(capture_file *cf, epan_dissect_t *edt, gint64 offset, struct wtap
 
   /* If we're going to print packet information, or we're going to
      run a read filter, or we're going to process taps, set up to
-     do a dissection and do so. */
+     do a dissection and do so.  (This is the one and only pass
+     over the packets, so, if we'll be printing packet information
+     or running taps, we'll be doing it here.) */
   if (edt) {
     if (print_packet_info && (gbl_resolv_flags.mac_name || gbl_resolv_flags.network_name ||
         gbl_resolv_flags.transport_name))
@@ -4020,7 +4031,6 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
     case WRITE_EK:
       print_args.print_hex = print_hex;
       write_ek_proto_tree(output_fields, &print_args, protocolfilter, protocolfilter_flags, edt, stdout);
-      printf("\n");
       return !ferror(stdout);
     }
   }
@@ -4067,6 +4077,12 @@ write_finale(void)
     g_assert_not_reached();
     return FALSE;
   }
+}
+
+void
+cf_close(capture_file *cf)
+{
+  g_free(cf->filename);
 }
 
 cf_status_t
