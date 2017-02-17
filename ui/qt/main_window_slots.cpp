@@ -420,26 +420,41 @@ void MainWindow::applyRecentPaneGeometry()
     // Force a geometry recalculation
     QWidget *cur_w = main_ui_->mainStack->currentWidget();
     main_ui_->mainStack->setCurrentWidget(&master_split_);
-    QRect geom = master_split_.geometry();
+    QRect geom = main_ui_->mainStack->geometry();
     QList<int> master_sizes = master_split_.sizes();
     QList<int> extra_sizes = extra_split_.sizes();
     main_ui_->mainStack->setCurrentWidget(cur_w);
 
     int master_last_size = master_split_.orientation() == Qt::Vertical ? geom.height() : geom.width();
+    master_last_size -= master_split_.handleWidth() * (master_sizes.length() - 1);
+
     int extra_last_size = extra_split_.orientation() == Qt::Vertical ? geom.height() : geom.width();
+    extra_last_size -= extra_split_.handleWidth();
 
     if (recent.gui_geometry_main_upper_pane > 0) {
         master_sizes[0] = recent.gui_geometry_main_upper_pane + 1; // Add back mystery pixel
-        master_last_size -= recent.gui_geometry_main_upper_pane + master_split_.handleWidth();
+        master_last_size -= recent.gui_geometry_main_upper_pane;
+    } else {
+        master_sizes[0] = master_last_size / master_sizes.length();
+        master_last_size -= master_last_size / master_sizes.length();
     }
 
     if (recent.gui_geometry_main_lower_pane > 0) {
         if (master_sizes.length() > 2) {
             master_sizes[1] = recent.gui_geometry_main_lower_pane + 1; // Add back mystery pixel
-            master_last_size -= recent.gui_geometry_main_lower_pane + master_split_.handleWidth();
+            master_last_size -= recent.gui_geometry_main_lower_pane;
         } else if (extra_sizes.length() > 0) {
             extra_sizes[0] = recent.gui_geometry_main_lower_pane; // No mystery pixel
-            extra_last_size -= recent.gui_geometry_main_lower_pane + extra_split_.handleWidth();
+            extra_last_size -= recent.gui_geometry_main_lower_pane;
+            extra_sizes.last() = extra_last_size;
+        }
+    } else {
+        if (master_sizes.length() > 2) {
+            master_sizes[1] = master_last_size / 2;
+            master_last_size -= master_last_size / 2;
+        } else {
+            extra_sizes[0] = extra_last_size / 2;
+            extra_last_size -= extra_last_size / 2;
             extra_sizes.last() = extra_last_size;
         }
     }
@@ -472,6 +487,10 @@ void MainWindow::layoutToolbars()
 
 void MainWindow::updatePreferenceActions()
 {
+    main_ui_->actionViewPacketList->setEnabled(prefs_has_layout_pane_content(layout_pane_content_plist));
+    main_ui_->actionViewPacketDetails->setEnabled(prefs_has_layout_pane_content(layout_pane_content_pdetails));
+    main_ui_->actionViewPacketBytes->setEnabled(prefs_has_layout_pane_content(layout_pane_content_pbytes));
+
     main_ui_->actionViewNameResolutionPhysical->setChecked(gbl_resolv_flags.mac_name);
     main_ui_->actionViewNameResolutionNetwork->setChecked(gbl_resolv_flags.network_name);
     main_ui_->actionViewNameResolutionTransport->setChecked(gbl_resolv_flags.transport_name);
@@ -486,9 +505,9 @@ void MainWindow::updateRecentActions()
     main_ui_->actionViewFilterToolbar->setChecked(recent.filter_toolbar_show);
     main_ui_->actionViewWirelessToolbar->setChecked(recent.wireless_toolbar_show);
     main_ui_->actionViewStatusBar->setChecked(recent.statusbar_show);
-    main_ui_->actionViewPacketList->setChecked(recent.packet_list_show);
-    main_ui_->actionViewPacketDetails->setChecked(recent.tree_view_show);
-    main_ui_->actionViewPacketBytes->setChecked(recent.byte_view_show);
+    main_ui_->actionViewPacketList->setChecked(recent.packet_list_show && prefs_has_layout_pane_content(layout_pane_content_plist));
+    main_ui_->actionViewPacketDetails->setChecked(recent.tree_view_show && prefs_has_layout_pane_content(layout_pane_content_pdetails));
+    main_ui_->actionViewPacketBytes->setChecked(recent.byte_view_show && prefs_has_layout_pane_content(layout_pane_content_pbytes));
 
     foreach (QAction* tda, td_actions.keys()) {
         if (recent.gui_time_format == td_actions[tda]) {
@@ -2136,6 +2155,8 @@ void MainWindow::showPreferencesDialog(PreferencesDialog::PreferencesPane start_
 {
     PreferencesDialog pref_dialog(this);
 
+    saveWindowGeometry();  // Save in case the layout panes are rearranged
+
     pref_dialog.setPane(start_pane);
     pref_dialog.exec();
 
@@ -2147,6 +2168,8 @@ void MainWindow::showPreferencesDialog(PreferencesDialog::PreferencesPane start_
 void MainWindow::showPreferencesDialog(QString module_name)
 {
     PreferencesDialog pref_dialog(this);
+
+    saveWindowGeometry();  // Save in case the layout panes are rearranged
 
     pref_dialog.setPane(module_name);
     pref_dialog.exec();

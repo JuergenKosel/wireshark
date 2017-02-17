@@ -102,6 +102,7 @@
 #include "packet-ocsp.h"
 #include "packet-ssl.h"
 #include "packet-ssl-utils.h"
+#include "packet-ber.h"
 
 void proto_register_ssl(void);
 
@@ -558,7 +559,7 @@ static void dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
 /* handshake protocol dissector */
 static void dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
                                    proto_tree *tree, guint32 offset,
-                                   guint32 record_length,
+                                   guint32 record_length, gboolean maybe_encrypted,
                                    SslSession *session, gint is_from_server,
                                    SslDecryptSession *conv_data,
                                    const guint8 content_type, const guint16 version);
@@ -1546,7 +1547,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
     guint8          next_byte;
     proto_tree     *ti;
     proto_tree     *ssl_record_tree;
-    proto_item     *pi, *ct_pi;
+    proto_item     *length_pi, *ct_pi;
     guint           content_type_offset;
     guint32         available_bytes;
     tvbuff_t       *decrypted;
@@ -1679,11 +1680,8 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
     offset += 2;
 
     /* add the length */
-    pi = proto_tree_add_uint(ssl_record_tree, hf_ssl_record_length, tvb,
+    length_pi = proto_tree_add_uint(ssl_record_tree, hf_ssl_record_length, tvb,
                         offset, 2, record_length);
-    if (record_length > TLS_MAX_RECORD_LENGTH) {
-        expert_add_info(pinfo, pi, &dissect_ssl3_hf.ei.record_length_invalid);
-    }
     offset += 2;    /* move past length field itself */
 
     /*
@@ -1739,6 +1737,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
             PROTO_ITEM_SET_GENERATED(ti);
         }
     }
+    ssl_check_record_length(&dissect_ssl3_hf, pinfo, record_length, length_pi, version, decrypted);
 
     switch ((ContentType) content_type) {
     case SSL_ID_CHG_CIPHER_SPEC:
@@ -1774,12 +1773,12 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
         ssl_calculate_handshake_hash(ssl, tvb, offset, record_length);
         if (decrypted) {
             dissect_ssl3_handshake(decrypted, pinfo, ssl_record_tree, 0,
-                                   tvb_reported_length(decrypted), session,
+                                   tvb_reported_length(decrypted), FALSE, session,
                                    is_from_server, ssl, content_type, version);
         } else {
             dissect_ssl3_handshake(tvb, pinfo, ssl_record_tree, offset,
-                                   record_length, session, is_from_server, ssl,
-                                   content_type, version);
+                                   record_length, TRUE, session,
+                                   is_from_server, ssl, content_type, version);
         }
         break;
     case SSL_ID_APP_DATA:
@@ -1940,8 +1939,8 @@ dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
 static void
 dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
                        proto_tree *tree, guint32 offset,
-                       guint32 record_length, SslSession *session,
-                       gint is_from_server,
+                       guint32 record_length, gboolean maybe_encrypted,
+                       SslSession *session, gint is_from_server,
                        SslDecryptSession *ssl, const guint8 content_type,
                        const guint16 version)
 {
@@ -1965,15 +1964,24 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
      *         } body;
      *     } Handshake;
      */
-    proto_tree  *ssl_hand_tree;
+    proto_tree  *ssl_hand_tree = NULL;
     const gchar *msg_type_str;
     guint8       msg_type;
     guint32      length;
-    gboolean     first_iteration;
+    gboolean     first_iteration = TRUE;
     proto_item  *ti;
 
-    ssl_hand_tree   = NULL;
-    first_iteration = TRUE;
+    /*
+     * If this is not a decrypted buffer, then perhaps it is still in plaintext.
+     * Heuristics: if the buffer is too small, it is likely not encrypted.
+     * Otherwise assume that the Handshake does not contain two successive
+     * HelloRequest messages (type=0x00 length=0x000000, type=0x00). If this
+     * occurs, then we have possibly found the explicit nonce preceding the
+     * encrypted contents for GCM/CCM cipher suites as used in TLS 1.2.
+     */
+    if (maybe_encrypted) {
+        maybe_encrypted = tvb_bytes_exist(tvb, offset, 5) && tvb_get_ntoh40(tvb, offset) == 0;
+    }
 
     /* just as there can be multiple records per packet, there
      * can be multiple messages per record as long as they have
@@ -1995,7 +2003,7 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
          * situation where the first octet of the encrypted handshake
          * message is actually a known handshake message type.
          */
-        if (offset + length <= record_length)
+        if (!maybe_encrypted && offset + length <= record_length)
             msg_type_str = try_val_to_str(msg_type, ssl_31_handshake_type);
         else
             msg_type_str = NULL;
@@ -2111,7 +2119,7 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
                 /* no need to load keylog file here as it only links a previous
                  * master key with this Session Ticket */
                 ssl_dissect_hnd_new_ses_ticket(&dissect_ssl3_hf, tvb, pinfo,
-                        ssl_hand_tree, offset, offset + length, session, ssl,
+                        ssl_hand_tree, offset, offset + length, session, ssl, FALSE,
                         ssl_master_key_map.tickets);
                 break;
 
@@ -2123,21 +2131,21 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
             case SSL_HND_ENCRYPTED_EXTENSIONS:
                 /* XXX expert info if used with non-TLS 1.3? */
                 ssl_dissect_hnd_encrypted_extensions(&dissect_ssl3_hf, tvb, pinfo, ssl_hand_tree,
-                                                     offset, length, session, ssl, FALSE);
+                                                     offset, offset + length, session, ssl, FALSE);
 
                 break;
 
             case SSL_HND_CERTIFICATE:
                 ssl_dissect_hnd_cert(&dissect_ssl3_hf, tvb, ssl_hand_tree,
-                        offset, offset + length, pinfo, session, ssl, ssl_key_hash, is_from_server);
+                        offset, offset + length, pinfo, session, ssl, ssl_key_hash, is_from_server, FALSE);
                 break;
 
             case SSL_HND_SERVER_KEY_EXCHG:
-                ssl_dissect_hnd_srv_keyex(&dissect_ssl3_hf, tvb, ssl_hand_tree, offset, length, session);
+                ssl_dissect_hnd_srv_keyex(&dissect_ssl3_hf, tvb, pinfo, ssl_hand_tree, offset, offset + length, session);
                 break;
 
             case SSL_HND_CERT_REQUEST:
-                ssl_dissect_hnd_cert_req(&dissect_ssl3_hf, tvb, pinfo, ssl_hand_tree, offset, offset + length, session);
+                ssl_dissect_hnd_cert_req(&dissect_ssl3_hf, tvb, pinfo, ssl_hand_tree, offset, offset + length, session, FALSE);
                 break;
 
             case SSL_HND_SVR_HELLO_DONE:
@@ -2146,7 +2154,7 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
                 break;
 
             case SSL_HND_CERT_VERIFY:
-                ssl_dissect_hnd_cli_cert_verify(&dissect_ssl3_hf, tvb, ssl_hand_tree, offset, session);
+                ssl_dissect_hnd_cli_cert_verify(&dissect_ssl3_hf, tvb, pinfo, ssl_hand_tree, offset, offset + length, session->version);
                 break;
 
             case SSL_HND_CLIENT_KEY_EXCHG:
@@ -4333,6 +4341,19 @@ proto_register_ssl(void)
                             tcp_port_to_display, ssl_follow_tap_listener);
 }
 
+static int dissect_tls_sct_ber(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+    guint32 offset = 0;
+    /* Skip through tag and length for OCTET STRING encoding. */
+    offset = dissect_ber_identifier(pinfo, tree, tvb, offset, NULL, NULL, NULL);
+    offset = dissect_ber_length(pinfo, tree, tvb, offset, NULL, NULL);
+    /*
+     * RFC 6962 (Certificate Transparency) refers to RFC 5246 (TLS 1.2) for the
+     * DigitallySigned format, so asssume that version.
+     */
+    return tls_dissect_sct_list(&dissect_ssl3_hf, tvb, pinfo, tree, offset, tvb_captured_length(tvb), TLSV1DOT2_VERSION);
+}
+
 /* If this dissector uses sub-dissector registration add a registration
  * routine.  This format is required because a script is used to find
  * these routines and create the code that calls these routines.
@@ -4345,6 +4366,10 @@ proto_reg_handoff_ssl(void)
     ssl_parse_uat();
     ssl_parse_old_keys();
     exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);
+
+    /* Certificate Transparency extensions: 2 (Certificate), 5 (OCSP Response) */
+    register_ber_oid_dissector("1.3.6.1.4.1.11129.2.4.2", dissect_tls_sct_ber, proto_ssl, "SignedCertificateTimestampList");
+    register_ber_oid_dissector("1.3.6.1.4.1.11129.2.4.5", dissect_tls_sct_ber, proto_ssl, "SignedCertificateTimestampList");
 }
 
 void

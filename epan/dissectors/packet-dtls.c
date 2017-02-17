@@ -693,7 +693,7 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
   guint8          next_byte;
   proto_tree     *ti;
   proto_tree     *dtls_record_tree;
-  proto_item     *pi;
+  proto_item     *length_pi;
   tvbuff_t       *decrypted;
   SslRecordInfo  *record = NULL;
   heur_dtbl_entry_t *hdtbl_entry;
@@ -761,11 +761,8 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
   offset += 6;
 
   /* add the length */
-  pi = proto_tree_add_uint(dtls_record_tree, hf_dtls_record_length, tvb,
+  length_pi = proto_tree_add_uint(dtls_record_tree, hf_dtls_record_length, tvb,
                         offset, 2, record_length);
-  if (record_length > TLS_MAX_RECORD_LENGTH) {
-    expert_add_info(pinfo, pi, &dissect_dtls_hf.ei.record_length_invalid);
-  }
   offset += 2;    /* move past length field itself */
 
   /*
@@ -794,6 +791,7 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
   if (decrypted) {
     add_new_data_source(pinfo, decrypted, "Decrypted DTLS");
   }
+  ssl_check_record_length(&dissect_dtls_hf, pinfo, record_length, length_pi, session->version, decrypted);
 
 
   switch ((ContentType) content_type) {
@@ -1278,7 +1276,7 @@ dissect_dtls_handshake(tvbuff_t *tvb, packet_info *pinfo,
             /* no need to load keylog file here as it only links a previous
              * master key with this Session Ticket */
             ssl_dissect_hnd_new_ses_ticket(&dissect_dtls_hf, sub_tvb, pinfo,
-                                           ssl_hand_tree, 0, length, session, ssl,
+                                           ssl_hand_tree, 0, length, session, ssl, TRUE,
                                            dtls_master_key_map.tickets);
             break;
 
@@ -1289,15 +1287,15 @@ dissect_dtls_handshake(tvbuff_t *tvb, packet_info *pinfo,
 
           case SSL_HND_CERTIFICATE:
             ssl_dissect_hnd_cert(&dissect_dtls_hf, sub_tvb, ssl_hand_tree, 0, length,
-                pinfo, session, ssl, dtls_key_hash, is_from_server);
+                pinfo, session, ssl, dtls_key_hash, is_from_server, TRUE);
             break;
 
           case SSL_HND_SERVER_KEY_EXCHG:
-            ssl_dissect_hnd_srv_keyex(&dissect_dtls_hf, sub_tvb, ssl_hand_tree, 0, length, session);
+            ssl_dissect_hnd_srv_keyex(&dissect_dtls_hf, sub_tvb, pinfo, ssl_hand_tree, 0, length, session);
             break;
 
           case SSL_HND_CERT_REQUEST:
-            ssl_dissect_hnd_cert_req(&dissect_dtls_hf, sub_tvb, pinfo, ssl_hand_tree, 0, length, session);
+            ssl_dissect_hnd_cert_req(&dissect_dtls_hf, sub_tvb, pinfo, ssl_hand_tree, 0, length, session, TRUE);
             break;
 
           case SSL_HND_SVR_HELLO_DONE:
@@ -1306,7 +1304,7 @@ dissect_dtls_handshake(tvbuff_t *tvb, packet_info *pinfo,
             break;
 
           case SSL_HND_CERT_VERIFY:
-            ssl_dissect_hnd_cli_cert_verify(&dissect_dtls_hf, sub_tvb, ssl_hand_tree, 0, session);
+            ssl_dissect_hnd_cli_cert_verify(&dissect_dtls_hf, sub_tvb, pinfo, ssl_hand_tree, 0, length, session->version);
             break;
 
           case SSL_HND_CLIENT_KEY_EXCHG:

@@ -35,6 +35,7 @@
 #include <ui/language.h>
 #include <ui/preference_utils.h>
 #include <ui/simple_dialog.h>
+#include <ui/recent.h>
 #include <main_window.h>
 
 #include "syntax_line_edit.h"
@@ -869,11 +870,27 @@ void PreferencesDialog::on_buttonBox_accepted()
     gchar* err = NULL;
     gboolean must_redissect = FALSE;
 
+    QVector<unsigned> old_layout = QVector<unsigned>() << prefs.gui_layout_type
+                                                       << prefs.gui_layout_content_1
+                                                       << prefs.gui_layout_content_2
+                                                       << prefs.gui_layout_content_3;
+
     // XXX - We should validate preferences as the user changes them, not here.
     // XXX - We're also too enthusiastic about setting must_redissect.
 //    if (!prefs_main_fetch_all(parent_w, &must_redissect))
 //        return; /* Errors in some preference setting - already reported */
     prefs_modules_foreach_submodules(NULL, module_prefs_unstash, (gpointer) &must_redissect);
+
+    QVector<unsigned> new_layout = QVector<unsigned>() << prefs.gui_layout_type
+                                                       << prefs.gui_layout_content_1
+                                                       << prefs.gui_layout_content_2
+                                                       << prefs.gui_layout_content_3;
+
+    if (new_layout[0] != old_layout[0]) {
+        // Layout type changed, reset sizes
+        recent.gui_geometry_main_upper_pane = 0;
+        recent.gui_geometry_main_lower_pane = 0;
+    }
 
     pd_ui_->columnFrame->unstash();
     pd_ui_->filterExpressonsFrame->unstash();
@@ -918,6 +935,10 @@ void PreferencesDialog::on_buttonBox_accepted()
         wsApp->queueAppSignal(WiresharkApplication::PacketDissectionChanged);
     }
     wsApp->queueAppSignal(WiresharkApplication::PreferencesChanged);
+
+    if (new_layout != old_layout) {
+        wsApp->queueAppSignal(WiresharkApplication::RecentPreferencesRead);
+    }
 }
 
 void PreferencesDialog::on_buttonBox_helpRequested()

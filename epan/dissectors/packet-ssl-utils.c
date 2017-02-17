@@ -5693,6 +5693,11 @@ ssl_end_vector(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo, prot
 /** }}} */
 
 
+static guint32
+ssl_dissect_digitally_signed(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                             proto_tree *tree, guint32 offset, guint32 offset_end,
+                             guint16 version, gint hf_sig_len, gint hf_sig);
+
 /* change_cipher_spec(20) dissection */
 void
 ssl_dissect_change_cipher_spec(ssl_common_dissect_t *hf, tvbuff_t *tvb,
@@ -5845,7 +5850,7 @@ ssl_dissect_hnd_hello_ext_alpn(ssl_common_dissect_t *hf, tvbuff_t *tvb,
         proto_tree_add_item(alpn_tree, hf->hf.hs_ext_alpn_str,
                             tvb, offset, name_length, ENC_ASCII|ENC_NA);
         /* Remember first ALPN ProtocolName entry for server. */
-        if (hnd_type == SSL_HND_SERVER_HELLO) {
+        if (hnd_type == SSL_HND_SERVER_HELLO || hnd_type == SSL_HND_ENCRYPTED_EXTENSIONS) {
             proto_name_length = name_length;
             proto_name = tvb_get_string_enc(wmem_packet_scope(), tvb, offset,
                                             proto_name_length, ENC_ASCII);
@@ -5855,7 +5860,7 @@ ssl_dissect_hnd_hello_ext_alpn(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 
     /* If ALPN is given in ServerHello, then ProtocolNameList MUST contain
      * exactly one "ProtocolName". */
-    if (hnd_type == SSL_HND_SERVER_HELLO && proto_name) {
+    if (proto_name) {
         /* '\0'-terminated string for prefix/full string comparison purposes. */
         for (size_t i = 0; i < G_N_ELEMENTS(ssl_alpn_protocols); i++) {
             const ssl_alpn_protocol_t *alpn_proto = &ssl_alpn_protocols[i];
@@ -6320,6 +6325,8 @@ ssl_dissect_hnd_hello_ext_cert_type(ssl_common_dissect_t *hf, tvbuff_t *tvb,
         }
     break;
     case SSL_HND_SERVER_HELLO:
+    case SSL_HND_ENCRYPTED_EXTENSIONS:
+    case SSL_HND_CERTIFICATE:
         cert_type = tvb_get_guint8(tvb, offset);
         proto_tree_add_item(tree, hf->hf.hs_ext_cert_type, tvb, offset, 1, ENC_BIG_ENDIAN);
         offset += 1;
@@ -6327,7 +6334,7 @@ ssl_dissect_hnd_hello_ext_cert_type(ssl_common_dissect_t *hf, tvbuff_t *tvb,
             session->client_cert_type = cert_type;
         }
         if (ext_type == SSL_HND_HELLO_EXT_CERT_TYPE || ext_type == SSL_HND_HELLO_EXT_SERVER_CERT_TYPE) {
-           session->server_cert_type = cert_type;
+            session->server_cert_type = cert_type;
         }
     break;
     default: /* no default */
@@ -6571,6 +6578,93 @@ ssl_dissect_hnd_hello_ext_ec_point_formats(ssl_common_dissect_t *hf, tvbuff_t *t
 
     return offset;
 }
+
+static guint32
+tls_dissect_sct(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
+                guint32 offset, guint32 offset_end, guint16 version)
+{
+    /* https://tools.ietf.org/html/rfc6962#section-3.2
+     *  enum { v1(0), (255) } Version;
+     *  struct {
+     *      opaque key_id[32];
+     *  } LogID;
+     *  opaque CtExtensions<0..2^16-1>;
+     *  struct {
+     *      Version sct_version;
+     *      LogID id;
+     *      uint64 timestamp;
+     *      CtExtensions extensions;
+     *      digitally-signed struct { ... };
+     *  } SignedCertificateTimestamp;
+     */
+    guint64     sct_timestamp_ms;
+    nstime_t    sct_timestamp;
+    guint32     exts_len;
+
+    proto_tree_add_item(tree, hf->hf.sct_sct_version, tvb, offset, 1, ENC_NA);
+    offset++;
+    proto_tree_add_item(tree, hf->hf.sct_sct_logid, tvb, offset, 32, ENC_BIG_ENDIAN);
+    offset += 32;
+    sct_timestamp_ms = tvb_get_ntoh64(tvb, offset);
+    sct_timestamp.secs  = (time_t)(sct_timestamp_ms / 1000);
+    sct_timestamp.nsecs = (int)((sct_timestamp_ms % 1000) * 1000000);
+    proto_tree_add_time(tree, hf->hf.sct_sct_timestamp, tvb, offset, 8, &sct_timestamp);
+    offset += 8;
+    /* opaque CtExtensions<0..2^16-1> */
+    if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &exts_len,
+                        hf->hf.sct_sct_extensions_length, 0, G_MAXUINT16)) {
+        return offset_end;
+    }
+    offset += 2;
+    if (exts_len > 0) {
+        proto_tree_add_item(tree, hf->hf.sct_sct_extensions, tvb, offset, exts_len, ENC_BIG_ENDIAN);
+        offset += exts_len;
+    }
+    offset = ssl_dissect_digitally_signed(hf, tvb, pinfo, tree, offset, offset_end, version,
+                                          hf->hf.sct_sct_signature_length,
+                                          hf->hf.sct_sct_signature);
+    return offset;
+}
+
+guint32
+tls_dissect_sct_list(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
+                     guint32 offset, guint32 offset_end, guint16 version)
+{
+    /* https://tools.ietf.org/html/rfc6962#section-3.3
+     *  opaque SerializedSCT<1..2^16-1>;
+     *  struct {
+     *      SerializedSCT sct_list <1..2^16-1>;
+     *  } SignedCertificateTimestampList;
+     */
+    guint32     list_length, sct_length, next_offset;
+    proto_tree *subtree;
+
+    /* SerializedSCT sct_list <1..2^16-1> */
+    if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &list_length,
+                        hf->hf.sct_scts_length, 1, G_MAXUINT16)) {
+        return offset_end;
+    }
+    offset += 2;
+
+    while (offset < offset_end) {
+        subtree = proto_tree_add_subtree(tree, tvb, offset, 2, hf->ett.sct, NULL, "Signed Certificate Timestamp");
+
+        /* opaque SerializedSCT<1..2^16-1> */
+        if (!ssl_add_vector(hf, tvb, pinfo, subtree, offset, offset_end, &sct_length,
+                            hf->hf.sct_sct_length, 1, G_MAXUINT16)) {
+            return offset_end;
+        }
+        offset += 2;
+        next_offset = offset + sct_length;
+        proto_item_set_len(subtree, 2 + sct_length);
+        offset = tls_dissect_sct(hf, tvb, pinfo, subtree, offset, next_offset, version);
+        if (!ssl_end_vector(hf, tvb, pinfo, subtree, offset, next_offset)) {
+            offset = next_offset;
+        }
+    }
+
+    return offset;
+}
 /** TLS Extensions (in Client Hello and Server Hello). }}} */
 
 /* Whether the Content and Handshake Types are valid; handle Protocol Version. {{{ */
@@ -6669,6 +6763,29 @@ ssl_try_set_version(SslSession *session, SslDecryptSession *ssl,
     }
 }
 
+void
+ssl_check_record_length(ssl_common_dissect_t *hf, packet_info *pinfo,
+                        guint record_length, proto_item *length_pi,
+                        guint16 version, tvbuff_t *decrypted_tvb)
+{
+    guint max_expansion;
+    if (version == TLSV1DOT3_VERSION) {
+        /* TLS 1.3: Max length is 2^14 + 256 */
+        max_expansion = 256;
+    } else {
+        /* RFC 5246, Section 6.2.3: TLSCiphertext.fragment length MUST NOT exceed 2^14 + 2048 */
+        max_expansion = 2048;
+    }
+    if (record_length > TLS_MAX_RECORD_LENGTH + max_expansion) {
+        expert_add_info_format(pinfo, length_pi, &hf->ei.record_length_invalid,
+                               "TLSCiphertext length MUST NOT exceed 2^14 + %u", max_expansion);
+    }
+    if (decrypted_tvb && tvb_captured_length(decrypted_tvb) > TLS_MAX_RECORD_LENGTH) {
+        expert_add_info_format(pinfo, length_pi, &hf->ei.record_length_invalid,
+                               "TLSPlaintext length MUST NOT exceed 2^14");
+    }
+}
+
 static void
 ssl_set_cipher(SslDecryptSession *ssl, guint16 cipher)
 {
@@ -6691,7 +6808,7 @@ ssl_set_cipher(SslDecryptSession *ssl, guint16 cipher)
 
 /* Client Hello and Server Hello dissections. {{{ */
 static gint
-ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
+ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                           packet_info* pinfo, guint32 offset, guint32 offset_end, guint8 hnd_type,
                           SslSession *session, SslDecryptSession *ssl,
                           gboolean is_dtls);
@@ -6805,7 +6922,7 @@ ssl_dissect_hnd_cli_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 
     /* SSL v3.0 has no extensions, so length field can indeed be missing. */
     if (offset < offset_end) {
-        ssl_dissect_hnd_hello_ext(hf, tvb, tree, pinfo, offset,
+        ssl_dissect_hnd_extension(hf, tvb, tree, pinfo, offset,
                                   offset_end, SSL_HND_CLIENT_HELLO,
                                   session, ssl, dtls_hfs != NULL);
     }
@@ -6874,7 +6991,7 @@ ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 
     /* SSL v3.0 has no extensions, so length field can indeed be missing. */
     if (offset < offset_end) {
-        ssl_dissect_hnd_hello_ext(hf, tvb, tree, pinfo, offset,
+        ssl_dissect_hnd_extension(hf, tvb, tree, pinfo, offset,
                                   offset_end, SSL_HND_SERVER_HELLO,
                                   session, ssl, is_dtls);
     }
@@ -6885,8 +7002,8 @@ ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 void
 ssl_dissect_hnd_new_ses_ticket(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
                                proto_tree *tree, guint32 offset, guint32 offset_end,
-                               const SslSession *session, SslDecryptSession *ssl,
-                               GHashTable *session_hash)
+                               SslSession *session, SslDecryptSession *ssl,
+                               gboolean is_dtls, GHashTable *session_hash)
 {
     /* https://tools.ietf.org/html/rfc5077#section-3.3 (TLS >= 1.0):
      *  struct {
@@ -6951,14 +7068,9 @@ ssl_dissect_hnd_new_ses_ticket(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_i
     offset += ticket_len;
 
     if (is_tls13) {
-        guint32     exts_len;
-
-        /* Extension extensions<0..2^16-2> */
-        if (!ssl_add_vector(hf, tvb, pinfo, subtree, offset, offset_end, &exts_len,
-                            hf->hf.hs_exts_len, 0, G_MAXUINT16)) {
-            return;
-        }
-        /* TODO handle ticket extensions (only early_data at the moment) */
+        ssl_dissect_hnd_extension(hf, tvb, subtree, pinfo, offset,
+                                  offset_end, SSL_HND_NEWSESSION_TICKET,
+                                  session, ssl, is_dtls);
     }
 } /* }}} */
 
@@ -6978,24 +7090,24 @@ ssl_dissect_hnd_hello_retry_request(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                         offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    /* remaining data are extensions */
-    ssl_dissect_hnd_hello_ext(hf, tvb, tree, pinfo, offset,
+    ssl_dissect_hnd_extension(hf, tvb, tree, pinfo, offset,
                               offset_end, SSL_HND_HELLO_RETRY_REQUEST,
                               session, ssl, is_dtls);
 }
 
 void
 ssl_dissect_hnd_encrypted_extensions(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                                     packet_info* pinfo, proto_tree *tree, guint32 offset, guint32 length,
+                                     packet_info* pinfo, proto_tree *tree, guint32 offset, guint32 offset_end,
                                      SslSession *session, SslDecryptSession *ssl,
                                      gboolean is_dtls)
 {
-    /* struct {
+    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-18#section-4.3.1
+     * struct {
      *     Extension extensions<0..2^16-1>;
      * } EncryptedExtensions;
      */
-    ssl_dissect_hnd_hello_ext(hf, tvb, tree, pinfo, offset,
-                              offset + length, SSL_HND_ENCRYPTED_EXTENSIONS,
+    ssl_dissect_hnd_extension(hf, tvb, tree, pinfo, offset,
+                              offset_end, SSL_HND_ENCRYPTED_EXTENSIONS,
                               session, ssl, is_dtls);
 }
 
@@ -7003,8 +7115,8 @@ ssl_dissect_hnd_encrypted_extensions(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 void
 ssl_dissect_hnd_cert(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                      guint32 offset, guint32 offset_end, packet_info *pinfo,
-                     const SslSession *session, SslDecryptSession *ssl _U_,
-                     GHashTable *key_hash _U_, gint is_from_server)
+                     SslSession *session, SslDecryptSession *ssl _U_,
+                     GHashTable *key_hash _U_, gboolean is_from_server, gboolean is_dtls)
 {
     /* opaque ASN.1Cert<1..2^24-1>;
      *
@@ -7128,16 +7240,9 @@ ssl_dissect_hnd_cert(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
 
                     /* TLS 1.3: Extension extensions<0..2^16-1> */
                     if (session->version == TLSV1DOT3_VERSION) {
-                        guint32 extensions_length;
-                        if (!ssl_add_vector(hf, tvb, pinfo, subtree, offset, next_offset, &extensions_length,
-                                            hf->hf.hs_exts_len, 0, G_MAXUINT16)) {
-                            return;
-                        }
-                        offset += 2;
-
-                        // XXX dissect OCSP and SCT extensions
-                        // https://tools.ietf.org/html/draft-ietf-tls-tls13-18#section-4.4.1.1
-                        offset += extensions_length;
+                        offset = ssl_dissect_hnd_extension(hf, tvb, subtree, pinfo, offset,
+                                                           next_offset, SSL_HND_CERTIFICATE,
+                                                           session, ssl, is_dtls);
                     }
                 }
             }
@@ -7154,7 +7259,7 @@ ssl_dissect_hnd_cert(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
 void
 ssl_dissect_hnd_cert_req(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
                          proto_tree *tree, guint32 offset, guint32 offset_end,
-                         const SslSession *session)
+                         SslSession *session, gboolean is_dtls)
 {
     /* From SSL 3.0 and up (note that since TLS 1.1 certificate_authorities can be empty):
      *    enum {
@@ -7311,22 +7416,24 @@ ssl_dissect_hnd_cert_req(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *p
         }
     }
 
-    /* TODO Extensions specific to certificates (TLS 1.3). */
+    /* TODO this is not valid for TLS 1.3 draft -18. When draft -19 is released, check if this is still correct. */
+    if (session->version == TLSV1DOT3_VERSION) {
+        /*
+         * SslDecryptSession pointer is NULL because Certificate Extensions
+         * should not influence decryption state.
+         */
+        ssl_dissect_hnd_extension(hf, tvb, tree, pinfo, offset,
+                                  offset_end, SSL_HND_CERT_REQUEST,
+                                  session, NULL, is_dtls);
+    }
 }
 /* Certificate and Certificate Request dissections. }}} */
 
-static void
-ssl_dissect_digitally_signed(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                             proto_tree *tree, guint32 offset,
-                             const SslSession *session,
-                             gint hf_sig_len, gint hf_sig);
-
 void
-ssl_dissect_hnd_cli_cert_verify(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                                proto_tree *tree, guint32 offset,
-                                const SslSession *session)
+ssl_dissect_hnd_cli_cert_verify(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                                proto_tree *tree, guint32 offset, guint32 offset_end, guint16 version)
 {
-    ssl_dissect_digitally_signed(hf, tvb, tree, offset, session,
+    ssl_dissect_digitally_signed(hf, tvb, pinfo, tree, offset, offset_end, version,
                                  hf->hf.hs_client_cert_vrfy_sig_len,
                                  hf->hf.hs_client_cert_vrfy_sig);
 }
@@ -7429,26 +7536,26 @@ ssl_dissect_hnd_cert_url(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tr
     }
 } /* }}} */
 
-/* Client Hello and Server Hello TLS extensions dissection. {{{ */
+/* Dissection of TLS Extensions in Client Hello, Server Hello, etc. {{{ */
 static gint
-ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
+ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                           packet_info* pinfo, guint32 offset, guint32 offset_end, guint8 hnd_type,
                           SslSession *session, SslDecryptSession *ssl,
                           gboolean is_dtls)
 {
-    guint16     extension_length;
+    guint32     exts_len;
     guint16     ext_type;
     guint32     ext_len;
     guint32     next_offset;
     proto_tree *ext_tree;
 
-    if (offset_end - offset < 2)
-        return offset;
-
-    extension_length = tvb_get_ntohs(tvb, offset);
-    proto_tree_add_uint(tree, hf->hf.hs_exts_len,
-                        tvb, offset, 2, extension_length);
+    /* Extension extensions<0..2^16-2> (for TLS 1.3 HRR/CR min-length is 2) */
+    if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &exts_len,
+                        hf->hf.hs_exts_len, 0, G_MAXUINT16)) {
+        return offset_end;
+    }
     offset += 2;
+    offset_end = offset + exts_len;
 
     while (offset_end - offset >= 4)
     {
@@ -7473,13 +7580,19 @@ ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
         next_offset = offset + ext_len;
 
         switch (ext_type) {
+        case SSL_HND_HELLO_EXT_SERVER_NAME:
+            offset = ssl_dissect_hnd_hello_ext_server_name(hf, tvb, pinfo, ext_tree, offset, next_offset);
+            break;
         case SSL_HND_HELLO_EXT_STATUS_REQUEST:
             if (hnd_type == SSL_HND_CLIENT_HELLO)
                 offset = ssl_dissect_hnd_hello_ext_status_request(hf, tvb, ext_tree, offset, FALSE);
+            // TODO dissect CertificateStatus for SSL_HND_CERTIFICATE (TLS 1.3)
             break;
-        case SSL_HND_HELLO_EXT_STATUS_REQUEST_V2:
-            if (hnd_type == SSL_HND_CLIENT_HELLO)
-                offset = ssl_dissect_hnd_hello_ext_status_request_v2(hf, tvb, ext_tree, offset);
+        case SSL_HND_HELLO_EXT_CERT_TYPE:
+            offset = ssl_dissect_hnd_hello_ext_cert_type(hf, tvb, ext_tree,
+                                                         offset, next_offset,
+                                                         hnd_type, ext_type,
+                                                         session);
             break;
         case SSL_HND_HELLO_EXT_SUPPORTED_GROUPS:
             offset = ssl_dissect_hnd_hello_ext_supported_groups(hf, tvb, pinfo, ext_tree, offset, next_offset);
@@ -7490,14 +7603,57 @@ ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
         case SSL_HND_HELLO_EXT_SIGNATURE_ALGORITHMS:
             offset = ssl_dissect_hnd_hello_ext_sig_hash_algs(hf, tvb, ext_tree, pinfo, offset, next_offset);
             break;
+        case SSL_HND_HELLO_EXT_USE_SRTP:
+            if (is_dtls) {
+                offset = dtls_dissect_hnd_hello_ext_use_srtp(tvb, ext_tree, offset, next_offset);
+            } else {
+                // XXX expert info: This extension MUST only be used with DTLS, and not with TLS.
+            }
+            break;
+        case SSL_HND_HELLO_EXT_HEARTBEAT:
+            proto_tree_add_item(ext_tree, hf->hf.hs_ext_heartbeat_mode,
+                                tvb, offset, 1, ENC_BIG_ENDIAN);
+            offset++;
+            break;
         case SSL_HND_HELLO_EXT_ALPN:
             offset = ssl_dissect_hnd_hello_ext_alpn(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type, session);
             break;
-        case SSL_HND_HELLO_EXT_NPN:
-            offset = ssl_dissect_hnd_hello_ext_npn(hf, tvb, pinfo, ext_tree, offset, next_offset);
+        case SSL_HND_HELLO_EXT_STATUS_REQUEST_V2:
+            if (hnd_type == SSL_HND_CLIENT_HELLO)
+                offset = ssl_dissect_hnd_hello_ext_status_request_v2(hf, tvb, ext_tree, offset);
+            // TODO dissect CertificateStatus for SSL_HND_CERTIFICATE (TLS 1.3)
             break;
-        case SSL_HND_HELLO_EXT_RENEGOTIATION_INFO:
-            offset = ssl_dissect_hnd_hello_ext_reneg_info(hf, tvb, pinfo, ext_tree, offset, next_offset);
+        case SSL_HND_HELLO_EXT_SIGNED_CERTIFICATE_TIMESTAMP:
+            if (hnd_type == SSL_HND_SERVER_HELLO || hnd_type == SSL_HND_ENCRYPTED_EXTENSIONS)
+                offset = tls_dissect_sct_list(hf, tvb, pinfo, ext_tree, offset, next_offset, session->version);
+            break;
+        case SSL_HND_HELLO_EXT_CLIENT_CERT_TYPE:
+        case SSL_HND_HELLO_EXT_SERVER_CERT_TYPE:
+            offset = ssl_dissect_hnd_hello_ext_cert_type(hf, tvb, ext_tree,
+                                                         offset, next_offset,
+                                                         hnd_type, ext_type,
+                                                         session);
+            break;
+        case SSL_HND_HELLO_EXT_PADDING:
+            proto_tree_add_item(ext_tree, hf->hf.hs_ext_padding_data, tvb, offset, ext_len, ENC_NA);
+            offset += ext_len;
+            break;
+        case SSL_HND_HELLO_EXT_EXTENDED_MASTER_SECRET:
+            if (ssl) {
+                switch (hnd_type) {
+                case SSL_HND_CLIENT_HELLO:
+                    ssl->state |= SSL_CLIENT_EXTENDED_MASTER_SECRET;
+                    break;
+                case SSL_HND_SERVER_HELLO:
+                    ssl->state |= SSL_SERVER_EXTENDED_MASTER_SECRET;
+                    break;
+                default: /* no default */
+                    break;
+                }
+            }
+            break;
+        case SSL_HND_HELLO_EXT_SESSION_TICKET_TLS:
+            offset = ssl_dissect_hnd_hello_ext_session_ticket(hf, tvb, ext_tree, offset, next_offset, hnd_type, ssl);
             break;
         case SSL_HND_HELLO_EXT_KEY_SHARE:
             offset = ssl_dissect_hnd_hello_ext_key_share(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type);
@@ -7520,54 +7676,16 @@ ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
         case SSL_HND_HELLO_EXT_PSK_KEY_EXCHANGE_MODES:
             offset = ssl_dissect_hnd_hello_ext_psk_key_exchange_modes(hf, tvb, pinfo, ext_tree, offset, next_offset);
             break;
+        case SSL_HND_HELLO_EXT_NPN:
+            offset = ssl_dissect_hnd_hello_ext_npn(hf, tvb, pinfo, ext_tree, offset, next_offset);
+            break;
+        case SSL_HND_HELLO_EXT_RENEGOTIATION_INFO:
+            offset = ssl_dissect_hnd_hello_ext_reneg_info(hf, tvb, pinfo, ext_tree, offset, next_offset);
+            break;
         case SSL_HND_HELLO_EXT_DRAFT_VERSION_TLS13:
             proto_tree_add_item(ext_tree, hf->hf.hs_ext_draft_version_tls13,
                                 tvb, offset, 2, ENC_BIG_ENDIAN);
             offset += 2;
-            break;
-        case SSL_HND_HELLO_EXT_SERVER_NAME:
-            offset = ssl_dissect_hnd_hello_ext_server_name(hf, tvb, pinfo, ext_tree, offset, next_offset);
-            break;
-        case SSL_HND_HELLO_EXT_USE_SRTP:
-            if (is_dtls) {
-                offset = dtls_dissect_hnd_hello_ext_use_srtp(tvb, ext_tree, offset, next_offset);
-            } else {
-                // XXX expert info: This extension MUST only be used with DTLS, and not with TLS.
-            }
-            break;
-        case SSL_HND_HELLO_EXT_HEARTBEAT:
-            proto_tree_add_item(ext_tree, hf->hf.hs_ext_heartbeat_mode,
-                                tvb, offset, 1, ENC_BIG_ENDIAN);
-            offset++;
-            break;
-        case SSL_HND_HELLO_EXT_PADDING:
-            proto_tree_add_item(ext_tree, hf->hf.hs_ext_padding_data, tvb, offset, ext_len, ENC_NA);
-            offset += ext_len;
-            break;
-        case SSL_HND_HELLO_EXT_SESSION_TICKET_TLS:
-            offset = ssl_dissect_hnd_hello_ext_session_ticket(hf, tvb, ext_tree, offset, next_offset, hnd_type, ssl);
-            break;
-        case SSL_HND_HELLO_EXT_CERT_TYPE:
-        case SSL_HND_HELLO_EXT_SERVER_CERT_TYPE:
-        case SSL_HND_HELLO_EXT_CLIENT_CERT_TYPE:
-            offset = ssl_dissect_hnd_hello_ext_cert_type(hf, tvb, ext_tree,
-                                                         offset, next_offset,
-                                                         hnd_type, ext_type,
-                                                         session);
-            break;
-        case SSL_HND_HELLO_EXT_EXTENDED_MASTER_SECRET:
-            if (ssl){
-                switch(hnd_type){
-                    case SSL_HND_CLIENT_HELLO:
-                        ssl->state |= SSL_CLIENT_EXTENDED_MASTER_SECRET;
-                    break;
-                    case SSL_HND_SERVER_HELLO:
-                        ssl->state |= SSL_SERVER_EXTENDED_MASTER_SECRET;
-                    break;
-                    default: /* no default */
-                    break;
-                }
-            }
             break;
         default:
             proto_tree_add_item(ext_tree, hf->hf.hs_ext_data,
@@ -7580,6 +7698,11 @@ ssl_dissect_hnd_hello_ext(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             /* Dissection did not end at expected location, fix it. */
             offset = next_offset;
         }
+    }
+
+    /* Check if Extensions vector is correctly terminated. */
+    if (!ssl_end_vector(hf, tvb, pinfo, tree, offset, offset_end)) {
+        offset = offset_end;
     }
 
     return offset;
@@ -7708,17 +7831,16 @@ dissect_ssl3_hnd_cli_keyex_rsa_psk(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 
 
 /* Dissects DigitallySigned (see RFC 5246 4.7 Cryptographic Attributes). {{{ */
-static void
-ssl_dissect_digitally_signed(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                             proto_tree *tree, guint32 offset,
-                             const SslSession *session,
-                             gint hf_sig_len, gint hf_sig)
+static guint32
+ssl_dissect_digitally_signed(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                             proto_tree *tree, guint32 offset, guint32 offset_end,
+                             guint16 version, gint hf_sig_len, gint hf_sig)
 {
-    gint        sig_len;
+    guint32     sig_len;
     proto_item *ti_algo;
     proto_tree *ssl_algo_tree;
 
-    switch (session->version) {
+    switch (version) {
     case TLSV1DOT2_VERSION:
     case DTLSV1DOT2_VERSION:
     case TLSV1DOT3_VERSION: /* XXX merge both fields into one SignatureScheme? */
@@ -7739,18 +7861,23 @@ ssl_dissect_digitally_signed(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     }
 
     /* Sig */
-    sig_len = tvb_get_ntohs(tvb, offset);
-    proto_tree_add_item(tree, hf_sig_len, tvb, offset, 2, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_sig, tvb, offset + 2, sig_len, ENC_NA);
+    if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &sig_len,
+                        hf_sig_len, 0, G_MAXUINT16)) {
+        return offset_end;
+    }
+    offset += 2;
+    proto_tree_add_item(tree, hf_sig, tvb, offset, sig_len, ENC_NA);
+    offset += sig_len;
+    return offset;
 } /* }}} */
 
 /* ServerKeyExchange algo-specific dissectors. {{{ */
 
 /* dissects signed_params inside a ServerKeyExchange for some keyex algos */
 static void
-dissect_ssl3_hnd_srv_keyex_sig(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                               proto_tree *tree, guint32 offset,
-                               const SslSession *session)
+dissect_ssl3_hnd_srv_keyex_sig(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                               proto_tree *tree, guint32 offset, guint32 offset_end,
+                               guint16 version)
 {
     /*
      * TLSv1.2 (RFC 5246 sec 7.4.8)
@@ -7763,19 +7890,18 @@ dissect_ssl3_hnd_srv_keyex_sig(ssl_common_dissect_t *hf, tvbuff_t *tvb,
      * TLSv1.0/TLSv1.1 (RFC 5436 sec 7.4.8 and 7.4.3) works essentially the same
      * as TLSv1.2, but the hash algorithms are not explicit in digitally-signed.
      *
-     * SSLv3 (RFC 6101 sec 5.6.8) esseentially works the same as TLSv1.0 but it
+     * SSLv3 (RFC 6101 sec 5.6.8) essentially works the same as TLSv1.0 but it
      * does more hashing including the master secret and padding.
      */
-    ssl_dissect_digitally_signed(hf, tvb, tree, offset, session,
+    ssl_dissect_digitally_signed(hf, tvb, pinfo, tree, offset, offset_end, version,
                                  hf->hf.hs_server_keyex_sig_len,
                                  hf->hf.hs_server_keyex_sig);
 }
 
 static void
-dissect_ssl3_hnd_srv_keyex_ecdh(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                                proto_tree *tree, guint32 offset,
-                                guint32 length, const SslSession *session,
-                                gboolean anon)
+dissect_ssl3_hnd_srv_keyex_ecdh(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                                proto_tree *tree, guint32 offset, guint32 offset_end,
+                                guint16 version, gboolean anon)
 {
     /*
      * RFC 4492 ECC cipher suites for TLS
@@ -7812,7 +7938,7 @@ dissect_ssl3_hnd_srv_keyex_ecdh(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     gint        point_len;
     proto_tree *ssl_ecdh_tree;
 
-    ssl_ecdh_tree = proto_tree_add_subtree(tree, tvb, offset, length,
+    ssl_ecdh_tree = proto_tree_add_subtree(tree, tvb, offset, offset_end - offset,
                                   hf->ett.keyex_params, NULL, "EC Diffie-Hellman Server Params");
 
     /* ECParameters.curve_type */
@@ -7838,19 +7964,19 @@ dissect_ssl3_hnd_srv_keyex_ecdh(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 
     /* Signature (if non-anonymous KEX) */
     if (!anon) {
-        dissect_ssl3_hnd_srv_keyex_sig(hf, tvb, ssl_ecdh_tree, offset, session);
+        dissect_ssl3_hnd_srv_keyex_sig(hf, tvb, pinfo, ssl_ecdh_tree, offset, offset_end, version);
     }
 }
 
 static void
-dissect_ssl3_hnd_srv_keyex_dhe(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                               proto_tree *tree, guint32 offset, guint32 length,
-                               const SslSession *session, gboolean anon)
+dissect_ssl3_hnd_srv_keyex_dhe(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                               proto_tree *tree, guint32 offset, guint32 offset_end,
+                               guint16 version, gboolean anon)
 {
     gint        p_len, g_len, ys_len;
     proto_tree *ssl_dh_tree;
 
-    ssl_dh_tree = proto_tree_add_subtree(tree, tvb, offset, length,
+    ssl_dh_tree = proto_tree_add_subtree(tree, tvb, offset, offset_end - offset,
                                 hf->ett.keyex_params, NULL, "Diffie-Hellman Server Params");
 
     /* p */
@@ -7879,20 +8005,20 @@ dissect_ssl3_hnd_srv_keyex_dhe(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 
     /* Signature (if non-anonymous KEX) */
     if (!anon) {
-        dissect_ssl3_hnd_srv_keyex_sig(hf, tvb, ssl_dh_tree, offset, session);
+        dissect_ssl3_hnd_srv_keyex_sig(hf, tvb, pinfo, ssl_dh_tree, offset, offset_end, version);
     }
 }
 
 /* Only used in RSA-EXPORT cipher suites */
 static void
-dissect_ssl3_hnd_srv_keyex_rsa(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                               proto_tree *tree, guint32 offset, guint32 length,
-                               const SslSession *session)
+dissect_ssl3_hnd_srv_keyex_rsa(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                               proto_tree *tree, guint32 offset, guint32 offset_end,
+                               guint16 version)
 {
     gint        modulus_len, exponent_len;
     proto_tree *ssl_rsa_tree;
 
-    ssl_rsa_tree = proto_tree_add_subtree(tree, tvb, offset, length,
+    ssl_rsa_tree = proto_tree_add_subtree(tree, tvb, offset, offset_end - offset,
                                  hf->ett.keyex_params, NULL, "RSA-EXPORT Server Params");
 
     /* modulus */
@@ -7912,7 +8038,7 @@ dissect_ssl3_hnd_srv_keyex_rsa(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     offset += 2 + exponent_len;
 
     /* Signature */
-    dissect_ssl3_hnd_srv_keyex_sig(hf, tvb, ssl_rsa_tree, offset, session);
+    dissect_ssl3_hnd_srv_keyex_sig(hf, tvb, pinfo, ssl_rsa_tree, offset, offset_end, version);
 }
 
 /* Used in RSA PSK and PSK cipher suites */
@@ -7991,13 +8117,13 @@ ssl_dissect_hnd_cli_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 }
 
 void
-ssl_dissect_hnd_srv_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                          proto_tree *tree, guint32 offset, guint32 length,
+ssl_dissect_hnd_srv_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                          proto_tree *tree, guint32 offset, guint32 offset_end,
                           const SslSession *session)
 {
     switch (ssl_get_keyex_alg(session->cipher)) {
     case KEX_DH_ANON: /* RFC 5246; ServerDHParams */
-        dissect_ssl3_hnd_srv_keyex_dhe(hf, tvb, tree, offset, length, session, TRUE);
+        dissect_ssl3_hnd_srv_keyex_dhe(hf, tvb, pinfo, tree, offset, offset_end, session->version, TRUE);
         break;
     case KEX_DH_DSS: /* RFC 5246; not allowed */
     case KEX_DH_RSA:
@@ -8005,13 +8131,13 @@ ssl_dissect_hnd_srv_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb,
         break;
     case KEX_DHE_DSS: /* RFC 5246; dhe_dss, dhe_rsa: ServerDHParams, Signature */
     case KEX_DHE_RSA:
-        dissect_ssl3_hnd_srv_keyex_dhe(hf, tvb, tree, offset, length, session, FALSE);
+        dissect_ssl3_hnd_srv_keyex_dhe(hf, tvb, pinfo, tree, offset, offset_end, session->version, FALSE);
         break;
     case KEX_DHE_PSK: /* RFC 4279; diffie_hellman_psk: psk_identity_hint, ServerDHParams */
         /* XXX: implement support for DHE_PSK */
         break;
     case KEX_ECDH_ANON: /* RFC 4492; ec_diffie_hellman: ServerECDHParams (without signature for anon) */
-        dissect_ssl3_hnd_srv_keyex_ecdh(hf, tvb, tree, offset, length, session, TRUE);
+        dissect_ssl3_hnd_srv_keyex_ecdh(hf, tvb, pinfo, tree, offset, offset_end, session->version, TRUE);
         break;
     case KEX_ECDHE_PSK: /* RFC 5489; psk_identity_hint, ServerECDHParams */
         /* XXX: implement support for ECDHE_PSK */
@@ -8020,17 +8146,17 @@ ssl_dissect_hnd_srv_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     case KEX_ECDH_RSA:
     case KEX_ECDHE_ECDSA:
     case KEX_ECDHE_RSA:
-        dissect_ssl3_hnd_srv_keyex_ecdh(hf, tvb, tree, offset, length, session, FALSE);
+        dissect_ssl3_hnd_srv_keyex_ecdh(hf, tvb, pinfo, tree, offset, offset_end, session->version, FALSE);
         break;
     case KEX_KRB5: /* RFC 2712; not allowed */
         /* XXX: add error on not allowed KEX */
         break;
     case KEX_PSK: /* RFC 4279; psk, rsa: psk_identity*/
     case KEX_RSA_PSK:
-        dissect_ssl3_hnd_srv_keyex_psk(hf, tvb, tree, offset, length);
+        dissect_ssl3_hnd_srv_keyex_psk(hf, tvb, tree, offset, offset_end - offset);
         break;
     case KEX_RSA: /* only allowed if the public key in the server certificate is longer than 512 bits*/
-        dissect_ssl3_hnd_srv_keyex_rsa(hf, tvb, tree, offset, length, session);
+        dissect_ssl3_hnd_srv_keyex_rsa(hf, tvb, pinfo, tree, offset, offset_end, session->version);
         break;
     case KEX_SRP_SHA: /* RFC 5054; srp: ServerSRPParams, Signature */
     case KEX_SRP_SHA_DSS:
