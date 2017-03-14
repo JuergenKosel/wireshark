@@ -188,12 +188,13 @@ print_usage(FILE *output)
 
   /*fprintf(output, "\n");*/
   fprintf(output, "Input file:\n");
-  fprintf(output, "  -r <infile>              set the filename to read from (no pipes or stdin!)\n");
+  fprintf(output, "  -r <infile>              set the filename to read from (no pipes or stdin)\n");
 
   fprintf(output, "\n");
   fprintf(output, "Processing:\n");
   fprintf(output, "  -2                       perform a two-pass analysis\n");
   fprintf(output, "  -R <read filter>         packet Read filter in Wireshark display filter syntax\n");
+  fprintf(output, "                           (requires -2)\n");
   fprintf(output, "  -Y <display filter>      packet displaY filter in Wireshark display filter\n");
   fprintf(output, "                           syntax\n");
   fprintf(output, "  -d %s ...\n", DECODE_AS_ARG_TEMPLATE);
@@ -1026,9 +1027,9 @@ main(int argc, char *argv[])
     }
     CATCH(OutOfMemoryError) {
       fprintf(stderr,
-              "Out Of Memory!\n"
+              "Out Of Memory.\n"
               "\n"
-              "Sorry, but TFShark has to terminate now!\n"
+              "Sorry, but TFShark has to terminate now.\n"
               "\n"
               "Some infos / workarounds can be found at:\n"
               "https://wiki.wireshark.org/KnownBugs/OutOfMemory\n");
@@ -1054,6 +1055,7 @@ main(int argc, char *argv[])
   funnel_dump_all_text_windows();
 
 clean_exit:
+  destroy_print_stream(print_stream);
   epan_free(cfile.epan);
   epan_cleanup();
 #ifdef HAVE_EXTCAP
@@ -1491,15 +1493,15 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
                              raw_data, tap_flags))
         return 2;
 
-        /* Stop reading if we have the maximum number of packets;
-        * When the -c option has not been used, max_packet_count
-        * starts at 0, which practically means, never stop reading.
-        * (unless we roll over max_packet_count ?)
-        */
-        if ( (--max_packet_count == 0) || (max_byte_count != 0 && data_offset >= max_byte_count)) {
-            err = 0; /* This is not an error */
-            break;
-        }
+      /* Stop reading if we have the maximum number of packets;
+      * When the -c option has not been used, max_packet_count
+      * starts at 0, which practically means, never stop reading.
+      * (unless we roll over max_packet_count ?)
+      */
+      if ( (--max_packet_count == 0) || (max_byte_count != 0 && data_offset >= max_byte_count)) {
+        err = 0; /* This is not an error */
+        break;
+      }
     }
 
     if (edt) {

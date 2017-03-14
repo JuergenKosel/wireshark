@@ -391,7 +391,7 @@ main(int argc, char *argv[])
     ws_buffer_free(&buf);
 
     if (!write_output_regardless && (wrong_order_count == 0)) {
-        printf("Not writing output file because input file is already in order!\n");
+        printf("Not writing output file because input file is already in order.\n");
     }
 
     /* Free the whole array */
@@ -414,6 +414,10 @@ main(int argc, char *argv[])
 
 clean_exit:
     wtap_cleanup();
+    free_progdirs();
+#ifdef HAVE_PLUGINS
+    plugins_cleanup();
+#endif
     return ret;
 }
 

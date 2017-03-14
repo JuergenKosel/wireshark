@@ -120,13 +120,15 @@ WS_DLL_PUBLIC gboolean has_global_profiles(void);
 
 /*
  * Get the directory used to store configuration profile directories.
+ * Caller must free the returned string
  */
-WS_DLL_PUBLIC const char *get_profiles_dir(void);
+WS_DLL_PUBLIC char *get_profiles_dir(void);
 
 /*
  * Get the directory used to store global configuration profile directories.
+ * Caller must free the returned string
  */
-WS_DLL_PUBLIC const char *get_global_profiles_dir(void);
+WS_DLL_PUBLIC char *get_global_profiles_dir(void);
 
 
 /*
@@ -303,6 +305,11 @@ WS_DLL_PUBLIC gboolean copy_file_binary_mode(const char *from_filename,
  * value must be freed with g_free().
  */
 WS_DLL_PUBLIC gchar* data_file_url(const gchar *filename);
+
+/*
+ * Free the internal structtures
+ */
+WS_DLL_PUBLIC void free_progdirs(void);
 
 #ifdef __cplusplus
 }

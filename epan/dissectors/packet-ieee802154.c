@@ -1654,6 +1654,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
                 /* Try heuristic dissection. */
                 if (dissector_try_heuristic(ieee802154_heur_subdissector_list, payload_tvb, pinfo, tree, &hdtbl_entry, packet)) break;
                 /* Fall-through to dump undissectable payloads. */
+                /* FALL THROUGH */
             default:
                 /* Could not subdissect, call the data dissector instead. */
                 call_data_dissector(payload_tvb, pinfo, tree);
@@ -3811,7 +3812,7 @@ void proto_register_ieee802154(void)
           NULL, HFILL }},
 
         { &hf_ieee802154_p_ie_6top_sfid,
-        { "SFID (6top Scheduling Fnction ID)", "wpan.ietf_ie.6top.sfid", FT_UINT8, BASE_HEX, NULL, 0x0,
+        { "SFID (6top Scheduling Function ID)", "wpan.ietf_ie.6top.sfid", FT_UINT8, BASE_HEX, NULL, 0x0,
           NULL, HFILL }},
 
         { &hf_ieee802154_p_ie_6top_seqnum,
@@ -4291,3 +4292,16 @@ void proto_reg_handoff_ieee802154(void)
     /* Register dissector handles. */
     dissector_add_uint("ethertype", ieee802154_ethertype, ieee802154_handle);
 } /* proto_reg_handoff_ieee802154 */
+
+/*
+ * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ *
+ * Local variables:
+ * c-basic-offset: 4
+ * tab-width: 8
+ * indent-tabs-mode: nil
+ * End:
+ *
+ * vi: set shiftwidth=4 tabstop=8 expandtab:
+ * :indentSize=4:tabSize=8:noTabs=true:
+ */

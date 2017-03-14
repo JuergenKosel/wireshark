@@ -98,6 +98,8 @@ public:
     void gotoFrame(int packet_num);
     CaptureFile *captureFile() { return &capture_file_; }
 
+    void removeAdditionalToolbar(QString toolbarName);
+
 protected:
     virtual bool eventFilter(QObject *obj, QEvent *event);
     virtual void keyPressEvent(QKeyEvent *event);
@@ -334,8 +336,9 @@ private slots:
     void addStatsPluginsToMenu();
     void addDynamicMenus();
     void reloadDynamicMenus();
-    void addExternalMenus();
+    void addPluginIFStructures();
     QMenu * searchSubMenu(QString objectName);
+    void activatePluginIFToolbar(bool);
 
     void startInterfaceCapture(bool valid, const QString capture_filter);
 
@@ -455,6 +458,7 @@ private slots:
     void colorizeActionTriggered();
     void on_actionViewColorizeResetColorization_triggered();
     void on_actionViewColorizeNewColoringRule_triggered();
+    void on_actionViewResetLayout_triggered();
     void on_actionViewResizeColumns_triggered();
 
     void on_actionViewInternalsConversationHashTables_triggered();

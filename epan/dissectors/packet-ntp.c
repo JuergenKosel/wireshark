@@ -657,7 +657,6 @@ tvb_mip6_fmt_ts(tvbuff_t *tvb, gint offset)
 	time_t		 temptime;
 	struct tm	*bd;
 	double		 fractime;
-	char		*buff;
 
 	tempstmp = tvb_get_ntoh48(tvb, offset);
 	tempfrac = tvb_get_ntohs(tvb, offset+6);
@@ -673,16 +672,13 @@ tvb_mip6_fmt_ts(tvbuff_t *tvb, gint offset)
 	}
 
 	fractime = bd->tm_sec + tempfrac / NTP_FLOAT_DENOM;
-	buff = (char *)wmem_alloc(wmem_packet_scope(), NTP_TS_SIZE);
-	g_snprintf(buff, NTP_TS_SIZE,
-		 "%s %2d, %d %02d:%02d:%07.4f UTC",
+	return wmem_strdup_printf(wmem_packet_scope(), "%s %2d, %d %02d:%02d:%07.4f UTC",
 		 mon_names[bd->tm_mon],
 		 bd->tm_mday,
 		 bd->tm_year + 1900,
 		 bd->tm_hour,
 		 bd->tm_min,
 		 fractime);
-	return buff;
 }
 /* tvb_ntp_fmt_ts - converts NTP timestamp to human readable string.
  * TVB and an offset (IN).
@@ -1185,6 +1181,7 @@ dissect_ntp_ctrl(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ntp_tree)
 			 * then data part could be the same as if opcode is NTPCTRL_OP_READVAR
 			 * --> so, no "break" here!
 			 */
+			/* FALL THROUGH */
 		case NTPCTRL_OP_READVAR:
 		case NTPCTRL_OP_WRITEVAR:
 		case NTPCTRL_OP_READCLOCK:

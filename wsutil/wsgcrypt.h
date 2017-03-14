@@ -28,11 +28,27 @@
 #define __WSGCRYPT_H__
 
 #include <ws_diag_control.h>
+#include "ws_symbol_export.h"
+#include <glib.h>
 
 DIAG_OFF(deprecated-declarations)
 
 #include <gcrypt.h>
 
 DIAG_ON(deprecated-declarations)
+
+#define HASH_MD5_LENGTH 16
+#define HASH_SHA1_LENGTH 20
+
+/* Convenience function to calculate the HMAC from the data in BUFFER
+   of size LENGTH with key KEY of size KEYLEN using the algorithm ALGO avoiding the creating of a
+   hash object. The hash is returned in the caller provided buffer
+   DIGEST which must be large enough to hold the digest of the given
+   algorithm. */
+WS_DLL_PUBLIC gcry_error_t ws_hmac_buffer(int algo, void *digest, const void *buffer, size_t length, const void *key, size_t keylen);
+
+/* Convenience function to encrypt 8 bytes in BUFFER with DES using the 56 bits KEY expanded to
+   64 bits as key, encrypted data is returned in OUTPUT which must be at least 8 bytes large */
+WS_DLL_PUBLIC void crypt_des_ecb(guint8 *output, const guint8 *buffer, const guint8 *key56);
 
 #endif /* __WSGCRYPT_H__ */

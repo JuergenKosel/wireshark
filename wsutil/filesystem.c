@@ -1205,7 +1205,7 @@ has_global_profiles(void)
 {
     WS_DIR *dir;
     WS_DIRENT *file;
-    const gchar *global_dir = get_global_profiles_dir();
+    gchar *global_dir = get_global_profiles_dir();
     gchar *filename;
     gboolean has_global = FALSE;
 
@@ -1224,7 +1224,7 @@ has_global_profiles(void)
         }
         ws_dir_close(dir);
     }
-
+    g_free(global_dir);
     return has_global;
 }
 
@@ -1371,42 +1371,31 @@ set_persconffile_dir(const char *p)
     persconffile_dir = g_strdup(p);
 }
 
-const char *
+char *
 get_profiles_dir(void)
 {
-    static char *profiles_dir = NULL;
-
-    g_free (profiles_dir);
-    profiles_dir = g_strdup_printf ("%s%s%s", get_persconffile_dir_no_profile (),
+    return g_strdup_printf ("%s%s%s", get_persconffile_dir_no_profile (),
                     G_DIR_SEPARATOR_S, PROFILES_DIR);
-
-    return profiles_dir;
 }
 
-const char *
+char *
 get_global_profiles_dir(void)
 {
-    static char *global_profiles_dir = NULL;
-
-    if (!global_profiles_dir) {
-        global_profiles_dir = g_strdup_printf ("%s%s%s", get_datafile_dir(),
+    return g_strdup_printf ("%s%s%s", get_datafile_dir(),
                                G_DIR_SEPARATOR_S, PROFILES_DIR);
-    }
-
-    return global_profiles_dir;
 }
 
-static const char *
+static char *
 get_persconffile_dir(const gchar *profilename)
 {
-    static char *persconffile_profile_dir = NULL;
-
-    g_free (persconffile_profile_dir);
+    char *persconffile_profile_dir = NULL, *profile_dir;
 
     if (profilename && strlen(profilename) > 0 &&
         strcmp(profilename, DEFAULT_PROFILE) != 0) {
-      persconffile_profile_dir = g_strdup_printf ("%s%s%s", get_profiles_dir (),
+      profile_dir = get_profiles_dir();
+      persconffile_profile_dir = g_strdup_printf ("%s%s%s", profile_dir,
                               G_DIR_SEPARATOR_S, profilename);
+      g_free(profile_dir);
     } else {
       persconffile_profile_dir = g_strdup (get_persconffile_dir_no_profile ());
     }
@@ -1417,20 +1406,25 @@ get_persconffile_dir(const gchar *profilename)
 gboolean
 profile_exists(const gchar *profilename, gboolean global)
 {
+    gchar *path = NULL, *global_path;
     if (global) {
-        gchar *path = g_strdup_printf ("%s%s%s", get_global_profiles_dir(),
+        global_path = get_global_profiles_dir();
+        path = g_strdup_printf ("%s%s%s", global_path,
                            G_DIR_SEPARATOR_S, profilename);
+        g_free(global_path);
         if (test_for_directory (path) == EISDIR) {
             g_free (path);
             return TRUE;
         }
-        g_free (path);
     } else {
-        if (test_for_directory (get_persconffile_dir (profilename)) == EISDIR) {
+        path = get_persconffile_dir (profilename);
+        if (test_for_directory (path) == EISDIR) {
+            g_free (path);
             return TRUE;
         }
     }
 
+    g_free (path);
     return FALSE;
 }
 
@@ -1474,7 +1468,7 @@ delete_directory (const char *directory, char **pf_dir_path_return)
 static int
 reset_default_profile(char **pf_dir_path_return)
 {
-    const char *profile_dir = get_persconffile_dir(NULL);
+    char *profile_dir = get_persconffile_dir(NULL);
     gchar *filename, *del_file;
     GList *files, *file;
     int ret = 0;
@@ -1488,7 +1482,7 @@ reset_default_profile(char **pf_dir_path_return)
         if (file_exists(del_file)) {
             ret = ws_remove(del_file);
             if (ret != 0) {
-                *pf_dir_path_return = g_strdup(profile_dir);
+                *pf_dir_path_return = profile_dir;
                 g_free(del_file);
                 return ret;
             }
@@ -1498,6 +1492,7 @@ reset_default_profile(char **pf_dir_path_return)
         file = g_list_next(file);
     }
 
+    g_free(profile_dir);
     return 0;
 }
 
@@ -1508,13 +1503,14 @@ delete_persconffile_profile(const char *profilename, char **pf_dir_path_return)
         return reset_default_profile(pf_dir_path_return);
     }
 
-    const char *profile_dir = get_persconffile_dir(profilename);
+    char *profile_dir = get_persconffile_dir(profilename);
     int ret = 0;
 
     if (test_for_directory (profile_dir) == EISDIR) {
         ret = delete_directory (profile_dir, pf_dir_path_return);
     }
 
+    g_free(profile_dir);
     return ret;
 }
 
@@ -1522,20 +1518,21 @@ int
 rename_persconffile_profile(const char *fromname, const char *toname,
                 char **pf_from_dir_path_return, char **pf_to_dir_path_return)
 {
-    char *from_dir = g_strdup (get_persconffile_dir(fromname));
-    char *to_dir = g_strdup (get_persconffile_dir(toname));
+    char *from_dir = get_persconffile_dir(fromname);
+    char *to_dir = get_persconffile_dir(toname);
     int ret = 0;
 
     ret = ws_rename (from_dir, to_dir);
     if (ret != 0) {
-        *pf_from_dir_path_return = g_strdup (from_dir);
-        *pf_to_dir_path_return = g_strdup (to_dir);
+        *pf_from_dir_path_return = from_dir;
+        *pf_to_dir_path_return = to_dir;
+        return ret;
     }
 
     g_free (from_dir);
     g_free (to_dir);
 
-    return ret;
+    return 0;
 }
 
 /*
@@ -1548,14 +1545,14 @@ rename_persconffile_profile(const char *fromname, const char *toname,
 int
 create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
 {
-    const char *pf_dir_path;
+    char *pf_dir_path;
 #ifdef _WIN32
     char *pf_dir_path_copy, *pf_dir_parent_path;
     size_t pf_dir_parent_path_len;
+    int save_errno;
 #endif
     ws_statb64 s_buf;
     int ret;
-    int save_errno;
 
     if (profilename) {
         /*
@@ -1573,9 +1570,7 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
         if (ws_stat64(pf_dir_path, &s_buf) != 0) {
             if (errno != ENOENT) {
                 /* Some other problem; give up now. */
-                save_errno = errno;
-                *pf_dir_path_return = g_strdup(pf_dir_path);
-                errno = save_errno;
+                *pf_dir_path_return = pf_dir_path;
                 return -1;
             }
 
@@ -1584,19 +1579,18 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
              */
             ret = ws_mkdir(pf_dir_path, 0755);
             if (ret == -1) {
-                *pf_dir_path_return = g_strdup(pf_dir_path);
+                *pf_dir_path_return = pf_dir_path;
                 return ret;
             }
         }
+        g_free(pf_dir_path);
     }
 
     pf_dir_path = get_persconffile_dir(profilename);
     if (ws_stat64(pf_dir_path, &s_buf) != 0) {
         if (errno != ENOENT) {
             /* Some other problem; give up now. */
-            save_errno = errno;
-            *pf_dir_path_return = g_strdup(pf_dir_path);
-            errno = save_errno;
+            *pf_dir_path_return = pf_dir_path;
             return -1;
         }
 #ifdef _WIN32
@@ -1622,8 +1616,9 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
              */
             if (errno != ENOENT) {
                 /* Some other problem; give up now. */
+                *pf_dir_path_return = pf_dir_path;
                 save_errno = errno;
-                *pf_dir_path_return = g_strdup(pf_dir_path);
+                g_free(pf_dir_path_copy);
                 errno = save_errno;
                 return -1;
             }
@@ -1633,6 +1628,9 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
             ret = ws_mkdir(pf_dir_parent_path, 0755);
             if (ret == -1) {
                 *pf_dir_path_return = pf_dir_parent_path;
+                save_errno = errno;
+                g_free(pf_dir_path);
+                errno = save_errno;
                 return -1;
             }
         }
@@ -1651,7 +1649,7 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
         ret = 0;
     }
     if (ret == -1)
-        *pf_dir_path_return = g_strdup(pf_dir_path);
+        *pf_dir_path_return = pf_dir_path;
     return ret;
 }
 
@@ -1666,18 +1664,20 @@ copy_persconffile_profile(const char *toname, const char *fromname, gboolean fro
               char **pf_filename_return, char **pf_to_dir_path_return, char **pf_from_dir_path_return)
 {
     gchar *from_dir;
-    gchar *to_dir = g_strdup (get_persconffile_dir(toname));
-    gchar *filename, *from_file, *to_file;
+    gchar *to_dir = get_persconffile_dir(toname);
+    gchar *filename, *from_file, *to_file, *global_path;
     GList *files, *file;
 
     if (from_global) {
         if (strcmp(fromname, DEFAULT_PROFILE) == 0) {
-            from_dir = g_strdup (get_global_profiles_dir());
+            from_dir = get_global_profiles_dir();
         } else {
-            from_dir = g_strdup_printf ("%s%s%s", get_global_profiles_dir(), G_DIR_SEPARATOR_S, fromname);
+            global_path = get_global_profiles_dir();
+            from_dir = g_strdup_printf ("%s%s%s", global_path, G_DIR_SEPARATOR_S, fromname);
+            g_free(global_path);
         }
     } else {
-        from_dir = g_strdup (get_persconffile_dir(fromname));
+        from_dir = get_persconffile_dir(fromname);
     }
 
     files = g_hash_table_get_keys(profile_files);
@@ -1820,20 +1820,24 @@ get_home_dir(void)
 char *
 get_persconffile_path(const char *filename, gboolean from_profile)
 {
-    char *path;
+    char *path, *dir = NULL;
+
     if (do_store_persconffiles && from_profile && !g_hash_table_lookup (profile_files, filename)) {
         /* Store filenames so we know which filenames belongs to a configuration profile */
         g_hash_table_insert (profile_files, g_strdup(filename), g_strdup(filename));
     }
 
     if (from_profile) {
+      dir = get_persconffile_dir(persconfprofile);
       path = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s",
-                 get_persconffile_dir(persconfprofile), filename);
+                 dir, filename);
     } else {
+      dir = get_persconffile_dir(NULL);
       path = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s",
-                 get_persconffile_dir(NULL), filename);
+                 dir, filename);
     }
 
+    g_free(dir);
     return path;
 }
 
@@ -2189,6 +2193,27 @@ data_file_url(const gchar *filename)
     uri = g_filename_to_uri(file_path, NULL, NULL);
     g_free(file_path);
     return uri;
+}
+
+void
+free_progdirs(void)
+{
+    g_free(persconffile_dir);
+    persconffile_dir = NULL;
+    g_free(persdatafile_dir);
+    persdatafile_dir = NULL;
+    g_free(persconfprofile);
+    persconfprofile = NULL;
+    g_free(progfile_dir);
+    progfile_dir = NULL;
+#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
+    g_free(plugin_dir);
+    plugin_dir = NULL;
+#endif
+#ifdef HAVE_EXTCAP
+    g_free(extcap_dir);
+    extcap_dir = NULL;
+#endif
 }
 
 /*

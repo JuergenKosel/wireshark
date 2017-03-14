@@ -47,7 +47,6 @@
 #include <wiretap/wtap_opttypes.h>
 #include <wiretap/pcapng.h>
 
-#include "globals.h"
 #include <epan/decode_as.h>
 #include <epan/timestamp.h>
 #include <epan/packet.h>
@@ -300,6 +299,10 @@ clean_exit:
   col_cleanup(&cfile.cinfo);
   free_filter_lists();
   wtap_cleanup();
+  free_progdirs();
+#ifdef HAVE_PLUGINS
+  plugins_cleanup();
+#endif
   return ret;
 }
 

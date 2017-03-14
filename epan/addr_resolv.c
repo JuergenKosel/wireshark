@@ -549,7 +549,7 @@ add_serv_port_cb(const guint32 port)
 }
 
 
-static void
+static gboolean
 parse_services_file(const char * path)
 {
     FILE *serv_p;
@@ -560,13 +560,14 @@ parse_services_file(const char * path)
     serv_p = ws_fopen(path, "r");
 
     if (serv_p == NULL)
-        return;
+        return FALSE;
 
     while (fgetline(&buf, &size, serv_p) >= 0) {
         parse_service_line(buf);
     }
 
     fclose(serv_p);
+    return TRUE;
 }
 
 /* -----------------
@@ -643,6 +644,7 @@ serv_name_lookup(port_type proto, guint port)
 static void
 initialize_services(void)
 {
+    gboolean parse_file = TRUE;
     g_assert(serv_port_hashtable == NULL);
     serv_port_hashtable = wmem_map_new(wmem_epan_scope(), g_int_hash, g_int_equal);
 
@@ -654,9 +656,17 @@ initialize_services(void)
 
     /* Compute the pathname of the personal services file */
     if (g_pservices_path == NULL) {
-        g_pservices_path = get_persconffile_path(ENAME_SERVICES, FALSE);
+        /* Check profile directory before personal configuration */
+        g_pservices_path = get_persconffile_path(ENAME_SERVICES, TRUE);
+        if (!parse_services_file(g_pservices_path)) {
+            g_pservices_path = get_persconffile_path(ENAME_SERVICES, FALSE);
+        } else {
+            parse_file = FALSE;
+        }
     }
-    parse_services_file(g_pservices_path);
+    if (parse_file) {
+        parse_services_file(g_pservices_path);
+    }
 }
 
 static void
@@ -665,6 +675,8 @@ service_name_lookup_cleanup(void)
     serv_port_hashtable = NULL;
     g_free(g_services_path);
     g_services_path = NULL;
+    g_free(g_pservices_path);
+    g_pservices_path = NULL;
 }
 
 /* Fill in an IP4 structure with info from subnets file or just with the
@@ -1332,6 +1344,13 @@ initialize_ethers(void)
 
 } /* initialize_ethers */
 
+static void
+ethers_cleanup(void)
+{
+    g_free(g_pethers_path);
+    g_pethers_path = NULL;
+}
+
 /* Resolve ethernet address */
 static hashether_t *
 eth_addr_resolve(hashether_t *tp) {
@@ -1708,6 +1727,8 @@ static void
 ipx_name_lookup_cleanup(void)
 {
     ipxnet_hash_table = NULL;
+    g_free(g_pipxnets_path);
+    g_pipxnets_path = NULL;
 }
 
 #if 0
@@ -1919,6 +1940,8 @@ static void
 vlan_name_lookup_cleanup(void)
 {
     vlan_hash_table = NULL;
+    g_free(g_pvlan_path);
+    g_pvlan_path = NULL;
 }
 
 static const gchar *
@@ -2289,9 +2312,18 @@ subnet_name_lookup_init(void)
         subnet_length_entries[i].mask = g_htonl(ip_get_subnet_mask(length));
     }
 
-    subnetspath = get_persconffile_path(ENAME_SUBNETS, FALSE);
-    if (!read_subnets_file(subnetspath) && errno != ENOENT) {
-        report_open_failure(subnetspath, errno, FALSE);
+    /* Check profile directory before personal configuration */
+    subnetspath = get_persconffile_path(ENAME_SUBNETS, TRUE);
+    if (!read_subnets_file(subnetspath)) {
+        if (errno != ENOENT) {
+            report_open_failure(subnetspath, errno, FALSE);
+        }
+
+        g_free(subnetspath);
+        subnetspath = get_persconffile_path(ENAME_SUBNETS, FALSE);
+        if (!read_subnets_file(subnetspath) && errno != ENOENT) {
+            report_open_failure(subnetspath, errno, FALSE);
+        }
     }
     g_free(subnetspath);
 
@@ -3374,6 +3406,7 @@ addr_resolv_cleanup(void)
 {
     vlan_name_lookup_cleanup();
     service_name_lookup_cleanup();
+    ethers_cleanup();
     ipx_name_lookup_cleanup();
     /* host name initialization is done on a per-capture-file basis */
     /*host_name_lookup_cleanup();*/

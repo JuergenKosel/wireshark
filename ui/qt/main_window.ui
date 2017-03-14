@@ -259,6 +259,8 @@
     <addaction name="actionGoLastPacket"/>
     <addaction name="actionGoNextConversationPacket"/>
     <addaction name="actionGoPreviousConversationPacket"/>
+    <addaction name="actionGoNextHistoryPacket"/>
+    <addaction name="actionGoPreviousHistoryPacket"/>
     <addaction name="separator"/>
     <addaction name="actionGoAutoScroll"/>
    </widget>
@@ -335,9 +337,15 @@
      <addaction name="actionViewInternalsDissectorTables"/>
      <addaction name="actionViewInternalsSupportedProtocols"/>
     </widget>
+    <widget class="QMenu" name="actionViewAdditionalToolbars">
+     <property name="title">
+      <string>Additional Toolbars</string>
+     </property>
+    </widget>
     <addaction name="actionViewMainToolbar"/>
     <addaction name="actionViewFilterToolbar"/>
     <addaction name="actionViewWirelessToolbar"/>
+    <addaction name="actionViewAdditionalToolbars" />
     <addaction name="actionViewStatusBar"/>
     <addaction name="separator"/>
     <addaction name="actionViewFullScreen"/>
@@ -359,6 +367,7 @@
     <addaction name="actionViewColoringRules"/>
     <addaction name="menuColorizeConversation"/>
     <addaction name="separator"/>
+    <addaction name="actionViewResetLayout"/>
     <addaction name="actionViewResizeColumns"/>
     <addaction name="separator"/>
     <addaction name="menuInternals"/>
@@ -982,6 +991,28 @@
    </property>
    <property name="shortcut">
     <string notr="true">Ctrl+,</string>
+   </property>
+  </action>
+  <action name="actionGoNextHistoryPacket">
+   <property name="text">
+    <string>Next Packet In History</string>
+   </property>
+   <property name="toolTip">
+    <string>Go to the next packet in your selection history</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Alt+Right</string>
+   </property>
+  </action>
+  <action name="actionGoPreviousHistoryPacket">
+   <property name="text">
+    <string>Previous Packet In History</string>
+   </property>
+   <property name="toolTip">
+    <string>Go to the previous packet in your selection history</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Alt+Left</string>
    </property>
   </action>
   <action name="actionGoFirstPacket">
@@ -2109,6 +2140,17 @@
    </property>
    <property name="shortcut">
     <string notr="true">Ctrl+0</string>
+   </property>
+  </action>
+  <action name="actionViewResetLayout">
+   <property name="text">
+    <string>Reset Layout</string>
+   </property>
+   <property name="toolTip">
+    <string>Reset appearance layout to default size</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+Shift+W</string>
    </property>
   </action>
   <action name="actionViewResizeColumns">

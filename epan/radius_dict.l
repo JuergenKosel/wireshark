@@ -184,7 +184,7 @@ static void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, c
  *       name types in the FreeRadius dictionaries.
  */
 
-%START WS_OUT VENDOR VENDOR_W_NAME ATTR ATTR_W_NAME ATTR_W_ID ATTR_W_TYPE ATTR_W_VENDOR VALUE VALUE_W_ATTR VALUE_W_NAME INCLUDE JUNK BEGIN_VENDOR END_VENDOR VENDOR_W_ID VENDOR_W_FORMAT VENDOR_W_TYPE_OCTETS VENDOR_W_LENGTH_OCTETS VENDOR_W_CONTINUATION BEGIN_TLV END_TLV
+%START WS_OUT VENDOR VENDOR_W_NAME ATTR ATTR_W_NAME ATTR_W_ID ATTR_W_TYPE VALUE VALUE_W_ATTR VALUE_W_NAME INCLUDE JUNK BEGIN_VENDOR END_VENDOR VENDOR_W_ID VENDOR_W_FORMAT VENDOR_W_TYPE_OCTETS VENDOR_W_LENGTH_OCTETS VENDOR_W_CONTINUATION BEGIN_TLV END_TLV
 %%
 [:blank:]   ;
 #[^\n]*		;
@@ -294,6 +294,11 @@ static void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, c
 <ATTR_W_TYPE>encrypt=[123][,]?		{ yyextra->encrypted = (guint) strtoul(yytext+8,NULL,10); }
 <ATTR_W_TYPE>[0-9a-z_-]+=([^\n]*)	;
 <ATTR_W_TYPE>[0-9a-z_-]+		{
+    /*
+     * Support for "ATTRIBUTE name  number  type [vendor|options]", it marks
+     * this as vendor-specific attribute (VSA), but this notation is deprecated
+     * in favor of BEGIN-VENDOR/END-VENDOR blocks.
+     */
     gboolean attribute_ok;
 
     yyextra->attr_vendor = g_strdup(yytext);
@@ -318,14 +323,6 @@ static void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, c
     yyextra->encrypted=FALSE;
     BEGIN WS_OUT;
 }
-<ATTR_W_VENDOR>\n					{
-    add_attribute(yyextra, yyextra->attr_name, yyextra->attr_id, yyextra->attr_type, yyextra->attr_vendor, yyextra->encrypted, yyextra->has_tag, yyextra->current_attr);
-    g_free(yyextra->attr_id);
-    g_free(yyextra->attr_vendor);
-    g_free(yyextra->attr_name);
-    yyextra->linenums[yyextra->include_stack_ptr]++;
-    BEGIN WS_OUT;
-};
 
 <VALUE>[0-9a-z_/-]+				{ yyextra->attr_name = g_strdup(yytext); BEGIN VALUE_W_ATTR; }
 <VALUE_W_ATTR>[^[:blank:]]+			{ yyextra->value_repr = g_strdup(yytext); BEGIN VALUE_W_NAME; }
@@ -403,7 +400,7 @@ static void add_vendor(Radius_scanner_state_t* state, const gchar* name, guint32
 		 * by-name hash tables.
 		 */
 		v = g_new(radius_vendor_info_t,1);
-		v->attrs_by_id = g_hash_table_new(g_direct_hash,g_direct_equal);
+		v->attrs_by_id = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, free_radius_attr_info);
 		v->code = id;
 		v->ett = -1;
 		v->name = g_strdup(name);
@@ -523,10 +520,12 @@ static gboolean add_attribute(Radius_scanner_state_t* state, const gchar* name, 
 		 */
 		if (g_strcmp0(a->name, name) != 0) {
 			/*
-			 * Yes.  Remove the entry from the by-name hash table
-			 * and re-insert it with the new name.
+			 * Yes.  Steal the entry from the by-name hash table
+			 * and re-insert it with the new name.  (Don't
+			 * remove it - that calls the free routine, which
+			 * frees up the entry.)
 			 */
-			g_hash_table_remove(state->dict->attrs_by_name, (gpointer) (a->name));
+			g_hash_table_steal(state->dict->attrs_by_name, (gpointer) (a->name));
 			g_free((gpointer) a->name);
 			a->name = g_strdup(name);
 			g_hash_table_insert(state->dict->attrs_by_name, (gpointer) (a->name),a);
@@ -554,7 +553,7 @@ static gboolean add_tlv(Radius_scanner_state_t* state, const gchar* name, const 
 
 
 	if (! a->tlvs_by_id) {
-		a->tlvs_by_id = g_hash_table_new(g_direct_hash,g_direct_equal);
+		a->tlvs_by_id = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, free_radius_attr_info);
 	}
 
 	code = (guint32) strtoul(codestr, NULL, 10);
@@ -603,8 +602,9 @@ void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, const gc
 	GArray* a = (GArray*)g_hash_table_lookup(state->value_strings,attrib_name);
 
 	if (! a) {
-		a = g_array_new(TRUE,TRUE,sizeof(value_string));
-		g_hash_table_insert(state->value_strings,g_strdup(attrib_name),a);
+		/* Ensure that the array is zero terminated. */
+		a = g_array_new(TRUE, TRUE, sizeof(value_string));
+		g_hash_table_insert(state->value_strings, g_strdup(attrib_name), a);
 	}
 
 	v.value = value;
@@ -625,8 +625,8 @@ static void setup_tlvs(gpointer k _U_, gpointer v, gpointer p) {
 
 	if (g_hash_table_lookup_extended(state->value_strings, s->name, &key, &vs.p)) {
 		s->vs = (value_string*)(void *)vs.a->data;
+		g_hash_table_steal(state->value_strings, key);
 		g_array_free(vs.a, FALSE);
-		g_hash_table_remove(state->value_strings, key);
 		g_free(key);
 	}
 }
@@ -641,10 +641,10 @@ static void setup_attrs(gpointer k _U_, gpointer v, gpointer p) {
 		gpointer p;
 	} vs;
 
-	if (g_hash_table_lookup_extended(state->value_strings,a->name,&key,&vs.p) ) {
+	if (g_hash_table_lookup_extended(state->value_strings, a->name, &key, &vs.p) ) {
 		a->vs = (value_string*)(void *)vs.a->data;
-		g_array_free(vs.a,FALSE);
-		g_hash_table_remove(state->value_strings,key);
+		g_hash_table_steal(state->value_strings, key);
+		g_array_free(vs.a, FALSE);
 		g_free(key);
 	}
 
@@ -659,17 +659,14 @@ static void setup_vendors(gpointer k _U_, gpointer v, gpointer p) {
 	g_hash_table_foreach(vnd->attrs_by_id,setup_attrs,p);
 }
 
-static gboolean destroy_value_strings(gpointer k, gpointer v, gpointer p _U_) {
+static void destroy_value_strings(gpointer v) {
 	value_string* vs = (value_string*)(void *)(((GArray*)v)->data);
-
-	g_free(k);
 
 	for (;vs->strptr;vs++) {
 		g_free((void*)vs->strptr);
 	}
 
 	g_array_free((GArray*)v,TRUE);
-	return TRUE;
 }
 
 gboolean radius_load_dictionary (radius_dictionary_t* d, gchar* dir, const gchar* filename, gchar** err_str) {
@@ -719,7 +716,7 @@ gboolean radius_load_dictionary (radius_dictionary_t* d, gchar* dir, const gchar
 		return FALSE;
 	}
 
-	state.value_strings = g_hash_table_new(g_str_hash,g_str_equal);
+	state.value_strings = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, destroy_value_strings);
 
 	if (Radius_lex_init(&scanner) != 0) {
 		g_string_append_printf(state.error, "Can't initialize scanner: %s",
@@ -750,7 +747,7 @@ gboolean radius_load_dictionary (radius_dictionary_t* d, gchar* dir, const gchar
 
 	g_hash_table_foreach(state.dict->attrs_by_id,setup_attrs,&state);
 	g_hash_table_foreach(state.dict->vendors_by_id,setup_vendors,&state);
-	g_hash_table_foreach_remove(state.value_strings,destroy_value_strings,NULL);
+	g_hash_table_destroy(state.value_strings);
 
 	if (state.error->len > 0) {
 		*err_str = g_string_free(state.error,FALSE);

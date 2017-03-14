@@ -72,10 +72,20 @@ wmem_tree_t *
 wmem_tree_new_autoreset(wmem_allocator_t *master, wmem_allocator_t *slave)
 G_GNUC_MALLOC;
 
+/** Cleanup memory used by tree.  Intended for NULL scope allocated trees */
+WS_DLL_PUBLIC
+void
+wmem_tree_destroy(wmem_tree_t *tree, gboolean free_keys, gboolean free_values);
+
 /** Returns true if the tree is empty (has no nodes). */
 WS_DLL_PUBLIC
 gboolean
 wmem_tree_is_empty(wmem_tree_t *tree);
+
+/** Returns number of nodes in tree */
+WS_DLL_PUBLIC
+guint
+wmem_tree_count(wmem_tree_t* tree);
 
 /** Insert a node indexed by a guint32 key value.
  *

@@ -39,7 +39,6 @@ endif
 # present in the APIs/ABIs of some, but not all, targets.
 libwsutil_nonrepl_INCLUDES = \
 	adler32.h		\
-	aes.h			\
 	base32.h		\
 	base64.h		\
 	bits_count_ones.h	\
@@ -59,17 +58,15 @@ libwsutil_nonrepl_INCLUDES = \
 	crc16.h			\
 	crc16-plain.h		\
 	crc32.h			\
-	des.h			\
 	eax.h			\
 	filesystem.h		\
 	frequency-utils.h	\
 	g711.h			\
+	glib-compat.h		\
 	inet_addr.h		\
 	inet_ipv6.h		\
 	interface.h		\
 	jsmn.h			\
-	md4.h			\
-	md5.h			\
 	mpeg-audio.h		\
 	nstime.h		\
 	os_version_info.h	\
@@ -77,10 +74,7 @@ libwsutil_nonrepl_INCLUDES = \
 	plugins.h		\
 	privileges.h		\
 	processes.h		\
-	rc4.h			\
 	report_err.h		\
-	sha1.h			\
-	sha2.h			\
 	sign_ext.h		\
 	sober128.h		\
 	socket.h		\
@@ -118,7 +112,6 @@ lib_LTLIBRARIES = libwsutil.la
 libwsutil_la_SOURCES = \
 	$(libwsutil_nonrepl_INCLUDES)	\
 	adler32.c		\
-	aes.c			\
 	airpdcap_wep.c		\
 	base32.c		\
 	base64.c		\
@@ -137,25 +130,20 @@ libwsutil_la_SOURCES = \
 	crc16.c			\
 	crc16-plain.c		\
 	crc32.c			\
-	des.c			\
 	eax.c			\
 	filesystem.c		\
 	frequency-utils.c	\
 	g711.c			\
+	glib-compat.c		\
 	inet_addr.c		\
 	interface.c		\
 	jsmn.c			\
-	md4.c			\
-	md5.c			\
 	mpeg-audio.c		\
 	nstime.c		\
 	os_version_info.c	\
 	plugins.c		\
 	privileges.c		\
-	rc4.c			\
 	report_err.c		\
-	sha1.c			\
-	sha2.c			\
 	sober128.c		\
 	str_util.c		\
 	strtoi.c		\
@@ -165,6 +153,7 @@ libwsutil_la_SOURCES = \
 	type_util.c		\
 	unicode-utils.c		\
 	ws_mempbrk.c		\
+	wsgcrypt.c		\
 	wsjsmn.c
 
 if HAVE_OS_X_FRAMEWORKS

@@ -39,14 +39,17 @@
            BGP/MPLS IP Virtual Private Networks (VPNs)
  * RFC6608 Subcodes for BGP Finite State Machine Error
  * RFC6793 BGP Support for Four-Octet Autonomous System (AS) Number Space
+ * RFC7311 The Accumulated IGP Metric Attribute for BGP
  * RFC7432 BGP MPLS-Based Ethernet VPN
+ * RFC7752 North-Bound Distribution of Link-State and Traffic Engineering (TE)
+           Information Using BGP
+ * RFC8092 BGP Large Communities Attribute
  * draft-ietf-idr-dynamic-cap
  * draft-ietf-idr-bgp-enhanced-route-refresh-02
  * draft-ietf-idr-bgp-ext-communities-05
  * draft-knoll-idr-qos-attribute-03
  * draft-nalawade-kapoor-tunnel-safi-05
  * draft-ietf-idr-add-paths-04 Additional-Path for BGP-4
- * draft-ietf-idr-aigp-18 for BGP
  * draft-gredler-idr-bgp-ls-segment-routing-ext-01
  * draft-ietf-idr-custom-decision-07 BGP Custom Decision Process
  * draft-rabadan-l2vpn-evpn-prefix-advertisement IP Prefix Advertisement
@@ -210,9 +213,9 @@ static dissector_handle_t bgp_handle;
 #define BGPTYPE_SAFI_SPECIFIC_ATTR  19 /* draft-kapoor-nalawade-idr-bgp-ssa-00.txt */
 #define BGPTYPE_PMSI_TUNNEL_ATTR    22 /* RFC6514 */
 #define BGPTYPE_TUNNEL_ENCAPS_ATTR  23 /* RFC5512 */
-#define BGPTYPE_AIGP                26 /* draft-ietf-idr-aigp-18 */
-#define BGPTYPE_LINK_STATE_ATTR     29 /* draft-ietf-idr-ls-distribution */
-#define BGPTYPE_LARGE_COMMUNITY     32 /* draft-ietf-idr-large-community  */
+#define BGPTYPE_AIGP                26 /* RFC7311 */
+#define BGPTYPE_LINK_STATE_ATTR     29 /* RFC7752 */
+#define BGPTYPE_LARGE_COMMUNITY     32 /* RFC8092 */
 #define BGPTYPE_LINK_STATE_OLD_ATTR 99 /* squatted value used by at least 2
                                           implementations before IANA assignment */
 #define BGPTYPE_ATTR_SET           128 /* RFC6368           */
@@ -349,14 +352,19 @@ static dissector_handle_t bgp_handle;
 
 #define BGP_EXT_COM_STYPE_AS4_RT        0x02    /* Route Target [RFC5668] */
 #define BGP_EXT_COM_STYPE_AS4_RO        0x03    /* Route Origin [RFC5668] */
-#define BGP_EXT_COM_STYPE_AS4_GEN       0x04    /* Generic [draft-ietf-idr-as4octet-extcomm-generic-subtype] */
+#define BGP_EXT_COM_STYPE_AS4_GEN       0x04    /* Generic (deprecated) [draft-ietf-idr-as4octet-extcomm-generic-subtype] */
 #define BGP_EXT_COM_STYPE_AS4_OSPF_DID  0x05    /* OSPF Domain Identifier [RFC4577] */
+#define BGP_EXT_COM_STYPE_AS4_BGP_DC    0x08    /* BGP Data Collection [RFC4384] */
 #define BGP_EXT_COM_STYPE_AS4_S_AS      0x09    /* Source AS [RFC6514] */
 #define BGP_EXT_COM_STYPE_AS4_CIS_V     0x10    /* Cisco VPN Identifier [Eric_Rosen] */
+#define BGP_EXT_COM_STYPE_AS4_RT_REC    0x13    /* Route-Target Record [draft-ietf-bess-service-chaining] */
 
 /* Non-Transitive Four-Octet AS-Specific Extended Community Sub-Types */
 
-#define BGP_EXT_COM_STYPE_AS4_GEN       0x04    /* Generic [draft-ietf-idr-as4octet-extcomm-generic-subtype] */
+/*
+ * #define BGP_EXT_COM_STYPE_AS4_GEN       0x04
+ * Generic (deprecated) [draft-ietf-idr-as4octet-extcomm-generic-subtype]
+*/
 
 /* Transitive IPv4-Address-Specific Extended Community Sub-Types */
 
@@ -500,7 +508,8 @@ static dissector_handle_t bgp_handle;
 #define SAFNUM_VPLS            65
 #define SAFNUM_MDT             66  /* rfc6037 */
 #define SAFNUM_EVPN            70  /* EVPN RFC */
-#define SAFNUM_LINK_STATE      71  /* draft-ietf-idr-ls-distribution */
+#define SAFNUM_BGP_LS          71  /* RFC7752 */
+#define SAFNUM_BGP_LS_VPN      72  /* RFC7752 */
 #define SAFNUM_LAB_VPNUNICAST 128  /* Draft-rosen-rfc2547bis-03 */
 #define SAFNUM_LAB_VPNMULCAST 129
 #define SAFNUM_LAB_VPNUNIMULC 130
@@ -542,7 +551,7 @@ static dissector_handle_t bgp_handle;
 #define PMSI_MLDP_FEC_TYPE_EXT_TYPE     255
 #define PMSI_MLDP_FEC_ETYPE_RSVD        0
 
-/* draft-ietf-idr-aigp-18 AIGP types */
+/* RFC 7311 AIGP types */
 #define AIGP_TLV_TYPE           1
 
 /* RFC 5512/5640 Sub-TLV Types */
@@ -577,7 +586,7 @@ static dissector_handle_t bgp_handle;
 #define BGP_LS_PREFIX_OSPF_ROUTE_TYPE_NSSA_1     5
 #define BGP_LS_PREFIX_OSPF_ROUTE_TYPE_NSSA_2     6
 
-/* draft-ietf-idr-ls-distribution-03 */
+/* RFC7752 */
 #define BGP_NLRI_TLV_LOCAL_NODE_DESCRIPTORS         256
 #define BGP_NLRI_TLV_REMOTE_NODE_DESCRIPTORS        257
 #define BGP_NLRI_TLV_LINK_LOCAL_REMOTE_IDENTIFIERS  258
@@ -650,7 +659,6 @@ static dissector_handle_t bgp_handle;
 #define BGP_NLRI_TLV_LEN_MAX_METRIC                     3
 #define BGP_NLRI_TLV_LEN_IGP_FLAGS                      1
 #define BGP_NLRI_TLV_LEN_PREFIX_METRIC                  4
-#define BGP_NLRI_TLV_LEN_AREA_ID                        4
 #define BGP_NLRI_TLV_LEN_NODE_FLAG_BITS                 1
 
 /* draft-gredler-idr-bgp-ls-segment-routing-ext-01 */
@@ -880,9 +888,14 @@ static const value_string bgpattr_type[] = {
     { BGPTYPE_PMSI_TUNNEL_ATTR,    "PMSI_TUNNEL_ATTRIBUTE" },
     { BGPTYPE_AIGP,                "AIGP"},
     { BGPTYPE_LINK_STATE_ATTR,     "LINK_STATE" },
-    { BGPTYPE_LINK_STATE_OLD_ATTR, "LINK_STATE (unofficial code point)" },
+    { 29,                          "Deprecated" },
+    { 30,                          "Deprecated" },
     { BGPTYPE_LARGE_COMMUNITY,     "LARGE_COMMUNITY" },
+    { BGPTYPE_LINK_STATE_OLD_ATTR, "LINK_STATE (unofficial code point)" },
     { BGPTYPE_ATTR_SET,            "ATTR_SET" },
+    { 129,                         "Deprecated" },
+    { 242,                         "Deprecated" },
+    { 243,                         "Deprecated" },
     { 0, NULL }
 };
 
@@ -994,9 +1007,11 @@ static const value_string bgpext_com_stype_tr_as4[] = {
     { BGP_EXT_COM_STYPE_AS4_RT,       "Route Target" },
     { BGP_EXT_COM_STYPE_AS4_RO,       "Route Origin" },
     { BGP_EXT_COM_STYPE_AS4_GEN,      "Generic" },
+    { BGP_EXT_COM_STYPE_AS4_BGP_DC,   "BGP Data Collection"},
     { BGP_EXT_COM_STYPE_AS4_OSPF_DID, "OSPF Domain Identifier" },
     { BGP_EXT_COM_STYPE_AS4_S_AS,     "Source AS" },
     { BGP_EXT_COM_STYPE_AS4_CIS_V,    "Cisco VPN Identifier" },
+    { BGP_EXT_COM_STYPE_AS4_RT_REC,   "Route-Target Record"},
     { 0, NULL}
 };
 
@@ -1176,7 +1191,8 @@ static const value_string bgpattr_nlri_safi[] = {
     { SAFNUM_ENCAPSULATION,     "Encapsulation"},
     { SAFNUM_TUNNEL,            "Tunnel"},
     { SAFNUM_VPLS,              "VPLS"},
-    { SAFNUM_LINK_STATE,        "Link State"},
+    { SAFNUM_BGP_LS,            "BGP-LS"},
+    { SAFNUM_BGP_LS_VPN,        "BGP-LS-VPN"},
     { SAFNUM_LAB_VPNUNICAST,    "Labeled VPN Unicast" },        /* draft-rosen-rfc2547bis-03 */
     { SAFNUM_LAB_VPNMULCAST,    "Labeled VPN Multicast" },
     { SAFNUM_LAB_VPNUNIMULC,    "Labeled VPN Unicast+Multicast" },
@@ -1330,7 +1346,6 @@ static const value_string flowspec_nlri_opvaluepair_type[] = {
     { BGPNLRI_FSPEC_FRAGMENT, "IP fragment filter" },
     {0, NULL },
 };
-#define BGPNLRI_FSPEC_FRAGMENT     12 /* RFC 5575         */
 
 /* Subtype Route Refresh, draft-ietf-idr-bgp-enhanced-route-refresh-02 */
 static const value_string route_refresh_subtype_vals[] = {
@@ -1580,7 +1595,7 @@ static int hf_bgp_pmsi_tunnel_pimbidir_sender = -1;
 static int hf_bgp_pmsi_tunnel_pimbidir_pmc_group = -1;
 static int hf_bgp_pmsi_tunnel_ingress_rep_addr = -1;
 
-/* draft-ietf-idr-aigp-18 attribute */
+/* RFC 7311 attribute */
 static int hf_bgp_aigp_type = -1;
 static int hf_bgp_aigp_tlv_length = -1;
 static int hf_bgp_aigp_accu_igp_metric = -1;
@@ -1638,7 +1653,7 @@ static int hf_bgp_mcast_vpn_nlri_route_key = -1;
 static int hf_bgp_ls_type = -1;
 static int hf_bgp_ls_length = -1;
 
-static int hf_bgp_ls_safi72_nlri = -1;
+static int hf_bgp_ls_nlri = -1;
 static int hf_bgp_ls_safi128_nlri = -1;
 static int hf_bgp_ls_safi128_nlri_route_distinguisher = -1;
 static int hf_bgp_ls_safi128_nlri_route_distinguisher_type = -1;
@@ -1707,7 +1722,7 @@ static int hf_bgp_ls_sr_tlv_adjacency_sid_weight = -1;
 static int hf_bgp_ls_sr_tlv_adjacency_sid_label = -1;
 static int hf_bgp_ls_sr_tlv_adjacency_sid_index = -1;
 
-/* draft-ietf-idr-ls-distribution-03 TLVs */
+/* RFC7752 TLVs */
 static int hf_bgp_ls_tlv_local_node_descriptors = -1;              /* 256 */
 static int hf_bgp_ls_tlv_remote_node_descriptors = -1;             /* 257 */
 static int hf_bgp_ls_tlv_link_local_remote_identifiers = -1;       /* 258 */
@@ -3214,7 +3229,7 @@ mp_addr_to_str (guint16 afi, guint8 safi, tvbuff_t *tvb, gint offset, wmem_strbu
                     break;
             } /* switch (safi) */
             break;
-        case AFNUM_LINK_STATE:
+        case AFNUM_BGP_LS:
             length = nhlen;
             if (nhlen == 4) {
                 wmem_strbuf_append(strbuf, tvb_ip_to_str(tvb, offset));
@@ -5267,14 +5282,14 @@ decode_prefix_MP(proto_tree *tree, int hf_addr4, int hf_addr6,
                 return -1;
         } /* switch (safi) */
         break;
-    case AFNUM_LINK_STATE:
+    case AFNUM_BGP_LS:
         nlri_type = tvb_get_ntohs(tvb, offset);
         total_length = tvb_get_ntohs(tvb, offset + 2);
         length = total_length;
         total_length += 4;
 
-        if (safi == SAFNUM_LINK_STATE) {
-            ti = proto_tree_add_item(tree, hf_bgp_ls_safi72_nlri, tvb, offset, total_length , ENC_NA);
+        if (safi == SAFNUM_BGP_LS || safi == SAFNUM_BGP_LS_VPN) {
+            ti = proto_tree_add_item(tree, hf_bgp_ls_nlri, tvb, offset, total_length , ENC_NA);
         } else if (safi == SAFNUM_LAB_VPNUNICAST) {
             ti = proto_tree_add_item(tree, hf_bgp_ls_safi128_nlri, tvb, offset, total_length , ENC_NA);
         } else
@@ -6486,7 +6501,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, guint16 tlen,
 
                         raw_value = tvb_get_ntohl(tvb, offset+4);
                         proto_tree_add_uint_format_value(community_tree, hf_bgp_ext_com_eigrp_bw,
-                                tvb, offset+4, 4, raw_value, "%u (%u Kbps)", raw_value, 2560000000U / raw_value);
+                                tvb, offset+4, 4, raw_value, "%u (%u Kbps)", raw_value, raw_value ? (2560000000U / raw_value) : 0);
                         proto_item_append_text(community_tree, ", B: %u", raw_value);
                         }
                         break;
@@ -6916,6 +6931,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, guint16 path_attr_len,
                                                  plurality(tlen, "", "s"));
                     break;
                 }
+                /* FALL THROUGH */
             case BGPTYPE_AS4_AGGREGATOR:
                 if (bgpa_type == BGPTYPE_AS4_AGGREGATOR && tlen != 8)
                     proto_tree_add_expert_format(subtree2, pinfo, &ei_bgp_length_invalid, tvb, o + i + aoff, tlen,
@@ -7040,7 +7056,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, guint16 path_attr_len,
                     case AFNUM_INET6:
                     case AFNUM_L2VPN:
                     case AFNUM_L2VPN_OLD:
-                    case AFNUM_LINK_STATE:
+                    case AFNUM_BGP_LS:
 
                         j = 0;
                         while (j < nexthop_len) {
@@ -7086,7 +7102,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, guint16 path_attr_len,
                                                          ett_bgp_mp_reach_nlri, NULL, "Network layer reachability information (%u byte%s)",
                                                          tlen, plurality(tlen, "", "s"));
                 if (tlen)  {
-                    if (af != AFNUM_INET && af != AFNUM_INET6 && af != AFNUM_L2VPN && af != AFNUM_LINK_STATE) {
+                    if (af != AFNUM_INET && af != AFNUM_INET6 && af != AFNUM_L2VPN && af != AFNUM_BGP_LS) {
                         proto_tree_add_expert(subtree3, pinfo, &ei_bgp_unknown_afi, tvb, o + i + aoff, tlen);
                     } else {
                         while (tlen > 0) {
@@ -8454,7 +8470,7 @@ proto_register_bgp(void)
         {"Tunnel type ingress replication IP end point", "bgp.update.path_attribute.pmsi.ingress_rep_ip", FT_IPv4, BASE_NONE,
         NULL, 0x0, NULL, HFILL}},
 
-        /* draft-ietf-idr-aigp-18 */
+        /* RFC7311 */
       { &hf_bgp_update_path_attribute_aigp,
         { "AIGP Attribute", "bgp.update.path_attribute.aigp", FT_NONE, BASE_NONE,
           NULL, 0x0, NULL, HFILL}},
@@ -8468,7 +8484,7 @@ proto_register_bgp(void)
         {"AIGP Accumulated IGP Metric", "bgp.update.attribute.aigp.accu_igp_metric", FT_UINT64, BASE_DEC,
         NULL, 0x0, NULL, HFILL}},
 
-        /* draft-ietf-idr-large-community */
+        /* RFC8092 */
       { &hf_bgp_large_communities,
         { "Large Communities", "bgp.large_communities", FT_STRING, BASE_NONE,
           NULL, 0x0, NULL, HFILL }},
@@ -9024,8 +9040,8 @@ proto_register_bgp(void)
       { &hf_bgp_ls_length,
         { "Length", "bgp.ls.length", FT_UINT16, BASE_DEC,
           NULL, 0x0, "The total length of the message payload in octets", HFILL }},
-      { &hf_bgp_ls_safi72_nlri,
-        { "Link State SAFI 72 NLRI", "bgp.ls.nlri_safi72", FT_NONE,
+      { &hf_bgp_ls_nlri,
+        { "BGP-LS NLRI", "bgp.ls.nlri", FT_NONE,
           BASE_NONE, NULL, 0x0, NULL, HFILL}},
       { &hf_bgp_ls_safi128_nlri,
         { "Link State SAFI 128 NLRI", "bgp.ls.nlri_safi128", FT_NONE,

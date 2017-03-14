@@ -68,13 +68,10 @@
 #include <epan/asn1.h>
 #include <epan/expert.h>
 #include <epan/oids.h>
-#include <wsutil/sha1.h>
-#include <wsutil/md5.h>
 #include "packet-ipx.h"
 #include "packet-hpext.h"
 #include "packet-ber.h"
 #include "packet-snmp.h"
-
 #include <wsutil/wsgcrypt.h>
 
 #define PNAME  "Simple Network Management Protocol"
@@ -114,7 +111,7 @@ static void snmp_usm_password_to_key_sha1(const guint8 *password, guint password
 
 
 static snmp_usm_auth_model_t model_md5 = {snmp_usm_password_to_key_md5, snmp_usm_auth_md5, 16};
-static snmp_usm_auth_model_t model_sha1 = {snmp_usm_password_to_key_sha1, snmp_usm_auth_sha1, SHA1_DIGEST_LEN};
+static snmp_usm_auth_model_t model_sha1 = {snmp_usm_password_to_key_sha1, snmp_usm_auth_sha1, 20};
 
 static const value_string auth_types[] = {
 	{0,"MD5"},
@@ -294,7 +291,7 @@ static int hf_snmp_priority = -1;                 /* INTEGER_M1_2147483647 */
 static int hf_snmp_operation = -1;                /* T_operation */
 
 /*--- End of included file: packet-snmp-hf.c ---*/
-#line 220 "./asn1/snmp/packet-snmp-template.c"
+#line 217 "./asn1/snmp/packet-snmp-template.c"
 
 /* Initialize the subtree pointers */
 static gint ett_smux = -1;
@@ -334,7 +331,7 @@ static gint ett_snmp_SimpleOpen_U = -1;
 static gint ett_snmp_RReqPDU_U = -1;
 
 /*--- End of included file: packet-snmp-ett.c ---*/
-#line 236 "./asn1/snmp/packet-snmp-template.c"
+#line 233 "./asn1/snmp/packet-snmp-template.c"
 
 static expert_field ei_snmp_failed_decrypted_data_pdu = EI_INIT;
 static expert_field ei_snmp_decrypted_data_bad_formatted = EI_INIT;
@@ -1471,35 +1468,31 @@ snmp_users_update_cb(void* p _U_, char** err)
 
 	*err = NULL;
 
-	if (num_ueas == 0)
-		/* Nothing to update */
-		return FALSE;
-
-	if (! ue->user.userName.len)
+	if (! ue->user.userName.len) {
 		g_string_append_printf(es,"no userName\n");
-
-	for (i=0; i<num_ueas-1; i++) {
-		snmp_ue_assoc_t* u = &(ueas[i]);
-
+	} else if ((ue->engine.len > 0) && (ue->engine.len < 5 || ue->engine.len > 32)) {
 		/* RFC 3411 section 5 */
-		if ((u->engine.len > 0) && (u->engine.len < 5 || u->engine.len > 32)) {
-			g_string_append_printf(es, "Invalid engineId length (%u). Must be between 5 and 32 (10 and 64 hex digits)\n", u->engine.len);
-		}
+		g_string_append_printf(es, "Invalid engineId length (%u). Must be between 5 and 32 (10 and 64 hex digits)\n", ue->engine.len);
+	} else if (num_ueas) {
+		for (i=0; i<num_ueas-1; i++) {
+			snmp_ue_assoc_t* u = &(ueas[i]);
 
+			if ( u->user.userName.len == ue->user.userName.len
+				&& u->engine.len == ue->engine.len && (u != ue)) {
 
-		if ( u->user.userName.len == ue->user.userName.len
-			&& u->engine.len == ue->engine.len && (u != ue)) {
-
-			if (u->engine.len > 0 && memcmp( u->engine.data, ue->engine.data, u->engine.len ) == 0) {
-				if ( memcmp( u->user.userName.data, ue->user.userName.data, ue->user.userName.len ) == 0 ) {
-					/* XXX: make a string for the engineId */
-					g_string_append_printf(es,"Duplicate key (userName='%s')\n",ue->user.userName.data);
+				if (u->engine.len > 0 && memcmp( u->engine.data, ue->engine.data, u->engine.len ) == 0) {
+					if ( memcmp( u->user.userName.data, ue->user.userName.data, ue->user.userName.len ) == 0 ) {
+						/* XXX: make a string for the engineId */
+						g_string_append_printf(es,"Duplicate key (userName='%s')\n",ue->user.userName.data);
+						break;
+					}
 				}
-			}
 
-			if (u->engine.len == 0) {
-				if ( memcmp( u->user.userName.data, ue->user.userName.data, ue->user.userName.len ) == 0 ) {
-					g_string_append_printf(es,"Duplicate key (userName='%s' engineId=NONE)\n",ue->user.userName.data);
+				if (u->engine.len == 0) {
+					if ( memcmp( u->user.userName.data, ue->user.userName.data, ue->user.userName.len ) == 0 ) {
+						g_string_append_printf(es,"Duplicate key (userName='%s' engineId=NONE)\n",ue->user.userName.data);
+						break;
+					}
 				}
 			}
 		}
@@ -1569,6 +1562,11 @@ localize_ue( snmp_ue_assoc_t* o, const guint8* engine, guint engine_len )
 {
 	snmp_ue_assoc_t* n = (snmp_ue_assoc_t*)g_memdup(o,sizeof(snmp_ue_assoc_t));
 
+	n->user.userName.data = (guint8*)g_memdup(o->user.userName.data,o->user.userName.len);
+	n->user.authPassword.data = (guint8*)g_memdup(o->user.authPassword.data,o->user.authPassword.len);
+	n->user.privPassword.data = (guint8*)g_memdup(o->user.privPassword.data,o->user.privPassword.len);
+	n->user.authKey.data = (guint8*)g_memdup(o->user.authKey.data,o->user.authKey.len);
+	n->user.privKey.data = (guint8*)g_memdup(o->user.privKey.data,o->user.privKey.len);
 	n->engine.data = (guint8*)g_memdup(engine,engine_len);
 	n->engine.len = engine_len;
 
@@ -1676,9 +1674,11 @@ snmp_usm_auth_md5(snmp_usm_params_t* p, guint8** calc_auth_p, guint* calc_auth_l
 		msg[i] = '\0';
 	}
 
-	calc_auth = (guint8*)wmem_alloc(wmem_packet_scope(), 16);
+	calc_auth = (guint8*)wmem_alloc(wmem_packet_scope(), HASH_MD5_LENGTH);
 
-	md5_hmac(msg, msg_len, key, key_len, calc_auth);
+	if (ws_hmac_buffer(GCRY_MD_MD5, calc_auth, msg, msg_len, key, key_len)) {
+		return FALSE;
+	}
 
 	if (calc_auth_p) *calc_auth_p = calc_auth;
 	if (calc_auth_len_p) *calc_auth_len_p = 12;
@@ -1740,9 +1740,11 @@ snmp_usm_auth_sha1(snmp_usm_params_t* p _U_, guint8** calc_auth_p, guint* calc_a
 		msg[i] = '\0';
 	}
 
-	calc_auth = (guint8*)wmem_alloc(wmem_packet_scope(), SHA1_DIGEST_LEN);
+	calc_auth = (guint8*)wmem_alloc(wmem_packet_scope(), HASH_SHA1_LENGTH);
 
-	sha1_hmac(key, key_len, msg, msg_len, calc_auth);
+	if (ws_hmac_buffer(GCRY_MD_SHA1, calc_auth, msg, msg_len, key, key_len)) {
+		return FALSE;
+	}
 
 	if (calc_auth_p) *calc_auth_p = calc_auth;
 	if (calc_auth_len_p) *calc_auth_len_p = 12;
@@ -3046,7 +3048,7 @@ static int dissect_SMUX_PDUs_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, prot
 
 
 /*--- End of included file: packet-snmp-fn.c ---*/
-#line 1841 "./asn1/snmp/packet-snmp-template.c"
+#line 1843 "./asn1/snmp/packet-snmp-template.c"
 
 
 guint
@@ -3339,12 +3341,14 @@ snmp_usm_password_to_key_md5(const guint8 *password, guint passwordlen,
 			     const guint8 *engineID, guint engineLength,
 			     guint8 *key)
 {
-	md5_state_t	MD;
 	guint8		*cp, password_buf[64];
 	guint32		password_index = 0;
 	guint32		count = 0, i;
 	guint8		key1[16];
-	md5_init(&MD);   /* initialize MD5 */
+	gcry_md_hd_t	md5_handle;
+	if (gcry_md_open(&md5_handle, GCRY_MD_MD5, 0)) {
+		return;
+	}
 
 	/**********************************************/
 	/* Use while loop until we've done 1 Megabyte */
@@ -3362,10 +3366,11 @@ snmp_usm_password_to_key_md5(const guint8 *password, guint passwordlen,
 		} else {
 			*cp = 0;
 		}
-		md5_append(&MD, password_buf, 64);
+		gcry_md_write(md5_handle, password_buf, 64);
 		count += 64;
 	}
-	md5_finish(&MD, key1); /* tell MD5 we're done */
+	memcpy(key1, gcry_md_read(md5_handle, 0), HASH_MD5_LENGTH);
+	gcry_md_close(md5_handle);
 
 	/*****************************************************/
 	/* Now localize the key with the engineID and pass   */
@@ -3374,11 +3379,14 @@ snmp_usm_password_to_key_md5(const guint8 *password, guint passwordlen,
 	/* checking is done in snmp_users_update_cb.         */
 	/*****************************************************/
 
-	md5_init(&MD);
-	md5_append(&MD, key1, 16);
-	md5_append(&MD, engineID, engineLength);
-	md5_append(&MD, key1, 16);
-	md5_finish(&MD, key);
+	if (gcry_md_open(&md5_handle, GCRY_MD_MD5, 0)) {
+		return;
+	}
+	gcry_md_write(md5_handle, key1, HASH_MD5_LENGTH);
+	gcry_md_write(md5_handle, engineID, engineLength);
+	gcry_md_write(md5_handle, key1, HASH_MD5_LENGTH);
+	memcpy(key, gcry_md_read(md5_handle, 0), HASH_MD5_LENGTH);
+	gcry_md_close(md5_handle);
 
 	return;
 }
@@ -3395,12 +3403,14 @@ snmp_usm_password_to_key_sha1(const guint8 *password, guint passwordlen,
 			      const guint8 *engineID, guint engineLength,
 			      guint8 *key)
 {
-	sha1_context	SH;
+	gcry_md_hd_t	sha1_handle;
 	guint8		*cp, password_buf[64];
 	guint32		password_index = 0;
 	guint32		count = 0, i;
 
-	sha1_starts(&SH); /* initialize SHA */
+	if (gcry_md_open(&sha1_handle, GCRY_MD_SHA1, 0)) {
+		return;
+	}
 
 	/**********************************************/
 	/* Use while loop until we've done 1 Megabyte */
@@ -3418,10 +3428,11 @@ snmp_usm_password_to_key_sha1(const guint8 *password, guint passwordlen,
 		} else {
 			*cp = 0;
 		}
-		sha1_update (&SH, password_buf, 64);
+		gcry_md_write(sha1_handle, password_buf, 64);
 		count += 64;
 	}
-	sha1_finish(&SH, key);
+	memcpy(key, gcry_md_read(sha1_handle, 0), HASH_SHA1_LENGTH);
+	gcry_md_close(sha1_handle);
 
 	/*****************************************************/
 	/* Now localize the key with the engineID and pass   */
@@ -3429,12 +3440,14 @@ snmp_usm_password_to_key_sha1(const guint8 *password, guint passwordlen,
 	/* We ignore invalid engineLengths here. More strict */
 	/* checking is done in snmp_users_update_cb.         */
 	/*****************************************************/
-
-	sha1_starts(&SH);
-	sha1_update(&SH, key, SHA1_DIGEST_LEN);
-	sha1_update(&SH, engineID, engineLength);
-	sha1_update(&SH, key, SHA1_DIGEST_LEN);
-	sha1_finish(&SH, key);
+	if (gcry_md_open(&sha1_handle, GCRY_MD_SHA1, 0)) {
+		return;
+	}
+	gcry_md_write(sha1_handle, key, HASH_SHA1_LENGTH);
+	gcry_md_write(sha1_handle, engineID, engineLength);
+	gcry_md_write(sha1_handle, key, HASH_SHA1_LENGTH);
+	memcpy(key, gcry_md_read(sha1_handle, 0), HASH_SHA1_LENGTH);
+	gcry_md_close(sha1_handle);
 	return;
  }
 
@@ -3863,7 +3876,7 @@ void proto_register_snmp(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-snmp-hfarr.c ---*/
-#line 2393 "./asn1/snmp/packet-snmp-template.c"
+#line 2406 "./asn1/snmp/packet-snmp-template.c"
 	};
 
 	/* List of subtrees */
@@ -3903,7 +3916,7 @@ void proto_register_snmp(void) {
     &ett_snmp_RReqPDU_U,
 
 /*--- End of included file: packet-snmp-ettarr.c ---*/
-#line 2409 "./asn1/snmp/packet-snmp-template.c"
+#line 2422 "./asn1/snmp/packet-snmp-template.c"
 	};
 	static ei_register_info ei[] = {
 		{ &ei_snmp_failed_decrypted_data_pdu, { "snmp.failed_decrypted_data_pdu", PI_MALFORMED, PI_WARN, "Failed to decrypt encryptedPDU", EXPFILL }},

@@ -1240,6 +1240,15 @@ if(ENABLE_PLUGINS)
 		plugins/wimaxmacphy
 		${CUSTOM_PLUGIN_SRC_DIR}
 	)
+
+	# Build demo plugin, only if asked explicitly
+	if(ENABLE_PLUGIN_IFDEMO)
+		set(PLUGIN_SRC_DIRS
+			${PLUGIN_SRC_DIRS}
+			plugins/pluginifdemo
+		)
+	endif()
+
 # It seems this stuff doesn't build with autofoo either...
 #	if(YAPP_FOUND)
 #		set(PLUGIN_SRC_DIRS
@@ -1350,10 +1359,12 @@ endforeach()
 
 include(FeatureSummary)
 #SET_FEATURE_INFO(NAME DESCRIPTION [URL [COMMENT] ])
-SET_FEATURE_INFO(SBC "SBC Codec for Bluetooth A2DP stream playing" "www: http://git.kernel.org/cgit/bluetooth/sbc.git" )
+SET_FEATURE_INFO(SBC "SBC Codec for Bluetooth A2DP stream playing" "http://git.kernel.org/cgit/bluetooth/sbc.git" )
 SET_FEATURE_INFO(SPANDSP "Support for G.722 and G.726 codecs in RTP player" "http://www.soft-switch.org/" )
-SET_FEATURE_INFO(LIBSSH "libssh is library for ssh connections and it is needed to build sshdump/ciscodump" "www: https://www.libssh.org/get-it/" )
-
+SET_FEATURE_INFO(LIBSSH "libssh is library for ssh connections and it is needed to build sshdump/ciscodump" "https://www.libssh.org/get-it/" )
+SET_FEATURE_INFO(LZ4 "LZ4 is lossless compression algorithm used in some protocol (CQL...)" "http://www.lz4.org" )
+SET_FEATURE_INFO(SNAPPY "snappy is a fast compressor/decompressor from Google used in some protocol (CQL, kafka...)" "http://google.github.io/snappy/")
+SET_FEATURE_INFO(NGHTTP2 "nghttp2 is used for header (de)compression (HPACK)" "http://www.nghttp2.org" )
 FEATURE_SUMMARY(WHAT ALL)
 
 link_directories(
@@ -2448,6 +2459,7 @@ if(BUILD_editcap)
 	set(editcap_LIBS
 		wiretap
 		${ZLIB_LIBRARIES}
+		${GCRYPT_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 	set(editcap_FILES

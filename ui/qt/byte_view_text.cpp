@@ -123,6 +123,12 @@ ByteViewText::~ByteViewText()
     ctx_menu_.clear();
 }
 
+QSize ByteViewText::minimumSizeHint() const
+{
+    // Allow panel to be shrinked to any size
+    return QSize();
+}
+
 bool ByteViewText::hasDataSource(const tvbuff_t *ds_tvb) {
     if (ds_tvb != NULL && ds_tvb == tvb_)
         return true;
@@ -572,7 +578,7 @@ void ByteViewText::updateScrollbars()
 
     qint64 maxval = length / row_width_ + ((length % row_width_) ? 1 : 0) - viewport()->height() / line_spacing_;
 
-    verticalScrollBar()->setRange(0, qMax((qint64)0, maxval));
+    verticalScrollBar()->setRange(0, int(qMax((qint64)0, maxval)));
     horizontalScrollBar()->setRange(0, qMax(0, static_cast<int>((totalPixels() - viewport()->width()) / font_width_)));
 }
 

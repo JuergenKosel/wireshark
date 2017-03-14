@@ -74,6 +74,7 @@ static int hf_erf_flags_res   = -1;
 
 static int hf_erf_rlen = -1;
 static int hf_erf_lctr = -1;
+static int hf_erf_color = -1;
 static int hf_erf_wlen = -1;
 
 /* Classification extension header */
@@ -885,6 +886,20 @@ static const erf_meta_hf_template_t erf_meta_sections[] = {
   { ERF_META_SECTION_DNS,           { "DNS Section",                        "section_dns",       FT_NONE,          BASE_NONE,         NULL, 0x0, NULL, HFILL } },
   { ERF_META_SECTION_SOURCE,        { "Source Section",                     "section_source",    FT_NONE,          BASE_NONE,         NULL, 0x0, NULL, HFILL } }
 };
+
+static int erf_type_has_color(unsigned int type) {
+  switch (type & ERF_HDR_TYPE_MASK) {
+  case ERF_TYPE_COLOR_HDLC_POS:
+  case ERF_TYPE_COLOR_ETH:
+  case ERF_TYPE_COLOR_HASH_POS:
+  case ERF_TYPE_COLOR_HASH_ETH:
+  case ERF_TYPE_DSM_COLOR_HDLC_POS:
+  case ERF_TYPE_DSM_COLOR_ETH:
+  case ERF_TYPE_COLOR_MC_HDLC_POS:
+    return 1;
+  }
+  return 0;
+}
 
 static erf_meta_tag_info_ex_t* erf_meta_tag_info_ex_new(wmem_allocator_t *allocator) {
   gsize i = 0;
@@ -1857,9 +1872,14 @@ dissect_erf_pseudo_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
   proto_tree_add_uint(flags_tree, hf_erf_flags_res, tvb, 0, 0, pinfo->pseudo_header->erf.phdr.flags);
 
   proto_tree_add_uint(tree, hf_erf_rlen, tvb, 0, 0, pinfo->pseudo_header->erf.phdr.rlen);
-  pi=proto_tree_add_uint(tree, hf_erf_lctr, tvb, 0, 0, pinfo->pseudo_header->erf.phdr.lctr);
-  if (pinfo->pseudo_header->erf.phdr.lctr > 0)
-    expert_add_info(pinfo, pi, &ei_erf_packet_loss);
+
+  if (erf_type_has_color(pinfo->pseudo_header->erf.phdr.type)) {
+    proto_tree_add_uint(tree, hf_erf_color, tvb, 0, 0, pinfo->pseudo_header->erf.phdr.lctr);
+  } else {
+    pi=proto_tree_add_uint(tree, hf_erf_lctr, tvb, 0, 0, pinfo->pseudo_header->erf.phdr.lctr);
+    if (pinfo->pseudo_header->erf.phdr.lctr > 0)
+      expert_add_info(pinfo, pi, &ei_erf_packet_loss);
+  }
 
   proto_tree_add_uint(tree, hf_erf_wlen, tvb, 0, 0, pinfo->pseudo_header->erf.phdr.wlen);
 }
@@ -2372,7 +2392,7 @@ dissect_meta_record_tags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree) {
 
         tag_tree = proto_tree_add_subtree(section_tree, tvb, offset + 4, taglength, tag_info->ett, &tag_pi, tag_info->tag_template->hfinfo.name);
         /* Address */
-        pi = proto_tree_add_item(tag_tree, tag_info->extra->hf_values[0], tvb, offset + 4, MIN(addr_len, taglength), IS_FT_INT(tag_ft) || IS_FT_UINT(tag_ft) ? ENC_BIG_ENDIAN : ENC_NA);
+        pi = proto_tree_add_item(tag_tree, tag_info->extra->hf_values[0], tvb, offset + 4, MIN(addr_len, taglength), ENC_BIG_ENDIAN);
         /* Name */
         proto_tree_add_item(tag_tree, tag_info->extra->hf_values[1], tvb, offset + 4 + addr_len, taglength - addr_len, ENC_UTF_8);
         if (pi) {
@@ -2571,6 +2591,7 @@ dissect_erf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
   case ERF_TYPE_MC_ATM:
     dissect_mc_atm_header(tvb, pinfo, erf_tree);
     /* continue with type ATM */
+    /* FALL THROUGH */
 
   case ERF_TYPE_ATM:
     memset(&atm_info, 0, sizeof(atm_info));
@@ -2621,6 +2642,7 @@ dissect_erf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
   case ERF_TYPE_MC_AAL5:
     dissect_mc_aal5_header(tvb, pinfo, erf_tree);
     /* continue with type AAL5 */
+    /* FALL THROUGH */
 
   case ERF_TYPE_AAL5:
     atm_hdr = tvb_get_ntohl(tvb, 0);
@@ -2722,6 +2744,7 @@ dissect_erf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
   case ERF_TYPE_MC_HDLC:
     dissect_mc_hdlc_header(tvb, pinfo, erf_tree);
     /* continue with type HDLC */
+    /* FALL THROUGH */
 
   case ERF_TYPE_HDLC_POS:
   case ERF_TYPE_COLOR_HDLC_POS:
@@ -2827,6 +2850,9 @@ proto_register_erf(void)
      { &hf_erf_lctr,
        { "Loss counter", "erf.lctr",
          FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+     { &hf_erf_color,
+       { "Color", "erf.color",
+         FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
      { &hf_erf_wlen,
        { "Wire length", "erf.wlen",
          FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },

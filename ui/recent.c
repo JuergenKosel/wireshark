@@ -40,6 +40,7 @@
 #include "ui/simple_dialog.h"
 
 #include <wsutil/file_util.h>
+#include <wsutil/glib-compat.h>
 
 #define RECENT_KEY_MAIN_TOOLBAR_SHOW          "gui.toolbar_main_show"
 #define RECENT_KEY_FILTER_TOOLBAR_SHOW        "gui.filter_toolbar_show"
@@ -73,6 +74,7 @@
 #define RECENT_GUI_ENDPOINT_TABS              "gui.endpoint_tabs"
 #define RECENT_GUI_RLC_PDUS_FROM_MAC_FRAMES   "gui.rlc_pdus_from_mac_frames"
 #define RECENT_GUI_CUSTOM_COLORS              "gui.custom_colors"
+#define RECENT_GUI_TOOLBAR_SHOW               "gui.additional_toolbar_show"
 
 #define RECENT_GUI_GEOMETRY                   "gui.geom."
 
@@ -384,6 +386,10 @@ static GHashTable *remote_host_list=NULL;
 
 int recent_get_remote_host_list_size(void)
 {
+  if (remote_host_list == NULL) {
+    /* No entries exist. */
+    return 0;
+  }
   return g_hash_table_size (remote_host_list);
 }
 
@@ -408,9 +414,11 @@ free_remote_host (gpointer key _U_, gpointer value, gpointer user _U_)
   return TRUE;
 }
 
-GHashTable *get_remote_host_list(void)
+void
+recent_remote_host_list_foreach(GHFunc func, gpointer user_data)
 {
-  return remote_host_list;
+  if (remote_host_list != NULL)
+    g_hash_table_foreach(remote_host_list, func, user_data);
 }
 
 static void
@@ -432,7 +440,7 @@ capture_remote_combo_recent_write_all(FILE *rf)
 }
 
 
-void free_remote_host_list(void)
+void recent_free_remote_host_list(void)
 {
   g_hash_table_foreach_remove(remote_host_list, free_remote_host, NULL);
 }
@@ -852,6 +860,12 @@ write_profile_recent(void)
     fprintf(rf, RECENT_GUI_FILEOPEN_REMEMBERED_DIR ": %s\n", get_last_open_dir());
   }
 
+  fprintf(rf, "\n# Additional Toolbars shown\n");
+  fprintf(rf, "# List of additional toolbars to show.\n");
+  string_list = join_string_list(recent.gui_additional_toolbars);
+  fprintf(rf, RECENT_GUI_TOOLBAR_SHOW ": %s\n", string_list);
+  g_free(string_list);
+
   fclose(rf);
 
   /* XXX - catch I/O errors (e.g. "ran out of disk space") and return
@@ -1105,6 +1119,8 @@ read_set_recent_pair_static(gchar *key, const gchar *value,
       g_free (recent.gui_fileopen_remembered_dir);
     }
     recent.gui_fileopen_remembered_dir = g_strdup(value);
+  } else if (strcmp(key, RECENT_GUI_TOOLBAR_SHOW) == 0) {
+      recent.gui_additional_toolbars = prefs_get_string_list(value);
   }
 
   return PREFS_SET_OK;
@@ -1271,6 +1287,11 @@ recent_read_profile_static(char **rf_path_return, int *rf_errno_return)
   if (recent.gui_fileopen_remembered_dir) {
     g_free (recent.gui_fileopen_remembered_dir);
     recent.gui_fileopen_remembered_dir = NULL;
+  }
+
+  if (recent.gui_additional_toolbars) {
+      g_list_free_full (recent.gui_additional_toolbars, g_free);
+      recent.gui_additional_toolbars = NULL;
   }
 
   /* Construct the pathname of the user's profile recent file. */

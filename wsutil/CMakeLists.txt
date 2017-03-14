@@ -23,7 +23,6 @@ include(UseABICheck)
 
 set(WSUTIL_COMMON_FILES
 	adler32.c
-	aes.c
 	airpdcap_wep.c
 	base32.c
 	base64.c
@@ -41,35 +40,31 @@ set(WSUTIL_COMMON_FILES
 	crc7.c
 	crc8.c
 	crc11.c
-	des.c
 	eax.c
 	filesystem.c
 	frequency-utils.c
 	g711.c
+	glib-compat.c
 	inet_addr.c
 	interface.c
 	jsmn.c
-	md4.c
-	md5.c
 	mpeg-audio.c
 	nstime.c
 	cpu_info.c
 	os_version_info.c
 	plugins.c
 	privileges.c
-	sha1.c
-	sha2.c
 	sober128.c
 	strnatcmp.c
 	str_util.c
 	strtoi.c
-	rc4.c
 	report_err.c
 	tempfile.c
 	time_util.c
 	type_util.c
 	unicode-utils.c
 	ws_mempbrk.c
+	wsgcrypt.c
 	wsjsmn.c
 )
 

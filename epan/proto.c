@@ -57,6 +57,7 @@
 
 #include <wsutil/plugins.h>
 #include <wsutil/ws_printf.h> /* ws_debug_printf/ws_g_warning */
+#include <wsutil/glib-compat.h>
 
 /* Ptvcursor limits */
 #define SUBTREE_ONCE_ALLOCATION_NUMBER 8
@@ -667,12 +668,7 @@ proto_cleanup(void)
 
 #ifdef HAVE_PLUGINS
 	if (dissector_plugins) {
-#if GLIB_CHECK_VERSION(2, 28, 0)
 		g_slist_free_full(dissector_plugins, dissector_plugin_destroy);
-#else
-		g_slist_foreach(dissector_plugins, (GFunc)dissector_plugin_destroy, NULL);
-		g_slist_free(dissector_plugins);
-#endif
 		dissector_plugins = NULL;
 	}
 #endif
@@ -2633,7 +2629,14 @@ proto_tree_add_item_new_ret_length(proto_tree *tree, header_field_info *hfinfo,
 		return NULL;
 	}
 
-	TRY_TO_FAKE_THIS_ITEM(tree, hfinfo->id, hfinfo);
+	TRY_TO_FAKE_THIS_ITEM_OR_FREE(tree, hfinfo->id, hfinfo, {
+		/*
+		 * Even if the tree item is not referenced (and thus faked),
+		 * the caller must still be informed of the actual length.
+		 */
+		*lenretval = get_full_length(hfinfo, tvb, start, length,
+		    item_length, encoding);
+	});
 
 	new_fi = new_field_info(tree, hfinfo, tvb, start, item_length);
 
@@ -6063,7 +6066,7 @@ proto_get_first_protocol_field(const int proto_id, void **cookie)
 {
 	protocol_t *protocol = find_protocol_by_id(proto_id);
 
-	if ((protocol == NULL) || (protocol->fields == NULL))
+	if ((protocol == NULL) || (protocol->fields == NULL) || (protocol->fields->len == 0))
 		return NULL;
 
 	*cookie = GUINT_TO_POINTER(0 + 1);

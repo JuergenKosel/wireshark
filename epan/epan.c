@@ -65,6 +65,7 @@
 #include "reassemble.h"
 #include "srt_table.h"
 #include "stats_tree.h"
+#include <dtd.h>
 
 #ifdef HAVE_LUA
 #include <lua.h>
@@ -215,7 +216,6 @@ epan_cleanup(void)
 	proto_cleanup();
 	prefs_cleanup();
 	decode_clear_all();
-	conversation_table_cleanup();
 	conversation_filters_cleanup();
 	reassembly_table_cleanup();
 	tap_cleanup();
@@ -225,6 +225,7 @@ epan_cleanup(void)
 	export_pdu_cleanup();
 	disabled_protos_cleanup();
 	stats_tree_cleanup();
+	dtd_location(NULL);
 #ifdef HAVE_LUA
 	wslua_cleanup();
 #endif

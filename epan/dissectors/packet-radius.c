@@ -68,7 +68,7 @@
 #include <epan/addr_resolv.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/report_err.h>
-#include <wsutil/md5.h>
+#include <wsutil/wsgcrypt.h>
 
 
 #include "packet-radius.h"
@@ -912,8 +912,8 @@ dissect_rfc4675_egress_vlan_name(proto_tree *tree, tvbuff_t *tvb, packet_info *p
 static void
 radius_decrypt_avp(gchar *dest, int dest_len, tvbuff_t *tvb, int offset, int length)
 {
-	md5_state_t md_ctx, old_md_ctx;
-	md5_byte_t digest[AUTHENTICATOR_LENGTH];
+	gcry_md_hd_t md5_handle, old_md5_handle;
+	guint8 digest[HASH_MD5_LENGTH];
 	int i, j;
 	gint totlen = 0, returned_length, padded_length;
 	guint8 *pd;
@@ -932,11 +932,17 @@ radius_decrypt_avp(gchar *dest, int dest_len, tvbuff_t *tvb, int offset, int len
 	if (length > 128)
 		length = 128;
 
-	md5_init(&md_ctx);
-	md5_append(&md_ctx, (const guint8 *)shared_secret, (int)strlen(shared_secret));
-	old_md_ctx = md_ctx;
-	md5_append(&md_ctx, authenticator, AUTHENTICATOR_LENGTH);
-	md5_finish(&md_ctx, digest);
+	if (gcry_md_open(&md5_handle, GCRY_MD_MD5, 0)) {
+		return;
+	}
+	gcry_md_write(md5_handle, (const guint8 *)shared_secret, (int)strlen(shared_secret));
+	if (gcry_md_copy(&old_md5_handle, md5_handle)) {
+		gcry_md_close(md5_handle);
+		return;
+	}
+	gcry_md_write(md5_handle, authenticator, AUTHENTICATOR_LENGTH);
+	memcpy(digest, gcry_md_read(md5_handle, 0), HASH_MD5_LENGTH);
+	gcry_md_close(md5_handle);
 
 	padded_length = length + ((length % AUTHENTICATOR_LENGTH) ?
 		(AUTHENTICATOR_LENGTH - (length % AUTHENTICATOR_LENGTH)) : 0);
@@ -958,10 +964,16 @@ radius_decrypt_avp(gchar *dest, int dest_len, tvbuff_t *tvb, int offset, int len
 			}
 		}
 
-		md_ctx = old_md_ctx;
-		md5_append(&md_ctx, &pd[i], AUTHENTICATOR_LENGTH);
-		md5_finish(&md_ctx, digest);
+		if (gcry_md_copy(&md5_handle, old_md5_handle)) {
+			gcry_md_close(old_md5_handle);
+			return;
+		}
+		gcry_md_write(md5_handle, &pd[i], AUTHENTICATOR_LENGTH);
+		memcpy(digest, gcry_md_read(md5_handle, 0), HASH_MD5_LENGTH);
+		gcry_md_close(md5_handle);
 	}
+
+	gcry_md_close(old_md5_handle);
 }
 
 
@@ -1506,7 +1518,11 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 
 				avp_vsa_len -= avp_vsa_header_len;
 
-				dictionary_entry = (radius_attr_info_t *)g_hash_table_lookup(vendor->attrs_by_id, GUINT_TO_POINTER(avp_vsa_type));
+				if (vendor->attrs_by_id) {
+					dictionary_entry = (radius_attr_info_t *)g_hash_table_lookup(vendor->attrs_by_id, GUINT_TO_POINTER(avp_vsa_type));
+				} else {
+					dictionary_entry = NULL;
+				}
 
 				if (!dictionary_entry) {
 					dictionary_entry = &no_dictionary_entry;
@@ -1774,8 +1790,9 @@ is_radius(tvbuff_t *tvb)
 static gboolean
 valid_authenticator(tvbuff_t *tvb, guint8 request_authenticator[])
 {
-	md5_state_t md_ctx;
-	md5_byte_t digest[16];
+	gcry_md_hd_t md5_handle;
+	guint8 *digest;
+	gboolean result;
 	guint tvb_length;
 	guint8 *payload;
 
@@ -1788,12 +1805,16 @@ valid_authenticator(tvbuff_t *tvb, guint8 request_authenticator[])
 	memcpy(payload+4, request_authenticator, AUTHENTICATOR_LENGTH);
 
 	/* calculate MD5 hash (payload+shared_secret) */
-	md5_init(&md_ctx);
-	md5_append(&md_ctx, payload, tvb_length);
-	md5_append(&md_ctx, shared_secret, strlen(shared_secret));
-	md5_finish(&md_ctx, digest);
+	if (gcry_md_open(&md5_handle, GCRY_MD_MD5, 0)) {
+		return FALSE;
+	}
+	gcry_md_write(md5_handle, payload, tvb_length);
+	gcry_md_write(md5_handle, shared_secret, strlen(shared_secret));
+	digest = gcry_md_read(md5_handle, 0);
 
-	return !memcmp(digest, authenticator, AUTHENTICATOR_LENGTH);
+	result = !memcmp(digest, authenticator, AUTHENTICATOR_LENGTH);
+	gcry_md_close(md5_handle);
+	return result;
 }
 
 static int
@@ -2137,6 +2158,37 @@ dissect_radius(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
 	return tvb_captured_length(tvb);
 }
 
+void
+free_radius_attr_info(gpointer data)
+{
+	radius_attr_info_t* attr = (radius_attr_info_t*)data;
+	value_string *vs = (value_string *)attr->vs;
+
+	g_free(attr->name);
+	if (attr->tlvs_by_id) {
+		g_hash_table_destroy(attr->tlvs_by_id);
+	}
+	if (vs) {
+		for (; vs->strptr; vs++) {
+			g_free((gpointer)vs->strptr);
+		}
+		g_free((gpointer)attr->vs);
+	}
+
+	g_free(attr);
+}
+
+static void
+free_radius_vendor_info(gpointer data)
+{
+	radius_vendor_info_t* vendor = (radius_vendor_info_t*)data;
+
+	g_free(vendor->name);
+	if (vendor->attrs_by_id)
+		g_hash_table_destroy(vendor->attrs_by_id);
+
+	g_free(vendor);
+}
 
 static void
 register_attrs(gpointer k _U_, gpointer v, gpointer p)
@@ -2251,9 +2303,11 @@ register_attrs(gpointer k _U_, gpointer v, gpointer p)
 		hfri[2].hfinfo.display = BASE_NONE;
 
 		len_hf++;
+#if 0 /* Fix -Wduplicated-branches */
 	} else if (a->type == radius_tlv) {
 		hfri[0].hfinfo.type = FT_BYTES;
 		hfri[0].hfinfo.display = BASE_NONE;
+#endif
 	} else {
 		hfri[0].hfinfo.type = FT_BYTES;
 		hfri[0].hfinfo.display = BASE_NONE;
@@ -2313,7 +2367,7 @@ radius_register_avp_dissector(guint32 vendor_id, guint32 attribute_id, radius_av
 						       val_to_str_ext_const(vendor_id, &sminmpec_values_ext, "Unknown"),
 						       vendor_id);
 			vendor->code = vendor_id;
-			vendor->attrs_by_id = g_hash_table_new(g_direct_hash, g_direct_equal);
+			vendor->attrs_by_id = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, free_radius_attr_info);
 			vendor->ett = no_vendor.ett;
 
 			/* XXX: Default "standard" values: Should be parameters ?  */
@@ -2366,6 +2420,19 @@ radius_init_protocol(void)
 		alternate_port = prefs_find_preference(radius_module, "alternate_port");
 		if (! prefs_get_preference_obsolete(alternate_port))
 			prefs_set_preference_obsolete(alternate_port);
+	}
+}
+
+static void
+radius_shutdown(void)
+{
+	if (dict != NULL) {
+		g_hash_table_destroy(dict->attrs_by_id);
+		g_hash_table_destroy(dict->attrs_by_name);
+		g_hash_table_destroy(dict->vendors_by_id);
+		g_hash_table_destroy(dict->vendors_by_name);
+		g_hash_table_destroy(dict->tlvs_by_name);
+		g_free(dict);
 	}
 }
 
@@ -2595,8 +2662,6 @@ register_radius_fields(const char *unused _U_)
 	expert_radius = expert_register_protocol(proto_radius);
 	expert_register_field_array(expert_radius, ei, array_length(ei));
 
-	no_vendor.attrs_by_id = g_hash_table_new(g_direct_hash, g_direct_equal);
-
 	/*
 	 * Handle attributes that have a special format.
 	 */
@@ -2634,6 +2699,7 @@ proto_register_radius(void)
 	proto_radius = proto_register_protocol("RADIUS Protocol", "RADIUS", "radius");
 	radius_handle = register_dissector("radius", dissect_radius, proto_radius);
 	register_init_routine(&radius_init_protocol);
+	register_shutdown_routine(radius_shutdown);
 	radius_module = prefs_register_protocol(proto_radius, NULL);
 	prefs_register_string_preference(radius_module, "shared_secret", "Shared Secret",
 					 "Shared secret used to decode User Passwords and validate Response Authenticators",
@@ -2650,9 +2716,14 @@ proto_register_radius(void)
 	proto_register_prefix("radius", register_radius_fields);
 
 	dict = (radius_dictionary_t *)g_malloc(sizeof(radius_dictionary_t));
-	dict->attrs_by_id     = g_hash_table_new(g_direct_hash, g_direct_equal);
+	/*
+	 * IDs map to names and vice versa. The attribute and vendor is stored
+	 * only once, but referenced by both name and ID mappings.
+	 * See also radius_dictionary_t in packet-radius.h
+	 */
+	dict->attrs_by_id     = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, free_radius_attr_info);
 	dict->attrs_by_name   = g_hash_table_new(g_str_hash, g_str_equal);
-	dict->vendors_by_id   = g_hash_table_new(g_direct_hash, g_direct_equal);
+	dict->vendors_by_id   = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, free_radius_vendor_info);
 	dict->vendors_by_name = g_hash_table_new(g_str_hash, g_str_equal);
 	dict->tlvs_by_name    = g_hash_table_new(g_str_hash, g_str_equal);
 

@@ -40,9 +40,11 @@ typedef enum {
     T_EOL
 } token_t;
 
-void parse_token(token_t token, char *str);
+int parse_token(token_t token, char *str);
 
-int yylex(void);
+int text2pcap_lex(void);
+
+int text2pcap_lex_destroy(void);
 
 #endif
 

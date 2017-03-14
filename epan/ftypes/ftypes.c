@@ -499,64 +499,100 @@ fvalue_slice(fvalue_t *fv, drange_t *d_range)
 void
 fvalue_set_byte_array(fvalue_t *fv, GByteArray *value)
 {
-	g_assert(fv->ftype->set_value_byte_array);
-	fv->ftype->set_value_byte_array(fv, value);
+	g_assert(fv->ftype->ftype == FT_BYTES ||
+			fv->ftype->ftype == FT_UINT_BYTES ||
+			fv->ftype->ftype == FT_OID ||
+			fv->ftype->ftype == FT_REL_OID ||
+			fv->ftype->ftype == FT_SYSTEM_ID);
+	g_assert(fv->ftype->set_value.set_value_byte_array);
+	fv->ftype->set_value.set_value_byte_array(fv, value);
 }
 
 void
 fvalue_set_bytes(fvalue_t *fv, const guint8 *value)
 {
-	g_assert(fv->ftype->set_value_bytes);
-	fv->ftype->set_value_bytes(fv, value);
+	g_assert(fv->ftype->ftype == FT_AX25 ||
+			fv->ftype->ftype == FT_VINES ||
+			fv->ftype->ftype == FT_ETHER ||
+			fv->ftype->ftype == FT_FCWWN ||
+			fv->ftype->ftype == FT_IPv6);
+	g_assert(fv->ftype->set_value.set_value_bytes);
+	fv->ftype->set_value.set_value_bytes(fv, value);
 }
 
 void
 fvalue_set_guid(fvalue_t *fv, const e_guid_t *value)
 {
-	g_assert(fv->ftype->set_value_guid);
-	fv->ftype->set_value_guid(fv, value);
+	g_assert(fv->ftype->ftype == FT_GUID);
+	g_assert(fv->ftype->set_value.set_value_guid);
+	fv->ftype->set_value.set_value_guid(fv, value);
 }
 
 void
 fvalue_set_time(fvalue_t *fv, const nstime_t *value)
 {
-	g_assert(fv->ftype->set_value_time);
-	fv->ftype->set_value_time(fv, value);
+	g_assert(IS_FT_TIME(fv->ftype->ftype));
+	g_assert(fv->ftype->set_value.set_value_time);
+	fv->ftype->set_value.set_value_time(fv, value);
 }
 
 void
 fvalue_set_string(fvalue_t *fv, const gchar *value)
 {
-	g_assert(fv->ftype->set_value_string);
-	fv->ftype->set_value_string(fv, value);
+	g_assert(IS_FT_STRING(fv->ftype->ftype) ||
+			fv->ftype->ftype == FT_UINT_STRING ||
+			fv->ftype->ftype == FT_PCRE);
+	g_assert(fv->ftype->set_value.set_value_string);
+	fv->ftype->set_value.set_value_string(fv, value);
 }
 
 void
 fvalue_set_protocol(fvalue_t *fv, tvbuff_t *value, const gchar *name)
 {
-	g_assert(fv->ftype->set_value_protocol);
-	fv->ftype->set_value_protocol(fv, value, name);
+	g_assert(fv->ftype->ftype == FT_PROTOCOL);
+	g_assert(fv->ftype->set_value.set_value_protocol);
+	fv->ftype->set_value.set_value_protocol(fv, value, name);
 }
 
 void
 fvalue_set_uinteger(fvalue_t *fv, guint32 value)
 {
-	g_assert(fv->ftype->set_value_uinteger);
-	fv->ftype->set_value_uinteger(fv, value);
+	g_assert(fv->ftype->ftype == FT_IEEE_11073_SFLOAT ||
+			fv->ftype->ftype == FT_IEEE_11073_FLOAT ||
+			fv->ftype->ftype == FT_CHAR ||
+			fv->ftype->ftype == FT_UINT8 ||
+			fv->ftype->ftype == FT_UINT16 ||
+			fv->ftype->ftype == FT_UINT24 ||
+			fv->ftype->ftype == FT_UINT32 ||
+			fv->ftype->ftype == FT_IPXNET ||
+			fv->ftype->ftype == FT_FRAMENUM ||
+			fv->ftype->ftype == FT_IPv4);
+	g_assert(fv->ftype->set_value.set_value_uinteger);
+	fv->ftype->set_value.set_value_uinteger(fv, value);
 }
 
 void
 fvalue_set_sinteger(fvalue_t *fv, gint32 value)
 {
-	g_assert(fv->ftype->set_value_sinteger);
-	fv->ftype->set_value_sinteger(fv, value);
+	g_assert(fv->ftype->ftype == FT_INT8 ||
+			fv->ftype->ftype == FT_INT16 ||
+			fv->ftype->ftype == FT_INT24 ||
+			fv->ftype->ftype == FT_INT32);
+	g_assert(fv->ftype->set_value.set_value_sinteger);
+	fv->ftype->set_value.set_value_sinteger(fv, value);
 }
 
 void
 fvalue_set_uinteger64(fvalue_t *fv, guint64 value)
 {
-	g_assert(fv->ftype->set_value_uinteger64);
-	fv->ftype->set_value_uinteger64(fv, value);
+	g_assert(fv->ftype->ftype == FT_UINT40 ||
+			fv->ftype->ftype == FT_UINT48 ||
+			fv->ftype->ftype == FT_UINT56 ||
+			fv->ftype->ftype == FT_UINT64 ||
+			fv->ftype->ftype == FT_BOOLEAN ||
+			fv->ftype->ftype == FT_EUI64);
+	g_assert(fv->ftype->set_value.set_value_uinteger64);
+	fv->ftype->set_value.set_value_uinteger64(fv, value);
 }
 
 void

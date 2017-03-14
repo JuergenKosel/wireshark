@@ -2718,6 +2718,23 @@ wtap_dump_file_tell(wtap_dumper *wdh, int *err)
 	}
 }
 
+void
+cleanup_open_routines(void)
+{
+	guint i;
+	struct open_info *i_open;
+
+	if (open_routines != NULL && open_info_arr) {
+		for (i = 0, i_open = open_routines; i < open_info_arr->len; i++, i_open++) {
+			if (i_open->extensions != NULL)
+				g_strfreev(i_open->extensions_set);
+		}
+
+		g_array_free(open_info_arr, TRUE);
+		open_info_arr = NULL;
+	}
+}
+
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
  *

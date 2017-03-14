@@ -641,6 +641,84 @@ try_rval64_to_str(const guint64 val, const range_string *rs)
     return try_rval64_to_str_idx(val, rs, &ignore_me);
 }
 
+
+/* BYTE BUFFER TO STRING MATCHING */
+
+/* Like val_to_str except for bytes_string */
+const gchar *
+bytesval_to_str(const guint8 *val, const size_t val_len, const bytes_string *bs, const char *fmt)
+{
+    const gchar *ret;
+
+    DISSECTOR_ASSERT(fmt != NULL);
+
+    ret = try_bytesval_to_str(val, val_len, bs);
+    if (ret != NULL)
+        return ret;
+
+    /*
+     * XXX should this use bytes_to_str as format parameter for consistency?
+     * Though for bytes I guess most of the time you want to show "Unknown"
+     * anyway rather than "Unknown (\x13\x37...)"
+     */
+    return wmem_strdup(wmem_packet_scope(), fmt);
+}
+
+/* Like try_val_to_str except for bytes_string */
+const gchar *
+try_bytesval_to_str(const guint8 *val, const size_t val_len, const bytes_string *bs)
+{
+    guint i = 0;
+
+    if (bs) {
+        while (bs[i].strptr) {
+            if (bs[i].value_length == val_len && !memcmp(bs[i].value, val, val_len)) {
+                return bs[i].strptr;
+            }
+            i++;
+        }
+    }
+
+    return NULL;
+}
+
+/* Like val_to_str, but tries to find a prefix (instead of an exact) match
+   of any prefix from the bytes_string array bs against the haystack. */
+const gchar *
+bytesprefix_to_str(const guint8 *haystack, const size_t haystack_len, const bytes_string *bs, const char *fmt)
+{
+    const gchar *ret;
+
+    DISSECTOR_ASSERT(fmt != NULL);
+
+    ret = try_bytesprefix_to_str(haystack, haystack_len, bs);
+    if (ret != NULL)
+        return ret;
+
+    /* XXX See note at bytesval_to_str. */
+    return wmem_strdup(wmem_packet_scope(), fmt);
+}
+
+/* Like try_val_to_str, but tries to find a prefix (instead of an exact) match
+   of any prefix from the bytes_string array bs against the haystack. */
+const gchar *
+try_bytesprefix_to_str(const guint8 *haystack, const size_t haystack_len, const bytes_string *bs)
+{
+    guint i = 0;
+
+    if (bs) {
+        while (bs[i].strptr) {
+            if (haystack_len >= bs[i].value_length &&
+                !memcmp(bs[i].value, haystack, bs[i].value_length)) {
+                return bs[i].strptr;
+            }
+            i++;
+        }
+    }
+
+    return NULL;
+}
+
 /* MISC */
 
 /* Functions for use by proto_registrar_dump_values(), see proto.c */

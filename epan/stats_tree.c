@@ -245,7 +245,7 @@ stats_tree_reinit(void *p)
     }
 }
 
-void
+static void
 stats_tree_cfg_free(gpointer p)
 {
     stats_tree_cfg* cfg = (stats_tree_cfg*)p;
@@ -649,7 +649,7 @@ stats_tree_manip_node(manip_node_mode mode, stats_tree *st, const char *name,
         case MN_AVERAGE:
             node->counter++;
             update_burst_calc(node, 1);
-            /* fall through to average code */
+            /* fall through */ /*to average code */
         case MN_AVERAGE_NOTICK:
             node->total += value;
             if (node->minvalue > value) {

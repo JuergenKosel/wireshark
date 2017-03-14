@@ -1158,14 +1158,12 @@ static GtkWidget *
 iftype_combo_box_new(void)
 {
   GtkWidget *iftype_cbx;
-  GHashTable *ht;
 
   iftype_cbx = gtk_combo_box_text_new_with_entry();
 
-  ht = get_remote_host_list();
-  if (g_hash_table_size (ht) > 0) {
+  if (recent_get_remote_host_list_size() > 0) {
     /* Add remote hosts */
-    g_hash_table_foreach (ht, iftype_combo_box_add_remote_host, iftype_cbx);
+    recent_remote_host_list_foreach (iftype_combo_box_add_remote_host, iftype_cbx);
     iftype_combo_box_add_remote_separators (iftype_cbx);
   }
 
@@ -1538,7 +1536,7 @@ select_if_type_cb(GtkComboBox *iftype_cbx, gpointer data _U_)
   gint num_remote = recent_get_remote_host_list_size();
 
   if (new_iftype != -1 && new_iftype == num_remote+1) {
-    free_remote_host_list();
+    recent_free_remote_host_list();
     num_remote += 2;
     while (num_remote--) { /* Remove separator lines and "Clear" item */
       gtk_combo_box_text_remove (GTK_COMBO_BOX_TEXT(iftype_cbx), num_remote);

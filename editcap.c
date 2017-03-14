@@ -80,7 +80,7 @@
 #include <wsutil/cmdarg_err.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
-#include <wsutil/md5.h>
+#include <wsutil/wsgcrypt.h>
 #include <wsutil/plugins.h>
 #include <wsutil/privileges.h>
 #include <wsutil/report_err.h>
@@ -96,6 +96,9 @@
 
 #define INVALID_OPTION 1
 #define INVALID_FILE 2
+#define CANT_EXTRACT_PREFIX 2
+#define WRITE_ERROR 2
+#define DUMP_ERROR 2
 
 /*
  * Some globals so we can pass things to various routines
@@ -110,7 +113,7 @@ struct select_item {
  * Duplicate frame detection
  */
 typedef struct _fd_hash_t {
-    md5_byte_t digest[16];
+    guint8     digest[16];
     guint32    len;
     nstime_t   frame_time;
 } fd_hash_t;
@@ -277,7 +280,7 @@ add_selection(char *sel, guint* max_selection)
 
     if (max_selected >= MAX_SELECTIONS) {
         /* Let the user know we stopped selecting */
-        fprintf(stderr, "Out of room for packet selections!\n");
+        fprintf(stderr, "Out of room for packet selections.\n");
         return(FALSE);
     }
 
@@ -584,7 +587,6 @@ remove_vlan_info(const struct wtap_pkthdr *phdr, guint8* fd, guint32* len) {
 static gboolean
 is_duplicate(guint8* fd, guint32 len) {
     int i;
-    md5_state_t ms;
 
     /*Hint to ignore some bytes at the start of the frame for the digest calculation(-I option) */
     guint32 offset = ignored_bytes;
@@ -603,9 +605,7 @@ is_duplicate(guint8* fd, guint32 len) {
         cur_dup_entry = 0;
 
     /* Calculate our digest */
-    md5_init(&ms);
-    md5_append(&ms, new_fd, new_len);
-    md5_finish(&ms, fd_hash[cur_dup_entry].digest);
+    gcry_md_hash_buffer(GCRY_MD_MD5, fd_hash[cur_dup_entry].digest, new_fd, new_len);
 
     fd_hash[cur_dup_entry].len = len;
 
@@ -626,7 +626,6 @@ is_duplicate(guint8* fd, guint32 len) {
 static gboolean
 is_duplicate_rel_time(guint8* fd, guint32 len, const nstime_t *current) {
     int i;
-    md5_state_t ms;
 
     /*Hint to ignore some bytes at the start of the frame for the digest calculation(-I option) */
     guint32 offset = ignored_bytes;
@@ -645,9 +644,7 @@ is_duplicate_rel_time(guint8* fd, guint32 len, const nstime_t *current) {
         cur_dup_entry = 0;
 
     /* Calculate our digest */
-    md5_init(&ms);
-    md5_append(&ms, new_fd, new_len);
-    md5_finish(&ms, fd_hash[cur_dup_entry].digest);
+    gcry_md_hash_buffer(GCRY_MD_MD5, fd_hash[cur_dup_entry].digest, new_fd, new_len);
 
     fd_hash[cur_dup_entry].len = len;
     fd_hash[cur_dup_entry].frame_time.secs = current->secs;
@@ -960,7 +957,7 @@ main(int argc, char *argv[])
     GString      *comp_info_str;
     GString      *runtime_info_str;
     char         *init_progfile_dir_error;
-    wtap         *wth;
+    wtap         *wth = NULL;
     int           i, j, read_err, write_err;
     gchar        *read_err_info, *write_err_info;
     int           opt;
@@ -1404,8 +1401,10 @@ main(int argc, char *argv[])
             /* Extra actions for the first packet */
             if (read_count == 1) {
                 if (split_packet_count != 0 || secs_per_block != 0) {
-                    if (!fileset_extract_prefix_suffix(argv[optind+1], &fprefix, &fsuffix))
-                        goto error_on_exit;
+                    if (!fileset_extract_prefix_suffix(argv[optind+1], &fprefix, &fsuffix)) {
+                        ret = CANT_EXTRACT_PREFIX;
+                        goto clean_exit;
+                    }
 
                     filename = fileset_get_filename_by_pattern(block_cnt++, phdr, fprefix, fsuffix);
                 } else {
@@ -1425,7 +1424,8 @@ main(int argc, char *argv[])
                 if (pdh == NULL) {
                     fprintf(stderr, "editcap: Can't open or create %s: %s\n",
                             filename, wtap_strerror(write_err));
-                    goto error_on_exit;
+                    ret = INVALID_FILE;
+                    goto clean_exit;
                 }
             } /* first packet only handling */
 
@@ -1448,7 +1448,8 @@ main(int argc, char *argv[])
                         if (!wtap_dump_close(pdh, &write_err)) {
                             fprintf(stderr, "editcap: Error writing to %s: %s\n",
                                     filename, wtap_strerror(write_err));
-                            goto error_on_exit;
+                            ret = WRITE_ERROR;
+                            goto clean_exit;
                         }
                         block_start.secs = block_start.secs +  secs_per_block; /* reset for next interval */
                         g_free(filename);
@@ -1465,7 +1466,8 @@ main(int argc, char *argv[])
                         if (pdh == NULL) {
                             fprintf(stderr, "editcap: Can't open or create %s: %s\n",
                                     filename, wtap_strerror(write_err));
-                            goto error_on_exit;
+                            ret = INVALID_FILE;
+                            goto clean_exit;
                         }
                     }
                 }
@@ -1477,7 +1479,8 @@ main(int argc, char *argv[])
                     if (!wtap_dump_close(pdh, &write_err)) {
                         fprintf(stderr, "editcap: Error writing to %s: %s\n",
                                 filename, wtap_strerror(write_err));
-                        goto error_on_exit;
+                        ret = WRITE_ERROR;
+                        goto clean_exit;
                     }
 
                     g_free(filename);
@@ -1493,7 +1496,8 @@ main(int argc, char *argv[])
                     if (pdh == NULL) {
                         fprintf(stderr, "editcap: Can't open or create %s: %s\n",
                                 filename, wtap_strerror(write_err));
-                        goto error_on_exit;
+                        ret = INVALID_FILE;
+                        goto clean_exit;
                     }
                 }
             } /* split packet handling */
@@ -1830,7 +1834,8 @@ main(int argc, char *argv[])
                                 filename, wtap_strerror(write_err));
                         break;
                     }
-                    goto error_on_exit;
+                    ret = DUMP_ERROR;
+                    goto clean_exit;
                 }
                 written_count++;
             }
@@ -1864,14 +1869,16 @@ main(int argc, char *argv[])
             if (pdh == NULL) {
                 fprintf(stderr, "editcap: Can't open or create %s: %s\n",
                         filename, wtap_strerror(write_err));
-                goto error_on_exit;
+                ret = INVALID_FILE;
+                goto clean_exit;
             }
         }
 
         if (!wtap_dump_close(pdh, &write_err)) {
             fprintf(stderr, "editcap: Error writing to %s: %s\n", filename,
                     wtap_strerror(write_err));
-            goto error_on_exit;
+            ret = WRITE_ERROR;
+            goto clean_exit;
         }
         g_free(filename);
 
@@ -1892,19 +1899,17 @@ main(int argc, char *argv[])
                 (long int)relative_time_window.nsecs);
     }
 
+clean_exit:
     wtap_block_array_free(shb_hdrs);
     wtap_block_array_free(nrb_hdrs);
     g_free(idb_inf);
     wtap_close(wth);
-clean_exit:
     wtap_cleanup();
+    free_progdirs();
+#ifdef HAVE_PLUGINS
+    plugins_cleanup();
+#endif
     return ret;
-
-error_on_exit:
-    wtap_block_array_free(shb_hdrs);
-    wtap_block_array_free(nrb_hdrs);
-    g_free(idb_inf);
-    exit(2);
 }
 
 /* Skip meta-information read from file to return offset of real

@@ -367,7 +367,7 @@ http_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const
 		entry->pkt_num = pinfo->num;
 		entry->hostname = g_strdup(eo_info->hostname);
 		entry->content_type = g_strdup(eo_info->content_type);
-		entry->filename = g_path_get_basename(eo_info->filename);
+		entry->filename = eo_info->filename ? g_path_get_basename(eo_info->filename) : NULL;
 		entry->payload_len = eo_info->payload_len;
 		entry->payload_data = (guint8 *)g_memdup(eo_info->payload_data, eo_info->payload_len);
 
@@ -3193,7 +3193,8 @@ dissect_http_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
 		return tvb_captured_length(tvb);
 	}
 
-	end_of_stream = IS_TH_FIN(tcpinfo->flags);
+	/* XXX - how to detect end-of-stream without tcpinfo */
+	end_of_stream = (tcpinfo && IS_TH_FIN(tcpinfo->flags));
 	dissect_http_on_stream(tvb, pinfo, tree, conv_data, end_of_stream);
 	return tvb_captured_length(tvb);
 }

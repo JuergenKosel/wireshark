@@ -25,6 +25,12 @@
  */
 %option noyywrap
 
+/*
+ * Prefix scanner routines with "text2pcap_" rather than "yy" to avoid a
+ * "redefined macro" warning with flex 2.6.3.
+ */
+%option prefix="text2pcap_"
+
 %{
 
 /********************************************************************************
@@ -88,13 +94,16 @@ eol \r?\n\r?
 
 %%
 
-{byte}            { parse_token(T_BYTE, yytext); }
-{byte_eol}        { parse_token(T_BYTE, yytext); parse_token(T_EOL, NULL); }
-{offset}          { parse_token(T_OFFSET, yytext); }
-{offset_eol}      { parse_token(T_OFFSET, yytext); parse_token(T_EOL, NULL); }
-{mailfwd}{offset} { parse_token(T_OFFSET, yytext+1); }
-{eol}             { parse_token(T_EOL, NULL); }
+{byte}            { if (parse_token(T_BYTE, yytext) != EXIT_SUCCESS) return EXIT_FAILURE; }
+{byte_eol}        { if (parse_token(T_BYTE, yytext) != EXIT_SUCCESS) return EXIT_FAILURE;
+	if (parse_token(T_EOL, NULL) != EXIT_SUCCESS) return EXIT_FAILURE; }
+{offset}          { if (parse_token(T_OFFSET, yytext) != EXIT_SUCCESS) return EXIT_FAILURE; }
+{offset_eol}      { if (parse_token(T_OFFSET, yytext) != EXIT_SUCCESS) return EXIT_FAILURE;
+	if (parse_token(T_EOL, NULL) != EXIT_SUCCESS) return EXIT_FAILURE; }
+{mailfwd}{offset} { if (parse_token(T_OFFSET, yytext+1) != EXIT_SUCCESS) return EXIT_FAILURE; }
+{eol}             { if (parse_token(T_EOL, NULL) != EXIT_SUCCESS) return EXIT_FAILURE; }
 [ \t]             ; /* ignore whitespace */
-{directive}       { parse_token(T_DIRECTIVE, yytext); parse_token(T_EOL, NULL); }
-{comment}         { parse_token(T_EOL, NULL); }
-{text}            { parse_token(T_TEXT, yytext); }
+{directive}       { if (parse_token(T_DIRECTIVE, yytext) != EXIT_SUCCESS) return EXIT_FAILURE;
+	if (parse_token(T_EOL, NULL) != EXIT_SUCCESS) return EXIT_FAILURE; }
+{comment}         { if (parse_token(T_EOL, NULL) != EXIT_SUCCESS) return EXIT_FAILURE; }
+{text}            { if (parse_token(T_TEXT, yytext) != EXIT_SUCCESS) return EXIT_FAILURE; }

@@ -239,6 +239,34 @@ static int hf_smb2_ioctl_resiliency_timeout = -1;
 static int hf_smb2_ioctl_resiliency_reserved = -1;
 static int hf_smb2_ioctl_shared_virtual_disk_support = -1;
 static int hf_smb2_ioctl_shared_virtual_disk_handle_state = -1;
+static int hf_smb2_ioctl_sqos_protocol_version = -1;
+static int hf_smb2_ioctl_sqos_reserved = -1;
+static int hf_smb2_ioctl_sqos_options = -1;
+static int hf_smb2_ioctl_sqos_op_set_logical_flow_id = -1;
+static int hf_smb2_ioctl_sqos_op_set_policy = -1;
+static int hf_smb2_ioctl_sqos_op_probe_policy = -1;
+static int hf_smb2_ioctl_sqos_op_get_status = -1;
+static int hf_smb2_ioctl_sqos_op_update_counters = -1;
+static int hf_smb2_ioctl_sqos_logical_flow_id = -1;
+static int hf_smb2_ioctl_sqos_policy_id = -1;
+static int hf_smb2_ioctl_sqos_initiator_id = -1;
+static int hf_smb2_ioctl_sqos_limit = -1;
+static int hf_smb2_ioctl_sqos_reservation = -1;
+static int hf_smb2_ioctl_sqos_initiator_name = -1;
+static int hf_smb2_ioctl_sqos_initiator_node_name = -1;
+static int hf_smb2_ioctl_sqos_io_count_increment = -1;
+static int hf_smb2_ioctl_sqos_normalized_io_count_increment = -1;
+static int hf_smb2_ioctl_sqos_latency_increment = -1;
+static int hf_smb2_ioctl_sqos_lower_latency_increment = -1;
+static int hf_smb2_ioctl_sqos_bandwidth_limit = -1;
+static int hf_smb2_ioctl_sqos_kilobyte_count_increment = -1;
+static int hf_smb2_ioctl_sqos_time_to_live = -1;
+static int hf_smb2_ioctl_sqos_status = -1;
+static int hf_smb2_ioctl_sqos_maximum_io_rate = -1;
+static int hf_smb2_ioctl_sqos_minimum_io_rate = -1;
+static int hf_smb2_ioctl_sqos_base_io_size = -1;
+static int hf_smb2_ioctl_sqos_reserved2 = -1;
+static int hf_smb2_ioctl_sqos_maximum_bandwidth = -1;
 static int hf_windows_sockaddr_family = -1;
 static int hf_windows_sockaddr_port = -1;
 static int hf_windows_sockaddr_in_addr = -1;
@@ -384,6 +412,11 @@ static int hf_smb2_svhdx_open_device_context_originator_flags = -1;
 static int hf_smb2_svhdx_open_device_context_open_request_id = -1;
 static int hf_smb2_svhdx_open_device_context_initiator_host_name_len = -1;
 static int hf_smb2_svhdx_open_device_context_initiator_host_name = -1;
+static int hf_smb2_svhdx_open_device_context_virtual_disk_properties_initialized = -1;
+static int hf_smb2_svhdx_open_device_context_server_service_version = -1;
+static int hf_smb2_svhdx_open_device_context_virtual_sector_size = -1;
+static int hf_smb2_svhdx_open_device_context_physical_sector_size = -1;
+static int hf_smb2_svhdx_open_device_context_virtual_size = -1;
 static int hf_smb2_posix_v1_version = -1;
 static int hf_smb2_posix_v1_request = -1;
 static int hf_smb2_posix_v1_supported_features = -1;
@@ -516,6 +549,7 @@ static gint ett_smb2_create_rep_flags = -1;
 static gint ett_smb2_share_caps = -1;
 static gint ett_smb2_ioctl_flags = -1;
 static gint ett_smb2_ioctl_network_interface = -1;
+static gint ett_smb2_ioctl_sqos_opeations = -1;
 static gint ett_smb2_fsctl_range_data = -1;
 static gint ett_windows_sockaddr = -1;
 static gint ett_smb2_close_flags = -1;
@@ -1569,7 +1603,7 @@ static const value_string smb2_ioctl_vals[] = {
 	{0x00090314, "FSCTL_DELETE_EXTERNAL_BACKING"},
 	{0x00090318, "FSCTL_ENUM_EXTERNAL_BACKING"},
 	{0x0009031F, "FSCTL_ENUM_OVERLAY"},
-	{0x00090350, "FSCTL_STORAGE_QOS_CONTROL"},
+	{0x00090350, "FSCTL_STORAGE_QOS_CONTROL"},                    /* dissector implemented */
 	{0x00090364, "FSCTL_SVHDX_ASYNC_TUNNEL_REQUEST"},             /* dissector implemented */
 	{0x000940B3, "FSCTL_ENUM_USN_DATA"},
 	{0x000940B7, "FSCTL_SECURITY_ID_CHECK"},
@@ -5535,10 +5569,10 @@ dissect_smb2_FSCTL_LMR_REQUEST_RESILIENCY(tvbuff_t *tvb, packet_info *pinfo _U_,
 }
 
 static void
-dissect_smb2_FSCTL_QUERY_SHARED_VIRTUAL_DISK_SUPPORT(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, int offset _U_, gboolean data_in _U_)
+dissect_smb2_FSCTL_QUERY_SHARED_VIRTUAL_DISK_SUPPORT(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, gboolean data_in)
 {
-	/* There is no out data */
-	if (!data_in) {
+	/* There is no in data */
+	if (data_in) {
 		return;
 	}
 
@@ -5546,6 +5580,124 @@ dissect_smb2_FSCTL_QUERY_SHARED_VIRTUAL_DISK_SUPPORT(tvbuff_t *tvb _U_, packet_i
 	offset += 4;
 
 	proto_tree_add_item(tree, hf_smb2_ioctl_shared_virtual_disk_handle_state, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+}
+
+#define STORAGE_QOS_CONTROL_FLAG_SET_LOGICAL_FLOW_ID 0x00000001
+#define STORAGE_QOS_CONTROL_FLAG_SET_POLICY 0x00000002
+#define STORAGE_QOS_CONTROL_FLAG_PROBE_POLICY 0x00000004
+#define STORAGE_QOS_CONTROL_FLAG_GET_STATUS 0x00000008
+#define STORAGE_QOS_CONTROL_FLAG_UPDATE_COUNTERS 0x00000010
+
+static const value_string smb2_ioctl_sqos_protocol_version_vals[] = {
+	{ 0x0100, "Storage QoS Protocol Version 1.0" },
+	{ 0x0101, "Storage QoS Protocol Version 1.1" },
+	{ 0, NULL }
+};
+
+static const value_string smb2_ioctl_sqos_status_vals[] = {
+	{ 0x00, "StorageQoSStatusOk" },
+	{ 0x01, "StorageQoSStatusInsufficientThroughput" },
+	{ 0x02, "StorageQoSUnknownPolicyId" },
+	{ 0x04, "StorageQoSStatusConfigurationMismatch" },
+	{ 0x05, "StorageQoSStatusNotAvailable" },
+	{ 0, NULL }
+};
+
+static void
+dissect_smb2_FSCTL_STORAGE_QOS_CONTROL(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, gboolean data_in)
+{
+	static const int * operations[] = {
+		&hf_smb2_ioctl_sqos_op_set_logical_flow_id,
+		&hf_smb2_ioctl_sqos_op_set_policy,
+		&hf_smb2_ioctl_sqos_op_probe_policy,
+		&hf_smb2_ioctl_sqos_op_get_status,
+		&hf_smb2_ioctl_sqos_op_update_counters,
+		NULL
+	};
+
+	gint proto_ver;
+
+	/* Both request and reply have the same common header */
+
+	proto_ver = tvb_get_letohs(tvb, offset);
+	proto_tree_add_item(tree, hf_smb2_ioctl_sqos_protocol_version, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	offset += 2;
+
+	proto_tree_add_item(tree, hf_smb2_ioctl_sqos_reserved, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	offset += 2;
+
+	proto_tree_add_bitmask(tree, tvb, offset, hf_smb2_ioctl_sqos_options,
+							ett_smb2_ioctl_sqos_opeations, operations, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	proto_tree_add_item(tree, hf_smb2_ioctl_sqos_logical_flow_id, tvb, offset, 16, ENC_LITTLE_ENDIAN);
+	offset += 16;
+
+	proto_tree_add_item(tree, hf_smb2_ioctl_sqos_policy_id, tvb, offset, 16, ENC_LITTLE_ENDIAN);
+	offset += 16;
+
+	proto_tree_add_item(tree, hf_smb2_ioctl_sqos_initiator_id, tvb, offset, 16, ENC_LITTLE_ENDIAN);
+	offset += 16;
+
+	if (data_in) {
+		offset_length_buffer_t host_olb, node_olb;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_limit, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_reservation, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		offset = dissect_smb2_olb_length_offset(tvb, offset, &host_olb, OLB_O_UINT16_S_UINT16, hf_smb2_ioctl_sqos_initiator_name);
+
+		offset = dissect_smb2_olb_length_offset(tvb, offset, &node_olb, OLB_O_UINT16_S_UINT16, hf_smb2_ioctl_sqos_initiator_node_name);
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_io_count_increment, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_normalized_io_count_increment, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_latency_increment, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_lower_latency_increment, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		if (proto_ver > 0x0100) {
+			proto_tree_add_item(tree, hf_smb2_ioctl_sqos_bandwidth_limit, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+			offset += 8;
+
+			proto_tree_add_item(tree, hf_smb2_ioctl_sqos_kilobyte_count_increment, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+			/*offset += 8;*/
+		}
+
+		dissect_smb2_olb_string(pinfo, tree, tvb, &host_olb, OLB_TYPE_UNICODE_STRING);
+
+		dissect_smb2_olb_string(pinfo, tree, tvb, &node_olb, OLB_TYPE_UNICODE_STRING);
+	} else {
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_time_to_live, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_status, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_maximum_io_rate, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_minimum_io_rate, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_base_io_size, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		proto_tree_add_item(tree, hf_smb2_ioctl_sqos_reserved2, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+
+		if (proto_ver > 0x0100) {
+			offset += 4;
+			proto_tree_add_item(tree, hf_smb2_ioctl_sqos_maximum_bandwidth, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		}
+	}
 }
 
 static void
@@ -6222,12 +6374,14 @@ dissect_smb2_ioctl_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, pro
 		dissect_smb2_FSCTL_GET_COMPRESSION(tvb, pinfo, tree, 0, data_in);
 		break;
 	case 0x00090300: /* FSCTL_QUERY_SHARED_VIRTUAL_DISK_SUPPORT */
-		if (!data_in)
-			dissect_smb2_FSCTL_QUERY_SHARED_VIRTUAL_DISK_SUPPORT(tvb, pinfo, tree, 0, dc);
+		dissect_smb2_FSCTL_QUERY_SHARED_VIRTUAL_DISK_SUPPORT(tvb, pinfo, tree, 0, data_in);
 		break;
 	case 0x00090304: /* FSCTL_SVHDX_SYNC_TUNNEL or response */
 	case 0x00090364: /* FSCTL_SVHDX_ASYNC_TUNNEL or response */
 		call_dissector_with_data(rsvd_handle, tvb, pinfo, top_tree, &data_in);
+		break;
+	case 0x00090350: /* FSCTL_STORAGE_QOS_CONTROL */
+		dissect_smb2_FSCTL_STORAGE_QOS_CONTROL(tvb, pinfo, tree, 0, data_in);
 		break;
 	case 0x0009C040: /* FSCTL_SET_COMPRESSION */
 		dissect_smb2_FSCTL_SET_COMPRESSION(tvb, pinfo, tree, 0, data_in);
@@ -6940,9 +7094,10 @@ dissect_smb2_APP_INSTANCE_buffer_response(tvbuff_t *tvb, packet_info *pinfo _U_,
  * Dissect the MS-RSVD stuff that turns up when HyperV uses SMB3.x
  */
 static void
-dissect_smb2_svhdx_open_device_context_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, smb2_info_t *si _U_)
+dissect_smb2_svhdx_open_device_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, smb2_info_t *si _U_)
 {
-	int         offset   = 0;
+	int offset = 0;
+	guint32 version;
 	proto_item *item;
 	proto_item *sub_tree;
 
@@ -6952,8 +7107,8 @@ dissect_smb2_svhdx_open_device_context_request(tvbuff_t *tvb, packet_info *pinfo
 	sub_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_smb2_svhdx_open_device_context, NULL, "SVHDX OPEN DEVICE CONTEXT");
 
 	/* Version */
-	proto_tree_add_item(sub_tree, hf_smb2_svhdx_open_device_context_version,
-			    tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	proto_tree_add_item_ret_uint(sub_tree, hf_smb2_svhdx_open_device_context_version,
+			    tvb, offset, 4, ENC_LITTLE_ENDIAN, &version);
 	offset += 4;
 
 	/* HasInitiatorId */
@@ -6994,12 +7149,33 @@ dissect_smb2_svhdx_open_device_context_request(tvbuff_t *tvb, packet_info *pinfo
 	/* InitiatorHostName */
 	proto_tree_add_item(sub_tree, hf_smb2_svhdx_open_device_context_initiator_host_name,
 			    tvb, offset, 126, ENC_ASCII | ENC_NA);
-}
+	offset += 126;
 
-static void
-dissect_smb2_svhdx_open_device_context_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, smb2_info_t *si _U_)
-{
-	report_create_context_malformed_buffer(tvb, pinfo, tree, "SHVXD OPEN DEVICE CONTEXT Response");
+	if (version == 2) {
+		/* VirtualDiskPropertiesInitialized */
+		proto_tree_add_item(sub_tree, hf_smb2_svhdx_open_device_context_virtual_disk_properties_initialized,
+					tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		/* ServerServiceVersion */
+		proto_tree_add_item(sub_tree, hf_smb2_svhdx_open_device_context_server_service_version,
+					tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		/* VirtualSectorSize */
+		proto_tree_add_item(sub_tree, hf_smb2_svhdx_open_device_context_virtual_sector_size,
+					tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		/* PhysicalSectorSize */
+		proto_tree_add_item(sub_tree, hf_smb2_svhdx_open_device_context_physical_sector_size,
+					tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		/* VirtualSize */
+		proto_tree_add_item(sub_tree, hf_smb2_svhdx_open_device_context_virtual_size,
+					tvb, offset, 8, ENC_LITTLE_ENDIAN);
+	}
 }
 
 static const int *posix_flags_fields[] = {
@@ -7279,7 +7455,7 @@ struct create_context_data_tag_dissectors create_context_dissectors_array[] = {
 	{ "6aa6bc45-a7ef-4af7-9008-fa462e144d74", "SMB2_CREATE_APP_INSTANCE_ID",
 	  { dissect_smb2_APP_INSTANCE_buffer_request, dissect_smb2_APP_INSTANCE_buffer_response } },
 	{ "9ecfcb9c-c104-43e6-980e-158da1f6ec83", "SVHDX_OPEN_DEVICE_CONTEXT",
-	  { dissect_smb2_svhdx_open_device_context_request, dissect_smb2_svhdx_open_device_context_response} },
+	  { dissect_smb2_svhdx_open_device_context, dissect_smb2_svhdx_open_device_context} },
 	{ "34263501-2921-4912-2586-447794114531", "SMB2_POSIX_V1_CAPS",
 	  { dissect_smb2_posix_v1_caps_request, dissect_smb2_posix_v1_caps_response } },
 	{ "AAPL", "SMB2_AAPL_CREATE_CONTEXT",
@@ -9887,14 +10063,155 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_ioctl_shared_virtual_disk_support,
-			{ "SharedVirtualDiskSupport", "smb2.ioctl.function.shared_virtual_disk_support", FT_UINT32, BASE_HEX,
+			{ "SharedVirtualDiskSupport", "smb2.ioctl.shared_virtual_disk.support", FT_UINT32, BASE_HEX,
 			VALS(smb2_ioctl_shared_virtual_disk_vals), 0, "Supported shared capabilities", HFILL }
 		},
 
 		{ &hf_smb2_ioctl_shared_virtual_disk_handle_state,
-			{ "SharedVirtualDiskHandleState", "smb2.ioctl.function.shared_virtual_disk_handle_state", FT_UINT32, BASE_HEX,
+			{ "SharedVirtualDiskHandleState", "smb2.ioctl.shared_virtual_disk.handle_state", FT_UINT32, BASE_HEX,
 			VALS(smb2_ioctl_shared_virtual_disk_hstate_vals), 0, "State of shared disk handle", HFILL }
 		},
+
+		{ &hf_smb2_ioctl_sqos_protocol_version,
+			{ "ProtocolVersion", "smb2.ioctl.sqos.protocol_version", FT_UINT16, BASE_HEX,
+			VALS(smb2_ioctl_sqos_protocol_version_vals), 0, "The protocol version", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_reserved,
+			{ "Reserved", "smb2.ioctl.sqos.reserved", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_options,
+			{ "Operations", "smb2.ioctl.sqos.operations", FT_UINT32, BASE_HEX,
+			NULL, 0, "SQOS operations", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_op_set_logical_flow_id,
+			{ "Set Logical Flow ID", "smb2.ioctl.sqos.operations.set_logical_flow_id", FT_BOOLEAN, 32,
+			NULL, STORAGE_QOS_CONTROL_FLAG_SET_LOGICAL_FLOW_ID, "Whether Set Logical Flow ID operation is performed", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_op_set_policy,
+			{ "Set Policy", "smb2.ioctl.sqos.operations.set_policy", FT_BOOLEAN, 32,
+			NULL, STORAGE_QOS_CONTROL_FLAG_SET_POLICY, "Whether Set Policy operation is performed", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_op_probe_policy,
+			{ "Probe Policy", "smb2.ioctl.sqos.operations.probe_policy", FT_BOOLEAN, 32,
+			NULL, STORAGE_QOS_CONTROL_FLAG_PROBE_POLICY, "Whether Probe Policy operation is performed", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_op_get_status,
+			{ "Get Status", "smb2.ioctl.sqos.operations.get_status", FT_BOOLEAN, 32,
+			NULL, STORAGE_QOS_CONTROL_FLAG_GET_STATUS, "Whether Get Status operation is performed", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_op_update_counters,
+			{ "Update Counters", "smb2.ioctl.sqos.operations.update_counters", FT_BOOLEAN, 32,
+			NULL, STORAGE_QOS_CONTROL_FLAG_UPDATE_COUNTERS, "Whether Update Counters operation is performed", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_logical_flow_id,
+			{ "LogicalFlowID", "smb2.ioctl.sqos.logical_flow_id", FT_GUID, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_policy_id,
+			{ "PolicyID", "smb2.ioctl.sqos.policy_id", FT_GUID, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_initiator_id,
+			{ "InitiatorID", "smb2.ioctl.sqos.initiator_id", FT_GUID, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_limit,
+			{ "Limit", "smb2.ioctl.sqos.limit", FT_UINT64, BASE_DEC,
+			NULL, 0, "Desired maximum throughput for the logical flow, in normalized IOPS", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_reservation,
+			{ "Reservation", "smb2.ioctl.sqos.reservation", FT_UINT64, BASE_DEC,
+			NULL, 0, "Desired minimum throughput for the logical flow, in normalized 8KB IOPS", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_initiator_name,
+			{ "InitiatorName", "smb2.ioctl.sqos.initiator_name", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_initiator_node_name,
+			{ "InitiatorNodeName", "smb2.ioctl.sqos.initiator_node_name", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_io_count_increment,
+			{ "IoCountIncrement", "smb2.ioctl.sqos.io_count_increment", FT_UINT64, BASE_DEC,
+			NULL, 0, "The total number of I/O requests issued by the initiator on the logical flow", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_normalized_io_count_increment,
+			{ "NormalizedIoCountIncrement", "smb2.ioctl.sqos.normalized_io_count_increment", FT_UINT64, BASE_DEC,
+			NULL, 0, "The total number of normalized 8-KB I/O requests issued by the initiator on the logical flow", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_latency_increment,
+			{ "LatencyIncrement", "smb2.ioctl.sqos.latency_increment", FT_UINT64, BASE_DEC,
+			NULL, 0, "The total latency (including initiator's queues delays) measured by the initiator", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_lower_latency_increment,
+			{ "LowerLatencyIncrement", "smb2.ioctl.sqos.lower_latency_increment", FT_UINT64, BASE_DEC,
+			NULL, 0, "The total latency (excluding initiator's queues delays) measured by the initiator", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_bandwidth_limit,
+			{ "BandwidthLimit", "smb2.ioctl.sqos.bandwidth_limit", FT_UINT64, BASE_DEC,
+			NULL, 0, "Desired maximum bandwidth for the logical flow, in kilobytes per second", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_kilobyte_count_increment,
+			{ "KilobyteCountIncrement", "smb2.ioctl.sqos.kilobyte_count_increment", FT_UINT64, BASE_DEC,
+			NULL, 0, "The total data transfer length of all I/O requests, in kilobyte units, issued by the initiator on the logical flow", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_time_to_live,
+			{ "TimeToLive", "smb2.ioctl.sqos.time_to_live", FT_UINT32, BASE_DEC,
+			NULL, 0, "The expected period of validity of the Status, MaximumIoRate and MinimumIoRate fields, expressed in milliseconds", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_status,
+			{ "Status", "smb2.ioctl.sqos.status", FT_UINT32, BASE_HEX,
+			VALS(smb2_ioctl_sqos_status_vals), 0, "The current status of the logical flow", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_maximum_io_rate,
+			{ "MaximumIoRate", "smb2.ioctl.sqos.maximum_io_rate", FT_UINT64, BASE_DEC,
+			NULL, 0, "The maximum I/O initiation rate currently assigned to the logical flow, expressed in normalized input/output operations per second (normalized IOPS)", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_minimum_io_rate,
+			{ "MinimumIoRate", "smb2.ioctl.sqos.minimum_io_rate", FT_UINT64, BASE_DEC,
+			NULL, 0, "The minimum I/O completion rate currently assigned to the logical flow, expressed in normalized IOPS", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_base_io_size,
+			{ "BaseIoSize", "smb2.ioctl.sqos.base_io_size", FT_UINT32, BASE_DEC,
+			NULL, 0, "The base I/O size used to compute the normalized size of an I/O request for the logical flow", HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_reserved2,
+			{ "Reserved", "smb2.ioctl.sqos.reserved2", FT_UINT32, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_ioctl_sqos_maximum_bandwidth,
+			{ "MaximumBandwidth", "smb2.ioctl.sqos.maximum_bandwidth", FT_UINT64, BASE_DEC,
+			NULL, 0, "The maximum bandwidth currently assigned to the logical flow, expressed in kilobytes per second", HFILL }
+		},
+
 
 		{ &hf_windows_sockaddr_family,
 			{ "Socket Family", "smb2.windows.sockaddr.family", FT_UINT16, BASE_DEC,
@@ -10592,6 +10909,31 @@ proto_register_smb2(void)
 			 NULL, 0, NULL, HFILL }
 		},
 
+		{ &hf_smb2_svhdx_open_device_context_virtual_disk_properties_initialized,
+			{ "VirtualDiskPropertiesInitialized", "smb2.svhdx_open_device_context.virtual_disk_properties_initialized", FT_BOOLEAN, 32,
+			NULL, 0, "Whether VirtualSectorSize, PhysicalSectorSize, and VirtualSize fields are filled", HFILL }
+		},
+
+		{ &hf_smb2_svhdx_open_device_context_server_service_version,
+			{ "ServerServiceVersion", "smb2.svhdx_open_device_context.server_service_version", FT_UINT32, BASE_DEC,
+			NULL, 0, "The current version of the protocol running on the server", HFILL }
+		},
+
+		{ &hf_smb2_svhdx_open_device_context_virtual_sector_size,
+			{ "VirtualSectorSize", "smb2.svhdx_open_device_context.virtual_sector_size", FT_UINT32, BASE_DEC,
+			NULL, 0, "The virtual sector size of the virtual disk", HFILL }
+		},
+
+		{ &hf_smb2_svhdx_open_device_context_physical_sector_size,
+			{ "PhysicalSectorSize", "smb2.svhdx_open_device_context.physical_sector_size", FT_UINT32, BASE_DEC,
+			NULL, 0, "The physical sector size of the virtual disk", HFILL }
+		},
+
+		{ &hf_smb2_svhdx_open_device_context_virtual_size,
+			{ "VirtualSize", "smb2.svhdx_open_device_context.virtual_size", FT_UINT64, BASE_DEC,
+			NULL, 0, "The current length of the virtual disk, in bytes", HFILL }
+		},
+
 		{ &hf_smb2_posix_v1_version,
 			{ "Version", "smb2.posix_v1_version", FT_UINT32, BASE_DEC,
 			NULL, 0, NULL, HFILL }
@@ -10981,6 +11323,7 @@ proto_register_smb2(void)
 		&ett_smb2_share_caps,
 		&ett_smb2_ioctl_flags,
 		&ett_smb2_ioctl_network_interface,
+		&ett_smb2_ioctl_sqos_opeations,
 		&ett_smb2_fsctl_range_data,
 		&ett_windows_sockaddr,
 		&ett_smb2_close_flags,

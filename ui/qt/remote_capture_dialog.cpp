@@ -58,7 +58,7 @@ RemoteCaptureDialog::~RemoteCaptureDialog()
 void RemoteCaptureDialog::hostChanged(QString host)
 {
     if (!host.compare(tr("Clear list"))) {
-        free_remote_host_list();
+        recent_free_remote_host_list();
         ui->hostCombo->clear();
     } else {
         struct remote_host *rh = recent_get_remote_host(host.toUtf8().constData());
@@ -82,11 +82,13 @@ static void fillBox(gpointer key, gpointer, gpointer user_data)
 
 void RemoteCaptureDialog::fillComboBox()
 {
-    GHashTable *ht = get_remote_host_list();
+    int remote_host_list_size;
+
     ui->hostCombo->addItem(QString(""));
-    if (g_hash_table_size(ht) > 0) {
-        g_hash_table_foreach(ht, fillBox, ui->hostCombo);
-        ui->hostCombo->insertSeparator(g_hash_table_size(ht)+1);
+    remote_host_list_size = recent_get_remote_host_list_size();
+    if (remote_host_list_size > 0) {
+        recent_remote_host_list_foreach(fillBox, ui->hostCombo);
+        ui->hostCombo->insertSeparator(remote_host_list_size+1);
         ui->hostCombo->addItem(QString(tr("Clear list")));
     }
 }
