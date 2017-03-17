@@ -83,7 +83,6 @@ NODIST_GENERATED_HEADER_FILES = \
 	ui_manage_interfaces_dialog.h			\
 	ui_module_preferences_scroll_area.h		\
 	ui_mtp3_summary_dialog.h			\
-	ui_overlay_scroll_bar.h				\
 	ui_packet_comment_dialog.h			\
 	ui_packet_dialog.h				\
 	ui_packet_format_group_box.h			\
