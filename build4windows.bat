@@ -1,5 +1,6 @@
 REM Build preparation script for wireshark for windows with Visual Studio 2015
 REM See https://www.wireshark.org/docs/wsdg_html_chunked/ChSetupWin32.html
+REM Call this script in the directory where you want to run the build - NOT in the source directory!
 REM Modify this script to your needs and run it from the MSVC command prompt
 
 set repo-root=%~dp0
@@ -16,11 +17,12 @@ set WIRESHARK_VERSION_EXTRA=-s7commplus
 REM Ensure that cygwin bash is found before Windows10 Ubunutu bash:
 set PATH=%WIRESHARK_CYGWIN_INSTALL_PATH%\bin;%PATH%
 
-cd wireshark-cmake
 "C:\Program Files\CMake\bin\cmake" -DENABLE_CHM_GUIDES=on %repo-root%
+if !ERRORLEVEL! == 0 exit /b !ERRORLEVEL!
 pause
 Rem build wireshark
 msbuild /m /p:Configuration=RelWithDebInfo Wireshark.sln
+if !ERRORLEVEL! == 0 exit /b !ERRORLEVEL!
 pause
 Rem build the installer
 msbuild /m /p:Configuration=RelWithDebInfo nsis_package_prep.vcxproj
