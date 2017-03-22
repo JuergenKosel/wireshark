@@ -876,15 +876,31 @@
         <source>Automatically detect file type</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="capture_file_dialog.cpp" line="787"/>
-        <source>%1, error after %2 packets</source>
-        <translation type="unfinished"></translation>
+        <source>%1, error after %Ln packet(s)</source>
+        <oldsource>%1, error after %2 packets</oldsource>
+        <translation>
+            <numerusform>%1, error after %Ln packet</numerusform>
+            <numerusform>%1, error after %Ln packets</numerusform>
+        </translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="capture_file_dialog.cpp" line="794"/>
-        <source>%1, timed out at %2 packets</source>
-        <translation type="unfinished"></translation>
+        <source>%1, timed out at %Ln packet(s)</source>
+        <oldsource>%1, timed out at %2 packets</oldsource>
+        <translation>
+            <numerusform>%1, timed out at %Ln packet</numerusform>
+            <numerusform>%1, timed out at %Ln packets</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="capture_file_dialog.cpp" line="797"/>
+        <source>%1, %Ln packet(s)</source>
+        <translation>
+            <numerusform>%1, %Ln packet</numerusform>
+            <numerusform>%1, %Ln packets</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="capture_file_dialog.cpp" line="455"/>
@@ -4691,7 +4707,7 @@ for filter files: %2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="interface_frame.cpp" line="148"/>
+        <location filename="interface_frame.cpp" line="150"/>
         <source>Show hidden interfaces</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4699,7 +4715,7 @@ for filter files: %2.</source>
 <context>
     <name>InterfaceSortFilterModel</name>
     <message>
-        <location filename="interface_sort_filter_model.cpp" line="377"/>
+        <location filename="interface_sort_filter_model.cpp" line="380"/>
         <source>No interfaces to be displayed. %1 interfaces filtered.</source>
         <translation type="unfinished"></translation>
     </message>

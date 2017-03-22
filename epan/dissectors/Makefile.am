@@ -1487,6 +1487,7 @@ DISSECTOR_INCLUDES = \
 	packet-cmip.h		\
 	packet-cmp.h		\
 	packet-cms.h		\
+	packet-coap.h		\
 	packet-credssp.h	\
 	packet-crmf.h		\
 	packet-csn1.h		\
@@ -1649,7 +1650,7 @@ DISSECTOR_INCLUDES = \
 	packet-nlm.h		\
 	packet-ntlmssp.h	\
 	packet-ntp.h		\
-        packet-nvme.h		\
+	packet-nvme.h		\
 	packet-ocsp.h		\
 	packet-opensafety.h	\
 	packet-osi.h		\

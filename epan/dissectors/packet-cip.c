@@ -5522,8 +5522,6 @@ dissect_cip_generic_service_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 
    req_path_size = tvb_get_guint8( tvb, offset+1);
    offset += ((req_path_size*2)+2);
-   if (tvb_reported_length_remaining(tvb, offset) <= 0)
-      return tvb_reported_length(tvb);
 
    int parsed_len = 0;
 
@@ -5536,8 +5534,12 @@ dissect_cip_generic_service_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
       parsed_len = dissect_cip_set_attribute_list_req(tvb, pinfo, cmd_data_tree, cmd_data_item, offset, req_data);
       break;
    case SC_RESET:
-      proto_tree_add_item(cmd_data_tree, hf_cip_sc_reset_param, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-      parsed_len = 1;
+      // Parameter to reset is optional.
+      if (tvb_reported_length_remaining(tvb, offset) > 0)
+      {
+         proto_tree_add_item(cmd_data_tree, hf_cip_sc_reset_param, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+         parsed_len = 1;
+      }
       break;
    case SC_MULT_SERV_PACK:
       parsed_len = dissect_cip_multiple_service_packet(tvb, pinfo, cmd_data_tree, cmd_data_item, offset, TRUE);
@@ -5852,7 +5854,7 @@ dissect_cip_find_next_object_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
    return 1 + num_instances * 2;
 }
 
-static void load_cip_request_data(packet_info *pinfo, cip_simple_request_info_t *req_data)
+void load_cip_request_data(packet_info *pinfo, cip_simple_request_info_t *req_data)
 {
     cip_req_info_t* preq_info;
     preq_info = (cip_req_info_t*)p_get_proto_data(wmem_file_scope(), pinfo, proto_cip, 0);
@@ -5871,6 +5873,22 @@ static void load_cip_request_data(packet_info *pinfo, cip_simple_request_info_t 
     }
 }
 
+static gboolean should_dissect_cip_response(tvbuff_t *tvb, int offset, guint8 gen_status)
+{
+    // Only parse the response if there is data left or it has a response status that allows additional data
+    //   to be returned.
+    if ((tvb_reported_length_remaining(tvb, offset) == 0)
+        && gen_status != CI_GRC_SUCCESS
+        && gen_status != CI_GRC_ATTR_LIST_ERROR
+        && gen_status != CI_GRC_SERVICE_ERROR
+        && gen_status != CI_GRC_INVALID_LIST_STATUS)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 static int
 dissect_cip_generic_service_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
@@ -5878,7 +5896,7 @@ dissect_cip_generic_service_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
    proto_tree *cmd_data_tree;
    cip_simple_request_info_t req_data;
    int offset = 0;
-   int item_length = tvb_reported_length(tvb);
+   guint8 gen_status = tvb_get_guint8(tvb, offset + 2);
    guint8 service = tvb_get_guint8(tvb, offset) & CIP_SC_MASK;
    guint16 add_stat_size = tvb_get_guint8( tvb, offset+3 ) * 2;
 
@@ -5886,19 +5904,16 @@ dissect_cip_generic_service_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 
    add_cip_service_to_info_column(pinfo, service, cip_sc_vals);
 
-   /* If there is any command specific data create a sub-tree for it */
-   if( (item_length-4-add_stat_size ) != 0 )
-   {
-      cmd_data_tree = proto_tree_add_subtree(tree, tvb, offset, item_length-4-add_stat_size,
-                           ett_cmd_data, &cmd_data_item, val_to_str(service, cip_sc_vals , "Unknown Service (0x%02x)"));
-      proto_item_append_text(cmd_data_item, " (Response)");
-   }
-   else
-   {
-      return tvb_reported_length(tvb);
-   }
+   cmd_data_tree = proto_tree_add_subtree(tree, tvb, offset, -1,
+       ett_cmd_data, &cmd_data_item, val_to_str(service, cip_sc_vals, "Unknown Service (0x%02x)"));
+   proto_item_append_text(cmd_data_item, " (Response)");
 
    load_cip_request_data(pinfo, &req_data);
+
+   if (should_dissect_cip_response(tvb, offset, gen_status) == FALSE)
+   {
+      return 0;
+   }
 
    int parsed_len = 0;
 
@@ -5931,8 +5946,8 @@ dissect_cip_generic_service_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
       parsed_len = 1;
       break;
    default:
-       // No specific handling for other services.
-       break;
+      // No specific handling for other services.
+      break;
    }
 
    // Display any remaining unparsed data.
@@ -6091,8 +6106,9 @@ dissect_cip_cm_fwd_open_rsp_success(cip_req_info_t *preq_info, proto_tree *tree,
 {
    int temp_data;
    unsigned char app_rep_size;
-   guint32 O2TConnID, T2OConnID, DeviceSerialNumber;
-   guint16 ConnSerialNumber, VendorID;
+   guint32 O2TConnID, T2OConnID, DeviceSerialNumber, target_device_sn = 0;
+   guint16 ConnSerialNumber, VendorID, init_rollover_value = 0, init_timestamp_value = 0,
+           target_conn_sn = 0, target_vendorID = 0;
    proto_tree *pid_tree, *safety_tree;
 
    /* Display originator to target connection ID */
@@ -6142,8 +6158,10 @@ dissect_cip_cm_fwd_open_rsp_success(cip_req_info_t *preq_info, proto_tree *tree,
          proto_tree_add_item( safety_tree, hf_cip_cm_consumer_number, tvb, offset+26, 2, ENC_LITTLE_ENDIAN);
          pid_tree = proto_tree_add_subtree( safety_tree, tvb, offset+28, 8, ett_cip_cm_pid, NULL, "PID/CID");
          proto_tree_add_item( pid_tree, hf_cip_cm_targ_vendor_id, tvb, offset+28, 2, ENC_LITTLE_ENDIAN);
-         proto_tree_add_item( pid_tree, hf_cip_cm_targ_dev_serial_num, tvb, offset+30, 4, ENC_LITTLE_ENDIAN);
+         target_vendorID = tvb_get_letohs(tvb, offset+28);
+         proto_tree_add_item_ret_uint( pid_tree, hf_cip_cm_targ_dev_serial_num, tvb, offset+30, 4, ENC_LITTLE_ENDIAN, &target_device_sn);
          proto_tree_add_item( pid_tree, hf_cip_cm_targ_conn_serial_num, tvb, offset+34, 2, ENC_LITTLE_ENDIAN);
+         target_conn_sn = tvb_get_letohs(tvb, offset+34);
 
          if (app_rep_size > 10)
             proto_tree_add_item(tree, hf_cip_cm_app_reply_data, tvb, offset+36, app_rep_size-10, ENC_NA );
@@ -6154,10 +6172,15 @@ dissect_cip_cm_fwd_open_rsp_success(cip_req_info_t *preq_info, proto_tree *tree,
          proto_tree_add_item( safety_tree, hf_cip_cm_consumer_number, tvb, offset+26, 2, ENC_LITTLE_ENDIAN);
          pid_tree = proto_tree_add_subtree( safety_tree, tvb, offset+28, 12, ett_cip_cm_pid, NULL, "PID/CID");
          proto_tree_add_item( pid_tree, hf_cip_cm_targ_vendor_id, tvb, offset+28, 2, ENC_LITTLE_ENDIAN);
-         proto_tree_add_item( pid_tree, hf_cip_cm_targ_dev_serial_num, tvb, offset+30, 4, ENC_LITTLE_ENDIAN);
+         target_vendorID = tvb_get_letohs(tvb, offset+28);
+         proto_tree_add_item_ret_uint( pid_tree, hf_cip_cm_targ_dev_serial_num, tvb, offset+30, 4, ENC_LITTLE_ENDIAN, &target_device_sn);
          proto_tree_add_item( pid_tree, hf_cip_cm_targ_conn_serial_num, tvb, offset+34, 2, ENC_LITTLE_ENDIAN);
+         target_conn_sn = tvb_get_letohs(tvb, offset+34);
+
          proto_tree_add_item( pid_tree, hf_cip_cm_initial_timestamp, tvb, offset+36, 2, ENC_LITTLE_ENDIAN);
+         init_timestamp_value = tvb_get_letohs(tvb, offset+36);
          proto_tree_add_item( pid_tree, hf_cip_cm_initial_rollover, tvb, offset+38, 2, ENC_LITTLE_ENDIAN);
+         init_rollover_value = tvb_get_letohs(tvb, offset+38);
 
          if (app_rep_size > 14)
             proto_tree_add_item(tree, hf_cip_cm_app_reply_data, tvb, offset+40, app_rep_size-14, ENC_NA );
@@ -6180,6 +6203,14 @@ dissect_cip_cm_fwd_open_rsp_success(cip_req_info_t *preq_info, proto_tree *tree,
             the ForwardOpen request */
          preq_info->connInfo->O2T.connID = O2TConnID;
          preq_info->connInfo->T2O.connID = T2OConnID;
+         if (preq_info->connInfo->safety.safety_seg == TRUE)
+         {
+             preq_info->connInfo->safety.running_rollover_value = init_rollover_value;
+             preq_info->connInfo->safety.running_timestamp_value = init_timestamp_value;
+             preq_info->connInfo->safety.target_conn_sn = target_conn_sn;
+             preq_info->connInfo->safety.target_vendorID = target_vendorID;
+             preq_info->connInfo->safety.target_device_sn = target_device_sn;
+         }
       }
    }
 }

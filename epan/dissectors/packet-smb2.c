@@ -200,6 +200,12 @@ static int hf_smb2_negotiate_context_type = -1;
 static int hf_smb2_negotiate_context_data_length = -1;
 static int hf_smb2_negotiate_context_offset = -1;
 static int hf_smb2_negotiate_context_count = -1;
+static int hf_smb2_hash_alg_count = -1;
+static int hf_smb2_hash_algorithm = -1;
+static int hf_smb2_salt_length = -1;
+static int hf_smb2_salt = -1;
+static int hf_smb2_cipher_count = -1;
+static int hf_smb2_cipher_id = -1;
 static int hf_smb2_ea_size = -1;
 static int hf_smb2_ea_flags = -1;
 static int hf_smb2_ea_name_len = -1;
@@ -342,6 +348,7 @@ static int hf_smb2_rdma_v1_length = -1;
 static int hf_smb2_session_flags = -1;
 static int hf_smb2_ses_flags_guest = -1;
 static int hf_smb2_ses_flags_null = -1;
+static int hf_smb2_ses_flags_encrypt = -1;
 static int hf_smb2_share_flags = -1;
 static int hf_smb2_share_flags_dfs = -1;
 static int hf_smb2_share_flags_dfs_root = -1;
@@ -762,6 +769,20 @@ static const value_string smb2_find_info_levels[] = {
 static const value_string smb2_negotiate_context_types[] = {
 	{ SMB2_PREAUTH_INTEGRITY_CAPABILITIES,  "SMB2_PREAUTH_INTEGRITY_CAPABILITIES" },
 	{ SMB2_ENCRYPTION_CAPABILITIES,	"SMB2_ENCRYPTION_CAPABILITIES" },
+	{ 0, NULL }
+};
+
+#define SMB2_HASH_ALGORITHM_SHA_512    0x0001
+static const value_string smb2_hash_algorithm_types[] = {
+	{ SMB2_HASH_ALGORITHM_SHA_512, "SHA-512" },
+	{ 0, NULL }
+};
+
+#define SMB2_CIPHER_AES_128_CCM        0x0001
+#define SMB2_CIPHER_AES_128_GCM        0x0002
+static const value_string smb2_cipher_types[] = {
+	{ SMB2_CIPHER_AES_128_CCM, "AES-128-CCM" },
+	{ SMB2_CIPHER_AES_128_GCM, "AES-128-GCM" },
 	{ 0, NULL }
 };
 
@@ -2764,6 +2785,7 @@ dissect_smb2_ses_req_flags(proto_tree *parent_tree, tvbuff_t *tvb, int offset)
 
 #define SES_FLAGS_GUEST		0x0001
 #define SES_FLAGS_NULL		0x0002
+#define SES_FLAGS_ENCRYPT	0x0004
 
 static int
 dissect_smb2_ses_flags(proto_tree *parent_tree, tvbuff_t *tvb, int offset)
@@ -2771,6 +2793,7 @@ dissect_smb2_ses_flags(proto_tree *parent_tree, tvbuff_t *tvb, int offset)
 	static const int * flags[] = {
 		&hf_smb2_ses_flags_guest,
 		&hf_smb2_ses_flags_null,
+		&hf_smb2_ses_flags_encrypt,
 		NULL
 	};
 
@@ -4062,13 +4085,11 @@ dissect_smb2_find_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 static int
 dissect_smb2_negotiate_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int offset, smb2_info_t *si _U_)
 {
-	int start_offset = offset;
 	guint16 type;
 	const gchar *type_str;
-	guint16 data_length;
+	guint32 i, data_length, salt_length, hash_count, cipher_count;
 	proto_item *sub_item;
 	proto_tree *sub_tree;
-	tvbuff_t *sub_tvb;
 
 	sub_tree = proto_tree_add_subtree(parent_tree, tvb, offset, -1, ett_smb2_negotiate_context_element, &sub_item, "Negotiate Context");
 
@@ -4080,24 +4101,50 @@ dissect_smb2_negotiate_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 	offset += 2;
 
 	/* data length */
-	data_length = tvb_get_letohl(tvb, offset);
-	proto_tree_add_item(sub_tree, hf_smb2_negotiate_context_data_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	proto_tree_add_item_ret_uint(sub_tree, hf_smb2_negotiate_context_data_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &data_length);
 	offset += 2;
 
 	/* reserved */
 	proto_tree_add_item(sub_tree, hf_smb2_reserved, tvb, offset, 4, ENC_NA);
 	offset += 4;
 
-	/* data */
-	sub_tvb = tvb_new_subset_length(tvb, offset, data_length);
-	offset += data_length;
+	switch (type)
+	{
+		case SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
+			proto_tree_add_item_ret_uint(sub_tree, hf_smb2_hash_alg_count, tvb, offset, 2, ENC_LITTLE_ENDIAN, &hash_count);
+			offset += 2;
+			proto_tree_add_item_ret_uint(sub_tree, hf_smb2_salt_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &salt_length);
+			offset += 2;
 
-	proto_item_set_len(sub_item, offset - start_offset);
+			for (i = 0; i < hash_count; i++)
+			{
+				proto_tree_add_item(sub_tree, hf_smb2_hash_algorithm, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+				offset += 2;
+			}
 
-	/*
-	 * TODO: disssect the context data
-	 */
-	proto_tree_add_item(sub_tree, hf_smb2_unknown, sub_tvb, 0, data_length, ENC_NA);
+			if (salt_length)
+			{
+				proto_tree_add_item(sub_tree, hf_smb2_salt, tvb, offset, salt_length, ENC_NA);
+				offset += salt_length;
+			}
+			break;
+
+		case SMB2_ENCRYPTION_CAPABILITIES:
+			proto_tree_add_item_ret_uint(sub_tree, hf_smb2_cipher_count, tvb, offset, 2, ENC_LITTLE_ENDIAN, &cipher_count);
+			offset += 2;
+
+			for (i = 0; i < cipher_count; i ++)
+			{
+				proto_tree_add_item(sub_tree, hf_smb2_cipher_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+				offset += 2;
+			}
+			break;
+
+		default:
+			proto_tree_add_item(sub_tree, hf_smb2_unknown, tvb, offset, data_length, ENC_NA);
+			offset += data_length;
+			break;
+	}
 
 	return offset;
 }
@@ -9163,32 +9210,32 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_msg_id,
 			{ "Message ID", "smb2.msg_id", FT_UINT64, BASE_DEC,
-			NULL, 0, "SMB2 Message ID", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_tid,
 			{ "Tree Id", "smb2.tid", FT_UINT32, BASE_HEX,
-			NULL, 0, "SMB2 Tree Id", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_aid,
 			{ "Async Id", "smb2.aid", FT_UINT64, BASE_HEX,
-			NULL, 0, "SMB2 Async Id", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_sesid,
 			{ "Session Id", "smb2.sesid", FT_UINT64, BASE_HEX,
-			NULL, 0, "SMB2 Session Id", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_previous_sesid,
 			{ "Previous Session Id", "smb2.previous_sesid", FT_UINT64, BASE_HEX,
-			NULL, 0, "SMB2 Previous Session Id", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_chain_offset,
 			{ "Chain Offset", "smb2.chain_offset", FT_UINT32, BASE_HEX,
-			NULL, 0, "SMB2 Chain Offset", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_end_of_file,
@@ -9203,67 +9250,67 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_file_id,
 			{ "File Id", "smb2.file_id", FT_UINT64, BASE_HEX,
-			NULL, 0, "SMB2 File Id", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_allocation_size,
 			{ "Allocation Size", "smb2.allocation_size", FT_UINT64, BASE_DEC,
-			NULL, 0, "SMB2 Allocation Size for this object", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_max_response_size,
 			{ "Max Response Size", "smb2.max_response_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "SMB2 Maximum response size", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_getinfo_size,
 			{ "Getinfo Size", "smb2.getinfo_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "SMB2 getinfo size", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_getinfo_offset,
 			{ "Getinfo Offset", "smb2.getinfo_offset", FT_UINT16, BASE_HEX,
-			NULL, 0, "SMB2 getinfo offset", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_getinfo_additional,
 			{ "Additional Info", "smb2.getinfo_additional", FT_UINT32, BASE_HEX,
-			NULL, 0, "SMB2 getinfo additional info", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_getinfo_flags,
 			{ "Flags", "smb2.getinfo_flags", FT_UINT32, BASE_HEX,
-			NULL, 0, "SMB2 getinfo flags", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_setinfo_size,
 			{ "Setinfo Size", "smb2.setinfo_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "SMB2 setinfo size", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_setinfo_offset,
 			{ "Setinfo Offset", "smb2.setinfo_offset", FT_UINT16, BASE_HEX,
-			NULL, 0, "SMB2 setinfo offset", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_max_ioctl_out_size,
 			{ "Max Ioctl Out Size", "smb2.max_ioctl_out_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "SMB2 Maximum ioctl out size", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_max_ioctl_in_size,
 			{ "Max Ioctl In Size", "smb2.max_ioctl_in_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "SMB2 Maximum ioctl out size", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_required_buffer_size,
 			{ "Required Buffer Size", "smb2.required_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "SMB2 required buffer size", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_pid,
 			{ "Process Id", "smb2.pid", FT_UINT32, BASE_HEX,
-			NULL, 0, "SMB2 Process Id", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 
@@ -9314,12 +9361,12 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_filename,
 			{ "Filename", "smb2.filename", FT_STRING, BASE_NONE,
-			NULL, 0, "Name of the file", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_filename_len,
 			{ "Filename Length", "smb2.filename.len", FT_UINT32, BASE_DEC,
-			NULL, 0, "Length of the file name", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_replace_if,
@@ -9548,152 +9595,152 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_file_all_info,
 			{ "SMB2_FILE_ALL_INFO", "smb2.file_all_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_ALL_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_allocation_info,
 			{ "SMB2_FILE_ALLOCATION_INFO", "smb2.file_allocation_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_ALLOCATION_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_endoffile_info,
 			{ "SMB2_FILE_ENDOFFILE_INFO", "smb2.file_endoffile_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_ENDOFFILE_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_alternate_name_info,
 			{ "SMB2_FILE_ALTERNATE_NAME_INFO", "smb2.file_alternate_name_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_ALTERNATE_NAME_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_stream_info,
 			{ "SMB2_FILE_STREAM_INFO", "smb2.file_stream_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_STREAM_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_pipe_info,
 			{ "SMB2_FILE_PIPE_INFO", "smb2.file_pipe_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_PIPE_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_compression_info,
 			{ "SMB2_FILE_COMPRESSION_INFO", "smb2.file_compression_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_COMPRESSION_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_basic_info,
 			{ "SMB2_FILE_BASIC_INFO", "smb2.file_basic_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_BASIC_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_standard_info,
 			{ "SMB2_FILE_STANDARD_INFO", "smb2.file_standard_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_STANDARD_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_internal_info,
 			{ "SMB2_FILE_INTERNAL_INFO", "smb2.file_internal_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_INTERNAL_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_mode_info,
 			{ "SMB2_FILE_MODE_INFO", "smb2.file_mode_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_MODE_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_alignment_info,
 			{ "SMB2_FILE_ALIGNMENT_INFO", "smb2.file_alignment_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_ALIGNMENT_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_position_info,
 			{ "SMB2_FILE_POSITION_INFO", "smb2.file_position_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_POSITION_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_access_info,
 			{ "SMB2_FILE_ACCESS_INFO", "smb2.file_access_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_ACCESS_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_ea_info,
 			{ "SMB2_FILE_EA_INFO", "smb2.file_ea_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_EA_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_network_open_info,
 			{ "SMB2_FILE_NETWORK_OPEN_INFO", "smb2.file_network_open_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_NETWORK_OPEN_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_attribute_tag_info,
 			{ "SMB2_FILE_ATTRIBUTE_TAG_INFO", "smb2.file_attribute_tag_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_ATTRIBUTE_TAG_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_disposition_info,
 			{ "SMB2_FILE_DISPOSITION_INFO", "smb2.file_disposition_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_DISPOSITION_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_full_ea_info,
 			{ "SMB2_FILE_FULL_EA_INFO", "smb2.file_full_ea_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_FULL_EA_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_file_rename_info,
 			{ "SMB2_FILE_RENAME_INFO", "smb2.file_rename_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FILE_RENAME_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_01,
 			{ "SMB2_FS_INFO_01", "smb2.fs_info_01", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FS_INFO_01 structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_03,
 			{ "SMB2_FS_INFO_03", "smb2.fs_info_03", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FS_INFO_03 structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_04,
 			{ "SMB2_FS_INFO_04", "smb2.fs_info_04", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FS_INFO_04 structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_05,
 			{ "SMB2_FS_INFO_05", "smb2.fs_info_05", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FS_INFO_05 structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_06,
 			{ "SMB2_FS_INFO_06", "smb2.fs_info_06", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FS_INFO_06 structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_07,
 			{ "SMB2_FS_INFO_07", "smb2.fs_info_07", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FS_INFO_07 structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_objectid_info,
 			{ "SMB2_FS_OBJECTID_INFO", "smb2.fs_objectid_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_FS_OBJECTID_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_sec_info_00,
 			{ "SMB2_SEC_INFO_00", "smb2.sec_info_00", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_SEC_INFO_00 structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_quota_info,
 			{ "SMB2_QUOTA_INFO", "smb2.quota_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_QUOTA_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_query_quota_info,
 			{ "SMB2_QUERY_QUOTA_INFO", "smb2.query_quota_info", FT_NONE, BASE_NONE,
-			NULL, 0, "SMB2_QUERY_QUOTA_INFO structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_qq_single,
@@ -9764,7 +9811,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_FILE_OBJECTID_BUFFER,
 			{ "FILE_OBJECTID_BUFFER", "smb2.FILE_OBJECTID_BUFFER", FT_NONE, BASE_NONE,
-			NULL, 0, "A FILE_OBJECTID_BUFFER structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_lease_key,
@@ -9854,23 +9901,47 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_negotiate_context_type,
 			{ "Type", "smb2.negotiate_context.type", FT_UINT16, BASE_HEX,
-			VALS(smb2_negotiate_context_types), 0, "NegotiateContext Type", HFILL }
+			VALS(smb2_negotiate_context_types), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_negotiate_context_data_length,
 			{ "DataLength", "smb2.negotiate_context.data_length", FT_UINT16, BASE_DEC,
-			NULL, 0, "NegotiateContext DataLength", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_negotiate_context_offset,
 			{ "NegotiateContextOffset", "smb2.negotiate_context.offset", FT_UINT16, BASE_HEX,
-			NULL, 0, "NegotiateContext Offset", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_negotiate_context_count,
 			{ "NegotiateContextCount", "smb2.negotiate_context.count", FT_UINT16, BASE_DEC,
-			NULL, 0, "NegotiateContext Count", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
+
+		{ &hf_smb2_hash_alg_count,
+			{ "HashAlgorithmCount", "smb2.negotiate_context.hash_alg_count", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }},
+
+		{ &hf_smb2_hash_algorithm,
+			{ "HashAlgorithm", "smb2.negotiate_context.hash_algorithm", FT_UINT16, BASE_HEX,
+			VALS(smb2_hash_algorithm_types), 0, NULL, HFILL }},
+
+		{ &hf_smb2_salt_length,
+			{ "SaltLength", "smb2.negotiate_context.salt_length", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }},
+
+		{ &hf_smb2_salt,
+			{ "Salt", "smb2.negotiate_context.salt", FT_BYTES, BASE_NONE,
+			NULL, 0, NULL, HFILL }},
+
+		{ &hf_smb2_cipher_count,
+			{ "CipherCount", "smb2.negotiate_context.cipher_count", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }},
+
+		{ &hf_smb2_cipher_id,
+			{ "CipherId", "smb2.negotiate_context.cipher_id", FT_UINT16, BASE_HEX,
+			VALS(smb2_cipher_types), 0, NULL, HFILL }},
 
 		{ &hf_smb2_current_time,
 			{ "Current Time", "smb2.current_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL,
@@ -9958,8 +10029,8 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_impersonation_level,
-			{ "Impersonation", "smb2.impersonation.level", FT_UINT32, BASE_DEC,
-			VALS(impersonation_level_vals), 0, "Impersonation level", HFILL }
+			{ "Impersonation level", "smb2.impersonation.level", FT_UINT32, BASE_DEC,
+			VALS(impersonation_level_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_ioctl_function,
@@ -9999,12 +10070,12 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_fsctl_odx_token_type,
 			{ "TokenType", "smb2.fsctl.odx.token.type", FT_UINT32, BASE_HEX,
-			NULL, 0, "Token Type", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fsctl_odx_token_idlen,
 			{ "TokenIdLength", "smb2.fsctl.odx.token.idlen", FT_UINT16, BASE_DEC,
-			NULL, 0, "Token ID Length", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fsctl_odx_token_idraw,
@@ -10029,17 +10100,17 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_fsctl_odx_file_offset,
 			{ "FileOffset", "smb2.fsctl.odx.file_offset", FT_UINT64, BASE_DEC,
-			NULL, 0, "File offset", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fsctl_odx_copy_length,
 			{ "CopyLength", "smb2.fsctl.odx.copy_length", FT_UINT64, BASE_DEC,
-			NULL, 0, "Copy length", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fsctl_odx_xfer_length,
 			{ "TransferLength", "smb2.fsctl.odx.xfer_length", FT_UINT64, BASE_DEC,
-			NULL, 0, "Length Transferred", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fsctl_odx_token_offset,
@@ -10069,12 +10140,12 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_ioctl_shared_virtual_disk_handle_state,
 			{ "SharedVirtualDiskHandleState", "smb2.ioctl.shared_virtual_disk.handle_state", FT_UINT32, BASE_HEX,
-			VALS(smb2_ioctl_shared_virtual_disk_hstate_vals), 0, "State of shared disk handle", HFILL }
+			VALS(smb2_ioctl_shared_virtual_disk_hstate_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_ioctl_sqos_protocol_version,
 			{ "ProtocolVersion", "smb2.ioctl.sqos.protocol_version", FT_UINT16, BASE_HEX,
-			VALS(smb2_ioctl_sqos_protocol_version_vals), 0, "The protocol version", HFILL }
+			VALS(smb2_ioctl_sqos_protocol_version_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_ioctl_sqos_reserved,
@@ -10295,17 +10366,17 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_compression_format,
 			{ "Compression Format", "smb2.compression_format", FT_UINT16, BASE_DEC,
-			VALS(compression_format_vals), 0, "Compression to use", HFILL }
+			VALS(compression_format_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_checksum_algorithm,
 			{ "Checksum Algorithm", "smb2.checksum_algorithm", FT_UINT16, BASE_HEX,
-			VALS(checksum_algorithm_vals), 0, "Checksum algorithm to use", HFILL }
+			VALS(checksum_algorithm_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_integrity_reserved,
 			{ "Reserved", "smb2.integrity_reserved", FT_UINT16, BASE_DEC,
-			NULL, 0, "Reserved Field", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_integrity_flags,
@@ -10414,8 +10485,8 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_unknown,
-			{ "unknown", "smb2.unknown", FT_BYTES, BASE_NONE,
-			NULL, 0, "Unknown bytes", HFILL }
+			{ "Unknown", "smb2.unknown", FT_BYTES, BASE_NONE,
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_twrp_timestamp,
@@ -10447,6 +10518,10 @@ proto_register_smb2(void)
 			{ "Null", "smb2.ses_flags.null", FT_BOOLEAN, 16,
 			NULL, SES_FLAGS_NULL, NULL, HFILL }
 		},
+
+		{ &hf_smb2_ses_flags_encrypt,
+			{ "Encrypt", "smb2.ses_flags.encrypt", FT_BOOLEAN, 16,
+			NULL, SES_FLAGS_ENCRYPT, NULL, HFILL }},
 
 		{ &hf_smb2_secmode_flags_sign_required,
 			{ "Signing required", "smb2.sec_mode.sign_required", FT_BOOLEAN, 8,
@@ -10505,17 +10580,17 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_max_trans_size,
 			{ "Max Transaction Size", "smb2.max_trans_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "Maximum size of a transaction", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_max_read_size,
 			{ "Max Read Size", "smb2.max_read_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "Maximum size of a read", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_max_write_size,
 			{ "Max Write Size", "smb2.max_write_size", FT_UINT32, BASE_DEC,
-			NULL, 0, "Maximum size of a write", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_channel,
@@ -10806,7 +10881,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_reserved,
 			{ "Reserved", "smb2.reserved", FT_BYTES, BASE_NONE,
-			NULL, 0, "Reserved bytes", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_reserved_random,
@@ -10816,7 +10891,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_root_directory_mbz,
 			{ "Root Dir Handle (MBZ)", "smb2.root_directory", FT_BYTES, BASE_NONE,
-			NULL, 0, "Root Directory Handle, mbz", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_dhnq_buffer_reserved,
@@ -10891,7 +10966,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_svhdx_open_device_context_originator_flags,
 			{ "OriginatorFlags", "smb2.svhdx_open_device_context.originator_flags", FT_UINT32, BASE_HEX,
-			VALS(originator_flags_vals), 0, "Originator Flags", HFILL }
+			VALS(originator_flags_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_svhdx_open_device_context_open_request_id,
@@ -11131,7 +11206,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_pipe_fragment_overlap_conflict,
 			{ "Conflicting data in fragment overlap", "smb2.pipe.fragment.overlap.conflict", FT_BOOLEAN, BASE_NONE,
-			NULL, 0x0, "Overlapping fragments contained conflicting data", HFILL }
+			NULL, 0x0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_pipe_fragment_multiple_tails,
@@ -11156,12 +11231,12 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_pipe_fragment,
 			{ "Fragment SMB2 Named Pipe", "smb2.pipe.fragment", FT_FRAMENUM, BASE_NONE,
-			NULL, 0x0, "SMB2 Named Pipe Fragment", HFILL }
+			NULL, 0x0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_pipe_fragments,
 			{ "Reassembled SMB2 Named Pipe fragments", "smb2.pipe.fragments", FT_NONE, BASE_NONE,
-			NULL, 0x0, "SMB2 Named Pipe Fragments", HFILL }
+			NULL, 0x0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_pipe_reassembled_in,
@@ -11221,7 +11296,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_symlink_error_response,
 			{ "Symbolic Link Error Response", "smb2.symlink_error_response", FT_NONE, BASE_NONE,
-			NULL, 0, "A Symbolic Link Error Response structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_symlink_length,
@@ -11236,7 +11311,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_SYMBOLIC_LINK_REPARSE_DATA_BUFFER,
 			{ "SYMBOLIC_LINK_REPARSE_DATA_BUFFER", "smb2.SYMBOLIC_LINK_REPARSE_DATA_BUFFER", FT_NONE, BASE_NONE,
-			NULL, 0, "A SYMBOLIC_LINK_REPARSE_DATA_BUFFER structure", HFILL }
+			NULL, 0, NULL, HFILL }
 		},
 		{ &hf_smb2_reparse_tag,
 			{ "Reparse Tag", "smb2.symlink.reparse_tag", FT_UINT32, BASE_HEX,

@@ -527,7 +527,6 @@ typedef enum {
 	STR_UNICODE  = 7,   /**< shows non-printable UNICODE characters as \\uXXXX (XXX for now non-printable characters display depends on UI) */
 
 /* Byte separators */
-	SEP_NONE     = 0,   /**< hexadecimal bytes with no separator */
 	SEP_DOT      = 8,   /**< hexadecimal bytes with a period (.) between each byte */
 	SEP_DASH     = 9,   /**< hexadecimal bytes with a dash (-) between each byte */
 	SEP_COLON    = 10,  /**< hexadecimal bytes with a colon (:) between each byte */
@@ -2726,10 +2725,10 @@ proto_tree_add_bits_item(proto_tree *tree, const int hf_index, tvbuff_t *tvb, co
  @param crumb_spec pointer to crumb_spec array
  @param return_value if a pointer is passed here the value is returned.
  @return the newly created item */
-extern proto_item *
+WS_DLL_PUBLIC proto_item *
 proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hf_index, tvbuff_t *tvb,
-			    const guint bit_offset, const crumb_spec_t *crumb_spec,
-			    guint64 *return_value);
+                const guint bit_offset, const crumb_spec_t *crumb_spec,
+                guint64 *return_value);
 
 
 /** Add bitmap text for a split-bits crumb to a proto_tree,

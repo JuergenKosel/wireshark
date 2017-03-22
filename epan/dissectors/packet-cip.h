@@ -298,6 +298,11 @@ enum cip_safety_format_type {CIP_SAFETY_BASE_FORMAT, CIP_SAFETY_EXTENDED_FORMAT}
 typedef struct cip_safety_epath_info {
    gboolean safety_seg;
    enum cip_safety_format_type format;
+   guint16 running_rollover_value;  /* Keep track of the rollover value over the course of the connection */
+   guint16 running_timestamp_value; /* Keep track of the timestamp value over the course of the connection */
+   guint16 target_conn_sn;
+   guint16 target_vendorID;
+   guint32 target_device_sn;
 } cip_safety_epath_info_t;
 
 typedef struct cip_conn_info {
@@ -349,6 +354,7 @@ extern void dissect_cip_date_and_time(proto_tree *tree, tvbuff_t *tvb, int offse
 extern attribute_info_t* cip_get_attribute(guint class_id, guint instance, guint attribute);
 extern int dissect_cip_get_attribute_all_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     int offset, cip_simple_request_info_t* req_data);
+extern void load_cip_request_data(packet_info *pinfo, cip_simple_request_info_t *req_data);
 
 /*
 ** Exported variables

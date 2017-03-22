@@ -41,6 +41,7 @@
 #include <epan/expert.h>
 #include <epan/asn1.h>
 #include <epan/proto_data.h>
+#include <epan/oids.h>
 
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
@@ -49,6 +50,7 @@
 #include <wsutil/pint.h>
 #include <wsutil/strtoi.h>
 #include <ws_version_info.h>
+#include "packet-ber.h"
 #include "packet-x509af.h"
 #include "packet-x509if.h"
 #include "packet-ssl-utils.h"
@@ -90,6 +92,7 @@ const value_string ssl_versions[] = {
     { 0x7F10,               "TLS 1.3 (draft 16)" },
     { 0x7F11,               "TLS 1.3 (draft 17)" },
     { 0x7F12,               "TLS 1.3 (draft 18)" },
+    { 0x7F13,               "TLS 1.3 (draft 19)" },
     { DTLSV1DOT0_OPENSSL_VERSION, "DTLS 1.0 (OpenSSL pre 0.9.8f)" },
     { DTLSV1DOT0_VERSION,   "DTLS 1.0" },
     { DTLSV1DOT2_VERSION,   "DTLS 1.2" },
@@ -557,6 +560,7 @@ const value_string ssl_31_handshake_type[] = {
     { SSL_HND_SERVER_HELLO,      "Server Hello" },
     { SSL_HND_HELLO_VERIFY_REQUEST, "Hello Verify Request"},
     { SSL_HND_NEWSESSION_TICKET, "New Session Ticket" },
+    { SSL_HND_END_OF_EARLY_DATA, "End of Early Data" },
     { SSL_HND_HELLO_RETRY_REQUEST, "Hello Retry Request" },
     { SSL_HND_ENCRYPTED_EXTENSIONS, "Encrypted Extensions" },
     { SSL_HND_CERTIFICATE,       "Certificate" },
@@ -1184,6 +1188,8 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_SUPPORTED_VERSIONS, "supported_versions" }, /* TLS 1.3 https://tools.ietf.org/html/draft-ietf-tls-tls13 */
     { SSL_HND_HELLO_EXT_COOKIE, "cookie" }, /* TLS 1.3 https://tools.ietf.org/html/draft-ietf-tls-tls13 */
     { SSL_HND_HELLO_EXT_PSK_KEY_EXCHANGE_MODES, "psk_key_exchange_modes" }, /* TLS 1.3 https://tools.ietf.org/html/draft-ietf-tls-tls13 */
+    { SSL_HND_HELLO_EXT_CERTIFICATE_AUTHORITIES, "certificate_authorities" }, /* https://tools.ietf.org/html/draft-ietf-tls-tls13-19#section-4.2.3.1 */
+    { SSL_HND_HELLO_EXT_OID_FILTERS, "oid_filters" }, /* https://tools.ietf.org/html/draft-ietf-tls-tls13-19#section-4.3.2.1 */
     { SSL_HND_HELLO_EXT_NPN, "next_protocol_negotiation"}, /* https://tools.ietf.org/id/draft-agl-tls-nextprotoneg-03.html */
     { SSL_HND_HELLO_EXT_CHANNEL_ID_OLD, "channel_id_old" }, /* http://tools.ietf.org/html/draft-balfanz-tls-channelid-00
        https://twitter.com/ericlaw/status/274237352531083264 */
@@ -1199,10 +1205,10 @@ const value_string tls_hello_ext_server_name_type_vs[] = {
     { 0, NULL }
 };
 
-/* draft-ietf-tls-tls13-18 4.2.7 */
+/* draft-ietf-tls-tls13-19 4.2.6 */
 const value_string tls_hello_ext_psk_ke_mode[] = {
     { 0, "PSK-only key establishment (psk_ke)" },
-    { 1, "PSK key establishment with (EC)DHE key establishment (psk_dhe_ke)" },
+    { 1, "PSK with (EC)DHE key establishment (psk_dhe_ke)" },
     { 0, NULL }
 };
 
@@ -3502,7 +3508,7 @@ tls13_generate_keys(SslDecryptSession *ssl_session, const StringInfo *secret, gb
         return FALSE;
     }
 
-    key_length = (guint) gcry_cipher_get_algo_blklen(cipher_algo);
+    key_length = (guint) gcry_cipher_get_algo_keylen(cipher_algo);
     /* AES-GCM/AES-CCM/Poly1305-ChaCha20 all have N_MIN=N_MAX = 12. */
     iv_length = 12;
     ssl_debug_printf("%s key_length %u iv_length %u\n", G_STRFUNC, key_length, iv_length);
@@ -5876,6 +5882,57 @@ ssl_dissect_hash_alg_list(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
     return offset;
 } /* }}} */
 
+/* Dissection of DistinguishedName (for CertificateRequest and
+ * certificate_authorities extension). {{{ */
+static guint32
+tls_dissect_certificate_authorities(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                                    proto_tree *tree, guint32 offset, guint32 offset_end)
+{
+    proto_item *ti;
+    proto_tree *subtree;
+    guint32     dnames_length, next_offset;
+    asn1_ctx_t  asn1_ctx;
+
+
+    /* Note: minimum length is 0 for TLS 1.1/1.2 and 3 for earlier/later */
+    /* DistinguishedName certificate_authorities<0..2^16-1> */
+    if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &dnames_length,
+                        hf->hf.hs_dnames_len, 0, G_MAXUINT16)) {
+        return offset_end;
+    }
+    offset += 2;
+    next_offset = offset + dnames_length;
+
+    if (dnames_length > 0) {
+        ti = proto_tree_add_none_format(tree,
+                hf->hf.hs_dnames,
+                tvb, offset, dnames_length,
+                "Distinguished Names (%d byte%s)",
+                dnames_length,
+                plurality(dnames_length, "", "s"));
+        subtree = proto_item_add_subtree(ti, hf->ett.dnames);
+
+        asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+
+        while (offset < next_offset) {
+            /* get the length of the current certificate */
+            guint32 name_length;
+            /* opaque DistinguishedName<1..2^16-1> */
+            if (!ssl_add_vector(hf, tvb, pinfo, subtree, offset, next_offset, &name_length,
+                                hf->hf.hs_dname_len, 1, G_MAXUINT16)) {
+                return next_offset;
+            }
+            offset += 2;
+
+            dissect_x509if_DistinguishedName(FALSE, tvb, offset, &asn1_ctx,
+                                             subtree, hf->hf.hs_dname);
+            offset += name_length;
+        }
+    }
+    return offset;
+} /* }}} */
+
+
 /** TLS Extensions (in Client Hello and Server Hello). {{{ */
 static gint
 ssl_dissect_hnd_hello_ext_sig_hash_algs(ssl_common_dissect_t *hf, tvbuff_t *tvb,
@@ -6121,16 +6178,16 @@ ssl_dissect_hnd_hello_ext_pre_shared_key(ssl_common_dissect_t *hf, tvbuff_t *tvb
                                          proto_tree *tree, guint32 offset, guint32 offset_end,
                                          guint8 hnd_type)
 {
-    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-18#section-4.2.6
+    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-19#section-4.2.8
      *  struct {
-     *      opaque identity<0..2^16-1>;
+     *      opaque identity<1..2^16-1>;
      *      uint32 obfuscated_ticket_age;
      *  } PskIdentity;
      *  opaque PskBinderEntry<32..255>;
      *  struct {
      *      select (Handshake.msg_type) {
      *          case client_hello:
-     *              PskIdentity identities<6..2^16-1>;
+     *              PskIdentity identities<7..2^16-1>;
      *              PskBinderEntry binders<33..2^16-1>;
      *          case server_hello:
      *              uint16 selected_identity;
@@ -6146,9 +6203,9 @@ ssl_dissect_hnd_hello_ext_pre_shared_key(ssl_common_dissect_t *hf, tvbuff_t *tvb
         case SSL_HND_CLIENT_HELLO: {
             guint32 identities_length, identities_end, binders_length;
 
-            /* PskIdentity identities<6..2^16-1> */
+            /* PskIdentity identities<7..2^16-1> */
             if (!ssl_add_vector(hf, tvb, pinfo, psk_tree, offset, offset_end, &identities_length,
-                                hf->hf.hs_ext_psk_identities_length, 6, G_MAXUINT16)) {
+                                hf->hf.hs_ext_psk_identities_length, 7, G_MAXUINT16)) {
                 return offset_end;
             }
             offset += 2;
@@ -6160,9 +6217,9 @@ ssl_dissect_hnd_hello_ext_pre_shared_key(ssl_common_dissect_t *hf, tvbuff_t *tvb
 
                 identity_tree = proto_tree_add_subtree(psk_tree, tvb, offset, 4, hf->ett.hs_ext_psk_identity, NULL, "PSK Identity (");
 
-                /* opaque identity<0..2^16-1> */
+                /* opaque identity<1..2^16-1> */
                 if (!ssl_add_vector(hf, tvb, pinfo, identity_tree, offset, identities_end, &identity_length,
-                                    hf->hf.hs_ext_psk_identity_identity_length, 0, G_MAXUINT16)) {
+                                    hf->hf.hs_ext_psk_identity_identity_length, 1, G_MAXUINT16)) {
                     return identities_end;
                 }
                 offset += 2;
@@ -6200,6 +6257,39 @@ ssl_dissect_hnd_hello_ext_pre_shared_key(ssl_common_dissect_t *hf, tvbuff_t *tvb
         break;
     }
 
+    return offset;
+}
+
+static guint32
+ssl_dissect_hnd_hello_ext_early_data(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo _U_,
+                                     proto_tree *tree, guint32 offset, guint32 offset_end _U_,
+                                     guint8 hnd_type, SslDecryptSession *ssl)
+{
+    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-19#section-4.2.7
+     *  struct {} Empty;
+     *  struct {
+     *      select (Handshake.msg_type) {
+     *          case new_session_ticket:   uint32 max_early_data_size;
+     *          case client_hello:         Empty;
+     *          case encrypted_extensions: Empty;
+     *      };
+     *  } EarlyDataIndication;
+     */
+    switch (hnd_type) {
+    case SSL_HND_CLIENT_HELLO:
+        /* Remember that early_data will follow the handshake. */
+        if (ssl) {
+            ssl_debug_printf("%s found early_data extension\n", G_STRFUNC);
+            ssl->has_early_data = TRUE;
+        }
+        break;
+    case SSL_HND_NEWSESSION_TICKET:
+        proto_tree_add_item(tree, hf->hf.hs_ext_max_early_data_size, tvb, offset, 4, ENC_BIG_ENDIAN);
+        offset += 4;
+        break;
+    default:
+        break;
+    }
     return offset;
 }
 
@@ -6261,7 +6351,7 @@ static gint
 ssl_dissect_hnd_hello_ext_psk_key_exchange_modes(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
                                                  proto_tree *tree, guint32 offset, guint32 offset_end)
 {
-    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-18#section-4.2.7
+    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-19#section-4.2.6
      * enum { psk_ke(0), psk_dhe_ke(1), (255) } PskKeyExchangeMode;
      *
      * struct {
@@ -6272,7 +6362,7 @@ ssl_dissect_hnd_hello_ext_psk_key_exchange_modes(ssl_common_dissect_t *hf, tvbuf
 
     /* PskKeyExchangeMode ke_modes<1..255> */
     if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &ke_modes_length,
-                        hf->hf.hs_ext_psk_ke_modes_len, 1, 255)) {
+                        hf->hf.hs_ext_psk_ke_modes_length, 1, 255)) {
         return offset_end;
     }
     offset++;
@@ -6281,6 +6371,84 @@ ssl_dissect_hnd_hello_ext_psk_key_exchange_modes(ssl_common_dissect_t *hf, tvbuf
     while (offset < next_offset) {
         proto_tree_add_item(tree, hf->hf.hs_ext_psk_ke_mode, tvb, offset, 1, ENC_NA);
         offset++;
+    }
+
+    return offset;
+}
+
+static guint32
+ssl_dissect_hnd_hello_ext_certificate_authorities(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                                                  proto_tree *tree, guint32 offset, guint32 offset_end)
+{
+    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-19#section-4.2.3.1
+     *  opaque DistinguishedName<1..2^16-1>;
+     *  struct {
+     *      DistinguishedName authorities<3..2^16-1>;
+     *  } CertificateAuthoritiesExtension;
+     */
+    return tls_dissect_certificate_authorities(hf, tvb, pinfo, tree, offset, offset_end);
+}
+
+static gint
+ssl_dissect_hnd_hello_ext_oid_filters(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                                      proto_tree *tree, guint32 offset, guint32 offset_end)
+{
+    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-19#section-4.3.2.1
+     *  struct {
+     *      opaque certificate_extension_oid<1..2^8-1>;
+     *      opaque certificate_extension_values<0..2^16-1>;
+     *  } OIDFilter;
+     *  struct {
+     *      OIDFilter filters<0..2^16-1>;
+     *  } OIDFilterExtension;
+     */
+    proto_tree *subtree;
+    guint32     filters_length, oid_length, values_length, value_offset;
+    asn1_ctx_t  asn1_ctx;
+    const char *oid, *name;
+
+    /* OIDFilter filters<0..2^16-1> */
+    if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &filters_length,
+                        hf->hf.hs_ext_psk_ke_modes_length, 0, G_MAXUINT16)) {
+        return offset_end;
+    }
+    offset += 2;
+    offset_end = offset + filters_length;
+
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+
+    while (offset < offset_end) {
+        subtree = proto_tree_add_subtree(tree, tvb, offset, offset_end - offset,
+                                         hf->ett.hs_ext_oid_filter, NULL, "OID Filter");
+
+        /* opaque certificate_extension_oid<1..2^8-1> */
+        if (!ssl_add_vector(hf, tvb, pinfo, subtree, offset, offset_end, &oid_length,
+                    hf->hf.hs_ext_oid_filters_oid_length, 1, G_MAXUINT8)) {
+            return offset_end;
+        }
+        offset++;
+        dissect_ber_object_identifier_str(FALSE, &asn1_ctx, subtree, tvb, offset,
+                                          hf->hf.hs_ext_oid_filters_oid, &oid);
+        offset += oid_length;
+
+        /* Append OID to tree label */
+        name = oid_resolved_from_string(wmem_packet_scope(), oid);
+        proto_item_append_text(subtree, " (%s)", name ? name : oid);
+
+        /* opaque certificate_extension_values<0..2^16-1> */
+        if (!ssl_add_vector(hf, tvb, pinfo, subtree, offset, offset_end, &values_length,
+                    hf->hf.hs_ext_oid_filters_values_length, 0, G_MAXUINT16)) {
+            return offset_end;
+        }
+        offset += 2;
+        proto_item_set_len(subtree, 1 + oid_length + 2 + values_length);
+        if (values_length > 0) {
+            value_offset = offset;
+            value_offset = dissect_ber_identifier(pinfo, subtree, tvb, value_offset, NULL, NULL, NULL);
+            value_offset = dissect_ber_length(pinfo, subtree, tvb, value_offset, NULL, NULL);
+            call_ber_oid_callback(oid, tvb, value_offset, pinfo, subtree, NULL);
+        }
+        offset += values_length;
     }
 
     return offset;
@@ -6775,6 +6943,7 @@ ssl_is_valid_handshake_type(guint8 hs_type, gboolean is_dtls)
     case SSL_HND_CLIENT_HELLO:
     case SSL_HND_SERVER_HELLO:
     case SSL_HND_NEWSESSION_TICKET:
+    case SSL_HND_END_OF_EARLY_DATA:
     case SSL_HND_HELLO_RETRY_REQUEST:
     case SSL_HND_ENCRYPTED_EXTENSIONS:
     case SSL_HND_CERTIFICATE:
@@ -7161,14 +7330,19 @@ ssl_dissect_hnd_hello_retry_request(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                                     SslSession *session, SslDecryptSession *ssl,
                                     gboolean is_dtls)
 {
-    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-18#section-4.1.4
+    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-19#section-4.1.4
      * struct {
      *     ProtocolVersion server_version;
+     *     CipherSuite cipher_suite;
      *     Extension extensions<2..2^16-1>;
      * } HelloRetryRequest;
      */
     proto_tree_add_item(tree, hf->hf.hs_server_version, tvb,
                         offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf->hf.hs_cipher_suite,
+                        tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
     ssl_dissect_hnd_extension(hf, tvb, tree, pinfo, offset,
@@ -7388,18 +7562,7 @@ ssl_dissect_hnd_cert_req(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *p
      *        DistinguishedName certificate_authorities<0..2^16-1>;
      *    } CertificateRequest;
      *
-     * draft-ietf-tls-tls13-18 (soon obsolete!):
-     * Note: certificate_extensions is not dissected since it is removed in next
-     * draft.
-     *
-     *    struct {
-     *        opaque certificate_request_context<0..2^8-1>;
-     *        SignatureScheme supported_signature_algorithms<2..2^16-2>;
-     *        DistinguishedName certificate_authorities<0..2^16-1>;
-     *        CertificateExtension certificate_extensions<0..2^16-1>;
-     *    } CertificateRequest;
-     *
-     * draft-ietf-tls-tls13 (between -18 and -19, 2017-01-30):
+     * draft-ietf-tls-tls13-19:
      *
      *    struct {
      *        opaque certificate_request_context<0..2^8-1>;
@@ -7408,7 +7571,7 @@ ssl_dissect_hnd_cert_req(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *p
      */
     proto_item *ti;
     proto_tree *subtree;
-    guint32     dnames_length = 0, next_offset;
+    guint32     next_offset;
     asn1_ctx_t  asn1_ctx;
 
     if (!tree)
@@ -7456,7 +7619,6 @@ ssl_dissect_hnd_cert_req(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *p
     switch (session->version) {
         case TLSV1DOT2_VERSION:
         case DTLSV1DOT2_VERSION:
-        case TLSV1DOT3_VERSION: /* XXX draft -18 only, remove for next version */
             offset = ssl_dissect_hash_alg_list(hf, tvb, tree, pinfo, offset, offset_end);
             break;
 
@@ -7464,40 +7626,6 @@ ssl_dissect_hnd_cert_req(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *p
             break;
     }
 
-    /* DistinguishedName certificate_authorities<0..2^16-1> */
-    if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &dnames_length,
-                        hf->hf.hs_dnames_len, 0, G_MAXUINT16)) {
-        return;
-    }
-    offset += 2;
-    next_offset = offset + dnames_length;
-
-    if (dnames_length > 0) {
-        ti = proto_tree_add_none_format(tree,
-                hf->hf.hs_dnames,
-                tvb, offset, dnames_length,
-                "Distinguished Names (%d byte%s)",
-                dnames_length,
-                plurality(dnames_length, "", "s"));
-        subtree = proto_item_add_subtree(ti, hf->ett.dnames);
-
-        while (offset < next_offset) {
-            /* get the length of the current certificate */
-            guint32 name_length;
-            /* opaque DistinguishedName<1..2^16-1> */
-            if (!ssl_add_vector(hf, tvb, pinfo, subtree, offset, next_offset, &name_length,
-                                hf->hf.hs_dname_len, 1, G_MAXUINT16)) {
-                return;
-            }
-            offset += 2;
-
-            dissect_x509if_DistinguishedName(FALSE, tvb, offset, &asn1_ctx,
-                                             subtree, hf->hf.hs_dname);
-            offset += name_length;
-        }
-    }
-
-    /* TODO this is not valid for TLS 1.3 draft -18. When draft -19 is released, check if this is still correct. */
     if (session->version == TLSV1DOT3_VERSION) {
         /*
          * SslDecryptSession pointer is NULL because Certificate Extensions
@@ -7506,6 +7634,9 @@ ssl_dissect_hnd_cert_req(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *p
         ssl_dissect_hnd_extension(hf, tvb, tree, pinfo, offset,
                                   offset_end, SSL_HND_CERT_REQUEST,
                                   session, NULL, is_dtls);
+    } else {
+        /* for TLS 1.2 and older, the certificate_authorities field. */
+        tls_dissect_certificate_authorities(hf, tvb, pinfo, tree, offset, offset_end);
     }
 }
 /* Certificate and Certificate Request dissections. }}} */
@@ -7743,10 +7874,7 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             offset = ssl_dissect_hnd_hello_ext_pre_shared_key(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type);
             break;
         case SSL_HND_HELLO_EXT_EARLY_DATA:
-            if (hnd_type == SSL_HND_CLIENT_HELLO && ssl) {
-                ssl_debug_printf("%s found early_data extension\n", G_STRFUNC);
-                ssl->has_early_data = TRUE;
-            }
+            offset = ssl_dissect_hnd_hello_ext_early_data(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type, ssl);
             break;
         case SSL_HND_HELLO_EXT_SUPPORTED_VERSIONS:
             offset = ssl_dissect_hnd_hello_ext_supported_versions(hf, tvb, pinfo, ext_tree, offset, next_offset);
@@ -7756,6 +7884,12 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             break;
         case SSL_HND_HELLO_EXT_PSK_KEY_EXCHANGE_MODES:
             offset = ssl_dissect_hnd_hello_ext_psk_key_exchange_modes(hf, tvb, pinfo, ext_tree, offset, next_offset);
+            break;
+        case SSL_HND_HELLO_EXT_CERTIFICATE_AUTHORITIES:
+            offset = ssl_dissect_hnd_hello_ext_certificate_authorities(hf, tvb, pinfo, ext_tree, offset, next_offset);
+            break;
+        case SSL_HND_HELLO_EXT_OID_FILTERS:
+            offset = ssl_dissect_hnd_hello_ext_oid_filters(hf, tvb, pinfo, ext_tree, offset, next_offset);
             break;
         case SSL_HND_HELLO_EXT_NPN:
             offset = ssl_dissect_hnd_hello_ext_npn(hf, tvb, pinfo, ext_tree, offset, next_offset);

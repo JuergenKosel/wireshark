@@ -1,7 +1,8 @@
-/*
+/* packet-coap.h
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
- * Copyright 2001 Gerald Combs
+ * Copyright 1998 Gerald Combs
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,45 +19,33 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
+#ifndef __PACKET_COAP_H__
+#define __PACKET_COAP_H__
 
-#include <ftypes-int.h>
+/* CoAP Message information */
+typedef struct {
+	const gchar *ctype_str;
+	guint ctype_value;
+	guint block_number;
+	guint block_mflag;
+	wmem_strbuf_t *uri_str_strbuf;	/* the maximum is 1024 > 510 = Uri-Host:255 + Uri-Path:255 x 2 */
+	wmem_strbuf_t *uri_query_strbuf;	/* the maximum is 1024 >         765 = Uri-Query:255 x 3 */
+} coap_info;
 
+/* CoAP Conversation information */
+typedef struct {
+	wmem_map_t *messages;
+} coap_conv_info;
 
-void
-ftype_register_none(void)
-{
+/* CoAP Transaction tracking information */
+typedef struct {
+	guint32  req_frame;
+	guint32  rsp_frame;
+	nstime_t req_time;
+	wmem_strbuf_t *uri_str_strbuf;
+} coap_transaction;
 
-	static ftype_t none_type = {
-		FT_NONE,			/* ftype */
-		"FT_NONE",			/* name */
-		"Label",			/* pretty_name */
-		0,				/* wire_size */
-		NULL,				/* new_value */
-		NULL,				/* free_value */
-		NULL,				/* val_from_unparsed */
-		NULL,				/* val_from_string */
-		NULL,				/* val_to_string_repr */
-		NULL,				/* len_string_repr */
-
-		{ NULL },			/* union set_value */
-		{ NULL },			/* union get_value */
-
-		NULL,				/* cmp_eq */
-		NULL,				/* cmp_ne */
-		NULL,				/* cmp_gt */
-		NULL,				/* cmp_ge */
-		NULL,				/* cmp_lt */
-		NULL,				/* cmp_le */
-		NULL,				/* cmp_bitwise_and */
-		NULL,				/* cmp_contains */
-		NULL,				/* cmp_matches */
-
-		NULL,
-		NULL,
-	};
-	ftype_register(FT_NONE, &none_type);
-}
+#endif /* __PACKET_COAP_H__ */
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

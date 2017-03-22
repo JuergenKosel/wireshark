@@ -59,6 +59,7 @@ typedef enum {
     SSL_HND_SERVER_HELLO           = 2,
     SSL_HND_HELLO_VERIFY_REQUEST   = 3,
     SSL_HND_NEWSESSION_TICKET      = 4,
+    SSL_HND_END_OF_EARLY_DATA      = 5,
     SSL_HND_HELLO_RETRY_REQUEST    = 6,
     SSL_HND_ENCRYPTED_EXTENSIONS   = 8,
     SSL_HND_CERTIFICATE            = 11,
@@ -171,6 +172,8 @@ typedef enum {
 #define SSL_HND_HELLO_EXT_SUPPORTED_VERSIONS            43
 #define SSL_HND_HELLO_EXT_COOKIE                        44
 #define SSL_HND_HELLO_EXT_PSK_KEY_EXCHANGE_MODES        45
+#define SSL_HND_HELLO_EXT_CERTIFICATE_AUTHORITIES       47
+#define SSL_HND_HELLO_EXT_OID_FILTERS                   48
 #define SSL_HND_HELLO_EXT_NPN                           13172 /* 0x3374 */
 #define SSL_HND_HELLO_EXT_CHANNEL_ID_OLD                30031 /* 0x754f */
 #define SSL_HND_HELLO_EXT_CHANNEL_ID                    30032 /* 0x7550 */
@@ -769,7 +772,7 @@ typedef struct ssl_common_dissect {
 
         /* TLS 1.3 */
         gint hs_ext_draft_version_tls13;
-        gint hs_ext_psk_ke_modes_len;
+        gint hs_ext_psk_ke_modes_length;
         gint hs_ext_psk_ke_mode;
         gint hs_certificate_request_context_length;
         gint hs_certificate_request_context;
@@ -783,6 +786,11 @@ typedef struct ssl_common_dissect {
         gint sct_sct_extensions;
         gint sct_sct_signature;
         gint sct_sct_signature_length;
+        gint hs_ext_max_early_data_size;
+        gint hs_ext_oid_filters_length;
+        gint hs_ext_oid_filters_oid_length;
+        gint hs_ext_oid_filters_oid;
+        gint hs_ext_oid_filters_values_length;
 
         /* do not forget to update SSL_COMMON_LIST_T and SSL_COMMON_HF_LIST! */
     } hf;
@@ -799,6 +807,7 @@ typedef struct ssl_common_dissect {
         gint hs_ext_pre_shared_key;
         gint hs_ext_psk_identity;
         gint hs_ext_server_name;
+        gint hs_ext_oid_filter;
         gint hs_sig_hash_alg;
         gint hs_sig_hash_algs;
         gint urlhash;
@@ -976,11 +985,11 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1,                                                 \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1,                             \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1,                                 \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1,                             \
     },                                                                  \
     /* ei */ {                                                          \
         EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT,           \
@@ -1582,13 +1591,13 @@ ssl_common_dissect_t name = {   \
         FT_UINT16, BASE_DEC, NULL, 0x0,                                 \
         "Indicate the version of draft supported by client", HFILL }    \
     },                                                                  \
-    { & name .hf.hs_ext_psk_ke_modes_len,                                   \
-      { "PSK Key Exchange Modes Length", prefix ".handshake.psk_ke_modes_len", \
+    { & name .hf.hs_ext_psk_ke_modes_length,                            \
+      { "PSK Key Exchange Modes Length", prefix ".extension.psk_ke_modes_length", \
         FT_UINT8, BASE_DEC, NULL, 0x0,                                  \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.hs_ext_psk_ke_mode,                                    \
-      { "PSK Key Exchange Mode", prefix ".handshake.psk_ke_mode",       \
+      { "PSK Key Exchange Mode", prefix ".extension.psk_ke_mode",       \
         FT_UINT8, BASE_DEC, VALS(tls_hello_ext_psk_ke_mode), 0x0,       \
         "Key exchange modes where the client supports use of PSKs", HFILL } \
     },                                                                  \
@@ -1651,6 +1660,31 @@ ssl_common_dissect_t name = {   \
       { "Signature", prefix ".sct.sct_signature",                       \
         FT_BYTES, BASE_NONE, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_max_early_data_size,                            \
+      { "Maximum Early Data Size", prefix ".early_data.max_early_data_size", \
+        FT_UINT32, BASE_DEC, NULL, 0x00,                                \
+        "Maximum amount of 0-RTT data that the client may send", HFILL } \
+    },                                                                  \
+    { & name .hf.hs_ext_oid_filters_length,                             \
+      { "OID Filters Length", prefix ".extension.oid_filters_length",   \
+        FT_UINT16, BASE_DEC, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_oid_filters_oid_length,                         \
+      { "Certificate Extension OID Length", prefix ".extension.oid_filters.oid_length", \
+        FT_UINT8, BASE_DEC, NULL, 0x00,                                 \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_oid_filters_oid,                                \
+      { "Certificate Extension OID", prefix ".extension.oid_filters.oid", \
+        FT_OID, BASE_NONE, NULL, 0x00,                                  \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_oid_filters_values_length,                      \
+      { "Certificate Extension Values Length", prefix ".extension.oid_filters.values_length", \
+        FT_UINT16, BASE_DEC, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
     }
 /* }}} */
 
@@ -1668,6 +1702,7 @@ ssl_common_dissect_t name = {   \
         & name .ett.hs_ext_pre_shared_key,          \
         & name .ett.hs_ext_psk_identity,            \
         & name .ett.hs_ext_server_name,             \
+        & name .ett.hs_ext_oid_filter,              \
         & name .ett.hs_sig_hash_alg,                \
         & name .ett.hs_sig_hash_algs,               \
         & name .ett.urlhash,                        \

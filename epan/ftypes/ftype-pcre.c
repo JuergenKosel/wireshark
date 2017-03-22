@@ -164,16 +164,7 @@ ftype_register_pcre(void)
         gregex_repr_len,    /* len_string_repr */
 
         { .set_value_string = gregex_fvalue_set }, /* union set_value */
-
-        NULL,               /* set_value_sinteger64 */
-        NULL,               /* set_value_floating */
-
-        gregex_fvalue_get,  /* get_value */
-        NULL,               /* get_value_uinteger */
-        NULL,               /* get_value_sinteger */
-        NULL,               /* get_value_uinteger64 */
-        NULL,               /* get_value_sinteger64 */
-        NULL,               /* get_value_floating */
+        { .get_value_ptr = gregex_fvalue_get },    /* union get_value */
 
         NULL,               /* cmp_eq */
         NULL,               /* cmp_ne */

@@ -100,19 +100,18 @@ struct _ftype_t {
 		FvalueSetUnsignedIntegerFunc	set_value_uinteger;
 		FvalueSetSignedIntegerFunc	set_value_sinteger;
 		FvalueSetUnsignedInteger64Func	set_value_uinteger64;
+		FvalueSetSignedInteger64Func	set_value_sinteger64;
+		FvalueSetFloatingFunc	set_value_floating;
 	} set_value;
 
-	/* could be union */
-	FvalueSetSignedInteger64Func		set_value_sinteger64;
-	FvalueSetFloatingFunc	set_value_floating;
-
-	/* could be union */
-	FvalueGetFunc		get_value;
-	FvalueGetUnsignedIntegerFunc	get_value_uinteger;
-	FvalueGetSignedIntegerFunc		get_value_sinteger;
-	FvalueGetUnsignedInteger64Func	get_value_uinteger64;
-	FvalueGetSignedInteger64Func	get_value_sinteger64;
-	FvalueGetFloatingFunc	get_value_floating;
+	union {
+		FvalueGetFunc		get_value_ptr;
+		FvalueGetUnsignedIntegerFunc	get_value_uinteger;
+		FvalueGetSignedIntegerFunc	get_value_sinteger;
+		FvalueGetUnsignedInteger64Func	get_value_uinteger64;
+		FvalueGetSignedInteger64Func	get_value_sinteger64;
+		FvalueGetFloatingFunc	get_value_floating;
+	} get_value;
 
 	FvalueCmp		cmp_eq;
 	FvalueCmp		cmp_ne;

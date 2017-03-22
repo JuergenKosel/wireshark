@@ -98,6 +98,11 @@ struct field_display_string_t {
     unsigned base;
 };
 
+/*
+ * This table is primarily used to convert from string representation
+ * to int representation in string_to_base().
+ * Some string values are added for backward compatibility.
+ */
 static const struct field_display_string_t base_displays[] = {
     {"base.NONE", BASE_NONE},
     {"base.DEC", BASE_DEC},
@@ -107,23 +112,25 @@ static const struct field_display_string_t base_displays[] = {
     {"base.HEX_DEC", BASE_HEX_DEC},
     {"base.UNIT_STRING", BASE_UNIT_STRING},
     /* String types */
-    {"str.ASCII", STR_ASCII},
-    {"str.UNICODE", STR_UNICODE},
+    {"base.ASCII", STR_ASCII},
+    {"base.UNICODE", STR_UNICODE},
     /* Byte separators */
-    {"sep.NONE", SEP_NONE},
-    {"sep.DOT", SEP_DOT},
-    {"sep.DASH", SEP_DASH},
-    {"sep.COLON", SEP_COLON},
-    {"sep.SPACE", SEP_SPACE},
+    {"base.DOT", SEP_DOT},
+    {"base.DASH", SEP_DASH},
+    {"base.COLON", SEP_COLON},
+    {"base.SPACE", SEP_SPACE},
     /* for FT_BOOLEAN, how wide the parent bitfield is */
     {"8",8},
     {"16",16},
     {"24",24},
     {"32",32},
     /* for FT_ABSOLUTE_TIME use values in absolute_time_display_e */
-    {"LOCAL", ABSOLUTE_TIME_LOCAL},
-    {"UTC", ABSOLUTE_TIME_UTC},
-    {"DOY_UTC", ABSOLUTE_TIME_DOY_UTC},
+    {"base.LOCAL", ABSOLUTE_TIME_LOCAL},
+    {"base.UTC", ABSOLUTE_TIME_UTC},
+    {"base.DOY_UTC", ABSOLUTE_TIME_DOY_UTC},
+    {"LOCAL", ABSOLUTE_TIME_LOCAL},        /* for backward compatibility */
+    {"UTC", ABSOLUTE_TIME_UTC},            /* for backward compatibility */
+    {"DOY_UTC", ABSOLUTE_TIME_DOY_UTC},    /* for backward compatibility */
     {NULL,0}
 };
 
@@ -146,16 +153,17 @@ static unsigned string_to_base(const gchar* str) {
 }
 
 static value_string* value_string_from_table(lua_State* L, int idx) {
-    GArray* vs = g_array_new(TRUE,TRUE,sizeof(value_string));
+    GArray* vs;
     value_string* vs32;
 
-    if(lua_isnil(L,idx)) {
+    if (lua_isnil(L,idx)) {
         return NULL;
     } else if (!lua_istable(L,idx)) {
-        g_array_free(vs,TRUE);
         luaL_argerror(L,idx,"must be a table");
         return NULL;
     }
+
+    vs = g_array_new(TRUE,TRUE,sizeof(value_string));
 
     lua_pushnil(L);
 
@@ -200,16 +208,17 @@ static value_string* value_string_from_table(lua_State* L, int idx) {
 }
 
 static val64_string* val64_string_from_table(lua_State* L, int idx) {
-    GArray* vs = g_array_new(TRUE,TRUE,sizeof(val64_string));
+    GArray* vs;
     val64_string* vs64;
 
-    if(lua_isnil(L,idx)) {
+    if (lua_isnil(L,idx)) {
         return NULL;
     } else if (!lua_istable(L,idx)) {
-        g_array_free(vs,TRUE);
         luaL_argerror(L,idx,"must be a table");
         return NULL;
     }
+
+    vs = g_array_new(TRUE,TRUE,sizeof(val64_string));
 
     lua_pushnil(L);
 
@@ -506,9 +515,7 @@ WSLUA_CONSTRUCTOR ProtoField_new(lua_State* L) {
                                " base.DEC_HEX, base.HEX_DEC or base.UNIT_STRING");
             return 0;
         }
-        if (nargs >= WSLUA_OPTARG_ProtoField_new_VALUESTRING &&
-            !lua_isnil(L,WSLUA_OPTARG_ProtoField_new_VALUESTRING))
-        {
+        if (nargs >= WSLUA_OPTARG_ProtoField_new_VALUESTRING) {
             if (unit_string) {
                 uns = unit_name_string_from_table(L,WSLUA_OPTARG_ProtoField_new_VALUESTRING);
             } else if (type == FT_UINT64 || type == FT_INT64) {
@@ -535,7 +542,7 @@ WSLUA_CONSTRUCTOR ProtoField_new(lua_State* L) {
         if (base == BASE_NONE) {
             base = ABSOLUTE_TIME_LOCAL;  /* Default base for FT_ABSOLUTE_TIME */
         } else if (base < ABSOLUTE_TIME_LOCAL || base > ABSOLUTE_TIME_DOY_UTC) {
-            WSLUA_OPTARG_ERROR(ProtoField_new,BASE,"Base must be either LOCAL, UTC, or DOY_UTC");
+            WSLUA_OPTARG_ERROR(ProtoField_new,BASE,"Base must be either base.LOCAL, base.UTC, or base.DOY_UTC");
             return 0;
         }
         if (mask) {
@@ -546,7 +553,7 @@ WSLUA_CONSTRUCTOR ProtoField_new(lua_State* L) {
     case FT_STRING:
     case FT_STRINGZ:
         if (base != STR_ASCII && base != STR_UNICODE) {
-            WSLUA_OPTARG_ERROR(ProtoField_new,BASE,"Display must be either str.ASCII or str.UNICODE");
+            WSLUA_OPTARG_ERROR(ProtoField_new,BASE,"Display must be either base.ASCII or base.UNICODE");
             return 0;
         }
         if (mask) {
@@ -556,8 +563,8 @@ WSLUA_CONSTRUCTOR ProtoField_new(lua_State* L) {
         break;
     case FT_BYTES:
     case FT_UINT_BYTES:
-        if (base != SEP_NONE && (base < SEP_DOT || base > SEP_SPACE)) {
-            WSLUA_OPTARG_ERROR(ProtoField_new,BASE,"Display must be either sep.NONE, sep.DOT, sep.DASH, sep.COLON or sep.SPACE");
+        if (base != BASE_NONE && (base < SEP_DOT || base > SEP_SPACE)) {
+            WSLUA_OPTARG_ERROR(ProtoField_new,BASE,"Display must be either base.NONE, base.DOT, base.DASH, base.COLON or base.SPACE");
             return 0;
         }
         if (mask) {
@@ -567,11 +574,11 @@ WSLUA_CONSTRUCTOR ProtoField_new(lua_State* L) {
         break;
     case FT_FLOAT:
     case FT_DOUBLE:
-        if ((base & BASE_UNIT_STRING) &&
-            (nargs >= WSLUA_OPTARG_ProtoField_new_VALUESTRING) &&
-            !lua_isnil(L,WSLUA_OPTARG_ProtoField_new_VALUESTRING))
-        {
+        if (base & BASE_UNIT_STRING) {
+            unit_string = TRUE;
             base &= ~BASE_UNIT_STRING;
+        }
+        if (nargs >= WSLUA_OPTARG_ProtoField_new_VALUESTRING) {
             uns = unit_name_string_from_table(L,WSLUA_OPTARG_ProtoField_new_VALUESTRING);
         }
         /* FALLTHRU */
@@ -617,6 +624,11 @@ WSLUA_CONSTRUCTOR ProtoField_new(lua_State* L) {
     default:
         WSLUA_ARG_ERROR(ProtoField_new,TYPE,"Invalid ProtoField field type");
         break;
+    }
+
+    if (unit_string && !uns) {
+        WSLUA_OPTARG_ERROR(ProtoField_new,VALUESTRING, "Base is base.UNIT_STRING but no table is given");
+        return 0;
     }
 
     f = g_new(wslua_field_t,1);
@@ -667,10 +679,19 @@ static int ProtoField_integer(lua_State* L, enum ftenum type) {
     unit_name_string* uns = NULL;
     guint32 mask = wslua_optguint32(L,5,0);
     const gchar* blob = luaL_optstring(L,6,NULL);
+    gboolean unit_string = FALSE;
 
     if (!name[0]) {
         luaL_argerror(L, 2, "cannot be an empty string");
         return 0;
+    }
+
+    if (base & BASE_UNIT_STRING) {
+        unit_string = TRUE;
+        base &= ~BASE_UNIT_STRING;
+        if (base == BASE_NONE) {
+            base = BASE_DEC;
+        }
     }
 
     if (lua_gettop(L) > 3 && !lua_isnil(L, 4)) {
@@ -680,12 +701,8 @@ static int ProtoField_integer(lua_State* L, enum ftenum type) {
                 luaL_argerror(L, 4, "Invalid frametype");
                 return 0;
             }
-        } else if (base & BASE_UNIT_STRING) {
+        } else if (unit_string) {
             uns = unit_name_string_from_table(L,4);
-            base &= ~BASE_UNIT_STRING;
-            if (base == BASE_NONE) {
-                base = BASE_DEC;
-            }
         } else if (type == FT_UINT64 || type == FT_INT64) {
             vs64 = val64_string_from_table(L,4);
         } else {
@@ -705,6 +722,11 @@ static int ProtoField_integer(lua_State* L, enum ftenum type) {
     } else if (base < BASE_DEC || base > BASE_HEX_DEC) {
         luaL_argerror(L, 3, "Base must be either base.DEC, base.HEX, base.OCT,"
                       " base.DEC_HEX, base.HEX_DEC or base.UNIT_STRING");
+        return 0;
+    }
+
+    if (unit_string && !uns) {
+        luaL_argerror(L, 4, "Base is base.UNIT_STRING but no table is given");
         return 0;
     }
 
@@ -931,7 +953,7 @@ static int ProtoField_time(lua_State* L,enum ftenum type) {
 
     if (type == FT_ABSOLUTE_TIME) {
         if (base < ABSOLUTE_TIME_LOCAL || base > ABSOLUTE_TIME_DOY_UTC) {
-            luaL_argerror(L, 3, "Base must be either LOCAL, UTC, or DOY_UTC");
+            luaL_argerror(L, 3, "Base must be either base.LOCAL, base.UTC, or base.DOY_UTC");
             return 0;
         }
     }
@@ -1053,12 +1075,12 @@ static int ProtoField_other_display(lua_State* L,enum ftenum type) {
         base = (unsigned)luaL_optinteger(L,3,BASE_NONE);
         if (type == FT_STRING || type == FT_STRINGZ) {
             if (base != STR_ASCII && base != STR_UNICODE) {
-                luaL_argerror(L, 3, "Display must be either str.ASCII or str.UNICODE");
+                luaL_argerror(L, 3, "Display must be either base.ASCII or base.UNICODE");
                 return 0;
             }
         } else if (type == FT_BYTES || type == FT_UINT_BYTES) {
-            if (base != SEP_NONE && (base < SEP_DOT || base > SEP_SPACE)) {
-                luaL_argerror(L, 3, "Display must be either sep.NONE, sep.DOT, sep.DASH, sep.COLON or sep.SPACE");
+            if (base != BASE_NONE && (base < SEP_DOT || base > SEP_SPACE)) {
+                luaL_argerror(L, 3, "Display must be either base.NONE, base.DOT, base.DASH, base.COLON or base.SPACE");
                 return 0;
             }
         }
@@ -1093,28 +1115,28 @@ static int ProtoField_other_display(lua_State* L,enum ftenum type) {
 /* _WSLUA_CONSTRUCTOR_ ProtoField_string Creates a `ProtoField` of a string value. */
 /* WSLUA_ARG_Protofield_string_ABBR Abbreviated name of the field (the string used in filters). */
 /* WSLUA_OPTARG_Protofield_string_NAME Actual name of the field (the string that appears in the tree). */
-/* WSLUA_OPTARG_Protofield_string_DISPLAY One of `str.ASCII` or `str.UNICODE`. */
+/* WSLUA_OPTARG_Protofield_string_DISPLAY One of `base.ASCII` or `base.UNICODE`. */
 /* WSLUA_OPTARG_Protofield_string_DESC Description of the field. */
 /* _WSLUA_RETURNS_ A `ProtoField` object to be added to a table set to the `Proto.fields` attribute. */
 
 /* _WSLUA_CONSTRUCTOR_ ProtoField_stringz Creates a `ProtoField` of a zero-terminated string value. */
 /* WSLUA_ARG_Protofield_stringz_ABBR Abbreviated name of the field (the string used in filters). */
 /* WSLUA_OPTARG_Protofield_stringz_NAME Actual name of the field (the string that appears in the tree). */
-/* WSLUA_OPTARG_Protofield_stringz_DISPLAY One of `str.ASCII` or `str.UNICODE`. */
+/* WSLUA_OPTARG_Protofield_stringz_DISPLAY One of `base.ASCII` or `base.UNICODE`. */
 /* WSLUA_OPTARG_Protofield_stringz_DESC Description of the field. */
 /* _WSLUA_RETURNS_ A `ProtoField` object to be added to a table set to the `Proto.fields` attribute. */
 
 /* _WSLUA_CONSTRUCTOR_ ProtoField_bytes Creates a `ProtoField` for an arbitrary number of bytes. */
 /* WSLUA_ARG_Protofield_bytes_ABBR Abbreviated name of the field (the string used in filters). */
 /* WSLUA_OPTARG_Protofield_bytes_NAME Actual name of the field (the string that appears in the tree). */
-/* WSLUA_OPTARG_Protofield_bytes_DISPLAY One of `sep.NONE`, `sep.DOT`, `sep.DASH`, `sep.COLON` or `sep.SPACE`. */
+/* WSLUA_OPTARG_Protofield_bytes_DISPLAY One of `base.NONE`, `base.DOT`, `base.DASH`, `base.COLON` or `base.SPACE`. */
 /* WSLUA_OPTARG_Protofield_bytes_DESC Description of the field. */
 /* _WSLUA_RETURNS_ A `ProtoField` object to be added to a table set to the `Proto.fields` attribute. */
 
 /* _WSLUA_CONSTRUCTOR_ ProtoField_ubytes Creates a `ProtoField` for an arbitrary number of unsigned bytes. */
 /* WSLUA_ARG_Protofield_ubytes_ABBR Abbreviated name of the field (the string used in filters). */
 /* WSLUA_OPTARG_Protofield_ubytes_NAME Actual name of the field (the string that appears in the tree). */
-/* WSLUA_OPTARG_Protofield_ubytes_DISPLAY One of `sep.NONE`, `sep.DOT`, `sep.DASH`, `sep.COLON` or `sep.SPACE`. */
+/* WSLUA_OPTARG_Protofield_ubytes_DISPLAY One of `base.NONE`, `base.DOT`, `base.DASH`, `base.COLON` or `base.SPACE`. */
 /* WSLUA_OPTARG_Protofield_ubytes_DESC Description of the field. */
 /* _WSLUA_RETURNS_ A `ProtoField` object to be added to a table set to the `Proto.fields` attribute. */
 

@@ -785,6 +785,7 @@ dissect_nvme_to_host(tvbuff_t *nvme_tvb, packet_info *pinfo,
 {
     switch (info->opCode) {
     case RC_SEND_ONLY:
+    case RC_SEND_ONLY_INVAL:
         if (len == NVME_FABRIC_CQE_SIZE)
             dissect_nvme_rdma_cqe(nvme_tvb, pinfo, root_tree, nvme_tree, q_ctx);
         else
@@ -948,7 +949,7 @@ proto_register_nvme_rdma(void)
                FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_rdma_cmd_connect_data_hostid,
-            { "Host Identifer", "nvme-rdma.cmd.connect.data.hostid",
+            { "Host Identifier", "nvme-rdma.cmd.connect.data.hostid",
                FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_rdma_cmd_connect_data_cntlid,
