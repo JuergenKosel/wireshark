@@ -50,6 +50,7 @@
 #define LTR 0x04
 #define LTM 0X05
 
+#define GNM 0x20
 #define AIS 0x21
 #define LCK 0x23
 #define TST 0x25
@@ -77,8 +78,15 @@
 #define REPLY_EGR_TLV	0x06
 #define LTM_EGR_ID_TLV	0x07
 #define LTR_EGR_ID_TLV	0x08
+#define GNM_TLV		0x0D
 #define ORG_SPEC_TLV	0x1F
 #define TEST_TLV        0x20
+
+/* Sub-OpCode for GNM */
+#define BNM		0x01
+
+/* Offset for GNM Sub-OpCode*/
+#define CFM_GNM_SUBOPCODE			2
 
 /* Offsets of fields within CFM PDU */
 #define CFM_VERSION				0
@@ -98,6 +106,7 @@ static const value_string opcodetypenames[] = {
 	{ LBM, 		"Loopback Message (LBM)" },
 	{ LTR, 		"Linktrace Reply (LTR)" },
 	{ LTM, 		"Linktrace Message (LTM)" },
+	{ GNM,		"Generic Notification Message (GNM)" },
 	{ AIS,		"Alarm Indication Signal (AIS)" },
 	{ LCK,		"Lock Signal (LCK)" },
 	{ TST,		"Test Signal (TST)" },
@@ -172,6 +181,7 @@ static const value_string tlvtypefieldvalues[] = {
 	{ REPLY_EGR_TLV		, "Reply Egress TLV" },
 	{ LTM_EGR_ID_TLV	, "LTM Egress Identifier TLV" },
 	{ LTR_EGR_ID_TLV	, "LTR Egress Identifier TLV" },
+	{ GNM_TLV		, "Generic Notification Message TLV" },
 	{ ORG_SPEC_TLV		, "Organizational-Specific TLV" },
 	{ TEST_TLV		, "Test TLV" },
 	{ 0                     , NULL }
@@ -286,6 +296,10 @@ static const true_false_string rapsbprvalues = {
 	"Ring link 1",
 	"Ring link 0"
 };
+static const value_string gnmsubopcodetypenames[] = {
+	{ BNM, 		"Bandwidth Notification Message" },
+	{ 0,  NULL }
+};
 
 
 static int hf_cfm_md_level = -1;
@@ -337,6 +351,14 @@ static int hf_cfm_ltm_targ_addr = -1;
 
 static int hf_cfm_ltr_pdu = -1;
 static int hf_cfm_ltr_relay_action = -1;
+
+static int hf_cfm_gnm_pdu = -1;
+static int hf_cfm_gnm_subopcode = -1;
+
+static int hf_cfm_gnm_bnm_pdu = -1;
+static int hf_cfm_gnm_bnm_nominal_bw = -1;
+static int hf_cfm_gnm_bnm_current_bw = -1;
+static int hf_cfm_gnm_bnm_port_id = -1;
 
 static int hf_cfm_ais_pdu = -1;
 static int hf_cfm_flags_ais_lck_Reserved = -1;
@@ -648,6 +670,58 @@ static int dissect_cfm_ltr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	return offset;
 }
 
+
+static int dissect_cfm_gnm_bnm(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset)
+{
+	proto_item *ti;
+	proto_tree *cfm_pdu_tree;
+
+	ti = proto_tree_add_item(tree, hf_cfm_gnm_bnm_pdu, tvb, offset, -1, ENC_NA);
+	cfm_pdu_tree = proto_item_add_subtree(ti, ett_cfm_pdu);
+
+	proto_tree_add_item(cfm_pdu_tree, hf_cfm_gnm_bnm_nominal_bw, tvb, offset, 4, ENC_BIG_ENDIAN);
+	offset += 4;
+	proto_tree_add_item(cfm_pdu_tree, hf_cfm_gnm_bnm_current_bw, tvb, offset, 4, ENC_BIG_ENDIAN);
+	offset += 4;
+	proto_tree_add_item(cfm_pdu_tree, hf_cfm_gnm_bnm_port_id, tvb, offset, 4, ENC_BIG_ENDIAN);
+	offset += 4;
+
+	return offset;
+}
+
+static int dissect_cfm_gnm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset)
+{
+	proto_item *ti;
+	proto_item *fi;
+	proto_tree *cfm_pdu_tree;
+	proto_tree *cfm_flag_tree;
+	guint8 cfm_gnm_pdu_type;
+
+	ti = proto_tree_add_item(tree, hf_cfm_gnm_pdu, tvb, offset, -1, ENC_NA);
+	cfm_pdu_tree = proto_item_add_subtree(ti, ett_cfm_pdu);
+
+	fi = proto_tree_add_item(cfm_pdu_tree, hf_cfm_flags, tvb, offset, 1, ENC_BIG_ENDIAN);
+	cfm_flag_tree = proto_item_add_subtree(fi, ett_cfm_flags);
+	proto_tree_add_item(cfm_flag_tree, hf_cfm_flags_ais_lck_Reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_item(cfm_flag_tree, hf_cfm_flags_ais_lck_Period, tvb, offset, 1, ENC_BIG_ENDIAN);
+	offset += 1;
+
+	proto_tree_add_item(cfm_pdu_tree, hf_cfm_first_tlv_offset, tvb, offset, 1, ENC_BIG_ENDIAN);
+	offset += 1;
+
+	proto_tree_add_item(cfm_pdu_tree, hf_cfm_gnm_subopcode, tvb, offset, 1, ENC_BIG_ENDIAN);
+	offset += 1;
+
+	cfm_gnm_pdu_type = tvb_get_guint8(tvb, offset -1);
+	switch(cfm_gnm_pdu_type) {
+	case BNM:
+		offset = dissect_cfm_gnm_bnm(tvb, pinfo, tree, offset);
+		break;
+	}
+
+	return offset;
+}
+
 static int dissect_cfm_ais(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset)
 {
 	proto_item *ti;
@@ -816,7 +890,6 @@ static int dissect_cfm_mcc(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	gint cfm_tlv_offset;
 	proto_item *ti;
 	proto_item *fi;
-	proto_item *oi;
 	proto_tree *cfm_pdu_tree;
 	proto_tree *cfm_flag_tree;
 
@@ -831,8 +904,7 @@ static int dissect_cfm_mcc(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	proto_tree_add_item(cfm_pdu_tree, hf_cfm_first_tlv_offset, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset += 1;
 
-	oi = proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
-	proto_item_append_text(oi, " (%s)", tvb_get_manuf_name(tvb, offset));
+	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
 	offset += 3;
 	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_subtype, tvb, offset, 1, ENC_NA);
 	offset += 1;
@@ -998,7 +1070,6 @@ static int dissect_cfm_exm(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	gint cfm_tlv_offset;
 	proto_item *ti;
 	proto_item *fi;
-	proto_item *oi;
 	proto_tree *cfm_pdu_tree;
 	proto_tree *cfm_flag_tree;
 
@@ -1013,8 +1084,7 @@ static int dissect_cfm_exm(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	proto_tree_add_item(cfm_pdu_tree, hf_cfm_first_tlv_offset, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset += 1;
 
-	oi = proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
-	proto_item_append_text(oi, " (%s)", tvb_get_manuf_name(tvb, offset));
+	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
 	offset += 3;
 	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_subtype, tvb, offset, 1, ENC_NA);
 	offset += 1;
@@ -1038,7 +1108,6 @@ static int dissect_cfm_exr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	gint cfm_tlv_offset;
 	proto_item *ti;
 	proto_item *fi;
-	proto_item *oi;
 	proto_tree *cfm_pdu_tree;
 	proto_tree *cfm_flag_tree;
 
@@ -1053,8 +1122,7 @@ static int dissect_cfm_exr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	proto_tree_add_item(cfm_pdu_tree, hf_cfm_first_tlv_offset, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset += 1;
 
-	oi = proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
-	proto_item_append_text(oi, " (%s)", tvb_get_manuf_name(tvb, offset));
+	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
 	offset += 3;
 	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_subtype, tvb, offset, 1, ENC_NA);
 	offset += 1;
@@ -1078,7 +1146,6 @@ static int dissect_cfm_vsm(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	gint cfm_tlv_offset;
 	proto_item *ti;
 	proto_item *fi;
-	proto_item *oi;
 	proto_tree *cfm_pdu_tree;
 	proto_tree *cfm_flag_tree;
 
@@ -1093,8 +1160,7 @@ static int dissect_cfm_vsm(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	proto_tree_add_item(cfm_pdu_tree, hf_cfm_first_tlv_offset, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset += 1;
 
-	oi = proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
-	proto_item_append_text(oi, " (%s)", tvb_get_manuf_name(tvb, offset));
+	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
 	offset += 3;
 	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_subtype, tvb, offset, 1, ENC_NA);
 	offset += 1;
@@ -1118,7 +1184,6 @@ static int dissect_cfm_vsr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	gint cfm_tlv_offset;
 	proto_item *ti;
 	proto_item *fi;
-	proto_item *oi;
 	proto_tree *cfm_pdu_tree;
 	proto_tree *cfm_flag_tree;
 
@@ -1133,8 +1198,7 @@ static int dissect_cfm_vsr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	proto_tree_add_item(cfm_pdu_tree, hf_cfm_first_tlv_offset, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset += 1;
 
-	oi = proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
-	proto_item_append_text(oi, " (%s)", tvb_get_manuf_name(tvb, offset));
+	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
 	offset += 3;
 	proto_tree_add_item(cfm_pdu_tree, hf_tlv_org_spec_subtype, tvb, offset, 1, ENC_NA);
 	offset += 1;
@@ -1239,7 +1303,6 @@ static int dissect_cfm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 	if (tree) { /* we are being asked for details */
 		gint cfm_tlv_offset;
 		proto_item *ti;
-		proto_item *oi;
 		proto_tree *cfm_tree;
 
 		/* isolate the payload of the packet */
@@ -1273,6 +1336,9 @@ static int dissect_cfm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 			break;
 		case LTR:
 			offset = dissect_cfm_ltr(tvb, pinfo, tree, offset);
+			break;
+		case GNM:
+			offset = dissect_cfm_gnm(tvb, pinfo, tree, offset);
 			break;
 		case AIS:
 			offset = dissect_cfm_ais(tvb, pinfo, tree, offset);
@@ -1516,9 +1582,8 @@ static int dissect_cfm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 							 * and the subtype.
 							 */
 							if (cfm_tlv_length > 3) {
-								oi = proto_tree_add_item(cfm_tlv_tree, hf_tlv_org_spec_oui,
+								proto_tree_add_item(cfm_tlv_tree, hf_tlv_org_spec_oui,
 									tvb, tlv_data_offset, 3, ENC_BIG_ENDIAN);
-								proto_item_append_text(oi, " (%s)", tvb_get_manuf_name(tvb, tlv_data_offset));
 								tlv_data_offset += 3;
 								proto_tree_add_item(cfm_tlv_tree, hf_tlv_org_spec_subtype,
 								       	tvb, tlv_data_offset, 1, ENC_NA);
@@ -1765,6 +1830,34 @@ void proto_register_cfm(void)
 		{ &hf_cfm_flags_ais_lck_Period,
 			{ "Period", "cfm.flags.ais_lck_Period", FT_UINT8,
 			BASE_DEC, VALS(aislckperiodtypes), 0x07, NULL, HFILL }
+		},
+
+                /* CFM GNM */
+		{ &hf_cfm_gnm_pdu,
+			{ "CFM GNM PDU", "cfm.gnm.pdu", FT_NONE,
+			BASE_NONE, NULL, 0x0, NULL, HFILL	}
+		},
+		{ &hf_cfm_gnm_subopcode,
+			{ "Sub-OpCode", "cfm.gnm.subopcode", FT_UINT8,
+			BASE_HEX, VALS(gnmsubopcodetypenames), 0x0, NULL, HFILL }
+		},
+
+		/* CFM GNM BNM*/
+		{ &hf_cfm_gnm_bnm_pdu,
+			{ "CFM GNM BNM PDU", "cfm.gnm.bnm.pdu", FT_NONE,
+			BASE_NONE, NULL, 0x0, NULL, HFILL	}
+		},
+		{ &hf_cfm_gnm_bnm_nominal_bw,
+			{ "Nominal Bandwidth", "cfm.gnm.bnm.nominal.bw", FT_UINT32,
+			BASE_DEC, NULL, 0x0, NULL, HFILL        }
+		},
+		{ &hf_cfm_gnm_bnm_current_bw,
+			{ "Current Bandwidth", "cfm.gnm.bnm.current.bw", FT_UINT32,
+			BASE_DEC, NULL, 0x0, NULL, HFILL        }
+		},
+		{ &hf_cfm_gnm_bnm_port_id,
+			{ "Port ID", "cfm.gnm.bnm.port.id", FT_UINT32,
+			BASE_DEC, NULL, 0x0, NULL, HFILL        }
 		},
 
 		/* CFM LCK */
@@ -2118,7 +2211,7 @@ void proto_register_cfm(void)
 				/* Organization-Specific TLV */
 		{ &hf_tlv_org_spec_oui,
 			{ "OUI", "cfm.tlv.org.spec.oui", FT_UINT24,
-			BASE_HEX, NULL, 0x0, NULL, HFILL	}
+			BASE_OUI, NULL, 0x0, NULL, HFILL	}
 		},
 		{ &hf_tlv_org_spec_subtype,
 			{ "Sub-Type", "cfm.tlv.org.spec.subtype", FT_BYTES,

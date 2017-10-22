@@ -87,11 +87,11 @@
 #include "caputils/capture-wpcap.h"
 #endif
 
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
 
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #ifdef HAVE_EXTCAP
 #include "extcap.h"
 #endif
@@ -205,6 +205,7 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
     char scount[ARGV_NUMBER_LEN];
     char sfilesize[ARGV_NUMBER_LEN];
     char sfile_duration[ARGV_NUMBER_LEN];
+    char sfile_interval[ARGV_NUMBER_LEN];
     char sring_num_files[ARGV_NUMBER_LEN];
     char sautostop_files[ARGV_NUMBER_LEN];
     char sautostop_filesize[ARGV_NUMBER_LEN];
@@ -243,7 +244,7 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
     char **argv;
     int i;
     guint j;
-    interface_options interface_opts;
+    interface_options *interface_opts;
 
     if (capture_opts->ifaces->len > 1)
         capture_opts->use_pcapng = TRUE;
@@ -293,6 +294,12 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
             argv = sync_pipe_add_arg(argv, &argc, sfile_duration);
         }
 
+        if (capture_opts->has_file_interval) {
+            argv = sync_pipe_add_arg(argv, &argc, "-b");
+            g_snprintf(sfile_interval, ARGV_NUMBER_LEN, "interval:%d",capture_opts->file_interval);
+            argv = sync_pipe_add_arg(argv, &argc, sfile_interval);
+        }
+
         if (capture_opts->has_ring_num_files) {
             argv = sync_pipe_add_arg(argv, &argc, "-b");
             g_snprintf(sring_num_files, ARGV_NUMBER_LEN, "files:%d",capture_opts->ring_num_files);
@@ -329,28 +336,28 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
     }
 
     for (j = 0; j < capture_opts->ifaces->len; j++) {
-        interface_opts = g_array_index(capture_opts->ifaces, interface_options, j);
+        interface_opts = &g_array_index(capture_opts->ifaces, interface_options, j);
 
         argv = sync_pipe_add_arg(argv, &argc, "-i");
 #ifdef HAVE_EXTCAP
-        if (interface_opts.extcap_fifo != NULL)
-            argv = sync_pipe_add_arg(argv, &argc, interface_opts.extcap_fifo);
+        if (interface_opts->extcap_fifo != NULL)
+            argv = sync_pipe_add_arg(argv, &argc, interface_opts->extcap_fifo);
         else
 #endif
-            argv = sync_pipe_add_arg(argv, &argc, interface_opts.name);
+            argv = sync_pipe_add_arg(argv, &argc, interface_opts->name);
 
-        if (interface_opts.cfilter != NULL && strlen(interface_opts.cfilter) != 0) {
+        if (interface_opts->cfilter != NULL && strlen(interface_opts->cfilter) != 0) {
             argv = sync_pipe_add_arg(argv, &argc, "-f");
-            argv = sync_pipe_add_arg(argv, &argc, interface_opts.cfilter);
+            argv = sync_pipe_add_arg(argv, &argc, interface_opts->cfilter);
         }
-        if (interface_opts.snaplen != WTAP_MAX_PACKET_SIZE) {
+        if (interface_opts->has_snaplen) {
             argv = sync_pipe_add_arg(argv, &argc, "-s");
-            g_snprintf(ssnap, ARGV_NUMBER_LEN, "%d", interface_opts.snaplen);
+            g_snprintf(ssnap, ARGV_NUMBER_LEN, "%d", interface_opts->snaplen);
             argv = sync_pipe_add_arg(argv, &argc, ssnap);
         }
 
-        if (interface_opts.linktype != -1) {
-            const char *linktype = linktype_val_to_name(interface_opts.linktype);
+        if (interface_opts->linktype != -1) {
+            const char *linktype = linktype_val_to_name(interface_opts->linktype);
             if ( linktype != NULL )
             {
                 argv = sync_pipe_add_arg(argv, &argc, "-y");
@@ -358,53 +365,57 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
             }
         }
 
-        if (!interface_opts.promisc_mode) {
+        if (!interface_opts->promisc_mode) {
             argv = sync_pipe_add_arg(argv, &argc, "-p");
         }
 
 #ifdef CAN_SET_CAPTURE_BUFFER_SIZE
-        if (interface_opts.buffer_size != DEFAULT_CAPTURE_BUFFER_SIZE) {
+        if (interface_opts->buffer_size != DEFAULT_CAPTURE_BUFFER_SIZE) {
             argv = sync_pipe_add_arg(argv, &argc, "-B");
-            if(interface_opts.buffer_size == 0x00)
-                interface_opts.buffer_size = DEFAULT_CAPTURE_BUFFER_SIZE;
-            g_snprintf(buffer_size, ARGV_NUMBER_LEN, "%d", interface_opts.buffer_size);
+            if(interface_opts->buffer_size == 0x00)
+                interface_opts->buffer_size = DEFAULT_CAPTURE_BUFFER_SIZE;
+            g_snprintf(buffer_size, ARGV_NUMBER_LEN, "%d", interface_opts->buffer_size);
             argv = sync_pipe_add_arg(argv, &argc, buffer_size);
         }
 #endif
 
 #ifdef HAVE_PCAP_CREATE
-        if (interface_opts.monitor_mode) {
+        if (interface_opts->monitor_mode) {
             argv = sync_pipe_add_arg(argv, &argc, "-I");
         }
 #endif
 
 #ifdef HAVE_PCAP_REMOTE
-        if (interface_opts.datatx_udp)
+        if (interface_opts->datatx_udp)
             argv = sync_pipe_add_arg(argv, &argc, "-u");
 
-        if (!interface_opts.nocap_rpcap)
+        if (!interface_opts->nocap_rpcap)
             argv = sync_pipe_add_arg(argv, &argc, "-r");
 
-        if (interface_opts.auth_type == CAPTURE_AUTH_PWD) {
+        if (interface_opts->auth_type == CAPTURE_AUTH_PWD) {
             argv = sync_pipe_add_arg(argv, &argc, "-A");
             g_snprintf(sauth, sizeof(sauth), "%s:%s",
-                       interface_opts.auth_username,
-                       interface_opts.auth_password);
+                       interface_opts->auth_username,
+                       interface_opts->auth_password);
             argv = sync_pipe_add_arg(argv, &argc, sauth);
         }
 #endif
 
 #ifdef HAVE_PCAP_SETSAMPLING
-        if (interface_opts.sampling_method != CAPTURE_SAMP_NONE) {
+        if (interface_opts->sampling_method != CAPTURE_SAMP_NONE) {
             argv = sync_pipe_add_arg(argv, &argc, "-m");
             g_snprintf(ssampling, ARGV_NUMBER_LEN, "%s:%d",
-                       interface_opts.sampling_method == CAPTURE_SAMP_BY_COUNT ? "count" :
-                       interface_opts.sampling_method == CAPTURE_SAMP_BY_TIMER ? "timer" :
+                       interface_opts->sampling_method == CAPTURE_SAMP_BY_COUNT ? "count" :
+                       interface_opts->sampling_method == CAPTURE_SAMP_BY_TIMER ? "timer" :
                        "undef",
-                       interface_opts.sampling_param);
+                       interface_opts->sampling_param);
             argv = sync_pipe_add_arg(argv, &argc, ssampling);
         }
 #endif
+        if (interface_opts->timestamp_type) {
+            argv = sync_pipe_add_arg(argv, &argc, "--time-stamp-type");
+            argv = sync_pipe_add_arg(argv, &argc, interface_opts->timestamp_type);
+        }
     }
 
     /* dumpcap should be running in capture child mode (hidden feature) */
@@ -515,19 +526,12 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
 #else
     si.dwFlags = STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
     si.wShowWindow  = SW_HIDE;  /* this hides the console window */
-#if defined(_WIN32)
-    /* needs first a check if NULL *
-     * otherwise wouldn't work with non extcap interfaces */
-    if(interface_opts.extcap_fifo != NULL)
-    {
-       if(strncmp(interface_opts.extcap_fifo,"\\\\.\\pipe\\",9)== 0)
-       {
-         si.hStdInput = extcap_get_win32_handle();
-       }
-    }
+#ifdef HAVE_EXTCAP
+    if(interface_opts->extcap_pipe_h != INVALID_HANDLE_VALUE)
+        si.hStdInput = interface_opts->extcap_pipe_h;
     else
 #endif
-       si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
 
     si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     si.hStdError = sync_pipe_write;
@@ -1295,6 +1299,7 @@ sync_if_capabilities_open(const gchar *ifname, gboolean monitor_mode, const gcha
     argv = sync_pipe_add_arg(argv, &argc, "-i");
     argv = sync_pipe_add_arg(argv, &argc, ifname);
     argv = sync_pipe_add_arg(argv, &argc, "-L");
+    argv = sync_pipe_add_arg(argv, &argc, "--list-time-stamp-types");
     if (monitor_mode)
         argv = sync_pipe_add_arg(argv, &argc, "-I");
     if (auth) {

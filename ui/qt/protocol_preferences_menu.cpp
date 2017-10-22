@@ -33,13 +33,13 @@
 #include "protocol_preferences_menu.h"
 
 #include "enabled_protocols_dialog.h"
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "uat_dialog.h"
 #include "wireshark_application.h"
 
 // To do:
 // - Elide really long items?
-// - Handle PREF_FILENAME and PREF_DIRNAME.
+// - Handle PREF_SAVE_FILENAME, PREF_OPEN_FILENAME and PREF_DIRNAME.
 // - Handle color prefs.
 
 class BoolPreferenceAction : public QAction
@@ -98,7 +98,7 @@ public:
         UatDialog uat_dlg(parentWidget(), prefs_get_uat_value(pref_));
         uat_dlg.exec();
         // Emitting PacketDissectionChanged directly from a QDialog can cause
-        // problems on OS X.
+        // problems on macOS.
         wsApp->flushAppSignals();
     }
 
@@ -172,6 +172,7 @@ void ProtocolPreferencesMenu::setModule(const char *module_name)
 
     QAction *disable_action = new QAction(tr("Disable %1" UTF8_HORIZONTAL_ELLIPSIS).arg(short_name), this);
     connect(disable_action, SIGNAL(triggered(bool)), this, SLOT(disableProtocolTriggered()));
+    disable_action->setDisabled(!proto_can_toggle_protocol(proto_id));
 
     module_ = prefs_find_module(module_name);
     if (!module_ || !prefs_is_registered_protocol(module_name)) {
@@ -244,7 +245,7 @@ void ProtocolPreferencesMenu::addMenuItem(preference *pref)
     case PREF_OBSOLETE:
         break;
     default:
-        // A type we currently don't handle (e.g. PREF_FILENAME). Just open
+        // A type we currently don't handle (e.g. PREF_SAVE_FILENAME). Just open
         // the prefs dialog.
         QString title = QString("%1" UTF8_HORIZONTAL_ELLIPSIS).arg(prefs_get_title(pref));
         QAction *mpa = addAction(title);
@@ -259,6 +260,10 @@ void ProtocolPreferencesMenu::disableProtocolTriggered()
     enable_proto_dialog.selectProtocol(protocol_);
     hide();
     enable_proto_dialog.exec();
+
+    // Emitting PacketDissectionChanged directly from a QDialog can cause
+    // problems on macOS.
+    wsApp->flushAppSignals();
 }
 
 void ProtocolPreferencesMenu::modulePreferencesTriggered()
@@ -284,6 +289,7 @@ void ProtocolPreferencesMenu::boolPreferenceTriggered()
     if (!bpa) return;
 
     bpa->setBoolValue();
+    module_->prefs_changed = TRUE;
 
     prefs_apply(module_);
     if (!prefs.gui_use_pref_save) {
@@ -299,6 +305,7 @@ void ProtocolPreferencesMenu::enumPreferenceTriggered()
     if (!epa) return;
 
     if (epa->setEnumValue()) { // Changed
+        module_->prefs_changed = TRUE;
         prefs_apply(module_);
         if (!prefs.gui_use_pref_save) {
             prefs_main_write();

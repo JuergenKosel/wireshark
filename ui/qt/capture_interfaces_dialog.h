@@ -27,7 +27,7 @@
 
 #ifdef HAVE_LIBPCAP
 
-#include "ui/qt/interface_tree_model.h"
+#include <ui/qt/models/interface_tree_model.h>
 
 #include "geometry_state_dialog.h"
 #include <QPushButton>
@@ -128,6 +128,7 @@ private:
     void updateSelectedFilter();
 
     void updateGlobalDeviceSelections();
+    void updateFromGlobalDeviceSelections();
 };
 
 #endif /* HAVE_LIBPCAP */

@@ -120,12 +120,6 @@ rtacser_ppi_prompt(packet_info *pinfo _U_, gchar* result)
     g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "Payload as");
 }
 
-static gpointer
-rtacser_ppi_value(packet_info *pinfo _U_)
-{
-    return 0;
-}
-
 /******************************************************************************************************/
 /* Code to dissect RTAC Serial-Line Protocol packets */
 /******************************************************************************************************/
@@ -213,9 +207,8 @@ dissect_rtacser_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
     if (tvb_reported_length_remaining(tvb, offset) > 0) {
         payload_tvb = tvb_new_subset_remaining(tvb, RTACSER_HEADER_LEN);
-        /* Functionality for choosing subdissector is controlled through Decode As as CAN doesn't
-           have a unique identifier to determine subdissector */
-        if (!dissector_try_uint(subdissector_table, 0, payload_tvb, pinfo, tree)){
+
+        if (!dissector_try_payload(subdissector_table, payload_tvb, pinfo, tree)){
             call_data_dissector(payload_tvb, pinfo, tree);
         }
     }
@@ -280,11 +273,6 @@ proto_register_rtacser(void)
         &ett_rtacser_cl,
     };
 
-    static build_valid_func rtacser_da_ppi_build_value[1] = {rtacser_ppi_value};
-    static decode_as_value_t rtacser_da_ppi_values[1] = {{rtacser_ppi_prompt, 1, rtacser_da_ppi_build_value}};
-    static decode_as_t rtacser_da_ppi = {"rtacser", "RTAC Serial", "rtacser.data", 1, 0, rtacser_da_ppi_values, "RTAC Serial", NULL,
-                                    decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
-
     module_t *rtacser_module;
 
     /* Register the protocol name and description */
@@ -292,8 +280,6 @@ proto_register_rtacser(void)
 
     /* Registering protocol to be called by another dissector */
     rtacser_handle = register_dissector("rtacser", dissect_rtacser, proto_rtacser);
-
-    subdissector_table = register_dissector_table("rtacser.data", "RTAC Serial Data Subdissector", proto_rtacser, FT_UINT32, BASE_HEX);
 
     /* Required function calls to register the header fields and subtrees used */
     proto_register_field_array(proto_rtacser, rtacser_hf, array_length(rtacser_hf));
@@ -305,7 +291,8 @@ proto_register_rtacser(void)
     /* RTAC Serial Preference - Payload Protocol in use */
     prefs_register_obsolete_preference(rtacser_module, "rtacserial_payload_proto");
 
-    register_decode_as(&rtacser_da_ppi);
+    subdissector_table = register_decode_as_next_proto(proto_rtacser, "RTAC Serial", "rtacser.data",
+                                                       "RTAC Serial Data Subdissector", (build_label_func*)&rtacser_ppi_prompt);
 }
 
 /******************************************************************************************************/

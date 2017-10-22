@@ -39,7 +39,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 
 #include <epan/packet.h>
 #include <epan/exceptions.h>
@@ -47,7 +47,6 @@
 #include <epan/prefs.h>
 #include <epan/proto.h>
 #include <epan/epan_dissect.h>
-#include <epan/tap.h>
 #include <wsutil/filesystem.h>
 
 #include "mate_util.h"
@@ -197,9 +196,8 @@ typedef struct _mate_config {
 
 	int hfid_mate;
 
-	GString* fields_filter; /* "ip.addr || dns.id || ... " for the tap */
-	GString* protos_filter; /* "dns || ftp || ..." for the tap */
-	gchar* tap_filter;
+	GArray *wanted_hfids;    /* hfids of protocols and fields MATE needs */
+	guint num_fields_wanted; /* number of fields MATE will look at */
 
 	FILE* dbg_facility; /* where to dump dbgprint output g_message if null */
 
@@ -364,23 +362,32 @@ typedef union _mate_max_size {
 } mate_max_size;
 
 /* from mate_runtime.c */
-extern void initialize_mate_runtime(void);
+extern void initialize_mate_runtime(mate_config* mc);
 extern mate_pdu* mate_get_pdus(guint32 framenum);
-extern void mate_analyze_frame(packet_info *pinfo, proto_tree* tree);
+extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* tree);
 
 /* from mate_setup.c */
 extern mate_config* mate_make_config(const gchar* filename, int mate_hfid);
 
-extern mate_config* mate_cfg(void);
-extern mate_cfg_pdu* new_pducfg(gchar* name);
-extern mate_cfg_gop* new_gopcfg(gchar* name);
-extern mate_cfg_gog* new_gogcfg(gchar* name);
+extern mate_cfg_pdu* new_pducfg(mate_config* mc, gchar* name);
+extern mate_cfg_gop* new_gopcfg(mate_config* mc, gchar* name);
+extern mate_cfg_gog* new_gogcfg(mate_config* mc, gchar* name);
 
-extern gboolean add_hfid(header_field_info*  hfi, gchar* as, GHashTable* where);
+extern gboolean add_hfid(mate_config* mc, header_field_info*  hfi, gchar* as, GHashTable* where);
 extern gchar* add_ranges(gchar* range, GPtrArray* range_ptr_arr);
 
 
 /* from mate_parser.l */
 extern gboolean mate_load_config(const gchar* filename, mate_config* mc);
+
+/* Constructor/Destructor prototypes for Lemon Parser */
+#if (GLIB_MAJOR_VERSION > 2 || (GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 16))
+#define YYMALLOCARGTYPE gsize
+#else
+#define YYMALLOCARGTYPE gulong
+#endif
+void *MateParserAlloc(void* (*)(YYMALLOCARGTYPE));
+void MateParserFree(void*, void (*)(void *));
+void MateParser(void*, int, gchar*,  mate_config*);
 
 #endif

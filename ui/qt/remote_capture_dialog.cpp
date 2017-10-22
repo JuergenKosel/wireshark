@@ -24,7 +24,7 @@
 #include "config.h"
 #ifdef HAVE_PCAP_REMOTE
 #include <glib.h>
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "ui/capture_globals.h"
 #include "remote_capture_dialog.h"
 #include <ui_remote_capture_dialog.h>
@@ -33,7 +33,7 @@
 #include "ui/capture_ui_utils.h"
 #include "epan/prefs.h"
 #include "epan/to_str.h"
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
 #include "ui/recent.h"
 
 #include <QMessageBox>

@@ -49,7 +49,7 @@
 #include <extcap.h>
 #include <epan/prefs.h>
 #include <epan/prefs-int.h>
-#include <color_utils.h>
+#include <ui/qt/utils/color_utils.h>
 
 #include <extcap_parser.h>
 #include <extcap_argument_file.h>
@@ -61,7 +61,6 @@ ExtArgTimestamp::ExtArgTimestamp(extcap_arg * argument) :
 QWidget * ExtArgTimestamp::createEditor(QWidget * parent)
 {
     QDateTimeEdit * tsBox;
-    QString storeValue;
     QString text = defaultValue();
 
     if ( _argument->pref_valptr && *_argument->pref_valptr)
@@ -364,7 +363,6 @@ ExtArgText::ExtArgText(extcap_arg * argument) :
 
 QWidget * ExtArgText::createEditor(QWidget * parent)
 {
-    QString storeValue;
     QString text = defaultValue();
 
     if ( _argument->pref_valptr && *_argument->pref_valptr)
@@ -431,7 +429,6 @@ ExtArgNumber::ExtArgNumber(extcap_arg * argument) :
 
 QWidget * ExtArgNumber::createEditor(QWidget * parent)
 {
-    QString storeValue;
     QString text = defaultValue();
 
     if ( _argument->pref_valptr && *_argument->pref_valptr)
@@ -665,11 +662,9 @@ QString ExtcapArgument::prefValue()
 
 void ExtcapArgument::resetValue()
 {
-    // XXX consider using the preferences API which can store the default value
-    // and put that here instead of an empty value.
     if (_argument->pref_valptr) {
         g_free(*_argument->pref_valptr);
-        *_argument->pref_valptr = NULL;
+        *_argument->pref_valptr = g_strdup("");
     }
 }
 

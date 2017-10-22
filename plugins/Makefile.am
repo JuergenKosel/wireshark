@@ -23,11 +23,9 @@
 
 SUBDIRS = $(_CUSTOM_SUBDIRS_) \
 	docsis \
-	easy_codec \
 	ethercat \
 	gryphon \
 	irda \
-	m2m \
 	mate \
 	opcua \
 	profinet \
@@ -42,9 +40,6 @@ EXTRA_DIST = \
 	$(_CUSTOM_EXTRA_DIST_) \
 	Custom.make.example \
 	Custom.m4.example
-
-MAINTAINERCLEANFILES = \
-	Makefile.in
 
 checkapi:
 	for i in $(SUBDIRS); do \

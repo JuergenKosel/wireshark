@@ -217,7 +217,7 @@ ph_stats_new(capture_file *cf)
 
 	if (!cf) return NULL;
 
-	pc_proto_id = proto_get_id_by_filter_name("pkt_comment");
+	pc_proto_id = proto_registrar_get_id_byname("pkt_comment");
 
 	/* Initialize the data */
 	ps = g_new(ph_stats_t, 1);
@@ -345,10 +345,7 @@ static gboolean
 stat_node_free(GNode *node, gpointer data _U_)
 {
 	ph_stats_node_t	*stats = (ph_stats_node_t *)node->data;
-
-	if (stats) {
-		g_free(stats);
-	}
+	g_free(stats);
 	return FALSE;
 }
 

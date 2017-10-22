@@ -54,11 +54,11 @@ MAX_CPU_TIME=600
 # Stop the child process if it's using more than y * 1024 bytes
 MAX_VMEM=1000000
 # Stop the child process if its stack is larger than than z * 1024 bytes
-# Windows XP:   2033
-# Windows 7:    2034
-# OS X 10.6:    8192
-# Linux 2.6.24: 8192
-# Solaris 10:   8192
+# Windows XP:    2033
+# Windows 7:     2034
+# Mac OS X 10.6: 8192
+# Linux 2.6.24:  8192
+# Solaris 10:    8192
 MAX_STACK=2033
 # Insert z times an error into the capture file (0.02 seems to be a good value to find errors)
 ERR_PROB=0.02
@@ -125,10 +125,11 @@ export ASAN_OPTIONS=detect_leaks=0
 
 # See if we were configured with gcc or clang's AddressSanitizer.
 CONFIGURED_WITH_ASAN=0
-if [ -r "$WIRESHARK_BIN_DIR/Makefile" ] ; then
-    grep -- "-fsanitize=address" "$WIRESHARK_BIN_DIR/Makefile" > /dev/null 2>&1 && CONFIGURED_WITH_ASAN=1
-elif [ -r "$WIRESHARK_BIN_DIR/../CMakeFiles/tshark.dir/flags.make" ] ; then
-    grep -- "-fsanitize=address" "$WIRESHARK_BIN_DIR/../CMakeFiles/tshark.dir/flags.make" > /dev/null 2>&1 && CONFIGURED_WITH_ASAN=1
+# If tshark is built with ASAN this will generate an error. We could
+# also pass help=1 and look for help text.
+ASAN_OPTIONS=Invalid_Option_Flag $TSHARK -h > /dev/null 2>&1
+if [ $? -ne 0 ] ; then
+    CONFIGURED_WITH_ASAN=1
 fi
 export CONFIGURED_WITH_ASAN
 

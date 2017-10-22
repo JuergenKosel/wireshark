@@ -39,6 +39,8 @@
 #include <sys/socket.h>
 #endif
 
+#include "ws_attributes.h"
+
 /*
  * Linux bonding devices mishandle unknown ioctls; they fail
  * with ENODEV rather than ENOTSUP, EOPNOTSUPP, or ENOTTY,
@@ -101,7 +103,7 @@ static const char please_report[] =
  * type for the interface.
  */
 
-#if defined(__APPLE__)
+#if defined(HAVE_MACOS_FRAMEWORKS)
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -109,7 +111,7 @@ static const char please_report[] =
 #include <wsutil/cfutils.h>
 
 /*
- * On OS X, we get the "friendly name" and interface type for the interface
+ * On macOS, we get the "friendly name" and interface type for the interface
  * from the System Configuration framework.
  *
  * To find the System Configuration framework information for the
@@ -127,7 +129,7 @@ static const char please_report[] =
  * an SNMP MIB-II ifType value.
  *
  * However, it's IFT_ETHER, i.e. Ethernet, for AirPort interfaces,
- * not IFT_IEEE80211 (which isn't defined in OS X in any case).
+ * not IFT_IEEE80211 (which isn't defined in macOS in any case).
  *
  * Perhaps some other BSD-flavored OSes won't make this mistake;
  * however, FreeBSD 7.0 and OpenBSD 4.2, at least, appear to have
@@ -668,11 +670,25 @@ free_linktype_cb(gpointer data, gpointer user_data _U_)
 	g_free(linktype_info);
 }
 
+static void
+free_timestamp_cb(gpointer data, gpointer user_data _U_)
+{
+	timestamp_info_t *timestamp_info = (timestamp_info_t *)data;
+
+	g_free(timestamp_info->name);
+	g_free(timestamp_info->description);
+	g_free(data);
+}
+
 void
 free_if_capabilities(if_capabilities_t *caps)
 {
 	g_list_foreach(caps->data_link_types, free_linktype_cb, NULL);
 	g_list_free(caps->data_link_types);
+
+	g_list_foreach(caps->timestamp_types, free_timestamp_cb, NULL);
+	g_list_free(caps->timestamp_types);
+
 	g_free(caps);
 }
 
@@ -861,10 +877,7 @@ create_data_link_info(int dlt)
 	else
 		data_link_info->name = g_strdup_printf("DLT %d", dlt);
 	text = pcap_datalink_val_to_description(dlt);
-	if (text != NULL)
-		data_link_info->description = g_strdup(text);
-	else
-		data_link_info->description = NULL;
+	data_link_info->description = g_strdup(text);
 	return data_link_info;
 }
 
@@ -959,6 +972,34 @@ get_data_link_types(pcap_t *pch, interface_options *interface_opts,
 		*err_str = NULL;
 	return data_link_types;
 }
+
+/* Get supported timestamp types for a libpcap device.  */
+static GList*
+get_pcap_timestamp_types(pcap_t *pch _U_, char **err_str _U_)
+{
+	GList *list = NULL;
+#ifdef HAVE_PCAP_SET_TSTAMP_TYPE
+	int *types;
+	int ntypes = pcap_list_tstamp_types(pch, &types);
+
+	if (err_str)
+		*err_str = ntypes < 0 ? pcap_geterr(pch) : NULL;
+
+	if (ntypes <= 0)
+		return NULL;
+
+	while (ntypes--) {
+		timestamp_info_t *info = (timestamp_info_t *)g_malloc(sizeof *info);
+		info->name        = g_strdup(pcap_tstamp_type_val_to_name(types[ntypes]));
+		info->description = g_strdup(pcap_tstamp_type_val_to_description(types[ntypes]));
+		list = g_list_prepend(list, info);
+	}
+
+	pcap_free_tstamp_types(types);
+#endif
+	return list;
+}
+
 
 #ifdef HAVE_PCAP_CREATE
 #ifdef HAVE_BONDING
@@ -1079,6 +1120,8 @@ get_if_capabilities_pcap_create(interface_options *interface_opts,
 		return NULL;
 	}
 
+	caps->timestamp_types = get_pcap_timestamp_types(pch, NULL);
+
 	pcap_close(pch);
 
 	if (err_str != NULL)
@@ -1088,7 +1131,7 @@ get_if_capabilities_pcap_create(interface_options *interface_opts,
 
 pcap_t *
 open_capture_device_pcap_create(capture_options *capture_opts
-#ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
+#if defined(HAVE_PCAP_SET_TSTAMP_PRECISION) || defined (HAVE_PCAP_SET_TSTAMP_TYPE)
     ,
 #else
     _U_,
@@ -1105,10 +1148,12 @@ open_capture_device_pcap_create(capture_options *capture_opts
 	g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
 	    "pcap_create() returned %p.", (void *)pcap_h);
 	if (pcap_h != NULL) {
-		g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
-		    "Calling pcap_set_snaplen() with snaplen %d.",
-		    interface_opts->snaplen);
-		pcap_set_snaplen(pcap_h, interface_opts->snaplen);
+		if (interface_opts->has_snaplen) {
+			g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
+			    "Calling pcap_set_snaplen() with snaplen %d.",
+			    interface_opts->snaplen);
+			pcap_set_snaplen(pcap_h, interface_opts->snaplen);
+		}
 		g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
 		    "Calling pcap_set_promisc() with promisc_mode %d.",
 		    interface_opts->promisc_mode);
@@ -1137,6 +1182,18 @@ open_capture_device_pcap_create(capture_options *capture_opts
 		 */
 		if (capture_opts->use_pcapng)
 			request_high_resolution_timestamp(pcap_h);
+#endif /* HAVE_PCAP_SET_TSTAMP_PRECISION */
+
+#ifdef HAVE_PCAP_SET_TSTAMP_TYPE
+		if (interface_opts->timestamp_type) {
+			err = pcap_set_tstamp_type(pcap_h, interface_opts->timestamp_type_id);
+			if (err == PCAP_ERROR) {
+				g_strlcpy(*open_err_str, pcap_geterr(pcap_h),
+				    sizeof *open_err_str);
+				pcap_close(pcap_h);
+				return NULL;
+			}
+		}
 #endif /* HAVE_PCAP_SET_TSTAMP_PRECISION */
 
 		g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
@@ -1193,6 +1250,8 @@ get_if_capabilities_pcap_open_live(interface_options *interface_opts,
 		return NULL;
 	}
 
+	caps->timestamp_types = get_pcap_timestamp_types(pch, NULL);
+
 	pcap_close(pch);
 
 	if (err_str != NULL)
@@ -1205,12 +1264,24 @@ open_capture_device_pcap_open_live(interface_options *interface_opts,
     int timeout, char (*open_err_str)[PCAP_ERRBUF_SIZE])
 {
 	pcap_t *pcap_h;
+	int snaplen;
 
+	if (interface_opts->has_snaplen)
+		snaplen = interface_opts->snaplen;
+	else {
+		/*
+		 * Default - use the non-D-Bus maximum snapshot length of
+		 * 256KB, which should be big enough (libpcap didn't get
+		 * D-Bus support until after it goet pcap_create() and
+		 * pcap_activate(), so we don't have D-Bus support and
+		 * don't have to worry about really huge packets).
+		 */
+		snaplen = 256*1024;
+	}
 	g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
 	    "pcap_open_live() calling using name %s, snaplen %d, promisc_mode %d.",
-	    interface_opts->name, interface_opts->snaplen,
-	    interface_opts->promisc_mode);
-	pcap_h = pcap_open_live(interface_opts->name, interface_opts->snaplen,
+	    interface_opts->name, snaplen, interface_opts->promisc_mode);
+	pcap_h = pcap_open_live(interface_opts->name, snaplen,
 	    interface_opts->promisc_mode, timeout, *open_err_str);
 	g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
 	    "pcap_open_live() returned %p.", (void *)pcap_h);
@@ -1281,8 +1352,8 @@ get_if_capabilities(interface_options *interface_opts, char **err_str)
         caps->data_link_types = NULL;
         deflt = get_pcap_datalink(pch, interface_opts->name);
         data_link_info = create_data_link_info(deflt);
-        caps->data_link_types = g_list_append(caps->data_link_types,
-                                              data_link_info);
+        caps->data_link_types = g_list_append(caps->data_link_types, data_link_info);
+	caps->timestamp_types = get_pcap_timestamp_types(pch, NULL);
         pcap_close(pch);
 
         if (err_str != NULL)
@@ -1319,17 +1390,28 @@ open_capture_device(capture_options *capture_opts,
 	 * the only open routine that supports remote devices.
 	 */
 	if (strncmp (interface_opts->name, "rpcap://", 8) == 0) {
+		int snaplen;
+
 		auth.type = interface_opts->auth_type == CAPTURE_AUTH_PWD ?
 		    RPCAP_RMTAUTH_PWD : RPCAP_RMTAUTH_NULL;
 		auth.username = interface_opts->auth_username;
 		auth.password = interface_opts->auth_password;
 
+		if (interface_opts->has_snaplen)
+			snaplen = interface_opts->snaplen;
+		else {
+			/*
+			 * Default - use the non-D-Bus maximum snapshot length,
+			 * which should be big enough, except for D-Bus.
+			 */
+			snaplen = 256*1024;
+		}
 		g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
 		    "Calling pcap_open() using name %s, snaplen %d, promisc_mode %d, datatx_udp %d, nocap_rpcap %d.",
-		    interface_opts->name, interface_opts->snaplen,
+		    interface_opts->name, snaplen,
 		    interface_opts->promisc_mode, interface_opts->datatx_udp,
 		    interface_opts->nocap_rpcap);
-		pcap_h = pcap_open(interface_opts->name, interface_opts->snaplen,
+		pcap_h = pcap_open(interface_opts->name, snaplen,
 		    /* flags */
 		    (interface_opts->promisc_mode ? PCAP_OPENFLAG_PROMISCUOUS : 0) |
 		    (interface_opts->datatx_udp ? PCAP_OPENFLAG_DATATX_UDP : 0) |

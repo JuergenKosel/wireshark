@@ -99,68 +99,70 @@ Param(
 # trouble instead of trying to catch exceptions everywhere.
 $ErrorActionPreference = "Stop"
 
-$Win64CurrentTag = "2017-02-15"
-$Win32CurrentTag = "2017-02-15"
+$Win64CurrentTag = "2017-08-26"
+$Win32CurrentTag = "2017-08-26"
 
 # Archive file / subdir.
 $Win64Archives = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "AirPcap_Devpack_4_1_0_1622";
-    "c-ares-1.12.0-1-win64ws.zip" = "";
-    "GeoIP-1.6.6-win64ws.zip" = "GeoIP-1.6.6-win64ws";
+    "bcg729-1.0.4-win64ws.zip" = "";
+    "c-ares-1.13.0-win64ws.zip" = "";
+    "GeoIP-1.6.10-win64ws.zip" = "";
     "gnutls-3.4.11-1.35-win64ws.zip" = "";
     "gtk+-bundle_2.24.23-3.39-2_win64ws.zip" = "gtk2";
     "kfw-3-2-2-x64-ws.zip" = "";
     "libgcrypt-1.7.6-win64ws.zip" = "";
     "libsmi-svn-40773-win64ws.zip" = "";
     "libssh-0.7.3-1-win64ws.zip" = "";
+    "libxml2-2.9.4-win64ws.zip" = "";
     "lua-5.2.4_Win64_dllw4_lib.zip" = "lua5.2.4";
-    "lz4-r131-1-win64ws.zip" = "";
+    "lz4-1.7.5-win64ws.zip" = "";
     "nasm-2.09.08-win32.zip" = "";
     "nghttp2-1.14.0-1-win64ws.zip" = "";
     "portaudio_v19_2.zip" = "";
     "sbc-1.3-1-win64ws.zip" = "";
     "snappy-1.1.3-1-win64ws.zip" = "";
     "spandsp-0.0.6-1-win64ws.zip" = "";
-    "upx303w.zip" = "";
-    "WinSparkle-0.5.3.zip" = "";
+    "WinSparkle-0.5.6.zip" = "";
     "WpdPack_4_1_2.zip" = "";
-    "zlib-1.2.8-ws.zip" = "";
+    "zlib-1.2.11-ws.zip" = "";
 }
 
 $Win32Archives = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "AirPcap_Devpack_4_1_0_1622";
-    "c-ares-1.12.0-1-win32ws.zip" = "";
-    "GeoIP-1.6.6-win32ws.zip" = "GeoIP-1.6.6-win32ws";
+    "bcg729-1.0.4-win32ws.zip" = "";
+    "c-ares-1.13.0-win32ws.zip" = "";
+    "GeoIP-1.6.10-win32ws.zip" = "";
     "gnutls-3.4.11-1.36-win32ws.zip" = "";
     "gtk+-bundle_2.24.23-1.1-1_win32ws.zip" = "gtk2";
     "kfw-3-2-2-i386-ws-vc6.zip" = "";
     "libgcrypt-1.7.6-win32ws.zip" = "";
     "libsmi-svn-40773-win32ws.zip" = "";
     "libssh-0.7.3-1-win32ws.zip" = "";
+    "libxml2-2.9.4-win32ws.zip" = "";
     "lua-5.2.4_Win32_dllw4_lib.zip" = "lua5.2.4";
-    "lz4-r131-1-win32ws.zip" = "";
+    "lz4-1.7.5-win32ws.zip" = "";
     "nasm-2.09.08-win32.zip" = "";
     "nghttp2-1.14.0-1-win32ws.zip" = "";
     "portaudio_v19_2.zip" = "";
     "sbc-1.3-1-win32ws.zip" = "";
     "snappy-1.1.3-1-win32ws.zip" = "";
     "spandsp-0.0.6-1-win32ws.zip" = "";
-    "upx303w.zip" = "";
-    "WinSparkle-0.5.3.zip" = "";
+    "WinSparkle-0.5.6.zip" = "";
     "WpdPack_4_1_2.zip" = "";
-    "zlib-1.2.8-ws.zip" = "";
+    "zlib-1.2.11-ws.zip" = "";
 }
 
 # Plain file downloads
 
 $Win32Files = @(
     "WinPcap_4_1_3.exe";
-    "USBPcapSetup-1.1.0.0-g794bf26-5.exe";
+    "USBPcapSetup-1.2.0.3.exe";
 )
 
 $Win64Files = @(
     "WinPcap_4_1_3.exe";
-    "USBPcapSetup-1.1.0.0-g794bf26-5.exe";
+    "USBPcapSetup-1.2.0.3.exe";
 )
 
 $Archives = $Win64Archives;
@@ -174,8 +176,9 @@ if ($Platform -eq "win32") {
 }
 
 $CleanupItems = @(
+    "bcg729-1.0.4-win??ws"
     "c-ares-1.9.1-1-win??ws"
-    "c-ares-1.1?.0-win??ws"
+    "c-ares-1.1*-win??ws"
     "gnutls-3.1.22-*-win??ws"
     "gnutls-3.2.15-*-win??ws"
     "gnutls-3.4.11-*-win??ws"
@@ -188,9 +191,10 @@ $CleanupItems = @(
     "libsmi-0.4.8"
     "libsmi-svn-40773-win??ws"
     "libssh-0.7.?-win??ws"
+    "libxml2-*-win??ws"
     "lua5.1.4"
     "lua5.2.?"
-    "lz4-r131-win??ws"
+    "lz4-*-win??ws"
     "nasm-2.09.08"
     "nghttp2-*-win??ws"
     "portaudio_v19"
@@ -203,7 +207,7 @@ $CleanupItems = @(
     "user-guide"
     "zlib-1.2.5"
     "zlib-1.2.8"
-    "zlib-1.2.8-ws"
+    "zlib-1.2.*-ws"
     "AirPcap_Devpack_4_1_0_1622"
     "GeoIP-1.*-win??ws"
     "WinSparkle-0.3-44-g2c8d9d3-win??ws"

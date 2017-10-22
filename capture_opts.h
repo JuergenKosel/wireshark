@@ -36,6 +36,10 @@
 
 #include <caputils/capture_ifinfo.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -60,7 +64,9 @@ extern "C" {
  * In short: we must not use 1 here, which is another reason to use
  * values outside the range of ASCII graphic characters.
  */
-#define LONGOPT_NUM_CAP_COMMENT 128
+#define LONGOPT_NUM_CAP_COMMENT   128
+#define LONGOPT_LIST_TSTAMP_TYPES 129
+#define LONGOPT_SET_TSTAMP_TYPE   130
 
 /*
  * Options for capturing common to all capturing programs.
@@ -89,17 +95,20 @@ extern "C" {
 #endif
 
 #define LONGOPT_CAPTURE_COMMON \
-    {"capture-comment",      required_argument, NULL, LONGOPT_NUM_CAP_COMMENT}, \
-    {"autostop",             required_argument, NULL, 'a'}, \
-    {"ring-buffer",          required_argument, NULL, 'b'}, \
+    {"capture-comment",       required_argument, NULL, LONGOPT_NUM_CAP_COMMENT}, \
+    {"autostop",              required_argument, NULL, 'a'}, \
+    {"ring-buffer",           required_argument, NULL, 'b'}, \
     LONGOPT_BUFFER_SIZE \
-    {"list-interfaces",      no_argument,       NULL, 'D'}, \
-    {"interface",            required_argument, NULL, 'i'}, \
+    {"list-interfaces",       no_argument,       NULL, 'D'}, \
+    {"interface",             required_argument, NULL, 'i'}, \
     LONGOPT_MONITOR_MODE \
-    {"list-data-link-types", no_argument,       NULL, 'L'}, \
-    {"no-promiscuous-mode",  no_argument,       NULL, 'p'}, \
-    {"snapshot-length",      required_argument, NULL, 's'}, \
-    {"linktype",             required_argument, NULL, 'y'}, \
+    {"list-data-link-types",  no_argument,       NULL, 'L'}, \
+    {"no-promiscuous-mode",   no_argument,       NULL, 'p'}, \
+    {"snapshot-length",       required_argument, NULL, 's'}, \
+    {"linktype",              required_argument, NULL, 'y'}, \
+    {"list-time-stamp-types", no_argument,       NULL, LONGOPT_LIST_TSTAMP_TYPES}, \
+    {"time-stamp-type",       required_argument, NULL, LONGOPT_SET_TSTAMP_TYPE},
+
 
 #define OPTSTRING_CAPTURE_COMMON \
     "a:" OPTSTRING_A "b:" OPTSTRING_B "c:Df:i:" OPTSTRING_I "Lps:y:"
@@ -191,11 +200,11 @@ typedef struct interface_tag {
     if_info_t       if_info;
     gboolean        selected;
     gboolean        hidden;
-    gboolean        locked;
 #ifdef HAVE_EXTCAP
     /* External capture cached data */
     GHashTable     *external_cap_args_settings;
 #endif
+    gchar          *timestamp_type;
 } interface_t;
 
 typedef struct link_row_tag {
@@ -226,6 +235,13 @@ typedef struct interface_options_tag {
     GPid              extcap_pid;           /* pid of running process or INVALID_EXTCAP_PID */
     gpointer          extcap_userdata;
     guint             extcap_child_watch;
+#ifdef _WIN32
+    HANDLE            extcap_pipe_h;
+    HANDLE            extcap_control_in_h;
+    HANDLE            extcap_control_out_h;
+#endif
+    gchar            *extcap_control_in;
+    gchar            *extcap_control_out;
 #endif
 #ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     int               buffer_size;
@@ -246,6 +262,9 @@ typedef struct interface_options_tag {
     capture_sampling  sampling_method;
     int               sampling_param;
 #endif
+    gchar            *timestamp_type;       /* requested timestamp as string */
+    int               timestamp_type_id;    /* Timestamp type to pass to pcap_set_tstamp_type.
+                                               only valid if timestamp_type != NULL */
 } interface_options;
 
 /** Capture options coming from user interface */
@@ -296,6 +315,8 @@ typedef struct capture_options_tag {
 
     gboolean           has_file_duration;     /**< TRUE if ring duration specified */
     gint32             file_duration;         /**< Switch file after n seconds */
+    gboolean           has_file_interval;     /**< TRUE if ring interval specified */
+    gint32             file_interval;         /**< Create time intervals of n seconds */
     gboolean           has_ring_num_files;    /**< TRUE if ring num_files specified */
     guint32            ring_num_files;        /**< Number of multiple buffer files */
 
@@ -338,10 +359,15 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg,
 extern void
 capture_opts_log(const char *log_domain, GLogLevelFlags log_level, capture_options *capture_opts);
 
+enum caps_query {
+    CAPS_MONITOR_MODE          = 0x1,
+    CAPS_QUERY_LINK_TYPES      = 0x2,
+    CAPS_QUERY_TIMESTAMP_TYPES = 0x4
+};
+
 /* print interface capabilities, including link layer types */
 extern void
-capture_opts_print_if_capabilities(if_capabilities_t *caps, char *name,
-                                   gboolean monitor_mode);
+capture_opts_print_if_capabilities(if_capabilities_t *caps, char *name, int queries);
 
 /* print list of interfaces */
 extern void

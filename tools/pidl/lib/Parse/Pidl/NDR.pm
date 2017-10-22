@@ -35,7 +35,7 @@ use vars qw($VERSION);
 $VERSION = '0.01';
 @ISA = qw(Exporter);
 @EXPORT = qw(GetPrevLevel GetNextLevel ContainsDeferred ContainsPipe ContainsString);
-@EXPORT_OK = qw(GetElementLevelTable ParseElement ValidElement align_type mapToScalar ParseType can_contain_deferred is_charset_array);
+@EXPORT_OK = qw(GetElementLevelTable ParseElement ReturnTypeElement ValidElement align_type mapToScalar ParseType can_contain_deferred is_charset_array);
 
 use strict;
 use Parse::Pidl qw(warning fatal);
@@ -805,6 +805,25 @@ sub ParseFunction($$$$)
 		};
 }
 
+sub ReturnTypeElement($)
+{
+	my ($fn) = @_;
+
+	return undef unless defined($fn->{RETURN_TYPE});
+
+	my $e = {
+		"NAME" => "result",
+		"TYPE" => $fn->{RETURN_TYPE},
+		"PROPERTIES" => undef,
+		"POINTERS" => 0,
+		"ARRAY_LEN" => [],
+		"FILE" => $fn->{FILE},
+		"LINE" => $fn->{LINE},
+	};
+
+	return ParseElement($e, 0, 0);
+}
+
 sub CheckPointerTypes($$)
 {
 	my ($s,$default) = @_;
@@ -891,7 +910,8 @@ sub ParseInterface($)
 		FUNCTIONS => \@functions,
 		CONSTS => \@consts,
 		TYPES => \@types,
-		ENDPOINTS => \@endpoints
+		ENDPOINTS => \@endpoints,
+		ORIGINAL => $idl
 	};
 }
 
@@ -1084,6 +1104,7 @@ my %property_list = (
 	"nopython"		=> ["FUNCTION", "TYPEDEF", "STRUCT", "UNION", "ENUM", "BITMAP"],
 	"todo"			=> ["FUNCTION"],
 	"skip"			=> ["ELEMENT"],
+	"skip_noinit"		=> ["ELEMENT"],
 
 	# union
 	"switch_is"		=> ["ELEMENT"],

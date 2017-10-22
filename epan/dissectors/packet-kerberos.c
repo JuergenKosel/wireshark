@@ -510,10 +510,7 @@ read_keytab_file_from_preferences(void)
 		return;
 	}
 
-	if (last_keytab != NULL) {
-		g_free(last_keytab);
-		last_keytab = NULL;
-	}
+	g_free(last_keytab);
 	last_keytab = g_strdup(keytab_filename);
 
 	read_keytab_file(last_keytab);
@@ -879,9 +876,9 @@ clear_keytab(void) {
 	for(ske = service_key_list; ske != NULL; ske = g_slist_next(ske)){
 		sk = (service_key_t *) ske->data;
 		if (sk) {
-					g_free(sk->contents);
-					g_free(sk);
-				}
+			g_free(sk->contents);
+			g_free(sk);
+		}
 	}
 	g_slist_free(service_key_list);
 	service_key_list = NULL;
@@ -2228,6 +2225,8 @@ static const value_string kerberos_ENCTYPE_vals[] = {
   {  16, "eTYPE-DES3-CBC-SHA1" },
   {  17, "eTYPE-AES128-CTS-HMAC-SHA1-96" },
   {  18, "eTYPE-AES256-CTS-HMAC-SHA1-96" },
+  {  19, "eTYPE-AES128-CTS-HMAC-SHA256-128" },
+  {  20, "eTYPE-AES256-CTS-HMAC-SHA384-192" },
   {  23, "eTYPE-ARCFOUR-HMAC-MD5" },
   {  24, "eTYPE-ARCFOUR-HMAC-MD5-56" },
   {  25, "eTYPE-CAMELLIA128-CTS-CMAC" },
@@ -2884,7 +2883,6 @@ guint32 msgtype;
 static const value_string kerberos_PADATA_TYPE_vals[] = {
   {   0, "kRB5-PADATA-NONE" },
   {   1, "kRB5-PADATA-TGS-REQ" },
-  {   1, "kRB5-PADATA-AP-REQ" },
   {   2, "kRB5-PADATA-ENC-TIMESTAMP" },
   {   3, "kRB5-PADATA-PW-SALT" },
   {   5, "kRB5-PADATA-ENC-UNIX-TIME" },
@@ -2898,13 +2896,11 @@ static const value_string kerberos_PADATA_TYPE_vals[] = {
   {  13, "kRB5-PADATA-SAM-RESPONSE" },
   {  14, "kRB5-PADATA-PK-AS-REQ-19" },
   {  15, "kRB5-PADATA-PK-AS-REP-19" },
-  {  15, "kRB5-PADATA-PK-AS-REQ-WIN" },
   {  16, "kRB5-PADATA-PK-AS-REQ" },
   {  17, "kRB5-PADATA-PK-AS-REP" },
   {  18, "kRB5-PADATA-PA-PK-OCSP-RESPONSE" },
   {  19, "kRB5-PADATA-ETYPE-INFO2" },
   {  20, "kRB5-PADATA-USE-SPECIFIED-KVNO" },
-  {  20, "kRB5-PADATA-SVR-REFERRAL-INFO" },
   {  21, "kRB5-PADATA-SAM-REDIRECT" },
   {  22, "kRB5-PADATA-GET-FROM-TYPED-DATA" },
   {  23, "kRB5-PADATA-SAM-ETYPE-INFO" },
@@ -4212,7 +4208,7 @@ dissect_kerberos_ChangePasswdData(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 
 /*--- End of included file: packet-kerberos-fn.c ---*/
-#line 1856 "./asn1/kerberos/packet-kerberos-template.c"
+#line 1853 "./asn1/kerberos/packet-kerberos-template.c"
 
 /* Make wrappers around exported functions for now */
 int
@@ -5266,7 +5262,7 @@ void proto_register_kerberos(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-kerberos-hfarr.c ---*/
-#line 2237 "./asn1/kerberos/packet-kerberos-template.c"
+#line 2234 "./asn1/kerberos/packet-kerberos-template.c"
 	};
 
 	/* List of subtrees */
@@ -5344,7 +5340,7 @@ void proto_register_kerberos(void) {
     &ett_kerberos_ChangePasswdData,
 
 /*--- End of included file: packet-kerberos-ettarr.c ---*/
-#line 2253 "./asn1/kerberos/packet-kerberos-template.c"
+#line 2250 "./asn1/kerberos/packet-kerberos-template.c"
 	};
 
 	static ei_register_info ei[] = {
@@ -5379,7 +5375,7 @@ void proto_register_kerberos(void) {
 	prefs_register_filename_preference(krb_module, "file",
 				   "Kerberos keytab file",
 				   "The keytab file containing all the secrets",
-				   &keytab_filename);
+				   &keytab_filename, FALSE);
 #endif
 
 }

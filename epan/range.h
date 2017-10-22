@@ -48,6 +48,7 @@ typedef struct range_admin_tag {
     guint32 low;
     guint32 high;
 } range_admin_t;
+#define RANGE_ADMIN_T_INITIALIZER { 0, 0 }
 
 /** user specified range(s) */
 typedef struct epan_range {
@@ -130,11 +131,13 @@ WS_DLL_PUBLIC gboolean range_remove_value(wmem_allocator_t *scope, range_t **ran
 WS_DLL_PUBLIC gboolean ranges_are_equal(range_t *a, range_t *b);
 
 /** This function calls the provided callback function for each value in
- * in the range.
+ * in the range. Takes a pointer argument, which is passed to the
+ * callback, along with the value in the range.
  * @param range the range
  * @param callback the callback function
+ * @param ptr pointer passed to the callback
  */
-WS_DLL_PUBLIC void range_foreach(range_t *range, void (*callback)(guint32 val));
+WS_DLL_PUBLIC void range_foreach(range_t *range, void (*callback)(guint32 val, gpointer ptr), gpointer ptr);
 
 /**
  * This function converts a range_t to a (wmem_alloc()-allocated) string.

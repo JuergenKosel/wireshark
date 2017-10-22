@@ -32,9 +32,11 @@
 #include <epan/addr_resolv.h>
 #include <epan/expert.h>
 #include <epan/proto_data.h>
+#include <wsutil/bits_ctz.h>    /* for ws_ctz */
 #include "packet-ieee802154.h"
 #include "packet-zbee.h"
 #include "packet-zbee-nwk.h"
+#include "packet-zbee-aps.h"    /* for ZBEE_APS_CMD_KEY_LENGTH */
 #include "packet-zbee-security.h"
 #include <wsutil/glib-compat.h>
 
@@ -150,6 +152,7 @@ static int hf_zbee_nwk_cmd_update_type = -1;
 static int hf_zbee_nwk_cmd_update_count = -1;
 static int hf_zbee_nwk_cmd_update_id = -1;
 static int hf_zbee_nwk_panid = -1;
+static int hf_zbee_zboss_nwk_cmd_key = -1;
 static int hf_zbee_nwk_cmd_epid = -1;
 static int hf_zbee_nwk_cmd_end_device_timeout_request_enum = -1;
 static int hf_zbee_nwk_cmd_end_device_configuration = -1;
@@ -269,6 +272,7 @@ static const value_string zbee_nwk_rejoin_codes[] = {
 /* Network Report Types */
 static const value_string zbee_nwk_report_types[] = {
     { ZBEE_NWK_CMD_NWK_REPORT_ID_PAN_CONFLICT,  "PAN Identifier Conflict" },
+    { ZBEE_NWK_CMD_NWK_REPORT_ID_ZBOSS_KEY_TRACE,  "ZBOSS key trace" },
     { 0, NULL }
 };
 
@@ -396,17 +400,27 @@ dissect_zbee_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
     ieee802154_packet   *packet = (ieee802154_packet *)data;
     guint16             fcf;
     guint               ver;
+    guint               type;
 
     /* All ZigBee frames must always have a 16-bit source and destination address. */
     if (packet == NULL) return FALSE;
-    if (packet->src_addr_mode != IEEE802154_FCF_ADDR_SHORT && packet->src_addr_mode != IEEE802154_FCF_ADDR_EXT) return FALSE;
-    if (packet->dst_addr_mode != IEEE802154_FCF_ADDR_SHORT) return FALSE;
 
     /* If the frame type and version are not sane, then it's probably not ZigBee. */
     fcf = tvb_get_letohs(tvb, 0);
     ver = zbee_get_bit_field(fcf, ZBEE_NWK_FCF_VERSION);
+    type = zbee_get_bit_field(fcf, ZBEE_NWK_FCF_FRAME_TYPE);
     if ((ver < ZBEE_VERSION_2004) || (ver > ZBEE_VERSION_2007)) return FALSE;
-    if (!try_val_to_str(zbee_get_bit_field(fcf, ZBEE_NWK_FCF_FRAME_TYPE), zbee_nwk_frame_types)) return FALSE;
+    if (!try_val_to_str(type, zbee_nwk_frame_types)) return FALSE;
+
+    /* All interpan frames should originate from an extended address. */
+    if (type == ZBEE_NWK_FCF_INTERPAN) {
+        if (packet->src_addr_mode != IEEE802154_FCF_ADDR_EXT) return FALSE;
+    }
+    /* All other ZigBee frames must have 16-bit source and destination addresses. */
+    else {
+        if (packet->src_addr_mode != IEEE802154_FCF_ADDR_SHORT) return FALSE;
+        if (packet->dst_addr_mode != IEEE802154_FCF_ADDR_SHORT) return FALSE;
+    }
 
     /* Assume it's ZigBee */
     dissect_zbee_nwk(tvb, pinfo, tree, packet);
@@ -1359,6 +1373,7 @@ dissect_zbee_nwk_report(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gui
     proto_tree_add_uint(tree, hf_zbee_nwk_cmd_report_type, tvb, offset, 1, report_type);
     proto_tree_add_uint(tree, hf_zbee_nwk_cmd_report_count, tvb, offset, 1, report_count);
     offset += 1;
+    report_type >>= ws_ctz(ZBEE_NWK_CMD_NWK_REPORT_ID_MASK);
 
     /* Get and display the epid. */
     proto_tree_add_item(tree, hf_zbee_nwk_cmd_epid, tvb, offset, 8, ENC_LITTLE_ENDIAN);
@@ -1371,6 +1386,16 @@ dissect_zbee_nwk_report(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gui
             proto_tree_add_item(tree, hf_zbee_nwk_panid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset += 2;
         } /* for */
+    }
+    if (report_type == ZBEE_NWK_CMD_NWK_REPORT_ID_ZBOSS_KEY_TRACE) {
+        guint8              key[ZBEE_APS_CMD_KEY_LENGTH];
+
+        for (i=0; i<ZBEE_APS_CMD_KEY_LENGTH ; i++) {
+            key[i] = tvb_get_guint8(tvb, offset+i);
+        } /* for */
+        proto_tree_add_item(tree, hf_zbee_zboss_nwk_cmd_key, tvb, offset, ZBEE_APS_CMD_KEY_LENGTH, ENC_NA);
+        offset += ZBEE_APS_CMD_KEY_LENGTH;
+        zbee_sec_add_key_to_keyring(pinfo, key);
     }
 
     /* Update the info column. */
@@ -2033,6 +2058,10 @@ void proto_register_zbee_nwk(void)
 
             { &hf_zbee_nwk_panid,
             { "PAN ID",        "zbee_nwk.panid", FT_UINT16, BASE_HEX, NULL, 0x0,
+                NULL, HFILL }},
+
+            { &hf_zbee_zboss_nwk_cmd_key,
+            { "ZBOSS Key",        "zbee_nwk.zboss_key", FT_BYTES, BASE_NONE, NULL, 0x0,
                 NULL, HFILL }},
 
             { &hf_zbee_nwk_cmd_epid,

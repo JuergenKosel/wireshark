@@ -31,7 +31,7 @@ extern "C" {
 #include <glib.h>
 #include <stdio.h>
 #include "epan/timestamp.h"
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
 
 /** @file
  *  Recent user interface settings.
@@ -111,10 +111,17 @@ typedef struct recent_settings_tag {
     gboolean    gui_rlc_use_pdus_from_mac;
     GList      *custom_colors;
     GList      *gui_additional_toolbars;
+    GList      *interface_toolbars;
 } recent_settings_t;
 
 /** Global recent settings. */
 extern recent_settings_t recent;
+
+/** Initialize recent settings module (done at startup) */
+extern void recent_init(void);
+
+/** Cleanup/Frees recent settings (done at shutdown) */
+extern void recent_cleanup(void);
 
 /** Write recent settings file.
  *

@@ -58,6 +58,7 @@
 #include "packet-l2tp.h"
 #include "packet-vxlan.h"
 #include "packet-mpls.h"
+#include "packet-nsh.h"
 
 #ifdef HAVE_GEOIP
 #include <GeoIP.h>
@@ -95,7 +96,8 @@ static gboolean ip_use_geoip = TRUE;
 /* Interpret the reserved flag as security flag (RFC 3514) */
 static gboolean ip_security_flag = FALSE;
 
-int proto_ip = -1;
+static int proto_ip = -1;
+
 static int proto_ip_option_eol = -1;
 static int proto_ip_option_nop = -1;
 static int proto_ip_option_security = -1;
@@ -312,6 +314,17 @@ static capture_dissector_handle_t ip_cap_handle;
 
 /* IP structs and definitions */
 
+const value_string ip_version_vals[] = {
+  { IP_VERSION_NUM_RESERVED,       "Reserved" },
+  { IP_VERSION_NUM_INET,           "IPv4" },
+  { IP_VERSION_NUM_ST,             "ST Datagram" },
+  { IP_VERSION_NUM_INET6,          "IPv6" },
+  { IP_VERSION_NUM_TPIX,           "TP/IX" },
+  { IP_VERSION_NUM_PIP,            "PIP" },
+  { IP_VERSION_NUM_TUBA,           "TUBA" },
+  { 0, NULL },
+};
+
 /* Offsets of fields within an IP header. */
 #define IPH_V_HL                0
 #define IPH_TOS                 1
@@ -524,7 +537,7 @@ static int
 ip_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip)
 {
     conv_hash_t *hash = (conv_hash_t*) pct;
-    const ws_ip *iph=(const ws_ip *)vip;
+    const ws_ip4 *iph=(const ws_ip4 *)vip;
 
     add_conversation_table_data(hash, &iph->ip_src, &iph->ip_dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &ip_ct_dissector_info, PT_NONE);
 
@@ -545,7 +558,7 @@ static int
 ip_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip)
 {
     conv_hash_t *hash = (conv_hash_t*) pit;
-    const ws_ip *iph=(const ws_ip *)vip;
+    const ws_ip4 *iph=(const ws_ip4 *)vip;
 
     /* Take two "add" passes per packet, adding for each direction, ensures that all
     packets are counted properly (even if address is sending to itself)
@@ -847,8 +860,7 @@ dissect_ipopt_security(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
   proto_item *tf;
   guint      val;
   guint      curr_offset = 2;
-  guint offset = 2,
-      optlen = tvb_reported_length(tvb);
+  guint      optlen = tvb_reported_length(tvb);
 
   field_tree = ip_var_option_header(tree, pinfo, tvb, proto_ip_option_security, ett_ip_option_sec, &tf, optlen);
 
@@ -876,7 +888,7 @@ dissect_ipopt_security(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
   /* Dissect as RFC 108 */
   proto_tree_add_item(field_tree, hf_ip_opt_sec_cl, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
   curr_offset++;
-  if ((curr_offset - offset) >= optlen) {
+  if (curr_offset >= optlen) {
     return curr_offset;
   }
   val = tvb_get_guint8(tvb, curr_offset);
@@ -885,7 +897,7 @@ dissect_ipopt_security(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                          ENC_BIG_ENDIAN);
   curr_offset++;
   while (val & 0x01) {
-    if ((val & 0x01) && ((curr_offset - offset) == optlen)) {
+    if ((val & 0x01) && (curr_offset == optlen)) {
       expert_add_info(pinfo, tf, &ei_ip_opt_sec_prot_auth_fti);
       break;
     }
@@ -895,7 +907,7 @@ dissect_ipopt_security(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                            ENC_BIG_ENDIAN);
     curr_offset++;
   }
-  if ((curr_offset - offset) < optlen) {
+  if (curr_offset < optlen) {
     expert_add_info(pinfo, tf, &ei_ip_extraneous_data);
   }
 
@@ -1515,7 +1527,7 @@ dissect_ipopt_qs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * dat
   proto_tree *field_tree;
   proto_item *tf;
   proto_item *ti;
-  ws_ip *iph = (ws_ip*)data;
+  ws_ip4 *iph = (ws_ip4 *)data;
   gint       offset = 2;
 
   guint8 command = tvb_get_guint8(tvb, offset);
@@ -1841,7 +1853,7 @@ static const true_false_string flags_sf_set_evil = {
 
 gboolean
 ip_try_dissect(gboolean heur_first, guint nxt, tvbuff_t *tvb, packet_info *pinfo,
-               proto_tree *tree, ws_ip *iph)
+               proto_tree *tree, void *iph)
 {
   heur_dtbl_entry_t *hdtbl_entry;
 
@@ -1872,21 +1884,35 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
   guint32    addr;
   int        offset = 0, dst_off;
   guint      hlen, optlen;
-  guint16    flags;
   guint16    ipsum;
   fragment_head *ipfd_head = NULL;
   tvbuff_t   *next_tvb;
   gboolean   update_col_info = TRUE;
   gboolean   save_fragmented;
-  ws_ip *iph;
+  ws_ip4 *iph;
   guint32    src32, dst32;
   proto_tree *tree;
   proto_item *item = NULL, *ttl_item;
   guint16 ttl;
-  int bit_offset;
+
+  static const int * ip_flags[] = {
+      &hf_ip_flags_rf,
+      &hf_ip_flags_df,
+      &hf_ip_flags_mf,
+      &hf_ip_frag_offset,
+      NULL
+  };
+  /* XXX do we realy want decoding of an april fools joke? */
+  static const int * ip_flags_evil[] = {
+      &hf_ip_flags_sf,
+      &hf_ip_flags_df,
+      &hf_ip_flags_mf,
+      &hf_ip_frag_offset,
+      NULL
+  };
 
   tree = parent_tree;
-  iph = wmem_new0(wmem_packet_scope(), ws_ip);
+  iph = wmem_new0(wmem_packet_scope(), ws_ip4);
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "IPv4");
   col_clear(pinfo->cinfo, COL_INFO);
@@ -1932,6 +1958,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     return tvb_captured_length(tvb);
   }
 
+  // This should be consistent with tcp.hdr_len.
   proto_tree_add_uint_bits_format_value(ip_tree, hf_ip_hdr_len, tvb, (offset<<3)+4, 4, hlen,
                                "%u bytes (%u)", hlen, hlen>>2);
 
@@ -2030,35 +2057,19 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     proto_tree_add_uint(ip_tree, hf_ip_id, tvb, offset + 4, 2, iph->ip_id);
 
   iph->ip_off = tvb_get_ntohs(tvb, offset + 6);
-  bit_offset = (offset + 6) * 8;
 
-  flags = (iph->ip_off & (IP_RF | IP_DF | IP_MF)) >> IP_OFFSET_WIDTH;
-  tf = proto_tree_add_uint(ip_tree, hf_ip_flags, tvb, offset + 6, 1, flags);
-  field_tree = proto_item_add_subtree(tf, ett_ip_off);
   if (ip_security_flag) {
-      proto_item *sf;
+    proto_item *sf;
 
-      sf = proto_tree_add_bits_item(field_tree, hf_ip_flags_sf, tvb,
-                                    bit_offset + 0, 1, ENC_BIG_ENDIAN);
-      if (iph->ip_off & IP_RF) {
-        proto_item_append_text(tf, " (Evil packet!)");
+    sf = proto_tree_add_bitmask_with_flags(ip_tree, tvb, offset + 6, hf_ip_flags,
+        ett_ip_off, ip_flags_evil, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_TFS | BMT_NO_INT);
+    if (iph->ip_off & IP_RF) {
         expert_add_info(pinfo, sf, &ei_ip_evil_packet);
-      }
+    }
   } else {
-      proto_tree_add_bits_item(field_tree, hf_ip_flags_rf, tvb, bit_offset + 0,
-                               1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask_with_flags(ip_tree, tvb, offset + 6, hf_ip_flags,
+        ett_ip_off, ip_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_TFS | BMT_NO_INT);
   }
-  if (iph->ip_off & IP_DF)
-    proto_item_append_text(tf, " (Don't Fragment)");
-
-  proto_tree_add_bits_item(field_tree, hf_ip_flags_df, tvb, bit_offset + 1,
-                             1, ENC_BIG_ENDIAN);
-  if (iph->ip_off & IP_MF)
-      proto_item_append_text(tf, " (More Fragments)");
-  proto_tree_add_bits_item(field_tree, hf_ip_flags_mf, tvb, bit_offset + 2,
-                             1, ENC_BIG_ENDIAN);
-  proto_tree_add_uint(ip_tree, hf_ip_frag_offset, tvb, offset + 6, 2,
-                        (iph->ip_off & IP_OFFSET)*8);
 
   iph->ip_ttl = tvb_get_guint8(tvb, offset + 8);
   if (tree) {
@@ -2067,7 +2078,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     ttl_item = NULL;
   }
 
-  iph->ip_nxt = tvb_get_guint8(tvb, offset + 9);
+  iph->ip_proto = tvb_get_guint8(tvb, offset + 9);
   if (tree) {
     proto_tree_add_item(ip_tree, hf_ip_proto, tvb, offset + 9, 1, ENC_BIG_ENDIAN);
   }
@@ -2076,10 +2087,9 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 
   /*
    * If checksum checking is enabled, and we have the entire IP header
-   * available, and this isn't inside an ICMP error packet, check the
-   * checksum.
+   * available, check the checksum.
    */
-  if (ip_check_checksum && tvb_bytes_exist(tvb, offset, hlen)&&(!pinfo->flags.in_error_pkt)) {
+  if (ip_check_checksum && tvb_bytes_exist(tvb, offset, hlen)) {
     ipsum = ip_checksum_tvb(tvb, offset, hlen);
     item = proto_tree_add_checksum(ip_tree, tvb, offset + 10, hf_ip_checksum, hf_ip_checksum_status, &ei_ip_checksum_bad, pinfo, ipsum,
                                 ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY|PROTO_CHECKSUM_IN_CKSUM);
@@ -2104,9 +2114,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
                                         "0x%04x [%s]",
                                         iph->ip_sum,
                                         ip_check_checksum ?
-                                            (pinfo->flags.in_error_pkt ?
-                                             "in ICMP error packet" :
-                                             "not all data available") :
+                                            "not all data available" :
                                             "validation disabled");
     item = proto_tree_add_uint(ip_tree, hf_ip_checksum_status, tvb,
                                     offset + 10, 0, PROTO_CHECKSUM_E_UNVERIFIED);
@@ -2176,8 +2184,8 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
   } else if (!is_a_multicast_addr(dst32) &&
 	/* At least BGP should appear here as well */
 	iph->ip_ttl < 5 &&
-        iph->ip_nxt != IP_PROTO_PIM &&
-        iph->ip_nxt != IP_PROTO_OSPF) {
+        iph->ip_proto != IP_PROTO_PIM &&
+        iph->ip_proto != IP_PROTO_OSPF) {
     expert_add_info_format(pinfo, ttl_item, &ei_ip_ttl_too_small, "\"Time To Live\" only %u", iph->ip_ttl);
   }
 
@@ -2235,7 +2243,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     dissect_ip_options(tvb, offset + 20, optlen, pinfo, field_tree, tf, iph);
   }
 
-  p_add_proto_data(pinfo->pool, pinfo, proto_ip, pinfo->curr_layer_num, GUINT_TO_POINTER((guint)iph->ip_nxt));
+  p_add_proto_data(pinfo->pool, pinfo, proto_ip, pinfo->curr_layer_num, GUINT_TO_POINTER((guint)iph->ip_proto));
   tap_queue_packet(ip_tap, pinfo, iph);
 
   /* Skip over header + options */
@@ -2247,11 +2255,12 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
    */
   save_fragmented = pinfo->fragmented;
   if (ip_defragment && (iph->ip_off & (IP_MF|IP_OFFSET)) &&
+      iph->ip_len > hlen &&
       tvb_bytes_exist(tvb, offset, iph->ip_len - hlen) &&
       ipsum == 0) {
     ipfd_head = fragment_add_check(&ip_reassembly_table, tvb, offset,
                                    pinfo,
-                                   iph->ip_nxt ^ iph->ip_id ^ src32 ^ dst32 ^ pinfo->vlan_id,
+                                   iph->ip_proto ^ iph->ip_id ^ src32 ^ dst32 ^ pinfo->vlan_id,
                                    NULL,
                                    (iph->ip_off & IP_OFFSET) * 8,
                                    iph->ip_len - hlen,
@@ -2290,7 +2299,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     /* Just show this as a fragment. */
     col_add_fstr(pinfo->cinfo, COL_INFO,
                  "Fragmented IP protocol (proto=%s %u, off=%u, ID=%04x)",
-                 ipprotostr(iph->ip_nxt), iph->ip_nxt,
+                 ipprotostr(iph->ip_proto), iph->ip_proto,
                  (iph->ip_off & IP_OFFSET) * 8, iph->ip_id);
     if ( ipfd_head && ipfd_head->reassembled_in != pinfo->num ) {
       col_append_fstr(pinfo->cinfo, COL_INFO, " [Reassembled in #%u]",
@@ -2311,12 +2320,12 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
      even be labeled as an IP frame; ideally, if a frame being dissected
      throws an exception, it'll be labeled as a mangled frame of the
      type in question. */
-    if (!ip_try_dissect(try_heuristic_first, iph->ip_nxt, next_tvb, pinfo,
+    if (!ip_try_dissect(try_heuristic_first, iph->ip_proto, next_tvb, pinfo,
                         parent_tree, iph)) {
       /* Unknown protocol */
       if (update_col_info) {
         col_add_fstr(pinfo->cinfo, COL_INFO, "%s (%u)",
-                   ipprotostr(iph->ip_nxt), iph->ip_nxt);
+                   ipprotostr(iph->ip_proto), iph->ip_proto);
       }
       call_data_dissector(next_tvb, pinfo, parent_tree);
     }
@@ -2600,28 +2609,28 @@ proto_register_ip(void)
 #endif /* HAVE_GEOIP */
 
     { &hf_ip_flags,
-      { "Flags", "ip.flags", FT_UINT8, BASE_HEX,
+      { "Flags", "ip.flags", FT_UINT16, BASE_HEX,
         NULL, 0x0, FLAGS_OFFSET_WIDTH_MSG(IP_FLAGS_WIDTH), HFILL }},
 
     { &hf_ip_flags_sf,
-      { "Security flag", "ip.flags.sf", FT_BOOLEAN, BASE_NONE,
-        TFS(&flags_sf_set_evil), 0x0, "Security flag (RFC 3514)", HFILL }},
+      { "Security flag", "ip.flags.sf", FT_BOOLEAN, 16,
+        TFS(&flags_sf_set_evil), 0x8000, "Security flag (RFC 3514)", HFILL }},
 
     { &hf_ip_flags_rf,
-      { "Reserved bit", "ip.flags.rb", FT_BOOLEAN, BASE_NONE,
-        TFS(&tfs_set_notset), 0x0, NULL, HFILL }},
+      { "Reserved bit", "ip.flags.rb", FT_BOOLEAN, 16,
+        TFS(&tfs_set_notset), 0x8000, NULL, HFILL }},
 
     { &hf_ip_flags_df,
-      { "Don't fragment", "ip.flags.df", FT_BOOLEAN, BASE_NONE,
-        TFS(&tfs_set_notset), 0x0, NULL, HFILL }},
+      { "Don't fragment", "ip.flags.df", FT_BOOLEAN, 16,
+        TFS(&tfs_set_notset), 0x4000, NULL, HFILL }},
 
     { &hf_ip_flags_mf,
-      { "More fragments", "ip.flags.mf", FT_BOOLEAN, BASE_NONE,
-        TFS(&tfs_set_notset), 0x0, NULL, HFILL }},
+      { "More fragments", "ip.flags.mf", FT_BOOLEAN, 16,
+        TFS(&tfs_set_notset), 0x2000, NULL, HFILL }},
 
     { &hf_ip_frag_offset,
       { "Fragment offset", "ip.frag_offset", FT_UINT16, BASE_DEC,
-        NULL, 0x0, FRAG_OFFSET_WIDTH_MSG(IP_OFFSET_WIDTH), HFILL }},
+        NULL, 0x1fff, FRAG_OFFSET_WIDTH_MSG(IP_OFFSET_WIDTH), HFILL }},
 
     { &hf_ip_ttl,
       { "Time to live", "ip.ttl", FT_UINT8, BASE_DEC,
@@ -3062,6 +3071,7 @@ proto_reg_handoff_ip(void)
   dissector_add_uint("wtap_encap", WTAP_ENCAP_RAW_IP4, ip_handle);
   dissector_add_uint("enc", BSD_AF_INET, ip_handle);
   dissector_add_uint("vxlan.next_proto", VXLAN_IPV4, ip_handle);
+  dissector_add_uint("nsh.next_proto", NSH_IPV4, ip_handle);
 
   heur_dissector_add("tipc", dissect_ip_heur, "IP over TIPC", "ip_tipc", proto_ip, HEURISTIC_ENABLE);
 

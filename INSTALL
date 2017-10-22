@@ -52,7 +52,7 @@ README.windows for those instructions.
    install a "development" package; for example, there's
    apparently a "libpcap0" Debian package, but it just includes a
    shared library, a copyright notice, changelog files, and a
-   README file - you also need to install a "libpcap-dev" package
+   README.md file - you also need to install a "libpcap-dev" package
    to get header files, a non-shared library, and the man page.
    Similarly, Red Hat users will need to install a "libpcap-devel"
    .rpm to go along with the "libpcap" .rpm.
@@ -215,13 +215,9 @@ README.windows for those instructions.
    working. You must have root privileges in order to capture live data.
 
 10./a. Run 'make install'.  If you're running a system that supports
-   the RPM, OSX, or System V Release 4 packaging systems, you can
-   run one of
+   the RPM packaging systems you can run
 
-        make rpm-package	# Builds a binary package using rpm
-        make svr4-package	# Builds a binary package using pkgmk
-        make solaris-package	# Same as "make svr4-package"
-        make osx-package	# Builds a binary package for OSX
+        make rpm-package
 
    to make an installable package for your system.
 

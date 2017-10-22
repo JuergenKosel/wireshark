@@ -129,6 +129,9 @@ struct infinibandinfo {
     gboolean dctConnect;        /* indicator for DCT connect/disconnect */
     guint16 cm_attribute_id;    /* attribute id for CM messages */
     proto_tree* payload_tree;
+    guint32 reth_remote_key;    /* Remote Key from RETH header */
+    guint32 reth_dma_length;    /* DMA Length from RETH header */
+    guint32 packet_seq_num;     /* Packet sequence number */
 };
 
 #endif

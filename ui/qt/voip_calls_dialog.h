@@ -28,6 +28,8 @@
 
 #include "ui/voip_calls.h"
 
+#include <ui/qt/models/voip_calls_info_model.h>
+#include <ui/qt/models/cache_proxy_model.h>
 #include "wireshark_dialog.h"
 
 #include <QMenu>
@@ -35,7 +37,6 @@
 struct _capture_file;
 
 class QAbstractButton;
-class QTreeWidgetItem;
 
 class SequenceInfo;
 
@@ -43,7 +44,6 @@ namespace Ui {
 class VoipCallsDialog;
 }
 
-class QTreeWidgetItem;
 class VoipCallsDialog : public WiresharkDialog
 {
     Q_OBJECT
@@ -68,6 +68,9 @@ protected slots:
 
 private:
     Ui::VoipCallsDialog *ui;
+    VoipCallsInfoModel *call_infos_model_;
+    CacheProxyModel *cache_model_;
+    QSortFilterProxyModel *sorted_model_;
 
     QWidget &parent_;
     voip_calls_tapinfo_t tapinfo_;
@@ -84,7 +87,6 @@ private:
     static void tapDraw(void *tapinfo_ptr);
 
     void updateCalls();
-    void updateWidgets();
     void prepareFilter();
     void showSequence();
     void showPlayer();
@@ -93,14 +95,14 @@ private:
 
 private slots:
     void captureFileClosing();
-    void on_callTreeWidget_itemActivated(QTreeWidgetItem *item, int);
-    void on_callTreeWidget_itemSelectionChanged();
+    void on_callTreeView_activated(const QModelIndex &index);
     void on_actionSelect_All_triggered();
     void on_actionCopyAsCsv_triggered();
     void on_actionCopyAsYaml_triggered();
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_buttonBox_helpRequested();
-    void on_todCheckBox_clicked();
+    void on_todCheckBox_stateChanged(int state);
+    void updateWidgets();
 };
 
 #endif // VOIP_CALLS_DIALOG_H

@@ -60,10 +60,11 @@ EXTRA_DIST = \
 	lex.py						\
 	licensecheck.pl					\
 	list_protos_in_cap.sh				\
+	macos-setup.sh					\
+	macos-setup-brew.sh				\
 	make-dissector-reg.py				\
 	make-manuf					\
 	make-sminmpec.pl				\
-	make-services.pl				\
 	make-services.py				\
 	make-tap-reg.py					\
 	make-usb.py					\
@@ -84,12 +85,9 @@ EXTRA_DIST = \
 	rdps.py						\
 	rpm_setup.sh 					\
 	runa2x.sh					\
-	runlex.sh					\
-	setuid-root.pl.in				\
 	test-common.sh					\
 	test-captures.sh				\
 	textify.ps1					\
-	tpg						\
 	usb-ptp-extract-models.pl			\
 	usb-ptp-extract-models.txt			\
 	valgrind-wireshark.sh				\
@@ -102,21 +100,5 @@ EXTRA_DIST = \
 	ws-coding-style.cfg				\
 	yacc.py
 
-noinst_SCRIPTS = setuid-root.pl
-
-setuid-root.pl: setuid-root.pl.in Makefile
-	$(AM_V_SED)$(SED) \
-		-e 's,@BIN_PREFIX\@,$(bindir),' \
-		-e 's,@TSHARK_BIN\@,$(tshark_bin)$(EEXT),' \
-		-e 's,@DUMPCAP_BIN\@,$(dumpcap_bin)$(EEXT),' \
-		< $(srcdir)/setuid-root.pl.in > setuid-root.pl; \
-	chmod +x setuid-root.pl
-
 CLEANFILES = \
 	*.pyc
-
-DISTCLEANFILES = \
-	setuid-root.pl
-
-MAINTAINERCLEANFILES = \
-	Makefile.in

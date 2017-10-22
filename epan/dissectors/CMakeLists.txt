@@ -42,10 +42,10 @@ add_custom_command(
 
 add_custom_target(x11-dissector
 	COMMAND ${PERL_EXECUTABLE}
-		${CMAKE_SOURCE_DIR}/tools/process-x11-fields.pl ${CMAKE_CURRENT_SOURCE_DIR}/dissectors
+		${CMAKE_SOURCE_DIR}/tools/process-x11-fields.pl ${CMAKE_CURRENT_SOURCE_DIR}
 		< ${CMAKE_CURRENT_SOURCE_DIR}/x11-fields
 	COMMAND ${PERL_EXECUTABLE}
-		${CMAKE_SOURCE_DIR}/tools/process-x11-xcb.pl ${CMAKE_CURRENT_SOURCE_DIR}/dissectors
+		${CMAKE_SOURCE_DIR}/tools/process-x11-xcb.pl ${CMAKE_CURRENT_SOURCE_DIR}
 	DEPENDS
 		x11-fields
 		${CMAKE_SOURCE_DIR}/tools/process-x11-fields.pl
@@ -196,7 +196,6 @@ add_library(dissectors-corba OBJECT
 set_target_properties(dissectors-corba PROPERTIES
 	FOLDER "Libs/epan/dissectors"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
-	COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}"
 )
 
 if(WIN32 AND "${CMAKE_GENERATOR}" STREQUAL "Visual Studio 12 2013 Win64")
@@ -209,6 +208,373 @@ set(NCP2222_DISSECTOR_SRC
 )
 
 source_group(dissectors-ncp2222 FILES ${NCP2222_DISSECTOR_SRC})
+
+set(DISSECTOR_PUBLIC_HEADERS
+	packet-6lowpan.h
+	packet-a21.h
+	packet-acp133.h
+	packet-acse.h
+	packet-actrace.h
+	packet-adb_service.h
+	packet-afp.h
+	packet-alcap.h
+	packet-ansi_a.h
+	packet-ansi_map.h
+	packet-ansi_tcap.h
+	packet-arp.h
+	packet-atalk.h
+	packet-atm.h
+	packet-atn-ulcs.h
+	packet-bacapp.h
+	packet-ber.h
+	packet-bfd.h
+	packet-bgp.h
+	packet-bluetooth.h
+	packet-bssap.h
+	packet-bssgp.h
+	packet-btatt.h
+	packet-btavctp.h
+	packet-btavdtp.h
+	packet-btavrcp.h
+	packet-bthci_acl.h
+	packet-bthci_cmd.h
+	packet-bthci_evt.h
+	packet-bthci_sco.h
+	packet-btl2cap.h
+	packet-btle.h
+	packet-btrfcomm.h
+	packet-btsdp.h
+	packet-c1222.h
+	packet-camel.h
+	packet-cdt.h
+	packet-cell_broadcast.h
+	packet-charging_ase.h
+	packet-chdlc.h
+	packet-cip.h
+	packet-cipsafety.h
+	packet-clearcase.h
+	packet-cmip.h
+	packet-cmp.h
+	packet-cms.h
+	packet-coap.h
+	packet-credssp.h
+	packet-crmf.h
+	packet-csn1.h
+	packet-dap.h
+	packet-dcc.h
+	packet-dccp.h
+	packet-dcerpc.h
+	packet-dcerpc-browser.h
+	packet-dcerpc-budb.h
+	packet-dcerpc-butc.h
+	packet-dcerpc-dce122.h
+	packet-dcerpc-dcom.h
+	packet-dcerpc-dnsserver.h
+	packet-dcerpc-frsapi.h
+	packet-dcerpc-frsrpc.h
+	packet-dcerpc-netlogon.h
+	packet-dcerpc-nt.h
+	packet-dcerpc-pnp.h
+	packet-dcerpc-rras.h
+	packet-dcerpc-samr.h
+	packet-dcerpc-spoolss.h
+	packet-dcerpc-svcctl.h
+	packet-dcerpc-tapi.h
+	packet-dcom.h
+	packet-dcom-dispatch.h
+	packet-diameter.h
+	packet-diameter_3gpp.h
+	packet-diffserv-mpls-common.h
+	packet-disp.h
+	packet-dns.h
+	packet-dop.h
+	packet-dsp.h
+	packet-dtls.h
+	packet-dtn.h
+	packet-dvbci.h
+	packet-enip.h
+	packet-erf.h
+	packet-e164.h
+	packet-e212.h
+	packet-eapol.h
+	packet-edonkey.h
+	packet-eigrp.h
+	packet-epl.h
+	packet-epmd.h
+	packet-ess.h
+	packet-eth.h
+	packet-fc.h
+	packet-fcbls.h
+	packet-fcct.h
+	packet-fcels.h
+	packet-fcfcs.h
+	packet-fcfzs.h
+	packet-fclctl.h
+	packet-fcp.h
+	packet-fcsb3.h
+	packet-fcswils.h
+	packet-ff.h
+	packet-fix.h
+	packet-fmp.h
+	packet-frame.h
+	packet-ftam.h
+	packet-giop.h
+	packet-gluster.h
+	packet-gmr1_common.h
+	packet-gmr1_rr.h
+	packet-gnutella.h
+	packet-gprscdr.h
+	packet-gre.h
+	packet-gsm_a_common.h
+	packet-gsm_a_rr.h
+	packet-gsm_map.h
+	packet-gsm_rlcmac.h
+	packet-gsm_sms.h
+	packet-gsmtap.h
+	packet-gssapi.h
+	packet-gtp.h
+	packet-gtpv2.h
+	packet-h223.h
+	packet-h225.h
+	packet-h235.h
+	packet-h245.h
+	packet-h248.h
+	packet-h263.h
+	packet-h264.h
+	packet-h323.h
+	packet-h450-ros.h
+	packet-hpext.h
+	packet-http.h
+	packet-http2.h
+	packet-iana-oui.h
+	packet-iax2.h
+	packet-icmp.h
+	packet-idmp.h
+	packet-idp.h
+	packet-ieee80211.h
+	packet-ieee80211-radio.h
+	packet-ieee80211-radiotap-iter.h
+	packet-ieee80211-radiotap-defs.h
+	packet-ieee802154.h
+	packet-ieee8023.h
+	packet-ieee802a.h
+	packet-igmp.h
+	packet-imf.h
+	packet-inap.h
+	packet-infiniband.h
+	packet-ip.h
+	packet-ipmi.h
+	packet-ipsec.h
+	packet-ipx.h
+	packet-isakmp.h
+	packet-isis.h
+	packet-isis-clv.h
+	packet-isl.h
+	packet-isup.h
+	packet-iwarp-ddp-rdmap.h
+	packet-juniper.h
+	packet-jxta.h
+	packet-kerberos.h
+	packet-klm.h
+	packet-l2tp.h
+	packet-lapdm.h
+	packet-lbm.h
+	packet-lbtrm.h
+	packet-lbtru.h
+	packet-lbttcp.h
+	packet-ldap.h
+	packet-lcsap.h
+	packet-ldp.h
+	packet-link16.h
+	packet-llc.h
+	packet-logotypecertextn.h
+	packet-lpp.h
+	packet-lte-rrc.h
+	packet-mac-lte.h
+	packet-mausb.h
+	packet-mbim.h
+	packet-mbtcp.h
+	packet-mgcp.h
+	packet-mle.h
+	packet-mms.h
+	packet-mount.h
+	packet-mp4ves.h
+	packet-mpeg-descriptor.h
+	packet-mpeg-pmt.h
+	packet-mpeg-sect.h
+	packet-mpls.h
+	packet-mq.h
+	packet-msrp.h
+	packet-mstp.h
+	packet-mtp3.h
+	packet-nbap.h
+	packet-ncp-int.h
+	packet-ncp-nmas.h
+	packet-ncp-sss.h
+	packet-ndmp.h
+	packet-ndps.h
+	packet-netbios.h
+	packet-netlink.h
+	packet-nfs.h
+	packet-nisplus.h
+	packet-nlm.h
+	packet-nsh.h
+	packet-ntlmssp.h
+	packet-ntp.h
+	packet-nvme.h
+	packet-ocsp.h
+	packet-opensafety.h
+	packet-osi.h
+	packet-osi-options.h
+	packet-p1.h
+	packet-p22.h
+	packet-p7.h
+	packet-p772.h
+	packet-pcap_pktdata.h
+	packet-pcnfsd.h
+	packet-pdcp-lte.h
+	packet-per.h
+	packet-pkcs1.h
+	packet-pkcs12.h
+	packet-pkix1explicit.h
+	packet-pkix1implicit.h
+	packet-pkixac.h
+	packet-pkixproxy.h
+	packet-pkixqualified.h
+	packet-pkixtsp.h
+	packet-pkinit.h
+	packet-pktc.h
+	packet-portmap.h
+	packet-ppi-geolocation-common.h
+	packet-ppp.h
+	packet-pres.h
+	packet-ptp.h
+	packet-ptpip.h
+	packet-pw-atm.h
+	packet-pw-common.h
+	packet-q708.h
+	packet-q931.h
+	packet-q932.h
+	packet-qsig.h
+	packet-radius.h
+	packet-raknet.h
+	packet-ranap.h
+	packet-rdm.h
+	packet-rdt.h
+	packet-reload.h
+	packet-rlc-lte.h
+	packet-rmi.h
+	packet-rmt-common.h
+	packet-rohc.h
+	packet-ros.h
+	packet-rpc.h
+	packet-rquota.h
+	packet-rrc.h
+	packet-rsvp.h
+	packet-rtcp.h
+	packet-rtp.h
+	packet-rtps.h
+	packet-rtp-events.h
+	packet-rtse.h
+	packet-rtsp.h
+	packet-rwall.h
+	packet-rx.h
+	packet-s1ap.h
+	packet-s5066sis.h
+	packet-s7comm.h
+	packet-s7comm_szl_ids.h
+	packet-sccp.h
+	packet-scsi.h
+	packet-scsi-mmc.h
+	packet-scsi-osd.h
+	packet-scsi-sbc.h
+	packet-scsi-smc.h
+	packet-scsi-ssc.h
+	packet-sctp.h
+	packet-sdp.h
+	packet-ses.h
+	packet-sflow.h
+	packet-sip.h
+	packet-skinny.h
+	packet-sll.h
+	packet-smb.h
+	packet-smb2.h
+	packet-smb-browse.h
+	packet-smb-common.h
+	packet-smb-mailslot.h
+	packet-smb-pipe.h
+	packet-smb-sidsnooping.h
+	packet-smpp.h
+	packet-smrse.h
+	packet-snmp.h
+	packet-socketcan.h
+	packet-spice.h
+	packet-spray.h
+	packet-sprt.h
+	packet-sscop.h
+	packet-ssl.h
+	packet-ssl-utils.h
+	packet-stat.h
+	packet-stat-notify.h
+	packet-sv.h
+	packet-t124.h
+	packet-t30.h
+	packet-t38.h
+	packet-tacacs.h
+	packet-tcap.h
+	packet-tcp.h
+	packet-tetra.h
+	packet-tftp.h
+	packet-tn3270.h
+	packet-tn5250.h
+	packet-tpkt.h
+	packet-tr.h
+	packet-tte.h
+	packet-ua.h
+	packet-uaudp.h
+	packet-ubertooth.h
+	packet-udp.h
+	packet-umts_fp.h
+	packet-umts_mac.h
+	packet-umts_rlc.h
+	packet-usb.h
+	packet-usb-hid.h
+	packet-usbip.h
+	packet-vxlan.h
+	packet-wap.h
+	packet-wccp.h
+	packet-windows-common.h
+	packet-wlancertextn.h
+	packet-wps.h
+	packet-wsp.h
+	packet-wtls.h
+	packet-wtp.h
+	packet-x11.h
+	packet-x11-keysymdef.h
+	packet-x509af.h
+	packet-x509ce.h
+	packet-x509if.h
+	packet-x509sat.h
+	packet-xml.h
+	packet-xmpp-conference.h
+	packet-xmpp-core.h
+	packet-xmpp-gtalk.h
+	packet-xmpp.h
+	packet-xmpp-jingle.h
+	packet-xmpp-other.h
+	packet-xmpp-utils.h
+	packet-ypbind.h
+	packet-yppasswd.h
+	packet-ypserv.h
+	packet-ypxfr.h
+	packet-zbee.h
+	packet-zbee-aps.h
+	packet-zbee-nwk.h
+	packet-zbee-security.h
+	packet-zbee-zcl.h
+	packet-zbee-zdp.h
+	packet-ziop.h
+)
 
 set(DISSECTOR_SRC
 	file-btsnoop.c
@@ -248,6 +614,7 @@ set(DISSECTOR_SRC
 	packet-alljoyn.c
 	packet-amqp.c
 	packet-amr.c
+	packet-amt.c
 	packet-ancp.c
 	packet-ans.c
 	packet-ansi_637.c
@@ -311,6 +678,7 @@ set(DISSECTOR_SRC
 	packet-bootparams.c
 	packet-bpdu.c
 	packet-bpq.c
+	packet-brcm-tag.c
 	packet-brdwlk.c
 	packet-brp.c
 	packet-bssap.c
@@ -492,6 +860,7 @@ set(DISSECTOR_SRC
 	packet-dns.c
 	packet-dof.c
 	packet-dplay.c
+	packet-dpnet.c
 	packet-dpnss-link.c
 	packet-dpnss.c
 	packet-drda.c
@@ -537,6 +906,7 @@ set(DISSECTOR_SRC
 	packet-enrp.c
 	packet-enttec.c
 	packet-epl.c
+	packet-epl-profile-parser.c
 	packet-epl_v1.c
 	packet-epmd.c
 	packet-epon.c
@@ -571,6 +941,7 @@ set(DISSECTOR_SRC
 	packet-fcsb3.c
 	packet-fcsp.c
 	packet-fcswils.c
+	packet-fbzero.c
 	packet-fddi.c
 	packet-fefd.c
 	packet-ff.c
@@ -587,6 +958,7 @@ set(DISSECTOR_SRC
 	packet-forces.c
 	packet-foundry.c
 	packet-fp_hint.c
+	packet-fp_mux.c
 	packet-fr.c
 	packet-fractalgeneratorprotocol.c
 	packet-frame.c
@@ -622,6 +994,7 @@ set(DISSECTOR_SRC
 	packet-gprs-llc.c
 	packet-gprscdr.c
 	packet-gre.c
+	packet-grpc.c
 	packet-gsm_a_bssmap.c
 	packet-gsm_a_common.c
 	packet-gsm_a_dtap.c
@@ -647,6 +1020,7 @@ set(DISSECTOR_SRC
 	packet-gssapi.c
 	packet-gtp.c
 	packet-gtpv2.c
+	packet-gquic.c
 	packet-gvcp.c
 	packet-gvrp.c
 	packet-gvsp.c
@@ -784,6 +1158,8 @@ set(DISSECTOR_SRC
 	packet-iso15765.c
 	packet-iso7816.c
 	packet-iso8583.c
+	packet-isobus.c
+	packet-isobus-vt.c
 	packet-isup.c
 	packet-itdm.c
 	packet-iua.c
@@ -851,6 +1227,8 @@ set(DISSECTOR_SRC
 	packet-logcat-text.c
 	packet-lon.c
 	packet-loop.c
+	packet-loratap.c
+	packet-lorawan.c
 	packet-lpd.c
 	packet-lsc.c
 	packet-lsd.c
@@ -880,6 +1258,7 @@ set(DISSECTOR_SRC
 	packet-megaco.c
 	packet-memcache.c
 	packet-mesh.c
+	packet-messageanalyzer.c
 	packet-meta.c
 	packet-metamako.c
 	packet-mgcp.c
@@ -891,6 +1270,7 @@ set(DISSECTOR_SRC
 	packet-mip.c
 	packet-mip6.c
 	packet-mka.c
+	packet-mle.c
 	packet-mmse.c
 	packet-mndp.c
 	packet-mojito.c
@@ -958,11 +1338,15 @@ set(DISSECTOR_SRC
 	packet-netanalyzer.c
 	packet-netbios.c
 	packet-netdump.c
+	packet-netgear-ensemble.c
 	packet-netflow.c
+	packet-netlink-generic.c
 	packet-netlink-netfilter.c
+	packet-netlink-nl80211.c
 	packet-netlink-route.c
 	packet-netlink-sock_diag.c
 	packet-netlink.c
+	packet-netmon.c
 	packet-netperfmeter.c
 	packet-netrom.c
 	packet-netsync.c
@@ -979,6 +1363,9 @@ set(DISSECTOR_SRC
 	packet-nntp.c
 	packet-noe.c
 	packet-nordic_ble.c
+	packet-ns-ha.c
+	packet-ns-mep.c
+	packet-ns-rpc.c
 	packet-nsip.c
 	packet-nsh.c
 	packet-nsrp.c
@@ -992,7 +1379,9 @@ set(DISSECTOR_SRC
 	packet-nvme-rdma.c
 	packet-nwmtp.c
 	packet-nwp.c
+	packet-nfapi.c
 	packet-oampdu.c
+	packet-obd-ii.c
 	packet-obex.c
 	packet-ocfs2.c
 	packet-oicq.c
@@ -1008,7 +1397,9 @@ set(DISSECTOR_SRC
 	packet-openflow_v1.c
 	packet-openflow_v4.c
 	packet-openflow_v5.c
+	packet-openflow_v6.c
 	packet-opensafety.c
+	packet-openthread.c
 	packet-openvpn.c
 	packet-openwire.c
 	packet-opsi.c
@@ -1037,6 +1428,7 @@ set(DISSECTOR_SRC
 	packet-pdcp-lte.c
 	packet-peekremote.c
 	packet-per.c
+	packet-pfcp.c
 	packet-pflog.c
 	packet-pgm.c
 	packet-pgsql.c
@@ -1059,6 +1451,7 @@ set(DISSECTOR_SRC
 	packet-ppp.c
 	packet-pppoe.c
 	packet-pptp.c
+	packet-protobuf.c
 	packet-prp.c
 	packet-ptp.c
 	packet-ptpip.c
@@ -1106,7 +1499,6 @@ set(DISSECTOR_SRC
 	packet-rip.c
 	packet-ripng.c
 	packet-rlc-lte.c
-	packet-rlc.c
 	packet-rlm.c
 	packet-rlogin.c
 	packet-rmcp.c
@@ -1212,6 +1604,7 @@ set(DISSECTOR_SRC
 	packet-snort.c
 	packet-socketcan.c
 	packet-socks.c
+	packet-solaredge.c
 	packet-soupbintcp.c
 	packet-spdy.c
 	packet-spice.c
@@ -1259,7 +1652,9 @@ set(DISSECTOR_SRC
 	packet-text-media.c
 	packet-tfp.c
 	packet-tftp.c
+	packet-thread.c
 	packet-thrift.c
+	packet-tibia.c
 	packet-time.c
 	packet-tipc.c
 	packet-tivoconnect.c
@@ -1288,6 +1683,7 @@ set(DISSECTOR_SRC
 	packet-ucp.c
 	packet-udld.c
 	packet-udp.c
+	packet-udp-nm.c
 	packet-uds.c
 	packet-udt.c
 	packet-uftp.c
@@ -1296,6 +1692,7 @@ set(DISSECTOR_SRC
 	packet-uma.c
 	packet-umts_fp.c
 	packet-umts_mac.c
+	packet-umts_rlc.c
 	packet-usb-audio.c
 	packet-usb-ccid.c
 	packet-usb-com.c
@@ -1344,6 +1741,7 @@ set(DISSECTOR_SRC
 	packet-wfleet-hdlc.c
 	packet-who.c
 	packet-whois.c
+	packet-wifi-dpp.c
 	packet-wifi-display.c
 	packet-wifi-p2p.c
 	packet-windows-common.c
@@ -1409,6 +1807,7 @@ set(DISSECTOR_SRC
 )
 
 set(DISSECTOR_SUPPORT_SRC
+	errno.c
 	packet-dcerpc-nt.c
 	usb.c
 	snort-config.c
@@ -1460,8 +1859,13 @@ add_library(dissectors OBJECT
 set_target_properties(dissectors PROPERTIES
 	FOLDER "Libs/epan/dissectors"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
-	COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}"
 )
+
+if(NOT WIN32)
+	install(FILES ${DISSECTOR_PUBLIC_HEADERS}
+		DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/epan/dissectors"
+	)
+endif()
 
 set(CHECKAPI_FILE_LIST "${CMAKE_CURRENT_BINARY_DIR}/files.txt")
 file(GLOB DISSECTOR_HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.h")

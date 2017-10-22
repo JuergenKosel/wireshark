@@ -1435,7 +1435,7 @@ dissect_fmdata_frame(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, int of
 
         if (!config_found) {
             proto_item_append_text(fmdata_item, ", No Fast Meter Configuration frame found");
-            offset += (len-2);
+            offset += (len-3);  /* Don't include the 2 header bytes or 1 length byte, those are already in the offset */
             return offset;
         }
     }
@@ -1598,13 +1598,13 @@ dissect_fastop_frame(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, int of
         proto_tree_add_item(fastop_tree, hf_selfm_fastop_rb_code, tvb, offset, 1, ENC_BIG_ENDIAN);
 
         /* Append Column Info w/ Control Code Code */
-        col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "%s", val_to_str_ext_const(opcode, &selfm_fo_rb_vals_ext, "Unknown Control Code"));
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, val_to_str_ext_const(opcode, &selfm_fo_rb_vals_ext, "Unknown Control Code"));
     }
     else if (msg_type == CMD_FASTOP_BR_CTRL) {
         proto_tree_add_item(fastop_tree, hf_selfm_fastop_br_code, tvb, offset, 1, ENC_BIG_ENDIAN);
 
         /* Append Column Info w/ Control Code Code */
-        col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "%s", val_to_str_ext_const(opcode, &selfm_fo_br_vals_ext, "Unknown Control Code"));
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, val_to_str_ext_const(opcode, &selfm_fo_br_vals_ext, "Unknown Control Code"));
     }
     offset += 1;
 
@@ -1943,7 +1943,7 @@ dissect_fastmsg_frame(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, int o
     proto_tree_add_item(fastmsg_tree, hf_selfm_fastmsg_funccode, tvb, offset, 1, ENC_BIG_ENDIAN);
 
     /* Append Column Info w/ Function Code */
-    col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "%s", val_to_str_ext_const(funccode, &selfm_fastmsg_func_code_vals_ext, "Unknown Function Code"));
+    col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, val_to_str_ext_const(funccode, &selfm_fastmsg_func_code_vals_ext, "Unknown Function Code"));
 
     offset += 1;
 

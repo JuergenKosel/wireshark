@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "ws_attributes.h"
+
 #define ISSPACE(X) isspace((unsigned char)(X))
 #define ISDIGIT(X) isdigit((unsigned char)(X))
 #define ISALNUM(X) isalnum((unsigned char)(X))
@@ -171,12 +173,12 @@ static struct action *Action_new(void);
 static struct action *Action_sort(struct action *);
 
 /********** From the file "build.h" ************************************/
-void FindRulePrecedences(struct lemon *);
-void FindFirstSets(struct lemon *);
-void FindStates(struct lemon *);
-void FindLinks(struct lemon *);
-void FindFollowSets(struct lemon *);
-void FindActions(struct lemon *);
+void FindRulePrecedences(struct lemon*);
+void FindFirstSets(struct lemon*);
+void FindStates(struct lemon*);
+void FindLinks(struct lemon*);
+void FindFollowSets(struct lemon*);
+void FindActions(struct lemon*);
 
 /********* From the file "configlist.h" *********************************/
 void Configlist_init(void);
@@ -1512,6 +1514,10 @@ make_basename(char* fullname)
 
   return new_string;
 }
+
+/* Report an out-of-memory condition and abort.  This function
+** is used mostly by the "MemoryCheck" macro in struct.h
+*/
 
 static int nDefine = 0;      /* Number of -D options on the command line */
 static char **azDefine = 0;  /* Name of the -D macros */
@@ -3041,7 +3047,7 @@ PRIVATE FILE *file_open(
 ){
   FILE *fp;
 
-  if( lemp->outname ) free(lemp->outname);
+  free(lemp->outname);
   lemp->outname = file_makename_using_basename(lemp, suffix);
   fp = fopen(lemp->outname,mode);
   if( fp==0 && *mode=='w' ){
@@ -3453,9 +3459,8 @@ PRIVATE FILE *tplt_open(struct lemon *lemp)
     fprintf(stderr,"Can't open the template file \"%s\".\n",templatename);
     lemp->errorcnt++;
   }
-  if (tpltname_alloc) {
-    free(tpltname_alloc);
-  }
+  free(tpltname_alloc);
+
   return in;
 }
 

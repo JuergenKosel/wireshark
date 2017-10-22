@@ -1,0 +1,59 @@
+/* ws_attributes.h
+ *
+ * Wireshark - Network traffic analyzer
+ * By Gerald Combs <gerald@wireshark.org>
+ * Copyright 1998 Gerald Combs
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+#ifndef __WS_ATTRIBUTES_H__
+#define __WS_ATTRIBUTES_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+/*
+ * If we're running GCC or clang define _U_ to be "__attribute__((unused))"
+ * so we can use _U_ to flag unused function parameters and not get warnings
+ * about them. Otherwise, define _U_ to be an empty string so that _U_ used
+ * to flag an unused function parameters will compile with other compilers.
+ *
+ * XXX - similar hints for other compilers?
+ */
+
+#if defined(__GNUC__)
+  /* This includes clang */
+  #define _U_ __attribute__((unused))
+#else
+  #define _U_
+#endif
+
+/* Hint to the compiler that a function never returns */
+#if defined(__GNUC__)
+  /* This includes clang */
+  #define WS_NORETURN __attribute__((noreturn))
+#elif defined(_MSC_VER)
+  #define WS_NORETURN __declspec(noreturn)
+#else
+  #define WS_NORETURN
+#endif
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif /* __WS_ATTRIBUTES_H__ */

@@ -87,8 +87,7 @@ typedef struct _capture_file {
   gboolean     drops_known;          /* TRUE if we know how many packets were dropped */
   guint32      drops;                /* Dropped packets */
   nstime_t     elapsed_time;         /* Elapsed time */
-  gboolean     has_snap;             /* TRUE if maximum capture packet length is known */
-  int          snap;                 /* Maximum captured packet length */
+  int          snap;                 /* Maximum captured packet length; 0 if unknown */
   wtap        *wth;                  /* Wiretap session */
   dfilter_t   *rfcode;               /* Compiled read filter program */
   dfilter_t   *dfcode;               /* Compiled display filter program */
@@ -126,7 +125,7 @@ typedef struct _capture_file {
 #endif
   gpointer     window;               /* Top-level window associated with file */
   GTree       *frames_user_comments; /* BST with user comments for frames (key = frame_data) */
-  gulong       computed_elapsed;
+  gulong       computed_elapsed;     /* Elapsed time to load the file (in msec). */
 
   guint32      cum_bytes;
   const frame_data *ref;

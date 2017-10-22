@@ -80,7 +80,7 @@
     </widget>
    </item>
    <item>
-    <widget class="SyntaxLineEdit" name="fieldsNameLineEdit"/>
+    <widget class="FieldFilterEdit" name="fieldsNameLineEdit"/>
    </item>
    <item>
     <spacer name="horizontalSpacer_4">
@@ -141,9 +141,14 @@
    <container>1</container>
   </customwidget>
   <customwidget>
+   <class>FieldFilterEdit</class>
+   <extends>QLineEdit</extends>
+   <header>widgets/field_filter_edit.h</header>
+  </customwidget>
+  <customwidget>
    <class>SyntaxLineEdit</class>
    <extends>QLineEdit</extends>
-   <header>syntax_line_edit.h</header>
+   <header>widgets/syntax_line_edit.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

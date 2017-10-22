@@ -22,7 +22,7 @@
 #include "bluetooth_device_dialog.h"
 #include <ui_bluetooth_device_dialog.h>
 
-#include "color_utils.h"
+#include <ui/qt/utils/color_utils.h>
 
 #include "epan/epan.h"
 #include "epan/addr_resolv.h"
@@ -34,7 +34,7 @@
 
 #include "ui/simple_dialog.h"
 
-#include <ui/qt/variant_pointer.h>
+#include <ui/qt/utils/variant_pointer.h>
 
 #include <QClipboard>
 #include <QContextMenuEvent>
@@ -447,7 +447,6 @@ gboolean BluetoothDeviceDialog::tapPacket(void *tapinfo_ptr, packet_info *pinfo,
         break;
     case BLUETOOTH_DEVICE_RESET:
         for (int i_row = 0; i_row < dialog->ui->tableWidget->rowCount(); i_row += 1) {
-            QTableWidgetItem  *item;
             bluetooth_item_data_t       *item_data;
 
             item = dialog->ui->tableWidget->item(i_row, column_number_value);

@@ -100,6 +100,7 @@ static int hf_pn_dcp_suboption_dhcp_device_id = -1;
 
 static int hf_pn_dcp_suboption_control = -1;
 static int hf_pn_dcp_suboption_control_response = -1;
+static int hf_pn_dcp_suboption_control_signal_value = -1;
 
 static int hf_pn_dcp_suboption_deviceinitiative = -1;
 static int hf_pn_dcp_deviceinitiative_value = -1;
@@ -112,6 +113,7 @@ static int hf_pn_dcp_suboption_manuf = -1;
 static gint ett_pn_dcp = -1;
 static gint ett_pn_dcp_block = -1;
 
+static expert_field ei_pn_dcp_block_parse_error = EI_INIT;
 static expert_field ei_pn_dcp_block_error_unknown = EI_INIT;
 static expert_field ei_pn_dcp_ip_conflict = EI_INIT;
 
@@ -182,7 +184,7 @@ static const value_string pn_dcp_BlockQualifier[] = {
     { 0x000B, "Reset engineering parameter" },
     { 0x000C, "Reserved" },
     { 0x000D, "Reserved" },
-    { 0x0009, "Reserved" },
+    { 0x000E, "Reserved" },
     { 0x0010, "Resets all stored data in the IOD or IOC to its factory values" },
     { 0x0011, "Resets all stored data in the IOD or IOC to its factory values" },
     { 0x0012, "Reset and restore data" },
@@ -249,6 +251,11 @@ static const value_string pn_dcp_suboption_ip_block_info[] = {
     { 0x0082, "IP set by DHCP (address conflict detected)" },
     /*0x0003 - 0xffff reserved */
     { 0, NULL }
+};
+
+static const value_string pn_dcp_suboption_control_signal_value[] = {
+    {0x0100, "Flash Once"},
+    {0, NULL}
 };
 
 #define PNDCP_SUBOPTION_DEVICE_MANUF            0x01
@@ -799,6 +806,7 @@ dissect_PNDCP_Suboption_Control(tvbuff_t *tvb, int offset, packet_info *pinfo,
     guint16     block_length;
     guint16     block_qualifier;
     guint16     BlockQualifier;
+    guint16     u16SignalValue;
     gchar      *info_str;
     guint8      block_error;
     proto_item *item = NULL;
@@ -824,7 +832,7 @@ dissect_PNDCP_Suboption_Control(tvbuff_t *tvb, int offset, packet_info *pinfo,
         offset = dissect_pn_uint16(tvb, offset, pinfo, tree, hf_pn_dcp_block_qualifier, &block_qualifier);
         block_length -= 2;
 
-        offset = dissect_pn_undecoded(tvb, offset, pinfo, tree, block_length);
+        offset = dissect_pn_uint16(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_control_signal_value, &u16SignalValue);
         break;
     case PNDCP_SUBOPTION_CONTROL_RESPONSE:
         proto_item_append_text(block_item, "Control/Response");
@@ -950,19 +958,14 @@ dissect_PNDCP_Suboption_Manuf(tvbuff_t *tvb, int offset, packet_info *pinfo,
                             proto_tree *tree, proto_item *block_item, proto_item *dcp_item,
                             guint8 service_id _U_, gboolean is_response _U_)
 {
-    guint8  suboption;
     guint16 block_length;
 
-
-    offset = dissect_pn_uint8( tvb, offset, pinfo, tree, hf_pn_dcp_suboption_manuf, &suboption);
+    offset = dissect_pn_uint8( tvb, offset, pinfo, tree, hf_pn_dcp_suboption_manuf, NULL);
     offset = dissect_pn_uint16(tvb, offset, pinfo, tree, hf_pn_dcp_block_length,    &block_length);
 
-    switch (suboption) {
-    default:
-        pn_append_info(pinfo, dcp_item, ", Manufacturer Specific");
-        proto_item_append_text(block_item, "Manufacturer Specific");
-        offset = dissect_pn_undecoded(tvb, offset, pinfo, tree, block_length);
-    }
+    pn_append_info(pinfo, dcp_item, ", Manufacturer Specific");
+    proto_item_append_text(block_item, "Manufacturer Specific");
+    offset = dissect_pn_undecoded(tvb, offset, pinfo, tree, block_length);
 
     return offset;
 }
@@ -1040,7 +1043,8 @@ dissect_PNDCP_PDU(tvbuff_t *tvb,
 
     offset = dissect_pn_uint8 (tvb, offset, pinfo, tree, hf_pn_dcp_service_id, &service_id);
     offset = dissect_pn_uint8 (tvb, offset, pinfo, tree, hf_pn_dcp_service_type, &service_type);
-    offset = dissect_pn_uint32(tvb, offset, pinfo, tree, hf_pn_dcp_xid, &xid);
+    proto_tree_add_item_ret_uint(tree, hf_pn_dcp_xid, tvb, offset, 4, ENC_BIG_ENDIAN, &xid);
+    offset += 4;
     if (service_id == PNDCP_SERVICE_ID_IDENTIFY && service_type == PNDCP_SERVICE_TYPE_REQUEST) {
         /* multicast header */
         offset = dissect_pn_uint16(tvb, offset, pinfo, tree, hf_pn_dcp_response_delay, &response_delay);
@@ -1101,7 +1105,9 @@ dissect_PNDCP_PDU(tvbuff_t *tvb,
         }
         /* prevent an infinite loop */
         if (offset <= ori_offset || data_length < (offset - ori_offset)) {
-            THROW(ReportedBoundsError);
+            proto_tree_add_expert(tree, pinfo, &ei_pn_dcp_block_parse_error,
+                            tvb, ori_offset, tvb_captured_length_remaining(tvb, ori_offset));
+            break;
         }
         data_length -= (offset - ori_offset);
     }
@@ -1326,6 +1332,11 @@ proto_register_pn_dcp (void)
             FT_UINT8, BASE_DEC, VALS(pn_dcp_option), 0x0,
             NULL, HFILL }},
 
+        { &hf_pn_dcp_suboption_control_signal_value,
+          { "SignalValue", "pn_dcp.suboption_control_signal_value",
+            FT_UINT16, BASE_HEX, VALS(pn_dcp_suboption_control_signal_value), 0x0,
+            NULL, HFILL } },
+
         { &hf_pn_dcp_suboption_deviceinitiative,
           { "Suboption", "pn_dcp.suboption_deviceinitiative",
             FT_UINT8, BASE_DEC, VALS(pn_dcp_suboption_deviceinitiative), 0x0,
@@ -1354,6 +1365,7 @@ proto_register_pn_dcp (void)
     };
 
     static ei_register_info ei[] = {
+        { &ei_pn_dcp_block_parse_error, { "pn_dcp.block_error.parse", PI_PROTOCOL, PI_ERROR, "parse error", EXPFILL }},
         { &ei_pn_dcp_block_error_unknown, { "pn_dcp.block_error.unknown", PI_RESPONSE_CODE, PI_CHAT, "Unknown", EXPFILL }},
         { &ei_pn_dcp_ip_conflict, { "pn_dcp.ip_conflict", PI_RESPONSE_CODE, PI_NOTE, "IP address conflict detected!", EXPFILL }},
     };

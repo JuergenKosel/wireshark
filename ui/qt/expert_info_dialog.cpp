@@ -29,7 +29,7 @@
 #include <epan/stat_tap_ui.h>
 #include <epan/tap.h>
 
-#include "color_utils.h"
+#include <ui/qt/utils/color_utils.h>
 #include "wireshark_application.h"
 
 #include <QAction>
@@ -40,8 +40,7 @@
 #include <QTreeWidgetItemIterator>
 
 // To do:
-// - Test with custom expert levels (Preferences -> Protocols -> Expert).
-//   - Figure out why the expert level prefs are buried under "Protocols".
+// - Test with custom expert levels (Preferences -> Expert).
 // - Test with large captures. Add a custom model if needed.
 // - Promote to a fourth pane in the main window?
 // - Make colors configurable? In theory we could condense image/expert_indicators.svg,
@@ -214,7 +213,7 @@ ExpertInfoDialog::ExpertInfoDialog(QWidget &parent, CaptureFile &capture_file) :
                                            << ui->actionShowNote << ui->actionShowChat
                                            << ui->actionShowComment;
     QList<int> severities = QList<int>() << PI_ERROR << PI_WARN << PI_NOTE << PI_CHAT << PI_COMMENT;
-    QMenu *severity_menu = new QMenu();
+    QMenu *severity_menu = new QMenu(ui->severitiesPushButton);
 
     // It might be nice to color each menu item to match each severity. It
     // might also be nice if Qt supported that...

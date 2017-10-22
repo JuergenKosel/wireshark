@@ -512,6 +512,8 @@ static int list_config(char *interface, unsigned int remote_port)
 		"{type=unsigned}{required=true}{tooltip=The number of remote packets to capture.}\n",
 		inc++);
 
+	extcap_config_debug(&inc);
+
 	g_free(ipfilter);
 
 	return EXIT_SUCCESS;
@@ -521,7 +523,6 @@ int main(int argc, char **argv)
 {
 	int result;
 	int option_idx = 0;
-	int i;
 	char* remote_host = NULL;
 	guint16 remote_port = 22;
 	char* remote_username = NULL;
@@ -579,9 +580,6 @@ int main(int argc, char **argv)
 		extcap_help_print(extcap_conf);
 		goto end;
 	}
-
-	for (i = 0; i < argc; i++)
-		g_debug("%s ", argv[i]);
 
 	while ((result = getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
 
@@ -659,6 +657,8 @@ int main(int argc, char **argv)
 			}
 		}
 	}
+
+	extcap_cmdline_debug(argv, argc);
 
 	if (optind != argc) {
 		g_warning("Unexpected extra option: %s", argv[optind]);

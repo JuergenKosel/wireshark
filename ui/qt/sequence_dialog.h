@@ -29,10 +29,9 @@
 #include "cfile.h"
 
 #include "epan/packet.h"
+#include "epan/sequence_analysis.h"
 
-#include "ui/tap-sequence-analysis.h"
-
-#include "qcustomplot.h"
+#include <ui/qt/widgets/qcustomplot.h>
 #include "wireshark_dialog.h"
 
 #include <QMenu>
@@ -86,7 +85,7 @@ private slots:
     void on_actionGoToPacket_triggered();
     void on_actionGoToNextPacket_triggered() { goToAdjacentPacket(true); }
     void on_actionGoToPreviousPacket_triggered() { goToAdjacentPacket(false); }
-    void on_showComboBox_activated(int index);
+    void on_displayFilterCheckBox_toggled(bool checked);
     void on_flowComboBox_activated(int index);
     void on_addressComboBox_activated(int index);
     void on_actionReset_triggered();
@@ -117,6 +116,8 @@ private:
     void panAxes(int x_pixels, int y_pixels);
     void resetAxes(bool keep_lower = false);
     void goToAdjacentPacket(bool next);
+
+    static gboolean addFlowSequenceItem(const void *key, void *value, void *userdata);
 };
 
 #endif // SEQUENCE_DIALOG_H

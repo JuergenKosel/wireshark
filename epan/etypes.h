@@ -324,6 +324,10 @@ extern "C" {
 #define ETHERTYPE_JUMBO_LLC		0x8870	/* 802.2 jumbo frames http://tools.ietf.org/html/draft-ietf-isis-ext-eth */
 #endif
 
+#ifndef ETHERTYPE_BRCM_TYPE
+#define ETHERTYPE_BRCM_TYPE		0x8874	/* Broadcom Ethernet switches management tag */
+#endif
+
 #ifndef ETHERTYPE_HOMEPLUG
 #define ETHERTYPE_HOMEPLUG		0x887B	/* IEEE assigned Ethertype */
 #endif
@@ -342,6 +346,10 @@ extern "C" {
 
 #ifndef ETHERTYPE_PROFINET
 #define ETHERTYPE_PROFINET		0x8892	/* PROFIBUS PROFINET protocol */
+#endif
+
+#ifndef ETHERTYPE_REALTEK
+#define ETHERTYPE_REALTEK		0x8899	/* Realtek Layer 2 Protocols */
 #endif
 
 #ifndef ETHERTYPE_HYPERSCSI
@@ -533,6 +541,10 @@ extern "C" {
 #define ETHERTYPE_FIP			0x8914	/* FCoE Initialization Protocol */
 #endif
 
+#ifndef ETHERTYPE_ROCE
+#define ETHERTYPE_ROCE			0x8915	/* Infiniband RDMA over Converged Ethernet */
+#endif
+
 #ifndef ETHERTYPE_MIH
 #define ETHERTYPE_MIH			0x8917	/* Media Independent Handover Protocol */
 #endif
@@ -547,6 +559,10 @@ extern "C" {
 
 #ifndef ETHERTYPE_SEL_L2
 #define ETHERTYPE_SEL_L2		0x892B	/* Schweitzer Engineering Labs Layer 2 */
+#endif
+
+#ifndef ETHERTYPE_BLUECOM
+#define ETHERTYPE_BLUECOM		0x892D	/* Bachmann bluecom protocol */
 #endif
 
 #ifndef ETHERTYPE_HSR
@@ -577,8 +593,12 @@ extern "C" {
 #define ETHERTYPE_RTCFG			0x9022	/* RTnet: Real-Time Configuration Protocol */
 #endif
 
-#ifndef ETHERYPE_QINQ_OLD
+#ifndef ETHERTYPE_QINQ_OLD
 #define ETHERTYPE_QINQ_OLD		0x9100	/* QinQ: old non-standard 802.1ad */
+#endif
+
+#ifndef ETHERTYPE_6LOWPAN
+#define ETHERTYPE_6LOWPAN		0xA0ED	/* RFC 4944: Transmission of IPv6 Packets over IEEE 802.15.4 Networks */
 #endif
 
 #ifndef ETHERTYPE_LLT
@@ -600,15 +620,6 @@ extern "C" {
 #ifndef ETHERTYPE_FCFT
 #define ETHERTYPE_FCFT			0xFCFC	/* used to transport FC frames+MDS hdr internal to Cisco's MDS switch */
 #endif
-
-#ifndef ETHERTYPE_ROCE
-#define ETHERTYPE_ROCE			0x8915	/* Infiniband RDMA over Converged Ethernet */
-#endif
-
-#ifndef ETHERTYPE_BLUECOM
-#define ETHERTYPE_BLUECOM		0x892D	/* Bachmann bluecom protocol */
-#endif
-
 
 WS_DLL_PUBLIC const value_string etype_vals[];
 

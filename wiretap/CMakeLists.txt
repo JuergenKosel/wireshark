@@ -21,6 +21,15 @@
 
 include(UseABICheck)
 
+set(WIRETAP_PUBLIC_HEADERS
+	file_wrappers.h
+	merge.h
+	pcap-encap.h
+	pcapng_module.h
+	wtap.h
+	wtap_opttypes.h
+)
+
 set(WIRETAP_FILES
 	5views.c
 	aethra.c
@@ -81,7 +90,7 @@ set(WIRETAP_FILES
 	vwr.c
 	wtap.c
 	wtap_opttypes.c
-	${CMAKE_SOURCE_DIR}/ws_version_info.c
+	${CMAKE_SOURCE_DIR}/version_info.c
 )
 
 set_source_files_properties(
@@ -119,7 +128,6 @@ set(FULL_SO_VERSION "0.0.0")
 set_target_properties(wiretap PROPERTIES
 	PREFIX "lib"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
-	COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	VERSION ${FULL_SO_VERSION} SOVERSION 0
 	FOLDER "DLLs"
@@ -151,6 +159,12 @@ if(NOT ${ENABLE_STATIC})
 		RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	)
+
+	if(NOT WIN32)
+		install(FILES ${WIRETAP_PUBLIC_HEADERS}
+			DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/wiretap"
+		)
+	endif()
 endif()
 
 CHECKAPI(

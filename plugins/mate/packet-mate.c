@@ -35,7 +35,6 @@
 void proto_register_mate(void);
 void proto_reg_handoff_mate(void);
 
-static int mate_tap_data = 0;
 static mate_config* mc = NULL;
 
 static int proto_mate = -1;
@@ -51,7 +50,7 @@ static expert_field ei_mate_undefined_attribute = EI_INIT;
 static const gchar* pref_mate_config_filename = "";
 static const gchar* current_mate_config_filename = NULL;
 
-static proto_item *mate_i = NULL;
+static dissector_handle_t mate_handle;
 
 static void
 pdu_attrs_tree(proto_tree* tree, packet_info *pinfo, tvbuff_t *tvb, mate_pdu* pdu)
@@ -259,7 +258,7 @@ mate_gop_tree(proto_tree* tree, packet_info *pinfo, tvbuff_t *tvb, mate_gop* gop
 
 
 static void
-mate_pdu_tree(mate_pdu *pdu, packet_info *pinfo, tvbuff_t *tvb, proto_tree* tree)
+mate_pdu_tree(mate_pdu *pdu, packet_info *pinfo, tvbuff_t *tvb, proto_item *item, proto_tree* tree)
 {
 	proto_item *pdu_item;
 	proto_tree *pdu_tree;
@@ -267,16 +266,16 @@ mate_pdu_tree(mate_pdu *pdu, packet_info *pinfo, tvbuff_t *tvb, proto_tree* tree
 	if ( ! pdu ) return;
 
 	if (pdu->gop && pdu->gop->gog) {
-		proto_item_append_text(mate_i," %s:%d->%s:%d->%s:%d",
+		proto_item_append_text(item," %s:%d->%s:%d->%s:%d",
 				       pdu->cfg->name,pdu->id,
 				       pdu->gop->cfg->name,pdu->gop->id,
 				       pdu->gop->gog->cfg->name,pdu->gop->gog->id);
 	} else if (pdu->gop) {
-		proto_item_append_text(mate_i," %s:%d->%s:%d",
+		proto_item_append_text(item," %s:%d->%s:%d",
 				       pdu->cfg->name,pdu->id,
 				       pdu->gop->cfg->name,pdu->gop->id);
 	} else {
-		proto_item_append_text(mate_i," %s:%d",pdu->cfg->name,pdu->id);
+		proto_item_append_text(item," %s:%d",pdu->cfg->name,pdu->id);
 	}
 
 	pdu_item = proto_tree_add_uint(tree,pdu->cfg->hfid,tvb,0,0,pdu->id);
@@ -300,6 +299,7 @@ static int
 mate_tree(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
 	mate_pdu* pdus;
+	proto_item *mate_i;
 	proto_tree *mate_t;
 
 	/* If there is no MATE configuration, don't claim the packet */
@@ -310,31 +310,28 @@ mate_tree(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 	if ( tree == NULL)
 		return tvb_captured_length(tvb);
 
-	mate_analyze_frame(pinfo,tree);
+	mate_analyze_frame(mc, pinfo,tree);
 
 	if (( pdus = mate_get_pdus(pinfo->num) )) {
 		for ( ; pdus; pdus = pdus->next_in_frame) {
 			mate_i = proto_tree_add_protocol_format(tree,mc->hfid_mate,tvb,0,0,"MATE");
 			mate_t = proto_item_add_subtree(mate_i, mc->ett_root);
-			mate_pdu_tree(pdus,pinfo,tvb,mate_t);
+			mate_pdu_tree(pdus,pinfo,tvb,mate_i,mate_t);
 		}
 	}
 	return tvb_captured_length(tvb);
 }
 
-static int
-mate_packet(void *prs _U_,  packet_info* tree _U_, epan_dissect_t *edt _U_, const void *dummy _U_)
+static void
+initialize_mate(void)
 {
-	/* nothing to do yet */
-	return 0;
+	initialize_mate_runtime(mc);
 }
 
 extern
 void
 proto_reg_handoff_mate(void)
 {
-	GString* tap_error = NULL;
-
 	if ( *pref_mate_config_filename != '\0' ) {
 
 		if (current_mate_config_filename) {
@@ -350,23 +347,15 @@ proto_reg_handoff_mate(void)
 				/* XXX: alignment warnings, what do they mean? */
 				proto_register_field_array(proto_mate, (hf_register_info*)(void *)mc->hfrs->data, mc->hfrs->len );
 				proto_register_subtree_array((gint**)(void*)mc->ett->data, mc->ett->len);
-				register_init_routine(initialize_mate_runtime);
+				register_init_routine(initialize_mate);
 
-				tap_error = register_tap_listener("frame", &mate_tap_data,
-				    (char*) mc->tap_filter,
-				    0,
-				    (tap_reset_cb) NULL,
-				    mate_packet,
-				    (tap_draw_cb) NULL);
+				/*
+				 * Set the list of hfids we want.
+				 */
+				set_postdissector_wanted_hfids(mate_handle,
+				    mc->wanted_hfids);
 
-				if ( tap_error ) {
-					ws_g_warning("mate: couldn't (re)register tap: %s",tap_error->str);
-					g_string_free(tap_error, TRUE);
-					mate_tap_data = 0;
-					return;
-				}
-
-				initialize_mate_runtime();
+				initialize_mate_runtime(mc);
 			}
 
 			current_mate_config_filename = pref_mate_config_filename;
@@ -393,7 +382,6 @@ proto_register_mate(void)
 
 	expert_module_t* expert_mate;
 	module_t *mate_module;
-	dissector_handle_t mate_handle;
 
 	proto_mate = proto_register_protocol("Meta Analysis Tracing Engine", "MATE", "mate");
 	proto_register_field_array(proto_mate, hf, array_length(hf));
@@ -405,7 +393,7 @@ proto_register_mate(void)
 	prefs_register_filename_preference(mate_module, "config",
 					   "Configuration Filename",
 					   "The name of the file containing the mate module's configuration",
-					   &pref_mate_config_filename);
+					   &pref_mate_config_filename, FALSE);
 
 	register_postdissector(mate_handle);
 }

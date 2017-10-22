@@ -36,7 +36,7 @@
 
 #include <wsutil/file_util.h>
 #include <wsutil/str_util.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 
 #include <wsutil/filesystem.h>
 #include <epan/packet.h>
@@ -225,6 +225,20 @@ void uat_remove_record_idx(uat_t* uat, guint idx) {
     g_array_remove_index(uat->valid_data, idx);
 }
 
+void uat_move_index(uat_t * uat, guint old_idx, guint new_idx)
+{
+    guint dir = 1;
+    guint start = old_idx;
+    if ( old_idx > new_idx )
+        dir = -1;
+
+    while ( start != new_idx )
+    {
+        uat_swap(uat, start, start + dir);
+        start += dir;
+    }
+}
+
 /* The returned filename was g_malloc()'d so the caller must free it */
 gchar* uat_get_actual_filename(uat_t* uat, gboolean for_writing) {
     gchar *pers_fname = NULL;
@@ -262,6 +276,46 @@ uat_t* uat_get_table_by_name(const char* name) {
     return NULL;
 }
 
+char *uat_fld_tostr(void *rec, uat_field_t *f) {
+    guint        len;
+    char       *ptr;
+    char       *out;
+
+    f->cb.tostr(rec, &ptr, &len, f->cbdata.tostr, f->fld_data);
+
+    switch(f->mode) {
+        case PT_TXTMOD_NONE:
+        case PT_TXTMOD_STRING:
+        case PT_TXTMOD_ENUM:
+        case PT_TXTMOD_BOOL:
+        case PT_TXTMOD_FILENAME:
+        case PT_TXTMOD_DIRECTORYNAME:
+        case PT_TXTMOD_DISPLAY_FILTER:
+        case PT_TXTMOD_COLOR:
+        case PT_TXTMOD_PROTO_FIELD:
+            out = g_strndup(ptr, len);
+            break;
+        case PT_TXTMOD_HEXBYTES: {
+            GString *s = g_string_sized_new( len*2 + 1 );
+            guint i;
+
+            for (i=0; i<len;i++) g_string_append_printf(s, "%.2X", ((const guint8*)ptr)[i]);
+
+            out = g_strdup(s->str);
+
+            g_string_free(s, TRUE);
+            break;
+        }
+        default:
+            g_assert_not_reached();
+            out = NULL;
+            break;
+    }
+
+    g_free(ptr);
+    return out;
+}
+
 static void putfld(FILE* fp, void* rec, uat_field_t* f) {
     guint fld_len;
     char* fld_ptr;
@@ -273,6 +327,9 @@ static void putfld(FILE* fp, void* rec, uat_field_t* f) {
         case PT_TXTMOD_ENUM:
         case PT_TXTMOD_FILENAME:
         case PT_TXTMOD_DIRECTORYNAME:
+        case PT_TXTMOD_DISPLAY_FILTER:
+        case PT_TXTMOD_PROTO_FIELD:
+        case PT_TXTMOD_COLOR:
         case PT_TXTMOD_STRING: {
             guint i;
 
@@ -298,6 +355,10 @@ static void putfld(FILE* fp, void* rec, uat_field_t* f) {
                 fprintf(fp,"%02x", (guchar)fld_ptr[i]);
             }
 
+            break;
+        }
+        case PT_TXTMOD_BOOL: {
+            fprintf(fp,"\"%s\"", fld_ptr);
             break;
         }
         default:
@@ -597,13 +658,30 @@ gboolean uat_fld_chk_num_hex(void* u1 _U_, const char* strptr, guint len, const 
     return uat_fld_chk_num(16, strptr, len, err);
 }
 
+gboolean uat_fld_chk_bool(void* u1 _U_, const char* strptr, guint len, const void* u2 _U_, const void* u3 _U_, char** err)
+{
+    char* str = g_strndup(strptr,len);
+
+    if ((g_strcmp0(str, "TRUE") == 0) ||
+        (g_strcmp0(str, "FALSE") == 0)) {
+        *err = NULL;
+        g_free(str);
+        return TRUE;
+    }
+
+    *err = g_strdup_printf("invalid value: %s (must be TRUE or FALSE)", str);
+    g_free(str);
+    return FALSE;
+}
+
+
 gboolean uat_fld_chk_enum(void* u1 _U_, const char* strptr, guint len, const void* v, const void* u3 _U_, char** err) {
     char* str = g_strndup(strptr,len);
     guint i;
     const value_string* vs = (const value_string *)v;
 
     for(i=0;vs[i].strptr;i++) {
-        if (g_str_equal(vs[i].strptr,str)) {
+        if (g_strcmp0(vs[i].strptr,str) == 0) {
             *err = NULL;
             g_free(str);
             return TRUE;
@@ -643,6 +721,17 @@ gboolean uat_fld_chk_range(void* u1 _U_, const char* strptr, guint len, const vo
     g_free(str);
     wmem_free(NULL, r);
     return ret_value;
+}
+
+gboolean uat_fld_chk_color(void* u1 _U_, const char* strptr, guint len, const void* v _U_, const void* u3 _U_, char** err) {
+
+    if ((len != 7) || (*strptr != '#')) {
+        *err = g_strdup("Color must be of the format #RRGGBB");
+        return FALSE;
+    }
+
+    /* Color is just # followed by hex string, so use hex verification */
+    return uat_fld_chk_num(16, strptr + 1, len - 1, err);
 }
 
 char* uat_unbinstring(const char* si, guint in_len, guint* len_p) {

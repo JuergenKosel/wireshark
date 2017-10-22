@@ -72,6 +72,7 @@ static heur_dissector_list_t raknet_heur_subdissectors = NULL;
 static expert_field ei_raknet_unknown_message_id = EI_INIT;
 static expert_field ei_raknet_encrypted_message = EI_INIT;
 static expert_field ei_raknet_subdissector_failed = EI_INIT;
+static expert_field ei_raknet_ip_ver_invalid = EI_INIT;
 
 /*
  * First byte gives us the packet id
@@ -267,7 +268,8 @@ raknet_conversation_set_dissector(packet_info *pinfo, const dissector_handle_t h
 }
 
 static void
-raknet_dissect_system_address(proto_tree *tree, int hf, tvbuff_t *tvb, gint *offset) {
+raknet_dissect_system_address(proto_tree *tree, int hf,
+        packet_info *pinfo, tvbuff_t *tvb, gint *offset) {
     proto_item *ti;
     proto_tree *sub_tree;
     guint8 ip_version;
@@ -276,7 +278,13 @@ raknet_dissect_system_address(proto_tree *tree, int hf, tvbuff_t *tvb, gint *off
     address addr;
     gchar *addr_str;
 
+    /* XXX - does it really make sense to have a string hf that's set to
+       an empty string? */
+    ti = proto_tree_add_string(tree, hf, tvb, *offset, -1, "");
+    sub_tree = proto_item_add_subtree(ti, ett_raknet_system_address);
     ip_version = tvb_get_guint8(tvb, *offset);
+    proto_tree_add_item(sub_tree, hf_raknet_ip_version, tvb, *offset, 1, ENC_NA);
+    (*offset)++;
     switch (ip_version) {
     case 4:
         /*
@@ -284,34 +292,30 @@ raknet_dissect_system_address(proto_tree *tree, int hf, tvbuff_t *tvb, gint *off
          * changing them. See ..RakNet/Source/BitStream.h
          * (BitStream::Write)
          */
-        v4_addr = ~tvb_get_ipv4(tvb, *offset + 1);
-        port = tvb_get_ntohs(tvb, *offset + 1 + 4);
-
+        v4_addr = ~tvb_get_ipv4(tvb, *offset);
         set_address(&addr, AT_IPv4, sizeof(v4_addr), &v4_addr);
         addr_str = address_to_display(wmem_packet_scope(), &addr);
-
-        ti = proto_tree_add_string_format_value(tree, hf, tvb, *offset, 1 + 4 + 2,
-                                                "", "%s:%" G_GUINT16_FORMAT, addr_str, port);
-        sub_tree = proto_item_add_subtree(ti, ett_raknet_system_address);
-        proto_tree_add_item(sub_tree, hf_raknet_ip_version, tvb, *offset, 1, ENC_NA);
         proto_tree_add_ipv4(sub_tree, hf_raknet_ipv4_address, tvb, *offset + 1, 4, v4_addr);
-        proto_tree_add_item(sub_tree, hf_raknet_port, tvb, *offset + 1 + 4, 2, ENC_BIG_ENDIAN);
-        *offset += 1 + 4 + 2;
+        *offset += 4;
+        port = tvb_get_ntohs(tvb, *offset);
+        proto_tree_add_item(sub_tree, hf_raknet_port, tvb, *offset, 2, ENC_BIG_ENDIAN);
+        *offset += 2;
+        proto_item_set_len(ti, 1 + 4 + 2);
+        proto_item_append_text(ti, "%s:%" G_GUINT16_FORMAT, addr_str, port);
         break;
     case 6:
-        addr_str = tvb_ip6_to_str(tvb, *offset + 1);
-        port = tvb_get_ntohs(tvb, *offset + 1 + 16);
-
-        ti = proto_tree_add_string_format_value(tree, hf, tvb, *offset, 1 + 16 + 2,
-                                                "", "[%s]:%" G_GUINT16_FORMAT, addr_str, port);
-        sub_tree = proto_item_add_subtree(ti, ett_raknet_system_address);
-        proto_tree_add_item(sub_tree, hf_raknet_ip_version, tvb, *offset, 1, ENC_NA);
+        addr_str = tvb_ip6_to_str(tvb, *offset);
         proto_tree_add_item(sub_tree, hf_raknet_ipv6_address, tvb, *offset + 1, 16, ENC_NA);
-        proto_tree_add_item(sub_tree, hf_raknet_port, tvb, *offset + 1 + 16, 2, ENC_BIG_ENDIAN);
-        *offset += 1 + 16 + 2;
+        *offset += 16;
+        port = tvb_get_ntohs(tvb, *offset);
+        proto_tree_add_item(sub_tree, hf_raknet_port, tvb, *offset, 2, ENC_BIG_ENDIAN);
+        *offset += 2;
+        proto_item_set_len(ti, 1 + 16 + 2);
+        proto_item_append_text(ti, "[%s]:%" G_GUINT16_FORMAT, addr_str, port);
         break;
     default:
-        THROW(ReportedBoundsError);
+        proto_item_set_len(ti, 1);
+        expert_add_info(pinfo, sub_tree, &ei_raknet_ip_ver_invalid);
     }
 }
 
@@ -440,7 +444,8 @@ raknet_dissect_open_connection_request_2(tvbuff_t *tvb, packet_info *pinfo, prot
         }
     }
 
-    raknet_dissect_system_address(sub_tree, hf_raknet_server_address, tvb, &offset);
+    raknet_dissect_system_address(
+            sub_tree, hf_raknet_server_address, pinfo, tvb, &offset);
 
     proto_tree_add_item(sub_tree, hf_raknet_mtu_size, tvb, offset,
                         2, ENC_BIG_ENDIAN);
@@ -471,7 +476,8 @@ raknet_dissect_open_connection_reply_2(tvbuff_t *tvb, packet_info *pinfo, proto_
                         8, ENC_NA);
     offset += 8;
 
-    raknet_dissect_system_address(sub_tree, hf_raknet_client_address, tvb, &offset);
+    raknet_dissect_system_address(
+            sub_tree, hf_raknet_client_address, pinfo, tvb, &offset);
 
     proto_tree_add_item(sub_tree, hf_raknet_mtu_size, tvb, offset,
                         2, ENC_BIG_ENDIAN);
@@ -655,14 +661,16 @@ raknet_dissect_connection_request_accepted(tvbuff_t *tvb, packet_info *pinfo _U_
     gint offset = 1;
     gint i;
 
-    raknet_dissect_system_address(tree, hf_raknet_client_address, tvb, &offset);
+    raknet_dissect_system_address(
+            tree, hf_raknet_client_address, pinfo, tvb, &offset);
 
     proto_tree_add_item(tree, hf_raknet_system_index, tvb, offset,
                         2, ENC_BIG_ENDIAN);
     offset += 2;
 
     for (i = 0; i < RAKNET_NUMBER_OF_INTERNAL_IDS; i++) {
-        raknet_dissect_system_address(tree, hf_raknet_internal_address, tvb, &offset);
+        raknet_dissect_system_address(
+                tree, hf_raknet_internal_address, pinfo, tvb, &offset);
     }
 
     proto_tree_add_item(tree, hf_raknet_timestamp, tvb,
@@ -677,17 +685,19 @@ raknet_dissect_connection_request_accepted(tvbuff_t *tvb, packet_info *pinfo _U_
 }
 
 static int
-raknet_dissect_new_incoming_connection(tvbuff_t *tvb, packet_info *pinfo _U_,
+raknet_dissect_new_incoming_connection(tvbuff_t *tvb, packet_info *pinfo,
                                        proto_tree *tree, void* data _U_)
 {
 
     gint offset = 1;
     gint i;
 
-    raknet_dissect_system_address(tree, hf_raknet_server_address, tvb, &offset);
+    raknet_dissect_system_address(
+            tree, hf_raknet_server_address, pinfo, tvb, &offset);
 
     for (i = 0; i < RAKNET_NUMBER_OF_INTERNAL_IDS; i++) {
-        raknet_dissect_system_address(tree, hf_raknet_internal_address, tvb, &offset);
+        raknet_dissect_system_address(
+                tree, hf_raknet_internal_address, pinfo, tvb, &offset);
     }
 
     proto_tree_add_item(tree, hf_raknet_timestamp, tvb,
@@ -1929,6 +1939,11 @@ proto_register_raknet(void)
             "RakNet message subdissector failed, trying the next candidate or heuristics",
             EXPFILL }
         },
+        { &ei_raknet_ip_ver_invalid,
+          { "raknet.ip_version.invalid", PI_PROTOCOL, PI_WARN,
+            "Invalid IP version",
+            EXPFILL }
+        }
     };
     expert_module_t *expert_raknet;
 

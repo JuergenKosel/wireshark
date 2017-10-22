@@ -23,11 +23,11 @@
 #define PACKET_LIST_H
 
 #include "byte_view_tab.h"
-#include "packet_list_model.h"
+#include <ui/qt/models/packet_list_model.h>
 #include "preferences_dialog.h"
 #include "proto_tree.h"
 #include "protocol_preferences_menu.h"
-#include "related_packet_delegate.h"
+#include <ui/qt/models/related_packet_delegate.h>
 
 #include <QMenu>
 #include <QTime>
@@ -146,6 +146,7 @@ private:
     void initHeaderContextMenu();
     void drawCurrentPacket();
     void applyRecentColumnWidths();
+    void scrollViewChanged(bool at_end);
 
 signals:
     void packetDissectionChanged();
@@ -176,6 +177,7 @@ public slots:
     void applyTimeShift();
     void recolorPackets();
     void redrawVisiblePackets();
+    void redrawVisiblePacketsDontSelectCurrent();
     void columnsChanged();
     void fieldsChanged(capture_file *cf);
     void preferencesChanged();

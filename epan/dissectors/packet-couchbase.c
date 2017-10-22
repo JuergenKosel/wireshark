@@ -69,17 +69,23 @@
 #define PROTOCOL_BINARY_RESPONSE_NOT_STORED         0x05
 #define PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL       0x06
 #define PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET     0x07
+#define PROTOCOL_BINARY_RESPONSE_NO_VBUCKET         0x08
+#define PROTOCOL_BINARY_RESPONSE_LOCKED             0x09
+#define PROTOCOL_BINARY_RESPONSE_AUTH_STALE         0x1f
 #define PROTOCOL_BINARY_RESPONSE_AUTH_ERROR         0x20
 #define PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE      0x21
 #define PROTOCOL_BINARY_RESPONSE_ERANGE             0x22
 #define PROTOCOL_BINARY_RESPONSE_ROLLBACK           0x23
 #define PROTOCOL_BINARY_RESPONSE_EACCESS            0x24
+#define PROTOCOL_BINARY_RESPONSE_NOT_INITIALIZED    0x25
 #define PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND    0x81
 #define PROTOCOL_BINARY_RESPONSE_ENOMEM             0x82
 #define PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED      0x83
 #define PROTOCOL_BINARY_RESPONSE_EINTERNAL          0x84
 #define PROTOCOL_BINARY_RESPONSE_EBUSY              0x85
 #define PROTOCOL_BINARY_RESPONSE_ETMPFAIL           0x86
+#define PROTOCOL_BINARY_RESPONSE_XATTR_EINVAL       0x87
+#define PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION         0x88
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT         0xc0
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH       0xc1
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EINVAL         0xc2
@@ -93,6 +99,14 @@
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_VALUE_ETOODEEP      0xca
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_COMBO       0xcb
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE  0xcc
+#define PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED            0xcd
+#define PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO   0xce
+#define PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO    0xcf
+#define PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO        0xd0
+#define PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR        0xd1
+#define PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR    0xd2
+#define PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED 0xd3
+#define PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER        0xd4
 
  /* Command Opcodes */
 #define PROTOCOL_BINARY_CMD_GET                     0x00
@@ -264,6 +278,7 @@
 #define PROTOCOL_BINARY_CMD_GET_CMD_TIMER           0xf3
 #define PROTOCOL_BINARY_CMD_SET_CTRL_TOKEN          0xf4
 #define PROTOCOL_BINARY_CMD_GET_CTRL_TOKEN          0xf5
+#define PROTOCOL_BINARY_CMD_GET_ERROR_MAP           0xfe
 
  /* vBucket states */
 #define VBUCKET_ACTIVE                              0x01
@@ -317,12 +332,16 @@ static int hf_extras_flags_dcp_snapshot_marker_chk = -1;
 static int hf_extras_flags_dcp_snapshot_marker_ack = -1;
 static int hf_extras_flags_dcp_include_xattrs = -1;
 static int hf_extras_flags_dcp_no_value = -1;
+static int hf_subdoc_doc_flags = -1;
+static int hf_subdoc_doc_flags_mkdoc = -1;
+static int hf_subdoc_doc_flags_add = -1;
+static int hf_subdoc_doc_flags_accessdeleted = -1;
+static int hf_subdoc_doc_flags_reserved = -1;
 static int hf_subdoc_flags = -1;
 static int hf_subdoc_flags_mkdirp = -1;
-static int hf_subdoc_flags_mkdoc = -1;
 static int hf_subdoc_flags_xattrpath = -1;
-static int hf_subdoc_flags_accessdeleted = -1;
 static int hf_subdoc_flags_expandmacros = -1;
+static int hf_subdoc_flags_reserved = -1;
 static int hf_extras_seqno = -1;
 static int hf_extras_opaque = -1;
 static int hf_extras_reserved = -1;
@@ -358,6 +377,8 @@ static int hf_observe_last_persisted_seqno = -1;
 static int hf_observe_current_seqno = -1;
 static int hf_observe_old_vbucket_uuid = -1;
 static int hf_observe_last_received_seqno = -1;
+
+static int hf_get_errmap_version = -1;
 
 static int hf_failover_log = -1;
 static int hf_failover_log_size = -1;
@@ -449,17 +470,27 @@ static const value_string status_vals[] = {
   { PROTOCOL_BINARY_RESPONSE_NOT_STORED,        "Key not stored"          },
   { PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL,      "Bad value to incr/decr"  },
   { PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET,    "Not my vBucket"          },
+  { PROTOCOL_BINARY_RESPONSE_NO_VBUCKET,        "Not connected to a bucket" },
+  { PROTOCOL_BINARY_RESPONSE_LOCKED,            "The requested resource is locked" },
+  { PROTOCOL_BINARY_RESPONSE_AUTH_STALE,        "Authentication context is stale. Should reauthenticate." },
   { PROTOCOL_BINARY_RESPONSE_AUTH_ERROR,        "Authentication error"    },
   { PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE,     "Authentication continue" },
   { PROTOCOL_BINARY_RESPONSE_ERANGE,            "Range error"             },
   { PROTOCOL_BINARY_RESPONSE_ROLLBACK,          "Rollback"                },
   { PROTOCOL_BINARY_RESPONSE_EACCESS,           "Access error"            },
+  { PROTOCOL_BINARY_RESPONSE_NOT_INITIALIZED,
+    "The Couchbase cluster is currently initializing this node, and "
+    "the Cluster manager has not yet granted all users access to the cluster."},
   { PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND,   "Unknown command"         },
   { PROTOCOL_BINARY_RESPONSE_ENOMEM,            "Out of memory"           },
   { PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED,     "Command isn't supported" },
   { PROTOCOL_BINARY_RESPONSE_EINTERNAL,         "Internal error"          },
   { PROTOCOL_BINARY_RESPONSE_EBUSY,             "Server is busy"          },
   { PROTOCOL_BINARY_RESPONSE_ETMPFAIL,          "Temporary failure"       },
+  { PROTOCOL_BINARY_RESPONSE_XATTR_EINVAL,
+    "There is something wrong with the syntax of the provided XATTR."},
+  { PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION,
+    "Operation attempted with an unknown collection."},
   { PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT,
     "Subdoc: Path not does not exist"},
   { PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH,
@@ -486,7 +517,22 @@ static const value_string status_vals[] = {
     "Subdoc: Invalid combination for multi-path command"},
   { PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE,
     "Subdoc: One or more paths in a multi-path command failed"},
-
+  { PROTOCOL_BINARY_RESPONSE_SUBDOC_SUCCESS_DELETED,
+    "Subdoc: The operation completed successfully, but operated on a deleted document."},
+  { PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_FLAG_COMBO,
+    "Subdoc: The combination of the subdoc flags for the xattrs doesn't make any sense."},
+  { PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_INVALID_KEY_COMBO,
+    "Subdoc: Only a single xattr key may be accessed at the same time."},
+  { PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_MACRO,
+    "Subdoc: The server has no knowledge of the requested macro."},
+  { PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_UNKNOWN_VATTR,
+    "Subdoc: The server has no knowledge of the requested virtual xattr."},
+  { PROTOCOL_BINARY_RESPONSE_SUBDOC_XATTR_CANT_MODIFY_VATTR,
+    "Subdoc: Virtual xattrs can't be modified."},
+  { PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE_DELETED,
+    "Subdoc: Specified key was found as a deleted document, but one or more path operations failed."},
+  { PROTOCOL_BINARY_RESPONSE_SUBDOC_INVALID_XATTR_ORDER,
+    "Subdoc: According to the spec all xattr commands should come first, followed by the commands for the document body."},
   { 0, NULL }
 };
 
@@ -637,6 +683,7 @@ static const value_string opcode_vals[] = {
   { PROTOCOL_BINARY_CMD_GET_CMD_TIMER,              "Internal Timer Control"   },
   { PROTOCOL_BINARY_CMD_SET_CTRL_TOKEN,             "Set Control Token"        },
   { PROTOCOL_BINARY_CMD_GET_CTRL_TOKEN,             "Get Control Token"        },
+  { PROTOCOL_BINARY_CMD_GET_ERROR_MAP,              "Get Error Map"            },
 
   /* Internally defined values not valid here */
   { 0, NULL }
@@ -668,21 +715,33 @@ static const int * datatype_vals[] = {
 
 static const int * subdoc_flags[] = {
   &hf_subdoc_flags_mkdirp,
-  &hf_subdoc_flags_mkdoc,
   &hf_subdoc_flags_xattrpath,
-  &hf_subdoc_flags_accessdeleted,
   &hf_subdoc_flags_expandmacros,
+  &hf_subdoc_flags_reserved,
+  NULL
+};
+
+static const int * subdoc_doc_flags[] = {
+  &hf_subdoc_doc_flags_mkdoc,
+  &hf_subdoc_doc_flags_add,
+  &hf_subdoc_doc_flags_accessdeleted,
+  &hf_subdoc_doc_flags_reserved,
   NULL
 };
 
 static const value_string feature_vals[] = {
-  {1, "Datatype"},
-  {2, "TLS"},
-  {3, "TCP Nodelay"},
-  {4, "Mutation Seqno"},
-  {5, "TCP Delay"},
-  {6, "XATTR"},
-  {7, "XERROR"},
+  {0x01, "Datatype"},
+  {0x02, "TLS"},
+  {0x03, "TCP Nodelay"},
+  {0x04, "Mutation Seqno"},
+  {0x05, "TCP Delay"},
+  {0x06, "XATTR"},
+  {0x07, "Error Map"},
+  {0x08, "Select Bucket"},
+  {0x09, "Collections"},
+  {0x0a, "Snappy"},
+  {0x0b, "JSON"},
+  {0x0c, "Duplex"},
   {0, NULL}
 };
 
@@ -1145,6 +1204,11 @@ dissect_extras(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   case PROTOCOL_BINARY_CMD_SUBDOC_EXISTS:
     dissect_subdoc_spath_required_extras(tvb, extras_tree, extlen, request,
                                          &offset, path_len, &illegal);
+    if (extlen == 4) {
+      proto_tree_add_bitmask(extras_tree, tvb, offset, hf_subdoc_doc_flags,
+                             ett_extras_flags, subdoc_doc_flags, ENC_BIG_ENDIAN);
+      offset += 1;
+    }
     break;
 
   case PROTOCOL_BINARY_CMD_SUBDOC_DICT_ADD:
@@ -1160,11 +1224,21 @@ dissect_extras(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                          &offset, path_len, &illegal);
     if (request) {
       /* optional expiry only permitted for mutation requests,
-         iff extlen == 7 */
-      if (extlen == 7) {
-        proto_tree_add_item(extras_tree, hf_extras_expiration, tvb, offset, 4, ENC_BIG_ENDIAN);
+         if and only if (extlen == 7 || extlen == 8) */
+      if (extlen == 7 || extlen == 8) {
+        proto_tree_add_item(extras_tree, hf_extras_expiration, tvb, offset,
+                            4, ENC_BIG_ENDIAN);
         offset += 4;
-      } else if (extlen != 3) {
+      }
+      /* optional doc flags only permitted if and only if
+         (extlen == 4 || extlen == 8) */
+      if (extlen == 4 || extlen == 8) {
+        proto_tree_add_bitmask(extras_tree, tvb, offset, hf_subdoc_doc_flags,
+                               ett_extras_flags, subdoc_doc_flags,
+                               ENC_BIG_ENDIAN);
+        offset += 1;
+      }
+      if (extlen != 3 && extlen != 7 && extlen != 4 && extlen != 8) {
         illegal = TRUE;
       }
     }
@@ -1172,7 +1246,30 @@ dissect_extras(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
   case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP:
     if (request) {
-      if (extlen) {
+      if (extlen == 1) {
+        proto_tree_add_bitmask(extras_tree, tvb, offset, hf_subdoc_doc_flags,
+                               ett_extras_flags, subdoc_doc_flags,
+                               ENC_BIG_ENDIAN);
+        offset += 1;
+      } else {
+        illegal = TRUE;
+      }
+    }
+    break;
+
+  case PROTOCOL_BINARY_CMD_SUBDOC_MULTI_MUTATION:
+    if (request) {
+      if (extlen == 4 || extlen == 5) {
+        proto_tree_add_item(extras_tree, hf_extras_expiration, tvb, offset, 4,
+                            ENC_BIG_ENDIAN);
+        offset += 4;
+      }
+      if (extlen == 1 || extlen == 5) {
+        proto_tree_add_bitmask(extras_tree, tvb, offset, hf_subdoc_doc_flags,
+                               ett_extras_flags, subdoc_doc_flags, ENC_BIG_ENDIAN);
+        offset += 1;
+      }
+      if (extlen != 1 && extlen != 4 && extlen != 5) {
         illegal = TRUE;
       }
     }
@@ -1466,10 +1563,10 @@ dissect_multipath_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   if (request) {
     gint min_spec_size;
 
-    /* Minimum size is the fixed header plus at least 1 byte for path. */
-    min_spec_size = (is_mutation ? 8 : 4) + 1;
+    /* Minimum size is the fixed header. */
+    min_spec_size = (is_mutation ? 8 : 4);
 
-    while (offset + min_spec_size < end) {
+    while (offset + min_spec_size <= end) {
       guint32 path_len;
       guint32 spec_value_len = 0;
       gint start_offset = offset;
@@ -1498,9 +1595,11 @@ dissect_multipath_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         offset += 4;
       }
 
-      proto_tree_add_item(multipath_tree, hf_multipath_path, tvb, offset, path_len,
-                          ENC_ASCII | ENC_NA);
-      offset += path_len;
+      if (path_len) {
+        proto_tree_add_item(multipath_tree, hf_multipath_path, tvb, offset, path_len,
+                            ENC_ASCII | ENC_NA);
+        offset += path_len;
+      }
 
       if (spec_value_len > 0) {
         proto_tree_add_item(multipath_tree, hf_multipath_value, tvb, offset,
@@ -1675,7 +1774,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         }
     } else if (request && opcode == PROTOCOL_BINARY_CMD_CREATE_BUCKET) {
       gint sep, equals_pos, sep_pos, config_len;
-      proto_tree *key_tree, *config_tree;
+      proto_tree *key_tree, *config_tree = NULL;
 
       /* There are 2 main items stored in the value. The bucket type (represented by a path to the engine) and the
        * bucket config. These are separated by a NULL byte with the bucket type coming first.*/
@@ -1731,6 +1830,13 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       opcode == PROTOCOL_BINARY_CMD_ADDQ_WITH_META )) {
 
       dissect_dcp_xattrs(tvb, tree, value_len, offset, pinfo);
+    } else if (request && opcode == PROTOCOL_BINARY_CMD_GET_ERROR_MAP) {
+      if (value_len != 2) {
+        expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Illegal Value length, should be 2");
+        ti = proto_tree_add_item(tree, hf_value, tvb, offset, value_len, ENC_ASCII | ENC_NA);
+      } else {
+        ti = proto_tree_add_item(tree, hf_get_errmap_version, tvb, offset, value_len, ENC_BIG_ENDIAN);
+      }
     } else {
       ti = proto_tree_add_item(tree, hf_value, tvb, offset, value_len, ENC_ASCII | ENC_NA);
     }
@@ -1809,6 +1915,15 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                            val_to_str_ext(opcode, &opcode_vals_ext, "Opcode 0x%x"),
                            request ? "Request" : "Response");
   }
+}
+
+static gboolean
+is_xerror(guint8 datatype, guint16 status)
+{
+  if ((datatype & DT_JSON) && status != PROTOCOL_BINARY_RESPONSE_SUBDOC_MULTI_PATH_FAILURE) {
+    return TRUE;
+  }
+  return FALSE;
 }
 
 static int
@@ -1924,7 +2039,7 @@ dissect_couchbase(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
   } else if (bodylen) {
     proto_tree_add_item(couchbase_tree, hf_value, tvb, offset, bodylen,
                         ENC_ASCII | ENC_NA);
-    if (status == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET) {
+    if (status == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET || is_xerror(datatype, status)) {
       tvbuff_t *json_tvb;
       json_tvb = tvb_new_subset_length_caplen(tvb, offset, bodylen, bodylen);
       call_dissector(json_handle, json_tvb, pinfo, couchbase_tree);
@@ -2024,10 +2139,14 @@ proto_register_couchbase(void)
     /* Sub-document */
     { &hf_subdoc_flags, { "Subdoc flags", "couchbase.extras.subdoc.flags", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL} },
     { &hf_subdoc_flags_mkdirp, { "MKDIR_P", "couchbase.extras.subdoc.flags.mkdir_p", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x01, "Create non-existent intermediate paths", HFILL} },
-    { &hf_subdoc_flags_mkdoc, { "MKDOC", "couchbase.extras.subdoc.flags.mkdoc", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x02, "Create document if it does not exist, implies mkdir_p", HFILL} },
     { &hf_subdoc_flags_xattrpath, { "XATTR_PATH", "couchbase.extras.subdoc.flags.xattr_path", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x04, "If set path refers to extended attribute (XATTR)", HFILL} },
-    { &hf_subdoc_flags_accessdeleted, { "ACCESS_DELETED", "couchbase.extras.subdoc.flags.access_deleted", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x08, "Allow access to XATTRs for deleted documents", HFILL} },
     { &hf_subdoc_flags_expandmacros, { "EXPAND_MACROS", "couchbase.extras.subdoc.flags.expand_macros", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x10, "Expand macro values inside XATTRs", HFILL} },
+    { &hf_subdoc_flags_reserved, {"Reserved fields", "couchbase.extras.subdoc.flags.reserved", FT_UINT8, BASE_HEX, NULL, 0xEA, "A reserved field", HFILL} },
+    { &hf_subdoc_doc_flags, { "Subdoc Doc flags", "couchbase.extras.subdoc.doc_flags", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL} },
+    { &hf_subdoc_doc_flags_mkdoc, { "MKDOC", "couchbase.extras.subdoc.doc_flags.mkdoc", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x01, "Create document if it does not exist, implies mkdir_p", HFILL} },
+    { &hf_subdoc_doc_flags_add, { "ADD", "couchbase.extras.subdoc.doc_flags.add", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x02, "Fail if doc already exists", HFILL} },
+    { &hf_subdoc_doc_flags_accessdeleted, { "ACCESS_DELETED", "couchbase.extras.subdoc.doc_flags.access_deleted", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x04, "Allow access to XATTRs for deleted documents", HFILL} },
+    { &hf_subdoc_doc_flags_reserved, {"Reserved fields", "couchbase.extras.subdoc.doc_flags.reserved", FT_UINT8, BASE_HEX, NULL, 0xF8, "A reserved field", HFILL} },
     { &hf_extras_pathlen, { "Path Length", "couchbase.extras.pathlen", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
 
     /* DCP flags */
@@ -2087,6 +2206,8 @@ proto_register_couchbase(void)
     { &hf_observe_old_vbucket_uuid, { "Old VBucket UUID", "couchbase.observe.old_vbucket_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
     { &hf_observe_last_received_seqno, { "Last received sequence number", "couchbase.observe.last_received_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
     { &hf_observe_failed_over, { "Failed over", "couchbase.observe.failed_over", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+
+    { &hf_get_errmap_version, {"Version", "couchbase.geterrmap.version", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL} },
 
     { &hf_multipath_opcode, { "Opcode", "couchbase.multipath.opcode", FT_UINT8, BASE_HEX|BASE_EXT_STRING, &opcode_vals_ext, 0x0, "Command code", HFILL } },
     { &hf_multipath_index, { "Index", "couchbase.multipath.index", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },

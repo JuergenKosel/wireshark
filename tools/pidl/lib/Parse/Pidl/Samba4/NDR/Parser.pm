@@ -525,11 +525,12 @@ sub ParseCompressionPullStart($$$$$)
 	my $comndr = "$ndr\_compressed";
 	my $alg = compression_alg($e, $l);
 	my $dlen = compression_dlen($e, $l, $env);
+	my $clen = compression_clen($e, $l, $env);
 
 	$self->pidl("{");
 	$self->indent;
 	$self->pidl("struct ndr_pull *$comndr;");
-	$self->pidl("NDR_CHECK(ndr_pull_compression_start($ndr, &$comndr, $alg, $dlen));");
+	$self->pidl("NDR_CHECK(ndr_pull_compression_start($ndr, &$comndr, $alg, $dlen, $clen));");
 
 	return $comndr;
 }
@@ -636,7 +637,11 @@ sub ParseElementPushLevel
 
 			# Allow speedups for arrays of scalar types
 			if (is_charset_array($e,$l)) {
-				$self->pidl("NDR_CHECK(ndr_push_charset($ndr, $ndr_flags, $var_name, $length, sizeof(" . mapTypeName($nl->{DATA_TYPE}) . "), CH_$e->{PROPERTIES}->{charset}));");
+				if ($l->{IS_TO_NULL}) {
+					$self->pidl("NDR_CHECK(ndr_push_charset_to_null($ndr, $ndr_flags, $var_name, $length, sizeof(" . mapTypeName($nl->{DATA_TYPE}) . "), CH_$e->{PROPERTIES}->{charset}));");
+				} else {
+					$self->pidl("NDR_CHECK(ndr_push_charset($ndr, $ndr_flags, $var_name, $length, sizeof(" . mapTypeName($nl->{DATA_TYPE}) . "), CH_$e->{PROPERTIES}->{charset}));");
+				}
 				return;
 			} elsif (has_fast_array($e,$l)) {
 				$self->pidl("NDR_CHECK(ndr_push_array_$nl->{DATA_TYPE}($ndr, $ndr_flags, $var_name, $length));");
@@ -716,6 +721,11 @@ sub ParseElementPush($$$$$$)
 	my $subndr = undef;
 
 	my $var_name = $env->{$e->{NAME}};
+
+	if (has_property($e, "skip") or has_property($e, "skip_noinit")) {
+		$self->pidl("/* [skip] '$var_name' */");
+		return;
+	}
 
 	return if ContainsPipe($e, $e->{LEVELS}[0]);
 
@@ -839,8 +849,10 @@ sub ParseElementPrint($$$$$)
 	my $cur_depth = 0;
 	my $ignore_depth = 0xFFFF;
 
+	$self->start_flags($e, $ndr);
 	if ($e->{REPRESENTATION_TYPE} ne $e->{TYPE}) {
 		$self->pidl("ndr_print_$e->{REPRESENTATION_TYPE}($ndr, \"$e->{NAME}\", $var_name);");
+		$self->end_flags($e, $ndr);
 		return;
 	}
 
@@ -935,6 +947,8 @@ sub ParseElementPrint($$$$$)
 			$self->pidl("$ndr->depth--;");
 		}
 	}
+
+	$self->end_flags($e, $ndr);
 }
 
 #####################################################################
@@ -979,11 +993,7 @@ sub ParseDataPull($$$$$$$)
 
 		$var_name = get_pointer_to($var_name);
 
-		if (has_property($e, "skip")) {
-			$self->pidl("/* [skip] '$var_name' */");
-		} else {
-			$self->pidl("NDR_CHECK(".TypeFunctionName("ndr_pull", $l->{DATA_TYPE})."($ndr, $ndr_flags, $var_name));");
-		}
+		$self->pidl("NDR_CHECK(".TypeFunctionName("ndr_pull", $l->{DATA_TYPE})."($ndr, $ndr_flags, $var_name));");
 
 		my $pl = GetPrevLevel($e, $l);
 
@@ -1021,11 +1031,7 @@ sub ParseDataPush($$$$$$$)
 			$var_name = get_pointer_to($var_name);
 		}
 
-		if (has_property($e, "skip")) {
-			$self->pidl("/* [skip] '$var_name' */");
-		} else {
-			$self->pidl("NDR_CHECK(".TypeFunctionName("ndr_push", $l->{DATA_TYPE})."($ndr, $ndr_flags, $var_name));");
-		}
+		$self->pidl("NDR_CHECK(".TypeFunctionName("ndr_push", $l->{DATA_TYPE})."($ndr, $ndr_flags, $var_name));");
 	} else {
 		$self->ParseTypePush($l->{DATA_TYPE}, $ndr, $var_name, $primitives, $deferred);
 	}
@@ -1124,6 +1130,14 @@ sub ParseElementPullLevel
 
 	my $ndr_flags = CalcNdrFlags($l, $primitives, $deferred);
 	my $array_length = undef;
+
+	if (has_property($e, "skip") or has_property($e, "skip_noinit")) {
+		$self->pidl("/* [skip] '$var_name' */");
+		if (not has_property($e, "skip_noinit")) {
+			$self->pidl("ZERO_STRUCT($var_name);");
+		}
+		return;
+	}
 
 	if ($l->{TYPE} eq "ARRAY" and ($l->{IS_VARYING} or $l->{IS_CONFORMANT})) {
 		$var_name = get_pointer_to($var_name);
@@ -1648,6 +1662,11 @@ sub ParseStructPrint($$$$$)
 sub DeclarePtrVariables($$)
 {
 	my ($self,$e) = @_;
+
+	if (has_property($e, "skip") or has_property($e, "skip_noinit")) {
+		return;
+	}
+
 	foreach my $l (@{$e->{LEVELS}}) {
 		my $size = 32;
 		if ($l->{TYPE} eq "POINTER" and 
@@ -1664,6 +1683,10 @@ sub DeclarePtrVariables($$)
 sub DeclareArrayVariables($$;$)
 {
 	my ($self,$e,$pull) = @_;
+
+	if (has_property($e, "skip") or has_property($e, "skip_noinit")) {
+		return;
+	}
 
 	foreach my $l (@{$e->{LEVELS}}) {
 		next if ($l->{TYPE} ne "ARRAY");
@@ -1683,6 +1706,10 @@ sub DeclareArrayVariablesNoZero($$$)
 {
 	my ($self,$e,$env) = @_;
 
+	if (has_property($e, "skip") or has_property($e, "skip_noinit")) {
+		return;
+	}
+
 	foreach my $l (@{$e->{LEVELS}}) {
 		next if ($l->{TYPE} ne "ARRAY");
 		next if has_fast_array($e,$l);
@@ -1699,6 +1726,11 @@ sub DeclareArrayVariablesNoZero($$$)
 sub DeclareMemCtxVariables($$)
 {
 	my ($self,$e) = @_;
+
+	if (has_property($e, "skip") or has_property($e, "skip_noinit")) {
+		return;
+	}
+
 	foreach my $l (@{$e->{LEVELS}}) {
 		my $mem_flags = $self->ParseMemCtxPullFlags($e, $l);
 

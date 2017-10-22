@@ -29,8 +29,11 @@
 
 #include "packet-ber.h"
 #include "packet-gsm_map.h"
+#include "packet-gsm_a_common.h"
 #include "packet-e212.h"
 #include "packet-gprscdr.h"
+#include "packet-gtp.h"
+#include "packet-gtpv2.h"
 
 #define PNAME  "GPRS CDR"
 #define PSNAME "GPRSCDR"
@@ -46,7 +49,10 @@ static int proto_gprscdr = -1;
 static int ett_gprscdr = -1;
 static int ett_gprscdr_timestamp = -1;
 static int ett_gprscdr_plmn_id = -1;
+static int ett_gprscdr_pdp_pdn_type = -1;
+static int ett_gprscdr_eps_qos_arp = -1;
 static int ett_gprscdr_managementextension_information = -1;
+static int ett_gprscdr_userlocationinformation = -1;
 #include "packet-gprscdr-ett.c"
 
 static expert_field ei_gprscdr_not_dissected = EI_INIT;
@@ -62,6 +68,58 @@ static const value_string gprscdr_daylight_saving_time_vals[] = {
     {3, "Reserved"},
     {0, NULL}
 };
+
+/* 3GPP-RAT-Type
+*  3GPP TS 29.061
+*/
+static const value_string gprscdr_rat_type_vals[] = {
+    {0, "Reserved"},
+    {1, "UTRAN"},
+    {2, "GERAN"},
+    {3, "WLAN"},
+    {4, "GAN"},
+    {5, "HSPA Evolution"},
+    {6, "EUTRAN"},
+    {7, "Virtual"},
+    {8, "EUTRAN-NB-IoT"},
+    /* 9-100 Spare for future use TS 29.061 */
+    {101, "IEEE 802.16e"},
+    {102, "3GPP2 eHRPD"},
+    {103, "3GPP2 HRPD"},
+    /* 104-255 Spare for future use TS 29.061 */
+    {0, NULL}
+};
+
+static int
+dissect_gprscdr_uli(tvbuff_t *tvb _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int type) {
+  proto_tree *ext_tree_uli;
+  guint       length;
+
+  length = tvb_reported_length(tvb);
+  ext_tree_uli = proto_tree_add_subtree(tree, tvb, 0, length, ett_gprscdr_userlocationinformation, NULL, "UserLocationInformation");
+
+  switch (type) {
+  case 1:
+      /* For GGSN/EGGSN-CDR,
+       * this octet string is a 1:1 copy of the contents (i.e. starting with octet 4) of the
+       * User Location Information (ULI) information element specified in 29.060, ch7.7.51.
+       */
+      dissect_gtp_uli(tvb, 0, actx->pinfo, ext_tree_uli, NULL);
+      break;
+  case 2:
+      /* For SGW/PGW-CDR,
+       * this octet string is a 1:1 copy of the contents (i.e. starting with octet 5) of the
+       * User Location Information (ULI) information element specified in 29.274, ch8.21.
+       */
+      dissect_gtpv2_uli(tvb, actx->pinfo, ext_tree_uli, NULL, length, 0, 0, NULL);
+      break;
+  default:
+      proto_tree_add_expert(ext_tree_uli, actx->pinfo, &ei_gprscdr_not_dissected, tvb, 0, length);
+      break;
+  }
+
+  return length;
+}
 
 #include "packet-gprscdr-fn.c"
 
@@ -81,7 +139,10 @@ proto_register_gprscdr(void)
     &ett_gprscdr,
     &ett_gprscdr_timestamp,
     &ett_gprscdr_plmn_id,
+    &ett_gprscdr_pdp_pdn_type,
+    &ett_gprscdr_eps_qos_arp,
     &ett_gprscdr_managementextension_information,
+    &ett_gprscdr_userlocationinformation,
 #include "packet-gprscdr-ettarr.c"
         };
 

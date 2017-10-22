@@ -43,7 +43,7 @@ epan/register_wslua.c
 epan/taps.txt
 epan/taps_wslua.c
 epan/uat_load.c
-epan/ws_version_info.c
+epan/version_info.c
 epan/wslua/declare_wslua.h
 epan/wslua/register_wslua.c
 epan/wslua/taps.txt
@@ -54,12 +54,11 @@ plugin.c
 plugins/mate/mate_parser.c
 version.h
 tools/lemon/lemon
-tools/setuid-root.pl
 tshark-tap-register.c
 wiretap/ascend.c
 wiretap/ascend.h
 wiretap/k12text.c
-wiretap/ws_version_info.c
+wiretap/version_info.c
 wireshark-tap-register.c
 wireshark-tap-register-cache.pkl
 ui/gtk/wireshark-gresources.c
@@ -187,11 +186,12 @@ qtshark
 /ui/qt/*.qrc.depends
 /ui/qt/*.pro.user
 /ui/qt/*.qm
-/ui/qt/moc_*.cpp
-/ui/qt/moc_*.cpp_parameters
-/ui/qt/*.moc.cpp
-/ui/qt/*.rcc.cpp
-/ui/qt/moc_*.cxx
+/ui/qt/**/moc_*.cpp
+/ui/qt/**/moc_*.cpp_parameters
+/ui/qt/**/*.moc.cpp
+/ui/qt/**/*.rcc.cpp
+/ui/qt/**/moc_*.cxx
+/ui/qt/i18n.qrc
 /ui/qt/qrc_*.cpp
 /ui/qt/qrc_*.cxx
 /ui/qt/ui_*.h
@@ -264,6 +264,4 @@ packaging/nsis/qt-dll-manifest.nsh
 packaging/portableapps/Files/
 packaging/portableapps/appinfo.ini
 packaging/rpm/SPECS/wireshark.spec
-packaging/svr4/checkinstall
-packaging/svr4/pkginfo
 vgcore.*

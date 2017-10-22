@@ -139,7 +139,11 @@
 #define NFS4_OP_SEEK                        69
 #define NFS4_OP_WRITE_SAME                  70
 #define NFS4_OP_CLONE                       71
-#define NFS4_LAST_OP                        71
+#define NFS4_OP_GETXATTR                    72
+#define NFS4_OP_SETXATTR                    73
+#define NFS4_OP_LISTXATTRS                  74
+#define NFS4_OP_REMOVEXATTR                 75
+#define NFS4_LAST_OP                        75
 #define NFS4_OP_ILLEGAL                  10044
 
 /*
@@ -177,12 +181,15 @@
 #define EXCLUSIVE4_1 3
 
 /* for access mask */
-#define NFS_ACCESS_MASK_READ        0x01
-#define NFS_ACCESS_MASK_LOOKUP      0x02
-#define NFS_ACCESS_MASK_MODIFY      0x04
-#define NFS_ACCESS_MASK_EXTEND      0x08
-#define NFS_ACCESS_MASK_DELETE      0x10
-#define NFS_ACCESS_MASK_EXECUTE     0x20
+#define NFS_ACCESS_MASK_READ        0x001
+#define NFS_ACCESS_MASK_LOOKUP      0x002
+#define NFS_ACCESS_MASK_MODIFY      0x004
+#define NFS_ACCESS_MASK_EXTEND      0x008
+#define NFS_ACCESS_MASK_DELETE      0x010
+#define NFS_ACCESS_MASK_EXECUTE     0x020
+#define NFS_ACCESS_MASK_XATTR_READ  0x040
+#define NFS_ACCESS_MASK_XATTR_WRITE 0x080
+#define NFS_ACCESS_MASK_XATTR_LIST  0x100
 
 /* pNFS layout types */
 #define LAYOUT4_NO_LAYOUT_TYPE            0

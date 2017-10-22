@@ -81,11 +81,6 @@ static void i2c_prompt(packet_info *pinfo _U_, gchar* result)
 	g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "Interpret I2C messages as");
 }
 
-static gpointer i2c_value(packet_info *pinfo _U_)
-{
-	return 0;
-}
-
 static gboolean
 capture_i2c(const guchar *pd _U_, int offset _U_, int len _U_, capture_packet_info_t *cpinfo, const union wtap_pseudo_header *pseudo_header)
 {
@@ -217,9 +212,7 @@ dissect_i2c(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 				addr, "0x%02x%s", addr, addr ? "" : " (General Call)");
 		proto_tree_add_uint(i2c_tree, hf_i2c_flags, tvb, 0, 0, flags);
 
-		/* Functionality for choosing subdissector is controlled through Decode As as I2C doesn't
-		   have a unique identifier to determine subdissector */
-		if (!dissector_try_uint(subdissector_table, 0, tvb, pinfo, tree))
+		if (!dissector_try_payload(subdissector_table, tvb, pinfo, tree))
 		{
 			call_data_dissector(tvb, pinfo, tree);
 		}
@@ -241,12 +234,6 @@ proto_register_i2c(void)
 	};
 	module_t *m;
 
-	/* Decode As handling */
-	static build_valid_func i2c_da_build_value[1] = {i2c_value};
-	static decode_as_value_t i2c_da_values = {i2c_prompt, 1, i2c_da_build_value};
-	static decode_as_t i2c_da = {"i2c", "I2C Message", "i2c.message", 1, 0, &i2c_da_values, NULL, NULL,
-									decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
-
 	proto_i2c = proto_register_protocol("Inter-Integrated Circuit", "I2C", "i2c");
 	proto_register_field_array(proto_i2c, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
@@ -255,12 +242,10 @@ proto_register_i2c(void)
 	proto_i2c_event = proto_register_protocol_in_name_only("I2C Events", "I2C Events", "i2c_event", proto_i2c, FT_PROTOCOL);
 	proto_i2c_data = proto_register_protocol_in_name_only("I2C Data", "I2C Data", "i2c_data", proto_i2c, FT_PROTOCOL);
 
-	subdissector_table = register_dissector_table("i2c.message", "I2C messages dissector", proto_i2c, FT_UINT32, BASE_DEC);
-
 	m = prefs_register_protocol(proto_i2c, NULL);
 	prefs_register_obsolete_preference(m, "type");
 
-	register_decode_as(&i2c_da);
+	subdissector_table = register_decode_as_next_proto(proto_i2c, "I2C Message", "i2c.message", "I2C messages dissector", (build_label_func*)&i2c_prompt);
 }
 
 void

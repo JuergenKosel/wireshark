@@ -143,7 +143,7 @@ static const struct file_extension_info file_type_extensions_base[] = {
 	{ "TamoSoft CommView", TRUE, "ncf" },
 	{ "Symbian OS btsnoop", TRUE, "log" },
 	{ "XML files (including Gammu DCT3 traces)", TRUE, "xml" },
-	{ "OS X PacketLogger", TRUE, "pklg" },
+	{ "macOS PacketLogger", TRUE, "pklg" },
 	{ "Daintree SNA", TRUE, "dcf" },
 	{ "IPFIX File Format", TRUE, "pfx;ipfix" },
 	{ "Aethra .aps file", TRUE, "aps" },
@@ -328,7 +328,7 @@ wtap_get_all_capture_file_extensions_list(void)
  * to the following files so that the various desktop environments will
  * know that Wireshark can open the file:
  *	1) wireshark-mime-package.xml (for freedesktop.org environments)
- *	2) packaging/macosx/Info.plist.in (for OS X)
+ *	2) packaging/macosx/Info.plist.in (for macOS)
  *	3) packaging/nsis/AdditionalTasksPage.ini, packaging/nsis/common.nsh,
  *	   and packaging/wix/ComponentGroups.wxi (for Windows)
  *
@@ -368,7 +368,7 @@ static struct open_info open_info_base[] = {
 	 * PacketLogger must come before MPEG, because its files
 	 * are sometimes grabbed by mpeg_open.
 	 */
-	{ "OS X PacketLogger",                      OPEN_INFO_HEURISTIC, packetlogger_open,        "pklg",     NULL, NULL },
+	{ "macOS PacketLogger",                     OPEN_INFO_HEURISTIC, packetlogger_open,        "pklg",     NULL, NULL },
 	/* Some MPEG files have magic numbers, others just have heuristics. */
 	{ "MPEG",                                   OPEN_INFO_HEURISTIC, mpeg_open,                "mpg;mp3",  NULL, NULL },
 	{ "Daintree SNA",                           OPEN_INFO_HEURISTIC, daintree_sna_open,        "dcf",      NULL, NULL },
@@ -523,8 +523,7 @@ wtap_deregister_open_info(const gchar *name)
 
 	for (i = 0; i < open_info_arr->len; i++) {
 		if (open_routines[i].name && strcmp(open_routines[i].name, name) == 0) {
-			if (open_routines[i].extensions_set != NULL)
-				g_strfreev(open_routines[i].extensions_set);
+			g_strfreev(open_routines[i].extensions_set);
 			open_info_arr = g_array_remove_index(open_info_arr, i);
 			set_heuristic_routine();
 			return;
@@ -1125,7 +1124,6 @@ success:
 			/* No need to add an option, this is the default */
 			descr_mand->tsprecision = WTAP_TSPREC_USEC;
 		}
-		descr_mand->link_type = wtap_wtap_encap_to_pcap_encap(wth->file_encap);
 		descr_mand->snap_len = wth->snapshot_length;
 
 		descr_mand->num_stat_entries = 0;          /* Number of ISB:s */
@@ -1227,32 +1225,32 @@ static const struct file_type_subtype_info dump_open_table_base[] = {
 	  pcapng_dump_can_write_encap, pcapng_dump_open, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_PCAP_NSEC */
-	{ "Wireshark - nanosecond libpcap", "nseclibpcap", "pcap", "cap;dmp",
+	{ "Wireshark/tcpdump/... - nanosecond pcap", "nsecpcap", "pcap", "cap;dmp",
 	  FALSE, FALSE, 0,
 	  libpcap_dump_can_write_encap, libpcap_dump_open, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_PCAP_AIX */
-	{ "AIX tcpdump - libpcap", "aixlibpcap", "pcap", "cap;dmp",
+	{ "AIX tcpdump - pcap", "aixpcap", "pcap", "cap;dmp",
 	  FALSE, FALSE, 0,
 	  NULL, NULL, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_PCAP_SS991029 */
-	{ "Modified tcpdump - libpcap", "modlibpcap", "pcap", "cap;dmp",
+	{ "Modified tcpdump - pcap", "modpcap", "pcap", "cap;dmp",
 	  FALSE, FALSE, 0,
 	  libpcap_dump_can_write_encap, libpcap_dump_open, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_PCAP_NOKIA */
-	{ "Nokia tcpdump - libpcap ", "nokialibpcap", "pcap", "cap;dmp",
+	{ "Nokia tcpdump - pcap", "nokiapcap", "pcap", "cap;dmp",
 	  FALSE, FALSE, 0,
 	  libpcap_dump_can_write_encap, libpcap_dump_open, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_PCAP_SS990417 */
-	{ "RedHat 6.1 tcpdump - libpcap", "rh6_1libpcap", "pcap", "cap;dmp",
+	{ "RedHat 6.1 tcpdump - pcap", "rh6_1pcap", "pcap", "cap;dmp",
 	  FALSE, FALSE, 0,
 	  libpcap_dump_can_write_encap, libpcap_dump_open, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_PCAP_SS990915 */
-	{ "SuSE 6.3 tcpdump - libpcap", "suse6_3libpcap", "pcap", "cap;dmp",
+	{ "SuSE 6.3 tcpdump - pcap", "suse6_3pcap", "pcap", "cap;dmp",
 	  FALSE, FALSE, 0,
 	  libpcap_dump_can_write_encap, libpcap_dump_open, NULL },
 
@@ -1313,7 +1311,7 @@ static const struct file_type_subtype_info dump_open_table_base[] = {
 
 	/* WTAP_FILE_TYPE_SUBTYPE_ERF */
 	{ "Endace ERF capture", "erf", "erf", NULL,
-	  FALSE, FALSE, 0,
+	  FALSE, TRUE, WTAP_COMMENT_PER_SECTION|WTAP_COMMENT_PER_INTERFACE|WTAP_COMMENT_PER_PACKET,
 	  erf_dump_can_write_encap, erf_dump_open, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_EYESDN */
@@ -1477,7 +1475,7 @@ static const struct file_type_subtype_info dump_open_table_base[] = {
 	  NULL, NULL, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_PACKETLOGGER */
-	{ "OS X PacketLogger", "pklg", "pklg", NULL,
+	{ "macOS PacketLogger", "pklg", "pklg", NULL,
 	  FALSE, FALSE, 0,
 	  NULL, NULL, NULL },
 
@@ -1506,7 +1504,7 @@ static const struct file_type_subtype_info dump_open_table_base[] = {
 	  FALSE, FALSE, 0,
 	  NULL, NULL, NULL },
 
-	/* WTAP_ENCAP_MIME */
+	/* WTAP_FILE_TYPE_SUBTYPE_MIME */
 	{ "MIME File Format", "mime", NULL, NULL,
 	   FALSE, FALSE, 0,
 	   NULL, NULL, NULL },
@@ -1611,7 +1609,7 @@ static const struct file_type_subtype_info dump_open_table_base[] = {
 	  FALSE, FALSE, 0,
 	  NULL, NULL, NULL },
 
-	/* WTAP_FILE_TYPE_MPLOG */
+	/* WTAP_FILE_TYPE_SUBTYPE_MPLOG */
 	{ "Micropross mplog file", "mplog", "mplog", NULL,
 	  FALSE, FALSE, 0,
 	  NULL, NULL, NULL }
@@ -1986,12 +1984,25 @@ wtap_short_string_to_file_type_subtype(const char *short_name)
 	}
 
 	/*
-	 * We now call the "libpcap" file format just "pcap", but we
-	 * allow it to be specified as "libpcap" as well, for
-	 * backwards compatibility.
+	 * We now call the libpcap file format just pcap, but we allow
+	 * the various variants of it to be specified using names
+	 * containing "libpcap" as well as "pcap", for backwards
+	 * compatibility.
 	 */
 	if (strcmp(short_name, "libpcap") == 0)
 		return WTAP_FILE_TYPE_SUBTYPE_PCAP;
+	else if (strcmp(short_name, "nseclibpcap") == 0)
+		return WTAP_FILE_TYPE_SUBTYPE_PCAP_NSEC;
+	else if (strcmp(short_name, "aixlibpcap") == 0)
+		return WTAP_FILE_TYPE_SUBTYPE_PCAP_AIX;
+	else if (strcmp(short_name, "modlibpcap") == 0)
+		return WTAP_FILE_TYPE_SUBTYPE_PCAP_SS991029;
+	else if (strcmp(short_name, "nokialibpcap") == 0)
+		return WTAP_FILE_TYPE_SUBTYPE_PCAP_NOKIA;
+	else if (strcmp(short_name, "rh6_1libpcap") == 0)
+		return WTAP_FILE_TYPE_SUBTYPE_PCAP_SS990417;
+	else if (strcmp(short_name, "suse6_3libpcap") == 0)
+		return WTAP_FILE_TYPE_SUBTYPE_PCAP_SS990915;
 
 	return -1;	/* no such file type, or we can't write it */
 }
@@ -2208,7 +2219,6 @@ wtap_dump_init_dumper(int file_type_subtype, int encap, int snaplen, gboolean co
 			if ((encap != WTAP_ENCAP_PER_PACKET) && (encap != file_int_data_mand->wtap_encap)) {
 				descr_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(descr);
 				descr_mand->wtap_encap = encap;
-				descr_mand->link_type = wtap_wtap_encap_to_pcap_encap(encap);
 			}
 			g_array_append_val(wdh->interface_data, descr);
 		}
@@ -2217,7 +2227,25 @@ wtap_dump_init_dumper(int file_type_subtype, int encap, int snaplen, gboolean co
 		descr_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(descr);
 		descr_mand->wtap_encap = encap;
 		descr_mand->time_units_per_second = 1000000; /* default microsecond resolution */
-		descr_mand->link_type = wtap_wtap_encap_to_pcap_encap(encap);
+		if (snaplen == 0) {
+			/*
+			 * No snapshot length was specified.  Pick an
+			 * appropriate snapshot length for this
+			 * link-layer type.
+			 *
+			 * We use WTAP_MAX_PACKET_SIZE_STANDARD for everything except
+			 * D-Bus, which has a maximum packet size of 128MB,
+			 * which is more than we want to put into files
+			 * with other link-layer header types, as that
+			 * might cause some software reading those files
+			 * to allocate an unnecessarily huge chunk of
+			 * memory for a packet buffer.
+			 */
+			if (encap == WTAP_ENCAP_DBUS)
+				snaplen = 128*1024*1024;
+			else
+				snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
+		}
 		descr_mand->snap_len = snaplen;
 		descr_mand->num_stat_entries = 0;          /* Number of ISB:s */
 		descr_mand->interface_statistics = NULL;
@@ -2397,7 +2425,6 @@ wtap_dump_open_stdout_ng(int file_type_subtype, int encap, int snaplen,
 	if (new_fd == -1) {
 		/* dup failed */
 		*err = errno;
-		ws_close(new_fd);
 		return NULL;
 	}
 #ifdef _WIN32
@@ -2562,8 +2589,7 @@ wtap_dump_close(wtap_dumper *wdh, int *err)
 		}
 		ret = FALSE;
 	}
-	if (wdh->priv != NULL)
-		g_free(wdh->priv);
+	g_free(wdh->priv);
 	wtap_block_array_free(wdh->interface_data);
 	g_free(wdh);
 	return ret;
@@ -2589,6 +2615,10 @@ wtap_dump_set_addrinfo_list(wtap_dumper *wdh, addrinfo_lists_t *addrinfo_lists)
 			return FALSE;
 	wdh->addrinfo_lists = addrinfo_lists;
 	return TRUE;
+}
+
+gboolean wtap_dump_get_needs_reload(wtap_dumper *wdh) {
+        return wdh->needs_reload;
 }
 
 /* internally open a file for writing (compressed or not) */
@@ -2651,7 +2681,7 @@ wtap_dump_file_write(wtap_dumper *wdh, const void *buf, size_t bufsize, int *err
 		errno = WTAP_ERR_CANT_WRITE;
 		nwritten = fwrite(buf, 1, bufsize, (FILE *)wdh->fh);
 		/*
-		 * At least according to the Mac OS X man page,
+		 * At least according to the macOS man page,
 		 * this can return a short count on an error.
 		 */
 		if (nwritten != bufsize) {

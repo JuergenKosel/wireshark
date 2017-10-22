@@ -28,7 +28,7 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/str_util.h>
 
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
 
 #include <QDialogButtonBox>
@@ -334,7 +334,7 @@ void ExportObjectDialog::saveAllEntries()
     //
     // XXX - what we *really* want is something that asks the user
     // for an existing directory *but* lets them create a new
-    // directory in the process.  That's what we get on OS X,
+    // directory in the process.  That's what we get on macOS,
     // as the native dialog is used, and it supports that; does
     // that also work on Windows and with Qt's own dialog?
     //

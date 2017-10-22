@@ -21,7 +21,7 @@
 
 #include "wireshark_application.h"
 #include "main_window_preferences_frame.h"
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 
 #include <ui_main_window_preferences_frame.h>
 #include "ui/language.h"
@@ -226,8 +226,7 @@ void MainWindowPreferencesFrame::on_mainToolbarComboBox_currentIndexChanged(int 
 
 void MainWindowPreferencesFrame::on_languageComboBox_currentIndexChanged(int index)
 {
-    if (language)
-        g_free(language);
+    g_free(language);
 
     language = g_strdup(ui->languageComboBox->itemData(index).toString().toStdString().c_str());
 }

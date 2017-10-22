@@ -8,8 +8,6 @@
 # remove the entries for this Makefile.am and Info.plist from AC_OUTPUT
 # in ../../configure.in.
 #
-MAINTAINERCLEANFILES = \
-	Makefile.in
 
 EXTRA_DIST = \
 	ChmodBPF/ChmodBPF	\
@@ -21,7 +19,7 @@ EXTRA_DIST = \
 	dmg_set_style.scpt	\
 	Info.plist	\
 	Info.plist.in	\
-	osx-app.sh	\
+	osx-app.sh.in	\
 	osx-dmg.sh.in	\
 	Read_me_first.rtf	\
 	Scripts/chmodbpf-postinstall.sh	\

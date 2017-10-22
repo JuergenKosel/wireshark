@@ -31,6 +31,10 @@
 #include <glib/gprintf.h>
 #include <stdlib.h>
 
+#ifdef HAVE_SYS_TIME_H
+	#include <sys/time.h>
+#endif
+
 #ifdef HAVE_SYS_SOCKET_H
 	#include <sys/socket.h>
 #endif
@@ -52,9 +56,6 @@
 
 #include <writecap/pcapio.h>
 #include <wiretap/wtap.h>
-#include <epan/tvbuff.h>
-#include <epan/packet_info.h>
-#include <epan/exported_pdu.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/inet_addr.h>
 #include <wsutil/filesystem.h>
@@ -115,6 +116,8 @@ static int list_config(char *interface)
 	printf("arg {number=%u}{call=--payload}{display=Payload type}"
 		"{type=string}{default=data}{tooltip=The type used to describe the payload in the exported pdu format}\n",
 		inc++);
+
+	extcap_config_debug(&inc);
 
 	return EXIT_SUCCESS;
 }
@@ -304,7 +307,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 	struct sockaddr_in clientaddr;
 	int clientlen = sizeof(clientaddr);
 	socket_handle_t sock;
-	char buf[PKT_BUF_SIZE];
+	char* buf;
 	ssize_t buflen;
 	FILE* fp = NULL;
 
@@ -324,6 +327,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 
 	g_debug("Listener running on port %u", port);
 
+	buf = (char*)g_malloc(PKT_BUF_SIZE);
 	while(run_loop == TRUE) {
 		memset(buf, 0x0, PKT_BUF_SIZE);
 
@@ -359,6 +363,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 
 	fclose(fp);
 	closesocket(sock);
+	g_free(buf);
 }
 
 int main(int argc, char *argv[])
@@ -441,6 +446,8 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+
+	extcap_cmdline_debug(argv, argc);
 
 	if (optind != argc) {
 		g_warning("Unexpected extra option: %s", argv[optind]);

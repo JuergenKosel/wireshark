@@ -125,6 +125,7 @@ static GSList *tap_plugins = NULL;
 /*
  * Callback for each plugin found.
  */
+DIAG_OFF(pedantic)
 static gboolean
 check_for_tap_plugin(GModule *handle)
 {
@@ -143,18 +144,17 @@ check_for_tap_plugin(GModule *handle)
 	/*
 	 * Yes - this plugin includes one or more taps.
 	 */
-DIAG_OFF(pedantic)
 	register_tap_listener_fn = (void (*)(void))gp;
-DIAG_ON(pedantic)
 
 	/*
 	 * Add this one to the list of tap plugins.
 	 */
 	plugin = (tap_plugin *)g_malloc(sizeof (tap_plugin));
 	plugin->register_tap_listener_fn = register_tap_listener_fn;
-	tap_plugins = g_slist_append(tap_plugins, plugin);
+	tap_plugins = g_slist_prepend(tap_plugins, plugin);
 	return TRUE;
 }
+DIAG_ON(pedantic)
 
 void
 register_tap_plugin_type(void)
@@ -222,7 +222,7 @@ tap_init(void)
 int
 register_tap(const char *name)
 {
-	tap_dissector_t *td, *tdl = NULL, *tdl_prev;
+	tap_dissector_t *td, *tdl = NULL, *tdl_prev = NULL;
 	int i=0;
 
 	if(tap_dissector_list){
@@ -319,7 +319,7 @@ void tap_build_interesting (epan_dissect_t *edt)
 	   interesting hf_fields */
 	for(tl=tap_listener_queue;tl;tl=tl->next){
 		if(tl->code){
-			epan_dissect_prime_dfilter(edt, tl->code);
+			epan_dissect_prime_with_dfilter(edt, tl->code);
 		}
 	}
 }
@@ -516,9 +516,7 @@ free_tap_listener(volatile tap_listener_t *tl)
 {
 	if(!tl)
 		return;
-	if(tl->code){
-		dfilter_free(tl->code);
-	}
+	dfilter_free(tl->code);
 	g_free(tl->fstring);
 DIAG_OFF(cast-qual)
 	g_free((gpointer)tl);

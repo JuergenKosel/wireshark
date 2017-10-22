@@ -103,18 +103,10 @@
 
 #include "ui/gtk/packet_list.h"
 #include "ui/gtk/lbm_stream_dlg.h"
-#include "ui/gtk/lbm_uimflow_dlg.h"
 
 #ifdef HAVE_LIBPCAP
 #include "capture_opts.h"
 #include "ui/capture_globals.h"
-#endif
-#ifdef HAVE_IGE_MAC_INTEGRATION
-#include <ige-mac-menu.h>
-#endif
-
-#ifdef HAVE_GTKOSXAPPLICATION
-#include <gtkmacintegration/gtkosxapplication.h>
 #endif
 
 static int initialize = TRUE;
@@ -206,29 +198,7 @@ colorize_conversation_cb(conversation_filter_t* color_filter, int action_num)
                 * or through an accelerator key. Try to build a conversation
                 * filter in the order TCP, UDP, IP, Ethernet and apply the
                 * coloring */
-            color_filter = find_conversation_filter("tcp");
-            if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                filter = color_filter->build_filter_string(pi);
-            if (filter == NULL) {
-                color_filter = find_conversation_filter("udp");
-                if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                    filter = color_filter->build_filter_string(pi);
-            }
-            if (filter == NULL) {
-                color_filter = find_conversation_filter("ip");
-                if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                    filter = color_filter->build_filter_string(pi);
-            }
-            if (filter == NULL) {
-                color_filter = find_conversation_filter("ipv6");
-                if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                    filter = color_filter->build_filter_string(pi);
-            }
-            if (filter == NULL) {
-                color_filter = find_conversation_filter("eth");
-                if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                    filter = color_filter->build_filter_string(pi);
-            }
+            filter = conversation_filter_from_packet(pi);
             if( filter == NULL ) {
                 simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "Unable to build conversation filter.");
                 return;
@@ -260,24 +230,11 @@ goto_conversation_frame(gboolean dir)
     dfilter_t *dfcode       = NULL;
     gboolean   found_packet = FALSE;
     packet_info *pi = &cfile.edt->pi;
-    conversation_filter_t* conv_filter;
 
     /* Try to build a conversation
      * filter in the order TCP, UDP, IP, Ethernet and apply the
      * coloring */
-    conv_filter = find_conversation_filter("tcp");
-    if ((conv_filter != NULL) && (conv_filter->is_filter_valid(pi)))
-        filter = conv_filter->build_filter_string(pi);
-    conv_filter = find_conversation_filter("udp");
-    if ((conv_filter != NULL) && (conv_filter->is_filter_valid(pi)))
-        filter = conv_filter->build_filter_string(pi);
-    conv_filter = find_conversation_filter("ip");
-    if ((conv_filter != NULL) && (conv_filter->is_filter_valid(pi)))
-        filter = conv_filter->build_filter_string(pi);
-    conv_filter = find_conversation_filter("ipv6");
-    if ((conv_filter != NULL) && (conv_filter->is_filter_valid(pi)))
-        filter = conv_filter->build_filter_string(pi);
-
+    filter = conversation_filter_from_packet(pi);
     if( filter == NULL ) {
         statusbar_push_temporary_msg("Unable to build conversation filter.");
         g_free(filter);
@@ -1044,7 +1001,6 @@ static const char *ui_desc_menubar =
 "        </menu>\n"
 "        <menu name= '29WestUIMMenu' action='/Statistics/29West/UIM'>\n"
 "          <menuitem name='29WestUIMStreams' action='/Statistics/29West/UIM/Streams' />\n"
-"          <menuitem name='29WestUIMStreamFlowGraph' action='/Statistics/29West/UIM/StreamFlowGraph' />\n"
 "        </menu>\n"
 "      </menu>\n"
 "      <menuitem name='ANCP' action='/Statistics/ancp'/>\n"
@@ -1095,6 +1051,9 @@ static const char *ui_desc_menubar =
 "      </menu>\n"
 "      <menu name= 'MTP3menu' action='/Telephony/MTP3'>\n"
 "        <menuitem name='MSUSummary' action='/Telephony/MTP3/MSUSummary'/>\n"
+"      </menu>\n"
+"      <menu name= 'Osmuxmenu' action='/Telephony/Osmux'>\n"
+"        <menuitem name='osmux' action='/Telephony/Osmux/osmux'/>\n"
 "      </menu>\n"
 "      <menu name= 'RTPmenu' action='/Telephony/RTP'>\n"
 "        <menuitem name='ShowAllStreams' action='/Telephony/RTP/ShowAllStreams'/>\n"
@@ -1463,7 +1422,6 @@ static const GtkActionEntry main_menu_bar_entries[] = {
    { "/Statistics/29West/Queues/lbmr_queue_queries_receiver",         NULL,                       "Queries by Receiver",          NULL, NULL, G_CALLBACK(gtk_stats_tree_cb) },
    { "/Statistics/29West/UIM",                                        NULL,                       "UIM",                          NULL, NULL, NULL },
    { "/Statistics/29West/UIM/Streams",                                NULL,                       "Streams",                      NULL, NULL, G_CALLBACK(lbmc_stream_dlg_stream_menu_cb) },
-   { "/Statistics/29West/UIM/StreamFlowGraph",                        WIRESHARK_STOCK_FLOW_GRAPH, "Stream Flow Graph",            NULL, NULL, G_CALLBACK(lbmc_uim_flow_menu_cb) },
 
    { "/Statistics/ancp",                            NULL,       "ANCP",                             NULL, NULL, G_CALLBACK(gtk_stats_tree_cb) },
    { "/Statistics/BACnet",                          NULL,       "BACnet",                           NULL, NULL, NULL },
@@ -1516,6 +1474,8 @@ static const GtkActionEntry main_menu_bar_entries[] = {
    { "/Telephony/LTE/RLCGraph",         NULL,                       "RLC _Graph...",            NULL,                       NULL,               G_CALLBACK(rlc_lte_graph_cb) },
    { "/Telephony/MTP3",                 NULL,                       "_MTP3",                    NULL, NULL, NULL },
    { "/Telephony/MTP3/MSUSummary",      NULL,                       "MSU Summary",              NULL,                       NULL,               G_CALLBACK(mtp3_sum_gtk_sum_cb) },
+   { "/Telephony/Osmux",                NULL,                       "Osmux",                    NULL, NULL, NULL },
+   { "/Telephony/Osmux/osmux",          NULL,                       "Packet Counter",           NULL,                       NULL,               G_CALLBACK(gtk_stats_tree_cb) },
    { "/Telephony/RTP",                  NULL,                       "_RTP",                     NULL, NULL, NULL },
    { "/Telephony/RTP/StreamAnalysis",   NULL,                       "Stream Analysis...",       NULL,                       NULL,               G_CALLBACK(rtp_analysis_cb) },
    { "/Telephony/RTP/ShowAllStreams",   NULL,                       "Show All Streams",         NULL,                       NULL,               G_CALLBACK(rtpstream_launch) },
@@ -2462,15 +2422,6 @@ GtkWidget *
 main_menu_new(GtkAccelGroup ** table)
 {
     GtkWidget *menubar;
-#ifdef HAVE_IGE_MAC_INTEGRATION
-    GtkWidget *quit_item, *about_item, *preferences_item;
-    IgeMacMenuGroup *group;
-#endif
-#ifdef HAVE_GTKOSXAPPLICATION
-    GtkosxApplication *theApp;
-    GtkWidget * item;
-    GtkWidget * dock_menu;
-#endif
 
     grp = gtk_accel_group_new();
 
@@ -2478,83 +2429,6 @@ main_menu_new(GtkAccelGroup ** table)
         menus_init();
 
     menubar = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar");
-#ifdef HAVE_IGE_MAC_INTEGRATION
-    if(prefs.gui_macosx_style) {
-        ige_mac_menu_set_menu_bar(GTK_MENU_SHELL(menubar));
-        ige_mac_menu_set_global_key_handler_enabled(TRUE);
-
-        /* Create menu items to populate the application menu with.  We have to
-         * do this because we are still using the old GtkItemFactory API for
-         * the main menu. */
-        group = ige_mac_menu_add_app_menu_group();
-        about_item = gtk_menu_item_new_with_label("About");
-        g_signal_connect(about_item, "activate", G_CALLBACK(about_wireshark_cb),
-                         NULL);
-        ige_mac_menu_add_app_menu_item(group, GTK_MENU_ITEM(about_item), NULL);
-
-        group = ige_mac_menu_add_app_menu_group();
-        preferences_item = gtk_menu_item_new_with_label("Preferences");
-        g_signal_connect(preferences_item, "activate", G_CALLBACK(prefs_cb),
-                         NULL);
-        ige_mac_menu_add_app_menu_item(group, GTK_MENU_ITEM(preferences_item),
-                                       NULL);
-    }
-
-    /* The quit item in the application menu shows up whenever ige mac
-     * integration is enabled, even if the OS X UI style in Wireshark isn't
-     * turned on. */
-    quit_item = gtk_menu_item_new_with_label("Quit");
-    g_signal_connect(quit_item, "activate", G_CALLBACK(file_quit_cmd_cb), NULL);
-    ige_mac_menu_set_quit_menu_item(GTK_MENU_ITEM(quit_item));
-#endif
-
-#ifdef HAVE_GTKOSXAPPLICATION
-    theApp = (GtkosxApplication *)g_object_new(GTKOSX_TYPE_APPLICATION, NULL);
-
-    if(prefs.gui_macosx_style) {
-        gtk_widget_hide(menubar);
-
-        gtkosx_application_set_menu_bar(theApp, GTK_MENU_SHELL(menubar));
-        gtkosx_application_set_use_quartz_accelerators(theApp, TRUE);
-
-        /* Construct a conventional looking OSX App menu */
-
-        item = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/HelpMenu/AboutWireshark");
-        gtkosx_application_insert_app_menu_item(theApp, item, 0);
-
-        gtkosx_application_insert_app_menu_item(theApp, gtk_separator_menu_item_new(), 1);
-
-        item = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/EditMenu/Preferences");
-        gtkosx_application_insert_app_menu_item(theApp, item, 2);
-
-        /* Set OSX help menu */
-
-        item = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/HelpMenu");
-        gtkosx_application_set_help_menu(theApp,GTK_MENU_ITEM(item));
-
-        /* Hide the File menu Quit item (a Quit item is automagically placed within the OSX App menu) */
-
-        item = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/FileMenu/Quit");
-        gtk_widget_hide(item);
-    }
-
-    /* generate dock menu */
-    dock_menu = gtk_menu_new();
-
-    item = gtk_menu_item_new_with_label("Start");
-    g_signal_connect(item, "activate", G_CALLBACK (capture_start_cb), NULL);
-    gtk_menu_shell_append(GTK_MENU_SHELL(dock_menu), item);
-
-    item = gtk_menu_item_new_with_label("Stop");
-    g_signal_connect(item, "activate", G_CALLBACK (capture_stop_cb), NULL);
-    gtk_menu_shell_append(GTK_MENU_SHELL(dock_menu), item);
-
-    item = gtk_menu_item_new_with_label("Restart");
-    g_signal_connect(item, "activate", G_CALLBACK (capture_restart_cb), NULL);
-    gtk_menu_shell_append(GTK_MENU_SHELL(dock_menu), item);
-
-    gtkosx_application_set_dock_menu(theApp, GTK_MENU_SHELL(dock_menu));
-#endif
 
     if (table)
         *table = grp;

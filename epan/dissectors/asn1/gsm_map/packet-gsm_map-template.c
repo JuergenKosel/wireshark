@@ -53,6 +53,7 @@
 #include <epan/oids.h>
 #include <epan/expert.h>
 #include <epan/proto_data.h>
+#include <epan/conversation.h>
 #include <wsutil/strtoi.h>
 
 #include <epan/asn1.h>
@@ -149,6 +150,22 @@ static int hf_gsm_map_ericsson_locationInformation_lac = -1;
 static int hf_gsm_map_ericsson_locationInformation_ci = -1;
 static int hf_gsm_map_ericsson_locationInformation_sac = -1;
 static int hf_gsm_map_ussd_string = -1;
+static int hf_gsm_map_spare_bits = -1;
+static int hf_gsm_map_qos_signalling_ind = -1;
+static int hf_gsm_map_qos_source_stat_desc = - 1;
+static int hf_gsm_map_qos_max_bitrate_upl_ext = -1;
+static int hf_gsm_map_qos_max_bitrate_downl_ext = -1;
+static int hf_gsm_map_qos_guar_bitrate_upl_ext = -1;
+static int hf_gsm_map_qos_guar_bitrate_downl_ext = -1;
+/*
+static int hf_gsm_map_qos_max_bitrate_upl_ext2 = -1;
+static int hf_gsm_map_qos_max_bitrate_downl_ext2 = -1;
+static int hf_gsm_map_qos_guar_bitrate_upl_ext2 = -1;
+static int hf_gsm_map_qos_guar_bitrate_downl_ext2 = -1;
+*/
+static int hf_gsm_map_earp_pci = -1;
+static int hf_gsm_map_earp_pl = -1;
+static int hf_gsm_map_earp_pvi = -1;
 
 #include "packet-gsm_map-hf.c"
 
@@ -181,6 +198,8 @@ static gint ett_gsm_map_ericsson_locationInformation = -1;
 static gint ett_gsm_map_extension_data = -1;
 static gint ett_gsm_map_tbcd_digits = -1;
 static gint ett_gsm_map_ussd_string = -1;
+static gint ett_gsm_map_ext2_qos_subscribed = -1;
+static gint ett_gsm_map_ext3_qos_subscribed = -1;
 
 #include "packet-gsm_map-ett.c"
 
@@ -208,7 +227,6 @@ static gboolean pref_ericsson_proprietary_ext = FALSE;
 /* Global variables */
 static guint32 opcode=0;
 static guint32 errorCode;
-static proto_tree *top_tree;
 static int application_context_version;
 static guint ProtocolId;
 static guint AccessNetworkProtocolId;
@@ -230,6 +248,77 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
 static int dissect_returnResultData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx);
 static int dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx);
 const gchar* gsm_map_opr_code(guint32 val, proto_item *item);
+
+typedef struct {
+  struct tcap_private_t * tcap_private;
+  sccp_msg_info_t *sccp_msg_info;
+  tvbuff_t *signal_info_tvb;
+} gsm_map_private_info_t;
+
+typedef struct {
+  wmem_tree_t *packets;
+} gsm_map_conv_info_t;
+
+static gsm_map_packet_info_t *gsm_map_get_packet_info(asn1_ctx_t *actx, gboolean store_conv_info)
+{
+  gsm_map_packet_info_t *gsm_map_pi = (gsm_map_packet_info_t*)p_get_proto_data(wmem_file_scope(), actx->pinfo, proto_gsm_map, 0);
+  if (!gsm_map_pi) {
+    gsm_map_private_info_t *gsm_map_priv = (gsm_map_private_info_t*)actx->value_ptr;
+    gsm_map_pi = wmem_new0(wmem_file_scope(), gsm_map_packet_info_t);
+    p_add_proto_data(wmem_file_scope(), actx->pinfo, proto_gsm_map, 0, gsm_map_pi);
+    if (gsm_map_priv && gsm_map_priv->tcap_private) {
+      gsm_map_pi->tcap_src_tid = gsm_map_priv->tcap_private->src_tid;
+      if (store_conv_info) {
+        conversation_t *conversation;
+        gsm_map_conv_info_t *gsm_map_info;
+        wmem_tree_key_t key[3];
+        conversation = find_or_create_conversation(actx->pinfo);
+        gsm_map_info = (gsm_map_conv_info_t *)conversation_get_proto_data(conversation, proto_gsm_map);
+        if (!gsm_map_info) {
+            gsm_map_info = wmem_new(wmem_file_scope(), gsm_map_conv_info_t);
+            gsm_map_info->packets = wmem_tree_new(wmem_file_scope());
+            conversation_add_proto_data(conversation, proto_gsm_map, gsm_map_info);
+        }
+        key[0].length = 1;
+        key[0].key = &gsm_map_priv->tcap_private->src_tid;
+        key[1].length = 1;
+        key[1].key = &actx->pinfo->num;
+        key[2].length = 0;
+        key[2].key = NULL;
+        wmem_tree_insert32_array(gsm_map_info->packets, key, (void *)gsm_map_pi);
+      }
+    }
+  }
+  return gsm_map_pi;
+}
+
+static gsm_map_packet_info_t *gsm_map_get_matching_tcap_info(asn1_ctx_t *actx)
+{
+  gsm_map_private_info_t *gsm_map_priv = (gsm_map_private_info_t*)actx->value_ptr;
+  if (gsm_map_priv && gsm_map_priv->tcap_private) {
+    conversation_t *conversation;
+    gsm_map_conv_info_t *gsm_map_info;
+    wmem_tree_key_t key[3];
+    gsm_map_packet_info_t *gsm_map_pi;
+    conversation = find_or_create_conversation(actx->pinfo);
+    gsm_map_info = (gsm_map_conv_info_t *)conversation_get_proto_data(conversation, proto_gsm_map);
+    if (!gsm_map_info) {
+      gsm_map_info = wmem_new(wmem_file_scope(), gsm_map_conv_info_t);
+      gsm_map_info->packets = wmem_tree_new(wmem_file_scope());
+      conversation_add_proto_data(conversation, proto_gsm_map, gsm_map_info);
+    }
+    key[0].length = 1;
+    key[0].key = &gsm_map_priv->tcap_private->src_tid;
+    key[1].length = 1;
+    key[1].key = &actx->pinfo->num;
+    key[2].length = 0;
+    key[2].key = NULL;
+    gsm_map_pi = (gsm_map_packet_info_t*)wmem_tree_lookup32_array_le(gsm_map_info->packets, key);
+    if (gsm_map_pi && gsm_map_pi->tcap_src_tid == gsm_map_priv->tcap_private->src_tid)
+      return gsm_map_pi;
+  }
+  return NULL;
+}
 
 /* Value strings */
 
@@ -274,16 +363,16 @@ static const value_string gsm_map_ericsson_locationInformation_rat_vals[] = {
  */
 /* b) Nature of address indicator */
 static const range_string gsm_map_na_vals[] = {
-    { 0, 0, "spare" },
-    { 1, 1, "reserved for subscriber number (national use)" },
-    { 2, 2, "reserved for unknown (national use)" },
-    { 3, 3, "national (significant) number (national use)" },
-    { 4, 4, "international number" },
-    { 5, 0x6f, "spare" },
-    { 0x70, 0x7e, "spare" },
-    { 0x70, 0x7e, "reserved for national use" },
-    { 0x7f, 0x7f, "spare" },
-    { 0,           0,          NULL                   }
+  { 0, 0, "spare" },
+  { 1, 1, "reserved for subscriber number (national use)" },
+  { 2, 2, "reserved for unknown (national use)" },
+  { 3, 3, "national (significant) number (national use)" },
+  { 4, 4, "international number" },
+  { 5, 0x6f, "spare" },
+  { 0x70, 0x7e, "spare" },
+  { 0x70, 0x7e, "reserved for national use" },
+  { 0x7f, 0x7f, "spare" },
+  { 0, 0, NULL }
 };
 
 /* d) Numbering plan indicator */
@@ -436,7 +525,7 @@ dissect_gsm_map_ext_qos_subscribed(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
   */
   octet = tvb_get_guint8(tvb,offset);
   if (octet == 0 ){
-    proto_tree_add_uint_format_value(subtree, hf_gsm_map_guaranteed_max_brate_ulink, tvb, offset, 1, octet, "Reserved"  );
+    proto_tree_add_uint_format_value(subtree, hf_gsm_map_guaranteed_max_brate_ulink, tvb, offset, 1, octet, "Subscribed guaranteed bit rate for uplink/reserved");
   }else{
     proto_tree_add_uint(subtree, hf_gsm_map_guaranteed_max_brate_ulink, tvb, offset, 1, gsm_map_calc_bitrate(octet));
   }
@@ -447,13 +536,202 @@ dissect_gsm_map_ext_qos_subscribed(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
   */
   octet = tvb_get_guint8(tvb,offset);
   if (octet == 0 ){
-    proto_tree_add_uint_format_value(subtree, hf_gsm_map_guaranteed_max_brate_dlink, tvb, offset, 1, octet, "Reserved"  );
+    proto_tree_add_uint_format_value(subtree, hf_gsm_map_guaranteed_max_brate_dlink, tvb, offset, 1, octet, "Subscribed guaranteed bit rate for downlink/reserved");
   }else{
     proto_tree_add_uint(subtree, hf_gsm_map_guaranteed_max_brate_dlink, tvb, offset, 1, gsm_map_calc_bitrate(octet));
   }
 
 }
 
+/*
+Ext2-QoS-Subscribed ::= OCTET STRING (SIZE (1..3))
+-- Octets 1-3 are coded according to 3GPP TS 24.008 [35] Quality of Service Octets 14-16.
+-- If Quality of Service information is structured with 14 octet length, then
+-- Octet 1 is coded according to 3GPP TS 24.008 [35] Quality of Service Octet 14.
+
+*/
+
+static const true_false_string gsm_map_qos_signalling_ind_value = {
+    "Optimised for signalling traffic",
+    "Not optimised for signalling traffic"
+};
+#if 0
+/* Helper function returning the main bitrates in kbps */
+static guint32
+qos_calc_bitrate(guint8 oct)
+{
+    if (oct <= 0x3f)
+        return oct;
+    if (oct <= 0x7f)
+        return 64 + (oct - 0x40) * 8;
+
+    return 576 + (oct - 0x80) * 64;
+}
+#endif
+/* Helper function returning the extended bitrates in kbps */
+static guint32
+qos_calc_ext_bitrate(guint8 oct)
+{
+    if (oct <= 0x4a)
+        return 8600 + oct * 100;
+    if (oct <= 0xba)
+        return 16000 + (oct - 0x4a) * 1000;
+
+    return 128000 + (oct - 0xba) * 2000;
+}
+#if 0
+static guint32
+qos_calc_ext2_bitrate(guint8 oct)
+{
+    if (oct <= 0x3d)
+        return (256 + oct * 4);
+    if (oct <= 0xa1)
+        return (500 + (oct - 0x3d) * 10);
+    if (oct <= 0xf6)
+        return (1500 + (oct - 0xa1) * 100);
+
+    return 10000;
+}
+#endif
+static void
+dissect_gsm_map_ext2_qos_subscribed(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree _U_, asn1_ctx_t *actx) {
+
+    int offset = 0;
+    proto_tree *subtree;
+    const gchar *str;
+    guint8 oct, tmp_oct;
+    guint32 temp32;
+    int length = tvb_reported_length(tvb);
+
+    subtree = proto_item_add_subtree(actx->created_item, ett_gsm_map_ext2_qos_subscribed);
+
+    /* Ocet 14 */
+    oct = tvb_get_guint8(tvb, offset);
+    proto_tree_add_bits_item(subtree, hf_gsm_map_spare_bits, tvb, (offset << 3), 3, ENC_BIG_ENDIAN);
+    proto_tree_add_item(subtree, hf_gsm_map_qos_signalling_ind, tvb, offset, 1, ENC_BIG_ENDIAN);
+
+    tmp_oct = oct & 7;
+    if (tmp_oct == 0x01)
+        str = "speech";
+    else
+        str = "unknown";
+
+    proto_tree_add_uint_format_value(subtree, hf_gsm_map_qos_source_stat_desc, tvb,
+        offset, 1, oct, "%s (%u)", str, tmp_oct);
+
+    offset += 1;
+    if (length == offset) {
+        return;
+    }
+
+    /* Octet 15 */
+    oct = tvb_get_guint8(tvb, offset);
+
+    if (oct == 0x00)
+        str = "Use the value indicated by the Maximum bit rate for downlink";
+    else
+    {
+        temp32 = qos_calc_ext_bitrate(oct);
+        if (temp32 % 1000 == 0)
+            str = wmem_strdup_printf(wmem_packet_scope(), "%u Mbps", temp32 / 1000);
+        else
+            str = wmem_strdup_printf(wmem_packet_scope(), "%u kbps", temp32);
+    }
+    proto_tree_add_uint_format_value(subtree, hf_gsm_map_qos_max_bitrate_downl_ext, tvb,
+        offset, 1, oct, "%s (%u)", str, oct);
+
+    offset += 1;
+    if (length == offset) {
+        return;
+    }
+
+    /* Octet 16 */
+    oct = tvb_get_guint8(tvb, offset);
+
+    if (oct == 0x00)
+        str = "Use the value indicated by the Guaranteed bit rate for downlink";
+    else
+    {
+        temp32 = qos_calc_ext_bitrate(oct);
+        if (temp32 % 1000 == 0)
+            str = wmem_strdup_printf(wmem_packet_scope(), "%u Mbps", temp32 / 1000);
+        else
+            str = wmem_strdup_printf(wmem_packet_scope(), "%u kbps", temp32);
+    }
+    proto_tree_add_uint_format_value(subtree, hf_gsm_map_qos_guar_bitrate_downl_ext, tvb,
+        offset, 1, oct, "%s (%u)", str, oct);
+
+}
+
+/*
+Ext3-QoS-Subscribed ::= OCTET STRING (SIZE (1..2))
+-- Octets 1-2 are coded according to 3GPP TS 24.008 [35] Quality of Service Octets 17-18.
+
+*/
+static void
+dissect_gsm_map_ext3_qos_subscribed(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree _U_, asn1_ctx_t *actx) {
+
+    int offset = 0;
+    proto_tree *subtree;
+    const gchar *str;
+    guint8 oct;
+    guint32 temp32;
+    int length = tvb_reported_length(tvb);
+
+    subtree = proto_item_add_subtree(actx->created_item, ett_gsm_map_ext3_qos_subscribed);
+
+    /* Maximum bit rate for uplink (extended) Octet 17 */
+    oct = tvb_get_guint8(tvb, offset);
+
+    if (oct == 0x00)
+        str = "Use the value indicated by the Maximum bit rate for uplink";
+    else
+    {
+        temp32 = qos_calc_ext_bitrate(oct);
+        if (temp32 % 1000 == 0)
+            str = wmem_strdup_printf(wmem_packet_scope(), "%u Mbps", temp32 / 1000);
+        else
+            str = wmem_strdup_printf(wmem_packet_scope(), "%u kbps", temp32);
+    }
+    proto_tree_add_uint_format_value(subtree, hf_gsm_map_qos_max_bitrate_upl_ext, tvb,
+        offset, 1, oct, "%s (%u)", str, oct);
+
+    offset += 1;
+    if (length == offset) {
+        return;
+    }
+
+    /* Guaranteed bit rate for uplink (extended) Octet 18 */
+    oct = tvb_get_guint8(tvb, offset);
+
+    if (oct == 0x00)
+        str = "Use the value indicated by the Guaranteed bit rate for uplink";
+    else
+    {
+        temp32 = qos_calc_ext_bitrate(oct);
+        if (temp32 % 1000 == 0)
+            str = wmem_strdup_printf(wmem_packet_scope(), "%u Mbps", temp32 / 1000);
+        else
+            str = wmem_strdup_printf(wmem_packet_scope(), "%u kbps", temp32);
+    }
+    proto_tree_add_uint_format_value(subtree, hf_gsm_map_qos_guar_bitrate_upl_ext, tvb,
+        offset, 1, oct, "%s (%u)", str, oct);
+
+    return;
+}
+
+static void
+dissect_gsm_map_ext4_qos_subscribed(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree _U_, asn1_ctx_t *actx) {
+    int offset = 0;
+    proto_tree *subtree;
+
+    subtree = proto_item_add_subtree(actx->created_item, ett_gsm_map_ext3_qos_subscribed);
+
+    proto_tree_add_item(subtree, hf_gsm_map_earp_pvi, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(subtree, hf_gsm_map_earp_pl, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(subtree, hf_gsm_map_earp_pci, tvb, offset, 1, ENC_BIG_ENDIAN);
+
+}
 #define  ELLIPSOID_POINT 0
 #define  ELLIPSOID_POINT_WITH_UNCERT_CIRC 1
 #define  ELLIPSOID_POINT_WITH_UNCERT_ELLIPSE 3
@@ -1064,7 +1342,7 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
       if (application_context_version == 3){
           offset=dissect_gsm_map_ch_SendRoutingInfoArg(FALSE, tvb, offset, actx, tree, -1);
       }else{
-          offset=dissect_gsm_old_SendRoutingInfoArgV2(FALSE, tvb, offset, actx, tree, -1);
+          offset = dissect_gsm_old_SendRoutingInfoArgV2(FALSE, tvb, offset, actx, tree, -1);
       }
     break;
   case 23: /*updateGprsLocation*/
@@ -1351,7 +1629,7 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
   case 126: /*SS-protocol explicitCT no Argument*/
     break;
   default:
-    if(!dissector_try_uint(map_prop_arg_opcode_table, (guint8)opcode, tvb, actx->pinfo, tree)){
+    if(!dissector_try_uint_new(map_prop_arg_opcode_table, (guint8)opcode, tvb, actx->pinfo, tree, TRUE, actx->subtree.top_tree)){
         proto_tree_add_expert_format(tree, actx->pinfo, &ei_gsm_map_unknown_invokeData,
                                      tvb, offset, -1, "Unknown invokeData %d", opcode);
     }
@@ -1663,7 +1941,7 @@ static int dissect_returnResultData(proto_tree *tree, tvbuff_t *tvb, int offset,
     break;
 
  default:
-   if(!dissector_try_uint(map_prop_res_opcode_table, (guint8)opcode, tvb, actx->pinfo, tree)){
+   if(!dissector_try_uint_new(map_prop_res_opcode_table, (guint8)opcode, tvb, actx->pinfo, tree, TRUE, actx->subtree.top_tree)){
         proto_tree_add_expert_format(tree, actx->pinfo, &ei_gsm_map_unknown_invokeData,
                                      tvb, offset, -1, "Unknown returnResultData %d", opcode);
    }
@@ -1826,7 +2104,7 @@ static int dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, int offset, 
     offset=dissect_gsm_map_er_InformationNotAvailableParam(FALSE, tvb, offset, actx, tree, -1);
     break;
   default:
-    if(!dissector_try_uint(map_prop_err_opcode_table, (guint8)opcode, tvb, actx->pinfo, tree)){
+    if(!dissector_try_uint_new(map_prop_err_opcode_table, (guint8)opcode, tvb, actx->pinfo, tree, TRUE, actx->subtree.top_tree)){
         proto_tree_add_expert_format(tree, actx->pinfo, &ei_gsm_map_unknown_invokeData,
                                      tvb, offset, -1, "Unknown returnErrorData %d", opcode);
     }
@@ -2089,17 +2367,18 @@ static int dissect_NokiaMAP_ext_DsdArgExt(tvbuff_t *tvb, packet_info *pinfo, pro
 }
 
 static int
-dissect_gsm_map_GSMMAPPDU(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree,
-                          int hf_index _U_, struct tcap_private_t * p_private_tcap) {
+dissect_gsm_map_GSMMAPPDU(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset,
+                          asn1_ctx_t *actx, proto_tree *tree, int hf_index _U_) {
 
   char *version_ptr;
 
   opcode = 0;
   if (pref_application_context_version == APPLICATON_CONTEXT_FROM_TRACE) {
+    gsm_map_private_info_t *gsm_map_priv = (gsm_map_private_info_t*)actx->value_ptr;
     application_context_version = 0;
-    if (p_private_tcap != NULL){
-      if (p_private_tcap->acv==TRUE ){
-        version_ptr = strrchr((const char*)p_private_tcap->oid,'.');
+    if (gsm_map_priv && gsm_map_priv->tcap_private != NULL){
+      if (gsm_map_priv->tcap_private->acv==TRUE ){
+        version_ptr = strrchr((const char*)gsm_map_priv->tcap_private->oid,'.');
         if (version_ptr){
           ws_strtoi32(version_ptr + 1, NULL, &application_context_version);
         }
@@ -2132,20 +2411,24 @@ dissect_gsm_map(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void
   /* Used for gsm_map TAP */
   static      gsm_map_tap_rec_t tap_rec;
   gint        op_idx;
-  struct tcap_private_t * p_private_tcap = (struct tcap_private_t *)data;
   asn1_ctx_t asn1_ctx;
+  gsm_map_private_info_t *gsm_map_priv;
 
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "GSM MAP");
 
-  top_tree = parent_tree;
+  asn1_ctx.subtree.top_tree = parent_tree;
+
+  gsm_map_priv = wmem_new0(wmem_packet_scope(), gsm_map_private_info_t);
+  gsm_map_priv->tcap_private = (struct tcap_private_t *)data;
+  asn1_ctx.value_ptr = gsm_map_priv;
 
   /* create display subtree for the protocol */
   item = proto_tree_add_item(parent_tree, proto_gsm_map, tvb, 0, -1, ENC_NA);
   tree = proto_item_add_subtree(item, ett_gsm_map);
 
-  dissect_gsm_map_GSMMAPPDU(FALSE, tvb, 0, &asn1_ctx, tree, -1, p_private_tcap);
+  dissect_gsm_map_GSMMAPPDU(FALSE, tvb, 0, &asn1_ctx, tree, -1);
   try_val_to_str_idx(opcode, gsm_map_opr_code_strings, &op_idx);
 
   if (op_idx != -1) {
@@ -2168,22 +2451,23 @@ dissect_gsm_map_sccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
   static      gsm_map_tap_rec_t tap_rec;
   gint        op_idx;
   asn1_ctx_t asn1_ctx;
+  gsm_map_private_info_t *gsm_map_priv;
 
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "GSM MAP");
 
-  top_tree = parent_tree;
+  asn1_ctx.subtree.top_tree = parent_tree;
+
+  gsm_map_priv = wmem_new0(wmem_packet_scope(), gsm_map_private_info_t);
+  gsm_map_priv->sccp_msg_info = (sccp_msg_info_t *)data;
+  asn1_ctx.value_ptr = gsm_map_priv;
 
   /* create display subtree for the protocol */
   item = proto_tree_add_item(parent_tree, proto_gsm_map, tvb, 0, -1, ENC_NA);
   tree = proto_item_add_subtree(item, ett_gsm_map);
 
-  /* Save the sccp_msg_info_t data (if present) because it can't be passed
-     through function calls */
-  p_add_proto_data(pinfo->pool, pinfo, proto_gsm_map, pinfo->curr_layer_num, data);
-
-  dissect_gsm_map_GSMMAPPDU(FALSE, tvb, 0, &asn1_ctx, tree, -1, NULL);
+  dissect_gsm_map_GSMMAPPDU(FALSE, tvb, 0, &asn1_ctx, tree, -1);
   try_val_to_str_idx(opcode, gsm_map_opr_code_strings, &op_idx);
 
   if (op_idx != -1) {
@@ -2611,14 +2895,14 @@ gsm_map_stat_free_table_item(stat_tap_table* table _U_, guint row _U_, guint col
 }
 
 /*--- proto_reg_handoff_gsm_map ---------------------------------------*/
-static void range_delete_callback(guint32 ssn)
+static void range_delete_callback(guint32 ssn, gpointer ptr _U_)
 {
   if (ssn) {
     delete_itu_tcap_subdissector(ssn, map_handle);
   }
 }
 
-static void range_add_callback(guint32 ssn)
+static void range_add_callback(guint32 ssn, gpointer ptr _U_)
 {
   if (ssn) {
    add_itu_tcap_subdissector(ssn, map_handle);
@@ -2748,12 +3032,12 @@ void proto_reg_handoff_gsm_map(void) {
     register_ber_oid_dissector("1.3.12.2.1107.3.66.1.6",dissect_NokiaMAP_ext_AllowedServiceData,proto_gsm_map,"Nokia AllowedServiceData Extension");
   }
   else {
-    range_foreach(ssn_range, range_delete_callback);
+    range_foreach(ssn_range, range_delete_callback, NULL);
     wmem_free(wmem_epan_scope(), ssn_range);
   }
 
   ssn_range = range_copy(wmem_epan_scope(), global_ssn_range);
-  range_foreach(ssn_range, range_add_callback);
+  range_foreach(ssn_range, range_add_callback, NULL);
 
 }
 
@@ -3049,7 +3333,78 @@ void proto_register_gsm_map(void) {
         { "USSD String", "gsm_map.ussd_string",
           FT_STRING, STR_UNICODE, NULL, 0,
           NULL, HFILL }},
-
+    { &hf_gsm_map_spare_bits,
+        { "Spare bit(s)", "gsm_map.spare_bits",
+        FT_UINT8, BASE_DEC, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_signalling_ind,
+    { "Signalling indication", "gsm_map.qos.signalling_ind",
+          FT_BOOLEAN, 8, TFS(&gsm_map_qos_signalling_ind_value), 0x10,
+          NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_source_stat_desc,
+    { "Source statistics description", "gsm_map.qos.source_stat_desc",
+          FT_UINT8, BASE_DEC, NULL, 0x0f,
+          NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_max_bitrate_upl_ext,
+    { "Maximum bitrate for uplink (extended)", "gsm_map.qos.max_bitrate_upl_ext",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_max_bitrate_downl_ext,
+    { "Maximum bitrate for downlink (extended)", "gsm_map.qos.max_bitrate_downl_ext",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_guar_bitrate_upl_ext,
+    { "Guaranteed bitrate for uplink (extended)", "gsm_map.qos.guar_bitrate_upl_ext",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_guar_bitrate_downl_ext,
+    { "Guaranteed bitrate for downlink (extended)", "gsm_map.qos.guar_bitrate_downl_ext",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+    },
+/*
+    { &hf_gsm_map_qos_max_bitrate_upl_ext2,
+    { "Maximum bitrate for uplink (extended-2)", "gsm_map.qos.max_bitrate_upl_ext2",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_max_bitrate_downl_ext2,
+    { "Maximum bitrate for downlink (extended-2)", "gsm_map.qos.max_bitrate_downl_ext2",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_guar_bitrate_upl_ext2,
+    { "Guaranteed bitrate for uplink (extended-2)", "gsm_map.qos.guar_bitrate_upl_ext2",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+    },
+    { &hf_gsm_map_qos_guar_bitrate_downl_ext2,
+    { "Guaranteed bitrate for downlink (extended-2)", "gsm_map.qos.guar_bitrate_downl_ext2",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+    },
+    */
+    { &hf_gsm_map_earp_pvi,
+    { "PVI Pre-emption Vulnerability", "gsm_map.EARP_pre_emption_par_vulnerability",
+              FT_BOOLEAN, 8, TFS(&tfs_disabled_enabled), 0x01,
+              NULL, HFILL }
+    },
+    { &hf_gsm_map_earp_pl,
+    { "PL Priority Level", "gsm_map.EARP_priority_level",
+              FT_UINT8, BASE_DEC, NULL, 0x3C,
+              NULL, HFILL }
+    },
+    { &hf_gsm_map_earp_pci,
+    { "PCI Pre-emption Capability", "gsm_map.EARP_pre_emption_Capability",
+            FT_BOOLEAN, 8, TFS(&tfs_disabled_enabled), 0x40,
+            NULL, HFILL }
+    },
 
 #include "packet-gsm_map-hfarr.c"
   };
@@ -3084,6 +3439,8 @@ void proto_register_gsm_map(void) {
     &ett_gsm_map_extension_data,
     &ett_gsm_map_tbcd_digits,
     &ett_gsm_map_ussd_string,
+    &ett_gsm_map_ext2_qos_subscribed,
+    &ett_gsm_map_ext3_qos_subscribed,
 
 #include "packet-gsm_map-ettarr.c"
   };

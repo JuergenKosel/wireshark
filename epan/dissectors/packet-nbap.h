@@ -30,7 +30,7 @@
 #ifndef PACKET_NBAP_H
 #define PACKET_NBAP_H
 
-#include "packet-rlc.h"
+#include "packet-umts_rlc.h"
 #include "packet-umts_mac.h"
 
 /*
@@ -44,6 +44,11 @@ extern guint8 lchId_type_table[];
 
 /* Mapping logicalchannel id to RLC_MODE */
 extern guint8 lchId_rlc_map[];
+
+/* Mapping Scrambling Codes to C-RNC Contexts */
+extern wmem_tree_t *nbap_scrambling_code_crncc_map;
+/* Mapping C-RNC Contexts to U-RNTIs */
+extern wmem_tree_t *nbap_crncc_urnti_map;
 
 #if 0
 static const value_string lchid_name_resolve[] = {

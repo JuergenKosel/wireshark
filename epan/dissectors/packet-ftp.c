@@ -34,12 +34,14 @@
 #include <epan/conversation.h>
 #include <epan/expert.h>
 #include <epan/addr_resolv.h>
+#include <epan/proto_data.h>
 
 void proto_register_ftp(void);
 void proto_reg_handoff_ftp(void);
 
 static int proto_ftp = -1;
 static int proto_ftp_data = -1;
+static int hf_ftp_current_working_directory = -1;
 static int hf_ftp_response = -1;
 static int hf_ftp_request = -1;
 static int hf_ftp_request_command = -1;
@@ -59,6 +61,17 @@ static int hf_ftp_eprt_port = -1;
 static int hf_ftp_epsv_ip = -1;
 static int hf_ftp_epsv_ipv6 = -1;
 static int hf_ftp_epsv_port = -1;
+static int hf_ftp_command_response_frames = -1;
+static int hf_ftp_command_response_first_frame_num = -1;
+static int hf_ftp_command_response_last_frame_num = -1;
+static int hf_ftp_command_response_duration = -1;
+
+
+static int hf_ftp_data_setup_frame = -1;
+static int hf_ftp_data_setup_method = -1;
+static int hf_ftp_data_command = -1;
+static int hf_ftp_data_command_frame = -1;
+static int hf_ftp_data_current_working_directory = -1;
 
 static gint ett_ftp = -1;
 static gint ett_ftp_reqresp = -1;
@@ -66,9 +79,11 @@ static gint ett_ftp_reqresp = -1;
 static expert_field ei_ftp_eprt_args_invalid = EI_INIT;
 static expert_field ei_ftp_epsv_args_invalid = EI_INIT;
 static expert_field ei_ftp_response_code_invalid = EI_INIT;
+static expert_field ei_ftp_pwd_response_invalid = EI_INIT;
 
 static dissector_handle_t ftpdata_handle;
 static dissector_handle_t ftp_handle;
+static dissector_handle_t data_text_lines_handle;
 
 #define TCP_PORT_FTPDATA        20
 #define TCP_PORT_FTP            21
@@ -141,6 +156,104 @@ static const value_string eprt_af_vals[] = {
     { EPRT_AF_IPv6, "IPv6" },
     { 0, NULL }
 };
+
+/********************************************************************/
+/* Storing session state and linking between control (ftp) and data */
+/* data (ftp-data) conversations                                    */
+
+typedef struct ftp_data_conversation_t
+{
+    const gchar   *command;      /* Command that this data answers */
+    guint32       command_frame; /* Frame command was seen */
+    const gchar   *setup_method; /* Type of command used to set up data conversation */
+    wmem_strbuf_t *current_working_directory;
+
+    /* Summary details of stream to show in command frame. */
+    guint         first_frame_num;
+    nstime_t      first_frame_time;
+    guint         last_frame_num;
+    nstime_t      last_frame_time;
+    guint         frames_seen;
+} ftp_data_conversation_t;
+
+/* Data to associate with individual FTP frame */
+typedef struct ftp_packet_data_t
+{
+    wmem_strbuf_t *current_working_directory;
+} ftp_packet_data_t;
+
+/* State of FTP conversation */
+typedef struct ftp_conversation_t
+{
+    const gchar *last_command;       /* Most recent request command seen (on first pass) */
+    guint32     last_command_frame;  /* When request was seen */
+    wmem_strbuf_t *current_working_directory;
+    ftp_data_conversation_t *current_data_conv;  /* Current data conversation (during first pass) */
+} ftp_conversation_t;
+
+/* For a given packet, retrieve or initialise a new conversation, and return it */
+static ftp_conversation_t *find_or_create_ftp_conversation(packet_info *pinfo)
+{
+    /* Create control conversation if necessary */
+    conversation_t *conv = find_or_create_conversation(pinfo);
+    ftp_conversation_t *p_ftp_conv;
+
+    /* Control conversation data */
+    p_ftp_conv = (ftp_conversation_t *)conversation_get_proto_data(conv, proto_ftp);
+    if (!p_ftp_conv) {
+        p_ftp_conv = wmem_new0(wmem_file_scope(), ftp_conversation_t);
+        /* Start with an empty string - assume relative path unless/until find out differently. */
+        p_ftp_conv->current_working_directory = wmem_strbuf_new(wmem_file_scope(), "");
+        conversation_add_proto_data(conv, proto_ftp, p_ftp_conv);
+    }
+
+    return p_ftp_conv;
+}
+
+/* Keep track of ftp_data_conversation_t*, keyed by the ftp command frame */
+static GHashTable *ftp_command_to_data_hash = NULL;
+
+
+/* When new data conversation is being created, should:
+ * - create data conversation
+ * - create control conversation, and have it point at control conversation
+ */
+static void create_and_link_data_conversation(packet_info *pinfo,
+                                              address *addr_a,
+                                              guint16 port_a,
+                                              address *addr_b,
+                                              guint16 port_b,
+                                              const char *method)
+{
+    /* Only to do on first pass */
+    if (pinfo->fd->flags.visited) {
+        return;
+    }
+
+    ftp_conversation_t *p_ftp_conv = find_or_create_ftp_conversation(pinfo);
+
+    /* Create data conversation and set dissector */
+    ftp_data_conversation_t *p_ftp_data_conv;
+    conversation_t *data_conversation = conversation_new(pinfo->num,
+                                                         addr_a, addr_b,
+                                                         PT_TCP,
+                                                         port_a, port_b,
+                                                         NO_PORT2);
+    conversation_set_dissector(data_conversation, ftpdata_handle);
+
+    /* Allocate data for data conversation. Note that control conversation will update it with commands. */
+    p_ftp_data_conv = wmem_new0(wmem_file_scope(), ftp_data_conversation_t);
+    p_ftp_data_conv->setup_method = method;
+    /* Copy snapshot of what cwd is at this point */
+    p_ftp_data_conv->current_working_directory = p_ftp_conv->current_working_directory;
+
+    /* Point control conversation at current data conversation */
+    conversation_add_proto_data(data_conversation, proto_ftp_data,
+                                p_ftp_data_conv);
+    p_ftp_conv->current_data_conv = p_ftp_data_conv;
+}
+
+/********************************************************************/
 
 
 /*
@@ -522,6 +635,212 @@ parse_extended_pasv_response(const guchar *line, gint linelen, guint16 *ftp_port
     return ret;
 }
 
+/* Get the last character out of a string */
+static gchar wmem_strbuf_get_last_char(wmem_strbuf_t *string)
+{
+    gsize len = wmem_strbuf_get_len(string);
+    if (len > 0) {
+        const gchar *buf = wmem_strbuf_get_str(string);
+        return buf[len-1];
+    }
+    else {
+        /* Error */
+        return '\0';
+    }
+}
+
+/* Get the nth character out of string */
+static gchar wmem_strbuf_get_char_n(wmem_strbuf_t *string, size_t n)
+{
+    if (n > wmem_strbuf_get_len(string)-1) {
+        return '\0';
+    }
+    else {
+        return wmem_strbuf_get_str(string)[n];
+    }
+}
+
+/* Does the path end with the separator character? */
+static gboolean ends_with_separator(wmem_strbuf_t *path)
+{
+    if (wmem_strbuf_get_len(path) == 0) {
+        return FALSE;
+    }
+
+    gchar last = wmem_strbuf_get_last_char(path);
+    return last == '/';
+}
+
+/* Does the path begin with the separator character? */
+static gboolean begins_with_separator(wmem_strbuf_t *path)
+{
+    if (wmem_strbuf_get_len(path) == 0) {
+        return FALSE;
+    }
+
+    gchar first = wmem_strbuf_get_char_n(path, 0);
+    return first == '/';
+}
+
+
+/* Add new_path to the current working directory of the conversation, then normalise. */
+/* N.B. could use e.g. g_build_path() here, but doesn't really buy us anything */
+static void add_directory_to_conv(ftp_conversation_t *conv, const char *new_path)
+{
+    wmem_strbuf_t *appended_path = wmem_strbuf_new(wmem_packet_scope(), NULL);
+
+    if (!wmem_strbuf_get_len(conv->current_working_directory)) {
+        /* Currently empty so just assign to new */
+        wmem_strbuf_append(conv->current_working_directory, new_path);
+        return;
+    }
+    if (ends_with_separator(conv->current_working_directory)) {
+        /* Ends in separator, so don't need to write one */
+        wmem_strbuf_append_printf(appended_path, "%s%s", wmem_strbuf_get_str(conv->current_working_directory), new_path);
+    }
+    else {
+        /* Separator needed */
+        wmem_strbuf_append_printf(appended_path, "%s/%s", wmem_strbuf_get_str(conv->current_working_directory), new_path);
+    }
+
+    /* Now normalise, by going through the string one directory at a time.  If see "..",
+       remove it and the previous folder. If see ".", ignore it. */
+    guint offset;
+
+    /* Initialise with empty path */
+    wmem_strbuf_t *normalised_directory = wmem_strbuf_new(wmem_file_scope(), NULL);
+    wmem_strbuf_t *this_folder = wmem_strbuf_new(wmem_packet_scope(), NULL);
+
+    offset = 0;
+    /* If absolute, add root to this one too */
+    if (begins_with_separator(conv->current_working_directory)) {
+        wmem_strbuf_append_c(normalised_directory, '/');
+        offset++;
+    }
+
+    /* Now go through the appended path, one directory at a time, and
+       copy to normalised_directory */
+    for (; offset <= wmem_strbuf_get_len(appended_path); offset++) {
+        gchar ch = wmem_strbuf_get_char_n(appended_path, offset);
+        if ((offset == wmem_strbuf_get_len(appended_path)) || ch == '/' || ch == '\0') {
+            /* Folder name is complete */
+            if (offset>0 && wmem_strbuf_get_len(this_folder) > 0) {
+
+                /* Up a level.  Rewind to before last directory - don't output this one */
+                if (strcmp(wmem_strbuf_get_str(this_folder), "..") == 0) {
+                    while (wmem_strbuf_get_len(normalised_directory) && !ends_with_separator(normalised_directory)) {
+                        wmem_strbuf_truncate(normalised_directory, wmem_strbuf_get_len(normalised_directory)-1);
+                    }
+                    /* Potentially skip left-over trailing '/' too */
+                    if ((wmem_strbuf_get_len(normalised_directory) > 1) &&
+                        (wmem_strbuf_get_last_char(normalised_directory) == '/')) {
+
+                        wmem_strbuf_truncate(normalised_directory, wmem_strbuf_get_len(normalised_directory)-1);
+                    }
+                }
+                /* Current directory - ignore */
+                else if (strcmp(wmem_strbuf_get_str(this_folder), ".") == 0) {
+                    /* Don't copy to normalised_directory */
+                }
+                else {
+                    /* Regular directory name - copy this one out */
+                    if (wmem_strbuf_get_len(normalised_directory) > 0 && !ends_with_separator(normalised_directory)) {
+                        wmem_strbuf_append_c(normalised_directory, '/');
+                    }
+                    wmem_strbuf_append(normalised_directory, wmem_strbuf_get_str(this_folder));
+                }
+
+                /* Reset folder name for next time */
+                this_folder = wmem_strbuf_new(wmem_packet_scope(), NULL);
+            }
+        }
+        else {
+            /* Keep copying this folder name */
+            wmem_strbuf_append_c(this_folder, ch);
+        }
+        if (ch == '\0') {
+            /* Reached end - get out of loop */
+            break;
+        }
+    }
+
+    /* Copy normalised path into conversation */
+    conv->current_working_directory = normalised_directory;
+}
+
+/* In response to the arg to a CWD command succeeding, update the conversation's current working directory */
+static void process_cwd_success(ftp_conversation_t *conv, const char *new_path)
+{
+    if (g_path_is_absolute(new_path)) {
+        /* Just adopt new_path */
+        conv->current_working_directory = wmem_strbuf_new(wmem_file_scope(), new_path);
+    }
+    else {
+        /* Add new_path to what we already have */
+        add_directory_to_conv(conv, new_path);
+    }
+}
+
+/* When get a PWD command response, extract directory and set it in conversation.  */
+static void process_pwd_success(ftp_conversation_t *conv, const char *line,
+                                int linelen, packet_info *pinfo, proto_item *pi)
+{
+    wmem_strbuf_t *output = wmem_strbuf_new(wmem_file_scope(), NULL);
+    int offset;
+    gboolean outputStarted = FALSE;
+
+    /* Line must start with quotes */
+    if ((linelen < 2) || (line[0] != '"')) {
+        expert_add_info(pinfo, pi, &ei_ftp_pwd_response_invalid);
+        return;
+    }
+
+    /* For each character */
+    for (offset=0;
+         (offset < linelen) && (line[offset] != '\r') && (line[offset] != '\n');
+         offset++) {
+
+        if (line[offset] == '"') {
+            if ((offset+1 < linelen) && (line[offset+1] == '"')) {
+                /* Double, so output one */
+                wmem_strbuf_append_c(output, '"');
+                offset++;
+            }
+            else {
+                if (outputStarted) {
+                    /* End of path */
+                    break;
+                }
+                outputStarted = TRUE;
+            }
+        }
+        else {
+            /* Part of path - append */
+            wmem_strbuf_append_c(output, line[offset]);
+        }
+    }
+
+    /* Make sure output ends in " */
+    if (offset >= linelen || line[offset] != '"') {
+        expert_add_info(pinfo, pi, &ei_ftp_pwd_response_invalid);
+        return;
+    }
+
+    /* Save result */
+    conv->current_working_directory = output;
+}
+
+
+/* Associate the conversation's current working directory with the given packet */
+static void store_directory_in_packet(packet_info *pinfo, ftp_conversation_t *p_ftp_conv)
+{
+    ftp_packet_data_t *p_packet_data = wmem_new0(wmem_file_scope(), ftp_packet_data_t);
+    /* Take deep copy of current path, and associate with this packet */
+    p_packet_data->current_working_directory = wmem_strbuf_new(wmem_file_scope(),
+                                                               wmem_strbuf_get_str(p_ftp_conv->current_working_directory));
+    p_add_proto_data(wmem_file_scope(), pinfo, proto_ftp, 0, p_packet_data);
+}
+
 
 static int
 dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
@@ -555,7 +874,6 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     guint32         ftp_port_len;
     address         ftp_ip_address;
     gboolean        ftp_nat;
-    conversation_t *conversation;
 
     copy_address_shallow(&ftp_ip_address, &pinfo->src);
 
@@ -565,6 +883,14 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         is_request = FALSE;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "FTP");
+
+    /* Get the conversation */
+    ftp_conversation_t *p_ftp_conv = find_or_create_ftp_conversation(pinfo);
+
+    /* Store the current working directory */
+    if (!pinfo->fd->flags.visited) {
+        store_directory_in_packet(pinfo, p_ftp_conv);
+    }
 
     /*
      * Find the end of the first line.
@@ -615,6 +941,21 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             else if (strncmp(line, "EPRT", tokenlen) == 0)
                 is_eprt_request = TRUE;
         }
+
+        /* If there is an ftp data conversation that doesn't have a
+           command yet, attempt to update here */
+        if (p_ftp_conv) {
+            p_ftp_conv->last_command = wmem_strndup(wmem_file_scope(), line, linelen);
+            p_ftp_conv->last_command_frame = pinfo->num;
+        }
+        /* And make sure set for FTP data conversation */
+        if (p_ftp_conv && p_ftp_conv->current_data_conv && !p_ftp_conv->current_data_conv->command) {
+            p_ftp_conv->current_data_conv->command = wmem_strndup(wmem_file_scope(), line, linelen);
+            p_ftp_conv->current_data_conv->command_frame = pinfo->num;
+
+            /* Add to table to ftp-data response can be shown with this frame on later passes */
+            g_hash_table_insert(ftp_command_to_data_hash, GUINT_TO_POINTER(pinfo->num), p_ftp_conv->current_data_conv);
+        }
     } else {
         /*
          * This is a response; the response code is 3 digits,
@@ -661,6 +1002,50 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 is_epasv_response = TRUE;
 
             /*
+             * Responses to CWD command.
+             */
+            if (code == 250) {
+                if (!pinfo->fd->flags.visited) {
+                    if (p_ftp_conv && p_ftp_conv->last_command) {
+                        /* Explicit Change Working Directory command */
+                        if (strncmp(p_ftp_conv->last_command, "CWD ", 4) == 0) {
+                            process_cwd_success(p_ftp_conv, p_ftp_conv->last_command+4);
+                            /* Update path in packet */
+                            if (!pinfo->fd->flags.visited) {
+                                store_directory_in_packet(pinfo, p_ftp_conv);
+                            }
+                        }
+                        /* Change Directory Up command (i.e. "CWD ..") */
+                        else if (strncmp(p_ftp_conv->last_command, "CDUP", 4) == 0) {
+                            process_cwd_success(p_ftp_conv, "..");
+                            /* Update path in packet */
+                            if (!pinfo->fd->flags.visited) {
+                                store_directory_in_packet(pinfo, p_ftp_conv);
+                            }
+                        }
+                    }
+                }
+            }
+
+            /*
+             * Responses to PWD command. Overwrite whatever is stored - this is the truth!
+             */
+            if (code == 257) {
+                if (!pinfo->fd->flags.visited) {
+                    if (p_ftp_conv && linelen >= 4) {
+                        /* Want directory name, which will be between " " */
+                        process_pwd_success(p_ftp_conv, line+4, linelen-4, pinfo, pi);
+
+                        /* Update path in packet */
+                        if (!pinfo->fd->flags.visited) {
+                            store_directory_in_packet(pinfo, p_ftp_conv);
+                        }
+                    }
+                }
+            }
+
+
+            /*
              * Skip the 3 digits and, if present, the
              * space or hyphen.
              */
@@ -698,6 +1083,7 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     }
     offset = next_offset;
 
+
     /*
      * If this is a PORT request or a PASV response, handle it.
      */
@@ -713,6 +1099,12 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 proto_tree_add_boolean(reqresp_tree, hf_ftp_active_nat,
                         tvb, 0, 0, ftp_nat);
             }
+
+            /* Set up data conversation */
+            create_and_link_data_conversation(pinfo,
+                                              &pinfo->dst, 20,
+                                              &ftp_ip_address, ftp_port,
+                                              "PORT");
         }
     }
 
@@ -735,42 +1127,7 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                             tvb, 0, 0, ftp_nat);
                 }
 
-                /*
-                 * We use "ftp_ip_address", so that if
-                 * we're NAT'd we look for the un-NAT'd
-                 * connection.
-                 *
-                 * XXX - should this call to
-                 * "find_conversation()" just use
-                 * "ftp_ip_address" and "server_port", and
-                 * wildcard everything else?
-                 */
-                conversation = find_conversation(pinfo->num, &ftp_ip_address,
-                    &pinfo->dst, PT_TCP, ftp_port, 0,
-                    NO_PORT_B);
-                if (conversation == NULL) {
-                    /*
-                     * XXX - should this call to "conversation_new()"
-                     * just use "ftp_ip_address" and "server_port",
-                     * and wildcard everything else?
-                     *
-                     * XXX - what if we did find a conversation?  As
-                     * we create it only on the first pass through the
-                     * packets, if we find one, it's presumably an
-                     * unrelated conversation.  Should we remove the
-                     * old one from the hash table and put this one in
-                     * its place?  Can the conversation code handle
-                     * conversations not in the hash table?  Or should
-                     * we make conversations support start and end
-                     * frames, as circuits do, and treat this as an
-                     * indication that one conversation was closed and
-                     * a new one was opened?
-                     */
-                    conversation = conversation_new(
-                        pinfo->num, &ftp_ip_address, &pinfo->dst,
-                        PT_TCP, ftp_port, 0, NO_PORT2);
-                    conversation_set_dissector(conversation, ftpdata_handle);
-                }
+                create_and_link_data_conversation(pinfo, &ftp_ip_address, ftp_port, &pinfo->dst, pinfo->destport, "PASV");
             }
         }
     }
@@ -808,17 +1165,11 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             proto_tree_add_uint(reqresp_tree, hf_ftp_eprt_port,
                     tvb, eprt_offset, ftp_port_len, ftp_port);
 
-            /* Find/create conversation for data */
-            conversation = find_conversation(pinfo->num,
-                    &pinfo->src, &ftp_ip_address,
-                    PT_TCP, ftp_port, 0, NO_PORT_B);
-            if (conversation == NULL) {
-                conversation = conversation_new(
-                        pinfo->num, &pinfo->src, &ftp_ip_address,
-                        PT_TCP, ftp_port, 0, NO_PORT2);
-                conversation_set_dissector(conversation,
-                        ftpdata_handle);
-            }
+            /* Set up data conversation */
+            create_and_link_data_conversation(pinfo,
+                                              &pinfo->src, ftp_port,
+                                              &ftp_ip_address, 0,
+                                              "EPRT");
         }
         else {
             proto_tree_add_expert(reqresp_tree, pinfo, &ei_ftp_eprt_args_invalid,
@@ -856,18 +1207,10 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                         hf_ftp_epsv_port, tvb, pasv_offset + 4,
                         ftp_port_len, ftp_port);
 
-                /* Find/create conversation for data */
-                conversation = find_conversation(pinfo->num, &ftp_ip_address,
-                                                 &pinfo->dst, PT_TCP, ftp_port, 0,
-                                                 NO_PORT_B);
-                if (conversation == NULL) {
-                    conversation = conversation_new(
-                        pinfo->num, &ftp_ip_address, &pinfo->dst,
-                        PT_TCP, ftp_port, 0, NO_PORT2);
-                    conversation_set_dissector(conversation,
-                        ftpdata_handle);
-                }
-            }
+                /* Set up data conversation */
+                create_and_link_data_conversation(pinfo,
+                                                  &ftp_ip_address, ftp_port,
+                                                  &pinfo->dst, 0, "EPASV");             }
             else {
                 proto_tree_add_expert(reqresp_tree, pinfo, &ei_ftp_epsv_args_invalid,
                         tvb, offset - linelen - 1, linelen);
@@ -894,51 +1237,171 @@ dissect_ftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         offset = next_offset;
     }
 
+    /* Show current working directory */
+    ftp_packet_data_t *ftp_packet_data = (ftp_packet_data_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_ftp, 0);
+    if (ftp_packet_data != NULL) {
+        /* Should always be set.. */
+        if (ftp_packet_data->current_working_directory) {
+            proto_item *cwd_ti = proto_tree_add_string(tree, hf_ftp_current_working_directory,
+                                                       tvb, 0, 0, wmem_strbuf_get_str(ftp_packet_data->current_working_directory));
+            PROTO_ITEM_SET_GENERATED(cwd_ti);
+        }
+    }
+
+    /* If this is a command resulting in an ftp-data stream, show details */
+    if (pinfo->fd->flags.visited) {
+        ftp_data_conversation_t *ftp_data =
+                (ftp_data_conversation_t *)g_hash_table_lookup(ftp_command_to_data_hash, GUINT_TO_POINTER(pinfo->num));
+        if (ftp_data) {
+            /* Number of frames */
+            ti = proto_tree_add_uint(tree, hf_ftp_command_response_frames,
+                                     tvb, 0, 0, ftp_data->frames_seen);
+            PROTO_ITEM_SET_GENERATED(ti);
+
+            /* First frame */
+            ti = proto_tree_add_uint(tree, hf_ftp_command_response_first_frame_num,
+                                     tvb, 0, 0, ftp_data->first_frame_num);
+            PROTO_ITEM_SET_GENERATED(ti);
+
+            /* Last frame */
+            ti = proto_tree_add_uint(tree, hf_ftp_command_response_last_frame_num,
+                                     tvb, 0, 0, ftp_data->last_frame_num);
+            PROTO_ITEM_SET_GENERATED(ti);
+
+            /* Length of stream */
+            if (ftp_data->frames_seen > 1) {
+                /* Work out gap between frames */
+                gint seconds = (gint)
+                          (ftp_data->last_frame_time.secs - ftp_data->first_frame_time.secs);
+                gint nseconds =
+                          ftp_data->last_frame_time.nsecs - ftp_data->first_frame_time.nsecs;
+
+                /* Round gap to nearest ms. */
+                gint gap_ms = (seconds*1000) + ((nseconds+500000) / 1000000);
+                ti = proto_tree_add_uint(tree, hf_ftp_command_response_duration,
+                                         tvb, 0, 0, gap_ms);
+                PROTO_ITEM_SET_GENERATED(ti);
+            }
+        }
+    }
+
     return tvb_captured_length(tvb);
 }
 
 static int
 dissect_ftpdata(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-    proto_item *ti;
-    int         data_length;
+    proto_item *data_ti, *ti;
+    int         data_length = tvb_captured_length(tvb);
     gboolean    is_text = TRUE;
     gint        check_chars, i;
+    conversation_t *p_conv;
+    ftp_data_conversation_t *p_ftp_data_conv;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "FTP-DATA");
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "FTP Data: %u bytes",
         tvb_reported_length(tvb));
 
-    data_length = tvb_captured_length(tvb);
+    data_ti = proto_tree_add_item(tree, proto_ftp_data, tvb, 0, -1, ENC_NA);
 
-    ti = proto_tree_add_item(tree, proto_ftp_data, tvb, 0, -1, ENC_NA);
+    /* Link back to setup of this stream */
+    p_conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
+                               PT_TCP,
+                               pinfo->srcport, pinfo->destport,
+                               0);
 
-    /* Check the first few chars to see whether it looks like a text file or not */
+    if (p_conv) {
+        /* Link back to FTP frame where this conversation was created */
+        ti = proto_tree_add_uint(tree, hf_ftp_data_setup_frame,
+                                 tvb, 0, 0, p_conv->setup_frame);
+        PROTO_ITEM_SET_GENERATED(ti);
+
+        p_ftp_data_conv = (ftp_data_conversation_t*)conversation_get_proto_data(p_conv, proto_ftp_data);
+
+        if (p_ftp_data_conv) {
+            /* First time around, update info. */
+            if (!pinfo->fd->flags.visited) {
+                if (!p_ftp_data_conv->first_frame_num) {
+                    p_ftp_data_conv->first_frame_num = pinfo->num;
+                    p_ftp_data_conv->first_frame_time = pinfo->abs_ts;
+                }
+                if (pinfo->num > p_ftp_data_conv->last_frame_num) {
+                    p_ftp_data_conv->last_frame_num = pinfo->num;
+                    p_ftp_data_conv->last_frame_time = pinfo->abs_ts;
+                }
+                p_ftp_data_conv->frames_seen++;
+            }
+
+            /* Show setup method as field and in info column */
+            if (p_ftp_data_conv->setup_method) {
+                ti = proto_tree_add_string(tree, hf_ftp_data_setup_method,
+                                           tvb, 0, 0, p_ftp_data_conv->setup_method);
+                col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", p_ftp_data_conv->setup_method);
+                PROTO_ITEM_SET_GENERATED(ti);
+            }
+
+            /* Show command in info column */
+            if (p_ftp_data_conv->command) {
+                ti = proto_tree_add_string(tree, hf_ftp_data_command,
+                                           tvb, 0, 0, p_ftp_data_conv->command);
+                PROTO_ITEM_SET_GENERATED(ti);
+                col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", p_ftp_data_conv->command);
+
+                proto_tree_add_uint(tree, hf_ftp_data_command_frame,
+                                    tvb, 0, 0, p_ftp_data_conv->command_frame);
+                PROTO_ITEM_SET_GENERATED(ti);
+            }
+
+            /* Show current working directory */
+            if (p_ftp_data_conv->current_working_directory) {
+                ti = proto_tree_add_string(tree, hf_ftp_data_current_working_directory,
+                                           tvb, 0, 0, wmem_strbuf_get_str(p_ftp_data_conv->current_working_directory));
+                PROTO_ITEM_SET_GENERATED(ti);
+            }
+        }
+    }
+
+    /* Check the first few chars to see whether it looks like a text file or output */
     check_chars = MIN(10, data_length);
     for (i=0; i < check_chars; i++) {
-        if (!g_ascii_isprint(tvb_get_guint8(tvb, i))) {
+        guint8 c = tvb_get_guint8(tvb, i);
+        if (c!='\r' && c!='\n' && !g_ascii_isprint(c)) {
             is_text = FALSE;
             break;
         }
     }
 
+    /* Show the number of bytes */
+    proto_item_append_text(data_ti, " (%u bytes data)", data_length);
+
+    /* Show line-by-line if text */
     if (is_text) {
-        /* Show as string, but don't format more text than will be displayed */
-        proto_item_append_text(ti, " (%s)", tvb_format_text(tvb, 0, MIN(data_length, ITEM_LABEL_LENGTH)));
-    }
-    else {
-        /* Assume binary, just show the number of bytes */
-        proto_item_append_text(ti, " (%u bytes data)", data_length);
+        call_dissector(data_text_lines_handle, tvb, pinfo, tree);
     }
 
-    return tvb_captured_length(tvb);
+    return data_length;
+}
+
+static void ftp_init_protocol(void)
+{
+    ftp_command_to_data_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
+}
+
+static void ftp_cleanup_protocol(void)
+{
+    g_hash_table_destroy(ftp_command_to_data_hash);
 }
 
 void
 proto_register_ftp(void)
 {
     static hf_register_info hf[] = {
+        { &hf_ftp_current_working_directory,
+          { "Current working directory", "ftp.current-working-directory",
+            FT_STRING, BASE_NONE, NULL, 0,
+            NULL, HFILL }},
+
         { &hf_ftp_response,
           { "Response",           "ftp.response",
             FT_BOOLEAN, BASE_NONE, NULL, 0x0,
@@ -1032,18 +1495,65 @@ proto_register_ftp(void)
         { &hf_ftp_epsv_port,
           { "Extended passive port", "ftp.epsv.port",
             FT_UINT16, BASE_DEC, NULL, 0,
-            "Extended passive FTP server port", HFILL }}
+            "Extended passive FTP server port", HFILL }},
 
+        { &hf_ftp_command_response_first_frame_num,
+          { "Command response first frame", "ftp.command-response.first-frame-num",
+            FT_FRAMENUM, BASE_NONE, NULL, 0,
+            "First frame seen in resulting ftp-data stream", HFILL }},
+
+        { &hf_ftp_command_response_last_frame_num,
+          { "Command response last frame", "ftp.command-response.last-frame-num",
+            FT_FRAMENUM, BASE_NONE, NULL, 0,
+            "Last frame seen in resulting ftp-data stream", HFILL }},
+
+        { &hf_ftp_command_response_duration,
+          { "Response duration", "ftp.command-response.duration",
+            FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_milliseconds, 0,
+            "Duration of command response in ms", HFILL }},
+
+        { &hf_ftp_command_response_frames,
+          { "Command response frames", "ftp.command-response.frames",
+            FT_UINT32, BASE_DEC, NULL, 0,
+            "Number of frames seen in resulting ftp-data stream", HFILL }}
     };
     static gint *ett[] = {
         &ett_ftp,
         &ett_ftp_reqresp
     };
 
+    static hf_register_info data_hf[] = {
+        { &hf_ftp_data_setup_frame,
+          { "Setup frame", "ftp-data.setup-frame",
+            FT_FRAMENUM, BASE_NONE, NULL, 0,
+            "Where ftp-data conversation was signalled", HFILL }},
+
+        { &hf_ftp_data_setup_method,
+          { "Setup method", "ftp-data.setup-method",
+            FT_STRING, BASE_NONE, NULL, 0,
+            "Method used to set up data conversation", HFILL }},
+
+        { &hf_ftp_data_command,
+          { "Command", "ftp-data.command",
+            FT_STRING, BASE_NONE, NULL, 0,
+            "Command that this data stream answers", HFILL }},
+
+        { &hf_ftp_data_command_frame,
+          { "Command frame", "ftp-data.command-frame",
+            FT_FRAMENUM, BASE_NONE, NULL, 0,
+            "Where command for this data was seen", HFILL }},
+
+        { &hf_ftp_data_current_working_directory,
+          { "Current working directory", "ftp-data.current-working-directory",
+            FT_STRING, BASE_NONE, NULL, 0,
+            "Current working directory at time of command", HFILL }}
+    };
+
     static ei_register_info ei[] = {
         { &ei_ftp_eprt_args_invalid, { "ftp.eprt.args_invalid", PI_MALFORMED, PI_WARN, "EPRT arguments must have the form: |<family>|<addr>|<port>|", EXPFILL }},
         { &ei_ftp_epsv_args_invalid, { "ftp.epsv.args_invalid", PI_MALFORMED, PI_WARN, "EPSV arguments must have the form (|||<port>|)", EXPFILL }},
-        { &ei_ftp_response_code_invalid, { "ftp.response.code.invalid", PI_MALFORMED, PI_ERROR, "Invalid response code", EXPFILL }}
+        { &ei_ftp_response_code_invalid, { "ftp.response.code.invalid", PI_MALFORMED, PI_ERROR, "Invalid response code", EXPFILL }},
+        { &ei_ftp_pwd_response_invalid, { "ftp.response.pwd.invalid", PI_MALFORMED, PI_ERROR, "Invalid PWD response", EXPFILL }}
     };
 
     expert_module_t* expert_ftp;
@@ -1054,9 +1564,13 @@ proto_register_ftp(void)
     proto_ftp_data = proto_register_protocol("FTP Data", "FTP-DATA", "ftp-data");
     ftpdata_handle = register_dissector("ftp-data", dissect_ftpdata, proto_ftp_data);
     proto_register_field_array(proto_ftp, hf, array_length(hf));
+    proto_register_field_array(proto_ftp, data_hf, array_length(data_hf));
     proto_register_subtree_array(ett, array_length(ett));
     expert_ftp = expert_register_protocol(proto_ftp);
     expert_register_field_array(expert_ftp, ei, array_length(ei));
+
+    register_init_routine(&ftp_init_protocol);
+    register_cleanup_routine(&ftp_cleanup_protocol);
 }
 
 void
@@ -1064,6 +1578,9 @@ proto_reg_handoff_ftp(void)
 {
     dissector_add_uint_with_preference("tcp.port", TCP_PORT_FTPDATA, ftpdata_handle);
     dissector_add_uint_with_preference("tcp.port", TCP_PORT_FTP, ftp_handle);
+
+    data_text_lines_handle = find_dissector_add_dependency("data-text-lines", proto_ftp_data);
+
 }
 
 /*

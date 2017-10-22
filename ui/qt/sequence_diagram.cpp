@@ -22,11 +22,10 @@
 #include "sequence_diagram.h"
 
 #include "epan/addr_resolv.h"
+#include "epan/sequence_analysis.h"
 
-#include "ui/tap-sequence-analysis.h"
-
-#include "color_utils.h"
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/color_utils.h>
+#include <ui/qt/utils/qt_ui_utils.h>
 
 #include <QFont>
 #include <QFontMetrics>
@@ -256,7 +255,6 @@ void SequenceDiagram::draw(QCPPainter *painter)
     for (it = data_->constBegin(); it != data_->constEnd(); ++it) {
         double cur_key = it.key();
         seq_analysis_item_t *sai = it.value().value;
-        QPen fg_pen(mainPen());
         QColor bg_color;
 
         if (sai->frame_number == selected_packet_) {
@@ -264,12 +262,10 @@ void SequenceDiagram::draw(QCPPainter *painter)
             fg_pen.setColor(sel_pal.color(QPalette::HighlightedText));
             bg_color = sel_pal.color(QPalette::Highlight);
             selected_key_ = cur_key;
-        } else if (sainfo_->type == SEQ_ANALYSIS_ANY) {
-            if (sai->has_color_filter) {
-                fg_pen.setColor(QColor().fromRgb(sai->fg_color));
-                bg_color = QColor().fromRgb(sai->bg_color);
-            }
-        } else { // SEQ_ANALYSIS_VOIP, SEQ_ANALYSIS_TCP
+        } else if (sai->has_color_filter) {
+            fg_pen.setColor(QColor().fromRgb(sai->fg_color));
+            bg_color = QColor().fromRgb(sai->bg_color);
+        } else {
             fg_pen.setColor(Qt::black);
             bg_color = ColorUtils::sequenceColor(sai->conv_num);
         }

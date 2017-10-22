@@ -28,7 +28,7 @@
 
 #include "capchild/capture_session.h"
 
-#include "label_stack.h"
+#include <ui/qt/widgets/label_stack.h>
 #include "progress_frame.h"
 #include "wireshark_application.h"
 
@@ -95,6 +95,7 @@ public slots:
     void pushProgressStatus(const QString &message, bool animate, bool terminate_is_stop = false, gboolean *stop_flag = NULL);
     void updateProgressStatus(int value);
     void popProgressStatus();
+    void packetSelectionChanged();
 
     void updateCaptureStatistics(capture_session * cap_session);
     void updateCaptureFixedStatistics(capture_session * cap_session);

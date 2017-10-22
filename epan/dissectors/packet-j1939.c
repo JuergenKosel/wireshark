@@ -28,6 +28,8 @@
 #include <epan/address_types.h>
 #include <epan/to_str.h>
 
+#include "packet-socketcan.h"
+
 void proto_register_j1939(void);
 void proto_reg_handoff_j1939(void);
 
@@ -168,11 +170,6 @@ j1939_fmt_address(gchar *result, guint32 addr )
         g_snprintf(result, ITEM_LABEL_LENGTH, "%d (Arbitrary)", addr);
 }
 
-struct can_identifier
-{
-    guint32 id;
-};
-
 static int dissect_j1939(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
     proto_item *ti, *can_id_item;
@@ -260,14 +257,12 @@ static int dissect_j1939(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
     return tvb_captured_length(tvb);
 }
 
-static int J1939_addr_to_str(const address* addr, gchar *buf, int buf_len _U_)
+static int J1939_addr_to_str(const address* addr, gchar *buf, int buf_len)
 {
     const guint8 *addrdata = (const guint8 *)addr->data;
-    gchar *start_buf = buf;
 
-    buf = uint_to_str_back(buf, *addrdata);
-    *buf = '\0';
-    return (int)(buf-start_buf+1);
+    guint32_to_str_buf(*addrdata, buf, buf_len);
+    return (int)strlen(buf);
 }
 
 static int J1939_addr_str_len(const address* addr _U_)

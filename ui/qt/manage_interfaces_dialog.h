@@ -27,8 +27,8 @@
 #include <glib.h>
 #include "capture_opts.h"
 
-#include "ui/qt/interface_tree_cache_model.h"
-#include "ui/qt/interface_sort_filter_model.h"
+#include <ui/qt/models/interface_tree_cache_model.h>
+#include <ui/qt/models/interface_sort_filter_model.h>
 
 #include "geometry_state_dialog.h"
 #include <QStyledItemDelegate>
@@ -73,8 +73,10 @@ private slots:
 
     void on_buttonBox_accepted();
 
+#ifdef HAVE_LIBPCAP
     void on_addPipe_clicked();
     void on_delPipe_clicked();
+#endif
 
     void onSelectionChanged(const QItemSelection &sel, const QItemSelection &desel);
 
@@ -85,6 +87,7 @@ private slots:
     void on_remoteList_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous);
     void on_remoteList_itemClicked(QTreeWidgetItem *item, int column);
     void addRemoteInterfaces(GList *rlist, remote_options *roptions);
+    void updateRemoteInterfaceList(GList *rlist, remote_options *roptions);
     void setRemoteSettings(interface_t *iface);
     void remoteSelectionChanged(QTreeWidgetItem* item, int col);
     void on_remoteSettings_clicked();

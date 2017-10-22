@@ -96,11 +96,6 @@ static void flip_prompt(packet_info *pinfo _U_, gchar* result)
     g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "Decode FLIP payload protocol as");
 }
 
-static gpointer flip_value(packet_info *pinfo _U_)
-{
-    return 0;
-}
-
 /* Dissect the checksum extension header. */
 static int
 dissect_flip_chksum_hdr(tvbuff_t    *tvb,
@@ -375,9 +370,7 @@ dissect_flip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 
         payload_tvb = tvb_new_subset_length(flip_tvb, offset, payload_len);
 
-        /* Functionality for choosing subdissector is controlled through Decode As as FLIP doesn't
-           have a unique identifier to determine subdissector */
-        data_len = dissector_try_uint(subdissector_table, 0, payload_tvb, pinfo, tree);
+        data_len = dissector_try_payload(subdissector_table, payload_tvb, pinfo, tree);
         if (data_len <= 0)
         {
             data_len = call_data_dissector(payload_tvb, pinfo, tree);
@@ -451,12 +444,6 @@ proto_register_flip(void)
 
     module_t *flip_module;
 
-    /* Decode As handling */
-    static build_valid_func flip_da_build_value[1] = {flip_value};
-    static decode_as_value_t flip_da_values = {flip_prompt, 1, flip_da_build_value};
-    static decode_as_t flip_da = {"flip", "FLIP Payload", "flip.payload", 1, 0, &flip_da_values, NULL, NULL,
-                                    decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
-
     proto_flip = proto_register_protocol(
         "NSN FLIP", /* name */
         "FLIP",     /* short name */
@@ -465,8 +452,6 @@ proto_register_flip(void)
 
     proto_register_field_array(proto_flip, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
-
-    subdissector_table = register_dissector_table("flip.payload", "FLIP subdissector", proto_flip, FT_UINT32, BASE_HEX);
 
     flip_module = prefs_register_protocol(proto_flip, NULL);
 
@@ -478,7 +463,7 @@ proto_register_flip(void)
     prefs_register_obsolete_preference(flip_module, "forced_protocol");
     prefs_register_obsolete_preference(flip_module, "forced_decode");
 
-    register_decode_as(&flip_da);
+    subdissector_table = register_decode_as_next_proto(proto_flip, "FLIP Payload", "flip.payload", "FLIP payload", (build_label_func*)&flip_prompt);
 
 } /* proto_register_flip() */
 

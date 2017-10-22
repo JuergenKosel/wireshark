@@ -202,7 +202,6 @@ set(WIRESHARK_TAP_SRC
 	iax2_analysis.c
 	io_stat.c
 	lbm_stream_dlg.c
-	lbm_uimflow_dlg.c
 	mac_lte_stat_dlg.c
 	mcast_stream_dlg.c
 	mtp3_summary.c
@@ -316,9 +315,9 @@ add_library(gtkui STATIC
 	${PIXBUF_SRC}
 )
 set_target_properties(gtkui PROPERTIES
-	COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
-	FOLDER "UI")
+	FOLDER "UI"
+)
 
 CHECKAPI(
 	NAME

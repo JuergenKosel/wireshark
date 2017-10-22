@@ -35,7 +35,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 
-#include "qcustomplot.h"
+#include <ui/qt/widgets/qcustomplot.h>
 #include "wireshark_application.h"
 
 SCTPGraphDialog::SCTPGraphDialog(QWidget *parent, sctp_assoc_info_t *assoc, capture_file *cf, int dir) :
@@ -79,7 +79,7 @@ void SCTPGraphDialog::drawNRSACKGraph()
     GList *list=NULL, *tlist;
     guint16 gap_start=0, gap_end=0, i, numberOf_gaps, numberOf_nr_gaps;
     guint8 type;
-    guint32 tsnumber, j, min_tsn;
+    guint32 tsnumber, j = 0, min_tsn;
     struct nr_sack_chunk_header *nr_sack_header;
     struct gaps *nr_gap;
     /* This holds the sum of gap acks and nr gap acks */

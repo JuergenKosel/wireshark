@@ -210,7 +210,7 @@ WSLUA_CONSTRUCTOR Dir_open(lua_State* L) {
     dir = (Dir)g_malloc(sizeof(struct _wslua_dir));
     dir->dir = g_dir_open(dirname_clean, 0, dir->dummy);
     g_free(dirname_clean);
-    dir->ext = extension ? g_strdup(extension) : NULL;
+    dir->ext = g_strdup(extension);
     dir->dummy = (GError **)g_malloc(sizeof(GError *));
     *(dir->dummy) = NULL;
 
@@ -324,9 +324,7 @@ WSLUA_CONSTRUCTOR Dir_personal_plugins_path(lua_State* L) {
 
        @since 1.11.3
     */
-    char* filename = get_plugins_pers_dir();
-    lua_pushstring(L,filename);
-    g_free(filename);
+    lua_pushstring(L, get_plugins_pers_dir());
     WSLUA_RETURN(1); /* The pathname for the personal plugins directory. */
 }
 
@@ -335,7 +333,7 @@ WSLUA_CONSTRUCTOR Dir_global_plugins_path(lua_State* L) {
 
        @since 1.11.3
     */
-    lua_pushstring(L, get_plugin_dir());
+    lua_pushstring(L, get_plugins_dir());
     WSLUA_RETURN(1); /* The pathname for the global plugins directory. */
 }
 
@@ -350,9 +348,7 @@ static int Dir__gc(lua_State* L) {
     }
 
     g_free(dir->dummy);
-
-    if (dir->ext) g_free(dir->ext);
-
+    g_free(dir->ext);
     g_free(dir);
 
     return 0;

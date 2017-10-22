@@ -61,6 +61,7 @@
 #include <epan/packet.h>
 #include <epan/ipproto.h>
 #include <epan/sminmpec.h>
+#include <epan/addr_resolv.h>
 #include <epan/prefs.h>
 #include <epan/conversation.h>
 #include <epan/expert.h>
@@ -959,7 +960,11 @@ static const value_string iwf_types_vals[] = {
     { 0,     NULL },
 };
 
-static const true_false_string tfs_up_down = { "Up", "Down" };
+static const val64_string unique_indeterminable_or_no_link[] = {
+    { 0, "indeterminable or no physical p2p link" },
+    { 0, NULL },
+};
+
 static const true_false_string tfs_new_existing = { "New", "Existing" };
 
 static dissector_handle_t ppp_hdlc_handle;
@@ -1520,8 +1525,8 @@ static int dissect_l2tp_cisco_avps(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
     avp_type        = tvb_get_ntohs(tvb, offset + 4);
 
     l2tp_avp_tree =  proto_tree_add_subtree_format(tree, tvb, offset,
-                              avp_len, ett_l2tp_avp, NULL, "Vendor %s: %s AVP",
-                              val_to_str_ext(avp_vendor_id, &sminmpec_values_ext, "Unknown (%u)"),
+                              avp_len, ett_l2tp_avp, NULL, "Vendor %s (%u): %s AVP",
+                              enterprises_lookup(avp_vendor_id, "Unknown"), avp_vendor_id,
                               val_to_str(avp_type, cisco_avp_type_vals, "Unknown (%u)"));
 
     proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_mandatory, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -1628,8 +1633,8 @@ static int dissect_l2tp_broadband_avps(tvbuff_t *tvb, packet_info *pinfo _U_, pr
     avp_type        = tvb_get_ntohs(tvb, offset + 4);
 
     l2tp_avp_tree =  proto_tree_add_subtree_format(tree, tvb, offset,
-                              avp_len, ett_l2tp_avp, NULL, "Vendor %s: %s AVP",
-                              val_to_str_ext(avp_vendor_id, &sminmpec_values_ext, "Unknown (%u)"),
+                              avp_len, ett_l2tp_avp, NULL, "Vendor %s (%u): %s AVP",
+                              enterprises_lookup(avp_vendor_id, "Unknown"), avp_vendor_id,
                               val_to_str(avp_type, broadband_avp_type_vals, "Unknown (%u)"));
 
     proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_mandatory, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -1810,8 +1815,8 @@ static int dissect_l2tp_ericsson_avps(tvbuff_t *tvb, packet_info *pinfo _U_, pro
     avp_type        = tvb_get_ntohs(tvb, offset + 4);
 
     l2tp_avp_tree =  proto_tree_add_subtree_format(tree, tvb, offset,
-                              avp_len, ett_l2tp_avp, NULL, "Vendor %s: %s AVP",
-                              val_to_str_ext(avp_vendor_id, &sminmpec_values_ext, "Unknown (%u)"),
+                              avp_len, ett_l2tp_avp, NULL, "Vendor %s (%u): %s AVP",
+                              enterprises_lookup(avp_vendor_id, "Unknown"), avp_vendor_id,
                               val_to_str(avp_type, ericsson_avp_type_vals, "Unknown (%u)"));
 
     proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_mandatory, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -1899,8 +1904,8 @@ dissect_l2tp_vnd_cablelabs_avps(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
     avp_type        = tvb_get_ntohs(tvb, offset + 4);
 
     l2tp_avp_tree =  proto_tree_add_subtree_format(tree, tvb, offset,
-                              avp_len, ett_l2tp_avp, NULL, "Vendor %s: %s AVP",
-                              val_to_str_ext(avp_vendor_id, &sminmpec_values_ext, "Unknown (%u)"),
+                              avp_len, ett_l2tp_avp, NULL, "Vendor %s (%u): %s AVP",
+                              enterprises_lookup(avp_vendor_id, "Unknown"), avp_vendor_id,
                               val_to_str(avp_type, cablelabs_avp_type_vals, "Unknown (%u)"));
 
     proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_mandatory, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -1976,7 +1981,7 @@ static void process_control_avps(tvbuff_t *tvb,
                                  l2tpv3_tunnel_t *tunnel)
 {
     proto_tree *l2tp_lcp_avp_tree, *l2tp_avp_tree = NULL, *l2tp_avp_tree_sub, *l2tp_avp_csu_tree;
-    proto_item *tf, *te, *tc;
+    proto_item *te, *tc;
 
     int                msg_type  = 0;
     gboolean           isStopCcn = FALSE;
@@ -2031,8 +2036,8 @@ static void process_control_avps(tvbuff_t *tvb,
                 /* Vendor-Specific AVP */
                 if (!dissector_try_uint_new(l2tp_vendor_avp_dissector_table, avp_vendor_id, avp_tvb, pinfo, l2tp_tree, FALSE, l2tp_cntrl_data)){
                     l2tp_avp_tree =  proto_tree_add_subtree_format(l2tp_tree, tvb, idx,
-                                          avp_len, ett_l2tp_avp, NULL, "Vendor %s AVP Type %u",
-                                          val_to_str_ext(avp_vendor_id, &sminmpec_values_ext, "Unknown (%u)"),
+                                          avp_len, ett_l2tp_avp, NULL, "Vendor %s (%u) AVP Type %u",
+                                          enterprises_lookup(avp_vendor_id, "Unknown"), avp_vendor_id,
                                           avp_type);
 
                     proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_mandatory, tvb, idx, 2, ENC_BIG_ENDIAN);
@@ -2472,31 +2477,17 @@ static void process_control_avps(tvbuff_t *tvb,
             store_cma_nonce(tunnel, tvb, idx, avp_len, msg_type);
             break;
         case TX_CONNECT_SPEED_V3:
-        {
-            guint64 speed;
             if (avp_len < 8)
                 break;
 
-            speed = tvb_get_ntoh64(tvb, idx);
-            tf = proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_tx_connect_speed_v3, tvb, idx, 8, ENC_BIG_ENDIAN);
-            if (speed == 0) {
-                proto_item_append_text(tf, " (indeterminable or no physical p2p link)");
-            }
+            proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_tx_connect_speed_v3, tvb, idx, 8, ENC_BIG_ENDIAN);
             break;
-        }
         case RX_CONNECT_SPEED_V3:
-        {
-            guint64 speed;
             if (avp_len < 8)
                 break;
 
-            speed = tvb_get_ntoh64(tvb, idx);
-            tf = proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_rx_connect_speed_v3, tvb, idx, 8, ENC_BIG_ENDIAN);
-            if (speed == 0) {
-                proto_item_append_text(tf, " (indeterminable or no physical p2p link)");
-            }
+            proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_rx_connect_speed_v3, tvb, idx, 8, ENC_BIG_ENDIAN);
             break;
-        }
         case CONNECT_SPEED_UPDATE:
         {
             tc = proto_tree_add_item(l2tp_avp_tree, hf_l2tp_avp_csu, tvb, idx, avp_len, ENC_NA);
@@ -3206,8 +3197,7 @@ static void l2tp_cleanup(void)
     GSList *iterator = list_heads;
 
     while (iterator) {
-        if (iterator->data != NULL)
-            g_slist_free((GSList *)iterator->data);
+        g_slist_free((GSList *)iterator->data);
         iterator = g_slist_next(iterator);
     }
 
@@ -3283,7 +3273,7 @@ proto_register_l2tp(void)
             NULL, HFILL }},
 
         { &hf_l2tp_avp_vendor_id,
-          { "Vendor ID", "l2tp.avp.vendor_id", FT_UINT16, BASE_DEC|BASE_EXT_STRING, &sminmpec_values_ext, 0,
+          { "Vendor ID", "l2tp.avp.vendor_id", FT_UINT16, BASE_ENTERPRISES, STRINGS_ENTERPRISES, 0,
             "AVP Vendor ID", HFILL }},
 
         { &hf_l2tp_avp_type,
@@ -3720,8 +3710,8 @@ proto_register_l2tp(void)
       { &hf_l2tp_avp_circuit_type, { "Circuit Type", "l2tp.avp.circuit_type", FT_BOOLEAN, 16, TFS(&tfs_new_existing), 0x0002, NULL, HFILL }},
       { &hf_l2tp_avp_preferred_language, { "Preferred Language", "l2tp.avp.preferred_language", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_l2tp_avp_nonce, { "Nonce", "l2tp.avp.nonce", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-      { &hf_l2tp_avp_tx_connect_speed_v3, { "Tx Connect Speed v3", "l2tp.avp.tx_connect_speed_v3", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-      { &hf_l2tp_avp_rx_connect_speed_v3, { "Rx Connect Speed v3", "l2tp.avp.rx_connect_speed_v3", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+      { &hf_l2tp_avp_tx_connect_speed_v3, { "Tx Connect Speed v3", "l2tp.avp.tx_connect_speed_v3", FT_UINT64, BASE_HEX|BASE_VAL64_STRING|BASE_SPECIAL_VALS, VALS64(unique_indeterminable_or_no_link), 0x0, NULL, HFILL }},
+      { &hf_l2tp_avp_rx_connect_speed_v3, { "Rx Connect Speed v3", "l2tp.avp.rx_connect_speed_v3", FT_UINT64, BASE_HEX|BASE_VAL64_STRING|BASE_SPECIAL_VALS, VALS64(unique_indeterminable_or_no_link), 0x0, NULL, HFILL }},
       { &hf_l2tp_lapd_info, { "LAPD info", "l2tp.lapd_info", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_l2tp_session_id, { "Packet Type", "l2tp.session_id", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_l2tp_zero_length_body_message, { "Zero Length Body message", "l2tp.zero_length_body_message", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL }},

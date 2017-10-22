@@ -192,15 +192,20 @@ static NTSTATUS $name\__op_ndr_push(struct dcesrv_call_state *dce_call, TALLOC_C
 	return NT_STATUS_OK;
 }
 
-const struct dcesrv_interface dcesrv\_$name\_interface = {
-	.name		= \"$name\",
-	.syntax_id  = {".print_uuid($uuid).",$if_version},
-	.bind		= $name\__op_bind,
-	.unbind		= $name\__op_unbind,
-	.ndr_pull	= $name\__op_ndr_pull,
-	.dispatch	= $name\__op_dispatch,
-	.reply		= $name\__op_reply,
-	.ndr_push	= $name\__op_ndr_push
+static const struct dcesrv_interface dcesrv\_$name\_interface = {
+	.name		    = \"$name\",
+	.syntax_id          = {".print_uuid($uuid).",$if_version},
+	.bind		    = $name\__op_bind,
+	.unbind		    = $name\__op_unbind,
+	.ndr_pull	    = $name\__op_ndr_pull,
+	.dispatch	    = $name\__op_dispatch,
+	.reply		    = $name\__op_reply,
+	.ndr_push	    = $name\__op_ndr_push,
+#ifdef DCESRV_INTERFACE_$uname\_FLAGS
+	.flags              = DCESRV_INTERFACE_$uname\_FLAGS
+#else
+	.flags              = 0
+#endif
 };
 
 ";
@@ -254,20 +259,22 @@ static bool $name\__op_interface_by_name(struct dcesrv_interface *iface, const c
 	return false;
 }
 
-NTSTATUS dcerpc_server_$name\_init(void)
+NTSTATUS dcerpc_server_$name\_init(TALLOC_CTX *ctx)
 {
 	NTSTATUS ret;
-	struct dcesrv_endpoint_server ep_server;
+	static const struct dcesrv_endpoint_server ep_server = {
+	    /* fill in our name */
+	    .name = \"$name\",
 
-	/* fill in our name */
-	ep_server.name = \"$name\";
-
-	/* fill in all the operations */
-	ep_server.init_server = $name\__op_init_server;
-
-	ep_server.interface_by_uuid = $name\__op_interface_by_uuid;
-	ep_server.interface_by_name = $name\__op_interface_by_name;
-
+	    /* fill in all the operations */
+#ifdef DCESRV_INTERFACE_$uname\_INIT_SERVER
+	    .init_server = DCESRV_INTERFACE_$uname\_INIT_SERVER,
+#else
+	    .init_server = $name\__op_init_server,
+#endif
+	    .interface_by_uuid = $name\__op_interface_by_uuid,
+	    .interface_by_name = $name\__op_interface_by_name
+	};
 	/* register ourselves with the DCERPC subsystem. */
 	ret = dcerpc_register_ep_server(&ep_server);
 
@@ -289,7 +296,7 @@ sub ParseInterface($)
 	my($interface) = shift;
 	my $count = 0;
 
-	$res .= "NTSTATUS dcerpc_server_$interface->{NAME}\_init(void);\n";
+	$res .= "NTSTATUS dcerpc_server_$interface->{NAME}\_init(TALLOC_CTX *);\n";
 	$res .= "\n";
 
 	if (!defined $interface->{PROPERTIES}->{uuid}) {

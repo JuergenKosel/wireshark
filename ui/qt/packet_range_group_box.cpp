@@ -37,6 +37,8 @@ PacketRangeGroupBox::PacketRangeGroupBox(QWidget *parent) :
 
 PacketRangeGroupBox::~PacketRangeGroupBox()
 {
+    if (range_)
+        wmem_free(NULL, range_->user_range);
     delete pr_ui_;
 }
 

@@ -29,6 +29,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/expert.h>
 
 #include "packet-zbee.h"
 #include "packet-zbee-nwk.h"
@@ -47,7 +48,7 @@ static void dissect_zcl_config_report (tvbuff_t *tvb, packet_info *pinfo, proto_
 static void dissect_zcl_config_report_resp (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint *offset, guint16 cluster_id);
 static void dissect_zcl_read_report_config (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint *offset, guint16 cluster_id);
 static void dissect_zcl_read_report_config_resp (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint *offset, guint16 cluster_id);
-static void dissect_zcl_default_resp (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint *offset, guint16 cluster_id, guint8 dir);
+static void dissect_zcl_default_resp (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint *offset);
 static void dissect_zcl_discover_attr (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint *offset);
 static void dissect_zcl_discover_attr_resp (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint *offset, guint16 cluster_id);
 
@@ -76,6 +77,7 @@ static int hf_zbee_zcl_tran_seqno = -1;
 
 static int hf_zbee_zcl_cmd_id = -1;
 static int hf_zbee_zcl_cs_cmd_id = -1;
+static int hf_zbee_zcl_cmd_id_rsp = -1;
 static int hf_zbee_zcl_attr_id = -1;
 static int hf_zbee_zcl_attr_data_type = -1;
 static int hf_zbee_zcl_attr_boolean = -1;
@@ -137,6 +139,8 @@ static gint ett_zbee_zcl = -1;
 static gint ett_zbee_zcl_fcf = -1;
 static gint ett_zbee_zcl_attr[ZBEE_ZCL_NUM_ATTR_ETT];
 static gint ett_zbee_zcl_array_elements[ZBEE_ZCL_NUM_ARRAY_ELEM_ETT];
+
+static expert_field ei_cfg_rpt_rsp_short_non_success = EI_INIT;
 
 /* Dissector List. */
 static dissector_table_t    zbee_zcl_dissector_table;
@@ -567,9 +571,12 @@ static value_string_ext zbee_mfr_code_names_ext = VALUE_STRING_EXT_INIT(zbee_mfr
     { ZBEE_ZCL_STAT_OTA_WAIT_FOR_DATA,              "Ota Wait For Data"},
     { ZBEE_ZCL_STAT_OTA_NO_IMAGE_AVAILABLE,         "Ota No Image Available"},
     { ZBEE_ZCL_STAT_OTA_REQUIRE_MORE_IMAGE,         "Ota Require More Image"},
+    { ZBEE_ZCL_STAT_OTA_NOTIFICATION_PENDING,       "Ota Notification Pending"},
     { ZBEE_ZCL_STAT_HARDWARE_FAILURE,               "Hardware Failure"},
     { ZBEE_ZCL_STAT_SOFTWARE_FAILURE,               "Software Failure"},
     { ZBEE_ZCL_STAT_CALIBRATION_ERROR,              "Calibration Error"},
+    { ZBEE_ZCL_STAT_UNSUPPORTED_CLUSTER,            "Unsupported Cluster"},
+    { ZBEE_ZCL_STAT_LIMIT_REACHED,                  "Limit Reached"},
     { 0, NULL }
 };
 
@@ -931,7 +938,7 @@ static int dissect_zbee_zcl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 break;
 
             case ZBEE_ZCL_CMD_DEFAULT_RESP:
-                dissect_zcl_default_resp(tvb, pinfo, zcl_tree, &offset, cluster_id, packet.direction);
+                dissect_zcl_default_resp(tvb, pinfo, zcl_tree, &offset);
                 break;
 
             case ZBEE_ZCL_CMD_DISCOVER_ATTR:
@@ -1010,6 +1017,9 @@ void dissect_zcl_read_attr_resp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
             /* Dissect the attribute data type and data */
             dissect_zcl_attr_data_type_val(tvb, sub_tree, offset, attr_id, cluster_id);
         }
+
+        /* Set end for subtree */
+        proto_item_set_end(proto_tree_get_parent(sub_tree), tvb, *offset);
     }
 } /* dissect_zcl_read_attr_resp */
 
@@ -1043,6 +1053,9 @@ void dissect_zcl_write_attr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *t
 
         /* Dissect the attribute data type and data */
         dissect_zcl_attr_data_type_val(tvb, sub_tree, offset, attr_id, cluster_id);
+
+        /* Set end for subtree */
+        proto_item_set_end(proto_tree_get_parent(sub_tree), tvb, *offset);
     }
 } /* dissect_zcl_write_attr */
 
@@ -1076,6 +1089,9 @@ static void dissect_zcl_write_attr_resp(tvbuff_t *tvb, packet_info *pinfo _U_, p
             /* Dissect the failed attribute identifier */
             dissect_zcl_attr_id(tvb, sub_tree, offset, cluster_id);
         }
+
+        /* Set end for subtree */
+        proto_item_set_end(proto_tree_get_parent(sub_tree), tvb, *offset);
     }
 
 } /* dissect_zcl_write_attr_resp */
@@ -1217,7 +1233,7 @@ static void dissect_zcl_config_report(tvbuff_t *tvb, packet_info *pinfo _U_, pro
  *@param offset pointer to offset from caller
  *@param cluster_id cluster id
 */
-static void dissect_zcl_config_report_resp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+static void dissect_zcl_config_report_resp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 guint *offset, guint16 cluster_id)
 {
     proto_tree *sub_tree;
@@ -1226,21 +1242,27 @@ static void dissect_zcl_config_report_resp(tvbuff_t *tvb, packet_info *pinfo _U_
     guint i = 0;
 
     tvb_len = tvb_captured_length(tvb);
-    while ( *offset < tvb_len && i < ZBEE_ZCL_NUM_ATTR_ETT ) {
 
+    /* Special case when all attributes configured successfully */
+    if ( *offset == tvb_len - 1 ) {
+        /* Dissect the status */
+        if ( dissect_zcl_attr_uint8(tvb, tree, offset, &hf_zbee_zcl_attr_status) !=
+            ZBEE_ZCL_STAT_SUCCESS ) {
+            expert_add_info(pinfo, tree->last_child, &ei_cfg_rpt_rsp_short_non_success);
+        }
+    }
+
+    while ( *offset < tvb_len && i < ZBEE_ZCL_NUM_ATTR_ETT ) {
         /* Create subtree for attribute status field */
         sub_tree = proto_tree_add_subtree(tree, tvb, *offset, 3, ett_zbee_zcl_attr[i], NULL, "Attribute Status Record");
         i++;
 
         /* Dissect the status */
-        if ( dissect_zcl_attr_uint8(tvb, sub_tree, offset, &hf_zbee_zcl_attr_status) !=
-            ZBEE_ZCL_STAT_SUCCESS ) {
-                /* Dissect the direction on error */
-                dissect_zcl_attr_uint8(tvb, sub_tree, offset, &hf_zbee_zcl_attr_dir);
-
-                /* Dissect the attribute identifier on error */
-                dissect_zcl_attr_id(tvb, sub_tree, offset, cluster_id);
-        }
+        dissect_zcl_attr_uint8(tvb, sub_tree, offset, &hf_zbee_zcl_attr_status);
+        /* Dissect the direction */
+        dissect_zcl_attr_uint8(tvb, sub_tree, offset, &hf_zbee_zcl_attr_dir);
+        /* Dissect the attribute identifier */
+        dissect_zcl_attr_id(tvb, sub_tree, offset, cluster_id);
     }
 } /* dissect_zcl_config_report_resp */
 
@@ -1284,24 +1306,13 @@ static void dissect_zcl_read_report_config(tvbuff_t *tvb, packet_info *pinfo _U_
  *@param pinfo pointer to packet information fields
  *@param tree pointer to data tree wireshark uses to display packet.
  *@param offset pointer to offset from caller.
- *@param cluster_id cluster id.
- *@param dir direction.
 */
-static void dissect_zcl_default_resp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                                     guint *offset, guint16 cluster_id, guint8 dir)
+static void dissect_zcl_default_resp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint *offset)
 {
-    zbee_zcl_cluster_desc *desc;
-    int hf_cmd_id = hf_zbee_zcl_cs_cmd_id;
-
-    /* Retrieve the cluster-specific command ID definition, with the direction
-     * inverted, since this is a response to the originating command. */
-    desc = zbee_zcl_get_cluster_desc(cluster_id);
-    if (dir == ZBEE_ZCL_FCF_TO_SERVER) {
-        if (desc && (desc->hf_cmd_tx_id >= 0)) hf_cmd_id = desc->hf_cmd_tx_id;
-    } else {
-        if (desc && (desc->hf_cmd_rx_id >= 0)) hf_cmd_id = desc->hf_cmd_rx_id;
-    }
-    proto_tree_add_item(tree, hf_cmd_id, tvb, *offset, 1, ENC_NA);
+    /* The only way to tell if this is a profile-wide or cluster specific command */
+    /* is the frame control of the original message to which this is the response. */
+    /* So, display the originating command id and do not attempt to interpret */
+    proto_tree_add_item(tree, hf_zbee_zcl_cmd_id_rsp, tvb, *offset, 1, ENC_NA);
     *offset += 1;
 
     /* Dissect the status */
@@ -2017,7 +2028,7 @@ void proto_register_zbee_zcl(void)
                 ZBEE_ZCL_FCF_MFR_SPEC, NULL, HFILL }},
 
         { &hf_zbee_zcl_fcf_dir,
-            { "Direction", "zbee_zcl.dir", FT_BOOLEAN, 8, TFS(&tfs_client_server),
+            { "Direction", "zbee_zcl.dir", FT_BOOLEAN, 8, TFS(&tfs_s2c_c2s),
                 ZBEE_ZCL_FCF_DIRECTION, NULL, HFILL }},
 
         { &hf_zbee_zcl_fcf_disable_default_resp,
@@ -2038,6 +2049,10 @@ void proto_register_zbee_zcl(void)
 
         { &hf_zbee_zcl_cs_cmd_id,
           { "Command",    "zbee_zcl.cs.cmd.id", FT_UINT8, BASE_HEX, VALS(zbee_zcl_cs_cmd_names) /*"Unknown"*/,
+                0x0, NULL, HFILL }},
+
+        { &hf_zbee_zcl_cmd_id_rsp,
+          { "Response to Command", "zbee_zcl.cmd.id.rsp", FT_UINT8, BASE_HEX, NULL,
                 0x0, NULL, HFILL }},
 
         { &hf_zbee_zcl_attr_id,
@@ -2273,10 +2288,21 @@ void proto_register_zbee_zcl(void)
         ett[j] = &ett_zbee_zcl_array_elements[i];
     }
 
+    static ei_register_info ei[] = {
+        { &ei_cfg_rpt_rsp_short_non_success,
+          { "zbee_zcl.cfg_rpt_rsp_short_non_success", PI_PROTOCOL, PI_WARN,
+            "Non-success response without full status records", EXPFILL }},
+    };
+
+    expert_module_t *expert_zbee_zcl;
+
     /* Register ZigBee ZCL protocol with Wireshark. */
     proto_zbee_zcl = proto_register_protocol("ZigBee Cluster Library", "ZigBee ZCL", "zbee_zcl");
     proto_register_field_array(proto_zbee_zcl, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
+
+    expert_zbee_zcl = expert_register_protocol(proto_zbee_zcl);
+    expert_register_field_array(expert_zbee_zcl, ei, array_length(ei));
 
     /* Register the ZCL dissector and subdissector list. */
     zbee_zcl_dissector_table = register_dissector_table("zbee.zcl.cluster", "ZigBee ZCL Cluster ID", proto_zbee_zcl, FT_UINT16, BASE_HEX);

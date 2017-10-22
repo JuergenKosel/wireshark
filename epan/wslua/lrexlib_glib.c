@@ -161,8 +161,7 @@ typedef struct {
 } TGrgx;
 
 static void minfo_free(TGrgx* ud) {
-  if (ud->match_info)
-    g_match_info_free (ud->match_info);
+  g_match_info_free (ud->match_info);
   ud->match_info = NULL;
 }
 
@@ -310,8 +309,10 @@ static int Gregex_dfa_exec (lua_State *L)
   }
   else {
     minfo_free (ud);
-    if (ALG_NOMATCH (res))
-      return lua_pushnil (L), 1;
+    if (ALG_NOMATCH (res)) {
+      lua_pushnil (L);
+      return 1;
+    }
     else
       return generate_error (L, ud, 0);
   }

@@ -36,6 +36,10 @@
 
 #include <errno.h>
 
+#ifdef HAVE_WINSOCK2_H
+# include <winsock2.h>
+#endif
+
 #ifndef _WIN32
 #include <signal.h>
 #endif
@@ -60,8 +64,8 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
-#include <wsutil/report_err.h>
-#include <ws_version_info.h>
+#include <wsutil/report_message.h>
+#include <version_info.h>
 #include <wiretap/wtap_opttypes.h>
 #include <wiretap/pcapng.h>
 
@@ -82,12 +86,14 @@
 #include "ui/capture_ui_utils.h"
 #endif
 #include "ui/util.h"
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
 #include "ui/decode_as_utils.h"
+#include "ui/filter_files.h"
 #include "ui/cli/tshark-tap.h"
 #include "ui/cli/tap-exportobject.h"
 #include "ui/tap_export_pdu.h"
 #include "ui/dissect_opts.h"
+#include "ui/failure_message.h"
 #if defined(HAVE_LIBSMI)
 #include "epan/oids.h"
 #endif
@@ -95,7 +101,6 @@
 #include "epan/geoip_db.h"
 #endif
 #include "register.h"
-#include "filter_files.h"
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
@@ -143,8 +148,16 @@
 #define INVALID_CAPABILITY 2
 #define INVALID_TAP 2
 #define INVALID_DATA_LINK 2
+#define INVALID_TIMESTAMP_TYPE 2
 #define INVALID_CAPTURE 2
 #define INIT_FAILED 2
+
+/*
+ * values 128..65535 are capture+dissect options, 65536 is used by
+ * ui/commandline.c, so start tshark-specific options 1000 after this
+ */
+#define LONGOPT_COLOR (65536+1000)
+#define LONGOPT_NO_DUPLICATE_KEYS (65536+1001)
 
 #if 0
 #define tshark_debug(...) g_warning(__VA_ARGS__)
@@ -161,6 +174,8 @@ static frame_data *prev_cap;
 static frame_data prev_cap_frame;
 
 static gboolean perform_two_pass_analysis;
+static guint32 epan_auto_reset_count = 0;
+static gboolean epan_auto_reset = FALSE;
 
 /*
  * The way the packet decode is to be written.
@@ -178,12 +193,13 @@ typedef enum {
 static output_action_e output_action;
 static gboolean do_dissection;     /* TRUE if we have to dissect each packet */
 static gboolean print_packet_info; /* TRUE if we're to print packet information */
-static gint print_summary = -1;    /* TRUE if we're to print packet summary information */
+static gboolean print_summary;     /* TRUE if we're to print packet summary information */
 static gboolean print_details;     /* TRUE if we're to print packet details information */
 static gboolean print_hex;         /* TRUE if we're to print hex/ascci information */
 static gboolean line_buffered;
 static gboolean really_quiet = FALSE;
 static gchar* delimiter_char = " ";
+static gboolean dissect_color = FALSE;
 
 static print_format_e print_format = PR_FMT_TEXT;
 static print_stream_t *print_stream = NULL;
@@ -191,6 +207,9 @@ static print_stream_t *print_stream = NULL;
 static output_fields_t* output_fields  = NULL;
 static gchar **protocolfilter = NULL;
 static pf_flags protocolfilter_flags = PF_NONE;
+
+static gboolean no_duplicate_keys = FALSE;
+static proto_node_children_grouper_func node_children_grouper = proto_node_group_children_by_unique;
 
 /* The line separator used between packets, changeable via the -S option */
 static const char *separator = "";
@@ -227,21 +246,19 @@ static char *output_file_name;
 
 #endif /* HAVE_LIBPCAP */
 
-static int load_cap_file(capture_file *, char *, int, gboolean, int, gint64);
-static gboolean process_packet(capture_file *cf, epan_dissect_t *edt, gint64 offset,
-    struct wtap_pkthdr *whdr, const guchar *pd,
-    guint tap_flags);
-static void show_capture_file_io_error(const char *, int, gboolean);
+static void reset_epan_mem(capture_file *cf, epan_dissect_t *edt, gboolean tree, gboolean visual);
+static gboolean process_cap_file(capture_file *, char *, int, gboolean, int, gint64);
+static gboolean process_packet_single_pass(capture_file *cf,
+    epan_dissect_t *edt, gint64 offset, struct wtap_pkthdr *whdr,
+    const guchar *pd, guint tap_flags);
 static void show_print_file_io_error(int err);
 static gboolean write_preamble(capture_file *cf);
 static gboolean print_packet(capture_file *cf, epan_dissect_t *edt);
 static gboolean write_finale(void);
-static const char *cf_open_error_message(int err, gchar *err_info,
-    gboolean for_writing, int file_type);
 
+static void failure_warning_message(const char *msg_format, va_list ap);
 static void open_failure_message(const char *filename, int err,
     gboolean for_writing);
-static void failure_message(const char *msg_format, va_list ap);
 static void read_failure_message(const char *filename, int err);
 static void write_failure_message(const char *filename, int err);
 static void failure_message_cont(const char *msg_format, va_list ap);
@@ -324,7 +341,11 @@ print_usage(FILE *output)
   fprintf(output, "Capture interface:\n");
   fprintf(output, "  -i <interface>           name or idx of interface (def: first non-loopback)\n");
   fprintf(output, "  -f <capture filter>      packet filter in libpcap filter syntax\n");
-  fprintf(output, "  -s <snaplen>             packet snapshot length (def: 65535)\n");
+#ifdef HAVE_PCAP_CREATE
+  fprintf(output, "  -s <snaplen>             packet snapshot length (def: appropriate maximum)\n");
+#else
+  fprintf(output, "  -s <snaplen>             packet snapshot length (def: %u)\n", WTAP_MAX_PACKET_SIZE_STANDARD);
+#endif
   fprintf(output, "  -p                       don't capture in promiscuous mode\n");
 #ifdef HAVE_PCAP_CREATE
   fprintf(output, "  -I                       capture in monitor mode, if available\n");
@@ -333,8 +354,10 @@ print_usage(FILE *output)
   fprintf(output, "  -B <buffer size>         size of kernel buffer (def: %dMB)\n", DEFAULT_CAPTURE_BUFFER_SIZE);
 #endif
   fprintf(output, "  -y <link type>           link layer type (def: first appropriate)\n");
+  fprintf(output, "  --time-stamp-type <type> timestamp method for interface\n");
   fprintf(output, "  -D                       print list of interfaces and exit\n");
   fprintf(output, "  -L                       print list of link-layer types of iface and exit\n");
+  fprintf(output, "  --list-time-stamp-types  print list of timestamp types for iface and exit\n");
   fprintf(output, "\n");
   fprintf(output, "Capture stop conditions:\n");
   fprintf(output, "  -c <packet count>        stop after n packets (def: infinite)\n");
@@ -344,6 +367,7 @@ print_usage(FILE *output)
   /*fprintf(output, "\n");*/
   fprintf(output, "Capture output:\n");
   fprintf(output, "  -b <ringbuffer opt.> ... duration:NUM - switch to next file after NUM secs\n");
+  fprintf(output, "                           interval:NUM - create time intervals of NUM secs\n");
   fprintf(output, "                           filesize:NUM - switch to next file after NUM KB\n");
   fprintf(output, "                              files:NUM - ringbuffer: replace after NUM files\n");
 #endif  /* HAVE_LIBPCAP */
@@ -358,6 +382,7 @@ print_usage(FILE *output)
   fprintf(output, "\n");
   fprintf(output, "Processing:\n");
   fprintf(output, "  -2                       perform a two-pass analysis\n");
+  fprintf(output, "  -M <packet count>        perform session auto reset\n");
   fprintf(output, "  -R <read filter>         packet Read filter in Wireshark display filter syntax\n");
   fprintf(output, "                           (requires -2)\n");
   fprintf(output, "  -Y <display filter>      packet displaY filter in Wireshark display filter\n");
@@ -369,6 +394,8 @@ print_usage(FILE *output)
   fprintf(output, "                           Example: tcp.port==8888,http\n");
   fprintf(output, "  -H <hosts file>          read a list of entries from a hosts file, which will\n");
   fprintf(output, "                           then be written to a capture file. (Implies -W n)\n");
+  fprintf(output, "  --enable-protocol <proto_name>\n");
+  fprintf(output, "                           enable dissection of proto_name\n");
   fprintf(output, "  --disable-protocol <proto_name>\n");
   fprintf(output, "                           disable dissection of proto_name\n");
   fprintf(output, "  --enable-heuristic <short_name>\n");
@@ -423,6 +450,13 @@ print_usage(FILE *output)
   fprintf(output, "                           output file (only for pcapng)\n");
   fprintf(output, "  --export-objects <protocol>,<destdir> save exported objects for a protocol to\n");
   fprintf(output, "                           a directory named \"destdir\"\n");
+  fprintf(output, "  --color                  color output text similarly to the Wireshark GUI,\n");
+  fprintf(output, "                           requires a terminal with 24-bit color support\n");
+  fprintf(output, "                           Also supplies color attributes to pdml and psml formats\n");
+  fprintf(output, "                           (Note that attributes are nonstandard)\n");
+  fprintf(output, "  --no-duplicate-keys      If -T json is specified, merge duplicate keys in an object\n");
+  fprintf(output, "                           into a single key with as value a json array containing all\n");
+  fprintf(output, "                           values");
 
   fprintf(output, "\n");
   fprintf(output, "Miscellaneous:\n");
@@ -438,7 +472,6 @@ print_usage(FILE *output)
   fprintf(output, "WARNING: dumpcap will enable kernel BPF JIT compiler if available.\n");
   fprintf(output, "You might want to reset it\n");
   fprintf(output, "By doing \"echo 0 > /proc/sys/net/core/bpf_jit_enable\"\n");
-  fprintf(output, "\n");
 #endif
 
 }
@@ -498,22 +531,6 @@ tshark_log_handler (const gchar *log_domain, GLogLevelFlags log_level,
 
   g_log_default_handler(log_domain, log_level, message, user_data);
 
-}
-
-static char *
-output_file_description(const char *fname)
-{
-  char *save_file_string;
-
-  /* Get a string that describes what we're writing to */
-  if (strcmp(fname, "-") == 0) {
-    /* We're writing to the standard output */
-    save_file_string = g_strdup("standard output");
-  } else {
-    /* We're writing to a file with the name in save_file */
-    save_file_string = g_strdup_printf("file \"%s\"", fname);
-  }
-  return save_file_string;
 }
 
 static void
@@ -593,16 +610,31 @@ about_folders(void)
   constpath = get_progfile_dir();
   printf("%-21s\t%s\n", "Program:", constpath);
 
-#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
+#ifdef HAVE_PLUGINS
   /* pers plugins */
-  path = get_plugins_pers_dir();
-
-  printf("%-21s\t%s\n", "Personal Plugins:", path);
-
-  g_free(path);
+  printf("%-21s\t%s\n", "Personal Plugins:", get_plugins_pers_dir_with_version());
 
   /* global plugins */
-  printf("%-21s\t%s\n", "Global Plugins:", get_plugin_dir());
+  printf("%-21s\t%s\n", "Global Plugins:", get_plugins_dir_with_version());
+#endif
+
+#ifdef HAVE_LUA
+  /* pers lua plugins */
+  printf("%-21s\t%s\n", "Personal Lua Plugins:", get_plugins_pers_dir());
+
+  /* global lua plugins */
+  printf("%-21s\t%s\n", "Global Lua Plugins:", get_plugins_dir());
+#endif
+
+#ifdef HAVE_EXTCAP
+  /* Extcap */
+  constpath = get_extcap_dir();
+
+  resultArray = g_strsplit(constpath, G_SEARCHPATH_SEPARATOR_S, 10);
+  for(i = 0; resultArray[i]; i++)
+    printf("%-21s\t%s\n", "Extcap path:", g_strstrip(resultArray[i]));
+
+  g_strfreev(resultArray);
 #endif
 
 #ifdef HAVE_GEOIP
@@ -630,17 +662,6 @@ about_folders(void)
   g_free(path);
 #endif
 
-#ifdef HAVE_EXTCAP
-  /* Extcap */
-  constpath = get_extcap_dir();
-
-  resultArray = g_strsplit(constpath, G_SEARCHPATH_SEPARATOR_S, 10);
-  for(i = 0; resultArray[i]; i++)
-    printf("%-21s\t%s\n", "Extcap path:", g_strstrip(resultArray[i]));
-
-  g_strfreev(resultArray);
-#endif
-
 }
 
 int
@@ -655,27 +676,24 @@ main(int argc, char *argv[])
     {"version", no_argument, NULL, 'v'},
     LONGOPT_CAPTURE_COMMON
     LONGOPT_DISSECT_COMMON
+    {"print", no_argument, NULL, 'P'},
     {"export-objects", required_argument, NULL, LONGOPT_EXPORT_OBJECTS},
+    {"color", no_argument, NULL, LONGOPT_COLOR},
+    {"no-duplicate-keys", no_argument, NULL, LONGOPT_NO_DUPLICATE_KEYS},
     {0, 0, 0, 0 }
   };
   gboolean             arg_error = FALSE;
 
 #ifdef _WIN32
+  int                  result;
   WSADATA              wsaData;
 #endif  /* _WIN32 */
 
-  char                *gpf_path, *pf_path;
-  char                *gdp_path, *dp_path;
-  char                *cf_path;
-  int                  gpf_open_errno, gpf_read_errno;
-  int                  pf_open_errno, pf_read_errno;
-  int                  gdp_open_errno, gdp_read_errno;
-  int                  dp_open_errno, dp_read_errno;
-  int                  cf_open_errno;
   int                  err;
+  volatile gboolean    success;
   volatile int         exit_status = EXIT_SUCCESS;
 #ifdef HAVE_LIBPCAP
-  gboolean             list_link_layer_types = FALSE;
+  int                  caps_queries = 0;
   gboolean             start_capture = FALSE;
   GList               *if_list;
   gchar               *err_str;
@@ -703,6 +721,7 @@ main(int argc, char *argv[])
   int                  log_flags;
   gchar               *output_only = NULL;
   gchar               *volatile pdu_export_arg = NULL;
+  const char          *volatile exp_pdu_filename = NULL;
   exp_pdu_t            exp_pdu_tap_data;
 
 /*
@@ -719,12 +738,12 @@ main(int argc, char *argv[])
  *
  * Glibc and Solaris libc document that a leading + disables permutation
  * of options, regardless of whether POSIXLY_CORRECT is set or not; *BSD
- * and OS X don't document it, but do so anyway.
+ * and macOS don't document it, but do so anyway.
  *
  * We do *not* use a leading - because the behavior of a leading - is
  * platform-dependent.
  */
-#define OPTSTRING "+2" OPTSTRING_CAPTURE_COMMON OPTSTRING_DISSECT_COMMON "C:e:E:F:gG:hH:j:J:lo:O:PqQr:R:S:T:U:vVw:W:xX:Y:z:"
+#define OPTSTRING "+2" OPTSTRING_CAPTURE_COMMON OPTSTRING_DISSECT_COMMON "M:C:e:E:F:gG:hH:j:J:lo:O:PqQr:R:S:T:U:vVw:W:xX:Y:z:"
 
   static const char    optstring[] = OPTSTRING;
 
@@ -733,7 +752,7 @@ main(int argc, char *argv[])
   /* Set the C-language locale to the native environment. */
   setlocale(LC_ALL, "");
 
-  cmdarg_err_init(failure_message, failure_message_cont);
+  cmdarg_err_init(failure_warning_message, failure_message_cont);
 
 #ifdef _WIN32
   arg_list_utf_16to8(argc, argv);
@@ -770,6 +789,7 @@ main(int argc, char *argv[])
 
 #ifdef _WIN32
   ws_init_dll_search_path();
+#ifdef HAVE_LIBPCAP
   /* Load wpcap if possible. Do this before collecting the run-time version information */
   load_wpcap();
 
@@ -778,7 +798,8 @@ main(int argc, char *argv[])
     fprintf(stderr, "The NPF driver isn't running.  You may have trouble "
       "capturing or\nlisting interfaces.\n");
   }
-#endif
+#endif /* HAVE_LIBPCAP */
+#endif /* _WIN32 */
 
   /* Get the compile-time version information string */
   comp_info_str = get_compiled_version_info(get_tshark_compiled_version_info,
@@ -851,15 +872,6 @@ main(int argc, char *argv[])
     }
   }
 
-  /*
-   * Print packet summary information is the default, unless either -V or -x
-   * were specified and -P was not.  Note that this is new behavior, which
-   * allows for the possibility of printing only hex/ascii output without
-   * necessarily requiring that either the summary or details be printed too.
-   */
-  if (print_summary == -1)
-    print_summary = (print_details || print_hex) ? FALSE : TRUE;
-
 /** Send All g_log messages to our own handler **/
 
   log_flags =
@@ -887,8 +899,9 @@ main(int argc, char *argv[])
                     tshark_log_handler, NULL /* user_data */);
 #endif
 
-  init_report_err(failure_message, open_failure_message, read_failure_message,
-                  write_failure_message);
+  init_report_message(failure_warning_message, failure_warning_message,
+                      open_failure_message, read_failure_message,
+                      write_failure_message);
 
 #ifdef HAVE_LIBPCAP
   capture_opts_init(&global_capture_opts);
@@ -959,8 +972,7 @@ main(int argc, char *argv[])
       if (strcmp(argv[2], "column-formats") == 0)
         column_dump_column_formats();
       else if (strcmp(argv[2], "currentprefs") == 0) {
-        read_prefs(&gpf_open_errno, &gpf_read_errno, &gpf_path,
-            &pf_open_errno, &pf_read_errno, &pf_path);
+        epan_load_settings();
         write_prefs(NULL);
       }
       else if (strcmp(argv[2], "decodes") == 0)
@@ -1007,74 +1019,12 @@ main(int argc, char *argv[])
     goto clean_exit;
   }
 
-  /* load the decode as entries of this profile */
-  load_decode_as_entries();
+  tshark_debug("tshark reading settings");
 
-  tshark_debug("tshark reading preferences");
+  /* Load libwireshark settings from the current profile. */
+  prefs_p = epan_load_settings();
 
-  prefs_p = read_prefs(&gpf_open_errno, &gpf_read_errno, &gpf_path,
-                     &pf_open_errno, &pf_read_errno, &pf_path);
-  if (gpf_path != NULL) {
-    if (gpf_open_errno != 0) {
-      cmdarg_err("Can't open global preferences file \"%s\": %s.",
-              pf_path, g_strerror(gpf_open_errno));
-    }
-    if (gpf_read_errno != 0) {
-      cmdarg_err("I/O error reading global preferences file \"%s\": %s.",
-              pf_path, g_strerror(gpf_read_errno));
-    }
-  }
-  if (pf_path != NULL) {
-    if (pf_open_errno != 0) {
-      cmdarg_err("Can't open your preferences file \"%s\": %s.", pf_path,
-              g_strerror(pf_open_errno));
-    }
-    if (pf_read_errno != 0) {
-      cmdarg_err("I/O error reading your preferences file \"%s\": %s.",
-              pf_path, g_strerror(pf_read_errno));
-    }
-    g_free(pf_path);
-    pf_path = NULL;
-  }
-
-  read_filter_list(CFILTER_LIST, &cf_path, &cf_open_errno);
-  if (cf_path != NULL) {
-      cmdarg_err("Could not open your capture filter file\n\"%s\": %s.",
-          cf_path, g_strerror(cf_open_errno));
-      g_free(cf_path);
-  }
-
-  /* Read the disabled protocols file. */
-  read_disabled_protos_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
-                            &dp_path, &dp_open_errno, &dp_read_errno);
-  read_enabled_protos_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
-                            &dp_path, &dp_open_errno, &dp_read_errno);
-  read_disabled_heur_dissector_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
-                            &dp_path, &dp_open_errno, &dp_read_errno);
-  if (gdp_path != NULL) {
-    if (gdp_open_errno != 0) {
-      cmdarg_err("Could not open global disabled protocols file\n\"%s\": %s.",
-                 gdp_path, g_strerror(gdp_open_errno));
-    }
-    if (gdp_read_errno != 0) {
-      cmdarg_err("I/O error reading global disabled protocols file\n\"%s\": %s.",
-                 gdp_path, g_strerror(gdp_read_errno));
-    }
-    g_free(gdp_path);
-  }
-  if (dp_path != NULL) {
-    if (dp_open_errno != 0) {
-      cmdarg_err(
-        "Could not open your disabled protocols file\n\"%s\": %s.", dp_path,
-        g_strerror(dp_open_errno));
-    }
-    if (dp_read_errno != 0) {
-      cmdarg_err(
-        "I/O error reading your disabled protocols file\n\"%s\": %s.", dp_path,
-        g_strerror(dp_read_errno));
-    }
-    g_free(dp_path);
-  }
+  read_filter_list(CFILTER_LIST);
 
   cap_file_init(&cfile);
 
@@ -1086,7 +1036,7 @@ main(int argc, char *argv[])
 
   /*
    * To reset the options parser, set optreset to 1 on platforms that
-   * have optreset (documented in *BSD and OS X, apparently present but
+   * have optreset (documented in *BSD and macOS, apparently present but
    * not documented in Solaris - the Illumos repository seems to
    * suggest that the first Solaris getopt_long(), at least as of 2004,
    * was based on the NetBSD one, it had optreset) and set optind to 1,
@@ -1110,7 +1060,19 @@ main(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
     switch (opt) {
     case '2':        /* Perform two pass analysis */
+      if(epan_auto_reset){
+        cmdarg_err("-2 does not support auto session reset.");
+        arg_error=TRUE;
+      }
       perform_two_pass_analysis = TRUE;
+      break;
+    case 'M':
+      if(perform_two_pass_analysis){
+        cmdarg_err("-M does not support two pass analysis.");
+        arg_error=TRUE;
+      }
+      epan_auto_reset_count = get_positive_int(optarg, "epan reset count");
+      epan_auto_reset = TRUE;
       break;
     case 'a':        /* autostop criteria */
     case 'b':        /* Ringbuffer option */
@@ -1118,6 +1080,7 @@ main(int argc, char *argv[])
     case 'f':        /* capture filter */
     case 'g':        /* enable group read access on file(s) */
     case 'i':        /* Use interface x */
+    case LONGOPT_SET_TSTAMP_TYPE: /* Set capture timestamp type */
     case 'p':        /* Don't capture in promiscuous mode */
 #ifdef HAVE_PCAP_REMOTE
     case 'A':        /* Authentication */
@@ -1235,36 +1198,60 @@ main(int argc, char *argv[])
       goto clean_exit;
       break;
     case 'l':        /* "Line-buffer" standard output */
-      /* This isn't line-buffering, strictly speaking, it's just
-         flushing the standard output after the information for
-         each packet is printed; however, that should be good
-         enough for all the purposes to which "-l" is put (and
-         is probably actually better for "-V", as it does fewer
-         writes).
+      /* The ANSI C standard does not appear to *require* that a line-buffered
+         stream be flushed to the host environment whenever a newline is
+         written, it just says that, on such a stream, characters "are
+         intended to be transmitted to or from the host environment as a
+         block when a new-line character is encountered".
 
-         See the comment in "process_packet()" for an explanation of
-         why we do that, and why we don't just use "setvbuf()" to
-         make the standard output line-buffered (short version: in
-         Windows, "line-buffered" is the same as "fully-buffered",
-         and the output buffer is only flushed when it fills up). */
+         The Visual C++ 6.0 C implementation doesn't do what is intended;
+         even if you set a stream to be line-buffered, it still doesn't
+         flush the buffer at the end of every line.
+
+         The whole reason for the "-l" flag in either tcpdump or TShark
+         is to allow the output of a live capture to be piped to a program
+         or script and to have that script see the information for the
+         packet as soon as it's printed, rather than having to wait until
+         a standard I/O buffer fills up.
+
+         So, if the "-l" flag is specified, we flush the standard output
+         at the end of a packet.  This will do the right thing if we're
+         printing packet summary lines, and, as we print the entire protocol
+         tree for a single packet without waiting for anything to happen,
+         it should be as good as line-buffered mode if we're printing
+         protocol trees - arguably even better, as it may do fewer
+         writes. */
       line_buffered = TRUE;
       break;
     case 'L':        /* Print list of link-layer types and exit */
 #ifdef HAVE_LIBPCAP
-      list_link_layer_types = TRUE;
+      caps_queries |= CAPS_QUERY_LINK_TYPES;
+#else
+      capture_option_specified = TRUE;
+      arg_error = TRUE;
+#endif
+      break;
+    case LONGOPT_LIST_TSTAMP_TYPES: /* List possible timestamp types */
+#ifdef HAVE_LIBPCAP
+      caps_queries |= CAPS_QUERY_TIMESTAMP_TYPES;
 #else
       capture_option_specified = TRUE;
       arg_error = TRUE;
 #endif
       break;
     case 'o':        /* Override preference from command line */
-      switch (prefs_set_pref(optarg)) {
+    {
+      char *errmsg = NULL;
+
+      switch (prefs_set_pref(optarg, &errmsg)) {
 
       case PREFS_SET_OK:
         break;
 
       case PREFS_SET_SYNTAX_ERR:
-        cmdarg_err("Invalid -o flag \"%s\"", optarg);
+        cmdarg_err("Invalid -o flag \"%s\"%s%s", optarg,
+            errmsg ? ": " : "", errmsg ? errmsg : "");
+        g_free(errmsg);
         exit_status = INVALID_OPTION;
         goto clean_exit;
         break;
@@ -1277,6 +1264,7 @@ main(int argc, char *argv[])
         break;
       }
       break;
+    }
     case 'q':        /* Quiet */
       quiet = TRUE;
       break;
@@ -1326,8 +1314,8 @@ main(int argc, char *argv[])
         print_summary = FALSE;  /* Don't allow summary */
       } else if (strcmp(optarg, "ek") == 0) {
         output_action = WRITE_EK;
-        print_details = TRUE;   /* Need details */
-        print_summary = FALSE;  /* Don't allow summary */
+        if (!print_summary)
+          print_details = TRUE;
       } else if (strcmp(optarg, "jsonraw") == 0) {
         output_action = WRITE_JSON_RAW;
         print_details = TRUE;   /* Need details */
@@ -1461,6 +1449,13 @@ main(int argc, char *argv[])
         goto clean_exit;
       }
       break;
+    case LONGOPT_COLOR: /* print in color where appropriate */
+      dissect_color = TRUE;
+      break;
+    case LONGOPT_NO_DUPLICATE_KEYS:
+      no_duplicate_keys = TRUE;
+      node_children_grouper = proto_node_group_children_by_json_key;
+      break;
     default:
     case '?':        /* Bad flag - print usage message */
       switch(optopt) {
@@ -1476,6 +1471,21 @@ main(int argc, char *argv[])
     }
   }
 
+  /*
+   * Print packet summary information is the default if neither -V or -x
+   * were specified. Note that this is new behavior, which allows for the
+   * possibility of printing only hex/ascii output without necessarily
+   * requiring that either the summary or details be printed too.
+   */
+  if (!print_summary && !print_details && !print_hex)
+    print_summary = TRUE;
+
+  if (no_duplicate_keys && output_action != WRITE_JSON && output_action != WRITE_JSON_RAW) {
+    cmdarg_err("--no-duplicate-keys can only be used with \"-T json\" and \"-T jsonraw\"");
+    exit_status = INVALID_OPTION;
+    goto clean_exit;
+  }
+
   /* If we specified output fields, but not the output field type... */
   if ((WRITE_FIELDS != output_action && WRITE_XML != output_action && WRITE_JSON != output_action && WRITE_EK != output_action) && 0 != output_fields_num_fields(output_fields)) {
         cmdarg_err("Output fields were specified with \"-e\", "
@@ -1488,6 +1498,13 @@ main(int argc, char *argv[])
 
         exit_status = INVALID_OPTION;
         goto clean_exit;
+  }
+
+  if (dissect_color) {
+    if (!color_filters_init(&err_msg, NULL)) {
+      fprintf(stderr, "%s\n", err_msg);
+      g_free(err_msg);
+    }
   }
 
   /* If no capture filter or display filter has been specified, and there are
@@ -1514,12 +1531,10 @@ main(int argc, char *argv[])
         goto clean_exit;
       }
       for (i = 0; i < global_capture_opts.ifaces->len; i++) {
-        interface_options interface_opts;
-        interface_opts = g_array_index(global_capture_opts.ifaces, interface_options, i);
-        if (interface_opts.cfilter == NULL) {
-          interface_opts.cfilter = get_args_as_string(argc, argv, optind);
-          global_capture_opts.ifaces = g_array_remove_index(global_capture_opts.ifaces, i);
-          g_array_insert_val(global_capture_opts.ifaces, i, interface_opts);
+        interface_options *interface_opts;
+        interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, i);
+        if (interface_opts->cfilter == NULL) {
+          interface_opts->cfilter = get_args_as_string(argc, argv, optind);
         } else {
           cmdarg_err("A capture filter was specified both with \"-f\""
               " and with additional command-line arguments.");
@@ -1600,12 +1615,13 @@ main(int argc, char *argv[])
   }
 
 #ifdef HAVE_LIBPCAP
-  if (list_link_layer_types) {
-    /* We're supposed to list the link-layer types for an interface;
+  if (caps_queries) {
+    /* We're supposed to list the link-layer/timestamp types for an interface;
        did the user also specify a capture file to be read? */
     if (cf_name) {
       /* Yes - that's bogus. */
-      cmdarg_err("You can't specify -L and a capture file to be read.");
+      cmdarg_err("You can't specify %s and a capture file to be read.",
+                 caps_queries & CAPS_QUERY_LINK_TYPES ? "-L" : "--list-time-stamp-types");
       exit_status = INVALID_OPTION;
       goto clean_exit;
     }
@@ -1638,6 +1654,12 @@ main(int argc, char *argv[])
         goto clean_exit;
       }
       if (global_capture_opts.has_file_duration) {
+        cmdarg_err("Switching capture files after a time period was specified, but "
+                   "a capture isn't being done.");
+        exit_status = INVALID_OPTION;
+        goto clean_exit;
+      }
+      if (global_capture_opts.has_file_interval) {
         cmdarg_err("Switching capture files after a time interval was specified, but "
                    "a capture isn't being done.");
         exit_status = INVALID_OPTION;
@@ -1720,9 +1742,10 @@ main(int argc, char *argv[])
             goto clean_exit;
           }
           if (!global_capture_opts.has_autostop_filesize &&
-              !global_capture_opts.has_file_duration) {
+              !global_capture_opts.has_file_duration &&
+              !global_capture_opts.has_file_interval) {
             cmdarg_err("Multiple capture files requested, but "
-              "no maximum capture file size or duration was specified.");
+              "no maximum capture file size, duration or interval was specified.");
             exit_status = INVALID_OPTION;
             goto clean_exit;
           }
@@ -1769,7 +1792,12 @@ main(int argc, char *argv[])
 
 #ifdef _WIN32
   /* Start windows sockets */
-  WSAStartup( MAKEWORD( 1, 1 ), &wsaData );
+  result = WSAStartup( MAKEWORD( 1, 1 ), &wsaData );
+  if (result != 0)
+  {
+    exit_status = INIT_FAILED;
+    goto clean_exit;
+  }
 #endif /* _WIN32 */
 
   /* Notify all registered modules that have had any of their preferences
@@ -1833,43 +1861,13 @@ main(int argc, char *argv[])
 
   timestamp_set_type(global_dissect_options.time_format);
 
-  /* disabled protocols as per configuration file */
-  if (gdp_path == NULL && dp_path == NULL) {
-    set_disabled_protos_list();
-    set_enabled_protos_list();
-    set_disabled_heur_dissector_list();
-  }
-
-  if(global_dissect_options.disable_protocol_slist) {
-    GSList *proto_disable;
-    for (proto_disable = global_dissect_options.disable_protocol_slist; proto_disable != NULL; proto_disable = g_slist_next(proto_disable))
-    {
-      proto_disable_proto_by_name((char*)proto_disable->data);
-    }
-  }
-
-  if(global_dissect_options.enable_protocol_slist) {
-    GSList *proto_enable;
-    for (proto_enable = global_dissect_options.enable_protocol_slist; proto_enable != NULL; proto_enable = g_slist_next(proto_enable))
-    {
-      proto_enable_proto_by_name((char*)proto_enable->data);
-    }
-  }
-
-  if(global_dissect_options.enable_heur_slist) {
-    GSList *heur_enable;
-    for (heur_enable = global_dissect_options.enable_heur_slist; heur_enable != NULL; heur_enable = g_slist_next(heur_enable))
-    {
-      proto_enable_heuristic_by_name((char*)heur_enable->data, TRUE);
-    }
-  }
-
-  if(global_dissect_options.disable_heur_slist) {
-    GSList *heur_disable;
-    for (heur_disable = global_dissect_options.disable_heur_slist; heur_disable != NULL; heur_disable = g_slist_next(heur_disable))
-    {
-      proto_enable_heuristic_by_name((char*)heur_disable->data, FALSE);
-    }
+  /*
+   * Enabled and disabled protocols and heuristic dissectors as per
+   * command-line options.
+   */
+  if (!setup_enabled_and_disabled_protocols()) {
+    exit_status = INVALID_OPTION;
+    goto clean_exit;
   }
 
   /* Build the column format array */
@@ -1963,11 +1961,11 @@ main(int argc, char *argv[])
   /* PDU export requested. Take the ownership of the '-w' file, apply tap
   * filters and start tapping. */
   if (pdu_export_arg) {
-      const char *exp_pdu_filename;
       const char *exp_pdu_tap_name = pdu_export_arg;
       const char *exp_pdu_filter = dfilter; /* may be NULL to disable filter */
       char       *exp_pdu_error;
       int         exp_fd;
+      char       *comment;
 
       if (!cf_name) {
           cmdarg_err("PDUs export requires a capture file (specify with -r).");
@@ -2005,10 +2003,12 @@ main(int argc, char *argv[])
       }
 
       /* Activate the export PDU tap */
-      err = exp_pdu_open(&exp_pdu_tap_data, exp_fd,
-          g_strdup_printf("Dump of PDUs from %s", cf_name));
+      comment = g_strdup_printf("Dump of PDUs from %s", cf_name);
+      err = exp_pdu_open(&exp_pdu_tap_data, exp_fd, comment);
       if (err != 0) {
-          cmdarg_err("Failed to start the PDU export: %s", g_strerror(err));
+          cfile_dump_open_failure_message("TShark", exp_pdu_filename, err,
+                                          WTAP_FILE_TYPE_SUBTYPE_PCAPNG);
+          g_free(comment);
           exit_status = INVALID_EXPORT;
           goto clean_exit;
       }
@@ -2026,7 +2026,7 @@ main(int argc, char *argv[])
 
         we're using any taps that need dissection. */
   do_dissection = print_packet_info || rfcode || dfcode || pdu_export_arg ||
-      tap_listeners_require_dissection();
+      tap_listeners_require_dissection() || dissect_color;
   tshark_debug("tshark: do_dissection = %s", do_dissection ? "TRUE" : "FALSE");
 
   if (cf_name) {
@@ -2044,14 +2044,14 @@ main(int argc, char *argv[])
     }
 
     /* Process the packets in the file */
-    tshark_debug("tshark: invoking load_cap_file() to process the packets");
+    tshark_debug("tshark: invoking process_cap_file() to process the packets");
     TRY {
 #ifdef HAVE_LIBPCAP
-      err = load_cap_file(&cfile, global_capture_opts.save_file, out_file_type, out_file_name_res,
+      success = process_cap_file(&cfile, global_capture_opts.save_file, out_file_type, out_file_name_res,
           global_capture_opts.has_autostop_packets ? global_capture_opts.autostop_packets : 0,
           global_capture_opts.has_autostop_filesize ? global_capture_opts.autostop_filesize : 0);
 #else
-      err = load_cap_file(&cfile, output_file_name, out_file_type, out_file_name_res, 0, 0);
+      success = process_cap_file(&cfile, output_file_name, out_file_type, out_file_name_res, 0, 0);
 #endif
     }
     CATCH(OutOfMemoryError) {
@@ -2062,10 +2062,11 @@ main(int argc, char *argv[])
               "\n"
               "More information and workarounds can be found at\n"
               "https://wiki.wireshark.org/KnownBugs/OutOfMemory\n");
-      err = ENOMEM;
+      success = FALSE;
     }
     ENDTRY;
-    if (err != 0) {
+
+    if (!success) {
       /* We still dump out the results of taps, etc., as we might have
          read some packets; however, we exit with an error status. */
       exit_status = 2;
@@ -2074,7 +2075,7 @@ main(int argc, char *argv[])
     if (pdu_export_arg) {
         err = exp_pdu_close(&exp_pdu_tap_data);
         if (err) {
-            cmdarg_err("%s", wtap_strerror(err));
+            cfile_close_failure_message(exp_pdu_filename, err);
             exit_status = 2;
         }
         g_free(pdu_export_arg);
@@ -2093,22 +2094,23 @@ main(int argc, char *argv[])
     }
 
     /* if requested, list the link layer types and exit */
-    if (list_link_layer_types) {
+    if (caps_queries) {
         guint i;
 
         /* Get the list of link-layer types for the capture devices. */
         for (i = 0; i < global_capture_opts.ifaces->len; i++) {
-          interface_options  interface_opts;
+          interface_options *interface_opts;
           if_capabilities_t *caps;
           char *auth_str = NULL;
+          int if_caps_queries = caps_queries;
 
-          interface_opts = g_array_index(global_capture_opts.ifaces, interface_options, i);
+          interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, i);
 #ifdef HAVE_PCAP_REMOTE
-          if (interface_opts.auth_type == CAPTURE_AUTH_PWD) {
-              auth_str = g_strdup_printf("%s:%s", interface_opts.auth_username, interface_opts.auth_password);
+          if (interface_opts->auth_type == CAPTURE_AUTH_PWD) {
+              auth_str = g_strdup_printf("%s:%s", interface_opts->auth_username, interface_opts->auth_password);
           }
 #endif
-          caps = capture_get_if_capabilities(interface_opts.name, interface_opts.monitor_mode, auth_str, &err_str, NULL);
+          caps = capture_get_if_capabilities(interface_opts->name, interface_opts->monitor_mode, auth_str, &err_str, NULL);
           g_free(auth_str);
           if (caps == NULL) {
             cmdarg_err("%s", err_str);
@@ -2116,12 +2118,19 @@ main(int argc, char *argv[])
             exit_status = INVALID_CAPABILITY;
             goto clean_exit;
           }
-          if (caps->data_link_types == NULL) {
-            cmdarg_err("The capture device \"%s\" has no data link types.", interface_opts.name);
+          if ((if_caps_queries & CAPS_QUERY_LINK_TYPES) && caps->data_link_types == NULL) {
+            cmdarg_err("The capture device \"%s\" has no data link types.", interface_opts->name);
             exit_status = INVALID_DATA_LINK;
             goto clean_exit;
           }
-          capture_opts_print_if_capabilities(caps, interface_opts.name, interface_opts.monitor_mode);
+          if ((if_caps_queries & CAPS_QUERY_TIMESTAMP_TYPES) && caps->timestamp_types == NULL) {
+            cmdarg_err("The capture device \"%s\" has no timestamp types.", interface_opts->name);
+            exit_status = INVALID_TIMESTAMP_TYPE;
+            goto clean_exit;
+          }
+          if (interface_opts->monitor_mode)
+                if_caps_queries |= CAPS_MONITOR_MODE;
+          capture_opts_print_if_capabilities(caps, interface_opts->name, if_caps_queries);
           free_if_capabilities(caps);
         }
         exit_status = EXIT_SUCCESS;
@@ -2184,8 +2193,7 @@ main(int argc, char *argv[])
 
     if (print_packet_info) {
       if (!write_finale()) {
-        err = errno;
-        show_print_file_io_error(err);
+        show_print_file_io_error(errno);
       }
     }
 #else
@@ -2436,12 +2444,10 @@ capture(void)
 
   /* Let the user know which interfaces were chosen. */
   for (i = 0; i < global_capture_opts.ifaces->len; i++) {
-    interface_options interface_opts;
+    interface_options *interface_opts;
 
-    interface_opts = g_array_index(global_capture_opts.ifaces, interface_options, i);
-    interface_opts.descr = get_interface_descriptive_name(interface_opts.name);
-    global_capture_opts.ifaces = g_array_remove_index(global_capture_opts.ifaces, i);
-    g_array_insert_val(global_capture_opts.ifaces, i, interface_opts);
+    interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, i);
+    interface_opts->descr = get_interface_descriptive_name(interface_opts->name);
   }
   str = get_iface_list_string(&global_capture_opts, IFLIST_QUOTE_IF_DESCRIPTION);
   if (really_quiet == FALSE)
@@ -2531,12 +2537,12 @@ capture_input_cfilter_error_message(capture_session *cap_session, guint i, char 
 {
   capture_options *capture_opts = cap_session->capture_opts;
   dfilter_t         *rfcode = NULL;
-  interface_options  interface_opts;
+  interface_options *interface_opts;
 
   g_assert(i < capture_opts->ifaces->len);
-  interface_opts = g_array_index(capture_opts->ifaces, interface_options, i);
+  interface_opts = &g_array_index(capture_opts->ifaces, interface_options, i);
 
-  if (dfilter_compile(interface_opts.cfilter, &rfcode, NULL) && rfcode != NULL) {
+  if (dfilter_compile(interface_opts->cfilter, &rfcode, NULL) && rfcode != NULL) {
     cmdarg_err(
       "Invalid capture filter \"%s\" for interface '%s'.\n"
       "\n"
@@ -2547,7 +2553,7 @@ capture_input_cfilter_error_message(capture_session *cap_session, guint i, char 
       "so you can't use most display filter expressions as capture filters.\n"
       "\n"
       "See the User's Guide for a description of the capture filter syntax.",
-      interface_opts.cfilter, interface_opts.descr, error_message);
+      interface_opts->cfilter, interface_opts->descr, error_message);
     dfilter_free(rfcode);
   } else {
     cmdarg_err(
@@ -2555,7 +2561,7 @@ capture_input_cfilter_error_message(capture_session *cap_session, guint i, char 
       "\n"
       "That string isn't a valid capture filter (%s).\n"
       "See the User's Guide for a description of the capture filter syntax.",
-      interface_opts.cfilter, interface_opts.descr, error_message);
+      interface_opts->cfilter, interface_opts->descr, error_message);
   }
 }
 
@@ -2655,11 +2661,30 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
     gboolean create_proto_tree;
     epan_dissect_t *edt;
 
-    if (cf->rfcode || cf->dfcode || print_details || filtering_tap_listeners ||
-        (tap_flags & TL_REQUIRES_PROTO_TREE) || have_custom_cols(&cf->cinfo))
-      create_proto_tree = TRUE;
-    else
-      create_proto_tree = FALSE;
+    /*
+     * Determine whether we need to create a protocol tree.
+     * We do if:
+     *
+     *    we're going to apply a read filter;
+     *
+     *    we're going to apply a display filter;
+     *
+     *    we're going to print the protocol tree;
+     *
+     *    one of the tap listeners is going to apply a filter;
+     *
+     *    one of the tap listeners requires a protocol tree;
+     *
+     *    a postdissector wants field values or protocols
+     *    on the first pass;
+     *
+     *    we have custom columns (which require field values, which
+     *    currently requires that we build a protocol tree).
+     */
+    create_proto_tree =
+      (cf->rfcode || cf->dfcode || print_details || filtering_tap_listeners ||
+        (tap_flags & TL_REQUIRES_PROTO_TREE) || postdissectors_want_hfids() ||
+        have_custom_cols(&cf->cinfo) || dissect_color);
 
     /* The protocol tree will be "visible", i.e., printed, only if we're
        printing packet details, which is true if we're printing stuff
@@ -2670,15 +2695,16 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
     while (to_read-- && cf->wth) {
       wtap_cleareof(cf->wth);
       ret = wtap_read(cf->wth, &err, &err_info, &data_offset);
+      reset_epan_mem(cf, edt, create_proto_tree, print_packet_info && print_details);
       if (ret == FALSE) {
         /* read from file failed, tell the capture child to stop */
         sync_pipe_stop(cap_session);
         wtap_close(cf->wth);
         cf->wth = NULL;
       } else {
-        ret = process_packet(cf, edt, data_offset, wtap_phdr(cf->wth),
-                             wtap_buf_ptr(cf->wth),
-                             tap_flags);
+        ret = process_packet_single_pass(cf, edt, data_offset,
+                                         wtap_phdr(cf->wth),
+                                         wtap_buf_ptr(cf->wth), tap_flags);
       }
       if (ret != FALSE) {
         /* packet successfully read and gone through the "Read Filter" */
@@ -2849,8 +2875,8 @@ capture_cleanup(int signum _U_)
 
 static gboolean
 process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
-               gint64 offset, struct wtap_pkthdr *whdr,
-               const guchar *pd)
+                          gint64 offset, struct wtap_pkthdr *whdr,
+                          const guchar *pd)
 {
   frame_data     fdlocal;
   guint32        framenum;
@@ -2881,10 +2907,14 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
     /* If we're running a read filter, prime the epan_dissect_t with that
        filter. */
     if (cf->rfcode)
-      epan_dissect_prime_dfilter(edt, cf->rfcode);
+      epan_dissect_prime_with_dfilter(edt, cf->rfcode);
 
     if (cf->dfcode)
-      epan_dissect_prime_dfilter(edt, cf->dfcode);
+      epan_dissect_prime_with_dfilter(edt, cf->dfcode);
+
+    /* This is the first pass, so prime the epan_dissect_t with the
+       hfids postdissectors want on the first pass. */
+    prime_epan_dissect_with_postdissector_wanted_hfids(edt);
 
     frame_data_set_before_dissect(&fdlocal, &cf->elapsed_time,
                                   &ref, prev_dis);
@@ -2930,9 +2960,9 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
 }
 
 static gboolean
-process_packet_second_pass(capture_file *cf, epan_dissect_t *edt, frame_data *fdata,
-               struct wtap_pkthdr *phdr, Buffer *buf,
-               guint tap_flags)
+process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
+                           frame_data *fdata, struct wtap_pkthdr *phdr,
+                           Buffer *buf, guint tap_flags)
 {
   column_info    *cinfo;
   gboolean        passed;
@@ -2956,7 +2986,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt, frame_data *fd
     /* If we're running a display filter, prime the epan_dissect_t with that
        filter. */
     if (cf->dfcode)
-      epan_dissect_prime_dfilter(edt, cf->dfcode);
+      epan_dissect_prime_with_dfilter(edt, cf->dfcode);
 
     col_custom_prime_edt(edt, &cf->cinfo);
 
@@ -2978,6 +3008,11 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt, frame_data *fd
       ref = &ref_frame;
     }
 
+    if (dissect_color) {
+      color_filters_prime_edt(edt);
+      fdata->flags.need_colorize = 1;
+    }
+
     epan_dissect_run_with_taps(edt, cf->cd_t, phdr, frame_tvbuff_new_buffer(fdata, buf), fdata, cinfo);
 
     /* Run the read/display filter if we have one. */
@@ -2993,26 +3028,9 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt, frame_data *fd
          this packet. */
       print_packet(cf, edt);
 
-      /* The ANSI C standard does not appear to *require* that a line-buffered
-         stream be flushed to the host environment whenever a newline is
-         written, it just says that, on such a stream, characters "are
-         intended to be transmitted to or from the host environment as a
-         block when a new-line character is encountered".
-
-         The Visual C++ 6.0 C implementation doesn't do what is intended;
-         even if you set a stream to be line-buffered, it still doesn't
-         flush the buffer at the end of every line.
-
-         So, if the "-l" flag was specified, we flush the standard output
-         at the end of a packet.  This will do the right thing if we're
-         printing packet summary lines, and, as we print the entire protocol
-         tree for a single packet without waiting for anything to happen,
-         it should be as good as line-buffered mode if we're printing
-         protocol trees.  (The whole reason for the "-l" flag in either
-         tcpdump or TShark is to allow the output of a live capture to
-         be piped to a program or script and to have that script see the
-         information for the packet as soon as it's printed, rather than
-         having to wait until a standard I/O buffer fills up. */
+      /* If we're doing "line-buffering", flush the standard output
+         after every packet.  See the comment above, for the "-l"
+         option, for an explanation of why we do that. */
       if (line_buffered)
         fflush(stdout);
 
@@ -3031,18 +3049,18 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt, frame_data *fd
   return passed || fdata->flags.dependent_of_displayed;
 }
 
-static int
-load_cap_file(capture_file *cf, char *save_file, int out_file_type,
+static gboolean
+process_cap_file(capture_file *cf, char *save_file, int out_file_type,
     gboolean out_file_name_res, int max_packet_count, gint64 max_byte_count)
 {
+  gboolean     success = TRUE;
   gint         linktype;
   int          snapshot_length;
   wtap_dumper *pdh;
   guint32      framenum;
-  int          err;
-  gchar       *err_info = NULL;
+  int          err = 0, err_pass1 = 0;
+  gchar       *err_info = NULL, *err_info_pass1 = NULL;
   gint64       data_offset;
-  char        *save_file_string = NULL;
   gboolean     filtering_tap_listeners;
   guint        tap_flags;
   GArray                      *shb_hdrs = NULL;
@@ -3066,14 +3084,11 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
   linktype = wtap_file_encap(cf->wth);
 #endif
   if (save_file != NULL) {
-    /* Get a string that describes what we're writing to */
-    save_file_string = output_file_description(save_file);
-
     /* Set up to write to the capture file. */
     snapshot_length = wtap_snapshot_length(cf->wth);
     if (snapshot_length == 0) {
       /* Snapshot length of input file not known. */
-      snapshot_length = WTAP_MAX_PACKET_SIZE;
+      snapshot_length = WTAP_MAX_PACKET_SIZE_STANDARD;
     }
     tshark_debug("tshark: snapshot_length = %d", snapshot_length);
 
@@ -3115,40 +3130,16 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
 
     if (pdh == NULL) {
       /* We couldn't set up to write to the capture file. */
-      switch (err) {
-
-      case WTAP_ERR_UNWRITABLE_FILE_TYPE:
-        cmdarg_err("Capture files can't be written in that format.");
-        break;
-
-      case WTAP_ERR_UNWRITABLE_ENCAP:
-      case WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED:
-        cmdarg_err("The capture file being read can't be written as a "
-          "\"%s\" file.", wtap_file_type_subtype_short_string(out_file_type));
-        break;
-
-      case WTAP_ERR_CANT_OPEN:
-        cmdarg_err("The %s couldn't be created for some "
-          "unknown reason.", save_file_string);
-        break;
-
-      case WTAP_ERR_SHORT_WRITE:
-        cmdarg_err("A full header couldn't be written to the %s.",
-                   save_file_string);
-        break;
-
-      default:
-        cmdarg_err("The %s could not be created: %s.", save_file_string,
-                   wtap_strerror(err));
-        break;
-      }
+      cfile_dump_open_failure_message("TShark", save_file, err, out_file_type);
+      success = FALSE;
       goto out;
     }
   } else {
+    /* Set up to print packet information. */
     if (print_packet_info) {
       if (!write_preamble(cf)) {
-        err = errno;
-        show_print_file_io_error(err);
+        show_print_file_io_error(errno);
+        success = FALSE;
         goto out;
       }
     }
@@ -3172,12 +3163,21 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
     cf->frames = new_frame_data_sequence();
 
     if (do_dissection) {
-       gboolean create_proto_tree = FALSE;
+      gboolean create_proto_tree;
 
-      /* If we're going to be applying a filter, we'll need to
-         create a protocol tree against which to apply the filter. */
-      if (cf->rfcode || cf->dfcode)
-        create_proto_tree = TRUE;
+      /*
+       * Determine whether we need to create a protocol tree.
+       * We do if:
+       *
+       *    we're going to apply a read filter;
+       *
+       *    we're going to apply a display filter;
+       *
+       *    a postdissector wants field values or protocols
+       *    on the first pass.
+       */
+      create_proto_tree =
+        (cf->rfcode != NULL || cf->dfcode != NULL || postdissectors_want_hfids() || dissect_color);
 
       tshark_debug("tshark: create_proto_tree = %s", create_proto_tree ? "TRUE" : "FALSE");
 
@@ -3189,7 +3189,7 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
     tshark_debug("tshark: reading records for first pass");
     while (wtap_read(cf->wth, &err, &err_info, &data_offset)) {
       if (process_packet_first_pass(cf, edt, data_offset, wtap_phdr(cf->wth),
-                         wtap_buf_ptr(cf->wth))) {
+                                    wtap_buf_ptr(cf->wth))) {
         /* Stop reading if we have the maximum number of packets;
          * When the -c option has not been used, max_packet_count
          * starts at 0, which practically means, never stop reading.
@@ -3202,6 +3202,20 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
           break;
         }
       }
+    }
+
+    /*
+     * If we got a read error on the first pass, remember the error, so
+     * but do the second pass, so we can at least process the packets we
+     * read, and then report the first-pass error after the second pass
+     * (and before we report any second-pass errors), so all the the
+     * errors show up at the end.
+     */
+    if (err != 0) {
+      err_pass1 = err;
+      err_info_pass1 = err_info;
+      err = 0;
+      err_info = NULL;
     }
 
     if (edt) {
@@ -3225,11 +3239,22 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
     if (do_dissection) {
       gboolean create_proto_tree;
 
-      if (cf->dfcode || print_details || filtering_tap_listeners ||
-         (tap_flags & TL_REQUIRES_PROTO_TREE) || have_custom_cols(&cf->cinfo))
-           create_proto_tree = TRUE;
-      else
-           create_proto_tree = FALSE;
+      /*
+       * Determine whether we need to create a protocol tree.
+       * We do if:
+       *
+       *    we're going to apply a display filter;
+       *
+       *    we're going to print the protocol tree;
+       *
+       *    one of the tap listeners requires a protocol tree;
+       *
+       *    we have custom columns (which require field values, which
+       *    currently requires that we build a protocol tree).
+       */
+      create_proto_tree =
+        (cf->dfcode || print_details || filtering_tap_listeners ||
+         (tap_flags & TL_REQUIRES_PROTO_TREE) || have_custom_cols(&cf->cinfo) || dissect_color);
 
       tshark_debug("tshark: create_proto_tree = %s", create_proto_tree ? "TRUE" : "FALSE");
 
@@ -3255,74 +3280,13 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
             if (!wtap_dump(pdh, &phdr, ws_buffer_start_ptr(&buf), &err, &err_info)) {
               /* Error writing to a capture file */
               tshark_debug("tshark: error writing to a capture file (%d)", err);
-              switch (err) {
 
-              case WTAP_ERR_UNWRITABLE_ENCAP:
-                /*
-                 * This is a problem with the particular frame we're writing
-                 * and the file type and subtype we're writing; note that,
-                 * and report the frame number and file type/subtype.
-                 *
-                 * XXX - framenum is not necessarily the frame number in
-                 * the input file if there was a read filter.
-                 */
-                fprintf(stderr,
-                        "Frame %u of \"%s\" has a network type that can't be saved in a \"%s\" file.\n",
-                        framenum, cf->filename,
-                        wtap_file_type_subtype_short_string(out_file_type));
-                break;
-
-              case WTAP_ERR_PACKET_TOO_LARGE:
-                /*
-                 * This is a problem with the particular frame we're writing
-                 * and the file type and subtype we're writing; note that,
-                 * and report the frame number and file type/subtype.
-                 *
-                 * XXX - framenum is not necessarily the frame number in
-                 * the input file if there was a read filter.
-                 */
-                fprintf(stderr,
-                        "Frame %u of \"%s\" is too large for a \"%s\" file.\n",
-                        framenum, cf->filename,
-                        wtap_file_type_subtype_short_string(out_file_type));
-                break;
-
-              case WTAP_ERR_UNWRITABLE_REC_TYPE:
-                /*
-                 * This is a problem with the particular record we're writing
-                 * and the file type and subtype we're writing; note that,
-                 * and report the record number and file type/subtype.
-                 *
-                 * XXX - framenum is not necessarily the record number in
-                 * the input file if there was a read filter.
-                 */
-                fprintf(stderr,
-                        "Record %u of \"%s\" has a record type that can't be saved in a \"%s\" file.\n",
-                        framenum, cf->filename,
-                        wtap_file_type_subtype_short_string(out_file_type));
-                break;
-
-              case WTAP_ERR_UNWRITABLE_REC_DATA:
-                /*
-                 * This is a problem with the particular record we're writing
-                 * and the file type and subtype we're writing; note that,
-                 * and report the record number and file type/subtype.
-                 *
-                 * XXX - framenum is not necessarily the record number in
-                 * the input file if there was a read filter.
-                 */
-                fprintf(stderr,
-                        "Record %u of \"%s\" has data that can't be saved in a \"%s\" file.\n(%s)\n",
-                        framenum, cf->filename,
-                        wtap_file_type_subtype_short_string(out_file_type),
-                        err_info != NULL ? err_info : "no information supplied");
-                g_free(err_info);
-                break;
-
-              default:
-                show_capture_file_io_error(save_file, err, FALSE);
-                break;
-              }
+              /* Report the error.
+                 XXX - framenum is not necessarily the frame number in
+                 the input file if there was a read filter. */
+              cfile_write_failure_message("TShark", cf->filename, save_file,
+                                          err, err_info, framenum,
+                                          out_file_type);
               wtap_dump_close(pdh, &err);
               wtap_block_array_free(shb_hdrs);
               wtap_block_array_free(nrb_hdrs);
@@ -3345,17 +3309,34 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
   else {
     /* !perform_two_pass_analysis */
     framenum = 0;
-
+    gboolean create_proto_tree = FALSE;
     tshark_debug("tshark: perform one pass analysis, do_dissection=%s", do_dissection ? "TRUE" : "FALSE");
 
     if (do_dissection) {
-      gboolean create_proto_tree;
-
-      if (cf->rfcode || cf->dfcode || print_details || filtering_tap_listeners ||
-          (tap_flags & TL_REQUIRES_PROTO_TREE) || have_custom_cols(&cf->cinfo))
-        create_proto_tree = TRUE;
-      else
-        create_proto_tree = FALSE;
+      /*
+       * Determine whether we need to create a protocol tree.
+       * We do if:
+       *
+       *    we're going to apply a read filter;
+       *
+       *    we're going to apply a display filter;
+       *
+       *    we're going to print the protocol tree;
+       *
+       *    one of the tap listeners is going to apply a filter;
+       *
+       *    one of the tap listeners requires a protocol tree;
+       *
+       *    a postdissector wants field values or protocols
+       *    on the first pass;
+       *
+       *    we have custom columns (which require field values, which
+       *    currently requires that we build a protocol tree).
+       */
+      create_proto_tree =
+        (cf->rfcode || cf->dfcode || print_details || filtering_tap_listeners ||
+          (tap_flags & TL_REQUIRES_PROTO_TREE) || postdissectors_want_hfids() ||
+          have_custom_cols(&cf->cinfo) || dissect_color);
 
       tshark_debug("tshark: create_proto_tree = %s", create_proto_tree ? "TRUE" : "FALSE");
 
@@ -3371,9 +3352,10 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
 
       tshark_debug("tshark: processing packet #%d", framenum);
 
-      if (process_packet(cf, edt, data_offset, wtap_phdr(cf->wth),
-                         wtap_buf_ptr(cf->wth),
-                         tap_flags)) {
+      reset_epan_mem(cf, edt, create_proto_tree, print_packet_info && print_details);
+
+      if (process_packet_single_pass(cf, edt, data_offset, wtap_phdr(cf->wth),
+                                     wtap_buf_ptr(cf->wth), tap_flags)) {
         /* Either there's no read filtering or this packet passed the
            filter, so, if we're writing to a capture file, write
            this packet out. */
@@ -3382,62 +3364,8 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
           if (!wtap_dump(pdh, wtap_phdr(cf->wth), wtap_buf_ptr(cf->wth), &err, &err_info)) {
             /* Error writing to a capture file */
             tshark_debug("tshark: error writing to a capture file (%d)", err);
-            switch (err) {
-
-            case WTAP_ERR_UNWRITABLE_ENCAP:
-              /*
-               * This is a problem with the particular frame we're writing
-               * and the file type and subtype we're writing; note that,
-               * and report the frame number and file type/subtype.
-               */
-              fprintf(stderr,
-                      "Frame %u of \"%s\" has a network type that can't be saved in a \"%s\" file.\n",
-                      framenum, cf->filename,
-                      wtap_file_type_subtype_short_string(out_file_type));
-              break;
-
-            case WTAP_ERR_PACKET_TOO_LARGE:
-              /*
-               * This is a problem with the particular frame we're writing
-               * and the file type and subtype we're writing; note that,
-               * and report the frame number and file type/subtype.
-               */
-              fprintf(stderr,
-                      "Frame %u of \"%s\" is too large for a \"%s\" file.\n",
-                      framenum, cf->filename,
-                      wtap_file_type_subtype_short_string(out_file_type));
-              break;
-
-            case WTAP_ERR_UNWRITABLE_REC_TYPE:
-              /*
-               * This is a problem with the particular record we're writing
-               * and the file type and subtype we're writing; note that,
-               * and report the record number and file type/subtype.
-               */
-              fprintf(stderr,
-                      "Record %u of \"%s\" has a record type that can't be saved in a \"%s\" file.\n",
-                      framenum, cf->filename,
-                      wtap_file_type_subtype_short_string(out_file_type));
-              break;
-
-            case WTAP_ERR_UNWRITABLE_REC_DATA:
-              /*
-               * This is a problem with the particular record we're writing
-               * and the file type and subtype we're writing; note that,
-               * and report the record number and file type/subtype.
-               */
-              fprintf(stderr,
-                      "Record %u of \"%s\" has data that can't be saved in a \"%s\" file.\n(%s)\n",
-                      framenum, cf->filename,
-                      wtap_file_type_subtype_short_string(out_file_type),
-                      err_info != NULL ? err_info : "no information supplied");
-              g_free(err_info);
-              break;
-
-            default:
-              show_capture_file_io_error(save_file, err, FALSE);
-              break;
-            }
+            cfile_write_failure_message("TShark", cf->filename, save_file,
+                                        err, err_info, framenum, out_file_type);
             wtap_dump_close(pdh, &err);
             wtap_block_array_free(shb_hdrs);
             wtap_block_array_free(nrb_hdrs);
@@ -3466,7 +3394,7 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
 
   wtap_phdr_cleanup(&phdr);
 
-  if (err != 0) {
+  if (err != 0 || err_pass1 != 0) {
     tshark_debug("tshark: something failed along the line (%d)", err);
     /*
      * Print a message noting that the read failed somewhere along the line.
@@ -3492,61 +3420,35 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
       }
     }
 #endif
-    switch (err) {
-
-    case WTAP_ERR_UNSUPPORTED:
-      cmdarg_err("The file \"%s\" contains record data that TShark doesn't support.\n(%s)",
-                 cf->filename,
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      break;
-
-    case WTAP_ERR_SHORT_READ:
-      cmdarg_err("The file \"%s\" appears to have been cut short in the middle of a packet.",
-                 cf->filename);
-      break;
-
-    case WTAP_ERR_BAD_FILE:
-      cmdarg_err("The file \"%s\" appears to be damaged or corrupt.\n(%s)",
-                 cf->filename,
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      break;
-
-    case WTAP_ERR_DECOMPRESS:
-      cmdarg_err("The compressed file \"%s\" appears to be damaged or corrupt.\n"
-                 "(%s)", cf->filename,
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      break;
-
-    default:
-      cmdarg_err("An error occurred while reading the file \"%s\": %s.",
-                 cf->filename, wtap_strerror(err));
-      break;
+    if (err_pass1 != 0) {
+      /* Error on pass 1 of two-pass processing. */
+      cfile_read_failure_message("TShark", cf->filename, err_pass1,
+                                 err_info_pass1);
     }
-    if (save_file != NULL) {
-      /* Now close the capture file. */
-      if (!wtap_dump_close(pdh, &err))
-        show_capture_file_io_error(save_file, err, TRUE);
+    if (err != 0) {
+      /* Error on pass 2 of two-pass processing or on the only pass of
+         one-pass processing. */
+      cfile_read_failure_message("TShark", cf->filename, err, err_info);
+    }
+    success = FALSE;
+  }
+  if (save_file != NULL) {
+    if (pdh && out_file_name_res) {
+      if (!wtap_dump_set_addrinfo_list(pdh, get_addrinfo_list())) {
+        cmdarg_err("The file format \"%s\" doesn't support name resolution information.",
+                   wtap_file_type_subtype_short_string(out_file_type));
+      }
+    }
+    /* Now close the capture file. */
+    if (!wtap_dump_close(pdh, &err)) {
+      cfile_close_failure_message(save_file, err);
+      success = FALSE;
     }
   } else {
-    if (save_file != NULL) {
-      if (pdh && out_file_name_res) {
-        if (!wtap_dump_set_addrinfo_list(pdh, get_addrinfo_list())) {
-          cmdarg_err("The file format \"%s\" doesn't support name resolution information.",
-                     wtap_file_type_subtype_short_string(out_file_type));
-        }
-      }
-      /* Now close the capture file. */
-      if (!wtap_dump_close(pdh, &err))
-        show_capture_file_io_error(save_file, err, TRUE);
-    } else {
-      if (print_packet_info) {
-        if (!write_finale()) {
-          err = errno;
-          show_print_file_io_error(err);
-        }
+    if (print_packet_info) {
+      if (!write_finale()) {
+        show_print_file_io_error(errno);
+        success = FALSE;
       }
     }
   }
@@ -3555,16 +3457,16 @@ out:
   wtap_close(cf->wth);
   cf->wth = NULL;
 
-  g_free(save_file_string);
   wtap_block_array_free(shb_hdrs);
   wtap_block_array_free(nrb_hdrs);
 
-  return err;
+  return success;
 }
 
 static gboolean
-process_packet(capture_file *cf, epan_dissect_t *edt, gint64 offset, struct wtap_pkthdr *whdr,
-               const guchar *pd, guint tap_flags)
+process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, gint64 offset,
+                           struct wtap_pkthdr *whdr, const guchar *pd,
+                           guint tap_flags)
 {
   frame_data      fdata;
   column_info    *cinfo;
@@ -3594,7 +3496,11 @@ process_packet(capture_file *cf, epan_dissect_t *edt, gint64 offset, struct wtap
     /* If we're running a filter, prime the epan_dissect_t with that
        filter. */
     if (cf->dfcode)
-      epan_dissect_prime_dfilter(edt, cf->dfcode);
+      epan_dissect_prime_with_dfilter(edt, cf->dfcode);
+
+    /* This is the first and only pass, so prime the epan_dissect_t
+       with the hfids postdissectors want on the first pass. */
+    prime_epan_dissect_with_postdissector_wanted_hfids(edt);
 
     col_custom_prime_edt(edt, &cf->cinfo);
 
@@ -3617,6 +3523,11 @@ process_packet(capture_file *cf, epan_dissect_t *edt, gint64 offset, struct wtap
       ref = &ref_frame;
     }
 
+    if (dissect_color) {
+      color_filters_prime_edt(edt);
+      fdata.flags.need_colorize = 1;
+    }
+
     epan_dissect_run_with_taps(edt, cf->cd_t, whdr, frame_tvbuff_new(&fdata, pd), &fdata, cinfo);
 
     /* Run the filter if we have it. */
@@ -3631,28 +3542,12 @@ process_packet(capture_file *cf, epan_dissect_t *edt, gint64 offset, struct wtap
     if (print_packet_info) {
       /* We're printing packet information; print the information for
          this packet. */
+      g_assert(edt);
       print_packet(cf, edt);
 
-      /* The ANSI C standard does not appear to *require* that a line-buffered
-         stream be flushed to the host environment whenever a newline is
-         written, it just says that, on such a stream, characters "are
-         intended to be transmitted to or from the host environment as a
-         block when a new-line character is encountered".
-
-         The Visual C++ 6.0 C implementation doesn't do what is intended;
-         even if you set a stream to be line-buffered, it still doesn't
-         flush the buffer at the end of every line.
-
-         So, if the "-l" flag was specified, we flush the standard output
-         at the end of a packet.  This will do the right thing if we're
-         printing packet summary lines, and, as we print the entire protocol
-         tree for a single packet without waiting for anything to happen,
-         it should be as good as line-buffered mode if we're printing
-         protocol trees.  (The whole reason for the "-l" flag in either
-         tcpdump or TShark is to allow the output of a live capture to
-         be piped to a program or script and to have that script see the
-         information for the packet as soon as it's printed, rather than
-         having to wait until a standard I/O buffer fills up. */
+      /* If we're doing "line-buffering", flush the standard output
+         after every packet.  See the comment above, for the "-l"
+         option, for an explanation of why we do that. */
       if (line_buffered)
         fflush(stdout);
 
@@ -3763,7 +3658,7 @@ put_string_spaces(char *dest, const char *str, size_t str_len, size_t str_with_s
 }
 
 static gboolean
-print_columns(capture_file *cf)
+print_columns(capture_file *cf, const epan_dissect_t *edt)
 {
   char   *line_bufp;
   int     i;
@@ -3772,10 +3667,15 @@ print_columns(capture_file *cf)
   size_t  col_len;
   col_item_t* col_item;
   gchar str_format[11];
+  const color_filter_t *color_filter = NULL;
 
   line_bufp = get_line_buf(256);
   buf_offset = 0;
   *line_bufp = '\0';
+
+  if (dissect_color)
+    color_filter = edt->pi.fd->color_filter;
+
   for (i = 0; i < cf->cinfo.num_cols; i++) {
     col_item = &cf->cinfo.columns[i];
     /* Skip columns not marked as visible. */
@@ -3870,7 +3770,7 @@ print_columns(capture_file *cf)
         case COL_DEF_DST:
         case COL_RES_DST:
         case COL_UNRES_DST:
-          g_snprintf(str_format, sizeof(str_format), " %s%s", UTF8_RIGHTWARDS_ARROW, delimiter_char);
+          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -3890,7 +3790,7 @@ print_columns(capture_file *cf)
         case COL_DEF_DL_DST:
         case COL_RES_DL_DST:
         case COL_UNRES_DL_DST:
-          g_snprintf(str_format, sizeof(str_format), " %s%s", UTF8_RIGHTWARDS_ARROW, delimiter_char);
+          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -3910,7 +3810,7 @@ print_columns(capture_file *cf)
         case COL_DEF_NET_DST:
         case COL_RES_NET_DST:
         case COL_UNRES_NET_DST:
-          g_snprintf(str_format, sizeof(str_format), " %s%s", UTF8_RIGHTWARDS_ARROW, delimiter_char);
+          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -3930,7 +3830,7 @@ print_columns(capture_file *cf)
         case COL_DEF_SRC:
         case COL_RES_SRC:
         case COL_UNRES_SRC:
-          g_snprintf(str_format, sizeof(str_format), " %s%s", UTF8_LEFTWARDS_ARROW, delimiter_char);
+          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -3950,7 +3850,7 @@ print_columns(capture_file *cf)
         case COL_DEF_DL_SRC:
         case COL_RES_DL_SRC:
         case COL_UNRES_DL_SRC:
-          g_snprintf(str_format, sizeof(str_format), " %s%s", UTF8_LEFTWARDS_ARROW, delimiter_char);
+          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -3970,7 +3870,7 @@ print_columns(capture_file *cf)
         case COL_DEF_NET_SRC:
         case COL_RES_NET_SRC:
         case COL_UNRES_NET_SRC:
-          g_snprintf(str_format, sizeof(str_format), " %s%s", UTF8_LEFTWARDS_ARROW, delimiter_char);
+          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -3989,90 +3889,89 @@ print_columns(capture_file *cf)
       }
     }
   }
-  return print_line(print_stream, 0, line_bufp);
+
+  if (dissect_color && color_filter != NULL)
+    return print_line_color(print_stream, 0, line_bufp, &color_filter->fg_color, &color_filter->bg_color);
+  else
+    return print_line(print_stream, 0, line_bufp);
 }
 
 static gboolean
 print_packet(capture_file *cf, epan_dissect_t *edt)
 {
-  print_args_t print_args;
-
-  if (print_summary || output_fields_has_cols(output_fields)) {
+  if (print_summary || output_fields_has_cols(output_fields))
     /* Just fill in the columns. */
     epan_dissect_fill_in_columns(edt, FALSE, TRUE);
 
-    if (print_summary) {
-      /* Now print them. */
-      switch (output_action) {
+  /* Print summary columns and/or protocol tree */
+  switch (output_action) {
 
-      case WRITE_TEXT:
-        if (!print_columns(cf))
-          return FALSE;
-        break;
-
-      case WRITE_XML:
-        write_psml_columns(edt, stdout);
-        return !ferror(stdout);
-      case WRITE_FIELDS: /*No non-verbose "fields" format */
-      case WRITE_JSON:
-      case WRITE_EK:
-      case WRITE_JSON_RAW:
-        g_assert_not_reached();
-        break;
-      }
-    }
-  }
-  if (print_details) {
-    /* Print the information in the protocol tree. */
-    switch (output_action) {
-
-    case WRITE_TEXT:
-      /* Only initialize the fields that are actually used in proto_tree_print.
-       * This is particularly important for .range, as that's heap memory which
-       * we would otherwise have to g_free().
-      print_args.to_file = TRUE;
-      print_args.format = print_format;
-      print_args.print_summary = print_summary;
-      print_args.print_formfeed = FALSE;
-      packet_range_init(&print_args.range, &cfile);
-      */
-      print_args.print_hex = print_hex;
-      print_args.print_dissections = print_details ? print_dissections_expanded : print_dissections_none;
-
-      if (!proto_tree_print(&print_args, edt, output_only_tables, print_stream))
+  case WRITE_TEXT:
+    if (print_summary && !print_columns(cf, edt))
+        return FALSE;
+    if (print_details) {
+      if (!proto_tree_print(print_details ? print_dissections_expanded : print_dissections_none,
+                            print_hex, edt, output_only_tables, print_stream))
         return FALSE;
       if (!print_hex) {
         if (!print_line(print_stream, 0, separator))
           return FALSE;
       }
-      break;
+    }
+    break;
 
-    case WRITE_XML:
-      write_pdml_proto_tree(output_fields, protocolfilter, protocolfilter_flags, edt, stdout);
+  case WRITE_XML:
+    if (print_summary) {
+      write_psml_columns(edt, stdout, dissect_color);
+      return !ferror(stdout);
+    }
+    if (print_details) {
+      write_pdml_proto_tree(output_fields, protocolfilter, protocolfilter_flags, edt, stdout, dissect_color);
       printf("\n");
       return !ferror(stdout);
-    case WRITE_FIELDS:
+    }
+    break;
+
+  case WRITE_FIELDS:
+    if (print_summary) {
+      /*No non-verbose "fields" format */
+      g_assert_not_reached();
+    }
+    if (print_details) {
       write_fields_proto_tree(output_fields, edt, &cf->cinfo, stdout);
       printf("\n");
       return !ferror(stdout);
-    case WRITE_JSON:
-      print_args.print_dissections = print_dissections_expanded;
-      print_args.print_hex = print_hex;
-      write_json_proto_tree(output_fields, &print_args, protocolfilter, protocolfilter_flags, edt, stdout);
-      printf("\n");
-      return !ferror(stdout);
-    case WRITE_JSON_RAW:
-      print_args.print_dissections = print_dissections_none;
-      print_args.print_hex = TRUE;
-      write_json_proto_tree(output_fields, &print_args, protocolfilter, protocolfilter_flags, edt, stdout);
-      printf("\n");
-      return !ferror(stdout);
-    case WRITE_EK:
-      print_args.print_hex = print_hex;
-      write_ek_proto_tree(output_fields, &print_args, protocolfilter, protocolfilter_flags, edt, stdout);
+    }
+    break;
+
+  case WRITE_JSON:
+    if (print_summary)
+      g_assert_not_reached();
+    if (print_details) {
+      write_json_proto_tree(output_fields, print_dissections_expanded,
+                            print_hex, protocolfilter, protocolfilter_flags,
+                            edt, node_children_grouper, stdout);
       return !ferror(stdout);
     }
+    break;
+
+  case WRITE_JSON_RAW:
+    if (print_summary)
+      g_assert_not_reached();
+    if (print_details) {
+      write_json_proto_tree(output_fields, print_dissections_none, TRUE,
+                            protocolfilter, protocolfilter_flags,
+                            edt, node_children_grouper, stdout);
+      return !ferror(stdout);
+    }
+    break;
+
+  case WRITE_EK:
+    write_ek_proto_tree(output_fields, print_summary, print_hex, protocolfilter,
+                        protocolfilter_flags, edt, stdout);
+    return !ferror(stdout);
   }
+
   if (print_hex) {
     if (print_summary || print_details) {
       if (!print_line(print_stream, 0, ""))
@@ -4130,7 +4029,6 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
 {
   wtap  *wth;
   gchar *err_info;
-  char   err_msg[2048+1];
 
   wth = wtap_open_offline(fname, type, err, &err_info, perform_two_pass_analysis);
   if (wth == NULL)
@@ -4162,12 +4060,6 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   cf->drops_known = FALSE;
   cf->drops     = 0;
   cf->snap      = wtap_snapshot_length(cf->wth);
-  if (cf->snap == 0) {
-    /* Snapshot length not known. */
-    cf->has_snap = FALSE;
-    cf->snap = WTAP_MAX_PACKET_SIZE;
-  } else
-    cf->has_snap = TRUE;
   nstime_set_zero(&cf->elapsed_time);
   ref = NULL;
   prev_dis = NULL;
@@ -4181,56 +4073,8 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   return CF_OK;
 
 fail:
-  g_snprintf(err_msg, sizeof err_msg,
-             cf_open_error_message(*err, err_info, FALSE, cf->cd_t), fname);
-  cmdarg_err("%s", err_msg);
+  cfile_open_failure_message("TShark", fname, *err, err_info);
   return CF_ERROR;
-}
-
-static void
-show_capture_file_io_error(const char *fname, int err, gboolean is_close)
-{
-  char *save_file_string;
-
-  save_file_string = output_file_description(fname);
-
-  switch (err) {
-
-  case ENOSPC:
-    cmdarg_err("Not all the packets could be written to the %s because there is "
-               "no space left on the file system.",
-               save_file_string);
-    break;
-
-#ifdef EDQUOT
-  case EDQUOT:
-    cmdarg_err("Not all the packets could be written to the %s because you are "
-               "too close to, or over your disk quota.",
-               save_file_string);
-  break;
-#endif
-
-  case WTAP_ERR_CANT_CLOSE:
-    cmdarg_err("The %s couldn't be closed for some unknown reason.",
-               save_file_string);
-    break;
-
-  case WTAP_ERR_SHORT_WRITE:
-    cmdarg_err("Not all the packets could be written to the %s.",
-               save_file_string);
-    break;
-
-  default:
-    if (is_close) {
-      cmdarg_err("The %s could not be closed: %s.", save_file_string,
-                 wtap_strerror(err));
-    } else {
-      cmdarg_err("An error occurred while writing to the %s: %s.",
-                 save_file_string, wtap_strerror(err));
-    }
-    break;
-  }
-  g_free(save_file_string);
 }
 
 static void
@@ -4257,123 +4101,16 @@ show_print_file_io_error(int err)
   }
 }
 
-static const char *
-cf_open_error_message(int err, gchar *err_info, gboolean for_writing,
-                      int file_type)
+/*
+ * General errors and warnings are reported with an console message
+ * in TShark.
+ */
+static void
+failure_warning_message(const char *msg_format, va_list ap)
 {
-  const char *errmsg;
-  static char errmsg_errno[1024+1];
-
-  if (err < 0) {
-    /* Wiretap error. */
-    switch (err) {
-
-    case WTAP_ERR_NOT_REGULAR_FILE:
-      errmsg = "The file \"%s\" is a \"special file\" or socket or other non-regular file.";
-      break;
-
-    case WTAP_ERR_RANDOM_OPEN_PIPE:
-      /* Seen only when opening a capture file for reading. */
-      errmsg = "The file \"%s\" is a pipe or FIFO; TShark can't read pipe or FIFO files in two-pass mode.";
-      break;
-
-    case WTAP_ERR_FILE_UNKNOWN_FORMAT:
-      /* Seen only when opening a capture file for reading. */
-      errmsg = "The file \"%s\" isn't a capture file in a format TShark understands.";
-      break;
-
-    case WTAP_ERR_UNSUPPORTED:
-      /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The file \"%%s\" contains record data that TShark doesn't support.\n"
-                 "(%s)",
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      errmsg = errmsg_errno;
-      break;
-
-    case WTAP_ERR_CANT_WRITE_TO_PIPE:
-      /* Seen only when opening a capture file for writing. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The file \"%%s\" is a pipe, and \"%s\" capture files can't be "
-                 "written to a pipe.", wtap_file_type_subtype_short_string(file_type));
-      errmsg = errmsg_errno;
-      break;
-
-    case WTAP_ERR_UNWRITABLE_FILE_TYPE:
-      /* Seen only when opening a capture file for writing. */
-      errmsg = "TShark doesn't support writing capture files in that format.";
-      break;
-
-    case WTAP_ERR_UNWRITABLE_ENCAP:
-      /* Seen only when opening a capture file for writing. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "TShark can't save this capture as a \"%s\" file.",
-                 wtap_file_type_subtype_short_string(file_type));
-      errmsg = errmsg_errno;
-      break;
-
-    case WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED:
-      if (for_writing) {
-        g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                   "TShark can't save this capture as a \"%s\" file.",
-                   wtap_file_type_subtype_short_string(file_type));
-        errmsg = errmsg_errno;
-      } else
-        errmsg = "The file \"%s\" is a capture for a network type that TShark doesn't support.";
-      break;
-
-    case WTAP_ERR_BAD_FILE:
-      /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The file \"%%s\" appears to be damaged or corrupt.\n"
-                 "(%s)",
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      errmsg = errmsg_errno;
-      break;
-
-    case WTAP_ERR_CANT_OPEN:
-      if (for_writing)
-        errmsg = "The file \"%s\" could not be created for some unknown reason.";
-      else
-        errmsg = "The file \"%s\" could not be opened for some unknown reason.";
-      break;
-
-    case WTAP_ERR_SHORT_READ:
-      errmsg = "The file \"%s\" appears to have been cut short"
-               " in the middle of a packet or other data.";
-      break;
-
-    case WTAP_ERR_SHORT_WRITE:
-      errmsg = "A full header couldn't be written to the file \"%s\".";
-      break;
-
-    case WTAP_ERR_COMPRESSION_NOT_SUPPORTED:
-      errmsg = "This file type cannot be written as a compressed file.";
-      break;
-
-    case WTAP_ERR_DECOMPRESS:
-      /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The compressed file \"%%s\" appears to be damaged or corrupt.\n"
-                 "(%s)",
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      errmsg = errmsg_errno;
-      break;
-
-    default:
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The file \"%%s\" could not be %s: %s.",
-                 for_writing ? "created" : "opened",
-                 wtap_strerror(err));
-      errmsg = errmsg_errno;
-      break;
-    }
-  } else
-    errmsg = file_open_error_message(err, for_writing);
-  return errmsg;
+  fprintf(stderr, "tshark: ");
+  vfprintf(stderr, msg_format, ap);
+  fprintf(stderr, "\n");
 }
 
 /*
@@ -4388,24 +4125,13 @@ open_failure_message(const char *filename, int err, gboolean for_writing)
 }
 
 /*
- * General errors are reported with an console message in TShark.
- */
-static void
-failure_message(const char *msg_format, va_list ap)
-{
-  fprintf(stderr, "tshark: ");
-  vfprintf(stderr, msg_format, ap);
-  fprintf(stderr, "\n");
-}
-
-/*
  * Read errors are reported with an console message in TShark.
  */
 static void
 read_failure_message(const char *filename, int err)
 {
   cmdarg_err("An error occurred while reading from the file \"%s\": %s.",
-          filename, g_strerror(err));
+             filename, g_strerror(err));
 }
 
 /*
@@ -4415,7 +4141,22 @@ static void
 write_failure_message(const char *filename, int err)
 {
   cmdarg_err("An error occurred while writing to the file \"%s\": %s.",
-          filename, g_strerror(err));
+             filename, g_strerror(err));
+}
+
+static void reset_epan_mem(capture_file *cf,epan_dissect_t *edt, gboolean tree, gboolean visual)
+{
+  if (!epan_auto_reset || (cf->count < epan_auto_reset_count))
+    return;
+
+  fprintf(stderr, "resetting session.\n");
+
+  epan_dissect_cleanup(edt);
+  epan_free(cf->epan);
+
+  cf->epan = tshark_epan_new(cf);
+  epan_dissect_init(edt, cf->epan, tree, visual);
+  cf->count = 0;
 }
 
 /*

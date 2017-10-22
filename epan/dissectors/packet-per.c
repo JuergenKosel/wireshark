@@ -1697,7 +1697,7 @@ dissect_per_choice(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *
 	int extension_addition_entries;
 	guint32 choice_index;
 	int i, idx, cidx;
-	guint32 ext_length;
+	guint32 ext_length = 0;
 	guint32 old_offset = offset;
 	proto_item *choice_item = NULL;
 	proto_tree *choice_tree = NULL;
@@ -2856,7 +2856,7 @@ proto_register_per(void)
 				       "Whether the dissector should put the internal PER data in the tree or if it should hide it",
 				       &display_internal_per_fields);
 
-	per_oid_dissector_table = register_dissector_table("per.oid", "PER OID Dissectors", proto_per, FT_STRING, BASE_NONE);
+	per_oid_dissector_table = register_dissector_table("per.oid", "PER OID", proto_per, FT_STRING, BASE_NONE);
 
 
 }

@@ -33,6 +33,7 @@
 #include <wiretap/wtap.h>
 
 #include "packet-sll.h"
+#include "packet-socketcan.h"
 
 /* controller area network (CAN) kernel definitions
  * These masks are usually defined within <linux/can.h> but are not
@@ -81,15 +82,6 @@ static gboolean byte_swap = FALSE;
 #define CANFD_BRS 0x01 /* bit rate switch (second bitrate for payload data) */
 #define CANFD_ESI 0x02 /* error state indicator of the transmitting node */
 
-/* Structure that gets passed between dissectors.  Since it's just a simple 32-bit
-   value, no sense in creating a header file for it.  Just expect subdissectors
-   to provide their own.
- */
-struct can_identifier
-{
-	guint32 id;
-};
-
 static dissector_table_t subdissector_table;
 static dissector_handle_t socketcan_bigendian_handle;
 static dissector_handle_t socketcan_hostendian_handle;
@@ -102,16 +94,6 @@ static const value_string frame_type_vals[] =
 	{ LINUX_CAN_ERR, "ERR" },
 	{ 0, NULL }
 };
-
-static void can_prompt(packet_info *pinfo _U_, gchar* result)
-{
-	g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "Next level protocol as");
-}
-
-static gpointer can_value(packet_info *pinfo _U_)
-{
-	return 0;
-}
 
 static int
 dissect_socketcan_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
@@ -176,9 +158,7 @@ dissect_socketcan_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	next_tvb = tvb_new_subset_length(tvb, CAN_DATA_OFFSET, frame_len);
 
-	/* Functionality for choosing subdissector is controlled through Decode As as CAN doesn't
-	   have a unique identifier to determine subdissector */
-	if (!dissector_try_uint_new(subdissector_table, 0, next_tvb, pinfo, tree, TRUE, &can_id))
+	if (!dissector_try_payload_new(subdissector_table, next_tvb, pinfo, tree, TRUE, &can_id))
 	{
 		call_data_dissector(next_tvb, pinfo, tree);
 	}
@@ -268,9 +248,7 @@ dissect_socketcanfd_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	next_tvb = tvb_new_subset_length(tvb, CAN_DATA_OFFSET, frame_len);
 
-	/* Functionality for choosing subdissector is controlled through Decode As as CAN doesn't
-	   have a unique identifier to determine subdissector */
-	if (!dissector_try_uint_new(subdissector_table, 0, next_tvb, pinfo, tree, TRUE, &can_id))
+	if (!dissector_try_payload_new(subdissector_table, next_tvb, pinfo, tree, TRUE, &can_id))
 	{
 		call_data_dissector(next_tvb, pinfo, tree);
 	}
@@ -396,12 +374,6 @@ proto_register_socketcan(void)
 
 	module_t *can_module;
 
-	/* Decode As handling */
-	static build_valid_func can_da_build_value[1] = {can_value};
-	static decode_as_value_t can_da_values = {can_prompt, 1, can_da_build_value};
-	static decode_as_t can_da = {"can", "Network", "can.subdissector", 1, 0, &can_da_values, NULL, NULL,
-									decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
-
 	proto_can = proto_register_protocol("Controller Area Network", "CAN", "can");
 	socketcan_bigendian_handle = register_dissector("can-bigendian", dissect_socketcan_bigendian, proto_can);
 	socketcan_hostendian_handle = register_dissector("can-hostendian", dissect_socketcan_hostendian, proto_can);
@@ -412,9 +384,6 @@ proto_register_socketcan(void)
 	proto_register_field_array(proto_can, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
 
-	subdissector_table = register_dissector_table("can.subdissector",
-		"CAN next level dissector", proto_can, FT_UINT32, BASE_HEX);
-
 	can_module = prefs_register_protocol(proto_can, NULL);
 
 	prefs_register_obsolete_preference(can_module, "protocol");
@@ -423,7 +392,7 @@ proto_register_socketcan(void)
 	    "Whether the CAN ID/flags field should be byte-swapped",
 	    &byte_swap);
 
-	register_decode_as(&can_da);
+	subdissector_table = register_decode_as_next_proto(proto_can, "Network", "can.subdissector", "CAN next level dissector", NULL);
 }
 
 void

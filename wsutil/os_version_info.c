@@ -29,7 +29,7 @@
 #include <sys/utsname.h>
 #endif
 
-#ifdef HAVE_OS_X_FRAMEWORKS
+#ifdef HAVE_MACOS_FRAMEWORKS
 #include <CoreFoundation/CoreFoundation.h>
 #include <wsutil/cfutils.h>
 #endif
@@ -46,10 +46,10 @@ typedef void (WINAPI *nativesi_func_ptr)(LPSYSTEM_INFO);
 
 /*
  * Handles the rather elaborate process of getting OS version information
- * from OS X (we want the OS X version, not the Darwin version, the latter
+ * from macOS (we want the macOS version, not the Darwin version, the latter
  * being easy to get with uname()).
  */
-#ifdef HAVE_OS_X_FRAMEWORKS
+#ifdef HAVE_MACOS_FRAMEWORKS
 
 /*
  * Fetch a string, as a UTF-8 C string, from a dictionary, given a key.
@@ -71,11 +71,14 @@ get_string_from_dictionary(CFPropertyListRef dict, CFStringRef key)
 }
 
 /*
- * Get the OS X version information, and append it to the GString.
+ * Get the macOS version information, and append it to the GString.
  * Return TRUE if we succeed, FALSE if we fail.
+ *
+ * XXX - this gives the OS name as "Mac OS X" even if Apple called/calls
+ * it "OS X" or "macOS".
  */
 static gboolean
-get_os_x_version_info(GString *str)
+get_macos_version_info(GString *str)
 {
 	static const UInt8 server_version_plist_path[] =
 	    "/System/Library/CoreServices/ServerVersion.plist";
@@ -87,7 +90,7 @@ get_os_x_version_info(GString *str)
 	char *string;
 
 	/*
-	 * On OS X, report the OS X version number as the OS, and put
+	 * On macOS, report the macOS version number as the OS, and put
 	 * the Darwin information in parentheses.
 	 *
 	 * Alas, Gestalt() is deprecated in Mountain Lion, so the build
@@ -431,23 +434,23 @@ get_os_version_info(GString *str)
 		 * On Solaris, it's some kind of build information.
 		 * On HP-UX, it appears to be some sort of subrevision
 		 * thing.
-		 * On *BSD and Darwin/OS X, it's a long string giving
+		 * On *BSD and Darwin/macOS, it's a long string giving
 		 * a build date, config file name, etc., etc., etc..
 		 */
-#ifdef HAVE_OS_X_FRAMEWORKS
+#ifdef HAVE_MACOS_FRAMEWORKS
 		/*
-		 * On Mac OS X, report the Mac OS X version number as
-		 * the OS version if we can, and put the Darwin information
+		 * On macOS, report the macOS version number as the OS
+		 * version if we can, and put the Darwin information
 		 * in parentheses.
 		 */
-		if (get_os_x_version_info(str)) {
+		if (get_macos_version_info(str)) {
 			/* Success - append the Darwin information. */
 			g_string_append_printf(str, " (%s %s)", name.sysname, name.release);
 		} else {
 			/* Failure - just use the Darwin information. */
 			g_string_append_printf(str, "%s %s", name.sysname, name.release);
 		}
-#else /* HAVE_OS_X_FRAMEWORKS */
+#else /* HAVE_MACOS_FRAMEWORKS */
 		/*
 		 * XXX - on Linux, are there any APIs to get the distribution
 		 * name and version number?  I think some distributions have
@@ -500,7 +503,7 @@ get_os_version_info(GString *str)
 		 * releases.
 		 */
 		g_string_append_printf(str, "%s %s", name.sysname, name.release);
-#endif /* HAVE_OS_X_FRAMEWORKS */
+#endif /* HAVE_MACOS_FRAMEWORKS */
 	}
 #else
 	g_string_append(str, "an unknown OS");

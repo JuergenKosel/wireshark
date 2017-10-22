@@ -9,6 +9,8 @@ include::attributes.asciidoc[]
 
 include::wsug_src/WSUG_preface.asciidoc[]
 
+include::common_src/typographic_conventions.asciidoc[]
+
 // Chapters
 include::wsug_src/WSUG_chapter_introduction.asciidoc[]
 include::wsug_src/WSUG_chapter_build_install.asciidoc[]
@@ -32,4 +34,4 @@ include::wsug_src/WSUG_app_protocols.asciidoc[]
 include::wsug_src/WSUG_app_tools.asciidoc[]
 
 // License
-include::GPL_appendix.asciidoc[]
+include::common_src/GPL_appendix.asciidoc[]

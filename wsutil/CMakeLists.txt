@@ -21,6 +21,68 @@
 
 include(UseABICheck)
 
+if(NOT WIN32)
+	add_definitions(-DPLUGIN_DIR=\"${CMAKE_INSTALL_FULL_LIBDIR}/wireshark/plugins\")
+endif()
+
+set(WSUTIL_PUBLIC_HEADERS
+	adler32.h
+	base32.h
+	base64.h
+	bits_count_ones.h
+	bits_ctz.h
+	bitswap.h
+	buffer.h
+	clopts_common.h
+	cmdarg_err.h
+	color.h
+	copyright_info.h
+	cpu_info.h
+	crash_info.h
+	crc6.h
+	crc7.h
+	crc8.h
+	crc10.h
+	crc11.h
+	crc16.h
+	crc16-plain.h
+	crc32.h
+	eax.h
+	filesystem.h
+	frequency-utils.h
+	g711.h
+	glib-compat.h
+	inet_addr.h
+	inet_ipv6.h
+	interface.h
+	jsmn.h
+	mpeg-audio.h
+	nstime.h
+	os_version_info.h
+	pint.h
+	plugins.h
+	privileges.h
+	processes.h
+	report_message.h
+	sign_ext.h
+	sober128.h
+	socket.h
+	str_util.h
+	strnatcmp.h
+	strtoi.h
+	tempfile.h
+	time_util.h
+	type_util.h
+	unicode-utils.h
+	utf8_entities.h
+	ws_cpuid.h
+	ws_mempbrk.h
+	ws_mempbrk_int.h
+	ws_printf.h
+	wsjsmn.h
+	xtea.h
+)
+
 set(WSUTIL_COMMON_FILES
 	adler32.c
 	airpdcap_wep.c
@@ -54,11 +116,12 @@ set(WSUTIL_COMMON_FILES
 	os_version_info.c
 	plugins.c
 	privileges.c
+	rsa.c
 	sober128.c
 	strnatcmp.c
 	str_util.c
 	strtoi.c
-	report_err.c
+	report_message.c
 	tempfile.c
 	time_util.c
 	type_util.c
@@ -66,6 +129,7 @@ set(WSUTIL_COMMON_FILES
 	ws_mempbrk.c
 	wsgcrypt.c
 	wsjsmn.c
+	xtea.c
 )
 
 set(WSUTIL_FILES ${WSUTIL_COMMON_FILES})
@@ -79,7 +143,7 @@ if(WIN32)
 ENDIF(WIN32)
 
 
-if(HAVE_OS_X_FRAMEWORKS)
+if(HAVE_MACOS_FRAMEWORKS)
 	list(APPEND WSUTIL_FILES cfutils.c)
 endif()
 
@@ -163,7 +227,7 @@ endif()
 
 if(APPLE)
 	#
-	# We assume that APPLE means OS X so that we have the OS X
+	# We assume that APPLE means macOS so that we have the macOS
 	# frameworks.
 	#
 	FIND_LIBRARY (APPLE_CORE_FOUNDATION_LIBRARY CoreFoundation)
@@ -177,6 +241,7 @@ set(wsutil_LIBS
 	${GCRYPT_LIBRARIES}
 	${ZLIB_LIBRARIES}
 	${WIN_WSOCK32_LIBRARY}
+	${GNUTLS_LIBRARIES}
 )
 IF(WIN32)
 	set(wsutil_LIBS ${wsutil_LIBS} "iphlpapi.lib" "ws2_32.lib")
@@ -211,10 +276,10 @@ set(FULL_SO_VERSION "0.0.0")
 set_target_properties(wsutil PROPERTIES
 	PREFIX "lib"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
-	COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	VERSION ${FULL_SO_VERSION} SOVERSION 0
-	FOLDER "DLLs")
+	FOLDER "DLLs"
+)
 
 if(ENABLE_APPLICATION_BUNDLE)
 	set_target_properties(wsutil PROPERTIES
@@ -241,6 +306,12 @@ if(NOT ${ENABLE_STATIC})
 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	)
+endif()
+
+if(NOT WIN32)
+	install(FILES ${WSUTIL_PUBLIC_HEADERS}
+		DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/wsutil"
 	)
 endif()
 

@@ -38,6 +38,7 @@
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/in_cksum.h>
+#include <epan/sequence_analysis.h>
 #include <epan/to_str.h>
 #include <epan/conversation.h>
 #include <epan/tap.h>
@@ -77,7 +78,8 @@ static icmp_transaction_t *transaction_end(packet_info * pinfo,
 if the packet in the payload has more than 128 bytes */
 static gboolean favor_icmp_mpls_ext = FALSE;
 
-int proto_icmp = -1;
+static int proto_icmp = -1;
+
 static int hf_icmp_type = -1;
 static int hf_icmp_code = -1;
 static int hf_icmp_checksum = -1;
@@ -370,6 +372,45 @@ static const value_string interface_role_str[] = {
 
 #define ADDR_IS_NOT_UNICAST(addr) \
 	(ADDR_IS_MULTICAST(addr) || ADDR_IS_BROADCAST(addr))
+
+
+/* whenever a ICMP packet is seen by the tap listener */
+/* Add a new frame into the graph */
+static gboolean
+icmp_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_, const void *dummy _U_)
+{
+	seq_analysis_info_t *sainfo = (seq_analysis_info_t *) ptr;
+	seq_analysis_item_t *sai = sequence_analysis_create_sai_with_addresses(pinfo, sainfo);
+
+	if (!sai)
+		return FALSE;
+
+	sai->frame_number = pinfo->num;
+
+	sequence_analysis_use_color_filter(pinfo, sai);
+
+	sai->port_src=pinfo->srcport;
+	sai->port_dst=pinfo->destport;
+
+	sequence_analysis_use_col_info_as_label_comment(pinfo, sai);
+
+	if (pinfo->ptype == PT_NONE) {
+		icmp_info_t *p_icmp_info = (icmp_info_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_icmp, 0);
+
+		if (p_icmp_info != NULL) {
+			sai->port_src = 0;
+			sai->port_dst = p_icmp_info->type * 256 + p_icmp_info->code;
+		}
+	}
+
+	sai->line_style = 1;
+	sai->conv_num = 0;
+	sai->display = TRUE;
+
+	g_queue_push_tail(sainfo->items, sai);
+
+	return TRUE;
+}
 
 static conversation_t *_find_or_create_conversation(packet_info * pinfo)
 {
@@ -777,7 +818,7 @@ dissect_extensions(tvbuff_t * tvb, packet_info *pinfo, gint offset, proto_tree *
 	guint8 version;
 	guint8 class_num;
 	guint8 c_type;
-	guint16 obj_length, obj_trunc_length;
+	guint16 obj_length, obj_trunc_length, checksum;
 	proto_item *ti, *tf_object;
 	proto_tree *ext_tree, *ext_object_tree;
 	gint obj_end_offset;
@@ -785,10 +826,6 @@ dissect_extensions(tvbuff_t * tvb, packet_info *pinfo, gint offset, proto_tree *
 	gboolean unknown_object;
 	guint8 int_info_obj_count;
 
-	if (!tree)
-		return;
-
-	ext_tree = NULL;
 	int_info_obj_count = 0;
 
 	reported_length = tvb_reported_length_remaining(tvb, offset);
@@ -814,8 +851,15 @@ dissect_extensions(tvbuff_t * tvb, packet_info *pinfo, gint offset, proto_tree *
 				   tvb, offset, 2, ENC_BIG_ENDIAN);
 
 	/* Checksum */
+	checksum = tvb_get_ntohs(tvb, offset + 2);
+	if (checksum == 0) {
+		proto_tree_add_checksum(ext_tree, tvb, offset + 2, hf_icmp_ext_checksum, hf_icmp_ext_checksum_status, &ei_icmp_ext_checksum,
+							pinfo, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NOT_PRESENT);
+
+	} else {
 	proto_tree_add_checksum(ext_tree, tvb, offset + 2, hf_icmp_ext_checksum, hf_icmp_ext_checksum_status, &ei_icmp_ext_checksum,
-							pinfo, ip_checksum_tvb(tvb, 0, reported_length), ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY|PROTO_CHECKSUM_IN_CKSUM);
+							pinfo, ip_checksum_tvb(tvb, offset, reported_length), ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY|PROTO_CHECKSUM_IN_CKSUM);
+	}
 
 	if (version != 1 && version != 2) {
 		/* Unsupported version */
@@ -1197,7 +1241,7 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 	guint32 conv_key[2];
 	icmp_transaction_t *trans = NULL;
 	nstime_t ts, time_relative;
-	ws_ip *iph = (ws_ip*)data;
+	ws_ip4 *iph = WS_IP4_PTR(data);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "ICMP");
 	col_clear(pinfo->cinfo, COL_INFO);
@@ -1663,7 +1707,7 @@ void proto_register_icmp(void)
 		  NULL, HFILL}},
 
 		{&hf_icmp_addr_entry_size,
-		 {"Number of addresses", "icmp.addr_entry_size", FT_UINT8, BASE_DEC, NULL,
+		 {"Address entry size", "icmp.addr_entry_size", FT_UINT8, BASE_DEC, NULL,
 		  0x0,
 		  NULL, HFILL}},
 
@@ -2024,6 +2068,7 @@ void proto_register_icmp(void)
 				       "Whether the 128th and following bytes of the ICMP payload should be decoded as MPLS extensions or as a portion of the original packet",
 				       &favor_icmp_mpls_ext);
 
+	register_seq_analysis("icmp", "ICMP Flows", proto_icmp, NULL, TL_REQUIRES_COLUMNS, icmp_seq_analysis_packet);
 	icmp_handle = register_dissector("icmp", dissect_icmp, proto_icmp);
 	icmp_tap = register_tap("icmp");
 }

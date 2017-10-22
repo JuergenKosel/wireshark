@@ -23,6 +23,14 @@ find_package( LYNX )
 find_package( XSLTPROC )
 if(ENABLE_CHM_GUIDES)
 	find_package( HTMLHelp )
+	if(HTML_HELP_COMPILER)
+		# We do not need the HTML Help headers and library, just the
+		# compiler. To avoid confusion, report the package as found.
+		# https://gitlab.kitware.com/cmake/cmake/issues/15886
+		set(HTMLHelp_FOUND 1)
+	else()
+		message(FATAL_ERROR "HTML Help Compiler is not installed (required for ENABLE_CHM_GUIDES)")
+	endif()
 endif()
 
 find_package( ASCIIDOC )
@@ -49,10 +57,69 @@ else()
 	endmacro()
 endif()
 
+set(COMMON_FILES
+	common_src/GPL_appendix.asciidoc
+)
+
 set(COMMON_GRAPHICS
 	common_graphics/note.svg
 	common_graphics/tip.svg
 	common_graphics/warning.svg
+)
+
+set(WSUG_TOOLS_HELP_COMMANDS
+	capinfos
+	dumpcap
+	editcap
+	mergecap
+	rawshark
+	reordercap
+	text2pcap
+	tshark
+)
+
+# We want the wsug_* targets to depend on the tools help files.
+# We want update_tools_help to be an independent target.
+# We don't necessarily want to depend on building our executables before
+# being able to build our documentation.
+set(WSUG_TOOLS_HELP_FILES)
+set(WSUG_TOOLS_PHONY_DEPS)
+
+# General help output
+foreach(th_command ${WSUG_TOOLS_HELP_COMMANDS})
+	set(th_file ${CMAKE_CURRENT_SOURCE_DIR}/wsug_src/${th_command}-h.txt)
+	set(th_phony ${th_command}_h_tools_help)
+	list(APPEND WSUG_TOOLS_HELP_FILES ${th_file})
+	list(APPEND WSUG_TOOLS_PHONY_DEPS ${th_phony})
+	add_custom_command(
+		OUTPUT ${th_phony}
+		COMMAND ${CMAKE_BINARY_DIR}/run/${th_command} -h > ${th_file}
+		DEPENDS ${CMAKE_BINARY_DIR}/run/${th_command}
+	)
+endforeach()
+
+# Extra command output
+# Note that these won't work on Windows unless we make -F and -T write
+# to stdout and return 0 or wrap the commands similar to hhc.exe.
+set(th_file ${CMAKE_CURRENT_SOURCE_DIR}/wsug_src/editcap-F.txt)
+set(th_phony editcap_F_tools_help)
+list(APPEND WSUG_TOOLS_HELP_FILES ${th_file})
+list(APPEND WSUG_TOOLS_PHONY_DEPS ${th_phony})
+add_custom_command(
+	OUTPUT ${th_phony}
+	COMMAND ${CMAKE_BINARY_DIR}/run/editcap -F > ${th_file}
+)
+set(th_file ${CMAKE_CURRENT_SOURCE_DIR}/wsug_src/editcap-T.txt)
+set(th_phony editcap_T_tools_help)
+list(APPEND WSUG_TOOLS_HELP_FILES ${th_file})
+list(APPEND WSUG_TOOLS_PHONY_DEPS ${th_phony})
+add_custom_command(
+	OUTPUT ${th_phony}
+	COMMAND ${CMAKE_BINARY_DIR}/run/editcap -T > ${th_file}
+)
+
+add_custom_target(update_tools_help
+	DEPENDS ${WSUG_TOOLS_PHONY_DEPS}
 )
 
 set(WSUG_FILES
@@ -73,6 +140,7 @@ set(WSUG_FILES
 	wsug_src/WSUG_chapter_use.asciidoc
 	wsug_src/WSUG_chapter_work.asciidoc
 	wsug_src/WSUG_preface.asciidoc
+	${COMMON_FILES}
 )
 
 set(WSUG_GRAPHICS
@@ -222,6 +290,7 @@ set(WSDG_FILES
 	wsdg_src/WSDG_chapter_works.asciidoc
 	wsdg_src/WSDG_preface.asciidoc
 	wsluarm.asciidoc
+	${COMMON_FILES}
 )
 
 set(WSDG_GRAPHICS
@@ -251,7 +320,7 @@ if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 	)
 endif()
 
-set( WSUG_BUILT_DEPS ws.css )
+set( WSUG_BUILT_DEPS ws.css ${WSUG_TOOLS_HELP_FILES})
 
 set(WSDG_SOURCE
 	${WSDG_FILES}
@@ -288,6 +357,11 @@ set(WSLUA_MODULES
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_struct.c
 )
 
+if(NOT ASCIIDOC_FOUND)
+	message(WARNING "AsciiDoc not found, cannot build documentation.")
+	return()
+endif()
+
 # Empty file to trigger wsluarm generation.
 ADD_CUSTOM_COMMAND(
 	OUTPUT
@@ -318,7 +392,7 @@ if(ENABLE_HTML_GUIDES OR ENABLE_PDF_GUIDES OR ENABLE_CHM_GUIDES)
 	add_custom_target(user_guide_docbook DEPENDS generate_user-guide.xml)
 	set_target_properties(user_guide_docbook PROPERTIES FOLDER "Docbook")
 
-	ASCIIDOC2DOCBOOK(developer-guide.asciidoc ASCIIDOC_WSLUARM_CONF_FILES WSDG_SOURCE WSDG_BUILT_DEPS)
+	ASCIIDOC2DOCBOOK(developer-guide.asciidoc ASCIIDOC_CONF_FILES WSDG_SOURCE WSDG_BUILT_DEPS)
 	add_custom_target(developer_guide_docbook DEPENDS generate_developer-guide.xml)
 	set_target_properties(developer_guide_docbook PROPERTIES FOLDER "Docbook")
 

@@ -47,7 +47,7 @@
 #endif
 
 #include "ui/simple_dialog.h"
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
 
 #include "wsutil/file_util.h"
 #include "wsutil/str_util.h"
@@ -396,12 +396,6 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
     capture_callback_invoke(capture_cb_capture_fixed_continue, cap_session);
   }
 
-  /* update the main window so we get events (e.g. from the stop toolbar button) */
-  /* This causes a hang on Windows (see bug 7305). Do we need this on any platform? */
-#ifndef _WIN32
-  main_window_update();
-#endif
-
   if(capture_opts->show_info)
     capture_info_new_packets(to_read, cap_session->cap_data_info);
 }
@@ -470,19 +464,19 @@ capture_input_cfilter_error_message(capture_session *cap_session, guint i,
   gchar *safe_cfilter;
   gchar *safe_descr;
   gchar *safe_cfilter_error_msg;
-  interface_options interface_opts;
+  interface_options *interface_opts;
 
   g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Capture filter error message from child: \"%s\"", error_message);
 
   g_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
   g_assert(i < capture_opts->ifaces->len);
 
-  interface_opts = g_array_index(capture_opts->ifaces, interface_options, i);
-  safe_cfilter = simple_dialog_format_message(interface_opts.cfilter);
-  safe_descr = simple_dialog_format_message(interface_opts.descr);
+  interface_opts = &g_array_index(capture_opts->ifaces, interface_options, i);
+  safe_cfilter = simple_dialog_format_message(interface_opts->cfilter);
+  safe_descr = simple_dialog_format_message(interface_opts->descr);
   safe_cfilter_error_msg = simple_dialog_format_message(error_message);
   /* Did the user try a display filter? */
-  if (dfilter_compile(interface_opts.cfilter, &rfcode, NULL) && rfcode != NULL) {
+  if (dfilter_compile(interface_opts->cfilter, &rfcode, NULL) && rfcode != NULL) {
     simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
       "%sInvalid capture filter \"%s\" for interface %s.%s\n"
       "\n"
@@ -647,7 +641,7 @@ capture_stat_start(capture_options *capture_opts) {
   if_stat_cache_t *sc = NULL;
   if_stat_cache_item_t *sc_item;
   guint i;
-  interface_t device;
+  interface_t *device;
 
   /* Fire up dumpcap. */
   /*
@@ -676,11 +670,11 @@ capture_stat_start(capture_options *capture_opts) {
 
     /* Initialize the cache */
     for (i = 0; i < capture_opts->all_ifaces->len; i++) {
-      device = g_array_index(capture_opts->all_ifaces, interface_t, i);
-      if (device.type != IF_PIPE) {
+      device = &g_array_index(capture_opts->all_ifaces, interface_t, i);
+      if (device->type != IF_PIPE) {
         sc_item = (if_stat_cache_item_t *)g_malloc0(sizeof(if_stat_cache_item_t));
-        g_assert(device.if_info.name);
-        sc_item->name = g_strdup(device.if_info.name);
+        g_assert(device->if_info.name);
+        sc_item->name = g_strdup(device->if_info.name);
         sc->cache_list = g_list_append(sc->cache_list, sc_item);
       }
     }

@@ -100,6 +100,8 @@
 
 #include "wimaxasncp_dict.h"
 
+DIAG_OFF(sign-compare)
+
 typedef struct entity_t {
 	gchar *name;
 	gchar *file;
@@ -368,7 +370,7 @@ since_attr since=\042
 
 
 <GET_ATTR>{ndquot} {
-	*yyextra->attr_str = g_strdup(yytext);
+	*yyextra->attr_str = wmem_strdup(wmem_epan_scope(), yytext);
 	D(("%s\n",yytext));
 	yyextra->attr_str = NULL;
 	BEGIN END_ATTR;
@@ -442,12 +444,7 @@ since_attr since=\042
 <IN_DICT>{tlv_start}	{
 	D(("tlv_start\n"));
 
-	yyextra->tlv = g_new(wimaxasncp_dict_tlv_t,1);
-	yyextra->tlv->type = 0;
-	yyextra->tlv->name = NULL;
-	yyextra->tlv->description = NULL;
-	yyextra->tlv->decoder = 0;
-	yyextra->tlv->since = 0;
+	yyextra->tlv = wmem_new0(wmem_epan_scope(), wimaxasncp_dict_tlv_t);
 	yyextra->tlv->hf_root = -1;
 	yyextra->tlv->hf_value = -1;
 	yyextra->tlv->hf_ipv4 = -1;
@@ -460,9 +457,6 @@ since_attr since=\042
 	yyextra->tlv->hf_ipv6_mask = -1;
 	yyextra->tlv->hf_vendor_id = -1;
 	yyextra->tlv->hf_vendor_rest_of_info = -1;
-	yyextra->tlv->enum_vs = NULL;
-	yyextra->tlv->enums = NULL;
-	yyextra->tlv->next = NULL;
 
 	if (! yyextra->dict->tlvs )
 		yyextra->last_tlv = yyextra->dict->tlvs = yyextra->tlv;
@@ -484,7 +478,7 @@ since_attr since=\042
 <IN_TLV>{enum_start} {
 	D(("enum_start\n"));
 
-	yyextra->enumitem = g_new(wimaxasncp_dict_enum_t,1);
+	yyextra->enumitem = wmem_new(wmem_epan_scope(), wimaxasncp_dict_enum_t);
 	yyextra->enumitem->name = NULL;
 	yyextra->enumitem->code = 0;
 	yyextra->enumitem->next = NULL;
@@ -520,6 +514,8 @@ since_attr since=\042
 
 
 %%
+
+DIAG_ON(sign-compare)
 
 static int debugging  = 0;
 
@@ -794,7 +790,7 @@ wimaxasncp_dict_t *wimaxasncp_dict_scan(
 void wimaxasncp_dict_free(wimaxasncp_dict_t *d) {
 	wimaxasncp_dict_tlv_t *t, *tn;
 
-#define FREE_NAMEANDOBJ(n) do { if(n->name) g_free(n->name); g_free(n); } while(0)
+#define FREE_NAMEANDOBJ(n) do { g_free(n->name); g_free(n); } while(0)
 
 	for (t = d->tlvs; t; t = tn) {
 		wimaxasncp_dict_enum_t *e, *en;
@@ -805,7 +801,7 @@ void wimaxasncp_dict_free(wimaxasncp_dict_t *d) {
 			FREE_NAMEANDOBJ(e);
 		}
 
-		if (!t->description)  g_free(t->description);
+		g_free(t->description);
 		FREE_NAMEANDOBJ(t);
 	}
 

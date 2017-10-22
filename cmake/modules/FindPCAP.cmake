@@ -58,7 +58,7 @@ if( PCAP_FOUND )
   #
   # Note: for pcap_breakloop() and pcap_findalldevs(), the autoconf script
   # checks for more than just whether the function exists, it also checks
-  # for whether pcap.h declares it; Mac OS X software/security updates can
+  # for whether pcap.h declares it; macOS software/security updates can
   # update libpcap without updating the headers.
   #
   check_function_exists( "pcap_breakloop" HAVE_PCAP_BREAKLOOP )
@@ -85,11 +85,11 @@ if( PCAP_FOUND )
   check_function_exists( "bpf_image" HAVE_BPF_IMAGE )
   check_function_exists( "pcap_setsampling" HAVE_PCAP_SETSAMPLING )
   check_function_exists( "pcap_set_tstamp_precision" HAVE_PCAP_SET_TSTAMP_PRECISION )
+  check_function_exists( "pcap_set_tstamp_type" HAVE_PCAP_SET_TSTAMP_TYPE )
   # Remote pcap checks
   check_function_exists( "pcap_open" HAVE_PCAP_OPEN )
   if( HAVE_PCAP_OPEN )
     set( HAVE_PCAP_REMOTE 1 )
-    set( HAVE_REMOTE 1 )
   endif()
 
   cmake_pop_check_state()

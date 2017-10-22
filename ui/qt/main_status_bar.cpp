@@ -26,20 +26,21 @@
 #include "file.h"
 
 #include <epan/expert.h>
+#include <epan/prefs.h>
 
 #include <wsutil/filesystem.h>
 #include <wsutil/utf8_entities.h>
 
 #include "ui/main_statusbar.h"
 #include "ui/profile.h"
-#include "ui/qt/qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 
 
 #include "capture_file.h"
 #include "main_status_bar.h"
 #include "profile_dialog.h"
-#include "stock_icon.h"
-#include "tango_colors.h"
+#include <ui/qt/utils/stock_icon.h>
+#include <ui/qt/utils/tango_colors.h>
 
 #include <QAction>
 #include <QHBoxLayout>
@@ -414,6 +415,11 @@ void MainStatusBar::popProgressStatus()
     progress_frame_.hide();
 }
 
+void MainStatusBar::packetSelectionChanged()
+{
+    showCaptureStatistics();
+}
+
 void MainStatusBar::showCaptureStatistics()
 {
     QString packets_str;
@@ -421,10 +427,20 @@ void MainStatusBar::showCaptureStatistics()
 #ifdef HAVE_LIBPCAP
     /* Do we have any packets? */
     if (cs_fixed_ && cs_count_ > 0) {
+        if (prefs.gui_qt_show_selected_packet && cap_file_->current_frame) {
+            packets_str.append(QString(tr("Selected Packet: %1 %2 "))
+                              .arg(cap_file_->current_frame->num)
+                              .arg(UTF8_MIDDLE_DOT));
+        }
         packets_str.append(QString(tr("Packets: %1"))
                           .arg(cs_count_));
     } else if (cap_file_ && cs_count_ > 0) {
-        packets_str.append(QString(tr("Packets: %1 %4 Displayed: %2 %4 Marked: %3"))
+        if (prefs.gui_qt_show_selected_packet && cap_file_->current_frame) {
+            packets_str.append(QString(tr("Selected Packet: %1 %2 "))
+                              .arg(cap_file_->current_frame->num)
+                              .arg(UTF8_MIDDLE_DOT));
+        }
+        packets_str.append(QString(tr("Packets: %1 %4 Displayed: %2 (%3%)"))
                           .arg(cap_file_->count)
                           .arg(cap_file_->displayed_count)
                           .arg((100.0*cap_file_->displayed_count)/cap_file_->count, 0, 'f', 1)
@@ -447,7 +463,7 @@ void MainStatusBar::showCaptureStatistics()
                               .arg(cap_file_->ignored_count)
                               .arg((100.0*cap_file_->ignored_count)/cap_file_->count, 0, 'f', 1));
         }
-        if(!cap_file_->is_tempfile) {
+        if(prefs.gui_qt_show_file_load_time && !cap_file_->is_tempfile) {
             /* Loading an existing file */
             gulong computed_elapsed = cf_get_computed_elapsed(cap_file_);
             packets_str.append(QString(tr(" %1  Load time: %2:%3.%4"))

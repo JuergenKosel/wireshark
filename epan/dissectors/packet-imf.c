@@ -155,6 +155,14 @@ static dissector_handle_t imf_handle;
 
 static expert_field ei_imf_unknown_param = EI_INIT;
 
+/* Used for IMF Export Object feature */
+typedef struct _imf_eo_t {
+  gchar    *filename;
+  gchar    *sender_data;
+  gchar    *subject_data;
+  guint32  payload_len;
+  gchar    *payload_data;
+} imf_eo_t;
 
 static gboolean
 imf_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *data)
@@ -744,7 +752,11 @@ dissect_imf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     eo_info->subject_data = "";
   }
 
+  /* Want to preserve existing protocol name and show that it is carrying IMF */
+  col_append_str(pinfo->cinfo, COL_PROTOCOL, "|");
+  col_set_fence(pinfo->cinfo, COL_PROTOCOL);
   col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
+
   col_clear(pinfo->cinfo, COL_INFO);
 
   item = proto_tree_add_item(tree, proto_imf, tvb, 0, -1, ENC_NA);

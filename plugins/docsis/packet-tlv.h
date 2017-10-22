@@ -171,6 +171,7 @@
 #define CFR_IP_CLASSIFIER 9
 #define CFR_ETH_CLASSIFIER 10
 #define CFR_8021Q_CLASSIFIER 11
+#define CFR_IP6_CLASSIFIER 12
 #define CFR_VENDOR_SPEC 43
 
 /* Define Classifier Error sub-subtypes
@@ -193,6 +194,17 @@
 #define CFR_IP_SRCPORT_END 8
 #define CFR_IP_DSTPORT_START 9
 #define CFR_IP_DSTPORT_END 10
+
+/* Define IPv6 Classifier sub-subtypes
+ * These are subtypes of CFR_IP_CLASSIFIER ([22/23].12)
+ */
+#define CFR_IP6_TRAFFIC_CLASS 1
+#define CFR_IP6_FLOW_LABEL 2
+#define CFR_IP6_NEXT_HEADER 3
+#define CFR_IP6_SOURCE_ADDR 4
+#define CFR_IP6_SOURCE_PREFIX_LENGTH 5
+#define CFR_IP6_DESTINATION_ADDR 6
+#define CFR_IP6_DESTINATION_PREFIX_LENGTH 7
 
 /* Define Ethertype Classifier sub-subtypes
  * These are subtypes of CFR_ETH_CLASSIFIER ([22/23].10)
@@ -226,6 +238,9 @@
 #define SFW_MIN_RSVD_PACKETSIZE 11
 #define SFW_ACTIVE_QOS_TIMEOUT 12
 #define SFW_ADMITT_QOS_TIMEOUT 13
+#define SFW_REQUIRED_ATTRIBUTE_MASK 31
+#define SFW_FORBIDDEN_ATTRIBUTE_MASK 32
+#define SFW_ATTRIBUTE_AGGREGATION_RULE_MASK 33
 #define SFW_VENDOR_SPEC 43
 /* The following types only apply to
  * TLV_UPSTREAM_SERVICE_FLOW (24)
@@ -461,5 +476,7 @@
  */
 #define CMTS_MC_SESS_ENC_GRP 1
 #define CMTS_MC_SESS_ENC_SRC 2
+
+extern value_string_ext docsis_conf_code_ext;
 
 #endif

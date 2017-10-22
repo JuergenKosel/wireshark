@@ -71,17 +71,18 @@
 
 #include <wiretap/wtap.h>
 
+#include <wsutil/cmdarg_err.h>
 #include <wsutil/crash_info.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
-#include <ws_version_info.h>
+#include <version_info.h>
 #include <wiretap/wtap_opttypes.h>
 
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
 
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include <wsutil/str_util.h>
 #include <wsutil/file_util.h>
 
@@ -94,6 +95,8 @@
 #ifdef _WIN32
 #include <wsutil/unicode-utils.h>
 #endif /* _WIN32 */
+
+#include "ui/failure_message.h"
 
 #define INVALID_OPTION 1
 #define BAD_FLAG 1
@@ -156,17 +159,18 @@ static gboolean cap_order          = TRUE;  /* Report if packets are in chronolo
 
 static gboolean cap_file_hashes    = TRUE;  /* Calculate file hashes */
 
-#define HASH_SIZE_SHA1   20
+// Strongest to weakest
+#define HASH_SIZE_SHA256 32
 #define HASH_SIZE_RMD160 20
-#define HASH_SIZE_MD5    16
+#define HASH_SIZE_SHA1   20
 
-#define HASH_STR_SIZE (41) /* Max hash size * 2 + '\0' */
+#define HASH_STR_SIZE (65) /* Max hash size * 2 + '\0' */
 #define HASH_BUF_SIZE (1024 * 1024)
 
 
-static gchar file_sha1[HASH_STR_SIZE];
+static gchar file_sha256[HASH_STR_SIZE];
 static gchar file_rmd160[HASH_STR_SIZE];
-static gchar file_md5[HASH_STR_SIZE];
+static gchar file_sha1[HASH_STR_SIZE];
 
 /*
  * If we have at least two packets with time stamps, and they're not in
@@ -695,21 +699,13 @@ print_stats(const gchar *filename, capture_info *cf_info)
     }
   }
   if (cap_file_hashes) {
-    printf     ("SHA1:                %s\n", file_sha1);
+    printf     ("SHA256:              %s\n", file_sha256);
     printf     ("RIPEMD160:           %s\n", file_rmd160);
-    printf     ("MD5:                 %s\n", file_md5);
+    printf     ("SHA1:                %s\n", file_sha1);
   }
   if (cap_order)          printf     ("Strict time order:   %s\n", order_string(cf_info->order));
 
   if (cf_info->shb != NULL) {
-    if (cap_comment) {
-      unsigned int i;
-      char *str;
-
-      for (i = 0; wtap_block_get_nth_string_option_value(cf_info->shb, OPT_COMMENT, i, &str) == WTAP_OPTTYPE_SUCCESS; i++) {
-        show_option_string("Capture comment:     ", str);
-      }
-    }
     if (cap_file_more_info) {
       char *str;
 
@@ -719,6 +715,14 @@ print_stats(const gchar *filename, capture_info *cf_info)
         show_option_string("Capture oper-sys:    ", str);
       if (wtap_block_get_string_option_value(cf_info->shb, OPT_SHB_USERAPPL, &str) == WTAP_OPTTYPE_SUCCESS)
         show_option_string("Capture application: ", str);
+    }
+    if (cap_comment) {
+      unsigned int i;
+      char *str;
+
+      for (i = 0; wtap_block_get_nth_string_option_value(cf_info->shb, OPT_COMMENT, i, &str) == WTAP_OPTTYPE_SUCCESS; i++) {
+        show_option_string("Capture comment:     ", str);
+      }
     }
 
     if (cap_file_idb && cf_info->num_interfaces != 0) {
@@ -783,17 +787,17 @@ print_stats_table_header(void)
   if (cap_packet_size)    print_stats_table_header_label("Average packet size (bytes)");
   if (cap_packet_rate)    print_stats_table_header_label("Average packet rate (packets/sec)");
   if (cap_file_hashes) {
-    print_stats_table_header_label("SHA1");
+    print_stats_table_header_label("SHA256");
     print_stats_table_header_label("RIPEMD160");
-    print_stats_table_header_label("MD5");
+    print_stats_table_header_label("SHA1");
   }
   if (cap_order)          print_stats_table_header_label("Strict time order");
-  if (cap_comment)        print_stats_table_header_label("Capture comment");
   if (cap_file_more_info) {
     print_stats_table_header_label("Capture hardware");
     print_stats_table_header_label("Capture oper-sys");
     print_stats_table_header_label("Capture application");
   }
+  if (cap_comment)        print_stats_table_header_label("Capture comment");
 
   printf("\n");
 }
@@ -951,7 +955,7 @@ print_stats_table(const gchar *filename, capture_info *cf_info)
   if (cap_file_hashes) {
     putsep();
     putquote();
-    printf("%s", file_sha1);
+    printf("%s", file_sha256);
     putquote();
 
     putsep();
@@ -961,7 +965,7 @@ print_stats_table(const gchar *filename, capture_info *cf_info)
 
     putsep();
     putquote();
-    printf("%s", file_md5);
+    printf("%s", file_sha1);
     putquote();
   }
 
@@ -973,36 +977,6 @@ print_stats_table(const gchar *filename, capture_info *cf_info)
   }
 
   if (cf_info->shb != NULL) {
-    /*
-     * this is silly to put into a table format, but oh well
-     * note that there may be *more than one* of each of these types
-     * of options.  To mitigate some of the potential silliness should
-     * the if(cap_comment) block be moved AFTER the if(cap_file_more_info)
-     * block?  That would make any comments the last item(s) in each row.
-     * And/or should we add an cli option to inhibit the cap_comment to
-     * more easily manage the potential silliness?  Potential silliness
-     * includes multiple comments and/or comments with embeded newlines.
-     */
-    if (cap_comment) {
-      unsigned int i;
-      char *opt_comment;
-      gboolean have_cap = FALSE;
-
-      for (i = 0; wtap_block_get_nth_string_option_value(cf_info->shb, OPT_COMMENT, i, &opt_comment) == WTAP_OPTTYPE_SUCCESS; i++) {
-        have_cap = TRUE;
-        putsep();
-        putquote();
-        printf("%s", opt_comment);
-        putquote();
-      }
-      if(!have_cap) {
-        /* Maintain column alignment when we have no OPT_COMMENT */
-        putsep();
-        putquote();
-        putquote();
-      }
-    }
-
     if (cap_file_more_info) {
       char *str;
 
@@ -1027,6 +1001,38 @@ print_stats_table(const gchar *filename, capture_info *cf_info)
       }
       putquote();
     }
+
+    /*
+     * One might argue that the following is silly to put into a table format,
+     * but oh well note that there may be *more than one* of each of these types
+     * of options.  To mitigate some of the potential silliness the if(cap_comment)
+     * block is moved AFTER the if(cap_file_more_info) block.  This will make any
+     * comments the last item(s) in each row.  We now have a new -K option to
+     * disable cap_comment to more easily manage the potential silliness.
+     * Potential silliness includes multiple comments (therefore resulting in
+     * more than one additional column and/or comments with embeded newlines
+     * and/or possible delimiters).
+     */
+    if (cap_comment) {
+      unsigned int i;
+      char *opt_comment;
+      gboolean have_cap = FALSE;
+
+      for (i = 0; wtap_block_get_nth_string_option_value(cf_info->shb, OPT_COMMENT, i, &opt_comment) == WTAP_OPTTYPE_SUCCESS; i++) {
+        have_cap = TRUE;
+        putsep();
+        putquote();
+        printf("%s", opt_comment);
+        putquote();
+      }
+      if(!have_cap) {
+        /* Maintain column alignment when we have no OPT_COMMENT */
+        putsep();
+        putquote();
+        putquote();
+      }
+    }
+
   }
 
   printf("\n");
@@ -1217,19 +1223,15 @@ process_cap_file(wtap *wth, const char *filename)
 
   if (err != 0) {
     fprintf(stderr,
-        "capinfos: An error occurred after reading %u packets from \"%s\": %s.\n",
-        packet, filename, wtap_strerror(err));
+        "capinfos: An error occurred after reading %u packets from \"%s\".\n",
+        packet, filename);
+    cfile_read_failure_message("capinfos", filename, err, err_info);
     if (err == WTAP_ERR_SHORT_READ) {
         /* Don't give up completely with this one. */
         status = 1;
         fprintf(stderr,
           "  (will continue anyway, checksums might be incorrect)\n");
     } else {
-        if (err_info != NULL) {
-            fprintf(stderr, "(%s)\n", err_info);
-            g_free(err_info);
-        }
-
         cleanup_capture_info(&cf_info);
         return 1;
     }
@@ -1322,7 +1324,7 @@ print_usage(FILE *output)
   fprintf(output, "  -E display the capture file encapsulation\n");
   fprintf(output, "  -I display the capture file interface information\n");
   fprintf(output, "  -F display additional capture file information\n");
-  fprintf(output, "  -H display the SHA1, RMD160, and MD5 hashes of the file\n");
+  fprintf(output, "  -H display the SHA256, RMD160, and SHA1 hashes of the file\n");
   fprintf(output, "  -k display the capture comment\n");
   fprintf(output, "\n");
   fprintf(output, "Size infos:\n");
@@ -1365,6 +1367,7 @@ print_usage(FILE *output)
   fprintf(output, "  -h display this help and exit\n");
   fprintf(output, "  -C cancel processing if file open fails (default is to continue)\n");
   fprintf(output, "  -A generate all infos (default)\n");
+  fprintf(output, "  -K disable displaying the capture comment\n");
   fprintf(output, "\n");
   fprintf(output, "Options are processed from left to right order with later options superceding\n");
   fprintf(output, "or adding to earlier options.\n");
@@ -1373,18 +1376,27 @@ print_usage(FILE *output)
   fprintf(output, "output format.\n");
 }
 
-#ifdef HAVE_PLUGINS
 /*
- * General errors are reported with an console message in capinfos.
+ * General errors and warnings are reported with an console message
+ * in capinfos.
  */
 static void
-failure_message(const char *msg_format, va_list ap)
+failure_warning_message(const char *msg_format, va_list ap)
 {
   fprintf(stderr, "capinfos: ");
   vfprintf(stderr, msg_format, ap);
   fprintf(stderr, "\n");
 }
-#endif
+
+/*
+ * Report additional information for an error in command-line arguments.
+ */
+static void
+failure_message_cont(const char *msg_format, va_list ap)
+{
+  vfprintf(stderr, msg_format, ap);
+  fprintf(stderr, "\n");
+}
 
 static void
 hash_to_str(const unsigned char *hash, size_t length, char *str) {
@@ -1420,6 +1432,8 @@ main(int argc, char *argv[])
 
   /* Set the C-language locale to the native environment. */
   setlocale(LC_ALL, "");
+
+  cmdarg_err_init(failure_warning_message, failure_message_cont);
 
   /* Get the decimal point. */
   decimal_point = g_strdup(localeconv()->decimal_point);
@@ -1465,7 +1479,8 @@ main(int argc, char *argv[])
   wtap_init();
 
 #ifdef HAVE_PLUGINS
-  init_report_err(failure_message, NULL, NULL, NULL);
+  init_report_message(failure_warning_message, failure_warning_message,
+                      NULL, NULL, NULL);
 
   /* Scan for plugins.  This does *not* call their registration routines;
      that's done later.
@@ -1480,7 +1495,7 @@ main(int argc, char *argv[])
 #endif
 
   /* Process the options */
-  while ((opt = getopt_long(argc, argv, "abcdehiklmoqrstuvxyzABCEFHILMNQRST", long_options, NULL)) !=-1) {
+  while ((opt = getopt_long(argc, argv, "abcdehiklmoqrstuvxyzABCEFHIKLMNQRST", long_options, NULL)) !=-1) {
 
     switch (opt) {
 
@@ -1566,6 +1581,10 @@ main(int argc, char *argv[])
       case 'k':
         if (report_all_infos) disable_all_infos();
         cap_comment = TRUE;
+        break;
+
+      case 'K':
+        cap_comment = FALSE;
         break;
 
       case 'F':
@@ -1668,10 +1687,10 @@ main(int argc, char *argv[])
 
   if (cap_file_hashes) {
     gcry_check_version(NULL);
-    gcry_md_open(&hd, GCRY_MD_SHA1, 0);
+    gcry_md_open(&hd, GCRY_MD_SHA256, 0);
     if (hd) {
       gcry_md_enable(hd, GCRY_MD_RMD160);
-      gcry_md_enable(hd, GCRY_MD_MD5);
+      gcry_md_enable(hd, GCRY_MD_SHA1);
     }
     hash_buf = (char *)g_malloc(HASH_BUF_SIZE);
   }
@@ -1680,9 +1699,9 @@ main(int argc, char *argv[])
 
   for (opt = optind; opt < argc; opt++) {
 
-    g_strlcpy(file_sha1, "<unknown>", HASH_STR_SIZE);
+    g_strlcpy(file_sha256, "<unknown>", HASH_STR_SIZE);
     g_strlcpy(file_rmd160, "<unknown>", HASH_STR_SIZE);
-    g_strlcpy(file_md5, "<unknown>", HASH_STR_SIZE);
+    g_strlcpy(file_sha1, "<unknown>", HASH_STR_SIZE);
 
     if (cap_file_hashes) {
       fh = ws_fopen(argv[opt], "rb");
@@ -1691,9 +1710,9 @@ main(int argc, char *argv[])
           gcry_md_write(hd, hash_buf, hash_bytes);
         }
         gcry_md_final(hd);
-        hash_to_str(gcry_md_read(hd, GCRY_MD_SHA1), HASH_SIZE_SHA1, file_sha1);
+        hash_to_str(gcry_md_read(hd, GCRY_MD_SHA256), HASH_SIZE_SHA256, file_sha256);
         hash_to_str(gcry_md_read(hd, GCRY_MD_RMD160), HASH_SIZE_RMD160, file_rmd160);
-        hash_to_str(gcry_md_read(hd, GCRY_MD_MD5), HASH_SIZE_MD5, file_md5);
+        hash_to_str(gcry_md_read(hd, GCRY_MD_SHA1), HASH_SIZE_SHA1, file_sha1);
       }
       if (fh) fclose(fh);
       if (hd) gcry_md_reset(hd);
@@ -1702,12 +1721,7 @@ main(int argc, char *argv[])
     wth = wtap_open_offline(argv[opt], WTAP_TYPE_AUTO, &err, &err_info, FALSE);
 
     if (!wth) {
-      fprintf(stderr, "capinfos: Can't open %s: %s\n", argv[opt],
-          wtap_strerror(err));
-      if (err_info != NULL) {
-        fprintf(stderr, "(%s)\n", err_info);
-        g_free(err_info);
-      }
+      cfile_open_failure_message("capinfos", argv[opt], err, err_info);
       overall_error_status = 2; /* remember that an error has occurred */
       if (!continue_after_wtap_open_offline_failure)
         goto exit;

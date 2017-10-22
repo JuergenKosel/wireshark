@@ -36,7 +36,7 @@
 #include "wsutil/wsgetopt.h"
 #endif
 
-#include <ws_version_info.h>
+#include <version_info.h>
 
 #include <wsutil/clopts_common.h>
 #include <wsutil/cmdarg_err.h>
@@ -93,7 +93,11 @@ commandline_print_usage(gboolean for_help_option) {
     fprintf(output, "Capture interface:\n");
     fprintf(output, "  -i <interface>           name or idx of interface (def: first non-loopback)\n");
     fprintf(output, "  -f <capture filter>      packet filter in libpcap filter syntax\n");
-    fprintf(output, "  -s <snaplen>             packet snapshot length (def: 65535)\n");
+#ifdef HAVE_PCAP_CREATE
+    fprintf(output, "  -s <snaplen>             packet snapshot length (def: appropriate maximum)\n");
+#else
+    fprintf(output, "  -s <snaplen>             packet snapshot length (def: %u)\n", WTAP_MAX_PACKET_SIZE_STANDARD);
+#endif
     fprintf(output, "  -p                       don't capture in promiscuous mode\n");
     fprintf(output, "  -k                       start capturing immediately (def: do nothing)\n");
     fprintf(output, "  -S                       update packet display when new packets are captured\n");
@@ -105,8 +109,10 @@ commandline_print_usage(gboolean for_help_option) {
     fprintf(output, "  -B <buffer size>         size of kernel buffer (def: %dMB)\n", DEFAULT_CAPTURE_BUFFER_SIZE);
 #endif
     fprintf(output, "  -y <link type>           link layer type (def: first appropriate)\n");
+    fprintf(output, "  --time-stamp-type <type> timestamp method for interface\n");
     fprintf(output, "  -D                       print list of interfaces and exit\n");
     fprintf(output, "  -L                       print list of link-layer types of iface and exit\n");
+    fprintf(output, "  --list-time-stamp-types  print list of timestamp types for iface and exit\n");
     fprintf(output, "\n");
     fprintf(output, "Capture stop conditions:\n");
     fprintf(output, "  -c <packet count>        stop after n packets (def: infinite)\n");
@@ -135,6 +141,8 @@ commandline_print_usage(gboolean for_help_option) {
     fprintf(output, "  -d %s ...\n", DECODE_AS_ARG_TEMPLATE);
     fprintf(output, "                           \"Decode As\", see the man page for details\n");
     fprintf(output, "                           Example: tcp.port==8888,http\n");
+    fprintf(output, "  --enable-protocol <proto_name>\n");
+    fprintf(output, "                           enable dissection of proto_name\n");
     fprintf(output, "  --disable-protocol <proto_name>\n");
     fprintf(output, "                           disable dissection of proto_name\n");
     fprintf(output, "  --enable-heuristic <short_name>\n");
@@ -347,6 +355,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
     int opt;
     gboolean arg_error = FALSE;
 #ifdef HAVE_LIBPCAP
+    const char *list_option_supplied = NULL;
     int status;
 #else
     gboolean capture_option_specified;
@@ -354,7 +363,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
 
     /*
      * To reset the options parser, set optreset to 1 on platforms that
-     * have optreset (documented in *BSD and OS X, apparently present but
+     * have optreset (documented in *BSD and macOS, apparently present but
      * not documented in Solaris - the Illumos repository seems to
      * suggest that the first Solaris getopt_long(), at least as of 2004,
      * was based on the NetBSD one, it had optreset) and set optind to 1,
@@ -399,6 +408,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
 #ifdef HAVE_LIBPCAP
     global_commandline_info.start_capture = FALSE;
     global_commandline_info.list_link_layer_types = FALSE;
+    global_commandline_info.list_timestamp_types = FALSE;
     global_commandline_info.quit_after_cap = getenv("WIRESHARK_QUIT_AFTER_CAPTURE") ? TRUE : FALSE;
 #endif
     global_commandline_info.full_screen = FALSE;
@@ -414,6 +424,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
             case 'H':        /* Hide capture info dialog box */
             case 'p':        /* Don't capture in promiscuous mode */
             case 'i':        /* Use interface x */
+            case LONGOPT_SET_TSTAMP_TYPE: /* Set capture timestamp type */
 #ifdef HAVE_PCAP_CREATE
             case 'I':        /* Capture in monitor mode, if available */
 #endif
@@ -463,17 +474,32 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
             case 'L':        /* Print list of link-layer types and exit */
 #ifdef HAVE_LIBPCAP
                 global_commandline_info.list_link_layer_types = TRUE;
+                list_option_supplied = "-L";
+#else
+                capture_option_specified = TRUE;
+                arg_error = TRUE;
+#endif
+                break;
+            case LONGOPT_LIST_TSTAMP_TYPES:
+#ifdef HAVE_LIBPCAP
+                global_commandline_info.list_timestamp_types = TRUE;
+                list_option_supplied = "--list-time-stamp-types";
 #else
                 capture_option_specified = TRUE;
                 arg_error = TRUE;
 #endif
                 break;
             case 'o':        /* Override preference from command line */
-                switch (prefs_set_pref(optarg)) {
+            {
+                char *errmsg = NULL;
+
+                switch (prefs_set_pref(optarg, &errmsg)) {
                     case PREFS_SET_OK:
                         break;
                     case PREFS_SET_SYNTAX_ERR:
-                        cmdarg_err("Invalid -o flag \"%s\"", optarg);
+                        cmdarg_err("Invalid -o flag \"%s\"%s%s", optarg,
+                                errmsg ? ": " : "", errmsg ? errmsg : "");
+                        g_free(errmsg);
                         exit(1);
                         break;
                     case PREFS_SET_NO_SUCH_PREF:
@@ -505,6 +531,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                         g_assert_not_reached();
                 }
                 break;
+            }
             case 'P':
                 /* Path settings were already processed just ignore them this time*/
                 break;
@@ -586,14 +613,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                  * file - yes, you could have "-r" as the last part of the command,
                  * but that's a bit ugly.
                  */
-#ifndef HAVE_GTKOSXAPPLICATION
-                /*
-                 * For GTK+ Mac Integration, file name passed as free argument passed
-                 * through grag-and-drop and opened twice sometimes causing crashes.
-                 * Subject to report to GTK+ MAC.
-                 */
                 global_commandline_info.cf_name = g_strdup(argv[0]);
-#endif
             }
             argc--;
             argv++;
@@ -619,18 +639,18 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
     }
 
 #ifdef HAVE_LIBPCAP
-    if (global_commandline_info.start_capture && global_commandline_info.list_link_layer_types) {
+    if (global_commandline_info.start_capture && list_option_supplied) {
         /* Specifying *both* is bogus. */
-        cmdarg_err("You can't specify both -L and a live capture.");
+        cmdarg_err("You can't specify both %s and a live capture.", list_option_supplied);
         exit(1);
     }
 
-    if (global_commandline_info.list_link_layer_types) {
+    if (list_option_supplied) {
         /* We're supposed to list the link-layer types for an interface;
            did the user also specify a capture file to be read? */
         if (global_commandline_info.cf_name) {
             /* Yes - that's bogus. */
-            cmdarg_err("You can't specify -L and a capture file to be read.");
+            cmdarg_err("You can't specify %s and a capture file to be read.", list_option_supplied);
             exit(1);
         }
         /* No - did they specify a ring buffer option? */
@@ -660,8 +680,10 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                 cmdarg_err("Ring buffer requested, but capture isn't being saved to a permanent file.");
                 global_capture_opts.multi_files_on = FALSE;
             }
-            if (!global_capture_opts.has_autostop_filesize && !global_capture_opts.has_file_duration) {
-                cmdarg_err("Ring buffer requested, but no maximum capture file size or duration were specified.");
+            if (!global_capture_opts.has_autostop_filesize &&
+                !global_capture_opts.has_file_duration &&
+                !global_capture_opts.has_file_interval) {
+                cmdarg_err("Ring buffer requested, but no maximum capture file size, duration or interval were specified.");
                 /* XXX - this must be redesigned as the conditions changed */
             }
         }

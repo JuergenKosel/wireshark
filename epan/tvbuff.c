@@ -2145,8 +2145,9 @@ tvb_strncaseeql(tvbuff_t *tvb, const gint offset, const gchar *str, const size_t
 }
 
 /*
- * Call memcmp after checking if enough chars left, returning 0 if
- * it returns 0 (meaning "equal") and -1 otherwise, otherwise return -1.
+ * Check that the tvbuff contains at least size bytes, starting at
+ * offset, and that those bytes are equal to str. Return 0 for success
+ * and -1 for error. This function does not throw an exception.
  */
 gint
 tvb_memeql(tvbuff_t *tvb, const gint offset, const guint8 *str, size_t size)
@@ -3645,6 +3646,26 @@ struct tvbuff *
 tvb_get_ds_tvb(tvbuff_t *tvb)
 {
 	return(tvb->ds_tvb);
+}
+
+guint
+tvb_get_varint(tvbuff_t *tvb, guint offset, guint maxlen, guint64 *value)
+{
+	guint i;
+	guint64 b; /* current byte */
+	*value = 0;
+
+	for (i = 0; ((i < FT_VARINT_MAX_LEN) && (i < maxlen)); ++i) {
+		b = tvb_get_guint8(tvb, offset++);
+		*value |= ((b & 0x7F) << (i * 7)); /* add lower 7 bits to val */
+
+		if (b < 0x80) {
+			/* end successfully becauseof last byte's msb(most significant bit) is zero */
+			return i + 1;
+		}
+	}
+
+	return 0; /* 10 bytes scanned, but no bytes' msb is zero */
 }
 
 /*

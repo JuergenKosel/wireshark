@@ -27,8 +27,8 @@
 #include <glib.h>
 
 #include "geometry_state_dialog.h"
-#include "uat_model.h"
-#include "uat_delegate.h"
+#include <ui/qt/models/uat_model.h>
+#include <ui/qt/models/uat_delegate.h>
 
 class QComboBox;
 class QPushButton;
@@ -52,12 +52,14 @@ public:
 private slots:
     void modelDataChanged(const QModelIndex &topLeft);
     void modelRowsRemoved();
-    void viewCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
+    void modelRowsReset();
+    void on_uatTreeView_currentItemChanged(const QModelIndex &current, const QModelIndex &previous);
     void acceptChanges();
     void rejectChanges();
     void on_newToolButton_clicked();
     void on_deleteToolButton_clicked();
     void on_copyToolButton_clicked();
+    void on_clearToolButton_clicked();
     void on_buttonBox_helpRequested();
 
 private:

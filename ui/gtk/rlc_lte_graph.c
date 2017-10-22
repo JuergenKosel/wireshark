@@ -323,7 +323,7 @@ static int rint(double );     /* compiler template for Windows */
 static struct irect zoomrect;
 
 
-/* XXX - what about OS X? */
+/* XXX - what about macOS? */
 static char helptext[] =
     "Here's what you can do:\n"
     "\n"
@@ -2190,7 +2190,7 @@ static gboolean key_press_event(GtkWidget *widget _U_, GdkEventKey *event, gpoin
             do_zoom_out_keyboard(g,
                                  FALSE,
                                  event->state & GDK_CONTROL_MASK);
-
+            break;
         /* Direction keys */
         case GDK_Left:
             do_key_motion_left(g, step);

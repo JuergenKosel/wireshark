@@ -101,6 +101,7 @@ void free_srt_table(register_srt_t *srt, GArray* srt_array, srt_gui_free_cb gui_
             gui_callback(srt_table, callback_data);
 
         free_srt_table_data(srt_table);
+        g_free(srt_table);
     }
 
     /* Clear the tables */
@@ -223,11 +224,7 @@ init_srt_table(const char *name, const char *short_name, GArray *srt_array, int 
     int i;
     srt_stat_table *table = g_new(srt_stat_table, 1);
 
-    if(filter_string){
-        table->filter_string=g_strdup(filter_string);
-    } else {
-        table->filter_string=NULL;
-    }
+    table->filter_string = g_strdup(filter_string);
 
     table->name = name;
     table->short_name = short_name;

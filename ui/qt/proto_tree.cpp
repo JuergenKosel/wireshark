@@ -26,9 +26,9 @@
 #include <epan/ftypes/ftypes.h>
 #include <epan/prefs.h>
 
-#include "color_utils.h"
+#include <ui/qt/utils/color_utils.h>
 
-#include <ui/qt/variant_pointer.h>
+#include <ui/qt/utils/variant_pointer.h>
 
 #include <QApplication>
 #include <QContextMenuEvent>
@@ -180,7 +180,7 @@ ProtoTree::ProtoTree(QWidget *parent) :
         ctx_menu_.addSeparator();
 
         main_menu_item = window()->findChild<QMenu *>("menuApplyAsFilter");
-        submenu = new QMenu(main_menu_item->title());
+        submenu = new QMenu(main_menu_item->title(), &ctx_menu_);
         ctx_menu_.addMenu(submenu);
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeAAFSelected"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeAAFNotSelected"));
@@ -190,7 +190,7 @@ ProtoTree::ProtoTree(QWidget *parent) :
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeAAFOrNotSelected"));
 
         main_menu_item = window()->findChild<QMenu *>("menuPrepareAFilter");
-        submenu = new QMenu(main_menu_item->title());
+        submenu = new QMenu(main_menu_item->title(), &ctx_menu_);
         ctx_menu_.addMenu(submenu);
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzePAFSelected"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzePAFNotSelected"));
@@ -207,7 +207,7 @@ ProtoTree::ProtoTree(QWidget *parent) :
         ctx_menu_.addMenu(&colorize_menu_);
 
         main_menu_item = window()->findChild<QMenu *>("menuFollow");
-        submenu = new QMenu(main_menu_item->title());
+        submenu = new QMenu(main_menu_item->title(), &ctx_menu_);
         ctx_menu_.addMenu(submenu);
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTCPStream"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowUDPStream"));
@@ -216,7 +216,7 @@ ProtoTree::ProtoTree(QWidget *parent) :
         ctx_menu_.addSeparator();
 
         main_menu_item = window()->findChild<QMenu *>("menuEditCopy");
-        submenu = new QMenu(main_menu_item->title());
+        submenu = new QMenu(main_menu_item->title(), &ctx_menu_);
         ctx_menu_.addMenu(submenu);
         submenu->addAction(window()->findChild<QAction *>("actionCopyAllVisibleItems"));
         submenu->addAction(window()->findChild<QAction *>("actionCopyAllVisibleSelectedTreeItems"));
@@ -603,16 +603,58 @@ void ProtoTree::selectField(field_info *fi)
     }
 }
 
+// Finds position item at a level, counting only similar fields.
+static unsigned indexOfField(QTreeWidgetItem *item, header_field_info *hfi)
+{
+    QTreeWidgetItem *parent = item->parent();
+    unsigned pos = 0;
+    if (!parent) {
+        // In case multiple top-level layers are present for the same protocol,
+        // try to find its position (this will likely be the first match, zero).
+        QTreeWidget *tree = item->treeWidget();
+        for (int i = 0; i < tree->topLevelItemCount(); i++) {
+            QTreeWidgetItem *current = tree->topLevelItem(i);
+            if (current == item) {
+                return pos;
+            }
+            if (hfi == VariantPointer<field_info>::asPtr(current->data(0, Qt::UserRole))->hfinfo) {
+                pos++;
+            }
+        }
+    } else {
+        QTreeWidgetItemIterator iter(parent);
+        while (*iter) {
+            QTreeWidgetItem *current = *iter;
+            if (current == item) {
+                return pos;
+            }
+            if (hfi == VariantPointer<field_info>::asPtr(current->data(0, Qt::UserRole))->hfinfo) {
+                pos++;
+            }
+            ++iter;
+        }
+    }
+    // should not happen (child is not found at parent?!)
+    return 0;
+}
+
+// Assume about 2^8 items in tree and 2^24 different registered fields.
+// If there are more of each, then a collision may occur, but since the full
+// path is matched this is unlikely to be a problem.
+#define POS_SHIFT   24
+#define POS_MASK    (((unsigned)-1) << POS_SHIFT)
+
 // Remember the currently focussed field based on:
 // - current hf_id (obviously)
 // - parent items (to avoid selecting a text item in a different tree)
-// - position within a tree if there are multiple items (wishlist)
+// - position within a tree if there are multiple items
 static QList<int> serializeAsPath(QTreeWidgetItem *item)
 {
     QList<int> path;
     do {
         field_info *fi = VariantPointer<field_info>::asPtr(item->data(0, Qt::UserRole));
-        path.prepend(fi->hfinfo->id);
+        unsigned pos = indexOfField(item, fi->hfinfo);
+        path.prepend((pos << POS_SHIFT) | (fi->hfinfo->id & ~POS_MASK));
     } while ((item = item->parent()));
     return path;
 }
@@ -627,14 +669,21 @@ void ProtoTree::restoreSelectedField()
     if (selected_field_path_.isEmpty()) {
         return;
     }
-    int last_hf_id = selected_field_path_.last();
+    int last_hf_id = selected_field_path_.last() & ~POS_MASK;
     QTreeWidgetItemIterator iter(this);
     while (*iter) {
         field_info *fi = VariantPointer<field_info>::asPtr((*iter)->data(0, Qt::UserRole));
         if (last_hf_id == fi->hfinfo->id &&
             serializeAsPath(*iter) == selected_field_path_) {
-            setCurrentItem(*iter);
-            scrollToItem(*iter);
+            // focus the first item, but do not expand collapsed trees.
+            QTreeWidgetItem *item = *iter, *target = item;
+            do {
+                if (!item->isExpanded()) {
+                    target = item;
+                }
+            } while ((item = item->parent()));
+            setCurrentItem(target);
+            scrollToItem(target);
             break;
         }
         ++iter;

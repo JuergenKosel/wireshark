@@ -104,7 +104,7 @@ body h1, body h2, body h3, body h4, body h5, body h6 {
 body pre {
   margin: 0.5em 10% 0.5em 1em;
   line-height: 1.4;
-  color: 333;
+  color: navy;
 }
 
 pre, tt, code, .command {
@@ -113,7 +113,7 @@ pre, tt, code, .command {
 }
 
 tt.literal, code.literal {
-  color: 333;
+  color: navy;
 }
 
 .programlisting, .screen {
@@ -125,6 +125,14 @@ tt.literal, code.literal {
 
 .guibutton, .guimenu, .guisubmenu, .guimenuitem {
   font-weight: bold;
+}
+
+.guibutton {
+  background: #f4f4f4;
+  border: 0.5px solid #f4f4f4;
+  border-radius: 0.25em;
+  padding-left: 0.25em;
+  padding-right: 0.25em;
 }
 
 .keycap, .guimenu, .guisubmenu, .guimenuitem {

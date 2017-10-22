@@ -21,7 +21,8 @@
 
 include $(top_srcdir)/Makefile.am.inc
 
-AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS) $(LIBNL_CFLAGS)
+AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS) $(PCAP_CFLAGS) \
+		$(LIBNL_CFLAGS)
 
 noinst_LIBRARIES = libcaputils.a
 
@@ -53,9 +54,6 @@ CLEANFILES = \
 	doxygen-caputils.tag	\
 	libcaputils.a		\
 	*~
-
-MAINTAINERCLEANFILES = \
-	Makefile.in
 
 EXTRA_DIST = \
 	.editorconfig		\

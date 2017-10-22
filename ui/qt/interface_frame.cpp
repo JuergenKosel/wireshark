@@ -23,10 +23,11 @@
 #include "config.h"
 #include <ui_interface_frame.h>
 
+#include "caputils/capture_ifinfo.h"
 #include "ui/qt/interface_frame.h"
-#include "ui/qt/interface_tree_model.h"
+#include <ui/qt/models/interface_tree_model.h>
 
-#include "sparkline_delegate.h"
+#include <ui/qt/models/sparkline_delegate.h>
 #include "wireshark_application.h"
 
 #ifdef HAVE_EXTCAP
@@ -113,7 +114,7 @@ InterfaceFrame::~InterfaceFrame()
 
 QMenu * InterfaceFrame::getSelectionMenu()
 {
-    QMenu * contextMenu = new QMenu();
+    QMenu * contextMenu = new QMenu(this);
     QList<int> typesDisplayed = proxyModel->typesDisplayed();
 
     QMap<int, QString>::const_iterator it = ifTypeDescription.constBegin();
@@ -167,6 +168,20 @@ int InterfaceFrame::interfacesPresent()
     return sourceModel->rowCount() - proxyModel->interfacesHidden();
 }
 
+void InterfaceFrame::ensureSelectedInterface()
+{
+#ifdef HAVE_LIBPCAP
+    if (interfacesPresent() < 1) return;
+
+    if (sourceModel->selectedDevices().count() < 1) {
+        QModelIndex first_idx = proxyModel->index(0, 0);
+        ui->interfaceTree->setCurrentIndex(first_idx);
+    }
+
+    ui->interfaceTree->setFocus();
+#endif
+}
+
 void InterfaceFrame::hideEvent(QHideEvent *) {
 #ifdef HAVE_LIBPCAP
     if (stat_timer_)
@@ -210,6 +225,8 @@ void InterfaceFrame::triggeredIfTypeButton()
 void InterfaceFrame::interfaceListChanged()
 {
     resetInterfaceTreeDisplay();
+    // Ensure that device selection is consistent with the displayed selection.
+    updateSelectedInterfaces();
 
 #ifdef HAVE_LIBPCAP
     if (!stat_timer_) {

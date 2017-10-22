@@ -24,6 +24,11 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+set(DFILTER_PUBLIC_HEADERS
+	dfilter.h
+	drange.h
+)
+
 set(DFILTER_FILES
 	dfilter.c
 	dfilter-macro.c
@@ -65,8 +70,13 @@ add_library(dfilter OBJECT
 set_target_properties(dfilter PROPERTIES
 	FOLDER "Libs/epan/dfilter"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
-	COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}"
 )
+
+if(NOT WIN32)
+	install(FILES ${DFILTER_PUBLIC_HEADERS}
+		DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/epan/dfilter"
+	)
+endif()
 
 CHECKAPI(
 	NAME

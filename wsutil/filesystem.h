@@ -24,6 +24,7 @@
 #define FILESYSTEM_H
 
 #include "ws_symbol_export.h"
+#include "ws_attributes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,7 +53,22 @@ WS_DLL_PUBLIC const char *get_progfile_dir(void);
  * before init_progfile_dir() is called, as they might be stored in a
  * subdirectory of the program file directory.
  */
-WS_DLL_PUBLIC const char *get_plugin_dir(void);
+WS_DLL_PUBLIC const char *get_plugins_dir(void);
+
+/*
+ * Append VERSION_MAJOR.VERSION_MINOR to the plugin dir.
+ */
+WS_DLL_PUBLIC const char *get_plugins_dir_with_version(void);
+
+/*
+ * Get the personal plugin dir.
+ */
+WS_DLL_PUBLIC const char *get_plugins_pers_dir(void);
+
+/*
+ * Append VERSION_MAJOR.VERSION_MINOR to the plugin personal dir.
+ */
+WS_DLL_PUBLIC const char *get_plugins_pers_dir_with_version(void);
 
 /*
  * Get the directory in which extcap hooks are stored; this must not be called
@@ -81,12 +97,6 @@ WS_DLL_PUBLIC const char *get_datafile_dir(void);
  * caller is done with it.
  */
 WS_DLL_PUBLIC char *get_datafile_path(const char *filename);
-
-/*
- * Get the personal plugin dir.
- * Return value is malloced so the caller should g_free() it.
- */
-WS_DLL_PUBLIC char *get_plugins_pers_dir(void);
 
 /*
  * Get the directory in which files that, at least on UNIX, are
@@ -123,6 +133,11 @@ WS_DLL_PUBLIC gboolean has_global_profiles(void);
  * Caller must free the returned string
  */
 WS_DLL_PUBLIC char *get_profiles_dir(void);
+
+/*
+ * Create the directory used to store configuration profile directories.
+ */
+WS_DLL_PUBLIC int create_profiles_dir(char **pf_dir_path_return);
 
 /*
  * Get the directory used to store global configuration profile directories.

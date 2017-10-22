@@ -293,7 +293,7 @@
 #include <wsutil/file_util.h>
 #include <wsutil/str_util.h>
 #include <wsutil/pint.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include <wsutil/ws_printf.h> /* ws_debug_printf */
 
 #include "packet-giop.h"
@@ -5557,7 +5557,7 @@ proto_register_giop (void)
                                  10, &giop_max_message_size);
 
   prefs_register_filename_preference(giop_module, "ior_txt", "Stringified IORs",
-    "File containing stringified IORs, one per line.", &giop_ior_file);
+    "File containing stringified IORs, one per line.", &giop_ior_file, FALSE);
 
   /*
    * Init the giop user module hash tables here, as giop users

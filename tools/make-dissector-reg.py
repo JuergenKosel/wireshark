@@ -99,11 +99,11 @@ regs = {
 
 # For those that don't know Python, r"" indicates a raw string,
 # devoid of Python escapes.
-proto_regex = r"(?P<symbol>proto_register_[_A-Za-z0-9]+)\s*\(\s*void\s*\)[^;]*$"
+proto_regex = r"(?P<symbol>\bproto_register_[_A-Za-z0-9]+)\s*\(\s*void\s*\)[^;]*$"
 
-handoff_regex = r"(?P<symbol>proto_reg_handoff_[_A-Za-z0-9]+)\s*\(\s*void\s*\)[^;]*$"
+handoff_regex = r"(?P<symbol>\bproto_reg_handoff_[_A-Za-z0-9]+)\s*\(\s*void\s*\)[^;]*$"
 
-wtap_reg_regex = r"(?P<symbol>wtap_register_[_A-Za-z0-9]+)\s*\([^;]+$"
+wtap_reg_regex = r"(?P<symbol>\bwtap_register_[_A-Za-z0-9]+)\s*\([^;]+$"
 
 # This table drives the pattern-matching and symbol-harvesting
 patterns = [
@@ -164,7 +164,7 @@ for filename in filenames:
 #                               print "Caching %s for %s: %s" % (sym_type, filename, symbol)
                 cache[filename][sym_type].append(symbol)
     # We're done with the file contents
-    contets = ""
+    del contents
     file.close()
 
 
@@ -203,7 +203,9 @@ if registertype == "plugin" or registertype == "plugin_wtap":
 
 #ifndef ENABLE_STATIC
 WS_DLL_PUBLIC_DEF void plugin_register (void);
-WS_DLL_PUBLIC_DEF const gchar version[] = VERSION;
+
+WS_DLL_PUBLIC_DEF const gchar plugin_version[] = VERSION;
+WS_DLL_PUBLIC_DEF const gchar plugin_release[] = VERSION_RELEASE;
 
 """
 else:

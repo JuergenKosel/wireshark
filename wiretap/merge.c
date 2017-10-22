@@ -460,14 +460,6 @@ is_duplicate_idb(const wtap_block_t idb1, const wtap_block_t idb2)
         return FALSE;
     }
 
-    merge_debug("idb1_mand->link_type == idb2_mand->link_type: %s",
-                 (idb1_mand->link_type == idb2_mand->link_type) ? "TRUE":"FALSE");
-    if (idb1_mand->link_type != idb2_mand->link_type) {
-        /* Clearly not the same interface. */
-        merge_debug("merge::is_duplicate_idb() returning FALSE");
-        return FALSE;
-    }
-
     merge_debug("idb1_mand->time_units_per_second == idb2_mand->time_units_per_second: %s",
                  (idb1_mand->time_units_per_second == idb2_mand->time_units_per_second) ? "TRUE":"FALSE");
     if (idb1_mand->time_units_per_second != idb2_mand->time_units_per_second) {
@@ -811,166 +803,13 @@ map_phdr_interface_id(struct wtap_pkthdr *phdr, const merge_in_file_t *in_file)
     return TRUE;
 }
 
-static gchar*
-get_read_error_string(const merge_in_file_t *in_files, const guint in_file_count,
-                      const int *err, gchar **err_info)
-{
-    GString *err_message = g_string_new("");
-    gchar   *display_basename = NULL;
-    guint    i;
-
-    g_assert(in_files != NULL);
-    g_assert(err != NULL);
-    g_assert(err_info != NULL);
-
-    if (*err_info == NULL) {
-        *err_info = g_strdup("no information supplied");
-    }
-
-    /*
-     * Find the file on which we got the error, and report the error.
-     */
-    for (i = 0; i < in_file_count; i++) {
-        if (in_files[i].state == GOT_ERROR) {
-            display_basename = g_filename_display_basename(in_files[i].filename);
-
-            switch (*err) {
-
-                case WTAP_ERR_SHORT_READ:
-                    g_string_printf(err_message,
-                         "The capture file %s appears to have been cut short"
-                          " in the middle of a packet.", display_basename);
-                    break;
-
-                case WTAP_ERR_BAD_FILE:
-                    g_string_printf(err_message,
-                         "The capture file %s appears to be damaged or corrupt.\n(%s)",
-                         display_basename, *err_info);
-                    break;
-
-                case WTAP_ERR_DECOMPRESS:
-                    g_string_printf(err_message,
-                         "The compressed capture file %s appears to be damaged or corrupt.\n"
-                         "(%s)", display_basename, *err_info);
-                    break;
-
-                default:
-                    g_string_printf(err_message,
-                         "An error occurred while reading the"
-                         " capture file %s: %s.",
-                         display_basename,  wtap_strerror(*err));
-                    break;
-            }
-
-            g_free(display_basename);
-            break;
-        }
-    }
-
-    g_free(*err_info);
-    *err_info = g_string_free(err_message, FALSE);
-
-    return *err_info;
-}
-
-static gchar*
-get_write_error_string(const merge_in_file_t *in_file, const int file_type,
-                       const gchar* out_filename, const int *err, gchar **err_info)
-{
-    GString *err_message = g_string_new("");
-    gchar *display_basename = NULL;
-    int write_err;
-
-    /* in_file may be NULL */
-    g_assert(err != NULL);
-    g_assert(err_info != NULL);
-
-    if (*err_info == NULL) {
-        *err_info = g_strdup("no information supplied");
-    }
-
-    write_err = *err;
-
-    display_basename = g_filename_display_basename(in_file ? in_file->filename : "UNKNOWN");
-
-    if (write_err < 0) {
-
-        switch (write_err) {
-
-            case WTAP_ERR_UNWRITABLE_ENCAP:
-                /*
-                 * This is a problem with the particular frame we're writing and
-                 * the file type and subtype we're wwriting; note that, and
-                 * report the frame number and file type/subtype.
-                 */
-                g_string_printf(err_message,
-                    "Frame %u of \"%s\" has a network type that can't be saved in a \"%s\" file.\n",
-                    in_file ? in_file->packet_num : 0, display_basename,
-                    wtap_file_type_subtype_string(file_type));
-                break;
-
-            case WTAP_ERR_PACKET_TOO_LARGE:
-                /*
-                 * This is a problem with the particular frame we're writing and
-                 * the file type and subtype we're writing; note that, and report
-                 * the frame number and file type/subtype.
-                 */
-                g_string_printf(err_message,
-                    "Frame %u of \"%s\" is too large for a \"%s\" file.",
-                    in_file ? in_file->packet_num : 0, display_basename,
-                    wtap_file_type_subtype_string(file_type));
-                break;
-
-            case WTAP_ERR_UNWRITABLE_REC_TYPE:
-                /*
-                 * This is a problem with the particular record we're writing and
-                 * the file type and subtype we're writing; note that, and report
-                 * the record number and file type/subtype.
-                 */
-                g_string_printf(err_message,
-                    "Record %u of \"%s\" has a record type that can't be saved in a \"%s\" file.",
-                    in_file ? in_file->packet_num : 0, display_basename,
-                    wtap_file_type_subtype_string(file_type));
-                break;
-
-            case WTAP_ERR_UNWRITABLE_REC_DATA:
-                /*
-                 * This is a problem with the particular record we're writing and
-                 * the file type and subtype we're writing; note that, and report
-                 * the frame number and file type/subtype.
-                 */
-                g_string_printf(err_message,
-                    "Record %u of \"%s\" has data that can't be saved in a \"%s\" file.\n(%s)",
-                    in_file ? in_file->packet_num : 0, display_basename,
-                    wtap_file_type_subtype_string(file_type), *err_info);
-                break;
-
-            default:
-                g_string_printf(err_message,
-                    "An error occurred while writing to the file \"%s\": %s.",
-                    out_filename, wtap_strerror(write_err));
-                break;
-        }
-    }
-    else {
-        /* OS error. */
-        g_string_printf(err_message, file_write_error_message(write_err), out_filename);
-    }
-
-    g_free(display_basename);
-    g_free(*err_info);
-    *err_info = g_string_free(err_message, FALSE);
-
-    return *err_info;
-}
-
 static merge_result
-merge_process_packets(const gchar* out_filename, wtap_dumper *pdh,
-                      const int file_type,
+merge_process_packets(wtap_dumper *pdh, const int file_type,
                       merge_in_file_t *in_files, const guint in_file_count,
                       const gboolean do_append, guint snaplen,
                       merge_progress_callback_t* cb,
-                      int *err, gchar **err_info)
+                      int *err, gchar **err_info, guint *err_fileno,
+                      guint32 *err_framenum)
 {
     merge_result        status = MERGE_OK;
     merge_in_file_t    *in_file;
@@ -1066,37 +905,12 @@ merge_process_packets(const gchar* out_filename, wtap_dumper *pdh,
         (void)wtap_dump_close(pdh, &close_err);
     }
 
-    if (status != MERGE_OK) {
-        GString *err_message = NULL;
-        gchar   *display_basename = NULL;
-
-        switch(status) {
-
-            case MERGE_ERR_CANT_READ_INFILE:
-                *err_info = get_read_error_string(in_files, in_file_count, err, err_info);
-                break;
-
-            case MERGE_ERR_CANT_WRITE_OUTFILE: /* fall through */
-            case MERGE_ERR_CANT_CLOSE_OUTFILE:
-                *err_info = get_write_error_string(in_file, file_type, out_filename, err, err_info);
-                break;
-
-            case MERGE_ERR_BAD_PHDR_INTERFACE_ID:
-                display_basename = g_filename_display_basename(in_file ? in_file->filename : "UNKNOWN");
-                if (*err_info != NULL)
-                    g_free(*err_info);
-                err_message = g_string_new("");
-                g_string_printf(err_message,
-                    "Record %u of \"%s\" has an interface ID which does not match any IDB in its file.",
-                    in_file ? in_file->packet_num : 0, display_basename);
-                g_free(display_basename);
-                *err_info = g_string_free(err_message, FALSE);
-                break;
-
-            case MERGE_USER_ABORTED: /* not really an error */
-            default:
-                break;
-        }
+    if (status == MERGE_OK || in_file == NULL) {
+        *err_fileno = 0;
+        *err_framenum = 0;
+    } else {
+        *err_fileno = (guint)(in_file - in_files);
+        *err_framenum = in_file ? in_file->packet_num : 0;
     }
 
     return status;
@@ -1105,16 +919,15 @@ merge_process_packets(const gchar* out_filename, wtap_dumper *pdh,
 /*
  * Merges the files to an output file whose name is supplied as an argument,
  * based on given input, and invokes callback during execution. Returns
- * MERGE_OK on success, or a MERGE_ERR_XXX on failure; note that the passed-in
- * 'err' variable will be more specific to what failed, and err_info will
- * have pretty output.
+ * MERGE_OK on success, or a MERGE_ERR_XXX on failure.
  */
 merge_result
 merge_files(const gchar* out_filename, const int file_type,
             const char *const *in_filenames, const guint in_file_count,
             const gboolean do_append, const idb_merge_mode mode,
             guint snaplen, const gchar *app_name, merge_progress_callback_t* cb,
-            int *err, gchar **err_info, guint *err_fileno)
+            int *err, gchar **err_info, guint *err_fileno,
+            guint32 *err_framenum)
 {
     merge_in_file_t    *in_files = NULL;
     int                 frame_type = WTAP_ENCAP_PER_PACKET;
@@ -1129,6 +942,7 @@ merge_files(const gchar* out_filename, const int file_type,
     g_assert(err != NULL);
     g_assert(err_info != NULL);
     g_assert(err_fileno != NULL);
+    g_assert(err_framenum != NULL);
 
     /* if a callback was given, it has to have a callback function ptr */
     g_assert((cb != NULL) ? (cb->callback_func != NULL) : TRUE);
@@ -1139,12 +953,13 @@ merge_files(const gchar* out_filename, const int file_type,
     if (!merge_open_in_files(in_file_count, in_filenames, &in_files, cb,
                              err, err_info, err_fileno)) {
         merge_debug("merge_files: merge_open_in_files() failed with err=%d", *err);
+        *err_framenum = 0;
         return MERGE_ERR_CANT_OPEN_INFILE;
     }
 
     if (snaplen == 0) {
         /* Snapshot length not specified - default to the maximum. */
-        snaplen = WTAP_MAX_PACKET_SIZE;
+        snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
     }
 
     /*
@@ -1182,15 +997,16 @@ merge_files(const gchar* out_filename, const int file_type,
         g_free(in_files);
         wtap_block_array_free(shb_hdrs);
         wtap_free_idb_info(idb_inf);
+        *err_framenum = 0;
         return MERGE_ERR_CANT_OPEN_OUTFILE;
     }
 
     if (cb)
         cb->callback_func(MERGE_EVENT_READY_TO_MERGE, 0, in_files, in_file_count, cb->data);
 
-    status = merge_process_packets(out_filename, pdh, file_type, in_files,
-                                   in_file_count, do_append, snaplen, cb,
-                                   err, err_info);
+    status = merge_process_packets(pdh, file_type, in_files, in_file_count,
+                                   do_append, snaplen, cb, err, err_info,
+                                   err_fileno, err_framenum);
 
     g_free(in_files);
     wtap_block_array_free(shb_hdrs);
@@ -1202,8 +1018,7 @@ merge_files(const gchar* out_filename, const int file_type,
 /*
  * Merges the files to a temporary file based on given input, and invokes
  * callback during execution. Returns MERGE_OK on success, or a MERGE_ERR_XXX
- * on failure; note that the passed-in 'err' variable will be more specific
- * to what failed, and err_info will have pretty output.
+ * on failure.
  */
 merge_result
 merge_files_to_tempfile(gchar **out_filenamep, const char *pfx,
@@ -1211,7 +1026,8 @@ merge_files_to_tempfile(gchar **out_filenamep, const char *pfx,
                         const guint in_file_count, const gboolean do_append,
                         const idb_merge_mode mode, guint snaplen,
                         const gchar *app_name, merge_progress_callback_t* cb,
-                        int *err, gchar **err_info, guint *err_fileno)
+                        int *err, gchar **err_info, guint *err_fileno,
+                        guint32 *err_framenum)
 {
     merge_in_file_t    *in_files = NULL;
     int                 frame_type = WTAP_ENCAP_PER_PACKET;
@@ -1226,6 +1042,7 @@ merge_files_to_tempfile(gchar **out_filenamep, const char *pfx,
     g_assert(err != NULL);
     g_assert(err_info != NULL);
     g_assert(err_fileno != NULL);
+    g_assert(err_framenum != NULL);
 
     /* if a callback was given, it has to have a callback function ptr */
     g_assert((cb != NULL) ? (cb->callback_func != NULL) : TRUE);
@@ -1239,12 +1056,13 @@ merge_files_to_tempfile(gchar **out_filenamep, const char *pfx,
     if (!merge_open_in_files(in_file_count, in_filenames, &in_files, cb,
                              err, err_info, err_fileno)) {
         merge_debug("merge_files: merge_open_in_files() failed with err=%d", *err);
+        *err_framenum = 0;
         return MERGE_ERR_CANT_OPEN_INFILE;
     }
 
     if (snaplen == 0) {
         /* Snapshot length not specified - default to the maximum. */
-        snaplen = WTAP_MAX_PACKET_SIZE;
+        snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
     }
 
     /*
@@ -1283,15 +1101,16 @@ merge_files_to_tempfile(gchar **out_filenamep, const char *pfx,
         g_free(in_files);
         wtap_block_array_free(shb_hdrs);
         wtap_free_idb_info(idb_inf);
+        *err_framenum = 0;
         return MERGE_ERR_CANT_OPEN_OUTFILE;
     }
 
     if (cb)
         cb->callback_func(MERGE_EVENT_READY_TO_MERGE, 0, in_files, in_file_count, cb->data);
 
-    status = merge_process_packets(*out_filenamep, pdh, file_type, in_files,
-                                   in_file_count, do_append, snaplen, cb,
-                                   err, err_info);
+    status = merge_process_packets(pdh, file_type, in_files, in_file_count,
+                                   do_append, snaplen, cb, err, err_info,
+                                   err_fileno, err_framenum);
 
     g_free(in_files);
     wtap_block_array_free(shb_hdrs);
@@ -1303,15 +1122,15 @@ merge_files_to_tempfile(gchar **out_filenamep, const char *pfx,
 /*
  * Merges the files to the standard output based on given input, and invokes
  * callback during execution. Returns MERGE_OK on success, or a MERGE_ERR_XXX
- * on failure; note that the passed-in 'err' variable will be more specific
- * to what failed, and err_info will have pretty output.
+ * on failure.
  */
 merge_result
 merge_files_to_stdout(const int file_type, const char *const *in_filenames,
                       const guint in_file_count, const gboolean do_append,
                       const idb_merge_mode mode, guint snaplen,
                       const gchar *app_name, merge_progress_callback_t* cb,
-                      int *err, gchar **err_info, guint *err_fileno)
+                      int *err, gchar **err_info, guint *err_fileno,
+                      guint32 *err_framenum)
 {
     merge_in_file_t    *in_files = NULL;
     int                 frame_type = WTAP_ENCAP_PER_PACKET;
@@ -1325,6 +1144,7 @@ merge_files_to_stdout(const int file_type, const char *const *in_filenames,
     g_assert(err != NULL);
     g_assert(err_info != NULL);
     g_assert(err_fileno != NULL);
+    g_assert(err_framenum != NULL);
 
     /* if a callback was given, it has to have a callback function ptr */
     g_assert((cb != NULL) ? (cb->callback_func != NULL) : TRUE);
@@ -1335,12 +1155,13 @@ merge_files_to_stdout(const int file_type, const char *const *in_filenames,
     if (!merge_open_in_files(in_file_count, in_filenames, &in_files, cb,
                              err, err_info, err_fileno)) {
         merge_debug("merge_files: merge_open_in_files() failed with err=%d", *err);
+        *err_framenum = 0;
         return MERGE_ERR_CANT_OPEN_INFILE;
     }
 
     if (snaplen == 0) {
         /* Snapshot length not specified - default to the maximum. */
-        snaplen = WTAP_MAX_PACKET_SIZE;
+        snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
     }
 
     /*
@@ -1378,15 +1199,16 @@ merge_files_to_stdout(const int file_type, const char *const *in_filenames,
         g_free(in_files);
         wtap_block_array_free(shb_hdrs);
         wtap_free_idb_info(idb_inf);
+        *err_framenum = 0;
         return MERGE_ERR_CANT_OPEN_OUTFILE;
     }
 
     if (cb)
         cb->callback_func(MERGE_EVENT_READY_TO_MERGE, 0, in_files, in_file_count, cb->data);
 
-    status = merge_process_packets("standard output", pdh, file_type, in_files,
-                                   in_file_count, do_append, snaplen, cb,
-                                   err, err_info);
+    status = merge_process_packets(pdh, file_type, in_files, in_file_count,
+                                   do_append, snaplen, cb, err, err_info,
+                                   err_fileno, err_framenum);
 
     g_free(in_files);
     wtap_block_array_free(shb_hdrs);

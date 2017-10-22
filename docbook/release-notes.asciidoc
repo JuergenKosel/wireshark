@@ -4,7 +4,7 @@ include::attributes.asciidoc[]
 // AsciiDoc quick reference: http://powerman.name/doc/asciidoc
 
 This is a semi-experimental release intended to test new features for
-Wireshark 2.4.
+Wireshark 2.6.
 
 == What is Wireshark?
 
@@ -13,6 +13,11 @@ used for troubleshooting, analysis, development and education.
 
 == What's New
 
+* The installation step for Wireshark will now install headers required to
+  build plugins. A pkg-config file is provided to help with this
+  (see doc/plugins.example for details). Note you must still rebuild all
+  plugins between minor releases (X.Y).
+
 //=== Bug Fixes
 
 //The following bugs have been fixed:
@@ -20,32 +25,34 @@ used for troubleshooting, analysis, development and education.
 //* ws-buglink:5000[]
 //* ws-buglink:6000[Wireshark bug]
 //* cve-idlink:2014-2486[]
-//* Wireshark keeps leaving voicemails advertising timeshare condominiums in Fresno. (ws-buglink:0000[])
+//* Wireshark convinced you to switch seats on the plane while neglecting to tell you that its seat was noticeably moist.
 
 //_Non-empty section placeholder._
 
 === New and Updated Features
 
 The following features are new (or have been significantly updated)
-since version 2.2.0:
-
-* Experimental 32-bit and 64-bit Windows Installer (.msi) packages are available.
-  It is recommended that you use these independently of the NSIS (.exe) installers.
-  That is, you should make sure the NSIS package is completely uninstalled before
-  installing the Windows Installer package and vice-versa.
-* Source packages are now compressed using xz instead of bzip2.
-* The legacy (GTK+) UI is disabled by default in the Windows installer.
-* The legacy (GTK+) UI is disabled by default in Autotools and CMake.
-* SS7 Point Codes can now be resolved into names with a hosts-like file.
-* Wireshark can now go fullscreen to have more room for packets.
-* TShark can now export objects like the other GUI interfaces.
-* Support for G.722 and G.726 codecs in the RTP Player (via the SpanDSP library).
-* You can now choose the output device when playing RTP streams.
-* Added support for dissectors to include a unit name natively in their hf field.
-  A field can now automatically append "seconds" or "ms" to its value without
-  additional printf-style APIs.
-* The Default profile can now be reset to default values.
-* You can move back and forth in the selection history in the Qt UI.
+since version 2.4.0:
+* Add color support for TShark with --color option (non-Windows only).
+* The "matches" display filter operator is now case-insensitive.
+* Display expression (button) preferences have been converted to a UAT.
+  This puts the display expressions in their own file.  Wireshark still
+  supports preference files that contain the old preferences, but new
+  preference files will be written without the old fields.
+* SMI private enterprise numbers are now read from the "enterprises.tsv" configuration file.
+* QUIC dissector is renamed to G(oogle) QUIC (quic => gquic).
+* Selected packet number can now be shown in the Status Bar by enabling
+  Preferences -> Appearance -> Layout -> Show selected packet number.
+* File load time in Status Bar is now disabled by default and can be enabled in
+  Preferences -> Appearance -> Layout -> Show file load time.
+* Support for G.729 codec in the RTP Player (via the bcg729 library).
+* Support for hardware-timestamping of packets
+* Improved NetMon .cap support with comments, event tracing, network filter,
+  network info types and some Message Analyzer exported types.
+* Personal plugins folder on Linux/Unix is now ~/.local/lib/wireshark/plugins.
+* Add Flow Graph functionality to TShark using -z
+* Capinfos now prints SHA256 hashes in addition to RIPEMD160 and SHA1. MD5 output
+  has been removed.
 
 //=== Removed Dissectors
 
@@ -55,32 +62,20 @@ since version 2.2.0:
 
 // Add one protocol per line between the --sort-and-group-- delimiters.
 --sort-and-group--
-Bluetooth HCI Vendor Intel
-CAN FD
-Ericsson A-bis P-GSL
-Ericsson A-bis TFP (Traffic Forwarding Protocol)
-Fc00/cjdns Protocol
-GSM Osmux
-Health Level 7 (HL7)
-High-speed SECS message service (HSMS)
-iPerf2
-ISO 15765
-Local Service Discovery (LSD)
-M2 Application Protocol
-Nordic BLE Sniffer
-NVMe Fabrics RDMA
-NVMe
-RFTap Protocol
-SCTE-35 Digital Program Insertion Messages
-Snort Post-dissector
-Unified Diagnostic Services (UDS)
-vSocket
-Windows Cluster Management API (clusapi)
-GSMTAP based logging
-HomePNA
-X-Rite i1 Display Pro (and derivatives) USB protocol
-IndigoCare iCall protocol
-IndigoCare Netrix protocol
+LoRaTap
+LoRaWAN
+ISOBUS
+AMT (Automatic Multicast Tunneling)
+QUIC (IETF)
+Wi-Fi Device Provisioning Protocol
+PFCP (Packet Forwarding Control Protocol)
+Tibia
+Broadcom tags (Broadcom Ethernet switch management frames)
+GRPC (gRPC)
+SolarEdge monitoring protocol
+Protobuf (Protocol Buffers)
+FP Mux
+Network Functional Application Platform Interface (NFAPI) Protocol
 --sort-and-group--
 
 === Updated Protocol Support
@@ -98,11 +93,10 @@ _Non-empty section placeholder._
 
 _Non-empty section placeholder._
 --sort-and-group--
+LoRaTap
 --sort-and-group--
 
 //=== Major API Changes
-IEEE802.11: wlan_mgt display filter element got renamed to wlan.
-Libgcrypt is now a required dependency.
 
 == Getting Wireshark
 

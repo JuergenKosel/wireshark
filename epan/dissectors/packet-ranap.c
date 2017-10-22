@@ -62,7 +62,7 @@
 #define PFNAME "ranap"
 
 /* Highest Ranap_ProcedureCode_value, use in heuristics */
-#define RANAP_MAX_PC  45 /* id_RANAPenhancedRelocation =  45 */
+#define RANAP_MAX_PC  49 /* id_RerouteNASRequest =  49 */
 
 
 /*--- Included file: packet-ranap-val.h ---*/
@@ -104,6 +104,7 @@
 #define maxSizeOfIMSInfo               32
 #define maxnoofMDTPLMNs                16
 #define maxAddPosSet                   8
+#define maxnoofPLMNs                   16
 
 typedef enum _ProcedureCode_enum {
   id_RAB_Assignment =   0,
@@ -405,7 +406,6 @@ typedef enum _ProtocolIE_ID_enum {
   id_IRAT_Measurement_Configuration = 243,
   id_MDT_Configuration = 244,
   id_Priority_Class_Indicator = 245,
-  id_Not_Used_246 = 246,
   id_RNSAPRelocationParameters = 247,
   id_RABParametersList = 248,
   id_Management_Based_MDT_Allowed = 249,
@@ -449,7 +449,10 @@ typedef enum _ProtocolIE_ID_enum {
   id_P_TMSI    = 287,
   id_RANAP_Message = 288,
   id_PowerSavingIndicator = 289,
-  id_UE_Usage_Type = 290
+  id_UE_Usage_Type = 290,
+  id_DCN_ID    = 291,
+  id_UE_Application_Layer_Measurement_Configuration = 292,
+  id_UE_Application_Layer_Measurement_Configuration_For_Relocation = 293
 } ProtocolIE_ID_enum;
 
 /*--- End of included file: packet-ranap-val.h ---*/
@@ -483,6 +486,8 @@ static int hf_ranap_Alt_RAB_Parameter_SupportedGuaranteedBitrateInf_PDU = -1;  /
 static int hf_ranap_Alt_RAB_Parameter_ExtendedMaxBitrateInf_PDU = -1;  /* Alt_RAB_Parameter_ExtendedMaxBitrateInf */
 static int hf_ranap_Alt_RAB_Parameter_SupportedMaxBitrateInf_PDU = -1;  /* Alt_RAB_Parameter_SupportedMaxBitrateInf */
 static int hf_ranap_AlternativeRABConfigurationRequest_PDU = -1;  /* AlternativeRABConfigurationRequest */
+static int hf_ranap_UE_Application_Layer_Measurement_Configuration_PDU = -1;  /* UE_Application_Layer_Measurement_Configuration */
+static int hf_ranap_UE_Application_Layer_Measurement_Configuration_For_Relocation_PDU = -1;  /* UE_Application_Layer_Measurement_Configuration_For_Relocation */
 static int hf_ranap_APN_PDU = -1;                 /* APN */
 static int hf_ranap_AreaIdentity_PDU = -1;        /* AreaIdentity */
 static int hf_ranap_Ass_RAB_Parameters_PDU = -1;  /* Ass_RAB_Parameters */
@@ -507,6 +512,7 @@ static int hf_ranap_CSFB_Information_PDU = -1;    /* CSFB_Information */
 static int hf_ranap_CSG_Id_PDU = -1;              /* CSG_Id */
 static int hf_ranap_CSG_Id_List_PDU = -1;         /* CSG_Id_List */
 static int hf_ranap_CSG_Membership_Status_PDU = -1;  /* CSG_Membership_Status */
+static int hf_ranap_DCN_ID_PDU = -1;              /* DCN_ID */
 static int hf_ranap_DeltaRAListofIdleModeUEs_PDU = -1;  /* DeltaRAListofIdleModeUEs */
 static int hf_ranap_DRX_CycleLengthCoefficient_PDU = -1;  /* DRX_CycleLengthCoefficient */
 static int hf_ranap_EARFCN_Extended_PDU = -1;     /* EARFCN_Extended */
@@ -866,6 +872,15 @@ static int hf_ranap_Alt_RAB_Parameter_MaxBitrateList_item = -1;  /* MaxBitrate *
 static int hf_ranap_altSupportedMaxBitrateType = -1;  /* Alt_RAB_Parameter_MaxBitrateType */
 static int hf_ranap_altSupportedMaxBitrates = -1;  /* Alt_RAB_Parameter_SupportedMaxBitrates */
 static int hf_ranap_Alt_RAB_Parameter_SupportedMaxBitrates_item = -1;  /* SupportedRAB_ParameterBitrateList */
+static int hf_ranap_applicationLayerContainerForMeasurementConfiguration = -1;  /* OCTET_STRING_SIZE_1_1000 */
+static int hf_ranap_areaScopeForUEApplicationLayerMeasurementConfiguration = -1;  /* AreaScopeForUEApplicationLayerMeasurementConfiguration */
+static int hf_ranap_traceReference = -1;          /* TraceReference */
+static int hf_ranap_tracePropagationParameters = -1;  /* TracePropagationParameters */
+static int hf_ranap_traceCollectionEntityIPAddress = -1;  /* TransportLayerAddress */
+static int hf_ranap_cellbased = -1;               /* CellBased */
+static int hf_ranap_labased = -1;                 /* LABased */
+static int hf_ranap_rabased = -1;                 /* RABased */
+static int hf_ranap_plmn_area_based = -1;         /* PLMNBased */
 static int hf_ranap_sAI = -1;                     /* SAI */
 static int hf_ranap_geographicalArea = -1;        /* GeographicalArea */
 static int hf_ranap_assMaxBitrateInf = -1;        /* Ass_RAB_Parameter_MaxBitrateList */
@@ -916,6 +931,8 @@ static int hf_ranap_NewRAListofIdleModeUEs_item = -1;  /* RAC */
 static int hf_ranap_RAListwithNoIdleModeUEsAnyMore_item = -1;  /* RAC */
 static int hf_ranap_macroENB_ID = -1;             /* BIT_STRING_SIZE_20 */
 static int hf_ranap_homeENB_ID = -1;              /* BIT_STRING_SIZE_28 */
+static int hf_ranap_short_macroENB_ID = -1;       /* BIT_STRING_SIZE_18 */
+static int hf_ranap_long_macroENB_ID = -1;        /* BIT_STRING_SIZE_21 */
 static int hf_ranap_permittedAlgorithms = -1;     /* PermittedEncryptionAlgorithms */
 static int hf_ranap_key = -1;                     /* EncryptionKey */
 static int hf_ranap_iMEIlist = -1;                /* IMEIList */
@@ -1011,10 +1028,7 @@ static int hf_ranap_m6_links_to_log = -1;         /* Links_to_log */
 static int hf_ranap_m7_period = -1;               /* M7_Period */
 static int hf_ranap_m7_links_to_log = -1;         /* Links_to_log */
 static int hf_ranap_MBMSIPMulticastAddressandAPNRequest_item = -1;  /* TMGI */
-static int hf_ranap_cellbased = -1;               /* CellBased */
-static int hf_ranap_labased = -1;                 /* LABased */
-static int hf_ranap_rabased = -1;                 /* RABased */
-static int hf_ranap_plmn_area_based = -1;         /* NULL */
+static int hf_ranap_plmn_area_based_01 = -1;      /* NULL */
 static int hf_ranap_mdtActivation = -1;           /* MDT_Activation */
 static int hf_ranap_mdtAreaScope = -1;            /* MDTAreaScope */
 static int hf_ranap_mdtMode = -1;                 /* MDTMode */
@@ -1037,6 +1051,8 @@ static int hf_ranap_laiList = -1;                 /* LAI_List */
 static int hf_ranap_LAI_List_item = -1;           /* LAI */
 static int hf_ranap_loggingInterval = -1;         /* LoggingInterval */
 static int hf_ranap_loggingDuration = -1;         /* LoggingDuration */
+static int hf_ranap_plmnList = -1;                /* PLMNList */
+static int hf_ranap_PLMNList_item = -1;           /* PLMNidentity */
 static int hf_ranap_PLMNs_in_shared_network_item = -1;  /* PLMNs_in_shared_network_item */
 static int hf_ranap_lA_LIST = -1;                 /* LA_LIST */
 static int hf_ranap_PositioningDataSet_item = -1;  /* PositioningMethodAndUsage */
@@ -1098,7 +1114,6 @@ static int hf_ranap_rIMRoutingAddress = -1;       /* RIMRoutingAddress */
 static int hf_ranap_targetRNC_ID = -1;            /* TargetRNC_ID */
 static int hf_ranap_gERAN_Cell_ID = -1;           /* GERAN_Cell_ID */
 static int hf_ranap_targeteNB_ID = -1;            /* TargetENB_ID */
-static int hf_ranap_traceReference = -1;          /* TraceReference */
 static int hf_ranap_traceActivationIndicator = -1;  /* T_traceActivationIndicator */
 static int hf_ranap_equipmentsToBeTraced = -1;    /* EquipmentsToBeTraced */
 static int hf_ranap_rabParmetersList = -1;        /* RABParametersList */
@@ -1159,7 +1174,6 @@ static int hf_ranap_tMSI = -1;                    /* TMSI */
 static int hf_ranap_p_TMSI = -1;                  /* P_TMSI */
 static int hf_ranap_serviceID = -1;               /* OCTET_STRING_SIZE_3 */
 static int hf_ranap_ue_identity = -1;             /* UE_ID */
-static int hf_ranap_tracePropagationParameters = -1;  /* TracePropagationParameters */
 static int hf_ranap_traceRecordingSessionReference = -1;  /* TraceRecordingSessionReference */
 static int hf_ranap_traceDepth = -1;              /* TraceDepth */
 static int hf_ranap_listOfInterfacesToTrace = -1;  /* ListOfInterfacesToTrace */
@@ -1297,6 +1311,9 @@ static gint ett_ranap_Alt_RAB_Parameter_MaxBitrates = -1;
 static gint ett_ranap_Alt_RAB_Parameter_MaxBitrateList = -1;
 static gint ett_ranap_Alt_RAB_Parameter_SupportedMaxBitrateInf = -1;
 static gint ett_ranap_Alt_RAB_Parameter_SupportedMaxBitrates = -1;
+static gint ett_ranap_UE_Application_Layer_Measurement_Configuration = -1;
+static gint ett_ranap_UE_Application_Layer_Measurement_Configuration_For_Relocation = -1;
+static gint ett_ranap_AreaScopeForUEApplicationLayerMeasurementConfiguration = -1;
 static gint ett_ranap_AreaIdentity = -1;
 static gint ett_ranap_Ass_RAB_Parameters = -1;
 static gint ett_ranap_Ass_RAB_Parameter_ExtendedGuaranteedBitrateList = -1;
@@ -1389,6 +1406,8 @@ static gint ett_ranap_PermittedIntegrityProtectionAlgorithms = -1;
 static gint ett_ranap_LABased = -1;
 static gint ett_ranap_LAI_List = -1;
 static gint ett_ranap_LoggedMDT = -1;
+static gint ett_ranap_PLMNBased = -1;
+static gint ett_ranap_PLMNList = -1;
 static gint ett_ranap_PLMNs_in_shared_network = -1;
 static gint ett_ranap_PLMNs_in_shared_network_item = -1;
 static gint ett_ranap_PositioningDataSet = -1;
@@ -2066,7 +2085,6 @@ static const value_string ranap_ProtocolIE_ID_vals[] = {
   { id_IRAT_Measurement_Configuration, "id-IRAT-Measurement-Configuration" },
   { id_MDT_Configuration, "id-MDT-Configuration" },
   { id_Priority_Class_Indicator, "id-Priority-Class-Indicator" },
-  { id_Not_Used_246, "id-Not-Used-246" },
   { id_RNSAPRelocationParameters, "id-RNSAPRelocationParameters" },
   { id_RABParametersList, "id-RABParametersList" },
   { id_Management_Based_MDT_Allowed, "id-Management-Based-MDT-Allowed" },
@@ -2111,6 +2129,9 @@ static const value_string ranap_ProtocolIE_ID_vals[] = {
   { id_RANAP_Message, "id-RANAP-Message" },
   { id_PowerSavingIndicator, "id-PowerSavingIndicator" },
   { id_UE_Usage_Type, "id-UE-Usage-Type" },
+  { id_DCN_ID, "id-DCN-ID" },
+  { id_UE_Application_Layer_Measurement_Configuration, "id-UE-Application-Layer-Measurement-Configuration" },
+  { id_UE_Application_Layer_Measurement_Configuration_For_Relocation, "id-UE-Application-Layer-Measurement-Configuration-For-Relocation" },
   { 0, NULL }
 };
 
@@ -2939,6 +2960,356 @@ dissect_ranap_AlternativeRABConfigurationRequest(tvbuff_t *tvb _U_, int offset _
 
 
 static int
+dissect_ranap_OCTET_STRING_SIZE_1_1000(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
+                                       1, 1000, FALSE, NULL);
+
+  return offset;
+}
+
+
+
+static int
+dissect_ranap_Cell_Id(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
+                                                            0U, 268435455U, NULL, FALSE);
+
+  return offset;
+}
+
+
+static const per_sequence_t CellIdList_sequence_of[1] = {
+  { &hf_ranap_CellIdList_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_Cell_Id },
+};
+
+static int
+dissect_ranap_CellIdList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
+                                                  ett_ranap_CellIdList, CellIdList_sequence_of,
+                                                  1, maxNrOfCellIds, FALSE);
+
+  return offset;
+}
+
+
+static const per_sequence_t CellBased_sequence[] = {
+  { &hf_ranap_cellIdList    , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_CellIdList },
+  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_CellBased(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_CellBased, CellBased_sequence);
+
+  return offset;
+}
+
+
+static const per_sequence_t LAI_List_sequence_of[1] = {
+  { &hf_ranap_LAI_List_item , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_LAI },
+};
+
+static int
+dissect_ranap_LAI_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
+                                                  ett_ranap_LAI_List, LAI_List_sequence_of,
+                                                  1, maxNrOfLAIs, FALSE);
+
+  return offset;
+}
+
+
+static const per_sequence_t LABased_sequence[] = {
+  { &hf_ranap_laiList       , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_LAI_List },
+  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_LABased(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_LABased, LABased_sequence);
+
+  return offset;
+}
+
+
+static const per_sequence_t RAI_sequence[] = {
+  { &hf_ranap_lAI           , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_LAI },
+  { &hf_ranap_rAC           , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_RAC },
+  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_RAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_RAI, RAI_sequence);
+
+  return offset;
+}
+
+
+static const per_sequence_t RAI_List_sequence_of[1] = {
+  { &hf_ranap_RAI_List_item , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_RAI },
+};
+
+static int
+dissect_ranap_RAI_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
+                                                  ett_ranap_RAI_List, RAI_List_sequence_of,
+                                                  1, maxNrOfRAIs, FALSE);
+
+  return offset;
+}
+
+
+static const per_sequence_t RABased_sequence[] = {
+  { &hf_ranap_raiList       , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_RAI_List },
+  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_RABased(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_RABased, RABased_sequence);
+
+  return offset;
+}
+
+
+static const per_sequence_t PLMNList_sequence_of[1] = {
+  { &hf_ranap_PLMNList_item , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_PLMNidentity },
+};
+
+static int
+dissect_ranap_PLMNList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
+                                                  ett_ranap_PLMNList, PLMNList_sequence_of,
+                                                  1, maxnoofPLMNs, FALSE);
+
+  return offset;
+}
+
+
+static const per_sequence_t PLMNBased_sequence[] = {
+  { &hf_ranap_plmnList      , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_PLMNList },
+  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_PLMNBased(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_PLMNBased, PLMNBased_sequence);
+
+  return offset;
+}
+
+
+static const value_string ranap_AreaScopeForUEApplicationLayerMeasurementConfiguration_vals[] = {
+  {   0, "cellbased" },
+  {   1, "labased" },
+  {   2, "rabased" },
+  {   3, "plmn-area-based" },
+  { 0, NULL }
+};
+
+static const per_choice_t AreaScopeForUEApplicationLayerMeasurementConfiguration_choice[] = {
+  {   0, &hf_ranap_cellbased     , ASN1_EXTENSION_ROOT    , dissect_ranap_CellBased },
+  {   1, &hf_ranap_labased       , ASN1_EXTENSION_ROOT    , dissect_ranap_LABased },
+  {   2, &hf_ranap_rabased       , ASN1_EXTENSION_ROOT    , dissect_ranap_RABased },
+  {   3, &hf_ranap_plmn_area_based, ASN1_EXTENSION_ROOT    , dissect_ranap_PLMNBased },
+  { 0, NULL, 0, NULL }
+};
+
+static int
+dissect_ranap_AreaScopeForUEApplicationLayerMeasurementConfiguration(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
+                                 ett_ranap_AreaScopeForUEApplicationLayerMeasurementConfiguration, AreaScopeForUEApplicationLayerMeasurementConfiguration_choice,
+                                 NULL);
+
+  return offset;
+}
+
+
+static const per_sequence_t UE_Application_Layer_Measurement_Configuration_sequence[] = {
+  { &hf_ranap_applicationLayerContainerForMeasurementConfiguration, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_OCTET_STRING_SIZE_1_1000 },
+  { &hf_ranap_areaScopeForUEApplicationLayerMeasurementConfiguration, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_AreaScopeForUEApplicationLayerMeasurementConfiguration },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_UE_Application_Layer_Measurement_Configuration(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_UE_Application_Layer_Measurement_Configuration, UE_Application_Layer_Measurement_Configuration_sequence);
+
+  return offset;
+}
+
+
+
+static int
+dissect_ranap_TraceReference(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
+                                       2, 3, FALSE, NULL);
+
+  return offset;
+}
+
+
+
+static int
+dissect_ranap_TraceRecordingSessionReference(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
+                                                            0U, 65535U, NULL, FALSE);
+
+  return offset;
+}
+
+
+static const value_string ranap_TraceDepth_vals[] = {
+  {   0, "minimum" },
+  {   1, "medium" },
+  {   2, "maximum" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_ranap_TraceDepth(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
+                                     3, NULL, TRUE, 0, NULL);
+
+  return offset;
+}
+
+
+static const value_string ranap_T_interface_vals[] = {
+  {   0, "iu-cs" },
+  {   1, "iu-ps" },
+  {   2, "iur" },
+  {   3, "iub" },
+  {   4, "uu" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_ranap_T_interface(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
+                                     5, NULL, TRUE, 0, NULL);
+
+  return offset;
+}
+
+
+static const per_sequence_t InterfacesToTraceItem_sequence[] = {
+  { &hf_ranap_interface     , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_T_interface },
+  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_InterfacesToTraceItem(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_InterfacesToTraceItem, InterfacesToTraceItem_sequence);
+
+  return offset;
+}
+
+
+static const per_sequence_t ListOfInterfacesToTrace_sequence_of[1] = {
+  { &hf_ranap_ListOfInterfacesToTrace_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_InterfacesToTraceItem },
+};
+
+static int
+dissect_ranap_ListOfInterfacesToTrace(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
+                                                  ett_ranap_ListOfInterfacesToTrace, ListOfInterfacesToTrace_sequence_of,
+                                                  1, maxNrOfInterfaces, FALSE);
+
+  return offset;
+}
+
+
+static const per_sequence_t TracePropagationParameters_sequence[] = {
+  { &hf_ranap_traceRecordingSessionReference, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_TraceRecordingSessionReference },
+  { &hf_ranap_traceDepth    , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_TraceDepth },
+  { &hf_ranap_listOfInterfacesToTrace, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ListOfInterfacesToTrace },
+  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_TracePropagationParameters(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_TracePropagationParameters, TracePropagationParameters_sequence);
+
+  return offset;
+}
+
+
+
+static int
+dissect_ranap_TransportLayerAddress(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 310 "./asn1/ranap/ranap.cnf"
+  tvbuff_t *parameter_tvb=NULL;
+  proto_item *item;
+  proto_tree *subtree, *nsap_tree;
+  gint tvb_len;
+
+  offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
+                                     1, 160, TRUE, &parameter_tvb, NULL);
+
+  if (!parameter_tvb)
+    return offset;
+  /* Get the length */
+  tvb_len = tvb_reported_length(parameter_tvb);
+  subtree = proto_item_add_subtree(actx->created_item, ett_ranap_TransportLayerAddress);
+  if (tvb_len==4){
+    /* IPv4 */
+    proto_tree_add_item(subtree, hf_ranap_transportLayerAddress_ipv4, parameter_tvb, 0, tvb_len, ENC_BIG_ENDIAN);
+  }
+  if (tvb_len==16){
+    /* IPv6 */
+    proto_tree_add_item(subtree, hf_ranap_transportLayerAddress_ipv6, parameter_tvb, 0, tvb_len, ENC_NA);
+  }
+  /* Length will be 25 if optional bearerId is present */
+  if ((tvb_len==20) || (tvb_len==25)) {
+    item = proto_tree_add_item(subtree, hf_ranap_transportLayerAddress_nsap, parameter_tvb, 0, 20, ENC_NA);
+    nsap_tree = proto_item_add_subtree(item, ett_ranap_TransportLayerAddress_nsap);
+    dissect_nsap(parameter_tvb, 0, tvb_len, nsap_tree);
+  }
+
+
+
+  return offset;
+}
+
+
+static const per_sequence_t UE_Application_Layer_Measurement_Configuration_For_Relocation_sequence[] = {
+  { &hf_ranap_areaScopeForUEApplicationLayerMeasurementConfiguration, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_AreaScopeForUEApplicationLayerMeasurementConfiguration },
+  { &hf_ranap_traceReference, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_TraceReference },
+  { &hf_ranap_tracePropagationParameters, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_TracePropagationParameters },
+  { &hf_ranap_traceCollectionEntityIPAddress, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_TransportLayerAddress },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ranap_UE_Application_Layer_Measurement_Configuration_For_Relocation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ranap_UE_Application_Layer_Measurement_Configuration_For_Relocation, UE_Application_Layer_Measurement_Configuration_For_Relocation_sequence);
+
+  return offset;
+}
+
+
+
+static int
 dissect_ranap_APN(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        1, 255, FALSE, NULL);
@@ -3721,45 +4092,6 @@ dissect_ranap_Cell_Access_Mode(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 
 static int
-dissect_ranap_Cell_Id(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            0U, 268435455U, NULL, FALSE);
-
-  return offset;
-}
-
-
-static const per_sequence_t CellIdList_sequence_of[1] = {
-  { &hf_ranap_CellIdList_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_Cell_Id },
-};
-
-static int
-dissect_ranap_CellIdList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
-                                                  ett_ranap_CellIdList, CellIdList_sequence_of,
-                                                  1, maxNrOfCellIds, FALSE);
-
-  return offset;
-}
-
-
-static const per_sequence_t CellBased_sequence[] = {
-  { &hf_ranap_cellIdList    , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_CellIdList },
-  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
-  { NULL, 0, 0, NULL }
-};
-
-static int
-dissect_ranap_CellBased(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_ranap_CellBased, CellBased_sequence);
-
-  return offset;
-}
-
-
-
-static int
 dissect_ranap_Cell_Capacity_Class_Value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             1U, 100U, NULL, TRUE);
@@ -4273,6 +4605,16 @@ dissect_ranap_DCH_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 }
 
 
+
+static int
+dissect_ranap_DCN_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
+                                                            0U, 65535U, NULL, FALSE);
+
+  return offset;
+}
+
+
 static const value_string ranap_DeliveryOfErroneousSDU_vals[] = {
   {   0, "yes" },
   {   1, "no" },
@@ -4440,15 +4782,39 @@ dissect_ranap_BIT_STRING_SIZE_28(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 }
 
 
+
+static int
+dissect_ranap_BIT_STRING_SIZE_18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
+                                     18, 18, FALSE, NULL, NULL);
+
+  return offset;
+}
+
+
+
+static int
+dissect_ranap_BIT_STRING_SIZE_21(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
+                                     21, 21, FALSE, NULL, NULL);
+
+  return offset;
+}
+
+
 static const value_string ranap_ENB_ID_vals[] = {
   {   0, "macroENB-ID" },
   {   1, "homeENB-ID" },
+  {   2, "short-macroENB-ID" },
+  {   3, "long-macroENB-ID" },
   { 0, NULL }
 };
 
 static const per_choice_t ENB_ID_choice[] = {
   {   0, &hf_ranap_macroENB_ID   , ASN1_EXTENSION_ROOT    , dissect_ranap_BIT_STRING_SIZE_20 },
   {   1, &hf_ranap_homeENB_ID    , ASN1_EXTENSION_ROOT    , dissect_ranap_BIT_STRING_SIZE_28 },
+  {   2, &hf_ranap_short_macroENB_ID, ASN1_NOT_EXTENSION_ROOT, dissect_ranap_BIT_STRING_SIZE_18 },
+  {   3, &hf_ranap_long_macroENB_ID, ASN1_NOT_EXTENSION_ROOT, dissect_ranap_BIT_STRING_SIZE_21 },
   { 0, NULL, 0, NULL }
 };
 
@@ -5296,16 +5662,6 @@ dissect_ranap_InformationTransferID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 }
 
 
-
-static int
-dissect_ranap_TraceReference(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       2, 3, FALSE, NULL);
-
-  return offset;
-}
-
-
 static const value_string ranap_T_traceActivationIndicator_vals[] = {
   {   0, "activated" },
   {   1, "deactivated" },
@@ -5727,54 +6083,6 @@ static int
 dissect_ranap_Links_to_log(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      3, NULL, TRUE, 0, NULL);
-
-  return offset;
-}
-
-
-static const value_string ranap_T_interface_vals[] = {
-  {   0, "iu-cs" },
-  {   1, "iu-ps" },
-  {   2, "iur" },
-  {   3, "iub" },
-  {   4, "uu" },
-  { 0, NULL }
-};
-
-
-static int
-dissect_ranap_T_interface(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     5, NULL, TRUE, 0, NULL);
-
-  return offset;
-}
-
-
-static const per_sequence_t InterfacesToTraceItem_sequence[] = {
-  { &hf_ranap_interface     , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_T_interface },
-  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
-  { NULL, 0, 0, NULL }
-};
-
-static int
-dissect_ranap_InterfacesToTraceItem(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_ranap_InterfacesToTraceItem, InterfacesToTraceItem_sequence);
-
-  return offset;
-}
-
-
-static const per_sequence_t ListOfInterfacesToTrace_sequence_of[1] = {
-  { &hf_ranap_ListOfInterfacesToTrace_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_InterfacesToTraceItem },
-};
-
-static int
-dissect_ranap_ListOfInterfacesToTrace(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
-                                                  ett_ranap_ListOfInterfacesToTrace, ListOfInterfacesToTrace_sequence_of,
-                                                  1, maxNrOfInterfaces, FALSE);
 
   return offset;
 }
@@ -6388,80 +6696,6 @@ dissect_ranap_MDT_Activation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 }
 
 
-static const per_sequence_t LAI_List_sequence_of[1] = {
-  { &hf_ranap_LAI_List_item , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_LAI },
-};
-
-static int
-dissect_ranap_LAI_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
-                                                  ett_ranap_LAI_List, LAI_List_sequence_of,
-                                                  1, maxNrOfLAIs, FALSE);
-
-  return offset;
-}
-
-
-static const per_sequence_t LABased_sequence[] = {
-  { &hf_ranap_laiList       , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_LAI_List },
-  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
-  { NULL, 0, 0, NULL }
-};
-
-static int
-dissect_ranap_LABased(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_ranap_LABased, LABased_sequence);
-
-  return offset;
-}
-
-
-static const per_sequence_t RAI_sequence[] = {
-  { &hf_ranap_lAI           , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_LAI },
-  { &hf_ranap_rAC           , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_RAC },
-  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
-  { NULL, 0, 0, NULL }
-};
-
-static int
-dissect_ranap_RAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_ranap_RAI, RAI_sequence);
-
-  return offset;
-}
-
-
-static const per_sequence_t RAI_List_sequence_of[1] = {
-  { &hf_ranap_RAI_List_item , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ranap_RAI },
-};
-
-static int
-dissect_ranap_RAI_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
-                                                  ett_ranap_RAI_List, RAI_List_sequence_of,
-                                                  1, maxNrOfRAIs, FALSE);
-
-  return offset;
-}
-
-
-static const per_sequence_t RABased_sequence[] = {
-  { &hf_ranap_raiList       , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_RAI_List },
-  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
-  { NULL, 0, 0, NULL }
-};
-
-static int
-dissect_ranap_RABased(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_ranap_RABased, RABased_sequence);
-
-  return offset;
-}
-
-
 static const value_string ranap_MDTAreaScope_vals[] = {
   {   0, "cellbased" },
   {   1, "labased" },
@@ -6474,7 +6708,7 @@ static const per_choice_t MDTAreaScope_choice[] = {
   {   0, &hf_ranap_cellbased     , ASN1_EXTENSION_ROOT    , dissect_ranap_CellBased },
   {   1, &hf_ranap_labased       , ASN1_EXTENSION_ROOT    , dissect_ranap_LABased },
   {   2, &hf_ranap_rabased       , ASN1_EXTENSION_ROOT    , dissect_ranap_RABased },
-  {   3, &hf_ranap_plmn_area_based, ASN1_EXTENSION_ROOT    , dissect_ranap_NULL },
+  {   3, &hf_ranap_plmn_area_based_01, ASN1_EXTENSION_ROOT    , dissect_ranap_NULL },
   { 0, NULL, 0, NULL }
 };
 
@@ -7876,50 +8110,6 @@ dissect_ranap_UE_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 }
 
 
-
-static int
-dissect_ranap_TraceRecordingSessionReference(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            0U, 65535U, NULL, FALSE);
-
-  return offset;
-}
-
-
-static const value_string ranap_TraceDepth_vals[] = {
-  {   0, "minimum" },
-  {   1, "medium" },
-  {   2, "maximum" },
-  { 0, NULL }
-};
-
-
-static int
-dissect_ranap_TraceDepth(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     3, NULL, TRUE, 0, NULL);
-
-  return offset;
-}
-
-
-static const per_sequence_t TracePropagationParameters_sequence[] = {
-  { &hf_ranap_traceRecordingSessionReference, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_TraceRecordingSessionReference },
-  { &hf_ranap_traceDepth    , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_TraceDepth },
-  { &hf_ranap_listOfInterfacesToTrace, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ListOfInterfacesToTrace },
-  { &hf_ranap_iE_Extensions , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ranap_ProtocolExtensionContainer },
-  { NULL, 0, 0, NULL }
-};
-
-static int
-dissect_ranap_TracePropagationParameters(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_ranap_TracePropagationParameters, TracePropagationParameters_sequence);
-
-  return offset;
-}
-
-
 static const per_sequence_t TraceInformation_sequence[] = {
   { &hf_ranap_traceReference, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_TraceReference },
   { &hf_ranap_ue_identity   , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ranap_UE_ID },
@@ -8693,44 +8883,6 @@ dissect_ranap_TraceType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_,
 
 
 static int
-dissect_ranap_TransportLayerAddress(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 310 "./asn1/ranap/ranap.cnf"
-  tvbuff_t *parameter_tvb=NULL;
-  proto_item *item;
-  proto_tree *subtree, *nsap_tree;
-  gint tvb_len;
-
-  offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 160, TRUE, &parameter_tvb, NULL);
-
-  if (!parameter_tvb)
-    return offset;
-  /* Get the length */
-  tvb_len = tvb_reported_length(parameter_tvb);
-  subtree = proto_item_add_subtree(actx->created_item, ett_ranap_TransportLayerAddress);
-  if (tvb_len==4){
-    /* IPv4 */
-    proto_tree_add_item(subtree, hf_ranap_transportLayerAddress_ipv4, parameter_tvb, 0, tvb_len, ENC_BIG_ENDIAN);
-  }
-  if (tvb_len==16){
-    /* IPv6 */
-    proto_tree_add_item(subtree, hf_ranap_transportLayerAddress_ipv6, parameter_tvb, 0, tvb_len, ENC_NA);
-  }
-  /* Length will be 25 if optional bearerId is present */
-  if ((tvb_len==20) || (tvb_len==25)) {
-    item = proto_tree_add_item(subtree, hf_ranap_transportLayerAddress_nsap, parameter_tvb, 0, 20, ENC_NA);
-    nsap_tree = proto_item_add_subtree(item, ett_ranap_TransportLayerAddress_nsap);
-    dissect_nsap(parameter_tvb, 0, tvb_len, nsap_tree);
-  }
-
-
-
-  return offset;
-}
-
-
-
-static int
 dissect_ranap_TriggerID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        3, 22, FALSE, NULL);
@@ -9224,6 +9376,10 @@ static const per_sequence_t Iu_ReleaseCommand_sequence[] = {
 
 static int
 dissect_ranap_Iu_ReleaseCommand(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 417 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"Iu-ReleaseCommand ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_Iu_ReleaseCommand, Iu_ReleaseCommand_sequence);
 
@@ -9239,6 +9395,10 @@ static const per_sequence_t Iu_ReleaseComplete_sequence[] = {
 
 static int
 dissect_ranap_Iu_ReleaseComplete(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 421 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"Iu-ReleaseComplete ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_Iu_ReleaseComplete, Iu_ReleaseComplete_sequence);
 
@@ -9335,6 +9495,10 @@ static const per_sequence_t RelocationRequired_sequence[] = {
 
 static int
 dissect_ranap_RelocationRequired(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 425 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationRequired ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationRequired, RelocationRequired_sequence);
 
@@ -9350,6 +9514,10 @@ static const per_sequence_t RelocationCommand_sequence[] = {
 
 static int
 dissect_ranap_RelocationCommand(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 429 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationCommand ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationCommand, RelocationCommand_sequence);
 
@@ -9415,6 +9583,10 @@ static const per_sequence_t RelocationPreparationFailure_sequence[] = {
 
 static int
 dissect_ranap_RelocationPreparationFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 433 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationPreparationFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationPreparationFailure, RelocationPreparationFailure_sequence);
 
@@ -9430,6 +9602,10 @@ static const per_sequence_t RelocationRequest_sequence[] = {
 
 static int
 dissect_ranap_RelocationRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 437 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationRequest, RelocationRequest_sequence);
 
@@ -9538,6 +9714,10 @@ static const per_sequence_t RelocationRequestAcknowledge_sequence[] = {
 
 static int
 dissect_ranap_RelocationRequestAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 441 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationRequestAcknowledge ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationRequestAcknowledge, RelocationRequestAcknowledge_sequence);
 
@@ -9604,6 +9784,10 @@ static const per_sequence_t RelocationFailure_sequence[] = {
 
 static int
 dissect_ranap_RelocationFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 445 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationFailure, RelocationFailure_sequence);
 
@@ -9619,6 +9803,10 @@ static const per_sequence_t RelocationCancel_sequence[] = {
 
 static int
 dissect_ranap_RelocationCancel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 449 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationCancel ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationCancel, RelocationCancel_sequence);
 
@@ -9634,6 +9822,10 @@ static const per_sequence_t RelocationCancelAcknowledge_sequence[] = {
 
 static int
 dissect_ranap_RelocationCancelAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 453 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationCancelAcknowledge ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationCancelAcknowledge, RelocationCancelAcknowledge_sequence);
 
@@ -9649,6 +9841,10 @@ static const per_sequence_t SRNS_ContextRequest_sequence[] = {
 
 static int
 dissect_ranap_SRNS_ContextRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 457 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"SRNS-ContextRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_SRNS_ContextRequest, SRNS_ContextRequest_sequence);
 
@@ -9688,6 +9884,10 @@ static const per_sequence_t SRNS_ContextResponse_sequence[] = {
 
 static int
 dissect_ranap_SRNS_ContextResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 461 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"SRNS-ContextResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_SRNS_ContextResponse, SRNS_ContextResponse_sequence);
 
@@ -9756,6 +9956,10 @@ static const per_sequence_t SecurityModeCommand_sequence[] = {
 
 static int
 dissect_ranap_SecurityModeCommand(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 465 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"SecurityModeCommand ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_SecurityModeCommand, SecurityModeCommand_sequence);
 
@@ -9771,6 +9975,10 @@ static const per_sequence_t SecurityModeComplete_sequence[] = {
 
 static int
 dissect_ranap_SecurityModeComplete(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 469 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"SecurityModeComplete ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_SecurityModeComplete, SecurityModeComplete_sequence);
 
@@ -9786,6 +9994,10 @@ static const per_sequence_t SecurityModeReject_sequence[] = {
 
 static int
 dissect_ranap_SecurityModeReject(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 473 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"SecurityModeReject ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_SecurityModeReject, SecurityModeReject_sequence);
 
@@ -9801,6 +10013,10 @@ static const per_sequence_t DataVolumeReportRequest_sequence[] = {
 
 static int
 dissect_ranap_DataVolumeReportRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 477 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"DataVolumeReportRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_DataVolumeReportRequest, DataVolumeReportRequest_sequence);
 
@@ -9840,6 +10056,10 @@ static const per_sequence_t DataVolumeReport_sequence[] = {
 
 static int
 dissect_ranap_DataVolumeReport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 481 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"DataVolumeReport ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_DataVolumeReport, DataVolumeReport_sequence);
 
@@ -9880,6 +10100,10 @@ static const per_sequence_t Reset_sequence[] = {
 
 static int
 dissect_ranap_Reset(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 485 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"Reset ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_Reset, Reset_sequence);
 
@@ -9895,6 +10119,10 @@ static const per_sequence_t ResetAcknowledge_sequence[] = {
 
 static int
 dissect_ranap_ResetAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 489 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"ResetAcknowledge ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_ResetAcknowledge, ResetAcknowledge_sequence);
 
@@ -9910,6 +10138,10 @@ static const per_sequence_t ResetResource_sequence[] = {
 
 static int
 dissect_ranap_ResetResource(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 569 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"ResetResource ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_ResetResource, ResetResource_sequence);
 
@@ -9949,6 +10181,10 @@ static const per_sequence_t ResetResourceAcknowledge_sequence[] = {
 
 static int
 dissect_ranap_ResetResourceAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 573 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"ResetResourceAcknowledge ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_ResetResourceAcknowledge, ResetResourceAcknowledge_sequence);
 
@@ -9988,6 +10224,10 @@ static const per_sequence_t RAB_ReleaseRequest_sequence[] = {
 
 static int
 dissect_ranap_RAB_ReleaseRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 493 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RAB-ReleaseRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RAB_ReleaseRequest, RAB_ReleaseRequest_sequence);
 
@@ -10028,6 +10268,10 @@ static const per_sequence_t Iu_ReleaseRequest_sequence[] = {
 
 static int
 dissect_ranap_Iu_ReleaseRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 497 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"Iu-ReleaseRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_Iu_ReleaseRequest, Iu_ReleaseRequest_sequence);
 
@@ -10043,6 +10287,10 @@ static const per_sequence_t RelocationDetect_sequence[] = {
 
 static int
 dissect_ranap_RelocationDetect(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 501 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationDetect ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationDetect, RelocationDetect_sequence);
 
@@ -10058,6 +10306,10 @@ static const per_sequence_t RelocationComplete_sequence[] = {
 
 static int
 dissect_ranap_RelocationComplete(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 505 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RelocationComplete ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RelocationComplete, RelocationComplete_sequence);
 
@@ -10073,6 +10325,10 @@ static const per_sequence_t EnhancedRelocationCompleteRequest_sequence[] = {
 
 static int
 dissect_ranap_EnhancedRelocationCompleteRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 705 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"EnhancedRelocationCompleteRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_EnhancedRelocationCompleteRequest, EnhancedRelocationCompleteRequest_sequence);
 
@@ -10115,6 +10371,10 @@ static const per_sequence_t EnhancedRelocationCompleteResponse_sequence[] = {
 
 static int
 dissect_ranap_EnhancedRelocationCompleteResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 709 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"EnhancedRelocationCompleteResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_EnhancedRelocationCompleteResponse, EnhancedRelocationCompleteResponse_sequence);
 
@@ -10184,6 +10444,10 @@ static const per_sequence_t EnhancedRelocationCompleteFailure_sequence[] = {
 
 static int
 dissect_ranap_EnhancedRelocationCompleteFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 713 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"EnhancedRelocationCompleteFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_EnhancedRelocationCompleteFailure, EnhancedRelocationCompleteFailure_sequence);
 
@@ -10199,6 +10463,10 @@ static const per_sequence_t EnhancedRelocationCompleteConfirm_sequence[] = {
 
 static int
 dissect_ranap_EnhancedRelocationCompleteConfirm(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 717 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"EnhancedRelocationCompleteConfirm ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_EnhancedRelocationCompleteConfirm, EnhancedRelocationCompleteConfirm_sequence);
 
@@ -10214,6 +10482,10 @@ static const per_sequence_t Paging_sequence[] = {
 
 static int
 dissect_ranap_Paging(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 509 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"Paging ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_Paging, Paging_sequence);
 
@@ -10229,6 +10501,10 @@ static const per_sequence_t CommonID_sequence[] = {
 
 static int
 dissect_ranap_CommonID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 513 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"CommonID ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_CommonID, CommonID_sequence);
 
@@ -10244,6 +10520,10 @@ static const per_sequence_t CN_InvokeTrace_sequence[] = {
 
 static int
 dissect_ranap_CN_InvokeTrace(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 517 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"CN-InvokeTrace ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_CN_InvokeTrace, CN_InvokeTrace_sequence);
 
@@ -10259,6 +10539,10 @@ static const per_sequence_t CN_DeactivateTrace_sequence[] = {
 
 static int
 dissect_ranap_CN_DeactivateTrace(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 521 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"CN-DeactivateTrace ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_CN_DeactivateTrace, CN_DeactivateTrace_sequence);
 
@@ -10274,6 +10558,10 @@ static const per_sequence_t LocationReportingControl_sequence[] = {
 
 static int
 dissect_ranap_LocationReportingControl(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 525 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"LocationReportingControl ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_LocationReportingControl, LocationReportingControl_sequence);
 
@@ -10289,6 +10577,10 @@ static const per_sequence_t LocationReport_sequence[] = {
 
 static int
 dissect_ranap_LocationReport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 529 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"LocationReport ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_LocationReport, LocationReport_sequence);
 
@@ -10304,6 +10596,10 @@ static const per_sequence_t InitialUE_Message_sequence[] = {
 
 static int
 dissect_ranap_InitialUE_Message(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 533 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"InitialUE-Message ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_InitialUE_Message, InitialUE_Message_sequence);
 
@@ -10319,6 +10615,10 @@ static const per_sequence_t DirectTransfer_sequence[] = {
 
 static int
 dissect_ranap_DirectTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 537 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"DirectTransfer ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_DirectTransfer, DirectTransfer_sequence);
 
@@ -10343,6 +10643,10 @@ static const per_sequence_t Overload_sequence[] = {
 
 static int
 dissect_ranap_Overload(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 541 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"Overload ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_Overload, Overload_sequence);
 
@@ -10358,6 +10662,10 @@ static const per_sequence_t ErrorIndication_sequence[] = {
 
 static int
 dissect_ranap_ErrorIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 545 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"ErrorIndication ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_ErrorIndication, ErrorIndication_sequence);
 
@@ -10373,6 +10681,10 @@ static const per_sequence_t SRNS_DataForwardCommand_sequence[] = {
 
 static int
 dissect_ranap_SRNS_DataForwardCommand(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 549 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"SRNS-DataForwardCommand ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_SRNS_DataForwardCommand, SRNS_DataForwardCommand_sequence);
 
@@ -10388,6 +10700,10 @@ static const per_sequence_t ForwardSRNS_Context_sequence[] = {
 
 static int
 dissect_ranap_ForwardSRNS_Context(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 553 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"ForwardSRNS-Context ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_ForwardSRNS_Context, ForwardSRNS_Context_sequence);
 
@@ -10403,6 +10719,10 @@ static const per_sequence_t RAB_AssignmentRequest_sequence[] = {
 
 static int
 dissect_ranap_RAB_AssignmentRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 557 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RAB-AssignmentRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RAB_AssignmentRequest, RAB_AssignmentRequest_sequence);
 
@@ -10483,6 +10803,10 @@ static const per_sequence_t RAB_AssignmentResponse_sequence[] = {
 
 static int
 dissect_ranap_RAB_AssignmentResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 561 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RAB-AssignmentResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RAB_AssignmentResponse, RAB_AssignmentResponse_sequence);
 
@@ -10610,6 +10934,10 @@ static const per_sequence_t PrivateMessage_sequence[] = {
 
 static int
 dissect_ranap_PrivateMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 565 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"PrivateMessage ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_PrivateMessage, PrivateMessage_sequence);
 
@@ -10625,6 +10953,10 @@ static const per_sequence_t RANAP_RelocationInformation_sequence[] = {
 
 static int
 dissect_ranap_RANAP_RelocationInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 577 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RANAP-RelocationInformation ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RANAP_RelocationInformation, RANAP_RelocationInformation_sequence);
 
@@ -10694,6 +11026,10 @@ static const per_sequence_t RANAP_EnhancedRelocationInformationRequest_sequence[
 
 static int
 dissect_ranap_RANAP_EnhancedRelocationInformationRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 721 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RANAP-EnhancedRelocationInformationRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RANAP_EnhancedRelocationInformationRequest, RANAP_EnhancedRelocationInformationRequest_sequence);
 
@@ -10758,6 +11094,10 @@ static const per_sequence_t RANAP_EnhancedRelocationInformationResponse_sequence
 
 static int
 dissect_ranap_RANAP_EnhancedRelocationInformationResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 725 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RANAP-EnhancedRelocationInformationResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RANAP_EnhancedRelocationInformationResponse, RANAP_EnhancedRelocationInformationResponse_sequence);
 
@@ -10842,6 +11182,10 @@ static const per_sequence_t RAB_ModifyRequest_sequence[] = {
 
 static int
 dissect_ranap_RAB_ModifyRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 581 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RAB-ModifyRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RAB_ModifyRequest, RAB_ModifyRequest_sequence);
 
@@ -10882,6 +11226,10 @@ static const per_sequence_t LocationRelatedDataRequest_sequence[] = {
 
 static int
 dissect_ranap_LocationRelatedDataRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 585 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"LocationRelatedDataRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_LocationRelatedDataRequest, LocationRelatedDataRequest_sequence);
 
@@ -10897,6 +11245,10 @@ static const per_sequence_t LocationRelatedDataResponse_sequence[] = {
 
 static int
 dissect_ranap_LocationRelatedDataResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 589 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"LocationRelatedDataResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_LocationRelatedDataResponse, LocationRelatedDataResponse_sequence);
 
@@ -10912,6 +11264,10 @@ static const per_sequence_t LocationRelatedDataFailure_sequence[] = {
 
 static int
 dissect_ranap_LocationRelatedDataFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 593 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"LocationRelatedDataFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_LocationRelatedDataFailure, LocationRelatedDataFailure_sequence);
 
@@ -10927,6 +11283,10 @@ static const per_sequence_t InformationTransferIndication_sequence[] = {
 
 static int
 dissect_ranap_InformationTransferIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 597 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"InformationTransferIndication ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_InformationTransferIndication, InformationTransferIndication_sequence);
 
@@ -10942,6 +11302,10 @@ static const per_sequence_t InformationTransferConfirmation_sequence[] = {
 
 static int
 dissect_ranap_InformationTransferConfirmation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 601 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"InformationTransferConfirmation ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_InformationTransferConfirmation, InformationTransferConfirmation_sequence);
 
@@ -10957,6 +11321,10 @@ static const per_sequence_t InformationTransferFailure_sequence[] = {
 
 static int
 dissect_ranap_InformationTransferFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 605 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"InformationTransferFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_InformationTransferFailure, InformationTransferFailure_sequence);
 
@@ -10972,6 +11340,10 @@ static const per_sequence_t UESpecificInformationIndication_sequence[] = {
 
 static int
 dissect_ranap_UESpecificInformationIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 609 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"UESpecificInformationIndication ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_UESpecificInformationIndication, UESpecificInformationIndication_sequence);
 
@@ -10987,6 +11359,10 @@ static const per_sequence_t DirectInformationTransfer_sequence[] = {
 
 static int
 dissect_ranap_DirectInformationTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 613 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"DirectInformationTransfer ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_DirectInformationTransfer, DirectInformationTransfer_sequence);
 
@@ -11002,6 +11378,10 @@ static const per_sequence_t UplinkInformationExchangeRequest_sequence[] = {
 
 static int
 dissect_ranap_UplinkInformationExchangeRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 617 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"UplinkInformationExchangeRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_UplinkInformationExchangeRequest, UplinkInformationExchangeRequest_sequence);
 
@@ -11017,6 +11397,10 @@ static const per_sequence_t UplinkInformationExchangeResponse_sequence[] = {
 
 static int
 dissect_ranap_UplinkInformationExchangeResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 621 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"UplinkInformationExchangeResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_UplinkInformationExchangeResponse, UplinkInformationExchangeResponse_sequence);
 
@@ -11032,6 +11416,10 @@ static const per_sequence_t UplinkInformationExchangeFailure_sequence[] = {
 
 static int
 dissect_ranap_UplinkInformationExchangeFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 625 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"UplinkInformationExchangeFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_UplinkInformationExchangeFailure, UplinkInformationExchangeFailure_sequence);
 
@@ -11047,6 +11435,10 @@ static const per_sequence_t MBMSSessionStart_sequence[] = {
 
 static int
 dissect_ranap_MBMSSessionStart(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 629 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSSessionStart ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSSessionStart, MBMSSessionStart_sequence);
 
@@ -11079,6 +11471,10 @@ static const per_sequence_t MBMSSessionStartResponse_sequence[] = {
 
 static int
 dissect_ranap_MBMSSessionStartResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 633 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSSessionStartResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSSessionStartResponse, MBMSSessionStartResponse_sequence);
 
@@ -11094,6 +11490,10 @@ static const per_sequence_t MBMSSessionStartFailure_sequence[] = {
 
 static int
 dissect_ranap_MBMSSessionStartFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 637 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSSessionStartFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSSessionStartFailure, MBMSSessionStartFailure_sequence);
 
@@ -11109,6 +11509,10 @@ static const per_sequence_t MBMSSessionUpdate_sequence[] = {
 
 static int
 dissect_ranap_MBMSSessionUpdate(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 641 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSSessionUpdate ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSSessionUpdate, MBMSSessionUpdate_sequence);
 
@@ -11124,6 +11528,10 @@ static const per_sequence_t MBMSSessionUpdateResponse_sequence[] = {
 
 static int
 dissect_ranap_MBMSSessionUpdateResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 645 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSSessionUpdateResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSSessionUpdateResponse, MBMSSessionUpdateResponse_sequence);
 
@@ -11139,6 +11547,10 @@ static const per_sequence_t MBMSSessionUpdateFailure_sequence[] = {
 
 static int
 dissect_ranap_MBMSSessionUpdateFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 649 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSSessionUpdateFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSSessionUpdateFailure, MBMSSessionUpdateFailure_sequence);
 
@@ -11154,6 +11566,10 @@ static const per_sequence_t MBMSSessionStop_sequence[] = {
 
 static int
 dissect_ranap_MBMSSessionStop(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 653 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSSessionStop ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSSessionStop, MBMSSessionStop_sequence);
 
@@ -11169,6 +11585,10 @@ static const per_sequence_t MBMSSessionStopResponse_sequence[] = {
 
 static int
 dissect_ranap_MBMSSessionStopResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 657 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSSessionStopResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSSessionStopResponse, MBMSSessionStopResponse_sequence);
 
@@ -11184,6 +11604,10 @@ static const per_sequence_t MBMSUELinkingRequest_sequence[] = {
 
 static int
 dissect_ranap_MBMSUELinkingRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 661 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSUELinkingRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSUELinkingRequest, MBMSUELinkingRequest_sequence);
 
@@ -11228,6 +11652,10 @@ static const per_sequence_t MBMSUELinkingResponse_sequence[] = {
 
 static int
 dissect_ranap_MBMSUELinkingResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 665 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSUELinkingResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSUELinkingResponse, MBMSUELinkingResponse_sequence);
 
@@ -11273,6 +11701,10 @@ static const per_sequence_t MBMSRegistrationRequest_sequence[] = {
 
 static int
 dissect_ranap_MBMSRegistrationRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 669 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSRegistrationRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSRegistrationRequest, MBMSRegistrationRequest_sequence);
 
@@ -11288,6 +11720,10 @@ static const per_sequence_t MBMSRegistrationResponse_sequence[] = {
 
 static int
 dissect_ranap_MBMSRegistrationResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 673 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSRegistrationResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSRegistrationResponse, MBMSRegistrationResponse_sequence);
 
@@ -11303,6 +11739,10 @@ static const per_sequence_t MBMSRegistrationFailure_sequence[] = {
 
 static int
 dissect_ranap_MBMSRegistrationFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 677 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSRegistrationFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSRegistrationFailure, MBMSRegistrationFailure_sequence);
 
@@ -11318,6 +11758,10 @@ static const per_sequence_t MBMSCNDe_RegistrationRequest_sequence[] = {
 
 static int
 dissect_ranap_MBMSCNDe_RegistrationRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 681 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSCNDe-RegistrationRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSCNDe_RegistrationRequest, MBMSCNDe_RegistrationRequest_sequence);
 
@@ -11333,6 +11777,10 @@ static const per_sequence_t MBMSCNDe_RegistrationResponse_sequence[] = {
 
 static int
 dissect_ranap_MBMSCNDe_RegistrationResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 685 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSCNDe-RegistrationResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSCNDe_RegistrationResponse, MBMSCNDe_RegistrationResponse_sequence);
 
@@ -11348,6 +11796,10 @@ static const per_sequence_t MBMSRABEstablishmentIndication_sequence[] = {
 
 static int
 dissect_ranap_MBMSRABEstablishmentIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 689 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSRABEstablishmentIndication ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSRABEstablishmentIndication, MBMSRABEstablishmentIndication_sequence);
 
@@ -11363,6 +11815,10 @@ static const per_sequence_t MBMSRABReleaseRequest_sequence[] = {
 
 static int
 dissect_ranap_MBMSRABReleaseRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 693 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSRABReleaseRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSRABReleaseRequest, MBMSRABReleaseRequest_sequence);
 
@@ -11378,6 +11834,10 @@ static const per_sequence_t MBMSRABRelease_sequence[] = {
 
 static int
 dissect_ranap_MBMSRABRelease(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 697 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSRABRelease ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSRABRelease, MBMSRABRelease_sequence);
 
@@ -11393,6 +11853,10 @@ static const per_sequence_t MBMSRABReleaseFailure_sequence[] = {
 
 static int
 dissect_ranap_MBMSRABReleaseFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 701 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"MBMSRABReleaseFailure ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_MBMSRABReleaseFailure, MBMSRABReleaseFailure_sequence);
 
@@ -11408,6 +11872,10 @@ static const per_sequence_t SRVCC_CSKeysRequest_sequence[] = {
 
 static int
 dissect_ranap_SRVCC_CSKeysRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 729 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"SRVCC-CSKeysRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_SRVCC_CSKeysRequest, SRVCC_CSKeysRequest_sequence);
 
@@ -11423,6 +11891,10 @@ static const per_sequence_t SRVCC_CSKeysResponse_sequence[] = {
 
 static int
 dissect_ranap_SRVCC_CSKeysResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 733 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"SRVCC-CSKeysResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_SRVCC_CSKeysResponse, SRVCC_CSKeysResponse_sequence);
 
@@ -11438,6 +11910,10 @@ static const per_sequence_t UeRadioCapabilityMatchRequest_sequence[] = {
 
 static int
 dissect_ranap_UeRadioCapabilityMatchRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 737 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"UeRadioCapabilityMatchRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_UeRadioCapabilityMatchRequest, UeRadioCapabilityMatchRequest_sequence);
 
@@ -11453,6 +11929,10 @@ static const per_sequence_t UeRadioCapabilityMatchResponse_sequence[] = {
 
 static int
 dissect_ranap_UeRadioCapabilityMatchResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 741 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"UeRadioCapabilityMatchResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_UeRadioCapabilityMatchResponse, UeRadioCapabilityMatchResponse_sequence);
 
@@ -11468,6 +11948,10 @@ static const per_sequence_t UeRegistrationQueryRequest_sequence[] = {
 
 static int
 dissect_ranap_UeRegistrationQueryRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 745 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"UeRegistrationQueryRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_UeRegistrationQueryRequest, UeRegistrationQueryRequest_sequence);
 
@@ -11483,6 +11967,10 @@ static const per_sequence_t UeRegistrationQueryResponse_sequence[] = {
 
 static int
 dissect_ranap_UeRegistrationQueryResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 749 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"UeRegistrationQueryResponse ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_UeRegistrationQueryResponse, UeRegistrationQueryResponse_sequence);
 
@@ -11498,6 +11986,10 @@ static const per_sequence_t RerouteNASRequest_sequence[] = {
 
 static int
 dissect_ranap_RerouteNASRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 753 "./asn1/ranap/ranap.cnf"
+col_set_str(actx->pinfo->cinfo, COL_INFO,"RerouteNASRequest ");
+
+
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ranap_RerouteNASRequest, RerouteNASRequest_sequence);
 
@@ -11704,6 +12196,22 @@ static int dissect_AlternativeRABConfigurationRequest_PDU(tvbuff_t *tvb _U_, pac
   offset += 7; offset >>= 3;
   return offset;
 }
+static int dissect_UE_Application_Layer_Measurement_Configuration_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  offset = dissect_ranap_UE_Application_Layer_Measurement_Configuration(tvb, offset, &asn1_ctx, tree, hf_ranap_UE_Application_Layer_Measurement_Configuration_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
+static int dissect_UE_Application_Layer_Measurement_Configuration_For_Relocation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  offset = dissect_ranap_UE_Application_Layer_Measurement_Configuration_For_Relocation(tvb, offset, &asn1_ctx, tree, hf_ranap_UE_Application_Layer_Measurement_Configuration_For_Relocation_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
 static int dissect_APN_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
@@ -11893,6 +12401,14 @@ static int dissect_CSG_Membership_Status_PDU(tvbuff_t *tvb _U_, packet_info *pin
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
   offset = dissect_ranap_CSG_Membership_Status(tvb, offset, &asn1_ctx, tree, hf_ranap_CSG_Membership_Status_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
+static int dissect_DCN_ID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  offset = dissect_ranap_DCN_ID(tvb, offset, &asn1_ctx, tree, hf_ranap_DCN_ID_PDU);
   offset += 7; offset >>= 3;
   return offset;
 }
@@ -14471,27 +14987,50 @@ dissect_sccp_ranap_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 {
   guint8 temp;
   guint16 word;
-  asn1_ctx_t asn1_ctx;
   guint length;
   int offset;
-
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
 
   /* Is it a ranap packet?
    *
    * 4th octet should be the length of the rest of the message.
+   * 3th octed is the Criticality field
    * 2nd octet is the message-type e Z[0, 28]
+   * 1st octet is the PDU type (with the extension bit)
    * (obviously there must be at least four octets)
    *
-   * If both hold true we'll assume it's RANAP
+   * If all of them hold true we'll assume it's RANAP
    */
 
   #define LENGTH_OFFSET 3
+  #define CRIT_OFFSET 2
   #define MSG_TYPE_OFFSET 1
   if (tvb_captured_length(tvb) < RANAP_MSG_MIN_LENGTH) { return FALSE; }
-  /* Read the length NOTE offset in bits */
-  offset = dissect_per_length_determinant(tvb, LENGTH_OFFSET<<3, &asn1_ctx, tree, -1, &length, NULL);
-  offset = offset>>3;
+
+  temp = tvb_get_guint8(tvb, 0) & 0x7f;
+  if (temp != 0x00 && temp != 0x20 &&temp != 0x40 && temp != 0x60) {
+    return FALSE;
+  }
+
+  temp = tvb_get_guint8(tvb, CRIT_OFFSET);
+  if (temp != 0x00 && temp != 0x40 && temp != 0x80) {
+    return FALSE;
+  }
+
+  /* compute aligned PER length determinant without calling dissect_per_length_determinant()
+     to avoid exceptions and info added to tree, info column and expert info */
+  offset = LENGTH_OFFSET;
+  length = tvb_get_guint8(tvb, offset);
+  offset += 1;
+  if ((length & 0x80) == 0x80) {
+    if ((length & 0xc0) == 0x80) {
+      length &= 0x3f;
+      length <<= 8;
+      length += tvb_get_guint8(tvb, offset);
+      offset += 1;
+    } else {
+      length = 0;
+    }
+  }
   if (length!= (tvb_reported_length(tvb) - offset)){
     return FALSE;
   }
@@ -14570,6 +15109,14 @@ void proto_register_ranap(void) {
     { &hf_ranap_AlternativeRABConfigurationRequest_PDU,
       { "AlternativeRABConfigurationRequest", "ranap.AlternativeRABConfigurationRequest",
         FT_UINT32, BASE_DEC, VALS(ranap_AlternativeRABConfigurationRequest_vals), 0,
+        NULL, HFILL }},
+    { &hf_ranap_UE_Application_Layer_Measurement_Configuration_PDU,
+      { "UE-Application-Layer-Measurement-Configuration", "ranap.UE_Application_Layer_Measurement_Configuration_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ranap_UE_Application_Layer_Measurement_Configuration_For_Relocation_PDU,
+      { "UE-Application-Layer-Measurement-Configuration-For-Relocation", "ranap.UE_Application_Layer_Measurement_Configuration_For_Relocation_element",
+        FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ranap_APN_PDU,
       { "APN", "ranap.APN",
@@ -14666,6 +15213,10 @@ void proto_register_ranap(void) {
     { &hf_ranap_CSG_Membership_Status_PDU,
       { "CSG-Membership-Status", "ranap.CSG_Membership_Status",
         FT_UINT32, BASE_DEC, VALS(ranap_CSG_Membership_Status_vals), 0,
+        NULL, HFILL }},
+    { &hf_ranap_DCN_ID_PDU,
+      { "DCN-ID", "ranap.DCN_ID",
+        FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
     { &hf_ranap_DeltaRAListofIdleModeUEs_PDU,
       { "DeltaRAListofIdleModeUEs", "ranap.DeltaRAListofIdleModeUEs_element",
@@ -16103,6 +16654,42 @@ void proto_register_ranap(void) {
       { "SupportedRAB-ParameterBitrateList", "ranap.SupportedRAB_ParameterBitrateList",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
+    { &hf_ranap_applicationLayerContainerForMeasurementConfiguration,
+      { "applicationLayerContainerForMeasurementConfiguration", "ranap.applicationLayerContainerForMeasurementConfiguration",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        "OCTET_STRING_SIZE_1_1000", HFILL }},
+    { &hf_ranap_areaScopeForUEApplicationLayerMeasurementConfiguration,
+      { "areaScopeForUEApplicationLayerMeasurementConfiguration", "ranap.areaScopeForUEApplicationLayerMeasurementConfiguration",
+        FT_UINT32, BASE_DEC, VALS(ranap_AreaScopeForUEApplicationLayerMeasurementConfiguration_vals), 0,
+        NULL, HFILL }},
+    { &hf_ranap_traceReference,
+      { "traceReference", "ranap.traceReference",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ranap_tracePropagationParameters,
+      { "tracePropagationParameters", "ranap.tracePropagationParameters_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ranap_traceCollectionEntityIPAddress,
+      { "traceCollectionEntityIPAddress", "ranap.traceCollectionEntityIPAddress",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        "TransportLayerAddress", HFILL }},
+    { &hf_ranap_cellbased,
+      { "cellbased", "ranap.cellbased_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ranap_labased,
+      { "labased", "ranap.labased_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ranap_rabased,
+      { "rabased", "ranap.rabased_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ranap_plmn_area_based,
+      { "plmn-area-based", "ranap.plmn_area_based_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        "PLMNBased", HFILL }},
     { &hf_ranap_sAI,
       { "sAI", "ranap.sAI_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -16303,6 +16890,14 @@ void proto_register_ranap(void) {
       { "homeENB-ID", "ranap.homeENB_ID",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_28", HFILL }},
+    { &hf_ranap_short_macroENB_ID,
+      { "short-macroENB-ID", "ranap.short_macroENB_ID",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        "BIT_STRING_SIZE_18", HFILL }},
+    { &hf_ranap_long_macroENB_ID,
+      { "long-macroENB-ID", "ranap.long_macroENB_ID",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        "BIT_STRING_SIZE_21", HFILL }},
     { &hf_ranap_permittedAlgorithms,
       { "permittedAlgorithms", "ranap.permittedAlgorithms",
         FT_UINT32, BASE_DEC, NULL, 0,
@@ -16683,19 +17278,7 @@ void proto_register_ranap(void) {
       { "TMGI", "ranap.TMGI_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_ranap_cellbased,
-      { "cellbased", "ranap.cellbased_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_ranap_labased,
-      { "labased", "ranap.labased_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_ranap_rabased,
-      { "rabased", "ranap.rabased_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_ranap_plmn_area_based,
+    { &hf_ranap_plmn_area_based_01,
       { "plmn-area-based", "ranap.plmn_area_based_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
@@ -16786,6 +17369,14 @@ void proto_register_ranap(void) {
     { &hf_ranap_loggingDuration,
       { "loggingDuration", "ranap.loggingDuration",
         FT_UINT32, BASE_DEC, VALS(ranap_LoggingDuration_vals), 0,
+        NULL, HFILL }},
+    { &hf_ranap_plmnList,
+      { "plmnList", "ranap.plmnList",
+        FT_UINT32, BASE_DEC, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ranap_PLMNList_item,
+      { "PLMNidentity", "ranap.PLMNidentity",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ranap_PLMNs_in_shared_network_item,
       { "PLMNs-in-shared-network item", "ranap.PLMNs_in_shared_network_item_element",
@@ -17031,10 +17622,6 @@ void proto_register_ranap(void) {
       { "targeteNB-ID", "ranap.targeteNB_ID_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_ranap_traceReference,
-      { "traceReference", "ranap.traceReference",
-        FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
     { &hf_ranap_traceActivationIndicator,
       { "traceActivationIndicator", "ranap.traceActivationIndicator",
         FT_UINT32, BASE_DEC, VALS(ranap_T_traceActivationIndicator_vals), 0,
@@ -17275,10 +17862,6 @@ void proto_register_ranap(void) {
       { "ue-identity", "ranap.ue_identity",
         FT_UINT32, BASE_DEC, VALS(ranap_UE_ID_vals), 0,
         "UE_ID", HFILL }},
-    { &hf_ranap_tracePropagationParameters,
-      { "tracePropagationParameters", "ranap.tracePropagationParameters_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
     { &hf_ranap_traceRecordingSessionReference,
       { "traceRecordingSessionReference", "ranap.traceRecordingSessionReference",
         FT_UINT32, BASE_DEC, NULL, 0,
@@ -17657,7 +18240,7 @@ void proto_register_ranap(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-ranap-hfarr.c ---*/
-#line 332 "./asn1/ranap/packet-ranap-template.c"
+#line 355 "./asn1/ranap/packet-ranap-template.c"
   };
 
   /* List of subtrees */
@@ -17699,6 +18282,9 @@ void proto_register_ranap(void) {
     &ett_ranap_Alt_RAB_Parameter_MaxBitrateList,
     &ett_ranap_Alt_RAB_Parameter_SupportedMaxBitrateInf,
     &ett_ranap_Alt_RAB_Parameter_SupportedMaxBitrates,
+    &ett_ranap_UE_Application_Layer_Measurement_Configuration,
+    &ett_ranap_UE_Application_Layer_Measurement_Configuration_For_Relocation,
+    &ett_ranap_AreaScopeForUEApplicationLayerMeasurementConfiguration,
     &ett_ranap_AreaIdentity,
     &ett_ranap_Ass_RAB_Parameters,
     &ett_ranap_Ass_RAB_Parameter_ExtendedGuaranteedBitrateList,
@@ -17791,6 +18377,8 @@ void proto_register_ranap(void) {
     &ett_ranap_LABased,
     &ett_ranap_LAI_List,
     &ett_ranap_LoggedMDT,
+    &ett_ranap_PLMNBased,
+    &ett_ranap_PLMNList,
     &ett_ranap_PLMNs_in_shared_network,
     &ett_ranap_PLMNs_in_shared_network_item,
     &ett_ranap_PositioningDataSet,
@@ -18016,7 +18604,7 @@ void proto_register_ranap(void) {
     &ett_ranap_Outcome,
 
 /*--- End of included file: packet-ranap-ettarr.c ---*/
-#line 340 "./asn1/ranap/packet-ranap-template.c"
+#line 363 "./asn1/ranap/packet-ranap-template.c"
   };
 
 
@@ -18352,6 +18940,9 @@ proto_reg_handoff_ranap(void)
   dissector_add_uint("ranap.extension", id_Additional_PositioningDataSet, create_dissector_handle(dissect_Additional_PositioningDataSet_PDU, proto_ranap));
   dissector_add_uint("ranap.extension", id_CivicAddress, create_dissector_handle(dissect_CivicAddress_PDU, proto_ranap));
   dissector_add_uint("ranap.extension", id_PowerSavingIndicator, create_dissector_handle(dissect_PowerSavingIndicator_PDU, proto_ranap));
+  dissector_add_uint("ranap.extension", id_DCN_ID, create_dissector_handle(dissect_DCN_ID_PDU, proto_ranap));
+  dissector_add_uint("ranap.extension", id_UE_Application_Layer_Measurement_Configuration, create_dissector_handle(dissect_UE_Application_Layer_Measurement_Configuration_PDU, proto_ranap));
+  dissector_add_uint("ranap.extension", id_UE_Application_Layer_Measurement_Configuration_For_Relocation, create_dissector_handle(dissect_UE_Application_Layer_Measurement_Configuration_For_Relocation_PDU, proto_ranap));
   dissector_add_uint("ranap.proc.imsg", id_Iu_Release, create_dissector_handle(dissect_Iu_ReleaseCommand_PDU, proto_ranap));
   dissector_add_uint("ranap.proc.sout", id_Iu_Release, create_dissector_handle(dissect_Iu_ReleaseComplete_PDU, proto_ranap));
   dissector_add_uint("ranap.proc.imsg", id_RelocationPreparation, create_dissector_handle(dissect_RelocationRequired_PDU, proto_ranap));
@@ -18440,7 +19031,7 @@ proto_reg_handoff_ranap(void)
 
 
 /*--- End of included file: packet-ranap-dis-tab.c ---*/
-#line 389 "./asn1/ranap/packet-ranap-template.c"
+#line 412 "./asn1/ranap/packet-ranap-template.c"
   } else {
     dissector_delete_uint("sccp.ssn", local_ranap_sccp_ssn, ranap_handle);
   }

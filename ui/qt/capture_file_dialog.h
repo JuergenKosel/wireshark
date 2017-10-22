@@ -23,12 +23,14 @@
 #define CAPTURE_FILE_DIALOG_H
 
 #ifndef Q_OS_WIN
-#include "display_filter_edit.h"
+#include <ui/qt/widgets/display_filter_edit.h>
 #include "packet_range_group_box.h"
 #include "ui/help_url.h"
 #endif // Q_OS_WIN
 
-#include "packet_list_record.h"
+#include <ui/packet_range.h>
+
+#include <ui/qt/models/packet_list_record.h>
 #include "cfile.h"
 
 #include "ui/file_dialog.h"
@@ -58,7 +60,7 @@ class CaptureFileDialog : public QFileDialog
     //
     // On Windows Vista and later we should probably use IFileOpenDialog. On earlier
     // versions of Windows (including XP) we should use GetOpenFileName, which is
-    // what we do in ui/win32/file_dlg_win32.c. On OS X we should use NSOpenPanel. On
+    // what we do in ui/win32/file_dlg_win32.c. macOS we should use NSOpenPanel. On
     // other platforms we should fall back to QFileDialog.
     //
     // Yes, that's four implementations of the same window.

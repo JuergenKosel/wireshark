@@ -32,14 +32,16 @@
 #include <epan/epan_dissect.h>
 #include <epan/to_str.h>
 #include <epan/expert.h>
-#include <epan/packet_range.h>
+#include <epan/column-info.h>
+#include <epan/color_filters.h>
 #include <epan/prefs.h>
 #include <epan/print.h>
 #include <epan/charsets.h>
 #include <wsutil/filesystem.h>
-#include <ws_version_info.h>
+#include <version_info.h>
 #include <wsutil/utf8_entities.h>
 #include <ftypes/ftypes-int.h>
+#include <wsutil/glib-compat.h>
 
 #define PDML_VERSION "0"
 #define PSML_VERSION "0"
@@ -71,6 +73,7 @@ typedef struct {
     pf_flags        filter_flags;
     gboolean        print_hex;
     gboolean        print_text;
+    proto_node_children_grouper_func node_children_grouper;
 } write_json_data;
 
 typedef struct {
@@ -94,8 +97,7 @@ struct _output_fields {
 static gchar *get_field_hex_value(GSList *src_list, field_info *fi);
 static void proto_tree_print_node(proto_node *node, gpointer data);
 static void proto_tree_write_node_pdml(proto_node *node, gpointer data);
-static void proto_tree_write_node_json(proto_node *node, gpointer data);
-static void proto_tree_write_node_ek(proto_node *node, gpointer data);
+static void proto_tree_write_node_ek(proto_node *node, write_json_data *data);
 static const guint8 *get_field_data(GSList *src_list, field_info *fi);
 static void pdml_write_field_hex_value(write_pdml_data *pdata, field_info *fi);
 static void json_write_field_hex_value(write_json_data *pdata, field_info *fi);
@@ -109,7 +111,24 @@ static void print_escaped_xml(FILE *fh, const char *unescaped_string);
 static void print_escaped_json(FILE *fh, const char *unescaped_string);
 static void print_escaped_ek(FILE *fh, const char *unescaped_string);
 
+typedef void (*proto_node_value_writer)(proto_node *, write_json_data *);
+static void write_json_proto_node_list(GSList *proto_node_list_head, write_json_data *data);
+static void write_json_proto_node(GSList *node_values_head,
+                                  const char *suffix,
+                                  proto_node_value_writer value_writer,
+                                  write_json_data *data);
+static void write_json_proto_node_value_list(GSList *node_values_head,
+                                             proto_node_value_writer value_writer,
+                                             write_json_data *data);
+static void write_json_proto_node_filtered(proto_node *node, write_json_data *data);
+static void write_json_proto_node_hex_dump(proto_node *node, write_json_data *data);
+static void write_json_proto_node_children(proto_node *node, write_json_data *data);
+static void write_json_proto_node_value(proto_node *node, write_json_data *data);
+static void write_json_proto_node_no_value(proto_node *node, write_json_data *data);
+static const char *proto_node_to_json_key(proto_node *node);
+
 static void print_pdml_geninfo(epan_dissect_t *edt, FILE *fh);
+static void write_ek_summary(column_info *cinfo, FILE *fh);
 
 static void proto_tree_get_node_field_values(proto_node *node, gpointer data);
 
@@ -119,24 +138,17 @@ static gboolean json_is_first;
    This helps break explicit dependency on the dissectors. */
 static int proto_data = -1;
 static int proto_frame = -1;
-static int hf_frame_arrival_time = -1;
-static int hf_frame_number = -1;
-static int hf_frame_len = -1;
-static int hf_frame_capture_len = -1;
 
 void print_cache_field_handles(void)
 {
     proto_data = proto_get_id_by_short_name("Data");
     proto_frame = proto_get_id_by_short_name("Frame");
-    hf_frame_arrival_time = proto_registrar_get_id_byname("frame.time");
-    hf_frame_number = proto_registrar_get_id_byname("frame.number");
-    hf_frame_len = proto_registrar_get_id_byname("frame.len");
-    hf_frame_capture_len = proto_registrar_get_id_byname("frame.cap_len");
 }
 
 gboolean
-proto_tree_print(print_args_t *print_args, epan_dissect_t *edt,
-                 GHashTable *output_only_tables, print_stream_t *stream)
+proto_tree_print(print_dissections_e print_dissections, gboolean print_hex,
+                 epan_dissect_t *edt, GHashTable *output_only_tables,
+                 print_stream_t *stream)
 {
     print_data data;
 
@@ -146,10 +158,10 @@ proto_tree_print(print_args_t *print_args, epan_dissect_t *edt,
     data.success            = TRUE;
     data.src_list           = edt->pi.data_src;
     data.encoding           = (packet_char_enc)edt->pi.fd->flags.encoding;
-    data.print_dissections  = print_args->print_dissections;
+    data.print_dissections  = print_dissections;
     /* If we're printing the entire packet in hex, don't
        print uninterpreted data fields in hex as well. */
-    data.print_hex_for_data = !print_args->print_hex;
+    data.print_hex_for_data = !print_hex;
     data.output_only_tables = output_only_tables;
 
     proto_tree_children_foreach(edt->tree, proto_tree_print_node, &data);
@@ -276,13 +288,6 @@ write_pdml_preamble(FILE *fh, const gchar *filename)
     fprintf(fh, "\">\n");
 }
 
-void
-write_json_preamble(FILE *fh)
-{
-    fputs("[\n", fh);
-    json_is_first = TRUE;
-}
-
 /* Check if the str match the protocolfilter. json_filter is space
    delimited string and str need to exact-match to one of the value. */
 static gboolean check_protocolfilter(gchar **protocolfilter, const char *str)
@@ -305,15 +310,25 @@ static gboolean check_protocolfilter(gchar **protocolfilter, const char *str)
 }
 
 void
-write_pdml_proto_tree(output_fields_t* fields, gchar **protocolfilter, pf_flags protocolfilter_flags, epan_dissect_t *edt, FILE *fh)
+write_pdml_proto_tree(output_fields_t* fields, gchar **protocolfilter, pf_flags protocolfilter_flags, epan_dissect_t *edt, FILE *fh, gboolean use_color)
 {
     write_pdml_data data;
+    const color_filter_t *cfp;
 
     g_assert(edt);
     g_assert(fh);
 
+    cfp = edt->pi.fd->color_filter;
+
     /* Create the output */
-    fprintf(fh, "<packet>\n");
+    if (use_color && (cfp != NULL)) {
+        fprintf(fh, "<packet foreground='#%06x' background='#%06x'>\n",
+            color_t_to_rgb(&cfp->fg_color),
+            color_t_to_rgb(&cfp->bg_color));
+    }
+    else {
+        fprintf(fh, "<packet>\n");
+    }
 
     /* Print a "geninfo" protocol as required by PDML */
     print_pdml_geninfo(edt, fh);
@@ -337,63 +352,11 @@ write_pdml_proto_tree(output_fields_t* fields, gchar **protocolfilter, pf_flags 
 }
 
 void
-write_json_proto_tree(output_fields_t* fields, print_args_t *print_args, gchar **protocolfilter, pf_flags protocolfilter_flags, epan_dissect_t *edt, FILE *fh)
-{
-    write_json_data data;
-    char ts[30];
-    time_t t = time(NULL);
-    struct tm * timeinfo;
-
-    g_assert(edt);
-    g_assert(fh);
-
-    /* Create the output */
-    timeinfo = localtime(&t);
-    if (timeinfo != NULL)
-        strftime(ts, sizeof ts, "%Y-%m-%d", timeinfo);
-    else
-        g_strlcpy(ts, "XXXX-XX-XX", sizeof ts); /* XXX - better way of saying "Not representable"? */
-
-    if (!json_is_first)
-        fputs("  ,\n", fh);
-    else
-        json_is_first = FALSE;
-
-    fputs("  {\n", fh);
-    fprintf(fh, "    \"_index\": \"packets-%s\",\n", ts);
-    fputs("    \"_type\": \"pcap_file\",\n", fh);
-    fputs("    \"_score\": null,\n", fh);
-    fputs("    \"_source\": {\n", fh);
-    fputs("      \"layers\": {\n", fh);
-
-    if (fields == NULL || fields->fields == NULL) {
-        /* Write out all fields */
-        data.level    = 1;
-        data.fh       = fh;
-        data.src_list = edt->pi.data_src;
-        data.filter   = protocolfilter;
-        data.filter_flags = protocolfilter_flags;
-        data.print_hex = print_args->print_hex;
-        data.print_text = TRUE;
-        if (print_args->print_dissections == print_dissections_none) {
-            data.print_text = FALSE;
-        }
-
-        proto_tree_children_foreach(edt->tree, proto_tree_write_node_json,
-                                    &data);
-    } else {
-        /* Write out specified fields */
-        write_specified_fields(FORMAT_JSON, fields, edt, NULL, fh);
-    }
-
-    fputs("      }\n", fh);
-    fputs("    }\n", fh);
-    fputs("  }\n", fh);
-
-}
-
-void
-write_ek_proto_tree(output_fields_t* fields, print_args_t *print_args, gchar **protocolfilter, pf_flags protocolfilter_flags, epan_dissect_t *edt, FILE *fh)
+write_ek_proto_tree(output_fields_t* fields,
+                    gboolean print_summary, gboolean print_hex,
+                    gchar **protocolfilter,
+                    pf_flags protocolfilter_flags, epan_dissect_t *edt,
+                    FILE *fh)
 {
     write_json_data data;
     char ts[30];
@@ -412,7 +375,12 @@ write_ek_proto_tree(output_fields_t* fields, print_args_t *print_args, gchar **p
 
     fprintf(fh, "{\"index\" : {\"_index\": \"packets-%s\", \"_type\": \"pcap_file\", \"_score\": null}}\n", ts);
     /* Timestamp added for time indexing in Elasticsearch */
-    fprintf(fh, "{\"timestamp\" : \"%" G_GUINT64_FORMAT "%03d\", \"layers\" : {", (guint64)edt->pi.abs_ts.secs, edt->pi.abs_ts.nsecs/1000000);
+    fprintf(fh, "{\"timestamp\" : \"%" G_GUINT64_FORMAT "%03d\"", (guint64)edt->pi.abs_ts.secs, edt->pi.abs_ts.nsecs/1000000);
+
+    if (print_summary)
+        write_ek_summary(edt->pi.cinfo, fh);
+
+    fprintf(fh, ", \"layers\" : {");
 
     if (fields == NULL || fields->fields == NULL) {
         /* Write out all fields */
@@ -421,10 +389,9 @@ write_ek_proto_tree(output_fields_t* fields, print_args_t *print_args, gchar **p
         data.src_list = edt->pi.data_src;
         data.filter   = protocolfilter;
         data.filter_flags = protocolfilter_flags;
-        data.print_hex = print_args->print_hex;
+        data.print_hex = print_hex;
 
-        proto_tree_children_foreach(edt->tree, proto_tree_write_node_ek,
-                                    &data);
+        proto_tree_write_node_ek(edt->tree, &data);
     } else {
         /* Write out specified fields */
         write_specified_fields(FORMAT_EK, fields, edt, NULL, fh);
@@ -540,7 +507,7 @@ proto_tree_write_node_pdml(proto_node *node, gpointer data)
 
 #if 0
         /* PDML spec, see:
-         * http://www.nbee.org/doku.php?id=netpdl:pdml_specification
+         * https://wayback.archive.org/web/20150330045501/http://www.nbee.org/doku.php?id=netpdl:pdml_specification
          *
          * the show fields contains things in 'human readable' format
          * showname: contains only the name of the field
@@ -712,485 +679,775 @@ proto_tree_write_node_pdml(proto_node *node, gpointer data)
     }
 }
 
-
-/* Write out a tree's data, and any child nodes, as JSON */
-static void
-proto_tree_write_node_json(proto_node *node, gpointer data)
+void
+write_json_preamble(FILE *fh)
 {
-    field_info      *fi    = PNODE_FINFO(node);
-    write_json_data *pdata = (write_json_data*) data;
-    const gchar     *label_ptr;
-    gchar            label_str[ITEM_LABEL_LENGTH];
-    char            *dfilter_string;
+    fputs("[\n", fh);
+    json_is_first = TRUE;
+}
 
-    /* dissection with an invisible proto tree? */
-    g_assert(fi);
+void
+write_json_finale(FILE *fh)
+{
+    fputs("\n\n]\n", fh);
+}
 
-    /* Text label. It's printed as a field with no name. */
-    if (fi->hfinfo->id == hf_text_only) {
-        print_indent(pdata->level + 3, pdata->fh);
+void
+write_json_proto_tree(output_fields_t* fields,
+                      print_dissections_e print_dissections,
+                      gboolean print_hex, gchar **protocolfilter,
+                      pf_flags protocolfilter_flags, epan_dissect_t *edt,
+                      proto_node_children_grouper_func node_children_grouper,
+                      FILE *fh)
+{
+    char ts[30];
+    time_t t = time(NULL);
+    struct tm * timeinfo;
+    write_json_data data;
 
-        /* Get the text */
-        if (fi->rep) {
-            label_ptr = fi->rep->representation;
+    if (!json_is_first) {
+        fputs("\n\n  ,\n", fh);
+    } else {
+        json_is_first = FALSE;
+    }
+
+    timeinfo = localtime(&t);
+    if (timeinfo != NULL) {
+        strftime(ts, sizeof ts, "%Y-%m-%d", timeinfo);
+    } else {
+        g_strlcpy(ts, "XXXX-XX-XX", sizeof ts); /* XXX - better way of saying "Not representable"? */
+    }
+
+    fputs("  {\n", fh);
+    fprintf(fh, "    \"_index\": \"packets-%s\",\n", ts);
+    fputs("    \"_type\": \"pcap_file\",\n", fh);
+    fputs("    \"_score\": null,\n", fh);
+    fputs("    \"_source\": {\n", fh);
+    fputs("      \"layers\": ", fh);
+
+    if (fields == NULL || fields->fields == NULL) {
+        /* Write out all fields */
+        data.level    = 3;
+        data.fh       = fh;
+        data.src_list = edt->pi.data_src;
+        data.filter   = protocolfilter;
+        data.filter_flags = protocolfilter_flags;
+        data.print_hex = print_hex;
+        data.print_text = TRUE;
+        if (print_dissections == print_dissections_none) {
+            data.print_text = FALSE;
         }
-        else {
-            label_ptr = "";
+        data.node_children_grouper = node_children_grouper;
+
+        write_json_proto_node_children(edt->tree, &data);
+    } else {
+        write_specified_fields(FORMAT_JSON, fields, edt, NULL, fh);
+    }
+
+    fputs("\n", fh);
+    fputs("    }\n", fh);
+    fputs("  }", fh);
+}
+
+/**
+ * Write a json object containing a list of key:value pairs where each key:value pair corresponds to a different json
+ * key and its associated nodes in the proto_tree.
+ * @param proto_node_list_head A 2-dimensional list containing a list of values for each different node json key. The
+ * elements themselves are a linked list of values associated with the same json key.
+ * @param data json writing metadata
+ */
+static void
+write_json_proto_node_list(GSList *proto_node_list_head, write_json_data *data)
+{
+    GSList *current_node = proto_node_list_head;
+
+    fputs("{\n", data->fh);
+    data->level++;
+
+    /*
+     * In most of the following if statements we cannot be sure if its the first or last if statement to be
+     * executed. Thus we need a way of knowing whether a key:value pair has already been printed in order to know
+     * if a comma should be printed before the next key:value pair. We use the delimiter_needed variable to store
+     * whether a comma needs to be written before a new key:value pair is written. Note that instead of checking
+     * before writing a new key:value pair if a comma is needed we could also check after writing a key:value pair
+     * whether a comma is needed but this would be considerably more complex since after each if statement a
+     * different condition would have to be checked. After the first value is written a delimiter is always needed so
+     * this value is never set back to FALSE after it has been set to TRUE.
+     */
+    gboolean delimiter_needed = FALSE;
+
+    // Loop over each list of nodes (differentiated by json key) and write the associated json key:value pair in the
+    // output.
+    while (current_node != NULL) {
+        // Get the list of values for the current json key.
+        GSList *node_values_list = (GSList *) current_node->data;
+
+        // Retrieve the json key from the first value.
+        proto_node *first_value = (proto_node *) node_values_list->data;
+        const char *json_key = proto_node_to_json_key(first_value);
+        // Check if the current json key is filtered from the output with the "-j" cli option.
+        gboolean is_filtered = data->filter != NULL && !check_protocolfilter(data->filter, json_key);
+
+        field_info *fi = first_value->finfo;
+        char *value_string_repr = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+
+        // We assume all values of a json key have roughly the same layout. Thus we can use the first value to derive
+        // attributes of all the values.
+        gboolean has_value = value_string_repr != NULL;
+        gboolean has_children = first_value->first_child != NULL;
+        gboolean is_pseudo_text_field = fi->hfinfo->id == 0;
+
+        wmem_free(NULL, value_string_repr); // fvalue_to_string_repr returns allocated buffer
+
+        // "-x" command line option. A "_raw" suffix is added to the json key so the textual value can be printed
+        // with the original json key. If both hex and text writing are enabled the raw information of fields whose
+        // length is equal to 0 is not written to the output. If the field is a special text pseudo field no raw
+        // information is written either.
+        if (data->print_hex && (!data->print_text || fi->length > 0) && !is_pseudo_text_field) {
+            if (delimiter_needed) fputs(",\n", data->fh);
+            write_json_proto_node(node_values_list, "_raw", write_json_proto_node_hex_dump, data);
+            delimiter_needed = TRUE;
         }
 
-        /* Show empty name since it is a required field */
-        fputs("\"", pdata->fh);
-        print_escaped_json(pdata->fh, label_ptr);
-
-        if (node->first_child != NULL) {
-            fputs("\": {\n", pdata->fh);
+        if (data->print_text && has_value) {
+            if (delimiter_needed) fputs(",\n", data->fh);
+            write_json_proto_node(node_values_list, "", write_json_proto_node_value, data);
+            delimiter_needed = TRUE;
         }
-        else {
-            if (node->next == NULL) {
-              fputs("\": \"\"\n",  pdata->fh);
+
+        if (has_children) {
+            if (delimiter_needed) fputs(",\n", data->fh);
+
+            // If a node has both a value and a set of children we print the value and the children in separate
+            // key:value pairs. These can't have the same key so whenever a value is already printed with the node
+            // json key we print the children with the same key with a "_tree" suffix added.
+            char *suffix = has_value ? "_tree": "";
+
+            if (is_filtered) {
+                write_json_proto_node(node_values_list, suffix, write_json_proto_node_filtered, data);
             } else {
-              fputs("\": \"\",\n",  pdata->fh);
+                // Remove protocol filter for children, if children should be included. This functionality is enabled
+                // with the "-J" command line option. We save the filter so it can be reenabled when we are done with
+                // the current key:value pair.
+                gchar **_filter = NULL;
+                if ((data->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
+                    _filter = data->filter;
+                    data->filter = NULL;
+                }
+
+                write_json_proto_node(node_values_list, suffix, write_json_proto_node_children, data);
+
+                // Put protocol filter back
+                if ((data->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
+                    data->filter = _filter;
+                }
             }
+
+            delimiter_needed = TRUE;
+        }
+
+        if (!has_value && !has_children && (data->print_text || (data->print_hex && is_pseudo_text_field))) {
+            if (delimiter_needed) fputs(",\n", data->fh);
+            write_json_proto_node(node_values_list, "", write_json_proto_node_no_value, data);
+            delimiter_needed = TRUE;
+        }
+
+        current_node = current_node->next;
+    }
+
+    data->level--;
+    fputs("\n", data->fh);
+    print_indent(data->level, data->fh);
+    fputs("}", data->fh);
+}
+
+/**
+ * Writes a single node as a key:value pair. The value_writer param can be used to specify how the node's value should
+ * be written.
+ * @param node_values_head Linked list containing all nodes associated with the same json key in this object.
+ * @param suffix Suffix that should be added to the json key.
+ * @param value_writer A function which writes the actual values of the node json key.
+ * @param data json writing metadata
+ */
+static void
+write_json_proto_node(GSList *node_values_head,
+                      const char *suffix,
+                      proto_node_value_writer value_writer,
+                      write_json_data *data)
+{
+    // Retrieve json key from first value.
+    proto_node *first_value = (proto_node *) node_values_head->data;
+    const char *json_key = proto_node_to_json_key(first_value);
+
+    print_indent(data->level, data->fh);
+    fputs("\"", data->fh);
+    print_escaped_json(data->fh, json_key);
+    print_escaped_json(data->fh, suffix);
+    fputs("\": ", data->fh);
+
+    write_json_proto_node_value_list(node_values_head, value_writer, data);
+}
+
+/**
+ * Writes a list of values of a single json key. If multiple values are passed they are wrapped in a json array.
+ * @param node_values_head Linked list containing all values that should be written.
+ * @param value_writer Function which writes the separate values.
+ * @param data json writing metadata
+ */
+static void
+write_json_proto_node_value_list(GSList *node_values_head, proto_node_value_writer value_writer, write_json_data *data)
+{
+    GSList *current_value = node_values_head;
+
+    // Write directly if only a single value is passed. Wrap in json array otherwise.
+    if (current_value->next == NULL) {
+        value_writer((proto_node *) current_value->data, data);
+    } else {
+        fputs("[\n", data->fh);
+        data->level++;
+
+        while (current_value != NULL) {
+            // Do not print delimiter before first value
+            if (current_value != node_values_head) fputs(",\n", data->fh);
+
+            print_indent(data->level, data->fh);
+            value_writer((proto_node *) current_value->data, data);
+            current_value = current_value->next;
+        }
+
+        data->level--;
+        fputs("\n", data->fh);
+        print_indent(data->level, data->fh);
+        fputs("]", data->fh);
+    }
+}
+
+/**
+ * Writes the value for a node that's filtered from the output.
+ */
+static void
+write_json_proto_node_filtered(proto_node *node, write_json_data *data)
+{
+    const char *json_key = proto_node_to_json_key(node);
+
+    fputs("{\n", data->fh);
+    data->level++;
+
+    print_indent(data->level, data->fh);
+    fputs("\"filtered\": ", data->fh);
+    fputs("\"", data->fh);
+    print_escaped_json(data->fh, json_key);
+    fputs("\"\n", data->fh);
+
+    data->level--;
+    print_indent(data->level, data->fh);
+    fputs("}", data->fh);
+}
+
+/**
+ * Writes the hex dump of a node. A json array is written containing the hex dump, position, length, bitmask and type of
+ * the node.
+ */
+static void
+write_json_proto_node_hex_dump(proto_node *node, write_json_data *data)
+{
+    field_info *fi = node->finfo;
+
+    fputs("[\"", data->fh);
+
+    if (fi->hfinfo->bitmask!=0) {
+        switch (fi->value.ftype->ftype) {
+            case FT_INT8:
+            case FT_INT16:
+            case FT_INT24:
+            case FT_INT32:
+                fprintf(data->fh, "%X", (guint) fvalue_get_sinteger(&fi->value));
+                break;
+            case FT_UINT8:
+            case FT_UINT16:
+            case FT_UINT24:
+            case FT_UINT32:
+                fprintf(data->fh, "%X", fvalue_get_uinteger(&fi->value));
+                break;
+            case FT_INT40:
+            case FT_INT48:
+            case FT_INT56:
+            case FT_INT64:
+                fprintf(data->fh, "%" G_GINT64_MODIFIER "X", fvalue_get_sinteger64(&fi->value));
+                break;
+            case FT_UINT40:
+            case FT_UINT48:
+            case FT_UINT56:
+            case FT_UINT64:
+            case FT_BOOLEAN:
+                fprintf(data->fh, "%" G_GINT64_MODIFIER "X", fvalue_get_uinteger64(&fi->value));
+                break;
+            default:
+                g_assert_not_reached();
+        }
+    } else {
+        json_write_field_hex_value(data, fi);
+    }
+
+    /* Dump raw hex-encoded dissected information including position, length, bitmask, type */
+    fprintf(data->fh, "\", %" G_GINT32_MODIFIER "d", fi->start);
+    fprintf(data->fh, ", %" G_GINT32_MODIFIER "d", fi->length);
+    fprintf(data->fh, ", %" G_GUINT64_FORMAT, fi->hfinfo->bitmask);
+    fprintf(data->fh, ", %" G_GINT32_MODIFIER "d", (gint32)fi->value.ftype->ftype);
+
+    fputs("]", data->fh);
+}
+
+/**
+ * Writes the children of a node. Calls write_json_proto_node_list internally which recursively writes children of nodes
+ * to the output.
+ */
+static void
+write_json_proto_node_children(proto_node *node, write_json_data *data)
+{
+    GSList *grouped_children_list = data->node_children_grouper(node);
+    write_json_proto_node_list(grouped_children_list, data);
+    g_slist_free_full(grouped_children_list, (GDestroyNotify) g_slist_free);
+}
+
+/**
+ * Writes the value of a node to the output.
+ */
+static void
+write_json_proto_node_value(proto_node *node, write_json_data *data)
+{
+    field_info *fi = node->finfo;
+    // Get the actual value of the node as a string.
+    char *value_string_repr = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+
+    fputs("\"", data->fh);
+    print_escaped_json(data->fh, value_string_repr);
+    fputs("\"", data->fh);
+
+    wmem_free(NULL, value_string_repr);
+}
+
+/**
+ * Write the value for a node that has no value and no children. This is the empty string for all nodes except those of
+ * type FT_PROTOCOL for which the full name is written instead.
+ */
+static void
+write_json_proto_node_no_value(proto_node *node, write_json_data *data)
+{
+    field_info *fi = node->finfo;
+
+    fputs("\"", data->fh);
+
+    if (fi->hfinfo->type == FT_PROTOCOL) {
+        if (fi->rep) {
+            print_escaped_json(data->fh, fi->rep->representation);
+        } else {
+            gchar label_str[ITEM_LABEL_LENGTH];
+            proto_item_fill_label(fi, label_str);
+            print_escaped_json(data->fh, label_str);
         }
     }
 
-    /* Normal protocols and fields */
-    else {
-        /*
-         * Hex dump -x
-         */
-        if (pdata->print_hex && (!pdata->print_text || fi->length > 0)) {
-            print_indent(pdata->level + 3, pdata->fh);
+    fputs("\"", data->fh);
+}
 
-            fputs("\"", pdata->fh);
-            print_escaped_json(pdata->fh, fi->hfinfo->abbrev);
-            fputs("_raw", pdata->fh);
-            fputs("\": [\"", pdata->fh);
+/**
+ * Groups each child of the node separately.
+ * @return Linked list where each element is another linked list containing a single node.
+ */
+GSList *
+proto_node_group_children_by_unique(proto_node *node) {
+    GSList *unique_nodes_list = NULL;
+    proto_node *current_child = node->first_child;
 
-            if (fi->hfinfo->bitmask!=0) {
-                switch (fi->value.ftype->ftype) {
-                    case FT_INT8:
-                    case FT_INT16:
-                    case FT_INT24:
-                    case FT_INT32:
-                        fprintf(pdata->fh, "%X", (guint) fvalue_get_sinteger(&fi->value));
-                        break;
-                    case FT_UINT8:
-                    case FT_UINT16:
-                    case FT_UINT24:
-                    case FT_UINT32:
-                        fprintf(pdata->fh, "%X", fvalue_get_uinteger(&fi->value));
-                        break;
-                    case FT_INT40:
-                    case FT_INT48:
-                    case FT_INT56:
-                    case FT_INT64:
-                        fprintf(pdata->fh, "%" G_GINT64_MODIFIER "X", fvalue_get_sinteger64(&fi->value));
-                        break;
-                    case FT_UINT40:
-                    case FT_UINT48:
-                    case FT_UINT56:
-                    case FT_UINT64:
-                    case FT_BOOLEAN:
-                        fprintf(pdata->fh, "%" G_GINT64_MODIFIER "X", fvalue_get_uinteger64(&fi->value));
-                        break;
-                    default:
-                        g_assert_not_reached();
+    while (current_child != NULL) {
+        GSList *unique_node = g_slist_prepend(NULL, current_child);
+        unique_nodes_list = g_slist_prepend(unique_nodes_list, unique_node);
+        current_child = current_child->next;
+    }
+
+    return g_slist_reverse(unique_nodes_list);
+}
+
+/**
+ * Groups the children of a node by their json key. Children are put in the same group if they have the same json key.
+ * @return Linked list where each element is another linked list of nodes associated with the same json key.
+ */
+GSList *
+proto_node_group_children_by_json_key(proto_node *node)
+{
+    /**
+     * For each different json key we store a linked list of values corresponding to that json key. These lists are kept
+     * in both a linked list and a hashmap. The hashmap is used to quickly retrieve the values of a json key. The linked
+     * list is used to preserve the ordering of keys as they are encountered which is not guaranteed when only using a
+     * hashmap.
+     */
+    GSList *same_key_nodes_list = NULL;
+    GHashTable *lookup_by_json_key = g_hash_table_new(g_str_hash, g_str_equal);
+    proto_node *current_child = node->first_child;
+
+    /**
+     * For each child of the node get the key and get the list of values already associated with that key from the
+     * hashmap. If no list exist yet for that key create a new one and add it to both the linked list and hashmap. If a
+     * list already exists add the node to that list.
+     */
+    while (current_child != NULL) {
+        char *json_key = (char *) proto_node_to_json_key(current_child);
+        GSList *json_key_nodes = (GSList *) g_hash_table_lookup(lookup_by_json_key, json_key);
+
+        if (json_key_nodes == NULL) {
+            json_key_nodes = g_slist_append(json_key_nodes, current_child);
+            // Prepending in single linked list is O(1), appending is O(n). Better to prepend here and reverse at the
+            // end than potentially looping to the end of the linked list for each child.
+            same_key_nodes_list = g_slist_prepend(same_key_nodes_list, json_key_nodes);
+            g_hash_table_insert(lookup_by_json_key, json_key, json_key_nodes);
+        } else {
+            // Store and insert value again to circumvent unused_variable warning.
+            // Append in this case since most value lists will only have a single value.
+            json_key_nodes = g_slist_append(json_key_nodes, current_child);
+            g_hash_table_insert(lookup_by_json_key, json_key, json_key_nodes);
+        }
+
+        current_child = current_child->next;
+    }
+
+    // Hash table is not needed anymore since the linked list with the correct ordering is returned.
+    g_hash_table_destroy(lookup_by_json_key);
+
+    return g_slist_reverse(same_key_nodes_list);
+}
+
+/**
+ * Returns the json key of a node. Tries to use the node's abbreviated name. If the abbreviated name is not available
+ * the representation is used instead.
+ */
+static const char *
+proto_node_to_json_key(proto_node *node)
+{
+    const char *json_key;
+    // Check if node has abbreviated name.
+    if (node->finfo->hfinfo->id != hf_text_only) {
+        json_key = node->finfo->hfinfo->abbrev;
+    } else if (node->finfo->rep != NULL) {
+        json_key = node->finfo->rep->representation;
+    } else {
+        json_key = "";
+    }
+
+    return json_key;
+}
+
+static gboolean
+ek_check_protocolfilter(gchar **protocolfilter, const char *str)
+{
+    gchar *str_escaped = NULL;
+    int i;
+
+    /* to to thread the '.' and '_' equally. The '.' is replace by print_escaped_ek for '_' */
+    if (str != NULL && strlen(str) > 0) {
+        str_escaped = g_strdup(str);
+
+        i = 0;
+        while (str_escaped[i] != '\0') {
+            if (str_escaped[i] == '.') {
+                str_escaped[i] = '_';
+            }
+            i++;
+        }
+    }
+
+    return check_protocolfilter(protocolfilter, str)
+           || check_protocolfilter(protocolfilter, str_escaped);
+}
+
+/**
+ * Finds a node's descendants to be printed as EK/JSON attributes.
+ */
+static void
+write_ek_summary(column_info *cinfo, FILE *fh)
+{
+    gint i;
+
+    for (i = 0; i < cinfo->num_cols; i++) {
+        fputs(", \"", fh);
+        print_escaped_ek(fh, g_ascii_strdown(cinfo->columns[i].col_title, -1));
+        fputs("\": \"", fh);
+        print_escaped_json(fh, cinfo->columns[i].col_data);
+        fputs("\"", fh);
+    }
+}
+
+/* Write out a tree's data, and any child nodes, as JSON for EK */
+static void
+ek_fill_attr(proto_node *node, GSList **attr_list, GHashTable *attr_table, write_json_data *pdata)
+{
+    field_info *fi         = NULL;
+    field_info *fi_parent  = NULL;
+    gchar *node_name       = NULL;
+    GSList *attr_instances = NULL;
+
+    proto_node *current_node = node->first_child;
+    while (current_node != NULL) {
+        fi        = PNODE_FINFO(current_node);
+        fi_parent = PNODE_FINFO(current_node->parent);
+
+        /* dissection with an invisible proto tree? */
+        g_assert(fi);
+
+        if (fi_parent == NULL) {
+            node_name = g_strdup(fi->hfinfo->abbrev);
+        }
+        else {
+            node_name = g_strconcat(fi_parent->hfinfo->abbrev, "_", fi->hfinfo->abbrev, NULL);
+        }
+
+        attr_instances = (GSList *) g_hash_table_lookup(attr_table, node_name);
+        // First time we encounter this attr
+        if (attr_instances == NULL) {
+            attr_instances = g_slist_append(attr_instances, current_node);
+            *attr_list = g_slist_prepend(*attr_list, attr_instances);
+        }
+        else {
+            attr_instances = g_slist_append(attr_instances, current_node);
+        }
+
+        // Update instance list for this attr in hash table
+        g_hash_table_insert(attr_table, node_name, attr_instances);
+
+        /* Field, recurse through children*/
+        if (fi->hfinfo->type != FT_PROTOCOL && current_node->first_child != NULL) {
+            if (pdata->filter != NULL) {
+                if (ek_check_protocolfilter(pdata->filter, fi->hfinfo->abbrev)) {
+                    gchar **_filter = NULL;
+                    /* Remove protocol filter for children, if children should be included */
+                    if ((pdata->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
+                        _filter = pdata->filter;
+                        pdata->filter = NULL;
+                    }
+
+                    ek_fill_attr(current_node, attr_list, attr_table, pdata);
+
+                    /* Put protocol filter back */
+                    if ((pdata->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
+                        pdata->filter = _filter;
+                    }
+                }
+                else {
+                    // Don't traverse children if filtered out
                 }
             }
             else {
-                json_write_field_hex_value(pdata, fi);
+                ek_fill_attr(current_node, attr_list, attr_table, pdata);
             }
-
-            /* Dump raw hex-encoded dissected information including position, length, bitmask, type */
-            fprintf(pdata->fh, "\", %" G_GINT32_MODIFIER "d", fi->start);
-            fprintf(pdata->fh, ", %" G_GINT32_MODIFIER "d", fi->length);
-            fprintf(pdata->fh, ", %" G_GUINT64_FORMAT, fi->hfinfo->bitmask);
-            fprintf(pdata->fh, ", %" G_GINT32_MODIFIER "d", (gint32)fi->value.ftype->ftype);
-
-            if (pdata->print_text) {
-                fputs("],\n", pdata->fh);
-            } else {
-                if (node->next == NULL && node->first_child == NULL) {
-                    fputs("]\n", pdata->fh);
-                } else {
-                    fputs("],\n", pdata->fh);
-                }
-            }
-
+        }
+        else {
+            // Will descend into object at another point
         }
 
+        current_node = current_node->next;
+    }
+}
 
+static void
+ek_write_name(proto_node *pnode, write_json_data *pdata)
+{
+    field_info *fi        = PNODE_FINFO(pnode);
+    field_info *fi_parent = PNODE_FINFO(pnode->parent);
+
+    if (fi_parent != NULL) {
+        print_escaped_ek(pdata->fh, fi_parent->hfinfo->abbrev);
+        fputs("_", pdata->fh);
+    }
+    print_escaped_ek(pdata->fh, fi->hfinfo->abbrev);
+}
+
+static void
+ek_write_hex(field_info *fi, write_json_data *pdata)
+{
+    if (fi->hfinfo->bitmask!=0) {
+        switch (fi->value.ftype->ftype) {
+            case FT_INT8:
+            case FT_INT16:
+            case FT_INT24:
+            case FT_INT32:
+                fprintf(pdata->fh, "%X", (guint) fvalue_get_sinteger(&fi->value));
+                break;
+            case FT_UINT8:
+            case FT_UINT16:
+            case FT_UINT24:
+            case FT_UINT32:
+                fprintf(pdata->fh, "%X", fvalue_get_uinteger(&fi->value));
+                break;
+            case FT_INT40:
+            case FT_INT48:
+            case FT_INT56:
+            case FT_INT64:
+                fprintf(pdata->fh, "%" G_GINT64_MODIFIER "X", fvalue_get_sinteger64(&fi->value));
+                break;
+            case FT_UINT40:
+            case FT_UINT48:
+            case FT_UINT56:
+            case FT_UINT64:
+            case FT_BOOLEAN:
+                fprintf(pdata->fh, "%" G_GINT64_MODIFIER "X", fvalue_get_uinteger64(&fi->value));
+                break;
+            default:
+                g_assert_not_reached();
+        }
+    }
+    else {
+        json_write_field_hex_value(pdata, fi);
+    }
+}
+
+static void
+ek_write_field_value(field_info *fi, write_json_data *pdata)
+{
+    gchar label_str[ITEM_LABEL_LENGTH];
+    char *dfilter_string;
+
+    /* Text label */
+    if (fi->hfinfo->id == hf_text_only && fi->rep) {
+        print_escaped_json(pdata->fh, fi->rep->representation);
+    }
+    else {
         /* show, value, and unmaskedvalue attributes */
-        switch (fi->hfinfo->type)
-        {
-        case FT_PROTOCOL:
-            if (node->first_child != NULL) {
-                print_indent(pdata->level + 3, pdata->fh);
-
-                fputs("\"", pdata->fh);
-                print_escaped_json(pdata->fh, fi->hfinfo->abbrev);
-
-                fputs("\": {\n", pdata->fh);
-            } else if (pdata->print_text) {
-                print_indent(pdata->level + 3, pdata->fh);
-
-                fputs("\"", pdata->fh);
-                print_escaped_json(pdata->fh, fi->hfinfo->abbrev);
-
-                fputs("\": \"", pdata->fh);
-                if (fi->rep) {
-                    print_escaped_json(pdata->fh, fi->rep->representation);
-                }
-                else {
-                    label_ptr = label_str;
-                    proto_item_fill_label(fi, label_str);
-                    print_escaped_json(pdata->fh, label_ptr);
-                }
-                if (node->next == NULL) {
-                    fputs("\"\n",  pdata->fh);
-                } else {
-                    fputs("\",\n",  pdata->fh);
-                }
+        if (fi->hfinfo->type == FT_PROTOCOL) {
+            if (fi->rep) {
+                print_escaped_json(pdata->fh, fi->rep->representation);
             }
-            break;
-        case FT_NONE:
-            if (node->first_child != NULL) {
-                print_indent(pdata->level + 3, pdata->fh);
-
-                fputs("\"", pdata->fh);
-                print_escaped_json(pdata->fh, fi->hfinfo->abbrev);
-
-                fputs("\": {\n", pdata->fh);
-            } else if (pdata->print_text) {
-                print_indent(pdata->level + 3, pdata->fh);
-
-                fputs("\"", pdata->fh);
-                print_escaped_json(pdata->fh, fi->hfinfo->abbrev);
-
-                if (node->next == NULL) {
-                  fputs("\": \"\"\n",  pdata->fh);
-                } else {
-                  fputs("\": \"\",\n",  pdata->fh);
-                }
-            }
-            break;
-        default:
-            if (pdata->print_text) {
-                print_indent(pdata->level + 3, pdata->fh);
-
-                fputs("\"", pdata->fh);
-                print_escaped_json(pdata->fh, fi->hfinfo->abbrev);
-
-                dfilter_string = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
-                if (dfilter_string != NULL) {
-                    if (pdata->print_text) {
-                      fputs("\": \"", pdata->fh);
-                      print_escaped_json(pdata->fh, dfilter_string);
-                      if (node->first_child != NULL) {
-                        fputs("\",\n", pdata->fh);
-                      }
-                    }
-                }
-                wmem_free(NULL, dfilter_string);
-
-                if (node->first_child == NULL) {
-                    if (node->next == NULL) {
-                        fputs("\"\n", pdata->fh);
-                    } else {
-                        fputs("\",\n", pdata->fh);
-                    }
-                }
-            }
-
-            if (node->first_child != NULL) {
-                print_indent(pdata->level + 3, pdata->fh);
-
-                fputs("\"", pdata->fh);
-                print_escaped_json(pdata->fh, fi->hfinfo->abbrev);
-                fputs("_tree\": {\n", pdata->fh);
+            else {
+                proto_item_fill_label(fi, label_str);
+                print_escaped_json(pdata->fh, label_str);
             }
         }
-
-    }
-
-    /* We print some levels for JSON. Recurse here. */
-    if (node->first_child != NULL) {
-        if (pdata->filter == NULL || check_protocolfilter(pdata->filter, fi->hfinfo->abbrev)) {
-            gchar **_filter = NULL;
-            /* Remove protocol filter for children, if children should be included */
-            if ((pdata->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
-                _filter = pdata->filter;
-                pdata->filter = NULL;
+        else if (fi->hfinfo->type != FT_NONE) {
+            dfilter_string = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+            if (dfilter_string != NULL) {
+                print_escaped_json(pdata->fh, dfilter_string);
             }
-
-            pdata->level++;
-            proto_tree_children_foreach(node, proto_tree_write_node_json, pdata);
-            pdata->level--;
-
-            /* Put protocol filter back */
-            if ((pdata->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
-                pdata->filter = _filter;
-            }
-        } else {
-            print_indent(pdata->level + 4, pdata->fh);
-
-            /* print dummy field */
-            fputs("\"filtered\": \"", pdata->fh);
-            print_escaped_json(pdata->fh, fi->hfinfo->abbrev);
-            fputs("\"\n", pdata->fh);
+            wmem_free(NULL, dfilter_string);
         }
     }
+}
 
-    if (node->first_child != NULL) {
-        print_indent(pdata->level + 3, pdata->fh);
+static void
+ek_write_attr(GSList *attr_instances, write_json_data *pdata)
+{
+    proto_node *pnode    = NULL;
+    field_info *fi       = NULL;
+    GSList *current_node = attr_instances;
 
-        /* Close off current element */
-        if (node->next == NULL) {
-            fputs("}\n", pdata->fh);
-        } else {
-            fputs("},\n", pdata->fh);
+    while (current_node != NULL) {
+        pnode = (proto_node *) current_node->data;
+        fi    = PNODE_FINFO(pnode);
+
+        // Hex dump -x
+        if (pdata->print_hex && fi->length > 0 && fi->hfinfo->id != hf_text_only) {
+            // Raw name
+            fputs("\"", pdata->fh);
+            ek_write_name(pnode, pdata);
+            fputs("_raw\": \"", pdata->fh);
+
+            // Raw value
+            ek_write_hex(fi, pdata);
+
+            fputs("\",", pdata->fh);
+        }
+
+        // Print attr name
+        fputs("\"", pdata->fh);
+        ek_write_name(pnode, pdata);
+        fputs("\": ", pdata->fh);
+
+        /* Field */
+        if (fi->hfinfo->type != FT_PROTOCOL) {
+            fputs("\"", pdata->fh);
+
+            if (pdata->filter != NULL
+                && !ek_check_protocolfilter(pdata->filter, fi->hfinfo->abbrev)) {
+
+                /* print dummy field */
+                fputs("\",\"filtered\": \"", pdata->fh);
+                print_escaped_ek(pdata->fh, fi->hfinfo->abbrev);
+            }
+            else {
+                ek_write_field_value(fi, pdata);
+            }
+
+            fputs("\"", pdata->fh);
+        }
+        /* Protocol without children, e.g. SSL */
+        else if (pnode->first_child == NULL) {
+            fputs("\"", pdata->fh);
+            ek_write_field_value(fi, pdata);
+            fputs("\"", pdata->fh);
+        }
+        /* Object */
+        else {
+            fputs("{", pdata->fh);
+
+            if (pdata->filter != NULL) {
+                if (ek_check_protocolfilter(pdata->filter, fi->hfinfo->abbrev)) {
+                    gchar **_filter = NULL;
+                    /* Remove protocol filter for children, if children should be included */
+                    if ((pdata->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
+                        _filter = pdata->filter;
+                        pdata->filter = NULL;
+                    }
+
+                    proto_tree_write_node_ek(pnode, pdata);
+
+                    /* Put protocol filter back */
+                    if ((pdata->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
+                        pdata->filter = _filter;
+                    }
+                } else {
+                    /* print dummy field */
+                    fputs("\"filtered\": \"", pdata->fh);
+                    print_escaped_ek(pdata->fh, fi->hfinfo->abbrev);
+                    fputs("\"", pdata->fh);
+                }
+            }
+            else {
+                proto_tree_write_node_ek(pnode, pdata);
+            }
+
+            fputs("}", pdata->fh);
+        }
+
+        current_node = current_node->next;
+        if (current_node != NULL) {
+            fputs(",", pdata->fh);
         }
     }
 }
 
 /* Write out a tree's data, and any child nodes, as JSON for EK */
 static void
-proto_tree_write_node_ek(proto_node *node, gpointer data)
+proto_tree_write_node_ek(proto_node *node, write_json_data *pdata)
 {
-    field_info      *fi    = PNODE_FINFO(node);
-    field_info      *fi_parent    = PNODE_FINFO(node->parent);
-    write_json_data *pdata = (write_json_data*) data;
-    const gchar     *label_ptr;
-    gchar            label_str[ITEM_LABEL_LENGTH];
-    char            *dfilter_string;
-    int              i;
-    gchar           *abbrev_escaped = NULL;
+    GSList *attr_list  = NULL;
+    GHashTable *attr_table  = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
-    /* dissection with an invisible proto tree? */
-    g_assert(fi);
+    ek_fill_attr(node, &attr_list, attr_table, pdata);
 
-    /* Text label. It's printed as a field with no name. */
-    if (fi->hfinfo->id == hf_text_only) {
-        /* Get the text */
-        if (fi->rep) {
-            label_ptr = fi->rep->representation;
-        }
-        else {
-            label_ptr = "";
-        }
+    g_hash_table_destroy(attr_table);
 
-        /* Show empty name since it is a required field */
-        fputs("\"", pdata->fh);
-        if (fi_parent != NULL) {
-            print_escaped_ek(pdata->fh, fi_parent->hfinfo->abbrev);
-            fputs("_", pdata->fh);
-        }
-        print_escaped_ek(pdata->fh, fi->hfinfo->abbrev);
+    // Print attributes
+    GSList *current_attr = g_slist_reverse(attr_list);
+    while (current_attr != NULL) {
+        GSList *attr_instances = (GSList *) current_attr->data;
 
-        if (node->first_child != NULL) {
-            fputs("\": \"", pdata->fh);
-            print_escaped_json(pdata->fh, label_ptr);
-            fputs("\",", pdata->fh);
+        ek_write_attr(attr_instances, pdata);
 
-        }
-        else {
-            if (node->next == NULL) {
-                fputs("\": \"",  pdata->fh);
-                print_escaped_json(pdata->fh, label_ptr);
-                fputs("\"", pdata->fh);
-            } else {
-                fputs("\": \"",  pdata->fh);
-                print_escaped_json(pdata->fh, label_ptr);
-                fputs("\",", pdata->fh);
-            }
+        current_attr = current_attr->next;
+        if (current_attr != NULL) {
+            fputs(",", pdata->fh);
         }
     }
 
-    /* Normal protocols and fields */
-    else {
-        /*
-         * Hex dump -x
-         */
-        if (pdata->print_hex && fi->length > 0) {
-            fputs("\"", pdata->fh);
-            if (fi_parent != NULL) {
-                print_escaped_ek(pdata->fh, fi_parent->hfinfo->abbrev);
-                fputs("_", pdata->fh);
-            }
-            print_escaped_ek(pdata->fh, fi->hfinfo->abbrev);
-            fputs("_raw", pdata->fh);
-            fputs("\": \"", pdata->fh);
-
-            if (fi->hfinfo->bitmask!=0) {
-                switch (fi->value.ftype->ftype) {
-                    case FT_INT8:
-                    case FT_INT16:
-                    case FT_INT24:
-                    case FT_INT32:
-                        fprintf(pdata->fh, "%X", (guint) fvalue_get_sinteger(&fi->value));
-                        break;
-                    case FT_UINT8:
-                    case FT_UINT16:
-                    case FT_UINT24:
-                    case FT_UINT32:
-                        fprintf(pdata->fh, "%X", fvalue_get_uinteger(&fi->value));
-                        break;
-                    case FT_INT40:
-                    case FT_INT48:
-                    case FT_INT56:
-                    case FT_INT64:
-                        fprintf(pdata->fh, "%" G_GINT64_MODIFIER "X", fvalue_get_sinteger64(&fi->value));
-                        break;
-                    case FT_UINT40:
-                    case FT_UINT48:
-                    case FT_UINT56:
-                    case FT_UINT64:
-                    case FT_BOOLEAN:
-                        fprintf(pdata->fh, "%" G_GINT64_MODIFIER "X", fvalue_get_uinteger64(&fi->value));
-                        break;
-                    default:
-                        g_assert_not_reached();
-                }
-                fputs("\",", pdata->fh);
-            }
-            else {
-                json_write_field_hex_value(pdata, fi);
-                fputs("\",", pdata->fh);
-            }
-        }
-
-
-
-        fputs("\"", pdata->fh);
-
-        if (fi_parent != NULL) {
-            print_escaped_ek(pdata->fh, fi_parent->hfinfo->abbrev);
-            fputs("_", pdata->fh);
-        }
-        print_escaped_ek(pdata->fh, fi->hfinfo->abbrev);
-
-        /* show, value, and unmaskedvalue attributes */
-        switch (fi->hfinfo->type)
-        {
-        case FT_PROTOCOL:
-            if (node->first_child != NULL) {
-                fputs("\": {", pdata->fh);
-            } else {
-                fputs("\": \"", pdata->fh);
-                if (fi->rep) {
-                    print_escaped_json(pdata->fh, fi->rep->representation);
-                }
-                else {
-                    label_ptr = label_str;
-                    proto_item_fill_label(fi, label_str);
-                    print_escaped_json(pdata->fh, label_ptr);
-                }
-                if (node->next == NULL) {
-                    fputs("\"",  pdata->fh);
-                } else {
-                    fputs("\",",  pdata->fh);
-                }
-            }
-            break;
-        case FT_NONE:
-            if (node->first_child != NULL) {
-                fputs("\": \"\",",  pdata->fh);
-            } else {
-                if (node->next == NULL) {
-                    fputs("\": \"\"",  pdata->fh);
-                } else {
-                    fputs("\": \"\",",  pdata->fh);
-                }
-            }
-            break;
-        default:
-            dfilter_string = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
-            if (dfilter_string != NULL) {
-                fputs("\": \"", pdata->fh);
-                print_escaped_json(pdata->fh, dfilter_string);
-            }
-            wmem_free(NULL, dfilter_string);
-
-            if (node->next == NULL && node->first_child == NULL) {
-                fputs("\"", pdata->fh);
-            } else {
-                fputs("\",", pdata->fh);
-            }
-        }
-
-    }
-
-    /* We print some levels for JSON. Recurse here. */
-    if (node->first_child != NULL) {
-
-        if (pdata->filter != NULL) {
-
-            /* to to thread the '.' and '_' equally. The '.' is replace by print_escaped_ek for '_' */
-            if (fi->hfinfo->abbrev != NULL) {
-                if (strlen(fi->hfinfo->abbrev) > 0) {
-                    abbrev_escaped = g_strdup(fi->hfinfo->abbrev);
-
-                    i = 0;
-                    while(abbrev_escaped[i]!='\0') {
-                        if(abbrev_escaped[i]=='.') {
-                            abbrev_escaped[i]='_';
-                        }
-                        i++;
-                    }
-                }
-            }
-
-            if(check_protocolfilter(pdata->filter, fi->hfinfo->abbrev) || check_protocolfilter(pdata->filter, abbrev_escaped)) {
-                gchar **_filter = NULL;
-                /* Remove protocol filter for children, if children should be included */
-                if ((pdata->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
-                    _filter = pdata->filter;
-                    pdata->filter = NULL;
-                }
-
-                pdata->level++;
-                proto_tree_children_foreach(node, proto_tree_write_node_ek, pdata);
-                pdata->level--;
-
-                /* Put protocol filter back */
-                if ((pdata->filter_flags&PF_INCLUDE_CHILDREN) == PF_INCLUDE_CHILDREN) {
-                    pdata->filter = _filter;
-                }
-            } else {
-                /* print dummy field */
-                fputs("\"filtered\": \"", pdata->fh);
-                print_escaped_ek(pdata->fh, fi->hfinfo->abbrev);
-                fputs("\"", pdata->fh);
-            }
-
-            /* release abbrev_escaped string */
-            if (abbrev_escaped != NULL) {
-                g_free(abbrev_escaped);
-            }
-
-        } else {
-            pdata->level++;
-            proto_tree_children_foreach(node,
-                                        proto_tree_write_node_ek, pdata);
-            pdata->level--;
-        }
-    }
-
-    if (node->first_child != NULL) {
-        if (fi->hfinfo->type == FT_PROTOCOL) {
-            /* Close off current element */
-            if (node->next == NULL) {
-                fputs("}", pdata->fh);
-            } else {
-                fputs("},", pdata->fh);
-            }
-        } else {
-            if (node->next != NULL) {
-                fputs(",", pdata->fh);
-            }
-        }
-    }
+    g_slist_free_full(attr_list, (GDestroyNotify) g_slist_free);
 }
 
 /* Print info for a 'geninfo' pseudo-protocol. This is required by
@@ -1262,11 +1519,7 @@ write_pdml_finale(FILE *fh)
     fputs("</pdml>\n", fh);
 }
 
-void
-write_json_finale(FILE *fh)
-{
-    fputs("]\n", fh);
-}
+
 
 void
 write_psml_preamble(column_info *cinfo, FILE *fh)
@@ -1287,11 +1540,19 @@ write_psml_preamble(column_info *cinfo, FILE *fh)
 }
 
 void
-write_psml_columns(epan_dissect_t *edt, FILE *fh)
+write_psml_columns(epan_dissect_t *edt, FILE *fh, gboolean use_color)
 {
     gint i;
+    const color_filter_t *cfp = edt->pi.fd->color_filter;
 
-    fprintf(fh, "<packet>\n");
+    if (use_color && (cfp != NULL)) {
+        fprintf(fh, "<packet foreground='#%06x' background='#%06x'>\n",
+            color_t_to_rgb(&cfp->fg_color),
+            color_t_to_rgb(&cfp->bg_color));
+    }
+    else {
+        fprintf(fh, "<packet>\n");
+    }
 
     for (i = 0; i < edt->pi.cinfo->num_cols; i++) {
         fprintf(fh, "<section>");
@@ -2206,6 +2467,7 @@ static void write_specified_fields(fields_format format, output_fields_t *fields
         }
         break;
     case FORMAT_JSON:
+        fputs("{\n", fh);
         for(i = 0; i < fields->fields->len; ++i) {
             gchar *field = (gchar *)g_ptr_array_index(fields->fields, i);
 
@@ -2217,7 +2479,7 @@ static void write_specified_fields(fields_format format, output_fields_t *fields
 
                 /* Output the array of (partial) field values */
                 for (j = 0; j < (g_ptr_array_len(fv_p)); j += 2) {
-                    str = (gchar *)g_ptr_array_index(fv_p, j);
+                    str = (gchar *) g_ptr_array_index(fv_p, j);
 
                     if (j == 0) {
                         if (!first) {
@@ -2232,12 +2494,10 @@ static void write_specified_fields(fields_format format, output_fields_t *fields
 
                     if (j + 2 < (g_ptr_array_len(fv_p))) {
                         fputs(",", fh);
-                    }
-                    else {
+                    } else {
                         fputs("]", fh);
-
-                        }
                     }
+                }
 
                 first = FALSE;
                 g_ptr_array_free(fv_p, TRUE);  /* get ready for the next packet */
@@ -2245,6 +2505,8 @@ static void write_specified_fields(fields_format format, output_fields_t *fields
             }
         }
         fputc('\n',fh);
+
+        fputs("      }", fh);
         break;
     case FORMAT_EK:
         for(i = 0; i < fields->fields->len; ++i) {

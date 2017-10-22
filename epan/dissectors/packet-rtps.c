@@ -67,7 +67,7 @@ void proto_reg_handoff_rtps(void);
 #define MAX_GUID_SIZE           (160)
 #define MAX_VENDOR_ID_SIZE      (128)
 #define MAX_PARAM_SIZE          (256)
-#define MAX_NTP_TIME_SIZE       (128)
+#define MAX_TIMESTAMP_SIZE      (128)
 
 static const char *const SM_EXTRA_RPLUS  = "(r+)";
 static const char *const SM_EXTRA_RMINUS = "(r-)";
@@ -248,8 +248,12 @@ static int hf_rtps_param_endpoint_security_attributes      = -1;
 static int hf_rtps_param_plugin_promiscuity_kind    = -1;
 static int hf_rtps_param_service_kind               = -1;
 
-static int hf_rtps_secure_transformation_id                 = -1;
-static int hf_rtps_secure_ciphertext                        = -1;
+static int hf_rtps_param_sample_signature_epoch             = -1;
+static int hf_rtps_param_sample_signature_nonce             = -1;
+static int hf_rtps_param_sample_signature_length            = -1;
+static int hf_rtps_param_sample_signature_signature         = -1;
+static int hf_rtps_secure_secure_data_length                = -1;
+static int hf_rtps_secure_secure_data                       = -1;
 static int hf_rtps_param_enable_authentication              = -1;
 static int hf_rtps_param_enable_encryption                  = -1;
 static int hf_rtps_secure_dataheader_transformation_kind    = -1;
@@ -268,8 +272,8 @@ static int hf_rtps_pgm_data_holder_class_id                 = -1;
 /* static int hf_rtps_pgm_data_holder_stringseq_name           = -1; */
 /* static int hf_rtps_pgm_data_holder_long_long                = -1; */
 
-static int hf_rtps_param_ntpt_sec                               = -1;
-static int hf_rtps_param_ntpt_fraction                          = -1;
+static int hf_rtps_param_timestamp_sec                          = -1;
+static int hf_rtps_param_timestamp_fraction                     = -1;
 static int hf_rtps_transportInfo_classId                        = -1;
 static int hf_rtps_transportInfo_messageSizeMax                 = -1;
 static int hf_rtps_param_app_ack_count                          = -1;
@@ -374,6 +378,7 @@ static int hf_rtps_flag_reserved0200                            = -1;
 static int hf_rtps_flag_reserved0100                            = -1;
 static int hf_rtps_flag_reserved0080                            = -1;
 static int hf_rtps_flag_reserved0040                            = -1;
+static int hf_rtps_flag_builtin_endpoint_set_reserved           = -1;
 static int hf_rtps_flag_unregister                              = -1;
 static int hf_rtps_flag_inline_qos_v1                           = -1;
 static int hf_rtps_flag_hash_key                                = -1;
@@ -416,6 +421,17 @@ static int hf_rtps_flag_participant_state_announcer             = -1;
 static int hf_rtps_flag_participant_state_detector              = -1;
 static int hf_rtps_flag_participant_message_datawriter          = -1;
 static int hf_rtps_flag_participant_message_datareader          = -1;
+static int hf_rtps_flag_secure_publication_writer               = -1;
+static int hf_rtps_flag_secure_publication_reader               = -1;
+static int hf_rtps_flag_secure_subscription_writer              = -1;
+static int hf_rtps_flag_secure_subscription_reader              = -1;
+static int hf_rtps_flag_secure_participant_message_writer       = -1;
+static int hf_rtps_flag_secure_participant_message_reader       = -1;
+static int hf_rtps_flag_participant_stateless_message_writer    = -1;
+static int hf_rtps_flag_participant_stateless_message_reader    = -1;
+static int hf_rtps_flag_secure_participant_volatile_message_writer  = -1;
+static int hf_rtps_flag_secure_participant_volatile_message_reader  = -1;
+
 static int hf_rtps_flag_typeflag_final                          = -1;
 static int hf_rtps_flag_typeflag_mutable                        = -1;
 static int hf_rtps_flag_typeflag_nested                         = -1;
@@ -427,6 +443,8 @@ static int hf_rtps_flag_service_request_writer                  = -1;
 static int hf_rtps_flag_service_request_reader                  = -1;
 static int hf_rtps_flag_locator_ping_writer                     = -1;
 static int hf_rtps_flag_locator_ping_reader                     = -1;
+static int hf_rtps_flag_secure_service_request_writer           = -1;
+static int hf_rtps_flag_secure_service_request_reader           = -1;
 static int hf_rtps_flag_security_access_protected               = -1;
 static int hf_rtps_flag_security_discovery_protected            = -1;
 static int hf_rtps_flag_security_submessage_protected           = -1;
@@ -451,7 +469,7 @@ static gint ett_rtps_app_id                     = -1;
 static gint ett_rtps_locator_udp_v4             = -1;
 static gint ett_rtps_locator                    = -1;
 static gint ett_rtps_locator_list               = -1;
-static gint ett_rtps_ntp_time                   = -1;
+static gint ett_rtps_timestamp                  = -1;
 static gint ett_rtps_bitmap                     = -1;
 static gint ett_rtps_seq_string                 = -1;
 static gint ett_rtps_seq_ulong                  = -1;
@@ -678,11 +696,11 @@ static const value_string submessage_id_valsv2[] = {
   { SUBMESSAGE_APP_ACK,                 "APP_ACK" },
   { SUBMESSAGE_APP_ACK_CONF,            "APP_ACK_CONF" },
   { SUBMESSAGE_HEARTBEAT_VIRTUAL,       "HEARTBEAT_VIRTUAL" },
-  { SUBMESSAGE_SECURE_BODY,             "SUBMESSAGE_SECURE_BODY" },
-  { SUBMESSAGE_SECURE_PREFIX,           "SUBMESSAGE_SECURE_PREFIX" },
-  { SUBMESSAGE_SECURE_POSTFIX,          "SUBMESSAGE_SECURE_POSTFIX" },
-  { SUBMESSAGE_SECURE_RTPS_PREFIX,      "SUBMESSAGE_SECURE_RTPS_PREFIX" },
-  { SUBMESSAGE_SECURE_RTPS_POSTFIX,     "SUBMESSAGE_SECURE_RTPS_POSTFIX" },
+  { SUBMESSAGE_SEC_BODY,                "SEC_BODY" },
+  { SUBMESSAGE_SEC_PREFIX,              "SEC_PREFIX" },
+  { SUBMESSAGE_SEC_POSTFIX,             "SEC_POSTFIX" },
+  { SUBMESSAGE_SRTPS_PREFIX,            "SRTPS_PREFIX" },
+  { SUBMESSAGE_SRTPS_POSTFIX,           "SRTPS_POSTFIX" },
   /* Deprecated submessages */
   { SUBMESSAGE_DATA,              "DATA_deprecated" },
   { SUBMESSAGE_NOKEY_DATA,        "NOKEY_DATA_deprecated" },
@@ -802,6 +820,7 @@ static const value_string parameter_id_inline_qos_rti[] = {
   { PID_RELATED_READER_GUID,            "PID_RELATED_READER_GUID" },
   { PID_SOURCE_GUID,                    "PID_SOURCE_GUID" },
   { PID_TOPIC_QUERY_GUID,               "PID_TOPIC_QUERY_GUID" },
+  { PID_SAMPLE_SIGNATURE,               "PID_SAMPLE_SIGNATURE" },
   { 0, NULL }
 };
 
@@ -1018,6 +1037,15 @@ static const value_string plugin_promiscuity_kind_vals[] = {
 static const value_string service_kind_vals[] = {
   { 0x00000000,                             "NO_SERVICE_QOS" },
   { 0x00000001,                             "PERSISTENCE_SERVICE_QOS" },
+  { 0, NULL }
+};
+
+static const value_string secure_transformation_kind[] = {
+  { CRYPTO_TRANSFORMATION_KIND_NONE,          "NONE" },
+  { CRYPTO_TRANSFORMATION_KIND_AES128_GMAC,   "AES128_GMAC" },
+  { CRYPTO_TRANSFORMATION_KIND_AES128_GCM,    "AES128_GCM" },
+  { CRYPTO_TRANSFORMATION_KIND_AES256_GMAC,   "AES256_GMAC" },
+  { CRYPTO_TRANSFORMATION_KIND_AES256_GCM,    "AES256_GCM" },
   { 0, NULL }
 };
 
@@ -1383,6 +1411,17 @@ static const int* STATUS_INFO_FLAGS[] = {
 };
 
 static const int* BUILTIN_ENDPOINT_FLAGS[] = {
+  &hf_rtps_flag_secure_participant_volatile_message_reader,     /* Bit 25 */
+  &hf_rtps_flag_secure_participant_volatile_message_writer,     /* Bit 24 */
+  &hf_rtps_flag_participant_stateless_message_reader,           /* Bit 23 */
+  &hf_rtps_flag_participant_stateless_message_writer,           /* Bit 22 */
+  &hf_rtps_flag_secure_participant_message_reader,              /* Bit 21 */
+  &hf_rtps_flag_secure_participant_message_writer,              /* Bit 20 */
+  &hf_rtps_flag_secure_subscription_reader,                     /* Bit 19 */
+  &hf_rtps_flag_secure_subscription_writer,                     /* Bit 18 */
+  &hf_rtps_flag_secure_publication_reader,                      /* Bit 17 */
+  &hf_rtps_flag_secure_publication_writer,                      /* Bit 16 */
+  &hf_rtps_flag_builtin_endpoint_set_reserved,      /* Bit 12-15 */
   &hf_rtps_flag_participant_message_datareader,     /* Bit 11 */
   &hf_rtps_flag_participant_message_datawriter,     /* Bit 10 */
   &hf_rtps_flag_participant_state_detector,         /* Bit 9 */
@@ -1498,6 +1537,8 @@ static const int* NACK_FLAGS[] = {
 #endif
 
 static const int* VENDOR_BUILTIN_ENDPOINT_FLAGS[] = {
+  &hf_rtps_flag_secure_service_request_reader,        /* Bit 5 */
+  &hf_rtps_flag_secure_service_request_writer,        /* Bit 4 */
   &hf_rtps_flag_locator_ping_reader,                  /* Bit 3 */
   &hf_rtps_flag_locator_ping_writer,                  /* Bit 2 */
   &hf_rtps_flag_service_request_reader,               /* Bit 1 */
@@ -2173,30 +2214,35 @@ static void rtps_util_add_transport_info(proto_tree *tree,
 }
 
 /* ------------------------------------------------------------------------- */
-/* Insert in the protocol tree the next 8 bytes interpreted as NtpTime
+/* Insert in the protocol tree the next 8 bytes interpreted as an RTPS time_t,
+ * which is like an NTP time stamp, except that it uses the UNIX epoch,
+ * rather than the NTP epoch, as the time base.  Doesn't check for TIME_ZERO,
+ * TIME_INVALID, or TIME_INFINITE, and doesn't show the seconds and
+ * fraction field separately.
  */
-void rtps_util_add_ntp_time(proto_tree *tree,
+static void rtps_util_add_timestamp(proto_tree *tree,
                         tvbuff_t *tvb,
                         gint       offset,
                         const guint encoding,
                         int hf_time) {
 
-  /* ENC_TIME_NTP_BASE_ZERO applies the BASETIME specified by the standard (zero)*/
   proto_tree_add_item(tree, hf_time, tvb, offset, 8,
-                      ENC_TIME_NTP_BASE_ZERO|encoding);
+                      ENC_TIME_RTPS|encoding);
 
 }
 
 /* ------------------------------------------------------------------------- */
-/* Insert in the protocol tree the next 8 bytes interpreted as NtpTime
-*/
-static void rtps_util_add_ntp_time_sec_and_fraction(proto_tree *tree,
+/* Insert in the protocol tree the next 8 bytes interpreted as an RTPS time_t.
+ * Checks for special values except for TIME_INVALID, and shows the
+ * seconds and fraction as separate fields.
+ */
+static void rtps_util_add_timestamp_sec_and_fraction(proto_tree *tree,
   tvbuff_t *tvb,
   gint       offset,
   const guint encoding,
   int hf_time _U_) {
 
-  guint8  tempBuffer[MAX_NTP_TIME_SIZE];
+  guint8  tempBuffer[MAX_TIMESTAMP_SIZE];
   gdouble absolute;
   gint32 sec;
   guint32 frac;
@@ -2208,20 +2254,20 @@ static void rtps_util_add_ntp_time_sec_and_fraction(proto_tree *tree,
     frac = tvb_get_guint32(tvb, offset+4, encoding);
 
     if ((sec == 0x7fffffff) && (frac == 0xffffffff)) {
-      g_strlcpy(tempBuffer, "INFINITE", MAX_NTP_TIME_SIZE);
+      g_strlcpy(tempBuffer, "INFINITE", MAX_TIMESTAMP_SIZE);
     } else if ((sec == 0) && (frac == 0)) {
-      g_strlcpy(tempBuffer, "0 sec", MAX_NTP_TIME_SIZE);
+      g_strlcpy(tempBuffer, "0 sec", MAX_TIMESTAMP_SIZE);
     } else {
       absolute = (gdouble)sec + (gdouble)frac / ((gdouble)(0x80000000) * 2.0);
-      g_snprintf(tempBuffer, MAX_NTP_TIME_SIZE,
+      g_snprintf(tempBuffer, MAX_TIMESTAMP_SIZE,
         "%f sec (%ds + 0x%08x)", absolute, sec, frac);
     }
 
     time_tree = proto_tree_add_subtree_format(tree, tvb, offset, 8,
-           ett_rtps_ntp_time, NULL, "%s: %s", "lease_duration", tempBuffer);
+           ett_rtps_timestamp, NULL, "%s: %s", "lease_duration", tempBuffer);
 
-    proto_tree_add_item(time_tree, hf_rtps_param_ntpt_sec, tvb, offset, 4, encoding);
-    proto_tree_add_item(time_tree, hf_rtps_param_ntpt_fraction, tvb, offset+4, 4, encoding);
+    proto_tree_add_item(time_tree, hf_rtps_param_timestamp_sec, tvb, offset, 4, encoding);
+    proto_tree_add_item(time_tree, hf_rtps_param_timestamp_fraction, tvb, offset+4, 4, encoding);
   }
 }
 
@@ -2276,7 +2322,7 @@ void rtps_util_add_durability_service_qos(proto_tree *tree,
 
   subtree = proto_tree_add_subtree(tree, tvb, offset, 28, ett_rtps_durability_service, NULL, "PID_DURABILITY_SERVICE");
 
-  rtps_util_add_ntp_time_sec_and_fraction(subtree, tvb, offset, encoding, hf_rtps_durability_service_cleanup_delay);
+  rtps_util_add_timestamp_sec_and_fraction(subtree, tvb, offset, encoding, hf_rtps_durability_service_cleanup_delay);
   proto_tree_add_item(subtree, hf_rtps_durability_service_history_kind, tvb, offset+8, 4, encoding);
   proto_tree_add_item(subtree, hf_rtps_durability_service_history_depth, tvb, offset+12, 4, encoding);
   proto_tree_add_item(subtree, hf_rtps_durability_service_max_samples, tvb, offset+16, 4, encoding);
@@ -2295,7 +2341,7 @@ void rtps_util_add_liveliness_qos(proto_tree *tree, tvbuff_t *tvb, gint offset, 
   subtree = proto_tree_add_subtree(tree, tvb, offset, 12, ett_rtps_liveliness, NULL, "PID_LIVELINESS");
 
   proto_tree_add_item(subtree, hf_rtps_liveliness_kind, tvb, offset, 4, encoding);
-  rtps_util_add_ntp_time_sec_and_fraction(subtree, tvb, offset+4, encoding, hf_rtps_liveliness_lease_duration);
+  rtps_util_add_timestamp_sec_and_fraction(subtree, tvb, offset+4, encoding, hf_rtps_liveliness_lease_duration);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -4052,6 +4098,17 @@ static gboolean dissect_parameter_sequence_rti(proto_tree *rtps_parameter_tree, 
   const guint encoding, int param_length, guint16 parameter, gboolean is_inline_qos) {
 
   switch(parameter) {
+    case PID_SAMPLE_SIGNATURE:
+      ENSURE_LENGTH(16);
+      proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_sample_signature_epoch, tvb,
+                  offset, 8, encoding);
+      proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_sample_signature_nonce, tvb,
+                  offset+8, 4, encoding);
+      proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_sample_signature_length, tvb,
+                  offset+12, 4, encoding);
+      proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_sample_signature_signature, tvb,
+                  offset+16, param_length-16, ENC_NA);
+      break;
 
     case PID_ENABLE_AUTHENTICATION:
       ENSURE_LENGTH(4);
@@ -4113,7 +4170,7 @@ static gboolean dissect_parameter_sequence_rti(proto_tree *rtps_parameter_tree, 
 
     case PID_REACHABILITY_LEASE_DURATION:
       ENSURE_LENGTH(8);
-      rtps_util_add_ntp_time_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
+      rtps_util_add_timestamp_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
                            hf_rtps_participant_lease_duration);
     break;
     /* 0...2...........7...............15.............23...............31
@@ -4628,7 +4685,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
      */
     case PID_PARTICIPANT_LEASE_DURATION:
       ENSURE_LENGTH(8);
-      rtps_util_add_ntp_time_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
+      rtps_util_add_timestamp_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
                              hf_rtps_participant_lease_duration);
       break;
 
@@ -4644,7 +4701,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
      */
     case PID_TIME_BASED_FILTER:
       ENSURE_LENGTH(8);
-      rtps_util_add_ntp_time_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
+      rtps_util_add_timestamp_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
                              hf_rtps_time_based_filter_minimum_separation);
       break;
 
@@ -4788,7 +4845,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
        * 'maxBlockingTime'.
        */
       if (size == 12) {
-        rtps_util_add_ntp_time(rtps_parameter_tree, tvb, offset + 4,
+        rtps_util_add_timestamp(rtps_parameter_tree, tvb, offset + 4,
                     encoding, hf_rtps_reliability_max_blocking_time);
       }
       break;
@@ -4890,7 +4947,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
     case PID_DEADLINE_OFFERED: /* Deprecated */
     case PID_DEADLINE:
       ENSURE_LENGTH(8);
-      rtps_util_add_ntp_time_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding, hf_rtps_deadline_period);
+      rtps_util_add_timestamp_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding, hf_rtps_deadline_period);
       break;
 
     /* 0...2...........7...............15.............23...............31
@@ -4918,7 +4975,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
     case PID_LATENCY_BUDGET_OFFERED:
     case PID_LATENCY_BUDGET:
       ENSURE_LENGTH(8);
-      rtps_util_add_ntp_time_sec_and_fraction(rtps_parameter_tree, tvb, offset,
+      rtps_util_add_timestamp_sec_and_fraction(rtps_parameter_tree, tvb, offset,
                     encoding, hf_rtps_latency_budget_duration);
       break;
 
@@ -4954,7 +5011,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
      */
     case PID_LIFESPAN:
       ENSURE_LENGTH(8);
-      rtps_util_add_ntp_time_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
+      rtps_util_add_timestamp_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
                              hf_rtps_lifespan_duration);
       break;
 
@@ -5480,7 +5537,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
 
     case PID_PERSISTENCE:
       ENSURE_LENGTH(8);
-      rtps_util_add_ntp_time_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
+      rtps_util_add_timestamp_sec_and_fraction(rtps_parameter_tree, tvb, offset, encoding,
                         hf_rtps_persistence);
       break;
 
@@ -8477,7 +8534,7 @@ static void dissect_RTPS_DATA_BATCH(tvbuff_t *tvb, packet_info *pinfo, gint offs
 
       /* Timestamp [only if T==1] */
       if ((flags2 & FLAG_SAMPLE_INFO_T) != 0) {
-        rtps_util_add_ntp_time(si_tree, tvb, offset, encoding, hf_rtps_data_batch_timestamp);
+        rtps_util_add_timestamp(si_tree, tvb, offset, encoding, hf_rtps_data_batch_timestamp);
         offset += 8;
       }
 
@@ -8675,7 +8732,7 @@ void dissect_INFO_TS(tvbuff_t *tvb, packet_info *pinfo, gint offset, guint8 flag
   offset += 4;
 
   if ((flags & FLAG_INFO_TS_T) == 0) {
-    rtps_util_add_ntp_time(tree,
+    rtps_util_add_timestamp(tree,
                         tvb,
                         offset,
                         encoding,
@@ -8984,7 +9041,7 @@ static void dissect_RTI_CRC(tvbuff_t *tvb, packet_info *pinfo, gint offset, guin
 }
 
 static void dissect_SECURE(tvbuff_t *tvb, packet_info *pinfo _U_, gint offset,
-                guint8 flags, const guint encoding, int octets_to_next_header,
+                guint8 flags, const guint encoding _U_, int octets_to_next_header,
                 proto_tree *tree, guint16 vendor_id _U_) {
 
  /* *********************************************************************** */
@@ -9001,27 +9058,28 @@ static void dissect_SECURE(tvbuff_t *tvb, packet_info *pinfo _U_, gint offset,
     * |                                                               |
     * +---------------+---------------+---------------+---------------+
     * |                                                               |
-    * +                      octet ciphertext[]                       +
+    * +                     octet secure_data[]                       +
     * |                                                               |
     * +---------------+---------------+---------------+---------------+
     */
     proto_tree * payload_tree;
-
+    guint local_encoding;
     proto_tree_add_bitmask_value(tree, tvb, offset + 1, hf_rtps_sm_flags, ett_rtps_flags, SECURE_FLAGS, flags);
+    local_encoding = ((flags & FLAG_E) != 0) ? ENC_LITTLE_ENDIAN : ENC_BIG_ENDIAN;
 
-    proto_tree_add_item(tree, hf_rtps_sm_octets_to_next_header, tvb, offset + 2, 2, encoding);
+    proto_tree_add_item(tree, hf_rtps_sm_octets_to_next_header, tvb, offset + 2, 2, local_encoding);
 
     offset += 4;
 
     payload_tree = proto_tree_add_subtree_format(tree, tvb, offset, octets_to_next_header,
                    ett_rtps_secure_payload_tree, NULL, "Secured payload");
 
-    proto_tree_add_item(payload_tree, hf_rtps_secure_transformation_id, tvb,
-                            offset, 4, encoding);
+    proto_tree_add_item(payload_tree, hf_rtps_secure_secure_data_length, tvb,
+                            offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
 
-    proto_tree_add_item(payload_tree, hf_rtps_secure_ciphertext, tvb,
-                            offset, octets_to_next_header-4, encoding);
+    proto_tree_add_item(payload_tree, hf_rtps_secure_secure_data, tvb,
+                            offset, octets_to_next_header-4, local_encoding);
 
 }
 
@@ -9068,7 +9126,7 @@ static void dissect_SECURE_PREFIX(tvbuff_t *tvb, packet_info *pinfo _U_, gint of
           ett_rtps_secure_dataheader_tree, NULL, "Secure Data Header");
 
   proto_tree_add_item(sec_data_header_tree, hf_rtps_secure_dataheader_transformation_kind, tvb,
-          offset, 4, encoding);
+          offset, 4, ENC_BIG_ENDIAN);
   offset += 4;
 
   proto_tree_add_item(sec_data_header_tree, hf_rtps_secure_dataheader_transformation_key_id, tvb,
@@ -9183,17 +9241,17 @@ static gboolean dissect_rtps_submessage_v2(tvbuff_t *tvb, packet_info *pinfo, gi
                                 rtps_submessage_tree);
       }
       break;
-    case SUBMESSAGE_SECURE_BODY:
+    case SUBMESSAGE_SEC_BODY:
       dissect_SECURE(tvb, pinfo, offset, flags, encoding, octets_to_next_header,
                                 rtps_submessage_tree, vendor_id);
       break;
-    case SUBMESSAGE_SECURE_PREFIX:
-    case SUBMESSAGE_SECURE_RTPS_PREFIX:
+    case SUBMESSAGE_SEC_PREFIX:
+    case SUBMESSAGE_SRTPS_PREFIX:
       dissect_SECURE_PREFIX(tvb, pinfo, offset, flags, encoding, octets_to_next_header,
                                 rtps_submessage_tree, vendor_id);
       break;
-    case SUBMESSAGE_SECURE_POSTFIX:
-    case SUBMESSAGE_SECURE_RTPS_POSTFIX:
+    case SUBMESSAGE_SEC_POSTFIX:
+    case SUBMESSAGE_SRTPS_POSTFIX:
       dissect_SECURE_POSTFIX(tvb, pinfo, offset, flags, encoding, octets_to_next_header,
                                 rtps_submessage_tree, vendor_id);
       break;
@@ -9524,6 +9582,16 @@ static gboolean dissect_rtps_rtitcp(tvbuff_t *tvb, packet_info *pinfo, proto_tre
   gint offset = 0;
 
   return dissect_rtps(tvb, pinfo, tree, offset);
+}
+
+static int dissect_simple_rtps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+  gint offset = 0;
+
+  if (dissect_rtps(tvb, pinfo, tree, offset) == FALSE)
+    return 0;
+
+  return tvb_captured_length(tvb);
 }
 
 void proto_register_rtps(void) {
@@ -10153,61 +10221,61 @@ void proto_register_rtps(void) {
     { &hf_rtps_durability_service_cleanup_delay,
       { "Service Cleanup Delay", "rtps.durability.service_cleanup_delay",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_liveliness_lease_duration,
       { "Lease Duration", "rtps.liveliness.lease_duration",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_participant_lease_duration,
       { "Duration", "rtps.participant_lease_duration",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_time_based_filter_minimum_separation,
       { "Minimum Separation", "rtps.time_based_filter.minimum_separation",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_reliability_max_blocking_time,
       { "Max Blocking Time", "rtps.reliability.max_blocking_time",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_deadline_period,
       { "Period", "rtps.deadline_period",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_latency_budget_duration,
       { "Duration", "rtps.latency_budget.duration",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_lifespan_duration,
       { "Duration", "rtps.lifespan",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_persistence,
       { "Persistence", "rtps.persistence",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_info_ts_timestamp,
       { "Timestamp", "rtps.info_ts.timestamp",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_locator_kind,
@@ -10511,17 +10579,17 @@ void proto_register_rtps(void) {
     },
 
     /* Parameter / NtpTime ------------------------------------------------- */
-    { &hf_rtps_param_ntpt_sec, {
+    { &hf_rtps_param_timestamp_sec, {
       "seconds", "rtps.param.ntpTime.sec",
         FT_INT32, BASE_DEC, NULL, 0,
-        "The 'second' component of a NTP time",
+        "The 'second' component of an RTPS time_t",
         HFILL }
     },
 
-    { &hf_rtps_param_ntpt_fraction, {
+    { &hf_rtps_param_timestamp_fraction, {
       "fraction", "rtps.param.ntpTime.fraction",
         FT_UINT32, BASE_DEC, NULL, 0,
-        "The 'fraction' component of a NTP time",
+        "The 'fraction' component of an RTPS time_t",
         HFILL }
     },
 
@@ -10751,7 +10819,7 @@ void proto_register_rtps(void) {
     { &hf_rtps_data_batch_timestamp,
       { "Timestamp", "rtps.data_batch.timestamp",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0,
-        "Time using the NTP standard format", HFILL }
+        "Time using the RTPS time_t standard format", HFILL }
     },
 
     { &hf_rtps_data_batch_offset_to_last_sample_sn,
@@ -11130,6 +11198,10 @@ void proto_register_rtps(void) {
         "Reserved", "rtps.flag.reserved",
         FT_BOOLEAN, 16, TFS(&tfs_set_notset), 0x0040, NULL, HFILL }
     },
+    { &hf_rtps_flag_builtin_endpoint_set_reserved, {
+        "Reserved", "rtps.flag.reserved",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x0000F000, NULL, HFILL }
+    },
     { &hf_rtps_flag_unregister, {
         "Unregister flag", "rtps.flag.unregister",
         FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x20, NULL, HFILL }
@@ -11294,6 +11366,46 @@ void proto_register_rtps(void) {
         "Participant Message DataReader", "rtps.flag.participant_message_datareader",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000800, NULL, HFILL }
     },
+    { &hf_rtps_flag_secure_publication_writer, {
+        "Secure Publication Writer", "rtps.flag.secure_publication_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00010000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_secure_publication_reader, {
+        "Secure Publication Reader", "rtps.flag.secure_publication_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00020000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_secure_subscription_writer, {
+        "Secure Subscription Writer", "rtps.flag.secure_subscription_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00040000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_secure_subscription_reader, {
+        "Secure Subscription Reader", "rtps.flag.secure_subscription_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00080000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_secure_participant_message_writer, {
+        "Secure Participant Message Writer", "rtps.flag.secure_participant_message_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00100000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_secure_participant_message_reader, {
+        "Secure Participant Message Reader", "rtps.flag.secure_participant_message_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00200000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_participant_stateless_message_writer, {
+        "Participant Stateless Message Writer", "rtps.flag.participant_stateless_message_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00400000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_participant_stateless_message_reader, {
+        "Participant Stateless Message Reader", "rtps.flag.participant_stateless_message_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00800000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_secure_participant_volatile_message_writer, {
+        "Secure Participant Volatile Message Writer", "rtps.flag.secure_participant_volatile_message_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x01000000, NULL, HFILL }
+    },
+    { &hf_rtps_flag_secure_participant_volatile_message_reader, {
+        "Secure Participant Volatile Message Reader", "rtps.flag.secure_participant_volatile_message_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x02000000, NULL, HFILL }
+    },
     { &hf_rtps_type_object_type_id_disc,
           { "TypeId (_d)", "rtps.type_object.type_id.discr",
             FT_INT16, BASE_DEC, 0x0, 0,
@@ -11421,6 +11533,14 @@ void proto_register_rtps(void) {
         "Locator Ping Reader", "rtps.flag.locator_ping_reader",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000008, NULL, HFILL }
     },
+    { &hf_rtps_flag_secure_service_request_writer, {
+        "Secure Service Request Writer", "rtps.flag.secure_service_request_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000010, NULL, HFILL }
+    },
+    { &hf_rtps_flag_secure_service_request_reader, {
+        "Secure Service Request Reader", "rtps.flag.secure_service_request_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000020, NULL, HFILL }
+    },
     { &hf_rtps_flag_security_access_protected, {
         "Access Protected" ,"rtps.flag.security.access_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001, NULL, HFILL }
@@ -11445,9 +11565,25 @@ void proto_register_rtps(void) {
       { "Encryption enabled", "rtps.secure.enable_encryption",
         FT_BOOLEAN, 8, TFS(&tfs_true_false), 0, NULL, HFILL }
     },
+    { &hf_rtps_param_sample_signature_epoch,
+      { "Epoch", "rtps.sample_signature.epoch",
+        FT_UINT64, BASE_DEC, NULL, 0, NULL, HFILL }
+    },
+    { &hf_rtps_param_sample_signature_nonce,
+      { "Nonce", "rtps.sample_signature.nonce",
+        FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }
+    },
+    { &hf_rtps_param_sample_signature_length,
+      {"Signature Length", "rtps.sample_signature.signature_length",
+        FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }
+    },
+    { &hf_rtps_param_sample_signature_signature,
+      { "Signature", "rtps.sample_signature.signature",
+        FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }
+    },
     { &hf_rtps_secure_dataheader_transformation_kind, {
         "Transformation Kind", "rtps.secure.data_header.transformation_kind",
-        FT_BYTES, BASE_NONE, NULL, 0,
+        FT_INT32, BASE_DEC, VALS(secure_transformation_kind), 0,
         NULL, HFILL }
     },
     { &hf_rtps_secure_dataheader_transformation_key_id, {
@@ -11501,12 +11637,12 @@ void proto_register_rtps(void) {
       { "Original Related Reader GUID", "rtps.srm.topic_query.original_related_reader_guid",
         FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }
     },
-    { &hf_rtps_secure_transformation_id,
-      { "Transformation Id", "rtps.secure.transformation_id",
-        FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }
+    { &hf_rtps_secure_secure_data_length,
+      { "Secure Data Length", "rtps.secure.secure_data_length",
+        FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }
     },
-    { &hf_rtps_secure_ciphertext,
-      { "Ciphertext", "rtps.secure.ciphertext",
+    { &hf_rtps_secure_secure_data,
+      { "Secure Data", "rtps.secure.secure_data",
         FT_BYTES, BASE_NONE, NULL, 0, "The user data transferred in a secure payload", HFILL }
     },
     { &hf_rtps_pgm, {
@@ -11607,7 +11743,7 @@ void proto_register_rtps(void) {
     &ett_rtps_locator_udp_v4,
     &ett_rtps_locator,
     &ett_rtps_locator_list,
-    &ett_rtps_ntp_time,
+    &ett_rtps_timestamp,
     &ett_rtps_bitmap,
     &ett_rtps_seq_string,
     &ett_rtps_seq_ulong,
@@ -11705,6 +11841,9 @@ void proto_register_rtps(void) {
           proto_rtps, FT_STRING, BASE_NONE);
 
   registry = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), hash_by_guid, compare_by_guid);
+
+  /* In order to get this dissector in LUA (aka "chained-dissector") */
+  register_dissector("rtps", dissect_simple_rtps, proto_rtps);
 }
 
 

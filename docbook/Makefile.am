@@ -36,6 +36,18 @@ WSUG_FILES =	\
 	wsug_src/WSUG_preface.asciidoc			\
 	ws.css
 
+WSUG_TOOLS_HELP_FILES =	\
+	wsug_src/capinfos-h.txt
+	wsug_src/dumpcap-h.txt
+	wsug_src/editcap-F.txt
+	wsug_src/editcap-T.txt
+	wsug_src/editcap-h.txt
+	wsug_src/mergecap-h.txt
+	wsug_src/rawshark-h.txt
+	wsug_src/reordercap-h.txt
+	wsug_src/text2pcap-h.txt
+	wsug_src/tshark-h.txt
+
 WSUG_GENERATED_SOURCE = \
 	user-guide.xml
 
@@ -213,6 +225,10 @@ WSDG_GRAPHICS =	\
 	wsdg_graphics/ws-logo.png		\
 	wsdg_graphics/toolbar/dummy.dummy
 
+COMMON_FILES = \
+	common_src/GPL_appendix.asciidoc	\
+	common_src/typographic_conventions.asciidoc
+
 COMMON_GRAPHICS = \
 	common_graphics/note.svg	\
 	common_graphics/tip.svg		\
@@ -222,11 +238,12 @@ COMMON_GRAPHICS = \
 WSUG_DIST =	\
 	user-guide.asciidoc	\
 	attributes.asciidoc	\
-	GPL_appendix.asciidoc	\
 	custom_layer_chm.xsl	\
 	custom_layer_pdf.xsl	\
 	$(WSUG_FILES)		\
+	$(WSUG_TOOLS_HELP_FILES)	\
 	$(WSUG_GRAPHICS)	\
+	$(COMMON_FILES)		\
 	$(COMMON_GRAPHICS)
 
 WSUG_SOURCE = $(WSUG_GENERATED_SOURCE) $(WSUG_DIST)
@@ -235,11 +252,11 @@ WSUG_SOURCE = $(WSUG_GENERATED_SOURCE) $(WSUG_DIST)
 WSDG_DIST =	\
 	developer-guide.asciidoc	\
 	attributes.asciidoc	\
-	GPL_appendix.asciidoc	\
 	custom_layer_chm.xsl	\
 	custom_layer_pdf.xsl	\
 	$(WSDG_FILES)		\
 	$(WSDG_GRAPHICS)	\
+	$(COMMON_FILES)		\
 	$(COMMON_GRAPHICS)
 
 WSDG_SOURCE = $(WSDG_GENERATED_SOURCE) $(WSDG_DIST)
@@ -344,7 +361,14 @@ HTMLHELP_XSLTPROC_ARGS = \
 .fo.pdf:
 	FOP_OPTS=$(FOP_OPTS) JAVA_OPTS=$(FOP_OPTS) $(FOP) $< $@
 
-all: wsug wsdg release-notes
+docbook_all_local_targets =
+if BUILD_USER_GUIDE
+docbook_all_local_targets += wsug_html_chunked
+endif
+
+all-local: $(docbook_all_local_targets)
+
+all-html: wsug wsdg release-notes
 
 all-pdf: wsug-pdf wsdg-pdf release-notes-pdf
 
@@ -353,7 +377,7 @@ wsug: wsug_html_chunked wsug_html
 
 wsug-pdf: wsug user-guide-a4.pdf user-guide-us.pdf
 
-user-guide.xml: user-guide.asciidoc $(WSUG_FILES)
+user-guide.xml: user-guide.asciidoc $(WSUG_FILES) $(WSUG_TOOLS_HELP_FILES)
 	$(A2X) --verbose \
 		--attribute=docinfo \
 		--asciidoc-opts="--conf-file=$(srcdir)/asciidoc.conf --conf-file=$(srcdir)/asciidoctor-asciidoc.conf" \
@@ -524,6 +548,15 @@ release-notes-a4.pdf: $(RELEASE_NOTES_SOURCE) custom_layer_pdf.xsl
 		--destination-dir=$(builddir) \
 		$(srcdir)/release-notes.asciidoc
 
+install-data-local:
+if BUILD_USER_GUIDE
+	$(MKDIR_P) $(DESTDIR)$(docdir)/guides
+	cp -rf $(builddir)/wsug_html_chunked $(DESTDIR)$(docdir)/guides
+endif
+
+uninstall-local:
+	rm -rf $(DESTDIR)$(docdir)
+
 clean-local:
 	-rm -rf $(CLEANDIRS)
 
@@ -535,6 +568,3 @@ EXTRA_DIST = \
 	make-wsluarm.pl		\
 	README.txt		\
 	CMakeLists.txt
-
-MAINTAINERCLEANFILES = \
-	Makefile.in

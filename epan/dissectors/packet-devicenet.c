@@ -32,7 +32,9 @@
 #include <epan/expert.h>
 #include <epan/address_types.h>
 #include <epan/to_str.h>
+
 #include "packet-cip.h"
+#include "packet-socketcan.h"
 
 void proto_register_devicenet(void);
 void proto_reg_handoff_devicenet(void);
@@ -406,11 +408,6 @@ static gint body_type_16_over_16_dissection(guint8 data_length, proto_tree *devi
 
     return offset;
 }
-
-struct can_identifier
-{
-    guint32 id;
-};
 
 static int dissect_devicenet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
@@ -786,14 +783,12 @@ static int dissect_devicenet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     return tvb_captured_length(tvb);
 }
 
-static int devicenet_addr_to_str(const address* addr, gchar *buf, int buf_len _U_)
+static int devicenet_addr_to_str(const address* addr, gchar *buf, int buf_len)
 {
-    guint8 addrdata = *((const guint8*)addr->data) & 0x3F;
-    gchar *start_buf = buf;
+    const guint8 *addrdata = (const guint8 *)addr->data;
 
-    buf = uint_to_str_back(buf, addrdata);
-    *buf = '\0';
-    return (int)(buf-start_buf+1);
+    guint32_to_str_buf(*addrdata, buf, buf_len);
+    return (int)strlen(buf);
 }
 
 static int devicenet_addr_str_len(const address* addr _U_)

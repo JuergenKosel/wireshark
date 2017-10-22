@@ -86,7 +86,7 @@ ADD: Additional generic (non-checked) ICV length of 128, 192 and 256.
 #include <wsutil/wsgcrypt.h>
 
 #include "packet-ipsec.h"
-#include "packet-ipv6.h"
+#include "packet-ip.h"
 
 void proto_register_ipsec(void);
 void proto_reg_handoff_ipsec(void);
@@ -354,13 +354,13 @@ static void* uat_esp_sa_record_copy_cb(void* n, const void* o, size_t siz _U_) {
 
   /* Copy UAT fields */
   new_rec->protocol = old_rec->protocol;
-  new_rec->srcIP = (old_rec->srcIP) ? g_strdup(old_rec->srcIP) : NULL;
-  new_rec->dstIP = (old_rec->dstIP) ? g_strdup(old_rec->dstIP) : NULL;
-  new_rec->spi = (old_rec->spi) ? g_strdup(old_rec->spi) : NULL;
+  new_rec->srcIP = g_strdup(old_rec->srcIP);
+  new_rec->dstIP = g_strdup(old_rec->dstIP);
+  new_rec->spi = g_strdup(old_rec->spi);
   new_rec->encryption_algo = old_rec->encryption_algo;
-  new_rec->encryption_key_string = (old_rec->encryption_key_string) ? g_strdup(old_rec->encryption_key_string) : NULL;
+  new_rec->encryption_key_string = g_strdup(old_rec->encryption_key_string);
   new_rec->authentication_algo = old_rec->authentication_algo;
-  new_rec->authentication_key_string = (old_rec->authentication_key_string) ? g_strdup(old_rec->authentication_key_string) : NULL;
+  new_rec->authentication_key_string = g_strdup(old_rec->authentication_key_string);
 
   /* Parse keys as in an update */
   uat_esp_sa_record_update_cb(new_rec, NULL);
@@ -431,12 +431,7 @@ void esp_sa_record_add_from_dissector(guint8 protocol, const gchar *srcIP, const
 
    /* Authentication */
    record->authentication_algo = authentication_algo;
-   if (authentication_key) {
-      record->authentication_key_string = g_strdup(authentication_key);
-   }
-   else {
-      record->authentication_key_string = NULL;
-   }
+   record->authentication_key_string = g_strdup(authentication_key);
 
    /* Parse keys */
    uat_esp_sa_record_update_cb(record, NULL);
@@ -1129,16 +1124,8 @@ dissect_ah(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
   ah_hdr_len = (ah_len + 2) * 4;
   ah_icv_len = ah_len ? (ah_len - 1) * 4 : 0;
 
-  root_tree = tree;
-  if (pinfo->dst.type == AT_IPv6) {
-    ipv6_pinfo_t *ipv6_pinfo = p_get_ipv6_pinfo(pinfo);
-
-    ipv6_pinfo->frag_plen -= ah_hdr_len;
-    if (ipv6_pinfo->ipv6_tree != NULL) {
-      root_tree = ipv6_pinfo->ipv6_tree;
-      ipv6_pinfo->ipv6_item_len += ah_hdr_len;
-    }
-  }
+  root_tree = p_ipv6_pinfo_select_root(pinfo, tree);
+  p_ipv6_pinfo_add_len(pinfo, ah_hdr_len);
 
   pi = proto_tree_add_item(root_tree, proto_ah, tvb, 0, -1, ENC_NA);
   ah_tree = proto_item_add_subtree(pi, ett_ah);
@@ -1163,7 +1150,7 @@ dissect_ah(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
   next_tvb = tvb_new_subset_remaining(tvb, ah_hdr_len);
 
   if (pinfo->dst.type == AT_IPv6) {
-    ipv6_dissect_next(ah_nxt, next_tvb, pinfo, tree, (ws_ip *)data);
+    ipv6_dissect_next(ah_nxt, next_tvb, pinfo, tree, (ws_ip6 *)data);
   } else {
     /* do lookup with the subdissector table */
     saved_match_uint  = pinfo->match_uint;
@@ -1325,7 +1312,8 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
    * populate a tree in the second pane with the status of the link layer
    * (ie none)
    */
-  len = 0, encapsulated_protocol = 0;
+  len = 0;
+  encapsulated_protocol = 0;
   decrypt_dissect_ok = FALSE;
 
   ti = proto_tree_add_item(tree, proto_esp, tvb, 0, -1, ENC_NA);

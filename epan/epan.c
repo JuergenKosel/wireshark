@@ -32,7 +32,8 @@
 
 #include <glib.h>
 
-#include <wsutil/report_err.h>
+#include <version_info.h>
+#include <wsutil/report_message.h>
 
 #include <epan/exceptions.h>
 
@@ -84,11 +85,22 @@
 #include <nghttp2/nghttp2ver.h>
 #endif
 
+#ifdef HAVE_LIBXML2
+#include <libxml/xmlversion.h>
+#include <libxml/parser.h>
+#endif
+
 static wmem_allocator_t *pinfo_pool_cache = NULL;
 
 const gchar*
 epan_get_version(void) {
 	return VERSION;
+}
+
+void
+epan_get_version_number(int *major, int *minor, int *micro)
+{
+	get_ws_version_number(major, minor, micro);
 }
 
 #if defined(_WIN32)
@@ -167,6 +179,10 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 #ifdef HAVE_LIBGNUTLS
 	gnutls_global_init();
 #endif
+#ifdef HAVE_LIBXML2
+	xmlInitParser();
+	LIBXML_TEST_VERSION;
+#endif
 	TRY {
 		tap_init();
 		prefs_init();
@@ -209,6 +225,28 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 	return status;
 }
 
+/*
+ * Load all settings, from the current profile, that affect libwireshark.
+ */
+e_prefs *
+epan_load_settings(void)
+{
+	e_prefs *prefs_p;
+
+	/* load the decode as entries of the current profile */
+	load_decode_as_entries();
+
+	prefs_p = read_prefs();
+
+	/*
+	 * Read the files that enable and disable protocols and heuristic
+	 * dissectors.
+	 */
+	read_enabled_and_disabled_lists();
+
+	return prefs_p;
+}
+
 void
 epan_cleanup(void)
 {
@@ -223,7 +261,7 @@ epan_cleanup(void)
 	expert_cleanup();
 	capture_dissector_cleanup();
 	export_pdu_cleanup();
-	disabled_protos_cleanup();
+	cleanup_enabled_and_disabled_lists();
 	stats_tree_cleanup();
 	dtd_location(NULL);
 #ifdef HAVE_LUA
@@ -231,6 +269,9 @@ epan_cleanup(void)
 #endif
 #ifdef HAVE_LIBGNUTLS
 	gnutls_global_deinit();
+#endif
+#ifdef HAVE_LIBXML2
+	xmlCleanupParser();
 #endif
 	except_deinit();
 	addr_resolv_cleanup();
@@ -339,7 +380,7 @@ epan_set_always_visible(gboolean force)
 		always_visible_refcount--;
 }
 
-epan_dissect_t*
+void
 epan_dissect_init(epan_dissect_t *edt, epan_t *session, const gboolean create_proto_tree, const gboolean proto_tree_visible)
 {
 	g_assert(edt);
@@ -364,8 +405,6 @@ epan_dissect_init(epan_dissect_t *edt, epan_t *session, const gboolean create_pr
 	}
 
 	edt->tvb = NULL;
-
-	return edt;
 }
 
 void
@@ -405,7 +444,8 @@ epan_dissect_new(epan_t *session, const gboolean create_proto_tree, const gboole
 
 	edt = g_new0(epan_dissect_t, 1);
 
-	return epan_dissect_init(edt, session, create_proto_tree, proto_tree_visible);
+	epan_dissect_init(edt, session, create_proto_tree, proto_tree_visible);
+	return edt;
 }
 
 void
@@ -508,15 +548,26 @@ epan_dissect_free(epan_dissect_t* edt)
 }
 
 void
-epan_dissect_prime_dfilter(epan_dissect_t *edt, const dfilter_t* dfcode)
+epan_dissect_prime_with_dfilter(epan_dissect_t *edt, const dfilter_t* dfcode)
 {
 	dfilter_prime_proto_tree(dfcode, edt->tree);
 }
 
 void
-epan_dissect_prime_hfid(epan_dissect_t *edt, int hfid)
+epan_dissect_prime_with_hfid(epan_dissect_t *edt, int hfid)
 {
-	proto_tree_prime_hfid(edt->tree, hfid);
+	proto_tree_prime_with_hfid(edt->tree, hfid);
+}
+
+void
+epan_dissect_prime_with_hfid_array(epan_dissect_t *edt, GArray *hfids)
+{
+	guint i;
+
+	for (i = 0; i < hfids->len; i++) {
+		proto_tree_prime_with_hfid(edt->tree,
+		    g_array_index(hfids, int, i));
+	}
 }
 
 /* ----------------------- */
@@ -643,6 +694,14 @@ epan_get_compiled_version_info(GString *str)
 #else
 	g_string_append(str, "without Snappy");
 #endif /* HAVE_SNAPPY */
+
+	/* libxml2 */
+	g_string_append(str, ", ");
+#ifdef HAVE_LIBXML2
+	g_string_append(str, "with libxml2 " LIBXML_DOTTED_VERSION);
+#else
+	g_string_append(str, "without libxml2");
+#endif /* HAVE_LIBXML2 */
 
 }
 

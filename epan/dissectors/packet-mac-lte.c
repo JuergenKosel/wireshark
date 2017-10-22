@@ -35,7 +35,7 @@ void proto_reg_handoff_mac_lte(void);
 
 /* Described in:
  * 3GPP TS 36.321 Evolved Universal Terrestrial Radio Access (E-UTRA)
- *                Medium Access Control (MAC) protocol specification v13.2.0
+ *                Medium Access Control (MAC) protocol specification v14.3.0
  */
 
 
@@ -46,6 +46,7 @@ static int mac_lte_tap = -1;
 
 static dissector_handle_t rlc_lte_handle;
 static dissector_handle_t lte_rrc_bcch_dl_sch_handle;
+static dissector_handle_t lte_rrc_bcch_dl_sch_br_handle;
 static dissector_handle_t lte_rrc_bcch_dl_sch_nb_handle;
 static dissector_handle_t lte_rrc_bcch_bch_handle;
 static dissector_handle_t lte_rrc_bcch_bch_nb_handle;
@@ -142,6 +143,7 @@ static int hf_mac_lte_slsch_version = -1;
 static int hf_mac_lte_slsch_reserved = -1;
 static int hf_mac_lte_slsch_src_l2_id = -1;
 static int hf_mac_lte_slsch_dst_l2_id = -1;
+static int hf_mac_lte_slsch_dst_l2_id2 = -1;
 static int hf_mac_lte_slsch_reserved2 = -1;
 static int hf_mac_lte_slsch_extended = -1;
 static int hf_mac_lte_slsch_lcid = -1;
@@ -307,9 +309,28 @@ static int hf_mac_lte_control_sidelink_bsr_lcg_id_even = -1;
 static int hf_mac_lte_control_sidelink_bsr_buffer_size_even = -1;
 static int hf_mac_lte_control_sidelink_reserved = -1;
 static int hf_mac_lte_control_data_vol_power_headroom = -1;
-static int hf_mac_lte_data_vol_power_headroom_reserved = -1;
-static int hf_mac_lte_data_vol_power_headroom_level = -1;
-static int hf_mac_lte_data_vol_power_headroom_data_vol = -1;
+static int hf_mac_lte_control_data_vol_power_headroom_reserved = -1;
+static int hf_mac_lte_control_data_vol_power_headroom_level = -1;
+static int hf_mac_lte_control_data_vol_power_headroom_data_vol = -1;
+static int hf_mac_lte_control_recommended_bit_rate = -1;
+static int hf_mac_lte_control_recommended_bit_rate_lcid = -1;
+static int hf_mac_lte_control_recommended_bit_rate_dir = -1;
+static int hf_mac_lte_control_recommended_bit_rate_bit_rate = -1;
+static int hf_mac_lte_control_recommended_bit_rate_reserved = -1;
+static int hf_mac_lte_control_recommended_bit_rate_query = -1;
+static int hf_mac_lte_control_recommended_bit_rate_query_lcid = -1;
+static int hf_mac_lte_control_recommended_bit_rate_query_dir = -1;
+static int hf_mac_lte_control_recommended_bit_rate_query_bit_rate = -1;
+static int hf_mac_lte_control_recommended_bit_rate_query_reserved = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs_a8 = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs_a7 = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs_a6 = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs_a5 = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs_a4 = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs_a3 = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs_a2 = -1;
+static int hf_mac_lte_control_activation_deactivation_csi_rs_a1 = -1;
 
 static int hf_mac_lte_dl_harq_resend_original_frame = -1;
 static int hf_mac_lte_dl_harq_resend_time_since_previous_frame = -1;
@@ -382,6 +403,9 @@ static int ett_mac_lte_drx_config = -1;
 static int ett_mac_lte_drx_state = -1;
 static int ett_mac_lte_sidelink_bsr = -1;
 static int ett_mac_lte_data_vol_power_headroom = -1;
+static int ett_mac_lte_recommended_bit_rate = -1;
+static int ett_mac_lte_recommended_bit_rate_query = -1;
+static int ett_mac_lte_activation_deactivation_csi_rs = -1;
 
 static expert_field ei_mac_lte_context_rnti_type = EI_INIT;
 static expert_field ei_mac_lte_lcid_unexpected = EI_INIT;
@@ -489,16 +513,26 @@ static const value_string carrier_id_vals[] =
 
 static const value_string dci_format_vals[] =
 {
-    { 0, "0"},
-    { 1, "1"},
-    { 2, "1A"},
-    { 3, "1B"},
-    { 4, "1C"},
-    { 5, "1D"},
-    { 6, "2"},
-    { 7, "2A"},
-    { 8, "3/3A"},
-    { 0, NULL }
+    {  0, "0"},
+    {  1, "1"},
+    {  2, "1A"},
+    {  3, "1B"},
+    {  4, "1C"},
+    {  5, "1D"},
+    {  6, "2"},
+    {  7, "2A"},
+    {  8, "3/3A"},
+    {  9, "2B"},
+    { 10, "2C"},
+    { 11, "2D"},
+    { 12, "4"},
+    { 13, "6-0A"},
+    { 14, "6-1A"},
+    { 15, "6-2"},
+    { 16, "N0"},
+    { 17, "N1"},
+    { 18, "N2"},
+    {  0, NULL }
 };
 
 static const value_string aggregation_level_vals[] =
@@ -507,6 +541,8 @@ static const value_string aggregation_level_vals[] =
     { 1, "2"},
     { 2, "4"},
     { 3, "8"},
+    { 4, "16"},
+    { 5, "24"},
     { 0, NULL }
 };
 
@@ -538,6 +574,9 @@ static const true_false_string mac_lte_scell_status_vals = {
     "Deactivated"
 };
 
+#define ACTIVATION_DEACTIVATION_CSI_RS_LCID    0x15
+#define RECOMMENDED_BIT_RATE_LCID              0x16
+#define SC_PTM_STOP_INDICATION_LCID            0x17
 #define ACTIVATION_DEACTIVATION_4_BYTES_LCID   0x18
 #define SC_MCCH_SC_MTCH_LCID                   0x19
 #define LONG_DRX_COMMAND_LCID                  0x1a
@@ -549,30 +588,35 @@ static const true_false_string mac_lte_scell_status_vals = {
 
 static const value_string dlsch_lcid_vals[] =
 {
-    { 0,                                        "CCCH"},
-    { 1,                                        "1"},
-    { 2,                                        "2"},
-    { 3,                                        "3"},
-    { 4,                                        "4"},
-    { 5,                                        "5"},
-    { 6,                                        "6"},
-    { 7,                                        "7"},
-    { 8,                                        "8"},
-    { 9,                                        "9"},
-    { 10,                                       "10"},
-    { ACTIVATION_DEACTIVATION_4_BYTES_LCID  ,   "Activation/Deactivation"},
-    { SC_MCCH_SC_MTCH_LCID                  ,   "SC-MCCH/SC-MTCH"},
-    { LONG_DRX_COMMAND_LCID                 ,   "Long DRX Command"},
-    { ACTIVATION_DEACTIVATION_LCID          ,   "Activation/Deactivation"},
-    { UE_CONTENTION_RESOLUTION_IDENTITY_LCID,   "UE Contention Resolution Identity"},
-    { TIMING_ADVANCE_LCID                   ,   "Timing Advance"},
-    { DRX_COMMAND_LCID                      ,   "DRX Command"},
-    { PADDING_LCID                          ,   "Padding" },
+    { 0,                                      "CCCH"},
+    { 1,                                      "1"},
+    { 2,                                      "2"},
+    { 3,                                      "3"},
+    { 4,                                      "4"},
+    { 5,                                      "5"},
+    { 6,                                      "6"},
+    { 7,                                      "7"},
+    { 8,                                      "8"},
+    { 9,                                      "9"},
+    { 10,                                     "10"},
+    { ACTIVATION_DEACTIVATION_CSI_RS_LCID,    "Activation/Deactivation of CSI-RS"},
+    { RECOMMENDED_BIT_RATE_LCID,              "Recommended Bit Rate"},
+    { SC_PTM_STOP_INDICATION_LCID,            "SC-PTM Stop Indication"},
+    { ACTIVATION_DEACTIVATION_4_BYTES_LCID,   "Activation/Deactivation"},
+    { SC_MCCH_SC_MTCH_LCID,                   "SC-MCCH/SC-MTCH"},
+    { LONG_DRX_COMMAND_LCID,                  "Long DRX Command"},
+    { ACTIVATION_DEACTIVATION_LCID,           "Activation/Deactivation"},
+    { UE_CONTENTION_RESOLUTION_IDENTITY_LCID, "UE Contention Resolution Identity"},
+    { TIMING_ADVANCE_LCID,                    "Timing Advance"},
+    { DRX_COMMAND_LCID,                       "DRX Command"},
+    { PADDING_LCID,                           "Padding" },
     { 0, NULL }
 };
 
-#define TRUNCATED_SIDELINK_BSR               0x16
-#define SIDELINK_BSR                         0x17
+#define RECOMMENDED_BIT_RATE_QUERY_LCID      0x14
+#define SPS_CONFIRMATION_LCID                0x15
+#define TRUNCATED_SIDELINK_BSR_LCID          0x16
+#define SIDELINK_BSR_LCID                    0x17
 #define DUAL_CONN_POWER_HEADROOM_REPORT_LCID 0x18
 #define EXTENDED_POWER_HEADROOM_REPORT_LCID  0x19
 #define POWER_HEADROOM_REPORT_LCID           0x1a
@@ -595,8 +639,11 @@ static const value_string ulsch_lcid_vals[] =
     { 9,                                    "9"},
     { 10,                                   "10"},
     { 11,                                   "CCCH (Category 0)"},
-    { TRUNCATED_SIDELINK_BSR,               "Truncated Sidelink BSR"},
-    { SIDELINK_BSR,                         "Sidelink BSR"},
+    { 12,                                   "CCCH (frequency hopping for unicast)"},
+    { RECOMMENDED_BIT_RATE_QUERY_LCID,      "Recommended Bit Rate Query"},
+    { SPS_CONFIRMATION_LCID,                "SPS Confirmation"},
+    { TRUNCATED_SIDELINK_BSR_LCID,          "Truncated Sidelink BSR"},
+    { SIDELINK_BSR_LCID,                    "Sidelink BSR"},
     { DUAL_CONN_POWER_HEADROOM_REPORT_LCID, "Dual Connectivity Power Headroom Report"},
     { EXTENDED_POWER_HEADROOM_REPORT_LCID,  "Extended Power Headroom Report"},
     { POWER_HEADROOM_REPORT_LCID,           "Power Headroom Report"},
@@ -1255,6 +1302,75 @@ static const value_string data_vol_power_headroom_data_vol_vals[] =
     { 14, "768 < DV <= 1500"},
     { 15, "DV > 1500"},
     { 0, NULL }
+};
+
+static const value_string bit_rate_vals[] =
+{
+    { 0, "no bit rate recommendation"},
+    { 1, "0 kbit/s"},
+    { 2, "8 kbit/s"},
+    { 3, "10 kbit/s"},
+    { 4, "12 kbit/s"},
+    { 5, "16 kbit/s"},
+    { 6, "20 kbit/s"},
+    { 7, "24 kbit/s"},
+    { 8, "28 kbit/s"},
+    { 9, "32 kbit/s"},
+    { 10, "36 kbit/s"},
+    { 11, "40 kbit/s"},
+    { 12, "48 kbit/s"},
+    { 13, "56 kbit/s"},
+    { 14, "72 kbit/s"},
+    { 15, "88 kbit/s"},
+    { 16, "104 kbit/s"},
+    { 17, "120 kbit/s"},
+    { 18, "140 kbit/s"},
+    { 19, "160 kbit/s"},
+    { 20, "180 kbit/s"},
+    { 21, "200 kbit/s"},
+    { 22, "220 kbit/s"},
+    { 23, "240 kbit/s"},
+    { 24, "260 kbit/s"},
+    { 25, "280 kbit/s"},
+    { 26, "300 kbit/s"},
+    { 27, "350 kbit/s"},
+    { 28, "400 kbit/s"},
+    { 29, "450 kbit/s"},
+    { 30, "500 kbit/s"},
+    { 31, "600 kbit/s"},
+    { 32, "700 kbit/s"},
+    { 33, "800 kbit/s"},
+    { 34, "900 kbit/s"},
+    { 35, "1000 kbit/s"},
+    { 36, "1100 kbit/s"},
+    { 37, "1200 kbit/s"},
+    { 38, "1300 kbit/s"},
+    { 39, "1400 kbit/s"},
+    { 40, "1500 kbit/s"},
+    { 41, "1750 kbit/s"},
+    { 42, "2000 kbit/s"},
+    { 43, "2250 kbit/s"},
+    { 44, "2500 kbit/s"},
+    { 45, "2750 kbit/s"},
+    { 46, "3000 kbit/s"},
+    { 47, "3500 kbit/s"},
+    { 48, "4000 kbit/s"},
+    { 49, "4500 kbit/s"},
+    { 50, "5000 kbit/s"},
+    { 51, "5500 kbit/s"},
+    { 52, "6000 kbit/s"},
+    { 53, "6500 kbit/s"},
+    { 54, "7000 kbit/s"},
+    { 55, "7500 kbit/s"},
+    { 56, "8000 kbit/s"},
+    { 0, NULL }
+};
+static value_string_ext bit_rate_vals_ext = VALUE_STRING_EXT_INIT(bit_rate_vals);
+
+static const true_false_string activated_deactivated_vals =
+{
+    "Activated",
+    "Deactivated"
 };
 
 static const value_string header_only_vals[] =
@@ -2300,12 +2416,14 @@ static void
 call_with_catch_all(dissector_handle_t handle, tvbuff_t* tvb, packet_info *pinfo, proto_tree *tree)
 {
     /* Call it (catch exceptions so that stats will be updated) */
-    TRY {
-        call_dissector_only(handle, tvb, pinfo, tree, NULL);
+    if (handle) {
+        TRY {
+            call_dissector_only(handle, tvb, pinfo, tree, NULL);
+        }
+        CATCH_ALL {
+        }
+        ENDTRY
     }
-    CATCH_ALL {
-    }
-    ENDTRY
 }
 
 /* Dissect context fields in the format described in packet-mac-lte.h.
@@ -3226,7 +3344,12 @@ static void dissect_bch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         dissector_handle_t protocol_handle = 0;
         if (p_mac_lte_info->rntiType == SI_RNTI) {
             if (p_mac_lte_info->nbMode == no_nb_mode) {
-                protocol_handle = lte_rrc_bcch_dl_sch_handle;
+                if (p_mac_lte_info->ceMode == no_ce_mode) {
+                    protocol_handle = lte_rrc_bcch_dl_sch_handle;
+                }
+                else {
+                    protocol_handle = lte_rrc_bcch_dl_sch_br_handle;
+                }
             }
             else {
                 protocol_handle = lte_rrc_bcch_dl_sch_nb_handle;
@@ -3305,6 +3428,8 @@ static int is_fixed_sized_control_element(guint8 lcid, guint8 direction)
     if (direction == DIRECTION_UPLINK) {
         /* Uplink */
         switch (lcid) {
+            case RECOMMENDED_BIT_RATE_QUERY_LCID:
+            case SPS_CONFIRMATION_LCID:
             case POWER_HEADROOM_REPORT_LCID:
             case CRNTI_LCID:
             case TRUNCATED_BSR_LCID:
@@ -3319,12 +3444,14 @@ static int is_fixed_sized_control_element(guint8 lcid, guint8 direction)
     else {
         /* Assume Downlink */
         switch (lcid) {
+            case RECOMMENDED_BIT_RATE_LCID:
+            case SC_PTM_STOP_INDICATION_LCID:
             case ACTIVATION_DEACTIVATION_4_BYTES_LCID:
+            case LONG_DRX_COMMAND_LCID:
             case ACTIVATION_DEACTIVATION_LCID:
             case UE_CONTENTION_RESOLUTION_IDENTITY_LCID:
             case TIMING_ADVANCE_LCID:
             case DRX_COMMAND_LCID:
-            case LONG_DRX_COMMAND_LCID:
                 return TRUE;
 
             default:
@@ -3350,7 +3477,7 @@ static void call_rlc_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                guint8 mode, guint8 direction, guint16 ueid,
                                guint16 channelType, guint16 channelId,
                                guint8 sequenceNumberLength,
-                               guint8 priority, gboolean rlcExtLiField)
+                               guint8 priority, gboolean rlcExtLiField, mac_lte_nb_mode nbMode)
 {
     tvbuff_t            *rb_tvb = tvb_new_subset_length(tvb, offset, data_length);
     struct rlc_lte_info *p_rlc_lte_info;
@@ -3371,6 +3498,11 @@ static void call_rlc_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     p_rlc_lte_info->pduLength = data_length;
     p_rlc_lte_info->sequenceNumberLength = sequenceNumberLength;
     p_rlc_lte_info->extendedLiField = rlcExtLiField;
+    if (nbMode == nb_mode) {
+        p_rlc_lte_info->nbMode = rlc_nb_mode;
+    } else {
+        p_rlc_lte_info->nbMode = rlc_no_nb_mode;
+    }
 
     /* Store info in packet */
     p_add_proto_data(wmem_file_scope(), pinfo, proto_rlc_lte, 0, p_rlc_lte_info);
@@ -4346,8 +4478,8 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                      "(%s",
                                      val_to_str_const(lcids[number_of_headers],
                                                       ulsch_lcid_vals, "(Unknown LCID)"));
-            if (lcids[number_of_headers] == 11) {
-                /* This LCID is used for CCCH by Category 0 devices
+            if (lcids[number_of_headers] == 11 || lcids[number_of_headers] == 12) {
+                /* This LCID is used for CCCH by Category 0 devices / devices using frequency hopping for unicast
                    Let's remap it to LCID 0 for statistics and other checks */
                 lcids[number_of_headers] = 0;
             }
@@ -4602,6 +4734,76 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             /****************************/
             /* DL-SCH Control PDUs      */
             switch (lcids[n]) {
+                case ACTIVATION_DEACTIVATION_CSI_RS_LCID:
+                    {
+                        proto_item *ad_csi_rs_ti;
+                        proto_tree *ad_csi_rs_tree;
+                        gint32 i;
+
+                        if (pdu_lengths[n] == -1) {
+                            /* Control Element size is the remaining PDU */
+                            pdu_lengths[n] = (gint32)tvb_reported_length_remaining(tvb, offset);
+                        }
+                        /* Create AD CSR-RS root */
+                        ad_csi_rs_ti = proto_tree_add_string_format(tree,
+                                                                    hf_mac_lte_control_activation_deactivation_csi_rs,
+                                                                    tvb, offset, pdu_lengths[n],
+                                                                    "",
+                                                                    "Activation/Deactivation of CSI-RS");
+                        ad_csi_rs_tree = proto_item_add_subtree(ad_csi_rs_ti, ett_mac_lte_activation_deactivation_csi_rs);
+
+                        for (i = 0; i < pdu_lengths[n]; i++) {
+                            proto_tree_add_item(ad_csi_rs_tree, hf_mac_lte_control_activation_deactivation_csi_rs_a8,
+                                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(ad_csi_rs_tree, hf_mac_lte_control_activation_deactivation_csi_rs_a7,
+                                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(ad_csi_rs_tree, hf_mac_lte_control_activation_deactivation_csi_rs_a6,
+                                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(ad_csi_rs_tree, hf_mac_lte_control_activation_deactivation_csi_rs_a5,
+                                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(ad_csi_rs_tree, hf_mac_lte_control_activation_deactivation_csi_rs_a4,
+                                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(ad_csi_rs_tree, hf_mac_lte_control_activation_deactivation_csi_rs_a3,
+                                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(ad_csi_rs_tree, hf_mac_lte_control_activation_deactivation_csi_rs_a2,
+                                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(ad_csi_rs_tree, hf_mac_lte_control_activation_deactivation_csi_rs_a1,
+                                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            offset += 1;
+                        }
+                    }
+                    break;
+                case RECOMMENDED_BIT_RATE_LCID:
+                    {
+                        proto_item *br_ti;
+                        proto_tree *br_tree;
+                        proto_item *ti;
+                        guint32 reserved;
+
+                        /* Create BR root */
+                        br_ti = proto_tree_add_string_format(tree,
+                                                             hf_mac_lte_control_recommended_bit_rate,
+                                                             tvb, offset, 2,
+                                                             "",
+                                                             "Recommended Bit Rate");
+                        br_tree = proto_item_add_subtree(br_ti, ett_mac_lte_recommended_bit_rate);
+
+                        proto_tree_add_item(br_tree, hf_mac_lte_control_recommended_bit_rate_lcid,
+                                            tvb, offset, 1, ENC_BIG_ENDIAN);
+                        proto_tree_add_item(br_tree, hf_mac_lte_control_recommended_bit_rate_dir,
+                                            tvb, offset, 1, ENC_BIG_ENDIAN);
+                        proto_tree_add_item(br_tree, hf_mac_lte_control_recommended_bit_rate_bit_rate,
+                                            tvb, offset, 2, ENC_BIG_ENDIAN);
+                        offset += 1;
+                        ti = proto_tree_add_item_ret_uint(br_tree, hf_mac_lte_control_recommended_bit_rate_reserved,
+                                                          tvb, offset, 1, ENC_BIG_ENDIAN, &reserved);
+                        if (reserved != 0) {
+                            expert_add_info_format(pinfo, ti, &ei_mac_lte_reserved_not_zero,
+                                                   "Recommended Bit Rate Reserved bits not zero");
+                        }
+                        offset += 1;
+                    }
+                    break;
                 case ACTIVATION_DEACTIVATION_LCID:
                 case ACTIVATION_DEACTIVATION_4_BYTES_LCID:
                     {
@@ -4613,7 +4815,8 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         /* Create AD root */
                         ad_ti = proto_tree_add_string_format(tree,
                                                              hf_mac_lte_control_activation_deactivation,
-                                                             tvb, offset, 1,
+                                                             tvb, offset,
+                                                             (lcids[n] == ACTIVATION_DEACTIVATION_4_BYTES_LCID) ? 4 : 1,
                                                              "",
                                                              "Activation/Deactivation");
                         ad_tree = proto_item_add_subtree(ad_ti, ett_mac_lte_activation_deactivation);
@@ -4852,8 +5055,39 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             /**********************************/
             /* UL-SCH Control PDUs            */
             switch (lcids[n]) {
-                case TRUNCATED_SIDELINK_BSR:
-                case SIDELINK_BSR:
+                case RECOMMENDED_BIT_RATE_QUERY_LCID:
+                    {
+                        proto_item *br_ti;
+                        proto_tree *br_tree;
+                        proto_item *ti;
+                        guint32 reserved;
+
+                        /* Create BR root */
+                        br_ti = proto_tree_add_string_format(tree,
+                                                             hf_mac_lte_control_recommended_bit_rate_query,
+                                                             tvb, offset, 2,
+                                                             "",
+                                                             "Recommended Bit Rate Query");
+                        br_tree = proto_item_add_subtree(br_ti, ett_mac_lte_recommended_bit_rate_query);
+
+                        proto_tree_add_item(br_tree, hf_mac_lte_control_recommended_bit_rate_query_lcid,
+                                            tvb, offset, 1, ENC_BIG_ENDIAN);
+                        proto_tree_add_item(br_tree, hf_mac_lte_control_recommended_bit_rate_query_dir,
+                                            tvb, offset, 1, ENC_BIG_ENDIAN);
+                        proto_tree_add_item(br_tree, hf_mac_lte_control_recommended_bit_rate_query_bit_rate,
+                                            tvb, offset, 2, ENC_BIG_ENDIAN);
+                        offset += 1;
+                        ti = proto_tree_add_item_ret_uint(br_tree, hf_mac_lte_control_recommended_bit_rate_query_reserved,
+                                                          tvb, offset, 1, ENC_BIG_ENDIAN, &reserved);
+                        if (reserved != 0) {
+                            expert_add_info_format(pinfo, ti, &ei_mac_lte_reserved_not_zero,
+                                                   "Recommended Bit Rate Reserved bits not zero");
+                        }
+                        offset += 1;
+                    }
+                    break;
+                case TRUNCATED_SIDELINK_BSR_LCID:
+                case SIDELINK_BSR_LCID:
                     {
                         proto_item *slbsr_ti;
                         proto_tree *slbsr_tree;
@@ -4864,7 +5098,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                             pdu_lengths[n] = (gint32)tvb_reported_length_remaining(tvb, curr_offset);
                         }
                         /* Create SLBSR root */
-                        if (lcids[n] == SIDELINK_BSR) {
+                        if (lcids[n] == SIDELINK_BSR_LCID) {
                             slbsr_ti = proto_tree_add_string_format(tree,
                                                                     hf_mac_lte_control_sidelink_bsr,
                                                                     tvb, curr_offset, pdu_lengths[n],
@@ -4904,7 +5138,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                 it = proto_tree_add_item_ret_uint(slbsr_tree, hf_mac_lte_control_sidelink_reserved,
                                                                   tvb, curr_offset, 1, ENC_BIG_ENDIAN, &reserved);
                                 if (reserved) {
-                                    if (lcids[n] == SIDELINK_BSR) {
+                                    if (lcids[n] == SIDELINK_BSR_LCID) {
                                         expert_add_info_format(pinfo, it, &ei_mac_lte_reserved_not_zero,
                                                                "Sidelink BSR Reserved bits not zero");
                                     } else {
@@ -5595,14 +5829,14 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                       "",
                                       "Data Volume and Power Headroom Report");
             dpr_tree = proto_item_add_subtree(dpr_ti, ett_mac_lte_data_vol_power_headroom);
-            dpr_ti = proto_tree_add_item_ret_uint(dpr_tree, hf_mac_lte_data_vol_power_headroom_reserved,
+            dpr_ti = proto_tree_add_item_ret_uint(dpr_tree, hf_mac_lte_control_data_vol_power_headroom_reserved,
                                                   tvb, offset, 1, ENC_BIG_ENDIAN, &reserved);
             if (reserved) {
                 expert_add_info_format(pinfo, dpr_ti, &ei_mac_lte_reserved_not_zero,
                                        "Data Volume and Power Headroom Report Reserved bits not zero");
             }
-            proto_tree_add_item(dpr_tree, hf_mac_lte_data_vol_power_headroom_level, tvb, offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(dpr_tree, hf_mac_lte_data_vol_power_headroom_data_vol, tvb, offset, 1, ENC_BIG_ENDIAN);
+            proto_tree_add_item(dpr_tree, hf_mac_lte_control_data_vol_power_headroom_level, tvb, offset, 1, ENC_BIG_ENDIAN);
+            proto_tree_add_item(dpr_tree, hf_mac_lte_control_data_vol_power_headroom_data_vol, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset++;
             data_length--;
             if (pdu_lengths[n] != -1) {
@@ -5673,7 +5907,9 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         }
 
         /* LCID 1 and 2 can be assumed to be srb1&2, so can dissect as RLC AM */
-        else if ((lcids[n] == 1) || (lcids[n] == 2)) {
+        /* LCID 3 in NB mode can be assumed to be srb1bis, so can dissect as RLC AM */
+        else if ((lcids[n] == 1) || (lcids[n] == 2) ||
+                 (p_mac_lte_info->nbMode == nb_mode && lcids[n] == 3)) {
             if (global_mac_lte_attempt_srb_decode) {
                 /* Call RLC dissector */
                 call_rlc_dissector(tvb, pinfo, tree, pdu_ti, offset, data_length,
@@ -5681,7 +5917,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                    CHANNEL_TYPE_SRB, lcids[n], 0,
                                    get_mac_lte_channel_priority(p_mac_lte_info->ueid,
                                                                 lcids[n], p_mac_lte_info->direction),
-                                   FALSE);
+                                   FALSE, p_mac_lte_info->nbMode);
 
                 /* Hide raw view of bytes */
                 PROTO_ITEM_SET_HIDDEN(sdu_ti);
@@ -5714,7 +5950,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                     call_rlc_dissector(tvb, pinfo, tree, pdu_ti, offset, data_length,
                                        RLC_UM_MODE, p_mac_lte_info->direction, p_mac_lte_info->ueid,
                                        CHANNEL_TYPE_DRB, (guint16)drb_id, seqnum_length,
-                                       priority, FALSE);
+                                       priority, FALSE, p_mac_lte_info->nbMode);
                     break;
                 case rlcAM:
                 case rlcAMulExtLiField:
@@ -5735,13 +5971,13 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                     call_rlc_dissector(tvb, pinfo, tree, pdu_ti, offset, data_length,
                                        RLC_AM_MODE, p_mac_lte_info->direction, p_mac_lte_info->ueid,
                                        CHANNEL_TYPE_DRB, (guint16)drb_id, seqnum_length,
-                                       priority, rlc_ext_li_field);
+                                       priority, rlc_ext_li_field, p_mac_lte_info->nbMode);
                     break;
                 case rlcTM:
                     call_rlc_dissector(tvb, pinfo, tree, pdu_ti, offset, data_length,
                                        RLC_TM_MODE, p_mac_lte_info->direction, p_mac_lte_info->ueid,
                                        CHANNEL_TYPE_DRB, (guint16)drb_id, 0,
-                                       priority, FALSE);
+                                       priority, FALSE, p_mac_lte_info->nbMode);
                     break;
                 case rlcRaw:
                     /* Nothing to do! */
@@ -6198,12 +6434,12 @@ static void dissect_mch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, pro
             /* Call RLC dissector */
             call_rlc_dissector(tvb, pinfo, tree, pdu_ti, offset, data_length,
                                RLC_UM_MODE, DIRECTION_DOWNLINK, 0,
-                               CHANNEL_TYPE_MCCH, 0, 5, 0, FALSE);
+                               CHANNEL_TYPE_MCCH, 0, 5, 0, FALSE, p_mac_lte_info->nbMode);
         } else if ((lcids[n] <= 28) && global_mac_lte_call_rlc_for_mtch) {
             /* Call RLC dissector */
             call_rlc_dissector(tvb, pinfo, tree, pdu_ti, offset, data_length,
                                RLC_UM_MODE, DIRECTION_DOWNLINK, 0,
-                               CHANNEL_TYPE_MTCH, 0, 5, 0, FALSE);
+                               CHANNEL_TYPE_MTCH, 0, 5, 0, FALSE, p_mac_lte_info->nbMode);
         } else {
             /* Dissect SDU as raw bytes */
             sdu_ti = proto_tree_add_bytes_format(tree, hf_mac_lte_mch_sdu, tvb, offset, pdu_lengths[n],
@@ -6306,7 +6542,7 @@ static void dissect_slsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     guint8   number_of_padding_subheaders = 0;
     gboolean expecting_body_data = FALSE;
     gboolean is_truncated;
-    guint32  reserved;
+    guint32  reserved, version;
 
     write_pdu_label_and_info(pdu_ti, NULL, pinfo,
                              "%s: (SFN=%-4u, SF=%u) UEId=%-3u ",
@@ -6330,8 +6566,8 @@ static void dissect_slsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                                     "Sub-header (SL-SCH)");
     pdu_subheader_tree = proto_item_add_subtree(pdu_subheader_ti,
                                                 ett_mac_lte_slsch_subheader);
-    proto_tree_add_item(pdu_subheader_tree, hf_mac_lte_slsch_version,
-                        tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(pdu_subheader_tree, hf_mac_lte_slsch_version,
+                                 tvb, offset, 1, ENC_BIG_ENDIAN, &version);
     ti = proto_tree_add_item_ret_uint(pdu_subheader_tree, hf_mac_lte_slsch_reserved,
                                       tvb, offset, 1, ENC_BIG_ENDIAN, &reserved);
     offset++;
@@ -6342,9 +6578,15 @@ static void dissect_slsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     proto_tree_add_item(pdu_subheader_tree, hf_mac_lte_slsch_src_l2_id,
                         tvb, offset, 3, ENC_BIG_ENDIAN);
     offset += 3;
-    proto_tree_add_item(pdu_subheader_tree, hf_mac_lte_slsch_dst_l2_id,
-                        tvb, offset, 2, ENC_BIG_ENDIAN);
-    offset += 2;
+    if (version == 3) {
+        proto_tree_add_item(pdu_subheader_tree, hf_mac_lte_slsch_dst_l2_id2,
+                            tvb, offset, 3, ENC_BIG_ENDIAN);
+        offset += 3;
+    } else {
+        proto_tree_add_item(pdu_subheader_tree, hf_mac_lte_slsch_dst_l2_id,
+                            tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+    }
 
     /* Dissect each sub-header */
     do {
@@ -7867,6 +8109,12 @@ void proto_register_mac_lte(void)
               NULL, HFILL
             }
         },
+        { &hf_mac_lte_slsch_dst_l2_id2,
+            { "Destination Layer-2 ID",
+              "mac-lte.slsch.dst-l2-id", FT_UINT24, BASE_HEX, NULL, 0x0,
+              NULL, HFILL
+            }
+        },
         { &hf_mac_lte_slsch_reserved2,
             { "Reserved bits",
               "mac-lte.slsch.reserved", FT_UINT8, BASE_HEX, NULL, 0xc0,
@@ -8828,22 +9076,139 @@ void proto_register_mac_lte(void)
               NULL, HFILL
             }
         },
-        { &hf_mac_lte_data_vol_power_headroom_reserved,
+        { &hf_mac_lte_control_data_vol_power_headroom_reserved,
             { "Reserved",
               "mac-lte.control.data-vol-power-headroom.reserved", FT_UINT8, BASE_DEC,
               NULL, 0xc0, "Reserved bits, should be 0", HFILL
             }
         },
-        { &hf_mac_lte_data_vol_power_headroom_level,
+        { &hf_mac_lte_control_data_vol_power_headroom_level,
             { "Power Headroom Level",
               "mac-lte.control.data-vol-power-headroom.level", FT_UINT8, BASE_DEC,
               VALS(data_vol_power_headroom_level_vals), 0x30, NULL, HFILL
             }
         },
-        { &hf_mac_lte_data_vol_power_headroom_data_vol,
+        { &hf_mac_lte_control_data_vol_power_headroom_data_vol,
             { "Data Volume",
               "mac-lte.control.data-vol-power-headroom.data-vol", FT_UINT8, BASE_DEC,
               VALS(data_vol_power_headroom_data_vol_vals), 0x0f, NULL, HFILL
+            }
+        },
+
+        { &hf_mac_lte_control_recommended_bit_rate,
+            { "Recommended Bit Rate",
+              "mac-lte.control.recommended-bit-rate", FT_STRING, BASE_NONE,
+              NULL, 0x0, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_recommended_bit_rate_lcid,
+            { "LCID",
+              "mac-lte.control.recommended-bit-rate.lcid", FT_UINT8, BASE_DEC,
+              NULL, 0xf0, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_recommended_bit_rate_dir,
+            { "Direction",
+              "mac-lte.control.recommended-bit-rate.dir", FT_BOOLEAN, 8,
+              TFS(&tfs_uplink_downlink), 0x08, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_recommended_bit_rate_bit_rate,
+            { "Bit Rate",
+              "mac-lte.control.recommended-bit-rate.bit-rate", FT_UINT16, BASE_DEC|BASE_EXT_STRING,
+              &bit_rate_vals_ext, 0x07e0, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_recommended_bit_rate_reserved,
+            { "Reserved",
+              "mac-lte.control.recommended-bit-rate.reserved", FT_UINT8, BASE_HEX,
+              NULL, 0x1f, "Reserved bits, should be 0", HFILL
+            }
+        },
+
+        { &hf_mac_lte_control_recommended_bit_rate_query,
+            { "Recommended Bit Rate Query",
+              "mac-lte.control.recommended-bit-rate-query", FT_STRING, BASE_NONE,
+              NULL, 0x0, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_recommended_bit_rate_query_lcid,
+            { "LCID",
+              "mac-lte.control.recommended-bit-rate-query.lcid", FT_UINT8, BASE_DEC,
+              NULL, 0xf0, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_recommended_bit_rate_query_dir,
+            { "Direction",
+              "mac-lte.control.recommended-bit-rate-query.dir", FT_BOOLEAN, 8,
+              TFS(&tfs_uplink_downlink), 0x08, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_recommended_bit_rate_query_bit_rate,
+            { "Bit Rate",
+              "mac-lte.control.recommended-bit-rate-query.bit-rate", FT_UINT16, BASE_DEC|BASE_EXT_STRING,
+              &bit_rate_vals_ext, 0x07e0, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_recommended_bit_rate_query_reserved,
+            { "Reserved",
+              "mac-lte.control.recommended-bit-rate-query.reserved", FT_UINT8, BASE_HEX,
+              NULL, 0x1f, "Reserved bits, should be 0", HFILL
+            }
+        },
+
+        { &hf_mac_lte_control_activation_deactivation_csi_rs,
+            { "Activation/Deactivation of CSI-RS",
+              "mac-lte.control.activation-deactivation-csi-rs", FT_STRING, BASE_NONE,
+              NULL, 0x0, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_activation_deactivation_csi_rs_a8,
+            { "CSI-RS Resource Index 8",
+              "mac-lte.control.activation-deactivation-csi-rs.a8", FT_BOOLEAN, 8,
+              TFS(&activated_deactivated_vals), 0x80, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_activation_deactivation_csi_rs_a7,
+            { "CSI-RS Resource Index 7",
+              "mac-lte.control.activation-deactivation-csi-rs.a7", FT_BOOLEAN, 8,
+              TFS(&activated_deactivated_vals), 0x40, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_activation_deactivation_csi_rs_a6,
+            { "CSI-RS Resource Index 6",
+              "mac-lte.control.activation-deactivation-csi-rs.a6", FT_BOOLEAN, 8,
+              TFS(&activated_deactivated_vals), 0x20, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_activation_deactivation_csi_rs_a5,
+            { "CSI-RS Resource Index 5",
+              "mac-lte.control.activation-deactivation-csi-rs.a5", FT_BOOLEAN, 8,
+              TFS(&activated_deactivated_vals), 0x10, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_activation_deactivation_csi_rs_a4,
+            { "CSI-RS Resource Index 4",
+              "mac-lte.control.activation-deactivation-csi-rs.a4", FT_BOOLEAN, 8,
+              TFS(&activated_deactivated_vals), 0x08, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_activation_deactivation_csi_rs_a3,
+            { "CSI-RS Resource Index 3",
+              "mac-lte.control.activation-deactivation-csi-rs.a3", FT_BOOLEAN, 8,
+              TFS(&activated_deactivated_vals), 0x04, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_activation_deactivation_csi_rs_a2,
+            { "CSI-RS Resource Index 2",
+              "mac-lte.control.activation-deactivation-csi-rs.a2", FT_BOOLEAN, 8,
+              TFS(&activated_deactivated_vals), 0x02, NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_control_activation_deactivation_csi_rs_a1,
+            { "CSI-RS Resource Index 1",
+              "mac-lte.control.activation-deactivation-csi-rs.a1", FT_BOOLEAN, 8,
+              TFS(&activated_deactivated_vals), 0x01, NULL, HFILL
             }
         },
 
@@ -9078,7 +9443,10 @@ void proto_register_mac_lte(void)
         &ett_mac_lte_drx_config,
         &ett_mac_lte_drx_state,
         &ett_mac_lte_sidelink_bsr,
-        &ett_mac_lte_data_vol_power_headroom
+        &ett_mac_lte_data_vol_power_headroom,
+        &ett_mac_lte_recommended_bit_rate,
+        &ett_mac_lte_recommended_bit_rate_query,
+        &ett_mac_lte_activation_deactivation_csi_rs
     };
 
     static ei_register_info ei[] = {
@@ -9272,6 +9640,7 @@ void proto_reg_handoff_mac_lte(void)
 
     rlc_lte_handle = find_dissector_add_dependency("rlc-lte", proto_mac_lte);
     lte_rrc_bcch_dl_sch_handle = find_dissector_add_dependency("lte_rrc.bcch_dl_sch", proto_mac_lte);
+    lte_rrc_bcch_dl_sch_br_handle = find_dissector_add_dependency("lte_rrc.bcch_dl_sch_br", proto_mac_lte);
     lte_rrc_bcch_dl_sch_nb_handle = find_dissector_add_dependency("lte_rrc.bcch_dl_sch.nb", proto_mac_lte);
     lte_rrc_bcch_bch_handle = find_dissector_add_dependency("lte_rrc.bcch_bch", proto_mac_lte);
     lte_rrc_bcch_bch_nb_handle = find_dissector_add_dependency("lte_rrc.bcch_bch.nb", proto_mac_lte);

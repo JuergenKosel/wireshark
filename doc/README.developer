@@ -17,10 +17,10 @@ Before starting to develop a new dissector, a "running" Wireshark build
 environment is required - there's no such thing as a standalone "dissector
 build toolkit".
 
-How to setup such an environment is platform dependent; detailed information
-about these steps can be found in the "Developer's Guide" (available from:
-https://www.wireshark.org) and in the INSTALL and README files of the sources
-root dir.
+How to setup such an environment is platform dependent; detailed
+information about these steps can be found in the "Developer's Guide"
+(available from: https://www.wireshark.org) and in the INSTALL and
+README.md files of the sources root dir.
 
 0.1. General README files.
 
@@ -82,13 +82,36 @@ features.  The C99 features that can be used are:
  - trailing comma in enum declarations
  - inline functions (guaranteed only by use of glib.h)
 
-Don't initialize variables in their declaration with non-constant
-values. Not all compilers support this. E.g. don't use
+Don't initialize global or static variables (variables with static
+storage duration) in their declaration with non-constant values.  Not
+all compilers support this.  E.g., if "i" is a static or global
+variable, don't declare "i" as
+
     guint32 i = somearray[2];
-use
+
+outside a function, or as
+
+    static guint32 i = somearray[2];
+
+inside or outside a function, declare it as just
+
     guint32 i;
+
+or
+
+    static guint32 i;
+
+and later, in code, initialize it with
+
     i = somearray[2];
-instead.
+
+instead.  Initializations of variables with automatic storage duration -
+i.e., local variables - with non-constant values is permitted, so,
+within a function
+
+    guint32 i = somearray[2];
+
+is allowed.
 
 Don't use zero-length arrays as structure members, use flexible array members
 instead.
@@ -387,10 +410,15 @@ tmpnam is insecure and should not be used any more. Wireshark brings its
 own mkstemp implementation for use on platforms that lack mkstemp.
 Note: mkstemp does not accept NULL as a parameter.
 
-Wireshark supports platforms with GLib 2.22[.x]/GTK+ 2.12[.x]/Qt 4.8[.x] or
-newer. If a Glib/GTK+/Qt mechanism is available only in newer Glib/GTK+/Qt
-versions then use "#if GLIB_CHECK_VERSION(...)", "#if GTK_CHECK_VERSION(...)" or
-"#if QT_VERSION_CHECK(...)" to conditionally compile code using that mechanism.
+Wireshark requires mininum versions of each of the libraries it uses, in
+particular GLib 2.22.0, Qt 4.8.0, and GTK+ 2.12.0 or newer. If you
+require a mechanism that is available only in a newer version of a
+library then use its version detection macros, e.g. "#if
+GLIB_CHECK_VERSION(...)", "#if QT_VERSION_CHECK(...)", and "#if
+GTK_CHECK_VERSION(...)" to conditionally compile code using that
+mechanism. If you're using GTK_CHECK_VERSION be aware that GTK+ will be
+removed in a future release. Adding new features to the GTK+ UI is
+discouraged.
 
 When different code must be used on UN*X and Win32, use a #if or #ifdef
 that tests _WIN32, not WIN32.  Try to write code portably whenever

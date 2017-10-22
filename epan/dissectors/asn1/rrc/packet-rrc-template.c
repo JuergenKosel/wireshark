@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Ref: 3GPP TS 25.331 V13.5.0 (2016-12)
+ * Ref: 3GPP TS 25.331 V14.4.0 (2017-09)
  */
 
 /**
@@ -43,7 +43,10 @@
 #include "packet-per.h"
 #include "packet-rrc.h"
 #include "packet-gsm_a_common.h"
+#include "packet-nbap.h"
 #include "packet-umts_fp.h"
+#include "packet-umts_mac.h"
+#include "packet-umts_rlc.h"
 
 #ifdef _MSC_VER
 /* disable: "warning C4049: compiler limit : terminating line number emission" */
@@ -56,11 +59,191 @@
 #define PSNAME "RRC"
 #define PFNAME "rrc"
 
-extern int proto_fp;    /*Handler to FP*/
+extern int proto_fp;       /*Handler to FP*/
+extern int proto_umts_mac; /*Handler to MAC*/
+extern int proto_umts_rlc; /*Handler to RLC*/
 
 GTree * hsdsch_muxed_flows = NULL;
-GTree * rrc_ciph_inf = NULL;
+GTree * rrc_ciph_info_tree = NULL;
+GTree * rrc_scrambling_code_urnti = NULL;
+wmem_tree_t* rrc_rach_urnti_crnti_map = NULL;
 static int msg_type _U_;
+
+/*****************************************************************************/
+/* Packet private data                                                       */
+/* For this dissector, all access to actx->private_data should be made       */
+/* through this API, which ensures that they will not overwrite each other!! */
+/*****************************************************************************/
+
+enum nas_sys_info_gsm_map {
+  RRC_NAS_SYS_UNKNOWN,
+  RRC_NAS_SYS_INFO_CS,
+  RRC_NAS_SYS_INFO_PS,
+  RRC_NAS_SYS_INFO_CN_COMMON
+};
+
+typedef struct umts_rrc_private_data_t
+{
+  guint32 s_rnc_id; /* The S-RNC ID part of a U-RNTI */
+  guint32 s_rnti; /* The S-RNTI part of a U-RNTI */
+  guint32 new_u_rnti;
+  guint32 current_u_rnti;
+  guint32 scrambling_code;
+  enum nas_sys_info_gsm_map cn_domain;
+  wmem_strbuf_t* digits_strbuf; /* A collection of digits in a string. Used for reconstructing IMSIs or MCC-MNC pairs */
+  gboolean digits_strbuf_parsing_failed_flag; /* Whether an error occured when creating the IMSI/MCC-MNC pair string */
+  guint32 rbid;
+  guint32 rlc_ciphering_sqn; /* Sequence number where ciphering starts in a given bearer */
+  rrc_ciphering_info* ciphering_info;
+} umts_rrc_private_data_t;
+
+
+/* Helper function to get or create a struct that will be actx->private_data */
+static umts_rrc_private_data_t* umts_rrc_get_private_data(asn1_ctx_t *actx)
+{
+  if (actx->private_data != NULL) {
+    return (umts_rrc_private_data_t*)actx->private_data;
+  }
+  else {
+    umts_rrc_private_data_t* new_struct = wmem_new0(wmem_packet_scope(), umts_rrc_private_data_t);
+    actx->private_data = new_struct;
+    return new_struct;
+  }
+}
+
+static guint32 private_data_get_s_rnc_id(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->s_rnc_id;
+}
+
+static void private_data_set_s_rnc_id(asn1_ctx_t *actx, guint32 s_rnc_id)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->s_rnc_id = s_rnc_id;
+}
+
+static guint32 private_data_get_s_rnti(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->s_rnti;
+}
+
+static void private_data_set_s_rnti(asn1_ctx_t *actx, guint32 s_rnti)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->s_rnti = s_rnti;
+}
+
+static guint32 private_data_get_new_u_rnti(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->new_u_rnti;
+}
+
+static void private_data_set_new_u_rnti(asn1_ctx_t *actx, guint32 new_u_rnti)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->new_u_rnti = new_u_rnti;
+}
+
+static guint32 private_data_get_current_u_rnti(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->current_u_rnti;
+}
+
+static void private_data_set_current_u_rnti(asn1_ctx_t *actx, guint32 current_u_rnti)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->current_u_rnti = current_u_rnti;
+}
+
+static guint32 private_data_get_scrambling_code(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->scrambling_code;
+}
+
+static void private_data_set_scrambling_code(asn1_ctx_t *actx, guint32 scrambling_code)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->scrambling_code = scrambling_code;
+}
+
+static enum nas_sys_info_gsm_map private_data_get_cn_domain(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->cn_domain;
+}
+
+static void private_data_set_cn_domain(asn1_ctx_t *actx, enum nas_sys_info_gsm_map cn_domain)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->cn_domain = cn_domain;
+}
+
+static wmem_strbuf_t* private_data_get_digits_strbuf(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->digits_strbuf;
+}
+
+static void private_data_set_digits_strbuf(asn1_ctx_t *actx, wmem_strbuf_t* digits_strbuf)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->digits_strbuf = digits_strbuf;
+}
+
+static gboolean private_data_get_digits_strbuf_parsing_failed_flag(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->digits_strbuf_parsing_failed_flag;
+}
+
+static void private_data_set_digits_strbuf_parsing_failed_flag(asn1_ctx_t *actx, gboolean digits_strbuf_parsing_failed_flag)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->digits_strbuf_parsing_failed_flag = digits_strbuf_parsing_failed_flag;
+}
+
+static guint32 private_data_get_rbid(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->rbid;
+}
+
+static void private_data_set_rbid(asn1_ctx_t *actx, guint32 rbid)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->rbid = rbid;
+}
+
+static guint32 private_data_get_rlc_ciphering_sqn(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->rlc_ciphering_sqn;
+}
+
+static void private_data_set_rlc_ciphering_sqn(asn1_ctx_t *actx, guint32 rlc_ciphering_sqn)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->rlc_ciphering_sqn = rlc_ciphering_sqn;
+}
+
+static rrc_ciphering_info* private_data_get_ciphering_info(asn1_ctx_t *actx)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  return private_data->ciphering_info;
+}
+
+static void private_data_set_ciphering_info(asn1_ctx_t *actx, rrc_ciphering_info* ciphering_info)
+{
+  umts_rrc_private_data_t *private_data = (umts_rrc_private_data_t*)umts_rrc_get_private_data(actx);
+  private_data->ciphering_info = ciphering_info;
+}
+
+/*****************************************************************************/
 
 static dissector_handle_t gsm_a_dtap_handle;
 static dissector_handle_t rrc_ue_radio_access_cap_info_handle=NULL;
@@ -73,12 +256,6 @@ static dissector_handle_t rrc_bcch_fach_handle=NULL;
 static dissector_handle_t lte_rrc_ue_eutra_cap_handle=NULL;
 static dissector_handle_t lte_rrc_dl_dcch_handle=NULL;
 static dissector_handle_t gsm_rlcmac_dl_handle=NULL;
-
-enum nas_sys_info_gsm_map {
-  RRC_NAS_SYS_INFO_CS,
-  RRC_NAS_SYS_INFO_PS,
-  RRC_NAS_SYS_INFO_CN_COMMON
-};
 
 /* Forward declarations */
 void proto_register_rrc(void);
@@ -108,6 +285,9 @@ static int ett_rrc = -1;
 static gint ett_rrc_eutraFeatureGroupIndicators = -1;
 static gint ett_rrc_cn_CommonGSM_MAP_NAS_SysInfo = -1;
 static gint ett_rrc_ims_info = -1;
+static gint ett_rrc_cellIdentity = -1;
+static gint ett_rrc_cipheringAlgorithmCap = -1;
+static gint ett_rrc_integrityProtectionAlgorithmCap = -1;
 
 static expert_field ei_rrc_no_hrnti = EI_INIT;
 
@@ -122,6 +302,8 @@ static int hf_rrc_ims_info_atgw_trans_det_cont_type = -1;
 static int hf_rrc_ims_info_atgw_udp_port = -1;
 static int hf_rrc_ims_info_atgw_ipv4 = -1;
 static int hf_rrc_ims_info_atgw_ipv6 = -1;
+static int hf_rrc_cellIdentity_rnc_id = -1;
+static int hf_rrc_cellIdentity_c_id = -1;
 
 static const true_false_string rrc_eutra_feat_group_ind_1_val = {
   "UTRA CELL_PCH to EUTRA RRC_IDLE cell reselection - Supported",
@@ -140,21 +322,16 @@ static const true_false_string rrc_eutra_feat_group_ind_4_val = {
   "UTRA CELL_FACH absolute priority cell reselection for all layers - Not supported"
 };
 static const value_string rrc_ims_info_atgw_trans_det_cont_type[] = {
-    {0, "ATGW-IPv4-address-and-port"},
-    {1, "ATGW-IPv6-address-and-port"},
-    {2, "ATGW-not-available"},
-    {0, NULL}
+  {0, "ATGW-IPv4-address-and-port"},
+  {1, "ATGW-IPv6-address-and-port"},
+  {2, "ATGW-not-available"},
+  {0, NULL}
 };
 static int flowd,type;
-
-static int cipher_start_val[2] _U_;
 
 /*Stores how many channels we have detected for a HS-DSCH MAC-flow*/
 #define    RRC_MAX_NUM_HSDHSCH_MACDFLOW 8
 static guint8 num_chans_per_flow[RRC_MAX_NUM_HSDHSCH_MACDFLOW];
-static int rbid;
-static int activation_frame;
-
 
 /**
  * Return the maximum counter, useful for initiating counters
@@ -163,14 +340,14 @@ static int activation_frame;
 static int get_max_counter(int com_context){
     int i;
     guint32 max = 0;
-    rrc_ciphering_info * c_inf;
+    rrc_ciphering_info * ciphering_info;
 
-    if( (c_inf = g_tree_lookup(rrc_ciph_inf, GINT_TO_POINTER((gint)com_context))) == NULL ){
+    if( (ciphering_info = g_tree_lookup(rrc_ciph_info_tree, GINT_TO_POINTER((gint)com_context))) == NULL ){
         return 0;
     }
     for(i = 0; i<31; i++){
-        max = MAX(c_inf->ps_conf_counters[i][0], max);
-        max = MAX(c_inf->ps_conf_counters[i][1], max);
+        max = MAX(ciphering_info->ps_conf_counters[i][0], max);
+        max = MAX(ciphering_info->ps_conf_counters[i][1], max);
     }
     return max;
 }
@@ -191,8 +368,35 @@ static void rrc_free_key(gpointer key _U_){
 static void rrc_free_value(gpointer value ){
             g_free(value);
 }
-#include "packet-rrc-fn.c"
 
+static rrc_ciphering_info*
+get_or_create_cipher_info(fp_info *fpinf, rlc_info *rlcinf) {
+  rrc_ciphering_info *cipher_info = NULL;
+  guint32 ueid;
+  int i;
+
+  ueid = rlcinf->ueid[fpinf->cur_tb];
+
+  cipher_info = (rrc_ciphering_info *)g_tree_lookup(rrc_ciph_info_tree, GINT_TO_POINTER((gint)ueid));
+  if( cipher_info == NULL ){
+    cipher_info = g_new0(rrc_ciphering_info,1);
+
+    /*Initiate tree with START_PS values.*/
+    if(!cipher_info->start_ps)
+      cipher_info->start_ps = g_tree_new_full(rrc_key_cmp,
+                                        NULL,rrc_free_key,rrc_free_value);
+
+    /*Clear and initialize seq_no matrix*/
+    for(i = 0; i< 31; i++){
+      cipher_info->seq_no[i][0] = -1;
+      cipher_info->seq_no[i][1] = -1;
+    }
+    g_tree_insert(rrc_ciph_info_tree, GINT_TO_POINTER((gint)rlcinf->ueid[fpinf->cur_tb]), cipher_info);
+  }
+  return cipher_info;
+}
+
+#include "packet-rrc-fn.c"
 
 
 static int
@@ -253,18 +457,27 @@ rrc_init(void) {
                        rrc_free_key,
                        rrc_free_value);
 
-    /*Initialize structure for muxed flow indication*/
-    rrc_ciph_inf = g_tree_new_full(rrc_key_cmp,
+    rrc_ciph_info_tree = g_tree_new_full(rrc_key_cmp,
                        NULL,      /* data pointer, optional */
                        NULL,
                        rrc_free_value);
+
+    /*Initialize Scrambling code to U-RNTI dictionary*/
+    rrc_scrambling_code_urnti = g_tree_new_full(rrc_key_cmp,
+                       NULL,
+                       NULL,
+                       NULL);
+
+    /* Global U-RNTI / C-RNTI map to be used in RACH channels */
+    rrc_rach_urnti_crnti_map = wmem_tree_new_autoreset(wmem_epan_scope(), wmem_file_scope());
 }
 
 static void
 rrc_cleanup(void) {
     /*Cleanup*/
     g_tree_destroy(hsdsch_muxed_flows);
-    g_tree_destroy(rrc_ciph_inf);
+    g_tree_destroy(rrc_ciph_info_tree);
+    g_tree_destroy(rrc_scrambling_code_urnti);
 }
 
 /*--- proto_register_rrc -------------------------------------------*/
@@ -310,6 +523,14 @@ void proto_register_rrc(void) {
         {"ATGW IPv6", "rrc.rsrvcc_info.ims_info_atgw_ipv6",
         FT_IPv6, BASE_NONE, NULL, 0x0,
         "rSR-VCC IMS information ATGW IPv6", HFILL}},
+    { &hf_rrc_cellIdentity_rnc_id,
+        {"RNC Identifier", "rrc.cellIdentity.rnc_id",
+        FT_UINT32, BASE_DEC, NULL, 0,
+        "The RNC Identifier (RNC-Id) part of the Cell Identity", HFILL }},
+    { &hf_rrc_cellIdentity_c_id,
+        {"Cell Identifier", "rrc.cellIdentity.c_id",
+        FT_UINT32, BASE_DEC, NULL, 0,
+        "The Cell Identifier (C-Id) part of the Cell Identity", HFILL }}
   };
 
   /* List of subtrees */
@@ -319,6 +540,9 @@ void proto_register_rrc(void) {
     &ett_rrc_eutraFeatureGroupIndicators,
     &ett_rrc_cn_CommonGSM_MAP_NAS_SysInfo,
     &ett_rrc_ims_info,
+    &ett_rrc_cellIdentity,
+    &ett_rrc_cipheringAlgorithmCap,
+    &ett_rrc_integrityProtectionAlgorithmCap,
   };
 
   static ei_register_info ei[] = {

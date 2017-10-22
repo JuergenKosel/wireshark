@@ -71,7 +71,7 @@
 #include <epan/packet.h>
 #include <epan/to_str.h>
 #include <epan/expert.h>
-#include <epan/sminmpec.h>
+#include <epan/addr_resolv.h>
 #include "packet-tcp.h"
 
 void proto_register_pcep(void);
@@ -2401,6 +2401,10 @@ dissect_pcep_record_route_obj(proto_tree *pcep_object_tree, packet_info *pinfo, 
             case PCEP_SUB_UNNUMB_INTERFACE_ID:
                 dissect_subobj_unnumb_interfaceID(pcep_object_tree, pinfo, tvb, offset2, obj_class, ett_pcep_obj_record_route, length);
                 break;
+            case PCEP_SUB_SR_PRE_IANA:
+            case PCEP_SUB_SR:   /* draft-ietf-pce-segment-routing-08 section 5.4 */
+                dissect_subobj_sr(pcep_object_tree, pinfo, tvb, offset2, obj_class, ett_pcep_obj_record_route, length);
+                break;
             default:
                 proto_tree_add_expert_format(pcep_object_tree, pinfo, &ei_pcep_non_defined_subobject,
                                              tvb, offset2, length,
@@ -3104,9 +3108,9 @@ dissect_pcep_obj_overload(proto_tree *pcep_object_tree, packet_info *pinfo, tvbu
 static void
 dissect_pcep_obj_unreach_destination(proto_tree *pcep_object_tree, packet_info *pinfo, tvbuff_t *tvb, int offset2, int obj_length, int type)
 {
-    guint address_length = 4;
+    int address_length = 4;
 
-    guint body_obj_len = obj_length-OBJ_HDR_LEN;
+    int body_obj_len = obj_length-OBJ_HDR_LEN;
 
     switch (type)
     {
@@ -3118,7 +3122,7 @@ dissect_pcep_obj_unreach_destination(proto_tree *pcep_object_tree, packet_info *
             break;
     }
 
-    while (body_obj_len) {
+    while (body_obj_len > 0) {
         switch (type) {
             case IPv4:
                 if (body_obj_len < address_length) {
@@ -3904,7 +3908,7 @@ dissect_pcep_msg_tree(tvbuff_t *tvb, proto_tree *tree, guint tree_mode, packet_i
     message_type = tvb_get_guint8(tvb, 1);
     msg_length = tvb_get_ntohs(tvb, 2);
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s", val_to_str(message_type, message_type_vals, "Unknown Message (%u). "));
+    col_append_str(pinfo->cinfo, COL_INFO, val_to_str(message_type, message_type_vals, "Unknown Message (%u). "));
 
     ti = proto_tree_add_item(tree, proto_pcep, tvb, offset, msg_length, ENC_NA);
     pcep_tree = proto_item_add_subtree(ti, tree_mode);
@@ -5571,7 +5575,7 @@ proto_register_pcep(void)
         },
         { &hf_pcep_enterprise_number,
           { "Enterprise Number", "pcep.vendor-information.enterprise-number",
-           FT_UINT32, BASE_DEC|BASE_EXT_STRING, &sminmpec_values_ext, 0x0,
+           FT_UINT32, BASE_ENTERPRISES, STRINGS_ENTERPRISES, 0x0,
            "IANA Private Enterprise Number", HFILL }
         },
         { &hf_pcep_enterprise_specific_info,
@@ -5581,7 +5585,7 @@ proto_register_pcep(void)
         },
         { &hf_pcep_tlv_enterprise_number,
           { "Enterprise Number", "pcep.tlv.enterprise-number",
-           FT_UINT32, BASE_DEC|BASE_EXT_STRING, &sminmpec_values_ext, 0x0,
+           FT_UINT32, BASE_ENTERPRISES, STRINGS_ENTERPRISES, 0x0,
            "IANA Private Enterprise Number", HFILL }
         },
         { &hf_pcep_tlv_enterprise_specific_info,
@@ -5808,8 +5812,6 @@ proto_register_pcep(void)
         &ett_pcep_obj_metric,
         &ett_pcep_obj_explicit_route,
         &ett_pcep_obj_record_route,
-        &ett_pcep_obj_sero,
-        &ett_pcep_obj_srro,
         &ett_pcep_obj_lspa,
         &ett_pcep_obj_iro,
         &ett_pcep_obj_svec,
@@ -5825,12 +5827,16 @@ proto_register_pcep(void)
         &ett_pcep_obj_pce_id,
         &ett_pcep_obj_proc_time,
         &ett_pcep_obj_overload,
+        &ett_pcep_obj_unreach_destination,
+        &ett_pcep_obj_branch_node_capability,
         &ett_pcep_obj_lsp,
         &ett_pcep_obj_srp,
         &ett_pcep_obj_vendor_information,
         &ett_pcep_obj_bu,
-        &ett_pcep_obj_association,
-        &ett_pcep_obj_unknown
+        &ett_pcep_obj_unknown,
+        &ett_pcep_obj_sero,
+        &ett_pcep_obj_srro,
+        &ett_pcep_obj_association
     };
 
     static ei_register_info ei[] = {

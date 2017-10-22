@@ -38,12 +38,12 @@
 #include <ui/recent.h>
 #include <main_window.h>
 
-#include "syntax_line_edit.h"
-#include "qt_ui_utils.h"
+#include <ui/qt/widgets/syntax_line_edit.h>
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "uat_dialog.h"
 #include "wireshark_application.h"
 
-#include <ui/qt/variant_pointer.h>
+#include <ui/qt/utils/variant_pointer.h>
 
 #include <QColorDialog>
 #include <QComboBox>
@@ -436,11 +436,25 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) :
     prefs_pane_to_item_[ppColumn] = item->child(1);
     prefs_pane_to_item_[ppFontAndColor] = item->child(2);
     prefs_pane_to_item_[ppCapture] = pd_ui_->prefsTree->topLevelItem(1);
-    prefs_pane_to_item_[ppFilterExpressions] = pd_ui_->prefsTree->topLevelItem(2);
+    prefs_pane_to_item_[ppExpert] = pd_ui_->prefsTree->topLevelItem(2);
+    prefs_pane_to_item_[ppFilterExpressions] = pd_ui_->prefsTree->topLevelItem(3);
+
+    pd_ui_->filterExpressonsFrame->setUat(uat_get_table_by_name("Display expressions"));
 
     // Printing prefs don't apply here.
     module_t *print_module = prefs_find_module("print");
-    if (print_module) print_module->use_gui = FALSE;
+    if (print_module)
+        print_module->use_gui = FALSE;
+
+    //Since "expert" is really a pseudo protocol, it shouldn't be
+    //categorized with other "real" protocols when it comes to
+    //preferences.  Since it's just a UAT, don't bury it in
+    //with the other protocols
+    pd_ui_->expertFrame->setUat(uat_get_table_by_name("Expert Info Severity Level Configuration"));
+    module_t *expert_module = prefs_find_module("_ws.expert");
+    if (expert_module)
+       expert_module->use_gui = FALSE;
+
 
     // We called takeChildren above so this shouldn't be necessary.
     while (tmp_item.childCount() > 0) {
@@ -684,18 +698,25 @@ void PreferencesDialog::on_advancedTree_itemActivated(QTreeWidgetItem *item, int
             editor = cur_line_edit_;
             break;
         }
-        case PREF_FILENAME:
+        case PREF_SAVE_FILENAME:
+        case PREF_OPEN_FILENAME:
         case PREF_DIRNAME:
         {
             QString filename;
 
-            if (prefs_get_type(pref) == PREF_FILENAME) {
+            if (prefs_get_type(pref) == PREF_SAVE_FILENAME) {
                 filename = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(prefs_get_title(pref)),
                                                         prefs_get_string_value(pref, pref_stashed));
+
+            } else if (prefs_get_type(pref) == PREF_OPEN_FILENAME) {
+                filename = QFileDialog::getOpenFileName(this, wsApp->windowTitleString(prefs_get_title(pref)),
+                                                        prefs_get_string_value(pref, pref_stashed));
+
             } else {
                 filename = QFileDialog::getExistingDirectory(this, wsApp->windowTitleString(prefs_get_title(pref)),
-                                                             prefs_get_string_value(pref, pref_stashed));
+                                                        prefs_get_string_value(pref, pref_stashed));
             }
+
             if (!filename.isEmpty()) {
                 prefs_set_string_value(pref, QDir::toNativeSeparators(filename).toStdString().c_str(), pref_stashed);
                 adv_ti->updatePref();
@@ -893,7 +914,13 @@ void PreferencesDialog::on_buttonBox_accepted()
     }
 
     pd_ui_->columnFrame->unstash();
-    pd_ui_->filterExpressonsFrame->unstash();
+    pd_ui_->filterExpressonsFrame->acceptChanges();
+    pd_ui_->expertFrame->acceptChanges();
+
+    //Filter expressions don't affect dissection, so there is no need to
+    //send any events to that effect.  However, the app needs to know
+    //about any button changes.
+    wsApp->emitAppSignal(WiresharkApplication::FilterExpressionsChanged);
 
     prefs_main_write();
     if (save_decode_as_entries(&err) < 0)
@@ -939,6 +966,13 @@ void PreferencesDialog::on_buttonBox_accepted()
     if (new_layout != old_layout) {
         wsApp->queueAppSignal(WiresharkApplication::RecentPreferencesRead);
     }
+}
+
+void PreferencesDialog::on_buttonBox_rejected()
+{
+    //handle frames that don't have their own OK/Cancel "buttons"
+    pd_ui_->filterExpressonsFrame->rejectChanges();
+    pd_ui_->expertFrame->rejectChanges();
 }
 
 void PreferencesDialog::on_buttonBox_helpRequested()

@@ -162,6 +162,7 @@ static int hf_isakmp_notify_data = -1;
 static int hf_isakmp_notify_data_dpd_are_you_there = -1;
 static int hf_isakmp_notify_data_dpd_are_you_there_ack = -1;
 static int hf_isakmp_notify_data_unity_load_balance = -1;
+static int hf_isakmp_notify_data_accepted_dh_group = -1;
 static int hf_isakmp_notify_data_ipcomp_cpi = -1;
 static int hf_isakmp_notify_data_ipcomp_transform_id = -1;
 static int hf_isakmp_notify_data_redirect_gw_ident_type = -1;
@@ -189,6 +190,7 @@ static int hf_isakmp_notify_data_ha_expected_send_req_msg_id = -1;
 static int hf_isakmp_notify_data_ha_expected_recv_req_msg_id = -1;
 static int hf_isakmp_notify_data_ha_incoming_ipsec_sa_delta_value = -1;
 static int hf_isakmp_notify_data_secure_password_methods = -1;
+static int hf_isakmp_notify_data_signature_hash_algorithms = -1;
 static int hf_isakmp_delete_doi = -1;
 static int hf_isakmp_delete_protoid_v1 = -1;
 static int hf_isakmp_delete_protoid_v2 = -1;
@@ -1628,6 +1630,19 @@ static const range_string rohc_attr_type[] = {
   { 16384,32767, "Private use" },
   { 0,0,         NULL },
 };
+
+static const range_string signature_hash_algorithms[] = {
+  { 0,0,        "Reserved" },
+  { 1,1,        "SHA1" },
+  { 2,2,        "SHA2-256" },
+  { 3,3,        "SHA2-384" },
+  { 4,4,        "SHA2-512" },
+  { 5,5,        "Identity" },
+  { 6,1023,     "Unassigned" },
+  { 1024,65535, "Reserved for Private Use" },
+  {0,0,         NULL },
+};
+
 
 #define ISAKMP_HDR_SIZE ((int)sizeof(struct isakmp_hdr) + (2 * COOKIE_SIZE))
 
@@ -4589,6 +4604,9 @@ dissect_notif(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, proto_t
   } else if (isakmp_version == 2)
   {
     switch(msgtype){
+      case 17: /* INVALID_KE_PAYLOAD */
+        proto_tree_add_item(tree, hf_isakmp_notify_data_accepted_dh_group, tvb, offset, 2, ENC_BIG_ENDIAN);
+        break;
       case 16387: /* IPCOMP_SUPPORTED */
         proto_tree_add_item(tree, hf_isakmp_notify_data_ipcomp_cpi, tvb, offset, 2, ENC_BIG_ENDIAN);
         proto_tree_add_item(tree, hf_isakmp_notify_data_ipcomp_transform_id, tvb, offset+2, 1, ENC_BIG_ENDIAN);
@@ -4661,6 +4679,12 @@ dissect_notif(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, proto_t
         break;
       case 16424: /* SECURE_PASSWORD_METHODS */
         proto_tree_add_item(tree, hf_isakmp_notify_data_secure_password_methods, tvb, offset, length, ENC_NA);
+        break;
+      case 16431: /*SIGNATURE_HASH_ALGORITHMS*/
+        while(offset < offset_end) {
+          proto_tree_add_item(tree, hf_isakmp_notify_data_signature_hash_algorithms, tvb, offset, 2, ENC_BIG_ENDIAN);
+          offset += 2;
+        }
         break;
       case 41041:
         /* private status 3GPP BACKOFF_TIMER*/
@@ -6116,6 +6140,10 @@ proto_register_isakmp(void)
       { "UNITY LOAD BALANCE", "isakmp.notify.data.unity.load_balance",
         FT_IPv4, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
+    { &hf_isakmp_notify_data_accepted_dh_group,
+      { "Accepted DH group number", "isakmp.notify.data.accepted_dh_group",
+        FT_UINT16, BASE_DEC, VALS(dh_group), 0x0,
+        NULL, HFILL }},
     { &hf_isakmp_notify_data_ipcomp_cpi,
       { "IPCOMP CPI", "isakmp.notify.data.ipcomp.cpi",
         FT_UINT16, BASE_DEC, NULL, 0x0,
@@ -6240,6 +6268,10 @@ proto_register_isakmp(void)
     { &hf_isakmp_notify_data_secure_password_methods,
       { "Secure Password Methods", "isakmp.notify.data.secure_password_methods",
         FT_BYTES, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }},
+    { &hf_isakmp_notify_data_signature_hash_algorithms,
+      { "Supported Signature Hash Algorithm", "isakmp.notify.data.signature_hash_algorithms",
+        FT_UINT16, BASE_RANGE_STRING | BASE_DEC, VALS(signature_hash_algorithms), 0x0,
         NULL, HFILL }},
 
     { &hf_isakmp_delete_doi,

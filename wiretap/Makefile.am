@@ -21,7 +21,8 @@
 
 include $(top_srcdir)/Makefile.am.inc
 
-AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) -DWS_BUILD_DLL $(GLIB_CFLAGS)
+AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) -DWS_BUILD_DLL $(GLIB_CFLAGS) \
+		$(PCAP_CFLAGS)
 
 noinst_LTLIBRARIES = libwiretap_generated.la
 lib_LTLIBRARIES = libwiretap.la
@@ -112,7 +113,6 @@ NONGENERATED_HEADER_FILES = \
 	dct3trace.h		\
 	erf.h			\
 	eyesdn.h		\
-	file_wrappers.h		\
 	hcidump.h		\
 	i4btrace.h		\
 	i4b_trace.h		\
@@ -126,7 +126,6 @@ NONGENERATED_HEADER_FILES = \
 	libpcap.h		\
 	logcat.h		\
 	logcat_text.h		\
-	merge.h			\
 	mpeg.h			\
 	mplog.h			\
 	mp2t.h			\
@@ -140,9 +139,7 @@ NONGENERATED_HEADER_FILES = \
 	ngsniffer.h		\
 	packetlogger.h		\
 	pcap-common.h		\
-	pcap-encap.h		\
 	pcapng.h		\
-	pcapng_module.h		\
 	peekclassic.h           \
 	peektagged.h		\
 	pppdump.h		\
@@ -154,9 +151,15 @@ NONGENERATED_HEADER_FILES = \
 	visual.h		\
 	vms.h			\
 	vwr.h			\
-	wtap.h			\
-	wtap_opttypes.h		\
 	wtap-int.h
+
+PUBLIC_HEADER_FILES = \
+	file_wrappers.h		\
+	merge.h			\
+	pcap-encap.h		\
+	pcapng_module.h		\
+	wtap.h			\
+	wtap_opttypes.h
 
 # Files that generate compileable files
 GENERATOR_FILES = \
@@ -186,7 +189,7 @@ GENERATED_FILES = $(GENERATED_C_FILES) $(GENERATED_HEADER_FILES)
 libwiretap_la_SOURCES = \
 	$(NONGENERATED_C_FILES)		\
 	$(NONGENERATED_HEADER_FILES)	\
-	ws_version_info.c
+	version_info.c
 
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 libwiretap_la_LDFLAGS = -version-info 0:0:0 @LDFLAGS_SHAREDLIB@
@@ -200,6 +203,10 @@ libwiretap_generated_la_SOURCES = \
 
 libwiretap_generated_la_CFLAGS = $(GENERATED_CFLAGS)
 
+subpkgincludedir = $(pkgincludedir)/wiretap
+
+subpkginclude_HEADERS = $(PUBLIC_HEADER_FILES)
+
 CLEANFILES = \
 	libwiretap.a		\
 	libwiretap.la		\
@@ -208,13 +215,12 @@ CLEANFILES = \
 	*~
 
 DISTCLEANFILES = \
-	ws_version_info.c
+	version_info.c
 
 MAINTAINERCLEANFILES = \
-	$(GENERATED_FILES)	\
-	Makefile.in
+	$(GENERATED_FILES)
 
-BUILT_SOURCES = $(GENERATED_HEADER_FILES) ws_version_info.c
+BUILT_SOURCES = $(GENERATED_HEADER_FILES) version_info.c
 
 EXTRA_DIST = \
 	.editorconfig		\
@@ -237,32 +243,8 @@ ascend.c: $(srcdir)/ascend.y ascend_scanner_lex.h
 	fi
 	$(AM_V_YACC)$(YACC) -d -p ascend -o ascend.c $(srcdir)/ascend.y
 
-ws_version_info.c: $(top_srcdir)/ws_version_info.c
+version_info.c: $(top_srcdir)/version_info.c
 	$(AM_V_LN_S)$(LN_S) $<
-
-# ABI compliance checker can be obtained from
-# http://ispras.linux-foundation.org/index.php/ABI_compliance_checker
-# Checked using version 1.21.12
-#
-# (f)lex generated headers are not part of API and may not include
-# all needed headers for used types
-dumpabi-libwiretap: all abi-descriptor.xml
-	rm -rf abi-check-headers abi_dumps .libs/*.abi.tar.gz
-	mkdir abi-check-headers
-	cp *.h ../ws_symbol_export.h abi-check-headers/
-	rm abi-check-headers/*_lex.h abi-check-headers/ascend.h
-	abi-compliance-checker -log-path abi_logs/log.txt -l libwiretap -v1 `readlink .libs/libwiretap.so | sed 's/.*\.so\.//'` \
-		-relpath $(abs_srcdir) -dump-abi abi-descriptor.xml || \
-		cat abi_logs/log.txt
-	cp -f abi_dumps/libwiretap/libwiretap_* .libs/
-	cd .libs && ln -sf libwiretap_*.abi.tar.gz libwiretap.abi.tar.gz
-
-maintainer-clean-local: clean-dumpabi-libwiretap
-
-.PHONY: clean-dumpabi-libwiretap
-
-clean-dumpabi-libwiretap:
-	rm -rf abi-check-headers abi_dumps .libs/*.abi.tar.gz abi_logs abi-descriptor.xml
 
 checkapi:
 ## 'abort' checking disabled for now pending resolution of existing use of g_assert & g_error

@@ -37,6 +37,10 @@
 #include "wsutil/wsgetopt.h"
 #endif
 
+#ifndef _WIN32
+#include <wsutil/glib-compat.h>
+#endif
+
 #include <wsutil/clopts_common.h>
 #include <wsutil/cmdarg_err.h>
 #include <wsutil/crash_info.h>
@@ -45,9 +49,9 @@
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include <wsutil/unicode-utils.h>
-#include <ws_version_info.h>
+#include <version_info.h>
 
 #include <epan/addr_resolv.h>
 #include <epan/ex-opt.h>
@@ -90,7 +94,7 @@
 #include "ui/capture_ui_utils.h"
 
 #include "ui/qt/conversation_dialog.h"
-#include "ui/qt/color_utils.h"
+#include "ui/qt/utils/color_utils.h"
 #include "ui/qt/coloring_rules_dialog.h"
 #include "ui/qt/endpoint_dialog.h"
 #include "ui/qt/main_window.h"
@@ -102,6 +106,8 @@
 #include "ui/qt/wireshark_application.h"
 
 #include "caputils/capture-pcap-util.h"
+
+#include <QMessageBox>
 
 #ifdef _WIN32
 #  include "caputils/capture-wpcap.h"
@@ -124,6 +130,7 @@
 #include <QTextCodec>
 #endif
 
+#define INVALID_OPTION 1
 #define INIT_FAILED 2
 #define INVALID_CAPABILITY 2
 #define INVALID_LINK_TYPE 2
@@ -339,12 +346,12 @@ int main(int argc, char *qt_argv[])
     char               **argv = qt_argv;
 
 #ifdef _WIN32
+    int                  result;
     WSADATA              wsaData;
 #endif  /* _WIN32 */
 
     char                *rf_path;
     int                  rf_open_errno;
-    char                *gdp_path, *dp_path;
 #ifdef HAVE_LIBPCAP
     gchar               *err_str;
 #else
@@ -359,6 +366,9 @@ int main(int argc, char *qt_argv[])
     GString             *runtime_info_str = NULL;
 
     QString              dfilter, read_filter;
+#ifdef HAVE_LIBPCAP
+    int                  caps_queries = 0;
+#endif
     /* Start time in microseconds*/
     guint64 start_time = g_get_monotonic_time();
 #ifdef DEBUG_STARTUP_TIME
@@ -468,7 +478,16 @@ int main(int argc, char *qt_argv[])
     /* Assemble the run-time version information string */
     runtime_info_str = get_runtime_version_info(get_wireshark_runtime_info);
 
+    /* Create the user profiles directory */
+    if (create_profiles_dir(&rf_path) == -1) {
+        simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
+                      "Could not create profiles directory\n\"%s\"",
+                      rf_path);
+        g_free (rf_path);
+    }
+
     profile_store_persconffiles(TRUE);
+    recent_init();
 
     /* Read the profile independent recent file.  We have to do this here so we can */
     /* set the profile before it can be set from the command line parameter */
@@ -483,6 +502,18 @@ int main(int argc, char *qt_argv[])
 
 #ifdef _WIN32
     reset_library_path();
+#endif
+
+    // Handle DPI scaling on Windows. This causes problems in at least
+    // one case on X11 and we don't yet support Android.
+    // We do the equivalent on macOS by setting NSHighResolutionCapable
+    // in Info.plist.
+    // http://doc.qt.io/qt-5/scalability.html
+    // http://doc.qt.io/qt-5/highdpi.html
+    // https://bugreports.qt.io/browse/QTBUG-53022 - The device pixel ratio is pretty much bogus on Windows.
+    // https://bugreports.qt.io/browse/QTBUG-55510 - Windows have wrong size
+#if defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
+     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
 
     /* Create The Wireshark app */
@@ -509,7 +540,12 @@ int main(int argc, char *qt_argv[])
 
 #ifdef _WIN32
     /* Start windows sockets */
-    WSAStartup( MAKEWORD( 1, 1 ), &wsaData );
+    result = WSAStartup( MAKEWORD( 1, 1 ), &wsaData );
+    if (result != 0)
+    {
+        ret_val = INIT_FAILED;
+        goto clean_exit;
+    }
 #endif  /* _WIN32 */
 
     /* Read the profile dependent (static part) of the recent file. */
@@ -565,8 +601,9 @@ int main(int argc, char *qt_argv[])
     capture_opts_init(&global_capture_opts);
 #endif
 
-    init_report_err(vfailure_alert_box, open_failure_alert_box,
-                    read_failure_alert_box, write_failure_alert_box);
+    init_report_message(vfailure_alert_box, vwarning_alert_box,
+                        open_failure_alert_box, read_failure_alert_box,
+                        write_failure_alert_box);
 
     wtap_init();
 
@@ -652,7 +689,7 @@ int main(int argc, char *qt_argv[])
     splash_update(RA_PREFERENCES, NULL, NULL);
     g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling module preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 
-    global_commandline_info.prefs_p = ws_app.readConfigurationFiles(&gdp_path, &dp_path, false);
+    global_commandline_info.prefs_p = ws_app.readConfigurationFiles(false);
 
     /* Now get our args */
     commandline_other_options(argc, argv, TRUE);
@@ -681,8 +718,13 @@ int main(int argc, char *qt_argv[])
 
     fill_in_local_interfaces(main_window_update);
 
-    if (global_commandline_info.start_capture || global_commandline_info.list_link_layer_types) {
-        /* We're supposed to do a live capture or get a list of link-layer
+    if  (global_commandline_info.list_link_layer_types)
+        caps_queries |= CAPS_QUERY_LINK_TYPES;
+     if (global_commandline_info.list_timestamp_types)
+        caps_queries |= CAPS_QUERY_TIMESTAMP_TYPES;
+
+    if (global_commandline_info.start_capture || caps_queries) {
+        /* We're supposed to do a live capture or get a list of link-layer/timestamp
            types for a live capture device; if the user didn't specify an
            interface to use, pick a default. */
         ret_val = capture_opts_default_iface_if_necessary(&global_capture_opts,
@@ -692,19 +734,19 @@ int main(int argc, char *qt_argv[])
         }
     }
 
-    if (global_commandline_info.list_link_layer_types) {
+    if (caps_queries) {
         /* Get the list of link-layer types for the capture devices. */
         if_capabilities_t *caps;
         guint i;
-        interface_t device;
+        interface_t *device;
         for (i = 0; i < global_capture_opts.all_ifaces->len; i++) {
-
-            device = g_array_index(global_capture_opts.all_ifaces, interface_t, i);
-            if (device.selected) {
+            int if_caps_queries = caps_queries;
+            device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
+            if (device->selected) {
 #if defined(HAVE_PCAP_CREATE)
-                caps = capture_get_if_capabilities(device.name, device.monitor_mode_supported, NULL, &err_str, main_window_update);
+                caps = capture_get_if_capabilities(device->name, device->monitor_mode_supported, NULL, &err_str, main_window_update);
 #else
-                caps = capture_get_if_capabilities(device.name, FALSE, NULL, &err_str,main_window_update);
+                caps = capture_get_if_capabilities(device->name, FALSE, NULL, &err_str,main_window_update);
 #endif
                 if (caps == NULL) {
                     cmdarg_err("%s", err_str);
@@ -713,7 +755,7 @@ int main(int argc, char *qt_argv[])
                     goto clean_exit;
                 }
             if (caps->data_link_types == NULL) {
-                cmdarg_err("The capture device \"%s\" has no data link types.", device.name);
+                cmdarg_err("The capture device \"%s\" has no data link types.", device->name);
                 ret_val = INVALID_LINK_TYPE;
                 goto clean_exit;
             }
@@ -721,10 +763,10 @@ int main(int argc, char *qt_argv[])
             create_console();
 #endif /* _WIN32 */
 #if defined(HAVE_PCAP_CREATE)
-            capture_opts_print_if_capabilities(caps, device.name, device.monitor_mode_supported);
-#else
-            capture_opts_print_if_capabilities(caps, device.name, FALSE);
+            if (device->monitor_mode_supported)
+                if_caps_queries |= CAPS_MONITOR_MODE;
 #endif
+            capture_opts_print_if_capabilities(caps, device->name, if_caps_queries);
 #ifdef _WIN32
             destroy_console();
 #endif /* _WIN32 */
@@ -753,57 +795,25 @@ int main(int argc, char *qt_argv[])
     if ((global_capture_opts.num_selected == 0) &&
             (prefs.capture_device != NULL)) {
         guint i;
-        interface_t device;
+        interface_t *device;
         for (i = 0; i < global_capture_opts.all_ifaces->len; i++) {
-            device = g_array_index(global_capture_opts.all_ifaces, interface_t, i);
-            if (!device.hidden && strcmp(device.display_name, prefs.capture_device) == 0) {
-                device.selected = TRUE;
+            device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
+            if (!device->hidden && strcmp(device->display_name, prefs.capture_device) == 0) {
+                device->selected = TRUE;
                 global_capture_opts.num_selected++;
-                global_capture_opts.all_ifaces = g_array_remove_index(global_capture_opts.all_ifaces, i);
-                g_array_insert_val(global_capture_opts.all_ifaces, i, device);
                 break;
             }
         }
     }
 #endif
 
-    /* disabled protocols as per configuration file */
-    if (gdp_path == NULL && dp_path == NULL) {
-        set_disabled_protos_list();
-        set_enabled_protos_list();
-        set_disabled_heur_dissector_list();
-    }
-
-    if(global_dissect_options.disable_protocol_slist) {
-        GSList *proto_disable;
-        for (proto_disable = global_dissect_options.disable_protocol_slist; proto_disable != NULL; proto_disable = g_slist_next(proto_disable))
-        {
-            proto_disable_proto_by_name((char*)proto_disable->data);
-        }
-    }
-
-    if(global_dissect_options.enable_protocol_slist) {
-        GSList *proto_enable;
-        for (proto_enable = global_dissect_options.enable_protocol_slist; proto_enable != NULL; proto_enable = g_slist_next(proto_enable))
-        {
-            proto_enable_proto_by_name((char*)proto_enable->data);
-        }
-    }
-
-    if(global_dissect_options.enable_heur_slist) {
-        GSList *heur_enable;
-        for (heur_enable = global_dissect_options.enable_heur_slist; heur_enable != NULL; heur_enable = g_slist_next(heur_enable))
-        {
-            proto_enable_heuristic_by_name((char*)heur_enable->data, TRUE);
-        }
-    }
-
-    if(global_dissect_options.disable_heur_slist) {
-        GSList *heur_disable;
-        for (heur_disable = global_dissect_options.disable_heur_slist; heur_disable != NULL; heur_disable = g_slist_next(heur_disable))
-        {
-            proto_enable_heuristic_by_name((char*)heur_disable->data, FALSE);
-        }
+    /*
+     * Enabled and disabled protocols and heuristic dissectors as per
+     * command-line options.
+     */
+    if (!setup_enabled_and_disabled_protocols()) {
+        ret_val = INVALID_OPTION;
+        goto clean_exit;
     }
 
     build_column_format_array(&CaptureFile::globalCapFile()->cinfo, global_commandline_info.prefs_p->num_cols, TRUE);
@@ -920,10 +930,17 @@ int main(int argc, char *qt_argv[])
     }
 #endif /* HAVE_LIBPCAP */
 
+    // UAT files used in configuration profiles which are used in Qt dialogs
+    // are not registered during startup because they only get loaded when
+    // the dialog is shown.  Register them here.
+    g_free(get_persconffile_path("io_graphs", TRUE));
+
     profile_store_persconffiles(FALSE);
 
     ret_val = wsApp->exec();
 
+    delete main_w;
+    recent_cleanup();
     epan_cleanup();
 
 #ifdef HAVE_EXTCAP

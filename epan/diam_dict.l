@@ -85,6 +85,9 @@
 	 ** License along with this library; if not, write to the Free Software
 	 ** Foundation, Inc., 51 Franklin Street, Fifth Floor,
 	 ** Boston, MA  02110-1301, USA.
+	 **
+	 ** See draft-frascone-xml-dictionary for the syntax of the
+	 ** dictionary.
 	 */
 
 #include <glib.h>
@@ -96,6 +99,8 @@
 #include "diam_dict.h"
 #include <epan/to_str.h>
 #include <wsutil/file_util.h>
+
+DIAG_OFF(sign-compare)
 
 typedef struct entity_t {
 	char* name;
@@ -621,6 +626,8 @@ description_attr description=\042
 
 
 %%
+
+DIAG_ON(sign-compare)
 
 static int debugging  = 0;
 

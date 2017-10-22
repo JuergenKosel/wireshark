@@ -24,9 +24,11 @@
 
 #include <glib.h>
 
+#include <ws_attributes.h>
+
 #ifdef HAVE_LIBPCAP
 
-#include <pcap.h>
+#include <wsutil/wspcap.h>
 
 #ifdef __APPLE__
 #include <dlfcn.h>
@@ -356,14 +358,14 @@ request_high_resolution_timestamp(pcap_t *pcap_h)
 {
 #ifdef __APPLE__
 	/*
-	 * On OS X, if you build with a newer SDK, pcap_set_tstamp_precision()
+	 * On macOS, if you build with a newer SDK, pcap_set_tstamp_precision()
 	 * is available, so the code will be built with it.
 	 *
 	 * However, if you then try to run on an older release that
 	 * doesn't have pcap_set_tstamp_precision(), the dynamic linker
 	 * will fail, as it won't find pcap_set_tstamp_precision().
 	 *
-	 * libpcap doesn't use OS X "weak linking" for new routines,
+	 * libpcap doesn't use macOS "weak linking" for new routines,
 	 * so we can't just check whether a pointer to
 	 * pcap_set_tstamp_precision() is null and, if it is, not
 	 * call it.  We have to, instead, use dlopen() to load
@@ -488,6 +490,12 @@ get_compiled_caplibs_version(GString *str)
 	 * of libpcap with which we were compiled.
 	 */
 	g_string_append(str, "with libpcap");
+#ifdef HAVE_PCAP_REMOTE
+	/*
+	 * We have remote pcap support in libpcap.
+	 */
+	g_string_append(str, " (including remote capture support)");
+#endif
 
 	/*
 	 * XXX - these libraries are actually used only by dumpcap,

@@ -26,53 +26,9 @@ set_module_info(docsis 0 0 5 0)
 
 # The sources for the plugin
 set(DISSECTOR_SRC
-	packet-bintrngreq.c
-	packet-bpkmattr.c
-	packet-bpkmreq.c
-	packet-bpkmrsp.c
-	packet-cmctrlreq.c
-	packet-cmctrlrsp.c
-	packet-cmstatus.c
-	packet-intrngreq.c
-	packet-dbcreq.c
-	packet-dbcrsp.c
-	packet-dbcack.c
-	packet-dccack.c
-	packet-dccreq.c
-	packet-dccrsp.c
-	packet-dcd.c
-	packet-dpd.c
-	packet-dpvreq.c
-	packet-dpvrsp.c
 	packet-docsis.c
-	packet-dsaack.c
-	packet-dsareq.c
-	packet-dsarsp.c
-	packet-dscack.c
-	packet-dscreq.c
-	packet-dscrsp.c
-	packet-dsdreq.c
-	packet-dsdrsp.c
 	packet-macmgmt.c
-	packet-map.c
-	packet-mdd.c
-	packet-ocd.c
-	packet-regack.c
-	packet-regreq.c
-	packet-regreqmp.c
-	packet-regrsp.c
-	packet-regrspmp.c
-	packet-rngreq.c
-	packet-rngrsp.c
-	packet-sync.c
 	packet-tlv.c
-	packet-tlv-cmctrl.c
-	packet-type29ucd.c
-	packet-type35ucd.c
-	packet-type51ucd.c
-	packet-uccreq.c
-	packet-uccrsp.c
-	packet-ucd.c
 	packet-vendor.c
 )
 
@@ -101,9 +57,9 @@ register_dissector_files(plugin.c
 add_plugin_library(docsis)
 
 install(TARGETS docsis
-	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/${CPACK_PACKAGE_NAME}/plugins/${CPACK_PACKAGE_VERSION} NAMELINK_SKIP
-	RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/${CPACK_PACKAGE_NAME}/plugins/${CPACK_PACKAGE_VERSION}
-	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${CPACK_PACKAGE_NAME}/plugins/${CPACK_PACKAGE_VERSION}
+	LIBRARY DESTINATION ${PLUGIN_INSTALL_LIBDIR} NAMELINK_SKIP
+	RUNTIME DESTINATION ${PLUGIN_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${PLUGIN_INSTALL_LIBDIR}
 )
 
 file(GLOB DISSECTOR_HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.h")

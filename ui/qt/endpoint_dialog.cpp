@@ -34,7 +34,7 @@
 
 #include "wsutil/str_util.h"
 
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
 
 #include <QCheckBox>
@@ -270,10 +270,9 @@ public:
 
     // Column text raw representation.
     // Return a string, qulonglong, double, or invalid QVariant representing the raw column data.
-#ifdef HAVE_GEOIP
     QVariant colData(int col, bool resolve_names, bool strings_only) const {
-#else
-    QVariant colData(int col, bool resolve_names, bool strings_only _U_) const {
+#ifndef HAVE_GEOIP
+        Q_UNUSED(strings_only)
 #endif
         hostlist_talker_t *endp_item = &g_array_index(conv_array_, hostlist_talker_t, conv_idx_);
 
@@ -395,7 +394,6 @@ public:
                 // using QCollator instead.
                 return text(sort_col) < other.text(sort_col);
             }
-            break;
         }
 #else
         default:

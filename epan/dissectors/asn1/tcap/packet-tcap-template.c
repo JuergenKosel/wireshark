@@ -87,7 +87,6 @@ static struct tcapsrt_info_t tcapsrt_global_info[MAX_TCAP_INSTANCE];
 #define MAX_SSN 254
 static range_t *global_ssn_range;
 static range_t *ssn_range;
-struct tcap_private_t tcap_private;
 
 gboolean gtcap_HandleSRT=FALSE;
 /* These two timeout (in second) are used when some message are lost,
@@ -117,7 +116,6 @@ static proto_tree * tcap_stat_tree=NULL;
 static dissector_handle_t data_handle;
 static dissector_handle_t ansi_tcap_handle;
 
-static void raz_tcap_private(struct tcap_private_t * p_tcap_private);
 static int dissect_tcap_param(asn1_ctx_t *actx, proto_tree *tree, tvbuff_t *tvb, int offset);
 static int dissect_tcap_ITU_ComponentPDU(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset, asn1_ctx_t *actx _U_, proto_tree *tree, int hf_index _U_);
 
@@ -262,7 +260,9 @@ tcaphash_end_equal(gconstpointer k1, gconstpointer k2)
   const struct tcaphash_end_info_key_t *key2 = (const struct tcaphash_end_info_key_t *) k2;
 
   if (key1->hashKey == key2->hashKey) {
-    if ( (key1->pc_hash == key2->pc_hash) && (key1->tid == key2->tid) )
+    if ( (key1->opc_hash == key2->opc_hash) &&
+         (key1->dpc_hash == key2->dpc_hash) &&
+         (key1->tid == key2->tid) )
       return TRUE;
   }
   return FALSE;
@@ -719,7 +719,8 @@ new_tcaphash_end(struct tcaphash_end_info_key_t *p_tcaphash_end_key,
   p_new_tcaphash_end_key = wmem_new(wmem_file_scope(), struct tcaphash_end_info_key_t);
   p_new_tcaphash_end_key->hashKey = p_tcaphash_end_key->hashKey;
   p_new_tcaphash_end_key->tid = p_tcaphash_end_key->tid;
-  p_new_tcaphash_end_key->pc_hash = p_tcaphash_end_key->pc_hash;
+  p_new_tcaphash_end_key->opc_hash = p_tcaphash_end_key->opc_hash;
+  p_new_tcaphash_end_key->dpc_hash = p_tcaphash_end_key->dpc_hash;
 
   p_new_tcaphash_endcall = wmem_new0(wmem_file_scope(), struct tcaphash_endcall_t);
   p_new_tcaphash_endcall->endkey=p_new_tcaphash_end_key;
@@ -1038,6 +1039,7 @@ tcaphash_cont_matching(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   proto_item *pi;
   proto_item *stat_item=NULL;
   proto_tree *stat_tree=NULL;
+  gboolean use_dst = FALSE;
 
 #ifdef DEBUG_TCAPSRT
   dbg(51,"src %s srcTid %lx dst %s dstTid %lx ", address_to_str(wmem_packet_scope(), &pinfo->src), p_tcapsrt_info->src_tid, address_to_str(wmem_packet_scope(), &pinfo->dst), p_tcapsrt_info->dst_tid);
@@ -1093,11 +1095,13 @@ tcaphash_cont_matching(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 #endif
     p_tcaphash_begincall = find_tcaphash_begin(&tcaphash_begin_key, pinfo, FALSE);
     if(!p_tcaphash_begincall){
+      try_src:
 /* can this actually happen? */
 #ifdef DEBUG_TCAPSRT
         dbg(12,"BNotFound trying stid,src");
 #endif
         /* Do we have a continue from the same source? (stid,src) */
+        use_dst = TRUE;
         tcaphash_begin_key.tid = p_tcapsrt_info->src_tid;
         if (pinfo->src.type == ss7pc_address_type && pinfo->dst.type == ss7pc_address_type)
         {
@@ -1130,21 +1134,23 @@ tcaphash_cont_matching(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       create_tcaphash_cont(&tcaphash_cont_key,
                            p_tcaphash_begincall->context);
 
-      /* Create END for (stid,src) */
-      tcaphash_end_key.tid = p_tcapsrt_info->src_tid;
+      /* Create END for (stid,src) or (dtid,dst) */
+      tcaphash_end_key.tid = use_dst ? p_tcapsrt_info->dst_tid : p_tcapsrt_info->src_tid;
       if (pinfo->src.type == ss7pc_address_type && pinfo->dst.type == ss7pc_address_type)
       {
         /* We have MTP3 PCs (so we can safely do this cast) */
-        tcaphash_end_key.pc_hash = mtp3_pc_hash((const mtp3_addr_pc_t *)pinfo->src.data);
-      } else {
+        tcaphash_end_key.dpc_hash = mtp3_pc_hash((const mtp3_addr_pc_t *)(use_dst ? pinfo->dst.data : pinfo->src.data));
+        tcaphash_end_key.opc_hash = mtp3_pc_hash((const mtp3_addr_pc_t *)(use_dst ? pinfo->src.data : pinfo->dst.data));
+    } else {
         /* Don't have MTP3 PCs (have SCCP GT ?) */
-        tcaphash_end_key.pc_hash = g_str_hash(address_to_str(wmem_packet_scope(), &pinfo->src));
-      }
+        tcaphash_end_key.dpc_hash = g_str_hash(address_to_str(wmem_packet_scope(), use_dst ? &pinfo->dst : &pinfo->src));
+        tcaphash_end_key.opc_hash = g_str_hash(address_to_str(wmem_packet_scope(), use_dst ? &pinfo->src : &pinfo->dst));
+    }
       tcaphash_end_key.hashKey=tcaphash_end_calchash(&tcaphash_end_key);
 
 #ifdef DEBUG_TCAPSRT
       dbg(10,"New Ekey %lx ",tcaphash_end_key.hashKey);
-      dbg(51,"addr %s ", address_to_str(wmem_packet_scope(), &pinfo->src));
+      dbg(51,"addr %s ", address_to_str(wmem_packet_scope(), use_dst ? &pinfo->dst : &pinfo->src));
       dbg(51,"Tid %lx ",tcaphash_end_key.tid);
       dbg(11,"Frame reqlink #%u ", pinfo->num);
 #endif
@@ -1155,6 +1161,10 @@ tcaphash_cont_matching(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 #ifdef DEBUG_TCAPSRT
       dbg(12,"BnotFound ");
 #endif
+      if (!use_dst) {
+        /* make another try with src tid / address */
+        goto try_src;
+      }
     } /* begin found */
   } /* cont found */
     /* display tcap session, if available */
@@ -1206,11 +1216,13 @@ tcaphash_end_matching(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   if (pinfo->src.type == ss7pc_address_type && pinfo->dst.type == ss7pc_address_type)
   {
     /* We have MTP3 PCs (so we can safely do this cast) */
-    tcaphash_end_key.pc_hash = mtp3_pc_hash((const mtp3_addr_pc_t *)pinfo->dst.data);
+    tcaphash_end_key.opc_hash = mtp3_pc_hash((const mtp3_addr_pc_t *)pinfo->src.data);
+    tcaphash_end_key.dpc_hash = mtp3_pc_hash((const mtp3_addr_pc_t *)pinfo->dst.data);
   } else {
     /* Don't have MTP3 PCs (have SCCP GT ?) */
-    tcaphash_end_key.pc_hash = g_str_hash(address_to_str(wmem_packet_scope(), &pinfo->dst));
-  }
+    tcaphash_end_key.opc_hash = g_str_hash(address_to_str(wmem_packet_scope(), &pinfo->src));
+    tcaphash_end_key.dpc_hash = g_str_hash(address_to_str(wmem_packet_scope(), &pinfo->dst));
+}
   tcaphash_end_key.hashKey=tcaphash_end_calchash(&tcaphash_end_key);
 
 #ifdef DEBUG_TCAPSRT
@@ -1826,6 +1838,7 @@ dissect_tcap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
   gint8 ber_class;
   gboolean pc;
   gint tag;
+  struct tcap_private_t *p_tcap_private;
 
   /* Check if ANSI TCAP and call the ANSI TCAP dissector if that's the case
    * PackageType ::= CHOICE { unidirectional            [PRIVATE 1] IMPLICIT UniTransactionPDU,
@@ -1874,9 +1887,9 @@ dissect_tcap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
   }
   cur_oid = NULL;
   tcapext_oid = NULL;
-  raz_tcap_private(&tcap_private);
 
-  asn1_ctx.value_ptr = &tcap_private;
+  p_tcap_private = wmem_new0(wmem_packet_scope(), struct tcap_private_t);
+  asn1_ctx.value_ptr = p_tcap_private;
   gp_tcapsrt_info=tcapsrt_razinfo();
   tcap_subdissector_used=FALSE;
   gp_tcap_context=NULL;
@@ -1884,7 +1897,7 @@ dissect_tcap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 
   if (gtcap_HandleSRT && !tcap_subdissector_used ) {
     p_tcap_context=tcapsrt_call_matching(tvb, pinfo, tcap_stat_tree, gp_tcapsrt_info);
-    tcap_private.context=p_tcap_context;
+    p_tcap_private->context=p_tcap_context;
 
     /* If the current message is TCAP only,
      * save the Application Context Name for the next messages
@@ -2082,14 +2095,14 @@ proto_register_tcap(void)
 }
 
 
-static void range_delete_callback(guint32 ssn)
+static void range_delete_callback(guint32 ssn, gpointer ptr _U_)
 {
   if ( ssn && !get_ansi_tcap_subdissector(ssn) && !get_itu_tcap_subdissector(ssn) ) {
     dissector_delete_uint("sccp.ssn", ssn, tcap_handle);
   }
 }
 
-static void range_add_callback(guint32 ssn)
+static void range_add_callback(guint32 ssn, gpointer ptr _U_)
 {
   if (ssn && !get_ansi_tcap_subdissector(ssn) && !get_itu_tcap_subdissector(ssn) ) {
     dissector_add_uint("sccp.ssn", ssn, tcap_handle);
@@ -2100,7 +2113,7 @@ static void range_add_callback(guint32 ssn)
 static void init_tcap(void)
 {
   ssn_range = range_copy(wmem_epan_scope(), global_ssn_range);
-  range_foreach(ssn_range, range_add_callback);
+  range_foreach(ssn_range, range_add_callback, NULL);
 
   /* Reset the session counter */
   tcapsrt_global_SessionId=1;
@@ -2111,7 +2124,7 @@ static void init_tcap(void)
 
 static void cleanup_tcap(void)
 {
-  range_foreach(ssn_range, range_delete_callback);
+  range_foreach(ssn_range, range_delete_callback, NULL);
   wmem_free(wmem_epan_scope(), ssn_range);
 }
 
@@ -2191,20 +2204,16 @@ dissect_tcap_param(asn1_ctx_t *actx, proto_tree *tree, tvbuff_t *tvb, int offset
   return offset;
 }
 
-static void raz_tcap_private(struct tcap_private_t * p_tcap_private)
-{
-  memset(p_tcap_private,0,sizeof(struct tcap_private_t) );
-}
-
 /*
  * Call ITU Subdissector to decode the Tcap Component
  */
 static int
-dissect_tcap_ITU_ComponentPDU(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset, asn1_ctx_t *actx _U_, proto_tree *tree, int hf_index _U_)
+dissect_tcap_ITU_ComponentPDU(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index _U_)
 {
   dissector_handle_t subdissector_handle=NULL;
   gboolean is_subdissector=FALSE;
   struct tcaphash_context_t * p_tcap_context=NULL;
+  struct tcap_private_t *p_tcap_private = (struct tcap_private_t*)actx->value_ptr;
 
   /*
    * ok lets look at the oid and ssn and try and find a dissector, otherwise lets decode it.
@@ -2218,11 +2227,11 @@ dissect_tcap_ITU_ComponentPDU(gboolean implicit_tag _U_, tvbuff_t *tvb, int offs
       p_tcap_context=tcapsrt_call_matching(tvb, actx->pinfo, tcap_stat_tree, gp_tcapsrt_info);
       tcap_subdissector_used=TRUE;
       gp_tcap_context=p_tcap_context;
-      tcap_private.context=p_tcap_context;
+      p_tcap_private->context=p_tcap_context;
     } else {
       /* Take the last TCAP context */
       p_tcap_context = gp_tcap_context;
-      tcap_private.context=p_tcap_context;
+      p_tcap_private->context=p_tcap_context;
     }
   }
   if (p_tcap_context) {
@@ -2261,8 +2270,8 @@ dissect_tcap_ITU_ComponentPDU(gboolean implicit_tag _U_, tvbuff_t *tvb, int offs
     } else {
       /* Copy the OID from the TCAP context to the current oid */
       if (p_tcap_context->oid_present) {
-        tcap_private.oid= (void*) p_tcap_context->oid;
-        tcap_private.acv=TRUE;
+        p_tcap_private->oid= (void*) p_tcap_context->oid;
+        p_tcap_private->acv=TRUE;
       }
     } /* no OID */
   } /* no TCAP context */

@@ -37,8 +37,8 @@
 #include <epan/wslua/init_wslua.h>
 #endif
 
-#include "../../log.h"
-#include "../../register.h"
+#include "log.h"
+#include "register.h"
 
 #include "ui/alert_box.h"
 #include "ui/last_open_dir.h"
@@ -51,13 +51,13 @@
 #include "wsutil/tempfile.h"
 #include "wsutil/plugins.h"
 #include "wsutil/copyright_info.h"
-#include "ws_version_info.h"
+#include "version_info.h"
 
 #ifdef HAVE_EXTCAP
 #include "extcap.h"
 #endif
 
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 
 #include <QFontMetrics>
 #include <QKeySequence>
@@ -84,6 +84,7 @@ const QString AboutDialog::about_folders_row(const char *name, const QString dir
             .arg(typ_file);
 }
 
+#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
 static void plugins_add_description(const char *name, const char *version,
                                     const char *types, const char *filename,
                                     void *user_data)
@@ -92,7 +93,7 @@ static void plugins_add_description(const char *name, const char *version,
     QStringList plugin_row = QStringList() << name << version << types << filename;
     *plugin_data << plugin_row;
 }
-
+#endif
 
 const QString AboutDialog::plugins_scan()
 {
@@ -122,7 +123,6 @@ const QString AboutDialog::plugins_scan()
 #ifdef HAVE_EXTCAP
     GHashTable * tools = extcap_loaded_interfaces();
     if (tools && g_hash_table_size(tools) > 0) {
-        QString short_file;
         GList * walker = g_list_first(g_hash_table_get_keys(tools));
         while (walker && walker->data) {
             extcap_info * tool = (extcap_info *)g_hash_table_lookup(tools, walker->data);
@@ -224,13 +224,33 @@ AboutDialog::AboutDialog(QWidget *parent) :
     /* program */
     message += about_folders_row("Program", get_progfile_dir(), "program files");
 
-#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
+#ifdef HAVE_PLUGINS
     /* pers plugins */
-    message += about_folders_row("Personal Plugins", gchar_free_to_qstring(get_plugins_pers_dir()),
-                      "dissector plugins");
+    message += about_folders_row("Personal Plugins", get_plugins_pers_dir_with_version(), "binary plugins");
 
     /* global plugins */
-    message += about_folders_row("Global Plugins", get_plugin_dir(), "dissector plugins");
+    message += about_folders_row("Global Plugins", get_plugins_dir_with_version(), "binary plugins");
+#endif
+
+#ifdef HAVE_LUA
+    /* pers plugins */
+    message += about_folders_row("Personal Lua Plugins", get_plugins_pers_dir(), "lua scripts");
+
+    /* global plugins */
+    message += about_folders_row("Global Lua Plugins", get_plugins_dir(), "lua scripts");
+#endif
+
+#ifdef HAVE_EXTCAP
+    /* Extcap */
+    constpath = get_extcap_dir();
+
+    resultArray = g_strsplit(constpath, G_SEARCHPATH_SEPARATOR_S, 10);
+
+    for(i = 0; resultArray[i]; i++) {
+        message += about_folders_row("Extcap path", g_strstrip(resultArray[i]),
+                                     "Extcap Plugins search path");
+    }
+    g_strfreev(resultArray);
 #endif
 
 #ifdef HAVE_GEOIP
@@ -261,25 +281,12 @@ AboutDialog::AboutDialog(QWidget *parent) :
     g_free(path);
 #endif
 
-#ifdef HAVE_EXTCAP
-    /* Extcap */
-    constpath = get_extcap_dir();
-
-    resultArray = g_strsplit(constpath, G_SEARCHPATH_SEPARATOR_S, 10);
-
-    for(i = 0; resultArray[i]; i++) {
-        message += about_folders_row("Extcap path", g_strstrip(resultArray[i]),
-                                     "Extcap Plugins search path");
-    }
-    g_strfreev(resultArray);
-#endif
-
     message += "</table>";
     ui->label_folders->setText(message);
 
 
     /* Plugins */
-
+#if defined(HAVE_PLUGINS) || defined(HAVE_LUA) || defined(HAVE_EXTCAP)
     message = QString("<table cellpadding=\"%1\">\n").arg(one_em / 4);
     message += "<tr><th align=\"left\">Name</th><th align=\"left\">Version</th><th align=\"left\">Type</th><th align=\"left\">Path</th></tr>\n";
 
@@ -287,6 +294,9 @@ AboutDialog::AboutDialog(QWidget *parent) :
 
     message += "</table>";
     ui->te_plugins->setHtml(message);
+#else
+    ui->te_plugins->setVisible(false);
+#endif
 
     /* Shortcuts */
     bool have_shortcuts = false;

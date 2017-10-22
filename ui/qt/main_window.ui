@@ -126,6 +126,9 @@
      <widget class="FilterExpressionFrame" name="filterExpressionFrame"/>
     </item>
     <item>
+     <widget class="WirelessTimeline" name="wirelessTimelineWidget"/>
+    </item>
+    <item>
      <widget class="QStackedWidget" name="mainStack">
       <property name="enabled">
        <bool>true</bool>
@@ -268,6 +271,11 @@
     <property name="title">
      <string>&amp;View</string>
     </property>
+    <widget class="QMenu" name="menuInterfaceToolbars">
+     <property name="title">
+      <string>Interface Toolbars</string>
+     </property>
+    </widget>
     <widget class="QMenu" name="menuZoom">
      <property name="title">
       <string>&amp;Zoom</string>
@@ -337,7 +345,7 @@
      <addaction name="actionViewInternalsDissectorTables"/>
      <addaction name="actionViewInternalsSupportedProtocols"/>
     </widget>
-    <widget class="QMenu" name="actionViewAdditionalToolbars">
+    <widget class="QMenu" name="menuAdditionalToolbars">
      <property name="title">
       <string>Additional Toolbars</string>
      </property>
@@ -345,7 +353,8 @@
     <addaction name="actionViewMainToolbar"/>
     <addaction name="actionViewFilterToolbar"/>
     <addaction name="actionViewWirelessToolbar"/>
-    <addaction name="actionViewAdditionalToolbars" />
+    <addaction name="menuInterfaceToolbars"/>
+    <addaction name="menuAdditionalToolbars" />
     <addaction name="actionViewStatusBar"/>
     <addaction name="separator"/>
     <addaction name="actionViewFullScreen"/>
@@ -504,7 +513,6 @@
        <string>UIM</string>
       </property>
       <addaction name="actionStatistics29WestUIM_Streams"/>
-      <addaction name="actionStatistics29WestUIM_Stream_Flow_Graph"/>
      </widget>
      <addaction name="menu29WestTopics"/>
      <addaction name="menu29WestQueues"/>
@@ -589,6 +597,12 @@
      </property>
      <addaction name="actionTelephonyMTP3Placeholder"/>
     </widget>
+    <widget class="QMenu" name="menuOsmux">
+     <property name="title">
+      <string>Osmux</string>
+     </property>
+     <addaction name="actionTelephonyOsmuxPacketCounter"/>
+    </widget>
     <addaction name="actionTelephonyVoipCalls"/>
     <addaction name="menuANSI"/>
     <addaction name="menuGSM"/>
@@ -596,6 +610,7 @@
     <addaction name="actionTelephonyISUPMessages"/>
     <addaction name="menuLTE"/>
     <addaction name="menuMTP3"/>
+    <addaction name="menuOsmux"/>
     <addaction name="menuRTP"/>
     <addaction name="menuRTSP"/>
     <addaction name="menuTelephonySCTP"/>
@@ -1434,9 +1449,6 @@
    </property>
   </action>
   <action name="actionEditFindPacket">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
    <property name="text">
     <string>&amp;Find Packet…</string>
    </property>
@@ -1731,6 +1743,9 @@
    <property name="text">
     <string>TCP Stream</string>
    </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+Alt+Shift+T</string>
+   </property>
   </action>
   <action name="actionAnalyzeFollowUDPStream">
    <property name="enabled">
@@ -1738,6 +1753,9 @@
    </property>
    <property name="text">
     <string>UDP Stream</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+Alt+Shift+U</string>
    </property>
   </action>
   <action name="actionAnalyzeFollowSSLStream">
@@ -1747,6 +1765,9 @@
    <property name="text">
     <string>SSL Stream</string>
    </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+Alt+Shift+S</string>
+   </property>
   </action>
   <action name="actionAnalyzeFollowHTTPStream">
    <property name="enabled">
@@ -1754,6 +1775,9 @@
    </property>
    <property name="text">
     <string>HTTP Stream</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+Alt+Shift+H</string>
    </property>
   </action>
   <action name="actionStatisticsTcpStreamTcptrace">
@@ -1910,6 +1934,14 @@
     <string>ISUP message statistics</string>
    </property>
   </action>
+  <action name="actionTelephonyOsmuxPacketCounter">
+   <property name="text">
+    <string>Packet Counter</string>
+   </property>
+   <property name="toolTip">
+    <string>Osmux packet counts</string>
+   </property>
+  </action>
   <action name="actionTelephonyRTSPPacketCounter">
    <property name="text">
     <string>Packet Counter</string>
@@ -2016,11 +2048,6 @@
   <action name="actionStatistics29WestUIM_Streams">
    <property name="text">
     <string>Streams</string>
-   </property>
-  </action>
-  <action name="actionStatistics29WestUIM_Stream_Flow_Graph">
-   <property name="text">
-    <string>Stream Flow Graph</string>
    </property>
   </action>
   <action name="actionStatistics29WestLBTRM">
@@ -3008,6 +3035,12 @@
    <class>FilterExpressionFrame</class>
    <extends>QFrame</extends>
    <header>filter_expression_frame.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>WirelessTimeline</class>
+   <extends>QWidget</extends>
+   <header>wireless_timeline.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

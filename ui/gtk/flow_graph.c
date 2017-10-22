@@ -37,28 +37,29 @@
 #include "ui/gtk/main.h"
 #include "ui/gtk/gui_stat_menu.h"
 #include "ui/gtk/old-gtk-compat.h"
+#include "ui/gtk/gtkglobals.h"
 
 void register_tap_listener_flow_graph(void);
 
 static seq_analysis_info_t *graph_analysis	  = NULL;
 static graph_analysis_data_t *graph_analysis_data = NULL;
+static const char* display_filter = NULL;
 
 static GtkWidget *flow_graph_dlg = NULL;
 
 static GtkWidget *select_all_rb;
 static GtkWidget *select_displayed_rb;
-static GtkWidget *select_general_rb;
-static GtkWidget *select_tcp_rb;
 static GtkWidget *src_dst_rb;
 static GtkWidget *net_src_dst_rb;
+static GtkWidget *select_analysis_combo;
 
 
 /****************************************************************************/
 static void
 flow_graph_data_init(void) {
 	graph_analysis = sequence_analysis_info_new();
-	graph_analysis->type = SEQ_ANALYSIS_ANY;
-	graph_analysis->all_packets = TRUE;
+	graph_analysis->name = "any";
+	display_filter = NULL;
 }
 
 
@@ -82,6 +83,29 @@ flow_graph_on_destroy(GObject *object _U_, gpointer user_data _U_)
 	flow_graph_dlg = NULL;
 }
 
+static gboolean
+find_seq_name(const void *key, void *value, void *userdata)
+{
+	const char* name = (const char*)key;
+	register_analysis_t* analysis = (register_analysis_t*)value;
+	const char* ui_name = (const char*)userdata;
+
+	if (strcmp(ui_name, sequence_analysis_get_ui_name(analysis)) == 0)
+	{
+		graph_analysis->name = name;
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+static void
+sequence_combo_box_changed_cb(GtkComboBox *combo_box, gpointer user_data _U_)
+{
+	gchar* ui_name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo_box));
+
+	sequence_analysis_table_iterate_tables(find_seq_name, ui_name);
+}
 
 /****************************************************************************/
 static void
@@ -89,7 +113,7 @@ toggle_select_all(GtkWidget *widget _U_, gpointer user_data _U_)
 {
 	/* is the button now active? */
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(select_all_rb))) {
-		graph_analysis->all_packets = TRUE;
+		display_filter = NULL;
 	}
 }
 
@@ -99,27 +123,7 @@ toggle_select_displayed(GtkWidget *widget _U_, gpointer user_data _U_)
 {
 	/* is the button now active? */
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(select_displayed_rb))) {
-		graph_analysis->all_packets = FALSE;
-	}
-}
-
-/****************************************************************************/
-static void
-toggle_select_general(GtkWidget *widget _U_, gpointer user_data _U_)
-{
-	/* is the button now active? */
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(select_general_rb))) {
-		graph_analysis->type = SEQ_ANALYSIS_ANY;
-	}
-}
-
-/****************************************************************************/
-static void
-toggle_select_tcp(GtkWidget *widget _U_, gpointer user_data _U_)
-{
-	/* is the button now active? */
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(select_tcp_rb))) {
-		graph_analysis->type = SEQ_ANALYSIS_TCP;
+		display_filter = gtk_entry_get_text(GTK_ENTRY(main_display_filter_widget));
 	}
 }
 
@@ -145,12 +149,21 @@ toggle_select_netsrcdst(GtkWidget *widget _U_, gpointer user_data _U_)
 
 /****************************************************************************/
 static void
-flow_graph_on_ok(GtkButton       *button _U_,
-		 gpointer         user_data)
+flow_graph_on_ok(GtkButton *button _U_, gpointer user_data)
 {
+	register_analysis_t* analysis = sequence_analysis_find_by_name(graph_analysis->name);
+
 	/* Scan for displayed packets (retap all packets) */
 	sequence_analysis_list_free(graph_analysis);
-	sequence_analysis_list_get(&cfile, graph_analysis);
+
+	if (analysis != NULL)
+	{
+		register_tap_listener(sequence_analysis_get_tap_listener_name(analysis), graph_analysis, display_filter, sequence_analysis_get_tap_flags(analysis),
+								NULL, sequence_analysis_get_packet_func(analysis), NULL);
+
+		cf_retap_packets(&cfile);
+		remove_tap_listener(graph_analysis);
+	}
 
 	if (graph_analysis_data->dlg.window != NULL){ /* if we still have a window */
 		graph_analysis_update(graph_analysis_data);		/* refresh it xxx */
@@ -184,6 +197,16 @@ flow_graph_on_delete(GtkButton       *button _U_,
 /****************************************************************************/
 /* INTERFACE                                                                */
 /****************************************************************************/
+static gboolean
+add_flow_sequence_item(const void *key _U_, void *value, void *userdata)
+{
+	register_analysis_t* analysis = (register_analysis_t*)value;
+	GtkWidget* combo_box = (GtkWidget*)userdata;
+
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo_box), sequence_analysis_get_ui_name(analysis));
+	return FALSE;
+}
+
 
 static void
 flow_graph_dlg_create(void)
@@ -227,10 +250,10 @@ flow_graph_dlg_create(void)
 	g_signal_connect(select_all_rb, "toggled", G_CALLBACK(toggle_select_all), NULL);
 	ws_gtk_grid_attach_extended(GTK_GRID(range_grid), select_all_rb, 0, 0, 1, 1,
 				    (GtkAttachOptions)(GTK_FILL), (GtkAttachOptions)(0), 0, 0);
-	if (graph_analysis->all_packets) {
+	if (display_filter == NULL) {
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(select_all_rb),TRUE);
 	}
- 	gtk_widget_show(select_all_rb);
+	gtk_widget_show(select_all_rb);
 
 	/* Process displayed packets */
 	select_displayed_rb = gtk_radio_button_new_with_mnemonic_from_widget(GTK_RADIO_BUTTON(select_all_rb),
@@ -239,7 +262,7 @@ flow_graph_dlg_create(void)
 	g_signal_connect(select_displayed_rb, "toggled", G_CALLBACK(toggle_select_displayed), NULL);
 	ws_gtk_grid_attach_extended(GTK_GRID(range_grid), select_displayed_rb, 0, 1, 1, 1,
 				    (GtkAttachOptions)(GTK_FILL), (GtkAttachOptions)(0), 0, 0);
-	if (!graph_analysis->all_packets) {
+	if (display_filter != NULL) {
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(select_displayed_rb),TRUE);
 	}
  	gtk_widget_show(select_displayed_rb);
@@ -255,28 +278,14 @@ flow_graph_dlg_create(void)
 	gtk_container_set_border_width(GTK_CONTAINER(flow_type_grid), 5);
 	gtk_container_add(GTK_CONTAINER(flow_type_fr), flow_type_grid);
 
-	/* General information */
-	select_general_rb = gtk_radio_button_new_with_mnemonic_from_widget(NULL, "_General flow");
-	gtk_widget_set_tooltip_text (select_general_rb,	("Show all packets, with general information"));
-	g_signal_connect(select_general_rb, "toggled", G_CALLBACK(toggle_select_general), NULL);
-	ws_gtk_grid_attach_extended(GTK_GRID(flow_type_grid), select_general_rb, 0, 0, 1, 1,
-				    (GtkAttachOptions)(GTK_FILL), (GtkAttachOptions)(0), 0, 0);
-	if (graph_analysis->type == SEQ_ANALYSIS_ANY) {
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(select_general_rb),TRUE);
-	}
- 	gtk_widget_show(select_general_rb);
+	select_analysis_combo = gtk_combo_box_text_new();
+	g_signal_connect(select_analysis_combo, "changed", G_CALLBACK(sequence_combo_box_changed_cb), NULL);
+	sequence_analysis_table_iterate_tables(add_flow_sequence_item, select_analysis_combo);
+	gtk_combo_box_set_active(GTK_COMBO_BOX(select_analysis_combo), 0);
 
-	/* TCP specific information */
-	select_tcp_rb = gtk_radio_button_new_with_mnemonic_from_widget(GTK_RADIO_BUTTON(select_general_rb),
-								       "_TCP flow");
-	gtk_widget_set_tooltip_text (select_tcp_rb, ("Show only TCP packets, with TCP specific information"));
-	g_signal_connect(select_tcp_rb, "toggled", G_CALLBACK(toggle_select_tcp), NULL);
-	ws_gtk_grid_attach_extended(GTK_GRID(flow_type_grid), select_tcp_rb, 0, 1, 1, 1,
-				    (GtkAttachOptions)(GTK_FILL), (GtkAttachOptions)(0), 0, 0);
-	if (graph_analysis->type == SEQ_ANALYSIS_TCP) {
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(select_tcp_rb),TRUE);
-	}
- 	gtk_widget_show(select_tcp_rb);
+	ws_gtk_grid_attach_extended(GTK_GRID(flow_type_grid), select_analysis_combo, 0, 0, 1, 1,
+					(GtkAttachOptions)(GTK_FILL), (GtkAttachOptions)(0), 0, 0);
+	gtk_widget_show(select_analysis_combo);
 
 	gtk_widget_show(flow_type_grid);
 	gtk_widget_show(flow_type_fr);

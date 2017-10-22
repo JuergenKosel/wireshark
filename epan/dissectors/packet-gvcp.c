@@ -1343,8 +1343,8 @@ static void dissect_packetresend_cmd(proto_tree *gvcp_telegram_tree, tvbuff_t *t
 	{
 		guint64 highid;
 		guint64 lowid;
-		highid = tvb_get_ntoh64(tvb, offset + 12);
-		lowid = tvb_get_ntoh64(tvb, offset + 16);
+		highid = tvb_get_ntohl(tvb, offset + 12);
+		lowid = tvb_get_ntohl(tvb, offset + 16);
 
 		block_id = lowid | (highid << 32);
 	}
@@ -1419,7 +1419,7 @@ static void dissect_readreg_cmd(proto_tree *gvcp_telegram_tree, tvbuff_t *tvb, p
 	}
 	else
 	{
-		col_append_fstr(pinfo->cinfo, COL_INFO, "%s", address_string);
+		col_append_str(pinfo->cinfo, COL_INFO, address_string);
 	}
 
 	if (!pinfo->fd->flags.visited)
@@ -1951,7 +1951,7 @@ static void dissect_readreg_ack(proto_tree *gvcp_telegram_tree, tvbuff_t *tvb, p
 			}
 			else
 			{
-				col_append_fstr(pinfo->cinfo, COL_INFO, "%s", address_string);
+				col_append_str(pinfo->cinfo, COL_INFO, address_string);
 			}
 		}
 	}
@@ -2053,7 +2053,7 @@ static void dissect_readmem_ack(proto_tree *gvcp_telegram_tree, tvbuff_t *tvb, p
 	address_string = get_register_name_from_address(addr, &is_custom_register);
 
 	/* Fill in Wireshark GUI Info column */
-	col_append_fstr(pinfo->cinfo, COL_INFO, "%s", address_string);
+	col_append_str(pinfo->cinfo, COL_INFO, address_string);
 
 	if (gvcp_telegram_tree != NULL)
 	{
@@ -2090,7 +2090,7 @@ static void dissect_writemem_ack(proto_tree *gvcp_telegram_tree, tvbuff_t *tvb, 
 		{
 			const gchar *address_string = NULL;
 			address_string = get_register_name_from_address((*((guint32*)wmem_array_index(gvcp_trans->addr_list, 0))), NULL);
-			col_append_fstr(pinfo->cinfo, COL_INFO, "%s", address_string);
+			col_append_str(pinfo->cinfo, COL_INFO, address_string);
 		}
 	}
 
@@ -2196,7 +2196,7 @@ static int dissect_gvcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 		offset++;
 
 		/* Add the flags */
-		flags = (gchar) tvb_get_guint8(tvb, offset + 1);
+		flags = (gchar) tvb_get_guint8(tvb, offset);
 		item = proto_tree_add_item(gvcp_tree, hf_gvcp_flag, tvb, offset, 1, ENC_BIG_ENDIAN);
 		gvcp_tree_flag  = proto_item_add_subtree(item, ett_gvcp_flags);
 		if (command == GVCP_ACTION_CMD)

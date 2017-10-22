@@ -35,6 +35,18 @@
 #include "pcap-common.h"
 
 /*
+ * On some systems, the FDDI MAC addresses are bit-swapped.
+ *
+ * XXX - what we *really* need to know is whether the addresses are
+ * bit-swapped *in a particular capture*, which depends on the system
+ * on which it was captured, not on the system that's reading it.
+ * Unfortunately, we can't determine that.
+ */
+#if !defined(ultrix) && !defined(__alpha) && !defined(__bsdi__)
+#define BIT_SWAPPED_MAC_ADDRS
+#endif
+
+/*
  * Map link-layer header types (LINKTYPE_ values) to Wiretap encapsulations.
  *
  * Either LBL NRG wasn't an adequate central registry (e.g., because of
@@ -93,6 +105,7 @@ static const struct {
 	 */
 	{ 0,		WTAP_ENCAP_NULL },	/* null encapsulation */
 	{ 1,		WTAP_ENCAP_ETHERNET },
+	{ 2,		WTAP_ENCAP_3MB_ETHERNET },
 	{ 3,		WTAP_ENCAP_AX25 },
 	{ 6,		WTAP_ENCAP_TOKEN_RING },	/* IEEE 802 Networks - assume token ring */
 	{ 7,		WTAP_ENCAP_ARCNET },
@@ -437,8 +450,20 @@ static const struct {
 	/* ISO 14443 contactless smartcard standards */
 	{ 264,		WTAP_ENCAP_ISO14443 },
 
+	/* USB packets from Darwin (macOS, iOS) BPF tap */
+	{ 266,          WTAP_ENCAP_USB_DARWIN },
+
 	/* IBM SDLC frames containing SNA PDUs */
 	{ 268,		WTAP_ENCAP_SDLC },
+
+	/* LoRaTap */
+	{ 270,		WTAP_ENCAP_LORATAP },
+
+	/* Linux vsock */
+	{ 271,		WTAP_ENCAP_VSOCK },
+
+	/* Nordic BLE Sniffer */
+	{ 272,		WTAP_ENCAP_NORDIC_BLE },
 
 	/*
 	 * To repeat:
@@ -694,6 +719,27 @@ wtap_wtap_encap_to_pcap_encap(int encap)
 			return pcap_to_wtap_map[i].linktype_value;
 	}
 	return -1;
+}
+
+/*
+ * For most encapsulations, we use WTAP_MAX_PACKET_SIZE_STANDARD, as
+ * that should be enough for most link-layer types, and shouldn't be
+ * too big.
+ *
+ * For D-Bus, we use WTAP_MAX_PACKET_SIZE_DBUS, because the maximum
+ * D-Bus message size is 128MB, which is bigger than we'd want for
+ * all link-layer types - files with that snapshot length might cause
+ * some programs reading them to allocate a huge and wasteful buffer
+ * and, at least on 32-bit platforms, run the risk of running out of
+ * memory.
+ */
+guint
+wtap_max_snaplen_for_encap(int wtap_encap)
+{
+	if (wtap_encap == WTAP_ENCAP_DBUS)
+		return WTAP_MAX_PACKET_SIZE_DBUS;
+	else
+		return WTAP_MAX_PACKET_SIZE_STANDARD;
 }
 
 gboolean

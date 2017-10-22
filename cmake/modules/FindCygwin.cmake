@@ -46,21 +46,25 @@
 
 if (WIN32)
   find_path(CYGWIN_INSTALL_PATH
-    cygwin.bat
-    PATH ENV WIRESHARK_CYGWIN_INSTALL_PATH
-    "C:/Cygwin"
-    "C:/Cygwin64"
-    "C:/tools/cygwin"
-    "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Cygwin\\setup;rootdir]"
-    "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Cygnus Solutions\\Cygwin\\mounts v2\\/;native]"
+    NAMES cygwin.bat
+    PATHS
+      ENV WIRESHARK_CYGWIN_INSTALL_PATH
+      "C:/Cygwin"
+      "C:/Cygwin64"
+      "C:/tools/cygwin"
+      "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Cygwin\\setup;rootdir]"
+      "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Cygnus Solutions\\Cygwin\\mounts v2\\/;native]"
   )
 
-  if(${CYGWIN_INSTALL_PATH} STREQUAL "CYGWIN_INSTALL_PATH-NOTFOUND")
-    message(FATAL_ERROR "Cygwin installation path was not detected. You can set it with WIRESHARK_CYGWIN_INSTALL_PATH environment variable.")
-  else()
-    mark_as_advanced(
-      CYGWIN_INSTALL_PATH
-    )
+  if(NOT CYGWIN_INSTALL_PATH)
+    if(WIRESHARK_CYGWIN_INSTALL_PATH)
+      message(FATAL_ERROR "WIRESHARK_CYGWIN_INSTALL_PATH was specified, but Cygwin was not found.")
+    else()
+      message(WARNING "Cygwin installation path was not detected. You can set it with WIRESHARK_CYGWIN_INSTALL_PATH environment variable.")
+    endif()
   endif()
 
+  mark_as_advanced(
+    CYGWIN_INSTALL_PATH
+  )
 endif ()

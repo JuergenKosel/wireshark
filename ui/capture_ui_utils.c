@@ -202,10 +202,10 @@ capture_dev_user_snaplen_find(const gchar *if_name, gboolean *hassnap, int *snap
     if (strcmp(if_tokens[i], if_name) == 0) {
       /* OK, this matches. */
       if (*(colonp + 1) == '0') {
-        /* {hassnap} is false, so just set the snaplen to WTAP_MAX_PACKET_SIZE. */
+        /* {hassnap} is false, so just set the snaplen to WTAP_MAX_PACKET_SIZE_STANDARD. */
         found = TRUE;
         *hassnap = FALSE;
-        *snaplen = WTAP_MAX_PACKET_SIZE;
+        *snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
       } else if (*(colonp + 1) == '1') {
         /* {hassnap} is true, so extract {snaplen} */
         if (*(colonp + 2) != '(') {
@@ -484,16 +484,14 @@ get_if_name(const char *if_text)
 const char *
 get_iface_description_for_interface(capture_options *capture_opts, guint i)
 {
-  interface_options interface_opts;
+  interface_options *interface_opts;
 
   if (i < capture_opts->ifaces->len) {
-    interface_opts = g_array_index(capture_opts->ifaces, interface_options, i);
-    if (!interface_opts.descr && interface_opts.name) {
-      interface_opts.descr = get_interface_descriptive_name(interface_opts.name);
-      capture_opts->ifaces = g_array_remove_index(capture_opts->ifaces, i);
-      g_array_insert_val(capture_opts->ifaces, i, interface_opts);
+    interface_opts = &g_array_index(capture_opts->ifaces, interface_options, i);
+    if (!interface_opts->descr && interface_opts->name) {
+      interface_opts->descr = get_interface_descriptive_name(interface_opts->name);
     }
-    return (interface_opts.descr);
+    return (interface_opts->descr);
   } else {
     return (NULL);
   }
@@ -584,12 +582,12 @@ get_iface_list_string(capture_options *capture_opts, guint32 style)
       if (style & IFLIST_QUOTE_IF_DESCRIPTION)
         g_string_append_printf(iface_list_string, "'");
       if (style & IFLIST_SHOW_FILTER) {
-        interface_options interface_opts;
+        interface_options *interface_opts;
 
-        interface_opts = g_array_index(capture_opts->ifaces, interface_options, i);
-        if (interface_opts.cfilter != NULL &&
-            strlen(interface_opts.cfilter) > 0) {
-          g_string_append_printf(iface_list_string, " (%s)", interface_opts.cfilter);
+        interface_opts = &g_array_index(capture_opts->ifaces, interface_options, i);
+        if (interface_opts->cfilter != NULL &&
+            strlen(interface_opts->cfilter) > 0) {
+          g_string_append_printf(iface_list_string, " (%s)", interface_opts->cfilter);
         }
       }
     }

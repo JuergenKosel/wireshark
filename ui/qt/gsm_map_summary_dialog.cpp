@@ -43,7 +43,7 @@
 #include "ui/capture_globals.h"
 #include "ui/simple_dialog.h"
 
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
 
 #include <QTextStream>
@@ -128,7 +128,7 @@ QString GsmMapSummaryDialog::summaryToHtml()
         << table_data_tmpl.arg(format_str)
         << table_row_end;
 
-    if (summary.has_snap) {
+    if (summary.snap != 0) {
         out << table_row_begin
             << table_vheader_tmpl.arg(tr("Snapshot length"))
             << table_data_tmpl.arg(summary.snap)

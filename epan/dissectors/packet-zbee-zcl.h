@@ -175,9 +175,12 @@ typedef struct{
 #define ZBEE_ZCL_STAT_OTA_WAIT_FOR_DATA             0x97
 #define ZBEE_ZCL_STAT_OTA_NO_IMAGE_AVAILABLE        0x98
 #define ZBEE_ZCL_STAT_OTA_REQUIRE_MORE_IMAGE        0x99
+#define ZBEE_ZCL_STAT_OTA_NOTIFICATION_PENDING      0x9a
 #define ZBEE_ZCL_STAT_HARDWARE_FAILURE              0xc0
 #define ZBEE_ZCL_STAT_SOFTWARE_FAILURE              0xc1
 #define ZBEE_ZCL_STAT_CALIBRATION_ERROR             0xc2
+#define ZBEE_ZCL_STAT_UNSUPPORTED_CLUSTER           0xc3
+#define ZBEE_ZCL_STAT_LIMIT_REACHED                 0xc4
 
 /* Misc. */
 #define INT24_SIGN_BITS                             0xffff8000

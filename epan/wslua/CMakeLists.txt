@@ -96,8 +96,6 @@ add_custom_command(
 		${CMAKE_BINARY_DIR}/epan/wslua/taps_wslua.c
 		${CMAKE_BINARY_DIR}/epan/wslua/taps.txt
 		${CMAKE_SOURCE_DIR}/epan/wslua
-	WORKING_DIRECTORY
-		${CMAKE_SOURCE_DIR}/epan/wslua
 	DEPENDS
 		${CMAKE_SOURCE_DIR}/epan/wslua/taps
 		${CMAKE_SOURCE_DIR}/epan/wslua/make-taps.pl
@@ -162,7 +160,6 @@ add_library(wslua OBJECT
 set_target_properties(wslua PROPERTIES
 	FOLDER "Libs/epan/wslua"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
-	COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}"
 )
 
 CHECKAPI(

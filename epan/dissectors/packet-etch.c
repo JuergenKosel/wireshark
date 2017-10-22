@@ -33,7 +33,7 @@
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <wsutil/file_util.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include "packet-tcp.h"
 
 void proto_register_etch(void);
@@ -657,9 +657,7 @@ read_key_value(unsigned int *offset, tvbuff_t *tvb, proto_tree *etch_tree)
 
   /* append the symbol of the key */
   if(gbl_have_symbol == TRUE){
-    proto_item_append_text(parent_ti, " (");
-    proto_item_append_text(parent_ti, "%s", wmem_strbuf_get_str(gbl_symbol_buffer));
-    proto_item_append_text(parent_ti, ")");
+    proto_item_append_text(parent_ti, " (%s)", wmem_strbuf_get_str(gbl_symbol_buffer));
   }
 
   ti = proto_tree_add_item(new_tree_bck, hf_etch_valuename, tvb, *offset,

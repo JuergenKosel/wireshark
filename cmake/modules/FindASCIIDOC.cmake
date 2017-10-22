@@ -67,7 +67,6 @@ MACRO( ASCIIDOC2DOCBOOK _asciidocsource _conf_files _src_files _built_deps )
     GET_FILENAME_COMPONENT( _source_base_name ${_asciidocsource} NAME_WE )
     set( A2X_HTML_OPTS --stylesheet=ws.css )
     set( _output_xml ${_source_base_name}.xml )
-    set( _output_dbk ${_source_base_name}.dbk )
 
     foreach(_conf_file ${${_conf_files}})
         TO_A2X_COMPATIBLE_PATH ( ${CMAKE_CURRENT_SOURCE_DIR}/${_conf_file} _a2x_conf_file )
@@ -85,6 +84,17 @@ MACRO( ASCIIDOC2DOCBOOK _asciidocsource _conf_files _src_files _built_deps )
 
     TO_A2X_COMPATIBLE_PATH ( ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource} _a2x_asciidocsource )
 
+    if(CMAKE_GENERATOR MATCHES "Visual Studio")
+      # Workaround to prevent parallel msbuild builds from failing, see function
+      # get_docbook_xml_depends in FindXSLTPROC.cmake for details. This command
+      # updates the stamp file when the XML file is updated.
+      set(_stamp_file "${CMAKE_CURRENT_BINARY_DIR}/${_output_xml}-stamp")
+      set_property(SOURCE "${_stamp_file}" PROPERTY GENERATED)
+      set(_command_touch_stamp COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp_file}")
+    else()
+      set(_command_touch_stamp "")
+    endif()
+
     add_custom_command(
         OUTPUT
             ${_output_xml}
@@ -101,6 +111,7 @@ MACRO( ASCIIDOC2DOCBOOK _asciidocsource _conf_files _src_files _built_deps )
             --fop
             ${A2X_HTML_OPTS}
             ${_a2x_asciidocsource}
+        ${_command_touch_stamp}
         DEPENDS
             ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource}
             ${_conf_deps}

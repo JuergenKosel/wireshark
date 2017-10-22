@@ -170,6 +170,13 @@ struct ptvcursor {
 		 * items string representation */ \
 		return; \
 	}
+/* Similar to above, but allows a NULL tree */
+#define TRY_TO_FAKE_THIS_REPR_NESTED(pi)	\
+	if ((pi == NULL) || (!(PTREE_DATA(pi)->visible))) { \
+		/* If the tree (GUI) isn't visible it's pointless for us to generate the protocol \
+		 * items string representation */ \
+		return pi; \
+	}
 
 static const char *hf_try_val_to_str(guint32 value, const header_field_info *hfinfo);
 static const char *hf_try_val64_to_str(guint64 value, const header_field_info *hfinfo);
@@ -182,6 +189,8 @@ static void fill_label_boolean(field_info *fi, gchar *label_str);
 static void fill_label_bitfield_char(field_info *fi, gchar *label_str);
 static void fill_label_bitfield(field_info *fi, gchar *label_str, gboolean is_signed);
 static void fill_label_bitfield64(field_info *fi, gchar *label_str, gboolean is_signed);
+static void fill_label_bitfield_varint(field_info *fi, gchar *label_str, gboolean is_signed);
+static void fill_label_bitfield_varint64(field_info *fi, gchar *label_str, gboolean is_signed);
 static void fill_label_char(field_info *fi, gchar *label_str);
 static void fill_label_number(field_info *fi, gchar *label_str, gboolean is_signed);
 static void fill_label_number64(field_info *fi, gchar *label_str, gboolean is_signed);
@@ -205,7 +214,7 @@ proto_tree_add_node(proto_tree *tree, field_info *fi);
 
 static void
 get_hfi_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start, gint *length,
-		gint *item_length);
+		gint *item_length, const guint encoding);
 
 static gint
 get_full_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start,
@@ -426,6 +435,7 @@ static GSList *dissector_plugins = NULL;
 /*
  * Callback for each plugin found.
  */
+DIAG_OFF(pedantic)
 static gboolean
 check_for_dissector_plugin(GModule *handle)
 {
@@ -438,9 +448,7 @@ check_for_dissector_plugin(GModule *handle)
 	 * Do we have a register routine?
 	 */
 	if (g_module_symbol(handle, "plugin_register", &gp)) {
-DIAG_OFF(pedantic)
 		register_protoinfo = (void (*)(void))gp;
-DIAG_ON(pedantic)
 	}
 	else {
 		register_protoinfo = NULL;
@@ -450,9 +458,7 @@ DIAG_ON(pedantic)
 	 * Do we have a reg_handoff routine?
 	 */
 	if (g_module_symbol(handle, "plugin_reg_handoff", &gp)) {
-DIAG_OFF(pedantic)
 		reg_handoff = (void (*)(void))gp;
-DIAG_ON(pedantic)
 	}
 	else {
 		reg_handoff = NULL;
@@ -473,6 +479,7 @@ DIAG_ON(pedantic)
 	dissector_plugins = g_slist_prepend(dissector_plugins, plugin);
 	return TRUE;
 }
+DIAG_ON(pedantic)
 
 static void
 register_dissector_plugin(gpointer data, gpointer user_data _U_)
@@ -1234,12 +1241,10 @@ proto_tree_add_text_internal(proto_tree *tree, tvbuff_t *tvb, gint start, gint l
 	header_field_info *hfinfo;
 
 	if (length == -1) {
-		/* If we're fetching until the end of the TVB, only validate
-		 * that the offset is within range.
-		 */
-		length = 0;
+		length = tvb_captured_length(tvb) ? tvb_ensure_captured_length_remaining(tvb, start) : 0;
+	} else {
+		tvb_ensure_bytes_exist(tvb, start, length);
 	}
-	tvb_ensure_bytes_exist(tvb, start, length);
 
 	CHECK_FOR_NULL_TREE(tree);
 
@@ -1265,12 +1270,10 @@ proto_tree_add_text_valist_internal(proto_tree *tree, tvbuff_t *tvb, gint start,
 	header_field_info *hfinfo;
 
 	if (length == -1) {
-		/* If we're fetching until the end of the TVB, only validate
-		 * that the offset is within range.
-		 */
-		length = 0;
+		length = tvb_captured_length(tvb) ? tvb_ensure_captured_length_remaining(tvb, start) : 0;
+	} else {
+		tvb_ensure_bytes_exist(tvb, start, length);
 	}
-	tvb_ensure_bytes_exist(tvb, start, length);
 
 	CHECK_FOR_NULL_TREE(tree);
 
@@ -1680,37 +1683,40 @@ get_stringzpad_value(wmem_allocator_t *scope, tvbuff_t *tvb, gint start,
 	return tvb_get_string_enc(scope, tvb, start, length, encoding);
 }
 
-/* this can be called when there is no tree, so don't add that as a param */
+/*
+ * Epochs for various non-UN*X time stamp formats.
+ */
+#define NTP_BASETIME G_GUINT64_CONSTANT(2208988800)	/* NTP */
+#define TOD_BASETIME G_GUINT64_CONSTANT(2208988800)	/* System/3x0 and z/Architecture TOD clock */
+
+/* this can be called when there is no tree, so tree may be null */
 static void
-get_time_value(tvbuff_t *tvb, const gint start, const gint length, const guint encoding,
-	       nstime_t *time_stamp, const gboolean is_relative)
+get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
+	       const gint length, const guint encoding, nstime_t *time_stamp,
+	       const gboolean is_relative)
 {
 	guint32     tmpsecs;
 	guint64     todsecs;
-
-	/* relative timestamps don't do TOD/NTP */
-	if (is_relative &&
-		(encoding != (ENC_TIME_TIMESPEC|ENC_BIG_ENDIAN)) &&
-		(encoding != (ENC_TIME_TIMESPEC|ENC_LITTLE_ENDIAN)) )
-	{
-		/* XXX: I think this should call REPORT_DISSECTOR_BUG(), but
-		   the existing code didn't do that, so I'm not either */
-		return;
-	}
 
 	switch (encoding) {
 
 		case ENC_TIME_TIMESPEC|ENC_BIG_ENDIAN:
 			/*
-			 * 4-byte UNIX epoch, possibly followed by
-			 * 4-byte fractional time in nanoseconds,
-			 * both big-endian.
+			 * 4-byte seconds, followed by 4-byte fractional
+			 * time in nanoseconds, both big-endian.
+			 * For absolute times, the seconds are seconds
+			 * since the UN*X epoch.
 			 */
 			time_stamp->secs  = (time_t)tvb_get_ntohl(tvb, start);
 			if (length == 8)
 				time_stamp->nsecs = tvb_get_ntohl(tvb, start+4);
-			else
+			else if (length == 4) {
+				/*
+				 * Backwards compatibility.
+				 */
 				time_stamp->nsecs = 0;
+			} else
+				report_type_length_mismatch(tree, "a timespec", length, TRUE);
 			break;
 
 		case ENC_TIME_TIMESPEC|ENC_LITTLE_ENDIAN:
@@ -1718,42 +1724,27 @@ get_time_value(tvbuff_t *tvb, const gint start, const gint length, const guint e
 			 * 4-byte UNIX epoch, possibly followed by
 			 * 4-byte fractional time in nanoseconds,
 			 * both little-endian.
+			 * For absolute times, the seconds are seconds
+			 * since the UN*X epoch.
 			 */
 			time_stamp->secs  = (time_t)tvb_get_letohl(tvb, start);
 			if (length == 8)
 				time_stamp->nsecs = tvb_get_letohl(tvb, start+4);
-			else
+			else if (length == 4) {
+				/*
+				 * Backwards compatibility.
+				 */
 				time_stamp->nsecs = 0;
-			break;
-
-		case ENC_TIME_TOD|ENC_BIG_ENDIAN:
-			/*
-			 * TOD time stamp, big-endian.
-			 */
-/* XXX - where should this go? */
-#define TOD_BASETIME G_GUINT64_CONSTANT(2208988800)
-
-			todsecs  = tvb_get_ntoh64(tvb, start) >> 12;
-			time_stamp->secs = (time_t)((todsecs  / 1000000) - TOD_BASETIME);
-			time_stamp->nsecs = (int)((todsecs  % 1000000) * 1000);
-			break;
-
-		case ENC_TIME_TOD|ENC_LITTLE_ENDIAN:
-			/*
-			 * TOD time stamp, big-endian.
-			 */
-			todsecs  = tvb_get_letoh64(tvb, start) >> 12 ;
-			time_stamp->secs = (time_t)((todsecs  / 1000000) - TOD_BASETIME);
-			time_stamp->nsecs = (int)((todsecs  % 1000000) * 1000);
+			} else
+				report_type_length_mismatch(tree, "a timespec", length, TRUE);
 			break;
 
 		case ENC_TIME_NTP|ENC_BIG_ENDIAN:
 			/*
 			 * NTP time stamp, big-endian.
+			 * Only supported for absolute times.
 			 */
-
-/* XXX - where should this go? */
-#define NTP_BASETIME G_GUINT64_CONSTANT(2208988800)
+			DISSECTOR_ASSERT(!is_relative);
 
 			/* We need a temporary variable here so the unsigned math
 			 * works correctly (for years > 2036 according to RFC 2030
@@ -1767,22 +1758,25 @@ get_time_value(tvbuff_t *tvb, const gint start, const gint length, const guint e
 
 			if (length == 8) {
 				/*
-				 * We're using nanoseconds here (and we will
-				 * display nanoseconds), but NTP's timestamps
-				 * have a precision in microseconds or greater.
-				 * Round to 1 microsecond.
+				 * Convert 1/2^32s of a second to nanoseconds.
 				 */
-				time_stamp->nsecs = (int)(1000000*(tvb_get_ntohl(tvb, start+4)/4294967296.0));
-				time_stamp->nsecs *= 1000;
-			} else {
+				time_stamp->nsecs = (int)(1000000000*(tvb_get_ntohl(tvb, start+4)/4294967296.0));
+			} else if (length == 4) {
+				/*
+				 * Backwards compatibility.
+				 */
 				time_stamp->nsecs = 0;
-			}
+			} else
+				report_type_length_mismatch(tree, "an NTP time stamp", length, TRUE);
 			break;
 
 		case ENC_TIME_NTP|ENC_LITTLE_ENDIAN:
 			/*
-			 * NTP time stamp, big-endian.
+			 * NTP time stamp, little-endian.
+			 * Only supported for absolute times.
 			 */
+			DISSECTOR_ASSERT(!is_relative);
+
 			tmpsecs  = tvb_get_letohl(tvb, start);
 			if (tmpsecs)
 				time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
@@ -1791,63 +1785,273 @@ get_time_value(tvbuff_t *tvb, const gint start, const gint length, const guint e
 
 			if (length == 8) {
 				/*
-				 * We're using nanoseconds here (and we will
-				 * display nanoseconds), but NTP's timestamps
-				 * have a precision in microseconds or greater.
-				 * Round to 1 microsecond.
+				 * Convert 1/2^32s of a second to nanoseconds.
 				 */
-				time_stamp->nsecs = (int)(1000000*(tvb_get_letohl(tvb, start+4)/4294967296.0));
-				time_stamp->nsecs *= 1000;
-			} else {
+				time_stamp->nsecs = (int)(1000000000*(tvb_get_letohl(tvb, start+4)/4294967296.0));
+			} else if (length == 4) {
+				/*
+				 * Backwards compatibility.
+				 */
 				time_stamp->nsecs = 0;
-			}
+			} else
+				report_type_length_mismatch(tree, "an NTP time stamp", length, TRUE);
 			break;
-		case ENC_TIME_NTP_BASE_ZERO|ENC_BIG_ENDIAN:
+
+		case ENC_TIME_TOD|ENC_BIG_ENDIAN:
 			/*
-			 * DDS NTP time stamp, big-endian.
+			 * S/3x0 and z/Architecture TOD clock time stamp,
+			 * big-endian.
+			 * Only supported for absolute times.
 			 */
+			DISSECTOR_ASSERT(!is_relative);
+			DISSECTOR_ASSERT(length == 8);
 
-#define NTP_BASETIME_ZERO G_GUINT64_CONSTANT(0)
+			if (length == 8) {
+				todsecs  = tvb_get_ntoh64(tvb, start) >> 12;
+				time_stamp->secs = (time_t)((todsecs  / 1000000) - TOD_BASETIME);
+				time_stamp->nsecs = (int)((todsecs  % 1000000) * 1000);
+			} else
+				report_type_length_mismatch(tree, "a TOD clock time stamp", length, TRUE);
+			break;
 
-			tmpsecs  = tvb_get_ntohl(tvb, start);
-			if (tmpsecs)
-				time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME_ZERO);
+		case ENC_TIME_TOD|ENC_LITTLE_ENDIAN:
+			/*
+			 * S/3x0 and z/Architecture TOD clock time stamp,
+			 * little-endian.
+			 * Only supported for absolute times.
+			 */
+			DISSECTOR_ASSERT(!is_relative);
+
+			if (length == 8) {
+				todsecs  = tvb_get_letoh64(tvb, start) >> 12 ;
+				time_stamp->secs = (time_t)((todsecs  / 1000000) - TOD_BASETIME);
+				time_stamp->nsecs = (int)((todsecs  % 1000000) * 1000);
+			} else
+				report_type_length_mismatch(tree, "a TOD clock time stamp", length, TRUE);
+			break;
+
+		case ENC_TIME_RTPS|ENC_BIG_ENDIAN:
+			/*
+			 * Time stamp using the same seconds/fraction format
+			 * as NTP, but with the origin of the time stamp being
+			 * the UNIX epoch rather than the NTP epoch; big-
+			 * endian.
+			 *
+			 * Only supported for absolute times.
+			 */
+			DISSECTOR_ASSERT(!is_relative);
+
+			if (length == 8) {
+				time_stamp->secs = (time_t)tvb_get_ntohl(tvb, start);
+				/*
+				 * Convert 1/2^32s of a second to nanoseconds.
+				 */
+				time_stamp->nsecs = (int)(1000000000*(tvb_get_ntohl(tvb, start+4)/4294967296.0));
+			} else
+				report_type_length_mismatch(tree, "an RTPS time stamp", length, TRUE);
+			break;
+
+		case ENC_TIME_RTPS|ENC_LITTLE_ENDIAN:
+			/*
+			 * Time stamp using the same seconds/fraction format
+			 * as NTP, but with the origin of the time stamp being
+			 * the UNIX epoch rather than the NTP epoch; little-
+			 * endian.
+			 *
+			 * Only supported for absolute times.
+			 */
+			DISSECTOR_ASSERT(!is_relative);
+
+			if (length == 8) {
+				time_stamp->secs = (time_t)tvb_get_letohl(tvb, start);
+				/*
+				 * Convert 1/2^32s of a second to nanoseconds.
+				 */
+				time_stamp->nsecs = (int)(1000000000*(tvb_get_letohl(tvb, start+4)/4294967296.0));
+			} else
+				report_type_length_mismatch(tree, "an RTPS time stamp", length, TRUE);
+			break;
+
+		case ENC_TIME_TIMEVAL|ENC_BIG_ENDIAN:
+			/*
+			 * 4-byte seconds, followed by 4-byte fractional
+			 * time in microseconds, both big-endian.
+			 * For absolute times, the seconds are seconds
+			 * since the UN*X epoch.
+			 */
+			if (length == 8) {
+				time_stamp->secs  = (time_t)tvb_get_ntohl(tvb, start);
+				time_stamp->nsecs = tvb_get_ntohl(tvb, start+4)*1000;
+			} else
+				report_type_length_mismatch(tree, "a timeval", length, TRUE);
+			break;
+
+		case ENC_TIME_TIMEVAL|ENC_LITTLE_ENDIAN:
+			/*
+			 * 4-byte seconds, followed by 4-byte fractional
+			 * time in microseconds, both little-endian.
+			 * For absolute times, the seconds are seconds
+			 * since the UN*X epoch.
+			 */
+			if (length == 8) {
+				time_stamp->secs  = (time_t)tvb_get_letohl(tvb, start);
+				time_stamp->nsecs = tvb_get_letohl(tvb, start+4)*1000;
+			} else
+				report_type_length_mismatch(tree, "a timeval", length, TRUE);
+			break;
+
+		case ENC_TIME_SECS|ENC_BIG_ENDIAN:
+		case ENC_TIME_SECS|ENC_LITTLE_ENDIAN:
+			/*
+			 * Seconds, 1 to 8 bytes.
+			 * For absolute times, it's seconds since the
+			 * UN*X epoch.
+			 */
+			if (length >= 1 && length <= 8) {
+				time_stamp->secs  = (time_t)get_uint64_value(tree, tvb, start, length, encoding);
+				time_stamp->nsecs = 0;
+			} else
+				report_type_length_mismatch(tree, "a time-in-seconds time stamp", length, TRUE);
+			break;
+
+		case ENC_TIME_MSECS|ENC_BIG_ENDIAN:
+			/*
+			 * Milliseconds, 1 to 8 bytes.
+			 * For absolute times, it's milliseconds since the
+			 * UN*X epoch.
+			 */
+			if (length >= 1 && length <= 8) {
+				guint64 msecs;
+
+				msecs = get_uint64_value(tree, tvb, start, length, encoding);
+				time_stamp->secs  = (time_t)(msecs / 1000);
+				time_stamp->nsecs = (int)(msecs % 1000)*1000000;
+			} else
+				report_type_length_mismatch(tree, "a time-in-milliseconds time stamp", length, TRUE);
+			break;
+
+		case ENC_TIME_RFC_3971|ENC_BIG_ENDIAN:
+			/*
+			 * 1/64ths of a second since the UN*X epoch,
+			 * big-endian.
+			 *
+			 * Only supported for absolute times.
+			 */
+			DISSECTOR_ASSERT(!is_relative);
+
+			if (length == 8) {
+				/*
+				 * The upper 48 bits are seconds since the
+				 * UN*X epoch.
+				 */
+				time_stamp->secs  = tvb_get_ntoh48(tvb, start);
+				/*
+				 * The lower 16 bits are 1/2^16s of a second;
+				 * convert them to nanoseconds.
+				 *
+				 * XXX - this may give the impression of higher
+				 * precision than you actually get.
+				 */
+				time_stamp->nsecs = (int)(1000000000*(tvb_get_ntohs(tvb, start+6)/65536.0));
+			} else
+				report_type_length_mismatch(tree, "an RFC 3971-style time stamp", length, TRUE);
+			break;
+
+		case ENC_TIME_RFC_3971|ENC_LITTLE_ENDIAN:
+			/*
+			 * 1/64ths of a second since the UN*X epoch,
+			 * little-endian.
+			 *
+			 * Only supported for absolute times.
+			 */
+			DISSECTOR_ASSERT(!is_relative);
+
+			if (length == 8) {
+				/*
+				 * XXX - this is assuming that, if anybody
+				 * were ever to use this format - RFC 3971
+				 * doesn't, because that's an Internet
+				 * protocol, and those use network byte
+				 * order, i.e. big-endian - they'd treat it
+				 * as a 64-bit count of 1/2^16s of a second,
+				 * putting the upper 48 bits at the end.
+				 *
+				 * The lower 48 bits are seconds since the
+				 * UN*X epoch.
+				 */
+				time_stamp->secs  = tvb_get_letoh48(tvb, start+2);
+				/*
+				 * The upper 16 bits are 1/2^16s of a second;
+				 * convert them to nanoseconds.
+				 *
+				 * XXX - this may give the impression of higher
+				 * precision than you actually get.
+				 */
+				time_stamp->nsecs = (int)(1000000000*(tvb_get_letohs(tvb, start)/65536.0));
+			} else
+				report_type_length_mismatch(tree, "an RFC 3971-style time stamp", length, TRUE);
+			break;
+
+		case ENC_TIME_SECS_NTP|ENC_BIG_ENDIAN:
+			/*
+			 * NTP time stamp, with 1-second resolution (i.e.,
+			 * seconds since the NTP epoch), big-endian.
+			 * Only supported for absolute times.
+			 */
+			DISSECTOR_ASSERT(!is_relative);
+
+			if (length == 4) {
+				/*
+				 * We need a temporary variable here so the
+				 * unsigned math works correctly (for
+				 * years > 2036 according to RFC 2030
+				 * chapter 3).
+				 */
+				tmpsecs  = tvb_get_ntohl(tvb, start);
+				if (tmpsecs)
+					time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
+				else
+					time_stamp->secs = tmpsecs; /* 0 */
+				time_stamp->nsecs = 0;
+			} else
+				report_type_length_mismatch(tree, "an NTP seconds-only time stamp", length, TRUE);
+			break;
+
+		case ENC_TIME_SECS_NTP|ENC_LITTLE_ENDIAN:
+			/*
+			 * NTP time stamp, with 1-second resolution (i.e.,
+			 * seconds since the NTP epoch), little-endian.
+			 * Only supported for absolute times.
+			 */
+			DISSECTOR_ASSERT(!is_relative);
+
+			if (length == 4) {
+				tmpsecs  = tvb_get_letohl(tvb, start);
+				if (tmpsecs)
+					time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
+				else
+					time_stamp->secs = tmpsecs; /* 0 */
+				time_stamp->nsecs = 0;
+			} else
+				report_type_length_mismatch(tree, "an NTP seconds-only time stamp", length, TRUE);
+			break;
+		case ENC_TIME_MSEC_NTP | ENC_BIG_ENDIAN:
+			/*
+			* Milliseconds, 1 to 8 bytes.
+			* For absolute times, it's milliseconds since the
+			* NTP epoch.
+			*/
+			if (length >= 1 && length <= 8) {
+				guint64 msecs;
+
+				msecs = get_uint64_value(tree, tvb, start, length, encoding);
+				tmpsecs = (guint32)(msecs / 1000);
+				time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
+				time_stamp->nsecs = (int)(msecs % 1000)*1000000;
+			}
 			else
-				time_stamp->secs = tmpsecs; /* 0 */
-
-			if (length == 8) {
-				/*
-				 * We're using nanoseconds here (and we will
-				 * display nanoseconds), but NTP's timestamps
-				 * have a precision in microseconds or greater.
-				 * Round to 1 microsecond.
-				 */
-				time_stamp->nsecs = (int)(1000000*(tvb_get_ntohl(tvb, start+4)/4294967296.0));
-				time_stamp->nsecs *= 1000;
-			} else {
-				time_stamp->nsecs = 0;
-			}
+				report_type_length_mismatch(tree, "a time-in-milliseconds NTP time stamp", length, TRUE);
 			break;
-
-		case ENC_TIME_NTP_BASE_ZERO|ENC_LITTLE_ENDIAN:
-			/*
-			 * NTP time stamp, big-endian.
-			 */
-			time_stamp->secs = (time_t)tvb_get_letohl(tvb, start);
-			if (length == 8) {
-				/*
-				 * We're using nanoseconds here (and we will
-				 * display nanoseconds), but NTP's timestamps
-				 * have a precision in microseconds or greater.
-				 * Round to 1 microsecond.
-				 */
-				time_stamp->nsecs = (int)(1000000*(tvb_get_letohl(tvb, start+4)/4294967296.0));
-				time_stamp->nsecs *= 1000;
-			} else {
-				time_stamp->nsecs = 0;
-			}
-			break;
-
 		default:
 			DISSECTOR_ASSERT_NOT_REACHED();
 			break;
@@ -1882,6 +2086,32 @@ tree_data_add_maybe_interesting_field(tree_data_t *tree_data, field_info *fi)
 	}
 }
 
+
+/*
+ * Validates that field length bytes are available starting from
+ * start (pos/neg). Throws an exception if they aren't.
+ */
+static void
+test_length(header_field_info *hfinfo, tvbuff_t *tvb,
+	    gint start, gint length, const guint encoding)
+{
+	gint size = length;
+
+	if (!tvb)
+		return;
+
+	if ((hfinfo->type == FT_STRINGZ) ||
+		((encoding & ENC_VARINT_PROTOBUF) && (IS_FT_UINT(hfinfo->type) ||  IS_FT_UINT(hfinfo->type)))) {
+		/* If we're fetching until the end of the TVB, only validate
+		 * that the offset is within range.
+		 */
+		if (length == -1)
+			size = 0;
+	}
+
+	tvb_ensure_bytes_exist(tvb, start, size);
+}
+
 /* Add an item to a proto_tree, using the text label registered to that item;
    the item is extracted from the tvbuff handed to it. */
 static proto_item *
@@ -1891,6 +2121,7 @@ proto_tree_new_item(field_info *new_fi, proto_tree *tree,
 {
 	proto_item *pi;
 	guint32	    value, n;
+	guint64	    value64;
 	float	    floatval;
 	double	    doubleval;
 	const char *stringval;
@@ -1942,28 +2173,42 @@ proto_tree_new_item(field_info *new_fi, proto_tree *tree,
 		case FT_UINT16:
 		case FT_UINT24:
 		case FT_UINT32:
-			/*
-			 * Map all non-zero values to little-endian for
-			 * backwards compatibility.
-			 */
-			if (encoding)
-				encoding = ENC_LITTLE_ENDIAN;
-			proto_tree_set_uint(new_fi,
-				get_uint_value(tree, tvb, start, length, encoding));
+			if (encoding & ENC_VARINT_PROTOBUF) {
+				new_fi->length = tvb_get_varint(tvb, start, (length == -1) ? FT_VARINT_MAX_LEN : length, &value64);
+				new_fi->flags |= FI_VARINT;
+				value = (guint32)value64;
+			} else {
+				/*
+				 * Map all non-zero values to little-endian for
+				 * backwards compatibility.
+				 */
+				if (encoding)
+					encoding = ENC_LITTLE_ENDIAN;
+
+				value = get_uint_value(tree, tvb, start, length, encoding);
+			}
+			proto_tree_set_uint(new_fi, value);
 			break;
 
 		case FT_UINT40:
 		case FT_UINT48:
 		case FT_UINT56:
 		case FT_UINT64:
-			/*
-			 * Map all non-zero values to little-endian for
-			 * backwards compatibility.
-			 */
-			if (encoding)
-				encoding = ENC_LITTLE_ENDIAN;
-			proto_tree_set_uint64(new_fi,
-				get_uint64_value(tree, tvb, start, length, encoding));
+
+			if (encoding & ENC_VARINT_PROTOBUF) {
+				new_fi->length = tvb_get_varint(tvb, start, (length == -1) ? FT_VARINT_MAX_LEN : length, &value64);
+				new_fi->flags |= FI_VARINT;
+			} else {
+				/*
+				 * Map all other non-zero values to little-endian for
+				 * backwards compatibility.
+				 */
+				if (encoding)
+					encoding = ENC_LITTLE_ENDIAN;
+
+				value64 = get_uint64_value(tree, tvb, start, length, encoding);
+			}
+			proto_tree_set_uint64(new_fi, value64);
 			break;
 
 		/* XXX - make these just FT_INT? */
@@ -2256,12 +2501,12 @@ proto_tree_new_item(field_info *new_fi, proto_tree *tree,
 			if (encoding == TRUE)
 				encoding = ENC_TIME_TIMESPEC|ENC_LITTLE_ENDIAN;
 
-			if (length != 8 && length != 4) {
+			if (length > 8 || length < 4) {
 				length_error = length < 4 ? TRUE : FALSE;
 				report_type_length_mismatch(tree, "an absolute time value", length, length_error);
 			}
 
-			get_time_value(tvb, start, length, encoding, &time_stamp, FALSE);
+			get_time_value(tree, tvb, start, length, encoding, &time_stamp, FALSE);
 
 			proto_tree_set_time(new_fi, &time_stamp);
 			break;
@@ -2288,7 +2533,7 @@ proto_tree_new_item(field_info *new_fi, proto_tree *tree,
 				report_type_length_mismatch(tree, "a relative time value", length, length_error);
 			}
 
-			get_time_value(tvb, start, length, encoding, &time_stamp, TRUE);
+			get_time_value(tree, tvb, start, length, encoding, &time_stamp, TRUE);
 
 			proto_tree_set_time(new_fi, &time_stamp);
 			break;
@@ -2409,7 +2654,9 @@ proto_tree_add_item_ret_uint(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 	case FT_UINT32:
 		break;
 	default:
-		DISSECTOR_ASSERT_NOT_REACHED();
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+		    "field %s is not of type FT_CHAR, FT_UINT8, FT_UINT16, FT_UINT24, or FT_UINT32",
+		    hfinfo->abbrev));
 	}
 
 	/* length validation for native number encoding caught by get_uint_value() */
@@ -2424,7 +2671,13 @@ proto_tree_add_item_ret_uint(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 	}
 	/* I believe it's ok if this is called with a NULL tree */
 	/* XXX - modify if we ever support EBCDIC FT_CHAR */
-	value = get_uint_value(tree, tvb, start, length, encoding);
+	if (encoding & ENC_VARINT_PROTOBUF) {
+		guint64 temp64;
+		tvb_get_varint(tvb, start, length, &temp64);
+		value = (guint32)temp64;
+	} else {
+		value = get_uint_value(tree, tvb, start, length, encoding);
+	}
 
 	if (retval) {
 		*retval = value;
@@ -2443,6 +2696,403 @@ proto_tree_add_item_ret_uint(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 	new_fi = new_field_info(tree, hfinfo, tvb, start, length);
 
 	proto_tree_set_uint(new_fi, value);
+
+	new_fi->flags |= (encoding & ENC_LITTLE_ENDIAN) ? FI_LITTLE_ENDIAN : FI_BIG_ENDIAN;
+	if (encoding & ENC_VARINT_PROTOBUF) {
+		new_fi->flags |= FI_VARINT;
+	}
+	return proto_tree_add_node(tree, new_fi);
+}
+
+/* Gets data from tvbuff, adds it to proto_tree, increments offset,
+ * and returns proto_item* and uint value retreived*/
+proto_item *
+ptvcursor_add_ret_uint(ptvcursor_t *ptvc, int hfindex, gint length,
+	      const guint encoding, guint32 *retval)
+{
+	field_info	  *new_fi;
+	header_field_info *hfinfo;
+	gint		   item_length;
+	int		   offset;
+	guint32		   value;
+
+	offset = ptvc->offset;
+	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
+
+	switch (hfinfo->type){
+	case FT_CHAR:
+	case FT_UINT8:
+	case FT_UINT16:
+	case FT_UINT24:
+	case FT_UINT32:
+		break;
+	default:
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+		    "field %s is not of type FT_CHAR, FT_UINT8, FT_UINT16, FT_UINT24, or FT_UINT32",
+		    hfinfo->abbrev));
+	}
+
+	get_hfi_length(hfinfo, ptvc->tvb, offset, &length, &item_length, encoding);
+	test_length(hfinfo, ptvc->tvb, offset, item_length, encoding);
+
+	/* I believe it's ok if this is called with a NULL tree */
+	/* XXX - modify if we ever support EBCDIC FT_CHAR */
+	value = get_uint_value(ptvc->tree, ptvc->tvb, offset, item_length, encoding);
+
+	if (retval) {
+		*retval = value;
+		if (hfinfo->bitmask) {
+			/* Mask out irrelevant portions */
+			*retval &= (guint32)(hfinfo->bitmask);
+			/* Shift bits */
+			*retval >>= hfinfo_bitshift(hfinfo);
+		}
+	}
+
+	ptvc->offset += get_full_length(hfinfo, ptvc->tvb, offset, length,
+	    item_length, encoding);
+
+	CHECK_FOR_NULL_TREE(ptvc->tree);
+
+	/* Coast clear. Try and fake it */
+	TRY_TO_FAKE_THIS_ITEM(ptvc->tree, hfindex, hfinfo);
+
+	new_fi = new_field_info(ptvc->tree, hfinfo, ptvc->tvb, offset, item_length);
+
+	return proto_tree_new_item(new_fi, ptvc->tree, ptvc->tvb,
+		offset, length, encoding);
+}
+
+/* Gets data from tvbuff, adds it to proto_tree, increments offset,
+ * and returns proto_item* and int value retreived*/
+proto_item *
+ptvcursor_add_ret_int(ptvcursor_t *ptvc, int hfindex, gint length,
+	      const guint encoding, gint32 *retval)
+{
+	field_info	  *new_fi;
+	header_field_info *hfinfo;
+	gint		   item_length;
+	int		   offset;
+	guint32		   value;
+
+	offset = ptvc->offset;
+	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
+
+	switch (hfinfo->type){
+	case FT_INT8:
+	case FT_INT16:
+	case FT_INT24:
+	case FT_INT32:
+		break;
+	default:
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+		    "field %s is not of type FT_CHAR, FT_UINT8, FT_UINT16, FT_UINT24, or FT_UINT32",
+		    hfinfo->abbrev));
+	}
+
+	get_hfi_length(hfinfo, ptvc->tvb, offset, &length, &item_length, encoding);
+	test_length(hfinfo, ptvc->tvb, offset, item_length, encoding);
+
+	/* I believe it's ok if this is called with a NULL tree */
+	/* XXX - modify if we ever support EBCDIC FT_CHAR */
+	value = get_int_value(ptvc->tree, ptvc->tvb, offset, item_length, encoding);
+
+	if (retval) {
+		gint no_of_bits;
+		*retval = value;
+		if (hfinfo->bitmask) {
+			/* Mask out irrelevant portions */
+			*retval &= (guint32)(hfinfo->bitmask);
+			/* Shift bits */
+			*retval >>= hfinfo_bitshift(hfinfo);
+		}
+		no_of_bits = ws_count_ones(hfinfo->bitmask);
+		*retval = ws_sign_ext32(*retval, no_of_bits);
+	}
+
+	ptvc->offset += get_full_length(hfinfo, ptvc->tvb, offset, length,
+	    item_length, encoding);
+
+	CHECK_FOR_NULL_TREE(ptvc->tree);
+
+	/* Coast clear. Try and fake it */
+	TRY_TO_FAKE_THIS_ITEM(ptvc->tree, hfindex, hfinfo);
+
+	new_fi = new_field_info(ptvc->tree, hfinfo, ptvc->tvb, offset, item_length);
+
+	return proto_tree_new_item(new_fi, ptvc->tree, ptvc->tvb,
+		offset, length, encoding);
+}
+
+/* Gets data from tvbuff, adds it to proto_tree, increments offset,
+ * and returns proto_item* and string value retreived */
+proto_item*
+ptvcursor_add_ret_string(ptvcursor_t* ptvc, int hf, gint length, const guint encoding, wmem_allocator_t *scope, const guint8 **retval)
+{
+	header_field_info *hfinfo;
+	field_info		*new_fi;
+	const guint8	*value;
+	gint			item_length;
+	int				offset;
+
+	offset = ptvc->offset;
+
+	PROTO_REGISTRAR_GET_NTH(hf, hfinfo);
+
+	switch (hfinfo->type){
+	case FT_STRING:
+		value = get_string_value(scope, ptvc->tvb, offset, length, &item_length, encoding);
+		break;
+	case FT_STRINGZ:
+		value = get_stringz_value(scope, ptvc->tree, ptvc->tvb, offset, length, &item_length, encoding);
+		break;
+	case FT_UINT_STRING:
+		value = get_uint_string_value(scope, ptvc->tree, ptvc->tvb, offset, length, &item_length, encoding);
+		break;
+	case FT_STRINGZPAD:
+		value = get_stringzpad_value(scope, ptvc->tvb, offset, length, &item_length, encoding);
+		break;
+	default:
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+		    "field %s is not of type FT_STRING, FT_STRINGZ, FT_UINT_STRING, or FT_STRINGZPAD",
+		    hfinfo->abbrev));
+	}
+
+	if (retval)
+		*retval = value;
+
+	ptvc->offset += item_length;
+
+	CHECK_FOR_NULL_TREE(ptvc->tree);
+
+	TRY_TO_FAKE_THIS_ITEM(ptvc->tree, hfinfo->id, hfinfo);
+
+	new_fi = new_field_info(ptvc->tree, hfinfo, ptvc->tvb, offset, item_length);
+
+	return proto_tree_new_item(new_fi, ptvc->tree, ptvc->tvb,
+		offset, length, encoding);
+}
+
+/* Gets data from tvbuff, adds it to proto_tree, increments offset,
+ * and returns proto_item* and boolean value retreived */
+proto_item*
+ptvcursor_add_ret_boolean(ptvcursor_t* ptvc, int hfindex, gint length, const guint encoding, gboolean *retval)
+{
+	header_field_info *hfinfo;
+	field_info		*new_fi;
+	gint			item_length;
+	int				offset;
+	guint64			value, bitval;
+
+	offset = ptvc->offset;
+	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
+
+	if (hfinfo->type != FT_BOOLEAN) {
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+		    "field %s is not of type FT_BOOLEAN", hfinfo->abbrev));
+	}
+
+	/* length validation for native number encoding caught by get_uint64_value() */
+	/* length has to be -1 or > 0 regardless of encoding */
+	if (length < -1 || length == 0)
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			"Invalid length %d passed to proto_tree_add_item_ret_uint",
+			length));
+
+	if (encoding & ENC_STRING) {
+		REPORT_DISSECTOR_BUG("wrong encoding");
+	}
+
+	get_hfi_length(hfinfo, ptvc->tvb, offset, &length, &item_length, encoding);
+	test_length(hfinfo, ptvc->tvb, offset, item_length, encoding);
+
+	/* I believe it's ok if this is called with a NULL tree */
+	value = get_uint64_value(ptvc->tree, ptvc->tvb, offset, length, encoding);
+
+	if (retval) {
+		bitval = value;
+		if (hfinfo->bitmask) {
+			/* Mask out irrelevant portions */
+			bitval &= hfinfo->bitmask;
+		}
+		*retval = (bitval != 0);
+	}
+
+	ptvc->offset += get_full_length(hfinfo, ptvc->tvb, offset, length,
+	    item_length, encoding);
+
+	CHECK_FOR_NULL_TREE(ptvc->tree);
+
+	TRY_TO_FAKE_THIS_ITEM(ptvc->tree, hfinfo->id, hfinfo);
+
+	new_fi = new_field_info(ptvc->tree, hfinfo, ptvc->tvb, offset, item_length);
+
+	return proto_tree_new_item(new_fi, ptvc->tree, ptvc->tvb,
+		offset, length, encoding);
+}
+
+proto_item *
+proto_tree_add_item_ret_uint64(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+    const gint start, gint length, const guint encoding, guint64 *retval)
+{
+	header_field_info *hfinfo = proto_registrar_get_nth(hfindex);
+	field_info	  *new_fi;
+	guint64		   value;
+
+	DISSECTOR_ASSERT_HINT(hfinfo != NULL, "Not passed hfi!");
+
+	if (hfinfo->type != FT_UINT64) {
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+		    "field %s is not of type FT_UINT64", hfinfo->abbrev));
+	}
+
+	/* length validation for native number encoding caught by get_uint64_value() */
+	/* length has to be -1 or > 0 regardless of encoding */
+	if (length < -1 || length == 0)
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			"Invalid length %d passed to proto_tree_add_item_ret_uint",
+			length));
+
+	if (encoding & ENC_STRING) {
+		REPORT_DISSECTOR_BUG("wrong encoding");
+	}
+	/* I believe it's ok if this is called with a NULL tree */
+	if (encoding & ENC_VARINT_PROTOBUF) {
+		tvb_get_varint(tvb, start, length, &value);
+	} else {
+		value = get_uint64_value(tree, tvb, start, length, encoding);
+	}
+
+	if (retval) {
+		*retval = value;
+		if (hfinfo->bitmask) {
+			/* Mask out irrelevant portions */
+			*retval &= hfinfo->bitmask;
+			/* Shift bits */
+			*retval >>= hfinfo_bitshift(hfinfo);
+		}
+	}
+
+	CHECK_FOR_NULL_TREE(tree);
+
+	TRY_TO_FAKE_THIS_ITEM(tree, hfinfo->id, hfinfo);
+
+	new_fi = new_field_info(tree, hfinfo, tvb, start, length);
+
+	proto_tree_set_uint64(new_fi, value);
+
+	new_fi->flags |= (encoding & ENC_LITTLE_ENDIAN) ? FI_LITTLE_ENDIAN : FI_BIG_ENDIAN;
+	if (encoding & ENC_VARINT_PROTOBUF) {
+		new_fi->flags |= FI_VARINT;
+	}
+
+	return proto_tree_add_node(tree, new_fi);
+}
+
+proto_item *
+proto_tree_add_item_ret_varint(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+    const gint start, gint length, const guint encoding, guint64 *retval, gint *lenretval)
+{
+	header_field_info *hfinfo = proto_registrar_get_nth(hfindex);
+	field_info	*new_fi;
+	guint64		value;
+
+	DISSECTOR_ASSERT_HINT(hfinfo != NULL, "Not passed hfi!");
+
+	if ((!IS_FT_INT(hfinfo->type)) && (!IS_FT_UINT(hfinfo->type))) {
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			"field %s is not of type FT_UINT or FT_INT", hfinfo->abbrev));
+	}
+
+	/* length validation for native number encoding caught by get_uint64_value() */
+	/* length has to be -1 or > 0 regardless of encoding */
+	if (length == 0)
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			"Invalid length %d passed to proto_tree_add_item_ret_varint",
+			length));
+
+	if (encoding & ENC_STRING) {
+		REPORT_DISSECTOR_BUG("wrong encoding");
+	}
+
+	length = tvb_get_varint(tvb, start, (length == -1) ? FT_VARINT_MAX_LEN : length, &value);
+
+	if (retval) {
+		*retval = value;
+		if (hfinfo->bitmask) {
+			/* Mask out irrelevant portions */
+			*retval &= hfinfo->bitmask;
+			/* Shift bits */
+			*retval >>= hfinfo_bitshift(hfinfo);
+		}
+	}
+
+	if (lenretval) {
+		*lenretval = length;
+	}
+
+	CHECK_FOR_NULL_TREE(tree);
+
+	TRY_TO_FAKE_THIS_ITEM(tree, hfinfo->id, hfinfo);
+
+	new_fi = new_field_info(tree, hfinfo, tvb, start, length);
+
+	proto_tree_set_uint64(new_fi, value);
+
+	new_fi->flags |= (encoding & ENC_LITTLE_ENDIAN) ? FI_LITTLE_ENDIAN : FI_BIG_ENDIAN;
+	if (encoding & ENC_VARINT_PROTOBUF) {
+		new_fi->flags |= FI_VARINT;
+	}
+
+	return proto_tree_add_node(tree, new_fi);
+
+}
+
+proto_item *
+proto_tree_add_item_ret_boolean(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+                                const gint start, gint length,
+                                const guint encoding, gboolean *retval)
+{
+	header_field_info *hfinfo = proto_registrar_get_nth(hfindex);
+	field_info	  *new_fi;
+	guint64		   value, bitval;
+
+	DISSECTOR_ASSERT_HINT(hfinfo != NULL, "Not passed hfi!");
+
+	if (hfinfo->type != FT_BOOLEAN) {
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+		    "field %s is not of type FT_BOOLEAN", hfinfo->abbrev));
+	}
+
+	/* length validation for native number encoding caught by get_uint64_value() */
+	/* length has to be -1 or > 0 regardless of encoding */
+	if (length < -1 || length == 0)
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			"Invalid length %d passed to proto_tree_add_item_ret_uint",
+			length));
+
+	if (encoding & ENC_STRING) {
+		REPORT_DISSECTOR_BUG("wrong encoding");
+	}
+	/* I believe it's ok if this is called with a NULL tree */
+	value = get_uint64_value(tree, tvb, start, length, encoding);
+
+	if (retval) {
+		bitval = value;
+		if (hfinfo->bitmask) {
+			/* Mask out irrelevant portions */
+			bitval &= hfinfo->bitmask;
+		}
+		*retval = (bitval != 0);
+	}
+
+	CHECK_FOR_NULL_TREE(tree);
+
+	TRY_TO_FAKE_THIS_ITEM(tree, hfinfo->id, hfinfo);
+
+	new_fi = new_field_info(tree, hfinfo, tvb, start, length);
+
+	proto_tree_set_boolean(new_fi, value);
 
 	new_fi->flags |= (encoding & ENC_LITTLE_ENDIAN) ? FI_LITTLE_ENDIAN : FI_BIG_ENDIAN;
 
@@ -2478,7 +3128,9 @@ proto_tree_add_item_ret_string_and_length(proto_tree *tree, int hfindex,
 		value = get_stringzpad_value(scope, tvb, start, length, lenretval, encoding);
 		break;
 	default:
-		DISSECTOR_ASSERT_NOT_REACHED();
+		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+		    "field %s is not of type FT_STRING, FT_STRINGZ, FT_UINT_STRING, or FT_STRINGZPAD",
+		    hfinfo->abbrev));
 	}
 
 	if (retval)
@@ -2507,29 +3159,6 @@ proto_tree_add_item_ret_string(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 	    tvb, start, length, encoding, scope, retval, &length);
 }
 
-/*
- * Validates that field length bytes are available starting from
- * start (pos/neg). Throws an exception if they aren't.
- */
-static void
-test_length(header_field_info *hfinfo, tvbuff_t *tvb,
-	    gint start, gint length)
-{
-	gint size = length;
-
-	if (!tvb)
-		return;
-
-	if (hfinfo->type == FT_STRINGZ) {
-		/* If we're fetching until the end of the TVB, only validate
-		 * that the offset is within range.
-		 */
-		if (length == -1)
-			size = 0;
-	}
-
-	tvb_ensure_bytes_exist(tvb, start, size);
-}
 
 /* Gets data from tvbuff, adds it to proto_tree, increments offset,
    and returns proto_item* */
@@ -2544,8 +3173,8 @@ ptvcursor_add(ptvcursor_t *ptvc, int hfindex, gint length,
 
 	offset = ptvc->offset;
 	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
-	get_hfi_length(hfinfo, ptvc->tvb, offset, &length, &item_length);
-	test_length(hfinfo, ptvc->tvb, offset, item_length);
+	get_hfi_length(hfinfo, ptvc->tvb, offset, &length, &item_length, encoding);
+	test_length(hfinfo, ptvc->tvb, offset, item_length, encoding);
 
 	ptvc->offset += get_full_length(hfinfo, ptvc->tvb, offset, length,
 	    item_length, encoding);
@@ -2572,8 +3201,8 @@ proto_tree_add_item_new(proto_tree *tree, header_field_info *hfinfo, tvbuff_t *t
 
 	DISSECTOR_ASSERT_HINT(hfinfo != NULL, "Not passed hfi!");
 
-	get_hfi_length(hfinfo, tvb, start, &length, &item_length);
-	test_length(hfinfo, tvb, start, item_length);
+	get_hfi_length(hfinfo, tvb, start, &length, &item_length, encoding);
+	test_length(hfinfo, tvb, start, item_length, encoding);
 
 	CHECK_FOR_NULL_TREE(tree);
 
@@ -2610,8 +3239,8 @@ proto_tree_add_item_new_ret_length(proto_tree *tree, header_field_info *hfinfo,
 
 	DISSECTOR_ASSERT_HINT(hfinfo != NULL, "Not passed hfi!");
 
-	get_hfi_length(hfinfo, tvb, start, &length, &item_length);
-	test_length(hfinfo, tvb, start, item_length);
+	get_hfi_length(hfinfo, tvb, start, &length, &item_length, encoding);
+	test_length(hfinfo, tvb, start, item_length, encoding);
 
 	if (!tree) {
 		/*
@@ -2819,9 +3448,9 @@ proto_tree_add_time_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 	}
 	else {
 		const gboolean is_relative = (hfinfo->type == FT_RELATIVE_TIME) ? TRUE : FALSE;
+		const gboolean length_error = length < 4 ? TRUE : FALSE;
 
-		if (length != 8 && length != 4) {
-			const gboolean length_error = length < 4 ? TRUE : FALSE;
+		if (length > 8 || length < 4) {
 			if (is_relative)
 			    report_type_length_mismatch(tree, "a relative time value", length, length_error);
 			else
@@ -2829,7 +3458,7 @@ proto_tree_add_time_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 		}
 
 		tvb_ensure_bytes_exist(tvb, start, length);
-		get_time_value(tvb, start, length, encoding, &time_stamp, is_relative);
+		get_time_value(tree, tvb, start, length, encoding, &time_stamp, is_relative);
 		if (endoff) *endoff = length;
 	}
 
@@ -2962,8 +3591,8 @@ proto_tree_add_bytes(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
 	gint		  item_length;
 
 	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
-	get_hfi_length(hfinfo, tvb, start, &length, &item_length);
-	test_length(hfinfo, tvb, start, item_length);
+	get_hfi_length(hfinfo, tvb, start, &length, &item_length, ENC_NA);
+	test_length(hfinfo, tvb, start, item_length, ENC_NA);
 
 	CHECK_FOR_NULL_TREE(tree);
 
@@ -2987,8 +3616,8 @@ proto_tree_add_bytes_with_length(proto_tree *tree, int hfindex, tvbuff_t *tvb, g
 	gint          item_length;
 
 	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
-	get_hfi_length(hfinfo, tvb, start, &tvbuff_length, &item_length);
-	test_length(hfinfo, tvb, start, item_length);
+	get_hfi_length(hfinfo, tvb, start, &tvbuff_length, &item_length, ENC_NA);
+	test_length(hfinfo, tvb, start, item_length, ENC_NA);
 
 	CHECK_FOR_NULL_TREE(tree);
 
@@ -3010,23 +3639,13 @@ proto_tree_add_bytes_format_value(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 {
 	proto_item	  *pi;
 	va_list		   ap;
-	header_field_info *hfinfo;
-	gint		  item_length;
 
-	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
-	get_hfi_length(hfinfo, tvb, start, &length, &item_length);
-	test_length(hfinfo, tvb, start, item_length);
+	if (start_ptr == NULL)
+		start_ptr = tvb_get_ptr(tvb, start, length);
 
-	CHECK_FOR_NULL_TREE(tree);
+	pi = proto_tree_add_bytes(tree, hfindex, tvb, start, length, start_ptr);
 
-	TRY_TO_FAKE_THIS_ITEM(tree, hfindex, hfinfo);
-
-	if (start_ptr)
-		pi = proto_tree_add_bytes(tree, hfindex, tvb, start, length,
-					  start_ptr);
-	else
-		pi = proto_tree_add_bytes(tree, hfindex, tvb, start, length,
-					  tvb_get_ptr(tvb, start, length));
+	TRY_TO_FAKE_THIS_REPR_NESTED(pi);
 
 	va_start(ap, format);
 	proto_tree_set_representation_value(pi, format, ap);
@@ -3042,25 +3661,13 @@ proto_tree_add_bytes_format(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 {
 	proto_item	  *pi;
 	va_list		   ap;
-	header_field_info *hfinfo;
-	gint		  item_length;
 
-	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
-	get_hfi_length(hfinfo, tvb, start, &length, &item_length);
-	test_length(hfinfo, tvb, start, item_length);
+	if (start_ptr == NULL)
+		start_ptr = tvb_get_ptr(tvb, start, length);
 
-	CHECK_FOR_NULL_TREE(tree);
+	pi = proto_tree_add_bytes(tree, hfindex, tvb, start, length, start_ptr);
 
-	TRY_TO_FAKE_THIS_ITEM(tree, hfindex, hfinfo);
-
-	if (start_ptr)
-		pi = proto_tree_add_bytes(tree, hfindex, tvb, start, length,
-					  start_ptr);
-	else
-		pi = proto_tree_add_bytes(tree, hfindex, tvb, start, length,
-					  tvb_get_ptr(tvb, start, length));
-
-	TRY_TO_FAKE_THIS_REPR(pi);
+	TRY_TO_FAKE_THIS_REPR_NESTED(pi);
 
 	va_start(ap, format);
 	proto_tree_set_representation(pi, format, ap);
@@ -3868,6 +4475,50 @@ decode_bitfield_value(char *buf, const guint64 val, const guint64 mask, const in
 	return p;
 }
 
+static char *
+other_decode_bitfield_varint_value(char *buf, guint64 val, guint64 mask, const int width)
+{
+	int i = 0;
+	guint64 bit;
+	char *p;
+
+	p = buf;
+	bit = G_GUINT64_CONSTANT(1) << (width - 1);
+	for (;;) {
+		if (((8-(i % 8)) != 8) && /* MSB is never used for value. */
+			(mask & bit)) {
+			/* This bit is part of the field.  Show its value. */
+			if (val & bit)
+				*p++ = '1';
+			else
+				*p++ = '0';
+		} else {
+			/* This bit is not part of the field. */
+			*p++ = '.';
+		}
+		bit >>= 1;
+		i++;
+		if (i >= width)
+			break;
+		if (i % 4 == 0)
+			*p++ = ' ';
+	}
+
+	*p = '\0';
+	return p;
+}
+
+static char *
+decode_bitfield_varint_value(char *buf, const guint64 val, const guint64 mask, const int width)
+{
+	char *p;
+
+	p = other_decode_bitfield_varint_value(buf, val, mask, width);
+	p = g_stpcpy(p, " = ");
+
+	return p;
+}
+
 /* Add a FT_FLOAT to a proto_tree */
 proto_item *
 proto_tree_add_float(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
@@ -4022,7 +4673,9 @@ proto_tree_add_uint(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
 			break;
 
 		default:
-			DISSECTOR_ASSERT_NOT_REACHED();
+			REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			    "field %s is not of type FT_CHAR, FT_UINT8, FT_UINT16, FT_UINT24, FT_UINT32, or FT_FRAMENUM",
+			    hfinfo->abbrev));
 	}
 
 	return pi;
@@ -4110,7 +4763,9 @@ proto_tree_add_uint64(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
 			break;
 
 		default:
-			DISSECTOR_ASSERT_NOT_REACHED();
+			REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			    "field %s is not of type FT_UINT40, FT_UINT48, FT_UINT56, FT_UINT64, or FT_FRAMENUM",
+			    hfinfo->abbrev));
 	}
 
 	return pi;
@@ -4197,7 +4852,9 @@ proto_tree_add_int(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
 			break;
 
 		default:
-			DISSECTOR_ASSERT_NOT_REACHED();
+			REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			    "field %s is not of type FT_INT8, FT_INT16, FT_INT24, or FT_INT32",
+			    hfinfo->abbrev));
 	}
 
 	return pi;
@@ -4288,7 +4945,9 @@ proto_tree_add_int64(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
 			break;
 
 		default:
-			DISSECTOR_ASSERT_NOT_REACHED();
+			REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
+			    "field %s is not of type FT_INT40, FT_INT48, FT_INT56, or FT_INT64",
+			    hfinfo->abbrev));
 	}
 
 	return pi;
@@ -4470,7 +5129,7 @@ proto_tree_add_node(proto_tree *tree, field_info *fi)
 	tfi = PNODE_FINFO(tnode);
 	if (tfi != NULL && (tfi->tree_type < 0 || tfi->tree_type >= num_tree_types)) {
 		REPORT_DISSECTOR_BUG(wmem_strdup_printf(wmem_packet_scope(),
-				     "\"%s\" - \"%s\" tfi->tree_type: %u invalid (%s:%u)",
+				     "\"%s\" - \"%s\" tfi->tree_type: %d invalid (%s:%u)",
 				     fi->hfinfo->name, fi->hfinfo->abbrev, tfi->tree_type, __FILE__, __LINE__));
 		/* XXX - is it safe to continue here? */
 	}
@@ -4505,7 +5164,7 @@ proto_tree_add_pi(proto_tree *tree, header_field_info *hfinfo, tvbuff_t *tvb, gi
 	field_info *fi;
 	gint		item_length;
 
-	get_hfi_length(hfinfo, tvb, start, length, &item_length);
+	get_hfi_length(hfinfo, tvb, start, length, &item_length, ENC_NA);
 	fi = new_field_info(tree, hfinfo, tvb, start, item_length);
 	pi = proto_tree_add_node(tree, fi);
 
@@ -4515,7 +5174,7 @@ proto_tree_add_pi(proto_tree *tree, header_field_info *hfinfo, tvbuff_t *tvb, gi
 
 static void
 get_hfi_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start, gint *length,
-		   gint *item_length)
+		   gint *item_length, const guint encoding)
 {
 	gint length_remaining;
 
@@ -4568,6 +5227,9 @@ get_hfi_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start, gint 
 		 * of the string", and if the tvbuff if short, we just
 		 * throw an exception.
 		 *
+		 * For ENC_VARINT_PROTOBUF, it means "find the end of the string",
+		 * and if the tvbuff if short, we just throw an exception.
+		 *
 		 * It's not valid for any other type of field.  For those
 		 * fields, we treat -1 the same way we treat other
 		 * negative values - we assume the length is a Really
@@ -4575,6 +5237,17 @@ get_hfi_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start, gint 
 		 * exception, under the assumption that the Really Big
 		 * Length would run past the end of the packet.
 		 */
+		if ((IS_FT_INT(hfinfo->type)) || (IS_FT_UINT(hfinfo->type))) {
+			if (encoding & ENC_VARINT_PROTOBUF) {
+				/*
+				 * Leave the length as -1, so our caller knows
+				 * it was -1.
+				 */
+				*item_length = *length;
+				return;
+			}
+		}
+
 		switch (hfinfo->type) {
 
 		case FT_PROTOCOL:
@@ -4672,8 +5345,6 @@ get_full_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start,
 		item_length += n;
 		break;
 
-	case FT_BOOLEAN:
-	case FT_CHAR:
 	/* XXX - make these just FT_UINT? */
 	case FT_UINT8:
 	case FT_UINT16:
@@ -4692,6 +5363,30 @@ get_full_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start,
 	case FT_INT48:
 	case FT_INT56:
 	case FT_INT64:
+		if (encoding & ENC_VARINT_PROTOBUF) {
+			if (length < -1) {
+				report_type_length_mismatch(NULL, "a FT_[U]INT", length, TRUE);
+			}
+			if (length == -1) {
+				guint64 dummy;
+				/* This can throw an exception */
+				/* XXX - do this without fetching the varint? */
+				length = tvb_get_varint(tvb, start, FT_VARINT_MAX_LEN, &dummy);
+				if (length == 0) {
+					THROW(ReportedBoundsError);
+				}
+			}
+			item_length = length;
+			break;
+		}
+
+		/*
+		 * The length is the specified length.
+		 */
+		break;
+
+	case FT_BOOLEAN:
+	case FT_CHAR:
 	case FT_IPv4:
 	case FT_IPXNET:
 	case FT_IPv6:
@@ -4802,7 +5497,7 @@ proto_tree_set_representation_value(proto_item *pi, const char *format, va_list 
 			guint64 val;
 			char *p;
 
-			if (IS_FT_UINT(hf->type))
+			if (IS_FT_UINT32(hf->type))
 				val = fvalue_get_uinteger(&fi->value);
 			else
 				val = fvalue_get_uinteger64(&fi->value);
@@ -5166,12 +5861,11 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 								offset_r += protoo_strlcpy(result+offset_r, number_out, size-offset_r);
 								hf_str_val = hf_try_val_to_str(number, hfinfo);
 								offset_r += protoo_strlcpy(result+offset_r, hf_str_val, size-offset_r);
-							}
-							else {
+							} else {
 								number_out = hf_str_val = hf_try_val_to_str(number, hfinfo);
 
 								if (!number_out)
-									number_out = hfinfo_number_value_format_display(hfinfo, BASE_DEC, number_buf, number);
+									number_out = hfinfo_number_value_format_display(hfinfo, hfinfo->display, number_buf, number);
 
 								offset_r += protoo_strlcpy(result+offset_r, number_out, size-offset_r);
 							}
@@ -5213,13 +5907,19 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 							fmtfunc64(tmp, number64);
 							offset_r += protoo_strlcpy(result+offset_r, tmp, size-offset_r);
 						} else if (hfinfo->strings) {
-							number_out = hf_str_val = hf_try_val64_to_str(number64, hfinfo);
+							if (hfinfo->display & BASE_UNIT_STRING) {
+								number_out = hfinfo_numeric_value_format64(hfinfo, number_buf, number64);
+								offset_r += protoo_strlcpy(result+offset_r, number_out, size-offset_r);
+								hf_str_val = hf_try_val64_to_str(number64, hfinfo);
+								offset_r += protoo_strlcpy(result+offset_r, hf_str_val, size-offset_r);
+							} else {
+								number_out = hf_str_val = hf_try_val64_to_str(number64, hfinfo);
 
-							if (!number_out)
-								number_out = hfinfo_number_value_format_display64(hfinfo, BASE_DEC, number_buf, number64);
+								if (!number_out)
+									number_out = hfinfo_number_value_format_display64(hfinfo, hfinfo->display, number_buf, number64);
 
-							offset_r += protoo_strlcpy(result+offset_r, number_out, size-offset_r);
-
+								offset_r += protoo_strlcpy(result+offset_r, number_out, size-offset_r);
+							}
 						} else {
 							number_out = hfinfo_number_value_format64(hfinfo, number_buf, number64);
 
@@ -5311,7 +6011,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 							double d_value = fvalue_get_floating(&finfo->value);
 							g_snprintf(result+offset_r, size-offset_r,
 									"%." G_STRINGIFY(FLT_DIG) "g%s", d_value,
-									unit_name_string_get_value64((guint64)d_value, (unit_name_string*)hfinfo->strings));
+									unit_name_string_get_double(d_value, (unit_name_string*)hfinfo->strings));
 						} else {
 							g_snprintf(result+offset_r, size-offset_r,
 									"%." G_STRINGIFY(FLT_DIG) "g", fvalue_get_floating(&finfo->value));
@@ -5324,7 +6024,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 							double d_value = fvalue_get_floating(&finfo->value);
 							g_snprintf(result+offset_r, size-offset_r,
 									"%." G_STRINGIFY(DBL_DIG) "g%s", d_value,
-									unit_name_string_get_value64((guint64)d_value, (unit_name_string*)hfinfo->strings));
+									unit_name_string_get_double(d_value, (unit_name_string*)hfinfo->strings));
 						} else {
 							g_snprintf(result+offset_r, size-offset_r,
 									"%." G_STRINGIFY(DBL_DIG) "g", fvalue_get_floating(&finfo->value));
@@ -5615,7 +6315,7 @@ proto_tree_create_root(packet_info *pinfo)
 /* "prime" a proto_tree with a single hfid that a dfilter
  * is interested in. */
 void
-proto_tree_prime_hfid(proto_tree *tree _U_, const gint hfid)
+proto_tree_prime_with_hfid(proto_tree *tree _U_, const gint hfid)
 {
 	header_field_info *hfinfo;
 
@@ -6335,7 +7035,7 @@ proto_set_decoding(const int proto_id, const gboolean enabled)
 }
 
 void
-proto_enable_all(void)
+proto_reenable_all(void)
 {
 	protocol_t *protocol;
 	GList      *list_item = protocols;
@@ -6639,6 +7339,7 @@ static const value_string hf_display[] = {
 	{ BASE_PT_TCP,			  "BASE_PT_TCP"			   },
 	{ BASE_PT_DCCP,			  "BASE_PT_DCCP"		   },
 	{ BASE_PT_SCTP,			  "BASE_PT_SCTP"		   },
+	{ BASE_OUI,				  "BASE_OUI"		   },
 	{ 0,				  NULL } };
 
 const char* proto_field_display_to_string(int field_display)
@@ -6879,6 +7580,27 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 				break;
 			}
 
+			if (hfinfo->display == BASE_OUI) {
+				tmp_str = val_to_str_wmem(NULL, hfinfo->display, hf_display, "(Unknown: 0x%x)");
+				if (hfinfo->type != FT_UINT24) {
+					g_error("Field '%s' (%s) has 'display' value %s but it can only be used with FT_UINT24, not %s\n",
+						hfinfo->name, hfinfo->abbrev,
+						tmp_str, ftype_name(hfinfo->type));
+				}
+				if (hfinfo->strings != NULL) {
+					g_error("Field '%s' (%s) is an %s (%s) but has a strings value\n",
+						hfinfo->name, hfinfo->abbrev,
+						ftype_name(hfinfo->type), tmp_str);
+				}
+				if (hfinfo->bitmask != 0) {
+					g_error("Field '%s' (%s) is an %s (%s) but has a bitmask\n",
+						hfinfo->name, hfinfo->abbrev,
+						ftype_name(hfinfo->type), tmp_str);
+				}
+				wmem_free(NULL, tmp_str);
+				break;
+			}
+
 			/*  Require integral types (other than frame number,
 			 *  which is always displayed in decimal) to have a
 			 *  number base.
@@ -6905,6 +7627,13 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 							hfinfo->name, hfinfo->abbrev,
 							ftype_name(hfinfo->type));
 					}
+					if (hfinfo->display & BASE_SPECIAL_VALS) {
+						g_error("Field '%s' (%s) is an integral value (%s)"
+							" that is being displayed as BASE_NONE but"
+							" with BASE_SPECIAL_VALS",
+							hfinfo->name, hfinfo->abbrev,
+							ftype_name(hfinfo->type));
+					}
 					break;
 
 				default:
@@ -6917,6 +7646,7 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 			}
 			break;
 		case FT_BYTES:
+		case FT_UINT_BYTES:
 			/*  Require bytes to have a "display type" that could
 			 *  add a character between displayed bytes.
 			 */
@@ -7162,7 +7892,7 @@ register_number_string_decoding_error(void)
 	proto_set_cant_toggle(proto_number_string_decoding_error);
 }
 
-#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (183000+PRE_ALLOC_EXPERT_FIELDS_MEM)
+#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (188000+PRE_ALLOC_EXPERT_FIELDS_MEM)
 static int
 proto_register_field_init(header_field_info *hfinfo, const int parent)
 {
@@ -7482,7 +8212,11 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_UINT24:
 		case FT_UINT32:
 			if (hfinfo->bitmask) {
-				fill_label_bitfield(fi, label_str, FALSE);
+				if (fi->flags & FI_VARINT) {
+					fill_label_bitfield_varint(fi, label_str, FALSE);
+				} else {
+					fill_label_bitfield(fi, label_str, FALSE);
+				}
 			} else {
 				fill_label_number(fi, label_str, FALSE);
 			}
@@ -7497,7 +8231,11 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_UINT56:
 		case FT_UINT64:
 			if (hfinfo->bitmask) {
-				fill_label_bitfield64(fi, label_str, FALSE);
+				if (fi->flags & FI_VARINT) {
+					fill_label_bitfield_varint64(fi, label_str, FALSE);
+				} else {
+					fill_label_bitfield64(fi, label_str, FALSE);
+				}
 			} else {
 				fill_label_number64(fi, label_str, FALSE);
 			}
@@ -7508,7 +8246,11 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_INT24:
 		case FT_INT32:
 			if (hfinfo->bitmask) {
-				fill_label_bitfield(fi, label_str, TRUE);
+				if (fi->flags & FI_VARINT) {
+					fill_label_bitfield_varint(fi, label_str, TRUE);
+				} else {
+					fill_label_bitfield(fi, label_str, TRUE);
+				}
 			} else {
 				fill_label_number(fi, label_str, TRUE);
 			}
@@ -7519,7 +8261,11 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_INT56:
 		case FT_INT64:
 			if (hfinfo->bitmask) {
-				fill_label_bitfield64(fi, label_str, TRUE);
+				if (fi->flags & FI_VARINT) {
+					fill_label_bitfield_varint64(fi, label_str, TRUE);
+				} else {
+					fill_label_bitfield64(fi, label_str, TRUE);
+				}
 			} else {
 				fill_label_number64(fi, label_str, TRUE);
 			}
@@ -7531,7 +8277,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 				g_snprintf(label_str, ITEM_LABEL_LENGTH,
 					   "%s: %." G_STRINGIFY(FLT_DIG) "g%s",
 					   hfinfo->name, d_value,
-					   unit_name_string_get_value64((guint64)d_value, (unit_name_string*)hfinfo->strings));
+					   unit_name_string_get_double(d_value, (unit_name_string*)hfinfo->strings));
 			} else {
 				g_snprintf(label_str, ITEM_LABEL_LENGTH,
 					   "%s: %." G_STRINGIFY(FLT_DIG) "g",
@@ -7546,7 +8292,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 				g_snprintf(label_str, ITEM_LABEL_LENGTH,
 					   "%s: %." G_STRINGIFY(DBL_DIG) "g%s",
 					   hfinfo->name, d_value,
-					   unit_name_string_get_value64((guint64)d_value, (unit_name_string*)hfinfo->strings));
+					   unit_name_string_get_double(d_value, (unit_name_string*)hfinfo->strings));
 			} else {
 				g_snprintf(label_str, ITEM_LABEL_LENGTH,
 					   "%s: %." G_STRINGIFY(DBL_DIG) "g",
@@ -7995,6 +8741,110 @@ fill_label_bitfield64(field_info *fi, gchar *label_str, gboolean is_signed)
 }
 
 static void
+fill_label_bitfield_varint(field_info *fi, gchar *label_str, gboolean is_signed)
+{
+	char       *p;
+	int         bitfield_byte_length;
+	guint32     value, unshifted_value;
+	char        buf[48];
+	const char *out;
+
+	header_field_info *hfinfo = fi->hfinfo;
+
+	/* Un-shift bits */
+	if (is_signed) {
+		value = fvalue_get_sinteger(&fi->value);
+	} else {
+		value = fvalue_get_uinteger(&fi->value);
+	}
+	unshifted_value = value;
+	if (hfinfo->bitmask) {
+		unshifted_value <<= hfinfo_bitshift(hfinfo);
+	}
+
+	/* Create the bitfield first */
+	p = decode_bitfield_varint_value(label_str, unshifted_value, hfinfo->bitmask, fi->length*8);
+	bitfield_byte_length = (int) (p - label_str);
+
+	/* Fill in the textual info using stored (shifted) value */
+	if (hfinfo->display == BASE_CUSTOM) {
+		gchar tmp[ITEM_LABEL_LENGTH];
+		const custom_fmt_func_t fmtfunc = (const custom_fmt_func_t)hfinfo->strings;
+
+		DISSECTOR_ASSERT(fmtfunc);
+		fmtfunc(tmp, value);
+		label_fill(label_str, bitfield_byte_length, hfinfo, tmp);
+	}
+	else if (hfinfo->strings) {
+		const char *val_str = hf_try_val_to_str_const(value, hfinfo, "Unknown");
+
+		out = hfinfo_number_vals_format(hfinfo, buf, value);
+		if (out == NULL) /* BASE_NONE so don't put integer in descr */
+			label_fill(label_str, bitfield_byte_length, hfinfo, val_str);
+		else
+			label_fill_descr(label_str, bitfield_byte_length, hfinfo, val_str, out);
+	}
+	else {
+		out = hfinfo_number_value_format(hfinfo, buf, value);
+
+		label_fill(label_str, bitfield_byte_length, hfinfo, out);
+	}
+}
+
+static void
+fill_label_bitfield_varint64(field_info *fi, gchar *label_str, gboolean is_signed)
+{
+	char       *p;
+	int         bitfield_byte_length;
+	guint64     unshifted_value;
+	guint64     value;
+
+	char        buf[48];
+	const char *out;
+
+	header_field_info *hfinfo = fi->hfinfo;
+
+	/* Un-shift bits */
+	if (is_signed) {
+		value = fvalue_get_sinteger64(&fi->value);
+	} else {
+		value = fvalue_get_uinteger64(&fi->value);
+	}
+	unshifted_value = value;
+	if (hfinfo->bitmask) {
+		unshifted_value <<= hfinfo_bitshift(hfinfo);
+	}
+
+	/* Create the bitfield first */
+	p = decode_bitfield_varint_value(label_str, unshifted_value, hfinfo->bitmask, fi->length*8);
+	bitfield_byte_length = (int) (p - label_str);
+
+	/* Fill in the textual info using stored (shifted) value */
+	if (hfinfo->display == BASE_CUSTOM) {
+		gchar tmp[ITEM_LABEL_LENGTH];
+		const custom_fmt_func_64_t fmtfunc64 = (const custom_fmt_func_64_t)hfinfo->strings;
+
+		DISSECTOR_ASSERT(fmtfunc64);
+		fmtfunc64(tmp, value);
+		label_fill(label_str, bitfield_byte_length, hfinfo, tmp);
+	}
+	else if (hfinfo->strings) {
+		const char *val_str = hf_try_val64_to_str_const(value, hfinfo, "Unknown");
+
+		out = hfinfo_number_vals_format64(hfinfo, buf, value);
+		if (out == NULL) /* BASE_NONE so don't put integer in descr */
+			label_fill(label_str, bitfield_byte_length, hfinfo, val_str);
+		else
+			label_fill_descr(label_str, bitfield_byte_length, hfinfo, val_str, out);
+	}
+	else {
+		out = hfinfo_number_value_format64(hfinfo, buf, value);
+
+		label_fill(label_str, bitfield_byte_length, hfinfo, out);
+	}
+}
+
+static void
 fill_label_char(field_info *fi, gchar *label_str)
 {
 	header_field_info *hfinfo = fi->hfinfo;
@@ -8056,13 +8906,28 @@ fill_label_number(field_info *fi, gchar *label_str, gboolean is_signed)
 		 * frame-number field - they're just integers giving
 		 * the ordinal frame number.
 		 */
-		const char *val_str = hf_try_val_to_str_const(value, hfinfo, "Unknown");
+		const char *val_str = hf_try_val_to_str(value, hfinfo);
 
 		out = hfinfo_number_vals_format(hfinfo, buf, value);
-		if (out == NULL) /* BASE_NONE so don't put integer in descr */
-			label_fill(label_str, 0, hfinfo, val_str);
-		else
-			label_fill_descr(label_str, 0, hfinfo, val_str, out);
+		if (hfinfo->display & BASE_SPECIAL_VALS) {
+			/*
+			 * Unique values only display value_string string
+			 * if there is a match.  Otherwise it's just a number
+			 */
+			if (val_str) {
+				label_fill_descr(label_str, 0, hfinfo, val_str, out);
+			} else {
+				label_fill(label_str, 0, hfinfo, out);
+			}
+		} else {
+			if (val_str == NULL)
+				val_str = "Unknown";
+
+			if (out == NULL) /* BASE_NONE so don't put integer in descr */
+				label_fill(label_str, 0, hfinfo, val_str);
+			else
+				label_fill_descr(label_str, 0, hfinfo, val_str, out);
+		}
 	}
 	else if (IS_BASE_PORT(hfinfo->display)) {
 		gchar tmp[ITEM_LABEL_LENGTH];
@@ -8343,6 +9208,27 @@ hfinfo_number_value_format_display(const header_field_info *hfinfo, int display,
 			port_with_resolution_to_str_buf(buf, 32,
 					display_to_port_type((field_display_e)display), value);
 			return buf;
+		case BASE_OUI:
+			{
+			guint8 p_oui[3];
+			const gchar *manuf_name;
+
+			p_oui[0] = value >> 16 & 0xFF;
+			p_oui[1] = value >> 8 & 0xFF;
+			p_oui[2] = value & 0xFF;
+
+			/* Attempt an OUI lookup. */
+			manuf_name = uint_get_manuf_name_if_known(value);
+			if (manuf_name == NULL) {
+				/* Could not find an OUI. */
+				g_snprintf(buf, 32, "%02x:%02x:%02x", p_oui[0], p_oui[1], p_oui[2]);
+			}
+			else {
+				/* Found an address string. */
+				g_snprintf(buf, 32, "%02x:%02x:%02x (%s)", p_oui[0], p_oui[1], p_oui[2], manuf_name);
+			}
+			return buf;
+			}
 
 		default:
 			g_assert_not_reached();
@@ -8444,6 +9330,8 @@ hfinfo_numeric_value_format(const header_field_info *hfinfo, char buf[32], guint
 
 	if (IS_BASE_PORT(display)) {
 		display = BASE_DEC;
+	} else if (display == BASE_OUI) {
+		display = BASE_HEX;
 	}
 
 	switch (display) {
@@ -8671,11 +9559,14 @@ find_first_finfo(proto_node *node, gpointer data)
 	if (fi && fi->hfinfo) {
 		if (fi->hfinfo->id == ((ffdata_t*)data)->id) {
 			g_ptr_array_add(((ffdata_t*)data)->array, fi);
+
+			/* Stop traversing. */
+			return TRUE;
 		}
 	}
 
-	/* Stop traversing. */
-	return TRUE;
+	/* Continue traversing. */
+	return FALSE;
 }
 
 /* Return GPtrArray* of field_info pointers for all hfindex that appear in a tree.
@@ -8907,9 +9798,9 @@ proto_registrar_dump_values(void)
 
 		PROTO_REGISTRAR_GET_NTH(i, hfinfo);
 
-		 if (hfinfo->id == hf_text_only) {
-			 continue;
-		 }
+		if (hfinfo->id == hf_text_only) {
+			continue;
+		}
 
 		/* ignore protocols */
 		if (proto_registrar_is_protocol(i)) {
@@ -9233,6 +10124,7 @@ proto_registrar_dump_fields(void)
 					case BASE_PT_TCP:
 					case BASE_PT_DCCP:
 					case BASE_PT_SCTP:
+					case BASE_OUI:
 						base_name = val_to_str_const(FIELD_DISPLAY(hfinfo->display), hf_display, "????");
 						break;
 					default:
@@ -10140,7 +11032,7 @@ proto_tree_add_bits_item(proto_tree *tree, const int hfindex, tvbuff_t *tvb,
 
 	octet_length = (no_of_bits + 7) >> 3;
 	octet_offset = bit_offset >> 3;
-	test_length(hfinfo, tvb, octet_offset, octet_length);
+	test_length(hfinfo, tvb, octet_offset, octet_length, encoding);
 
 	/* Yes, we try to fake this item again in proto_tree_add_bits_ret_val()
 	 * but only after doing a bunch more work (which we can, in the common
@@ -10813,7 +11705,7 @@ proto_tree_add_boolean_bits_format_value64(proto_tree *tree, const int hfindex,
 
 	TRY_TO_FAKE_THIS_ITEM(tree, hfindex, hf_field);
 
-	DISSECTOR_ASSERT(hf_field->type == FT_BOOLEAN);
+	DISSECTOR_ASSERT_FIELD_TYPE(hf_field, FT_BOOLEAN);
 
 	CREATE_VALUE_STRING(dst, format, ap);
 

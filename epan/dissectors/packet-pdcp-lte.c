@@ -47,7 +47,7 @@ void proto_reg_handoff_pdcp_lte(void);
 
 /* Described in:
  * 3GPP TS 36.323 Evolved Universal Terrestrial Radio Access (E-UTRA)
- *                Packet Data Convergence Protocol (PDCP) specification v13.1.0
+ *                Packet Data Convergence Protocol (PDCP) specification v14.3.0
  */
 
 
@@ -92,6 +92,7 @@ static int hf_pdcp_lte_seq_num_7 = -1;
 static int hf_pdcp_lte_reserved3 = -1;
 static int hf_pdcp_lte_seq_num_12 = -1;
 static int hf_pdcp_lte_seq_num_15 = -1;
+static int hf_pdcp_lte_polling = -1;
 static int hf_pdcp_lte_reserved5 = -1;
 static int hf_pdcp_lte_seq_num_18 = -1;
 static int hf_pdcp_lte_signalling_data = -1;
@@ -114,7 +115,9 @@ static int hf_pdcp_lte_nmp2 = -1;
 static int hf_pdcp_lte_hrw3 = -1;
 static int hf_pdcp_lte_reserved8 = -1;
 static int hf_pdcp_lte_nmp3 = -1;
-
+static int hf_pdcp_lte_lsn = -1;
+static int hf_pdcp_lte_lsn2 = -1;
+static int hf_pdcp_lte_lsn3 = -1;
 
 /* Sequence Analysis */
 static int hf_pdcp_lte_sequence_analysis = -1;
@@ -201,9 +204,9 @@ static void* uat_ue_keys_record_copy_cb(void* n, const void* o, size_t siz _U_) 
     const uat_ue_keys_record_t* old_rec = (const uat_ue_keys_record_t *)o;
 
     new_rec->ueid = old_rec->ueid;
-    new_rec->rrcCipherKeyString = (old_rec->rrcCipherKeyString) ? g_strdup(old_rec->rrcCipherKeyString) : NULL;
-    new_rec->upCipherKeyString = (old_rec->upCipherKeyString) ? g_strdup(old_rec->upCipherKeyString) : NULL;
-    new_rec->rrcIntegrityKeyString = (old_rec->rrcIntegrityKeyString) ? g_strdup(old_rec->rrcIntegrityKeyString) : NULL;
+    new_rec->rrcCipherKeyString = g_strdup(old_rec->rrcCipherKeyString);
+    new_rec->upCipherKeyString = g_strdup(old_rec->upCipherKeyString);
+    new_rec->rrcIntegrityKeyString = g_strdup(old_rec->rrcIntegrityKeyString);
 
     return new_rec;
 }
@@ -352,6 +355,7 @@ void set_pdcp_lte_up_ciphering_key(guint16 ueid, const char *key)
 static gboolean global_pdcp_decipher_signalling = TRUE;
 static gboolean global_pdcp_decipher_userplane = FALSE;  /* Can be slow, so default to FALSE */
 static gboolean global_pdcp_check_integrity = TRUE;
+static gboolean global_pdcp_ignore_sec = FALSE;  /* ignore Set Security Algo calls */
 
 /* Use these values where we know the keys but may have missed the algorithm,
    e.g. when handing over and RRCReconfigurationRequest goes to target cell only */
@@ -418,9 +422,10 @@ static const value_string pdu_type_vals[] = {
 };
 
 static const value_string control_pdu_type_vals[] = {
-    { 0,   "PDCP Status report" },
+    { 0,   "PDCP status report" },
     { 1,   "Interspersed ROHC feedback packet" },
     { 2,   "LWA status report" },
+    { 3,   "LWA end-marker packet"},
     { 0,   NULL }
 };
 
@@ -1438,6 +1443,12 @@ void set_pdcp_lte_security_algorithms(guint16 ueid, pdcp_security_info_t *securi
     /* N.B. won't work for internal, non-RRC signalling methods... */
     pdcp_security_info_t *p_frame_security;
 
+    /* Disable this entire sub-routine with the Preference */
+    /* Used when the capture is already deciphered */
+    if (global_pdcp_ignore_sec) {
+        return;
+    }
+
     /* Create or update current settings, by UEID */
     pdcp_security_info_t* ue_security =
         (pdcp_security_info_t*)wmem_map_lookup(pdcp_security_hash,
@@ -1952,9 +1963,12 @@ static int dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                             proto_item *ti;
                             guint8 reserved_value;
 
-                            /* 5 reserved bits */
+                            /* Polling bit */
+                            proto_tree_add_item(pdcp_tree, hf_pdcp_lte_polling, tvb, offset, 1, ENC_BIG_ENDIAN);
+
+                            /* 4 reserved bits */
                             ti = proto_tree_add_item(pdcp_tree, hf_pdcp_lte_reserved5, tvb, offset, 1, ENC_BIG_ENDIAN);
-                            reserved_value = (first_byte & 0x7c) >> 2;
+                            reserved_value = (first_byte & 0x3c) >> 2;
 
                             /* Complain if not 0 */
                             if (reserved_value != 0) {
@@ -2202,6 +2216,54 @@ static int dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                         }
                         return 1;
 
+                    case 3:     /* LWA end-marker packet */
+                        {
+                            guint32 lsn;
+
+                            if (p_pdcp_info->seqnum_length == PDCP_SN_LENGTH_12_BITS) {
+                                proto_tree_add_item_ret_uint(pdcp_tree, hf_pdcp_lte_lsn, tvb,
+                                                             offset, 2, ENC_BIG_ENDIAN, &lsn);
+                                offset += 2;
+                            } else if (p_pdcp_info->seqnum_length == PDCP_SN_LENGTH_15_BITS) {
+                                proto_item *ti;
+                                guint32 reserved_value;
+
+                                /* 5 reserved bits */
+                                ti = proto_tree_add_item_ret_uint(pdcp_tree, hf_pdcp_lte_reserved4, tvb,
+                                                                  offset, 2, ENC_BIG_ENDIAN, &reserved_value);
+                                offset++;
+                                /* Complain if not 0 */
+                                if (reserved_value != 0) {
+                                    expert_add_info_format(pinfo, ti, &ei_pdcp_lte_reserved_bits_not_zero,
+                                                           "Reserved bits have value 0x%x - should be 0x0",
+                                                           reserved_value);
+                                }
+
+                                proto_tree_add_item_ret_uint(pdcp_tree, hf_pdcp_lte_lsn2, tvb,
+                                                             offset, 2, ENC_BIG_ENDIAN, &lsn);
+                                offset += 2;
+                            } else {
+                                proto_item *ti;
+                                guint32 reserved_value;
+
+                                /* 2 reserved bits */
+                                ti = proto_tree_add_item_ret_uint(pdcp_tree, hf_pdcp_lte_reserved6,
+                                                                  tvb, offset, 1, ENC_BIG_ENDIAN, &reserved_value);
+                                /* Complain if not 0 */
+                                if (reserved_value != 0) {
+                                    expert_add_info_format(pinfo, ti, &ei_pdcp_lte_reserved_bits_not_zero,
+                                                           "Reserved bits have value 0x%x - should be 0x0",
+                                                           reserved_value);
+                                }
+
+                                proto_tree_add_item_ret_uint(pdcp_tree, hf_pdcp_lte_lsn3, tvb,
+                                                             offset, 3, ENC_BIG_ENDIAN, &lsn);
+                                offset += 3;
+                            }
+
+                            write_pdu_label_and_info(root_ti, pinfo, " LWA End-Marker Packet (lsn=%u)", lsn);
+                        }
+                        return 1;
                     default:    /* Reserved */
                         return 1;
                 }
@@ -2561,10 +2623,16 @@ void proto_register_pdcp(void)
               "PDCP Seq num", HFILL
             }
         },
+        { &hf_pdcp_lte_polling,
+            { "Polling",
+              "pdcp-lte.polling", FT_BOOLEAN, 8, NULL, 0x40,
+              NULL, HFILL
+            }
+        },
         { &hf_pdcp_lte_reserved5,
             { "Reserved",
-              "pdcp-lte.reserved5", FT_UINT8, BASE_HEX, NULL, 0x7c,
-              "5 reserved bits", HFILL
+              "pdcp-lte.reserved5", FT_UINT8, BASE_HEX, NULL, 0x3c,
+              "4 reserved bits", HFILL
             }
         },
         { &hf_pdcp_lte_seq_num_18,
@@ -2652,7 +2720,7 @@ void proto_register_pdcp(void)
             }
         },
         { &hf_pdcp_lte_nmp,
-            { "Number of Missing PDCP PDUs",
+            { "Number of Missing PDCP SDUs",
               "pdcp-lte.nmp", FT_UINT16, BASE_DEC, NULL, 0x0fff,
               NULL, HFILL
             }
@@ -2670,7 +2738,7 @@ void proto_register_pdcp(void)
             }
         },
         { &hf_pdcp_lte_nmp2,
-            { "Number of Missing PDCP PDUs",
+            { "Number of Missing PDCP SDUs",
               "pdcp-lte.nmp", FT_UINT16, BASE_DEC, NULL, 0x7fff,
               NULL, HFILL
             }
@@ -2688,8 +2756,26 @@ void proto_register_pdcp(void)
             }
         },
         { &hf_pdcp_lte_nmp3,
-            { "Number of Missing PDCP PDUs",
+            { "Number of Missing PDCP SDUs",
               "pdcp-lte.nmp", FT_UINT24, BASE_DEC, NULL, 0x03ffff,
+              NULL, HFILL
+            }
+        },
+        { &hf_pdcp_lte_lsn,
+            { "Last PDCP PDU SN ciphered with previous key",
+              "pdcp-lte.lsn", FT_UINT16, BASE_DEC, NULL, 0x0fff,
+              NULL, HFILL
+            }
+        },
+        { &hf_pdcp_lte_lsn2,
+            { "Last PDCP PDU SN ciphered with previous key",
+              "pdcp-lte.lsn", FT_UINT16, BASE_DEC, NULL, 0x7fff,
+              NULL, HFILL
+            }
+        },
+        { &hf_pdcp_lte_lsn3,
+            { "Last PDCP PDU SN ciphered with previous key",
+              "pdcp-lte.lsn", FT_UINT24, BASE_DEC, NULL, 0x03ffff,
               NULL, HFILL
             }
         },
@@ -2947,6 +3033,11 @@ void proto_register_pdcp(void)
         "Attempt to check integrity calculation",
         "N.B. only possible if build with algorithm support, and have key available and configured",
         &global_pdcp_check_integrity);
+
+    prefs_register_bool_preference(pdcp_lte_module, "ignore_rrc_sec_params",
+        "Ignore RRC security parameters",
+        "Ignore the LTE RRC security algorithm configuration, to be used when PDCP is already deciphered in the capture",
+        &global_pdcp_ignore_sec);
 
     pdcp_sequence_analysis_channel_hash = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
     pdcp_lte_sequence_analysis_report_hash = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), pdcp_result_hash_func, pdcp_result_hash_equal);

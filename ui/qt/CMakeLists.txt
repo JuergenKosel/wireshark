@@ -21,13 +21,64 @@
 
 ADD_CUSTOM_CMAKE_INCLUDE()
 
+set(WIRESHARK_WIDGET_HEADERS
+	widgets/additional_toolbar.h
+	widgets/apply_line_edit.h
+	widgets/capture_filter_combo.h
+	widgets/capture_filter_edit.h
+	widgets/clickable_label.h
+	widgets/display_filter_combo.h
+	widgets/display_filter_edit.h
+	widgets/drag_drop_toolbar.h
+	widgets/editor_color_dialog.h
+	widgets/editor_file_dialog.h
+	widgets/elided_label.h
+	widgets/field_filter_edit.h
+	widgets/find_line_edit.h
+	widgets/follow_stream_text.h
+	widgets/interface_toolbar_lineedit.h
+	widgets/label_stack.h
+	widgets/overlay_scroll_bar.h
+	widgets/qcustomplot.h
+	widgets/stock_icon_tool_button.h
+	widgets/syntax_line_edit.h
+	widgets/tabnav_tree_view.h
+)
+
+set(WIRESHARK_UTILS_HEADERS
+	utils/color_utils.h
+	utils/stock_icon.h
+	utils/qt_ui_utils.h
+	utils/tango_colors.h
+	utils/variant_pointer.h
+)
+
+set(WIRESHARK_MODEL_HEADERS
+	models/cache_proxy_model.h
+	models/decode_as_delegate.h
+	models/decode_as_model.h
+	models/interface_sort_filter_model.h
+	models/interface_tree_cache_model.h
+	models/interface_tree_model.h
+	models/numeric_value_chooser_delegate.h
+	models/packet_list_model.h
+	models/packet_list_record.h
+	models/path_chooser_delegate.h
+	models/percent_bar_delegate.h
+	models/related_packet_delegate.h
+	models/timeline_delegate.h
+	models/sparkline_delegate.h
+	models/uat_delegate.h
+	models/uat_model.h
+	models/voip_calls_info_model.h
+)
+
 # All .h files which inherit from QObject aka which use the Q_OBJECT macro
 # need to go here.
 set(WIRESHARK_QT_HEADERS
 	about_dialog.h
 	accordion_frame.h
 	address_editor_frame.h
-	apply_line_edit.h
 	bluetooth_att_server_attributes_dialog.h
 	bluetooth_device_dialog.h
 	bluetooth_devices_dialog.h
@@ -38,14 +89,10 @@ set(WIRESHARK_QT_HEADERS
 	capture_file.h
 	capture_file_dialog.h
 	capture_file_properties_dialog.h
-	capture_filter_combo.h
-	capture_filter_edit.h
 	capture_filter_syntax_worker.h
 	capture_info_dialog.h
 	capture_interfaces_dialog.h
 	capture_preferences_frame.h
-	clickable_label.h
-	color_utils.h
 	coloring_rules_dialog.h
 	column_preferences_frame.h
 	column_editor_frame.h
@@ -54,11 +101,8 @@ set(WIRESHARK_QT_HEADERS
 	conversation_dialog.h
 	conversation_hash_tables_dialog.h
 	decode_as_dialog.h
-	display_filter_combo.h
-	display_filter_edit.h
 	display_filter_expression_dialog.h
 	dissector_tables_dialog.h
-	elided_label.h
 	enabled_protocols_dialog.h
 	endpoint_dialog.h
 	expert_info_dialog.h
@@ -66,17 +110,13 @@ set(WIRESHARK_QT_HEADERS
 	export_object_action.h
 	export_object_dialog.h
 	export_pdu_dialog.h
-	field_filter_edit.h
 	file_set_dialog.h
 	filter_action.h
 	filter_dialog.h
 	filter_dialog.h
 	filter_expression_frame.h
-	filter_expressions_preferences_frame.h
-	find_line_edit.h
 	firewall_rules_dialog.h
 	follow_stream_dialog.h
-	follow_stream_text.h
 	font_color_preferences_frame.h
 	funnel_string_dialog.h
 	funnel_text_dialog.h
@@ -85,18 +125,14 @@ set(WIRESHARK_QT_HEADERS
 	gsm_map_summary_dialog.h
 	iax2_analysis_dialog.h
 	import_text_dialog.h
-	additional_toolbar.h
-	interface_tree_model.h
-	interface_tree_cache_model.h
-	interface_sort_filter_model.h
+	interface_toolbar.h
+	interface_toolbar_reader.h
 	interface_frame.h
 	io_graph_dialog.h
-	label_stack.h
 	layout_preferences_frame.h
 	lbm_lbtrm_transport_dialog.h
 	lbm_lbtru_transport_dialog.h
 	lbm_stream_dialog.h
-	lbm_uimflow_dialog.h
 	lte_rlc_graph_dialog.h
 	lte_mac_statistics_dialog.h
 	lte_rlc_statistics_dialog.h
@@ -107,17 +143,12 @@ set(WIRESHARK_QT_HEADERS
 	manage_interfaces_dialog.h
 	module_preferences_scroll_area.h
 	mtp3_summary_dialog.h
-	numeric_value_chooser_delegate.h
 	multicast_statistics_dialog.h
-	overlay_scroll_bar.h
 	packet_comment_dialog.h
 	packet_dialog.h
 	packet_format_group_box.h
 	packet_list.h
-	packet_list_model.h
 	packet_range_group_box.h
-	path_chooser_delegate.h
-	percent_bar_delegate.h
 	preference_editor_frame.h
 	preferences_dialog.h
 	print_dialog.h
@@ -126,9 +157,7 @@ set(WIRESHARK_QT_HEADERS
 	proto_tree.h
 	protocol_hierarchy_dialog.h
 	protocol_preferences_menu.h
-	qcustomplot.h
 	recent_file_status.h
-	related_packet_delegate.h
 	resolved_addresses_dialog.h
 	response_time_delay_dialog.h
 	rpc_service_response_time_dialog.h
@@ -146,25 +175,21 @@ set(WIRESHARK_QT_HEADERS
 	sequence_diagram.h
 	sequence_dialog.h
 	show_packet_bytes_dialog.h
-	simple_dialog.h
 	splash_overlay.h
 	stats_tree_dialog.h
 	service_response_time_dialog.h
 	simple_statistics_dialog.h
-	stock_icon_tool_button.h
 	supported_protocols_dialog.h
-	syntax_line_edit.h
+	tabnav_tree_widget.h
 	tap_parameter_dialog.h
 	tcp_stream_dialog.h
 	time_shift_dialog.h
-	timeline_delegate.h
 	traffic_table_dialog.h
-	uat_delegate.h
 	uat_dialog.h
-	uat_model.h
-	uat_tree_view.h
+	uat_frame.h
 	voip_calls_dialog.h
 	wireless_frame.h
+	wireless_timeline.h
 	wireshark_application.h
 	wireshark_dialog.h
 	wlan_statistics_dialog.h
@@ -191,16 +216,66 @@ endif()
 
 file(GLOB EXTRA_QT_HEADERS
 	packet_list_record.h
-	qt_ui_utils.h
-	sparkline_delegate.h
-	stock_icon.h
+	models/sparkline_delegate.h
+	utils/qt_ui_utils.h
+	utils/stock_icon.h
+)
+
+set(WIRESHARK_WIDGET_SRCS
+	widgets/additional_toolbar.cpp
+	widgets/apply_line_edit.cpp
+	widgets/capture_filter_combo.cpp
+	widgets/capture_filter_edit.cpp
+	widgets/clickable_label.cpp
+	widgets/display_filter_combo.cpp
+	widgets/display_filter_edit.cpp
+	widgets/drag_drop_toolbar.cpp
+	widgets/editor_color_dialog.cpp
+	widgets/editor_file_dialog.cpp
+	widgets/elided_label.cpp
+	widgets/field_filter_edit.cpp
+	widgets/find_line_edit.cpp
+	widgets/follow_stream_text.cpp
+	widgets/interface_toolbar_lineedit.cpp
+	widgets/label_stack.cpp
+	widgets/overlay_scroll_bar.cpp
+	widgets/qcustomplot.cpp
+	widgets/stock_icon_tool_button.cpp
+	widgets/syntax_line_edit.cpp
+	widgets/tabnav_tree_view.cpp
+)
+
+set(WIRESHARK_UTILS_SRCS
+	utils/color_utils.cpp
+	utils/stock_icon.cpp
+	utils/qt_ui_utils.cpp
+)
+
+set(WIRESHARK_MODEL_SRCS
+	models/cache_proxy_model.cpp
+	models/decode_as_delegate.cpp
+	models/decode_as_model.cpp
+	models/interface_sort_filter_model.cpp
+	models/interface_tree_cache_model.cpp
+	models/interface_tree_model.cpp
+	models/numeric_value_chooser_delegate.cpp
+	models/packet_list_model.cpp
+	models/packet_list_record.cpp
+	models/path_chooser_delegate.cpp
+	models/percent_bar_delegate.cpp
+	models/related_packet_delegate.cpp
+	models/sparkline_delegate.cpp
+	models/sparkline_delegate.cpp
+	models/timeline_delegate.cpp
+	models/uat_delegate.cpp
+	models/uat_model.cpp
+	models/voip_calls_info_model.cpp
 )
 
 set(WIRESHARK_QT_SRC
 	about_dialog.cpp
 	accordion_frame.cpp
 	address_editor_frame.cpp
-	apply_line_edit.cpp
 	bluetooth_att_server_attributes_dialog.cpp
 	bluetooth_device_dialog.cpp
 	bluetooth_devices_dialog.cpp
@@ -210,14 +285,10 @@ set(WIRESHARK_QT_SRC
 	capture_file.cpp
 	capture_file_dialog.cpp
 	capture_file_properties_dialog.cpp
-	capture_filter_combo.cpp
-	capture_filter_edit.cpp
 	capture_filter_syntax_worker.cpp
 	capture_info_dialog.cpp
 	capture_interfaces_dialog.cpp
 	capture_preferences_frame.cpp
-	clickable_label.cpp
-	color_utils.cpp
 	coloring_rules_dialog.cpp
 	column_preferences_frame.cpp
 	column_editor_frame.cpp
@@ -226,46 +297,35 @@ set(WIRESHARK_QT_SRC
 	conversation_dialog.cpp
 	conversation_hash_tables_dialog.cpp
 	decode_as_dialog.cpp
-	display_filter_combo.cpp
-	display_filter_edit.cpp
 	display_filter_expression_dialog.cpp
 	dissector_tables_dialog.cpp
-	elided_label.cpp
 	enabled_protocols_dialog.cpp
 	endpoint_dialog.cpp
 	export_dissection_dialog.cpp
 	export_object_action.cpp
 	export_object_dialog.cpp
 	export_pdu_dialog.cpp
-	field_filter_edit.cpp
 	file_set_dialog.cpp
 	filter_action.cpp
 	filter_dialog.cpp
 	filter_expression_frame.cpp
-	filter_expressions_preferences_frame.cpp
-	find_line_edit.cpp
 	firewall_rules_dialog.cpp
 	follow_stream_dialog.cpp
-	follow_stream_text.cpp
 	font_color_preferences_frame.cpp
 	funnel_string_dialog.cpp
 	funnel_text_dialog.cpp
 	geometry_state_dialog.cpp
 	iax2_analysis_dialog.cpp
 	import_text_dialog.cpp
-	additional_toolbar.cpp
-	interface_tree_model.cpp
-	interface_tree_cache_model.cpp
-	interface_sort_filter_model.cpp
 	interface_frame.cpp
-	label_stack.cpp
+	interface_toolbar.cpp
+	interface_toolbar_reader.cpp
 	layout_preferences_frame.cpp
 	lbm_lbtrm_transport_dialog.cpp
 	lbm_lbtru_transport_dialog.cpp
 	lbm_stream_dialog.cpp
-	lbm_uimflow_dialog.cpp
-	lte_rlc_graph_dialog.cpp
 	lte_mac_statistics_dialog.cpp
+	lte_rlc_graph_dialog.cpp
 	lte_rlc_statistics_dialog.cpp
 	main_status_bar.cpp
 	main_welcome.cpp
@@ -274,17 +334,11 @@ set(WIRESHARK_QT_SRC
 	main_window_slots.cpp
 	manage_interfaces_dialog.cpp
 	module_preferences_scroll_area.cpp
-	numeric_value_chooser_delegate.cpp
-	overlay_scroll_bar.cpp
 	packet_comment_dialog.cpp
 	packet_dialog.cpp
 	packet_format_group_box.cpp
 	packet_list.cpp
-	packet_list_model.cpp
-	packet_list_record.cpp
 	packet_range_group_box.cpp
-	path_chooser_delegate.cpp
-	percent_bar_delegate.cpp
 	preference_editor_frame.cpp
 	preferences_dialog.cpp
 	print_dialog.cpp
@@ -293,10 +347,7 @@ set(WIRESHARK_QT_SRC
 	proto_tree.cpp
 	protocol_hierarchy_dialog.cpp
 	protocol_preferences_menu.cpp
-	qcustomplot.cpp
-	qt_ui_utils.cpp
 	recent_file_status.cpp
-	related_packet_delegate.cpp
 	resolved_addresses_dialog.cpp
 	response_time_delay_dialog.cpp
 	rpc_service_response_time_dialog.cpp
@@ -314,26 +365,21 @@ set(WIRESHARK_QT_SRC
 	sequence_diagram.cpp
 	sequence_dialog.cpp
 	service_response_time_dialog.cpp
+	show_packet_bytes_dialog.cpp
 	simple_dialog.cpp
 	simple_statistics_dialog.cpp
-	show_packet_bytes_dialog.cpp
 	splash_overlay.cpp
-	sparkline_delegate.cpp
-	stock_icon.cpp
-	stock_icon_tool_button.cpp
 	supported_protocols_dialog.cpp
-	syntax_line_edit.cpp
+	tabnav_tree_widget.cpp
 	tap_parameter_dialog.cpp
 	tcp_stream_dialog.cpp
 	time_shift_dialog.cpp
-	timeline_delegate.cpp
 	traffic_table_dialog.cpp
-	uat_delegate.cpp
 	uat_dialog.cpp
-	uat_model.cpp
-	uat_tree_view.cpp
+	uat_frame.cpp
 	voip_calls_dialog.cpp
 	wireless_frame.cpp
+	wireless_timeline.cpp
 	wireshark_application.cpp
 	wireshark_dialog.cpp
 	${WIRESHARK_CUSTOM_QT_SRCS}
@@ -404,7 +450,6 @@ set(WIRESHARK_QT_UI
 	file_set_dialog.ui
 	filter_dialog.ui
 	filter_expression_frame.ui
-	filter_expressions_preferences_frame.ui
 	firewall_rules_dialog.ui
 	follow_stream_dialog.ui
 	font_color_preferences_frame.ui
@@ -414,12 +459,12 @@ set(WIRESHARK_QT_UI
 	iax2_analysis_dialog.ui
 	import_text_dialog.ui
 	interface_frame.ui
+	interface_toolbar.ui
 	io_graph_dialog.ui
 	layout_preferences_frame.ui
 	lbm_lbtrm_transport_dialog.ui
 	lbm_lbtru_transport_dialog.ui
 	lbm_stream_dialog.ui
-	lbm_uimflow_dialog.ui
 	lte_rlc_graph_dialog.ui
 	main_welcome.ui
 	main_window.ui
@@ -457,6 +502,7 @@ set(WIRESHARK_QT_UI
 	time_shift_dialog.ui
 	traffic_table_dialog.ui
 	uat_dialog.ui
+	uat_frame.ui
 	voip_calls_dialog.ui
 	wireless_frame.ui
 )
@@ -476,15 +522,6 @@ if(ENABLE_EXTCAP)
 	)
 endif()
 
-set(WIRESHARK_QT_QRC
-	../../image/about.qrc
-	../../image/languages/languages.qrc
-	../../image/layout.qrc
-	../../image/toolbar.qrc
-	../../image/wsicon.qrc
-	${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc
-)
-
 set(WIRESHARK_QT_TS
 	wireshark_de.ts
 	wireshark_en.ts # lupdate -pluralonly
@@ -495,41 +532,52 @@ set(WIRESHARK_QT_TS
 	wireshark_zh_CN.ts
 )
 
+foreach(_file ${WIRESHARK_QT_TS})
+	get_filename_component(_qresource ${_file} NAME_WE)
+	set(_qresource_qm "${_qresource}.qm")
+	set(i18n_qresource "${i18n_qresource}\n    <file>${_qresource_qm}</file>")
+	set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc PROPERTIES OBJECT_DEPENDS ${_qresource_qm})
+endforeach()
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/i18n.qrc.in ${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc)
+
+set(WIRESHARK_QT_QRC
+	../../image/about.qrc
+	../../image/languages/languages.qrc
+	../../image/layout.qrc
+	../../image/toolbar.qrc
+	../../image/wsicon.qrc
+	${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc
+)
+
 include_directories(
 	${CMAKE_CURRENT_BINARY_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-if (QT_VERSION EQUAL 5)
-	QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
-	QT5_ADD_RESOURCES(WIRESHARK_QT_QRC_SRC ${WIRESHARK_QT_QRC})
-	QT5_WRAP_UI(WIRESHARK_QT_UI_SRC ${WIRESHARK_QT_UI})
-	# For now, do the moc stuff manually
-	QT5_WRAP_CPP(WIRESHARK_QT_MOC_SRC ${WIRESHARK_QT_HEADERS}
-		OPTIONS ${MOC_OPTIONS})
-	# Starting with cmake 2.8.6, we may also use
-	# set(CMAKE_AUTOMOC TRUE)
-	# or
-	# set_target_properties(${some-source-files} PROPERTIES AUTOMOC TRUE)
-else()
-	QT4_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
-	QT4_ADD_RESOURCES(WIRESHARK_QT_QRC_SRC ${WIRESHARK_QT_QRC})
-	QT4_WRAP_UI(WIRESHARK_QT_UI_SRC ${WIRESHARK_QT_UI})
-	# For now, do the moc stuff manually
-	QT4_WRAP_CPP(WIRESHARK_QT_MOC_SRC ${WIRESHARK_QT_HEADERS}
-		OPTIONS ${MOC_OPTIONS})
-	# Starting with cmake 2.8.6, we may also use
-	# set(CMAKE_AUTOMOC TRUE)
-	# or
-	# set_target_properties(${some-source-files} PROPERTIES AUTOMOC TRUE)
-endif()
+SET(CMAKE_AUTOMOC TRUE)
 
-foreach(_file ${WIRESHARK_QT_QM})
-	get_filename_component(_qresource ${_file} NAME)
-	set(i18n_qresource "${i18n_qresource}\n    <file>${_qresource}</file>")
-	set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc PROPERTIES OBJECT_DEPENDS ${_file})
-endforeach()
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/i18n.qrc.in ${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc)
+if(CMAKE_VERSION VERSION_LESS "3.0.2")
+	# AUTOUIC and AUTORCC are not supported in CMAKE 2.8.x
+	if (QT_VERSION EQUAL 5)
+		QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
+		QT5_ADD_RESOURCES(WIRESHARK_QT_QRC_SRC ${WIRESHARK_QT_QRC})
+		QT5_WRAP_UI(WIRESHARK_QT_UI_SRC ${WIRESHARK_QT_UI})
+	else()
+		QT4_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
+		QT4_ADD_RESOURCES(WIRESHARK_QT_QRC_SRC ${WIRESHARK_QT_QRC})
+		QT4_WRAP_UI(WIRESHARK_QT_UI_SRC ${WIRESHARK_QT_UI})
+	endif()
+else()
+	SET(CMAKE_AUTOUIC TRUE)
+	SET(CMAKE_AUTORCC TRUE)
+	# Add .qrc files to library dependencies for AUTORCC.
+	set(WIRESHARK_QT_QRC_SRC ${WIRESHARK_QT_QRC})
+	if (QT_VERSION EQUAL 5)
+		QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
+	else()
+		QT4_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
+	endif()
+endif()
 
 add_custom_target(
 	translations ALL
@@ -551,18 +599,44 @@ register_tap_files(wireshark-tap-register.c
 	${WIRESHARK_QT_TAP_SRC}
 )
 
+source_group("ui\\UIC Files" FILES ${WIRESHARK_QT_UI})
+source_group("ui\\qrc" FILES ${WIRESHARK_QT_QRC})
+source_group("ui\\Header" FILES ${WIRESHARK_QT_HEADERS})
+source_group("ui\\Widget Header" FILES ${WIRESHARK_WIDGET_HEADERS})
+source_group("ui\\Widget Source" FILES ${WIRESHARK_WIDGET_SRCS})
+source_group("ui\\Utils Headers Files" FILES ${WIRESHARK_UTILS_HEADERS})
+source_group("ui\\Utils Source" FILES ${WIRESHARK_UTILS_SRCS})
+source_group("ui\\Models Headers" FILES ${WIRESHARK_MODEL_HEADERS})
+source_group("ui\\Models Source" FILES ${WIRESHARK_MODEL_SRCS})
+
 add_library(qtui STATIC
+	#Included so that Visual Studio can properly put header files in solution
+	${WIRESHARK_QT_HEADERS}
+	${WIRESHARK_WIDGET_HEADERS}
+	${WIRESHARK_UTILS_HEADERS}
+	${WIRESHARK_MODEL_HEADERS}
+
 	${WIRESHARK_QT_SRC}
+	${WIRESHARK_WIDGET_SRCS}
+	${WIRESHARK_UTILS_SRCS}
+	${WIRESHARK_MODEL_SRCS}
+
 	${WIRESHARK_QT_TAP_SRC}
 	${WIRESHARK_QT_UI_SRC}
-	${WIRESHARK_QT_MOC_SRC}
 	${WIRESHARK_QT_QRC_SRC}
 	wireshark-tap-register.c
 )
 add_dependencies(qtui translations)
-set_target_properties(qtui PROPERTIES COMPILE_OPTIONS "${WS_WARNINGS_CXX_FLAGS}")
-set_target_properties(qtui PROPERTIES LINK_FLAGS "${WS_LINK_FLAGS}")
-set_target_properties(qtui PROPERTIES FOLDER "UI")
+set_target_properties(qtui PROPERTIES
+	LINK_FLAGS "${WS_LINK_FLAGS}"
+	FOLDER "UI"
+)
+if(NOT CMAKE_VERSION VERSION_LESS "3.0.2")
+	# Ensure .qm files are generated before autogenerating i18n.qrc
+	set_target_properties(qtui PROPERTIES
+		AUTOGEN_TARGET_DEPENDS "${WIRESHARK_QT_QM}"
+	)
+endif()
 
 #
 # Editor modelines  -  http://www.wireshark.org/tools/modelines.html

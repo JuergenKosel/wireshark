@@ -140,6 +140,7 @@ const value_string gre_typevals[] = {
     { ETHERTYPE_NSH,       "Network Service Header" },
     { ETHERTYPE_CDMA2000_A10_UBS,"CDMA2000 A10 Unstructured byte stream" },
     { ETHERTYPE_3GPP2,     "CDMA2000 A10 3GPP2 Packet" },
+    { ETHERTYPE_CMD,       "CiscoMetaData" },
     { GRE_ARUBA_8200,      "ARUBA WLAN" },
     { GRE_ARUBA_8210,      "ARUBA WLAN" },
     { GRE_ARUBA_8220,      "ARUBA WLAN" },
@@ -745,7 +746,25 @@ proto_register_gre(void)
     expert_gre = expert_register_protocol(proto_gre);
     expert_register_field_array(expert_gre, ei, array_length(ei));
 
-    /* subdissector code */
+    /*
+     * Dissector table.
+     *
+     * XXX - according to
+     *
+     *    https://www.iana.org/assignments/gre-parameters/gre-parameters.xhtml#gre-parameters-1
+     *
+     * these are just Ethertypes; should we use "gre.proto" only for
+     * protocols *not* registered as Ethertypes, such as those listed
+     * in the table in "Current List of Protocol Types" in RFC 1701
+     * ("For historical reasons, a number of other values have been
+     * used for some protocols."), and for protocols encapsulated in GRE
+     * differently from the way they're encapsulated over LAN protocols
+     * (for example, Cisco MetaData), and if we don't get a match there,
+     * use the "ethertype" table?
+     *
+     * And should we also somehow do something similar for mapping values
+     * to strings, falling back on etype_vals?
+     */
     gre_dissector_table = register_dissector_table("gre.proto",
                                                    "GRE protocol type", proto_gre, FT_UINT16, BASE_HEX);
 }

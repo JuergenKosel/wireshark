@@ -90,7 +90,7 @@ static int hf_uma_urlc_seq_nr				= -1;
 static int hf_uma_urr_IE				= -1;
 static int hf_uma_urr_IE_len				= -1;
 static int hf_uma_urr_uri				= -1;
-static int hf_uma_urr_radio_type_of_id	= -1;
+static int hf_uma_urr_radio_type_of_id			= -1;
 static int hf_uma_urr_radio_id				= -1;
 static int hf_uma_urr_cell_id				= -1;
 static int hf_uma_urr_lac				= -1;
@@ -104,7 +104,7 @@ static int hf_uma_urr_psho				= -1;
 static int hf_uma_urr_IP_Address_type			= -1;
 static int hf_uma_urr_FQDN				= -1;
 static int hf_uma_urr_sgw_ipv4				= -1;
-static int hf_uma_urr_redirection_counter =		 -1;
+static int hf_uma_urr_redirection_counter		= -1;
 static int hf_uma_urr_dis_rej_cau			= -1;
 static int hf_uma_urr_MSCR				= -1;
 static int hf_uma_urr_ATT				= -1;
@@ -198,7 +198,6 @@ static expert_field ei_uma_unknown_format = EI_INIT;
 #define DEFAULT_UMA_PORT_RANGE "14001" /* Not IANA registered */
 
 /* Global variables */
-static	guint32		sgw_ipv4_address;
 static	guint32		unc_ipv4_address;
 /** static	guint32		rtp_ipv4_address; **/
 static	guint32		rtcp_ipv4_address;
@@ -970,8 +969,7 @@ dissect_uma_IE(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset)
 		if ( octet == 0x57 ){ /* IPv6 */
 
 		}else{ /* All other values shall be interpreted as Ipv4 address in this version of the protocol.*/
-			sgw_ipv4_address = tvb_get_ipv4(tvb, ie_offset);
-			proto_tree_add_ipv4(urr_ie_tree, hf_uma_urr_sgw_ipv4, tvb, ie_offset, 4, sgw_ipv4_address);
+			proto_tree_add_item(urr_ie_tree, hf_uma_urr_sgw_ipv4, tvb, ie_offset, 4, ENC_BIG_ENDIAN);
 
 		}
 		break;

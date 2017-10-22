@@ -23,8 +23,6 @@
 #ifndef __SMINMPEC_H__
 #define __SMINMPEC_H__
 
-#include "ws_symbol_export.h"
-
 /*
  * These are SMI Network Management Private Enterprise Codes for
  * organizations; see
@@ -91,12 +89,11 @@
 #define VENDOR_WIFI_ALLIANCE        14122
 #define VENDOR_T_SYSTEMS_NOVA       16787
 #define VENDOR_CHINATELECOM_GUANZHOU 20942
+#define VENDOR_GIGAMON              26866
 #define VENDOR_CACE                 32622
 /* Greater than 32,767 need to be tagged unsigned. */
 #define VENDOR_NTOP                 35632u
 #define VENDOR_ERICSSON_CANADA_INC  46098u
 #define VENDOR_CISCO_WIFI           4232704
-
-WS_DLL_PUBLIC value_string_ext sminmpec_values_ext;
 
 #endif /* __SMINMPEC_H__ */

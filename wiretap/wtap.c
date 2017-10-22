@@ -51,10 +51,12 @@ static GSList *wtap_plugins = NULL;
 /*
  * Callback for each plugin found.
  */
+DIAG_OFF(pedantic)
 static gboolean
 check_for_wtap_plugin(GModule *handle)
 {
 	gpointer gp;
+	void (*register_wtap_module)(void);
 	wtap_plugin *plugin;
 
 	/*
@@ -67,15 +69,18 @@ check_for_wtap_plugin(GModule *handle)
 
 	/*
 	 * Yes - this plugin includes one or more wiretap modules.
+	 */
+	register_wtap_module = (void (*)(void))gp;
+
+	/*
 	 * Add this one to the list of wiretap module plugins.
 	 */
 	plugin = (wtap_plugin *)g_malloc(sizeof (wtap_plugin));
-DIAG_OFF(pedantic)
-	plugin->register_wtap_module = (void (*)(void))gp;
-DIAG_ON(pedantic)
-	wtap_plugins = g_slist_append(wtap_plugins, plugin);
+	plugin->register_wtap_module = register_wtap_module;
+	wtap_plugins = g_slist_prepend(wtap_plugins, plugin);
 	return TRUE;
 }
+DIAG_ON(pedantic)
 
 static void
 wtap_register_plugin_types(void)
@@ -254,10 +259,9 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 	}
 
 	g_string_append_printf(info,
-			"%*cEncapsulation = %s (%d/%u - %s)%s", indent, ' ',
+			"%*cEncapsulation = %s (%d - %s)%s", indent, ' ',
 			wtap_encap_string(if_descr_mand->wtap_encap),
 			if_descr_mand->wtap_encap,
-			if_descr_mand->link_type,
 			wtap_encap_short_string(if_descr_mand->wtap_encap),
 			line_end);
 
@@ -649,8 +653,8 @@ static struct encap_type_info encap_table_base[] = {
 	/* WTAP_ENCAP_JUNIPER_VP */
 	{ "Juniper Voice PIC", "juniper-vp" },
 
-	/* WTAP_ENCAP_USB */
-	{ "Raw USB packets", "usb" },
+	/* WTAP_ENCAP_USB_FREEBSD */
+	{ "USB packets with FreeBSD header", "usb-freebsd" },
 
 	/* WTAP_ENCAP_IEEE802_16_MAC_CPS */
 	{ "IEEE 802.16 MAC Common Part Sublayer", "ieee-802-16-mac-cps" },
@@ -918,6 +922,51 @@ static struct encap_type_info encap_table_base[] = {
 
 	/* WTAP_ENCAP_JUNIPER_VN */
 	{ "Juniper VN", "juniper-vn" },
+
+	/* WTAP_ENCAP_USB_DARWIN */
+	{ "USB packets with Darwin (macOS, etc.) headers", "usb-darwin" },
+
+	/* WTAP_ENCAP_LORATAP */
+	{ "LoRaTap", "loratap"},
+
+	/* WTAP_ENCAP_3MB_ETHERNET */
+	{ "Xerox 3MB Ethernet", "xeth"},
+
+	/* WTAP_ENCAP_VSOCK */
+	{ "Linux vsock", "vsock" },
+
+	/* WTAP_ENCAP_NORDIC_BLE */
+	{ "Nordic BLE Sniffer", "nordic_ble" },
+
+	/* WTAP_ENCAP_NETMON_NET_NETEVENT */
+	{ "Network Monitor Network Event", "netmon_event" },
+
+	/* WTAP_ENCAP_NETMON_HEADER */
+	{ "Network Monitor Header", "netmon_header" },
+
+	/* WTAP_ENCAP_NETMON_NET_FILTER */
+	{ "Network Monitor Filter", "netmon_filter" },
+
+	/* WTAP_ENCAP_NETMON_NETWORK_INFO_EX */
+	{ "Network Monitor Network Info", "netmon_network_info" },
+
+	/* WTAP_ENCAP_MA_WFP_CAPTURE_V4 */
+	{ "Message Analyzer WFP Capture v4", "message_analyzer_wfp_capture_v4" },
+
+	/* WTAP_ENCAP_MA_WFP_CAPTURE_V6 */
+	{ "Message Analyzer WFP Capture v6", "message_analyzer_wfp_capture_v6" },
+
+	/* WTAP_ENCAP_MA_WFP_CAPTURE_2V4 */
+	{ "Message Analyzer WFP Capture2 v4", "message_analyzer_wfp_capture2_v4" },
+
+	/* WTAP_ENCAP_MA_WFP_CAPTURE_2V6 */
+	{ "Message Analyzer WFP Capture2 v6", "message_analyzer_wfp_capture2_v6" },
+
+	/* WTAP_ENCAP_MA_WFP_CAPTURE_AUTH_V4 */
+	{ "Message Analyzer WFP Capture Auth v4", "message_analyzer_wfp_capture_auth_v4" },
+
+	/* WTAP_ENCAP_MA_WFP_CAPTURE_AUTH_V6 */
+	{ "Message Analyzer WFP Capture Auth v6", "message_analyzer_wfp_capture_auth_v6" },
 };
 
 WS_DLL_LOCAL
@@ -1187,8 +1236,7 @@ wtap_close(wtap *wth)
 	if (wth->random_fh != NULL)
 		file_close(wth->random_fh);
 
-	if (wth->priv != NULL)
-		g_free(wth->priv);
+	g_free(wth->priv);
 
 	if (wth->fast_seek != NULL) {
 		g_ptr_array_foreach(wth->fast_seek, g_fast_seek_item_free, NULL);
@@ -1400,6 +1448,8 @@ wtap_seek_read(wtap *wth, gint64 seek_off,
 	phdr->pkt_encap = wth->file_encap;
 	phdr->pkt_tsprec = wth->file_tsprec;
 
+	*err = 0;
+	*err_info = NULL;
 	if (!wth->subtype_seek_read(wth, seek_off, phdr, buf, err, err_info))
 		return FALSE;
 

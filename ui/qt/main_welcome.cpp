@@ -28,13 +28,13 @@
 #include "ui/capture_globals.h"
 #include "ui/help_url.h"
 
-#include "ws_version_info.h"
+#include "version_info.h"
 
 #include "main_welcome.h"
 #include <ui_main_welcome.h>
-#include "tango_colors.h"
-
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/tango_colors.h>
+#include <ui/qt/utils/color_utils.h>
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
 
 #include <QClipboard>
@@ -47,7 +47,7 @@
 #include <QUrl>
 #include <QWidget>
 
-#if !defined(Q_OS_MAC) || QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
+#if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 #include <QGraphicsBlurEffect>
 #endif
 
@@ -77,45 +77,53 @@ MainWelcome::MainWelcome(QWidget *parent) :
 
     welcome_ui_->captureFilterComboBox->setEnabled(false);
 
-    setStyleSheet(QString(
-                      "MainWelcome {"
-                      "  padding: 1em;"
-                      " }"
-                      "MainWelcome, QAbstractItemView {"
-                      "  background-color: palette(base);"
-                      "  color: palette(text);"
-                      " }"
-                      "QListWidget {"
-                      "  border: 0;"
-                      "}"
-                      "QTreeWidget {"
-                      "  border: 0;"
-                      "}"
-                      )
-                );
+    QColor hover_color = ColorUtils::alphaBlend(palette().window(), palette().highlight(), 0.5);
 
     QString welcome_ss = QString(
+                "MainWelcome {"
+                "  padding: 1em;"
+                " }"
+                "MainWelcome, QAbstractItemView {"
+                "  background-color: palette(base);"
+                "  color: palette(text);"
+                " }"
+                "QAbstractItemView {"
+                "  border: 0;"
+                "}"
+                );
+#if !defined(Q_OS_WIN)
+    welcome_ss += QString(
+                "QAbstractItemView:item:hover {"
+                "  background-color: %1;"
+                "  color: palette(text);"
+                "}"
+                )
+            .arg(hover_color.name());
+#endif
+    setStyleSheet(welcome_ss);
+
+    QString banner_ss = QString(
                 "QLabel {"
                 "  border-radius: 0.33em;"
-                "  color: #%1;"
-                "  background-color: #%2;"
+                "  color: %1;"
+                "  background-color: %2;"
                 "  padding: 0.33em;"
                 "}"
                 )
-            .arg(tango_aluminium_6, 6, 16, QChar('0'))   // Text color
-            .arg(tango_sky_blue_2, 6, 16, QChar('0'));   // Background color
-    welcome_ui_->mainWelcomeBanner->setStyleSheet(welcome_ss);
+            .arg(QColor(tango_aluminium_6).name())   // Text color
+            .arg(QColor(tango_sky_blue_2).name());   // Background color
+    welcome_ui_->mainWelcomeBanner->setStyleSheet(banner_ss);
 
     QString title_button_ss = QString(
             "QLabel {"
-            "  color: #%1;"
+            "  color: %1;"
             "}"
             "QLabel::hover {"
-            "  color: #%2;"
+            "  color: %2;"
             "}"
             )
-            .arg(tango_aluminium_4, 6, 16, QChar('0'))   // Text color
-            .arg(tango_sky_blue_4, 6, 16, QChar('0'));    // Hover color
+            .arg(QColor(tango_aluminium_4).name())   // Text color
+            .arg(QColor(tango_sky_blue_4).name());   // Hover color
 
     // XXX Is there a better term than "flavor"? Provider? Admonition (a la DocBook)?
     // Release_source?
@@ -138,7 +146,7 @@ MainWelcome::MainWelcome(QWidget *parent) :
                     )
                 .arg("white") //   Text color
                 .arg("#2c4bc4"); // Background color. Matches capture start button.
-        //            .arg(tango_butter_5, 6, 16, QChar('0'));      // "Warning" background
+        //            .arg(QColor(tango_butter_5).name());      // "Warning" background
 
         welcome_ui_->flavorBanner->setText(flavor_);
         welcome_ui_->flavorBanner->setStyleSheet(flavor_ss);
@@ -192,8 +200,7 @@ MainWelcome::MainWelcome(QWidget *parent) :
     connect(recent_files_, SIGNAL(itemActivated(QListWidgetItem *)), this, SLOT(openRecentItem(QListWidgetItem *)));
     updateRecentCaptures();
 
-#if !defined(Q_OS_MAC) || QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
-    // This crashes with Qt 4.8.3 on OS X.
+#if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
     QGraphicsBlurEffect *blur = new QGraphicsBlurEffect(welcome_ui_->childContainer);
     blur->setBlurRadius(2);
     welcome_ui_->childContainer->setGraphicsEffect(blur);
@@ -256,7 +263,7 @@ void MainWelcome::appInitialized()
 #endif
     welcome_ui_->fullReleaseLabel->setText(full_release);
 
-#if !defined(Q_OS_MAC) || QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
+#if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
     welcome_ui_->childContainer->setGraphicsEffect(NULL);
 #endif
 
@@ -267,6 +274,8 @@ void MainWelcome::appInitialized()
     welcome_ui_->captureFilterComboBox->setEnabled(true);
 
     interfaceListChanged();
+
+    welcome_ui_->interfaceFrame->ensureSelectedInterface();
 
     delete splash_overlay_;
     splash_overlay_ = NULL;
@@ -280,26 +289,24 @@ void MainWelcome::appInitialized()
 void MainWelcome::captureFilterTextEdited(const QString capture_filter)
 {
     if (global_capture_opts.num_selected > 0) {
-        interface_t device;
+        interface_t *device;
 
         for (guint i = 0; i < global_capture_opts.all_ifaces->len; i++) {
-            device = g_array_index(global_capture_opts.all_ifaces, interface_t, i);
-            if (!device.selected) {
+            device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
+            if (!device->selected) {
                 continue;
             }
-            //                if (device.active_dlt == -1) {
-            //                    simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "The link type of interface %s was not specified.", device.name);
+            //                if (device->active_dlt == -1) {
+            //                    simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "The link type of interface %s was not specified.", device->name);
             //                    continue;  /* Programming error: somehow managed to select an "unsupported" entry */
             //                }
-            g_array_remove_index(global_capture_opts.all_ifaces, i);
-            g_free(device.cfilter);
+            g_free(device->cfilter);
             if (capture_filter.isEmpty()) {
-                device.cfilter = NULL;
+                device->cfilter = NULL;
             } else {
-                device.cfilter = qstring_strdup(capture_filter);
+                device->cfilter = qstring_strdup(capture_filter);
             }
-            g_array_insert_val(global_capture_opts.all_ifaces, i, device);
-            //                update_filter_string(device.name, filter_text);
+            //                update_filter_string(device->name, filter_text);
         }
     }
 }
@@ -327,6 +334,9 @@ void MainWelcome::interfaceSelected()
     } else {
         welcome_ui_->captureFilterComboBox->lineEdit()->setText(user_filter);
     }
+
+    // Notify others (capture interfaces dialog) that the selection has changed.
+    emit interfacesChanged();
 }
 
 #ifdef HAVE_EXTCAP

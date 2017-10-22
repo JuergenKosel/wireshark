@@ -33,7 +33,7 @@
 
 #include <wsutil/file_util.h>
 #include <wsutil/str_util.h>
-#include <ws_version_info.h>
+#include <version_info.h>
 
 #ifdef HAVE_LIBPCAP
 #include "ui/capture_ui_utils.h"
@@ -43,7 +43,7 @@
 #include "ui/recent.h"
 #include "ui/simple_dialog.h"
 #include <wsutil/utf8_entities.h>
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
 
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/color_utils.h"
@@ -737,32 +737,25 @@ on_selection_changed(GtkTreeSelection *selection _U_,
     for (i = 0; i < global_capture_opts.all_ifaces->len; i++) {
         device = g_array_index(global_capture_opts.all_ifaces, interface_t, i);
         if (strcmp(device.name, if_name) == 0) {
-            if (!device.locked) {
-                if (path_currently_selected) {
-                    if (device.selected) {
-                        device.selected = FALSE;
-                        global_capture_opts.num_selected--;
-                    }
-                } else {
-                    if (!device.selected) {
-                        device.selected = TRUE;
-                        global_capture_opts.num_selected++;
-                    }
+            if (path_currently_selected) {
+                if (device.selected) {
+                    device.selected = FALSE;
+                    global_capture_opts.num_selected--;
                 }
-                device.locked = TRUE;
-                global_capture_opts.all_ifaces = g_array_remove_index(global_capture_opts.all_ifaces, i);
-                g_array_insert_val(global_capture_opts.all_ifaces, i, device);
-
-                if (capture_dlg_window_present()) {
-                    enable_selected_interface(g_strdup(if_name), device.selected);
+            } else {
+                if (!device.selected) {
+                    device.selected = TRUE;
+                    global_capture_opts.num_selected++;
                 }
-                if (interfaces_dialog_window_present()) {
-                    update_selected_interface(g_strdup(if_name));
-                }
-                device.locked = FALSE;
-                global_capture_opts.all_ifaces = g_array_remove_index(global_capture_opts.all_ifaces, i);
-                g_array_insert_val(global_capture_opts.all_ifaces, i, device);
             }
+            if (capture_dlg_window_present()) {
+                enable_selected_interface(g_strdup(if_name), device.selected);
+            }
+            if (interfaces_dialog_window_present()) {
+                update_selected_interface(g_strdup(if_name));
+            }
+            global_capture_opts.all_ifaces = g_array_remove_index(global_capture_opts.all_ifaces, i);
+            g_array_insert_val(global_capture_opts.all_ifaces, i, device);
             break;
         }
     }
@@ -1130,8 +1123,7 @@ fill_capture_box(void)
             label_text = g_strdup_printf("Error = %d; this \"can't happen\".", error);
             break;
         }
-        if (err_str != NULL)
-            g_free(err_str);
+        g_free(err_str);
         w = gtk_label_new(label_text);
         gtk_label_set_markup(GTK_LABEL(w), label_text);
         gtk_label_set_line_wrap(GTK_LABEL(w), TRUE);

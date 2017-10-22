@@ -1,6 +1,8 @@
 %top {
 /* Include this before everything else, for various large-file definitions */
 #include "config.h"
+/* Include this before everything else, as it declares functions used here. */
+#include "mate.h"
 }
 
 /*
@@ -78,10 +80,11 @@
 	* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 	*/
 
-#include "mate.h"
 #include "mate_grammar.h"
 
 #include <wsutil/file_util.h>
+
+DIAG_OFF(sign-compare)
 
 #ifdef _WIN32
 /* disable Windows VC compiler warning "signed/unsigned mismatch" associated  */
@@ -89,13 +92,6 @@
 #pragma warning (disable:4018)
 #endif
 
-	void MateParser(void*,int, gchar*, mate_config* matecfg);
-#if (GLIB_MAJOR_VERSION > 2 || (GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 16))
-	void *MateParserAlloc(void *(*)(gsize));
-#else
-	void *MateParserAlloc(void *(*)(gulong));
-#endif
-	void MateParserFree( void*, void(*)(void*) );
 	void MateParseTrace(FILE*,char*);
 
 #define MAX_INCLUDE_DEPTH 10
@@ -340,6 +336,8 @@ blk_cmnt_stop  "*/"
 <QUOTED>{quote}				BEGIN OUTSIDE;
 
 %%
+
+DIAG_ON(sign-compare)
 
 extern gboolean mate_load_config(const gchar* filename, mate_config* mc) {
 	FILE *in;

@@ -28,6 +28,10 @@
  * payload in various formats of GSM interfaces such as Um MAC
  * blocks or Um bursts.
  *
+ * It is defined by the gsmtap.h libosmocore header, in
+ *
+ * http://cgit.osmocom.org/cgit/libosmocore/tree/include/osmocom/core/gsmtap.h
+ *
  * Example programs generating GSMTAP data are airprobe
  * (http://airprobe.org/) or OsmocomBB (http://bb.osmocom.org/)
  *
@@ -43,6 +47,7 @@
 #include <epan/packet.h>
 
 #include "packet-gsmtap.h"
+#include "packet-lapdm.h"
 #include "packet-tetra.h"
 
 void proto_register_gsmtap(void);
@@ -64,6 +69,7 @@ static int hf_gsmtap_burst_type = -1;
 static int hf_gsmtap_channel_type = -1;
 static int hf_gsmtap_tetra_channel_type = -1;
 static int hf_gsmtap_gmr1_channel_type = -1;
+static int hf_gsmtap_rrc_sub_type = -1;
 static int hf_gsmtap_antenna = -1;
 
 static int hf_sacch_l1h_power_lev = -1;
@@ -98,6 +104,8 @@ enum {
 	/* UMTS */
 	GSMTAP_SUB_UMTS_RLC_MAC,
 	GSMTAP_SUB_UMTS_RRC,
+	/* LTE*/
+	GSMTAP_SUB_LTE_RRC,
 
 	GSMTAP_SUB_MAX
 };
@@ -169,8 +177,89 @@ enum {
 	GSMTAP_RRC_SUB_MAX
 };
 
+static const value_string rrc_sub_types[] = {
+	{ GSMTAP_RRC_SUB_DL_DCCH_Message,					"RRC DL-DCCH" },
+	{ GSMTAP_RRC_SUB_UL_DCCH_Message,					"RRC UL-DCCH" },
+	{ GSMTAP_RRC_SUB_DL_CCCH_Message,					"RRC DL-CCCH" },
+	{ GSMTAP_RRC_SUB_UL_CCCH_Message,					"RRC UL-CCCH" },
+	{ GSMTAP_RRC_SUB_PCCH_Message,						"RRC PCCH" },
+	{ GSMTAP_RRC_SUB_DL_SHCCH_Message,					"RRC DL-SHCCH" },
+	{ GSMTAP_RRC_SUB_UL_SHCCH_Message,					"RRC UL-SHCCH" },
+	{ GSMTAP_RRC_SUB_BCCH_FACH_Message,					"RRC BCCH-FACH" },
+	{ GSMTAP_RRC_SUB_BCCH_BCH_Message,					"RRC BCCH-BCH" },
+	{ GSMTAP_RRC_SUB_MCCH_Message,						"RRC MCCH" },
+	{ GSMTAP_RRC_SUB_MSCH_Message,						"RRC MSCH" },
+	{ GSMTAP_RRC_SUB_HandoverToUTRANCommand,			"RRC Handover To UTRAN Command" },
+	{ GSMTAP_RRC_SUB_InterRATHandoverInfo,				"RRC Inter RAT Handover Info" },
+	{ GSMTAP_RRC_SUB_SystemInformation_BCH,				"RRC System Information - BCH" },
+	{ GSMTAP_RRC_SUB_System_Information_Container,		"RRC System Information Container" },
+	{ GSMTAP_RRC_SUB_UE_RadioAccessCapabilityInfo,		"RRC UE Radio Access Capability Info" },
+	{ GSMTAP_RRC_SUB_MasterInformationBlock,			"RRC Master Information Block" },
+	{ GSMTAP_RRC_SUB_SysInfoType1,						"RRC System Information Type 1" },
+	{ GSMTAP_RRC_SUB_SysInfoType2,						"RRC System Information Type 2" },
+	{ GSMTAP_RRC_SUB_SysInfoType3,						"RRC System Information Type 3" },
+	{ GSMTAP_RRC_SUB_SysInfoType4,						"RRC System Information Type 4" },
+	{ GSMTAP_RRC_SUB_SysInfoType5,						"RRC System Information Type 5" },
+	{ GSMTAP_RRC_SUB_SysInfoType5bis,					"RRC System Information Type 5bis" },
+	{ GSMTAP_RRC_SUB_SysInfoType6,						"RRC System Information Type 6" },
+	{ GSMTAP_RRC_SUB_SysInfoType7,						"RRC System Information Type 7" },
+	{ GSMTAP_RRC_SUB_SysInfoType8,						"RRC System Information Type 8" },
+	{ GSMTAP_RRC_SUB_SysInfoType9,						"RRC System Information Type 9" },
+	{ GSMTAP_RRC_SUB_SysInfoType10,						"RRC System Information Type 10" },
+	{ GSMTAP_RRC_SUB_SysInfoType11,						"RRC System Information Type 11" },
+	{ GSMTAP_RRC_SUB_SysInfoType11bis,					"RRC System Information Type 11bis" },
+	{ GSMTAP_RRC_SUB_SysInfoType12,						"RRC System Information Type 12" },
+	{ GSMTAP_RRC_SUB_SysInfoType13,						"RRC System Information Type 13" },
+	{ GSMTAP_RRC_SUB_SysInfoType13_1,					"RRC System Information Type 13.1" },
+	{ GSMTAP_RRC_SUB_SysInfoType13_2,					"RRC System Information Type 13.2" },
+	{ GSMTAP_RRC_SUB_SysInfoType13_3,					"RRC System Information Type 13.3" },
+	{ GSMTAP_RRC_SUB_SysInfoType13_4,					"RRC System Information Type 13.4" },
+	{ GSMTAP_RRC_SUB_SysInfoType14,						"RRC System Information Type 14" },
+	{ GSMTAP_RRC_SUB_SysInfoType15,						"RRC System Information Type 15" },
+	{ GSMTAP_RRC_SUB_SysInfoType15bis,					"RRC System Information Type 15bis" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_1,					"RRC System Information Type 15.1" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_1bis,				"RRC System Information Type 15.1bis" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_2,					"RRC System Information Type 15.1" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_2bis,				"RRC System Information Type 15.2bis" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_2ter,				"RRC System Information Type 15.2ter" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_3,					"RRC System Information Type 15.3" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_3bis,				"RRC System Information Type 15.3bis" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_4,					"RRC System Information Type 15.4" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_5,					"RRC System Information Type 15.5" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_6,					"RRC System Information Type 15.6" },
+	{ GSMTAP_RRC_SUB_SysInfoType15_7,					"RRC System Information Type 15.7 "},
+	{ GSMTAP_RRC_SUB_SysInfoType15_8,					"RRC System Information Type 15.8" },
+	{ GSMTAP_RRC_SUB_SysInfoType16,						"RRC System Information Type 16" },
+	{ GSMTAP_RRC_SUB_SysInfoType17,						"RRC System Information Type 17" },
+	{ GSMTAP_RRC_SUB_SysInfoType18,						"RRC System Information Type 18" },
+	{ GSMTAP_RRC_SUB_SysInfoType19,						"RRC System Information Type 19" },
+	{ GSMTAP_RRC_SUB_SysInfoType20,						"RRC System Information Type 20" },
+	{ GSMTAP_RRC_SUB_SysInfoType21,						"RRC System Information Type 21" },
+	{ GSMTAP_RRC_SUB_SysInfoType22,						"RRC System Information Type 22" },
+	{ GSMTAP_RRC_SUB_SysInfoTypeSB1,					"RRC System Information Type SB 1" },
+	{ GSMTAP_RRC_SUB_SysInfoTypeSB2,					"RRC System Information Type SB 2" },
+	{ GSMTAP_RRC_SUB_ToTargetRNC_Container,				"RRC To Target RNC Container" },
+	{ GSMTAP_RRC_SUB_TargetRNC_ToSourceRNC_Container,	"RRC Target RNC To Source RNC Container" },
+	{ 0,												NULL }
+};
+
+/* LTE RRC message types */
+enum {
+	GSMTAP_LTE_RRC_SUB_DL_CCCH_Message = 0,
+	GSMTAP_LTE_RRC_SUB_DL_DCCH_Message,
+	GSMTAP_LTE_RRC_SUB_UL_CCCH_Message,
+	GSMTAP_LTE_RRC_SUB_UL_DCCH_Message,
+	GSMTAP_LTE_RRC_SUB_BCCH_BCH_Message,
+	GSMTAP_LTE_RRC_SUB_BCCH_DL_SCH_Message,
+	GSMTAP_LTE_RRC_SUB_PCCH_Message,
+	GSMTAP_LTE_RRC_SUB_MCCH_Message,
+
+	GSMTAP_LTE_RRC_SUB_MAX
+};
+
 static dissector_handle_t sub_handles[GSMTAP_SUB_MAX];
 static dissector_handle_t rrc_sub_handles[GSMTAP_RRC_SUB_MAX];
+static dissector_handle_t lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_MAX];
 
 static dissector_table_t gsmtap_dissector_table;
 
@@ -208,7 +297,7 @@ static const value_string gsmtap_channels[] = {
 	{ GSMTAP_CHANNEL_TCH_H,		"FACCH/H" },
 	{ GSMTAP_CHANNEL_PACCH,		"PACCH" },
 	{ GSMTAP_CHANNEL_CBCH52,	"CBCH" },
-	{ GSMTAP_CHANNEL_PDCH,		"PDCH" },
+	{ GSMTAP_CHANNEL_PDTCH,		"PDTCH" },
 	{ GSMTAP_CHANNEL_PTCCH,		"PTTCH" },
 	{ GSMTAP_CHANNEL_CBCH51,	"CBCH" },
 
@@ -290,6 +379,7 @@ static const value_string gsmtap_types[] = {
 	{ GSMTAP_TYPE_GMR1_UM, "GMR-1 air interfeace (MES-MS<->GTS)" },
 	{ GSMTAP_TYPE_UMTS_RLC_MAC,	"UMTS RLC/MAC" },
 	{ GSMTAP_TYPE_UMTS_RRC,		"UMTS RRC" },
+	{ GSMTAP_TYPE_LTE_RRC,		"LTE RRC" },
 	{ GSMTAP_TYPE_OSMOCORE_LOG,	"libosmocore logging" },
 	{ 0,			NULL },
 };
@@ -318,6 +408,17 @@ dissect_sacch_l1h(tvbuff_t *tvb, proto_tree *tree)
 	proto_tree_add_item(l1h_tree, hf_sacch_l1h_ta, tvb, 1, 1, ENC_BIG_ENDIAN);
 }
 
+static void
+handle_lapdm(guint8 sub_type, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+{
+	lapdm_data_t ld;
+
+	ld.hdr_type = LAPDM_HDR_FMT_B;
+	/* only downlink SACCH frames use B4 header format */
+	if (sub_type & GSMTAP_CHANNEL_ACCH && pinfo->p2p_dir == P2P_DIR_RECV)
+		ld.hdr_type = LAPDM_HDR_FMT_B4;
+	call_dissector_with_data(sub_handles[GSMTAP_SUB_UM_LAPDM], tvb, pinfo, tree, &ld);
+}
 
 static void
 handle_tetra(int channel _U_, tvbuff_t *payload_tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_)
@@ -337,7 +438,7 @@ handle_tetra(int channel _U_, tvbuff_t *payload_tvb _U_, packet_info *pinfo _U_,
 static int
 dissect_gsmtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-	int sub_handle, rrc_sub_handle = 0, len, offset = 0;
+	int sub_handle, sub_handle_idx = 0, len, offset = 0;
 	proto_item *ti;
 	proto_tree *gsmtap_tree = NULL;
 	tvbuff_t *payload_tvb, *l1h_tvb = NULL;
@@ -454,6 +555,9 @@ dissect_gsmtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 		else if (type == GSMTAP_TYPE_GMR1_UM)
 			proto_tree_add_item(gsmtap_tree, hf_gsmtap_gmr1_channel_type,
 					    tvb, offset+12, 1, ENC_BIG_ENDIAN);
+		else if (type == GSMTAP_TYPE_UMTS_RRC)
+			proto_tree_add_item(gsmtap_tree, hf_gsmtap_rrc_sub_type,
+					    tvb, offset+12, 1, ENC_BIG_ENDIAN);
 		proto_tree_add_item(gsmtap_tree, hf_gsmtap_antenna,
 				    tvb, offset+13, 1, ENC_BIG_ENDIAN);
 		proto_tree_add_item(gsmtap_tree, hf_gsmtap_subslot,
@@ -463,8 +567,8 @@ dissect_gsmtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 	switch (type) {
 	case GSMTAP_TYPE_UMTS_RRC:
 		sub_handle = GSMTAP_SUB_UMTS_RRC;
-		rrc_sub_handle = sub_type;
-		if (rrc_sub_handle >= GSMTAP_RRC_SUB_MAX) {
+		sub_handle_idx = sub_type;
+		if (sub_handle_idx >= GSMTAP_RRC_SUB_MAX) {
 			sub_handle = GSMTAP_SUB_DATA;
 		}
 		/* make entry in the Protocol column on summary display.
@@ -472,6 +576,14 @@ dissect_gsmtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 		 * we are bypassing dissect_rrc() and directly call a
 		 * sub-dissector */
 		col_set_str(pinfo->cinfo, COL_PROTOCOL, "RRC");
+		break;
+	case GSMTAP_TYPE_LTE_RRC:
+		sub_handle = GSMTAP_SUB_LTE_RRC;
+		sub_handle_idx = sub_type;
+		if (sub_handle_idx >= GSMTAP_LTE_RRC_SUB_MAX) {
+			sub_handle = GSMTAP_SUB_DATA;
+		}
+		/*Directly call the respective lte rrc message dissector */
 		break;
 	case GSMTAP_TYPE_UM:
 		if (l1h_tvb)
@@ -489,9 +601,10 @@ dissect_gsmtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 		case GSMTAP_CHANNEL_SDCCH8:
 		case GSMTAP_CHANNEL_TCH_F:
 		case GSMTAP_CHANNEL_TCH_H:
-			sub_handle = GSMTAP_SUB_UM_LAPDM;
-			break;
+			handle_lapdm(sub_type, payload_tvb, pinfo, tree);
+			return tvb_captured_length(tvb);
 		case GSMTAP_CHANNEL_PACCH:
+		case GSMTAP_CHANNEL_PDTCH:
 			if (pinfo->p2p_dir == P2P_DIR_SENT) {
 				sub_handle = GSMTAP_SUB_UM_RLC_MAC_UL;
 			}
@@ -579,7 +692,10 @@ dissect_gsmtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 		break;
 	}
 	if (sub_handle == GSMTAP_SUB_UMTS_RRC)
-		call_dissector(rrc_sub_handles[rrc_sub_handle], payload_tvb,
+		call_dissector(rrc_sub_handles[sub_handle_idx], payload_tvb,
+			       pinfo, tree);
+	else if (sub_handle == GSMTAP_SUB_LTE_RRC)
+		call_dissector(lte_rrc_sub_handles[sub_handle_idx], payload_tvb,
 			       pinfo, tree);
 	else if (sub_handles[sub_handle] != NULL)
 		call_dissector(sub_handles[sub_handle], payload_tvb, pinfo, tree);
@@ -622,6 +738,8 @@ proto_register_gsmtap(void)
 		  FT_UINT8, BASE_DEC, VALS(gsmtap_tetra_channels), 0, NULL, HFILL }},
 		{ &hf_gsmtap_gmr1_channel_type, { "Channel Type", "gsmtap.gmr1_chan_type",
 		  FT_UINT8, BASE_DEC, VALS(gsmtap_gmr1_channels), 0, NULL, HFILL }},
+		{ &hf_gsmtap_rrc_sub_type, { "Message Type", "gsmtap.rrc_sub_type",
+		  FT_UINT8, BASE_DEC, VALS(rrc_sub_types), 0, NULL, HFILL }},
 		{ &hf_gsmtap_antenna, { "Antenna Number", "gsmtap.antenna",
 		  FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL } },
 		{ &hf_gsmtap_subslot, { "Sub-Slot", "gsmtap.sub_slot",
@@ -736,6 +854,15 @@ proto_reg_handoff_gsmtap(void)
 	rrc_sub_handles[GSMTAP_RRC_SUB_SysInfoTypeSB2] = find_dissector_add_dependency("rrc.si.sb2", proto_gsmtap);
 	rrc_sub_handles[GSMTAP_RRC_SUB_ToTargetRNC_Container] = find_dissector_add_dependency("rrc.s_to_trnc_cont", proto_gsmtap);
 	rrc_sub_handles[GSMTAP_RRC_SUB_TargetRNC_ToSourceRNC_Container] = find_dissector_add_dependency("rrc.t_to_srnc_cont", proto_gsmtap);
+
+	lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_DL_CCCH_Message] = find_dissector_add_dependency("lte_rrc.dl_ccch", proto_gsmtap);
+	lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_DL_DCCH_Message] = find_dissector_add_dependency("lte_rrc.dl_dcch", proto_gsmtap);
+	lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_UL_CCCH_Message] = find_dissector_add_dependency("lte_rrc.ul_ccch", proto_gsmtap);
+	lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_UL_DCCH_Message] = find_dissector_add_dependency("lte_rrc.ul_dcch", proto_gsmtap);
+	lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_BCCH_BCH_Message] = find_dissector_add_dependency("lte_rrc.bcch_bch", proto_gsmtap);
+	lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_BCCH_DL_SCH_Message] = find_dissector_add_dependency("lte_rrc.bcch_dl_sch", proto_gsmtap);
+	lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_PCCH_Message] = find_dissector_add_dependency("lte_rrc.pcch", proto_gsmtap);
+	lte_rrc_sub_handles[GSMTAP_LTE_RRC_SUB_MCCH_Message] = find_dissector_add_dependency("lte_rrc.mcch", proto_gsmtap);
 
 	gsmtap_handle = create_dissector_handle(dissect_gsmtap, proto_gsmtap);
 	dissector_add_uint_with_preference("udp.port", GSMTAP_UDP_PORT, gsmtap_handle);

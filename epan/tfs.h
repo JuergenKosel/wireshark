@@ -59,6 +59,7 @@ WS_DLL_PUBLIC const true_false_string tfs_ack_nack;
 WS_DLL_PUBLIC const true_false_string tfs_odd_even;
 WS_DLL_PUBLIC const true_false_string tfs_allow_block;
 WS_DLL_PUBLIC const true_false_string tfs_restricted_allowed;
+WS_DLL_PUBLIC const true_false_string tfs_restricted_not_restricted;
 WS_DLL_PUBLIC const true_false_string tfs_accept_reject;
 WS_DLL_PUBLIC const true_false_string tfs_more_nomore;
 WS_DLL_PUBLIC const true_false_string tfs_present_absent;
@@ -109,6 +110,13 @@ WS_DLL_PUBLIC const true_false_string tfs_client_server;
 WS_DLL_PUBLIC const true_false_string tfs_server_client;
 WS_DLL_PUBLIC const true_false_string tfs_preferred_no_preference;
 WS_DLL_PUBLIC const true_false_string tfs_encrypt_do_not_encrypt;
+WS_DLL_PUBLIC const true_false_string tfs_down_up;
+WS_DLL_PUBLIC const true_false_string tfs_up_down;
+WS_DLL_PUBLIC const true_false_string tfs_downlink_uplink;
+WS_DLL_PUBLIC const true_false_string tfs_uplink_downlink;
+WS_DLL_PUBLIC const true_false_string tfs_s2c_c2s;
+WS_DLL_PUBLIC const true_false_string tfs_c2s_s2c;
+WS_DLL_PUBLIC const true_false_string tfs_open_closed;
 
 #ifdef __cplusplus
 }

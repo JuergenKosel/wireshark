@@ -684,7 +684,7 @@ dissect_rpc_uint64(tvbuff_t *tvb, proto_tree *tree,
 	header_field_info	*hfinfo;
 
 	hfinfo = proto_registrar_get_nth(hfindex);
-	DISSECTOR_ASSERT(hfinfo->type == FT_UINT64);
+	DISSECTOR_ASSERT_FIELD_TYPE(hfinfo, FT_UINT64);
 	proto_tree_add_item(tree, hfindex, tvb, offset, 8, ENC_BIG_ENDIAN);
 
 	return offset + 8;
@@ -815,12 +815,11 @@ dissect_rpc_opaque_data(tvbuff_t *tvb, int offset,
 		string_buffer_print=RPC_STRING_EMPTY;
 	}
 
-	if (tree) {
-		/* string_item_offset = offset; */
-		string_tree = proto_tree_add_subtree_format(tree, tvb,offset, -1,
-		    ett_rpc_string, &string_item, "%s: %s", proto_registrar_get_name(hfindex),
-		    string_buffer_print);
-	}
+	/* string_item_offset = offset; */
+	string_tree = proto_tree_add_subtree_format(tree, tvb,offset, -1,
+			ett_rpc_string, &string_item, "%s: %s", proto_registrar_get_name(hfindex),
+			string_buffer_print);
+
 	if (!fixed_length) {
 		proto_tree_add_uint(string_tree, hf_rpc_opaque_length, tvb,offset, 4, string_length);
 		offset += 4;
@@ -843,21 +842,18 @@ dissect_rpc_opaque_data(tvbuff_t *tvb, int offset,
 	offset += string_length_copy;
 
 	if (fill_length) {
-		if (string_tree) {
-			if (fill_truncated) {
-				proto_tree_add_bytes_format_value(string_tree, hf_rpc_fill_bytes, tvb,
-				offset, fill_length_copy, NULL, "opaque data<TRUNCATED>");
-			}
-			else {
-				proto_tree_add_bytes_format_value(string_tree, hf_rpc_fill_bytes, tvb,
-				offset, fill_length_copy, NULL, "opaque data");
-			}
+		if (fill_truncated) {
+			proto_tree_add_bytes_format_value(string_tree, hf_rpc_fill_bytes, tvb,
+					offset, fill_length_copy, NULL, "opaque data<TRUNCATED>");
+		}
+		else {
+			proto_tree_add_bytes_format_value(string_tree, hf_rpc_fill_bytes, tvb,
+					offset, fill_length_copy, NULL, "opaque data");
 		}
 		offset += fill_length_copy;
 	}
 
-	if (string_item)
-		proto_item_set_end(string_item, tvb, offset);
+	proto_item_set_end(string_item, tvb, offset);
 
 	if (string_buffer_ret != NULL)
 		*string_buffer_ret = string_buffer_print;
@@ -1353,8 +1349,6 @@ dissect_rpc_authgss_token(tvbuff_t* tvb, proto_tree* tree, int offset,
 	if (opaque_length != 0) {
 		length = tvb_captured_length_remaining(tvb, offset);
 		reported_length = tvb_reported_length_remaining(tvb, offset);
-		DISSECTOR_ASSERT(length >= 0);
-		DISSECTOR_ASSERT(reported_length >= 0);
 		if (length > reported_length)
 			length = reported_length;
 		if ((guint32)length > opaque_length)
@@ -1586,11 +1580,9 @@ dissect_rpc_authgss_integ_data(tvbuff_t *tvb, packet_info *pinfo,
 			    tvb, offset+4, 4, seq);
 	offset += 8;
 
-	if (dissect_function != NULL) {
-		/* offset = */
-		call_dissect_function(tvb, pinfo, gtree, offset,
-				      dissect_function, progname, rpc_call);
-	}
+	/* offset = */
+	call_dissect_function(tvb, pinfo, gtree, offset, dissect_function, progname, rpc_call);
+
 	offset += rounded_length - 4;
 	offset = dissect_rpc_authgss_token(tvb, tree, offset, pinfo, hf_rpc_authgss_checksum);
 
@@ -1658,7 +1650,7 @@ get_conversation_for_call(packet_info *pinfo)
 	 * there's no guarantee that the reply will come from the
 	 * address to which the call was sent.  We also don't
 	 * worry about the port *from* which the call was sent,
-	 * because some clients (*cough* OS X NFS client *cough*)
+	 * because some clients (*cough* macOS NFS client *cough*)
 	 * might send retransmissions from a different port from
 	 * the original request.
 	 */
@@ -1710,7 +1702,7 @@ find_conversation_for_reply(packet_info *pinfo)
 	 * because there's no guarantee that the call was sent
 	 * to the address from which the reply came.  We also
 	 * don't worry about the port *to* which the reply was
-	 * sent, because some clients (*cough* OS X NFS client
+	 * sent, because some clients (*cough* macOS NFS client
 	 * *cough*) might send call retransmissions from a
 	 * different port from the original request, so replies
 	 * to the original call and a retransmission of the call
@@ -1864,10 +1856,7 @@ dissect_rpc_indir_call(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		return offset;
 	}
 
-	if ( tree )
-	{
-		proto_tree_add_item(tree, hf_rpc_argument_length, tvb, offset, 4, ENC_BIG_ENDIAN);
-	}
+	proto_tree_add_item(tree, hf_rpc_argument_length, tvb, offset, 4, ENC_BIG_ENDIAN);
 	offset += 4;
 
 	/* Dissect the arguments */
@@ -1993,11 +1982,9 @@ dissect_rpc_continuation(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "RPC");
 	col_set_str(pinfo->cinfo, COL_INFO, "Continuation");
 
-	if (tree) {
-		rpc_item = proto_tree_add_item(tree, proto_rpc, tvb, 0, -1, ENC_NA);
-		rpc_tree = proto_item_add_subtree(rpc_item, ett_rpc);
-		proto_tree_add_item(rpc_tree, hf_rpc_continuation_data, tvb, 0, -1, ENC_NA);
-	}
+	rpc_item = proto_tree_add_item(tree, proto_rpc, tvb, 0, -1, ENC_NA);
+	rpc_tree = proto_item_add_subtree(rpc_item, ett_rpc);
+	proto_tree_add_item(rpc_tree, hf_rpc_continuation_data, tvb, 0, -1, ENC_NA);
 }
 
 
@@ -2114,7 +2101,7 @@ looks_like_rpc_reply(tvbuff_t *tvb, packet_info *pinfo, int offset)
 	   because there's no guarantee that the call was sent
 	   to the address from which the reply came.  We also
 	   don't worry about the port *to* which the reply was
-	   sent, because some clients (*cough* OS X NFS client
+	   sent, because some clients (*cough* macOS NFS client
 	   *cough*) might send retransmissions from a
 	   different port from the original request, so replies
 	   to the original call and a retransmission of the call
@@ -2436,11 +2423,9 @@ dissect_rpc_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 			}
 		}
 
-		if (rpc_tree) {
-			proto_tree_add_uint_format_value(rpc_tree,
+		proto_tree_add_uint_format_value(rpc_tree,
 				hf_rpc_procedure, tvb, offset+12, 4, proc,
 				"%s (%u)", procname, proc);
-		}
 
 		/* Print the program version, procedure name, and message type (call or reply). */
 		if (first_pdu)
@@ -2630,10 +2615,8 @@ dissect_rpc_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		}
 
 		reply_state = tvb_get_ntohl(tvb,offset);
-		if (rpc_tree) {
-			proto_tree_add_uint(rpc_tree, hf_rpc_state_reply, tvb,
+		proto_tree_add_uint(rpc_tree, hf_rpc_state_reply, tvb,
 				offset, 4, reply_state);
-		}
 		offset += 4;
 
 		/* Indicate the frame to which this is a reply. */

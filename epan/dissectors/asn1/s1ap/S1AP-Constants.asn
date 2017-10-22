@@ -1,4 +1,4 @@
--- 3GPP TS 36.413 V13.5.0 (2016-12)
+-- 3GPP TS 36.413 V14.4.0 (2017-09)
 -- 9.3.6	Constant Definitions
 -- **************************************************************
 --
@@ -90,6 +90,11 @@ id-UEContextModificationIndication			ProcedureCode ::= 53
 id-ConnectionEstablishmentIndication		ProcedureCode ::= 54
 id-UEContextSuspend							ProcedureCode ::= 55
 id-UEContextResume							ProcedureCode ::= 56
+id-NASDeliveryIndication					ProcedureCode ::= 57
+id-RetrieveUEInformation					ProcedureCode ::= 58
+id-UEInformationTransfer					ProcedureCode ::= 59
+id-eNBCPRelocationIndication				ProcedureCode ::= 60
+id-MMECPRelocationIndication				ProcedureCode ::= 61
 
 -- **************************************************************
 --
@@ -122,6 +127,7 @@ maxnoofCells							INTEGER ::= 16
 maxnoofCellsineNB						INTEGER ::= 256
 maxnoofTAIforWarning					INTEGER ::= 65535
 maxnoofCellID							INTEGER ::= 65535
+maxnoofDCNs								INTEGER ::= 32
 maxnoofEmergencyAreaID					INTEGER ::= 65535
 maxnoofCellinTAI						INTEGER ::= 65535
 maxnoofCellinEAI						INTEGER ::= 65535
@@ -243,6 +249,8 @@ id-Unknown-81										ProtocolIE-ID ::= 81
 id-Unknown-82										ProtocolIE-ID ::= 82
 id-cdma2000HOStatus									ProtocolIE-ID ::= 83
 id-cdma2000HORequiredIndication						ProtocolIE-ID ::= 84
+--WS extension
+id-Unknown-85										ProtocolIE-ID ::= 85
 id-E-UTRAN-Trace-ID									ProtocolIE-ID ::= 86
 id-RelativeMMECapacity								ProtocolIE-ID ::= 87
 id-SourceMME-UE-S1AP-ID								ProtocolIE-ID ::= 88
@@ -386,6 +394,8 @@ id-S1-Message										ProtocolIE-ID ::= 225
 id-CSGMembershipInfo								ProtocolIE-ID ::= 226
 id-Paging-eDRXInformation							ProtocolIE-ID ::= 227
 id-UE-RetentionInformation							ProtocolIE-ID ::= 228
+--WS extension
+id-Unknown-229										ProtocolIE-ID ::= 229
 id-UE-Usage-Type									ProtocolIE-ID ::= 230
 id-extended-UEIdentityIndexValue					ProtocolIE-ID ::= 231
 id-RAT-Type											ProtocolIE-ID ::= 232
@@ -396,12 +406,20 @@ id-E-RABFailedToResumeItemResumeReq					ProtocolIE-ID ::= 236
 id-E-RABFailedToResumeListResumeRes					ProtocolIE-ID ::= 237
 id-E-RABFailedToResumeItemResumeRes					ProtocolIE-ID ::= 238
 id-NB-IoT-Paging-eDRXInformation					ProtocolIE-ID ::= 239
---WS extension
-id-Unknown-240										ProtocolIE-ID ::= 240
+id-V2XServicesAuthorized							ProtocolIE-ID ::= 240
 id-UEUserPlaneCIoTSupportIndicator 					ProtocolIE-ID ::= 241
 id-CE-mode-B-SupportIndicator 						ProtocolIE-ID ::= 242
 id-SRVCCOperationNotPossible						ProtocolIE-ID ::= 243
 id-NB-IoT-UEIdentityIndexValue 						ProtocolIE-ID ::= 244
 id-RRC-Resume-Cause									ProtocolIE-ID ::= 245
+id-DCN-ID											ProtocolIE-ID ::= 246
+id-ServedDCNs					 					ProtocolIE-ID ::= 247
+id-UESidelinkAggregateMaximumBitrate 				ProtocolIE-ID ::= 248
+id-DLNASPDUDeliveryAckRequest						ProtocolIE-ID ::= 249
+id-Coverage-Level 									ProtocolIE-ID ::= 250
+id-EnhancedCoverageRestricted						ProtocolIE-ID ::= 251
+id-UE-Level-QoS-Parameters							ProtocolIE-ID ::= 252
+id-DL-CP-SecurityInformation						ProtocolIE-ID ::= 253
+id-UL-CP-SecurityInformation						ProtocolIE-ID ::= 254
 
 END

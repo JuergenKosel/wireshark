@@ -21,7 +21,7 @@
 
 include $(top_srcdir)/Makefile.am.inc
 
-AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS)
+AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS) $(LIBGCRYPT_CFLAGS)
 
 noinst_LTLIBRARIES = libairpdcap.la
 
@@ -58,11 +58,6 @@ CLEANFILES = \
 	libairpdcap.a	\
 	libairpdcap.la	\
 	*~
-
-DISTCLEANFILES =
-
-MAINTAINERCLEANFILES =	\
-	Makefile.in
 
 checkapi:
 	$(PERL) $(top_srcdir)/tools/checkAPIs.pl -g termoutput -build \

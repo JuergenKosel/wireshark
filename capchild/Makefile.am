@@ -21,7 +21,7 @@
 
 include $(top_srcdir)/Makefile.am.inc
 
-AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS)
+AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS) $(PCAP_CFLAGS)
 
 noinst_LIBRARIES = libcapchild.a
 
@@ -42,9 +42,6 @@ CLEANFILES = \
 	doxygen-capchild.tag	\
 	libcapchild.a		\
 	*~
-
-MAINTAINERCLEANFILES = \
-	Makefile.in
 
 doxygen:
 if HAVE_DOXYGEN

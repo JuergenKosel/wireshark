@@ -216,7 +216,7 @@ WSLUA_CONSTRUCTOR Listener_new(lua_State* L) {
     tap = (Listener)g_malloc(sizeof(struct _wslua_tap));
 
     tap->name = g_strdup(tap_type);
-    tap->filter = filter ? g_strdup(filter) : NULL;
+    tap->filter = g_strdup(filter);
     tap->extractor = wslua_get_tap_extractor(tap_type);
     tap->L = L;
     tap->packet_ref = LUA_NOREF;
@@ -279,7 +279,7 @@ WSLUA_CONSTRUCTOR Listener_list (lua_State *L) {
     lua_newtable(L);
     for (i=1; elist; i++, elist = g_list_next(elist)) {
         lua_pushstring(L,(const char *) elist->data);
-        lua_rawseti(L,1,i);
+        lua_rawseti(L,-2,i);
     }
 
     g_list_free(list);

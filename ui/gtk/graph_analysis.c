@@ -52,6 +52,7 @@
 #include "ui/last_open_dir.h"
 #include "ui/recent.h"
 #include "ui/simple_dialog.h"
+#include "ui/alert_box.h"
 
 #include "ui/gtk/gtkglobals.h"
 #include "ui/gtk/file_dlg.h"
@@ -254,6 +255,7 @@ on_save_bt_clicked                    (GtkWidget       *button _U_,
 				       graph_analysis_data_t *user_data)
 {
 	char *pathname;
+	FILE  *outfile;
 
 	/*
 	 * Loop until the user either selects a file or gives up.
@@ -264,10 +266,14 @@ on_save_bt_clicked                    (GtkWidget       *button _U_,
 			/* User gave up. */
 			break;
 		}
-		if (sequence_analysis_dump_to_file(pathname, user_data->graph_info, &cfile, user_data->dlg.first_node)) {
-			/* We succeeded. */
+		outfile = ws_fopen(pathname, "w");
+		if (outfile != NULL) {
+			sequence_analysis_dump_to_file(outfile, user_data->graph_info, user_data->dlg.first_node);
+			fclose (outfile);
 			g_free(pathname);
 			break;
+		} else {
+			open_failure_alert_box(pathname, errno, TRUE);
 		}
 		/* Dump failed; let the user select another file
 		   or give up. */

@@ -59,7 +59,7 @@
 #endif /* _WIN32 */
 
 #include "filesystem.h"
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include <wsutil/privileges.h>
 #include <wsutil/file_util.h>
 #include <wsutil/utf8_entities.h>
@@ -68,6 +68,7 @@
 
 #define PROFILES_DIR    "profiles"
 #define PLUGINS_DIR_NAME    "plugins"
+#define PROFILES_INFO_NAME  "profile_files.txt"
 
 char *persconffile_dir = NULL;
 char *persdatafile_dir = NULL;
@@ -934,11 +935,10 @@ get_datafile_dir(void)
     return datafile_dir;
 }
 
-#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
 /*
  * Find the directory where the plugins are stored.
  *
- * On Windows, we use the plugin/{VERSION} subdirectory of the datafile
+ * On Windows, we use the plugin\{VERSION} subdirectory of the datafile
  * directory, where {VERSION} is the version number of this version of
  * Wireshark.
  *
@@ -954,14 +954,18 @@ get_datafile_dir(void)
  *    otherwise, if we're running from an app bundle in macOS, we
  *    use the Contents/PlugIns/wireshark subdirectory of the app bundle;
  *
- *    otherwise, we use the PLUGIN_INSTALL_DIR value supplied by the
+ *    otherwise, we use the PLUGIN_DIR value supplied by the
  *    configure script.
  */
 static char *plugin_dir = NULL;
+static char *plugin_dir_with_version = NULL;
+static char *plugin_pers_dir = NULL;
+static char *plugin_pers_dir_with_version = NULL;
 
 static void
 init_plugin_dir(void)
 {
+#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
 #ifdef _WIN32
     /*
      * On Windows, the data file directory is the installation
@@ -971,7 +975,7 @@ init_plugin_dir(void)
      * on Windows, the data file directory is the directory
      * in which the Wireshark binary resides.
      */
-    plugin_dir = g_build_filename(get_datafile_dir(), "plugins", VERSION, (gchar *)NULL);
+    plugin_dir = g_build_filename(get_datafile_dir(), "plugins", (gchar *)NULL);
 
     /*
      * Make sure that pathname refers to a directory.
@@ -1026,25 +1030,63 @@ init_plugin_dir(void)
         }
 #endif
         else {
-            plugin_dir = g_strdup(PLUGIN_INSTALL_DIR);
+            plugin_dir = g_strdup(PLUGIN_DIR);
         }
     }
 #endif
+#endif /* defined(HAVE_PLUGINS) || defined(HAVE_LUA) */
 }
-#endif /* HAVE_PLUGINS || HAVE_LUA */
+
+static void
+init_plugin_pers_dir(void)
+{
+#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
+#ifdef _WIN32
+    plugin_pers_dir = get_persconffile_path(PLUGINS_DIR_NAME, FALSE);
+#else
+    plugin_pers_dir = g_build_filename(g_get_home_dir(), ".local/lib/wireshark/" PLUGINS_DIR_NAME, (gchar *)NULL);
+#endif
+#endif /* defined(HAVE_PLUGINS) || defined(HAVE_LUA) */
+}
 
 /*
  * Get the directory in which the plugins are stored.
  */
 const char *
-get_plugin_dir(void)
+get_plugins_dir(void)
 {
-#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
-    if (!plugin_dir) init_plugin_dir();
+    if (!plugin_dir)
+        init_plugin_dir();
     return plugin_dir;
-#else
-    return NULL;
-#endif
+}
+
+const char *
+get_plugins_dir_with_version(void)
+{
+    if (!plugin_dir)
+        init_plugin_dir();
+    if (plugin_dir && !plugin_dir_with_version)
+        plugin_dir_with_version = g_build_filename(plugin_dir, VERSION_RELEASE, (gchar *)NULL);
+    return plugin_dir_with_version;
+}
+
+/* Get the personal plugin dir */
+const char *
+get_plugins_pers_dir(void)
+{
+    if (!plugin_pers_dir)
+        init_plugin_pers_dir();
+    return plugin_pers_dir;
+}
+
+const char *
+get_plugins_pers_dir_with_version(void)
+{
+    if (!plugin_pers_dir)
+        init_plugin_pers_dir();
+    if (plugin_pers_dir && !plugin_pers_dir_with_version)
+        plugin_pers_dir_with_version = g_build_filename(plugin_pers_dir, VERSION_RELEASE, (gchar *)NULL);
+    return plugin_pers_dir_with_version;
 }
 
 #if defined(HAVE_EXTCAP)
@@ -1378,6 +1420,45 @@ get_profiles_dir(void)
                     G_DIR_SEPARATOR_S, PROFILES_DIR);
 }
 
+int
+create_profiles_dir(char **pf_dir_path_return)
+{
+    char *pf_dir_path;
+    ws_statb64 s_buf;
+
+    /*
+     * Create the "Default" personal configuration files directory, if necessary.
+     */
+    if (create_persconffile_profile (NULL, pf_dir_path_return) == -1) {
+        return -1;
+    }
+
+    /*
+     * Check if profiles directory exists.
+     * If not then create it.
+     */
+    pf_dir_path = get_profiles_dir ();
+    if (ws_stat64(pf_dir_path, &s_buf) != 0) {
+        if (errno != ENOENT) {
+            /* Some other problem; give up now. */
+            *pf_dir_path_return = pf_dir_path;
+            return -1;
+        }
+
+        /*
+         * It doesn't exist; try to create it.
+         */
+        int ret = ws_mkdir(pf_dir_path, 0755);
+        if (ret == -1) {
+            *pf_dir_path_return = pf_dir_path;
+            return ret;
+        }
+    }
+    g_free(pf_dir_path);
+
+    return 0;
+}
+
 char *
 get_global_profiles_dir(void)
 {
@@ -1491,6 +1572,7 @@ reset_default_profile(char **pf_dir_path_return)
         g_free(del_file);
         file = g_list_next(file);
     }
+    g_list_free(files);
 
     g_free(profile_dir);
     return 0;
@@ -1556,34 +1638,11 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
 
     if (profilename) {
         /*
-         * Create the "Default" personal configuration files directory, if necessary.
+         * Create the personal profiles directory, if necessary.
          */
-        if (create_persconffile_profile (NULL, pf_dir_path_return) == -1) {
+        if (create_profiles_dir(pf_dir_path_return) == -1) {
             return -1;
         }
-
-        /*
-         * Check if profiles directory exists.
-         * If not then create it.
-         */
-        pf_dir_path = get_profiles_dir ();
-        if (ws_stat64(pf_dir_path, &s_buf) != 0) {
-            if (errno != ENOENT) {
-                /* Some other problem; give up now. */
-                *pf_dir_path_return = pf_dir_path;
-                return -1;
-            }
-
-            /*
-             * It doesn't exist; try to create it.
-             */
-            ret = ws_mkdir(pf_dir_path, 0755);
-            if (ret == -1) {
-                *pf_dir_path_return = pf_dir_path;
-                return ret;
-            }
-        }
-        g_free(pf_dir_path);
     }
 
     pf_dir_path = get_persconffile_dir(profilename);
@@ -1650,6 +1709,9 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
     }
     if (ret == -1)
         *pf_dir_path_return = pf_dir_path;
+    else
+        g_free(pf_dir_path);
+
     return ret;
 }
 
@@ -1828,14 +1890,11 @@ get_persconffile_path(const char *filename, gboolean from_profile)
     }
 
     if (from_profile) {
-      dir = get_persconffile_dir(persconfprofile);
-      path = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s",
-                 dir, filename);
+        dir = get_persconffile_dir(persconfprofile);
     } else {
-      dir = get_persconffile_dir(NULL);
-      path = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s",
-                 dir, filename);
+        dir = get_persconffile_dir(NULL);
     }
+    path = g_build_filename(dir, filename, NULL);
 
     g_free(dir);
     return path;
@@ -1863,14 +1922,6 @@ get_datafile_path(const char *filename)
     } else {
         return g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s", get_datafile_dir(), filename);
     }
-}
-
-/* Get the personal plugin dir */
-/* Return value is malloced so the caller should g_free() it. */
-char *
-get_plugins_pers_dir(void)
-{
-    return get_persconffile_path(PLUGINS_DIR_NAME, FALSE);
 }
 
 /*
@@ -1955,7 +2006,7 @@ file_open_error_message(int err, gboolean for_writing)
          * Either you have a fixed swap partition or a fixed swap file,
          * and it needs to be made bigger.
          *
-         * This is UN*X, but it's not OS X, so we assume the user is
+         * This is UN*X, but it's not macOS, so we assume the user is
          * *somewhat* nerdy.
          */
 #define ENOMEM_REASON "your system is out of swap space"
@@ -2209,6 +2260,12 @@ free_progdirs(void)
 #if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
     g_free(plugin_dir);
     plugin_dir = NULL;
+    g_free(plugin_dir_with_version);
+    plugin_dir_with_version = NULL;
+    g_free(plugin_pers_dir);
+    plugin_pers_dir = NULL;
+    g_free(plugin_pers_dir_with_version);
+    plugin_pers_dir_with_version = NULL;
 #endif
 #ifdef HAVE_EXTCAP
     g_free(extcap_dir);

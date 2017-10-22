@@ -40,6 +40,7 @@
 #include "ui/gtk/prefs_column.h"
 #include "ui/gtk/prefs_dlg.h"
 #include "ui/gtk/prefs_filter_expressions.h"
+#include "ui/gtk/filter_expression_save_dlg.h"
 #include "ui/gtk/prefs_font_color.h"
 #include "ui/gtk/prefs_gui.h"
 #include "ui/gtk/prefs_layout.h"
@@ -199,7 +200,8 @@ pref_show(pref_t *pref, gpointer user_data)
                                             prefs_get_string_value(pref, pref_stashed)));
     break;
 
-  case PREF_FILENAME:
+  case PREF_SAVE_FILENAME:
+  case PREF_OPEN_FILENAME:
     prefs_set_control(pref, create_preference_path_entry(main_grid, prefs_get_ordinal(pref),
                                                      label_string,
                                                      tooltip_txt,
@@ -978,7 +980,8 @@ pref_check(pref_t *pref, gpointer user_data)
     break;
 
   case PREF_STRING:
-  case PREF_FILENAME:
+  case PREF_SAVE_FILENAME:
+  case PREF_OPEN_FILENAME:
   case PREF_DIRNAME:
     /* Value can't be bad. */
     break;
@@ -1090,7 +1093,8 @@ pref_fetch(pref_t *pref, gpointer user_data)
     break;
 
   case PREF_STRING:
-  case PREF_FILENAME:
+  case PREF_SAVE_FILENAME:
+  case PREF_OPEN_FILENAME:
   case PREF_DIRNAME:
     str_val = gtk_entry_get_text(GTK_ENTRY(prefs_get_control(pref)));
     module->prefs_changed |= prefs_set_string_value(pref, str_val, pref_current);
@@ -1292,8 +1296,9 @@ prefs_main_fetch_all(GtkWidget *dlg, gboolean *must_redissect)
   }
 #endif /* _WIN32 */
 #endif /* HAVE_LIBPCAP */
-  filter_expressions_prefs_fetch((GtkWidget *)g_object_get_data(G_OBJECT(dlg),
-    E_FILTER_EXPRESSIONS_PAGE_KEY));
+
+  /* Handle (re)creation of filter buttons */
+  filter_expression_reinit(FILTER_EXPRESSION_REINIT_DESTROY | FILTER_EXPRESSION_REINIT_CREATE);
   prefs_modules_foreach(module_prefs_fetch, must_redissect);
 
   return TRUE;

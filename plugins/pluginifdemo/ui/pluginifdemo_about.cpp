@@ -42,7 +42,7 @@ PluginIFDemo_About::~PluginIFDemo_About()
     delete ui;
 }
 
-void PluginIFDemo_About::on_buttonBox_clicked(QAbstractButton *button _U_)
+void PluginIFDemo_About::on_buttonBox_clicked(QAbstractButton *)
 {
     this->close();
 }

@@ -70,10 +70,11 @@ typedef struct {
 static const time_t ansi_to_observer_epoch_offset = 946684800;
 static time_t gmt_to_localtime_offset = (time_t) -1;
 
-static void init_gmt_to_localtime_offset(void)
+static const char *init_gmt_to_localtime_offset(void)
 {
     if (gmt_to_localtime_offset == (time_t) -1) {
         time_t ansi_epoch_plus_one_day = 86400;
+        struct tm *tm;
         struct tm gmt_tm;
         struct tm local_tm;
 
@@ -86,11 +87,18 @@ static void init_gmt_to_localtime_offset(void)
          * back to time_t as if they were both local times, resulting in the
          * time zone offset being the difference between them.
          */
-        gmt_tm = *gmtime(&ansi_epoch_plus_one_day);
-        local_tm = *localtime(&ansi_epoch_plus_one_day);
+        tm = gmtime(&ansi_epoch_plus_one_day);
+        if (tm == NULL)
+            return "gmtime(one day past the Epoch) fails (this \"shouldn't happen\")";
+        gmt_tm = *tm;
+        tm = localtime(&ansi_epoch_plus_one_day);
+        if (tm == NULL)
+            return "localtime(one day past the Epoch) fails (this \"shouldn't happen\")";
+        local_tm = *tm;
         local_tm.tm_isdst = 0;
         gmt_to_localtime_offset = mktime(&gmt_tm) - mktime(&local_tm);
     }
+    return NULL;
 }
 
 static gboolean observer_read(wtap *wth, int *err, gchar **err_info,
@@ -237,7 +245,17 @@ wtap_open_return_val network_instruments_open(wtap *wth, int *err, gchar **err_i
     if (file_seek(wth->fh, header_offset, SEEK_SET, err) == -1)
         return WTAP_OPEN_ERROR;
 
-    init_gmt_to_localtime_offset();
+    if (init_gmt_to_localtime_offset() != NULL) {
+        *err = WTAP_ERR_INTERNAL;
+        /*
+         * XXX - we should return the error string, so the caller
+         * can report the details of the internal error, but that
+         * would require plugin file readers to do so for internal
+         * errors as well, which could break binary compatibility;
+         * we'll do that in the next release.
+         */
+        return WTAP_OPEN_ERROR;
+    }
 
     return WTAP_OPEN_MINE;
 }
@@ -475,7 +493,7 @@ process_packet_header(wtap *wth, packet_entry_header *packet_header,
     }
     /*
      * The maximum value of packet_header->captured_size is 65535, which
-     * is less than WTAP_MAX_PACKET_SIZE will ever be, so we don't need
+     * is less than WTAP_MAX_PACKET_SIZE_STANDARD will ever be, so we don't need
      * to check it.
      */
 
@@ -487,6 +505,7 @@ process_packet_header(wtap *wth, packet_entry_header *packet_header,
        was captured while it was in effect */
     if (((observer_dump_private_state*)wth->priv)->time_format == TIME_INFO_LOCAL)
     {
+        struct tm *tm;
         struct tm daylight_tm;
         struct tm standard_tm;
         time_t    dst_offset;
@@ -496,12 +515,15 @@ process_packet_header(wtap *wth, packet_entry_header *packet_header,
         phdr->ts.secs += gmt_to_localtime_offset;
 
         /* perform a DST adjustment if necessary */
-        standard_tm = *localtime(&phdr->ts.secs);
-        if (standard_tm.tm_isdst > 0) {
-            daylight_tm = standard_tm;
-            standard_tm.tm_isdst = 0;
-            dst_offset = mktime(&standard_tm) - mktime(&daylight_tm);
-            phdr->ts.secs -= dst_offset;
+        tm = localtime(&phdr->ts.secs);
+        if (tm != NULL) {
+            standard_tm = *tm;
+            if (standard_tm.tm_isdst > 0) {
+                daylight_tm = standard_tm;
+                standard_tm.tm_isdst = 0;
+                dst_offset = mktime(&standard_tm) - mktime(&daylight_tm);
+                 phdr->ts.secs -= dst_offset;
+            }
         }
     }
 
@@ -614,10 +636,12 @@ gboolean network_instruments_dump_open(wtap_dumper *wdh, int *err)
     /* create the file comment TLV */
     {
         time(&system_time);
-        /* We trusst the OS not to return a time before the Epoch */
         current_time = localtime(&system_time);
         memset(&comment, 0x00, sizeof(comment));
-        g_snprintf(comment, 64, "This capture was saved from Wireshark on %s", asctime(current_time));
+        if (current_time != NULL)
+            g_snprintf(comment, 64, "This capture was saved from Wireshark on %s", asctime(current_time));
+        else
+            g_snprintf(comment, 64, "This capture was saved from Wireshark");
         comment_length = strlen(comment);
 
         comment_header.type = INFORMATION_TYPE_COMMENT;

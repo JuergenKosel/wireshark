@@ -19,6 +19,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+set(WSCODECS_PUBLIC_HEADERS
+  codecs.h
+)
+
 set(WSCODECS_FILES
   codecs.c
   G711a/G711adecode.c
@@ -52,6 +56,11 @@ if(HAVE_SPANDSP)
   list(APPEND wscodecs_LIBS ${SPANDSP_LIBRARIES})
 endif()
 
+if(HAVE_BCG729)
+  list(APPEND WSCODECS_FILES G729/G729decode.c)
+  list(APPEND wscodecs_LIBS ${BCG729_LIBRARIES})
+endif()
+
 add_library(wscodecs ${LINK_MODE_LIB}
   ${WSCODECS_FILES}
   ${CMAKE_BINARY_DIR}/image/libwscodecs.rc
@@ -62,7 +71,6 @@ set(FULL_SO_VERSION "0.0.0")
 set_target_properties(wscodecs PROPERTIES
   PREFIX "lib"
   COMPILE_DEFINITIONS "WS_BUILD_DLL"
-  COMPILE_OPTIONS "${WS_WS_WARNINGS_C_FLAGS}"
   LINK_FLAGS "${WS_LINK_FLAGS}"
   VERSION ${FULL_SO_VERSION} SOVERSION 0
   FOLDER "DLLs"
@@ -82,6 +90,12 @@ if(NOT ${ENABLE_STATIC})
     RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )
+
+  if(NOT WIN32)
+    install(FILES ${WSCODECS_PUBLIC_HEADERS}
+      DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/codecs"
+    )
+  endif()
 endif()
 
 CHECKAPI(

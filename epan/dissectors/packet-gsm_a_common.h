@@ -41,6 +41,12 @@
  *   Stage 3
  *   (3GPP TS 24.008 version 13.7.0 Release 13)
  *
+ *   Reference [12]
+ *   Mobile radio interface Layer 3 specification;
+ *   Core network protocols;
+ *   Stage 3
+ *   (3GPP TS 24.008 version 14.4.0 Release 14)
+ *
  * Copyright 2003, Michael Lum <mlum [AT] telostech.com>,
  * In association with Telos Technology Inc.
  *
@@ -395,7 +401,8 @@ WS_DLL_PUBLIC guint16 elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info 
 
 #define ELEM_MAND_TLV(EMT_iei, EMT_pdu_type, EMT_elem_idx, EMT_elem_name_addition, ei_mandatory) \
 {\
-    if ((consumed = elem_tlv(tvb, tree, pinfo, (guint8) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, curr_len, EMT_elem_name_addition)) > 0) \
+    if (((signed)curr_len > 0) && \
+        ((consumed = elem_tlv(tvb, tree, pinfo, (guint8) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, curr_len, EMT_elem_name_addition)) > 0)) \
     { \
         curr_offset += consumed; \
         curr_len -= consumed; \
@@ -420,7 +427,8 @@ WS_DLL_PUBLIC guint16 elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info 
  */
 #define ELEM_MAND_TELV(EMT_iei, EMT_pdu_type, EMT_elem_idx, EMT_elem_name_addition, ei_mandatory) \
 {\
-    if ((consumed = elem_telv(tvb, tree, pinfo, (guint8) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, curr_len, EMT_elem_name_addition)) > 0) \
+    if (((signed)curr_len > 0) && \
+        ((consumed = elem_telv(tvb, tree, pinfo, (guint8) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, curr_len, EMT_elem_name_addition)) > 0)) \
     { \
         curr_offset += consumed; \
         curr_len -= consumed; \
@@ -440,7 +448,8 @@ WS_DLL_PUBLIC guint16 elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info 
 
 #define ELEM_MAND_TLV_E(EMT_iei, EMT_pdu_type, EMT_elem_idx, EMT_elem_name_addition, ei_mandatory) \
 {\
-    if ((consumed = elem_tlv_e(tvb, tree, pinfo, (guint8) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, curr_len, EMT_elem_name_addition)) > 0) \
+    if (((signed)curr_len > 0) && \
+        ((consumed = elem_tlv_e(tvb, tree, pinfo, (guint8) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, curr_len, EMT_elem_name_addition)) > 0)) \
     { \
         curr_offset += consumed; \
         curr_len -= consumed; \
@@ -489,7 +498,8 @@ WS_DLL_PUBLIC guint16 elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info 
 
 #define ELEM_MAND_TV(EMT_iei, EMT_pdu_type, EMT_elem_idx, EMT_elem_name_addition, ei_mandatory) \
 {\
-    if ((consumed = elem_tv(tvb, tree, pinfo, (guint8) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, EMT_elem_name_addition)) > 0) \
+    if (((signed)curr_len > 0) && \
+        ((consumed = elem_tv(tvb, tree, pinfo, (guint8) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, EMT_elem_name_addition)) > 0)) \
     { \
         curr_offset += consumed; \
         curr_len -= consumed; \
@@ -537,51 +547,85 @@ WS_DLL_PUBLIC guint16 elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info 
     } \
 }
 
-#define ELEM_MAND_LV(EML_pdu_type, EML_elem_idx, EML_elem_name_addition) \
+#define ELEM_MAND_LV(EML_pdu_type, EML_elem_idx, EML_elem_name_addition, ei_mandatory) \
 {\
-    if ((consumed = elem_lv(tvb, tree, pinfo, EML_pdu_type, EML_elem_idx, curr_offset, curr_len, EML_elem_name_addition)) > 0) \
+    if (((signed)curr_len > 0) && \
+        ((consumed = elem_lv(tvb, tree, pinfo, EML_pdu_type, EML_elem_idx, curr_offset, curr_len, EML_elem_name_addition)) > 0)) \
     { \
         curr_offset += consumed; \
         curr_len -= consumed; \
     } \
     else \
     { \
-        /* Mandatory, but nothing we can do */ \
+        proto_tree_add_expert_format(tree, pinfo, &ei_mandatory,\
+            tvb, curr_offset, 0, \
+            "Missing Mandatory element %s%s, rest of dissection is suspect", \
+            get_gsm_a_msg_string(EML_pdu_type, EML_elem_idx), \
+            /* coverity[array_null] */ \
+            (EML_elem_name_addition == NULL) ? "" : EML_elem_name_addition \
+        ); \
     } \
 }
 
-#define ELEM_MAND_LV_E(EML_pdu_type, EML_elem_idx, EML_elem_name_addition) \
+#define ELEM_MAND_LV_E(EML_pdu_type, EML_elem_idx, EML_elem_name_addition, ei_mandatory) \
 {\
-    if ((consumed = elem_lv_e(tvb, tree, pinfo, EML_pdu_type, EML_elem_idx, curr_offset, curr_len, EML_elem_name_addition)) > 0) \
+    if (((signed)curr_len > 0) && \
+        ((consumed = elem_lv_e(tvb, tree, pinfo, EML_pdu_type, EML_elem_idx, curr_offset, curr_len, EML_elem_name_addition)) > 0)) \
     { \
         curr_offset += consumed; \
         curr_len -= consumed; \
     } \
     else \
     { \
-        /* Mandatory, but nothing we can do */ \
+        proto_tree_add_expert_format(tree, pinfo, &ei_mandatory,\
+            tvb, curr_offset, 0, \
+            "Missing Mandatory element %s%s, rest of dissection is suspect", \
+            get_gsm_a_msg_string(EML_pdu_type, EML_elem_idx), \
+            /* coverity[array_null] */ \
+            (EML_elem_name_addition == NULL) ? "" : EML_elem_name_addition \
+        ); \
     } \
 }
 
-#define ELEM_MAND_V(EMV_pdu_type, EMV_elem_idx, EMV_elem_name_addition) \
+#define ELEM_MAND_V(EMV_pdu_type, EMV_elem_idx, EMV_elem_name_addition, ei_mandatory) \
 {\
-    if ((consumed = elem_v(tvb, tree, pinfo, EMV_pdu_type, EMV_elem_idx, curr_offset, EMV_elem_name_addition)) > 0) \
+    if (((signed)curr_len > 0) && \
+        ((consumed = elem_v(tvb, tree, pinfo, EMV_pdu_type, EMV_elem_idx, curr_offset, EMV_elem_name_addition)) > 0)) \
     { \
         curr_offset += consumed; \
         curr_len -= consumed; \
     } \
     else \
     { \
-        /* Mandatory, but nothing we can do */ \
+        proto_tree_add_expert_format(tree, pinfo, &ei_mandatory,\
+            tvb, curr_offset, 0, \
+            "Missing Mandatory element %s%s, rest of dissection is suspect", \
+            get_gsm_a_msg_string(EMV_pdu_type, EMV_elem_idx), \
+            /* coverity[array_null] */ \
+            (EMV_elem_name_addition == NULL) ? "" : EMV_elem_name_addition \
+        ); \
     } \
 }
 
-#define ELEM_MAND_VV_SHORT(EMV_pdu_type1, EMV_elem_idx1, EMV_pdu_type2, EMV_elem_idx2) \
+#define ELEM_MAND_VV_SHORT(EMV_pdu_type1, EMV_elem_idx1, EMV_pdu_type2, EMV_elem_idx2, ei_mandatory) \
 {\
-    elem_v_short(tvb, tree, pinfo, EMV_pdu_type1, EMV_elem_idx1, curr_offset, RIGHT_NIBBLE); \
-    elem_v_short(tvb, tree, pinfo, EMV_pdu_type2, EMV_elem_idx2, curr_offset, LEFT_NIBBLE); \
-    curr_offset ++ ; /* consumed length is 1, regardless of contents */ \
-    curr_len -- ; \
+    if ((signed)curr_len > 0) \
+    { \
+        elem_v_short(tvb, tree, pinfo, EMV_pdu_type1, EMV_elem_idx1, curr_offset, RIGHT_NIBBLE); \
+        elem_v_short(tvb, tree, pinfo, EMV_pdu_type2, EMV_elem_idx2, curr_offset, LEFT_NIBBLE); \
+        curr_offset ++ ; /* consumed length is 1, regardless of contents */ \
+        curr_len -- ; \
+    } \
+    else \
+    { \
+        proto_tree_add_expert_format(tree, pinfo, &ei_mandatory,\
+            tvb, curr_offset, 0, \
+            "Missing Mandatory elements %s %s, rest of dissection is suspect", \
+            get_gsm_a_msg_string(EMV_pdu_type1, EMV_elem_idx1), \
+            get_gsm_a_msg_string(EMV_pdu_type2, EMV_elem_idx2) \
+            /* coverity[array_null] */ \
+        ); \
+    } \
 }
 
 /*
@@ -655,6 +699,7 @@ guint16 de_serv_cat(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32
 WS_DLL_PUBLIC
 guint16 de_sm_apn(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
 guint16 de_sm_pco(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
+guint16 de_sm_pdp_addr(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_);
 WS_DLL_PUBLIC
 guint16 de_sm_qos(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
 WS_DLL_PUBLIC
@@ -1093,6 +1138,10 @@ typedef enum
     DE_TP_EPC_UE_TL_A_LB_SETUP,         /* UE Test Loop Mode A LB Setup */
     DE_TP_EPC_UE_TL_B_LB_SETUP,         /* UE Test Loop Mode B LB Setup */
     DE_TP_EPC_UE_TL_C_SETUP,            /* UE Test Loop Mode C Setup */
+    DE_TP_EPC_UE_TL_D_SETUP,            /* UE Test Loop Mode D Setup */
+    DE_TP_EPC_UE_TL_E_SETUP,            /* UE Test Loop Mode E Setup */
+    DE_TP_EPC_UE_TL_F_SETUP,            /* UE Test Loop Mode F Setup */
+    DE_TP_EPC_UE_TL_GH_SETUP,           /* UE Test Loop Mode GH Setup */
     DE_TP_EPC_UE_POSITIONING_TECHNOLOGY,/* UE Positioning Technology */
     DE_TP_EPC_MBMS_PACKET_COUNTER_VALUE,/* MBMS Packet Counter Value */
     DE_TP_EPC_ELLIPSOID_POINT_WITH_ALT, /* ellipsoidPointWithAltitude */
@@ -1158,10 +1207,14 @@ typedef enum
     DE_EXT_DRX_PARAMS,              /* [11] 10.5.5.32 Extended DRX parameters */
     DE_MAC,                         /* [11] 10.5.5.33 Message Authentication Code */
     DE_UP_INTEG_IND,                /* [11] 10.5.5.34 User Plane integrity indicator */
+    DE_DCN_ID,                      /* [12] 10.5.5.35 DCN-ID */
+    DE_PLMN_ID_CN_OPERATOR,         /* [12] 10.5.5.36 PLMN identity of the CN operator */
+    DE_NON_3GPP_NW_PROV_POL,        /* [12] 10.5.5.37 Non-3GPP NW provided policies */
     /* Session Management Information Elements [3] 10.5.6 */
     DE_ACC_POINT_NAME,              /* Access Point Name */
     DE_NET_SAPI,                    /* Network Service Access Point Identifier */
     DE_PRO_CONF_OPT,                /* Protocol Configuration Options */
+    DE_EXT_PRO_CONF_OPT,            /* Extended Protocol Configuration Options */
     DE_PD_PRO_ADDR,                 /* Packet Data Protocol Address */
     DE_QOS,                         /* Quality Of Service */
     DE_RE_ATTEMPT_IND,              /* Re-attempt indicator */
@@ -1351,6 +1404,7 @@ typedef enum
     DE_EMM_AUTN,                /* 9.9.3.2  Authentication parameter AUTN */
     DE_EMM_AUTH_PAR_RAND,       /* 9.9.3.3  Authentication parameter RAND */
     DE_EMM_AUTH_RESP_PAR,       /* 9.9.3.4  Authentication response parameter */
+    DE_EMM_SMS_SERVICES_STATUS, /* 9.9.3.4B SMS services status */
     DE_EMM_CSFB_RESP,           /* 9.9.3.5  CSFB response */
     DE_EMM_DAYL_SAV_T,          /* 9.9.3.6  Daylight saving time */
     DE_EMM_DET_TYPE,            /* 9.9.3.7  Detach type */
@@ -1400,8 +1454,11 @@ typedef enum
     DE_EMM_GUTI_TYPE,           /* 9.9.3.45 GUTI type */
     DE_EMM_EXT_DRX_PARAMS,      /* 9.9.3.46 Extended DRX parameters */
     DE_EMM_DATA_SERV_TYPE,      /* 9.9.3.47 Data service type */
+    DE_EMM_DCN_ID,              /* 9.9.3.48 DCN-ID, See subclause 10.5.5.35 in 3GPP TS 24.008 */
+    DE_EMM_NON_3GPP_NW_PROV_POL, /* 9.9.3.49 Non-3GPP NW provided policies, See subclause 10.5.5.37 in 3GPP TS 24.008 */
+    DE_EMM_HASH_MME,            /* 9.9.3.50 HashMME */
+    DE_EMM_REPLAYED_NAS_MSG_CONT, /* 9.9.3.51 Replayed NAS message container */
     DE_EMM_NONE                 /* NONE */
-
 }
 nas_emm_elem_idx_t;
 

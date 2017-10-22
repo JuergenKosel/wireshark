@@ -41,9 +41,18 @@
 #include <epan/prefs.h>
 #include <epan/reassemble.h>
 #include <epan/charsets.h>
+#include <epan/proto_data.h>
+#include "packet-e164.h"
+#include <epan/asn1.h>
 #include "packet-gsm_sms.h"
+#include "packet-gsm_map.h"
+#include "packet-sip.h"
+
+static gint proto_gsm_map = -1;
+static gint proto_sip     = -1;
 
 void proto_register_gsm_sms(void);
+void proto_reg_handoff_gsm_sms(void);
 
 #define MAX_SMS_FRAG_LEN      134
 
@@ -254,6 +263,7 @@ static expert_field ei_gsm_sms_unexpected_data_length = EI_INIT;
 static expert_field ei_gsm_sms_message_dissector_not_implemented = EI_INIT;
 
 static gboolean reassemble_sms = TRUE;
+static gboolean reassemble_sms_with_lower_layers_info = TRUE;
 static proto_tree *g_tree;
 
 /* 3GPP TS 23.038 version 7.0.0 Release 7
@@ -334,6 +344,132 @@ typedef struct {
     guint8  udl;
     guint8  fill_bits;
 } sm_fragment_params;
+
+typedef struct {
+    const gchar *addr_info; /* TP-OA or TP-DA + optional lower layer info */
+    int p2p_dir;
+    address src;
+    address dst;
+    guint32 id;
+} sm_fragment_params_key;
+
+static guint
+sm_fragment_params_hash(gconstpointer k)
+{
+    const sm_fragment_params_key* key = (const sm_fragment_params_key*) k;
+    guint hash_val;
+
+    hash_val = (wmem_str_hash(key->addr_info) ^ key->id) + key->p2p_dir;
+
+    return hash_val;
+}
+
+static gboolean
+sm_fragment_params_equal(gconstpointer v1, gconstpointer v2)
+{
+    const sm_fragment_params_key *key1 = (const sm_fragment_params_key*)v1;
+    const sm_fragment_params_key *key2 = (const sm_fragment_params_key*)v2;
+
+    return (key1->id == key2->id) &&
+           (key1->p2p_dir == key2->p2p_dir) &&
+           !g_strcmp0(key1->addr_info, key2->addr_info) &&
+           addresses_equal(&key1->src, &key2->src) &&
+           addresses_equal(&key1->dst, &key2->dst);
+}
+
+typedef struct {
+    const gchar *addr_info; /* TP-OA or TP-DA + optional lower layer info */
+    int p2p_dir;
+    address src;
+    address dst;
+    guint32 id;
+} sm_fragment_key;
+
+static guint
+sm_fragment_hash(gconstpointer k)
+{
+    const sm_fragment_key* key = (const sm_fragment_key*) k;
+    guint hash_val;
+
+    hash_val = (wmem_str_hash(key->addr_info) ^ key->id) + key->p2p_dir;
+
+    return hash_val;
+}
+
+static gint
+sm_fragment_equal(gconstpointer k1, gconstpointer k2)
+{
+    const sm_fragment_key* key1 = (const sm_fragment_key*) k1;
+    const sm_fragment_key* key2 = (const sm_fragment_key*) k2;
+
+    return (key1->id == key2->id) &&
+           (key1->p2p_dir == key2->p2p_dir) &&
+           !g_strcmp0(key1->addr_info, key2->addr_info) &&
+           addresses_equal(&key1->src, &key2->src) &&
+           addresses_equal(&key1->dst, &key2->dst);
+}
+
+static gpointer
+sm_fragment_temporary_key(const packet_info *pinfo,
+                          const guint32 id, const void *data)
+{
+    const gchar* addr = (const char*)data;
+    sm_fragment_key *key = g_slice_new(sm_fragment_key);
+
+    key->addr_info = addr;
+    key->p2p_dir = pinfo->p2p_dir;
+    copy_address_shallow(&key->src, &pinfo->src);
+    copy_address_shallow(&key->dst, &pinfo->dst);
+    key->id = id;
+
+    return (gpointer)key;
+}
+
+static gpointer
+sm_fragment_persistent_key(const packet_info *pinfo,
+                           const guint32 id, const void *data)
+{
+    const gchar* addr = (const char*)data;
+    sm_fragment_key *key = g_slice_new(sm_fragment_key);
+
+    key->addr_info = wmem_strdup(NULL, addr);
+    key->p2p_dir = pinfo->p2p_dir;
+    copy_address(&key->src, &pinfo->src);
+    copy_address(&key->dst, &pinfo->dst);
+    key->id = id;
+
+    return (gpointer)key;
+}
+
+static void
+sm_fragment_free_temporary_key(gpointer ptr)
+{
+    sm_fragment_key *key = (sm_fragment_key *)ptr;
+    g_slice_free(sm_fragment_key, key);
+}
+
+static void
+sm_fragment_free_persistent_key(gpointer ptr)
+{
+    sm_fragment_key *key = (sm_fragment_key *)ptr;
+
+    if(key) {
+        wmem_free(NULL, (void*)key->addr_info);
+        free_address(&key->src);
+        free_address(&key->dst);
+        g_slice_free(sm_fragment_key, key);
+    }
+}
+
+const reassembly_table_functions
+sm_reassembly_table_functions = {
+    sm_fragment_hash,
+    sm_fragment_equal,
+    sm_fragment_temporary_key,
+    sm_fragment_persistent_key,
+    sm_fragment_free_temporary_key,
+    sm_fragment_free_persistent_key
+};
 
 /*
  * this is the GSM 03.40 definition with the bit 2
@@ -464,7 +600,7 @@ dis_field_addr(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tree, guint32 *off
     static gchar digit_table[] = {"0123456789*#abc\0"};
     proto_item  *item;
     proto_tree  *subtree;
-    guint8       oct;
+    guint8       oct, nt_mp;
     guint32      offset;
     guint32      numdigocts;
     guint32      length, addrlength;
@@ -496,6 +632,7 @@ dis_field_addr(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tree, guint32 *off
 
     offset++;
     oct = tvb_get_guint8(tvb, offset);
+    nt_mp = oct & 0x7f;
 
     proto_tree_add_item(subtree, hf_gsm_sms_dis_field_addr_extension, tvb, offset, 1, ENC_NA);
     proto_tree_add_item(subtree, hf_gsm_sms_dis_field_addr_num_type, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -526,9 +663,21 @@ dis_field_addr(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tree, guint32 *off
     if (g_ascii_strncasecmp(title, "TP-O", 4) == 0) {
         proto_tree_add_string(subtree, hf_gsm_sms_tp_oa, tvb,
                 offset, numdigocts, addrstr);
+        if (((nt_mp >> 4) == 1) && ((nt_mp & 0x0f) == 1)) {
+            /* if Type of number international and number plan is E.164*/
+            dissect_e164_msisdn(tvb, subtree, offset, numdigocts, E164_ENC_BCD);
+        }
+        p_add_proto_data(pinfo->pool, pinfo, proto_gsm_sms, 0,
+                         wmem_strdup(pinfo->pool, addrstr));
     } else if (g_ascii_strncasecmp(title, "TP-D", 4) == 0) {
         proto_tree_add_string(subtree, hf_gsm_sms_tp_da, tvb,
                 offset, numdigocts, addrstr);
+        if (((nt_mp >> 4) == 1) && ((nt_mp & 0x0f) == 1)) {
+            /* if Type of number international and number plan is E.164*/
+            dissect_e164_msisdn(tvb, subtree, offset, numdigocts, E164_ENC_BCD);
+        }
+        p_add_proto_data(pinfo->pool, pinfo, proto_gsm_sms, 0,
+                         wmem_strdup(pinfo->pool, addrstr));
     } else if (g_ascii_strncasecmp(title, "TP-R", 4) == 0) {
         proto_tree_add_string(subtree, hf_gsm_sms_tp_ra, tvb,
                 offset, numdigocts, addrstr);
@@ -641,7 +790,7 @@ dis_field_pid(tvbuff_t *tvb, proto_tree *tree, guint32 offset, guint8 oct)
 static const value_string dcs_character_set_vals[] = {
    {0x00,    "GSM 7 bit default alphabet"},
    {0x01,    "8 bit data"},
-   {0x02,    "UCS2 (16 bit)"},
+   {0x02,    "UCS2 (16 bit)/UTF-16"},
    {0x03,    "Reserved"},
    {0,      NULL }
 };
@@ -785,27 +934,27 @@ dis_field_scts_aux(tvbuff_t *tvb, proto_tree *tree, guint32 offset)
     char   sign;
 
     oct = tvb_get_guint8(tvb, offset);
-    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
     proto_tree_add_uint(tree, hf_gsm_sms_scts_year, tvb, offset, 1, value);
     offset++;
     oct = tvb_get_guint8(tvb, offset);
-    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
     proto_tree_add_uint(tree, hf_gsm_sms_scts_month, tvb, offset, 1, value);
     offset++;
     oct = tvb_get_guint8(tvb, offset);
-    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
     proto_tree_add_uint(tree, hf_gsm_sms_scts_day, tvb, offset, 1, value);
     offset++;
     oct = tvb_get_guint8(tvb, offset);
-    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
     proto_tree_add_uint(tree, hf_gsm_sms_scts_hour, tvb, offset, 1, value);
     offset++;
     oct = tvb_get_guint8(tvb, offset);
-    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
     proto_tree_add_uint(tree, hf_gsm_sms_scts_minutes, tvb, offset, 1, value);
     offset++;
     oct = tvb_get_guint8(tvb, offset);
-    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+    value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
     proto_tree_add_uint(tree, hf_gsm_sms_scts_seconds, tvb, offset, 1, value);
     offset++;
 
@@ -940,15 +1089,15 @@ dis_field_vp(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tree, guint32 *offse
             case 0x03:
                 offset++;
                 oct = tvb_get_guint8(tvb, offset);
-                value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+                value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
                 proto_tree_add_uint(subtree, hf_gsm_sms_vp_validity_period_hour, tvb, offset, 1, value);
                 offset++;
                 oct = tvb_get_guint8(tvb, offset);
-                value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+                value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
                 proto_tree_add_uint(subtree, hf_gsm_sms_vp_validity_period_minutes, tvb, offset, 1, value);
                 offset++;
                 oct = tvb_get_guint8(tvb, offset);
-                value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4),
+                value = (oct & 0x0f)*10 + ((oct & 0xf0) >> 4);
                 proto_tree_add_uint(subtree, hf_gsm_sms_vp_validity_period_seconds, tvb, offset, 1, value);
                 offset++;
                 done = TRUE;
@@ -1824,11 +1973,61 @@ dis_field_ud(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset
     gboolean    is_fragmented   = FALSE;
     gboolean    save_fragmented = FALSE, try_gsm_sms_ud_reassemble = FALSE;
 
-    sm_fragment_params *p_frag_params;
-    gsm_sms_udh_fields_t        udh_fields;
+    sm_fragment_params     *p_frag_params;
+    sm_fragment_params_key *p_frag_params_key, frag_params_key;
+    const gchar            *addr_info, *addr;
+    gsm_sms_udh_fields_t    udh_fields;
 
     memset(&udh_fields, 0, sizeof(udh_fields));
     fill_bits = 0;
+
+    addr = (gchar*)p_get_proto_data(pinfo->pool, pinfo, proto_gsm_sms, 0);
+    if (addr == NULL)
+        addr = "";
+    /* check if lower layers provide additional info */
+    if (reassemble_sms_with_lower_layers_info) {
+        wmem_strbuf_t *addr_info_strbuf = wmem_strbuf_new(wmem_packet_scope(), addr);
+        if (proto_is_frame_protocol(pinfo->layers, "gsm_map")) {
+            gsm_map_packet_info_t *gsm_map_packet_info;
+            wmem_strbuf_append(addr_info_strbuf, "MAP");
+            if ((gsm_map_packet_info = (gsm_map_packet_info_t*)p_get_proto_data(wmem_file_scope(), pinfo, proto_gsm_map, 0)) != NULL) {
+                if (gsm_map_packet_info->sm_rp_oa_id == GSM_MAP_SM_RP_OA_MSISDN)
+                    wmem_strbuf_append(addr_info_strbuf, gsm_map_packet_info->sm_rp_oa_str);
+                else if (gsm_map_packet_info->sm_rp_da_id == GSM_MAP_SM_RP_DA_IMSI)
+                    wmem_strbuf_append(addr_info_strbuf, gsm_map_packet_info->sm_rp_da_str);
+                else if (gsm_map_packet_info->sm_rp_da_id == GSM_MAP_SM_RP_DA_LMSI)
+                    wmem_strbuf_append(addr_info_strbuf, gsm_map_packet_info->sm_rp_da_str);
+                else /* no identity provided by GSM MAP layer, use TCAP OTID as last resort */
+                    wmem_strbuf_append_printf(addr_info_strbuf, "TCAP%u", gsm_map_packet_info->tcap_src_tid);
+            }
+        } else if (proto_is_frame_protocol(pinfo->layers, "sip")) {
+            sip_info_value_t *sip_info;
+            wmem_list_frame_t *frame;
+            guint8 curr_layer_num;
+            wmem_strbuf_append(addr_info_strbuf, "SIP");
+            curr_layer_num = pinfo->curr_layer_num-1;
+            frame = wmem_list_frame_prev(wmem_list_tail(pinfo->layers));
+            while (frame && (proto_sip != (gint) GPOINTER_TO_UINT(wmem_list_frame_data(frame)))) {
+                frame = wmem_list_frame_prev(frame);
+                curr_layer_num--;
+            }
+            if ((sip_info = (sip_info_value_t*)p_get_proto_data(pinfo->pool, pinfo, proto_sip, curr_layer_num)) != NULL) {
+                if (sip_info->tap_from_addr)
+                    wmem_strbuf_append(addr_info_strbuf, sip_info->tap_from_addr);
+                if (sip_info->tap_to_addr)
+                    wmem_strbuf_append(addr_info_strbuf, sip_info->tap_to_addr);
+            }
+        } else if (proto_is_frame_protocol(pinfo->layers, "gsm_a.rp")) {
+            wmem_strbuf_append(addr_info_strbuf, "RP");
+        } else if (proto_is_frame_protocol(pinfo->layers, "etsi_cat")) {
+            wmem_strbuf_append(addr_info_strbuf, "CAT");
+        } else if (proto_is_frame_protocol(pinfo->layers, "mbim")) {
+            wmem_strbuf_append(addr_info_strbuf, "MBIM");
+        }
+        addr_info = wmem_strbuf_finalize(addr_info_strbuf);
+    } else {
+        addr_info = addr;
+    }
 
     subtree =
         proto_tree_add_subtree(tree, tvb,
@@ -1862,7 +2061,7 @@ dis_field_ud(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset
         fd_sm = fragment_add_seq_check (&g_sm_reassembly_table, tvb, offset,
                                         pinfo,
                                         udh_fields.sm_id, /* guint32 ID for fragments belonging together */
-                                        NULL,
+                                        addr_info,
                                         udh_fields.frag-1, /* guint32 fragment sequence number */
                                         length, /* guint32 fragment length */
                                         (udh_fields.frag != udh_fields.frags)); /* More fragments? */
@@ -1889,14 +2088,20 @@ dis_field_ud(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset
                              " (Short Message fragment %u of %u)", udh_fields.frag, udh_fields.frags);
         }
 
-        /* Store udl and length for later decoding of reassembled SMS */
-        p_frag_params = wmem_new0(wmem_file_scope(), sm_fragment_params);
-        p_frag_params->udl = udl;
-        p_frag_params->fill_bits =  fill_bits;
-        p_frag_params->length = length;
-        wmem_map_insert(g_sm_fragment_params_table,
-                            GUINT_TO_POINTER((guint)((udh_fields.sm_id<<16)|(udh_fields.frag-1))),
-                            p_frag_params);
+        if (!PINFO_FD_VISITED(pinfo)) {
+            /* Store udl and length for later decoding of reassembled SMS */
+            p_frag_params_key = wmem_new(wmem_file_scope(), sm_fragment_params_key);
+            p_frag_params_key->addr_info = wmem_strdup(wmem_file_scope(), addr_info);
+            p_frag_params_key->p2p_dir = pinfo->p2p_dir;
+            copy_address_wmem(wmem_file_scope(), &p_frag_params_key->src, &pinfo->src);
+            copy_address_wmem(wmem_file_scope(), &p_frag_params_key->dst, &pinfo->dst);
+            p_frag_params_key->id = (udh_fields.sm_id<<16)|(udh_fields.frag-1);
+            p_frag_params = wmem_new0(wmem_file_scope(), sm_fragment_params);
+            p_frag_params->udl = udl;
+            p_frag_params->fill_bits =  fill_bits;
+            p_frag_params->length = length;
+            wmem_map_insert(g_sm_fragment_params_table, p_frag_params_key, p_frag_params);
+        }
     } /* Else: not fragmented */
     if (! sm_tvb) /* One single Short Message, or not reassembled */
         sm_tvb = tvb_new_subset_remaining (tvb, offset);
@@ -1938,8 +2143,13 @@ dis_field_ud(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset
                 total_sms_len = 0;
                 for(i = 0 ; i < udh_fields.frags; i++)
                 {
+                    frag_params_key.addr_info = addr_info;
+                    frag_params_key.p2p_dir = pinfo->p2p_dir;
+                    copy_address_shallow(&frag_params_key.src, &pinfo->src);
+                    copy_address_shallow(&frag_params_key.dst, &pinfo->dst);
+                    frag_params_key.id = (udh_fields.sm_id<<16)|i;
                     p_frag_params = (sm_fragment_params*)wmem_map_lookup(g_sm_fragment_params_table,
-                                                            GUINT_TO_POINTER((guint)((udh_fields.sm_id<<16)|i)));
+                                                                         &frag_params_key);
 
                     if (p_frag_params) {
                         proto_tree_add_item(subtree, hf_gsm_sms_text, sm_tvb, total_sms_len,
@@ -1966,8 +2176,13 @@ dis_field_ud(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset
                 total_sms_len = 0;
                 for(i = 0 ; i < udh_fields.frags; i++)
                 {
+                    frag_params_key.addr_info = addr_info;
+                    frag_params_key.p2p_dir = pinfo->p2p_dir;
+                    copy_address_shallow(&frag_params_key.src, &pinfo->src);
+                    copy_address_shallow(&frag_params_key.dst, &pinfo->dst);
+                    frag_params_key.id = (udh_fields.sm_id<<16)|i;
                     p_frag_params = (sm_fragment_params*)wmem_map_lookup(g_sm_fragment_params_table,
-                                                            GUINT_TO_POINTER((guint)((udh_fields.sm_id<<16)|i)));
+                                                                         &frag_params_key);
 
                     if (p_frag_params) {
                         proto_tree_add_ts_23_038_7bits_item(subtree, hf_gsm_sms_text, sm_tvb,
@@ -1986,7 +2201,7 @@ dis_field_ud(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset
                 {
                     if (! dissector_try_uint(gsm_sms_dissector_tbl, udh_fields.port_dst,sm_tvb, pinfo, subtree))
                     {
-                        proto_tree_add_item(subtree, hf_gsm_sms_body, tvb, offset, length, ENC_NA);
+                        proto_tree_add_item(subtree, hf_gsm_sms_body, sm_tvb, 0, tvb_reported_length(sm_tvb), ENC_NA);
                     }
                 }
             } else {
@@ -2000,9 +2215,13 @@ dis_field_ud(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset
 
                 if (!(reassembled && pinfo->num == reassembled_in))
                 {
-                    /* Show unreassembled SMS */
+                    /* Show unreassembled SMS
+                     * Decode as ENC_UTF_16 instead of UCS2 because Android and iOS smartphones
+                     * encode emoji characters as UTF-16 big endian and although the UTF-16
+                     * is not specified in the 3GPP 23.038 (GSM 03.38) it seems to be widely supported
+                     */
                     proto_tree_add_item(subtree, hf_gsm_sms_text, sm_tvb,
-                                        0, rep_len, ENC_UCS_2|ENC_BIG_ENDIAN);
+                                        0, rep_len, ENC_UTF_16|ENC_BIG_ENDIAN);
                 } else {
                     /*  Show reassembled SMS.  We show each fragment separately
                      *  so that the text doesn't get truncated when we add it to
@@ -2011,13 +2230,22 @@ dis_field_ud(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset
                     total_sms_len = 0;
                     for(i = 0 ; i < udh_fields.frags; i++)
                     {
+                        frag_params_key.addr_info = addr_info;
+                        frag_params_key.p2p_dir = pinfo->p2p_dir;
+                        copy_address_shallow(&frag_params_key.src, &pinfo->src);
+                        copy_address_shallow(&frag_params_key.dst, &pinfo->dst);
+                        frag_params_key.id = (udh_fields.sm_id<<16)|i;
                         p_frag_params = (sm_fragment_params*)wmem_map_lookup(g_sm_fragment_params_table,
-                                                                GUINT_TO_POINTER((guint)((udh_fields.sm_id<<16)|i)));
+                                                                             &frag_params_key);
 
                         if (p_frag_params) {
+                            /* Decode as ENC_UTF_16 instead of UCS2 because Android and iOS smartphones
+                             * encode emoji characters as UTF-16 big endian and although the UTF-16
+                             * is not specified in the 3GPP 23.038 (GSM 03.38) it seems to be widely supported
+                             */
                             proto_tree_add_item(subtree, hf_gsm_sms_text, sm_tvb, total_sms_len,
                                 (p_frag_params->udl > SMS_MAX_MESSAGE_SIZE ? SMS_MAX_MESSAGE_SIZE : p_frag_params->udl),
-                                ENC_UCS_2|ENC_BIG_ENDIAN);
+                                ENC_UTF_16|ENC_BIG_ENDIAN);
 
                             total_sms_len += p_frag_params->length;
                         }
@@ -3338,18 +3566,31 @@ proto_register_gsm_sms(void)
 
     prefs_register_obsolete_preference(gsm_sms_module,
                                        "try_dissect_message_fragment");
-    prefs_register_bool_preference (gsm_sms_module, "reassemble",
-                                    "Reassemble fragmented SMS",
-                                    "Whether the dissector should reassemble SMS spanning multiple packets",
+    prefs_register_bool_preference(gsm_sms_module, "reassemble",
+                                   "Reassemble fragmented SMS",
+                                   "Whether the dissector should reassemble SMS spanning multiple packets",
                                     &reassemble_sms);
+    prefs_register_bool_preference(gsm_sms_module, "reassemble_with_lower_layers_info",
+                                   "Use lower layers info for SMS reassembly",
+                                   "Whether the dissector should take into account info coming "
+                                   "from lower layers (like GSM-MAP) to perform SMS reassembly",
+                                    &reassemble_sms_with_lower_layers_info);
 
     register_dissector("gsm_sms", dissect_gsm_sms, proto_gsm_sms);
 
-    g_sm_fragment_params_table = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
+    g_sm_fragment_params_table = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(),
+                                                        sm_fragment_params_hash, sm_fragment_params_equal);
 
     reassembly_table_register(&g_sm_reassembly_table,
-                          &addresses_reassembly_table_functions);
+                              &sm_reassembly_table_functions);
 
+}
+
+void
+proto_reg_handoff_gsm_sms(void)
+{
+    proto_gsm_map = proto_get_id_by_filter_name("gsm_map");
+    proto_sip = proto_get_id_by_filter_name("sip");
 }
 
 /*

@@ -23,7 +23,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
-#include "epan/packet_range.h"
+#include "ui/packet_range.h"
 #include "ui/win32/file_dlg_win32.h"
 #else // Q_OS_WIN
 
@@ -34,7 +34,7 @@
 #include <epan/print.h>
 #include <wsutil/filesystem.h>
 
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 
 
 #include <QDialogButtonBox>

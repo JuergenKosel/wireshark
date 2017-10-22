@@ -164,6 +164,7 @@ static value_string_ext usbip_urb_vals_ext = VALUE_STRING_EXT_INIT(usbip_urb_val
 
 extern value_string_ext ext_usb_vendors_vals;
 extern value_string_ext ext_usb_products_vals;
+extern value_string_ext linux_negative_errno_vals_ext;
 
 static const value_string usb_endpoint_direction_vals[] = {
     {USBIP_DIR_OUT, "OUT"                        },
@@ -822,12 +823,6 @@ get_usbip_message_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset,
 static int
 dissect_usbip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-    /* Check that there's enough data */
-    if (tvb_reported_length(tvb) < 4) {
-        /* usbip's smallest packet size is 4 */
-        return 0;
-    }
-
     tcp_dissect_pdus(tvb, pinfo, tree, TRUE, FRAME_HEADER_LEN,
                      get_usbip_message_len, dissect_usbip_common, data);
 
@@ -859,7 +854,7 @@ proto_register_usbip(void)
 
         {&hf_usbip_status,
          {"Status",                        "usbip.status",
-            FT_INT32, BASE_DEC | BASE_EXT_STRING, &usb_urb_status_vals_ext, 0,
+            FT_INT32, BASE_DEC | BASE_EXT_STRING, &linux_negative_errno_vals_ext, 0,
             "USBIP Status", HFILL}},
 
         {&hf_usbip_number_devices,

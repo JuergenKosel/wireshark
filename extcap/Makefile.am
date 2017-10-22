@@ -21,10 +21,7 @@
 
 include ../Makefile.am.inc
 
-AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS)
-
-MAINTAINERCLEANFILES = \
-	Makefile.in
+AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS) $(PCAP_CFLAGS)
 
 EXTRA_DIST = \
 	.editorconfig
@@ -50,6 +47,7 @@ endif
 
 # Libraries and plugin flags with which to link androiddump.
 androiddump_LDADD = \
+	../ui/libui.a			\
 	../wiretap/libwiretap.la	\
 	../wsutil/libwsutil.la		\
 	@GLIB_LIBS@
@@ -67,6 +65,7 @@ endif
 # Libraries and plugin flags with which to link randpktdump.
 randpktdump_LDADD = \
 	../randpkt_core/librandpkt_core.a	\
+	../ui/libui.a			\
 	../wiretap/libwiretap.la	\
 	../wsutil/libwsutil.la		\
 	@GLIB_LIBS@

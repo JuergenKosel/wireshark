@@ -55,6 +55,7 @@
 /* General definitions */
 
 /* Used to clasify incoming traffic and presort the heuristic */
+#define OPENSAFETY_ANY_TRANSPORT 0x00
 #define OPENSAFETY_CYCLIC_DATA   0x01
 #define OPENSAFETY_ACYCLIC_DATA  0x02
 
@@ -228,6 +229,23 @@ static int hf_oss_reassembled_data = -1;
 static gint ett_opensafety_ssdo_fragment = -1;
 static gint ett_opensafety_ssdo_fragments = -1;
 
+/* Definitions for the openSAFETY ov. UDP transport protocol */
+static dissector_handle_t opensafety_udptransport_handle = NULL;
+
+static int proto_oss_udp_transport = -1;
+
+static int hf_oss_udp_transport_version = -1;
+static int hf_oss_udp_transport_flags_type = -1;
+static int hf_oss_udp_transport_counter = -1;
+static int hf_oss_udp_transport_sender = -1;
+static int hf_oss_udp_transport_datapoint = -1;
+static int hf_oss_udp_transport_length= -1;
+
+static gint ett_oss_udp_transport = -1;
+
+static const true_false_string tfs_udp_transport_cyclic_acyclic = { "Cyclic", "ACyclic" };
+static guint global_network_oss_udp_port = OPENSAFETY_UDP_PORT;
+
 static int opensafety_tap = -1;
 
 static const fragment_items oss_frag_items = {
@@ -274,6 +292,10 @@ static gboolean global_enable_mbtcp  = TRUE;
 
 static gboolean global_opensafety_debug_verbose = FALSE;
 
+static const char * global_filter_nodes = "";
+static gboolean global_show_only_node_in_filter = TRUE;
+static wmem_list_t * global_filter_list = NULL;
+
 static gboolean heuristic_siii_dissection_enabled = TRUE;
 
 static heur_dissector_list_t heur_opensafety_spdo_subdissector_list;
@@ -297,6 +319,17 @@ setup_dissector(void)
 {
     heur_dtbl_entry_t * heur_entry = NULL;
 
+    /* create list if it does not exist, but clean existing elements anyway,
+     * as options might have changed */
+    global_filter_list = wmem_list_new(wmem_file_scope());
+
+    gchar ** vector = wmem_strsplit(wmem_file_scope(), global_filter_nodes, ",", -1);
+    for (; NULL != *vector; vector++ )
+    {
+        if ( *vector && g_ascii_strtoll(*vector, NULL, 10) > 0 )
+            wmem_list_append(global_filter_list, GINT_TO_POINTER(g_ascii_strtoll(*vector, NULL, 10)));
+    }
+
     heur_entry = find_heur_dissector_by_unique_short_name("opensafety_sercosiii");
     if ( heur_entry != NULL )
         heuristic_siii_dissection_enabled = heur_entry->enabled;
@@ -306,6 +339,12 @@ static void
 cleanup_dissector(void)
 {
     local_scm_udid = NULL;
+
+    if ( global_filter_list )
+    {
+        wmem_destroy_list(global_filter_list);
+        global_filter_list = NULL;
+    }
 }
 
 void proto_register_opensafety(void);
@@ -506,10 +545,10 @@ static gboolean findSafetyFrame ( tvbuff_t *message_tvb, guint u_Offset, gboolea
         guint *u_frameOffset, guint *u_frameLength, opensafety_packet_info *packet )
 {
     guint     ctr, rem_length;
-    guint16   crc, f2crc, calcCrc;
-    guint8    b_Length, b_CTl, crcOffset, crc1Type;
+    guint16   crc, f2crc, calcCrc = 0;
+    guint8    b_Length = 0, b_CTl = 0, crcOffset = 0, crc1Type = 0;
     guint8   *bytes;
-    guint     b_ID;
+    guint     b_ID = 0;
     gboolean  found;
 
     found = FALSE;
@@ -519,7 +558,7 @@ static gboolean findSafetyFrame ( tvbuff_t *message_tvb, guint u_Offset, gboolea
     /* Search will allways start at the second byte of the frame ( cause it determines )
      * the type of package and therefore everything else. Therefore the mininmum length - 1
      * is the correct minimum length */
-    while ( packet != NULL && rem_length >= ( OSS_MINIMUM_LENGTH - 1 ) )
+    while ( rem_length >= ( OSS_MINIMUM_LENGTH - 1 ) )
     {
         /* The ID byte must ALWAYS be the second byte, therefore 0 is invalid,
          * also, the byte we want to access, must at least exist, otherwise,
@@ -704,7 +743,7 @@ static gboolean findSafetyFrame ( tvbuff_t *message_tvb, guint u_Offset, gboolea
     }
 
     /* Store packet information in packet_info */
-    if ( found )
+    if ( found && packet )
     {
         packet->msg_id = b_ID;
         packet->msg_len = b_Length;
@@ -1217,7 +1256,7 @@ dissect_opensafety_ssdo_message(tvbuff_t *message_tvb, packet_info *pinfo, proto
             col_append_fstr(pinfo->cinfo, COL_INFO, " - %s",
                     val_to_str_ext_const(((guint32) (ssdoIndex << 16) + ssdoSubIndex), &opensafety_sod_idx_names_ext, "Unknown"));
         }
-        col_append_fstr(pinfo->cinfo, COL_INFO, "%s", "]" );
+        col_append_str(pinfo->cinfo, COL_INFO, "]");
         payloadOffset += 3;
     }
 
@@ -1257,25 +1296,25 @@ dissect_opensafety_ssdo_message(tvbuff_t *message_tvb, packet_info *pinfo, proto
                 item = proto_tree_add_uint_format_value(ssdo_tree, hf_oss_ssdo_payload_size, message_tvb, payloadOffset - 4, 4,
                         payloadSize, "%d octets total (%d octets in this frame)", payloadSize, calcDataLength);
 
-                if ( fragmentId != 0 && packet->payload.ssdo->sacmd.segmented )
+                if ( calcDataLength >= 0 )
                 {
-                    pinfo->fragmented = TRUE;
-                    frag_msg = fragment_add_seq_check(&os_reassembly_table, message_tvb, payloadOffset, pinfo,
-                                                      fragmentId, NULL, 0, calcDataLength, TRUE );
-                    fragment_add_seq_offset ( &os_reassembly_table, pinfo, fragmentId, NULL, ct );
-
-                    if ( frag_msg != NULL )
+                    if ( fragmentId != 0 && packet->payload.ssdo->sacmd.segmented )
                     {
-                        item = proto_tree_add_bytes_format_value(ssdo_tree, hf_oss_ssdo_payload, message_tvb, 0, 0, NULL, "Reassembled" );
-                        PROTO_ITEM_SET_GENERATED(item);
+                        pinfo->fragmented = TRUE;
+                        frag_msg = fragment_add_seq_check(&os_reassembly_table, message_tvb, payloadOffset, pinfo,
+                                                          fragmentId, NULL, 0, calcDataLength, TRUE );
+                        fragment_add_seq_offset ( &os_reassembly_table, pinfo, fragmentId, NULL, ct );
 
-                        ssdo_payload = proto_item_add_subtree(item, ett_opensafety_ssdo_payload);
-                        process_reassembled_data(message_tvb, 0, pinfo, "Reassembled Message", frag_msg, &oss_frag_items, NULL, ssdo_payload );
+                        if ( frag_msg != NULL )
+                        {
+                            item = proto_tree_add_bytes_format_value(ssdo_tree, hf_oss_ssdo_payload, message_tvb, 0, 0, NULL, "Reassembled" );
+                            PROTO_ITEM_SET_GENERATED(item);
+
+                            ssdo_payload = proto_item_add_subtree(item, ett_opensafety_ssdo_payload);
+                            process_reassembled_data(message_tvb, 0, pinfo, "Reassembled Message", frag_msg, &oss_frag_items, NULL, ssdo_payload );
+                        }
                     }
-                }
 
-                if ( (gint) calcDataLength >= (gint) 0 )
-                {
                     proto_tree_add_item(ssdo_tree, hf_oss_ssdo_payload, message_tvb, payloadOffset, calcDataLength, ENC_NA );
                 } else {
                     if ( global_opensafety_debug_verbose )
@@ -1286,6 +1325,13 @@ dissect_opensafety_ssdo_message(tvbuff_t *message_tvb, packet_info *pinfo, proto
             else
             {
                 payloadSize = dataLength - (payloadOffset - db0Offset);
+                if ((gint)dataLength < (payloadOffset - db0Offset))
+                {
+                    if ( global_opensafety_debug_verbose )
+                        expert_add_info_format(pinfo, opensafety_item, &ei_payload_length_not_positive,
+                                                    "Calculation for payload length yielded non-positive result [%d]", (gint)payloadSize );
+                    return;
+                }
 
                 if ( fragmentId != 0 && packet->payload.ssdo->sacmd.segmented )
                 {
@@ -1483,7 +1529,7 @@ dissect_opensafety_snmt_message(tvbuff_t *message_tvb, packet_info *pinfo, proto
             {
                 proto_tree_add_uint_format_value(snmt_tree, hf_oss_snmt_service_id, message_tvb, OSS_FRAME_POS_DATA + packet->frame.subframe1, 1,
                         packet->payload.snmt->ext_msg_id, "Additional parameter missing [Response via SN Acknowledge] (0x%02X)", packet->payload.snmt->ext_msg_id);
-                col_append_fstr(pinfo->cinfo, COL_INFO, ", Additional parameter missing");
+                col_append_str(pinfo->cinfo, COL_INFO, ", Additional parameter missing");
             }
 
             errcode = tvb_get_guint8(message_tvb, OSS_FRAME_POS_DATA + packet->frame.subframe1 + 2);
@@ -2089,7 +2135,7 @@ opensafety_package_dissector(const gchar *protocolName, const gchar *sub_diss_ha
             }
 
             /* Sorting messages for transporttype */
-            if ( global_classify_transport && transporttype != 0 )
+            if ( global_classify_transport && transporttype != OPENSAFETY_ANY_TRANSPORT )
             {
                 /* Cyclic data is transported via SPDOs and acyclic is transported via SNMT, SSDO. Everything
                  * else is misclassification */
@@ -2148,6 +2194,23 @@ opensafety_package_dissector(const gchar *protocolName, const gchar *sub_diss_ha
                 /* SPDO Reserved is invalid, therefore all packages using this ID can be discarded */
                 if ( OSS_FRAME_ID_T(message_tvb, byte_offset + frameStart1) == OPENSAFETY_MSG_SPDO_RESERVED )
                 {
+                    frameOffset += 2;
+                    found--;
+                    continue;
+                }
+            }
+
+            /* Filter node list */
+            gint addr = OSS_FRAME_ADDR_T(message_tvb, byte_offset + frameStart1);
+            if ( global_filter_list && wmem_list_count ( global_filter_list ) > 0 )
+            {
+                gboolean found_in_list = wmem_list_find(global_filter_list, GINT_TO_POINTER( addr )) ? TRUE : FALSE;
+
+                if ( ( ! global_show_only_node_in_filter && found_in_list ) ||
+                        ( global_show_only_node_in_filter && ! found_in_list ) )
+                {
+                    opensafety_item = proto_tree_add_item(tree, proto_opensafety, message_tvb, frameOffset, frameLength, ENC_NA);
+                    proto_item_append_text(opensafety_item, ", Filtered Node: 0x%03X (%d)", addr, addr);
                     frameOffset += 2;
                     found--;
                     continue;
@@ -2346,7 +2409,7 @@ dissect_opensafety_pn_io(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *
     {
         bDissector_Called_Once_Before = TRUE;
         result = opensafety_package_dissector("openSAFETY/Profinet IO", "pn_io",
-                                              FALSE, FALSE, 0, message_tvb, pinfo, tree, 0);
+                                              FALSE, FALSE, 0, message_tvb, pinfo, tree, OPENSAFETY_ANY_TRANSPORT);
         bDissector_Called_Once_Before = FALSE;
     }
 
@@ -2363,7 +2426,40 @@ dissect_opensafety_mbtcp(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *
      * this behaviour is technically correct, it differs from other implemented IEM protocol handlers.
      * Therefore, the openSAFETY frame gets put one up, if the parent is not NULL */
     return opensafety_package_dissector("openSAFETY/Modbus TCP", "", FALSE, TRUE, 0,
-                                        message_tvb, pinfo, ( ((tree != NULL) && (tree->parent != NULL)) ? tree->parent : tree ), 0);
+                                        message_tvb, pinfo, ( ((tree != NULL) && (tree->parent != NULL)) ? tree->parent : tree ),
+                                        OPENSAFETY_ANY_TRANSPORT);
+}
+
+static gboolean
+opensafety_udp_transport_dissector(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *tree)
+{
+    proto_item      *ti = NULL;
+    proto_tree      *transport_tree = NULL;
+    gint            offset = 0;
+    tvbuff_t        *os_tvb = 0;
+
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "openSAFETY over UDP");
+    col_clear(pinfo->cinfo, COL_INFO);
+
+    ti = proto_tree_add_item(tree, proto_oss_udp_transport, message_tvb, 0, -1, ENC_NA);
+    transport_tree = proto_item_add_subtree(ti, ett_opensafety);
+
+    proto_tree_add_item(transport_tree, hf_oss_udp_transport_version, message_tvb, 0, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(transport_tree, hf_oss_udp_transport_flags_type, message_tvb, 1, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(transport_tree, hf_oss_udp_transport_counter, message_tvb, 2, 2, ENC_LITTLE_ENDIAN);
+
+    proto_tree_add_item(transport_tree, hf_oss_udp_transport_sender, message_tvb, 4, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(transport_tree, hf_oss_udp_transport_datapoint, message_tvb, 8, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(transport_tree, hf_oss_udp_transport_length, message_tvb, 10, 2, ENC_LITTLE_ENDIAN);
+    offset += 12;
+
+    os_tvb = tvb_new_subset_remaining(message_tvb, offset);
+
+    if ( ! opensafety_package_dissector("openSAFETY/UDP", "", FALSE,
+            FALSE, 0, os_tvb, pinfo, tree, OPENSAFETY_ANY_TRANSPORT ) )
+        call_dissector(find_dissector("data"), os_tvb, pinfo, transport_tree);
+
+    return TRUE;
 }
 
 static gboolean
@@ -2372,6 +2468,10 @@ dissect_opensafety_udpdata(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree
     gboolean       result   = FALSE;
     static guint32 frameNum = 0;
     static guint32 frameIdx = 0;
+
+    gboolean frameFound = FALSE;
+    guint    frameOffset = 0;
+    guint    frameLength = 0;
 
     if ( pinfo->destport == OPENSAFETY_UDP_PORT_SIII )
         return dissect_opensafety_siii(message_tvb, pinfo, tree, data);
@@ -2391,7 +2491,18 @@ dissect_opensafety_udpdata(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree
         frameNum = pinfo->num;
     }
 
-    result = opensafety_package_dissector("openSAFETY/UDP", "", global_udp_frame2_first,
+    /* check for openSAFETY frame at beginning of data */
+
+    frameFound = findSafetyFrame(message_tvb, 0, global_udp_frame2_first, &frameOffset, &frameLength, NULL );
+    if ( ! frameFound || ( frameFound && frameOffset >= 11 ) )
+    {
+        dissector_handle_t udp_transport = find_dissector ( "opensafety_udp_transport" );
+        if ( udp_transport != NULL )
+            call_dissector(udp_transport, message_tvb, pinfo, tree);
+        result = opensafety_udp_transport_dissector(message_tvb, pinfo, tree);
+    }
+    else
+        result = opensafety_package_dissector("openSAFETY/UDP", "", global_udp_frame2_first,
                                           FALSE, frameIdx, message_tvb, pinfo, tree, OPENSAFETY_ACYCLIC_DATA );
 
     if ( result )
@@ -2411,7 +2522,7 @@ apply_prefs ( void )
     if ( opensafety_init )
     {
         /* Delete dissectors in preparation of a changed config setting */
-        dissector_delete_uint ("udp.port", opensafety_udp_port_number, opensafety_udpdata_handle);
+        dissector_delete_uint ("udp.port", opensafety_udp_port_number, opensafety_udptransport_handle);
         dissector_delete_uint ("udp.port", opensafety_udp_siii_port_number, opensafety_udpdata_handle);
     }
     opensafety_init = TRUE;
@@ -2422,9 +2533,8 @@ apply_prefs ( void )
 
     /* Default UDP only based dissector, will hand traffic to SIII dissector if needed */
     /* Preference names to specific to use "auto" preference */
-    dissector_add_uint("udp.port", opensafety_udp_port_number, opensafety_udpdata_handle);
+    dissector_add_uint("udp.port", opensafety_udp_port_number, opensafety_udptransport_handle);
     dissector_add_uint("udp.port", opensafety_udp_siii_port_number, opensafety_udpdata_handle);
-
 }
 
 void
@@ -2696,7 +2806,29 @@ proto_register_opensafety(void)
         { &hf_oss_spdo_feature_flag_40bit_used,
           { "40Bit Counter", "opensafety.spdo.features.40bitactive",
             FT_BOOLEAN,  8, TFS(&tfs_enabled_disabled), (OPENSAFETY_SPDO_FEAT_40BIT_USED << 2), NULL, HFILL } },
+    };
 
+    /* Setup list of header fields */
+    static hf_register_info hf_oss_udp_transport[] = {
+        /* UDP transport specific fields */
+        { &hf_oss_udp_transport_version,
+          { "Transport Version", "opensafety.udp_transport.version",
+            FT_UINT8,  BASE_DEC, NULL,  0x0, NULL, HFILL } },
+        { &hf_oss_udp_transport_flags_type,
+          { "Data Type", "opensafety.udp_transport.flags.type",
+            FT_BOOLEAN, 8, TFS(&tfs_udp_transport_cyclic_acyclic),  0x01, NULL, HFILL } },
+        { &hf_oss_udp_transport_counter,
+          { "Counter", "opensafety.udp_transport.counter",
+            FT_UINT16,  BASE_HEX_DEC, NULL,    0x0, NULL, HFILL } },
+        { &hf_oss_udp_transport_sender,
+          { "Sender ID", "opensafety.udp_transport.sender",
+            FT_UINT32,  BASE_HEX_DEC, NULL,    0x0, NULL, HFILL } },
+        { &hf_oss_udp_transport_datapoint,
+          { "Datapoint ID", "opensafety.udp_transport.datapoint",
+            FT_UINT16,  BASE_HEX_DEC, NULL,    0x0, NULL, HFILL } },
+        { &hf_oss_udp_transport_length,
+          { "Length", "opensafety.udp_transport.length",
+            FT_UINT16,  BASE_DEC, NULL,    0x0, NULL, HFILL } },
 
     };
 
@@ -2716,6 +2848,10 @@ proto_register_opensafety(void)
         &ett_opensafety_ssdo_extpar,
         &ett_opensafety_spdo,
         &ett_opensafety_spdo_flags,
+    };
+
+    static gint *ett_oss_udp[] = {
+        &ett_oss_udp_transport,
     };
 
     static ei_register_info ei[] = {
@@ -2774,12 +2910,14 @@ proto_register_opensafety(void)
 
     };
 
-    module_t *opensafety_module;
+    module_t *opensafety_module, *oss_udp_module;
     expert_module_t *expert_opensafety;
 
     /* Register the protocol name and description */
     proto_opensafety = proto_register_protocol("openSAFETY", "openSAFETY",  "opensafety");
     opensafety_module = prefs_register_protocol(proto_opensafety, apply_prefs);
+    proto_oss_udp_transport = proto_register_protocol("openSAFETY over UDP", "openSAFETY ov. UDP", "opensafety_udp");
+    oss_udp_module = prefs_register_protocol(proto_oss_udp_transport, apply_prefs);
 
     /* Register data dissector */
     heur_opensafety_spdo_subdissector_list = register_heur_dissector_list("opensafety.spdo", proto_opensafety);
@@ -2787,6 +2925,8 @@ proto_register_opensafety(void)
     /* Required function calls to register the header fields and subtrees used */
     proto_register_field_array(proto_opensafety, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
+    proto_register_field_array(proto_oss_udp_transport, hf_oss_udp_transport, array_length(hf_oss_udp_transport));
+    proto_register_subtree_array(ett_oss_udp, array_length(ett_oss_udp));
 
     /* Register tap */
     opensafety_tap = register_tap("opensafety");
@@ -2804,6 +2944,15 @@ proto_register_opensafety(void)
                  "Automatically assign a detected SCM UDID (by reading SNMT->SNTM_assign_UDID_SCM) and set it for the file",
                  &global_scm_udid_autoset);
 
+    prefs_register_string_preference(opensafety_module, "filter_nodes",
+                 "Filter openSAFETY Nodes",
+                 "A comma-separated list of nodes to be filtered during dissection",
+                 &global_filter_nodes);
+    prefs_register_bool_preference(opensafety_module, "filter_show_nodes_in_filterlist",
+                 "Show nodes in filter, hide otherwise",
+                 "If set to true, only nodes in the list will be shown, otherwise they will be hidden",
+                 &global_show_only_node_in_filter);
+
     prefs_register_uint_preference(opensafety_module, "network_udp_port",
                 "Port used for Generic UDP",
                 "Port used by any UDP demo implementation to transport data", 10,
@@ -2816,6 +2965,7 @@ proto_register_opensafety(void)
                 "openSAFETY frame 2 before frame 1 (SercosIII/UDP only)",
                 "In an SercosIII/UDP transport stream, openSAFETY frame 2 will be expected before frame 1",
                 &global_siii_udp_frame2_first );
+
     prefs_register_bool_preference(opensafety_module, "network_udp_frame_first",
                 "openSAFETY frame 2 before frame 1 (UDP only)",
                 "In the transport stream, openSAFETY frame 2 will be expected before frame 1",
@@ -2848,8 +2998,15 @@ proto_register_opensafety(void)
                 "SPDOs may only be found in cyclic data, SSDOs/SNMTS only in acyclic data",
                 &global_classify_transport);
 
+    prefs_register_uint_preference(oss_udp_module, "network_udp_port",
+                "Port used for UDP Transport",
+                "Port used by the openSAFETY over UDP data transport", 10,
+                &global_network_oss_udp_port);
+
     /* Registering default and ModBus/TCP dissector */
-    opensafety_udpdata_handle = register_dissector("opensafety_udpdata", dissect_opensafety_udpdata, proto_opensafety );
+    opensafety_udpdata_handle = register_dissector("opensafety_udp", dissect_opensafety_udpdata, proto_opensafety );
+    opensafety_udptransport_handle =
+            register_dissector("opensafety_udptransport", dissect_opensafety_udpdata, proto_oss_udp_transport );
     opensafety_mbtcp_handle = register_dissector("opensafety_mbtcp", dissect_opensafety_mbtcp, proto_opensafety );
     opensafety_pnio_handle = register_dissector("opensafety_pnio", dissect_opensafety_pn_io, proto_opensafety);
 }
@@ -2863,11 +3020,6 @@ proto_reg_handoff_opensafety(void)
     /* EPL & SercosIII dissector registration */
     heur_dissector_add("epl_data",  dissect_opensafety_epl, "openSAFETY over EPL", "opensafety_epl_data", proto_opensafety, HEURISTIC_ENABLE);
     heur_dissector_add("sercosiii", dissect_opensafety_siii, "openSAFETY over SercosIII", "opensafety_sercosiii", proto_opensafety, HEURISTIC_ENABLE);
-
-    /* If an openSAFETY UDP transport filter is present, add to its
-     * heuristic filter list. Otherwise ignore the transport */
-    if ( find_dissector("opensafety_udp") != NULL )
-        heur_dissector_add("opensafety_udp", dissect_opensafety_udpdata, "openSAFETY over UDP", "opensafety_udp", proto_opensafety, HEURISTIC_ENABLE);
 
     /* Modbus TCP dissector registration */
     dissector_add_string("modbus.data", "data", opensafety_mbtcp_handle);

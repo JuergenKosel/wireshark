@@ -4390,7 +4390,7 @@ dissect_nt_rename_file_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 	/* search attributes */
 	offset = dissect_search_attributes(tvb, tree, offset);
 
-	proto_tree_add_uint(tree, hf_smb_nt_rename_level, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+	proto_tree_add_item(tree, hf_smb_nt_rename_level, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	offset += 2;
 
 	proto_tree_add_item(tree, hf_smb_cluster_count, tvb, offset, 4, ENC_LITTLE_ENDIAN);
@@ -5238,15 +5238,15 @@ smbext20_timeout_msecs_to_str(gint32 timeout)
 #define SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN 60
 
 	if (timeout <= 0) {
-	        buf = (gchar *)wmem_alloc(wmem_packet_scope(), SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1);
+		buf = (gchar *)wmem_alloc(wmem_packet_scope(), SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1);
 		if (timeout == 0) {
-		        g_snprintf(buf, SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1, "Return immediately (0)");
+			g_snprintf(buf, SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1, "Return immediately (0)");
 		} else if (timeout == -1) {
-		        g_snprintf(buf, SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1, "Wait indefinitely (-1)");
+			g_snprintf(buf, SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1, "Wait indefinitely (-1)");
 		} else if (timeout == -2) {
-		        g_snprintf(buf, SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1, "Use default timeout (-2)");
+			g_snprintf(buf, SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1, "Use default timeout (-2)");
 		} else {
-		        g_snprintf(buf, SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1, "Unknown reserved value (%d)", timeout);
+			g_snprintf(buf, SMBEXT20_TIMEOUT_MSECS_TO_STR_MAXLEN+1, "Unknown reserved value (%d)", timeout);
 		}
 		return buf;
 	}
@@ -6340,9 +6340,9 @@ const value_string oa_open_vals[] = {
 	{ 1,		"The file existed and was opened"},
 	{ 2,		"The file did not exist but was created"},
 	{ 3,		"The file existed and was truncated"},
-	{ 0x8001,       "The file existed and was opened, and an OpLock was granted"},
-	{ 0x8002,       "The file did not exist but was created, and an OpLock was granted"},
-	{ 0x8003,       "The file existed and was truncated, and an OpLock was granted"},
+	{ 0x8001,	"The file existed and was opened, and an OpLock was granted"},
+	{ 0x8002,	"The file did not exist but was created, and an OpLock was granted"},
+	{ 0x8003,	"The file existed and was truncated, and an OpLock was granted"},
 	{0,	NULL}
 };
 static const true_false_string tfs_oa_lock = {
@@ -10649,7 +10649,7 @@ static const value_string trans2_cmd_vals[] = {
 	{ 0x0C,		"FIND_NOTIFY_NEXT" },
 	{ 0x0D,		"CREATE_DIRECTORY" },
 	{ 0x0E,		"SESSION_SETUP" },
-	{ 0x0F,         "Unknown (0x0f)" },  /* dummy so val_to_str_ext can do indexed lookup */
+	{ 0x0F,		"Unknown (0x0f)" },  /* dummy so val_to_str_ext can do indexed lookup */
 	{ 0x10,		"GET_DFS_REFERRAL" },
 	{ 0x11,		"REPORT_DFS_INCONSISTENCY" },
 	{ 0,    NULL }
@@ -13857,15 +13857,15 @@ dissect_transaction_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	WORD_COUNT;
 
-	if (wc == 8) {
+	if (wc == 8 || (wc == 9 && si->cmd == SMB_COM_TRANSACTION2_SECONDARY)) {
 		/*secondary client request*/
 
 		/* total param count, only a 16bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_total_param_count, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_total_param_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* total data count , only 16bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_total_data_count, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_total_data_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* param count */
@@ -13898,7 +13898,7 @@ dissect_transaction_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		proto_tree_add_uint(tree, hf_smb_data_disp16, tvb, offset, 2, dd);
 		offset += 2;
 
-		if (si->cmd == SMB_COM_TRANSACTION2) {
+		if (si->cmd == SMB_COM_TRANSACTION2 || si->cmd == SMB_COM_TRANSACTION2_SECONDARY) {
 			guint16 fid;
 
 			/* fid */
@@ -13915,23 +13915,23 @@ dissect_transaction_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		/* it is not a secondary request */
 
 		/* total param count , only a 16 bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_total_param_count, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_total_param_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* total data count , only 16bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_total_data_count, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_total_data_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* max param count , only 16bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_max_param_count, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_max_param_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* max data count, only 16bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_max_data_count, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_max_data_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* max setup count, only 16bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_max_setup_count, tvb, offset, 1, tvb_get_guint8(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_max_setup_count, tvb, offset, 1, ENC_NA);
 		offset += 1;
 
 		/* reserved byte */
@@ -15727,7 +15727,7 @@ dissect_qfsi_vals(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
 
 		/* bytes per sector, only 16bit integer here */
 		CHECK_BYTE_COUNT_TRANS_SUBR(2);
-		proto_tree_add_uint(tree, hf_smb_fs_sector, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_fs_sector, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		COUNT_BYTES_TRANS_SUBR(2);
 
 		break;
@@ -15739,7 +15739,7 @@ dissect_qfsi_vals(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
 
 		/* volume label length, only one byte here */
 		CHECK_BYTE_COUNT_TRANS_SUBR(1);
-		proto_tree_add_uint(tree, hf_smb_volume_label_len, tvb, offset, 1, tvb_get_guint8(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_volume_label_len, tvb, offset, 1, ENC_NA);
 		COUNT_BYTES_TRANS_SUBR(1);
 
 		/* label - not aligned! */
@@ -16291,7 +16291,7 @@ dissect_transaction2_response_parameters(tvbuff_t *tvb, packet_info *pinfo, prot
 		offset += 4;
 
 		/* ea error offset, only a 16 bit integer here */
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* ea length */
@@ -16317,7 +16317,7 @@ dissect_transaction2_response_parameters(tvbuff_t *tvb, packet_info *pinfo, prot
 		offset += 2;
 
 		/* ea error offset, only a 16 bit integer here */
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* last name offset */
@@ -16337,7 +16337,7 @@ dissect_transaction2_response_parameters(tvbuff_t *tvb, packet_info *pinfo, prot
 		offset += 2;
 
 		/* ea_error_offset, only a 16 bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* last name offset */
@@ -16351,25 +16351,25 @@ dissect_transaction2_response_parameters(tvbuff_t *tvb, packet_info *pinfo, prot
 		break;
 	case 0x05:	/*TRANS2_QUERY_PATH_INFORMATION*/
 		/* ea_error_offset, only a 16 bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		break;
 	case 0x06:	/*TRANS2_SET_PATH_INFORMATION*/
 		/* ea_error_offset, only a 16 bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		break;
 	case 0x07:	/*TRANS2_QUERY_FILE_INFORMATION*/
 		/* ea_error_offset, only a 16 bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		break;
 	case 0x08:	/*TRANS2_SET_FILE_INFORMATION*/
 		/* ea_error_offset, only a 16 bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		break;
@@ -16411,7 +16411,7 @@ dissect_transaction2_response_parameters(tvbuff_t *tvb, packet_info *pinfo, prot
 		offset += 2;
 
 		/* ea_error_offset, only a 16 bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		break;
@@ -16425,13 +16425,13 @@ dissect_transaction2_response_parameters(tvbuff_t *tvb, packet_info *pinfo, prot
 		offset += 2;
 
 		/* ea_error_offset, only a 16 bit integer here*/
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		break;
 	case 0x0d:	/*TRANS2_CREATE_DIRECTORY*/
 		/* ea error offset, only a 16 bit integer here */
-		proto_tree_add_uint(tree, hf_smb_ea_error_offset, tvb, offset, 2, tvb_get_letohs(tvb, offset));
+		proto_tree_add_item(tree, hf_smb_ea_error_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		break;
@@ -17348,8 +17348,7 @@ free_hash_tables(gpointer ctarg, gpointer user_data _U_)
 		g_hash_table_destroy(ct->primaries);
 	if (ct->tid_service)
 		g_hash_table_destroy(ct->tid_service);
-	if (ct->GSL_fid_info)
-		g_slist_free(ct->GSL_fid_info);
+	g_slist_free(ct->GSL_fid_info);
 	g_free(ct);
 }
 

@@ -49,6 +49,12 @@ S<[ B<-X> E<lt>eXtension optionE<gt> ]>
 S<[ B<-y> E<lt>capture link typeE<gt> ]>
 S<[ B<-Y> E<lt>displaY filterE<gt> ]>
 S<[ B<-z> E<lt>statisticsE<gt> ]>
+S<[ B<--enable-protocol> E<lt>proto_nameE<gt> ]>
+S<[ B<--disable-protocol> E<lt>proto_nameE<gt> ]>
+S<[ B<--enable-heuristic> E<lt>short_nameE<gt> ]>
+S<[ B<--disable-heuristic> E<lt>short_nameE<gt> ]>
+S<[ B<--list-time-stamp-types> ]>
+S<[ B<--time-stamp-type> E<lt>typeE<gt> ]>
 S<[ E<lt>infileE<gt> ]>
 
 =head1 DESCRIPTION
@@ -268,6 +274,9 @@ where I<key> is one of:
 B<duration>:I<value> switch to the next file after I<value> seconds have
 elapsed, even if the current file is not completely filled up.
 
+B<interval>:I<value> switch to the next file when the time is an exact
+multiple of I<value> seconds
+
 B<filesize>:I<value> switch to the next file after it reaches a size of
 I<value> kB.  Note that the filesize is limited to a maximum value of 2 GiB.
 
@@ -275,10 +284,10 @@ B<files>:I<value> begin again with the first file after I<value> number of
 files were written (form a ring buffer).  This value must be less than 100000.
 Caution should be used when using large numbers of files: some filesystems do
 not handle many files in a single directory well.  The B<files> criterion
-requires either B<duration> or B<filesize> to be specified to control when to
-go to the next file.  It should be noted that each B<-b> parameter takes exactly
-one criterion; to specify two criterion, each must be preceded by the B<-b>
-option.
+requires either B<duration>, B<interval> or B<filesize> to be specified to
+control when to go to the next file.  It should be noted that each B<-b>
+parameter takes exactly one criterion; to specify two criterion, each must be
+preceded by the B<-b> option.
 
 Example: B<-b filesize:1000 -b files:5> results in a ring buffer of five files
 of size one megabyte each.
@@ -556,7 +565,7 @@ capture file; packets not matching the filter are discarded.
 Set the default snapshot length to use when capturing live data.
 No more than I<snaplen> bytes of each network packet will be read into
 memory, or saved to disk.  A value of 0 specifies a snapshot length of
-65535, so that the full packet is captured; this is the default.
+262144, so that the full packet is captured; this is the default.
 
 This option can occur multiple times.  If used before the first
 occurrence of the B<-i> option, it sets the default snapshot length.
@@ -962,6 +971,12 @@ Show IEEE 802.11 network and station statistics.
 
 Show WSP packet counters.
 
+=back
+
+=item --enable-protocol E<lt>proto_nameE<gt>
+
+Enable dissection of proto_name.
+
 =item --disable-protocol E<lt>proto_nameE<gt>
 
 Disable dissection of proto_name.
@@ -974,7 +989,14 @@ Enable dissection of heuristic protocol.
 
 Disable dissection of heuristic protocol.
 
-=back
+=item --list-time-stamp-types
+
+List time stamp types supported for the interface. If no time stamp type can be
+set, no time stamp types are listed.
+
+=item --time-stamp-type E<lt>typeE<gt>
+
+Change the interface's timestamp method.
 
 =back
 
@@ -2432,7 +2454,7 @@ capturing.
 
 The I<Limit each packet to ... bytes> check box and field lets you
 specify a maximum number of bytes per packet to capture and save; if the
-check box is not checked, the limit will be 65535 bytes.
+check box is not checked, the limit will be 262144 bytes.
 
 The I<Capture Filter:> entry lets you specify the capture filter using a
 tcpdump-style filter string as described above.

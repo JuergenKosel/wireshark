@@ -82,6 +82,7 @@ const value_string etype_vals[] = {
 	{ ETHERTYPE_INTEL_ANS,            "Intel ANS probe" },
 	{ ETHERTYPE_MS_NLB_HEARTBEAT,     "MS NLB heartbeat" },
 	{ ETHERTYPE_JUMBO_LLC,            "Jumbo LLC" },
+	{ ETHERTYPE_BRCM_TYPE,            "Broadcom tag" },
 	{ ETHERTYPE_HOMEPLUG,             "Homeplug" },
 	{ ETHERTYPE_HOMEPLUG_AV,          "Homeplug AV" },
 	{ ETHERTYPE_MRP,                  "MRP" },
@@ -120,6 +121,7 @@ const value_string etype_vals[] = {
 	{ ETHERTYPE_CDMA2000_A10_UBS,     "CDMA2000 A10 Unstructured byte stream" },
 	{ ETHERTYPE_ATMOE,                "ATM over Ethernet" },
 	{ ETHERTYPE_PROFINET,             "PROFINET" },
+	{ ETHERTYPE_REALTEK,              "Realtek Layer 2 Protocols" },
 	{ ETHERTYPE_AOE,                  "ATA over Ethernet" },
 	{ ETHERTYPE_ECATF,                "EtherCAT frame" },
 	{ ETHERTYPE_TELKONET,             "Telkonet powerline" },
@@ -186,18 +188,19 @@ const value_string etype_vals[] = {
 	{ ETHERTYPE_NWP,                  "Neighborhood Watch Protocol" },
 	{ ETHERTYPE_BLUECOM,              "bluecom Protocol" },
 	{ ETHERTYPE_QINQ_OLD,             "QinQ: old non-standard 802.1ad" },
+	{ ETHERTYPE_6LOWPAN,              "6LoWPAN" },
 	{ 0, NULL }
 };
 
 static void eth_prompt(packet_info *pinfo, gchar* result)
 {
 	g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "Ethertype 0x%04x as",
-		GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, proto_ethertype, 0)));
+		GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, proto_ethertype, pinfo->curr_layer_num)));
 }
 
 static gpointer eth_value(packet_info *pinfo)
 {
-	return p_get_proto_data(pinfo->pool, pinfo, proto_ethertype, 0);
+	return p_get_proto_data(pinfo->pool, pinfo, proto_ethertype, pinfo->curr_layer_num);
 }
 
 static void add_dix_trailer(packet_info *pinfo, proto_tree *tree, proto_tree *fh_tree,
@@ -256,7 +259,7 @@ dissect_ethertype(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 	next_tvb = tvb_new_subset_length_caplen(tvb, ethertype_data->offset_after_ethertype, captured_length,
 				  reported_length);
 
-	p_add_proto_data(pinfo->pool, pinfo, proto_ethertype, 0, GUINT_TO_POINTER((guint)ethertype_data->etype));
+	p_add_proto_data(pinfo->pool, pinfo, proto_ethertype, pinfo->curr_layer_num, GUINT_TO_POINTER((guint)ethertype_data->etype));
 
 	/* Look for sub-dissector, and call it if found.
 	   Catch exceptions, so that if the reported length of "next_tvb"

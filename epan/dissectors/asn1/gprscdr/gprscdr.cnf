@@ -128,6 +128,118 @@ GPRSRecord
   subtree = proto_item_add_subtree(actx->created_item, ett_gprscdr_plmn_id);
   dissect_e212_mcc_mnc(parameter_tvb, actx->pinfo, subtree, 0, E212_NONE, TRUE);
 
+#.FN_BODY QoSInformation
+
+  /* This octet string is a 1:1 copy of the contents (i.e. starting with octet 4) of the
+   * Quality of Service (QoS) Profile information element specified in 29.060, ch7.7.34.
+   *
+   */
+
+  header_field_info *hfi;
+  hfi = proto_registrar_get_nth(hf_index);
+
+  offset = decode_qos_umts(tvb, 0, actx->pinfo, tree, hfi->name, 0);
+
+#.FN_BODY EPCQoSInformation/aRP
+  proto_tree *ext_tree_arp;
+  guint length;
+
+  /*
+   * 8.86 Allocation/Retention Priority (ARP)
+   * 3GPP TS 29.274
+   */
+
+  length = tvb_reported_length(tvb);
+  ext_tree_arp = proto_tree_add_subtree(tree, tvb, 0, length, ett_gprscdr_eps_qos_arp, NULL, "aRP");
+
+  dissect_gtpv2_arp(tvb, actx->pinfo, ext_tree_arp, NULL, length, 0, 0, NULL);
+
+  offset = length;
+
+
+#.FN_BODY GGSNPDPRecord/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 1);
+
+#.FN_BODY GGSNPDPRecordV750/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 1);
+
+#.FN_BODY EGSNPDPRecord/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 1);
+
+#.FN_BODY EGSNPDPRecordV750/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 1);
+
+#.FN_BODY ChangeOfCharConditionV651/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 1);
+
+#.FN_BODY ChangeOfServiceConditionV750/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 1);
+
+#.FN_BODY SGWRecord/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 2);
+
+#.FN_BODY SGWRecord/lastUserLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 2);
+
+#.FN_BODY PGWRecord/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 2);
+
+#.FN_BODY PGWRecord/lastUserLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 2);
+
+#.FN_BODY ChangeOfCharCondition/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 2);
+
+#.FN_BODY ChangeOfServiceCondition/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 2);
+
+#.FN_BODY RelatedChangeOfCharCondition/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 2);
+
+#.FN_BODY RelatedChangeOfServiceCondition/userLocationInformation
+
+  offset = dissect_gprscdr_uli(tvb, actx, tree, 2);
+
+#.FN_BODY PDPType
+  proto_tree *ext_tree_pdp_pdn_type;
+  guint length;
+
+  length = tvb_reported_length(tvb);
+
+  if(length == 1) {
+    /*
+     * PDN/EPS Bearer
+     * TS 29.274
+     * 8.34 PDN Type
+     */
+    ext_tree_pdp_pdn_type = proto_tree_add_subtree(tree, tvb, 0, length, ett_gprscdr_pdp_pdn_type, NULL, "pDNType");
+    dissect_gtpv2_pdn_type(tvb, actx->pinfo, ext_tree_pdp_pdn_type, NULL, length, 0, 0, NULL);
+    offset = length;
+  }
+  else {
+    /* PDP context
+     * TS 29.060
+     * 7.7.27 End User Address
+     * Octet 4-5
+     */
+    ext_tree_pdp_pdn_type = proto_tree_add_subtree(tree, tvb, 0, length, ett_gprscdr_pdp_pdn_type, NULL, "pDPType");
+    offset = de_sm_pdp_addr(tvb, ext_tree_pdp_pdn_type, actx->pinfo, 0, length, NULL, 0);
+  }
+
+
 #.FN_BODY GPRSRecord VAL_PTR = &branch_taken
 proto_item *item;
 gint branch_taken, t_offset = offset;
@@ -143,8 +255,9 @@ gint32   tag;
               "Record type(BER choice) not found: %%u", tag);
  }
 #.TYPE_ATTR
-IPBinaryAddress/iPBinV4Address TYPE = FT_IPv4  DISPLAY = BASE_NONE
-IPBinaryAddress/iPBinV6Address TYPE = FT_IPv6  DISPLAY = BASE_NONE
+IPBinV4Address TYPE = FT_IPv4  DISPLAY = BASE_NONE
+IPBinV6Address TYPE = FT_IPv6  DISPLAY = BASE_NONE
+RATType  TYPE = FT_UINT32  DISPLAY = BASE_DEC  STRINGS = VALS(gprscdr_rat_type_vals)
 #.END
 
 #

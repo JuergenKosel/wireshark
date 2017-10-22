@@ -35,16 +35,20 @@
 #include <epan/timestamp.h>
 #include <epan/prefs.h>
 #include <epan/to_str.h>
+#include <epan/sequence_analysis.h>
 #include <wiretap/wtap.h>
 #include <epan/tap.h>
 #include <epan/expert.h>
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/str_util.h>
+#include <epan/proto_data.h>
 #include <wmem/wmem.h>
 
 #include "packet-frame.h"
+#include "packet-icmp.h"
 #include "log.h"
 
+#include <epan/column-info.h>
 #include <epan/color_filters.h>
 
 void proto_register_frame(void);
@@ -156,6 +160,36 @@ static const value_string packet_word_reception_types[] = {
 
 static dissector_table_t wtap_encap_dissector_table;
 static dissector_table_t wtap_fts_rec_dissector_table;
+
+/****************************************************************************/
+/* whenever a frame packet is seen by the tap listener */
+/* Add a new frame into the graph */
+static gboolean
+frame_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_, const void *dummy _U_)
+{
+	seq_analysis_info_t *sainfo = (seq_analysis_info_t *) ptr;
+	seq_analysis_item_t *sai = sequence_analysis_create_sai_with_addresses(pinfo, sainfo);
+
+	if (!sai)
+		return FALSE;
+
+	sai->frame_number = pinfo->num;
+
+	sequence_analysis_use_color_filter(pinfo, sai);
+
+	sai->port_src=pinfo->srcport;
+	sai->port_dst=pinfo->destport;
+
+	sequence_analysis_use_col_info_as_label_comment(pinfo, sai);
+
+	sai->line_style = 1;
+	sai->conv_num = 0;
+	sai->display = TRUE;
+
+	g_queue_push_tail(sainfo->items, sai);
+
+	return TRUE;
+}
 
 /*
  * Routine used to register frame end routine.  The routine should only
@@ -951,6 +985,8 @@ proto_register_frame(void)
 	/* You can't disable dissection of "Frame", as that would be
 	   tantamount to not doing any dissection whatsoever. */
 	proto_set_cant_toggle(proto_frame);
+
+	register_seq_analysis("any", "All Flows", proto_frame, NULL, TL_REQUIRES_COLUMNS, frame_seq_analysis_packet);
 
 	/* Our preferences */
 	frame_module = prefs_register_protocol(proto_frame, NULL);

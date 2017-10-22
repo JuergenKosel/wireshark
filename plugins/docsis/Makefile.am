@@ -24,55 +24,14 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = docsis
 
+BUILT_SOURCES = \
+	plugin.c
+
 # Non-generated sources to be scanned for registration routines
 NONGENERATED_REGISTER_C_FILES = \
-	packet-bintrngreq.c \
-	packet-bpkmattr.c \
-	packet-bpkmreq.c \
-	packet-bpkmrsp.c \
-	packet-cmctrlreq.c \
-	packet-cmctrlrsp.c \
-	packet-cmstatus.c \
-	packet-intrngreq.c \
-	packet-dbcreq.c \
-	packet-dbcrsp.c \
-	packet-dbcack.c \
-	packet-dccack.c \
-	packet-dccreq.c \
-	packet-dccrsp.c \
-	packet-dcd.c \
-	packet-dpd.c \
-	packet-dpvreq.c \
-	packet-dpvrsp.c \
 	packet-docsis.c \
-	packet-dsaack.c \
-	packet-dsareq.c \
-	packet-dsarsp.c \
-	packet-dscack.c \
-	packet-dscreq.c \
-	packet-dscrsp.c \
-	packet-dsdreq.c \
-	packet-dsdrsp.c \
 	packet-macmgmt.c \
-	packet-map.c \
-	packet-mdd.c \
-	packet-ocd.c \
-	packet-regack.c \
-	packet-regreq.c \
-	packet-regreqmp.c \
-	packet-regrsp.c \
-	packet-regrspmp.c \
-	packet-rngreq.c \
-	packet-rngrsp.c \
-	packet-sync.c \
 	packet-tlv.c \
-	packet-tlv-cmctrl.c \
-	packet-type29ucd.c \
-	packet-type35ucd.c \
-	packet-type51ucd.c \
-	packet-uccreq.c \
-	packet-uccrsp.c \
-	packet-ucd.c \
 	packet-vendor.c
 
 # Non-generated sources
@@ -90,10 +49,12 @@ HEADER_FILES = \
 plugin_LTLIBRARIES = docsis.la
 
 docsis_la_SOURCES = \
-	plugin.c \
 	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
+
+nodist_docsis_la_SOURCES = \
+	plugin.c
 
 docsis_la_CPPFLAGS = $(AM_CPPFLAGS) $(PLUGIN_CPPFLAGS)
 
@@ -105,8 +66,7 @@ CLEANFILES = \
 	docsis \
 	*~
 
-MAINTAINERCLEANFILES = \
-	Makefile.in \
+DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \

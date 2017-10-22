@@ -6,7 +6,7 @@
 # Define variables for the components of the Wireshark version number.
 #
 m4_define([version_major], [2])
-m4_define([version_minor], [3])
+m4_define([version_minor], [5])
 m4_define([version_micro], [0])
 dnl Updated by make-version.pl
 m4_define([version_extra], [])
@@ -15,6 +15,10 @@ m4_define([version_micro_extra], m4_join([], version_micro, version_extra))
 AC_INIT(Wireshark, [version_major.version_minor.version_micro_extra], http://bugs.wireshark.org/, , http://www.wireshark.org/)
 CONFIG_ARGS="$*"
 AC_SUBST(CONFIG_ARGS)
+
+VERSION_RELEASE="version_major.version_minor"
+AC_SUBST(VERSION_RELEASE)
+AC_DEFINE_UNQUOTED([VERSION_RELEASE], ["$VERSION_RELEASE"], [Wireshark feature release version (X.Y)])
 
 # Minimum autoconf version we require.
 AC_PREREQ(2.64)
@@ -46,7 +50,7 @@ dnl AC_CANONICAL_BUILD
 dnl AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE([1.11 tar-ustar dist-xz no-dist-gzip subdir-objects])
+AM_INIT_AUTOMAKE([1.11 tar-ustar dist-xz no-dist-gzip subdir-objects foreign])
 
 # Enable silent builds by default. Verbose builds can be enabled with "./configure
 # --enable-silent-rules ..." or "make V=1 ..."
@@ -222,11 +226,6 @@ if test -z "$PKG_CONFIG"; then
 fi
 
 #
-# Add configure argument to select macOS deployment target.
-#
-AC_WIRESHARK_OSX_DEPLOY_TARGET
-
-#
 # Try to arrange for large file support.
 #
 AC_SYS_LARGEFILE
@@ -292,7 +291,7 @@ if test "x$with_gnutls" = "xyes"; then
 
   if test "x$have_license_compatible_gnutls" != "xyes"; then
     if test "x$want_gnutls" = "xyes"; then
-      AC_MSG_ERROR([GnuTLS crypto library was requested, but is not available])
+      AC_MSG_ERROR([GnuTLS crypto library was requested, but is not installed for development])
     else
       AS_ECHO(["GnuTLS with compatible license not found, disabling SSL decryption"])
     fi
@@ -438,11 +437,35 @@ esac
 AX_LIBSMI
 
 #
+# Check if we should build the Wireshark User's Guide
+#
+AC_ARG_ENABLE(guides,
+  AC_HELP_STRING( [--disable-guides],
+		  [Don't build the Wireshark User's Guide]),
+		  [want_wsug=$enableval], [want_wsug=if_available])
+
+#
 # Check for programs used when building DocBook documentation.
 #
-AC_CHECK_PROGS(XSLTPROC, xsltproc, xsltproc)
-AC_CHECK_PROGS(A2X, a2x, a2x)
-AC_CHECK_PROGS(FOP, fop, fop)
+have_wsug=yes
+AC_PATH_PROG(XSLTPROC, xsltproc, xsltproc)
+AS_IF([test ! -x "$XSLTPROC"],
+	[
+	  AS_IF([test "x$want_wsug" = xyes],
+		[AC_MSG_ERROR([xlstproc not found but required to build the Wireshark User's Guide])])
+	  have_wsug=no
+	])
+AC_PATH_PROG(A2X, a2x, a2x)
+AS_IF([test ! -x "$A2X"],
+	[
+	  AS_IF([test "x$want_wsug" = xyes],
+		[AC_MSG_ERROR([a2x not found but required to build the Wireshark User's Guide])])
+	  have_wsug=no
+	])
+
+AC_PATH_PROG(FOP, fop, fop)
+
+AM_CONDITIONAL(BUILD_USER_GUIDE, [test "x$have_wsug" = xyes -a "x$want_wsug" != xno])
 
 # HTML to text processor
 AC_MSG_CHECKING([for an HTML to text processor])
@@ -454,74 +477,11 @@ AM_CONDITIONAL(HAVE_A2X_TEXT, [test "x$have_a2x_text" != xno])
 AS_IF([test $have_a2x_text = lynx], [A2X_LYNX="--lynx"])
 AC_SUBST(A2X_LYNX)
 
-# Check for packaging utilities
-# For now, we check to see if the various packaging utilites are in our
-# path.  I'm too lazy to write code to go hunt for them.  -  Gerald
-
-#
-# Source packages.
-# (Lets you install the desktop files.)
-#
-AC_PATH_PROG(DESKTOP_FILE_INSTALL, desktop-file-install)
-
-# SVR4/Solaris
-AC_CHECK_PROG(HAVE_PKGPROTO, pkgproto, "yes", "no")
-AC_CHECK_PROG(HAVE_PKGMK, pkgmk, "yes", "no")
-AC_CHECK_PROG(HAVE_PKGTRANS, pkgtrans, "yes", "no")
-
-if test x$HAVE_PKGPROTO = xyes -a x$HAVE_PKGMK = xyes \
-     -a x$HAVE_PKGTRANS = xyes ; then
-  HAVE_SVR4_PACKAGING=yes
-else
-  HAVE_SVR4_PACKAGING=no
-fi
-AC_SUBST(HAVE_SVR4_PACKAGING)
-
 # RPM
-#
-# Looks for the rpmbuild program, and checks to see if we can redefine "_topdir".
-#
-AC_CHECK_PROGS(RPMBUILD, [rpmbuild], [false])
-if test "x$RPMBUILD" != "xfalse" ; then
-	AC_MSG_CHECKING([to see if we can redefine _topdir])
-	rpm --define '_topdir /tmp' > /dev/null 2>&1
-	if test $? -eq 0 ; then
-		AC_MSG_RESULT(yes)
-		have_rpm=yes
-	else
-		AC_MSG_RESULT([no, you'll have to build packages manually])
-		have_rpm=no
-	fi
-fi
-AM_CONDITIONAL(HAVE_RPM, [test "x$have_rpm" = xyes])
-
-# Debian
-AC_CHECK_PROG(HAVE_DPKG_BUILDPACKAGE, dpkg-buildpackage, "yes", "no")
-
-# macOS
-AC_CHECK_PROG(HAVE_XCODEBUILD, xcodebuild, "yes", "no")
-AC_CHECK_PROG(HAVE_HDIUTIL, hdiutil, "yes", "no")
-AC_CHECK_PROG(HAVE_BLESS, bless, "yes", "no")
-
-if test x$HAVE_XCODEBUILD = xyes -a x$HAVE_HDIUTIL = xyes \
-     -a x$HAVE_BLESS = xyes ; then
-  HAVE_OSX_PACKAGING=yes
-else
-  HAVE_OSX_PACKAGING=no
-fi
-AC_SUBST(HAVE_OSX_PACKAGING)
-
-#
-# Use this as a proxy for "is this macOS" (just in case somebody actually
-# built and installed Darwin as an OS, perhaps with some X11-based GUI,
-# don't look for Darwin).
-#
-AC_CHECK_PROG(have_sw_vers, sw_vers, "yes", "no")
-AM_CONDITIONAL(NOT_OS_X, test "x$have_sw_vers" = "xno")
+AC_CHECK_PROGS(RPMBUILD, [rpmbuild], [rpmbuild])
 
 # Shellcheck
-AC_CHECK_PROG(HAVE_SHELLCHECK, shellcheck, "yes", "no")
-AM_CONDITIONAL(HAVE_SHELLCHECK, test x$HAVE_SHELLCHECK = xyes)
+AC_CHECK_PROGS(SHELLCHECK, shellcheck, shellcheck)
 
 #
 # Check compiler vendor. For GCC this will be 'gnu' and for Clang 'clang'.
@@ -565,6 +525,7 @@ AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wpragmas)
 AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wno-overlength-strings)
 AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wno-long-long)
 AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wheader-guard)
+AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wcomma)
 
 #
 # The following are C only, not C++
@@ -727,7 +688,10 @@ AC_ARG_ENABLE(extra-compiler-warnings,
 		AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wmissing-declarations)
 		#
 		# A bunch of "that might not work on SPARC" code blocks
-		# this one for now.
+		# this one for now; some of it is code that *will* work
+		# on SPARC, such as casts of "struct sockaddr *" to
+		# "struct sockaddr_in *", which are required by some
+		# APIs such as getifaddrs().
 		#
 		AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wcast-align)
 		#
@@ -739,6 +703,10 @@ AC_ARG_ENABLE(extra-compiler-warnings,
 		# (about glib library not using Doxygen)
 		#
 		AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wdocumentation)
+		#
+		# Works only with GCC 7
+		#
+		AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wduplicated-branches)
 
 		#
 		# The following are C only, not C++
@@ -781,6 +749,20 @@ AC_ARG_ENABLE(asan,
 ])
 AC_SUBST(NO_SANITIZE_CFLAGS)
 AC_SUBST(NO_SANITIZE_LDFLAGS)
+
+# Try to enable UndefinedBehaviorSanitizer.
+#
+AC_ARG_ENABLE(ubsan,
+  AC_HELP_STRING( [--enable-ubsan],
+		  [Enable UndefinedBehaviorSanitizer (UBSan) for debugging@<:@default=no@:>@]),
+[
+	#
+	# Available since Clang >= 3.3 and GCC >= 4.9
+	#
+	# XXX shouldn't this also be added to LDFLAGS?
+	AC_WIRESHARK_COMPILER_FLAGS_CHECK(-fsanitize=undefined)
+
+])
 
 # Add check hf conflict..
 #
@@ -917,22 +899,6 @@ fi
 dnl build libwsutil_sse42 only if there is SSE4.2
 AM_CONDITIONAL(SSE42_SUPPORTED, test "x$have_sse42" = "xyes")
 AC_SUBST(CFLAGS_SSE42)
-
-#
-# If we're running GCC or clang define _U_ to be "__attribute__((unused))"
-# so we can use _U_ to flag unused function parameters and not get warnings
-# about them. Otherwise, define _U_ to be an empty string so that _U_ used
-# to flag an unused function parameters will compile with other compilers.
-#
-# XXX - similar hints for other compilers?
-#
-if test "x$GCC" = "xyes" -o "x$CC" = "xclang" ; then
-  AC_DEFINE(_U_, __attribute__((unused)), [Hint to the compiler that a function parameters is not used])
-  AC_DEFINE(WS_NORETURN, __attribute((noreturn)), [Hint to the compiler that a function never returns])
-else
-  AC_DEFINE(_U_, , [Hint to the compiler that a function parameters is not used])
-  AC_DEFINE(WS_NORETURN, , [Hint to the compiler that a function never returns])
-fi
 
 # If we're running GCC or CLang, use FORTIFY_SOURCE=2
 #  (only if the GCC 'optimization level' > 0).
@@ -1098,48 +1064,6 @@ cygwin*)
 esac
 AC_SUBST(LDFLAGS_BIGSHAREDLIB)
 AC_SUBST(LDFLAGS_SHAREDLIB)
-
-#
-# On "Darwin", which we assume to mean "macOS" rather than "iOS" or
-# "just Darwin" (as we don't currently support iOS, and as I don't
-# think you can build and run "just Darwin" as an OS for PCs), we
-# arrange to build some programs with Application Services so they
-# can launch Web browsers and Finder windows, arrange to build some
-# programs with System Configuration so they can get "friendly names"
-# and other information about interfaces, and build any programs that
-# use either of those frameworks or that report version information
-# with Core Foundation as the frameworks in question use it and as we
-# get version information from plists and thus need Core Foundation
-# to process those plists.
-#
-have_os_x_frameworks=no
-case "$host_os" in
-darwin*)
-	have_os_x_frameworks=yes
-	AC_DEFINE(HAVE_OS_X_FRAMEWORKS, 1, [Define to 1 if you have macOS frameworks])
-	APPLICATIONSERVICES_FRAMEWORKS="-framework ApplicationServices"
-	SYSTEMCONFIGURATION_FRAMEWORKS="-framework SystemConfiguration"
-	COREFOUNDATION_FRAMEWORKS="-framework CoreFoundation"
-
-	#
-	# OK, so we have the macOS frameworks; do they include
-	# CFPropertyListCreateWithStream, or do we have
-	# to fall back on CFPropertyListCreateFromStream?
-	# (They only differ in the error return, which we
-	# don't care about.  And, no, we shouldn't just
-	# use CFPropertyListCreateFromStream, because it's
-	# deprecated in newer releases.)
-	#
-	ac_save_LIBS="$LIBS"
-	LIBS="$LIBS $COREFOUNDATION_FRAMEWORKS"
-	AC_CHECK_FUNCS(CFPropertyListCreateWithStream)
-	LIBS="$ac_save_LIBS"
-	;;
-esac
-AC_SUBST(APPLICATIONSERVICES_FRAMEWORKS)
-AC_SUBST(SYSTEMCONFIGURATION_FRAMEWORKS)
-AC_SUBST(COREFOUNDATION_FRAMEWORKS)
-AM_CONDITIONAL(HAVE_OS_X_FRAMEWORKS, [test "x$have_os_x_frameworks" = "xyes"])
 
 #
 # If we're running Solaris, and LD_LIBRARY_PATH is defined, add it as a
@@ -1336,15 +1260,63 @@ if test "x$enable_wireshark" = "xyes"; then
 				;;
 
 			yes)
-				AC_MSG_ERROR([Qt is not available])
+				case "$host_os" in
+				darwin*)
+					#
+					# This is probably macOS, and the
+					# problem could be that this is a
+					# later version of Qt that doesn't
+					# install .pc files on macOS, so
+					# pkg-config can't find it.
+					#
+					AC_MSG_ERROR([Qt is not installed or may not work with the configure script; try using CMake, instead])
+					;;
+
+				*)
+					#
+					# Qt might be installed, but only
+					# for use by applications, not
+					# for development.
+					#
+					AC_MSG_ERROR([Qt is not installed for development])
+					;;
+				esac
 				;;
 
 			4)
-				AC_MSG_ERROR([Qt 4 is not available])
+				case "$host_os" in
+				darwin*)
+					#
+					# See above.
+					#
+					AC_MSG_ERROR([Qt 4 is not installed or may not work with the configure script; try using CMake, instead])
+					;;
+
+				*)
+					#
+					# See above.
+					#
+					AC_MSG_ERROR([Qt 4 is not installed for development])
+					;;
+				esac
 				;;
 
 			5)
-				AC_MSG_ERROR([Qt 5 is not available])
+				case "$host_os" in
+				darwin*)
+					#
+					# See above.
+					#
+					AC_MSG_ERROR([Qt 5 is not installed or may not work with the configure script; try using CMake, instead])
+					;;
+
+				*)
+					#
+					# See above.
+					#
+					AC_MSG_ERROR([Qt 5 is not installed for development])
+					;;
+				esac
 				;;
 			esac
 		])
@@ -1372,17 +1344,19 @@ if test "x$enable_wireshark" = "xyes"; then
 			[
 			  :
 			])],
-		  [fail3], [AC_MSG_ERROR([GTK+ 3 was requested but is not available])],
-		  [fail2], [AC_MSG_ERROR([GTK+ 2 was requested but is not available])],
-		  [fail],  [AC_MSG_ERROR([GTK+ was requested but is not available])])
+		  [fail3], [AC_MSG_ERROR([GTK+ 3 was requested but is not installed for development])],
+		  [fail2], [AC_MSG_ERROR([GTK+ 2 was requested but is not installed for development])],
+		  [fail],  [AC_MSG_ERROR([GTK+ was requested but is not installed for development])])
 
 		AS_IF([test "x$have_gtk" = xyes], [break])
 	done
 
 	if test "$have_gtk" = "yes" ; then
-		# If we have GTK then add flags for it.
+		# If we're building with GTK, complain and then add flags for it
 		#
-		# GLib flags first
+		AC_MSG_WARN([The GTK+ UI is deprecated and will be removed in a future release.])
+
+		# GLib flags
 		#
 		GTK_CONFIG="$GLIB_CONFIG"
 
@@ -1432,21 +1406,19 @@ if test "$have_gtk" = "yes" -a "$have_qt" = "yes" ; then
 
 	wireshark_bin="wireshark\$(EXEEXT) wireshark-gtk\$(EXEEXT)"
 	wireshark_man="wireshark.1"
-	wireshark_SUBDIRS="codecs ui/qt ui/gtk"
+	wireshark_SUBDIRS="ui/qt ui/gtk"
 elif test "$have_gtk" = "no" -a "$have_qt" = "yes" ; then
 	# We don't have GTK+ but we have Qt.
 
 	wireshark_bin="wireshark\$(EXEEXT)"
 	wireshark_man="wireshark.1"
-	wireshark_SUBDIRS="codecs ui/qt"
+	wireshark_SUBDIRS="ui/qt"
 elif test "$have_gtk" = "yes" -a "$have_qt" = "no" ; then
 	# We have GTK+ but not Qt.
 
 	wireshark_bin="wireshark-gtk\$(EXEEXT)"
 	wireshark_man="wireshark.1"
-	wireshark_SUBDIRS="codecs ui/gtk"
-	OSX_APP_FLAGS="$OSX_APP_FLAGS -gtk"
-	OSX_DMG_FLAGS="-gtk"
+	wireshark_SUBDIRS="ui/gtk"
 elif test "$have_gtk" = "no" -a "$have_qt" = "no" ; then
 	# We have neither GTK+ nor Qt.
 	#
@@ -1458,11 +1430,51 @@ elif test "$have_gtk" = "no" -a "$have_qt" = "no" ; then
 	#
 	if test "x$enable_wireshark" = "xyes"; then
 		if test "$with_qt" != "no" -a "$with_gtk" != "no" ; then
-			AC_MSG_ERROR([Neither Qt nor GTK+ are available, so Wireshark can't be compiled])
+			case "$host_os" in
+			darwin*)
+				#
+				# This is probably macOS, and the
+				# problem could be that this is a
+				# later version of Qt that doesn't
+				# install .pc files on macOS, so
+				# pkg-config can't find it.
+				#
+				AC_MSG_ERROR([Neither Qt nor GTK+ are installed for development, or Qt is installed but doesn't work with the configure script, so Wireshark can't be compiled; try using CMake, instead])
+				;;
+
+			*)
+				#
+				# Qt might be installed, but only
+				# for use by applications, not
+				# for development.
+				#
+				AC_MSG_ERROR([Neither Qt nor GTK+ are installed for development, so Wireshark can't be compiled])
+				;;
+			esac
 		elif test "$with_qt" != "no" -a "$with_gtk" = "no" ; then
-			AC_MSG_ERROR([Qt is not available and GTK+ was not requested, so Wireshark can't be compiled])
+			case "$host_os" in
+			darwin*)
+				#
+				# This is probably macOS, and the
+				# problem could be that this is a
+				# later version of Qt that doesn't
+				# install .pc files on macOS, so
+				# pkg-config can't find it.
+				#
+				AC_MSG_ERROR([Qt is not installed or may not work with the configure script, and GTK+ was not requested, so Wireshark cannot be compiled; try using CMake, instead])
+				;;
+
+			*)
+				#
+				# Qt might be installed, but only
+				# for use by applications, not
+				# for development.
+				#
+				AC_MSG_ERROR([Qt is not installed for development and GTK+ was not requested, so Wireshark can't be compiled])
+				;;
+			esac
 		elif test "$with_qt" = "no" -a "$with_gtk" != "no" ; then
-			AC_MSG_ERROR([Qt was not requested and GTK+ is not available, so Wireshark can't be compiled])
+			AC_MSG_ERROR([Qt was not requested and GTK+ is not installed for development, so Wireshark can't be compiled])
 		elif test "$with_qt" = "no" -a "$with_gtk" = "no" ; then
 			AC_MSG_ERROR([Neither Qt nor GTK+ were requested, so Wireshark can't be compiled])
 		fi
@@ -1505,12 +1517,9 @@ LIBS="$ac_save_LIBS"
 ])
 if test "$ac_cv_glib_supports_modules" = yes ; then
   have_plugins=yes
-  plugins_dir="plugins"
 else
   have_plugins=no
-  plugins_dir=""
 fi
-AC_SUBST(plugins_dir)
 
 #
 # If we have <dlfcn.h>, check whether we have dladdr.
@@ -1578,43 +1587,11 @@ if test "$ac_cv_glib_supports_printf_grouping" = yes ; then
   AC_DEFINE(HAVE_GLIB_PRINTF_GROUPING, 1, [Define if GLib's printf functions support thousands grouping.])
 fi
 
-if test "x$have_gtk" = "xyes"
-then
-    #
-    # We have GTK+; do we want the macOS integration functions and,
-    # if so, do we have them and, if so, which versions do we have,
-    # the old Carbon-based ones or the new Cocoa-based ones?
-    #
-    AC_MSG_CHECKING(whether to use macOS integration functions)
-
-    AC_ARG_WITH(osx-integration,
-      AC_HELP_STRING( [--with-osx-integration],
-		      [use macOS integration functions @<:@default=yes, if available@:>@]),
-    [
-	if test $withval = no
-	then
-	    want_osx_integration=no
-	else
-	    want_osx_integration=yes
-	fi
-    ],[
-	want_osx_integration=yes
-    ])
-    if test "x$want_osx_integration" = "xno"; then
-	AC_MSG_RESULT(no)
-    else
-	AC_MSG_RESULT(yes)
-	AC_WIRESHARK_OSX_INTEGRATION_CHECK
-    fi
-fi
-
 AC_SUBST(wireshark_bin)
 AC_SUBST(wireshark_man)
 AC_SUBST(wireshark_SUBDIRS)
 AM_CONDITIONAL(HAVE_Qt, test "$have_qt" = "yes")
 AM_CONDITIONAL(HAVE_GTK, test "$have_gtk" = "yes")
-AC_SUBST(OSX_APP_FLAGS)
-AC_SUBST(OSX_DMG_FLAGS)
 
 # Enable/disable tshark
 AC_ARG_ENABLE(tshark,
@@ -1814,7 +1791,7 @@ AC_ARG_ENABLE(dumpcap,
 if test "x$enable_dumpcap" = "xyes" ; then
 	if test "x$want_pcap" = "xno" ; then
 		enable_dumpcap=no
-		AC_MSG_RESULT(pcap not available - disabling dumpcap)
+		AC_MSG_RESULT(pcap not installed for development - disabling dumpcap)
 	else
 		AC_MSG_RESULT(yes)
 	fi
@@ -1845,7 +1822,7 @@ AC_ARG_ENABLE(rawshark,
 if test "x$enable_rawshark" = "xyes" ; then
 	if test "x$want_pcap" = "xno" ; then
 		enable_rawshark=no
-		AC_MSG_RESULT(pcap not available - disabling rawshark)
+		AC_MSG_RESULT(pcap not installed for development - disabling rawshark)
 	else
 		AC_MSG_RESULT(yes)
 	fi
@@ -2075,7 +2052,7 @@ if test "x$want_lua" != "xno" ; then
 
 	if test "x$want_lua" = "xyes" -a "x$have_lua" = "xno"
 	then
-		AC_MSG_ERROR([Lua support was requested, but is not available])
+		AC_MSG_ERROR([Lua support was requested, but is not installed for development])
 	fi
 fi
 if test "x$have_lua" = "xyes"
@@ -2274,7 +2251,7 @@ if test "x$want_ssl" = "xyes"; then
 		SSL_LIBS=-lcrypto
 	    ],
 	    [
-		AC_MSG_ERROR([SSL crypto library was requested, but is not available])
+		AC_MSG_ERROR([SSL crypto library was requested, but is not installed for development])
 	    ])
 else
 	AC_MSG_RESULT(no)
@@ -2523,7 +2500,7 @@ if test "x$with_sbc" != "xno"; then
 	AC_DEFINE(HAVE_SBC, 1, [Define to support playing SBC by standalone BlueZ SBC library])
     elif test "x$want_sbc" = "xyes"; then
 	# Error out if the user explicitly requested the sbc library
-	AC_MSG_ERROR([SBC codec library was requested, but is not available])
+	AC_MSG_ERROR([SBC codec library was requested, but is not installed for development])
     fi
 else
     have_sbc=no
@@ -2544,19 +2521,69 @@ if test "x$with_spandsp" != "xno"; then
         AC_DEFINE(HAVE_SPANDSP, 1, [Define if you have the SpanDSP library])
     elif test "x$want_spandsp" = "xyes"; then
         # Error out if the user explicitly requested the SpanDSP library
-        AC_MSG_ERROR([SpanDSP library was requested, but is not available])
+        AC_MSG_ERROR([SpanDSP library was requested, but is not installed for development])
     fi
 else
     have_spandsp=no
 fi
 AM_CONDITIONAL(HAVE_SPANDSP, test "x$have_spandsp" = "xyes")
 
+#`
+# Check bcg729 library for RTP Player
+# https://www.linphone.org/technical-corner/bcg729/overview
+dnl bcg729 Check
+BCG729_LIBS=''
+AC_MSG_CHECKING(whether to use the bcg729 library if available)
+
+AC_ARG_WITH([bcg729],
+  AC_HELP_STRING( [--with-bcg729=@<:@=DIR@:>@],
+                 [use bcg729 to play G.729 codec(located in directory DIR, if supplied) @<:@default=yes, if present@:>@]),
+[
+if   test "x$withval" = "xno";  then
+	want_bcg729=no
+elif test "x$withval" = "xyes"; then
+	want_bcg729=yes
+elif test -d "$withval"; then
+	want_bcg729=yes
+	AC_WIRESHARK_ADD_DASH_L(WS_LDFLAGS, ${withval}/lib)
+fi
+])
+if test "x$want_bcg729" = "xno"; then
+	AC_MSG_RESULT(no)
+else
+	AC_MSG_RESULT(yes)
+	AC_WIRESHARK_BCG729_CHECK
+fi
+AC_SUBST(BCG729_LIBS)
+AM_CONDITIONAL(HAVE_BCG729, test "x$have_good_bcg729" = "xyes")
+
+#`
+# Libxml2 check
+AC_ARG_WITH(libxml2,
+  AC_HELP_STRING([--with-libxml2=@<:@yes/no@:>@],
+		 [Libxml2 is a XML C parser, which can be used for handling XML configuration in dissectors @<:@default=yes, if available@:>@]),
+  with_libxml2="$withval"; want_libxml2="yes", with_libxml2="yes")
+
+PKG_CHECK_MODULES(LIBXML2, libxml-2.0, [have_libxml2=yes], [have_libxml2=no])
+if test "x$with_libxml2" != "xno"; then
+    if (test "${have_libxml2}" = "yes"); then
+        AC_DEFINE(HAVE_LIBXML2, 1, [Define if you have libxml2])
+    elif test "x$want_libxml2" = "xyes"; then
+        # Error out if the user explicitly requested libxml2
+        AC_MSG_ERROR([Libxml2 was requested, but is not installed for development])
+    fi
+else
+    have_libxml2=no
+fi
+AM_CONDITIONAL(HAVE_LIBXML2, test "x$have_libxml2" = "xyes")
+
+
 dnl
 dnl check whether plugins should be enabled and, if they should be,
 dnl check for plugins directory - stolen from Amanda's configure.ac
 dnl
 dnl we don't wish to expand ${libdir} yet
-plugindir="\${libdir}/wireshark/plugins/${VERSION}"
+plugindir="\${libdir}/wireshark/plugins/$VERSION_RELEASE"
 AC_ARG_WITH(plugins,
   AC_HELP_STRING( [--with-plugins@<:@=DIR@:>@],
 		  [support plugins (installed in DIR, if supplied) @<:@default=yes, if possible@:>@]),
@@ -2607,10 +2634,8 @@ AM_CONDITIONAL(HAVE_EXTCAP, test "x$have_extcap" = "xyes")
 if test "x$have_extcap" = "xyes"
 then
   AC_DEFINE(HAVE_EXTCAP, 1, [Define if external capture sources should be enabled])
-  extcap_subdir="extcap"
   extcap_man="extcap.4"
 fi
-AC_SUBST(extcap_subdir)
 AC_SUBST(extcap_man)
 AC_SUBST(extcapdir)
 
@@ -2662,7 +2687,7 @@ if test "x$have_extcap" != xyes; then
 	AC_MSG_RESULT([no, extcap disabled])
 	enable_sshdump=no
 elif test "x$have_libssh_pointsix" != xyes; then
-	AC_MSG_RESULT([no, libssh >= 0.6.0 not available])
+	AC_MSG_RESULT([no, libssh >= 0.6.0 not installed for development])
 	enable_sshdump=no
 elif test "x$enable_sshdump" = "xyes" ; then
 	AC_MSG_RESULT(yes)
@@ -2692,7 +2717,7 @@ if test "x$have_extcap" != xyes; then
 	AC_MSG_RESULT([no, extcap disabled])
 	enable_ciscodump=no
 elif test "x$have_libssh_pointsix" != xyes; then
-	AC_MSG_RESULT([no, libssh >= 0.6.0 not available])
+	AC_MSG_RESULT([no, libssh >= 0.6.0 not installed for development])
 	enable_ciscodump=no
 elif test "x$enable_ciscodump" = "xyes" ; then
 	AC_MSG_RESULT(yes)
@@ -2928,7 +2953,6 @@ AC_CONFIG_FILES(
   epan/dissectors/asn1/x509ce/Makefile
   epan/dissectors/asn1/x509if/Makefile
   epan/dissectors/asn1/x509sat/Makefile
-  epan/dissectors/asn1/x721/Makefile
   capchild/Makefile
   capchild/doxygen.cfg
   caputils/Makefile
@@ -2958,23 +2982,17 @@ AC_CONFIG_FILES(
   packaging/Makefile
   packaging/macosx/Info.plist
   packaging/macosx/Makefile
-  packaging/macosx/osx-dmg.sh
   packaging/macosx/Wireshark_package.pmdoc/index.xml
   packaging/nsis/Makefile
   packaging/rpm/Makefile
   packaging/rpm/SPECS/Makefile
   packaging/rpm/SPECS/wireshark.spec
-  packaging/svr4/Makefile
-  packaging/svr4/checkinstall
-  packaging/svr4/pkginfo
   packaging/wix/Makefile
   plugins/Makefile
   plugins/docsis/Makefile
-  plugins/easy_codec/Makefile
   plugins/ethercat/Makefile
   plugins/gryphon/Makefile
   plugins/irda/Makefile
-  plugins/m2m/Makefile
   plugins/mate/Makefile
   plugins/opcua/Makefile
   plugins/profinet/Makefile
@@ -3001,12 +3019,7 @@ AC_OUTPUT
 # Pretty messages
 
 if test "x$have_gtk" = "xyes"; then
-	gtk_lib_message=" (with GTK+ v$GTK_VERSION"
-	if test "x$have_ige_mac" = "xyes"; then
-		gtk_lib_message="$gtk_lib_message and macOS integration)"
-	else
-		gtk_lib_message="$gtk_lib_message)"
-	fi
+	gtk_lib_message=" (with GTK+ v$GTK_VERSION)"
 fi
 
 if test "x$have_qt" = "xyes" ; then
@@ -3106,6 +3119,18 @@ else
 	nghttp2_message="no"
 fi
 
+if test "x$have_good_bcg729" = "xyes" ; then
+	bcg729_message="yes"
+else
+	bcg729_message="no"
+fi
+
+if test "x$have_wsug" = xyes -a "x$want_wsug" != xno; then
+	wsug_message="yes"
+else
+	wsug_message="no"
+fi
+
 echo ""
 echo "  CPPFLAGS: $WS_CPPFLAGS $CPPFLAGS"
 echo ""
@@ -3140,6 +3165,7 @@ echo "                      Build sshdump : $enable_sshdump"
 echo "                    Build ciscodump : $enable_ciscodump"
 echo "                  Build randpktdump : $enable_randpktdump"
 echo "                      Build udpdump : $enable_udpdump"
+echo "                 Build User's Guide : $wsug_message"
 echo ""
 echo "   Save files as pcap-ng by default : $enable_pcap_ng_default"
 echo "  Install dumpcap with capabilities : $setcap_message"
@@ -3166,6 +3192,8 @@ echo "            Have ssh_userauth_agent : $ssh_userauth_agent_message"
 echo "                     Use nl library : $libnl_message"
 echo "              Use SBC codec library : $have_sbc"
 echo "                Use SpanDSP library : $have_spandsp"
+echo "                 Use bcg729 library : $bcg729_message"
+echo "                Use libxml2 library : $have_libxml2"
 echo "                Use nghttp2 library : $nghttp2_message"
 echo "                    Use LZ4 library : $have_lz4"
 echo "                 Use Snappy library : $have_snappy"

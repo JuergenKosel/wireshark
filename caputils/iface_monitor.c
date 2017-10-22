@@ -25,6 +25,7 @@
 #ifdef HAVE_LIBPCAP
 
 #include <caputils/iface_monitor.h>
+#include "ws_attributes.h"
 
 #if defined(HAVE_LIBNL)
 
@@ -177,7 +178,7 @@ iface_mon_stop(void)
 #elif defined(__APPLE__)
 
 /*
- * OS X.
+ * macOS.
  */
 
 #include <stddef.h>

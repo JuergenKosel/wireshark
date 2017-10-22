@@ -112,6 +112,12 @@ WS_DLL_PUBLIC
 void uat_remove_record_idx(uat_t *uat, guint rec_idx);
 
 /**
+ * Moves the entry from the old position to the new one
+ */
+WS_DLL_PUBLIC
+void uat_move_index(uat_t *uat, guint old_idx, guint new_idx);
+
+/**
  * Removes and destroys all records from the UAT.
  */
 WS_DLL_PUBLIC
@@ -129,6 +135,12 @@ gboolean uat_save(uat_t *uat, char **error);
  * Loads the records for all registered UATs from file.
  */
 void uat_load_all(void);
+
+/**
+ * Dump given UAT record to string in form, which can be later loaded with uat_load_str().
+ */
+WS_DLL_PUBLIC
+char *uat_fld_tostr(void *rec, uat_field_t *f);
 
 /**
  * Exposes the array of valid records to the UAT consumer (dissectors), updating

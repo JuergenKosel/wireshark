@@ -132,6 +132,7 @@ AC_DEFUN([AC_WIRESHARK_PCAP_BREAKLOOP_TRY_LINK],
 AC_DEFUN([AC_WIRESHARK_PCAP_CHECK],
 [
 	AC_WIRESHARK_PUSH_FLAGS
+	ws_ac_save_LIBS="$LIBS"
 
 	if test -z "$pcap_dir"
 	then
@@ -176,7 +177,17 @@ AC_DEFUN([AC_WIRESHARK_PCAP_CHECK],
 	    # Found it, and it's usable; use it to get the include flags
 	    # for libpcap.
 	    #
-	    CPPFLAGS="$CPPFLAGS `\"$PCAP_CONFIG\" --cflags`"
+	    PCAP_CFLAGS=`\"$PCAP_CONFIG\" --cflags`
+	    #
+	    # We have pcap-config; we assume that means we have libpcap
+	    # installed and that pcap-config will tell us whatever
+	    # libraries libpcap needs.
+	    #
+	    if test x$enable_static = xyes; then
+	      PCAP_LIBS="`\"$PCAP_CONFIG\" --libs --static`"
+	    else
+	      PCAP_LIBS="`\"$PCAP_CONFIG\" --libs`"
+	    fi
 	  else
 	    #
 	    # Didn't find it; we have to look for libpcap ourselves.
@@ -184,13 +195,14 @@ AC_DEFUN([AC_WIRESHARK_PCAP_CHECK],
 	    # but we may have to look for the header in a "pcap"
 	    # subdirectory of "/usr/include" or "/usr/local/include",
 	    # as some systems apparently put "pcap.h" in a "pcap"
-	    # subdirectory, and we also check "$prefix/include" - and
+	    # subdirectory without also providing a "pcap.h" in the top-level
+	    # include directory, and we also check "$prefix/include" - and
 	    # "$prefix/include/pcap", in case $prefix is set to
 	    # "/usr/include" or "/usr/local/include".
 	    #
-	    # XXX - should we just add "$prefix/include" to the include
-	    # search path and "$prefix/lib" to the library search path?
-	    #
+	    PCAP_CFLAGS=""
+	    PCAP_LIBS="-lpcap"
+
 	    AC_MSG_CHECKING(for extraneous pcap header directories)
 	    found_pcap_dir=""
 	    pcap_dir_list="/usr/local/include/pcap /usr/include/pcap $prefix/include/pcap $prefix/include"
@@ -198,7 +210,7 @@ AC_DEFUN([AC_WIRESHARK_PCAP_CHECK],
 	    do
 	      if test -d $pcap_dir ; then
 		if test x$pcap_dir != x/usr/include -a x$pcap_dir != x/usr/local/include ; then
-		    CPPFLAGS="$CPPFLAGS -I$pcap_dir"
+		    PCAP_CFLAGS="-I$pcap_dir"
 		fi
 		found_pcap_dir=" $found_pcap_dir -I$pcap_dir"
 		break
@@ -224,85 +236,79 @@ AC_DEFUN([AC_WIRESHARK_PCAP_CHECK],
 	  # and/or linker will search that other directory before it
 	  # searches the specified directory.
 	  #
-	  CPPFLAGS="$CPPFLAGS -I$pcap_dir/include"
-	  AC_WIRESHARK_ADD_DASH_L(LDFLAGS, $pcap_dir/lib)
+	  PCAP_CFLAGS="-I$pcap_dir/include"
+	  #
+	  # XXX - This doesn't use AC_WIRESHARK_ADD_DASH_L
+	  #
+	  PCAP_LIBS="-L$pcap_dir/lib -lpcap"
 	fi
+
+	CFLAGS="$PCAP_CFLAGS $CFLAGS"
+	LIBS="$PCAP_LIBS $LIBS"
 
 	# Pcap header check
-	AC_CHECK_HEADER(pcap.h,,
-	    AC_MSG_ERROR([[Header file pcap.h not found; if you installed libpcap
+	AC_CHECK_HEADER(pcap.h,
+	  [
+	      AC_DEFINE(HAVE_LIBPCAP, 1, [Define to use libpcap library])
+	  ],
+	  [
+	      AC_MSG_ERROR([[Header file pcap.h not found; if you installed libpcap
 from source, did you also do \"make install-incl\", and if you installed a
 binary package of libpcap, is there also a developer's package of libpcap,
-and did you also install that package?]]))
+and did you also install that package?]])
+	  ])
 
-	if test -n "$PCAP_CONFIG" ; then
-	  #
-	  # We have pcap-config; we assume that means we have libpcap
-	  # installed and that pcap-config will tell us whatever
-	  # libraries libpcap needs.
-	  #
-	  if test x$enable_static = xyes; then
-	    PCAP_LIBS="`\"$PCAP_CONFIG\" --libs --static`"
-	  else
-	    PCAP_LIBS="`\"$PCAP_CONFIG\" --libs`"
-	  fi
-	  AC_DEFINE(HAVE_LIBPCAP, 1, [Define to use libpcap library])
-	else
-	  #
-	  # Check to see if we find "pcap_open_live" in "-lpcap".
-	  # Also check for various additional libraries that libpcap might
-	  # require.
-	  #
-	  AC_CHECK_LIB(pcap, pcap_open_live,
-	    [
-	      PCAP_LIBS=-lpcap
-	      AC_DEFINE(HAVE_LIBPCAP, 1, [Define to use libpcap library])
-	    ], [
-	      ac_wireshark_extras_found=no
-	      ac_save_LIBS="$LIBS"
-	      for extras in "-lcfg -lodm" "-lpfring"
-	      do
-		AC_MSG_CHECKING([for pcap_open_live in -lpcap with $extras])
-		LIBS="-lpcap $extras $ac_save_LIBS"
-		#
-		# XXX - can't we use AC_CHECK_LIB here?
-		#
-		AC_TRY_LINK(
-		    [
+	#
+	# Check to see if we find "pcap_open_live" in "-lpcap".
+	# Also check for various additional libraries that libpcap might
+	# require.
+	#
+	AC_CHECK_LIB(pcap, pcap_open_live,
+	  [
+	  ],
+	  [
+	    ac_wireshark_extras_found=no
+	    ac_save_LIBS="$LIBS"
+	    for extras in "-lcfg -lodm" "-lpfring"
+	    do
+	      AC_MSG_CHECKING([for pcap_open_live in -lpcap with $extras])
+	      LIBS="-lpcap $extras $ac_save_LIBS"
+	      #
+	      # XXX - can't we use AC_CHECK_LIB here?
+	      #
+	      AC_TRY_LINK(
+		[
 #	include <pcap.h>
-		    ],
-		    [
+		],
+		[
 	pcap_open_live(NULL, 0, 0, 0, NULL);
-		    ],
-		    [
-			ac_wireshark_extras_found=yes
-			AC_MSG_RESULT([yes])
-			PCAP_LIBS="-lpcap $extras"
-			AC_DEFINE(HAVE_LIBPCAP, 1, [Define to use libpcap library])
-		    ],
-		    [
-			AC_MSG_RESULT([no])
-		    ])
+		],
+		[
+		  ac_wireshark_extras_found=yes
+		  AC_MSG_RESULT([yes])
+		  PCAP_LIBS="$PCAP_LIBS $extras"
+		],
+		[
+		  AC_MSG_RESULT([no])
+		])
 		if test x$ac_wireshark_extras_found = xyes
 		then
-		    break
+		  break
 		fi
-	      done
-	      if test x$ac_wireshark_extras_found = xno
-	      then
-		AC_MSG_ERROR([Can't link with library libpcap.])
-	      fi
-	      LIBS=$ac_save_LIBS
-	    ])
-	fi
+	    done
+	    if test x$ac_wireshark_extras_found = xno
+	    then
+	      AC_MSG_ERROR([Can't link with library libpcap.])
+	    fi
+	    LIBS=$ac_save_LIBS
+	  ])
+	AC_SUBST(PCAP_CFLAGS)
 	AC_SUBST(PCAP_LIBS)
 
 	#
 	# Check whether various variables and functions are defined by
 	# libpcap.
 	#
-	ac_save_LIBS="$LIBS"
-	LIBS="$PCAP_LIBS $LIBS"
 	AC_CHECK_FUNCS(pcap_open_dead pcap_freecode)
 	#
 	# pcap_breakloop may be present in the library but not declared
@@ -412,23 +418,21 @@ install a newer version of the header file.])
 	    AC_DEFINE(CAN_SET_CAPTURE_BUFFER_SIZE, 1,
 	     [Define to 1 if the capture buffer size can be set.])
 	  ])
-	  AC_CHECK_FUNCS(bpf_image pcap_set_tstamp_precision)
+	  AC_CHECK_FUNCS(bpf_image pcap_set_tstamp_precision pcap_set_tstamp_type)
 	fi
 
 	AC_WIRESHARK_POP_FLAGS
-	LIBS="$ac_save_LIBS"
+	LIBS="$ws_ac_save_LIBS"
 ])
 
 AC_DEFUN([AC_WIRESHARK_PCAP_REMOTE_CHECK],
 [
     ac_save_LIBS="$LIBS"
     LIBS="$PCAP_LIBS $LIBS"
-    AC_DEFINE(HAVE_REMOTE, 1, [Define to 1 to enable remote
-              capturing feature in WinPcap library])
     AC_CHECK_FUNCS(pcap_open)
     if test $ac_cv_func_pcap_open = "yes" ; then
         AC_DEFINE(HAVE_PCAP_REMOTE, 1,
-            [Define to 1 if you have WinPcap remote capturing support and prefer to use these new API features.])
+            [Define to 1 if you have libpcap/WinPcap remote capturing support and prefer to use these new API features.])
     fi
     AC_CHECK_FUNCS(pcap_setsampling)
     LIBS="$ac_save_LIBS"
@@ -497,17 +501,37 @@ AC_DEFUN([AC_WIRESHARK_ZLIB_CHECK],
 	then
 		#
 		# Well, we at least have the zlib header file.
+		#
 		# We link with zlib to support uncompression of
 		# gzipped network traffic, e.g. in an HTTP request
 		# or response body.
+		#
+		# Check for inflate() in zlib, to make sure the
+		# zlib library is usable.  For example, on at
+		# least some versions of Fedora, if you have a
+		# 64-bit machine, have both the 32-bit and 64-bit
+		# versions of the run-time zlib package installed,
+		# and have only the *32-bit* version of the zlib
+		# development package installed, it'll find the
+		# header, and think it can use zlib, and will use
+		# it in subsequent tests, but it'll try and link
+		# 64-bit test programs with the 32-bit library,
+		# causing those tests to falsely fail.  Hilarity
+		# ensues.
 		#
 		if test "x$zlib_dir" != "x"
 		then
 		  WS_CPPFLAGS="$WS_CPPFLAGS -I$zlib_dir/include"
 		  AC_WIRESHARK_ADD_DASH_L(WS_LDFLAGS, $zlib_dir/lib)
 		fi
-		LIBS="-lz $LIBS"
 		AC_DEFINE(HAVE_ZLIB, 1, [Define to use zlib library])
+		#
+		# Check for "inflate()" in zlib to make sure we can
+		# link with it.
+		#
+		AC_CHECK_LIB(z, inflate,,
+		    AC_MSG_ERROR([zlib.h found but linking with -lz failed to find inflate(); do you have the right developer package installed (32-bit vs. 64-bit)?]))
+
 		#
 		# Check for "inflatePrime()" in zlib, which we need
 		# in order to read compressed capture files.
@@ -805,9 +829,34 @@ AC_DEFUN([AC_WIRESHARK_C_ARES_CHECK],
 	if test "x$want_c_ares" = "xyes"; then
 		AC_CHECK_LIB(cares, ares_init,
 		  [
-		    C_ARES_LIBS=-lcares
-		    AC_DEFINE(HAVE_C_ARES, 1, [Define to use c-ares library])
-		    have_good_c_ares=yes
+		    #
+		    # Make sure we have c-ares 1.5 or later; we don't
+		    # support the older API.
+		    #
+		    AC_MSG_CHECKING([whether we have c-ares 1.5 or later])
+		    AC_TRY_COMPILE(
+		      [
+#include <ares.h>
+#include <ares_version.h>
+		      ],
+		      [
+#if ((ARES_VERSION_MAJOR < 1) || \
+    (1 == ARES_VERSION_MAJOR == 1 && ARES_VERSION_MINOR < 5))
+#error You lose
+#else
+			return 0;
+#endif
+		      ],
+		      [
+			AC_MSG_RESULT([yes])
+			C_ARES_LIBS=-lcares
+			AC_DEFINE(HAVE_C_ARES, 1, [Define to use c-ares library])
+			have_good_c_ares=yes
+		      ],
+		      [
+			AC_MSG_RESULT([no])
+			AC_MSG_ERROR([Pre-1.5 versions of c-ares aren't supported])
+		      ])
 		  ])
 	else
 		AC_MSG_RESULT(not required)
@@ -1120,6 +1169,11 @@ AC_DEFUN([AC_WIRESHARK_GEOIP_CHECK],
 			AC_CHECK_LIB(GeoIP, GeoIP_country_name_by_ipnum_v6,
 			  [
 				AC_DEFINE(HAVE_GEOIP_V6, 1, [Define if GeoIP supports IPv6 (GeoIP 1.4.5 and later)])
+			  ],,
+			)
+			AC_CHECK_LIB(GeoIP, GeoIP_free,
+			  [
+				AC_DEFINE(HAVE_GEOIP_FREE, 1, [Define if GeoIP has GeoIP_free (not available upstream with 1.6.10 or earlier)])
 			  ],,
 			)
 		fi
@@ -2080,4 +2134,32 @@ AC_DEFUN([AC_WIRESHARK_SNAPPY_CHECK],
 	fi
 
 	AC_WIRESHARK_POP_FLAGS
+])
+
+#
+# AC_WIRESHARK_BCG729_CHECK
+#
+AC_DEFUN([AC_WIRESHARK_BCG729_CHECK],
+[
+	want_bcg729=defaultyes
+
+	if test "x$want_bcg729" = "xdefaultyes"; then
+		want_bcg729=yes
+	fi
+
+	if test "x$want_bcg729" = "xyes"; then
+		AC_CHECK_LIB(bcg729, bcg729Decoder,
+			[
+				AC_CHECK_HEADERS(bcg729/decoder.h,
+					[
+						BCG729_LIBS=-lbcg729
+						AC_DEFINE(HAVE_BCG729, 1, [Define to use bcg729 library])
+						have_good_bcg729=yes
+					],,
+				)
+			],,
+		)
+	else
+		AC_MSG_RESULT(not required)
+	fi
 ])

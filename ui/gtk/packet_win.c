@@ -55,7 +55,7 @@
 
 #include "ui/recent.h"
 #include "ui/simple_dialog.h"
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
 
 #include "ui/gtk/font_utils.h"
 #include "ui/gtk/main.h"
@@ -262,7 +262,7 @@ finfo_window_refresh(struct FieldinfoWinData *DataPtr)
 	epan_dissect_init(&edt, cfile.epan, TRUE, TRUE);
 	/* Makes any sense?
 	if (old_finfo->hfinfo)
-		proto_tree_prime_hfid(edt.tree, old_finfo->hfinfo->id);
+		proto_tree_prime_with_hfid(edt.tree, old_finfo->hfinfo->id);
 	*/
 	epan_dissect_run(&edt, cfile.cd_t, &DataPtr->phdr, frame_tvbuff_new(DataPtr->frame, DataPtr->pd), DataPtr->frame, NULL);
 

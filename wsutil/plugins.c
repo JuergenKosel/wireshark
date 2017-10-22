@@ -37,21 +37,29 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
 #include <wsutil/file_util.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 
 #include <wsutil/plugins.h>
 #include <wsutil/ws_printf.h> /* ws_debug_printf */
 
-/* linked list of all plugins */
 typedef struct _plugin {
     GModule        *handle;       /* handle returned by g_module_open */
     gchar          *name;         /* plugin name */
-    gchar          *version;      /* plugin version */
-    guint32         types;        /* bitmask of plugin types this plugin supports */
-    struct _plugin *next;         /* forward link */
+    const gchar    *version;      /* plugin version */
+    GString        *types;        /* description with types this plugin supports */
 } plugin;
 
-static plugin *plugin_list = NULL;
+static GHashTable *plugins_table = NULL;
+
+static void
+free_plugin(gpointer _p)
+{
+    plugin *p = (plugin *)_p;
+    g_module_close(p->handle);
+    g_free(p->name);
+    g_string_free(p->types, TRUE);
+    g_free(p);
+}
 
 /*
  * Add a new plugin type.
@@ -61,73 +69,27 @@ static plugin *plugin_list = NULL;
  * it's a plugin for that type and FALSE if not.
  */
 typedef struct {
-    const char *type;
-    plugin_callback callback;
-    guint type_val;
+    const char *name;
+    plugin_check_type_callback check_type;
 } plugin_type;
 
 static GSList *plugin_types = NULL;
 
-void
-add_plugin_type(const char *type, plugin_callback callback)
+static void
+free_plugin_type(gpointer p, gpointer user_data _U_)
 {
-    plugin_type *new_type;
-    static guint type_val;
-
-    if (type_val >= 32) {
-        /*
-         * There's a bitmask of types that a plugin provides, and it's
-         * 32 bits, so we don't support types > 31.
-         */
-        report_failure("At most 32 plugin types can be supported, so the plugin type '%s' won't be supported.",
-                       type);
-        return;
-    }
-    new_type = (plugin_type *)g_malloc(sizeof (plugin_type));
-    new_type->type = type;
-    new_type->callback = callback;
-    new_type->type_val = type_val;
-    plugin_types = g_slist_append(plugin_types, new_type);
-    type_val++;
+    g_free(p);
 }
 
-/*
- * add a new plugin to the list
- * returns :
- * - 0 : OK
- * - EEXIST : the same plugin (i.e. name/version) was already registered.
- */
-static int
-add_plugin(plugin *new_plug)
+void
+add_plugin_type(const char *name, plugin_check_type_callback check_type)
 {
-    plugin *pt_plug;
+    plugin_type *new_type;
 
-    pt_plug = plugin_list;
-    if (!pt_plug) /* the list is empty */
-    {
-        plugin_list = new_plug;
-    }
-    else
-    {
-        while (1)
-        {
-            /* check if the same name/version is already registered */
-            if (strcmp(pt_plug->name, new_plug->name) == 0 &&
-                strcmp(pt_plug->version, new_plug->version) == 0)
-            {
-                return EEXIST;
-            }
-
-            /* we found the last plugin in the list */
-            if (pt_plug->next == NULL)
-                break;
-
-            pt_plug = pt_plug->next;
-        }
-        pt_plug->next = new_plug;
-    }
-
-    return 0;
+    new_type = (plugin_type *)g_malloc(sizeof (plugin_type));
+    new_type->name = name;
+    new_type->check_type = check_type;
+    plugin_types = g_slist_prepend(plugin_types, new_type);
 }
 
 static void
@@ -136,25 +98,26 @@ call_plugin_callback(gpointer data, gpointer user_data)
     plugin_type *type = (plugin_type *)data;
     plugin *new_plug = (plugin *)user_data;
 
-    if ((*type->callback)(new_plug->handle)) {
+    if (type->check_type(new_plug->handle)) {
         /* The plugin supports this type */
-        new_plug->types |= 1 << type->type_val;
+        if (new_plug->types->len > 0)
+            g_string_append(new_plug->types, ", ");
+        g_string_append(new_plug->types, type->name);
     }
 }
 
 static void
 plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
 {
-#define FILENAME_LEN        1024
     WS_DIR        *dir;             /* scanned directory */
     WS_DIRENT     *file;            /* current file */
     const char    *name;
-    gchar          filename[FILENAME_LEN];   /* current file name */
+    gchar         *filename;        /* current file name */
     GModule       *handle;          /* handle returned by g_module_open */
-    gpointer       gp;
+    gpointer       symbol;
+    const char    *plug_version, *plug_release;
     plugin        *new_plug;
     gchar         *dot;
-    int            cr;
 
     if (!g_file_test(dirname, G_FILE_TEST_EXISTS) || !g_file_test(dirname, G_FILE_TEST_IS_DIR)) {
         return;
@@ -174,6 +137,7 @@ plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
             dot = strrchr(name, '.');
             if (dot == NULL || strcmp(dot+1, G_MODULE_SUFFIX) != 0)
                 continue;
+
 #if WIN32
             if (strncmp(name, "nordic_ble.dll", 14) == 0)
                 /*
@@ -182,10 +146,23 @@ plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
                  */
                 continue;
 #endif
-            g_snprintf(filename, FILENAME_LEN, "%s" G_DIR_SEPARATOR_S "%s",
-                       dirname, name);
 
-            if ((handle = g_module_open(filename, G_MODULE_BIND_LOCAL)) == NULL)
+            /*
+             * Check if the same name is already registered.
+             */
+            if (g_hash_table_lookup(plugins_table, name)) {
+                /* Yes, it is. */
+                if (mode == REPORT_LOAD_FAILURE) {
+                    report_warning("The plugin '%s' was found "
+                            "in multiple directories", name);
+                }
+                continue;
+            }
+
+            filename = g_build_filename(dirname, name, (gchar *)NULL);
+            handle = g_module_open(filename, G_MODULE_BIND_LOCAL);
+            g_free(filename);
+            if (handle == NULL)
             {
                 /*
                  * Only report load failures if we were asked to.
@@ -199,15 +176,30 @@ plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
                  * only use libwiretap.
                  */
                 if (mode == REPORT_LOAD_FAILURE) {
-                    report_failure("Couldn't load module %s: %s", filename,
+                    /* g_module_error() provides filename. */
+                    report_failure("Couldn't load plugin '%s': %s", name,
                                    g_module_error());
                 }
                 continue;
             }
 
-            if (!g_module_symbol(handle, "version", &gp))
+            if (!g_module_symbol(handle, "plugin_version", &symbol))
             {
-                report_failure("The plugin %s has no version symbol", name);
+                report_failure("The plugin '%s' has no \"plugin_version\" symbol", name);
+                g_module_close(handle);
+                continue;
+            }
+            plug_version = (const char *)symbol;
+
+            if (!g_module_symbol(handle, "plugin_release", &symbol))
+            {
+                report_failure("The plugin '%s' has no \"plugin_release\" symbol", name);
+                g_module_close(handle);
+                continue;
+            }
+            plug_release = (const char *)symbol;
+            if (strcmp(plug_release, VERSION_RELEASE) != 0) {
+                report_failure("The plugin '%s' was compiled for Wireshark version %s", name, plug_release);
                 g_module_close(handle);
                 continue;
             }
@@ -215,9 +207,8 @@ plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
             new_plug = (plugin *)g_malloc(sizeof(plugin));
             new_plug->handle = handle;
             new_plug->name = g_strdup(name);
-            new_plug->version = (char *)gp;
-            new_plug->types = 0;
-            new_plug->next = NULL;
+            new_plug->version = plug_version;
+            new_plug->types = g_string_new(NULL);
 
             /*
              * Hand the plugin to each of the plugin type callbacks.
@@ -227,7 +218,7 @@ plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
             /*
              * Does this dissector do anything useful?
              */
-            if (new_plug->types == 0)
+            if (new_plug->types->len == 0)
             {
                 /*
                  * No.
@@ -249,32 +240,63 @@ plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
                     report_failure("The plugin '%s' has no registration routines",
                                    name);
                 }
-                g_module_close(handle);
-                g_free(new_plug->name);
-                g_free(new_plug);
+                free_plugin(new_plug);
                 continue;
             }
 
             /*
-             * OK, attempt to add it to the list of plugins.
+             * OK, add it to the list of plugins.
              */
-            cr = add_plugin(new_plug);
-            if (cr != 0)
-            {
-                g_assert(cr == EEXIST);
-                fprintf(stderr, "The plugin '%s' version %s "
-                        "was found in multiple directories.\n",
-                        new_plug->name, new_plug->version);
-                g_module_close(handle);
-                g_free(new_plug->name);
-                g_free(new_plug);
-                continue;
-            }
+            g_hash_table_insert(plugins_table, new_plug->name, new_plug);
         }
         ws_dir_close(dir);
     }
 }
 
+/*
+ * Scan the buildir for plugins.
+ */
+static void
+scan_plugins_build_dir(plugin_load_failure_mode mode)
+{
+    const char *plugin_dir;
+    const char *name;
+    char *plugin_dir_path;
+    WS_DIR *dir;                /* scanned directory */
+    WS_DIRENT *file;            /* current file */
+
+    plugin_dir = get_plugins_dir();
+    if ((dir = ws_dir_open(plugin_dir, 0, NULL)) == NULL)
+        return;
+
+    plugins_scan_dir(plugin_dir, mode);
+    while ((file = ws_dir_read_name(dir)) != NULL)
+    {
+        name = ws_dir_get_name(file);
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+            continue;        /* skip "." and ".." */
+        /*
+         * Get the full path of a ".libs" subdirectory of that
+         * directory.
+         */
+        plugin_dir_path = g_build_filename(plugin_dir, name, ".libs", (gchar *)NULL);
+        if (test_for_directory(plugin_dir_path) != EISDIR) {
+            /*
+             * Either it doesn't refer to a directory or it
+             * refers to something that doesn't exist.
+             *
+             * Assume that means that the plugins are in
+             * the subdirectory of the plugin directory, not
+             * a ".libs" subdirectory of that subdirectory.
+             */
+            g_free(plugin_dir_path);
+            plugin_dir_path = g_build_filename(plugin_dir, name, (gchar *)NULL);
+        }
+        plugins_scan_dir(plugin_dir_path, mode);
+        g_free(plugin_dir_path);
+    }
+    ws_dir_close(dir);
+}
 
 /*
  * Scan for plugins.
@@ -282,134 +304,82 @@ plugins_scan_dir(const char *dirname, plugin_load_failure_mode mode)
 void
 scan_plugins(plugin_load_failure_mode mode)
 {
-    const char *plugin_dir;
-    const char *name;
-    char *plugin_dir_path;
-    char *plugins_pers_dir;
-    WS_DIR *dir;                /* scanned directory */
-    WS_DIRENT *file;            /* current file */
+    if (plugins_table != NULL)
+        return; /* only scan for plugins once */
 
-    if (plugin_list == NULL)    /* only scan for plugins once */
+    plugins_table = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, free_plugin);
+    /*
+     * Scan the global plugin directory.
+     * If we're running from a build directory, scan the "plugins"
+     * subdirectory, as that's where plugins are located in an
+     * out-of-tree build. If we find subdirectories scan those since
+     * they will contain plugins in the case of an in-tree build.
+     */
+    if (running_in_build_directory())
     {
-        /*
-         * Scan the global plugin directory.
-         * If we're running from a build directory, scan the "plugins"
-         * subdirectory, as that's where plugins are located in an
-         * out-of-tree build. If we find subdirectories scan those since
-         * they will contain plugins in the case of an in-tree build.
-         */
-        plugin_dir = get_plugin_dir();
-        if (plugin_dir == NULL)
-        {
-            /* We couldn't find the plugin directory. */
-            return;
-        }
-        if (running_in_build_directory())
-        {
-            if ((dir = ws_dir_open(plugin_dir, 0, NULL)) != NULL)
-            {
-                plugins_scan_dir(plugin_dir, mode);
-                while ((file = ws_dir_read_name(dir)) != NULL)
-                {
-                    name = ws_dir_get_name(file);
-                    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
-                        continue;        /* skip "." and ".." */
-                    /*
-                     * Get the full path of a ".libs" subdirectory of that
-                     * directory.
-                     */
-                    plugin_dir_path = g_strdup_printf(
-                        "%s" G_DIR_SEPARATOR_S "%s" G_DIR_SEPARATOR_S ".libs",
-                        plugin_dir, name);
-                    if (test_for_directory(plugin_dir_path) != EISDIR) {
-                        /*
-                         * Either it doesn't refer to a directory or it
-                         * refers to something that doesn't exist.
-                         *
-                         * Assume that means that the plugins are in
-                         * the subdirectory of the plugin directory, not
-                         * a ".libs" subdirectory of that subdirectory.
-                         */
-                        g_free(plugin_dir_path);
-                        plugin_dir_path = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s",
-                            plugin_dir, name);
-                    }
-                    plugins_scan_dir(plugin_dir_path, mode);
-                    g_free(plugin_dir_path);
-                }
-                ws_dir_close(dir);
-            }
-        }
-        else
-            plugins_scan_dir(plugin_dir, mode);
+        scan_plugins_build_dir(mode);
+    }
+    else
+    {
+        plugins_scan_dir(get_plugins_dir_with_version(), mode);
+    }
 
-        /*
-         * If the program wasn't started with special privileges,
-         * scan the users plugin directory.  (Even if we relinquish
-         * them, plugins aren't safe unless we've *permanently*
-         * relinquished them, and we can't do that in Wireshark as,
-         * if we need privileges to start capturing, we'd need to
-         * reclaim them before each time we start capturing.)
-         */
-        if (!started_with_special_privs())
-        {
-            plugins_pers_dir = get_plugins_pers_dir();
-            plugins_scan_dir(plugins_pers_dir, mode);
-            g_free(plugins_pers_dir);
-        }
+    /*
+     * If the program wasn't started with special privileges,
+     * scan the users plugin directory.  (Even if we relinquish
+     * them, plugins aren't safe unless we've *permanently*
+     * relinquished them, and we can't do that in Wireshark as,
+     * if we need privileges to start capturing, we'd need to
+     * reclaim them before each time we start capturing.)
+     */
+    if (!started_with_special_privs())
+    {
+        plugins_scan_dir(get_plugins_pers_dir_with_version(), mode);
     }
 }
 
-/*
- * Iterate over all plugins, calling a callback with information about
- * the plugin.
- */
-typedef struct {
-    plugin  *pt_plug;
-    GString *types;
-    const char *sep;
-} type_callback_info;
+static void
+add_plugin_to_descriptions(gpointer key _U_, gpointer value, gpointer user_data)
+{
+    g_ptr_array_add((GPtrArray *)user_data, value);
+}
+
+static int
+compare_plugins(gconstpointer _a, gconstpointer _b)
+{
+    const plugin *a = *(const plugin **)_a;
+    const plugin *b = *(const plugin **)_b;
+
+    return strcmp(a->name, b->name);
+}
+
+struct description_callback {
+    plugin_description_callback callback;
+    gpointer callback_data;
+};
 
 static void
-add_plugin_type_description(gpointer data, gpointer user_data)
+call_description_callback(gpointer data, gpointer user_data)
 {
-    plugin_type *type = (plugin_type *)data;
-    type_callback_info *info = (type_callback_info *)user_data;
+    plugin *plug = (plugin *)data;
+    struct description_callback *desc = (struct description_callback *)user_data;
 
-    /*
-     * If the plugin handles this type, add the type to the list of types.
-     */
-    if (info->pt_plug->types & (1 << type->type_val)) {
-        g_string_append_printf(info->types, "%s%s", info->sep, type->type);
-        info->sep = ", ";
-    }
+    desc->callback(plug->name, plug->version, plug->types->str, g_module_name(plug->handle), desc->callback_data);
 }
 
 WS_DLL_PUBLIC void
 plugins_get_descriptions(plugin_description_callback callback, void *user_data)
 {
-    type_callback_info info;
+    GPtrArray *descriptions;
+    struct description_callback cb;
 
-    info.types = NULL; /* Certain compiler suites need a init state for this variable */
-    for (info.pt_plug = plugin_list; info.pt_plug != NULL;
-         info.pt_plug = info.pt_plug->next)
-    {
-        info.sep = "";
-        info.types = g_string_new("");
-
-        /*
-         * Build a list of all the plugin types.
-         */
-        g_slist_foreach(plugin_types, add_plugin_type_description, &info);
-
-        /*
-         * And hand the information to the callback.
-         */
-        callback(info.pt_plug->name, info.pt_plug->version, info.types->str,
-                 g_module_name(info.pt_plug->handle), user_data);
-
-        g_string_free(info.types, TRUE);
-    }
+    descriptions = g_ptr_array_sized_new(g_hash_table_size(plugins_table));
+    g_hash_table_foreach(plugins_table, add_plugin_to_descriptions, descriptions);
+    g_ptr_array_sort(descriptions, compare_plugins);
+    cb.callback = callback;
+    cb.callback_data = user_data;
+    g_ptr_array_foreach(descriptions, call_description_callback, &cb);
+    g_ptr_array_free(descriptions, FALSE);
 }
 
 static void
@@ -426,33 +396,10 @@ plugins_dump_all(void)
     plugins_get_descriptions(print_plugin_description, NULL);
 }
 
-static void
-free_plugin_type(gpointer p, gpointer user_data _U_)
-{
-    g_free(p);
-}
-
 void
 plugins_cleanup(void)
 {
-    plugin* prev;
-    plugin* cur;
-
-    if (plugin_list) {
-        prev = plugin_list;
-        cur = plugin_list->next;
-
-        do {
-            g_free(prev->name);
-            g_free(prev);
-            prev = cur;
-            cur = cur->next;
-        } while(cur);
-
-        g_free(prev->name);
-        g_free(prev);
-    }
-
+    g_hash_table_destroy(plugins_table);
     g_slist_foreach(plugin_types, free_plugin_type, NULL);
     g_slist_free(plugin_types);
 }

@@ -140,6 +140,7 @@ Push "randpktdump"
 Push "reordercap"
 Push "capinfos"
 Push "rawshark"
+Push "dftest"
 
 Pop $EXECUTABLE
 ${DoUntil} $EXECUTABLE == ${EXECUTABLE_MARKER}
@@ -221,6 +222,7 @@ Delete "$INSTDIR\AUTHORS-SHORT-FORMAT"
 Delete "$INSTDIR\README*"
 Delete "$INSTDIR\NEWS.txt"
 Delete "$INSTDIR\manuf"
+Delete "$INSTDIR\wka"
 Delete "$INSTDIR\services"
 Delete "$INSTDIR\pdml2html.xsl"
 Delete "$INSTDIR\pcrepattern.3.txt"
@@ -317,6 +319,7 @@ SectionIn 1 2
 Delete "$INSTDIR\cfilters"
 Delete "$INSTDIR\colorfilters"
 Delete "$INSTDIR\dfilters"
+Delete "$INSTDIR\enterprises.tsv"
 Delete "$INSTDIR\init.lua"
 Delete "$INSTDIR\console.lua"
 Delete "$INSTDIR\dtd_gen.lua"

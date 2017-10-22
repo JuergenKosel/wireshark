@@ -166,6 +166,7 @@ static expert_field ei_megaco_audit_descriptor = EI_INIT;
 static expert_field ei_megaco_signal_descriptor = EI_INIT;
 static expert_field ei_megaco_reason_invalid = EI_INIT;
 static expert_field ei_megaco_error_code_invalid = EI_INIT;
+static expert_field ei_megaco_invalid_sdr = EI_INIT;
 
 static dissector_handle_t megaco_text_handle;
 
@@ -538,7 +539,7 @@ static gint find_megaco_messageBody_names(tvbuff_t *tvb, int offset, guint heade
 }
 
 static proto_item *
-my_proto_tree_add_string(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+megaco_tree_add_string(proto_tree *tree, int hfindex, tvbuff_t *tvb,
              gint start, gint length, const char *value)
 {
     proto_item *pi;
@@ -709,7 +710,7 @@ dissect_megaco_text(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         return tvb_captured_length(tvb);
     }
 
-    my_proto_tree_add_string(megaco_tree, hf_megaco_start, tvb, 0, tvb_previous_offset+1,
+    megaco_tree_add_string(megaco_tree, hf_megaco_start, tvb, 0, tvb_previous_offset+1,
                     tvb_get_string_enc(wmem_packet_scope(), tvb, 0, tvb_previous_offset, ENC_UTF_8|ENC_NA));
 
     /* skip / */
@@ -723,7 +724,7 @@ dissect_megaco_text(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         tvb_current_offset++;
     }
 
-    my_proto_tree_add_string(megaco_tree, hf_megaco_version, tvb, tvb_previous_offset, tvb_current_offset - tvb_previous_offset,
+    megaco_tree_add_string(megaco_tree, hf_megaco_version, tvb, tvb_previous_offset, tvb_current_offset - tvb_previous_offset,
                     tvb_get_string_enc(wmem_packet_scope(), tvb, tvb_previous_offset, tvb_current_offset - tvb_previous_offset, ENC_UTF_8|ENC_NA));
 
     tvb_previous_offset = tvb_current_offset;
@@ -759,7 +760,7 @@ dissect_megaco_text(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
    /* At this point we should point to the "\n" ending the mId element
     * or to the next character after white space SEP
     */
-    my_proto_tree_add_string(megaco_tree, hf_megaco_mId, tvb, tvb_previous_offset, tvb_current_offset - tvb_previous_offset,
+    megaco_tree_add_string(megaco_tree, hf_megaco_mId, tvb, tvb_previous_offset, tvb_current_offset - tvb_previous_offset,
                     tvb_get_string_enc(wmem_packet_scope(), tvb, tvb_previous_offset, tvb_current_offset - tvb_previous_offset, ENC_UTF_8|ENC_NA));
 
     col_clear(pinfo->cinfo, COL_INFO);
@@ -817,7 +818,7 @@ dissect_megaco_text(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
             message_body_tree = proto_item_add_subtree(ti, ett_megaco_message_body);
 
             if (tree) {
-                my_proto_tree_add_string(message_body_tree, hf_megaco_transaction, tvb,
+                megaco_tree_add_string(message_body_tree, hf_megaco_transaction, tvb,
                 tvb_previous_offset, tokenlen,
                 "Error" );
 
@@ -836,7 +837,7 @@ dissect_megaco_text(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
             save_offset = tvb_previous_offset;
             save_length = tvb_current_offset-tvb_previous_offset;
 
-            my_proto_tree_add_string(megaco_tree, hf_megaco_transaction, tvb,
+            megaco_tree_add_string(megaco_tree, hf_megaco_transaction, tvb,
                     save_offset, save_length, "TransactionResponseAck" );
 
             tvb_previous_offset = megaco_tvb_skip_wsp(tvb, tvb_offset+1);
@@ -864,7 +865,7 @@ dissect_megaco_text(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
             save_offset = tvb_previous_offset;
             save_length = tvb_current_offset-tvb_previous_offset;
 
-            my_proto_tree_add_string(megaco_tree, hf_megaco_transaction, tvb,
+            megaco_tree_add_string(megaco_tree, hf_megaco_transaction, tvb,
                     save_offset, save_length, "Reply" );
 
             tvb_current_offset  = megaco_tvb_skip_wsp_return(tvb, tvb_current_offset-1);
@@ -883,7 +884,7 @@ dissect_megaco_text(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
             save_offset = tvb_previous_offset;
             save_length = tvb_LBRKT-tvb_previous_offset;
 
-            my_proto_tree_add_string(megaco_tree, hf_megaco_transaction, tvb,
+            megaco_tree_add_string(megaco_tree, hf_megaco_transaction, tvb,
                     save_offset, save_length, "Reply" );
 
             tvb_offset  = tvb_find_guint8(tvb, tvb_previous_offset, tvb_transaction_end_offset, '=')+1;
@@ -911,7 +912,7 @@ dissect_megaco_text(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
             trx_type = GCP_TRX_REQUEST;
             save_offset = tvb_previous_offset;
             save_length = tvb_current_offset-tvb_previous_offset;
-            my_proto_tree_add_string(megaco_tree, hf_megaco_transaction, tvb,
+            megaco_tree_add_string(megaco_tree, hf_megaco_transaction, tvb,
                     save_offset, save_length, "Request" );
 
             tvb_offset  = tvb_find_guint8(tvb, tvb_offset, tvb_transaction_end_offset, '=')+1;
@@ -1993,7 +1994,6 @@ dissect_megaco_eventsdescriptor(tvbuff_t *tvb, packet_info *pinfo, proto_tree *m
     gint tvb_events_end_offset, tvb_LBRKT;
     proto_tree  *megaco_eventsdescriptor_tree, *megaco_requestedevent_tree;
     proto_item  *megaco_eventsdescriptor_ti, *megaco_requestedevent_ti, *ti;
-    guint8 tempchar;
 
     gint requested_event_start_offset = 0,
          requested_event_end_offset = 0;
@@ -2083,13 +2083,10 @@ dissect_megaco_eventsdescriptor(tvbuff_t *tvb, packet_info *pinfo, proto_tree *m
 
             if ( tvb_help_offset < tvb_RBRKT && tvb_help_offset != -1 ){
 
-                tvb_help_offset = megaco_tvb_skip_wsp(tvb, requested_event_start_offset +1);
-                tempchar = tvb_get_guint8(tvb, tvb_help_offset);
-
                 requested_event_start_offset = megaco_tvb_skip_wsp(tvb, requested_event_start_offset +1);
                 requested_event_end_offset = megaco_tvb_skip_wsp_return(tvb, requested_event_end_offset-1);
 
-                if ( tempchar == 'D' || tempchar == 'd'){
+                if (!tvb_strncaseeql(tvb, requested_event_start_offset, "dm", 2)) {
                     dissect_megaco_digitmapdescriptor(tvb, megaco_requestedevent_tree, requested_event_end_offset, requested_event_start_offset);
                 }
                 else{
@@ -3289,9 +3286,20 @@ dissect_megaco_LocalControldescriptor(tvbuff_t *tvb, proto_tree *megaco_mediades
             tvb_current_offset = megaco_tvb_skip_wsp(tvb, tvb_offset +1);
             break;
         case MEGACO_TMAN_SDR:
-            proto_tree_add_string(megaco_LocalControl_tree, hf_megaco_tman_sdr, tvb,
-                tvb_help_offset, tvb_offset-tvb_help_offset, tvb_format_text(tvb, tvb_current_offset, tokenlen));
-            tvb_current_offset = megaco_tvb_skip_wsp(tvb, tvb_offset +1);
+        {
+            gint32 sdr;
+            gboolean sdr_valid;
+            proto_item* pi;
+
+            sdr_valid = ws_strtoi32(tvb_format_text(tvb, tvb_current_offset, tokenlen), NULL, &sdr);
+            pi =proto_tree_add_int(megaco_LocalControl_tree, hf_megaco_tman_sdr, tvb, tvb_help_offset,
+                tvb_offset - tvb_help_offset, sdr);
+            proto_item_append_text(pi, " [%i b/s]", sdr*8);
+            if (!sdr_valid) {
+                expert_add_info(pinfo, pi, &ei_megaco_invalid_sdr);
+            }
+            tvb_current_offset = megaco_tvb_skip_wsp(tvb, tvb_offset + 1);
+        }
             break;
         case MEGACO_TMAN_MBS:
             proto_tree_add_string(megaco_LocalControl_tree, hf_megaco_tman_mbs, tvb,
@@ -3668,7 +3676,7 @@ proto_register_megaco(void)
           { "RTCP Allocation Specific Behaviour", "megaco.gm_rsb", FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }},
         { &hf_megaco_tman_sdr,
-          { "Sustainable Data Rate", "megaco.tman_sdr", FT_STRING, BASE_NONE, NULL, 0x0,
+          { "Sustainable Data Rate", "megaco.tman_sdr", FT_INT32, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytespsecond, 0x0,
             NULL, HFILL }},
         { &hf_megaco_tman_mbs,
           { "Maximum Burst Rate", "megaco.tman_mbs", FT_STRING, BASE_NONE, NULL, 0x0,
@@ -3779,7 +3787,8 @@ proto_register_megaco(void)
         { &ei_megaco_no_command, { "megaco.no_command", PI_PROTOCOL, PI_WARN, "No Command detectable", EXPFILL }},
         { &ei_megaco_no_descriptor, { "megaco.no_descriptor", PI_PROTOCOL, PI_WARN, "No Descriptor detectable", EXPFILL }},
         { &ei_megaco_reason_invalid, { "megaco.change_reason.invalid", PI_MALFORMED, PI_ERROR, "Invalid Service Change Reason", EXPFILL }},
-        { &ei_megaco_error_code_invalid, { "megaco.error_code.invalid", PI_MALFORMED, PI_ERROR, "Invalid error code", EXPFILL }}
+        { &ei_megaco_error_code_invalid,{ "megaco.error_code.invalid", PI_MALFORMED, PI_ERROR, "Invalid error code", EXPFILL } },
+        { &ei_megaco_invalid_sdr, { "megaco.sdr.invalid", PI_MALFORMED, PI_ERROR, "Invalid Sustainable Data Rate", EXPFILL }}
     };
 
     module_t *megaco_module;

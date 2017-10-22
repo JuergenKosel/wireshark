@@ -33,15 +33,16 @@
 #include "preference_editor_frame.h"
 #include <ui_preference_editor_frame.h>
 
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 #include <wsutil/utf8_entities.h>
 
 #include "wireshark_application.h"
 
 #include <QPushButton>
+#include <QKeyEvent>
 
 // To do:
-// - Handle PREF_FILENAME and PREF_DIRNAME.
+// - Handle PREF_SAVE_FILENAME, PREF_OPEN_FILENAME and PREF_DIRNAME.
 
 PreferenceEditorFrame::PreferenceEditorFrame(QWidget *parent) :
     AccordionFrame(parent),
@@ -237,6 +238,21 @@ void PreferenceEditorFrame::on_buttonBox_rejected()
     wmem_free(NULL, new_range_);
     new_range_ = NULL;
     animatedHide();
+}
+
+void PreferenceEditorFrame::keyPressEvent(QKeyEvent *event)
+{
+    if (event->modifiers() == Qt::NoModifier) {
+        if (event->key() == Qt::Key_Escape) {
+            on_buttonBox_rejected();
+        } else if (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) {
+            if (ui->buttonBox->button(QDialogButtonBox::Ok)->isEnabled()) {
+                on_buttonBox_accepted();
+            } else if (ui->preferenceLineEdit->syntaxState() == SyntaxLineEdit::Invalid) {
+                emit pushFilterSyntaxStatus(tr("Invalid value."));
+            }
+        }
+    }
 }
 
 /*

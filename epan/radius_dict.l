@@ -92,6 +92,8 @@
 #include <epan/dissectors/packet-radius.h>
 #include <wsutil/file_util.h>
 
+DIAG_OFF(sign-compare)
+
 /*
  * See
  *
@@ -101,8 +103,6 @@
  *
  * XXX - features not currently supported:
  *
- *	dotted number values for the oid field;
- *
  *	integer64, ipv4prefix, combo-prefix, bool, size, decimal,
  *	timeval, struct, extended, long-extended, vsa, evs, vendor,
  *	cidr, uint{8,16,32,64}, int{8,16,32,64} as attribute types
@@ -111,9 +111,8 @@
  *	octets[N], where N is an integer, as an attribute type
  *	(not documented in the man page);
  *
- *	internal, array, concat, and virtual as attribute flags;
- *
- *	format= for BEGIN-VENDOR.
+ *	internal, array, concat, and virtual as attribute flags (not
+ *	documented in the man page);
  *
  * We should, perhaps, adopt FreeRADIUS's dictionary-parsing code in
  * src/lib/dict.c and use that, rather than writing our own parser.
@@ -150,6 +149,7 @@ typedef struct {
 	guint encrypted;
 	gboolean has_tag;
 	gchar* current_vendor;
+	guint current_vendor_evs_type;
 	gchar* current_attr;
 
 	gchar* directory;
@@ -184,7 +184,7 @@ static void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, c
  *       name types in the FreeRadius dictionaries.
  */
 
-%START WS_OUT VENDOR VENDOR_W_NAME ATTR ATTR_W_NAME ATTR_W_ID ATTR_W_TYPE VALUE VALUE_W_ATTR VALUE_W_NAME INCLUDE JUNK BEGIN_VENDOR END_VENDOR VENDOR_W_ID VENDOR_W_FORMAT VENDOR_W_TYPE_OCTETS VENDOR_W_LENGTH_OCTETS VENDOR_W_CONTINUATION BEGIN_TLV END_TLV
+%START WS_OUT VENDOR VENDOR_W_NAME ATTR ATTR_W_NAME ATTR_W_ID ATTR_W_TYPE VALUE VALUE_W_ATTR VALUE_W_NAME INCLUDE JUNK BEGIN_VENDOR BEGIN_VENDOR_FORMAT END_VENDOR VENDOR_W_ID VENDOR_W_FORMAT VENDOR_W_TYPE_OCTETS VENDOR_W_LENGTH_OCTETS VENDOR_W_CONTINUATION BEGIN_TLV END_TLV
 %%
 [:blank:]   ;
 #[^\n]*		;
@@ -205,13 +205,32 @@ static void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, c
         g_free(yyextra->current_vendor);
     }
     yyextra->current_vendor = g_strdup(yytext);
+    BEGIN BEGIN_VENDOR_FORMAT;
+}
+<BEGIN_VENDOR_FORMAT>format=Extended-Vendor-Specific-[123456] {
+    if (strcmp(yytext, "format=Extended-Vendor-Specific-1") == 0) {
+        yyextra->current_vendor_evs_type = 241;
+    } else if(strcmp(yytext, "format=Extended-Vendor-Specific-2") == 0) {
+        yyextra->current_vendor_evs_type = 242;
+    } else if(strcmp(yytext, "format=Extended-Vendor-Specific-3") == 0) {
+        yyextra->current_vendor_evs_type = 243;
+    } else if(strcmp(yytext, "format=Extended-Vendor-Specific-4") == 0) {
+        yyextra->current_vendor_evs_type = 244;
+    } else if(strcmp(yytext, "format=Extended-Vendor-Specific-5") == 0) {
+        yyextra->current_vendor_evs_type = 245;
+    } else if(strcmp(yytext, "format=Extended-Vendor-Specific-6") == 0) {
+        yyextra->current_vendor_evs_type = 246;
+    }
     BEGIN WS_OUT;
 }
+<BEGIN_VENDOR_FORMAT>\n {BEGIN WS_OUT;}
+
 <END_VENDOR>[^\n]* {
     if (yyextra->current_vendor) {
         g_free(yyextra->current_vendor);
         yyextra->current_vendor = NULL;
     }
+    yyextra->current_vendor_evs_type = 0;
     BEGIN WS_OUT;
 }
 
@@ -271,7 +290,7 @@ static void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, c
 }
 
 <ATTR>[0-9a-z_/.-]+			{ yyextra->attr_name = g_strdup(yytext); yyextra->encrypted = 0; yyextra->has_tag = FALSE; BEGIN ATTR_W_NAME; }
-<ATTR_W_NAME>[0-9]+			{ yyextra->attr_id = g_strdup(yytext);  BEGIN ATTR_W_ID;}
+<ATTR_W_NAME>[0-9.]+			{ yyextra->attr_id = g_strdup(yytext);  BEGIN ATTR_W_ID;}
 <ATTR_W_NAME>0x[0-9a-f]+		{ yyextra->attr_id = g_strdup_printf("%u",(int)strtoul(yytext,NULL,16)); BEGIN ATTR_W_ID;}
 <ATTR_W_ID>integer			{ yyextra->attr_type = radius_integer;  BEGIN ATTR_W_TYPE; }
 <ATTR_W_ID>string			{ yyextra->attr_type = radius_string;  BEGIN ATTR_W_TYPE; }
@@ -295,8 +314,13 @@ static void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, c
 <ATTR_W_TYPE>[0-9a-z_-]+=([^\n]*)	;
 <ATTR_W_TYPE>[0-9a-z_-]+		{
     /*
-     * Support for "ATTRIBUTE name  number  type [vendor|options]", it marks
-     * this as vendor-specific attribute (VSA), but this notation is deprecated
+     * Support for "ATTRIBUTE name oid type vendor", where the token
+     * following the type matches neither has_tag nor encrypt={1,2,3},
+     * but is a sequence of digits, lower-case letters, underscores,
+     * and hyphens.
+     *
+     * We mark this as a vendor-specific attribute (VSA), with the token
+     * following the type being the vendor name; this notation is deprecated
      * in favor of BEGIN-VENDOR/END-VENDOR blocks.
      */
     gboolean attribute_ok;
@@ -388,6 +412,8 @@ static void add_value(Radius_scanner_state_t* state, const gchar* attrib_name, c
 
 %%
 
+DIAG_ON(sign-compare)
+
 static void add_vendor(Radius_scanner_state_t* state, const gchar* name, guint32 id, guint type_octets, guint length_octets, gboolean has_flags) {
 	radius_vendor_info_t* v;
 
@@ -449,17 +475,34 @@ static void add_vendor(Radius_scanner_state_t* state, const gchar* name, guint32
 static gboolean add_attribute(Radius_scanner_state_t* state, const gchar* name, const  gchar* codestr, radius_attr_dissector_t type, const  gchar* vendor, guint encrypted_flag, gboolean tagged, const gchar* attr) {
 	radius_attr_info_t* a;
 	GHashTable* by_id;
-	guint32 code;
+	radius_attr_type_t code;
+	guint8 code0 = 0, code1 = 0;
+	gchar *dot, *buf = NULL;
 
 	if (attr){
 		return add_tlv(state, name, codestr, type, attr);
 	}
 
+	buf = g_strdup(codestr);
+	dot = strchr(codestr, '.');
+	if (dot)
+		*dot = '\0';
+	code0 = (guint8) strtoul(buf, NULL, 10);
+	if (dot)
+		code1 = (guint8) strtoul(dot + 1, NULL, 10);
+	g_free(buf);
 
+	memset(&code, 0, sizeof(code));
 	if (vendor) {
-		radius_vendor_info_t* v;
-		v = (radius_vendor_info_t *)g_hash_table_lookup(state->dict->vendors_by_name,vendor);
+		if (state->current_vendor_evs_type) {
+			code.u8_code[0] = (guint8) state->current_vendor_evs_type;
+			code.u8_code[1] = code0;
+		} else {
+			code.u8_code[0] = code0;
+			code.u8_code[1] = 0;
+		}
 
+		radius_vendor_info_t* v = (radius_vendor_info_t *)g_hash_table_lookup(state->dict->vendors_by_name,vendor);
 		if (! v) {
 			g_string_append_printf(state->error, "Vendor: '%s', does not exist in %s:%i \n", vendor, state->fullpaths[state->include_stack_ptr], state->linenums[state->include_stack_ptr] );
 			return FALSE;
@@ -467,12 +510,13 @@ static gboolean add_attribute(Radius_scanner_state_t* state, const gchar* name, 
 			by_id = v->attrs_by_id;
 		}
 	} else {
+		code.u8_code[0] = code0;
+		code.u8_code[1] = code1;
+
 		by_id = state->dict->attrs_by_id;
 	}
 
-	code= (guint32) strtoul(codestr, NULL, 10);
-
-	a=(radius_attr_info_t*)g_hash_table_lookup(by_id, GUINT_TO_POINTER(code));
+	a=(radius_attr_info_t*)g_hash_table_lookup(by_id, GUINT_TO_POINTER(code.value));
 
 	if (!a) {
 		/*
@@ -494,7 +538,7 @@ static gboolean add_attribute(Radius_scanner_state_t* state, const gchar* name, 
 		a->hf_len = -1;
 		a->ett = -1;
 		a->tlvs_by_id = NULL;
-		g_hash_table_insert(by_id, GUINT_TO_POINTER(code),a);
+		g_hash_table_insert(by_id, GUINT_TO_POINTER(code.value),a);
 		g_hash_table_insert(state->dict->attrs_by_name,(gpointer) (a->name),a);
 	} else {
 		/*
@@ -537,7 +581,7 @@ static gboolean add_attribute(Radius_scanner_state_t* state, const gchar* name, 
 static gboolean add_tlv(Radius_scanner_state_t* state, const gchar* name, const  gchar* codestr, radius_attr_dissector_t type, const gchar* attr) {
 	radius_attr_info_t* a;
 	radius_attr_info_t* s;
-	guint32 code;
+	radius_attr_type_t code;
 
 	a = (radius_attr_info_t*)g_hash_table_lookup(state->dict->attrs_by_name, attr);
 
@@ -556,9 +600,10 @@ static gboolean add_tlv(Radius_scanner_state_t* state, const gchar* name, const 
 		a->tlvs_by_id = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, free_radius_attr_info);
 	}
 
-	code = (guint32) strtoul(codestr, NULL, 10);
+	memset(&code, 0, sizeof(code));
+	code.u8_code[0] = (guint8) strtoul(codestr, NULL, 10);
 
-	s = (radius_attr_info_t*)g_hash_table_lookup(a->tlvs_by_id, GUINT_TO_POINTER(code));
+	s = (radius_attr_info_t*)g_hash_table_lookup(a->tlvs_by_id, GUINT_TO_POINTER(code.value));
 
 	if (!s) {
 		/*
@@ -581,7 +626,7 @@ static gboolean add_tlv(Radius_scanner_state_t* state, const gchar* name, const 
 		s->ett = -1;
 		s->tlvs_by_id = NULL;
 
-		g_hash_table_insert(a->tlvs_by_id,GUINT_TO_POINTER(s->code),s);
+		g_hash_table_insert(a->tlvs_by_id,GUINT_TO_POINTER(s->code.value),s);
 		g_hash_table_insert(state->dict->tlvs_by_name,(gpointer) (s->name),s);
 	}
 
@@ -693,6 +738,7 @@ gboolean radius_load_dictionary (radius_dictionary_t* d, gchar* dir, const gchar
 	state.encrypted = 0;
 	state.has_tag = FALSE;
 	state.current_vendor = NULL;
+	state.current_vendor_evs_type = 0;
 	state.current_attr = NULL;
 
 	state.directory = dir;
@@ -741,8 +787,7 @@ gboolean radius_load_dictionary (radius_dictionary_t* d, gchar* dir, const gchar
 	 */
 
 	for (i = 0; i < MAX_INCLUDE_DEPTH; i++) {
-		if (state.fullpaths[i])
-			g_free(state.fullpaths[i]);
+		g_free(state.fullpaths[i]);
 	}
 
 	g_hash_table_foreach(state.dict->attrs_by_id,setup_attrs,&state);

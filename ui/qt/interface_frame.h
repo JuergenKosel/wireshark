@@ -30,8 +30,8 @@
 
 #include "ui/qt/accordion_frame.h"
 
-#include "ui/qt/interface_tree_model.h"
-#include "ui/qt/interface_sort_filter_model.h"
+#include <ui/qt/models/interface_tree_model.h>
+#include <ui/qt/models/interface_sort_filter_model.h>
 
 #include <QFrame>
 #include <QHBoxLayout>
@@ -55,6 +55,7 @@ public:
 
     QMenu * getSelectionMenu();
     int interfacesPresent();
+    void ensureSelectedInterface();
 
 Q_SIGNALS:
     void showExtcapOptions(QString device_name);

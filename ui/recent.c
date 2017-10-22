@@ -75,6 +75,7 @@
 #define RECENT_GUI_RLC_PDUS_FROM_MAC_FRAMES   "gui.rlc_pdus_from_mac_frames"
 #define RECENT_GUI_CUSTOM_COLORS              "gui.custom_colors"
 #define RECENT_GUI_TOOLBAR_SHOW               "gui.additional_toolbar_show"
+#define RECENT_GUI_INTERFACE_TOOLBAR_SHOW     "gui.interface_toolbar_show"
 
 #define RECENT_GUI_GEOMETRY                   "gui.geom."
 
@@ -120,16 +121,17 @@ static const value_string ts_seconds_values[] = {
 };
 
 static void
+free_col_width_data(gpointer data, gpointer user_data _U_)
+{
+  col_width_data *cfmt = (col_width_data *)data;
+  g_free(cfmt->cfield);
+  g_free(cfmt);
+}
+
+static void
 free_col_width_info(recent_settings_t *rs)
 {
-  col_width_data *cfmt;
-
-  while (rs->col_width_list != NULL) {
-    cfmt = (col_width_data *)rs->col_width_list->data;
-    g_free(cfmt->cfield);
-    g_free(cfmt);
-    rs->col_width_list = g_list_remove_link(rs->col_width_list, rs->col_width_list);
-  }
+  g_list_foreach(rs->col_width_list, free_col_width_data, NULL);
   g_list_free(rs->col_width_list);
   rs->col_width_list = NULL;
 }
@@ -866,6 +868,12 @@ write_profile_recent(void)
   fprintf(rf, RECENT_GUI_TOOLBAR_SHOW ": %s\n", string_list);
   g_free(string_list);
 
+  fprintf(rf, "\n# Interface Toolbars show.\n");
+  fprintf(rf, "# List of interface toolbars to show.\n");
+  string_list = join_string_list(recent.interface_toolbars);
+  fprintf(rf, RECENT_GUI_INTERFACE_TOOLBAR_SHOW ": %s\n", string_list);
+  g_free(string_list);
+
   fclose(rf);
 
   /* XXX - catch I/O errors (e.g. "ran out of disk space") and return
@@ -1115,12 +1123,12 @@ read_set_recent_pair_static(gchar *key, const gchar *value,
     }
     prefs_clear_string_list(col_l);
   } else if (strcmp(key, RECENT_GUI_FILEOPEN_REMEMBERED_DIR) == 0) {
-    if (recent.gui_fileopen_remembered_dir) {
-      g_free (recent.gui_fileopen_remembered_dir);
-    }
+    g_free(recent.gui_fileopen_remembered_dir);
     recent.gui_fileopen_remembered_dir = g_strdup(value);
   } else if (strcmp(key, RECENT_GUI_TOOLBAR_SHOW) == 0) {
       recent.gui_additional_toolbars = prefs_get_string_list(value);
+  } else if (strcmp(key, RECENT_GUI_INTERFACE_TOOLBAR_SHOW) == 0) {
+      recent.interface_toolbars = prefs_get_string_list(value);
   }
 
   return PREFS_SET_OK;
@@ -1294,6 +1302,11 @@ recent_read_profile_static(char **rf_path_return, int *rf_errno_return)
       recent.gui_additional_toolbars = NULL;
   }
 
+  if (recent.interface_toolbars) {
+      g_list_free_full (recent.interface_toolbars, g_free);
+      recent.interface_toolbars = NULL;
+  }
+
   /* Construct the pathname of the user's profile recent file. */
   rf_path = get_persconffile_path(RECENT_FILE_NAME, TRUE);
 
@@ -1431,11 +1444,7 @@ recent_set_column_width(gint col, gint width)
   if (!found) {
     col_w = (col_width_data *) g_malloc(sizeof(col_width_data));
     col_w->cfmt = cfmt;
-    if (cfield) {
-      col_w->cfield = g_strdup(cfield);
-    } else {
-      col_w->cfield = NULL;
-    }
+    col_w->cfield = g_strdup(cfield);
     col_w->width = width;
     col_w->xalign = COLUMN_XALIGN_DEFAULT;
     recent.col_width_list = g_list_append(recent.col_width_list, col_w);
@@ -1499,15 +1508,29 @@ recent_set_column_xalign(gint col, gchar xalign)
   if (!found) {
     col_w = (col_width_data *) g_malloc(sizeof(col_width_data));
     col_w->cfmt = cfmt;
-    if (cfield) {
-      col_w->cfield = g_strdup(cfield);
-    } else {
-      col_w->cfield = NULL;
-    }
+    col_w->cfield = g_strdup(cfield);
     col_w->width = 40;
     col_w->xalign = xalign;
     recent.col_width_list = g_list_append(recent.col_width_list, col_w);
   }
+}
+
+void
+recent_init(void)
+{
+  memset(&recent, 0, sizeof(recent_settings_t));
+}
+
+void
+recent_cleanup(void)
+{
+  free_col_width_info(&recent);
+  g_free(recent.gui_fileopen_remembered_dir);
+  g_list_free_full(recent.gui_additional_toolbars, g_free);
+  g_list_free_full(recent.interface_toolbars, g_free);
+  prefs_clear_string_list(recent.conversation_tabs);
+  prefs_clear_string_list(recent.endpoint_tabs);
+  prefs_clear_string_list(recent.custom_colors);
 }
 
 /*

@@ -37,8 +37,12 @@ DIAG_OFF(deprecated-declarations)
 
 DIAG_ON(deprecated-declarations)
 
-#define HASH_MD5_LENGTH 16
-#define HASH_SHA1_LENGTH 20
+#define HASH_MD5_LENGTH      16
+#define HASH_SHA1_LENGTH     20
+#define HASH_SHA2_224_LENGTH 28
+#define HASH_SHA2_256_LENGTH 32
+#define HASH_SHA2_384_LENGTH 48
+#define HASH_SHA2_512_LENGTH 64
 
 /* Convenience function to calculate the HMAC from the data in BUFFER
    of size LENGTH with key KEY of size KEYLEN using the algorithm ALGO avoiding the creating of a
@@ -50,5 +54,9 @@ WS_DLL_PUBLIC gcry_error_t ws_hmac_buffer(int algo, void *digest, const void *bu
 /* Convenience function to encrypt 8 bytes in BUFFER with DES using the 56 bits KEY expanded to
    64 bits as key, encrypted data is returned in OUTPUT which must be at least 8 bytes large */
 WS_DLL_PUBLIC void crypt_des_ecb(guint8 *output, const guint8 *buffer, const guint8 *key56);
+
+/* Convenience function for RSA decryption. Returns decrypted length on success, 0 on failure */
+WS_DLL_PUBLIC size_t rsa_decrypt_inplace(const guint len, guchar* data, gcry_sexp_t pk, gboolean pkcs1_padding, char **err);
+
 
 #endif /* __WSGCRYPT_H__ */

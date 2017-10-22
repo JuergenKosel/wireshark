@@ -148,6 +148,12 @@ static const value_string auth_types[] = {
     { 4, "crypt()ed password" },
     { 5, "MD5 password" },
     { 6, "SCM credentials" },
+    { 7, "GSSAPI" },
+    { 8, "GSSAPI/SSPI continue" },
+    { 9, "SSPI" },
+    {10, "SASL" },
+    {11, "SASL continue" },
+    {12, "SASL complete" },
     { 0, NULL }
 };
 
@@ -373,6 +379,8 @@ static void dissect_pgsql_be_msg(guchar type, guint length, tvbuff_t *tvb,
             n += 4;
             siz = (i == 4 ? 2 : 4);
             proto_tree_add_item(tree, hf_salt, tvb, n, siz, ENC_NA);
+        }else if (i == 8) {
+            proto_tree_add_item(tree, hf_salt, tvb, n, length-8, ENC_NA);
         }
         break;
 

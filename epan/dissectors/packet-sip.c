@@ -954,17 +954,8 @@ header_fields_copy_cb(void* n, const void* o, size_t siz _U_)
     header_field_t* new_rec = (header_field_t*)n;
     const header_field_t* old_rec = (const header_field_t*)o;
 
-    if (old_rec->header_name) {
-        new_rec->header_name = g_strdup(old_rec->header_name);
-    } else {
-        new_rec->header_name = NULL;
-    }
-
-    if (old_rec->header_desc) {
-        new_rec->header_desc = g_strdup(old_rec->header_desc);
-    } else {
-        new_rec->header_desc = NULL;
-    }
+    new_rec->header_name = g_strdup(old_rec->header_name);
+    new_rec->header_desc = g_strdup(old_rec->header_desc);
 
     return new_rec;
 }
@@ -1078,23 +1069,9 @@ authorization_users_copy_cb(void* n, const void* o, size_t siz _U_)
     authorization_user_t* new_rec = (authorization_user_t*)n;
     const authorization_user_t* old_rec = (const authorization_user_t*)o;
 
-    if (old_rec->username) {
-        new_rec->username = g_strdup(old_rec->username);
-    } else {
-        new_rec->username = NULL;
-    }
-
-    if (old_rec->realm) {
-        new_rec->realm = g_strdup(old_rec->realm);
-    } else {
-        new_rec->realm = NULL;
-    }
-
-    if (old_rec->password) {
-        new_rec->password = g_strdup(old_rec->password);
-    } else {
-        new_rec->password = NULL;
-    }
+    new_rec->username = g_strdup(old_rec->username);
+    new_rec->realm = g_strdup(old_rec->realm);
+    new_rec->password = g_strdup(old_rec->password);
 
     return new_rec;
 }
@@ -3273,8 +3250,10 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
 
     /* Initialise stat info for passing to tap
      * Note: this isn't _only_ for taps - internal code here uses it too
+     * also store stat info in proto_data for subdissectors
      */
-    stat_info = wmem_new0(wmem_packet_scope(), sip_info_value_t);
+    stat_info = wmem_new0(pinfo->pool, sip_info_value_t);
+    p_add_proto_data(pinfo->pool, pinfo, proto_sip, pinfo->curr_layer_num, stat_info);
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "SIP");
 
@@ -3542,7 +3521,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                     break;
 
                     case POS_FROM :
-                        if(hdr_tree) {
+                        /*if(hdr_tree)*/ {
                             proto_item *item;
 
                             sip_element_item = sip_proto_tree_add_string(hdr_tree,
@@ -5513,6 +5492,7 @@ static const value_string response_code_vals[] = {
     { 603, "Decline"},
     { 604, "Does Not Exist Anywhere"},
     { 606, "Not Acceptable"},
+    { 607, "Unwanted"},
     { 699, "Global Failure - Others"},
 
     { 0, NULL}

@@ -31,7 +31,7 @@
 #include <epan/in_cksum.h>
 #include <epan/ipproto.h>
 
-#include "packet-ipv6.h"
+#include "packet-ip.h"
 
 void proto_register_shim6(void);
 void proto_reg_handoff_shim6(void);
@@ -572,16 +572,8 @@ dissect_shim6(tvbuff_t *tvb, packet_info * pinfo, proto_tree *tree, void* data)
                         val_to_str_const(shim.ip6s_p & SHIM6_BITMASK_TYPE, shimctrlvals, "Unknown"));
     }
 
-    root_tree = tree;
-    if (pinfo->dst.type == AT_IPv6) {
-        ipv6_pinfo_t *ipv6_pinfo = p_get_ipv6_pinfo(pinfo);
-
-        ipv6_pinfo->frag_plen -= len;
-        if (ipv6_pinfo->ipv6_tree != NULL) {
-            root_tree = ipv6_pinfo->ipv6_tree;
-            ipv6_pinfo->ipv6_item_len += len;
-        }
-    }
+    root_tree = p_ipv6_pinfo_select_root(pinfo, tree);
+    p_ipv6_pinfo_add_len(pinfo, len);
 
     ti = proto_tree_add_item(root_tree, proto_shim6, tvb, offset, len, ENC_NA);
     shim_tree = proto_item_add_subtree(ti, ett_shim6_proto);
@@ -647,7 +639,7 @@ dissect_shim6(tvbuff_t *tvb, packet_info * pinfo, proto_tree *tree, void* data)
     }
 
     next_tvb = tvb_new_subset_remaining(tvb, len);
-    ipv6_dissect_next(shim.ip6s_nxt, next_tvb, pinfo, tree, (ws_ip *)data);
+    ipv6_dissect_next(shim.ip6s_nxt, next_tvb, pinfo, tree, (ws_ip6 *)data);
     return tvb_captured_length(tvb);
 }
 

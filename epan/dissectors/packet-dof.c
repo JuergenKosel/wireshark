@@ -3409,32 +3409,9 @@ static void* secmode_list_copy_cb(void *n, const void *o, size_t siz _U_)
     secmode_field_t *new_rec = (secmode_field_t *)n;
     const secmode_field_t *old_rec = (const secmode_field_t *)o;
 
-    if (old_rec->domain)
-    {
-        new_rec->domain = g_strdup(old_rec->domain);
-    }
-    else
-    {
-        new_rec->domain = NULL;
-    }
-
-    if (old_rec->identity)
-    {
-        new_rec->identity = g_strdup(old_rec->identity);
-    }
-    else
-    {
-        new_rec->identity = NULL;
-    }
-
-    if (old_rec->kek)
-    {
-        new_rec->kek = g_strdup(old_rec->kek);
-    }
-    else
-    {
-        new_rec->kek = NULL;
-    }
+    new_rec->domain = g_strdup(old_rec->domain);
+    new_rec->identity = g_strdup(old_rec->identity);
+    new_rec->kek = g_strdup(old_rec->kek);
 
     return new_rec;
 }
@@ -3443,12 +3420,9 @@ static void secmode_list_free_cb(void *r)
 {
     secmode_field_t *rec = (secmode_field_t *)r;
 
-    if (rec->domain)
-        g_free(rec->domain);
-    if (rec->identity)
-        g_free(rec->identity);
-    if (rec->kek)
-        g_free(rec->kek);
+    g_free(rec->domain);
+    g_free(rec->identity);
+    g_free(rec->kek);
 }
 
 
@@ -3477,14 +3451,7 @@ static void* seckey_list_copy_cb(void *n, const void *o, size_t siz _U_)
     seckey_field_t *new_rec = (seckey_field_t *)n;
     const seckey_field_t *old_rec = (const seckey_field_t *)o;
 
-    if (old_rec->key)
-    {
-        new_rec->key = g_strdup(old_rec->key);
-    }
-    else
-    {
-        new_rec->key = NULL;
-    }
+    new_rec->key = g_strdup(old_rec->key);
 
     return new_rec;
 }
@@ -3493,8 +3460,7 @@ static void seckey_list_free_cb(void *r)
 {
     seckey_field_t *rec = (seckey_field_t *)r;
 
-    if (rec->key)
-        g_free(rec->key);
+    g_free(rec->key);
 }
 
 
@@ -3557,32 +3523,9 @@ static void* identsecret_list_copy_cb(void *n, const void *o, size_t siz _U_)
     identsecret_field_t *new_rec = (identsecret_field_t *)n;
     const identsecret_field_t *old_rec = (const identsecret_field_t *)o;
 
-    if (old_rec->domain)
-    {
-        new_rec->domain = g_strdup(old_rec->domain);
-    }
-    else
-    {
-        new_rec->domain = NULL;
-    }
-
-    if (old_rec->identity)
-    {
-        new_rec->identity = g_strdup(old_rec->identity);
-    }
-    else
-    {
-        new_rec->identity = NULL;
-    }
-
-    if (old_rec->secret)
-    {
-        new_rec->secret = g_strdup(old_rec->secret);
-    }
-    else
-    {
-        new_rec->secret = NULL;
-    }
+    new_rec->domain = g_strdup(old_rec->domain);
+    new_rec->identity = g_strdup(old_rec->identity);
+    new_rec->secret = g_strdup(old_rec->secret);
 
     return new_rec;
 }
@@ -3591,12 +3534,9 @@ static void identsecret_list_free_cb(void *r)
 {
     identsecret_field_t *rec = (identsecret_field_t *)r;
 
-    if (rec->domain)
-        g_free(rec->domain);
-    if (rec->identity)
-        g_free(rec->identity);
-    if (rec->secret)
-        g_free(rec->secret);
+    g_free(rec->domain);
+    g_free(rec->identity);
+    g_free(rec->secret);
 }
 
 static void init_addr_port_tables(void);
@@ -3861,6 +3801,14 @@ typedef struct DOFObjectIDAttribute_t
     const guint8 *data;                         /**< Attribute data. **/
 } DOFObjectIDAttribute;
 
+/**
+* Read variable-length value from buffer.
+*
+* @param maxSize   [in]        Maximum size of value to be read
+* @param bufLength [in,out]    Input: size of buffer, output: size of value in buffer
+* @param buffer    [in]        Actual buffer
+* @return                      Uncompressed value if buffer size is valid (or 0 on error)
+*/
 static guint32 OALMarshal_UncompressValue(guint8 maxSize, guint32 *bufLength, const guint8 *buffer)
 {
     guint32 value = 0;
@@ -3894,6 +3842,10 @@ static guint32 OALMarshal_UncompressValue(guint8 maxSize, guint32 *bufLength, co
         break;
     }
 
+    /* Sanity check */
+    if (size > *bufLength)
+        return 0;
+
     value = buffer[used++] & mask;
     while (used < size)
         value = (value << 8) | buffer[used++];
@@ -3902,18 +3854,13 @@ static guint32 OALMarshal_UncompressValue(guint8 maxSize, guint32 *bufLength, co
     return (value);
 }
 
-static guint32 DOFObjectID_GetClassSize_Bytes(const guint8 *pBytes)
-{
-    guint32 size = 4;
-
-    (void)OALMarshal_UncompressValue(DOFOBJECTID_MAX_CLASS_SIZE, &size, pBytes);
-
-    return size;
-}
-
 static guint32 DOFObjectID_GetClassSize(DOFObjectID self)
 {
-    return DOFObjectID_GetClassSize_Bytes(self->oid);
+    guint32 size = self->len;
+
+    (void)OALMarshal_UncompressValue(DOFOBJECTID_MAX_CLASS_SIZE, &size, self->oid);
+
+    return size;
 }
 
 static guint32 DOFObjectID_GetDataSize(const DOFObjectID self)
@@ -7444,7 +7391,7 @@ static int dissect_dsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 
     proto_tree_add_uint_format(dsp_tree, hf_2008_1_dsp_12_opcode, tvb, offset, 1, opcode, "Opcode: %s (%u)", val_to_str(opcode, strings_2008_1_dsp_opcodes, "Unknown Opcode (%d)"), opcode & 0x7F);
     offset += 1;
-    col_append_sep_fstr(pinfo->cinfo, COL_INFO, "/", "%s", val_to_str(opcode, strings_2008_1_dsp_opcodes, "Unknown Opcode (%d)"));
+    col_append_sep_str(pinfo->cinfo, COL_INFO, "/", val_to_str(opcode, strings_2008_1_dsp_opcodes, "Unknown Opcode (%d)"));
 
     switch (opcode)
     {

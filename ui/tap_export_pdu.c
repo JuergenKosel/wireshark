@@ -26,7 +26,7 @@
 #include "globals.h"
 #include "wiretap/pcap-encap.h"
 #include "wsutil/os_version_info.h"
-#include "ws_version_info.h"
+#include "version_info.h"
 
 #include <epan/tap.h>
 #include <epan/exported_pdu.h>
@@ -68,10 +68,12 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
 
     pkthdr.pkt_encap = exp_pdu_tap_data->pkt_encap;
 
-    if (pinfo->fd->flags.has_user_comment)
+    if (pinfo->fd->flags.has_user_comment) {
         pkthdr.opt_comment = g_strdup(epan_get_user_comment(edt->session, pinfo->fd));
-    else if (pinfo->fd->flags.has_phdr_comment)
+        pkthdr.has_comment_changed = TRUE;
+    } else if (pinfo->fd->flags.has_phdr_comment) {
         pkthdr.opt_comment = g_strdup(pinfo->phdr->opt_comment);
+    }
 
     pkthdr.presence_flags = WTAP_HAS_CAP_LEN|WTAP_HAS_INTERFACE_ID|WTAP_HAS_TS|WTAP_HAS_PACK_FLAGS;
 
@@ -146,8 +148,7 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, char *comment)
     int_data_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(int_data);
     int_data_mand->wtap_encap      = WTAP_ENCAP_WIRESHARK_UPPER_PDU;
     int_data_mand->time_units_per_second = 1000000000; /* default nanosecond resolution */
-    int_data_mand->link_type       = wtap_wtap_encap_to_pcap_encap(WTAP_ENCAP_WIRESHARK_UPPER_PDU);
-    int_data_mand->snap_len        = WTAP_MAX_PACKET_SIZE;
+    int_data_mand->snap_len        = WTAP_MAX_PACKET_SIZE_STANDARD;
 
     wtap_block_add_string_option(int_data, OPT_IDB_NAME, "Fake IF, PDU->Export", strlen("Fake IF, PDU->Export"));
     wtap_block_add_uint8_option(int_data, OPT_IDB_TSRESOL, 9);
@@ -157,7 +158,7 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, char *comment)
     g_array_append_val(shb_hdrs, shb_hdr);
 
     /* Use a random name for the temporary import buffer */
-    exp_pdu_tap_data->wdh = wtap_dump_fdopen_ng(fd, WTAP_FILE_TYPE_SUBTYPE_PCAPNG, WTAP_ENCAP_WIRESHARK_UPPER_PDU, WTAP_MAX_PACKET_SIZE, FALSE,
+    exp_pdu_tap_data->wdh = wtap_dump_fdopen_ng(fd, WTAP_FILE_TYPE_SUBTYPE_PCAPNG, WTAP_ENCAP_WIRESHARK_UPPER_PDU, WTAP_MAX_PACKET_SIZE_STANDARD, FALSE,
         shb_hdrs, idb_inf, NULL, &err);
     if (exp_pdu_tap_data->wdh == NULL) {
         g_assert(err != 0);

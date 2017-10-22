@@ -55,7 +55,7 @@ EXTRA_PROGRAMS = wireshark-gtk wireshark tshark tfshark capinfos captype \
 # Wireshark configuration files are put in $(pkgdatadir).
 #
 dist_pkgdata_DATA = COPYING manuf services cfilters colorfilters dfilters \
-	smi_modules ipmap.html pdml2html.xsl
+	smi_modules ipmap.html pdml2html.xsl enterprises.tsv wka
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = wireshark.pc
@@ -66,6 +66,7 @@ pkgconfig_DATA = wireshark.pc
 profilesdir = $(pkgdatadir)
 nobase_dist_profiles_DATA = \
 	profiles/Bluetooth/colorfilters \
+	profiles/Bluetooth/preferences \
 	profiles/Classic/colorfilters
 
 #
@@ -84,6 +85,8 @@ dist_diameter_DATA = $(_CUSTOM_diameter_xml_files_) \
 	diameter/eap.xml \
 	diameter/Ericsson.xml \
 	diameter/etsie2e4.xml \
+	diameter/Inovar.xml \
+	diameter/Juniper.xml \
 	diameter/mobileipv4.xml \
 	diameter/mobileipv6.xml \
 	diameter/nasreq.xml \
@@ -133,13 +136,13 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.3gpp2 \
 	radius/dictionary.acc \
 	radius/dictionary.acme \
-	radius/dictionary.airespace \
 	radius/dictionary.actelis \
 	radius/dictionary.aerohive \
+	radius/dictionary.airespace \
 	radius/dictionary.alcatel \
+	radius/dictionary.alcatel-lucent.aaa \
 	radius/dictionary.alcatel.esam \
 	radius/dictionary.alcatel.sr \
-	radius/dictionary.alcatel-lucent.aaa \
 	radius/dictionary.alteon \
 	radius/dictionary.altiga \
 	radius/dictionary.alvarion \
@@ -154,16 +157,16 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.avaya \
 	radius/dictionary.azaire \
 	radius/dictionary.bay \
-	radius/dictionary.bluecoat \
 	radius/dictionary.bintec \
+	radius/dictionary.bluecoat \
+	radius/dictionary.bristol \
 	radius/dictionary.broadsoft \
 	radius/dictionary.brocade \
 	radius/dictionary.bskyb \
-	radius/dictionary.bristol \
 	radius/dictionary.bt \
-	radius/dictionary.camiant \
 	radius/dictionary.cablelabs \
 	radius/dictionary.cabletron \
+	radius/dictionary.camiant \
 	radius/dictionary.chillispot \
 	radius/dictionary.cisco \
 	radius/dictionary.cisco.asa \
@@ -175,13 +178,14 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.cnergee \
 	radius/dictionary.colubris \
 	radius/dictionary.columbia_university \
-	radius/dictionary.compatible \
 	radius/dictionary.compat \
+	radius/dictionary.compatible \
 	radius/dictionary.cosine \
 	radius/dictionary.dante \
+	radius/dictionary.dellemc \
 	radius/dictionary.dhcp \
-	radius/dictionary.dlink \
 	radius/dictionary.digium \
+	radius/dictionary.dlink \
 	radius/dictionary.dragonwave \
 	radius/dictionary.efficientip \
 	radius/dictionary.eltex \
@@ -190,7 +194,6 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.ericsson \
 	radius/dictionary.ericsson.ab \
 	radius/dictionary.ericsson.packet.core.networks \
-	radius/dictionary.erx \
 	radius/dictionary.extreme \
 	radius/dictionary.f5 \
 	radius/dictionary.fdxtended \
@@ -215,8 +218,8 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.itk \
 	radius/dictionary.jradius \
 	radius/dictionary.juniper \
-	radius/dictionary.kineto \
 	radius/dictionary.karlnet \
+	radius/dictionary.kineto \
 	radius/dictionary.lancom \
 	radius/dictionary.livingston \
 	radius/dictionary.localweb \
@@ -309,6 +312,7 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.travelping \
 	radius/dictionary.tropos \
 	radius/dictionary.ukerna \
+	radius/dictionary.unisphere \
 	radius/dictionary.unix \
 	radius/dictionary.usr \
 	radius/dictionary.utstarcom \
@@ -353,7 +357,6 @@ plugin_ldadd = $(_CUSTOM_plugin_ldadd_) \
 	-dlopen plugins/ethercat/ethercat.la \
 	-dlopen plugins/gryphon/gryphon.la \
 	-dlopen plugins/irda/irda.la \
-	-dlopen plugins/m2m/m2m.la \
 	-dlopen plugins/mate/mate.la \
 	-dlopen plugins/opcua/opcua.la \
 	-dlopen plugins/profinet/profinet.la \
@@ -361,12 +364,7 @@ plugin_ldadd = $(_CUSTOM_plugin_ldadd_) \
 	-dlopen plugins/unistim/unistim.la \
 	-dlopen plugins/wimax/wimax.la \
 	-dlopen plugins/wimaxmacphy/wimaxmacphy.la
-
-else		# HAVE_PLUGINS
-
-plugin_ldadd =
-
-endif		# HAVE_PLUGINS
+endif
 
 # "BUILT_SOURCES" are built before any "make all" or "make check" targets.
 BUILT_HEADER_FILES = \
@@ -389,28 +387,14 @@ GENERATED_FILES = $(GENERATED_C_FILES) $(GENERATED_HEADER_FILES)
 
 EXTCAP_COMMON_SRC = \
 	extcap.c		\
-	extcap_parser.c	\
+	extcap_parser.c		\
 	extcap_spawn.c
-
-EXTCAP_COMMON_INCLUDES = \
-	extcap.h		\
-	extcap_parser.h	\
-	extcap_spawn.h
 
 # sources common for wireshark, tshark, and rawshark
 SHARK_COMMON_SRC = \
 	cfile.c			\
 	frame_tvbuff.c		\
 	sync_pipe_write.c
-
-# corresponding headers
-SHARK_COMMON_INCLUDES = \
-	cfile.h			\
-	file.h			\
-	fileset.h		\
-	frame_tvbuff.h		\
-	register.h		\
-	ws_symbol_export.h
 
 # wireshark specifics
 WIRESHARK_COMMON_SRC = \
@@ -419,19 +403,8 @@ WIRESHARK_COMMON_SRC = \
 	capture_opts.c		\
 	file.c			\
 	fileset.c		\
-	filter_files.c		\
 	summary.c		\
-	ws_version_info.c
-
-# corresponding headers
-WIRESHARK_COMMON_INCLUDES = \
-	capture_info.h		\
-	capture_opts.h		\
-	filter_files.h		\
-	globals.h		\
-	log.h			\
-	summary.h		\
-	sync_pipe.h
+	version_info.c
 
 if HAVE_EXTCAP
 SHARK_COMMON_SRC += $(EXTCAP_COMMON_SRC)
@@ -467,10 +440,7 @@ wireshark_common_ldadd = \
 	wsutil/libwsutil.la		\
 	$(plugin_ldadd)			\
 	@PCAP_LIBS@			\
-	@APPLICATIONSERVICES_FRAMEWORKS@	\
-	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
-	@COREFOUNDATION_FRAMEWORKS@	\
-	$(EPAN_EXTRA_LIBS)			\
+	$(EPAN_EXTRA_LIBS)		\
 	@LIBNL_LIBS@
 
 if HAVE_Qt
@@ -508,9 +478,8 @@ endif
 tshark_SOURCES = \
 	$(SHARK_COMMON_SRC)	\
 	capture_opts.c		\
-	filter_files.c		\
 	tshark.c		\
-	ws_version_info.c
+	version_info.c
 
 tshark_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
@@ -528,14 +497,12 @@ tshark_LDADD = \
 	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
-	${EPAN_EXTRA_LIBS}	\
-	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
-	@COREFOUNDATION_FRAMEWORKS@
+	${EPAN_EXTRA_LIBS}
 
 tfshark_SOURCES = \
 	$(SHARK_COMMON_SRC)	\
 	tfshark.c		\
-	ws_version_info.c
+	version_info.c
 
 tfshark_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
@@ -551,14 +518,12 @@ tfshark_LDADD = \
 	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
-	${EPAN_EXTRA_LIBS}	\
-	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
-	@COREFOUNDATION_FRAMEWORKS@
+	${EPAN_EXTRA_LIBS}
 
 rawshark_SOURCES = \
 	$(SHARK_COMMON_SRC)	\
 	rawshark.c		\
-	ws_version_info.c
+	version_info.c
 
 rawshark_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
@@ -574,20 +539,21 @@ rawshark_LDADD = \
 	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
-	${EPAN_EXTRA_LIBS}	\
-	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
-	@COREFOUNDATION_FRAMEWORKS@
+	${EPAN_EXTRA_LIBS}
 
 sharkd_SOURCES = \
 	$(SHARK_COMMON_SRC)	\
-	filter_files.c		\
 	sharkd.c		\
 	sharkd.h		\
 	sharkd_daemon.c		\
 	sharkd_session.c	\
-	ws_version_info.c
+	version_info.c
 
 sharkd_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
+
+if HAVE_SPEEXDSP
+sharkd_CPPFLAGS += $(SPEEXDSP_CFLAGS)
+endif
 
 sharkd_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
 
@@ -595,20 +561,23 @@ sharkd_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
 sharkd_LDADD = \
 	ui/cli/libcliui.a		\
 	ui/libui.a			\
+	codecs/libwscodecs.la		\
 	wiretap/libwiretap.la		\
 	epan/libwireshark.la		\
 	wsutil/libwsutil.la		\
 	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
-	${EPAN_EXTRA_LIBS}	\
-	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
-	@COREFOUNDATION_FRAMEWORKS@
+	${EPAN_EXTRA_LIBS}
+
+if HAVE_SPEEXDSP
+sharkd_LDADD += $(SPEEXDSP_LIBS)
+endif
 
 text2pcap_SOURCES = \
 	text2pcap.c		\
 	text2pcap-scanner.l	\
-	ws_version_info.c
+	version_info.c
 
 text2pcap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
@@ -626,24 +595,26 @@ text2pcap_LDADD = \
 
 mergecap_SOURCES = \
 	mergecap.c	\
-	ws_version_info.c
+	version_info.c
 
 mergecap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link mergecap.
 mergecap_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@
 
 capinfos_SOURCES = \
 	capinfos.c	\
-	ws_version_info.c
+	version_info.c
 
 capinfos_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link capinfos.
 capinfos_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@			\
@@ -651,24 +622,26 @@ capinfos_LDADD = \
 
 captype_SOURCES = \
 	captype.c	\
-	ws_version_info.c
+	version_info.c
 
 captype_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link captype.
 captype_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@
 
 editcap_SOURCES = \
 	editcap.c	\
-	ws_version_info.c
+	version_info.c
 
 editcap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link editcap.
 editcap_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@			\
@@ -676,25 +649,27 @@ editcap_LDADD = \
 
 reordercap_SOURCES = \
 	reordercap.c	\
-	ws_version_info.c
+	version_info.c
 
 reordercap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link reordercap.
 reordercap_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@
 
 randpkt_SOURCES = \
 	randpkt.c	\
-	ws_version_info.c
+	version_info.c
 
 randpkt_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link randpkt.
 randpkt_LDADD = \
 	randpkt_core/librandpkt_core.a	\
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@			\
@@ -722,10 +697,9 @@ dumpcap_SOURCES = \
 	capture_stop_conditions.c	\
 	conditions.c			\
 	dumpcap.c			\
-	filter_files.c			\
 	ringbuffer.c			\
 	sync_pipe_write.c		\
-	ws_version_info.c
+	version_info.c
 
 dumpcap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
@@ -736,25 +710,39 @@ dumpcap_LDFLAGS = $(AM_LDFLAGS) $(PIE_LDFLAGS)
 # Libraries with which to link dumpcap.
 dumpcap_LDADD = \
 	caputils/libcaputils.a		\
+	ui/libui.a			\
 	writecap/libwritecap.a		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
-	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
-	@COREFOUNDATION_FRAMEWORKS@	\
 	@LIBCAP_LIBS@			\
 	@LIBNL_LIBS@
 
+pkginclude_HEADERS = \
+	cfile.h			\
+	file.h			\
+	register.h		\
+	globals.h		\
+	log.h			\
+	ws_symbol_export.h	\
+	ws_attributes.h		\
+	ws_diag_control.h
+
 # this target needed for distribution only
 noinst_HEADERS = \
-	$(SHARK_COMMON_INCLUDES)	\
-	$(EXTCAP_COMMON_INCLUDES)	\
-	$(WIRESHARK_COMMON_INCLUDES)	\
+	capture_info.h		\
+	capture_opts.h		\
 	capture_stop_conditions.h	\
-	conditions.h			\
-	ringbuffer.h			\
-	ws_diag_control.h		\
-	ws_version_info.h
+	conditions.h		\
+	fileset.h		\
+	frame_tvbuff.h		\
+	ringbuffer.h		\
+	summary.h		\
+	sync_pipe.h		\
+	extcap.h		\
+	extcap_parser.h		\
+	extcap_spawn.h		\
+	version_info.h
 
 #
 # Build the version string
@@ -784,32 +772,11 @@ CLEANFILES = \
 	doxygen-core.tag	\
 	vgcore.*
 
-#
-# We have to remove version.h with "make distclean", as, otherwise,
-# "make distcheck" fails.  We still need to make the tarballs work
-# even if you do "make distclean" and try to rebuild; that's a work in
-# progress.
-#
-# XXX - "ps.c" is distributed in the source tarballs; why is it in the
-# list of files removed by "make distclean"?  (It's deliberately
-# included in that list.)
-#
 DISTCLEANFILES = \
-	ps.c			\
 	version.h
 
 MAINTAINERCLEANFILES = \
-	$(GENERATED_FILES)	\
-	Makefile.in		\
-	aclocal.m4		\
-	compile			\
-	config.h.in		\
-	configure		\
-	depcomp			\
-	install-sh		\
-	ltmain.sh		\
-	missing			\
-	ylwrap
+	$(GENERATED_FILES)
 
 EXTRA_DIST = \
 	.editorconfig		\
@@ -822,7 +789,7 @@ EXTRA_DIST = \
 	README.hpux		\
 	README.linux		\
 	README.macos		\
-	README.vmware		\
+	README.md		\
 	README.windows		\
 	abi-descriptor.template	\
 	autogen.sh		\
@@ -832,12 +799,12 @@ EXTRA_DIST = \
 	dfilters		\
 	doxygen_global.cfg	\
 	doxygen.cfg.in		\
+	enterprises.tsv		\
 	fix			\
 	idl			\
 	image			\
 	ipmap.html		\
 	m4			\
-	macosx-setup.sh		\
 	macosx-support-lib-patches	\
 	make-version.pl		\
 	manuf			\
@@ -852,15 +819,13 @@ EXTRA_DIST = \
 	wireshark-mime-package.xml	\
 	wireshark.appdata.xml	\
 	wireshark.pc.in		\
-	wka.tmpl		\
+	wka			\
 	CMakeLists.txt		\
 	CMakeListsCustom.txt.example	\
 	cmakeconfig.h.in	\
 	CMakeOptions.txt	\
-	README.cmake		\
 	ConfigureChecks.cmake	\
-	cmake			\
-	CPackConfig.txt
+	cmake
 
 install-exec-hook:
 if HAVE_DUMPCAP_GROUP
@@ -876,6 +841,14 @@ if SETUID_INSTALL
 endif
 endif
 
+
+if HAVE_PLUGINS
+plugins_subdir = plugins
+endif
+
+if HAVE_EXTCAP
+extcap_subdir = extcap
+endif
 
 DIST_SUBDIRS = \
 	capchild	\
@@ -895,8 +868,7 @@ DIST_SUBDIRS = \
 	wiretap		\
 	writecap	\
 	wsutil		\
-	extcap		\
-	docbook
+	extcap
 
 SUBDIRS = \
 	tools			\
@@ -906,16 +878,17 @@ SUBDIRS = \
 	epan			\
 	capchild		\
 	caputils		\
-	@plugins_dir@		\
-	packaging		\
+	$(plugins_subdir)	\
 	help			\
 	ui			\
+	codecs			\
 	@wireshark_SUBDIRS@	\
 	ui/cli			\
 	randpkt_core		\
-	@extcap_subdir@		\
+	$(extcap_subdir)	\
 	.			\
-	doc
+	doc			\
+	docbook
 
 help/faq.txt: $(srcdir)/help/faq.py
 	$(AM_V_GEN)(cd help ; \
@@ -931,74 +904,34 @@ libtool: $(LIBTOOL_DEPS)
 #
 # We use $(datadir).  If the desktop doesn't look for them there,
 # the desktop is broken; the latest XDG Base Directory Specification
-# at
+# can be consulted at
 #
 #    http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
 #
-# says
-#
-# $XDG_DATA_DIRS defines the preference-ordered set of base directories
-# to search for data files in addition to the $XDG_DATA_HOME base
-# directory. The directories in $XDG_DATA_DIRS should be seperated with a
-# colon ':'.
-#
-# If $XDG_DATA_DIRS is either not set or empty, a value equal to
-# /usr/local/share/:/usr/share/ should be used.
-#
-# so:
-#
-#    if this is configured to install under /usr, that should Just Work,
-#    unless XDG_DATA_DIRS is set incorrectly or the desktop isn't
-#    compliant with the latest version of the spec;
-#
-#    if this installs under the default /usr/share, that should Just Work,
-#    unless XDG_DATA_DIRS is set incorrectly or the desktop isn't
-#    compliant with the latest version of the spec;
-#
-#    if this is configured to install somewhere else, whoever configured
-#    it should also have made sure that XDG_DATA_DIRS was set correctly
-#    and, if that doesn't work, the desktop isn't compliant with the
-#    latest version of the spec.
-#
-# We install these as part of the standard installation process, just
-# as, for example, Inkscape does with its icons.  See bug 10737.
-#
-# Do not use the -T flag to the install command, as it's not portable.
-# Some versions of install don't support a -T flag at all, and the
-# FreeBSD install command has a -T flag that takes an argument and
-# that has completely different semantics.
-#
-# We neither need nor want any of this on OS X, nor do we want it if
-# we're not building Wireshark (that being the only desktop app).
+# We neither need nor want any of this if we're not building Wireshark
+# (that being the only desktop app).
 #
 install-data-local:
 if BUILDING_WIRESHARK
-if NOT_OS_X
-	mkdir -p $(DESTDIR)$(datadir)/mime/packages
-	install -m 644 $(srcdir)/wireshark-mime-package.xml $(DESTDIR)$(datadir)/mime/packages/wireshark.xml
-	mkdir -p $(DESTDIR)$(datadir)/appdata
-	install -m 644 $(srcdir)/wireshark.appdata.xml $(DESTDIR)$(datadir)/appdata/wireshark.appdata.xml
-	mkdir -p $(DESTDIR)$(datadir)/applications
-	if test x$(DESKTOP_FILE_INSTALL) != x ; then \
-		$(DESKTOP_FILE_INSTALL) --dir $(DESTDIR)$(datadir)/applications $(srcdir)/wireshark.desktop  $(srcdir)/wireshark-gtk.desktop ; \
-	else \
-		install -m 644 $(srcdir)/wireshark.desktop $(srcdir)/wireshark-gtk.desktop $(DESTDIR)$(datadir)/applications; \
-	fi
+	$(MKDIR_P) $(DESTDIR)$(datadir)/mime/packages
+	$(INSTALL) -m 644 $(srcdir)/wireshark-mime-package.xml $(DESTDIR)$(datadir)/mime/packages/wireshark.xml
+	$(MKDIR_P) $(DESTDIR)$(datadir)/appdata
+	$(INSTALL) -m 644 $(srcdir)/wireshark.appdata.xml $(DESTDIR)$(datadir)/appdata/wireshark.appdata.xml
+	$(MKDIR_P) $(DESTDIR)$(datadir)/applications
+	$(INSTALL) -m 644 $(srcdir)/wireshark.desktop $(srcdir)/wireshark-gtk.desktop $(DESTDIR)$(datadir)/applications
 	for size in 16 24 32 48 64 128 256; \
 	do \
-		mkdir -p $(DESTDIR)$(datadir)/icons/hicolor/$${size}x$${size}/apps ; \
-		install -m 644 $(srcdir)/image/wsicon$${size}.png $(DESTDIR)$(datadir)/icons/hicolor/$${size}x$${size}/apps/wireshark.png ; \
-		mkdir -p $(DESTDIR)$(datadir)/icons/hicolor/$${size}x$${size}/mimetypes ; \
-		install -m 644 $(srcdir)/image/WiresharkDoc-$${size}.png $(DESTDIR)$(datadir)/icons/hicolor/$${size}x$${size}/mimetypes/application-wireshark-doc.png ; \
+		$(MKDIR_P) $(DESTDIR)$(datadir)/icons/hicolor/$${size}x$${size}/apps ; \
+		$(INSTALL) -m 644 $(srcdir)/image/wsicon$${size}.png $(DESTDIR)$(datadir)/icons/hicolor/$${size}x$${size}/apps/wireshark.png ; \
+		$(MKDIR_P) $(DESTDIR)$(datadir)/icons/hicolor/$${size}x$${size}/mimetypes ; \
+		$(INSTALL) -m 644 $(srcdir)/image/WiresharkDoc-$${size}.png $(DESTDIR)$(datadir)/icons/hicolor/$${size}x$${size}/mimetypes/application-wireshark-doc.png ; \
 	done
-	mkdir -p $(DESTDIR)$(datadir)/icons/hicolor/scalable/apps
-	install -m 644 $(srcdir)/image/wsicon.svg $(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/wireshark.svg
-endif
+	$(MKDIR_P) $(DESTDIR)$(datadir)/icons/hicolor/scalable/apps
+	$(INSTALL) -m 644 $(srcdir)/image/wsicon.svg $(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/wireshark.svg
 endif
 
 uninstall-local:
 if BUILDING_WIRESHARK
-if NOT_OS_X
 	rm -f $(DESTDIR)$(datadir)/appdata/wireshark.appdata.xml
 	rm -f $(DESTDIR)$(datadir)/applications/wireshark.desktop
 	rm -f $(DESTDIR)$(datadir)/applications/wireshark-gtk.desktop
@@ -1010,139 +943,41 @@ if NOT_OS_X
 	done
 	rm -f $(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/wireshark.svg
 endif
-endif
 
 install-data-hook: update-databases-and-caches-install
 uninstall-hook: update-databases-and-caches-uninstall
 
 #
-# XXX - which of this stuff can, and should, we do ourselves?
+# ldconfig may be needed to update a shared library cache.
 #
-# If we're "installing" under $(DESTDIR) as part of the process of
-# building a package, we probably don't need to, and shouldn't, do
-# any of this.
+# update-desktop-database and update-mime-database may be needed on
+# freedesktop.org desktops.
 #
-# If we're installing for use, we may need to do some of this; which
-# of them do we need to tell where to search, especially if we're
-# installing somewhere other than under /usr or /usr/local?
-#
-# What if we're installing in the user's home directory?
-#
-# What if we're installing under /opt?
-#
-# We only need to run ldconfig on systems where it's necessary in order
-# to update a shared library cache to know about our shared libraries.
-#
-# We only need to run update-desktop-database and update-mime-database
-# on freedesktop.org desktops.
-#
-# We only need to run gtk-update-icon-cache if we're installing a GTK+
+# gtk-update-icon-cache may be needed only if we're installing a GTK+
 # version of Wireshark.
 #
-# We neither need nor want any of this on OS X, nor do we want it if
-# we're not building Wireshark (that being the only desktop app).
+# Only ldconfig may be needed if we're not building Wireshark
+# (that being the only desktop app).
 #
 update-databases-and-caches-common:
-if BUILDING_WIRESHARK
-if NOT_OS_X
+	@echo "-------------------------------------------------------------------------------"
 	@echo "You may need to run \"ldconfig\" as root"
+if BUILDING_WIRESHARK
 	@echo "You may need to run \"update-desktop-database $(datadir)/applications\""
 	@echo "You may need to run \"update-mime-database $(datadir)/mime\""
 	@echo "You may need to run \"gtk-update-icon-cache -f -t $(datadir)/icons/hicolor\""
 endif
-endif
+	@echo "-------------------------------------------------------------------------------"
 
 update-databases-and-caches-install: update-databases-and-caches-common
 
 update-databases-and-caches-uninstall: update-databases-and-caches-common
 
-# Used by svr4-package and osx-package
-# We load top_stagedir with an absolute path so that libtool doesn't freak.
-top_stagedir=$(abs_top_builddir)/packaging/staging
-stagedir=$(top_stagedir)/$(PACKAGE).inst
-
-host_cpu=@host_cpu@
-host_os=@host_os@
-
-solaris-package: svr4-package
-
-svr4-package: $(PROGRAMS) $(SCRIPTS) $(MANS) $(DATA)
-	@if test x$(HAVE_SVR4_PACKAGING) = xyes ; then \
-		rm -rf $(stagedir) ; \
-		$(MAKE) DESTDIR=$(stagedir) install; \
-		$(srcdir)/packaging/svr4/mkpkg \
-			$(PACKAGE) \
-			$(PACKAGE)-$(VERSION)-$(host_os)-$(host_cpu)-local \
-			$(prefix) \
-			$(top_stagedir) ; \
-	else \
-		echo "Error: SVR4 packaging tools not found." ; \
-		echo "Package build abandoned." ; \
-	fi
-
-
-rpm_topdir=`cd $(top_builddir) && pwd`/packaging/rpm
-if HAVE_RPM
 rpm-package: dist
-	@cd $(rpm_topdir) && \
-	  mkdir -p BUILD RPMS SOURCES SRPMS && \
-	  cd SOURCES && \
-	  ln -sf ../../../$(distdir).tar.xz && \
-	  cd .. && \
-	  $(RPMBUILD) --define "_topdir `cd . && pwd`" --define "_prefix $(prefix)" \
-		@RPMBUILD_WITH_ARGS@ --clean -ba SPECS/wireshark.spec && \
-	  echo "Package successfully built in `pwd`/RPMS." ; \
-	  rm -f SOURCES/$(distdir).tar.xz ../../$(distdir).tar.xz
-else
-rpm-package:
-	@echo "'rpmbuild' executable not available." ; \
-	  false
-endif
-
-# XXX - This assumes we're building from the source directory.
-osx-app: $(PROGRAMS) $(SCRIPTS) $(MANS) $(DATA) packaging/macosx/Info.plist
-	@if test x$(HAVE_OSX_PACKAGING) = xyes ; then \
-		rm -rf $(stagedir) ; \
-		$(MAKE) DESTDIR=$(stagedir) install; \
-		cd $(srcdir)/packaging/macosx ; \
-		./osx-app.sh @OSX_APP_FLAGS@ \
-			--create-bundle \
-			--binary-path ../staging/$(PACKAGE).inst$(bindir) \
-			--plugin-path ../staging/$(PACKAGE).inst$(plugindir) \
-			--extcap-path ../staging/$(PACKAGE).inst$(extcapdir) \
-			--library-path ../staging/$(PACKAGE).inst$(libdir) ; \
-	else \
-		echo "Error: OS X packaging tools not found." ; \
-		echo "Package build abandoned." ; \
-	fi
-
-packaging/macosx/COPYING.txt: COPYING
-	(cd packaging/macosx ; \
-	$(MAKE) COPYING.txt ;)
-
-osx-package: osx-app packaging/macosx/COPYING.txt
-	@if test x$(HAVE_OSX_PACKAGING) = xyes ; then \
-		cd $(srcdir)/packaging/macosx ; \
-		chmod +x ./osx-dmg.sh ; \
-		./osx-dmg.sh @OSX_DMG_FLAGS@ ; \
-	fi
-
-osx-install: osx-app
-	@if test x$(HAVE_OSX_PACKAGING) = xyes ; then \
-		echo "Copying Wireshark.app to /Applications" ; \
-		cp -pr $(srcdir)/packaging/macosx/Wireshark.app /Applications ; \
-	fi
+	$(MAKE) -C packaging/rpm
 
 test-programs:
 	cd epan && $(MAKE) $@
-
-clean-local:
-	rm -rf $(top_stagedir)
-
-dumpabi:
-	$(MAKE) -C wiretap dumpabi-libwiretap
-	$(MAKE) -C epan dumpabi-libwireshark
-	$(MAKE) -C wsutil dumpabi-libwsutil
 
 checkapi_local:
 	$(PERL) $(top_srcdir)/tools/checkAPIs.pl -build \
@@ -1171,21 +1006,15 @@ checkapi: checkapi_local
 	cd writecap && $(MAKE) checkapi
 	cd wsutil && $(MAKE) checkapi
 
-if HAVE_SHELLCHECK
 # --external-sources requires 0.4.0 or later.
 shellcheck:
 	cd $(top_srcdir) && \
-	shellcheck --external-sources \
+	$(SHELLCHECK) --external-sources \
 	  tools/fuzz-test.sh \
 	  tools/randpkt-test.sh \
 	  tools/runa2x.sh \
 	  tools/test-captures.sh \
 	  tools/valgrind-wireshark.sh
-else
-shellcheck:
-	@echo "Shellcheck not available." ; \
-	  false
-endif
 
 wsar_html: doxygen.cfg doxygen_global.cfg FORCE
 if HAVE_DOXYGEN

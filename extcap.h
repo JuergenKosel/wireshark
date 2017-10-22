@@ -29,7 +29,6 @@
 #include <glib.h>
 
 #ifdef _WIN32
-#include <windows.h>
 #include <wsutil/unicode-utils.h>
 #endif
 
@@ -41,15 +40,19 @@
 
 /* Prefix for the pipe interfaces */
 #define EXTCAP_PIPE_PREFIX "wireshark_extcap"
+#define EXTCAP_CONTROL_IN_PREFIX  "wireshark_control_ext_to_ws"
+#define EXTCAP_CONTROL_OUT_PREFIX "wireshark_control_ws_to_ext"
 
 #define EXTCAP_ARGUMENT_CONFIG                  "--extcap-config"
-#define EXTCAP_ARGUMENT_LIST_INTERFACES "--extcap-interfaces"
+#define EXTCAP_ARGUMENT_LIST_INTERFACES         "--extcap-interfaces"
 #define EXTCAP_ARGUMENT_INTERFACE               "--extcap-interface"
 #define EXTCAP_ARGUMENT_LIST_DLTS               "--extcap-dlts"
 
 #define EXTCAP_ARGUMENT_RUN_CAPTURE             "--capture"
 #define EXTCAP_ARGUMENT_CAPTURE_FILTER          "--extcap-capture-filter"
 #define EXTCAP_ARGUMENT_RUN_PIPE                "--fifo"
+#define EXTCAP_ARGUMENT_CONTROL_IN              "--extcap-control-in"
+#define EXTCAP_ARGUMENT_CONTROL_OUT             "--extcap-control-out"
 
 typedef struct _extcap_info {
     gchar * basename;
@@ -59,6 +62,12 @@ typedef struct _extcap_info {
 
     GList * interfaces;
 } extcap_info;
+
+typedef enum {
+    EXTCAP_FILTER_UNKNOWN,
+    EXTCAP_FILTER_VALID,
+    EXTCAP_FILTER_INVALID
+} extcap_filter_status;
 
 struct _extcap_arg;
 
@@ -106,6 +115,16 @@ GList *
 extcap_get_if_configuration(const char * ifname);
 
 /**
+ * Check if the capture filter for the given interface name is valid.
+ * @param ifname Interface to check
+ * @param filter Capture filter to check
+ * @param err_str Error string returned if filter is invalid
+ * @return Filter check status.
+ */
+extcap_filter_status
+extcap_verify_capture_filter(const char *ifname, const char *filter, gchar **err_str);
+
+/**
  * Frees the memory from extcap_get_if_configuration.
  * @param list The list returned by extcap_get_if_configuration.
  * @param free_args TRUE if all arguments in the list must be freed too or FALSE
@@ -117,26 +136,21 @@ extcap_free_if_configuration(GList *list, gboolean free_args);
 gboolean
 extcap_has_configuration(const char * ifname, gboolean is_required);
 
-#ifdef WIN32
-HANDLE
-extcap_get_win32_handle();
-#endif
+gboolean
+extcap_has_toolbar(const char *ifname);
 
 gboolean
 extcap_init_interfaces(capture_options * capture_opts);
 
 gboolean
-extcap_create_pipe(char ** fifo);
+extcap_create_pipe(const gchar *ifname, gchar **fifo, const gchar *pipe_prefix, gboolean byte_mode);
 
 /* Clean up all if related stuff */
 void
-extcap_if_cleanup(capture_options * capture_opts _U_, gchar ** errormsg);
+extcap_if_cleanup(capture_options * capture_opts, gchar ** errormsg);
 
 struct preference *
 extcap_pref_for_argument(const gchar *ifname, struct _extcap_arg * arg);
-
-void
-extcap_pref_store(struct _extcap_arg * arg, const char * newval);
 
 /* Clean up global extcap stuff on program exit */
 void extcap_cleanup(void);

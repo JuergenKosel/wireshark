@@ -24,7 +24,7 @@
 
 #include "bluetooth_device_dialog.h"
 
-#include "color_utils.h"
+#include <ui/qt/utils/color_utils.h>
 
 #include "epan/epan.h"
 #include "epan/addr_resolv.h"
@@ -34,7 +34,7 @@
 #include "epan/dissectors/packet-bluetooth.h"
 #include "epan/dissectors/packet-bthci_evt.h"
 
-#include <ui/qt/variant_pointer.h>
+#include <ui/qt/utils/variant_pointer.h>
 
 #include "ui/simple_dialog.h"
 
@@ -164,7 +164,7 @@ void BluetoothDevicesDialog::tableContextMenu(const QPoint &pos)
     context_menu_.exec(ui->tableTreeWidget->viewport()->mapToGlobal(pos));
 }
 
-void BluetoothDevicesDialog::tableItemDoubleClicked(QTreeWidgetItem *item, int column _U_)
+void BluetoothDevicesDialog::tableItemDoubleClicked(QTreeWidgetItem *item, int)
 {
     bluetooth_item_data_t            *item_data;
     BluetoothDeviceDialog  *bluetooth_device_dialog;

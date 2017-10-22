@@ -24,12 +24,17 @@
 
 #include <glib.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #ifndef SNORT_CONFIG_H
 #define SNORT_CONFIG_H
+
+#include "ws_attributes.h"
+
+/* #define SNORT_CONFIG_DEBUG */
+#ifdef  SNORT_CONFIG_DEBUG
+#define snort_debug_printf printf
+#else
+#define snort_debug_printf(...)
+#endif
 
 /************************************************************************/
 /* Rule related data types                                              */
@@ -61,10 +66,13 @@ typedef struct content_t {
 
     gboolean fastpattern; /* Is most distinctive content in rule */
 
+    gboolean rawbytes;    /* Match should be done against raw bytes (which we do anyway) */
+
     /* http preprocessor modifiers */
     gboolean http_method;
     gboolean http_client_body;
     gboolean http_cookie;
+    gboolean http_user_agent;
 
     /* Pattern converted into bytes for matching against packet.
        Used for regular patterns and PCREs alike. */
@@ -73,6 +81,9 @@ typedef struct content_t {
     guint    translated_length;
 
     gboolean pcre_case_insensitive;
+    gboolean pcre_dot_includes_newline;
+    gboolean pcre_raw;
+    gboolean pcre_multiline;
 } content_t;
 
 /* This is to keep track of a variable referenced by a rule */
@@ -156,15 +167,13 @@ typedef struct SnortConfig_t
 
 /*************************************************************************************/
 /* API functions                                                                     */
+
 void create_config(SnortConfig_t **snort_config, const char *snort_config_file);
 void delete_config(SnortConfig_t **snort_config);
 
 /* Look up rule by SID */
 Rule_t *get_rule(SnortConfig_t *snort_config, guint32 sid);
 void rule_set_alert(SnortConfig_t *snort_config, Rule_t *rule, guint *global_match_number, guint *rule_match_number);
-
-/* Debug only */
-void rule_print(Rule_t *rule);
 
 /* IP and port vars */
 void rule_set_relevant_vars(SnortConfig_t *snort_config, Rule_t *rule);

@@ -1013,7 +1013,7 @@ static value_string_ext c_tag_strings_ext = VALUE_STRING_EXT_INIT(c_tag_strings)
 	V(C_MSG_GETPOOLSTATS,		     0x003A, "C_MSG_GETPOOLSTATS")		  \
 	V(C_MSG_GETPOOLSTATSREPLY,	     0x003B, "C_MSG_GETPOOLSTATSREPLY")		  \
 	V(C_MSG_MON_GLOBAL_ID,		     0x003C, "C_MSG_MON_GLOBAL_ID")		  \
-	V(C_CEPH_MSG_PRIO_LOW,		     0x0040, "C_CEPH_MSG_PRIO_LOW")		  \
+/*	V(C_CEPH_MSG_PRIO_LOW,		     0x0040, "C_CEPH_MSG_PRIO_LOW")		*/ \
 	V(C_MSG_MON_SCRUB,		     0x0040, "C_MSG_MON_SCRUB")			  \
 	V(C_MSG_MON_ELECTION,		     0x0041, "C_MSG_MON_ELECTION")		  \
 	V(C_MSG_MON_PAXOS,		     0x0042, "C_MSG_MON_PAXOS")			  \
@@ -6840,8 +6840,10 @@ guint c_dissect_msgr(proto_tree *tree,
 		*/
 
 		/* Batch multiple unknowns together. */
-		while (c_unknowntagnext(tvb, off))
-			off++, unknowntagcount++;
+		while (c_unknowntagnext(tvb, off)) {
+			off++;
+			unknowntagcount++;
+		}
 
 		c_set_type(data, wmem_strdup_printf(wmem_packet_scope(),
 						    "UNKNOWN x%u",

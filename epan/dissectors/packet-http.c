@@ -5,6 +5,7 @@
  *
  * Guy Harris <guy@alum.mit.edu>
  *
+ * Copyright 2017, Eugene Adell <eugene.adell@gmail.com>
  * Copyright 2004, Jerry Talkington <jtalkington@users.sourceforge.net>
  * Copyright 2002, Tim Potter <tpot@samba.org>
  * Copyright 1999, Andrew Tridgell <tridge@samba.org>
@@ -81,8 +82,10 @@ static int hf_http_request_full_uri = -1;
 static int hf_http_request_path = -1;
 static int hf_http_request_query = -1;
 static int hf_http_request_query_parameter = -1;
-static int hf_http_version = -1;
+static int hf_http_request_version = -1;
+static int hf_http_response_version = -1;
 static int hf_http_response_code = -1;
+static int hf_http_response_code_desc = -1;
 static int hf_http_response_phrase = -1;
 static int hf_http_authorization = -1;
 static int hf_http_proxy_authenticate = -1;
@@ -208,17 +211,8 @@ header_fields_copy_cb(void* n, const void* o, size_t siz _U_)
 	header_field_t* new_rec = (header_field_t*)n;
 	const header_field_t* old_rec = (const header_field_t*)o;
 
-	if (old_rec->header_name) {
-		new_rec->header_name = g_strdup(old_rec->header_name);
-	} else {
-		new_rec->header_name = NULL;
-	}
-
-	if (old_rec->header_desc) {
-		new_rec->header_desc = g_strdup(old_rec->header_desc);
-	} else {
-		new_rec->header_desc = NULL;
-	}
+	new_rec->header_name = g_strdup(old_rec->header_name);
+	new_rec->header_desc = g_strdup(old_rec->header_desc);
 
 	return new_rec;
 }
@@ -228,10 +222,8 @@ header_fields_free_cb(void*r)
 {
 	header_field_t* rec = (header_field_t*)r;
 
-	if (rec->header_name)
-		g_free(rec->header_name);
-	if (rec->header_desc)
-		g_free(rec->header_desc);
+	g_free(rec->header_name);
+	g_free(rec->header_desc);
 }
 
 UAT_CSTRING_CB_DEF(header_fields, header_name, header_field_t)
@@ -336,7 +328,7 @@ static void process_header(tvbuff_t *tvb, int offset, int next_offset,
 			   const guchar *line, int linelen, int colon_offset,
 			   packet_info *pinfo, proto_tree *tree,
 			   headers_t *eh_ptr, http_conv_t *conv_data,
-			   int http_type);
+			   http_type_t http_type);
 static gint find_header_hf_value(tvbuff_t *tvb, int offset, guint header_len);
 static gboolean check_auth_ntlmssp(proto_item *hdr_item, tvbuff_t *tvb,
 				   packet_info *pinfo, gchar *value);
@@ -351,6 +343,15 @@ static dissector_table_t port_subdissector_table;
 static dissector_table_t media_type_subdissector_table;
 static heur_dissector_list_t heur_subdissector_list;
 
+/* Used for HTTP Export Object feature */
+typedef struct _http_eo_t {
+	guint32  pkt_num;
+	gchar   *hostname;
+	gchar   *filename;
+	gchar   *content_type;
+	guint32  payload_len;
+	const guint8 *payload_data;
+} http_eo_t;
 
 static gboolean
 http_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *data)
@@ -395,6 +396,7 @@ const value_string vals_http_status_code[] = {
 	{ 205, "Reset Content"},
 	{ 206, "Partial Content"},
 	{ 207, "Multi-Status"},                    /* RFC 4918 */
+	{ 208, "Already Reported"},                /* RFC 5842 */
 	{ 226, "IM Used"},                         /* RFC 3229 */
 	{ 299, "Success - Others"},
 
@@ -405,6 +407,7 @@ const value_string vals_http_status_code[] = {
 	{ 304, "Not Modified"},
 	{ 305, "Use Proxy"},
 	{ 307, "Temporary Redirect"},
+	{ 308, "Permanent Redirect"},              /* RFC 7538 */
 	{ 399, "Redirection - Others"},
 
 	{ 400, "Bad Request"},
@@ -426,6 +429,7 @@ const value_string vals_http_status_code[] = {
 	{ 416, "Requested Range Not Satisfiable"},
 	{ 417, "Expectation Failed"},
 	{ 418, "I'm a teapot"},                    /* RFC 2324 */
+	{ 421, "Misdirected Request"},             /* RFC 7540 */
 	{ 422, "Unprocessable Entity"},            /* RFC 4918 */
 	{ 423, "Locked"},                          /* RFC 4918 */
 	{ 424, "Failed Dependency"},               /* RFC 4918 */
@@ -433,6 +437,7 @@ const value_string vals_http_status_code[] = {
 	{ 428, "Precondition Required"},           /* RFC 6585 */
 	{ 429, "Too Many Requests"},               /* RFC 6585 */
 	{ 431, "Request Header Fields Too Large"}, /* RFC 6585 */
+	{ 451, "Unavailable For Legal Reasons"},   /* RFC 7725 */
 	{ 499, "Client Error - Others"},
 
 	{ 500, "Internal Server Error"},
@@ -441,7 +446,10 @@ const value_string vals_http_status_code[] = {
 	{ 503, "Service Unavailable"},
 	{ 504, "Gateway Time-out"},
 	{ 505, "HTTP Version not supported"},
+	{ 506, "Variant Also Negotiates"},         /* RFC 2295 */
 	{ 507, "Insufficient Storage"},            /* RFC 4918 */
+	{ 508, "Loop Detected"},                   /* RFC 5842 */
+	{ 510, "Not Extended"},                    /* RFC 2774 */
 	{ 511, "Network Authentication Required"}, /* RFC 6585 */
 	{ 599, "Server Error - Others"},
 
@@ -1531,9 +1539,9 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		if(have_tap_listener(http_follow_tap)) {
 			tap_queue_packet(http_follow_tap, pinfo, next_tvb);
 		}
-		file_data = tvb_get_string_enc(wmem_packet_scope(), next_tvb, 0, tvb_reported_length(next_tvb), ENC_ASCII);
+		file_data = tvb_get_string_enc(wmem_packet_scope(), next_tvb, 0, tvb_captured_length(next_tvb), ENC_ASCII);
 		proto_tree_add_string_format_value(http_tree, hf_http_file_data,
-			next_tvb, 0, tvb_reported_length(next_tvb), file_data, "%u bytes", tvb_reported_length(next_tvb));
+			next_tvb, 0, tvb_captured_length(next_tvb), file_data, "%u bytes", tvb_captured_length(next_tvb));
 
 		/*
 		 * Do subdissector checks.
@@ -1637,7 +1645,7 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		headers.upgrade = conv_data->upgrade;
 	}
 
-	if (http_type == HTTP_RESPONSE && pinfo->desegment_offset<=0 && pinfo->desegment_len<=0) {
+	if (http_type == HTTP_RESPONSE && headers.upgrade && pinfo->desegment_offset<=0 && pinfo->desegment_len<=0) {
 		conv_data->upgrade = headers.upgrade;
 		conv_data->startframe = pinfo->num + 1;
 		copy_address_wmem(wmem_file_scope(), &conv_data->server_addr, &pinfo->src);
@@ -1713,7 +1721,7 @@ basic_request_dissector(tvbuff_t *tvb, proto_tree *tree, int offset,
 
 	/* Everything to the end of the line is the version. */
 	tokenlen = (int) (lineend - line);
-	proto_tree_add_item(tree, hf_http_version, tvb, offset, tokenlen,
+	proto_tree_add_item(tree, hf_http_request_version, tvb, offset, tokenlen,
 	    ENC_ASCII|ENC_NA);
 }
 
@@ -1725,6 +1733,7 @@ basic_response_dissector(tvbuff_t *tvb, proto_tree *tree, int offset,
 	const guchar *next_token;
 	int tokenlen;
 	gchar response_code_chars[4];
+	proto_item *r_ti;
 
 	/*
 	 * The first token is the HTTP Version.
@@ -1732,7 +1741,7 @@ basic_response_dissector(tvbuff_t *tvb, proto_tree *tree, int offset,
 	tokenlen = get_token_len(line, lineend, &next_token);
 	if (tokenlen == 0)
 		return;
-	proto_tree_add_item(tree, hf_http_version, tvb, offset, tokenlen,
+	proto_tree_add_item(tree, hf_http_response_version, tvb, offset, tokenlen,
 			    ENC_ASCII|ENC_NA);
 	/* Advance to the start of the next token. */
 	offset += (int) (next_token - line);
@@ -1757,6 +1766,12 @@ basic_response_dissector(tvbuff_t *tvb, proto_tree *tree, int offset,
 	proto_tree_add_uint(tree, hf_http_response_code, tvb, offset, 3,
 			    stat_info->response_code);
 
+	r_ti = proto_tree_add_string(tree, hf_http_response_code_desc,
+		tvb, offset, 3, val_to_str(stat_info->response_code,
+		vals_http_status_code, "Unknown (%d)"));
+
+	PROTO_ITEM_SET_GENERATED(r_ti);
+
 	/* Advance to the start of the next token. */
 	offset += (int) (next_token - line);
 	line = next_token;
@@ -1765,11 +1780,10 @@ basic_response_dissector(tvbuff_t *tvb, proto_tree *tree, int offset,
 	 * The remaining tokens in the line comprise the Reason Phrase.
 	 */
 	tokenlen = (int) (lineend - line);
-	if (tokenlen < 1)
-		return;
-	proto_tree_add_item(tree, hf_http_response_phrase, tvb, offset,
+	if (tokenlen >= 1) {
+		proto_tree_add_item(tree, hf_http_response_phrase, tvb, offset,
 				tokenlen, ENC_ASCII|ENC_NA);
-
+	}
 }
 
 #if 0 /* XXX: Replaced by code creating the "Dechunked" tvb O(N) rather than O(N^2) */
@@ -2149,7 +2163,7 @@ http_payload_subdissector(tvbuff_t *tvb, proto_tree *tree,
 		addresses_equal(&conv_data->server_addr, &pinfo->src);
 
 	/* Grab the destination port number from the request URI to find the right subdissector */
-	strings = g_strsplit(conv_data->request_uri, ":", 2);
+	strings = wmem_strsplit(wmem_packet_scope(), conv_data->request_uri, ":", 2);
 
 	if(strings[0] != NULL && strings[1] != NULL) {
 		/*
@@ -2211,7 +2225,6 @@ http_payload_subdissector(tvbuff_t *tvb, proto_tree *tree,
 			*ptr = saved_port;
 		}
 	}
-	g_strfreev(strings); /* Free the result of g_strsplit() above */
 }
 
 
@@ -2245,7 +2258,8 @@ is_http_request_or_reply(const gchar *data, int linelen, http_type_t *type,
 	 * From draft-ietf-dasl-protocol-00.txt, a now vanished Microsoft draft:
 	 *	SEARCH
 	 */
-	if (linelen >= 5 && strncmp(data, "HTTP/", 5) == 0) {
+	if ((linelen >= 5 && strncmp(data, "HTTP/", 5) == 0) ||
+		(linelen >= 3 && strncmp(data, "ICY", 3) == 0)) {
 		*type = HTTP_RESPONSE;
 		isHttpRequestOrReply = TRUE;	/* response */
 		if (reqresp_dissector)
@@ -2271,10 +2285,6 @@ is_http_request_or_reply(const gchar *data, int linelen, http_type_t *type,
 			if (strncmp(data, "GET", indx) == 0 ||
 			    strncmp(data, "PUT", indx) == 0) {
 				*type = HTTP_REQUEST;
-				isHttpRequestOrReply = TRUE;
-			}
-			else if (strncmp(data, "ICY", indx) == 0) {
-				*type = HTTP_RESPONSE;
 				isHttpRequestOrReply = TRUE;
 			}
 			break;
@@ -2422,17 +2432,18 @@ typedef struct {
 	int		special;
 } header_info;
 
-#define HDR_NO_SPECIAL		0
-#define HDR_AUTHORIZATION	1
-#define HDR_AUTHENTICATE	2
-#define HDR_CONTENT_TYPE	3
-#define HDR_CONTENT_LENGTH	4
-#define HDR_CONTENT_ENCODING	5
-#define HDR_TRANSFER_ENCODING	6
-#define HDR_HOST		7
-#define HDR_UPGRADE		8
-#define HDR_COOKIE		9
-#define HDR_WEBSOCKET_PROTOCOL	10
+#define HDR_NO_SPECIAL			0
+#define HDR_AUTHORIZATION		1
+#define HDR_AUTHENTICATE		2
+#define HDR_CONTENT_TYPE		3
+#define HDR_CONTENT_LENGTH		4
+#define HDR_CONTENT_ENCODING		5
+#define HDR_TRANSFER_ENCODING		6
+#define HDR_HOST			7
+#define HDR_UPGRADE			8
+#define HDR_COOKIE			9
+#define HDR_WEBSOCKET_PROTOCOL		10
+#define HDR_WEBSOCKET_EXTENSIONS	11
 
 static const header_info headers[] = {
 	{ "Authorization", &hf_http_authorization, HDR_AUTHORIZATION },
@@ -2457,7 +2468,7 @@ static const header_info headers[] = {
 	{ "Server", &hf_http_server, HDR_NO_SPECIAL },
 	{ "Location", &hf_http_location, HDR_NO_SPECIAL },
 	{ "Sec-WebSocket-Accept", &hf_http_sec_websocket_accept, HDR_NO_SPECIAL },
-	{ "Sec-WebSocket-Extensions", &hf_http_sec_websocket_extensions, HDR_NO_SPECIAL },
+	{ "Sec-WebSocket-Extensions", &hf_http_sec_websocket_extensions, HDR_WEBSOCKET_EXTENSIONS },
 	{ "Sec-WebSocket-Key", &hf_http_sec_websocket_key, HDR_NO_SPECIAL },
 	{ "Sec-WebSocket-Protocol", &hf_http_sec_websocket_protocol, HDR_WEBSOCKET_PROTOCOL },
 	{ "Sec-WebSocket-Version", &hf_http_sec_websocket_version, HDR_NO_SPECIAL },
@@ -2604,7 +2615,7 @@ static void
 process_header(tvbuff_t *tvb, int offset, int next_offset,
 	       const guchar *line, int linelen, int colon_offset,
 	       packet_info *pinfo, proto_tree *tree, headers_t *eh_ptr,
-	       http_conv_t *conv_data, int http_type)
+	       http_conv_t *conv_data, http_type_t http_type)
 {
 	int len;
 	int line_end_offset;
@@ -2910,6 +2921,11 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 			}
 			break;
 
+		case HDR_WEBSOCKET_EXTENSIONS:
+			if (http_type == HTTP_RESPONSE) {
+				conv_data->websocket_extensions = wmem_strndup(wmem_file_scope(), value, value_len);
+			}
+			break;
 		}
 	}
 }
@@ -3032,7 +3048,7 @@ check_auth_citrixbasic(proto_item *hdr_item, tvbuff_t *tvb, gchar *value, int of
 					    hf_http_citrix, tvb, 0, 0, 1);
 			PROTO_ITEM_SET_HIDDEN(hidden_item);
 
-		        if(strncmp(value, "username=\"", 10) == 0) {
+			if(strncmp(value, "username=\"", 10) == 0) {
 				value += 10;
 				offset += 10;
 				ch_ptr = strchr(value, '"');
@@ -3047,7 +3063,7 @@ check_auth_citrixbasic(proto_item *hdr_item, tvbuff_t *tvb, gchar *value, int of
 					offset += data_len;
 				}
 			}
-		        if(strncmp(value, "; domain=\"", 10) == 0) {
+			if(strncmp(value, "; domain=\"", 10) == 0) {
 				value += 10;
 				offset += 10;
 				ch_ptr = strchr(value, '"');
@@ -3062,7 +3078,7 @@ check_auth_citrixbasic(proto_item *hdr_item, tvbuff_t *tvb, gchar *value, int of
 					offset += data_len;
 				}
 			}
-		        if(strncmp(value, "; password=\"", 12) == 0) {
+			if(strncmp(value, "; password=\"", 12) == 0) {
 				value += 12;
 				offset += 12;
 				ch_ptr = strchr(value, '"');
@@ -3077,7 +3093,7 @@ check_auth_citrixbasic(proto_item *hdr_item, tvbuff_t *tvb, gchar *value, int of
 					offset += data_len;
 				}
 			}
-		        if(strncmp(value, "; AGESessionId=\"", 16) == 0) {
+			if(strncmp(value, "; AGESessionId=\"", 16) == 0) {
 				value += 16;
 				offset += 16;
 				ch_ptr = strchr(value, '"');
@@ -3286,12 +3302,12 @@ dissect_ssdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 }
 
 static void
-range_delete_http_ssl_callback(guint32 port) {
+range_delete_http_ssl_callback(guint32 port, gpointer ptr _U_) {
 	ssl_dissector_delete(port, http_ssl_handle);
 }
 
 static void
-range_add_http_ssl_callback(guint32 port) {
+range_add_http_ssl_callback(guint32 port, gpointer ptr _U_) {
 	ssl_dissector_add(port, http_ssl_handle);
 }
 
@@ -3303,10 +3319,10 @@ static void reinit_http(void) {
 	http_sctp_range = range_copy(wmem_epan_scope(), global_http_sctp_range);
 	dissector_add_uint_range("sctp.port", http_sctp_range, http_sctp_handle);
 
-	range_foreach(http_ssl_range, range_delete_http_ssl_callback);
+	range_foreach(http_ssl_range, range_delete_http_ssl_callback, NULL);
 	wmem_free(wmem_epan_scope(), http_ssl_range);
 	http_ssl_range = range_copy(wmem_epan_scope(), global_http_ssl_range);
-	range_foreach(http_ssl_range, range_add_http_ssl_callback);
+	range_foreach(http_ssl_range, range_add_http_ssl_callback, NULL);
 }
 
 void
@@ -3378,10 +3394,14 @@ proto_register_http(void)
 	      { "Request URI Query Parameter",	"http.request.uri.query.parameter",
 		FT_STRING, STR_UNICODE, NULL, 0x0,
 		"HTTP Request-URI Query Parameter", HFILL }},
-	    { &hf_http_version,
+	    { &hf_http_request_version,
 	      { "Request Version",	"http.request.version",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Request HTTP-Version", HFILL }},
+	    { &hf_http_response_version,
+	      { "Response Version",	"http.response.version",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		"HTTP Response HTTP-Version", HFILL }},
 	    { &hf_http_request_full_uri,
 	      { "Full request URI",	"http.request.full_uri",
 		FT_STRING, BASE_NONE, NULL, 0x0,
@@ -3390,6 +3410,10 @@ proto_register_http(void)
 	      { "Status Code",	"http.response.code",
 		FT_UINT16, BASE_DEC, NULL, 0x0,
 		"HTTP Response Status Code", HFILL }},
+	    { &hf_http_response_code_desc,
+	      { "Status Code Description", "http.response.code.desc",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		"HTTP Response Status Code Description", HFILL }},
 		{ &hf_http_response_phrase,
 		  { "Response Phrase", "http.response.phrase",
 	    FT_STRING, BASE_NONE, NULL, 0x0,

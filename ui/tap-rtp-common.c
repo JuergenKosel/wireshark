@@ -372,6 +372,7 @@ static const mimetype_and_clock mimetype_and_clock_map[] = {
 	{"EVRCWB",	16000},			/* [RFC5188] */
 	{"EVRCWB0",	16000},			/* [RFC5188] */
 	{"EVRCWB1",	16000},			/* [RFC5188] */
+	{"EVS",		16000},			/* [3GPP TS 26.445] */
 	{"G7221",	16000},			/* [RFC3047] */
 	{"G726-16",	8000},			/* [RFC3551][RFC4856] */
 	{"G726-24",	8000},			/* [RFC3551][RFC4856] */
@@ -477,8 +478,12 @@ rtp_packet_analyse(tap_rtp_stat_t *statinfo,
 
 	/* Reset flags */
 	statinfo->flags = 0;
-
-	/* Chek for duplicates (src mac differs from first_packet_mac_addr) */
+#if 0
+	/*According to bug https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=11478
+	 * this code causes problems. A better solution is needed if there is need for the functionality */
+	/* Try to detect duplicated packets due to mirroring/span ports by comparing src MAC addresses.
+	 * Chek for duplicates (src mac differs from first_packet_mac_addr) */
+	 */
 	if( pinfo->dl_src.type == AT_ETHER){
 		if(!addresses_equal(&(statinfo->first_packet_mac_addr), &(pinfo->dl_src))){
 			statinfo->flags |= STAT_FLAG_DUP_PKT;
@@ -486,7 +491,7 @@ rtp_packet_analyse(tap_rtp_stat_t *statinfo,
 			return;
 		}
 	}
-
+#endif
 	/* When calculating expected rtp packets the seq number can wrap around
 	 * so we have to count the number of cycles
 	 * Variable cycles counts the wraps around in forwarding connection and

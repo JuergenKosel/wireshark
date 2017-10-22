@@ -43,10 +43,10 @@
 #include <QPushButton>
 #include <QTemporaryFile>
 
-#include "color_utils.h"
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/color_utils.h>
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "rtp_player_dialog.h"
-#include "stock_icon.h"
+#include <ui/qt/utils/stock_icon.h>
 #include "wireshark_application.h"
 
 /*
@@ -513,8 +513,8 @@ void RtpAnalysisDialog::on_actionNextProblem_triggered()
     QTreeWidgetItem *sel_ti = cur_tree->selectedItems()[0];
     if (sel_ti->type() != rtp_analysis_type_) return;
     QTreeWidgetItem *test_ti = cur_tree->itemBelow(sel_ti);
+    if (!test_ti) test_ti = cur_tree->topLevelItem(0);
     while (test_ti != sel_ti) {
-        if (!test_ti) test_ti = cur_tree->topLevelItem(0);
         RtpAnalysisTreeWidgetItem *ra_ti = dynamic_cast<RtpAnalysisTreeWidgetItem *>((RtpAnalysisTreeWidgetItem *)test_ti);
         if (!ra_ti->frameStatus()) {
             cur_tree->setCurrentItem(ra_ti);
@@ -522,6 +522,7 @@ void RtpAnalysisDialog::on_actionNextProblem_triggered()
         }
 
         test_ti = cur_tree->itemBelow(test_ti);
+        if (!test_ti) test_ti = cur_tree->topLevelItem(0);
     }
 }
 
@@ -1525,8 +1526,8 @@ void RtpAnalysisDialog::saveCsv(RtpAnalysisDialog::StreamDirection direction)
     if (direction == dir_reverse_ || direction == dir_both_) {
         save_file.write("Reverse\n");
 
-        for (int row = 0; row < ui->forwardTreeWidget->topLevelItemCount(); row++) {
-            QTreeWidgetItem *ti = ui->forwardTreeWidget->topLevelItem(row);
+        for (int row = 0; row < ui->reverseTreeWidget->topLevelItemCount(); row++) {
+            QTreeWidgetItem *ti = ui->reverseTreeWidget->topLevelItem(row);
             if (ti->type() != rtp_analysis_type_) continue;
             RtpAnalysisTreeWidgetItem *ra_ti = dynamic_cast<RtpAnalysisTreeWidgetItem *>((RtpAnalysisTreeWidgetItem *)ti);
             QStringList values;
@@ -1603,8 +1604,8 @@ void RtpAnalysisDialog::findStreams()
     epan_dissect_t edt;
 
     epan_dissect_init(&edt, cap_file_.capFile()->epan, TRUE, FALSE);
-    epan_dissect_prime_dfilter(&edt, sfcode);
-    epan_dissect_prime_hfid(&edt, hfid_rtp_ssrc);
+    epan_dissect_prime_with_dfilter(&edt, sfcode);
+    epan_dissect_prime_with_hfid(&edt, hfid_rtp_ssrc);
     epan_dissect_run(&edt, cap_file_.capFile()->cd_t, &cap_file_.capFile()->phdr,
                      frame_tvbuff_new_buffer(fdata, &cap_file_.capFile()->buf), fdata, NULL);
 

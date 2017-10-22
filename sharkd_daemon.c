@@ -73,8 +73,13 @@ socket_init(char *path)
 
 #ifdef _WIN32
 	WSADATA wsaData;
+	int result;
 
-	WSAStartup(MAKEWORD(1, 1), &wsaData);
+	result = WSAStartup(MAKEWORD(1, 1), &wsaData);
+	if (result != 0) {
+		g_warning("ERROR: WSAStartup failed with error: %d", result);
+		return INVALID_SOCKET;
+	}
 #endif
 
 #ifdef SHARKD_UNIX_SUPPORT
@@ -177,7 +182,7 @@ sharkd_init(int argc, char **argv)
 
 	if (argc != 2)
 	{
-		fprintf(stderr, "Usage: %s <socket>\n", argv[0]);
+		fprintf(stderr, "Usage: %s <-|socket>\n", argv[0]);
 		fprintf(stderr, "\n");
 
 		fprintf(stderr, "<socket> examples:\n");
@@ -207,18 +212,21 @@ sharkd_init(int argc, char **argv)
 		_server_fd = fd;
 	}
 
-#ifndef _WIN32
-	/* all good - try to daemonize */
-	pid = fork();
-	if (pid == -1)
-		fprintf(stderr, "cannot go to background fork() failed: %s\n", g_strerror(errno));
-
-	if (pid != 0)
+	if (!_use_stdinout)
 	{
-		/* parent */
-		exit(0);
-	}
+		/* all good - try to daemonize */
+#ifndef _WIN32
+		pid = fork();
+		if (pid == -1)
+			fprintf(stderr, "cannot go to background fork() failed: %s\n", g_strerror(errno));
+
+		if (pid != 0)
+		{
+			/* parent */
+			exit(0);
+		}
 #endif
+	}
 
 	return 0;
 }
@@ -255,6 +263,7 @@ sharkd_loop(void)
 		pid = fork();
 		if (pid == 0)
 		{
+			closesocket(_server_fd);
 			/* redirect stdin, stdout to socket */
 			dup2(fd, 0);
 			dup2(fd, 1);

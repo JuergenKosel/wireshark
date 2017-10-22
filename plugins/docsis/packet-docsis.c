@@ -254,6 +254,11 @@ static const true_false_string odd_even_tfs = {
   "Even Key",
 };
 
+static const value_string unique_no_phs[] = {
+  { 0, "No PHS on current packet" },
+  { 0, NULL }
+};
+
 /* Fragmentation Flags / Sequence */
 static guint8 frag_flags;
 static guint8 frag_seq;
@@ -288,13 +293,11 @@ static void
 dissect_ehdr (tvbuff_t * tvb, proto_tree * tree, packet_info * pinfo)
 {
   proto_tree *ehdr_tree;
-  proto_item *item_pshi;
   proto_item *eh_length_item;
   gint ehdrlen;
   int pos;
   guint8 type;
   guint8 len;
-  guint8 val;
 
   ehdrlen = tvb_get_guint8 (tvb, 1);
   pos = 4;
@@ -392,12 +395,7 @@ dissect_ehdr (tvbuff_t * tvb, proto_tree * tree, packet_info * pinfo)
         /* Deprecated in DOCSIS 3.1, was Downstream Service Flow EH Element in earlier revisions */
       case EH_SFLOW_HDR_UP:
         /* Deprecated in DOCSIS 3.1, was Upstream Service Flow EH Element in earlier revisions */
-        val = tvb_get_guint8 (tvb, pos+1);
-        item_pshi = proto_tree_add_item(ehdr_tree, hf_docsis_ehdr_phsi, tvb, pos+1, 1, ENC_BIG_ENDIAN);
-        if (val == 0)
-        {
-          proto_item_append_text(item_pshi, " (No PHS on current packet)" );
-        }
+        proto_tree_add_item(ehdr_tree, hf_docsis_ehdr_phsi, tvb, pos+1, 1, ENC_BIG_ENDIAN);
 
         if (len == 2)
         {
@@ -699,6 +697,13 @@ dissect_docsis (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
           /* Pass off to the DOCSIS Management dissector/s */
           mgt_tvb = tvb_new_subset_remaining(tvb, hdrlen);
           call_dissector (docsis_mgmt_handle, mgt_tvb, pinfo, docsis_tree);
+
+          if (concatlen > 0)
+          {
+            concatlen = concatlen - framelen;
+            concatpos += framelen;
+          }
+
           break;
         }
         case FCPARM_RQST_FRM:
@@ -778,6 +783,13 @@ dissect_docsis (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
           proto_tree_add_checksum(docsis_tree, tvb, (hdrlen + len_sid - 4), hf_docsis_frag_fcs, hf_docsis_frag_fcs_status, &ei_docsis_frag_fcs_bad, pinfo, fcs, ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY);
 
           pinfo->fragmented = save_fragmented;
+
+          if (concatlen > 0)
+          {
+            concatlen = concatlen - framelen;
+            concatpos += framelen;
+          }
+
           break;
         }
         case FCPARM_QUEUE_DEPTH_REQ_FRM:
@@ -827,6 +839,10 @@ dissect_docsis (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
           concatpos = 0;
           break;
         }
+        default:
+            /* Unknown parameter, stop dissection */
+          concatlen = 0;
+          break;
       } /* switch fcparm */
       break;
     }
@@ -952,7 +968,7 @@ proto_register_docsis (void)
     },
     {&hf_docsis_ehdr_phsi,
      {"Payload Header Suppression Index", "docsis.ehdr.phsi",
-      FT_UINT8, BASE_DEC, NULL, 0x0,
+      FT_UINT8, BASE_DEC|BASE_SPECIAL_VALS, VALS(unique_no_phs), 0x0,
       NULL, HFILL}
     },
     {&hf_docsis_ehdr_qind,

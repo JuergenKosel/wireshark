@@ -24,15 +24,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
  * References:
- * 2004-03-11
- * http://www.ietf.org/rfc/rfc3588.txt
- * http://www.iana.org/assignments/radius-types
- * http://www.ietf.org/internet-drafts/draft-ietf-aaa-diameter-cc-03.txt
- * http://www.ietf.org/internet-drafts/draft-ietf-aaa-diameter-nasreq-14.txt
- * http://www.ietf.org/internet-drafts/draft-ietf-aaa-diameter-mobileip-16.txt
- * http://www.ietf.org/internet-drafts/draft-ietf-aaa-diameter-sip-app-01.txt
+ *
+ * RFC 3588, "Diameter Base Protocol" (now RFC 6733)
+ * draft-ietf-aaa-diameter-mobileip-16, "Diameter Mobile IPv4 Application"
+ *    (now RFC 4004)
+ * draft-ietf-aaa-diameter-nasreq-14, "Diameter Network Access Server
+ *     Application" (now RFC 4005)
+ * drafts/draft-ietf-aaa-diameter-cc-03, "Diameter Credit-Control
+ *     Application" (now RFC 4006)
+ * draft-ietf-aaa-diameter-sip-app-01, "Diameter Session Initiation
+ *     Protocol (SIP) Application" (now RFC 4740)
  * http://www.ietf.org/html.charters/aaa-charter.html
+ * http://www.iana.org/assignments/radius-types
  * http://www.iana.org/assignments/address-family-numbers
  * http://www.iana.org/assignments/enterprise-numbers
  * http://www.iana.org/assignments/aaa-parameters
@@ -46,6 +51,7 @@
 #include <epan/exceptions.h>
 #include <epan/prefs.h>
 #include <epan/sminmpec.h>
+#include <epan/addr_resolv.h>
 #include <epan/expert.h>
 #include <epan/tap.h>
 #include <epan/srt_table.h>
@@ -55,7 +61,7 @@
 #include <epan/show_exception.h>
 #include <epan/to_str.h>
 #include <wsutil/filesystem.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include "packet-tcp.h"
 #include "packet-diameter.h"
 #include "packet-e212.h"
@@ -313,6 +319,7 @@ static gboolean gbl_diameter_desegment = TRUE;
 static dissector_table_t diameter_dissector_table;
 static dissector_table_t diameter_3gpp_avp_dissector_table;
 static dissector_table_t diameter_ericsson_avp_dissector_table;
+static dissector_table_t diameter_verizon_avp_dissector_table;
 static dissector_table_t diameter_expr_result_vnd_table;
 
 static const char *avpflags_str[] = {
@@ -611,6 +618,9 @@ call_avp_subdissector(guint32 vendorid, guint32 code, tvbuff_t *subtvb, packet_i
 		case VENDOR_ERICSSON:
 			dissector_try_uint_new(diameter_ericsson_avp_dissector_table, code, subtvb, pinfo, avp_tree, FALSE, diam_sub_dis_inf);
 			break;
+		case VENDOR_VERIZON:
+			dissector_try_uint_new(diameter_verizon_avp_dissector_table, code, subtvb, pinfo, avp_tree, FALSE, diam_sub_dis_inf);
+			break;
 		case VENDOR_THE3GPP:
 			dissector_try_uint_new(diameter_3gpp_avp_dissector_table, code, subtvb, pinfo, avp_tree, FALSE, diam_sub_dis_inf);
 			break;
@@ -680,9 +690,7 @@ dissect_diameter_avp(diam_ctx_t *c, tvbuff_t *tvb, int offset, diam_sub_dis_t *d
 		vendor->vs_avps_ext = value_string_ext_new(VND_AVP_VS(vendor),
 							   VND_AVP_VS_LEN(vendor)+1,
 							   wmem_strdup_printf(wmem_epan_scope(), "diameter_vendor_%s",
-									   val_to_str_ext_const(vendorid,
-												&sminmpec_values_ext,
-												"Unknown")));
+									   enterprises_lookup(vendorid, "Unknown")));
 #if 0
 		{ /* Debug code */
 			value_string *vendor_avp_vs = VALUE_STRING_EXT_VS_P(vendor->vs_avps_ext);
@@ -716,7 +724,7 @@ dissect_diameter_avp(diam_ctx_t *c, tvbuff_t *tvb, int offset, diam_sub_dis_t *d
 		proto_tree *tu = proto_item_add_subtree(pi,ett_unknown);
 		proto_tree_add_expert_format(tu, c->pinfo, &ei_diameter_avp_code, tvb, offset, 4,
 			"Unknown AVP %u (vendor=%s), if you know what this is you can add it to dictionary.xml", code,
-			val_to_str_ext_const(vendorid, &sminmpec_values_ext, "Unknown"));
+			enterprises_lookup(vendorid, "Unknown"));
 	}
 
 	offset += 4;
@@ -912,7 +920,7 @@ time_avp(diam_ctx_t *c, diam_avp_t *a, tvbuff_t *tvb, diam_sub_dis_t *diam_sub_d
 
 	if (c->tree) {
 		label = (char *)wmem_alloc(wmem_packet_scope(), ITEM_LABEL_LENGTH+1);
-		pi = proto_tree_add_item(c->tree, (a->hf_value), tvb, 0, 4, ENC_TIME_NTP|ENC_BIG_ENDIAN);
+		pi = proto_tree_add_item(c->tree, (a->hf_value), tvb, 0, 4, ENC_TIME_SECS_NTP|ENC_BIG_ENDIAN);
 		proto_item_fill_label(PITEM_FINFO(pi), label);
 		label = strstr(label,": ")+2;
 	}
@@ -2170,7 +2178,7 @@ real_register_diameter_fields(void)
 		  { "Reserved","diameter.flags.reserved7", FT_BOOLEAN, 8, TFS(&tfs_set_notset),
 			  DIAM_FLAGS_RESERVED7, NULL, HFILL }},
 	{ &hf_diameter_vendor_id,
-		  { "VendorId",	"diameter.vendorId", FT_UINT32, BASE_DEC|BASE_EXT_STRING, &sminmpec_values_ext,
+		  { "VendorId",	"diameter.vendorId", FT_UINT32, BASE_ENTERPRISES, STRINGS_ENTERPRISES,
 			  0x0, NULL, HFILL }},
 	{ &hf_diameter_application_id,
 		  { "ApplicationId", "diameter.applicationId", FT_UINT32, BASE_DEC|BASE_EXT_STRING, VALS_EXT_PTR(dictionary.applications),
@@ -2217,8 +2225,8 @@ real_register_diameter_fields(void)
 		  { "Reserved","diameter.avp.flags.reserved7", FT_BOOLEAN, 8, TFS(&tfs_set_notset),
 			  AVP_FLAGS_RESERVED7,	NULL, HFILL }},
 	{ &hf_diameter_avp_vendor_id,
-		  { "AVP Vendor Id","diameter.avp.vendorId", FT_UINT32, BASE_DEC|BASE_EXT_STRING,
-			  &sminmpec_values_ext, 0x0, NULL, HFILL }},
+		  { "AVP Vendor Id","diameter.avp.vendorId", FT_UINT32, BASE_ENTERPRISES, STRINGS_ENTERPRISES,
+			  0x0, NULL, HFILL }},
 	{ &(unknown_avp.hf_value),
 		  { "Value","diameter.avp.unknown", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 	{ &hf_diameter_avp_data_wrong_length,
@@ -2325,11 +2333,12 @@ proto_register_diameter(void)
 	proto_register_prefix("diameter", register_diameter_fields);
 
 	/* Register dissector table(s) to do sub dissection of AVPs (OctetStrings) */
-	diameter_dissector_table = register_dissector_table("diameter.base", "DIAMETER_BASE_AVPS", proto_diameter, FT_UINT32, BASE_DEC);
-	diameter_3gpp_avp_dissector_table = register_dissector_table("diameter.3gpp", "DIAMETER_3GPP_AVPS", proto_diameter, FT_UINT32, BASE_DEC);
-	diameter_ericsson_avp_dissector_table = register_dissector_table("diameter.ericsson", "DIAMETER_ERICSSON_AVPS", proto_diameter, FT_UINT32, BASE_DEC);
+	diameter_dissector_table = register_dissector_table("diameter.base", "Diameter Base AVP", proto_diameter, FT_UINT32, BASE_DEC);
+	diameter_3gpp_avp_dissector_table = register_dissector_table("diameter.3gpp", "Diameter 3GPP AVP", proto_diameter, FT_UINT32, BASE_DEC);
+	diameter_ericsson_avp_dissector_table = register_dissector_table("diameter.ericsson", "Diameter Ericsson AVP", proto_diameter, FT_UINT32, BASE_DEC);
+	diameter_verizon_avp_dissector_table = register_dissector_table("diameter.verizon", "DIAMETER_VERIZON_AVPS", proto_diameter, FT_UINT32, BASE_DEC);
 
-	diameter_expr_result_vnd_table = register_dissector_table("diameter.vnd_exp_res", "DIAMETER Experimental-Result-Code", proto_diameter, FT_UINT32, BASE_DEC);
+	diameter_expr_result_vnd_table = register_dissector_table("diameter.vnd_exp_res", "Diameter Experimental-Result-Code", proto_diameter, FT_UINT32, BASE_DEC);
 
 	/* Set default TCP ports */
 	range_convert_str(wmem_epan_scope(), &global_diameter_sctp_port_range, DEFAULT_DIAMETER_PORT_RANGE, MAX_SCTP_PORT);

@@ -51,6 +51,9 @@ extern "C" {
 #define MAXVLANNAMELEN  	128	/* max vlan name length */
 #endif
 
+#define BASE_ENTERPRISES     BASE_CUSTOM
+#define STRINGS_ENTERPRISES  CF_FUNC(enterprises_base_custom)
+
 /**
  * @brief Flags to control name resolution.
  */
@@ -88,13 +91,12 @@ typedef struct serv_port {
 /*
  * Flags for various IPv4/IPv6 hash table entries.
  */
-#define DUMMY_ADDRESS_ENTRY      (1U<<0)  /* XXX - what does this bit *really* mean? */
-#define TRIED_RESOLVE_ADDRESS    (1U<<1)  /* XXX - what does this bit *really* mean? */
+#define TRIED_RESOLVE_ADDRESS    (1U<<0)  /* XXX - what does this bit *really* mean? */
+#define NAME_RESOLVED            (1U<<1)  /* the name field contains a host name, not a printable address */
 #define RESOLVED_ADDRESS_USED    (1U<<2)  /* a get_hostname* call returned the host name */
-#define NAME_RESOLVED            (1U<<3)  /* the name field contains a host name, not a printable address */
 
-#define DUMMY_AND_RESOLVE_FLGS   (DUMMY_ADDRESS_ENTRY | TRIED_RESOLVE_ADDRESS)
-#define USED_AND_RESOLVED_MASK   (DUMMY_ADDRESS_ENTRY | RESOLVED_ADDRESS_USED)
+#define TRIED_OR_RESOLVED_MASK   (TRIED_RESOLVE_ADDRESS | NAME_RESOLVED)
+#define USED_AND_RESOLVED_MASK   (NAME_RESOLVED | RESOLVED_ADDRESS_USED)
 
 /*
  * Flag controlling what names to resolve.
@@ -139,6 +141,23 @@ WS_DLL_PUBLIC gchar *sctp_port_to_display(wmem_allocator_t *allocator, guint por
  * representation if one doesn't exist.
  */
 WS_DLL_PUBLIC const gchar *serv_name_lookup(port_type proto, guint port);
+
+/*
+ * enterprises_lookup() returns the private enterprise code string, or 'unknown_str'
+ * if one doesn't exist, or "<Unknown>" if that is NULL.
+ */
+WS_DLL_PUBLIC const gchar *enterprises_lookup(guint32 value, const char *unknown_str);
+
+/*
+ * try_enterprises_lookup() returns the private enterprise code string, or NULL if not found.
+ */
+WS_DLL_PUBLIC const gchar *try_enterprises_lookup(guint32 value);
+
+/*
+ * enterprises_base_custom() prints the "name (decimal)" string to 'buf'.
+ * (Used with BASE_CUSTOM field display).
+ */
+WS_DLL_PUBLIC void enterprises_base_custom(char *buf, guint32 value);
 
 /*
  * try_serv_name_lookup() returns the well known service name string, or NULL if
@@ -220,12 +239,6 @@ extern const gchar *get_manuf_name(const guint8 *addr);
 WS_DLL_PUBLIC const gchar *get_manuf_name_if_known(const guint8 *addr);
 
 /*
- * Given an integer containing a 24-bit OID, uint_get_manuf_name()
- * returns the vendor name, or "%02x:%02x:%02x" if not known.
- */
-extern const gchar *uint_get_manuf_name(const guint oid);
-
-/*
  * Given an integer containing a 24-bit OID, uint_get_manuf_name_if_known()
  * returns the vendor name, or NULL if not known.
  */
@@ -263,14 +276,6 @@ WS_DLL_PUBLIC char* get_hash_ether_resolved_name(hashether_t* ether);
 
 WS_DLL_PUBLIC char* get_hash_manuf_resolved_name(hashmanuf_t* manuf);
 
-
-/* returns the ethernet address corresponding to name or NULL if not known */
-extern guint8 *get_ether_addr(const gchar *name);
-
-/* returns the ipx network corresponding to name. If name is unknown,
- * 0 is returned and 'known' is set to FALSE. On success, 'known'
- * is set to TRUE. */
-guint32 get_ipxnet_addr(const gchar *name, gboolean *known);
 
 /* adds a hostname/IPv4 in the hash table */
 WS_DLL_PUBLIC void add_ipv4_name(const guint addr, const gchar *name);

@@ -1300,7 +1300,7 @@ ngsniffer_process_record(wtap *wth, gboolean is_random, guint *padding,
 	}
 	/*
 	 * The maximum value of length is 65535, which is less than
-	 * WTAP_MAX_PACKET_SIZE will ever be, so we don't need to check
+	 * WTAP_MAX_PACKET_SIZE_STANDARD will ever be, so we don't need to check
 	 * it.
 	 */
 
@@ -1938,12 +1938,9 @@ ngsniffer_close(wtap *wth)
 	ngsniffer_t *ngsniffer;
 
 	ngsniffer = (ngsniffer_t *)wth->priv;
-	if (ngsniffer->rand.buf != NULL)
-		g_free(ngsniffer->rand.buf);
-	if (ngsniffer->first_blob != NULL) {
-		g_list_foreach(ngsniffer->first_blob, free_blob, NULL);
-		g_list_free(ngsniffer->first_blob);
-	}
+	g_free(ngsniffer->rand.buf);
+	g_list_foreach(ngsniffer->first_blob, free_blob, NULL);
+	g_list_free(ngsniffer->first_blob);
 }
 
 typedef struct {

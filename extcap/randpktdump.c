@@ -121,6 +121,8 @@ static int list_config(char *interface)
 	g_strfreev(longname_list);
 	inc++;
 
+	extcap_config_debug(&inc);
+
 	return EXIT_SUCCESS;
 }
 
@@ -136,7 +138,6 @@ int main(int argc, char *argv[])
 	int produce_type = -1;
 	randpkt_example	*example;
 	wtap_dumper* savedump;
-	int i;
 	int ret = EXIT_FAILURE;
 
 #ifdef _WIN32
@@ -179,9 +180,6 @@ int main(int argc, char *argv[])
 #ifdef _WIN32
 	attach_parent_console();
 #endif  /* _WIN32 */
-
-	for (i = 0; i < argc; i++)
-		g_debug("%s ", argv[i]);
 
 	while ((result = getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
 		switch (result) {
@@ -241,6 +239,8 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+
+	extcap_cmdline_debug(argv, argc);
 
 	if (optind != argc) {
 		g_warning("Invalid option: %s", argv[optind]);

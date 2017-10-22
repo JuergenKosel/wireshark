@@ -30,7 +30,8 @@
 
 #include "file.h"
 
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
+#include "ui/iface_toolbar.h"
 
 #include <epan/prefs.h>
 #include <epan/plugin_if.h>
@@ -53,7 +54,7 @@
 #include "capture_file.h"
 #include "capture_file_dialog.h"
 #include "capture_file_properties_dialog.h"
-#include "display_filter_combo.h"
+#include <ui/qt/widgets/display_filter_combo.h>
 #include "filter_action.h"
 #include "follow_stream_dialog.h"
 #include "preferences_dialog.h"
@@ -62,11 +63,13 @@ class AccordionFrame;
 class ByteViewTab;
 class CaptureInterfacesDialog;
 class FileSetDialog;
+class FilterDialog;
 class FunnelStatistics;
 class MainWelcome;
 class PacketList;
 class ProtoTree;
 class WirelessFrame;
+class DragDropToolBar;
 
 class QAction;
 class QActionGroup;
@@ -75,6 +78,9 @@ namespace Ui {
     class MainWindow;
 }
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+Q_DECLARE_METATYPE(QToolBar *)
+#endif
 Q_DECLARE_METATYPE(ts_type)
 Q_DECLARE_METATYPE(ts_precision)
 
@@ -99,6 +105,9 @@ public:
     CaptureFile *captureFile() { return &capture_file_; }
 
     void removeAdditionalToolbar(QString toolbarName);
+
+    void addInterfaceToolbar(const iface_toolbar *toolbar_entry);
+    void removeInterfaceToolbar(const gchar *menu_title);
 
 protected:
     virtual bool eventFilter(QObject *obj, QEvent *event);
@@ -161,7 +170,7 @@ private:
     QWidget *freeze_focus_;
     QMap<QAction *, ts_type> td_actions;
     QMap<QAction *, ts_precision> tp_actions;
-    QToolBar *filter_expression_toolbar_;
+    DragDropToolBar *filter_expression_toolbar_;
     bool was_maximized_;
 
     bool capture_stopping_;
@@ -171,6 +180,8 @@ private:
     CaptureInterfacesDialog *capture_interfaces_dialog_;
     info_data_t info_data_;
 #endif
+    FilterDialog *display_filter_dlg_;
+    FilterDialog *capture_filter_dlg_;
 
     // Pipe input
     gint                pipe_source_;
@@ -190,6 +201,8 @@ private:
 #ifdef HAVE_SOFTWARE_UPDATE
     QAction *update_action_;
 #endif
+
+    QPoint dragStartPosition;
 
     QWidget* getLayoutWidget(layout_pane_content_e type);
 
@@ -224,7 +237,7 @@ private:
 
     void externalMenuHelper(ext_menu_t * menu, QMenu  * subMenu, gint depth);
 
-    void setForCaptureInProgress(bool capture_in_progress = false);
+    void setForCaptureInProgress(bool capture_in_progress = false, GArray *ifaces = NULL);
     QMenu* findOrAddMenu(QMenu *parent_menu, QString& menu_text);
 
     void recursiveCopyProtoTreeItems(QTreeWidgetItem *item, QString &clip, int ident_level);
@@ -292,6 +305,7 @@ public slots:
     void captureFileSaveStarted(const QString &file_path);
 
     void filterExpressionsChanged();
+    static gboolean filter_expression_add_action(const void *key, void *value, void *user_data);
 
     void launchRLCGraph(bool channelKnown, guint16 ueid, guint8 rlcMode,
                         guint16 channelType, guint16 channelId, guint8 direction);
@@ -339,6 +353,13 @@ private slots:
     void addPluginIFStructures();
     QMenu * searchSubMenu(QString objectName);
     void activatePluginIFToolbar(bool);
+
+    void filterToolbarCustomMenuHandler(const QPoint& globalPos);
+    void filterToolbarShowPreferences();
+    void filterToolbarEditFilter();
+    void filterToolbarDisableFilter();
+    void filterToolbarRemoveFilter();
+    void filterToolbarActionMoved(QAction * action, int oldPos, int newPos);
 
     void startInterfaceCapture(bool valid, const QString capture_filter);
 
@@ -579,7 +600,6 @@ private slots:
     void on_actionStatistics29WestQueues_Queries_by_Queue_triggered();
     void on_actionStatistics29WestQueues_Queries_by_Receiver_triggered();
     void on_actionStatistics29WestUIM_Streams_triggered();
-    void on_actionStatistics29WestUIM_Stream_Flow_Graph_triggered();
     void on_actionStatistics29WestLBTRM_triggered();
     void on_actionStatistics29WestLBTRU_triggered();
     void on_actionStatisticsANCP_triggered();
@@ -616,6 +636,7 @@ private slots:
     void on_actionTelephonyIax2StreamAnalysis_triggered();
     void on_actionTelephonyISUPMessages_triggered();
     void on_actionTelephonyMtp3Summary_triggered();
+    void on_actionTelephonyOsmuxPacketCounter_triggered();
     void on_actionTelephonyRTPStreams_triggered();
     void on_actionTelephonyRTPStreamAnalysis_triggered();
     void on_actionTelephonyRTSPPacketCounter_triggered();

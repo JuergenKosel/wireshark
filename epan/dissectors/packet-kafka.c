@@ -33,6 +33,12 @@
 #ifdef HAVE_SNAPPY
 #include <snappy-c.h>
 #endif
+#ifdef HAVE_LZ4
+#include <lz4.h>
+#if LZ4_VERSION_NUMBER >= 10301
+#include <lz4frame.h>
+#endif /* LZ4_VERSION_NUMBER >= 10301 */
+#endif
 #include "packet-tcp.h"
 
 void proto_register_kafka(void);
@@ -67,6 +73,8 @@ static int hf_kafka_message_timestamp_type = -1;
 static int hf_kafka_message_timestamp = -1;
 static int hf_kafka_message_key = -1;
 static int hf_kafka_message_value = -1;
+static int hf_kafka_message_value_compressed = -1;
+static int hf_kafka_message_compression_reduction = -1;
 static int hf_kafka_request_frame = -1;
 static int hf_kafka_response_frame = -1;
 static int hf_kafka_consumer_group = -1;
@@ -344,10 +352,125 @@ typedef struct kafka_packet_values_t {
 
 /* Forward declaration (dissect_kafka_message_set() and dissect_kafka_message() call each other...) */
 static int
-dissect_kafka_message_set(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int start_offset, gboolean has_length_field);
+dissect_kafka_message_set(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int start_offset, gboolean has_length_field, guint8 codec);
 
 
 /* HELPERS */
+
+#if defined HAVE_LZ4 && LZ4_VERSION_NUMBER >= 10301
+/* Local copy of XXH32() algorithm as found in https://github.com/lz4/lz4/blob/v1.7.5/lib/xxhash.c
+   as some packagers are not providing xxhash.h in liblz4 */
+typedef struct {
+    guint32 total_len_32;
+    guint32 large_len;
+    guint32 v1;
+    guint32 v2;
+    guint32 v3;
+    guint32 v4;
+    guint32 mem32[4];   /* buffer defined as U32 for alignment */
+    guint32 memsize;
+    guint32 reserved;   /* never read nor write, will be removed in a future version */
+} XXH32_state_t;
+
+typedef enum {
+    XXH_bigEndian=0,
+    XXH_littleEndian=1
+} XXH_endianess;
+
+static const int g_one = 1;
+#define XXH_CPU_LITTLE_ENDIAN   (*(const char*)(&g_one))
+
+static const guint32 PRIME32_1 = 2654435761U;
+static const guint32 PRIME32_2 = 2246822519U;
+static const guint32 PRIME32_3 = 3266489917U;
+static const guint32 PRIME32_4 =  668265263U;
+static const guint32 PRIME32_5 =  374761393U;
+
+#define XXH_rotl32(x,r) ((x << r) | (x >> (32 - r)))
+
+static guint32 XXH_read32(const void* memPtr)
+{
+    guint32 val;
+    memcpy(&val, memPtr, sizeof(val));
+    return val;
+}
+
+static guint32 XXH_swap32(guint32 x)
+{
+    return  ((x << 24) & 0xff000000 ) |
+            ((x <<  8) & 0x00ff0000 ) |
+            ((x >>  8) & 0x0000ff00 ) |
+            ((x >> 24) & 0x000000ff );
+}
+
+#define XXH_readLE32(ptr, endian) (endian==XXH_littleEndian ? XXH_read32(ptr) : XXH_swap32(XXH_read32(ptr)))
+
+static guint32 XXH32_round(guint32 seed, guint32 input)
+{
+    seed += input * PRIME32_2;
+    seed  = XXH_rotl32(seed, 13);
+    seed *= PRIME32_1;
+    return seed;
+}
+
+static guint32 XXH32_endian(const void* input, size_t len, guint32 seed, XXH_endianess endian)
+{
+    const gint8* p = (const gint8*)input;
+    const gint8* bEnd = p + len;
+    guint32 h32;
+#define XXH_get32bits(p) XXH_readLE32(p, endian)
+
+    if (len>=16) {
+        const gint8* const limit = bEnd - 16;
+        guint32 v1 = seed + PRIME32_1 + PRIME32_2;
+        guint32 v2 = seed + PRIME32_2;
+        guint32 v3 = seed + 0;
+        guint32 v4 = seed - PRIME32_1;
+
+        do {
+            v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
+            v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
+            v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
+            v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
+        } while (p<=limit);
+
+        h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+    } else {
+        h32  = seed + PRIME32_5;
+    }
+
+    h32 += (guint32) len;
+
+    while (p+4<=bEnd) {
+        h32 += XXH_get32bits(p) * PRIME32_3;
+        h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
+        p+=4;
+    }
+
+    while (p<bEnd) {
+        h32 += (*p) * PRIME32_5;
+        h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
+        p++;
+    }
+
+    h32 ^= h32 >> 15;
+    h32 *= PRIME32_2;
+    h32 ^= h32 >> 13;
+    h32 *= PRIME32_3;
+    h32 ^= h32 >> 16;
+
+    return h32;
+}
+
+static guint XXH32(const void* input, size_t len, guint seed)
+{
+    XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
+    if (endian_detected==XXH_littleEndian)
+        return XXH32_endian(input, len, seed, XXH_littleEndian);
+    else
+        return XXH32_endian(input, len, seed, XXH_bigEndian);
+}
+#endif /* HAVE_LZ4 && LZ4_VERSION_NUMBER >= 10301 */
 
 static const char *
 kafka_error_to_str(kafka_error_t error)
@@ -555,19 +678,31 @@ dissect_kafka_timestamp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
     return offset;
 }
 
+/* Calculate and show the reduction in transmitted size due to compression */
+static void show_compression_reduction(tvbuff_t *tvb, proto_tree *tree, guint compressed_size, guint uncompressed_size)
+{
+    proto_item *ti;
+    /* Not really expecting a message to compress down to nothing, but defend against dividing by 0 anyway */
+    if (uncompressed_size != 0) {
+        ti = proto_tree_add_float(tree, hf_kafka_message_compression_reduction, tvb, 0, 0,
+                                  (float)compressed_size / (float)uncompressed_size);
+        PROTO_ITEM_SET_GENERATED(ti);
+    }
+}
+
 static int
 dissect_kafka_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int start_offset)
 {
-    proto_item *ti, *decrypt_item;
+    proto_item *message_ti, *decrypt_item;
     proto_tree *subtree;
-    tvbuff_t   *raw, *payload;
+    tvbuff_t   *raw, *payload = NULL;
     int         offset = start_offset;
     gint8       magic_byte;
     guint8      codec;
     guint       bytes_length = 0;
 
 
-    subtree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_kafka_message, &ti, "Message");
+    subtree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_kafka_message, &message_ti, "Message");
 
     /* CRC */
     proto_tree_add_item(subtree, hf_kafka_message_crc, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -599,20 +734,27 @@ dissect_kafka_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int s
             offset += 4;
 
             if (raw) {
+                guint compressed_size = tvb_captured_length(raw);
+
+                /* Raw compressed data */
+                proto_tree_add_item(subtree, hf_kafka_message_value_compressed, tvb, offset, compressed_size, ENC_NA);
+
                 /* Unzip message and add payload to new data tab */
-                payload = tvb_child_uncompress(tvb, raw, 0, tvb_captured_length(raw));
+                payload = tvb_child_uncompress(tvb, raw, 0, compressed_size);
                 if (payload) {
+                    show_compression_reduction(tvb, subtree, compressed_size, (guint)tvb_captured_length(payload));
+
                     add_new_data_source(pinfo, payload, "Uncompressed Message");
-                    dissect_kafka_message_set(payload, pinfo, subtree, 0, FALSE);
+                    dissect_kafka_message_set(payload, pinfo, subtree, 0, FALSE, codec);
                 } else {
                     decrypt_item = proto_tree_add_item(subtree, hf_kafka_message_value, raw, 0, -1, ENC_NA);
                     expert_add_info(pinfo, decrypt_item, &ei_kafka_message_decompress);
                 }
-                offset += tvb_captured_length(raw);
+                offset += compressed_size;
 
                 /* Add to summary */
                 col_append_fstr(pinfo->cinfo, COL_INFO, " [GZIPd message set]");
-                proto_item_append_text(ti, " (GZIPd message set)");
+                proto_item_append_text(message_ti, " (GZIPd message set)");
             }
             else {
                 proto_tree_add_bytes(subtree, hf_kafka_message_value, tvb, offset, 0, NULL);
@@ -627,6 +769,9 @@ dissect_kafka_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int s
                 guint8 *data = (guint8*)tvb_memdup(wmem_packet_scope(), raw, 0, compressed_size);
                 size_t uncompressed_size;
                 snappy_status ret = SNAPPY_INVALID_INPUT;
+
+                /* Raw compressed data */
+                proto_tree_add_item(subtree, hf_kafka_message_value_compressed, tvb, offset, compressed_size, ENC_NA);
 
                 if (tvb_memeql(raw, 0, kafka_xerial_header, sizeof(kafka_xerial_header)) == 0) {
                     /* xerial framing format */
@@ -669,8 +814,14 @@ dissect_kafka_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int s
                     }
                 }
                 if (ret == SNAPPY_OK) {
+                    show_compression_reduction(tvb, subtree, compressed_size, (guint)uncompressed_size);
+
                     add_new_data_source(pinfo, payload, "Uncompressed Message");
-                    dissect_kafka_message_set(payload, pinfo, subtree, 0, FALSE);
+                    dissect_kafka_message_set(payload, pinfo, subtree, 0, FALSE, codec);
+
+                    /* Add to summary */
+                    col_append_fstr(pinfo->cinfo, COL_INFO, " [Snappy-compressed message set]");
+                    proto_item_append_text(message_ti, " (Snappy-compressed message set)");
                 } else {
                     decrypt_item = proto_tree_add_item(subtree, hf_kafka_message_value, raw, 0, -1, ENC_NA);
                     expert_add_info(pinfo, decrypt_item, &ei_kafka_message_decompress);
@@ -680,22 +831,114 @@ dissect_kafka_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int s
             break;
 #endif
         case KAFKA_MESSAGE_CODEC_LZ4:
+#if defined HAVE_LZ4 && LZ4_VERSION_NUMBER >= 10301
+            raw = kafka_get_bytes(subtree, tvb, pinfo, offset);
+            offset += 4;
+            if (raw) {
+                LZ4F_decompressionContext_t lz4_ctxt;
+                LZ4F_frameInfo_t lz4_info;
+                LZ4F_errorCode_t ret;
+                size_t src_offset, src_size, dst_size;
+                guchar *decompressed_buffer = NULL;
+
+                /* Prepare compressed data buffer */
+                guint compressed_size = tvb_reported_length(raw);
+                guint8 *data = (guint8*)tvb_memdup(wmem_packet_scope(), raw, 0, compressed_size);
+                /* Override header checksum to workaround buggy Kafka implementations */
+                if (compressed_size > 7) {
+                    guint hdr_end = 6;
+                    if (data[4] & 0x08) {
+                        hdr_end += 8;
+                    }
+                    if (hdr_end < compressed_size) {
+                        data[hdr_end] = (XXH32(&data[4], hdr_end - 4, 0) >> 8) & 0xff;
+                    }
+                }
+
+                /* Show raw compressed data */
+                proto_tree_add_item(subtree, hf_kafka_message_value_compressed, tvb, offset, compressed_size, ENC_NA);
+
+                /* Allocate output buffer */
+                ret = LZ4F_createDecompressionContext(&lz4_ctxt, LZ4F_VERSION);
+                if (LZ4F_isError(ret)) {
+                    goto fail;
+                }
+                src_offset = compressed_size;
+                ret = LZ4F_getFrameInfo(lz4_ctxt, &lz4_info, data, &src_offset);
+                if (LZ4F_isError(ret)) {
+                    LZ4F_freeDecompressionContext(lz4_ctxt);
+                    goto fail;
+                }
+                switch (lz4_info.blockSizeID) {
+                case LZ4F_max64KB:
+                    dst_size = 1 << 16;
+                    break;
+                case LZ4F_max256KB:
+                    dst_size = 1 << 18;
+                    break;
+                case LZ4F_max1MB:
+                    dst_size = 1 << 20;
+                    break;
+                case LZ4F_max4MB:
+                    dst_size = 1 << 22;
+                    break;
+                default:
+                    LZ4F_freeDecompressionContext(lz4_ctxt);
+                    goto fail;
+                }
+                if (lz4_info.contentSize && lz4_info.contentSize < dst_size) {
+                    dst_size = (size_t)lz4_info.contentSize;
+                }
+                decompressed_buffer = (guchar*)wmem_alloc(pinfo->pool, dst_size);
+
+                /* Attempt the decompression. */
+                src_size = compressed_size - src_offset;
+                ret = LZ4F_decompress(lz4_ctxt, decompressed_buffer, &dst_size,
+                                      &data[src_offset], &src_size, NULL);
+                LZ4F_freeDecompressionContext(lz4_ctxt);
+                if (ret == 0) {
+                    size_t uncompressed_size = dst_size;
+
+                    show_compression_reduction(tvb, subtree, compressed_size, (guint)uncompressed_size);
+
+                    /* Add as separate data tab */
+                    payload = tvb_new_child_real_data(tvb, decompressed_buffer,
+                                                      (guint32)uncompressed_size, (guint32)uncompressed_size);
+                    add_new_data_source(pinfo, payload, "Uncompressed Message");
+
+                    /* Dissect as a message set */
+                    dissect_kafka_message_set(payload, pinfo, subtree, 0, FALSE, codec);
+
+                    /* Add to summary */
+                    col_append_fstr(pinfo->cinfo, COL_INFO, " [LZ4-compressed message set]");
+                    proto_item_append_text(message_ti, " (LZ4-compressed message set)");
+                } else {
+                fail:
+                    /* Error */
+                    decrypt_item = proto_tree_add_item(subtree, hf_kafka_message_value, raw, 0, -1, ENC_NA);
+                    expert_add_info(pinfo, decrypt_item, &ei_kafka_message_decompress);
+                }
+                offset += compressed_size;
+            }
+            break;
+#endif /* HAVE_LZ4 && LZ4_VERSION_NUMBER >= 10301 */
+
         case KAFKA_MESSAGE_CODEC_NONE:
         default:
             offset = dissect_kafka_bytes(subtree, hf_kafka_message_value, tvb, pinfo, offset, NULL, &bytes_length);
 
             /* Add to summary */
             col_append_fstr(pinfo->cinfo, COL_INFO, " [%u bytes]", bytes_length);
-            proto_item_append_text(ti, " (%u bytes)", bytes_length);
+            proto_item_append_text(message_ti, " (%u bytes)", bytes_length);
     }
 
-    proto_item_set_len(ti, offset - start_offset);
+    proto_item_set_len(message_ti, offset - start_offset);
 
     return offset;
 }
 
 static int
-dissect_kafka_message_set(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int start_offset, gboolean has_length_field)
+dissect_kafka_message_set(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int start_offset, gboolean has_length_field, guint8 codec)
 {
     proto_item *ti;
     proto_tree *subtree;
@@ -718,6 +961,10 @@ dissect_kafka_message_set(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
     }
 
     subtree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_kafka_message_set, &ti, "Message Set");
+    /* If set came from a compressed message, make it obvious in tree root */
+    if (codec != KAFKA_MESSAGE_CODEC_NONE) {
+        proto_item_append_text(subtree, " [from compressed %s message]", val_to_str_const(codec, kafka_message_codecs, "Unknown codec"));
+    }
 
     while (offset - start_offset < len) {
         proto_tree_add_item(subtree, hf_kafka_offset, tvb, offset, 8, ENC_BIG_ENDIAN);
@@ -1466,7 +1713,7 @@ dissect_kafka_fetch_response_partition(tvbuff_t *tvb, packet_info *pinfo, proto_
 
     offset = dissect_kafka_offset_get_value(tvb, pinfo, subtree, offset, &packet_values);
 
-    offset = dissect_kafka_message_set(tvb, pinfo, subtree, offset, TRUE);
+    offset = dissect_kafka_message_set(tvb, pinfo, subtree, offset, TRUE, KAFKA_MESSAGE_CODEC_NONE);
 
     proto_item_set_len(ti, offset - start_offset);
 
@@ -1526,7 +1773,7 @@ dissect_kafka_produce_request_partition(tvbuff_t *tvb, packet_info *pinfo, proto
 
     offset = dissect_kafka_partition_id_get_value(tvb, pinfo, subtree, offset, &packet_values);
 
-    offset = dissect_kafka_message_set(tvb, pinfo, subtree, offset, TRUE);
+    offset = dissect_kafka_message_set(tvb, pinfo, subtree, offset, TRUE, KAFKA_MESSAGE_CODEC_NONE);
 
     proto_item_append_text(ti, " (Partition-ID=%u)", packet_values.partition_id);
 
@@ -3585,6 +3832,16 @@ proto_register_kafka(void)
         { &hf_kafka_message_value,
             { "Value", "kafka.message_value",
                FT_BYTES, BASE_NONE, 0, 0,
+               NULL, HFILL }
+        },
+        { &hf_kafka_message_value_compressed,
+            { "Compressed Value", "kafka.message_value_compressed",
+               FT_BYTES, BASE_NONE, 0, 0,
+               NULL, HFILL }
+        },
+        { &hf_kafka_message_compression_reduction,
+            { "Compression Reduction (compressed/uncompressed)", "kafka.message_compression_reduction",
+               FT_FLOAT, BASE_NONE, 0, 0,
                NULL, HFILL }
         },
         { &hf_kafka_consumer_group,

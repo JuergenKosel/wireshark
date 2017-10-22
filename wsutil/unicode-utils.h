@@ -23,8 +23,6 @@
 #ifndef __UNICODEUTIL_H__
 #define __UNICODEUTIL_H__
 
-#include <config.h>
-
 #include "ws_symbol_export.h"
 
 #include <glib.h>
@@ -101,7 +99,7 @@ void arg_list_utf_16to8(int argc, char *argv[]);
 #define IS_TRAIL_SURROGATE(uchar2) \
 	((uchar2) >= 0xdc00 && (uchar2) < 0xe000)
 #define SURROGATE_VALUE(lead, trail) \
-	(((((lead) - 0xd800) << 10) | ((trail) - 0xdc00)) + 0x100000)
+	(((((lead) - 0xd800) << 10) | ((trail) - 0xdc00)) + 0x10000)
 
 #ifdef	__cplusplus
 }

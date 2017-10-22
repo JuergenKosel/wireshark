@@ -25,7 +25,6 @@
 
 #include <epan/packet.h>
 #include <epan/expert.h>
-#include <epan/oui.h>
 
 void proto_register_iapp(void);
 void proto_reg_handoff_iapp(void);
@@ -440,7 +439,7 @@ proto_register_iapp(void)
             { "Reg domain", "iapp.pdu.regdomain", FT_UINT8, BASE_DEC, VALS(iapp_dom_vals), 0x00, NULL, HFILL }
         },
         { &hf_iapp_pdu_oui_ident,
-            { "OUI", "iapp.pdu.oui_ident", FT_UINT24, BASE_DEC, VALS(oui_vals), 0x00, NULL, HFILL }
+            { "OUI", "iapp.pdu.oui_ident", FT_UINT24, BASE_OUI, NULL, 0x00, NULL, HFILL }
         },
     };
 

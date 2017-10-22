@@ -29,7 +29,7 @@
 
 #include <wsutil/utf8_entities.h>
 
-#include "qt_ui_utils.h"
+#include <ui/qt/utils/qt_ui_utils.h>
 #include "rtp_analysis_dialog.h"
 #include "wireshark_application.h"
 
@@ -42,7 +42,7 @@
 #include <QTreeWidgetItem>
 #include <QTreeWidgetItemIterator>
 
-#include "tango_colors.h"
+#include <ui/qt/utils/tango_colors.h>
 
 /*
  * @file RTP stream dialog
@@ -252,7 +252,7 @@ RtpStreamDialog::RtpStreamDialog(QWidget &parent, CaptureFile &cf) :
     analyze_button_ = ui->buttonBox->addButton(ui->actionAnalyze->text(), QDialogButtonBox::ApplyRole);
     analyze_button_->setToolTip(ui->actionAnalyze->toolTip());
 
-    QMenu *copy_menu = new QMenu();
+    QMenu *copy_menu = new QMenu(copy_button_);
     QAction *ca;
     ca = copy_menu->addAction(tr("as CSV"));
     ca->setToolTip(ui->actionCopyAsCsv->toolTip());
@@ -468,9 +468,9 @@ void RtpStreamDialog::on_actionAnalyze_triggered()
 
     if (stream_a == NULL && stream_b == NULL) return;
 
-    RtpAnalysisDialog rtp_analysis_dialog(*this, cap_file_, stream_a, stream_b);
-    connect(&rtp_analysis_dialog, SIGNAL(goToPacket(int)), this, SIGNAL(goToPacket(int)));
-    rtp_analysis_dialog.exec();
+    RtpAnalysisDialog *rtp_analysis_dialog = new RtpAnalysisDialog(*this, cap_file_, stream_a, stream_b);
+    connect(rtp_analysis_dialog, SIGNAL(goToPacket(int)), this, SIGNAL(goToPacket(int)));
+    rtp_analysis_dialog->show();
 }
 
 void RtpStreamDialog::on_actionCopyAsCsv_triggered()

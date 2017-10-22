@@ -24,7 +24,7 @@
 #include <glib.h>
 
 #include "capture_interfaces_dialog.h"
-#include "capture_filter_combo.h"
+#include <ui/qt/widgets/capture_filter_combo.h>
 #include <ui_capture_interfaces_dialog.h>
 #include "compiled_filter_output.h"
 #include "manage_interfaces_dialog.h"
@@ -44,7 +44,7 @@
 #include "ui/iface_lists.h"
 #include "ui/last_open_dir.h"
 
-#include "ui/ui_util.h"
+#include "ui/ws_ui_util.h"
 #include "ui/util.h"
 #include <wsutil/utf8_entities.h>
 #include "ui/preference_utils.h"
@@ -55,8 +55,10 @@
 #include <epan/addr_resolv.h>
 #include <wsutil/filesystem.h>
 
-#include "qt_ui_utils.h"
-#include "sparkline_delegate.h"
+#include <wiretap/wtap.h>
+
+#include <ui/qt/utils/qt_ui_utils.h>
+#include <ui/qt/models/sparkline_delegate.h>
 
 // To do:
 // - Set a size hint for item delegates.
@@ -109,6 +111,8 @@ class InterfaceTreeWidgetItem : public QTreeWidgetItem
 public:
     InterfaceTreeWidgetItem(QTreeWidget *tree) : QTreeWidgetItem(tree) {}
     bool operator< (const QTreeWidgetItem &other) const;
+    QVariant data(int column, int role) const;
+    void setData(int column, int role, const QVariant &value);
     QList<int> points;
 
     void updateInterfaceColumns(interface_t *device)
@@ -243,22 +247,13 @@ void CaptureInterfacesDialog::updateGlobalDeviceSelections()
     while (*iter) {
         QString device_name = (*iter)->data(col_interface_, Qt::UserRole).value<QString>();
         for (guint i = 0; i < global_capture_opts.all_ifaces->len; i++) {
-            interface_t device = g_array_index(global_capture_opts.all_ifaces, interface_t, i);
-            if (device_name.compare(QString().fromUtf8(device.name)) == 0) {
-                if (!device.locked) {
-                    if ((*iter)->isSelected()) {
-                        device.selected = TRUE;
-                        global_capture_opts.num_selected++;
-                    } else {
-                        device.selected = FALSE;
-                    }
-                    device.locked = TRUE;
-                    global_capture_opts.all_ifaces = g_array_remove_index(global_capture_opts.all_ifaces, i);
-                    g_array_insert_val(global_capture_opts.all_ifaces, i, device);
-
-                    device.locked = FALSE;
-                    global_capture_opts.all_ifaces = g_array_remove_index(global_capture_opts.all_ifaces, i);
-                    g_array_insert_val(global_capture_opts.all_ifaces, i, device);
+            interface_t *device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
+            if (device_name.compare(QString().fromUtf8(device->name)) == 0) {
+                if ((*iter)->isSelected()) {
+                    device->selected = TRUE;
+                    global_capture_opts.num_selected++;
+                } else {
+                    device->selected = FALSE;
                 }
                 break;
             }
@@ -268,11 +263,43 @@ void CaptureInterfacesDialog::updateGlobalDeviceSelections()
 #endif
 }
 
+/* Update TreeWidget selection based on global device selections. */
+void CaptureInterfacesDialog::updateFromGlobalDeviceSelections()
+{
+#ifdef HAVE_LIBPCAP
+    QTreeWidgetItemIterator iter(ui->interfaceTree);
+
+    // Prevent recursive interface interfaceSelected signals
+    ui->interfaceTree->blockSignals(true);
+
+    while (*iter) {
+        QString device_name = (*iter)->data(col_interface_, Qt::UserRole).value<QString>();
+        for (guint i = 0; i < global_capture_opts.all_ifaces->len; i++) {
+            interface_t *device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
+            if (device_name.compare(QString().fromUtf8(device->name)) == 0) {
+                if ((bool)device->selected != (*iter)->isSelected()) {
+                    (*iter)->setSelected(device->selected);
+                }
+                break;
+            }
+        }
+        ++iter;
+    }
+
+    ui->interfaceTree->blockSignals(false);
+#endif
+}
+
 void CaptureInterfacesDialog::interfaceSelected()
 {
-    updateGlobalDeviceSelections();
-
-    emit interfacesChanged();
+    if (sender() == ui->interfaceTree) {
+        // Local changes, propagate our changes
+        updateGlobalDeviceSelections();
+        emit interfacesChanged();
+    } else {
+        // Changes from the welcome screen, adjust to its state.
+        updateFromGlobalDeviceSelections();
+    }
 
     updateSelectedFilter();
 
@@ -455,7 +482,7 @@ void CaptureInterfacesDialog::interfaceItemChanged(QTreeWidgetItem *item, int co
 
 void CaptureInterfacesDialog::on_gbStopCaptureAuto_toggled(bool checked)
 {
-    global_capture_opts.has_file_duration = checked;
+    global_capture_opts.has_file_interval = checked;
 }
 
 void CaptureInterfacesDialog::on_gbNewFileAuto_toggled(bool checked)
@@ -533,7 +560,7 @@ void CaptureInterfacesDialog::updateInterfaces()
 
     ui->gbNewFileAuto->setChecked(global_capture_opts.multi_files_on);
     ui->MBCheckBox->setChecked(global_capture_opts.has_autostop_filesize);
-    ui->SecsCheckBox->setChecked(global_capture_opts.has_file_duration);
+    ui->SecsCheckBox->setChecked(global_capture_opts.has_file_interval);
     if (global_capture_opts.has_autostop_filesize) {
         int value = global_capture_opts.autostop_filesize;
         if (value > 1000000) {
@@ -565,8 +592,8 @@ void CaptureInterfacesDialog::updateInterfaces()
             }
         }
     }
-    if (global_capture_opts.has_file_duration) {
-        int value = global_capture_opts.file_duration;
+    if (global_capture_opts.has_file_interval) {
+        int value = global_capture_opts.file_interval;
         if (value > 3600 && value % 3600 == 0) {
             ui->SecsSpinBox->setValue(value / 3600);
             ui->SecsComboBox->setCurrentIndex(2);
@@ -586,7 +613,7 @@ void CaptureInterfacesDialog::updateInterfaces()
 
     if (global_capture_opts.has_autostop_duration) {
         ui->stopSecsCheckBox->setChecked(true);
-        int value = global_capture_opts.file_duration;
+        int value = global_capture_opts.file_interval;
         if (value > 3600 && value % 3600 == 0) {
             ui->stopSecsSpinBox->setValue(value / 3600);
             ui->stopSecsComboBox->setCurrentIndex(2);
@@ -668,10 +695,10 @@ void CaptureInterfacesDialog::updateInterfaces()
             if (capture_dev_user_snaplen_find(device->name, &hassnap, &snaplen)) {
                 /* Default snap length set in preferences */
                 device->snaplen = snaplen;
-                device->has_snaplen = hassnap;
+                device->has_snaplen = snaplen == WTAP_MAX_PACKET_SIZE_STANDARD ? FALSE : hassnap;
             } else {
                 /* No preferences set yet, use default values */
-                device->snaplen = WTAP_MAX_PACKET_SIZE;
+                device->snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
                 device->has_snaplen = FALSE;
             }
 
@@ -751,6 +778,7 @@ void CaptureInterfacesDialog::updateStatistics(void)
 {
     interface_t *device;
 
+    disconnect(ui->interfaceTree, SIGNAL(itemChanged(QTreeWidgetItem*,int)), this, SLOT(interfaceItemChanged(QTreeWidgetItem*,int)));
     for (int row = 0; row < ui->interfaceTree->topLevelItemCount(); row++) {
 
         for (guint if_idx = 0; if_idx < global_capture_opts.all_ifaces->len; if_idx++) {
@@ -768,6 +796,7 @@ void CaptureInterfacesDialog::updateStatistics(void)
             ti->setData(col_traffic_, Qt::UserRole, qVariantFromValue(points));
         }
     }
+    connect(ui->interfaceTree, SIGNAL(itemChanged(QTreeWidgetItem*,int)), this, SLOT(interfaceItemChanged(QTreeWidgetItem*,int)));
     ui->interfaceTree->viewport()->update();
 }
 
@@ -820,14 +849,14 @@ bool CaptureInterfacesDialog::saveOptionsToPreferences()
     }
     global_capture_opts.multi_files_on = ui->gbNewFileAuto->isChecked();
     if (global_capture_opts.multi_files_on) {
-        global_capture_opts.has_file_duration = ui->SecsCheckBox->isChecked();
-        if (global_capture_opts.has_file_duration) {
-            global_capture_opts.file_duration = ui->SecsSpinBox->value();
+        global_capture_opts.has_file_interval = ui->SecsCheckBox->isChecked();
+        if (global_capture_opts.has_file_interval) {
+            global_capture_opts.file_interval = ui->SecsSpinBox->value();
             int index = ui->SecsComboBox->currentIndex();
             switch (index) {
-            case 1: global_capture_opts.file_duration *= 60;
+            case 1: global_capture_opts.file_interval *= 60;
                 break;
-            case 2: global_capture_opts.file_duration *= 3600;
+            case 2: global_capture_opts.file_interval *= 3600;
                 break;
             }
          }
@@ -859,9 +888,9 @@ bool CaptureInterfacesDialog::saveOptionsToPreferences()
              QMessageBox::warning(this, tr("Error"),
                                       tr("Multiple files: No capture file name given. You must specify a filename if you want to use multiple files."));
              return false;
-         } else if (!global_capture_opts.has_autostop_filesize && !global_capture_opts.has_file_duration) {
+         } else if (!global_capture_opts.has_autostop_filesize && !global_capture_opts.has_file_interval) {
              QMessageBox::warning(this, tr("Error"),
-                                      tr("Multiple files: No file limit given. You must specify a file size or duration at which is switched to the next capture file\n if you want to use multiple files."));
+                                      tr("Multiple files: No file limit given. You must specify a file size or interval at which is switched to the next capture file\n if you want to use multiple files."));
              g_free(global_capture_opts.save_file);
              global_capture_opts.save_file = NULL;
              return false;
@@ -971,7 +1000,7 @@ bool CaptureInterfacesDialog::saveOptionsToPreferences()
                 snaplen_list << QString("%1:%2(%3)")
                                 .arg(device->name)
                                 .arg(device->has_snaplen)
-                                .arg(device->has_snaplen ? device->snaplen : WTAP_MAX_PACKET_SIZE);
+                                .arg(device->has_snaplen ? device->snaplen : WTAP_MAX_PACKET_SIZE_STANDARD);
             }
             g_free(prefs.capture_devices_snaplen);
             prefs.capture_devices_snaplen = qstring_strdup(snaplen_list.join(","));
@@ -1112,6 +1141,29 @@ bool InterfaceTreeWidgetItem::operator< (const QTreeWidgetItem &other) const {
     return QTreeWidgetItem::operator<(other);
 }
 
+QVariant InterfaceTreeWidgetItem::data(int column, int role) const
+{
+    // See setData for the special col_traffic_ treatment.
+    if (column == col_traffic_ && role == Qt::UserRole) {
+        return qVariantFromValue(points);
+    }
+
+    return QTreeWidgetItem::data(column, role);
+}
+
+void InterfaceTreeWidgetItem::setData(int column, int role, const QVariant &value)
+{
+    // Workaround for closing editors on updates to the points list: normally
+    // QTreeWidgetItem::setData emits dataChanged when the value (list) changes.
+    // We could store a pointer to the list, or just have this hack that does
+    // not emit dataChanged.
+    if (column == col_traffic_ && role == Qt::UserRole) {
+        points = value.value<QList<int> >();
+        return;
+    }
+
+    QTreeWidgetItem::setData(column, role, value);
+}
 
 //
 // InterfaceTreeDelegate
@@ -1136,7 +1188,7 @@ QWidget* InterfaceTreeDelegate::createEditor(QWidget *parent, const QStyleOption
 #ifdef SHOW_BUFFER_COLUMN
     gint buffer = DEFAULT_CAPTURE_BUFFER_SIZE;
 #endif
-    guint snap = WTAP_MAX_PACKET_SIZE;
+    guint snap = WTAP_MAX_PACKET_SIZE_STANDARD;
     GList *links = NULL;
 
     if (idx.column() > 1 && idx.data().toString().compare(UTF8_EM_DASH)) {
@@ -1186,7 +1238,7 @@ QWidget* InterfaceTreeDelegate::createEditor(QWidget *parent, const QStyleOption
         case col_snaplen_:
         {
             QSpinBox *sb = new QSpinBox(parent);
-            sb->setRange(1, 65535);
+            sb->setRange(1, WTAP_MAX_PACKET_SIZE_STANDARD);
             sb->setValue(snap);
             sb->setWrapping(true);
             connect(sb, SIGNAL(valueChanged(int)), this, SLOT(snapshotLengthChanged(int)));
@@ -1197,7 +1249,7 @@ QWidget* InterfaceTreeDelegate::createEditor(QWidget *parent, const QStyleOption
         case col_buffer_:
         {
             QSpinBox *sb = new QSpinBox(parent);
-            sb->setRange(1, 65535);
+            sb->setRange(1, WTAP_MAX_PACKET_SIZE_STANDARD);
             sb->setValue(buffer);
             sb->setWrapping(true);
             connect(sb, SIGNAL(valueChanged(int)), this, SLOT(bufferSizeChanged(int)));
@@ -1271,12 +1323,12 @@ void InterfaceTreeDelegate::snapshotLengthChanged(int value)
     if (!device) {
         return;
     }
-    if (value != WTAP_MAX_PACKET_SIZE) {
+    if (value != WTAP_MAX_PACKET_SIZE_STANDARD) {
         device->has_snaplen = true;
         device->snaplen = value;
     } else {
         device->has_snaplen = false;
-        device->snaplen = WTAP_MAX_PACKET_SIZE;
+        device->snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
     }
 }
 
@@ -1295,7 +1347,7 @@ void InterfaceTreeDelegate::bufferSizeChanged(int value)
     }
     device->buffer = value;
 #else
-    Q_UNUSED(value);
+    Q_UNUSED(value)
 #endif
 }
 

@@ -63,11 +63,6 @@ static void moldudp_prompt(packet_info *pinfo _U_, gchar* result)
     g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "Payload as");
 }
 
-static gpointer moldudp_value(packet_info *pinfo _U_)
-{
-    return 0;
-}
-
 /* Code to dissect a message block */
 static guint
 dissect_moldudp_msgblk(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
@@ -123,7 +118,7 @@ dissect_moldudp_msgblk(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* Functionality for choosing subdissector is controlled through Decode As as MoldUDP doesn't
        have a unique identifier to determine subdissector */
     next_tvb = tvb_new_subset_length(tvb, offset, real_msglen);
-    if (!dissector_try_uint_new(moldudp_payload_table, 0, next_tvb, pinfo, tree, FALSE, NULL))
+    if (!dissector_try_payload_new(moldudp_payload_table, next_tvb, pinfo, tree, FALSE, NULL))
     {
         proto_tree_add_item(blk_tree, hf_moldudp_msgdata,
                 tvb, offset, real_msglen, ENC_NA);
@@ -249,16 +244,8 @@ proto_register_moldudp(void)
 
     expert_module_t* expert_moldudp;
 
-    /* Decode As handling */
-    static build_valid_func moldudp_da_build_value[1] = {moldudp_value};
-    static decode_as_value_t moldudp_da_values = {moldudp_prompt, 1, moldudp_da_build_value};
-    static decode_as_t moldudp_da = {"moldudp", "MoldUDP Payload", "moldudp.payload", 1, 0, &moldudp_da_values, NULL, NULL,
-                                      decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
-
     /* Register the protocol name and description */
     proto_moldudp = proto_register_protocol("MoldUDP", "MoldUDP", "moldudp");
-
-    moldudp_payload_table = register_dissector_table("moldudp.payload", "MoldUDP Payload", proto_moldudp, FT_UINT32, BASE_DEC);
 
     /* Required function calls to register the header fields and subtrees used */
     proto_register_field_array(proto_moldudp, hf, array_length(hf));
@@ -266,7 +253,7 @@ proto_register_moldudp(void)
     expert_moldudp = expert_register_protocol(proto_moldudp);
     expert_register_field_array(expert_moldudp, ei, array_length(ei));
 
-    register_decode_as(&moldudp_da);
+    moldudp_payload_table = register_decode_as_next_proto(proto_moldudp, "MoldUDP Payload", "moldudp.payload", "MoldUDP Payload", (build_label_func*)&moldudp_prompt);
 }
 
 

@@ -40,6 +40,10 @@ if HAVE_SPANDSP
 libwscodecs_la_SOURCES += G722/G722decode.c G726/G726decode.c
 endif
 
+if HAVE_BCG729
+libwscodecs_la_SOURCES += G729/G729decode.c
+endif
+
 if !HAVE_SPEEXDSP
 libwscodecs_la_SOURCES += speex/resample.c
 endif
@@ -47,18 +51,24 @@ endif
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 libwscodecs_la_LDFLAGS = -version-info 0:0:0 @LDFLAGS_SHAREDLIB@
 
-libwscodecs_la_LIBADD = $(top_builddir)/wsutil/libwsutil.la $(GLIB_LIBS) $(SBC_LIBS) $(SPANDSP_LIBS)
+libwscodecs_la_LIBADD = $(top_builddir)/wsutil/libwsutil.la $(GLIB_LIBS) \
+	$(SBC_LIBS) $(SPANDSP_LIBS) $(BCG729_LIBS)
 
 libwscodecs_la_DEPENDENCIES = $(top_builddir)/wsutil/libwsutil.la
 
+subpkgincludedir = $(pkgincludedir)/codecs
+
+subpkginclude_HEADERS = \
+	codecs.h
+
 noinst_HEADERS = \
-	codecs.h \
 	G711a/G711adecode.h \
 	G711a/G711atable.h \
 	G711u/G711udecode.h \
 	G711u/G711utable.h \
 	G722/G722decode.h \
 	G726/G726decode.h \
+	G729/G729decode.h \
 	sbc/sbc_private.h \
 	speex/arch.h \
 	speex/speex_resampler.h \
@@ -71,9 +81,6 @@ EXTRA_DIST = \
 CLEANFILES = \
 	libwscodec.la	\
 	*~
-
-MAINTAINERCLEANFILES =	\
-	Makefile.in
 
 checkapi:
 	$(PERL) $(top_srcdir)/tools/checkAPIs.pl -g abort -g termoutput -build \

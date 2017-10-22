@@ -42,6 +42,14 @@ char* unit_name_string_get_value64(guint64 value, unit_name_string* units)
     return plurality(value, units->singular, units->plural);
 }
 
+char* unit_name_string_get_double(double value, unit_name_string* units)
+{
+    if (units->plural == NULL)
+        return units->singular;
+
+    return plurality(value, units->singular, units->plural);
+}
+
 /*
  * A default set of unit strings that dissectors can use for
  * header fields.  Some units intentionally have a space
@@ -50,6 +58,7 @@ char* unit_name_string_get_value64(guint64 value, unit_name_string* units)
 const unit_name_string units_foot_feet = { " foot", " feet" };
 const unit_name_string units_bit_bits = { " bit", " bits" };
 const unit_name_string units_byte_bytes = { " byte", " bytes" };
+const unit_name_string units_byte_bytespsecond = { " byte/s", " bytes/s" };
 const unit_name_string units_octet_octets = { " octet", " octets" };
 const unit_name_string units_word_words = { " word", " words" };
 const unit_name_string units_tick_ticks = { " tick", " ticks" };
@@ -71,9 +80,11 @@ const unit_name_string units_nanosecond_nanoseconds = { " nanosecond", " nanosec
 const unit_name_string units_nanoseconds = { "ns", NULL };
 const unit_name_string units_nanometers = { "nm", NULL };
 const unit_name_string units_degree_degrees = { " degree", " degrees" };
+const unit_name_string units_degree_celsius = { UTF8_DEGREE_SIGN "C", NULL };
 const unit_name_string units_decibels = { "dB", NULL };
 const unit_name_string units_dbm = { "dBm", NULL };
 const unit_name_string units_dbi = { "dBi", NULL };
+const unit_name_string units_mbm = { "mBm", NULL };
 const unit_name_string units_percent = { "%", NULL };
 const unit_name_string units_khz = { "kHz", NULL };
 const unit_name_string units_mhz = { "MHz", NULL };
@@ -83,13 +94,24 @@ const unit_name_string units_hz_s = { "Hz/s", NULL };
 const unit_name_string units_kbit = { "kbit", NULL };
 const unit_name_string units_kbps = { "Kbps", NULL };
 const unit_name_string units_kibps = { "KiB/s", NULL };
+const unit_name_string units_km = { "km", NULL };
 const unit_name_string units_kmh = { "km/h", NULL };
 const unit_name_string units_bit_sec = { "bits/s", NULL };
+const unit_name_string units_milliamps = { "mA", NULL };
 const unit_name_string units_microwatts = { UTF8_MICRO_SIGN "W", NULL };
+const unit_name_string units_volt = { "V", NULL };
+const unit_name_string units_grams_per_second = { "g/s", NULL };
 const unit_name_string units_meter_sec = { "m/s", NULL };
 const unit_name_string units_meter_sec_squared = { "m/s" UTF8_SUPERSCRIPT_TWO , NULL };
 const unit_name_string units_segment_remaining = { " segment remaining", " segments remaining" };
 const unit_name_string units_frame_frames = { " frame", " frames" };
+const unit_name_string units_revolutions_per_minute = { "rpm", NULL };
+const unit_name_string units_kilopascal = { "kPa", NULL };
+const unit_name_string units_newton_metre = { "Nm", NULL };
+const unit_name_string units_liter_per_hour = { "L/h", NULL };
+const unit_name_string units_amp = { "A", NULL };
+const unit_name_string units_watthour = { "Wh", NULL };
+const unit_name_string units_watt = { "W", NULL };
 
 
 /*

@@ -66,14 +66,17 @@ man1_MANS = \
 	@mergecap_man@		\
 	@reordercap_man@	\
 	@capinfos_man@		\
+	@captype_man@		\
 	@editcap_man@		\
 	@dumpcap_man@		\
 	@rawshark_man@		\
 	@dftest_man@		\
 	@randpkt_man@		\
 	@androiddump_man@	\
+	@ciscodump_man@		\
 	@sshdump_man@		\
-	@randpktdump_man@
+	@randpktdump_man@	\
+	@udpdump_man@
 
 man4_MANS = \
 	@extcap_man@		\
@@ -86,10 +89,10 @@ man_MANS =
 noinst_DATA = asn2deb.1 asn2deb.html idl2deb.1 idl2deb.html idl2wrs.1 idl2wrs.html
 
 pkgdata_DATA = AUTHORS-SHORT $(top_srcdir)/docbook/ws.css wireshark.html \
-	tshark.html wireshark-filter.html capinfos.html ciscodump.html editcap.html \
-	mergecap.html reordercap.html text2pcap.html dumpcap.html androiddump.html \
-	sshdump.html randpktdump.html rawshark.html dftest.html randpkt.html \
-	extcap.html
+	tshark.html wireshark-filter.html capinfos.html captype.html ciscodump.html \
+	editcap.html mergecap.html reordercap.html text2pcap.html dumpcap.html \
+	androiddump.html sshdump.html randpktdump.html rawshark.html dftest.html \
+	randpkt.html extcap.html udpdump.html
 
 #
 # Build the short version of the authors file for the about dialog
@@ -180,6 +183,13 @@ capinfos.html: capinfos.pod ../config.h $(top_srcdir)/docbook/ws.css
 	--css=$(POD_CSS_URL)						\
 	--noindex							\
 	$(srcdir)/capinfos.pod > capinfos.html
+
+captype.html: captype.pod ../config.h $(top_srcdir)/docbook/ws.css
+	$(AM_V_POD2HTML)$(POD2HTML)					\
+	--title="captype - The Wireshark Network Analyzer $(VERSION)"	\
+	--css=$(POD_CSS_URL)						\
+	--noindex							\
+	$(srcdir)/captype.pod > captype.html
 
 editcap.html: editcap.pod ../config.h $(top_srcdir)/docbook/ws.css
 	$(AM_V_POD2HTML)$(POD2HTML)					\
@@ -272,6 +282,13 @@ randpkt.html: randpkt.pod ../config.h $(top_srcdir)/docbook/ws.css
 	--noindex							\
 	$(srcdir)/randpkt.pod > randpkt.html
 
+udpdump.html: udpdump.pod ../config.h $(top_srcdir)/docbook/ws.css
+	$(AM_V_POD2HTML)$(POD2HTML)                     \
+	--title="udpdump - The Wireshark Network Analyzer $(VERSION)"	\
+	--css=$(POD_CSS_URL)						\
+	--noindex							\
+	$(srcdir)/udpdump.pod > udpdump.html
+
 CLEANFILES =		\
 	wireshark.pod	\
 	*.1		\
@@ -285,9 +302,6 @@ DISTCLEANFILES =		\
 	../AUTHORS-SHORT	\
 	AUTHORS-SHORT-FORMAT	\
 	*~
-
-MAINTAINERCLEANFILES = \
-	Makefile.in
 
 EXTRA_DIST =				\
 	README.capture			\
@@ -325,6 +339,10 @@ EXTRA_DIST =				\
 	mergecap.pod			\
 	packet-PROTOABBREV.c		\
 	perlnoutf.pl			\
+	plugins.example/configure.ac	\
+	plugins.example/hello.c		\
+	plugins.example/Makefile.am	\
+	plugins.example/README		\
 	randpkt.pod			\
 	randpkt.txt			\
 	randpktdump.pod			\
@@ -334,7 +352,8 @@ EXTRA_DIST =				\
 	sshdump.pod			\
 	text2pcap.pod			\
 	tshark.pod			\
-	wireshark-filter.pod    	\
+	udpdump.pod			\
+	wireshark-filter.pod		\
 	wireshark.pod.template		\
 	CMakeLists.txt
 

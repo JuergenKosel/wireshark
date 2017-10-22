@@ -51,9 +51,18 @@ S<[ B<-x> ]>
 S<[ B<-X> E<lt>eXtension optionE<gt>]>
 S<[ B<-y> E<lt>capture link typeE<gt> ]>
 S<[ B<-Y> E<lt>displaY filterE<gt> ]>
+S<[ B<-M> E<lt>auto session resetE<gt> ]>
 S<[ B<-z> E<lt>statisticsE<gt> ]>
 S<[ B<--capture-comment> E<lt>commentE<gt> ]>
+S<[ B<--list-time-stamp-types> ]>
+S<[ B<--time-stamp-type> E<lt>typeE<gt> ]>
+S<[ B<--color> ]>
+S<[ B<--no-duplicate-keys> ]>
 S<[ B<--export-objects> E<lt>protocolE<gt>,E<lt>destdirE<gt> ]>
+S<[ B<--enable-protocol> E<lt>proto_nameE<gt> ]>
+S<[ B<--disable-protocol> E<lt>proto_nameE<gt> ]>
+S<[ B<--enable-heuristic> E<lt>short_nameE<gt> ]>
+S<[ B<--disable-heuristic> E<lt>short_nameE<gt> ]>
 S<[ E<lt>capture filterE<gt> ]>
 
 B<tshark>
@@ -202,6 +211,9 @@ where I<key> is one of:
 B<duration>:I<value> switch to the next file after I<value> seconds have
 elapsed, even if the current file is not completely filled up.
 
+B<interval>:I<value> switch to the next file when the time is an exact
+multiple of I<value> seconds
+
 B<filesize>:I<value> switch to the next file after it reaches a size of
 I<value> kB.  Note that the filesize is limited to a maximum value of 2 GiB.
 
@@ -209,10 +221,10 @@ B<files>:I<value> begin again with the first file after I<value> number of
 files were written (form a ring buffer).  This value must be less than 100000.
 Caution should be used when using large numbers of files: some filesystems do
 not handle many files in a single directory well.  The B<files> criterion
-requires either B<duration> or B<filesize> to be specified to control when to
-go to the next file.  It should be noted that each B<-b> parameter takes exactly
-one criterion; to specify two criterion, each must be preceded by the B<-b>
-option.
+requires either B<duration>, B<interval> or B<filesize> to be specified to
+control when to go to the next file.  It should be noted that each B<-b>
+parameter takes exactly one criterion; to specify two criterion, each must be
+preceded by the B<-b> option.
 
 Example: B<-b filesize:1000 -b files:5> results in a ring buffer of five files
 of size one megabyte each.
@@ -488,7 +500,9 @@ the type of record.
 
 =item -h
 
-Print the version and options and exits.
+=item --help
+
+Print the version and options and exit.
 
 =item -H  E<lt>input hosts fileE<gt>
 
@@ -647,8 +661,10 @@ promiscuous mode.
 
 =item -P
 
-Decode and display the packet summary, even if writing raw packet data using
-the B<-w> option.
+=item --print
+
+Decode and display the packet summary or details, even if writing raw
+packet data using the B<-w> option.
 
 =item -q
 
@@ -696,7 +712,7 @@ applied.
 Set the default snapshot length to use when capturing live data.
 No more than I<snaplen> bytes of each network packet will be read into
 memory, or saved to disk.  A value of 0 specifies a snapshot length of
-65535, so that the full packet is captured; this is the default.
+262144, so that the full packet is captured; this is the default.
 
 This option can occur multiple times.  If used before the first
 occurrence of the B<-i> option, it sets the default snapshot length.
@@ -755,11 +771,14 @@ options are one of:
 
 B<ek> Newline delimited JSON format for bulk import into Elasticsearch.
 It can be used with B<-j> or B<-J> including the JSON filter or with
-B<-x> flag to include raw hex-encoded packet data.
+B<-x> to include raw hex-encoded packet data.
+If B<-P> is specified it will print the packet summary only, with both
+B<-P> and B<-V> it will print the packet summary and packet details.
+If neither B<-P> or B<-V> are used it will print the packet details only.
 Example of usage to import data into Elasticsearch:
 
-  tshark -T ek -j "http tcp ip" -x -r file.pcap > file.json
-  curl -XPUT http://elasticsearch:9200/_bulk --data-binary @file.json
+  tshark -T ek -j "http tcp ip" -P -V -x -r file.pcap > file.json
+  curl -H "Content-Type: application/x-ndjson" -XPOST http://elasticsearch:9200/_bulk --data-binary "@file.json"
 
 B<fields> The values of fields specified with the B<-e> option, in a
 form specified by the B<-E> option.  For example,
@@ -786,6 +805,8 @@ Example of usage:
 B<pdml> Packet Details Markup Language, an XML-based format for the details of
 a decoded packet.  This information is equivalent to the packet details
 printed with the B<-V> flag.
+Using the --color option will add color attributes to B<pdml> output. These
+attributes are nonstandard.
 
 B<ps> PostScript for a human-readable one-line summary of each of the packets,
 or a multi-line view of the details of each of the packets, depending on
@@ -794,6 +815,8 @@ whether the B<-V> flag was specified.
 B<psml> Packet Summary Markup Language, an XML-based format for the summary
 information of a decoded packet.  This information is equivalent to the
 information shown in the one-line summary printed by default.
+Using the --color option will add color attributes to B<pdml> output. These
+attributes are nonstandard.
 
 B<tabs> Similar to the default B<text> report except the human-readable one-line
 summary of each packet will include an ASCII horizontal tab (0x09) character
@@ -818,6 +841,8 @@ PDUs export, exports PDUs from infile to outfile according to the tap name given
 Enter an empty tap name "" to get a list of available names.
 
 =item -v
+
+=item --version
 
 Print the version and exit.
 
@@ -899,6 +924,17 @@ than being printed or written.
 Use this instead of -R for filtering using single-pass analysis. If doing
 two-pass analysis (see -2) then only packets matching the read filter (if there
 is one) will be checked against this filter.
+
+=item -M  E<lt>auto session resetE<gt>
+
+Automatically reset internal session when reached to specified number of packets.
+for example,
+
+    -M 100000
+
+will reset session every 100000 packets.
+
+This feature does not support -2 two-pass analysis
 
 =item -z  E<lt>statisticsE<gt>
 
@@ -1081,6 +1117,26 @@ on those calls that match that filter.
 
 Example: B<-z "expert,note,tcp"> will only collect expert items for frames that
 include the tcp protocol, with a severity of note or higher.
+
+=item B<-z> flow,I<name>,I<mode>,[I<filter>]
+
+Displays the flow of data between two nodes. Output is the same as ASCII format
+saved from GUI.
+
+I<name> specifies the flow name.  It can be one of:
+
+  any      All frames
+  icmp     ICMP
+  icmpv6   ICMPv6
+  lbm_uim  UIM
+  tcp      TCP
+
+I<mode> specifies the address type.  It can be one of:
+
+  standard   Any address
+  network    Network address
+
+Example: B<-z flow,tcp,network> will show data flow for all TCP frames
 
 =item B<-z> follow,I<prot>,I<mode>,I<filter>[I<,range>]
 
@@ -1588,12 +1644,37 @@ on those calls that match that filter.
 Example: B<-z "smb,srt,ip.addr==1.2.3.4"> will only collect stats for
 SMB packets exchanged by the host at IP address 1.2.3.4 .
 
+=back
+
 =item --capture-comment E<lt>commentE<gt>
 
 Add a capture comment to the output file.
 
 This option is only available if a new output file in pcapng format is
 created. Only one capture comment may be set per output file.
+
+=item --list-time-stamp-types
+
+List time stamp types supported for the interface. If no time stamp type can be
+set, no time stamp types are listed.
+
+=item --time-stamp-type E<lt>typeE<gt>
+
+Change the interface's timestamp method.
+
+=item --color
+
+Enable coloring of packets according to standard Wireshark color filters.  This
+is currently implemented via 24-bit "true color" terminal escape sequences that
+are not supported by all terminal emulators.  See
+L<https://wiki.wireshark.org/ColoringRules> for more information on configuring
+color filters.
+
+=item --no-duplicate-keys
+
+If a key appears multiple times in an object, only write it a single time with
+as value a json array containing all the separate values. (Only works with
+-T json)
 
 =item --export-objects E<lt>protocolE<gt>,E<lt>destdirE<gt>
 
@@ -1607,6 +1688,10 @@ before the file extension.
 
 This interface is subject to change, adding the possibility to filter on files.
 
+=item --enable-protocol E<lt>proto_nameE<gt>
+
+Enable dissection of proto_name.
+
 =item --disable-protocol E<lt>proto_nameE<gt>
 
 Disable dissection of proto_name.
@@ -1618,8 +1703,6 @@ Enable dissection of heuristic protocol.
 =item --disable-heuristic E<lt>short_nameE<gt>
 
 Disable dissection of heuristic protocol.
-
-=back
 
 =back
 

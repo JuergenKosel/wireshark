@@ -33,11 +33,14 @@
 #include <epan/packet.h>
 #include <wsutil/pint.h>
 #include <epan/address_types.h>
+#include <wiretap/wtap.h>
 
 void proto_register_vsock(void);
+void proto_reg_handoff_vsock(void);
 
 static int proto_vsock = -1;
 static int vsock_address_type = -1;
+static dissector_handle_t vsock_handle;
 
 /* Generic header related fields */
 static int hf_vsock_src_cid = -1;
@@ -47,6 +50,7 @@ static int hf_vsock_dst_port = -1;
 static int hf_vsock_op = -1;
 static int hf_vsock_t = -1;
 static int hf_vsock_t_len = -1;
+static int hf_vsock_reserved = -1;
 static int hf_vsock_payload = -1;
 
 /* Virtio related fields */
@@ -169,6 +173,9 @@ dissect_vsock(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     proto_tree_add_item_ret_uint(vsock_tree, hf_vsock_t_len, tvb, offset, 2, ENC_LITTLE_ENDIAN, &t_len);
     offset += 2;
 
+    proto_tree_add_item(vsock_tree, hf_vsock_reserved, tvb, offset, 2, ENC_NA);
+    offset += 2;
+
     payload_offset = offset + t_len;
 
     /* Append summary information to top tree */
@@ -259,6 +266,9 @@ proto_register_vsock(void)
         { &hf_vsock_t_len,
             {"Transport length", "vsock.trans_len", FT_UINT16, BASE_DEC, NULL,
                 0x0, NULL, HFILL }},
+        { &hf_vsock_reserved,
+            {"Reserved", "vsock.reserved", FT_BYTES, BASE_NONE, NULL,
+                0x0, NULL, HFILL }},
         { &hf_vsock_payload,
             { "Payload", "vsock.payload", FT_BYTES, BASE_NONE, NULL,
                 0x0, NULL, HFILL}},
@@ -305,7 +315,13 @@ proto_register_vsock(void)
     proto_register_field_array(proto_vsock, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
-    register_dissector("vsock", dissect_vsock, proto_vsock);
+    vsock_handle = register_dissector("vsock", dissect_vsock, proto_vsock);
+}
+
+void
+proto_reg_handoff_vsock(void)
+{
+    dissector_add_uint("wtap_encap", WTAP_ENCAP_VSOCK, vsock_handle);
 }
 
 /*

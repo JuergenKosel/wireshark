@@ -46,6 +46,7 @@
 #define GSMTAP_TYPE_GMR1_UM		0x0a	/* GMR-1 L2 packets */
 #define GSMTAP_TYPE_UMTS_RLC_MAC	0x0b
 #define GSMTAP_TYPE_UMTS_RRC		0x0c
+#define GSMTAP_TYPE_LTE_RRC		0x0d	/* LTE interface */
 #define GSMTAP_TYPE_OSMOCORE_LOG	0x10	/* libosmocore logging */
 
 /* ====== DO NOT MAKE UNAPPROVED MODIFICATIONS HERE ===== */
@@ -82,7 +83,7 @@
 #define GSMTAP_CHANNEL_TCH_H		0x0a
 #define GSMTAP_CHANNEL_PACCH		0x0b
 #define GSMTAP_CHANNEL_CBCH52		0x0c
-#define GSMTAP_CHANNEL_PDCH		0x0d
+#define GSMTAP_CHANNEL_PDTCH		0x0d
 #define GSMTAP_CHANNEL_PTCCH		0x0e
 #define GSMTAP_CHANNEL_CBCH51		0x0f
 

@@ -1,7 +1,7 @@
 /* packet-sgsap.c
  * Routines for SGs Application Part (SGsAP) protocol dissection
  *
- * Copyright 2010 - 2016, Anders Broman <anders.broman@ericsson.com>
+ * Copyright 2010 - 2017, Anders Broman <anders.broman@ericsson.com>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -479,6 +479,7 @@ static const value_string sgsap_sgs_cause_values[] = {
     { 0x0b, "Semantically incorrect message" },
     { 0x0c, "Message unknown" },
     { 0x0d, "Mobile terminating CS fallback call rejected by the user" },
+    { 0x0e, "UE temporarily unreachable" },
     { 0, NULL }
 };
 
@@ -700,7 +701,7 @@ static const value_string sgsap_elem_strings[] = {
     { DE_SGSAP_UE_EMM_MODE, "UE EMM mode" },                                /* 9.4.21c */
     { DE_SGSAP_ADD_PAGING_IND, "Additional paging indicators" },            /* 9.4.25 */
     { DE_SGSAP_TMSI_BASED_NRI_CONT, "TMSI based NRI container" },           /* 9.4.26 */
-    { DE_SGSAP_SELECTED_CS_DMN_OP, "Selected CS domain operator" },         /* 9.4.26 */
+    { DE_SGSAP_SELECTED_CS_DMN_OP, "Selected CS domain operator" },         /* 9.4.27 */
     { 0, NULL }
 };
 value_string_ext sgsap_elem_strings_ext = VALUE_STRING_EXT_INIT(sgsap_elem_strings);
@@ -1350,7 +1351,7 @@ sgsap_release_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
     /* IMSI IMSI 9.4.6  M   TLV 6-10 */
     ELEM_MAND_TLV(0x01, GSM_A_PDU_TYPE_BSSMAP, BE_IMSI, NULL, ei_sgsap_missing_mandatory_element);
     /* SGs cause    SGs cause 9.4.18    O   TLV 3 */
-    ELEM_MAND_TLV(0x08, SGSAP_PDU_TYPE, DE_SGSAP_SGS_CAUSE, NULL, ei_sgsap_missing_mandatory_element);
+    ELEM_OPT_TLV(0x08, SGSAP_PDU_TYPE, DE_SGSAP_SGS_CAUSE, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_sgsap_extraneous_data);
 }

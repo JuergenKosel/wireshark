@@ -24,9 +24,13 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = wimax
 
+BUILT_SOURCES = \
+	plugin.c
+
 # Non-generated sources to be scanned for registration routines
 NONGENERATED_REGISTER_C_FILES = \
-	packet-wmx.c \
+	packet-m2m.c	\
+	packet-wmx.c	\
 	wimax_cdma_code_decoder.c	\
 	wimax_compact_dlmap_ie_decoder.c	\
 	wimax_compact_ulmap_ie_decoder.c	\
@@ -81,7 +85,8 @@ CLEAN_HEADER_FILES = \
 	wimax_compact_ulmap_ie_decoder.h	\
 	wimax_mac.h	\
 	wimax_tlv.h	\
-	wimax_utils.h
+	wimax_utils.h	\
+	wimax-int.h
 
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
@@ -89,10 +94,12 @@ HEADER_FILES = \
 plugin_LTLIBRARIES = wimax.la
 
 wimax_la_SOURCES = \
-	plugin.c \
 	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
+
+nodist_wimax_la_SOURCES = \
+	plugin.c
 
 wimax_la_CPPFLAGS = $(AM_CPPFLAGS) $(PLUGIN_CPPFLAGS)
 
@@ -104,8 +111,7 @@ CLEANFILES = \
 	wimax \
 	*~
 
-MAINTAINERCLEANFILES = \
-	Makefile.in	\
+DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \

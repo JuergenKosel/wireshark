@@ -31,12 +31,16 @@ set(COMMON_UI_SRC
 	export_object_ui.c
 	export_pdu_ui_utils.c
 	help_url.c
+	failure_message.c
+	filter_files.c
 	firewall_rules.c
+	iface_toolbar.c
 	iface_lists.c
 	io_graph_item.c
 	language.c
 	mcast_stream.c
 	packet_list_utils.c
+	packet_range.c
 	persfilepath_opt.c
 	preference_utils.c
 	profile.c
@@ -51,7 +55,6 @@ set(COMMON_UI_SRC
 	tap-iax2-analysis.c
 	tap-rtp-common.c
 	tap-sctp-analysis.c
-	tap-sequence-analysis.c
 	tap-rlc-graph.c
 	tap-tcp-stream.c
 	text_import.c
@@ -89,9 +92,10 @@ add_library(ui STATIC
 	${GENERATED_FILES}
 )
 
-set_target_properties(ui PROPERTIES COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}")
-set_target_properties(ui PROPERTIES LINK_FLAGS "${WS_LINK_FLAGS}")
-set_target_properties(ui PROPERTIES FOLDER "UI")
+set_target_properties(ui PROPERTIES
+	LINK_FLAGS "${WS_LINK_FLAGS}"
+	FOLDER "UI"
+)
 
 CHECKAPI(
 	NAME

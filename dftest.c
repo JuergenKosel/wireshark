@@ -40,14 +40,14 @@
 #endif
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 
 #include <wiretap/wtap.h>
 
 #include "ui/util.h"
 #include "register.h"
 
-static void failure_message(const char *msg_format, va_list ap);
+static void failure_warning_message(const char *msg_format, va_list ap);
 static void open_failure_message(const char *filename, int err,
 	gboolean for_writing);
 static void read_failure_message(const char *filename, int err);
@@ -58,9 +58,6 @@ main(int argc, char **argv)
 {
 	char		*init_progfile_dir_error;
 	char		*text;
-	char		*gpf_path, *pf_path;
-	int		gpf_open_errno, gpf_read_errno;
-	int		pf_open_errno, pf_read_errno;
 	dfilter_t	*df;
 	gchar		*err_msg;
 
@@ -80,8 +77,9 @@ main(int argc, char **argv)
 		g_free(init_progfile_dir_error);
 	}
 
-	init_report_err(failure_message, open_failure_message,
-			read_failure_message, write_failure_message);
+	init_report_message(failure_warning_message, failure_warning_message,
+			    open_failure_message, read_failure_message,
+			    write_failure_message);
 
 	timestamp_set_type(TS_RELATIVE);
 	timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
@@ -108,32 +106,8 @@ main(int argc, char **argv)
 	/* set the c-language locale to the native environment. */
 	setlocale(LC_ALL, "");
 
-	read_prefs(&gpf_open_errno, &gpf_read_errno, &gpf_path,
-		&pf_open_errno, &pf_read_errno, &pf_path);
-	if (gpf_path != NULL) {
-		if (gpf_open_errno != 0) {
-			fprintf(stderr,
-				"can't open global preferences file \"%s\": %s.\n",
-				pf_path, g_strerror(gpf_open_errno));
-		}
-		if (gpf_read_errno != 0) {
-			fprintf(stderr,
-				"I/O error reading global preferences file \"%s\": %s.\n",
-				pf_path, g_strerror(gpf_read_errno));
-		}
-	}
-	if (pf_path != NULL) {
-		if (pf_open_errno != 0) {
-			fprintf(stderr,
-				"can't open your preferences file \"%s\": %s.\n",
-				pf_path, g_strerror(pf_open_errno));
-		}
-		if (pf_read_errno != 0) {
-			fprintf(stderr,
-				"I/O error reading your preferences file \"%s\": %s.\n",
-				pf_path, g_strerror(pf_read_errno));
-		}
-	}
+	/* Load libwireshark settings from the current profile. */
+	epan_load_settings();
 
 	/* notify all registered modules that have had any of their preferences
 	changed either from one of the preferences file or from the command
@@ -172,10 +146,11 @@ main(int argc, char **argv)
 }
 
 /*
- * General errors are reported with an console message in "dftest".
+ * General errors and warnings are reported with an console message
+ * in "dftest".
  */
 static void
-failure_message(const char *msg_format, va_list ap)
+failure_warning_message(const char *msg_format, va_list ap)
 {
 	fprintf(stderr, "dftest: ");
 	vfprintf(stderr, msg_format, ap);
