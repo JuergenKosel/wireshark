@@ -237,14 +237,10 @@ ascend_scanner_lex.h : ascend_scanner.c
 ascend.h: ascend.c
 
 ascend.c: $(srcdir)/ascend.y ascend_scanner_lex.h
-	@if [ -z "$(YACC)" ]; then \
-		echo "Neither bison nor byacc has been found"; \
-		exit 1; \
-	fi
 	$(AM_V_YACC)$(YACC) -d -p ascend -o ascend.c $(srcdir)/ascend.y
 
 version_info.c: $(top_srcdir)/version_info.c
-	$(AM_V_LN_S)$(LN_S) $<
+	$(AM_V_LN_S)$(LN_S) $< $(builddir)
 
 checkapi:
 ## 'abort' checking disabled for now pending resolution of existing use of g_assert & g_error

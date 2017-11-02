@@ -59,6 +59,7 @@ WSUTIL_PUBLIC_INCLUDES = \
 	g711.h			\
 	glib-compat.h		\
 	inet_addr.h		\
+	inet_ipv4.h		\
 	inet_ipv6.h		\
 	interface.h		\
 	jsmn.h			\
@@ -92,8 +93,7 @@ WSUTIL_PUBLIC_INCLUDES = \
 	wspcap.h		\
 	xtea.h
 
-WSUTIL_PRIVATE_INCLUDES = \
-	inet_addr-int.h
+WSUTIL_PRIVATE_INCLUDES =
 
 subpkgincludedir = $(pkgincludedir)/wsutil
 
@@ -192,10 +192,6 @@ EXTRA_DIST = \
 	file_util.h		\
 	getopt_long.c		\
 	getopt_long.h		\
-	inet_aton.c		\
-	inet_aton.h		\
-	inet_ntop.c		\
-	inet_pton.c		\
 	popcount.c		\
 	popcount.h		\
 	strptime.c		\

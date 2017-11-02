@@ -223,14 +223,14 @@ void t38_add_address(packet_info *pinfo,
          * Check if the ip address and port combination is not
          * already registered as a conversation.
          */
-        p_conversation = find_conversation( setup_frame_number, addr, &null_addr, PT_UDP, port, other_port,
+        p_conversation = find_conversation( setup_frame_number, addr, &null_addr, ENDPOINT_UDP, port, other_port,
                                 NO_ADDR_B | (!other_port ? NO_PORT_B : 0));
 
         /*
          * If not, create a new conversation.
          */
         if ( !p_conversation || p_conversation->setup_frame != setup_frame_number) {
-                p_conversation = conversation_new( setup_frame_number, addr, &null_addr, PT_UDP,
+                p_conversation = conversation_new( setup_frame_number, addr, &null_addr, ENDPOINT_UDP,
                                            (guint32)port, (guint32)other_port,
                                                                    NO_ADDR2 | (!other_port ? NO_PORT2 : 0));
         }
@@ -418,13 +418,13 @@ init_t38_info_conv(packet_info *pinfo)
 
 	/* find the conversation used for Reassemble and Setup Info */
 	p_conv = find_conversation(pinfo->num, &pinfo->net_dst, &pinfo->net_src,
-                                   pinfo->ptype,
+                                   conversation_pt_to_endpoint_type(pinfo->ptype),
                                    pinfo->destport, pinfo->srcport, NO_ADDR_B | NO_PORT_B);
 
 	/* create a conv if it doen't exist */
 	if (!p_conv) {
 		p_conv = conversation_new(pinfo->num, &pinfo->net_src, &pinfo->net_dst,
-			      pinfo->ptype, pinfo->srcport, pinfo->destport, NO_ADDR_B | NO_PORT_B);
+			      conversation_pt_to_endpoint_type(pinfo->ptype), pinfo->srcport, pinfo->destport, NO_ADDR_B | NO_PORT_B);
 
 		/* Set dissector */
 		conversation_set_dissector(p_conv, t38_udp_handle);
@@ -473,7 +473,7 @@ init_t38_info_conv(packet_info *pinfo)
 		p_add_proto_data(wmem_file_scope(), pinfo, proto_t38, 0, p_t38_packet_conv);
 	}
 
-	if (addresses_equal(&p_conv->key_ptr->addr1, &pinfo->net_src)) {
+	if (addresses_equal(conversation_key_addr1(p_conv->key_ptr), &pinfo->net_src)) {
 		p_t38_conv_info = &(p_t38_conv->src_t38_info);
 		p_t38_packet_conv_info = &(p_t38_packet_conv->src_t38_info);
 	} else {

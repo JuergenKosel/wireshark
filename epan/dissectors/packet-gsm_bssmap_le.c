@@ -176,6 +176,49 @@ static const value_string bssmap_le_response_time_definitions_vals[] = {
 	{ 0, NULL}
 };
 
+static const value_string bssmap_le_loc_inf_vals[] = {
+	{ 0, "Current Geographic Location" },
+	{ 1, "Location Assistance Information for the target MS" },
+	{ 2, "Deciphering keys for broadcast assistance data for the target MS" },
+	{ 0, NULL }
+};
+
+static const value_string bssmap_le_pos_method_vals[] = {
+	{ 0, "Reserved" },
+	{ 1, "Mobile Assisted E-OTD" },
+	{ 2, "Mobile Based E-OTD" },
+	{ 3, "Assisted GPS" },
+	{ 4, "Assisted GANSS" },
+	{ 5, "Assisted GPS and Assisted GANSS" },
+	{ 0, NULL }
+};
+
+static const value_string bssmap_le_pos_data_pos_method_vals[] = {
+    { 0, "Timing Advance" },
+    { 1, "Reserved" },
+    { 2, "Reserved" },
+    { 3, "Mobile Assisted E - OTD" },
+    { 4, "Mobile Based E - OTD" },
+    { 5, "Mobile Assisted GPS" },
+    { 6, "Mobile Based GPS" },
+    { 7, "Conventional GPS" },
+    { 8, "U - TDOA" },
+    { 9, "Reserved for UTRAN use only" },
+    { 0xa, "Reserved for UTRAN use only" },
+    { 0xb, "Reserved for UTRAN use only" },
+    { 0xc, "Cell ID" },
+    { 0, NULL }
+};
+
+static const value_string bssmap_le_pos_data_usage_vals[] = {
+    { 0, "Attempted unsuccessfully due to failure or interruption" },
+    { 1, "Attempted successfully : results not used to generate location" },
+    { 2, "Attempted successfully : results used to verify but not generate location" },
+    { 3, "Attempted successfully : results used to generate location" },
+    { 4, "Attempted successfully : method or methods used by the MS cannot be determined" },
+    { 0, NULL }
+};
+
 /* Initialize the protocol and registered fields */
 static int proto_bssmap_le = -1;
 int hf_gsm_bssmap_le_elem_id = -1;
@@ -214,6 +257,11 @@ static int hf_gsm_bssmap_le_vertical_accuracy = -1;
 static int hf_gsm_bssmap_le_response_time_category = -1;
 static int hf_gsm_bssmap_le_apdu = -1;
 static int hf_gsm_bssmap_le_message_elements = -1;
+static int hf_gsm_bssmap_le_location_inf = -1;
+static int hf_gsm_bssmap_le_pos_method = -1;
+static int hf_gsm_bssmap_le_pos_data_disc = -1;
+static int hf_gsm_bssmap_le_pos_data_pos_method = -1;
+static int hf_gsm_bssmap_le_pos_data_usage = -1;
 
 
 /* Initialize the subtree pointers */
@@ -554,6 +602,25 @@ de_bmaple_lcs_qos(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
 /*
  * 10.18 Location Type
  */
+static guint16
+de_bmaple_location_type(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
+{
+	guint32	curr_offset;
+
+	curr_offset = offset;
+
+	/* Location information (octet 3)  */
+	proto_tree_add_item(tree, hf_gsm_bssmap_le_location_inf, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+	curr_offset++;
+	if (len == 1) {
+		return len;
+	}
+	/* Positioning Method (octet 4) */
+	proto_tree_add_item(tree, hf_gsm_bssmap_le_pos_method, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+	curr_offset++;
+
+	return(curr_offset - offset);
+}
 /*
  * 10.19 Network Element Identity
  */
@@ -561,15 +628,29 @@ de_bmaple_lcs_qos(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
  * 10.20 Positioning Data
  */
 static guint16
-de_bmaple_pos_dta(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
+de_bmaple_pos_dta(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
 {
-	tvbuff_t *data_tvb;
-	guint32   curr_offset;
+	guint32   curr_offset, value;
 
 	curr_offset = offset;
 
-	data_tvb = tvb_new_subset_length(tvb, curr_offset, len);
-	dissect_geographical_description(data_tvb, pinfo, tree);
+	/* Octet 3	spare	Positioning Data Discriminator*/
+	proto_tree_add_item_ret_uint(tree, hf_gsm_bssmap_le_pos_data_disc, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &value);
+	curr_offset++;
+
+	if (value != 0) {
+		return len;
+	}
+	/* 0000	indicate usage of each positioning method that was attempted either successfully or unsuccessfully;
+	 * 1 octet of data is provided for each positioning method included
+	 */
+	while (curr_offset < (offset +len)) {
+		/* Octet x	positioning method	usage*/
+		proto_tree_add_item(tree, hf_gsm_bssmap_le_pos_data_pos_method, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+		proto_tree_add_item(tree, hf_gsm_bssmap_le_pos_data_usage, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+		curr_offset++;
+	}
+
 
 	return(len);
 }
@@ -714,7 +795,7 @@ guint16 (*bssmap_le_elem_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
 	/* NOTE: The null types below are defined elsewhere. i.e in packet-gsm_a_bssmap.c */
 	de_bmaple_lcs_qos,				/* 10.16 LCS QoS */
 	NULL,							/* LCS Priority */
-	NULL,							/* 10.18 Location Type */
+    de_bmaple_location_type,		/* 10.18 Location Type */
 	be_ganss_loc_type,				/* GANSS Location Type */
 	NULL,							/* 10.9 Geographic Location */
 	de_bmaple_pos_dta,				/* 10.20 Positioning Data */
@@ -1171,6 +1252,31 @@ proto_register_gsm_bssmap_le(void)
 		  { "Message Elements", "gsm_bssmap_le.message_elements",
 		    FT_BYTES, BASE_NONE, NULL, 0x0,
 		    NULL, HFILL}
+		},
+		{ &hf_gsm_bssmap_le_location_inf,
+		{ "Location Information", "gsm_bssmap_le.location_inf",
+			FT_UINT8, BASE_HEX, VALS(bssmap_le_loc_inf_vals), 0x0,
+			NULL, HFILL }
+		},
+		{ &hf_gsm_bssmap_le_pos_method,
+		{ "Positioning Method", "gsm_bssmap_le.pos_method",
+			FT_UINT8, BASE_HEX, VALS(bssmap_le_pos_method_vals), 0x0,
+			NULL, HFILL }
+		},
+		{ &hf_gsm_bssmap_le_pos_data_disc,
+		{ "Positioning Data Discriminator", "gsm_bssmap_le.pos_data_disc",
+			FT_UINT8, BASE_HEX, NULL, 0x0f,
+			NULL, HFILL }
+		},
+		{ &hf_gsm_bssmap_le_pos_data_pos_method,
+		{ "Positioning Method", "gsm_bssmap_le.pos_data.pos_method",
+			FT_UINT8, BASE_HEX, VALS(bssmap_le_pos_data_pos_method_vals), 0xf8,
+			NULL, HFILL }
+		},
+		{ &hf_gsm_bssmap_le_pos_data_usage,
+		{ "Usage", "gsm_bssmap_le.pos_data.usage",
+			FT_UINT8, BASE_HEX, VALS(bssmap_le_pos_data_usage_vals), 0x03,
+			NULL, HFILL }
 		},
 	};
 

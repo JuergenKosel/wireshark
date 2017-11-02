@@ -1,7 +1,8 @@
 /* ipv4.h
- *
- * IPv4 address class. They understand how to take netmasks into consideration
- * during equivalence testing.
+ * Definitions of IPv4 address-and-mask structure, which is what an
+ * FT_IPV4 value is (even if there's no mask in a packet, those
+ * values can be compared against an address+mask in a filter
+ * expression).
  *
  * Gilbert Ramirez <gram@alumni.rice.edu>
  *
@@ -27,44 +28,11 @@
 #ifndef __IPV4_H__
 #define __IPV4_H__
 
-#include <glib.h>
-#include "ws_symbol_export.h"
-
+#include <wsutil/inet_ipv4.h>
 
 typedef struct {
 	guint32	addr;	/* stored in host order */
 	guint32	nmask;	/* stored in host order */
 } ipv4_addr_and_mask;
-
-/* Allocate a new ipv4_addr_and_mask struct, initialize it,
- * and return pointer
- */
-ipv4_addr_and_mask* ipv4_addr_and_mask_new(void);
-
-/* Frees an ipv4_addr_and_mask struct */
-void ipv4_addr_and_mask_free(ipv4_addr_and_mask *ipv4);
-
-void ipv4_addr_and_mask_set_host_order_addr(ipv4_addr_and_mask *ipv4, const guint32 new_addr);
-void ipv4_addr_and_mask_set_net_order_addr(ipv4_addr_and_mask *ipv4, const guint32 new_addr);
-void ipv4_addr_and_mask_set_netmask_bits(ipv4_addr_and_mask *ipv4, const guint new_nmask_bits);
-
-WS_DLL_PUBLIC
-guint32 ipv4_get_net_order_addr(ipv4_addr_and_mask *ipv4);
-guint32 ipv4_get_host_order_addr(ipv4_addr_and_mask *ipv4);
-
-/* Fills in a buffer with a dotted-decimal notation representation of an IPv4
- * address. */
-void ipv4_addr_and_mask_str_buf(const ipv4_addr_and_mask *ipv4, gchar *buf);
-
-/* Compares two ipv4_addr_and_masks, taking into account the less restrictive of the
- * two netmasks, applying that netmask to both addrs.
- */
-gboolean ipv4_addr_and_mask_eq(const ipv4_addr_and_mask *a, const ipv4_addr_and_mask *b);
-gboolean ipv4_addr_and_mask_gt(const ipv4_addr_and_mask *a, const ipv4_addr_and_mask *b);
-gboolean ipv4_addr_and_mask_ge(const ipv4_addr_and_mask *a, const ipv4_addr_and_mask *b);
-gboolean ipv4_addr_and_mask_lt(const ipv4_addr_and_mask *a, const ipv4_addr_and_mask *b);
-gboolean ipv4_addr_and_mask_le(const ipv4_addr_and_mask *a, const ipv4_addr_and_mask *b);
-
-#define ipv4_addr_and_mask_ne(a,b) !ipv4_addr_and_mask_eq((a),(b))
 
 #endif

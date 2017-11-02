@@ -137,8 +137,7 @@ dissect_reload_framing_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
   if (effective_length < MIN_HDR_LENGTH)
     return 0;
 
-  conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-                                   pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+  conversation = find_conversation_pinfo(pinfo, 0);
   if (conversation)
     reload_framing_info = (reload_conv_info_t *)conversation_get_proto_data(conversation, proto_reload_framing);
 
@@ -224,7 +223,7 @@ dissect_reload_framing_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 
   if (!conversation) {
     conversation = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst,
-                                    pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+                                    conversation_pt_to_endpoint_type(pinfo->ptype), pinfo->srcport, pinfo->destport, 0);
   }
 
   /*

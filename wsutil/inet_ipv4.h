@@ -1,4 +1,4 @@
-/* inet_aton.h
+/* inet_ipv4.h
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -19,34 +19,26 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-/*
- * Version of "inet_aton()", for the benefit of OSes that don't have it.
+#ifndef __INET_IPV4_H__
+#define __INET_IPV4_H__
+
+#include <glib.h>
+
+typedef guint32 ws_in4_addr;	/* 32 bit IPv4 address, in network byte order */
+
+/**
+ * Unicast Local
+ * Returns true if the address is in the 224.0.0.0/24 local network
+ * control block
  */
+#define in4_addr_is_local_network_control_block(addr) \
+  ((addr & 0xffffff00) == 0xe0000000)
 
-#ifndef __INET_ATON_H__
-#define __INET_ATON_H__
-
-#include "ws_symbol_export.h"
-
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>     /* needed to define AF_ values on UNIX */
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-
-#ifdef HAVE_ARPA_INET_H
-#include <arpa/inet.h>
-#endif
-
-#ifdef HAVE_WINSOCK2_H
-#include <winsock2.h>
-#endif
-
-#ifndef HAVE_INET_ATON
-struct in_addr;
-WS_DLL_PUBLIC int inet_aton(const char* cp_arg, struct in_addr *addr);
-#endif
+/**
+ * Multicast
+ * Returns true if the address is in the 224.0.0.0/4 network block
+ */
+#define in4_addr_is_multicast(addr) \
+  ((addr & 0xf0000000) == 0xe0000000)
 
 #endif

@@ -745,13 +745,7 @@ static struct _sprt_conversation_info* find_sprt_conversation_data(packet_info *
     conversation_t *p_conv = NULL;
     struct _sprt_conversation_info *p_conv_data = NULL;
     /* Use existing packet info if available */
-    p_conv = find_conversation(pinfo->num,
-                                &pinfo->src,
-                                &pinfo->dst,
-                                pinfo->ptype,
-                                pinfo->srcport,
-                                pinfo->destport,
-                                NO_ADDR_B|NO_PORT_B);
+    p_conv = find_conversation_pinfo(pinfo, NO_ADDR_B|NO_PORT_B);
     if (p_conv)
     {
         p_conv_data = (struct _sprt_conversation_info*)conversation_get_proto_data(p_conv, proto_sprt);
@@ -788,14 +782,14 @@ void sprt_add_address(packet_info *pinfo,
      * Check if the ip address and port combination is not
      * already registered as a conversation.
      */
-    p_conv = find_conversation(setup_frame_number, addr, &null_addr, PT_UDP, port, other_port,
+    p_conv = find_conversation(setup_frame_number, addr, &null_addr, ENDPOINT_UDP, port, other_port,
                                 NO_ADDR_B | (!other_port ? NO_PORT_B : 0));
 
     /*
      * If not, create a new conversation.
      */
     if (!p_conv || p_conv->setup_frame != setup_frame_number) {
-        p_conv = conversation_new(setup_frame_number, addr, &null_addr, PT_UDP,
+        p_conv = conversation_new(setup_frame_number, addr, &null_addr, ENDPOINT_UDP,
                                     (guint32)port, (guint32)other_port,
                                     NO_ADDR2 | (!other_port ? NO_PORT2 : 0));
     }

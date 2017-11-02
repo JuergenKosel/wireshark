@@ -373,31 +373,35 @@ write_ek_proto_tree(output_fields_t* fields,
     else
         g_strlcpy(ts, "XXXX-XX-XX", sizeof ts); /* XXX - better way of saying "Not representable"? */
 
-    fprintf(fh, "{\"index\" : {\"_index\": \"packets-%s\", \"_type\": \"pcap_file\", \"_score\": null}}\n", ts);
+    fprintf(fh, "{\"index\" : {\"_index\": \"packets-%s\", \"_type\": \"pcap_file\"}}\n", ts);
     /* Timestamp added for time indexing in Elasticsearch */
     fprintf(fh, "{\"timestamp\" : \"%" G_GUINT64_FORMAT "%03d\"", (guint64)edt->pi.abs_ts.secs, edt->pi.abs_ts.nsecs/1000000);
 
     if (print_summary)
         write_ek_summary(edt->pi.cinfo, fh);
 
-    fprintf(fh, ", \"layers\" : {");
+    if (edt->tree) {
+        fprintf(fh, ", \"layers\" : {");
 
-    if (fields == NULL || fields->fields == NULL) {
-        /* Write out all fields */
-        data.level    = 0;
-        data.fh       = fh;
-        data.src_list = edt->pi.data_src;
-        data.filter   = protocolfilter;
-        data.filter_flags = protocolfilter_flags;
-        data.print_hex = print_hex;
+        if (fields == NULL || fields->fields == NULL) {
+            /* Write out all fields */
+            data.level    = 0;
+            data.fh       = fh;
+            data.src_list = edt->pi.data_src;
+            data.filter   = protocolfilter;
+            data.filter_flags = protocolfilter_flags;
+            data.print_hex = print_hex;
 
-        proto_tree_write_node_ek(edt->tree, &data);
-    } else {
-        /* Write out specified fields */
-        write_specified_fields(FORMAT_EK, fields, edt, NULL, fh);
+            proto_tree_write_node_ek(edt->tree, &data);
+        } else {
+            /* Write out specified fields */
+            write_specified_fields(FORMAT_EK, fields, edt, NULL, fh);
+        }
+
+        fputs("}", fh);
     }
 
-    fputs("}}\n", fh);
+    fputs("}\n", fh);
 }
 
 void
@@ -1332,33 +1336,67 @@ ek_write_field_value(field_info *fi, write_json_data *pdata)
 }
 
 static void
-ek_write_attr(GSList *attr_instances, write_json_data *pdata)
+ek_write_attr_hex(GSList *attr_instances, write_json_data *pdata)
 {
-    proto_node *pnode    = NULL;
-    field_info *fi       = NULL;
     GSList *current_node = attr_instances;
+    proto_node *pnode    = (proto_node *) current_node->data;
+    field_info *fi       = NULL;
 
+    // Raw name
+    fputs("\"", pdata->fh);
+    ek_write_name(pnode, pdata);
+    fputs("_raw\": ", pdata->fh);
+
+    if (g_slist_length(attr_instances) > 1) {
+        fputs("[", pdata->fh);
+    }
+
+    // Raw value(s)
     while (current_node != NULL) {
         pnode = (proto_node *) current_node->data;
         fi    = PNODE_FINFO(pnode);
 
-        // Hex dump -x
-        if (pdata->print_hex && fi->length > 0 && fi->hfinfo->id != hf_text_only) {
-            // Raw name
-            fputs("\"", pdata->fh);
-            ek_write_name(pnode, pdata);
-            fputs("_raw\": \"", pdata->fh);
-
-            // Raw value
-            ek_write_hex(fi, pdata);
-
-            fputs("\",", pdata->fh);
-        }
-
-        // Print attr name
         fputs("\"", pdata->fh);
-        ek_write_name(pnode, pdata);
-        fputs("\": ", pdata->fh);
+        ek_write_hex(fi, pdata);
+        fputs("\"", pdata->fh);
+
+        current_node = current_node->next;
+        if (current_node != NULL) {
+            fputs(",", pdata->fh);
+        }
+    }
+
+    if (g_slist_length(attr_instances) > 1) {
+        fputs("]", pdata->fh);
+    }
+}
+
+static void
+ek_write_attr(GSList *attr_instances, write_json_data *pdata)
+{
+    GSList *current_node = attr_instances;
+    proto_node *pnode    = (proto_node *) current_node->data;
+    field_info *fi       = PNODE_FINFO(pnode);
+
+    // Hex dump -x
+    if (pdata->print_hex && fi->length > 0 && fi->hfinfo->id != hf_text_only) {
+        ek_write_attr_hex(attr_instances, pdata);
+
+        fputs("\",", pdata->fh);
+    }
+
+    // Print attr name
+    fputs("\"", pdata->fh);
+    ek_write_name(pnode, pdata);
+    fputs("\": ", pdata->fh);
+
+    if (g_slist_length(attr_instances) > 1) {
+        fputs("[", pdata->fh);
+    }
+
+    while (current_node != NULL) {
+        pnode = (proto_node *) current_node->data;
+        fi    = PNODE_FINFO(pnode);
 
         /* Field */
         if (fi->hfinfo->type != FT_PROTOCOL) {
@@ -1375,12 +1413,6 @@ ek_write_attr(GSList *attr_instances, write_json_data *pdata)
                 ek_write_field_value(fi, pdata);
             }
 
-            fputs("\"", pdata->fh);
-        }
-        /* Protocol without children, e.g. SSL */
-        else if (pnode->first_child == NULL) {
-            fputs("\"", pdata->fh);
-            ek_write_field_value(fi, pdata);
             fputs("\"", pdata->fh);
         }
         /* Object */
@@ -1420,6 +1452,10 @@ ek_write_attr(GSList *attr_instances, write_json_data *pdata)
         if (current_node != NULL) {
             fputs(",", pdata->fh);
         }
+    }
+
+    if (g_slist_length(attr_instances) > 1) {
+        fputs("]", pdata->fh);
     }
 }
 

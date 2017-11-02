@@ -1377,16 +1377,29 @@ static conversation_t *_find_or_create_conversation(packet_info *pinfo)
 
     /* Have we seen this conversation before? */
     conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-        pinfo->ptype, 0, 0, 0);
+        conversation_pt_to_endpoint_type(pinfo->ptype), 0, 0, 0);
     if (conv == NULL) {
         /* No, this is a new conversation. */
         conv = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst,
-            pinfo->ptype, 0, 0, 0);
+            conversation_pt_to_endpoint_type(pinfo->ptype), 0, 0, 0);
     }
     return conv;
 }
 
 /* ======================================================================= */
+/*
+    Note: We are tracking conversations via these keys:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                             |G|            Checksum           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |           Identifier          |        Sequence Number        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            VLAN ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
 static icmp_transaction_t *transaction_start(packet_info *pinfo, proto_tree *tree, guint32 *key)
 {
     conversation_t     *conversation;
@@ -1410,7 +1423,7 @@ static icmp_transaction_t *transaction_start(packet_info *pinfo, proto_tree *tre
          * This is a new request, create a new transaction structure and map it
          * to the unmatched table.
          */
-        icmpv6_key[0].length = 2;
+        icmpv6_key[0].length = 3;
         icmpv6_key[0].key = key;
         icmpv6_key[1].length = 0;
         icmpv6_key[1].key = NULL;
@@ -1425,7 +1438,7 @@ static icmp_transaction_t *transaction_start(packet_info *pinfo, proto_tree *tre
         /* Already visited this frame */
         guint32 frame_num = pinfo->num;
 
-        icmpv6_key[0].length = 2;
+        icmpv6_key[0].length = 3;
         icmpv6_key[0].key = key;
         icmpv6_key[1].length = 1;
         icmpv6_key[1].key = &frame_num;
@@ -1437,7 +1450,7 @@ static icmp_transaction_t *transaction_start(packet_info *pinfo, proto_tree *tre
 
     if (icmpv6_trans == NULL) {
         if (pinfo->dst.type == AT_IPv6 &&
-                    in6_is_addr_multicast((const struct e_in6_addr *)pinfo->dst.data)) {
+                    in6_addr_is_multicast((const ws_in6_addr *)pinfo->dst.data)) {
             /* XXX We should support multicast echo requests, but we don't currently */
             /* Note the multicast destination and skip transaction tracking */
             col_append_str(pinfo->cinfo, COL_INFO, " (multicast)");
@@ -1485,7 +1498,7 @@ static icmp_transaction_t *transaction_end(packet_info *pinfo, proto_tree *tree,
     double resp_time;
 
     conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-        pinfo->ptype, 0, 0, 0);
+        conversation_pt_to_endpoint_type(pinfo->ptype), 0, 0, 0);
     if (conversation == NULL)
         return NULL;
 
@@ -1496,7 +1509,7 @@ static icmp_transaction_t *transaction_end(packet_info *pinfo, proto_tree *tree,
     if (!PINFO_FD_VISITED(pinfo)) {
         guint32 frame_num;
 
-        icmpv6_key[0].length = 2;
+        icmpv6_key[0].length = 3;
         icmpv6_key[0].key = key;
         icmpv6_key[1].length = 0;
         icmpv6_key[1].key = NULL;
@@ -1515,7 +1528,7 @@ static icmp_transaction_t *transaction_end(packet_info *pinfo, proto_tree *tree,
          * we found a match.  Add entries to the matched table for both
          * request and reply frames
          */
-        icmpv6_key[0].length = 2;
+        icmpv6_key[0].length = 3;
         icmpv6_key[0].key = key;
         icmpv6_key[1].length = 1;
         icmpv6_key[1].key = &frame_num;
@@ -1531,7 +1544,7 @@ static icmp_transaction_t *transaction_end(packet_info *pinfo, proto_tree *tree,
         /* Already visited this frame */
         guint32 frame_num = pinfo->num;
 
-        icmpv6_key[0].length = 2;
+        icmpv6_key[0].length = 3;
         icmpv6_key[0].key = key;
         icmpv6_key[1].length = 1;
         icmpv6_key[1].key = &frame_num;
@@ -2081,7 +2094,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                 /* RFC 4191 */
                 guint8 prefix_len;
                 guint8 route_preference;
-                struct e_in6_addr prefix;
+                ws_in6_addr prefix;
                 address prefix_addr;
                 static const int * route_flags[] = {
                     &hf_icmpv6_opt_route_info_flag_route_preference,
@@ -2359,7 +2372,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                 /* 6lowpan-ND */
                 guint8 context_id;
                 guint8 context_len;
-                struct e_in6_addr context_prefix;
+                ws_in6_addr context_prefix;
                 address context_prefix_addr;
                 static const int * _6lowpan_context_flags[] = {
                     &hf_icmpv6_opt_6co_flag_c,
@@ -2685,7 +2698,7 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
             }
             case RPL_OPT_ROUTING: {
                 guint8 prefix_len;
-                struct e_in6_addr prefix;
+                ws_in6_addr prefix;
                 address prefix_addr;
                 static const int * rpl_flags[] = {
                     &hf_icmpv6_rpl_opt_route_pref,
@@ -2782,7 +2795,7 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
             }
             case RPL_OPT_TARGET: {
                 guint8              prefix_len;
-                struct e_in6_addr   target_prefix;
+                ws_in6_addr   target_prefix;
                 address target_prefix_addr;
 
                 /* Flag */
@@ -3021,7 +3034,7 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
                 while (num_of_addr--) {
                     memset(addr, 0, sizeof(addr));
                     tvb_memcpy(tvb, addr + compr, opt_offset, addr_len);
-                    proto_tree_add_ipv6(flag_tree, hf_icmpv6_rpl_opt_route_discovery_addr_vec_addr, tvb, opt_offset, addr_len, (struct e_in6_addr *)addr);
+                    proto_tree_add_ipv6(flag_tree, hf_icmpv6_rpl_opt_route_discovery_addr_vec_addr, tvb, opt_offset, addr_len, (ws_in6_addr *)addr);
                     opt_offset += addr_len;
                 }
 
@@ -3949,8 +3962,8 @@ dissect_icmpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
     reported_length = tvb_reported_length(tvb);
     if (!pinfo->fragmented && length >= reported_length && !pinfo->flags.in_error_pkt) {
         /* The packet isn't part of a fragmented datagram, isn't truncated,
-            * and we aren't in an ICMP error packet, so we can checksum it.
-            */
+         * and we aren't in an ICMP error packet, so we can checksum it.
+         */
 
         /* Set up the fields of the pseudo-header. */
         SET_CKSUM_VEC_PTR(cksum_vec[0], (const guint8 *)pinfo->src.data, pinfo->src.len);
@@ -3961,10 +3974,10 @@ dissect_icmpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         SET_CKSUM_VEC_TVB(cksum_vec[3], tvb, 0, reported_length);
 
         proto_tree_add_checksum(icmp6_tree, tvb, 2, hf_icmpv6_checksum, hf_icmpv6_checksum_status, &ei_icmpv6_checksum, pinfo, in_cksum(cksum_vec, 4),
-							ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY|PROTO_CHECKSUM_IN_CKSUM);
+                                ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY|PROTO_CHECKSUM_IN_CKSUM);
     } else {
-		checksum_item = proto_tree_add_checksum(icmp6_tree, tvb, 2, hf_icmpv6_checksum, hf_icmpv6_checksum_status, &ei_icmpv6_checksum, pinfo, 0,
-								ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
+        checksum_item = proto_tree_add_checksum(icmp6_tree, tvb, 2, hf_icmpv6_checksum, hf_icmpv6_checksum_status, &ei_icmpv6_checksum, pinfo, 0,
+                                                ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
         proto_item_append_text(checksum_item, " [%s]",
             pinfo->flags.in_error_pkt ? "in ICMP error packet" : "fragmented datagram");
     }
@@ -4006,13 +4019,14 @@ dissect_icmpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
             offset += 4;
         } else {
             if (!pinfo->flags.in_error_pkt) {
-                guint32 conv_key[2];
+                guint32 conv_key[3];
 
                 conv_key[1] = (guint32)((identifier << 16) | sequence);
+                conv_key[2] = prefs.strict_conversation_tracking_heuristics ? pinfo->vlan_id : 0;
 
                 if (icmp6_type == ICMP6_ECHO_REQUEST) {
                     conv_key[0] = (guint32)cksum;
-                    if (pinfo->flags.in_gre_pkt)
+                    if (pinfo->flags.in_gre_pkt && prefs.strict_conversation_tracking_heuristics)
                         conv_key[0] |= 0x00010000; /* set a bit for "in GRE" */
                     trans = transaction_start(pinfo, icmp6_tree, conv_key);
                 } else { /* ICMP6_ECHO_REPLY */
@@ -4024,7 +4038,7 @@ dissect_icmpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     conv_key[0] = in_cksum(cksum_vec, 1);
                     if (conv_key[0] == 0)
                         conv_key[0] = 0xffff;
-                    if (pinfo->flags.in_gre_pkt)
+                    if (pinfo->flags.in_gre_pkt && prefs.strict_conversation_tracking_heuristics)
                         conv_key[0] |= 0x00010000; /* set a bit for "in GRE" */
                     trans = transaction_end(pinfo, icmp6_tree, conv_key);
                 }

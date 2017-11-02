@@ -100,6 +100,7 @@ dist_diameter_DATA = $(_CUSTOM_diameter_xml_files_) \
 	diameter/Nokia.xml \
 	diameter/NokiaSolutionsAndNetworks.xml \
 	diameter/HP.xml \
+	diameter/Huawei.xml \
 	diameter/Oracle.xml
 
 #
@@ -721,12 +722,13 @@ dumpcap_LDADD = \
 pkginclude_HEADERS = \
 	cfile.h			\
 	file.h			\
-	register.h		\
 	globals.h		\
 	log.h			\
-	ws_symbol_export.h	\
+	register.h		\
 	ws_attributes.h		\
-	ws_diag_control.h
+	ws_compiler_tests.h	\
+	ws_diag_control.h	\
+	ws_symbol_export.h
 
 # this target needed for distribution only
 noinst_HEADERS = \
@@ -734,14 +736,14 @@ noinst_HEADERS = \
 	capture_opts.h		\
 	capture_stop_conditions.h	\
 	conditions.h		\
+	extcap.h		\
+	extcap_parser.h		\
+	extcap_spawn.h		\
 	fileset.h		\
 	frame_tvbuff.h		\
 	ringbuffer.h		\
 	summary.h		\
 	sync_pipe.h		\
-	extcap.h		\
-	extcap_parser.h		\
-	extcap_spawn.h		\
 	version_info.h
 
 #
@@ -855,6 +857,7 @@ DIST_SUBDIRS = \
 	caputils	\
 	codecs		\
 	doc		\
+	docbook		\
 	epan		\
 	ui		\
 	ui/cli		\

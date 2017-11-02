@@ -41,11 +41,6 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-set(COMPRESS_FILES
-	compress/lzxpress.c
-)
-source_group(compress FILES ${COMPRESS_FILES})
-
 set(LIBWIRESHARK_ASM_FILES
 	asm_utils.c
 # todo
@@ -238,7 +233,6 @@ set(LIBWIRESHARK_FILES
 	iana_charsets.c
 	in_cksum.c
 	ipproto.c
-	ipv4.c
 	media_params.c
 	next_tvb.c
 	oids.c
@@ -372,7 +366,6 @@ ABICHECK(libwireshark)
 
 set(TOP_LEVEL_HEADERS ${CMAKE_BINARY_DIR}/config.h ${CMAKE_SOURCE_DIR}/register.h)
 file(GLOB CRYPT_HEADERS crypt/*.h)
-file(GLOB COMPRESS_HEADERS compress/*.h)
 file(GLOB DFILTER_HEADERS dfilter/*.h ../tools/lemon/cppmagic.h)
 file(GLOB D_HEADERS dissectors/*.h)
 file(GLOB FTYPES_HEADERS ftypes/*.h)
@@ -383,7 +376,6 @@ add_custom_command(OUTPUT libwireshark.abi.tar.gz
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${ABICHECK_TMPDIR}
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${ABICHECK_TMPDIR}/epan
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${ABICHECK_TMPDIR}/crypt
-	COMMAND ${CMAKE_COMMAND} -E make_directory ${ABICHECK_TMPDIR}/compress
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${ABICHECK_TMPDIR}/dfilter
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${ABICHECK_TMPDIR}/dissectors
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${ABICHECK_TMPDIR}/ftypes
@@ -391,7 +383,6 @@ add_custom_command(OUTPUT libwireshark.abi.tar.gz
 	COMMAND ${ABI_COPY_COMMAND} ${TOP_LEVEL_HEADERS} ${ABICHECK_TMPDIR} ${ABI_COPY_FLAGS}
 	COMMAND ${ABI_COPY_COMMAND} ${ABICHECK_HEADERS} ${ABICHECK_TMPDIR}/epan ${ABI_COPY_FLAGS}
 	COMMAND ${ABI_COPY_COMMAND} ${CRYPT_HEADERS} ${ABICHECK_TMPDIR}/crypt ${ABI_COPY_FLAGS}
-	COMMAND ${ABI_COPY_COMMAND} ${COMPRESS_HEADERS} ${ABICHECK_TMPDIR}/compress ${ABI_COPY_FLAGS}
 	COMMAND ${ABI_COPY_COMMAND} ${DFILTER_HEADERS} ${ABICHECK_TMPDIR}/dfilter ${ABI_COPY_FLAGS}
 	COMMAND ${ABI_COPY_COMMAND} ${D_HEADERS} ${ABICHECK_TMPDIR}/dissectors ${ABI_COPY_FLAGS}
 	COMMAND ${ABI_COPY_COMMAND} ${FTYPES_HEADERS} ${ABICHECK_TMPDIR}/ftypes ${ABI_COPY_FLAGS}

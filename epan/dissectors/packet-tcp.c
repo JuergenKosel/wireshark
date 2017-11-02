@@ -758,7 +758,7 @@ tcpip_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_
     const struct tcpheader *tcphdr=(const struct tcpheader *)vip;
 
     add_conversation_table_data_with_conv_id(hash, &tcphdr->ip_src, &tcphdr->ip_dst, tcphdr->th_sport, tcphdr->th_dport, (conv_id_t) tcphdr->th_stream, 1, pinfo->fd->pkt_len,
-                                              &pinfo->rel_ts, &pinfo->abs_ts, &tcp_ct_dissector_info, PT_TCP);
+                                              &pinfo->rel_ts, &pinfo->abs_ts, &tcp_ct_dissector_info, ENDPOINT_TCP);
 
     return 1;
 }
@@ -772,7 +772,7 @@ mptcpip_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _
 
     add_conversation_table_data_with_conv_id(hash, &meta->ip_src, &meta->ip_dst,
         meta->sport, meta->dport, (conv_id_t) tcpd->mptcp_analysis->stream, 1, pinfo->fd->pkt_len,
-                                              &pinfo->rel_ts, &pinfo->abs_ts, &tcp_ct_dissector_info, PT_TCP);
+                                              &pinfo->rel_ts, &pinfo->abs_ts, &tcp_ct_dissector_info, ENDPOINT_TCP);
 
     return 1;
 }
@@ -827,8 +827,8 @@ tcpip_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, co
     /* Take two "add" passes per packet, adding for each direction, ensures that all
     packets are counted properly (even if address is sending to itself)
     XXX - this could probably be done more efficiently inside hostlist_table */
-    add_hostlist_table_data(hash, &tcphdr->ip_src, tcphdr->th_sport, TRUE, 1, pinfo->fd->pkt_len, &tcp_host_dissector_info, PT_TCP);
-    add_hostlist_table_data(hash, &tcphdr->ip_dst, tcphdr->th_dport, FALSE, 1, pinfo->fd->pkt_len, &tcp_host_dissector_info, PT_TCP);
+    add_hostlist_table_data(hash, &tcphdr->ip_src, tcphdr->th_sport, TRUE, 1, pinfo->fd->pkt_len, &tcp_host_dissector_info, ENDPOINT_TCP);
+    add_hostlist_table_data(hash, &tcphdr->ip_dst, tcphdr->th_dport, FALSE, 1, pinfo->fd->pkt_len, &tcp_host_dissector_info, ENDPOINT_TCP);
 
     return 1;
 }
@@ -913,8 +913,7 @@ gchar* tcp_follow_conv_filter(packet_info* pinfo, int* stream)
 
     if (((pinfo->net_src.type == AT_IPv4 && pinfo->net_dst.type == AT_IPv4) ||
         (pinfo->net_src.type == AT_IPv6 && pinfo->net_dst.type == AT_IPv6))
-        && (conv=find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype,
-                pinfo->srcport, pinfo->destport, 0)) != NULL )
+        && (conv=find_conversation_pinfo(pinfo, 0)) != NULL )
     {
         /* TCP over IPv4/6 */
         tcpd=get_tcp_conversation_data(conv, pinfo);
@@ -936,8 +935,8 @@ gchar* tcp_follow_index_filter(int stream)
 gchar* tcp_follow_address_filter(address* src_addr, address* dst_addr, int src_port, int dst_port)
 {
     const gchar  *ip_version = src_addr->type == AT_IPv6 ? "v6" : "";
-    gchar         src_addr_str[MAX_IP6_STR_LEN];
-    gchar         dst_addr_str[MAX_IP6_STR_LEN];
+    gchar         src_addr_str[WS_INET6_ADDRSTRLEN];
+    gchar         dst_addr_str[WS_INET6_ADDRSTRLEN];
 
     address_to_str_buf(src_addr, src_addr_str, sizeof(src_addr_str));
     address_to_str_buf(dst_addr, dst_addr_str, sizeof(dst_addr_str));
@@ -1285,7 +1284,7 @@ static void
 handle_export_pdu_conversation(packet_info *pinfo, tvbuff_t *tvb, int src_port, int dst_port, struct tcpinfo *tcpinfo)
 {
     if (have_tap_listener(exported_pdu_tap)) {
-        conversation_t *conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, PT_TCP, src_port, dst_port, 0);
+        conversation_t *conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_TCP, src_port, dst_port, 0);
         if (conversation != NULL)
         {
             dissector_handle_t handle = (dissector_handle_t)wmem_tree_lookup32_le(conversation->dissector_tree, pinfo->num);
@@ -1548,7 +1547,7 @@ add_tcp_process_info(guint32 frame_num, address *local_addr, address *remote_add
     if (!tcp_display_process_info)
         return;
 
-    conv = find_conversation(frame_num, local_addr, remote_addr, PT_TCP, local_port, remote_port, 0);
+    conv = find_conversation(frame_num, local_addr, remote_addr, ENDPOINT_TCP, local_port, remote_port, 0);
     if (!conv) {
         return;
     }
@@ -1558,9 +1557,9 @@ add_tcp_process_info(guint32 frame_num, address *local_addr, address *remote_add
         return;
     }
 
-    if (cmp_address(local_addr, &conv->key_ptr->addr1) == 0 && local_port == conv->key_ptr->port1) {
+    if (cmp_address(local_addr, conversation_key_addr1(conv->key_ptr)) == 0 && local_port == conversation_key_port1(conv->key_ptr)) {
         flow = &tcpd->flow1;
-    } else if (cmp_address(remote_addr, &conv->key_ptr->addr1) == 0 && remote_port == conv->key_ptr->port1) {
+    } else if (cmp_address(remote_addr, conversation_key_addr1(conv->key_ptr)) == 0 && remote_port == conversation_key_port1(conv->key_ptr)) {
         flow = &tcpd->flow2;
     }
     if (!flow || (flow->process_info && flow->process_info->command)) {
@@ -5320,27 +5319,13 @@ dissect_tcpopt_rvbd_trpy(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
      */
     if (sport_handle != NULL) {
         conversation_t *conversation;
-        conversation = find_conversation(pinfo->num,
-            &pinfo->src, &pinfo->dst, pinfo->ptype,
-            pinfo->srcport, pinfo->destport, 0);
-        if (conversation == NULL) {
-            conversation = conversation_new(pinfo->num,
-                &pinfo->src, &pinfo->dst, pinfo->ptype,
-                pinfo->srcport, pinfo->destport, 0);
-        }
+        conversation = find_or_create_conversation(pinfo);
         if (conversation_get_dissector(conversation, pinfo->num) != sport_handle) {
             conversation_set_dissector(conversation, sport_handle);
         }
     } else if (data_handle != NULL) {
         conversation_t *conversation;
-        conversation = find_conversation(pinfo->num,
-            &pinfo->src, &pinfo->dst, pinfo->ptype,
-            pinfo->srcport, pinfo->destport, 0);
-        if (conversation == NULL) {
-            conversation = conversation_new(pinfo->num,
-                &pinfo->src, &pinfo->dst, pinfo->ptype,
-                pinfo->srcport, pinfo->destport, 0);
-        }
+        conversation = find_or_create_conversation(pinfo);
         if (conversation_get_dissector(conversation, pinfo->num) != data_handle) {
             conversation_set_dissector(conversation, data_handle);
         }
@@ -5499,7 +5484,7 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
 /* determine if this packet is part of a conversation and call dissector */
 /* for the conversation if available */
 
-    if (try_conversation_dissector(&pinfo->src, &pinfo->dst, PT_TCP,
+    if (try_conversation_dissector(&pinfo->src, &pinfo->dst, ENDPOINT_TCP,
                                    src_port, dst_port, next_tvb, pinfo, tree, tcpinfo)) {
         pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
         handle_export_pdu_conversation(pinfo, next_tvb, src_port, dst_port, tcpinfo);
@@ -5841,9 +5826,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
      * in case a new conversation is found and the previous conversation needs
      * to be adjusted,
      */
-    if((conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-                     pinfo->ptype, pinfo->srcport,
-                     pinfo->destport, 0)) != NULL) {
+    if((conv = find_conversation_pinfo(pinfo, 0)) != NULL) {
         /* Update how far the conversation reaches */
         if (pinfo->num > conv->last_frame) {
             save_last_frame = conv->last_frame;
@@ -5852,7 +5835,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     }
     else {
         conv = conversation_new(pinfo->num, &pinfo->src,
-                     &pinfo->dst, pinfo->ptype,
+                     &pinfo->dst, ENDPOINT_TCP,
                      pinfo->srcport, pinfo->destport, 0);
     }
     tcpd=get_tcp_conversation_data(conv,pinfo);
@@ -5873,7 +5856,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (save_last_frame > 0)
                 conv->last_frame = save_last_frame;
 
-            conv=conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+            conv=conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_TCP, pinfo->srcport, pinfo->destport, 0);
             tcpd=get_tcp_conversation_data(conv,pinfo);
         }
         if(!tcpd->ta)
@@ -5897,7 +5880,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 conv->last_frame = save_last_frame;
         }
 
-        other_conv = find_conversation(pinfo->num, &pinfo->dst, &pinfo->src, pinfo->ptype, pinfo->destport, pinfo->srcport, 0);
+        other_conv = find_conversation(pinfo->num, &pinfo->dst, &pinfo->src, ENDPOINT_TCP, pinfo->destport, pinfo->srcport, 0);
         if (other_conv != NULL)
         {
             conv = other_conv;

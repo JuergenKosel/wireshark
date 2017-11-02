@@ -631,6 +631,7 @@ const value_string zbee_aps_cid_names[] = {
     { ZBEE_ZCL_CID_BACNET_MULTISTATE_VALUE_EXT,     "BACnet Multistage Value (Extended)"},
 
 /* ZCL Cluster IDs - Smart Energy */
+    { ZBEE_ZCL_CID_KEEP_ALIVE,                      "Keep-Alive"},
     { ZBEE_ZCL_CID_PRICE,                           "Price"},
     { ZBEE_ZCL_CID_DEMAND_RESPONSE_LOAD_CONTROL,    "Demand Response and Load Control"},
     { ZBEE_ZCL_CID_SIMPLE_METERING,                 "Simple Metering"},
@@ -642,6 +643,7 @@ const value_string zbee_aps_cid_names[] = {
     { ZBEE_ZCL_CID_DEVICE_MANAGEMENT,               "Device Management"},
     { ZBEE_ZCL_CID_EVENTS,                          "Events"},
     { ZBEE_ZCL_CID_MDU_PAIRING,                     "MDU Pairing"},
+    { ZBEE_ZCL_CID_SUB_GHZ,                         "Sub-Ghz"},
 
 /* ZCL Cluster IDs - Key Establishment */
     { ZBEE_ZCL_CID_KE,                              "Key Establishment"},

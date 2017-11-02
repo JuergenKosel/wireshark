@@ -208,6 +208,7 @@
 #define ZBEE_ZCL_CID_BACNET_MULTISTATE_VALUE_EXT    0x0613
 
 /* ZCL Cluster IDs - Smart Energy */
+#define ZBEE_ZCL_CID_KEEP_ALIVE                     0x0025
 #define ZBEE_ZCL_CID_PRICE                          0x0700
 #define ZBEE_ZCL_CID_DEMAND_RESPONSE_LOAD_CONTROL   0x0701
 #define ZBEE_ZCL_CID_SIMPLE_METERING                0x0702
@@ -219,6 +220,7 @@
 #define ZBEE_ZCL_CID_DEVICE_MANAGEMENT              0x0708
 #define ZBEE_ZCL_CID_EVENTS                         0x0709
 #define ZBEE_ZCL_CID_MDU_PAIRING                    0x070A
+#define ZBEE_ZCL_CID_SUB_GHZ                        0x070B
 
 /* ZCL Cluster IDs - Key Establishment */
 #define ZBEE_ZCL_CID_KE                             0x0800

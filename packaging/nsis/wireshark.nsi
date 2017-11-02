@@ -238,6 +238,11 @@ Function .onInit
     ; Get the Windows version
     ${GetWindowsVersion} $R0
 
+    ; This should match the following:
+    ; - The NTDDI_VERSION and _WIN32_WINNT parts of cmakeconfig.h.in
+    ; - The <compatibility><application> section in image\wireshark.exe.manifest.in
+    ; - The VersionNT parts of packaging\wix\Prerequisites.wxi
+
     ; Uncomment to test.
     ; MessageBox MB_OK "You're running Windows $R0."
 
@@ -512,6 +517,7 @@ File "${STAGING_DIR}\diameter\eap.xml"
 File "${STAGING_DIR}\diameter\Ericsson.xml"
 File "${STAGING_DIR}\diameter\etsie2e4.xml"
 File "${STAGING_DIR}\diameter\HP.xml"
+File "${STAGING_DIR}\diameter\Huawei.xml"
 File "${STAGING_DIR}\diameter\Inovar.xml"
 File "${STAGING_DIR}\diameter\Juniper.xml"
 File "${STAGING_DIR}\diameter\mobileipv4.xml"

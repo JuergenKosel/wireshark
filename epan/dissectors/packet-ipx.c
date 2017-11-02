@@ -166,7 +166,7 @@ ipx_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, 
 	conv_hash_t *hash = (conv_hash_t*) pct;
 	const ipxhdr_t *ipxh=(const ipxhdr_t *)vip;
 
-	add_conversation_table_data(hash, &ipxh->ipx_src, &ipxh->ipx_dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &ipx_ct_dissector_info, PT_NONE);
+	add_conversation_table_data(hash, &ipxh->ipx_src, &ipxh->ipx_dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &ipx_ct_dissector_info, ENDPOINT_NONE);
 
 	return 1;
 }
@@ -190,8 +190,8 @@ ipx_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, cons
 	/* Take two "add" passes per packet, adding for each direction, ensures that all
 	packets are counted properly (even if address is sending to itself)
 	XXX - this could probably be done more efficiently inside hostlist_table */
-	add_hostlist_table_data(hash, &ipxh->ipx_src, 0, TRUE, 1, pinfo->fd->pkt_len, &ipx_host_dissector_info, PT_NONE);
-	add_hostlist_table_data(hash, &ipxh->ipx_dst, 0, FALSE, 1, pinfo->fd->pkt_len, &ipx_host_dissector_info, PT_NONE);
+	add_hostlist_table_data(hash, &ipxh->ipx_src, 0, TRUE, 1, pinfo->fd->pkt_len, &ipx_host_dissector_info, ENDPOINT_NONE);
+	add_hostlist_table_data(hash, &ipxh->ipx_dst, 0, FALSE, 1, pinfo->fd->pkt_len, &ipx_host_dissector_info, ENDPOINT_NONE);
 
 	return 1;
 }
@@ -681,7 +681,7 @@ dissect_spx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 	 * SPX session using that source port; can that happen?  If so,
 	 * we should probably use the direction, as well as the conversation,
 	 * as part of the hash key; if we do that, we can probably just
-	 * use PT_IPX as the port type, and possibly get rid of PT_NCP.
+	 * use ENDPOINT_IPX as the port type, and possibly get rid of ENDPOINT_NCP.
 	 *
 	 * According to
 	 *
@@ -706,7 +706,7 @@ dissect_spx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 		 */
 		if (!pinfo->fd->flags.visited) {
 			conversation = find_conversation(pinfo->num, &pinfo->src,
-			    &pinfo->dst, PT_NCP, pinfo->srcport,
+			    &pinfo->dst, ENDPOINT_NCP, pinfo->srcport,
 			    pinfo->srcport, 0);
 			if (conversation == NULL) {
 				/*
@@ -714,7 +714,7 @@ dissect_spx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 				 * a new one.
 				 */
 				conversation = conversation_new(pinfo->num, &pinfo->src,
-				    &pinfo->dst, PT_NCP, pinfo->srcport,
+				    &pinfo->dst, ENDPOINT_NCP, pinfo->srcport,
 				    pinfo->srcport, 0);
 			}
 

@@ -5667,10 +5667,10 @@ static tcp_session_data* create_tcp_session_data(packet_info *pinfo, conversatio
 {
     tcp_session_data *packet = wmem_new0(wmem_file_scope(), tcp_session_data);
 
-    copy_address_wmem(wmem_file_scope(), &packet->client.addr, &conversation->key_ptr->addr1);
-    packet->client.port = conversation->key_ptr->port1;
-    copy_address_wmem(wmem_file_scope(), &packet->server.addr, &conversation->key_ptr->addr2);
-    packet->server.port = conversation->key_ptr->port2;
+    copy_address_wmem(wmem_file_scope(), &packet->client.addr, conversation_key_addr1(conversation->key_ptr));
+    packet->client.port = conversation_key_port1(conversation->key_ptr);
+    copy_address_wmem(wmem_file_scope(), &packet->server.addr, conversation_key_addr2(conversation->key_ptr));
+    packet->server.port = conversation_key_port2(conversation->key_ptr);
 
     packet->not_dps = FALSE;
 
@@ -5733,17 +5733,17 @@ static int dissect_dof_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         } */
 
         /* Register the source address as being DPS for the sender UDP port. */
-        conversation = find_conversation(pinfo->fd->num, &pinfo->src, &pinfo->dst, pinfo->ptype, pinfo->srcport, pinfo->destport, NO_ADDR_B | NO_PORT_B);
+        conversation = find_conversation(pinfo->fd->num, &pinfo->src, &pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype), pinfo->srcport, pinfo->destport, NO_ADDR_B | NO_PORT_B);
         if (!conversation)
         {
-            conversation = conversation_new(pinfo->fd->num, &pinfo->src, &pinfo->dst, pinfo->ptype, pinfo->srcport, pinfo->destport, NO_ADDR_B | NO_PORT_B);
+            conversation = conversation_new(pinfo->fd->num, &pinfo->src, &pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype), pinfo->srcport, pinfo->destport, NO_ADDR_B | NO_PORT_B);
             conversation_set_dissector(conversation, dof_udp_handle);
         }
 
         /* Find or create the conversation for this transport session. For UDP, the transport session is determined entirely by the
          * server port. This assumes that the first packet seen is from a client to the server.
          */
-        conversation = find_conversation(pinfo->fd->num, &pinfo->dst, &pinfo->src, PT_UDP, pinfo->destport, pinfo->srcport, NO_ADDR_B | NO_PORT_B);
+        conversation = find_conversation(pinfo->fd->num, &pinfo->dst, &pinfo->src, ENDPOINT_UDP, pinfo->destport, pinfo->srcport, NO_ADDR_B | NO_PORT_B);
         if (conversation)
         {
             /* TODO: Determine if this is valid or not. */
@@ -5752,7 +5752,7 @@ static int dissect_dof_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         }
 
         if (!conversation)
-            conversation = conversation_new(pinfo->fd->num, &pinfo->dst, &pinfo->src, PT_UDP, pinfo->destport, pinfo->srcport, NO_ADDR2 | NO_PORT2 | CONVERSATION_TEMPLATE);
+            conversation = conversation_new(pinfo->fd->num, &pinfo->dst, &pinfo->src, ENDPOINT_UDP, pinfo->destport, pinfo->srcport, NO_ADDR2 | NO_PORT2 | CONVERSATION_TEMPLATE);
 
         transport_session = (udp_session_data *)conversation_get_proto_data(conversation, proto_2008_1_dof_udp);
         if (transport_session == NULL)
@@ -5892,7 +5892,7 @@ static int dissect_dof_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
      * so we can "mirror" that by attaching our own data to that conversation. If our
      * data cannot be found, then it is a new connection (to us).
      */
-    conversation = find_conversation(pinfo->fd->num, &pinfo->src, &pinfo->dst, pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+    conversation = find_conversation_pinfo(pinfo, 0);
     {
         /* This should be impossible - the TCP dissector requires this conversation.
          * Bail...
@@ -6099,11 +6099,7 @@ static int dissect_tunnel_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     if (!udp_transport_session)
     udp_transport_session = se_alloc0(sizeof(*udp_transport_session));
 
-    conversation = find_conversation(pinfo->fd->num, &pinfo->src, &pinfo->dst, PT_UDP, pinfo->srcport, pinfo->destport, 0);
-    if (!conversation)
-    {
-        conversation = conversation_new(pinfo->fd->num, &pinfo->src, &pinfo->dst, PT_UDP, pinfo->srcport, pinfo->destport, 0);
-    }
+    conversation = find_or_create_conversation(pinfo);
 
     /* Add the packet data. */
     packet = p_get_proto_data(wmem_file_scope(), proto_2012_1_tunnel, 0);
@@ -6145,7 +6141,7 @@ static int dissect_tunnel_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     * so we can "mirror" that by attaching our own data to that conversation. If our
     * data cannot be found, then it is a new connection (to us).
     */
-    conversation = find_conversation(pinfo->fd->num, &pinfo->src, &pinfo->dst, pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+    conversation = find_conversation_pinfo(pinfo, 0);
     {
         /* This should be impossible - the TCP dissector requires this conversation.
         * Bail...

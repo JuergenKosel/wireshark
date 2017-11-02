@@ -357,8 +357,7 @@ static const value_string interface_role_str[] = {
 #define MPLS_EXTENDED_PAYLOAD_C_TYPE             1
 
 /* Return true if the address is in the 224.0.0.0/4 network block */
-#define is_a_multicast_addr(a) \
-	((g_ntohl(a) & 0xf0000000) == 0xe0000000)
+#define is_a_multicast_addr(a)	in4_addr_is_multicast(g_ntohl(a))
 
 /* Return true if the address is the 255.255.255.255 broadcast address */
 #define is_a_broadcast_addr(a) \
@@ -418,13 +417,13 @@ static conversation_t *_find_or_create_conversation(packet_info * pinfo)
 
 	/* Have we seen this conversation before? */
 	conv =
-	    find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-			      pinfo->ptype, 0, 0, 0);
+	    find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype),
+			      0, 0, 0);
 	if (conv == NULL) {
 		/* No, this is a new conversation. */
 		conv =
 		    conversation_new(pinfo->num, &pinfo->src,
-				     &pinfo->dst, pinfo->ptype, 0, 0, 0);
+				     &pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype), 0, 0, 0);
 	}
 	return conv;
 }
@@ -967,6 +966,19 @@ dissect_extensions(tvbuff_t * tvb, packet_info *pinfo, gint offset, proto_tree *
 }
 
 /* ======================================================================= */
+/*
+	Note: We are tracking conversations via these keys:
+
+	0                   1                   2                   3
+	0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                             |G|            Checksum           |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|           Identifier          |        Sequence Number        |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                            VLAN ID                            |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
 static icmp_transaction_t *transaction_start(packet_info * pinfo,
 					     proto_tree * tree,
 					     guint32 * key)
@@ -992,7 +1004,7 @@ static icmp_transaction_t *transaction_start(packet_info * pinfo,
 		/* this is a new request, create a new transaction structure and map it to the
 		   unmatched table
 		 */
-		icmp_key[0].length = 2;
+		icmp_key[0].length = 3;
 		icmp_key[0].key = key;
 		icmp_key[1].length = 0;
 		icmp_key[1].key = NULL;
@@ -1008,7 +1020,7 @@ static icmp_transaction_t *transaction_start(packet_info * pinfo,
 		/* Already visited this frame */
 		guint32 frame_num = pinfo->num;
 
-		icmp_key[0].length = 2;
+		icmp_key[0].length = 3;
 		icmp_key[0].key = key;
 		icmp_key[1].length = 1;
 		icmp_key[1].key = &frame_num;
@@ -1069,7 +1081,7 @@ static icmp_transaction_t *transaction_end(packet_info * pinfo,
 
 	conversation =
 	    find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-			      pinfo->ptype, 0, 0, 0);
+			      conversation_pt_to_endpoint_type(pinfo->ptype), 0, 0, 0);
 	if (conversation == NULL) {
 		return NULL;
 	}
@@ -1082,7 +1094,7 @@ static icmp_transaction_t *transaction_end(packet_info * pinfo,
 	if (!PINFO_FD_VISITED(pinfo)) {
 		guint32 frame_num;
 
-		icmp_key[0].length = 2;
+		icmp_key[0].length = 3;
 		icmp_key[0].key = key;
 		icmp_key[1].length = 0;
 		icmp_key[1].key = NULL;
@@ -1102,7 +1114,7 @@ static icmp_transaction_t *transaction_end(packet_info * pinfo,
 
 		/* we found a match. Add entries to the matched table for both request and reply frames
 		 */
-		icmp_key[0].length = 2;
+		icmp_key[0].length = 3;
 		icmp_key[0].key = key;
 		icmp_key[1].length = 1;
 		icmp_key[1].key = &frame_num;
@@ -1120,7 +1132,7 @@ static icmp_transaction_t *transaction_end(packet_info * pinfo,
 		/* Already visited this frame */
 		guint32 frame_num = pinfo->num;
 
-		icmp_key[0].length = 2;
+		icmp_key[0].length = 3;
 		icmp_key[0].key = key;
 		icmp_key[1].length = 1;
 		icmp_key[1].key = &frame_num;
@@ -1238,7 +1250,7 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 	guint32 i;
 	gboolean save_in_error_pkt;
 	tvbuff_t *next_tvb;
-	guint32 conv_key[2];
+	guint32 conv_key[3];
 	icmp_transaction_t *trans = NULL;
 	nstime_t ts, time_relative;
 	ws_ip4 *iph = WS_IP4_PTR(data);
@@ -1506,11 +1518,12 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 			if (!pinfo->flags.in_error_pkt) {
 				conv_key[0] =
 				    (guint32) tvb_get_ntohs(tvb, 2);
-				if (pinfo->flags.in_gre_pkt)
+				if (pinfo->flags.in_gre_pkt && prefs.strict_conversation_tracking_heuristics)
 					conv_key[0] |= 0x00010000;	/* set a bit for "in GRE" */
 				conv_key[1] =
 				    ((guint32) tvb_get_ntohs(tvb, 4) << 16) |
 				     tvb_get_ntohs(tvb, 6);
+				conv_key[2] = prefs.strict_conversation_tracking_heuristics ? pinfo->vlan_id : 0;
 				trans =
 				    transaction_end(pinfo, icmp_tree,
 						    conv_key);
@@ -1527,12 +1540,13 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 				if (conv_key[0] == 0) {
 					conv_key[0] = 0xffff;
 				}
-				if (pinfo->flags.in_gre_pkt) {
+				if (pinfo->flags.in_gre_pkt && prefs.strict_conversation_tracking_heuristics) {
 					conv_key[0] |= 0x00010000;	/* set a bit for "in GRE" */
 				}
 				conv_key[1] =
 				    ((guint32) tvb_get_ntohs(tvb, 4) << 16) |
 				     tvb_get_ntohs(tvb, 6);
+				conv_key[2] = prefs.strict_conversation_tracking_heuristics ? pinfo->vlan_id : 0;
 				trans =
 				    transaction_start(pinfo, icmp_tree,
 						      conv_key);

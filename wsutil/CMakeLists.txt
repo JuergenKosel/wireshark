@@ -136,8 +136,6 @@ set(WSUTIL_FILES ${WSUTIL_COMMON_FILES})
 if(WIN32)
 	list(APPEND WSUTIL_FILES
 		file_util.c
-		inet_ntop.c
-		inet_pton.c
 		win32-utils.c
 	)
 ENDIF(WIN32)
@@ -211,10 +209,6 @@ endif()
 
 if(NOT HAVE_GETOPT_LONG)
 	list(APPEND WSUTIL_FILES getopt_long.c)
-endif()
-
-if(NOT HAVE_INET_ATON)
-	list(APPEND WSUTIL_FILES inet_aton.c)
 endif()
 
 if(NOT HAVE_POPCOUNT)

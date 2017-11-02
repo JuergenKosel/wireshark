@@ -8272,12 +8272,12 @@ dissect_ARBlockReq_block(tvbuff_t *tvb, int offset,
         /* When ARType==IOCARSR, then find or create conversation for this frame */
         if (!pinfo->fd->flags.visited) {
             /* Get current conversation endpoints using MAC addresses */
-            conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_UDP, 0, 0, 0);
+            conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_UDP, 0, 0, 0);
             if (conversation == NULL) {
                 /* If conversation is null, then create new conversation */
                 /* Connect Request is sent by controller and not by device. */
                 /* All conversations are based on Controller MAC as address */
-                conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_UDP, 0, 0, 0);
+                conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_UDP, 0, 0, 0);
             }
 
             /* Try to get apdu status switch information from the conversation */
@@ -8288,14 +8288,14 @@ dissect_ARBlockReq_block(tvbuff_t *tvb, int offset,
             if (apdu_status_switch == NULL) {
                 /* apdu status switch information is valid for whole file*/
                 apdu_status_switch = wmem_new0(wmem_file_scope(), apduStatusSwitch);
-                apdu_status_switch->dl_src = conversation->key_ptr->addr1;
-                apdu_status_switch->dl_dst = conversation->key_ptr->addr2;
+                copy_address_shallow(&apdu_status_switch->dl_src, conversation_key_addr1(conversation->key_ptr));
+                copy_address_shallow(&apdu_status_switch->dl_dst, conversation_key_addr2(conversation->key_ptr));
                 apdu_status_switch->isRedundancyActive = TRUE;
                 conversation_add_proto_data(conversation, proto_pn_io_apdu_status, apdu_status_switch);
             }
             else {
-                apdu_status_switch->dl_src = conversation->key_ptr->addr1;
-                apdu_status_switch->dl_dst = conversation->key_ptr->addr2;
+                copy_address_shallow(&apdu_status_switch->dl_src, conversation_key_addr1(conversation->key_ptr));
+                copy_address_shallow(&apdu_status_switch->dl_dst, conversation_key_addr2(conversation->key_ptr));
                 apdu_status_switch->isRedundancyActive = TRUE;
             }
         }
@@ -8510,12 +8510,12 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
         /* Notice: Handle Input & Output seperate!!! */
         if (!pinfo->fd->flags.visited) {
             /* Get current conversation endpoints using MAC addresses */
-            conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+            conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
             if (conversation == NULL) {
                 /* Create new conversation, if no "Ident OK" frame as been dissected yet!
                  * Need to switch dl_src & dl_dst, as Connect Request is sent by controller and not by device.
                  * All conversations are based on Device MAC as addr1 */
-                conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, PT_NONE, 0, 0, 0);
+                conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
             }
 
             station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -9291,9 +9291,9 @@ dissect_DataDescription(tvbuff_t *tvb, int offset,
     /* Save new data for IO Data Objects */
     if (!pinfo->fd->flags.visited) {
         /* Get current conversation endpoints using MAC addresses */
-        conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+        conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
         if (conversation == NULL) {
-            conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+            conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
         }
 
         station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -9423,9 +9423,9 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
 
 
     /* Get current conversation endpoints using MAC addresses */
-    conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+    conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
     if (conversation == NULL) {
-        conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+        conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
     }
 
     station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -9812,9 +9812,9 @@ dissect_ModuleDiffBlock_block(tvbuff_t *tvb, int offset,
 
             if (!pinfo->fd->flags.visited) {
                 /* Get current conversation endpoints using MAC addresses */
-                conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+                conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
                 if (conversation == NULL) {
-                    conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+                    conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
                 }
 
                 station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -11263,9 +11263,9 @@ dissect_ProfiSafeParameterRequest(tvbuff_t *tvb, int offset,
 
     if (!pinfo->fd->flags.visited) {
         /* Get current conversation endpoints using MAC addresses */
-        conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+        conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
         if (conversation == NULL) {
-            conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+            conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
         }
 
         station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -11328,9 +11328,9 @@ dissect_RecordDataWrite(tvbuff_t *tvb, int offset,
 
     /* PROFISafe */
     /* Get current conversation endpoints using MAC addresses */
-    conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+    conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
     if (conversation == NULL) {
-        conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, PT_NONE, 0, 0, 0);
+        conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
     }
 
     station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);

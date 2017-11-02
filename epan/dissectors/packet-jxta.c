@@ -215,7 +215,7 @@ jxta_conversation_packet(void *pct, packet_info *pinfo _U_, epan_dissect_t *edt 
     const jxta_tap_header *jxtahdr = (const jxta_tap_header *) vip;
 
     add_conversation_table_data(hash, &jxtahdr->src_address, &jxtahdr->dest_address,
-        0, 0, 1, jxtahdr->size, NULL, NULL, &jxta_ct_dissector_info, PT_NONE);
+        0, 0, 1, jxtahdr->size, NULL, NULL, &jxta_ct_dissector_info, ENDPOINT_NONE);
 
     return 1;
 }
@@ -239,8 +239,8 @@ jxta_hostlist_packet(void *pit, packet_info *pinfo _U_, epan_dissect_t *edt _U_,
     /* Take two "add" passes per packet, adding for each direction, ensures that all
     packets are counted properly (even if address is sending to itself)
     XXX - this could probably be done more efficiently inside hostlist_table */
-    add_hostlist_table_data(hash, &jxtahdr->src_address, 0, TRUE, 1, jxtahdr->size, &jxta_host_dissector_info, PT_NONE);
-    add_hostlist_table_data(hash, &jxtahdr->dest_address, 0, FALSE, 1, jxtahdr->size, &jxta_host_dissector_info, PT_NONE);
+    add_hostlist_table_data(hash, &jxtahdr->src_address, 0, TRUE, 1, jxtahdr->size, &jxta_host_dissector_info, ENDPOINT_NONE);
+    add_hostlist_table_data(hash, &jxtahdr->dest_address, 0, FALSE, 1, jxtahdr->size, &jxta_host_dissector_info, ENDPOINT_NONE);
     return 1;
 }
 
@@ -746,17 +746,8 @@ Common_Exit:
 **/
 static jxta_stream_conversation_data *get_tpt_conversation(packet_info * pinfo)
 {
-    conversation_t *tpt_conversation =
-        find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+    conversation_t *tpt_conversation = find_or_create_conversation(pinfo);
     jxta_stream_conversation_data *tpt_conv_data;
-
-    if (tpt_conversation == NULL) {
-        /*
-         * No conversation exists yet - create one.
-         */
-        tpt_conversation =
-            conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
-    }
 
     conversation_set_dissector(tpt_conversation, stream_jxta_handle);
 
@@ -795,11 +786,11 @@ static conversation_t *get_peer_conversation(packet_info * pinfo, jxta_stream_co
 
     if ((AT_NONE != tpt_conv_data->initiator_address.type) && (AT_NONE != tpt_conv_data->receiver_address.type)) {
         peer_conversation = find_conversation(pinfo->num, &tpt_conv_data->initiator_address, &tpt_conv_data->receiver_address,
-                                               PT_NONE, 0, 0, NO_PORT_B);
+                                               ENDPOINT_NONE, 0, 0, NO_PORT_B);
 
         if (create && (NULL == peer_conversation)) {
             peer_conversation = conversation_new(pinfo->num, &tpt_conv_data->initiator_address,
-                                                  &tpt_conv_data->receiver_address, PT_NONE, 0, 0, NO_PORT_B);
+                                                  &tpt_conv_data->receiver_address, ENDPOINT_NONE, 0, 0, NO_PORT_B);
             conversation_set_dissector(peer_conversation, stream_jxta_handle);
         }
 

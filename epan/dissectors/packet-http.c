@@ -386,6 +386,7 @@ const value_string vals_http_status_code[] = {
 	{ 100, "Continue" },
 	{ 101, "Switching Protocols" },
 	{ 102, "Processing" },                     /* RFC 2518 */
+	{ 103, "Early Hints" },                    /* RFC-ietf-httpbis-early-hints-05 */
 	{ 199, "Informational - Others" },
 
 	{ 200, "OK"},
@@ -2193,7 +2194,7 @@ http_payload_subdissector(tvbuff_t *tvb, proto_tree *tree,
 			destport = pinfo->destport;
 		}
 
-		conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, PT_TCP, srcport, destport, 0);
+		conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_TCP, srcport, destport, 0);
 
 		/* We may get stuck in a recursion loop if we let process_tcp_payload() call us.
 		 * So, if the port in the URI is one we're registered for or we have set up a

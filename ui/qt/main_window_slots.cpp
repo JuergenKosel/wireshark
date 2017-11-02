@@ -1779,13 +1779,33 @@ void MainWindow::openTapParameterDialog()
     openTapParameterDialog(cfg_str, NULL, NULL);
 }
 
-void MainWindow::byteViewTabChanged(int tab_index)
+void MainWindow::setTvbOffsetHovered(tvbuff_t * tvb, int idx)
 {
-    QWidget *new_tab = byte_view_tab_->widget(tab_index);
-    if (new_tab) {
-        setTabOrder(proto_tree_, new_tab);
-        setTabOrder(new_tab, df_combo_box_->lineEdit()); // XXX Toolbar instead?
+    QString field_str("");
+
+    if ( tvb && capture_file_.capFile() && capture_file_.capFile()->edt )
+    {
+        proto_tree * tree = capture_file_.capFile()->edt->tree;
+        if ( tree )
+        {
+            field_info * fi = proto_find_field_from_offset(tree, idx, tvb);
+
+            if (fi) {
+                if (fi->length < 2) {
+                    field_str = QString(tr("Byte %1"))
+                            .arg(fi->start);
+                } else {
+                    field_str = QString(tr("Bytes %1-%2"))
+                            .arg(fi->start)
+                            .arg(fi->start + fi->length - 1);
+                }
+                field_str += QString(": %1 (%2)")
+                        .arg(fi->hfinfo->name)
+                        .arg(fi->hfinfo->abbrev);
+            }
+        }
     }
+    main_ui_->statusBar->pushByteStatus(field_str);
 }
 
 #ifdef HAVE_SOFTWARE_UPDATE
@@ -2498,6 +2518,8 @@ void MainWindow::on_actionViewColoringRules_triggered()
     ColoringRulesDialog coloring_rules_dialog(this);
     connect(&coloring_rules_dialog, SIGNAL(accepted()),
             packet_list_, SLOT(recolorPackets()));
+    connect(&coloring_rules_dialog, SIGNAL(filterAction(QString,FilterAction::Action,FilterAction::ActionType)),
+            this, SIGNAL(filterAction(QString,FilterAction::Action,FilterAction::ActionType)));
     coloring_rules_dialog.exec();
 }
 
@@ -2520,6 +2542,8 @@ void MainWindow::colorizeConversation(bool create_rule)
             ColoringRulesDialog coloring_rules_dialog(this, filter);
             connect(&coloring_rules_dialog, SIGNAL(accepted()),
                     packet_list_, SLOT(recolorPackets()));
+            connect(&coloring_rules_dialog, SIGNAL(filterAction(QString,FilterAction::Action,FilterAction::ActionType)),
+                    this, SIGNAL(filterAction(QString,FilterAction::Action,FilterAction::ActionType)));
             coloring_rules_dialog.exec();
         } else {
             gchar *err_msg = NULL;
@@ -2570,6 +2594,8 @@ void MainWindow::colorizeWithFilter(QByteArray filter, int color_number)
         ColoringRulesDialog coloring_rules_dialog(window(), filter);
         connect(&coloring_rules_dialog, SIGNAL(accepted()),
                 packet_list_, SLOT(recolorPackets()));
+        connect(&coloring_rules_dialog, SIGNAL(filterAction(QString,FilterAction::Action,FilterAction::ActionType)),
+                this, SIGNAL(filterAction(QString,FilterAction::Action,FilterAction::ActionType)));
         coloring_rules_dialog.exec();
     }
     main_ui_->actionViewColorizeResetColorization->setEnabled(tmp_color_filters_used());

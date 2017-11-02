@@ -303,7 +303,7 @@ fi
 
 # libgrypt (for decryption, MAC, etc. functionality).
 AM_PATH_LIBGCRYPT(1.4.2, [ ] , [
-  AC_MSG_ERROR([[libgcrypt not found; install libgcrypt-devel package for your system]])
+  AC_MSG_ERROR([[libgcrypt not installed for development; install libgcrypt, including any development package, for your system]])
 ])
 
 AC_ARG_WITH(libnl,
@@ -1096,25 +1096,6 @@ if test x$enable_packet_editor = xyes; then
 	AC_DEFINE(WANT_PACKET_EDITOR, 1, [Support for packet editor])
 fi
 
-AC_ARG_ENABLE(profile-build,
-  AC_HELP_STRING( [--enable-profile-build],
-		  [build profile-ready binaries @<:@default=no@:>@]),
-    enable_profile_build=$enableval,enable_profile_build=no)
-AM_CONDITIONAL(USE_PROFILE_BUILD, test x$enable_profile_build = xyes)
-AC_MSG_CHECKING(if profile builds must be generated)
-if test "x$enable_profile_build" = "xyes" ; then
-	if test "x$GCC" = "xyes" -o "x$CLANG" = "xyes" ; then
-		AC_MSG_RESULT(yes)
-		WS_CFLAGS="-pg $WS_CFLAGS"
-		WS_CXXFLAGS="-pg $WS_CXXFLAGS"
-	else
-		AC_MSG_RESULT(no)
-		echo "Building profile binaries currently only supported for GCC and clang."
-	fi
-else
-	AC_MSG_RESULT(no)
-fi
-
 GLIB_MIN_VERSION=2.22.0
 AC_SUBST(GLIB_MIN_VERSION)
 # GLib checks; we require GLib $GLIB_MIN_VERSION or later, and require gmodule
@@ -1485,43 +1466,6 @@ elif test "$have_gtk" = "no" -a "$have_qt" = "no" ; then
 fi
 
 #
-# Check whether GLib modules are supported, to determine whether we
-# can support plugins.
-#
-
-AC_CACHE_CHECK([whether GLib supports loadable modules],
-               [ac_cv_glib_supports_modules], [
-ac_save_CFLAGS="$CFLAGS"
-ac_save_LIBS="$LIBS"
-CFLAGS="$WS_CFLAGS $GLIB_CFLAGS $CFLAGS"
-LIBS="$LIBS $GLIB_LIBS"
-AC_TRY_RUN([
-#include <glib.h>
-#include <gmodule.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-int
-main ()
-{
-  if (g_module_supported())
-    return 0;	/* success */
-  else
-    return 1;	/* failure */
-}
-], ac_cv_glib_supports_modules=yes, ac_cv_glib_supports_modules=no,
-   [echo $ac_n "cross compiling; assumed OK... $ac_c"
-    ac_cv_glib_supports_modules=yes])
-CFLAGS="$ac_save_CFLAGS"
-LIBS="$ac_save_LIBS"
-])
-if test "$ac_cv_glib_supports_modules" = yes ; then
-  have_plugins=yes
-else
-  have_plugins=no
-fi
-
-#
 # If we have <dlfcn.h>, check whether we have dladdr.
 #
 if test "$ac_cv_header_dlfcn_h" = "yes"
@@ -1550,41 +1494,6 @@ then
 	fi
 	CFLAGS="$ac_save_CFLAGS"
 	LIBS="$ac_save_LIBS"
-fi
-
-#
-# Check whether GLib's printf supports thousands grouping. (This might
-# be different from the system's printf since GLib can optionally use
-# its own printf implementation.)
-#
-AC_CACHE_CHECK([whether GLib supports POSIX/XSI thousands grouping],
-               [ac_cv_glib_supports_printf_grouping], [
-ac_save_CFLAGS="$CFLAGS"
-ac_save_LIBS="$LIBS"
-CFLAGS="$WS_CFLAGS $GLIB_CFLAGS $CFLAGS"
-LIBS="$LIBS $GLIB_LIBS"
-AC_TRY_RUN([
-#include <glib.h>
-#include <locale.h>
-#include <stdio.h>
-#include <string.h>
-
-int
-main ()
-{
-  gchar *str;
-  setlocale(LC_ALL, "en_US.UTF-8");
-  str = g_strdup_printf("%'u", 123456);
-  return (strcmp (str, "123,456") != 0);
-}
-], ac_cv_glib_supports_printf_grouping=yes, ac_cv_glib_supports_printf_grouping=no,
-   [echo $ac_n "cross compiling; playing it safe... $ac_c"
-    ac_cv_glib_supports_printf_grouping=no])
-CFLAGS="$ac_save_CFLAGS"
-LIBS="$ac_save_LIBS"
-])
-if test "$ac_cv_glib_supports_printf_grouping" = yes ; then
-  AC_DEFINE(HAVE_GLIB_PRINTF_GROUPING, 1, [Define if GLib's printf functions support thousands grouping.])
 fi
 
 AC_SUBST(wireshark_bin)
@@ -2344,7 +2253,7 @@ dnl LIBSSH Check
 LIBSSH=''
 AC_MSG_CHECKING(whether to use the libssh library if available)
 
-AC_ARG_WITH(ssh,
+AC_ARG_WITH(libssh,
   AC_HELP_STRING( [--with-libssh@<:@=DIR@:>@],
 		  [use libssh (located in directory DIR, if supplied) @<:@default=yes, if present@:>@]),
 [
@@ -2421,10 +2330,6 @@ AC_CHECK_MEMBERS([struct sockaddr.sa_len],,,
 # We must know our byte order
 AC_C_BIGENDIAN
 
-# Checks whether "-traditional" is needed when using "ioctl".
-# XXX - do we need this?
-AC_PROG_GCC_TRADITIONAL
-
 AC_REPLACE_FUNCS(getopt_long)
 dnl
 dnl Do we have optreset?
@@ -2438,41 +2343,10 @@ if test "x$ac_cv_func_getopt_long" = xyes; then
   fi
 fi
 
-AC_REPLACE_FUNCS(inet_aton)
-
-AC_CHECK_FUNC(inet_pton, [
-  dnl check for pre-BIND82 inet_pton() bug.
-  AC_MSG_CHECKING(for broken inet_pton)
-  AC_TRY_RUN([#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-int main()
-{
-#ifdef AF_INET6
-  char buf[16];
-  /* this should return 0 (error) */
-  return inet_pton(AF_INET6, "0:1:2:3:4:5:6:7:", buf);
-#else
-  return 1;
-#endif
-}], [AC_MSG_RESULT(ok);
-have_inet_pton=yes], [AC_MSG_RESULT(broken);
-have_inet_pton=no], [AC_MSG_RESULT([cross compiling, assume it is broken]);
-have_inet_pton=no])],
-have_inet_pton=no)
-if test "$have_inet_pton" = no; then
-  AC_LIBOBJ(inet_pton)
-else
-  AC_DEFINE(HAVE_INET_PTON, 1, [Define to 1 if you have the `inet_pton' function.])
-fi
-
-AC_REPLACE_FUNCS(inet_ntop)
 AC_REPLACE_FUNCS(strptime)
 AC_REPLACE_FUNCS(popcount)
 
 AC_CHECK_FUNCS(mkstemps mkdtemp)
-AC_CHECK_FUNCS(getprotobynumber)
 AC_CHECK_FUNCS(issetugid)
 AC_CHECK_FUNCS(sysconf)
 AC_CHECK_FUNCS(getifaddrs)
@@ -2579,28 +2453,20 @@ AM_CONDITIONAL(HAVE_LIBXML2, test "x$have_libxml2" = "xyes")
 
 
 dnl
-dnl check whether plugins should be enabled and, if they should be,
-dnl check for plugins directory - stolen from Amanda's configure.ac
+dnl check whether plugins should be enabled
 dnl
-dnl we don't wish to expand ${libdir} yet
-plugindir="\${libdir}/wireshark/plugins/$VERSION_RELEASE"
-AC_ARG_WITH(plugins,
-  AC_HELP_STRING( [--with-plugins@<:@=DIR@:>@],
-		  [support plugins (installed in DIR, if supplied) @<:@default=yes, if possible@:>@]),
-[
-  if test "x$withval" = "xno"; then
-    have_plugins=no
-  elif test "x$have_plugins" = "xno"; then
-      AC_MSG_ERROR([GLib on this platform doesn't support loadable modules, so you can't enable plugins.])
-  elif test "x$withval" != "xyes"; then
-      plugindir="$withval"
-  fi
-])
+AC_ARG_ENABLE(plugins,
+  AC_HELP_STRING( [--enable-plugins],
+		  [support plugins (if available on your platform) @<:@default=yes@:>@]),
+		  [have_plugins=$enableval], [have_plugins=yes])
+
 AM_CONDITIONAL(HAVE_PLUGINS, test "x$have_plugins" = "xyes")
 if test x$have_plugins = xyes
 then
   AC_DEFINE(HAVE_PLUGINS, 1, [Define if plugins are enabled])
 fi
+dnl we don't wish to expand ${libdir} yet
+plugindir="\${libdir}/wireshark/plugins/$VERSION_RELEASE"
 AC_SUBST(plugindir)
 
 #
@@ -2960,7 +2826,6 @@ AC_CONFIG_FILES(
   doc/Makefile
   docbook/Makefile
   epan/Makefile
-  epan/compress/Makefile
   epan/crypt/Makefile
   epan/doxygen.cfg
   epan/dfilter/Makefile
@@ -3103,14 +2968,11 @@ fi
 
 if test "x$have_good_libssh" = "xyes" ; then
 	libssh_message="yes"
+	if test "x$have_ssh_userauth_agent" = "xno" ; then
+		ssh_userauth_agent_message=" (without ssh_userauth_agent)"
+	fi
 else
 	libssh_message="no"
-fi
-
-if test "x$have_ssh_userauth_agent" = "xyes" ; then
-	ssh_userauth_agent_message="yes"
-else
-	ssh_userauth_agent_message="no"
 fi
 
 if test "x$have_good_nghttp2" = "xyes" ; then
@@ -3176,7 +3038,6 @@ echo "       Use external capture sources : $have_extcap"
 echo "                    Use Lua library : $lua_message"
 echo "                Build Qt RTP player : $qt_multimedia_message"
 echo "              Build GTK+ RTP player : $portaudio_message"
-echo "             Build profile binaries : $enable_profile_build"
 echo "                   Use pcap library : $want_pcap"
 echo "                   Use zlib library : $zlib_message"
 echo "               Use kerberos library : $krb5_message"
@@ -3187,8 +3048,7 @@ echo "             Use SSL crypto library : $ssl_message"
 echo "                 Use GnuTLS library : $tls_message"
 echo "     Use POSIX capabilities library : $libcap_message"
 echo "                  Use GeoIP library : $geoip_message"
-echo "                 Use libssh library : $libssh_message"
-echo "            Have ssh_userauth_agent : $ssh_userauth_agent_message"
+echo "                 Use libssh library : ${libssh_message}${ssh_userauth_agent_message}"
 echo "                     Use nl library : $libnl_message"
 echo "              Use SBC codec library : $have_sbc"
 echo "                Use SpanDSP library : $have_spandsp"

@@ -29,7 +29,6 @@
 #include <epan/conversation.h>
 #include <epan/exceptions.h>
 #include <epan/to_str.h>
-#include <wsutil/inet_aton.h>
 #include <wsutil/pint.h>
 
 /* The Aeron protocol is defined at https://github.com/real-logic/Aeron/wiki/Protocol-Specification */
@@ -289,7 +288,6 @@ typedef struct
 {
     address * addr1;
     address * addr2;
-    port_type ptype;
     guint16 port1;
     guint16 port2;
 } aeron_conversation_info_t;
@@ -398,10 +396,10 @@ static aeron_transport_t * aeron_transport_add(const aeron_conversation_info_t *
     conversation_t * conv;
     wmem_map_t * session_map;
 
-    conv = find_conversation(frame, cinfo->addr1, cinfo->addr2, cinfo->ptype, cinfo->port1, cinfo->port2, 0);
+    conv = find_conversation(frame, cinfo->addr1, cinfo->addr2, ENDPOINT_UDP, cinfo->port1, cinfo->port2, 0);
     if (conv == NULL)
     {
-        conv = conversation_new(frame, cinfo->addr1, cinfo->addr2, cinfo->ptype, cinfo->port1, cinfo->port2, 0);
+        conv = conversation_new(frame, cinfo->addr1, cinfo->addr2, ENDPOINT_UDP, cinfo->port1, cinfo->port2, 0);
     }
     if (frame > conv->last_frame)
     {
@@ -677,17 +675,7 @@ static char * aeron_format_transport_uri(const aeron_conversation_info_t * cinfo
 {
     wmem_strbuf_t * uri;
 
-    uri = wmem_strbuf_new(wmem_packet_scope(), "aeron:");
-    switch (cinfo->ptype)
-    {
-        case PT_UDP:
-            wmem_strbuf_append(uri, "udp");
-            break;
-        default:
-            wmem_strbuf_append(uri, "unknown");
-            break;
-    }
-    wmem_strbuf_append_c(uri, '?');
+    uri = wmem_strbuf_new(wmem_packet_scope(), "aeron:udp?");
     if (aeron_is_address_multicast(cinfo->addr2))
     {
         switch (cinfo->addr2->type)
@@ -859,7 +847,6 @@ static aeron_conversation_info_t * aeron_setup_conversation_info(const packet_in
     int addr_len = pinfo->dst.len;
 
     cinfo = wmem_new0(wmem_packet_scope(), aeron_conversation_info_t);
-    cinfo->ptype = pinfo->ptype;
     switch (pinfo->dst.type)
     {
         case AT_IPv4:
@@ -3096,7 +3083,7 @@ void proto_register_aeron(void)
     proto_register_subtree_array(ett, array_length(ett));
     expert_aeron = expert_register_protocol(proto_aeron);
     expert_register_field_array(expert_aeron, ei, array_length(ei));
-    aeron_module = prefs_register_protocol(proto_aeron, proto_reg_handoff_aeron);
+    aeron_module = prefs_register_protocol(proto_aeron, NULL);
     aeron_heuristic_subdissector_list = register_heur_dissector_list("aeron_msg_payload", proto_aeron);
 
     prefs_register_bool_preference(aeron_module,

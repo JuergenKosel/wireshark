@@ -76,12 +76,9 @@
 #include <sys/socket.h>     /* needed to define AF_ values on UNIX */
 #endif
 
-#ifdef HAVE_WINSOCK2_H
-#include <winsock2.h>       /* needed to define AF_ values on Windows */
-#endif
-
 #ifdef _WIN32
-# include <ws2tcpip.h>
+#include <winsock2.h>       /* needed to define AF_ values on Windows */
+#include <ws2tcpip.h>
 #endif
 
 #ifdef HAVE_C_ARES
@@ -103,7 +100,6 @@
 #include <wsutil/report_message.h>
 #include <wsutil/file_util.h>
 #include <wsutil/pint.h>
-#include "wsutil/inet_aton.h"
 #include <wsutil/inet_addr.h>
 
 #include <epan/strutil.h>
@@ -230,7 +226,7 @@ typedef struct _resolved_ipv4
 
 typedef struct _resolved_ipv6
 {
-    struct e_in6_addr  ip6_addr;
+    ws_in6_addr  ip6_addr;
     char               name[MAXNAMELEN];
 } resolved_ipv6_t;
 
@@ -286,7 +282,7 @@ static gboolean
 ipv6_equal(gconstpointer v1, gconstpointer v2)
 {
 
-    if (memcmp(v1, v2, sizeof (struct e_in6_addr)) == 0) {
+    if (memcmp(v1, v2, sizeof (ws_in6_addr)) == 0) {
         return TRUE;
     }
 
@@ -343,7 +339,7 @@ typedef struct _async_dns_queue_msg
 {
     union {
         guint32           ip4;
-        struct e_in6_addr ip6;
+        ws_in6_addr ip6;
     } addr;
     int                 family;
 } async_dns_queue_msg_t;
@@ -790,12 +786,12 @@ fill_dummy_ip4(const guint addr, hashipv4_t* volatile tp)
     if (0 != subnet_entry.mask) {
         /* Print name, then '.' then IP address after subnet mask */
         guint32 host_addr;
-        gchar buffer[MAX_IP_STR_LEN];
+        gchar buffer[WS_INET_ADDRSTRLEN];
         gchar* paddr;
         gsize i;
 
         host_addr = addr & (~(guint32)subnet_entry.mask);
-        ip_to_str_buf((guint8 *)&host_addr, buffer, MAX_IP_STR_LEN);
+        ip_to_str_buf((guint8 *)&host_addr, buffer, WS_INET_ADDRSTRLEN);
         paddr = buffer;
 
         /* Skip to first octet that is not totally masked
@@ -914,7 +910,7 @@ host_lookup(const guint addr)
 
 /* --------------- */
 static hashipv6_t *
-new_ipv6(const struct e_in6_addr *addr)
+new_ipv6(const ws_in6_addr *addr)
 {
     hashipv6_t *tp = wmem_new(wmem_epan_scope(), hashipv6_t);
     memcpy(tp->addr, addr->bytes, sizeof tp->addr);
@@ -926,7 +922,7 @@ new_ipv6(const struct e_in6_addr *addr)
 
 /* ------------------------------------ */
 static hashipv6_t *
-host_lookup6(const struct e_in6_addr *addr)
+host_lookup6(const ws_in6_addr *addr)
 {
     hashipv6_t * volatile tp;
 #ifdef HAVE_C_ARES
@@ -939,9 +935,9 @@ host_lookup6(const struct e_in6_addr *addr)
          * We don't already have an entry for this host name; create one,
          * and then try to resolve it.
          */
-        struct e_in6_addr *addr_key;
+        ws_in6_addr *addr_key;
 
-        addr_key = wmem_new(wmem_epan_scope(), struct e_in6_addr);
+        addr_key = wmem_new(wmem_epan_scope(), ws_in6_addr);
         tp = new_ipv6(addr);
         memcpy(addr_key, addr, 16);
         fill_dummy_ip6(tp);
@@ -1942,7 +1938,7 @@ read_hosts_file (const char *hostspath, gboolean store_entries)
     gchar *cp;
     union {
         guint32 ip4_addr;
-        struct e_in6_addr ip6_addr;
+        ws_in6_addr ip6_addr;
     } host_addr;
     gboolean is_ipv6, entry_found = FALSE;
 
@@ -2017,7 +2013,7 @@ add_ip_name_from_string (const char *addr, const char *name)
 {
     union {
         guint32 ip4_addr;
-        struct e_in6_addr ip6_addr;
+        ws_in6_addr ip6_addr;
     } host_addr;
     gboolean is_ipv6;
     resolved_ipv4_t *resolved_ipv4_entry;
@@ -2550,7 +2546,7 @@ host_name_lookup_process(void) {
                     c_ares_ghba_cb, caqm);
             async_dns_in_flight++;
         } else if (caqm->family == AF_INET6) {
-            ares_gethostbyaddr(ghba_chan, &caqm->addr.ip6, sizeof(struct e_in6_addr),
+            ares_gethostbyaddr(ghba_chan, &caqm->addr.ip6, sizeof(ws_in6_addr),
                     AF_INET6, c_ares_ghba_cb, caqm);
             async_dns_in_flight++;
         }
@@ -2623,7 +2619,7 @@ get_hostname(const guint addr)
 /* -------------------------- */
 
 const gchar *
-get_hostname6(const struct e_in6_addr *addr)
+get_hostname6(const ws_in6_addr *addr)
 {
     /* XXX why do we call this if we're not resolving? To create hash entries?
      * Why?
@@ -2666,7 +2662,7 @@ add_ipv4_name(const guint addr, const gchar *name)
 
 /* -------------------------- */
 void
-add_ipv6_name(const struct e_in6_addr *addrp, const gchar *name)
+add_ipv6_name(const ws_in6_addr *addrp, const gchar *name)
 {
     hashipv6_t *tp;
 
@@ -2679,9 +2675,9 @@ add_ipv6_name(const struct e_in6_addr *addrp, const gchar *name)
 
     tp = (hashipv6_t *)wmem_map_lookup(ipv6_hash_table, addrp);
     if (!tp) {
-        struct e_in6_addr *addr_key;
+        ws_in6_addr *addr_key;
 
-        addr_key = wmem_new(wmem_epan_scope(), struct e_in6_addr);
+        addr_key = wmem_new(wmem_epan_scope(), ws_in6_addr);
         tp = new_ipv6(addrp);
         memcpy(addr_key, addrp, 16);
         wmem_map_insert(ipv6_hash_table, addr_key, tp);
@@ -3115,14 +3111,12 @@ c_ares_ghi_cb(void *arg, int status, int timeouts _U_, struct hostent *hp) {
 }
 #endif /* HAVE_C_ARES */
 
-/* Translate a string, assumed either to be a dotted-quad IP address or
- * a host name, to a numeric IP address.  Return TRUE if we succeed and
- * set "*addrp" to that numeric IP address; return FALSE if we fail.
- * Used more in the dfilter parser rather than in packet dissectors */
+/* Translate a string, assumed either to be a dotted-quad IPv4 address or
+ * a host name, to a numeric IPv4 address.  Return TRUE if we succeed and
+ * set "*addrp" to that numeric IPv4 address; return FALSE if we fail. */
 gboolean
 get_host_ipaddr(const char *host, guint32 *addrp)
 {
-    struct in_addr      ipaddr;
 #ifdef HAVE_C_ARES
     struct timeval tv = { 0, GHI_TIMEOUT }, *tvp;
     int nfds;
@@ -3131,11 +3125,11 @@ get_host_ipaddr(const char *host, guint32 *addrp)
 #endif
 
     /*
-     * don't change it to inet_pton(AF_INET), they are not 100% compatible.
-     * inet_pton(AF_INET) does not support hexadecimal notation nor
-     * less-than-4 octet notation.
+     * XXX - are there places where this is used to translate something
+     * that's *only* supposed to be an IPv4 address, and where it
+     * *shouldn't* translate host names?
      */
-    if (!inet_aton(host, &ipaddr)) {
+    if (!ws_inet_pton4(host, addrp)) {
 
         /* It's not a valid dotted-quad IP address; is it a valid
          * host name?
@@ -3174,28 +3168,18 @@ get_host_ipaddr(const char *host, guint32 *addrp)
         }
         return FALSE;
 #endif
-    } else {
-        /* Does the string really contain dotted-quad IP?
-         * Check against inet_atons that accept strings such as
-         * "130.230" as valid addresses and try to convert them
-         * to some form of a classful (host.net) notation.
-         */
-        unsigned int a0, a1, a2, a3;
-        if (sscanf(host, "%u.%u.%u.%u", &a0, &a1, &a2, &a3) != 4)
-            return FALSE;
     }
 
-    *addrp = ipaddr.s_addr;
     return TRUE;
 }
 
 /*
- * Translate IPv6 numeric address or FQDN hostname, into binary IPv6 address.
- * Return TRUE if we succeed and set "*addrp" to that numeric IP address;
+ * Translate IPv6 numeric address or FQDN hostname into binary IPv6 address.
+ * Return TRUE if we succeed and set "*addrp" to that numeric IPv6 address;
  * return FALSE if we fail.
  */
 gboolean
-get_host_ipaddr6(const char *host, struct e_in6_addr *addrp)
+get_host_ipaddr6(const char *host, ws_in6_addr *addrp)
 {
 #ifdef HAVE_C_ARES
     struct timeval tv = { 0, GHI_TIMEOUT }, *tvp;
@@ -3209,6 +3193,10 @@ get_host_ipaddr6(const char *host, struct e_in6_addr *addrp)
 
     /* It's not a valid dotted-quad IP address; is it a valid
      * host name?
+     *
+     * XXX - are there places where this is used to translate something
+     * that's *only* supposed to be an IPv6 address, and where it
+     * *shouldn't* translate host names?
      */
 
     /* If we're not allowed to do name resolution, don't do name
@@ -3224,7 +3212,7 @@ get_host_ipaddr6(const char *host, struct e_in6_addr *addrp)
     if (!async_dns_initialized || name_resolve_concurrency < 1) {
         return FALSE;
     }
-    ahe.addr_size = (int) sizeof (struct e_in6_addr);
+    ahe.addr_size = (int) sizeof (ws_in6_addr);
     ahe.copied = 0;
     ahe.addrp = addrp;
     ares_gethostbyname(ghbn_chan, host, AF_INET6, c_ares_ghi_cb, &ahe);
@@ -3330,7 +3318,7 @@ str_to_ip(const char *str, void *dst)
 gboolean
 str_to_ip6(const char *str, void *dst)
 {
-    return ws_inet_pton6(str, (struct e_in6_addr *)dst);
+    return ws_inet_pton6(str, (ws_in6_addr *)dst);
 }
 
 /*

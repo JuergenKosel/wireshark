@@ -94,17 +94,17 @@ same_ftype(const enum ftenum ftype)
 		case FT_UINT32:
 			return FT_UINT32;
 
-    case FT_INT40:
-    case FT_INT48:
-    case FT_INT56:
+		case FT_INT40:
+		case FT_INT48:
+		case FT_INT56:
 		case FT_INT64:
-      return FT_INT64;
+			return FT_INT64;
 
 		case FT_UINT40:
 		case FT_UINT48:
 		case FT_UINT56:
 		case FT_UINT64:
-      return FT_UINT64;
+			return FT_UINT64;
 
 		case FT_STRING:
 		case FT_STRINGZ:
@@ -123,7 +123,7 @@ same_ftype(const enum ftenum ftype)
 		case FT_REL_OID:
 			return FT_OID;
 
-		/* XXX: the folowing are unqiue for now */
+		/* XXX: the folowing are unique for now */
 		case FT_IPv4:
 		case FT_IPv6:
 
@@ -629,7 +629,6 @@ fvalue_get(fvalue_t *fv)
 			fv->ftype->ftype == FT_SYSTEM_ID ||
 			fv->ftype->ftype == FT_FCWWN ||
 			fv->ftype->ftype == FT_GUID ||
-			fv->ftype->ftype == FT_IPv4 ||
 			fv->ftype->ftype == FT_IPv6 ||
 			fv->ftype->ftype == FT_PCRE ||
 			fv->ftype->ftype == FT_PROTOCOL ||
@@ -651,7 +650,8 @@ fvalue_get_uinteger(fvalue_t *fv)
 			fv->ftype->ftype == FT_UINT24 ||
 			fv->ftype->ftype == FT_UINT32 ||
 			fv->ftype->ftype == FT_IPXNET ||
-			fv->ftype->ftype == FT_FRAMENUM);
+			fv->ftype->ftype == FT_FRAMENUM ||
+			fv->ftype->ftype == FT_IPv4);
 	g_assert(fv->ftype->get_value.get_value_uinteger);
 	return fv->ftype->get_value.get_value_uinteger(fv);
 }

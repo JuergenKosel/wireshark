@@ -2305,10 +2305,10 @@ dissect_rtmpt_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
                 rconv = rtmpt_init_rconv(conv);
         }
 
-        cdir = (addresses_equal(&conv->key_ptr->addr1, &pinfo->src) &&
-                addresses_equal(&conv->key_ptr->addr2, &pinfo->dst) &&
-                conv->key_ptr->port1 == pinfo->srcport &&
-                conv->key_ptr->port2 == pinfo->destport) ? 0 : 1;
+        cdir = (addresses_equal(conversation_key_addr1(conv->key_ptr), &pinfo->src) &&
+                addresses_equal(conversation_key_addr2(conv->key_ptr), &pinfo->dst) &&
+                conversation_key_port1(conv->key_ptr) == pinfo->srcport &&
+                conversation_key_port2(conv->key_ptr) == pinfo->destport) ? 0 : 1;
 
         dissect_rtmpt_common(tvb, pinfo, tree, rconv, cdir, tcpinfo->seq, tcpinfo->lastackseq);
         return tvb_reported_length(tvb);
@@ -2365,16 +2365,16 @@ dissect_rtmpt_http(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
         cdir = pinfo->srcport == pinfo->match_uint;
 
         if (cdir) {
-                conv = find_conversation(pinfo->num, &pinfo->dst, &pinfo->src, pinfo->ptype, 0, pinfo->srcport, 0);
+                conv = find_conversation(pinfo->num, &pinfo->dst, &pinfo->src, conversation_pt_to_endpoint_type(pinfo->ptype), 0, pinfo->srcport, 0);
                 if (!conv) {
                         RTMPT_DEBUG("RTMPT new conversation\n");
-                        conv = conversation_new(pinfo->num, &pinfo->dst, &pinfo->src, pinfo->ptype, 0, pinfo->srcport, 0);
+                        conv = conversation_new(pinfo->num, &pinfo->dst, &pinfo->src, conversation_pt_to_endpoint_type(pinfo->ptype), 0, pinfo->srcport, 0);
                 }
         } else {
-                conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype, 0, pinfo->destport, 0);
+                conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype), 0, pinfo->destport, 0);
                 if (!conv) {
                         RTMPT_DEBUG("RTMPT new conversation\n");
-                        conv = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype, 0, pinfo->destport, 0);
+                        conv = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype), 0, pinfo->destport, 0);
                 }
         }
 

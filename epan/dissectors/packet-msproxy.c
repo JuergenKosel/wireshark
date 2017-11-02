@@ -204,8 +204,7 @@ static int msproxy_sub_dissector( tvbuff_t *tvb, packet_info *pinfo,
 	proto_tree      *msp_tree;
 	proto_item      *ti;
 
-	conversation = find_conversation( pinfo->num, &pinfo->src, &pinfo->dst,
-		pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+	conversation = find_conversation_pinfo(pinfo, 0);
 
 	DISSECTOR_ASSERT( conversation);	/* should always find a conversation */
 
@@ -280,12 +279,12 @@ static void add_msproxy_conversation( packet_info *pinfo,
 	}
 
 	conversation = find_conversation( pinfo->num, &pinfo->src,
-		&pinfo->dst, (port_type)hash_info->proto, hash_info->server_int_port,
+		&pinfo->dst, (endpoint_type)hash_info->proto, hash_info->server_int_port,
 		hash_info->clnt_port, 0);
 
 	if ( !conversation) {
 		conversation = conversation_new( pinfo->num, &pinfo->src, &pinfo->dst,
-			(port_type)hash_info->proto, hash_info->server_int_port,
+			(endpoint_type)hash_info->proto, hash_info->server_int_port,
 			hash_info->clnt_port, 0);
 	}
 	conversation_set_dissector(conversation, msproxy_sub_handle);

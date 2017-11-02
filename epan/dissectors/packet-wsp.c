@@ -3884,7 +3884,7 @@ dissect_redirect(tvbuff_t *tvb, int offset, packet_info *pinfo,
     int                address_len;
     guint16            port_num;
     guint32            address_ipv4;
-    struct e_in6_addr  address_ipv6;
+    ws_in6_addr  address_ipv6;
     address            redir_address;
     conversation_t    *conv;
     guint32            idx            = 0; /* Address index */
@@ -4006,10 +4006,10 @@ dissect_redirect(tvbuff_t *tvb, int offset, packet_info *pinfo,
             redir_address.data = (const guint8 *)&address_ipv4;
             /* Find a conversation based on redir_address and pinfo->dst */
             conv = find_conversation(pinfo->num, &redir_address, &pinfo->dst,
-                PT_UDP, port_num, 0, NO_PORT_B);
+                ENDPOINT_UDP, port_num, 0, NO_PORT_B);
             if (conv == NULL) { /* This conversation does not exist yet */
                 conv = conversation_new(pinfo->num, &redir_address,
-                    &pinfo->dst, PT_UDP, port_num, 0, NO_PORT2);
+                    &pinfo->dst, ENDPOINT_UDP, port_num, 0, NO_PORT2);
             }
             /* Apply WSP dissection to the conversation */
             conversation_set_dissector(conv, dissector_handle);
@@ -4042,10 +4042,10 @@ dissect_redirect(tvbuff_t *tvb, int offset, packet_info *pinfo,
             redir_address.data = (const guint8 *)&address_ipv6;
             /* Find a conversation based on redir_address and pinfo->dst */
             conv = find_conversation(pinfo->num, &redir_address, &pinfo->dst,
-                PT_UDP, port_num, 0, NO_PORT_B);
+                ENDPOINT_UDP, port_num, 0, NO_PORT_B);
             if (conv == NULL) { /* This conversation does not exist yet */
                 conv = conversation_new(pinfo->num, &redir_address,
-                    &pinfo->dst, PT_UDP, port_num, 0, NO_PORT2);
+                    &pinfo->dst, ENDPOINT_UDP, port_num, 0, NO_PORT2);
             }
             /* Apply WSP dissection to the conversation */
             conversation_set_dissector(conv, dissector_handle);

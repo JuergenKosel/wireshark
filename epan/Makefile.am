@@ -27,7 +27,7 @@ if HAVE_LIBLUA
 wslua_dir = wslua
 endif
 
-SUBDIRS = compress crypt ftypes dfilter dissectors wmem $(wslua_dir)
+SUBDIRS = crypt ftypes dfilter dissectors wmem $(wslua_dir)
 
 AM_CPPFLAGS = $(INCLUDEDIRS) -I$(builddir)/wslua $(WS_CPPFLAGS) \
 	$(GLIB_CFLAGS) $(PCAP_CFLAGS) $(LUA_CFLAGS) $(LIBGNUTLS_CFLAGS) \
@@ -81,7 +81,6 @@ LIBWIRESHARK_SRC = \
 	iana_charsets.c		\
 	in_cksum.c		\
 	ipproto.c		\
-	ipv4.c			\
 	media_params.c		\
 	next_tvb.c		\
 	oids.c			\
@@ -341,7 +340,6 @@ libwireshark_la_LIBADD = \
 
 libwireshark_la_DEPENDENCIES = \
 	libwireshark_generated.la		\
-	compress/liblzxpress.la			\
 	libwireshark_asmopt.la			\
 	crypt/libairpdcap.la			\
 	ftypes/libftypes.la			\
@@ -447,7 +445,7 @@ dtd_grammar.c : $(LEMON) $(lemon_srcdir)/lempar.c $(srcdir)/dtd_grammar.lemon
 	$(AM_V_LEMON)$(LEMON) T=$(lemon_srcdir)/lempar.c $(srcdir)/dtd_grammar.lemon
 
 version_info.c: $(top_srcdir)/version_info.c
-	$(AM_V_LN_S)$(LN_S) $<
+	$(AM_V_LN_S)$(LN_S) $< $(builddir)
 
 tvbtest.o exntest.o oids_test.o: exceptions.h
 

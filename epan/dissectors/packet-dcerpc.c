@@ -758,7 +758,7 @@ dcerpc_add_conv_to_bind_table(decode_dcerpc_bind_values_t *binding)
         0,
         &binding->addr_a,
         &binding->addr_b,
-        binding->ptype,
+        conversation_pt_to_endpoint_type(binding->ptype),
         binding->port_a,
         binding->port_b,
         0);
@@ -768,7 +768,7 @@ dcerpc_add_conv_to_bind_table(decode_dcerpc_bind_values_t *binding)
             0,
             &binding->addr_a,
             &binding->addr_b,
-            binding->ptype,
+            conversation_pt_to_endpoint_type(binding->ptype),
             binding->port_a,
             binding->port_b,
             0);
@@ -4542,8 +4542,7 @@ dissect_dcerpc_cn_rqst(tvbuff_t *tvb, gint offset, packet_info *pinfo,
      */
     dissect_dcerpc_cn_auth(tvb, offset, pinfo, dcerpc_tree, hdr, &auth_info);
 
-    conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype,
-                             pinfo->srcport, pinfo->destport, 0);
+    conv = find_conversation_pinfo(pinfo, 0);
     if (!conv)
         show_stub_data(pinfo, tvb, offset, dcerpc_tree, &auth_info, TRUE);
     else {
@@ -4707,8 +4706,7 @@ dissect_dcerpc_cn_resp(tvbuff_t *tvb, gint offset, packet_info *pinfo,
      */
     dissect_dcerpc_cn_auth(tvb, offset, pinfo, dcerpc_tree, hdr, &auth_info);
 
-    conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype,
-                             pinfo->srcport, pinfo->destport, 0);
+    conv = find_conversation_pinfo(pinfo, 0);
 
     if (!conv) {
         /* no point in creating one here, really */
@@ -4877,8 +4875,7 @@ dissect_dcerpc_cn_fault(tvbuff_t *tvb, gint offset, packet_info *pinfo,
         length = reported_length;
     stub_tvb = tvb_new_subset_length_caplen(tvb, offset, length, reported_length);
 
-    conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype,
-                             pinfo->srcport, pinfo->destport, 0);
+    conv = find_conversation_pinfo(pinfo, 0);
     if (!conv) {
         /* no point in creating one here, really */
     } else {
@@ -5158,7 +5155,7 @@ dissect_dcerpc_cn_rts(tvbuff_t *tvb, gint offset, packet_info *pinfo,
                offset += 4;
             } break;
             case RTS_IPV6: {
-               struct e_in6_addr addr6;
+               ws_in6_addr addr6;
                tvb_get_ipv6(tvb, offset, &addr6);
                proto_tree_add_ipv6_format_value(cn_rts_command_tree, hf_dcerpc_cmd_client_ipv6, tvb, offset, 16, &addr6, "%s", get_hostname6(&addr6));
                offset += 16;

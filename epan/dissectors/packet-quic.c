@@ -111,6 +111,7 @@ const value_string quic_version_vals[] = {
     { 0xff000004, "draft-04" },
     { 0xff000005, "draft-05" },
     { 0xff000006, "draft-06" },
+    { 0xff000007, "draft-07" },
     { 0, NULL }
 };
 
@@ -678,7 +679,7 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     proto_tree_add_item(quic_tree, hf_quic_version, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s, PKN: %u, CID: %" G_GINT64_MODIFIER "u", val_to_str(long_packet_type, quic_long_packet_type_vals, "Unknown Packet Type"), pkn, cid);
+    col_append_fstr(pinfo->cinfo, COL_INFO, "%s, PKN: %u, CID: 0x%" G_GINT64_MODIFIER "x", val_to_str(long_packet_type, quic_long_packet_type_vals, "Unknown Packet Type"), pkn, cid);
 
     /* Payload */
     /* Version Negociation (0x01)*/
@@ -801,7 +802,7 @@ proto_register_quic(void)
         },
         { &hf_quic_connection_id,
           { "Connection ID", "quic.connection_id",
-            FT_UINT64, BASE_DEC, NULL, 0x0,
+            FT_UINT64, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_quic_packet_number,

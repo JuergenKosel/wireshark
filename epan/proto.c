@@ -3909,7 +3909,7 @@ proto_tree_set_ipv4(field_info *fi, guint32 value)
 /* Add a FT_IPv6 to a proto_tree */
 proto_item *
 proto_tree_add_ipv6(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
-		    gint length, const struct e_in6_addr *value_ptr)
+		    gint length, const ws_in6_addr *value_ptr)
 {
 	proto_item	  *pi;
 	header_field_info *hfinfo;
@@ -3929,7 +3929,7 @@ proto_tree_add_ipv6(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
 proto_item *
 proto_tree_add_ipv6_format_value(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 				 gint start, gint length,
-				 const struct e_in6_addr *value_ptr,
+				 const ws_in6_addr *value_ptr,
 				 const char *format, ...)
 {
 	proto_item	  *pi;
@@ -3948,7 +3948,7 @@ proto_tree_add_ipv6_format_value(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 proto_item *
 proto_tree_add_ipv6_format(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 			   gint start, gint length,
-			   const struct e_in6_addr *value_ptr,
+			   const ws_in6_addr *value_ptr,
 			   const char *format, ...)
 {
 	proto_item	  *pi;
@@ -5622,10 +5622,9 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 	guint32             number;
 	guint64             number64;
 	guint8             *bytes;
-	ipv4_addr_and_mask *ipv4;
-	struct e_in6_addr  *ipv6;
+	guint32             ipv4;
+	ws_in6_addr        *ipv6;
 	address             addr;
-	guint32             n_addr; /* network-order IPv4 address */
 
 	const true_false_string  *tfstring;
 
@@ -5944,16 +5943,15 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 						break;
 
 					case FT_IPv4:
-						ipv4 = (ipv4_addr_and_mask *)fvalue_get(&finfo->value);
-						n_addr = ipv4_get_net_order_addr(ipv4);
-						set_address (&addr, AT_IPv4, 4, &n_addr);
+						ipv4 = fvalue_get_uinteger(&finfo->value);
+						set_address (&addr, AT_IPv4, 4, &ipv4);
 						address_to_str_buf(&addr, result+offset_r, size-offset_r);
 						offset_r = (int)strlen(result);
 						break;
 
 					case FT_IPv6:
-						ipv6 = (struct e_in6_addr *)fvalue_get(&finfo->value);
-						set_address (&addr, AT_IPv6, sizeof(struct e_in6_addr), ipv6);
+						ipv6 = (ws_in6_addr *)fvalue_get(&finfo->value);
+						set_address (&addr, AT_IPv6, sizeof(ws_in6_addr), ipv6);
 						address_to_str_buf(&addr, result+offset_r, size-offset_r);
 						offset_r = (int)strlen(result);
 						break;
@@ -6219,16 +6217,22 @@ proto_item_prepend_text(proto_item *pi, const char *format, ...)
 static void
 finfo_set_len(field_info *fi, const gint length)
 {
+	gint length_remaining;
+
 	DISSECTOR_ASSERT(length >= 0);
-	fi->length = length;
+	length_remaining = tvb_captured_length_remaining(fi->ds_tvb, fi->start);
+	if (length > length_remaining)
+		fi->length = length_remaining;
+	else
+		fi->length = length;
 
 	/*
 	 * You cannot just make the "len" field of a GByteArray
 	 * larger, if there's no data to back that length;
 	 * you can only make it smaller.
 	 */
-	if (fi->value.ftype->ftype == FT_BYTES && length <= (gint)fi->value.value.bytes->len)
-		fi->value.value.bytes->len = length;
+	if (fi->value.ftype->ftype == FT_BYTES && fi->length <= (gint)fi->value.value.bytes->len)
+		fi->value.value.bytes->len = fi->length;
 }
 
 void
@@ -7892,7 +7896,7 @@ register_number_string_decoding_error(void)
 	proto_set_cant_toggle(proto_number_string_decoding_error);
 }
 
-#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (188000+PRE_ALLOC_EXPERT_FIELDS_MEM)
+#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (190000+PRE_ALLOC_EXPERT_FIELDS_MEM)
 static int
 proto_register_field_init(header_field_info *hfinfo, const int parent)
 {
@@ -8124,9 +8128,8 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 	guint8		   *bytes;
 	guint32		    integer;
 	guint64		    integer64;
-	ipv4_addr_and_mask *ipv4;
+	guint32             ipv4;
 	e_guid_t	   *guid;
-	guint32		    n_addr; /* network-order IPv4 address */
 	gchar		   *name;
 	address		    addr;
 	char		   *addr_str;
@@ -8359,12 +8362,11 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 			break;
 
 		case FT_IPv4:
-			ipv4 = (ipv4_addr_and_mask *)fvalue_get(&fi->value);
-			n_addr = ipv4_get_net_order_addr(ipv4);
+			ipv4 = fvalue_get_uinteger(&fi->value);
 
 			addr.type = AT_IPv4;
 			addr.len  = 4;
-			addr.data = &n_addr;
+			addr.data = &ipv4;
 
 			if (hfinfo->display == BASE_NETMASK)
 			{
@@ -9682,21 +9684,25 @@ proto_find_field_from_offset(proto_tree *tree, guint offset, tvbuff_t *tvb)
 	return offsearch.finfo;
 }
 
+typedef struct {
+	gint length;
+	gchar *buf;
+} decoded_data_t;
 
 static gboolean
 check_for_undecoded(proto_node *node, gpointer data)
 {
 	field_info *fi = PNODE_FINFO(node);
-	gchar* decoded = (gchar*)data;
+	decoded_data_t* decoded = (decoded_data_t*)data;
 	gint i;
 	guint byte;
 	guint bit;
 
 	if (fi && fi->hfinfo->type != FT_PROTOCOL) {
-		for (i = fi->start; i < fi->start + fi->length; i++) {
+		for (i = fi->start; i < fi->start + fi->length && i < decoded->length; i++) {
 			byte = i / 8;
 			bit = i % 8;
-			decoded[byte] |= (1 << bit);
+			decoded->buf[byte] |= (1 << bit);
 		}
 	}
 
@@ -9706,10 +9712,12 @@ check_for_undecoded(proto_node *node, gpointer data)
 gchar*
 proto_find_undecoded_data(proto_tree *tree, guint length)
 {
-	gchar* decoded = (gchar*)wmem_alloc0(wmem_packet_scope(), length / 8 + 1);
+	decoded_data_t decoded;
+	decoded.length = length;
+	decoded.buf = (gchar*)wmem_alloc0(wmem_packet_scope(), length / 8 + 1);
 
-	proto_tree_traverse_pre_order(tree, check_for_undecoded, decoded);
-	return decoded;
+	proto_tree_traverse_pre_order(tree, check_for_undecoded, &decoded);
+	return decoded.buf;
 }
 
 /* Dumps the protocols in the registration database to stdout.	An independent

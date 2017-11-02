@@ -335,8 +335,7 @@ socks_udp_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
     proto_tree         *socks_tree;
     proto_item         *ti;
 
-    conversation = find_conversation( pinfo->num, &pinfo->src, &pinfo->dst, pinfo->ptype,
-        pinfo->srcport, pinfo->destport, 0);
+    conversation = find_conversation_pinfo( pinfo, 0);
 
     DISSECTOR_ASSERT( conversation);    /* should always find a conversation */
 
@@ -388,7 +387,7 @@ socks_udp_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 static void
 new_udp_conversation( socks_hash_entry_t *hash_info, packet_info *pinfo){
 
-    conversation_t *conversation = conversation_new( pinfo->num, &pinfo->src, &pinfo->dst,  PT_UDP,
+    conversation_t *conversation = conversation_new( pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_UDP,
             hash_info->udp_port, hash_info->port, 0);
 
     DISSECTOR_ASSERT( conversation);
@@ -1003,8 +1002,7 @@ dissect_socks(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
     if (state_info->in_socks_dissector_flag)
         return 0;
 
-    conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-                     pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+    conversation = find_conversation_pinfo(pinfo, 0);
     if (conversation == NULL) {
         /* If we don't already have a conversation, make sure the first
            byte is a valid version number */
@@ -1013,7 +1011,7 @@ dissect_socks(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
             return 0;
 
         conversation = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst,
-                                        pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+                                        conversation_pt_to_endpoint_type(pinfo->ptype), pinfo->srcport, pinfo->destport, 0);
     }
 
     hash_info = (socks_hash_entry_t *)conversation_get_proto_data(conversation,proto_socks);
@@ -1116,7 +1114,7 @@ dissect_socks(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
                 PROTO_ITEM_SET_GENERATED(ti);
             } else if (hash_info->dst_addr.type == AT_IPv6) {
                 ti = proto_tree_add_ipv6( socks_tree, hf_socks_ip6_dst, tvb,
-                    offset, 0, (const struct e_in6_addr *)hash_info->dst_addr.data);
+                    offset, 0, (const ws_in6_addr *)hash_info->dst_addr.data);
                 PROTO_ITEM_SET_GENERATED(ti);
             }
 

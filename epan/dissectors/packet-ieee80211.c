@@ -5300,7 +5300,7 @@ wlan_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_,
   conv_hash_t *hash = (conv_hash_t*) pct;
   const wlan_hdr_t *whdr=(const wlan_hdr_t *)vip;
 
-  add_conversation_table_data(hash, &whdr->src, &whdr->dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &wlan_ct_dissector_info, PT_NONE);
+  add_conversation_table_data(hash, &whdr->src, &whdr->dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &wlan_ct_dissector_info, ENDPOINT_NONE);
 
   return 1;
 }
@@ -5325,8 +5325,8 @@ wlan_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, con
   /* Take two "add" passes per packet, adding for each direction, ensures that all
   packets are counted properly (even if address is sending to itself)
   XXX - this could probably be done more efficiently inside hostlist_table */
-  add_hostlist_table_data(hash, &whdr->src, 0, TRUE, 1, pinfo->fd->pkt_len, &wlan_host_dissector_info, PT_NONE);
-  add_hostlist_table_data(hash, &whdr->dst, 0, FALSE, 1, pinfo->fd->pkt_len, &wlan_host_dissector_info, PT_NONE);
+  add_hostlist_table_data(hash, &whdr->src, 0, TRUE, 1, pinfo->fd->pkt_len, &wlan_host_dissector_info, ENDPOINT_NONE);
+  add_hostlist_table_data(hash, &whdr->dst, 0, FALSE, 1, pinfo->fd->pkt_len, &wlan_host_dissector_info, ENDPOINT_NONE);
 
   return 1;
 }
@@ -6866,7 +6866,7 @@ dissect_gas_initial_request(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
     if (subtype == ((DPP_CONFIGURATION_PROTOCOL << 8) | WFA_SUBTYPE_DPP)) {
        col_append_fstr(pinfo->cinfo, COL_INFO, ", DPP - %s",
                        val_to_str(subtype >> 8, dpp_subtype_vals, "Unknown (%u)"));
-      dissect_wifi_dpp_attributes(pinfo, query, tvb, offset);
+      dissect_wifi_dpp_config_proto(pinfo, query, tvb, offset);
     }
     break;
   default:
@@ -6910,7 +6910,7 @@ dissect_gas_initial_response(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
       if (subtype == ((DPP_CONFIGURATION_PROTOCOL << 8) | WFA_SUBTYPE_DPP)) {
          col_append_fstr(pinfo->cinfo, COL_INFO, ", DPP - %s",
                          val_to_str(subtype >> 8, dpp_subtype_vals, "Unknown (%u)"));
-        dissect_wifi_dpp_attributes(pinfo, query, tvb, offset);
+        dissect_wifi_dpp_config_proto(pinfo, query, tvb, offset);
       }
       break;
     default:

@@ -31,7 +31,6 @@
 #include <epan/tap.h>
 #include <epan/conversation.h>
 #include <epan/to_str.h>
-#include <wsutil/inet_aton.h>
 #include <wsutil/pint.h>
 #include "packet-lbm.h"
 #include "packet-lbtrm.h"
@@ -60,7 +59,7 @@ static lbtrm_transport_t * lbtrm_transport_unicast_find(const address * source_a
     conversation_t * conv = NULL;
     wmem_tree_t * session_tree = NULL;
 
-    conv = find_conversation(frame, source_address, &lbtrm_null_address, PT_UDP, source_port, 0, 0);
+    conv = find_conversation(frame, source_address, &lbtrm_null_address, ENDPOINT_UDP, source_port, 0, 0);
     if (conv != NULL)
     {
         if (frame > conv->last_frame)
@@ -82,10 +81,10 @@ static void lbtrm_transport_unicast_add(const address * source_address, guint16 
     wmem_tree_t * session_tree = NULL;
     lbtrm_transport_t * transport_entry = NULL;
 
-    conv = find_conversation(frame, source_address, &lbtrm_null_address, PT_UDP, source_port, 0, 0);
+    conv = find_conversation(frame, source_address, &lbtrm_null_address, ENDPOINT_UDP, source_port, 0, 0);
     if (conv == NULL)
     {
-        conv = conversation_new(frame, source_address, &lbtrm_null_address, PT_UDP, source_port, 0, 0);
+        conv = conversation_new(frame, source_address, &lbtrm_null_address, ENDPOINT_UDP, source_port, 0, 0);
     }
     session_tree = (wmem_tree_t *) conversation_get_proto_data(conv, proto_lbtrm);
     if (session_tree == NULL)
@@ -106,7 +105,7 @@ static lbtrm_transport_t * lbtrm_transport_find(const address * source_address, 
     wmem_tree_t * session_tree = NULL;
     conversation_t * conv = NULL;
 
-    conv = find_conversation(frame, source_address, multicast_group, PT_UDP, source_port, dest_port, 0);
+    conv = find_conversation(frame, source_address, multicast_group, ENDPOINT_UDP, source_port, dest_port, 0);
     if (conv != NULL)
     {
         if (frame > conv->last_frame)
@@ -128,10 +127,10 @@ lbtrm_transport_t * lbtrm_transport_add(const address * source_address, guint16 
     conversation_t * conv = NULL;
     wmem_tree_t * session_tree = NULL;
 
-    conv = find_conversation(frame, source_address, multicast_group, PT_UDP, source_port, dest_port, 0);
+    conv = find_conversation(frame, source_address, multicast_group, ENDPOINT_UDP, source_port, dest_port, 0);
     if (conv == NULL)
     {
-        conv = conversation_new(frame, source_address, multicast_group, PT_UDP, source_port, dest_port, 0);
+        conv = conversation_new(frame, source_address, multicast_group, ENDPOINT_UDP, source_port, dest_port, 0);
     }
     if (frame > conv->last_frame)
     {
@@ -1721,7 +1720,7 @@ void proto_register_lbtrm(void)
         { &ei_lbtrm_analysis_sm_dup, { "lbtrm.analysis.sm.dup", PI_SEQUENCE, PI_NOTE, "Duplicate SM", EXPFILL } },
     };
     module_t * lbtrm_module;
-    struct in_addr addr;
+    guint32 addr;
     uat_t * tag_uat;
     expert_module_t * expert_lbtrm;
 
@@ -1734,16 +1733,16 @@ void proto_register_lbtrm(void)
     expert_register_field_array(expert_lbtrm, ei, array_length(ei));
 
     lbtrm_module = prefs_register_protocol_subtree("29West", proto_lbtrm, proto_reg_handoff_lbtrm);
-    inet_aton(LBTRM_DEFAULT_MC_ADDRESS_LOW, &addr);
-    lbtrm_mc_address_low_host = g_ntohl(addr.s_addr);
+    ws_inet_pton4(LBTRM_DEFAULT_MC_ADDRESS_LOW, &addr);
+    lbtrm_mc_address_low_host = g_ntohl(addr);
     prefs_register_string_preference(lbtrm_module,
         "mc_address_low",
         "Multicast address range low (default " LBTRM_DEFAULT_MC_ADDRESS_LOW ")",
         "Set the low end of the LBT-RM multicast address range (context transport_lbtrm_multicast_address_low)",
         &global_lbtrm_mc_address_low);
 
-    inet_aton(LBTRM_DEFAULT_MC_ADDRESS_HIGH, &addr);
-    lbtrm_mc_address_high_host = g_ntohl(addr.s_addr);
+    ws_inet_pton4(LBTRM_DEFAULT_MC_ADDRESS_HIGH, &addr);
+    lbtrm_mc_address_high_host = g_ntohl(addr);
     prefs_register_string_preference(lbtrm_module,
         "mc_address_high",
         "Multicast address range high (default " LBTRM_DEFAULT_MC_ADDRESS_HIGH ")",
@@ -1778,16 +1777,16 @@ void proto_register_lbtrm(void)
         10,
         &global_lbtrm_src_port_high);
 
-    inet_aton(MIM_DEFAULT_MC_INCOMING_ADDRESS, &addr);
-    mim_incoming_mc_address_host = g_ntohl(addr.s_addr);
+    ws_inet_pton4(MIM_DEFAULT_MC_INCOMING_ADDRESS, &addr);
+    mim_incoming_mc_address_host = g_ntohl(addr);
     prefs_register_string_preference(lbtrm_module,
         "mim_incoming_address",
         "MIM incoming multicast address (default " MIM_DEFAULT_MC_INCOMING_ADDRESS ")",
         "Set the incoming MIM multicast address (context mim_incoming_address)",
         &global_mim_incoming_mc_address);
 
-    inet_aton(MIM_DEFAULT_MC_OUTGOING_ADDRESS, &addr);
-    mim_outgoing_mc_address_host = g_ntohl(addr.s_addr);
+    ws_inet_pton4(MIM_DEFAULT_MC_OUTGOING_ADDRESS, &addr);
+    mim_outgoing_mc_address_host = g_ntohl(addr);
     prefs_register_string_preference(lbtrm_module,
         "mim_outgoing_address",
         "MIM outgoing multicast address (default " MIM_DEFAULT_MC_OUTGOING_ADDRESS ")",
@@ -1860,7 +1859,7 @@ void proto_register_lbtrm(void)
 void proto_reg_handoff_lbtrm(void)
 {
     static gboolean already_registered = FALSE;
-    struct in_addr addr;
+    guint32 addr;
     guint32 dest_addr_h_low;
     guint32 dest_addr_h_high;
 
@@ -1873,10 +1872,10 @@ void proto_reg_handoff_lbtrm(void)
     }
 
     /* Make sure the low MC address is <= the high MC address. If not, don't change them. */
-    inet_aton(global_lbtrm_mc_address_low, &addr);
-    dest_addr_h_low = g_ntohl(addr.s_addr);
-    inet_aton(global_lbtrm_mc_address_high, &addr);
-    dest_addr_h_high = g_ntohl(addr.s_addr);
+    ws_inet_pton4(global_lbtrm_mc_address_low, &addr);
+    dest_addr_h_low = g_ntohl(addr);
+    ws_inet_pton4(global_lbtrm_mc_address_high, &addr);
+    dest_addr_h_high = g_ntohl(addr);
     if (dest_addr_h_low <= dest_addr_h_high)
     {
         lbtrm_mc_address_low_host = dest_addr_h_low;
@@ -1898,10 +1897,10 @@ void proto_reg_handoff_lbtrm(void)
     }
 
     /* Add the dissector hooks for the MIM MC groups. */
-    inet_aton(global_mim_incoming_mc_address, &addr);
-    mim_incoming_mc_address_host = g_htonl(addr.s_addr);
-    inet_aton(global_mim_outgoing_mc_address, &addr);
-    mim_outgoing_mc_address_host = g_htonl(addr.s_addr);
+    ws_inet_pton4(global_mim_incoming_mc_address, &addr);
+    mim_incoming_mc_address_host = g_htonl(addr);
+    ws_inet_pton4(global_mim_outgoing_mc_address, &addr);
+    mim_outgoing_mc_address_host = g_htonl(addr);
 
     /* Add the dissector hooks for the MIM ports. */
     mim_incoming_dest_port = global_mim_incoming_dest_port;

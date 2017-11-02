@@ -138,8 +138,8 @@ static gboolean h225_tp_in_tree = TRUE;
 
 /* Global variables */
 static guint32 ipv4_address;
-static struct e_in6_addr ipv6_address;
-static struct e_in6_addr ipv6_address_zeros = {{0}};
+static ws_in6_addr ipv6_address;
+static ws_in6_addr ipv6_address_zeros = {{0}};
 static guint32 ip_port;
 static gboolean contains_faststart = FALSE;
 static e_guid_t *call_id_guid;
@@ -1041,9 +1041,7 @@ static void ras_call_matching(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     /* end of request message handling*/
     }
     else {          /* Confirm or Reject Message */
-      conversation = find_conversation(pinfo->num, &pinfo->src,
-        &pinfo->dst, pinfo->ptype, pinfo->srcport,
-        pinfo->destport, 0);
+      conversation = find_conversation_pinfo(pinfo, 0);
       if (conversation != NULL) {
         /* look only for matching request, if
            matching conversation is available. */
