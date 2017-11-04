@@ -42,7 +42,7 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include <ws_version_info.h>
 #include <wiretap/wtap_opttypes.h>
 #include <wiretap/pcapng.h>
@@ -59,11 +59,14 @@
 #include "ui/util.h"
 #include "ui/ui_util.h"
 #include "ui/decode_as_utils.h"
+#include "ui/filter_files.h"
 #include "ui/tap_export_pdu.h"
+#include "ui/failure_message.h"
 #include "register.h"
-#include "filter_files.h"
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
+
+#include <codecs/codecs.h>
 
 #include "log.h"
 
@@ -85,12 +88,9 @@ static frame_data ref_frame;
 static frame_data *prev_dis;
 static frame_data *prev_cap;
 
-static const char *cf_open_error_message(int err, gchar *err_info,
-    gboolean for_writing, int file_type);
-
+static void failure_warning_message(const char *msg_format, va_list ap);
 static void open_failure_message(const char *filename, int err,
     gboolean for_writing);
-static void failure_message(const char *msg_format, va_list ap);
 static void read_failure_message(const char *filename, int err);
 static void write_failure_message(const char *filename, int err);
 static void failure_message_cont(const char *msg_format, va_list ap);
@@ -122,19 +122,11 @@ main(int argc, char *argv[])
   GString             *runtime_info_str;
   char                *init_progfile_dir_error;
 
-  char                *gpf_path, *pf_path;
-  char                *gdp_path, *dp_path;
-  char                *cf_path;
   char                *err_msg = NULL;
-  int                  gpf_open_errno, gpf_read_errno;
-  int                  pf_open_errno, pf_read_errno;
-  int                  gdp_open_errno, gdp_read_errno;
-  int                  dp_open_errno, dp_read_errno;
-  int                  cf_open_errno;
   e_prefs             *prefs_p;
   int                  ret = EXIT_SUCCESS;
 
-  cmdarg_err_init(failure_message, failure_message_cont);
+  cmdarg_err_init(failure_warning_message, failure_message_cont);
 
   /*
    * Get credential information for later use, and drop privileges
@@ -177,8 +169,9 @@ main(int argc, char *argv[])
     goto clean_exit;
   }
 
-  init_report_err(failure_message, open_failure_message, read_failure_message,
-                  write_failure_message);
+  init_report_message(failure_warning_message, failure_warning_message,
+                      open_failure_message, read_failure_message,
+                      write_failure_message);
 
   timestamp_set_type(TS_RELATIVE);
   timestamp_set_precision(TS_PREC_AUTO);
@@ -198,6 +191,8 @@ main(int argc, char *argv[])
   register_all_wiretap_modules();
 #endif
 
+  register_all_codecs();
+
   /* Register all dissectors; we must do this before checking for the
      "-G" flag, as the "-G" flag dumps information registered by the
      dissectors, and we must do it before we read the preferences, in
@@ -208,74 +203,14 @@ main(int argc, char *argv[])
     goto clean_exit;
   }
 
-  /* load the decode as entries of this profile */
-  load_decode_as_entries();
+  /* Load libwireshark settings from the current profile. */
+  prefs_p = epan_load_settings();
 
-  prefs_p = read_prefs(&gpf_open_errno, &gpf_read_errno, &gpf_path,
-                     &pf_open_errno, &pf_read_errno, &pf_path);
-  if (gpf_path != NULL) {
-    if (gpf_open_errno != 0) {
-      cmdarg_err("Can't open global preferences file \"%s\": %s.",
-              pf_path, g_strerror(gpf_open_errno));
-    }
-    if (gpf_read_errno != 0) {
-      cmdarg_err("I/O error reading global preferences file \"%s\": %s.",
-              pf_path, g_strerror(gpf_read_errno));
-    }
-  }
-  if (pf_path != NULL) {
-    if (pf_open_errno != 0) {
-      cmdarg_err("Can't open your preferences file \"%s\": %s.", pf_path,
-              g_strerror(pf_open_errno));
-    }
-    if (pf_read_errno != 0) {
-      cmdarg_err("I/O error reading your preferences file \"%s\": %s.",
-              pf_path, g_strerror(pf_read_errno));
-    }
-    g_free(pf_path);
-    pf_path = NULL;
-  }
-
-  read_filter_list(CFILTER_LIST, &cf_path, &cf_open_errno);
-  if (cf_path != NULL) {
-      cmdarg_err("Could not open your capture filter file\n\"%s\": %s.",
-          cf_path, g_strerror(cf_open_errno));
-      g_free(cf_path);
-  }
+  read_filter_list(CFILTER_LIST);
 
   if (!color_filters_init(&err_msg, NULL)) {
-     fprintf(stderr, "color_filters_init() failed %s\n", err_msg);
+     fprintf(stderr, "%s\n", err_msg);
      g_free(err_msg);
-  }
-
-  /* Read the disabled protocols file. */
-  read_disabled_protos_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
-                            &dp_path, &dp_open_errno, &dp_read_errno);
-  read_disabled_heur_dissector_list(&gdp_path, &gdp_open_errno, &gdp_read_errno,
-                            &dp_path, &dp_open_errno, &dp_read_errno);
-  if (gdp_path != NULL) {
-    if (gdp_open_errno != 0) {
-      cmdarg_err("Could not open global disabled protocols file\n\"%s\": %s.",
-                 gdp_path, g_strerror(gdp_open_errno));
-    }
-    if (gdp_read_errno != 0) {
-      cmdarg_err("I/O error reading global disabled protocols file\n\"%s\": %s.",
-                 gdp_path, g_strerror(gdp_read_errno));
-    }
-    g_free(gdp_path);
-  }
-  if (dp_path != NULL) {
-    if (dp_open_errno != 0) {
-      cmdarg_err(
-        "Could not open your disabled protocols file\n\"%s\": %s.", dp_path,
-        g_strerror(dp_open_errno));
-    }
-    if (dp_read_errno != 0) {
-      cmdarg_err(
-        "I/O error reading your disabled protocols file\n\"%s\": %s.", dp_path,
-        g_strerror(dp_read_errno));
-    }
-    g_free(dp_path);
   }
 
   cap_file_init(&cfile);
@@ -284,12 +219,6 @@ main(int argc, char *argv[])
      changed either from one of the preferences file or from the command
      line that their preferences have changed. */
   prefs_apply_all();
-
-  /* disabled protocols as per configuration file */
-  if (gdp_path == NULL && dp_path == NULL) {
-    set_disabled_protos_list();
-    set_disabled_heur_dissector_list();
-  }
 
   /* Build the column format array */
   build_column_format_array(&cfile.cinfo, prefs_p->num_cols, TRUE);
@@ -344,7 +273,7 @@ sharkd_epan_new(capture_file *cf)
 }
 
 static gboolean
-process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
+process_packet(capture_file *cf, epan_dissect_t *edt,
                gint64 offset, struct wtap_pkthdr *whdr,
                const guchar *pd)
 {
@@ -375,10 +304,14 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
     /* If we're running a read filter, prime the epan_dissect_t with that
        filter. */
     if (cf->rfcode)
-      epan_dissect_prime_dfilter(edt, cf->rfcode);
+      epan_dissect_prime_with_dfilter(edt, cf->rfcode);
 
     if (cf->dfcode)
-      epan_dissect_prime_dfilter(edt, cf->dfcode);
+      epan_dissect_prime_with_dfilter(edt, cf->dfcode);
+
+    /* This is the first and only pass, so prime the epan_dissect_t
+       with the hfids postdissectors want on the first pass. */
+    prime_epan_dissect_with_postdissector_wanted_hfids(edt);
 
     frame_data_set_before_dissect(&fdlocal, &cf->elapsed_time,
                                   &ref, prev_dis);
@@ -437,12 +370,21 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
     cf->frames = new_frame_data_sequence();
 
     {
-       gboolean create_proto_tree = FALSE;
+      gboolean create_proto_tree;
 
-      /* If we're going to be applying a filter, we'll need to
-         create a protocol tree against which to apply the filter. */
-      if (cf->rfcode || cf->dfcode)
-        create_proto_tree = TRUE;
+      /*
+       * Determine whether we need to create a protocol tree.
+       * We do if:
+       *
+       *    we're going to apply a read filter;
+       *
+       *    we're going to apply a display filter;
+       *
+       *    a postdissector wants field values or protocols
+       *    on the first pass.
+       */
+      create_proto_tree =
+        (cf->rfcode != NULL || cf->dfcode != NULL || postdissectors_want_hfids());
 
       /* We're not going to display the protocol tree on this pass,
          so it's not going to be "visible". */
@@ -450,7 +392,7 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
     }
 
     while (wtap_read(cf->wth, &err, &err_info, &data_offset)) {
-      if (process_packet_first_pass(cf, edt, data_offset, wtap_phdr(cf->wth),
+      if (process_packet(cf, edt, data_offset, wtap_phdr(cf->wth),
                          wtap_buf_ptr(cf->wth))) {
         /* Stop reading if we have the maximum number of packets;
          * When the -c option has not been used, max_packet_count
@@ -481,39 +423,7 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
   }
 
   if (err != 0) {
-    switch (err) {
-
-    case WTAP_ERR_UNSUPPORTED:
-      cmdarg_err("The file \"%s\" contains record data that TShark doesn't support.\n(%s)",
-                 cf->filename,
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      break;
-
-    case WTAP_ERR_SHORT_READ:
-      cmdarg_err("The file \"%s\" appears to have been cut short in the middle of a packet.",
-                 cf->filename);
-      break;
-
-    case WTAP_ERR_BAD_FILE:
-      cmdarg_err("The file \"%s\" appears to be damaged or corrupt.\n(%s)",
-                 cf->filename,
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      break;
-
-    case WTAP_ERR_DECOMPRESS:
-      cmdarg_err("The compressed file \"%s\" appears to be damaged or corrupt.\n"
-                 "(%s)", cf->filename,
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      break;
-
-    default:
-      cmdarg_err("An error occurred while reading the file \"%s\": %s.",
-                 cf->filename, wtap_strerror(err));
-      break;
-    }
+    cfile_read_failure_message("sharkd", cf->filename, err, err_info);
   }
 
   return err;
@@ -524,7 +434,6 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
 {
   wtap  *wth;
   gchar *err_info;
-  char   err_msg[2048+1];
 
   wth = wtap_open_offline(fname, type, err, &err_info, TRUE);
   if (wth == NULL)
@@ -556,12 +465,6 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   cf->drops_known = FALSE;
   cf->drops     = 0;
   cf->snap      = wtap_snapshot_length(cf->wth);
-  if (cf->snap == 0) {
-    /* Snapshot length not known. */
-    cf->has_snap = FALSE;
-    cf->snap = WTAP_MAX_PACKET_SIZE;
-  } else
-    cf->has_snap = TRUE;
   nstime_set_zero(&cf->elapsed_time);
   ref = NULL;
   prev_dis = NULL;
@@ -575,133 +478,24 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   return CF_OK;
 
 fail:
-  g_snprintf(err_msg, sizeof err_msg,
-             cf_open_error_message(*err, err_info, FALSE, cf->cd_t), fname);
-  cmdarg_err("%s", err_msg);
+  cfile_open_failure_message("sharkd", fname, *err, err_info);
   return CF_ERROR;
 }
 
-static const char *
-cf_open_error_message(int err, gchar *err_info, gboolean for_writing,
-                      int file_type)
+/*
+ * General errors and warnings are reported with an console message
+ * in sharkd.
+ */
+static void
+failure_warning_message(const char *msg_format, va_list ap)
 {
-  const char *errmsg;
-  static char errmsg_errno[1024+1];
-
-  if (err < 0) {
-    /* Wiretap error. */
-    switch (err) {
-
-    case WTAP_ERR_NOT_REGULAR_FILE:
-      errmsg = "The file \"%s\" is a \"special file\" or socket or other non-regular file.";
-      break;
-
-    case WTAP_ERR_RANDOM_OPEN_PIPE:
-      /* Seen only when opening a capture file for reading. */
-      errmsg = "The file \"%s\" is a pipe or FIFO; TShark can't read pipe or FIFO files in two-pass mode.";
-      break;
-
-    case WTAP_ERR_FILE_UNKNOWN_FORMAT:
-      /* Seen only when opening a capture file for reading. */
-      errmsg = "The file \"%s\" isn't a capture file in a format TShark understands.";
-      break;
-
-    case WTAP_ERR_UNSUPPORTED:
-      /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The file \"%%s\" contains record data that TShark doesn't support.\n"
-                 "(%s)",
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      errmsg = errmsg_errno;
-      break;
-
-    case WTAP_ERR_CANT_WRITE_TO_PIPE:
-      /* Seen only when opening a capture file for writing. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The file \"%%s\" is a pipe, and \"%s\" capture files can't be "
-                 "written to a pipe.", wtap_file_type_subtype_short_string(file_type));
-      errmsg = errmsg_errno;
-      break;
-
-    case WTAP_ERR_UNWRITABLE_FILE_TYPE:
-      /* Seen only when opening a capture file for writing. */
-      errmsg = "TShark doesn't support writing capture files in that format.";
-      break;
-
-    case WTAP_ERR_UNWRITABLE_ENCAP:
-      /* Seen only when opening a capture file for writing. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "TShark can't save this capture as a \"%s\" file.",
-                 wtap_file_type_subtype_short_string(file_type));
-      errmsg = errmsg_errno;
-      break;
-
-    case WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED:
-      if (for_writing) {
-        g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                   "TShark can't save this capture as a \"%s\" file.",
-                   wtap_file_type_subtype_short_string(file_type));
-        errmsg = errmsg_errno;
-      } else
-        errmsg = "The file \"%s\" is a capture for a network type that TShark doesn't support.";
-      break;
-
-    case WTAP_ERR_BAD_FILE:
-      /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The file \"%%s\" appears to be damaged or corrupt.\n"
-                 "(%s)",
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      errmsg = errmsg_errno;
-      break;
-
-    case WTAP_ERR_CANT_OPEN:
-      if (for_writing)
-        errmsg = "The file \"%s\" could not be created for some unknown reason.";
-      else
-        errmsg = "The file \"%s\" could not be opened for some unknown reason.";
-      break;
-
-    case WTAP_ERR_SHORT_READ:
-      errmsg = "The file \"%s\" appears to have been cut short"
-               " in the middle of a packet or other data.";
-      break;
-
-    case WTAP_ERR_SHORT_WRITE:
-      errmsg = "A full header couldn't be written to the file \"%s\".";
-      break;
-
-    case WTAP_ERR_COMPRESSION_NOT_SUPPORTED:
-      errmsg = "This file type cannot be written as a compressed file.";
-      break;
-
-    case WTAP_ERR_DECOMPRESS:
-      /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The compressed file \"%%s\" appears to be damaged or corrupt.\n"
-                 "(%s)",
-                 err_info != NULL ? err_info : "no information supplied");
-      g_free(err_info);
-      errmsg = errmsg_errno;
-      break;
-
-    default:
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                 "The file \"%%s\" could not be %s: %s.",
-                 for_writing ? "created" : "opened",
-                 wtap_strerror(err));
-      errmsg = errmsg_errno;
-      break;
-    }
-  } else
-    errmsg = file_open_error_message(err, for_writing);
-  return errmsg;
+  fprintf(stderr, "sharkd: ");
+  vfprintf(stderr, msg_format, ap);
+  fprintf(stderr, "\n");
 }
 
 /*
- * Open/create errors are reported with an console message in TShark.
+ * Open/create errors are reported with an console message in sharkd.
  */
 static void
 open_failure_message(const char *filename, int err, gboolean for_writing)
@@ -712,18 +506,7 @@ open_failure_message(const char *filename, int err, gboolean for_writing)
 }
 
 /*
- * General errors are reported with an console message in TShark.
- */
-static void
-failure_message(const char *msg_format, va_list ap)
-{
-  fprintf(stderr, "sharkd: ");
-  vfprintf(stderr, msg_format, ap);
-  fprintf(stderr, "\n");
-}
-
-/*
- * Read errors are reported with an console message in TShark.
+ * Read errors are reported with an console message in sharkd.
  */
 static void
 read_failure_message(const char *filename, int err)
@@ -733,7 +516,7 @@ read_failure_message(const char *filename, int err)
 }
 
 /*
- * Write errors are reported with an console message in TShark.
+ * Write errors are reported with an console message in sharkd.
  */
 static void
 write_failure_message(const char *filename, int err)
@@ -881,21 +664,31 @@ sharkd_retap(void)
   int err;
   char *err_info = NULL;
 
-  gboolean      filtering_tap_listeners;
   guint         tap_flags;
-  gboolean      construct_protocol_tree;
+  gboolean      create_proto_tree;
   epan_dissect_t edt;
   column_info   *cinfo;
 
-  filtering_tap_listeners = have_filtering_tap_listeners();
+  /* Get the union of the flags for all tap listeners. */
   tap_flags = union_of_tap_listener_flags();
 
-  construct_protocol_tree = filtering_tap_listeners || (tap_flags & TL_REQUIRES_PROTO_TREE);
+  /* If any tap listeners require the columns, construct them. */
   cinfo = (tap_flags & TL_REQUIRES_COLUMNS) ? &cfile.cinfo : NULL;
+
+  /*
+   * Determine whether we need to create a protocol tree.
+   * We do if:
+   *
+   *    one of the tap listeners is going to apply a filter;
+   *
+   *    one of the tap listeners requires a protocol tree.
+   */
+  create_proto_tree =
+    (have_filtering_tap_listeners() || (tap_flags & TL_REQUIRES_PROTO_TREE));
 
   wtap_phdr_init(&phdr);
   ws_buffer_init(&buf, 1500);
-  epan_dissect_init(&edt, cfile.epan, construct_protocol_tree, FALSE);
+  epan_dissect_init(&edt, cfile.epan, create_proto_tree, FALSE);
 
   reset_tap_listeners();
 
@@ -961,7 +754,7 @@ sharkd_filter(const char *dftext, guint8 **result)
       break;
 
     /* frame_data_set_before_dissect */
-    epan_dissect_prime_dfilter(&edt, dfcode);
+    epan_dissect_prime_with_dfilter(&edt, dfcode);
 
     epan_dissect_run(&edt, cfile.cd_t, &phdr, frame_tvbuff_new_buffer(fdata, &buf), fdata, NULL);
 

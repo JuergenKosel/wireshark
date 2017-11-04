@@ -49,6 +49,10 @@ S<[ B<-X> E<lt>eXtension optionE<gt> ]>
 S<[ B<-y> E<lt>capture link typeE<gt> ]>
 S<[ B<-Y> E<lt>displaY filterE<gt> ]>
 S<[ B<-z> E<lt>statisticsE<gt> ]>
+S<[ B<--enable-protocol> E<lt>proto_nameE<gt> ]>
+S<[ B<--disable-protocol> E<lt>proto_nameE<gt> ]>
+S<[ B<--enable-heuristic> E<lt>short_nameE<gt> ]>
+S<[ B<--disable-heuristic> E<lt>short_nameE<gt> ]>
 S<[ E<lt>infileE<gt> ]>
 
 =head1 DESCRIPTION
@@ -556,7 +560,7 @@ capture file; packets not matching the filter are discarded.
 Set the default snapshot length to use when capturing live data.
 No more than I<snaplen> bytes of each network packet will be read into
 memory, or saved to disk.  A value of 0 specifies a snapshot length of
-65535, so that the full packet is captured; this is the default.
+262144, so that the full packet is captured; this is the default.
 
 This option can occur multiple times.  If used before the first
 occurrence of the B<-i> option, it sets the default snapshot length.
@@ -962,6 +966,12 @@ Show IEEE 802.11 network and station statistics.
 
 Show WSP packet counters.
 
+=back
+
+=item --enable-protocol E<lt>proto_nameE<gt>
+
+Enable dissection of proto_name.
+
 =item --disable-protocol E<lt>proto_nameE<gt>
 
 Disable dissection of proto_name.
@@ -973,8 +983,6 @@ Enable dissection of heuristic protocol.
 =item --disable-heuristic E<lt>short_nameE<gt>
 
 Disable dissection of heuristic protocol.
-
-=back
 
 =back
 
@@ -2432,7 +2440,7 @@ capturing.
 
 The I<Limit each packet to ... bytes> check box and field lets you
 specify a maximum number of bytes per packet to capture and save; if the
-check box is not checked, the limit will be 65535 bytes.
+check box is not checked, the limit will be 262144 bytes.
 
 The I<Capture Filter:> entry lets you specify the capture filter using a
 tcpdump-style filter string as described above.

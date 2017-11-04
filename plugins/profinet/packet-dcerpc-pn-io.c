@@ -847,6 +847,7 @@ static expert_field ei_pn_io_ar_info_not_found = EI_INIT;
 static expert_field ei_pn_io_iocr_type = EI_INIT;
 static expert_field ei_pn_io_frame_id = EI_INIT;
 static expert_field ei_pn_io_nr_of_tx_port_groups = EI_INIT;
+static expert_field ei_pn_io_max_recursion_depth_reached = EI_INIT;
 
 static e_guid_t uuid_pn_io_device = { 0xDEA00001, 0x6C97, 0x11D1, { 0x82, 0x71, 0x00, 0xA0, 0x24, 0x42, 0xDF, 0x7D } };
 static guint16  ver_pn_io_device = 1;
@@ -2088,7 +2089,7 @@ static const value_string pn_io_index[] = {
     { 0xB01E, "reserved for profiles" },
     { 0xB01F, "reserved for profiles" },
     { 0xB020, "reserved for profiles" },
-    { 0xB001, "reserved for profiles" },
+    { 0xB021, "reserved for profiles" },
     { 0xB022, "reserved for profiles" },
     { 0xB023, "reserved for profiles" },
     { 0xB024, "reserved for profiles" },
@@ -8210,6 +8211,7 @@ dissect_ARBlockReq_block(tvbuff_t *tvb, int offset,
 {
     guint16    u16ARType;
     guint32    u32ARProperties;
+    gboolean   have_aruuid = FALSE;
     e_guid_t   aruuid;
     e_guid_t   uuid;
     guint16    u16SessionKey;
@@ -8302,6 +8304,7 @@ dissect_ARBlockReq_block(tvbuff_t *tvb, int offset,
     {
         offset = dissect_dcerpc_uuid_t(tvb, offset, pinfo, tree, drep,
             hf_pn_io_ar_uuid, &aruuid);
+        have_aruuid = TRUE;
     }
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_sessionkey, &u16SessionKey);
@@ -8333,16 +8336,20 @@ dissect_ARBlockReq_block(tvbuff_t *tvb, int offset,
         u16UDPRTPort,
         pStationName);
 
-    par = pnio_ar_find_by_aruuid(pinfo, &aruuid);
-    if (par == NULL) {
-        par = pnio_ar_new(&aruuid);
-        memcpy( (void *) (&par->controllermac), mac, sizeof(par->controllermac));
-        par->arType = u16ARType; /* store AR-type for filter generation */
-        /*strncpy( (char *) (&par->controllername), pStationName, sizeof(par->controllername));*/
+    if (have_aruuid) {
+        par = pnio_ar_find_by_aruuid(pinfo, &aruuid);
+        if (par == NULL) {
+            par = pnio_ar_new(&aruuid);
+            memcpy( (void *) (&par->controllermac), mac, sizeof(par->controllermac));
+            par->arType = u16ARType; /* store AR-type for filter generation */
+            /*strncpy( (char *) (&par->controllername), pStationName, sizeof(par->controllername));*/
+        } else {
+            /*expert_add_info_format(pinfo, item, PI_UNDECODED, PI_WARN, "ARBlockReq: AR already existing!");*/
+        }
+        *ar = par;
     } else {
-        /*expert_add_info_format(pinfo, item, PI_UNDECODED, PI_WARN, "ARBlockReq: AR already existing!");*/
+        *ar = NULL;
     }
-    *ar = par;
 
     return offset;
 }
@@ -9396,7 +9403,8 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
     /* Initial */
     io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
     io_data_object->profisafeSupported = FALSE;
-    io_data_object->moduleNameStr = wmem_strdup(wmem_file_scope(), "Unknown");
+    io_data_object->moduleNameStr = (gchar*)wmem_alloc(wmem_file_scope(), MAX_NAMELENGTH);
+    g_strlcpy(io_data_object->moduleNameStr, "Unknown", MAX_NAMELENGTH);
     vendorMatch = FALSE;
     deviceMatch = FALSE;
     gsdmlFoundFlag = FALSE;
@@ -9450,7 +9458,7 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
                             if((strstr(puffer, vendorIdStr)) != NULL) {
                                 memset (convertStr, 0, sizeof(*convertStr));
                                 pch = strstr(puffer, vendorIdStr);
-                                if (pch!= NULL && sscanf(pch, "VendorID=\"%[^\"]", convertStr) == 1) {
+                                if (pch!= NULL && sscanf(pch, "VendorID=\"%199[^\"]", convertStr) == 1) {
                                     read_vendor_id = (guint32) strtoul (convertStr, NULL, 0);
 
                                     if(read_vendor_id == searchVendorID) {
@@ -9463,7 +9471,7 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
                             if((strstr(puffer, deviceIdStr)) != NULL) {
                                 memset(convertStr, 0, sizeof(*convertStr));
                                 pch = strstr(puffer, deviceIdStr);
-                                if (pch != NULL && sscanf(pch, "DeviceID=\"%[^\"]", convertStr) == 1) {
+                                if (pch != NULL && sscanf(pch, "DeviceID=\"%199[^\"]", convertStr) == 1) {
                                     read_device_id = (guint32)strtoul(convertStr, NULL, 0);
 
                                     if(read_device_id == searchDeviceID) {
@@ -9597,7 +9605,7 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
                         memset (convertStr, 0, sizeof(*convertStr));
 
                         pch = strstr(temp, fParameterIndexStr);
-                        if (pch != NULL && sscanf(pch, "Index=\"%[^\"]", convertStr) == 1) {
+                        if (pch != NULL && sscanf(pch, "Index=\"%199[^\"]", convertStr) == 1) {
                             io_data_object->fParameterIndexNr = (guint32)strtoul(convertStr, NULL, 0);
                         }
                         break;    /* found Indexnumber -> break search loop */
@@ -9611,7 +9619,7 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
                     if((strstr(temp, moduleStr)) != NULL) {                         /* find the String "ModuleIdentNumber=" */
                         memset (convertStr, 0, sizeof(*convertStr));
                         pch = strstr(temp, moduleStr);                              /* search for "ModuleIdentNumber=\"" within GSD-file */
-                        if (pch != NULL && sscanf(pch, "ModuleIdentNumber=\"%[^\"]", convertStr) == 1) {  /* Change format of Value string-->numeric string */
+                        if (pch != NULL && sscanf(pch, "ModuleIdentNumber=\"%199[^\"]", convertStr) == 1) {  /* Change format of Value string-->numeric string */
                             read_module_id = (guint32)strtoul(convertStr, NULL, 0);     /* Change numeric string --> unsigned long; read_module_id contains the Value of the ModuleIdentNumber */
 
                             /* If the found ModuleID matches with the wanted ModuleID, search for the Submodule and break */
@@ -9622,7 +9630,7 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
                                     if((strstr(temp, moduleNameInfo)) != NULL) {                    /* find the String "<Name" for the TextID */
                                         long filePosRecord;
 
-                                        if (sscanf(temp, "%*s TextId=\"%[^\"]", tmp_moduletext) != 1)        /* saves the correct TextId for the next searchloop */
+                                        if (sscanf(temp, "%*s TextId=\"%199[^\"]", tmp_moduletext) != 1)        /* saves the correct TextId for the next searchloop */
                                             break;
 
                                         filePosRecord = ftell(fp);            /* save the current position of the filepointer (Offset) */
@@ -9632,7 +9640,7 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
                                                 /* Find a String with the saved TextID and with a fitting value for it in the same line. This value is the name of the Module! */
                                                 if(((strstr(temp, tmp_moduletext)) != NULL) && ((strstr(temp, moduleValueInfo)) != NULL)) {
                                                     pch = strstr(temp, moduleValueInfo);
-                                                    if (pch != NULL && sscanf(pch, "Value=\"%[^\"]", io_data_object->moduleNameStr) == 1)
+                                                    if (pch != NULL && sscanf(pch, "Value=\"%199[^\"]", io_data_object->moduleNameStr) == 1)
                                                         break;    /* Found the name of the module */
                                                 }
                                             }
@@ -9645,7 +9653,7 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
                                     if((strstr(temp, subModuleStr)) != NULL) {
                                         memset (convertStr, 0, sizeof(*convertStr));
                                         pch = strstr(temp, subModuleStr);
-                                        if (pch != NULL && sscanf(pch, "SubmoduleIdentNumber=\"%[^\"]", convertStr) == 1) {
+                                        if (pch != NULL && sscanf(pch, "SubmoduleIdentNumber=\"%199[^\"]", convertStr) == 1) {
                                             read_submodule_id = (guint32) strtoul (convertStr, NULL, 0);    /* read_submodule_id contains the Value of the SubModuleIdentNumber */
 
                                             /* Find "PROFIsafeSupported" flag of the module in GSD-file */
@@ -11407,14 +11415,20 @@ dissect_RecordDataWrite(tvbuff_t *tvb, int offset,
     return offset;
 }
 
+#define PN_IO_MAX_RECURSION_DEPTH 100
 
 static int
 dissect_IODWriteReq(tvbuff_t *tvb, int offset,
-    packet_info *pinfo, proto_tree *tree, guint8 *drep, pnio_ar_t **ar)
+    packet_info *pinfo, proto_tree *tree, guint8 *drep, pnio_ar_t **ar, guint recursion_count)
 {
     guint16 u16Index = 0;
     guint32 u32RecDataLen = 0;
 
+    if (++recursion_count >= PN_IO_MAX_RECURSION_DEPTH) {
+        proto_tree_add_expert(tree, pinfo, &ei_pn_io_max_recursion_depth_reached,
+                              tvb, 0, 0);
+        return tvb_captured_length(tvb);
+    }
 
     /* IODWriteHeader */
     offset = dissect_block(tvb, offset, pinfo, tree, drep, &u16Index, &u32RecDataLen, ar);
@@ -11422,7 +11436,7 @@ dissect_IODWriteReq(tvbuff_t *tvb, int offset,
     /* IODWriteMultipleReq? */
     if (u16Index == 0xe040) {
         while (tvb_captured_length_remaining(tvb, offset) > 0) {
-            offset = dissect_IODWriteReq(tvb, offset, pinfo, tree, drep, ar);
+            offset = dissect_IODWriteReq(tvb, offset, pinfo, tree, drep, ar, recursion_count++);
         }
     } else {
         tvbuff_t *new_tvb = tvb_new_subset_length(tvb, offset, u32RecDataLen);
@@ -11454,10 +11468,11 @@ dissect_IPNIO_Write_rqst(tvbuff_t *tvb, int offset,
     packet_info *pinfo, proto_tree *tree, dcerpc_info *di, guint8 *drep)
 {
     pnio_ar_t *ar = NULL;
+    guint recursion_count = 0;
 
     offset = dissect_IPNIO_rqst_header(tvb, offset, pinfo, tree, di, drep);
 
-    offset = dissect_IODWriteReq(tvb, offset, pinfo, tree, drep, &ar);
+    offset = dissect_IODWriteReq(tvb, offset, pinfo, tree, drep, &ar, recursion_count);
 
     if (ar != NULL) {
         pnio_ar_info(tvb, pinfo, tree, ar);
@@ -14816,6 +14831,7 @@ proto_register_pn_io (void)
         { &ei_pn_io_iocr_type, { "pn_io.iocr_type.unknown", PI_UNDECODED, PI_WARN, "IOCRType undecoded!", EXPFILL }},
         { &ei_pn_io_localalarmref, { "pn_io.localalarmref.changed", PI_UNDECODED, PI_WARN, "AlarmCRBlockReq: local alarm ref changed", EXPFILL }},
         { &ei_pn_io_nr_of_tx_port_groups, { "pn_io.nr_of_tx_port_groups.not_allowed", PI_PROTOCOL, PI_WARN, "Not allowed value of NumberOfTxPortGroups", EXPFILL }},
+        { &ei_pn_io_max_recursion_depth_reached, { "pn_io.max_recursion_depth_reached", PI_PROTOCOL, PI_WARN, "Maximum allowed recursion depth reached - stopping dissection", EXPFILL }}
     };
 
     module_t *pnio_module;

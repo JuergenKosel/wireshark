@@ -6,8 +6,8 @@
 # Define variables for the components of the Wireshark version number.
 #
 m4_define([version_major], [2])
-m4_define([version_minor], [3])
-m4_define([version_micro], [0])
+m4_define([version_minor], [4])
+m4_define([version_micro], [3])
 dnl Updated by make-version.pl
 m4_define([version_extra], [])
 m4_define([version_micro_extra], m4_join([], version_micro, version_extra))
@@ -57,8 +57,8 @@ AC_DEFINE(VERSION_MAJOR, version_major, [Wireshark's major version])
 AC_DEFINE(VERSION_MINOR, version_minor, [Wireshark's minor version])
 AC_DEFINE(VERSION_MICRO, version_micro, [Wireshark's micro version])
 
-AC_DEFINE_UNQUOTED(VERSION_FLAVOR,
-	["${WIRESHARK_VERSION_FLAVOR:-"Development Build"}"], [Wireshark's package flavor])
+dnl AC_DEFINE_UNQUOTED(VERSION_FLAVOR,
+dnl 	["${WIRESHARK_VERSION_FLAVOR:-"Development Build"}"], [Wireshark's package flavor])
 
 LT_PREREQ([2.2.2])
 LT_INIT([disable-static dlopen])
@@ -304,7 +304,7 @@ fi
 
 # libgrypt (for decryption, MAC, etc. functionality).
 AM_PATH_LIBGCRYPT(1.4.2, [ ] , [
-  AC_MSG_ERROR([[libgcrypt not found; install libgcrypt-devel package for your system]])
+  AC_MSG_ERROR([[libgcrypt not installed for development; install libgcrypt, including any development package, for your system]])
 ])
 
 AC_ARG_WITH(libnl,
@@ -517,7 +517,7 @@ AC_SUBST(HAVE_OSX_PACKAGING)
 # don't look for Darwin).
 #
 AC_CHECK_PROG(have_sw_vers, sw_vers, "yes", "no")
-AM_CONDITIONAL(NOT_OS_X, test "x$have_sw_vers" = "xno")
+AM_CONDITIONAL(NOT_MACOS, test "x$have_sw_vers" = "xno")
 
 # Shellcheck
 AC_CHECK_PROG(HAVE_SHELLCHECK, shellcheck, "yes", "no")
@@ -748,6 +748,10 @@ AC_ARG_ENABLE(extra-compiler-warnings,
 		# never enable this one with -Werror.
 		#
 		AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wbad-function-cast, C)
+
+		# Works only with GCC 7
+		AC_WIRESHARK_COMPILER_FLAGS_CHECK(-Wduplicated-branches)
+
 	fi
 ])
 
@@ -781,6 +785,20 @@ AC_ARG_ENABLE(asan,
 ])
 AC_SUBST(NO_SANITIZE_CFLAGS)
 AC_SUBST(NO_SANITIZE_LDFLAGS)
+
+# Try to enable UndefinedBehaviorSanitizer.
+#
+AC_ARG_ENABLE(ubsan,
+  AC_HELP_STRING( [--enable-ubsan],
+		  [Enable UndefinedBehaviorSanitizer (UBSan) for debugging@<:@default=no@:>@]),
+[
+	#
+	# Available since Clang >= 3.3 and GCC >= 4.9
+	#
+	# XXX shouldn't this also be added to LDFLAGS?
+	AC_WIRESHARK_COMPILER_FLAGS_CHECK(-fsanitize=undefined)
+
+])
 
 # Add check hf conflict..
 #
@@ -949,11 +967,11 @@ AC_WIRESHARK_GCC_FORTIFY_SOURCE_CHECK
 # This barrier is set for a very large part of the code. However, it is
 # typically not set for "generated" code  (flex, ans2wrs, idl2wrs, ...)
 #
-warnings_as_errors_default="yes"
+warnings_as_errors_default="no"
 AC_MSG_CHECKING(whether we should treat compiler warnings as errors)
 AC_ARG_ENABLE(warnings-as-errors,
   AC_HELP_STRING( [--enable-warnings-as-errors],
-		  [treat warnings as errors (only for GCC or clang) @<:@default=yes, unless extra compiler warnings are enabled@:>@]),
+		  [treat warnings as errors (only for GCC or clang) @<:@default=no@:>@]),
 [
   if test "x$ac_supports_gcc_flags" = "xyes" -a "x$enableval" = "xyes"; then
     with_warnings_as_errors="yes"
@@ -1112,11 +1130,11 @@ AC_SUBST(LDFLAGS_SHAREDLIB)
 # get version information from plists and thus need Core Foundation
 # to process those plists.
 #
-have_os_x_frameworks=no
+have_macos_frameworks=no
 case "$host_os" in
 darwin*)
-	have_os_x_frameworks=yes
-	AC_DEFINE(HAVE_OS_X_FRAMEWORKS, 1, [Define to 1 if you have macOS frameworks])
+	have_macos_frameworks=yes
+	AC_DEFINE(HAVE_MACOS_FRAMEWORKS, 1, [Define to 1 if you have macOS frameworks])
 	APPLICATIONSERVICES_FRAMEWORKS="-framework ApplicationServices"
 	SYSTEMCONFIGURATION_FRAMEWORKS="-framework SystemConfiguration"
 	COREFOUNDATION_FRAMEWORKS="-framework CoreFoundation"
@@ -1139,7 +1157,7 @@ esac
 AC_SUBST(APPLICATIONSERVICES_FRAMEWORKS)
 AC_SUBST(SYSTEMCONFIGURATION_FRAMEWORKS)
 AC_SUBST(COREFOUNDATION_FRAMEWORKS)
-AM_CONDITIONAL(HAVE_OS_X_FRAMEWORKS, [test "x$have_os_x_frameworks" = "xyes"])
+AM_CONDITIONAL(HAVE_MACOS_FRAMEWORKS, [test "x$have_macos_frameworks" = "xyes"])
 
 #
 # If we're running Solaris, and LD_LIBRARY_PATH is defined, add it as a
@@ -1432,19 +1450,19 @@ if test "$have_gtk" = "yes" -a "$have_qt" = "yes" ; then
 
 	wireshark_bin="wireshark\$(EXEEXT) wireshark-gtk\$(EXEEXT)"
 	wireshark_man="wireshark.1"
-	wireshark_SUBDIRS="codecs ui/qt ui/gtk"
+	wireshark_SUBDIRS="ui/qt ui/gtk"
 elif test "$have_gtk" = "no" -a "$have_qt" = "yes" ; then
 	# We don't have GTK+ but we have Qt.
 
 	wireshark_bin="wireshark\$(EXEEXT)"
 	wireshark_man="wireshark.1"
-	wireshark_SUBDIRS="codecs ui/qt"
+	wireshark_SUBDIRS="ui/qt"
 elif test "$have_gtk" = "yes" -a "$have_qt" = "no" ; then
 	# We have GTK+ but not Qt.
 
 	wireshark_bin="wireshark-gtk\$(EXEEXT)"
 	wireshark_man="wireshark.1"
-	wireshark_SUBDIRS="codecs ui/gtk"
+	wireshark_SUBDIRS="ui/gtk"
 	OSX_APP_FLAGS="$OSX_APP_FLAGS -gtk"
 	OSX_DMG_FLAGS="-gtk"
 elif test "$have_gtk" = "no" -a "$have_qt" = "no" ; then
@@ -1505,12 +1523,9 @@ LIBS="$ac_save_LIBS"
 ])
 if test "$ac_cv_glib_supports_modules" = yes ; then
   have_plugins=yes
-  plugins_dir="plugins"
 else
   have_plugins=no
-  plugins_dir=""
 fi
-AC_SUBST(plugins_dir)
 
 #
 # If we have <dlfcn.h>, check whether we have dladdr.
@@ -2367,7 +2382,7 @@ dnl LIBSSH Check
 LIBSSH=''
 AC_MSG_CHECKING(whether to use the libssh library if available)
 
-AC_ARG_WITH(ssh,
+AC_ARG_WITH(libssh,
   AC_HELP_STRING( [--with-libssh@<:@=DIR@:>@],
 		  [use libssh (located in directory DIR, if supplied) @<:@default=yes, if present@:>@]),
 [
@@ -2551,6 +2566,27 @@ else
 fi
 AM_CONDITIONAL(HAVE_SPANDSP, test "x$have_spandsp" = "xyes")
 
+#`
+# Libxml2 check
+AC_ARG_WITH(libxml2,
+  AC_HELP_STRING([--with-libxml2=@<:@yes/no@:>@],
+		 [Libxml2 is a XML C parser, which can be used for handling XML configuration in dissectors @<:@default=yes, if available@:>@]),
+  with_libxml2="$withval"; want_libxml2="yes", with_libxml2="yes")
+
+PKG_CHECK_MODULES(LIBXML2, libxml-2.0, [have_libxml2=yes], [have_libxml2=no])
+if test "x$with_libxml2" != "xno"; then
+    if (test "${have_libxml2}" = "yes"); then
+        AC_DEFINE(HAVE_LIBXML2, 1, [Define if you have libxml2])
+    elif test "x$want_libxml2" = "xyes"; then
+        # Error out if the user explicitly requested libxml2
+        AC_MSG_ERROR([Libxml2 was requested, but is not available])
+    fi
+else
+    have_libxml2=no
+fi
+AM_CONDITIONAL(HAVE_LIBXML2, test "x$have_libxml2" = "xyes")
+
+
 dnl
 dnl check whether plugins should be enabled and, if they should be,
 dnl check for plugins directory - stolen from Amanda's configure.ac
@@ -2572,8 +2608,12 @@ AC_ARG_WITH(plugins,
 AM_CONDITIONAL(HAVE_PLUGINS, test "x$have_plugins" = "xyes")
 if test x$have_plugins = xyes
 then
+  plugins_dir="plugins"
   AC_DEFINE(HAVE_PLUGINS, 1, [Define if plugins are enabled])
+else
+  plugins_dir=""
 fi
+AC_SUBST(plugins_dir)
 AC_SUBST(plugindir)
 
 #
@@ -3166,6 +3206,7 @@ echo "            Have ssh_userauth_agent : $ssh_userauth_agent_message"
 echo "                     Use nl library : $libnl_message"
 echo "              Use SBC codec library : $have_sbc"
 echo "                Use SpanDSP library : $have_spandsp"
+echo "                Use libxml2 library : $have_libxml2"
 echo "                Use nghttp2 library : $nghttp2_message"
 echo "                    Use LZ4 library : $have_lz4"
 echo "                 Use Snappy library : $have_snappy"

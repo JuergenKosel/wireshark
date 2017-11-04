@@ -3130,7 +3130,6 @@ static const value_string DIS_PDU_Country_Strings[] =
     { 105, "Israel" },
     { 106, "Italy" },
     { 107, "Cote D'Ivoire (aka Ivory Coast)" },
-    { 107, "Ivory Coast (aka Cote D'Ivoire)" },
     { 108, "Jamaica" },
     { 109, "Jan Mayen (Norway)" },
     { 110, "Japan" },
@@ -5238,7 +5237,7 @@ static int dissect_DIS_PARSER_ENTITY_STATE_PDU(tvbuff_t *tvb, packet_info *pinfo
     }
     else
     {
-        proto_tree_add_item(sub_tree, hf_entity_appearance, tvb, offset, 4, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_entity_appearance, tvb, offset, 4, ENC_BIG_ENDIAN);
     }
     offset += 4;
 

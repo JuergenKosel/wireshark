@@ -28,6 +28,7 @@ extern "C" {
 
 #include <glib.h>
 #include <epan/tvbuff.h>
+#include <epan/prefs.h>
 #include <epan/frame_data.h>
 #include "register.h"
 #include "ws_symbol_export.h"
@@ -102,6 +103,12 @@ gboolean epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer 
 	           void (*register_all_handoffs_func)(register_cb cb, gpointer client_data),
 	           register_cb cb, void *client_data);
 
+/**
+ * Load all settings, from the current profile, that affect epan.
+ */
+WS_DLL_PUBLIC
+e_prefs *epan_load_settings(void);
+
 /** cleanup the whole epan module, this is used to be called only once in a program */
 WS_DLL_PUBLIC
 void epan_cleanup(void);
@@ -165,7 +172,7 @@ void epan_set_always_visible(gboolean force);
 
 /** initialize an existing single packet dissection */
 WS_DLL_PUBLIC
-epan_dissect_t*
+void
 epan_dissect_init(epan_dissect_t *edt, epan_t *session, const gboolean create_proto_tree, const gboolean proto_tree_visible);
 
 /** get a new single packet dissection
@@ -211,12 +218,17 @@ epan_dissect_file_run_with_taps(epan_dissect_t *edt, struct wtap_pkthdr *phdr,
 /** Prime an epan_dissect_t's proto_tree using the fields/protocols used in a dfilter. */
 WS_DLL_PUBLIC
 void
-epan_dissect_prime_dfilter(epan_dissect_t *edt, const struct epan_dfilter *dfcode);
+epan_dissect_prime_with_dfilter(epan_dissect_t *edt, const struct epan_dfilter *dfcode);
 
 /** Prime an epan_dissect_t's proto_tree with a field/protocol specified by its hfid */
 WS_DLL_PUBLIC
 void
-epan_dissect_prime_hfid(epan_dissect_t *edt, int hfid);
+epan_dissect_prime_with_hfid(epan_dissect_t *edt, int hfid);
+
+/** Prime an epan_dissect_t's proto_tree with a set of fields/protocols specified by their hfids in a GArray */
+WS_DLL_PUBLIC
+void
+epan_dissect_prime_with_hfid_array(epan_dissect_t *edt, GArray *hfids);
 
 /** fill the dissect run output into the packet list columns */
 WS_DLL_PUBLIC

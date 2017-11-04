@@ -72,12 +72,12 @@
  * (Its Windows openURL uses ShellExecute() on non-mailto URLs (it
  * does more exotic stuff for mailto: URLs).
  *
- * Its OS X stuff uses the openURL method of an NSWorkspace (which
+ * Its macOS stuff uses the openURL method of an NSWorkspace (which
  * probably ends up in Launch Services....).)
  *
  * GTK+ has gtk_show_uri(), but that ultimately uses gvfs on UN*X,
  * so it's not appropriate for non-GNOME UN*Xes (including, but not
- * limited to, OS X), and ultimately appears to be a stubbed-out
+ * limited to, macOS), and ultimately appears to be a stubbed-out
  * routine in GLib 2.36.0, so it's not very useful for a cross-
  * platform applicatio n.
  *
@@ -124,8 +124,8 @@
 #include <wsutil/unicode-utils.h>
 /* if WIN32_LEAN_AND_MEAN is defined, shellapi.h is needed too */
 #include <shellapi.h>
-#elif defined (HAVE_OS_X_FRAMEWORKS)
-/* Mac OS X - use Launch Services to start a browser */
+#elif defined (HAVE_MACOS_FRAMEWORKS)
+/* macOS - use Launch Services to start a browser */
 #include <CoreFoundation/CoreFoundation.h>
 #include <ApplicationServices/ApplicationServices.h>
 #else
@@ -159,7 +159,7 @@ browser_open_url (const gchar *url)
 
   return ((intptr_t) ShellExecute (HWND_DESKTOP, _T("open"), utf_8to16(url), NULL, NULL, SW_SHOWNORMAL) > 32);
 
-#elif defined(HAVE_OS_X_FRAMEWORKS)
+#elif defined(HAVE_MACOS_FRAMEWORKS)
 
   CFStringRef url_CFString;
   CFURLRef url_CFURL;
@@ -291,7 +291,7 @@ filemanager_open_directory (const gchar *path)
   g_free(xpath);
   return (ret > 32);
 
-#elif defined(HAVE_OS_X_FRAMEWORKS)
+#elif defined(HAVE_MACOS_FRAMEWORKS)
 
   CFStringRef path_CFString;
   CFURLRef path_CFURL;

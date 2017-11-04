@@ -127,8 +127,24 @@ static GHashTable *depend_dissector_lists = NULL;
  * the final cleanup. */
 static GSList *postseq_cleanup_routines;
 
-static GPtrArray* post_dissectors = NULL;
-static guint num_of_postdissectors = 0;
+/*
+ * Post-dissector information - handle for the dissector and a list
+ * of hfids for the fields the post-dissector wants.
+ */
+typedef struct {
+	dissector_handle_t handle;
+	GArray *wanted_hfids;
+} postdissector;
+
+/*
+ * Array of all postdissectors.
+ */
+static GArray *postdissectors = NULL;
+
+/*
+ * i-th element of that array.
+ */
+#define POSTDISSECTORS(i)	g_array_index(postdissectors, postdissector, i)
 
 static void
 destroy_depend_dissector_list(void *data)
@@ -248,8 +264,8 @@ packet_cleanup(void)
 	g_hash_table_destroy(heuristic_short_names);
 	g_slist_foreach(shutdown_routines, &call_routine, NULL);
 	g_slist_free(shutdown_routines);
-	if (post_dissectors)
-		g_ptr_array_free(post_dissectors, TRUE);
+	if (postdissectors)
+		g_array_free(postdissectors, TRUE);
 }
 
 /*
@@ -1000,21 +1016,28 @@ dissector_add_uint(const char *name, const guint32 pattern, dissector_handle_t h
 
 
 
-void dissector_add_uint_range(const char *abbrev, range_t *range,
+void dissector_add_uint_range(const char *name, range_t *range,
 			      dissector_handle_t handle)
 {
+	dissector_table_t  sub_dissectors;
 	guint32 i, j;
 
 	if (range) {
 		if (range->nranges == 0) {
-			/* Even an empty range would want a chance for Decode As */
-			dissector_add_for_decode_as(abbrev, handle);
+			/*
+			 * Even an empty range would want a chance for
+			 * Decode As, if the dissector table supports
+			 * it.
+			 */
+			sub_dissectors = find_dissector_table(name);
+			if (sub_dissectors->supports_decode_as)
+				dissector_add_for_decode_as(name, handle);
 		}
 		else {
 			for (i = 0; i < range->nranges; i++) {
 				for (j = range->ranges[i].low; j < range->ranges[i].high; j++)
-					dissector_add_uint(abbrev, j, handle);
-				dissector_add_uint(abbrev, range->ranges[i].high, handle);
+					dissector_add_uint(name, j, handle);
+				dissector_add_uint(name, range->ranges[i].high, handle);
 			}
 		}
 	}
@@ -1055,13 +1078,13 @@ void dissector_add_uint_with_preference(const char *name, const guint32 pattern,
 	dissector_add_uint(name, pattern, handle);
 }
 
-void dissector_add_uint_range_with_preference(const char *abbrev, const char* range_str,
+void dissector_add_uint_range_with_preference(const char *name, const char* range_str,
     dissector_handle_t handle)
 {
 	range_t** range;
 	module_t *module;
 	gchar *description, *title;
-	dissector_table_t  pref_dissector_table = find_dissector_table( abbrev);
+	dissector_table_t  pref_dissector_table = find_dissector_table( name);
 	int proto_id = proto_get_id(handle->protocol);
 	guint32 max_value = 0;
 
@@ -1080,7 +1103,7 @@ void dissector_add_uint_range_with_preference(const char *abbrev, const char* ra
 	/* Some preference callback functions use the proto_reg_handoff_
 		routine to apply preferences, which could duplicate the
 		registration of a preference.  Check for that here */
-	if (prefs_find_preference(module, abbrev) == NULL) {
+	if (prefs_find_preference(module, name) == NULL) {
 		description = wmem_strdup_printf(wmem_epan_scope(), "%s %s(s)",
 									    proto_get_protocol_short_name(handle->protocol), pref_dissector_table->ui_name);
 		title = wmem_strdup_printf(wmem_epan_scope(), "%s(s)", pref_dissector_table->ui_name);
@@ -1102,15 +1125,15 @@ void dissector_add_uint_range_with_preference(const char *abbrev, const char* ra
 			break;
 
 		default:
-			g_error("The dissector table %s (%s) is not an integer type - are you using a buggy plugin?", abbrev, pref_dissector_table->ui_name);
+			g_error("The dissector table %s (%s) is not an integer type - are you using a buggy plugin?", name, pref_dissector_table->ui_name);
 			g_assert_not_reached();
 		}
 
 		range_convert_str(wmem_epan_scope(), range, range_str, max_value);
-		prefs_register_decode_as_range_preference(module, abbrev, title, description, range, max_value);
+		prefs_register_decode_as_range_preference(module, name, title, description, range, max_value);
 	}
 
-	dissector_add_uint_range(abbrev, *range, handle);
+	dissector_add_uint_range(name, *range, handle);
 }
 
 /* Delete the entry for a dissector in a uint dissector table
@@ -1145,7 +1168,7 @@ dissector_delete_uint(const char *name, const guint32 pattern,
 	}
 }
 
-void dissector_delete_uint_range(const char *abbrev, range_t *range,
+void dissector_delete_uint_range(const char *name, range_t *range,
 				 dissector_handle_t handle)
 {
 	guint32 i, j;
@@ -1153,8 +1176,8 @@ void dissector_delete_uint_range(const char *abbrev, range_t *range,
 	if (range) {
 		for (i = 0; i < range->nranges; i++) {
 			for (j = range->ranges[i].low; j < range->ranges[i].high; j++)
-				dissector_delete_uint(abbrev, j, handle);
-			dissector_delete_uint(abbrev, range->ranges[i].high, handle);
+				dissector_delete_uint(name, j, handle);
+			dissector_delete_uint(name, range->ranges[i].high, handle);
 		}
 	}
 }
@@ -1269,8 +1292,8 @@ dissector_reset_uint(const char *name, const guint32 pattern)
 }
 
 /* Look for a given value in a given uint dissector table and, if found,
-   call the dissector with the arguments supplied, and return TRUE,
-   otherwise return FALSE. */
+   call the dissector with the arguments supplied, and return the number
+   of bytes consumed by the dissector, otherwise return 0. */
 
 int
 dissector_try_uint_new(dissector_table_t sub_dissectors, const guint32 uint_val,
@@ -1283,46 +1306,50 @@ dissector_try_uint_new(dissector_table_t sub_dissectors, const guint32 uint_val,
 	int len;
 
 	dtbl_entry = find_uint_dtbl_entry(sub_dissectors, uint_val);
-	if (dtbl_entry != NULL) {
+	if (dtbl_entry == NULL) {
 		/*
-		 * Is there currently a dissector handle for this entry?
+		 * There's no entry in the table for our value.
 		 */
-		handle = dtbl_entry->current;
-		if (handle == NULL) {
-			/*
-			 * No - pretend this dissector didn't exist,
-			 * so that other dissectors might have a chance
-			 * to dissect this packet.
-			 */
-			return 0;
-		}
-
-		/*
-		 * Save the current value of "pinfo->match_uint",
-		 * set it to the uint_val that matched, call the
-		 * dissector, and restore "pinfo->match_uint".
-		 */
-		saved_match_uint  = pinfo->match_uint;
-		pinfo->match_uint = uint_val;
-		len = call_dissector_work(handle, tvb, pinfo, tree, add_proto_name, data);
-		pinfo->match_uint = saved_match_uint;
-
-		/*
-		 * If a new-style dissector returned 0, it means that
-		 * it didn't think this tvbuff represented a packet for
-		 * its protocol, and didn't dissect anything.
-		 *
-		 * Old-style dissectors can't reject the packet.
-		 *
-		 * 0 is also returned if the protocol wasn't enabled.
-		 *
-		 * If the packet was rejected, we return 0, so that
-		 * other dissectors might have a chance to dissect this
-		 * packet, otherwise we return the dissected length.
-		 */
-		return len;
+		return 0;
 	}
-	return 0;
+
+	/*
+	 * Is there currently a dissector handle for this entry?
+	 */
+	handle = dtbl_entry->current;
+	if (handle == NULL) {
+		/*
+		 * No - pretend this dissector didn't exist,
+		 * so that other dissectors might have a chance
+		 * to dissect this packet.
+		 */
+		return 0;
+	}
+
+	/*
+	 * Save the current value of "pinfo->match_uint",
+	 * set it to the uint_val that matched, call the
+	 * dissector, and restore "pinfo->match_uint".
+	 */
+	saved_match_uint  = pinfo->match_uint;
+	pinfo->match_uint = uint_val;
+	len = call_dissector_work(handle, tvb, pinfo, tree, add_proto_name, data);
+	pinfo->match_uint = saved_match_uint;
+
+	/*
+	 * If a new-style dissector returned 0, it means that
+	 * it didn't think this tvbuff represented a packet for
+	 * its protocol, and didn't dissect anything.
+	 *
+	 * Old-style dissectors can't reject the packet.
+	 *
+	 * 0 is also returned if the protocol wasn't enabled.
+	 *
+	 * If the packet was rejected, we return 0, so that
+	 * other dissectors might have a chance to dissect this
+	 * packet, otherwise we return the dissected length.
+	 */
+	return len;
 }
 
 int
@@ -3252,20 +3279,43 @@ dissector_dump_dissector_tables(void)
 void
 register_postdissector(dissector_handle_t handle)
 {
-	if (!post_dissectors)
-		post_dissectors = g_ptr_array_new();
+	postdissector p;
 
-	g_ptr_array_add(post_dissectors, handle);
-	num_of_postdissectors++;
+	if (!postdissectors)
+		postdissectors = g_array_sized_new(FALSE, FALSE, (guint)sizeof(postdissector), 1);
+
+	p.handle = handle;
+	p.wanted_hfids = NULL;
+	postdissectors = g_array_append_val(postdissectors, p);
+}
+
+void
+set_postdissector_wanted_hfids(dissector_handle_t handle, GArray *wanted_hfids)
+{
+    guint i;
+
+    if (!postdissectors) return;
+
+    for (i = 0; i < postdissectors->len; i++) {
+        if (POSTDISSECTORS(i).handle == handle) {
+            POSTDISSECTORS(i).wanted_hfids = wanted_hfids;
+            break;
+        }
+    }
 }
 
 void
 deregister_postdissector(dissector_handle_t handle)
 {
-    if (!post_dissectors) return;
+    guint i;
 
-    if (g_ptr_array_remove(post_dissectors, handle)) {
-        num_of_postdissectors--;
+    if (!postdissectors) return;
+
+    for (i = 0; i < postdissectors->len; i++) {
+        if (POSTDISSECTORS(i).handle == handle) {
+            postdissectors = g_array_remove_index_fast(postdissectors, i);
+            break;
+        }
     }
 }
 
@@ -3275,8 +3325,8 @@ have_postdissector(void)
 	guint i;
 	dissector_handle_t handle;
 
-	for(i = 0; i < num_of_postdissectors; i++) {
-		handle = (dissector_handle_t) g_ptr_array_index(post_dissectors,i);
+	for (i = 0; i < postdissectors->len; i++) {
+		handle = POSTDISSECTORS(i).handle;
 
 		if (handle->protocol != NULL
 		    && proto_is_protocol_enabled(handle->protocol)) {
@@ -3292,9 +3342,41 @@ call_all_postdissectors(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
 	guint i;
 
-	for(i = 0; i < num_of_postdissectors; i++) {
-		call_dissector_only((dissector_handle_t) g_ptr_array_index(post_dissectors,i),
-				    tvb,pinfo,tree, NULL);
+	for (i = 0; i < postdissectors->len; i++) {
+		call_dissector_only(POSTDISSECTORS(i).handle,
+				    tvb, pinfo, tree, NULL);
+	}
+}
+
+gboolean
+postdissectors_want_hfids(void)
+{
+	guint i;
+
+	for (i = 0; i < postdissectors->len; i++) {
+		if (POSTDISSECTORS(i).wanted_hfids != NULL &&
+		    POSTDISSECTORS(i).wanted_hfids->len != 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+void
+prime_epan_dissect_with_postdissector_wanted_hfids(epan_dissect_t *edt)
+{
+	guint i;
+
+	if (postdissectors == NULL) {
+		/*
+		 * No postdissector expressed an interest in any hfids.
+		 */
+		return;
+	}
+	for (i = 0; i < postdissectors->len; i++) {
+		if (POSTDISSECTORS(i).wanted_hfids != NULL &&
+		    POSTDISSECTORS(i).wanted_hfids->len != 0)
+			epan_dissect_prime_with_hfid_array(edt,
+			    POSTDISSECTORS(i).wanted_hfids);
 	}
 }
 

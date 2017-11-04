@@ -92,6 +92,7 @@ static int hf_pdcp_lte_seq_num_7 = -1;
 static int hf_pdcp_lte_reserved3 = -1;
 static int hf_pdcp_lte_seq_num_12 = -1;
 static int hf_pdcp_lte_seq_num_15 = -1;
+static int hf_pdcp_lte_polling = -1;
 static int hf_pdcp_lte_reserved5 = -1;
 static int hf_pdcp_lte_seq_num_18 = -1;
 static int hf_pdcp_lte_signalling_data = -1;
@@ -352,6 +353,7 @@ void set_pdcp_lte_up_ciphering_key(guint16 ueid, const char *key)
 static gboolean global_pdcp_decipher_signalling = TRUE;
 static gboolean global_pdcp_decipher_userplane = FALSE;  /* Can be slow, so default to FALSE */
 static gboolean global_pdcp_check_integrity = TRUE;
+static gboolean global_pdcp_ignore_sec = FALSE;  /* ignore Set Security Algo calls */
 
 /* Use these values where we know the keys but may have missed the algorithm,
    e.g. when handing over and RRCReconfigurationRequest goes to target cell only */
@@ -1438,6 +1440,12 @@ void set_pdcp_lte_security_algorithms(guint16 ueid, pdcp_security_info_t *securi
     /* N.B. won't work for internal, non-RRC signalling methods... */
     pdcp_security_info_t *p_frame_security;
 
+    /* Disable this entire sub-routine with the Preference */
+    /* Used when the capture is already deciphered */
+    if (global_pdcp_ignore_sec) {
+        return;
+    }
+
     /* Create or update current settings, by UEID */
     pdcp_security_info_t* ue_security =
         (pdcp_security_info_t*)wmem_map_lookup(pdcp_security_hash,
@@ -1952,9 +1960,12 @@ static int dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                             proto_item *ti;
                             guint8 reserved_value;
 
-                            /* 5 reserved bits */
+                            /* Polling bit */
+                            proto_tree_add_item(pdcp_tree, hf_pdcp_lte_polling, tvb, offset, 1, ENC_BIG_ENDIAN);
+
+                            /* 4 reserved bits */
                             ti = proto_tree_add_item(pdcp_tree, hf_pdcp_lte_reserved5, tvb, offset, 1, ENC_BIG_ENDIAN);
-                            reserved_value = (first_byte & 0x7c) >> 2;
+                            reserved_value = (first_byte & 0x3c) >> 2;
 
                             /* Complain if not 0 */
                             if (reserved_value != 0) {
@@ -2561,10 +2572,16 @@ void proto_register_pdcp(void)
               "PDCP Seq num", HFILL
             }
         },
+        { &hf_pdcp_lte_polling,
+            { "Polling",
+              "pdcp-lte.polling", FT_BOOLEAN, 8, NULL, 0x40,
+              NULL, HFILL
+            }
+        },
         { &hf_pdcp_lte_reserved5,
             { "Reserved",
-              "pdcp-lte.reserved5", FT_UINT8, BASE_HEX, NULL, 0x7c,
-              "5 reserved bits", HFILL
+              "pdcp-lte.reserved5", FT_UINT8, BASE_HEX, NULL, 0x3c,
+              "4 reserved bits", HFILL
             }
         },
         { &hf_pdcp_lte_seq_num_18,
@@ -2947,6 +2964,11 @@ void proto_register_pdcp(void)
         "Attempt to check integrity calculation",
         "N.B. only possible if build with algorithm support, and have key available and configured",
         &global_pdcp_check_integrity);
+
+    prefs_register_bool_preference(pdcp_lte_module, "ignore_rrc_sec_params",
+        "Ignore RRC security parameters",
+        "Ignore the LTE RRC security algorithm configuration, to be used when PDCP is already deciphered in the capture",
+        &global_pdcp_ignore_sec);
 
     pdcp_sequence_analysis_channel_hash = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
     pdcp_lte_sequence_analysis_report_hash = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), pdcp_result_hash_func, pdcp_result_hash_equal);

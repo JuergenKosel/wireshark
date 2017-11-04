@@ -1,6 +1,7 @@
 /* packet-ua3g.c
- * Routines for UA/UDP (Universal Alcatel over UDP) packet dissection.
+ * Routines for UA3G (Universal Alcatel) packet dissection.
  * Copyright 2012, Alcatel-Lucent Enterprise <lars.ruoff@alcatel-lucent.com>
+ * Copyright 2017, Alcatel-Lucent Enterprise <nicolas.bertin@al-enterprise.com>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -237,6 +238,9 @@ static int hf_ua3g_ip_device_routing_reset_parameter_value = -1;
 static int hf_ua3g_ip_device_routing_reset_parameter_bad_sec_mode = -1;
 static int hf_ua3g_ip_device_routing_reset_parameter_cust_name = -1;
 static int hf_ua3g_ip_device_routing_reset_parameter_l10n_name = -1;
+static int hf_ua3g_ip_device_routing_reset_parameter_appl_mode = -1;
+static int hf_ua3g_ip_device_routing_reset_parameter_sip_name = -1;
+static int hf_ua3g_ip_device_routing_reset_parameter_reset_mac = -1;
 static int hf_ua3g_ip_device_routing_start_rtp_parameter_ip = -1;
 static int hf_ua3g_ip_device_routing_start_rtp_parameter_compressor = -1;
 static int hf_ua3g_ip_device_routing_start_rtp_parameter_value = -1;
@@ -258,12 +262,25 @@ static int hf_ua3g_ip_device_routing_set_param_req_parameter_tftp_backup_ip = -1
 static int hf_ua3g_ip_device_routing_set_param_req_parameter_set_pc_port_status = -1;
 static int hf_ua3g_ip_device_routing_set_param_req_parameter_record_rtp_auth = -1;
 static int hf_ua3g_ip_device_routing_set_param_req_parameter_security_flag_filter = -1;
+static int hf_ua3g_ip_device_routing_set_param_req_parameter_stable_mode = -1;
+static int hf_ua3g_ip_device_routing_set_param_req_parameter_skin_id = -1;
+static int hf_ua3g_ip_device_routing_set_param_req_parameter_language_id = -1;
+static int hf_ua3g_ip_device_routing_set_param_req_parameter_usb_boost = -1;
+static int hf_ua3g_ip_device_routing_set_param_req_parameter_als_device = -1;
+static int hf_ua3g_ip_device_routing_set_param_req_parameter_busy_light = -1;
+static int hf_ua3g_ip_device_routing_set_param_req_parameter_audio_env = -1;
 static int hf_ua3g_ip_device_routing_set_param_req_parameter_uint = -1;
 static int hf_ua3g_ip_device_routing_set_param_req_parameter_value = -1;
 static int hf_ua3g_ip_device_routing_pause_restart_rtp_parameter_uint = -1;
 static int hf_ua3g_ip_device_routing_start_stop_record_rtp_parameter_remote_ip = -1;
 static int hf_ua3g_ip_device_routing_start_stop_record_rtp_parameter_uint = -1;
 static int hf_ua3g_ip_device_routing_start_stop_record_rtp_parameter_value = -1;
+static int hf_ua3g_ip_device_routing_freeseating_parameter = -1;
+static int hf_ua3g_ip_device_routing_freeseating_parameter_length = -1;
+static int hf_ua3g_ip_device_routing_freeseating_parameter_mac = -1;
+static int hf_ua3g_ip_device_routing_freeseating_parameter_ip = -1;
+static int hf_ua3g_ip_device_routing_freeseating_parameter_uint = -1;
+static int hf_ua3g_ip_device_routing_freeseating_parameter_value = -1;
 static int hf_ua3g_main_voice_mode_handset_level = -1;
 static int hf_ua3g_main_voice_mode_headset_level = -1;
 static int hf_ua3g_main_voice_mode_handsfree_level = -1;
@@ -314,8 +331,18 @@ static int hf_ua3g_unsolicited_msg_hardware_config_subtype = -1;
 static int hf_ua3g_unsolicited_msg_hardware_config_hard_config_chip = -1;
 static int hf_ua3g_unsolicited_msg_hardware_config_hard_config_flash = -1;
 static int hf_ua3g_unsolicited_msg_hardware_config_config_ram = -1;
-static int hf_ua3g_unsolicited_msg_hardware_config_hard_config_ip = -1;
+static int hf_ua3g_unsolicited_msg_hardware_config = -1;
+static int hf_ua3g_unsolicited_msg_hardware_config_export_full = -1;
+static int hf_ua3g_unsolicited_msg_hardware_config_ethernet_hardware = -1;
+static int hf_ua3g_unsolicited_msg_hardware_config_extended_edition = -1;
+static int hf_ua3g_unsolicited_msg_hardware_config_wideband = -1;
+static int hf_ua3g_unsolicited_msg_hardware_config_3g_set = -1;
+static int hf_ua3g_unsolicited_msg_hardware_config_8082_set = -1;
+static int hf_ua3g_unsolicited_msg_hardware_config_super_wideband = -1;
 static int hf_ua3g_unsolicited_msg_hook_status = -1;
+static int hf_ua3g_unsolicited_msg_additional_vta_type = -1;
+static int hf_ua3g_unsolicited_msg_capability_info = -1;
+static int hf_ua3g_unsolicited_msg_capability_info_bluetooth_supported = -1;
 static int hf_ua3g_special_key_shift = -1;
 static int hf_ua3g_special_key_ctrl = -1;
 static int hf_ua3g_special_key_alt = -1;
@@ -331,6 +358,7 @@ static int hf_ua3g_lcd_line_cmd_lcd_options_call_timer_display = -1;
 static int hf_ua3g_lcd_line_cmd_lcd_options_time_of_day_display = -1;
 static int hf_ua3g_lcd_line_cmd_lcd_options_suspend_display_refresh = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_firmware_version = -1;
+static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_tscip_version = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_ip = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_default_codec_uint = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_default_codec_bytes = -1;
@@ -341,11 +369,11 @@ static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_l
 static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_duplex = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_speed = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_duplex = -1;
-static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip1 = -1;
-static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip2 = -1;
+static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip = -1;
+static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_firmware_version = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_ip = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_string = -1;
-static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_default_codec = -1;
+static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_codec = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_vad = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_ece = -1;
 static int hf_ua3g_cs_ip_device_routing_cmd03_parameter_voice_mode = -1;
@@ -655,6 +683,17 @@ version_number_computer( gchar *result, guint32 hexa_version )
     g_snprintf( result, ITEM_LABEL_LENGTH, "%d.%02d.%02d", release, vers, fix);
 }
 
+static void
+version_3bytes_computer(gchar *result, guint32 hexa_version)
+{
+    int release, vers, fix;
+
+    release = (hexa_version >> 16);
+    vers    = ((hexa_version >> 8) & 0xff);
+    fix     = (hexa_version & 0xff);;
+    g_snprintf(result, ITEM_LABEL_LENGTH, "%d.%02d.%02d", release, vers, fix);
+}
+
 
 /*-----------------------------------------------------------------------------
     Function for UA3G message with opcode and one parameter
@@ -822,6 +861,8 @@ static const value_string str_command_ip_device_routing[] = {
     {0x0D, "Restart RTP"},
     {0x0E, "Start Record RTP"},
     {0x0F, "Stop Record RTP"},
+    {0x10, "Set SIP Parameters"},
+    {0x11, "Free Seating"},
     {0, NULL}
 };
 
@@ -879,26 +920,22 @@ static const value_string ip_device_routing_cmd_start_rtp_vals[] = {
     {0x36, "Integrity checking enabled for this communication"},
     {0x37, "MKI value for SRTP packets in input stream"},
     {0x38, "MKI value for SRTP packets in output stream"},
+    {0x39, "Integrity method of Thales component"},
     {0x50, "MD5 Authentication"},
     {0, NULL}
 };
 static value_string_ext ip_device_routing_cmd_start_rtp_vals_ext = VALUE_STRING_EXT_INIT(ip_device_routing_cmd_start_rtp_vals);
 
-static const val64_string str_start_rtp_compressor[] = {
+static const val64_string str_compressor_vals[] = {
     {0x00, "G.711 A-law"},
     {0x01, "G.711 mu-law"},
     {0x0F, "G.723.1 5.3kbps"},
     {0x10, "G.723.1 6.3kbps"},
-    {0x11, "G.729A 8 kbps"},
-    {0, NULL}
-};
-
-static const value_string str_set_param_req_compressor[] = {
-    {0x00, "G.711 A-law"},
-    {0x01, "G.711 mu-law"},
-    {0x0F, "G.723.1 5.3kbps"},
-    {0x10, "G.723.1 6.3kbps"},
-    {0x11, "G.729A 8 kbps"},
+    {0x11, "G.729A 8kbps"},
+    {0x1B, "G.722 64kbps"},
+    {0x1C, "G.722 56kbps"},
+    {0x1D, "G.722 48kbps"},
+    {0x1E, "Opus"},
     {0, NULL}
 };
 
@@ -947,10 +984,65 @@ static const value_string ip_device_routing_cmd_set_param_req_vals[] = {
     {0x13   , "Security Flags"},
     {0x14   , "ARP Spoofing"},
     {0x15   , "Session Param"},
+    {0x16   , "Stable Mode"},
+    {0x17   , "DTMF Level"},
+    {0x18   , "Keep Talking"},
+    {0x19   , "BT Radio"},
+    {0x1A   , "Transparent Reboot"},
+    {0x1B   , "Set Skin Identifier"},
+    {0x1C   , "Set Language Identifier"},
+    {0x1D   , "Set Dialpad Rotation"},
+    {0x1E   , "Set USB Boost Charging"},
+    {0x1F   , "Set SSH Password"},
+    {0x20   , "DHCP Survivability"},
+    {0x21   , "USB Devices"},
+    {0x22   , "ALS Device"},
+    {0x23   , "Busy Light"},
+    {0x24   , "Audio Environment"},
+    {0x25   , "EEE Configuration"},
+    {0x26   , "LLDP Configuration"},
     {0x30   , "MD5 Authentication"},
     {0, NULL}
 };
 static value_string_ext ip_device_routing_cmd_set_param_req_vals_ext = VALUE_STRING_EXT_INIT(ip_device_routing_cmd_set_param_req_vals);
+
+static const value_string set_param_req_stable_mode[] = {
+    {0x00   , "Full-Duplex Preference"},
+    {0x01   , "Echo Robustness Preference"},
+    {0, NULL}
+};
+
+static const value_string set_param_req_skin_id[] = {
+    {0x00   , "Managed By Terminal"},
+    {0x01   , "Classical"},
+    {0x02   , "Rainbow"},
+    {0x03   , "Crystal"},
+    {0x04   , "Luxury"},
+    {0, NULL}
+};
+
+static const value_string set_param_req_usb_boost[] = {
+    {0x00   , "Disable"},
+    {0x01   , "Enable"},
+    {0x02   , "Auto-Negociation"},
+    {0, NULL}
+};
+
+static const value_string set_param_req_local_device[] = {
+    {0x00   , "Managed By Terminal"},
+    {0x01   , "Enable"},
+    {0x02   , "Disable"},
+    {0, NULL}
+};
+
+static const value_string set_param_req_audio_env[] = {
+    {0x00   , "Managed By Terminal"},
+    {0x01   , "Standard"},
+    {0x02   , "Open Space"},
+    {0x03   , "Meeting Room"},
+    {0x04   , "Noisy"},
+    {0, NULL}
+};
 
 static const value_string ip_device_routing_cmd_pause_restart_vals[] = {
     {0x14, "Canal Identifier"},
@@ -968,7 +1060,16 @@ static const value_string ip_device_routing_cmd_record_rtp_vals[] = {
     {0x07   , "Type Of Service"},
     {0x08   , "Master Key For SRTP Session"},
     {0x09   , "Master Salt Key For SRTP Session"},
+    {0x10   , "Integrity checking enabled for this communication"},
+    {0x11   , "Integrity method of Thales component"},
     {0x30   , "MD5 Authentication"},
+    {0, NULL}
+};
+
+static const value_string ip_device_routing_cmd_freeseating_vals[] = {
+    {0x00   , "Pseudo MAC Address"},
+    {0x01   , "Maincpu1"},
+    {0x02   , "Maincpu2"},
     {0, NULL}
 };
 
@@ -991,6 +1092,7 @@ static const value_string ip_device_routing_cmd_get_param_req_vals[] = {
     {0x08   , "Default Codec"},
     {0x09   , "Ethernet Drivers Config"},
     {0x0A   , "MAC Address"},
+    {0x0B   , "Pseudo MAC Address"},
     {0, NULL}
 };
 
@@ -1004,7 +1106,17 @@ static const value_string str_set_pc_port_status[] = {
 static const value_string str_enable_feature[] = {
     {0x00, "Disable Feature"},
     {0x01, "Enable Feature"},
-    {0, NULL}
+    {0   , NULL}
+};
+
+static const value_string str_ethernet_speed_vals[] = {
+    {0   , "No Link"},
+    {1   , "10 Mbps"},
+    {2   , "100 Mbps"},
+    {3   , "1000 Mbps"},
+    {10  , "10 Mbps"},
+    {100 , "100 Mbps"},
+    {0   , NULL}
 };
 
 static void
@@ -1078,6 +1190,15 @@ decode_ip_device_routing(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                         break;
                     case 0x03: /* L10N_Name */
                         proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_reset_parameter_l10n_name, tvb, offset, parameter_length, ENC_NA|ENC_ASCII);
+                        break;
+                    case 0x04: /* Appl_Mode */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_reset_parameter_appl_mode, tvb, offset, 1, ENC_BIG_ENDIAN);
+                        break;
+                    case 0x05: /* SIP_Name */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_reset_parameter_sip_name, tvb, offset, parameter_length, ENC_NA|ENC_ASCII);
+                        break;
+                    case 0x06: /* Appl_Mode */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_reset_parameter_reset_mac, tvb, offset, 1, ENC_BIG_ENDIAN);
                         break;
                     default:
                         proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_reset_parameter_value, tvb, offset, parameter_length, ENC_NA);
@@ -1187,6 +1308,7 @@ decode_ip_device_routing(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                     case 0x36: /* Integrity checking enabled for this communication */
                     case 0x37: /* MKI value for SRTP packets in input stream */
                     case 0x38: /* MKI value for SRTP packets in output stream */
+                    case 0x39: /* Integrity method of Thales component */
                     case 0x50: /* MD5 Authentication */
                     default:
                         if (parameter_length <= 8) {
@@ -1255,6 +1377,7 @@ decode_ip_device_routing(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
             if (parameter_length > 0) {
                 switch (parameter_id) {
                 case 0x00: /* Remote MainCPU Server IP Address */
+                case 0x02: /* Remote Redundant MainCPU Server IP Address */
                     proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_redirect_parameter_ip, tvb, offset, 4, ENC_BIG_ENDIAN);
                     break;
                 case 0x01: /* Remote MainCPU Server Port */
@@ -1316,54 +1439,29 @@ decode_ip_device_routing(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
         }
     case 0x05: /* START TONE */
         {
-            guint8 ii, tone_nb_entries, tone_id;
-#if 0
-            guint8 tone_direction, tone_id, tone_duration tone_silence;
-#endif
-            int tone_duration;
-
-            tone_nb_entries = tvb_get_guint8(tvb, offset);
+            guint8 ii;
+            guint8 tone_nb_entries = tvb_get_guint8(tvb, offset);
 
             proto_tree_add_item(ua3g_body_tree, hf_ua3g_ip_device_routing_start_tone_direction, tvb, offset, 1, ENC_BIG_ENDIAN);
             proto_tree_add_item(ua3g_body_tree, hf_ua3g_ip_device_routing_start_tone_num_entries, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset++;
             length--;
 
-            while (length > 0 && tone_nb_entries) {
-                for (ii = 0; ii < tone_nb_entries; ii++) {
-                    tone_id = tvb_get_guint8(tvb, offset);
-                    tone_duration = tvb_get_ntohs(tvb, offset + 1);
-#if 0
-                    tone_duration = tvb_get_guint8(tvb, offset + 1);
-                    tone_silence = tvb_get_guint8(tvb, offset + 2);
-#endif
+            for (ii = 0; ii < tone_nb_entries; ii++) {
+                guint8 tone_id = tvb_get_guint8(tvb, offset);
+                gint tone_duration = tvb_get_ntohs(tvb, offset + 1);
 
-                    ua3g_param_tree = proto_tree_add_subtree_format(ua3g_body_tree, tvb, offset, 3,
-#if 0
-                        ett_ua3g_param, NULL, "Tone Pair %d: Id: %d, Duration: %d ms, Silence: %d ms",
-                        ii+1, tone_id, tone_duration, tone_silence);
-#endif
-                        ett_ua3g_param, NULL, "Tone Pair %d: Id: %d, Duration: %d ms",
-                        ii+1, tone_id, tone_duration);
+                ua3g_param_tree = proto_tree_add_subtree_format(ua3g_body_tree, tvb, offset, 3,
+                    ett_ua3g_param, NULL, "Tone Pair %d: Id: %d, Duration: %d ms",
+                    ii+1, tone_id, tone_duration);
 
-                    proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_start_tone_identification, tvb, offset, 1, ENC_BIG_ENDIAN);
-                    offset++;
-                    length--;
+                proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_start_tone_identification, tvb, offset, 1, ENC_BIG_ENDIAN);
+                offset++;
+                length--;
 
-                    proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_start_tone_duration, tvb, offset, 2, ENC_BIG_ENDIAN);
-                    offset += 2;
-                    length -= 2;
-
-#if 0
-                    proto_tree_add_uint(ua3g_param_tree, hf_ua3g_feedback_duration, tvb, offset, 1, tone_duration);
-                    offset++;
-                    length--;
-
-                    proto_tree_add_uint(ua3g_param_tree, hf_ua3g_silence, tvb, offset, 1, tone_silence);
-                    offset++;
-                    length--;
-#endif
-                }
+                proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_start_tone_duration, tvb, offset, 2, ENC_BIG_ENDIAN);
+                offset += 2;
+                length -= 2;
             }
             break;
         }
@@ -1461,6 +1559,27 @@ decode_ip_device_routing(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                     case 0x13: /* Security Flags */
                         proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_set_param_req_parameter_security_flag_filter, tvb, offset, 1, ENC_NA);
                         break;
+                    case 0x16: /* Stable Mode */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_set_param_req_parameter_stable_mode, tvb, offset, 1, ENC_BIG_ENDIAN);
+                        break;
+                    case 0x1B: /* Set Skin Identifier */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_set_param_req_parameter_skin_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+                        break;
+                    case 0x1C: /* Set Language Identifier */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_set_param_req_parameter_language_id, tvb, offset, 2, ENC_NA|ENC_ASCII);
+                        break;
+                    case 0x1E: /* USB Boost */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_set_param_req_parameter_usb_boost, tvb, offset, 1, ENC_BIG_ENDIAN);
+                        break;
+                    case 0x22: /* ALS Device */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_set_param_req_parameter_als_device, tvb, offset, 1, ENC_BIG_ENDIAN);
+                        break;
+                    case 0x23: /* Busy Light */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_set_param_req_parameter_busy_light, tvb, offset, 1, ENC_BIG_ENDIAN);
+                        break;
+                    case 0x24: /* Audio Environment */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_set_param_req_parameter_audio_env, tvb, offset, 1, ENC_BIG_ENDIAN);
+                        break;
                     case 0x00: /* QOS IP TOS */
                     case 0x01: /* QOS 8021 VLID */
                     case 0x02: /* QOS 8021 PRI */
@@ -1472,6 +1591,16 @@ decode_ip_device_routing(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                     case 0x10: /* SET MMI PASSWORD */
                     case 0x14: /* ARP Spoofing */
                     case 0x15: /* Session Param */
+                    case 0x17: /* DTMF Level */
+                    case 0x18: /* Keep Talking */
+                    case 0x19: /* BT Radio */
+                    case 0x1A: /* Transparent Reboot */
+                    case 0x1D: /* Dialpad Rotation */
+                    case 0x1F: /* Set SSH Password */
+                    case 0x20: /* DHCP Survivability */
+                    case 0x21: /* USB Devices */
+                    case 0x25: /* EEE Configuration */
+                    case 0x26: /* LLDP Configuration */
                     case 0x30: /* MD5 Authentication */
                     default:
                         if ((parameter_length > 0) && (parameter_length <= 8)) {
@@ -1557,6 +1686,8 @@ decode_ip_device_routing(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                 case 0x07: /* Type Of Service */
                 case 0x08: /* Master Key For SRTP Session */
                 case 0x09: /* Master Salt Key For SRTP Session */
+                case 0x10: /* Integrity checking enabled for this communication */
+                case 0x11: /* Integrity method of Thales component */
                 case 0x30: /* MD5 Authentication */
                 default:
                     if (parameter_length <= 8) {
@@ -1567,6 +1698,48 @@ decode_ip_device_routing(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                     break;
                 }
 
+                offset += parameter_length;
+                length -= parameter_length;
+            }
+        }
+        break;
+    case 0x10: /* Set SIP Parameters */
+        break;
+    case 0x11: /* Free Seating */
+        while (length > 0) {
+            parameter_id     = tvb_get_guint8(tvb, offset);
+            parameter_length = tvb_get_guint8(tvb, offset + 1);
+
+            ua3g_param_item = proto_tree_add_uint_format(ua3g_body_tree, hf_ua3g_ip_device_routing_freeseating_parameter, tvb, offset,
+                parameter_length + 2, parameter_id, "%s",
+                val_to_str_const(parameter_id, ip_device_routing_cmd_freeseating_vals, "Unknown"));
+            ua3g_param_tree = proto_item_add_subtree(ua3g_param_item, ett_ua3g_param);
+
+            proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_freeseating_parameter, tvb, offset, 1, ENC_BIG_ENDIAN);
+            offset++;
+            length--;
+
+            proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_freeseating_parameter_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+            offset++;
+            length--;
+
+            if (parameter_length > 0) {
+                switch (parameter_id) {
+                case 0x00: /* Pseudo Mac Address */
+                    proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_freeseating_parameter_mac, tvb, offset, 6, ENC_NA);
+                    break;
+                case 0x01: /* Maincpu1 */
+                case 0x02: /* Maincpu2 */
+                    proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_freeseating_parameter_ip, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    break;
+                default:
+                    if (parameter_length <= 8) {
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_freeseating_parameter_uint, tvb, offset, parameter_length, ENC_BIG_ENDIAN);
+                    } else {
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_ip_device_routing_freeseating_parameter_value, tvb, offset, parameter_length, ENC_NA);
+                    }
+                    break;
+                }
                 offset += parameter_length;
                 length -= parameter_length;
             }
@@ -2850,31 +3023,44 @@ static const value_string str_command_cs_ip_device_routing[] = {
     {0, NULL}
 };
 
-static const value_string str_cs_ip_device_routing_vta_type[] = {
-    {0x20, "NOE A"},
-    {0x21, "NOE B"},
-    {0x22, "NOE C"},
-    {0x23, "NOE D"},
+static const value_string str_vta_type[] = {
+    {0x03, "4035"},
+    {0x04, "4020"},
+    {0x05, "4010"},
+    {0x20, "4018"},
+    {0x21, "4028/8028/8028S"},
+    {0x22, "4038/8038"},
+    {0x23, "4068/8068/8082/8068S"},
+    {0x24, "mipt"},
+    {0x25, "4008"},
+    {0x32, "8058S"},
+    {0x34, "8078S"},
+    {0x35, "8088"},
     {0, NULL}
 };
 
-#if 0
-static const value_string str_cs_ip_device_routing_08_compressor[] = {
-    {0x00, "G.711 A-law"},
-    {0x01, "G.711 mu-law"},
-    {0x0F, "G.723.1 5.3kbps"},
-    {0x10, "G.723.1 6.3kbps"},
-    {0x11, "G.729A 8 kbps"},
+static const value_string str_additional_vta_type[] = {
+    {0x00, "Not Applicable"},
+    {0x30, "8018"},
+    {0x31, "8028S"},
+    {0x32, "8058S"},
+    {0x33, "4068S"},
+    {0x34, "8078S"},
+    {0x35, "8088"},
+    {0x36, "8008"},
     {0, NULL}
 };
-#endif
 
-static const val64_string str_cs_ip_device_routing_0F_compressor[] = {
+static const value_string str_cs_ip_device_routing_0F_compressor[] = {
     {0x00, "G.711 A-law"},
     {0x01, "G.711 mu-law"},
-    {0x02, "G.723.1 6.3kbps"},
-    {0x03, "G.729"},
-    {0x04, "G.723.1 5.3kbps"},
+    {0x02, "G.723.1 5.3kbps"},
+    {0x03, "G.723.1 6.3kbps"},
+    {0x04, "G.729A 8kbps"},
+    {0x05, "G.722 64kbps"},
+    {0x06, "G.722 56kbps"},
+    {0x07, "G.722 48kbps"},
+    {0x08, "Opus"},
     {0, NULL}
 };
 
@@ -2917,41 +3103,32 @@ static const value_string cs_ip_device_routing_03_parameter_id_vals[] = {
     {0x2F, "802.1p Priority"},
     {0x30, "VLAN Id"},
     {0x31, "DiffServ"},
+    {0x37, "Encryption"},
     {0x3D, "200 ms BFI Distribution"},
     {0x3E, "Consecutive RTP Lost"},
     {0, NULL}
 };
 static value_string_ext cs_ip_device_routing_03_parameter_id_vals_ext = VALUE_STRING_EXT_INIT(cs_ip_device_routing_03_parameter_id_vals);
 
-static const value_string cs_ip_device_routing_03_parameter_id_tab_vals[] = {
-    {0x1B, "Range: Value"},
-    {0x1F, "Range: Value"},
-    {0x20, "Jitter: Value"},
-    {0x3D, "Contents: Value"},
-    {0x3E, "Contents: Value"},
-    {0, NULL}
-};
-
-static const value_string cs_ip_device_routing_cmd03_first_byte_vals[] = {
-    {0x01, "IP-Phone"},
-    {0x02, "Appli-PC"},
-    {0x03, "Coupler OmniPCX Enterprise"},
-    {0x04, "Coupler OmniPCX Office"},
-    {0, NULL}
-};
-
-static const value_string cs_ip_device_routing_cmd03_second_byte_vals[] = {
+static const value_string cs_ip_device_routing_cmd03_type_of_equip_vals[] = {
     {0x0101, "IP-Phone V2"},
     {0x0102, "NOE-IP"},
     {0x0200, "4980 Softphone (PCMM2)"},
     {0x0201, "WebSoftphoneIP"},
     {0x0300, "INTIP"},
-    {0x0301, "GD"},
-    {0x0302, "eVA"},
+    {0x0301, "GD/GA"},
+    {0x0302, "4645"},
+    {0x0303, "INTIP3"},
+    {0x0304, "GD3/GA3"},
+    {0x0305, "OXE MS"},
+    {0x0306, "INTIP3-RTPproxy"},
+    {0x0307, "GD3/GA3-RTPproxy"},
+    {0x0308, "MS-RTPproxy"},
+    {0x0400, "OXO"},
     {0, NULL}
 };
 
-static const val64_string cs_ip_device_routing_cmd03_voice_mode_vals[] = {
+static const value_string cs_ip_device_routing_cmd03_voice_mode_vals[] = {
     {0x50, "Idle"},
     {0x51, "Handset"},
     {0x52, "Group Listening"},
@@ -2970,17 +3147,17 @@ static const value_string cs_ip_device_routing_delay_distribution_range_vals[] =
     {0, NULL}
 };
 
-static const value_string cs_ip_device_routing_consecutive_bfi_range_vals[] = {
-    {0, "0"},
-    {1, "1"},
-    {2, "2"},
-    {3, "3"},
-    {4, "4"},
-    {5, "5"},
-    {6, "5"},
-    {7, "7"},
-    {8, "8"},
-    {9, "9"},
+static const value_string cs_ip_device_routing_0_9_range_vals[] = {
+    {0, "0      "},
+    {1, "1      "},
+    {2, "2      "},
+    {3, "3      "},
+    {4, "4      "},
+    {5, "5      "},
+    {6, "5      "},
+    {7, "7      "},
+    {8, "8      "},
+    {9, "9 and +"},
     {0, NULL}
 };
 
@@ -2994,20 +3171,20 @@ static const value_string cs_ip_device_routing_bfi_distribution_range_vals[] = {
 };
 
 static const value_string cs_ip_device_routing_200ms_bfi_distribution_range_vals[] = {
-    {0, "< 10 %  "},
-    {1, "< 20 %  "},
-    {2, "< 40 %  "},
-    {3, "< 60 %  "},
-    {4, ">= 60 % "},
+    {0, "< 10% "},
+    {1, "< 20% "},
+    {2, "< 40% "},
+    {3, "< 60% "},
+    {4, ">= 60%"},
     {0, NULL}
 };
 
 static const value_string cs_ip_device_routing_consecutive_rtp_lost_range_vals[] = {
-    {0, "1         "},
-    {1, "2         "},
-    {2, "3         "},
-    {3, "4         "},
-    {4, "5 and more"},
+    {0, "1      "},
+    {1, "2      "},
+    {2, "3      "},
+    {3, "4      "},
+    {4, "5 and +"},
     {0, NULL}
 };
 
@@ -3060,7 +3237,7 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
                 parameter_length = tvb_get_guint8(tvb, offset + 1);
 
                 ua3g_param_item = proto_tree_add_uint_format(ua3g_body_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter, tvb, offset,
-                    parameter_id, parameter_length + 2,
+                    parameter_length + 2, parameter_id,
                     "%s", val_to_str_const(parameter_id, ip_device_routing_cmd_get_param_req_vals, "Unknown"));
                 ua3g_param_tree = proto_item_add_subtree(ua3g_param_item, ett_ua3g_param);
 
@@ -3077,7 +3254,9 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
                     case 0x00: /* Firmware Version */
                         proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_firmware_version, tvb, offset, 2, ENC_BIG_ENDIAN);
                         break;
-                    case 0x01: /* Firmware Version */
+                    case 0x01: /* Firmware Version (same as above, different format) */
+                        proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_tscip_version, tvb, offset, 3, ENC_BIG_ENDIAN);
+                        break;
                     case 0x02: /* DHCP IP Address */
                     case 0x03: /* Local IP Address */
                     case 0x04: /* Subnetwork Mask */
@@ -3099,18 +3278,19 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
                         {
                             if (parameter_length == 2) {
                                 proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_speed, tvb, offset, 1, ENC_BIG_ENDIAN);
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_duplex, tvb, offset+1, 1, ENC_BIG_ENDIAN);
+                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_duplex, tvb, offset+1, 1, ENC_NA|ENC_ASCII);
                             } else if (parameter_length == 4) {
                                 proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_speed, tvb, offset, 1, ENC_BIG_ENDIAN);
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_duplex, tvb, offset+1, 1, ENC_BIG_ENDIAN);
+                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_duplex, tvb, offset+1, 1, ENC_NA|ENC_ASCII);
                                 proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_speed, tvb, offset+2, 1, ENC_BIG_ENDIAN);
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_duplex, tvb, offset+3, 1, ENC_BIG_ENDIAN);
+                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_duplex, tvb, offset+3, 1, ENC_NA|ENC_ASCII);
                             } else {
                                 proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_value, tvb, offset, parameter_length, ENC_NA);
                             }
                             break;
                         }
                     case 0x0A: /* MAC Address */
+                    case 0x0B: /* Pseudo MAC Address */
                         proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd02_parameter_mac_address, tvb, offset, 6, ENC_NA);
                         break;
                     default:
@@ -3129,15 +3309,13 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
             break;
         case 0x03:
             {
-                int  framing_rtp    = 0;
-
                 while (length > 0) {
                     parameter_id     = tvb_get_guint8(tvb, offset);
                     parameter_length = tvb_get_ntohs(tvb, offset + 1);
 
                     ua3g_param_item = proto_tree_add_uint_format(ua3g_body_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter, tvb, offset,
                         parameter_length+3, parameter_id, "%s",
-                        val_to_str_const(parameter_id, cs_ip_device_routing_03_parameter_id_tab_vals, "Unknown"));
+                        val_to_str_const(parameter_id, cs_ip_device_routing_03_parameter_id_vals, "Unknown"));
                     ua3g_param_tree = proto_item_add_subtree(ua3g_param_item, ett_ua3g_param);
 
                     proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -3151,25 +3329,18 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
                     if (parameter_length > 0) {
                         switch (parameter_id) {
                         case 0x06: /* Type Of Equipment */
-                            proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip1, tvb, offset, 1, ENC_BIG_ENDIAN);
-                            proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip2, tvb, offset, 2, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip, tvb, offset, 2, ENC_BIG_ENDIAN);
                             break;
                         case 0x08: /* Local IP Address */
                         case 0x09: /* Distant IP Address */
-                        case 0x26: /* Firmware Version */
                             proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_ip, tvb, offset, 4, ENC_BIG_ENDIAN);
                             break;
-                        case 0x0A:
-                        case 0x0B:
+                        case 0x0A: /* Local ID */
+                        case 0x0B: /* Remote ID */
                             proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_string, tvb, offset, parameter_length, ENC_NA|ENC_ASCII);
                             break;
-                        case 0x0F: /* Default Codec */
-                            if (parameter_length <= 8) {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_default_codec, tvb, offset, parameter_length, ENC_BIG_ENDIAN);
-                            } else {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_default_codec, tvb, offset, 8, ENC_BIG_ENDIAN);
-                                /* XXX - add as expert info wmem_strbuf_append(strbuf, "Parameter Value Too Long (more than 64 bits)"); */
-                            }
+                        case 0x0F: /* Codec */
+                            proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_codec, tvb, offset, 1, ENC_BIG_ENDIAN);
                             break;
                         case 0x10: /* VAD */
                             proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_vad, tvb, offset, 1, ENC_NA);
@@ -3178,34 +3349,42 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
                             proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_ece, tvb, offset, 1, ENC_NA);
                             break;
                         case 0x12: /* Voice Mode */
-                            if (parameter_length <= 8) {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_voice_mode, tvb, offset, parameter_length, ENC_BIG_ENDIAN);
-                            } else {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_voice_mode, tvb, offset, 8, ENC_BIG_ENDIAN);
-                                /* XXX - add as expert info wmem_strbuf_append(strbuf, "Parameter Value Too Long (more than 64 bits)"); */
-                            }
+                            proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_voice_mode, tvb, offset, 1, ENC_BIG_ENDIAN);
                             break;
                         case 0x1B: /* Delay Distribution */
-                            for (i = 0; i < parameter_length; i += 2) {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_delay_distribution, tvb, offset+i, 2, ENC_BIG_ENDIAN);
+                            for (i = 0; i < parameter_length/2; i++) {
+                                guint   off = (offset + (i*2));
+                                guint16 val = tvb_get_ntohs(tvb, off);
+                                proto_tree_add_uint_format_value(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_delay_distribution, tvb, off,
+                                    2, val, "%s: %d", val_to_str_const(i, cs_ip_device_routing_delay_distribution_range_vals, "Unknown"), val);
                             }
                             break;
                         case 0x1E: /* Consecutive BFI */
-                            for (i = 0; i < parameter_length; i += 2) {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_consecutive_bfi, tvb, offset+i, 2, ENC_BIG_ENDIAN);
+                            for (i = 0; i < parameter_length/2; i++) {
+                                guint   off = (offset + (i*2));
+                                guint16 val = tvb_get_ntohs(tvb, off);
+                                proto_tree_add_uint_format_value(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_consecutive_bfi, tvb, off,
+                                    2, val, "%s: %d", val_to_str_const(i, cs_ip_device_routing_0_9_range_vals, "Unknown"), val);
                             }
                             break;
                         case 0x1F: /* BFI Distribution */
-                            for (i = 0; i < parameter_length; i += 2) {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_bfi_distribution, tvb, offset+i, 2, ENC_BIG_ENDIAN);
+                            for (i = 0; i < parameter_length/2; i++) {
+                                guint   off = (offset + (i*2));
+                                guint16 val = tvb_get_ntohs(tvb, off);
+                                proto_tree_add_uint_format_value(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_bfi_distribution, tvb, off,
+                                    2, val, "%s: %d", val_to_str_const(i, cs_ip_device_routing_bfi_distribution_range_vals, "Unknown"), val);
                             }
                             break;
                         case 0x20: /* Jitter Depth Distribution */
-                            for (i = 0; i < parameter_length / 4; i+=4) {
-                                proto_tree_add_uint_format_value(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_jitter_depth_distribution,
-                                        tvb, offset+i, 4, tvb_get_ntohl(tvb, offset+i), "+/- %3d ms: %d",
-                                        ((2 * i/4) + 1) * framing_rtp / 2, tvb_get_ntohl(tvb, offset+i));
+                            for (i = 0; i < parameter_length/4; i++) {
+                                guint   off = (offset + (i*4));
+                                guint32 val = tvb_get_ntohs(tvb, off);
+                                proto_tree_add_uint_format_value(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_jitter_depth_distribution, tvb, off,
+                                    2, val, "%s: %d", val_to_str_const(i, cs_ip_device_routing_0_9_range_vals, "Unknown"), val);
                             }
+                            break;
+                        case 0x26: /* Firmware Version */
+                            proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_firmware_version, tvb, offset, 2, ENC_BIG_ENDIAN);
                             break;
                         case 0x2E: /* 802.1 Q Used */
                             proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_8021Q_used, tvb, offset, 1, ENC_NA);
@@ -3220,21 +3399,21 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
                             proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_diffserv, tvb, offset, 1, ENC_BIG_ENDIAN);
                             break;
                         case 0x3D: /* 200 ms BFI Distribution */
-                            for (i = 0; i < parameter_length; i += 2) {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_bfi_distribution_200ms, tvb, offset+i, 2, ENC_BIG_ENDIAN);
+                            for (i = 0; i < parameter_length/2; i++) {
+                                guint   off = (offset + (i*2));
+                                guint16 val = tvb_get_ntohs(tvb, off);
+                                proto_tree_add_uint_format_value(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_bfi_distribution_200ms, tvb, off,
+                                    2, val, "%s: %d", val_to_str_const(i, cs_ip_device_routing_200ms_bfi_distribution_range_vals, "Unknown"), val);
                             }
                             break;
                         case 0x3E: /* Consecutive RTP Lost */
-                            for (i = 0; i < parameter_length; i += 2) {
-                                proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_consecutive_rtp_lost, tvb, offset+i, 2, ENC_BIG_ENDIAN);
+                            for (i = 0; i < parameter_length/2; i++) {
+                                guint   off = (offset + (i*2));
+                                guint16 val = tvb_get_ntohs(tvb, off);
+                                proto_tree_add_uint_format_value(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_consecutive_rtp_lost, tvb, off,
+                                    2, val, "%s: %d", val_to_str_const(i, cs_ip_device_routing_consecutive_rtp_lost_range_vals, "Unknown"), val);
                             }
                             break;
-                        case 0x14: /* Received Framing (ms) */
-                            {
-                                /* XXX: What is the point of this assignment? */
-                                framing_rtp = tvb_get_guint8(tvb, offset + 3);
-                            }
-                            /* FALLTHROUGH */
                         case 0x01: /* Date Of End Of Communication */
                         case 0x02: /* Node Number */
                         case 0x03: /* Ticket Protocol Version */
@@ -3242,6 +3421,7 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
                         case 0x0D: /* Local SSRC */
                         case 0x0E: /* Distant SSRC */
                         case 0x13: /* Transmitted Framing (ms) */
+                        case 0x14: /* Received Framing (ms) */
                         case 0x15: /* Framing Changes */
                         case 0x16: /* Number Of RTP Packets Received */
                         case 0x17: /* Number Of RTP Packets Sent */
@@ -3254,6 +3434,7 @@ decode_cs_ip_device_routing(proto_tree *tree _U_, tvbuff_t *tvb,
                         case 0x29: /* DSP Framing (ms) */
                         case 0x2A: /* Transmitter SID */
                         case 0x2D: /* Minimum Delay (ms) */
+                        case 0x37: /* Encryption */
                         default:
                             proto_tree_add_item(ua3g_param_tree, hf_ua3g_cs_ip_device_routing_cmd03_parameter_uint, tvb, offset, parameter_length, ENC_BIG_ENDIAN);
                             break;
@@ -3284,17 +3465,6 @@ static const value_string str_command_unsolicited_msg[] = {
     {0x07, "UA Device Event"},
     {0, NULL}
 };
-
-static const value_string str_unsolicited_msg_vta_type[] = {
-    {0x03, "4035"},
-    {0x04, "4020"},
-    {0x05, "4010"},
-    {0x20, "NOE A"},
-    {0x21, "NOE B"},
-    {0x22, "NOE C"},
-    {0x23, "NOE D"},
-    {0, NULL}
-};
 static const value_string str_unsolicited_msg_other_info_1[] = {
     {0x00, "Link Is TDM"},
     {0x01, "Link Is IP"},
@@ -3305,10 +3475,17 @@ static const value_string str_unsolicited_msg_other_info_2[] = {
     {0x01, "Download Refused"},
     {0, NULL}
 };
-static const value_string str_unsolicited_msg_hard_config_ip[] = {
-    {0x00, "Export Binary (No Thales)"},
-    {0x01, "Full Binary (Thales)"},
-    {0, NULL}
+static const true_false_string tfs_export_full = {
+    "Full (Thales)",
+    "Export (No Thales)"
+};
+static const true_false_string tfs_fast_gigabit = {
+    "Gigabit",
+    "Fast"
+};
+static const true_false_string tfs_2g_3g = {
+    "3G/80x8",
+    "2G/40x8"
 };
 static const value_string str_unsolicited_msg_hard_config_chip[] = {
     {0x01, "Ivanoe 1"},
@@ -3451,14 +3628,9 @@ decode_unsolicited_msg(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                         proto_tree_add_item(ua3g_body_tree, hf_ua3g_unsolicited_msg_hook_status, tvb, offset, 1, ENC_NA);
                         offset++;
                         length--;
-
                     }
                     break;
                 }
-            case 0x20:
-            case 0x21:
-            case 0x22:
-            case 0x23:
             default:
                 {
                     link = tvb_get_guint8(tvb, offset);
@@ -3481,12 +3653,22 @@ decode_unsolicited_msg(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                         offset++;
                         length--;
                     } else {
+                        static const int *hardware_config[] = {
+                            &hf_ua3g_unsolicited_msg_hardware_config_export_full,
+                            &hf_ua3g_unsolicited_msg_hardware_config_ethernet_hardware,
+                            &hf_ua3g_unsolicited_msg_hardware_config_extended_edition,
+                            &hf_ua3g_unsolicited_msg_hardware_config_wideband,
+                            &hf_ua3g_unsolicited_msg_hardware_config_3g_set,
+                            &hf_ua3g_unsolicited_msg_hardware_config_8082_set,
+                            &hf_ua3g_unsolicited_msg_hardware_config_super_wideband,
+                            NULL
+                        };
+
                         proto_tree_add_item(ua3g_body_tree, hf_ua3g_unsolicited_msg_other_information_2, tvb, offset, 1, ENC_BIG_ENDIAN);
                         offset++;
                         length--;
 
-                        proto_tree_add_item(ua3g_body_tree, hf_ua3g_unsolicited_msg_hardware_config_hard_config_ip,
-                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                        proto_tree_add_bitmask(ua3g_body_tree, tvb, offset, hf_ua3g_unsolicited_msg_hardware_config, ett_ua3g_param, hardware_config, ENC_NA);
                         offset++;
                         length--;
                     }
@@ -3507,10 +3689,28 @@ decode_unsolicited_msg(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                                 }
                             } else {
                                 proto_tree_add_item(ua3g_body_tree, hf_ua3g_unsolicited_msg_datas_version, tvb, offset, 2, ENC_BIG_ENDIAN);
+                                offset += 2;
+                                length -= 2;
 
-                                if (length > 2) {
+                                if (length >= 4) {
+                                    static const int *capability_info[] = {
+                                        &hf_ua3g_unsolicited_msg_capability_info_bluetooth_supported,
+                                        NULL
+                                    };
+
+
                                     proto_tree_add_item(ua3g_body_tree, hf_ua3g_unsolicited_msg_firmware_version_bootloader,
-                                        tvb, offset+2, 2, ENC_BIG_ENDIAN);
+                                            tvb, offset, 2, ENC_BIG_ENDIAN);
+                                    offset += 2;
+                                    length -= 2;
+
+                                    proto_tree_add_item(ua3g_body_tree, hf_ua3g_unsolicited_msg_additional_vta_type,
+                                            tvb, offset, 1, ENC_BIG_ENDIAN);
+                                    offset++;
+                                    length--;
+
+
+                                    proto_tree_add_bitmask(ua3g_body_tree, tvb, offset, hf_ua3g_unsolicited_msg_capability_info, ett_ua3g_param, capability_info, ENC_NA);
                                 }
                             }
                         }
@@ -4331,7 +4531,7 @@ proto_register_ua3g(void)
         { &hf_ua3g_subdevice_msg_subdev_address, { "Subdev Address", "ua3g.subdevice_msg.subdev_address", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_subdevice_msg_subdevice_opcode, { "Subdevice Opcode", "ua3g.subdevice_msg.subdevice_opcode", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_subdevice_msg_parameter_bytes, { "Parameter Bytes", "ua3g.subdevice_msg.parameter_bytes", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd00_vta_type, { "VTA Type", "ua3g.ip.cs.cmd00.vta_type", FT_UINT8, BASE_DEC, VALS(str_cs_ip_device_routing_vta_type), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd00_vta_type, { "VTA Type", "ua3g.ip.cs.cmd00.vta_type", FT_UINT8, BASE_HEX, VALS(str_vta_type), 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd00_characteristic_number, { "Characteristic Number", "ua3g.ip.cs.cmd00.characteristic_number", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd01_incident_0, { "Incident 0", "ua3g.ip.cs.cmd01.incident_0", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd02_parameter, { "Parameter", "ua3g.ip.cs.cmd02.parameter", FT_UINT8, BASE_HEX, VALS(ip_device_routing_cmd_get_param_req_vals), 0x0, NULL, HFILL }},
@@ -4340,7 +4540,7 @@ proto_register_ua3g(void)
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_length, { "Length", "ua3g.ip.cs.cmd03.parameter.length", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_unsolicited_msg_device_type, { "Device Type", "ua3g.unsolicited_msg.device_type", FT_UINT8, BASE_DEC, VALS(str_device_type), 0x0, NULL, HFILL }},
         { &hf_ua3g_unsolicited_msg_self_test_result, { "Self-Test Result", "ua3g.unsolicited_msg.self_test_result", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_unsolicited_msg_vta_type, { "VTA Type", "ua3g.unsolicited_msg.vta_type", FT_UINT8, BASE_DEC, VALS(str_unsolicited_msg_vta_type), 0x0, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_vta_type, { "VTA Type", "ua3g.unsolicited_msg.vta_type", FT_UINT8, BASE_HEX, VALS(str_vta_type), 0x0, NULL, HFILL }},
         { &hf_ua3g_unsolicited_msg_other_information, { "Other Information", "ua3g.unsolicited_msg.other_information", FT_UINT8, BASE_DEC, VALS(str_unsolicited_msg_other_info_2), 0x0, NULL, HFILL }},
         { &hf_ua3g_unsolicited_msg_other_information_1, { "Other Information 1", "ua3g.unsolicited_msg.other_information_1", FT_UINT8, BASE_DEC, VALS(str_unsolicited_msg_other_info_1), 0x0, NULL, HFILL }},
         { &hf_ua3g_unsolicited_msg_hardware_version, { "Hardware Version", "ua3g.unsolicited_msg.hardware_version", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
@@ -4373,9 +4573,12 @@ proto_register_ua3g(void)
         { &hf_ua3g_ip_device_routing_reset_parameter_value, { "Value", "ua3g.ip.reset.parameter.value", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_reset_parameter_cust_name, { "Cust_Name", "ua3g.ip.reset.parameter.cust_name", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_reset_parameter_l10n_name, { "L10N_Name", "ua3g.ip.reset.parameter.l10n_name", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_reset_parameter_appl_mode, { "Appl_Mode", "ua3g.ip.reset.parameter.appl_mode", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_reset_parameter_sip_name, { "SIP_Name", "ua3g.ip.reset.parameter.sip_name", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_reset_parameter_reset_mac, { "Reset Mac", "ua3g.ip.reset.parameter.reset_mac", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_start_rtp_parameter_value, { "Value", "ua3g.ip.start_rtp.parameter.value", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_start_rtp_parameter_ip, { "IP", "ua3g.ip.start_rtp.parameter.ip", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_ip_device_routing_start_rtp_parameter_compressor, { "Compressor", "ua3g.ip.start_rtp.parameter.compressor", FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(str_start_rtp_compressor), 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_start_rtp_parameter_compressor, { "Compressor", "ua3g.ip.start_rtp.parameter.compressor", FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(str_compressor_vals), 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_start_rtp_parameter_enabler, { "Enabler", "ua3g.ip.start_rtp.parameter.enabler", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_start_rtp_parameter_send_qos, { "Must Send QOS Tickets", "ua3g.ip.start_rtp.parameter.enabler", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_start_rtp_parameter_uint, { "Value", "ua3g.ip.start_rtp.parameter.uint", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
@@ -4392,14 +4595,27 @@ proto_register_ua3g(void)
         { &hf_ua3g_ip_device_routing_set_param_req_parameter_tftp_backup_ip, { "TFTP Backup IP", "ua3g.ip.set_param_req.parameter.tftp_backup_ip", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_set_param_req_parameter_uint, { "Value", "ua3g.ip.set_param_req.parameter.uint", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_set_param_req_parameter_err_string, { "Value", "ua3g.ip.set_param_req.parameter.err_string", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_ip_device_routing_set_param_req_parameter_compressor, { "Compressor", "ua3g.ip.set_param_req.parameter.compressor", FT_UINT8, BASE_DEC, VALS(str_set_param_req_compressor), 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_set_param_req_parameter_compressor, { "Compressor", "ua3g.ip.set_param_req.parameter.compressor", FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(str_compressor_vals), 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_set_param_req_parameter_set_pc_port_status, { "Set PC Port status", "ua3g.ip.set_param_req.parameter.set_pc_port_status", FT_UINT8, BASE_DEC, VALS(str_set_pc_port_status), 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_set_param_req_parameter_record_rtp_auth, { "Record RTP Authorization", "ua3g.ip.set_param_req.parameter.record_rtp_auth", FT_UINT8, BASE_DEC, VALS(str_enable_feature), 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_set_param_req_parameter_security_flag_filter, { "Filtering", "ua3g.ip.set_param_req.parameter.security_flag.filter", FT_BOOLEAN, 8, TFS(&tfs_active_inactive), 0x01, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_set_param_req_parameter_stable_mode, { "Stable Mode", "ua3g.ip.set_param_req.parameter.stable_mode", FT_UINT8, BASE_DEC, VALS(set_param_req_stable_mode), 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_set_param_req_parameter_skin_id, { "Skin Identifier", "ua3g.ip.set_param_req.parameter.skin_id", FT_UINT8, BASE_DEC, VALS(set_param_req_skin_id), 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_set_param_req_parameter_language_id, { "Language Identifier", "ua3g.ip.set_param_req.parameter.language_id", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_set_param_req_parameter_usb_boost, { "USB Boost", "ua3g.ip.set_param_req.parameter.usb_boost", FT_UINT8, BASE_DEC, VALS(set_param_req_usb_boost), 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_set_param_req_parameter_als_device, { "ALS Device", "ua3g.ip.set_param_req.parameter.als_device", FT_UINT8, BASE_DEC, VALS(set_param_req_local_device), 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_set_param_req_parameter_busy_light, { "Busy Light", "ua3g.ip.set_param_req.parameter.busy_light", FT_UINT8, BASE_DEC, VALS(set_param_req_local_device), 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_set_param_req_parameter_audio_env, { "Audio Env.", "ua3g.ip.set_param_req.parameter.audio_env", FT_UINT8, BASE_DEC, VALS(set_param_req_audio_env), 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_pause_restart_rtp_parameter_uint, { "Value", "ua3g.ip.pause_restart_rtp.parameter.uint", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_start_stop_record_rtp_parameter_value, { "Value", "ua3g.ip.start_stop_record_rtp.parameter.value", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_start_stop_record_rtp_parameter_remote_ip, { "Remote IP", "ua3g.ip.start_stop_record_rtp.parameter.remote_ip", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_ip_device_routing_start_stop_record_rtp_parameter_uint, { "Value", "ua3g.ip.start_stop_record_rtp.parameter.uint", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_freeseating_parameter, { "Parameter", "ua3g.ip.freeseating.parameter", FT_UINT8, BASE_HEX, VALS(ip_device_routing_cmd_freeseating_vals), 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_freeseating_parameter_length, { "Length", "ua3g.ip.freeseating.parameter.length", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_freeseating_parameter_value, { "Value", "ua3g.ip.freeseating.parameter.value", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_freeseating_parameter_uint, { "Value", "ua3g.ip.freeseating.parameter.uint", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_freeseating_parameter_mac, { "Value", "ua3g.ip.freeseating.parameter.mac", FT_ETHER, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_ip_device_routing_freeseating_parameter_ip, { "Value", "ua3g.ip.freeseating.parameter.ip", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_audio_config_dpi_chan_ua_tx1, { "UA Channel UA-TX1", "ua3g.command.audio_config.dpi_chan.ua_tx1", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_audio_config_dpi_chan_ua_tx2, { "UA Channel UA-TX2", "ua3g.command.audio_config.dpi_chan.ua_tx2", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_audio_config_dpi_chan_gci_tx1, { "GCI Channel GCI-TX1", "ua3g.command.audio_config.dpi_chan.gci_tx1", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
@@ -4447,8 +4663,18 @@ proto_register_ua3g(void)
         { &hf_ua3g_unsolicited_msg_hardware_config_hard_config_chip, { "Chip Id", "ua3g.unsolicited_msg.hardware_config.hard_config_chip", FT_UINT8, BASE_DEC, VALS(str_unsolicited_msg_hard_config_chip), 0x03, NULL, HFILL }},
         { &hf_ua3g_unsolicited_msg_hardware_config_hard_config_flash, { "Flash Size", "ua3g.unsolicited_msg.hardware_config.hard_config_flash", FT_UINT8, BASE_DEC, VALS(str_unsolicited_msg_hard_config_flash), 0x1C, NULL, HFILL }},
         { &hf_ua3g_unsolicited_msg_hardware_config_config_ram, { "External RAM Size", "ua3g.unsolicited_msg.hardware_config.config_ram", FT_UINT8, BASE_DEC, VALS(str_unsolicited_msg_hard_config_ram), 0xE0, NULL, HFILL }},
-        { &hf_ua3g_unsolicited_msg_hardware_config_hard_config_ip, { "Hardware Configuration", "ua3g.unsolicited_msg.hardware_config.ip", FT_UINT8, BASE_DEC, VALS(str_unsolicited_msg_hard_config_ip), 0x01, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_hardware_config, { "Hardware Configuration", "ua3g.unsolicited_msg.hardware_config", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_hardware_config_export_full, { "Binary Type", "ua3g.unsolicited_msg.hardware_config.export_full", FT_BOOLEAN, 8, TFS(&tfs_export_full), 0x01, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_hardware_config_ethernet_hardware, { "Ethernet Hardware", "ua3g.unsolicited_msg.hardware_config.ethernet_hardware", FT_BOOLEAN, 8, TFS(&tfs_fast_gigabit), 0x02, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_hardware_config_extended_edition, { "Extended Hardware", "ua3g.unsolicited_msg.hardware_config.extended_edition", FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x04, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_hardware_config_wideband, { "Wideband Support", "ua3g.unsolicited_msg.hardware_config.wideband", FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x08, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_hardware_config_3g_set, { "Hardware Generation", "ua3g.unsolicited_msg.hardware_config.3g_set", FT_BOOLEAN, 8, TFS(&tfs_2g_3g), 0x10, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_hardware_config_8082_set, { "8082 Hardware", "ua3g.unsolicited_msg.hardware_config.8082_set", FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x20, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_hardware_config_super_wideband, { "Super Wideband Support", "ua3g.unsolicited_msg.hardware_config.super_wideband", FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x40, NULL, HFILL }},
         { &hf_ua3g_unsolicited_msg_hook_status, { "Hook Status", "ua3g.unsolicited_msg.hook_status", FT_BOOLEAN, 8, TFS(&tfs_on_off), 0x00, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_additional_vta_type, { "Additional VTA Type", "ua3g.unsolicited_msg.additional_vta_type", FT_UINT8, BASE_HEX, VALS(str_additional_vta_type), 0x0, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_capability_info, { "Capability Info", "ua3g.unsolicited_msg.capability_info", FT_UINT8, BASE_HEX, NULL, 0x00, NULL, HFILL }},
+        { &hf_ua3g_unsolicited_msg_capability_info_bluetooth_supported, { "Bluetooth Supported", "ua3g.unsolicited_msg.capability_info.bluetooth_supported", FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x01, NULL, HFILL }},
         { &hf_ua3g_special_key_shift, { "Shift", "ua3g.special_key.shift", FT_BOOLEAN, 8, TFS(&tfs_released_pressed), 0x01, NULL, HFILL }},
         { &hf_ua3g_special_key_ctrl, { "Ctrl", "ua3g.special_key.ctrl", FT_BOOLEAN, 8, TFS(&tfs_released_pressed), 0x02, NULL, HFILL }},
         { &hf_ua3g_special_key_alt, { "Alt", "ua3g.special_key.alt", FT_BOOLEAN, 8, TFS(&tfs_released_pressed), 0x04, NULL, HFILL }},
@@ -4470,28 +4696,30 @@ proto_register_ua3g(void)
         { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_default_codec_bytes, { "Default Codec", "ua3g.ip.cs.cmd02.parameter.default_codec.bytes", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_default_codec_uint, { "Default Codec", "ua3g.ip.cs.cmd02.parameter.default_codec.uint", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_firmware_version, { "Firmware Version", "ua3g.ip.cs.cmd02.parameter.firmware_version", FT_UINT16, BASE_CUSTOM, CF_FUNC(version_number_computer), 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_speed, { "Port Lan Speed", "ua3g.ip.cs.cmd02.parameter.eth_driver_config.port_lan_speed", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_duplex, { "Port Lan Duplex", "ua3g.ip.cs.cmd02.parameter.eth_driver_config.port_lan_duplex", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_speed, { "Port PC Speed", "ua3g.ip.cs.cmd02.parameter.eth_driver_config.port_pc_speed", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_duplex, { "Port PC Duplex", "ua3g.ip.cs.cmd02.parameter.eth_driver_config.port_pc_duplex", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_tscip_version, { "Firmware Version", "ua3g.ip.cs.cmd02.parameter.tscip_version", FT_UINT24, BASE_CUSTOM, CF_FUNC(version_3bytes_computer), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_speed, { "Port Lan Speed", "ua3g.ip.cs.cmd02.parameter.eth_driver_config.port_lan_speed", FT_UINT8, BASE_DEC, VALS(str_ethernet_speed_vals), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_lan_duplex, { "Port Lan Duplex", "ua3g.ip.cs.cmd02.parameter.eth_driver_config.port_lan_duplex", FT_CHAR, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_speed, { "Port PC Speed", "ua3g.ip.cs.cmd02.parameter.eth_driver_config.port_pc_speed", FT_UINT8, BASE_DEC, VALS(str_ethernet_speed_vals), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd02_parameter_eth_driver_config_port_pc_duplex, { "Port PC Duplex", "ua3g.ip.cs.cmd02.parameter.eth_driver_config.port_pc_duplex", FT_CHAR, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_ip, { "IP", "ua3g.ip.cs.cmd03.parameter.ip", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_string, { "IP", "ua3g.ip.cs.cmd03.parameter.string", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip1, { "Type Of Equipment (first byte)", "ua3g.ip.cs.cmd03.parameter.type_of_equip1", FT_UINT8, BASE_DEC, VALS(cs_ip_device_routing_cmd03_first_byte_vals), 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip2, { "Type Of Equipment (second byte)", "ua3g.ip.cs.cmd03.parameter.type_of_equip2", FT_UINT16, BASE_DEC, VALS(cs_ip_device_routing_cmd03_second_byte_vals), 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_default_codec, { "Default Codec", "ua3g.ip.cs.cmd03.parameter.default_codec", FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(str_cs_ip_device_routing_0F_compressor), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_type_of_equip, { "Type Of Equipment", "ua3g.ip.cs.cmd03.parameter.type_of_equip", FT_UINT16, BASE_HEX, VALS(cs_ip_device_routing_cmd03_type_of_equip_vals), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_firmware_version, { "Firmware Version", "ua3g.ip.cs.cmd03.parameter.firmware_version", FT_UINT16, BASE_CUSTOM, CF_FUNC(version_number_computer), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_codec, { "Codec", "ua3g.ip.cs.cmd03.parameter.codec", FT_UINT8, BASE_HEX, VALS(str_cs_ip_device_routing_0F_compressor), 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_vad, { "VAD", "ua3g.ip.cs.cmd03.parameter.vad", FT_BOOLEAN, 8, TFS(&tfs_on_off), 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_ece, { "ECE", "ua3g.ip.cs.cmd03.parameter.ece", FT_BOOLEAN, 8, TFS(&tfs_on_off), 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_voice_mode, { "Voice Mode", "ua3g.ip.cs.cmd03.parameter.voice_mode", FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(cs_ip_device_routing_cmd03_voice_mode_vals), 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_delay_distribution, { "Delay Distribution", "ua3g.ip.cs.cmd03.parameter.delay_distribution", FT_UINT16, BASE_DEC, VALS(cs_ip_device_routing_delay_distribution_range_vals), 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_consecutive_bfi, { "Consecutive BFI", "ua3g.ip.cs.cmd03.parameter.consecutive_bfi", FT_UINT16, BASE_DEC, VALS(cs_ip_device_routing_consecutive_bfi_range_vals), 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_bfi_distribution, { "BFI Distribution", "ua3g.ip.cs.cmd03.parameter.bfi_distribution", FT_UINT16, BASE_DEC, VALS(cs_ip_device_routing_bfi_distribution_range_vals), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_voice_mode, { "Voice Mode", "ua3g.ip.cs.cmd03.parameter.voice_mode", FT_UINT8, BASE_HEX, VALS(cs_ip_device_routing_cmd03_voice_mode_vals), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_delay_distribution, { "Delay Distribution", "ua3g.ip.cs.cmd03.parameter.delay_distribution", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_consecutive_bfi, { "Consecutive BFI", "ua3g.ip.cs.cmd03.parameter.consecutive_bfi", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_bfi_distribution, { "BFI Distribution", "ua3g.ip.cs.cmd03.parameter.bfi_distribution", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_8021Q_used, { "802.1 Q Used", "ua3g.ip.cs.cmd03.parameter.8021Q_used", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_8021P_priority, { "802.1p Priority", "ua3g.ip.cs.cmd03.parameter.8021P_priority", FT_UINT8, BASE_DEC, NULL, 0x07, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_vlan_id, { "VLAN Id", "ua3g.ip.cs.cmd03.parameter.vlan_id", FT_UINT16, BASE_DEC, NULL, 0x0FFF, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_diffserv, { "DiffServ", "ua3g.ip.cs.cmd03.parameter.diffserv", FT_UINT8, BASE_DEC, NULL, 0xFC, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_bfi_distribution_200ms, { "200 ms BFI Distribution", "ua3g.ip.cs.cmd03.parameter.bfi_distribution_200ms", FT_UINT16, BASE_DEC, VALS(cs_ip_device_routing_200ms_bfi_distribution_range_vals), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_bfi_distribution_200ms, { "200 ms BFI Distribution", "ua3g.ip.cs.cmd03.parameter.bfi_distribution_200ms", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_uint, { "Value", "ua3g.ip.cs.cmd03.parameter.uint", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_consecutive_rtp_lost, { "Consecutive RTP Lost", "ua3g.ip.cs.cmd03.parameter.consecutive_rtp_lost", FT_UINT16, BASE_DEC, VALS(cs_ip_device_routing_consecutive_rtp_lost_range_vals), 0x0, NULL, HFILL }},
+        { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_consecutive_rtp_lost, { "Consecutive RTP Lost", "ua3g.ip.cs.cmd03.parameter.consecutive_rtp_lost", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_cs_ip_device_routing_cmd03_parameter_jitter_depth_distribution, { "Jitter Depth Distribution", "ua3g.ip.cs.cmd03.parameter.jitter_depth_distribution", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_subdevice_state, { "Subdevice State", "ua3g.subdevice_state", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_ua3g_special_key_param_dtmf, { "Parameters Received for DTMF", "ua3g.special_key.param_dtmf", FT_BOOLEAN, 8, TFS(&tfs_special_key_parameters), 0x02, NULL, HFILL }},

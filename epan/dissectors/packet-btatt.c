@@ -3234,7 +3234,7 @@ static const value_string user_control_point_response_value_vals[] = {
     { 0x02,   "Opcode not Supported"},
     { 0x03,   "Invalid Parameter"},
     { 0x04,   "Operation Failed"},
-    { 0x04,   "User not Authorized"},
+    { 0x05,   "User not Authorized"},
     {0x0, NULL}
 };
 
@@ -3635,14 +3635,18 @@ get_request(tvbuff_t *tvb, gint offset, packet_info *pinfo, guint8 opcode,
     request_data_t  *request_data;
     wmem_tree_key_t  key[4];
     wmem_tree_t     *sub_wmemtree;
-    gint             frame_number;
+    guint32          frame_number, curr_layer_num;
+
+    curr_layer_num = pinfo->curr_layer_num;
 
     key[0].length = 1;
     key[0].key    = &bluetooth_data->interface_id;
     key[1].length = 1;
     key[1].key    = &bluetooth_data->adapter_id;
-    key[2].length = 0;
-    key[2].key    = NULL;
+    key[2].length = 1;
+    key[2].key    = &curr_layer_num;
+    key[3].length = 0;
+    key[3].key    = NULL;
 
     frame_number = pinfo->num;
 
@@ -3741,20 +3745,23 @@ static void
 save_request(packet_info *pinfo, guint8 opcode, union request_parameters_union parameters,
         bluetooth_data_t *bluetooth_data)
 {
-    wmem_tree_key_t  key[4];
-    guint32          frame_number;
+    wmem_tree_key_t  key[5];
+    guint32          frame_number, curr_layer_num;
     request_data_t  *request_data;
 
     frame_number = pinfo->num;
+    curr_layer_num = pinfo->curr_layer_num;
 
     key[0].length = 1;
     key[0].key    = &bluetooth_data->interface_id;
     key[1].length = 1;
     key[1].key    = &bluetooth_data->adapter_id;
     key[2].length = 1;
-    key[2].key    = &frame_number;
-    key[3].length = 0;
-    key[3].key    = NULL;
+    key[2].key    = &curr_layer_num;
+    key[3].length = 1;
+    key[3].key    = &frame_number;
+    key[4].length = 0;
+    key[4].key    = NULL;
 
     request_data = wmem_new(wmem_file_scope(), request_data_t);
     request_data->opcode = opcode;
@@ -3990,9 +3997,10 @@ dissect_handle(proto_tree *tree, packet_info *pinfo, gint hf,
     characteristic_uuid = get_characteristic_uuid_from_handle(pinfo, (guint16) handle, bluetooth_data);
     attribute_uuid = get_uuid_from_handle(pinfo, (guint16) handle, bluetooth_data);
 
+    proto_item_append_text(handle_item, " (");
     if (memcmp(&service_uuid, &attribute_uuid, sizeof(attribute_uuid))) {
         if (service_uuid.size == 2 || service_uuid.size == 16) {
-            proto_item_append_text(handle_item, " (%s", print_uuid(&service_uuid));
+            proto_item_append_text(handle_item, "%s: ", print_uuid(&service_uuid));
             sub_tree = proto_item_add_subtree(handle_item, ett_btatt_handle);
 
             if (service_uuid.size == 2)
@@ -4002,13 +4010,11 @@ dissect_handle(proto_tree *tree, packet_info *pinfo, gint hf,
 
             PROTO_ITEM_SET_GENERATED(sub_item);
         }
-    } else {
-        proto_item_append_text(handle_item, " (");
     }
 
     if (memcmp(&characteristic_uuid, &attribute_uuid, sizeof(attribute_uuid))) {
         if (characteristic_uuid.size == 2 || characteristic_uuid.size == 16) {
-            proto_item_append_text(handle_item, ": %s", print_uuid(&characteristic_uuid));
+            proto_item_append_text(handle_item, "%s: ", print_uuid(&characteristic_uuid));
             sub_tree = proto_item_add_subtree(handle_item, ett_btatt_handle);
 
             if (characteristic_uuid.size == 2)
@@ -4020,10 +4026,7 @@ dissect_handle(proto_tree *tree, packet_info *pinfo, gint hf,
         }
     }
 
-    if (memcmp(&service_uuid, &attribute_uuid, sizeof(attribute_uuid)))
-        proto_item_append_text(handle_item, ": %s)", print_uuid(&attribute_uuid));
-    else
-        proto_item_append_text(handle_item, "%s)", print_uuid(&attribute_uuid));
+    proto_item_append_text(handle_item, "%s)", print_uuid(&attribute_uuid));
     if (attribute_uuid.size == 2 || attribute_uuid.size == 16) {
         sub_tree = proto_item_add_subtree(handle_item, ett_btatt_handle);
 
@@ -12140,12 +12143,12 @@ proto_register_btatt(void)
         },
         {&hf_btatt_glucose_measurement_type_and_sample_location_type,
             {"Type", "btatt.glucose_measurement.type_and_sample_location.type",
-            FT_UINT8, BASE_HEX, VALS(glucose_measurement_type_and_sample_location_type_vals), 0x0,
+            FT_UINT8, BASE_HEX, VALS(glucose_measurement_type_and_sample_location_type_vals), 0x0F,
             NULL, HFILL}
         },
         {&hf_btatt_glucose_measurement_type_and_sample_location_sample_location,
             {"Sample Location", "btatt.glucose_measurement.type_and_sample_location.sample_location",
-            FT_UINT8, BASE_HEX, VALS(glucose_measurement_type_and_sample_location_sample_location_vals), 0x0,
+            FT_UINT8, BASE_HEX, VALS(glucose_measurement_type_and_sample_location_sample_location_vals), 0xF0,
             NULL, HFILL}
         },
         {&hf_btatt_glucose_measurement_sensor_status_annunciation,
@@ -15123,12 +15126,12 @@ proto_register_btatt(void)
         },
         {&hf_request_in_frame,
             {"Request in Frame", "btatt.request_in_frame",
-            FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_RESPONSE), 0x0,
+            FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_REQUEST), 0x0,
             NULL, HFILL}
         },
         {&hf_response_in_frame,
             {"Response in Frame", "btatt.response_in_frame",
-            FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_REQUEST), 0x0,
+            FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_RESPONSE), 0x0,
             NULL, HFILL}
         },
     };

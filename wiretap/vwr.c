@@ -26,8 +26,8 @@
 
 #include "wtap-int.h"
 #include "file_wrappers.h"
-#include "vwr.h"
 
+#include "vwr.h"
 
 /* platform-specific definitions for portability */
 
@@ -64,6 +64,7 @@
 #define B_SIZE      32768                           /* max var len message = 32 kB */
 #define VT_FRAME    0                               /* varlen msg is a frame */
 #define VT_CPMSG    1                               /* varlen msg is a CP<->PP msg */
+#define VT_UNKNOWN -1                               /* varlen msg is unknown */
 #define MAX_TRACKED_CLIENTS 1024                    /* track 1024 clients */
 #define MAX_TRACKED_FLOWS   65536                   /* and 64K flows */
 
@@ -79,17 +80,114 @@
 #define VW_RECORD_HEADER_LENGTH 16
 
 /* Command byte values */
-#define COMMAND_RX  0x21
-#define COMMAND_TX  0x31
+#define COMMAND_RX   0x21
+#define COMMAND_TX   0x31
+#define COMMAND_RFN  0x30
+#define COMMAND_RF   0x38
+#define COMMAND_RFRX 0x39
 
-/* the metadata headers */
+/*
+ * The data in packet records begins with a sequence of metadata headers.
+ *
+ * For packet records from FPGA versions < 48:
+ *
+ *    The first header is the IxVeriWave common header, and that's
+ *    followed either by a WLAN metadata header or an Ethernet
+ *    metadata header.  The port type field indicates whether it's
+ *    a WLAN packet or an Ethernet packet.  Following that may, for
+ *    WLAN, be 1 octet of information from the FPGA and 16 bytes of
+ *    data including the PLCP header.  After that comes the WLAN or
+ *    Ethernet frame, beginning with the MAC header.
+ *
+ * For packet records from FPGA versions >= 48:
+ *
+ *    The first header contains only a 1-octet port type value, which
+ *    has a packet type value in the upper 4 bits and zero in the lower
+ *    4 bits.  NOTE: this is indistinguishable from an old FPGA header
+ *    if the packet type value is 0.
+ *
+ *    If the packet type value isn't 3, the port type value is followed
+ *    by a 1-octet FPGA version number, which is followed by a timestamp
+ *    header.
+ *
+ *    If the packet type value is 3 or 4, the next item is an RF metadata
+ *    header.  For type 3, that immediately follows the port number octet,
+ *    otherwise it immediately follows the timestamp header.
+ *
+ *    If the packet type isn't 3, the next item is a WLAN metadata header,
+ *    in a format different from the WLAN metadata header for FPGA versions
+ *    < 48.  That is followed by a PLCP header, which is followed by a
+ *    header giving additional layer 2 through 4 metadata.
+ *
+ * Following those headers is the WLAN or Ethernet frame, beginning with
+ * the MAC header.
+ */
 
-/* Size of the IxVeriwave common header */
-#define STATS_COMMON_FIELDS_LEN (2+2+2+4+2+2+4+4+8+8+4)
+/*
+ * IxVeriWave common header:
+ *
+ * 1 octet - port type
+ * 1 octet - FPGA version, or 0
+ * 2 octets - length of the common header
+ * 2 octets - MSDU length
+ * 4 octets - flow ID
+ * 2 octets - VC ID
+ * 2 octets - flow sequence number
+ * 4 octets - latency or 0
+ * 4 octets - lower 32 bits of signature time stamp
+ * 8 octets - start time
+ * 8 octets - end time
+ * 4 octets - delta(?) time
+ */
+
+/* Size of the IxVeriWave common header */
+#define STATS_COMMON_FIELDS_LEN (1+1+2+2+4+2+2+4+4+8+8+4)
+
+/* Port type */
+#define WLAN_PORT               0
+#define ETHERNET_PORT           1
 
 /* For VeriWave WLAN and Ethernet metadata headers vw_flags field */
 #define VW_FLAGS_TXF        0x01                /* frame was transmitted */
 #define VW_FLAGS_FCSERR     0x02                /* FCS error detected */
+
+/*
+ * VeriWave WLAN metadata header:
+ *
+ * 2 octets - header length
+ * 2 octets - rflags
+ * 2 octets - channel flags
+ * 2 octets - PHY rate
+ * 1 octet - PLCP type
+ * 1 octet - MCS index
+ * 1 octet - number of spatial streams
+ * 1 octet - RSSI
+ * 1 octet - antenna b signal power, or 100 if missing
+ * 1 octet - antenna c signal power, or 100 if missing
+ * 1 octet - antenna d signal power, or 100 if missing
+ * 1 octet - padding
+ * 2 octets - VeriWave flags
+ * 2 octets - HT len
+ * 2 octets - info
+ * 2 octets - errors
+ */
+
+/* Size of the VeriWave WLAN metadata header */
+#define EXT_WLAN_FIELDS_LEN (2+2+2+2+1+1+1+1+1+1+1+1+2+2+2+4)
+
+/* Flags, for rflags field */
+#define FLAGS_SHORTPRE      0x0002              /* sent/received with short preamble */
+#define FLAGS_WEP           0x0004              /* sent/received with WEP encryption */
+#define FLAGS_CHAN_HT       0x0040              /* In HT mode */
+#define FLAGS_CHAN_VHT      0x0080              /* VHT Mode */
+#define FLAGS_CHAN_SHORTGI  0x0100              /* Short guard interval */
+#define FLAGS_CHAN_40MHZ    0x0200              /* 40 Mhz channel bandwidth */
+#define FLAGS_CHAN_80MHZ    0x0400              /* 80 Mhz channel bandwidth */
+#define FLAGS_CHAN_160MHZ   0x0800              /* 160 Mhz channel bandwidth */
+
+/* Channel flags, for channel flags field */
+#define CHAN_CCK            0x0020              /* CCK channel */
+#define CHAN_OFDM           0x0040              /* OFDM channel */
 
 /* For VeriWave WLAN metadata header vw_flags field */
 #define VW_FLAGS_RETRERR    0x04                /* excess retry error detected */
@@ -100,28 +198,102 @@
 #define VW_FLAGS_IS_TKIP    0x40                /* TKIP */
 #define VW_FLAGS_IS_CCMP    0x60                /* CCMP */
 
-/* Veriwave WLAN metadata header */
-
-/* Channel flags, for chanflags field */
-#define CHAN_CCK            0x0020              /* CCK channel */
-#define CHAN_OFDM           0x0040              /* OFDM channel */
-
-/* Flags, for flags field */
-#define FLAGS_SHORTPRE      0x0002              /* sent/received with short preamble */
-#define FLAGS_WEP           0x0004              /* sent/received with WEP encryption */
-#define FLAGS_FCS           0x0010              /* frame includes FCS */
-#define FLAGS_CHAN_HT       0x0040              /* In HT mode */
-#define FLAGS_CHAN_VHT      0x0080              /* VHT Mode */
-#define FLAGS_CHAN_SHORTGI  0x0100              /* Short guard interval */
-#define FLAGS_CHAN_40MHZ    0x0200              /* 40 Mhz channel bandwidth */
-#define FLAGS_CHAN_80MHZ    0x0400              /* 80 Mhz channel bandwidth */
-#define FLAGS_CHAN_160MHZ   0x0800              /* 160 Mhz channel bandwidth */
-
-/* Size of the VeriWave WLAN metadata header */
-#define EXT_WLAN_FIELDS_LEN (2+2+2+2+1+1+1+1+1+1+1+1+2+2+2+4)
+/*
+ * VeriWave Ethernet metadata header:
+ *
+ * 2 octets - header length
+ * 2 octets - VeriWave flags
+ * 2 octets - info
+ * 4 octets - errors
+ * 4 octets - layer 4 ID
+ * 4 octets - pad
+ *
+ * Ethernet frame follows, beginning with the MAC header
+ */
 
 /* Size of the VeriWave Ethernet metadata header */
 #define EXT_ETHERNET_FIELDS_LEN (2+2+2+4+4+4)
+
+/*
+ * OCTO timestamp header.
+ *
+ * 4 octets - latency or 0
+ * 4 octets - lower 32 bits of signature time stamp
+ * 8 octets - start time
+ * 8 octets - end time
+ * 4 octets - delta(?) time
+ */
+
+/* Size of Timestamp header */
+#define OCTO_TIMESTAMP_FIELDS_LEN   (4+4+8+8+4+4)
+
+/*
+ * OCTO layer 1-4 header:
+ *
+ * 2 octets - header length
+ * 1 octet - l1p_1
+ * 1 octet - number of spatial streams
+ * 2 octets - PHY rate
+ * 1 octet - l1p_2
+ * 1 octet - RSSI
+ * 1 octet - antenna b signal power, or 100 if missing
+ * 1 octet - antenna c signal power, or 100 if missing
+ * 1 octet - antenna d signal power, or 100 if missing
+ * 1 octet - signal bandwidth mask
+ * 1 octet - antenna port energy detect and VU_MASK
+ * 1 octet - L1InfoC or 0
+ * 2 octets - MSDU length
+ * 16 octets - PLCP?
+ * 4 octets - BM, BV, CV, BSSID and ClientID
+ * 2 octets - FV, QT, HT, L4V, TID and WLAN type
+ * 1 octets - flow sequence number
+ * 3 octets - flow ID
+ * 2 octets - layer 4 ID
+ * 4 octets - payload decode
+ * 3 octets - info
+ * 4 octets - errors
+ */
+
+/* Size of Layer-1, PLCP, and Layer-2/4 header incase of OCTO version FPGA */
+#define OCTO_LAYER1TO4_LEN          (2+14+16+23)
+
+/*
+ * OCTO modified RF layer:
+ *
+ * 1 octet - RF ID
+ * 3 octets - unused (zero)
+ * 8 octets - noise for 4 ports
+ * 8 octets - signal/noise ration for 4 ports
+ * 8 octets - PFE for 4 ports
+ * 8 octets - EVM SIG data for 4 ports
+ * 8 octets - EVM SIG pilot for 4 ports
+ * 8 octets - EVM Data data for 4 ports
+ * 8 octets - EVM Data pilot for 4 ports
+ * 8 octets - EVM worst symbol for 4 ports
+ * 8 octets - CONTEXT_P for 4 ports
+ *
+ * Not supplied:
+ * 24 octets of additional data
+ */
+
+/* Size of RF header, if all fields were supplied */
+#define OCTO_RF_MOD_ACTUAL_LEN      100             /* */
+
+/* Size of RF header with the fields we do supply */
+#define OCTO_MODIFIED_RF_LEN        76              /* 24 bytes of RF are not displayed*/
+
+/*Offset of differnt parameters of RF header for port-1*/
+#define RF_PORT_1_NOISE_OFF         4
+#define RF_PORT_1_SNR_OFF           6
+#define RF_PORT_1_PFE_OFF           8
+#define RF_PORT_1_CONTEXT_OFF       10
+#define RF_PORT_1_EVM_SD_SIG_OFF    12
+#define RF_PORT_1_EVM_SP_SIG_OFF    14
+#define RF_PORT_1_EVM_SD_DATA_OFF   16
+#define RF_PORT_1_EVM_SP_DATA_OFF   18
+#define RF_PORT_1_DSYMBOL_IDX_OFF   22
+#define RF_INTER_PORT_GAP_OFF       24              /*As size of RF information per port is 24 bytes*/
+#define RF_NUMBER_OF_PORTS          4
 
 /* FPGA-generated frame buffer STATS block offsets and definitions */
 
@@ -168,17 +340,18 @@
 
 #define v22_E_FLOW_VALID          0x40              /* flow-is-valid flag (else force to 0) */
 
-#define v22_E_DIFFERENTIATOR_MASK 0X3F              /* mask to differentiate ethernet from */
+#define v22_E_DIFFERENTIATOR_MASK 0x3F              /* mask to differentiate ethernet from */
 
 /* Bits in FRAME_TYPE field */
-#define v22_E_IS_TCP              0x00000040        /* TCP */
-#define v22_E_IS_UDP              0x00000010        /* UDP */
-#define v22_E_IS_ICMP             0x00000020        /* ICMP */
-#define v22_E_IS_IGMP             0x00000080        /* IGMP */
+#define v22_E_IS_TCP              0x00000040        /* TCP bit in FRAME_TYPE field */
+#define v22_E_IS_UDP              0x00000010        /* UDP bit in FRAME_TYPE field */
+#define v22_E_IS_ICMP             0x00000020        /* ICMP bit in FRAME_TYPE field */
+#define v22_E_IS_IGMP             0x00000080        /* IGMP bit in FRAME_TYPE field */
 
+/* Bits in MTYPE field (WLAN only) */
 #define v22_E_IS_QOS              0x80              /* QoS bit in MTYPE field (WLAN only) */
-#define v22_E_IS_VLAN             0x00200000
 
+#define v22_E_IS_VLAN             0x00200000
 
 #define v22_E_RX_DECRYPTS   0x0007                  /* RX-frame-was-decrypted (UNUSED) */
 #define v22_E_TX_DECRYPTS   0x0007                  /* TX-frame-was-decrypted (UNUSED) */
@@ -211,20 +384,19 @@
 
 #define v22_W_PLCP_LENGTH_OFF     4                 /* LENGTH field in the plcp header */
 
-
 /* Modulation types */
 #define v22_W_MT_CCKL       0                       /* CCK modulation, long preamble */
 #define v22_W_MT_CCKS       1                       /* CCK modulation, short preamble */
 #define v22_W_MT_OFDM       2                       /* OFDM modulation */
 
 /* Bits in FRAME_TYPE field */
-#define v22_W_IS_TCP            0x00000040                  /* TCP */
-#define v22_W_IS_UDP            0x00000010                  /* UDP */
-#define v22_W_IS_ICMP           0x00000020                  /* ICMP */
-#define v22_W_IS_IGMP           0x00000080                  /* IGMP */
+#define v22_W_IS_TCP            0x00000040          /* TCP bit in FRAME_TYPE field */
+#define v22_W_IS_UDP            0x00000010          /* UDP bit in FRAME_TYPE field */
+#define v22_W_IS_ICMP           0x00000020          /* ICMP bit in FRAME_TYPE field */
+#define v22_W_IS_IGMP           0x00000080          /* IGMP bit in FRAME_TYPE field */
 
 /* Bits in MTYPE field (WLAN only) */
-#define v22_W_IS_QOS            0x80                        /* QoS */
+#define v22_W_IS_QOS            0x80                /* QoS */
 
 /* Error flags */
 #define v22_W_FCS_ERROR     0x0002                  /* FCS error flag in error vector */
@@ -241,7 +413,7 @@
 
 #define v22_W_FLOW_VALID    0x40                    /* flow-is-valid flag (else force to 0) */
 
-#define v22_W_DIFFERENTIATOR_MASK 0Xf0ff            /* mask to differentiate ethernet from */
+#define v22_W_DIFFERENTIATOR_MASK 0xf0ff            /* mask to differentiate ethernet from */
                                                     /* 802.11 capture */
 
 #define v22_W_RX_DECRYPTS   0x0007                  /* RX-frame-was-decrypted bits */
@@ -324,7 +496,9 @@
 #define vVW510021_W_QOS_VALID           0x4000
 #define vVW510021_W_HT_VALID            0x2000
 #define vVW510021_W_L4ID_VALID          0x1000
+#define vVW510021_W_MCS_MASK            0x3f        /* mcs index (a/b) type mask */
 #define vVW510021_W_MOD_SCHEME_MASK     0x3f        /* modulation type mask */
+#define vVW510021_W_PLCPC_MASK          0x03        /* PLPCP type mask */
 #define vVW510021_W_SEL_MASK            0x80
 #define vVW510021_W_WEP_MASK            0x0001
 #define vVW510021_W_CBW_MASK            0xC0
@@ -344,9 +518,45 @@
 
 /* Series II */
 
-#define vVW510021_W_S2_MCS_INDEX(l1p_1) ((l1p_1) & 0x3f) /* MCS index */
+/*
+ * Pre-HT - contains rate index.
+ */
+#define vVW510021_W_S2_RATE_INDEX(l1p_1) ((l1p_1) & 0x3f) /* rate index for pre-HT */
+
+/*
+ * HT - contains MCS index.
+ *
+ * XXX - MCS indices for HT go up to 76, which doesn't fit in 6 bits;
+ * either the mask is wrong, or the hardware can't receive packets
+ * with an MCS of 64 through 76, or the hardware can but misreports
+ * the MCS.
+ */
+#define vVW510021_W_S2_MCS_INDEX_HT(l1p_1) ((l1p_1) & 0x3f)
+
+/*
+ * VHT - contains MCS index and number of spatial streams.
+ * The number of spatial streams from the FPGA is zero-based, so we add
+ * 1 to it.
+ */
+#define vVW510021_W_S2_MCS_INDEX_VHT(l1p_1) ((l1p_1) & 0x0f) /* MCS index for VHT */
+#define vVW510021_W_S2_NSS_VHT(l1p_1)       (((l1p_1) >> 4) + 1) /* NSS */
 
 /* Series III */
+
+/*
+ * Pre-HT - contains rate index.
+ */
+#define vVW510021_W_S3_RATE_INDEX(l1p_1)  ((l1p_1) & 0x3f)
+
+/*
+ * HT - contains MCS index.
+ *
+ * XXX - MCS indices for HT go up to 76, which doesn't fit in 6 bits;
+ * either the mask is wrong, or the hardware can't receive packets
+ * with an MCS of 64 through 76, or the hardware can but misreports
+ * the MCS.
+ */
+#define vVW510021_W_S3_MCS_INDEX_HT(l1p_1)  ((l1p_1) & 0x3f)
 
 /*
  * VHT - contains MCS index and number of spatial streams.
@@ -354,12 +564,7 @@
  * 1 to it.
  */
 #define vVW510021_W_S3_MCS_INDEX_VHT(l1p_1) ((l1p_1) & 0x0f) /* MCS index */
-#define vVW510021_W_S3_NSS_VHT(l1p_1)       (((l1p_1) >> 4 & 0x3) + 1) /* NSS */
-
-/*
- * HT - contains MCS index
- */
-#define vVW510021_W_S3_MCS_INDEX_HT(l1p_1)  ((l1p_1) & 0x3f)
+#define vVW510021_W_S3_NSS_VHT(l1p_1)       ((((l1p_1) >> 4) & 0x03) + 1) /* NSS */
 
 /* L1p byte 2 info */
 
@@ -385,7 +590,6 @@
 #define vVW510021_W_IS_ICMP         0x00001000      /* ICMP */
 #define vVW510021_W_IS_IGMP         0x00010000      /* IGMP */
 
-
 #define vVW510021_W_HEADER_VERSION      0x00
 #define vVW510021_W_DEVICE_TYPE         0x15
 #define vVW510021_W_11n_DEVICE_TYPE     0x20
@@ -397,7 +601,9 @@
 
 #define vVW510021_W_CRYPTO_ERROR        0x50000
 
-/* Info bits are the same as for the VWS10006 FPGA */
+#define vVW510021_W_WEPTYPE             0x0001      /* WEP frame */
+#define vVW510021_W_TKIPTYPE            0x0002      /* TKIP frame */
+#define vVW510021_W_CCMPTYPE            0x0004      /* CCMP frame */
 
 /* definitions for VW510024 FPGA, wired ethernet format */
 /* FORMAT:
@@ -438,14 +644,13 @@
 #define vVW510024_E_QOS_VALID           0x0000                  /** not valid for ethernet **/
 #define vVW510024_E_L4ID_VALID          0x1000
 #define vVW510024_E_CBW_MASK            0xC0
-
-#define vVW510024_E_VCID_MASK           0x3fff                  /* VCID is only 14 bits */
+#define vVW510024_E_VCID_MASK           0x3FFF                  /* VCID is only 14 bits */
 
 #define vVW510024_E_IS_TCP          0x01000000                  /* TCP bit in FRAME_TYPE field */
 #define vVW510024_E_IS_UDP          0x00100000                  /* UDP bit in FRAME_TYPE field */
 #define vVW510024_E_IS_ICMP         0x00001000                  /* ICMP bit in FRAME_TYPE field */
 #define vVW510024_E_IS_IGMP         0x00010000
-#define vVW510024_E_IS_VLAN         0x4000
+#define vVW510024_E_IS_VLAN         0x00004000
 
 #define vVW510024_E_HEADER_VERSION      0x00
 #define vVW510024_E_DEVICE_TYPE         0x18
@@ -540,6 +745,7 @@ typedef struct {
     guint32      MT_CCKL;                        /* CCK modulation, long preamble */
     guint32      MT_CCKS;                        /* CCK modulation, short preamble */
     guint32      MT_OFDM;                        /* OFDM modulation */
+    guint32      MCS_INDEX_MASK;                 /* mcs index type mask */
     guint32      FPGA_VERSION;
     guint32      WEPTYPE;                        /* frame is WEP */
     guint32      TKIPTYPE;                       /* frame is TKIP */
@@ -551,10 +757,27 @@ typedef struct {
     guint16      IS_QOS;
     guint32      IS_VLAN;
     guint32      MPDU_OFF;
+    guint32      OCTO_VERSION;
 } vwr_t;
 
+/*
+ * NSS for various MCS values.
+ */
+#define MAX_HT_MCS 76
+static guint nss_for_mcs[MAX_HT_MCS+1] = {
+        1, 1, 1, 1, 1, 1, 1, 1,                               /* 0-7 */
+        2, 2, 2, 2, 2, 2, 2, 2,                               /* 8-15 */
+        3, 3, 3, 3, 3, 3, 3, 3,                               /* 16-23 */
+        4, 4, 4, 4, 4, 4, 4, 4,                               /* 24-31 */
+        1,                                                    /* 32 */
+        2, 2, 2, 2, 2, 2,                                     /* 33-38 */
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,             /* 39-52 */
+        4, 4, 4, 4, 4, 4,                                     /* 53-58 */
+        4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4  /* 59-76 */
+};
+
 /* internal utility functions */
-static int          decode_msg(register guint8 *, int *, int *);
+static int          decode_msg(vwr_t *vwr, register guint8 *, int *, int *, int *);
 static guint8       get_ofdm_rate(const guint8 *);
 static guint8       get_cck_rate(const guint8 *plcp);
 static void         setup_defaults(vwr_t *, guint16);
@@ -563,26 +786,32 @@ static gboolean     vwr_read(wtap *, int *, gchar **, gint64 *);
 static gboolean     vwr_seek_read(wtap *, gint64, struct wtap_pkthdr *phdr,
                                   Buffer *, int *, gchar **);
 
-static gboolean     vwr_read_rec_header(FILE_T, int *, int *, int *, gchar **);
+static gboolean     vwr_read_rec_header(vwr_t *, FILE_T, int *, int *, int *, int *, gchar **);
 static gboolean     vwr_process_rec_data(FILE_T fh, int rec_size,
                                          struct wtap_pkthdr *phdr, Buffer *buf,
-                                         vwr_t *vwr, int IS_TX, int *err,
+                                         vwr_t *vwr, int IS_TX, int log_mode, int *err,
                                          gchar **err_info);
 
 static int          vwr_get_fpga_version(wtap *, int *, gchar **);
 
 static gboolean     vwr_read_s1_W_rec(vwr_t *, struct wtap_pkthdr *, Buffer *,
                                       const guint8 *, int, int *, gchar **);
-static gboolean     vwr_read_s2_s3_W_rec(vwr_t *, struct wtap_pkthdr *, Buffer *,
-                                         const guint8 *, int, int, int *,
-                                         gchar **);
+static gboolean     vwr_read_s2_W_rec(vwr_t *, struct wtap_pkthdr *, Buffer *,
+                                      const guint8 *, int, int, int *,
+                                      gchar **);
+/* For FPGA version >= 48 (OCTO Platform), following function will be used */
+static gboolean     vwr_read_s3_W_rec(vwr_t *, struct wtap_pkthdr *, Buffer *,
+                                      const guint8 *, int, int, int, int *,
+                                      gchar **);
 static gboolean     vwr_read_rec_data_ethernet(vwr_t *, struct wtap_pkthdr *,
                                                Buffer *, const guint8 *, int,
                                                int, int *, gchar **);
 
 static int          find_signature(const guint8 *, int, int, register guint32, register guint8);
 static guint64      get_signature_ts(const guint8 *, int);
-static float        getRate( guint8 plcpType, guint8 mcsIndex, guint16 rflags, guint8 nss );
+static float        get_legacy_rate(guint8);
+static float        get_ht_rate(guint8, guint16);
+static float        get_vht_rate(guint8, guint16, guint8);
 
 /* Open a .vwr file for reading */
 /* This does very little, except setting the wiretap header for a VWR file type */
@@ -637,10 +866,10 @@ wtap_open_return_val vwr_open(wtap *wth, int *err, gchar **err_info)
 static gboolean vwr_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
 {
     vwr_t *vwr      = (vwr_t *)wth->priv;
-    int    rec_size = 0, IS_TX;
+    int    rec_size = 0, IS_TX, log_mode;
 
     /* read the next frame record header in the capture file; if no more frames, return */
-    if (!vwr_read_rec_header(wth->fh, &rec_size, &IS_TX, err, err_info))
+    if (!vwr_read_rec_header(vwr, wth->fh, &rec_size, &IS_TX, &log_mode, err, err_info))
         return FALSE;                                   /* Read error or EOF */
 
     /*
@@ -651,7 +880,7 @@ static gboolean vwr_read(wtap *wth, int *err, gchar **err_info, gint64 *data_off
 
     /* got a frame record; read and process it */
     if (!vwr_process_rec_data(wth->fh, rec_size, &wth->phdr,
-                              wth->frame_buffer, vwr, IS_TX, err, err_info))
+                              wth->frame_buffer, vwr, IS_TX, log_mode, err, err_info))
        return FALSE;
 
     /* If the per-file encapsulation isn't known, set it to this packet's encapsulation. */
@@ -674,18 +903,18 @@ static gboolean vwr_seek_read(wtap *wth, gint64 seek_off,
     struct wtap_pkthdr *phdr, Buffer *buf, int *err, gchar **err_info)
 {
     vwr_t *vwr = (vwr_t *)wth->priv;
-    int    rec_size, IS_TX;
+    int    rec_size, IS_TX, log_mode;
 
     /* first seek to the indicated record header */
     if (file_seek(wth->random_fh, seek_off, SEEK_SET, err) == -1)
         return FALSE;
 
     /* read in the record header */
-    if (!vwr_read_rec_header(wth->random_fh, &rec_size, &IS_TX, err, err_info))
+    if (!vwr_read_rec_header(vwr, wth->random_fh, &rec_size, &IS_TX, &log_mode, err, err_info))
         return FALSE;                                  /* Read error or EOF */
 
     return vwr_process_rec_data(wth->random_fh, rec_size, phdr, buf,
-                                vwr, IS_TX, err, err_info);
+                                vwr, IS_TX, log_mode, err, err_info);
 }
 
 /* Scan down in the input capture file to find the next frame header.       */
@@ -693,7 +922,7 @@ static gboolean vwr_seek_read(wtap *wth, gint64 seek_off,
 /* Return TRUE on success, FALSE on EOF or error.                           */
 /* Also return the frame size in bytes and the "is transmitted frame" flag. */
 
-static gboolean vwr_read_rec_header(FILE_T fh, int *rec_size, int *IS_TX, int *err, gchar **err_info)
+static gboolean vwr_read_rec_header(vwr_t *vwr, FILE_T fh, int *rec_size, int *IS_TX, int *log_mode, int *err, gchar **err_info)
 {
     int     f_len, v_type;
     guint8  header[VW_RECORD_HEADER_LENGTH];
@@ -713,7 +942,7 @@ static gboolean vwr_read_rec_header(FILE_T fh, int *rec_size, int *IS_TX, int *e
         /* If the function returns a length, then a frame or variable-length message */
         /*  follows the 16-byte message.                                             */
         /* If the variable length message is not a frame, simply skip over it.       */
-        if ((f_len = decode_msg(header, &v_type, IS_TX)) != 0) {
+        if ((f_len = decode_msg(vwr, header, &v_type, IS_TX, log_mode)) != 0) {
             if (f_len > B_SIZE) {
                 *err = WTAP_ERR_BAD_FILE;
                 *err_info = g_strdup_printf("vwr: Invalid message record length %d", f_len);
@@ -744,7 +973,7 @@ static int vwr_get_fpga_version(wtap *wth, int *err, gchar **err_info)
     guint8  *s_510006_ptr = NULL;
     guint8  *s_510024_ptr = NULL;
     guint8  *s_510012_ptr = NULL; /* stats pointers */
-    gint64   filePos;
+    gint64   filePos      = -1;
     guint32  frame_type   = 0;
     int      f_len, v_type;
     guint16  data_length  = 0;
@@ -771,7 +1000,7 @@ static int vwr_get_fpga_version(wtap *wth, int *err, gchar **err_info)
         /* If the function returns a length, then a frame or variable-length message */
         /*  follows the 16-byte message.                                             */
         /* If the variable length message is not a frame, simply skip over it.       */
-        if ((f_len = decode_msg(header, &v_type, NULL)) != 0) {
+        if ((f_len = decode_msg(NULL, header, &v_type, NULL, NULL)) != 0) {
             if (f_len > B_SIZE) {
                 g_free(rec);
                 /* Treat this here as an indication that the file probably */
@@ -796,7 +1025,6 @@ static int vwr_get_fpga_version(wtap *wth, int *err, gchar **err_info)
                         return UNKNOWN_FPGA; /* short read - not a vwr file */
                     return -1;
                 }
-
 
                 /*  I'll grab the bytes where the Ethernet "octets" field should be and the bytes where */
                 /*   the 802.11 "octets" field should be. Then if I do rec_size - octets -              */
@@ -866,6 +1094,7 @@ static int vwr_get_fpga_version(wtap *wth, int *err, gchar **err_info)
                     if (rec_size == (data_length + vVW510024_E_STATS_LEN + i))
                         fpga_version = vVW510024_E_FPGA;
                 }
+
                 if (fpga_version != 1000)
                 {
                     /* reset the file position offset */
@@ -874,8 +1103,8 @@ static int vwr_get_fpga_version(wtap *wth, int *err, gchar **err_info)
                         return (-1);
                     }
 
-                    g_free(rec);
                     /* We found an FPGA that works */
+                    g_free(rec);
                     return fpga_version;
                 }
             }
@@ -893,6 +1122,9 @@ static int vwr_get_fpga_version(wtap *wth, int *err, gchar **err_info)
         return UNKNOWN_FPGA; /* short read - not a vwr file */
     }
 
+    /*
+     * Read error.
+     */
     g_free(rec);
     return -1;
 }
@@ -921,7 +1153,7 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     guint32          info;                                /* INFO/ERRORS fields in stats blk */
     gint8            rssi;                                /* RSSI, signed 8-bit number */
     int              f_tx;                                /* flag: if set, is a TX frame */
-    guint8           plcp_type, mcs_index, nss;           /* PLCP type 0: Legacy, 1: Mixed, 2: Green field, 3: VHT Mixed */
+    guint8           rate_index;                          /* pre-HT only */
     guint16          vc_id, ht_len=0;                     /* VC ID, total ip length */
     guint            flow_id;                             /* flow ID */
     guint32          d_time, errors;                      /* packet duration & errors */
@@ -943,10 +1175,10 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     /* Calculate the start of the statistics block in the buffer */
     /* Also get a bunch of fields from the stats block */
     s_ptr    = &(rec[rec_size - v22_W_STATS_LEN]); /* point to it */
-    m_type   = s_ptr[v22_W_MTYPE_OFF] & 0x7;
-    f_tx     = !(s_ptr[v22_W_MTYPE_OFF] & 0x8);
+    m_type   = s_ptr[v22_W_MTYPE_OFF] & v22_E_MT_MASK;
+    f_tx     = !(s_ptr[v22_W_MTYPE_OFF] & v22_E_IS_RX);
     actual_octets   = pntoh16(&s_ptr[v22_W_OCTET_OFF]);
-    vc_id    = pntoh16(&s_ptr[v22_W_VCID_OFF]) & 0x3ff;
+    vc_id    = pntoh16(&s_ptr[v22_W_VCID_OFF]) & v22_E_VCID_MASK;
     flow_seq = s_ptr[v22_W_FLOWSEQ_OFF];
 
     latency = (guint32)pcorey48tohll(&s_ptr[v22_W_LATVAL_OFF]);
@@ -973,14 +1205,12 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
 
     /* Decode OFDM or CCK PLCP header and determine rate and short preamble flag. */
     /* The SIGNAL byte is always the first byte of the PLCP header in the frame.  */
-    plcp_type = 0;
-    nss = 1;
     if (m_type == vwr->MT_OFDM)
-        mcs_index = get_ofdm_rate(rec);
+        rate_index = get_ofdm_rate(rec);
     else if ((m_type == vwr->MT_CCKL) || (m_type == vwr->MT_CCKS))
-        mcs_index = get_cck_rate(rec);
+        rate_index = get_cck_rate(rec);
     else
-        mcs_index = 1;
+        rate_index = 1;
     rflags  = (m_type == vwr->MT_CCKS) ? FLAGS_SHORTPRE : 0;
     /* Calculate the MPDU size/ptr stuff; MPDU starts at 4 or 6 depending on OFDM/CCK. */
     /* Note that the number of octets in the frame also varies depending on OFDM/CCK,  */
@@ -1007,12 +1237,15 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
      * least 4 octets worth of FCS.
      */
     if (actual_octets < 4) {
-        *err_info = g_strdup_printf("vwr: Invalid data length %u (too short to include %u-byte PLCP header and 4 bytes of FCS)",
-                                    actual_octets, plcp_hdr_len);
-        *err = WTAP_ERR_BAD_FILE;
-        return FALSE;
+        if (actual_octets != 0) {
+            *err_info = g_strdup_printf("vwr: Invalid data length %u (too short to include %u-byte PLCP header and 4 bytes of FCS)",
+                                        actual_octets, plcp_hdr_len);
+            *err = WTAP_ERR_BAD_FILE;
+            return FALSE;
+        }
+    } else {
+        actual_octets -= 4;
     }
-    actual_octets -= 4;
 
     /* Calculate start & end times (in sec/usec), converting 64-bit times to usec. */
     /* 64-bit times are "Corey-endian" */
@@ -1041,21 +1274,14 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     /*
      * Fill up the per-packet header.
      *
-     * We also zero out 16 bytes PLCP header and 1 byte of L1P for user
-     * position.
-     *
-     * XXX - for S1, do we even have that?  The current Veriwave dissector
-     * just blindly assumes there's a 17-byte blob before the 802.11
-     * header, which is why we fill in those extra zero bytes.
-     *
      * We include the length of the metadata headers in the packet lengths.
      *
-     * The maximum value of actual_octets is 65535, which, even after
+     * The maximum value of actual_octets is 8191, which, even after
      * adding the lengths of the metadata headers, is less than
-     * WTAP_MAX_PACKET_SIZE will ever be, so we don't need to check it.
+     * WTAP_MAX_PACKET_SIZE_STANDARD will ever be, so we don't need to check it.
      */
-    phdr->len = STATS_COMMON_FIELDS_LEN + EXT_WLAN_FIELDS_LEN + 1 + 16 + actual_octets;
-    phdr->caplen = STATS_COMMON_FIELDS_LEN + EXT_WLAN_FIELDS_LEN + 1 + 16 + actual_octets;
+    phdr->len = STATS_COMMON_FIELDS_LEN + EXT_WLAN_FIELDS_LEN + actual_octets;
+    phdr->caplen = STATS_COMMON_FIELDS_LEN + EXT_WLAN_FIELDS_LEN + actual_octets;
 
     phdr->ts.secs   = (time_t)s_sec;
     phdr->ts.nsecs  = (int)(s_usec * 1000);
@@ -1073,8 +1299,13 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
      *
      * All values are copied out in little-endian byte order.
      */
-    phtoles(&data_ptr[bytes_written], 0); /* port_type */
-    bytes_written += 2;
+    /* 1st octet of record for port_type and command (command is 0, hence RX) */
+    phtole8(&data_ptr[bytes_written], WLAN_PORT);
+    bytes_written += 1;
+    /* 2nd octet of record for fpga version (0, hence pre-OCTO) */
+    phtole8(&data_ptr[bytes_written], 0);
+    bytes_written += 1;
+
     phtoles(&data_ptr[bytes_written], STATS_COMMON_FIELDS_LEN); /* it_len */
     bytes_written += 2;
     phtoles(&data_ptr[bytes_written], msdu_length);
@@ -1115,14 +1346,14 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
         phtoles(&data_ptr[bytes_written], CHAN_CCK);
     }
     bytes_written += 2;
-    phyRate = (guint16)(getRate(plcp_type, mcs_index, rflags, nss) * 10);
+    phyRate = (guint16)(get_legacy_rate(rate_index) * 10);
     phtoles(&data_ptr[bytes_written], phyRate);
     bytes_written += 2;
-    data_ptr[bytes_written] = plcp_type;
+    data_ptr[bytes_written] = vVW510021_W_PLCP_LEGACY; /* pre-HT */
     bytes_written += 1;
-    data_ptr[bytes_written] = mcs_index;
+    data_ptr[bytes_written] = rate_index;
     bytes_written += 1;
-    data_ptr[bytes_written] = nss;
+    data_ptr[bytes_written] = 1; /* pre-VHT, so NSS = 1 */
     bytes_written += 1;
     data_ptr[bytes_written] = rssi;
     bytes_written += 1;
@@ -1164,21 +1395,6 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     bytes_written += 4;
 
     /*
-     * No VHT, no VHT NDP flag, so just zero.
-     *
-     * XXX - is this supposed to be the RX L1 info, i.e. the "1 byte of L1P
-     * for user position"?
-     */
-    data_ptr[bytes_written] = 0;
-    bytes_written += 1;
-
-    /*
-     * XXX - put a PLCP header here?  That's what's done for S3.
-     */
-    memset(&data_ptr[bytes_written], 0, 16);
-    bytes_written += 16;
-
-    /*
      * Finally, copy the whole MAC frame to the packet buffer as-is.
      * This does not include the PLCP; the MPDU starts at 4 or 6
      * depending on OFDM/CCK.
@@ -1191,16 +1407,15 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
 }
 
 
-static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
-                                     Buffer *buf, const guint8 *rec, int rec_size,
-                                     int IS_TX, int *err, gchar **err_info)
+static gboolean vwr_read_s2_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
+                                  Buffer *buf, const guint8 *rec, int rec_size,
+                                  int IS_TX, int *err, gchar **err_info)
 {
     guint8           *data_ptr;
     int              bytes_written = 0;                   /* bytes output to buf so far */
-    register int     i;                                   /* temps */
     const guint8     *s_start_ptr,*s_trail_ptr, *plcp_ptr, *m_ptr; /* stats & MPDU ptr */
     guint32          msdu_length, actual_octets;          /* octets in frame */
-    guint8           l1p_1,l1p_2, plcp_type, mcs_index, nss;   /* mod (CCK-L/CCK-S/OFDM) */
+    guint8           l1p_1, l1p_2, plcp_type, rate_mcs_index, nss;  /* mod (CCK-L/CCK-S/OFDM) */
     guint            flow_seq;
     guint64          s_time = LL_ZERO, e_time = LL_ZERO;  /* start/end */
                                                           /*  times, nsec */
@@ -1218,9 +1433,9 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     guint16          chanflags = 0;                       /* channel flags for WLAN metadata header */
     guint16          radioflags = 0;                      /* flags for WLAN metadata header */
     guint64          delta_b;                             /* Used for calculating latency */
+    float            rate;
     guint16          phyRate;
     guint16          vw_flags;                            /* VeriWave-specific packet flags */
-    guint8           vht_ndp_flag = 0;
 
     /*
      * The record data must be large enough to hold the statistics header,
@@ -1239,82 +1454,33 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     s_start_ptr = &(rec[0]);                              /* point to stats header */
     s_trail_ptr = &(rec[rec_size - vVW510021_W_STATS_TRAILER_LEN]);      /* point to stats trailer */
 
-    /* L1p info is different for series III and for Series II - need to check */
     l1p_1 = s_start_ptr[vVW510021_W_L1P_1_OFF];
     l1p_2 = s_start_ptr[vVW510021_W_L1P_2_OFF];
-    if (vwr->FPGA_VERSION == S2_W_FPGA)
+    plcp_type = vVW510021_W_S2_PLCP_TYPE(l1p_2);
+    /* we do the range checks at the end before copying the values
+       into the wtap header */
+    msdu_length = ((s_start_ptr[vVW510021_W_MSDU_LENGTH_OFF+1] & 0x1f) << 8)
+                    + s_start_ptr[vVW510021_W_MSDU_LENGTH_OFF];
+
+    vc_id = pntoh16(&s_start_ptr[vVW510021_W_VCID_OFF]);
+    if (IS_TX)
     {
-        mcs_index = vVW510021_W_S2_MCS_INDEX(l1p_1);
-        plcp_type = vVW510021_W_S2_PLCP_TYPE(l1p_2);
-        /* we do the range checks at the end before copying the values
-           into the wtap header */
-        msdu_length = ((s_start_ptr[vVW510021_W_MSDU_LENGTH_OFF+1] & 0x1f) << 8)
-                        + s_start_ptr[vVW510021_W_MSDU_LENGTH_OFF];
-
-        vc_id = pntoh16(&s_start_ptr[vVW510021_W_VCID_OFF]);
-        if (IS_TX)
-        {
-            rssi[0] = (s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF] & 0x80) ?
-                       -1 * (s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF] & 0x7f) :
-                       s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF] & 0x7f;
-        }
-        else
-        {
-            rssi[0] = (s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF] & 0x80) ?
-                      (s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF]- 256) :
-                      s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF];
-        }
-        rssi[1] = 100;
-        rssi[2] = 100;
-        rssi[3] = 100;
-
-        nss = 0;
-
-        /* XXX - S2 claims to have 11 bytes of PLCP and 1 byte of pad */
-        plcp_ptr = &(rec[8]);
+        rssi[0] = (s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF] & 0x80) ?
+                   -1 * (s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF] & 0x7f) :
+                   s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF] & 0x7f;
     }
     else
     {
-        /* XXX - what indicates which packets include the FCS? */
-        radioflags |= FLAGS_FCS;
-        plcp_type = vVW510021_W_S3_PLCP_TYPE(l1p_2);
-        if (plcp_type == vVW510021_W_PLCP_VHT_MIXED)
-        {
-            /* VHT */
-            mcs_index = vVW510021_W_S3_MCS_INDEX_VHT(l1p_1);
-            nss = vVW510021_W_S3_NSS_VHT(l1p_1);
-        }
-        else
-        {
-            /* HT */
-            mcs_index = vVW510021_W_S3_MCS_INDEX_HT(l1p_1);
-            nss = 0;
-        }
-
-        /*** Extract NDP Flag if it is a received frame ***/
-        if (!IS_TX){
-            vht_ndp_flag = s_start_ptr[8];
-        }
-
-        msdu_length = pntoh24(&s_start_ptr[9]);
-        vc_id = pntoh16(&s_start_ptr[14]) & vVW510024_W_VCID_MASK;
-        for (i = 0; i < 4; i++)
-        {
-            if (IS_TX)
-            {
-                rssi[i] = (s_start_ptr[4+i] & 0x80) ? -1 * (s_start_ptr[4+i] & 0x7f) : s_start_ptr[4+i] & 0x7f;
-            }
-            else
-            {
-                rssi[i] = (s_start_ptr[4+i] >= 128) ? (s_start_ptr[4+i] - 256) : s_start_ptr[4+i];
-            }
-        }
-
-        /*** 16 bytes of PLCP header + 1 byte of L1P for user position ***/
-        /* XXX - S3 claims to have 16 bytes of stats block and 16 bytes of
-           *something*. Are those 16 bytes the PLCP? */
-        plcp_ptr = &(rec[16]);
+        rssi[0] = (s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF] & 0x80) ?
+                  (s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF]- 256) :
+                  s_start_ptr[vVW510021_W_RSSI_TXPOWER_OFF];
     }
+    rssi[1] = 100;
+    rssi[2] = 100;
+    rssi[3] = 100;
+
+    plcp_ptr = &(rec[8]);
+
     actual_octets = msdu_length;
 
     /*
@@ -1350,7 +1516,9 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
 
     /* decode OFDM or CCK PLCP header and determine rate and short preamble flag */
     /* the SIGNAL byte is always the first byte of the PLCP header in the frame */
-    if (plcp_type == vVW510021_W_PLCP_LEGACY){
+    switch (plcp_type)
+    {
+    case vVW510021_W_PLCP_LEGACY:
         /*
          * From IEEE Std 802.11-2012:
          *
@@ -1372,14 +1540,18 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
          * additional bits in the SERVICE field, or extend the 11a
          * format.
          */
-        if (mcs_index < 4) {
+        rate_mcs_index = vVW510021_W_S2_RATE_INDEX(l1p_1);
+        if (rate_mcs_index < 4) {
             chanflags |= CHAN_CCK;
         }
         else {
             chanflags |= CHAN_OFDM;
         }
-    }
-    else if (plcp_type == vVW510021_W_PLCP_MIXED) {
+        rate = get_legacy_rate(rate_mcs_index);
+        nss = 0;
+        break;
+
+    case vVW510021_W_PLCP_MIXED:
         /*
          * According to section 20.3.2 "PPDU format", the HT-mixed
          * PLCP header has a "Non-HT SIGNAL field" (L-SIG), which
@@ -1393,11 +1565,15 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
          * 0x80 is the CBW 20/40 bit of HT-SIG.
          */
         /* set the appropriate flags to indicate HT mode and CB */
+        rate_mcs_index = vVW510021_W_S2_MCS_INDEX_HT(l1p_1);
         radioflags |= FLAGS_CHAN_HT | ((plcp_ptr[3] & 0x80) ? FLAGS_CHAN_40MHZ : 0) |
                       ((l1p_1 & vVW510021_W_IS_LONGGI) ? 0 : FLAGS_CHAN_SHORTGI);
         chanflags  |= CHAN_OFDM;
-    }
-    else if (plcp_type == vVW510021_W_PLCP_GREENFIELD) {
+        nss = (rate_mcs_index < MAX_HT_MCS) ? nss_for_mcs[rate_mcs_index] : 0;
+        rate = get_ht_rate(rate_mcs_index, radioflags);
+        break;
+
+    case vVW510021_W_PLCP_GREENFIELD:
         /*
          * According to section 20.3.2 "PPDU format", the HT-greenfield
          * PLCP header just has the HT SIGNAL field (HT-SIG) above, with
@@ -1409,13 +1585,17 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
          * 0x80 is the CBW 20/40 bit of HT-SIG.
          */
         /* set the appropriate flags to indicate HT mode and CB */
+        rate_mcs_index = vVW510021_W_S2_MCS_INDEX_HT(l1p_1);
         radioflags |= FLAGS_CHAN_HT | ((plcp_ptr[0] & 0x80) ? FLAGS_CHAN_40MHZ : 0) |
                       ((l1p_1 & vVW510021_W_IS_LONGGI) ?  0 : FLAGS_CHAN_SHORTGI);
         chanflags  |= CHAN_OFDM;
-    }
-    else if (plcp_type == vVW510021_W_PLCP_VHT_MIXED) {
+        nss = (rate_mcs_index < MAX_HT_MCS) ? nss_for_mcs[rate_mcs_index] : 0;
+        rate = get_ht_rate(rate_mcs_index, radioflags);
+        break;
+
+    case vVW510021_W_PLCP_VHT_MIXED:
         /*
-         * According to section 22.3.2 "VHTPPDU format" of IEEE Std
+         * According to section 22.3.2 "VHT PPDU format" of IEEE Std
          * 802.11ac-2013, the VHT PLCP header has a "non-HT SIGNAL field"
          * (L-SIG), which looks like an 11a SIGNAL field, followed by
          * a VHT Signal A field (VHT-SIG-A) described in section
@@ -1424,13 +1604,45 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
          * in section 22.3.8.3.6 "VHT-SIG-B definition", followed by
          * the PSDU.
          */
-        guint8 SBW = vVW510021_W_BANDWIDTH_VHT(l1p_2);
-        radioflags |= FLAGS_CHAN_VHT | ((l1p_1 & vVW510021_W_IS_LONGGI) ?  0 : FLAGS_CHAN_SHORTGI);
-        chanflags |= CHAN_OFDM;
-        if (SBW == 3)
-            radioflags |= FLAGS_CHAN_40MHZ;
-        else if (SBW == 4)
-            radioflags |= FLAGS_CHAN_80MHZ;
+        {
+            guint8 SBW = vVW510021_W_BANDWIDTH_VHT(l1p_2);
+            rate_mcs_index = vVW510021_W_S2_MCS_INDEX_VHT(l1p_1);
+            radioflags |= FLAGS_CHAN_VHT | ((l1p_1 & vVW510021_W_IS_LONGGI) ?  0 : FLAGS_CHAN_SHORTGI);
+            chanflags |= CHAN_OFDM;
+            if (SBW == 3)
+                radioflags |= FLAGS_CHAN_40MHZ;
+            else if (SBW == 4)
+                radioflags |= FLAGS_CHAN_80MHZ;
+            nss = vVW510021_W_S2_NSS_VHT(l1p_1);
+            rate = get_vht_rate(rate_mcs_index, radioflags, nss);
+        }
+        break;
+
+    default:
+        rate_mcs_index = 0;
+        nss = 0;
+        rate = 0.0f;
+        break;
+    }
+
+    /*
+     * The MSDU length includes the FCS.
+     *
+     * The packet data does *not* include the FCS - it's just 4 bytes
+     * of junk - so we have to remove it.
+     *
+     * We'll be stripping off an FCS (?), so make sure we have at
+     * least 4 octets worth of FCS.
+     */
+    if (actual_octets < 4) {
+        if (actual_octets != 0) {
+            *err_info = g_strdup_printf("vwr: Invalid data length %u (too short to include 4 bytes of FCS)",
+                                        actual_octets);
+            *err = WTAP_ERR_BAD_FILE;
+            return FALSE;
+        }
+    } else if (actual_octets > 4) {
+        actual_octets -= 4;
     }
 
     /* Calculate start & end times (in sec/usec), converting 64-bit times to usec. */
@@ -1476,28 +1688,14 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     /*
      * Fill up the per-packet header.
      *
-     * We also copy over 16 bytes of PLCP header + 1 byte of L1P for user
-     * position.
-     *
-     * XXX - for S2, we don't have 16 bytes of PLCP header; do we have
-     * the 1 byte of L1P?  The current Veriwave dissector just blindly
-     * assumes there's a 17-byte blob before the 802.11 header.
-     *
      * We include the length of the metadata headers in the packet lengths.
+     *
+     * The maximum value of actual_octets is 8191, which, even after
+     * adding the lengths of the metadata headers, is less than
+     * WTAP_MAX_PACKET_SIZE_STANDARD will ever be, so we don't need to check it.
      */
-    phdr->len = STATS_COMMON_FIELDS_LEN + EXT_WLAN_FIELDS_LEN + 1 + 16 + actual_octets;
-    phdr->caplen = STATS_COMMON_FIELDS_LEN + EXT_WLAN_FIELDS_LEN + 1 + 16 + actual_octets;
-    if (phdr->caplen > WTAP_MAX_PACKET_SIZE) {
-        /*
-         * Probably a corrupt capture file; return an error,
-         * so that our caller doesn't blow up trying to allocate
-         * space for an immensely-large packet.
-         */
-        *err_info = g_strdup_printf("vwr: File has %u-byte packet, bigger than maximum of %u",
-                                    phdr->caplen, WTAP_MAX_PACKET_SIZE);
-        *err = WTAP_ERR_BAD_FILE;
-        return FALSE;
-    }
+    phdr->len = STATS_COMMON_FIELDS_LEN + EXT_WLAN_FIELDS_LEN + actual_octets;
+    phdr->caplen = STATS_COMMON_FIELDS_LEN + EXT_WLAN_FIELDS_LEN + actual_octets;
 
     phdr->ts.secs   = (time_t)s_sec;
     phdr->ts.nsecs  = (int)(s_usec * 1000);
@@ -1516,8 +1714,13 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
      * All values are copied out in little-endian byte order.
      */
     /*** msdu_length = msdu_length + 16; ***/
-    phtoles(&data_ptr[bytes_written], 0); /* port_type */
-    bytes_written += 2;
+    /* 1st octet of record for port_type and command (command is 0, hence RX) */
+    phtole8(&data_ptr[bytes_written], WLAN_PORT);
+    bytes_written += 1;
+    /* 2nd octet of record for fpga version (0, hence pre-OCTO) */
+    phtole8(&data_ptr[bytes_written], 0);
+    bytes_written += 1;
+
     phtoles(&data_ptr[bytes_written], STATS_COMMON_FIELDS_LEN); /* it_len */
     bytes_written += 2;
     phtoles(&data_ptr[bytes_written], msdu_length);
@@ -1558,20 +1761,14 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     bytes_written += 2;
     phtoles(&data_ptr[bytes_written], chanflags);
     bytes_written += 2;
-    phyRate = (guint16)(getRate(plcp_type, mcs_index, radioflags, nss) * 10);
+    phyRate = (guint16)(rate * 10);
     phtoles(&data_ptr[bytes_written], phyRate);
     bytes_written += 2;
-
-    /*** If received frame populate the ndp_flag in the same byte as plcp_type***/
-
-    if (!IS_TX) {
-        plcp_type = vht_ndp_flag  + plcp_type;
-    }
 
     data_ptr[bytes_written] = plcp_type;
     bytes_written += 1;
 
-    data_ptr[bytes_written] = mcs_index;
+    data_ptr[bytes_written] = rate_mcs_index;
     bytes_written += 1;
 
     data_ptr[bytes_written] = nss;
@@ -1614,32 +1811,716 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
     phtolel(&data_ptr[bytes_written], errors);
     bytes_written += 4;
 
-    /*
-     * XXX - is this supposed to be the RX L1 info, i.e. the "1 byte of L1P
-     * for user position"?
-     */
-    if (!IS_TX){
-      data_ptr[bytes_written] = vht_ndp_flag;
-    } else {
-      data_ptr[bytes_written] = 0;
-    }
-    bytes_written += 1;
-
-    /*
-     * Copy PLCP header.
-     *
-     * XXX - shouldn't that use plcp_ptr?
-     *
-     * XXX - what about S2, where we don't have 16 bytes of PLCP?
-     */
-    memcpy(&data_ptr[bytes_written], &rec[16], 16);
-    bytes_written += 16;
-
-    /*
-     * Finally, copy the whole MAC frame to the packet buffer as-is.
-     * This does not include the stats header or the PLCP header.
+    /* Finally, copy the whole MAC frame to the packet buffer as-is.
+     * This does not include the stats header or the PLCP.
+     * This also does not include the last 4 bytes, as those don't
+     * contain an FCS, they just contain junk.
      */
     memcpy(&data_ptr[bytes_written], &rec[vwr->MPDU_OFF], actual_octets);
+
+    return TRUE;
+}
+
+static gboolean vwr_read_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
+                                  Buffer *buf, const guint8 *rec, int rec_size,
+                                  int IS_TX, int log_mode, int *err,
+                                  gchar **err_info)
+{
+    guint8           *data_ptr;
+    int              bytes_written = 0;                  /* bytes output to buf so far */
+    int              i;
+    int              stats_offset = 0;
+    const guint8     *s_start_ptr = NULL,*s_trail_ptr = NULL, *plcp_ptr, *m_ptr; /* stats & MPDU ptr */
+    guint32          msdu_length = 0, actual_octets = 0; /* octets in frame */
+    guint8           l1p_1 = 0,l1p_2 = 0, plcp_type, rate_mcs_index, nss;   /* mod (CCK-L/CCK-S/OFDM) */
+    guint64          s_time = LL_ZERO, e_time = LL_ZERO; /* start/end */
+                                                         /* times, nsec */
+    guint64          latency = LL_ZERO;
+    guint64          start_time = 0, s_sec = 0, s_usec = LL_ZERO; /* start time, sec + usec */
+    guint64          end_time = 0;                                /* end time */
+    guint16          info = 0;                           /* INFO/ERRORS fields in stats blk */
+    guint32          errors = 0;
+    gint8            info_2nd = 0,rssi[] = {0,0,0,0};    /* RSSI, signed 8-bit number */
+    int              frame_size;
+    guint32          d_time = 0, flow_id = 0;            /* packet duration, Flow Signature ID*/
+    int              sig_off, pay_off;                   /* MAC+SNAP header len, signature offset */
+    guint64          sig_ts = 0, tsid;                   /* 32 LSBs of timestamp in signature */
+    guint64          delta_b;                            /* Used for calculating latency */
+    guint8           L1InfoC,port_type,ver_fpga = 0;
+    guint8           flow_seq =0,plcp_hdr_flag = 0,rf_id = 0;    /* indicates plcp hdr info */
+    const guint8    *rf_ptr = NULL;
+    float            rate;
+    guint16          phyRate;
+
+    /*
+     * The record data must be large enough to hold the statistics header,
+     * the PLCP, and the statistics trailer.
+     */
+    if (IS_TX == 3) {       /*IS_TX =3, i.e., command type is RF Modified*/
+        if ((guint)rec_size < OCTO_MODIFIED_RF_LEN) {
+            *err_info = g_strdup_printf("vwr: Invalid record length %d (must be at least %u)",
+                                        rec_size,
+                                        OCTO_MODIFIED_RF_LEN);
+            *err = WTAP_ERR_BAD_FILE;
+            return FALSE;
+        }
+        rf_ptr = &(rec[0]);
+        rf_id = rf_ptr[0];
+
+        /*
+         * Fill up the per-packet header.
+         *
+         * We include the length of the metadata headers in the packet lengths.
+         *
+         * OCTO_MODIFIED_RF_LEN + 1 is less than WTAP_MAX_PACKET_SIZE_STANDARD will
+         * ever be, so we don't need to check it.
+         */
+        phdr->len = OCTO_MODIFIED_RF_LEN + 1;       /* 1st octet is reserved for detecting type of frame while displaying in wireshark */
+        phdr->caplen = OCTO_MODIFIED_RF_LEN + 1;
+
+        phdr->ts.secs   = (time_t)s_sec;
+        phdr->ts.nsecs  = (int)(s_usec * 1000);
+        phdr->pkt_encap = WTAP_ENCAP_IXVERIWAVE;
+
+        phdr->rec_type = REC_TYPE_PACKET;
+        phdr->presence_flags = WTAP_HAS_TS;
+
+        ws_buffer_assure_space(buf, phdr->caplen);
+        data_ptr = ws_buffer_start_ptr(buf);
+
+        port_type = IS_TX << 4;
+
+        nss = 0;
+        phyRate = 0;
+    }
+    else {
+        /* Calculate the start of the statistics blocks in the buffer */
+        /* Also get a bunch of fields from the stats blocks */
+        /* 'stats_offset' variable is use to locate the exact offset.
+         * When a RX frame contrains RF,
+         * the postion of Stats, Layer 1-4, PLCP parameters are shifted to
+         * + OCTO_RF_MOD_ACTUAL_LEN bytes
+         */
+        if (IS_TX == 4)     /*IS_TX =4, i.e., command type is RF-RX Modified*/
+        {
+            stats_offset = OCTO_RF_MOD_ACTUAL_LEN;
+            if ((guint)rec_size < stats_offset + vwr->MPDU_OFF + vVW510021_W_STATS_TRAILER_LEN) {
+                *err_info = g_strdup_printf("vwr: Invalid record length %d (must be at least %u)",
+                                            rec_size,
+                                            stats_offset + vwr->MPDU_OFF + vVW510021_W_STATS_TRAILER_LEN);
+                *err = WTAP_ERR_BAD_FILE;
+                return FALSE;
+            }
+            rf_ptr = &(rec[0]);
+            rf_id = rf_ptr[0];
+        }
+        else
+        {
+            stats_offset = 0;
+            if ((guint)rec_size < vwr->MPDU_OFF + vVW510021_W_STATS_TRAILER_LEN) {
+                *err_info = g_strdup_printf("vwr: Invalid record length %d (must be at least %u)",
+                                            rec_size,
+                                            vwr->MPDU_OFF + vVW510021_W_STATS_TRAILER_LEN);
+                *err = WTAP_ERR_BAD_FILE;
+                return FALSE;
+            }
+        }
+
+        s_start_ptr = &(rec[stats_offset]);         /* point to stats header */
+        s_trail_ptr = &(rec[rec_size - vVW510021_W_STATS_TRAILER_LEN] );      /* point to stats trailer */
+
+        l1p_1 = s_start_ptr[vVW510021_W_L1P_1_OFF];
+        l1p_2 = s_start_ptr[vVW510021_W_L1P_2_OFF];
+
+        plcp_type = vVW510021_W_S3_PLCP_TYPE(l1p_2);
+        switch (plcp_type)
+        {
+        case vVW510021_W_PLCP_LEGACY:
+            /* pre-HT */
+            rate_mcs_index = vVW510021_W_S3_RATE_INDEX(l1p_1);
+            nss = 0;
+            break;
+
+        case vVW510021_W_PLCP_MIXED:
+        case vVW510021_W_PLCP_GREENFIELD:
+            rate_mcs_index = vVW510021_W_S3_MCS_INDEX_HT(l1p_1);
+            nss = (rate_mcs_index < MAX_HT_MCS) ? nss_for_mcs[rate_mcs_index] : 0;
+            break;
+
+        case vVW510021_W_PLCP_VHT_MIXED:
+            rate_mcs_index = vVW510021_W_S3_MCS_INDEX_VHT(l1p_1);
+            nss = vVW510021_W_S3_NSS_VHT(l1p_1);
+            plcp_hdr_flag = 1;
+            break;
+
+        default:
+            rate_mcs_index = 0;
+            nss = 0;
+            plcp_hdr_flag = 0;
+            break;
+        }
+
+        for (i = 0; i < 4; i++)
+        {
+            if (IS_TX == 1)
+            {
+                rssi[i] = (s_start_ptr[4+i] & 0x80) ? -1 * (s_start_ptr[4+i] & 0x7f) : s_start_ptr[4+i] & 0x7f;
+            }
+            else
+            {
+                rssi[i] = (s_start_ptr[4+i] >= 128) ? (s_start_ptr[4+i] - 256) : s_start_ptr[4+i];
+            }
+        }
+
+        if (IS_TX == 0 || IS_TX == 4){
+            L1InfoC = s_start_ptr[8];
+        }
+
+        msdu_length = pntoh24(&s_start_ptr[9]);
+
+        /*** 16 bytes of PLCP header + 1 byte of L1P for user position ***/
+        plcp_ptr = &(rec[stats_offset+16]);
+
+        /*** Add the PLCP length for S3_W_FPGA version VHT frames for Beamforming decode ***/
+        if (log_mode == 3) {
+            frame_size = rec_size - 80 - stats_offset;
+            if (frame_size > ((int) msdu_length))
+                actual_octets = msdu_length;
+            else
+                actual_octets = frame_size;
+        }
+        else
+        {
+            actual_octets = msdu_length;
+        }
+        /*
+         * Sanity check the octets field to determine if it's greater than
+         * the packet data available in the record - i.e., the record size
+         * minus the sum of (length of statistics header + PLCP) and
+         * (length of statistics trailer).
+         *
+         * Report an error if it is.
+         */
+        if (actual_octets > rec_size - (stats_offset + vwr->MPDU_OFF + vVW510021_W_STATS_TRAILER_LEN)) {
+            *err_info = g_strdup_printf("vwr: Invalid data length %u (runs past the end of the record)",
+                                        actual_octets);
+            *err = WTAP_ERR_BAD_FILE;
+            return FALSE;
+        }
+
+        flow_seq = s_trail_ptr[vVW510021_W_FLOWSEQ_OFF];
+
+        latency = 0x00000000;                        /* clear latency */
+        flow_id = pntoh24(&s_trail_ptr[vVW510021_W_FLOWID_OFF]);         /* all 24 bits valid */
+        /* For tx latency is duration, for rx latency is timestamp */
+        /* Get 48-bit latency value */
+        tsid = pcorey48tohll(&s_trail_ptr[vVW510021_W_LATVAL_OFF]);
+
+        errors = pntoh32(&s_trail_ptr[vVW510021_W_ERRORS_OFF]);
+        info = pntoh16(&s_trail_ptr[vVW510021_W_INFO_OFF]);
+
+        if (IS_TX == 0 || IS_TX == 4)
+            info_2nd = s_trail_ptr[41];
+
+        /*** Calculate Data rate based on
+        *  PLCP type, MCS index and number of spatial stream
+        *  radioflags is temporarily calculated, which is used in
+        *  get_ht_rate() and get_vht_rate().
+        **/
+        switch (plcp_type)
+        {
+        case vVW510021_W_PLCP_LEGACY:
+            rate = get_legacy_rate(rate_mcs_index);
+            break;
+
+        case vVW510021_W_PLCP_MIXED:
+            /*
+             * According to section 20.3.2 "PPDU format", the HT-mixed
+             * PLCP header has a "Non-HT SIGNAL field" (L-SIG), which
+             * looks like an 11a SIGNAL field, followed by an HT SIGNAL
+             * field (HT-SIG) described in section 20.3.9.4.3 "HT-SIG
+             * definition".
+             *
+             * This means that the first octet of HT-SIG is at
+             * plcp_ptr[3], skipping the 3 octets of the L-SIG field.
+             *
+             * 0x80 is the CBW 20/40 bit of HT-SIG.
+             */
+            {
+                /* set the appropriate flags to indicate HT mode and CB */
+                guint16 radioflags = FLAGS_CHAN_HT | ((plcp_ptr[3] & 0x80) ? FLAGS_CHAN_40MHZ : 0) |
+                                   ((l1p_1 & vVW510021_W_IS_LONGGI) ? 0 : FLAGS_CHAN_SHORTGI);
+                rate = get_ht_rate(rate_mcs_index, radioflags);
+            }
+            break;
+
+        case vVW510021_W_PLCP_GREENFIELD:
+            /*
+             * According to section 20.3.2 "PPDU format", the HT-greenfield
+             * PLCP header just has the HT SIGNAL field (HT-SIG) above, with
+             * no L-SIG field.
+             *
+             * This means that the first octet of HT-SIG is at
+             * plcp_ptr[0], as there's no L-SIG field to skip.
+             *
+             * 0x80 is the CBW 20/40 bit of HT-SIG.
+             */
+            {
+                /* set the appropriate flags to indicate HT mode and CB */
+                guint16 radioflags = FLAGS_CHAN_HT | ((plcp_ptr[0] & 0x80) ? FLAGS_CHAN_40MHZ : 0) |
+                                   ((l1p_1 & vVW510021_W_IS_LONGGI) ?  0 : FLAGS_CHAN_SHORTGI);
+                rate = get_ht_rate(rate_mcs_index, radioflags);
+            }
+            break;
+
+        case vVW510021_W_PLCP_VHT_MIXED:
+            /*
+             * According to section 22.3.2 "VHT PPDU format" of IEEE Std
+             * 802.11ac-2013, the VHT PLCP header has a "non-HT SIGNAL field"
+             * (L-SIG), which looks like an 11a SIGNAL field, followed by
+             * a VHT Signal A field (VHT-SIG-A) described in section
+             * 22.3.8.3.3 "VHT-SIG-A definition", with training fields
+             * between it and a VHT Signal B field (VHT-SIG-B) described
+             * in section 22.3.8.3.6 "VHT-SIG-B definition", followed by
+             * the PSDU.
+             */
+            {
+                guint8 SBW = vVW510021_W_BANDWIDTH_VHT(l1p_2);
+                guint16 radioflags = FLAGS_CHAN_VHT | ((l1p_1 & vVW510021_W_IS_LONGGI) ?  0 : FLAGS_CHAN_SHORTGI);
+                if (SBW == 3)
+                    radioflags |= FLAGS_CHAN_40MHZ;
+                else if (SBW == 4)
+                    radioflags |= FLAGS_CHAN_80MHZ;
+                rate = get_vht_rate(rate_mcs_index, radioflags, nss);
+            }
+            break;
+
+        default:
+            rate = 0.0f;
+            break;
+        }
+        phyRate = (guint16)(rate * 10);
+        /* Calculation of Data rate ends*/
+
+        /* 'ver_fpga' is the 2nd Octet of each frame.
+         * msb/lsb nibble indicates log mode/fpga version respectively.
+         * where log mode = 0 is normal capture and 1 is reduced capture,
+         * lsb nibble is set to 1 always as this function is applicable for only FPGA version >= 48
+         */
+        if (log_mode == 3) {
+            /*
+             * The MSDU length includes the FCS.
+             *
+             * The packet data does *not* include the FCS - it's just 4 bytes
+             * of junk - so we have to remove it.
+             *
+             * We'll be stripping off an FCS (?), so make sure we have at
+             * least 4 octets worth of FCS.
+             *
+             * XXX - is the FCS actually present here, as it appears to be
+             * if log_mode isn't 3?
+             */
+            if (actual_octets < 4) {
+                if (actual_octets != 0) {
+                    *err_info = g_strdup_printf("vwr: Invalid data length %u (too short to include 4 bytes of FCS)",
+                                                actual_octets);
+                    *err = WTAP_ERR_BAD_FILE;
+                    return FALSE;
+                }
+            } else if (actual_octets > 4 && (frame_size >= (int) msdu_length))
+                actual_octets -=4;
+            ver_fpga = 0x11;
+        } else {
+            ver_fpga = 0x01;
+        }
+
+        /* Calculate start & end times (in sec/usec), converting 64-bit times to usec. */
+        /* 64-bit times are "Corey-endian" */
+        s_time = pcoreytohll(&s_trail_ptr[vVW510021_W_STARTT_OFF]);
+        e_time = pcoreytohll(&s_trail_ptr[vVW510021_W_ENDT_OFF]);
+
+        /* find the packet duration (difference between start and end times) */
+        d_time = (guint32)((e_time - s_time) / NS_IN_US);  /* find diff, converting to usec */
+
+        /* also convert the packet start time to seconds and microseconds */
+        start_time = s_time / NS_IN_US;                     /* convert to microseconds first */
+        s_sec = (start_time / US_IN_SEC);                   /* get the number of seconds */
+        s_usec = start_time - (s_sec * US_IN_SEC);          /* get the number of microseconds */
+
+        /* also convert the packet end time to seconds and microseconds */
+        end_time = e_time / NS_IN_US;                       /* convert to microseconds first */
+
+        /* extract the 32 LSBs of the signature timestamp field */
+        m_ptr = &(rec[stats_offset+8+12]);
+        pay_off = 42;         /* 24 (MAC) + 8 (SNAP) + IP */
+        sig_off = find_signature(m_ptr, rec_size - 20, pay_off, flow_id, flow_seq);
+        if ((m_ptr[sig_off] == 0xdd) && (sig_off + 15 <= (rec_size - vVW510021_W_STATS_TRAILER_LEN)))
+            sig_ts = get_signature_ts(m_ptr, sig_off);
+        else
+            sig_ts = 0;
+
+        /* Set latency based on rx/tx and signature timestamp */
+        if (IS_TX == 0 || IS_TX == 4) {
+            if (tsid < s_time) {
+                latency = s_time - tsid;
+            } else {
+                /* Account for the rollover case. Since we cannot use 0x100000000 - l_time + s_time */
+                /* we look for a large difference between l_time and s_time. */
+                delta_b = tsid - s_time;
+                if (delta_b >  0x10000000)
+                    latency = 0;
+                else
+                    latency = delta_b;
+            }
+        }
+
+        port_type = IS_TX << 4;
+
+        /*
+         * Fill up the per-packet header.
+         *
+         * We include the length of the metadata headers in the packet lengths.
+         */
+        if (IS_TX == 4) {
+            phdr->len = OCTO_MODIFIED_RF_LEN + OCTO_TIMESTAMP_FIELDS_LEN + OCTO_LAYER1TO4_LEN + actual_octets;
+            phdr->caplen = OCTO_MODIFIED_RF_LEN + OCTO_TIMESTAMP_FIELDS_LEN + OCTO_LAYER1TO4_LEN + actual_octets;
+        } else {
+            phdr->len = OCTO_TIMESTAMP_FIELDS_LEN + OCTO_LAYER1TO4_LEN + actual_octets;
+            phdr->caplen = OCTO_TIMESTAMP_FIELDS_LEN + OCTO_LAYER1TO4_LEN + actual_octets;
+        }
+        if (phdr->caplen > WTAP_MAX_PACKET_SIZE_STANDARD) {
+            /*
+             * Probably a corrupt capture file; return an error,
+             * so that our caller doesn't blow up trying to allocate
+             * space for an immensely-large packet.
+             */
+            *err_info = g_strdup_printf("vwr: File has %u-byte packet, bigger than maximum of %u",
+                                        phdr->caplen, WTAP_MAX_PACKET_SIZE_STANDARD);
+            *err = WTAP_ERR_BAD_FILE;
+            return FALSE;
+        }
+
+        phdr->ts.secs   = (time_t)s_sec;
+        phdr->ts.nsecs  = (int)(s_usec * 1000);
+        phdr->pkt_encap = WTAP_ENCAP_IXVERIWAVE;
+
+        phdr->rec_type = REC_TYPE_PACKET;
+        phdr->presence_flags = WTAP_HAS_TS;
+
+        ws_buffer_assure_space(buf, phdr->caplen);
+        data_ptr = ws_buffer_start_ptr(buf);
+    }
+
+    /*
+     * Generate and copy out the common metadata headers,
+     * set the port type to port_type (XXX).
+     *
+     * All values are copied out in little-endian byte order.
+     */
+    /*** msdu_length = msdu_length + 16; ***/
+
+    /* 1st octet of record for port_type and other crud */
+    phtole8(&data_ptr[bytes_written], port_type);
+    bytes_written += 1;
+
+    if (IS_TX != 3) {
+        phtole8(&data_ptr[bytes_written], ver_fpga); /* 2nd octet of record for FPGA version*/
+        bytes_written += 1;
+
+        phtoles(&data_ptr[bytes_written], OCTO_TIMESTAMP_FIELDS_LEN); /* it_len */
+        bytes_written += 2;
+
+    /*** Time Collapsible header started***/
+        if (IS_TX == 1 && sig_ts != 0) {
+            phtolel(&data_ptr[bytes_written], latency);
+        } else {
+            phtolel(&data_ptr[bytes_written], 0);
+        }
+        bytes_written += 4;
+        phtolel(&data_ptr[bytes_written], sig_ts); /* 32 LSBs of signature timestamp (nsec) */
+        bytes_written += 4;
+        phtolell(&data_ptr[bytes_written], start_time); /* record start & end times of frame */
+        bytes_written += 8;
+        phtolell(&data_ptr[bytes_written], end_time);
+        bytes_written += 8;
+        phtolel(&data_ptr[bytes_written], d_time);
+        bytes_written += 4;
+    /*** Time Collapsible header ends ***/
+    }
+
+    /*** RF Collapsable header starts***/
+    if (IS_TX == 3 || IS_TX == 4) {
+        phtole8(&data_ptr[bytes_written], rf_id);
+        bytes_written += 1;
+        data_ptr[bytes_written] = 0;
+        bytes_written += 1;
+        data_ptr[bytes_written] = 0;
+        bytes_written += 1;
+        data_ptr[bytes_written] = 0;
+        bytes_written += 1;
+
+        /*** NOISE for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_NOISE_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_NOISE_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_NOISE_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** SNR for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_SNR_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_SNR_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_SNR_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** PFE for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_PFE_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_PFE_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_PFE_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** EVM SIG Data for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_EVM_SD_SIG_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_EVM_SD_SIG_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_EVM_SD_SIG_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** EVM SIG PILOT for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_EVM_SP_SIG_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_EVM_SP_SIG_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_EVM_SP_SIG_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** EVM Data Data for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_EVM_SD_DATA_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_EVM_SD_DATA_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_EVM_SD_DATA_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** EVM Data PILOT for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_EVM_SP_DATA_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_EVM_SP_DATA_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_EVM_SP_DATA_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** EVM WORST SYMBOL for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_DSYMBOL_IDX_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_DSYMBOL_IDX_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_DSYMBOL_IDX_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** CONTEXT_P for all 4 Ports ***/
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[RF_PORT_1_CONTEXT_OFF+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_CONTEXT_OFF+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[RF_PORT_1_CONTEXT_OFF+1+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+
+        /*** FOR rest 24 RF data bytes are commented for future use ***/
+/***
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[20+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[20+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[21+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[24+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[24+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[25+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+        for (i = 0; i < RF_NUMBER_OF_PORTS; i++)
+        {
+            if (pntoh16(&rf_ptr[26+i*RF_INTER_PORT_GAP_OFF]) == 0) {
+                phtoles(&data_ptr[bytes_written], 0);
+                bytes_written += 2;
+            } else {
+                data_ptr[bytes_written] = rf_ptr[26+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+                data_ptr[bytes_written] = rf_ptr[27+i*RF_INTER_PORT_GAP_OFF];
+                bytes_written += 1;
+            }
+        }
+***/
+    }
+    /*** RF Collapsable header ends***/
+
+    if (IS_TX != 3) {
+        /*
+         * Generate and copy out the WLAN metadata headers.
+         *
+         * All values are copied out in little-endian byte order.
+         */
+        phtoles(&data_ptr[bytes_written], OCTO_LAYER1TO4_LEN);
+        bytes_written += 2;
+
+        /*** Layer-1 Collapsible header started***/
+        data_ptr[bytes_written] = l1p_1;
+        bytes_written += 1;
+
+        data_ptr[bytes_written] = (nss << 4) | IS_TX;
+        bytes_written += 1;
+
+        phtoles(&data_ptr[bytes_written], phyRate);     /* To dosplay Data rate based on the PLCP type & MCS*/
+        bytes_written += 2;
+
+        data_ptr[bytes_written] = l1p_2;
+        bytes_written += 1;
+
+        data_ptr[bytes_written] = rssi[0];
+        bytes_written += 1;
+        data_ptr[bytes_written] = rssi[1];
+        bytes_written += 1;
+        data_ptr[bytes_written] = rssi[2];
+        bytes_written += 1;
+        data_ptr[bytes_written] = rssi[3];
+        bytes_written += 1;
+
+        /* padding may not be required for S3_W*/
+
+        data_ptr[bytes_written] = s_start_ptr[2];    /*** For Signal Bandwidth Mask ***/
+        bytes_written += 1;
+        data_ptr[bytes_written] = s_start_ptr[3];    /*** For Antenna Port Energy Detect and MU_MASK ***/
+        bytes_written += 1;
+
+        if (plcp_hdr_flag == 1 && (IS_TX == 0 || IS_TX == 4)) {
+            data_ptr[bytes_written] = L1InfoC;  /*** For Other plcp type = VHT ***/
+        } else {
+            data_ptr[bytes_written] = 0;    /*** For Other plcp type, this offset is set to 0***/
+        }
+        bytes_written += 1;
+
+        phtoles(&data_ptr[bytes_written], msdu_length);
+        bytes_written += 2;
+        /*** Layer-1 Collapsible header Ends ***/
+
+        /*** PLCP Collapsible header Starts ***/
+        memcpy(&data_ptr[bytes_written], &rec[stats_offset+16], 16);
+        bytes_written += 16;
+        /*** PLCP Collapsible header Ends ***/
+
+        /*** Layer 2-4 Collapsible header Starts ***/
+
+        phtolel(&data_ptr[bytes_written], pntoh32(&s_start_ptr[12]));   /*** This 4 bytes includes BM,BV,CV,BSSID and ClientID ***/
+        bytes_written += 4;
+        phtoles(&data_ptr[bytes_written], pntoh16(&s_trail_ptr[20]));   /*** 2 bytes includes FV,QT,HT,L4V,TID and WLAN type ***/
+        bytes_written += 2;
+        data_ptr[bytes_written] = flow_seq;
+        bytes_written += 1;
+        phtole24(&data_ptr[bytes_written], flow_id);
+        bytes_written += 3;
+        phtoles(&data_ptr[bytes_written], pntoh16(&s_trail_ptr[28]));   /*** 2 bytes for Layer 4 ID ***/
+        bytes_written += 2;
+        phtolel(&data_ptr[bytes_written], pntoh32(&s_trail_ptr[24]));   /*** 4 bytes for Payload Decode ***/
+        bytes_written += 4;
+
+        /*** Incase of RX, Info has 3 bytes of data, whereas for TX, 2 bytes ***/
+        if (IS_TX == 0 || IS_TX == 4) {
+            phtoles(&data_ptr[bytes_written], info);
+            bytes_written += 2;
+            data_ptr[bytes_written] = info_2nd;
+            bytes_written += 1;
+        }
+        else {
+            phtoles(&data_ptr[bytes_written], info);
+            bytes_written += 2;
+            data_ptr[bytes_written] = 0;
+            bytes_written += 1;
+        }
+
+        phtolel(&data_ptr[bytes_written], errors);
+        bytes_written += 4;
+        /*** Layer 2-4 Collapsible header Ends ***/
+
+        /* Finally, copy the whole MAC frame to the packet buffer as-is.
+         * This does not include the stats header or the PLCP.
+         * This also does not include the last 4 bytes, as those don't
+         * contain an FCS, they just contain junk.
+         */
+        memcpy(&data_ptr[bytes_written], &rec[stats_offset+(vwr->MPDU_OFF)], actual_octets);
+    }
 
     return TRUE;
 }
@@ -1648,7 +2529,6 @@ static gboolean vwr_read_s2_s3_W_rec(vwr_t *vwr, struct wtap_pkthdr *phdr,
 /* Copy the actual packet data from the capture file into the target data block.         */
 /* The packet is constructed as a 38-byte VeriWave-extended Radiotap header plus the raw */
 /*  MAC octets.                                                                          */
-
 static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, struct wtap_pkthdr *phdr,
                                            Buffer *buf, const guint8 *rec,
                                            int rec_size, int IS_TX, int *err,
@@ -1662,7 +2542,7 @@ static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, struct wtap_pkthdr *phdr,
     guint64          s_time = LL_ZERO, e_time = LL_ZERO;  /* start/end */
                                                           /* times, nsec */
     guint32          latency = 0;
-    guint64          start_time, s_sec, s_usec = LL_ZERO; /* start time, sec + usec */
+    guint64          start_time, s_sec = LL_ZERO, s_usec = LL_ZERO; /* start time, sec + usec */
     guint64          end_time;                            /* end time */
     guint            l4id;
     guint16          info, validityBits;                  /* INFO/ERRORS fields in stats */
@@ -1704,11 +2584,6 @@ static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, struct wtap_pkthdr *phdr,
         *err = WTAP_ERR_BAD_FILE;
         return FALSE;
     }
-    /*
-     * The maximum value of actual_octets is 65535, which, even after
-     * adding the lengths of the metadata headers, is less than
-     * WTAP_MAX_PACKET_SIZE will ever be, so we don't need to check it.
-     */
 
     vc_id = pntoh16(&s_ptr[vwr->VCID_OFF]) & vwr->VCID_MASK;
     flow_seq   = s_ptr[vwr->FLOWSEQ_OFF];
@@ -1726,7 +2601,6 @@ static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, struct wtap_pkthdr *phdr,
     else {
         f_flow  = s_ptr[vwr->VALID_OFF] & vwr->FLOW_VALID;
         mac_len = (frame_type & vwr->IS_VLAN) ? 16 : 14;             /* MAC hdr length based on VLAN tag */
-
 
         /* for older fpga errors is only represented by 16 bits) */
         errors = pntoh16(&s_ptr[vwr->ERRORS_OFF]);
@@ -1752,14 +2626,19 @@ static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, struct wtap_pkthdr *phdr,
      *
      * We'll be stripping off an FCS (?), so make sure we have at
      * least 4 octets worth of FCS.
+     *
+     * There seems to be a special case of a length of 0.
      */
     if (actual_octets < 4) {
-        *err_info = g_strdup_printf("vwr: Invalid data length %u (too short to include 4 bytes of FCS)",
-                                    actual_octets);
-        *err = WTAP_ERR_BAD_FILE;
-        return FALSE;
+        if (actual_octets != 0) {
+            *err_info = g_strdup_printf("vwr: Invalid data length %u (too short to include 4 bytes of FCS)",
+                                        actual_octets);
+            *err = WTAP_ERR_BAD_FILE;
+            return FALSE;
+        }
+    } else {
+        actual_octets -= 4;
     }
-    actual_octets -= 4;
 
     /* Calculate start & end times (in sec/usec), converting 64-bit times to usec. */
     /* 64-bit times are "Corey-endian"                                             */
@@ -1823,6 +2702,10 @@ static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, struct wtap_pkthdr *phdr,
      * Fill up the per-packet header.
      *
      * We include the length of the metadata headers in the packet lengths.
+     *
+     * The maximum value of actual_octets is 65535, which, even after
+     * adding the lengths of the metadata headers, is less than
+     * WTAP_MAX_PACKET_SIZE_STANDARD will ever be, so we don't need to check it.
      */
     phdr->len = STATS_COMMON_FIELDS_LEN + EXT_ETHERNET_FIELDS_LEN + actual_octets;
     phdr->caplen = STATS_COMMON_FIELDS_LEN + EXT_ETHERNET_FIELDS_LEN + actual_octets;
@@ -1845,8 +2728,13 @@ static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, struct wtap_pkthdr *phdr,
      *
      * All values are copied out in little-endian byte order.
      */
-    phtoles(&data_ptr[bytes_written], 1);
-    bytes_written += 2;
+    /* 1st octet of record for port_type and command (command is 0, hence RX) */
+    phtole8(&data_ptr[bytes_written], ETHERNET_PORT);
+    bytes_written += 1;
+    /* 2nd octet of record for fpga version (Ethernet, hence non-OCTO) */
+    phtole8(&data_ptr[bytes_written], 0);
+    bytes_written += 1;
+
     phtoles(&data_ptr[bytes_written], STATS_COMMON_FIELDS_LEN);
     bytes_written += 2;
     phtoles(&data_ptr[bytes_written], msdu_length);
@@ -1910,52 +2798,91 @@ static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, struct wtap_pkthdr *phdr,
 /*--------------------------------------------------------------------------------------*/
 /* utility to split up and decode a 16-byte message record */
 
-static int decode_msg(guint8 *rec, int *v_type, int *IS_TX)
+static int decode_msg(vwr_t *vwr, guint8 *rec, int *v_type, int *IS_TX, int *log_mode)
 {
-    guint8  cmd;                        /* components of message */
+    guint8  cmd,fpga_log_mode;          /* components of message */
     guint32 wd2, wd3;
-    int     v_size = 0;                 /* size of var-len message */
-                                        /* assume it's zero */
+    int     v_size;                     /* size of var-len message */
 
     /* break up the message record into its pieces */
-    cmd = rec[0];            /* command byte */
-    wd2 = pntoh32(&rec[8]);  /* first 32-bit quantity */
-    wd3 = pntoh32(&rec[12]); /* second 32-bit quantity */
+    cmd = rec[0];
+    fpga_log_mode = rec[1];
+    fpga_log_mode = ((fpga_log_mode & 0x30) >> 4);
+
+    wd2 = pntoh32(&rec[8]);
+    wd3 = pntoh32(&rec[12]);
+
+    if (vwr != NULL)
+        *log_mode = fpga_log_mode;          /* Log mode = 3, when MPDU data is reduced */
 
     /* now decode based on the command byte */
     switch (cmd) {
         case COMMAND_RX:
-            if (IS_TX != NULL)
+            if (vwr != NULL) {
                 *IS_TX = 0;
+            }
             v_size  = (int)(wd2 & 0xffff);
             *v_type = VT_FRAME;
             break;
 
         case COMMAND_TX:
-            if (IS_TX != NULL)
+            if (vwr != NULL) {
                 *IS_TX = 1;
+            }
+            v_size  = (int)(wd2 & 0xffff);
+            *v_type = VT_FRAME;
+            break;
+
+/*
+        case COMMAND_RFN:
+            if (vwr != NULL) {
+                *IS_TX = 3;
+            }
+            v_size  = (int)(wd2 & 0xffff);
+            *v_type = VT_FRAME;
+            break;
+*/
+
+        case COMMAND_RF:   /* For RF Modified only */
+            if (vwr != NULL) {
+                *IS_TX = 3;
+            }
+            v_size  = (int)(wd2 & 0xffff);
+            *v_type = VT_FRAME;
+            break;
+
+        case COMMAND_RFRX: /* For RF_RX Modified only */
+            if (vwr != NULL) {
+                *IS_TX = 4;
+            }
             v_size  = (int)(wd2 & 0xffff);
             *v_type = VT_FRAME;
             break;
 
         case 0xc1:
         case 0x8b:
-            if (IS_TX != NULL)
-                *IS_TX = 2; /*NULL case*/
+        case 0xbb:
+            if (vwr != NULL) {
+                *IS_TX = 2;
+            }
             v_size  = (int)(wd2 & 0xffff);
             *v_type = VT_CPMSG;
             break;
 
         case 0xfe:
-            if (IS_TX != NULL)
-                *IS_TX = 2; /*NULL case*/
+            if (vwr != NULL) {
+                *IS_TX = 2;
+            }
             v_size  = (int)(wd3 & 0xffff);
             *v_type = VT_CPMSG;
             break;
 
         default:
-            if (IS_TX != NULL)
-                *IS_TX = 2; /*NULL case*/
+            if (vwr != NULL) {
+                *IS_TX = 2;
+            }
+            v_size  = 0;
+            *v_type = VT_UNKNOWN;
             break;
     }
 
@@ -2032,6 +2959,7 @@ static void setup_defaults(vwr_t *vwr, guint16 fpga)
             vwr->PLCP_LENGTH_OFF    = vVW510021_W_PLCP_LENGTH_OFF;
 
             vwr->MT_MASK            = vVW510021_W_SEL_MASK;
+            vwr->MCS_INDEX_MASK     = vVW510021_W_MCS_MASK;
             vwr->VCID_MASK          = 0xffff;
             vwr->FLOW_VALID         = vVW510021_W_FLOW_VALID;
             vwr->STATS_START_OFF    = vVW510021_W_HEADER_LEN;
@@ -2053,9 +2981,9 @@ static void setup_defaults(vwr_t *vwr, guint16 fpga)
             vwr->MT_CCKS            = v22_W_MT_CCKS;
             /*vwr->MT_OFDM          = vVW510021_W_MT_OFDM;*/
 
-            vwr->WEPTYPE            = v22_W_WEPTYPE;
-            vwr->TKIPTYPE           = v22_W_TKIPTYPE;
-            vwr->CCMPTYPE           = v22_W_CCMPTYPE;
+            vwr->WEPTYPE            = vVW510021_W_WEPTYPE;
+            vwr->TKIPTYPE           = vVW510021_W_TKIPTYPE;
+            vwr->CCMPTYPE           = vVW510021_W_CCMPTYPE;
 
             vwr->FRAME_TYPE_OFF     =   vVW510021_W_FRAME_TYPE_OFF;
             vwr->IS_TCP             =   vVW510021_W_IS_TCP;
@@ -2065,7 +2993,15 @@ static void setup_defaults(vwr_t *vwr, guint16 fpga)
             vwr->IS_QOS             =   vVW510021_W_QOS_VALID;
 
             /*
-             * The 12 is for 11 bytes of PLCP  and 1 byte of pad
+             * vVW510021_W_STATS_HEADER_LEN = 8 is:
+             *
+             *    2 bytes of l1p_1/l1p_2;
+             *    1 byte of RSSI;
+             *    2 bytes of MSDU length + other bits
+             *    1 byte of XXX;
+             *    2 bytes of VCID.
+             *
+             * The 12 is for 11 bytes of PLCP and 1 byte of pad
              * before the data.
              */
             vwr->MPDU_OFF           = vVW510021_W_STATS_HEADER_LEN + 12;
@@ -2077,8 +3013,16 @@ static void setup_defaults(vwr_t *vwr, guint16 fpga)
             vwr->PLCP_LENGTH_OFF = 16;
 
             /*
-             * The first 16 is from the 16 bytes of stats block that
-             * precede the PLCP; the 16 is for 16 bytes of PLCP.
+             * The 16 + 16 is:
+             *
+             *    2 bytes of l1p_1/l1p_2;
+             *    1 byte of signal bandwidth mask;
+             *    1 byte of antenna port energy;
+             *    4 bytes of per-antenna RSSI;
+             *    1 byte of L1InfoC;
+             *    3 bytes of MSDU length;
+             *    4 bytes of something;
+             *   16 bytes of PLCP.
              */
             vwr->MPDU_OFF        = 16 + 16;
 
@@ -2290,61 +3234,85 @@ guint64 get_signature_ts(const guint8 *m_ptr,int sig_off)
     return (sig_ts & 0xffffffff);
 }
 
-static float getRate( guint8 plcpType, guint8 mcsIndex, guint16 rflags, guint8 nss )
+static float
+get_legacy_rate(guint8 rate_index)
 {
     /* Rate conversion data */
     static const float canonical_rate_legacy[]  = {1.0f, 2.0f, 5.5f, 11.0f, 6.0f, 9.0f, 12.0f, 18.0f, 24.0f, 36.0f, 48.0f, 54.0f};
 
+    float bitrate  = 0.0f;
+
+    if (rate_index < G_N_ELEMENTS(canonical_rate_legacy))
+        bitrate =  canonical_rate_legacy[rate_index];
+
+    return bitrate;
+}
+
+static float
+get_ht_rate(guint8 mcs_index, guint16 rflags)
+{
+    /* Rate conversion data */
     static const int   canonical_ndbps_20_ht[8]  = {26, 52, 78, 104, 156, 208, 234, 260};
     static const int   canonical_ndbps_40_ht[8]  = {54, 108, 162, 216, 324, 432, 486, 540};
 
-    static const int   canonical_ndbps_20_vht[] = {26, 52, 78, 104, 156, 208, 234, 260, 312};
-    static const int   canonical_ndbps_40_vht[] = {54, 108, 162, 216, 324, 432, 486, 540, 648, 720};
-    static const int   canonical_ndbps_80_vht[] = {117, 234, 351, 468, 702, 936, 1053, 1170, 1404, 1560};
+    float symbol_tx_time, bitrate;
+    int   ndbps;
 
-    float symbol_tx_time, bitrate  = 0.0f;
+    if (rflags & FLAGS_CHAN_SHORTGI)
+        symbol_tx_time = 3.6f;
+    else
+        symbol_tx_time = 4.0f;
 
-    if (plcpType == 0)
-    {
-        if (mcsIndex < G_N_ELEMENTS(canonical_rate_legacy))
-            bitrate =  canonical_rate_legacy[mcsIndex];
-    }
-    else if (plcpType == 1 || plcpType == 2)
-    {
-        int   ndbps;
+    if (rflags & FLAGS_CHAN_40MHZ)
+        ndbps = canonical_ndbps_40_ht[mcs_index - 8*(int)(mcs_index/8)];
+    else
+        ndbps = canonical_ndbps_20_ht[mcs_index - 8*(int)(mcs_index/8)];
 
-        if ( rflags & FLAGS_CHAN_SHORTGI)
-            symbol_tx_time = 3.6f;
-        else
-            symbol_tx_time = 4.0f;
+    bitrate = (ndbps * (((int)(mcs_index >> 3) + 1))) / symbol_tx_time;
 
-        if ( rflags & FLAGS_CHAN_40MHZ )
-            ndbps = canonical_ndbps_40_ht[mcsIndex & 0x07];
-        else
-            ndbps = canonical_ndbps_20_ht[mcsIndex & 0x07];
+    return bitrate;
+}
 
-        bitrate = ( ndbps * (((int)(mcsIndex >> 3) + 1) )) / symbol_tx_time;
-    }
+static float
+get_vht_rate(guint8 mcs_index, guint16 rflags, guint8 nss)
+{
+    /* Rate conversion data */
+    static const int   canonical_ndbps_20_vht[9] = {26, 52, 78, 104, 156, 208, 234, 260, 312};
+    static const int   canonical_ndbps_40_vht[10] = {54, 108, 162, 216, 324, 432, 486, 540, 648, 720};
+    static const int   canonical_ndbps_80_vht[10] = {117, 234, 351, 468, 702, 936, 1053, 1170, 1404, 1560};
+
+    float symbol_tx_time, bitrate;
+
+    if (rflags & FLAGS_CHAN_SHORTGI)
+        symbol_tx_time = 3.6f;
+    else
+        symbol_tx_time = 4.0f;
+
+    /*
+     * Check for the out of range mcs_index.
+     * Should never happen, but if mcs index is greater than 9 just
+     * return 0.
+     */
+    if (mcs_index > 9)
+        return 0.0f;
+    if (rflags & FLAGS_CHAN_40MHZ)
+        bitrate = (canonical_ndbps_40_vht[mcs_index] * nss) / symbol_tx_time;
+    else if (rflags & FLAGS_CHAN_80MHZ)
+        bitrate = (canonical_ndbps_80_vht[mcs_index] * nss) / symbol_tx_time;
     else
     {
-        if ( rflags & FLAGS_CHAN_SHORTGI)
-            symbol_tx_time = 3.6f;
-        else
-            symbol_tx_time = 4.0f;
-
-        /* Check for the out of range mcsIndex.  Should never happen, but if mcs index is greater than 9 assume 9 is the value */
-        if (mcsIndex > 9) mcsIndex = 9;
-        if ( rflags & FLAGS_CHAN_40MHZ )
-            bitrate = (canonical_ndbps_40_vht[ mcsIndex ] * nss) / symbol_tx_time;
-        else if (rflags & FLAGS_CHAN_80MHZ )
-            bitrate = (canonical_ndbps_80_vht[ mcsIndex ] * nss) / symbol_tx_time;
-        else
+        if (mcs_index == 9)
         {
-            if (mcsIndex == 9 && nss == 3)
+            /* This is a special case for 20 MHz. */
+            if (nss == 3)
                 bitrate = 1040 / symbol_tx_time;
-            else if (mcsIndex < 9)
-                bitrate = (canonical_ndbps_20_vht[ mcsIndex ] * nss) / symbol_tx_time;
+            else if (nss == 6)
+                bitrate = 2080 / symbol_tx_time;
+            else
+                bitrate = 0.0f;
         }
+        else
+            bitrate = (canonical_ndbps_20_vht[mcs_index] * nss) / symbol_tx_time;
     }
 
     return bitrate;
@@ -2353,7 +3321,7 @@ static float getRate( guint8 plcpType, guint8 mcsIndex, guint16 rflags, guint8 n
 static gboolean
 vwr_process_rec_data(FILE_T fh, int rec_size,
                      struct wtap_pkthdr *phdr, Buffer *buf, vwr_t *vwr,
-                     int IS_TX, int *err, gchar **err_info)
+                     int IS_TX, int log_mode, int *err, gchar **err_info)
 {
     guint8*   rec;       /* local buffer (holds input record) */
     gboolean  ret = FALSE;
@@ -2375,8 +3343,10 @@ vwr_process_rec_data(FILE_T fh, int rec_size,
             ret = vwr_read_s1_W_rec(vwr, phdr, buf, rec, rec_size, err, err_info);
             break;
         case S2_W_FPGA:
+            ret = vwr_read_s2_W_rec(vwr, phdr, buf, rec, rec_size, IS_TX, err, err_info);
+            break;
         case S3_W_FPGA:
-            ret = vwr_read_s2_s3_W_rec(vwr, phdr, buf, rec, rec_size, IS_TX, err, err_info);
+            ret = vwr_read_s3_W_rec(vwr, phdr, buf, rec, rec_size, IS_TX, log_mode, err, err_info);
             break;
         case vVW510012_E_FPGA:
         case vVW510024_E_FPGA:

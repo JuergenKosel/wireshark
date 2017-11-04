@@ -46,17 +46,19 @@ static void
 exp_pdu_file_open(exp_pdu_t *exp_pdu_tap_data)
 {
     int   import_file_fd;
-    char *tmpname, *capfile_name;
+    char *tmpname, *capfile_name, *comment;
     int   err;
 
     /* Choose a random name for the temporary import buffer */
     import_file_fd = create_tempfile(&tmpname, "Wireshark_PDU_", NULL);
     capfile_name = g_strdup(tmpname);
 
-    err = exp_pdu_open(exp_pdu_tap_data, import_file_fd,
-        g_strdup_printf("Dump of PDUs from %s", cfile.filename));
+    comment = g_strdup_printf("Dump of PDUs from %s", cfile.filename);
+    err = exp_pdu_open(exp_pdu_tap_data, import_file_fd, comment);
     if (err != 0) {
-        open_failure_alert_box(capfile_name ? capfile_name : "temporary file", err, TRUE);
+        g_free(comment);
+        cfile_dump_open_failure_alert_box(capfile_name ? capfile_name : "temporary file",
+                                          err, WTAP_FILE_TYPE_SUBTYPE_PCAPNG);
         goto end;
     }
 
@@ -65,12 +67,12 @@ exp_pdu_file_open(exp_pdu_t *exp_pdu_tap_data)
 
     err = exp_pdu_close(exp_pdu_tap_data);
     if (err!= 0) {
-        write_failure_alert_box(capfile_name, err);
+        cfile_close_failure_alert_box(capfile_name, err);
     }
 
     /* XXX: should this use the open_routine type in the cfile instead of WTAP_TYPE_AUTO? */
     if (cf_open(&cfile, capfile_name, WTAP_TYPE_AUTO, TRUE /* temporary file */, &err) != CF_OK) {
-        open_failure_alert_box(capfile_name, err, FALSE);
+        /* cf_open() has put up a dialog box for the error */
         goto end;
     }
 

@@ -19,11 +19,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include "config.h"
+
+#ifdef HAVE_LIBPCAP
 
 #include <ui_compiled_filter_output.h>
 #include "compiled_filter_output.h"
 
-#include <pcap.h>
+#include <wsutil/wspcap.h>
 
 #include "capture_opts.h"
 #include <wiretap/wtap.h>
@@ -85,7 +88,9 @@ void CompiledFilterOutput::compileFilter()
             if (interfaces.compare(device.display_name)) {
                 continue;
             } else {
-                pcap_t *pd = pcap_open_dead(device.active_dlt, WTAP_MAX_PACKET_SIZE);
+                pcap_t *pd = pcap_open_dead(device.active_dlt, WTAP_MAX_PACKET_SIZE_STANDARD);
+                if (pd == NULL)
+                    break;
                 g_mutex_lock(pcap_compile_mtx);
                 if (pcap_compile(pd, &fcode, compile_filter_.toUtf8().constData(), 1, 0) < 0) {
                     compile_results.insert(interfaces, QString("%1").arg(g_strdup(pcap_geterr(pd))));
@@ -123,6 +128,8 @@ void CompiledFilterOutput::copyFilterText()
 {
     wsApp->clipboard()->setText(ui->filterList->toPlainText());
 }
+
+#endif /* HAVE_LIBPCAP */
 
 //
 // Editor modelines  -  http://www.wireshark.org/tools/modelines.html

@@ -1557,7 +1557,7 @@ packet_list_get_packet_comment(void)
 
 	fdata = packet_list_get_record(model, &iter);
 
-	return cf_get_comment(&cfile, fdata);
+	return cf_get_packet_comment(&cfile, fdata);
 }
 
 void
@@ -1571,7 +1571,7 @@ packet_list_return_all_comments(GtkTextBuffer *buffer)
 		char *pkt_comment;
 
 		fdata = frame_data_sequence_find(cfile.frames, framenum);
-		pkt_comment = cf_get_comment(&cfile, fdata);
+		pkt_comment = cf_get_packet_comment(&cfile, fdata);
 		if (pkt_comment) {
 			buf_str = g_strdup_printf("Frame %u: %s \n\n",framenum, pkt_comment);
 			gtk_text_buffer_insert_at_cursor (buffer, buf_str, -1);
@@ -1632,7 +1632,7 @@ packet_list_recent_write_all(FILE *rf)
 	for (col = 0; col < num_cols; col++) {
 		col_fmt = get_column_format(col);
 		if (col_fmt == COL_CUSTOM) {
-			fprintf (rf, " %%Cus:%s,", get_column_custom_fields(col));
+			fprintf (rf, " \"%%Cus:%s\",", get_column_custom_fields(col));
 		} else {
 			fprintf (rf, " %s,", col_format_to_string(col_fmt));
 		}
@@ -1697,7 +1697,7 @@ query_packet_list_tooltip_cb(GtkWidget *widget, gint x, gint y, gboolean keyboar
 		}
 
 		fdata = packet_list_get_record(model, &iter);
-		pkt_comment = cf_get_comment(&cfile, fdata);
+		pkt_comment = cf_get_packet_comment(&cfile, fdata);
 
 		if (pkt_comment != NULL) {
 			gtk_tooltip_set_markup(tooltip, pkt_comment);

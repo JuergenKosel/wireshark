@@ -1870,6 +1870,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
             offset += 2 + da_len;
             break;
           }
+
           /* Bit-based Data objects here */
           case AL_OBJ_BI_1BIT:    /* Single-Bit Binary Input (Obj:01, Var:01) */
           case AL_OBJ_BO:         /* Binary Output (Obj:10, Var:01) */
@@ -1877,9 +1878,8 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
           case AL_OBJ_IIN:        /* Internal Indications - IIN (Obj: 80, Var:01) */
 
             /* Extract the bit from the packed byte */
-            al_bi_val = tvb_get_guint8(tvb, offset);
-            al_bit = (al_bi_val & (1 << bitindex)) > 0;
-
+            al_bi_val = tvb_get_guint8(tvb, data_pos);
+            al_bit = (al_bi_val & 1) > 0;
             if (al_obj == AL_OBJ_IIN) {
               /* For an IIN bit, work out the IIN constant value for the bit position to get the name of the bit */
               guint16 iin_bit = 0;
@@ -1892,10 +1892,20 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               proto_item_append_text(point_item, " (%s), Value: %u",
                                      val_to_str_const(iin_bit, dnp3_al_iin_vals, "Invalid IIN bit"), al_bit);
             }
-            else {
+            else
+            {
+              if (al_objq_prefix != AL_OBJQL_PREFIX_NI) {
+                /* Each item has an index prefix, in this case bump
+                   the bitindex to force the correct offset adjustment */
+                bitindex = 7;
+              }
+              else {
+                /* Regular packed bits, get the value at the appropriate bit index */
+                al_bit = (al_bi_val & (1 << bitindex)) > 0;
+              }
               proto_item_append_text(point_item, ", Value: %u", al_bit);
             }
-            proto_tree_add_boolean(point_tree, hf_dnp3_al_bit, tvb, offset, 1, al_bit);
+            proto_tree_add_boolean(point_tree, hf_dnp3_al_bit, tvb, data_pos, 1, al_bit);
             proto_item_set_len(point_item, prefixbytes + 1);
 
             /* Increment the bit index for next cycle */
@@ -2816,7 +2826,7 @@ dissect_dnp3_al(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
   /* Clear out lower layer info */
   col_clear(pinfo->cinfo, COL_INFO);
-  col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "%s", func_code_str);
+  col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, func_code_str);
   col_set_fence(pinfo->cinfo, COL_INFO);
 
   /* format up the text representation */
@@ -2873,7 +2883,7 @@ dissect_dnp3_al(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
           default:
             /* For reads for specific object types, bit-mask out the first byte and add the generic obj description to the column info */
             obj_type_str = val_to_str_ext((obj_type & 0xFF00), &dnp3_al_read_obj_vals_ext, "Unknown Object Type");
-            col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "%s", obj_type_str);
+            col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, obj_type_str);
             break;
         }
 
@@ -2881,7 +2891,7 @@ dissect_dnp3_al(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
       /* Update the col info if there were class reads */
       if (al_class != 0) {
-        col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "Class ");
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Class ");
         for (i = 0; i < 4; i++) {
           if (al_class & (1 << i)) {
             col_append_fstr(pinfo->cinfo, COL_INFO, "%u", i);
@@ -2902,7 +2912,7 @@ dissect_dnp3_al(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
         /* For writes for specific object types, bit-mask out the first byte and add the generic obj description to the column info */
         obj_type_str = val_to_str_ext((obj_type & 0xFF00), &dnp3_al_write_obj_vals_ext, "Unknown Object Type");
-        col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "%s", obj_type_str);
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, obj_type_str);
 
       }
 

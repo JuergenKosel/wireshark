@@ -60,6 +60,7 @@ EXTRA_DIST = \
 	lex.py						\
 	licensecheck.pl					\
 	list_protos_in_cap.sh				\
+	macos-setup-brew.sh				\
 	make-dissector-reg.py				\
 	make-manuf					\
 	make-sminmpec.pl				\
@@ -84,7 +85,6 @@ EXTRA_DIST = \
 	rdps.py						\
 	rpm_setup.sh 					\
 	runa2x.sh					\
-	runlex.sh					\
 	setuid-root.pl.in				\
 	test-common.sh					\
 	test-captures.sh				\

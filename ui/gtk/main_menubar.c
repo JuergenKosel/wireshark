@@ -206,29 +206,7 @@ colorize_conversation_cb(conversation_filter_t* color_filter, int action_num)
                 * or through an accelerator key. Try to build a conversation
                 * filter in the order TCP, UDP, IP, Ethernet and apply the
                 * coloring */
-            color_filter = find_conversation_filter("tcp");
-            if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                filter = color_filter->build_filter_string(pi);
-            if (filter == NULL) {
-                color_filter = find_conversation_filter("udp");
-                if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                    filter = color_filter->build_filter_string(pi);
-            }
-            if (filter == NULL) {
-                color_filter = find_conversation_filter("ip");
-                if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                    filter = color_filter->build_filter_string(pi);
-            }
-            if (filter == NULL) {
-                color_filter = find_conversation_filter("ipv6");
-                if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                    filter = color_filter->build_filter_string(pi);
-            }
-            if (filter == NULL) {
-                color_filter = find_conversation_filter("eth");
-                if ((color_filter != NULL) && (color_filter->is_filter_valid(pi)))
-                    filter = color_filter->build_filter_string(pi);
-            }
+            filter = conversation_filter_from_packet(pi);
             if( filter == NULL ) {
                 simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "Unable to build conversation filter.");
                 return;
@@ -260,24 +238,11 @@ goto_conversation_frame(gboolean dir)
     dfilter_t *dfcode       = NULL;
     gboolean   found_packet = FALSE;
     packet_info *pi = &cfile.edt->pi;
-    conversation_filter_t* conv_filter;
 
     /* Try to build a conversation
      * filter in the order TCP, UDP, IP, Ethernet and apply the
      * coloring */
-    conv_filter = find_conversation_filter("tcp");
-    if ((conv_filter != NULL) && (conv_filter->is_filter_valid(pi)))
-        filter = conv_filter->build_filter_string(pi);
-    conv_filter = find_conversation_filter("udp");
-    if ((conv_filter != NULL) && (conv_filter->is_filter_valid(pi)))
-        filter = conv_filter->build_filter_string(pi);
-    conv_filter = find_conversation_filter("ip");
-    if ((conv_filter != NULL) && (conv_filter->is_filter_valid(pi)))
-        filter = conv_filter->build_filter_string(pi);
-    conv_filter = find_conversation_filter("ipv6");
-    if ((conv_filter != NULL) && (conv_filter->is_filter_valid(pi)))
-        filter = conv_filter->build_filter_string(pi);
-
+    filter = conversation_filter_from_packet(pi);
     if( filter == NULL ) {
         statusbar_push_temporary_msg("Unable to build conversation filter.");
         g_free(filter);
@@ -1096,6 +1061,9 @@ static const char *ui_desc_menubar =
 "      <menu name= 'MTP3menu' action='/Telephony/MTP3'>\n"
 "        <menuitem name='MSUSummary' action='/Telephony/MTP3/MSUSummary'/>\n"
 "      </menu>\n"
+"      <menu name= 'Osmuxmenu' action='/Telephony/Osmux'>\n"
+"        <menuitem name='osmux' action='/Telephony/Osmux/osmux'/>\n"
+"      </menu>\n"
 "      <menu name= 'RTPmenu' action='/Telephony/RTP'>\n"
 "        <menuitem name='ShowAllStreams' action='/Telephony/RTP/ShowAllStreams'/>\n"
 "        <menuitem name='StreamAnalysis' action='/Telephony/RTP/StreamAnalysis'/>\n"
@@ -1516,6 +1484,8 @@ static const GtkActionEntry main_menu_bar_entries[] = {
    { "/Telephony/LTE/RLCGraph",         NULL,                       "RLC _Graph...",            NULL,                       NULL,               G_CALLBACK(rlc_lte_graph_cb) },
    { "/Telephony/MTP3",                 NULL,                       "_MTP3",                    NULL, NULL, NULL },
    { "/Telephony/MTP3/MSUSummary",      NULL,                       "MSU Summary",              NULL,                       NULL,               G_CALLBACK(mtp3_sum_gtk_sum_cb) },
+   { "/Telephony/Osmux",                NULL,                       "Osmux",                    NULL, NULL, NULL },
+   { "/Telephony/Osmux/osmux",          NULL,                       "Packet Counter",           NULL,                       NULL,               G_CALLBACK(gtk_stats_tree_cb) },
    { "/Telephony/RTP",                  NULL,                       "_RTP",                     NULL, NULL, NULL },
    { "/Telephony/RTP/StreamAnalysis",   NULL,                       "Stream Analysis...",       NULL,                       NULL,               G_CALLBACK(rtp_analysis_cb) },
    { "/Telephony/RTP/ShowAllStreams",   NULL,                       "Show All Streams",         NULL,                       NULL,               G_CALLBACK(rtpstream_launch) },
@@ -2501,7 +2471,7 @@ main_menu_new(GtkAccelGroup ** table)
     }
 
     /* The quit item in the application menu shows up whenever ige mac
-     * integration is enabled, even if the OS X UI style in Wireshark isn't
+     * integration is enabled, even if the macOS UI style in Wireshark isn't
      * turned on. */
     quit_item = gtk_menu_item_new_with_label("Quit");
     g_signal_connect(quit_item, "activate", G_CALLBACK(file_quit_cmd_cb), NULL);

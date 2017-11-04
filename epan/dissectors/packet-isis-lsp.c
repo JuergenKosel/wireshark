@@ -78,11 +78,15 @@
 #define ISIS_LSP_ATTACHED_EXPENSE   4
 #define ISIS_LSP_ATTACHED_ERROR     8
 
-
-#define ISIS_LSP_CLV_METRIC_SUPPORTED(x)    ((x)&0x80)
-#define ISIS_LSP_CLV_METRIC_IE(x)               ((x)&0x40)
-#define ISIS_LSP_CLV_METRIC_RESERVED(x)        ((x)&0x40)
-#define ISIS_LSP_CLV_METRIC_UPDOWN(x)           ((x)&0x80)
+/*
+ * The "supported" bit in a metric is actually the "not supported" bit;
+ * if it's *clear*, the metric is supported, and if it's *set*, the
+ * metric is not supported.
+ */
+#define ISIS_LSP_CLV_METRIC_SUPPORTED(x)    (!((x)&0x80))
+#define ISIS_LSP_CLV_METRIC_IE(x)           ((x)&0x40)
+#define ISIS_LSP_CLV_METRIC_RESERVED(x)     ((x)&0x40)
+#define ISIS_LSP_CLV_METRIC_UPDOWN(x)       ((x)&0x80)
 #define ISIS_LSP_CLV_METRIC_VALUE(x)        ((x)&0x3f)
 
 /* Sub-TLVs under Router Capability and MT Capability TLVs
@@ -607,7 +611,6 @@ dissect_lsp_mt_id(tvbuff_t *tvb, proto_tree *tree, int offset)
  *    tvbuff_t * : tvbuffer for packet data
  *    proto_tree * : protocol display tree to fill out.  May be NULL
  *    int : offset into packet data where we are.
- *    guint8 : value of the metric.
  *    int : hf of the metric.
  *    int : hf_support of the metric.
  *    int : force supported.  True is the supported bit MUST be zero.
@@ -616,20 +619,20 @@ dissect_lsp_mt_id(tvbuff_t *tvb, proto_tree *tree, int offset)
  *    void, but we will add to proto tree if !NULL.
  */
 static void
-dissect_metric(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tree, int offset, guint8 value,
+dissect_metric(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tree, int offset,
     int hf, int hf_support, int force_supported )
 {
-    int s;
+    guint8 metric;
     proto_item *item, *support_item;
 
-    s = ISIS_LSP_CLV_METRIC_SUPPORTED(value);
-    item = proto_tree_add_uint(tree, hf, tvb, offset, 1, value);
-    support_item = proto_tree_add_uint(tree, hf_support, tvb, offset, 1, value);
+    metric = tvb_get_guint8(tvb, offset);
+    support_item = proto_tree_add_boolean(tree, hf_support, tvb, offset, 1, metric);
+    item = proto_tree_add_uint(tree, hf, tvb, offset, 1, metric);
 
-    if (s && force_supported)
+    if (!ISIS_LSP_CLV_METRIC_SUPPORTED(metric) && force_supported)
         proto_item_append_text(support_item, " (but is required to be)");
 
-    if (ISIS_LSP_CLV_METRIC_RESERVED(value))
+    if (ISIS_LSP_CLV_METRIC_RESERVED(metric))
         expert_add_info(pinfo, item, &ei_isis_lsp_reserved_not_zero);
 }
 
@@ -2148,7 +2151,7 @@ static void
 dissect_lsp_authentication_clv(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tree, int offset,
     int id_length _U_, int length)
 {
-    isis_dissect_authentication_clv(tree, pinfo, tvb, hf_isis_lsp_authentication, &ei_isis_lsp_authentication, offset, length);
+    isis_dissect_authentication_clv(tree, pinfo, tvb, hf_isis_lsp_authentication, hf_isis_clv_key_id, &ei_isis_lsp_authentication, offset, length);
 }
 
 /*
@@ -3067,17 +3070,20 @@ dissect_lsp_prefix_neighbors_clv(tvbuff_t *tvb, packet_info* pinfo, proto_tree *
     }
     if ( tree ) {
         dissect_metric (tvb, pinfo, tree, offset,
-            tvb_get_guint8(tvb, offset), hf_isis_lsp_default, hf_isis_lsp_default_support, TRUE );
+            hf_isis_lsp_default, hf_isis_lsp_default_support, TRUE );
         dissect_metric (tvb, pinfo, tree, offset+1,
-            tvb_get_guint8(tvb, offset+1), hf_isis_lsp_delay, hf_isis_lsp_delay_support, FALSE );
+            hf_isis_lsp_delay, hf_isis_lsp_delay_support, FALSE );
         dissect_metric (tvb, pinfo, tree, offset+2,
-            tvb_get_guint8(tvb, offset+2), hf_isis_lsp_expense, hf_isis_lsp_expense_support, FALSE );
+            hf_isis_lsp_expense, hf_isis_lsp_expense_support, FALSE );
         dissect_metric (tvb, pinfo, tree, offset+3,
-            tvb_get_guint8(tvb, offset+3), hf_isis_lsp_error, hf_isis_lsp_error_support, FALSE );
+            hf_isis_lsp_error, hf_isis_lsp_error_support, FALSE );
     }
     offset += 4;
     length -= 4;
     while ( length > 0 ) {
+        /*
+         * This is a length in "semi-octets", i.e., in nibbles.
+         */
         mylen = tvb_get_guint8(tvb, offset);
         length--;
         if (length<=0) {
@@ -3085,9 +3091,9 @@ dissect_lsp_prefix_neighbors_clv(tvbuff_t *tvb, packet_info* pinfo, proto_tree *
                 "Zero payload space after length in prefix neighbor" );
             return;
         }
-        if ( mylen > length) {
+        if ( mylen > length*2) {
             proto_tree_add_expert_format(tree, pinfo, &ei_isis_lsp_long_packet, tvb, offset, -1,
-                "Integral length of prefix neighbor too long (%d vs %d)", mylen, length );
+                "Integral length of prefix neighbor too long (%d vs %d)", mylen, length*2 );
             return;
         }
 
@@ -3095,9 +3101,9 @@ dissect_lsp_prefix_neighbors_clv(tvbuff_t *tvb, packet_info* pinfo, proto_tree *
          * Lets turn the area address into "standard" 0000.0000.etc
          * format string.
          */
-        sbuf =  print_area( tvb, offset+1, mylen );
+        sbuf =  print_address_prefix( tvb, offset+1, mylen );
         /* and spit it out */
-        proto_tree_add_string( tree, hf_isis_lsp_area_address_str, tvb, offset, mylen + 1, sbuf);
+        proto_tree_add_string( tree, hf_isis_lsp_area_address_str, tvb, offset, (mylen+1)/2 + 1, sbuf);
 
         offset += mylen + 1;
         length -= mylen;    /* length already adjusted for len fld*/
@@ -3572,6 +3578,15 @@ dissect_isis_l2_lsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         clv_l2_lsp_opts, isis->header_length, isis->system_id_len);
     return tvb_reported_length(tvb);
 }
+
+/*
+ * The "supported" bit in a metric is actually the "not supported" bit;
+ * if it's *clear*, the metric is supported, and if it's *set*, the
+ * metric is not supported.
+ */
+static const true_false_string tfs_metric_supported_not_supported = {
+	"No", "Yes"
+};
 
 void
 proto_register_isis_lsp(void)
@@ -4442,7 +4457,7 @@ proto_register_isis_lsp(void)
         },
         { &hf_isis_lsp_mt_cap_spb_instance_vlanid_tuple_spvid,
             { "SPVID", "isis.lsp.mt_cap_spb_instance.vlanid_tuple.spvid",
-              FT_UINT24, BASE_DEC, NULL, 0xFFF000,
+              FT_UINT24, BASE_DEC, NULL, 0x000FFF,
               NULL, HFILL }
         },
         { &hf_isis_lsp_mt_cap_spb_opaque_algorithm,
@@ -4826,43 +4841,43 @@ proto_register_isis_lsp(void)
             NULL, HFILL }
         },
         { &hf_isis_lsp_default,
-          { "Default", "isis.lsp.default",
-            FT_UINT8, BASE_HEX, NULL, 0x0,
+          { "Default metric", "isis.lsp.default",
+            FT_UINT8, BASE_DEC, NULL, 0x3f,
             NULL, HFILL }
         },
         { &hf_isis_lsp_default_support,
-          { "Default", "isis.lsp.default_support",
-            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x80,
+          { "Default metric supported", "isis.lsp.default_support",
+            FT_BOOLEAN, 8, TFS(&tfs_metric_supported_not_supported), 0x80,
             NULL, HFILL }
         },
         { &hf_isis_lsp_delay,
-          { "Delay", "isis.lsp.delay",
-            FT_UINT8, BASE_HEX, NULL, 0x0,
+          { "Delay metric", "isis.lsp.delay",
+            FT_UINT8, BASE_DEC, NULL, 0x3f,
             NULL, HFILL }
         },
         { &hf_isis_lsp_delay_support,
-          { "Delay", "isis.lsp.delay_support",
-            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x80,
+          { "Delay metric supported", "isis.lsp.delay_support",
+            FT_BOOLEAN, 8, TFS(&tfs_metric_supported_not_supported), 0x80,
             NULL, HFILL }
         },
         { &hf_isis_lsp_expense,
-          { "Expense", "isis.lsp.expense",
-            FT_UINT8, BASE_HEX, NULL, 0x0,
+          { "Expense metric", "isis.lsp.expense",
+            FT_UINT8, BASE_DEC, NULL, 0xef,
             NULL, HFILL }
         },
         { &hf_isis_lsp_expense_support,
-          { "Expense", "isis.lsp.expense_support",
-            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x80,
+          { "Expense metric supported", "isis.lsp.expense_support",
+            FT_BOOLEAN, 8, TFS(&tfs_metric_supported_not_supported), 0x80,
             NULL, HFILL }
         },
         { &hf_isis_lsp_error,
-          { "Error", "isis.lsp.error",
-            FT_UINT8, BASE_HEX, NULL, 0x0,
+          { "Error metric", "isis.lsp.error",
+            FT_UINT8, BASE_DEC, NULL, 0x3F,
             NULL, HFILL }
         },
         { &hf_isis_lsp_error_support,
-          { "Error", "isis.lsp.error_support",
-            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x80,
+          { "Error metric supported", "isis.lsp.error_support",
+            FT_BOOLEAN, 8, TFS(&tfs_metric_supported_not_supported), 0x80,
             NULL, HFILL }
         },
     };

@@ -3687,6 +3687,7 @@ Martin Kacer	<kacer.martin[AT]gmail.com> {
 	JSON and Elasticsearch tshark output
 	json2pcap
 }
+
 Ben Stewart		<bst[AT]google.com> {
 	SCTE-35 dissector
 }
@@ -3954,6 +3955,7 @@ James Lynch		<lynch007[AT]gmail.com>
 Chidambaram Arunachalam	<carunach[AT]cisco.com>
 João Valverde		<joao.valverde[AT]tecnico.ulisboa.pt>
 Benoît Canet		<benoit[AT]scylladb.com>
+Håkon Øye Amundsen      <haakon.amundsen[AT]nordicsemi.no>
 
 Acknowledgements
 ------------

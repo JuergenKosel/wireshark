@@ -24,8 +24,8 @@ project(Wireshark C CXX)
 # Updated by make-version.pl
 set(GIT_REVISION 0)
 set(PROJECT_MAJOR_VERSION 2)
-set(PROJECT_MINOR_VERSION 3)
-set(PROJECT_PATCH_VERSION 0)
+set(PROJECT_MINOR_VERSION 4)
+set(PROJECT_PATCH_VERSION 3)
 set(PROJECT_BUILD_VERSION ${GIT_REVISION})
 set(PROJECT_VERSION_EXTENSION "")
 
@@ -37,10 +37,8 @@ set(PROJECT_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT
 
 message(STATUS "Generating build using CMake ${CMAKE_VERSION}")
 if(WIN32)
-	# Needed for proper Qt linking. See
-	# http://www.cmake.org/cmake/help/v3.0/policy/CMP0020.html
-	# 3.1.3 is the currently supported version
-	cmake_minimum_required(VERSION 3.1.3)
+	# Needed for GREATER_EQUAL operator
+	cmake_minimum_required(VERSION 3.7)
 else()
 	cmake_minimum_required(VERSION 2.8.8)
 endif()
@@ -115,7 +113,7 @@ if(WIN32)
 		file( TO_CMAKE_PATH "$ENV{WIRESHARK_LIB_DIR}" _PROJECT_LIB_DIR )
 	elseif( DEFINED ENV{WIRESHARK_BASE_DIR} )
 		file( TO_CMAKE_PATH "$ENV{WIRESHARK_BASE_DIR}" _WS_BASE_DIR )
-		set( _PROJECT_LIB_DIR "${_WS_BASE_DIR}/wireshark-${WIRESHARK_TARGET_PLATFORM}-libs" )
+		set( _PROJECT_LIB_DIR "${_WS_BASE_DIR}/wireshark-${WIRESHARK_TARGET_PLATFORM}-libs-2.4" )
 	else()
 		# Don't know what to do
 		message(FATAL_ERROR "Neither WIRESHARK_BASE_DIR or WIRESHARK_LIB_DIR are defined")
@@ -191,8 +189,8 @@ include(CMakeInstallDirs)
 # Banner shown at top right of Qt welcome screen.
 if(DEFINED ENV{WIRESHARK_VERSION_FLAVOR})
 	set(VERSION_FLAVOR "$ENV{WIRESHARK_VERSION_FLAVOR}")
-else()
-	set(VERSION_FLAVOR "Development Build")
+#else()
+#	set(VERSION_FLAVOR "Development Build")
 endif()
 
 # These are required in .rc files and manifests
@@ -323,11 +321,11 @@ else()
 	if(CMAKE_OSX_DEPLOYMENT_TARGET)
 		if(APPLE)
 			if(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.0")
-				message(FATAL_ERROR "We don't support building for OS X 10.0")
+				message(FATAL_ERROR "We don't support building for Mac OS X 10.0")
 			elseif(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.1")
-				message(FATAL_ERROR "We don't support building for OS X 10.1")
+				message(FATAL_ERROR "We don't support building for Mac OS X 10.1")
 			elseif(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.2")
-				message(FATAL_ERROR "We don't support building for OS X 10.2")
+				message(FATAL_ERROR "We don't support building for Mac OS X 10.2")
 			elseif(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.4" OR ${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.5")
 				#
 				# Only 32-bit builds are supported.  10.5
@@ -339,9 +337,9 @@ else()
 				set(CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
 				set(WS_LINK_FLAGS "-m32 ${WS_LINK_FLAGS}")
 			endif()
-			message(STATUS "Building for OS X ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+			message(STATUS "Building for Mac OS X/OS X/macOS ${CMAKE_OSX_DEPLOYMENT_TARGET}")
 		else()
-			message(FATAL_ERROR "CMAKE_OSX_DEPLOYMENT_TARGET only applies when building for OS X")
+			message(FATAL_ERROR "CMAKE_OSX_DEPLOYMENT_TARGET only applies when building for macOS")
 		endif()
 	endif()
 
@@ -414,6 +412,10 @@ else()
 		-Wno-overlength-strings
 		-Wno-long-long
 		-Wheader-guard
+		#
+		# Code that may be worth looking into (coding practices)
+		#
+		-Wframe-larger-than=16384
 	)
 
 	set(C_WARN_FLAGS
@@ -426,8 +428,6 @@ else()
 		-Wlogical-op
 		-Wjump-misses-init
 		-Wunused-const-variable
-		# The Qt headers generate a ton of shortening errors on 64-bit systems
-		# so only enable this for C for now.
 		-Wshorten-64-to-32
 
 		#
@@ -440,6 +440,15 @@ else()
 
 	set(CXX_WARN_FLAGS
 	)
+
+	find_package(Qt5Core)  # Needed to check for Qt version
+	if (Qt5Core_VERSION VERSION_GREATER 5.8)
+		# The Qt headers in version 5.8 and older generate a ton of shortening
+		# errors on 64-bit systems so only enable this for version 5.9 and greater.
+		set(CXX_WARN_FLAGS ${CXX_WARN_FLAGS}
+			-Wshorten-64-to-32
+		)
+	endif()
 
 	set(COMMON_EXTRA_WARN_FLAGS
 		# The following are for C and C++
@@ -494,6 +503,10 @@ else()
 		# No longer supported by El Capitan clang on C++
 		#
 		-fno-delete-null-pointer-checks
+
+		# Works only with GCC 7
+		-Wduplicated-branches
+
 	)
 
 	set(C_EXTRA_WARN_FLAGS
@@ -608,6 +621,18 @@ if(ENABLE_ASAN)
 	endif()
 endif()
 
+if(ENABLE_UBSAN)
+	set(CMAKE_REQUIRED_LIBRARIES "-fsanitize=undefined")
+	check_c_compiler_flag(-fsanitize=undefined C__fsanitize_undefined_VALID)
+	check_cxx_compiler_flag(-fsanitize=undefined CXX__fsanitize_undefined_VALID)
+	set(CMAKE_REQUIRED_LIBRARIES "")
+	if(NOT C__fsanitize_undefined_VALID OR NOT CXX__fsanitize_undefined_VALID)
+		message(FATAL_ERROR "ENABLE_UBSAN was requested, but not supported!")
+	endif()
+	set(CMAKE_C_FLAGS "-fsanitize=undefined ${CMAKE_C_FLAGS}")
+	set(CMAKE_CXX_FLAGS "-fsanitize=undefined ${CMAKE_CXX_FLAGS}")
+endif()
+
 set(WERROR_COMMON_FLAGS "")
 set(NO_ERROR_DEPRECATED_DECLARATIONS_COMPILE_FLAGS "")
 if(NOT DISABLE_WERROR AND NOT ENABLE_EXTRA_COMPILER_WARNINGS)
@@ -702,32 +727,33 @@ foreach(THIS_FLAG ${WIRESHARK_LD_FLAGS})
 endforeach()
 
 if(APPLE AND EXISTS /usr/local/opt/gettext)
-	# GLib on OS X requires libintl. Homebrew installs gettext (and
+	# GLib on macOS requires libintl. Homebrew installs gettext (and
 	# libintl) in /usr/local/opt/gettext
 	include_directories(/usr/local/opt/gettext/include)
 	link_directories(/usr/local/opt/gettext/lib)
 endif()
 
-# The packagelist is doing some magic:  If we add XXX to the packagelist, we
+# The packagelist is doing some magic: If we add XXX to the packagelist, we
 # - may optionally set XXX_OPTIONS to pass to the find_package command
-# - will call FindXXX.cmake
+# - will call FindXXX.cmake or find_package
 # - return found libraries in XXX_LIBRARIES
 # - return found include in XXX_INCLUDE_DIRS
 # - set HAVE_XXX
 
-#The minimum package list
-set(PACKAGELIST Gettext M Git GLIB2 GMODULE2 GTHREAD2 LEX YACC Perl SED SH PythonInterp NGHTTP2)
-set(LEX_REQUIRED TRUE)
-set(GLIB2_REQUIRED TRUE)
-set(GLIB2_FIND_REQUIRED TRUE)
+# The minimum package list
+set(PACKAGELIST Gettext M Git GLIB2 GMODULE2 GTHREAD2 GCRYPT LEX YACC Perl SH PythonInterp)
+set(LEX_OPTIONS REQUIRED)
+set(GLIB2_OPTIONS REQUIRED)
+set(GLIB2_FIND_OPTIONS REQUIRED)
 set(GLIB2_MIN_VERSION 2.22.0)
-set(GTHREAD2_REQUIRED TRUE)
+set(GTHREAD2_OPTIONS REQUIRED)
+set(GCRYPT_OPTIONS "1.4.2" REQUIRED)
 set(PythonInterp_FIND_VERSION 2)
 set(Python_ADDITIONAL_VERSIONS 3)
-set(YACC_REQUIRED TRUE)
+set(YACC_OPTIONS REQUIRED)
 
 if (NOT WIN32)
-	set(M_REQUIRED TRUE)
+	set(M_OPTIONS REQUIRED)
 endif()
 
 set(PACKAGELIST ${PACKAGELIST} LIBSSH)
@@ -789,11 +815,6 @@ if(ENABLE_SMI)
 	set(PACKAGELIST ${PACKAGELIST} SMI)
 endif()
 
-# GNU crypto
-set(PACKAGELIST ${PACKAGELIST} GCRYPT)
-# Minimum version needed.
-set(GCRYPT_OPTIONS "1.4.2" REQUIRED)
-
 # GNU SSL/TLS support
 if(ENABLE_GNUTLS)
 	set(PACKAGELIST ${PACKAGELIST} GNUTLS)
@@ -845,6 +866,11 @@ if(ENABLE_SNAPPY)
 	set(PACKAGELIST ${PACKAGELIST} SNAPPY)
 endif()
 
+# Enhanced HTTP/2 dissection
+if(ENABLE_NGHTTP2)
+	set(PACKAGELIST ${PACKAGELIST} NGHTTP2)
+endif()
+
 # Embedded Lua interpreter
 if(ENABLE_LUA)
 	set(PACKAGELIST ${PACKAGELIST} LUA)
@@ -865,6 +891,10 @@ endif()
 
 if(ENABLE_SPANDSP)
 	set(PACKAGELIST ${PACKAGELIST} SPANDSP)
+endif()
+
+if(ENABLE_LIBXML2)
+	set(PACKAGELIST ${PACKAGELIST} LibXml2)
 endif()
 
 # Capabilities
@@ -900,24 +930,34 @@ foreach(PACKAGE ${PACKAGELIST})
 		set(PACKAGE_VAR "GETTEXT")
 	elseif(${PACKAGE} STREQUAL "Perl")
 		set(PACKAGE_VAR "PERL")
+	elseif(${PACKAGE} STREQUAL "LibXml2")
+		set(PACKAGE_VAR "LIBXML2")
 	else()
 		set(PACKAGE_VAR ${PACKAGE})
 	endif()
 	if(${PACKAGE}_OPTIONS)
 		find_package(${PACKAGE} ${${PACKAGE}_OPTIONS})
-	elseif(${PACKAGE}_REQUIRED)
-		find_package(${PACKAGE} REQUIRED)
 	else()
 		find_package(${PACKAGE})
 	endif()
-	if (${PACKAGE_VAR}_FOUND)
+	# FindPackageHandleStandardArgs before CMake 3.2 always uses uppercase
+	# for the FOUND variables (e.g. GIT_FOUND is set, but not Git_FOUND).
+	string(TOUPPER "${PACKAGE_VAR}" PACKAGE_VAR_UPPER)
+	if (${PACKAGE_VAR}_FOUND OR ${PACKAGE_VAR_UPPER}_FOUND)
 		message(STATUS "${PACKAGE_VAR} FOUND")
 		set(HAVE_LIB${PACKAGE_VAR} 1)
-		include_directories(SYSTEM ${${PACKAGE_VAR}_INCLUDE_DIRS})
-		set(WS_ALL_LIBS ${WS_ALL_LIBS} ${${PACKAGE_VAR}_LIBRARIES})
-		message(STATUS "${PACKAGE} includes: ${${PACKAGE_VAR}_INCLUDE_DIRS}")
-		message(STATUS "${PACKAGE} libs: ${${PACKAGE_VAR}_LIBRARIES}")
-		if (${PACKAGE}_DEFINITIONS)
+		if (NOT DEFINED ${PACKAGE_VAR}_INCLUDE_DIRS AND ${PACKAGE_VAR}_INCLUDE_DIR)
+			set(${PACKAGE_VAR}_INCLUDE_DIRS ${${PACKAGE_VAR}_INCLUDE_DIR})
+		endif()
+		if (${PACKAGE_VAR}_INCLUDE_DIRS)
+			include_directories(SYSTEM ${${PACKAGE_VAR}_INCLUDE_DIRS})
+			message(STATUS "${PACKAGE} includes: ${${PACKAGE_VAR}_INCLUDE_DIRS}")
+		endif()
+		if (${PACKAGE_VAR}_LIBRARIES)
+			list(APPEND WS_ALL_LIBS ${${PACKAGE_VAR}_LIBRARIES})
+			message(STATUS "${PACKAGE} libs: ${${PACKAGE_VAR}_LIBRARIES}")
+		endif()
+		if (${PACKAGE_VAR}_DEFINITIONS)
 			message(STATUS "${PACKAGE} definitions: ${${PACKAGE_VAR}_DEFINITIONS}")
 		endif()
 		if (${PACKAGE_VAR}_EXECUTABLE)
@@ -927,7 +967,7 @@ foreach(PACKAGE ${PACKAGELIST})
 		#
 		# Not finding a package is only a fatal error if the
 		# package is required; if it's required, then its
-		# XXX_REQUIRED variable is set to TRUE, and the above
+		# XXX_OPTIONS variable contains REQUIRED, and the above
 		# code will pass REQUIRED to find_package, and the
 		# configure will fail if the package isn't found.
 		#
@@ -977,6 +1017,13 @@ if(HAVE_LIBSBC)
 endif()
 if(SPANDSP_FOUND)
 	set(HAVE_SPANDSP 1)
+endif()
+if(LIBXML2_FOUND)
+	set(HAVE_LIBXML2 1)
+else()
+	# The (official) FindLibXml2.cmake file sets this cache variable to a
+	# non-empty value, be sure to clear it when not found.
+	set(LIBXML2_LIBRARIES "")
 endif()
 if(EXTCAP_ANDROIDDUMP_LIBPCAP)
 	set(ANDROIDDUMP_USE_LIBPCAP 1)
@@ -1104,10 +1151,10 @@ message(STATUS "Warnings as errors: ${WERROR_COMMON_FLAGS}")
 
 if(APPLE)
 	#
-	# We assume that APPLE means OS X so that we have the OS X
+	# We assume that APPLE means macOS so that we have the macOS
 	# frameworks.
 	#
-	set(HAVE_OS_X_FRAMEWORKS 1)
+	set(HAVE_MACOS_FRAMEWORKS 1)
 	FIND_LIBRARY (APPLE_APPLICATION_SERVICES_LIBRARY ApplicationServices)
 	FIND_LIBRARY (APPLE_CORE_FOUNDATION_LIBRARY CoreFoundation)
 	FIND_LIBRARY (APPLE_SYSTEM_CONFIGURATION_LIBRARY SystemConfiguration)
@@ -1153,9 +1200,9 @@ add_subdirectory( wiretap )
 add_subdirectory( writecap )
 
 # Location of our data files. This should be set to a value that allows
-# running from the build directory on Windows, on OS X when building an
-# application bundle, and on UNIX if WIRESHARK_RUN_FROM_BUILD_DIRECTORY
-# is set.
+# running from the build directory on Windows, on macOS when building an
+# application bundle, and on UNIX in general if
+# WIRESHARK_RUN_FROM_BUILD_DIRECTORY is set.
 if(ENABLE_APPLICATION_BUNDLE)
 	set(_datafile_dir "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Resources/share/wireshark")
 else()
@@ -1183,9 +1230,10 @@ endif()
 
 if(ENABLE_EXTCAP)
 	# Target platform locations
-	# UNIX, Linux, non-bundled OS X: $DESTDIR/lib/wireshark/extcap
+	# UN*X in general, including macOS if not building an app bundle:
+	# $DESTDIR/lib/wireshark/extcap
 	# Windows: $DESTDIR/extcap
-	# OS X app bundle: Wireshark.app/Contents/Resources/share/wireshark/extcap
+	# macOS app bundle: Wireshark.app/Contents/Resources/share/wireshark/extcap
 	set(HAVE_EXTCAP 1)
 	if (WIN32)
 		set(EXTCAP_DIR "extcap")
@@ -1213,9 +1261,10 @@ endif()
 # from the build directory similar to DATAFILE_DIR above.
 if(ENABLE_PLUGINS)
 	# Target platform locations
-	# UNIX, Linux, non-bundled OS X: $DESTDIR/lib/wireshark/plugins/$VERSION
+	# UN*X in general, including macOS if not building an app bundle:
+	# $DESTDIR/lib/wireshark/plugins/$VERSION
 	# Windows: $DESTDIR/wireshark/plubins/$VERSION
-	# OS X app bundle: Wireshark.app/Contents/PlugIns/wireshark
+	# macOS app bundle: Wireshark.app/Contents/PlugIns/wireshark
 	set(HAVE_PLUGINS 1)
 	add_custom_target(plugins)
 	set_target_properties(plugins PROPERTIES FOLDER "Plugins")
@@ -1354,14 +1403,48 @@ foreach( _in_file ${IN_FILES} )
 endforeach()
 
 include(FeatureSummary)
-#SET_FEATURE_INFO(NAME DESCRIPTION [URL [COMMENT] ])
-SET_FEATURE_INFO(SBC "SBC Codec for Bluetooth A2DP stream playing" "http://git.kernel.org/cgit/bluetooth/sbc.git" )
-SET_FEATURE_INFO(SPANDSP "Support for G.722 and G.726 codecs in RTP player" "http://www.soft-switch.org/" )
-SET_FEATURE_INFO(LIBSSH "libssh is library for ssh connections and it is needed to build sshdump/ciscodump" "https://www.libssh.org/get-it/" )
-SET_FEATURE_INFO(LZ4 "LZ4 is lossless compression algorithm used in some protocol (CQL...)" "http://www.lz4.org" )
-SET_FEATURE_INFO(SNAPPY "snappy is a fast compressor/decompressor from Google used in some protocol (CQL, kafka...)" "http://google.github.io/snappy/")
-SET_FEATURE_INFO(NGHTTP2 "nghttp2 is used for header (de)compression (HPACK)" "http://www.nghttp2.org" )
-FEATURE_SUMMARY(WHAT ALL)
+set_package_properties(SBC PROPERTIES
+	DESCRIPTION "Bluetooth low-complexity, subband codec (SBC) decoder"
+	URL "https://git.kernel.org/pub/scm/bluetooth/sbc.git"
+	PURPOSE "Support for playing SBC codec in RTP player"
+)
+set_package_properties(SPANDSP PROPERTIES
+	DESCRIPTION "a library of many DSP functions for telephony"
+	URL "http://www.soft-switch.org/"
+	PURPOSE "Support for G.722 and G.726 codecs in RTP player"
+)
+set_package_properties(LIBXML2 PROPERTIES
+	DESCRIPTION "XML parsing library"
+	URL "http://xmlsoft.org/"
+	PURPOSE "Read XML configuration files in EPL dissector"
+)
+set_package_properties(LIBSSH PROPERTIES
+	DESCRIPTION "Library for implementing SSH clients"
+	URL "https://www.libssh.org/"
+	PURPOSE "extcap remote SSH interfaces (sshdump, ciscodump)"
+)
+set_package_properties(LZ4 PROPERTIES
+	DESCRIPTION "LZ4 is lossless compression algorithm used in some protocol (CQL...)"
+	URL "http://www.lz4.org"
+	PURPOSE "LZ4 decompression in CQL and Kafka dissectors"
+)
+set_package_properties(SNAPPY PROPERTIES
+	DESCRIPTION "A fast compressor/decompressor from Google"
+	URL "http://google.github.io/snappy/"
+	PURPOSE "Snappy decompression in CQL and Kafka dissectors"
+)
+set_package_properties(NGHTTP2 PROPERTIES
+	DESCRIPTION "HTTP/2 C library and tools"
+	URL "https://nghttp2.org"
+	PURPOSE "Header decompression in HTTP2"
+)
+# XXX tpg plugin is not added in CMakeLists/Makefile.am, remove plugins/tpg/?
+set_package_properties(YAPP PROPERTIES
+	DESCRIPTION "Yet Another Perl Parser compiler"
+	URL "http://search.cpan.org/dist/Parse-Yapp/"
+	PURPOSE "tpg plugin"
+)
+feature_summary(WHAT ALL)
 
 link_directories(
 	${CMAKE_BINARY_DIR}/ui
@@ -1636,6 +1719,13 @@ if(WIN32)
 				"${_dll_output_dir}"
 		)
 	endif(SPANDSP_FOUND)
+	if (LIBXML2_FOUND)
+		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
+				"${LIBXML2_DLL_DIR}/${LIBXML2_DLL}"
+				"${_dll_output_dir}"
+		)
+	endif(LIBXML2_FOUND)
 	if (SMI_FOUND)
 		# Wireshark.nsi wants SMI_DIR which is the base SMI directory
 		get_filename_component(SMI_DIR ${SMI_DLL_DIR} DIRECTORY)
@@ -1872,7 +1962,6 @@ if( (BUILD_wireshark AND QT_FOUND) OR (BUILD_wireshark_gtk AND GTK_FOUND) )
 		capture_opts.c
 		file.c
 		fileset.c
-		filter_files.c
 		summary.c
 		${SHARK_COMMON_SRC}
 		${PLATFORM_UI_SRC}
@@ -2240,7 +2329,6 @@ if(BUILD_tshark)
 	)
 	set(tshark_FILES
 		capture_opts.c
-		filter_files.c
 		tshark-tap-register.c
 		tshark.c
 		${TSHARK_TAP_SRC}
@@ -2277,6 +2365,7 @@ endif()
 if(BUILD_rawshark AND PCAP_FOUND)
 	set(rawshark_LIBS
 		caputils
+		ui
 		${LIBEPAN_LIBS}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
@@ -2284,7 +2373,6 @@ if(BUILD_rawshark AND PCAP_FOUND)
 	set(rawshark_FILES
 		${SHARK_COMMON_SRC}
 		rawshark.c
-		ui/util.c
 		${CMAKE_BINARY_DIR}/image/rawshark.rc
 	)
 	add_executable(rawshark ${rawshark_FILES})
@@ -2297,12 +2385,12 @@ endif()
 if(BUILD_sharkd)
 	set(sharkd_LIBS
 		ui
+		wscodecs
 		${LIBEPAN_LIBS}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
 	)
 	set(sharkd_FILES
-		filter_files.c
 		sharkd.c
 		sharkd_daemon.c
 		sharkd_session.c
@@ -2317,11 +2405,11 @@ endif()
 
 if(BUILD_dftest)
 	set(dftest_LIBS
+		ui
 		${LIBEPAN_LIBS}
 	)
 	set(dftest_FILES
 		dftest.c
-		ui/util.c
 	)
 	add_executable(dftest ${dftest_FILES})
 	add_dependencies(dftest version)
@@ -2333,6 +2421,7 @@ endif()
 if(BUILD_randpkt)
 	set(randpkt_LIBS
 		randpkt_core
+		ui
 		wiretap
 		wsutil
 		${M_LIBRARIES}
@@ -2378,6 +2467,7 @@ endif()
 
 if(BUILD_mergecap)
 	set(mergecap_LIBS
+		ui
 		wiretap
 		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
@@ -2396,6 +2486,7 @@ endif()
 
 if(BUILD_reordercap)
 	set(reordercap_LIBS
+		ui
 		wiretap
 		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
@@ -2414,6 +2505,7 @@ endif()
 
 if(BUILD_capinfos)
 	set(capinfos_LIBS
+		ui
 		wiretap
 		wsutil
 		${ZLIB_LIBRARIES}
@@ -2434,6 +2526,7 @@ endif()
 
 if(BUILD_captype)
 	set(captype_LIBS
+		ui
 		wiretap
 		wsutil
 		${ZLIB_LIBRARIES}
@@ -2453,6 +2546,7 @@ endif()
 
 if(BUILD_editcap)
 	set(editcap_LIBS
+		ui
 		wiretap
 		${ZLIB_LIBRARIES}
 		${GCRYPT_LIBRARIES}
@@ -2475,6 +2569,7 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 		writecap
 		wsutil
 		caputils
+		ui
 		${PCAP_LIBRARIES}
 		${CAP_LIBRARIES}
 		${GLIB2_LIBRARIES}
@@ -2489,7 +2584,6 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 		capture_stop_conditions.c
 		conditions.c
 		dumpcap.c
-		filter_files.c
 		ringbuffer.c
 		sync_pipe_write.c
 		ws_version_info.c
@@ -2555,6 +2649,7 @@ if(ENABLE_EXTCAP AND BUILD_androiddump)
 	if(EXTCAP_ANDROIDDUMP_LIBPCAP)
 		if(HAVE_LIBPCAP)
 			set(androiddump_LIBS
+				ui
 				${GLIB2_LIBRARIES}
 				${PCAP_LIBRARIES}
 			)
@@ -2563,6 +2658,7 @@ if(ENABLE_EXTCAP AND BUILD_androiddump)
 		endif()
 	else()
 		set(androiddump_LIBS
+			ui
 			wiretap
 			${GLIB2_LIBRARIES}
 			${CMAKE_DL_LIBS}
@@ -2652,6 +2748,7 @@ endif()
 if(ENABLE_EXTCAP AND BUILD_randpktdump)
 	set(randpktdump_LIBS
 		randpkt_core
+		ui
 		wiretap
 		${GLIB2_LIBRARIES}
 		${CMAKE_DL_LIBS}
@@ -2724,7 +2821,7 @@ if(ENABLE_APPLICATION_BUNDLE)
 
 endif()
 
-set(CLEAN_FILES
+set(CLEAN_C_FILES
 	${wireshark_FILES}
 	${tshark_FILES}
 	${rawshark_FILES}
@@ -2744,8 +2841,17 @@ set(CLEAN_FILES
 	${udpdump_FILES}
 )
 
+# Make sure we don't pass /WX to rc.exe. Rc doesn't have a /WX flag,
+# but it does have /W (warn about invalid code pages) and /X (ignore
+# the INCLUDE environment variable).
+# This should apparently be handled for us via CMAKE_RC_FLAG_REGEX
+# in CMakeRCInformation.cmake but that doesn't appear to work.
+if (WIN32)
+	list(FILTER CLEAN_C_FILES EXCLUDE REGEX ".*\\.rc")
+endif (WIN32)
+
 set_source_files_properties(
-	${CLEAN_FILES}
+	${CLEAN_C_FILES}
 	PROPERTIES
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )

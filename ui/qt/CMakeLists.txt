@@ -26,6 +26,7 @@ ADD_CUSTOM_CMAKE_INCLUDE()
 set(WIRESHARK_QT_HEADERS
 	about_dialog.h
 	accordion_frame.h
+	additional_toolbar.h
 	address_editor_frame.h
 	apply_line_edit.h
 	bluetooth_att_server_attributes_dialog.h
@@ -35,6 +36,7 @@ set(WIRESHARK_QT_HEADERS
 	accordion_frame.h
 	byte_view_tab.h
 	byte_view_text.h
+	cache_proxy_model.h
 	capture_file.h
 	capture_file_dialog.h
 	capture_file_properties_dialog.h
@@ -85,7 +87,9 @@ set(WIRESHARK_QT_HEADERS
 	gsm_map_summary_dialog.h
 	iax2_analysis_dialog.h
 	import_text_dialog.h
-	additional_toolbar.h
+	interface_toolbar.h
+	interface_toolbar_reader.h
+	interface_toolbar_lineedit.h
 	interface_tree_model.h
 	interface_tree_cache_model.h
 	interface_sort_filter_model.h
@@ -146,7 +150,6 @@ set(WIRESHARK_QT_HEADERS
 	sequence_diagram.h
 	sequence_dialog.h
 	show_packet_bytes_dialog.h
-	simple_dialog.h
 	splash_overlay.h
 	stats_tree_dialog.h
 	service_response_time_dialog.h
@@ -154,6 +157,7 @@ set(WIRESHARK_QT_HEADERS
 	stock_icon_tool_button.h
 	supported_protocols_dialog.h
 	syntax_line_edit.h
+	tabnav_tree_widget.h
 	tap_parameter_dialog.h
 	tcp_stream_dialog.h
 	time_shift_dialog.h
@@ -164,7 +168,9 @@ set(WIRESHARK_QT_HEADERS
 	uat_model.h
 	uat_tree_view.h
 	voip_calls_dialog.h
+	voip_calls_info_model.h
 	wireless_frame.h
+	wireless_timeline.h
 	wireshark_application.h
 	wireshark_dialog.h
 	wlan_statistics_dialog.h
@@ -199,6 +205,7 @@ file(GLOB EXTRA_QT_HEADERS
 set(WIRESHARK_QT_SRC
 	about_dialog.cpp
 	accordion_frame.cpp
+	additional_toolbar.cpp
 	address_editor_frame.cpp
 	apply_line_edit.cpp
 	bluetooth_att_server_attributes_dialog.cpp
@@ -207,6 +214,7 @@ set(WIRESHARK_QT_SRC
 	bluetooth_hci_summary_dialog.cpp
 	byte_view_tab.cpp
 	byte_view_text.cpp
+	cache_proxy_model.cpp
 	capture_file.cpp
 	capture_file_dialog.cpp
 	capture_file_properties_dialog.cpp
@@ -253,7 +261,9 @@ set(WIRESHARK_QT_SRC
 	geometry_state_dialog.cpp
 	iax2_analysis_dialog.cpp
 	import_text_dialog.cpp
-	additional_toolbar.cpp
+	interface_toolbar.cpp
+	interface_toolbar_reader.cpp
+	interface_toolbar_lineedit.cpp
 	interface_tree_model.cpp
 	interface_tree_cache_model.cpp
 	interface_sort_filter_model.cpp
@@ -323,6 +333,7 @@ set(WIRESHARK_QT_SRC
 	stock_icon_tool_button.cpp
 	supported_protocols_dialog.cpp
 	syntax_line_edit.cpp
+	tabnav_tree_widget.cpp
 	tap_parameter_dialog.cpp
 	tcp_stream_dialog.cpp
 	time_shift_dialog.cpp
@@ -333,7 +344,9 @@ set(WIRESHARK_QT_SRC
 	uat_model.cpp
 	uat_tree_view.cpp
 	voip_calls_dialog.cpp
+	voip_calls_info_model.cpp
 	wireless_frame.cpp
+	wireless_timeline.cpp
 	wireshark_application.cpp
 	wireshark_dialog.cpp
 	${WIRESHARK_CUSTOM_QT_SRCS}
@@ -414,6 +427,7 @@ set(WIRESHARK_QT_UI
 	iax2_analysis_dialog.ui
 	import_text_dialog.ui
 	interface_frame.ui
+	interface_toolbar.ui
 	io_graph_dialog.ui
 	layout_preferences_frame.ui
 	lbm_lbtrm_transport_dialog.ui

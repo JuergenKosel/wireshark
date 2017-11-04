@@ -87,11 +87,41 @@ IF(ZLIB_INCLUDE_DIR AND EXISTS "${ZLIB_INCLUDE_DIR}/zlib.h")
     SET(ZLIB_PATCH_VERSION "${ZLIB_VERSION_PATCH}")
 ENDIF()
 
-INCLUDE(CheckFunctionExists)
-SET(CMAKE_REQUIRED_LIBRARIES ${ZLIB_LIBRARY})
-CHECK_FUNCTION_EXISTS("inflatePrime" HAVE_INFLATEPRIME)
-# reset
-SET(CMAKE_REQUIRED_LIBRARIES "")
+#
+# Sigh.  On Windows, we build libz as part of the Wireshark build
+# process, so we don't necessarily *have* a libz library to search
+# for inflatePrime() at this point; the search fails on the buildbots,
+# for example.  See bug 13850.
+#
+# So, on Windows, we just assume we have a new enough version of
+# libz, so that it has inflatePrime().
+#
+IF(WIN32)
+    MESSAGE(STATUS "Zlib might not be built yet; assume it contains inflatePrime")
+    SET(HAVE_INFLATEPRIME ON)
+ELSE()
+    INCLUDE(CheckFunctionExists)
+    SET(CMAKE_REQUIRED_LIBRARIES ${ZLIB_LIBRARY})
+    #
+    # Check for inflate() in zlib, to make sure the zlib library is
+    # usable.
+    #
+    # For example, on at least some versions of Fedora, if you have a
+    # 64-bit machine, have both the 32-bit and 64-bit versions of the
+    # run-time zlib package installed, and have only the *32-bit*
+    # version of the zlib development package installed, it'll find the
+    # header, and think it can use zlib, and will use it in subsequent
+    # tests, but it'll try and link 64-bit test programs with the 32-bit
+    # library, causing those tests to falsely fail.  Hilarity ensues.
+    #
+    CHECK_FUNCTION_EXISTS("inflate" HAVE_INFLATE)
+    IF(NOT HAVE_INFLATE)
+        MESSAGE(FATAL_ERROR "zlib.h found but linking with -lz failed to find inflate(); do you have the right developer package installed (32-bit vs. 64-bit)?")
+    ENDIF()
+    CHECK_FUNCTION_EXISTS("inflatePrime" HAVE_INFLATEPRIME)
+    # reset
+    SET(CMAKE_REQUIRED_LIBRARIES "")
+ENDIF()
 
 # handle the QUIETLY and REQUIRED arguments and set ZLIB_FOUND to TRUE if
 # all listed variables are TRUE

@@ -67,8 +67,12 @@ void proto_reg_handoff_nbap(void);
 static dissector_handle_t fp_handle;
 static guint32	transportLayerAddress_ipv4;
 static guint16	BindingID_port;
+static guint32	ul_scrambling_code;
 static guint32	com_context_id;
 static int cfn;
+
+wmem_tree_t *nbap_scrambling_code_crncc_map = NULL;
+wmem_tree_t *nbap_crncc_urnti_map = NULL;
 
 #include "packet-nbap-val.h"
 
@@ -175,7 +179,7 @@ nbap_common_channel_info_t nbap_common_channel_info[maxNrOfMACdFlows];	/*TODO: F
 
 gint g_num_dch_in_flow;
 /* maxNrOfTFs					INTEGER ::= 32 */
-gint g_dchs_in_flow_list[maxNrOfTFs];
+gint g_dch_ids_in_flow_list[maxNrOfTFs];
 
 gint hsdsch_macdflow_ids[maxNrOfMACdFlows];
 
@@ -363,6 +367,7 @@ static void add_hsdsch_bind(packet_info *pinfo){
 	address 	null_addr;
 	conversation_t *conversation = NULL;
 	umts_fp_conversation_info_t *umts_fp_conversation_info;
+	fp_hsdsch_channel_info_t* fp_hsdsch_channel_info = NULL;
 	guint32 i;
 
 	if (pinfo->fd->flags.visited){
@@ -399,19 +404,21 @@ static void add_hsdsch_bind(packet_info *pinfo){
 					copy_address_wmem(wmem_file_scope(), &(umts_fp_conversation_info->crnc_address), &nbap_hsdsch_channel_info[i].crnc_address);
 					umts_fp_conversation_info->crnc_port         = nbap_hsdsch_channel_info[i].crnc_port;
 
+					fp_hsdsch_channel_info = wmem_new0(wmem_file_scope(), fp_hsdsch_channel_info_t);
+					umts_fp_conversation_info->channel_specific_info = (void*)fp_hsdsch_channel_info;
 					/*Added june 3, normally just the iterator variable*/
-					umts_fp_conversation_info->hsdsch_macdflow_id = i ; /*hsdsch_macdflow_ids[i];*/ /* hsdsch_macdflow_id;*/
+					fp_hsdsch_channel_info->hsdsch_macdflow_id = i ; /*hsdsch_macdflow_ids[i];*/ /* hsdsch_macdflow_id;*/
 
 					/* Cheat and use the DCH entries */
 					umts_fp_conversation_info->num_dch_in_flow++;
-					umts_fp_conversation_info->dchs_in_flow_list[umts_fp_conversation_info->num_dch_in_flow -1] = i;
+					umts_fp_conversation_info->dch_ids_in_flow_list[umts_fp_conversation_info->num_dch_in_flow -1] = i;
 
 					/*XXX: Is this craziness, what is physical_layer? */
 					if(nbap_hsdsch_channel_info[i].entity == entity_not_specified ){
 						/*Error*/
 						expert_add_info(pinfo, NULL, &ei_nbap_hsdsch_entity_not_specified);
 					}else{
-						umts_fp_conversation_info->hsdsch_entity = (enum fp_hsdsch_entity)nbap_hsdsch_channel_info[i].entity;
+						fp_hsdsch_channel_info->hsdsch_entity = (enum fp_hsdsch_entity)nbap_hsdsch_channel_info[i].entity;
 					}
 					umts_fp_conversation_info->rlc_mode = nbap_hsdsch_channel_info[i].rlc_mode;
 					set_umts_fp_conv_data(conversation, umts_fp_conversation_info);
@@ -429,6 +436,10 @@ static void nbap_init(void){
 
     /*Initialize structure for muxed flow indication*/
     edch_flow_port_map = wmem_tree_new_autoreset(wmem_epan_scope(), wmem_file_scope());
+
+    /*Initializing Scrambling Code to C-RNC Context & C-RNC Context to U-RNTI maps*/
+    nbap_scrambling_code_crncc_map = wmem_tree_new_autoreset(wmem_epan_scope(), wmem_file_scope());
+    nbap_crncc_urnti_map = wmem_tree_new_autoreset(wmem_epan_scope(), wmem_file_scope());
 
     for (i = 0; i < 15; i++) {
         lchId_type_table[i+1] = lch_contents[i];
@@ -452,6 +463,7 @@ dissect_nbap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 	for (i = 0; i < maxNrOfMACdFlows; i++) {
 		nbap_hsdsch_channel_info[i].entity = hs;
 	}
+	ul_scrambling_code = 0;
 
 	return dissect_NBAP_PDU_PDU(tvb, pinfo, nbap_tree, data);
 }

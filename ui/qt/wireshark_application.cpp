@@ -65,7 +65,7 @@
 #endif
 
 #include "ui/capture.h"
-#include "filter_files.h"
+#include "ui/filter_files.h"
 #include "ui/capture_globals.h"
 #include "ui/software_update.h"
 #include "ui/last_open_dir.h"
@@ -81,13 +81,16 @@
 #endif /* _WIN32 */
 
 #include <QAction>
+#include <QApplication>
 #include <QDesktopServices>
 #include <QDir>
 #include <QEvent>
 #include <QFileOpenEvent>
 #include <QFontMetrics>
+#include <QFontInfo>
 #include <QLibraryInfo>
 #include <QLocale>
+#include <QMainWindow>
 #include <QMutableListIterator>
 #include <QSocketNotifier>
 #include <QThread>
@@ -274,7 +277,11 @@ void WiresharkApplication::setMonospaceFont(const char *font_string) {
 
     if (font_string && strlen(font_string) > 0) {
         mono_font_.fromString(font_string);
-        return;
+
+        // Only accept the font name if it actually exists.
+        if (mono_font_.family() == QFontInfo(mono_font_).family()) {
+            return;
+        }
     }
 
     // http://en.wikipedia.org/wiki/Category:Monospaced_typefaces
@@ -313,6 +320,9 @@ void WiresharkApplication::setMonospaceFont(const char *font_string) {
     mono_font_.setPointSize(wsApp->font().pointSize() + font_size_adjust);
     mono_font_.setBold(false);
 
+    // Retrieve the effective font and apply it.
+    mono_font_.setFamily(QFontInfo(mono_font_).family());
+
     g_free(prefs.gui_qt_font_name);
     prefs.gui_qt_font_name = qstring_strdup(mono_font_.toString());
 }
@@ -326,7 +336,6 @@ int WiresharkApplication::monospaceTextSize(const char *str)
 
 void WiresharkApplication::setConfigurationProfile(const gchar *profile_name, bool write_recent)
 {
-    char  *gdp_path, *dp_path;
     char  *rf_path;
     int    rf_open_errno;
     gchar *err_msg = NULL;
@@ -379,7 +388,7 @@ void WiresharkApplication::setConfigurationProfile(const gchar *profile_name, bo
     emit profileNameChanged(profile_name);
 
     /* Apply new preferences */
-    readConfigurationFiles (&gdp_path, &dp_path, true);
+    readConfigurationFiles(true);
 
     if (!recent_read_profile_static(&rf_path, &rf_open_errno)) {
         simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
@@ -412,14 +421,6 @@ void WiresharkApplication::setConfigurationProfile(const gchar *profile_name, bo
     emit checkDisplayFilter();
     emit captureFilterListChanged();
     emit displayFilterListChanged();
-
-    /* Enable all protocols and disable from the disabled list */
-    proto_enable_all();
-    if (gdp_path == NULL && dp_path == NULL) {
-        set_disabled_protos_list();
-        set_enabled_protos_list();
-        set_disabled_heur_dissector_list();
-    }
 
     /* Reload color filters */
     if (!color_filters_reload(&err_msg, color_filter_add_cb)) {
@@ -461,6 +462,18 @@ void WiresharkApplication::applyCustomColorsFromRecent()
 #endif
         }
     }
+}
+
+// Return the first top-level QMainWindow.
+QWidget *WiresharkApplication::mainWindow()
+{
+    foreach (QWidget *tlw, topLevelWidgets()) {
+        QMainWindow *tlmw = qobject_cast<QMainWindow *>(tlw);
+        if (tlmw && tlmw->isVisible()) {
+            return tlmw;
+        }
+    }
+    return 0;
 }
 
 void WiresharkApplication::storeCustomColorsInRecent()
@@ -729,13 +742,13 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
     //
     // QFileSystemWatcher should allow us to watch for files being
     // removed or renamed.  It uses kqueues and EVFILT_VNODE on FreeBSD,
-    // NetBSD, FSEvents on OS X, inotify on Linux if available, and
+    // NetBSD, FSEvents on macOS, inotify on Linux if available, and
     // FindFirstChagneNotification() on Windows.  On all other platforms,
     // it just periodically polls, as we're doing now.
     //
     // For unmounts:
     //
-    // OS X and FreeBSD deliver NOTE_REVOKE notes for EVFILT_VNODE, and
+    // macOS and FreeBSD deliver NOTE_REVOKE notes for EVFILT_VNODE, and
     // QFileSystemWatcher delivers signals for them, just as it does for
     // NOTE_DELETE and NOTE_RENAME.
     //
@@ -762,7 +775,7 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
     //
     // Note also that remote file systems might not report file
     // removal or renames if they're done on the server or done by
-    // another client.  At least on OS X, they *will* get reported
+    // another client.  At least on macOS, they *will* get reported
     // if they're done on the machine running the program doing the
     // kqueue stuff, and, at least in newer versions, should get
     // reported on SMB-mounted (and AFP-mounted?) file systems
@@ -778,7 +791,7 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
     // catch *that* would be to watch for mounts and re-check all
     // marked-as-inaccessible files.
     //
-    // OS X and FreeBSD also support EVFILT_FS events, which notify you
+    // macOS and FreeBSD also support EVFILT_FS events, which notify you
     // of file system mounts and unmounts.  We'd need to add our own
     // kqueue for that, if we can check those with QSocketNotifier.
     //
@@ -800,7 +813,7 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
     // (Speaking of automounters, repeatedly polling recent files will
     // keep the file system from being unmounted, for what that's worth.)
     //
-    // At least on OS X, you can determine whether a file is on an
+    // At least on macOS, you can determine whether a file is on an
     // automounted file system by calling statfs() on its path and
     // checking whether MNT_AUTOMOUNTED is set in f_flags.  FreeBSD
     // appears to support that flag as well, but no other *BSD appears
@@ -824,7 +837,7 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
     // Application-wide style sheet
     QString app_style_sheet = qApp->styleSheet();
 #if defined(Q_OS_MAC) && QT_VERSION < QT_VERSION_CHECK(5, 6, 0)
-    // Qt uses the HITheme API to draw splitters. In recent versions of OS X
+    // Qt uses the HITheme API to draw splitters. In recent versions of macOS
     // this looks particularly bad: https://bugreports.qt.io/browse/QTBUG-43425
     // This doesn't look native but it looks better than Yosemite's bit-rotten
     // rendering of HIThemeSplitterDrawInfo.
@@ -833,6 +846,10 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
             "QSplitter::handle:horizontal { width: 0px; }\n";
 #endif
     qApp->setStyleSheet(app_style_sheet);
+
+    // If our window text is lighter than the window background, assume the theme is dark.
+    QPalette gui_pal = qApp->palette();
+    prefs_set_gui_theme_is_dark(gui_pal.windowText().color().value() > gui_pal.window().color().value());
 
 #ifdef HAVE_SOFTWARE_UPDATE
     connect(this, SIGNAL(softwareUpdateQuit()), this, SLOT(quit()), Qt::QueuedConnection);
@@ -898,7 +915,7 @@ void WiresharkApplication::emitAppSignal(AppSignal signal)
 
 // Flush any collected app signals.
 //
-// On OS X emitting PacketDissectionChanged from a dialog can
+// On macOS emitting PacketDissectionChanged from a dialog can
 // render the application unusable:
 // https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=11361
 // https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=11448
@@ -1102,55 +1119,22 @@ void WiresharkApplication::allSystemsGo()
 #endif
 }
 
-_e_prefs *WiresharkApplication::readConfigurationFiles(char **gdp_path, char **dp_path, bool reset)
+_e_prefs *WiresharkApplication::readConfigurationFiles(bool reset)
 {
-    int                  gpf_open_errno, gpf_read_errno;
-    int                  cf_open_errno, df_open_errno;
-    int                  gdp_open_errno, gdp_read_errno;
-    int                  dp_open_errno, dp_read_errno;
-    char                *gpf_path, *pf_path;
-    char                *cf_path, *df_path;
-    int                  pf_open_errno, pf_read_errno;
     e_prefs             *prefs_p;
 
     if (reset) {
-        // reset preferences before reading
+        //
+        // Reset current preferences and enabled/disabled protocols and
+        // heuristic dissectors before reading.
+        // (Needed except when this is called at startup.)
+        //
         prefs_reset();
+        proto_reenable_all();
     }
 
-    /* load the decode as entries of this profile */
-    load_decode_as_entries();
-
-    /* Read the preference files. */
-    prefs_p = read_prefs(&gpf_open_errno, &gpf_read_errno, &gpf_path,
-                         &pf_open_errno, &pf_read_errno, &pf_path);
-
-    if (gpf_path != NULL) {
-        if (gpf_open_errno != 0) {
-            simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                          "Could not open global preferences file\n\"%s\": %s.", gpf_path,
-                          g_strerror(gpf_open_errno));
-        }
-        if (gpf_read_errno != 0) {
-            simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                          "I/O error reading global preferences file\n\"%s\": %s.", gpf_path,
-                          g_strerror(gpf_read_errno));
-        }
-    }
-    if (pf_path != NULL) {
-        if (pf_open_errno != 0) {
-            simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                          "Could not open your preferences file\n\"%s\": %s.", pf_path,
-                          g_strerror(pf_open_errno));
-        }
-        if (pf_read_errno != 0) {
-            simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                          "I/O error reading your preferences file\n\"%s\": %s.", pf_path,
-                          g_strerror(pf_read_errno));
-        }
-        g_free(pf_path);
-        pf_path = NULL;
-    }
+    /* Load libwireshark settings from the current profile. */
+    prefs_p = epan_load_settings();
 
 #ifdef _WIN32
     /* if the user wants a console to be always there, well, we should open one for him */
@@ -1160,58 +1144,10 @@ _e_prefs *WiresharkApplication::readConfigurationFiles(char **gdp_path, char **d
 #endif
 
     /* Read the capture filter file. */
-    read_filter_list(CFILTER_LIST, &cf_path, &cf_open_errno);
-    if (cf_path != NULL) {
-        simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                      "Could not open your capture filter file\n\"%s\": %s.", cf_path,
-                      g_strerror(cf_open_errno));
-        g_free(cf_path);
-    }
+    read_filter_list(CFILTER_LIST);
 
     /* Read the display filter file. */
-    read_filter_list(DFILTER_LIST, &df_path, &df_open_errno);
-    if (df_path != NULL) {
-        simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                      "Could not open your display filter file\n\"%s\": %s.", df_path,
-                      g_strerror(df_open_errno));
-        g_free(df_path);
-    }
-
-    /* Read the disabled protocols file. */
-    read_disabled_protos_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
-                              dp_path, &dp_open_errno, &dp_read_errno);
-    read_enabled_protos_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
-                              dp_path, &dp_open_errno, &dp_read_errno);
-    read_disabled_heur_dissector_list(gdp_path, &gdp_open_errno, &gdp_read_errno,
-                              dp_path, &dp_open_errno, &dp_read_errno);
-    if (*gdp_path != NULL) {
-        if (gdp_open_errno != 0) {
-            simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                          "Could not open global disabled protocols file\n\"%s\": %s.",
-                          *gdp_path, g_strerror(gdp_open_errno));
-        }
-        if (gdp_read_errno != 0) {
-            simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                          "I/O error reading global disabled protocols file\n\"%s\": %s.",
-                          *gdp_path, g_strerror(gdp_read_errno));
-        }
-        g_free(*gdp_path);
-        *gdp_path = NULL;
-    }
-    if (*dp_path != NULL) {
-        if (dp_open_errno != 0) {
-            simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                          "Could not open your disabled protocols file\n\"%s\": %s.", *dp_path,
-                          g_strerror(dp_open_errno));
-        }
-        if (dp_read_errno != 0) {
-            simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                          "I/O error reading your disabled protocols file\n\"%s\": %s.", *dp_path,
-                          g_strerror(dp_read_errno));
-        }
-        g_free(*dp_path);
-        *dp_path = NULL;
-    }
+    read_filter_list(DFILTER_LIST);
 
     return prefs_p;
 }

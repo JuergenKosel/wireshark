@@ -45,6 +45,7 @@
 #include "print.h"
 #include <wsutil/file_util.h>
 #include <wsutil/ws_printf.h> /* ws_g_warning */
+#include <wsutil/report_message.h>
 
 #include <epan/prefs-int.h>
 #include <epan/uat-int.h>
@@ -77,6 +78,7 @@ static void try_convert_to_custom_column(gpointer *el_data);
 static gboolean prefs_initialized = FALSE;
 static gchar *gpf_path = NULL;
 static gchar *cols_hidden_list = NULL;
+static gboolean gui_theme_is_dark = FALSE;
 
 /*
  * XXX - variables to allow us to attempt to interpret the first
@@ -351,7 +353,8 @@ free_pref(gpointer data, gpointer user_data _U_)
     case PREF_COLOR:
         break;
     case PREF_STRING:
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         g_free(*pref->varp.string);
         *pref->varp.string = NULL;
@@ -411,6 +414,11 @@ prefs_cleanup(void)
     gpf_path = NULL;
 }
 
+void prefs_set_gui_theme_is_dark(gboolean is_dark)
+{
+    gui_theme_is_dark = is_dark;
+}
+
 /*
  * Register a module that will have preferences.
  * Specify the module under which to register it or NULL to register it
@@ -418,7 +426,7 @@ prefs_cleanup(void)
  * the title used in the tab for it in a preferences dialog box, and a
  * routine to call back when we apply the preferences.
  */
-module_t *
+static module_t *
 prefs_register_module(module_t *parent, const char *name, const char *title,
                       const char *description, void (*apply_cb)(void),
                       const gboolean use_gui)
@@ -454,7 +462,7 @@ prefs_deregister_module(module_t *parent, const char *name, const char *title)
  * at the top level and the title used in the tab for it in a preferences
  * dialog box.
  */
-module_t *
+static module_t *
 prefs_register_subtree(module_t *parent, const char *title, const char *description,
                        void (*apply_cb)(void))
 {
@@ -516,9 +524,11 @@ prefs_register_module_or_subtree(module_t *parent, const char *name,
          * on the command line, and shouldn't require quoting,
          * shifting, etc.
          */
-        for (p = name; (c = *p) != '\0'; p++)
-            g_assert(g_ascii_islower(c) || g_ascii_isdigit(c) || c == '_' ||
-                 c == '-' || c == '.');
+        for (p = name; (c = *p) != '\0'; p++) {
+            if (!(g_ascii_islower(c) || g_ascii_isdigit(c) || c == '_' ||
+                  c == '-' || c == '.'))
+                g_error("Preference module \"%s\" contains invalid characters", name);
+        }
 
         /*
          * Make sure there's not already a module with that
@@ -591,6 +601,8 @@ prefs_register_protocol(int id, void (*apply_cb)(void))
         prefs_register_modules();
     }
     protocol = find_protocol_by_id(id);
+    if (protocol == NULL)
+        g_error("Protocol preferences being registered with an invalid protocol ID");
     return prefs_register_module(protocols_module,
                                  proto_get_protocol_filter_name(id),
                                  proto_get_protocol_short_name(protocol),
@@ -601,6 +613,8 @@ void
 prefs_deregister_protocol (int id)
 {
     protocol_t *protocol = find_protocol_by_id(id);
+    if (protocol == NULL)
+        g_error("Protocol preferences being de-registered with an invalid protocol ID");
     prefs_deregister_module (protocols_module,
                              proto_get_protocol_filter_name(id),
                              proto_get_protocol_short_name(protocol));
@@ -659,6 +673,8 @@ prefs_register_protocol_subtree(const char *subtree, int id, void (*apply_cb)(vo
     }
 
     protocol = find_protocol_by_id(id);
+    if (protocol == NULL)
+        g_error("Protocol subtree being registered with an invalid protocol ID");
     return prefs_register_module(subtree_module,
                                  proto_get_protocol_filter_name(id),
                                  proto_get_protocol_short_name(protocol),
@@ -688,6 +704,8 @@ prefs_register_protocol_obsolete(int id)
         prefs_register_modules();
     }
     protocol = find_protocol_by_id(id);
+    if (protocol == NULL)
+        g_error("Protocol being registered with an invalid protocol ID");
     module = prefs_register_module(protocols_module,
                                    proto_get_protocol_filter_name(id),
                                    proto_get_protocol_short_name(protocol),
@@ -915,7 +933,7 @@ register_preference(module_t *module, const char *name, const char *title,
      */
     for (p = name; *p != '\0'; p++)
         if (!(g_ascii_islower(*p) || g_ascii_isdigit(*p) || *p == '_' || *p == '.'))
-            g_error("Preference %s.%s contains invalid characters", module->name, name);
+            g_error("Preference \"%s.%s\" contains invalid characters", module->name, name);
 
     /*
      * Make sure there's not already a preference with that
@@ -1432,11 +1450,11 @@ DIAG_ON(cast-qual)
 void
 prefs_register_filename_preference(module_t *module, const char *name,
                                    const char *title, const char *description,
-                                   const char **var)
+                                   const char **var, gboolean for_writing)
 {
 DIAG_OFF(cast-qual)
-    register_string_like_preference(module, name, title, description,
-                                    (char **)var, PREF_FILENAME, NULL, FALSE);
+    register_string_like_preference(module, name, title, description, (char **)var,
+                                    for_writing ? PREF_SAVE_FILENAME : PREF_OPEN_FILENAME, NULL, FALSE);
 DIAG_ON(cast-qual)
 }
 
@@ -1903,7 +1921,8 @@ pref_stash(pref_t *pref, gpointer unused _U_)
         break;
 
     case PREF_STRING:
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         g_free(pref->stashed_val.string);
         pref->stashed_val.string = g_strdup(*pref->varp.string);
@@ -1987,7 +2006,8 @@ pref_unstash(pref_t *pref, gpointer unstash_data_p)
         break;
 
     case PREF_STRING:
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         if (strcmp(*pref->varp.string, pref->stashed_val.string) != 0) {
             unstash_data->module->prefs_changed = TRUE;
@@ -2087,7 +2107,8 @@ reset_stashed_pref(pref_t *pref) {
         break;
 
     case PREF_STRING:
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         g_free(pref->stashed_val.string);
         pref->stashed_val.string = g_strdup(pref->default_val.string);
@@ -2130,7 +2151,8 @@ pref_clean_stash(pref_t *pref, gpointer unused _U_)
         break;
 
     case PREF_STRING:
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         if (pref->stashed_val.string != NULL) {
             g_free(pref->stashed_val.string);
@@ -3174,8 +3196,8 @@ prefs_register_modules(void)
 
     /* GTK+ only */
     prefs_register_bool_preference(gui_module, "macosx_style",
-                                   "Use OS X style",
-                                   "Use OS X style (OS X with native GTK only)?",
+                                   "Use macOS style",
+                                   "Use macOS style (macOS with native GTK only)?",
                                    &prefs.gui_macosx_style);
 
     prefs_register_obsolete_preference(gui_module, "geometry.main.x");
@@ -3439,7 +3461,7 @@ prefs_register_modules(void)
 
     register_string_like_preference(printing, "file", "File",
         "This is the file that gets written to when the destination is set to \"file\"",
-        &prefs.pr_file, PREF_FILENAME, NULL, TRUE);
+        &prefs.pr_file, PREF_SAVE_FILENAME, NULL, TRUE);
 
     /* Statistics */
     stats_module = prefs_register_module(NULL, "statistics", "Statistics",
@@ -3590,7 +3612,8 @@ prefs_get_string_list(const gchar *str)
                 return NULL;
             }
             slstr[j] = '\0';
-            sl = g_list_append(sl, slstr);
+            if (j > 0)
+                sl = g_list_append(sl, slstr);
             break;
         }
         if (cur_c == '"' && ! backslash) {
@@ -3626,7 +3649,8 @@ prefs_get_string_list(const gchar *str)
                and it wasn't preceded by a backslash; it's the end of
                the string we were working on...  */
             slstr[j] = '\0';
-            sl = g_list_append(sl, slstr);
+            if (j > 0)
+                sl = g_list_append(sl, slstr);
 
             /* ...and the beginning of a new string.  */
             state = PRE_STRING;
@@ -3943,15 +3967,31 @@ pre_init_prefs(void)
     prefs.st_server_bg.red           = 60909;
     prefs.st_server_bg.green         = 60909;
     prefs.st_server_bg.blue          = 64507;
-    prefs.gui_text_valid.red         = 0xAFFF; /* light green */
-    prefs.gui_text_valid.green       = 0xFFFF;
-    prefs.gui_text_valid.blue        = 0xAFFF;
-    prefs.gui_text_invalid.red       = 0xFFFF; /* light red */
-    prefs.gui_text_invalid.green     = 0xAFFF;
-    prefs.gui_text_invalid.blue      = 0xAFFF;
-    prefs.gui_text_deprecated.red    = 0xFFFF; /* light yellow */
-    prefs.gui_text_deprecated.green  = 0xFFFF;
-    prefs.gui_text_deprecated.blue   = 0xAFFF;
+
+    if (gui_theme_is_dark) {
+        // Green, red and yellow with HSV V = 84
+        prefs.gui_text_valid.red         = 0x0000; /* dark green */
+        prefs.gui_text_valid.green       = 0x66ff;
+        prefs.gui_text_valid.blue        = 0x0000;
+        prefs.gui_text_invalid.red       = 0x66FF; /* dark red */
+        prefs.gui_text_invalid.green     = 0x0000;
+        prefs.gui_text_invalid.blue      = 0x0000;
+        prefs.gui_text_deprecated.red    = 0x66FF; /* dark yellow / olive */
+        prefs.gui_text_deprecated.green  = 0x66FF;
+        prefs.gui_text_deprecated.blue   = 0x0000;
+    } else {
+        // Green, red and yellow with HSV V = 20
+        prefs.gui_text_valid.red         = 0xAFFF; /* light green */
+        prefs.gui_text_valid.green       = 0xFFFF;
+        prefs.gui_text_valid.blue        = 0xAFFF;
+        prefs.gui_text_invalid.red       = 0xFFFF; /* light red */
+        prefs.gui_text_invalid.green     = 0xAFFF;
+        prefs.gui_text_invalid.blue      = 0xAFFF;
+        prefs.gui_text_deprecated.red    = 0xFFFF; /* light yellow */
+        prefs.gui_text_deprecated.green  = 0xFFFF;
+        prefs.gui_text_deprecated.blue   = 0xAFFF;
+    }
+
     prefs.gui_geometry_save_position = TRUE;
     prefs.gui_geometry_save_size     = TRUE;
     prefs.gui_geometry_save_maximized= TRUE;
@@ -4097,7 +4137,8 @@ reset_pref(pref_t *pref)
         break;
 
     case PREF_STRING:
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         reset_string_like_preference(pref);
         break;
@@ -4184,19 +4225,10 @@ prefs_reset(void)
 
 /* Read the preferences file, fill in "prefs", and return a pointer to it.
 
-   If we got an error (other than "it doesn't exist") trying to read
-   the global preferences file, stuff the errno into "*gpf_errno_return"
-   and a pointer to the path of the file into "*gpf_path_return", and
-   return NULL.
-
-   If we got an error (other than "it doesn't exist") trying to read
-   the user's preferences file, stuff the errno into "*pf_errno_return"
-   and a pointer to the path of the file into "*pf_path_return", and
-   return NULL. */
+   If we got an error (other than "it doesn't exist") we report it through
+   the UI. */
 e_prefs *
-read_prefs(int *gpf_errno_return, int *gpf_read_errno_return,
-           char **gpf_path_return, int *pf_errno_return,
-           int *pf_read_errno_return, char **pf_path_return)
+read_prefs(void)
 {
     int         err;
     char        *pf_path;
@@ -4237,7 +4269,6 @@ read_prefs(int *gpf_errno_return, int *gpf_read_errno_return,
      * XXX - if it failed for a reason other than "it doesn't exist",
      * report the error.
      */
-    *gpf_path_return = NULL;
     if (pf != NULL) {
         /*
          * Start out the counters of "mgcp.{tcp,udp}.port" entries we've
@@ -4249,21 +4280,19 @@ read_prefs(int *gpf_errno_return, int *gpf_read_errno_return,
         /* We succeeded in opening it; read it. */
         err = read_prefs_file(gpf_path, pf, set_pref, NULL);
         if (err != 0) {
-            /* We had an error reading the file; return the errno and the
-               pathname, so our caller can report the error. */
-            *gpf_errno_return = 0;
-            *gpf_read_errno_return = err;
-            *gpf_path_return = gpf_path;
+            /* We had an error reading the file; report it. */
+            report_warning("Error reading global preferences file \"%s\": %s.",
+                           gpf_path, g_strerror(err));
         }
         fclose(pf);
     } else {
         /* We failed to open it.  If we failed for some reason other than
-           "it doesn't exist", return the errno and the pathname, so our
-           caller can report the error. */
+           "it doesn't exist", report the error. */
         if (errno != ENOENT) {
-            *gpf_errno_return = errno;
-            *gpf_read_errno_return = 0;
-            *gpf_path_return = gpf_path;
+            if (errno != 0) {
+                report_warning("Can't open global preferences file \"%s\": %s.",
+                               gpf_path, g_strerror(errno));
+            }
         }
     }
 
@@ -4271,7 +4300,6 @@ read_prefs(int *gpf_errno_return, int *gpf_read_errno_return,
     pf_path = get_persconffile_path(PF_NAME, TRUE);
 
     /* Read the user's preferences file, if it exists. */
-    *pf_path_return = NULL;
     if ((pf = ws_fopen(pf_path, "r")) != NULL) {
         /*
          * Start out the counters of "mgcp.{tcp,udp}.port" entries we've
@@ -4283,11 +4311,9 @@ read_prefs(int *gpf_errno_return, int *gpf_read_errno_return,
         /* We succeeded in opening it; read it. */
         err = read_prefs_file(pf_path, pf, set_pref, NULL);
         if (err != 0) {
-            /* We had an error reading the file; return the errno and the
-               pathname, so our caller can report the error. */
-            *pf_errno_return = 0;
-            *pf_read_errno_return = err;
-            *pf_path_return = pf_path;
+            /* We had an error reading the file; report it. */
+            report_warning("Error reading your preferences file \"%s\": %s.",
+                           pf_path, g_strerror(err));
         } else
             g_free(pf_path);
         fclose(pf);
@@ -4296,9 +4322,8 @@ read_prefs(int *gpf_errno_return, int *gpf_read_errno_return,
            "it doesn't exist", return the errno and the pathname, so our
            caller can report the error. */
         if (errno != ENOENT) {
-            *pf_errno_return = errno;
-            *pf_read_errno_return = 0;
-            *pf_path_return = pf_path;
+            report_warning("Can't open your preferences file \"%s\": %s.",
+                           pf_path, g_strerror(errno));
         } else
             g_free(pf_path);
     }
@@ -4509,10 +4534,9 @@ read_prefs_file(const char *pf_path, FILE *pf,
  * a valid uat entry.
  */
 static gboolean
-prefs_set_uat_pref(char *uat_entry) {
+prefs_set_uat_pref(char *uat_entry, char **errmsg) {
     gchar *p, *colonp;
     uat_t *uat;
-    gchar *err = NULL;
     gboolean ret;
 
     colonp = strchr(uat_entry, ':');
@@ -4542,11 +4566,11 @@ prefs_set_uat_pref(char *uat_entry) {
     uat = uat_find(uat_entry);
     *colonp = ':';
     if (uat == NULL) {
+        *errmsg = g_strdup("Unknown preference");
         return FALSE;
     }
 
-    ret = uat_load_str(uat, p, &err);
-    g_free(err);
+    ret = uat_load_str(uat, p, errmsg);
     return ret;
 }
 
@@ -4557,7 +4581,7 @@ prefs_set_uat_pref(char *uat_entry) {
  * in some fashion.
  */
 prefs_set_pref_e
-prefs_set_pref(char *prefarg)
+prefs_set_pref(char *prefarg, char **errmsg)
 {
     gchar *p, *colonp;
     prefs_set_pref_e ret;
@@ -4571,6 +4595,8 @@ prefs_set_pref(char *prefarg)
      */
     mgcp_tcp_port_count = -1;
     mgcp_udp_port_count = -1;
+
+    *errmsg = NULL;
 
     colonp = strchr(prefarg, ':');
     if (colonp == NULL)
@@ -4598,7 +4624,7 @@ prefs_set_pref(char *prefarg)
     if (strcmp(prefarg, "uat")) {
         ret = set_pref(prefarg, p, NULL, TRUE);
     } else {
-        ret = prefs_set_uat_pref(p) ? PREFS_SET_OK : PREFS_SET_SYNTAX_ERR;
+        ret = prefs_set_uat_pref(p, errmsg) ? PREFS_SET_OK : PREFS_SET_SYNTAX_ERR;
     }
     *colonp = ':';    /* put the colon back */
     return ret;
@@ -5756,7 +5782,8 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
             break;
 
         case PREF_STRING:
-        case PREF_FILENAME:
+        case PREF_SAVE_FILENAME:
+        case PREF_OPEN_FILENAME:
         case PREF_DIRNAME:
             containing_module->prefs_changed |= prefs_set_string_value(pref, value, pref_current);
             break;
@@ -5906,7 +5933,8 @@ prefs_pref_type_name(pref_t *pref)
         type_name = "String";
         break;
 
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
         type_name = "Filename";
         break;
 
@@ -6007,7 +6035,8 @@ prefs_pref_type_description(pref_t *pref)
         type_desc = "A string";
         break;
 
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
         type_desc = "A path to a file";
         break;
 
@@ -6091,7 +6120,8 @@ prefs_pref_is_default(pref_t *pref)
         break;
 
     case PREF_STRING:
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         if (!(g_strcmp0(pref->default_val.string, *pref->varp.string)))
             return TRUE;
@@ -6208,7 +6238,8 @@ prefs_pref_to_str(pref_t *pref, pref_source_t source) {
     }
 
     case PREF_STRING:
-    case PREF_FILENAME:
+    case PREF_SAVE_FILENAME:
+    case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         return g_strdup(*(const char **) valp);
 

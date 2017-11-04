@@ -32,11 +32,9 @@
  * - sort out threading/channel-sync so works reliably in tshark
  *    - postponed for now, as Qt crashes if call g_main_context_iteration()
  *      at an inopportune time
- * - would be good if could set [Snort Running] in the title bar while Snort is running,
- *   but don't see how a dissector could do that.
- * - looked into writing a tap that could provide an interface for error messages/events and snort stats,
+ * - have looked into writing a tap that could provide an interface for error messages/events and snort stats,
  *   but not easy as taps are not usually listening when alerts are detected
- * - for a content match, find all protocol fields that cover same bytes and show in tree
+ * - for a content/pcre match, find all protocol fields that cover same bytes and show in tree
  * - other use-cases as suggested in https://sharkfesteurope.wireshark.org/assets/presentations16eu/14.pptx
  */
 
@@ -51,7 +49,6 @@
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
-#include <wsutil/report_err.h>
 #include <epan/wmem/wmem.h>
 #include <wiretap/wtap-int.h>
 
@@ -111,6 +108,8 @@ static int ett_snort_global_stats = -1;
 /* Expert info */
 static expert_field ei_snort_alert = EI_INIT;
 static expert_field ei_snort_content_not_matched = EI_INIT;
+
+static dissector_handle_t snort_handle;
 
 
 /*****************************************/
@@ -179,15 +178,14 @@ static int snort_config_ok = TRUE;   /* N.B. Not running test at the moment... *
 /* An alert.
    Created by parsing alert from snort, hopefully with more details linked from matched_rule. */
 typedef struct Alert_t {
-    /* Time */
-    struct timeval tv;
     /* Rule */
     guint32       sid;             /* Rule identifier */
     guint32       rev;             /* Revision number of rule */
     guint32       gen;             /* Which engine generated alert (not often interesting) */
     int           prio;            /* Priority as reported in alert (not usually interesting) */
 
-    const char *raw_alert;         /* The whole alert string as reported by snort */
+    char       *raw_alert;         /* The whole alert string as reported by snort */
+    gboolean   raw_alert_ts_fixed; /* Set when correct timestamp is restored before displaying */
 
     char       *msg;               /* Rule msg/description as it appears in the alert */
     char       *classification;    /* Classification type of rule */
@@ -288,32 +286,48 @@ static gboolean content_compare_case_insensitive(const guint8* memory, const cha
     return TRUE;
 }
 
-
 /* Move through the bytes of the tvbuff, looking for a match against the
  * regexp from the given content.
  */
-static gboolean look_for_pcre(content_t *content, tvbuff_t *tvb _U_, guint start_offset _U_, guint *match_offset _U_, guint *match_length _U_)
+static gboolean look_for_pcre(content_t *content, tvbuff_t *tvb, guint start_offset, guint *match_offset, guint *match_length)
 {
     /* Create a regex object for the pcre in the content. */
     GRegex *regex;
     GMatchInfo *match_info;
     gboolean match_found = FALSE;
+    GRegexCompileFlags regex_compile_flags = (GRegexCompileFlags)0;
 
     /* Make sure pcre string is ready for regex library. */
     if (!content_convert_pcre_for_regex(content)) {
         return FALSE;
     }
 
-    /* Copy remaining bytes into NULL-terminated string. */
+    /* Copy remaining bytes into NULL-terminated string. Unfortunately, this interface does't allow
+       us to find patterns that involve bytes with value 0.. */
     int length_remaining = tvb_captured_length_remaining(tvb, start_offset);
     gchar *string = (gchar*)g_malloc(length_remaining + 1);
     tvb_memcpy(tvb, (void*)string, start_offset, length_remaining);
     string[length_remaining] = '\0';
 
-    /* Create regex */
     /* For pcre, translated_str already has / /[modifiers] removed.. */
+
+    /* Apply any set modifier flags */
+    if (content->pcre_case_insensitive) {
+        regex_compile_flags = (GRegexCompileFlags)(regex_compile_flags | G_REGEX_CASELESS);
+    }
+    if (content->pcre_dot_includes_newline) {
+        regex_compile_flags = (GRegexCompileFlags)(regex_compile_flags | G_REGEX_DOTALL);
+    }
+    if (content->pcre_raw) {
+        regex_compile_flags = (GRegexCompileFlags)(regex_compile_flags | G_REGEX_RAW);
+    }
+    if (content->pcre_multiline) {
+        regex_compile_flags = (GRegexCompileFlags)(regex_compile_flags | G_REGEX_MULTILINE);
+    }
+
+    /* Create regex */
     regex = g_regex_new(content->translated_str,
-                        content->pcre_case_insensitive ? G_REGEX_CASELESS : (GRegexCompileFlags)0,
+                        regex_compile_flags,
                         (GRegexMatchFlags)0, NULL);
 
     /* Lookup PCRE match */
@@ -405,7 +419,7 @@ static gboolean get_content_match(Alert_t *alert, guint content_idx,
 /* Gets called when snort process has died */
 static void snort_reaper(GPid pid, gint status _U_, gpointer data)
 {
-    snort_session_t *session = (snort_session_t *) data;
+    snort_session_t *session = (snort_session_t *)data;
     if (session->running && session->pid == pid) {
         session->working = session->running = FALSE;
         /* XXX, cleanup */
@@ -418,8 +432,8 @@ static void snort_reaper(GPid pid, gint status _U_, gpointer data)
 }
 
 /* Parse timestamp line of output.  This is done in part to get the packet_number back out of usec field...
- *  Return valuee is the input stream moved onto the next field following the timestamp */
-static const char* snort_parse_ts(const char *ts, struct timeval *tv)
+ * Return value is the input stream moved onto the next field following the timestamp */
+static const char* snort_parse_ts(const char *ts, guint32 *frame_number)
 {
     struct tm tm;
     unsigned int usec;
@@ -434,8 +448,8 @@ static const char* snort_parse_ts(const char *ts, struct timeval *tv)
     tm.tm_mon -= 1;
     tm.tm_year += 100;
 
-    tv->tv_sec = (long)mktime(&tm);
-    tv->tv_usec = usec;
+    /* Store frame number (which was passed into this position when packet was submitted to snort) */
+    *frame_number = usec;
 
     return strchr(ts, ' ');
 }
@@ -449,8 +463,8 @@ static gboolean snort_parse_fast_line(const char *line, Alert_t *alert)
     static const char priority[] = "[Priority: ";
     const char *tmp_msg;
 
-    /* Look for timestamp */
-    if (!(line = snort_parse_ts(line, &(alert->tv)))) {
+    /* Look for timestamp/frame-number */
+    if (!(line = snort_parse_ts(line, &(alert->original_frame)))) {
         return FALSE;
     }
 
@@ -604,8 +618,9 @@ static gboolean snort_fast_output(GIOChannel *source, GIOCondition condition, gp
                 fill_alert_config(g_snort_config, &alert);
 
                 /* Add parsed alert into session->tree */
-                /* Store in tree. pfino->fd->num is hidden in usec time field. */
-                add_alert_to_session_tree((guint)alert.tv.tv_usec, &alert);
+                /* Store in tree. Frame number hidden in fraction of second field, so associate
+                   alert with that frame. */
+                add_alert_to_session_tree((guint)alert.original_frame, &alert);
             }
             else {
                 g_print("snort_fast_output() line: '%s'\n", buf);
@@ -732,8 +747,9 @@ static void snort_show_alert(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
 
     /* Can only find start if we have the rule and know the protocol */
     guint content_start_match = 0;
+    guint payload_start = 0;
     if (rule) {
-        content_start_match = get_content_start_match(rule, tree);
+        payload_start = content_start_match = get_content_start_match(rule, tree);
     }
 
     /* Snort output arrived and was previously stored - so add to tree */
@@ -780,8 +796,17 @@ static void snort_show_alert(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
         expert_add_info_format(pinfo, alert_ti, &ei_snort_alert, "Alert %u: \"%s\"", alert->sid, alert->msg);
     }
 
-    /* Show the raw alert string. */
+    /* Show the 'raw' alert string. */
     if (rule) {
+        /* Fix up alert->raw_alert if not already done so first. */
+        if (!alert->raw_alert_ts_fixed) {
+            /* Write 6 figures to position after decimal place in timestamp. Must have managed to
+               parse out fields already, so will definitely be long enough for memcpy() to succeed. */
+            char digits[7];
+            g_snprintf(digits, 7, "%06u", pinfo->abs_ts.nsecs / 1000);
+            memcpy(alert->raw_alert+18, digits, 6);
+            alert->raw_alert_ts_fixed = TRUE;
+        }
         ti = proto_tree_add_string(snort_tree, hf_snort_raw_alert, tvb, 0, 0, alert->raw_alert);
         PROTO_ITEM_SET_GENERATED(ti);
     }
@@ -909,15 +934,19 @@ static void snort_show_alert(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
                a negated content entry (i.e. beginning with '!') */
             if (attempt_match && !rule->contents[n].negation) {
                 /* Look up offset of match. N.B. would only expect to see on first content... */
-                guint offset_to_add = 0;
+                guint distance_to_add = 0;
 
-                /* May need to add absolute offset into packet... */
+                /* May need to start looking from absolute offset into packet... */
                 if (rule->contents[n].offset_set) {
-                    offset_to_add = rule->contents[n].offset;
+                    content_start_match = payload_start + rule->contents[n].offset;
                 }
                 /* ... or a number of bytes beyond the previous content match */
                 else if (rule->contents[n].distance_set) {
-                    offset_to_add = (content_last_match_end-content_start_match) + rule->contents[n].distance;
+                    distance_to_add = (content_last_match_end-content_start_match) + rule->contents[n].distance;
+                }
+                else {
+                    /* No constraints about where it appears - go back to the start of the frame. */
+                    content_start_match = payload_start;
                 }
 
 
@@ -925,7 +954,7 @@ static void snort_show_alert(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
                 /* TODO: could take 'depth' and 'within' into account to limit extent of search,
                    but OK if just trying to verify what Snort already found. */
                 match_found = get_content_match(alert, n,
-                                                tvb, content_start_match+offset_to_add,
+                                                tvb, content_start_match+distance_to_add,
                                                 &content_offset, &converted_content_length);
                 if (match_found) {
                     content_last_match_end = content_offset + converted_content_length;
@@ -940,15 +969,22 @@ static void snort_show_alert(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
                                               rule->contents[n].str,
                                               content_text_template,
                                               rule->contents[n].str);
+
+            /* Next match position will be after this one */
+            if (match_found) {
+                content_start_match = content_last_match_end;
+            }
+
             if (!attempt_match) {
-                /* TODO: for pcre could try to use same library used by
-                   display filter 'matches' operator? */
                 proto_item_append_text(ti, " (no match attempt made)");
             }
 
             /* Show (only as text) attributes of content field */
             if (rule->contents[n].fastpattern) {
                 proto_item_append_text(ti, " (fast_pattern)");
+            }
+            if (rule->contents[n].rawbytes) {
+                proto_item_append_text(ti, " (rawbytes)");
             }
             if (rule->contents[n].nocase) {
                 proto_item_append_text(ti, " (nocase)");
@@ -979,12 +1015,19 @@ static void snort_show_alert(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
             if (rule->contents[n].http_cookie != 0) {
                 proto_item_append_text(ti, " (http_cookie)");
             }
+            if (rule->contents[n].http_user_agent != 0) {
+                proto_item_append_text(ti, " (http_user_agent)");
+            }
 
             if (attempt_match && !rule->contents[n].negation && !match_found) {
                 /* Useful for debugging, may also happen when Snort is reassembling.. */
+                /* TODO: not sure why, but PCREs might not be found first time through, but will be
+                 * found later, with the result that there will be 'not located' expert warnings,
+                 * but when you click on the packet, it is matched after all... */
                 proto_item_append_text(ti, " - not located");
                 expert_add_info_format(pinfo, ti, &ei_snort_content_not_matched,
-                                       "Content   \"%s\"   not found in frame",
+                                       "%s   \"%s\"   not found in frame",
+                                       rule->contents[n].content_type==Pcre ? "PCRE" : "Content",
                                        rule->contents[n].str);
             }
         }
@@ -1126,7 +1169,7 @@ snort_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
                 current_session.pdh = wtap_dump_fdopen(current_session.in,
                                                        WTAP_FILE_TYPE_SUBTYPE_PCAP,
                                                        pinfo->pkt_encap,
-                                                       WTAP_MAX_PACKET_SIZE,
+                                                       WTAP_MAX_PACKET_SIZE_STANDARD,
                                                        FALSE,                 /* compressed */
                                                        &open_err);
                 if (!current_session.pdh) {
@@ -1321,6 +1364,14 @@ proto_reg_handoff_snort(void)
      * work as a non-root user (couldn't read stdin)
      * TODO: could run snort just to get the version number and check the config file is readable?
      * TODO: could make snort config parsing less forgiving and use that as a test? */
+
+    /* Add items we want to try to get to find before we get called.
+       For now, just ask for tcp.reassembled_in, which won't be seen
+       on the first pass through the packets. */
+    GArray *wanted_hfids = g_array_new(FALSE, FALSE, (guint)sizeof(int));
+    int id = proto_registrar_get_id_byname("tcp.reassembled_in");
+    g_array_append_val(wanted_hfids, id);
+    set_postdissector_wanted_hfids(snort_handle, wanted_hfids);
 }
 
 void
@@ -1432,8 +1483,6 @@ proto_register_snort(void)
 
     expert_module_t* expert_snort;
 
-
-    dissector_handle_t snort_handle;
     module_t *snort_module;
 
     proto_snort = proto_register_protocol("Snort Alerts", "Snort", "snort");
@@ -1457,11 +1506,11 @@ proto_register_snort(void)
     prefs_register_filename_preference(snort_module, "binary",
                                        "Snort binary",
                                        "The name of the snort binary file to run",
-                                       &pref_snort_binary_filename);
+                                       &pref_snort_binary_filename, FALSE);
     prefs_register_filename_preference(snort_module, "config",
                                        "Configuration filename",
                                        "The name of the file containing the snort IDS configuration.  Typically snort.conf",
-                                       &pref_snort_config_filename);
+                                       &pref_snort_config_filename, FALSE);
 
     prefs_register_bool_preference(snort_module, "show_rule_set_stats",
                                    "Show rule stats in protocol tree",

@@ -52,9 +52,6 @@
 
 #include <writecap/pcapio.h>
 #include <wiretap/wtap.h>
-#include <epan/tvbuff.h>
-#include <epan/packet_info.h>
-#include <epan/exported_pdu.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/inet_addr.h>
 #include <wsutil/filesystem.h>
@@ -304,7 +301,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 	struct sockaddr_in clientaddr;
 	int clientlen = sizeof(clientaddr);
 	socket_handle_t sock;
-	char buf[PKT_BUF_SIZE];
+	char* buf;
 	ssize_t buflen;
 	FILE* fp = NULL;
 
@@ -324,6 +321,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 
 	g_debug("Listener running on port %u", port);
 
+	buf = (char*)g_malloc(PKT_BUF_SIZE);
 	while(run_loop == TRUE) {
 		memset(buf, 0x0, PKT_BUF_SIZE);
 
@@ -359,6 +357,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 
 	fclose(fp);
 	closesocket(sock);
+	g_free(buf);
 }
 
 int main(int argc, char *argv[])

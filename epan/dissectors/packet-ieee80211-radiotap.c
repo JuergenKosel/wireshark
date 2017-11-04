@@ -1008,7 +1008,7 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 			/*
 			 * XXX On FreeBSD rate & 0x80 means we have an MCS. On
 			 * Linux and AirPcap it does not.  (What about
-			 * Mac OS X, NetBSD, OpenBSD, and DragonFly BSD?)
+			 * macOS, NetBSD, OpenBSD, and DragonFly BSD?)
 			 *
 			 * This is an issue either for proprietary extensions
 			 * to 11a or 11g, which do exist, or for 11n
@@ -1216,13 +1216,9 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 			break;
 
 		case IEEE80211_RADIOTAP_LOCK_QUALITY:
-			if (tree) {
-				proto_tree_add_uint(radiotap_tree,
+			proto_tree_add_item(radiotap_tree,
 						    hf_radiotap_quality, tvb,
-						    offset, 2,
-						    tvb_get_letohs(tvb,
-								   offset));
-			}
+						    offset, 2, ENC_LITTLE_ENDIAN);
 			break;
 
 		case IEEE80211_RADIOTAP_TX_ATTENUATION:
@@ -1238,22 +1234,15 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 			break;
 
 		case IEEE80211_RADIOTAP_DBM_TX_POWER:
-			if (tree) {
-				proto_tree_add_int(radiotap_tree,
+			proto_tree_add_item(radiotap_tree,
 						   hf_radiotap_txpower, tvb,
-						   offset, 1,
-						   tvb_get_guint8(tvb, offset));
-			}
+						   offset, 1, ENC_NA);
 			break;
 
 		case IEEE80211_RADIOTAP_ANTENNA:
-			if (tree) {
-				proto_tree_add_uint(radiotap_tree,
+			proto_tree_add_item(radiotap_tree,
 						    hf_radiotap_antenna, tvb,
-						    offset, 1,
-						    tvb_get_guint8(tvb,
-								   offset));
-			}
+						    offset, 1, ENC_NA);
 			break;
 
 		case IEEE80211_RADIOTAP_DB_ANTSIGNAL:
@@ -1833,7 +1822,7 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 									tvb, offset, 12, rate,
 									"Data Rate: %.1f Mb/s", rate);
 							PROTO_ITEM_SET_GENERATED(rate_ti);
-							if (ieee80211_vhtvalid[mcs].valid[bandwidth][nss] == FALSE)
+							if (ieee80211_vhtvalid[mcs].valid[bandwidth][nss-1] == FALSE)
 								expert_add_info(pinfo, rate_ti, &ei_radiotap_invalid_data_rate);
 
 						}

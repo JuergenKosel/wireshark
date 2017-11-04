@@ -30,9 +30,6 @@
 #include <epan/proto.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
-#include <epan/dissectors/packet-tcp.h>
-#include <epan/tap.h>
-#include <wsutil/report_err.h>
 #include "packet-transum.h"
 #include "preferences.h"
 #include "extractors.h"
@@ -40,6 +37,8 @@
 
 void proto_register_transum(void);
 void proto_reg_handoff_transum(void);
+
+static dissector_handle_t transum_handle;
 
 #define CAPTURE_CLIENT 0
 #define CAPTURE_INTERMEDIATE 1
@@ -142,6 +141,10 @@ static wmem_map_t *output_rrpd;
  */
 static wmem_list_t *temp_rsp_rrpd_list = NULL;  /* Reuse these for speed and efficient memory use - issue a warning if we run out */
 
+/*
+ * GArray of the hfids of all fields we're interested in.
+ */
+GArray *wanted_fields;
 
 static gint ett_transum = -1;
 static gint ett_transum_header = -1;
@@ -188,8 +191,6 @@ static const value_string rrdp_calculation_vals[] = {
     { NULL, NULL, 0}
 };*/
 
-static int fake_tap = 0xa7a7a7a7;
-
 void add_detected_tcp_svc(guint16 port)
 {
     wmem_map_insert(detected_tcp_svc, GUINT_TO_POINTER(port), GUINT_TO_POINTER(port));
@@ -198,9 +199,9 @@ void add_detected_tcp_svc(guint16 port)
 
 static void init_dcerpc_data(void)
 {
-    wmem_map_insert(dcerpc_req_pkt_type, GUINT_TO_POINTER(0), GUINT_TO_POINTER(0));
-    wmem_map_insert(dcerpc_req_pkt_type, GUINT_TO_POINTER(11), GUINT_TO_POINTER(11));
-    wmem_map_insert(dcerpc_req_pkt_type, GUINT_TO_POINTER(14), GUINT_TO_POINTER(14));
+    wmem_map_insert(dcerpc_req_pkt_type, GUINT_TO_POINTER(0), GUINT_TO_POINTER(1));
+    wmem_map_insert(dcerpc_req_pkt_type, GUINT_TO_POINTER(11), GUINT_TO_POINTER(1));
+    wmem_map_insert(dcerpc_req_pkt_type, GUINT_TO_POINTER(14), GUINT_TO_POINTER(1));
 
     wmem_map_insert(dcerpc_context_zero, GUINT_TO_POINTER(11), GUINT_TO_POINTER(11));
     wmem_map_insert(dcerpc_context_zero, GUINT_TO_POINTER(12), GUINT_TO_POINTER(12));
@@ -272,6 +273,10 @@ static RRPD *find_latest_rrpd(RRPD *in_rrpd, int state)
 {
     RRPD *rrpd_index = NULL, *rrpd;
     wmem_list_frame_t* i;
+
+    /* If this is a SYN from C2S there is no point searching the list */
+    if (in_rrpd->c2s && in_rrpd->calculation == RTE_CALC_SYN)
+        return NULL;
 
     for (i = wmem_list_tail(rrpd_list); i != NULL; i = wmem_list_frame_prev(i))
     {
@@ -499,18 +504,23 @@ static void update_rrpd_list_entry_req(RRPD *in_rrpd)
     {
         while (TRUE)
         {
-            match = find_latest_rrpd(in_rrpd, RRPD_STATE_1);
-            if (match != NULL)  /* Check to cover TCP Reassembly enabled */
+            if (preferences.reassembly)
             {
-                update_rrpd_list_entry(match, in_rrpd);
-                break;
+                match = find_latest_rrpd(in_rrpd, RRPD_STATE_1);
+                if (match != NULL)  /* Check to cover TCP Reassembly enabled */
+                {
+                    update_rrpd_list_entry(match, in_rrpd);
+                    break;
+                }
             }
-
-            match = find_latest_rrpd(in_rrpd, RRPD_STATE_4);
-            if (match != NULL)
+            else
             {
-                update_rrpd_list_entry(match, in_rrpd);
-                break;
+                match = find_latest_rrpd(in_rrpd, RRPD_STATE_4);
+                if (match != NULL)
+                {
+                    update_rrpd_list_entry(match, in_rrpd);
+                    break;
+                }
             }
 
             /* No entries and so add one */
@@ -697,16 +707,6 @@ gboolean is_dcerpc_req_pkt_type(guint32 pkt_type)
  */
 static void init_globals(void)
 {
-    /* The following achives two things; a) we avoid double registering the fake tap
-       and b) we discard the fake tap when the "TRANSUM enabled" preference is changed.
-
-       We remove the tap when it is not needed as it has a performance impact.
-
-       It's safe to call remove_tap_listener even if the tap listener doesn't exist.
-       If it doesn't find &fake_tap on the queue of listeners it calls the actual freeing
-       function with a pointer of NULL and the called function just returns. */
-    remove_tap_listener(&fake_tap);
-
     if (!proto_is_protocol_enabled(find_protocol_by_id(proto_transum)))
         return;
 
@@ -715,31 +715,13 @@ static void init_globals(void)
     rrpd_list = wmem_list_new(wmem_file_scope());
     temp_rsp_rrpd_list = wmem_list_new(wmem_file_scope());
 
-    GString* fake_tap_filter = g_string_new("frame || eth.type");
-
+    /* Indicate what fields we're interested in. */
+    wanted_fields = g_array_new(FALSE, FALSE, (guint)sizeof(int));
     for (int i = 0; i < HF_INTEREST_END_OF_LIST; i++)
     {
-        g_string_append_printf(fake_tap_filter, " || %s", hf_of_interest[i].proto_name);
+        g_array_append_val(wanted_fields, hf_of_interest[i].hf);
     }
-
-
-    /* this fake tap is needed to force WS to pass a tree to the dissectors on
-       the first scan which causes the dissectors to create display filter values
-       which are then available to TRANSUM during the first scan */
-    GString* error = register_tap_listener("frame",
-        &fake_tap,
-        fake_tap_filter->str,
-        TL_REQUIRES_NOTHING,
-        NULL, NULL, NULL); /* NULL pointers as this is a fake tap */
-
-    g_string_free(fake_tap_filter, TRUE);
-
-    if (error)
-    {
-        report_failure("register_tap_listener() failed - %s", error->str);
-        g_string_free(error, TRUE);
-        return;
-    }
+    set_postdissector_wanted_hfids(transum_handle, wanted_fields);
 
     preferences.tcp_svc_ports = wmem_map_new(wmem_file_scope(), g_direct_hash, g_direct_equal);
     preferences.udp_svc_ports = wmem_map_new(wmem_file_scope(), g_direct_hash, g_direct_equal);
@@ -1001,8 +983,13 @@ static int dissect_transum(tvbuff_t *buffer, packet_info *pinfo, proto_tree *tre
         RRPD *rrpd = (RRPD*)wmem_map_lookup(output_rrpd, GUINT_TO_POINTER(pinfo->num));
 
         if (rrpd)
-            /* Add the RTE data to the protocol decode tree if we output_flag is set */
-            write_rte(rrpd, buffer, tree, NULL);
+        {
+            if (tree)
+            {
+                /* Add the RTE data to the protocol decode tree if we output_flag is set */
+                write_rte(rrpd, buffer, tree, NULL);
+            }
+        }
     }
     else
     {
@@ -1030,7 +1017,6 @@ void
 proto_register_transum(void)
 {
     module_t *transum_module;
-    dissector_handle_t transum_handle;
 
     static hf_register_info hf[] = {
         { &hf_tsum_status,

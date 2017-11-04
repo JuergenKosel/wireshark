@@ -1,9 +1,12 @@
 /* packet-ieee80211-radio.c
- * Routines for pseudo 802.11 header dissection
+ * Routines for pseudo 802.11 header dissection and radio packet timing calculation
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
+ *
+ * Copyright 2012 Parc Inc and Samsung Electronics
+ * Copyright 2015, 2016 & 2017 Cisco Inc
  *
  * Copied from README.developer
  *
@@ -28,8 +31,11 @@
 #include <epan/expert.h>
 #include <wiretap/wtap.h>
 #include <epan/prefs.h>
+#include <epan/proto_data.h>
+#include <epan/tap.h>
 
 #include "packet-ieee80211.h"
+#include "packet-ieee80211-radio.h"
 #include "math.h"
 
 void proto_register_ieee80211_radio(void);
@@ -87,6 +93,11 @@ static int hf_wlan_a_mpdu_delim_crc_error = -1;
 static int hf_wlan_a_mpdu_aggregate_id = -1;
 static int hf_wlan_radio_duration = -1;
 static int hf_wlan_radio_preamble = -1;
+static int hf_wlan_radio_aggregate = -1;
+static int hf_wlan_radio_aggregate_duration = -1;
+static int hf_wlan_radio_ifs = -1;
+static int hf_wlan_radio_start_tsf = -1;
+static int hf_wlan_radio_end_tsf = -1;
 
 
 static expert_field ei_wlan_radio_assumed_short_preamble = EI_INIT;
@@ -95,8 +106,12 @@ static expert_field ei_wlan_radio_assumed_no_stbc = EI_INIT;
 static expert_field ei_wlan_radio_assumed_no_extension_streams = EI_INIT;
 static expert_field ei_wlan_radio_assumed_bcc_fec = EI_INIT;
 
+static int wlan_radio_timeline_tap = -1;
+
 /* Settings */
 static gboolean wlan_radio_always_short_preamble = FALSE;
+static gboolean wlan_radio_tsf_at_end = TRUE;
+static gboolean wlan_radio_timeline_enabled = FALSE;
 
 static const value_string phy_vals[] = {
     { PHDR_802_11_PHY_11_FHSS,       "802.11 FHSS" },
@@ -175,30 +190,30 @@ static const value_string fec_vals[] = {
  * Note: MCS 32 is special - only valid for 40Mhz channel.
  */
 WS_DLL_PUBLIC_DEF const guint16 ieee80211_ht_Dbps[MAX_MCS_INDEX+1] = {
-	/* MCS  0 - 1 stream */
-	26, 52, 78, 104, 156, 208, 234, 260,
+    /* MCS  0 - 1 stream */
+    26, 52, 78, 104, 156, 208, 234, 260,
 
-	/* MCS  8 - 2 stream */
-	52, 104, 156, 208, 312, 416, 468, 520,
+    /* MCS  8 - 2 stream */
+    52, 104, 156, 208, 312, 416, 468, 520,
 
-	/* MCS 16 - 3 stream */
-	78, 156, 234, 312, 468, 624, 702, 780,
+    /* MCS 16 - 3 stream */
+    78, 156, 234, 312, 468, 624, 702, 780,
 
-	/* MCS 24 - 4 stream */
-	104, 208, 312, 416, 624, 832, 936, 1040,
+    /* MCS 24 - 4 stream */
+    104, 208, 312, 416, 624, 832, 936, 1040,
 
-	/* MCS 32 - 1 stream */
-	12, /* only valid for 40Mhz - 11a/g DUP mode */
+    /* MCS 32 - 1 stream */
+    12, /* only valid for 40Mhz - 11a/g DUP mode */
 
-	/* MCS 33 - 2 stream */
-	156, 208, 260, 234, 312, 390,
+    /* MCS 33 - 2 stream */
+    156, 208, 260, 234, 312, 390,
 
-	/* MCS 39 - 3 stream */
-	208, 260, 260, 312, 364, 364, 416, 312, 390, 390, 468, 546, 546, 624,
+    /* MCS 39 - 3 stream */
+    208, 260, 260, 312, 364, 364, 416, 312, 390, 390, 468, 546, 546, 624,
 
-	/* MCS 53 - 4 stream */
-	260, 312, 364, 312, 364, 416, 468, 416, 468, 520, 520, 572,
-	390, 468, 546, 468, 546, 624, 702, 624, 702, 780, 780, 858
+    /* MCS 53 - 4 stream */
+    260, 312, 364, 312, 364, 416, 468, 416, 468, 520, 520, 572,
+    390, 468, 546, 468, 546, 624, 702, 624, 702, 780, 780, 858
 };
 
 /*
@@ -224,7 +239,6 @@ static const guint8 ieee80211_ht_Nes[MAX_MCS_INDEX+1] = {
        1,1,1,1,1,1,1,1,1,1,1,1,1,1,
        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2
 };
-
 
 #define MAX_MCS_VHT_INDEX     9
 
@@ -371,6 +385,66 @@ static float ieee80211_vhtrate(int mcs_index, guint bandwidth_index, gboolean sh
 static gint ett_wlan_radio = -1;
 static gint ett_wlan_radio_11ac_user = -1;
 static gint ett_wlan_radio_duration = -1;
+static gint ett_wlan_radio_aggregate = -1;
+
+/* previous frame details, for aggregate detection */
+struct previous_frame_info {
+  gboolean has_tsf_timestamp;
+  guint64 tsf_timestamp;
+  guint phy;
+  guint prev_length;
+  struct wlan_radio *radio_info;
+};
+
+static struct previous_frame_info previous_frame;
+static struct aggregate *current_aggregate;
+static wmem_list_t *agg_tracker_list;
+
+static guint calculate_11n_duration(guint frame_length,
+  struct ieee_802_11n* info_n,
+  int stbc_streams)
+{
+  guint bits;
+  guint bits_per_symbol;
+  guint Mstbc;
+  guint symbols;
+
+  /* data field calculation */
+  if (1) {
+    /* see ieee80211n-2009 20.3.11 (20-32) - for BCC FEC */
+    bits = 8 * frame_length + 16 + ieee80211_ht_Nes[info_n->mcs_index] * 6;
+    Mstbc = stbc_streams ? 2 : 1;
+    bits_per_symbol = ieee80211_ht_Dbps[info_n->mcs_index] *
+        (info_n->bandwidth == PHDR_802_11_BANDWIDTH_40_MHZ ? 2 : 1);
+    symbols = bits / (bits_per_symbol * Mstbc);
+  } else {
+    /* TODO: handle LDPC FEC, it changes the rounding */
+  }
+  /* round up to whole symbols */
+  if ((bits % (bits_per_symbol * Mstbc)) > 0)
+    symbols++;
+
+  symbols *= Mstbc;
+  return (symbols * (info_n->short_gi ? 36 : 40) + 5) / 10;
+}
+
+/* TODO: this is a crude quick hack, need proper calculation of bits/symbols/FEC/etc */
+static guint calculate_11ac_duration(guint frame_length, float data_rate)
+{
+  guint bits = 8 * frame_length + 16;
+  return (guint) (bits / data_rate);
+}
+
+static void adjust_agg_tsf(gpointer data, gpointer user_data)
+{
+  struct wlan_radio *wlan_radio_info = (struct wlan_radio *)data;
+  guint64 *ppdu_start = (guint64 *)user_data;
+
+  wlan_radio_info->start_tsf += (*ppdu_start);
+  wlan_radio_info->end_tsf += (*ppdu_start);
+  if (wlan_radio_info->prior_aggregate_data == 0)
+	  wlan_radio_info->ifs += (*ppdu_start);
+}
 
 /*
  * Dissect 802.11 pseudo-header containing radio information.
@@ -379,18 +453,26 @@ static void
 dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void *data)
 {
   struct ieee_802_11_phdr *phdr = (struct ieee_802_11_phdr *)data;
-  proto_item *ti = NULL;
-  proto_tree *radio_tree = NULL;
+  proto_item *ti;
+  proto_tree *radio_tree;
   float data_rate = 0.0f;
   gboolean have_data_rate = FALSE;
   gboolean has_short_preamble = FALSE;
-  gboolean short_preamble = 1;
+  gboolean short_preamble = TRUE;
+  guint bandwidth = 0;
+  gboolean can_calculate_rate = FALSE;
+  proto_item *p_item;
 
   guint frame_length = tvb_reported_length(tvb); /* length of 802.11 frame data */
 
   /* durations in microseconds */
-  guint preamble = 0; /* duration of plcp */
+  guint preamble = 0, agg_preamble = 0; /* duration of plcp */
   guint duration = 0; /* duration of whole frame (plcp + mac data + any trailing parts) */
+  guint prior_duration = 0; /* duration of previous part of aggregate */
+
+  struct wlan_radio *wlan_radio_info;
+  int phy = phdr->phy;
+  union ieee_802_11_phy_info *phy_info = &phdr->phy_info;
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "Radio");
   col_clear(pinfo->cinfo, COL_INFO);
@@ -407,19 +489,94 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
     col_add_fstr(pinfo->cinfo, COL_RSSI, "%u%%", phdr->signal_percent);
   }
 
-  if (tree) {
-    ti = proto_tree_add_item(tree, proto_wlan_radio, tvb, 0, 0, ENC_NA);
-    radio_tree = proto_item_add_subtree (ti, ett_wlan_radio);
+  /* this is the first time we are looking at this frame during a
+   * capture dissection, so we know the dissection is done in
+   * frame order (subsequent dissections may be random access) */
+  if (!pinfo->fd->flags.visited) {
+    wlan_radio_info = wmem_new0(wmem_file_scope(), struct wlan_radio);
+    p_add_proto_data(wmem_file_scope(), pinfo, proto_wlan_radio, 0, wlan_radio_info);
 
-    if (phdr->phy != PHDR_802_11_PHY_UNKNOWN) {
-      proto_tree_add_uint(radio_tree, hf_wlan_radio_phy, tvb, 0, 0,
-               phdr->phy);
+    /* A-MPDU / aggregate detection
+     * Different generators need different detection algorithms
+     * One common pattern is to report all subframes in the aggregate with the same
+     * tsf, referenced to the start of the AMPDU (Broadcom). Another pattern is to
+     * report the tsf on the first subframe, then tsf=0 for the rest of the subframes
+     * (Intel).
+     * Another pattern is to report TSF = -1 for all frames but the last, and the
+     * last has the tsf referenced to the end of the PPDU. (QCA)
+     */
+    /* TODO: add code to work around problem with captures from Macbooks where
+     * aggregate subframes frames with FCS errors sometimes have incorrect
+     * PHY information.
+     */
+    if (pinfo->fd->num > 1 &&
+        (phdr->phy == PHDR_802_11_PHY_11N || phdr->phy == PHDR_802_11_PHY_11AC) &&
+        phdr->phy == previous_frame.phy &&
+        phdr->has_tsf_timestamp && previous_frame.has_tsf_timestamp &&
+        (phdr->tsf_timestamp == previous_frame.tsf_timestamp || /* find matching TSFs */
+         (!current_aggregate && previous_frame.tsf_timestamp && phdr->tsf_timestamp == 0) || /* Intel detect second frame */
+         (previous_frame.tsf_timestamp == G_MAXUINT64) /* QCA, detect last frame */
+        )) {
+      /* we're in an aggregate */
+      if (!current_aggregate) {
+        /* this is the second frame in an aggregate
+         * where we first detect the aggregate */
+        current_aggregate = wmem_new0(wmem_file_scope(), struct aggregate);
+        /* TODO work around macbook FCS frame PHY errors here */
+        current_aggregate->phy = phdr->phy;
+        current_aggregate->phy_info = phdr->phy_info;
 
-      switch (phdr->phy) {
+        /* go back to the first frame in the aggregate,
+         * and mark it as part of this aggregate */
+        if (previous_frame.radio_info != NULL)
+          previous_frame.radio_info->aggregate = current_aggregate;
+      }
+      wlan_radio_info->aggregate = current_aggregate;
+
+      /* accumulate the length of the prior subframes in the aggregate.
+       * Round up previous frame length (padding) */
+      if (previous_frame.prev_length % 4 != 0) {
+        previous_frame.prev_length = (previous_frame.prev_length | 3) + 1;
+      }
+      /* Also add the MPDU delimiter length */
+      previous_frame.prev_length += 4;
+      /* TODO: add padding to meet minimum subframe timing constraint */
+      wlan_radio_info->prior_aggregate_data = previous_frame.prev_length;
+      previous_frame.prev_length += frame_length;
+
+      /* TODO work around macbook FCS frame PHY errors - check phy/fcs and
+       * update if necessary */
+
+      phy = current_aggregate->phy;
+      phy_info = &current_aggregate->phy_info;
+    } else {
+      current_aggregate = NULL;
+      previous_frame.prev_length = frame_length;
+    }
+    previous_frame.has_tsf_timestamp = phdr->has_tsf_timestamp;
+    previous_frame.tsf_timestamp = phdr->tsf_timestamp;
+    previous_frame.phy = phdr->phy;
+  } else {
+    /* this frame has already been seen, so get its info structure */
+    wlan_radio_info = (struct wlan_radio *) p_get_proto_data(wmem_file_scope(), pinfo, proto_wlan_radio, 0);
+
+    if (wlan_radio_info->aggregate) {
+      phy = wlan_radio_info->aggregate->phy;
+      phy_info = &wlan_radio_info->aggregate->phy_info;
+    }
+  }
+
+  ti = proto_tree_add_item(tree, proto_wlan_radio, tvb, 0, 0, ENC_NA);
+  radio_tree = proto_item_add_subtree (ti, ett_wlan_radio);
+
+  if (phy != PHDR_802_11_PHY_UNKNOWN) {
+    proto_tree_add_uint(radio_tree, hf_wlan_radio_phy, tvb, 0, 0, phy);
+
+    switch (phy) {
 
       case PHDR_802_11_PHY_11_FHSS:
       {
-        struct ieee_802_11_fhss *info_fhss = &phdr->phy_info.info_11_fhss;
+        struct ieee_802_11_fhss *info_fhss = &phy_info->info_11_fhss;
 
         if (info_fhss->has_hop_set) {
           proto_tree_add_uint(radio_tree, hf_wlan_radio_11_fhss_hop_set, tvb, 0, 0,
@@ -438,7 +595,7 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
 
       case PHDR_802_11_PHY_11B:
       {
-        struct ieee_802_11b *info_b = &phdr->phy_info.info_11b;
+        struct ieee_802_11b *info_b = &phy_info->info_11b;
 
         has_short_preamble = info_b->has_short_preamble;
         short_preamble = info_b->short_preamble;
@@ -452,7 +609,7 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
 
       case PHDR_802_11_PHY_11A:
       {
-        struct ieee_802_11a *info_a = &phdr->phy_info.info_11a;
+        struct ieee_802_11a *info_a = &phy_info->info_11a;
 
         if (info_a->has_channel_type) {
           proto_tree_add_uint(radio_tree, hf_wlan_radio_11a_channel_type, tvb, 0, 0,
@@ -467,7 +624,7 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
 
       case PHDR_802_11_PHY_11G:
       {
-        struct ieee_802_11g *info_g = &phdr->phy_info.info_11g;
+        struct ieee_802_11g *info_g = &phy_info->info_11g;
 
         has_short_preamble = info_g->has_short_preamble;
         short_preamble = info_g->short_preamble;
@@ -485,8 +642,22 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
 
       case PHDR_802_11_PHY_11N:
         {
-          struct ieee_802_11n *info_n = &phdr->phy_info.info_11n;
+          struct ieee_802_11n *info_n = &phy_info->info_11n;
           guint bandwidth_40;
+
+          /*
+           * If we have all the fields needed to look up the data rate,
+           * do so.
+           */
+          if (info_n->has_mcs_index &&
+              info_n->has_bandwidth &&
+              info_n->has_short_gi) {
+            bandwidth_40 = (info_n->bandwidth == PHDR_802_11_BANDWIDTH_40_MHZ) ? 1 : 0;
+            if (info_n->mcs_index < MAX_MCS_INDEX) {
+              data_rate = ieee80211_htrate(info_n->mcs_index, bandwidth_40, info_n->short_gi);
+              have_data_rate = TRUE;
+            }
+          }
 
           if (info_n->has_mcs_index) {
             proto_tree_add_uint(radio_tree, hf_wlan_radio_11n_mcs_index, tvb, 0, 0,
@@ -522,31 +693,30 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
             proto_tree_add_uint(radio_tree, hf_wlan_radio_11n_ness, tvb, 0, 0,
                      info_n->ness);
           }
-
-          /*
-           * If we have all the fields needed to look up the data rate,
-           * do so.
-           */
-          if (info_n->has_mcs_index &&
-              info_n->has_bandwidth &&
-              info_n->has_short_gi) {
-            bandwidth_40 =
-              (info_n->bandwidth == PHDR_802_11_BANDWIDTH_40_MHZ) ?
-               1 : 0;
-            if (info_n->mcs_index <= MAX_MCS_INDEX) {
-              data_rate = ieee80211_htrate(info_n->mcs_index, bandwidth_40, info_n->short_gi);
-              have_data_rate = TRUE;
-            }
-          }
         }
         break;
 
       case PHDR_802_11_PHY_11AC:
         {
-          struct ieee_802_11ac *info_ac = &phdr->phy_info.info_11ac;
-          gboolean can_calculate_rate;
-          guint bandwidth = 0;
+          struct ieee_802_11ac *info_ac = &phy_info->info_11ac;
           guint i;
+
+          if (info_ac->has_short_gi) {
+            can_calculate_rate = TRUE;  /* well, if we also have the bandwidth */
+            proto_tree_add_boolean(radio_tree, hf_wlan_radio_11ac_short_gi, tvb, 0, 0, info_ac->short_gi);
+          } else {
+            can_calculate_rate = FALSE; /* unknown GI length */
+          }
+
+          if (info_ac->has_bandwidth) {
+            proto_tree_add_uint(radio_tree, hf_wlan_radio_11ac_bandwidth, tvb, 0, 0, info_ac->bandwidth);
+            if (info_ac->bandwidth < G_N_ELEMENTS(ieee80211_vht_bw2rate_index))
+              bandwidth = ieee80211_vht_bw2rate_index[info_ac->bandwidth];
+            else
+              can_calculate_rate = FALSE; /* unknown bandwidth */
+          } else {
+            can_calculate_rate = FALSE;   /* no bandwidth */
+          }
 
           if (info_ac->has_stbc) {
             proto_tree_add_boolean(radio_tree, hf_wlan_radio_11ac_stbc, tvb, 0, 0,
@@ -556,14 +726,6 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
           if (info_ac->has_txop_ps_not_allowed) {
             proto_tree_add_boolean(radio_tree, hf_wlan_radio_11ac_txop_ps_not_allowed, tvb, 0, 0,
                      info_ac->txop_ps_not_allowed);
-          }
-
-          if (info_ac->has_short_gi) {
-            can_calculate_rate = TRUE;  /* well, if we also have the bandwidth */
-            proto_tree_add_boolean(radio_tree, hf_wlan_radio_11ac_short_gi, tvb, 0, 0,
-                     info_ac->short_gi);
-          } else {
-            can_calculate_rate = FALSE; /* unknown GI length */
           }
 
           if (info_ac->has_short_gi_nsym_disambig) {
@@ -579,17 +741,6 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
           if (info_ac->has_beamformed) {
             proto_tree_add_boolean(radio_tree, hf_wlan_radio_11ac_beamformed, tvb, 0, 0,
                      info_ac->beamformed);
-          }
-
-          if (info_ac->has_bandwidth) {
-            if (info_ac->bandwidth < G_N_ELEMENTS(ieee80211_vht_bw2rate_index))
-              bandwidth = ieee80211_vht_bw2rate_index[info_ac->bandwidth];
-            else
-              can_calculate_rate = FALSE; /* unknown bandwidth */
-            proto_tree_add_uint(radio_tree, hf_wlan_radio_11ac_bandwidth, tvb, 0, 0,
-                     info_ac->bandwidth);
-          } else {
-            can_calculate_rate = FALSE;   /* no bandwidth */
           }
 
           for (i = 0; i < 4; i++) {
@@ -610,10 +761,17 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
                 proto_item_append_text(it, " (%s %s)",
                   ieee80211_vhtinfo[info_ac->mcs[i]].modulation,
                   ieee80211_vhtinfo[info_ac->mcs[i]].coding_rate);
+
+                  /*
+                   * If we can calculate the data rate for this user, do so.
+                   */
+                  if (can_calculate_rate) {
+                    data_rate = ieee80211_vhtrate(info_ac->mcs[i], bandwidth, info_ac->short_gi) * info_ac->nss[i];
+                    have_data_rate = TRUE;
+                  }
               }
 
-              proto_tree_add_uint(user_tree, hf_wlan_radio_11ac_nss, tvb, 0, 0,
-                       info_ac->nss[i]);
+              proto_tree_add_uint(user_tree, hf_wlan_radio_11ac_nss, tvb, 0, 0, info_ac->nss[i]);
               /*
                * If we don't know whether space-time block coding is being
                * used, we don't know the number of space-time streams.
@@ -651,277 +809,371 @@ dissect_wlan_radio_phdr (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
           }
 
           if (info_ac->has_group_id) {
-            proto_tree_add_uint(radio_tree, hf_wlan_radio_11ac_gid, tvb, 0, 0,
-                     info_ac->group_id);
+            proto_tree_add_uint(radio_tree, hf_wlan_radio_11ac_gid, tvb, 0, 0, info_ac->group_id);
           }
 
           if (info_ac->has_partial_aid) {
-            proto_tree_add_uint(radio_tree, hf_wlan_radio_11ac_p_aid, tvb, 0, 0,
-                     info_ac->partial_aid);
+            proto_tree_add_uint(radio_tree, hf_wlan_radio_11ac_p_aid, tvb, 0, 0, info_ac->partial_aid);
           }
         }
         break;
-      }
     }
+  }
 
-    if (have_data_rate) {
-      col_add_fstr(pinfo->cinfo, COL_TX_RATE, "%.1f", data_rate);
-      proto_tree_add_float_format_value(radio_tree, hf_wlan_radio_data_rate, tvb, 0, 0,
+  if (have_data_rate) {
+    col_add_fstr(pinfo->cinfo, COL_TX_RATE, "%.1f", data_rate);
+    proto_tree_add_float_format_value(radio_tree, hf_wlan_radio_data_rate, tvb, 0, 0,
                data_rate,
                "%.1f Mb/s",
                data_rate);
+  }
+
+  if (phdr->has_channel) {
+    col_add_fstr(pinfo->cinfo, COL_FREQ_CHAN, "%u", phdr->channel);
+    proto_tree_add_uint(radio_tree, hf_wlan_radio_channel, tvb, 0, 0, phdr->channel);
+  }
+
+  if (phdr->has_frequency) {
+    col_add_fstr(pinfo->cinfo, COL_FREQ_CHAN, "%u MHz", phdr->frequency);
+    proto_tree_add_uint(radio_tree, hf_wlan_radio_frequency, tvb, 0, 0, phdr->frequency);
+  }
+
+  if (phdr->has_signal_percent) {
+    col_add_fstr(pinfo->cinfo, COL_RSSI, "%u%%", phdr->signal_percent);
+    proto_tree_add_uint(radio_tree, hf_wlan_radio_signal_percent, tvb, 0, 0, phdr->signal_percent);
+  }
+
+  if (phdr->has_signal_dbm) {
+    col_add_fstr(pinfo->cinfo, COL_RSSI, "%d dBm", phdr->signal_dbm);
+    proto_tree_add_int(radio_tree, hf_wlan_radio_signal_dbm, tvb, 0, 0, phdr->signal_dbm);
+  }
+
+  if (phdr->has_noise_percent) {
+    proto_tree_add_uint(radio_tree, hf_wlan_radio_noise_percent, tvb, 0, 0, phdr->noise_percent);
+  }
+
+  if (phdr->has_noise_dbm) {
+    proto_tree_add_int(radio_tree, hf_wlan_radio_noise_dbm, tvb, 0, 0, phdr->noise_dbm);
+  }
+
+  if (phdr->has_tsf_timestamp) {
+    proto_tree_add_uint64(radio_tree, hf_wlan_radio_timestamp, tvb, 0, 0, phdr->tsf_timestamp);
+  }
+  if (phdr->has_aggregate_info) {
+    proto_tree_add_boolean(radio_tree, hf_wlan_last_part_of_a_mpdu, tvb, 0, 0, phdr->aggregate_flags);
+    proto_tree_add_boolean(radio_tree, hf_wlan_a_mpdu_delim_crc_error, tvb, 0, 0, phdr->aggregate_flags);
+    proto_tree_add_uint(radio_tree, hf_wlan_a_mpdu_aggregate_id, tvb, 0, 0, phdr->aggregate_id);
+  }
+
+  /* make sure frame_length includes the FCS for accurate duration calculation */
+  if (pinfo->pseudo_header->ieee_802_11.fcs_len == 0) {
+    frame_length += 4;
+  }
+
+  if (have_data_rate && data_rate > 0) {
+    /* duration calculations */
+    gboolean assumed_short_preamble = FALSE;
+    gboolean assumed_non_greenfield = FALSE;
+    gboolean assumed_no_stbc = FALSE;
+    gboolean assumed_no_extension_streams = FALSE;
+    gboolean assumed_bcc_fec = FALSE;
+
+    /* some generators report CCK frames as 'dynamic-cck-ofdm', which are converted
+     * into the 11g PHY type, so we need to be smart and recognize which ones are
+     * DSSS/CCK and which are OFDM. Use the data_rate to do this. */
+    if (phy == PHDR_802_11_PHY_11G &&
+      (data_rate == 1.0f || data_rate == 2.0f ||
+      data_rate == 5.5f || data_rate == 11.0f ||
+      data_rate == 22.0f || data_rate == 33.0f)) {
+      phy = PHDR_802_11_PHY_11B;
     }
 
-    if (phdr->has_channel) {
-      col_add_fstr(pinfo->cinfo, COL_FREQ_CHAN, "%u", phdr->channel);
-      proto_tree_add_uint(radio_tree, hf_wlan_radio_channel, tvb, 0, 0,
-              phdr->channel);
-    }
+    switch (phy) {
 
-    if (phdr->has_frequency) {
-      col_add_fstr(pinfo->cinfo, COL_FREQ_CHAN, "%u MHz", phdr->frequency);
-      proto_tree_add_uint_format_value(radio_tree, hf_wlan_radio_frequency, tvb, 0, 0,
-              phdr->frequency,
-              "%u MHz",
-              phdr->frequency);
-    }
+    case PHDR_802_11_PHY_11_FHSS:
+      /* TODO: preamble/duration calc for FHSS */
+      break;
 
-    if (phdr->has_signal_percent) {
-      col_add_fstr(pinfo->cinfo, COL_RSSI, "%u%%", phdr->signal_percent);
-      proto_tree_add_uint(radio_tree, hf_wlan_radio_signal_percent, tvb, 0, 0, phdr->signal_percent);
-    }
-
-    if (phdr->has_signal_dbm) {
-      col_add_fstr(pinfo->cinfo, COL_RSSI, "%d dBm", phdr->signal_dbm);
-      proto_tree_add_int(radio_tree, hf_wlan_radio_signal_dbm, tvb, 0, 0, phdr->signal_dbm);
-    }
-
-    if (phdr->has_noise_percent) {
-      proto_tree_add_uint(radio_tree, hf_wlan_radio_noise_percent, tvb, 0, 0, phdr->noise_percent);
-    }
-
-    if (phdr->has_noise_dbm) {
-      proto_tree_add_int(radio_tree, hf_wlan_radio_noise_dbm, tvb, 0, 0, phdr->noise_dbm);
-    }
-
-    if (phdr->has_tsf_timestamp) {
-      proto_tree_add_uint64(radio_tree, hf_wlan_radio_timestamp, tvb, 0, 0,
-              phdr->tsf_timestamp);
-    }
-    if (phdr->has_aggregate_info) {
-      proto_tree_add_boolean(radio_tree, hf_wlan_last_part_of_a_mpdu, tvb, 0, 0,
-              (phdr->aggregate_flags & PHDR_802_11_LAST_PART_OF_A_MPDU) ?
-               TRUE : FALSE);
-      proto_tree_add_boolean(radio_tree, hf_wlan_a_mpdu_delim_crc_error, tvb, 0, 0,
-              (phdr->aggregate_flags & PHDR_802_11_A_MPDU_DELIM_CRC_ERROR) ?
-               TRUE : FALSE);
-      proto_tree_add_uint(radio_tree, hf_wlan_a_mpdu_aggregate_id, tvb, 0, 0,
-              phdr->aggregate_id);
-    }
-
-    if (have_data_rate) {
-      gboolean assumed_short_preamble = FALSE;
-      gboolean assumed_non_greenfield = FALSE;
-      gboolean assumed_no_stbc = FALSE;
-      gboolean assumed_no_extension_streams = FALSE;
-      gboolean assumed_bcc_fec = FALSE;
-
-        /* some generators report CCK frames as 'dynamic-cck-ofdm', which are converted
-         * into the 11g PHY type, so we need to be smart and recognize which ones are
-         * DSSS/CCK and which are OFDM. Use the data_rate to do this. */
-        int phy = phdr->phy;
-        if (phy == PHDR_802_11_PHY_11G &&
-          (data_rate == 1.0f || data_rate == 2.0f ||
-          data_rate == 5.5f || data_rate == 11.0f ||
-          data_rate == 22.0f || data_rate == 33.0f)) {
-          phy = PHDR_802_11_PHY_11B;
-        }
-
-        switch (phy) {
-
-        case PHDR_802_11_PHY_11_FHSS:
-          break;
-
-        case PHDR_802_11_PHY_11B:
-          if (!has_short_preamble || wlan_radio_always_short_preamble) {
-              assumed_short_preamble = TRUE;
-              short_preamble = TRUE;
-          }
-          preamble = short_preamble ? 72 + 24 : 144 + 48;
-
-          /* calculation of frame duration
-           * Things we need to know to calculate accurate duration
-           * 802.11 / 802.11b (DSSS or CCK modulation)
-           * - length of preamble
-           * - rate
-           */
-          /* round up to whole microseconds */
-          duration = (guint) ceil(preamble + frame_length * 8 / data_rate);
-          break;
-
-        case PHDR_802_11_PHY_11A:
-        case PHDR_802_11_PHY_11G:
-        {
-          /* OFDM rate */
-          /* calculation of frame duration
-           * Things we need to know to calculate accurate duration
-           * 802.11a / 802.11g (OFDM modulation)
-           * - rate
-           */
-
-          /* 16 service bits, data and 6 tail bits */
-          guint bits = 16 + 8 * frame_length + 6;
-          guint symbols = (guint) ceil(bits / (data_rate * 4));
-
-          /* preamble + signal */
-          preamble = 16 + 4;
-
-          duration = preamble + symbols * 4;
-          break;
-        }
-
-        case PHDR_802_11_PHY_11N:
-        {
-          struct ieee_802_11n *info_n = &phdr->phy_info.info_11n;
-          guint bandwidth_40;
-
-          /* We have all the fields required to calculate the duration */
-          static const guint Nhtdltf[4] = {1, 2, 4, 4};
-          static const guint Nhteltf[4] = {0, 1, 2, 4};
-          guint Nsts, bits, Mstbc, bits_per_symbol, symbols;
-          guint stbc_streams;
-          guint ness;
-
-          /*
-           * If we don't have necessary fields, or if we have them but
-           * they have invalid values, then bail.
-           */
-          if (!info_n->has_mcs_index ||
-            info_n->mcs_index > MAX_MCS_INDEX ||
-            !info_n->has_bandwidth ||
-            !info_n->has_short_gi)
-              break;
-
-          bandwidth_40 = info_n->bandwidth == PHDR_802_11_BANDWIDTH_40_MHZ;
-
-          /* calculation of frame duration
-           * Things we need to know to calculate accurate duration
-           * 802.11n / HT
-           * - whether frame preamble is mixed or greenfield, (assume mixed)
-           * - guard interval, 800ns or 400ns
-           * - bandwidth, 20Mhz or 40Mhz
-           * - MCS index - used with previous 2 to calculate rate
-           * - how many additional STBC streams are used (assume 0)
-           * - how many optional extension spatial streams are used (assume 0)
-           * - whether BCC or LDCP coding is used (assume BCC)
-           */
-
-          /* preamble duration
-           * see ieee802.11n-2009 Figure 20-1 - PPDU format
-           * for HT-mixed format
-           * L-STF 8us, L-LTF 8us, L-SIG 4us, HT-SIG 8us, HT_STF 4us
-           * for HT-greenfield
-           * HT-GF-STF 8us, HT-LTF1 8us, HT_SIG 8us
-           */
-          if (info_n->has_greenfield) {
-            preamble = info_n->greenfield ? 24 : 32;
-          } else {
-            preamble = 32;
-            assumed_non_greenfield = TRUE;
-          }
-
-          if (info_n->has_stbc_streams) {
-            stbc_streams = info_n->stbc_streams;
-          } else {
-            stbc_streams = 0;
-            assumed_no_stbc = TRUE;
-          }
-
-          if (info_n->has_ness) {
-            ness = info_n->ness;
-            if (ness >= G_N_ELEMENTS(Nhteltf)) {
-                /* Not valid */
-                break;
-            }
-          } else {
-            ness = 0;
-            assumed_no_extension_streams = TRUE;
-          }
-
-          /* calculate number of HT-LTF training symbols.
-           * see ieee80211n-2009 20.3.9.4.6 table 20-11 */
-          Nsts = ieee80211_ht_streams[info_n->mcs_index] + stbc_streams;
-          if (Nsts == 0 || Nsts - 1 >= G_N_ELEMENTS(Nhtdltf)) {
-              /* Not usable */
-              break;
-          }
-          preamble += 4 * (Nhtdltf[Nsts-1] + Nhteltf[ness]);
-
-          if (!info_n->has_fec) {
-            assumed_bcc_fec = TRUE;
-          }
-
-          /* data field calculation */
-          /* see ieee80211n-2009 20.3.11 (20-32) - for BCC FEC */
-          /* TODO: handle LDPC FEC (info_n->fec == 1), it changes the rounding
-           * Currently this is the same logic as BCC */
-          bits = 8 * frame_length + 16 + ieee80211_ht_Nes[info_n->mcs_index] * 6;
-          Mstbc = stbc_streams ? 2 : 1;
-          bits_per_symbol = ieee80211_ht_Dbps[info_n->mcs_index] * (bandwidth_40 ? 2 : 1);
-          symbols = bits / (bits_per_symbol * Mstbc);
-
-          /* round up to whole symbols */
-          if((bits % (bits_per_symbol * Mstbc)) > 0)
-            symbols++;
-
-          symbols *= Mstbc;
-          duration = preamble + (symbols * (info_n->short_gi ? 36 : 40) + 5) / 10;
-          break;
-        }
-
-        case PHDR_802_11_PHY_11AC:
-        {
-          struct ieee_802_11ac *info_ac = &phdr->phy_info.info_11ac;
-          int bits, stbc;
-
-          /* TODO: this is a crude quick hack, need proper calculation of bits/symbols/FEC/rounding/etc */
-          if (info_ac->has_stbc) {
-            stbc = info_ac->stbc;
-          } else {
-            stbc = 0;
-            assumed_no_stbc = TRUE;
-          }
-
-          preamble = 32 + 4 * info_ac->nss[0] * (stbc+1);
-          bits = 8 * frame_length + 16;
-          duration = (guint) (preamble + bits / data_rate);
-          break;
-        }
+    case PHDR_802_11_PHY_11B:
+      if (!has_short_preamble || wlan_radio_always_short_preamble) {
+          assumed_short_preamble = TRUE;
+          short_preamble = TRUE;
       }
+      preamble = short_preamble ? 72 + 24 : 144 + 48;
+
+      /* calculation of frame duration
+       * Things we need to know to calculate accurate duration
+       * 802.11 / 802.11b (DSSS or CCK modulation)
+       * - length of preamble
+       * - rate
+       */
+      /* round up to whole microseconds */
+      duration = (guint) ceil(preamble + frame_length * 8 / data_rate);
+      break;
+
+    case PHDR_802_11_PHY_11A:
+    case PHDR_802_11_PHY_11G:
+    {
+        /* OFDM rate */
+      /* calculation of frame duration
+       * Things we need to know to calculate accurate duration
+       * 802.11a / 802.11g (OFDM modulation)
+       * - rate
+       */
+
+      /* preamble + signal */
+      preamble = 16 + 4;
+
+      /* 16 service bits, data and 6 tail bits */
+      guint bits = 16 + 8 * frame_length + 6;
+      guint symbols = (guint) ceil(bits / (data_rate * 4));
+
+      duration = preamble + symbols * 4;
+      break;
+    }
+
+    case PHDR_802_11_PHY_11N:
+    {
+      struct ieee_802_11n *info_n = &phdr->phy_info.info_11n;
+
+      /* We have all the fields required to calculate the duration */
+      static const guint Nhtdltf[4] = {1, 2, 4, 4};
+      static const guint Nhteltf[4] = {0, 1, 2, 4};
+      guint Nsts;
+      guint stbc_streams;
+      guint ness;
+
+      /*
+       * If we don't have necessary fields, or if we have them but
+       * they have invalid values, then bail.
+       */
+      if (!info_n->has_mcs_index ||
+        info_n->mcs_index > MAX_MCS_INDEX ||
+        !info_n->has_bandwidth ||
+        !info_n->has_short_gi)
+          break;
+
+      /* calculation of frame duration
+       * Things we need to know to calculate accurate duration
+       * 802.11n / HT
+       * - whether frame preamble is mixed or greenfield, (assume mixed)
+       * - guard interval, 800ns or 400ns
+       * - bandwidth, 20Mhz or 40Mhz
+       * - MCS index - used with previous 2 to calculate rate
+       * - how many additional STBC streams are used (assume 0)
+       * - how many optional extension spatial streams are used (assume 0)
+       * - whether BCC or LDCP coding is used (assume BCC)
+       */
+
+      /* preamble duration
+       * see ieee802.11n-2009 Figure 20-1 - PPDU format
+       * for HT-mixed format
+       * L-STF 8us, L-LTF 8us, L-SIG 4us, HT-SIG 8us, HT_STF 4us
+       * for HT-greenfield
+       * HT-GF-STF 8us, HT-LTF1 8us, HT_SIG 8us
+       */
+      if (info_n->has_greenfield) {
+        preamble = info_n->greenfield ? 24 : 32;
+      } else {
+        preamble = 32;
+        assumed_non_greenfield = TRUE;
+      }
+
+      if (info_n->has_stbc_streams) {
+        stbc_streams = info_n->stbc_streams;
+      } else {
+        stbc_streams = 0;
+        assumed_no_stbc = TRUE;
+      }
+
+      if (info_n->has_ness) {
+        ness = info_n->ness;
+        if (ness >= G_N_ELEMENTS(Nhteltf)) {
+            /* Not valid */
+            break;
+        }
+      } else {
+        ness = 0;
+        assumed_no_extension_streams = TRUE;
+      }
+
+      /* calculate number of HT-LTF training symbols.
+       * see ieee80211n-2009 20.3.9.4.6 table 20-11 */
+      Nsts = ieee80211_ht_streams[info_n->mcs_index] + stbc_streams;
+      if (Nsts == 0 || Nsts - 1 >= G_N_ELEMENTS(Nhtdltf)) {
+          /* Not usable */
+          break;
+      }
+      preamble += 4 * (Nhtdltf[Nsts-1] + Nhteltf[ness]);
+
+      if (info_n->has_stbc_streams) {
+        stbc_streams = info_n->stbc_streams;
+      } else {
+        stbc_streams = 0;
+        assumed_no_stbc = TRUE;
+      }
+
+      if (info_n->has_ness) {
+        ness = info_n->ness;
+      } else {
+        ness = 0;
+        assumed_no_extension_streams = TRUE;
+      }
+
+      /* calculate number of HT-LTF training symbols.
+       * see ieee80211n-2009 20.3.9.4.6 table 20-11 */
+      Nsts = ieee80211_ht_streams[info_n->mcs_index] + stbc_streams;
+      preamble += 4 * (Nhtdltf[Nsts-1] + Nhteltf[ness]);
+
+      if (!info_n->has_fec) {
+        assumed_bcc_fec = TRUE;
+      }
+
+      /* data field calculation */
+      if (wlan_radio_info->aggregate) {
+        agg_preamble = preamble;
+        if (wlan_radio_info->prior_aggregate_data != 0) {
+          preamble = 0;
+        }
+        prior_duration = calculate_11n_duration(wlan_radio_info->prior_aggregate_data, info_n, stbc_streams);
+        duration = preamble +
+          calculate_11n_duration(frame_length + wlan_radio_info->prior_aggregate_data, info_n, stbc_streams)
+          - prior_duration;
+      } else {
+        duration = preamble + calculate_11n_duration(frame_length, info_n, stbc_streams);
+      }
+      break;
+    }
+
+    case PHDR_802_11_PHY_11AC:
+    {
+      struct ieee_802_11ac *info_ac = &phy_info->info_11ac;
+
+      if (!info_ac->has_stbc) {
+        assumed_no_stbc = TRUE;
+      }
+      preamble = 32 + 4 * info_ac->nss[0] * (info_ac->has_stbc ? info_ac->stbc+1 : 1);
+
+      if (wlan_radio_info->aggregate) {
+        agg_preamble = preamble;
+        if (wlan_radio_info->prior_aggregate_data != 0) {
+          preamble = 0;
+        }
+        prior_duration = calculate_11ac_duration(wlan_radio_info->prior_aggregate_data, data_rate);
+        duration = preamble +
+          calculate_11ac_duration(wlan_radio_info->prior_aggregate_data + frame_length, data_rate)
+          - prior_duration;
+      } else {
+        duration = preamble + calculate_11ac_duration(frame_length, data_rate);
+      }
+      break;
+    }
+    }
+
+    if (!pinfo->fd->flags.visited && duration && phdr->has_tsf_timestamp) {
+      if (current_aggregate) {
+        current_aggregate->duration = agg_preamble + prior_duration + duration;
+        if (previous_frame.radio_info && previous_frame.radio_info->aggregate == current_aggregate)
+          previous_frame.radio_info->nav = 0; // don't display NAV except for last frame in an aggregate
+      }
+      if (phdr->tsf_timestamp == G_MAXUINT64) {
+        /* QCA aggregate, we don't know tsf yet */
+        wlan_radio_info->start_tsf = prior_duration + (current_aggregate ? agg_preamble : 0);
+        wlan_radio_info->end_tsf = prior_duration + duration + (current_aggregate ? agg_preamble : 0);
+        if (agg_tracker_list == NULL) {
+          agg_tracker_list = wmem_list_new(NULL);
+        }
+        wmem_list_append(agg_tracker_list, wlan_radio_info);
+      } else if (current_aggregate && wlan_radio_tsf_at_end && phdr->tsf_timestamp != G_MAXUINT64) {
+        /* QCA aggregate, last frame */
+        wlan_radio_info->start_tsf = phdr->tsf_timestamp - duration;
+        wlan_radio_info->end_tsf = phdr->tsf_timestamp;
+        /* fix up the tsfs for the prior MPDUs */
+        if (agg_tracker_list != NULL) {
+          guint64 ppdu_start = phdr->tsf_timestamp - (prior_duration + duration + agg_preamble);
+          wmem_list_foreach(agg_tracker_list, adjust_agg_tsf, &ppdu_start);
+          wmem_destroy_list(agg_tracker_list);
+          agg_tracker_list = NULL;
+        };
+      } else if (wlan_radio_tsf_at_end) {
+        wlan_radio_info->start_tsf = phdr->tsf_timestamp - duration;
+        wlan_radio_info->end_tsf = phdr->tsf_timestamp;
+      } else {
+        wlan_radio_info->start_tsf = phdr->tsf_timestamp + prior_duration - preamble;
+        wlan_radio_info->end_tsf = phdr->tsf_timestamp + prior_duration + duration - preamble;
+      }
+      if ((pinfo->fd->num > 1) && (previous_frame.radio_info != NULL)) {
+        /* TODO handle intermediate packets without end_tsf correctly */
+        wlan_radio_info->ifs = wlan_radio_info->start_tsf - previous_frame.radio_info->end_tsf;
+      }
+      if (tvb_captured_length(tvb) >= 4) {
+        int nav = tvb_get_letohs(tvb, 2);
+        if ((nav & 0x8000) == 0)
+          wlan_radio_info->nav = nav;
+      }
+      if (phdr->has_signal_dbm) {
+        wlan_radio_info->rssi = phdr->signal_dbm;
+        if (current_aggregate)
+          current_aggregate->rssi = phdr->signal_dbm;
+      }
+    }
 
     if (duration) {
-        proto_item *item = proto_tree_add_uint(radio_tree, hf_wlan_radio_duration, tvb, 0, 0, duration);
-        PROTO_ITEM_SET_GENERATED(item);
+      proto_item *item = proto_tree_add_uint(radio_tree, hf_wlan_radio_duration, tvb, 0, 0, duration);
+      proto_tree *d_tree = proto_item_add_subtree(item, ett_wlan_radio_duration);
+      PROTO_ITEM_SET_GENERATED(item);
 
-        if (assumed_short_preamble)
-          expert_add_info(pinfo, item, &ei_wlan_radio_assumed_short_preamble);
-        if (assumed_non_greenfield)
-          expert_add_info(pinfo, item, &ei_wlan_radio_assumed_non_greenfield);
-        if (assumed_no_stbc)
-          expert_add_info(pinfo, item, &ei_wlan_radio_assumed_no_stbc);
-        if (assumed_no_extension_streams)
-          expert_add_info(pinfo, item, &ei_wlan_radio_assumed_no_extension_streams);
-        if (assumed_bcc_fec)
-          expert_add_info(pinfo, item, &ei_wlan_radio_assumed_bcc_fec);
+      if (assumed_short_preamble)
+        expert_add_info(pinfo, item, &ei_wlan_radio_assumed_short_preamble);
+      if (assumed_non_greenfield)
+        expert_add_info(pinfo, item, &ei_wlan_radio_assumed_non_greenfield);
+      if (assumed_no_stbc)
+        expert_add_info(pinfo, item, &ei_wlan_radio_assumed_no_stbc);
+      if (assumed_no_extension_streams)
+        expert_add_info(pinfo, item, &ei_wlan_radio_assumed_no_extension_streams);
+      if (assumed_bcc_fec)
+        expert_add_info(pinfo, item, &ei_wlan_radio_assumed_bcc_fec);
 
-        if (preamble) {
-          proto_tree *d_tree = proto_item_add_subtree(item, ett_wlan_radio_duration);
-          proto_item *p_item = proto_tree_add_uint(d_tree, hf_wlan_radio_preamble, tvb, 0, 0, preamble);
-            PROTO_ITEM_SET_GENERATED(p_item);
+      if (preamble) {
+        p_item = proto_tree_add_uint(d_tree, hf_wlan_radio_preamble, tvb, 0, 0, preamble);
+        PROTO_ITEM_SET_GENERATED(p_item);
+      }
+      if (wlan_radio_info->aggregate) {
+        proto_tree *agg_tree;
+
+        p_item = proto_tree_add_none_format(d_tree, hf_wlan_radio_aggregate, tvb, 0, 0,
+          "This MPDU is part of an A-MPDU");
+        agg_tree = proto_item_add_subtree(item, ett_wlan_radio_aggregate);
+        PROTO_ITEM_SET_GENERATED(p_item);
+        if (wlan_radio_info->aggregate->duration) {
+          proto_item *aitem = proto_tree_add_uint(agg_tree, hf_wlan_radio_aggregate_duration, tvb, 0, 0,
+                  wlan_radio_info->aggregate->duration);
+          PROTO_ITEM_SET_GENERATED(aitem);
         }
       }
+      if (wlan_radio_info->ifs) {
+        p_item = proto_tree_add_int64(d_tree, hf_wlan_radio_ifs, tvb, 0, 0, wlan_radio_info->ifs);
+        PROTO_ITEM_SET_GENERATED(p_item);
+        /* TODO: warnings on unusual IFS values (too small or negative) */
+      }
+      if (wlan_radio_info->start_tsf) {
+        p_item = proto_tree_add_uint64(d_tree, hf_wlan_radio_start_tsf, tvb, 0, 0, wlan_radio_info->start_tsf);
+        PROTO_ITEM_SET_GENERATED(p_item);
+      }
+      if (wlan_radio_info->end_tsf) {
+        p_item = proto_tree_add_uint64(d_tree, hf_wlan_radio_end_tsf, tvb, 0, 0, wlan_radio_info->end_tsf);
+        PROTO_ITEM_SET_GENERATED(p_item);
+      }
     }
-  } /* if (tree) */
+  } /* if (have_data_rate) */
+
+  if (wlan_radio_timeline_enabled) {
+    tap_queue_packet(wlan_radio_timeline_tap, pinfo, wlan_radio_info);
+  }
+
+  if (!pinfo->fd->flags.visited) {
+    previous_frame.radio_info = wlan_radio_info;
+  }
 }
 
 /*
@@ -950,7 +1202,27 @@ dissect_wlan_noqos_radio (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree
   return call_dissector_with_data(ieee80211_noqos_handle, tvb, pinfo, tree, data);
 }
 
-static hf_register_info hf_wlan_radio[] = {
+static void
+setup_ieee80211_radio(void)
+{
+  /* start of a new dissection, initialize state variables */
+  current_aggregate = NULL;
+  agg_tracker_list = NULL;
+  memset(&previous_frame, 0, sizeof(previous_frame));
+}
+
+static void
+cleanup_ieee80211_radio(void)
+{
+  if (agg_tracker_list != NULL) {
+    wmem_destroy_list(agg_tracker_list);
+    agg_tracker_list = NULL;
+  }
+}
+
+void proto_register_ieee80211_radio(void)
+{
+  static hf_register_info hf_wlan_radio[] = {
     {&hf_wlan_radio_phy,
      {"PHY type", "wlan_radio.phy", FT_UINT32, BASE_DEC, VALS(phy_vals), 0,
       NULL, HFILL }},
@@ -1097,14 +1369,14 @@ static hf_register_info hf_wlan_radio[] = {
 
     {&hf_wlan_radio_timestamp,
      {"TSF timestamp", "wlan_radio.timestamp", FT_UINT64, BASE_DEC, NULL, 0,
-      NULL, HFILL }},
+      "Timing Synchronization Function timestamp", HFILL }},
 
     {&hf_wlan_last_part_of_a_mpdu,
-     {"Last part of an A-MPDU", "wlan_radio.last_part_of_an_ampdu", FT_BOOLEAN, 0, NULL, 0,
+     {"Last part of an A-MPDU", "wlan_radio.last_part_of_an_ampdu", FT_BOOLEAN, 32, NULL, PHDR_802_11_LAST_PART_OF_A_MPDU,
       "This is the last part of an A-MPDU", HFILL }},
 
     {&hf_wlan_a_mpdu_delim_crc_error,
-     {"A-MPDU delimiter CRC error", "wlan_radio.a_mpdu_delim_crc_error", FT_BOOLEAN, 0, NULL, 0,
+     {"A-MPDU delimiter CRC error", "wlan_radio.a_mpdu_delim_crc_error", FT_BOOLEAN, 32, NULL, PHDR_802_11_A_MPDU_DELIM_CRC_ERROR,
       NULL, HFILL }},
 
     {&hf_wlan_a_mpdu_aggregate_id,
@@ -1120,9 +1392,37 @@ static hf_register_info hf_wlan_radio[] = {
      {"Preamble", "wlan_radio.preamble", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_microseconds, 0,
       "Duration of the PLCP or preamble in microseconds, calculated from PHY data", HFILL }},
 
-};
+    {&hf_wlan_radio_aggregate,
+     {"A-MPDU", "wlan_radio.aggregate", FT_NONE, BASE_NONE, NULL, 0,
+      "MPDU is part of an A-MPDU", HFILL }},
 
-static ei_register_info ei[] = {
+    {&hf_wlan_radio_ifs,
+     {"IFS", "wlan_radio.ifs", FT_INT64, BASE_DEC|BASE_UNIT_STRING, &units_microseconds, 0,
+      "Inter Frame Space before this frame in microseconds, calculated from PHY data", HFILL }},
+
+    {&hf_wlan_radio_start_tsf,
+     {"Start", "wlan_radio.start_tsf", FT_UINT64, BASE_DEC|BASE_UNIT_STRING, &units_microseconds, 0,
+      "Calculated start time of the frame", HFILL }},
+
+    {&hf_wlan_radio_end_tsf,
+     {"End", "wlan_radio.end_tsf", FT_UINT64, BASE_DEC|BASE_UNIT_STRING, &units_microseconds, 0,
+      "Calculated end time of the frame", HFILL }},
+
+    {&hf_wlan_radio_aggregate_duration,
+     {"Duration", "wlan_radio.aggregate.duration", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_microseconds, 0,
+      "Total duration of the aggregate in microseconds, including any preamble or plcp header. "
+      "Calculated from the total subframe lengths, modulation and other phy data.", HFILL }},
+
+  };
+
+  static gint *ett[] = {
+    &ett_wlan_radio,
+    &ett_wlan_radio_11ac_user,
+    &ett_wlan_radio_duration,
+    &ett_wlan_radio_aggregate
+  };
+
+  static ei_register_info ei[] = {
     { &ei_wlan_radio_assumed_short_preamble,
       { "wlan_radio.assumed.short_preamble", PI_ASSUMPTION, PI_WARN,
         "No preamble length information was available, assuming short preamble.", EXPFILL }},
@@ -1142,23 +1442,14 @@ static ei_register_info ei[] = {
     { &ei_wlan_radio_assumed_bcc_fec,
       { "wlan_radio.assumed.bcc_fec", PI_ASSUMPTION, PI_WARN,
         "No fec type information was available, assuming bcc fec.", EXPFILL }},
-};
+  };
 
-module_t *wlan_radio_module;
-expert_module_t* expert_wlan_radio;
+  module_t *wlan_radio_module;
+  expert_module_t* expert_wlan_radio;
 
-static gint *tree_array[] = {
-  &ett_wlan_radio,
-  &ett_wlan_radio_11ac_user,
-  &ett_wlan_radio_duration
-};
-
-void proto_register_ieee80211_radio(void)
-{
-  proto_wlan_radio = proto_register_protocol("802.11 radio information", "802.11 Radio",
-                                             "wlan_radio");
+  proto_wlan_radio = proto_register_protocol("802.11 radio information", "802.11 Radio", "wlan_radio");
   proto_register_field_array(proto_wlan_radio, hf_wlan_radio, array_length(hf_wlan_radio));
-  proto_register_subtree_array(tree_array, array_length(tree_array));
+  proto_register_subtree_array(ett, array_length(ett));
 
   expert_wlan_radio = expert_register_protocol(proto_wlan_radio);
   expert_register_field_array(expert_wlan_radio, ei, array_length(ei));
@@ -1172,7 +1463,17 @@ void proto_register_ieee80211_radio(void)
     "Some generators incorrectly indicate long preamble when the preamble was actually"
     "short. Always assume short preamble when calculating duration.",
     &wlan_radio_always_short_preamble);
+  prefs_register_bool_preference(wlan_radio_module, "tsf_at_end",
+    "TSF indicates the end of the PPDU",
+    "Some generators timestamp the end of the PPDU rather than the start of the (A)MPDU.",
+    &wlan_radio_tsf_at_end);
+  prefs_register_bool_preference(wlan_radio_module, "timeline",
+    "Enable Wireless Timeline (experimental)",
+    "Enables an additional panel for navigating through packets",
+    &wlan_radio_timeline_enabled);
 
+  register_init_routine( setup_ieee80211_radio );
+  register_cleanup_routine( cleanup_ieee80211_radio );
 }
 
 void proto_reg_handoff_ieee80211_radio(void)
@@ -1182,6 +1483,8 @@ void proto_reg_handoff_ieee80211_radio(void)
                      wlan_radio_handle);
   ieee80211_handle = find_dissector_add_dependency("wlan", proto_wlan_radio);
   ieee80211_noqos_handle = find_dissector_add_dependency("wlan_noqos", proto_wlan_radio);
+
+  wlan_radio_timeline_tap = register_tap("wlan_radio_timeline");
 }
 
 /*

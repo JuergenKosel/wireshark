@@ -548,7 +548,7 @@ static gint dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
                                 SslSession *session, gint is_from_server,
                                 gboolean *need_desegmentation,
                                 SslDecryptSession *conv_data,
-                                const gboolean first_record_in_frame);
+                                guint8 curr_layer_num_ssl);
 
 /* alert message dissector */
 static void dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
@@ -588,7 +588,7 @@ static gint dissect_ssl2_record(tvbuff_t *tvb, packet_info *pinfo,
                                 proto_tree *tree, guint32 offset,
                                 SslSession *session,
                                 gboolean *need_desegmentation,
-                                SslDecryptSession *ssl, gboolean first_record_in_frame);
+                                SslDecryptSession *ssl);
 
 /* client hello dissector */
 static void dissect_ssl2_hnd_client_hello(tvbuff_t *tvb, packet_info *pinfo,
@@ -656,16 +656,15 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
     proto_item        *ti;
     proto_tree        *ssl_tree;
     guint32            offset;
-    gboolean           first_record_in_frame;
     gboolean           need_desegmentation;
     SslDecryptSession *ssl_session;
     SslSession        *session;
     gint               is_from_server;
+    guint8             curr_layer_num_ssl = pinfo->curr_layer_num;
 
     ti = NULL;
     ssl_tree   = NULL;
     offset = 0;
-    first_record_in_frame = TRUE;
     ssl_session = NULL;
 
 
@@ -766,8 +765,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
             offset = dissect_ssl2_record(tvb, pinfo, ssl_tree,
                                          offset, session,
                                          &need_desegmentation,
-                                         ssl_session,
-                                         first_record_in_frame);
+                                         ssl_session);
             break;
 
         case SSLV3_VERSION:
@@ -798,8 +796,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
                 offset = dissect_ssl2_record(tvb, pinfo, ssl_tree,
                                              offset, session,
                                              &need_desegmentation,
-                                             ssl_session,
-                                             first_record_in_frame);
+                                             ssl_session);
             }
             else
             {
@@ -807,7 +804,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
                                              offset, session, is_from_server,
                                              &need_desegmentation,
                                              ssl_session,
-                                             first_record_in_frame);
+                                             curr_layer_num_ssl);
             }
             break;
 
@@ -821,8 +818,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
                 offset = dissect_ssl2_record(tvb, pinfo, ssl_tree,
                                              offset, session,
                                              &need_desegmentation,
-                                             ssl_session,
-                                             first_record_in_frame);
+                                             ssl_session);
             }
             else if (ssl_looks_like_sslv3(tvb, offset))
             {
@@ -831,23 +827,15 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
                                              offset, session, is_from_server,
                                              &need_desegmentation,
                                              ssl_session,
-                                             first_record_in_frame);
+                                             curr_layer_num_ssl);
             }
             else
             {
-                /* on second and subsequent records per frame
-                 * add a delimiter on info column
-                 */
-                if (!first_record_in_frame) {
-                    col_append_str(pinfo->cinfo, COL_INFO, ", ");
-                }
-
                 /* looks like something unknown, so lump into
                  * continuation data
                  */
                 offset = tvb_reported_length(tvb);
-                col_append_str(pinfo->cinfo, COL_INFO,
-                                   "Continuation Data");
+                col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Continuation Data");
             }
             break;
         }
@@ -856,21 +844,18 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
         if (need_desegmentation) {
           ssl_debug_printf("  need_desegmentation: offset = %d, reported_length_remaining = %d\n",
                            offset, tvb_reported_length_remaining(tvb, offset));
-          /* XXX: this seems unused due to new "Follow SSL" method, remove? */
-          tap_queue_packet(ssl_tap, pinfo, p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, 0));
+          /* Make data available to ssl_follow_tap_listener */
+          tap_queue_packet(ssl_tap, pinfo, p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, curr_layer_num_ssl));
           return tvb_captured_length(tvb);
         }
-
-        /* set up for next record in frame, if any */
-        first_record_in_frame = FALSE;
     }
 
     col_set_fence(pinfo->cinfo, COL_INFO);
 
     ssl_debug_flush();
 
-    /* XXX: this seems unused due to new "Follow SSL" method, remove? */
-    tap_queue_packet(ssl_tap, pinfo, p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, 0));
+    /* Make data available to ssl_follow_tap_listener */
+    tap_queue_packet(ssl_tap, pinfo, p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, curr_layer_num_ssl));
 
     return tvb_captured_length(tvb);
 }
@@ -883,7 +868,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 static gboolean
 decrypt_ssl3_record(tvbuff_t *tvb, packet_info *pinfo, guint32 offset, SslDecryptSession *ssl,
         guint8 content_type, guint16 record_version, guint16 record_length,
-        gboolean allow_fragments)
+        gboolean allow_fragments, guint8 curr_layer_num_ssl)
 {
     gboolean    success;
     gint        direction;
@@ -958,7 +943,7 @@ decrypt_ssl3_record(tvbuff_t *tvb, packet_info *pinfo, guint32 offset, SslDecryp
          * Alert messages MUST NOT be fragmented across records, so do not
          * bother maintaining a flow for those. */
         ssl_add_record_info(proto_ssl, pinfo, data, datalen, tvb_raw_offset(tvb)+offset,
-                allow_fragments ? decoder->flow : NULL, (ContentType)content_type);
+                allow_fragments ? decoder->flow : NULL, (ContentType)content_type, curr_layer_num_ssl);
     }
     return success;
 }
@@ -1519,7 +1504,8 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
                     proto_tree *tree, guint32 offset,
                     SslSession *session, gint is_from_server,
                     gboolean *need_desegmentation,
-                    SslDecryptSession *ssl, const gboolean first_record_in_frame)
+                    SslDecryptSession *ssl,
+                    guint8 curr_layer_num_ssl)
 {
 
     /*
@@ -1552,7 +1538,6 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
     tvbuff_t       *decrypted;
     SslRecordInfo  *record = NULL;
 
-
     ti = NULL;
     ssl_record_tree = NULL;
 
@@ -1564,13 +1549,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
          session->version==TLSV1DOT2_VERSION) &&
         (available_bytes >=1 ) && !ssl_is_valid_content_type(tvb_get_guint8(tvb, offset))) {
         proto_tree_add_expert(tree, pinfo, &ei_ssl_ignored_unknown_record, tvb, offset, available_bytes);
-        /* on second and subsequent records per frame
-         * add a delimiter on info column
-         */
-        if (!first_record_in_frame) {
-            col_append_str(pinfo->cinfo, COL_INFO, ", ");
-        }
-        col_append_str(pinfo->cinfo, COL_INFO, "Ignored Unknown Record");
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Ignored Unknown Record");
         return offset + available_bytes;
     }
 
@@ -1641,18 +1620,10 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
         }
 
     } else {
-
-        /* on second and subsequent records per frame
-         * add a delimiter on info column
-         */
-        if (!first_record_in_frame) {
-            col_append_str(pinfo->cinfo, COL_INFO, ", ");
-        }
-
         /* if we don't have a valid content_type, there's no sense
          * continuing any further
          */
-        col_append_str(pinfo->cinfo, COL_INFO, "Continuation Data");
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Continuation Data");
 
         return offset + 5 + record_length;
     }
@@ -1701,13 +1672,6 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
         version = session->version;
     }
 
-    /* on second and subsequent records per frame
-     * add a delimiter on info column
-     */
-    if (!first_record_in_frame) {
-        col_append_str(pinfo->cinfo, COL_INFO, ", ");
-    }
-
     /*
      * now dissect the next layer
      */
@@ -1723,10 +1687,10 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
         decrypt_ssl3_record(tvb, pinfo, offset, ssl,
                 content_type, record_version, record_length,
                 content_type == SSL_ID_APP_DATA ||
-                content_type == SSL_ID_HANDSHAKE);
+                content_type == SSL_ID_HANDSHAKE, curr_layer_num_ssl);
     }
     /* try to retrieve and use decrypted alert/handshake/appdata record, if any. */
-    decrypted = ssl_get_record_info(tvb, proto_ssl, pinfo, tvb_raw_offset(tvb)+offset, &record);
+    decrypted = ssl_get_record_info(tvb, proto_ssl, pinfo, tvb_raw_offset(tvb)+offset, curr_layer_num_ssl, &record);
     if (decrypted) {
         add_new_data_source(pinfo, decrypted, "Decrypted SSL");
         if (session->version == TLSV1DOT3_VERSION) {
@@ -1745,7 +1709,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
                                    "Record type is not allowed in TLS 1.3");
             break;
         }
-        col_append_str(pinfo->cinfo, COL_INFO, "Change Cipher Spec");
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Change Cipher Spec");
         ssl_dissect_change_cipher_spec(&dissect_ssl3_hf, tvb, pinfo,
                                        ssl_record_tree, offset, session,
                                        is_from_server, ssl);
@@ -1769,7 +1733,6 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
         }
         break;
     case SSL_ID_HANDSHAKE:
-        ssl_calculate_handshake_hash(ssl, tvb, offset, record_length);
         if (decrypted) {
             dissect_ssl3_handshake(decrypted, pinfo, ssl_record_tree, 0,
                                    tvb_reported_length(decrypted), FALSE, session,
@@ -1785,7 +1748,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
         dissector_handle_t app_handle;
 
         /* show on info column what we are decoding */
-        col_append_str(pinfo->cinfo, COL_INFO, "Application Data");
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Application Data");
 
         /* app_handle discovery is done here instead of dissect_ssl_payload()
          * because the protocol name needs to be displayed below. */
@@ -1888,13 +1851,13 @@ dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
     /* now set the text in the record layer line */
     if (level && desc)
     {
-        col_append_fstr(pinfo->cinfo, COL_INFO,
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL,
                             "Alert (Level: %s, Description: %s)",
                             level, desc);
     }
     else
     {
-        col_append_str(pinfo->cinfo, COL_INFO, "Encrypted Alert");
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Encrypted Alert");
     }
 
     if (tree)
@@ -1969,6 +1932,15 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
      */
     if (maybe_encrypted) {
         maybe_encrypted = tvb_bytes_exist(tvb, offset, 5) && tvb_get_ntoh40(tvb, offset) == 0;
+        /*
+         * Everything after the ChangeCipherSpec message is encrypted.
+         * TODO handle Finished message after CCS in the same frame and remove the
+         * above nonce-based heuristic.
+         */
+        if (!maybe_encrypted) {
+            guint32 ccs_frame = is_from_server ? session->server_ccs_frame : session->client_ccs_frame;
+            maybe_encrypted = ccs_frame != 0 && pinfo->num > ccs_frame;
+        }
     }
 
     /* just as there can be multiple records per packet, there
@@ -1982,6 +1954,8 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
     record_length += offset;
     while (offset < record_length)
     {
+        guint32 hs_offset = offset;
+
         msg_type = tvb_get_guint8(tvb, offset);
         length   = tvb_get_ntoh24(tvb, offset + 1);
 
@@ -2007,17 +1981,11 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
             return;
         }
 
-        /* on second and later iterations, add comma to info col */
-        if (!first_iteration)
-        {
-            col_append_str(pinfo->cinfo, COL_INFO, ", ");
-        }
-
         /*
          * Update our info string
          */
-        col_append_str(pinfo->cinfo, COL_INFO, (msg_type_str != NULL)
-                            ? msg_type_str : "Encrypted Handshake Message");
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL,
+                            (msg_type_str != NULL) ? msg_type_str : "Encrypted Handshake Message");
 
         /* set the label text on the record layer expanding node */
         if (first_iteration)
@@ -2057,6 +2025,12 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
         proto_tree_add_uint(ssl_hand_tree, hf_ssl_handshake_length,
                 tvb, offset, 3, length);
         offset += 3;
+
+        /*
+         * Add handshake message (including type, length, etc.) to hash (for
+         * Extended Master Secret).
+         */
+        ssl_calculate_handshake_hash(ssl, tvb, hs_offset, 4 + length);
 
         /* now dissect the handshake message, if necessary */
         switch ((HandshakeType) msg_type) {
@@ -2409,7 +2383,7 @@ static gint
 dissect_ssl2_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                     guint32 offset, SslSession *session,
                     gboolean *need_desegmentation,
-                    SslDecryptSession *ssl, gboolean first_record_in_frame)
+                    SslDecryptSession *ssl)
 {
     guint32      initial_offset;
     guint8       byte;
@@ -2505,13 +2479,6 @@ dissect_ssl2_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     }
     offset += record_length_length;
 
-    /* on second and subsequent records per frame
-     * add a delimiter on info column
-     */
-    if (!first_record_in_frame) {
-        col_append_str(pinfo->cinfo, COL_INFO, ", ");
-    }
-
     /* add the record layer subtree header */
     ti = proto_tree_add_item(tree, hf_ssl2_record, tvb, initial_offset,
                              record_length_length + record_length, ENC_NA);
@@ -2578,12 +2545,12 @@ dissect_ssl2_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             PROTO_ITEM_SET_GENERATED(ti);
         }
 
-        col_append_str(pinfo->cinfo, COL_INFO, "Encrypted Data");
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Encrypted Data");
         return initial_offset + record_length_length + record_length;
     }
     else
     {
-        col_append_str(pinfo->cinfo, COL_INFO, msg_type_str);
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, msg_type_str);
 
         if (ssl_record_tree)
         {
@@ -2844,7 +2811,7 @@ static void
 dissect_pct_msg_client_hello(tvbuff_t *tvb, packet_info *pinfo,
                              proto_tree *tree, guint32 offset)
 {
-    guint16 CH_CLIENT_VERSION, CH_OFFSET, CH_CIPHER_SPECS_LENGTH, CH_HASH_SPECS_LENGTH, CH_CERT_SPECS_LENGTH, CH_EXCH_SPECS_LENGTH, CH_KEY_ARG_LENGTH;
+    guint16 CH_CLIENT_VERSION, CH_OFFSET, CH_CIPHER_SPECS_LENGTH, CH_HASH_SPECS_LENGTH, CH_CERT_SPECS_LENGTH, CH_EXCH_SPECS_LENGTH, CH_KEY_ARG_LENGTH, mac_key_length;
     proto_item *CH_CIPHER_SPECS_ti, *CH_HASH_SPECS_ti, *CH_CERT_SPECS_ti, *CH_EXCH_SPECS_ti, *ti;
     proto_tree *CH_CIPHER_SPECS_tree, *CH_HASH_SPECS_tree, *CH_CERT_SPECS_tree, *CH_EXCH_SPECS_tree;
     gint i;
@@ -2899,7 +2866,8 @@ dissect_pct_msg_client_hello(tvbuff_t *tvb, packet_info *pinfo,
             offset += 2;
             proto_tree_add_item(CH_CIPHER_SPECS_tree, hf_ssl_pct_encryption_key_length, tvb, offset, 1, ENC_NA);
             offset += 1;
-            proto_tree_add_uint(CH_CIPHER_SPECS_tree, hf_ssl_pct_mac_key_length_in_bits, tvb, offset, 1, tvb_get_guint8(tvb, offset) + 64);
+            mac_key_length = tvb_get_guint8(tvb, offset) + 64;
+            proto_tree_add_uint(CH_CIPHER_SPECS_tree, hf_ssl_pct_mac_key_length_in_bits, tvb, offset, 1, mac_key_length);
             offset += 1;
         }
     }
@@ -2969,7 +2937,7 @@ dissect_pct_msg_server_hello(tvbuff_t *tvb, proto_tree *tree, guint32 offset, pa
 
 */
 
-    guint16 SH_SERVER_VERSION, SH_CERT_LENGTH, SH_CERT_SPECS_LENGTH, SH_CLIENT_SIG_LENGTH, SH_RESPONSE_LENGTH;
+    guint16 SH_SERVER_VERSION, SH_CERT_LENGTH, SH_CERT_SPECS_LENGTH, SH_CLIENT_SIG_LENGTH, SH_RESPONSE_LENGTH, mac_key_length;
     proto_item* ti;
     asn1_ctx_t asn1_ctx;
     asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
@@ -2993,7 +2961,8 @@ dissect_pct_msg_server_hello(tvbuff_t *tvb, proto_tree *tree, guint32 offset, pa
     offset += 2;
     proto_tree_add_item(tree, hf_ssl_pct_encryption_key_length, tvb, offset, 1, ENC_NA);
     offset += 1;
-    proto_tree_add_uint(tree, hf_ssl_pct_mac_key_length_in_bits, tvb, offset, 1, tvb_get_guint8(tvb, offset) + 64);
+    mac_key_length = tvb_get_guint8(tvb, offset) + 64;
+    proto_tree_add_uint(tree, hf_ssl_pct_mac_key_length_in_bits, tvb, offset, 1, mac_key_length);
     offset += 1;
 
     proto_tree_add_item(tree, hf_pct_handshake_hash, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -3744,8 +3713,9 @@ static gboolean
 ssldecrypt_uat_fld_protocol_chk_cb(void* r _U_, const char* p, guint len _U_, const void* u1 _U_, const void* u2 _U_, char** err)
 {
     if (!p || strlen(p) == 0u) {
-        *err = g_strdup("No protocol given.");
-        return FALSE;
+        // This should be removed in favor of Decode As. Make it optional.
+        *err = NULL;
+        return TRUE;
     }
 
     if (!ssl_find_appdata_dissector(p)) {
@@ -3769,31 +3739,68 @@ ssldecrypt_uat_fld_protocol_chk_cb(void* r _U_, const char* p, guint len _U_, co
 static void
 ssl_src_prompt(packet_info *pinfo, gchar *result)
 {
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "source (%u%s)", pinfo->srcport, UTF8_RIGHTWARDS_ARROW);
+    SslPacketInfo* pi;
+    guint32 srcport = pinfo->srcport;
+
+    pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, pinfo->curr_layer_num);
+    if (pi != NULL)
+        srcport = pi->srcport;
+
+    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "source (%u%s)", srcport, UTF8_RIGHTWARDS_ARROW);
 }
 
 static gpointer
 ssl_src_value(packet_info *pinfo)
 {
-    return GUINT_TO_POINTER(pinfo->srcport);
+    SslPacketInfo* pi;
+
+    pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, pinfo->curr_layer_num);
+    if (pi == NULL)
+        return GUINT_TO_POINTER(pinfo->srcport);
+
+    return GUINT_TO_POINTER(pi->srcport);
 }
 
 static void
 ssl_dst_prompt(packet_info *pinfo, gchar *result)
 {
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "destination (%s%u)", UTF8_RIGHTWARDS_ARROW, pinfo->destport);
+    SslPacketInfo* pi;
+    guint32 destport = pinfo->destport;
+
+    pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, pinfo->curr_layer_num);
+    if (pi != NULL)
+        destport = pi->destport;
+
+    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "destination (%s%u)", UTF8_RIGHTWARDS_ARROW, destport);
 }
 
 static gpointer
 ssl_dst_value(packet_info *pinfo)
 {
-    return GUINT_TO_POINTER(pinfo->destport);
+    SslPacketInfo* pi;
+
+    pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, pinfo->curr_layer_num);
+    if (pi == NULL)
+        return GUINT_TO_POINTER(pinfo->destport);
+
+    return GUINT_TO_POINTER(pi->destport);
 }
 
 static void
 ssl_both_prompt(packet_info *pinfo, gchar *result)
 {
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "both (%u%s%u)", pinfo->srcport, UTF8_LEFT_RIGHT_ARROW, pinfo->destport);
+    SslPacketInfo* pi;
+    guint32 srcport = pinfo->srcport,
+            destport = pinfo->destport;
+
+    pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto_ssl, pinfo->curr_layer_num);
+    if (pi != NULL)
+    {
+        srcport = pi->srcport;
+        destport = pi->destport;
+    }
+
+    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "both (%u%s%u)", srcport, UTF8_LEFT_RIGHT_ARROW, destport);
 }
 
 /*********************************************************************
@@ -4246,7 +4253,7 @@ proto_register_ssl(void)
     proto_ssl = proto_register_protocol("Secure Sockets Layer",
                                         "SSL", "ssl");
 
-    ssl_associations = register_dissector_table("ssl.port", "SSL TCP Dissector", proto_ssl, FT_UINT16, BASE_DEC);
+    ssl_associations = register_dissector_table("ssl.port", "SSL Port", proto_ssl, FT_UINT16, BASE_DEC);
 
     /* Required function calls to register the header fields and
      * subtrees used */
@@ -4260,9 +4267,9 @@ proto_register_ssl(void)
 
 #ifdef HAVE_LIBGNUTLS
         static uat_field_t sslkeylist_uats_flds[] = {
-            UAT_FLD_CSTRING_OTHER(sslkeylist_uats, ipaddr, "IP address", ssldecrypt_uat_fld_ip_chk_cb, "IPv4 or IPv6 address"),
-            UAT_FLD_CSTRING_OTHER(sslkeylist_uats, port, "Port", ssldecrypt_uat_fld_port_chk_cb, "Port Number"),
-            UAT_FLD_CSTRING_OTHER(sslkeylist_uats, protocol, "Protocol", ssldecrypt_uat_fld_protocol_chk_cb, "Protocol"),
+            UAT_FLD_CSTRING_OTHER(sslkeylist_uats, ipaddr, "IP address", ssldecrypt_uat_fld_ip_chk_cb, "IPv4 or IPv6 address (unused)"),
+            UAT_FLD_CSTRING_OTHER(sslkeylist_uats, port, "Port", ssldecrypt_uat_fld_port_chk_cb, "Port Number (optional)"),
+            UAT_FLD_CSTRING_OTHER(sslkeylist_uats, protocol, "Protocol", ssldecrypt_uat_fld_protocol_chk_cb, "Application Layer Protocol (optional)"),
             UAT_FLD_FILENAME_OTHER(sslkeylist_uats, keyfile, "Key File", ssldecrypt_uat_fld_fileopen_chk_cb, "Private keyfile."),
             UAT_FLD_CSTRING_OTHER(sslkeylist_uats, password,"Password", ssldecrypt_uat_fld_password_chk_cb, "Password (for PCKS#12 keyfile)"),
             UAT_END_FIELDS
@@ -4292,7 +4299,7 @@ proto_register_ssl(void)
         prefs_register_filename_preference(ssl_module, "debug_file", "SSL debug file",
             "Redirect SSL debug to the file specified. Leave empty to disable debugging "
             "or use \"" SSL_DEBUG_USE_STDERR "\" to redirect output to stderr.",
-            &ssl_debug_file_name);
+            &ssl_debug_file_name, TRUE);
 
         prefs_register_string_preference(ssl_module, "keys_list", "RSA keys list (deprecated)",
              "Semicolon-separated list of private RSA keys used for SSL decryption. "

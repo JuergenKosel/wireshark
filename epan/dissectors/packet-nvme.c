@@ -171,7 +171,7 @@ static const value_string aq_opc_tbl[] = {
     { NVME_AQ_OPC_FW_COMMIT,     "Firmware Commit"},
     { NVME_AQ_OPC_FW_IMG_DOWNLOAD, "Firmware Image Download"},
     { NVME_AQ_OPC_NS_ATTACH,     "Namespace attach"},
-    { NVME_AQ_OPC_KEEP_ALIVE,    "Kepp Alive"},
+    { NVME_AQ_OPC_KEEP_ALIVE,    "Keep Alive"},
     { 0, NULL}
 };
 
@@ -586,7 +586,7 @@ dissect_nvme_cqe(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree,
     proto_tree_add_item(cqe_tree, hf_nvme_cqe_sts, nvme_tvb,
                         0, 8, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(cqe_tree, hf_nvme_cqe_sqhd, nvme_tvb,
-                        8, 2, ENC_NA);
+                        8, 2, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(cqe_tree, hf_nvme_cqe_rsvd, nvme_tvb,
                         10, 2, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(cqe_tree, hf_nvme_cqe_cid, nvme_tvb,

@@ -68,6 +68,7 @@
 #include "packet-sflow.h"
 #include "packet-l2tp.h"
 #include "packet-vxlan.h"
+#include "packet-nsh.h"
 
 void proto_register_mpls(void);
 void proto_reg_handoff_mpls(void);
@@ -88,6 +89,7 @@ const value_string special_labels[] = {
     {MPLS_LABEL_IMPLICIT_NULL,       "Implicit-Null"},
     {MPLS_LABEL_OAM_ALERT,           "OAM Alert"},
     {MPLS_LABEL_GACH,                "Generic Associated Channel Label (GAL)"},
+    {MPLS_LABEL_ELI,                 "Entropy Label Indicator (ELI)"},
     {0, NULL }
 };
 
@@ -687,6 +689,7 @@ proto_reg_handoff_mpls(void)
     dissector_add_uint("l2tp.pw_type", L2TPv3_PROTOCOL_MPLS, mpls_handle);
     dissector_add_uint_with_preference("udp.port", UDP_PORT_MPLS_OVER_UDP, mpls_handle);
     dissector_add_uint("vxlan.next_proto", VXLAN_MPLS, mpls_handle);
+    dissector_add_uint("nsh.next_proto", NSH_MPLS, mpls_handle);
 
     dissector_add_uint( "mpls.label", MPLS_LABEL_INVALID, mpls_pwcw_handle );
 

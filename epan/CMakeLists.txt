@@ -132,7 +132,6 @@ set(LIBWIRESHARK_FILES
 	oids.c
 	osi-utils.c
 	oui.c
-	packet_range.c
 	packet.c
 	print.c
 	print_stream.c
@@ -205,6 +204,7 @@ set(epan_LIBS
 	${SMI_LIBRARIES}
 	${SNAPPY_LIBRARIES}
 	${WIN_PSAPI_LIBRARY}
+	${LIBXML2_LIBRARIES}
 )
 
 set(CLEAN_FILES
@@ -243,12 +243,12 @@ add_library(epan ${LINK_MODE_LIB}
 
 add_dependencies(epan version)
 
-set(FULL_SO_VERSION "0.0.0")
+set(FULL_SO_VERSION "10.0.3")
 
 set_target_properties(epan PROPERTIES COMPILE_DEFINITIONS "WS_BUILD_DLL")
 set_target_properties(epan PROPERTIES COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}")
 set_target_properties(epan PROPERTIES LINK_FLAGS "${WS_LINK_FLAGS}")
-set_target_properties(epan PROPERTIES VERSION ${FULL_SO_VERSION} SOVERSION 0)
+set_target_properties(epan PROPERTIES VERSION ${FULL_SO_VERSION} SOVERSION 10)
 
 if(ENABLE_APPLICATION_BUNDLE)
 	set_target_properties(epan PROPERTIES

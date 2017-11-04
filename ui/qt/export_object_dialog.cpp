@@ -312,8 +312,10 @@ void ExportObjectDialog::saveCurrentEntry()
         return;
     }
 
+    GString *safe_filename = eo_massage_str(entry->filename, EXPORT_OBJECT_MAXFILELEN-path.canonicalPath().length(), 0);
     file_name = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Object As" UTF8_HORIZONTAL_ELLIPSIS)),
-                                             path.filePath(entry->filename));
+                                             safe_filename->str);
+    g_string_free(safe_filename, TRUE);
 
     if (file_name.length() > 0) {
         eo_save_entry(file_name.toUtf8().constData(), entry, TRUE);
@@ -334,7 +336,7 @@ void ExportObjectDialog::saveAllEntries()
     //
     // XXX - what we *really* want is something that asks the user
     // for an existing directory *but* lets them create a new
-    // directory in the process.  That's what we get on OS X,
+    // directory in the process.  That's what we get on macOS,
     // as the native dialog is used, and it supports that; does
     // that also work on Windows and with Qt's own dialog?
     //

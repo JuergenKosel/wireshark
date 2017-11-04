@@ -58,7 +58,7 @@ set(WSUTIL_COMMON_FILES
 	strnatcmp.c
 	str_util.c
 	strtoi.c
-	report_err.c
+	report_message.c
 	tempfile.c
 	time_util.c
 	type_util.c
@@ -79,7 +79,7 @@ if(WIN32)
 ENDIF(WIN32)
 
 
-if(HAVE_OS_X_FRAMEWORKS)
+if(HAVE_MACOS_FRAMEWORKS)
 	list(APPEND WSUTIL_FILES cfutils.c)
 endif()
 
@@ -163,7 +163,7 @@ endif()
 
 if(APPLE)
 	#
-	# We assume that APPLE means OS X so that we have the OS X
+	# We assume that APPLE means macOS so that we have the macOS
 	# frameworks.
 	#
 	FIND_LIBRARY (APPLE_CORE_FOUNDATION_LIBRARY CoreFoundation)
@@ -206,14 +206,14 @@ add_library(wsutil ${LINK_MODE_LIB}
 	${CMAKE_BINARY_DIR}/image/libwsutil.rc
 )
 
-set(FULL_SO_VERSION "0.0.0")
+set(FULL_SO_VERSION "8.0.0")
 
 set_target_properties(wsutil PROPERTIES
 	PREFIX "lib"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 	COMPILE_OPTIONS "${WS_WARNINGS_C_FLAGS}"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
-	VERSION ${FULL_SO_VERSION} SOVERSION 0
+	VERSION ${FULL_SO_VERSION} SOVERSION 8
 	FOLDER "DLLs")
 
 if(ENABLE_APPLICATION_BUNDLE)

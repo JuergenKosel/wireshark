@@ -1637,7 +1637,7 @@ add_content_type(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint32 va
             proto_tree_add_string(tree, hf_hdr_content_type,
                     tvb, hdr_start, offset - hdr_start,
                     val_str);
-            *textual_content = g_strdup(val_str);
+            *textual_content = wmem_strdup(pinfo->pool, val_str);
             *well_known_content = 0;
         } else {
             proto_tree_add_string(tree, hf_hdr_content_type,
@@ -1658,7 +1658,7 @@ add_content_type(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint32 va
                     tvb, hdr_start, offset - hdr_start, val_str);
             }
             /* Following statement: required? */
-            *textual_content = g_strdup(val_str);
+            *textual_content = wmem_strdup(pinfo->pool, val_str);
             *well_known_content = 0;
         } else if (is_integer_value(peek)) {
             get_integer_value(val, tvb, off, len, ok);
@@ -2388,14 +2388,16 @@ wkh_tod_value_header_func(proto_tree *tree, tvbuff_t *tvb, guint32 hdr_start, pa
 {
     wkh_0a_Declarations;
     guint32 val = 0, off = val_start, len;
-    gchar *str; /* may not be freed! */
     proto_item *ti = NULL;
     gchar* header_name = wmem_strdup_printf(wmem_packet_scope(), "Time of Day: %s", name);
+    nstime_t t;
 
     wkh_1_WellKnownValue(hf_hdr_name_value, ett_tod_value, header_name);
         if (val_id == 0x80) { /* Openwave TOD header uses this format */
-            ti = proto_tree_add_string(tree, hf,
-                    tvb, hdr_start, offset - hdr_start,
+            t.secs = 0;
+            t.nsecs = 0;
+            ti = proto_tree_add_time_format_value(tree, hf,
+                    tvb, hdr_start, offset - hdr_start, &t,
                     "Requesting Time Of Day");
             proto_item_append_text(ti,
                     " <Warning: should be encoded as long-integer>");
@@ -2410,14 +2412,15 @@ wkh_tod_value_header_func(proto_tree *tree, tvbuff_t *tvb, guint32 hdr_start, pa
         if (val_id <= 4) { /* Length field already parsed by macro! */
             get_date_value(val, tvb, off, len, ok);
             if (ok) {
+                t.secs = (time_t)val;
+                t.nsecs = 0;
                 if (val == 0) {
-                    proto_tree_add_string(tree, hf,
-                            tvb, hdr_start, offset - hdr_start,
+                    proto_tree_add_time_format_value(tree, hf,
+                            tvb, hdr_start, offset - hdr_start, &t,
                             "Requesting Time Of Day");
                 } else {
-                    str = abs_time_secs_to_str(wmem_packet_scope(), val, ABSOLUTE_TIME_LOCAL, TRUE);
-                    proto_tree_add_string(tree, hf,
-                            tvb, hdr_start, offset - hdr_start, str);
+                    proto_tree_add_time(tree, hf,
+                            tvb, hdr_start, offset - hdr_start, &t);
                 }
             }
         }
@@ -5195,6 +5198,8 @@ add_capabilities (proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint8 pd
         capaLen = capaValueLen + len;
 
         cap_subtree = proto_tree_add_subtree(wsp_capabilities, tvb, offset, capaLen, ett_capabilities_entry, &cap_item, "Capability");
+        if (capaValueLen > tvb_len)
+            return;
         offset += len;
         /*
          * Now offset points to the 1st byte of the capability type.
@@ -5248,7 +5253,7 @@ add_capabilities (proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint8 pd
             /* Now offset points to the 1st value byte of the capability. */
         }
 
-        proto_item_append_text(cap_item, ": %s", val_to_str_const(peek, wsp_capability_vals, "Invalid capabiliity"));
+        proto_item_append_text(cap_item, ": %s", val_to_str_const(peek, wsp_capability_vals, "Invalid capability"));
         /* Now the capability type is known */
         switch (peek) {
             case WSP_CAPA_CLIENT_SDU_SIZE:
@@ -6943,7 +6948,7 @@ proto_register_wsp(void)
         { &hf_hdr_openwave_x_up_proxy_tod,
           { "x-up-proxy-tod",
             "wsp.header.x_up_1.x_up_proxy_tod",
-            FT_STRING, BASE_NONE, NULL, 0x00,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x00,
             "WSP Openwave header x-up-proxy-tod", HFILL
           }
         },

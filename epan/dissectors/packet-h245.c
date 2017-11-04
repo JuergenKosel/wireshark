@@ -6670,7 +6670,7 @@ dissect_h245_T_subMessageIdentifier(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
   }
   if (hf_index == hf_h245_subMessageIdentifier_standard)
   {
-    col_append_fstr(actx->pinfo->cinfo, COL_INFO, "%s", val_to_str(subMessageIdentifier, h245_h239subMessageIdentifier_vals, "<unknown>") );
+    col_append_str(actx->pinfo->cinfo, COL_INFO, val_to_str(subMessageIdentifier, h245_h239subMessageIdentifier_vals, "<unknown>") );
     g_snprintf(h245_pi->frame_label, 50, "%s", val_to_str(subMessageIdentifier, h245_h239subMessageIdentifier_vals, "<unknown>"));
   }
 
@@ -20747,8 +20747,8 @@ void proto_register_h245(void) {
 
   nsp_object_dissector_table = register_dissector_table("h245.nsp.object", "H.245 NonStandardParameter (object)", proto_h245, FT_STRING, BASE_NONE);
   nsp_h221_dissector_table = register_dissector_table("h245.nsp.h221", "H.245 NonStandardParameter (h221)", proto_h245, FT_UINT32, BASE_HEX);
-  gef_name_dissector_table = register_dissector_table("h245.gef.name", "H.245 Generic Extensible Framework (names)", proto_h245, FT_STRING, BASE_NONE);
-  gef_content_dissector_table = register_dissector_table("h245.gef.content", "H.245 Generic Extensible Framework", proto_h245, FT_STRING, BASE_NONE);
+  gef_name_dissector_table = register_dissector_table("h245.gef.name", "H.245 Generic Extensible Framework Name", proto_h245, FT_STRING, BASE_NONE);
+  gef_content_dissector_table = register_dissector_table("h245.gef.content", "H.245 Generic Extensible Framework Content", proto_h245, FT_STRING, BASE_NONE);
 
   h245_tap = register_tap("h245");
   h245dg_tap = register_tap("h245dg");

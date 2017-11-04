@@ -222,24 +222,25 @@ void ManageInterfacesDialog::on_buttonBox_accepted()
 
 void ManageInterfacesDialog::on_addPipe_clicked()
 {
-    interface_t * device = g_new0(interface_t, 1);
+    interface_t device;
 
-    device->name = qstring_strdup(tr("New Pipe"));
-    device->display_name = g_strdup(device->name);
-    device->hidden       = FALSE;
-    device->selected     = TRUE;
-    device->pmode        = global_capture_opts.default_options.promisc_mode;
-    device->has_snaplen  = global_capture_opts.default_options.has_snaplen;
-    device->snaplen      = global_capture_opts.default_options.snaplen;
-    device->cfilter      = g_strdup(global_capture_opts.default_options.cfilter);
+    memset(&device, 0, sizeof(device));
+    device.name = qstring_strdup(tr("New Pipe"));
+    device.display_name = g_strdup(device.name);
+    device.hidden       = FALSE;
+    device.selected     = TRUE;
+    device.pmode        = global_capture_opts.default_options.promisc_mode;
+    device.has_snaplen  = global_capture_opts.default_options.has_snaplen;
+    device.snaplen      = global_capture_opts.default_options.snaplen;
+    device.cfilter      = g_strdup(global_capture_opts.default_options.cfilter);
 #ifdef CAN_SET_CAPTURE_BUFFER_SIZE
-    device->buffer       = DEFAULT_CAPTURE_BUFFER_SIZE;
+    device.buffer       = DEFAULT_CAPTURE_BUFFER_SIZE;
 #endif
-    device->active_dlt = -1;
-    device->if_info.name = g_strdup(device->name);
-    device->if_info.type = IF_PIPE;
+    device.active_dlt = -1;
+    device.if_info.name = g_strdup(device.name);
+    device.if_info.type = IF_PIPE;
 
-    sourceModel->addDevice(device);
+    sourceModel->addDevice(&device);
     updateWidgets();
 }
 
@@ -265,13 +266,12 @@ void ManageInterfacesDialog::remoteSelectionChanged(QTreeWidgetItem*, int)
     updateWidgets();
 }
 
-void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *roptions)
+void ManageInterfacesDialog::updateRemoteInterfaceList(GList* rlist, remote_options* roptions)
 {
     GList *if_entry, *lt_entry;
     if_info_t *if_info;
     char *if_string = NULL;
-    gchar *descr, *str = NULL, *auth_str;
-    // gchar *link_type_name = NULL;
+    gchar *descr, *auth_str;
     if_capabilities_t *caps;
     gint linktype_count;
     bool monitor_mode, found = false;
@@ -283,11 +283,15 @@ void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *r
     GString *ip_str;
     link_row *linkr = NULL;
     interface_t device;
+    guint num_interfaces;
 
-    guint num_interfaces = global_capture_opts.all_ifaces->len;
+    num_interfaces = global_capture_opts.all_ifaces->len;
     for (if_entry = g_list_first(rlist); if_entry != NULL; if_entry = g_list_next(if_entry)) {
         auth_str = NULL;
         if_info = (if_info_t *)if_entry->data;
+#if 0
+        add_interface_to_remote_list(if_info);
+#endif
         for (i = 0; i < num_interfaces; i++) {
             device = g_array_index(global_capture_opts.all_ifaces, interface_t, i);
             if (device.hidden)
@@ -305,6 +309,7 @@ void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *r
         ips = 0;
         memset(&device, 0, sizeof(device));
         device.name = g_strdup(if_info->name);
+        device.if_info.name = g_strdup("Don't crash on bug 13448");
         /* Is this interface hidden and, if so, should we include it
            anyway? */
         descr = capture_dev_user_descr_find(if_info->name);
@@ -343,12 +348,10 @@ void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *r
         }
         device.cfilter = g_strdup(global_capture_opts.default_options.cfilter);
         monitor_mode = prefs_capture_device_monitor_mode(if_string);
-#ifdef HAVE_PCAP_REMOTE
         if (roptions->remote_host_opts.auth_type == CAPTURE_AUTH_PWD) {
             auth_str = g_strdup_printf("%s:%s", roptions->remote_host_opts.auth_username,
                                        roptions->remote_host_opts.auth_password);
         }
-#endif
         caps = capture_get_if_capabilities(if_string, monitor_mode, auth_str, NULL, main_window_update);
         g_free(auth_str);
         for (; (curr_addr = g_slist_nth(if_info->addrs, ips)) != NULL; ips++) {
@@ -392,18 +395,15 @@ void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *r
                  * used.
                  */
                 if (data_link_info->description != NULL) {
-                    str = g_strdup(data_link_info->description);
+                    linkr->name = g_strdup(data_link_info->description);
                     linkr->dlt = data_link_info->dlt;
                 } else {
-                    str = g_strdup_printf("%s (not supported)", data_link_info->name);
+                    linkr->name = g_strdup_printf("%s (not supported)", data_link_info->name);
                     linkr->dlt = -1;
                 }
                 if (linktype_count == 0) {
-                    // link_type_name = g_strdup(str);
                     device.active_dlt = data_link_info->dlt;
                 }
-                linkr->name = g_strdup(str);
-                g_free(str);
                 device.links = g_list_append(device.links, linkr);
                 linktype_count++;
             } /* for link_types */
@@ -413,7 +413,6 @@ void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *r
             device.monitor_mode_supported = FALSE;
 #endif
             device.active_dlt = -1;
-            // link_type_name = g_strdup("default");
         }
         device.addresses = g_strdup(ip_str->str);
         device.no_addresses = ips;
@@ -438,11 +437,16 @@ void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *r
         g_array_append_val(global_capture_opts.all_ifaces, device);
         g_string_free(ip_str, TRUE);
     } /*for*/
+}
+
+void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *roptions)
+{
+    updateRemoteInterfaceList(rlist, roptions);
     showRemoteInterfaces();
 }
 
 // We don't actually store these. When we do we should make sure they're stored
-// securely using CryptProtectData, the OS X Keychain, GNOME Keyring, KWallet, etc.
+// securely using CryptProtectData, the macOS Keychain, GNOME Keyring, KWallet, etc.
 void ManageInterfacesDialog::remoteAccepted()
 {
     QTreeWidgetItemIterator it(ui->remoteList);

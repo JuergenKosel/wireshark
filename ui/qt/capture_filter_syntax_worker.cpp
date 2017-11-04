@@ -23,9 +23,14 @@
 
 #ifdef HAVE_LIBPCAP
 #include <glib.h>
-#include <pcap.h>
+
+#include <wsutil/wspcap.h>
+
 #include "capture_opts.h"
 #include "ui/capture_globals.h"
+#endif
+#ifdef HAVE_EXTCAP
+#include "extcap.h"
 #endif
 
 #include "capture_filter_syntax_worker.h"
@@ -36,7 +41,7 @@
 
 // We use a global mutex to protect pcap_compile since it calls gethostbyname.
 // This probably isn't needed on Windows (where pcap_comple calls
-// EnterCriticalSection + LeaveCriticalSection) or *BSD or OS X where
+// EnterCriticalSection + LeaveCriticalSection) or *BSD or macOS where
 // gethostbyname(3) claims that it's thread safe.
 static QMutex pcap_compile_mtx_;
 
@@ -58,6 +63,9 @@ void CaptureFilterSyntaxWorker::start() {
     forever {
         QString filter;
         QSet<gint> active_dlts;
+#ifdef HAVE_EXTCAP
+        QSet<guint> active_extcap;
+#endif
         struct bpf_program fcode;
         pcap_t *pd;
         int pc_err;
@@ -85,19 +93,32 @@ void CaptureFilterSyntaxWorker::start() {
 
             device = g_array_index(global_capture_opts.all_ifaces, interface_t, if_idx);
             if (!device.locked && device.selected) {
-                if (device.active_dlt >= DLT_USER0 && device.active_dlt <= DLT_USER15) {
-                    // Capture filter for DLT_USER is unknown
-                    state = SyntaxLineEdit::Deprecated;
-                    err_str = "Unable to check capture filter";
+#ifdef HAVE_EXTCAP
+                if (device.if_info.extcap == NULL || strlen(device.if_info.extcap) == 0) {
+#endif
+                    if (device.active_dlt >= DLT_USER0 && device.active_dlt <= DLT_USER15) {
+                        // Capture filter for DLT_USER is unknown
+                        state = SyntaxLineEdit::Deprecated;
+                        err_str = "Unable to check capture filter";
+                    } else {
+                        active_dlts.insert(device.active_dlt);
+                    }
+#ifdef HAVE_EXTCAP
                 } else {
-                    active_dlts.insert(device.active_dlt);
+                    active_extcap.insert(if_idx);
                 }
+#endif
             }
         }
 
         foreach (gint dlt, active_dlts.toList()) {
             pcap_compile_mtx_.lock();
             pd = pcap_open_dead(dlt, DUMMY_SNAPLENGTH);
+            if (pd == NULL)
+            {
+                //don't have ability to verify capture filter
+                break;
+            }
 #ifdef PCAP_NETMASK_UNKNOWN
             pc_err = pcap_compile(pd, &fcode, filter.toUtf8().constData(), 1 /* Do optimize */, PCAP_NETMASK_UNKNOWN);
 #else
@@ -121,6 +142,30 @@ void CaptureFilterSyntaxWorker::start() {
 
             if (state == SyntaxLineEdit::Invalid) break;
         }
+#ifdef HAVE_EXTCAP
+        // If it's already invalid, don't bother to check extcap
+        if (state != SyntaxLineEdit::Invalid) {
+            foreach (guint extcapif, active_extcap.toList()) {
+                interface_t device;
+                gchar *error = NULL;
+
+                device = g_array_index(global_capture_opts.all_ifaces, interface_t, extcapif);
+                extcap_filter_status status = extcap_verify_capture_filter(device.name, filter.toUtf8().constData(), &error);
+                if (status == EXTCAP_FILTER_VALID) {
+                    DEBUG_SYNTAX_CHECK("unknown", "known good");
+                } else if (status == EXTCAP_FILTER_INVALID) {
+                    DEBUG_SYNTAX_CHECK("unknown", "known bad");
+                    state = SyntaxLineEdit::Invalid;
+                    err_str = error;
+                    break;
+                } else {
+                    state = SyntaxLineEdit::Deprecated;
+                    err_str = "Unable to check capture filter";
+                }
+                g_free (error);
+            }
+        }
+#endif
         emit syntaxResult(filter, state, err_str);
 
         DEBUG_SYNTAX_CHECK("known", "idle");

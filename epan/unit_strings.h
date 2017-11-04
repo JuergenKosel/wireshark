@@ -41,6 +41,7 @@ typedef struct unit_name_string {
 
 WS_DLL_PUBLIC char* unit_name_string_get_value(guint32 value, unit_name_string* units);
 WS_DLL_PUBLIC char* unit_name_string_get_value64(guint64 value, unit_name_string* units);
+WS_DLL_PUBLIC char* unit_name_string_get_double(double value, unit_name_string* units);
 
 /*
  * A default set of unit strings that dissectors can use for
@@ -70,9 +71,11 @@ WS_DLL_PUBLIC const unit_name_string units_nanosecond_nanoseconds; // full unit 
 WS_DLL_PUBLIC const unit_name_string units_nanoseconds; //only seconds abbreviation "ns"
 WS_DLL_PUBLIC const unit_name_string units_nanometers;
 WS_DLL_PUBLIC const unit_name_string units_degree_degrees;
+WS_DLL_PUBLIC const unit_name_string units_degree_celsius;
 WS_DLL_PUBLIC const unit_name_string units_decibels;
 WS_DLL_PUBLIC const unit_name_string units_dbm;
 WS_DLL_PUBLIC const unit_name_string units_dbi;
+WS_DLL_PUBLIC const unit_name_string units_mbm;
 WS_DLL_PUBLIC const unit_name_string units_percent;
 WS_DLL_PUBLIC const unit_name_string units_khz;
 WS_DLL_PUBLIC const unit_name_string units_ghz;
@@ -82,13 +85,21 @@ WS_DLL_PUBLIC const unit_name_string units_hz_s;
 WS_DLL_PUBLIC const unit_name_string units_kbit;
 WS_DLL_PUBLIC const unit_name_string units_kbps;
 WS_DLL_PUBLIC const unit_name_string units_kibps;
+WS_DLL_PUBLIC const unit_name_string units_km;
 WS_DLL_PUBLIC const unit_name_string units_kmh;
+WS_DLL_PUBLIC const unit_name_string units_milliamps;
 WS_DLL_PUBLIC const unit_name_string units_microwatts;
+WS_DLL_PUBLIC const unit_name_string units_volt;
+WS_DLL_PUBLIC const unit_name_string units_grams_per_second;
 WS_DLL_PUBLIC const unit_name_string units_meter_sec;
 WS_DLL_PUBLIC const unit_name_string units_meter_sec_squared;
 WS_DLL_PUBLIC const unit_name_string units_bit_sec;
 WS_DLL_PUBLIC const unit_name_string units_segment_remaining;
 WS_DLL_PUBLIC const unit_name_string units_frame_frames;
+WS_DLL_PUBLIC const unit_name_string units_revolutions_per_minute;
+WS_DLL_PUBLIC const unit_name_string units_kilopascal;
+WS_DLL_PUBLIC const unit_name_string units_newton_metre;
+WS_DLL_PUBLIC const unit_name_string units_liter_per_hour;
 
 #ifdef __cplusplus
 }

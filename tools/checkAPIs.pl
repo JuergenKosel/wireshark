@@ -1386,7 +1386,7 @@ sub checkAPIsCalledWithTvbGetPtr($$$)
         }
 }
 
-# List of possible shadow variable (Majority coming from Mac OS X..)
+# List of possible shadow variable (Majority coming from macOS..)
 my @ShadowVariable = (
         'index',
         'time',
@@ -1434,7 +1434,8 @@ sub check_snprintf_plus_strlen($$)
 my $StaticRegex             = qr/ static \s+                                                            /xs;
 my $ConstRegex              = qr/ const  \s+                                                            /xs;
 my $Static_andor_ConstRegex = qr/ (?: $StaticRegex $ConstRegex | $StaticRegex | $ConstRegex)            /xs;
-my $ValueStringRegex        = qr/ ^ \s* $Static_andor_ConstRegex (?:value|string|range)_string \ + [^;*]+ = [^;]+ [{] .+? [}] \s*? ;  /xms;
+my $ValueStringVarnameRegex = qr/ (?:value|val64|string|range|bytes)_string                             /xs;
+my $ValueStringRegex        = qr/ ^ \s* $Static_andor_ConstRegex ($ValueStringVarnameRegex) \ + [^;*]+ = [^;]+ [{] .+? [}] \s*? ;  /xms;
 my $EnumValRegex            = qr/ $Static_andor_ConstRegex enum_val_t \ + [^;*]+ = [^;]+ [{] .+? [}] \s*? ;  /xs;
 my $NewlineStringRegex      = qr/ ["] [^"]* \\n [^"]* ["] /xs;
 
@@ -1451,27 +1452,45 @@ sub check_value_string_arrays($$$)
         while (${$fileContentsRef} =~ / ( $ValueStringRegex ) /xsog) {
                 # XXX_string array definition found; check if NULL terminated
                 my $vs = my $vsx = $1;
+                my $type = $2;
                 if ($debug_flag) {
-                        $vsx =~ / ( .+ (?:value|string|range)_string [^=]+ ) = /xo;
+                        $vsx =~ / ( .+ $ValueStringVarnameRegex [^=]+ ) = /xo;
                         printf STDERR "==> %-35.35s: %s\n", $filename, $1;
                         printf STDERR "%s\n", $vs;
                 }
                 $vs =~ s{ \s } {}xg;
-                # README.developer says
-                #  "Don't put a comma after the last tuple of an initializer of an array"
-                # However: since this usage is present in some number of cases, we'll allow for now
-                if ($vs !~ / , NULL [}] ,? [}] ; $/xo) {
-                        $vsx =~ /( (?:value|string|range)_string [^=]+ ) = /xo;
-                        printf STDERR "Error: %-35.35s: {..., NULL} is required as the last XXX_string array entry: %s\n", $filename, $1;
+
+                # Check for expected trailer
+                my $expectedTrailer;
+                my $trailerHint;
+                if ($type eq "string_string") {
+                        # XXX shouldn't we reject 0 since it is gchar*?
+                        $expectedTrailer = "(NULL|0), NULL";
+                        $trailerHint = "NULL, NULL";
+                } elsif ($type eq "range_string") {
+                        $expectedTrailer = "0(x0+)?, 0(x0+)?, NULL";
+                        $trailerHint = "0, 0, NULL";
+                } elsif ($type eq "bytes_string") {
+                        # XXX shouldn't we reject 0 since it is guint8*?
+                        $expectedTrailer = "(NULL|0), 0, NULL";
+                        $trailerHint = "NULL, NULL";
+                } else {
+                        $expectedTrailer = "0(x?0+)?, NULL";
+                        $trailerHint = "0, NULL";
+                }
+                if ($vs !~ / [{] $expectedTrailer [}] ,? [}] ; $/x) {
+                        $vsx =~ /( $ValueStringVarnameRegex [^=]+ ) = /xo;
+                        printf STDERR "Error: %-35.35s: {%s} is required as the last %s array entry: %s\n", $filename, $trailerHint, $type, $1;
                         $cnt++;
                 }
-                if ($vs !~ / (static)? const (?:value|string|range)_string /xo)  {
-                        $vsx =~ /( (?:value|string|range)_string [^=]+ ) = /xo;
+
+                if ($vs !~ / (static)? const $ValueStringVarnameRegex /xo)  {
+                        $vsx =~ /( $ValueStringVarnameRegex [^=]+ ) = /xo;
                         printf STDERR "Error: %-35.35s: Missing 'const': %s\n", $filename, $1;
                         $cnt++;
                 }
-                if ($vs =~ / $NewlineStringRegex /xo)  {
-                        $vsx =~ /( (?:value|string|range)_string [^=]+ ) = /xo;
+                if ($vs =~ / $NewlineStringRegex /xo && $type ne "bytes_string")  {
+                        $vsx =~ /( $ValueStringVarnameRegex [^=]+ ) = /xo;
                         printf STDERR "Error: %-35.35s: XXX_string contains a newline: %s\n", $filename, $1;
                         $cnt++;
                 }
@@ -1538,6 +1557,19 @@ sub check_included_files($$)
                 }
         }
 
+        # only our wrapper file wsutils/wspcap.h may include pcap.h
+        # all other files should include the wrapper
+        if ($filename !~ /wspcap\.h/) {
+                foreach (@incFiles) {
+                        if ( m#([<"]|/+)pcap\.h[>"]$# ) {
+                                print STDERR "Warning: ".$filename.
+                                        " includes pcap.h directly. ".
+                                        "Include wsutil/wspcap.h instead.\n";
+                                last;
+                        }
+                }
+        }
+
         # files in the ui/qt directory should include the ui class includes
         # by using #include <>
         # this ensures that Visual Studio picks up these files from the
@@ -1558,7 +1590,7 @@ sub check_included_files($$)
 }
 
 
-sub check_proto_tree_add_XXX_encoding($$)
+sub check_proto_tree_add_XXX($$)
 {
         my ($fileContentsRef, $filename) = @_;
         my @items;
@@ -1572,12 +1604,29 @@ sub check_proto_tree_add_XXX_encoding($$)
                 my ($args) = @items;
                 shift @items;
 
+                #Check to make sure tvb_get* isn't used to pass into a proto_tree_add_<datatype>, when
+                #proto_tree_add_item could just be used instead
+                if ($args =~ /,\s*tvb_get_/xos) {
+                        if (($func =~ m/^proto_tree_add_(time|bytes|ipxnet|ipv4|ipv6|ether|guid|oid|string|boolean|float|double|uint|uint64|int|int64|eui64|bitmask_list_value)$/)
+                           ) {
+                                print STDERR "Error: ".$filename." uses $func with tvb_get_*. Use proto_tree_add_item instead\n";
+                                $errorCount++;
+
+                                # Print out the function args to make it easier
+                                # to find the offending code.  But first make
+                                # it readable by eliminating extra white space.
+                                $args =~ s/\s+/ /g;
+                                print STDERR "\tArgs: " . $args . "\n";
+                        }
+                }
+
                 # Remove anything inside parenthesis in the arguments so we
                 # don't get false positives when someone calls
                 # proto_tree_add_XXX(..., tvb_YYY(..., ENC_ZZZ))
                 # and allow there to be newlines inside
                 $args =~ s/\(.*\)//sg;
 
+                #Check for accidental usage of ENC_ parameter
                 if ($args =~ /,\s*ENC_/xos) {
                         if (!($func =~ /proto_tree_add_(time|item|bitmask|bits_item|bits_ret_val|item_ret_int|item_ret_uint|bytes_item|checksum)/xos)
                            ) {
@@ -2153,7 +2202,7 @@ while ($_ = pop @filelist)
 
         check_snprintf_plus_strlen(\$fileContents, $filename);
 
-        $errorCount += check_proto_tree_add_XXX_encoding(\$fileContents, $filename);
+        $errorCount += check_proto_tree_add_XXX(\$fileContents, $filename);
 
 
         # Check and count APIs

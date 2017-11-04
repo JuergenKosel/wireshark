@@ -131,8 +131,6 @@ AC_DEFUN([AC_WIRESHARK_PCAP_BREAKLOOP_TRY_LINK],
 #
 AC_DEFUN([AC_WIRESHARK_PCAP_CHECK],
 [
-	AC_WIRESHARK_PUSH_FLAGS
-
 	if test -z "$pcap_dir"
 	then
 	  # Pcap header checks
@@ -184,7 +182,8 @@ AC_DEFUN([AC_WIRESHARK_PCAP_CHECK],
 	    # but we may have to look for the header in a "pcap"
 	    # subdirectory of "/usr/include" or "/usr/local/include",
 	    # as some systems apparently put "pcap.h" in a "pcap"
-	    # subdirectory, and we also check "$prefix/include" - and
+	    # subdirectory without also providing a "pcap.h" in the top-level
+	    # include directory, and we also check "$prefix/include" - and
 	    # "$prefix/include/pcap", in case $prefix is set to
 	    # "/usr/include" or "/usr/local/include".
 	    #
@@ -415,7 +414,6 @@ install a newer version of the header file.])
 	  AC_CHECK_FUNCS(bpf_image pcap_set_tstamp_precision)
 	fi
 
-	AC_WIRESHARK_POP_FLAGS
 	LIBS="$ac_save_LIBS"
 ])
 
@@ -423,12 +421,10 @@ AC_DEFUN([AC_WIRESHARK_PCAP_REMOTE_CHECK],
 [
     ac_save_LIBS="$LIBS"
     LIBS="$PCAP_LIBS $LIBS"
-    AC_DEFINE(HAVE_REMOTE, 1, [Define to 1 to enable remote
-              capturing feature in WinPcap library])
     AC_CHECK_FUNCS(pcap_open)
     if test $ac_cv_func_pcap_open = "yes" ; then
         AC_DEFINE(HAVE_PCAP_REMOTE, 1,
-            [Define to 1 if you have WinPcap remote capturing support and prefer to use these new API features.])
+            [Define to 1 if you have libpcap/WinPcap remote capturing support and prefer to use these new API features.])
     fi
     AC_CHECK_FUNCS(pcap_setsampling)
     LIBS="$ac_save_LIBS"
@@ -497,17 +493,37 @@ AC_DEFUN([AC_WIRESHARK_ZLIB_CHECK],
 	then
 		#
 		# Well, we at least have the zlib header file.
+		#
 		# We link with zlib to support uncompression of
 		# gzipped network traffic, e.g. in an HTTP request
 		# or response body.
+		#
+		# Check for inflate() in zlib, to make sure the
+		# zlib library is usable.  For example, on at
+		# least some versions of Fedora, if you have a
+		# 64-bit machine, have both the 32-bit and 64-bit
+		# versions of the run-time zlib package installed,
+		# and have only the *32-bit* version of the zlib
+		# development package installed, it'll find the
+		# header, and think it can use zlib, and will use
+		# it in subsequent tests, but it'll try and link
+		# 64-bit test programs with the 32-bit library,
+		# causing those tests to falsely fail.  Hilarity
+		# ensues.
 		#
 		if test "x$zlib_dir" != "x"
 		then
 		  WS_CPPFLAGS="$WS_CPPFLAGS -I$zlib_dir/include"
 		  AC_WIRESHARK_ADD_DASH_L(WS_LDFLAGS, $zlib_dir/lib)
 		fi
-		LIBS="-lz $LIBS"
 		AC_DEFINE(HAVE_ZLIB, 1, [Define to use zlib library])
+		#
+		# Check for "inflate()" in zlib to make sure we can
+		# link with it.
+		#
+		AC_CHECK_LIB(z, inflate,,
+		    AC_MSG_ERROR([zlib.h found but linking with -lz failed to find inflate(); do you have the right developer package installed (32-bit vs. 64-bit)?]))
+
 		#
 		# Check for "inflatePrime()" in zlib, which we need
 		# in order to read compressed capture files.
@@ -1120,6 +1136,11 @@ AC_DEFUN([AC_WIRESHARK_GEOIP_CHECK],
 			AC_CHECK_LIB(GeoIP, GeoIP_country_name_by_ipnum_v6,
 			  [
 				AC_DEFINE(HAVE_GEOIP_V6, 1, [Define if GeoIP supports IPv6 (GeoIP 1.4.5 and later)])
+			  ],,
+			)
+			AC_CHECK_LIB(GeoIP, GeoIP_free,
+			  [
+				AC_DEFINE(HAVE_GEOIP_FREE, 1, [Define if GeoIP has GeoIP_free (not available upstream with 1.6.10 or earlier)])
 			  ],,
 			)
 		fi

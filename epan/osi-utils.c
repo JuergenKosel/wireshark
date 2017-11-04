@@ -35,6 +35,10 @@
 #include "address.h"
 #include "address_types.h"
 
+static void print_nsap_net_buf( const guint8 *, int, gchar *, int);
+static void print_area_buf ( const guint8 *, int, gchar *, int);
+static void print_address_prefix_buf ( const guint8 *, int, gchar *, int);
+
 /*
  * XXX - shouldn't there be a centralized routine for dissecting NSAPs?
  * See also "dissect_atm_nsap()" in epan/dissectors/packet-arp.c and
@@ -50,8 +54,7 @@ print_nsap_net( tvbuff_t *tvb, const gint offset, int length )
   return( cur );
 }
 
-/* XXX - Should these be converted to string buffers? */
-void
+static void
 print_nsap_net_buf( const guint8 *ad, int length, gchar *buf, int buf_len)
 {
   gchar *cur;
@@ -150,32 +153,56 @@ print_area(tvbuff_t *tvb, const gint offset, int length)
   return cur;
 }
 
-void
+/*
+ * Note: length is in units of half-octets.
+ */
+gchar *
+print_address_prefix(tvbuff_t *tvb, const gint offset, int length)
+{
+  gchar *cur;
+
+  cur = (gchar *)wmem_alloc(wmem_packet_scope(), MAX_AREA_LEN * 3 + 20);
+  print_address_prefix_buf(tvb_get_ptr(tvb, offset, (length+1)/2), length, cur, MAX_AREA_LEN * 3 + 20);
+  return cur;
+}
+
+/*
+ * Note: length is in units of octets.
+ */
+static void
 print_area_buf(const guint8 *ad, int length, gchar *buf, int buf_len)
+{
+  print_address_prefix_buf(ad, length*2, buf, buf_len);
+}
+
+/*
+ * Note: length is in units of half-octets.
+ */
+static void
+print_address_prefix_buf(const guint8 *ad, int length, gchar *buf, int buf_len)
 {
   gchar *cur;
   int  tmp  = 0;
 
   /* to do : all real area decoding now: NET is assumed if id len is 1 more byte
-   * and take away all these stupid resource consuming local statics
    */
-  if (length <= 0 || length > MAX_AREA_LEN) {
+  if (length <= 0 || length > MAX_AREA_LEN*2) {
     g_strlcpy(buf, "<Invalid length of AREA>", buf_len);
     return;
   }
 
   cur = buf;
-  if ( (  ( NSAP_IDI_ISODCC          == *ad )
-       || ( NSAP_IDI_GOSIP2          == *ad )
+  if ( (  ( NSAP_IDI_ISO_DCC_BIN      == *ad )
+       || ( NSAP_IDI_ISO_6523_ICD_BIN == *ad )
        )
        &&
-       (  ( RFC1237_FULLAREA_LEN     ==  length )
-       || ( RFC1237_FULLAREA_LEN + 1 ==  length )
+       (  ( RFC1237_FULLAREA_LEN*2       ==  length )
+       || ( (RFC1237_FULLAREA_LEN + 1)*2 ==  length )
        )
      ) {    /* AFI is good and length is long enough  */
 
     /* there used to be a check for (length > RFC1237_FULLAREA_LEN + 1) here,
-     * in order to report an invalied length of AREA for DCC / GOSIP AFI,
+     * in order to report an invalied length of AREA for DCC / ISO 6523 AFI,
      * but that can *never* be the case because the if() test above explicitly
      * tests for (length == RFC1237_FULLAREA_LEN) or (length == RFC1237_FULLAREA_LEN + 1)
      */
@@ -185,35 +212,40 @@ print_area_buf(const guint8 *ad, int length, gchar *buf, int buf_len)
                     ad[5], ad[6], ad[7], ad[8] );
     cur += g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "[%02x:%02x|%02x:%02x]",
                     ad[9], ad[10],  ad[11], ad[12] );
-    if ( RFC1237_FULLAREA_LEN + 1 == length )
+    if ( (RFC1237_FULLAREA_LEN + 1)*2 == length )
       g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "-[%02x]", ad[20] );
   }
   else { /* print standard format */
-    if ( length == RFC1237_AREA_LEN ) {
+    if ( length == RFC1237_AREA_LEN*2 ) {
       g_snprintf(buf, buf_len, "%02x.%02x%02x", ad[0], ad[1], ad[2] );
       return;
     }
-    if ( length == 4 ) {
+    if ( length == 4*2 ) {
       g_snprintf(buf, buf_len, "%02x%02x%02x%02x", ad[0], ad[1], ad[2], ad[3] );
       return;
     }
-    while ( tmp < length / 4 ) {      /* 16/4==4 > four Octets left to print */
+    while ( tmp < length / 8 ) {      /* 32/8==4 > four Octets left to print */
       cur += g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "%02x", ad[tmp++] );
       cur += g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "%02x", ad[tmp++] );
       cur += g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "%02x", ad[tmp++] );
       cur += g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "%02x.", ad[tmp++] );
     }
-    if ( 1 == tmp ) {                     /* Special case for Designated IS */
+    if ( 2 == tmp ) {                     /* Special case for Designated IS */
       cur--;
       g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "-%02x", ad[tmp] );
     }
     else {
-      for ( ; tmp < length; ) {  /* print the rest without dot or dash */
+      for ( ; tmp < length / 2; ) {  /* print the rest without dot or dash */
         cur += g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "%02x", ad[tmp++] );
+      }
+      /* Odd half-octet? */
+      if (length & 1) {
+        /* Yes - print it (it's the upper half-octet) */
+        g_snprintf(cur, (gulong) (buf_len-(cur-buf)), "%x", (ad[tmp] & 0xF0)>>4 );
       }
     }
   }
-} /* print_area_buf */
+} /* print_address_prefix_buf */
 
 /******************************************************************************
  * OSI Address Type

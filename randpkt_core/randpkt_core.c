@@ -29,8 +29,10 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include "wsutil/file_util.h"
+#include <wsutil/file_util.h>
 #include <wiretap/wtap_opttypes.h>
+
+#include "ui/failure_message.h"
 
 #define array_length(x)	(sizeof x / sizeof x[0])
 
@@ -49,6 +51,7 @@ enum {
 	PKT_FDDI,
 	PKT_GIOP,
 	PKT_ICMP,
+	PKT_IEEE802154,
 	PKT_IP,
 	PKT_IPv6,
 	PKT_LLC,
@@ -420,6 +423,14 @@ static randpkt_example examples[] = {
 		1000,
 	},
 
+	{ "ieee802.15.4", "IEEE 802.15.4",
+		PKT_IEEE802154, WTAP_ENCAP_IEEE802_15_4,
+		NULL,		0,
+		NULL,           0,
+		NULL,           NULL,
+		127,
+	},
+
 	{ "ip", "Internet Protocol",
 		PKT_IP,		WTAP_ENCAP_ETHERNET,
 		pkt_ip,		array_length(pkt_ip),
@@ -558,24 +569,21 @@ randpkt_example* randpkt_find_example(int type)
 
 void randpkt_loop(randpkt_example* example, guint64 produce_count)
 {
-	guint i;
-	int j;
+	guint i, j;
 	int err;
-	int len_random;
-	int len_this_pkt;
+	guint len_random;
+	guint len_this_pkt;
 	gchar* err_info;
 	union wtap_pseudo_header* ps_header;
-	guint8 buffer[65536];
+	guint8* buffer;
 	struct wtap_pkthdr* pkthdr;
 
 	pkthdr = g_new0(struct wtap_pkthdr, 1);
+	buffer = (guint8*)g_malloc0(65536);
 
 	pkthdr->rec_type = REC_TYPE_PACKET;
 	pkthdr->presence_flags = WTAP_HAS_TS;
 	pkthdr->pkt_encap = example->sample_wtap_encap;
-
-	memset(pkthdr, 0, sizeof(struct wtap_pkthdr));
-	memset(buffer, 0, sizeof(buffer));
 
 	ps_header = &pkthdr->pseudo_header;
 
@@ -617,67 +625,14 @@ void randpkt_loop(randpkt_example* example, guint64 produce_count)
 		}
 
 		if (!wtap_dump(example->dump, pkthdr, buffer, &err, &err_info)) {
-			fprintf(stderr, "randpkt: Error writing to %s: %s\n",
-			    example->filename, wtap_strerror(err));
-			switch (err) {
-
-			case WTAP_ERR_UNWRITABLE_ENCAP:
-				/*
-				 * This is a problem with the particular
-				 * frame we're writing and the file type
-				 * and subtype we're writing; note that,
-				 * and report the file type/subtype.
-				 */
-				fprintf(stderr,
-				    "Frame has a network type that can't be saved in a \"%s\" file.\n",
-				    wtap_file_type_subtype_short_string(WTAP_FILE_TYPE_SUBTYPE_PCAP));
-				break;
-
-			case WTAP_ERR_PACKET_TOO_LARGE:
-				/*
-				 * This is a problem with the particular
-				 * frame we're writing and the file type
-				 * and subtype we're writing; note that,
-				 * and report the file type/subtype.
-				 */
-				fprintf(stderr,
-					"Frame is too large for a \"%s\" file.\n",
-					wtap_file_type_subtype_short_string(WTAP_FILE_TYPE_SUBTYPE_PCAP));
-				break;
-
-			case WTAP_ERR_UNWRITABLE_REC_TYPE:
-				/*
-				 * This is a problem with the particular
-				 * record we're writing and the file type
-				 * and subtype we're writing; note that,
-				 * and report the file type/subtype.
-				 */
-				fprintf(stderr,
-					"Record has a record type that can't be saved in a \"%s\" file.\n",
-					wtap_file_type_subtype_short_string(WTAP_FILE_TYPE_SUBTYPE_PCAP));
-				break;
-
-			case WTAP_ERR_UNWRITABLE_REC_DATA:
-				/*
-				 * This is a problem with the particular
-				 * record we're writing and the file type
-				 * and subtype we're writing; note that,
-				 * and report the file type/subtype.
-				 */
-				fprintf(stderr,
-					"Record has data that can't be saved in a \"%s\" file.\n(%s)\n",
-					wtap_file_type_subtype_short_string(WTAP_FILE_TYPE_SUBTYPE_PCAP),
-					err_info != NULL ? err_info : "no information supplied");
-				g_free(err_info);
-				break;
-
-			default:
-				break;
-			}
+			cfile_write_failure_message("randpkt", NULL,
+			    example->filename, err, err_info, 0,
+			    WTAP_FILE_TYPE_SUBTYPE_PCAP);
 		}
 	}
 
 	g_free(pkthdr);
+	g_free(buffer);
 }
 
 gboolean randpkt_example_close(randpkt_example* example)
@@ -686,8 +641,7 @@ gboolean randpkt_example_close(randpkt_example* example)
 	gboolean ok = TRUE;
 
 	if (!wtap_dump_close(example->dump, &err)) {
-		fprintf(stderr, "Error writing to %s: %s\n",
-			example->filename, wtap_strerror(err));
+		cfile_close_failure_message(example->filename, err);
 		ok = FALSE;
 	}
 
@@ -720,7 +674,8 @@ int randpkt_example_init(randpkt_example* example, char* produce_filename, int p
 		example->filename = produce_filename;
 	}
 	if (!example->dump) {
-		fprintf(stderr, "randpkt: Error writing to %s\n", example->filename);
+		cfile_dump_open_failure_message("randpkt", produce_filename,
+			err, WTAP_FILE_TYPE_SUBTYPE_PCAP);
 		return WRITE_ERROR;
 	}
 
@@ -743,8 +698,8 @@ int randpkt_parse_type(char *string)
 	int	num_entries = array_length(examples);
 	int	i;
 
-	/* Called with NULL, choose a random packet */
-	if (!string) {
+	/* If called with NULL, or empty string, choose a random packet */
+	if (!string || !g_strcmp0(string, "")) {
 		return examples[g_random_int_range(0, num_entries)].produceable_type;
 	}
 
@@ -755,7 +710,7 @@ int randpkt_parse_type(char *string)
 	}
 
 	/* Complain */
-	fprintf(stderr, "randpkt: Type %s not known.\n", string);
+	g_error("randpkt: Type %s not known.\n", string);
 	return -1;
 }
 

@@ -117,7 +117,8 @@ FIELDDISPLAY    --For FT_UINT{8,16,24,32,40,48,56,64} and
                   BASE_DEC, BASE_HEX, BASE_OCT, BASE_DEC_HEX, BASE_HEX_DEC,
                   BASE_CUSTOM, or BASE_NONE, possibly ORed with
                   BASE_RANGE_STRING, BASE_EXT_STRING, BASE_VAL64_STRING,
-                  BASE_ALLOW_ZERO, BASE_UNIT_STRING or BASE_NO_DISPLAY_VALUE
+                  BASE_ALLOW_ZERO, BASE_UNIT_STRING, BASE_SPECIAL_VALS or
+                  BASE_NO_DISPLAY_VALUE
 
                   BASE_NONE may be used with a non-NULL FIELDCONVERT when the
                   numeric value of the field itself is not of significance to
@@ -950,6 +951,12 @@ indicate the end of the array).  The 'strings' field would be set to
 If the field has a numeric rather than an enumerated type, the 'strings'
 field would be set to NULL.
 
+If BASE_SPECIAL_VALS is also applied to the display bitmask, then if the
+numeric value of a field doesn't match any values in the value_string
+then just the numeric value is displayed (i.e.  no "Unknown").  This is
+intended for use when the value_string only gives special names for
+certain field values and values not in the value_string are expected.
+
 -- Extended value strings
 You can also use an extended version of the value_string for faster lookups.
 It requires a value_string array as input.
@@ -994,8 +1001,10 @@ used is a guint64 (instead of guint32). Instead of using the VALS()
 macro for the 'strings' field in the header_field_info struct array,
 'VALS64()' is used.
 
+BASE_SPECIAL_VALS can also be used for val64_string.
+
 -- Unit string
-Some integer fields, of type FT_UINT* and float fiels, of type FT_FLOAT
+Some integer fields, of type FT_UINT* and float fields, of type FT_FLOAT
 or FT_DOUBLE, need units of measurement to help convey the field value.
 
 A 'unit_name_string' structure is a way to add a unit suffix to a field.
@@ -1014,7 +1023,7 @@ For fields with that unit name, you would declare a "unit_name_string":
 This is typically the case when abbreviations are used instead of full words.)
 
 There are several "common" unit name structures already defined in
-epan/unit_strings.h.  Dissector authors may choose to add the unit name
+epan/unit_strings.h. Dissector authors may choose to add the unit name
 structure there rather than locally in a dissector.
 
 For hf[] array FT_(U)INT*, FT_FlOAT and FT_DOUBLE fields that need a
@@ -1081,6 +1090,12 @@ in tfs.h, included via packet.h.
 -- Custom
 Custom fields (BASE_CUSTOM) should use CF_FUNC(&custom_format_func) for the
 'strings' field.
+
+-- Note to plugin authors
+Data cannot get exported from DLLs. For this reason plugin authors cannot use
+existing fieldconvert strings (e.g. from existing dissectors or those from
+epan/unit_strings.h). Plugins must define value_strings, unit_name_strings,
+range_strings and true_false_strings locally.
 
 bitmask (BITMASK)
 -----------------
@@ -1237,6 +1252,14 @@ protocol or field labels to the proto_tree:
 
     proto_item*
     proto_tree_add_item_ret_uint(tree, id, tvb, start, length, encoding,
+        *retval);
+
+    proto_item*
+    proto_tree_add_item_ret_uint64(tree, id, tvb, start, length, encoding,
+        *retval);
+
+    proto_item*
+    proto_tree_add_item_ret_boolean(tree, id, tvb, start, length, encoding,
         *retval);
 
     proto_item*
@@ -1598,14 +1621,59 @@ For FT_ABSOLUTE_TIME fields, the encoding specifies the form in which
 the time stamp is specified, as well as its byte order.  The time stamp
 encodings that are currently supported are:
 
-    ENC_TIME_TIMESPEC - seconds (4 bytes) and nanoseconds (4 bytes)
-        of time since January 1, 1970, midnight UTC.
-        (If the field length is 4, then nanosecs is defaulted to 0).
+    ENC_TIME_TIMESPEC - 8 bytes; the first 4 bytes are seconds since
+        the UN*X epoch (1970-01-01 00:00:00 UTC) and the next 4 bytes
+        are nanoseconds since that second.  (I.e., a UN*X struct
+        timespec with a 4-byte time_t.)
 
-    ENC_TIME_NTP - an NTP timestamp, represented as a 64-bit
-        unsigned fixed-point number, in seconds relative to 0h
-        on 1 January 1900.  The integer part is in the first 32
-        bits and the fraction part in the last 32 bits.
+    ENC_TIME_NTP - 8 bytes; the first 4 bytes are seconds since the NTP
+        epoch (1900-01-01 00:00:00 GMT) and the next 4 bytes are 1/2^32's of
+        a second since that second.  (I.e., a 64-bit count of 1/2^32's of a
+        second since the NTP epoch, with the upper 32 bits first and the
+        lower 32 bits second, even when little-endian.)
+
+    ENC_TIME_TOD - 8 bytes, as a count of microseconds since the System/3x0
+        and z/Architecture epoch (1900-01-01 00:00:00 GMT).
+
+    ENC_TIME_RTPS - 8 bytes; the first 4 bytes are seconds since the UN*X
+        epoch and the next 4 bytes are are 1/2^32's of a second since that
+        second.  (I.e., it's the offspring of a mating between UN*X time and
+        NTP time.)  It's used by the Object Management Group's Real-Time
+        Publish-Subscribe Wire Protocol for the Data Distribution Service.
+
+    ENC_TIME_TIMEVAL - 8 bytes; the first 4 bytes are seconds since the
+        UN*X epoch and the next 4 bytes are microseconds since that
+        second.  (I.e., a UN*X struct timeval with a 4-byte time_t.)
+
+    ENC_TIME_SECS - 4 to 8 bytes, representing a value in seconds since
+        the UN*X epoch.
+
+    ENC_TIME_MSECS - 6 to 8 bytes, representing a value in milliseconds
+        since the UN*X epoch.
+
+    ENC_TIME_SECS_NTP - 4 bytes, representing a count of seconds since
+        the NTP epoch.  (I.e., seconds since the NTP epoch.)
+
+    ENC_TIME_RFC_3971 - 8 bytes, representing a count of 1/64ths of a
+        second since the UN*X epoch; see section 5.3.1 "Timestamp Option"
+        in RFC 3971.
+
+    ENC_TIME_MSEC_NTP - 4-8 bytes, representing a count of milliseconds since
+        the NTP epoch.  (I.e., milliseconds since the NTP epoch.)
+
+For FT_RELATIVE_TIME fields, the encoding specifies the form in which
+the time stamp is specified, as well as its byte order.  The time stamp
+encodings that are currently supported are:
+
+    ENC_TIME_TIMESPEC - 8 bytes; the first 4 bytes are seconds and the
+        next 4 bytes are nanoseconds.
+
+    ENC_TIME_TIMEVAL - 8 bytes; the first 4 bytes are seconds and the
+        next 4 bytes are microseconds.
+
+    ENC_TIME_SECS - 4 to 8 bytes, representing a value in seconds.
+
+    ENC_TIME_MSECS - 6 to 8 bytes, representing a value in milliseconds.
 
 For other types, there is no support for proto_tree_add_item().
 
@@ -3011,10 +3079,11 @@ routines -
     /* Register a preference with a file name (string) value.
     * File name preferences are basically like string preferences
     * except that the GUI gives the user the ability to browse for the
-    * file.
+    * file. Set for_writing TRUE to show a Save dialog instead of normal Open.
     */
     void prefs_register_filename_preference(module_t *module, const char *name,
-        const char *title, const char *description, char **var)
+        const char *title, const char *description, char **var,
+        gboolean for_writing)
 
     /* Register a preference with a range of unsigned integers (e.g.,
      * "1-20,30-40").

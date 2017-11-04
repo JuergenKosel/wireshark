@@ -91,7 +91,7 @@
 
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #ifdef HAVE_EXTCAP
 #include "extcap.h"
 #endif
@@ -343,7 +343,7 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
             argv = sync_pipe_add_arg(argv, &argc, "-f");
             argv = sync_pipe_add_arg(argv, &argc, interface_opts.cfilter);
         }
-        if (interface_opts.snaplen != WTAP_MAX_PACKET_SIZE) {
+        if (interface_opts.has_snaplen) {
             argv = sync_pipe_add_arg(argv, &argc, "-s");
             g_snprintf(ssnap, ARGV_NUMBER_LEN, "%d", interface_opts.snaplen);
             argv = sync_pipe_add_arg(argv, &argc, ssnap);
@@ -515,19 +515,12 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
 #else
     si.dwFlags = STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
     si.wShowWindow  = SW_HIDE;  /* this hides the console window */
-#if defined(_WIN32)
-    /* needs first a check if NULL *
-     * otherwise wouldn't work with non extcap interfaces */
-    if(interface_opts.extcap_fifo != NULL)
-    {
-       if(strncmp(interface_opts.extcap_fifo,"\\\\.\\pipe\\",9)== 0)
-       {
-         si.hStdInput = extcap_get_win32_handle();
-       }
-    }
+#ifdef HAVE_EXTCAP
+    if(interface_opts.extcap_pipe_h != INVALID_HANDLE_VALUE)
+        si.hStdInput = interface_opts.extcap_pipe_h;
     else
 #endif
-       si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
 
     si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     si.hStdError = sync_pipe_write;

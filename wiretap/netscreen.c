@@ -278,6 +278,9 @@ parse_netscreen_packet(FILE_T fh, struct wtap_pkthdr *phdr, Buffer* buf,
 
 	phdr->rec_type = REC_TYPE_PACKET;
 	phdr->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
+	/* Suppress compiler warnings */
+	memset(cap_int, 0, sizeof(cap_int));
+	memset(cap_dst, 0, sizeof(cap_dst));
 
 	if (sscanf(line, "%9d.%9d: %15[a-z0-9/:.-](%1[io]) len=%9d:%12s->%12s/",
 		   &sec, &dsec, cap_int, direction, &pkt_len, cap_src, cap_dst) < 5) {
@@ -290,14 +293,14 @@ parse_netscreen_packet(FILE_T fh, struct wtap_pkthdr *phdr, Buffer* buf,
 		*err_info = g_strdup("netscreen: packet header has a negative packet length");
 		return FALSE;
 	}
-	if (pkt_len > WTAP_MAX_PACKET_SIZE) {
+	if (pkt_len > WTAP_MAX_PACKET_SIZE_STANDARD) {
 		/*
 		 * Probably a corrupt capture file; don't blow up trying
 		 * to allocate space for an immensely-large packet.
 		 */
 		*err = WTAP_ERR_BAD_FILE;
 		*err_info = g_strdup_printf("netscreen: File has %u-byte packet, bigger than maximum of %u",
-		    pkt_len, WTAP_MAX_PACKET_SIZE);
+		    pkt_len, WTAP_MAX_PACKET_SIZE_STANDARD);
 		return FALSE;
 	}
 

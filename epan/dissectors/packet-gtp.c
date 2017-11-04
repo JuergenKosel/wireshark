@@ -259,8 +259,9 @@ static int hf_gtp_correlation_id = -1;
 static int hf_gtp_earp_pvi = -1;
 static int hf_gtp_earp_pl = -1;
 static int hf_gtp_ext_comm_flags_uasi = -1;
-static int hf_gtp_ext_comm_flags_II_dtci = -1;
 static int hf_gtp_ext_comm_flags_II_pnsi = -1;
+static int hf_gtp_ext_comm_flags_II_dtci = -1;
+static int hf_gtp_ext_comm_flags_II_pmtsmi = -1;
 static int hf_gtp_ext_comm_flags_II_spare = -1;
 static int hf_gtp_earp_pci = -1;
 static int hf_gtp_cdr_app = -1;
@@ -1283,7 +1284,9 @@ static const value_string cause_type[] = {
     {228, "Collision with network initiated request"},
     {229, "APN Congestion"},
     {230, "Bearer handling not supported"},
-    {232, "UE is temporarily not reachable due to power saving"},
+    {231, "Target access restricted for the subscriber" },
+    {232, "UE is temporarily not reachable due to power saving" },
+    {233, "Relocation failure due to NAS message redirection"},
     /* For future use -240 */
     /* Cause values reserved for GPRS charging
      * protocol use (see GTP' in 3GPP TS 32.295 [33])
@@ -8068,7 +8071,10 @@ decode_gtp_extended_common_flgs_II(tvbuff_t * tvb, int offset, packet_info * pin
     proto_tree_add_item(ext_tree, hf_gtp_ext_length, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset = offset + 2;
 
+    proto_tree_add_item(ext_tree, hf_gtp_ext_comm_flags_II_pnsi, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(ext_tree, hf_gtp_ext_comm_flags_II_dtci, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ext_tree, hf_gtp_ext_comm_flags_II_pmtsmi, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ext_tree, hf_gtp_ext_comm_flags_II_spare, tvb, offset, 1, ENC_BIG_ENDIAN);
 
     offset++;
 
@@ -9730,19 +9736,24 @@ proto_register_gtp(void)
            FT_BOOLEAN, 8, NULL, 0x80,
            NULL, HFILL}
         },
-        {&hf_gtp_ext_comm_flags_II_dtci,
-         { "DTCI", "gtp.ext_comm_flags_II_dtci",
-           FT_BOOLEAN, 8, NULL, 0x02,
-           NULL, HFILL}
-        },
         {&hf_gtp_ext_comm_flags_II_pnsi,
          { "PNSI", "gtp.ext_comm_flags_II_pnsi",
            FT_UINT8, BASE_DEC, NULL, 0x01,
            NULL, HFILL}
         },
+        {&hf_gtp_ext_comm_flags_II_dtci,
+         { "DTCI", "gtp.ext_comm_flags_II_dtci",
+           FT_BOOLEAN, 8, NULL, 0x02,
+           NULL, HFILL}
+        },
+        {&hf_gtp_ext_comm_flags_II_pmtsmi,
+         { "PMTSMI", "gtp.ext_comm_flags_II_pmtsmi",
+           FT_UINT8, BASE_DEC, NULL, 0x04,
+           NULL, HFILL}
+        },
         {&hf_gtp_ext_comm_flags_II_spare,
          { "SPARE", "gtp.ext_comm_flags_II_spare",
-           FT_UINT8, BASE_HEX, NULL, 0xFC,
+           FT_UINT8, BASE_HEX, NULL, 0xF8,
            NULL, HFILL}
         },
         {&hf_gtp_earp_pci,
@@ -10100,8 +10111,7 @@ proto_register_gtp(void)
 
 
     proto_gtp = proto_register_protocol("GPRS Tunneling Protocol", "GTP", "gtp");
-    /* Created to remove Decode As confusion */
-    proto_gtpprime = proto_register_protocol_in_name_only("GPRS Tunneling Protocol Prime", "GTP (Prime)", "gtpprime", proto_gtp, FT_PROTOCOL);
+    proto_gtpprime = proto_register_protocol("GPRS Tunneling Protocol Prime", "GTP (Prime)", "gtpprime");
 
     proto_register_field_array(proto_gtp, hf_gtp, array_length(hf_gtp));
     proto_register_subtree_array(ett_gtp_array, array_length(ett_gtp_array));
@@ -10138,8 +10148,8 @@ proto_register_gtp(void)
     gtp_handle = register_dissector("gtp", dissect_gtp, proto_gtp);
     gtp_prime_handle = register_dissector("gtpprime", dissect_gtpprime, proto_gtpprime);
 
-    gtp_priv_ext_dissector_table = register_dissector_table("gtp.priv_ext", "GTP PRIVATE EXT", proto_gtp, FT_UINT16, BASE_DEC);
-    gtp_cdr_fmt_dissector_table = register_dissector_table("gtp.cdr_fmt", "GTP DATA RECORD TYPE", proto_gtp, FT_UINT16, BASE_DEC);
+    gtp_priv_ext_dissector_table = register_dissector_table("gtp.priv_ext", "GTP Private Extension", proto_gtp, FT_UINT16, BASE_DEC);
+    gtp_cdr_fmt_dissector_table = register_dissector_table("gtp.cdr_fmt", "GTP Data Record Type", proto_gtp, FT_UINT16, BASE_DEC);
 
     register_init_routine(gtp_init);
     register_cleanup_routine(gtp_cleanup);

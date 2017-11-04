@@ -344,6 +344,10 @@ extern "C" {
 #define ETHERTYPE_PROFINET		0x8892	/* PROFIBUS PROFINET protocol */
 #endif
 
+#ifndef ETHERTYPE_REALTEK
+#define ETHERTYPE_REALTEK		0x8899	/* Realtek Layer 2 Protocols */
+#endif
+
 #ifndef ETHERTYPE_HYPERSCSI
 #define ETHERTYPE_HYPERSCSI		0x889A	/* HyperSCSI */
 #endif
@@ -577,7 +581,7 @@ extern "C" {
 #define ETHERTYPE_RTCFG			0x9022	/* RTnet: Real-Time Configuration Protocol */
 #endif
 
-#ifndef ETHERYPE_QINQ_OLD
+#ifndef ETHERTYPE_QINQ_OLD
 #define ETHERTYPE_QINQ_OLD		0x9100	/* QinQ: old non-standard 802.1ad */
 #endif
 

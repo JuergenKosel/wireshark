@@ -35,7 +35,7 @@
     <message>
         <location filename="about_dialog.ui" line="162"/>
         <source>Search Authors</source>
-        <translation type="unfinished"></translation>
+        <translation>Cerca autori</translation>
     </message>
     <message>
         <location filename="about_dialog.ui" line="177"/>
@@ -92,7 +92,7 @@
     <message>
         <location filename="apply_line_edit.cpp" line="42"/>
         <source>Apply changes</source>
-        <translation type="unfinished"></translation>
+        <translation>Applica modifiche</translation>
     </message>
 </context>
 <context>
@@ -156,17 +156,17 @@
         <location filename="bluetooth_att_server_attributes_dialog.ui" line="200"/>
         <location filename="bluetooth_att_server_attributes_dialog.ui" line="203"/>
         <source>Mark/Unmark Row</source>
-        <translation type="unfinished"></translation>
+        <translation>Marca/Deseleziona riga</translation>
     </message>
     <message>
         <location filename="bluetooth_att_server_attributes_dialog.ui" line="206"/>
         <source>CtrlM</source>
-        <translation type="unfinished"></translation>
+        <translation>CtrlM</translation>
     </message>
     <message>
         <location filename="bluetooth_att_server_attributes_dialog.ui" line="211"/>
         <source>Mark/Unmark Cell</source>
-        <translation type="unfinished"></translation>
+        <translation>Marca/Deseleziona cella</translation>
     </message>
     <message>
         <location filename="bluetooth_att_server_attributes_dialog.cpp" line="368"/>
@@ -308,7 +308,7 @@
     </message>
     <message>
         <location filename="bluetooth_device_dialog.ui" line="206"/>
-        <location filename="bluetooth_device_dialog.cpp" line="633"/>
+        <location filename="bluetooth_device_dialog.cpp" line="632"/>
         <source>%1 changes</source>
         <translation>%1 modifiche</translation>
     </message>
@@ -336,17 +336,17 @@
         <location filename="bluetooth_device_dialog.ui" line="243"/>
         <location filename="bluetooth_device_dialog.ui" line="246"/>
         <source>Mark/Unmark Row</source>
-        <translation type="unfinished"></translation>
+        <translation>Marca/Deseleziona riga</translation>
     </message>
     <message>
         <location filename="bluetooth_device_dialog.ui" line="249"/>
         <source>CtrlM</source>
-        <translation type="unfinished"></translation>
+        <translation>CtrlM</translation>
     </message>
     <message>
         <location filename="bluetooth_device_dialog.ui" line="254"/>
         <source>Mark/Unmark Cell</source>
-        <translation type="unfinished"></translation>
+        <translation>Marca/Deseleziona cella</translation>
     </message>
     <message>
         <location filename="bluetooth_device_dialog.cpp" line="180"/>
@@ -359,27 +359,27 @@
         <translation>Dispositivo Bluetooth - %1%2</translation>
     </message>
     <message>
-        <location filename="bluetooth_device_dialog.cpp" line="568"/>
+        <location filename="bluetooth_device_dialog.cpp" line="567"/>
         <source>enabled</source>
         <translation>abilitato</translation>
     </message>
     <message>
-        <location filename="bluetooth_device_dialog.cpp" line="568"/>
+        <location filename="bluetooth_device_dialog.cpp" line="567"/>
         <source>disabled</source>
         <translation>disabilitato</translation>
     </message>
     <message>
-        <location filename="bluetooth_device_dialog.cpp" line="576"/>
+        <location filename="bluetooth_device_dialog.cpp" line="575"/>
         <source>%1 ms (%2 slots)</source>
         <translation>%1 ms (%2 slot)</translation>
     </message>
     <message>
-        <location filename="bluetooth_device_dialog.cpp" line="668"/>
+        <location filename="bluetooth_device_dialog.cpp" line="667"/>
         <source>Save Table Image</source>
         <translation>Salva immagine tabella</translation>
     </message>
     <message>
-        <location filename="bluetooth_device_dialog.cpp" line="670"/>
+        <location filename="bluetooth_device_dialog.cpp" line="669"/>
         <source>PNG Image (*.png)</source>
         <translation>Immagine PNG (*.png)</translation>
     </message>
@@ -476,17 +476,17 @@
         <location filename="bluetooth_devices_dialog.ui" line="183"/>
         <location filename="bluetooth_devices_dialog.ui" line="186"/>
         <source>Mark/Unmark Row</source>
-        <translation type="unfinished"></translation>
+        <translation>Marca/Deseleziona riga</translation>
     </message>
     <message>
         <location filename="bluetooth_devices_dialog.ui" line="189"/>
         <source>CtrlM</source>
-        <translation type="unfinished"></translation>
+        <translation>CtrlM</translation>
     </message>
     <message>
         <location filename="bluetooth_devices_dialog.ui" line="194"/>
         <source>Mark/Unmark Cell</source>
-        <translation type="unfinished"></translation>
+        <translation>Marca/Deseleziona cella</translation>
     </message>
     <message>
         <location filename="bluetooth_devices_dialog.cpp" line="341"/>
@@ -540,7 +540,7 @@
     <message>
         <location filename="bluetooth_hci_summary_dialog.ui" line="112"/>
         <source>Subevent</source>
-        <translation type="unfinished"></translation>
+        <translation>Sottoevento</translation>
     </message>
     <message>
         <location filename="bluetooth_hci_summary_dialog.ui" line="117"/>
@@ -688,93 +688,98 @@
         <translation>Errori hardware</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="599"/>
-        <source>Display filter:</source>
-        <translation type="unfinished">Filtro di visualizzazione:</translation>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="593"/>
+        <source>Results filter:</source>
+        <translation>Filtro risultati:</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="622"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="616"/>
+        <source>Display filter:</source>
+        <translation>Filtro di visualizzazione:</translation>
+    </message>
+    <message>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="639"/>
         <source>All Interfaces</source>
         <translation>Tutte le interfacce</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="637"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="654"/>
         <source>All Adapters</source>
         <translation>Tutte le schede</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="664"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="681"/>
         <source>Copy Cell</source>
         <translation>Copia cella</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="669"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="686"/>
         <source>Copy Rows</source>
         <translation>Copia righe</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="674"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="691"/>
         <source>Copy All</source>
         <translation>Copia tutto</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="679"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="696"/>
         <source>Save as image</source>
         <translation>Salva come immagine</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="684"/>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="687"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="701"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="704"/>
         <source>Mark/Unmark Row</source>
-        <translation type="unfinished"></translation>
+        <translation>Marca/Deseleziona riga</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="690"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="707"/>
         <source>Ctrl+M</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+M</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.ui" line="695"/>
+        <location filename="bluetooth_hci_summary_dialog.ui" line="712"/>
         <source>Mark/Unmark Cell</source>
-        <translation type="unfinished"></translation>
+        <translation>Marca/Deseleziona cella</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="361"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="518"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="524"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="605"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="362"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="519"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="525"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="606"/>
         <source>Unknown</source>
         <translation>Sconosciuto</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="379"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="380"/>
         <source>Adapter %1</source>
         <translation>Scheda %1</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="467"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="539"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="590"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="610"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="652"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="686"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="723"/>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="757"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="469"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="540"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="591"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="611"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="654"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="689"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="727"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="762"/>
         <source>Frame %1</source>
         <translation>Frame %1</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="675"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="677"/>
         <source>Pending</source>
         <translation>In corso</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="871"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="876"/>
         <source>Save Table Image</source>
         <translation>Salva immagine tabella</translation>
     </message>
     <message>
-        <location filename="bluetooth_hci_summary_dialog.cpp" line="873"/>
+        <location filename="bluetooth_hci_summary_dialog.cpp" line="878"/>
         <source>PNG Image (*.png)</source>
         <translation>Immagine PNG (*.png)</translation>
     </message>
@@ -793,10 +798,6 @@
         <location filename="byte_view_text.cpp" line="80"/>
         <source>Show bytes as hexadecimal</source>
         <translation>Mostra byte in esadecimale</translation>
-    </message>
-    <message>
-        <source>Show bytes as bits</source>
-        <translation type="vanished">Mostra byte come bit</translation>
     </message>
     <message>
         <location filename="byte_view_text.cpp" line="300"/>
@@ -873,50 +874,38 @@
     <message>
         <location filename="capture_file_dialog.cpp" line="443"/>
         <source>Start / elapsed:</source>
-        <translation type="unfinished"></translation>
+        <translation>Inizio / trascorso:</translation>
     </message>
     <message>
         <location filename="capture_file_dialog.cpp" line="489"/>
         <source>Automatically detect file type</source>
-        <translation type="unfinished"></translation>
+        <translation>Rileva automaticamente il tipo di file</translation>
     </message>
     <message numerus="yes">
         <location filename="capture_file_dialog.cpp" line="787"/>
         <source>%1, error after %Ln packet(s)</source>
         <oldsource>%1, error after %2 packets</oldsource>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%1, errore dopo %Ln pacchetto</numerusform>
+            <numerusform>%1, errore dopo %Ln pacchetti</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="capture_file_dialog.cpp" line="794"/>
         <source>%1, timed out at %Ln packet(s)</source>
         <oldsource>%1, timed out at %2 packets</oldsource>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%1, scaduto dopo %Ln pacchetto</numerusform>
+            <numerusform>%1, scaduto dopo %Ln pacchetti</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="capture_file_dialog.cpp" line="797"/>
         <source>%1, %Ln packet(s)</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%1, %Ln pacchetto</numerusform>
+            <numerusform>%1, %Ln pacchetti</numerusform>
         </translation>
-    </message>
-    <message>
-        <source>Packets:</source>
-        <translation type="vanished">Pacchetti:</translation>
-    </message>
-    <message>
-        <source>First Packet:</source>
-        <translation type="vanished">Primo pacchetto:</translation>
-    </message>
-    <message>
-        <source>Elapsed Time:</source>
-        <translation type="vanished">Tempo trascorso:</translation>
     </message>
     <message>
         <location filename="capture_file_dialog.cpp" line="455"/>
@@ -952,26 +941,6 @@
         <location filename="capture_file_dialog.cpp" line="480"/>
         <source>Read filter:</source>
         <translation>Filtro di lettura:</translation>
-    </message>
-    <message>
-        <source>Automatic</source>
-        <translation type="vanished">Automatico</translation>
-    </message>
-    <message>
-        <source>&amp;MAC name resolution</source>
-        <translation type="vanished">Risoluzione dei &amp;MAC</translation>
-    </message>
-    <message>
-        <source>&amp;Transport name resolution</source>
-        <translation type="vanished">Risoluzione dei nomi di &amp;trasporto</translation>
-    </message>
-    <message>
-        <source>&amp;Network name resolution</source>
-        <translation type="vanished">Risoluzione dei nomi di &amp;rete</translation>
-    </message>
-    <message>
-        <source>&amp;External name resolver</source>
-        <translation type="vanished">Risolutore di nomi &amp;esterno</translation>
     </message>
     <message>
         <location filename="capture_file_dialog.cpp" line="498"/>
@@ -1013,10 +982,6 @@
         <translation>Unisci file di cattura</translation>
     </message>
     <message>
-        <source>-</source>
-        <translation type="vanished">-</translation>
-    </message>
-    <message>
         <location filename="capture_file_dialog.cpp" line="733"/>
         <source>directory</source>
         <translation>cartella</translation>
@@ -1030,22 +995,6 @@
         <location filename="capture_file_dialog.cpp" line="742"/>
         <source>error opening file</source>
         <translation>errore nell&apos;apertura del file</translation>
-    </message>
-    <message>
-        <source>%1 bytes</source>
-        <translation type="vanished">%1 byte</translation>
-    </message>
-    <message>
-        <source>error after reading %1 packets</source>
-        <translation type="vanished">errore dopo la lettura di %1 pacchetti</translation>
-    </message>
-    <message>
-        <source>more than %1 (preview timeout)</source>
-        <translation type="vanished">più di %1 (tempo scaduto per l&apos;anteprima)</translation>
-    </message>
-    <message>
-        <source>?</source>
-        <translation type="vanished">?</translation>
     </message>
     <message>
         <location filename="capture_file_dialog.cpp" line="821"/>
@@ -1231,10 +1180,6 @@
         <translation>Marcati</translation>
     </message>
     <message>
-        <source>N/A</source>
-        <translation type="vanished">N/D</translation>
-    </message>
-    <message>
         <location filename="capture_file_properties_dialog.cpp" line="378"/>
         <source>Packets</source>
         <translation>Pacchetti</translation>
@@ -1349,18 +1294,6 @@
         <location filename="capture_filter_edit.cpp" line="382"/>
         <source>Manage Capture Filters</source>
         <translation>Gestisci fltri di cattura</translation>
-    </message>
-    <message>
-        <location filename="capture_filter_edit.cpp" line="515"/>
-        <source>Unable to save capture filter settings.</source>
-        <translation>Impossibile salvare le impostazioni del filtro di cattura.</translation>
-    </message>
-    <message>
-        <location filename="capture_filter_edit.cpp" line="516"/>
-        <source>Could not save to your capture filter file
-&quot;%1&quot;: %2.</source>
-        <translation>Impossibile salvare il file del filtro di cattura
-&quot;%1&quot;: %2.</translation>
     </message>
 </context>
 <context>
@@ -1685,77 +1618,77 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interrompi la cattura dopo che il numero di file specificato è stato creato.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="186"/>
+        <location filename="capture_interfaces_dialog.cpp" line="190"/>
         <source>Capture Interfaces</source>
         <translation>Interfacce di cattura</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="191"/>
+        <location filename="capture_interfaces_dialog.cpp" line="195"/>
         <source>Start</source>
         <translation>Avvia</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="213"/>
+        <location filename="capture_interfaces_dialog.cpp" line="217"/>
         <source>Leave blank to use a temporary file</source>
         <translation>Lascia vuoto per utilizzare un file temporaneo</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="354"/>
+        <location filename="capture_interfaces_dialog.cpp" line="390"/>
         <source>Specify a Capture File</source>
         <translation>Specifica un file di cattura</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="652"/>
+        <location filename="capture_interfaces_dialog.cpp" line="688"/>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="652"/>
+        <location filename="capture_interfaces_dialog.cpp" line="688"/>
         <source>Addresses</source>
         <translation>Indirizzi</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="652"/>
+        <location filename="capture_interfaces_dialog.cpp" line="688"/>
         <source>Address</source>
         <translation>Indirizzo</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="662"/>
+        <location filename="capture_interfaces_dialog.cpp" line="698"/>
         <source>no addresses</source>
         <translation>nessun indirizzo</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="840"/>
-        <location filename="capture_interfaces_dialog.cpp" line="848"/>
-        <location filename="capture_interfaces_dialog.cpp" line="859"/>
-        <location filename="capture_interfaces_dialog.cpp" line="863"/>
-        <location filename="capture_interfaces_dialog.cpp" line="876"/>
-        <location filename="capture_interfaces_dialog.cpp" line="884"/>
+        <location filename="capture_interfaces_dialog.cpp" line="878"/>
+        <location filename="capture_interfaces_dialog.cpp" line="886"/>
+        <location filename="capture_interfaces_dialog.cpp" line="897"/>
+        <location filename="capture_interfaces_dialog.cpp" line="901"/>
+        <location filename="capture_interfaces_dialog.cpp" line="914"/>
+        <location filename="capture_interfaces_dialog.cpp" line="922"/>
         <source>Error</source>
         <translation>Errore</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="841"/>
-        <location filename="capture_interfaces_dialog.cpp" line="849"/>
-        <location filename="capture_interfaces_dialog.cpp" line="877"/>
-        <location filename="capture_interfaces_dialog.cpp" line="885"/>
+        <location filename="capture_interfaces_dialog.cpp" line="879"/>
+        <location filename="capture_interfaces_dialog.cpp" line="887"/>
+        <location filename="capture_interfaces_dialog.cpp" line="915"/>
+        <location filename="capture_interfaces_dialog.cpp" line="923"/>
         <source>Multiple files: Requested filesize too large. The filesize cannot be greater than 2 GiB.</source>
         <oldsource>Multiple files: Requested filesize too large! The filesize cannot be greater than 2 GiB.</oldsource>
-        <translation type="unfinished">File multipli: la dimensione del file richiesta è troppo grande. La dimensione del file non può essere superiore a 2 GiB.</translation>
+        <translation>File multipli: la dimensione del file richiesta è troppo grande. La dimensione del file non può essere superiore a 2 GiB.</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="860"/>
+        <location filename="capture_interfaces_dialog.cpp" line="898"/>
         <source>Multiple files: No capture file name given. You must specify a filename if you want to use multiple files.</source>
         <oldsource>Multiple files: No capture file name given! You must specify a filename if you want to use multiple files.</oldsource>
-        <translation type="unfinished">File multipli: non è stato fornito un nome del file di cattura! Devi specificare un nome del file se vuoi usare file multipli.</translation>
+        <translation>File multipli: non è stato fornito un nome del file di cattura! Devi specificare un nome del file se vuoi usare file multipli.</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="864"/>
+        <location filename="capture_interfaces_dialog.cpp" line="902"/>
         <source>Multiple files: No file limit given. You must specify a file size or duration at which is switched to the next capture file
  if you want to use multiple files.</source>
         <oldsource>Multiple files: No file limit given! You must specify a file size or duration at which is switched to the next capture file
  if you want to use multiple files.</oldsource>
-        <translation type="unfinished">File multipli: non è stato fornito alcun limite di file! Devi specificare una dimensione del file o la durata raggiunta la quale si passa al successivo file di cattura se vuoi usare file multipli.</translation>
+        <translation>File multipli: non è stato fornito alcun limite di file! Devi specificare una dimensione del file o la durata raggiunta la quale si passa al successivo file di cattura se vuoi usare file multipli.</translation>
     </message>
 </context>
 <context>
@@ -1921,12 +1854,7 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <location filename="coloring_rules_dialog.cpp" line="366"/>
         <source>Wireshark doesn&apos;t recognize one or more of your coloring rules. They have been disabled.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Wireshark doesn&apos;t recognize one or more of your coloring rules. Saving will disable them.</source>
-        <oldsource>Wireshark doesn&apos;t recognize one or more of your coloring rules. Saving will discard them.</oldsource>
-        <translation type="obsolete">Wireshark non riconosce una o più delle tue regole di colorazione. Il salvataggio le rimuoverà.</translation>
+        <translation>Wireshark non riconosce una o più delle tue regole di colorazione. Sono state disabilitate.</translation>
     </message>
     <message>
         <location filename="coloring_rules_dialog.cpp" line="378"/>
@@ -2009,12 +1937,12 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Output del filtro compilato</translation>
     </message>
     <message>
-        <location filename="compiled_filter_output.cpp" line="48"/>
+        <location filename="compiled_filter_output.cpp" line="51"/>
         <source>Copy</source>
         <translation>Copia</translation>
     </message>
     <message>
-        <location filename="compiled_filter_output.cpp" line="49"/>
+        <location filename="compiled_filter_output.cpp" line="52"/>
         <source>Copy filter text to the clipboard.</source>
         <translation>Copia il testo del filtro negli appunti.</translation>
     </message>
@@ -2201,18 +2129,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Gestisci espressioni di filtro</translation>
     </message>
     <message>
-        <location filename="display_filter_edit.cpp" line="546"/>
-        <source>Unable to save display filter settings.</source>
-        <translation>Impossibile salvare le impostazioni del filtro di visualizzazione.</translation>
-    </message>
-    <message>
-        <location filename="display_filter_edit.cpp" line="547"/>
-        <source>Could not save to your display filter file
-&quot;%1&quot;: %2.</source>
-        <translation>Impossibile salvare il file del filtro di visualizzazione
-&quot;%1&quot;: %2.</translation>
-    </message>
-    <message>
         <location filename="display_filter_edit.cpp" line="363"/>
         <source>Remove this filter</source>
         <translation>Rimuovi questo filtro</translation>
@@ -2252,27 +2168,13 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Cerca:</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Relations can be used to restrict fields to specific values. Each relation does the following:&lt;/p&gt;
-&lt;table&gt;&lt;tbody&gt;
-&lt;tr&gt;&lt;th&gt;is present&lt;/th&gt;&lt;td&gt;Match any packet that contains this field&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;th&gt;==, !=, etc.&lt;/th&gt;&lt;td&gt;Compare the field to a specific value.&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;th&gt;contains, matches&lt;/th&gt;&lt;td&gt;Check the field against a string (contains) or a regular expression (matches)&lt;/td&gt;&lt;/tr&gt;
-&lt;/tbody&gt;&lt;/table&gt;
-&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Le relazioni possono essere utilizzate per restringere i campi a valori specifici. Ogni relazione fa ciò che segue:&lt;/p&gt;
-&lt;table&gt;&lt;tbody&gt;
-&lt;tr&gt;&lt;th&gt;è presente&lt;/th&gt;&lt;td&gt;Verifica qualsiasi pacchetto che contiene questo campo&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;th&gt;==, !=, etc.&lt;/th&gt;&lt;td&gt;Confronta il campo con un valore specifico.&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;th&gt;contiene, corrisponde a&lt;/th&gt;&lt;td&gt;Verifica il campo con una stringa (contiene) o un&apos;espressione regolare (corrisponde a)&lt;/td&gt;&lt;/tr&gt;
-&lt;/tbody&gt;&lt;/table&gt;
-&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
         <location filename="display_filter_expression_dialog.ui" line="72"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Relations can be used to restrict fields to specific values. Each relation does the following:&lt;/p&gt;&lt;table border=&quot;0&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px;&quot; cellspacing=&quot;2&quot; cellpadding=&quot;0&quot;&gt;&lt;tr&gt;&lt;td&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;is present&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;td&gt;&lt;p&gt;Match any packet that contains this field&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;==, !=, etc.&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;td&gt;&lt;p&gt;Compare the field to a specific value.&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;contains, matches&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;td&gt;&lt;p&gt;Check the field against a string (contains) or a regular expression (matches)&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;in&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;td&gt;&lt;p&gt;Compare the field to a specific set of values&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/body&gt;&lt;/html&gt;
 
 </source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Le relazioni possono essere utilizzate per restringere i campi a valori specifici. Ogni relazione fa ciò che segue:&lt;/p&gt;&lt;table border=&quot;0&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px;&quot; cellspacing=&quot;2&quot; cellpadding=&quot;0&quot;&gt;&lt;tr&gt;&lt;td&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;è presente&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;td&gt;&lt;p&gt;Verifica qualsiasi pacchetto che contiene questo campo&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;==, !=, ecc.&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;td&gt;&lt;p&gt;Confronta il campo con un valore specifico.&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;contiene, corrisponde a&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;td&gt;&lt;p&gt;Verifica il campo con una stringa (contiene) o un&apos;espressione regolare (corrisponde a)&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;in&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;td&gt;&lt;p&gt;Confronta il campo con uno specifico insieme di valori&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/body&gt;&lt;/html&gt;
+
+</translation>
     </message>
     <message>
         <location filename="display_filter_expression_dialog.ui" line="77"/>
@@ -2673,7 +2575,7 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <location filename="export_dissection_dialog.cpp" line="99"/>
         <source>JSON (*.json)</source>
-        <translation type="unfinished"></translation>
+        <translation>JSON (*.json)</translation>
     </message>
     <message>
         <location filename="export_dissection_dialog.cpp" line="100"/>
@@ -2729,22 +2631,22 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>%1 elenco oggetti</translation>
     </message>
     <message>
-        <location filename="export_object_dialog.cpp" line="315"/>
+        <location filename="export_object_dialog.cpp" line="316"/>
         <source>Save Object As</source>
         <translation>Salva oggetto come</translation>
     </message>
     <message>
-        <location filename="export_object_dialog.cpp" line="341"/>
+        <location filename="export_object_dialog.cpp" line="343"/>
         <source>Save All Objects In</source>
         <translation>Salva tutti gli oggetti in</translation>
     </message>
     <message>
-        <location filename="export_object_dialog.cpp" line="387"/>
+        <location filename="export_object_dialog.cpp" line="389"/>
         <source>Object Export</source>
         <translation>Esporta oggetti</translation>
     </message>
     <message>
-        <location filename="export_object_dialog.cpp" line="388"/>
+        <location filename="export_object_dialog.cpp" line="390"/>
         <source>Some files could not be saved.</source>
         <translation>Alcuni file non possono essere salvati.</translation>
     </message>
@@ -2782,7 +2684,7 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <location filename="extcap_options_dialog.cpp" line="111"/>
         <source>Interface Options</source>
         <oldsource>Extcap Interface Options</oldsource>
-        <translation type="unfinished">Opzioni interfaccia Extcap</translation>
+        <translation>Opzioni interfaccia</translation>
     </message>
     <message>
         <location filename="extcap_options_dialog.cpp" line="81"/>
@@ -2792,12 +2694,12 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <location filename="extcap_options_dialog.cpp" line="344"/>
         <source>Extcap Help cannot be found</source>
-        <translation type="unfinished"></translation>
+        <translation>Guida Extcap non disponibile</translation>
     </message>
     <message>
         <location filename="extcap_options_dialog.cpp" line="345"/>
         <source>The help for the extcap interface %1 cannot be found. Given file: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>La guida per l&apos;interfaccia %1 non è disponibile. File specificato: %2</translation>
     </message>
     <message>
         <location filename="extcap_options_dialog.ui" line="33"/>
@@ -2940,44 +2842,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <source>New display filter</source>
         <extracomment>This text is automatically filled in when a new filter is created</extracomment>
         <translation>Nuovo filtro di visualizzazione</translation>
-    </message>
-    <message>
-        <location filename="filter_dialog.cpp" line="213"/>
-        <source>Unable to create profile directory.</source>
-        <translation>Impossibile creare la cartella del profilo.</translation>
-    </message>
-    <message>
-        <location filename="filter_dialog.cpp" line="214"/>
-        <source>Unable to create directory
-&quot;%1&quot;
-for filter files: %2.</source>
-        <translation>Impossibile creare la cartella
-&quot;%1&quot;
-per i file di filtro: %2.</translation>
-    </message>
-    <message>
-        <location filename="filter_dialog.cpp" line="228"/>
-        <source>Unable to save capture filter settings.</source>
-        <translation>Impossibile salvare le impostazioni del filtro di cattura.</translation>
-    </message>
-    <message>
-        <location filename="filter_dialog.cpp" line="229"/>
-        <source>Could not save to your capture filter file
-&quot;%1&quot;: %2.</source>
-        <translation>Impossibile salvare il file del filtro di cattura
-&quot;%1&quot;: %2.</translation>
-    </message>
-    <message>
-        <location filename="filter_dialog.cpp" line="232"/>
-        <source>Unable to save display filter settings.</source>
-        <translation>Impossibile salvare le impostazioni del filtro di visualizzazione.</translation>
-    </message>
-    <message>
-        <location filename="filter_dialog.cpp" line="233"/>
-        <source>Could not save to your display filter file
-&quot;%1&quot;: %2.</source>
-        <translation>Impossibile salvare il file del filtro di visualizzazione
-&quot;%1&quot;: %2.</translation>
     </message>
 </context>
 <context>
@@ -3209,7 +3073,7 @@ per i file di filtro: %2.</translation>
     <message>
         <location filename="follow_stream_dialog.cpp" line="137"/>
         <source>Back</source>
-        <translation type="unfinished"></translation>
+        <translation>Indietro</translation>
     </message>
     <message>
         <location filename="follow_stream_dialog.cpp" line="181"/>
@@ -3397,7 +3261,8 @@ per i file di filtro: %2.</translation>
     </message>
     <message>
         <location filename="font_color_preferences_frame.ui" line="219"/>
-        <source>Sample deprecated filter</source>
+        <source>Sample warning filter</source>
+        <oldsource>Sample deprecated filter</oldsource>
         <translation>Esempio di filtro deprecato</translation>
     </message>
     <message>
@@ -3501,10 +3366,6 @@ per i file di filtro: %2.</translation>
         <translation>Pacchetti</translation>
     </message>
     <message>
-        <source>N/A</source>
-        <translation type="vanished">N/D</translation>
-    </message>
-    <message>
         <location filename="gsm_map_summary_dialog.cpp" line="240"/>
         <source>Invokes</source>
         <translation>Invoke</translation>
@@ -3583,7 +3444,7 @@ per i file di filtro: %2.</translation>
 <context>
     <name>IOGraph</name>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1858"/>
+        <location filename="io_graph_dialog.cpp" line="1910"/>
         <source>Unknown</source>
         <translation>Sconosciuto</translation>
     </message>
@@ -4086,72 +3947,72 @@ per i file di filtro: %2.</translation>
         <translation>Errori TCP</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="896"/>
+        <location filename="io_graph_dialog.cpp" line="935"/>
         <source>Hover over the graph for details.</source>
         <translation>Sposta il mouse sul grafico per i dettagli.</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="898"/>
+        <location filename="io_graph_dialog.cpp" line="937"/>
         <source>No packets in interval</source>
         <translation>Nessun pacchetto nell&apos;intervallo</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="903"/>
+        <location filename="io_graph_dialog.cpp" line="942"/>
         <source>Click to select packet</source>
         <translation>Fai clic per selezionare il pacchetto</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="903"/>
+        <location filename="io_graph_dialog.cpp" line="942"/>
         <source>Packet</source>
         <translation>Pacchetto</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="907"/>
+        <location filename="io_graph_dialog.cpp" line="946"/>
         <source>%1 (%2s%3).</source>
         <translation>%1 (%2s%3).</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="918"/>
+        <location filename="io_graph_dialog.cpp" line="957"/>
         <source>Release to zoom, x = %1 to %2, y = %3 to %4</source>
         <translation>Rilascia per lo zoom, x = %1 a %2, y = %3 a %4</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="924"/>
+        <location filename="io_graph_dialog.cpp" line="963"/>
         <source>Unable to select range.</source>
         <translation>Impossibile selezionare la serie.</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="927"/>
+        <location filename="io_graph_dialog.cpp" line="966"/>
         <source>Click to select a portion of the graph.</source>
         <translation>Fai clic per selezionare una porzione del grafico.</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1550"/>
+        <location filename="io_graph_dialog.cpp" line="1602"/>
         <source>Portable Document Format (*.pdf)</source>
         <translation>Portable Document Format (*.pdf)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1551"/>
+        <location filename="io_graph_dialog.cpp" line="1603"/>
         <source>Portable Network Graphics (*.png)</source>
         <translation>Portable Network Graphics (*.png)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1552"/>
+        <location filename="io_graph_dialog.cpp" line="1604"/>
         <source>Windows Bitmap (*.bmp)</source>
         <translation>Windows Bitmap (*.bmp)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1554"/>
+        <location filename="io_graph_dialog.cpp" line="1606"/>
         <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
         <translation>JPEG File Interchange Format (*.jpeg *.jpg)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1555"/>
+        <location filename="io_graph_dialog.cpp" line="1607"/>
         <source>Comma Separated Values (*.csv)</source>
         <translation>Valori separati da virgola (*.csv)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1567"/>
+        <location filename="io_graph_dialog.cpp" line="1619"/>
         <source>Save Graph As</source>
         <translation>Salva i grafici come</translation>
     </message>
@@ -4369,14 +4230,10 @@ per i file di filtro: %2.</translation>
         <translation>Impossibile salvare i dati RTP.</translation>
     </message>
     <message>
-        <source>Please select an IAX2 packet</source>
-        <translation type="vanished">Seleziona un pacchetto IAX2</translation>
-    </message>
-    <message>
         <location filename="iax2_analysis_dialog.cpp" line="323"/>
         <location filename="iax2_analysis_dialog.cpp" line="344"/>
         <source>Please select an IAX2 packet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Seleziona un pacchetto IAX2.</translation>
     </message>
     <message>
         <location filename="iax2_analysis_dialog.cpp" line="453"/>
@@ -4771,72 +4628,72 @@ per i file di filtro: %2.</translation>
     <message>
         <location filename="interface_frame.ui" line="20"/>
         <source>Frame</source>
-        <translation type="unfinished">Frame</translation>
+        <translation>Frame</translation>
     </message>
     <message>
         <location filename="interface_frame.ui" line="50"/>
         <source>No interfaces found</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="interface_frame.cpp" line="71"/>
-        <source>Wired</source>
-        <translation type="unfinished"></translation>
+        <translation>Nessuna interfaccia trovata</translation>
     </message>
     <message>
         <location filename="interface_frame.cpp" line="72"/>
-        <source>AirPCAP</source>
-        <translation type="unfinished"></translation>
+        <source>Wired</source>
+        <translation>Cablata</translation>
     </message>
     <message>
         <location filename="interface_frame.cpp" line="73"/>
-        <source>Pipe</source>
-        <translation type="unfinished"></translation>
+        <source>AirPCAP</source>
+        <translation>AirPCAP</translation>
     </message>
     <message>
         <location filename="interface_frame.cpp" line="74"/>
-        <source>STDIN</source>
-        <translation type="unfinished"></translation>
+        <source>Pipe</source>
+        <translation>Pipe</translation>
     </message>
     <message>
         <location filename="interface_frame.cpp" line="75"/>
-        <source>Bluetooth</source>
-        <translation type="unfinished"></translation>
+        <source>STDIN</source>
+        <translation>STDIN</translation>
     </message>
     <message>
         <location filename="interface_frame.cpp" line="76"/>
-        <source>Wireless</source>
-        <translation type="unfinished"></translation>
+        <source>Bluetooth</source>
+        <translation>Bluetooth</translation>
     </message>
     <message>
         <location filename="interface_frame.cpp" line="77"/>
-        <source>Dial-Up</source>
-        <translation type="unfinished"></translation>
+        <source>Wireless</source>
+        <translation>Wireless</translation>
     </message>
     <message>
         <location filename="interface_frame.cpp" line="78"/>
+        <source>Dial-Up</source>
+        <translation>Dial-Up</translation>
+    </message>
+    <message>
+        <location filename="interface_frame.cpp" line="79"/>
         <source>USB</source>
-        <translation type="unfinished"></translation>
+        <translation>USB</translation>
     </message>
     <message>
-        <location filename="interface_frame.cpp" line="80"/>
+        <location filename="interface_frame.cpp" line="81"/>
         <source>External Capture</source>
-        <translation type="unfinished"></translation>
+        <translation>Cattura esterna</translation>
     </message>
     <message>
-        <location filename="interface_frame.cpp" line="82"/>
+        <location filename="interface_frame.cpp" line="83"/>
         <source>Virtual</source>
-        <translation type="unfinished"></translation>
+        <translation>Virtuale</translation>
     </message>
     <message>
-        <location filename="interface_frame.cpp" line="139"/>
+        <location filename="interface_frame.cpp" line="140"/>
         <source>Remote interfaces</source>
-        <translation type="unfinished"></translation>
+        <translation>Interfacce remote</translation>
     </message>
     <message>
-        <location filename="interface_frame.cpp" line="150"/>
+        <location filename="interface_frame.cpp" line="151"/>
         <source>Show hidden interfaces</source>
-        <translation type="unfinished"></translation>
+        <translation>Mostra interfacce nascoste</translation>
     </message>
 </context>
 <context>
@@ -4844,140 +4701,128 @@ per i file di filtro: %2.</translation>
     <message>
         <location filename="interface_sort_filter_model.cpp" line="380"/>
         <source>No interfaces to be displayed. %1 interfaces filtered.</source>
-        <translation type="unfinished"></translation>
+        <translation>Nessuna interfaccia da visualizzare. %1 interfacce filtrate.</translation>
     </message>
 </context>
 <context>
-    <name>InterfaceTree</name>
+    <name>InterfaceToolbar</name>
     <message>
-        <source>Welcome screen list</source>
-        <translation type="vanished">Elenco della pagina di benvenuto</translation>
+        <location filename="interface_toolbar.ui" line="14"/>
+        <source>Frame</source>
+        <translation>Frame</translation>
     </message>
     <message>
-        <source>Waiting for startup%1</source>
-        <translation type="vanished">Avvio in corso%1</translation>
+        <location filename="interface_toolbar.ui" line="32"/>
+        <location filename="interface_toolbar.ui" line="45"/>
+        <source>Select interface</source>
+        <translation>Seleziona interfaccia</translation>
     </message>
     <message>
-        <source>Interface information not available</source>
-        <translation type="vanished">Informazioni sulle interfacce non disponibili</translation>
+        <location filename="interface_toolbar.ui" line="35"/>
+        <source>Interface</source>
+        <translation>Interfaccia</translation>
     </message>
+</context>
+<context>
+    <name>InterfaceToolbarLineEdit</name>
     <message>
-        <source>Addresses</source>
-        <translation type="vanished">Indirizzi</translation>
-    </message>
-    <message>
-        <source>Address</source>
-        <translation type="vanished">Indirizzo</translation>
-    </message>
-    <message>
-        <source>No addresses</source>
-        <translation type="vanished">Nessun indirizzo</translation>
-    </message>
-    <message>
-        <source>No capture filter</source>
-        <translation type="vanished">Nessun filtro di cattura</translation>
-    </message>
-    <message>
-        <source>Capture filter</source>
-        <translation type="vanished">Filtro di cattura</translation>
+        <location filename="interface_toolbar_lineedit.cpp" line="43"/>
+        <source>Apply changes</source>
+        <translation>Applica modifiche</translation>
     </message>
 </context>
 <context>
     <name>InterfaceTreeModel</name>
     <message>
-        <source>default</source>
-        <translation type="obsolete">predefinito</translation>
-    </message>
-    <message>
         <location filename="interface_tree_model.cpp" line="81"/>
         <source>No Interfaces found.</source>
         <oldsource>No Interfaces found!</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Nessuna interfaccia trovata.</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="265"/>
         <source>Show</source>
-        <translation type="unfinished">Mostra</translation>
+        <translation>Mostra</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="269"/>
         <source>Friendly Name</source>
-        <translation type="unfinished">Nome intuitivo</translation>
+        <translation>Nome intuitivo</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="273"/>
         <source>Interface Name</source>
-        <translation type="unfinished">Nome dell&apos;interfaccia</translation>
+        <translation>Nome interfaccia</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="277"/>
         <source>Local Pipe Path</source>
-        <translation type="unfinished"></translation>
+        <translation>Percorso pipe locale</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="281"/>
         <source>Comment</source>
-        <translation type="unfinished">Commento</translation>
+        <translation>Commento</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="285"/>
         <source>Link-Layer Header</source>
-        <translation type="unfinished"></translation>
+        <translation>Intestazione livello di collegamento</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="289"/>
         <source>Promiscuous</source>
-        <translation type="unfinished">Modalità promiscua</translation>
+        <translation>Promiscua</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="293"/>
         <source>Snaplen (B)</source>
-        <translation type="unfinished">Lunghezza di cattura (B)</translation>
+        <translation>Lunghezza di cattura (B)</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="298"/>
         <source>Buffer (MB)</source>
-        <translation type="unfinished">Buffer (MB)</translation>
+        <translation>Buffer (MB)</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="304"/>
         <source>Monitor Mode</source>
-        <translation type="unfinished">Modalità di monitoraggio</translation>
+        <translation>Modalità di monitoraggio</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="309"/>
         <source>Capture Filter</source>
-        <translation type="unfinished">Filtro di cattura</translation>
+        <translation>Filtro di cattura</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="361"/>
         <source>Addresses</source>
-        <translation type="unfinished">Indirizzi</translation>
+        <translation>Indirizzi</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="361"/>
         <source>Address</source>
-        <translation type="unfinished">Indirizzo</translation>
+        <translation>Indirizzo</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="368"/>
         <source>Extcap interface: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Interfaccia Extcap: %1</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="373"/>
         <source>No addresses</source>
-        <translation type="unfinished">Nessun indirizzo</translation>
+        <translation>Nessun indirizzo</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="380"/>
         <source>No capture filter</source>
-        <translation type="unfinished">Nessun filtro di cattura</translation>
+        <translation>Nessun filtro di cattura</translation>
     </message>
     <message>
         <location filename="interface_tree_model.cpp" line="385"/>
         <source>Capture filter</source>
-        <translation type="unfinished">Filtro di cattura</translation>
+        <translation>Filtro di cattura</translation>
     </message>
 </context>
 <context>
@@ -6985,13 +6830,9 @@ per i file di filtro: %2.</translation>
     </message>
     <message>
         <location filename="main_status_bar.cpp" line="427"/>
-        <source>Packets: %1 %4 Displayed: %2 %4 Marked: %3</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Packets: %1 %4 Displayed: %2 (%3%)</source>
         <oldsource>Packets: %1 %4 Displayed: %2 %4 Marked: %3</oldsource>
-        <translation type="vanished">Pacchetti: %1 %4 visualizzati: %2 (%3%)</translation>
+        <translation>Pacchetti: %1 %4 visualizzati: %2 (%3%)</translation>
     </message>
     <message>
         <location filename="main_status_bar.cpp" line="433"/>
@@ -7040,7 +6881,7 @@ per i file di filtro: %2.</translation>
     <message>
         <location filename="main_welcome.ui" line="129"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Open a file on your file system&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apri un file sul tuo file system&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="main_welcome.ui" line="132"/>
@@ -7184,69 +7025,70 @@ a:hover {
 &lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="67"/>
+        <location filename="main_welcome.cpp" line="68"/>
         <source>Show in Finder</source>
-        <translation type="unfinished">Mostra in Finder</translation>
+        <translation>Mostra in Finder</translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="69"/>
+        <location filename="main_welcome.cpp" line="70"/>
         <source>Show in Folder</source>
-        <translation type="unfinished">Mostra nella cartella</translation>
+        <translation>Mostra nella cartella</translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="230"/>
+        <location filename="main_welcome.cpp" line="238"/>
         <source>All interfaces shown</source>
-        <translation type="unfinished"></translation>
+        <translation>Tutte le interfacce mostrate</translation>
     </message>
     <message numerus="yes">
-        <location filename="main_welcome.cpp" line="232"/>
+        <location filename="main_welcome.cpp" line="240"/>
         <source>%n interface(s) shown, %1 hidden</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <oldsource>%Ln interface(s) shown</oldsource>
+        <translation>
+            <numerusform>%n interfaccia mostrata, %1 nascosta</numerusform>
+            <numerusform>%n interfacce mostrate, %1 nascoste</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="243"/>
+        <location filename="main_welcome.cpp" line="251"/>
         <source>You are running Wireshark </source>
         <translation>Stai eseguendo Wireshark </translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="245"/>
+        <location filename="main_welcome.cpp" line="253"/>
         <source>.</source>
         <translation>.</translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="248"/>
+        <location filename="main_welcome.cpp" line="256"/>
         <source> You receive automatic updates.</source>
         <translation> Ricevi aggiornamenti automatici.</translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="250"/>
+        <location filename="main_welcome.cpp" line="258"/>
         <source> You have disabled automatic updates.</source>
         <translation>Hai disabilitato gli aggiornamenti automatici.</translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="382"/>
+        <location filename="main_welcome.cpp" line="395"/>
         <source>not found</source>
         <translation>non trovato</translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="461"/>
+        <location filename="main_welcome.cpp" line="474"/>
         <source>Copy file path</source>
         <translation>Copia percorso del file</translation>
     </message>
     <message>
-        <location filename="main_welcome.cpp" line="467"/>
+        <location filename="main_welcome.cpp" line="480"/>
         <source>Remove</source>
-        <translation type="unfinished"></translation>
+        <translation>Rimuovi</translation>
     </message>
 </context>
 <context>
     <name>MainWindow</name>
     <message>
         <location filename="main_window.ui" line="17"/>
-        <location filename="main_window.ui" line="858"/>
+        <location filename="main_window.ui" line="874"/>
         <source>Wireshark</source>
         <translation>Wireshark</translation>
     </message>
@@ -7261,78 +7103,78 @@ a:hover {
         <translation>Annulla</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="153"/>
+        <location filename="main_window.ui" line="156"/>
         <source>Open Recent</source>
         <translation>Apri recenti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="159"/>
+        <location filename="main_window.ui" line="162"/>
         <source>File Set</source>
         <translation>Gruppo di file</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="167"/>
+        <location filename="main_window.ui" line="170"/>
         <source>Export Packet Dissections</source>
         <translation>Esporta decodifiche di pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="179"/>
+        <location filename="main_window.ui" line="182"/>
         <source>Export Objects</source>
         <translation>Esporta oggetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="273"/>
+        <location filename="main_window.ui" line="281"/>
         <source>&amp;Zoom</source>
         <translation>&amp;Zoom</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="281"/>
+        <location filename="main_window.ui" line="289"/>
         <source>&amp;Time Display Format</source>
         <translation>Formato di visualizzazione del &amp;tempo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="306"/>
+        <location filename="main_window.ui" line="314"/>
         <source>Name Resolution</source>
         <translation>Risoluzione dei nomi</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="611"/>
+        <location filename="main_window.ui" line="627"/>
         <source>Copy</source>
         <translation>Copia</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="222"/>
+        <location filename="main_window.ui" line="225"/>
         <source>Manual pages</source>
         <translation>Manuali</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="385"/>
+        <location filename="main_window.ui" line="394"/>
         <source>Apply as Filter</source>
         <translation>Applica come filtro</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="396"/>
+        <location filename="main_window.ui" line="405"/>
         <source>Prepare a Filter</source>
         <translation>Prepara un filtro</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="407"/>
-        <location filename="main_window.ui" line="563"/>
+        <location filename="main_window.ui" line="416"/>
+        <location filename="main_window.ui" line="572"/>
         <source>SCTP</source>
         <translation>SCTP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="452"/>
+        <location filename="main_window.ui" line="461"/>
         <source>TCP Stream Graphs</source>
         <translation>Grafici dei flussi TCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="462"/>
+        <location filename="main_window.ui" line="471"/>
         <source>BACnet</source>
         <translation>BACnet</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="471"/>
+        <location filename="main_window.ui" line="480"/>
         <source>HTTP</source>
         <translation>HTTP</translation>
     </message>
@@ -7342,416 +7184,416 @@ a:hover {
         <translation>900000000</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="149"/>
+        <location filename="main_window.ui" line="152"/>
         <source>&amp;File</source>
         <translation>&amp;File</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="206"/>
+        <location filename="main_window.ui" line="209"/>
         <source>&amp;Capture</source>
         <translation>&amp;Cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="218"/>
+        <location filename="main_window.ui" line="221"/>
         <source>&amp;Help</source>
         <translation>&amp;Aiuto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="251"/>
+        <location filename="main_window.ui" line="254"/>
         <source>&amp;Go</source>
         <translation>Va&amp;i</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="269"/>
+        <location filename="main_window.ui" line="272"/>
         <source>&amp;View</source>
         <translation>&amp;Visualizza</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="381"/>
+        <location filename="main_window.ui" line="390"/>
         <source>&amp;Analyze</source>
         <translation>&amp;Analizza</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="414"/>
+        <location filename="main_window.ui" line="423"/>
         <source>Follow</source>
         <translation>Segui</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="448"/>
+        <location filename="main_window.ui" line="457"/>
         <source>&amp;Statistics</source>
         <translation>&amp;Statistiche</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="479"/>
-        <location filename="main_window.ui" line="1958"/>
+        <location filename="main_window.ui" line="488"/>
+        <location filename="main_window.ui" line="1979"/>
         <source>29West</source>
         <translation>29West</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="483"/>
+        <location filename="main_window.ui" line="492"/>
         <source>Topics</source>
         <translation>Argomenti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="495"/>
+        <location filename="main_window.ui" line="504"/>
         <source>Queues</source>
         <translation>Code</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="504"/>
+        <location filename="main_window.ui" line="513"/>
         <source>UIM</source>
         <translation>UIM</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="546"/>
+        <location filename="main_window.ui" line="555"/>
         <source>Telephon&amp;y</source>
         <translation>Telefon&amp;ia</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="550"/>
+        <location filename="main_window.ui" line="559"/>
         <source>RTSP</source>
         <translation>RTSP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="556"/>
+        <location filename="main_window.ui" line="565"/>
         <source>RTP</source>
         <translation>RTP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="607"/>
+        <location filename="main_window.ui" line="623"/>
         <source>&amp;Edit</source>
         <translation>&amp;Modifica</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="684"/>
+        <location filename="main_window.ui" line="700"/>
         <source>Main Toolbar</source>
         <translation>Barra degli strumenti principale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="732"/>
+        <location filename="main_window.ui" line="748"/>
         <source>Display Filter Toolbar</source>
         <translation>Barra degli strumenti dei filtri di visualizzazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="769"/>
+        <location filename="main_window.ui" line="785"/>
         <source>Open</source>
         <translation>Apri</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="772"/>
+        <location filename="main_window.ui" line="788"/>
         <source>Open a capture file</source>
         <translation>Apri un file di cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="783"/>
+        <location filename="main_window.ui" line="799"/>
         <source>Quit</source>
         <translation>Esci</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="786"/>
+        <location filename="main_window.ui" line="802"/>
         <source>Quit Wireshark</source>
         <translation>Esci da Wireshark</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="800"/>
+        <location filename="main_window.ui" line="816"/>
         <source>&amp;Start</source>
         <translation>&amp;Avvia</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="803"/>
+        <location filename="main_window.ui" line="819"/>
         <source>Start capturing packets</source>
         <translation>Avvia la cattura dei pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="811"/>
+        <location filename="main_window.ui" line="827"/>
         <source>S&amp;top</source>
         <translation>&amp;Ferma</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="814"/>
+        <location filename="main_window.ui" line="830"/>
         <source>Stop capturing packets</source>
         <translation>Ferma la cattura dei pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="822"/>
+        <location filename="main_window.ui" line="838"/>
         <source>Close</source>
         <translation>Chiudi</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="839"/>
+        <location filename="main_window.ui" line="855"/>
         <source>No files found</source>
         <translation>File non trovati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="844"/>
+        <location filename="main_window.ui" line="860"/>
         <source>&amp;Contents</source>
         <translation>&amp;Contenuti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="863"/>
+        <location filename="main_window.ui" line="879"/>
         <source>Wireshark Filter</source>
         <translation>Filtro di Wireshark</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="868"/>
+        <location filename="main_window.ui" line="884"/>
         <source>TShark</source>
         <translation>TShark</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="873"/>
+        <location filename="main_window.ui" line="889"/>
         <source>RawShark</source>
         <translation>RawShark</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="878"/>
+        <location filename="main_window.ui" line="894"/>
         <source>Dumpcap</source>
         <translation>Dumpcap</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="883"/>
+        <location filename="main_window.ui" line="899"/>
         <source>Mergecap</source>
         <translation>Mergecap</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="888"/>
+        <location filename="main_window.ui" line="904"/>
         <source>Editcap</source>
         <translation>Editcap</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="893"/>
+        <location filename="main_window.ui" line="909"/>
         <source>Text2cap</source>
         <translation>Text2cap</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="902"/>
+        <location filename="main_window.ui" line="918"/>
         <source>Website</source>
         <translation>Sito web</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="907"/>
+        <location filename="main_window.ui" line="923"/>
         <source>FAQ&apos;s</source>
         <translation>FAQ</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="912"/>
+        <location filename="main_window.ui" line="928"/>
         <source>Downloads</source>
         <translation>Download</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="921"/>
+        <location filename="main_window.ui" line="937"/>
         <source>Wiki</source>
         <translation>Wiki</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="929"/>
+        <location filename="main_window.ui" line="945"/>
         <source>Sample Captures</source>
         <translation>Catture di esempio</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="934"/>
+        <location filename="main_window.ui" line="950"/>
         <source>&amp;About Wireshark</source>
         <translation>&amp;Informazioni su Wireshark</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="946"/>
+        <location filename="main_window.ui" line="962"/>
         <source>Ask (Q&amp;&amp;A)</source>
         <translation>Chiedi (Q&amp;&amp;A)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="954"/>
+        <location filename="main_window.ui" line="970"/>
         <source>Next Packet</source>
         <translation>Pacchetto successivo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="957"/>
+        <location filename="main_window.ui" line="973"/>
         <source>Go to the next packet</source>
         <translation>Vai al pacchetto successivo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="965"/>
+        <location filename="main_window.ui" line="981"/>
         <source>Previous Packet</source>
         <translation>Pacchetto precedente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="968"/>
+        <location filename="main_window.ui" line="984"/>
         <source>Go to the previous packet</source>
         <translation>Vai al pacchetto precedente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1020"/>
+        <location filename="main_window.ui" line="1036"/>
         <source>First Packet</source>
         <translation>Primo pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1023"/>
+        <location filename="main_window.ui" line="1039"/>
         <source>Go to the first packet</source>
         <translation>Vai al primo pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1031"/>
+        <location filename="main_window.ui" line="1047"/>
         <source>Last Packet</source>
         <translation>Ultimo pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1034"/>
+        <location filename="main_window.ui" line="1050"/>
         <source>Go to the last packet</source>
         <translation>Vai all&apos;ultimo pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1045"/>
+        <location filename="main_window.ui" line="1061"/>
         <source>E&amp;xpand Subtrees</source>
         <translation>E&amp;spandi sottoalberi</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1048"/>
+        <location filename="main_window.ui" line="1064"/>
         <source>Expand the current packet detail</source>
         <translation>Espande i dettagli del pacchetto attuale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1056"/>
+        <location filename="main_window.ui" line="1072"/>
         <source>&amp;Expand All</source>
         <translation>&amp;Espandi tutti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1059"/>
+        <location filename="main_window.ui" line="1075"/>
         <source>Expand packet details</source>
         <translation>Espandi i dettagli del pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1067"/>
+        <location filename="main_window.ui" line="1083"/>
         <source>Collapse &amp;All</source>
         <translation>Contrai &amp;tutti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1070"/>
+        <location filename="main_window.ui" line="1086"/>
         <source>Collapse all packet details</source>
         <translation>Contrai tutti i dettagli del pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1084"/>
+        <location filename="main_window.ui" line="1100"/>
         <source>Go to specified packet</source>
         <translation>Vai al pacchetto specificato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1095"/>
+        <location filename="main_window.ui" line="1111"/>
         <source>Merge one or more files</source>
         <translation>Unisci uno o più file</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1103"/>
+        <location filename="main_window.ui" line="1119"/>
         <source>Import a file</source>
         <translation>Importa un file</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1108"/>
+        <location filename="main_window.ui" line="1124"/>
         <source>&amp;Save</source>
         <translation>&amp;Salva</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1125"/>
+        <location filename="main_window.ui" line="1141"/>
         <source>Save as a different file</source>
         <translation>Salva come file diverso</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1136"/>
+        <location filename="main_window.ui" line="1152"/>
         <source>Export specified packets</source>
         <translation>Esporta i pacchetti specificati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1162"/>
+        <location filename="main_window.ui" line="1178"/>
         <source>List Files</source>
         <translation>Elenca file</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1167"/>
+        <location filename="main_window.ui" line="1183"/>
         <source>Next File</source>
         <translation>File successivo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1172"/>
+        <location filename="main_window.ui" line="1188"/>
         <source>Previous File</source>
         <translation>File precedente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1177"/>
+        <location filename="main_window.ui" line="1193"/>
         <source>&amp;Reload</source>
         <translation>&amp;Ricarica</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1202"/>
+        <location filename="main_window.ui" line="1218"/>
         <source>Options</source>
         <translation>Opzioni</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1205"/>
+        <location filename="main_window.ui" line="1221"/>
         <source>Capture options</source>
         <translation>Opzioni di cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1219"/>
+        <location filename="main_window.ui" line="1235"/>
         <source>Capture filters</source>
         <translation>Filtri di cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1224"/>
+        <location filename="main_window.ui" line="1240"/>
         <source>Refresh Interfaces</source>
         <translation>Aggiorna interfacce</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1227"/>
+        <location filename="main_window.ui" line="1243"/>
         <source>Refresh interfaces</source>
         <translation>Aggiorna le interfacce</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1235"/>
+        <location filename="main_window.ui" line="1251"/>
         <source>&amp;Restart</source>
         <translation>&amp;Riavvia</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1238"/>
+        <location filename="main_window.ui" line="1254"/>
         <source>Restart current capture</source>
         <translation>Riavvia la cattura attuale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1276"/>
+        <location filename="main_window.ui" line="1292"/>
         <source>Description</source>
         <translation>Descrizione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1297"/>
+        <location filename="main_window.ui" line="1313"/>
         <source>Field Name</source>
         <translation>Nome campo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1308"/>
+        <location filename="main_window.ui" line="1324"/>
         <source>Value</source>
         <translation>Valore</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1319"/>
+        <location filename="main_window.ui" line="1335"/>
         <source>As Filter</source>
         <translation>Come filtro</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1330"/>
-        <location filename="main_window.ui" line="1375"/>
+        <location filename="main_window.ui" line="1346"/>
+        <location filename="main_window.ui" line="1391"/>
         <source>&amp;Selected</source>
         <translation>&amp;Selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1335"/>
-        <location filename="main_window.ui" line="1380"/>
+        <location filename="main_window.ui" line="1351"/>
+        <location filename="main_window.ui" line="1396"/>
         <source>&amp;Not Selected</source>
         <translation>&amp;Non selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1338"/>
-        <location filename="main_window.ui" line="1383"/>
+        <location filename="main_window.ui" line="1354"/>
+        <location filename="main_window.ui" line="1399"/>
         <source>Not Selected</source>
         <translation>Non selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="825"/>
+        <location filename="main_window.ui" line="841"/>
         <source>Close this capture file</source>
         <translation>Chiudi questo file di cattura</translation>
     </message>
@@ -7761,1961 +7603,1962 @@ a:hover {
         <translation>Pacchetto:</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="316"/>
+        <location filename="main_window.ui" line="276"/>
+        <source>Interface Toolbars</source>
+        <translation>Barre degli strumenti interfacce</translation>
+    </message>
+    <message>
+        <location filename="main_window.ui" line="324"/>
         <source>Colorize Conversation</source>
         <translation>Colora conversazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="334"/>
+        <location filename="main_window.ui" line="342"/>
         <source>Internals</source>
         <translation>Interni</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="342"/>
+        <location filename="main_window.ui" line="350"/>
         <source>Additional Toolbars</source>
-        <translation type="unfinished"></translation>
+        <translation>Barre degli strumenti aggiuntive</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="423"/>
+        <location filename="main_window.ui" line="432"/>
         <source>Conversation Filter</source>
         <translation>Filtro di conversazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="517"/>
+        <location filename="main_window.ui" line="526"/>
         <source>Service Response Time</source>
         <translation>Tempo di risposta del servizio</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="570"/>
+        <location filename="main_window.ui" line="579"/>
         <source>ANSI</source>
         <translation>ANSI</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="576"/>
+        <location filename="main_window.ui" line="585"/>
         <source>GSM</source>
         <translation>GSM</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="582"/>
+        <location filename="main_window.ui" line="591"/>
         <source>LTE</source>
         <translation>LTE</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="588"/>
+        <location filename="main_window.ui" line="597"/>
         <source>MTP3</source>
         <translation>MTP3</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="660"/>
+        <location filename="main_window.ui" line="603"/>
+        <source>Osmux</source>
+        <translation>Osmux</translation>
+    </message>
+    <message>
+        <location filename="main_window.ui" line="676"/>
         <source>&amp;Tools</source>
         <oldsource>Tools</oldsource>
         <translation>S&amp;trumenti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="755"/>
+        <location filename="main_window.ui" line="771"/>
         <source>Wireless Toolbar</source>
         <translation>Barra degli strumenti wireless</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="847"/>
+        <location filename="main_window.ui" line="863"/>
         <source>Help contents</source>
         <translation>Contenuti della guida</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="976"/>
+        <location filename="main_window.ui" line="992"/>
         <source>Next Packet in Conversation</source>
         <translation>Pacchetto successivo in conversazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="979"/>
+        <location filename="main_window.ui" line="995"/>
         <source>Go to the next packet in this conversation</source>
         <translation>Vai al pacchetto successivo in questa conversazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="987"/>
+        <location filename="main_window.ui" line="1003"/>
         <source>Previous Packet in Conversation</source>
         <translation>Pacchetto precedente in conversazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="990"/>
+        <location filename="main_window.ui" line="1006"/>
         <source>Go to the previous packet in this conversation</source>
         <translation>Vai al pacchetto precedente in questa conversazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="998"/>
+        <location filename="main_window.ui" line="1014"/>
         <source>Next Packet In History</source>
-        <translation type="unfinished"></translation>
+        <translation>Pacchetto successivo in cronologia</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1001"/>
+        <location filename="main_window.ui" line="1017"/>
         <source>Go to the next packet in your selection history</source>
-        <translation type="unfinished"></translation>
+        <translation>Vai al pacchetto successivo nella cronologia di selezione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1009"/>
+        <location filename="main_window.ui" line="1025"/>
         <source>Previous Packet In History</source>
-        <translation type="unfinished"></translation>
+        <translation>Pacchetto precedente in cronologia</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1012"/>
+        <location filename="main_window.ui" line="1028"/>
         <source>Go to the previous packet in your selection history</source>
-        <translation type="unfinished"></translation>
+        <translation>Vai al pacchetto precedente nella cronologia di selezione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1081"/>
+        <location filename="main_window.ui" line="1097"/>
         <source>Go to Packet…</source>
         <translation>Vai al pacchetto...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1092"/>
+        <location filename="main_window.ui" line="1108"/>
         <source>&amp;Merge…</source>
         <translation>&amp;Unisci...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1100"/>
+        <location filename="main_window.ui" line="1116"/>
         <source>&amp;Import from Hex Dump…</source>
         <translation>&amp;Importa da dump esadecimale...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1111"/>
+        <location filename="main_window.ui" line="1127"/>
         <source>Save this capture file</source>
         <translation>Salva questo file di cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1122"/>
+        <location filename="main_window.ui" line="1138"/>
         <source>Save &amp;As…</source>
         <translation>S&amp;alva come...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1133"/>
+        <location filename="main_window.ui" line="1149"/>
         <source>Export Specified Packets…</source>
         <translation>Esporta i pacchetti specificati...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1141"/>
+        <location filename="main_window.ui" line="1157"/>
         <source>Export Packet &amp;Bytes…</source>
         <translation>Esporta &amp;byte del pacchetto...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1149"/>
+        <location filename="main_window.ui" line="1165"/>
         <source>Export SSL Session Keys…</source>
         <translation>Esporta chiavi della sessione SSL...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1154"/>
+        <location filename="main_window.ui" line="1170"/>
         <source>&amp;Print…</source>
         <translation>Stam&amp;pa...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1180"/>
+        <location filename="main_window.ui" line="1196"/>
         <source>Reload this file</source>
         <translation>Ricarica questo file</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1191"/>
+        <location filename="main_window.ui" line="1207"/>
         <source>Reload as File Format/Capture</source>
         <translation>Ricarica come file di formato/cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1271"/>
+        <location filename="main_window.ui" line="1287"/>
         <source>As JSON…</source>
-        <translation type="unfinished"></translation>
+        <translation>Come JSON...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1279"/>
+        <location filename="main_window.ui" line="1295"/>
         <source>Copy this item&apos;s description</source>
         <translation>Copia la descrizione di questo elemento</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1300"/>
+        <location filename="main_window.ui" line="1316"/>
         <source>Copy this item&apos;s field name</source>
         <translation>Copia il nome del campo di questo elemento</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1311"/>
+        <location filename="main_window.ui" line="1327"/>
         <source>Copy this item&apos;s value</source>
         <translation>Copia il valore di questo elemento</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1322"/>
+        <location filename="main_window.ui" line="1338"/>
         <source>Copy this item as a display filter</source>
         <translation>Copia questo elemento come filtro di visualizzazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1430"/>
+        <location filename="main_window.ui" line="1446"/>
         <source>Apply as Column</source>
         <translation>Applica come colonna</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1433"/>
+        <location filename="main_window.ui" line="1449"/>
         <source>Create a packet list column from the selected field.</source>
         <translation>Crea una colonna dell&apos;elenco dei pacchetti dal campo selezionato.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1444"/>
+        <location filename="main_window.ui" line="1457"/>
         <source>Find a packet</source>
         <translation>Trova un pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1455"/>
+        <location filename="main_window.ui" line="1468"/>
         <source>Find the next packet</source>
         <translation>Vai al pacchetto successivo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1466"/>
+        <location filename="main_window.ui" line="1479"/>
         <source>Find the previous packet</source>
         <translation>Vai al pacchetto precedente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1474"/>
+        <location filename="main_window.ui" line="1487"/>
         <source>&amp;Mark/Unmark Packet</source>
         <translation>&amp;Marca/Deseleziona pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1477"/>
+        <location filename="main_window.ui" line="1490"/>
         <source>Mark or unmark this packet</source>
         <translation>Marca o rimuovi la selezione di questo pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1485"/>
+        <location filename="main_window.ui" line="1498"/>
         <source>Mark All Displayed</source>
         <translation>Marca tutti i visualizzati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1488"/>
+        <location filename="main_window.ui" line="1501"/>
         <source>Mark all displayed packets</source>
         <translation>Marca tutti i pacchetti visualizzati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1496"/>
+        <location filename="main_window.ui" line="1509"/>
         <source>Unmark All Displayed</source>
         <translation>Rimuovi la selezione da tutti i visualizzati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1499"/>
+        <location filename="main_window.ui" line="1512"/>
         <source>Unmark all displayed packets</source>
         <translation>Rimuovi la selezione da tutti i pacchetti visualizzati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1507"/>
+        <location filename="main_window.ui" line="1520"/>
         <source>Next Mark</source>
         <translation>Marchio successivo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1510"/>
+        <location filename="main_window.ui" line="1523"/>
         <source>Go to the next marked packet</source>
         <translation>Vai al prossimo pacchetto marcato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1518"/>
+        <location filename="main_window.ui" line="1531"/>
         <source>Previous Mark</source>
         <translation>Marchio precedente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1521"/>
+        <location filename="main_window.ui" line="1534"/>
         <source>Go to the previous marked packet</source>
         <translation>Val al prossimo pacchetto marchiato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1529"/>
+        <location filename="main_window.ui" line="1542"/>
         <source>&amp;Ignore/Unignore Packet</source>
         <translation>&amp;Ignora/Considera pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1532"/>
+        <location filename="main_window.ui" line="1545"/>
         <source>Ignore or unignore this packet</source>
         <translation>Ignora o considera questo pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1540"/>
+        <location filename="main_window.ui" line="1553"/>
         <source>Ignore All Displayed</source>
         <translation>Ignora tutti i visualizzati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1543"/>
+        <location filename="main_window.ui" line="1556"/>
         <source>Ignore all displayed packets</source>
         <translation>Ignora tutti i pacchetti visualizzati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1551"/>
+        <location filename="main_window.ui" line="1564"/>
         <source>Unignore All Displayed</source>
         <translation>Considera tutti i visualizzati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1554"/>
+        <location filename="main_window.ui" line="1567"/>
         <source>Unignore all displayed packets</source>
         <translation>Considera tutti i pacchetti visualizzati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1562"/>
+        <location filename="main_window.ui" line="1575"/>
         <source>Set/Unset Time Reference</source>
         <translation>Imposta/Rimuovi il riferimento temporale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1565"/>
+        <location filename="main_window.ui" line="1578"/>
         <source>Set or unset a time reference for this packet</source>
         <translation>Imposta o rimuovi il riferimento temporale per questo pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1573"/>
+        <location filename="main_window.ui" line="1586"/>
         <source>Unset All Time References</source>
         <translation>Rimuovi tutti i riferimenti temporali</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1576"/>
+        <location filename="main_window.ui" line="1589"/>
         <source>Remove all time references</source>
         <translation>Elimina tutti i riferimenti temporali</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1584"/>
+        <location filename="main_window.ui" line="1597"/>
         <source>Next Time Reference</source>
         <translation>Riferimento temporale successivo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1587"/>
+        <location filename="main_window.ui" line="1600"/>
         <source>Go to the next time reference</source>
         <translation>Vai al riferimento temporale successivo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1595"/>
+        <location filename="main_window.ui" line="1608"/>
         <source>Previous Time Reference</source>
         <translation>Riferimento temporale precedente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1598"/>
+        <location filename="main_window.ui" line="1611"/>
         <source>Go to the previous time reference</source>
         <translation>Vai al riferimento temporale precedente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1609"/>
+        <location filename="main_window.ui" line="1622"/>
         <source>Shift or change packet timestamps</source>
         <translation>Scorri o cambia la marca temporale del pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1620"/>
+        <location filename="main_window.ui" line="1633"/>
         <source>Add or change a packet comment</source>
         <translation>Aggiungi o modifica un commento al pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1634"/>
+        <location filename="main_window.ui" line="1647"/>
         <source>Configuration profiles</source>
         <translation>Profili di configurazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1637"/>
+        <location filename="main_window.ui" line="1650"/>
         <source>Manage your configuration profiles</source>
         <translation>Gestisci i tuoi profili di configurazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1651"/>
+        <location filename="main_window.ui" line="1664"/>
         <source>Manage Wireshark&apos;s preferences</source>
         <translation>Gestisci le preferenze di Wireshark</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1665"/>
+        <location filename="main_window.ui" line="1678"/>
         <source>Capture File Properties</source>
         <translation>Proprietà file di cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1668"/>
+        <location filename="main_window.ui" line="1681"/>
         <source>Capture file properties</source>
         <translation>Proprietà del file di cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1679"/>
+        <location filename="main_window.ui" line="1692"/>
         <source>&amp;Protocol Hierarchy</source>
         <translation>Gerarchia di &amp;protocolli</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1682"/>
+        <location filename="main_window.ui" line="1695"/>
         <source>Show a summary of protocols present in the capture file.</source>
         <translation>Mostra un riepilogo dei protocolli presenti nel file di cattura.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1687"/>
+        <location filename="main_window.ui" line="1700"/>
         <source>Capinfos</source>
         <translation>Capinfos</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1692"/>
+        <location filename="main_window.ui" line="1705"/>
         <source>Reordercap</source>
         <translation>Reordercap</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1697"/>
+        <location filename="main_window.ui" line="1710"/>
         <source>Time Sequence (Stevens)</source>
         <translation>Sequenza temporale (Stevens)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1700"/>
+        <location filename="main_window.ui" line="1713"/>
         <source>TCP time sequence graph (Stevens)</source>
         <translation>Grafico della sequenza temporale TCP (Stevens)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1705"/>
+        <location filename="main_window.ui" line="1718"/>
         <source>Throughput</source>
         <translation>Capacità trasmissiva</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1708"/>
+        <location filename="main_window.ui" line="1721"/>
         <source>TCP througput</source>
         <translation>Capacità trasmissiva TCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1713"/>
+        <location filename="main_window.ui" line="1726"/>
         <source>Round Trip Time</source>
         <translation>Round Trip Time</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1716"/>
+        <location filename="main_window.ui" line="1729"/>
         <source>TCP round trip time</source>
         <translation>Round trip time TCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1721"/>
+        <location filename="main_window.ui" line="1734"/>
         <source>Window Scaling</source>
         <translation>Ridimensionamento della finestra</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1724"/>
+        <location filename="main_window.ui" line="1737"/>
         <source>TCP window scaling</source>
         <translation>Ridimensionamento della finestra TCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1756"/>
+        <location filename="main_window.ui" line="1769"/>
         <source>HTTP Stream</source>
         <translation>Flusso HTTP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1761"/>
+        <location filename="main_window.ui" line="1774"/>
         <source>Time Sequence (tcptrace)</source>
         <translation>Sequenza temporale (tcptrace)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1764"/>
+        <location filename="main_window.ui" line="1777"/>
         <source>TCP time sequence graph (tcptrace)</source>
         <translation>Grafico della sequenza temporale TCP (tcptrace)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1769"/>
+        <location filename="main_window.ui" line="1782"/>
         <source>Analyse this Association</source>
         <translation>Analizza questa associazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1774"/>
+        <location filename="main_window.ui" line="1787"/>
         <source>Show All Associations</source>
         <translation>Mostra tutte le associazioni</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1779"/>
+        <location filename="main_window.ui" line="1792"/>
         <source>Flow Graph</source>
         <translation>Grafico del flusso</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1782"/>
+        <location filename="main_window.ui" line="1795"/>
         <source>Flow sequence diagram</source>
         <translation>Diagramma della sequenza del flusso</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1787"/>
+        <location filename="main_window.ui" line="1800"/>
         <source>ANCP</source>
         <translation>ANCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1790"/>
+        <location filename="main_window.ui" line="1803"/>
         <source>ANCP statistics</source>
         <translation>Statistiche ANCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1795"/>
+        <location filename="main_window.ui" line="1808"/>
         <source>Packets sorted by Instance ID</source>
         <translation>Pacchetti ordinati per Instance ID</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1798"/>
+        <location filename="main_window.ui" line="1811"/>
         <source>BACapp statistics sorted by instance ID</source>
         <translation>Statistiche BACapp ordinate per instance ID</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1803"/>
+        <location filename="main_window.ui" line="1816"/>
         <source>Packets sorted by IP</source>
         <translation>Pacchetti ordinati per IP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1806"/>
+        <location filename="main_window.ui" line="1819"/>
         <source>BACapp statistics sorted by IP</source>
         <translation>Statistiche BACapp ordinate per IP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1811"/>
+        <location filename="main_window.ui" line="1824"/>
         <source>Packets sorted by object type</source>
         <translation>Pacchetti ordinati per tipo di oggetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1814"/>
+        <location filename="main_window.ui" line="1827"/>
         <source>BACapp statistics sorted by object type</source>
         <translation>Statistiche BACapp ordinate per tipo di oggetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1819"/>
+        <location filename="main_window.ui" line="1832"/>
         <source>Packets sorted by service</source>
         <translation>Pacchetti ordinati per servizio</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1822"/>
+        <location filename="main_window.ui" line="1835"/>
         <source>BACapp statistics sorted by service</source>
         <translation>Statistiche BACapp ordinate per servizio</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1827"/>
+        <location filename="main_window.ui" line="1840"/>
         <source>Collectd</source>
         <translation>Collectd</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1830"/>
+        <location filename="main_window.ui" line="1843"/>
         <source>Collectd statistics</source>
         <translation>Statistiche Collectd</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1835"/>
+        <location filename="main_window.ui" line="1848"/>
         <source>DNS</source>
         <translation>DNS</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1838"/>
+        <location filename="main_window.ui" line="1851"/>
         <source>DNS statistics</source>
         <translation>Statistiche DNS</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1843"/>
+        <location filename="main_window.ui" line="1856"/>
         <source>HART-IP</source>
         <translation>HART-IP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1846"/>
+        <location filename="main_window.ui" line="1859"/>
         <source>HART-IP statistics</source>
         <translation>Statistiche HART-IP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1851"/>
+        <location filename="main_window.ui" line="1864"/>
         <source>HPFEEDS</source>
         <translation>HPFEEDS</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1854"/>
+        <location filename="main_window.ui" line="1867"/>
         <source>hpfeeds statistics</source>
         <translation>Statistiche hpfeeds</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1859"/>
+        <location filename="main_window.ui" line="1872"/>
         <source>HTTP2</source>
         <translation>HTTP2</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1862"/>
+        <location filename="main_window.ui" line="1875"/>
         <source>HTTP2 statistics</source>
         <translation>Statistiche HTTP2</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1867"/>
-        <location filename="main_window.ui" line="1915"/>
+        <location filename="main_window.ui" line="1880"/>
+        <location filename="main_window.ui" line="1928"/>
+        <location filename="main_window.ui" line="1936"/>
         <source>Packet Counter</source>
         <translation>Contatore di pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1870"/>
+        <location filename="main_window.ui" line="1883"/>
         <source>HTTP packet counter</source>
         <translation>Contatore di pacchetti HTTP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1875"/>
+        <location filename="main_window.ui" line="1888"/>
         <source>Requests</source>
         <translation>Richieste</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1878"/>
+        <location filename="main_window.ui" line="1891"/>
         <source>HTTP requests</source>
         <translation>Richieste HTTP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1883"/>
+        <location filename="main_window.ui" line="1896"/>
         <source>Load Distribution</source>
         <translation>Distribuzione di carico</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1886"/>
+        <location filename="main_window.ui" line="1899"/>
         <source>HTTP load distribution</source>
         <translation>Distribuzione di carico HTTP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1891"/>
+        <location filename="main_window.ui" line="1904"/>
         <source>Packet Lengths</source>
         <translation>Lunghezze dei pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1894"/>
+        <location filename="main_window.ui" line="1907"/>
         <source>Packet length statistics</source>
         <translation>Statistiche sulle lunghezza dei pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1899"/>
+        <location filename="main_window.ui" line="1912"/>
         <source>Sametime</source>
         <translation>Sametime</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1902"/>
+        <location filename="main_window.ui" line="1915"/>
         <source>Sametime statistics</source>
         <translation>Statistiche sametime</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1907"/>
+        <location filename="main_window.ui" line="1920"/>
         <source>&amp;ISUP Messages</source>
         <translation>Messaggi &amp;ISUP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1910"/>
+        <location filename="main_window.ui" line="1923"/>
         <source>ISUP message statistics</source>
         <translation>Statistiche dei messaggi ISUP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1918"/>
+        <location filename="main_window.ui" line="1931"/>
+        <source>Osmux packet counts</source>
+        <translation>Conteggi dei pacchetti Osmux</translation>
+    </message>
+    <message>
+        <location filename="main_window.ui" line="1939"/>
         <source>RTSP packet counts</source>
         <translation>Conteggi dei pacchetti RTSP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1923"/>
+        <location filename="main_window.ui" line="1944"/>
         <source>SM&amp;PP Operations</source>
         <translation>Operazioni SM&amp;PP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1926"/>
+        <location filename="main_window.ui" line="1947"/>
         <source>SMPP operation statistics</source>
         <translation>Statistiche delle operazioni SMPP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1931"/>
+        <location filename="main_window.ui" line="1952"/>
         <source>&amp;UCP Messages</source>
         <translation>Messaggi &amp;UCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1934"/>
+        <location filename="main_window.ui" line="1955"/>
         <source>UCP message statistics</source>
         <translation>Statistiche dei messaggi UCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1942"/>
+        <location filename="main_window.ui" line="1963"/>
         <source>Change the way packets are dissected</source>
         <translation>Modifica come i pacchetti vengono decodificati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1947"/>
+        <location filename="main_window.ui" line="1968"/>
         <source>Reload Lua Plugins</source>
         <translation>Ricarica plugin Lua</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1950"/>
+        <location filename="main_window.ui" line="1971"/>
         <source>Reload Lua plugins</source>
         <translation>Ricarica i plugin Lua</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1963"/>
+        <location filename="main_window.ui" line="1984"/>
         <source>Advertisements by Topic</source>
         <translation>Annunci per argomento</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1968"/>
-        <location filename="main_window.ui" line="2003"/>
+        <location filename="main_window.ui" line="1989"/>
+        <location filename="main_window.ui" line="2024"/>
         <source>Advertisements by Source</source>
         <translation>Annunci per sorgente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1973"/>
+        <location filename="main_window.ui" line="1994"/>
         <source>Advertisements by Transport</source>
         <translation>Annunci per trasporto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1978"/>
+        <location filename="main_window.ui" line="1999"/>
         <source>Queries by Topic</source>
         <translation>Interrogazioni per argomento</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1983"/>
-        <location filename="main_window.ui" line="2013"/>
+        <location filename="main_window.ui" line="2004"/>
+        <location filename="main_window.ui" line="2034"/>
         <source>Queries by Receiver</source>
         <translation>Interrogazioni per ricevitore</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1988"/>
+        <location filename="main_window.ui" line="2009"/>
         <source>Wildcard Queries by Pattern</source>
         <translation>Interrogazioni con metacarattere per schema</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1993"/>
+        <location filename="main_window.ui" line="2014"/>
         <source>Wildcard Queries by Receiver</source>
         <translation>Interrogazioni con metacarattere per ricevitore</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1998"/>
+        <location filename="main_window.ui" line="2019"/>
         <source>Advertisements by Queue</source>
         <translation>Interrogazioni con metacarattere per coda</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2008"/>
+        <location filename="main_window.ui" line="2029"/>
         <source>Queries by Queue</source>
         <translation>Interrogazioni per coda</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2018"/>
+        <location filename="main_window.ui" line="2039"/>
         <source>Streams</source>
         <translation>Flussi</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2023"/>
+        <location filename="main_window.ui" line="2044"/>
         <source>Stream Flow Graph</source>
         <translation>Grafico dell&apos;andamento del flusso</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2028"/>
+        <location filename="main_window.ui" line="2049"/>
         <source>LBT-RM</source>
         <translation>LBT-RM</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2033"/>
+        <location filename="main_window.ui" line="2054"/>
         <source>LBT-RU</source>
         <translation>LBT-RU</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2038"/>
-        <location filename="main_window.ui" line="2041"/>
+        <location filename="main_window.ui" line="2059"/>
+        <location filename="main_window.ui" line="2062"/>
         <source>Filter this Association</source>
         <translation>Filtra questa associazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2128"/>
+        <location filename="main_window.ui" line="2149"/>
         <source>Shrink the main window text</source>
         <translation>Riduci il testo della finestra principale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2139"/>
+        <location filename="main_window.ui" line="2160"/>
         <source>Return the main window text to its normal size</source>
         <translation>Riporta il testo della finestra principale alle sue dimensioni normali</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2147"/>
+        <location filename="main_window.ui" line="2168"/>
         <source>Reset Layout</source>
-        <translation type="unfinished"></translation>
+        <translation>Ripristina disposizione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2150"/>
+        <location filename="main_window.ui" line="2171"/>
         <source>Reset appearance layout to default size</source>
-        <translation type="unfinished"></translation>
+        <translation>Ripristina la disposizione dell&apos;aspetto alla dimensione predefinita</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2473"/>
+        <location filename="main_window.ui" line="2494"/>
         <source>Conversation Hash Tables</source>
         <translation>Tabella hash di conversazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2476"/>
+        <location filename="main_window.ui" line="2497"/>
         <source>Show each conversation hash table</source>
         <translation>Mostri ogni tabella degli hash di conversazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2481"/>
+        <location filename="main_window.ui" line="2502"/>
         <source>Dissector Tables</source>
         <translation>Tabella dei decodificatori</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2484"/>
+        <location filename="main_window.ui" line="2505"/>
         <source>Show each dissector table and its entries</source>
         <translation>Mostra ogni tabella dei decodificatori e le sue voci</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2489"/>
+        <location filename="main_window.ui" line="2510"/>
         <source>Supported Protocols</source>
         <translation>Protocolli supportati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2492"/>
+        <location filename="main_window.ui" line="2513"/>
         <source>Show the currently supported protocols and display filter fields</source>
         <translation>Mostra i protocolli attualmente supportato e i campi del filtro di visualizzazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2545"/>
+        <location filename="main_window.ui" line="2566"/>
         <source>MAC Statistics</source>
         <translation>Statistiche MAC</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2548"/>
+        <location filename="main_window.ui" line="2569"/>
         <source>LTE MAC statistics</source>
         <translation>Statistiche MAC LTE</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2553"/>
+        <location filename="main_window.ui" line="2574"/>
         <source>RLC Statistics</source>
         <translation>Statistiche RLC</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2556"/>
+        <location filename="main_window.ui" line="2577"/>
         <source>LTE RLC statistics</source>
         <translation>Statistiche RLC LTE</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2561"/>
+        <location filename="main_window.ui" line="2582"/>
         <source>RLC Graph</source>
         <translation>Grafico RLC</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2564"/>
+        <location filename="main_window.ui" line="2585"/>
         <source>LTE RLC graph</source>
         <translation>Grafico RLC LTE</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2569"/>
+        <location filename="main_window.ui" line="2590"/>
         <source>MTP3 Summary</source>
         <translation>Riepilogo MTP3</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2572"/>
+        <location filename="main_window.ui" line="2593"/>
         <source>MTP3 summary statistics</source>
         <translation>Statistiche riepilogo MTP3</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2611"/>
+        <location filename="main_window.ui" line="2632"/>
         <source>Bluetooth Devices</source>
         <translation>Dispositivi Bluetooth</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2616"/>
+        <location filename="main_window.ui" line="2637"/>
         <source>Bluetooth HCI Summary</source>
         <translation>Riepilogo HCI Bluetooth</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2692"/>
+        <location filename="main_window.ui" line="2713"/>
         <source>No GSM statistics registered</source>
         <translation>Nessuna statistica GSM registrata</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2700"/>
+        <location filename="main_window.ui" line="2721"/>
         <source>No LTE statistics registered</source>
         <translation>Nessuna statistica LTE registrata</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2708"/>
+        <location filename="main_window.ui" line="2729"/>
         <source>No MTP3 statistics registered</source>
         <translation>Nessuna statistica MTP3 registrata</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2847"/>
+        <location filename="main_window.ui" line="2868"/>
         <source>Stream Analysis</source>
         <translation>Analisi flusso</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2855"/>
-        <location filename="main_window.ui" line="2858"/>
+        <location filename="main_window.ui" line="2876"/>
+        <location filename="main_window.ui" line="2879"/>
         <source>IAX2 Stream Analysis</source>
         <translation>Analisi flusso IAX2</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2882"/>
+        <location filename="main_window.ui" line="2903"/>
         <source>Show Packet Bytes…</source>
         <translation>Mostra byte del pacchetto...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2911"/>
+        <location filename="main_window.ui" line="2932"/>
         <source>UDP Multicast Streams</source>
         <translation>Flusso multicast UDP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2914"/>
+        <location filename="main_window.ui" line="2935"/>
         <source>Show UTP multicast stream statistics.</source>
         <translation>Mostra le statistiche del flusso multicast UDP.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2919"/>
+        <location filename="main_window.ui" line="2940"/>
         <source>WLAN Traffic</source>
         <translation>Traffico WLAN</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2922"/>
+        <location filename="main_window.ui" line="2943"/>
         <source>Show IEEE 802.11 wireless LAN statistics.</source>
         <translation>Mostra le statistiche wireless LAN IEEE 802.11.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2931"/>
+        <location filename="main_window.ui" line="2952"/>
         <source>Add a filter button</source>
         <translation>Aggiungi un pulsante di filtro</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2937"/>
+        <location filename="main_window.ui" line="2958"/>
         <source>Add a display filter button.</source>
         <translation>Aggiungi un pulsante del filtro di visualizzazione.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2942"/>
+        <location filename="main_window.ui" line="2963"/>
         <source>Firewall ACL Rules</source>
         <translation>Regole ACL firewall</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2945"/>
+        <location filename="main_window.ui" line="2966"/>
         <source>Create firewall ACL rules</source>
         <translation>Crea regole ACL firewall</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2950"/>
+        <location filename="main_window.ui" line="2971"/>
         <source>…as Escaped String</source>
-        <translation type="unfinished"></translation>
+        <translation>...come stringa letterale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2953"/>
+        <location filename="main_window.ui" line="2974"/>
         <source>Copy packet bytes as a Escaped string</source>
-        <translation type="unfinished"></translation>
+        <translation>Copia i byte del pacchetto come stringa letterale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2961"/>
+        <location filename="main_window.ui" line="2982"/>
         <source>&amp;Full Screen</source>
-        <translation type="unfinished"></translation>
+        <translation>Schermo &amp;intero</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1199"/>
+        <location filename="main_window.ui" line="1215"/>
         <source>&amp;Options…</source>
         <translation>&amp;Opzioni...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="650"/>
+        <location filename="main_window.ui" line="666"/>
         <source>&amp;Wireless</source>
         <translation>&amp;Wireless</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1216"/>
+        <location filename="main_window.ui" line="1232"/>
         <source>Capture &amp;Filters…</source>
         <translation>&amp;Filtri di cattura...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1246"/>
+        <location filename="main_window.ui" line="1262"/>
         <source>As Plain &amp;Text…</source>
         <translation>Come &amp;testo semplice...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1251"/>
+        <location filename="main_window.ui" line="1267"/>
         <source>As CSV…</source>
         <translation>Come CSV...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1256"/>
+        <location filename="main_window.ui" line="1272"/>
         <source>As &quot;C&quot; Arrays…</source>
         <translation>Come array &quot;C&quot;...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1261"/>
+        <location filename="main_window.ui" line="1277"/>
         <source>As PSML XML…</source>
         <translation>Come PSML XML...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1266"/>
+        <location filename="main_window.ui" line="1282"/>
         <source>As PDML XML…</source>
         <translation>Come PDML XML...</translation>
     </message>
     <message>
-        <source>&amp;HTTP…</source>
-        <translation type="vanished">&amp;HTTP...</translation>
-    </message>
-    <message>
-        <source>&amp;DICOM…</source>
-        <translation type="vanished">&amp;DICOM...</translation>
-    </message>
-    <message>
-        <source>&amp;SMB…</source>
-        <translation type="vanished">&amp;SMB…</translation>
-    </message>
-    <message>
-        <location filename="main_window.ui" line="1287"/>
+        <location filename="main_window.ui" line="1303"/>
         <source>All Visible Items</source>
         <translation>Tutti gli elementi visibili</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1292"/>
+        <location filename="main_window.ui" line="1308"/>
         <source>All Visible Selected Tree Items</source>
         <translation>Tutti gli elementi visibili dell&apos;albero selezionato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1343"/>
-        <location filename="main_window.ui" line="1388"/>
+        <location filename="main_window.ui" line="1359"/>
+        <location filename="main_window.ui" line="1404"/>
         <source>…&amp;and Selected</source>
         <translation>... &amp;e selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1346"/>
-        <location filename="main_window.ui" line="1391"/>
+        <location filename="main_window.ui" line="1362"/>
+        <location filename="main_window.ui" line="1407"/>
         <source>…and Selected</source>
         <translation>... e selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1351"/>
-        <location filename="main_window.ui" line="1396"/>
+        <location filename="main_window.ui" line="1367"/>
+        <location filename="main_window.ui" line="1412"/>
         <source>…&amp;or Selected</source>
         <translation>... &amp;o selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1354"/>
-        <location filename="main_window.ui" line="1399"/>
+        <location filename="main_window.ui" line="1370"/>
+        <location filename="main_window.ui" line="1415"/>
         <source>…or Selected</source>
         <translation>... o selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1359"/>
-        <location filename="main_window.ui" line="1404"/>
+        <location filename="main_window.ui" line="1375"/>
+        <location filename="main_window.ui" line="1420"/>
         <source>…a&amp;nd not Selected</source>
         <translation>... &amp;e non selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1362"/>
-        <location filename="main_window.ui" line="1407"/>
+        <location filename="main_window.ui" line="1378"/>
+        <location filename="main_window.ui" line="1423"/>
         <source>…and not Selected</source>
         <translation>... e non selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1367"/>
-        <location filename="main_window.ui" line="1412"/>
+        <location filename="main_window.ui" line="1383"/>
+        <location filename="main_window.ui" line="1428"/>
         <source>…o&amp;r not Selected</source>
         <translation>... &amp;o non selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1370"/>
-        <location filename="main_window.ui" line="1415"/>
+        <location filename="main_window.ui" line="1386"/>
+        <location filename="main_window.ui" line="1431"/>
         <source>…or not Selected</source>
         <translation>... o non selezionati</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1420"/>
+        <location filename="main_window.ui" line="1436"/>
         <source>Display Filters…</source>
         <translation>Filtri di visualizzazione...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1425"/>
+        <location filename="main_window.ui" line="1441"/>
         <source>Display Filter &amp;Macros…</source>
         <translation>Visualizza &amp;macro dei filtri...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1441"/>
+        <location filename="main_window.ui" line="1454"/>
         <source>&amp;Find Packet…</source>
         <translation>&amp;Trova pacchetto...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1452"/>
+        <location filename="main_window.ui" line="1465"/>
         <source>Find Ne&amp;xt</source>
         <translation>Trova &amp;successivo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1463"/>
+        <location filename="main_window.ui" line="1476"/>
         <source>Find Pre&amp;vious</source>
         <translation>Tro&amp;va precedente</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1606"/>
+        <location filename="main_window.ui" line="1619"/>
         <source>Time Shift…</source>
         <translation>Spostamento temporale...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1617"/>
+        <location filename="main_window.ui" line="1630"/>
         <source>Packet Comment…</source>
         <translation>Commento del pacchetto...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1631"/>
+        <location filename="main_window.ui" line="1644"/>
         <source>Configuration Profiles…</source>
         <translation>Profili di configurazione...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1648"/>
+        <location filename="main_window.ui" line="1661"/>
         <source>&amp;Preferences…</source>
         <translation>&amp;Preferenze...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1732"/>
+        <location filename="main_window.ui" line="1745"/>
         <source>TCP Stream</source>
         <translation>Flusso TCP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1740"/>
+        <location filename="main_window.ui" line="1753"/>
         <source>UDP Stream</source>
         <translation>Flusso UDP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1748"/>
+        <location filename="main_window.ui" line="1761"/>
         <source>SSL Stream</source>
         <translation>Flusso SSL</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="1939"/>
+        <location filename="main_window.ui" line="1960"/>
         <source>Decode &amp;As…</source>
         <translation>Decodific&amp;a come...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2046"/>
+        <location filename="main_window.ui" line="2067"/>
         <source>Export PDUs to File…</source>
         <translation>Esporta PDU su file...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2051"/>
+        <location filename="main_window.ui" line="2072"/>
         <source>&amp;I/O Graph</source>
         <translation>Grafici &amp;I/O</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2054"/>
+        <location filename="main_window.ui" line="2075"/>
         <source>Create graphs based on display filter fields</source>
         <translation>Crea grafici sulla base dei campi del filtro di visualizzazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2065"/>
+        <location filename="main_window.ui" line="2086"/>
         <source>&amp;Main Toolbar</source>
         <translation>Barra degli strumenti &amp;principale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2068"/>
+        <location filename="main_window.ui" line="2089"/>
         <source>Show or hide the main toolbar</source>
         <translation>Mostra o nascondi la barra degli strumenti principale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2079"/>
+        <location filename="main_window.ui" line="2100"/>
         <source>&amp;Filter Toolbar</source>
         <translation>Barra degli strumenti del &amp;filtro</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2082"/>
+        <location filename="main_window.ui" line="2103"/>
         <source>Show or hide the display filter toolbar</source>
         <translation>Mostra o nascondi la barra degli strumenti del filtro di visualizzazione</translation>
     </message>
     <message>
-        <source>&amp;TFTP</source>
-        <translation type="vanished">&amp;TFTP</translation>
-    </message>
-    <message>
-        <location filename="main_window.ui" line="2087"/>
+        <location filename="main_window.ui" line="2108"/>
         <source>Conversations</source>
         <translation>Conversazioni</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2090"/>
+        <location filename="main_window.ui" line="2111"/>
         <source>Conversations at different protocol levels</source>
         <translation>Conversazioni a diversi livelli di protocollo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2095"/>
+        <location filename="main_window.ui" line="2116"/>
         <source>Endpoints</source>
         <translation>Terminatori</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2098"/>
+        <location filename="main_window.ui" line="2119"/>
         <source>Endpoints at different protocol levels</source>
         <translation>Terminatori a diversi livelli di protocollo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2106"/>
+        <location filename="main_window.ui" line="2127"/>
         <source>Colorize Packet List</source>
         <translation>Colora l&apos;elenco dei pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2109"/>
+        <location filename="main_window.ui" line="2130"/>
         <source>Draw packets using your coloring rules</source>
         <translation>Visualizza i pacchetti usando le tue regole di colorazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2114"/>
+        <location filename="main_window.ui" line="2135"/>
         <source>&amp;Zoom In</source>
         <translation>&amp;Ingrandisci</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2117"/>
+        <location filename="main_window.ui" line="2138"/>
         <source>Enlarge the main window text</source>
         <translation>Ingrandisci il testo della finestra principale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2125"/>
+        <location filename="main_window.ui" line="2146"/>
         <source>Zoom Out</source>
         <translation>Rimpicciolisci</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2136"/>
+        <location filename="main_window.ui" line="2157"/>
         <source>Normal Size</source>
         <translation>Dimensione normale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2158"/>
+        <location filename="main_window.ui" line="2179"/>
         <source>Resize Columns</source>
         <translation>Ridimensiona colonne</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2161"/>
+        <location filename="main_window.ui" line="2182"/>
         <source>Resize packet list columns to fit contents</source>
         <translation>Ridimensiona le colonne dell&apos;elenco dei pacchetti per adattare il contenuto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2172"/>
+        <location filename="main_window.ui" line="2193"/>
         <source>Date and Time of Day (1970-01-01 01:02:03.123456)</source>
         <translation>Data e ora del giorno (1970-01-01 01:02:03.123456)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2175"/>
-        <location filename="main_window.ui" line="2200"/>
-        <location filename="main_window.ui" line="2228"/>
+        <location filename="main_window.ui" line="2196"/>
+        <location filename="main_window.ui" line="2221"/>
+        <location filename="main_window.ui" line="2249"/>
         <source>Show packet times as the date and time of day.</source>
         <translation>Mostra gli orari dei pacchetti come date e ora del giorno.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2186"/>
+        <location filename="main_window.ui" line="2207"/>
         <source>Year, Day of Year, and Time of Day (1970/001 01:02:03.123456)</source>
         <translation>Anno, giorno dell&apos;anno, e ora del giorno (1970/001 01:02:03.123456)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2189"/>
+        <location filename="main_window.ui" line="2210"/>
         <source>Show packet times as the year, day of the year and time of day.</source>
         <translation>Mostra gli orari del pacchetto come anno, giorno dell&apos;anno e ora del giorno.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2197"/>
+        <location filename="main_window.ui" line="2218"/>
         <source>Time of Day (01:02:03.123456)</source>
         <translation>Ora del giorno (01:02:03.123456)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2211"/>
+        <location filename="main_window.ui" line="2232"/>
         <source>Seconds Since 1970-01-01</source>
         <translation>Secondi dal 1970-01-01</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2214"/>
+        <location filename="main_window.ui" line="2235"/>
         <source>Show packet times as the seconds since the UNIX / POSIX epoch (1970-01-01).</source>
         <translation>Mostra gli orari del pacchetto come secondi dalla epoch UNIX/POSIX (1970-01-01).</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2225"/>
+        <location filename="main_window.ui" line="2246"/>
         <source>Seconds Since Beginning of Capture</source>
         <translation>Secondi dall&apos;inizio della cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2239"/>
+        <location filename="main_window.ui" line="2260"/>
         <source>Seconds Since Previous Captured Packet</source>
         <translation>Secondi dal precedente pacchetto catturato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2242"/>
+        <location filename="main_window.ui" line="2263"/>
         <source>Show packet times as the seconds since the previous captured packet.</source>
         <translation>Mostra gli orari del pacchetto come secondi dal precedente pacchetto catturato.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2253"/>
+        <location filename="main_window.ui" line="2274"/>
         <source>Seconds Since Previous Displayed Packet</source>
         <translation>Secondi dal precedente pacchetto visualizzato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2256"/>
+        <location filename="main_window.ui" line="2277"/>
         <source>Show packet times as the seconds since the previous displayed packet.</source>
         <translation>Mostra gli orari del pacchetto come secondi dal precedente pacchetto visualizzato.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2267"/>
+        <location filename="main_window.ui" line="2288"/>
         <source>UTC Date and Time of Day (1970-01-01 01:02:03.123456)</source>
         <translation>Date e ora del giorno UTC (1970-01-01 01:02:03.123456)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2270"/>
+        <location filename="main_window.ui" line="2291"/>
         <source>Show packet times as the UTC date and time of day.</source>
         <translation>Mostra gli orari del pacchetto come data e ora del giorno UTC.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2281"/>
+        <location filename="main_window.ui" line="2302"/>
         <source>UTC Year, Day of Year, and Time of Day (1970/001 01:02:03.123456)</source>
         <translation>Anno, giorno dell&apos;anno e ora del giorno UTC (1970/001 01:02:03.123456)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2284"/>
+        <location filename="main_window.ui" line="2305"/>
         <source>Show packet times as the UTC year, day of the year and time of day.</source>
         <translation>Mostra l&apos;orario dei pacchetti come anno, giorno dell&apos;anno e ora del giorno UTC.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2292"/>
+        <location filename="main_window.ui" line="2313"/>
         <source>UTC Time of Day (01:02:03.123456)</source>
         <translation>Ora del giorno UTC (01:02:03.123456)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2295"/>
+        <location filename="main_window.ui" line="2316"/>
         <source>Show packet times as the UTC time of day.</source>
         <translation>Mostra l&apos;orario dei pacchetti come ora del giorno UTC.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2306"/>
+        <location filename="main_window.ui" line="2327"/>
         <source>Automatic (from capture file)</source>
         <translation>Automatico (dal file di cattura)</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2309"/>
+        <location filename="main_window.ui" line="2330"/>
         <source>Use the time precision indicated in the capture file.</source>
         <translation>Usa la precisione del tempo indicata nel file di cattura.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2317"/>
+        <location filename="main_window.ui" line="2338"/>
         <source>Seconds</source>
         <translation>Secondi</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2325"/>
+        <location filename="main_window.ui" line="2346"/>
         <source>Tenths of a second</source>
         <translation>Decimi di secondo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2333"/>
+        <location filename="main_window.ui" line="2354"/>
         <source>Hundredths of a second</source>
         <translation>Centesimi di secondo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2341"/>
+        <location filename="main_window.ui" line="2362"/>
         <source>Milliseconds</source>
         <translation>Millisecondi</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2349"/>
+        <location filename="main_window.ui" line="2370"/>
         <source>Microseconds</source>
         <translation>Microsecondi</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2357"/>
+        <location filename="main_window.ui" line="2378"/>
         <source>Nanoseconds</source>
         <translation>Nanosecondi</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2365"/>
+        <location filename="main_window.ui" line="2386"/>
         <source>Display Seconds With Hours and Minutes</source>
         <translation>Visualizza i secondi con ore e minuti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2368"/>
+        <location filename="main_window.ui" line="2389"/>
         <source>Display seconds with hours and minutes</source>
         <translation>Visualizza i secondi con ore e minuti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2376"/>
+        <location filename="main_window.ui" line="2397"/>
         <source>Resolve &amp;Physical Addresses</source>
         <translation>Risolvi gli indirizzi &amp;fisici</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2379"/>
+        <location filename="main_window.ui" line="2400"/>
         <source>Show names for known MAC addresses. Lookups use a local database.</source>
         <translation>Mostra i nomi per gli indirizzi MAC conosciuti. Le ricerche usano un database locale.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2387"/>
+        <location filename="main_window.ui" line="2408"/>
         <source>Resolve &amp;Network Addresses</source>
         <translation>Risolvi gli indirizzi di &amp;rete</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2390"/>
+        <location filename="main_window.ui" line="2411"/>
         <source>Show names for known IPv4, IPv6, and IPX addresses. Lookups can generate network traffic.</source>
         <translation>Mostra nomi per gli indirizzi conosciuti IPv4, IPv6 e IPX. Le ricerche possono generare traffico di rete.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2398"/>
+        <location filename="main_window.ui" line="2419"/>
         <source>Resolve &amp;Transport Addresses</source>
         <translation>Risolvi gli indirizzi di &amp;trasporto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2401"/>
+        <location filename="main_window.ui" line="2422"/>
         <source>Show names for known TCP, UDP, and SCTP services. Lookups can generate traffic on some systems.</source>
         <translation>Mostra i nomi per gli indirizzi conosciuti per i servizi TCP, UDP e SCTP. Le ricerche possono generare traffico di rete su alcuni sistemi.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2409"/>
+        <location filename="main_window.ui" line="2430"/>
         <source>Wire&amp;less Toolbar</source>
         <translation>Barra degli strumenti wire&amp;less</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2412"/>
+        <location filename="main_window.ui" line="2433"/>
         <source>Show or hide the wireless toolbar</source>
         <translation>Mostra o nascondi la barra degli strumenti wireless</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2423"/>
+        <location filename="main_window.ui" line="2444"/>
         <source>&amp;Status Bar</source>
         <translation>Barra di &amp;stato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2426"/>
+        <location filename="main_window.ui" line="2447"/>
         <source>Show or hide the status bar</source>
         <translation>Mostra o nascondi la barra di stato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2437"/>
+        <location filename="main_window.ui" line="2458"/>
         <source>Packet &amp;List</source>
         <translation>E&amp;lenco dei pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2440"/>
+        <location filename="main_window.ui" line="2461"/>
         <source>Show or hide the packet list</source>
         <translation>Mostra o nascondi l&apos;elenco dei pacchetti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2451"/>
+        <location filename="main_window.ui" line="2472"/>
         <source>Packet &amp;Details</source>
         <translation>&amp;Dettagli pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2454"/>
+        <location filename="main_window.ui" line="2475"/>
         <source>Show or hide the packet details</source>
         <translation>Mostra o nascondi i dettagli del pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2465"/>
+        <location filename="main_window.ui" line="2486"/>
         <source>Packet &amp;Bytes</source>
         <translation>&amp;Byte del pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2468"/>
+        <location filename="main_window.ui" line="2489"/>
         <source>Show or hide the packet bytes</source>
         <translation>Mostra o nascondi i byte del pacchetto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2497"/>
+        <location filename="main_window.ui" line="2518"/>
         <source>Bytes as Hex + ASCII Dump</source>
         <translation>Byte come dump esadecimale + ASCII</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2500"/>
+        <location filename="main_window.ui" line="2521"/>
         <source>Copy packet bytes as a hex and ASCII dump.</source>
         <translation>Copia i byte del pacchetto come un dump esadecimale e ASCII.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2505"/>
+        <location filename="main_window.ui" line="2526"/>
         <source>…as Hex Dump</source>
         <translation>... come dump esadecimale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2508"/>
+        <location filename="main_window.ui" line="2529"/>
         <source>Copy packet bytes as a hex dump.</source>
         <translation>Copia i byte del pacchetto come un dump esadecimale.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2513"/>
+        <location filename="main_window.ui" line="2534"/>
         <source>…as Printable Text</source>
         <translation>... come testo stampabile</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2516"/>
+        <location filename="main_window.ui" line="2537"/>
         <source>Copy only the printable text in the packet.</source>
         <translation>Copia solo il testo stampabile nel pacchetto.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2521"/>
+        <location filename="main_window.ui" line="2542"/>
         <source>…as a Hex Stream</source>
         <translation>... come un flusso esadecimale</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2524"/>
+        <location filename="main_window.ui" line="2545"/>
         <source>Copy packet bytes as a stream of hex.</source>
         <translation>Copia i byte del pacchetto come un flusso esadecimale.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2529"/>
+        <location filename="main_window.ui" line="2550"/>
         <source>…as Raw Binary</source>
         <translation>... come binario grezzo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2532"/>
+        <location filename="main_window.ui" line="2553"/>
         <source>Copy packet bytes as application/octet-stream MIME data.</source>
         <translation>Copia i byte del pacchetto come dati MIME application/octet-stream.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2537"/>
+        <location filename="main_window.ui" line="2558"/>
         <source>MAP Summary</source>
         <translation>Riepilogo MAP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2540"/>
+        <location filename="main_window.ui" line="2561"/>
         <source>GSM MAP summary statistics</source>
         <translation>Statistiche riepilogo GSM MAP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2598"/>
+        <location filename="main_window.ui" line="2619"/>
         <source>&amp;Coloring Rules…</source>
         <translation>Regole di &amp;colorazione...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2629"/>
+        <location filename="main_window.ui" line="2650"/>
         <source>Show Linked Packet in New Window</source>
         <translation>Mostra il pacchetto collegato in una nuova finestra</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2656"/>
+        <location filename="main_window.ui" line="2677"/>
         <source>&amp;Expression…</source>
         <translation>&amp;Espressione...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2659"/>
-        <location filename="main_window.ui" line="2934"/>
+        <location filename="main_window.ui" line="2680"/>
+        <location filename="main_window.ui" line="2955"/>
         <source>Expression…</source>
         <translation>Espressione...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2828"/>
+        <location filename="main_window.ui" line="2849"/>
         <source>New Coloring Rule…</source>
         <oldsource>New Conversation Rule…</oldsource>
         <translation>Nuova regola di colorazione...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2871"/>
+        <location filename="main_window.ui" line="2892"/>
         <source>Enabled Protocols…</source>
         <oldsource>Enable Protocols…</oldsource>
         <translation>Abilita protocolli...</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2887"/>
+        <location filename="main_window.ui" line="2908"/>
         <source>Wiki Protocol Page</source>
         <translation>Pagina wiki del protocollo</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2890"/>
+        <location filename="main_window.ui" line="2911"/>
         <source>Open the Wireshark wiki page for this protocol.</source>
         <translation>Apri la pagina del wiki di Wireshark per questo protocollo.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2895"/>
+        <location filename="main_window.ui" line="2916"/>
         <source>Filter Field Reference</source>
         <translation>Riferimento campo di filtro</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2898"/>
+        <location filename="main_window.ui" line="2919"/>
         <source>Open the display filter reference page for this filter field.</source>
         <translation>Apri la pagina di riferimento del filtro di visualizzazione per questo campo di filtro.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2903"/>
+        <location filename="main_window.ui" line="2924"/>
         <source>Go to Linked Packet</source>
         <translation>Vai al pacchetto collegato</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2906"/>
+        <location filename="main_window.ui" line="2927"/>
         <source>Go to the packet referenced by the selected field.</source>
         <translation>Vai al pacchetto referenziato dal campo selezionato.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2577"/>
+        <location filename="main_window.ui" line="2598"/>
         <source>&amp;VoIP Calls</source>
         <translation>Chiamate &amp;VoIP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2580"/>
+        <location filename="main_window.ui" line="2601"/>
         <source>All VoIP Calls</source>
         <translation>Tutte le chiamate VoIP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2585"/>
+        <location filename="main_window.ui" line="2606"/>
         <source>SIP &amp;Flows</source>
         <translation>&amp;Flussi SIP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2588"/>
+        <location filename="main_window.ui" line="2609"/>
         <source>SIP Flows</source>
         <translation>Flussi SIP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2593"/>
+        <location filename="main_window.ui" line="2614"/>
         <source>RTP Streams</source>
         <translation>Flussi RTP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2601"/>
+        <location filename="main_window.ui" line="2622"/>
         <source>Edit the packet list coloring rules.</source>
         <translation>Modifica le regole di colorazione dell&apos;elenco dei pacchetti.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2606"/>
+        <location filename="main_window.ui" line="2627"/>
         <source>Bluetooth ATT Server Attributes</source>
         <oldsource>ATT Server Attributes</oldsource>
         <translation>Attributi server ATT Bluetooth</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2621"/>
+        <location filename="main_window.ui" line="2642"/>
         <source>Show Packet in New &amp;Window</source>
         <translation>M&amp;ostra pacchetto in una nuova finestra</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2624"/>
+        <location filename="main_window.ui" line="2645"/>
         <source>Show this packet in a separate window.</source>
         <translation>Mostra questo pacchetto in una finestra separata.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2632"/>
+        <location filename="main_window.ui" line="2653"/>
         <source>Show the linked packet in a separate window.</source>
         <translation>Mostra il pacchetto collegato in una finestra separata.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2640"/>
+        <location filename="main_window.ui" line="2661"/>
         <source>Auto Scroll in Li&amp;ve Capture</source>
         <translation>Scorrimento a&amp;utomatico durante la cattura</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2643"/>
+        <location filename="main_window.ui" line="2664"/>
         <source>Automatically scroll to the last packet during a live capture.</source>
         <translation>Scorri automaticamente all&apos;ultimo pacchetto durante una cattura.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2648"/>
+        <location filename="main_window.ui" line="2669"/>
         <source>Expert Information</source>
         <translation>Informazioni per esperti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2651"/>
+        <location filename="main_window.ui" line="2672"/>
         <source>Show expert notifications</source>
         <translation>Mostra notifiche per esperti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2662"/>
+        <location filename="main_window.ui" line="2683"/>
         <source>Add an expression to the display filter.</source>
         <translation>Aggiungi un&apos;espressione per il filtro di visualizzazione.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2667"/>
+        <location filename="main_window.ui" line="2688"/>
         <source>REGISTER_STAT_GROUP_UNSORTED</source>
         <translation>REGISTER_STAT_GROUP_UNSORTED</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2670"/>
+        <location filename="main_window.ui" line="2691"/>
         <source>Start of &quot;REGISTER_STAT_GROUP_UNSORTED&quot;</source>
         <translation>Avvio di &quot;REGISTER_STAT_GROUP_UNSORTED&quot;</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2684"/>
+        <location filename="main_window.ui" line="2705"/>
         <source>No ANSI statistics registered</source>
         <oldsource>No tools registered</oldsource>
         <translation>Nessuna statistica ANSI registrata</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2713"/>
+        <location filename="main_window.ui" line="2734"/>
         <source>Resolved Addresses</source>
         <translation>Indirizzi risolti</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2716"/>
+        <location filename="main_window.ui" line="2737"/>
         <source>Show each table of resolved addresses as copyable text.</source>
         <translation>Mostra ogni tabella di indirizzi risolti come testo copiabile.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2721"/>
+        <location filename="main_window.ui" line="2742"/>
         <source>Color &amp;1</source>
         <translation>Colore &amp;1</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2724"/>
-        <location filename="main_window.ui" line="2735"/>
-        <location filename="main_window.ui" line="2746"/>
-        <location filename="main_window.ui" line="2757"/>
-        <location filename="main_window.ui" line="2768"/>
-        <location filename="main_window.ui" line="2779"/>
-        <location filename="main_window.ui" line="2790"/>
-        <location filename="main_window.ui" line="2801"/>
-        <location filename="main_window.ui" line="2812"/>
-        <location filename="main_window.ui" line="2823"/>
+        <location filename="main_window.ui" line="2745"/>
+        <location filename="main_window.ui" line="2756"/>
+        <location filename="main_window.ui" line="2767"/>
+        <location filename="main_window.ui" line="2778"/>
+        <location filename="main_window.ui" line="2789"/>
+        <location filename="main_window.ui" line="2800"/>
+        <location filename="main_window.ui" line="2811"/>
+        <location filename="main_window.ui" line="2822"/>
+        <location filename="main_window.ui" line="2833"/>
+        <location filename="main_window.ui" line="2844"/>
         <source>Mark the current conversation with its own color.</source>
         <oldsource>Mark the current coversation with its own color.</oldsource>
         <translation>Marca la conversazione attuale con il suo colore.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2732"/>
+        <location filename="main_window.ui" line="2753"/>
         <source>Color &amp;2</source>
         <translation>Colore &amp;2</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2743"/>
+        <location filename="main_window.ui" line="2764"/>
         <source>Color &amp;3</source>
         <translation>Colore &amp;3</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2754"/>
+        <location filename="main_window.ui" line="2775"/>
         <source>Color &amp;4</source>
         <translation>Colore &amp;4</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2765"/>
+        <location filename="main_window.ui" line="2786"/>
         <source>Color &amp;5</source>
         <translation>Colore &amp;5</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2776"/>
+        <location filename="main_window.ui" line="2797"/>
         <source>Color &amp;6</source>
         <translation>Colore &amp;6</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2787"/>
+        <location filename="main_window.ui" line="2808"/>
         <source>Color &amp;7</source>
         <translation>Colore &amp;7</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2798"/>
+        <location filename="main_window.ui" line="2819"/>
         <source>Color &amp;8</source>
         <translation>Colore &amp;8</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2809"/>
+        <location filename="main_window.ui" line="2830"/>
         <source>Color &amp;9</source>
         <translation>Colore &amp;9</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2820"/>
+        <location filename="main_window.ui" line="2841"/>
         <source>Color 1&amp;0</source>
         <translation>Colore 1&amp;0</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2831"/>
+        <location filename="main_window.ui" line="2852"/>
         <source>Create a new coloring rule based on this field.</source>
         <oldsource>Create a new coloring rule based on this conversation.</oldsource>
         <translation>Crea una nuova regola di colorazione basata su questo campo.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2836"/>
+        <location filename="main_window.ui" line="2857"/>
         <source>Reset Colorization</source>
         <translation>Ripristina colorazione</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2839"/>
+        <location filename="main_window.ui" line="2860"/>
         <source>Reset colorized conversations.</source>
         <translation>Ripristina le conversazioni colorate.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2850"/>
+        <location filename="main_window.ui" line="2871"/>
         <source>RTP Stream Analysis</source>
         <translation>Analisi flusso RTP</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2863"/>
+        <location filename="main_window.ui" line="2884"/>
         <source>Edit Resolved Name</source>
         <translation>Modifica nome risolto</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2866"/>
+        <location filename="main_window.ui" line="2887"/>
         <source>Manually edit a name resolution entry.</source>
         <translation>Modifica manualmente la voce di risoluzione di un nome.</translation>
     </message>
     <message>
-        <location filename="main_window.ui" line="2874"/>
+        <location filename="main_window.ui" line="2895"/>
         <source>Enable and disable specific protocols</source>
         <translation>Abilita e disabilita protocolli specifici</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="339"/>
+        <location filename="main_window.cpp" line="297"/>
         <source>Check for Updates</source>
         <oldsource>Check for Updates...</oldsource>
         <translation>Verifica aggiornamenti</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="876"/>
+        <location filename="main_window.cpp" line="924"/>
         <source> before quitting</source>
         <translation>prima di uscire</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1108"/>
+        <location filename="main_window.cpp" line="1160"/>
         <source>Save packets before merging?</source>
         <translation>Salvare i pacchetti prima di unire?</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1109"/>
+        <location filename="main_window.cpp" line="1161"/>
         <source>A temporary capture file can&apos;t be merged.</source>
         <translation>Un file di cattura temporaneo non può essere unito.</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1115"/>
+        <location filename="main_window.cpp" line="1167"/>
         <source>Save changes in &quot;%1&quot; before merging?</source>
         <translation>Salvare le modifiche a &quot;%1&quot; prima di unire?</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1117"/>
+        <location filename="main_window.cpp" line="1169"/>
         <source>Changes must be saved before the files can be merged.</source>
         <translation>Le modifiche devono essere salvate prima di unire.</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="220"/>
+        <location filename="main_window_slots.cpp" line="229"/>
         <source>Invalid Display Filter</source>
         <translation>Filtro di visualizzazione non valido</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1154"/>
+        <location filename="main_window.cpp" line="1206"/>
         <source>Invalid Read Filter</source>
         <translation>Filtro di lettura non valido</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1155"/>
+        <location filename="main_window.cpp" line="1207"/>
         <source>The filter expression %1 isn&apos;t a valid read filter. (%2).</source>
         <translation>L&apos;espressione %1 non è un filtro di lettura valido. (%2).</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1244"/>
+        <location filename="main_window.cpp" line="1296"/>
         <source> before importing a capture</source>
         <oldsource> before importing a new capture</oldsource>
         <translation>prima di importare una cattura</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1520"/>
+        <location filename="main_window.cpp" line="1572"/>
         <source>Unable to export to &quot;%1&quot;.</source>
         <translation>Impossibile esportare su &quot;%1&quot;.</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1521"/>
+        <location filename="main_window.cpp" line="1573"/>
         <source>You cannot export packets to the current capture file.</source>
         <translation>Non puoi esportare pacchetti sul file di cattura attuale.</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1609"/>
-        <location filename="main_window.cpp" line="1634"/>
+        <location filename="main_window.cpp" line="1661"/>
+        <location filename="main_window.cpp" line="1686"/>
         <source>.</source>
         <translation>.</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1681"/>
+        <location filename="main_window.cpp" line="1731"/>
         <source>Do you want to save the changes you&apos;ve made%1?</source>
         <oldsource>Do you want to save the captured packets</oldsource>
         <translation>Vuoi salvare le modifiche che hai apportato%1?</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1677"/>
-        <location filename="main_window.cpp" line="1685"/>
+        <location filename="main_window.cpp" line="1727"/>
+        <location filename="main_window.cpp" line="1735"/>
         <source>Your captured packets will be lost if you don&apos;t save them.</source>
         <translation>I pacchetti catturati saranno persi se non li salvi.</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1690"/>
+        <location filename="main_window.cpp" line="1740"/>
         <source>Do you want to save the changes you&apos;ve made to the capture file &quot;%1&quot;%2?</source>
         <translation>Vuoi salvare le modifiche che hai apportato al file di cattura &quot;%1&quot;%2?</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1682"/>
-        <location filename="main_window.cpp" line="1691"/>
+        <location filename="main_window.cpp" line="1732"/>
+        <location filename="main_window.cpp" line="1741"/>
         <source>Your changes will be lost if you don&apos;t save them.</source>
         <translation>Le modifiche saranno perse se non le salvi.</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="909"/>
+        <location filename="main_window.cpp" line="961"/>
         <source>Unable to drop files during capture.</source>
-        <translation type="unfinished"></translation>
+        <translation>Impossibile scartare file durante la cattura.</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1676"/>
+        <location filename="main_window.cpp" line="1726"/>
         <source>Do you want to stop the capture and save the captured packets%1?</source>
         <translation>Vuoi interrompere la cattura e salvare i pacchetti catturati%1?</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1684"/>
+        <location filename="main_window.cpp" line="1734"/>
         <source>Do you want to save the captured packets%1?</source>
         <translation>Vuoi salvare i pacchetti catturati%1?</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1708"/>
+        <location filename="main_window.cpp" line="1758"/>
         <source>Save before Continue</source>
         <translation>Salva prima di continuare</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1710"/>
+        <location filename="main_window.cpp" line="1760"/>
         <source>Stop and Save</source>
         <translation>Ferma e salva</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1722"/>
+        <location filename="main_window.cpp" line="1772"/>
         <source>Stop and Quit &amp;without Saving</source>
         <oldsource>Stop and Quit without Saving</oldsource>
         <translation>Ferma ed esci senza sal&amp;vare</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1734"/>
+        <location filename="main_window.cpp" line="1784"/>
         <source>Quit &amp;without Saving</source>
         <oldsource>Quit without Saving</oldsource>
         <translation>Esci senza sal&amp;vare</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="2651"/>
+        <location filename="main_window.cpp" line="767"/>
+        <location filename="main_window.cpp" line="2734"/>
         <source>Show or hide the toolbar</source>
-        <translation type="unfinished"></translation>
+        <translation>Mostra o nascondi la barra degli strumenti</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1725"/>
-        <location filename="main_window.cpp" line="1738"/>
+        <location filename="main_window.cpp" line="1775"/>
+        <location filename="main_window.cpp" line="1788"/>
         <source>Continue &amp;without Saving</source>
         <oldsource>Continue without Saving</oldsource>
         <translation>Continua senza sal&amp;vare</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="1728"/>
+        <location filename="main_window.cpp" line="1778"/>
         <source>Stop and Continue &amp;without Saving</source>
         <oldsource>Stop and Continue without Saving</oldsource>
         <translation>Ferma e continua senza sal&amp;vare</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="2086"/>
+        <location filename="main_window.cpp" line="2156"/>
         <source>(File name can&apos;t be mapped to UTF-8)</source>
         <translation>(Il nome del file non può essere associato in UTF-8)</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="2107"/>
+        <location filename="main_window.cpp" line="2177"/>
         <source>The Wireshark Network Analyzer</source>
         <translation>Wireshark l&apos;analizzatore di rete</translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="2132"/>
+        <location filename="main_window.cpp" line="2202"/>
         <source>Capturing from %1</source>
         <translation>Cattura da %1</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="208"/>
+        <location filename="main_window_slots.cpp" line="217"/>
         <source> before opening another file</source>
         <translation>errore durante l&apos;apertura di un altro file</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="754"/>
+        <location filename="main_window_slots.cpp" line="786"/>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="859"/>
+        <location filename="main_window_slots.cpp" line="895"/>
         <source>Saving %1</source>
         <translation>Salvataggio di %1</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="905"/>
+        <location filename="main_window_slots.cpp" line="941"/>
         <source>No interface selected</source>
         <translation>Nessuna interfaccia selezionata</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="915"/>
+        <location filename="main_window_slots.cpp" line="951"/>
         <source>Invalid capture filter</source>
         <translation>Filtro di cattura invalido</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="1163"/>
+        <location filename="main_window_slots.cpp" line="1199"/>
         <source>Clear Menu</source>
         <translation>Pulisci menu</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="1654"/>
+        <location filename="main_window_slots.cpp" line="1697"/>
         <source>Please wait while Wireshark is initializing</source>
         <translation>Attendi l&apos;inizializzazione di Wireshark</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="1758"/>
+        <location filename="main_window_slots.cpp" line="1801"/>
         <source> before closing the file</source>
         <translation>prima della chiusura del file</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="1840"/>
+        <location filename="main_window_slots.cpp" line="1883"/>
         <source>Export Selected Packet Bytes</source>
         <translation>Esporta i byte del pacchetto selezionato</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="1906"/>
+        <location filename="main_window_slots.cpp" line="1949"/>
         <source>No Keys</source>
         <translation>Nessuna chiave</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="1907"/>
+        <location filename="main_window_slots.cpp" line="1950"/>
         <source>There are no SSL Session Keys to save.</source>
         <translation>Non ci sono chiavi di sessione SSL da salvare.</translation>
     </message>
     <message numerus="yes">
-        <location filename="main_window_slots.cpp" line="1913"/>
+        <location filename="main_window_slots.cpp" line="1956"/>
         <source>Export SSL Session Keys (%Ln key(s))</source>
         <oldsource>Export SSL Session Keys (%1 key%2</oldsource>
         <translation>
@@ -9724,89 +9567,89 @@ a:hover {
         </translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="1842"/>
+        <location filename="main_window_slots.cpp" line="1885"/>
         <source>Raw data (*.bin *.dat *.raw);;All Files (</source>
         <translation>Dati grezzi (*.bin *.dat *.raw);;Tutti i file (</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="804"/>
+        <location filename="main_window_slots.cpp" line="840"/>
         <source>Merging files</source>
-        <translation type="unfinished"></translation>
+        <translation>Unisci i file</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="1917"/>
+        <location filename="main_window_slots.cpp" line="1960"/>
         <source>SSL Session Keys (*.keys *.txt);;All Files (</source>
         <translation>Chiavi di sessione SSL (*.keys *.txt);;Any File (</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="2035"/>
+        <location filename="main_window_slots.cpp" line="2078"/>
         <source>Couldn&apos;t copy text. Try another item.</source>
         <translation>Non riesco a copiare il testo. Prova un&apos;altra voce.</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="2464"/>
-        <location filename="main_window_slots.cpp" line="3583"/>
+        <location filename="main_window_slots.cpp" line="2496"/>
+        <location filename="main_window_slots.cpp" line="3605"/>
         <source>Unable to build conversation filter.</source>
         <translation>Impossibile creare il filtro di conversazione.</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="2622"/>
-        <location filename="main_window_slots.cpp" line="2635"/>
+        <location filename="main_window_slots.cpp" line="2654"/>
+        <location filename="main_window_slots.cpp" line="2667"/>
         <source> before reloading the file</source>
         <translation>prima di ricaricare il file</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="2669"/>
+        <location filename="main_window_slots.cpp" line="2701"/>
         <source>No filter available. Try another </source>
         <translation>Nessun filtro disponibile. Provane un altro </translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="3590"/>
+        <location filename="main_window_slots.cpp" line="3612"/>
         <source>Error compiling filter for this conversation.</source>
         <translation>Errore durante la compilazione del filtro per questa conversazione.</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="3599"/>
+        <location filename="main_window_slots.cpp" line="3621"/>
         <source>No previous/next packet in conversation.</source>
         <translation>Nessun pacchetto precedente/successivo in conversazione.</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="3676"/>
+        <location filename="main_window_slots.cpp" line="3698"/>
         <source>No Interface Selected</source>
         <translation>Nessuna interfaccia selezionata</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="3683"/>
+        <location filename="main_window_slots.cpp" line="3705"/>
         <source> before starting a new capture</source>
         <translation>prima di iniziare una nuova cattura</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="3701"/>
+        <location filename="main_window_slots.cpp" line="3723"/>
         <source> before restarting the capture</source>
         <translation>prima di riavviare la cattura</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="3909"/>
+        <location filename="main_window_slots.cpp" line="3934"/>
         <source>Wiki Page for %1</source>
         <translation>Pagina wiki per %1</translation>
     </message>
     <message>
-        <location filename="main_window_slots.cpp" line="3910"/>
+        <location filename="main_window_slots.cpp" line="3935"/>
         <source>&lt;p&gt;The Wireshark Wiki is maintained by the community.&lt;/p&gt;&lt;p&gt;The page you are about to load might be wonderful, incomplete, wrong, or nonexistent.&lt;/p&gt;&lt;p&gt;Proceed to the wiki?&lt;/p&gt;</source>
         <translation>&lt;p&gt;Il Wiki di Wireshark è gestito dalla comunità.&lt;/p&gt;&lt;p&gt;La pagina che stai per caricare potrebbe essere perfetta, incompleta, errata o inesistente.&lt;/p&gt;&lt;p&gt;Vuoi proseguire?&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="main_window.h" line="281"/>
+        <location filename="main_window.h" line="288"/>
         <source>Loading</source>
         <translation>Caricamento in corso</translation>
     </message>
     <message>
-        <location filename="main_window.h" line="283"/>
+        <location filename="main_window.h" line="290"/>
         <source>Reloading</source>
         <translation>Ricaricamento in corso</translation>
     </message>
     <message>
-        <location filename="main_window.h" line="284"/>
+        <location filename="main_window.h" line="291"/>
         <source>Rescanning</source>
         <translation>Nuova scansione in corso</translation>
     </message>
@@ -9949,18 +9792,6 @@ a:hover {
         <translation>Mostra</translation>
     </message>
     <message>
-        <source>Friendly Name</source>
-        <translation type="vanished">Nome intuitivo</translation>
-    </message>
-    <message>
-        <source>Interface Name</source>
-        <translation type="vanished">Nome dell&apos;interfaccia</translation>
-    </message>
-    <message>
-        <source>Comment</source>
-        <translation type="vanished">Commento</translation>
-    </message>
-    <message>
         <location filename="manage_interfaces_dialog.ui" line="59"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add a pipe to capture from or remove an existing pipe from the list.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Aggiungi una pipe da cui catturare o rimuovi una pipe esistente dall&apos;elenco.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
@@ -9969,10 +9800,6 @@ a:hover {
         <location filename="manage_interfaces_dialog.ui" line="62"/>
         <source>Pipes</source>
         <translation>Pipe</translation>
-    </message>
-    <message>
-        <source>Named Pipe Path</source>
-        <translation type="vanished">Percorso pipe con nome</translation>
     </message>
     <message>
         <location filename="manage_interfaces_dialog.ui" line="101"/>
@@ -10030,17 +9857,9 @@ a:hover {
         <translation>Questa versione di Wireshark non supporta le interfacce remote.</translation>
     </message>
     <message>
-        <location filename="manage_interfaces_dialog.cpp" line="227"/>
+        <location filename="manage_interfaces_dialog.cpp" line="228"/>
         <source>New Pipe</source>
-        <translation type="unfinished">Nuova pipe</translation>
-    </message>
-    <message>
-        <source>Error</source>
-        <translation type="vanished">Errore</translation>
-    </message>
-    <message>
-        <source>Default interface cannot be hidden.</source>
-        <translation type="vanished">L&apos;interfaccia predefinita non può essere nascosta.</translation>
+        <translation>Nuova pipe</translation>
     </message>
 </context>
 <context>
@@ -10117,10 +9936,6 @@ a:hover {
         <location filename="mtp3_summary_dialog.cpp" line="188"/>
         <source>Packets</source>
         <translation>Pacchetti</translation>
-    </message>
-    <message>
-        <source>N/A</source>
-        <translation type="vanished">N/D</translation>
     </message>
     <message>
         <location filename="mtp3_summary_dialog.cpp" line="200"/>
@@ -10421,47 +10236,47 @@ a:hover {
         <translation>Riepilogo come testo</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="719"/>
+        <location filename="packet_list.cpp" line="718"/>
         <source>Align Left</source>
         <translation>Allinea a sinistra</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="720"/>
+        <location filename="packet_list.cpp" line="719"/>
         <source>Align Center</source>
         <translation>Allinea al centro</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="721"/>
+        <location filename="packet_list.cpp" line="720"/>
         <source>Align Right</source>
         <translation>Allinea a destra</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="723"/>
+        <location filename="packet_list.cpp" line="722"/>
         <source>Column Preferences</source>
         <translation>Preferenze delle colonne</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="724"/>
+        <location filename="packet_list.cpp" line="723"/>
         <source>Edit Column</source>
         <translation>Modifica colonna</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="725"/>
+        <location filename="packet_list.cpp" line="724"/>
         <source>Resize To Contents</source>
         <translation>Ridimensiona come il contenuto</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="726"/>
+        <location filename="packet_list.cpp" line="725"/>
         <source>Resolve Names</source>
         <translation>Risolvi i nomi</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="731"/>
+        <location filename="packet_list.cpp" line="730"/>
         <source>Remove This Column</source>
         <translation>Rimuovi questa colonna</translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="1135"/>
+        <location filename="packet_list.cpp" line="1140"/>
         <source>Frame %1: %2
 
 </source>
@@ -10470,7 +10285,7 @@ a:hover {
 </translation>
     </message>
     <message>
-        <location filename="packet_list.cpp" line="1139"/>
+        <location filename="packet_list.cpp" line="1144"/>
         <source>[ Comment text exceeds %1. Stopping. ]</source>
         <translation>[ Il testo del commento supera %1. Interruzione. ]</translation>
     </message>
@@ -10478,12 +10293,12 @@ a:hover {
 <context>
     <name>PacketListModel</name>
     <message>
-        <location filename="packet_list_model.cpp" line="319"/>
+        <location filename="packet_list_model.cpp" line="320"/>
         <source>Dissecting</source>
         <translation>Decodifica</translation>
     </message>
     <message>
-        <location filename="packet_list_model.cpp" line="341"/>
+        <location filename="packet_list_model.cpp" line="342"/>
         <source>Sorting &quot;%1&quot;</source>
         <translation>Ordinamento di &quot;%1&quot;</translation>
     </message>
@@ -10622,9 +10437,9 @@ a:hover {
     </message>
     <message>
         <location filename="preferences_dialog.ui" line="64"/>
-        <source>Filter Expressions</source>
-        <oldsource>Filter Bookmarks</oldsource>
-        <translation>Espressioni di filtro</translation>
+        <source>Filter Buttons</source>
+        <oldsource>Filter Expressions</oldsource>
+        <translation>Pulsanti di filtro</translation>
     </message>
     <message>
         <location filename="preferences_dialog.ui" line="69"/>
@@ -10660,18 +10475,6 @@ a:hover {
         <location filename="preferences_dialog.cpp" line="403"/>
         <source>Preferences</source>
         <translation>Preferenze</translation>
-    </message>
-    <message>
-        <source>Unknown</source>
-        <translation type="vanished">Sconosciuto</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation type="vanished">Predefinito</translation>
-    </message>
-    <message>
-        <source>Changed</source>
-        <translation type="vanished">Modificato</translation>
     </message>
 </context>
 <context>
@@ -10748,7 +10551,7 @@ a:hover {
         <location filename="profile_dialog.ui" line="60"/>
         <source>Remove this profile. System provided profiles cannot be removed.</source>
         <oldsource>Remove this profile. The Default profile and system provided profiles cannot be removed.</oldsource>
-        <translation type="unfinished">Rimuovi questo profilo. Il profilo Predefinito e i profili forniti dal sistema non possono essere rimossi.</translation>
+        <translation>Rimuovi questo profilo. I profili forniti dal sistema non possono essere rimossi.</translation>
     </message>
     <message>
         <location filename="profile_dialog.ui" line="71"/>
@@ -10763,7 +10566,7 @@ a:hover {
     <message>
         <location filename="profile_dialog.cpp" line="163"/>
         <source>Will be reset to default values</source>
-        <translation type="unfinished"></translation>
+        <translation>Sarà ripristinato ai valori predefiniti</translation>
     </message>
     <message>
         <location filename="profile_dialog.cpp" line="179"/>
@@ -10773,7 +10576,7 @@ a:hover {
     <message>
         <location filename="profile_dialog.cpp" line="181"/>
         <source>(system provided)</source>
-        <translation type="unfinished"></translation>
+        <translation>(fornito dal sistema)</translation>
     </message>
     <message>
         <location filename="profile_dialog.cpp" line="187"/>
@@ -10808,7 +10611,7 @@ a:hover {
     <message>
         <location filename="profile_dialog.cpp" line="234"/>
         <source>The profile will be reset to default values.</source>
-        <translation type="unfinished"></translation>
+        <translation>Il profilo sarà ripristinato ai valori predefiniti.</translation>
     </message>
     <message>
         <location filename="profile_dialog.cpp" line="355"/>
@@ -10973,12 +10776,12 @@ a:hover {
         <translation>Disabilita %1</translation>
     </message>
     <message>
-        <location filename="protocol_preferences_menu.cpp" line="178"/>
+        <location filename="protocol_preferences_menu.cpp" line="179"/>
         <source>%1 has no preferences</source>
         <translation>%1 non ha preferenze</translation>
     </message>
     <message>
-        <location filename="protocol_preferences_menu.cpp" line="187"/>
+        <location filename="protocol_preferences_menu.cpp" line="188"/>
         <source>Open %1 preferences</source>
         <translation>Apri le preferenze di %1</translation>
     </message>
@@ -10988,12 +10791,12 @@ a:hover {
     <message>
         <location filename="preferences_dialog.cpp" line="123"/>
         <source>Default</source>
-        <translation type="unfinished">Predefinito</translation>
+        <translation>Predefinito</translation>
     </message>
     <message>
         <location filename="preferences_dialog.cpp" line="125"/>
         <source>Changed</source>
-        <translation type="unfinished">Modificato</translation>
+        <translation>Modificato</translation>
     </message>
     <message>
         <location filename="preferences_dialog.cpp" line="143"/>
@@ -11006,14 +10809,9 @@ a:hover {
         <translation>Il valore predefinito è vuoto</translation>
     </message>
     <message>
-        <source>Average Througput (bits/s)</source>
-        <oldsource>Avgerage Througput (bits/s)</oldsource>
-        <translation type="vanished">Capacità trasmissiva (bit/s)</translation>
-    </message>
-    <message>
         <location filename="tcp_stream_dialog.cpp" line="81"/>
         <source>Average Throughput (bits/s)</source>
-        <translation type="unfinished"></translation>
+        <translation>Capacità trasmissiva media (bit/s)</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.cpp" line="82"/>
@@ -11041,97 +10839,97 @@ a:hover {
         <translation>Dimensione della finestra (B)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1952"/>
+        <location filename="io_graph_dialog.cpp" line="2010"/>
         <source>Packets</source>
         <translation>Pacchetti</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1953"/>
+        <location filename="io_graph_dialog.cpp" line="2011"/>
         <source>Bytes</source>
         <translation>Byte</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1954"/>
+        <location filename="io_graph_dialog.cpp" line="2012"/>
         <source>Bits</source>
         <translation>Bit</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1955"/>
+        <location filename="io_graph_dialog.cpp" line="2013"/>
         <source>SUM(Y Field)</source>
         <translation>SOMMA (Campo Y)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1956"/>
+        <location filename="io_graph_dialog.cpp" line="2014"/>
         <source>COUNT FRAMES(Y Field)</source>
         <translation>CONTA FRAME (Campo Y)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1957"/>
+        <location filename="io_graph_dialog.cpp" line="2015"/>
         <source>COUNT FIELDS(Y Field)</source>
         <translation>CONTA CAMPI (Campo Y)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1958"/>
+        <location filename="io_graph_dialog.cpp" line="2016"/>
         <source>MAX(Y Field)</source>
         <translation>MAX (Campo Y)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1959"/>
+        <location filename="io_graph_dialog.cpp" line="2017"/>
         <source>MIN(Y Field)</source>
         <translation>MIN (Campo Y)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1960"/>
+        <location filename="io_graph_dialog.cpp" line="2018"/>
         <source>AVG(Y Field)</source>
         <translation>MED (Campo Y)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1961"/>
+        <location filename="io_graph_dialog.cpp" line="2019"/>
         <source>LOAD(Y Field)</source>
         <translation>CARICO (Campo Y)</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1970"/>
+        <location filename="io_graph_dialog.cpp" line="2028"/>
         <source>Line</source>
         <translation>Linea</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1971"/>
+        <location filename="io_graph_dialog.cpp" line="2029"/>
         <source>Impulse</source>
         <translation>Impulso</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1972"/>
+        <location filename="io_graph_dialog.cpp" line="2030"/>
         <source>Bar</source>
         <translation>Barra</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1973"/>
+        <location filename="io_graph_dialog.cpp" line="2031"/>
         <source>Stacked Bar</source>
         <translation>Barre impilate</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1974"/>
+        <location filename="io_graph_dialog.cpp" line="2032"/>
         <source>Dot</source>
         <translation>Punto</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1975"/>
+        <location filename="io_graph_dialog.cpp" line="2033"/>
         <source>Square</source>
         <translation>Quadrato</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1976"/>
+        <location filename="io_graph_dialog.cpp" line="2034"/>
         <source>Diamond</source>
         <translation>Diamante</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1987"/>
+        <location filename="io_graph_dialog.cpp" line="2045"/>
         <source>None</source>
         <translation>Nessuno</translation>
     </message>
     <message>
-        <location filename="io_graph_dialog.cpp" line="1989"/>
+        <location filename="io_graph_dialog.cpp" line="2047"/>
         <source>%1 interval SMA</source>
         <translation>%1 intervallo SMA</translation>
     </message>
@@ -11153,11 +10951,7 @@ a:hover {
     <message>
         <location filename="conversation_dialog.cpp" line="343"/>
         <source>Bars show the relative timeline for each conversation.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>N/A</source>
-        <translation type="vanished">N/D</translation>
+        <translation>Le barre mostrano la linea temporale per ogni conversazione.</translation>
     </message>
     <message>
         <location filename="endpoint_dialog.cpp" line="47"/>
@@ -11178,10 +10972,6 @@ a:hover {
         <location filename="filter_action.cpp" line="71"/>
         <source>Find</source>
         <translation>Trova</translation>
-    </message>
-    <message>
-        <source>Conversation Filter</source>
-        <translation type="vanished">Filtro di conversazione</translation>
     </message>
     <message>
         <location filename="filter_action.cpp" line="74"/>
@@ -11237,38 +11027,19 @@ a:hover {
         <translation>Tutti </translation>
     </message>
     <message>
-        <location filename="main_window.cpp" line="249"/>
+        <location filename="simple_dialog.cpp" line="115"/>
         <source>Don&apos;t show this message again.</source>
         <translation>Non mostrare più questo messaggio.</translation>
     </message>
     <message>
-        <source>New Pipe</source>
-        <translation type="vanished">Nuova pipe</translation>
+        <location filename="simple_dialog.cpp" line="295"/>
+        <source>Multiple problems found</source>
+        <translation>Rilevati diversi problemi</translation>
     </message>
     <message>
         <location filename="rtp_stream_dialog.cpp" line="128"/>
         <source>%1 (%L2%)</source>
         <translation>%1 (%L2%)</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.cpp" line="88"/>
-        <source>Error</source>
-        <translation>Errore</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.cpp" line="129"/>
-        <source>On</source>
-        <translation>Acceso</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.cpp" line="130"/>
-        <source>Off</source>
-        <translation>Spento</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.cpp" line="138"/>
-        <source>Tunneling: %1  Fast Start: %2</source>
-        <translation>Tunnel: %1  Avvio veloce: %2</translation>
     </message>
     <message>
         <location filename="resolved_addresses_dialog.cpp" line="171"/>
@@ -11286,7 +11057,7 @@ a:hover {
         <translation>Modifica</translation>
     </message>
     <message>
-        <location filename="module_preferences_scroll_area.cpp" line="211"/>
+        <location filename="module_preferences_scroll_area.cpp" line="212"/>
         <source>Browse</source>
         <translation>Sfoglia</translation>
     </message>
@@ -11562,39 +11333,31 @@ a:hover {
         <translation>Priorità</translation>
     </message>
     <message>
-        <source>Show in Finder</source>
-        <translation type="vanished">Mostra in Finder</translation>
-    </message>
-    <message>
-        <source>Show in Folder</source>
-        <translation type="vanished">Mostra nella cartella</translation>
-    </message>
-    <message>
         <location filename="filter_expressions_preferences_frame.cpp" line="279"/>
         <source>My Filter</source>
         <translation>Il mio filtro</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="118"/>
+        <location filename="capture_interfaces_dialog.cpp" line="122"/>
         <location filename="interface_tree_model.cpp" line="48"/>
         <source>default</source>
         <translation>predefinito</translation>
     </message>
     <message>
-        <location filename="capture_interfaces_dialog.cpp" line="120"/>
+        <location filename="capture_interfaces_dialog.cpp" line="124"/>
         <location filename="interface_tree_model.cpp" line="177"/>
         <source>DLT %1</source>
         <translation>DLT %1</translation>
     </message>
     <message>
-        <location filename="../../wireshark-qt.cpp" line="872"/>
+        <location filename="../../wireshark-qt.cpp" line="875"/>
         <source>Invalid Display Filter</source>
-        <translation type="unfinished">Filtro di visualizzazione non valido</translation>
+        <translation>Filtro di visualizzazione non valido</translation>
     </message>
     <message>
-        <location filename="../../wireshark-qt.cpp" line="873"/>
+        <location filename="../../wireshark-qt.cpp" line="876"/>
         <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
-        <translation type="unfinished"></translation>
+        <translation>L&apos;espressione %1 non è un filtro di visualizzazione valido. (%2).</translation>
     </message>
 </context>
 <context>
@@ -12165,101 +11928,97 @@ a:hover {
     <message>
         <location filename="rtp_analysis_dialog.ui" line="333"/>
         <source>Unsynchronized Forward and Reverse Audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio diretto e inverso non sincronizzato</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="411"/>
         <source>Stream Synchronized Forward and Reverse Audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio diretto e inverso sincronizzato con flusso</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="414"/>
         <source>Save the audio data for both channels synchronized to start of earlier stream.</source>
-        <translation type="unfinished"></translation>
+        <translation>Salva i dati dell&apos;audio per entrambi i canali sincronizzato all&apos;inizio del primo flusso.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="419"/>
         <source>Stream Synchronized Forward Stream Audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio flusso diretto sincronizzato con flusso</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="422"/>
         <source>Save the forward stream audio data synchronized to start of earlier stream.</source>
-        <translation type="unfinished"></translation>
+        <translation>Salva i dati dell&apos;audio del flusso diretto sincronizzato all&apos;inizio del primo flusso.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="427"/>
         <source>Stream Synchronized Reverse Stream Audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio flusso inverso sincronizzato con flusso</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="430"/>
         <source>Save the reverse stream audio data synchronized to start of earlier stream.</source>
-        <translation type="unfinished"></translation>
+        <translation>Salva i dati dell&apos;audio del flusso inverso sincronizzato all&apos;inizio del primo flusso.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="435"/>
         <source>File Synchronized Forward and Reverse Audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio diretto e inverso sincronizzato con file</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="438"/>
         <source>Save the audio data for both channels synchronized to start of file.</source>
-        <translation type="unfinished"></translation>
+        <translation>Salva i dati dell&apos;audio per entrambi i canali sincronizzato all&apos;inizio del file.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="443"/>
         <source>File Synchronized Forward Stream Audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio flusso diretto sincronizzato con file</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="446"/>
         <source>Save the forward stream audio data synchronized to start of file.</source>
-        <translation type="unfinished"></translation>
+        <translation>Salva i dati audio del flusso diretto sincronizzato all&apos;inizio del file.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="451"/>
         <source>File Synchronized Reverse Stream Audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio flusso inverso sincronizzato con file</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="454"/>
         <source>Save the reverse stream audio data synchronized to start of file.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Audio</source>
-        <translation type="vanished">Audio</translation>
+        <translation>Salva i dati audio del flusso inverso sincronizzato all&apos;inizio del file.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="336"/>
         <source>Save the unsynchronized audio data for both channels.</source>
         <oldsource>Save the audio data for both channels.</oldsource>
-        <translation type="unfinished">Salva i dati audio per entrambi i canali.</translation>
+        <translation>Salva i dati dell&apos;audio non sincronizzato per entrambi i canali.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="341"/>
         <source>Unsynchronized Forward Stream Audio</source>
         <oldsource>Forward Stream Audio</oldsource>
-        <translation type="unfinished">Audio flusso diretto</translation>
+        <translation>Audio flusso diretto non sincronizzato</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="344"/>
         <source>Save the unsynchronized forward stream audio data.</source>
         <oldsource>Save the forward stream audio data.</oldsource>
-        <translation type="unfinished">Salva i dati audio del flusso diretto.</translation>
+        <translation>Salva i dati audio del flusso diretto non sincronizzato.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="349"/>
         <source>Unsynchronized Reverse Stream Audio</source>
         <oldsource>Reverse Stream Audio</oldsource>
-        <translation type="unfinished">Audio flusso inverso</translation>
+        <translation>Audio flusso inverso non sincronizzato</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="352"/>
         <source>Save the unsynchronized reverse stream audio data.</source>
         <oldsource>Save the reverse stream audio data.</oldsource>
-        <translation type="unfinished">Salva i dati audio del flusso inverso.</translation>
+        <translation>Salva i dati audio del flusso inverso non sincronizzato.</translation>
     </message>
     <message>
         <location filename="rtp_analysis_dialog.ui" line="357"/>
@@ -12342,22 +12101,22 @@ a:hover {
         <translation>Impossibile salvare i dati RTP.</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1271"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1272"/>
         <source>Can&apos;t synchronize when only one channel is selected</source>
-        <translation type="unfinished"></translation>
+        <translation>Impossibile selezionare quando è selezionato solo un canale</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1406"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1407"/>
         <source>Save forward and reverse stream audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Salva l&apos;audio del flusso diretto e inverso</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1412"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1413"/>
         <source>Raw (*.raw)</source>
-        <translation type="unfinished"></translation>
+        <translation>Raw (*.raw)</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1642"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1643"/>
         <source>SSRC value not found.</source>
         <translation>Valore SSRC non trovato.</translation>
     </message>
@@ -12382,133 +12141,121 @@ a:hover {
         <translation>Nessun audio</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="630"/>
+        <location filename="rtp_analysis_dialog.cpp" line="631"/>
         <source>Portable Document Format (*.pdf)</source>
         <translation>Portable Document Format (*.pdf)</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="631"/>
+        <location filename="rtp_analysis_dialog.cpp" line="632"/>
         <source>Portable Network Graphics (*.png)</source>
         <translation>Portable Network Graphics (*.png)</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="632"/>
+        <location filename="rtp_analysis_dialog.cpp" line="633"/>
         <source>Windows Bitmap (*.bmp)</source>
         <translation>Windows Bitmap (*.bmp)</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="634"/>
+        <location filename="rtp_analysis_dialog.cpp" line="635"/>
         <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
         <translation>JPEG File Interchange Format (*.jpeg *.jpg)</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="645"/>
+        <location filename="rtp_analysis_dialog.cpp" line="646"/>
         <source>Save Graph As</source>
         <translation>Salva grafico come</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="816"/>
+        <location filename="rtp_analysis_dialog.cpp" line="817"/>
         <source>Can&apos;t save in a file: Wrong length of captured packets.</source>
         <translation>Impossibile salvare in un file: lunghezza errata dei pacchetti catturati. </translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="828"/>
+        <location filename="rtp_analysis_dialog.cpp" line="829"/>
         <source>Can&apos;t save in a file: RTP data with padding.</source>
         <translation>Impossibile salvare in un file: dati RTP con padding.</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="861"/>
-        <location filename="rtp_analysis_dialog.cpp" line="870"/>
+        <location filename="rtp_analysis_dialog.cpp" line="862"/>
+        <location filename="rtp_analysis_dialog.cpp" line="871"/>
         <source>Can&apos;t save in a file: File I/O problem.</source>
         <translation>Impossibile salvare in un file: problemi di I/O sul file.</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="843"/>
+        <location filename="rtp_analysis_dialog.cpp" line="844"/>
         <source>Can&apos;t save in a file: Not all data in all packets was captured.</source>
         <translation>Impossibile salvare in un file: non sono stati catturati tutti i dati di tutti i pacchetti.</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1399"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1400"/>
         <source>Save forward stream audio</source>
         <translation>Salva l&apos;audio del flusso diretto</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1402"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1403"/>
         <source>Save reverse stream audio</source>
         <translation>Salva l&apos;audio del flusso inverso</translation>
     </message>
     <message>
-        <source>Save audio</source>
-        <translation type="vanished">Salva audio</translation>
-    </message>
-    <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1411"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1412"/>
         <source>Sun Audio (*.au)</source>
         <translation>Sun Audio (*.au)</translation>
     </message>
     <message>
-        <source>;;Raw (*.raw)</source>
-        <translation type="vanished">;;Raw (*.raw)</translation>
-    </message>
-    <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1271"/>
-        <location filename="rtp_analysis_dialog.cpp" line="1433"/>
-        <location filename="rtp_analysis_dialog.cpp" line="1445"/>
-        <location filename="rtp_analysis_dialog.cpp" line="1456"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1272"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1434"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1446"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1457"/>
         <source>Warning</source>
         <translation>Avviso</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1433"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1434"/>
         <source>Unable to save in that format</source>
         <translation>Impossibile salvare in quel formato</translation>
     </message>
     <message>
-        <source>Can&apos;t save in a file: saving in au format supported only for alaw/ulaw streams</source>
-        <translation type="vanished">Impossibile salvare in un file: il salvataggio nel formato au è supportato solo per flussi alaw/ulaw</translation>
-    </message>
-    <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1445"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1446"/>
         <source>Unable to save %1</source>
         <translation>Impossibile salvare %1</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1449"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1450"/>
         <source>Saving %1</source>
         <translation>Salvataggio di %1</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1456"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1457"/>
         <source>Can save audio with 8000 Hz clock rate only</source>
-        <translation type="unfinished"></translation>
+        <translation>Puoi salvare audio solo con una frequenza di clock di 8000 Hz</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1481"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1482"/>
         <source>Save forward stream CSV</source>
         <translation>Salva CSV del flusso diretto</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1484"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1485"/>
         <source>Save reverse stream CSV</source>
         <translation>Salva CSV del flusso inverso</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1488"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1489"/>
         <source>Save CSV</source>
         <translation>Salva CSV</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1494"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1495"/>
         <source>Comma-separated values (*.csv)</source>
         <translation>Valori separati da virgola (*.csv)</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1584"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1585"/>
         <source>There is no &quot;rtp.ssrc&quot; field in this version of Wireshark.</source>
         <translation>Non c&apos;è alcun campo &quot;rtp.ssrc&quot; in questa versione di Wireshark.</translation>
     </message>
     <message>
-        <location filename="rtp_analysis_dialog.cpp" line="1618"/>
+        <location filename="rtp_analysis_dialog.cpp" line="1619"/>
         <source>Please select an RTPv2 packet with an SSRC value</source>
         <translation>Seleziona un pacchetto RTPv2 con un valore SSRC</translation>
     </message>
@@ -12516,21 +12263,21 @@ a:hover {
 <context>
     <name>RtpAudioStream</name>
     <message>
-        <location filename="rtp_audio_stream.cpp" line="553"/>
+        <location filename="rtp_audio_stream.cpp" line="573"/>
         <source>RTP stream is empty or codec is unsupported.</source>
-        <translation type="unfinished"></translation>
+        <translation>Il flusso RTP è vuoto o il codificatore non è supportato.</translation>
     </message>
     <message>
-        <location filename="rtp_audio_stream.cpp" line="577"/>
+        <location filename="rtp_audio_stream.cpp" line="597"/>
         <source>%1 does not support PCM at %2. Preferred format is %3</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 non supporta PCM in %2. Il formato preferito è %3</translation>
     </message>
 </context>
 <context>
     <name>RtpPlayerDialog</name>
     <message>
         <location filename="rtp_player_dialog.ui" line="14"/>
-        <location filename="rtp_player_dialog.cpp" line="110"/>
+        <location filename="rtp_player_dialog.cpp" line="115"/>
         <source>RTP Player</source>
         <translation>Lettore RTP</translation>
     </message>
@@ -12639,7 +12386,7 @@ a:hover {
     <message>
         <location filename="rtp_player_dialog.ui" line="165"/>
         <source>Output Device:</source>
-        <translation type="unfinished"></translation>
+        <translation>Dispositivo di uscita:</translation>
     </message>
     <message>
         <location filename="rtp_player_dialog.ui" line="192"/>
@@ -12846,42 +12593,42 @@ a:hover {
         <translation>Spazio</translation>
     </message>
     <message>
-        <location filename="rtp_player_dialog.cpp" line="170"/>
+        <location filename="rtp_player_dialog.cpp" line="175"/>
         <source>No devices available</source>
-        <translation type="unfinished"></translation>
+        <translation>Nessun dispositivo disponibile</translation>
     </message>
     <message>
-        <location filename="rtp_player_dialog.cpp" line="190"/>
+        <location filename="rtp_player_dialog.cpp" line="195"/>
         <source>Play Streams</source>
         <translation>Riproduci flussi</translation>
     </message>
     <message>
-        <location filename="rtp_player_dialog.cpp" line="296"/>
+        <location filename="rtp_player_dialog.cpp" line="301"/>
         <source>Out of Sequence</source>
         <translation>Fuori sequenza</translation>
     </message>
     <message>
-        <location filename="rtp_player_dialog.cpp" line="311"/>
+        <location filename="rtp_player_dialog.cpp" line="316"/>
         <source>Jitter Drops</source>
         <translation>Scarti jitter</translation>
     </message>
     <message>
-        <location filename="rtp_player_dialog.cpp" line="326"/>
+        <location filename="rtp_player_dialog.cpp" line="331"/>
         <source>Wrong Timestamps</source>
         <translation>Marche temporali errate</translation>
     </message>
     <message>
-        <location filename="rtp_player_dialog.cpp" line="341"/>
+        <location filename="rtp_player_dialog.cpp" line="346"/>
         <source>Inserted Silence</source>
         <translation>Silenzio inserito</translation>
     </message>
     <message>
-        <location filename="rtp_player_dialog.cpp" line="524"/>
+        <location filename="rtp_player_dialog.cpp" line="529"/>
         <source>%1. Press &quot;G&quot; to go to packet %2</source>
         <translation>%1. Premi &quot;G&quot; per andare al pacchetto %2</translation>
     </message>
     <message>
-        <location filename="rtp_player_dialog.cpp" line="711"/>
+        <location filename="rtp_player_dialog.cpp" line="716"/>
         <source>Unknown</source>
         <translation>Sconosciuto</translation>
     </message>
@@ -14097,62 +13844,62 @@ a:hover {
         <translation>Annulla</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="323"/>
+        <location filename="search_frame.cpp" line="324"/>
         <source>No valid search type selected. Please report this to the development team.</source>
         <translation>Nessun tipo di ricerca valida selezionata. Segnala il problema alla squadra di sviluppo.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="275"/>
+        <location filename="search_frame.cpp" line="276"/>
         <source>Invalid filter.</source>
         <translation>Filtro non valido.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="281"/>
+        <location filename="search_frame.cpp" line="282"/>
         <source>That filter doesn&apos;t test anything.</source>
         <translation>Il filtro non verifica niente.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="289"/>
+        <location filename="search_frame.cpp" line="290"/>
         <source>That&apos;s not a valid hex string.</source>
         <translation>Questa non è una stringa esadecimale valida.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="298"/>
+        <location filename="search_frame.cpp" line="299"/>
         <source>You didn&apos;t specify any text for which to search.</source>
         <translation>Non hai specificato alcun testo da ricercare.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="316"/>
+        <location filename="search_frame.cpp" line="317"/>
         <source>No valid character set selected. Please report this to the development team.</source>
         <translation>Nessun gruppo di caratteri valido selezionato. Segnala il problema alla squadra di sviluppo.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="339"/>
+        <location filename="search_frame.cpp" line="340"/>
         <source>No valid search area selected. Please report this to the development team.</source>
         <translation>Nessuna area di ricerca valida selezionata. Segnala il problema alla squadra di sviluppo.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="353"/>
+        <location filename="search_frame.cpp" line="354"/>
         <source>No packet contained those bytes.</source>
         <translation>Nessun pacchetto contiene questi byte.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="367"/>
+        <location filename="search_frame.cpp" line="368"/>
         <source>No packet contained that string in its Info column.</source>
         <translation>Nessun pacchetto contiene questa stringa nella colonna delle informazioni.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="376"/>
+        <location filename="search_frame.cpp" line="377"/>
         <source>No packet contained that string in its dissected display.</source>
         <translation>Nessun pacchetto contiene questa stringa nella sua visualizzazione decodificata.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="385"/>
+        <location filename="search_frame.cpp" line="386"/>
         <source>No packet contained that string in its converted data.</source>
         <translation>Nessun pacchetto contiene questa stringa nei suoi dati convertiti.</translation>
     </message>
     <message>
-        <location filename="search_frame.cpp" line="395"/>
+        <location filename="search_frame.cpp" line="396"/>
         <source>No packet matched that filter.</source>
         <translation>Nessun pacchetto corrisponde a questo filtro.</translation>
     </message>
@@ -14714,22 +14461,14 @@ a:hover {
 <context>
     <name>ShowPacketBytesTextEdit</name>
     <message>
-        <location filename="show_packet_bytes_dialog.cpp" line="765"/>
+        <location filename="show_packet_bytes_dialog.cpp" line="768"/>
         <source>Show Selected</source>
         <translation>Mostra selezionati</translation>
     </message>
     <message>
-        <location filename="show_packet_bytes_dialog.cpp" line="769"/>
+        <location filename="show_packet_bytes_dialog.cpp" line="772"/>
         <source>Show All</source>
         <translation>Mostra tutto</translation>
-    </message>
-</context>
-<context>
-    <name>SimpleDialog</name>
-    <message>
-        <location filename="simple_dialog.cpp" line="197"/>
-        <source>Multiple problems found</source>
-        <translation>Rilevati numerosi problemi</translation>
     </message>
 </context>
 <context>
@@ -14752,7 +14491,7 @@ a:hover {
     <message>
         <location filename="splash_overlay.cpp" line="151"/>
         <source>Initializing extcap</source>
-        <translation type="unfinished"></translation>
+        <translation>Inizializzazione extcap</translation>
     </message>
     <message>
         <location filename="splash_overlay.cpp" line="154"/>
@@ -14793,11 +14532,7 @@ a:hover {
     <message>
         <location filename="splash_overlay.cpp" line="175"/>
         <source>Finding local interfaces</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Loading configuration files</source>
-        <translation type="vanished">Caricamento delle configurazioni dei file in corso</translation>
+        <translation>Ricerca interfacce locali</translation>
     </message>
     <message>
         <location filename="splash_overlay.cpp" line="178"/>
@@ -15013,17 +14748,18 @@ a:hover {
     <message>
         <location filename="tcp_stream_dialog.ui" line="117"/>
         <source>MA Window (s)</source>
-        <translation type="unfinished"></translation>
+        <translation>Finestra MA (s)</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="127"/>
         <source>Allow SACK segments as well as data packets to be selected by clicking on the graph</source>
-        <translation type="unfinished"></translation>
+        <translation>Consenti la selezione dei segmenti SACK così come dei pacchetti di dati tramite clic sul grafico</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="130"/>
-        <source>select SACKs</source>
-        <translation type="unfinished"></translation>
+        <source>Select SACKs</source>
+        <oldsource>select SACKs</oldsource>
+        <translation>Seleziona SACK</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="153"/>
@@ -15037,7 +14773,7 @@ a:hover {
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="166"/>
-        <location filename="tcp_stream_dialog.ui" line="478"/>
+        <location filename="tcp_stream_dialog.ui" line="491"/>
         <source>Switch Direction</source>
         <translation>Inverti direzione</translation>
     </message>
@@ -15068,419 +14804,429 @@ a:hover {
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="235"/>
-        <source>Display graph of Segment Length vs Time</source>
-        <translation type="unfinished"></translation>
+        <source>Display Round Trip Time vs Sequence Number</source>
+        <translation>Visualizza Round Trip Time e numero di sequenza</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="238"/>
-        <source>Segment Length</source>
-        <translation type="unfinished"></translation>
+        <source>RTT By Sequence Number</source>
+        <translation>RTT per numero di sequenza</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="248"/>
-        <source>Display graph of Mean Transmitted Bytes vs Time</source>
-        <translation type="unfinished"></translation>
+        <source>Display graph of Segment Length vs Time</source>
+        <translation>Visualizza grafico Lunghezza segmento e Tempo</translation>
+    </message>
+    <message>
+        <location filename="tcp_stream_dialog.ui" line="251"/>
+        <source>Segment Length</source>
+        <translation>Lunghezza del segmento</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="261"/>
-        <source>Display graph of Mean ACKed Bytes vs Time</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="tcp_stream_dialog.ui" line="264"/>
-        <source>Goodput</source>
-        <translation type="unfinished"></translation>
+        <source>Display graph of Mean Transmitted Bytes vs Time</source>
+        <translation>Visualizza grafico Media byte trasmessi e Tempo</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="274"/>
-        <source>Display graph of Receive Window Size vs Time</source>
-        <translation type="unfinished"></translation>
+        <source>Display graph of Mean ACKed Bytes vs Time</source>
+        <translation>Visualizza grafico Media byte con ACK e Tempo</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="277"/>
-        <source>Rcv Win</source>
-        <translation type="unfinished"></translation>
+        <source>Goodput</source>
+        <translation>Carico utile trasferito</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="287"/>
-        <source>Display graph of Outstanding Bytes vs Time</source>
-        <translation type="unfinished"></translation>
+        <source>Display graph of Receive Window Size vs Time</source>
+        <translation>Visualizza grafico Finestra di ricezione e Tempo</translation>
     </message>
     <message>
         <location filename="tcp_stream_dialog.ui" line="290"/>
-        <source>Bytes Out</source>
-        <translation type="unfinished"></translation>
+        <source>Rcv Win</source>
+        <translation>Fin RCV</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="313"/>
+        <location filename="tcp_stream_dialog.ui" line="300"/>
+        <source>Display graph of Outstanding Bytes vs Time</source>
+        <translation>Visualizza grafico Outstanding byte e Tempo</translation>
+    </message>
+    <message>
+        <location filename="tcp_stream_dialog.ui" line="303"/>
+        <source>Bytes Out</source>
+        <translation>Out Byte</translation>
+    </message>
+    <message>
+        <location filename="tcp_stream_dialog.ui" line="326"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reset the graph to its initial state.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reimposta il grafico al suo stato iniziale.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="316"/>
+        <location filename="tcp_stream_dialog.ui" line="329"/>
         <source>Reset</source>
         <translation>Ripristina</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="335"/>
+        <location filename="tcp_stream_dialog.ui" line="348"/>
         <source>Reset Graph</source>
-        <translation>Ripristina il grafico</translation>
+        <translation>Ripristina grafico</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="338"/>
+        <location filename="tcp_stream_dialog.ui" line="351"/>
         <source>Reset the graph to its initial state.</source>
         <translation>Ripristina il grafico al suo stato iniziale.</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="341"/>
+        <location filename="tcp_stream_dialog.ui" line="354"/>
         <source>0</source>
         <translation>0</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="346"/>
-        <location filename="tcp_stream_dialog.ui" line="349"/>
+        <location filename="tcp_stream_dialog.ui" line="359"/>
+        <location filename="tcp_stream_dialog.ui" line="362"/>
         <source>Zoom In</source>
         <translation>Ingrandisci</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="352"/>
+        <location filename="tcp_stream_dialog.ui" line="365"/>
         <source>+</source>
         <translation>+</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="357"/>
-        <location filename="tcp_stream_dialog.ui" line="360"/>
+        <location filename="tcp_stream_dialog.ui" line="370"/>
+        <location filename="tcp_stream_dialog.ui" line="373"/>
         <source>Zoom Out</source>
-        <translation>Zoom fuori</translation>
+        <translation>Rimpicciolisci</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="363"/>
+        <location filename="tcp_stream_dialog.ui" line="376"/>
         <source>-</source>
         <translation>-</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="368"/>
-        <location filename="tcp_stream_dialog.ui" line="371"/>
+        <location filename="tcp_stream_dialog.ui" line="381"/>
+        <location filename="tcp_stream_dialog.ui" line="384"/>
         <source>Move Up 10 Pixels</source>
         <translation>Sposta in su di 10 pixel</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="374"/>
+        <location filename="tcp_stream_dialog.ui" line="387"/>
         <source>Up</source>
         <translation>Su</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="379"/>
-        <location filename="tcp_stream_dialog.ui" line="382"/>
+        <location filename="tcp_stream_dialog.ui" line="392"/>
+        <location filename="tcp_stream_dialog.ui" line="395"/>
         <source>Move Left 10 Pixels</source>
         <translation>Sposta a sinistra di 10 pixel</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="385"/>
+        <location filename="tcp_stream_dialog.ui" line="398"/>
         <source>Left</source>
         <translation>Sinistra</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="390"/>
-        <location filename="tcp_stream_dialog.ui" line="393"/>
+        <location filename="tcp_stream_dialog.ui" line="403"/>
+        <location filename="tcp_stream_dialog.ui" line="406"/>
         <source>Move Right 10 Pixels</source>
         <translation>Sposta a destra di 10 pixel</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="396"/>
+        <location filename="tcp_stream_dialog.ui" line="409"/>
         <source>Right</source>
         <translation>Destra</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="401"/>
-        <location filename="tcp_stream_dialog.ui" line="404"/>
+        <location filename="tcp_stream_dialog.ui" line="414"/>
+        <location filename="tcp_stream_dialog.ui" line="417"/>
         <source>Move Down 10 Pixels</source>
         <translation>Sposta in giù di 10 pixel</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="407"/>
+        <location filename="tcp_stream_dialog.ui" line="420"/>
         <source>Down</source>
         <translation>Giù</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="412"/>
-        <location filename="tcp_stream_dialog.ui" line="415"/>
+        <location filename="tcp_stream_dialog.ui" line="425"/>
+        <location filename="tcp_stream_dialog.ui" line="428"/>
         <source>Move Up 1 Pixel</source>
         <translation>Sposta in su di 1 pixel</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="418"/>
+        <location filename="tcp_stream_dialog.ui" line="431"/>
         <source>Shift+Up</source>
-        <translation>Shift+Su</translation>
+        <translation>Maiusc+Su</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="423"/>
-        <location filename="tcp_stream_dialog.ui" line="426"/>
+        <location filename="tcp_stream_dialog.ui" line="436"/>
+        <location filename="tcp_stream_dialog.ui" line="439"/>
         <source>Move Left 1 Pixel</source>
         <translation>Sposta a sinistra di 1 pixel</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="429"/>
+        <location filename="tcp_stream_dialog.ui" line="442"/>
         <source>Shift+Left</source>
-        <translation>Shift+Sinistra</translation>
+        <translation>Maiusc+Sinistra</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="434"/>
-        <location filename="tcp_stream_dialog.ui" line="437"/>
+        <location filename="tcp_stream_dialog.ui" line="447"/>
+        <location filename="tcp_stream_dialog.ui" line="450"/>
         <source>Move Right 1 Pixel</source>
         <translation>Sposta a destra di 1 pixel</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="440"/>
+        <location filename="tcp_stream_dialog.ui" line="453"/>
         <source>Shift+Right</source>
-        <translation>Shift+Destra</translation>
+        <translation>Maiusc+Destra</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="445"/>
-        <location filename="tcp_stream_dialog.ui" line="448"/>
+        <location filename="tcp_stream_dialog.ui" line="458"/>
+        <location filename="tcp_stream_dialog.ui" line="461"/>
         <source>Move Down 1 Pixel</source>
         <translation>Sposta in giù di 1 pixel</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="451"/>
+        <location filename="tcp_stream_dialog.ui" line="464"/>
         <source>Shift+Down</source>
-        <translation>Shift+Giù</translation>
+        <translation>Maiusc+Giù</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="456"/>
+        <location filename="tcp_stream_dialog.ui" line="469"/>
         <source>Next Stream</source>
         <translation>Flusso successivo</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="459"/>
+        <location filename="tcp_stream_dialog.ui" line="472"/>
         <source>Go to the next stream in the capture</source>
         <translation>Vai al prossimo flusso nella cattura</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="462"/>
+        <location filename="tcp_stream_dialog.ui" line="475"/>
         <source>PgUp</source>
         <translation>PgSu</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="467"/>
+        <location filename="tcp_stream_dialog.ui" line="480"/>
         <source>Previous Stream</source>
         <translation>Flusso precedente</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="470"/>
+        <location filename="tcp_stream_dialog.ui" line="483"/>
         <source>Go to the previous stream in the capture</source>
         <translation>Vai al flusso precedente nella cattura</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="473"/>
+        <location filename="tcp_stream_dialog.ui" line="486"/>
         <source>PgDown</source>
         <translation>PgGiù</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="481"/>
+        <location filename="tcp_stream_dialog.ui" line="494"/>
         <source>Switch direction (swap TCP endpoints)</source>
         <translation>Inverti direzione (scambia i terminatori TCP)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="484"/>
+        <location filename="tcp_stream_dialog.ui" line="497"/>
         <source>D</source>
         <translation>D</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="489"/>
+        <location filename="tcp_stream_dialog.ui" line="502"/>
         <source>Go To Packet Under Cursor</source>
         <translation>Vai al pacchetto sotto il cursore</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="492"/>
+        <location filename="tcp_stream_dialog.ui" line="505"/>
         <source>Go to packet currently under the cursor</source>
         <translation>Vai al pacchetto attualmente sotto il cursore</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="495"/>
+        <location filename="tcp_stream_dialog.ui" line="508"/>
         <source>G</source>
         <translation>G</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="500"/>
+        <location filename="tcp_stream_dialog.ui" line="513"/>
         <source>Drag / Zoom</source>
         <translation>Trascina/Zoom</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="503"/>
+        <location filename="tcp_stream_dialog.ui" line="516"/>
         <source>Toggle mouse drag / zoom behavior</source>
         <translation>Inverti il comportamento di trascina/zoom del mouse</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="506"/>
+        <location filename="tcp_stream_dialog.ui" line="519"/>
         <source>Z</source>
         <translation>Z</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="511"/>
+        <location filename="tcp_stream_dialog.ui" line="524"/>
         <source>Relative / Absolute Sequence Numbers</source>
         <translation>Numeri di sequenza relativi/assoluti</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="514"/>
+        <location filename="tcp_stream_dialog.ui" line="527"/>
         <source>Toggle relative / absolute sequence numbers</source>
         <translation>Inverti i numeri di sequenza relativi/assoluti</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="517"/>
+        <location filename="tcp_stream_dialog.ui" line="530"/>
         <source>S</source>
         <translation>S</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="522"/>
+        <location filename="tcp_stream_dialog.ui" line="535"/>
         <source>Capture / Session Time Origin</source>
         <translation>Orario di origine della cattura/sessione</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="525"/>
+        <location filename="tcp_stream_dialog.ui" line="538"/>
         <source>Toggle capture / session time origin</source>
         <translation>Inverti il tempo di origine della cattura/sessione</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="528"/>
+        <location filename="tcp_stream_dialog.ui" line="541"/>
         <source>T</source>
         <translation>T</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="533"/>
+        <location filename="tcp_stream_dialog.ui" line="546"/>
         <source>Crosshairs</source>
         <translation>Reticolo</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="536"/>
+        <location filename="tcp_stream_dialog.ui" line="549"/>
         <source>Toggle crosshairs</source>
         <translation>Inverti reticolo</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="539"/>
+        <location filename="tcp_stream_dialog.ui" line="552"/>
         <source>Space</source>
         <translation>Spazio</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="544"/>
-        <location filename="tcp_stream_dialog.cpp" line="1343"/>
+        <location filename="tcp_stream_dialog.ui" line="557"/>
+        <location filename="tcp_stream_dialog.cpp" line="1365"/>
         <source>Round Trip Time</source>
         <translation>Round Trip Time</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="547"/>
+        <location filename="tcp_stream_dialog.ui" line="560"/>
         <source>Switch to the Round Trip Time graph</source>
         <translation>Passa al grafico Round Trip Time</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="550"/>
+        <location filename="tcp_stream_dialog.ui" line="563"/>
         <source>1</source>
         <translation>1</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="251"/>
-        <location filename="tcp_stream_dialog.ui" line="555"/>
-        <location filename="tcp_stream_dialog.cpp" line="1088"/>
+        <location filename="tcp_stream_dialog.ui" line="264"/>
+        <location filename="tcp_stream_dialog.ui" line="568"/>
+        <location filename="tcp_stream_dialog.cpp" line="1093"/>
         <source>Throughput</source>
         <translation>Capacità trasmissiva</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="558"/>
+        <location filename="tcp_stream_dialog.ui" line="571"/>
         <source>Switch to the Throughput graph</source>
         <translation>Passa al grafico della capacità trasmissiva</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="561"/>
+        <location filename="tcp_stream_dialog.ui" line="574"/>
         <source>2</source>
         <translation>2</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="566"/>
+        <location filename="tcp_stream_dialog.ui" line="579"/>
         <source>Time / Sequence (Stevens)</source>
-        <translation>Tempo/Sequenza (Stevens)</translation>
+        <translation>Tempo / Sequenza (Stevens)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="569"/>
+        <location filename="tcp_stream_dialog.ui" line="582"/>
         <source>Switch to the Stevens-style Time / Sequence graph</source>
         <translation>Passa allo stile Stevens per il grafico Tempo/Sequenza</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="572"/>
+        <location filename="tcp_stream_dialog.ui" line="585"/>
         <source>3</source>
         <translation>3</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="577"/>
-        <location filename="tcp_stream_dialog.cpp" line="1424"/>
+        <location filename="tcp_stream_dialog.ui" line="590"/>
+        <location filename="tcp_stream_dialog.cpp" line="1460"/>
         <source>Window Scaling</source>
         <translation>Ridimensionamento finestra</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="580"/>
+        <location filename="tcp_stream_dialog.ui" line="593"/>
         <source>Switch to the Window Scaling graph</source>
         <translation>Passa al grafico del ridimensionamento finestra</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="583"/>
+        <location filename="tcp_stream_dialog.ui" line="596"/>
         <source>5</source>
         <translation>5</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="588"/>
+        <location filename="tcp_stream_dialog.ui" line="601"/>
         <source>Time / Sequence (tcptrace)</source>
-        <translation>Tempo/Sequenza (tcptrace)</translation>
+        <translation>Tempo / Sequenza (tcptrace)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="591"/>
+        <location filename="tcp_stream_dialog.ui" line="604"/>
         <source>Switch to the tcptrace-style Time / Sequence graph</source>
         <translation>Passa allo stile tcptrace per il grafico Tempo/Sequenza</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="594"/>
+        <location filename="tcp_stream_dialog.ui" line="607"/>
         <source>4</source>
         <translation>4</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="599"/>
-        <location filename="tcp_stream_dialog.ui" line="602"/>
+        <location filename="tcp_stream_dialog.ui" line="612"/>
+        <location filename="tcp_stream_dialog.ui" line="615"/>
         <source>Zoom In X Axis</source>
         <translation>Ingrandisci asse X</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="605"/>
+        <location filename="tcp_stream_dialog.ui" line="618"/>
         <source>X</source>
         <translation>X</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="610"/>
-        <location filename="tcp_stream_dialog.ui" line="613"/>
+        <location filename="tcp_stream_dialog.ui" line="623"/>
+        <location filename="tcp_stream_dialog.ui" line="626"/>
         <source>Zoom Out X Axis</source>
         <translation>Rimpicciolisci asse X</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="616"/>
+        <location filename="tcp_stream_dialog.ui" line="629"/>
         <source>Shift+X</source>
         <translation>Maiusc+X</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="621"/>
-        <location filename="tcp_stream_dialog.ui" line="624"/>
+        <location filename="tcp_stream_dialog.ui" line="634"/>
+        <location filename="tcp_stream_dialog.ui" line="637"/>
         <source>Zoom In Y Axis</source>
         <translation>Ingrandisci asse Y</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="627"/>
+        <location filename="tcp_stream_dialog.ui" line="640"/>
         <source>Y</source>
         <translation>Y</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="632"/>
-        <location filename="tcp_stream_dialog.ui" line="635"/>
+        <location filename="tcp_stream_dialog.ui" line="645"/>
+        <location filename="tcp_stream_dialog.ui" line="648"/>
         <source>Zoom Out Y Axis</source>
         <translation>Rimpicciolisci asse Y</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.ui" line="638"/>
+        <location filename="tcp_stream_dialog.ui" line="651"/>
         <source>Shift+Y</source>
         <translation>Maiusc+Y</translation>
     </message>
@@ -15501,93 +15247,89 @@ a:hover {
         <translation>%1 %2 pacchetti, %3 %4 %5 pacchetti, %6 </translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="725"/>
+        <location filename="tcp_stream_dialog.cpp" line="730"/>
         <source>Sequence Numbers (Stevens)</source>
         <translation>Numeri di sequenza (Stevens)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="750"/>
+        <location filename="tcp_stream_dialog.cpp" line="755"/>
         <source>Sequence Numbers (tcptrace)</source>
         <translation>Numeri di sequenza (tcptrace)</translation>
     </message>
     <message>
-        <source> (1s MA)</source>
-        <translation type="vanished"> (1s MA)</translation>
-    </message>
-    <message>
-        <location filename="tcp_stream_dialog.cpp" line="1090"/>
+        <location filename="tcp_stream_dialog.cpp" line="1095"/>
         <source> (MA)</source>
-        <translation type="unfinished"></translation>
+        <translation> (MA)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1092"/>
+        <location filename="tcp_stream_dialog.cpp" line="1097"/>
         <source> (%1 Segment MA)</source>
         <translation> (%1 segmento MA)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1113"/>
+        <location filename="tcp_stream_dialog.cpp" line="1118"/>
         <source> [not enough data]</source>
         <translation>[non ci sono abbastanza dati]</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1479"/>
+        <location filename="tcp_stream_dialog.cpp" line="1515"/>
         <source> for %1:%2 %3 %4:%5</source>
         <translation> per %1:%2 %3 %4:%5</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1662"/>
+        <location filename="tcp_stream_dialog.cpp" line="1702"/>
         <source>%1 %2 (%3s len %4 seq %5 ack %6 win %7)</source>
         <translation>%1 %2 (%3s len %4 seq %5 ack %6 win %7)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1663"/>
+        <location filename="tcp_stream_dialog.cpp" line="1703"/>
         <source>Click to select packet</source>
         <translation>Fai clic per selezionare il pacchetto</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1663"/>
+        <location filename="tcp_stream_dialog.cpp" line="1703"/>
         <source>Packet</source>
         <translation>Pacchetto</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1677"/>
+        <location filename="tcp_stream_dialog.cpp" line="1717"/>
         <source>Release to zoom, x = %1 to %2, y = %3 to %4</source>
         <translation>Rilascia per lo zoom, x = %1 a %2, y = %3 a %4</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1683"/>
+        <location filename="tcp_stream_dialog.cpp" line="1723"/>
         <source>Unable to select range.</source>
         <translation>Impossibile selezionare l&apos;intervallo.</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1686"/>
+        <location filename="tcp_stream_dialog.cpp" line="1726"/>
         <source>Click to select a portion of the graph.</source>
         <translation>Fai clic per selezionare una porzione del grafico.</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1729"/>
+        <location filename="tcp_stream_dialog.cpp" line="1769"/>
         <source>Portable Document Format (*.pdf)</source>
         <translation>Portable Document Format (*.pdf)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1730"/>
+        <location filename="tcp_stream_dialog.cpp" line="1770"/>
         <source>Portable Network Graphics (*.png)</source>
         <translation>Portable Network Graphics (*.png)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1731"/>
+        <location filename="tcp_stream_dialog.cpp" line="1771"/>
         <source>Windows Bitmap (*.bmp)</source>
         <translation>Windows Bitmap (*.bmp)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1733"/>
+        <location filename="tcp_stream_dialog.cpp" line="1773"/>
         <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
         <translation>JPEG File Interchange Format (*.jpeg *.jpg)</translation>
     </message>
     <message>
-        <location filename="tcp_stream_dialog.cpp" line="1740"/>
+        <location filename="tcp_stream_dialog.cpp" line="1780"/>
         <source>Save Graph As</source>
-        <translation>Salva il Grafico Come</translation>
+        <translation>Salva grafico come</translation>
     </message>
 </context>
 <context>
@@ -15760,12 +15502,12 @@ a:hover {
     <message>
         <location filename="traffic_table_dialog.ui" line="68"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show absolute times in the start time column.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mostra gli orari assoluti nella colonna ora iniziale.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="traffic_table_dialog.ui" line="71"/>
         <source>Absolute start time</source>
-        <translation type="unfinished"></translation>
+        <translation>Ora iniziale assoluta</translation>
     </message>
     <message>
         <location filename="traffic_table_dialog.ui" line="91"/>
@@ -15837,147 +15579,157 @@ a:hover {
         <source>Open </source>
         <translation>Apri </translation>
     </message>
-    <message>
-        <source>Uneven number of chars hex string (%1)</source>
-        <translation type="vanished">Numero irregolare di caratteri della stringa esadecimale (%1)</translation>
-    </message>
-    <message>
-        <source>Error parsing hex string</source>
-        <translation type="vanished">Errore di elaborazione della stringa esadecimale</translation>
-    </message>
 </context>
 <context>
     <name>VoipCallsDialog</name>
     <message>
-        <location filename="voip_calls_dialog.ui" line="36"/>
-        <source>Start Time</source>
-        <translation>Orario di inizio</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="41"/>
-        <source>Stop Time</source>
-        <translation>Orario di fine</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="46"/>
-        <source>Initial Speaker</source>
-        <translation>Oratore iniziale</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="51"/>
-        <source>From</source>
-        <translation>Da</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="56"/>
-        <source>To</source>
-        <translation>A</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="61"/>
-        <source>Protocol</source>
-        <translation>Protocollo</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="66"/>
-        <source>Duration</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="71"/>
-        <source>Packets</source>
-        <translation>Pacchetti</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="76"/>
-        <source>State</source>
-        <translation>Stato</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="81"/>
-        <source>Comments</source>
-        <translation>Commenti</translation>
-    </message>
-    <message>
-        <location filename="voip_calls_dialog.ui" line="89"/>
+        <location filename="voip_calls_dialog.ui" line="39"/>
         <source>&lt;small&gt;&lt;/small&gt;</source>
         <translation>&lt;small&gt;&lt;/small&gt;</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.ui" line="111"/>
+        <location filename="voip_calls_dialog.ui" line="61"/>
         <source>Time of Day</source>
-        <translation type="unfinished">Ora del giorno</translation>
+        <translation>Ora del giorno</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.ui" line="130"/>
+        <location filename="voip_calls_dialog.ui" line="80"/>
         <source>Select &amp;All</source>
         <translation>Seleziona &amp;tutto</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.ui" line="133"/>
+        <location filename="voip_calls_dialog.ui" line="83"/>
         <source>Select all calls</source>
         <translation>Seleziona tutte le chiamate</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.ui" line="141"/>
+        <location filename="voip_calls_dialog.ui" line="91"/>
         <source>Copy as CSV</source>
         <translation>Copia come CSV</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.ui" line="144"/>
+        <location filename="voip_calls_dialog.ui" line="94"/>
         <source>Copy stream list as CSV.</source>
         <translation>Copia l&apos;elenco dei flussi come CSV.</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.ui" line="149"/>
+        <location filename="voip_calls_dialog.ui" line="99"/>
         <source>Copy as YAML</source>
         <translation>Copia come YAML</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.ui" line="152"/>
+        <location filename="voip_calls_dialog.ui" line="102"/>
         <source>Copy stream list as YAML.</source>
         <translation>Copia l&apos;elenco dei flussi come YAML.</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.cpp" line="231"/>
+        <location filename="voip_calls_dialog.cpp" line="76"/>
         <source>SIP Flows</source>
         <translation>Flussi SIP</translation>
     </message>
     <message>
         <location filename="voip_calls_dialog.ui" line="14"/>
-        <location filename="voip_calls_dialog.cpp" line="231"/>
+        <location filename="voip_calls_dialog.cpp" line="76"/>
         <source>VoIP Calls</source>
         <translation>Chiamate VoIP</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.cpp" line="238"/>
+        <location filename="voip_calls_dialog.cpp" line="83"/>
         <source>Prepare Filter</source>
         <translation>Prepara filtro</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.cpp" line="239"/>
+        <location filename="voip_calls_dialog.cpp" line="84"/>
         <source>Flow Sequence</source>
         <translation>Sequenza del flusso</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.cpp" line="242"/>
+        <location filename="voip_calls_dialog.cpp" line="87"/>
         <source>Copy</source>
         <translation>Copia</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.cpp" line="245"/>
+        <location filename="voip_calls_dialog.cpp" line="90"/>
         <source>as CSV</source>
         <translation>come CSV</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.cpp" line="248"/>
+        <location filename="voip_calls_dialog.cpp" line="93"/>
         <source>as YAML</source>
         <translation>come YAML</translation>
     </message>
     <message>
-        <location filename="voip_calls_dialog.cpp" line="409"/>
+        <location filename="voip_calls_dialog.cpp" line="244"/>
         <source>No Audio</source>
         <translation>Nessun audio</translation>
+    </message>
+</context>
+<context>
+    <name>VoipCallsInfoModel</name>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="97"/>
+        <source>On</source>
+        <translation>Acceso</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="98"/>
+        <source>Off</source>
+        <translation>Spento</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="106"/>
+        <source>Tunneling: %1  Fast Start: %2</source>
+        <translation>Tunnel: %1  Avvio veloce: %2</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="126"/>
+        <source>Start Time</source>
+        <translation>Orario di inizio</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="128"/>
+        <source>Stop Time</source>
+        <translation>Orario di fine</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="130"/>
+        <source>Initial Speaker</source>
+        <translation>Oratore iniziale</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="132"/>
+        <source>From</source>
+        <translation>Da</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="134"/>
+        <source>To</source>
+        <translation>A</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="136"/>
+        <source>Protocol</source>
+        <translation>Protocollo</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="138"/>
+        <source>Duration</source>
+        <translation>Durata</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="140"/>
+        <source>Packets</source>
+        <translation>Pacchetti</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="142"/>
+        <source>State</source>
+        <translation>Stato</translation>
+    </message>
+    <message>
+        <location filename="voip_calls_info_model.cpp" line="144"/>
+        <source>Comments</source>
+        <translation>Commenti</translation>
     </message>
 </context>
 <context>
@@ -16072,24 +15824,24 @@ a:hover {
 <context>
     <name>WiresharkApplication</name>
     <message>
-        <location filename="wireshark_application.cpp" line="585"/>
+        <location filename="wireshark_application.cpp" line="598"/>
         <source>Dell Backup and Recovery Found</source>
-        <translation type="unfinished"></translation>
+        <translation>Trovato Dell Backup and Recovery</translation>
     </message>
     <message>
-        <location filename="wireshark_application.cpp" line="586"/>
+        <location filename="wireshark_application.cpp" line="599"/>
         <source>You appear to be running Dell Backup and Recovery 1.8.</source>
-        <translation type="unfinished"></translation>
+        <translation>Sembra che tu stia eseguendo Dell Backup and Recovery 1.8.</translation>
     </message>
     <message>
-        <location filename="wireshark_application.cpp" line="587"/>
+        <location filename="wireshark_application.cpp" line="600"/>
         <source>DBAR can make many applications crash &lt;a href=&quot;https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12036&quot;&gt;including Wireshark&lt;/a&gt;.</source>
-        <translation type="unfinished"></translation>
+        <translation>DBAR può causare chiusure inattese di molte applicazioni &lt;a href=&quot;https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12036&quot;&gt;Wireshark incluso&lt;/a&gt;.</translation>
     </message>
     <message>
-        <location filename="wireshark_application.cpp" line="591"/>
+        <location filename="wireshark_application.cpp" line="604"/>
         <source>Offending DLL: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>DLL in conflitto: %1</translation>
     </message>
 </context>
 <context>
@@ -16125,7 +15877,7 @@ a:hover {
     <message>
         <location filename="wlan_statistics_dialog.cpp" line="511"/>
         <source>Percent Retry</source>
-        <translation type="unfinished"></translation>
+        <translation>Percentuale retry</translation>
     </message>
     <message>
         <location filename="wlan_statistics_dialog.cpp" line="512"/>
@@ -16145,7 +15897,7 @@ a:hover {
     <message>
         <location filename="wlan_statistics_dialog.cpp" line="512"/>
         <source>Retry</source>
-        <translation type="unfinished"></translation>
+        <translation>Riprova</translation>
     </message>
     <message>
         <location filename="wlan_statistics_dialog.cpp" line="513"/>

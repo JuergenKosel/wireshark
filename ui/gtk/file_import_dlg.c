@@ -501,8 +501,7 @@ file_import_open(text_import_info_t *info)
     int_data_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(int_data);
     int_data_mand->wtap_encap            = info->encapsulation;
     int_data_mand->time_units_per_second = 1000000; /* default microsecond resolution */
-    int_data_mand->link_type             = wtap_wtap_encap_to_pcap_encap(info->encapsulation);
-    int_data_mand->snap_len              = WTAP_MAX_PACKET_SIZE;
+    int_data_mand->snap_len              = WTAP_MAX_PACKET_SIZE_STANDARD;
     wtap_block_add_string_option(int_data, OPT_IDB_NAME, "Fake IF File->Import", strlen("Fake IF File->Import"));
 
     g_array_append_val(idb_inf->interface_data, int_data);
@@ -516,7 +515,8 @@ file_import_open(text_import_info_t *info)
                                            shb_hdrs, idb_inf, NULL, &err);
     capfile_name = g_strdup(tmpname);
     if (info->wdh == NULL) {
-        open_failure_alert_box(tmpname ? tmpname : "temporary file", err, TRUE);
+        cfile_dump_open_failure_alert_box(tmpname ? tmpname : "temporary file",
+                                          err, WTAP_FILE_TYPE_SUBTYPE_PCAPNG);
         fclose(info->import_text_file);
         goto end;
     }
@@ -533,28 +533,28 @@ file_import_open(text_import_info_t *info)
     }
 
     if (!wtap_dump_close(info->wdh, &err)) {
-        write_failure_alert_box(capfile_name, err);
+        cfile_close_failure_alert_box(capfile_name, err);
     }
 
     if (cf_open(&cfile, capfile_name, WTAP_TYPE_AUTO, TRUE /* temporary file */, &err) != CF_OK) {
-        open_failure_alert_box(capfile_name, err, FALSE);
+        /* cf_open() put up a dialog box here */
         goto end;
     }
 
     switch (cf_read(&cfile, FALSE)) {
     case CF_READ_OK:
     case CF_READ_ERROR:
-    /* Just because we got an error, that doesn't mean we were unable
-       to read any of the file; we handle what we could get from the
-       file. */
-    break;
+        /* Just because we got an error, that doesn't mean we were unable
+           to read any of the file; we handle what we could get from the
+           file. */
+        break;
 
     case CF_READ_ABORTED:
-    /* The user bailed out of re-reading the capture file; the
-       capture file has been closed - just free the capture file name
-       string and return (without changing the last containing
-       directory). */
-    break;
+        /* The user bailed out of re-reading the capture file; the
+           capture file has been closed - just free the capture file name
+           string and return (without changing the last containing
+           directory). */
+        break;
     }
 
 end:
@@ -850,6 +850,7 @@ file_import_dlg_new(void)
                *dst_port_te, *tag_te, *ppi_te,
                *framelen_hb, *framelen_lbl, *framelen_te,
                *bbox, *help_bt, *close_bt, *ok_bt;
+    gchar *maxsize_msg;
 
     /* Setup the dialog */
 
@@ -1153,8 +1154,10 @@ file_import_dlg_new(void)
     gtk_box_pack_start(GTK_BOX(framelen_hb), framelen_lbl, FALSE, FALSE, 0);
 
     framelen_te = gtk_entry_new();
-    gtk_widget_set_tooltip_text(framelen_te,
-                                "The maximum size of the frames to write to the import capture file (max 65535)");
+    maxsize_msg = g_strdup_printf("The maximum size of the frames to write to the import capture file (max %u)",
+                                  WTAP_MAX_PACKET_SIZE_STANDARD);
+    gtk_widget_set_tooltip_text(framelen_te, maxsize_msg);
+    g_free(maxsize_msg);
     gtk_box_pack_start(GTK_BOX(framelen_hb), framelen_te, FALSE, FALSE, 0);
 
     g_object_set_data(G_OBJECT(import_frm), IMPORT_FRAME_LENGTH_TE_KEY, framelen_te);

@@ -48,7 +48,14 @@
  *   MQ is popular on mainframes because it was available before TCP/IP.
  *   MQ supports both ASCII-based and EBCDIC-based character sets.
  *
- *   MQ API documentation is called "WebSphere MQ Application Programming Reference"
+ *   MQ API documentation is called "WebSphere MQ Application Programming
+ *   Reference"
+ *
+ *   See:
+ *
+ *       http://www-01.ibm.com/support/docview.wss?uid=pub1sc34606203
+ *
+ *       http://www-01.ibm.com/support/docview.wss?uid=pub1sc34694001
  *
  *   Possible structures combinations :
  *   TSH [ ID ^ UID ^ CONN ^ INQ ^ OD ]
@@ -71,7 +78,7 @@
 #include <epan/ptvcursor.h>
 #include <epan/exceptions.h>
 #include <epan/reassemble.h>
-
+#include <epan/expert.h>
 #include <epan/prefs.h>
 #include <epan/strutil.h>
 
@@ -952,6 +959,8 @@ static gint ett_mq_reaasemb = -1;
 static gint ett_mq_notif = -1;
 
 static gint ett_mq_structid = -1;
+
+static expert_field ei_mq_reassembly_error = EI_INIT;
 
 static dissector_handle_t mq_handle;
 static dissector_handle_t mq_spx_handle;
@@ -3914,6 +3923,8 @@ static int reassemble_mq(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
             {
                 fragment_head *fd_head;
                 guint32 iConnectionId = (pinfo->srcport + pinfo->destport);
+                gboolean reassembly_error = FALSE;
+
                 iHdrL = 28 + iMulS;
 
                 /* Get the MQ Handle of the Object */
@@ -3948,10 +3959,16 @@ static int reassemble_mq(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                 */
                 iBegL = (bSeg1st) ? 0 : iNxtP;
 
-                fd_head = fragment_add_seq_next(&mq_reassembly_table,
-                    tvb, iBegL,
-                    pinfo, iConnectionId, NULL,
-                    iSegL - iBegL, bMore);
+                if (iSegL <= iBegL) {
+                    /* negative or null fragment length - something is wrong; skip reassembly */
+                    fd_head = NULL;
+                    reassembly_error = TRUE;
+                } else {
+                    fd_head = fragment_add_seq_next(&mq_reassembly_table,
+                        tvb, iBegL,
+                        pinfo, iConnectionId, NULL,
+                        iSegL - iBegL, bMore);
+                }
 
                 if (tree)
                 {
@@ -3971,6 +3988,11 @@ static int reassemble_mq(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                         dissect_mq_addCR_colinfo(pinfo, &mq_parm);
                         proto_item_append_text(ti, " Hdl=0x%04x GlbMsgIdx=%d, SegIdx=%d, SegLen=%d",
                             iHdl, iGlbMsgIdx, iSegmIndex, iSegLength);
+                    }
+                    if (reassembly_error)
+                    {
+                        expert_add_info_format(pinfo, ti, &ei_mq_reassembly_error,
+                                               "Wrong fragment length (%d) - skipping reassembly", iSegL - iBegL);
                     }
                     mq_tree = proto_item_add_subtree(ti, ett_mq_reaasemb);
                 }
@@ -4127,7 +4149,7 @@ void proto_register_mq(void)
         { &hf_mq_tsh_tcf2_HdrComp  , {"HDR Comp", "mq.tsh.tcf2.hdrcomp", FT_BOOLEAN, 8, TFS(&tfs_set_notset), MQ_TCF2_HDRCOMP      , "TSH TCF2 Header Compressed", HFILL }},
         { &hf_mq_tsh_tcf2_MsgComp  , {"MSG Comp", "mq.tsh.tcf2.msgcomp", FT_BOOLEAN, 8, TFS(&tfs_set_notset), MQ_TCF2_MSGCOMP      , "TSH TCF2 Message Compressed", HFILL }},
         { &hf_mq_tsh_tcf2_CSH      , {"CSH", "mq.tsh.tcf2.csh"    , FT_BOOLEAN, 8, TFS(&tfs_set_notset), MQ_TCF2_CSH          , "TSH TCF2 CSH", HFILL }},
-        { &hf_mq_tsh_tcf2_CmitIntv , {"ComitIntvl", "mq.tsh.tcf.cmitintv", FT_BOOLEAN, 8, TFS(&tfs_set_notset), MQ_TCF2_CMIT_INTERVAL, "TSH TCF2 Commit Interval", HFILL }},
+        { &hf_mq_tsh_tcf2_CmitIntv , {"CommitIntvl", "mq.tsh.tcf.cmitintv", FT_BOOLEAN, 8, TFS(&tfs_set_notset), MQ_TCF2_CMIT_INTERVAL, "TSH TCF2 Commit Interval", HFILL }},
 
         { &hf_mq_api_replylen , {"Reply len..", "mq.api.replylength", FT_UINT32, BASE_DEC, NULL, 0x0, "API Reply length", HFILL }},
         { &hf_mq_api_compcode , {"Compl Code.", "mq.api.completioncode", FT_UINT32, BASE_DEC, VALS(GET_VALSV(mqcc)), 0x0, "API Completion code", HFILL }},
@@ -4759,10 +4781,19 @@ void proto_register_mq(void)
     };
 
     module_t *mq_module;
+    expert_module_t *expert_mq;
+
+    static ei_register_info ei[] = {
+        { &ei_mq_reassembly_error, { "mq.reassembly_error",
+          PI_REASSEMBLE, PI_ERROR, "Reassembly error", EXPFILL }}
+    };
 
     proto_mq = proto_register_protocol("WebSphere MQ", "MQ", "mq");
     proto_register_field_array(proto_mq, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
+
+    expert_mq = expert_register_protocol(proto_mq);
+    expert_register_field_array(expert_mq, ei, array_length(ei));
 
     mq_heur_subdissector_list = register_heur_dissector_list("mq", proto_mq);
 

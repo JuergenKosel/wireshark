@@ -83,7 +83,7 @@
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/plugins.h>
 #include <wsutil/privileges.h>
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include <wsutil/strnatcmp.h>
 #include <wsutil/str_util.h>
 #include <ws_version_info.h>
@@ -91,6 +91,8 @@
 #include <wsutil/strtoi.h>
 #include <wiretap/wtap_opttypes.h>
 #include <wiretap/pcapng.h>
+
+#include "ui/failure_message.h"
 
 #include "ringbuffer.h" /* For RINGBUFFER_MAX_NUM_FILES */
 
@@ -302,6 +304,7 @@ add_selection(char *sel, guint* max_selection)
         if (verbose)
             fprintf(stderr, "Inclusive ...");
 
+        *locn = '\0';    /* split the range */
         next = locn + 1;
         selectfrm[max_selected].inclusive = TRUE;
         selectfrm[max_selected].first = get_guint32(sel, "beginning of packet range");
@@ -910,10 +913,11 @@ framenum_compare(gconstpointer a, gconstpointer b, gpointer user_data _U_)
 }
 
 /*
- * General errors are reported with an console message in editcap.
+ * General errors and warnings are reported with an console message
+ * in editcap.
  */
 static void
-failure_message(const char *msg_format, va_list ap)
+failure_warning_message(const char *msg_format, va_list ap)
 {
   fprintf(stderr, "editcap: ");
   vfprintf(stderr, msg_format, ap);
@@ -926,8 +930,8 @@ failure_message(const char *msg_format, va_list ap)
 static void
 failure_message_cont(const char *msg_format, va_list ap)
 {
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
+  vfprintf(stderr, msg_format, ap);
+  fprintf(stderr, "\n");
 }
 
 static wtap_dumper *
@@ -998,7 +1002,7 @@ main(int argc, char *argv[])
     char                        *shb_user_appl;
     int                          ret = EXIT_SUCCESS;
 
-    cmdarg_err_init(failure_message, failure_message_cont);
+    cmdarg_err_init(failure_warning_message, failure_message_cont);
 
 #ifdef _WIN32
     arg_list_utf_16to8(argc, argv);
@@ -1042,7 +1046,8 @@ main(int argc, char *argv[])
 
 #ifdef HAVE_PLUGINS
     /* Register wiretap plugins */
-    init_report_err(failure_message,NULL,NULL,NULL);
+    init_report_message(failure_warning_message, failure_warning_message,
+                        NULL, NULL, NULL);
 
     /* Scan for plugins.  This does *not* call their registration routines;
        that's done later.
@@ -1346,12 +1351,8 @@ main(int argc, char *argv[])
     wth = wtap_open_offline(argv[optind], WTAP_TYPE_AUTO, &read_err, &read_err_info, FALSE);
 
     if (!wth) {
-        fprintf(stderr, "editcap: Can't open %s: %s\n", argv[optind],
-                wtap_strerror(read_err));
-        if (read_err_info != NULL) {
-            fprintf(stderr, "(%s)\n", read_err_info);
-            g_free(read_err_info);
-        }
+        cfile_open_failure_message("editcap", argv[optind], read_err,
+                                   read_err_info);
         ret = INVALID_FILE;
         goto clean_exit;
     }
@@ -1422,8 +1423,9 @@ main(int argc, char *argv[])
                                         shb_hdrs, idb_inf, nrb_hdrs, &write_err);
 
                 if (pdh == NULL) {
-                    fprintf(stderr, "editcap: Can't open or create %s: %s\n",
-                            filename, wtap_strerror(write_err));
+                    cfile_dump_open_failure_message("editcap", filename,
+                                                    write_err,
+                                                    out_file_type_subtype);
                     ret = INVALID_FILE;
                     goto clean_exit;
                 }
@@ -1446,8 +1448,7 @@ main(int argc, char *argv[])
                                && phdr->ts.nsecs >= block_start.nsecs )) { /* time for the next file */
 
                         if (!wtap_dump_close(pdh, &write_err)) {
-                            fprintf(stderr, "editcap: Error writing to %s: %s\n",
-                                    filename, wtap_strerror(write_err));
+                            cfile_close_failure_message(filename, write_err);
                             ret = WRITE_ERROR;
                             goto clean_exit;
                         }
@@ -1464,8 +1465,9 @@ main(int argc, char *argv[])
                                                 shb_hdrs, idb_inf, nrb_hdrs, &write_err);
 
                         if (pdh == NULL) {
-                            fprintf(stderr, "editcap: Can't open or create %s: %s\n",
-                                    filename, wtap_strerror(write_err));
+                            cfile_dump_open_failure_message("editcap", filename,
+                                                            write_err,
+                                                            out_file_type_subtype);
                             ret = INVALID_FILE;
                             goto clean_exit;
                         }
@@ -1477,8 +1479,7 @@ main(int argc, char *argv[])
                 /* time for the next file? */
                 if (written_count > 0 && (written_count % split_packet_count) == 0) {
                     if (!wtap_dump_close(pdh, &write_err)) {
-                        fprintf(stderr, "editcap: Error writing to %s: %s\n",
-                                filename, wtap_strerror(write_err));
+                        cfile_close_failure_message(filename, write_err);
                         ret = WRITE_ERROR;
                         goto clean_exit;
                     }
@@ -1494,8 +1495,9 @@ main(int argc, char *argv[])
                                             snaplen ? MIN(snaplen, wtap_snapshot_length(wth)) : wtap_snapshot_length(wth),
                                             shb_hdrs, idb_inf, nrb_hdrs, &write_err);
                     if (pdh == NULL) {
-                        fprintf(stderr, "editcap: Can't open or create %s: %s\n",
-                                filename, wtap_strerror(write_err));
+                        cfile_dump_open_failure_message("editcap", filename,
+                                                        write_err,
+                                                        out_file_type_subtype);
                         ret = INVALID_FILE;
                         goto clean_exit;
                     }
@@ -1764,76 +1766,27 @@ main(int argc, char *argv[])
                 if (frames_user_comments) {
                     const char *comment =
                         (const char*)g_tree_lookup(frames_user_comments, GUINT_TO_POINTER(read_count));
+                    /* XXX: What about comment changed to no comment? */
                     if (comment != NULL) {
                         /* Copy and change rather than modify returned phdr */
                         temp_phdr = *phdr;
                         temp_phdr.opt_comment = g_strdup(comment);
+                        temp_phdr.has_comment_changed = TRUE;
+                        phdr = &temp_phdr;
+                    } else {
+                        temp_phdr = *phdr;
+                        temp_phdr.has_comment_changed = FALSE;
                         phdr = &temp_phdr;
                     }
                 }
 
                 /* Attempt to dump out current frame to the output file */
                 if (!wtap_dump(pdh, phdr, buf, &write_err, &write_err_info)) {
-                    switch (write_err) {
-                    case WTAP_ERR_UNWRITABLE_ENCAP:
-                        /*
-                         * This is a problem with the particular frame we're
-                         * writing and the file type and subtype we're
-                         * writing; note that, and report the frame number
-                         * and file type/subtype.
-                         */
-                        fprintf(stderr,
-                                "editcap: Frame %u of \"%s\" has a network type that can't be saved in a \"%s\" file.\n",
-                                read_count, argv[optind],
-                                wtap_file_type_subtype_string(out_file_type_subtype));
-                        break;
-
-                    case WTAP_ERR_PACKET_TOO_LARGE:
-                        /*
-                         * This is a problem with the particular frame we're
-                         * writing and the file type and subtype we're
-                         * writing; note that, and report the frame number
-                         * and file type/subtype.
-                         */
-                        fprintf(stderr,
-                                "editcap: Frame %u of \"%s\" is too large for a \"%s\" file.\n",
-                                read_count, argv[optind],
-                                wtap_file_type_subtype_string(out_file_type_subtype));
-                        break;
-
-                    case WTAP_ERR_UNWRITABLE_REC_TYPE:
-                        /*
-                         * This is a problem with the particular record we're
-                         * writing and the file type and subtype we're
-                         * writing; note that, and report the record number
-                         * and file type/subtype.
-                         */
-                        fprintf(stderr,
-                                "editcap: Record %u of \"%s\" has a record type that can't be saved in a \"%s\" file.\n",
-                                read_count, argv[optind],
-                                wtap_file_type_subtype_string(out_file_type_subtype));
-                        break;
-
-                    case WTAP_ERR_UNWRITABLE_REC_DATA:
-                        /*
-                         * This is a problem with the particular record we're
-                         * writing and the file type and subtype we're
-                         * writing; note that, and report the record number
-                         * and file type/subtype.
-                         */
-                        fprintf(stderr,
-                                "editcap: Record %u of \"%s\" has data that can't be saved in a \"%s\" file.\n(%s)\n",
-                                read_count, argv[optind],
-                                wtap_file_type_subtype_string(out_file_type_subtype),
-                                write_err_info != NULL ? write_err_info : "no information supplied");
-                        g_free(write_err_info);
-                        break;
-
-                    default:
-                        fprintf(stderr, "editcap: Error writing to %s: %s\n",
-                                filename, wtap_strerror(write_err));
-                        break;
-                    }
+                    cfile_write_failure_message("editcap", argv[optind],
+                                                filename,
+                                                write_err, write_err_info,
+                                                read_count,
+                                                out_file_type_subtype);
                     ret = DUMP_ERROR;
                     goto clean_exit;
                 }
@@ -1848,13 +1801,8 @@ main(int argc, char *argv[])
         if (read_err != 0) {
             /* Print a message noting that the read failed somewhere along the
              * line. */
-            fprintf(stderr,
-                    "editcap: An error occurred while reading \"%s\": %s.\n",
-                    argv[optind], wtap_strerror(read_err));
-            if (read_err_info != NULL) {
-                fprintf(stderr, "(%s)\n", read_err_info);
-                g_free(read_err_info);
-            }
+            cfile_read_failure_message("editcap", argv[optind], read_err,
+                                       read_err_info);
         }
 
         if (!pdh) {
@@ -1867,16 +1815,16 @@ main(int argc, char *argv[])
                                     snaplen ? MIN(snaplen, wtap_snapshot_length(wth)): wtap_snapshot_length(wth),
                                     shb_hdrs, idb_inf, nrb_hdrs, &write_err);
             if (pdh == NULL) {
-                fprintf(stderr, "editcap: Can't open or create %s: %s\n",
-                        filename, wtap_strerror(write_err));
+                cfile_dump_open_failure_message("editcap", filename,
+                                                write_err,
+                                                out_file_type_subtype);
                 ret = INVALID_FILE;
                 goto clean_exit;
             }
         }
 
         if (!wtap_dump_close(pdh, &write_err)) {
-            fprintf(stderr, "editcap: Error writing to %s: %s\n", filename,
-                    wtap_strerror(write_err));
+            cfile_close_failure_message(filename, write_err);
             ret = WRITE_ERROR;
             goto clean_exit;
         }
@@ -1903,7 +1851,8 @@ clean_exit:
     wtap_block_array_free(shb_hdrs);
     wtap_block_array_free(nrb_hdrs);
     g_free(idb_inf);
-    wtap_close(wth);
+    if (wth != NULL)
+        wtap_close(wth);
     wtap_cleanup();
     free_progdirs();
 #ifdef HAVE_PLUGINS

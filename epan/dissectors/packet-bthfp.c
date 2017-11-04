@@ -725,7 +725,7 @@ dissect_brsf_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         };
 
         pitem = proto_tree_add_bitmask_value_with_flags(tree, tvb, offset, hf_brsf_hs, ett_bthfp_brsf_hf, hs, value, BMT_NO_APPEND);
-        if (value >> 8) {
+        if (value >> 10) {
             expert_add_info(pinfo, pitem, &ei_brfs_hs_reserved_bits);
         }
     } else {
@@ -748,7 +748,7 @@ dissect_brsf_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
         pitem = proto_tree_add_bitmask_value_with_flags(tree, tvb, offset, hf_brsf_ag, ett_bthfp_brsf_ag, ag, value, BMT_NO_APPEND);
 
-        if (value >> 10) {
+        if (value >> 12) {
             expert_add_info(pinfo, pitem, &ei_brfs_ag_reserved_bits);
         }
     }
@@ -1623,7 +1623,7 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         i_char += 1;
     }
 
-    if (!command_number) col_append_fstr(pinfo->cinfo, COL_INFO, "%s", col_str);
+    if (!command_number) col_append_str(pinfo->cinfo, COL_INFO, col_str);
 
     if (role == ROLE_HS) {
         if (command_number) {
@@ -1754,6 +1754,7 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         parameters_item = proto_tree_add_none_format(command_tree, hf_parameters, tvb,
                 offset, 0, "Parameters");
         parameters_tree = proto_item_add_subtree(parameters_item, ett_bthfp_parameters);
+        first_parameter_offset = offset;
 
         data = NULL;
 
@@ -1801,7 +1802,6 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                     parameter_length += 1;
                 }
 
-                first_parameter_offset = offset;
                 if (type == TYPE_ACTION || type == TYPE_RESPONSE) {
                     if (i_at_cmd && (i_at_cmd->dissect_parameter != NULL &&
                             !i_at_cmd->dissect_parameter(tvb, pinfo, parameters_tree, offset, role,
@@ -2900,8 +2900,8 @@ proto_register_bthfp(void)
         { &ei_non_mandatory_command, { "bthfp.expert.non_mandatory_command", PI_PROTOCOL, PI_NOTE, "Non-mandatory command in HFP", EXPFILL }},
         { &ei_invalid_usage,         { "bthfp.expert.invalid_usage", PI_PROTOCOL, PI_WARN, "Non mandatory type or command in this role", EXPFILL }},
         { &ei_unknown_parameter,     { "bthfp.expert.unknown_parameter", PI_PROTOCOL, PI_WARN, "Unknown parameter", EXPFILL }},
-        { &ei_brfs_hs_reserved_bits, { "bthfp.expert.brsf.hs.reserved_bits", PI_PROTOCOL, PI_WARN, "The reserved bits [8-31] shall be initialized to Zero", EXPFILL }},
-        { &ei_brfs_ag_reserved_bits, { "bthfp.expert.brsf.ag.reserved_bits", PI_PROTOCOL, PI_WARN, "The reserved bits [10-31] shall be initialized to Zero", EXPFILL }},
+        { &ei_brfs_hs_reserved_bits, { "bthfp.expert.brsf.hs.reserved_bits", PI_PROTOCOL, PI_WARN, "The reserved bits [10-31] shall be initialized to Zero", EXPFILL }},
+        { &ei_brfs_ag_reserved_bits, { "bthfp.expert.brsf.ag.reserved_bits", PI_PROTOCOL, PI_WARN, "The reserved bits [12-31] shall be initialized to Zero", EXPFILL }},
         { &ei_vgm_gain,              { "bthfp.expert.vgm", PI_PROTOCOL, PI_WARN, "Gain of microphone exceeds range 0-15", EXPFILL }},
         { &ei_vgs_gain,              { "bthfp.expert.vgs", PI_PROTOCOL, PI_WARN, "Gain of speaker exceeds range 0-15", EXPFILL }},
         { &ei_nrec,                  { "bthfp.expert.nrec", PI_PROTOCOL, PI_WARN, "Only 0 is valid", EXPFILL }},

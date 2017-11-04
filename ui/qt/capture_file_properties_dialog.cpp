@@ -107,7 +107,7 @@ void CaptureFilePropertiesDialog::updateWidgets()
     ui->commentsTextEdit->setEnabled(enable);
 
     fillDetails();
-    ui->commentsTextEdit->setText(cf_read_shb_comment(cap_file_.capFile()));
+    ui->commentsTextEdit->setText(cf_read_section_comment(cap_file_.capFile()));
 
     WiresharkDialog::updateWidgets();
 }
@@ -192,7 +192,7 @@ QString CaptureFilePropertiesDialog::summaryToHtml()
         << table_data_tmpl.arg(encaps_str)
         << table_row_end;
 
-    if (summary.has_snap) {
+    if (summary.snap != 0) {
         out << table_row_begin
             << table_vheader_tmpl.arg(tr("Snapshot length"))
             << table_data_tmpl.arg(summary.snap)
@@ -512,11 +512,11 @@ void CaptureFilePropertiesDialog::fillDetails()
     cursor.insertHtml(summary);
     cursor.insertBlock(); // Work around rendering oddity.
 
-    QString file_comments = cf_read_shb_comment(cap_file_.capFile());
+    QString file_comments = cf_read_section_comment(cap_file_.capFile());
     if (!file_comments.isEmpty()) {
         QString file_comments_html;
 
-        QString comment_escaped = html_escape(file_comments);
+        QString comment_escaped = html_escape(file_comments).replace('\n', "<br>");
         file_comments_html = section_tmpl_.arg(tr("File Comment"));
         file_comments_html += para_tmpl_.arg(comment_escaped);
 
@@ -530,13 +530,13 @@ void CaptureFilePropertiesDialog::fillDetails()
 
         for (guint32 framenum = 1; framenum <= cap_file_.capFile()->count ; framenum++) {
             frame_data *fdata = frame_data_sequence_find(cap_file_.capFile()->frames, framenum);
-            char *pkt_comment = cf_get_comment(cap_file_.capFile(), fdata);
+            char *pkt_comment = cf_get_packet_comment(cap_file_.capFile(), fdata);
 
             if (pkt_comment) {
                 QString frame_comment_html = tr("<p>Frame %1: ").arg(framenum);
                 QString raw_comment = pkt_comment;
 
-                frame_comment_html += html_escape(raw_comment);
+                frame_comment_html += html_escape(raw_comment).replace('\n', "<br>");
                 frame_comment_html += "</p>\n";
                 cursor.insertBlock();
                 cursor.insertHtml(frame_comment_html);
@@ -577,7 +577,7 @@ void CaptureFilePropertiesDialog::on_buttonBox_accepted()
     if (wtap_dump_can_write(cap_file_.capFile()->linktypes, WTAP_COMMENT_PER_SECTION))
     {
         gchar *str = qstring_strdup(ui->commentsTextEdit->toPlainText());
-        cf_update_capture_comment(cap_file_.capFile(), str);
+        cf_update_section_comment(cap_file_.capFile(), str);
         emit captureCommentChanged();
         fillDetails();
     }

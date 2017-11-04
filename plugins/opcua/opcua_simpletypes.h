@@ -31,6 +31,15 @@ extern int hf_opcua_returnDiag_mask_ol_localizedText;
 extern int hf_opcua_returnDiag_mask_ol_additionalinfo;
 extern int hf_opcua_returnDiag_mask_ol_innerstatuscode;
 extern int hf_opcua_returnDiag_mask_ol_innerdiagnostics;
+extern int hf_opcua_nodeClassMask;
+extern int hf_opcua_nodeClassMask_object;
+extern int hf_opcua_nodeClassMask_variable;
+extern int hf_opcua_nodeClassMask_method;
+extern int hf_opcua_nodeClassMask_objecttype;
+extern int hf_opcua_nodeClassMask_variabletype;
+extern int hf_opcua_nodeClassMask_referencetype;
+extern int hf_opcua_nodeClassMask_datatype;
+extern int hf_opcua_nodeClassMask_view;
 
 /* simple types trees */
 extern gint ett_opcua_array_Boolean;
@@ -92,6 +101,8 @@ void parseArrayEnum(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, gint *p
 void parseArrayComplex(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, gint *pOffset, const char *szFieldName, const char *szTypeName, fctComplexTypeParser pParserFunction, const gint idx);
 void registerSimpleTypes(int proto);
 guint32 getExtensionObjectType(tvbuff_t *tvb, gint *pOffset);
+void parseNodeClassMask(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, gint *pOffset);
+void parseResultMask(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, gint *pOffset);
 
 void dispatchExtensionObjectType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, gint *pOffset, int TypeId);
 

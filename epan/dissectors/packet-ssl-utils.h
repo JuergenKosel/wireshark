@@ -172,11 +172,29 @@ typedef enum {
 #define SSL_HND_HELLO_EXT_SUPPORTED_VERSIONS            43
 #define SSL_HND_HELLO_EXT_COOKIE                        44
 #define SSL_HND_HELLO_EXT_PSK_KEY_EXCHANGE_MODES        45
+#define SSL_HND_HELLO_EXT_TICKET_EARLY_DATA_INFO        46 /* draft-ietf-tls-tls13-18 (removed in -19) */
 #define SSL_HND_HELLO_EXT_CERTIFICATE_AUTHORITIES       47
 #define SSL_HND_HELLO_EXT_OID_FILTERS                   48
+#define SSL_HND_HELLO_EXT_POST_HANDSHAKE_AUTH           49
+#define SSL_HND_HELLO_EXT_GREASE_0A0A                   2570
+#define SSL_HND_HELLO_EXT_GREASE_1A1A                   6682
+#define SSL_HND_HELLO_EXT_GREASE_2A2A                   10794
 #define SSL_HND_HELLO_EXT_NPN                           13172 /* 0x3374 */
+#define SSL_HND_HELLO_EXT_GREASE_3A3A                   14906
+#define SSL_HND_HELLO_EXT_GREASE_4A4A                   19018
+#define SSL_HND_HELLO_EXT_GREASE_5A5A                   23130
+#define SSL_HND_HELLO_EXT_GREASE_6A6A                   27242
 #define SSL_HND_HELLO_EXT_CHANNEL_ID_OLD                30031 /* 0x754f */
 #define SSL_HND_HELLO_EXT_CHANNEL_ID                    30032 /* 0x7550 */
+#define SSL_HND_HELLO_EXT_GREASE_7A7A                   31354
+#define SSL_HND_HELLO_EXT_GREASE_8A8A                   35466
+#define SSL_HND_HELLO_EXT_GREASE_9A9A                   39578
+#define SSL_HND_HELLO_EXT_GREASE_AAAA                   43690
+#define SSL_HND_HELLO_EXT_GREASE_BABA                   47802
+#define SSL_HND_HELLO_EXT_GREASE_CACA                   51914
+#define SSL_HND_HELLO_EXT_GREASE_DADA                   56026
+#define SSL_HND_HELLO_EXT_GREASE_EAEA                   60138
+#define SSL_HND_HELLO_EXT_GREASE_FAFA                   64250
 #define SSL_HND_HELLO_EXT_RENEGOTIATION_INFO            65281 /* 0xFF01 */
 #define SSL_HND_HELLO_EXT_DRAFT_VERSION_TLS13           65282 /* 0xFF02 */
 
@@ -217,6 +235,7 @@ extern const value_string pct_error_code[];
 extern const value_string tls_hello_extension_types[];
 extern const value_string tls_hash_algorithm[];
 extern const value_string tls_signature_algorithm[];
+extern const value_string tls13_signature_algorithm[];
 extern const value_string tls_certificate_type[];
 extern const value_string tls_cert_chain_type[];
 extern const value_string tls_cert_status_type[];
@@ -248,6 +267,14 @@ typedef struct _StringInfo {
 #define DTLSV1DOT0_OPENSSL_VERSION 0x100
 #define DTLSV1DOT2_VERSION     0xfefd
 
+/* Returns the TLS 1.3 draft version or 0 if not applicable. */
+static inline guint8 tls13_draft_version(guint32 version) {
+    if ((version & 0xff00) == 0x7f00) {
+        return (guint8) version;
+    }
+    return 0;
+}
+
 
 #define SSL_CLIENT_RANDOM       (1<<0)
 #define SSL_SERVER_RANDOM       (1<<1)
@@ -259,6 +286,7 @@ typedef struct _StringInfo {
 #define SSL_CLIENT_EXTENDED_MASTER_SECRET (1<<7)
 #define SSL_SERVER_EXTENDED_MASTER_SECRET (1<<8)
 #define SSL_NEW_SESSION_TICKET  (1<<10)
+#define SSL_ENCRYPT_THEN_MAC    (1<<11)
 
 #define SSL_EXTENDED_MASTER_SECRET_MASK (SSL_CLIENT_EXTENDED_MASTER_SECRET|SSL_SERVER_EXTENDED_MASTER_SECRET)
 
@@ -268,7 +296,8 @@ typedef enum {
     MODE_CBC,       /* GenericBlockCipher */
     MODE_GCM,       /* GenericAEADCipher */
     MODE_CCM,       /* AEAD_AES_{128,256}_CCM with 16 byte auth tag */
-    MODE_CCM_8      /* AEAD_AES_{128,256}_CCM with 8 byte auth tag */
+    MODE_CCM_8,     /* AEAD_AES_{128,256}_CCM with 8 byte auth tag */
+    MODE_POLY1305,  /* AEAD_CHACHA20_POLY1305 with 16 byte auth tag (RFC 7905) */
 } ssl_cipher_mode_t;
 
 /* Explicit and implicit nonce length (RFC 5116 - Section 3.2.1) */
@@ -341,6 +370,7 @@ typedef struct _SslDecoder {
 #define KEX_IS_DH(n)    ((n) >= KEX_DHE_DSS && (n) <= KEX_ECDH_RSA)
 #define KEX_TLS13       0x23
 
+/* Order is significant, must match "ciphers" array in packet-ssl-utils.c */
 #define ENC_DES         0x30
 #define ENC_3DES        0x31
 #define ENC_RC4         0x32
@@ -351,7 +381,8 @@ typedef struct _SslDecoder {
 #define ENC_CAMELLIA128 0x37
 #define ENC_CAMELLIA256 0x38
 #define ENC_SEED        0x39
-#define ENC_NULL        0x3A
+#define ENC_CHACHA20    0x3A
+#define ENC_NULL        0x3B
 
 #define DIG_MD5         0x40
 #define DIG_SHA         0x41
@@ -361,7 +392,7 @@ typedef struct _SslDecoder {
 
 typedef struct {
     const gchar *name;
-    gint len;
+    guint len;
 } SslDigestAlgo;
 
 typedef struct _SslRecordInfo {
@@ -378,14 +409,19 @@ typedef struct _SslRecordInfo {
 
 typedef struct {
     SslRecordInfo *records; /**< Decrypted records within this frame. */
+    guint32 srcport;        /**< Used for Decode As */
+    guint32 destport;
 } SslPacketInfo;
 
 typedef struct _SslSession {
     gint cipher;
     gint compression;
     guint16 version;
+    guchar tls13_draft_version;
     gint8 client_cert_type;
     gint8 server_cert_type;
+    guint32 client_ccs_frame;
+    guint32 server_ccs_frame;
 
     /* The address/proto/port of the server as determined from heuristics
      * (e.g. ClientHello) or set externally (via ssl_set_master_secret()). */
@@ -598,11 +634,11 @@ ssl_packet_from_server(SslSession *session, dissector_table_t table, packet_info
 
 /* add to packet data a copy of the specified real data */
 extern void
-ssl_add_record_info(gint proto, packet_info *pinfo, const guchar *data, gint data_len, gint record_id, SslFlow *flow, ContentType type);
+ssl_add_record_info(gint proto, packet_info *pinfo, const guchar *data, gint data_len, gint record_id, SslFlow *flow, ContentType type, guint8 curr_layer_num_ssl);
 
 /* search in packet data for the specified id; return a newly created tvb for the associated data */
 extern tvbuff_t*
-ssl_get_record_info(tvbuff_t *parent_tvb, gint proto, packet_info *pinfo, gint record_id, SslRecordInfo **matched_record);
+ssl_get_record_info(tvbuff_t *parent_tvb, gint proto, packet_info *pinfo, gint record_id, guint8 curr_layer_num_ssl, SslRecordInfo **matched_record);
 
 /* initialize/reset per capture state data (ssl sessions cache) */
 extern void
@@ -764,6 +800,8 @@ typedef struct ssl_common_dissect {
         gint hs_comp_method;
         gint hs_session_ticket_lifetime_hint;
         gint hs_session_ticket_age_add;
+        gint hs_session_ticket_nonce_len;
+        gint hs_session_ticket_nonce;
         gint hs_session_ticket_len;
         gint hs_session_ticket;
         gint hs_finished;
@@ -985,7 +1023,7 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1,                             \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,                     \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
@@ -1275,24 +1313,24 @@ ssl_common_dissect_t name = {   \
         "Length of Signature Hash Algorithms", HFILL }                  \
     },                                                                  \
     { & name .hf.hs_sig_hash_algs,                                      \
-      { "Signature Hash Algorithms", prefix ".handshake.sig_hash_algs", \
+      { "Signature Algorithms", prefix ".handshake.sig_hash_algs",      \
         FT_NONE, BASE_NONE, NULL, 0x0,                                  \
-        "List of Signature Hash Algorithms", HFILL }                    \
+        "List of supported Signature Algorithms", HFILL }               \
     },                                                                  \
     { & name .hf.hs_sig_hash_alg,                                       \
-      { "Signature Hash Algorithm", prefix ".handshake.sig_hash_alg",   \
-        FT_UINT16, BASE_HEX, NULL, 0x0,                                 \
+      { "Signature Algorithm", prefix ".handshake.sig_hash_alg",        \
+        FT_UINT16, BASE_HEX, VALS(tls13_signature_algorithm), 0x0,      \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.hs_sig_hash_hash,                                      \
       { "Signature Hash Algorithm Hash", prefix ".handshake.sig_hash_hash",            \
         FT_UINT8, BASE_DEC, VALS(tls_hash_algorithm), 0x0,              \
-        NULL, HFILL }                                                   \
+        "Hash algorithm (TLS 1.2)", HFILL }                             \
     },                                                                  \
     { & name .hf.hs_sig_hash_sig,                                       \
       { "Signature Hash Algorithm Signature", prefix ".handshake.sig_hash_sig",        \
         FT_UINT8, BASE_DEC, VALS(tls_signature_algorithm), 0x0,         \
-        NULL, HFILL }                                                   \
+        "Signature algorithm (TLS 1.2)", HFILL }                        \
     },                                                                  \
     { & name .hf.hs_client_keyex_epms_len,                              \
       { "Encrypted PreMaster length", prefix ".handshake.epms_len",     \
@@ -1560,6 +1598,16 @@ ssl_common_dissect_t name = {   \
         prefix ".handshake.session_ticket_age_add",                     \
         FT_UINT32, BASE_DEC, NULL, 0x0,                                 \
         "Random 32-bit value to obscure age of ticket", HFILL }         \
+    },                                                                  \
+    { & name .hf.hs_session_ticket_nonce_len,                           \
+      { "Session Ticket Nonce Length", prefix ".handshake.session_ticket_nonce_length", \
+        FT_UINT8, BASE_DEC, NULL, 0x0,                                  \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_session_ticket_nonce,                               \
+      { "Session Ticket Nonce", prefix ".handshake.session_ticket_nonce",   \
+        FT_BYTES, BASE_NONE, NULL, 0x0,                                 \
+        "A unique per-ticket value", HFILL }                            \
     },                                                                  \
     { & name .hf.hs_session_ticket_len,                                 \
       { "Session Ticket Length", prefix ".handshake.session_ticket_length", \

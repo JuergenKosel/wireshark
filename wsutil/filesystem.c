@@ -59,7 +59,7 @@
 #endif /* _WIN32 */
 
 #include "filesystem.h"
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include <wsutil/privileges.h>
 #include <wsutil/file_util.h>
 #include <wsutil/utf8_entities.h>
@@ -68,6 +68,7 @@
 
 #define PROFILES_DIR    "profiles"
 #define PLUGINS_DIR_NAME    "plugins"
+#define PROFILES_INFO_NAME  "profile_files.txt"
 
 char *persconffile_dir = NULL;
 char *persdatafile_dir = NULL;
@@ -1378,6 +1379,45 @@ get_profiles_dir(void)
                     G_DIR_SEPARATOR_S, PROFILES_DIR);
 }
 
+int
+create_profiles_dir(char **pf_dir_path_return)
+{
+    char *pf_dir_path;
+    ws_statb64 s_buf;
+
+    /*
+     * Create the "Default" personal configuration files directory, if necessary.
+     */
+    if (create_persconffile_profile (NULL, pf_dir_path_return) == -1) {
+        return -1;
+    }
+
+    /*
+     * Check if profiles directory exists.
+     * If not then create it.
+     */
+    pf_dir_path = get_profiles_dir ();
+    if (ws_stat64(pf_dir_path, &s_buf) != 0) {
+        if (errno != ENOENT) {
+            /* Some other problem; give up now. */
+            *pf_dir_path_return = pf_dir_path;
+            return -1;
+        }
+
+        /*
+         * It doesn't exist; try to create it.
+         */
+        int ret = ws_mkdir(pf_dir_path, 0755);
+        if (ret == -1) {
+            *pf_dir_path_return = pf_dir_path;
+            return ret;
+        }
+    }
+    g_free(pf_dir_path);
+
+    return 0;
+}
+
 char *
 get_global_profiles_dir(void)
 {
@@ -1491,6 +1531,7 @@ reset_default_profile(char **pf_dir_path_return)
         g_free(del_file);
         file = g_list_next(file);
     }
+    g_list_free(files);
 
     g_free(profile_dir);
     return 0;
@@ -1556,34 +1597,11 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
 
     if (profilename) {
         /*
-         * Create the "Default" personal configuration files directory, if necessary.
+         * Create the personal profiles directory, if necessary.
          */
-        if (create_persconffile_profile (NULL, pf_dir_path_return) == -1) {
+        if (create_profiles_dir(pf_dir_path_return) == -1) {
             return -1;
         }
-
-        /*
-         * Check if profiles directory exists.
-         * If not then create it.
-         */
-        pf_dir_path = get_profiles_dir ();
-        if (ws_stat64(pf_dir_path, &s_buf) != 0) {
-            if (errno != ENOENT) {
-                /* Some other problem; give up now. */
-                *pf_dir_path_return = pf_dir_path;
-                return -1;
-            }
-
-            /*
-             * It doesn't exist; try to create it.
-             */
-            ret = ws_mkdir(pf_dir_path, 0755);
-            if (ret == -1) {
-                *pf_dir_path_return = pf_dir_path;
-                return ret;
-            }
-        }
-        g_free(pf_dir_path);
     }
 
     pf_dir_path = get_persconffile_dir(profilename);
@@ -1650,6 +1668,9 @@ create_persconffile_profile(const char *profilename, char **pf_dir_path_return)
     }
     if (ret == -1)
         *pf_dir_path_return = pf_dir_path;
+    else
+        g_free(pf_dir_path);
+
     return ret;
 }
 
@@ -1955,7 +1976,7 @@ file_open_error_message(int err, gboolean for_writing)
          * Either you have a fixed swap partition or a fixed swap file,
          * and it needs to be made bigger.
          *
-         * This is UN*X, but it's not OS X, so we assume the user is
+         * This is UN*X, but it's not macOS, so we assume the user is
          * *somewhat* nerdy.
          */
 #define ENOMEM_REASON "your system is out of swap space"

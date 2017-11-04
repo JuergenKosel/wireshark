@@ -31,7 +31,7 @@ AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) -DWS_BUILD_DLL \
 # Optional headers for ABI checking
 wsutil_optional_abi_includes =
 
-if HAVE_OS_X_FRAMEWORKS
+if HAVE_MACOS_FRAMEWORKS
 wsutil_optional_abi_includes += cfutils.h
 endif
 
@@ -47,6 +47,7 @@ libwsutil_nonrepl_INCLUDES = \
 	buffer.h		\
 	clopts_common.h		\
 	cmdarg_err.h		\
+	color.h			\
 	copyright_info.h	\
 	cpu_info.h		\
 	crash_info.h		\
@@ -74,7 +75,7 @@ libwsutil_nonrepl_INCLUDES = \
 	plugins.h		\
 	privileges.h		\
 	processes.h		\
-	report_err.h		\
+	report_message.h	\
 	sign_ext.h		\
 	sober128.h		\
 	socket.h		\
@@ -143,7 +144,7 @@ libwsutil_la_SOURCES = \
 	os_version_info.c	\
 	plugins.c		\
 	privileges.c		\
-	report_err.c		\
+	report_message.c	\
 	sober128.c		\
 	str_util.c		\
 	strtoi.c		\
@@ -156,7 +157,7 @@ libwsutil_la_SOURCES = \
 	wsgcrypt.c		\
 	wsjsmn.c
 
-if HAVE_OS_X_FRAMEWORKS
+if HAVE_MACOS_FRAMEWORKS
 libwsutil_la_SOURCES += cfutils.c cfutils.h
 endif
 
@@ -166,7 +167,7 @@ libwsutil_sse42_la_SOURCES = \
 libwsutil_sse42_la_CFLAGS = $(AM_CFLAGS) $(CFLAGS_SSE42)
 
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-libwsutil_la_LDFLAGS = -version-info 0:0:0 @LDFLAGS_SHAREDLIB@
+libwsutil_la_LDFLAGS = -version-info 8:0:0 @LDFLAGS_SHAREDLIB@
 
 libwsutil_la_LIBADD = \
 	$(LTLIBOBJS)			\
@@ -200,7 +201,8 @@ EXTRA_DIST = \
 	win32-utils.h		\
 	ws_mempbrk_sse42.c	\
 	wsgcrypt.h		\
-	wsgetopt.h
+	wsgetopt.h		\
+	wspcap.h
 
 CLEANFILES = \
 	libwsutil.a	\

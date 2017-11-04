@@ -1,6 +1,7 @@
 /* packet-noe.c
  * Routines for UA/UDP (Universal Alcatel over UDP) and NOE packet dissection.
  * Copyright 2012, Alcatel-Lucent Enterprise <lars.ruoff@alcatel-lucent.com>
+ * Copyright 2017, Alcatel-Lucent Enterprise <nicolas.bertin@al-enterprise.com>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -37,9 +38,8 @@ void proto_reg_handoff_noe(void);
 #define OPCODE_C_date                7
 #define OPCODE_C_AOMV                8
 #define OPCODE_C_bluetooth           9
+#define OPCODE_C_locappl            10
 #define OPCODE_C_callstate          12
-#define OPCODE_C_resource           13
-#define OPCODE_C_widgets_default    14
 #define OPCODE_C_framebox          128
 #define OPCODE_C_tabbox            129
 #define OPCODE_C_listbox           130
@@ -79,6 +79,7 @@ static const value_string val_str_class[] = {
     {OPCODE_C_date              , "Date"},
     {OPCODE_C_AOMV              , "AOMV"},
     {OPCODE_C_bluetooth         , "Bluetooth"},
+    {OPCODE_C_locappl           , "Locappl"},
     {OPCODE_C_callstate         , "Callstate"},
     {OPCODE_C_framebox          , "FrameBox"},
     {OPCODE_C_tabbox            , "TabBox"},
@@ -109,6 +110,7 @@ static const value_string val_str_class[] = {
     {OPCODE_C_ime_context       , "ime_context"},
     {0, NULL}
 };
+
 static value_string_ext val_str_class_ext = VALUE_STRING_EXT_INIT(val_str_class);
 
 #define OPCODE_P_B_objectid              0
@@ -133,6 +135,8 @@ static value_string_ext val_str_class_ext = VALUE_STRING_EXT_INIT(val_str_class)
 #define OPCODE_P_B_h                    19
 #define OPCODE_P_B_contrast             20
 #define OPCODE_P_B_clearscreen          21
+#define OPCODE_P_B_system_id            22
+#define OPCODE_P_B_advanced_mode        23
 #define OPCODE_P_B_year                 24
 #define OPCODE_P_B_month                25
 #define OPCODE_P_B_day                  26
@@ -140,11 +144,8 @@ static value_string_ext val_str_class_ext = VALUE_STRING_EXT_INIT(val_str_class)
 #define OPCODE_P_B_s                    28
 #define OPCODE_P_B_enable               29
 #define OPCODE_P_B_address              30
-#define OPCODE_P_B_port                 31
-#define OPCODE_P_B_protocol             32
+#define OPCODE_P_B_disable              31
 #define OPCODE_P_B_name                 33
-#define OPCODE_P_B_checked              34
-#define OPCODE_P_B_unchecked            35
 #define OPCODE_P_B_anchorid             36
 #define OPCODE_P_B_grid                 37
 #define OPCODE_P_B_x                    38
@@ -159,10 +160,6 @@ static value_string_ext val_str_class_ext = VALUE_STRING_EXT_INIT(val_str_class)
 #define OPCODE_P_B_mode                 47
 #define OPCODE_P_B_showevent            48
 #define OPCODE_P_B_showactive           49
-#define OPCODE_P_B_action_active        50
-#define OPCODE_P_B_action_count         51
-#define OPCODE_P_B_foreground           52
-#define OPCODE_P_B_background           53
 #define OPCODE_P_B_icon                 54
 #define OPCODE_P_B_label                55
 #define OPCODE_P_B_value                56
@@ -226,8 +223,6 @@ static value_string_ext val_str_class_ext = VALUE_STRING_EXT_INIT(val_str_class)
 #define OPCODE_P_B_fetch_timeout       115
 #define OPCODE_P_B_mask_subst          116
 #define OPCODE_P_B_use_customisation   117
-#define OPCODE_P_B_ADTTS_request       118
-#define OPCODE_P_B_AP_mac_notify       119
 #define OPCODE_P_B_page_active         120
 #define OPCODE_P_B_overwrite           121
 #define OPCODE_P_B_ime_lock            122
@@ -236,9 +231,6 @@ static value_string_ext val_str_class_ext = VALUE_STRING_EXT_INIT(val_str_class)
 #define OPCODE_P_B_binary_suffix       125
 #define OPCODE_P_B_binary_count        126
 #define OPCODE_P_B_SIPCversion         127
-#define OPCODE_P_A_dflt                128
-#define OPCODE_P_A_shift               129
-#define OPCODE_P_A_alt                 130
 #define OPCODE_P_A_key_ownership       131
 #define OPCODE_P_A_key_eventmode       132
 #define OPCODE_P_A_value               133
@@ -257,7 +249,6 @@ static value_string_ext val_str_class_ext = VALUE_STRING_EXT_INIT(val_str_class)
 #define OPCODE_P_A_action_value        146
 #define OPCODE_P_A_today               147
 #define OPCODE_P_A_tomorrow            148
-#define OPCODE_P_A_action_key          149
 #define OPCODE_P_A_code                150
 #define OPCODE_P_A_data                151
 #define OPCODE_P_A_delay_max_handset   152
@@ -293,6 +284,8 @@ static const value_string val_str_props[] = {
     {OPCODE_P_B_h                   , "h"},
     {OPCODE_P_B_contrast            , "contrast"},
     {OPCODE_P_B_clearscreen         , "clearscreen"},
+    {OPCODE_P_B_system_id           , "system_id"},
+    {OPCODE_P_B_advanced_mode       , "advanced_mode"},
     {OPCODE_P_B_year                , "year"},
     {OPCODE_P_B_month               , "month"},
     {OPCODE_P_B_day                 , "day"},
@@ -300,6 +293,7 @@ static const value_string val_str_props[] = {
     {OPCODE_P_B_s                   , "s"},
     {OPCODE_P_B_enable              , "enable"},
     {OPCODE_P_B_address             , "address"},
+    {OPCODE_P_B_disable             , "disable"},
     {OPCODE_P_B_name                , "name"},
     {OPCODE_P_B_anchorid            , "anchorid"},
     {OPCODE_P_B_grid                , "grid"},
@@ -417,6 +411,7 @@ static const value_string val_str_props[] = {
     {OPCODE_P_A_end_date            , "end_date"},
     {0, NULL}
 };
+
 static value_string_ext val_str_props_ext = VALUE_STRING_EXT_INIT(val_str_props);
 
 #define OPCODE_EVT_CONTEXT_SWITCH         0
@@ -452,7 +447,6 @@ static value_string_ext val_str_props_ext = VALUE_STRING_EXT_INIT(val_str_props)
 #define OPCODE_EVT_WARNING_SET_PROPERTY  30
 #define OPCODE_EVT_ARP_SPOOFING          31
 #define OPCODE_EVT_CHAR_NOT_FOUND        32
-#define OPCODE_EVT_CHAR_BAD_LENGTH       33
 #define OPCODE_EVT_QOS_TICKET            34
 #define OPCODE_EVT_UA3_ERROR             35
 #define OPCODE_EVT_TABBOX               128
@@ -491,8 +485,6 @@ static value_string_ext val_str_props_ext = VALUE_STRING_EXT_INIT(val_str_props)
 #define OPCODE_EVT_TELEPHONICBOX_EVENT  162
 #define OPCODE_EVT_ACTLISTBOX_TIMEOUT   163
 #define OPCODE_EVT_ACTLISTBOX_DISMISSED 164
-#define OPCODE_EVT_ADTTS_RESPONSE       165
-#define OPCODE_EVT_AP_MAC               166
 
 static const value_string val_str_event[] = {
     {OPCODE_EVT_CONTEXT_SWITCH       , "EVT_CONTEXT_SWITCH"},
@@ -568,19 +560,17 @@ static const value_string val_str_event[] = {
     {OPCODE_EVT_ACTLISTBOX_DISMISSED , "EVT_ACTLISTBOX_DISMISSED"},
     {0, NULL}
 };
+
 static value_string_ext val_str_event_ext = VALUE_STRING_EXT_INIT(val_str_event);
 
 #define P_BASIC           0
 #define P_ARRAY         128
 #define P_INVALID       255
 #define P_INVALID_INDEX 255
-
 #define C_STATIC          0
 #define C_DYNAMIC       128
 #define C_INVALID       255
-
 #define E_INVALID       255
-
 
 /*-----------------------------------------------------------------------------
   globals
@@ -612,8 +602,13 @@ static int  hf_noe_property_item_u16    = -1;
 static int  hf_noe_property_item_u24    = -1;
 static int  hf_noe_property_item_u32    = -1;
 static int  hf_noe_property_item_bytes  = -1;
-static int  hf_event_value_u8           = -1;
+static int  hf_event_bt_key             = -1;
 static int  hf_event_context_switch     = -1;
+static int  hf_evt_locappl_enable       = -1;
+static int  hf_evt_locappl_interruptible= -1;
+static int  hf_evt_locappl_identifier   = -1;
+static int  hf_evt_dev_presence_value   = -1;
+static int  hf_evt_dev_presence_state   = -1;
 static int  hf_event_widget_gc          = -1;
 
 static const value_string servers_vals[] = {
@@ -779,11 +774,32 @@ static const value_string str_key_name[] = {
 };
 static value_string_ext str_key_name_ext = VALUE_STRING_EXT_INIT(str_key_name);
 
-static const value_string noe_event_str_struct[] = {
-    {0x00, "RJ9 Plug"},
-    {0x01, "BT Handset Link"},
+static const value_string noe_evt_context_switch_str_vals[] = {
+    {1, "Call Server"},
+    {2, "Presentation Server"},
     {0, NULL}
-    };
+};
+
+static const value_string noe_evt_devices_str_vals[] = {
+    {0, "RJ9 Plug"},
+    {1, "BT Handset Link"},
+    {2, "BT Headset Link"},
+    {3, "Jack Plug"},
+    {0, NULL}
+};
+
+static const value_string noe_true_false_str_vals[] = {
+    {0, "False"},
+    {1, "True"},
+    {0, NULL}
+};
+
+static const value_string noe_evt_locappl_identifier_str_vals[] = {
+    {1, "UserMenu"},
+    {2, "BTConfig"},
+    {3, "AudioCfg"},
+    {0, NULL}
+};
 
 /*-----------------------------------------------------------------------------
     DECODE UTF8 TO UNICODE
@@ -967,15 +983,13 @@ static void decode_tlv(proto_tree *tree,
         {
             property_length = tvb_get_ntohs(tvb, offset);
             property_length &= 0x7fff;
-            proto_tree_add_uint(property_tree, hf_noe_psize, tvb, offset, 2,
-                tvb_get_guint8(tvb, offset) * 256 + tvb_get_guint8(tvb, offset+1));
+            proto_tree_add_item(property_tree, hf_noe_psize, tvb, offset, 2, ENC_BIG_ENDIAN);
             offset += 2;
             length -= 2;
         }
         else
         {
-            proto_tree_add_uint(property_tree, hf_noe_psize, tvb, offset, 1,
-                tvb_get_guint8(tvb, offset));
+            proto_tree_add_item(property_tree, hf_noe_psize, tvb, offset, 1, ENC_NA);
             offset += 1;
             length -= 1;
         }
@@ -1065,7 +1079,6 @@ static void decode_evt(proto_tree  *tree,
                        guint        offset,
                        guint        length)
 {
-    proto_item *ti;
     guint8 event = tvb_get_guint8(tvb, offset);
 
     proto_tree_add_item(tree, hf_noe_event, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -1085,11 +1098,7 @@ static void decode_evt(proto_tree  *tree,
     case OPCODE_EVT_BT_KEY_SHORTPRESS:
     case OPCODE_EVT_BT_KEY_LONGPRESS:
     case OPCODE_EVT_BT_KEY_VERYLONGPRESS:
-    case OPCODE_EVT_KEY_LINE:
-    case OPCODE_EVT_ONHOOK:
-    case OPCODE_EVT_OFFHOOK:
-        ti = proto_tree_add_item(tree, hf_event_value_u8, tvb, offset, 1, ENC_BIG_ENDIAN);
-        proto_item_set_len(ti, length);
+        proto_tree_add_item(tree, hf_event_bt_key, tvb, offset, 1, ENC_BIG_ENDIAN);
         break;
     case OPCODE_EVT_KEY_PRESS:
     case OPCODE_EVT_KEY_RELEASE:
@@ -1142,6 +1151,28 @@ static void decode_evt(proto_tree  *tree,
     case OPCODE_EVT_CONTEXT_SWITCH:
         proto_tree_add_item(tree, hf_event_context_switch, tvb, offset, 1, ENC_BIG_ENDIAN);
         break;
+    case OPCODE_EVT_LOCAL_APPLICATION:
+        {
+            proto_tree_add_item(tree, hf_evt_locappl_enable, tvb, offset, 1, ENC_BIG_ENDIAN);
+            offset += 1;
+            proto_tree_add_item(tree, hf_evt_locappl_interruptible, tvb, offset, 1, ENC_BIG_ENDIAN);
+            offset += 1;
+            proto_tree_add_item(tree, hf_evt_locappl_identifier, tvb, offset, 1, ENC_BIG_ENDIAN);
+            break;
+        }
+    case OPCODE_EVT_KEY_LINE:
+    case OPCODE_EVT_ONHOOK:
+    case OPCODE_EVT_OFFHOOK:
+    case OPCODE_EVT_DEVICE_PRESENCE:
+        {
+            proto_tree_add_item(tree, hf_evt_dev_presence_value, tvb, offset, 1, ENC_BIG_ENDIAN);
+            if (OPCODE_EVT_DEVICE_PRESENCE == event)
+            {
+                offset += 1;
+                proto_tree_add_item(tree, hf_evt_dev_presence_state, tvb, offset, 1, ENC_BIG_ENDIAN);
+            }
+            break;
+        }
     case OPCODE_EVT_SUCCESS_CREATE:
     case OPCODE_EVT_SUCCESS_DELETE:
     case OPCODE_EVT_SUCCESS_SET_PROPERTY:
@@ -1577,13 +1608,13 @@ void proto_register_noe(void)
                   HFILL
               }
             },
-            { &hf_event_value_u8,
+            { &hf_event_bt_key,
               {
                   "Value",
-                  "noe.event_value.uint",
+                  "noe.event_bt_key.value",
                   FT_UINT8,
                   BASE_DEC,
-                  VALS(noe_event_str_struct),
+                  NULL,
                   0x0,
                   NULL,
                   HFILL
@@ -1595,7 +1626,67 @@ void proto_register_noe(void)
                   "noe.event_context_switch",
                   FT_UINT8,
                   BASE_DEC,
-                  VALS(servers_vals),
+                  VALS(noe_evt_context_switch_str_vals),
+                  0x0,
+                  NULL,
+                  HFILL
+              }
+            },
+            { &hf_evt_locappl_enable,
+              {
+                  "Enable",
+                  "noe.event_locappl.enable",
+                  FT_UINT8,
+                  BASE_DEC,
+                  VALS(noe_true_false_str_vals),
+                  0x0,
+                  NULL,
+                  HFILL
+              }
+            },
+            { &hf_evt_locappl_interruptible,
+              {
+                  "Interruptible",
+                  "noe.event_locappl.interruptible",
+                  FT_UINT8,
+                  BASE_DEC,
+                  VALS(noe_true_false_str_vals),
+                  0x0,
+                  NULL,
+                  HFILL
+              }
+            },
+            { &hf_evt_locappl_identifier,
+              {
+                  "Identifier",
+                  "noe.event_locappl.identifier",
+                  FT_UINT8,
+                  BASE_DEC,
+                  VALS(noe_evt_locappl_identifier_str_vals),
+                  0x0,
+                  NULL,
+                  HFILL
+              }
+            },
+            { &hf_evt_dev_presence_value,
+              {
+                  "Value",
+                  "noe.event_device_presence.value",
+                  FT_UINT8,
+                  BASE_DEC,
+                  VALS(noe_evt_devices_str_vals),
+                  0x0,
+                  NULL,
+                  HFILL
+              }
+            },
+            { &hf_evt_dev_presence_state,
+              {
+                  "State",
+                  "noe.event_device_presence.state",
+                  FT_UINT8,
+                  BASE_DEC,
+                  VALS(noe_true_false_str_vals),
                   0x0,
                   NULL,
                   HFILL

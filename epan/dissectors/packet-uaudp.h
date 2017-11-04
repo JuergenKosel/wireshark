@@ -42,11 +42,10 @@
 #define UAUDP_CONNECT_QOS_IP_TOS        0x06
 #define UAUDP_CONNECT_QOS_8021_VLID     0x07
 #define UAUDP_CONNECT_QOS_8021_PRI      0x08
+#define UAUDP_CONNECT_SUPERFAST_CONNECT 0x09
 
 extern value_string_ext uaudp_opcode_str_ext;
-#if 0
 extern value_string_ext uaudp_connect_vals_ext;
-#endif
 
 typedef enum _e_ua_direction {
 	SYS_TO_TERM,  /* system -> terminal */

@@ -26,7 +26,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
-#include "epan/packet_range.h"
+#include "ui/packet_range.h"
 #include "ui/win32/file_dlg_win32.h"
 #else // Q_OS_WIN
 
@@ -785,17 +785,17 @@ void CaptureFileDialog::preview(const QString & path)
 
     if(err != 0) {
         preview_size_.setText(tr("%1, error after %Ln packet(s)", "", packets)
-                              .arg(size_str).arg(packets));
+                              .arg(size_str));
         return;
     }
 
     // Packet count
     if(timed_out) {
         preview_size_.setText(tr("%1, timed out at %Ln packet(s)", "", packets)
-                              .arg(size_str).arg(packets));
+                              .arg(size_str));
     } else {
         preview_size_.setText(tr("%1, %Ln packet(s)", "", packets)
-                              .arg(size_str).arg(packets));
+                              .arg(size_str));
     }
 
     // First packet + elapsed time

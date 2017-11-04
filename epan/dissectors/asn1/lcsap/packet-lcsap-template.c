@@ -53,9 +53,6 @@
 void proto_register_lcsap(void);
 void proto_reg_handoff_lcsap(void);
 
-static dissector_handle_t lpp_handle;
-static dissector_handle_t lppa_handle;
-
 #define SCTP_PORT_LCSAP 9082
 #include "packet-lcsap-val.h"
 
@@ -88,6 +85,8 @@ static guint gbl_lcsapSctpPort=SCTP_PORT_LCSAP;
 
 /* Dissector handles */
 static dissector_handle_t lcsap_handle;
+static dissector_handle_t lpp_handle;
+static dissector_handle_t lppa_handle;
 static dissector_handle_t xml_handle;
 
 /* Dissector tables */
@@ -138,10 +137,10 @@ static const value_string lcsap_pos_method_vals[] = {
   { 0x19, "Reserved for network specific positioning methods" },
   { 0x1a, "Reserved for network specific positioning methods" },
   { 0x1b, "Reserved for network specific positioning methods" },
-  { 0x1c, "RReserved for network specific positioning methods" },
+  { 0x1c, "Reserved for network specific positioning methods" },
   { 0x1d, "Reserved for network specific positioning methods" },
   { 0x1e, "Reserved for network specific positioning methods" },
-  { 0x0f, "Reserved for network specific positioning methods" },
+  { 0x1f, "Reserved for network specific positioning methods" },
   { 0, NULL }
 };
 
@@ -250,6 +249,7 @@ proto_reg_handoff_lcsap(void)
   if (!Initialized) {
     lpp_handle = find_dissector_add_dependency("lpp", proto_lcsap);
     lppa_handle = find_dissector_add_dependency("lppa", proto_lcsap);
+    xml_handle = find_dissector_add_dependency("xml", proto_lcsap);
     dissector_add_for_decode_as("sctp.port", lcsap_handle);   /* for "decode-as"  */
     dissector_add_uint("sctp.ppi", LCS_AP_PAYLOAD_PROTOCOL_ID,   lcsap_handle);
     Initialized=TRUE;
@@ -346,9 +346,6 @@ void proto_register_lcsap(void) {
                                  "Set the SCTP port for LCSAP messages",
                                  10,
                                  &gbl_lcsapSctpPort);
-
-  xml_handle = find_dissector_add_dependency("xml", proto_lcsap);
-
 }
 
 /*

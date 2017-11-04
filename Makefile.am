@@ -84,6 +84,8 @@ dist_diameter_DATA = $(_CUSTOM_diameter_xml_files_) \
 	diameter/eap.xml \
 	diameter/Ericsson.xml \
 	diameter/etsie2e4.xml \
+	diameter/Inovar.xml \
+	diameter/Juniper.xml \
 	diameter/mobileipv4.xml \
 	diameter/mobileipv6.xml \
 	diameter/nasreq.xml \
@@ -133,13 +135,13 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.3gpp2 \
 	radius/dictionary.acc \
 	radius/dictionary.acme \
-	radius/dictionary.airespace \
 	radius/dictionary.actelis \
 	radius/dictionary.aerohive \
+	radius/dictionary.airespace \
 	radius/dictionary.alcatel \
+	radius/dictionary.alcatel-lucent.aaa \
 	radius/dictionary.alcatel.esam \
 	radius/dictionary.alcatel.sr \
-	radius/dictionary.alcatel-lucent.aaa \
 	radius/dictionary.alteon \
 	radius/dictionary.altiga \
 	radius/dictionary.alvarion \
@@ -154,16 +156,16 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.avaya \
 	radius/dictionary.azaire \
 	radius/dictionary.bay \
-	radius/dictionary.bluecoat \
 	radius/dictionary.bintec \
+	radius/dictionary.bluecoat \
+	radius/dictionary.bristol \
 	radius/dictionary.broadsoft \
 	radius/dictionary.brocade \
 	radius/dictionary.bskyb \
-	radius/dictionary.bristol \
 	radius/dictionary.bt \
-	radius/dictionary.camiant \
 	radius/dictionary.cablelabs \
 	radius/dictionary.cabletron \
+	radius/dictionary.camiant \
 	radius/dictionary.chillispot \
 	radius/dictionary.cisco \
 	radius/dictionary.cisco.asa \
@@ -175,13 +177,14 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.cnergee \
 	radius/dictionary.colubris \
 	radius/dictionary.columbia_university \
-	radius/dictionary.compatible \
 	radius/dictionary.compat \
+	radius/dictionary.compatible \
 	radius/dictionary.cosine \
 	radius/dictionary.dante \
+	radius/dictionary.dellemc \
 	radius/dictionary.dhcp \
-	radius/dictionary.dlink \
 	radius/dictionary.digium \
+	radius/dictionary.dlink \
 	radius/dictionary.dragonwave \
 	radius/dictionary.efficientip \
 	radius/dictionary.eltex \
@@ -190,7 +193,6 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.ericsson \
 	radius/dictionary.ericsson.ab \
 	radius/dictionary.ericsson.packet.core.networks \
-	radius/dictionary.erx \
 	radius/dictionary.extreme \
 	radius/dictionary.f5 \
 	radius/dictionary.fdxtended \
@@ -215,8 +217,8 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.itk \
 	radius/dictionary.jradius \
 	radius/dictionary.juniper \
-	radius/dictionary.kineto \
 	radius/dictionary.karlnet \
+	radius/dictionary.kineto \
 	radius/dictionary.lancom \
 	radius/dictionary.livingston \
 	radius/dictionary.localweb \
@@ -309,6 +311,7 @@ dist_radius_DATA = $(_CUSTOM_radius_dict_) \
 	radius/dictionary.travelping \
 	radius/dictionary.tropos \
 	radius/dictionary.ukerna \
+	radius/dictionary.unisphere \
 	radius/dictionary.unix \
 	radius/dictionary.usr \
 	radius/dictionary.utstarcom \
@@ -419,7 +422,6 @@ WIRESHARK_COMMON_SRC = \
 	capture_opts.c		\
 	file.c			\
 	fileset.c		\
-	filter_files.c		\
 	summary.c		\
 	ws_version_info.c
 
@@ -427,7 +429,6 @@ WIRESHARK_COMMON_SRC = \
 WIRESHARK_COMMON_INCLUDES = \
 	capture_info.h		\
 	capture_opts.h		\
-	filter_files.h		\
 	globals.h		\
 	log.h			\
 	summary.h		\
@@ -508,7 +509,6 @@ endif
 tshark_SOURCES = \
 	$(SHARK_COMMON_SRC)	\
 	capture_opts.c		\
-	filter_files.c		\
 	tshark.c		\
 	ws_version_info.c
 
@@ -580,7 +580,6 @@ rawshark_LDADD = \
 
 sharkd_SOURCES = \
 	$(SHARK_COMMON_SRC)	\
-	filter_files.c		\
 	sharkd.c		\
 	sharkd.h		\
 	sharkd_daemon.c		\
@@ -589,12 +588,17 @@ sharkd_SOURCES = \
 
 sharkd_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
+if HAVE_SPEEXDSP
+sharkd_CPPFLAGS += $(SPEEXDSP_CFLAGS)
+endif
+
 sharkd_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
 
 # Libraries and plugin flags with which to link sharkd.
 sharkd_LDADD = \
 	ui/cli/libcliui.a		\
 	ui/libui.a			\
+	codecs/libwscodecs.la		\
 	wiretap/libwiretap.la		\
 	epan/libwireshark.la		\
 	wsutil/libwsutil.la		\
@@ -604,6 +608,10 @@ sharkd_LDADD = \
 	${EPAN_EXTRA_LIBS}	\
 	@SYSTEMCONFIGURATION_FRAMEWORKS@	\
 	@COREFOUNDATION_FRAMEWORKS@
+
+if HAVE_SPEEXDSP
+sharkd_LDADD += $(SPEEXDSP_LIBS)
+endif
 
 text2pcap_SOURCES = \
 	text2pcap.c		\
@@ -632,6 +640,7 @@ mergecap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link mergecap.
 mergecap_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@
@@ -644,6 +653,7 @@ capinfos_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link capinfos.
 capinfos_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@			\
@@ -657,6 +667,7 @@ captype_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link captype.
 captype_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@
@@ -669,6 +680,7 @@ editcap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link editcap.
 editcap_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@			\
@@ -682,6 +694,7 @@ reordercap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 # Libraries with which to link reordercap.
 reordercap_LDADD = \
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@
@@ -695,6 +708,7 @@ randpkt_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 # Libraries with which to link randpkt.
 randpkt_LDADD = \
 	randpkt_core/librandpkt_core.a	\
+	ui/libui.a			\
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@			\
@@ -722,7 +736,6 @@ dumpcap_SOURCES = \
 	capture_stop_conditions.c	\
 	conditions.c			\
 	dumpcap.c			\
-	filter_files.c			\
 	ringbuffer.c			\
 	sync_pipe_write.c		\
 	ws_version_info.c
@@ -736,6 +749,7 @@ dumpcap_LDFLAGS = $(AM_LDFLAGS) $(PIE_LDFLAGS)
 # Libraries with which to link dumpcap.
 dumpcap_LDADD = \
 	caputils/libcaputils.a		\
+	ui/libui.a			\
 	writecap/libwritecap.a		\
 	wsutil/libwsutil.la		\
 	@GLIB_LIBS@			\
@@ -857,7 +871,6 @@ EXTRA_DIST = \
 	CMakeListsCustom.txt.example	\
 	cmakeconfig.h.in	\
 	CMakeOptions.txt	\
-	README.cmake		\
 	ConfigureChecks.cmake	\
 	cmake			\
 	CPackConfig.txt
@@ -910,6 +923,7 @@ SUBDIRS = \
 	packaging		\
 	help			\
 	ui			\
+	codecs			\
 	@wireshark_SUBDIRS@	\
 	ui/cli			\
 	randpkt_core		\
@@ -968,12 +982,12 @@ libtool: $(LIBTOOL_DEPS)
 # FreeBSD install command has a -T flag that takes an argument and
 # that has completely different semantics.
 #
-# We neither need nor want any of this on OS X, nor do we want it if
+# We neither need nor want any of this on macOS, nor do we want it if
 # we're not building Wireshark (that being the only desktop app).
 #
 install-data-local:
 if BUILDING_WIRESHARK
-if NOT_OS_X
+if NOT_MACOS
 	mkdir -p $(DESTDIR)$(datadir)/mime/packages
 	install -m 644 $(srcdir)/wireshark-mime-package.xml $(DESTDIR)$(datadir)/mime/packages/wireshark.xml
 	mkdir -p $(DESTDIR)$(datadir)/appdata
@@ -998,7 +1012,7 @@ endif
 
 uninstall-local:
 if BUILDING_WIRESHARK
-if NOT_OS_X
+if NOT_MACOS
 	rm -f $(DESTDIR)$(datadir)/appdata/wireshark.appdata.xml
 	rm -f $(DESTDIR)$(datadir)/applications/wireshark.desktop
 	rm -f $(DESTDIR)$(datadir)/applications/wireshark-gtk.desktop
@@ -1039,12 +1053,12 @@ uninstall-hook: update-databases-and-caches-uninstall
 # We only need to run gtk-update-icon-cache if we're installing a GTK+
 # version of Wireshark.
 #
-# We neither need nor want any of this on OS X, nor do we want it if
+# We neither need nor want any of this on macOS, nor do we want it if
 # we're not building Wireshark (that being the only desktop app).
 #
 update-databases-and-caches-common:
 if BUILDING_WIRESHARK
-if NOT_OS_X
+if NOT_MACOS
 	@echo "You may need to run \"ldconfig\" as root"
 	@echo "You may need to run \"update-desktop-database $(datadir)/applications\""
 	@echo "You may need to run \"update-mime-database $(datadir)/mime\""
@@ -1112,7 +1126,7 @@ osx-app: $(PROGRAMS) $(SCRIPTS) $(MANS) $(DATA) packaging/macosx/Info.plist
 			--extcap-path ../staging/$(PACKAGE).inst$(extcapdir) \
 			--library-path ../staging/$(PACKAGE).inst$(libdir) ; \
 	else \
-		echo "Error: OS X packaging tools not found." ; \
+		echo "Error: macOS packaging tools not found." ; \
 		echo "Package build abandoned." ; \
 	fi
 

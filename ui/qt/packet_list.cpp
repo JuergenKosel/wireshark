@@ -435,7 +435,7 @@ PacketList::PacketList(QWidget *parent) :
 
     connect(packet_list_model_, SIGNAL(goToPacket(int)), this, SLOT(goToPacket(int)));
     connect(packet_list_model_, SIGNAL(itemHeightChanged(const QModelIndex&)), this, SLOT(updateRowHeights(const QModelIndex&)));
-    connect(wsApp, SIGNAL(addressResolutionChanged()), this, SLOT(redrawVisiblePackets()));
+    connect(wsApp, SIGNAL(addressResolutionChanged()), this, SLOT(redrawVisiblePacketsDontSelectCurrent()));
 
     header()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(header(), SIGNAL(customContextMenuRequested(QPoint)),
@@ -604,7 +604,6 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     ctx_menu_.exec(event->globalPos());
     ctx_column_ = -1;
     decode_as_->setData(QVariant());
-
 }
 
 // Auto scroll if:
@@ -674,7 +673,7 @@ int PacketList::sizeHintForColumn(int column) const
     // reimplementing QTreeView::sizeHintForColumn seems like a worse idea.
     if (itemDelegateForColumn(column)) {
         // In my (gcc) testing this results in correct behavior on Windows but adds extra space
-        // on OS X and Linux. We might want to add Q_OS_... #ifdefs accordingly.
+        // on macOS and Linux. We might want to add Q_OS_... #ifdefs accordingly.
         size_hint = itemDelegateForColumn(column)->sizeHint(viewOptions(), QModelIndex()).width();
     }
     size_hint += QTreeView::sizeHintForColumn(column); // Decoration padding
@@ -750,13 +749,20 @@ void PacketList::drawCurrentPacket()
     }
 }
 
-// Redraw the packet list and detail. Called from many places.
-// XXX We previously re-selected the packet here, but that seems to cause
-// automatic scrolling problems.
+// Redraw the packet list and detail.  Re-selects the current packet (causes
+// the UI to scroll to that packet).
+// Called from many places.
 void PacketList::redrawVisiblePackets() {
     update();
     header()->update();
     drawCurrentPacket();
+}
+
+// Redraw the packet list and detail.
+// Does not scroll back to the selected packet.
+void PacketList::redrawVisiblePacketsDontSelectCurrent() {
+    update();
+    header()->update();
 }
 
 void PacketList::resetColumns()
@@ -988,7 +994,7 @@ void PacketList::writeRecent(FILE *rf) {
         }
         col_fmt = get_column_format(col);
         if (col_fmt == COL_CUSTOM) {
-            fprintf (rf, " %%Cus:%s,", get_column_custom_fields(col));
+            fprintf (rf, " \"%%Cus:%s\",", get_column_custom_fields(col));
         } else {
             fprintf (rf, " %s,", col_format_to_string(col_fmt));
         }
@@ -1000,7 +1006,6 @@ void PacketList::writeRecent(FILE *rf) {
         }
     }
     fprintf (rf, "\n");
-
 }
 
 bool PacketList::contextMenuActive()
@@ -1086,7 +1091,7 @@ QString PacketList::packetComment()
 
     if (!fdata) return NULL;
 
-    pkt_comment = cf_get_comment(cap_file_, fdata);
+    pkt_comment = cf_get_packet_comment(cap_file_, fdata);
 
     return QString(pkt_comment);
 
@@ -1129,7 +1134,7 @@ QString PacketList::allPacketComments()
     for (framenum = 1; framenum <= cap_file_->count ; framenum++) {
         fdata = frame_data_sequence_find(cap_file_->frames, framenum);
 
-        char *pkt_comment = cf_get_comment(cap_file_, fdata);
+        char *pkt_comment = cf_get_packet_comment(cap_file_, fdata);
 
         if (pkt_comment) {
             buf_str.append(QString(tr("Frame %1: %2\n\n")).arg(framenum).arg(pkt_comment));
@@ -1181,6 +1186,8 @@ void PacketList::goNextPacket(void)
         // First visible packet.
         setCurrentIndex(indexAt(viewport()->rect().topLeft()));
     }
+
+    scrollViewChanged(false);
 }
 
 void PacketList::goPreviousPacket(void)
@@ -1202,18 +1209,24 @@ void PacketList::goPreviousPacket(void)
             goLastPacket();
         }
     }
+
+    scrollViewChanged(false);
 }
 
 void PacketList::goFirstPacket(void) {
     if (packet_list_model_->rowCount() < 1) return;
     setCurrentIndex(packet_list_model_->index(0, 0));
     scrollTo(currentIndex());
+
+    scrollViewChanged(false);
 }
 
 void PacketList::goLastPacket(void) {
     if (packet_list_model_->rowCount() < 1) return;
     setCurrentIndex(packet_list_model_->index(packet_list_model_->rowCount() - 1, 0));
     scrollTo(currentIndex());
+
+    scrollViewChanged(false);
 }
 
 // XXX We can jump to the wrong packet if a display filter is applied
@@ -1223,6 +1236,8 @@ void PacketList::goToPacket(int packet) {
     if (row >= 0) {
         setCurrentIndex(packet_list_model_->index(row, 0));
     }
+
+    scrollViewChanged(false);
 }
 
 void PacketList::goToPacket(int packet, int hf_id)
@@ -1441,7 +1456,7 @@ void PacketList::columnVisibilityTriggered()
 void PacketList::sectionResized(int col, int, int new_width)
 {
     if (isVisible() && !columns_changed_ && !set_column_visibility_ && new_width > 0) {
-        // Column 1 gets an invalid value (32 on OS X) when we're not yet
+        // Column 1 gets an invalid value (32 on macOS) when we're not yet
         // visible.
         //
         // Don't set column width when columns changed or setting column
@@ -1457,10 +1472,26 @@ void PacketList::sectionResized(int col, int, int new_width)
 // The user moved a column. Make sure prefs.col_list, the column format
 // array, and the header's visual and logical indices all agree.
 // gtk/packet_list.c:column_dnd_changed_cb
-void PacketList::sectionMoved(int, int, int)
+void PacketList::sectionMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex)
 {
     GList *new_col_list = NULL;
     QList<int> saved_sizes;
+    int sort_idx;
+
+    // Since we undo the move below, these should always stay in sync.
+    // Otherwise the order of columns can be unexpected after drag and drop.
+    if (logicalIndex != oldVisualIndex) {
+        g_warning("Column moved from an unexpected state (%d, %d, %d)",
+                logicalIndex, oldVisualIndex, newVisualIndex);
+    }
+
+    // Remember which column should be sorted. Use the visual index since this
+    // points to the current GUI state rather than the outdated column order
+    // (indicated by the logical index).
+    sort_idx = header()->sortIndicatorSection();
+    if (sort_idx != -1) {
+        sort_idx = header()->visualIndex(sort_idx);
+    }
 
     // Build a new column list based on the header's logical order.
     for (int vis_idx = 0; vis_idx < header()->count(); vis_idx++) {
@@ -1472,6 +1503,15 @@ void PacketList::sectionMoved(int, int, int)
 
         new_col_list = g_list_append(new_col_list, pref_data);
     }
+
+    // Undo move to ensure that the logical indices map to the visual indices,
+    // otherwise the column order is changed twice (once via the modified
+    // col_list, once because of the visual/logical index mismatch).
+    disconnect(header(), SIGNAL(sectionMoved(int,int,int)),
+               this, SLOT(sectionMoved(int,int,int)));
+    header()->moveSection(newVisualIndex, oldVisualIndex);
+    connect(header(), SIGNAL(sectionMoved(int,int,int)),
+            this, SLOT(sectionMoved(int,int,int)));
 
     // Clear and rebuild our (and the header's) model. There doesn't appear
     // to be another way to reset the logical index.
@@ -1492,6 +1532,15 @@ void PacketList::sectionMoved(int, int, int)
     }
 
     wsApp->emitAppSignal(WiresharkApplication::ColumnsChanged);
+
+    // If the column with the sort indicator got shifted, mark the new column
+    // after updating the columns contents (via ColumnsChanged) to ensure that
+    // the columns are sorted using the intended column contents.
+    int left_col = MIN(oldVisualIndex, newVisualIndex);
+    int right_col = MAX(oldVisualIndex, newVisualIndex);
+    if (left_col <= sort_idx && sort_idx <= right_col) {
+        header()->setSortIndicator(sort_idx, header()->sortIndicatorOrder());
+    }
 }
 
 void PacketList::updateRowHeights(const QModelIndex &ih_index)
@@ -1558,8 +1607,13 @@ void PacketList::vScrollBarActionTriggered(int)
     // past the end.
     tail_at_end_ = (verticalScrollBar()->sliderPosition() >= verticalScrollBar()->maximum());
 
+    scrollViewChanged(tail_at_end_);
+}
+
+void PacketList::scrollViewChanged(bool at_end)
+{
     if (capture_in_progress_ && prefs.capture_auto_scroll) {
-        emit packetListScrolled(tail_at_end_);
+        emit packetListScrolled(at_end);
     }
 }
 

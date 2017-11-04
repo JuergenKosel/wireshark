@@ -9119,10 +9119,10 @@ void proto_reg_handoff_zbee_zcl_part(void)
 #define ZBEE_ZCL_OTA_STATUS_WAIT_FOR_MORE                     0x05  /* Wait for more */
                                                                     /* 0x06-0xff - Reserved */
 /* File Version mask */
-#define ZBEE_ZCL_OTA_FILE_VERS_APPL_RELEASE             0x000000FF  /* Application Release */
-#define ZBEE_ZCL_OTA_FILE_VERS_APPL_BUILD               0x0000FF00  /* Application Build */
-#define ZBEE_ZCL_OTA_FILE_VERS_STACK_RELEASE            0x00FF0000  /* Stack Release */
-#define ZBEE_ZCL_OTA_FILE_VERS_STACK_BUILD              0xFF000000  /* Stack Build */
+#define ZBEE_ZCL_OTA_FILE_VERS_APPL_RELEASE             0xFF000000  /* Application Release */
+#define ZBEE_ZCL_OTA_FILE_VERS_APPL_BUILD               0x00FF0000  /* Application Build */
+#define ZBEE_ZCL_OTA_FILE_VERS_STACK_RELEASE            0x0000FF00  /* Stack Release */
+#define ZBEE_ZCL_OTA_FILE_VERS_STACK_BUILD              0x000000FF  /* Stack Build */
 
 /* Field Control bitmask field list */
 #define ZBEE_ZCL_OTA_FIELD_CTRL_HW_VER_PRESENT                0x01  /* bit     0 */
@@ -11559,7 +11559,7 @@ static const value_string zbee_zcl_appl_ctrl_exec_cmd_names[] = {
     { ZBEE_ZCL_APPL_CTRL_EXEC_CMD_ID_STOP,                      "Stop" },
     { ZBEE_ZCL_APPL_CTRL_EXEC_CMD_ID_PAUSE,                     "Pause" },
     { ZBEE_ZCL_APPL_CTRL_EXEC_CMD_ID_START_SUPERFREEZING,       "Start Superfreezing" },
-    { ZBEE_ZCL_APPL_CTRL_EXEC_CMD_ID_START_SUPERFREEZING,       "Stop Superfreezing" },
+    { ZBEE_ZCL_APPL_CTRL_EXEC_CMD_ID_STOP_SUPERFREEZING,        "Stop Superfreezing" },
     { ZBEE_ZCL_APPL_CTRL_EXEC_CMD_ID_START_SUPERCOOLING,        "Start Supercooling" },
     { ZBEE_ZCL_APPL_CTRL_EXEC_CMD_ID_STOP_SUPERCOOLING,         "Stop Supercooling" },
     { ZBEE_ZCL_APPL_CTRL_EXEC_CMD_ID_DISABLE_GAS,               "Disable Gas" },

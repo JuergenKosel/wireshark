@@ -29,10 +29,10 @@ extern "C" {
 
 #include <glib.h>
 
-#include "color_filters.h"
-
 #include <epan/params.h>
 #include <epan/range.h>
+
+#include <wsutil/color.h>
 
 #include "ws_symbol_export.h"
 
@@ -151,7 +151,7 @@ typedef struct _e_prefs {
   gint         num_cols;
   color_t      st_client_fg, st_client_bg, st_server_fg, st_server_bg;
   color_t      gui_text_valid, gui_text_invalid, gui_text_deprecated;
-  gboolean     gui_altern_colors;
+  gboolean     gui_altern_colors; /* GTK only */
   gboolean     gui_expert_composite_eyecandy;
   gboolean     filter_toolbar_show_in_statusbar;
   gint         gui_ptree_line_style;
@@ -170,7 +170,7 @@ typedef struct _e_prefs {
   gboolean     gui_geometry_save_position;
   gboolean     gui_geometry_save_size;
   gboolean     gui_geometry_save_maximized;
-  gboolean     gui_macosx_style;
+  gboolean     gui_macosx_style; /* GTK only */
   console_open_e gui_console_open;
   guint        gui_recent_df_entries_max;
   guint        gui_recent_files_count_max;
@@ -269,32 +269,8 @@ WS_DLL_PUBLIC void prefs_reset(void);
 /** Frees memory used by proto routines. Called at program shutdown */
 void prefs_cleanup(void);
 
-/*
- * Register a module that will have preferences.
- * Specify the module under which to register it or NULL to register it
- * at the top level, the name used for the module in the preferences file,
- * the title used in the tab for it in a preferences dialog box, a
- * routine to call back when we apply the preferences, and if it should
- * use the GUI controls provided by the preferences or it has its own.
- *
- * This should not be used for dissector preferences;
- * "prefs_register_protocol()" should be used for that, so that the
- * preferences go under the "Protocols" subtree, and so that the
- * name is the protocol name specified at the "proto_register_protocol()"
- * call so that the "Protocol Properties..." menu item works.
- */
-WS_DLL_PUBLIC module_t *prefs_register_module(module_t *parent, const char *name,
-    const char *title, const char *description, void (*apply_cb)(void),
-    const gboolean use_gui);
-
-/*
- * Register a subtree that will have modules under it.
- * Specify the module under which to register it or NULL to register it
- * at the top level and the title used in the tab for it in a preferences
- * dialog box.
- */
-WS_DLL_PUBLIC module_t *prefs_register_subtree(module_t *parent, const char *title,
-    const char *description, void (*apply_cb)(void));
+/** Provide a hint about the darkness of the current UI theme so that we can adjust colors when needed */
+WS_DLL_PUBLIC void prefs_set_gui_theme_is_dark(gboolean is_dark);
 
 /*
  * Register that a protocol has preferences.
@@ -458,7 +434,7 @@ WS_DLL_PUBLIC void prefs_register_string_preference(module_t *module, const char
  * file.
  */
 WS_DLL_PUBLIC void prefs_register_filename_preference(module_t *module, const char *name,
-    const char *title, const char *description, const char **var);
+    const char *title, const char *description, const char **var, gboolean for_writing);
 
 /*
  * Register a preference with a directory name (string) value.
@@ -589,18 +565,12 @@ char *prefs_pref_to_str(pref_t *pref, pref_source_t source);
 
 /* Read the preferences file, fill in "prefs", and return a pointer to it.
 
-   If we got an error (other than "it doesn't exist") trying to read
-   the global preferences file, stuff the errno into "*gpf_errno_return"
-   on an open error and into "*gpf_read_errno_return" on a read error,
-   stuff a pointer to the path of the file into "*gpf_path_return", and
-   return NULL.
+   If we got an error (other than "it doesn't exist") we report it through
+   the UI.
 
-   If we got an error (other than "it doesn't exist") trying to read
-   the user's preferences file, stuff the errno into "*pf_errno_return"
-   on an open error and into "*pf_read_errno_return" on a read error,
-   stuff a pointer to the path of the file into "*pf_path_return", and
-   return NULL. */
-WS_DLL_PUBLIC e_prefs *read_prefs(int *, int *, char **, int *, int *, char **);
+   This is called by epan_load_settings(); programs should call that
+   rather than individually calling the routines it calls. */
+extern e_prefs *read_prefs(void);
 
 /* Write out "prefs" to the user's preferences file, and return 0.
 
@@ -608,14 +578,8 @@ WS_DLL_PUBLIC e_prefs *read_prefs(int *, int *, char **, int *, int *, char **);
    into "*pf_path_return", and return the errno. */
 WS_DLL_PUBLIC int write_prefs(char **);
 
-/*
- * Given a string of the form "<pref name>:<pref value>", as might appear
- * as an argument to a "-o" option, parse it and set the preference in
- * question.  Return an indication of whether it succeeded or failed
- * in some fashion.
- *
- * XXX - should supply, for syntax errors, a detailed explanation of
- * the syntax error.
+/**
+ * Result of setting a preference.
  */
 typedef enum {
     PREFS_SET_OK,               /* succeeded */
@@ -624,7 +588,16 @@ typedef enum {
     PREFS_SET_OBSOLETE          /* preference used to exist but no longer does */
 } prefs_set_pref_e;
 
-WS_DLL_PUBLIC prefs_set_pref_e prefs_set_pref(char *prefarg);
+/*
+ * Given a string of the form "<pref name>:<pref value>", as might appear
+ * as an argument to a "-o" option, parse it and set the preference in
+ * question.  Return an indication of whether it succeeded or failed
+ * in some fashion.
+ *
+ * For syntax errors (return value PREFS_SET_SYNTAX_ERR), details (when
+ * available) are written into "errmsg" which must be freed with g_free.
+ */
+WS_DLL_PUBLIC prefs_set_pref_e prefs_set_pref(char *prefarg, char **errmsg);
 
 /*
  * Get or set a preference's obsolete status. These can be used to make a

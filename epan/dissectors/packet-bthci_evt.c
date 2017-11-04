@@ -783,7 +783,7 @@ static const value_string evt_amp_status[] = {
     { 0, NULL }
 };
 
-static const value_string evt_controller_types[] = {
+const value_string bthci_evt_controller_types[] = {
     { 0x00, "Primary BR/EDR" },
     { 0x01, "802.11 AMP" },
     { 0, NULL }
@@ -863,7 +863,7 @@ static const value_string evt_air_mode_vals[] = {
     { 0, NULL }
 };
 
-static const value_string mws_transport_layer_vals[] = {
+const value_string bthci_evt_mws_transport_layer_vals[] = {
     { 0x00,  "Disabled" },
     { 0x01,  "WCI-1 Transport" },
     { 0x02,  "WCI-2 Transport" },
@@ -885,8 +885,8 @@ static const value_string receive_status_vals[] = {
 static const value_string fragment_vals[] = {
     { 0x00,  "Continuation" },
     { 0x01,  "Start" },
-    { 0x01,  "End" },
-    { 0x01,  "No Fragmentation" },
+    { 0x02,  "End" },
+    { 0x03,  "No Fragmentation" },
     { 0, NULL }
 };
 
@@ -895,7 +895,7 @@ static const value_string event_type_vals[] = {
     { 0, NULL }
 };
 
-static const value_string codec_id_vals[] = {
+const value_string bthci_evt_codec_id_vals[] = {
     { 0x00,  "u-Law log" },
     { 0x01,  "A-law log" },
     { 0x02,  "CVSD" },
@@ -2470,6 +2470,7 @@ dissect_bthci_evt_le_meta(tvbuff_t *tvb, int offset, packet_info *pinfo,
                 offset += 1;
 
                 report_id += 1;
+                number_of_reports--;
             }
 
             }
@@ -5229,6 +5230,7 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
         case 0x1c: /* Read Clock Offset Complete */
             offset = dissect_bthci_evt_read_clock_offset_complete(tvb, offset, pinfo, bthci_evt_tree, bluetooth_data);
+            add_opcode(opcode_list, 0x041F, COMMAND_STATUS_NORMAL); /* Read Clock Offset */
             break;
 
         case 0x1d: /* Connection Packet Type Changed */
@@ -6931,6 +6933,7 @@ proto_register_bthci_evt(void)
            FT_UINT8, BASE_DEC, VALS(evt_enable_values), 0x0,
            NULL, HFILL}
         },
+/* TODO: More detailed dissection */
         { &hf_bthci_evt_afh_channel_map,
           {"AFH Channel Map", "bthci_evt.afh_channel_map",
            FT_BYTES, BASE_NONE, NULL, 0x0,
@@ -7083,7 +7086,7 @@ proto_register_bthci_evt(void)
         },
         { &hf_bthci_evt_amp_controller_type,
           { "Controller Type", "bthci_evt.controller_type",
-            FT_UINT8, BASE_HEX, VALS(evt_controller_types), 0x0,
+            FT_UINT8, BASE_HEX, VALS(bthci_evt_controller_types), 0x0,
             NULL, HFILL }
         },
         { &hf_bthci_evt_pal_capabilities_00,
@@ -7608,7 +7611,7 @@ proto_register_bthci_evt(void)
         },
         { &hf_bthci_evt_mws_transport_layer,
           { "Transport Layer",                             "bthci_evt.mws.transport_layers.item.transport_layer",
-            FT_UINT8, BASE_HEX, VALS(mws_transport_layer_vals), 0x0,
+            FT_UINT8, BASE_HEX, VALS(bthci_evt_mws_transport_layer_vals), 0x0,
             NULL, HFILL }
         },
         { &hf_bthci_evt_mws_number_of_baud_rates,
@@ -7783,11 +7786,11 @@ proto_register_bthci_evt(void)
         },
         { &hf_bthci_evt_codec_id,
           { "Codec", "bthci_evt.codec_id",
-            FT_UINT8, BASE_HEX, VALS(codec_id_vals), 0x0,
+            FT_UINT8, BASE_HEX, VALS(bthci_evt_codec_id_vals), 0x0,
             NULL, HFILL }
         },
         { &hf_bthci_evt_vendor_codec_id,
-          { "Codec", "bthci_evt.vendor_codecs.item.codec_id",
+          { "Vendor Codec ID", "bthci_evt.vendor_codecs.item.codec_id",
             FT_UINT16, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },

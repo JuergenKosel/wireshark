@@ -189,7 +189,7 @@ libwiretap_la_SOURCES = \
 	ws_version_info.c
 
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-libwiretap_la_LDFLAGS = -version-info 0:0:0 @LDFLAGS_SHAREDLIB@
+libwiretap_la_LDFLAGS = -version-info 7:3:0 @LDFLAGS_SHAREDLIB@
 
 libwiretap_la_LIBADD = libwiretap_generated.la ${top_builddir}/wsutil/libwsutil.la $(GLIB_LIBS)
 
@@ -238,7 +238,7 @@ ascend.c: $(srcdir)/ascend.y ascend_scanner_lex.h
 	$(AM_V_YACC)$(YACC) -d -p ascend -o ascend.c $(srcdir)/ascend.y
 
 ws_version_info.c: $(top_srcdir)/ws_version_info.c
-	$(AM_V_LN_S)$(LN_S) $<
+	$(AM_V_LN_S)$(LN_S) $< $(builddir)
 
 # ABI compliance checker can be obtained from
 # http://ispras.linux-foundation.org/index.php/ABI_compliance_checker

@@ -58,6 +58,7 @@
 #include "packet-l2tp.h"
 #include "packet-vxlan.h"
 #include "packet-mpls.h"
+#include "packet-nsh.h"
 
 #ifdef HAVE_GEOIP
 #include <GeoIP.h>
@@ -847,8 +848,7 @@ dissect_ipopt_security(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
   proto_item *tf;
   guint      val;
   guint      curr_offset = 2;
-  guint offset = 2,
-      optlen = tvb_reported_length(tvb);
+  guint      optlen = tvb_reported_length(tvb);
 
   field_tree = ip_var_option_header(tree, pinfo, tvb, proto_ip_option_security, ett_ip_option_sec, &tf, optlen);
 
@@ -876,7 +876,7 @@ dissect_ipopt_security(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
   /* Dissect as RFC 108 */
   proto_tree_add_item(field_tree, hf_ip_opt_sec_cl, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
   curr_offset++;
-  if ((curr_offset - offset) >= optlen) {
+  if (curr_offset >= optlen) {
     return curr_offset;
   }
   val = tvb_get_guint8(tvb, curr_offset);
@@ -885,7 +885,7 @@ dissect_ipopt_security(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                          ENC_BIG_ENDIAN);
   curr_offset++;
   while (val & 0x01) {
-    if ((val & 0x01) && ((curr_offset - offset) == optlen)) {
+    if ((val & 0x01) && (curr_offset == optlen)) {
       expert_add_info(pinfo, tf, &ei_ip_opt_sec_prot_auth_fti);
       break;
     }
@@ -895,7 +895,7 @@ dissect_ipopt_security(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                            ENC_BIG_ENDIAN);
     curr_offset++;
   }
-  if ((curr_offset - offset) < optlen) {
+  if (curr_offset < optlen) {
     expert_add_info(pinfo, tf, &ei_ip_extraneous_data);
   }
 
@@ -1932,6 +1932,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     return tvb_captured_length(tvb);
   }
 
+  // This should be consistent with tcp.hdr_len.
   proto_tree_add_uint_bits_format_value(ip_tree, hf_ip_hdr_len, tvb, (offset<<3)+4, 4, hlen,
                                "%u bytes (%u)", hlen, hlen>>2);
 
@@ -2247,6 +2248,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
    */
   save_fragmented = pinfo->fragmented;
   if (ip_defragment && (iph->ip_off & (IP_MF|IP_OFFSET)) &&
+      iph->ip_len > hlen &&
       tvb_bytes_exist(tvb, offset, iph->ip_len - hlen) &&
       ipsum == 0) {
     ipfd_head = fragment_add_check(&ip_reassembly_table, tvb, offset,
@@ -3062,6 +3064,7 @@ proto_reg_handoff_ip(void)
   dissector_add_uint("wtap_encap", WTAP_ENCAP_RAW_IP4, ip_handle);
   dissector_add_uint("enc", BSD_AF_INET, ip_handle);
   dissector_add_uint("vxlan.next_proto", VXLAN_IPV4, ip_handle);
+  dissector_add_uint("nsh.next_proto", NSH_IPV4, ip_handle);
 
   heur_dissector_add("tipc", dissect_ip_heur, "IP over TIPC", "ip_tipc", proto_ip, HEURISTIC_ENABLE);
 

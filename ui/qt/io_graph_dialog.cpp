@@ -353,7 +353,7 @@ void IOGraphDialog::addGraph(bool checked, QString name, QString dfilter, int co
     ti->setText(sma_period_col_, moving_average_to_name_[moving_average]);
     ti->setData(sma_period_col_, Qt::UserRole, moving_average);
 
-    connect(this, SIGNAL(recalcGraphData(capture_file *)), iog, SLOT(recalcGraphData(capture_file *)));
+    connect(this, SIGNAL(recalcGraphData(capture_file *, bool)), iog, SLOT(recalcGraphData(capture_file *, bool)));
     connect(this, SIGNAL(reloadValueUnitFields()), iog, SLOT(reloadValueUnitField()));
     connect(&cap_file_, SIGNAL(captureFileClosing()), iog, SLOT(captureFileClosing()));
     connect(iog, SIGNAL(requestRetap()), this, SLOT(scheduleRetap()));
@@ -404,6 +404,15 @@ void IOGraphDialog::addDefaultGraph(bool enabled, int idx)
 
 // Sync the settings from a graphTreeWidget item to its IOGraph.
 // Disables the graph if any errors are found.
+//
+// NOTE: Setting dfilter, yaxis and yfield here will all end up in setFilter() and this
+//       has a chicken-and-egg problem because setFilter() depends on previous assigned
+//       values for filter_, val_units_ and vu_field_.  Setting values in wrong order
+//       may give unpredicted results because setFilter() does not always set filter_
+//       on errors.
+// TODO: The issues in the above note should be fixed and setFilter() should not be
+//       called so frequently.
+
 void IOGraphDialog::syncGraphSettings(QTreeWidgetItem *item)
 {
     if (!item) return;
@@ -414,13 +423,14 @@ void IOGraphDialog::syncGraphSettings(QTreeWidgetItem *item)
     bool retap = !iog->visible() && visible;
 
     iog->setName(item->text(name_col_));
-
     iog->setFilter(item->text(dfilter_col_));
-    iog->setColor(colors_[item->data(color_col_, Qt::UserRole).toInt() % colors_.size()]);
-    iog->setPlotStyle(item->data(style_col_, Qt::UserRole).toInt());
 
+    /* plot style depend on the value unit, so set it first. */
     iog->setValueUnits(item->data(yaxis_col_, Qt::UserRole).toInt());
     iog->setValueUnitField(item->text(yfield_col_));
+
+    iog->setColor(colors_[item->data(color_col_, Qt::UserRole).toInt() % colors_.size()]);
+    iog->setPlotStyle(item->data(style_col_, Qt::UserRole).toInt());
 
     iog->moving_avg_period_ = item->data(sma_period_col_, Qt::UserRole).toUInt();
 
@@ -431,7 +441,7 @@ void IOGraphDialog::syncGraphSettings(QTreeWidgetItem *item)
         hint_err_ = iog->configError();
         visible = false;
         retap = false;
-        // On OS X the "not user checkable" checkbox isn't obviously disabled.
+        // On macOS the "not user checkable" checkbox isn't obviously disabled.
         // For now show it as partially checked.
         item->setCheckState(name_col_, Qt::PartiallyChecked);
         item->setFlags(item->flags() & ~Qt::ItemIsUserCheckable);
@@ -464,6 +474,9 @@ void IOGraphDialog::scheduleReplot(bool now)
 {
     need_replot_ = true;
     if (now) updateStatistics();
+    // A plot finished, force an update of the legend now in case a time unit
+    // was involved (which might append "(ms)" to the label).
+    updateLegend();
 }
 
 void IOGraphDialog::scheduleRecalc(bool now)
@@ -706,6 +719,32 @@ void IOGraphDialog::toggleTracerStyle(bool force_default)
     ui->ioPlot->replot();
 }
 
+// Returns the IOGraph which is most likely to be used by the user. This is the
+// currently selected, visible graph or the first visible graph otherwise.
+IOGraph *IOGraphDialog::currentActiveGraph() const
+{
+    QTreeWidgetItem *selectedItem = ui->graphTreeWidget->currentItem();
+    if (selectedItem && selectedItem->checkState(name_col_) != Qt::Checked) {
+        selectedItem = NULL;
+    }
+
+    if (!selectedItem) {
+        for (int i = 0; i < ui->graphTreeWidget->topLevelItemCount(); i++) {
+            QTreeWidgetItem *item = ui->graphTreeWidget->topLevelItem(i);
+            if (item && item->checkState(name_col_) == Qt::Checked) {
+                selectedItem = item;
+                break;
+            }
+        }
+    }
+
+    if (selectedItem) {
+        return VariantPointer<IOGraph>::asPtr(selectedItem->data(name_col_, Qt::UserRole));
+    } else {
+        return NULL;
+    }
+}
+
 // Scan through our graphs and gather information.
 // QCPItemTracers can only be associated with QCPGraphs. Find the first one
 // and associate it with our tracer. Set bar stacking order while we're here.
@@ -716,15 +755,15 @@ void IOGraphDialog::getGraphInfo()
     start_time_ = 0.0;
 
     tracer_->setGraph(NULL);
+    IOGraph *selectedGraph = currentActiveGraph();
     for (int i = 0; i < ui->graphTreeWidget->topLevelItemCount(); i++) {
         QTreeWidgetItem *item = ui->graphTreeWidget->topLevelItem(i);
-        IOGraph *iog = NULL;
-        if (item) {
-            iog = VariantPointer<IOGraph>::asPtr(item->data(name_col_, Qt::UserRole));
+        if (item && item->checkState(name_col_) == Qt::Checked) {
+            IOGraph *iog = VariantPointer<IOGraph>::asPtr(item->data(name_col_, Qt::UserRole));
             QCPGraph *graph = iog->graph();
             QCPBars *bars = iog->bars();
             int style = item->data(style_col_, Qt::UserRole).toInt();
-            if (graph && !base_graph_) {
+            if (graph && (!base_graph_ || iog == selectedGraph)) {
                 base_graph_ = graph;
             } else if (bars && style == IOGraph::psStackedBar && iog->visible()) {
                 bars->moveBelow(NULL); // Remove from existing stack
@@ -760,7 +799,11 @@ void IOGraphDialog::updateLegend()
         IOGraph *iog = NULL;
         if (ti && ti->checkState(name_col_) == Qt::Checked) {
             iog = VariantPointer<IOGraph>::asPtr(ti->data(name_col_, Qt::UserRole));
-            vu_label_set.insert(iog->valueUnitLabel());
+            QString label(iog->valueUnitLabel());
+            if (!iog->scaledValueUnit().isEmpty()) {
+                label += " (" + iog->scaledValueUnit() + ")";
+            }
+            vu_label_set.insert(label);
         }
     }
 
@@ -883,11 +926,7 @@ void IOGraphDialog::mouseMoved(QMouseEvent *event)
         if (event && tracer_->graph()) {
             tracer_->setGraphKey(iop->xAxis->pixelToCoord(event->pos().x()));
             ts = tracer_->position->key();
-
-            QTreeWidgetItem *ti = ui->graphTreeWidget->topLevelItem(0);
-            IOGraph *iog = NULL;
-            if (ti) {
-                iog = VariantPointer<IOGraph>::asPtr(ti->data(name_col_, Qt::UserRole));
+            if (IOGraph *iog = currentActiveGraph()) {
                 interval_packet = iog->packetFromTime(ts);
             }
         }
@@ -1030,7 +1069,16 @@ void IOGraphDialog::updateStatistics()
         if (need_recalc_ && !file_closed_) {
             need_recalc_ = false;
             need_replot_ = true;
-            emit recalcGraphData(cap_file_.capFile());
+            int enabled_graphs = 0;
+            for (int i = 0; i < ui->graphTreeWidget->topLevelItemCount(); i++) {
+                QTreeWidgetItem *item = ui->graphTreeWidget->topLevelItem(i);
+                if (item && item->checkState(name_col_) == Qt::Checked) {
+                    ++enabled_graphs;
+                }
+            }
+            // With multiple visible graphs, disable Y scaling to avoid
+            // multiple, distinct units.
+            emit recalcGraphData(cap_file_.capFile(), enabled_graphs == 1);
             if (!tracer_->graph()) {
                 if (base_graph_ && base_graph_->data()->size() > 0) {
                     tracer_->setGraph(base_graph_);
@@ -1226,15 +1274,18 @@ void IOGraphDialog::on_graphTreeWidget_itemActivated(QTreeWidgetItem *item, int 
 {
     if (!item || name_line_edit_) return;
 
+    QTreeWidget *gtw = ui->graphTreeWidget;
     QWidget *editor = NULL;
     int cur_idx;
 
     name_line_edit_ = new QLineEdit();
+    name_line_edit_->setFixedWidth(gtw->columnWidth(name_col_));
     name_line_edit_->setText(item->text(name_col_));
 
     dfilter_line_edit_ = new DisplayFilterEdit();
     connect(dfilter_line_edit_, SIGNAL(textChanged(QString)),
             dfilter_line_edit_, SLOT(checkDisplayFilter(QString)));
+    dfilter_line_edit_->setFixedWidth(gtw->columnWidth(dfilter_col_));
     dfilter_line_edit_->setText(item->text(dfilter_col_));
 
     color_combo_box_ = new QComboBox();
@@ -1281,6 +1332,7 @@ void IOGraphDialog::on_graphTreeWidget_itemActivated(QTreeWidgetItem *item, int 
     yfield_line_edit_ = new FieldFilterEdit();
     connect(yfield_line_edit_, SIGNAL(textChanged(QString)),
             yfield_line_edit_, SLOT(checkFieldName(QString)));
+    yfield_line_edit_->setFixedWidth(gtw->columnWidth(yfield_col_));
     yfield_line_edit_->setText(item->text(yfield_col_));
 
     sma_combo_box_ = new QComboBox();
@@ -1337,12 +1389,12 @@ void IOGraphDialog::on_graphTreeWidget_itemActivated(QTreeWidgetItem *item, int 
                                                   sma_combo_box_;
     int cur_col = name_col_;
     QWidget *prev_widget = ui->graphTreeWidget;
-    foreach (QWidget *editor, editors) {
+    foreach (QWidget *editorItem, editors) {
         QFrame *edit_frame = new QFrame();
         QHBoxLayout *hb = new QHBoxLayout();
         QSpacerItem *spacer = new QSpacerItem(5, 10);
 
-        hb->addWidget(editor, 0);
+        hb->addWidget(editorItem, 0);
         hb->addSpacerItem(spacer);
         hb->setStretch(1, 1);
         hb->setContentsMargins(0, 0, 0, 0);
@@ -1351,8 +1403,8 @@ void IOGraphDialog::on_graphTreeWidget_itemActivated(QTreeWidgetItem *item, int 
         edit_frame->setFrameStyle(QFrame::NoFrame);
         edit_frame->setLayout(hb);
         ui->graphTreeWidget->setItemWidget(item, cur_col, edit_frame);
-        setTabOrder(prev_widget, editor);
-        prev_widget = editor;
+        setTabOrder(prev_widget, editorItem);
+        prev_widget = editorItem;
         cur_col++;
     }
 
@@ -1650,6 +1702,7 @@ IOGraph::IOGraph(QCustomPlot *parent) :
     visible_(false),
     graph_(NULL),
     bars_(NULL),
+    val_units_(IOG_ITEM_UNIT_FIRST),
     hf_index_(-1),
     cur_idx_(-1)
 {
@@ -1668,10 +1721,9 @@ IOGraph::IOGraph(QCustomPlot *parent) :
     if (error_string) {
 //        QMessageBox::critical(this, tr("%1 failed to register tap listener").arg(name_),
 //                             error_string->str);
+//        config_err_ = error_string->str;
         g_string_free(error_string, TRUE);
     }
-
-    setFilter(QString());
 }
 
 IOGraph::~IOGraph() {
@@ -1927,7 +1979,13 @@ int IOGraph::packetFromTime(double ts)
 {
     int idx = ts * 1000 / interval_;
     if (idx >= 0 && idx < (int) cur_idx_) {
-        return items_[idx].last_frame_in_invl;
+        switch (val_units_) {
+        case IOG_ITEM_UNIT_CALC_MAX:
+        case IOG_ITEM_UNIT_CALC_MIN:
+            return items_[idx].extreme_frame_in_invl;
+        default:
+            return items_[idx].last_frame_in_invl;
+        }
     }
     return -1;
 }
@@ -1992,7 +2050,7 @@ QMap<int, QString> IOGraph::movingAveragesToNames()
     return maton;
 }
 
-void IOGraph::recalcGraphData(capture_file *cap_file)
+void IOGraph::recalcGraphData(capture_file *cap_file, bool enable_scaling)
 {
     /* Moving average variables */
     unsigned int mavg_in_average_count = 0, mavg_left = 0, mavg_right = 0;
@@ -2072,7 +2130,96 @@ void IOGraph::recalcGraphData(capture_file *cap_file)
         }
 //        qDebug() << "=rgd i" << i << ts << val;
     }
+
+    // attempt to rescale time values to specific units
+    if (enable_scaling) {
+        calculateScaledValueUnit();
+    } else {
+        scaled_value_unit_.clear();
+    }
+
     emit requestReplot();
+}
+
+void IOGraph::calculateScaledValueUnit()
+{
+    // Reset unit and recalculate if needed.
+    scaled_value_unit_.clear();
+
+    // If there is no field, scaling is not possible.
+    if (hf_index_ < 0) {
+        return;
+    }
+
+    switch (val_units_) {
+    case IOG_ITEM_UNIT_CALC_SUM:
+    case IOG_ITEM_UNIT_CALC_MAX:
+    case IOG_ITEM_UNIT_CALC_MIN:
+    case IOG_ITEM_UNIT_CALC_AVERAGE:
+        // Unit is not yet known, continue detecting it.
+        break;
+    default:
+        // Unit is Packets, Bytes, Bits, etc.
+        return;
+    }
+
+    if (proto_registrar_get_ftype(hf_index_) == FT_RELATIVE_TIME) {
+        // find maximum absolute value and scale accordingly
+        double maxValue = 0;
+        if (graph_) {
+            maxValue = maxValueFromGraphData(*graph_->data());
+        } else if (bars_) {
+            maxValue = maxValueFromGraphData(*bars_->data());
+        }
+        // If the maximum value is zero, then either we have no data or
+        // everything is zero, do not scale the unit in this case.
+        if (maxValue == 0) {
+            return;
+        }
+
+        // XXX GTK+ always uses "ms" for log scale, should we do that too?
+        int value_multiplier;
+        if (maxValue >= 1.0) {
+            scaled_value_unit_ = "s";
+            value_multiplier = 1;
+        } else if (maxValue >= 0.001) {
+            scaled_value_unit_ = "ms";
+            value_multiplier = 1000;
+        } else {
+            scaled_value_unit_ = "us";
+            value_multiplier = 1000000;
+        }
+
+        if (graph_) {
+            scaleGraphData(*graph_->data(), value_multiplier);
+        } else if (bars_) {
+            scaleGraphData(*bars_->data(), value_multiplier);
+        }
+    }
+}
+
+template<class DataMap>
+double IOGraph::maxValueFromGraphData(const DataMap &map)
+{
+    double maxValue = 0;
+    typename DataMap::const_iterator it = map.constBegin();
+    while (it != map.constEnd()) {
+        maxValue = MAX(fabs((*it).value), maxValue);
+        ++it;
+    }
+    return maxValue;
+}
+
+template<class DataMap>
+void IOGraph::scaleGraphData(DataMap &map, int scalar)
+{
+    if (scalar != 1) {
+        typename DataMap::iterator it = map.begin();
+        while (it != map.end()) {
+            (*it).value *= scalar;
+            ++it;
+        }
+    }
 }
 
 void IOGraph::captureFileClosing()
@@ -2164,17 +2311,17 @@ double IOGraph::getItemValue(int idx, const capture_file *cap_file) const
     case FT_FLOAT:
         switch (val_units_) {
         case IOG_ITEM_UNIT_CALC_SUM:
-            value = (guint64)item->float_tot;
+            value = item->float_tot;
             break;
         case IOG_ITEM_UNIT_CALC_MAX:
-            value = (guint64)item->float_max;
+            value = item->float_max;
             break;
         case IOG_ITEM_UNIT_CALC_MIN:
-            value = (guint64)item->float_min;
+            value = item->float_min;
             break;
         case IOG_ITEM_UNIT_CALC_AVERAGE:
             if (item->fields) {
-                value = (guint64)item->float_tot / item->fields;
+                value = item->float_tot / item->fields;
             } else {
                 value = 0;
             }
@@ -2186,17 +2333,17 @@ double IOGraph::getItemValue(int idx, const capture_file *cap_file) const
     case FT_DOUBLE:
         switch (val_units_) {
         case IOG_ITEM_UNIT_CALC_SUM:
-            value = (guint64)item->double_tot;
+            value = item->double_tot;
             break;
         case IOG_ITEM_UNIT_CALC_MAX:
-            value = (guint64)item->double_max;
+            value = item->double_max;
             break;
         case IOG_ITEM_UNIT_CALC_MIN:
-            value = (guint64)item->double_min;
+            value = item->double_min;
             break;
         case IOG_ITEM_UNIT_CALC_AVERAGE:
             if (item->fields) {
-                value = (guint64)item->double_tot / item->fields;
+                value = item->double_tot / item->fields;
             } else {
                 value = 0;
             }
@@ -2208,34 +2355,32 @@ double IOGraph::getItemValue(int idx, const capture_file *cap_file) const
     case FT_RELATIVE_TIME:
         switch (val_units_) {
         case IOG_ITEM_UNIT_CALC_MAX:
-            value = (guint64) (item->time_max.secs*1000000 + item->time_max.nsecs/1000);
+            value = nstime_to_sec(&item->time_max);
             break;
         case IOG_ITEM_UNIT_CALC_MIN:
-            value = (guint64) (item->time_min.secs*1000000 + item->time_min.nsecs/1000);
+            value = nstime_to_sec(&item->time_min);
             break;
         case IOG_ITEM_UNIT_CALC_SUM:
-            value = (guint64) (item->time_tot.secs*1000000 + item->time_tot.nsecs/1000);
+            value = nstime_to_sec(&item->time_tot);
             break;
         case IOG_ITEM_UNIT_CALC_AVERAGE:
             if (item->fields) {
-                guint64 t; /* time in us */
-
-                t = item->time_tot.secs;
-                t = t*1000000+item->time_tot.nsecs/1000;
-                value = (guint64) (t/item->fields);
+                value = nstime_to_sec(&item->time_tot) / item->fields;
             } else {
                 value = 0;
             }
             break;
         case IOG_ITEM_UNIT_CALC_LOAD:
-            if (idx == (int)cur_idx_ && cap_file) {
-                interval = (guint32)((cap_file->elapsed_time.secs*1000) +
-                       ((cap_file->elapsed_time.nsecs+500000)/1000000));
+            // "LOAD graphs plot the QUEUE-depth of the connection over time"
+            // (for response time fields such as smb.time, rpc.time, etc.)
+            // This interval is expressed in milliseconds.
+            if (idx == cur_idx_ && cap_file) {
+                interval = (guint32)(nstime_to_msec(&cap_file->elapsed_time) + 0.5);
                 interval -= (interval_ * idx);
             } else {
                 interval = interval_;
             }
-            value = (guint64) ((item->time_tot.secs*1000000 + item->time_tot.nsecs/1000) / interval);
+            value = nstime_to_msec(&item->time_tot) / interval;
             break;
         default:
             break;

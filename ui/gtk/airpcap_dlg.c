@@ -35,7 +35,7 @@
 #include <epan/prefs.h>
 #include <epan/crypt/wep-wpadefs.h>
 
-#include <pcap.h>
+#include <wsutil/wspcap.h>
 
 #include "ui/simple_dialog.h"
 

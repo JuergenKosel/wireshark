@@ -294,8 +294,11 @@ typedef struct _capture_src {
     int                          cap_pipe_fd;            /**< the file descriptor of the capture pipe */
     gboolean                     cap_pipe_modified;      /**< TRUE if data in the pipe uses modified pcap headers */
     gboolean                     cap_pipe_byte_swapped;  /**< TRUE if data in the pipe is byte swapped */
+    char *                       cap_pipe_databuf;       /**< Pointer to the data buffer we've allocated */
+    size_t                       cap_pipe_databuf_size;  /**< Current size of the data buffer */
+    guint                        cap_pipe_max_pkt_size;  /**< Maximum packet size allowed */
 #if defined(_WIN32)
-    char *                       cap_pipe_buf;           /**< Pointer to the data buffer we read into */
+    char *                       cap_pipe_buf;           /**< Pointer to the buffer we read into */
     DWORD                        cap_pipe_bytes_to_read; /**< Used by cap_pipe_dispatch */
     DWORD                        cap_pipe_bytes_read;    /**< Used by cap_pipe_dispatch */
 #else
@@ -371,7 +374,7 @@ static gboolean need_timeout_workaround;
 /*
  * Timeout, in microseconds, for reads from the stream of captured packets
  * from a pipe.  Pipes don't have the same problem that BPF devices do
- * in OS X 10.6, 10.6.1, 10.6.3, and 10.6.4, so we always use a timeout
+ * in Mac OS X 10.6, 10.6.1, 10.6.3, and 10.6.4, so we always use a timeout
  * of 250ms, i.e. the same value as CAP_READ_TIMEOUT when not on one
  * of the offending versions of Snow Leopard.
  *
@@ -477,7 +480,11 @@ print_usage(FILE *output)
                     "                               rpcap://<host>/<interface>\n"
                     "                               TCP@<host>:<port>\n");
     fprintf(output, "  -f <capture filter>      packet filter in libpcap filter syntax\n");
-    fprintf(output, "  -s <snaplen>             packet snapshot length (def: 65535)\n");
+#ifdef HAVE_PCAP_CREATE
+    fprintf(output, "  -s <snaplen>             packet snapshot length (def: appropriate maximum)\n");
+#else
+    fprintf(output, "  -s <snaplen>             packet snapshot length (def: %u)\n", WTAP_MAX_PACKET_SIZE_STANDARD);
+#endif
     fprintf(output, "  -p                       don't capture in promiscuous mode\n");
 #ifdef HAVE_PCAP_CREATE
     fprintf(output, "  -I                       capture in monitor mode, if available\n");
@@ -1481,7 +1488,6 @@ cap_pipe_open_live(char *pipename,
 #endif
 #ifdef HAVE_EXTCAP
     gboolean extcap_pipe = FALSE;
-    interface_options interface_opts;
 #endif
     ssize_t  b;
     int      fd = -1, sel_ret;
@@ -1509,14 +1515,9 @@ cap_pipe_open_live(char *pipename,
           return;
        }
     } else {
-
-#ifdef HAVE_EXTCAP
-        interface_opts = g_array_index(global_capture_opts.ifaces, interface_options, 0);
-#endif
-
 #ifndef _WIN32
 #ifdef HAVE_EXTCAP
-        if ( g_strrstr(interface_opts.name, EXTCAP_PIPE_PREFIX) != NULL )
+        if ( g_strrstr(pipename, EXTCAP_PIPE_PREFIX) != NULL )
             extcap_pipe = TRUE;
 #endif
 
@@ -1630,7 +1631,7 @@ cap_pipe_open_live(char *pipename,
         }
 #ifdef HAVE_EXTCAP
         extcap_pipe_name = g_strconcat("\\\\.\\pipe\\", EXTCAP_PIPE_PREFIX, NULL);
-        extcap_pipe = strstr(interface_opts.name, extcap_pipe_name) ? TRUE : FALSE;
+        extcap_pipe = strstr(pipename, extcap_pipe_name) ? TRUE : FALSE;
         g_free(extcap_pipe_name);
 #endif
 
@@ -1676,6 +1677,14 @@ cap_pipe_open_live(char *pipename,
     }
 
     pcap_src->from_cap_pipe = TRUE;
+
+    /*
+     * We start with a 2KB buffer for packet data, which should be
+     * large enough for most regular network packets.  We increase it,
+     * up to the maximum size we allow, as necessary.
+     */
+    pcap_src->cap_pipe_databuf = (guchar*)g_malloc(2048);
+    pcap_src->cap_pipe_databuf_size = 2048;
 
 #ifdef _WIN32
     if (pcap_src->from_cap_socket)
@@ -1840,6 +1849,16 @@ cap_pipe_open_live(char *pipename,
         hdr->network = GUINT32_SWAP_LE_BE(hdr->network);
     }
     pcap_src->linktype = hdr->network;
+#ifdef DLT_DBUS
+    if (pcap_src->linktype == DLT_DBUS) {
+        /*
+         * The maximum D-Bus message size is 128MB, so allow packets up
+         * to that size.
+         */
+        pcap_src->cap_pipe_max_pkt_size = WTAP_MAX_PACKET_SIZE_DBUS;
+    } else
+#endif
+        pcap_src->cap_pipe_max_pkt_size = WTAP_MAX_PACKET_SIZE_STANDARD;
 
     if (hdr->version_major < 2) {
         g_snprintf(errmsg, errmsgl, "Unable to read old libpcap format");
@@ -1865,7 +1884,7 @@ error:
 /* We read one record from the pipe, take care of byte order in the record
  * header, write the record to the capture file, and update capture statistics. */
 static int
-cap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, guchar *data, char *errmsg, int errmsgl)
+cap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, int errmsgl)
 {
     struct pcap_pkthdr  phdr;
     enum { PD_REC_HDR_READ, PD_DATA_READ, PD_PIPE_EOF, PD_PIPE_ERR,
@@ -1878,6 +1897,7 @@ cap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, guchar *data, char *errm
     wchar_t  *err_str;
 #endif
     ssize_t   b;
+    guint new_bufsize;
 
 #ifdef LOG_CAPTURE_VERBOSE
     g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "cap_pipe_dispatch");
@@ -1955,7 +1975,7 @@ cap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, guchar *data, char *errm
             pcap_src->cap_pipe_bytes_read = 0;
 
 #ifdef _WIN32
-            pcap_src->cap_pipe_buf = (char *) data;
+            pcap_src->cap_pipe_buf = pcap_src->cap_pipe_databuf;
             g_async_queue_push(pcap_src->cap_pipe_pending_q, pcap_src->cap_pipe_buf);
             g_mutex_unlock(pcap_src->cap_pipe_read_mtx);
         }
@@ -1968,7 +1988,7 @@ cap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, guchar *data, char *errm
 #endif
         {
             b = cap_pipe_read(pcap_src->cap_pipe_fd,
-                              data+pcap_src->cap_pipe_bytes_read,
+                              pcap_src->cap_pipe_databuf+pcap_src->cap_pipe_bytes_read,
                               pcap_src->cap_pipe_bytes_to_read - pcap_src->cap_pipe_bytes_read,
                               pcap_src->from_cap_socket);
             if (b <= 0) {
@@ -2022,17 +2042,51 @@ cap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, guchar *data, char *errm
         /* We've read the header. Take care of byte order. */
         cap_pipe_adjust_header(pcap_src->cap_pipe_byte_swapped, &pcap_src->cap_pipe_hdr,
                                &pcap_src->cap_pipe_rechdr.hdr);
-        if (pcap_src->cap_pipe_rechdr.hdr.incl_len > WTAP_MAX_PACKET_SIZE) {
+        if (pcap_src->cap_pipe_rechdr.hdr.incl_len > pcap_src->cap_pipe_max_pkt_size) {
+            /*
+             * The record contains more data than the advertised/allowed in the
+             * pcap header, do not try to read more data (do not change to
+             * STATE_EXPECT_DATA) as that would not fit in the buffer and
+             * instead stop with an error.
+             */
             g_snprintf(errmsg, errmsgl, "Frame %u too long (%d bytes)",
                        ld->packet_count+1, pcap_src->cap_pipe_rechdr.hdr.incl_len);
             break;
         }
 
+        if (pcap_src->cap_pipe_rechdr.hdr.incl_len > pcap_src->cap_pipe_databuf_size) {
+            /*
+             * Grow the buffer to the packet size, rounded up to a power of
+             * 2.
+             */
+            new_bufsize = pcap_src->cap_pipe_rechdr.hdr.incl_len;
+            /*
+             * http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+             */
+            new_bufsize--;
+            new_bufsize |= new_bufsize >> 1;
+            new_bufsize |= new_bufsize >> 2;
+            new_bufsize |= new_bufsize >> 4;
+            new_bufsize |= new_bufsize >> 8;
+            new_bufsize |= new_bufsize >> 16;
+            new_bufsize++;
+            pcap_src->cap_pipe_databuf = (guchar*)g_realloc(pcap_src->cap_pipe_databuf, new_bufsize);
+            pcap_src->cap_pipe_databuf_size = new_bufsize;
+        }
+
+        /*
+         * The record has some data following the header, try to read it next
+         * time.
+         */
         if (pcap_src->cap_pipe_rechdr.hdr.incl_len) {
             pcap_src->cap_pipe_state = STATE_EXPECT_DATA;
             return 0;
         }
-        /* no data to read? */
+
+        /*
+         * No data following the record header? Then no more data needs to be
+         * read and we will fallthrough and emit an empty packet.
+         */
         /* FALLTHROUGH */
     case PD_DATA_READ:
         /* Fill in a "struct pcap_pkthdr", and process the packet. */
@@ -2042,9 +2096,9 @@ cap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, guchar *data, char *errm
         phdr.len = pcap_src->cap_pipe_rechdr.hdr.orig_len;
 
         if (use_threads) {
-            capture_loop_queue_packet_cb((u_char *)pcap_src, &phdr, data);
+            capture_loop_queue_packet_cb((u_char *)pcap_src, &phdr, pcap_src->cap_pipe_databuf);
         } else {
-            capture_loop_write_packet_cb((u_char *)pcap_src, &phdr, data);
+            capture_loop_write_packet_cb((u_char *)pcap_src, &phdr, pcap_src->cap_pipe_databuf);
         }
         pcap_src->cap_pipe_state = STATE_EXPECT_REC_HDR;
         return 1;
@@ -2330,23 +2384,31 @@ static void capture_loop_close_input(loop_data *ld)
 
     for (i = 0; i < ld->pcaps->len; i++) {
         pcap_src = g_array_index(ld->pcaps, capture_src *, i);
-        /* if open, close the capture pipe "input file" */
-        if (pcap_src->cap_pipe_fd >= 0) {
-            g_assert(pcap_src->from_cap_pipe);
-            cap_pipe_close(pcap_src->cap_pipe_fd, pcap_src->from_cap_socket);
-            pcap_src->cap_pipe_fd = -1;
-        }
+        /* Pipe, or capture device? */
+        if (pcap_src->from_cap_pipe) {
+            /* Pipe. If open, close the capture pipe "input file". */
+            if (pcap_src->cap_pipe_fd >= 0) {
+                cap_pipe_close(pcap_src->cap_pipe_fd, pcap_src->from_cap_socket);
+                pcap_src->cap_pipe_fd = -1;
+            }
 #ifdef _WIN32
-        if (pcap_src->cap_pipe_h != INVALID_HANDLE_VALUE) {
-            CloseHandle(pcap_src->cap_pipe_h);
-            pcap_src->cap_pipe_h = INVALID_HANDLE_VALUE;
-        }
+            if (pcap_src->cap_pipe_h != INVALID_HANDLE_VALUE) {
+                CloseHandle(pcap_src->cap_pipe_h);
+                pcap_src->cap_pipe_h = INVALID_HANDLE_VALUE;
+            }
 #endif
-        /* if open, close the pcap "input file" */
-        if (pcap_src->pcap_h != NULL) {
-            g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "capture_loop_close_input: closing %p", (void *)pcap_src->pcap_h);
-            pcap_close(pcap_src->pcap_h);
-            pcap_src->pcap_h = NULL;
+            if (pcap_src->cap_pipe_databuf != NULL) {
+                /* Free the buffer. */
+                g_free(pcap_src->cap_pipe_databuf);
+                pcap_src->cap_pipe_databuf = NULL;
+            }
+	} else {
+	    /* Capture device.  If open, close the pcap_t. */
+            if (pcap_src->pcap_h != NULL) {
+                g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "capture_loop_close_input: closing %p", (void *)pcap_src->pcap_h);
+                pcap_close(pcap_src->pcap_h);
+                pcap_src->pcap_h = NULL;
+            }
         }
     }
 
@@ -2440,6 +2502,7 @@ capture_loop_init_output(capture_options *capture_opts, loop_data *ld, char *err
                                 -1,                          /* section_length */
                                 &ld->bytes_written,
                                 &err);
+            g_string_free(cpu_info_str, TRUE);
             g_free(appname);
 
             for (i = 0; successful && (i < capture_opts->ifaces->len); i++) {
@@ -2575,7 +2638,6 @@ capture_loop_dispatch(loop_data *ld,
 {
     int    inpkts;
     gint   packet_count_before;
-    guchar pcap_data[WTAP_MAX_PACKET_SIZE];
 #ifndef _WIN32
     int    sel_ret;
 #endif
@@ -2600,7 +2662,7 @@ capture_loop_dispatch(loop_data *ld,
              * "select()" says we can read from the pipe without blocking
              */
 #endif
-            inpkts = cap_pipe_dispatch(ld, pcap_src, pcap_data, errmsg, errmsg_len);
+            inpkts = cap_pipe_dispatch(ld, pcap_src, errmsg, errmsg_len);
             if (inpkts < 0) {
                 ld->go = FALSE;
             }
@@ -2942,6 +3004,7 @@ do_file_switch_or_stop(capture_options *capture_opts,
                                 -1,                          /* section_length */
                                 &(global_ld.bytes_written),
                                 &global_ld.err);
+                g_string_free(cpu_info_str, TRUE);
                 g_free(appname);
 
                 for (i = 0; successful && (i < capture_opts->ifaces->len); i++) {
@@ -3366,9 +3429,10 @@ capture_loop_start(capture_options *capture_opts, gboolean *stats_known, struct 
                (At least you will if g_strerror() doesn't show a local translation
                of the error.)
 
-               On FreeBSD and OS X, if a network adapter disappears while
-               you're capturing on it, you'll get a "read: Device not configured"
-               error (ENXIO).  (See previous parenthetical note.)
+               On FreeBSD, DragonFly BSD, and macOS, if a network adapter
+               disappears while you're capturing on it, you'll get a
+               "read: Device not configured" error (ENXIO).  (See previous
+               parenthetical note.)
 
                On OpenBSD, you get "read: I/O error" (EIO) in the same case.
 
@@ -3779,6 +3843,7 @@ main(int argc, char *argv[])
     gboolean          arg_error             = FALSE;
 
 #ifdef _WIN32
+    int               result;
     WSADATA           wsaData;
 #else
     struct sigaction  action, oldaction;
@@ -3874,7 +3939,7 @@ main(int argc, char *argv[])
      */
     if (uname(&osinfo) == 0) {
         /*
-         * Mac OS X 10.x uses Darwin {x+4}.0.0.  Mac OS X 10.x.y uses Darwin
+         * {Mac} OS X/macOS 10.x uses Darwin {x+4}.0.0; 10.x.y uses Darwin
          * {x+4}.y.0 (except that 10.6.1 appears to have a uname version
          * number of 10.0.0, not 10.1.0 - go figure).
          */
@@ -3970,7 +4035,13 @@ main(int argc, char *argv[])
     /*wpcap_packet_load();*/
 
     /* Start windows sockets */
-    WSAStartup( MAKEWORD( 1, 1 ), &wsaData );
+    result = WSAStartup( MAKEWORD( 1, 1 ), &wsaData );
+    if (result != 0)
+    {
+        g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_ERROR,
+                          "ERROR: WSAStartup failed with error: %d", result);
+        exit_main(1);
+    }
 
     /* Set handler for Ctrl+C key */
     SetConsoleCtrlHandler(capture_cleanup_handler, TRUE);

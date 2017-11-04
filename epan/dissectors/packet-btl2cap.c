@@ -1684,7 +1684,8 @@ dissect_connparamrequest(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tr
     item = proto_tree_add_item(tree, hf_btl2cap_slave_latency, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     slave_latency = tvb_get_letohs(tvb, offset);
 
-    if(slave_latency >= 500 || slave_latency > 10.0 * tvb_get_letohs(tvb, offset + 2) / (max_interval *1.25))
+    if(slave_latency >= 500 || max_interval == 0 ||
+       slave_latency > 10.0 * tvb_get_letohs(tvb, offset + 2) / (max_interval *1.25))
         expert_add_info(pinfo, item, &ei_btl2cap_parameter_mismatch);
 
     offset += 2;
@@ -1989,7 +1990,8 @@ dissect_b_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static int
 dissect_le_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     proto_tree *btl2cap_tree, guint16 cid, guint16 psm, gboolean is_local_psm,
-    guint16 length, int offset, config_data_t *config_data, btl2cap_data_t *l2cap_data)
+    guint16 length, int offset, config_data_t *config_data, btl2cap_data_t *l2cap_data,
+    gboolean is_retransmit)
 {
 
     tvbuff_t *new_tvb = NULL;
@@ -1997,7 +1999,7 @@ dissect_le_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     btl2cap_frame_data_t *btl2cap_frame_data = NULL;
     fragment_head *frag_btl2cap_le_sdu = NULL;
 
-    if ((!pinfo->fd->flags.visited)&&(config_data)){
+    if ((!pinfo->fd->flags.visited) && (config_data) && !is_retransmit) {
         btl2cap_frame_data = wmem_new0(wmem_file_scope(), btl2cap_frame_data_t);
         if (config_data->segmentation_started == 1) {
             config_data->segment_len_rem = config_data->segment_len_rem - length;
@@ -2558,10 +2560,16 @@ dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
             case 0x14: /* LE Credit Based Connection Request */
                 offset = dissect_le_credit_based_connrequest(tvb, offset, pinfo, btl2cap_tree, btl2cap_cmd_tree, TRUE, acl_data, l2cap_data);
+
+                col_append_fstr(pinfo->cinfo, COL_INFO, " (CID: %04x, Initial Credits: %u)",
+                                tvb_get_letohs(tvb, offset - 8), tvb_get_letohs(tvb, offset - 2));
                 break;
 
             case 0x15: /* LE Credit Based Connection Response */
                 offset = dissect_le_credit_based_connresponse(tvb, offset, pinfo, btl2cap_cmd_tree, acl_data);
+
+                col_append_fstr(pinfo->cinfo, COL_INFO, " (CID: %04x, Initial Credits: %u)",
+                                tvb_get_letohs(tvb, offset - 10), tvb_get_letohs(tvb, offset - 4));
                 break;
 
             case 0x16: /* LE Flow Control Credit */
@@ -2572,7 +2580,7 @@ dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 offset += 2;
 
                 col_append_fstr(pinfo->cinfo, COL_INFO, " (CID: %04x, Credits: %u)",
-                        tvb_get_letohs(tvb, offset - 4), tvb_get_letohs(tvb, offset - 2));
+                                tvb_get_letohs(tvb, offset - 4), tvb_get_letohs(tvb, offset - 2));
                 break;
 
             default:
@@ -2756,8 +2764,12 @@ dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
             if (config_data->mode == L2CAP_BASIC_MODE) {
                 offset = dissect_b_frame(tvb, pinfo, tree, btl2cap_tree, cid, psm, psm_data->local_service, length, offset, l2cap_data);
-            }else if (config_data->mode == L2CAP_LE_CREDIT_BASED_FLOW_CONTROL_MODE){
-                offset = dissect_le_frame(tvb, pinfo, tree, btl2cap_tree, cid, psm, psm_data->local_service, length, offset, config_data, l2cap_data);
+            } else if (config_data->mode == L2CAP_LE_CREDIT_BASED_FLOW_CONTROL_MODE) {
+                gboolean is_retransmit = FALSE;
+                if (acl_data) {
+                    is_retransmit = acl_data->is_btle_retransmit;
+                }
+                offset = dissect_le_frame(tvb, pinfo, tree, btl2cap_tree, cid, psm, psm_data->local_service, length, offset, config_data, l2cap_data, is_retransmit);
             } else {
                 control = tvb_get_letohs(tvb, offset);
                 if (control & 0x1) {
@@ -3318,7 +3330,7 @@ proto_register_btl2cap(void)
     };
 
     static ei_register_info ei[] = {
-        { &ei_btl2cap_parameter_mismatch, { "btl2cap.parameter_mismatch", PI_PROTOCOL, PI_WARN, "Unexpected frame", EXPFILL }},
+        { &ei_btl2cap_parameter_mismatch, { "btl2cap.parameter_mismatch", PI_PROTOCOL, PI_WARN, "Parameter mismatch", EXPFILL }},
         { &ei_btl2cap_sdulength_bad, { "btl2cap.sdulength.bad", PI_MALFORMED, PI_WARN, "SDU length bad", EXPFILL }},
         { &ei_btl2cap_length_bad, { "btl2cap.length.bad", PI_MALFORMED, PI_WARN, "Length too short", EXPFILL }},
         { &ei_btl2cap_unknown_command_code, { "btl2cap.unknown_command_code", PI_PROTOCOL, PI_WARN, "Unknown Command Code", EXPFILL }},

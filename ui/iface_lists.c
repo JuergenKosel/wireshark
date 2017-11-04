@@ -57,8 +57,9 @@ if_list_comparator_alph(const void *first_arg, const void *second_arg)
 /*
  * Try to populate the given device with options (like capture filter) from
  * the capture options that are in use for an existing capture interface.
+ * Returns TRUE if the interface is selected for capture and FALSE otherwise.
  */
-static void
+static gboolean
 fill_from_ifaces (interface_t *device)
 {
     interface_options interface_opts;
@@ -82,8 +83,9 @@ fill_from_ifaces (interface_t *device)
         if (interface_opts.linktype != -1) {
             device->active_dlt = interface_opts.linktype;
         }
-        return;
+        return TRUE;
     }
+    return FALSE;
 }
 
 /*
@@ -309,9 +311,9 @@ scan_local_interfaces(void (*update_cb)(void))
 #endif
 
         /* Copy interface options for active capture devices. */
-        fill_from_ifaces(&device);
+        gboolean selected = fill_from_ifaces(&device);
         /* Restore device selection (for next capture). */
-        if (!device.selected && g_hash_table_lookup(selected_devices, device.name)) {
+        if (!device.selected && (selected || g_hash_table_lookup(selected_devices, device.name))) {
             device.selected = TRUE;
             global_capture_opts.num_selected++;
         }
@@ -342,13 +344,6 @@ scan_local_interfaces(void (*update_cb)(void))
     for (j = 0; j < global_capture_opts.ifaces->len; j++) {
         interface_opts = g_array_index(global_capture_opts.ifaces, interface_options, j);
 
-        /* Skip non-pipes (like Ethernet, Wi-Fi, ...). */
-        if (interface_opts.if_type != IF_PIPE && interface_opts.if_type != IF_STDIN) {
-            /* Note: the interface options are not destroyed for these
-             * interfaces in case it is briefly removed and re-added. */
-            continue;
-        }
-
         found = FALSE;
         for (i = 0; i < (int)global_capture_opts.all_ifaces->len; i++) {
             device = g_array_index(global_capture_opts.all_ifaces, interface_t, i);
@@ -365,8 +360,7 @@ scan_local_interfaces(void (*update_cb)(void))
                 g_strdup(device.name);
             device.hidden       = FALSE;
             device.selected     = TRUE;
-            /* XXX shouldn't this be interface_opts.if_type (for IF_STDIN)? */
-            device.type         = IF_PIPE;
+            device.type         = interface_opts.if_type;
 #ifdef CAN_SET_CAPTURE_BUFFER_SIZE
             device.buffer = interface_opts.buffer_size;
 #endif

@@ -772,7 +772,7 @@ static value_string nat_pol_id[MAX_NATIONAL_VALUES+1];
  * for description we use the Country Name and
  * for value we use the DMP value for National Policy Identifier.
  */
-static const enum_val_t dmp_national_values[MAX_NATIONAL_VALUES+1] = {
+static const enum_val_t dmp_national_values[] = {
   { "???",  "None", 0x00 },
   { "alb",  "Albania", 0x1B },
   { "arm",  "Armenia", 0x20 },
@@ -1031,9 +1031,11 @@ static void build_national_strings (void)
   /*
   ** We use values from dmp_national_values to build value_string for nat_pol_id.
   */
-  while (dmp_national_values[i].name && i < MAX_NATIONAL_VALUES) {
-    nat_pol_id[i].value  = dmp_national_values[i].value;
-    nat_pol_id[i].strptr = dmp_national_values[i].description;
+  while (dmp_national_values[i].name) {
+    if (i < MAX_NATIONAL_VALUES) {
+      nat_pol_id[i].value  = dmp_national_values[i].value;
+      nat_pol_id[i].strptr = dmp_national_values[i].description;
+    }
     i++;
   }
   nat_pol_id[i].value = 0;
@@ -1617,13 +1619,21 @@ static void dmp_add_seq_ack_analysis (tvbuff_t *tvb, packet_info *pinfo,
   }
 }
 
-static gchar *dissect_7bit_string (tvbuff_t *tvb, gint offset, gint length, guchar *byte_rest)
+static const gchar *dissect_7bit_string (tvbuff_t *tvb, gint offset, gint length, guchar *byte_rest)
 {
-  guchar *encoded = (guchar *)tvb_memdup (wmem_packet_scope(), tvb, offset, length);
-  guchar *decoded = (guchar *)wmem_alloc0 (wmem_packet_scope(), (size_t)(length * 1.2) + 1);
+  guchar *encoded, *decoded;
   guchar  rest = 0, bits = 1;
   gint    len = 0, i;
 
+  if (length <= 0) {
+    if (byte_rest) {
+      *byte_rest = '\0';
+    }
+    return "";
+  }
+
+  encoded = (guchar *)tvb_memdup (wmem_packet_scope(), tvb, offset, length);
+  decoded = (guchar *)wmem_alloc0 (wmem_packet_scope(), (size_t)(length * 1.2) + 1);
   for (i = 0; i < length; i++) {
     decoded[len++] = encoded[i] >> bits | rest;
     rest = (encoded[i] << (7 - bits) & 0x7F);
@@ -1640,7 +1650,7 @@ static gchar *dissect_7bit_string (tvbuff_t *tvb, gint offset, gint length, guch
     *byte_rest = rest;
   }
 
-  return (gchar *) decoded;
+  return decoded;
 }
 
 static const gchar *dissect_thales_mts_id (tvbuff_t *tvb, gint offset, gint length, guchar *byte_rest)

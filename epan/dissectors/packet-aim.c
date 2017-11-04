@@ -38,7 +38,7 @@
 void proto_register_aim(void);
 void proto_reg_handoff_aim(void);
 
-#define TCP_PORT_AIM 5190
+#define TCP_PORTS_AIM_DEFAULT "5190"
 
 #define STRIP_TAGS 1
 
@@ -2313,7 +2313,7 @@ static int dissect_aim_generic_rateinfoack(tvbuff_t *tvb, packet_info *pinfo _U_
 {
 	int offset = 0;
 	while(tvb_reported_length_remaining(tvb, offset) > 0) {
-		proto_tree_add_uint(gen_tree, hf_generic_rateinfoack_group, tvb, offset, 2, tvb_get_ntohs(tvb, offset));
+		proto_tree_add_item(gen_tree, hf_generic_rateinfoack_group, tvb, offset, 2, ENC_BIG_ENDIAN);
 		offset+=2;
 	}
 	return offset;
@@ -2322,7 +2322,7 @@ static int dissect_aim_generic_rateinfoack(tvbuff_t *tvb, packet_info *pinfo _U_
 static int dissect_aim_generic_ratechange(tvbuff_t *tvb, packet_info *pinfo, proto_tree *gen_tree)
 {
 	int offset = 0;
-	proto_tree_add_uint(gen_tree, hf_generic_ratechange_msg, tvb, offset, 2, tvb_get_ntohs(tvb, offset));
+	proto_tree_add_item(gen_tree, hf_generic_ratechange_msg, tvb, offset, 2, ENC_BIG_ENDIAN);
 	offset+=2;
 	offset = dissect_rate_class(tvb, pinfo, offset, gen_tree);
 	return offset;
@@ -4548,6 +4548,7 @@ proto_register_aim(void)
 
 	aim_module = prefs_register_protocol(proto_aim, NULL);
 
+
 	prefs_register_bool_preference(aim_module, "desegment",
 				       "Reassemble AIM messages spanning multiple TCP segments",
 				       "Whether the AIM dissector should reassemble messages spanning multiple TCP segments."
@@ -4560,7 +4561,9 @@ proto_register_aim(void)
 void
 proto_reg_handoff_aim(void)
 {
-	dissector_add_uint_with_preference("tcp.port", TCP_PORT_AIM, aim_handle);
+	/* TCP ports preference */
+	dissector_add_uint_range_with_preference("tcp.port", TCP_PORTS_AIM_DEFAULT, aim_handle);
+
 	ssl_dissector_add(0, aim_handle);
 	/* Heuristics disabled by default, it is really weak... */
 	heur_dissector_add("ssl", dissect_aim_ssl_heur, "AIM over SSL", "aim_ssl", proto_aim, HEURISTIC_DISABLE);

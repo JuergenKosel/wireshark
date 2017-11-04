@@ -39,7 +39,7 @@
  * are most likely to take a long time, given the way address-to-name
  * lookups are done over NBNS).
  *
- * Mac OS X does have SIGALRM, but if you longjmp() out of a name resolution
+ * macOS does have SIGALRM, but if you longjmp() out of a name resolution
  * call in a signal handler, you might crash, because the state of the
  * resolution code that sends messages to lookupd might be inconsistent
  * if you jump out of it in middle of a call.
@@ -100,7 +100,7 @@
 #include "addr_resolv.h"
 #include "wsutil/filesystem.h"
 
-#include <wsutil/report_err.h>
+#include <wsutil/report_message.h>
 #include <wsutil/file_util.h>
 #include <wsutil/pint.h>
 #include "wsutil/inet_aton.h"
@@ -659,6 +659,7 @@ initialize_services(void)
         /* Check profile directory before personal configuration */
         g_pservices_path = get_persconffile_path(ENAME_SERVICES, TRUE);
         if (!parse_services_file(g_pservices_path)) {
+            g_free(g_pservices_path);
             g_pservices_path = get_persconffile_path(ENAME_SERVICES, FALSE);
         } else {
             parse_file = FALSE;
@@ -2710,6 +2711,8 @@ add_ipv4_name(const guint addr, const gchar *name)
         new_resolved_objects = TRUE;
     }
     tp->flags |= TRIED_RESOLVE_ADDRESS|NAME_RESOLVED;
+    /* Clear DUMMY_ADDRESS_ENTRY */
+    tp->flags &= ~DUMMY_ADDRESS_ENTRY;
 } /* add_ipv4_name */
 
 /* -------------------------- */
@@ -2740,6 +2743,8 @@ add_ipv6_name(const struct e_in6_addr *addrp, const gchar *name)
         new_resolved_objects = TRUE;
     }
     tp->flags |= TRIED_RESOLVE_ADDRESS|NAME_RESOLVED;
+    /* Clear DUMMY_ADDRESS_ENTRY */
+    tp->flags &= ~DUMMY_ADDRESS_ENTRY;
 } /* add_ipv6_name */
 
 static void

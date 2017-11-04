@@ -2278,7 +2278,6 @@ static const value_string vht_rx_stbc_flag[] = {
   {0x02, "1 to 2 Spatial Stream Supported"},
   {0x03, "1 to 3 Spatial Stream Supported"},
   {0x04, "1 to 4 Spatial Stream Supported"},
-  {0x02, "160MHz and 80+80 Supported"},
   {0x05, "Reserved"},
   {0x06, "Reserved"},
   {0x07, "Reserved"},
@@ -4012,6 +4011,8 @@ static int hf_ieee80211_vht_membership_status_field = -1;
 static int hf_ieee80211_vht_user_position_field = -1;
 static int hf_ieee80211_vht_mu_exclusive_beamforming_report = -1;
 static int hf_ieee80211_vht_mu_Exclusive_beamforming_delta_snr = -1;
+static int hf_ieee80211_vht_compressed_beamforming_phi_angle = -1;
+static int hf_ieee80211_vht_compressed_beamforming_psi_angle = -1;
 
 static int hf_ieee80211_tag_neighbor_report_bssid = -1;
 static int hf_ieee80211_tag_neighbor_report_bssid_info = -1;
@@ -4919,6 +4920,7 @@ static gint ett_vht_ndp_annc_sta_info_tree = -1;
 static gint ett_ff_vhtmimo_cntrl = -1;
 static gint ett_ff_vhtmimo_beamforming_report = -1;
 static gint ett_ff_vhtmimo_beamforming_report_snr = -1;
+static gint ett_ff_vhtmimo_beamforming_angle = -1;
 static gint ett_ff_vhtmimo_beamforming_report_feedback_matrices = -1;
 static gint ett_ff_vhtmu_exclusive_beamforming_report_matrices = -1;
 
@@ -5101,6 +5103,7 @@ static const enum_val_t wlan_ignore_prot_options[] = {
 static int wlan_address_type = -1;
 static int wlan_bssid_address_type = -1;
 
+static const unsigned char bssid_broadcast_data[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 static address bssid_broadcast;
 gboolean
 is_broadcast_bssid(const address *bssid) {
@@ -5212,13 +5215,13 @@ static const value_string ff_psmp_sta_info_flags[] = {
 static const char*
 wlan_conv_get_filter_type(conv_item_t* conv, conv_filter_type_e filter)
 {
-    if ((filter == CONV_FT_SRC_ADDRESS) && ((conv->src_address.type == AT_ETHER) || (conv->src_address.type == wlan_address_type)))
+    if ((filter == CONV_FT_SRC_ADDRESS) && (conv->src_address.type == wlan_address_type))
         return "wlan.sa";
 
-    if ((filter == CONV_FT_DST_ADDRESS) && ((conv->dst_address.type == AT_ETHER) || (conv->dst_address.type == wlan_address_type)))
+    if ((filter == CONV_FT_DST_ADDRESS) && (conv->dst_address.type == wlan_address_type))
         return "wlan.da";
 
-    if ((filter == CONV_FT_ANY_ADDRESS) && ((conv->src_address.type == AT_ETHER) || (conv->src_address.type == wlan_address_type)))
+    if ((filter == CONV_FT_ANY_ADDRESS) && (conv->src_address.type == wlan_address_type))
         return "wlan.addr";
 
     return CONV_FILTER_INVALID;
@@ -5240,7 +5243,7 @@ wlan_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_,
 static const char*
 wlan_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
 {
-  if ((filter == CONV_FT_ANY_ADDRESS) && (host->myaddress.type == AT_ETHER))
+  if ((filter == CONV_FT_ANY_ADDRESS) && (host->myaddress.type == wlan_address_type))
     return "wlan.addr";
 
   return CONV_FILTER_INVALID;
@@ -9240,11 +9243,12 @@ add_ff_vht_compressed_beamforming_report(proto_tree *tree, tvbuff_t *tvb, packet
   guint8 grouping;
   gboolean codebook_info;
   gboolean feedback_type;
-  proto_item *vht_beam_item, *vht_excl_beam_item;
-  proto_tree *vht_beam_tree, *subtree, *vht_excl_beam_tree;
+  proto_item *vht_beam_item, *vht_excl_beam_item, *phi_angle, *psi_angle;
+  proto_tree *vht_beam_tree, *subtree, *vht_excl_beam_tree, *angletree;
   int i, matrix_size, len, pos, ns, scidx = 0, matrix_len;
   guint8 phi, psi, carry;
   int j, ic, off_len = 0, sscidx = 0, xnsc;
+  int ir, off_pos, angle_val;
   /* Table 8-53d Order of angles in the Compressed Beamforming Feedback
    * Matrix subfield, IEEE Std 802.11ac-2013 amendment */
   static const guint8 na_arr[8][8] = { {  0,  0,  0,  0,  0,  0,  0,  0 },
@@ -9317,6 +9321,41 @@ add_ff_vht_compressed_beamforming_report(proto_tree *tree, tvbuff_t *tvb, packet
   }
 
   matrix_size = na_arr[nr - 1][nc -1] * (psi + phi)/2;
+  if (matrix_size % 8) {
+    carry = 1;
+  } else {
+    carry = 0;
+  }
+  off_len = (matrix_size/8) + carry;
+  angletree = proto_tree_add_subtree_format(vht_beam_tree, tvb, offset, off_len,
+                        ett_ff_vhtmimo_beamforming_angle, NULL,"PHI and PSI Angle Decode");
+
+  off_pos = offset*8;
+  phi_angle = proto_tree_add_none_format(angletree, hf_ieee80211_vht_compressed_beamforming_phi_angle, tvb, offset, 0, "PHI(%u bits):    ", phi);
+  for (ic = 1; ic <= nc; ic++) {
+      for (ir = 1; ir < nr; ir++) {
+          if (ir >= ic) {
+              angle_val = (int) tvb_get_bits16(tvb, off_pos, phi, ENC_BIG_ENDIAN);
+              if ((ir+1 < nr) || (ic+1 <= nc))
+                proto_item_append_text(phi_angle, "PHI%d%d: %d, ", ir, ic, angle_val);
+              else
+                proto_item_append_text(phi_angle, "PHI%d%d: %d", ir, ic, angle_val);
+              off_pos = off_pos + phi;
+          }
+      }
+  }
+
+  psi_angle = proto_tree_add_none_format(angletree, hf_ieee80211_vht_compressed_beamforming_psi_angle, tvb, offset, 0, "PSI(%u bits):    ", psi);
+  for (ic = 1; ic <= nc; ic++)
+      for (ir = 2; ir <= nr; ir++)
+          if (ir > ic) {
+              angle_val = (int) tvb_get_bits8(tvb, off_pos, psi);
+              if ((ir+1 <= nr) || (ic+1 <= nc))
+                proto_item_append_text(psi_angle, "PSI%d%d: %d, ", ir, ic, angle_val);
+              else
+                proto_item_append_text(psi_angle, "PSI%d%d: %d", ir, ic, angle_val);
+              off_pos = off_pos + psi;
+          }
 
   /* Table 8-53c Subfields of the VHT MIMO Control field (802.11ac-2013)
    * reserves value 3 of the Grouping subfield. */
@@ -11651,7 +11690,7 @@ dissect_fast_bss_transition(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       break;
     case 3:
       proto_tree_add_item(tree, hf_ieee80211_tag_ft_subelem_r0kh_id,
-                          tvb, offset, len, ENC_ASCII|ENC_NA);
+                          tvb, offset, len, ENC_NA);
       break;
     case 4:
       proto_tree_add_item(tree, hf_ieee80211_tag_ft_subelem_igtk_key_id,
@@ -14335,9 +14374,8 @@ add_tagged_field(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset
   ieee80211_tagged_field_data_t field_data;
   gboolean      isDMG;
 
-  gboolean     *p_isDMG = ((gboolean*)(p_get_proto_data(wmem_file_scope(), pinfo, proto_wlan, IS_DMG_KEY)));
+  isDMG = GPOINTER_TO_INT(p_get_proto_data(wmem_file_scope(), pinfo, proto_wlan, IS_DMG_KEY));
 
-  isDMG   = p_isDMG ? *p_isDMG : FALSE;
   tag_no  = tvb_get_guint8(tvb, offset);
   tag_len = tvb_get_guint8(tvb, offset + 1);
 
@@ -16041,32 +16079,38 @@ ieee80211_tag_supported_operating_classes(tvbuff_t *tvb, packet_info *pinfo, pro
   int tag_len = tvb_reported_length(tvb);
   ieee80211_tagged_field_data_t* field_data = (ieee80211_tagged_field_data_t*)data;
   int offset = 0;
-  const guint8 *tag_data_ptr;
-  int           i, n, ret;
-  char          print_buff[SHORT_STR];
+  proto_item* item = NULL;
+  guint8 i;
+  guint8 field_len = 0;
+  guint8 alt_op_class_field[256];
 
   if (tag_len < 2) {
-    expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length, "Tag Length %u wrong, must be >= 3", tag_len);
+    expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length, "Tag Length %u wrong, must be >= 2", tag_len);
     return tvb_captured_length(tvb);
-  } else if (tag_len > 32) {
-    expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length, "Tag Length %u wrong, must be < 32", tag_len);
+  } else if (tag_len > 255) {
+    expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length, "Tag Length %u wrong, uint8 <= 255", tag_len);
     return tvb_captured_length(tvb);
   }
 
-  proto_tree_add_item(tree, hf_ieee80211_tag_supported_ope_classes_current, tvb, offset, 1, ENC_NA);
+  proto_tree_add_item(tree, hf_ieee80211_tag_supported_ope_classes_current, tvb, offset++, 1, ENC_NA);
 
-  offset += 1;
-  /* Partially taken from the ssid section */
-  tag_data_ptr = tvb_get_ptr(tvb, offset, tag_len);
-  for (i = 0, n = 0; (i < tag_len) && (n < SHORT_STR); i++) {
-    ret = g_snprintf(print_buff + n, SHORT_STR - n, (i == tag_len-1)?"%d":"%d, ", tag_data_ptr[i]);
-    if (ret >= SHORT_STR - n) {
-      /* ret >= <buf_size> means buffer truncated  */
+  for (i = offset; i < tag_len; i++) {
+    guint8 op_class =  tvb_get_guint8(tvb, i);
+    /* Field terminates immediately before OneHundredAndThirty or Zero delimiter */
+    if (op_class == 130 || op_class == 0) {
       break;
     }
-    n += ret;
+    alt_op_class_field[field_len++] = op_class;
   }
-  proto_tree_add_string(tree, hf_ieee80211_tag_supported_ope_classes_alternate, tvb, offset, tag_len, print_buff);
+  if (field_len) {
+    item = proto_tree_add_item(tree, hf_ieee80211_tag_supported_ope_classes_alternate, tvb, offset, field_len, ENC_NA);
+  }
+  for (i = 0; i < field_len; i++) {
+    proto_item_append_text(item, i == 0 ? ": %d":", %d", alt_op_class_field[i]);
+  }
+
+  /* TODO parse optional Current Operating Class Extension Sequence field */
+  /* TODO parse optional Operating Class Duple Sequence field */
   return tvb_captured_length(tvb);
 }
 
@@ -17162,7 +17206,7 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
 
   AIRPDCAP_KEY_ITEM  used_key;
 
-  p_add_proto_data(wmem_file_scope(), pinfo, proto_wlan, IS_DMG_KEY, &isDMG);
+  p_add_proto_data(wmem_file_scope(), pinfo, proto_wlan, IS_DMG_KEY, GINT_TO_POINTER(isDMG));
 
   whdr= &whdrs[0];
 
@@ -18839,6 +18883,7 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
           tvbuff_t *volatile  msdu_tvb;
           guint16             msdu_length;
           proto_tree         *subframe_tree;
+          const gchar *resolve_name;
 
           /*
            * IEEE Std 802.11-2012 says, in section 8.3.2.2 "A-MSDU format":
@@ -18859,12 +18904,14 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
           i += 1;
 
           proto_tree_add_item(subframe_tree, hf_ieee80211_addr_da, next_tvb, msdu_offset, 6, ENC_NA);
+          resolve_name = tvb_get_ether_name(tvb, msdu_offset);
           hidden_item = proto_tree_add_string(hdr_tree, hf_ieee80211_addr_da_resolved, tvb, msdu_offset, 6,
-            tvb_get_ether_name(tvb, msdu_offset));
+            resolve_name);
           PROTO_ITEM_SET_HIDDEN(hidden_item);
           proto_tree_add_item(subframe_tree, hf_ieee80211_addr_sa, next_tvb, msdu_offset+6, 6, ENC_NA);
+          resolve_name = tvb_get_ether_name(tvb, msdu_offset+6);
           hidden_item = proto_tree_add_string(hdr_tree, hf_ieee80211_addr_sa_resolved, tvb, msdu_offset+6, 6,
-            tvb_get_ether_name(tvb, msdu_offset+6));
+            resolve_name);
           PROTO_ITEM_SET_HIDDEN(hidden_item);
           proto_tree_add_item(subframe_tree, hf_ieee80211_amsdu_length, next_tvb, msdu_offset+12, 2, ENC_BIG_ENDIAN);
 
@@ -19375,11 +19422,11 @@ try_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint offset, guint len, guint8 *
 static void
 set_airpdcap_keys(void)
 {
-  AIRPDCAP_KEYS_COLLECTION  keys;
+  guint                     i;
+  AIRPDCAP_KEYS_COLLECTION  *keys = g_new(AIRPDCAP_KEYS_COLLECTION, 1);
   GByteArray                *bytes = NULL;
-  guint                      i;
 
-  keys.nKeys = 0;
+  keys->nKeys = 0;
 
   for (i = 0; (uat_wep_key_records != NULL) && (i < num_wepkeys_uat) && (i < MAX_ENCRYPTION_KEYS); i++)
   {
@@ -19406,8 +19453,8 @@ set_airpdcap_keys(void)
            */
           memcpy(key.KeyData.Wep.WepKey, bytes->data, bytes->len);
           key.KeyData.Wep.WepKeyLen = bytes->len;
-          keys.Keys[keys.nKeys] = key;
-          keys.nKeys += 1;
+          keys->Keys[keys->nKeys] = key;
+          keys->nKeys += 1;
         }
       }
       else if (dk->type == AIRPDCAP_KEY_TYPE_WPA_PWD)
@@ -19425,8 +19472,8 @@ set_airpdcap_keys(void)
           key.UserPwd.SsidLen = dk->ssid->len;
         }
 
-        keys.Keys[keys.nKeys] = key;
-        keys.nKeys += 1;
+        keys->Keys[keys->nKeys] = key;
+        keys->nKeys += 1;
       }
       else if (dk->type == AIRPDCAP_KEY_TYPE_WPA_PSK)
       {
@@ -19439,8 +19486,8 @@ set_airpdcap_keys(void)
         if (bytes->len <= AIRPDCAP_WPA_PSK_LEN) {
           memcpy(key.KeyData.Wpa.Psk, bytes->data, bytes->len);
 
-          keys.Keys[keys.nKeys] = key;
-          keys.nKeys += 1;
+          keys->Keys[keys->nKeys] = key;
+          keys->nKeys += 1;
         }
       }
       free_key_string(dk);
@@ -19452,8 +19499,8 @@ set_airpdcap_keys(void)
   }
 
   /* Now set the keys */
-  AirPDcapSetKeys(&airpdcap_ctx, keys.Keys, keys.nKeys);
-
+  AirPDcapSetKeys(&airpdcap_ctx, keys->Keys, keys->nKeys);
+  g_free(keys);
 }
 
 static void
@@ -20410,12 +20457,12 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_ff_sswf_dmg_antenna_select,
      {"Sector Sweep Feedback DMG Antenna Select", "wlan.sswf.dmg_antenna_select",
-      FT_UINT24, BASE_DEC, NULL, 0x0001C0,
+      FT_UINT24, BASE_DEC, NULL, 0x0000C0,
       NULL, HFILL }},
 
     {&hf_ieee80211_ff_sswf_snr_report,
      {"Sector Sweep Feedback SNR Report", "wlan.sswf.snr_report",
-      FT_UINT24, BASE_DEC, NULL, 0x00FE00,
+      FT_UINT24, BASE_DEC, NULL, 0x00FF00,
       NULL, HFILL }},
 
 
@@ -21430,6 +21477,16 @@ proto_register_ieee80211(void)
     {&hf_ieee80211_vht_compressed_beamforming_report_snr,
       {"Signal to Noise Ratio (SNR)", "wlan.vht.compressed_beamforming_report.snr",
        FT_UINT8, BASE_HEX, NULL, 0,
+       NULL, HFILL }},
+
+    {&hf_ieee80211_vht_compressed_beamforming_phi_angle,
+      {"PHI", "wlan.vht.compressed_beamforming_report.phi",
+       FT_NONE, BASE_NONE, NULL, 0,
+       NULL, HFILL }},
+
+    {&hf_ieee80211_vht_compressed_beamforming_psi_angle,
+      {"PSI", "wlan.vht.compressed_beamforming_report.psi",
+       FT_NONE, BASE_NONE, NULL, 0,
        NULL, HFILL }},
 
     {&hf_ieee80211_vht_compressed_beamforming_feedback_matrix,
@@ -25967,12 +26024,12 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_tag_supported_ope_classes_current,
      {"Current Operating Class", "wlan.supopeclass.current",
-      FT_UINT8, BASE_HEX, NULL, 0,
+      FT_UINT8, BASE_DEC, NULL, 0,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_supported_ope_classes_alternate,
      {"Alternate Operating Classes", "wlan.supopeclass.alt",
-      FT_STRING, BASE_NONE, NULL, 0,
+      FT_NONE, BASE_NONE, 0x0, 0,
       NULL, HFILL }},
 
     {&hf_ieee80211_wfa_ie_type,
@@ -27122,7 +27179,7 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_tag_ft_subelem_r0kh_id,
      {"PMK-R0 key holder identifier (R0KH-ID)", "wlan.ft.subelem.r0kh_id",
-      FT_STRING, BASE_NONE, NULL, 0,
+      FT_BYTES, BASE_NONE, NULL, 0,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ft_subelem_igtk_key_id,
@@ -27741,6 +27798,7 @@ proto_register_ieee80211(void)
     &ett_ff_vhtmimo_cntrl,
     &ett_ff_vhtmimo_beamforming_report,
     &ett_ff_vhtmimo_beamforming_report_snr,
+    &ett_ff_vhtmimo_beamforming_angle,
     &ett_ff_vhtmimo_beamforming_report_feedback_matrices,
     &ett_ff_vhtmu_exclusive_beamforming_report_matrices,
 
@@ -28015,8 +28073,6 @@ proto_register_ieee80211(void)
 
   module_t *wlan_module;
 
-  const unsigned char bssid_broadcast_data[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-
   memset(&wlan_stats, 0, sizeof wlan_stats);
 
   proto_aggregate = proto_register_protocol("IEEE 802.11 wireless LAN aggregate frame",
@@ -28190,7 +28246,7 @@ proto_register_wlan_rsna_eapol(void)
 
     {&hf_wlan_rsna_eapol_wpa_keydes_keyinfo_smk_message,
      {"SMK Message", "wlan_rsna_eapol.keydes.key_info.smk_message",
-      FT_BOOLEAN, 16, TFS(&tfs_set_notset), KEY_INFO_ENCRYPTED_KEY_DATA_MASK,
+      FT_BOOLEAN, 16, TFS(&tfs_set_notset), KEY_INFO_SMK_MESSAGE_MASK,
       NULL, HFILL }},
 
     {&hf_wlan_rsna_eapol_keydes_key_len,

@@ -31,12 +31,16 @@ set(COMMON_UI_SRC
 	export_object_ui.c
 	export_pdu_ui_utils.c
 	help_url.c
+	failure_message.c
+	filter_files.c
 	firewall_rules.c
+	iface_toolbar.c
 	iface_lists.c
 	io_graph_item.c
 	language.c
 	mcast_stream.c
 	packet_list_utils.c
+	packet_range.c
 	persfilepath_opt.c
 	preference_utils.c
 	profile.c

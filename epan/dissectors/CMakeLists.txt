@@ -42,10 +42,10 @@ add_custom_command(
 
 add_custom_target(x11-dissector
 	COMMAND ${PERL_EXECUTABLE}
-		${CMAKE_SOURCE_DIR}/tools/process-x11-fields.pl ${CMAKE_CURRENT_SOURCE_DIR}/dissectors
+		${CMAKE_SOURCE_DIR}/tools/process-x11-fields.pl ${CMAKE_CURRENT_SOURCE_DIR}
 		< ${CMAKE_CURRENT_SOURCE_DIR}/x11-fields
 	COMMAND ${PERL_EXECUTABLE}
-		${CMAKE_SOURCE_DIR}/tools/process-x11-xcb.pl ${CMAKE_CURRENT_SOURCE_DIR}/dissectors
+		${CMAKE_SOURCE_DIR}/tools/process-x11-xcb.pl ${CMAKE_CURRENT_SOURCE_DIR}
 	DEPENDS
 		x11-fields
 		${CMAKE_SOURCE_DIR}/tools/process-x11-fields.pl
@@ -492,6 +492,7 @@ set(DISSECTOR_SRC
 	packet-dns.c
 	packet-dof.c
 	packet-dplay.c
+	packet-dpnet.c
 	packet-dpnss-link.c
 	packet-dpnss.c
 	packet-drda.c
@@ -537,6 +538,7 @@ set(DISSECTOR_SRC
 	packet-enrp.c
 	packet-enttec.c
 	packet-epl.c
+	packet-epl-profile-parser.c
 	packet-epl_v1.c
 	packet-epmd.c
 	packet-epon.c
@@ -571,6 +573,7 @@ set(DISSECTOR_SRC
 	packet-fcsb3.c
 	packet-fcsp.c
 	packet-fcswils.c
+	packet-fbzero.c
 	packet-fddi.c
 	packet-fefd.c
 	packet-ff.c
@@ -891,6 +894,7 @@ set(DISSECTOR_SRC
 	packet-mip.c
 	packet-mip6.c
 	packet-mka.c
+	packet-mle.c
 	packet-mmse.c
 	packet-mndp.c
 	packet-mojito.c
@@ -958,8 +962,11 @@ set(DISSECTOR_SRC
 	packet-netanalyzer.c
 	packet-netbios.c
 	packet-netdump.c
+	packet-netgear-ensemble.c
 	packet-netflow.c
+	packet-netlink-generic.c
 	packet-netlink-netfilter.c
+	packet-netlink-nl80211.c
 	packet-netlink-route.c
 	packet-netlink-sock_diag.c
 	packet-netlink.c
@@ -979,6 +986,9 @@ set(DISSECTOR_SRC
 	packet-nntp.c
 	packet-noe.c
 	packet-nordic_ble.c
+	packet-ns-ha.c
+	packet-ns-mep.c
+	packet-ns-rpc.c
 	packet-nsip.c
 	packet-nsh.c
 	packet-nsrp.c
@@ -993,6 +1003,7 @@ set(DISSECTOR_SRC
 	packet-nwmtp.c
 	packet-nwp.c
 	packet-oampdu.c
+	packet-obd-ii.c
 	packet-obex.c
 	packet-ocfs2.c
 	packet-oicq.c
@@ -1008,7 +1019,9 @@ set(DISSECTOR_SRC
 	packet-openflow_v1.c
 	packet-openflow_v4.c
 	packet-openflow_v5.c
+	packet-openflow_v6.c
 	packet-opensafety.c
+	packet-openthread.c
 	packet-openvpn.c
 	packet-openwire.c
 	packet-opsi.c
@@ -1259,6 +1272,7 @@ set(DISSECTOR_SRC
 	packet-text-media.c
 	packet-tfp.c
 	packet-tftp.c
+	packet-thread.c
 	packet-thrift.c
 	packet-time.c
 	packet-tipc.c
@@ -1288,6 +1302,7 @@ set(DISSECTOR_SRC
 	packet-ucp.c
 	packet-udld.c
 	packet-udp.c
+	packet-udp-nm.c
 	packet-uds.c
 	packet-udt.c
 	packet-uftp.c

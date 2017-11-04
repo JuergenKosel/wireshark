@@ -105,12 +105,43 @@ struct packet_netlink_data {
 	guint16 type;
 };
 
+/**
+ * Dissects the Netlink message header (struct nlmsghdr). The "hfi_type" field
+ * is added for the "nlmsg_type" field and returned into pi_type.
+ */
+int dissect_netlink_header(tvbuff_t *tvb, proto_tree *tree, int offset, int encoding, header_field_info *hfi_type, proto_item **pi_type);
+
 typedef int netlink_attributes_cb_t(tvbuff_t *, void *data, proto_tree *, int nla_type, int offset, int len);
 
 int dissect_netlink_attributes(tvbuff_t *tvb, header_field_info *hfi_type, int ett, void *data, struct packet_netlink_data *nl_data,  proto_tree *tree, int offset, int length, netlink_attributes_cb_t cb);
 
+/*
+ * Similar to dissect_netlink_attributes, but used to parse nested attributes
+ * that model an array of attributes. The first level (tree ett_array) contains
+ * array elements and its type field is the array index. The next level (tree
+ * ett_attrib) contains attributes (where hfi_type applies).
+ */
+int dissect_netlink_attributes_array(tvbuff_t *tvb, header_field_info *hfi_type, int ett_array, int ett_attrib, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int offset, int length, netlink_attributes_cb_t cb);
+
 #define NLA_F_NESTED            0x8000
 #define NLA_F_NET_BYTEORDER     0x4000
 #define NLA_TYPE_MASK           0x3fff
+
+
+/*
+ * Format of the data that is passed to "genl.family" dissectors.
+ */
+typedef struct {
+	struct packet_netlink_data *data;
+	int             encoding; /* copy of data->encoding */
+
+	/* For internal use by genl. */
+	proto_tree     *genl_tree;
+
+	/* fields from genlmsghdr */
+	guint8 	        cmd; /* Command number */
+} genl_info_t;
+
+int dissect_genl_header(tvbuff_t *tvb, genl_info_t *genl_info, header_field_info *hfi_cmd);
 
 #endif /* __PACKET_NETLINK_H__ */

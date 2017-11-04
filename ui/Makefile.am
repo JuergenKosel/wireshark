@@ -57,13 +57,17 @@ WIRESHARK_UI_SRC = \
 	dissect_opts.c		\
 	export_object_ui.c	\
 	export_pdu_ui_utils.c	\
+	failure_message.c	\
+	filter_files.c		\
 	firewall_rules.c	\
+	iface_toolbar.c		\
 	iface_lists.c		\
 	io_graph_item.c		\
 	language.c		\
 	help_url.c		\
 	mcast_stream.c		\
 	packet_list_utils.c	\
+	packet_range.c		\
 	persfilepath_opt.c	\
 	preference_utils.c	\
 	profile.c		\
@@ -100,15 +104,19 @@ WIRESHARK_UI_INCLUDES = \
 	export_object_ui.h	\
 	export_pdu_ui_utils.h	\
 	last_open_dir.h		\
+	failure_message.h	\
 	file_dialog.h		\
+	filter_files.h		\
 	help_url.h		\
 	packet_list_utils.h	\
 	firewall_rules.h	\
+	iface_toolbar.h		\
 	iface_lists.h		\
 	io_graph_item.h		\
 	language.h		\
 	mcast_stream.h		\
 	main_statusbar.h	\
+	packet_range.h		\
 	persfilepath_opt.h	\
 	preference_utils.h	\
 	profile.h		\
@@ -158,6 +166,14 @@ EXTRA_DIST = \
 	win32
 
 BUILT_SOURCES = $(GENERATED_HEADER_FILES)
+
+#
+# This is used to build dumpcap, and dumpcap is, if possible, built as
+# a position-independent executable (for address space layout randomization,
+# as it might be running with extra privileges), so this library needs
+# to be built that way as well.
+#
+libui_a_CFLAGS = $(AM_CFLAGS) $(PIE_CFLAGS)
 
 CLEANFILES = \
 	doxygen-ui.tag	\

@@ -254,10 +254,9 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 	}
 
 	g_string_append_printf(info,
-			"%*cEncapsulation = %s (%d/%u - %s)%s", indent, ' ',
+			"%*cEncapsulation = %s (%d - %s)%s", indent, ' ',
 			wtap_encap_string(if_descr_mand->wtap_encap),
 			if_descr_mand->wtap_encap,
-			if_descr_mand->link_type,
 			wtap_encap_short_string(if_descr_mand->wtap_encap),
 			line_end);
 
@@ -649,8 +648,8 @@ static struct encap_type_info encap_table_base[] = {
 	/* WTAP_ENCAP_JUNIPER_VP */
 	{ "Juniper Voice PIC", "juniper-vp" },
 
-	/* WTAP_ENCAP_USB */
-	{ "Raw USB packets", "usb" },
+	/* WTAP_ENCAP_USB_FREEBSD */
+	{ "USB packets with FreeBSD header", "usb-freebsd" },
 
 	/* WTAP_ENCAP_IEEE802_16_MAC_CPS */
 	{ "IEEE 802.16 MAC Common Part Sublayer", "ieee-802-16-mac-cps" },
@@ -918,6 +917,12 @@ static struct encap_type_info encap_table_base[] = {
 
 	/* WTAP_ENCAP_JUNIPER_VN */
 	{ "Juniper VN", "juniper-vn" },
+
+	/* WTAP_ENCAP_USB_DARWIN */
+	{ "USB packets with Darwin (macOS, etc.) headers", "usb-darwin" },
+
+	/* Nordic BLE Sniffer */
+	{ "Nordic BLE Sniffer", "nordic_ble" },
 };
 
 WS_DLL_LOCAL
@@ -1400,6 +1405,8 @@ wtap_seek_read(wtap *wth, gint64 seek_off,
 	phdr->pkt_encap = wth->file_encap;
 	phdr->pkt_tsprec = wth->file_tsprec;
 
+	*err = 0;
+	*err_info = NULL;
 	if (!wth->subtype_seek_read(wth, seek_off, phdr, buf, err, err_info))
 		return FALSE;
 

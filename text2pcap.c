@@ -141,6 +141,8 @@
 #include "writecap/pcapio.h"
 #include "text2pcap.h"
 
+#include "wiretap/wtap.h"
+
 #ifdef _WIN32
 #include <wsutil/unicode-utils.h>
 #endif /* _WIN32 */
@@ -207,12 +209,11 @@ static guint32 direction = 0;
 /*--- Local date -----------------------------------------------------------------*/
 
 /* This is where we store the packet currently being built */
-#define MAX_PACKET 65535
-static guint8  packet_buf[MAX_PACKET];
+static guint8  packet_buf[WTAP_MAX_PACKET_SIZE_STANDARD];
 static guint32 header_length;
 static guint32 ip_offset;
 static guint32 curr_offset;
-static guint32 max_offset = MAX_PACKET;
+static guint32 max_offset = WTAP_MAX_PACKET_SIZE_STANDARD;
 static guint32 packet_start = 0;
 
 static int start_new_packet(gboolean);
@@ -459,7 +460,7 @@ write_bytes (const char bytes[], guint32 nbytes)
 {
     guint32 i;
 
-    if (curr_offset + nbytes < MAX_PACKET) {
+    if (curr_offset + nbytes < WTAP_MAX_PACKET_SIZE_STANDARD) {
         for (i = 0; i < nbytes; i++) {
             packet_buf[curr_offset] = bytes[i];
             curr_offset++;
@@ -1450,7 +1451,7 @@ print_usage (FILE *output)
             "  -q                     generate no output at all (automatically disables -d).\n"
             "  -n                     use PCAP-NG instead of PCAP as output format.\n"
             "",
-            MAX_PACKET);
+            WTAP_MAX_PACKET_SIZE_STANDARD);
 }
 
 /*----------------------------------------------------------------------
@@ -1468,6 +1469,7 @@ parse_options (int argc, char *argv[])
         {"version", no_argument, NULL, 'v'},
         {0, 0, 0, 0 }
     };
+    struct tm *now_tm;
 
 #ifdef _WIN32
     arg_list_utf_16to8(argc, argv);
@@ -1778,6 +1780,12 @@ parse_options (int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    if (max_offset > WTAP_MAX_PACKET_SIZE_STANDARD) {
+        fprintf(stderr, "Maximum packet length cannot be more than %d bytes\n",
+                WTAP_MAX_PACKET_SIZE_STANDARD);
+        return EXIT_FAILURE;
+    }
+
     if (strcmp(argv[optind], "-") != 0) {
         input_filename = argv[optind];
         input_file = ws_fopen(input_filename, "rb");
@@ -1832,8 +1840,17 @@ parse_options (int argc, char *argv[])
     }
 
     ts_sec = time(0);               /* initialize to current time */
-    /* We trust the OS to return a time after the Epoch. */
-    timecode_default = *localtime(&ts_sec);
+    now_tm = localtime(&ts_sec);
+    if (now_tm == NULL) {
+        /*
+         * This shouldn't happen - on UN*X, this should Just Work, and
+         * on Windows, it won't work if ts_sec is before the Epoch,
+         * but it's long after 1970, so....
+         */
+        fprintf(stderr, "localtime(right now) failed\n");
+        return EXIT_FAILURE;
+    }
+    timecode_default = *now_tm;
     timecode_default.tm_isdst = -1; /* Unknown for now, depends on time given to the strptime() function */
 
     /* Display summary of our state */
@@ -1864,7 +1881,10 @@ main(int argc, char *argv[])
 {
     int ret = EXIT_SUCCESS;
 
-    parse_options(argc, argv);
+    if (parse_options(argc, argv) != EXIT_SUCCESS) {
+        ret = EXIT_FAILURE;
+        goto clean_exit;
+    }
 
     assert(input_file  != NULL);
     assert(output_file != NULL);
@@ -1916,8 +1936,12 @@ main(int argc, char *argv[])
     }
 clean_exit:
     text2pcap_lex_destroy();
-    fclose(input_file);
-    fclose(output_file);
+    if (input_file) {
+        fclose(input_file);
+    }
+    if (output_file) {
+        fclose(output_file);
+    }
     return ret;
 }
 

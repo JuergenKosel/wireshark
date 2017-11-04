@@ -677,6 +677,7 @@ pcapng_read_if_descr_block(wtap *wth, FILE_T fh, pcapng_block_header_t *bh,
     guint to_read, opt_cont_buf_len;
     pcapng_interface_description_block_t idb;
     wtapng_if_descr_mandatory_t* if_descr_mand;
+    guint   link_type;
     pcapng_option_header_t oh;
     guint8 *option_content = NULL; /* Allocate as large as the options block */
     gchar* tmp_content;
@@ -720,30 +721,30 @@ pcapng_read_if_descr_block(wtap *wth, FILE_T fh, pcapng_block_header_t *bh,
     wblock->block = wtap_block_create(WTAP_BLOCK_IF_DESCR);
     if_descr_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(wblock->block);
     if (pn->byte_swapped) {
-        if_descr_mand->link_type = GUINT16_SWAP_LE_BE(idb.linktype);
+        link_type = GUINT16_SWAP_LE_BE(idb.linktype);
         if_descr_mand->snap_len  = GUINT32_SWAP_LE_BE(idb.snaplen);
     } else {
-        if_descr_mand->link_type = idb.linktype;
+        link_type = idb.linktype;
         if_descr_mand->snap_len  = idb.snaplen;
     }
 
-    if_descr_mand->wtap_encap = wtap_pcap_encap_to_wtap_encap(if_descr_mand->link_type);
+    if_descr_mand->wtap_encap = wtap_pcap_encap_to_wtap_encap(link_type);
     if_descr_mand->time_units_per_second = time_units_per_second;
     if_descr_mand->tsprecision = tsprecision;
 
     pcapng_debug("pcapng_read_if_descr_block: IDB link_type %u (%s), snap %u",
-                  if_descr_mand->link_type,
+                  link_type,
                   wtap_encap_string(if_descr_mand->wtap_encap),
                   if_descr_mand->snap_len);
 
-    if (if_descr_mand->snap_len > WTAP_MAX_PACKET_SIZE) {
-        /* This is unrealistic, but text2pcap currently uses 102400.
+    if (if_descr_mand->snap_len > wtap_max_snaplen_for_encap(if_descr_mand->wtap_encap)) {
+        /*
          * We do not use this value, maybe we should check the
          * snap_len of the packets against it. For now, only warn.
          */
         pcapng_debug("pcapng_read_if_descr_block: snapshot length %u unrealistic.",
                       if_descr_mand->snap_len);
-        /*if_descr_mand->snap_len = WTAP_MAX_PACKET_SIZE;*/
+        /*if_descr_mand->snap_len = WTAP_MAX_PACKET_SIZE_STANDARD;*/
     }
 
     /* Options */
@@ -1163,12 +1164,6 @@ pcapng_read_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn, wta
         }
     }
 
-    if (packet.cap_len > WTAP_MAX_PACKET_SIZE) {
-        *err = WTAP_ERR_BAD_FILE;
-        *err_info = g_strdup_printf("pcapng_read_packet_block: cap_len %u is larger than WTAP_MAX_PACKET_SIZE %u",
-                                    packet.cap_len, WTAP_MAX_PACKET_SIZE);
-        return FALSE;
-    }
     pcapng_debug("pcapng_read_packet_block: packet data: packet_len %u captured_len %u interface_id %u",
                   packet.packet_len,
                   packet.cap_len,
@@ -1182,6 +1177,14 @@ pcapng_read_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn, wta
     }
     iface_info = g_array_index(pn->interfaces, interface_info_t,
                                packet.interface_id);
+
+    if (packet.cap_len > wtap_max_snaplen_for_encap(iface_info.wtap_encap)) {
+        *err = WTAP_ERR_BAD_FILE;
+        *err_info = g_strdup_printf("pcapng_read_packet_block: cap_len %u is larger than %u",
+                                    packet.cap_len,
+                                    wtap_max_snaplen_for_encap(iface_info.wtap_encap));
+        return FALSE;
+    }
 
     wblock->packet_header->rec_type = REC_TYPE_PACKET;
     wblock->packet_header->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN|WTAP_HAS_INTERFACE_ID;
@@ -1465,10 +1468,11 @@ pcapng_read_simple_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *
         return FALSE;
     }
 
-    if (simple_packet.cap_len > WTAP_MAX_PACKET_SIZE) {
+    if (simple_packet.cap_len > wtap_max_snaplen_for_encap(iface_info.wtap_encap)) {
         *err = WTAP_ERR_BAD_FILE;
-        *err_info = g_strdup_printf("pcapng_read_simple_packet_block: cap_len %u is larger than WTAP_MAX_PACKET_SIZE %u",
-                                    simple_packet.cap_len, WTAP_MAX_PACKET_SIZE);
+        *err_info = g_strdup_printf("pcapng_read_simple_packet_block: cap_len %u is larger than %u",
+                                    simple_packet.cap_len,
+                                    wtap_max_snaplen_for_encap(iface_info.wtap_encap));
         return FALSE;
     }
     pcapng_debug("pcapng_read_simple_packet_block: packet data: packet_len %u",
@@ -2950,7 +2954,7 @@ pcapng_write_enhanced_packet_block(wtap_dumper *wdh,
     wtapng_if_descr_mandatory_t *int_data_mand;
 
     /* Don't write anything we're not willing to read. */
-    if (phdr->caplen > WTAP_MAX_PACKET_SIZE) {
+    if (phdr->caplen > wtap_max_snaplen_for_encap(wdh->encap)) {
         *err = WTAP_ERR_PACKET_TOO_LARGE;
         return FALSE;
     }
@@ -3139,7 +3143,7 @@ pcapng_write_sysdig_event_block(wtap_dumper *wdh,
     guint16 event_type;
 
     /* Don't write anything we're not willing to read. */
-    if (phdr->caplen > WTAP_MAX_PACKET_SIZE) {
+    if (phdr->caplen > WTAP_MAX_PACKET_SIZE_STANDARD) {
         *err = WTAP_ERR_PACKET_TOO_LARGE;
         return FALSE;
     }
@@ -3231,7 +3235,7 @@ pcapng_write_sysdig_event_block(wtap_dumper *wdh,
 /*
  * libpcap's maximum pcapng block size is currently 16MB.
  *
- * The maximum pcapng block size in OS X's private pcapng reading code
+ * The maximum pcapng block size in macOS's private pcapng reading code
  * is 1MB.  (Yes, this means that a program using the standard pcap
  * code to read pcapng files can handle bigger blocks than can programs
  * using the private code, such as Apple's tcpdump, can handle.)
@@ -3970,13 +3974,15 @@ pcapng_write_if_descr_block(wtap_dumper *wdh, wtap_block_t int_data, int *err)
     pcapng_write_block_t block_data;
     struct pcapng_option_header option_hdr;
     wtapng_if_descr_mandatory_t* mand_data = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(int_data);
+    int link_type;
 
     pcapng_debug("pcapng_write_if_descr_block: encap = %d (%s), snaplen = %d",
-                  mand_data->link_type,
-                  wtap_encap_string(wtap_pcap_encap_to_wtap_encap(mand_data->link_type)),
+                  mand_data->wtap_encap,
+                  wtap_encap_string(mand_data->wtap_encap),
                   mand_data->snap_len);
 
-    if (mand_data->link_type == (guint16)-1) {
+    link_type = wtap_wtap_encap_to_pcap_encap(mand_data->wtap_encap);
+    if (link_type == -1) {
         *err = WTAP_ERR_UNWRITABLE_ENCAP;
         return FALSE;
     }
@@ -4000,7 +4006,7 @@ pcapng_write_if_descr_block(wtap_dumper *wdh, wtap_block_t int_data, int *err)
     wdh->bytes_dumped += sizeof bh;
 
     /* write block fixed content */
-    idb.linktype    = mand_data->link_type;
+    idb.linktype    = link_type;
     idb.reserved    = 0;
     idb.snaplen     = mand_data->snap_len;
 

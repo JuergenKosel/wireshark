@@ -29,10 +29,6 @@
 #include <epan/packet.h>
 #include "cfile.h"
 #include "summary.h"
-#if 0
-#include "ui/capture_ui_utils.h"
-#endif
-
 
 static void
 tally_frame_data(frame_data *cur_frame, summary_tally *sum_tally)
@@ -152,7 +148,6 @@ summary_fill_in(capture_file *cf, summary_tally *st)
   st->is_tempfile = cf->is_tempfile;
   st->file_encap_type = cf->lnk_t;
   st->packet_encap_types = cf->linktypes;
-  st->has_snap = cf->has_snap;
   st->snap = cf->snap;
   st->elapsed_time = nstime_to_sec(&cf->elapsed_time);
   st->packet_count = cf->count;
@@ -183,7 +178,6 @@ summary_fill_in(capture_file *cf, summary_tally *st)
     iface.drops_known = FALSE;
     iface.drops = 0;
     iface.snap = wtapng_if_descr_mand->snap_len;
-    iface.has_snap = (iface.snap != 65535);
     iface.encap_type = wtapng_if_descr_mand->wtap_encap;
     iface.isb_comment = NULL;
     if(wtapng_if_descr_mand->num_stat_entries == 1){
@@ -226,7 +220,6 @@ summary_fill_in_capture(capture_file *cf,capture_options *capture_opts, summary_
       iface.descr = g_strdup(device.display_name);
       iface.drops_known = cf->drops_known;
       iface.drops = cf->drops;
-      iface.has_snap = device.has_snaplen;
       iface.snap = device.snaplen;
       iface.encap_type = wtap_pcap_encap_to_wtap_encap(device.active_dlt);
       g_array_append_val(st->ifaces, iface);

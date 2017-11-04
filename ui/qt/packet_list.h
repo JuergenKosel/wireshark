@@ -146,6 +146,7 @@ private:
     void initHeaderContextMenu();
     void drawCurrentPacket();
     void applyRecentColumnWidths();
+    void scrollViewChanged(bool at_end);
 
 signals:
     void packetDissectionChanged();
@@ -176,6 +177,7 @@ public slots:
     void applyTimeShift();
     void recolorPackets();
     void redrawVisiblePackets();
+    void redrawVisiblePacketsDontSelectCurrent();
     void columnsChanged();
     void fieldsChanged(capture_file *cf);
     void preferencesChanged();

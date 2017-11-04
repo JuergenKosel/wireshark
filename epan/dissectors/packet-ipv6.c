@@ -53,6 +53,7 @@
 #include "packet-sflow.h"
 #include "packet-vxlan.h"
 #include "packet-mpls.h"
+#include "packet-nsh.h"
 
 #ifdef HAVE_GEOIP_V6
 #include <GeoIP.h>
@@ -941,6 +942,10 @@ dissect_routing6_rpl(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
     const struct e_in6_addr *ip6_dst_addr, *ip6_src_addr;
     wmem_array_t *rpl_addr_vector = NULL;
     guint i;
+
+    /* Must be IPv6 addresses */
+    if ((pinfo->dst.type != AT_IPv6) || (pinfo->src.type != AT_IPv6))
+        return;
 
     /* IPv6 destination address used for elided bytes */
     ip6_dst_addr = (const struct e_in6_addr *)pinfo->dst.data;
@@ -3555,6 +3560,7 @@ proto_reg_handoff_ipv6(void)
     dissector_add_uint("wtap_encap", WTAP_ENCAP_RAW_IP6, ipv6_handle);
     dissector_add_uint("enc", BSD_AF_INET6_BSD, ipv6_handle);
     dissector_add_uint("vxlan.next_proto", VXLAN_IPV6, ipv6_handle);
+    dissector_add_uint("nsh.next_proto", NSH_IPV6, ipv6_handle);
 
     dissector_add_for_decode_as_with_preference("udp.port", ipv6_handle);
 

@@ -74,6 +74,8 @@ struct tcap_private_t {
   guint32 session_id;
   void * context;
   gchar *TransactionID_str;
+  guint32 src_tid;
+  guint32 dst_tid;
 };
 
 /** @file
@@ -159,7 +161,8 @@ struct tcaphash_cont_info_key_t {
 struct tcaphash_end_info_key_t {
   guint32 hashKey;
   guint32 tid;
-  guint32 pc_hash;
+  guint32 opc_hash;
+  guint32 dpc_hash;
 };
 
 struct tcaphash_ansi_info_key_t {
@@ -241,6 +244,6 @@ int dissect_tcap_UniDialoguePDU(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
 int dissect_tcap_DialoguePDU(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 
 /*--- End of included file: packet-tcap-exp.h ---*/
-#line 228 "./asn1/tcap/packet-tcap-template.h"
+#line 231 "./asn1/tcap/packet-tcap-template.h"
 
 #endif  /* PACKET_tcap_H */

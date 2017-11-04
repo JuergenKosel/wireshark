@@ -1,7 +1,7 @@
 /* packet-nordic_ble.c
  * Routines for Nordic BLE sniffer dissection
  *
- * Copyright (c) 2016 Nordic Semiconductor.
+ * Copyright (c) 2016-2017 Nordic Semiconductor.
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -22,10 +22,105 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+/* Nordic BLE Sniffer packet format: BoardID + Header + Payload
+ *
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                           BoardID  (1 byte)                           |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *
+ * Header:
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                      Length of header  (1 byte)                       |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                      Length of payload  (1 byte)                      |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                      Protocol version  (1 byte)                       |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                         Packet counter (LSB)                          |
+ *  |                               (2 bytes)                               |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                          Packet ID  (1 byte)                          |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *
+ *  Packet ID:
+ *   0x00 = REQ_FOLLOW
+ *          Host tells the Sniffer to only send packets received from a specific
+ *          address.
+ *   0x01 = EVENT_FOLLOW
+ *          Sniffer tells the Host that it has entered the FOLLOW state.
+ *   0x05 = EVENT_CONNECT
+ *          Sniffer tells the Host that someone has connected to the unit we
+ *          are following.
+ *   0x06 = EVENT_PACKET
+ *          Sniffer tells the Host that it has received a packet.
+ *   0x07 = REQ_SCAN_CONT
+ *          Host tells the Sniffer to scan continuously and hand over the
+ *          packets ASAP.
+ *   0x09 = EVENT_DISCONNECT
+ *          Sniffer tells the Host that the connected address we were following
+ *          has received a disconnect packet.
+ *   0x0C = SET_TEMPORARY_KEY
+ *          Specify a temporary key to use on encryption (for OOB and passkey).
+ *   0x0D = PING_REQ
+ *   0x0E = PING_RESP
+ *   0x13 = SWITCH_BAUD_RATE_REQ
+ *   0x14 = SWITCH_BAUD_RATE_RESP
+ *   0x17 = SET_ADV_CHANNEL_HOP_SEQ
+ *          Host tells the Sniffer which order to cycle through the channels
+ *          when following an advertiser.
+ *   0xFE = GO_IDLE
+ *          Host tell the Sniffer to stop sending UART traffic and listen for
+ *          new commands.
+ *
+ * Payloads:
+ *
+ *  EVENT_PACKET (ID 0x06):
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                   Length of payload data  (1 byte)                    |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                            Flags  (1 byte)                            |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                           Channel  (1 byte)                           |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                          RSSI (dBm)  (1 byte)                         |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                             Event counter                             |
+ *  |                               (2 bytes)                               |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                                                                       |
+ *  |                     Delta time (us end to start)                      |
+ *  |                               (4 bytes)                               |
+ *  |                                                                       |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *  |                                                                       |
+ *  |                Bluetooth Low Energy Link Layer Packet                 |
+ *  |                                  ...                                  |
+ *  |                                                                       |
+ *  +--------+--------+--------+--------+--------+--------+--------+--------+
+ *
+ *  Flags:
+ *   00000001 = CRC       (0 = Incorrect, 1 = OK)
+ *   00000010 = Direction (0 = Slave -> Master, 1 = Master -> Slave)
+ *   00000100 = Encrypted (0 = No, 1 = Yes)
+ *
+ *  Channel:
+ *   The channel index being used.
+ *
+ *  Delta time:
+ *   This is the time in micro seconds from the end of the previous received
+ *   packet to the beginning of this packet.
+ */
+
 #include "config.h"
 
 #include <epan/packet.h>
 #include <epan/expert.h>
+#include <epan/proto_data.h>
+
+#include <wsutil/utf8_entities.h>
+#include <wiretap/wtap.h>
 
 #include "packet-btle.h"
 
@@ -177,10 +272,18 @@ dissect_flags(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree, 
 }
 
 static gint
-dissect_ble_delta_time(tvbuff_t *tvb, gint offset, proto_tree *tree, guint8 packet_len)
+dissect_ble_delta_time(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree, guint8 packet_len)
 {
     static guint8 previous_ble_packet_length = 0;
     guint32 delta_time, delta_time_ss;
+    proto_item *pi;
+
+    if (!pinfo->fd->flags.visited) {
+        /* First time visiting this packet, store previous BLE packet length */
+        p_add_proto_data(wmem_file_scope(), pinfo, proto_nordic_ble, 0, GUINT_TO_POINTER(previous_ble_packet_length));
+    } else {
+        previous_ble_packet_length = GPOINTER_TO_UINT(p_get_proto_data(wmem_file_scope(), pinfo, proto_nordic_ble, 0));
+    }
 
     /* end - start */
     delta_time = (guint32)tvb_get_letohl(tvb, offset);
@@ -188,9 +291,12 @@ dissect_ble_delta_time(tvbuff_t *tvb, gint offset, proto_tree *tree, guint8 pack
 
     /* start - start */
     delta_time_ss = BLE_METADATA_TRANFER_TIME_US + (US_PER_BYTE * previous_ble_packet_length) + delta_time;
-    proto_tree_add_uint(tree, hf_nordic_ble_delta_time_ss, tvb, offset, 4, delta_time_ss);
+    pi = proto_tree_add_uint(tree, hf_nordic_ble_delta_time_ss, tvb, offset, 4, delta_time_ss);
+    PROTO_ITEM_SET_GENERATED(pi);
 
-    previous_ble_packet_length = packet_len;
+    if (!pinfo->fd->flags.visited) {
+        previous_ble_packet_length = packet_len;
+    }
     offset += 4;
 
     return offset;
@@ -235,9 +341,6 @@ dissect_packet_header(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree
 
         proto_tree_add_item(header_tree, hf_nordic_ble_packet_id, tvb, offset, 1, ENC_NA);
         offset += 1;
-
-        proto_tree_add_item(header_tree, hf_nordic_ble_packet_length, tvb, offset, 1, ENC_NA);
-        offset += 1;
     }
 
     proto_item_set_len(ti, offset - start_offset);
@@ -246,9 +349,14 @@ dissect_packet_header(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree
 }
 
 static gint
-dissect_packet(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree, btle_context_t *context, guint8 packet_len)
+dissect_packet(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree, gboolean legacy_mode, btle_context_t *context, guint8 packet_len)
 {
     gint32 rssi;
+
+    if (!legacy_mode) {
+        proto_tree_add_item(tree, hf_nordic_ble_packet_length, tvb, offset, 1, ENC_NA);
+        offset += 1;
+    }
 
     offset = dissect_flags(tvb, offset, pinfo, tree, context);
 
@@ -262,7 +370,7 @@ dissect_packet(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree,
     proto_tree_add_item(tree, hf_nordic_ble_event_counter, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     offset += 2;
 
-    offset = dissect_ble_delta_time(tvb, offset, tree, packet_len);
+    offset = dissect_ble_delta_time(tvb, offset, pinfo, tree, packet_len);
 
     return offset;
 }
@@ -288,7 +396,7 @@ dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, btle_context
     }
 
     offset = dissect_packet_header(tvb, offset, pinfo, nordic_ble_tree, legacy_mode, bad_length, &packet_len);
-    offset = dissect_packet(tvb, offset, pinfo, nordic_ble_tree, context, packet_len);
+    offset = dissect_packet(tvb, offset, pinfo, nordic_ble_tree, legacy_mode, context, packet_len);
 
     proto_item_set_len(ti, offset);
 
@@ -414,14 +522,14 @@ proto_register_nordic_ble(void)
                 NULL, HFILL }
         },
         { &hf_nordic_ble_delta_time,
-            { "Delta time (us end to start)", "nordic_ble.delta_time",
+            { "Delta time (" UTF8_MICRO_SIGN "s end to start)", "nordic_ble.delta_time",
                 FT_UINT32, BASE_DEC, NULL, 0x0,
-                "Delta time: us since last reported packet", HFILL }
+                UTF8_MICRO_SIGN "s since end of last reported packet", HFILL }
         },
         { &hf_nordic_ble_delta_time_ss,
-            { "Delta time (us start to start)", "nordic_ble.delta_time_ss",
+            { "Delta time (" UTF8_MICRO_SIGN "s start to start)", "nordic_ble.delta_time_ss",
                 FT_UINT32, BASE_DEC, NULL, 0x0,
-                "Delta time: us since start of last reported packet", HFILL }
+                UTF8_MICRO_SIGN "s since start of last reported packet", HFILL }
         }
     };
 
@@ -439,7 +547,7 @@ proto_register_nordic_ble(void)
 
     expert_module_t *expert_nordic_ble;
 
-    proto_nordic_ble = proto_register_protocol("Nordic BLE sniffer meta", "NORDIC_BLE", "nordic_ble");
+    proto_nordic_ble = proto_register_protocol("Nordic BLE Sniffer", "NORDIC_BLE", "nordic_ble");
 
     register_dissector("nordic_ble", dissect_nordic_ble, proto_nordic_ble);
 
@@ -461,6 +569,7 @@ proto_reg_handoff_nordic_ble(void)
     debug_handle = find_dissector("nordic_debug");
 
     dissector_add_for_decode_as_with_preference("udp.port", nordic_ble_handle);
+    dissector_add_uint("wtap_encap", WTAP_ENCAP_NORDIC_BLE, nordic_ble_handle);
 }
 
 

@@ -84,7 +84,7 @@ public:
     void registerUpdate(register_action_e action, const char *message);
     void emitAppSignal(AppSignal signal);
     // Emitting app signals (PacketDissectionChanged in particular) from
-    // dialogs on OS X can be problematic. Dialogs should call queueAppSignal
+    // dialogs on macOS can be problematic. Dialogs should call queueAppSignal
     // instead.
     void queueAppSignal(AppSignal signal) { app_signals_ << signal; }
     // Flush queued app signals. Should be called from the main window after
@@ -103,7 +103,7 @@ public:
 
     void allSystemsGo();
     void refreshLocalInterfaces();
-    struct _e_prefs * readConfigurationFiles(char **gdp_path, char **dp_path, bool reset);
+    struct _e_prefs * readConfigurationFiles(bool reset);
     QList<recent_item_status *> recentItems() const;
     void addRecentItem(const QString filename, qint64 size, bool accessible);
     void removeRecentItem(const QString &filename);
@@ -130,6 +130,7 @@ public:
     bool softwareUpdateCanShutdown();
     void softwareUpdateShutdownRequest();
 #endif
+    QWidget *mainWindow();
 
     QTranslator translator;
     QTranslator translatorQt;
