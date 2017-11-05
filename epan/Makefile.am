@@ -34,7 +34,7 @@ AM_CPPFLAGS = $(INCLUDEDIRS) -I$(builddir)/wslua $(WS_CPPFLAGS) \
 	$(LIBGCRYPT_CFLAGS) $(LIBSMI_CFLAGS) $(LIBGEOIP_CFLAGS) \
 	$(LZ4_CFLAGS) $(KRB5_CFLAGS) $(SNAPPY_CFLAGS) $(LIBXML2_CFLAGS)
 
-noinst_LTLIBRARIES = libwireshark_generated.la libwireshark_asmopt.la
+noinst_LTLIBRARIES = libwireshark_generated.la
 lib_LTLIBRARIES = libwireshark.la
 
 LIBWIRESHARK_SRC = \
@@ -44,6 +44,7 @@ LIBWIRESHARK_SRC = \
 	afn.c			\
 	aftypes.c		\
 	app_mem_usage.c		\
+	asm_utils.c		\
 	asn1.c			\
 	capture_dissectors.c	\
 	charsets.c		\
@@ -284,6 +285,7 @@ LIBWIRESHARK_INCLUDES_PUBLIC = \
 	xdlc.h
 
 LIBWIRESHARK_INCLUDES_PRIVATE = \
+	asm_utils.h		\
 	epan-int.h		\
 	to_str-int.h
 
@@ -314,7 +316,6 @@ endif
 #
 libwireshark_la_LIBADD = \
 	libwireshark_generated.la		\
-	libwireshark_asmopt.la			\
 	crypt/libairpdcap.la			\
 	ftypes/libftypes.la			\
 	dfilter/libdfilter.la			\
@@ -330,17 +331,15 @@ libwireshark_la_LIBADD = \
 	@KRB5_LIBS@		\
 	@LIBGCRYPT_LIBS@	\
 	@LIBGNUTLS_LIBS@	\
-	@LIBSMI_LDFLAGS@	\
+	@LIBSMI_LIBS@	\
 	@LZ4_LIBS@		\
 	@NGHTTP2_LIBS@		\
-	@SSL_LIBS@		\
 	@SNAPPY_LIBS@		\
 	@LIBXML2_LIBS@		\
 	@GLIB_LIBS@
 
 libwireshark_la_DEPENDENCIES = \
 	libwireshark_generated.la		\
-	libwireshark_asmopt.la			\
 	crypt/libairpdcap.la			\
 	ftypes/libftypes.la			\
 	dfilter/libdfilter.la			\
@@ -361,15 +360,9 @@ nodist_libwireshark_generated_la_SOURCES = \
 
 libwireshark_generated_la_CFLAGS = $(GENERATED_CFLAGS)
 
-# code optionally implemented in assembler
-# only C source available for platforms other than Win32
-libwireshark_asmopt_la_SOURCES = \
-	asm_utils.c		\
-	asm_utils.h		\
-	asm_utils_win32_x86.asm
-
 EXTRA_DIST = \
 	.editorconfig		\
+	asm_utils_win32_x86.asm	\
 	diam_dict.l		\
 	dtd_grammar.lemon	\
 	dtd_parse.l		\
@@ -387,8 +380,6 @@ CLEANFILES = \
 	libwireshark.la			\
 	libwireshark_generated.a	\
 	libwireshark_generated.la	\
-	libwireshark_asmopt.a		\
-	libwireshark_asmopt.la		\
 	*~
 
 DISTCLEANFILES = \

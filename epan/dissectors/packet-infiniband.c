@@ -229,6 +229,9 @@ static int parse_ServiceAssociationRecord(proto_tree*, tvbuff_t*, gint *offset);
 /* Subnet Administration */
 static void parse_RID(proto_tree*, tvbuff_t*, gint *offset, MAD_Data*);
 
+/* Common */
+static int parse_ClassPortInfo(proto_tree*, tvbuff_t*, gint *offset);
+
 /* SM Methods */
 static const value_string SUBM_Methods[] = {
     { 0x01, "SubnGet("},
@@ -240,9 +243,7 @@ static const value_string SUBM_Methods[] = {
 };
 /* SM Attributes */
 static const value_string SUBM_Attributes[] = {
-    { 0x0001, "Attribute (ClassPortInfo)"},
     { 0x0002, "Attribute (Notice)"},
-    { 0x0003, "Attribute (InformInfo)"},
     { 0x0010, "Attribute (NodeDescription)"},
     { 0x0011, "Attribute (NodeInfo)"},
     { 0x0012, "Attribute (SwitchInfo)"},
@@ -298,7 +299,7 @@ static const value_string SUBA_Attributes[] = {
     { 0x0033, "Attribute (P_KeyTableRecord)"},
     { 0x0035, "Attribute (PathRecord)"},
     { 0x0036, "Attribute (VLArbitrationTableRecord)"},
-    { 0x0038, "Attribute (MCMembersRecord)"},
+    { 0x0038, "Attribute (MCMemberRecord)"},
     { 0x0039, "Attribute (TraceRecord)"},
     { 0x003A, "Attribute (MultiPathRecord)"},
     { 0x003B, "Attribute (ServiceAssociationRecord)"},
@@ -341,6 +342,7 @@ static const value_string RMPP_Packet_Types[] = {
 static const value_string RMPP_Flags[] = {
     { 3, " (Transmission Sequence - First Packet)"},
     { 5, " (Transmission Sequence - Last Packet)"},
+    { 7, " (Transmission Sequence - First and Last Packet)"},
     { 1, " (Transmission Sequence) " },
     { 0, NULL}
 };
@@ -792,7 +794,7 @@ static int hf_infiniband_PortInfo_CapabilityMask = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_SM = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_NoticeSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_TrapSupported = -1;
-static int hf_infiniband_PortInfo_CapabilityMask_OptionalPDSupported = -1;
+static int hf_infiniband_PortInfo_CapabilityMask_OptionalIPDSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_AutomaticMigrationSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_SLMappingSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_MKeyNVRAM = -1;
@@ -801,7 +803,7 @@ static int hf_infiniband_PortInfo_CapabilityMask_LEDInfoSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_SMdisabled = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_SystemImageGUIDSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_PKeySwitchExternalPortTrapSupported = -1;
-static int hf_infiniband_PortInfo_CapabilityMask_CommunicationsManagementSupported = -1;
+static int hf_infiniband_PortInfo_CapabilityMask_CommunicationManagementSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_SNMPTunnelingSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_ReinitSupported = -1;
 static int hf_infiniband_PortInfo_CapabilityMask_DeviceManagementSupported = -1;
@@ -1041,6 +1043,30 @@ static int hf_infiniband_MultiPathRecord_SGIDCount = -1;
 static int hf_infiniband_MultiPathRecord_DGIDCount = -1;
 static int hf_infiniband_MultiPathRecord_SDGID = -1;
 
+/* ClassPortInfo */
+static int hf_infiniband_ClassPortInfo_BaseVersion = -1;
+static int hf_infiniband_ClassPortInfo_ClassVersion = -1;
+static int hf_infiniband_ClassPortInfo_CapabilityMask = -1;
+static int hf_infiniband_ClassPortInfo_CapabilityMask2 = -1;
+static int hf_infiniband_ClassPortInfo_RespTimeValue = -1;
+static int hf_infiniband_ClassPortInfo_RedirectGID = -1;
+static int hf_infiniband_ClassPortInfo_RedirectTC = -1;
+static int hf_infiniband_ClassPortInfo_RedirectSL = -1;
+static int hf_infiniband_ClassPortInfo_RedirectFL = -1;
+static int hf_infiniband_ClassPortInfo_RedirectLID = -1;
+static int hf_infiniband_ClassPortInfo_RedirectP_Key = -1;
+static int hf_infiniband_ClassPortInfo_Reserved = -1;
+static int hf_infiniband_ClassPortInfo_RedirectQP = -1;
+static int hf_infiniband_ClassPortInfo_RedirectQ_Key = -1;
+static int hf_infiniband_ClassPortInfo_TrapGID = -1;
+static int hf_infiniband_ClassPortInfo_TrapTC = -1;
+static int hf_infiniband_ClassPortInfo_TrapSL = -1;
+static int hf_infiniband_ClassPortInfo_TrapFL = -1;
+static int hf_infiniband_ClassPortInfo_TrapLID = -1;
+static int hf_infiniband_ClassPortInfo_TrapP_Key = -1;
+static int hf_infiniband_ClassPortInfo_TrapQP = -1;
+static int hf_infiniband_ClassPortInfo_TrapQ_Key = -1;
+
 /* Notice */
 static int hf_infiniband_Notice_IsGeneric = -1;
 static int hf_infiniband_Notice_Type = -1;
@@ -1052,6 +1078,9 @@ static int hf_infiniband_Notice_NoticeCount = -1;
 static int hf_infiniband_Notice_DataDetails = -1;
 /* static int hf_infiniband_Notice_IssuerGID = -1;             */
 /* static int hf_infiniband_Notice_ClassTrapSpecificData = -1; */
+
+/* ClassPortInfo attribute in Performance class */
+static int hf_infiniband_PerfMgt_ClassPortInfo = -1;
 
 /* PortCounters attribute in Performance class */
 static int hf_infiniband_PortCounters = -1;
@@ -1282,7 +1311,7 @@ static const value_string bth_opcode_tbl[] = {
 #define PERF 0x04                   /* Performance Management */
 #define BM 0x05                     /* Baseboard Management (Tunneling of IB-ML commands through the IBA subnet) */
 #define DEV_MGT 0x06                /* Device Management */
-#define COM_MGT 0x07                /* Communications Management */
+#define COM_MGT 0x07                /* Communication Management */
 #define SNMP 0x08                   /* SNMP Tunneling (tunneling of the SNMP protocol through the IBA fabric) */
 #define VENDOR_1_START 0x09         /* Start of first Vendor Specific Range */
 #define VENDOR_1_END 0x0F           /* End of first Vendor Specific Range */
@@ -2540,11 +2569,13 @@ static void parse_PAYLOAD(proto_tree *parentTree,
             || ((management_class >= (guint8)VENDOR_2_START) && (management_class <= (guint8)VENDOR_2_END)))
         {
             /* parse vendor specific */
+            col_set_str(pinfo->cinfo, COL_INFO, "VENDOR (Unknown Attribute)");
             parse_VENDOR_MANAGEMENT(parentTree, tvb, offset);
         }
         else if ((management_class >= (guint8)APPLICATION_START) && (management_class <= (guint8)APPLICATION_END))
         {
             /* parse application specific */
+            col_set_str(pinfo->cinfo, COL_INFO, "APP (Unknown Attribute)");
             parse_APPLICATION_MANAGEMENT(parentTree, tvb, offset);
         }
         else if (((management_class == (guint8)0x00) || (management_class == (guint8)0x02))
@@ -2552,6 +2583,7 @@ static void parse_PAYLOAD(proto_tree *parentTree,
                  || ((management_class >= (guint8)0x82)))
         {
             /* parse reserved classes */
+            col_set_str(pinfo->cinfo, COL_INFO, "RESERVED (Unknown Attribute)");
             parse_RESERVED_MANAGEMENT(parentTree, tvb, offset);
         }
         else /* we have a normal management_class */
@@ -2576,10 +2608,12 @@ static void parse_PAYLOAD(proto_tree *parentTree,
                 break;
                 case BM:
                     /* parse baseboard mgmt */
+                    col_set_str(pinfo->cinfo, COL_INFO, "BM (Unknown Attribute)");
                     parse_BM(parentTree, tvb, &local_offset);
                 break;
                 case DEV_MGT:
                     /* parse device management */
+                    col_set_str(pinfo->cinfo, COL_INFO, "DEV_MGT (Unknown Attribute)");
                     parse_DEV_MGT(parentTree, tvb, &local_offset);
                 break;
                 case COM_MGT:
@@ -2588,6 +2622,7 @@ static void parse_PAYLOAD(proto_tree *parentTree,
                 break;
                 case SNMP:
                     /* parse snmp tunneling */
+                    col_set_str(pinfo->cinfo, COL_INFO, "SNMP (Unknown Attribute)");
                     parse_SNMP(parentTree, tvb, &local_offset);
                 break;
                 default:
@@ -2998,7 +3033,7 @@ static void parse_SUBNADMN(proto_tree *parentTree, packet_info *pinfo, tvbuff_t 
     local_offset = *offset;
 
     SUBNADMN_header_item = proto_tree_add_item(parentTree, hf_infiniband_SA, tvb, local_offset - 36, 256, ENC_NA);
-    proto_item_set_text(SUBNADMN_header_item, "%s", "SMA");
+    proto_item_set_text(SUBNADMN_header_item, "%s", "SA ");
     SUBNADMN_header_tree = proto_item_add_subtree(SUBNADMN_header_item, ett_subnadmin);
 
     proto_tree_add_item(SUBNADMN_header_tree, hf_infiniband_sm_key, tvb, local_offset, 8, ENC_BIG_ENDIAN);
@@ -3042,6 +3077,13 @@ static void parse_PERF(proto_tree *parentTree, tvbuff_t *tvb, packet_info *pinfo
     local_offset = *offset; /* offset now points to the start of the MAD data field */
 
     switch (MadData.attributeID) {
+        case 0x0001: /* (ClassPortInfo) */
+            col_set_str(pinfo->cinfo, COL_INFO, "PERF (ClassPortInfo)");
+            proto_tree_add_item(parentTree, hf_infiniband_PerfMgt_ClassPortInfo, tvb, local_offset, 40, ENC_NA);
+            local_offset += 40;
+            *offset = local_offset;
+            parse_ClassPortInfo(parentTree, tvb, offset);
+            break;
         case ATTR_PORT_COUNTERS:
             parse_PERF_PortCounters(parentTree, tvb, pinfo, &local_offset);
             break;
@@ -3049,6 +3091,7 @@ static void parse_PERF(proto_tree *parentTree, tvbuff_t *tvb, packet_info *pinfo
             parse_PERF_PortCountersExtended(parentTree, tvb, pinfo, &local_offset);
             break;
         default:
+            col_set_str(pinfo->cinfo, COL_INFO, "PERF (Unknown Attribute)");
             PERF_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
             local_offset += MAD_DATA_SIZE;
             proto_item_set_text(PERF_header_item, "%s", "PERF - Performance Management MAD (Dissector Not Implemented)");
@@ -3067,7 +3110,7 @@ static void parse_BM(proto_tree *parentTree, tvbuff_t *tvb, gint *offset)
     /* Parse the Common MAD Header */
     MAD_Data    MadData;
     gint        local_offset;
-    proto_item *PERF_header_item;
+    proto_item *BM_header_item;
 
     if (!parse_MAD_Common(parentTree, tvb, offset, &MadData))
     {
@@ -3076,9 +3119,9 @@ static void parse_BM(proto_tree *parentTree, tvbuff_t *tvb, gint *offset)
     }
     local_offset = *offset;
 
-    PERF_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
+    BM_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
     local_offset += MAD_DATA_SIZE;
-    proto_item_set_text(PERF_header_item, "%s", "BM - Baseboard Management MAD (Dissector Not Implemented)");
+    proto_item_set_text(BM_header_item, "%s", "BM - Baseboard Management MAD (Dissector Not Implemented)");
     *offset = local_offset;
 }
 
@@ -3091,7 +3134,7 @@ static void parse_DEV_MGT(proto_tree *parentTree, tvbuff_t *tvb, gint *offset)
     /* Parse the Common MAD Header */
     MAD_Data    MadData;
     gint        local_offset;
-    proto_item *PERF_header_item;
+    proto_item *DEVM_header_item;
 
     if (!parse_MAD_Common(parentTree, tvb, offset, &MadData))
     {
@@ -3099,9 +3142,9 @@ static void parse_DEV_MGT(proto_tree *parentTree, tvbuff_t *tvb, gint *offset)
         return;
     }
     local_offset = *offset;
-    PERF_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
+    DEVM_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
     local_offset += MAD_DATA_SIZE;
-    proto_item_set_text(PERF_header_item, "%s", "DEV_MGT - Device Management MAD (Dissector Not Implemented)");
+    proto_item_set_text(DEVM_header_item, "%s", "DEV_MGT - Device Management MAD (Dissector Not Implemented)");
     *offset = local_offset;
 }
 
@@ -3682,7 +3725,7 @@ static void parse_CM_DRsp(proto_tree *top_tree, packet_info *pinfo, tvbuff_t *tv
     *offset = local_offset;
 }
 
-/* Parse Communications Management
+/* Parse Communication Management
 * IN: parentTree to add the dissection to
 * IN: tvb - the data buffer from wireshark
 * IN/OUT: The current and updated offset */
@@ -3755,7 +3798,7 @@ static void parse_SNMP(proto_tree *parentTree, tvbuff_t *tvb, gint *offset)
     /* Parse the Common MAD Header */
     MAD_Data    MadData;
     gint        local_offset;
-    proto_item *PERF_header_item;
+    proto_item *SNMP_header_item;
 
     if (!parse_MAD_Common(parentTree, tvb, offset, &MadData))
     {
@@ -3764,9 +3807,9 @@ static void parse_SNMP(proto_tree *parentTree, tvbuff_t *tvb, gint *offset)
     }
     local_offset = *offset;
 
-    PERF_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
+    SNMP_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
     local_offset += MAD_DATA_SIZE;
-    proto_item_set_text(PERF_header_item, "%s", "SNMP - SNMP Tunneling MAD (Dissector Not Implemented)");
+    proto_item_set_text(SNMP_header_item, "%s", "SNMP - SNMP Tunneling MAD (Dissector Not Implemented)");
     *offset = local_offset;
 }
 
@@ -3779,7 +3822,7 @@ static void parse_VENDOR_MANAGEMENT(proto_tree *parentTree, tvbuff_t *tvb, gint 
     /* Parse the Common MAD Header */
     MAD_Data    MadData;
     gint        local_offset;
-    proto_item *PERF_header_item;
+    proto_item *VENDOR_header_item;
 
     if (!parse_MAD_Common(parentTree, tvb, offset, &MadData))
     {
@@ -3788,9 +3831,9 @@ static void parse_VENDOR_MANAGEMENT(proto_tree *parentTree, tvbuff_t *tvb, gint 
     }
     local_offset = *offset;
 
-    PERF_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
+    VENDOR_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
     local_offset += MAD_DATA_SIZE;
-    proto_item_set_text(PERF_header_item, "%s", "VENDOR - Vendor Specific Management MAD (Dissector Not Implemented)");
+    proto_item_set_text(VENDOR_header_item, "%s", "VENDOR - Vendor Specific Management MAD (Dissector Not Implemented)");
     *offset = local_offset;
 }
 
@@ -3803,7 +3846,7 @@ static void parse_APPLICATION_MANAGEMENT(proto_tree *parentTree, tvbuff_t *tvb, 
     /* Parse the Common MAD Header */
     MAD_Data    MadData;
     gint        local_offset;
-    proto_item *PERF_header_item;
+    proto_item *APP_header_item;
 
     if (!parse_MAD_Common(parentTree, tvb, offset, &MadData))
     {
@@ -3811,9 +3854,9 @@ static void parse_APPLICATION_MANAGEMENT(proto_tree *parentTree, tvbuff_t *tvb, 
         return;
     }
     local_offset = *offset;
-    PERF_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
+    APP_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, MAD_DATA_SIZE, ENC_NA);
     local_offset += MAD_DATA_SIZE;
-    proto_item_set_text(PERF_header_item, "%s", "APP - Application Specific MAD (Dissector Not Implemented)");
+    proto_item_set_text(APP_header_item, "%s", "APP - Application Specific MAD (Dissector Not Implemented)");
     *offset = local_offset;
 }
 
@@ -3831,7 +3874,7 @@ static void parse_RESERVED_MANAGEMENT(proto_tree *parentTree, tvbuff_t *tvb, gin
     /* Parse the Common MAD Header */
     MAD_Data    MadData;
     gint        local_offset;
-    proto_item *PERF_header_item;
+    proto_item *RESV_header_item;
 
     if (!parse_MAD_Common(parentTree, tvb, offset, &MadData))
     {
@@ -3839,9 +3882,9 @@ static void parse_RESERVED_MANAGEMENT(proto_tree *parentTree, tvbuff_t *tvb, gin
         return;
     }
     local_offset = *offset;
-    PERF_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, 256, ENC_NA);
+    RESV_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, 256, ENC_NA);
     local_offset += 256;
-    proto_item_set_text(PERF_header_item, "%s", "RESERVED - Reserved MAD Type (Possible Device Error)");
+    proto_item_set_text(RESV_header_item, "%s", "RESERVED - Reserved MAD Type (Possible Device Error)");
     *offset = local_offset;
 }
 
@@ -4071,16 +4114,16 @@ static gboolean parse_SUBM_Attribute(proto_tree *parentTree, tvbuff_t *tvb, gint
             parse_MulticastForwardingTable(SUBM_Attribute_header_tree , tvb, offset);
             break;
         case 0x001C:
-            parse_SMInfo(SUBM_Attribute_header_tree , tvb, offset);
+            parse_LinkSpeedWidthPairsTable(SUBM_Attribute_header_tree , tvb, offset);
             break;
         case 0x0020:
-            parse_VendorDiag(SUBM_Attribute_header_tree , tvb, offset);
+            parse_SMInfo(SUBM_Attribute_header_tree , tvb, offset);
             break;
         case 0x0030:
-            parse_LedInfo(SUBM_Attribute_header_tree , tvb, offset);
+            parse_VendorDiag(SUBM_Attribute_header_tree , tvb, offset);
             break;
         case 0x0031:
-            parse_LinkSpeedWidthPairsTable(SUBM_Attribute_header_tree , tvb, offset);
+            parse_LedInfo(SUBM_Attribute_header_tree , tvb, offset);
             break;
         default:
             break;
@@ -4112,7 +4155,7 @@ static gboolean parse_SUBA_Attribute(proto_tree *parentTree, tvbuff_t *tvb, gint
     switch (MadHeader->attributeID)
     {
         case 0x0001: /* (ClassPortInfo) */
-            parse_PortInfo(SUBA_Attribute_header_tree, tvb, offset);
+            parse_ClassPortInfo(SUBA_Attribute_header_tree, tvb, offset);
             break;
         case 0x0002: /* (Notice) */
             parse_NoticesAndTraps(SUBA_Attribute_header_tree, tvb, offset);
@@ -4155,7 +4198,7 @@ static gboolean parse_SUBA_Attribute(proto_tree *parentTree, tvbuff_t *tvb, gint
         case 0x0020: /* (LinkRecord) */
             parse_LinkRecord(SUBA_Attribute_header_tree, tvb, offset);
             break;
-        case 0x0030: /* (GuidInforecord) */
+        case 0x0030: /* (GuidInfoRecord) */
             parse_GUIDInfo(SUBA_Attribute_header_tree, tvb, offset);
             break;
         case 0x0031: /*(ServiceRecord) */
@@ -4196,6 +4239,70 @@ static gboolean parse_SUBA_Attribute(proto_tree *parentTree, tvbuff_t *tvb, gint
 * The Subnet Admin Parsing methods will call some of these methods when an attribute is present within an SA MAD
 */
 
+
+/* Parse ClassPortInfo Attribute Field
+* IN:   parentTree - The tree to add the dissection to
+*       tvb - The tvbbuff of packet data
+*       offset - The offset in TVB where the attribute begins      */
+static int parse_ClassPortInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
+{
+    gint        local_offset = *offset;
+    proto_tree *ClassPortInfo_header_tree;
+
+    if (!parentTree)
+        return *offset;
+
+    ClassPortInfo_header_tree = parentTree;
+
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_BaseVersion, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    local_offset += 1;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_ClassVersion, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    local_offset += 1;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_CapabilityMask, tvb, local_offset, 2, ENC_BIG_ENDIAN);
+    local_offset += 2;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_CapabilityMask2, tvb, local_offset, 4, ENC_BIG_ENDIAN);
+    local_offset += 3;
+
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RespTimeValue, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    local_offset += 1;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RedirectGID, tvb, local_offset, 16, ENC_NA);
+    local_offset += 16;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RedirectTC, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    local_offset += 1;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RedirectSL, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RedirectFL, tvb, local_offset, 3, ENC_BIG_ENDIAN);
+    local_offset += 3;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RedirectLID, tvb, local_offset, 2, ENC_BIG_ENDIAN);
+    local_offset += 2;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RedirectP_Key, tvb, local_offset, 2, ENC_BIG_ENDIAN);
+    local_offset += 2;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_Reserved, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    local_offset += 1;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RedirectQP, tvb, local_offset, 3, ENC_BIG_ENDIAN);
+    local_offset += 3;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_RedirectQ_Key, tvb, local_offset, 4, ENC_BIG_ENDIAN);
+    local_offset += 4;
+
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_TrapGID, tvb, local_offset, 16, ENC_NA);
+    local_offset += 16;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_TrapTC, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    local_offset += 1;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_TrapSL, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_TrapFL, tvb, local_offset, 3, ENC_BIG_ENDIAN);
+    local_offset += 3;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_TrapLID, tvb, local_offset, 2, ENC_BIG_ENDIAN);
+    local_offset += 2;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_TrapP_Key, tvb, local_offset, 2, ENC_BIG_ENDIAN);
+    local_offset += 2;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_Reserved, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    local_offset += 1;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_TrapQP, tvb, local_offset, 3, ENC_BIG_ENDIAN);
+    local_offset += 3;
+    proto_tree_add_item(ClassPortInfo_header_tree, hf_infiniband_ClassPortInfo_TrapQ_Key, tvb, local_offset, 4, ENC_BIG_ENDIAN);
+    local_offset += 4;
+
+    return local_offset;
+}
 
 /* Parse NoticeDataDetails Attribute Field
 * IN:   parentTree - The tree to add the dissection to
@@ -4410,8 +4517,7 @@ static gint parse_NoticeDataDetails(proto_tree* parentTree, tvbuff_t* tvb, gint 
 /* Parse NoticesAndTraps Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_NoticesAndTraps(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4455,8 +4561,7 @@ static void parse_NoticesAndTraps(proto_tree* parentTree, tvbuff_t* tvb, gint *o
 /* Parse NodeDescription Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_NodeDescription(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4472,8 +4577,7 @@ static void parse_NodeDescription(proto_tree* parentTree, tvbuff_t* tvb, gint *o
 /* Parse NodeInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_NodeInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4516,8 +4620,7 @@ static int parse_NodeInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse SwitchInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_SwitchInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4563,8 +4666,7 @@ static int parse_SwitchInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse GUIDInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_GUIDInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4589,8 +4691,7 @@ static int parse_GUIDInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse PortInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_PortInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4621,7 +4722,7 @@ static int parse_PortInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_SM, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_NoticeSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_TrapSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
-    proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_OptionalPDSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_OptionalIPDSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_AutomaticMigrationSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_SLMappingSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_MKeyNVRAM, tvb, local_offset, 4, ENC_BIG_ENDIAN);
@@ -4630,7 +4731,7 @@ static int parse_PortInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_SMdisabled, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_SystemImageGUIDSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_PKeySwitchExternalPortTrapSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
-    proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_CommunicationsManagementSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_CommunicationManagementSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_SNMPTunnelingSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_ReinitSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(PortInfo_CapabilityMask_tree, hf_infiniband_PortInfo_CapabilityMask_DeviceManagementSupported, tvb, local_offset, 4, ENC_BIG_ENDIAN);
@@ -4851,8 +4952,7 @@ static int parse_PortInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse P_KeyTable Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_P_KeyTable(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4882,8 +4982,7 @@ static void parse_P_KeyTable(proto_tree* parentTree, tvbuff_t* tvb, gint *offset
 /* Parse SLtoVLMappingTable Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_SLtoVLMappingTable(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4913,8 +5012,7 @@ static void parse_SLtoVLMappingTable(proto_tree* parentTree, tvbuff_t* tvb, gint
 /* Parse VLArbitrationTable Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_VLArbitrationTable(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -4945,8 +5043,7 @@ static void parse_VLArbitrationTable(proto_tree* parentTree, tvbuff_t* tvb, gint
 /* Parse LinearForwardingTable Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_LinearForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        i;
@@ -4973,8 +5070,7 @@ static void parse_LinearForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, g
 /* Parse RandomForwardingTable Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_RandomForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        i;
@@ -5009,8 +5105,7 @@ static void parse_RandomForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, g
 /* Parse NoticesAndTraps Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_MulticastForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        i;
@@ -5038,8 +5133,7 @@ static void parse_MulticastForwardingTable(proto_tree* parentTree, tvbuff_t* tvb
 /* Parse SMInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_SMInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5068,8 +5162,7 @@ static int parse_SMInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse VendorDiag Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_VendorDiag(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5094,8 +5187,7 @@ static int parse_VendorDiag(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse LedInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static void parse_LedInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5115,8 +5207,7 @@ static void parse_LedInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse LinkSpeedWidthPairsTable Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_LinkSpeedWidthPairsTable(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5144,10 +5235,10 @@ static int parse_LinkSpeedWidthPairsTable(proto_tree* parentTree, tvbuff_t* tvb,
    return local_offset;
 }
 
-/* Parse RID Field from Subnet Administraiton Packets.
+/* Parse RID Field from Subnet Administration Packets.
 * IN: SA_header_tree - the dissection tree of the subnet admin attribute.
 *     tvb - the packet buffer
-*      MadHeader - the Common MAD header from this packet.
+*     MadHeader - the Common MAD header from this packet.
 * IN/OUT:  offset - the current and updated offset in the packet buffer */
 static void parse_RID(proto_tree* SA_header_tree, tvbuff_t* tvb, gint *offset, MAD_Data* MadHeader)
 {
@@ -5222,7 +5313,7 @@ static void parse_RID(proto_tree* SA_header_tree, tvbuff_t* tvb, gint *offset, M
                 local_offset += 4;
                 break;
             case 0x0036:
-                /*VLArbitrationTableRecord */
+                /* VLArbitrationTableRecord */
                 proto_tree_add_item(SA_header_tree, hf_infiniband_SA_LID, tvb, local_offset, 2, ENC_BIG_ENDIAN);
                 local_offset += 2;
                 proto_tree_add_item(SA_header_tree, hf_infiniband_SA_OutputPortNum, tvb, local_offset, 1, ENC_BIG_ENDIAN);
@@ -5302,8 +5393,7 @@ static void parse_RID(proto_tree* SA_header_tree, tvbuff_t* tvb, gint *offset, M
 /* Parse InformInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_InformInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5348,8 +5438,7 @@ static int parse_InformInfo(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse LinkRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_LinkRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5376,8 +5465,7 @@ static int parse_LinkRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse ServiceRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_ServiceRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5420,8 +5508,7 @@ static int parse_ServiceRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offs
 /* Parse PathRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_PathRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5478,8 +5565,7 @@ static int parse_PathRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 /* Parse MCMemberRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins   */
 static int parse_MCMemberRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5529,8 +5615,7 @@ static int parse_MCMemberRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *off
 /* Parse TraceRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_TraceRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5572,8 +5657,7 @@ static int parse_TraceRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset
 /* Parse MultiPathRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_MultiPathRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -5649,8 +5733,7 @@ static int parse_MultiPathRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *of
 /* Parse ServiceAssociationRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
 *       tvb - The tvbbuff of packet data
-*       offset - The offset in TVB where the attribute begins
-*       MadHeader - The common MAD header of the current SMP/SMA  */
+*       offset - The offset in TVB where the attribute begins     */
 static int parse_ServiceAssociationRecord(proto_tree* parentTree, tvbuff_t* tvb, gint *offset)
 {
     gint        local_offset = *offset;
@@ -6058,6 +6141,13 @@ void proto_register_infiniband(void)
         { 0x06, "Report()" },
         { 0x86, "ReportResp()" },
         { 0x07, "TrapRepress()" },
+        { 0x12, "GetTable()" },
+        { 0x92, "GetTableResp()" },
+        { 0x13, "GetTraceTable()" },
+        { 0x14, "GetMulti()" },
+        { 0x94, "GetMultiResp()" },
+        { 0x15, "Delete()" },
+        { 0x95, "DeleteResp()" },
         { 0,    NULL }
     };
 
@@ -6215,7 +6305,7 @@ void proto_register_infiniband(void)
         },
         { &hf_infiniband_queue_key, {
                 "Queue Key", "infiniband.deth.q_key",
-                FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL}
+                FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_infiniband_source_qp, {
                 "Source Queue Pair", "infiniband.deth.srcqp",
@@ -7103,8 +7193,8 @@ void proto_register_infiniband(void)
                 "TrapSupported", "infiniband.portinfo.capabilitymask.trapsupported",
                 FT_UINT32, BASE_HEX, NULL, 0x00000008, NULL, HFILL}
         },
-        { &hf_infiniband_PortInfo_CapabilityMask_OptionalPDSupported, {
-                "OptionalPDSupported", "infiniband.portinfo.capabilitymask.optionalpdsupported",
+        { &hf_infiniband_PortInfo_CapabilityMask_OptionalIPDSupported, {
+                "OptionalIPDSupported", "infiniband.portinfo.capabilitymask.optionalipdsupported",
                 FT_UINT32, BASE_HEX, NULL, 0x00000010, NULL, HFILL}
         },
         { &hf_infiniband_PortInfo_CapabilityMask_AutomaticMigrationSupported, {
@@ -7139,8 +7229,8 @@ void proto_register_infiniband(void)
                 "PKeySwitchExternalPortTrapSupported", "infiniband.portinfo.capabilitymask.pkeyswitchexternalporttrapsupported",
                 FT_UINT32, BASE_HEX, NULL, 0x00001000, NULL, HFILL}
         },
-        { &hf_infiniband_PortInfo_CapabilityMask_CommunicationsManagementSupported, {
-                "CommunicationsManagementSupported", "infiniband.portinfo.capabilitymask.communicationsmanagementsupported",
+        { &hf_infiniband_PortInfo_CapabilityMask_CommunicationManagementSupported, {
+                "CommunicationManagementSupported", "infiniband.portinfo.capabilitymask.communicationmanagementsupported",
                 FT_UINT32, BASE_HEX, NULL, 0x00010000, NULL, HFILL}
         },
         { &hf_infiniband_PortInfo_CapabilityMask_SNMPTunnelingSupported, {
@@ -7932,6 +8022,96 @@ void proto_register_infiniband(void)
                 FT_IPv6, BASE_NONE, NULL, 0x0, NULL, HFILL}
         },
 
+        /* ClassPortInfo */
+        { &hf_infiniband_ClassPortInfo_BaseVersion, {
+                "BaseVersion", "infiniband.classportinfo.baseversion",
+                FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_ClassVersion, {
+                "ClassVersion", "infiniband.classportinfo.classversion",
+                FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_CapabilityMask, {
+                "CapabilityMask", "infiniband.classportinfo.capabilitymask",
+                FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_CapabilityMask2, {
+                "CapabilityMask2", "infiniband.classportinfo.capabilitymask2",
+                FT_UINT32, BASE_HEX, NULL, 0xFFFFFFE0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RespTimeValue, {
+                "RespTimeValue", "infiniband.classportinfo.resptimevalue",
+                FT_UINT8, BASE_HEX, NULL, 0x1F, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RedirectGID, {
+                "RedirectGID", "infiniband.classportinfo.redirectgid",
+                FT_IPv6, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RedirectTC, {
+                "RedirectTC", "infiniband.classportinfo.redirecttc",
+                FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RedirectSL, {
+                "RedirectSL", "infiniband.classportinfo.redirectsl",
+                FT_UINT8, BASE_HEX, NULL, 0xF0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RedirectFL, {
+                "RedirectFL", "infiniband.classportinfo.redirectfl",
+                FT_UINT24, BASE_HEX, NULL, 0xFFFFF, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RedirectLID, {
+                "RedirectLID", "infiniband.classportinfo.redirectlid",
+                FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RedirectP_Key, {
+                "RedirectP_Key", "infiniband.classportinfo.redirectpkey",
+                FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_Reserved, {
+                "Reserved", "infiniband.classportinfo.reserved",
+                FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RedirectQP, {
+                "RedirectQP", "infiniband.classportinfo.redirectqp",
+                FT_UINT24, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_RedirectQ_Key, {
+                "RedirectQ_Key", "infiniband.classportinfo.redirectqkey",
+                FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_TrapGID, {
+                "TrapGID", "infiniband.classportinfo.trapgid",
+                FT_IPv6, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_TrapTC, {
+                "TrapTC", "infiniband.classportinfo.traptc",
+                FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_TrapSL, {
+                "TrapSL", "infiniband.classportinfo.trapsl",
+                FT_UINT8, BASE_HEX, NULL, 0xF0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_TrapFL, {
+                "TrapFL", "infiniband.classportinfo.trapfl",
+                FT_UINT24, BASE_HEX, NULL, 0xFFFFF, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_TrapLID, {
+                "TrapLID", "infiniband.classportinfo.traplid",
+                FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_TrapP_Key, {
+                "TrapP_Key", "infiniband.classportinfo.trappkey",
+                FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_TrapQP, {
+                "TrapQP", "infiniband.classportinfo.trapqp",
+                FT_UINT24, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_infiniband_ClassPortInfo_TrapQ_Key, {
+                "TrapQ_Key", "infiniband.classportinfo.trapqkey",
+                FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+
         /* Notice */
         { &hf_infiniband_Notice_IsGeneric, {
                 "IsGeneric", "infiniband.notice.isgeneric",
@@ -8121,6 +8301,12 @@ void proto_register_infiniband(void)
         { &hf_infiniband_Trap_SWLIDADDR, {
                 "SWLIDADDR", "infiniband.trap.swlidaddr",
                 FT_IPv6, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        /* ClassPortInfo in Performance class */
+        { &hf_infiniband_PerfMgt_ClassPortInfo, {
+                "ClassPortInfo (Performance Management MAD)", "infiniband.classportinfo",
+               FT_NONE, BASE_NONE, NULL, 0x0,
+                "Performance class ClassPortInfo packet", HFILL}
         },
         /* PortCounters in Performance class */
         { &hf_infiniband_PortCounters, {

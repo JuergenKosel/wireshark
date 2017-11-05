@@ -418,12 +418,11 @@ EXTRALINKFLAGS = -export-dynamic
 endif
 
 EPAN_EXTRA_LIBS = \
-	@SSL_LIBS@			\
 	@C_ARES_LIBS@			\
 	@KRB5_LIBS@			\
 	@LIBGCRYPT_LIBS@		\
 	@LIBGNUTLS_LIBS@		\
-	@LIBSMI_LDFLAGS@
+	@LIBSMI_LIBS@
 
 # Libraries and plugin flags with which to link wireshark.
 #

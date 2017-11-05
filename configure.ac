@@ -432,10 +432,6 @@ linux*)
 	fi
 esac
 
-# libsmi
-# FIXME: currently the path argument to with-libsmi is being ignored
-AX_LIBSMI
-
 #
 # Check if we should build the Wireshark User's Guide
 #
@@ -2134,39 +2130,6 @@ linux*)
 	;;
 esac
 
-dnl SSL Check
-SSL_LIBS=''
-AC_MSG_CHECKING(whether to use SSL library)
-
-AC_ARG_WITH(ssl,
-  AC_HELP_STRING( [--with-ssl@<:@=DIR@:>@],
-		  [use SSL crypto library (located in directory DIR, if supplied) @<:@default=no@:>@]),
-[
-if test "x$withval" = "xno";  then
-	want_ssl=no
-elif test "x$withval" = "xyes"; then
-	want_ssl=yes
-elif test -d "$withval"; then
-	want_ssl=yes
-	AC_WIRESHARK_ADD_DASH_L(WS_LDFLAGS, ${withval}/lib)
-fi
-],[
-	want_ssl=no
-])
-if test "x$want_ssl" = "xyes"; then
-	AC_MSG_RESULT(yes)
-	AC_CHECK_LIB(crypto,EVP_md5,
-	    [
-		SSL_LIBS=-lcrypto
-	    ],
-	    [
-		AC_MSG_ERROR([SSL crypto library was requested, but is not installed for development])
-	    ])
-else
-	AC_MSG_RESULT(no)
-fi
-AC_SUBST(SSL_LIBS)
-
 dnl kerberos check
 AC_MSG_CHECKING(whether to use Kerberos library)
 
@@ -2198,6 +2161,15 @@ else
 	AC_WIRESHARK_KRB5_CHECK
 fi
 
+dnl
+dnl We use GnuTLS for SSL decryption but some builds of Kerberos require
+dnl linking with OpenSSL. We don't want to build with it by default due to
+dnl annoying license incompatibilities between the OpenSSL license and the GPL,
+dnl so we require an explicit option to configure.
+dnl
+AC_ARG_WITH(krb5-crypto-openssl,
+  AC_HELP_STRING( [--with-krb5-crypto-openssl],
+		  [Allow linking with OpenSSL for Kerberos crypto backend @<:@default=no@:>@]))
 
 dnl c-ares Check
 C_ARES_LIBS=''
@@ -2451,6 +2423,27 @@ else
 fi
 AM_CONDITIONAL(HAVE_LIBXML2, test "x$have_libxml2" = "xyes")
 
+#
+# Libsmi check
+#
+AC_ARG_WITH(libsmi,
+  AC_HELP_STRING([--with-libsmi=@<:@yes/no@:>@],
+		 [use libsmi MIB/PIB library @<:@default=yes, if available@:>@]),
+		 [], [with_libsmi="if_available"])
+
+have_libsmi=no
+if test "x$with_libsmi" != "xno"; then
+	PKG_CHECK_MODULES(LIBSMI, libsmi,
+		[have_libsmi=yes
+		 AC_DEFINE(HAVE_LIBSMI, 1, [Define if you have libsmi])
+		],
+		[if test "x$with_libsmi" = "xyes"; then
+			# Error out if the user explicitly requested libsmi
+			AC_MSG_ERROR([Libsmi was requested, but is not installed for development])
+		 fi
+		]
+	)
+fi
 
 dnl
 dnl check whether plugins should be enabled
@@ -2936,12 +2929,6 @@ else
 	portaudio_message="no"
 fi
 
-if test "x$want_ssl" = "xno" ; then
-	ssl_message="no"
-else
-	ssl_message="yes"
-fi
-
 if test "x$want_krb5" = "xno" ; then
 	krb5_message="no"
 else
@@ -3042,9 +3029,8 @@ echo "                   Use pcap library : $want_pcap"
 echo "                   Use zlib library : $zlib_message"
 echo "               Use kerberos library : $krb5_message"
 echo "                 Use c-ares library : $c_ares_message"
-echo "                Use SMI MIB library : $libsmi_message"
+echo "                Use SMI MIB library : $have_libsmi"
 echo "             Use GNU gcrypt library : yes"
-echo "             Use SSL crypto library : $ssl_message"
 echo "                 Use GnuTLS library : $tls_message"
 echo "     Use POSIX capabilities library : $libcap_message"
 echo "                  Use GeoIP library : $geoip_message"
