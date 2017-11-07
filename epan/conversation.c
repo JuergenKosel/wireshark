@@ -1400,14 +1400,10 @@ endpoint_type conversation_pt_to_endpoint_type(port_type pt)
 		return ENDPOINT_DCCP;
 	case PT_IPX:
 		return ENDPOINT_IPX;
-	case PT_EXCHG:
-		return ENDPOINT_EXCHG;
 	case PT_DDP:
 		return ENDPOINT_DDP;
 	case PT_IDP:
 		return ENDPOINT_IDP;
-	case PT_TIPC:
-		return ENDPOINT_TIPC;
 	case PT_USB:
 		return ENDPOINT_USB;
 	case PT_I2C:

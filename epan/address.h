@@ -362,10 +362,8 @@ typedef enum {
     PT_UDP,             /* UDP */
     PT_DCCP,            /* DCCP */
     PT_IPX,             /* IPX sockets */
-    PT_EXCHG,           /* Fibre Channel exchange */
     PT_DDP,             /* DDP AppleTalk connection */
     PT_IDP,             /* XNS IDP sockets */
-    PT_TIPC,            /* TIPC PORT */
     PT_USB,             /* USB endpoint 0xffff means the host */
     PT_I2C,
     PT_IBQP,            /* Infiniband QP number */
