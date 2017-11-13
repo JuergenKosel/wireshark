@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #include <config.h>
@@ -41,10 +29,7 @@
 #endif
 
 #include <wsutil/socket.h>
-
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif
+#include <wsutil/inet_addr.h>
 
 #ifndef _WIN32
 #include <sys/un.h>
@@ -145,7 +130,7 @@ socket_init(char *path)
 			return INVALID_SOCKET;
 
 		s_in.sin_family = AF_INET;
-		s_in.sin_addr.s_addr = inet_addr(path);
+		ws_inet_pton4(path, &(s_in.sin_addr.s_addr));
 		s_in.sin_port = g_htons(port);
 		*port_sep = ':';
 

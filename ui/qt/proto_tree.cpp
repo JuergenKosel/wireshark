@@ -27,8 +27,9 @@
 #include <epan/prefs.h>
 
 #include <ui/qt/utils/color_utils.h>
-
 #include <ui/qt/utils/variant_pointer.h>
+#include <ui/qt/utils/wireshark_mime_data.h>
+#include <ui/qt/widgets/drag_label.h>
 
 #include <QApplication>
 #include <QContextMenuEvent>
@@ -37,6 +38,12 @@
 #include <QScrollBar>
 #include <QTreeWidgetItemIterator>
 #include <QUrl>
+#include <QItemSelectionModel>
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+#include <QWindow>
+#endif
+
 
 // To do:
 // - Fix "apply as filter" behavior.
@@ -154,7 +161,8 @@ proto_tree_draw_node(proto_node *node, gpointer data)
 ProtoTree::ProtoTree(QWidget *parent) :
     QTreeWidget(parent),
     decode_as_(NULL),
-    column_resize_timer_(0)
+    column_resize_timer_(0),
+    cap_file_(NULL)
 {
     setAccessibleName(tr("Packet details"));
     // Leave the uniformRowHeights property as-is (false) since items might
@@ -286,6 +294,8 @@ ProtoTree::ProtoTree(QWidget *parent) :
     // have scrolled to an area with a different width at this point.
     connect(verticalScrollBar(), SIGNAL(sliderReleased()),
             this, SLOT(updateContentWidth()));
+
+    viewport()->installEventFilter(this);
 }
 
 void ProtoTree::closeContextMenu()
@@ -309,6 +319,7 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
         conv_menu_.addAction(action);
     }
 
+    FieldInformation * finfo = 0;
     field_info *fi = NULL;
     const char *module_name = NULL;
     if (selectedItems().count() > 0) {
@@ -320,17 +331,19 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
                 module_name = proto_registrar_get_abbrev(fi->hfinfo->parent);
             }
         }
+        finfo = new FieldInformation(fi, this);
     }
     proto_prefs_menu_.setModule(module_name);
 
     foreach (QAction *action, copy_actions_) {
-        action->setData(VariantPointer<field_info>::asQVariant(fi));
+        action->setProperty("idataprintable_",
+                VariantPointer<IDataPrintable>::asQVariant((IDataPrintable *)finfo));
     }
 
     decode_as_->setData(qVariantFromValue(true));
 
     // Set menu sensitivity and action data.
-    emit protoItemSelected(fi);
+    emit fieldSelected(finfo);
     ctx_menu_.exec(event->globalPos());
     decode_as_->setData(QVariant());
 }
@@ -421,29 +434,21 @@ void ProtoTree::updateSelectionStatus(QTreeWidgetItem* item)
         fi = VariantPointer<field_info>::asPtr(item->data(0, Qt::UserRole));
         if (!fi || !fi->hfinfo) return;
 
-        if (fi->hfinfo->blurb != NULL && fi->hfinfo->blurb[0] != '\0') {
-            item_info.append(QString().fromUtf8(fi->hfinfo->blurb));
-        } else {
-            item_info.append(QString().fromUtf8(fi->hfinfo->name));
+        FieldInformation * finfo = new FieldInformation(fi, this);
+
+        // Find and highlight the protocol bytes
+        QTreeWidgetItem * parent = item->parent();
+        while (parent && parent->parent()) {
+            parent = parent->parent();
+        }
+        if (parent) {
+            finfo->setParentField(VariantPointer<field_info>::asPtr(parent->data(0, Qt::UserRole)));
         }
 
-        if (!item_info.isEmpty()) {
-            int finfo_length;
-            item_info.append(" (" + QString().fromUtf8(fi->hfinfo->abbrev) + ")");
-
-            finfo_length = fi->length + fi->appendix_length;
-            if (finfo_length == 1) {
-                item_info.append(tr(", 1 byte"));
-            } else if (finfo_length > 1) {
-                item_info.append(QString(tr(", %1 bytes")).arg(finfo_length));
-            }
-
+        if ( finfo->isValid() )
+        {
             saveSelectedField(item);
-
-            emit protoItemSelected("");
-            emit protoItemSelected(NULL);
-            emit protoItemSelected(item_info);
-            emit protoItemSelected(fi);
+            emit fieldSelected(finfo);
         } // else the GTK+ version pushes an empty string as described below.
         /*
          * Don't show anything if the field name is zero-length;
@@ -464,9 +469,6 @@ void ProtoTree::updateSelectionStatus(QTreeWidgetItem* item)
          * also require special checks for -1 to be added.
          */
 
-    } else {
-        emit protoItemSelected("");
-        emit protoItemSelected(NULL);
     }
 }
 
@@ -590,16 +592,21 @@ void ProtoTree::itemDoubleClick(QTreeWidgetItem *item, int) {
     }
 }
 
-void ProtoTree::selectField(field_info *fi)
+void ProtoTree::selectedFieldChanged(FieldInformation * finfo)
 {
-    QTreeWidgetItemIterator iter(this);
-    while (*iter) {
-        if (fi == VariantPointer<field_info>::asPtr((*iter)->data(0, Qt::UserRole))) {
-            setCurrentItem(*iter);
-            scrollToItem(*iter);
-            break;
+    if ( finfo )
+    {
+        field_info * fi = finfo->fieldInfo();
+
+        QTreeWidgetItemIterator iter(this);
+        while (*iter) {
+            if (fi == VariantPointer<field_info>::asPtr((*iter)->data(0, Qt::UserRole))) {
+                setCurrentItem(*iter);
+                scrollToItem(*iter);
+                break;
+            }
+            ++iter;
         }
-        ++iter;
     }
 }
 
@@ -689,6 +696,81 @@ void ProtoTree::restoreSelectedField()
         ++iter;
     }
 }
+
+void ProtoTree::setCaptureFile(capture_file *cf)
+{
+    cap_file_ = cf;
+}
+
+bool ProtoTree::eventFilter(QObject * obj, QEvent * event)
+{
+    if ( cap_file_ && event->type() != QEvent::MouseButtonPress && event->type() != QEvent::MouseMove )
+        return QTreeWidget::eventFilter(obj, event);
+
+    /* Mouse was over scrollbar, ignoring */
+    if ( qobject_cast<QScrollBar *>(obj) )
+        return QTreeWidget::eventFilter(obj, event);
+
+    if ( event->type() == QEvent::MouseButtonPress )
+    {
+        QMouseEvent * ev = (QMouseEvent *)event;
+
+        if ( ev->buttons() & Qt::LeftButton )
+            dragStartPosition = ev->pos();
+    }
+    else if ( event->type() == QEvent::MouseMove )
+    {
+        QMouseEvent * ev = (QMouseEvent *)event;
+
+        if ( ( ev->buttons() & Qt::LeftButton ) && (ev->pos() - dragStartPosition).manhattanLength()
+                 > QApplication::startDragDistance())
+        {
+            QTreeWidgetItem * item = itemAt(dragStartPosition);
+            if ( item )
+            {
+                field_info * fi = VariantPointer<field_info>::asPtr(item->data(0, Qt::UserRole));
+                if ( fi )
+                {
+                    /* Hack to prevent QItemSelection taking the item which has been dragged over at start
+                     * of drag-drop operation. selectionModel()->blockSignals could have done the trick, but
+                     * it does not take in a QTreeWidget (maybe View) */
+                    QModelIndex idx = indexFromItem(item, 0);
+                    emit fieldSelected(new FieldInformation(fi, this));
+                    selectionModel()->select(idx, QItemSelectionModel::ClearAndSelect);
+
+                    QString filter = QString(proto_construct_match_selected_string(fi, cap_file_->edt));
+
+                    if ( filter.length() > 0 )
+                    {
+                        DisplayFilterMimeData * dfmd =
+                                new DisplayFilterMimeData(QString(fi->hfinfo->name), QString(fi->hfinfo->abbrev), filter);
+                        QDrag * drag = new QDrag(this);
+                        drag->setMimeData(dfmd);
+
+                        DragLabel * content = new DragLabel(dfmd->labelText(), this);
+
+    #if QT_VERSION >= QT_VERSION_CHECK(5, 1, 0)
+                        qreal dpr = window()->windowHandle()->devicePixelRatio();
+                        QPixmap pixmap(content->size() * dpr);
+                        pixmap.setDevicePixelRatio(dpr);
+    #else
+                        QPixmap pixmap(content->size());
+    #endif
+                        content->render(&pixmap);
+                        drag->setPixmap(pixmap);
+
+                        drag->exec(Qt::CopyAction);
+
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return QTreeWidget::eventFilter(obj, event);
+}
+
 
 /*
  * Editor modelines

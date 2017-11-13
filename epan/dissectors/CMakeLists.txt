@@ -1675,6 +1675,7 @@ set(DISSECTOR_SRC
 	packet-turbocell.c
 	packet-turnchannel.c
 	packet-tuxedo.c
+	packet-twamp.c
 	packet-tzsp.c
 	packet-u3v.c
 	packet-ua.c
@@ -1748,6 +1749,7 @@ set(DISSECTOR_SRC
 	packet-wifi-p2p.c
 	packet-windows-common.c
 	packet-winsrepl.c
+	packet-wisun.c
 	packet-wlccp.c
 	packet-wol.c
 	packet-wow.c

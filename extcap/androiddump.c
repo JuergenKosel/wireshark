@@ -7,19 +7,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 #include "config.h"
 
@@ -33,6 +21,7 @@
 #include <wsutil/strtoi.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/cmdarg_err.h>
+#include <wsutil/inet_addr.h>
 
 #include "ui/failure_message.h"
 
@@ -539,7 +528,7 @@ static socket_handle_t adb_connect(const char *server_ip, unsigned short *server
 
     server.sin_family = AF_INET;
     server.sin_port = GINT16_TO_BE(*server_tcp_port);
-    server.sin_addr.s_addr = inet_addr(server_ip);
+    ws_inet_pton4(server_ip, &(server.sin_addr.s_addr));
 
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) {
         g_warning("Cannot open system TCP socket: %s", strerror(errno));
@@ -1680,7 +1669,7 @@ static int capture_android_bluetooth_external_parser(char *interface,
         memset(&server, 0 , sizeof(server));
         server.sin_family = AF_INET;
         server.sin_port = GINT16_TO_BE(*bt_local_tcp_port);
-        server.sin_addr.s_addr = inet_addr(bt_local_ip);
+        ws_inet_pton4(bt_local_ip, &(server.sin_addr.s_addr));
 
         useSndTimeout(sock);
 
@@ -1755,7 +1744,7 @@ static int capture_android_bluetooth_external_parser(char *interface,
 
                 server.sin_family = AF_INET;
                 server.sin_port = GINT16_TO_BE(*bt_local_tcp_port);
-                server.sin_addr.s_addr = inet_addr(bt_local_ip);
+                ws_inet_pton4(bt_local_ip, &(server.sin_addr.s_addr));
 
                 useSndTimeout(sock);
 

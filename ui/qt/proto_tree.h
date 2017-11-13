@@ -26,8 +26,11 @@
 
 #include <epan/proto.h>
 
+#include "cfile.h"
+
 #include "protocol_preferences_menu.h"
 
+#include <ui/qt/utils/field_information.h>
 #include <QTreeWidget>
 #include <QMenu>
 
@@ -40,7 +43,6 @@ public:
     void fillProtocolTree(proto_tree *protocol_tree);
     void emitRelatedFrame(int related_frame, ft_framenum_type_t framenum_type = FT_FRAMENUM_NONE);
     void goToField(int hf_id);
-    void selectField(field_info *fi);
     void closeContextMenu();
     void clear();
     void saveSelectedField(QTreeWidgetItem *);
@@ -50,6 +52,8 @@ protected:
     virtual void contextMenuEvent(QContextMenuEvent *event);
     virtual void timerEvent(QTimerEvent *event);
     virtual void keyReleaseEvent(QKeyEvent *event);
+
+    virtual bool eventFilter(QObject * obj, QEvent * ev);
 
 private:
     QMenu ctx_menu_;
@@ -62,9 +66,13 @@ private:
     int column_resize_timer_;
     QList<int> selected_field_path_;
 
+    QPoint dragStartPosition;
+
+    capture_file *cap_file_;
+
 signals:
-    void protoItemSelected(const QString &);
-    void protoItemSelected(field_info *);
+    void fieldSelected(FieldInformation *);
+
     void openPacketInNewWindow(bool);
     void goToPacket(int);
     void relatedFrame(int, ft_framenum_type_t);
@@ -72,6 +80,9 @@ signals:
     void editProtocolPreference(struct preference *pref, struct pref_module *module);
 
 public slots:
+
+    /* Set the capture file */
+    void setCaptureFile(capture_file *cf);
     void setMonospaceFont(const QFont &mono_font);
     void updateSelectionStatus(QTreeWidgetItem*);
     void expand(const QModelIndex & index);
@@ -80,6 +91,8 @@ public slots:
     void expandAll();
     void collapseAll();
     void itemDoubleClick(QTreeWidgetItem *item, int column);
+
+    void selectedFieldChanged(FieldInformation *);
 
 private slots:
     void updateContentWidth();

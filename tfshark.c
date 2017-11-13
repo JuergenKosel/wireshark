@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #include <config.h>
@@ -107,6 +95,8 @@ static frame_data prev_dis_frame;
 static frame_data *prev_cap;
 static frame_data prev_cap_frame;
 
+static gboolean prefs_loaded = FALSE;
+
 static gboolean perform_two_pass_analysis;
 
 /*
@@ -157,7 +147,6 @@ static void failure_message_cont(const char *msg_format, va_list ap);
 capture_file cfile;
 
 static GHashTable *output_only_tables = NULL;
-static e_prefs *prefs_p = NULL;
 
 #if 0
 struct string_elem {
@@ -288,7 +277,7 @@ tfshark_log_handler (const gchar *log_domain, GLogLevelFlags log_level,
            ERROR and CRITICAL level messages so the current code is a behavioral
            change.  The current behavior is the same as in Wireshark.
   */
-  if (prefs_p && (log_level & G_LOG_LEVEL_MASK & prefs.console_log_level) == 0) {
+  if (prefs_loaded && (log_level & G_LOG_LEVEL_MASK & prefs.console_log_level) == 0) {
     return;
   }
 
@@ -345,6 +334,7 @@ main(int argc, char *argv[])
   dfilter_t           *rfcode = NULL;
   dfilter_t           *dfcode = NULL;
   gchar               *err_msg;
+  e_prefs             *prefs_p;
   int                  log_flags;
   gchar               *output_only = NULL;
 
@@ -600,6 +590,7 @@ main(int argc, char *argv[])
 
   /* Load libwireshark settings from the current profile. */
   prefs_p = epan_load_settings();
+  prefs_loaded = TRUE;
 
   cap_file_init(&cfile);
 
@@ -908,7 +899,7 @@ main(int argc, char *argv[])
      have a tap filter with one of MATE's late-registered fields as part
      of the filter.  We can now process all the "-z" arguments. */
   start_requested_stats();
-  
+
   /*
    * Enabled and disabled protocols and heuristic dissectors as per
    * command-line options.

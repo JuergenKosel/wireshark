@@ -153,6 +153,7 @@ GENERATOR_FILES =
 MOC_WIDGET_HDRS = \
 	widgets/additional_toolbar.h			\
 	widgets/apply_line_edit.h			\
+	widgets/byte_view_text.h			\
 	widgets/capture_filter_combo.h			\
 	widgets/capture_filter_edit.h			\
 	widgets/clickable_label.h			\
@@ -171,13 +172,18 @@ MOC_WIDGET_HDRS = \
 	widgets/stock_icon_tool_button.h		\
 	widgets/tabnav_tree_view.h			\
 	widgets/drag_drop_toolbar.h			\
+	widgets/drag_label.h			\
 	widgets/qcustomplot.h
 
 # Files that are utility classes with multi-purpose, but no widgets
 MOC_UTILS_HDRS = \
 	utils/color_utils.h				\
+	utils/field_information.h			\
+	utils/frame_information.h			\
+	utils/data_printer.h				\
 	utils/stock_icon.h				\
 	utils/qt_ui_utils.h				\
+	utils/wireshark_mime_data.h		\
 	utils/variant_pointer.h
 
 # Files for delegates and models
@@ -213,7 +219,6 @@ MOC_HDRS = \
 	bluetooth_devices_dialog.h			\
 	bluetooth_hci_summary_dialog.h			\
 	byte_view_tab.h					\
-	byte_view_text.h				\
 	capture_file.h					\
 	capture_file_dialog.h				\
 	capture_file_properties_dialog.h		\
@@ -467,6 +472,7 @@ QM_FILES = $(TS_FILES:.ts=.qm)
 WIRESHARK_QT_WIDGET_SRC = \
 	widgets/additional_toolbar.cpp			\
 	widgets/apply_line_edit.cpp			\
+	widgets/byte_view_text.cpp			\
 	widgets/capture_filter_combo.cpp		\
 	widgets/capture_filter_edit.cpp			\
 	widgets/clickable_label.cpp			\
@@ -485,11 +491,16 @@ WIRESHARK_QT_WIDGET_SRC = \
 	widgets/syntax_line_edit.cpp			\
 	widgets/tabnav_tree_view.cpp			\
 	widgets/drag_drop_toolbar.cpp			\
+	widgets/drag_label.cpp			\
 	widgets/qcustomplot.cpp
 
 WIRESHARK_QT_UTILS_SRC = \
 	utils/color_utils.cpp				\
+	utils/field_information.cpp			\
+	utils/frame_information.cpp			\
+	utils/data_printer.cpp				\
 	utils/stock_icon.cpp				\
+	utils/wireshark_mime_data.cpp		\
 	utils/qt_ui_utils.cpp
 
 WIRESHARK_QT_MODELS_SRCS = \
@@ -520,7 +531,6 @@ WIRESHARK_QT_SRC = \
 	bluetooth_devices_dialog.cpp			\
 	bluetooth_hci_summary_dialog.cpp		\
 	byte_view_tab.cpp				\
-	byte_view_text.cpp				\
 	capture_file.cpp				\
 	capture_file_dialog.cpp				\
 	capture_file_properties_dialog.cpp		\

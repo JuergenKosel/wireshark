@@ -357,7 +357,6 @@ k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
         return FALSE;
     }
     net_key_set->nid = (t1[15] & 0x7f);
-    g_warning("NID %x", net_key_set->nid);
     /* T2 = AES-CMAC_T(T1 || P || 0x02)
      * (EncryptionKey)
      */
@@ -556,7 +555,6 @@ dissect_btmesh_transport_constrol_message(tvbuff_t *tvb, packet_info *pinfo, pro
         offset++;
         /* FriendCounter 2 octets */
         proto_tree_add_item(sub_tree, hf_btmesh_friendcounter, tvb, offset, 1, ENC_BIG_ENDIAN);
-        offset+= 2;
         break;
     case 5:
         /* 3.6.5.5 Friend Clear */
@@ -565,7 +563,6 @@ dissect_btmesh_transport_constrol_message(tvbuff_t *tvb, packet_info *pinfo, pro
         offset += 2;
         /* LPNCounter 2 octets */
         proto_tree_add_item(sub_tree, hf_btmesh_lpncounter, tvb, offset, 1, ENC_BIG_ENDIAN);
-        offset += 2;
         break;
     case 6:
         /* 3.6.5.6 Friend Clear Confirm */
@@ -574,7 +571,7 @@ dissect_btmesh_transport_constrol_message(tvbuff_t *tvb, packet_info *pinfo, pro
         offset += 2;
         /* LPNCounter 2 octets */
         proto_tree_add_item(sub_tree, hf_btmesh_lpncounter, tvb, offset, 1, ENC_BIG_ENDIAN);
-        offset += 2;
+
         break;
     case 7:
         /* 3.6.5.7 Friend Subscription List Add */
@@ -827,6 +824,12 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
 }
 
 #else /* GCRYPT_VERSION_NUMBER >= 0x010600 */
+
+static gboolean
+create_master_security_keys(uat_btmesh_record_t * net_key_set _U_)
+{
+    return TRUE;
+}
 
 /* Stub dissector if decryption not available on build system */
 static gint

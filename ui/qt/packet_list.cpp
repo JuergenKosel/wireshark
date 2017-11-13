@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "packet_list.h"
+#include <ui/qt/packet_list.h>
 
 #include "config.h"
 
@@ -56,6 +56,9 @@
 #include "proto_tree.h"
 #include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
+#include <ui/qt/utils/data_printer.h>
+#include <ui/qt/utils/frame_information.h>
+#include <ui/qt/utils/variant_pointer.h>
 
 #include <QAction>
 #include <QActionGroup>
@@ -235,7 +238,6 @@ enum copy_summary_type {
 PacketList::PacketList(QWidget *parent) :
     QTreeView(parent),
     proto_tree_(NULL),
-    byte_view_tab_(NULL),
     cap_file_(NULL),
     decode_as_(NULL),
     ctx_column_(-1),
@@ -473,13 +475,6 @@ void PacketList::setProtoTree (ProtoTree *proto_tree) {
             &related_packet_delegate_, SLOT(addRelatedFrame(int,ft_framenum_type_t)));
 }
 
-void PacketList::setByteViewTab (ByteViewTab *byte_view_tab) {
-    byte_view_tab_ = byte_view_tab;
-
-    connect(proto_tree_, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)),
-            byte_view_tab_, SLOT(protoTreeItemChanged(QTreeWidgetItem*)));
-}
-
 PacketListModel *PacketList::packetListModel() const {
     return packet_list_model_;
 }
@@ -489,10 +484,12 @@ void PacketList::selectionChanged (const QItemSelection & selected, const QItemS
 
     if (!cap_file_) return;
 
+    int row = -1;
+
     if (selected.isEmpty()) {
         cf_unselect_packet(cap_file_);
     } else {
-        int row = selected.first().top();
+        row = selected.first().top();
         cf_select_packet(cap_file_, row);
     }
 
@@ -506,7 +503,7 @@ void PacketList::selectionChanged (const QItemSelection & selected, const QItemS
     related_packet_delegate_.clear();
     if (proto_tree_) proto_tree_->clear();
 
-    emit packetSelectionChanged();
+    emit frameSelected(row);
 
     if (!cap_file_->edt) {
         viewport()->update();
@@ -542,8 +539,8 @@ void PacketList::selectionChanged (const QItemSelection & selected, const QItemS
                                               cap_file_->edt->tvb);
         }
 
-        if (fi && proto_tree_) {
-            proto_tree_->selectField(fi);
+        if (fi) {
+            emit fieldSelected(new FieldInformation(fi, this));
         }
     } else if (!cap_file_->search_in_progress && proto_tree_) {
         proto_tree_->restoreSelectedField();
@@ -575,7 +572,17 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     }
     proto_prefs_menu_.setModule(module_name);
 
+    QModelIndex ctxIndex = indexAt(event->pos());
+    FrameInformation * frameData =
+            new FrameInformation(new CaptureFile(this, cap_file_), packet_list_model_->getRowFdata(ctxIndex.row()));
+
     foreach (QAction *action, copy_actions_) {
+        if ( frameData->isValid() )
+        {
+            action->setProperty("idataprintable_",
+                    VariantPointer<IDataPrintable>::asQVariant((IDataPrintable*)frameData));
+        }
+
         action->setData(QVariant());
     }
 
@@ -583,7 +590,10 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     ctx_column_ = columnAt(event->x());
 
     // Set menu sensitivity for the current column and set action data.
-    emit packetSelectionChanged();
+    if ( frameData )
+        emit frameSelected(frameData->frameNum());
+    else
+        emit frameSelected(-1);
 
     ctx_menu_.exec(event->globalPos());
     ctx_column_ = -1;

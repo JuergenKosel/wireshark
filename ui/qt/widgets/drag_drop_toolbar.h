@@ -37,6 +37,8 @@ public:
 Q_SIGNALS:
     void actionMoved(QAction * action, int oldPos, int newPos);
 
+    void newFilterDropped(QString description, QString filter);
+
 protected:
 
     virtual void childEvent(QChildEvent * event);

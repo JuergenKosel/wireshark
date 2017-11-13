@@ -370,23 +370,6 @@ typedef enum {
     PT_BLUETOOTH
 } port_type;
 
-/* Types of circuit IDs Wireshark knows about. */
-typedef enum {
-    CT_NONE,            /* no circuit type */
-    CT_DLCI,            /* Frame Relay DLCI */
-    CT_ISDN,            /* ISDN channel number */
-    CT_X25,             /* X.25 logical channel number */
-    CT_ISUP,            /* ISDN User Part CIC */
-    CT_IAX2,            /* IAX2 call id */
-    CT_H223,            /* H.223 logical channel number */
-    CT_BICC,            /* BICC Circuit identifier */
-    CT_DVBCI,           /* DVB-CI session number|transport connection id */
-    CT_ISO14443         /* ISO14443 connection between terminal and card
-                           the circuit ID is always 0, there's only one
-                           such connection */
-    /* Could also have ATM VPI/VCI pairs */
-} circuit_type;
-
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
