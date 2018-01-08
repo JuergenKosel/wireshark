@@ -63,7 +63,13 @@
  *   Mobile radio interface Layer 3 specification;
  *   Core network protocols;
  *   Stage 3
- *   (3GPP TS 24.008 version 14.5.0 Release 14)
+ *   (3GPP TS 24.008 version 14.6.0 Release 14)
+ *
+ *   Reference [15]
+ *   Mobile radio interface Layer 3 specification;
+ *   Core network protocols;
+ *   Stage 3
+ *   (3GPP TS 24.008 version 15.1.0 Release 15)
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -94,7 +100,7 @@
 #include "packet-gsm_a_common.h"
 #include "packet-e212.h"
 #include "packet-ppp.h"
-#include "packet-gsm_map.h"
+#include "packet-e164.h"
 
 void proto_register_gsm_a_gm(void);
 void proto_reg_handoff_gsm_a_gm(void);
@@ -218,6 +224,7 @@ static const value_string gsm_gm_elem_strings[] = {
 	{ DE_PD_PRO_ADDR,		 "Packet Data Protocol Address" },
 	{ DE_QOS,			 "Quality Of Service" },
 	{ DE_RE_ATTEMPT_IND,		 "Re-attempt Indicator" },
+	{ DE_EXT_QOS,			 "Extended Quality Of Service" },
 	{ DE_SM_CAUSE,			 "SM Cause" },
 	{ DE_SM_CAUSE_2,		 "SM Cause 2" },
 	{ DE_LINKED_TI,			 "Linked TI" },
@@ -523,6 +530,7 @@ static int hf_gsm_a_gmm_net_cap_up_gia6 = -1;
 static int hf_gsm_a_gmm_net_cap_up_gia7 = -1;
 static int hf_gsm_a_gmm_net_cap_epco_ie_ind = -1;
 static int hf_gsm_a_gmm_net_cap_restrict_use_enh_cov = -1;
+static int hf_gsm_a_gmm_net_cap_dc_eutra_nr_cap = -1;
 
 /* Generated from convert_proto_tree_add_text.pl */
 static int hf_gsm_a_gm_presence = -1;
@@ -557,6 +565,8 @@ static int hf_gsm_a_gm_sm_pco_apn_rate_ctrl_params_ul_time_unit = -1;
 static int hf_gsm_a_gm_sm_pco_apn_rate_ctrl_params_max_ul_rate = -1;
 static int hf_gsm_a_gm_sm_pco_3gpp_data_off_ue_status = -1;
 static int hf_gsm_a_gm_sm_pco_sel_bearer_ctrl_mode = -1;
+static int hf_gsm_a_gm_sm_pco_add_apn_rate_ctrl_params_ul_time_unit = -1;
+static int hf_gsm_a_gm_sm_pco_add_apn_rate_ctrl_params_max_ul_rate = -1;
 static int hf_gsm_a_sm_pdp_type_number = -1;
 static int hf_gsm_a_sm_pdp_address = -1;
 static int hf_gsm_a_gm_ti_value = -1;
@@ -1215,6 +1225,11 @@ static const true_false_string gsm_a_gmm_net_cap_restrict_use_enh_cov_vals = {
 	"Mobile station does not support restriction on use of enhanced coverage"
 };
 
+static const true_false_string gsm_a_gmm_net_cap_dc_eutra_nr_cap_vals = {
+	"Mobile station supports dual connectivity of E-UTRA with NR",
+	"Mobile station does not support dual connectivity of E-UTRA with NR"
+};
+
 guint16
 de_gmm_ms_net_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
 {
@@ -1314,6 +1329,9 @@ de_gmm_ms_net_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 o
 
 	/* bit 2: Restriction on use of enhanced coverage capability */
 	proto_tree_add_item(tree, hf_gsm_a_gmm_net_cap_restrict_use_enh_cov, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+
+	/* bit 1: Dual connectivity of E-UTRA with NR capability */
+	proto_tree_add_item(tree, hf_gsm_a_gmm_net_cap_dc_eutra_nr_cap, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
 
 	curr_offset++;
 	EXTRANEOUS_DATA_CHECK(len, curr_offset - offset, pinfo, &ei_gsm_a_gm_extraneous_data);
@@ -4404,6 +4422,7 @@ static const range_string gsm_a_sm_pco_ms2net_prot_vals[] = {
 	{ 0x0016, 0x0016, "APN rate control support indicator" },
 	{ 0x0017, 0x0017, "3GPP PS data off UE status" },
 	{ 0x0018, 0x0018, "Reliable Data Service request indicator" },
+	{ 0x0019, 0x0019, "Additional APN rate control for exception data support indicator" },
 	{ 0xff00, 0xffff, "Operator Specific Use" },
 	{ 0, 0, NULL }
 };
@@ -4432,6 +4451,7 @@ static const range_string gsm_a_sm_pco_net2ms_prot_vals[] = {
 	{ 0x0016, 0x0016, "APN rate control parameters" },
 	{ 0x0017, 0x0017, "3GPP PS data off support indication" },
 	{ 0x0018, 0x0018, "Reliable Data Service accepted indicator" },
+	{ 0x0019, 0x0019, "Additional APN rate control for exception data parameters" },
 	{ 0xff00, 0xffff, "Operator Specific Use" },
 	{ 0, 0, NULL }
 };
@@ -4598,8 +4618,7 @@ de_sm_pco(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, g
 				break;
 			case 0x000E:
 				if ((link_dir == P2P_DIR_DL) && (e_len > 0)) {
-					l3_tvb = tvb_new_subset_length(tvb, curr_offset, e_len);
-					dissect_gsm_map_msisdn(l3_tvb, pinfo, pco_tree);
+					dissect_e164_msisdn(tvb, pco_tree, curr_offset, e_len, E164_ENC_BCD);
 				}
 				break;
 			case 0x0010:
@@ -4630,6 +4649,15 @@ de_sm_pco(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, g
 			case 0x0017:
 				if (link_dir == P2P_DIR_UL && e_len >= 1) {
 					proto_tree_add_item(pco_tree, hf_gsm_a_gm_sm_pco_3gpp_data_off_ue_status, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+				}
+				break;
+			case 0x0019:
+				if (link_dir == P2P_DIR_DL) {
+					proto_tree_add_bits_item(pco_tree, hf_gsm_a_spare_bits, tvb, (curr_offset << 3), 5, ENC_BIG_ENDIAN);
+					proto_tree_add_item(pco_tree, hf_gsm_a_gm_sm_pco_add_apn_rate_ctrl_params_ul_time_unit, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+					if (e_len >= 3) {
+						proto_tree_add_item(pco_tree, hf_gsm_a_gm_sm_pco_add_apn_rate_ctrl_params_max_ul_rate, tvb, curr_offset+1, 2, ENC_BIG_ENDIAN);
+					}
 				}
 				break;
 			default:
@@ -5299,6 +5327,21 @@ de_sm_re_attempt_ind(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint3
 	proto_tree_add_item(tree, hf_gsm_a_sm_eplmnc, tvb, offset, 1, ENC_BIG_ENDIAN);
 	proto_tree_add_item(tree, hf_gsm_a_sm_ratc, tvb, offset, 1, ENC_BIG_ENDIAN);
 	curr_offset++;
+
+	EXTRANEOUS_DATA_CHECK(len, curr_offset - offset, pinfo, &ei_gsm_a_gm_extraneous_data);
+
+	return len;
+}
+
+/*
+ * [15] 10.5.6.5b Extended quality of service
+ */
+static guint16
+de_sm_ext_qos(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
+{
+	guint32 curr_offset;
+
+	curr_offset = offset;
 
 	EXTRANEOUS_DATA_CHECK(len, curr_offset - offset, pinfo, &ei_gsm_a_gm_extraneous_data);
 
@@ -6126,6 +6169,7 @@ guint16 (*gm_elem_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_
 	de_sm_pdp_addr,                    /* Packet Data Protocol Address */
 	de_sm_qos,                         /* Quality Of Service */
 	de_sm_re_attempt_ind,              /* Re-attempt indicator */
+	de_sm_ext_qos,                     /* Extended quality of service */
 	de_sm_cause,                       /* SM Cause */
 	de_sm_cause_2,                     /* SM Cause 2 */
 	de_sm_linked_ti,                   /* Linked TI */
@@ -6988,6 +7032,8 @@ dtap_sm_act_pdp_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32
 
 	ELEM_OPT_TLV_E(0x7B, GSM_A_PDU_TYPE_GM, DE_EXT_PRO_CONF_OPT, NULL);
 
+	ELEM_OPT_TLV(0x5C, GSM_A_PDU_TYPE_GM, DE_EXT_QOS, NULL);
+
 	EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_gsm_a_gm_extraneous_data);
 }
 
@@ -7037,6 +7083,8 @@ dtap_sm_act_pdp_acc(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32
 	ELEM_OPT_TLV(0x33, GSM_A_PDU_TYPE_GM, DE_NBIFOM_CONT, NULL);
 
 	ELEM_OPT_TLV_E(0x7B, GSM_A_PDU_TYPE_GM, DE_EXT_PRO_CONF_OPT, NULL);
+
+	ELEM_OPT_TLV(0x5C, GSM_A_PDU_TYPE_GM, DE_EXT_QOS, NULL);
 
 	EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_gsm_a_gm_extraneous_data);
 }
@@ -7111,6 +7159,8 @@ dtap_sm_act_sec_pdp_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gui
 
 	ELEM_OPT_TLV_E(0x7B, GSM_A_PDU_TYPE_GM, DE_EXT_PRO_CONF_OPT, NULL);
 
+	ELEM_OPT_TLV(0x5C, GSM_A_PDU_TYPE_GM, DE_EXT_QOS, NULL);
+
 	EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_gsm_a_gm_extraneous_data);
 }
 
@@ -7154,6 +7204,8 @@ dtap_sm_act_sec_pdp_acc(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gui
 	ELEM_OPT_TLV(0x33, GSM_A_PDU_TYPE_GM, DE_NBIFOM_CONT, NULL);
 
 	ELEM_OPT_TLV_E(0x7B, GSM_A_PDU_TYPE_GM, DE_EXT_PRO_CONF_OPT, NULL);
+
+	ELEM_OPT_TLV(0x5C, GSM_A_PDU_TYPE_GM, DE_EXT_QOS, NULL);
 
 	EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_gsm_a_gm_extraneous_data);
 }
@@ -7295,6 +7347,8 @@ dtap_sm_mod_pdp_req_net(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gui
 
 	ELEM_OPT_TLV_E(0x7B, GSM_A_PDU_TYPE_GM, DE_EXT_PRO_CONF_OPT, NULL);
 
+	ELEM_OPT_TLV(0x5C, GSM_A_PDU_TYPE_GM, DE_EXT_QOS, NULL);
+
 	EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_gsm_a_gm_extraneous_data);
 }
 
@@ -7329,6 +7383,8 @@ dtap_sm_mod_pdp_req_ms(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guin
 	ELEM_OPT_TLV(0x33, GSM_A_PDU_TYPE_GM, DE_NBIFOM_CONT, NULL);
 
 	ELEM_OPT_TLV_E(0x7B, GSM_A_PDU_TYPE_GM, DE_EXT_PRO_CONF_OPT, NULL);
+
+	ELEM_OPT_TLV(0x5C, GSM_A_PDU_TYPE_GM, DE_EXT_QOS, NULL);
 
 	EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_gsm_a_gm_extraneous_data);
 }
@@ -7393,6 +7449,8 @@ dtap_sm_mod_pdp_acc_net(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gui
 	ELEM_OPT_TLV(0x33, GSM_A_PDU_TYPE_GM, DE_NBIFOM_CONT, NULL);
 
 	ELEM_OPT_TLV_E(0x7B, GSM_A_PDU_TYPE_GM, DE_EXT_PRO_CONF_OPT, NULL);
+
+	ELEM_OPT_TLV(0x5C, GSM_A_PDU_TYPE_GM, DE_EXT_QOS, NULL);
 
 	EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_gsm_a_gm_extraneous_data);
 }
@@ -7526,6 +7584,8 @@ dtap_sm_req_sec_pdp_act(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gui
 	ELEM_OPT_TLV(0x33, GSM_A_PDU_TYPE_GM, DE_NBIFOM_CONT, NULL);
 
 	ELEM_OPT_TLV_E(0x7B, GSM_A_PDU_TYPE_GM, DE_EXT_PRO_CONF_OPT, NULL);
+
+	ELEM_OPT_TLV(0x5C, GSM_A_PDU_TYPE_GM, DE_EXT_QOS, NULL);
 
 	EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_gsm_a_gm_extraneous_data);
 }
@@ -8704,6 +8764,11 @@ proto_register_gsm_a_gm(void)
 		    FT_BOOLEAN, 8, TFS(&gsm_a_gmm_net_cap_restrict_use_enh_cov_vals), 0x02,
 		    NULL, HFILL }
 		},
+		{ &hf_gsm_a_gmm_net_cap_dc_eutra_nr_cap,
+		  { "Dual connectivity of E-UTRA with NR capability", "gsm_a.gm.gmm.net_cap.dc_eutra_nr_cap",
+		    FT_BOOLEAN, 8, TFS(&gsm_a_gmm_net_cap_dc_eutra_nr_cap_vals), 0x01,
+		    NULL, HFILL }
+		},
 		{ &hf_gsm_a_sm_tmgi,
 		  { "Temporary Mobile Group Identity (TMGI)", "gsm_a.gm.sm.tmgi",
 		    FT_UINT24, BASE_HEX, NULL, 0x0,
@@ -9137,6 +9202,16 @@ proto_register_gsm_a_gm(void)
 		{ &hf_gsm_a_gm_sm_pco_3gpp_data_off_ue_status,
 		  { "3GPP PS data off UE status", "gsm_a.gm.sm.pco.3gpp_data_off_ue_status",
 		    FT_UINT8, BASE_DEC, VALS(gsm_a_gm_sm_pco_3gpp_data_off_ue_status_vals), 0x0,
+		    NULL, HFILL }
+		},
+		{ &hf_gsm_a_gm_sm_pco_add_apn_rate_ctrl_params_ul_time_unit,
+		  { "Uplink time unit", "gsm_a.gm.sm.pco.add_apn_rate_ctrl_params.ul_time_unit",
+		    FT_UINT8, BASE_DEC, VALS(gsm_a_gm_apn_rate_ctrl_ul_time_unit_vals), 0x07,
+		    NULL, HFILL }
+		},
+		{ &hf_gsm_a_gm_sm_pco_add_apn_rate_ctrl_params_max_ul_rate,
+		  { "Additional uplink rate for exception data", "gsm_a.gm.sm.pco.add_apn_rate_ctrl_params.max_ul_rate",
+		    FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_message_messages, 0x0,
 		    NULL, HFILL }
 		},
 		/* Generated from convert_proto_tree_add_text.pl */

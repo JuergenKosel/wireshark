@@ -7,19 +7,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #ifndef DATA_PRINTER_H
@@ -28,15 +16,9 @@
 #include <config.h>
 
 #include <QObject>
+#include <QActionGroup>
 
-
-class IDataPrintable
-{
-public:
-    virtual ~IDataPrintable() {}
-
-    virtual QByteArray printableData() = 0;
-};
+#include <ui/qt/utils/idata_printable.h>
 
 class DataPrinter : public QObject
 {
@@ -57,17 +39,23 @@ public:
 
     void setByteLineLength(int);
     int byteLineLength() const;
+    // Insert a space after this many bytes
+    static int separatorInterval() { return 8; }
+    // The number of hexadecimal characters per line
+    static int hexChars();
+
+    static QActionGroup * copyActions(QObject * copyClass, QObject * data = Q_NULLPTR);
+    static DataPrinter * instance();
+
+protected slots:
+    void copyIDataBytes(bool);
 
 private:
-    QString hexTextDump(QByteArray printData, bool append_text);
-    void binaryDump(QByteArray printData);
+    QString hexTextDump(const QByteArray printData, bool append_text);
+    void binaryDump(const QByteArray printData);
 
     int byteLineLength_;
 };
-
-#define IDataPrintable_iid "org.wireshark.Qt.UI.IDataPrintable"
-
-Q_DECLARE_INTERFACE(IDataPrintable, IDataPrintable_iid)
 
 #endif // DATA_PRINTER_H
 

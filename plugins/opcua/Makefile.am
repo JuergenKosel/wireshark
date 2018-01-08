@@ -25,6 +25,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = opcua
 
+PLUGIN_VERSION = 1.1.0
+
 BUILT_SOURCES = \
 	plugin.c
 
@@ -66,10 +68,9 @@ CLEAN_HEADER_FILES = \
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = opcua.la
+epan_plugin_LTLIBRARIES = opcua.la
 
 opcua_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -82,14 +83,9 @@ opcua_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 opcua_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	opcua \
-	*~
-
 DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	README			\
 	CMakeLists.txt

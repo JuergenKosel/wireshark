@@ -133,6 +133,7 @@ WIRESHARK_UI_INCLUDES = \
 	tap-rtp-common.h	\
 	tap-sctp-analysis.h	\
 	tap-tcp-stream.h	\
+	taps.h			\
 	text_import.h		\
 	text_import_scanner.h	\
 	time_shift.h		\
@@ -151,7 +152,6 @@ libui_generated_a_SOURCES = $(GENERATED_FILES)
 libui_generated_a_CFLAGS = $(GENERATED_CFLAGS)
 
 EXTRA_DIST = \
-	.editorconfig			\
 	$(GENERATOR_FILES)		\
 	CMakeLists.txt			\
 	doxygen.cfg.in			\
@@ -167,11 +167,16 @@ BUILT_SOURCES = $(GENERATED_HEADER_FILES)
 #
 libui_a_CFLAGS = $(AM_CFLAGS) $(PIE_CFLAGS)
 
+noinst_PROGRAMS = make-taps
+
+make_taps_CFLAGS = $(WS_CPPFLAGS) $(GLIB_CFLAGS)
+
+make_taps_LDADD = \
+	$(GLIB_LIBS)	\
+	${top_builddir}/wsutil/libwsutil.la
+
 CLEANFILES = \
-	doxygen-ui.tag	\
-	libui.a		\
-	libui_generated.a	\
-	*~
+	doxygen-ui.tag
 
 MAINTAINERCLEANFILES = \
 	$(GENERATED_FILES)

@@ -36,16 +36,44 @@
         <translation>Ordner</translation>
     </message>
     <message>
+        <source>Filter by path</source>
+        <translation>Nach Pfad filtern</translation>
+    </message>
+    <message>
         <source>Plugins</source>
         <translation>Plugins</translation>
+    </message>
+    <message>
+        <source>Search plugins</source>
+        <translation>Plugins suchen</translation>
+    </message>
+    <message>
+        <source>Filter by type:</source>
+        <translation>Nach Typ filtern:</translation>
     </message>
     <message>
         <source>Keyboard Shortcuts</source>
         <translation>Tastaturkürzel</translation>
     </message>
     <message>
+        <source>Search Shortcuts</source>
+        <translation>Tastaturkürzel suchen</translation>
+    </message>
+    <message>
+        <source>Acknowledgments</source>
+        <translation>Bestätigungen</translation>
+    </message>
+    <message>
         <source>License</source>
         <translation>Lizenzen</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Kopieren</translation>
+    </message>
+    <message>
+        <source>Copy Row(s)</source>
+        <translation>Zeile(n) kopieren</translation>
     </message>
 </context>
 <context>
@@ -70,6 +98,17 @@
     <message>
         <source>Can&apos;t assign %1 to %2</source>
         <translation>Kann %1 nicht an %2 zuweisen</translation>
+    </message>
+</context>
+<context>
+    <name>AuthorListModel</name>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>E-Mail</source>
+        <translation>E-Mail</translation>
     </message>
 </context>
 <context>
@@ -605,13 +644,6 @@
     <message>
         <source>Packet bytes</source>
         <translation>Paketbytes</translation>
-    </message>
-</context>
-<context>
-    <name>ByteViewText</name>
-    <message>
-        <source>Show bytes as hexadecimal</source>
-        <translation type="vanished">Bytes in Hexadezimal anzeigen</translation>
     </message>
 </context>
 <context>
@@ -1631,56 +1663,12 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Dialog</translation>
     </message>
     <message>
-        <source>Table Name</source>
-        <translation>Tabellenname</translation>
-    </message>
-    <message>
-        <source>Short Name</source>
-        <translation>Kurzname</translation>
+        <source>Search:</source>
+        <translation>Suchen:</translation>
     </message>
     <message>
         <source>Dissector Tables</source>
         <translation>Dissector Tabelle</translation>
-    </message>
-    <message>
-        <source>String Tables</source>
-        <translation>Zeichenkette Tabelle</translation>
-    </message>
-    <message>
-        <source>Integer Tables</source>
-        <translation>Integer Tabelle</translation>
-    </message>
-    <message>
-        <source>Custom Tables</source>
-        <translation>Custom Tables</translation>
-    </message>
-    <message>
-        <source>Heuristic Tables</source>
-        <translation>Heuristik Tabelle</translation>
-    </message>
-    <message>
-        <source>Selector Name</source>
-        <translation>Selektorname</translation>
-    </message>
-    <message>
-        <source>String</source>
-        <translation>Zeichenkette</translation>
-    </message>
-    <message>
-        <source>Dissector</source>
-        <translation>Dissector</translation>
-    </message>
-    <message>
-        <source>Port</source>
-        <translation>Port</translation>
-    </message>
-    <message>
-        <source>Protocol</source>
-        <translation>Protokoll</translation>
-    </message>
-    <message>
-        <source>Table Type</source>
-        <translation>Tabellentyp</translation>
     </message>
 </context>
 <context>
@@ -1688,14 +1676,6 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     <message>
         <source>Dialog</source>
         <translation>Dialog</translation>
-    </message>
-    <message>
-        <source>Protocol</source>
-        <translation>Protokoll</translation>
-    </message>
-    <message>
-        <source>Description</source>
-        <translation>Beschreibung</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;Disabling a protocol prevents higher layer protocols from being displayed&lt;/i&gt;&lt;/small&gt;</source>
@@ -1742,26 +1722,6 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     <message>
         <source>Dialog</source>
         <translation>Dialog</translation>
-    </message>
-    <message>
-        <source>Severity</source>
-        <translation>Schweregrad</translation>
-    </message>
-    <message>
-        <source>Summary</source>
-        <translation>Zusammenfassung</translation>
-    </message>
-    <message>
-        <source>Group</source>
-        <translation>Gruppe</translation>
-    </message>
-    <message>
-        <source>Protocol</source>
-        <translation>Protokoll</translation>
-    </message>
-    <message>
-        <source>Count</source>
-        <translation>Anzahl</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
@@ -1833,8 +1793,12 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Experteninformationen</translation>
     </message>
     <message>
-        <source>Endpoint expert failed to set filter</source>
-        <translation>Endpunkteexperte konnte einen Filter nicht setzen</translation>
+        <source>Collapse All</source>
+        <translation>Alles einklappen</translation>
+    </message>
+    <message>
+        <source>Expand All</source>
+        <translation>Alles aufklappen</translation>
     </message>
     <message>
         <source>Capture file closed.</source>
@@ -1855,10 +1819,6 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     <message>
         <source>Display filter: &quot;%1&quot;</source>
         <translation>Anzeigefilter: &quot;%1&quot;</translation>
-    </message>
-    <message>
-        <source>Packet</source>
-        <translation>Paket</translation>
     </message>
 </context>
 <context>
@@ -1903,26 +1863,6 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     <message>
         <source>Dialog</source>
         <translation>Dialog</translation>
-    </message>
-    <message>
-        <source>Packet</source>
-        <translation>Paket</translation>
-    </message>
-    <message>
-        <source>Hostname</source>
-        <translation>Hostname</translation>
-    </message>
-    <message>
-        <source>Content Type</source>
-        <translation>Content-Type</translation>
-    </message>
-    <message>
-        <source>Size</source>
-        <translation>Größe</translation>
-    </message>
-    <message>
-        <source>Filename</source>
-        <translation>Dateiname</translation>
     </message>
     <message>
         <source>Searching for objects</source>
@@ -2010,32 +1950,12 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Verzeichnis:</translation>
     </message>
     <message>
-        <source>Filename</source>
-        <translation>Dateiname</translation>
-    </message>
-    <message>
-        <source>Created</source>
-        <translation>Erstellt</translation>
-    </message>
-    <message>
-        <source>Modified</source>
-        <translation>Modifiziert</translation>
-    </message>
-    <message>
-        <source>Size</source>
-        <translation>Größe</translation>
-    </message>
-    <message>
         <source>No files in Set</source>
         <translation>Keine Dateien im Dateisatz</translation>
     </message>
     <message>
         <source>No capture loaded</source>
         <translation>Kein Mitschnitt geladen</translation>
-    </message>
-    <message>
-        <source>Open this capture file</source>
-        <translation>Diese Mitschnittdatei laden</translation>
     </message>
     <message numerus="yes">
         <source>%Ln File(s) in Set</source>
@@ -2212,6 +2132,21 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     </message>
 </context>
 <context>
+    <name>FolderListModel</name>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Location</source>
+        <translation>Lokation</translation>
+    </message>
+    <message>
+        <source>Typical Files</source>
+        <translation>Typische Dateien</translation>
+    </message>
+</context>
+<context>
     <name>FollowStreamDialog</name>
     <message>
         <source>Filter Out This Stream</source>
@@ -2307,14 +2242,12 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation> Zur Auswahl anklicken.</translation>
     </message>
     <message>
-        <source>Save Stream Content As</source>
-        <translation>Stream Inhalt speichern als</translation>
+        <source>Regex Find:</source>
+        <translation>Regex Suchen:</translation>
     </message>
     <message>
-        <source>
-[Stream output truncated]</source>
-        <translation>
-[Streamausgabe gekürzt]</translation>
+        <source>Save Stream Content As</source>
+        <translation>Stream Inhalt speichern als</translation>
     </message>
     <message>
         <source>No capture file.</source>
@@ -2337,12 +2270,20 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Bitte ein %1 Paket auswählen.</translation>
     </message>
     <message>
+        <source>Entire conversation (%1)</source>
+        <translation>Gesamte Verbindung (%1)</translation>
+    </message>
+    <message>
         <source>Follow %1 Stream (%2)</source>
         <translation>Folge %1 Stream (%2)</translation>
     </message>
     <message>
         <source>Error creating filter for this stream.</source>
         <translation>Fehler beim Erstellen eines Filters für diesen Stream.</translation>
+    </message>
+    <message>
+        <source>[Stream output truncated]</source>
+        <translation>[Streamausgabe gekürzt]</translation>
     </message>
     <message>
         <source>A transport or network layer header is needed.</source>
@@ -3568,8 +3509,8 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
 <context>
     <name>LBMLBTRMTransportDialog</name>
     <message>
-        <source>LBTRM Transport Statistics</source>
-        <translation>LBTRM Transport Statistik</translation>
+        <source>LBT-RM Transport Statistics</source>
+        <translation>LBT-RM Transport Statistik</translation>
     </message>
     <message>
         <source>Sources</source>
@@ -3673,10 +3614,12 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     </message>
     <message>
         <source>NCF</source>
+        <extracomment>Nak ConFirmation</extracomment>
         <translation>NCF</translation>
     </message>
     <message>
         <source>SM</source>
+        <extracomment>Session Message</extracomment>
         <translation>SM</translation>
     </message>
     <message>
@@ -3851,8 +3794,8 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
 <context>
     <name>LBMLBTRUTransportDialog</name>
     <message>
-        <source>LBTRU Transport Statistics</source>
-        <translation>LBTRU Transportstatistik</translation>
+        <source>LBT-RU Transport Statistics</source>
+        <translation>LBT-RU Transportstatistik</translation>
     </message>
     <message>
         <source>Sources</source>
@@ -4414,8 +4357,12 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Bereich 3:</translation>
     </message>
     <message>
-        <source>Show packet separator on Packet List</source>
-        <translation>Pakettrenner in Paketliste anzeigen</translation>
+        <source>Packet List settings:</source>
+        <translation>Einstellungen Paketliste:</translation>
+    </message>
+    <message>
+        <source>Show packet separator</source>
+        <translation>Zeige Pakettrenner</translation>
     </message>
     <message>
         <source>Status Bar settings:</source>
@@ -4532,6 +4479,14 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     <message>
         <source>Reset</source>
         <translation>Zurücksetzen</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch the direction of the connection (view the opposite flow).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Richtung der Verbindung wechseln (den entgegengesetzten Flow anzeigen).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Switch Direction</source>
+        <translation>Richtung wechseln</translation>
     </message>
     <message>
         <source>Reset Graph</source>
@@ -4710,6 +4665,14 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Shift+X</translation>
     </message>
     <message>
+        <source>Switch direction (swap between UL and DL)</source>
+        <translation>Richtung tauschen (UL und DL vertauschen)</translation>
+    </message>
+    <message>
+        <source>D</source>
+        <translation>D</translation>
+    </message>
+    <message>
         <source>Time</source>
         <translation>Zeit</translation>
     </message>
@@ -4724,6 +4687,10 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     <message>
         <source>LTE RLC Graph - no channel selected</source>
         <translation>LTE RLC Graph - Kein Kanal ausgewählt</translation>
+    </message>
+    <message>
+        <source>Save As</source>
+        <translation>Speichern als</translation>
     </message>
     <message>
         <source>%1 %2 (%3s seq %4 len %5)</source>
@@ -4748,6 +4715,26 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     <message>
         <source>Click to select a portion of the graph.</source>
         <translation>Klicken um einen Teil des Graphen auszuwählen.</translation>
+    </message>
+    <message>
+        <source>Portable Document Format (*.pdf)</source>
+        <translation>Portable Document Format (*.pdf)</translation>
+    </message>
+    <message>
+        <source>Portable Network Graphics (*.png)</source>
+        <translation>Portable Network Graphics (*.png)</translation>
+    </message>
+    <message>
+        <source>Windows Bitmap (*.bmp)</source>
+        <translation>Windows Bitmap (*.bmp)</translation>
+    </message>
+    <message>
+        <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
+        <translation>JPEG File Interchange Format (*.jpeg *.jpg)</translation>
+    </message>
+    <message>
+        <source>Save Graph As</source>
+        <translation>Graph speichern als</translation>
     </message>
 </context>
 <context>
@@ -4832,6 +4819,10 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Eigenschaften der Mitschnittdatei öffnen</translation>
     </message>
     <message>
+        <source>Profile: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Manage Profiles</source>
         <oldsource>Manage Profiles...</oldsource>
         <translation>Profile verwalten</translation>
@@ -4882,23 +4873,23 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     </message>
     <message>
         <source>, 1 byte</source>
-        <translation type="unfinished">, 1 Byte</translation>
+        <translation>, 1 Byte</translation>
     </message>
     <message>
         <source>, %1 bytes</source>
-        <translation type="unfinished">, %1 Bytes</translation>
+        <translation>, %1 Bytes</translation>
     </message>
     <message>
         <source>Byte %1</source>
-        <translation type="unfinished">Byte %1</translation>
+        <translation>Byte %1</translation>
     </message>
     <message>
         <source>Bytes %1-%2</source>
-        <translation type="unfinished">Bytes %1-%2</translation>
+        <translation>Bytes %1-%2</translation>
     </message>
     <message>
         <source>Profile: </source>
-        <translation>Profil:</translation>
+        <translation type="vanished">Profil:</translation>
     </message>
     <message>
         <source>Selected Packet: %1 %2 </source>
@@ -5099,6 +5090,10 @@ text-decoration: underline;
             <numerusform>%n Schnittstelle anzeigt, %1 versteckt</numerusform>
             <numerusform>%n Schnittstellen anzeigt, %1 versteckt</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>You are sniffing the glue that holds the Internet together using Wireshark </source>
+        <translation>Mit Wireshark den Kleber schnüffeln, der das Internet zusammenhält.</translation>
     </message>
     <message>
         <source>You are running Wireshark </source>
@@ -5629,6 +5624,14 @@ text-decoration: underline;
         <translation>Gehe zum vorherigen Paket in der ausgewählten Historie</translation>
     </message>
     <message>
+        <source>Collapse Subtrees</source>
+        <translation>Teilbauch einklappen</translation>
+    </message>
+    <message>
+        <source>Collapse the current packet detail</source>
+        <translation>Details für das aktuelle Paket einklappen</translation>
+    </message>
+    <message>
         <source>Go to Packet…</source>
         <translation>Gehe zu Paket...</translation>
     </message>
@@ -5815,6 +5818,14 @@ text-decoration: underline;
     <message>
         <source>Add or change a packet comment</source>
         <translation>Paketkommentar hinzufügen oder ändern</translation>
+    </message>
+    <message>
+        <source>Delete All Packet Comments</source>
+        <translation>Alle Paketkommentare löschen</translation>
+    </message>
+    <message>
+        <source>Remove all packet comments in the capture file</source>
+        <translation>Alle Paketkommentare in der Mitschnittdatei löschen</translation>
     </message>
     <message>
         <source>Configuration profiles</source>
@@ -6265,14 +6276,6 @@ text-decoration: underline;
         <translation>Firewall ACL Regeln erstellen</translation>
     </message>
     <message>
-        <source>…as Escaped String</source>
-        <translation>...als Zeichenkette mit Escape-Sequenzen</translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as a Escaped string</source>
-        <translation>Paketbytes als Zeichenkette mit Escape-Sequezen kopieren</translation>
-    </message>
-    <message>
         <source>&amp;Full Screen</source>
         <translation>&amp;Vollbild</translation>
     </message>
@@ -6651,46 +6654,6 @@ text-decoration: underline;
     <message>
         <source>Show or hide the packet bytes</source>
         <translation>Paketbytes anzeigen oder verstecken</translation>
-    </message>
-    <message>
-        <source>Bytes as Hex + ASCII Dump</source>
-        <translation>Bytes als Hex + ASCII Dump</translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as a hex and ASCII dump.</source>
-        <translation>Paketbytes als Hex und ASCII Dump kopieren</translation>
-    </message>
-    <message>
-        <source>…as Hex Dump</source>
-        <translation>...als Hex Dump</translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as a hex dump.</source>
-        <translation>Paketbytes als Hex Dump kopieren</translation>
-    </message>
-    <message>
-        <source>…as Printable Text</source>
-        <translation>...als druckbaren Text</translation>
-    </message>
-    <message>
-        <source>Copy only the printable text in the packet.</source>
-        <translation>Nur den druckbaren Text im Paket kopieren.</translation>
-    </message>
-    <message>
-        <source>…as a Hex Stream</source>
-        <translation>... als Hex Stream</translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as a stream of hex.</source>
-        <translation>Paketbytes als Hexstream kopieren.</translation>
-    </message>
-    <message>
-        <source>…as Raw Binary</source>
-        <translation>...als Rohdaten</translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as application/octet-stream MIME data.</source>
-        <translation>Paketbytes als application/octet-stream MIME Daten kopieren.</translation>
     </message>
     <message>
         <source>MAP Summary</source>
@@ -7094,20 +7057,16 @@ text-decoration: underline;
         <translation>Dateien zusammenfügen</translation>
     </message>
     <message>
-        <source>Byte %1</source>
-        <translation type="vanished">Byte %1</translation>
-    </message>
-    <message>
-        <source>Bytes %1-%2</source>
-        <translation type="vanished">Bytes %1-%2</translation>
-    </message>
-    <message>
         <source>SSL Session Keys (*.keys *.txt);;All Files (</source>
         <translation>SSL Sitzungsschlüssel (*.keys *.txt);; Alle Dateien (</translation>
     </message>
     <message>
         <source>Couldn&apos;t copy text. Try another item.</source>
         <translation>Text konnte nicht kopiert werden. Probieren sie einen anderen Eintrag.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to remove all packet comments?</source>
+        <translation>Wollen Sie alle Paketkommentare löschen?</translation>
     </message>
     <message>
         <source>Unable to build conversation filter.</source>
@@ -7559,12 +7518,8 @@ text-decoration: underline;
 <context>
     <name>PacketCommentDialog</name>
     <message>
-        <source>Packet Comment</source>
-        <translation type="vanished">Paketkommentar</translation>
-    </message>
-    <message>
         <source>Packet %1 Comment</source>
-        <translation type="unfinished"></translation>
+        <translation>Paket %1 Kommentar</translation>
     </message>
 </context>
 <context>
@@ -7752,6 +7707,25 @@ text-decoration: underline;
     </message>
 </context>
 <context>
+    <name>PluginListModel</name>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>Version</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>Typ</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Pfad</translation>
+    </message>
+</context>
+<context>
     <name>PreferenceEditorFrame</name>
     <message>
         <source>Frame</source>
@@ -7778,36 +7752,36 @@ text-decoration: underline;
     <name>PreferencesDialog</name>
     <message>
         <source>Appearance</source>
-        <translation>Darstellung</translation>
+        <translation type="vanished">Darstellung</translation>
     </message>
     <message>
         <source>Layout</source>
-        <translation>Ansicht</translation>
+        <translation type="vanished">Ansicht</translation>
     </message>
     <message>
         <source>Columns</source>
-        <translation>Spalten</translation>
+        <translation type="vanished">Spalten</translation>
     </message>
     <message>
         <source>Font and Colors</source>
-        <translation>Schriftart und Farben</translation>
+        <translation type="vanished">Schriftart und Farben</translation>
     </message>
     <message>
         <source>Capture</source>
-        <translation>Mitschnitt</translation>
+        <translation type="vanished">Mitschnitt</translation>
     </message>
     <message>
         <source>Expert</source>
-        <translation>Experte</translation>
+        <translation type="vanished">Experte</translation>
     </message>
     <message>
         <source>Filter Buttons</source>
         <oldsource>Filter Expressions</oldsource>
-        <translation>Filterknopf</translation>
+        <translation type="vanished">Filterknopf</translation>
     </message>
     <message>
         <source>Advanced</source>
-        <translation>Erweitert</translation>
+        <translation type="vanished">Erweitert</translation>
     </message>
     <message>
         <source>Search:</source>
@@ -7815,19 +7789,19 @@ text-decoration: underline;
     </message>
     <message>
         <source>Name</source>
-        <translation>Name</translation>
+        <translation type="vanished">Name</translation>
     </message>
     <message>
         <source>Status</source>
-        <translation>Status</translation>
+        <translation type="vanished">Status</translation>
     </message>
     <message>
         <source>Type</source>
-        <translation>Typ</translation>
+        <translation type="vanished">Typ</translation>
     </message>
     <message>
         <source>Value</source>
-        <translation>Wert</translation>
+        <translation type="vanished">Wert</translation>
     </message>
     <message>
         <source>Preferences</source>
@@ -7966,14 +7940,6 @@ text-decoration: underline;
         <source>Colorize with Filter</source>
         <translation>Mit Filter einfärben</translation>
     </message>
-    <message>
-        <source>, 1 byte</source>
-        <translation type="vanished">, 1 Byte</translation>
-    </message>
-    <message>
-        <source>, %1 bytes</source>
-        <translation type="vanished">, %1 Bytes</translation>
-    </message>
 </context>
 <context>
     <name>ProtocolHierarchyDialog</name>
@@ -8089,19 +8055,19 @@ text-decoration: underline;
     <name>QObject</name>
     <message>
         <source>Default</source>
-        <translation>Standard</translation>
+        <translation type="vanished">Standard</translation>
     </message>
     <message>
         <source>Changed</source>
-        <translation>Geändert</translation>
+        <translation type="vanished">Geändert</translation>
     </message>
     <message>
         <source>Has this preference been changed?</source>
-        <translation>Wurde diese Einstellung geändert?</translation>
+        <translation type="vanished">Wurde diese Einstellung geändert?</translation>
     </message>
     <message>
         <source>Default value is empty</source>
-        <translation>Standardwert ist leer</translation>
+        <translation type="vanished">Standardwert ist leer</translation>
     </message>
     <message>
         <source>Average Throughput (bits/s)</source>
@@ -8454,6 +8420,22 @@ text-decoration: underline;
     <message>
         <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
         <translation>Der Filterausdruck %1 ist kein gültiger Anzeigefilter. (%2).</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Fehler</translation>
+    </message>
+    <message>
+        <source>No remote interfaces found.</source>
+        <translation>Keine entfernte Schnittstelle gefunden.</translation>
+    </message>
+    <message>
+        <source>PCAP not found</source>
+        <translation>Kein PCAP gefunden</translation>
+    </message>
+    <message>
+        <source>Unknown error</source>
+        <translation>Unbekannter Fehler</translation>
     </message>
 </context>
 <context>
@@ -10344,6 +10326,21 @@ text-decoration: underline;
     </message>
 </context>
 <context>
+    <name>ScsiServiceResponseTimeDialog</name>
+    <message>
+        <source>&lt;small&gt;&lt;i&gt;Select a command and enter a filter if desired, then press Apply.&lt;/i&gt;&lt;/small&gt;</source>
+        <translation>&lt;small&gt;&lt;i&gt;Ein Kommando auswählen und bei Bedarf einen Filter eingeben. Danach Anwenden.&lt;/i&gt;&lt;/small&gt;</translation>
+    </message>
+    <message>
+        <source>Command:</source>
+        <translation>Kommando:</translation>
+    </message>
+    <message>
+        <source>SCSI Service Response Times</source>
+        <translation>SCSI Service Antwortzeit</translation>
+    </message>
+</context>
+<context>
     <name>SearchFrame</name>
     <message>
         <source>Frame</source>
@@ -10783,6 +10780,21 @@ text-decoration: underline;
     </message>
 </context>
 <context>
+    <name>ShortcutListModel</name>
+    <message>
+        <source>Shortcut</source>
+        <translation>Tastaturkürzel</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Beschreibung</translation>
+    </message>
+</context>
+<context>
     <name>ShowPacketBytesDialog</name>
     <message>
         <source>Show Packet Bytes</source>
@@ -10907,6 +10919,10 @@ text-decoration: underline;
         </translation>
     </message>
     <message>
+        <source>Regex Find:</source>
+        <translation>Regex Suchen:</translation>
+    </message>
+    <message>
         <source>Save Selected Packet Bytes As</source>
         <translation>Ausgewählte Paketbytes speichern als</translation>
     </message>
@@ -10924,10 +10940,6 @@ text-decoration: underline;
 </context>
 <context>
     <name>SplashOverlay</name>
-    <message>
-        <source>Form</source>
-        <translation>Anordnung</translation>
-    </message>
     <message>
         <source>Initializing dissectors</source>
         <translation>Dissektoren initialisieren</translation>
@@ -10994,22 +11006,6 @@ text-decoration: underline;
     <message>
         <source>Dialog</source>
         <translation>Dialog</translation>
-    </message>
-    <message>
-        <source>Name</source>
-        <translation>Name</translation>
-    </message>
-    <message>
-        <source>Filter</source>
-        <translation>Filter</translation>
-    </message>
-    <message>
-        <source>Type</source>
-        <translation>Typ</translation>
-    </message>
-    <message>
-        <source>Description</source>
-        <translation>Beschreibung</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search the list of field names.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -11811,6 +11807,14 @@ text-decoration: underline;
         <translation>Diesen Eintrag kopieren.</translation>
     </message>
     <message>
+        <source>Move entry up.</source>
+        <translation>Eintrag nach oben verschieben.</translation>
+    </message>
+    <message>
+        <source>Move entry down.</source>
+        <translation>Eintrag nach unten verschieben.</translation>
+    </message>
+    <message>
         <source>Clear all entries.</source>
         <translation>Alle Einträge löschen.</translation>
     </message>
@@ -11840,6 +11844,14 @@ text-decoration: underline;
     <message>
         <source>Copy this entry.</source>
         <translation>Diesen Eintrag kopieren.</translation>
+    </message>
+    <message>
+        <source>Move entry up.</source>
+        <translation>Eintrag nach oben verschieben.</translation>
+    </message>
+    <message>
+        <source>Move entry down.</source>
+        <translation>Eintrag nach unten verschieben.</translation>
     </message>
     <message>
         <source>Clear all entries.</source>

@@ -4,19 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #ifndef MAINWINDOW_H
@@ -58,7 +46,7 @@
 #include <ui/qt/widgets/display_filter_combo.h>
 #include "filter_action.h"
 #include "follow_stream_dialog.h"
-#include "preferences_dialog.h"
+#include <ui/qt/models/pref_models.h>
 
 class AccordionFrame;
 class ByteViewTab;
@@ -248,7 +236,6 @@ private:
     void setForCaptureInProgress(bool capture_in_progress = false, GArray *ifaces = NULL);
     QMenu* findOrAddMenu(QMenu *parent_menu, QString& menu_text);
 
-    void recursiveCopyProtoTreeItems(QTreeWidgetItem *item, QString &clip, int ident_level);
     void captureFileReadStarted(const QString &action);
 
     void addMenuActions(QList<QAction *> &actions, int menu_group);
@@ -272,6 +259,7 @@ signals:
     void fieldHighlight(FieldInformation *);
 
     void frameSelected(int);
+    void captureActive(int);
 
 public slots:
     // in main_window_slots.cpp
@@ -299,24 +287,13 @@ public slots:
     void captureCapturePrepared(capture_session *);
     void captureCaptureUpdateStarted(capture_session *);
     void captureCaptureUpdateFinished(capture_session *);
-    void captureCaptureFixedStarted(capture_session *);
     void captureCaptureFixedFinished(capture_session *cap_session);
-    void captureCaptureStopping(capture_session *);
     void captureCaptureFailed(capture_session *);
 
     void captureFileOpened();
-    void captureFileReadStarted() { captureFileReadStarted(tr("Loading")); }
     void captureFileReadFinished();
-    void captureFileReloadStarted() { captureFileReadStarted(tr("Reloading")); }
-    void captureFileRescanStarted() { setMenusForCaptureFile(true); captureFileReadStarted(tr("Rescanning")); }
-    void captureFileRetapStarted();
-    void captureFileRetapFinished();
-    void captureFileMergeStarted();
-    void captureFileMergeFinished();
-    void captureFileFlushTapsData();
     void captureFileClosing();
     void captureFileClosed();
-    void captureFileSaveStarted(const QString &file_path);
 
     void filterExpressionsChanged();
     static gboolean filter_expression_add_action(const void *key, void *value, void *user_data);
@@ -325,7 +302,13 @@ public slots:
                         guint16 channelType, guint16 channelId, guint8 direction);
 
     void on_actionViewFullScreen_triggered(bool checked);
+
+    int uatRowIndexForFilterExpression(QString label, QString expression);
+
 private slots:
+
+    void captureEventHandler(CaptureEvent * ev);
+
     // Manually connected slots (no "on_<object>_<signal>").
 
     void initViewColorizeMenu();
@@ -467,9 +450,9 @@ private slots:
     void on_actionEditPreviousTimeReference_triggered();
     void on_actionEditTimeShift_triggered();
     void on_actionEditPacketComment_triggered();
+    void on_actionDeleteAllPacketComments_triggered();
     void on_actionEditConfigurationProfiles_triggered();
-    void showPreferencesDialog(PreferencesDialog::PreferencesPane start_pane = PreferencesDialog::ppAppearance);
-    void showPreferencesDialog(QString module_name);
+    void showPreferencesDialog(QString pane_name);
     void on_actionEditPreferences_triggered();
 
     void showHideMainWidgets(QAction *action);
@@ -665,22 +648,13 @@ private slots:
 
     void externalMenuItem_triggered();
 
-    void on_actionContextCopyBytesHexTextDump_triggered();
-    void on_actionContextCopyBytesHexDump_triggered();
-    void on_actionContextCopyBytesPrintableText_triggered();
-    void on_actionContextCopyBytesHexStream_triggered();
-    void on_actionContextCopyBytesBinary_triggered();
-    void on_actionContextCopyBytesEscapedString_triggered();
-
-    void on_actionContextShowPacketBytes_triggered();
+    void on_actionAnalyzeShowPacketBytes_triggered();
 
     void on_actionContextWikiProtocolPage_triggered();
     void on_actionContextFilterFieldReference_triggered();
 
-#ifdef HAVE_EXTCAP
     void extcap_options_finished(int result);
     void showExtcapOptionsDialog(QString & device_name);
-#endif
 };
 
 #endif // MAINWINDOW_H

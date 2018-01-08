@@ -4,19 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 
@@ -123,6 +111,58 @@ void log_resource_usage(gboolean reset_delta, const char *format, ...) {
 	ws_g_warning("%s", log_str->str);
 	g_string_free(log_str, TRUE);
 
+}
+
+/* Copied from pcapio.c pcapng_write_interface_statistics_block()*/
+guint64
+create_timestamp(void) {
+    guint64  timestamp;
+#ifdef _WIN32
+    FILETIME now;
+#else
+    struct timeval now;
+#endif
+
+#ifdef _WIN32
+    /*
+     * Current time, represented as 100-nanosecond intervals since
+     * January 1, 1601, 00:00:00 UTC.
+     *
+     * I think DWORD might be signed, so cast both parts of "now"
+     * to guint32 so that the sign bit doesn't get treated specially.
+     *
+     * Windows 8 provides GetSystemTimePreciseAsFileTime which we
+     * might want to use instead.
+     */
+    GetSystemTimeAsFileTime(&now);
+    timestamp = (((guint64)(guint32)now.dwHighDateTime) << 32) +
+                (guint32)now.dwLowDateTime;
+
+    /*
+     * Convert to same thing but as 1-microsecond, i.e. 1000-nanosecond,
+     * intervals.
+     */
+    timestamp /= 10;
+
+    /*
+     * Subtract difference, in microseconds, between January 1, 1601
+     * 00:00:00 UTC and January 1, 1970, 00:00:00 UTC.
+     */
+    timestamp -= G_GUINT64_CONSTANT(11644473600000000);
+#else
+    /*
+     * Current time, represented as seconds and microseconds since
+     * January 1, 1970, 00:00:00 UTC.
+     */
+    gettimeofday(&now, NULL);
+
+    /*
+     * Convert to delta in microseconds.
+     */
+    timestamp = (guint64)(now.tv_sec) * 1000000 +
+                (guint64)(now.tv_usec);
+#endif
+    return timestamp;
 }
 
 /*

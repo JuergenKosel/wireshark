@@ -40,11 +40,9 @@
 #include <epan/expert.h>
 #include "packet-wps.h"
 
-/* Prototypes */
 void proto_reg_handoff_ieee1905(void);
 void proto_register_ieee1905(void);
 
-/* Initialize the protocol and registered fields */
 static int proto_ieee1905 = -1;
 static int hf_ieee1905_message_version = -1;
 static int hf_ieee1905_message_reserved = -1;
@@ -73,6 +71,7 @@ static int hf_ieee1905_phy_rate = -1;
 static int hf_ieee1905_packets_received = -1;
 static int hf_ieee1905_rssi = -1;
 static int hf_ieee1905_data = -1;
+static int hf_ieee1905_extra_tlv_data = -1;
 static int hf_ieee1905_local_interface_count = -1;
 static int hf_ieee1905_media_type = -1;
 static int hf_ieee1905_media_spec_info_len = -1;
@@ -165,7 +164,7 @@ static int hf_ieee1905_client_assoc_mac_addr = -1;
 static int hf_ieee1905_btm_reporter_bssid = -1;
 static int hf_ieee1905_btm_sta_mac_addr = -1;
 static int hf_ieee1905_btm_report_status = -1;
-static int hf_iee1905_btm_report_bssid = -1;
+static int hf_ieee1905_btm_report_bssid = -1;
 static int hf_ieee1905_source_bss_bssid = -1;
 static int hf_ieee1905_steering_request_flags = -1;
 static int hf_ieee1905_steering_req_op_window = -1;
@@ -413,6 +412,7 @@ static gint ett_ieee1905_beacon_reported_flags = -1;
 
 static expert_field ei_ieee1905_malformed_tlv = EI_INIT;
 static expert_field ei_ieee1905_extraneous_data_after_eom = EI_INIT;
+static expert_field ei_ieee1905_extraneous_tlv_data = EI_INIT;
 
 #define TOPOLOGY_DISCOVERY_MESSAGE                     0x0000
 #define TOPOLOGY_NOTIFICATION_MESSAGE                  0x0001
@@ -461,7 +461,7 @@ static expert_field ei_ieee1905_extraneous_data_after_eom = EI_INIT;
 
 static const value_string ieee1905_message_type_vals[] = {
   { TOPOLOGY_DISCOVERY_MESSAGE,                  "Topology discovery" },
-  { TOPOLOGY_NOTIFICATION_MESSAGE,               "Topology response" },
+  { TOPOLOGY_NOTIFICATION_MESSAGE,               "Topology notification" },
   { TOPOLOGY_QUERY_MESSAGE,                      "Topology query" },
   { TOPOLOGY_RESPONSE_MESSAGE,                   "Topology response" },
   { VENDOR_SPECIFIC_MESSAGE,                     "Vendor specific" },
@@ -576,7 +576,7 @@ static value_string_ext ieee1905_message_type_vals_ext = VALUE_STRING_EXT_INIT(i
 static const value_string ieee1905_tlv_types_vals[] = {
   { EOM_TLV,                                 "End of message" },
   { AL_MAC_ADDRESS_TYPE_TLV,                 "1905 AL MAC address type" },
-  { MAC_ADDRESS_TYPE_TLV,                    "MAC addres type" },
+  { MAC_ADDRESS_TYPE_TLV,                    "MAC address type" },
   { DEVICE_INFORMATION_TYPE_TLV,             "1905 device information type" },
   { DEVICE_BRIDGING_CAPABILITY_TLV,          "Device bridging capability" },
   { NON_1905_NEIGHBOR_DEVICE_LIST_TLV,       "Non-1905 neighbor device list" },
@@ -877,7 +877,7 @@ static const value_string channel_preference_reason_vals[] = {
   { 0x2, "Intra-network 802.11 OBSS interfernece management" },
   { 0x3, "External network 802.11 OBSS interference management" },
   { 0x4, "Reduced coverage (e.g. due to limited transmit power" },
-  { 0x5, "Reduced throughput (e.g. due to limited channel bandwith..." },
+  { 0x5, "Reduced throughput (e.g. due to limited channel bandwidth..." },
   { 0x6, "In-device interference within AP" },
   { 0x7, "Operation disallowed due to radar detection on a DFS channel" },
   { 0x8, "Operation would prevent backhaul operatoon uding shared radio" },
@@ -2840,7 +2840,6 @@ dissect_radio_operation_restriction(tvbuff_t *tvb, packet_info *pinfo _U_,
         proto_tree *tree, guint offset, guint16 len _U_)
 {
     guint8 op_class_count = 0, op_class_index = 0;
-    guint8 channel_count = 0, channel_index = 0;
     proto_tree *op_class_list = NULL, *op_class_tree = NULL;
     proto_item *pi = NULL;
     guint saved_offset = 0;
@@ -2854,6 +2853,9 @@ dissect_radio_operation_restriction(tvbuff_t *tvb, packet_info *pinfo _U_,
                         tvb, offset, 1, ENC_NA);
     offset++;
 
+    if (op_class_count == 0)
+        return offset;
+
     op_class_list = proto_tree_add_subtree(tree, tvb, offset, -1,
                         ett_radio_restriction_op_class_list, &pi,
                         "Restricted operating class list");
@@ -2862,6 +2864,8 @@ dissect_radio_operation_restriction(tvbuff_t *tvb, packet_info *pinfo _U_,
     while (op_class_index < op_class_count) {
         proto_item *ocpi = NULL;
         proto_tree *channel_list = NULL, *channel_tree = NULL;
+        guint start_offset = offset;
+        guint8 channel_count = 0, channel_index = 0;
 
         op_class_tree = proto_tree_add_subtree_format(op_class_list,
                                 tvb, offset, -1,
@@ -2878,8 +2882,10 @@ dissect_radio_operation_restriction(tvbuff_t *tvb, packet_info *pinfo _U_,
                             tvb, offset, 1, ENC_NA);
         offset++;
 
+        if (channel_count == 0)
+            continue;
 
-        channel_list = proto_tree_add_subtree(tree, tvb, offset, channel_count * 2,
+        channel_list = proto_tree_add_subtree(op_class_tree, tvb, offset, channel_count * 2,
                         ett_radio_restriction_channel_list, NULL,
                         "Restricted channel(s) list");
 
@@ -2890,8 +2896,8 @@ dissect_radio_operation_restriction(tvbuff_t *tvb, packet_info *pinfo _U_,
             channel_tree = proto_tree_add_subtree_format(channel_list,
                                 tvb, offset, 2,
                                 ett_radio_restriction_channel_tree, NULL,
-                                "Operating class %u",
-                                op_class_index);
+                                "Channel restriction %u",
+                                channel_index);
 
             proto_tree_add_item(channel_tree, hf_ieee1905_radio_restriction_channel,
                                 tvb, offset, 1, ENC_NA);
@@ -2908,6 +2914,7 @@ dissect_radio_operation_restriction(tvbuff_t *tvb, packet_info *pinfo _U_,
             channel_index++;
         }
 
+        proto_item_set_len(ocpi, offset - start_offset);
         op_class_index++;
     }
 
@@ -3091,7 +3098,7 @@ dissect_unassociated_sta_link_metric_response(tvbuff_t *tvb, packet_info *pinfo 
  */
 static int
 dissect_steering_request(tvbuff_t *tvb, packet_info *pinfo _U_,
-        proto_tree *tree, guint offset)
+        proto_tree *tree, guint offset, guint16 len)
 {
     guint8 mode = 0;
     guint8 steering_count = 0;
@@ -3104,6 +3111,7 @@ dissect_steering_request(tvbuff_t *tvb, packet_info *pinfo _U_,
     proto_item *pi = NULL;
     proto_tree *sta_list = NULL, *bssid_list = NULL;
     guint8 target_bssid_count = 0;
+    guint start_offset = offset;
 
     proto_tree_add_item(tree, hf_ieee1905_source_bss_bssid, tvb, offset,
                         6, ENC_NA);
@@ -3116,9 +3124,12 @@ dissect_steering_request(tvbuff_t *tvb, packet_info *pinfo _U_,
                            steering_flags, ENC_NA);
     offset++;
 
-    proto_tree_add_item(tree, hf_ieee1905_steering_req_op_window,
-                        tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    offset += 2;
+    /* If Request Mode is 1, this field is not present. */
+    if (!(mode & 0x80)) {
+        proto_tree_add_item(tree, hf_ieee1905_steering_req_op_window,
+                            tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset += 2;
+    }
 
     proto_tree_add_item(tree, hf_ieee1905_steering_btm_disass_timer,
                         tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -3182,6 +3193,14 @@ dissect_steering_request(tvbuff_t *tvb, packet_info *pinfo _U_,
         }
     }
 
+    if ((offset - start_offset) < len) {
+        proto_item *ei = NULL;
+
+        ei = proto_tree_add_item(tree, hf_ieee1905_extra_tlv_data, tvb, offset,
+                             len - (offset - start_offset), ENC_NA);
+        expert_add_info(pinfo, ei, &ei_ieee1905_extraneous_tlv_data);
+        offset = start_offset + len; /* Skip the extras. */
+    }
     return offset;
 }
 
@@ -3209,7 +3228,7 @@ dissect_steering_btm_report(tvbuff_t *tvb, packet_info *pinfo _U_,
      * its presence. 13 is the number of bytes already dissected above.
      */
     if (len >= 13 + 6) {
-        proto_tree_add_item(tree, hf_iee1905_btm_report_bssid, tvb, offset,
+        proto_tree_add_item(tree, hf_ieee1905_btm_report_bssid, tvb, offset,
                             len - 13, ENC_NA);
         offset += len - 13; /* Should check for more entries ... */
     }
@@ -3782,41 +3801,31 @@ dissect_sta_mac_address_type(tvbuff_t *tvb, packet_info *pinfo _U_,
  */
 static int
 dissect_associated_sta_link_metrics(tvbuff_t *tvb, packet_info *pinfo _U_,
-        proto_tree *tree, guint offset, guint16 len _U_)
+        proto_tree *tree, guint offset, guint16 len)
 {
     proto_tree *bss_list = NULL;
     proto_tree *bss_tree = NULL;
-    guint8 bss_list_count = 0, bss_list_index = 0;
+    proto_item *pi = NULL;
+    guint8 bss_list_index = 0;
+    guint start_offset = 0;
 
     proto_tree_add_item(tree, hf_ieee1905_assoc_sta_mac_addr, tvb, offset,
                         6, ENC_NA);
     offset += 6;
+    len -= 6;
 
-    /*
-     * There seems to be an error in table 27 for section 17.2.24. Assume
-     * there is a field k after the MAC address ... and that five fields are
-     * part of each entry.
-     */
-    bss_list_count = tvb_get_guint8(tvb, offset);
-    proto_tree_add_item(tree, hf_ieee1905_assoc_sta_link_metric_bss_count, tvb,
-                        offset, 1, ENC_NA);
-    offset++;
-
-    if (bss_list_count == 0) /* Is this possible? */
-        return offset;
-
-    bss_list = proto_tree_add_subtree(tree, tvb, offset, 19 * bss_list_count,
+    bss_list = proto_tree_add_subtree(tree, tvb, offset, -1,
                             ett_sta_list_metrics_bss_list, NULL,
                             "BSS list");
 
-    while (bss_list_index < bss_list_count) {
+    while (len >= 18) {
         bss_tree = proto_tree_add_subtree_format(bss_list, tvb,
-                                offset, 19, ett_sta_list_metrics_bss_tree,
+                                offset, 18, ett_sta_list_metrics_bss_tree,
                                 NULL, "BSS %u", bss_list_index);
 
         proto_tree_add_item(bss_tree, hf_ieee1905_assoc_sta_link_metrics_bssid,
                             tvb, offset, 6, ENC_NA);
-        offset++;
+        offset += 6;
 
         proto_tree_add_item(bss_tree, hf_ieee1905_assoc_sta_link_metrics_time_delta,
                             tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -3830,11 +3839,14 @@ dissect_associated_sta_link_metrics(tvbuff_t *tvb, packet_info *pinfo _U_,
                             tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
 
-        proto_tree_add_item(bss_tree, hf_ieee1905_assoc_sta_link_metrics_rssi,
-                            tvb, offset, 1, ENC_NA);
-        offset++;
-
         bss_list_index++;
+        len -= 18;
+    }
+
+    proto_item_set_len(pi, offset - start_offset);
+
+    if (len > 0) {
+      offset += len;
     }
 
     return offset;
@@ -3873,6 +3885,7 @@ dissect_unassociated_sta_link_metrics_query(tvbuff_t *tvb,
             proto_tree_add_item(channel_list,
                             hf_ieee1905_unassoc_metrics_channel,
                             tvb, offset, 1, ENC_NA);
+            offset++;
             channel_count--;
             len--;
         }
@@ -4301,7 +4314,7 @@ dissect_ieee1905_tlv_data(tvbuff_t *tvb, packet_info *pinfo _U_,
         break;
 
     case STEERING_REQUEST_TLV:
-        offset = dissect_steering_request(tvb, pinfo, tree, offset);
+        offset = dissect_steering_request(tvb, pinfo, tree, offset, tlv_len);
         break;
 
     case STEERING_BTM_REPORT_TLV:
@@ -4900,7 +4913,7 @@ proto_register_ieee1905(void)
           { "BTM status code", "ieee1905.btm_report.status",
             FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
-        { &hf_iee1905_btm_report_bssid,
+        { &hf_ieee1905_btm_report_bssid,
           { "BTM target BSSID", "ieee1905.btm_report.target_bssid",
             FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
 
@@ -5113,7 +5126,7 @@ proto_register_ieee1905(void)
             FT_UINT8, BASE_HEX, VALS(channel_preference_prefs_vals), 0xF0, NULL, HFILL}},
         { &hf_ieee1905_channel_pref_reason,
           { "Reason code", "ieee1905.channel_pref.reason",
-            FT_UINT8, BASE_HEX, VALS(channel_preference_reason_vals), 0xF0, NULL, HFILL}},
+            FT_UINT8, BASE_HEX, VALS(channel_preference_reason_vals), 0x0F, NULL, HFILL}},
 
         { &hf_ieee1905_channel_preference_radio_id,
           { "Radio unique ID", "ieee1905.channel_pref.radio_id",
@@ -5232,7 +5245,7 @@ proto_register_ieee1905(void)
             FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_assoc_sta_link_metrics_time_delta,
-          { "Measuremet time delta", "ieee1905.assoc_sta_link_metrics.time_delta",
+          { "Measurement time delta", "ieee1905.assoc_sta_link_metrics.time_delta",
             FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_assoc_sta_link_metrics_dwn_rate,
@@ -5531,6 +5544,10 @@ proto_register_ieee1905(void)
           { "Response status", "ieee1905.beacon_metrics.status",
             FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
 
+        { &hf_ieee1905_extra_tlv_data,
+          { "Extraneous TLV data", "ieee1905.extra_tlv_data",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
+
         { &hf_ieee1905_data,
           { "Extraneous message data", "ieee1905.data",
             FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
@@ -5603,6 +5620,7 @@ proto_register_ieee1905(void)
         &ett_metric_reporting_policy_tree,
         &ett_ap_metric_query_bssid_list,
         &ett_sta_list_metrics_bss_list,
+        &ett_sta_list_metrics_bss_tree,
         &ett_he_mcs_list,
         &ett_he_cap_flags,
         &ett_steering_policy_disallowed_list,
@@ -5632,6 +5650,10 @@ proto_register_ieee1905(void)
       { &ei_ieee1905_extraneous_data_after_eom,
         { "ieee1905.tlv.extraneous_data", PI_PROTOCOL, PI_WARN,
           "Extraneous data after EOM TLV", EXPFILL }},
+
+      { &ei_ieee1905_extraneous_tlv_data,
+        { "ieee1905.tlv.extra_data", PI_PROTOCOL, PI_WARN,
+           "TLV has extra data", EXPFILL }},
     };
 
     expert_module_t *expert_ieee1905 = NULL;

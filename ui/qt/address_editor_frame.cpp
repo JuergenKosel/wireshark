@@ -34,6 +34,7 @@
 #include <ui_address_editor_frame.h>
 
 #include <QPushButton>
+#include <QKeyEvent>
 
 #include <ui/qt/utils/qt_ui_utils.h>
 
@@ -82,7 +83,8 @@ void AddressEditorFrame::editAddresses(CaptureFile &cf, int column)
     col_custom_prime_edt(&edt, &cap_file_->cinfo);
 
     epan_dissect_run(&edt, cap_file_->cd_t, &cap_file_->phdr,
-        frame_tvbuff_new_buffer(cap_file_->current_frame, &cap_file_->buf), cap_file_->current_frame, &cap_file_->cinfo);
+        frame_tvbuff_new_buffer(&cap_file_->provider, cap_file_->current_frame, &cap_file_->buf),
+        cap_file_->current_frame, &cap_file_->cinfo);
     epan_dissect_fill_in_columns(&edt, TRUE, TRUE);
 
     /* First check selected column */
@@ -102,6 +104,29 @@ void AddressEditorFrame::editAddresses(CaptureFile &cf, int column)
     ui->addressComboBox->addItems(addresses);
     ui->nameLineEdit->setFocus();
     updateWidgets();
+}
+
+void AddressEditorFrame::showEvent(QShowEvent *event)
+{
+    ui->nameLineEdit->setFocus();
+    ui->nameLineEdit->selectAll();
+
+    AccordionFrame::showEvent(event);
+}
+
+void AddressEditorFrame::keyPressEvent(QKeyEvent *event)
+{
+    if (event->modifiers() == Qt::NoModifier) {
+        if (event->key() == Qt::Key_Escape) {
+            on_buttonBox_rejected();
+        } else if (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) {
+            if (ui->buttonBox->button(QDialogButtonBox::Ok)->isEnabled()) {
+                on_buttonBox_accepted();
+            }
+        }
+    }
+
+    AccordionFrame::keyPressEvent(event);
 }
 
 void AddressEditorFrame::updateWidgets()
@@ -129,13 +154,6 @@ void AddressEditorFrame::on_addressComboBox_currentIndexChanged(const QString &)
 void AddressEditorFrame::on_nameLineEdit_textEdited(const QString &)
 {
     updateWidgets();
-}
-
-void AddressEditorFrame::on_nameLineEdit_returnPressed()
-{
-    if (ui->buttonBox->button(QDialogButtonBox::Ok)->isEnabled()) {
-        on_buttonBox_accepted();
-    }
 }
 
 void AddressEditorFrame::on_buttonBox_accepted()

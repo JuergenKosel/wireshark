@@ -207,11 +207,14 @@ typedef enum {
 
 #define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA         0
 #define SSL_HND_QUIC_TP_INITIAL_MAX_DATA                1
-#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID           2
+#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_BIDI      2
 #define SSL_HND_QUIC_TP_IDLE_TIMEOUT                    3
 #define SSL_HND_QUIC_TP_OMIT_CONNECTION_ID              4
 #define SSL_HND_QUIC_TP_MAX_PACKET_SIZE                 5
 #define SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN           6
+#define SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT              7
+#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_UNI       8
+
 /*
  * Lookup tables
  */
@@ -313,6 +316,7 @@ typedef enum {
 /* Explicit and implicit nonce length (RFC 5116 - Section 3.2.1) */
 #define IMPLICIT_NONCE_LEN  4
 #define EXPLICIT_NONCE_LEN  8
+#define TLS13_AEAD_NONCE_LENGTH     12
 
 /* TLS 1.3 Record type for selecting the appropriate secret. */
 typedef enum {
@@ -357,6 +361,15 @@ typedef struct _SslDecoder {
     SslFlow *flow;
     StringInfo app_traffic_secret;  /**< TLS 1.3 application traffic secret (if applicable), wmem file scope. */
 } SslDecoder;
+
+/*
+ * TLS 1.3 Cipher context. Simpler than SslDecoder since no compression is
+ * required and all keys are calculated internally.
+ */
+typedef struct {
+    gcry_cipher_hd_t    hd;
+    guint8              iv[TLS13_AEAD_NONCE_LENGTH];
+} tls13_cipher;
 
 #define KEX_DHE_DSS     0x10
 #define KEX_DHE_PSK     0x11
@@ -570,7 +583,7 @@ extern void
 ssl_data_set(StringInfo* buf, const guchar* src, guint len);
 
 /** alloc the data with the specified len for the stringInfo buffer.
- @param src the data source
+ @param str the data source
  @param len the source data len */
 extern gint
 ssl_data_alloc(StringInfo* str, size_t len);
@@ -621,6 +634,25 @@ ssl_change_cipher(SslDecryptSession *ssl_session, gboolean server);
 extern gint
 ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint16 record_version,
         const guchar *in, guint16 inl, StringInfo *comp_str, StringInfo *out_str, guint *outl);
+
+/**
+ * Given a cipher algorithm and its mode, a hash algorithm and the secret (with
+ * the same length as the hash algorithm), try to build a cipher. The algorithms
+ * and mode are Libgcrypt identifiers.
+ */
+tls13_cipher *
+tls13_cipher_create(guint8 tls13_draft_version, int cipher_algo, int cipher_mode, int hash_algo, StringInfo *secret, const gchar **error);
+
+/*
+ * Calculate HKDF-Extract(salt, IKM) -> PRK according to RFC 5869.
+ * Caller must ensure that 'prk' is large enough to store the digest.
+ */
+static inline gcry_error_t
+hkdf_extract(int algo, const guint8 *salt, size_t salt_len, const guint8 *ikm, size_t ikm_len, guint8 *prk)
+{
+    /* PRK = HMAC-Hash(salt, IKM) where salt is key, and IKM is input. */
+    return ws_hmac_buffer(algo, prk, ikm, ikm_len, salt, salt_len);
+}
 
 
 /* Common part bitween SSL and DTLS dissectors */
@@ -694,6 +726,10 @@ extern gboolean
 ssl_is_valid_handshake_type(guint8 hs_type, gboolean is_dtls);
 
 extern void
+tls_scan_server_hello(tvbuff_t *tvb, guint32 offset, guint32 offset_end,
+                      guint16 *server_version, gboolean *is_hrr);
+
+extern void
 ssl_try_set_version(SslSession *session, SslDecryptSession *ssl,
                     guint8 content_type, guint8 handshake_type,
                     gboolean is_dtls, guint16 version);
@@ -753,7 +789,7 @@ typedef struct ssl_common_dissect {
         gint hs_ext_psk_binders;
         gint hs_ext_psk_identity_selected;
         gint hs_ext_supported_versions_len;
-        gint hs_ext_supported_versions;
+        gint hs_ext_supported_version;
         gint hs_ext_cookie_len;
         gint hs_ext_cookie;
         gint hs_ext_server_name;
@@ -861,10 +897,12 @@ typedef struct ssl_common_dissect {
         gint hs_ext_quictp_parameter_value;
         gint hs_ext_quictp_parameter_initial_max_stream_data;
         gint hs_ext_quictp_parameter_initial_max_data;
-        gint hs_ext_quictp_parameter_initial_max_stream_id;
+        gint hs_ext_quictp_parameter_initial_max_stream_id_bidi;
         gint hs_ext_quictp_parameter_idle_timeout;
         gint hs_ext_quictp_parameter_max_packet_size;
         gint hs_ext_quictp_parameter_stateless_reset_token;
+        gint hs_ext_quictp_parameter_ack_delay_exponent;
+        gint hs_ext_quictp_parameter_initial_max_stream_id_uni;
 
         /* do not forget to update SSL_COMMON_LIST_T and SSL_COMMON_HF_LIST! */
     } hf;
@@ -989,7 +1027,7 @@ extern void
 ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info* pinfo,
                           proto_tree *tree, guint32 offset, guint32 offset_end,
                           SslSession *session, SslDecryptSession *ssl,
-                          gboolean is_dtls);
+                          gboolean is_dtls, gboolean is_hrr);
 
 extern void
 ssl_dissect_hnd_hello_retry_request(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info* pinfo,
@@ -1072,7 +1110,7 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,             \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,     \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
@@ -1246,8 +1284,8 @@ ssl_common_dissect_t name = {   \
         FT_UINT8, BASE_DEC, NULL, 0x0,                                  \
         NULL, HFILL }                                                   \
     },                                                                  \
-    { & name .hf.hs_ext_supported_versions,                             \
-      { "Supported Versions", prefix ".handshake.extensions.supported_versions",    \
+    { & name .hf.hs_ext_supported_version,                              \
+      { "Supported Version", prefix ".handshake.extensions.supported_version", \
         FT_UINT16, BASE_HEX, VALS(ssl_versions), 0x0,                   \
         NULL, HFILL }                                                   \
     },                                                                  \
@@ -1853,10 +1891,10 @@ ssl_common_dissect_t name = {   \
         FT_UINT32, BASE_DEC, NULL, 0x00,                                \
         "Contains the initial value for the maximum amount of data that can be sent on the connection", HFILL }                                                                 \
     },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_id,         \
-      { "initial_max_stream_id", prefix ".quic.parameter.initial_max_stream_id",    \
+    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_id_bidi,    \
+      { "initial_max_stream_id_bidi", prefix ".quic.parameter.initial_max_stream_id_bidi",  \
         FT_UINT32, BASE_DEC, NULL, 0x00,                                \
-        "Contains the initial maximum stream number the peer may initiate", HFILL } \
+        "Contains the initial maximum stream number the peer may initiate for bidirectional streams", HFILL } \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_idle_timeout,                  \
       { "idle_timeout", prefix ".quic.parameter.idle_timeout",          \
@@ -1872,6 +1910,16 @@ ssl_common_dissect_t name = {   \
       { "stateless_reset_token", prefix ".quic.parameter.stateless_reset_token",    \
         FT_BYTES, BASE_NONE, NULL, 0x00,                                \
         "Used in verifying a stateless reset", HFILL }                  \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_ack_delay_exponent,         \
+      { "ack_delay_exponent", prefix ".quic.parameter.ack_delay_exponent",  \
+        FT_UINT8, BASE_DEC, NULL, 0x00,                                \
+        "Indicating an exponent used to decode the ACK Delay field in the ACK frame,", HFILL }  \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_id_uni,    \
+      { "initial_max_stream_id_uni", prefix ".quic.parameter.initial_max_stream_id_uni",  \
+        FT_UINT32, BASE_DEC, NULL, 0x00,                                \
+        "Contains the initial maximum stream number the peer may initiate for unidirectional streams", HFILL } \
     }
 /* }}} */
 

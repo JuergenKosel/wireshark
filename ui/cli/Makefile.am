@@ -26,20 +26,9 @@ AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS) \
 
 noinst_LIBRARIES = libcliui.a
 
-# Generated header files that we want in the distribution.
-GENERATED_HEADER_FILES =
-
-# Generated C source files that we want in the distribution.
-GENERATED_C_FILES = \
+# Generated files not in the distribution.
+NODIST_GENERATED_FILES = \
 	tshark-tap-register.c
-
-# All the generated files.
-GENERATED_FILES = \
-	$(GENERATED_HEADER_FILES) \
-	$(GENERATED_C_FILES)
-
-# Files that generate compileable files
-GENERATOR_FILES =
 
 # sources for TShark taps
 TSHARK_TAP_SRC = \
@@ -83,43 +72,19 @@ noinst_HEADERS = \
 
 # All sources that should be put in the source distribution tarball
 libcliui_a_SOURCES = \
-	$(TSHARK_TAP_SRC) \
-	$(noinst_HEADERS) \
-	$(GENERATED_HEADER_FILES) \
-	$(GENERATED_C_FILES)
+	$(TSHARK_TAP_SRC)
 
-libcliui_a_DEPENDENCIES =
+nodist_libcliui_a_SOURCES = \
+	$(NODIST_GENERATED_FILES)
 
 EXTRA_DIST = \
-	.editorconfig		\
-	$(GENERATOR_FILES)
+	.editorconfig
 
-CLEANFILES = \
-	libcliui.a			\
-	tshark-tap-register.c-tmp	\
-	tshark-tap-register-cache.pkl	\
-	*~
+DISTCLEANFILES = \
+	$(NODIST_GENERATED_FILES)
 
-MAINTAINERCLEANFILES = \
-	$(GENERATED_FILES)
-
-#
-# Build "tshark-tap-register.c", which contains a function
-# "register_all_tap_listeners()"
-# that calls the register routines for all tshark tap listeners.
-#
-# We do this by grepping through sources.
-#
-# Formatting conventions:  The name of the tap_listener_register_*
-# routines must start in column zero, or must be preceded only by
-# "void " starting in column zero, and must not be inside #if.
-#
-# The first argument is the directory in which the source files live.
-# All subsequent arguments are the files to scan.
-#
-tshark-tap-register.c: $(TSHARK_TAP_SRC) $(top_srcdir)/tools/make-tap-reg.py
-	@echo Making tshark-tap-register.c
-	@$(PYTHON) $(top_srcdir)/tools/make-tap-reg.py $(srcdir) tshark-taps $(TSHARK_TAP_SRC)
+tshark-tap-register.c: $(TSHARK_TAP_SRC) ../make-taps
+	$(AM_V_GEN)../make-taps $@ $(filter %.c,$^)
 
 doxygen:
 if HAVE_DOXYGEN

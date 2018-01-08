@@ -174,7 +174,7 @@ void WirelessTimeline::mouseReleaseEvent(QMouseEvent *event)
     if (num == 0)
         return;
 
-    frame_data *fdata = frame_data_sequence_find(cfile.frames, num);
+    frame_data *fdata = frame_data_sequence_find(cfile.provider.frames, num);
     if (!fdata->flags.passed_dfilter && fdata->prev_dis_num > 0)
         num = fdata->prev_dis_num;
 
@@ -339,6 +339,14 @@ WirelessTimeline::WirelessTimeline(QWidget *parent) : QWidget(parent)
     setFixedHeight(TIMELINE_HEIGHT);
     first_packet = 1;
     setMouseTracking(true);
+    start_x = 0;
+    last_x = 0;
+    packet_list = NULL;
+    start_tsf = 0;
+    end_tsf = 0;
+    first = NULL;
+    last = NULL;
+    capfile = NULL;
 
     radio_packet_list = NULL;
     connect(wsApp, SIGNAL(appInitialized()), this, SLOT(appInitialized()));
@@ -528,7 +536,7 @@ WirelessTimeline::paintEvent(QPaintEvent *qpe)
 
     QGraphicsScene qs;
     for (packet = find_packet_tsf(start_tsf + left/zoom - RENDER_EARLY); packet <= cfile.count; packet++) {
-        frame_data *fdata = frame_data_sequence_find(cfile.frames, packet);
+        frame_data *fdata = frame_data_sequence_find(cfile.provider.frames, packet);
         struct wlan_radio *ri = get_wlan_radio(fdata->num);
         float x, width, red, green, blue;
 

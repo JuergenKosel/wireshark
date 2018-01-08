@@ -30,7 +30,6 @@
 #include <glib.h>
 
 #include <epan/exceptions.h>
-#include <epan/epan-int.h>
 #include <epan/epan.h>
 
 #include <wsutil/clopts_common.h>
@@ -58,15 +57,12 @@
 #include "ui/util.h"
 #include "ui/decode_as_utils.h"
 #include "ui/dissect_opts.h"
-#include "register.h"
+#include "epan/register.h"
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/ex-opt.h>
-
-#ifdef HAVE_EXTCAP
 #include "extcap.h"
-#endif
 
 #include <wiretap/wtap-int.h>
 #include <wiretap/file_wrappers.h>
@@ -87,12 +83,11 @@
 #define INVALID_FILTER 2
 #define OPEN_ERROR 2
 
+capture_file cfile;
+
 static guint32 cum_bytes;
-static const frame_data *ref;
 static frame_data ref_frame;
-static frame_data *prev_dis;
 static frame_data prev_dis_frame;
-static frame_data *prev_cap;
 static frame_data prev_cap_frame;
 
 static gboolean prefs_loaded = FALSE;
@@ -143,8 +138,6 @@ static void open_failure_message(const char *filename, int err,
 static void read_failure_message(const char *filename, int err);
 static void write_failure_message(const char *filename, int err);
 static void failure_message_cont(const char *msg_format, va_list ap);
-
-capture_file cfile;
 
 static GHashTable *output_only_tables = NULL;
 
@@ -495,16 +488,6 @@ main(int argc, char *argv[])
   timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
   wtap_init();
-
-#ifdef HAVE_PLUGINS
-  /* Register all the plugin types we have. */
-  epan_register_plugin_types(); /* Types known to libwireshark */
-
-  /* Scan for plugins.  This does *not* call their registration routines;
-     that's done later. */
-  scan_plugins(REPORT_LOAD_FAILURE);
-
-#endif
 
   /* Register all dissectors; we must do this before checking for the
      "-G" flag, as the "-G" flag dumps information registered by the
@@ -1001,9 +984,9 @@ main(int argc, char *argv[])
 
   g_free(cf_name);
 
-  if (cfile.frames != NULL) {
-    free_frame_data_sequence(cfile.frames);
-    cfile.frames = NULL;
+  if (cfile.provider.frames != NULL) {
+    free_frame_data_sequence(cfile.provider.frames);
+    cfile.provider.frames = NULL;
   }
 
   draw_tap_listeners(TRUE);
@@ -1013,9 +996,7 @@ clean_exit:
   destroy_print_stream(print_stream);
   epan_free(cfile.epan);
   epan_cleanup();
-#ifdef HAVE_EXTCAP
   extcap_cleanup();
-#endif
 
   output_fields_free(output_fields);
   output_fields = NULL;
@@ -1026,21 +1007,19 @@ clean_exit:
 }
 
 static const nstime_t *
-tfshark_get_frame_ts(void *data, guint32 frame_num)
+tfshark_get_frame_ts(struct packet_provider_data *prov, guint32 frame_num)
 {
-  capture_file *cf = (capture_file *) data;
+  if (prov->ref && prov->ref->num == frame_num)
+    return &prov->ref->abs_ts;
 
-  if (ref && ref->num == frame_num)
-    return &ref->abs_ts;
+  if (prov->prev_dis && prov->prev_dis->num == frame_num)
+    return &prov->prev_dis->abs_ts;
 
-  if (prev_dis && prev_dis->num == frame_num)
-    return &prev_dis->abs_ts;
+  if (prov->prev_cap && prov->prev_cap->num == frame_num)
+    return &prov->prev_cap->abs_ts;
 
-  if (prev_cap && prev_cap->num == frame_num)
-    return &prev_cap->abs_ts;
-
-  if (cf->frames) {
-     frame_data *fd = frame_data_sequence_find(cf->frames, frame_num);
+  if (prov->frames) {
+     frame_data *fd = frame_data_sequence_find(prov->frames, frame_num);
 
      return (fd) ? &fd->abs_ts : NULL;
   }
@@ -1049,7 +1028,7 @@ tfshark_get_frame_ts(void *data, guint32 frame_num)
 }
 
 static const char *
-no_interface_name(void *data _U_, guint32 interface_id _U_)
+no_interface_name(struct packet_provider_data *prov _U_, guint32 interface_id _U_)
 {
     return "";
 }
@@ -1057,14 +1036,14 @@ no_interface_name(void *data _U_, guint32 interface_id _U_)
 static epan_t *
 tfshark_epan_new(capture_file *cf)
 {
-  epan_t *epan = epan_new();
+  static const struct packet_provider_funcs funcs = {
+    tfshark_get_frame_ts,
+    no_interface_name,
+    NULL,
+    NULL,
+  };
 
-  epan->data = cf;
-  epan->get_frame_ts = tfshark_get_frame_ts;
-  epan->get_interface_name = no_interface_name;
-  epan->get_user_comment = NULL;
-
-  return epan;
+  return epan_new(&cf->provider, &funcs);
 }
 
 static gboolean
@@ -1101,13 +1080,15 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
     prime_epan_dissect_with_postdissector_wanted_hfids(edt);
 
     frame_data_set_before_dissect(&fdlocal, &cf->elapsed_time,
-                                  &ref, prev_dis);
-    if (ref == &fdlocal) {
+                                  &cf->provider.ref, cf->provider.prev_dis);
+    if (cf->provider.ref == &fdlocal) {
       ref_frame = fdlocal;
-      ref = &ref_frame;
+      cf->provider.ref = &ref_frame;
     }
 
-    epan_dissect_file_run(edt, whdr, file_tvbuff_new(&fdlocal, pd), &fdlocal, NULL);
+    epan_dissect_file_run(edt, whdr,
+                          file_tvbuff_new(&cf->provider, &fdlocal, pd),
+                          &fdlocal, NULL);
 
     /* Run the read filter if we have one. */
     if (cf->rfcode)
@@ -1116,14 +1097,14 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
 
   if (passed) {
     frame_data_set_after_dissect(&fdlocal, &cum_bytes);
-    prev_cap = prev_dis = frame_data_sequence_add(cf->frames, &fdlocal);
+    cf->provider.prev_cap = cf->provider.prev_dis = frame_data_sequence_add(cf->provider.frames, &fdlocal);
 
     /* If we're not doing dissection then there won't be any dependent frames.
      * More importantly, edt.pi.dependent_frames won't be initialized because
      * epan hasn't been initialized.
      */
     if (edt) {
-      g_slist_foreach(edt->pi.dependent_frames, find_and_mark_frame_depended_upon, cf->frames);
+      g_slist_foreach(edt->pi.dependent_frames, find_and_mark_frame_depended_upon, cf->provider.frames);
     }
 
     cf->count++;
@@ -1180,13 +1161,14 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
       cinfo = NULL;
 
     frame_data_set_before_dissect(fdata, &cf->elapsed_time,
-                                  &ref, prev_dis);
-    if (ref == fdata) {
+                                  &cf->provider.ref, cf->provider.prev_dis);
+    if (cf->provider.ref == fdata) {
       ref_frame = *fdata;
-      ref = &ref_frame;
+      cf->provider.ref = &ref_frame;
     }
 
-    epan_dissect_file_run_with_taps(edt, phdr, file_tvbuff_new_buffer(fdata, buf), fdata, cinfo);
+    epan_dissect_file_run_with_taps(edt, phdr,
+        file_tvbuff_new_buffer(&cf->provider, fdata, buf), fdata, cinfo);
 
     /* Run the read/display filter if we have one. */
     if (cf->dfcode)
@@ -1212,9 +1194,9 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
         return FALSE;
       }
     }
-    prev_dis = fdata;
+    cf->provider.prev_dis = fdata;
   }
-  prev_cap = fdata;
+  cf->provider.prev_cap = fdata;
 
   if (edt) {
     epan_dissect_reset(edt);
@@ -1226,14 +1208,14 @@ static gboolean
 local_wtap_read(capture_file *cf, struct wtap_pkthdr* file_phdr _U_, int *err, gchar **err_info _U_, gint64 *data_offset _U_, guint8** data_buffer)
 {
     /* int bytes_read; */
-    gint64 packet_size = wtap_file_size(cf->wth, err);
+    gint64 packet_size = wtap_file_size(cf->provider.wth, err);
 
     *data_buffer = (guint8*)g_malloc((gsize)packet_size);
-    /* bytes_read =*/ file_read(*data_buffer, (unsigned int)packet_size, cf->wth->fh);
+    /* bytes_read =*/ file_read(*data_buffer, (unsigned int)packet_size, cf->provider.wth->fh);
 
 #if 0 /* no more filetap */
     if (bytes_read < 0) {
-        *err = file_error(cf->wth->fh, err_info);
+        *err = file_error(cf->provider.wth->fh, err_info);
         if (*err == 0)
             *err = FTAP_ERR_SHORT_READ;
         return FALSE;
@@ -1328,7 +1310,7 @@ process_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
     frame_data *fdata;
 
     /* Allocate a frame_data_sequence for all the frames. */
-    cf->frames = new_frame_data_sequence();
+    cf->provider.frames = new_frame_data_sequence();
 
     if (do_dissection) {
       gboolean create_proto_tree;
@@ -1350,8 +1332,8 @@ process_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
       edt = epan_dissect_new(cf->epan, create_proto_tree, FALSE);
     }
     while (local_wtap_read(cf, &file_phdr, &err, &err_info, &data_offset, &raw_data)) {
-      if (process_packet_first_pass(cf, edt, data_offset, &file_phdr/*wtap_phdr(cf->wth)*/,
-                                    wtap_buf_ptr(cf->wth))) {
+      if (process_packet_first_pass(cf, edt, data_offset, &file_phdr/*wtap_phdr(cf->provider.wth)*/,
+                                    wtap_buf_ptr(cf->provider.wth))) {
 
         /* Stop reading if we have the maximum number of packets;
          * When the -c option has not been used, max_packet_count
@@ -1372,15 +1354,15 @@ process_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
 
 #if 0
     /* Close the sequential I/O side, to free up memory it requires. */
-    wtap_sequential_close(cf->wth);
+    wtap_sequential_close(cf->provider.wth);
 #endif
 
     /* Allow the protocol dissectors to free up memory that they
      * don't need after the sequential run-through of the packets. */
     postseq_cleanup_all_protocols();
 
-    prev_dis = NULL;
-    prev_cap = NULL;
+    cf->provider.prev_dis = NULL;
+    cf->provider.prev_cap = NULL;
     ws_buffer_init(&buf, 1500);
 
     if (do_dissection) {
@@ -1411,9 +1393,9 @@ process_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
     }
 
     for (framenum = 1; err == 0 && framenum <= cf->count; framenum++) {
-      fdata = frame_data_sequence_find(cf->frames, framenum);
+      fdata = frame_data_sequence_find(cf->provider.frames, framenum);
 #if 0
-      if (wtap_seek_read(cf->wth, fdata->file_off,
+      if (wtap_seek_read(cf->provider.wth, fdata->file_off,
           &buf, fdata->cap_len, &err, &err_info)) {
         process_packet_second_pass(cf, edt, fdata, &cf->phdr, &buf, tap_flags);
       }
@@ -1474,7 +1456,7 @@ process_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
       framenum++;
 
       if (!process_packet_single_pass(cf, edt, data_offset,
-                                      &file_phdr/*wtap_phdr(cf->wth)*/,
+                                      &file_phdr/*wtap_phdr(cf->provider.wth)*/,
                                       raw_data, tap_flags))
         return FALSE;
 
@@ -1574,8 +1556,8 @@ process_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
   }
 
 out:
-  wtap_close(cf->wth);
-  cf->wth = NULL;
+  wtap_close(cf->provider.wth);
+  cf->provider.wth = NULL;
 
   return (err != 0);
 }
@@ -1623,13 +1605,15 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, gint64 offset,
       cinfo = NULL;
 
     frame_data_set_before_dissect(&fdata, &cf->elapsed_time,
-                                  &ref, prev_dis);
-    if (ref == &fdata) {
+                                  &cf->provider.ref, cf->provider.prev_dis);
+    if (cf->provider.ref == &fdata) {
       ref_frame = fdata;
-      ref = &ref_frame;
+      cf->provider.ref = &ref_frame;
     }
 
-    epan_dissect_file_run_with_taps(edt, whdr, frame_tvbuff_new(&fdata, pd), &fdata, cinfo);
+    epan_dissect_file_run_with_taps(edt, whdr,
+                                    frame_tvbuff_new(&cf->provider, &fdata, pd),
+                                    &fdata, cinfo);
 
     /* Run the filter if we have it. */
     if (cf->dfcode)
@@ -1659,11 +1643,11 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, gint64 offset,
 
     /* this must be set after print_packet() [bug #8160] */
     prev_dis_frame = fdata;
-    prev_dis = &prev_dis_frame;
+    cf->provider.prev_dis = &prev_dis_frame;
   }
 
   prev_cap_frame = fdata;
-  prev_cap = &prev_cap_frame;
+  cf->provider.prev_cap = &prev_cap_frame;
 
   if (edt) {
     epan_dissect_reset(edt);
@@ -2012,7 +1996,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
       break;
 
     case WRITE_XML:
-      write_pdml_proto_tree(NULL, NULL, PF_NONE, edt, stdout, FALSE);
+      write_pdml_proto_tree(NULL, NULL, PF_NONE, edt, &cf->cinfo, stdout, FALSE);
       printf("\n");
       return !ferror(stdout);
     case WRITE_FIELDS:
@@ -2071,7 +2055,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   epan_free(cf->epan);
   cf->epan = tfshark_epan_new(cf);
 
-  cf->wth = NULL; /**** XXX - DOESN'T WORK RIGHT NOW!!!! */
+  cf->provider.wth = NULL; /**** XXX - DOESN'T WORK RIGHT NOW!!!! */
   cf->f_datalen = 0; /* not used, but set it anyway */
 
   /* Set the file name because we need it to set the follow stream filter.
@@ -2092,9 +2076,9 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   cf->drops     = 0;
   cf->snap      = 0; /**** XXX - DOESN'T WORK RIGHT NOW!!!! */
   nstime_set_zero(&cf->elapsed_time);
-  ref = NULL;
-  prev_dis = NULL;
-  prev_cap = NULL;
+  cf->provider.ref = NULL;
+  cf->provider.prev_dis = NULL;
+  cf->provider.prev_cap = NULL;
 
   cf->state = FILE_READ_IN_PROGRESS;
 

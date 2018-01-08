@@ -4,19 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #ifndef FIELD_INFORMATION_H_
@@ -43,16 +31,19 @@ public:
         QString description;
         QString abbreviation;
         bool isValid;
+        enum ftenum type;
+        int parent;
+        int id;
     };
 
     struct Position
     {
         int start;
-        int end;
         int length;
     };
 
     explicit FieldInformation(field_info * fi, QObject * parent = Q_NULLPTR);
+    explicit FieldInformation(proto_node * node, QObject * parent = Q_NULLPTR);
 
     bool isValid();
 
@@ -63,10 +54,14 @@ public:
     Position appendix() const;
 
     void setParentField(field_info * fi);
+    int treeType();
     FieldInformation * parentField() const;
     bool tvbContains(FieldInformation *);
+    unsigned flag(unsigned mask);
+    const QString moduleName();
+    QString url();
 
-    QByteArray printableData();
+    const QByteArray printableData();
 
 private:
 

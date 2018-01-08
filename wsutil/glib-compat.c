@@ -6,19 +6,7 @@
 * By Gerald Combs <gerald@wireshark.org>
 * Copyright 1998 Gerald Combs
 *
-* This program is free software; you can redistribute it and/or
-* modify it under the terms of the GNU General Public License
-* as published by the Free Software Foundation; either version 2
-* of the License, or (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program; if not, write to the Free Software
-* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+* SPDX-License-Identifier: GPL-2.0+
 */
 #include "config.h"
 
@@ -76,7 +64,76 @@ gint64 g_get_monotonic_time (void)
     return result.tv_sec*1000000 + result.tv_usec;
 }
 
-#endif
+#endif /* GLIB_CHECK_VERSION(2, 28, 0)*/
+
+#if !GLIB_CHECK_VERSION(2, 30, 0)
+/**
+* g_ptr_array_new_full:
+* @reserved_size: number of pointers preallocated
+* @element_free_func: (allow-none): A function to free elements with
+*     destroy @array or %NULL
+*
+* Creates a new #GPtrArray with @reserved_size pointers preallocated
+* and a reference count of 1. This avoids frequent reallocation, if
+* you are going to add many pointers to the array. Note however that
+* the size of the array is still 0. It also set @element_free_func
+* for freeing each element when the array is destroyed either via
+* g_ptr_array_unref(), when g_ptr_array_free() is called with
+* @free_segment set to %TRUE or when removing elements.
+*
+* Returns: A new #GPtrArray
+*
+* Since: 2.30
+*/
+GPtrArray*
+g_ptr_array_new_full(guint          reserved_size,
+    GDestroyNotify element_free_func)
+{
+    GPtrArray *array;
+
+    array = g_ptr_array_sized_new(reserved_size);
+    g_ptr_array_set_free_func(array, element_free_func);
+
+    return array;
+}
+#endif /* GLIB_CHECK_VERSION(2, 30, 0)*/
+
+#if !GLIB_CHECK_VERSION(2,31,18)
+/**
+Code copied from dumpcap.c
+*/
+gpointer
+g_async_queue_timeout_pop(GAsyncQueue *queue,
+    guint64      timeout)
+{
+    GTimeVal  wait_time;
+    gpointer  q_status;
+
+    g_get_current_time(&wait_time);
+    g_time_val_add(&wait_time, timeout);
+    q_status = g_async_queue_timed_pop(queue, &wait_time);
+
+    return q_status;
+}
+
+#endif /* GLIB_CHECK_VERSION(2,31,18)*/
+
+
+#if !GLIB_CHECK_VERSION(2,31,0)
+GThread *g_thread_new(const gchar *name, GThreadFunc func, gpointer data)
+{
+    GError *error = NULL;
+    GThread *thread;
+
+    thread = g_thread_create(func, data, TRUE, &error);
+
+    if G_UNLIKELY (thread == NULL)
+        g_error ("creating thread '%s': %s", name ? name : "", error->message);
+
+    return thread;
+}
+#endif /* GLIB_CHECK_VERSION(2,31,0)*/
+
 /*
 * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
 *

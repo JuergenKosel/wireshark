@@ -57,7 +57,7 @@ public:
     bool follow(QString previous_filter = QString(), bool use_stream_index = false, int stream_num = -1);
 
 public slots:
-    void captureFileClosing();
+    void captureEvent(CaptureEvent *e);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event);
@@ -134,6 +134,8 @@ private:
     bool                    save_as_;
     bool                    use_regex_find_;
     QFile                   file_;
+
+    bool                    terminating_;
 };
 
 #endif // FOLLOW_STREAM_DIALOG_H

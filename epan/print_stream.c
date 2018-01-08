@@ -7,19 +7,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #include "config.h"
@@ -42,6 +30,11 @@
 #define TERM_SGR_RESET "\x1B[0m"  /* SGR - reset */
 #define TERM_CSI_EL    "\x1B[K"   /* EL - Erase in Line (to end of line) */
 
+typedef struct {
+    gboolean  to_file;
+    FILE     *fh;
+} output_text;
+
 static void
 print_color_escape(FILE *fh, const color_t *fg, const color_t *bg)
 {
@@ -50,9 +43,45 @@ print_color_escape(FILE *fh, const color_t *fg, const color_t *bg)
     WORD win_fg_color = FOREGROUND_RED|FOREGROUND_BLUE|FOREGROUND_GREEN;
     WORD win_bg_color = 0;
 
-    /* Windows seems to offer 1-bit color, so you can't set the red, green, or blue intensities,
-     * you can only set "{foreground, background} contains {red, green, blue}".
-     * So include red, green or blue if the numeric intensity is high enough
+    /* The classic Windows Console offers 1-bit color, so you can't set
+     * the red, green, or blue intensities, you can only set
+     * "{foreground, background} contains {red, green, blue}". So
+     * include red, green or blue if the numeric intensity is high
+     * enough.
+     *
+     * The console in Windows 10 version 1511 (TH2), build 10586, and later
+     * supports SGR escape sequences:
+     *
+     *  http://www.nivot.org/blog/post/2016/02/04/Windows-10-TH2-(v1511)-Console-Host-Enhancements
+     *
+     * but only supports 16 colors.  The "undocumented" 0x04 bit to which
+     * they refer is documented in the current version of the SetConsoleMode()
+     * documentation:
+     *
+     *  https://docs.microsoft.com/en-us/windows/console/setconsolemode
+     *
+     * as ENABLE_VIRTUAL_TERMINAL_PROCESSING, saying
+     *
+     *  When writing with WriteFile or WriteConsole, characters are parsed
+     *  for VT100 and similar control character sequences that control cursor
+     *  movement, color/font mode, and other operations that can also be
+     *  performed via the existing Console APIs. For more information, see
+     *  Console Virtual Terminal Sequences.
+     *
+     * Console Virtual Terminal Sequences:
+     *
+     *  https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+     *
+     * documents all the escape sequences the Console supports.
+     *
+     * The console in Windows 10 builds 14931 (a preview version of Windows 10
+     * version 1703) and later supports SGR RGB sequences:
+     *
+     *	https://blogs.msdn.microsoft.com/commandline/2016/09/22/24-bit-color-in-the-windows-console/
+     *
+     * We might want to print those instead depending on the version of
+     * Windows or just remove the SetConsoleTextAttribute calls and only
+     * print SGR sequences if they are supported.
      */
     if (fg) {
         if (((fg->red >> 8) & 0xff) >= 0x80)
@@ -157,8 +186,15 @@ print_color_escape(FILE *fh, const color_t *fg, const color_t *bg)
 }
 
 static void
-print_color_eol(FILE *fh)
+print_color_eol(print_stream_t *self)
 {
+    output_text *output = (output_text *)self->data;
+    FILE *fh = output->fh;
+#ifdef _WIN32
+    SetConsoleTextAttribute((HANDLE)_get_osfhandle(_fileno(fh)), self->csb_attrs);
+    fprintf(fh, "\n");
+#else // UN*X
+
     /*
      * Emit CSI EL to extend current background color all the way to EOL,
      * otherwise we get a ragged right edge of color wherever the newline
@@ -166,6 +202,7 @@ print_color_eol(FILE *fh)
      * works.
      */
     fprintf(fh, "%s\n%s", TERM_CSI_EL, TERM_SGR_RESET);
+#endif
 }
 
 static FILE *
@@ -240,11 +277,6 @@ destroy_print_stream(print_stream_t *self)
     return (self && self->ops && self->ops->destroy) ? (self->ops->destroy)(self) : TRUE;
 }
 
-typedef struct {
-    gboolean  to_file;
-    FILE     *fh;
-} output_text;
-
 #define MAX_INDENT    160
 
 /* returns TRUE if the print succeeded, FALSE if there was an error */
@@ -297,7 +329,7 @@ print_line_color_text(print_stream_t *self, int indent, const char *line, const 
         }
 
         if (emit_color)
-            print_color_eol(output->fh);
+            print_color_eol(self);
         else
             putc('\n', output->fh);
     }
@@ -367,6 +399,10 @@ print_stream_text_alloc(gboolean to_file, FILE *fh)
         stream->to_codeset = charset;
     }
 #else
+    CONSOLE_SCREEN_BUFFER_INFO csb_info;
+    GetConsoleScreenBufferInfo((HANDLE)_get_osfhandle(_fileno(fh)), &csb_info);
+    stream->csb_attrs = csb_info.wAttributes;
+
     stream->to_codeset = "UTF-16LE";
 #endif
 

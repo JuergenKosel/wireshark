@@ -24,7 +24,6 @@
 
 #include "config.h"
 
-
 #include "packet_list_utils.h"
 
 #include <epan/column.h>

@@ -189,6 +189,7 @@ static const value_string mpls_pwac_types[] = {
     { 0x0025, "On-Demand CV"},
     { 0x0026, "LI"},
     { 0x0027, "Pseudo-Wire OAM"},
+    { 0x0028, "MAC Withdraw OAM Msg"},
     { 0x0057, "IPv6 packet" },
     { 0x0058, "Fault OAM"},
     { 0x7FF8, "Reserved for Experimental Use"},
@@ -282,11 +283,8 @@ dissect_pw_ach(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
         if (res != 0)
             expert_add_info(pinfo, ti, &ei_mpls_pw_ach_res);
 
-        proto_tree_add_uint_format_value(mpls_pw_ach_tree, hf_mpls_pw_ach_channel_type,
-                                         tvb, 2, 2, channel_type,
-                                         "%s (0x%04x)",
-                                         val_to_str_ext_const(channel_type, &mpls_pwac_types_ext, "Unknown"),
-                                         channel_type);
+        proto_tree_add_item(mpls_pw_ach_tree, hf_mpls_pw_ach_channel_type,
+                            tvb, 2, 2, ENC_BIG_ENDIAN);
 
     } /* if (tree) */
 
@@ -580,7 +578,7 @@ proto_register_mpls(void)
 
         {&hf_mpls_pw_ach_channel_type,
          {"Channel Type", "pwach.channel_type",
-          FT_UINT16, BASE_HEX, NULL, 0x0,
+          FT_UINT16, BASE_HEX|BASE_EXT_STRING, &mpls_pwac_types_ext, 0x0,
           "PW Associated Channel Type", HFILL }
         },
 

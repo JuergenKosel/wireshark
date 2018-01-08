@@ -21,7 +21,6 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#ifndef ENABLE_STATIC
 #include "config.h"
 
 #include <gmodule.h>
@@ -31,18 +30,20 @@
 #include "ws_symbol_export.h"
 
 #include <epan/stats_tree.h>
-
 #include "pinfo_stats_tree.h"
 
-WS_DLL_PUBLIC_DEF const gchar plugin_version[] = "0.0.1";
+WS_DLL_PUBLIC_DEF const gchar plugin_version[] = PLUGIN_VERSION;
 WS_DLL_PUBLIC_DEF const gchar plugin_release[] = VERSION_RELEASE;
 
-WS_DLL_PUBLIC_DEF void plugin_register_tap_listener(void)
-{
-	register_pinfo_stat_trees();
-}
+WS_DLL_PUBLIC void plugin_register(void);
 
-#endif
+void plugin_register(void)
+{
+	static tap_plugin plug;
+
+	plug.register_tap_listener = register_pinfo_stat_trees;
+	tap_register_plugin(&plug);
+}
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

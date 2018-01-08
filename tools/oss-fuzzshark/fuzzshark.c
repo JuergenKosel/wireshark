@@ -30,7 +30,6 @@
 
 #include <glib.h>
 
-#include <epan/epan-int.h>
 #include <epan/epan.h>
 
 #include <wsutil/cmdarg_err.h>
@@ -52,6 +51,8 @@
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
+
+#include "FuzzerInterface.h"
 
 #define EPAN_INIT_FAIL 2
 
@@ -111,7 +112,7 @@ failure_message_cont(const char *msg_format, va_list ap)
 }
 
 static const nstime_t *
-fuzzshark_get_frame_ts(void *data _U_, guint32 frame_num _U_)
+fuzzshark_get_frame_ts(struct packet_provider_data *prov _U_, guint32 frame_num _U_)
 {
 	static nstime_t empty;
 
@@ -121,14 +122,41 @@ fuzzshark_get_frame_ts(void *data _U_, guint32 frame_num _U_)
 static epan_t *
 fuzzshark_epan_new(void)
 {
-	epan_t *epan = epan_new();
+	static const struct packet_provider_funcs funcs = {
+		fuzzshark_get_frame_ts,
+		NULL,
+		NULL,
+		NULL
+	};
 
-	epan->get_frame_ts = fuzzshark_get_frame_ts;
-	epan->get_interface_name = NULL;
-	epan->get_interface_description = NULL;
-	epan->get_user_comment = NULL;
+	return epan_new(NULL, &funcs);
+}
 
-	return epan;
+static dissector_handle_t
+get_dissector_handle(const char *table, const char *target)
+{
+	dissector_handle_t fuzz_handle = NULL;
+
+	if (table != NULL && target != NULL)
+	{
+		/* search for handle, cannot use dissector_table_get_dissector_handle() cause it's using short-name, and I already used filter name in samples ;/ */
+		GSList *handle_list = dissector_table_get_dissector_handles(find_dissector_table(table));
+		while (handle_list)
+		{
+			dissector_handle_t handle = (dissector_handle_t) handle_list->data;
+			const char *handle_filter_name = proto_get_protocol_filter_name(dissector_handle_get_protocol_index(handle));
+
+			if (!strcmp(handle_filter_name, target))
+				fuzz_handle = handle;
+			handle_list = handle_list->next;
+		}
+	}
+	else if (target != NULL)
+	{
+		fuzz_handle = find_dissector(target);
+	}
+
+	return fuzz_handle;
 }
 
 static int
@@ -142,12 +170,10 @@ fuzz_init(int argc _U_, char **argv)
 	e_prefs             *prefs_p;
 	int                  ret = EXIT_SUCCESS;
 
-#if defined(FUZZ_DISSECTOR_TARGET)
 	dissector_handle_t fuzz_handle = NULL;
-#endif
 
-	setenv("WIRESHARK_DEBUG_WMEM_OVERRIDE", "simple", 0);
-	setenv("G_SLICE", "always-malloc", 0);
+	g_setenv("WIRESHARK_DEBUG_WMEM_OVERRIDE", "simple", 0);
+	g_setenv("G_SLICE", "always-malloc", 0);
 
 	cmdarg_err_init(failure_warning_message, failure_message_cont);
 
@@ -195,17 +221,6 @@ fuzz_init(int argc _U_, char **argv)
 
 	wtap_init();
 
-#ifdef HAVE_PLUGINS
-	/* Register all the plugin types we have. */
-	epan_register_plugin_types(); /* Types known to libwireshark */
-
-	/* Scan for plugins.  This does *not* call their registration routines; that's done later. */
-	scan_plugins(REPORT_LOAD_FAILURE);
-
-	/* Register all libwiretap plugin modules. */
-	register_all_wiretap_modules();
-#endif
-
 	/* Register all dissectors; we must do this before checking for the
 	   "-G" flag, as the "-G" flag dumps information registered by the
 	   dissectors, and we must do it before we read the preferences, in
@@ -236,25 +251,17 @@ fuzz_init(int argc _U_, char **argv)
 #if defined(FUZZ_DISSECTOR_TABLE) && defined(FUZZ_DISSECTOR_TARGET)
 # define FUZZ_EPAN 1
 	fprintf(stderr, "oss-fuzzshark: configured for dissector: %s in table: %s\n", FUZZ_DISSECTOR_TARGET, FUZZ_DISSECTOR_TABLE);
-
-	/* search for handle, cannot use dissector_table_get_dissector_handle() cause it's using short-name, and I already used filter name in samples ;/ */
-	{
-		GSList *handle_list = dissector_table_get_dissector_handles(find_dissector_table(FUZZ_DISSECTOR_TABLE));
-		while (handle_list)
-		{
-			dissector_handle_t handle = (dissector_handle_t) handle_list->data;
-			const char *handle_filter_name = proto_get_protocol_filter_name(dissector_handle_get_protocol_index(handle));
-
-			if (!strcmp(handle_filter_name, FUZZ_DISSECTOR_TARGET))
-				fuzz_handle = handle;
-			handle_list = handle_list->next;
-		}
-	}
+	fuzz_handle = get_dissector_handle(FUZZ_DISSECTOR_TABLE, FUZZ_DISSECTOR_TARGET);
 
 #elif defined(FUZZ_DISSECTOR_TARGET)
 # define FUZZ_EPAN 2
 	fprintf(stderr, "oss-fuzzshark: configured for dissector: %s\n", FUZZ_DISSECTOR_TARGET);
-	fuzz_handle = find_dissector(FUZZ_DISSECTOR_TARGET);
+	fuzz_handle = get_dissector_handle(NULL, FUZZ_DISSECTOR_TARGET);
+
+#else
+# define FUZZ_EPAN 3
+	fprintf(stderr, "oss-fuzzshark: target not configured. Using env\n");
+	fuzz_handle = get_dissector_handle(getenv("FUZZSHARK_TABLE"), getenv("FUZZSHARK_TARGET"));
 #endif
 
 #ifdef FUZZ_EPAN
@@ -269,15 +276,12 @@ fuzz_init(int argc _U_, char **argv)
 clean_exit:
 	wtap_cleanup();
 	free_progdirs();
-#ifdef HAVE_PLUGINS
-	plugins_cleanup();
-#endif
 	return ret;
 }
 
 #ifdef FUZZ_EPAN
 int
-LLVMFuzzerTestOneInput(guint8 *buf, size_t real_len)
+LLVMFuzzerTestOneInput(const guint8 *buf, size_t real_len)
 {
 	static guint32 framenum = 0;
 	epan_dissect_t *edt = fuzz_edt;

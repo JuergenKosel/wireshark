@@ -51,6 +51,8 @@
 #include "main_filter_toolbar.h"
 #include "filter_expression_save_dlg.h"
 
+#include "globals.h"
+
 #define MENU_BAR_PATH_FILE_OPEN                         "/Menubar/FileMenu/Open"
 #define MENU_BAR_PATH_EDIT_COPY_AS_FLT                  "/Menubar/EditMenu/Copy/AsFilter"
 #define MENU_BAR_PATH_ANALYZE_DISPLAY_FLT               "/Menubar/AnalyzeMenu/DisplayFilters"
@@ -111,7 +113,7 @@ filter_save_cb(GtkWidget *w _U_, GtkWindow *parent_w)
 }
 
 static void
-plugin_if_filter_apply(gconstpointer user_data)
+plugin_if_filter_apply(GHashTable * dataSet)
 {
     /* code is derived from voip_calls_dlg.c::voip_calls_on_filter */
 
@@ -119,11 +121,8 @@ plugin_if_filter_apply(gconstpointer user_data)
     size_t max_filter_length = 2048;
     gchar *filter_string;
 
-    if ( main_display_filter_widget != 0 )
+    if ( main_display_filter_widget != 0 && dataSet != 0 )
     {
-
-        GHashTable * dataSet = (GHashTable *) user_data;
-
         if ( g_hash_table_lookup_extended(dataSet, "filter_string", NULL, NULL ) )
         {
             filter_string = g_strndup((const char *)g_hash_table_lookup(dataSet, "filter_string"), max_filter_length);

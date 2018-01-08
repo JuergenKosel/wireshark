@@ -310,6 +310,33 @@ and did you also install that package?]])
 	# libpcap.
 	#
 	AC_CHECK_FUNCS(pcap_open_dead pcap_freecode)
+	AC_CHECK_FUNCS(pcap_open)
+	if test $ac_cv_func_pcap_open = "yes" ; then
+	  AC_DEFINE(HAVE_PCAP_REMOTE, 1,
+            [Define to 1 if you have libpcap/WinPcap remote capturing support])
+
+	  #
+	  # XXX - this *should* be checked for independently of checking
+	  # for pcap_open(), as you might have pcap_setsampling() without
+	  # remote capture support.
+	  #
+	  # However, 1) the sampling options are treated as remote options
+	  # in the GUI and and 2) having pcap_setsampling() doesn't mean
+	  # you have sampling support.  libpcap needs a way to indicate
+	  # whether a given device supports sampling, and the GUI should
+	  # be changed to decouple them.
+	  #
+	  # (Actually, libpcap needs a general mechanism to offer options
+	  # for particular devices, and Wireshark needs to use that
+	  # mechanism.  The former is a work in progress.)
+	  #
+	  # (Note: another work in progress is support for remote
+	  # capturing using pcap_create()/pcap_activate(), which we
+	  # also need to support once it's available.)
+	  #
+	  AC_CHECK_FUNCS(pcap_setsampling)
+	fi
+
 	#
 	# pcap_breakloop may be present in the library but not declared
 	# in the pcap.h header file.  If it's not declared in the header
@@ -423,19 +450,6 @@ install a newer version of the header file.])
 
 	AC_WIRESHARK_POP_FLAGS
 	LIBS="$ws_ac_save_LIBS"
-])
-
-AC_DEFUN([AC_WIRESHARK_PCAP_REMOTE_CHECK],
-[
-    ac_save_LIBS="$LIBS"
-    LIBS="$PCAP_LIBS $LIBS"
-    AC_CHECK_FUNCS(pcap_open)
-    if test $ac_cv_func_pcap_open = "yes" ; then
-        AC_DEFINE(HAVE_PCAP_REMOTE, 1,
-            [Define to 1 if you have libpcap/WinPcap remote capturing support and prefer to use these new API features.])
-    fi
-    AC_CHECK_FUNCS(pcap_setsampling)
-    LIBS="$ac_save_LIBS"
 ])
 
 #
@@ -690,7 +704,18 @@ AC_DEFUN([AC_WIRESHARK_LIBLUA_CHECK],[
 					LUA_LIBS="-L$lua_dir/lib $ac_cv_search_luaL_openlibs -lm"
 					have_lua=yes
 				],[
-					have_lua=no
+					# Try again with -ldl
+
+					# Tell autoconf we don't want to use the cached result
+					unset ac_cv_search_luaL_openlibs
+
+					AC_SEARCH_LIBS(luaL_openlibs, [lua-${lua_ver} lua${lua_ver} lua],
+					[
+						LUA_LIBS="-L$lua_dir/lib $ac_cv_search_luaL_openlibs -lm -ldl"
+						have_lua=yes
+					],[
+						have_lua=no
+					], -lm -ldl)
 				], -lm)
 			fi
 		fi
@@ -1163,7 +1188,7 @@ AC_DEFUN([AC_WIRESHARK_GEOIP_CHECK],
 			)
 			AC_CHECK_LIB(GeoIP, GeoIP_free,
 			  [
-				AC_DEFINE(HAVE_GEOIP_FREE, 1, [Define if GeoIP has GeoIP_free (not available upstream with 1.6.10 or earlier)])
+				AC_DEFINE(HAVE_GEOIP_FREE, 1, [Define if GeoIP has GeoIP_free])
 			  ],,
 			)
 		fi

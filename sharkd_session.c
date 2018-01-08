@@ -69,6 +69,8 @@
 #include <wsutil/glib-compat.h>
 #include <wsutil/strtoi.h>
 
+#include "globals.h"
+
 #include "sharkd.h"
 
 static gboolean
@@ -283,7 +285,7 @@ sharkd_session_process_info_conv_cb(const void* key, void* value, void* userdata
 	struct register_ct *table = (struct register_ct *) value;
 	int *pi = (int *) userdata;
 
-	const char *label = (const char*)key;
+	const char *label = (const char *) key;
 
 	if (get_conversation_packet_func(table))
 	{
@@ -310,7 +312,7 @@ sharkd_session_process_info_conv_cb(const void* key, void* value, void* userdata
 static gboolean
 sharkd_session_seq_analysis_cb(const void *key, void *value, void *userdata)
 {
-	register_analysis_t *analysis = (register_analysis_t*) value;
+	register_analysis_t *analysis = (register_analysis_t *) value;
 	int *pi = (int *) userdata;
 
 	printf("%s{", (*pi) ? "," : "");
@@ -325,7 +327,7 @@ sharkd_session_seq_analysis_cb(const void *key, void *value, void *userdata)
 static gboolean
 sharkd_export_object_visit_cb(const void *key _U_, void *value, void *user_data)
 {
-	register_eo_t *eo = (register_eo_t*)value;
+	register_eo_t *eo = (register_eo_t *) value;
 	int *pi = (int *) user_data;
 
 	const int proto_id = get_eo_proto_id(eo);
@@ -382,7 +384,7 @@ sharkd_rtd_visit_cb(const void *key _U_, void *value, void *user_data)
 static gboolean
 sharkd_follower_visit_cb(const void *key _U_, void *value, void *user_data)
 {
-	register_follow_t *follower = (register_follow_t*) value;
+	register_follow_t *follower = (register_follow_t *) value;
 	int *pi = (int *) user_data;
 
 	const int proto_id = get_follow_proto_id(follower);
@@ -607,9 +609,9 @@ sharkd_session_process_status(void)
 		g_free(name);
 	}
 
-	if (cfile.wth)
+	if (cfile.provider.wth)
 	{
-		gint64 file_size = wtap_file_size(cfile.wth, NULL);
+		gint64 file_size = wtap_file_size(cfile.provider.wth, NULL);
 
 		if (file_size > 0)
 			printf(",\"filesize\":%" G_GINT64_FORMAT, file_size);
@@ -688,7 +690,7 @@ sharkd_session_process_analyse(void)
 
 	printf(",\"protocols\":[");
 	for (framenum = 1; framenum <= cfile.count; framenum++)
-		sharkd_dissect_request(framenum, &sharkd_session_process_analyse_cb, 0, 0, 0, &analyser);
+		sharkd_dissect_request(framenum, (framenum != 1) ? 1 : 0, framenum - 1, &sharkd_session_process_analyse_cb, 0, 0, 0, &analyser);
 	printf("]");
 
 	if (analyser.first_time)
@@ -783,6 +785,7 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
  *   (o) filter - filter to be used
  *   (o) skip=N   - skip N frames
  *   (o) limit=N  - show only N frames
+ *   (o) refs  - list (comma separated) with sorted time reference frame numbers.
  *
  * Output array of frames with attributes:
  *   (m) c   - array of column data
@@ -800,13 +803,15 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 	const char *tok_column = json_find_attr(buf, tokens, count, "column0");
 	const char *tok_skip   = json_find_attr(buf, tokens, count, "skip");
 	const char *tok_limit  = json_find_attr(buf, tokens, count, "limit");
+	const char *tok_refs   = json_find_attr(buf, tokens, count, "refs");
 
 	const guint8 *filter_data = NULL;
 
 	const char *frame_sepa = "";
 	int col;
 
-	guint32 framenum;
+	guint32 framenum, prev_dis_num = 0;
+	guint32 current_ref_frame = 0, next_ref_frame = G_MAXUINT32;
 	guint32 skip;
 	guint32 limit;
 
@@ -842,10 +847,17 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 			return;
 	}
 
+	if (tok_refs)
+	{
+		if (!ws_strtou32(tok_refs, &tok_refs, &next_ref_frame))
+			return;
+	}
+
 	printf("[");
 	for (framenum = 1; framenum <= cfile.count; framenum++)
 	{
-		frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
+		frame_data *fdata;
+		guint32 ref_frame = (framenum != 1) ? 1 : 0;
 
 		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
 			continue;
@@ -853,10 +865,37 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 		if (skip)
 		{
 			skip--;
+			prev_dis_num = framenum;
 			continue;
 		}
 
-		sharkd_dissect_columns(framenum, cinfo, (fdata->color_filter == NULL));
+		if (tok_refs)
+		{
+			if (framenum >= next_ref_frame)
+			{
+				current_ref_frame = next_ref_frame;
+
+				if (*tok_refs != ',')
+					next_ref_frame = G_MAXUINT32;
+
+				while (*tok_refs == ',' && framenum >= next_ref_frame)
+				{
+					current_ref_frame = next_ref_frame;
+
+					if (!ws_strtou32(tok_refs + 1, &tok_refs, &next_ref_frame))
+					{
+						fprintf(stderr, "sharkd_session_process_frames() wrong format for refs: %s\n", tok_refs);
+						break;
+					}
+				}
+			}
+
+			if (current_ref_frame)
+				ref_frame = current_ref_frame;
+		}
+
+		fdata = sharkd_get_frame(framenum);
+		sharkd_dissect_columns(fdata, ref_frame, prev_dis_num, cinfo, (fdata->color_filter == NULL));
 
 		printf("%s{\"c\":[", frame_sepa);
 		for (col = 0; col < cinfo->num_cols; ++col)
@@ -870,8 +909,11 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 		}
 		printf("],\"num\":%u", framenum);
 
-		if (fdata->flags.has_phdr_comment)
-			printf(",\"ct\":true");
+		if (fdata->flags.has_user_comment || fdata->flags.has_phdr_comment)
+		{
+			if (!fdata->flags.has_user_comment || sharkd_get_user_comment(fdata) != NULL)
+				printf(",\"ct\":true");
+		}
 
 		if (fdata->flags.ignored)
 			printf(",\"i\":true");
@@ -887,6 +929,7 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 
 		printf("}");
 		frame_sepa = ",";
+		prev_dis_num = framenum;
 
 		if (limit && --limit == 0)
 			break;
@@ -2000,7 +2043,7 @@ static void
 sharkd_session_process_tap_eo_cb(void *tapdata)
 {
 	export_object_list_t *tap_object = (export_object_list_t *) tapdata;
-	struct sharkd_export_object_list *object_list = (struct sharkd_export_object_list*) tap_object->gui_data;
+	struct sharkd_export_object_list *object_list = (struct sharkd_export_object_list *) tap_object->gui_data;
 	GSList *slist;
 	int i = 0;
 
@@ -2182,7 +2225,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	int i;
 
 	rtpstream_tapinfo_t rtp_tapinfo =
-		{NULL, NULL, NULL, NULL, 0, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE};
+		{ NULL, NULL, NULL, NULL, 0, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE };
 
 	for (i = 0; i < 16; i++)
 	{
@@ -2715,7 +2758,8 @@ sharkd_session_process_frame_cb_tree(epan_dissect_t *edt, proto_tree *tree, tvbu
 			printf(",\"s\":\"%s\"", severity);
 		}
 
-		if (((proto_tree *) node)->first_child) {
+		if (((proto_tree *) node)->first_child)
+		{
 			if (finfo->tree_type != -1)
 				printf(",\"e\":%d", finfo->tree_type);
 			printf(",\"n\":");
@@ -2768,7 +2812,9 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 
 	printf("\"err\":0");
 
-	if (fdata->flags.has_phdr_comment)
+	if (fdata->flags.has_user_comment)
+		pkt_comment = sharkd_get_user_comment(fdata);
+	else if (fdata->flags.has_phdr_comment)
 		pkt_comment = pi->phdr->opt_comment;
 
 	if (pkt_comment)
@@ -2822,7 +2868,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 
 	if (data_src)
 	{
-		struct data_source *src = (struct data_source *)data_src->data;
+		struct data_source *src = (struct data_source *) data_src->data;
 		const char *ds_sepa = NULL;
 
 		tvbuff_t *tvb;
@@ -2853,7 +2899,7 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 
 		while (data_src)
 		{
-			src = (struct data_source *)data_src->data;
+			src = (struct data_source *) data_src->data;
 
 			{
 				char *src_name = get_data_source_name(src);
@@ -2932,7 +2978,7 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 		guint64 bytes;
 	} st, st_total;
 
-	nstime_t *start_ts = NULL;
+	nstime_t *start_ts;
 
 	guint32 interval_ms = 1000; /* default: one per second */
 
@@ -2941,8 +2987,10 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 	gint64 idx;
 	gint64 max_idx = 0;
 
-	if (tok_interval) {
-		if (!ws_strtou32(tok_interval, NULL, &interval_ms) || interval_ms == 0) {
+	if (tok_interval)
+	{
+		if (!ws_strtou32(tok_interval, NULL, &interval_ms) || interval_ms == 0)
+		{
 			fprintf(stderr, "Invalid interval parameter: %s.\n", tok_interval);
 			return;
 		}
@@ -2965,17 +3013,18 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
 
 	printf("{\"intervals\":[");
 
+	start_ts = (cfile.count >= 1) ? &(sharkd_get_frame(1)->abs_ts) : NULL;
+
 	for (framenum = 1; framenum <= cfile.count; framenum++)
 	{
-		frame_data *fdata = frame_data_sequence_find(cfile.frames, framenum);
+		frame_data *fdata;
 		gint64 msec_rel;
 		gint64 new_idx;
 
-		if (start_ts == NULL)
-			start_ts = &fdata->abs_ts;
-
 		if (filter_data && !(filter_data[framenum / 8] & (1 << (framenum % 8))))
 			continue;
+
+		fdata = sharkd_get_frame(framenum);
 
 		msec_rel = (fdata->abs_ts.secs - start_ts->secs) * (gint64) 1000 + (fdata->abs_ts.nsecs - start_ts->nsecs) / 1000000;
 		new_idx  = msec_rel / interval_ms;
@@ -3019,6 +3068,8 @@ sharkd_session_process_intervals(char *buf, const jsmntok_t *tokens, int count)
  *
  * Input:
  *   (m) frame - requested frame number
+ *   (o) ref_frame - time reference frame number
+ *   (o) prev_frame - previously displayed frame number
  *   (o) proto - set if output frame tree
  *   (o) columns - set if output frame columns
  *   (o) bytes - set if output frame bytes
@@ -3051,16 +3102,26 @@ static void
 sharkd_session_process_frame(char *buf, const jsmntok_t *tokens, int count)
 {
 	const char *tok_frame = json_find_attr(buf, tokens, count, "frame");
+	const char *tok_ref_frame = json_find_attr(buf, tokens, count, "ref_frame");
+	const char *tok_prev_frame = json_find_attr(buf, tokens, count, "prev_frame");
 	int tok_proto   = (json_find_attr(buf, tokens, count, "proto") != NULL);
 	int tok_bytes   = (json_find_attr(buf, tokens, count, "bytes") != NULL);
 	int tok_columns = (json_find_attr(buf, tokens, count, "columns") != NULL);
 
-	guint32 framenum;
+	guint32 framenum, ref_frame_num, prev_dis_num;
 
 	if (!tok_frame || !ws_strtou32(tok_frame, NULL, &framenum) || framenum == 0)
 		return;
 
-	sharkd_dissect_request(framenum, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto, NULL);
+	ref_frame_num = (framenum != 1) ? 1 : 0;
+	if (tok_ref_frame && (!ws_strtou32(tok_ref_frame, NULL, &ref_frame_num) || ref_frame_num > framenum))
+		return;
+
+	prev_dis_num = framenum - 1;
+	if (tok_prev_frame && (!ws_strtou32(tok_prev_frame, NULL, &prev_dis_num) || prev_dis_num >= framenum))
+		return;
+
+	sharkd_dissect_request(framenum, ref_frame_num, prev_dis_num, &sharkd_session_process_frame_cb, tok_bytes, tok_columns, tok_proto, NULL);
 }
 
 /**
@@ -3277,6 +3338,39 @@ sharkd_session_process_complete(char *buf, const jsmntok_t *tokens, int count)
 
 	printf("}\n");
 	return 0;
+}
+
+/**
+ * sharkd_session_process_setcomment()
+ *
+ * Process setcomment request
+ *
+ * Input:
+ *   (m) frame - frame number
+ *   (o) comment - user comment
+ *
+ * Output object with attributes:
+ *   (m) err   - error code: 0 succeed
+ */
+static void
+sharkd_session_process_setcomment(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_frame   = json_find_attr(buf, tokens, count, "frame");
+	const char *tok_comment = json_find_attr(buf, tokens, count, "comment");
+
+	guint32 framenum;
+	frame_data *fdata;
+	int ret;
+
+	if (!tok_frame || !ws_strtou32(tok_frame, NULL, &framenum) || framenum == 0)
+		return;
+
+	fdata = sharkd_get_frame(framenum);
+	if (!fdata)
+		return;
+
+	ret = sharkd_set_user_comment(fdata, tok_comment);
+	printf("{\"err\":%d}\n", ret);
 }
 
 /**
@@ -3765,7 +3859,7 @@ sharkd_session_process_download(char *buf, const jsmntok_t *tokens, int count)
 			printf(",\"mime\":");
 			json_puts_string(mime);
 			printf(",\"data\":");
-			json_print_base64(eo_entry->payload_data, eo_entry->payload_len);
+			json_print_base64(eo_entry->payload_data, (size_t)(eo_entry->payload_len));
 			printf("}\n");
 		}
 	}
@@ -3911,6 +4005,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_intervals(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))
 			sharkd_session_process_frame(buf, tokens, count);
+		else if (!strcmp(tok_req, "setcomment"))
+			sharkd_session_process_setcomment(buf, tokens, count);
 		else if (!strcmp(tok_req, "setconf"))
 			sharkd_session_process_setconf(buf, tokens, count);
 		else if (!strcmp(tok_req, "dumpconf"))

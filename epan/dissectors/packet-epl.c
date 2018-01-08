@@ -1778,8 +1778,6 @@ static gint ett_epl_pdo_meta                  = -1;
 static expert_field ei_duplicated_frame       = EI_INIT;
 static expert_field ei_recvseq_value          = EI_INIT;
 static expert_field ei_sendseq_value          = EI_INIT;
-static expert_field ei_recvcon_value          = EI_INIT;
-static expert_field ei_sendcon_value          = EI_INIT;
 static expert_field ei_real_length_differs    = EI_INIT;
 
 static dissector_handle_t epl_handle;
@@ -3635,14 +3633,6 @@ dissect_epl_sdo_sequence(proto_tree *epl_tree, tvbuff_t *tvb, packet_info *pinfo
 		{
 			expert_add_info(pinfo, epl_tree, &ei_sendseq_value);
 		}
-		if(rcon > EPL_RETRANSMISSION)
-		{
-			expert_add_info(pinfo, epl_tree, &ei_recvcon_value);
-		}
-		if(scon > EPL_RETRANSMISSION)
-		{
-			expert_add_info(pinfo, epl_tree, &ei_sendcon_value);
-		}
 		duplication = 0x00;
 		epl_set_sequence_nr(pinfo, 0x00);
 	}
@@ -4895,7 +4885,7 @@ dissect_epl_sdo_command_read_multiple_by_index(struct epl_convo *convo, proto_tr
 				}
 				else if(sod_index == error)
 				{
-					name = obj ? obj->info.name :val_to_str_ext_const(((guint32)(idx<<16)), &sod_index_names, "User Defined");
+					name = val_to_str_ext_const(((guint32)(idx<<16)), &sod_index_names, "User Defined");
 					proto_item_append_text(psf_entry," (%s)", name);
 				}
 				else
@@ -6143,14 +6133,6 @@ proto_register_epl(void)
 		{ &ei_sendseq_value,
 			{ "epl.error.value.send.sequence", PI_PROTOCOL, PI_ERROR,
 				"Invalid Value for SendSequenceNumber", EXPFILL }
-		},
-		{ &ei_recvcon_value,
-			{ "epl.error.receive.connection", PI_PROTOCOL, PI_ERROR,
-				"Invalid Value for ReceiveCon", EXPFILL }
-		},
-		{ &ei_sendcon_value,
-			{ "epl.error.send.connection", PI_PROTOCOL, PI_ERROR,
-				"Invalid Value for SendCon", EXPFILL }
 		},
 		{ &ei_real_length_differs,
 			{ "epl.error.payload.length.differs", PI_PROTOCOL, PI_ERROR,

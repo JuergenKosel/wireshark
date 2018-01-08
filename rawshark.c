@@ -44,7 +44,6 @@
 #endif
 
 #include <glib.h>
-#include <epan/epan-int.h>
 #include <epan/epan.h>
 
 #include <wsutil/cmdarg_err.h>
@@ -71,7 +70,7 @@
 #include "ui/util.h"
 #include "ui/dissect_opts.h"
 #include "ui/failure_message.h"
-#include "register.h"
+#include "epan/register.h"
 #include "conditions.h"
 #include "capture_stop_conditions.h"
 #include <epan/epan_dissect.h>
@@ -91,9 +90,7 @@
 
 #include "caputils/capture-pcap-util.h"
 
-#ifdef HAVE_EXTCAP
 #include "extcap.h"
-#endif
 
 #ifdef HAVE_LIBPCAP
 #include <setjmp.h>
@@ -117,12 +114,11 @@ static const gchar decode_as_arg_template[] = "<layer_type>==<selector>,<decode_
 #define OPEN_ERROR 2
 #define FORMAT_ERROR 2
 
+capture_file cfile;
+
 static guint32 cum_bytes;
-static const frame_data *ref;
 static frame_data ref_frame;
-static frame_data *prev_dis;
 static frame_data prev_dis_frame;
-static frame_data *prev_cap;
 static frame_data prev_cap_frame;
 
 /*
@@ -167,7 +163,6 @@ typedef struct string_fmt_s {
     string_fmt_e format;    /* Valid if plain is NULL */
 } string_fmt_t;
 
-capture_file cfile;
 int n_rfilters;
 int n_rfcodes;
 dfilter_t *rfcodes[64];
@@ -839,9 +834,7 @@ main(int argc, char *argv[])
 clean_exit:
     epan_free(cfile.epan);
     epan_cleanup();
-#ifdef HAVE_EXTCAP
     extcap_cleanup();
-#endif
     wtap_cleanup();
     return ret;
 }
@@ -1030,24 +1023,26 @@ process_packet(capture_file *cf, epan_dissect_t *edt, gint64 offset,
     printf("%lu", (unsigned long int) cf->count);
 
     frame_data_set_before_dissect(&fdata, &cf->elapsed_time,
-                                  &ref, prev_dis);
+                                  &cf->provider.ref, cf->provider.prev_dis);
 
-    if (ref == &fdata) {
+    if (cf->provider.ref == &fdata) {
        ref_frame = fdata;
-       ref = &ref_frame;
+       cf->provider.ref = &ref_frame;
     }
 
     /* We only need the columns if we're printing packet info but we're
      *not* verbose; in verbose mode, we print the protocol tree, not
      the protocol summary. */
-    epan_dissect_run_with_taps(edt, cf->cd_t, whdr, frame_tvbuff_new(&fdata, pd), &fdata, &cf->cinfo);
+    epan_dissect_run_with_taps(edt, cf->cd_t, whdr,
+                               frame_tvbuff_new(&cf->provider, &fdata, pd),
+                               &fdata, &cf->cinfo);
 
     frame_data_set_after_dissect(&fdata, &cum_bytes);
     prev_dis_frame = fdata;
-    prev_dis = &prev_dis_frame;
+    cf->provider.prev_dis = &prev_dis_frame;
 
     prev_cap_frame = fdata;
-    prev_cap = &prev_cap_frame;
+    cf->provider.prev_cap = &prev_cap_frame;
 
     for(i = 0; i < n_rfilters; i++) {
         /* Run the read filter if we have one. */
@@ -1466,16 +1461,16 @@ open_failure_message(const char *filename, int err, gboolean for_writing)
 }
 
 static const nstime_t *
-raw_get_frame_ts(void *data _U_, guint32 frame_num)
+raw_get_frame_ts(struct packet_provider_data *prov, guint32 frame_num)
 {
-    if (ref && ref->num == frame_num)
-        return &ref->abs_ts;
+    if (prov->ref && prov->ref->num == frame_num)
+        return &prov->ref->abs_ts;
 
-    if (prev_dis && prev_dis->num == frame_num)
-        return &prev_dis->abs_ts;
+    if (prov->prev_dis && prov->prev_dis->num == frame_num)
+        return &prov->prev_dis->abs_ts;
 
-    if (prev_cap && prev_cap->num == frame_num)
-        return &prev_cap->abs_ts;
+    if (prov->prev_cap && prov->prev_cap->num == frame_num)
+        return &prov->prev_cap->abs_ts;
 
     return NULL;
 }
@@ -1483,15 +1478,14 @@ raw_get_frame_ts(void *data _U_, guint32 frame_num)
 static epan_t *
 raw_epan_new(capture_file *cf)
 {
-    epan_t *epan = epan_new();
+    static const struct packet_provider_funcs funcs = {
+        raw_get_frame_ts,
+        cap_file_provider_get_interface_name,
+        cap_file_provider_get_interface_description,
+        NULL,
+    };
 
-    epan->data = cf;
-    epan->get_frame_ts = raw_get_frame_ts;
-    epan->get_interface_name = cap_file_get_interface_name;
-    epan->get_interface_description = cap_file_get_interface_description;
-    epan->get_user_comment = NULL;
-
-    return epan;
+    return epan_new(&cf->provider, &funcs);
 }
 
 cf_status_t
@@ -1506,7 +1500,7 @@ raw_cf_open(capture_file *cf, const char *fname)
     epan_free(cf->epan);
     cf->epan = raw_epan_new(cf);
 
-    cf->wth = NULL;
+    cf->provider.wth = NULL;
     cf->f_datalen = 0; /* not used, but set it anyway */
 
     /* Set the file name because we need it to set the follow stream filter.
@@ -1527,9 +1521,9 @@ raw_cf_open(capture_file *cf, const char *fname)
     cf->drops     = 0;
     cf->snap      = 0;
     nstime_set_zero(&cf->elapsed_time);
-    ref = NULL;
-    prev_dis = NULL;
-    prev_cap = NULL;
+    cf->provider.ref = NULL;
+    cf->provider.prev_dis = NULL;
+    cf->provider.prev_cap = NULL;
 
     return CF_OK;
 }

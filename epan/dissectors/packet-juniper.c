@@ -27,6 +27,8 @@
 #include <epan/expert.h>
 #include <epan/addr_resolv.h>
 #include <epan/ppptypes.h>
+#include <epan/etypes.h>
+#include <epan/ipproto.h>
 #include "packet-ppp.h"
 #include "packet-juniper.h"
 #include <epan/nlpid.h>
@@ -412,8 +414,20 @@ static int hf_juniper_vn_flag_reject = -1;
 static int hf_juniper_vn_flag_mirror = -1;
 static int hf_juniper_vn_flag_direction = -1;
 
+static int hf_juniper_st_eth_dst = -1;
+static int hf_juniper_st_eth_src = -1;
+static int hf_juniper_st_eth_type = -1;
+static int hf_juniper_st_ip_len = -1;
+static int hf_juniper_st_ip_proto = -1;
+static int hf_juniper_st_esp_spi = -1;
+static int hf_juniper_st_esp_seq = -1;
+
 static gint ett_juniper = -1;
 static gint ett_juniper_vn_flags = -1;
+static gint ett_juniper_st_eth = -1;
+static gint ett_juniper_st_ip = -1;
+static gint ett_juniper_st_esp = -1;
+static gint ett_juniper_st_unknown = -1;
 
 static dissector_handle_t ipv4_handle;
 
@@ -514,7 +528,7 @@ static int
 dissect_juniper_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *juniper_subtree, guint8 *flags)
 {
   proto_item *tisub, *magic_item;
-  guint8     l2hdr_presence,proto,ext_type,ext_len;
+  guint8     proto,ext_type,ext_len;
   guint16    ext_total_len,ext_offset=6,hdr_len;
   guint32    magic_number,ext_val;
 
@@ -522,7 +536,6 @@ dissect_juniper_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, prot
 
   magic_number = tvb_get_ntoh24(tvb, 0);
   *flags = tvb_get_guint8(tvb, 3);
-  l2hdr_presence = *flags & JUNIPER_FLAG_NO_L2;
 
   magic_item = proto_tree_add_item(juniper_subtree, hf_juniper_magic, tvb, 0, 3, ENC_BIG_ENDIAN);
 
@@ -536,7 +549,7 @@ dissect_juniper_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, prot
 
   proto_tree_add_item(juniper_subtree, hf_juniper_direction, tvb, 3, 1, ENC_NA);
 
-  proto_tree_add_uint(juniper_subtree, hf_juniper_l2hdr_presence, tvb, 3, 1, l2hdr_presence);
+  proto_tree_add_item(juniper_subtree, hf_juniper_l2hdr_presence, tvb, 3, 1, ENC_NA);
 
   /* calculate hdr_len before cookie, payload */
 
@@ -1277,6 +1290,69 @@ static int dissect_juniper_vn(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tre
 
   return tvb_captured_length(tvb);
 }
+static int dissect_juniper_st(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
+{
+    proto_item *ti;
+    proto_tree* juniper_subtree, *eth_tree, *ip_tree, *esp_tree;
+    guint offset = 0;
+    guint8     flags;
+    guint32 type, len, ip_proto;
+    int bytes_processed;
+
+    col_set_str(pinfo->cinfo, COL_PROTOCOL,
+        "Juniper Secure Tunnel Information");
+    col_clear(pinfo->cinfo, COL_INFO);
+
+    juniper_subtree = proto_tree_add_subtree(tree, tvb, offset, 70,
+        ett_juniper, &ti, "Juniper Secure Tunnel Information");
+
+     bytes_processed =  dissect_juniper_header(tvb, pinfo, tree, juniper_subtree, &flags);
+     if (bytes_processed < 1) {
+         return tvb_captured_length(tvb);
+     }
+
+    offset += bytes_processed;
+
+    /* Dissect lower layers */
+    eth_tree = proto_tree_add_subtree(juniper_subtree, tvb, offset, 14, ett_juniper_st_eth, &ti, "Tunnel Ethernet Header");
+    proto_tree_add_item(eth_tree, hf_juniper_st_eth_dst, tvb, offset, 6, ENC_NA);
+    offset += 6;
+    proto_tree_add_item(eth_tree, hf_juniper_st_eth_src, tvb, offset, 6, ENC_NA);
+    offset += 6;
+    proto_tree_add_item_ret_uint(eth_tree, hf_juniper_st_eth_type, tvb, offset, 2, ENC_BIG_ENDIAN, &type);
+    offset += 2;
+    /* XXX can we have a VLAN header here ?*/
+    switch (type) {
+    case ETHERTYPE_IP:
+        ip_tree = proto_tree_add_subtree(juniper_subtree, tvb, offset, -1, ett_juniper_st_ip, &ti, "Tunnel IP Header");
+        proto_tree_add_item_ret_uint(ip_tree, hf_juniper_st_ip_len, tvb, offset, 1, ENC_BIG_ENDIAN, &len);
+        len = len * 4;
+        proto_item_set_len(ti, len);
+        proto_tree_add_item_ret_uint(ip_tree, hf_juniper_st_ip_proto, tvb, offset+9, 1, ENC_BIG_ENDIAN, &ip_proto);
+        offset += len;
+        /* ESP is expected */
+        if (ip_proto != IP_PROTO_ESP) {
+            return tvb_captured_length(tvb);
+        }
+        esp_tree = proto_tree_add_subtree(juniper_subtree, tvb, offset, 8, ett_juniper_st_esp, &ti, "Tunnel ESP Header");
+        proto_tree_add_item(esp_tree, hf_juniper_st_esp_spi, tvb, offset, 4, ENC_NA);
+        offset += 4;
+        proto_tree_add_item(esp_tree, hf_juniper_st_esp_seq, tvb, offset, 4, ENC_NA);
+        offset += 4;
+        /*  16 bytes unknown data remains in example trace */
+        proto_tree_add_subtree(juniper_subtree, tvb, offset, 16, ett_juniper_st_unknown, &ti, "Tunnel Unknown Data");
+        offset += 16;
+        break;
+    default:
+        return tvb_captured_length(tvb);
+    }
+
+    dissect_juniper_payload_proto(tvb, pinfo, tree, juniper_subtree, ip_heuristic_guess(tvb_get_guint8(tvb,offset)), offset);
+
+    return tvb_captured_length(tvb);
+
+}
+
 
 /* list of Juniper supported PPP proto IDs */
 static gboolean
@@ -1432,10 +1508,10 @@ proto_register_juniper(void)
         NULL, 0x0, NULL, HFILL }},
     { &hf_juniper_direction,
       { "Direction", "juniper.direction", FT_UINT8, BASE_HEX,
-        VALS(juniper_direction_vals), 0x0, NULL, HFILL }},
+        VALS(juniper_direction_vals), 0x01, NULL, HFILL }},
     { &hf_juniper_l2hdr_presence,
       { "L2 header presence", "juniper.l2hdr", FT_UINT8, BASE_HEX,
-        VALS(juniper_l2hdr_presence_vals), 0x0, NULL, HFILL }},
+        VALS(juniper_l2hdr_presence_vals), 0x02, NULL, HFILL }},
     { &hf_juniper_ext_total_len,
       { "Extension(s) Total length", "juniper.ext_total_len", FT_UINT16, BASE_DEC,
         NULL, 0x0, NULL, HFILL }},
@@ -1530,11 +1606,37 @@ proto_register_juniper(void)
     { &hf_juniper_vn_flag_direction,
         { "Direction Ingress", "juniper.vn.flags.direction", FT_BOOLEAN, 32,
           TFS(&tfs_set_notset), VN_FLAG_DIRECTION, NULL, HFILL }},
+    { &hf_juniper_st_eth_dst,
+        { "Destination", "juniper.st.eth.dst", FT_ETHER, BASE_NONE,
+          NULL, 0x0, NULL, HFILL }},
+    { &hf_juniper_st_eth_src,
+        { "Source", "juniper.st.eth.src", FT_ETHER, BASE_NONE,
+          NULL, 0x0, NULL, HFILL }},
+    { &hf_juniper_st_eth_type,
+        { "Type", "juniper.st.eth.type", FT_UINT16, BASE_HEX,
+            VALS(etype_vals), 0x0, NULL, HFILL }},
+    { &hf_juniper_st_ip_len,
+        { "Header Length", "juniper.st.ip.len", FT_UINT8, BASE_DEC,
+            NULL, 0x0f, NULL, HFILL }},
+    { &hf_juniper_st_ip_proto,
+      { "Protocol", "juniper.st.ip.proto", FT_UINT8, BASE_DEC | BASE_EXT_STRING,
+        &ipproto_val_ext, 0x0, NULL, HFILL }},
+    { &hf_juniper_st_esp_spi,
+        { "ESP SPI", "juniper.st.esp.spi", FT_UINT32, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+    { &hf_juniper_st_esp_seq,
+        { "ESP Sequence", "juniper.st.esp.seq", FT_UINT32, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+
   };
 
   static gint *ett[] = {
     &ett_juniper,
     &ett_juniper_vn_flags,
+    &ett_juniper_st_eth,
+    &ett_juniper_st_ip,
+    &ett_juniper_st_esp,
+    &ett_juniper_st_unknown,
   };
 
   static ei_register_info ei[] = {
@@ -1570,6 +1672,7 @@ proto_reg_handoff_juniper(void)
   dissector_handle_t juniper_vp_handle;
   dissector_handle_t juniper_svcs_handle;
   dissector_handle_t juniper_vn_handle;
+  dissector_handle_t juniper_st_handle;
 
   ipv4_handle   = find_dissector_add_dependency("ip", proto_juniper);
 
@@ -1586,6 +1689,7 @@ proto_reg_handoff_juniper(void)
   juniper_vp_handle     = create_dissector_handle(dissect_juniper_vp,     proto_juniper);
   juniper_svcs_handle   = create_dissector_handle(dissect_juniper_svcs,   proto_juniper);
   juniper_vn_handle     = create_dissector_handle(dissect_juniper_vn,     proto_juniper);
+  juniper_st_handle     = create_dissector_handle(dissect_juniper_st,     proto_juniper);
 
   dissector_add_uint("wtap_encap", WTAP_ENCAP_JUNIPER_ATM2,   juniper_atm2_handle);
   dissector_add_uint("wtap_encap", WTAP_ENCAP_JUNIPER_ATM1,   juniper_atm1_handle);
@@ -1600,6 +1704,7 @@ proto_reg_handoff_juniper(void)
   dissector_add_uint("wtap_encap", WTAP_ENCAP_JUNIPER_VP,     juniper_vp_handle);
   dissector_add_uint("wtap_encap", WTAP_ENCAP_JUNIPER_SVCS,   juniper_svcs_handle);
   dissector_add_uint("wtap_encap", WTAP_ENCAP_JUNIPER_VN,     juniper_vn_handle);
+  dissector_add_uint("wtap_encap", WTAP_ENCAP_JUNIPER_ST,     juniper_st_handle);
   dissector_add_for_decode_as_with_preference("udp.port", juniper_vn_handle);
 }
 

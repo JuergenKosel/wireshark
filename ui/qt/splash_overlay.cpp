@@ -33,9 +33,7 @@
 #include "epan/wslua/init_wslua.h"
 #endif
 
-#ifdef HAVE_EXTCAP
-#include "../../extcap.h"
-#endif
+#include "extcap.h"
 
 // Uncomment to slow the update progress
 //#define THROTTLE_STARTUP 1
@@ -43,7 +41,7 @@
 /*
  * Update frequency for the splash screen, given in milliseconds.
  */
-static int info_update_freq_ = 100;
+const int info_update_freq_ = 65; // ~15 fps
 
 void splash_update(register_action_e action, const char *message, void *) {
     emit wsApp->registerUpdate(action, message);
@@ -52,36 +50,34 @@ void splash_update(register_action_e action, const char *message, void *) {
 SplashOverlay::SplashOverlay(QWidget *parent) :
     QWidget(parent),
     so_ui_(new Ui::SplashOverlay),
-    blurred_(false),
     last_action_(RA_NONE),
     register_cur_(0)
 {
     so_ui_->setupUi(this);
 
-    // 6 for:
-    // dissectors, listeners, registering plugins, handingoff plugins,
-    // preferences, and interfaces
-    int register_add = 6;
+    int register_max = RA_BASE_COUNT;
 #ifdef HAVE_LUA
-    register_add += wslua_count_plugins();   /* get count of lua plugins */
+    register_max++;
 #endif
-#ifdef HAVE_EXTCAP
-    register_add += extcap_count() + 1; /* Count of extcap binaries + registration message */
-#endif
-    so_ui_->progressBar->setMaximum((int)register_count() + register_add);
+    register_max++;
+
+    so_ui_->progressBar->setMaximum(register_max);
     elapsed_timer_.start();
 
     QColor bg = QColor(tango_aluminium_6);
-    bg.setAlphaF(0.4);
+    bg.setAlphaF(0.2);
     QPalette pal;
     pal.setColor(QPalette::Background, bg);
     setPalette(pal);
     setAutoFillBackground(true);
 
     setStyleSheet(QString(
+                      "QFrame#progressBand {"
+                      "  background: %1;"
+                      "}"
                       "QLabel {"
                       "  color: white;"
-                      "  background: rgba(0,0,0,0);"
+                      "  background: transparent;"
                       "}"
                       "QProgressBar {"
                       "  height: 1em;"
@@ -89,19 +85,14 @@ SplashOverlay::SplashOverlay(QWidget *parent) :
                       "  border: 0.1em solid white;"
                       "  border-radius: 0.2em;"
                       "  color: white;"
-                      "  background: rgba(0,0,0,0);"
+                      "  background: transparent;"
                       "}"
                       "QProgressBar::chunk {"
                       "  width: 0.1em;"
                       "  background: rgba(255, 255, 255, 50%);"
                       "}"
-                      ));
-
-#ifndef THROTTLE_STARTUP
-    // Check for a remote connection
-    if (display_is_remote())
-        info_update_freq_ = 1000;
-#endif
+                      )
+                  .arg(QColor(tango_aluminium_4).name()));
 
     connect(wsApp, SIGNAL(splashUpdate(register_action_e,const char*)),
             this, SLOT(splashUpdate(register_action_e,const char*)));
@@ -133,10 +124,8 @@ void SplashOverlay::splashUpdate(register_action_e action, const char *message)
     ThrottleThread::msleep(10);
 #endif
 
-    register_cur_++;
-    if (last_action_ == action && elapsed_timer_.elapsed() < info_update_freq_ && register_cur_ != so_ui_->progressBar->maximum()) {
-      /* Only update every splash_register_freq milliseconds */
-      return;
+    if (last_action_ != action) {
+        register_cur_++;
     }
     last_action_ = action;
 
@@ -190,8 +179,10 @@ void SplashOverlay::splashUpdate(register_action_e action, const char *message)
 
     so_ui_->progressBar->setValue(register_cur_);
 
-    wsApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
-    elapsed_timer_.restart();
+    if (elapsed_timer_.elapsed() > info_update_freq_) {
+        wsApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
+        elapsed_timer_.restart();
+    }
 }
 
 /*

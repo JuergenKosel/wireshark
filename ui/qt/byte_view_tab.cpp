@@ -25,7 +25,6 @@
 #include <QClipboard>
 #include <QMimeData>
 #include <QTabBar>
-#include <QTreeWidgetItem>
 
 #include "cfile.h"
 #include "epan/epan_dissect.h"
@@ -65,6 +64,24 @@ void ByteViewTab::connectToMainWindow()
     connect(wsApp->mainWindow(), SIGNAL(frameSelected(int)), this, SLOT(selectedFrameChanged(int)));
     connect(wsApp->mainWindow(), SIGNAL(setCaptureFile(capture_file*)), this, SLOT(setCaptureFile(capture_file*)));
     connect(wsApp->mainWindow(), SIGNAL(fieldSelected(FieldInformation *)), this, SLOT(selectedFieldChanged(FieldInformation *)));
+
+    connect(wsApp->mainWindow(), SIGNAL(captureActive(int)), this, SLOT(captureActive(int)));
+}
+
+void ByteViewTab::captureActive(int cap)
+{
+    if ( cap == 0 )
+    {
+        QList<ByteViewText *> allBVTs = findChildren<ByteViewText *>();
+        if ( allBVTs.count() > 0 )
+        {
+            ByteViewText * bvt = allBVTs.at(0);
+            tvbuff_t * stored = VariantPointer<tvbuff_t>::asPtr(bvt->property(tvb_data_property));
+
+            if ( ! stored )
+                selectedFrameChanged(-1);
+        }
+    }
 }
 
 void ByteViewTab::addTab(const char *name, tvbuff_t *tvb) {
@@ -164,7 +181,7 @@ ByteViewText * ByteViewTab::findByteViewTextForTvb(tvbuff_t * search_tvb, int * 
         }
         else if ( stored )
         {
-            if ( stored->length >= length && tvb_memeql(search_tvb, 0, stored->real_data, length ) == 0 )
+            if ( stored->length >= length && tvb_memeql(search_tvb, 0, tvb_get_ptr(stored, 0, length), length ) == 0 )
             {
                 /* In packetDialog we do not match, because we came from different data sources.
                  * Assuming the capture files match, this should be a sufficient enough difference */
@@ -238,9 +255,11 @@ void ByteViewTab::selectedFieldChanged(FieldInformation *selected)
     ByteViewText * byte_view_text = 0;
 
     if (selected) {
-        field_info *fi;
-
-        fi = selected->fieldInfo();
+        if (selected->parent() == this) {
+            // We only want inbound signals.
+            return;
+        }
+        const field_info *fi = selected->fieldInfo();
 
         int idx = 0;
         if ( fi )
@@ -248,23 +267,23 @@ void ByteViewTab::selectedFieldChanged(FieldInformation *selected)
 
         if (byte_view_text)
         {
-            int f_start = -1, f_end = -1;
+            int f_start = -1, f_length = -1;
 
             if (cap_file_->search_in_progress && (cap_file_->hex || (cap_file_->string && cap_file_->packet_data))) {
                 // In the hex view, only highlight the target bytes or string. The entire
                 // field can then be displayed by clicking on any of the bytes in the field.
                 f_start = cap_file_->search_pos - cap_file_->search_len + 1;
-                f_end = f_start + cap_file_->search_len;
+                f_length = (int) cap_file_->search_len;
             } else {
                 f_start = selected->position().start;
-                f_end = selected->position().end;
+                f_length = selected->position().length;
             }
 
             setCurrentIndex(idx);
 
-            byte_view_text->markField(f_start, f_end);
-            byte_view_text->markProtocol(selected->parentField()->position().start, selected->parentField()->position().end);
-            byte_view_text->markAppendix(selected->appendix().start, selected->appendix().end);
+            byte_view_text->markField(f_start, f_length);
+            byte_view_text->markProtocol(selected->parentField()->position().start, selected->parentField()->position().length);
+            byte_view_text->markAppendix(selected->appendix().start, selected->appendix().length);
         }
     }
 
@@ -273,6 +292,8 @@ void ByteViewTab::selectedFieldChanged(FieldInformation *selected)
 
 void ByteViewTab::setCaptureFile(capture_file *cf)
 {
+    selectedFrameChanged(-1);
+
     cap_file_ = cf;
 }
 

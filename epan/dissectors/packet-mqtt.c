@@ -48,7 +48,6 @@
 #include <epan/packet.h>
 #include <epan/strutil.h>
 #include <epan/uat.h>
-#include <epan/dwarf.h>
 #include "packet-tcp.h"
 #include "packet-ssl.h"
 
@@ -281,6 +280,211 @@ static const value_string mqtt_subscription_retain_handling[] = {
   { 0, NULL }
 };
 
+/* MQTT v5.0 Reason Codes */
+#define RC_SUCCESS                                0x00
+#define RC_NORMAL_DISCONNECTION                   0x00
+#define RC_GRANTED_QOS0                           0x00
+#define RC_GRANTED_QOS1                           0x01
+#define RC_GRANTED_QOS2                           0x02
+#define RC_DISCONNECT_WILL                        0x04
+#define RC_NO_MATCHING_SUBSCRIBERS                0x10
+#define RC_NO_SUBSCRIPTION_EXISTED                0x11
+#define RC_CONTINUE_AUTHENTICATION                0x18
+#define RC_RE_AUTHENTICATE                        0x19
+#define RC_UNSPECIFIED_ERROR                      0x80
+#define RC_MALFORMED_PACKET                       0x81
+#define RC_PROTOCOL_ERROR                         0x82
+#define RC_IMPLEMENTATION_SPECIFIC_ERROR          0x83
+#define RC_UNSUPPORTED_PROTOCOL_VERSION           0x84
+#define RC_CLIENT_IDENTIFIER_NOT_VALID            0x85
+#define RC_BAD_USER_NAME_OR_PASSWORD              0x86
+#define RC_NOT_AUTHORIZED                         0x87
+#define RC_SERVER_UNAVAILABLE                     0x88
+#define RC_SERVER_BUSY                            0x89
+#define RC_BANNED                                 0x8A
+#define RC_SERVER_SHUTTING_DOWN                   0x8B
+#define RC_BAD_AUTHENTICATION_METHOD              0x8C
+#define RC_KEEP_ALIVE_TIMEOUT                     0x8D
+#define RC_SESSION_TAKEN_OVER                     0x8E
+#define RC_TOPIC_FILTER_INVALID                   0x8F
+#define RC_TOPIC_NAME_INVALID                     0x90
+#define RC_PACKET_IDENTIFIER_IN_USE               0x91
+#define RC_PACKET_IDENTIFIER_NOT_FOUND            0x92
+#define RC_RECEIVE_MAXIMUM_EXCEEDED               0x93
+#define RC_TOPIC_ALIAS_INVALID                    0x94
+#define RC_PACKET_TOO_LARGE                       0x95
+#define RC_MESSAGE_RATE_TOO_HIGH                  0x96
+#define RC_QUOTA_EXCEEDED                         0x97
+#define RC_ADMINISTRATIVE_ACTION                  0x98
+#define RC_PAYLOAD_FORMAT_INVALID                 0x99
+#define RC_RETAIN_NOT_SUPPORTED                   0x9A
+#define RC_QOS_NOT_SUPPORTED                      0x9B
+#define RC_USE_ANOTHER_SERVER                     0x9C
+#define RC_SERVER_MOVED                           0x9D
+#define RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED      0x9E
+#define RC_CONNECTION_RATE_EXCEEDED               0x9F
+#define RC_MAXIMUM_CONNECT_TIME                   0xA0
+#define RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED 0xA1
+#define RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED    0xA2
+
+#define RC_SUCCESS_STR                                "Success"
+#define RC_NORMAL_DISCONNECTION_STR                   "Normal disconnection"
+#define RC_GRANTED_QOS0_STR                           "Granted QoS 0"
+#define RC_GRANTED_QOS1_STR                           "Granted QoS 1"
+#define RC_GRANTED_QOS2_STR                           "Granted QoS 2"
+#define RC_DISCONNECT_WILL_STR                        "Disconnect with Will Message"
+#define RC_NO_MATCHING_SUBSCRIBERS_STR                "No matching subscribers"
+#define RC_NO_SUBSCRIPTION_EXISTED_STR                "No subscription existed"
+#define RC_CONTINUE_AUTHENTICATION_STR                "Continue authentication"
+#define RC_RE_AUTHENTICATE_STR                        "Re-authenticate"
+#define RC_UNSPECIFIED_ERROR_STR                      "Unspecified error"
+#define RC_MALFORMED_PACKET_STR                       "Malformed Packet"
+#define RC_PROTOCOL_ERROR_STR                         "Protocol Error"
+#define RC_IMPLEMENTATION_SPECIFIC_ERROR_STR          "Implementation specific error"
+#define RC_UNSUPPORTED_PROTOCOL_VERSION_STR           "Unsupported Protocol Version"
+#define RC_CLIENT_IDENTIFIER_NOT_VALID_STR            "Client Identifier not valid"
+#define RC_BAD_USER_NAME_OR_PASSWORD_STR              "Bad User Name or Password"
+#define RC_NOT_AUTHORIZED_STR                         "Not authorized"
+#define RC_SERVER_UNAVAILABLE_STR                     "Server unavailable"
+#define RC_SERVER_BUSY_STR                            "Server busy"
+#define RC_BANNED_STR                                 "Banned"
+#define RC_SERVER_SHUTTING_DOWN_STR                   "Server shutting down"
+#define RC_BAD_AUTHENTICATION_METHOD_STR              "Bad authentication method"
+#define RC_KEEP_ALIVE_TIMEOUT_STR                     "Keep Alive timeout"
+#define RC_SESSION_TAKEN_OVER_STR                     "Session taken over"
+#define RC_TOPIC_FILTER_INVALID_STR                   "Topic Filter invalid"
+#define RC_TOPIC_NAME_INVALID_STR                     "Topic Name invalid"
+#define RC_PACKET_IDENTIFIER_IN_USE_STR               "Packet Identifier in use"
+#define RC_PACKET_IDENTIFIER_NOT_FOUND_STR            "Packet Identifier not found"
+#define RC_RECEIVE_MAXIMUM_EXCEEDED_STR               "Receive Maximum exceeded"
+#define RC_TOPIC_ALIAS_INVALID_STR                    "Topic Alias invalid"
+#define RC_PACKET_TOO_LARGE_STR                       "Packet too large"
+#define RC_MESSAGE_RATE_TOO_HIGH_STR                  "Message rate too high"
+#define RC_QUOTA_EXCEEDED_STR                         "Quota exceeded"
+#define RC_ADMINISTRATIVE_ACTION_STR                  "Administrative action"
+#define RC_PAYLOAD_FORMAT_INVALID_STR                 "Payload format invalid"
+#define RC_RETAIN_NOT_SUPPORTED_STR                   "Retain not supported"
+#define RC_QOS_NOT_SUPPORTED_STR                      "QoS not supported"
+#define RC_USE_ANOTHER_SERVER_STR                     "Use another server"
+#define RC_SERVER_MOVED_STR                           "Server moved"
+#define RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED_STR      "Shared Subscription not supported"
+#define RC_CONNECTION_RATE_EXCEEDED_STR               "Connection rate exceeded"
+#define RC_MAXIMUM_CONNECT_TIME_STR                   "Maximum connect time"
+#define RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED_STR "Subscription Identifiers not supported"
+#define RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED_STR    "Wildcard Subscription not supported"
+
+static const value_string mqtt_reason_code_connack_vals[] = {
+  { RC_SUCCESS,                                RC_SUCCESS_STR },
+  { RC_UNSPECIFIED_ERROR,                      RC_UNSPECIFIED_ERROR_STR },
+  { RC_MALFORMED_PACKET,                       RC_MALFORMED_PACKET_STR },
+  { RC_PROTOCOL_ERROR,                         RC_PROTOCOL_ERROR_STR },
+  { RC_IMPLEMENTATION_SPECIFIC_ERROR,          RC_IMPLEMENTATION_SPECIFIC_ERROR_STR },
+  { RC_UNSUPPORTED_PROTOCOL_VERSION,           RC_UNSUPPORTED_PROTOCOL_VERSION_STR },
+  { RC_CLIENT_IDENTIFIER_NOT_VALID,            RC_CLIENT_IDENTIFIER_NOT_VALID_STR },
+  { RC_BAD_USER_NAME_OR_PASSWORD,              RC_BAD_USER_NAME_OR_PASSWORD_STR },
+  { RC_NOT_AUTHORIZED,                         RC_NOT_AUTHORIZED_STR },
+  { RC_SERVER_UNAVAILABLE,                     RC_SERVER_UNAVAILABLE_STR },
+  { RC_SERVER_BUSY,                            RC_SERVER_BUSY_STR },
+  { RC_BANNED,                                 RC_BANNED_STR },
+  { RC_BAD_AUTHENTICATION_METHOD,              RC_BAD_AUTHENTICATION_METHOD_STR },
+  { RC_TOPIC_NAME_INVALID,                     RC_TOPIC_NAME_INVALID_STR },
+  { RC_PACKET_TOO_LARGE,                       RC_PACKET_TOO_LARGE_STR },
+  { RC_QUOTA_EXCEEDED,                         RC_QUOTA_EXCEEDED_STR },
+  { RC_RETAIN_NOT_SUPPORTED,                   RC_RETAIN_NOT_SUPPORTED_STR },
+  { RC_QOS_NOT_SUPPORTED,                      RC_QOS_NOT_SUPPORTED_STR },
+  { RC_USE_ANOTHER_SERVER,                     RC_USE_ANOTHER_SERVER_STR },
+  { RC_SERVER_MOVED,                           RC_SERVER_MOVED_STR },
+  { RC_CONNECTION_RATE_EXCEEDED,               RC_CONNECTION_RATE_EXCEEDED_STR },
+  { 0, NULL }
+};
+
+static const value_string mqtt_reason_code_puback_vals[] = {
+  { RC_SUCCESS,                                RC_SUCCESS_STR },
+  { RC_NO_MATCHING_SUBSCRIBERS,                RC_NO_MATCHING_SUBSCRIBERS_STR },
+  { RC_UNSPECIFIED_ERROR,                      RC_UNSPECIFIED_ERROR_STR },
+  { RC_IMPLEMENTATION_SPECIFIC_ERROR,          RC_IMPLEMENTATION_SPECIFIC_ERROR_STR },
+  { RC_NOT_AUTHORIZED,                         RC_NOT_AUTHORIZED_STR },
+  { RC_TOPIC_NAME_INVALID,                     RC_TOPIC_NAME_INVALID_STR },
+  { RC_PACKET_IDENTIFIER_IN_USE,               RC_PACKET_IDENTIFIER_IN_USE_STR },
+  { RC_QUOTA_EXCEEDED,                         RC_QUOTA_EXCEEDED_STR },
+  { RC_PAYLOAD_FORMAT_INVALID,                 RC_PAYLOAD_FORMAT_INVALID_STR },
+  { 0, NULL }
+};
+
+static const value_string mqtt_reason_code_pubrel_vals[] = {
+  { RC_SUCCESS,                                RC_SUCCESS_STR },
+  { RC_PACKET_IDENTIFIER_NOT_FOUND,            RC_PACKET_IDENTIFIER_NOT_FOUND_STR },
+  { 0, NULL }
+};
+
+static const value_string mqtt_reason_code_suback_vals[] = {
+  { RC_GRANTED_QOS0,                           RC_GRANTED_QOS0_STR },
+  { RC_GRANTED_QOS1,                           RC_GRANTED_QOS1_STR },
+  { RC_GRANTED_QOS2,                           RC_GRANTED_QOS2_STR },
+  { RC_UNSPECIFIED_ERROR,                      RC_UNSPECIFIED_ERROR_STR },
+  { RC_IMPLEMENTATION_SPECIFIC_ERROR,          RC_IMPLEMENTATION_SPECIFIC_ERROR_STR },
+  { RC_NOT_AUTHORIZED,                         RC_NOT_AUTHORIZED_STR },
+  { RC_TOPIC_FILTER_INVALID,                   RC_TOPIC_FILTER_INVALID_STR },
+  { RC_PACKET_IDENTIFIER_IN_USE,               RC_PACKET_IDENTIFIER_IN_USE_STR },
+  { RC_QUOTA_EXCEEDED,                         RC_QUOTA_EXCEEDED_STR },
+  { RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED,      RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED_STR },
+  { RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED, RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED_STR },
+  { RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED,    RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED_STR },
+  { 0, NULL }
+};
+
+static const value_string mqtt_reason_code_unsuback_vals[] = {
+  { RC_SUCCESS,                                RC_SUCCESS_STR },
+  { RC_NO_SUBSCRIPTION_EXISTED,                RC_NO_SUBSCRIPTION_EXISTED_STR },
+  { RC_IMPLEMENTATION_SPECIFIC_ERROR,          RC_IMPLEMENTATION_SPECIFIC_ERROR_STR },
+  { RC_NOT_AUTHORIZED,                         RC_NOT_AUTHORIZED_STR },
+  { RC_TOPIC_FILTER_INVALID,                   RC_TOPIC_FILTER_INVALID_STR },
+  { RC_PACKET_IDENTIFIER_IN_USE,               RC_PACKET_IDENTIFIER_IN_USE_STR },
+  { 0, NULL }
+};
+
+static const value_string mqtt_reason_code_disconnect_vals[] = {
+  { RC_NORMAL_DISCONNECTION,                   RC_NORMAL_DISCONNECTION_STR },
+  { RC_DISCONNECT_WILL,                        RC_DISCONNECT_WILL_STR },
+  { RC_UNSPECIFIED_ERROR,                      RC_UNSPECIFIED_ERROR_STR },
+  { RC_MALFORMED_PACKET,                       RC_MALFORMED_PACKET_STR },
+  { RC_PROTOCOL_ERROR,                         RC_PROTOCOL_ERROR_STR },
+  { RC_IMPLEMENTATION_SPECIFIC_ERROR,          RC_IMPLEMENTATION_SPECIFIC_ERROR_STR },
+  { RC_NOT_AUTHORIZED,                         RC_NOT_AUTHORIZED_STR },
+  { RC_SERVER_BUSY,                            RC_SERVER_BUSY_STR },
+  { RC_SERVER_SHUTTING_DOWN,                   RC_SERVER_SHUTTING_DOWN_STR },
+  /* Bad authentication method: check Table 2.6 and Table 3.13 */
+  { RC_BAD_AUTHENTICATION_METHOD,              RC_BAD_AUTHENTICATION_METHOD_STR },
+  { RC_KEEP_ALIVE_TIMEOUT,                     RC_KEEP_ALIVE_TIMEOUT_STR },
+  { RC_SESSION_TAKEN_OVER,                     RC_SESSION_TAKEN_OVER_STR },
+  { RC_TOPIC_FILTER_INVALID,                   RC_TOPIC_FILTER_INVALID_STR },
+  { RC_TOPIC_NAME_INVALID,                     RC_TOPIC_NAME_INVALID_STR },
+  { RC_RECEIVE_MAXIMUM_EXCEEDED,               RC_RECEIVE_MAXIMUM_EXCEEDED_STR },
+  { RC_TOPIC_ALIAS_INVALID,                    RC_TOPIC_ALIAS_INVALID_STR },
+  { RC_PACKET_TOO_LARGE,                       RC_PACKET_TOO_LARGE_STR },
+  { RC_MESSAGE_RATE_TOO_HIGH,                  RC_MESSAGE_RATE_TOO_HIGH_STR },
+  { RC_QUOTA_EXCEEDED,                         RC_QUOTA_EXCEEDED_STR },
+  { RC_ADMINISTRATIVE_ACTION,                  RC_ADMINISTRATIVE_ACTION_STR },
+  { RC_PAYLOAD_FORMAT_INVALID,                 RC_PAYLOAD_FORMAT_INVALID_STR },
+  { RC_RETAIN_NOT_SUPPORTED,                   RC_RETAIN_NOT_SUPPORTED_STR },
+  { RC_QOS_NOT_SUPPORTED,                      RC_QOS_NOT_SUPPORTED_STR },
+  { RC_USE_ANOTHER_SERVER,                     RC_USE_ANOTHER_SERVER_STR },
+  { RC_SERVER_MOVED,                           RC_SERVER_MOVED_STR },
+  { RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED,      RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED_STR },
+  { RC_CONNECTION_RATE_EXCEEDED,               RC_CONNECTION_RATE_EXCEEDED_STR },
+  { RC_MAXIMUM_CONNECT_TIME,                   RC_MAXIMUM_CONNECT_TIME_STR },
+  { RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED, RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED_STR },
+  { RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED,    RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED_STR },
+  { 0, NULL }
+};
+
+static const value_string mqtt_reason_code_auth_vals[] = {
+  { RC_SUCCESS,                                RC_SUCCESS_STR },
+  { RC_CONTINUE_AUTHENTICATION,                RC_CONTINUE_AUTHENTICATION_STR },
+  { RC_RE_AUTHENTICATE,                        RC_RE_AUTHENTICATE_STR },
+  { 0, NULL }
+};
+
 static mqtt_message_decode_t *mqtt_message_decodes;
 static guint num_mqtt_message_decodes;
 
@@ -333,7 +537,17 @@ static int hf_mqtt_conflag_clean_sess = -1;
 static int hf_mqtt_conflag_reserved = -1;
 static int hf_mqtt_keep_alive = -1;
 static int hf_mqtt_subscription_options = -1;
-static int hf_mqtt_reason_code = -1;
+
+/* MQTT v5.0 Reason Codes */
+static int hf_mqtt_reason_code_connack = -1;
+static int hf_mqtt_reason_code_puback = -1;
+static int hf_mqtt_reason_code_pubrec = -1;
+static int hf_mqtt_reason_code_pubrel = -1;
+static int hf_mqtt_reason_code_pubcomp = -1;
+static int hf_mqtt_reason_code_suback = -1;
+static int hf_mqtt_reason_code_unsuback = -1;
+static int hf_mqtt_reason_code_disconnect = -1;
+static int hf_mqtt_reason_code_auth = -1;
 
 /* MQTT v5.0 Subscribe Options */
 static int hf_mqtt_subscription_qos = -1;
@@ -368,18 +582,16 @@ static gint ett_mqtt_subscription_flags = -1;
 /* Reassemble SMPP TCP segments */
 static gboolean reassemble_mqtt_over_tcp = TRUE;
 
-#define GET_MQTT_PDU_LEN(msg_len, len_offset)    (msg_len + len_offset + MQTT_HDR_SIZE_BEFORE_LEN)
-
 static guint get_mqtt_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb,
                               int offset, void *data _U_)
 {
   guint64 msg_len;
   guint len_offset;
 
-  len_offset = dissect_uleb128(tvb, (offset + MQTT_HDR_SIZE_BEFORE_LEN), &msg_len);
+  len_offset = tvb_get_varint(tvb, (offset + MQTT_HDR_SIZE_BEFORE_LEN), FT_VARINT_MAX_LEN, &msg_len, ENC_VARINT_PROTOBUF);
 
   /* Explicitly downcast the value, because the length can never be more than 4 bytes */
-  return (guint)(GET_MQTT_PDU_LEN(msg_len, len_offset));
+  return (guint)(msg_len + len_offset + MQTT_HDR_SIZE_BEFORE_LEN);
 }
 
 static void *mqtt_message_decode_copy_cb(void *dest, const void *orig, size_t len _U_)
@@ -387,6 +599,7 @@ static void *mqtt_message_decode_copy_cb(void *dest, const void *orig, size_t le
   const mqtt_message_decode_t *o = (const mqtt_message_decode_t *)orig;
   mqtt_message_decode_t *d = (mqtt_message_decode_t *)dest;
 
+  d->match_criteria = o->match_criteria;
   d->topic_pattern = g_strdup(o->topic_pattern);
   d->payload_proto_name = g_strdup(o->payload_proto_name);
 
@@ -501,6 +714,38 @@ static guint dissect_string(tvbuff_t *tvb, proto_tree *tree, guint offset, int h
   return 2 + prop_len;
 }
 
+/* MQTT v5.0: Reason Codes */
+static void dissect_mqtt_reason_code(proto_tree *mqtt_tree, tvbuff_t *tvb, guint offset, guint8 mqtt_msg_type)
+{
+  static const int *hf_rcode[] = {
+    NULL, /* RESERVED */
+    NULL, /* CONNECT */
+    &hf_mqtt_reason_code_connack,
+    NULL, /* PUBLISH */
+    &hf_mqtt_reason_code_puback,
+    &hf_mqtt_reason_code_pubrec,
+    &hf_mqtt_reason_code_pubrel,
+    &hf_mqtt_reason_code_pubcomp,
+    NULL, /* SUBSCRIBE */
+    &hf_mqtt_reason_code_suback,
+    NULL, /* UNSUBSCRIBE */
+    &hf_mqtt_reason_code_unsuback,
+    NULL, /* PINGREQ */
+    NULL, /* PINGRESP */
+    &hf_mqtt_reason_code_disconnect,
+    &hf_mqtt_reason_code_auth
+  };
+
+  if (mqtt_msg_type < (sizeof hf_rcode / sizeof hf_rcode[0]))
+  {
+    const int *hfindex = hf_rcode[mqtt_msg_type];
+    if (hfindex)
+    {
+      proto_tree_add_item(mqtt_tree, *hfindex, tvb, offset, 1, ENC_BIG_ENDIAN);
+    }
+  }
+}
+
 /* MQTT v5.0: dissect the MQTT properties */
 static guint dissect_mqtt_properties(tvbuff_t *tvb, proto_tree *mqtt_tree, guint offset)
 {
@@ -508,7 +753,7 @@ static guint dissect_mqtt_properties(tvbuff_t *tvb, proto_tree *mqtt_tree, guint
   proto_item *ti;
   guint64 vbi;
 
-  const guint mqtt_prop_offset = dissect_uleb128(tvb, offset, &vbi);
+  const guint mqtt_prop_offset = tvb_get_varint(tvb, offset, FT_VARINT_MAX_LEN, &vbi, ENC_VARINT_PROTOBUF);
   /* Property Length field can be stored in uint32 */
   const guint mqtt_prop_len = (gint)vbi;
 
@@ -562,9 +807,9 @@ static guint dissect_mqtt_properties(tvbuff_t *tvb, proto_tree *mqtt_tree, guint
 
       case PROP_SUBSCRIPTION_IDENTIFIER:
       {
-        guint8 vbi_offset = dissect_uleb128(tvb, offset, &vbi);
-        proto_tree_add_uint(mqtt_prop_tree, hf_mqtt_prop_num, tvb, offset, vbi_offset, (guint32)vbi);
-        offset += vbi_offset;
+        gint vbi_len;
+        proto_tree_add_item_ret_length(mqtt_prop_tree, hf_mqtt_prop_num, tvb, offset, -1, ENC_LITTLE_ENDIAN|ENC_VARINT_PROTOBUF, &vbi_len);
+        offset += vbi_len;
         break;
       }
 
@@ -680,7 +925,7 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     conversation_add_proto_data(conv, proto_mqtt, mqtt);
   }
 
-  mqtt_len_offset = dissect_uleb128(tvb, (offset + MQTT_HDR_SIZE_BEFORE_LEN), &msg_len);
+  mqtt_len_offset = tvb_get_varint(tvb, (offset + MQTT_HDR_SIZE_BEFORE_LEN), FT_VARINT_MAX_LEN, &msg_len, ENC_VARINT_PROTOBUF);
 
   /* Explicit downcast, typically maximum length of message could be 4 bytes */
   mqtt_msg_len = (gint) msg_len;
@@ -792,7 +1037,15 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
       }
       offset += 1;
 
-      proto_tree_add_item(mqtt_tree, hf_mqtt_conack_code, tvb, offset, 1, ENC_BIG_ENDIAN);
+      if ((mqtt->runtime_proto_version == MQTT_PROTO_V31) ||
+          (mqtt->runtime_proto_version == MQTT_PROTO_V311))
+      {
+        proto_tree_add_item(mqtt_tree, hf_mqtt_conack_code, tvb, offset, 1, ENC_BIG_ENDIAN);
+      }
+      else
+      {
+        dissect_mqtt_reason_code(mqtt_tree, tvb, offset, mqtt_msg_type);
+      }
       offset += 1;
 
       if (mqtt->runtime_proto_version == MQTT_PROTO_V50)
@@ -898,7 +1151,15 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
       while (offset < tvb_reported_length(tvb))
       {
-        proto_tree_add_item(mqtt_tree, hf_mqtt_suback_qos, tvb, offset, 1, ENC_BIG_ENDIAN);
+        if ((mqtt->runtime_proto_version == MQTT_PROTO_V31) ||
+            (mqtt->runtime_proto_version == MQTT_PROTO_V311))
+        {
+          proto_tree_add_item(mqtt_tree, hf_mqtt_suback_qos, tvb, offset, 1, ENC_BIG_ENDIAN);
+        }
+        else
+        {
+          dissect_mqtt_reason_code(mqtt_tree, tvb, offset, mqtt_msg_type);
+        }
         offset += 1;
       }
       break;
@@ -912,7 +1173,7 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
       if (mqtt->runtime_proto_version == MQTT_PROTO_V50)
       {
-        proto_tree_add_item(mqtt_tree, hf_mqtt_reason_code, tvb, offset, 1, ENC_BIG_ENDIAN);
+        dissect_mqtt_reason_code(mqtt_tree, tvb, offset, mqtt_msg_type);
         offset += 1;
 
         offset += dissect_mqtt_properties(tvb, mqtt_tree, offset);
@@ -929,7 +1190,7 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
         while (offset < tvb_reported_length(tvb))
         {
-          proto_tree_add_item(mqtt_tree, hf_mqtt_reason_code, tvb, offset, 1, ENC_BIG_ENDIAN);
+          dissect_mqtt_reason_code(mqtt_tree, tvb, offset, mqtt_msg_type);
           offset += 1;
         }
       }
@@ -953,7 +1214,7 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
        */
       if (mqtt->runtime_proto_version == MQTT_PROTO_V50 && mqtt_msg_len > 0)
       {
-        proto_tree_add_item(mqtt_tree, hf_mqtt_reason_code, tvb, offset, 1, ENC_BIG_ENDIAN);
+        dissect_mqtt_reason_code(mqtt_tree, tvb, offset, mqtt_msg_type);
         offset += 1;
 
         /* 3.14.2.2 DISCONNECT Properties:
@@ -1200,9 +1461,43 @@ void proto_register_mqtt(void)
       { "Reserved", "mqtt.subscription_options_reserved",
         FT_UINT8, BASE_HEX, NULL, MQTT_MASK_SUBS_RESERVED,
         NULL, HFILL }},
-    { &hf_mqtt_reason_code,
-      { "Reason Code", "mqtt.reason_code",
-        FT_UINT8, BASE_DEC, NULL, 0,
+
+    /* v5.0 Reason Codes */
+    { &hf_mqtt_reason_code_connack,
+      { "Reason Code", "mqtt.connack.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_connack_vals), 0,
+        "MQTT Reason Code", HFILL }},
+    { &hf_mqtt_reason_code_puback,
+      { "Reason Code", "mqtt.puback.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_puback_vals), 0,
+        "MQTT Reason Code", HFILL }},
+    { &hf_mqtt_reason_code_pubrec,
+      { "Reason Code", "mqtt.pubrec.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_puback_vals), 0,
+        "MQTT Reason Code", HFILL }},
+    { &hf_mqtt_reason_code_pubrel,
+      { "Reason Code", "mqtt.pubrel.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_pubrel_vals), 0,
+        "MQTT Reason Code", HFILL }},
+    { &hf_mqtt_reason_code_pubcomp,
+      { "Reason Code", "mqtt.pubcomp.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_pubrel_vals), 0,
+        "MQTT Reason Code", HFILL }},
+    { &hf_mqtt_reason_code_suback,
+      { "Reason Code", "mqtt.suback.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_suback_vals), 0,
+        "MQTT Reason Code", HFILL }},
+    { &hf_mqtt_reason_code_unsuback,
+      { "Reason Code", "mqtt.unsuback.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_unsuback_vals), 0,
+        "MQTT Reason Code", HFILL }},
+    { &hf_mqtt_reason_code_disconnect,
+      { "Reason Code", "mqtt.disconnect.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_disconnect_vals), 0,
+        "MQTT Reason Code", HFILL }},
+    { &hf_mqtt_reason_code_auth,
+      { "Reason Code", "mqtt.auth.reason_code",
+        FT_UINT8, BASE_DEC, VALS(mqtt_reason_code_auth_vals), 0,
         "MQTT Reason Code", HFILL }},
 
     /* Properties */

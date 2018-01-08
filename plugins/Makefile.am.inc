@@ -22,11 +22,17 @@
 
 LIBS = @PLUGIN_LIBS@
 
-PLUGIN_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS)
+PLUGIN_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GLIB_CFLAGS) -DPLUGIN_VERSION=\"$(PLUGIN_VERSION)\"
 
 PLUGIN_CFLAGS =
 
 PLUGIN_LDFLAGS = -module -avoid-version
+
+epan_plugindir = $(plugindir)/epan
+
+wiretap_plugindir = $(plugindir)/wiretap
+
+codecs_plugindir = $(plugindir)/codecs
 
 #
 # Source files are divided up along several axes:
@@ -174,9 +180,9 @@ CPP_FILES = \
 # a plugin.c file for a plugin.
 # All subsequent arguments are the files to scan.
 #
-plugin.c: $(REGISTER_SRC_FILES) $(top_srcdir)/tools/make-dissector-reg.py
+plugin.c: $(REGISTER_SRC_FILES) $(top_srcdir)/tools/make-plugin-reg.py
 	@echo Making plugin.c
-	@$(PYTHON) $(top_srcdir)/tools/make-dissector-reg.py $(srcdir) \
+	@$(PYTHON) $(top_srcdir)/tools/make-plugin-reg.py $(srcdir) \
 		plugin $(REGISTER_SRC_FILES)
 
 checkapi:

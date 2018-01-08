@@ -62,6 +62,21 @@ enum rrc_message_type {
   RRC_MESSAGE_TYPE_BCCH_FACH
 };
 
+enum nas_sys_info_gsm_map {
+  RRC_NAS_SYS_UNKNOWN = 0,
+  RRC_NAS_SYS_INFO_CS,
+  RRC_NAS_SYS_INFO_PS,
+  RRC_NAS_SYS_INFO_CN_COMMON
+};
+
+enum rrc_ue_state {
+  RRC_UE_STATE_UNKNOWN = 0,
+  RRC_UE_STATE_CELL_DCH,
+  RRC_UE_STATE_CELL_FACH,
+  RRC_UE_STATE_CELL_PCH,
+  RRC_UE_STATE_URA_PCH
+};
+
 #define MAX_RRC_FRAMES    64
 typedef struct rrc_info
 {
@@ -84,7 +99,6 @@ typedef struct rrc_ciphering_info
 
 extern GTree * hsdsch_muxed_flows;
 extern GTree * rrc_ciph_info_tree;
-extern GTree * rrc_scrambling_code_urnti;
-extern wmem_tree_t* rrc_rach_urnti_crnti_map;
+extern wmem_tree_t* rrc_global_urnti_crnti_map;
 
 #endif  /* PACKET_RRC_H */

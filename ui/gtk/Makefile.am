@@ -23,11 +23,11 @@ include $(top_srcdir)/Makefile.am.inc
 include Makefile_custom.common
 
 # Generated C source files that we want in the distribution.
-GENERATED_FILES = \
-	wireshark-tap-register.c
+GENERATED_FILES =
 
 # Generated C source files that we don't want in the distribution.
-NODIST_GENERATED_FILES =
+NODIST_GENERATED_FILES = \
+	wireshark-tap-register.c
 
 # Files that generate compileable files
 GENERATOR_FILES = \
@@ -55,6 +55,7 @@ WIRESHARK_COMMON_GTK_SRC = \
 	expert_comp_table.c	\
 	export_object_dlg.c	\
 	export_sslkeys.c	\
+	extcap_gtk.c		\
 	filter_autocomplete.c	\
 	file_dlg.c		\
 	file_import_dlg.c	\
@@ -176,6 +177,7 @@ WIRESHARK_COMMON_GTK_HDRS = \
 	export_object_dlg.h	\
 	export_pdu_dlg.h	\
 	export_sslkeys.h	\
+	extcap_gtk.h		\
 	file_dlg.h		\
 	file_import_dlg.h	\
 	fileset_dlg.h		\
@@ -261,19 +263,8 @@ BUILD_PIXBUF_CSOURCE = \
 	pixbuf-csource.c
 endif
 
-if HAVE_EXTCAP
-WIRESHARK_COMMON_GTK_SRC += extcap_gtk.c
-WIRESHARK_COMMON_GTK_HDRS += extcap_gtk.h
-endif
-
 AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(GTK_CFLAGS) \
 	$(PORTAUDIO_INCLUDES)
-
-CLEANFILES = \
-	libgtkui.a				\
-	wireshark-tap-register.c-tmp		\
-	wireshark-tap-register-cache.pkl	\
-	*~
 
 DISTCLEANFILES = \
 	$(NODIST_GENERATED_FILES)
@@ -314,25 +305,8 @@ nodist_libgtkui_a_SOURCES = \
 	$(NODIST_GENERATED_FILES)	\
 	$(BUILD_PIXBUF_CSOURCE)
 
-libgtkui_a_DEPENDENCIES =
-
-#
-# Build "wireshark-tap-register.c", which contains a function
-# "register_all_tap_listeners()"
-# that calls the register routines for all wireshark tap listeners.
-#
-# We do this by grepping through sources.
-#
-# Formatting conventions:  The name of the tap_listener_register_*
-# routines must start in column zero, or must be preceded only by
-# "void " starting in column zero, and must not be inside #if.
-#
-# The first argument is the directory in which the source files live.
-# All subsequent arguments are the files to scan.
-#
-wireshark-tap-register.c:  $(WIRESHARK_TAP_SRC) Makefile_custom.common $(top_srcdir)/tools/make-tap-reg.py
-	@echo Making wireshark-tap-register.c
-	@$(PYTHON) $(top_srcdir)/tools/make-tap-reg.py $(srcdir) taps $(WIRESHARK_TAP_SRC)
+wireshark-tap-register.c: $(WIRESHARK_TAP_SRC) ../make-taps
+	$(AM_V_GEN)../make-taps $@ $(filter %.c,$^)
 
 wireshark-gresources.c: main.gresources.xml $(shell glib-compile-resources --sourcedir=$(top_srcdir) --generate-dependencies $(srcdir)/main.gresources.xml)
 	@echo Making $@
@@ -346,15 +320,15 @@ imagedir = $(top_srcdir)/image
 
 pixbuf_csource_data = \
 	expert_chat_pb_data				\
-	$(imagedir)/toolbar/14x14/x-expert-chat.png	\
+	$(imagedir)/stock_icons/14x14/x-expert-chat.png	\
 	expert_error_pb_data				\
-	$(imagedir)/toolbar/14x14/x-expert-error.png	\
+	$(imagedir)/stock_icons/14x14/x-expert-error.png	\
 	expert_none_pb_data				\
-	$(imagedir)/toolbar/14x14/x-expert-none.png	\
+	$(imagedir)/stock_icons/14x14/x-expert-none.png	\
 	expert_note_pb_data				\
-	$(imagedir)/toolbar/14x14/x-expert-note.png	\
+	$(imagedir)/stock_icons/14x14/x-expert-note.png	\
 	expert_warn_pb_data				\
-	$(imagedir)/toolbar/14x14/x-expert-warn.png	\
+	$(imagedir)/stock_icons/14x14/x-expert-warn.png	\
 	expert_ok_pb_data				\
 	$(imagedir)/expert_ok.png			\
 	capture_comment_add_pb_data			\
@@ -388,25 +362,25 @@ pixbuf_csource_data = \
 	gnome_emblem_web_24_pb_data			\
 	$(imagedir)/toolbar/gnome_emblem_web_24.png	\
 	toolbar_wireshark_file_16_pb_data		\
-	$(imagedir)/toolbar/16x16/x-capture-file-save.png \
+	$(imagedir)/stock_icons/16x16/x-capture-file-save.png \
 	toolbar_wireshark_file_24_pb_data		\
-	$(imagedir)/toolbar/24x24/x-capture-file-save.png \
+	$(imagedir)/stock_icons/24x24/x-capture-file-save.png \
 	capture_options_alt1_16_pb_data			\
-	$(imagedir)/toolbar/16x16/x-capture-options.png \
+	$(imagedir)/stock_icons/16x16/x-capture-options.png \
 	capture_options_alt1_24_pb_data			\
-	$(imagedir)/toolbar/24x24/x-capture-options.png \
+	$(imagedir)/stock_icons/24x24/x-capture-options.png \
 	capture_restart_16_pb_data			\
-	$(imagedir)/toolbar/16x16/x-capture-restart.png \
+	$(imagedir)/stock_icons/16x16/x-capture-restart.png \
 	capture_restart_24_pb_data			\
-	$(imagedir)/toolbar/24x24/x-capture-restart.png \
+	$(imagedir)/stock_icons/24x24/x-capture-restart.png \
 	capture_start_16_pb_data			\
-	$(imagedir)/toolbar/16x16/x-capture-start.png	\
+	$(imagedir)/stock_icons/16x16/x-capture-start.png	\
 	capture_start_24_pb_data			\
-	$(imagedir)/toolbar/24x24/x-capture-start.png	\
+	$(imagedir)/stock_icons/24x24/x-capture-start.png	\
 	capture_stop_16_pb_data				\
-	$(imagedir)/toolbar/16x16/x-capture-stop.png	\
+	$(imagedir)/stock_icons/16x16/x-capture-stop.png	\
 	capture_stop_24_pb_data				\
-	$(imagedir)/toolbar/24x24/x-capture-stop.png	\
+	$(imagedir)/stock_icons/24x24/x-capture-stop.png	\
 	layout_1_pb_data 				\
 	$(imagedir)/layout_1.png			\
 	layout_2_pb_data				\

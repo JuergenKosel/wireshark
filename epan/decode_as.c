@@ -52,7 +52,7 @@ void register_decode_as(decode_as_t* reg)
         dissector_table_allow_decode_as(decode_table);
     }
 
-    decode_as_list = g_list_append(decode_as_list, reg);
+    decode_as_list = g_list_prepend(decode_as_list, reg);
 }
 
 static void next_proto_prompt(packet_info *pinfo _U_, gchar *result)
@@ -272,7 +272,7 @@ read_set_decode_as_entries(gchar *key, const gchar *value,
                         }
 
                         prefs_add_decode_as_value(pref_value, (guint)long_value, replace);
-                        module->prefs_changed = TRUE;
+                        module->prefs_changed_flags |= prefs_get_effect_flags(pref_value);
                     }
 
                 }

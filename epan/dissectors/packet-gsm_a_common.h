@@ -47,6 +47,12 @@
  *   Stage 3
  *   (3GPP TS 24.008 version 14.4.0 Release 14)
  *
+ *   Reference [13]
+ *   Mobile radio interface Layer 3 specification;
+ *   Core network protocols;
+ *   Stage 3
+ *   (3GPP TS 24.008 version 15.1.0 Release 15)
+ *
  * Copyright 2003, Michael Lum <mlum [AT] telostech.com>,
  * In association with Telos Technology Inc.
  *
@@ -792,6 +798,7 @@ extern const value_string gsm_a_dtap_numbering_plan_id_values[];
 extern const value_string gsm_a_sms_vals[];
 extern const value_string tighter_cap_level_vals[];
 extern value_string_ext gsm_a_rr_rxlev_vals_ext;
+extern const value_string gsm_a_rr_rxqual_vals[];
 extern const value_string gsm_a_gm_type_of_ciph_alg_vals[];
 
 extern value_string_ext nas_eps_emm_cause_values_ext;
@@ -1218,6 +1225,7 @@ typedef enum
     DE_PD_PRO_ADDR,                 /* Packet Data Protocol Address */
     DE_QOS,                         /* Quality Of Service */
     DE_RE_ATTEMPT_IND,              /* Re-attempt indicator */
+    DE_EXT_QOS,                     /* [13] Extended quality of service */
     DE_SM_CAUSE,                    /* SM Cause */
     DE_SM_CAUSE_2,                  /* SM Cause 2 */
     DE_LINKED_TI,                   /* Linked TI */
@@ -1458,6 +1466,8 @@ typedef enum
     DE_EMM_NON_3GPP_NW_PROV_POL, /* 9.9.3.49 Non-3GPP NW provided policies, See subclause 10.5.5.37 in 3GPP TS 24.008 */
     DE_EMM_HASH_MME,            /* 9.9.3.50 HashMME */
     DE_EMM_REPLAYED_NAS_MSG_CONT, /* 9.9.3.51 Replayed NAS message container */
+    DE_EMM_NETWORK_POLICY,      /* 9.9.3.52 Network policy */
+    DE_EMM_UE_ADD_SEC_CAP,      /* 9.9.3.53 UE additional security capability */
     DE_EMM_NONE                 /* NONE */
 }
 nas_emm_elem_idx_t;

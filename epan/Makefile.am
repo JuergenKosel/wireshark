@@ -29,7 +29,7 @@ endif
 
 SUBDIRS = crypt ftypes dfilter dissectors wmem $(wslua_dir)
 
-AM_CPPFLAGS = $(INCLUDEDIRS) -I$(builddir)/wslua $(WS_CPPFLAGS) \
+AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) \
 	$(GLIB_CFLAGS) $(PCAP_CFLAGS) $(LUA_CFLAGS) $(LIBGNUTLS_CFLAGS) \
 	$(LIBGCRYPT_CFLAGS) $(LIBSMI_CFLAGS) $(LIBGEOIP_CFLAGS) \
 	$(LZ4_CFLAGS) $(KRB5_CFLAGS) $(SNAPPY_CFLAGS) $(LIBXML2_CFLAGS)
@@ -61,14 +61,12 @@ LIBWIRESHARK_SRC = \
 	disabled_protos.c	\
 	dissector_filters.c	\
 	dvb_chartbl.c		\
-	dwarf.c			\
 	epan.c			\
 	ex-opt.c		\
 	except.c		\
 	expert.c		\
 	export_object.c		\
 	exported_pdu.c		\
-	plugin_if.c		\
 	filter_expressions.c	\
 	follow.c		\
 	frame_data.c		\
@@ -85,6 +83,7 @@ LIBWIRESHARK_SRC = \
 	oids.c			\
 	osi-utils.c		\
 	packet.c		\
+	plugin_if.c		\
 	prefs.c			\
 	print.c			\
 	print_stream.c		\
@@ -94,6 +93,7 @@ LIBWIRESHARK_SRC = \
 	reassemble.c		\
 	reedsolomon.c		\
 	req_resp_hdrs.c		\
+	register.c		\
 	rtd_table.c		\
 	sequence_analysis.c	\
 	show_exception.c	\
@@ -196,7 +196,6 @@ LIBWIRESHARK_INCLUDES_PUBLIC = \
 	dtd.h			\
 	dtd_parse.h		\
 	dvb_chartbl.h		\
-	dwarf.h			\
 	eap.h			\
 	eapol_keydes_types.h	\
 	epan.h			\
@@ -208,7 +207,6 @@ LIBWIRESHARK_INCLUDES_PUBLIC = \
 	expert.h		\
 	export_object.h		\
 	exported_pdu.h		\
-	plugin_if.h		\
 	filter_expressions.h	\
 	follow.h		\
 	frame_data.h		\
@@ -236,6 +234,7 @@ LIBWIRESHARK_INCLUDES_PUBLIC = \
 	packet.h		\
 	packet_info.h		\
 	params.h		\
+	plugin_if.h		\
 	ppptypes.h		\
 	print.h			\
 	print_stream.h		\
@@ -248,6 +247,7 @@ LIBWIRESHARK_INCLUDES_PUBLIC = \
 	range.h			\
 	reassemble.h		\
 	reedsolomon.h		\
+	register.h		\
 	req_resp_hdrs.h		\
 	rtd_table.h		\
 	rtp_pt.h		\
@@ -282,7 +282,6 @@ LIBWIRESHARK_INCLUDES_PUBLIC = \
 	xdlc.h
 
 LIBWIRESHARK_INCLUDES_PRIVATE = \
-	epan-int.h		\
 	to_str-int.h
 
 subpkgincludedir = $(pkgincludedir)/epan
@@ -370,12 +369,7 @@ EXTRA_DIST = \
 	print.ps
 
 CLEANFILES = \
-	doxygen-epan.tag		\
-	libwireshark.a			\
-	libwireshark.la			\
-	libwireshark_generated.a	\
-	libwireshark_generated.la	\
-	*~
+	doxygen-epan.tag
 
 DISTCLEANFILES = \
 	$(NODIST_LIBWIRESHARK_GENERATED_C_FILES) \
@@ -437,131 +431,6 @@ tvbtest.o exntest.o oids_test.o: exceptions.h
 
 ps.c: print.ps $(top_srcdir)/tools/rdps.py
 	$(AM_V_python)$(PYTHON) $(top_srcdir)/tools/rdps.py $(srcdir)/print.ps ps.c
-
-if HAVE_PLUGINS
-
-if ENABLE_STATIC
--include ../plugins/Custom.make
-plugin_src = \
-	../plugins/docsis/packet-docsis.c \
-	../plugins/docsis/packet-macmgmt.c \
-	../plugins/docsis/packet-tlv.c \
-	../plugins/docsis/packet-vendor.c \
-	../plugins/docsis/plugin.c \
-	../plugins/ethercat/packet-ams.c \
-	../plugins/ethercat/packet-ecatmb.c \
-	../plugins/ethercat/packet-esl.c \
-	../plugins/ethercat/packet-ethercat-datagram.c \
-	../plugins/ethercat/packet-ethercat-frame.c \
-	../plugins/ethercat/packet-ioraw.c \
-	../plugins/ethercat/packet-nv.c \
-	../plugins/ethercat/plugin.c \
-	../plugins/gryphon/packet-gryphon.c \
-	../plugins/gryphon/plugin.c \
-	../plugins/irda/packet-ircomm.c \
-	../plugins/irda/packet-irda.c \
-	../plugins/irda/packet-sir.c \
-	../plugins/irda/plugin.c \
-	../plugins/Makefile.am.inc \
-	../plugins/mate/mate_grammar.c \
-	../plugins/mate/mate_parser.c \
-	../plugins/mate/mate_runtime.c \
-	../plugins/mate/mate_setup.c \
-	../plugins/mate/mate_util.c \
-	../plugins/mate/packet-mate.c \
-	../plugins/mate/plugin.c \
-	../plugins/opcua/opcua_application_layer.c \
-	../plugins/opcua/opcua.c \
-	../plugins/opcua/opcua_complextypeparser.c \
-	../plugins/opcua/opcua_enumparser.c \
-	../plugins/opcua/opcua_extensionobjecttable.c \
-	../plugins/opcua/opcua_hfindeces.c \
-	../plugins/opcua/opcua_security_layer.c \
-	../plugins/opcua/opcua_serviceparser.c \
-	../plugins/opcua/opcua_servicetable.c \
-	../plugins/opcua/opcua_simpletypes.c \
-	../plugins/opcua/opcua_statuscode.c \
-	../plugins/opcua/opcua_transport_layer.c \
-	../plugins/opcua/plugin.c \
-	../plugins/pluginifdemo/pluginifdemo.c \
-	../plugins/profinet/packet-dcerpc-pn-io.c \
-	../plugins/profinet/packet-dcom-cba-acco.c \
-	../plugins/profinet/packet-dcom-cba.c \
-	../plugins/profinet/packet-pn.c \
-	../plugins/profinet/packet-pn-dcp.c \
-	../plugins/profinet/packet-pn-mrp.c \
-	../plugins/profinet/packet-pn-mrrt.c \
-	../plugins/profinet/packet-pn-ptcp.c \
-	../plugins/profinet/packet-pn-rt.c \
-	../plugins/profinet/packet-pn-rtc-one.c \
-	../plugins/profinet/plugin.c \
-	../plugins/stats_tree/pinfo_stats_tree.c \
-	../plugins/stats_tree/stats_tree_plugin.c \
-	../plugins/transum/decoders.c \
-	../plugins/transum/extractors.c \
-	../plugins/transum/packet-transum.c \
-	../plugins/transum/plugin.c \
-	../plugins/unistim/packet-unistim.c \
-	../plugins/unistim/plugin.c \
-	../plugins/wimaxasncp/packet-wimaxasncp.c \
-	../plugins/wimaxasncp/plugin.c \
-	../plugins/wimaxasncp/wimaxasncp_dict.c \
-	../plugins/wimax/crc.c \
-	../plugins/wimax/crc_data.c \
-	../plugins/wimax/mac_hd_generic_decoder.c \
-	../plugins/wimax/mac_hd_type1_decoder.c \
-	../plugins/wimax/mac_hd_type2_decoder.c \
-	../plugins/wimax/mac_mgmt_msg_decoder.c \
-	../plugins/wimaxmacphy/packet-wimaxmacphy.c \
-	../plugins/wimaxmacphy/plugin.c \
-	../plugins/wimax/msg_aas_beam.c \
-	../plugins/wimax/msg_aas_fbck.c \
-	../plugins/wimax/msg_arq.c \
-	../plugins/wimax/msg_clk_cmp.c \
-	../plugins/wimax/msg_dcd.c \
-	../plugins/wimax/msg_dlmap.c \
-	../plugins/wimax/msg_dreg.c \
-	../plugins/wimax/msg_dsa.c \
-	../plugins/wimax/msg_dsc.c \
-	../plugins/wimax/msg_dsd.c \
-	../plugins/wimax/msg_dsx_rvd.c \
-	../plugins/wimax/msg_fpc.c \
-	../plugins/wimax/msg_pkm.c \
-	../plugins/wimax/msg_pmc.c \
-	../plugins/wimax/msg_prc_lt_ctrl.c \
-	../plugins/wimax/msg_reg_req.c \
-	../plugins/wimax/msg_reg_rsp.c \
-	../plugins/wimax/msg_rep.c \
-	../plugins/wimax/msg_res_cmd.c \
-	../plugins/wimax/msg_rng_req.c \
-	../plugins/wimax/msg_rng_rsp.c \
-	../plugins/wimax/msg_sbc.c \
-	../plugins/wimax/msg_ucd.c \
-	../plugins/wimax/msg_ulmap.c \
-	../plugins/wimax/packet-wmx.c \
-	../plugins/wimax/plugin.c \
-	../plugins/wimax/wimax_cdma_code_decoder.c \
-	../plugins/wimax/wimax_compact_dlmap_ie_decoder.c \
-	../plugins/wimax/wimax_compact_ulmap_ie_decoder.c \
-	../plugins/wimax/wimax_fch_decoder.c \
-	../plugins/wimax/wimax_ffb_decoder.c \
-	../plugins/wimax/wimax_hack_decoder.c \
-	../plugins/wimax/wimax_harq_map_decoder.c \
-	../plugins/wimax/wimax_pdu_decoder.c \
-	../plugins/wimax/wimax_phy_attributes_decoder.c \
-	../plugins/wimax/wimax_tlv.c \
-	../plugins/wimax/wimax_utils.c
-
-else		# ENABLE_STATIC
-
-plugin_src =
-
-endif		# ENABLE_STATIC
-
-else		# HAVE_PLUGINS
-plugin_src =
-
-endif		# HAVE_PLUGINS
 
 doxygen:
 if HAVE_DOXYGEN

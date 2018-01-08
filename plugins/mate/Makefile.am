@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = mate
 
+PLUGIN_VERSION = 1.0.1
+
 BUILT_SOURCES = \
 	plugin.c \
 	$(LEMON_GENERATED_HEADER_FILES) \
@@ -74,10 +76,9 @@ HEADER_FILES = \
 #AM_CFLAGS += -Werror
 #endif
 
-plugin_LTLIBRARIES = mate.la
+epan_plugin_LTLIBRARIES = mate.la
 
 mate_la_SOURCES = \
-	moduleinfo.h	\
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -92,10 +93,6 @@ mate_la_CFLAGS = $(GENERATED_CFLAGS) $(PLUGIN_CFLAGS)
 
 mate_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	mate \
-	*~
-
 DISTCLEANFILES = \
 	mate_grammar.out \
 	$(NODIST_SRC_FILES) \
@@ -109,7 +106,6 @@ MAINTAINERCLEANFILES = \
 EXTRA_DIST = \
 	mate_grammar.lemon	\
 	mate_parser.l		\
-	plugin.rc.in		\
 	CMakeLists.txt		\
 	examples/call.mate	\
 	examples/mms.mate	\

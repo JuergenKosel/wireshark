@@ -57,6 +57,7 @@ NODIST_GENERATED_HEADER_FILES = \
 	ui_expert_info_dialog.h				\
 	ui_export_object_dialog.h			\
 	ui_export_pdu_dialog.h				\
+	ui_extcap_options_dialog.h			\
 	ui_file_set_dialog.h				\
 	ui_filter_dialog.h				\
 	ui_filter_expression_frame.h			\
@@ -119,12 +120,13 @@ NODIST_GENERATED_HEADER_FILES = \
 	ui_voip_calls_dialog.h				\
 	ui_wireless_frame.h
 
+
 # Generated C source files that we want in the distribution.
-GENERATED_C_FILES = \
-	wireshark-tap-register.c
+GENERATED_C_FILES =
 
 # Generated C source files that we don't want in the distribution.
-NODIST_GENERATED_C_FILES =
+NODIST_GENERATED_C_FILES = \
+	wireshark-tap-register.c
 
 # Generated C++ source files that we want in the distribution.
 GENERATED_CPP_FILES =
@@ -159,38 +161,59 @@ MOC_WIDGET_HDRS = \
 	widgets/clickable_label.h			\
 	widgets/display_filter_combo.h			\
 	widgets/display_filter_edit.h			\
+	widgets/dissector_tables_view.h			\
+	widgets/drag_drop_toolbar.h			\
+	widgets/drag_label.h			\
 	widgets/editor_color_dialog.h				\
 	widgets/editor_file_dialog.h				\
 	widgets/elided_label.h				\
+	widgets/expert_info_view.h			\
+	widgets/export_objects_view.h				\
 	widgets/field_filter_edit.h			\
 	widgets/find_line_edit.h			\
 	widgets/follow_stream_text.h			\
 	widgets/interface_toolbar_lineedit.h		\
 	widgets/label_stack.h				\
 	widgets/overlay_scroll_bar.h			\
+	widgets/pref_module_view.h			\
+	widgets/range_syntax_lineedit.h			\
 	widgets/syntax_line_edit.h			\
 	widgets/stock_icon_tool_button.h		\
 	widgets/tabnav_tree_view.h			\
-	widgets/drag_drop_toolbar.h			\
-	widgets/drag_label.h			\
 	widgets/qcustomplot.h
+
+
+# Files that are general manager classes with
+MOC_MANAGER_HDRS = \
+	manager/preference_manager.h			\
+	manager/wireshark_preference.h
 
 # Files that are utility classes with multi-purpose, but no widgets
 MOC_UTILS_HDRS = \
 	utils/color_utils.h				\
+	utils/data_printer.h				\
 	utils/field_information.h			\
 	utils/frame_information.h			\
-	utils/data_printer.h				\
-	utils/stock_icon.h				\
+	utils/idata_printable.h				\
+	utils/proto_node.h				\
 	utils/qt_ui_utils.h				\
-	utils/wireshark_mime_data.h		\
-	utils/variant_pointer.h
+	utils/stock_icon.h				\
+	utils/variant_pointer.h				\
+	utils/wireshark_mime_data.h
 
 # Files for delegates and models
 MOC_MODELS_HDRS = \
+	models/astringlist_list_model.h			\
 	models/cache_proxy_model.h			\
 	models/decode_as_delegate.h			\
 	models/decode_as_model.h			\
+	models/dissector_tables_model.h			\
+	models/enabled_protocols_model.h			\
+	models/expert_info_model.h			\
+	models/expert_info_proxy_model.h		\
+	models/export_objects_model.h			\
+	models/fileset_entry_model.h			\
+	models/html_text_delegate.h			\
 	models/interface_sort_filter_model.h		\
 	models/interface_tree_cache_model.h		\
 	models/interface_tree_model.h			\
@@ -199,11 +222,17 @@ MOC_MODELS_HDRS = \
 	models/packet_list_record.h			\
 	models/path_chooser_delegate.h			\
 	models/percent_bar_delegate.h			\
+	models/pref_delegate.h			\
+	models/pref_models.h			\
+	models/proto_tree_model.h			\
 	models/related_packet_delegate.h		\
-	models/timeline_delegate.h			\
 	models/sparkline_delegate.h			\
+	models/supported_protocols_model.h		\
+	models/timeline_delegate.h			\
+	models/tree_model_helpers.h			\
 	models/uat_delegate.h				\
 	models/uat_model.h				\
+	models/url_link_delegate.h			\
 	models/voip_calls_info_model.h
 
 
@@ -243,6 +272,10 @@ MOC_HDRS = \
 	export_object_action.h				\
 	export_object_dialog.h				\
 	export_pdu_dialog.h				\
+	extcap_argument.h		\
+	extcap_argument_file.h		\
+	extcap_argument_multiselect.h	\
+	extcap_options_dialog.h			\
 	file_set_dialog.h				\
 	filter_action.h					\
 	filter_dialog.h					\
@@ -299,6 +332,7 @@ MOC_HDRS = \
 	rtp_audio_stream.h				\
 	rtp_player_dialog.h				\
 	rtp_stream_dialog.h				\
+	scsi_service_response_time_dialog.h		\
 	sctp_all_assocs_dialog.h			\
 	sctp_assoc_analyse_dialog.h			\
 	search_frame.h					\
@@ -329,6 +363,7 @@ MOC_HDRS = \
 	wireshark_dialog.h				\
 	wlan_statistics_dialog.h			\
 	$(MOC_WIDGET_HDRS)				\
+	$(MOC_MANAGER_HDRS)				\
 	$(MOC_UTILS_HDRS)				\
 	$(MOC_MODELS_HDRS)
 
@@ -357,6 +392,7 @@ UI_FILES = \
 	expert_info_dialog.ui				\
 	export_object_dialog.ui				\
 	export_pdu_dialog.ui				\
+	extcap_options_dialog.ui			\
 	file_set_dialog.ui				\
 	filter_dialog.ui				\
 	filter_expression_frame.ui			\
@@ -434,7 +470,7 @@ QRC_FILES = \
 	../../image/about.qrc			\
 	../../image/languages/languages.qrc	\
 	../../image/layout.qrc			\
-	../../image/toolbar.qrc			\
+	../../image/stock_icons.qrc		\
 	../../image/wsicon.qrc
 
 #
@@ -447,7 +483,7 @@ QRC_SRC = \
 	qrc_about.cpp		\
 	qrc_languages.cpp	\
 	qrc_layout.cpp		\
-	qrc_toolbar.cpp		\
+	qrc_stock_icons.cpp	\
 	qrc_wsicon.cpp		\
 	qrc_i18n.cpp
 
@@ -478,35 +514,54 @@ WIRESHARK_QT_WIDGET_SRC = \
 	widgets/clickable_label.cpp			\
 	widgets/display_filter_combo.cpp		\
 	widgets/display_filter_edit.cpp			\
+	widgets/dissector_tables_view.cpp			\
+	widgets/drag_drop_toolbar.cpp			\
+	widgets/drag_label.cpp			\
 	widgets/editor_color_dialog.cpp			\
 	widgets/editor_file_dialog.cpp			\
 	widgets/elided_label.cpp			\
+	widgets/expert_info_view.cpp			\
+	widgets/export_objects_view.cpp			\
 	widgets/field_filter_edit.cpp			\
 	widgets/find_line_edit.cpp			\
 	widgets/follow_stream_text.cpp			\
 	widgets/interface_toolbar_lineedit.cpp		\
 	widgets/label_stack.cpp				\
 	widgets/overlay_scroll_bar.cpp			\
+	widgets/pref_module_view.cpp			\
 	widgets/stock_icon_tool_button.cpp		\
+	widgets/range_syntax_lineedit.cpp		\
 	widgets/syntax_line_edit.cpp			\
 	widgets/tabnav_tree_view.cpp			\
-	widgets/drag_drop_toolbar.cpp			\
-	widgets/drag_label.cpp			\
 	widgets/qcustomplot.cpp
+
+# Files that are general manager classes with
+WIRESHARK_QT_MANAGER_SRC = \
+	manager/preference_manager.cpp			\
+	manager/wireshark_preference.cpp
 
 WIRESHARK_QT_UTILS_SRC = \
 	utils/color_utils.cpp				\
+	utils/data_printer.cpp				\
 	utils/field_information.cpp			\
 	utils/frame_information.cpp			\
-	utils/data_printer.cpp				\
+	utils/proto_node.cpp				\
+	utils/qt_ui_utils.cpp				\
 	utils/stock_icon.cpp				\
-	utils/wireshark_mime_data.cpp		\
-	utils/qt_ui_utils.cpp
+	utils/wireshark_mime_data.cpp
 
 WIRESHARK_QT_MODELS_SRCS = \
+	models/astringlist_list_model.cpp		\
 	models/cache_proxy_model.cpp			\
 	models/decode_as_delegate.cpp			\
 	models/decode_as_model.cpp			\
+	models/dissector_tables_model.cpp			\
+	models/enabled_protocols_model.cpp			\
+	models/expert_info_model.cpp			\
+	models/expert_info_proxy_model.cpp		\
+	models/export_objects_model.cpp			\
+	models/fileset_entry_model.cpp			\
+	models/html_text_delegate.cpp			\
 	models/interface_sort_filter_model.cpp		\
 	models/interface_tree_cache_model.cpp		\
 	models/interface_tree_model.cpp			\
@@ -515,11 +570,16 @@ WIRESHARK_QT_MODELS_SRCS = \
 	models/packet_list_record.cpp			\
 	models/path_chooser_delegate.cpp		\
 	models/percent_bar_delegate.cpp			\
+	models/pref_delegate.cpp			\
+	models/pref_models.cpp			\
+	models/proto_tree_model.cpp			\
 	models/related_packet_delegate.cpp		\
 	models/sparkline_delegate.cpp			\
+	models/supported_protocols_model.cpp		\
 	models/timeline_delegate.cpp			\
 	models/uat_model.cpp				\
 	models/uat_delegate.cpp				\
+	models/url_link_delegate.cpp			\
 	models/voip_calls_info_model.cpp
 
 WIRESHARK_QT_SRC = \
@@ -554,6 +614,10 @@ WIRESHARK_QT_SRC = \
 	export_object_action.cpp			\
 	export_object_dialog.cpp			\
 	export_pdu_dialog.cpp				\
+	extcap_argument.cpp			\
+	extcap_argument_file.cpp	\
+	extcap_argument_multiselect.cpp	\
+	extcap_options_dialog.cpp		\
 	file_set_dialog.cpp				\
 	filter_action.cpp				\
 	filter_dialog.cpp				\
@@ -606,6 +670,7 @@ WIRESHARK_QT_SRC = \
 	rtp_audio_stream.cpp				\
 	rtp_player_dialog.cpp				\
 	rtp_stream_dialog.cpp				\
+	scsi_service_response_time_dialog.cpp		\
 	sctp_all_assocs_dialog.cpp			\
 	sctp_assoc_analyse_dialog.cpp			\
 	sctp_chunk_statistics_dialog.cpp		\
@@ -635,6 +700,7 @@ WIRESHARK_QT_SRC = \
 	wireshark_dialog.cpp				\
 	$(WIRESHARK_QT_WIDGET_SRC)			\
 	$(WIRESHARK_QT_UTILS_SRC)			\
+	$(WIRESHARK_QT_MANAGER_SRC)			\
 	${WIRESHARK_QT_MODELS_SRCS}
 
 WIRESHARK_QT_TAP_SRC = \
@@ -662,43 +728,9 @@ noinst_HEADERS = \
 	utils/tango_colors.h		\
 	utils/variant_pointer.h
 
-if HAVE_EXTCAP
-NODIST_GENERATED_HEADER_FILES += \
-	ui_extcap_options_dialog.h
 
-MOC_HDRS += \
-	extcap_argument.h		\
-	extcap_argument_file.h		\
-	extcap_argument_multiselect.h	\
-	extcap_options_dialog.h
-
-UI_FILES += \
-	extcap_options_dialog.ui
-
-WIRESHARK_QT_SRC += \
-	extcap_argument.cpp		\
-	extcap_argument_file.cpp	\
-	extcap_argument_multiselect.cpp	\
-	extcap_options_dialog.cpp
-endif
-
-#
-# Build "wireshark-tap-register.c", which contains a function
-# "register_all_tap_listeners()"
-# that calls the register routines for all wireshark tap listeners.
-#
-# We do this by grepping through sources.
-#
-# Formatting conventions:  The name of the tap_listener_register_*
-# routines must start in column zero, or must be preceded only by
-# "void " starting in column zero, and must not be inside #if.
-#
-# The first argument is the directory in which the source files live.
-# All subsequent arguments are the files to scan.
-#
-wireshark-tap-register.c: $(WIRESHARK_QT_TAP_SRC) $(top_srcdir)/tools/make-tap-reg.py
-	@echo Making wireshark-tap-register.c
-	@$(PYTHON) $(top_srcdir)/tools/make-tap-reg.py $(srcdir) taps $(WIRESHARK_QT_TAP_SRC)
+wireshark-tap-register.c: $(WIRESHARK_QT_TAP_SRC) ../make-taps
+	$(AM_V_GEN)../make-taps $@ $(filter %.cpp,$^)
 
 libqtui_a_SOURCES = \
 	$(WIRESHARK_QT_SRC)		\
@@ -713,16 +745,10 @@ nodist_libqtui_a_SOURCES = \
 	$(NODIST_GENERATED_CPP_FILES)	\
 	$(NODIST_GENERATED_HEADER_FILES)
 
-libqtui_a_DEPENDENCIES =
-
 CLEANFILES = \
-	libqtui.a			\
-	wireshark-tap-register.c-tmp	\
-	wireshark-tap-register-cache.pkl \
 	*.moc.cpp			\
 	qrc_*.cpp			\
-	ui_*.h				\
-	*~
+	ui_*.h
 
 DISTCLEANFILES = \
 	$(NODIST_GENERATED_FILES)	\
@@ -761,7 +787,7 @@ SUFFIXES = .moc.cpp
 #	$(MOC) $< -o $@
 #
 .h.moc.cpp:
-	$(AM_V_MOC)$(MOC) $(MOC_OPTIONS) -I.. -I../.. -o $@ $<
+	$(AM_V_MOC)$(MOC) $(MOC_OPTIONS) -I.. -I../.. $(INCLUDEDIRS) -o $@ $<
 
 qrc_about.cpp: ../../image/about.qrc
 	$(AM_V_RCC)$(RCC) $(RCC_OPTIONS) -name about -o $@ $<
@@ -775,8 +801,8 @@ qrc_languages.cpp: ../../image/languages/languages.qrc
 qrc_i18n.cpp: i18n.qrc
 	$(AM_V_RCC)$(RCC) $(RCC_OPTIONS) -name i18n -o $@ $<
 
-qrc_toolbar.cpp: ../../image/toolbar.qrc
-	$(AM_V_RCC)$(RCC) $(RCC_OPTIONS) -name toolbar -o $@ $<
+qrc_stock_icons.cpp: ../../image/stock_icons.qrc
+	$(AM_V_RCC)$(RCC) $(RCC_OPTIONS) -name stock_icons -o $@ $<
 
 qrc_wsicon.cpp: ../../image/wsicon.qrc
 	$(AM_V_RCC)$(RCC) $(RCC_OPTIONS) -name wsicon -o $@ $<

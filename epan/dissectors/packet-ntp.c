@@ -495,6 +495,7 @@ static int hf_ntp_rec = -1;
 static int hf_ntp_xmt = -1;
 static int hf_ntp_keyid = -1;
 static int hf_ntp_mac = -1;
+static int hf_ntp_padding = -1;
 static int hf_ntp_key_type = -1;
 static int hf_ntp_key_index = -1;
 static int hf_ntp_key_signature = -1;
@@ -1046,7 +1047,7 @@ dissect_ntp_ctrl(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ntp_tree)
 	guint16		 associd;
 	guint16		 datalen;
 	guint16		 data_offset;
-	int			 length_remaining;
+	gint		 length_remaining;
 
 	tvbparse_t	*tt;
 	tvbparse_elem_t *element;
@@ -1199,13 +1200,23 @@ dissect_ntp_ctrl(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ntp_tree)
 	}
 
 	data_offset = 12+datalen;
-	length_remaining = tvb_reported_length_remaining(tvb, data_offset);
 
 	/* Check if there is authentication */
 	if ((flags2 & NTPCTRL_R_MASK) == 0)
 	{
-		if (length_remaining > 0)
+		gint padding_length;
+
+		length_remaining = tvb_reported_length_remaining(tvb, data_offset);
+		/* Check padding presence */
+		padding_length = (data_offset & 7) ? 8 - (data_offset & 7) : 0;
+		if (length_remaining > padding_length)
 		{
+			if (padding_length)
+			{
+				proto_tree_add_item(ntp_tree, hf_ntp_padding, tvb, data_offset, padding_length, ENC_NA);
+				data_offset += padding_length;
+				length_remaining -= padding_length;
+			}
 			auth_tree = proto_tree_add_subtree(ntp_tree, tvb, data_offset, -1, ett_ntp_authenticator, NULL, "Authenticator");
 			switch (length_remaining)
 			{
@@ -1238,7 +1249,7 @@ static void
 init_parser(void)
 {
 	/* specify what counts as character */
-	tvbparse_wanted_t *want_identifier = tvbparse_chars(-1, 1, 0,
+	tvbparse_wanted_t *want_identifier_str = tvbparse_chars(-1, 1, 0,
 		"abcdefghijklmnopqrstuvwxyz-_ABCDEFGHIJKLMNOPQRSTUVWXYZ.0123456789", NULL, NULL, NULL);
 	/* this is the equal sign used in assignments */
 	tvbparse_wanted_t *want_equalsign = tvbparse_char(-1, "=", NULL, NULL, NULL);
@@ -1250,9 +1261,14 @@ init_parser(void)
 		NULL);
 	tvbparse_wanted_t *want_comma = tvbparse_until(-1, NULL, NULL, NULL,
 		tvbparse_char(-1, ",", NULL, NULL, NULL), TP_UNTIL_SPEND);
+	/* the following specifies an identifier */
+	tvbparse_wanted_t *want_identifier = tvbparse_set_seq(-1, NULL, NULL, NULL,
+		want_identifier_str,
+		tvbparse_some(-1, 0, 1, NULL, NULL, NULL, want_comma),
+		NULL);
 	/* the following specifies an assignment of the form identifier=value */
 	tvbparse_wanted_t *want_assignment = tvbparse_set_seq(-1, NULL, NULL, NULL,
-		want_identifier,
+		want_identifier_str,
 		want_equalsign,
 		tvbparse_some(-1, 0, 1, NULL, NULL, NULL, want_value),
 		tvbparse_some(-1, 0, 1, NULL, NULL, NULL, want_comma),
@@ -1444,6 +1460,9 @@ proto_register_ntp(void)
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntp_mac, {
 			"Message Authentication Code", "ntp.mac", FT_BYTES, BASE_NONE,
+			NULL, 0, NULL, HFILL }},
+		{ &hf_ntp_padding, {
+			"Padding", "ntp.padding", FT_BYTES, BASE_NONE,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntp_key_type, {
 			"Key type", "ntp.key_type", FT_UINT8, BASE_DEC,

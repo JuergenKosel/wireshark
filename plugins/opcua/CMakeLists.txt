@@ -60,19 +60,15 @@ set_source_files_properties(
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-register_dissector_files(plugin.c
+register_plugin_files(plugin.c
 	plugin
 	${DISSECTOR_SRC}
 	${DISSECTOR_SUPPORT_SRC}
 )
 
-add_plugin_library(opcua)
+add_plugin_library(opcua epan)
 
-install(TARGETS opcua
-	LIBRARY DESTINATION ${PLUGIN_INSTALL_LIBDIR} NAMELINK_SKIP
-	RUNTIME DESTINATION ${PLUGIN_INSTALL_LIBDIR}
-	ARCHIVE DESTINATION ${PLUGIN_INSTALL_LIBDIR}
-)
+install_plugin(opcua epan)
 
 file(GLOB DISSECTOR_HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.h")
 CHECKAPI(

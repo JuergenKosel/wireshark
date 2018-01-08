@@ -5,19 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #include "config.h"
@@ -649,12 +637,19 @@ dissect_file(epan_dissect_t *edt, struct wtap_pkthdr *phdr,
 
 /*********************** code added for sub-dissector lookup *********************/
 
+enum dissector_e {
+	DISSECTOR_TYPE_SIMPLE,
+	DISSECTOR_TYPE_CALLBACK
+};
+
 /*
  * A dissector handle.
  */
 struct dissector_handle {
 	const char	*name;		/* dissector name */
-	dissector_t	dissector;
+	enum dissector_e dissector_type;
+	void		*dissector_func;
+	void		*dissector_data;
 	protocol_t	*protocol;
 };
 
@@ -682,7 +677,15 @@ call_dissector_through_handle(dissector_handle_t handle, tvbuff_t *tvb,
 			proto_get_protocol_short_name(handle->protocol);
 	}
 
-	len = (*handle->dissector)(tvb, pinfo, tree, data);
+	if (handle->dissector_type == DISSECTOR_TYPE_SIMPLE) {
+		len = ((dissector_t)handle->dissector_func)(tvb, pinfo, tree, data);
+	}
+	else if (handle->dissector_type == DISSECTOR_TYPE_CALLBACK) {
+		len = ((dissector_cb_t)handle->dissector_func)(tvb, pinfo, tree, data, handle->dissector_data);
+	}
+	else {
+		g_assert_not_reached();
+	}
 	pinfo->current_proto = saved_proto;
 
 	return len;
@@ -1609,8 +1612,8 @@ dissector_reset_string(const char *name, const gchar *pattern)
    the dissector with the arguments supplied, and return length of dissected data,
    otherwise return 0. */
 int
-dissector_try_string(dissector_table_t sub_dissectors, const gchar *string,
-		     tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+dissector_try_string_new(dissector_table_t sub_dissectors, const gchar *string,
+		     tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, const gboolean add_proto_name, void *data)
 {
 	dtbl_entry_t            *dtbl_entry;
 	struct dissector_handle *handle;
@@ -1641,7 +1644,7 @@ dissector_try_string(dissector_table_t sub_dissectors, const gchar *string,
 		 */
 		saved_match_string = pinfo->match_string;
 		pinfo->match_string = string;
-		len = call_dissector_work(handle, tvb, pinfo, tree, TRUE, data);
+		len = call_dissector_work(handle, tvb, pinfo, tree, add_proto_name, data);
 		pinfo->match_string = saved_match_string;
 
 		/*
@@ -1660,6 +1663,13 @@ dissector_try_string(dissector_table_t sub_dissectors, const gchar *string,
 		return len;
 	}
 	return 0;
+}
+
+int
+dissector_try_string(dissector_table_t sub_dissectors, const gchar *string,
+		     tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+	return dissector_try_string_new(sub_dissectors, string, tvb, pinfo, tree, TRUE, data);
 }
 
 /* Look for a given value in a given string dissector table and, if found,
@@ -2945,13 +2955,15 @@ dissector_handle_get_dissector_name(const dissector_handle_t handle)
 }
 
 static dissector_handle_t
-new_dissector_handle(dissector_t dissector, int proto, const char *name)
+new_dissector_handle(enum dissector_e type, void *dissector, const int proto, const char *name, void *cb_data)
 {
 	struct dissector_handle *handle;
 
 	handle			= wmem_new(wmem_epan_scope(), struct dissector_handle);
 	handle->name		= name;
-	handle->dissector	= dissector;
+	handle->dissector_type	= type;
+	handle->dissector_func	= dissector;
+	handle->dissector_data	= cb_data;
 	handle->protocol	= find_protocol_by_id(proto);
 	return handle;
 }
@@ -2960,14 +2972,14 @@ new_dissector_handle(dissector_t dissector, int proto, const char *name)
 dissector_handle_t
 create_dissector_handle(dissector_t dissector, const int proto)
 {
-	return new_dissector_handle(dissector, proto, NULL);
+	return new_dissector_handle(DISSECTOR_TYPE_SIMPLE, dissector, proto, NULL, NULL);
 }
 
 dissector_handle_t
 create_dissector_handle_with_name(dissector_t dissector,
 				const int proto, const char* name)
 {
-	return new_dissector_handle(dissector, proto, name);
+	return new_dissector_handle(DISSECTOR_TYPE_SIMPLE, dissector, proto, name, NULL);
 }
 
 /* Destroy an anonymous handle for a dissector. */
@@ -2998,7 +3010,17 @@ register_dissector(const char *name, dissector_t dissector, const int proto)
 {
 	struct dissector_handle *handle;
 
-	handle = new_dissector_handle(dissector, proto, name);
+	handle = new_dissector_handle(DISSECTOR_TYPE_SIMPLE, dissector, proto, name, NULL);
+
+	return register_dissector_handle(name, handle);
+}
+
+dissector_handle_t
+register_dissector_with_data(const char *name, dissector_cb_t dissector, const int proto, void *cb_data)
+{
+	struct dissector_handle *handle;
+
+	handle = new_dissector_handle(DISSECTOR_TYPE_CALLBACK, dissector, proto, name, cb_data);
 
 	return register_dissector_handle(name, handle);
 }
@@ -3102,6 +3124,7 @@ void call_heur_dissector_direct(heur_dtbl_entry_t *heur_dtbl_entry, tvbuff_t *tv
 	const char        *saved_curr_proto;
 	const char        *saved_heur_list_name;
 	guint16            saved_can_desegment;
+	guint              saved_layers_len = 0;
 
 	g_assert(heur_dtbl_entry);
 
@@ -3121,6 +3144,8 @@ void call_heur_dissector_direct(heur_dtbl_entry_t *heur_dtbl_entry, tvbuff_t *tv
 	saved_curr_proto = pinfo->current_proto;
 	saved_heur_list_name = pinfo->heur_list_name;
 
+	saved_layers_len = wmem_list_count(pinfo->layers);
+
 	if (!heur_dtbl_entry->enabled ||
 		(heur_dtbl_entry->protocol != NULL && !proto_is_protocol_enabled(heur_dtbl_entry->protocol))) {
 		g_assert(data_handle->protocol != NULL);
@@ -3132,14 +3157,26 @@ void call_heur_dissector_direct(heur_dtbl_entry_t *heur_dtbl_entry, tvbuff_t *tv
 		/* do NOT change this behavior - wslua uses the protocol short name set here in order
 			to determine which Lua-based heuristic dissector to call */
 		pinfo->current_proto = proto_get_protocol_short_name(heur_dtbl_entry->protocol);
+		pinfo->curr_layer_num++;
 		wmem_list_append(pinfo->layers, GINT_TO_POINTER(proto_get_id(heur_dtbl_entry->protocol)));
 	}
 
 	pinfo->heur_list_name = heur_dtbl_entry->list_name;
 
 	/* call the dissector, in case of failure call data handle (might happen with exported PDUs) */
-	if(!(*heur_dtbl_entry->dissector)(tvb, pinfo, tree, data))
+	if(!(*heur_dtbl_entry->dissector)(tvb, pinfo, tree, data)) {
 		call_dissector_work(data_handle, tvb, pinfo, tree, TRUE, NULL);
+
+		/*
+		 * We added a protocol layer above. The dissector
+		 * didn't accept the packet or it didn't add any
+		 * items to the tree so remove it from the list.
+		 */
+		while (wmem_list_count(pinfo->layers) > saved_layers_len) {
+			pinfo->curr_layer_num--;
+			wmem_list_remove_frame(pinfo->layers, wmem_list_tail(pinfo->layers));
+		}
+	}
 
 	/* Restore info from caller */
 	pinfo->can_desegment = saved_can_desegment;

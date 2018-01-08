@@ -4,19 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #ifndef PACKET_LIST_H
@@ -24,7 +12,6 @@
 
 #include "byte_view_tab.h"
 #include <ui/qt/models/packet_list_model.h>
-#include "preferences_dialog.h"
 #include "proto_tree.h"
 #include "protocol_preferences_menu.h"
 #include <ui/qt/models/related_packet_delegate.h>
@@ -84,6 +71,7 @@ public:
     QString packetComment();
     void setPacketComment(QString new_comment);
     QString allPacketComments();
+    void deleteAllPacketComments();
     void setVerticalAutoScroll(bool enabled = true);
     void setCaptureInProgress(bool in_progress = false) { capture_in_progress_ = in_progress; tail_at_end_ = in_progress; }
     void captureFileReadFinished();
@@ -112,7 +100,6 @@ private:
     QMenu colorize_menu_;
     ProtocolPreferencesMenu proto_prefs_menu_;
     QAction *decode_as_;
-    QList<QAction *> copy_actions_;
     int ctx_column_;
     QByteArray column_state_;
     OverlayScrollBar *overlay_sb_;
@@ -150,7 +137,7 @@ private:
 
 signals:
     void packetDissectionChanged();
-    void showColumnPreferences(PreferencesDialog::PreferencesPane start_pane);
+    void showColumnPreferences(QString pane_name);
     void editColumn(int column);
     void packetListScrolled(bool at_end);
     void showProtocolPreferences(const QString module_name);

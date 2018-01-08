@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = stats_tree
 
+PLUGIN_VERSION = 0.0.1
+
 # Non-generated sources
 NONGENERATED_C_FILES = \
 	$(NONGENERATED_REGISTER_C_FILES) \
@@ -37,7 +39,7 @@ CLEAN_HEADER_FILES = \
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = stats_tree.la
+epan_plugin_LTLIBRARIES = stats_tree.la
 
 stats_tree_la_SOURCES = \
 	$(SRC_FILES)	\
@@ -49,10 +51,5 @@ stats_tree_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 stats_tree_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	stats_tree \
-	*~
-
 EXTRA_DIST = \
-	plugin.rc.in		\
 	CMakeLists.txt

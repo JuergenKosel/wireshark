@@ -335,7 +335,8 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
     epan_dissect_init(&edt, cap_file_.capFile()->epan, TRUE, FALSE);
     epan_dissect_prime_with_dfilter(&edt, sfcode);
     epan_dissect_run(&edt, cap_file_.capFile()->cd_t, &cap_file_.capFile()->phdr,
-                     frame_tvbuff_new_buffer(fdata, &cap_file_.capFile()->buf), fdata, NULL);
+                     frame_tvbuff_new_buffer(&cap_file_.capFile()->provider, fdata, &cap_file_.capFile()->buf),
+                     fdata, NULL);
 
     // This shouldn't happen (the menu item should be disabled) but check anyway
     if (!dfilter_apply_edt(sfcode, &edt)) {
@@ -408,8 +409,8 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
             this, SLOT(updateWidgets()));
     connect(ui->reverseTreeWidget, SIGNAL(itemSelectionChanged()),
             this, SLOT(updateWidgets()));
-    connect(&cap_file_, SIGNAL(captureFileClosing()),
-            this, SLOT(updateWidgets()));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
+            this, SLOT(captureEvent(CaptureEvent *)));
     updateWidgets();
 
     registerTapListener("IAX2", this, NULL, 0, tapReset, tapPacket, tapDraw);
@@ -425,6 +426,15 @@ Iax2AnalysisDialog::~Iax2AnalysisDialog()
 //    remove_tap_listener_rtp_stream(&tapinfo);
     delete fwd_tempfile_;
     delete rev_tempfile_;
+}
+
+void Iax2AnalysisDialog::captureEvent(CaptureEvent *e)
+{
+    if ((e->captureContext() == CaptureEvent::File) &&
+            (e->eventType() == CaptureEvent::Closing))
+    {
+        updateWidgets();
+    }
 }
 
 void Iax2AnalysisDialog::updateWidgets()
@@ -1206,7 +1216,7 @@ void Iax2AnalysisDialog::saveCsv(Iax2AnalysisDialog::StreamDirection direction)
             foreach (QVariant v, ra_ti->rowData()) {
                 if (!v.isValid()) {
                     values << "\"\"";
-                } else if ((int) v.type() == (int) QMetaType::QString) {
+                } else if (v.type() == QVariant::String) {
                     values << QString("\"%1\"").arg(v.toString());
                 } else {
                     values << v.toString();

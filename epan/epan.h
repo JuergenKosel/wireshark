@@ -30,6 +30,7 @@ extern "C" {
 #include <epan/tvbuff.h>
 #include <epan/prefs.h>
 #include <epan/frame_data.h>
+#include <wsutil/plugins.h>
 #include "register.h"
 #include "ws_symbol_export.h"
 
@@ -37,6 +38,29 @@ typedef struct epan_dissect epan_dissect_t;
 
 struct epan_dfilter;
 struct epan_column_info;
+
+/*
+ * Opaque structure provided when an epan_t is created; it contains
+ * information needed to allow the user of libwireshark to provide
+ * time stamps, comments, and other information outside the packet
+ * data itself.
+ */
+struct packet_provider_data;
+
+/*
+ * Structure containing pointers to functions supplied by the user
+ * of libwireshark.
+ */
+struct packet_provider_funcs {
+	const nstime_t *(*get_frame_ts)(struct packet_provider_data *prov, guint32 frame_num);
+	const char *(*get_interface_name)(struct packet_provider_data *prov, guint32 interface_id);
+	const char *(*get_interface_description)(struct packet_provider_data *prov, guint32 interface_id);
+	const char *(*get_user_comment)(struct packet_provider_data *prov, const frame_data *fd);
+};
+
+#ifdef HAVE_PLUGINS
+extern plugins_t *libwireshark_plugins;
+#endif
 
 /**
 	@mainpage Wireshark EPAN the packet analyzing engine. Source code can be found in the epan directory
@@ -81,15 +105,6 @@ Ref2 for further edits - delete when done
 	- \ref airpcapdefs
 	- \ref radiotap
 */
-/*
- * Register all the plugin types that are part of libwireshark.
- *
- * Must be called before init_plugins(), which must be called before
- * any registration routines are called, i.e. before epan_init().
- *
- * Must be called only once in a program.
- */
-WS_DLL_PUBLIC void epan_register_plugin_types(void);
 
 /**
  * Init the whole epan module.
@@ -113,6 +128,18 @@ e_prefs *epan_load_settings(void);
 WS_DLL_PUBLIC
 void epan_cleanup(void);
 
+#ifdef HAVE_PLUGINS
+typedef struct {
+	void (*init)(void);
+	void (*dissect_init)(epan_dissect_t *);
+	void (*dissect_cleanup)(epan_dissect_t *);
+	void (*cleanup)(void);
+	void (*register_all_protocols)(register_cb, gpointer);
+	void (*register_all_handoffs)(register_cb, gpointer);
+} epan_plugin;
+
+WS_DLL_PUBLIC void epan_register_plugin(const epan_plugin *plugin);
+#endif
 /**
  * Initialize the table of conversations.  Conversations are identified by
  * their endpoints; they are used for protocols such as IP, TCP, and UDP,
@@ -130,7 +157,8 @@ void epan_conversation_init(void);
  */
 typedef struct epan_session epan_t;
 
-WS_DLL_PUBLIC epan_t *epan_new(void);
+WS_DLL_PUBLIC epan_t *epan_new(struct packet_provider_data *prov,
+    const struct packet_provider_funcs *funcs);
 
 WS_DLL_PUBLIC const char *epan_get_user_comment(const epan_t *session, const frame_data *fd);
 

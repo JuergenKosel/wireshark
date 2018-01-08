@@ -88,7 +88,6 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	dtd.h
 	dtd_parse.h
 	dvb_chartbl.h
-	dwarf.h
 	eap.h
 	eapol_keydes_types.h
 	epan.h
@@ -100,7 +99,6 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	expert.h
 	export_object.h
 	exported_pdu.h
-	plugin_if.h
 	filter_expressions.h
 	follow.h
 	frame_data.h
@@ -128,6 +126,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	packet.h
 	packet_info.h
 	params.h
+	plugin_if.h
 	ppptypes.h
 	print.h
 	print_stream.h
@@ -140,6 +139,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	range.h
 	reassemble.h
 	reedsolomon.h
+	register.h
 	req_resp_hdrs.h
 	rtd_table.h
 	rtp_pt.h
@@ -197,14 +197,12 @@ set(LIBWIRESHARK_FILES
 	disabled_protos.c
 	dissector_filters.c
 	dvb_chartbl.c
-	dwarf.c
 	epan.c
 	ex-opt.c
 	except.c
 	expert.c
 	export_object.c
 	exported_pdu.c
-	plugin_if.c
 	filter_expressions.c
 	follow.c
 	frame_data.c
@@ -221,6 +219,7 @@ set(LIBWIRESHARK_FILES
 	oids.c
 	osi-utils.c
 	packet.c
+	plugin_if.c
 	print.c
 	print_stream.c
 	prefs.c
@@ -230,6 +229,7 @@ set(LIBWIRESHARK_FILES
 	range.c
 	reassemble.c
 	reedsolomon.c
+	register.c
 	req_resp_hdrs.c
 	rtd_table.c
 	sequence_analysis.c
@@ -282,6 +282,7 @@ set(epan_LIBS
 	${GCRYPT_LIBRARIES}
 	${GEOIP_LIBRARIES}
 	${GLIB2_LIBRARIES}
+	${GTHREAD2_LIBRARIES}
 	${GNUTLS_LIBRARIES}
 	${KERBEROS_LIBRARIES}
 	${LUA_LIBRARIES}
@@ -312,7 +313,7 @@ if(HAVE_LIBLUA)
 else()
 	set(wslua_sources)
 endif()
-add_library(epan ${LINK_MODE_LIB}
+add_library(epan
 	${LIBWIRESHARK_FILES}
 	${GENERATED_FILES}
 	$<TARGET_OBJECTS:crypt>
@@ -394,13 +395,11 @@ target_link_libraries(epan ${epan_LIBS})
 
 add_dependencies(epan lemon)
 
-if(NOT ${ENABLE_STATIC})
-	install(TARGETS epan
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	)
-endif()
+install(TARGETS epan
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 
 if(NOT WIN32)
 	install(FILES ${LIBWIRESHARK_PUBLIC_HEADERS}

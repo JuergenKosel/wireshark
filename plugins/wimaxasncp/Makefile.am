@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = wimaxasncp
 
+PLUGIN_VERSION = 0.0.1
+
 BUILT_SOURCES = \
 	plugin.c \
 	$(LEMON_GENERATED_HEADER_FILES) \
@@ -61,10 +63,9 @@ HEADER_FILES = \
 #AM_CFLAGS += -Werror
 #endif
 
-plugin_LTLIBRARIES = wimaxasncp.la
+epan_plugin_LTLIBRARIES = wimaxasncp.la
 
 wimaxasncp_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -77,10 +78,6 @@ wimaxasncp_la_CFLAGS = $(GENERATED_CFLAGS) $(PLUGIN_CFLAGS)
 
 wimaxasncp_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	wimaxasncp \
-	*~
-
 DISTCLEANFILES = \
 	plugin.c
 
@@ -89,7 +86,6 @@ MAINTAINERCLEANFILES = \
 	$(GENERATED_HEADER_FILES)
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	wimaxasncp_dict.l	\
 	CMakeLists.txt
 

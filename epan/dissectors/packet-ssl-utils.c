@@ -102,6 +102,7 @@ const value_string ssl_versions[] = {
     { 0x7F13,               "TLS 1.3 (draft 19)" },
     { 0x7F14,               "TLS 1.3 (draft 20)" },
     { 0x7F15,               "TLS 1.3 (draft 21)" },
+    { 0x7F16,               "TLS 1.3 (draft 22)" },
     { DTLSV1DOT0_OPENSSL_VERSION, "DTLS 1.0 (OpenSSL pre 0.9.8f)" },
     { DTLSV1DOT0_VERSION,   "DTLS 1.0" },
     { DTLSV1DOT2_VERSION,   "DTLS 1.2" },
@@ -1424,11 +1425,13 @@ static const ssl_alpn_protocol_t ssl_alpn_protocols[] = {
 const value_string quic_transport_parameter_id[] = {
     { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA, "initial_max_stream_data" },
     { SSL_HND_QUIC_TP_INITIAL_MAX_DATA, "initial_max_data" },
-    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID, "initial_max_stream_id" },
+    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_BIDI, "initial_max_stream_id_bidi" },
     { SSL_HND_QUIC_TP_IDLE_TIMEOUT, "idle_timeout" },
     { SSL_HND_QUIC_TP_OMIT_CONNECTION_ID, "omit_connection_id" },
     { SSL_HND_QUIC_TP_MAX_PACKET_SIZE, "max_packet_size" },
     { SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN, "stateless_reset_token" },
+    { SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT, "ack_delay_exponent" },
+    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_UNI, "initial_max_stream_id_uni" },
     { 0, NULL }
 };
 
@@ -2090,6 +2093,7 @@ ssl_cipher_cleanup(gcry_cipher_hd_t *cipher)
         gcry_cipher_close(*cipher);
     *cipher = NULL;
 }
+/* }}} */
 
 /* Digests, Ciphers and Cipher Suites registry {{{ */
 static const SslDigestAlgo digests[]={
@@ -2999,6 +3003,65 @@ ssl_decoder_destroy_cb(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _U
 #endif
 
     return FALSE;
+}
+
+static gboolean
+tls13_cipher_destroy_cb(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _U_, void *user_data)
+{
+    tls13_cipher *cipher = (tls13_cipher *) user_data;
+
+    gcry_cipher_close(cipher->hd);
+
+    return FALSE;
+}
+
+tls13_cipher *
+tls13_cipher_create(guint8 tls13_draft_version, int cipher_algo, int cipher_mode, int hash_algo, StringInfo *secret, const gchar **error)
+{
+    tls13_cipher       *cipher = NULL;
+    guchar             *write_key = NULL, *write_iv = NULL;
+    guint               key_length, iv_length;
+    gcry_cipher_hd_t    hd = NULL;
+    gcry_error_t        err;
+
+    /*
+     * Calculate traffic keys based on
+     * https://tools.ietf.org/html/draft-ietf-tls-tls13-21#section-7
+     */
+    key_length = (guint) gcry_cipher_get_algo_keylen(cipher_algo);
+    iv_length = TLS13_AEAD_NONCE_LENGTH;
+
+    if (!tls13_hkdf_expand_label(tls13_draft_version, hash_algo, secret, "key", "", key_length, &write_key)) {
+        *error = "Key expansion (key) failed";
+        return NULL;
+    }
+    if (!tls13_hkdf_expand_label(tls13_draft_version, hash_algo, secret, "iv", "", iv_length, &write_iv)) {
+        *error = "Key expansion (IV) failed";
+        goto end;
+    }
+
+    err = gcry_cipher_open(&hd, cipher_algo, cipher_mode, 0);
+    if (err) {
+        *error = wmem_strdup_printf(wmem_packet_scope(), "Decryption (initialization) failed: %s", gcry_strerror(err));
+        goto end;
+    }
+    err = gcry_cipher_setkey(hd, write_key, key_length);
+    if (err) {
+        *error = wmem_strdup_printf(wmem_packet_scope(), "Decryption (setkey) failed: %s", gcry_strerror(err));
+        gcry_cipher_close(hd);
+        goto end;
+    }
+
+    cipher = wmem_new(wmem_file_scope(), tls13_cipher);
+    wmem_register_callback(wmem_file_scope(), tls13_cipher_destroy_cb, cipher);
+    cipher->hd = hd;
+    memcpy(cipher->iv, write_iv, iv_length);
+    *error = NULL;
+
+end:
+    wmem_free(NULL, write_key);
+    wmem_free(NULL, write_iv);
+    return cipher;
 }
 /* }}} */
 
@@ -4208,6 +4271,7 @@ skip_mac:
 
 #if defined(HAVE_LIBGNUTLS)
 
+/* RSA private key file processing {{{ */
 static void
 ssl_find_private_key_by_pubkey(SslDecryptSession *ssl, GHashTable *key_hash,
                                gnutls_datum_t *subjectPublicKeyInfo)
@@ -4254,7 +4318,6 @@ end:
 
 /* RSA private key file processing }}} */
 #endif /* ! defined(HAVE_LIBGNUTLS) */
-
 
 /*--- Start of dissector-related code below ---*/
 
@@ -5565,6 +5628,11 @@ ssl_dissect_change_cipher_spec(ssl_common_dissect_t *hf, tvbuff_t *tvb,
             val_to_str_const(SSL_ID_CHG_CIPHER_SPEC, ssl_31_content_type, "unknown"));
     ti = proto_tree_add_item(tree, hf->hf.change_cipher_spec, tvb, offset, 1, ENC_NA);
 
+    if (session->version == TLSV1DOT3_VERSION) {
+        /* CCS is a dummy message in TLS 1.3, do not parse it further. */
+        return;
+    }
+
     /* Remember frame number of first CCS */
     guint32 *ccs_frame = is_from_server ? &session->server_ccs_frame : &session->client_ccs_frame;
     if (*ccs_frame == 0)
@@ -6102,7 +6170,7 @@ ssl_dissect_hnd_hello_ext_supported_versions(ssl_common_dissect_t *hf, tvbuff_t 
     next_offset = offset + versions_length;
 
     while (offset + 2 <= next_offset) {
-        proto_tree_add_item(tree, hf->hf.hs_ext_supported_versions, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf->hf.hs_ext_supported_version, tvb, offset, 2, ENC_BIG_ENDIAN);
         offset += 2;
     }
     if (!ssl_end_vector(hf, tvb, pinfo, tree, offset, next_offset)) {
@@ -6384,18 +6452,20 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                                                     proto_tree *tree, guint32 offset, guint32 offset_end,
                                                     guint8 hnd_type, SslDecryptSession *ssl _U_)
 {
-    guint32 quic_length, parameter_length, supported_versions_length, next_offset;
+    guint32 quic_length, parameter_length, supported_versions_length, next_offset, version;
 
-    /* https://tools.ietf.org/html/draft-ietf-quic-transport-04#section-7.3
+    /* https://tools.ietf.org/html/draft-ietf-quic-transport-08#section-7.4
      *  uint32 QuicVersion;
      *  enum {
      *     initial_max_stream_data(0),
      *     initial_max_data(1),
-     *     initial_max_stream_id(2),
+     *     initial_max_stream_id_bidi(2),
      *     idle_timeout(3),
      *     truncate_connection_id(4),
      *     max_packet_size(5),
      *     stateless_reset_token(6),
+     *     ack_delay_exponent(7),
+     *     initial_max_stream_id_uni(8),
      *     (65535)
      *  } TransportParameterId;
      *
@@ -6407,28 +6477,37 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
      *  struct {
      *      select (Handshake.msg_type) {
      *          case client_hello:
-     *              QuicVersion negotiated_version;
      *              QuicVersion initial_version;
      *
      *         case encrypted_extensions:
-     *              QuicVersion supported_versions<2..2^8-4>;
+     *              QuicVersion negotiated_version;
+     *              QuicVersion supported_versions<4..2^8-4>;
      *      };
      *      TransportParameter parameters<30..2^16-1>;
      *  } TransportParameters;
      */
     switch (hnd_type) {
     case SSL_HND_CLIENT_HELLO:
-        proto_tree_add_item(tree, hf->hf.hs_ext_quictp_negotiated_version,
-                            tvb, offset, 4, ENC_BIG_ENDIAN);
-        offset += 4;
+        version = tvb_get_ntohl(tvb, offset);
+        if(version <= 0xff000007){ /* No longer negotiated_version on Client Hello with >= draft-07 */
+            proto_tree_add_item(tree, hf->hf.hs_ext_quictp_negotiated_version,
+                                tvb, offset, 4, ENC_BIG_ENDIAN);
+            offset += 4;
+        }
         proto_tree_add_item(tree, hf->hf.hs_ext_quictp_initial_version,
                             tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
         break;
     case SSL_HND_ENCRYPTED_EXTENSIONS:
-        /* QuicVersion supported_versions<2..2^8-4>;*/
+        version = tvb_get_ntohl(tvb, offset);
+        if(version > 0xff000007){ /* Now negotiated_version on Encrypted Extensions (>= draft-08) */
+            proto_tree_add_item(tree, hf->hf.hs_ext_quictp_negotiated_version,
+                                tvb, offset, 4, ENC_BIG_ENDIAN);
+            offset += 4;
+        }
+        /* QuicVersion supported_versions<4..2^8-4>;*/
         if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &supported_versions_length,
-                            hf->hf.hs_ext_quictp_supported_versions_len, 2, G_MAXUINT8-3)) {
+                            hf->hf.hs_ext_quictp_supported_versions_len, 4, G_MAXUINT8-3)) {
             return offset_end;
         }
         offset += 1;
@@ -6473,6 +6552,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
         }
         offset += 2;
         proto_item_append_text(parameter_tree, " (len=%u)", parameter_length);
+        proto_item_set_len(parameter_tree, 4 + parameter_length);
 
         proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_value,
                             tvb, offset, parameter_length, ENC_NA);
@@ -6490,8 +6570,8 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                 proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
                 offset += 4;
             break;
-            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_id,
+            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_BIDI:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_id_bidi,
                                     tvb, offset, 4, ENC_BIG_ENDIAN);
                 proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
                 offset += 4;
@@ -6517,6 +6597,18 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                                     tvb, offset, 16, ENC_BIG_ENDIAN);
                 offset += 16;
             break;
+            case SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_ack_delay_exponent,
+                                    tvb, offset, 1, ENC_BIG_ENDIAN);
+                /*TODO display multiplier (x8) and expert info about invaluid value (> 20) ? */
+                offset += 1;
+            break;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_UNI:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_id_uni,
+                                    tvb, offset, 4, ENC_BIG_ENDIAN);
+                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
+                offset += 4;
+            break;
             default:
                 offset += parameter_length;
                 /*TODO display expert info about unknown ? */
@@ -6532,12 +6624,13 @@ static gint
 ssl_dissect_hnd_hello_common(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                              proto_tree *tree, guint32 offset,
                              SslSession *session, SslDecryptSession *ssl,
-                             gboolean from_server)
+                             gboolean from_server, gboolean is_hrr)
 {
     nstime_t     gmt_unix_time;
     guint8       sessid_length;
     proto_tree  *rnd_tree;
     proto_tree  *ti_rnd;
+    guint8       draft_version = session->tls13_draft_version;
 
     /* Prepare for renegotiation by resetting the state. */
     ssl_reset_session(session, ssl, !from_server);
@@ -6577,10 +6670,15 @@ ssl_dissect_hnd_hello_common(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                 tvb, offset, 28, ENC_NA);
         offset += 28;
     } else {
+        if (is_hrr) {
+            proto_item_append_text(ti_rnd, " (HelloRetryRequest magic)");
+        }
+
         offset += 32;
     }
 
-    if (from_server == 0 || session->version != TLSV1DOT3_VERSION) { /* No Session ID with TLS 1.3 on Server Hello */
+    /* No Session ID with TLS 1.3 on Server Hello before draft -22 */
+    if (from_server == 0 || !(session->version == TLSV1DOT3_VERSION && draft_version > 0 && draft_version < 22)) {
         /* show the session id (length followed by actual Session ID) */
         sessid_length = tvb_get_guint8(tvb, offset);
         proto_tree_add_item(tree, hf->hf.hs_session_id_len,
@@ -7022,14 +7120,75 @@ ssl_is_authoritative_version_message(guint8 content_type, guint8 handshake_type,
             ssl_is_valid_content_type(content_type));
 }
 
+/**
+ * Scan a Server Hello handshake message for the negotiated version. For TLS 1.3
+ * draft 22 and newer, it also checks whether it is a HelloRetryRequest.
+ */
+void
+tls_scan_server_hello(tvbuff_t *tvb, guint32 offset, guint32 offset_end,
+                      guint16 *server_version, gboolean *is_hrr)
+{
+    /* SHA256("HelloRetryRequest") */
+    static const guint8 tls13_hrr_random_magic[] = {
+        0xcf, 0x21, 0xad, 0x74, 0xe5, 0x9a, 0x61, 0x11, 0xbe, 0x1d, 0x8c, 0x02, 0x1e, 0x65, 0xb8, 0x91,
+        0xc2, 0xa2, 0x11, 0x16, 0x7a, 0xbb, 0x8c, 0x5e, 0x07, 0x9e, 0x09, 0xe2, 0xc8, 0xa8, 0x33, 0x9c
+    };
+    guint8  session_id_length;
+
+    *server_version = tvb_get_ntohs(tvb, offset);
+
+    /*
+     * Try to look for supported_versions extension. Minimum length:
+     * 2 + 32 + 1 = 35 (version, random, session id length)
+     * 2 + 1 + 2 = 5 (cipher suite, compression method, extensions length)
+     * 2 + 2 + 2 = 6 (ext type, ext len, version)
+     */
+    if (*server_version == TLSV1DOT2_VERSION && offset_end - offset >= 46) {
+        offset += 2;
+        *is_hrr = tvb_memeql(tvb, offset, tls13_hrr_random_magic, sizeof(tls13_hrr_random_magic)) == 0;
+        offset += 32;
+        session_id_length = tvb_get_guint8(tvb, offset);
+        offset++;
+        if (offset_end - offset < session_id_length + 5u) {
+            return;
+        }
+        offset += session_id_length + 5;
+
+        while (offset_end - offset >= 6) {
+            guint16 ext_type = tvb_get_ntohs(tvb, offset);
+            guint16 ext_len = tvb_get_ntohs(tvb, offset + 2);
+            if (offset_end - offset < 4u + ext_len) {
+                break;  /* not enough data for type, length and data */
+            }
+            if (ext_type == SSL_HND_HELLO_EXT_SUPPORTED_VERSIONS && ext_len == 2) {
+                *server_version = tvb_get_ntohs(tvb, offset + 4);
+                return;
+            }
+            offset += 4 + ext_len;
+        }
+    } else {
+        *is_hrr = FALSE;
+    }
+}
+
 void
 ssl_try_set_version(SslSession *session, SslDecryptSession *ssl,
                     guint8 content_type, guint8 handshake_type,
                     gboolean is_dtls, guint16 version)
 {
+    guint8 tls13_draft = 0;
+
     if (!ssl_is_authoritative_version_message(content_type, handshake_type,
                 is_dtls))
         return;
+
+    if (handshake_type == SSL_HND_SERVER_HELLO) {
+        tls13_draft = tls13_draft_version(version);
+        if (tls13_draft != 0) {
+            /* This is TLS 1.3 (a draft version). */
+            version = TLSV1DOT3_VERSION;
+        }
+    }
 
     switch (version) {
     case SSLV3_VERSION:
@@ -7052,6 +7211,7 @@ ssl_try_set_version(SslSession *session, SslDecryptSession *ssl,
         return;
     }
 
+    session->tls13_draft_version = tls13_draft;
     session->version = version;
     if (ssl) {
         ssl->state |= SSL_VERSION;
@@ -7137,7 +7297,7 @@ ssl_dissect_hnd_cli_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     offset += 2;
 
     /* dissect fields that are also present in ClientHello */
-    offset = ssl_dissect_hnd_hello_common(hf, tvb, tree, offset, session, ssl, FALSE);
+    offset = ssl_dissect_hnd_hello_common(hf, tvb, tree, offset, session, ssl, FALSE, FALSE);
 
     /* fields specific for DTLS (cookie_len, cookie) */
     if (dtls_hfs != NULL) {
@@ -7228,7 +7388,7 @@ void
 ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                           packet_info* pinfo, proto_tree *tree, guint32 offset, guint32 offset_end,
                           SslSession *session, SslDecryptSession *ssl,
-                          gboolean is_dtls)
+                          gboolean is_dtls, gboolean is_hrr)
 {
     /* struct {
      *     ProtocolVersion server_version;
@@ -7239,19 +7399,10 @@ ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
      *     Extension server_hello_extension_list<0..2^16-1>;
      * } ServerHello;
      */
-    guint16 server_version;
+    guint8  draft_version = session->tls13_draft_version;
 
-    /* This version is always better than the guess at the Record Layer */
-    server_version = tvb_get_ntohs(tvb, offset);
-    session->tls13_draft_version = tls13_draft_version(server_version);
-    if (session->tls13_draft_version != 0) {
-        /* This is TLS 1.3 (a draft version). */
-        server_version = TLSV1DOT3_VERSION;
-    }
-    ssl_try_set_version(session, ssl, SSL_ID_HANDSHAKE, SSL_HND_SERVER_HELLO,
-            is_dtls, server_version);
     col_set_str(pinfo->cinfo, COL_PROTOCOL,
-                val_to_str_const(server_version, ssl_version_short_names, "SSL"));
+                val_to_str_const(session->version, ssl_version_short_names, "SSL"));
 
     /* Initially assume that the session is resumed. If this is not the case, a
      * ServerHelloDone will be observed before the ChangeCipherSpec message
@@ -7264,7 +7415,7 @@ ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     offset += 2;
 
     /* dissect fields that are also present in ClientHello */
-    offset = ssl_dissect_hnd_hello_common(hf, tvb, tree, offset, session, ssl, TRUE);
+    offset = ssl_dissect_hnd_hello_common(hf, tvb, tree, offset, session, ssl, TRUE, is_hrr);
 
     if (ssl) {
         /* store selected cipher suite for decryption */
@@ -7276,7 +7427,8 @@ ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                         tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    if (session->version != TLSV1DOT3_VERSION) { /* No compression with TLS 1.3 */
+    /* No compression with TLS 1.3 before draft -22 */
+    if (!(session->version == TLSV1DOT3_VERSION && draft_version > 0 && draft_version < 22)) {
         if (ssl) {
             /* store selected compression method for decryption */
             ssl->session.compression = tvb_get_guint8(tvb, offset);
@@ -7290,7 +7442,8 @@ ssl_dissect_hnd_srv_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     /* SSL v3.0 has no extensions, so length field can indeed be missing. */
     if (offset < offset_end) {
         ssl_dissect_hnd_extension(hf, tvb, tree, pinfo, offset,
-                                  offset_end, SSL_HND_SERVER_HELLO,
+                                  offset_end,
+                                  is_hrr ? SSL_HND_HELLO_RETRY_REQUEST : SSL_HND_SERVER_HELLO,
                                   session, ssl, is_dtls);
     }
 }
@@ -7313,7 +7466,7 @@ ssl_dissect_hnd_new_ses_ticket(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_i
      *  struct {
      *      uint32 ticket_lifetime;
      *      uint32 ticket_age_add;
-     *      opaque ticket_nonce<1..255>; #add in TLS 1.3 draft 21 (Section 4.6.1)
+     *      opaque ticket_nonce<0..255>;    // new in draft -21, updated in -22
      *      opaque ticket<1..2^16-1>;
      *      Extension extensions<0..2^16-2>;
      *  } NewSessionTicket;
@@ -7344,7 +7497,7 @@ ssl_dissect_hnd_new_ses_ticket(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_i
             guint32 ticket_nonce_len;
 
             if (!ssl_add_vector(hf, tvb, pinfo, subtree, offset, offset_end, &ticket_nonce_len,
-                                hf->hf.hs_session_ticket_nonce_len, 1, 255)) {
+                                hf->hf.hs_session_ticket_nonce_len, 0, 255)) {
                 return;
             }
             offset++;
@@ -7983,7 +8136,16 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             offset = ssl_dissect_hnd_hello_ext_early_data(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type, ssl);
             break;
         case SSL_HND_HELLO_EXT_SUPPORTED_VERSIONS:
-            offset = ssl_dissect_hnd_hello_ext_supported_versions(hf, tvb, pinfo, ext_tree, offset, next_offset);
+            switch (hnd_type) {
+            case SSL_HND_CLIENT_HELLO:
+                offset = ssl_dissect_hnd_hello_ext_supported_versions(hf, tvb, pinfo, ext_tree, offset, next_offset);
+                break;
+            case SSL_HND_SERVER_HELLO:
+            case SSL_HND_HELLO_RETRY_REQUEST:
+                proto_tree_add_item(ext_tree, hf->hf.hs_ext_supported_version, tvb, offset, 2, ENC_BIG_ENDIAN);
+                offset += 2;
+                break;
+            }
             break;
         case SSL_HND_HELLO_EXT_COOKIE:
             offset = ssl_dissect_hnd_hello_ext_cookie(hf, tvb, pinfo, ext_tree, offset, next_offset);

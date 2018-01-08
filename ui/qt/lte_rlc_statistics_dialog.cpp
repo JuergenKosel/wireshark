@@ -28,18 +28,14 @@
 #include <epan/dissectors/packet-rlc-lte.h>
 
 #include <QFormLayout>
-#include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QPushButton>
 
-#include "lte_rlc_graph_dialog.h"
-#include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
 
 #include "ui/recent.h"
 
-// TODO: have lost the ability to filter on only UL or DL of a channel.
-// - can we override the context menu inherited from TapParameterDialog?
+// TODO: have never tested in a live capture.
 
 enum {
     col_ueid_,
@@ -65,27 +61,22 @@ enum {
 };
 
 /* Calculate and return a bandwidth figure, in Mbs */
-static float calculate_bw(nstime_t *start_time, nstime_t *stop_time, guint32 bytes)
+static double calculate_bw(const nstime_t *start_time, const nstime_t *stop_time, guint32 bytes)
 {
     /* Can only calculate bandwidth if have time delta */
     if (memcmp(start_time, stop_time, sizeof(nstime_t)) != 0) {
-        float elapsed_ms = (((float)stop_time->secs - (float)start_time->secs) * 1000) +
-                           (((float)stop_time->nsecs - (float)start_time->nsecs) / 1000000);
+        double elapsed_ms = (((double)stop_time->secs -  start_time->secs) * 1000) +
+                            (((double)stop_time->nsecs - start_time->nsecs) / 1000000);
 
         /* Only really meaningful if have a few frames spread over time...
            For now at least avoid dividing by something very close to 0.0 */
         if (elapsed_ms < 2.0) {
            return 0.0f;
         }
-        float bw = ((bytes * 8) / elapsed_ms) / 1000;
-        if (bw < 0.0001) {
-            // Very small values aren't interesting/useful, and would rather see 0 than scientific notation.
-            return 0.0f;
-        }
-        else
-        {
-            return bw;
-        }
+
+        // N.B. very small values will display as scientific notation, but rather that than show 0
+        // when there is some traffic..
+        return ((bytes * 8) / elapsed_ms) / 1000;
     }
     else {
         return 0.0f;
@@ -95,7 +86,6 @@ static float calculate_bw(nstime_t *start_time, nstime_t *stop_time, guint32 byt
 
 // Stats kept for one channel.
 typedef struct rlc_channel_stats {
-    guint8   inUse;
     guint8   rlcMode;
     guint8   priority;
     guint16  channelType;
@@ -199,6 +189,7 @@ public:
 
         if (tap_info->priority != 0) {
             priority_ = tap_info->priority;
+            // TODO: update the column string!
         }
 
         if (tap_info->direction == DIRECTION_UPLINK) {
@@ -239,14 +230,15 @@ public:
         }
     }
 
+    // Draw channel entry.
     void draw() {
-        // Calculate bandwidth.
-        float UL_bw = calculate_bw(&stats_.UL_time_start,
-                                   &stats_.UL_time_stop,
-                                   stats_.UL_bytes);
-        float DL_bw = calculate_bw(&stats_.DL_time_start,
-                                   &stats_.DL_time_stop,
-                                   stats_.DL_bytes);
+        // Calculate bandwidths.
+        double UL_bw = calculate_bw(&stats_.UL_time_start,
+                                    &stats_.UL_time_stop,
+                                    stats_.UL_bytes);
+        double DL_bw = calculate_bw(&stats_.DL_time_start,
+                                    &stats_.DL_time_stop,
+                                    stats_.DL_bytes);
 
         // Priority
         setText(col_priority_,   QString::number(priority_));
@@ -254,7 +246,7 @@ public:
         // Uplink.
         setText(col_ul_frames_,  QString::number(stats_.UL_frames));
         setText(col_ul_bytes_,   QString::number(stats_.UL_bytes));
-        setText(col_ul_mb_s_,    bits_s_to_qstring(UL_bw));
+        setText(col_ul_mb_s_,    QString::number(UL_bw));
         setText(col_ul_acks_,    QString::number(stats_.UL_acks));
         setText(col_ul_nacks_,   QString::number(stats_.UL_nacks));
         setText(col_ul_missing_, QString::number(stats_.UL_missing));
@@ -262,7 +254,7 @@ public:
         // Downlink.
         setText(col_dl_frames_,  QString::number(stats_.DL_frames));
         setText(col_dl_bytes_,   QString::number(stats_.DL_bytes));
-        setText(col_ul_mb_s_,    bits_s_to_qstring(DL_bw));
+        setText(col_dl_mb_s_,    QString::number(DL_bw));
         setText(col_dl_acks_,    QString::number(stats_.DL_acks));
         setText(col_dl_nacks_,   QString::number(stats_.DL_nacks));
         setText(col_dl_missing_, QString::number(stats_.DL_missing));
@@ -289,6 +281,7 @@ public:
         return QTreeWidgetItem::operator< (other);
     }
 
+    // Filter expression for channel.
     const QString filterExpression(bool showSR, bool showRACH) {
         // Create an expression to match with all traffic for this UE.
         QString filter_expr;
@@ -336,6 +329,12 @@ public:
 
     bool     hasULData() const { return stats_.UL_has_data != 0; }
     bool     hasDLData() const { return stats_.DL_has_data != 0; }
+
+    QList<QVariant> rowData() const
+    {
+        // Don't output anything for channel entries when exporting to text.
+        return QList<QVariant>();
+    }
 
 private:
     unsigned ueid_;
@@ -410,6 +409,7 @@ public:
         }
     }
 
+    // Does UE match?
     bool isMatch(const rlc_lte_tap_info *rlt_info) {
         return ueid_ == rlt_info->ueid;
     }
@@ -518,22 +518,22 @@ public:
         }
     }
 
-
+    // Draw UE entry
     void draw() {
         // Fixed fields only drawn once from constructor so don't redraw here.
 
-        /* Calculate bandwidth */
-        float UL_bw = calculate_bw(&stats_.UL_time_start,
-                                   &stats_.UL_time_stop,
-                                   stats_.UL_total_bytes);
-        float DL_bw = calculate_bw(&stats_.DL_time_start,
-                                   &stats_.DL_time_stop,
-                                   stats_.DL_total_bytes);
+        /* Calculate bandwidths. */
+        double UL_bw = calculate_bw(&stats_.UL_time_start,
+                                    &stats_.UL_time_stop,
+                                    stats_.UL_total_bytes);
+        double DL_bw = calculate_bw(&stats_.DL_time_start,
+                                    &stats_.DL_time_stop,
+                                    stats_.DL_total_bytes);
 
         // Uplink.
         setText(col_ul_frames_,  QString::number(stats_.UL_frames));
         setText(col_ul_bytes_,   QString::number(stats_.UL_total_bytes));
-        setText(col_ul_mb_s_,    bits_s_to_qstring(UL_bw));
+        setText(col_ul_mb_s_,    QString::number(UL_bw));
         setText(col_ul_acks_,    QString::number(stats_.UL_total_acks));
         setText(col_ul_nacks_,   QString::number(stats_.UL_total_nacks));
         setText(col_ul_missing_, QString::number(stats_.UL_total_missing));
@@ -541,12 +541,12 @@ public:
         // Downlink.
         setText(col_dl_frames_,  QString::number(stats_.DL_frames));
         setText(col_dl_bytes_,   QString::number(stats_.DL_total_bytes));
-        setText(col_dl_mb_s_,    bits_s_to_qstring(DL_bw));
+        setText(col_dl_mb_s_,    QString::number(DL_bw));
         setText(col_dl_acks_,    QString::number(stats_.DL_total_acks));
         setText(col_dl_nacks_,   QString::number(stats_.DL_total_nacks));
         setText(col_dl_missing_, QString::number(stats_.DL_total_missing));
 
-        // Call draw() for each channel present.
+        // Call draw() for each channel for this UE.
         if (CCCH_stats_ != NULL) {
             CCCH_stats_->draw();
         }
@@ -577,6 +577,7 @@ public:
         return QTreeWidgetItem::operator< (other);
     }
 
+    // Filter expression for UE.
     const QString filterExpression(bool showSR, bool showRACH) {
         // Create an expression to match with all traffic for this UE.
         QString filter_expr;
@@ -611,6 +612,30 @@ public:
         return filter_expr;
     }
 
+    QList<QVariant> rowData() const
+    {
+        QList<QVariant> row_data;
+
+        // Key fields.
+        // After the UEId field, there are 2 unused columns for UE entries.
+        row_data << ueid_ << QString("") << QString("");
+
+        // UL
+        row_data << stats_.UL_frames << stats_.UL_total_bytes
+                 << calculate_bw(&stats_.UL_time_start,
+                                 &stats_.UL_time_stop,
+                                 stats_.UL_total_bytes)
+                 << stats_.UL_total_acks << stats_.UL_total_nacks << stats_.UL_total_missing;
+
+        // DL
+        row_data << stats_.DL_frames << stats_.DL_total_bytes
+                 << calculate_bw(&stats_.DL_time_start,
+                                 &stats_.DL_time_stop,
+                                 stats_.DL_total_bytes)
+                 << stats_.DL_total_acks << stats_.DL_total_nacks << stats_.DL_total_missing;
+        return row_data;
+    }
+
 private:
     unsigned ueid_;
     rlc_ue_stats stats_;
@@ -623,9 +648,10 @@ private:
 
 
 // Only the first 3 columns headings differ between UE and channel rows.
+
 static const QString ue_col_0_title_ = QObject::tr("UE Id");
-static const QString ue_col_1_title_ = "";
-static const QString ue_col_2_title_ = "";
+static const QString ue_col_1_title_ = QObject::tr("");
+static const QString ue_col_2_title_ = QObject::tr("");
 
 static const QString channel_col_0_title_ = QObject::tr("Name");
 static const QString channel_col_1_title_ = QObject::tr("Mode");
@@ -733,6 +759,10 @@ LteRlcStatisticsDialog::LteRlcStatisticsDialog(QWidget &parent, CaptureFile &cf,
     // Set handler for when the tree item changes to set the appropriate labels.
     connect(statsTreeWidget(), SIGNAL(itemSelectionChanged()),
             this, SLOT(updateItemSelectionChanged()));
+
+    // Set handler for when display filter string is changed.
+    connect(this, SIGNAL(updateFilter(QString)),
+            this, SLOT(filterUpdated(QString)));
 }
 
 // Destructor.
@@ -753,6 +783,7 @@ void LteRlcStatisticsDialog::tapReset(void *ws_dlg_ptr)
 }
 
 // Process the tap info from a dissected RLC PDU.
+// Returns TRUE if a redraw is needed.
 gboolean LteRlcStatisticsDialog::tapPacket(void *ws_dlg_ptr, struct _packet_info *, epan_dissect *, const void *rlc_lte_tap_info_ptr)
 {
     // Look up dialog.
@@ -764,7 +795,7 @@ gboolean LteRlcStatisticsDialog::tapPacket(void *ws_dlg_ptr, struct _packet_info
 
     ws_dlg->incFrameCount();
 
-    // Look for this UE (linear search...).
+    // Look for this UE (TODO: avoid linear search if have lots of UEs in capture...)
     RlcUeTreeWidgetItem *ue_ti = NULL;
     for (int i = 0; i < ws_dlg->statsTreeWidget()->topLevelItemCount(); i++) {
         QTreeWidgetItem *ti = ws_dlg->statsTreeWidget()->topLevelItem(i);
@@ -795,7 +826,9 @@ void LteRlcStatisticsDialog::tapDraw(void *ws_dlg_ptr)
 {
     // Look up UE.
     LteRlcStatisticsDialog *ws_dlg = static_cast<LteRlcStatisticsDialog *>(ws_dlg_ptr);
-    if (!ws_dlg) return;
+    if (!ws_dlg) {
+        return;
+    }
 
     // Draw each UE.
     for (int i = 0; i < ws_dlg->statsTreeWidget()->topLevelItemCount(); i++) {
@@ -844,7 +877,7 @@ void LteRlcStatisticsDialog::fillTree()
 {
     if (!registerTapListener("rlc-lte",
                              this,
-                             NULL,
+                             displayFilter_.toLatin1().data(),
                              TL_REQUIRES_NOTHING,
                              tapReset,
                              tapPacket,
@@ -878,11 +911,15 @@ void LteRlcStatisticsDialog::updateItemSelectionChanged()
 
 void LteRlcStatisticsDialog::updateHeaderLabels()
 {
-    if (statsTreeWidget()->selectedItems().count() > 0 && statsTreeWidget()->selectedItems()[0]->type() == rlc_channel_row_type_) {
+    if (statsTreeWidget()->selectedItems().count() > 0 &&
+        statsTreeWidget()->selectedItems()[0]->type() == rlc_channel_row_type_) {
+
+        // UE column headings.
         statsTreeWidget()->headerItem()->setText(col_ueid_, channel_col_0_title_);
         statsTreeWidget()->headerItem()->setText(col_mode_, channel_col_1_title_);
         statsTreeWidget()->headerItem()->setText(col_priority_, channel_col_2_title_);
     } else {
+        // Channel column headings.
         statsTreeWidget()->headerItem()->setText(col_ueid_, ue_col_0_title_);
         statsTreeWidget()->headerItem()->setText(col_mode_, ue_col_1_title_);
         statsTreeWidget()->headerItem()->setText(col_priority_, ue_col_2_title_);
@@ -929,6 +966,31 @@ void LteRlcStatisticsDialog::launchDLGraphButtonClicked()
     }
 }
 
+
+// Store filter from signal.
+void LteRlcStatisticsDialog::filterUpdated(QString filter)
+{
+    displayFilter_ = filter;
+}
+
+// Get the item for the row, depending upon the type of tree item.
+QList<QVariant> LteRlcStatisticsDialog::treeItemData(QTreeWidgetItem *item) const
+{
+    // Cast up to our type.
+    RlcChannelTreeWidgetItem *channel_item = dynamic_cast<RlcChannelTreeWidgetItem*>(item);
+    if (channel_item) {
+        return channel_item->rowData();
+    }
+    RlcUeTreeWidgetItem *ue_item = dynamic_cast<RlcUeTreeWidgetItem*>(item);
+    if (ue_item) {
+        return ue_item->rowData();
+    }
+
+    // Need to return something..
+    return QList<QVariant>();
+}
+
+
 // Stat command + args
 
 static void
@@ -943,7 +1005,7 @@ lte_rlc_statistics_init(const char *args, void*) {
 
 static stat_tap_ui lte_rlc_statistics_ui = {
     REGISTER_STAT_GROUP_TELEPHONY_LTE,
-    "RLC Statistics",
+    QT_TR_NOOP("RLC Statistics"),
     "rlc-lte,stat",
     lte_rlc_statistics_init,
     0,

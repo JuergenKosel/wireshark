@@ -762,6 +762,19 @@ static int hf_pn_io_am_software_revision = -1;
 static int hf_pn_io_am_hardware_revision = -1;
 static int hf_pn_io_am_type_identification = -1;
 
+static int hf_pn_io_dcp_boundary_value = -1;
+static int hf_pn_io_dcp_boundary_value_bit0 = -1;
+static int hf_pn_io_dcp_boundary_value_bit1 = -1;
+static int hf_pn_io_dcp_boundary_value_otherbits = -1;
+
+static int hf_pn_io_peer_to_peer_boundary_value = -1;
+static int hf_pn_io_peer_to_peer_boundary_value_bit0 = -1;
+static int hf_pn_io_peer_to_peer_boundary_value_bit1 = -1;
+static int hf_pn_io_peer_to_peer_boundary_value_bit2 = -1;
+static int hf_pn_io_peer_to_peer_boundary_value_otherbits = -1;
+
+static int hf_pn_io_mau_type_extension = -1;
+
 /* static int hf_pn_io_packedframe_SFCRC = -1; */
 static gint ett_pn_io = -1;
 static gint ett_pn_io_block = -1;
@@ -831,6 +844,11 @@ static gint ett_pn_io_GroupProperties = -1;
 static gint ett_pn_io_asset_management_info = -1;
 static gint ett_pn_io_asset_management_block = -1;
 static gint ett_pn_io_am_location = -1;
+
+static gint ett_pn_io_dcp_boundary = -1;
+static gint ett_pn_io_peer_to_peer_boundary = -1;
+
+static gint ett_pn_io_mau_type_extension = -1;
 
 #define PD_SUB_FRAME_BLOCK_FIOCR_PROPERTIES_LENGTH 4
 #define PD_SUB_FRAME_BLOCK_FRAME_ID_LENGTH 2
@@ -1001,8 +1019,9 @@ static const value_string pn_io_block_type[] = {
     { 0x0224, "Adjust PeerToPeerBoundary"},
     { 0x0225, "Adjust DCPBoundary"},
     { 0x0226, "Adjust PreambleLength"},
-    { 0x0227, "Adjust FastForwardingBoundary"},
+    { 0x0227, "CheckMAUType-Extension"},
     { 0x0228, "Reading real fiber optic diagnosis data"},
+    { 0x0229, "AdjustMAUType-Extension"},
     { 0x022A, "PDIRSubframeData"},
     { 0x022B, "SubframeBlock"},
     { 0x0230, "PDNCDataCheck"},
@@ -2562,6 +2581,46 @@ static const value_string pn_io_mau_type_mode[] = {
 };
 
 
+static const value_string pn_io_dcp_boundary_value_bit0[] = {
+    { 0x00, "Do not block the multicast MAC address 01-0E-CF-00-00-00" },
+    { 0x01, "Block an outgoing DCP_Identify frame (egress filter) with the multicast MAC address 01-0E-CF-00-00-00" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_dcp_boundary_value_bit1[] = {
+    { 0x00, "Do not block the multicast MAC address 01-0E-CF-00-00-01" },
+    { 0x01, "Block an outgoing DCP_Hello frame (egress filter) with the multicast MAC address 01-0E-CF-00-00-01" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_peer_to_peer_boundary_value_bit0[] = {
+    { 0x00, "The LLDP agent shall send LLDP frames for this port." },
+    { 0x01, "The LLDP agent shall not send LLDP frames (egress filter)." },
+    { 0, NULL }
+};
+
+static const value_string pn_io_peer_to_peer_boundary_value_bit1[] = {
+    { 0x00, "The PTCP ASE shall send PTCP_DELAY request frames for this port." },
+    { 0x01, "The PTCP ASE shall not send PTCP_DELAY request frames (egress filter)." },
+    { 0, NULL }
+};
+
+static const value_string pn_io_peer_to_peer_boundary_value_bit2[] = {
+    { 0x00, "The Time ASE shall send PATH_DELAY request frames for this port." },
+    { 0x01, "The Time ASE shall not send PATH_DELAY request frames (egress filter)." },
+    { 0, NULL }
+};
+
+static const range_string pn_io_mau_type_extension[] = {
+    { 0x0000, 0x0000, "No SubMAUType" },
+    { 0x0001, 0x00FF, "Reserved" },
+    { 0x0100, 0x0100, "POF" },
+    { 0x0101, 0xFFEF, "Reserved for SubMAUType" },
+    { 0xFFF0, 0xFFFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+
 static const value_string pn_io_port_state[] = {
     { 0x0000, "reserved" },
     { 0x0001, "up" },
@@ -3649,6 +3708,7 @@ dissect_RS_IdentificationInfo(tvbuff_t *tvb, int offset,
     packet_info *pinfo, proto_tree *tree, guint8 *drep)
 {
     dcerpc_info di; /* fake dcerpc_info struct */
+    dcerpc_call_value dcv; /* fake dcerpc_call_value struct */
     guint64     u64AMDeviceIdentificationDeviceSubID;
     guint64     u64AMDeviceIdentificationDeviceID;
     guint64     u64AMDeviceIdentificationVendorID;
@@ -3656,6 +3716,8 @@ dissect_RS_IdentificationInfo(tvbuff_t *tvb, int offset,
 
     proto_item *sub_item;
     proto_tree *sub_tree;
+
+    di.call_data = &dcv;
 
     sub_item = proto_tree_add_item(tree, hf_pn_io_am_device_identification, tvb, offset, 8, ENC_BIG_ENDIAN);
     sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_am_device_identification);
@@ -4563,6 +4625,7 @@ dissect_AM_device_identification(tvbuff_t *tvb, int offset,
 packet_info *pinfo, proto_tree *tree, guint8 *drep)
 {
     dcerpc_info di; /* fake dcerpc_info struct */
+    dcerpc_call_value dcv; /* fake dcerpc_call_value struct */
     guint64     u64AMDeviceIdentificationDeviceSubID;
     guint64     u64AMDeviceIdentificationDeviceID;
     guint64     u64AMDeviceIdentificationVendorID;
@@ -4570,6 +4633,8 @@ packet_info *pinfo, proto_tree *tree, guint8 *drep)
 
     proto_item *sub_item;
     proto_tree *sub_tree;
+
+    di.call_data = &dcv;
 
     sub_item = proto_tree_add_item(tree, hf_pn_io_am_device_identification, tvb, offset, 8, ENC_BIG_ENDIAN);
     sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_am_device_identification);
@@ -5502,6 +5567,25 @@ dissect_AdjustPreambleLength_block(tvbuff_t *tvb, int offset,
     /* AdjustProperties */
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
         hf_pn_io_adjust_properties, &u16AdjustProperties);
+
+    return offset;
+}
+
+/* dissect the dissect_CheckMAUTypeExtension_block block */
+static int
+dissect_CheckMAUTypeExtension_block(tvbuff_t *tvb, int offset,
+    packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint8 *drep, guint8 u8BlockVersionHigh, guint8 u8BlockVersionLow)
+{
+    guint16 u16MauTypeExtension;
+
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* MauTypeExtension */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_mau_type_extension, &u16MauTypeExtension);
 
     return offset;
 }
@@ -6599,6 +6683,32 @@ dissect_FiberOpticDiagnosisInfo_block(tvbuff_t *tvb, int offset,
     return offset;
 }
 
+/* dissect the AdjustMAUTypeExtension block */
+static int
+dissect_AdjustMAUTypeExtension_block(tvbuff_t *tvb, int offset,
+    packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint8 *drep, guint8 u8BlockVersionHigh, guint8 u8BlockVersionLow)
+{
+    guint16 u16MauTypeExtension;
+    guint16 u16AdjustProperties;
+
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* Padding */
+    offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+
+    /* MauTypeExtension */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_mau_type_extension, &u16MauTypeExtension);
+
+    /* Properties */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
+        hf_pn_io_adjust_properties, &u16AdjustProperties);
+
+    return offset;
+}
 
 /* dissect the PDPortFODataAdjust block */
 static int
@@ -6667,6 +6777,86 @@ dissect_PDPortFODataCheck_block(tvbuff_t *tvb, int offset,
 /*
     proto_item_append_text(item, ": %s",
         val_to_str(u16PortState, pn_io_port_state, "0x%x"));*/
+
+    return offset;
+}
+
+/* dissect the AdjustPeerToPeerBoundary block */
+static int
+dissect_AdjustPeerToPeerBoundary_block(tvbuff_t *tvb, int offset,
+    packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint8 *drep, guint8 u8BlockVersionHigh, guint8 u8BlockVersionLow)
+{
+    proto_item *sub_item;
+    proto_tree *sub_tree;
+    guint32 u32PeerToPeerBoundary;
+    guint16 u16AdjustProperties;
+
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* Padding */
+    offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+
+    sub_item = proto_tree_add_item(tree, hf_pn_io_peer_to_peer_boundary_value, tvb, offset, 4, ENC_BIG_ENDIAN);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_peer_to_peer_boundary);
+
+    /* PeerToPeerBoundary.Bit0 */
+    dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_peer_to_peer_boundary_value_bit0, &u32PeerToPeerBoundary);
+
+    /* PeerToPeerBoundary.Bit1 */
+    dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_peer_to_peer_boundary_value_bit1, &u32PeerToPeerBoundary);
+
+    /* PeerToPeerBoundary.Bit2 */
+    dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_peer_to_peer_boundary_value_bit2, &u32PeerToPeerBoundary);
+
+    /* PeerToPeerBoundary.OtherBits */
+    offset = dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_peer_to_peer_boundary_value_otherbits, &u32PeerToPeerBoundary);
+
+    /* Properties */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
+        hf_pn_io_adjust_properties, &u16AdjustProperties);
+
+    return offset;
+}
+
+
+/* dissect the AdjustDCPBoundary block */
+static int
+dissect_AdjustDCPBoundary_block(tvbuff_t *tvb, int offset,
+    packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint8 *drep, guint8 u8BlockVersionHigh, guint8 u8BlockVersionLow)
+{
+    proto_item *sub_item;
+    proto_tree *sub_tree;
+    guint32 u32DcpBoundary;
+    guint16 u16AdjustProperties;
+
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* Padding */
+    offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+
+    sub_item = proto_tree_add_item(tree, hf_pn_io_dcp_boundary_value, tvb, offset, 4, ENC_BIG_ENDIAN);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_dcp_boundary);
+
+    /* DcpBoundary.Bit0 */
+    dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_dcp_boundary_value_bit0, &u32DcpBoundary);
+
+    /* DcpBoundary.Bit1 */
+    dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_dcp_boundary_value_bit1, &u32DcpBoundary);
+
+    /* DcpBoundary.OtherBits */
+    offset = dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_dcp_boundary_value_otherbits, &u32DcpBoundary);
+
+    /* Properties */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
+        hf_pn_io_adjust_properties, &u16AdjustProperties);
 
     return offset;
 }
@@ -10534,11 +10724,23 @@ dissect_block(tvbuff_t *tvb, int offset,
     case(0x0223):
         dissect_PDPortFODataCheck_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
+    case(0x0224):
+        dissect_AdjustPeerToPeerBoundary_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        break;
+    case(0x0225):
+        dissect_AdjustDCPBoundary_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        break;
     case(0x0226):
         dissect_AdjustPreambleLength_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
+    case(0x0227):
+        dissect_CheckMAUTypeExtension_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        break;
     case(0x0228):
         dissect_FiberOpticDiagnosisInfo_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        break;
+    case(0x0229):
+        dissect_AdjustMAUTypeExtension_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x022A):
         dissect_PDIRSubframeData_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
@@ -13507,6 +13709,51 @@ proto_register_pn_io (void)
         FT_UINT16, BASE_HEX, VALS(pn_io_mau_type_mode), 0x0,
         NULL, HFILL }
     },
+    { &hf_pn_io_dcp_boundary_value,
+    { "DCPBoundary", "pn_io.dcp_boundary_value",
+        FT_UINT32, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_dcp_boundary_value_bit0,
+      { "DCPBoundary", "pn_io.dcp_boundary_value_bit0",
+         FT_UINT32, BASE_HEX, VALS(pn_io_dcp_boundary_value_bit0), 0x1,
+         NULL, HFILL }
+    },
+    { &hf_pn_io_dcp_boundary_value_bit1,
+      { "DCPBoundary", "pn_io.dcp_boundary_value_bit1",
+        FT_UINT32, BASE_HEX, VALS(pn_io_dcp_boundary_value_bit1), 0x2,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_dcp_boundary_value_otherbits,
+      { "DCPBoundary", "pn_io.dcp_boundary_value_otherbits",
+        FT_UINT32, BASE_HEX, NULL, 0xFFFFFFFC,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_peer_to_peer_boundary_value,
+      { "AdjustPeerToPeer-Boundary", "pn_io.peer_to_peer_boundary_value",
+        FT_UINT32, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_peer_to_peer_boundary_value_bit0,
+      { "AdjustPeerToPeer-Boundary", "pn_io.peer_to_peer_boundary_value_bit0",
+        FT_UINT32, BASE_HEX, VALS(pn_io_peer_to_peer_boundary_value_bit0), 0x1,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_peer_to_peer_boundary_value_bit1,
+      { "AdjustPeerToPeer-Boundary", "pn_io.peer_to_peer_boundary_value_bit1",
+        FT_UINT32, BASE_HEX, VALS(pn_io_peer_to_peer_boundary_value_bit1), 0x2,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_peer_to_peer_boundary_value_bit2,
+      { "AdjustPeerToPeer-Boundary", "pn_io.peer_to_peer_boundary_value_bit2",
+        FT_UINT32, BASE_HEX, VALS(pn_io_peer_to_peer_boundary_value_bit2), 0x4,
+        NULL, HFILL }
+    },
+      { &hf_pn_io_peer_to_peer_boundary_value_otherbits,
+    { "AdjustPeerToPeer-Boundary", "pn_io.peer_to_peer_boundary_value_otherbits",
+        FT_UINT32, BASE_HEX, NULL, 0xFFFFFFF8,
+        NULL, HFILL }
+    },
     { &hf_pn_io_port_state,
       { "PortState", "pn_io.port_state",
         FT_UINT16, BASE_HEX, VALS(pn_io_port_state), 0x0,
@@ -14754,6 +15001,11 @@ proto_register_pn_io (void)
         FT_UINT16, BASE_HEX, NULL, 0x0,
         NULL, HFILL }
     },
+    { &hf_pn_io_mau_type_extension,
+    { "MAU Type Extension", "pn_io.mau_type_extension",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_mau_type_extension), 0x0,
+        NULL, HFILL }
+    },
     };
 
     static gint *ett[] = {
@@ -14822,7 +15074,10 @@ proto_register_pn_io (void)
         &ett_pn_io_am_location,
         &ett_pn_io_sr_properties,
         &ett_pn_io_line_delay,
-        &ett_pn_io_counter_status
+        &ett_pn_io_counter_status,
+        &ett_pn_io_dcp_boundary,
+        &ett_pn_io_peer_to_peer_boundary,
+        &ett_pn_io_mau_type_extension
     };
 
     static ei_register_info ei[] = {

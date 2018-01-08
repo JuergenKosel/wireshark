@@ -22,7 +22,7 @@
 include(WiresharkPlugin)
 
 # Plugin name and version info (major minor micro extra)
-set_module_info(mate 1 0 0 1)
+set_module_info(mate 1 0 1 0)
 
 set(DISSECTOR_SRC
 	packet-mate.c
@@ -66,19 +66,15 @@ set_source_files_properties(
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
-register_dissector_files(plugin.c
+register_plugin_files(plugin.c
 	plugin
 	${DISSECTOR_SRC}
 	${DISSECTOR_SUPPORT_SRC}
 )
 
-add_plugin_library(mate)
+add_plugin_library(mate epan)
 
-install(TARGETS mate
-	LIBRARY DESTINATION ${PLUGIN_INSTALL_LIBDIR} NAMELINK_SKIP
-	RUNTIME DESTINATION ${PLUGIN_INSTALL_LIBDIR}
-	ARCHIVE DESTINATION ${PLUGIN_INSTALL_LIBDIR}
-)
+install_plugin(mate epan)
 
 file(GLOB DISSECTOR_HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.h")
 CHECKAPI(

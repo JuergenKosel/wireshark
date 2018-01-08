@@ -26,6 +26,7 @@
 #include "wireshark_application.h"
 
 #include "epan/charsets.h"
+
 #include "wsutil/base64.h"
 #include "wsutil/utf8_entities.h"
 
@@ -101,7 +102,6 @@ ShowPacketBytesDialog::ShowPacketBytesDialog(QWidget &parent, CaptureFile &cf) :
     connect(save_as_button_, SIGNAL(clicked()), this, SLOT(saveAs()));
 
     connect(ui->buttonBox, SIGNAL(helpRequested()), this, SLOT(helpButton()));
-    connect(&cap_file_, SIGNAL(captureFileClosing()), this, SLOT(captureFileClosing()));
 
     setStartAndEnd(0, finfo_->length);
     updateFieldBytes(true);
@@ -225,9 +225,9 @@ void ShowPacketBytesDialog::useRegexFind(bool use_regex)
 {
     use_regex_find_ = use_regex;
     if (use_regex_find_)
-        ui->lFind->setText("Regex Find:");
+        ui->lFind->setText(tr("Regex Find:"));
     else
-        ui->lFind->setText("Find:");
+        ui->lFind->setText(tr("Find:"));
 }
 
 void ShowPacketBytesDialog::findText(bool go_back)

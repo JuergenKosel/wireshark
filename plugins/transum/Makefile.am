@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = transum
 
+PLUGIN_VERSION = 2.0.2
+
 BUILT_SOURCES = \
 	plugin.c
 
@@ -47,10 +49,9 @@ CLEAN_HEADER_FILES = \
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = transum.la
+epan_plugin_LTLIBRARIES = transum.la
 
 transum_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -63,13 +64,8 @@ transum_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 transum_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	transum \
-	*~
-
 DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	CMakeLists.txt

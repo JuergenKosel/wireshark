@@ -7,31 +7,21 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * SPDX-License-Identifier: GPL-2.0+
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * Ref: Mesh Profile v1.0
  */
 
 #include "config.h"
 
 #include <epan/packet.h>
 #include <epan/prefs.h>
+#include <wsutil/ws_printf.h> /* ws_g_warning */
 #include <wsutil/wsgcrypt.h>
 #include <epan/expert.h>
 #include <stdio.h>
 #include <epan/uat.h>
 
-void proto_reg_handoff_btmesh(void);
 void proto_register_btmesh(void);
 
 gint net_mic_size_chosen = 1;
@@ -103,13 +93,22 @@ static int hf_btmesh_rssi = -1;
 static int hf_btmesh_friendcounter = -1;
 static int hf_btmesh_lpnaddress = -1;
 static int hf_btmesh_transactionnumber = -1;
+static int hf_btmesh_enc_access_pld = -1;
+static int hf_btmesh_transtmic = -1;
+static int hf_btmesh_szmic = -1;
+static int hf_btmesh_seqzero_data = -1;
+static int hf_btmesh_sego = -1;
+static int hf_btmesh_segn = -1;
+static int hf_btmesh_segment = -1;
 
 static int ett_btmesh = -1;
 static int ett_btmesh_net_pdu = -1;
 static int ett_btmesh_transp_pdu = -1;
 static int ett_btmesh_transp_ctrl_msg = -1;
+static int ett_btmesh_upper_transp_acc_pdu = -1;
 
 static expert_field ei_btmesh_not_decoded_yet = EI_INIT;
+static expert_field ei_btmesh_decrypt_failed = EI_INIT;
 
 static const value_string btmesh_ctl_vals[] = {
     { 0, "Access Message" },
@@ -181,6 +180,12 @@ static const value_string btmesh_criteria_minqueuesizelog_vals[] = {
     { 0x6, "N = 64" },
     { 0x7, "N = 128" },
     { 0, NULL }
+};
+
+static const value_string  btmesh_szmic_vals[] = {
+{ 0x0, "32-bit" },
+{ 0x1, "64-bit" },
+{ 0, NULL }
 };
 
 static gint
@@ -599,6 +604,20 @@ dissect_btmesh_transport_constrol_message(tvbuff_t *tvb, packet_info *pinfo, pro
         proto_tree_add_expert(sub_tree, pinfo, &ei_btmesh_not_decoded_yet, tvb, offset, -1);
         break;
     }
+}
+
+static void
+dissect_btmesh_transport_access_message(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, int transmic_size)
+{
+    proto_tree *sub_tree;
+    int length = tvb_reported_length_remaining(tvb, offset);
+
+    sub_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_btmesh_upper_transp_acc_pdu, NULL, "Upper Transport Access PDU");
+
+    proto_tree_add_item(sub_tree, hf_btmesh_enc_access_pld, tvb, offset, length - transmic_size, ENC_NA);
+    offset += (length - transmic_size);
+
+    proto_tree_add_item(sub_tree, hf_btmesh_transtmic, tvb, offset, transmic_size, ENC_BIG_ENDIAN);
 
 }
 
@@ -606,12 +625,13 @@ static void
 dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean cntrl)
 {
     proto_tree *sub_tree;
+    proto_item *ti;
     int offset = 0;
     guint32 value, opcode;
 
     /* We receive the full decrypted buffer including DST, skip to opcode */
     offset += 2;
-    sub_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_btmesh_transp_pdu, NULL, "Lower Transport PDU");
+    sub_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_btmesh_transp_pdu, &ti, "Lower Transport PDU");
     if (cntrl) {
         proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_cntr_seg, tvb, offset, 1, ENC_BIG_ENDIAN, &value);
         if (value) {
@@ -636,7 +656,8 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
             dissect_btmesh_transport_constrol_message(tvb, pinfo, tree, offset, opcode);
         }
     } else {
-        guint32 seg, afk, aid;
+        /* Access message */
+        guint32 seg, afk, aid, szmic;
         /* Access message */
         proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_acc_seg, tvb, offset, 1, ENC_BIG_ENDIAN, &seg);
         /* AKF 1 Application Key Flag */
@@ -647,11 +668,19 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         if (seg) {
             /* Segmented */
             /* SZMIC 1 Size of TransMIC */
+            proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_szmic, tvb, offset, 3, ENC_BIG_ENDIAN, &szmic);
             /* SeqZero 13 Least significant bits of SeqAuth */
+            proto_tree_add_item(sub_tree, hf_btmesh_seqzero_data, tvb, offset, 3, ENC_BIG_ENDIAN);
             /* SegO 5 Segment Offset number */
+            proto_tree_add_item(sub_tree, hf_btmesh_sego, tvb, offset, 3, ENC_BIG_ENDIAN);
             /* SegN 5 Last Segment number */
+            proto_tree_add_item(sub_tree, hf_btmesh_segn, tvb, offset, 3, ENC_BIG_ENDIAN);
+            offset += 3;
             /* Segment m 8 to 96 Segment m of the Upper Transport Access PDU */
+            proto_tree_add_item(sub_tree, hf_btmesh_segment, tvb, offset, -1, ENC_NA);
         } else {
+            proto_item_set_len(ti, 1);
+            dissect_btmesh_transport_access_message(tvb, pinfo, tree, offset, 4/*TransMic is 32 bits*/);
         }
     }
 
@@ -758,7 +787,7 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
 
         cry_error = gcry_cipher_setkey(cipher_hd, record->encryptionkey, 16);
         if (cry_error) {
-            g_warning("gcry_cipher_setkey failed");
+            ws_g_warning("gcry_cipher_setkey failed\n");
             gcry_cipher_close(cipher_hd);
             return offset;
         }
@@ -766,7 +795,7 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
         /* Load nonce */
         cry_error = gcry_cipher_setiv(cipher_hd, &networknonce, 13);
         if (cry_error) {
-            g_warning("gcry_cipher_setiv failed");
+            ws_g_warning("gcry_cipher_setiv failed\n");
             gcry_cipher_close(cipher_hd);
             return offset;
         }
@@ -778,7 +807,7 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
 
         cry_error = gcry_cipher_ctl(cipher_hd, GCRYCTL_SET_CCM_LENGTHS, ccm_lengths, sizeof(ccm_lengths));
         if (cry_error) {
-            g_warning("gcry_cipher_ctl failed %s enc_data_len %u",
+            ws_g_warning("gcry_cipher_ctl failed %s enc_data_len %u\n",
                 gcry_strerror(cry_error),
                 enc_data_len);
             gcry_cipher_close(cipher_hd);
@@ -789,7 +818,8 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
         /* Decrypt */
         cry_error = gcry_cipher_decrypt(cipher_hd, decrypted_data, enc_data_len, tvb_get_ptr(tvb, enc_offset, enc_data_len), enc_data_len);
         if (cry_error) {
-            g_warning("gcry_cipher_decrypt failed %s", gcry_strerror(cry_error));
+            expert_add_info(pinfo, item, &ei_btmesh_decrypt_failed);
+            ws_g_warning("gcry_cipher_decrypt failed %s\n", gcry_strerror(cry_error));
             gcry_cipher_close(cipher_hd);
             return offset;
         }
@@ -1171,7 +1201,42 @@ proto_register_btmesh(void)
             { "TransactionNumber", "btmesh.transactionnumber",
                 FT_UINT8, BASE_DEC, NULL, 0x0,
                 NULL, HFILL }
-        }
+        },
+        { &hf_btmesh_enc_access_pld,
+        { "Encrypted Access Payload", "btmesh.enc_access_pld",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_transtmic,
+        { "TransMIC", "btmesh.transtmic",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_szmic,
+        { "SZMIC", "btmesh.szmic",
+            FT_UINT24, BASE_DEC, VALS(btmesh_szmic_vals), 0x800000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_seqzero_data,
+        { "SeqZero", "btmesh.seqzero_data",
+            FT_UINT24, BASE_DEC, NULL, 0x3ffc00,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_sego,
+        { "Segment Offset number(SegO)", "btmesh.sego",
+            FT_UINT24, BASE_DEC, NULL, 0x0003e0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_segn,
+        { "Last Segment number(SegN)", "btmesh.segn",
+            FT_UINT24, BASE_DEC, NULL, 0x00001f,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_segment,
+        { "Sewgment", "btmesh.segment",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
     };
 
     static gint *ett[] = {
@@ -1179,10 +1244,12 @@ proto_register_btmesh(void)
         &ett_btmesh_net_pdu,
         &ett_btmesh_transp_pdu,
         &ett_btmesh_transp_ctrl_msg,
+        &ett_btmesh_upper_transp_acc_pdu,
     };
 
     static ei_register_info ei[] = {
         { &ei_btmesh_not_decoded_yet,{ "btmesh.not_decoded_yet", PI_PROTOCOL, PI_NOTE, "Not decoded yet", EXPFILL } },
+        { &ei_btmesh_decrypt_failed,{ "btmesh.decryption_failed", PI_PROTOCOL, PI_WARN, "Decryption failed", EXPFILL } },
     };
 
     expert_module_t* expert_btmesh;
@@ -1204,7 +1271,7 @@ proto_register_btmesh(void)
     expert_btmesh = expert_register_protocol(proto_btmesh);
     expert_register_field_array(expert_btmesh, ei, array_length(ei));
 
-    btmesh_module = prefs_register_protocol(proto_btmesh, NULL);
+    btmesh_module = prefs_register_protocol_subtree("Bluetooth", proto_btmesh, NULL);
 
     btmesh_uat = uat_new("BTMesh Network keys",
         sizeof(uat_btmesh_record_t),    /* record size */

@@ -4242,7 +4242,8 @@ typedef struct _mq_parm_t
 #define MQ_MQCACH_MCA_USER_ID_LIST        3568
 #define MQ_MQCACH_SSL_CIPHER_SUITE        3569
 #define MQ_MQCACH_WEBCONTENT_PATH         3570
-#define MQ_MQCACH_LAST_USED               3570
+#define MQ_MQCACH_TOPIC_ROOT              3571
+#define MQ_MQCACH_LAST_USED               3571
 
 /****************************************************************/
 /* Values Related to Group Parameter Structures                 */
@@ -4754,6 +4755,21 @@ typedef struct _mq_parm_t
 #define MQ_MQCHLA_DISABLED                0
 #define MQ_MQCHLA_ENABLED                 1
 
+/* REVDNS QMGR State */
+#define MQ_MQRDNS_ENABLED                 0
+#define MQ_MQRDNS_DISABLED                1
+
+/* CLROUTE Topic State */
+#define MQ_MQCLROUTE_DIRECT               0
+#define MQ_MQCLROUTE_TOPIC_HOST           1
+#define MQ_MQCLROUTE_NONE                 2
+
+/* CLSTATE Clustered Topic Definition State */
+#define MQ_MQCLST_ACTIVE                  0
+#define MQ_MQCLST_PENDING                 1
+#define MQ_MQCLST_INVALID                 2
+#define MQ_MQCLST_ERROR                   3
+
 /* Transmission queue types */
 #define MQ_MQCLXQ_SCTQ                    0
 #define MQ_MQCLXQ_CHANNEL                 1
@@ -4963,6 +4979,7 @@ typedef struct _mq_parm_t
 #define MQ_MQCHT_CLUSRCVR                 8
 #define MQ_MQCHT_CLUSSDR                  9
 #define MQ_MQCHT_MQTT                     10
+#define MQ_MQCHT_AMQP                     11
 
 /* Channel Compression */
 #define MQ_MQCOMPRESS_NOT_AVAILABLE       (-1)
@@ -5025,6 +5042,11 @@ typedef struct _mq_parm_t
  /* Transmission queue types */
 #define MQ_MQCLXQ_SCTQ                    0
 #define MQ_MQCLXQ_CHANNEL                 1
+
+#define MQ_MQZAET_NONE                    0
+#define MQ_MQZAET_PRINCIPAL               1
+#define MQ_MQZAET_GROUP                   2
+#define MQ_MQZAET_UNKNOWN                 3
 
 #endif
 

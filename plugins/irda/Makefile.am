@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = irda
 
+PLUGIN_VERSION = 0.0.6
+
 BUILT_SOURCES = \
 	plugin.c
 
@@ -44,10 +46,9 @@ CLEAN_HEADER_FILES = \
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = irda.la
+epan_plugin_LTLIBRARIES = irda.la
 
 irda_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -60,10 +61,6 @@ irda_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 irda_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	irda \
-	*~
-
 DISTCLEANFILES = \
 	$(NODIST_SRC_FILES) \
 	$(NODIST_HEADER_FILES) \
@@ -74,5 +71,4 @@ MAINTAINERCLEANFILES = \
 	$(GENERATED_HEADER_FILES)
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	CMakeLists.txt

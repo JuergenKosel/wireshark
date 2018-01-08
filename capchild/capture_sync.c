@@ -75,7 +75,6 @@
 #include <epan/packet.h>
 #include <epan/prefs.h>
 
-#include "globals.h"
 #include "file.h"
 
 #include "ui/capture.h"
@@ -92,16 +91,14 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
 #include <wsutil/report_message.h>
-#ifdef HAVE_EXTCAP
 #include "extcap.h"
-#endif
 #include "log.h"
 
 #ifdef _WIN32
 #include <process.h>    /* For spawning child process */
 #endif
 
-
+#include <wsutil/ws_pipe.h>
 
 #ifdef _WIN32
 static void create_dummy_signal_pipe();
@@ -122,7 +119,7 @@ static void (*fetch_dumpcap_pid)(ws_process_id) = NULL;
 
 
 void
-capture_session_init(capture_session *cap_session, struct _capture_file *cf)
+capture_session_init(capture_session *cap_session, capture_file *cf)
 {
     cap_session->cf                              = cf;
     cap_session->fork_child                      = WS_INVALID_PID;   /* invalid process handle */
@@ -253,13 +250,10 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
 
     cap_session->fork_child = WS_INVALID_PID;
 
-#ifdef HAVE_EXTCAP
     if (!extcap_init_interfaces(capture_opts)) {
         report_failure("Unable to init extcaps. (tmp fifo already exists?)");
         return FALSE;
     }
-
-#endif
 
     argv = init_pipe_args(&argc);
     if (!argv) {
@@ -339,11 +333,9 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
         interface_opts = &g_array_index(capture_opts->ifaces, interface_options, j);
 
         argv = sync_pipe_add_arg(argv, &argc, "-i");
-#ifdef HAVE_EXTCAP
         if (interface_opts->extcap_fifo != NULL)
             argv = sync_pipe_add_arg(argv, &argc, interface_opts->extcap_fifo);
         else
-#endif
             argv = sync_pipe_add_arg(argv, &argc, interface_opts->name);
 
         if (interface_opts->cfilter != NULL && strlen(interface_opts->cfilter) != 0) {
@@ -526,11 +518,9 @@ sync_pipe_start(capture_options *capture_opts, capture_session *cap_session, inf
 #else
     si.dwFlags = STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
     si.wShowWindow  = SW_HIDE;  /* this hides the console window */
-#ifdef HAVE_EXTCAP
     if(interface_opts->extcap_pipe_h != INVALID_HANDLE_VALUE)
         si.hStdInput = interface_opts->extcap_pipe_h;
     else
-#endif
         si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
 
     si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -1525,37 +1515,12 @@ pipe_read_bytes(int pipe_fd, char *bytes, int required, char **msg)
     return offset;
 }
 
-static gboolean pipe_data_available(int pipe_fd) {
-#ifdef _WIN32 /* PeekNamedPipe */
-    HANDLE hPipe = (HANDLE) _get_osfhandle(pipe_fd);
-    DWORD bytes_avail;
-
-    if (hPipe == INVALID_HANDLE_VALUE)
-        return FALSE;
-
-    if (! PeekNamedPipe(hPipe, NULL, 0, NULL, &bytes_avail, NULL))
-        return FALSE;
-
-    if (bytes_avail > 0)
-        return TRUE;
-    return FALSE;
-#else /* select */
-    fd_set rfds;
-    struct timeval timeout;
-
-    FD_ZERO(&rfds);
-    FD_SET(pipe_fd, &rfds);
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
-
-    if (select(pipe_fd+1, &rfds, NULL, NULL, &timeout) > 0)
-        return TRUE;
-
-    return FALSE;
-#endif
-}
-
-/* Read a line from a pipe, similar to fgets */
+/*
+ * Read a line from a pipe; similar to fgets, but doesn't block.
+ *
+ * XXX - just stops reading if there's nothing to be read right now;
+ * that could conceivably mean that you don't get a complete line.
+ */
 int
 sync_pipe_gets_nonblock(int pipe_fd, char *bytes, int max) {
     ssize_t newly;
@@ -1563,7 +1528,7 @@ sync_pipe_gets_nonblock(int pipe_fd, char *bytes, int max) {
 
     while(offset < max - 1) {
         offset++;
-        if (! pipe_data_available(pipe_fd))
+        if (! ws_pipe_data_available(pipe_fd))
             break;
         newly = ws_read(pipe_fd, &bytes[offset], 1);
         if (newly == 0) {
@@ -1742,10 +1707,8 @@ sync_pipe_input_cb(gint source, gpointer user_data)
 #ifdef _WIN32
         ws_close(cap_session->signal_pipe_write_fd);
 #endif
-#ifdef HAVE_EXTCAP
         g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG, "sync_pipe_input_cb: cleaning extcap pipe");
         extcap_if_cleanup(cap_session->capture_opts, &primary_msg);
-#endif
         capture_input_closed(cap_session, primary_msg);
         g_free(primary_msg);
         return FALSE;

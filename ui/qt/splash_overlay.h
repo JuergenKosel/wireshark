@@ -26,7 +26,7 @@
 
 #include <glib.h>
 
-#include "register.h"
+#include "epan/register.h"
 
 #include <QWidget>
 #include <QElapsedTimer>
@@ -47,7 +47,6 @@ public:
 
 private:
     Ui::SplashOverlay *so_ui_;
-    bool blurred_;
     register_action_e last_action_;
     int register_cur_;
     QElapsedTimer elapsed_timer_;

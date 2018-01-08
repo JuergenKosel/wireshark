@@ -4,19 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #ifndef WIRESHARK_APPLICATION_H
@@ -26,7 +14,7 @@
 
 #include <glib.h>
 
-#include "register.h"
+#include "epan/register.h"
 
 #include "ui/help_url.h"
 
@@ -41,6 +29,8 @@ struct _e_prefs;
 
 class QAction;
 class QSocketNotifier;
+
+class CaptureEvent;
 
 // Recent items:
 // - Read from prefs
@@ -109,7 +99,7 @@ public:
     void removeRecentItem(const QString &filename);
     QDir lastOpenDir();
     void setLastOpenDir(const char *dir_name);
-    void setLastOpenDir(QString *dir_str);
+    void setLastOpenDir(QString dir_str);
     void helpTopicAction(topic_action_e action);
     const QFont monospaceFont() const { return mono_font_; }
     void setMonospaceFont(const char *font_string);
@@ -119,8 +109,8 @@ public:
     bool isInitialized() { return initialized_; }
     void setReloadingLua(bool is_reloading) { is_reloading_lua_ = is_reloading; }
     bool isReloadingLua() { return is_reloading_lua_; }
-    const QIcon &normalIcon() const { return normal_icon_; }
-    const QIcon &captureIcon() const { return capture_icon_; }
+    const QIcon &normalIcon();
+    const QIcon &captureIcon();
     const QString &windowTitleSeparator() const { return window_title_separator_; }
     const QString windowTitleString(QStringList title_parts);
     const QString windowTitleString(QString title_part) { return windowTitleString(QStringList() << title_part); }
@@ -164,6 +154,7 @@ private:
     void checkForDbar();
 #endif
     void clearDynamicMenuGroupItems();
+    void initializeIcons();
 
 protected:
     bool event(QEvent *event);
@@ -206,17 +197,17 @@ signals:
 
 public slots:
     void clearRecentCaptures();
-    void captureFileReadStarted();
-    void captureStarted();
-    void captureFinished();
-    void updateTaps();
+    void refreshRecentCaptures();
+
+    void captureEventHandler(CaptureEvent *);
 
 private slots:
+    void updateTaps();
+
     void cleanup();
     void ifChangeEventsAvailable();
     void itemStatusFinished(const QString filename = "", qint64 size = 0, bool accessible = false);
-    void refreshRecentCaptures(void);
-    void refreshAddressResolution(void);
+    void refreshAddressResolution();
 };
 
 extern WiresharkApplication *wsApp;

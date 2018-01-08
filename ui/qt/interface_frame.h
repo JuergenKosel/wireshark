@@ -28,8 +28,6 @@
 
 #include <glib.h>
 
-#include "ui/qt/accordion_frame.h"
-
 #include <ui/qt/models/interface_tree_model.h>
 #include <ui/qt/models/interface_sort_filter_model.h>
 
@@ -44,7 +42,7 @@ namespace Ui {
 class InterfaceFrame;
 }
 
-class InterfaceFrame : public AccordionFrame
+class InterfaceFrame : public QFrame
 {
     Q_OBJECT
 public:
@@ -95,7 +93,7 @@ private slots:
     void interfaceTreeSelectionChanged(const QItemSelection & selected, const QItemSelection & deselected);
 
     void on_interfaceTree_doubleClicked(const QModelIndex &index);
-#if defined(HAVE_EXTCAP) && defined(HAVE_LIBPCAP)
+#ifdef HAVE_LIBPCAP
     void on_interfaceTree_clicked(const QModelIndex &index);
 #endif
 

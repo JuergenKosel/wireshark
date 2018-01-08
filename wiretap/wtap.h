@@ -29,6 +29,9 @@
 #include "wtap_opttypes.h"
 #include "ws_symbol_export.h"
 #include "ws_attributes.h"
+#ifdef HAVE_PLUGINS
+#include "wsutil/plugins.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -286,6 +289,8 @@ extern "C" {
 #define WTAP_ENCAP_MA_WFP_CAPTURE_2V6           194
 #define WTAP_ENCAP_MA_WFP_CAPTURE_AUTH_V4       195
 #define WTAP_ENCAP_MA_WFP_CAPTURE_AUTH_V6       196
+#define WTAP_ENCAP_JUNIPER_ST                   197
+#define WTAP_ENCAP_ETHERNET_MPACKET             198
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -1927,6 +1932,8 @@ WS_DLL_PUBLIC
 void wtap_set_bytes_dumped(wtap_dumper *wdh, gint64 bytes_dumped);
 struct addrinfo;
 WS_DLL_PUBLIC
+gboolean wtap_addrinfo_list_empty(addrinfo_lists_t *addrinfo_lists);
+WS_DLL_PUBLIC
 gboolean wtap_dump_set_addrinfo_list(wtap_dumper *wdh, addrinfo_lists_t *addrinfo_lists);
 WS_DLL_PUBLIC
 gboolean wtap_dump_get_needs_reload(wtap_dumper *wdh);
@@ -2001,9 +2008,16 @@ GSList *wtap_get_file_extension_type_extensions(guint extension_type);
 
 /*** dynamically register new file types and encapsulations ***/
 WS_DLL_PUBLIC
-void register_all_wiretap_modules(void);
-WS_DLL_PUBLIC
 void wtap_register_file_type_extension(const struct file_extension_info *ei);
+
+#ifdef HAVE_PLUGINS
+typedef struct {
+	void (*register_wtap_module)(void);  /* routine to call to register a wiretap module */
+} wtap_plugin;
+
+WS_DLL_PUBLIC
+void wtap_register_plugin(const wtap_plugin *plug);
+#endif
 
 WS_DLL_PUBLIC
 void wtap_register_open_info(struct open_info *oi, const gboolean first_routine);

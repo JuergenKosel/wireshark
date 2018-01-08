@@ -425,6 +425,12 @@ RtpAnalysisDialog::~RtpAnalysisDialog()
     delete rev_tempfile_;
 }
 
+void RtpAnalysisDialog::captureFileClosing()
+{
+    updateWidgets();
+    WiresharkDialog::captureFileClosing();
+}
+
 void RtpAnalysisDialog::updateWidgets()
 {
     bool enable_tab = false;
@@ -1534,7 +1540,7 @@ void RtpAnalysisDialog::saveCsv(RtpAnalysisDialog::StreamDirection direction)
             foreach (QVariant v, ra_ti->rowData()) {
                 if (!v.isValid()) {
                     values << "\"\"";
-                } else if ((int) v.type() == (int) QMetaType::QString) {
+                } else if (v.type() == QVariant::String) {
                     values << QString("\"%1\"").arg(v.toString());
                 } else {
                     values << v.toString();
@@ -1607,7 +1613,8 @@ void RtpAnalysisDialog::findStreams()
     epan_dissect_prime_with_dfilter(&edt, sfcode);
     epan_dissect_prime_with_hfid(&edt, hfid_rtp_ssrc);
     epan_dissect_run(&edt, cap_file_.capFile()->cd_t, &cap_file_.capFile()->phdr,
-                     frame_tvbuff_new_buffer(fdata, &cap_file_.capFile()->buf), fdata, NULL);
+                     frame_tvbuff_new_buffer(&cap_file_.capFile()->provider, fdata, &cap_file_.capFile()->buf),
+                     fdata, NULL);
 
     /*
      * Packet must be an RTPv2 packet with an SSRC; we use the filter to

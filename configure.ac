@@ -65,7 +65,7 @@ AC_DEFINE_UNQUOTED(VERSION_FLAVOR,
 	["${WIRESHARK_VERSION_FLAVOR:-"Development Build"}"], [Wireshark's package flavor])
 
 LT_PREREQ([2.2.2])
-LT_INIT([disable-static dlopen])
+LT_INIT([disable-static])
 AC_SUBST([LIBTOOL_DEPS])
 
 AC_CONFIG_LIBOBJ_DIR([wsutil])
@@ -746,6 +746,20 @@ AC_ARG_ENABLE(asan,
 AC_SUBST(NO_SANITIZE_CFLAGS)
 AC_SUBST(NO_SANITIZE_LDFLAGS)
 
+# Try to enable ThreadSanitizer.
+#
+AC_ARG_ENABLE(tsan,
+  AC_HELP_STRING( [--enable-tsan],
+		  [Enable ThreadSanitizer (TSan) for debugging@<:@default=no@:>@]),
+[
+	#
+	# Available since Clang >= 3.2 and GCC >= 4.8
+	#
+	AC_WIRESHARK_COMPILER_FLAGS_CHECK(-fsanitize=thread)
+	AC_WIRESHARK_LDFLAGS_CHECK(-fsanitize=thread)
+
+])
+
 # Try to enable UndefinedBehaviorSanitizer.
 #
 AC_ARG_ENABLE(ubsan,
@@ -1083,14 +1097,6 @@ AC_ARG_ENABLE(wireshark,
 		  [build the Wireshark GUI (with Gtk+, Qt, or both) @<:@default=yes@:>@]),
     enable_wireshark=$enableval,enable_wireshark=yes)
 AM_CONDITIONAL(BUILDING_WIRESHARK, test x$enable_wireshark = xyes)
-
-AC_ARG_ENABLE(packet-editor,
-  AC_HELP_STRING( [--enable-packet-editor],
-		  [add support for packet editor in Wireshark @<:@default=yes@:>@]),
-    enable_packet_editor=$enableval,enable_packet_editor=yes)
-if test x$enable_packet_editor = xyes; then
-	AC_DEFINE(WANT_PACKET_EDITOR, 1, [Support for packet editor])
-fi
 
 GLIB_MIN_VERSION=2.22.0
 AC_SUBST(GLIB_MIN_VERSION)
@@ -1775,6 +1781,19 @@ fi
 AC_SUBST(tfshark_bin)
 AC_SUBST(tfshark_man)
 
+# Enable/disable fuzzshark
+AC_ARG_ENABLE(fuzzshark,
+  AC_HELP_STRING( [--enable-fuzzshark],
+		  [build fuzzshark @<:@default=yes@:>@]),
+    fuzzshark=$enableval,enable_fuzzshark=yes)
+
+if test "x$enable_fuzzshark" = "xyes" ; then
+	fuzzshark_bin="fuzzshark\$(EXEEXT)"
+else
+	fuzzshark_bin=""
+fi
+AC_SUBST(fuzzshark_bin)
+
 
 dnl Use pcap-ng by default
 AC_ARG_ENABLE(pcap-ng-default,
@@ -1783,29 +1802,6 @@ AC_ARG_ENABLE(pcap-ng-default,
     enable_pcap_ng_default=$enableval,enable_pcap_ng_default=yes)
 if test x$enable_pcap_ng_default = xyes; then
 	AC_DEFINE(PCAP_NG_DEFAULT, 1, [Support for pcap-ng])
-fi
-
-dnl pcap remote check
-AC_MSG_CHECKING(whether to use libpcap remote capturing feature)
-
-AC_ARG_WITH(pcap-remote,
-    AC_HELP_STRING([--with-pcap-remote],
-		   [use libpcap remote capturing (requires libpcap)]),
-[
-    if test $withval = no
-    then
-	want_pcap_remote=no
-    else
-	want_pcap_remote=yes
-    fi
-],[
-    want_pcap_remote=no
-])
-if test "x$want_pcap_remote" = "xno" -o "x$want_pcap" = "xno" ; then
-    AC_MSG_RESULT(no)
-else
-    AC_MSG_RESULT(yes)
-    AC_WIRESHARK_PCAP_REMOTE_CHECK
 fi
 
 dnl zlib check
@@ -2474,27 +2470,8 @@ dnl check for extcap directory - stolen from Amanda's configure.ac
 dnl
 dnl we don't wish to expand ${libdir} yet
 extcapdir="\${libdir}/wireshark/extcap"
-AC_ARG_WITH(extcap,
-  AC_HELP_STRING( [--with-extcap@<:@=DIR@:>@],
-		  [use extcap for external capture sources (installed in DIR, if supplied) @<:@default=yes, if possible@:>@]),
-[
-  if test "x$withval" = "xno"; then
-      have_extcap=no
-  elif test "x$withval" = "xyes"; then
-      have_extcap=yes
-  elif test "x$withval" != "xyes"; then
-      have_extcap=yes
-      extcapdir ="$withval"
-  fi
-],[
-    have_extcap=yes
-])
-AM_CONDITIONAL(HAVE_EXTCAP, test "x$have_extcap" = "xyes")
-if test "x$have_extcap" = "xyes"
-then
-  AC_DEFINE(HAVE_EXTCAP, 1, [Define if external capture sources should be enabled])
-  extcap_man="extcap.4"
-fi
+extcap_man="extcap.4"
+
 AC_SUBST(extcap_man)
 AC_SUBST(extcapdir)
 
@@ -2506,10 +2483,7 @@ AC_ARG_ENABLE(androiddump,
 		  [build androiddump @<:@default=yes@:>@]),
     androiddump=$enableval,enable_androiddump=yes)
 
-if test "x$have_extcap" != xyes; then
-	AC_MSG_RESULT([no, extcap disabled])
-	enable_androiddump=no
-elif test "x$enable_androiddump" = "xyes" ; then
+if test "x$enable_androiddump" = "xyes" ; then
 	AC_MSG_RESULT(yes)
 else
 	AC_MSG_RESULT(no)
@@ -2542,10 +2516,7 @@ AC_ARG_ENABLE(sshdump,
 		[build sshdump @<:@default=yes@:>@]),
 	[],[enable_sshdump=yes])
 
-if test "x$have_extcap" != xyes; then
-	AC_MSG_RESULT([no, extcap disabled])
-	enable_sshdump=no
-elif test "x$have_libssh_pointsix" != xyes; then
+if test "x$have_libssh_pointsix" != xyes; then
 	AC_MSG_RESULT([no, libssh >= 0.6.0 not installed for development])
 	enable_sshdump=no
 elif test "x$enable_sshdump" = "xyes" ; then
@@ -2572,10 +2543,7 @@ AC_ARG_ENABLE(ciscodump,
 		[build ciscodump @<:@default=yes@:>@]),
 	[],[enable_ciscodump=yes])
 
-if test "x$have_extcap" != xyes; then
-	AC_MSG_RESULT([no, extcap disabled])
-	enable_ciscodump=no
-elif test "x$have_libssh_pointsix" != xyes; then
+if test "x$have_libssh_pointsix" != xyes; then
 	AC_MSG_RESULT([no, libssh >= 0.6.0 not installed for development])
 	enable_ciscodump=no
 elif test "x$enable_ciscodump" = "xyes" ; then
@@ -2602,10 +2570,7 @@ AC_ARG_ENABLE(randpktdump,
 		[build randpktdump @<:@default=yes@:>@]),
 	randpktdump=$enableval,enable_randpktdump=yes)
 
-if test "x$have_extcap" != xyes; then
-	AC_MSG_RESULT([no, extcap disabled])
-	enable_randpktdump=no
-elif test "x$enable_randpktdump" = "xyes" ; then
+if test "x$enable_randpktdump" = "xyes" ; then
 	AC_MSG_RESULT(yes)
 else
 	AC_MSG_RESULT(no)
@@ -2629,10 +2594,7 @@ AC_ARG_ENABLE(udpdump,
 		[build udpdump @<:@default=yes@:>@]),
 	[],[enable_udpdump=yes])
 
-if test "x$have_extcap" != xyes; then
-	AC_MSG_RESULT([no, extcap disabled])
-	enable_udpdump=no
-elif test "x$enable_udpdump" = "xyes" ; then
+if test "x$enable_udpdump" = "xyes" ; then
 	AC_MSG_RESULT(yes)
 else
 	AC_MSG_RESULT(no)
@@ -2649,11 +2611,10 @@ AC_SUBST(udpdump_bin)
 AC_SUBST(udpdump_man)
 
 AM_CONDITIONAL(ENABLE_STATIC, test x$enable_static = xyes)
-if test x$enable_static = xyes -a x$have_plugins = xyes
+if test x$enable_static = xyes
 then
-  AC_DEFINE(ENABLE_STATIC, 1, [Link plugins statically into Wireshark])
+  AC_DEFINE(ENABLE_STATIC, 1, [Link Wireshark libraries statically])
 fi
-AC_SUBST(ENABLE_STATIC)
 
 # Gather which GUI we're building for rpmbuild
 if test "x$have_gtk" = "xyes"; then
@@ -2694,8 +2655,8 @@ AH_BOTTOM([#include <ws_diag_control.h>])
 dnl Save the cacheable configure results to config.cache before recursing
 AC_CACHE_SAVE
 
-sinclude(plugins/Custom.m4) dnl
-ifdef(_CUSTOM_AC_OUTPUT_,, define(_CUSTOM_AC_OUTPUT_, )) dnl
+m4_sinclude(plugins/Custom.m4) dnl
+m4_ifndef(_CUSTOM_PLUGIN_CONFIG_FILES_, m4_define(_CUSTOM_PLUGIN_CONFIG_FILES_)) dnl
 
 sinclude(epan/dissectors/asn1/Custom.m4) dnl
 ifdef(_CUSTOM_ASN1_AC_OUTPUT_,, define(_CUSTOM_ASN1_AC_OUTPUT_, )) dnl
@@ -2860,6 +2821,7 @@ AC_CONFIG_FILES(
   plugins/wimax/Makefile
   plugins/wimaxasncp/Makefile
   plugins/wimaxmacphy/Makefile
+  _CUSTOM_PLUGIN_CONFIG_FILES_
   randpkt_core/doxygen.cfg
   randpkt_core/Makefile
   tools/Makefile
@@ -2868,7 +2830,6 @@ AC_CONFIG_FILES(
   writecap/Makefile
   writecap/doxygen.cfg
   wsutil/Makefile
-  _CUSTOM_AC_OUTPUT_
 )
 
 AC_OUTPUT
@@ -3009,6 +2970,7 @@ echo "                      Build randpkt : $enable_randpkt"
 echo "                       Build dftest : $enable_dftest"
 echo "                     Build rawshark : $enable_rawshark"
 echo "                       Build sharkd : $enable_sharkd"
+echo "                    Build fuzzshark : $enable_fuzzshark"
 echo "                  Build androiddump : $enable_androiddump"
 echo "                      Build sshdump : $enable_sshdump"
 echo "                    Build ciscodump : $enable_ciscodump"
@@ -3021,7 +2983,6 @@ echo "  Install dumpcap with capabilities : $setcap_message"
 echo "             Install dumpcap setuid : $setuid_message"
 echo "                  Use dumpcap group : $dumpcap_group_message"
 echo "                        Use plugins : $have_plugins"
-echo "       Use external capture sources : $have_extcap"
 echo "                    Use Lua library : $lua_message"
 echo "                Build Qt RTP player : $qt_multimedia_message"
 echo "              Build GTK+ RTP player : $portaudio_message"

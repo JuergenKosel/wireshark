@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = pluginifdemo
 
+PLUGIN_VERSION = 0.0.1
+
 BUILT_SOURCES = \
 	plugin.c
 
@@ -42,10 +44,9 @@ CLEAN_HEADER_FILES = \
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = pluginifdemo.la
+epan_plugin_LTLIBRARIES = pluginifdemo.la
 
 pluginifdemo_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -58,13 +59,8 @@ pluginifdemo_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 pluginifdemo_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	pluginifdemo \
-	*~
-
 DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	CMakeLists.txt

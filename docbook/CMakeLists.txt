@@ -8,9 +8,17 @@
 #
 
 find_package( LYNX )
-find_package( XSLTPROC )
+if(ENABLE_HTML_GUIDES OR ENABLE_PDF_GUIDES OR ENABLE_CHM_GUIDES)
+	find_package( ASCIIDOC REQUIRED )
+	find_package( XSLTPROC REQUIRED )
+else()
+	# This is an optional add of the packages
+	find_package( ASCIIDOC )
+	find_package( XSLTPROC )
+endif()
+
 if(ENABLE_CHM_GUIDES)
-	find_package( HTMLHelp )
+	find_package( HTMLHelp REQUIRED )
 	if(HTML_HELP_COMPILER)
 		# We do not need the HTML Help headers and library, just the
 		# compiler. To avoid confusion, report the package as found.
@@ -20,8 +28,6 @@ if(ENABLE_CHM_GUIDES)
 		message(FATAL_ERROR "HTML Help Compiler is not installed (required for ENABLE_CHM_GUIDES)")
 	endif()
 endif()
-
-find_package( ASCIIDOC )
 
 if(WIN32)
 	macro( HHP2CHM _hhpsource )
@@ -81,8 +87,8 @@ foreach(th_command ${WSUG_TOOLS_HELP_COMMANDS})
 	list(APPEND WSUG_TOOLS_PHONY_DEPS ${th_phony})
 	add_custom_command(
 		OUTPUT ${th_phony}
-		COMMAND ${CMAKE_BINARY_DIR}/run/${th_command} -h > ${th_file}
-		DEPENDS ${CMAKE_BINARY_DIR}/run/${th_command}
+		COMMAND ${th_command} -h > ${th_file}
+		DEPENDS ${th_command}
 	)
 endforeach()
 
@@ -95,7 +101,8 @@ list(APPEND WSUG_TOOLS_HELP_FILES ${th_file})
 list(APPEND WSUG_TOOLS_PHONY_DEPS ${th_phony})
 add_custom_command(
 	OUTPUT ${th_phony}
-	COMMAND ${CMAKE_BINARY_DIR}/run/editcap -F > ${th_file}
+	COMMAND editcap -F > ${th_file}
+	DEPENDS editcap
 )
 set(th_file ${CMAKE_CURRENT_SOURCE_DIR}/wsug_src/editcap-T.txt)
 set(th_phony editcap_T_tools_help)
@@ -103,7 +110,8 @@ list(APPEND WSUG_TOOLS_HELP_FILES ${th_file})
 list(APPEND WSUG_TOOLS_PHONY_DEPS ${th_phony})
 add_custom_command(
 	OUTPUT ${th_phony}
-	COMMAND ${CMAKE_BINARY_DIR}/run/editcap -T > ${th_file}
+	COMMAND editcap -T > ${th_file}
+	DEPENDS editcap
 )
 
 add_custom_target(update_tools_help
@@ -345,11 +353,6 @@ set(WSLUA_MODULES
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_struct.c
 )
 
-if(NOT ASCIIDOC_FOUND)
-	message(WARNING "AsciiDoc not found, cannot build documentation.")
-	return()
-endif()
-
 # Empty file to trigger wsluarm generation.
 ADD_CUSTOM_COMMAND(
 	OUTPUT
@@ -566,17 +569,19 @@ add_custom_target(
 )
 set_target_properties(news PROPERTIES FOLDER "Docbook")
 
-ASCIIDOC2HTML(
-	release-notes.html
-	release-notes.asciidoc
-	"${ASCIIDOC_CONF_FILES}"
-)
+if( ASCIIDOC_FOUND )
+	ASCIIDOC2HTML(
+		release-notes.html
+		release-notes.asciidoc
+		"${ASCIIDOC_CONF_FILES}"
+	)
 
-ASCIIDOC2TXT(
-	release-notes.txt
-	release-notes.asciidoc
-	"${ASCIIDOC_CONF_FILES}"
-)
+	ASCIIDOC2TXT(
+		release-notes.txt
+		release-notes.asciidoc
+		"${ASCIIDOC_CONF_FILES}"
+	)
+endif()
 
 #ASCIIDOC2PDF(
 #	release-notes-a4.pdf

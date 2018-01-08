@@ -36,7 +36,19 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Filter by path</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Plugins</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Search plugins</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter by type:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -44,7 +56,23 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Search Shortcuts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Acknowledgments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>License</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy Row(s)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -69,6 +97,17 @@
     </message>
     <message>
         <source>Can&apos;t assign %1 to %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>AuthorListModel</name>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>E-Mail</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1619,55 +1658,11 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Table Name</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Short Name</source>
+        <source>Search:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Dissector Tables</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>String Tables</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Integer Tables</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Custom Tables</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Heuristic Tables</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Selector Name</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>String</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Dissector</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Port</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Protocol</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Table Type</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1675,14 +1670,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     <name>EnabledProtocolsDialog</name>
     <message>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Protocol</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Description</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1729,26 +1716,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     <name>ExpertInfoDialog</name>
     <message>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Severity</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Summary</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Group</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Protocol</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Count</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1821,7 +1788,11 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Endpoint expert failed to set filter</source>
+        <source>Collapse All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expand All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1842,10 +1813,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Display filter: &quot;%1&quot;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Packet</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1890,26 +1857,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     <name>ExportObjectDialog</name>
     <message>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Packet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Hostname</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Content Type</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Size</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Filename</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1998,31 +1945,11 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Filename</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Created</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Modified</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Size</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>No files in Set</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>No capture loaded</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Open this capture file</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
@@ -2200,6 +2127,21 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
 </context>
 <context>
+    <name>FolderListModel</name>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Location</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Typical Files</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>FollowStreamDialog</name>
     <message>
         <source>Filter Out This Stream</source>
@@ -2295,12 +2237,11 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Save Stream Content As</source>
+        <source>Regex Find:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>
-[Stream output truncated]</source>
+        <source>Save Stream Content As</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2324,11 +2265,19 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Entire conversation (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Follow %1 Stream (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Error creating filter for this stream.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>[Stream output truncated]</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3526,7 +3475,7 @@ PLEASE NOTE: One option MUST be selected.</source>
 <context>
     <name>LBMLBTRMTransportDialog</name>
     <message>
-        <source>LBTRM Transport Statistics</source>
+        <source>LBT-RM Transport Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3631,10 +3580,12 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>NCF</source>
+        <extracomment>Nak ConFirmation</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>SM</source>
+        <extracomment>Session Message</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3809,7 +3760,7 @@ PLEASE NOTE: One option MUST be selected.</source>
 <context>
     <name>LBMLBTRUTransportDialog</name>
     <message>
-        <source>LBTRU Transport Statistics</source>
+        <source>LBT-RU Transport Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4372,7 +4323,11 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Show packet separator on Packet List</source>
+        <source>Packet List settings:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show packet separator</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4464,6 +4419,14 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Reset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch the direction of the connection (view the opposite flow).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch Direction</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4643,6 +4606,14 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Switch direction (swap between UL and DL)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>D</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Time</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4656,6 +4627,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>LTE RLC Graph - no channel selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save As</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4680,6 +4655,26 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Click to select a portion of the graph.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Portable Document Format (*.pdf)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Portable Network Graphics (*.png)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Windows Bitmap (*.bmp)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Graph As</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -4765,6 +4760,10 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Profile: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Manage Profiles</source>
         <oldsource>Manage Profiles...</oldsource>
         <translation type="unfinished"></translation>
@@ -4827,10 +4826,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Bytes %1-%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Profile: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5002,6 +4997,10 @@ a:hover {
             <numerusform>%n interface shown, %1 hidden</numerusform>
             <numerusform>%n interfaces shown, %1 hidden</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>You are sniffing the glue that holds the Internet together using Wireshark </source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>You are running Wireshark </source>
@@ -5532,6 +5531,14 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Collapse Subtrees</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Collapse the current packet detail</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Go to Packet…</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5717,6 +5724,14 @@ a:hover {
     </message>
     <message>
         <source>Add or change a packet comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete All Packet Comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove all packet comments in the capture file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6168,14 +6183,6 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>…as Escaped String</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as a Escaped string</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>&amp;Full Screen</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6553,46 +6560,6 @@ a:hover {
     </message>
     <message>
         <source>Show or hide the packet bytes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Bytes as Hex + ASCII Dump</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as a hex and ASCII dump.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>…as Hex Dump</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as a hex dump.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>…as Printable Text</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Copy only the printable text in the packet.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>…as a Hex Stream</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as a stream of hex.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>…as Raw Binary</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Copy packet bytes as application/octet-stream MIME data.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7002,6 +6969,10 @@ a:hover {
     </message>
     <message>
         <source>Couldn&apos;t copy text. Try another item.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Are you sure you want to remove all packet comments?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7641,6 +7612,25 @@ a:hover {
     </message>
 </context>
 <context>
+    <name>PluginListModel</name>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>PreferenceEditorFrame</name>
     <message>
         <source>Frame</source>
@@ -7666,56 +7656,7 @@ a:hover {
 <context>
     <name>PreferencesDialog</name>
     <message>
-        <source>Appearance</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Layout</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Columns</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Font and Colors</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Capture</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Expert</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Filter Buttons</source>
-        <oldsource>Filter Expressions</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Advanced</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Search:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Name</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Status</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Type</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Value</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7968,22 +7909,6 @@ a:hover {
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>Default</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Changed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Has this preference been changed?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Default value is empty</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <source>Average Throughput (bits/s)</source>
         <translation type="unfinished"></translation>
@@ -8334,6 +8259,22 @@ a:hover {
     </message>
     <message>
         <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No remote interfaces found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PCAP not found</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown error</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10182,6 +10123,21 @@ a:hover {
     </message>
 </context>
 <context>
+    <name>ScsiServiceResponseTimeDialog</name>
+    <message>
+        <source>&lt;small&gt;&lt;i&gt;Select a command and enter a filter if desired, then press Apply.&lt;/i&gt;&lt;/small&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Command:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SCSI Service Response Times</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>SearchFrame</name>
     <message>
         <source>Frame</source>
@@ -10598,6 +10554,21 @@ a:hover {
     </message>
 </context>
 <context>
+    <name>ShortcutListModel</name>
+    <message>
+        <source>Shortcut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ShowPacketBytesDialog</name>
     <message>
         <source>Show Packet Bytes</source>
@@ -10722,6 +10693,10 @@ a:hover {
         </translation>
     </message>
     <message>
+        <source>Regex Find:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Save Selected Packet Bytes As</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10739,10 +10714,6 @@ a:hover {
 </context>
 <context>
     <name>SplashOverlay</name>
-    <message>
-        <source>Form</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <source>Initializing dissectors</source>
         <translation type="unfinished"></translation>
@@ -10808,22 +10779,6 @@ a:hover {
     <name>SupportedProtocolsDialog</name>
     <message>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Name</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Filter</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Type</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Description</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11587,6 +11542,14 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Move entry up.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Move entry down.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Clear all entries.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11615,6 +11578,14 @@ a:hover {
     </message>
     <message>
         <source>Copy this entry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Move entry up.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Move entry down.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

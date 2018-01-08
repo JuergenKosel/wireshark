@@ -52,6 +52,9 @@
 #include "register.h"
 #include "ws_symbol_export.h"
 #include "ws_attributes.h"
+#ifdef HAVE_PLUGINS
+#include "wsutil/plugins.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -484,6 +487,8 @@ WS_DLL_PUBLIC WS_NORETURN void proto_report_dissector_bug(const char *message);
 #define ENC_ASCII_7BITS			0x00000034
 #define ENC_T61				0x00000036
 #define ENC_EBCDIC_CP037		0x00000038
+#define ENC_ZIGBEE			0x0000003A
+
 
 /*
  * TODO:
@@ -525,7 +530,15 @@ WS_DLL_PUBLIC WS_NORETURN void proto_report_dissector_bug(const char *message);
 /* this can't collide with ENC_SEP_* because they can be used simultaneously */
 #define ENC_NUM_PREF    0x00200000
 
+/* Use varint format as described in Protobuf protocol
+ * https://developers.google.cn/protocol-buffers/docs/encoding
+ */
 #define ENC_VARINT_PROTOBUF      0x00000002
+/*
+ * Decodes a variable-length integer used in QUIC protocol
+ * See https://tools.ietf.org/html/draft-ietf-quic-transport-08#section-8.1
+ */
+#define ENC_VARINT_QUIC          0x00000004
 
 /* For cases where a string encoding contains hex, bit-or one or more
  * of these for the allowed separator(s), as well as with ENC_STR_HEX.
@@ -534,7 +547,7 @@ WS_DLL_PUBLIC WS_NORETURN void proto_report_dissector_bug(const char *message);
 #define ENC_SEP_NONE    0x00010000
 #define ENC_SEP_COLON   0x00020000
 #define ENC_SEP_DASH    0x00040000
-#define ENC_SEP_DOT   0x00080000
+#define ENC_SEP_DOT     0x00080000
 #define ENC_SEP_SPACE   0x00100000
 /* a convenience macro for the above */
 #define ENC_SEP_MASK    0x001F0000
@@ -903,14 +916,17 @@ WS_DLL_PUBLIC void proto_tree_children_foreach(proto_tree *tree,
 #define PNODE_POOL(proto_node)   ((proto_node)->tree_data->pinfo->pool)
 
 #ifdef HAVE_PLUGINS
-/** Register dissector plugin type with the plugin system.
-    Called by epan_register_plugin_types(); do not call it yourself. */
-extern void register_dissector_plugin_type(void);
+typedef struct {
+	void (*register_protoinfo)(void);	/* routine to call to register protocol information */
+	void (*register_handoff)(void);		/* routine to call to register dissector handoff */
+} proto_plugin;
+
+/** Register dissector plugin with the plugin system. */
+WS_DLL_PUBLIC void proto_register_plugin(const proto_plugin *plugin);
 #endif
 
 /** Sets up memory used by proto routines. Called at program startup */
-void proto_init(void (register_all_protocols_func)(register_cb cb, gpointer client_data),
-		       void (register_all_handoffs_func)(register_cb cb, gpointer client_data),
+void proto_init(GSList *register_all_protocols_list, GSList *register_all_handoffs_list,
 		       register_cb cb, void *client_data);
 
 

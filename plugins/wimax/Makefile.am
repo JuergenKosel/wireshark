@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = wimax
 
+PLUGIN_VERSION = 1.2.0
+
 BUILT_SOURCES = \
 	plugin.c
 
@@ -91,10 +93,9 @@ CLEAN_HEADER_FILES = \
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = wimax.la
+epan_plugin_LTLIBRARIES = wimax.la
 
 wimax_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -107,14 +108,9 @@ wimax_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 wimax_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	wimax \
-	*~
-
 DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	CMakeLists.txt		\
 	README.wimax

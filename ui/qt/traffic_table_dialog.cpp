@@ -89,10 +89,8 @@ TrafficTableDialog::TrafficTableDialog(QWidget &parent, CaptureFile &cf, const c
     connect(wsApp, SIGNAL(addressResolutionChanged()), this, SLOT(updateWidgets()));
     connect(ui->trafficTableTabWidget, SIGNAL(currentChanged(int)),
             this, SLOT(currentTabChanged()));
-    connect(&cap_file_, SIGNAL(captureFileRetapStarted()),
-            this, SLOT(retapStarted()));
-    connect(&cap_file_, SIGNAL(captureFileRetapFinished()),
-            this, SLOT(retapFinished()));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
+            this, SLOT(captureEvent(CaptureEvent *)));
 }
 
 TrafficTableDialog::~TrafficTableDialog()
@@ -233,14 +231,23 @@ void TrafficTableDialog::on_displayFilterCheckBox_toggled(bool checked)
     cap_file_.retapPackets();
 }
 
-void TrafficTableDialog::retapStarted()
+void TrafficTableDialog::captureEvent(CaptureEvent *e)
 {
-    ui->displayFilterCheckBox->setEnabled(false);
-}
+    if (e->captureContext() == CaptureEvent::Retap)
+    {
+        switch (e->eventType())
+        {
+        case CaptureEvent::Started:
+            ui->displayFilterCheckBox->setEnabled(false);
+            break;
+        case CaptureEvent::Finished:
+            ui->displayFilterCheckBox->setEnabled(true);
+            break;
+        default:
+            break;
+        }
+    }
 
-void TrafficTableDialog::retapFinished()
-{
-    ui->displayFilterCheckBox->setEnabled(true);
 }
 
 void TrafficTableDialog::setTabText(QWidget *tree, const QString &text)
@@ -317,7 +324,7 @@ void TrafficTableDialog::copyAsCsv()
         foreach (QVariant v, curTreeRowData(row)) {
             if (!v.isValid()) {
                 rdsl << "\"\"";
-            } else if ((int) v.type() == (int) QMetaType::QString) {
+            } else if (v.type() == QVariant::String) {
                 rdsl << QString("\"%1\"").arg(v.toString());
             } else {
                 rdsl << v.toString();

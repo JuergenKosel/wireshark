@@ -4,22 +4,15 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #include <ui/qt/utils/data_printer.h>
+#include <ui/qt/utils/variant_pointer.h>
+
+#include <ui/recent.h>
+
+#include <wsutil/utf8_entities.h>
 
 #include <stdint.h>
 
@@ -35,7 +28,7 @@ DataPrinter::DataPrinter(QObject * parent)
 
 void DataPrinter::toClipboard(DataPrinter::DumpType type, IDataPrintable * printable)
 {
-    QByteArray printData = printable->printableData();
+    const QByteArray printData = printable->printableData();
 
     QString clipboard_text;
 
@@ -50,7 +43,7 @@ void DataPrinter::toClipboard(DataPrinter::DumpType type, IDataPrintable * print
         break;
     case DP_HexStream:
         for (int i = 0; i < printData.length(); i++)
-            clipboard_text += QString("%1").arg(printData[i], 2, 16, QChar('0'));
+            clipboard_text += QString("%1").arg((uint8_t) printData[i], 2, 16, QChar('0'));
         break;
     case DP_EscapedString:
         // Beginning quote
@@ -64,7 +57,7 @@ void DataPrinter::toClipboard(DataPrinter::DumpType type, IDataPrintable * print
             if (i % 16 == 0 && i != 0 && i != printData.length() - 1) {
                 clipboard_text += QString("\" \\\n\"");
             }
-            clipboard_text += QString("\\x%1").arg(printData[i], 2, 16, QChar('0'));
+            clipboard_text += QString("\\x%1").arg((uint8_t) printData[i], 2, 16, QChar('0'));
         }
         // End quote
         clipboard_text += QString("\"\n");
@@ -87,7 +80,7 @@ void DataPrinter::toClipboard(DataPrinter::DumpType type, IDataPrintable * print
     }
 }
 
-void DataPrinter::binaryDump(QByteArray printData)
+void DataPrinter::binaryDump(const QByteArray printData)
 {
     if (!printData.isEmpty()) {
         QMimeData *mime_data = new QMimeData;
@@ -113,7 +106,14 @@ int DataPrinter::byteLineLength() const
     return byteLineLength_;
 }
 
-QString DataPrinter::hexTextDump(QByteArray printData, bool showText)
+int DataPrinter::hexChars()
+{
+    int row_width = recent.gui_bytes_view == BYTES_HEX ? 16 : 8;
+    int chars_per_byte = recent.gui_bytes_view == BYTES_HEX ? 3 : 9;
+    return (row_width * chars_per_byte) + ((row_width - 1) / separatorInterval());
+}
+
+QString DataPrinter::hexTextDump(const QByteArray printData, bool showText)
 {
     QString clipboard_text;
 
@@ -167,6 +167,88 @@ QString DataPrinter::hexTextDump(QByteArray printData, bool showText)
     return clipboard_text;
 }
 
+DataPrinter * DataPrinter::instance()
+{
+    static DataPrinter * inst = Q_NULLPTR;
+    if ( inst == Q_NULLPTR )
+        inst = new DataPrinter();
+    return inst;
+}
+
+QActionGroup * DataPrinter::copyActions(QObject * copyClass, QObject * data)
+{
+    QActionGroup * actions = new QActionGroup(copyClass);
+
+    if ( ! data && ! dynamic_cast<IDataPrintable *>(copyClass) )
+        return actions;
+
+    DataPrinter * dpi = DataPrinter::instance();
+
+    if ( data )
+        actions->setProperty("idataprintable", VariantPointer<QObject>::asQVariant(data));
+    else
+        actions->setProperty("idataprintable", VariantPointer<QObject>::asQVariant(copyClass));
+
+    // Mostly duplicated from main_window.ui
+    QAction * action = new QAction(tr("Copy Bytes as Hex + ASCII Dump"), dpi);
+    action->setToolTip(tr("Copy packet bytes as a hex and ASCII dump."));
+    action->setProperty("printertype", DataPrinter::DP_HexDump);
+    connect(action, SIGNAL(triggered(bool)), dpi, SLOT(copyIDataBytes(bool)));
+    actions->addAction(action);
+
+    action = new QAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as Hex Dump"), dpi);
+    action->setToolTip(tr("Copy packet bytes as a hex dump."));
+    action->setProperty("printertype", DataPrinter::DP_HexOnly);
+    connect(action, SIGNAL(triggered(bool)), dpi, SLOT(copyIDataBytes(bool)));
+    actions->addAction(action);
+
+    action = new QAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as Printable Text"), dpi);
+    action->setToolTip(tr("Copy only the printable text in the packet."));
+    action->setProperty("printertype", DataPrinter::DP_PrintableText);
+    connect(action, SIGNAL(triggered(bool)), dpi, SLOT(copyIDataBytes(bool)));
+    actions->addAction(action);
+
+    action = new QAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as a Hex Stream"), dpi);
+    action->setToolTip(tr("Copy packet bytes as a stream of hex."));
+    action->setProperty("printertype", DataPrinter::DP_HexStream);
+    connect(action, SIGNAL(triggered(bool)), dpi, SLOT(copyIDataBytes(bool)));
+    actions->addAction(action);
+
+    action = new QAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as Raw Binary"), dpi);
+    action->setToolTip(tr("Copy packet bytes as application/octet-stream MIME data."));
+    action->setProperty("printertype", DataPrinter::DP_Binary);
+    connect(action, SIGNAL(triggered(bool)), dpi, SLOT(copyIDataBytes(bool)));
+    actions->addAction(action);
+
+    action = new QAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as Escaped String"), dpi);
+    action->setToolTip(tr("Copy packet bytes as an escaped string."));
+    action->setProperty("printertype", DataPrinter::DP_EscapedString);
+    connect(action, SIGNAL(triggered(bool)), dpi, SLOT(copyIDataBytes(bool)));
+    actions->addAction(action);
+
+    return actions;
+}
+
+void DataPrinter::copyIDataBytes(bool /* state */)
+{
+    if ( ! dynamic_cast<QAction*>(sender()) )
+        return;
+
+    QAction * sendingAction = dynamic_cast<QAction *>(sender());
+    if ( ! sendingAction->actionGroup() || ! sendingAction->actionGroup()->property("idataprintable").isValid() )
+        return;
+
+    QObject * dataObject = VariantPointer<QObject>::asPtr(sendingAction->actionGroup()->property("idataprintable"));
+    if ( ! dataObject || ! dynamic_cast<IDataPrintable *>(dataObject) )
+        return;
+
+    int dump_type = sendingAction->property("printertype").toInt();
+
+    if (dump_type >= 0 && dump_type <= DataPrinter::DP_Binary) {
+        DataPrinter printer;
+        printer.toClipboard((DataPrinter::DumpType) dump_type, dynamic_cast<IDataPrintable *>(dataObject));
+    }
+}
 
 /*
  * Editor modelines

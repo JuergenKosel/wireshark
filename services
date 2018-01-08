@@ -709,8 +709,8 @@ ftps-data	989/tcp/udp	# ftp protocol, data, over TLS/SSL
 ftps		990/tcp/udp	# ftp protocol, control, over TLS/SSL
 nas		991/tcp/udp	# Netnews Administration System
 telnets		992/tcp/udp	# telnet protocol over TLS/SSL
-imaps		993/tcp/udp	# imap4 protocol over TLS/SSL
-pop3s		995/tcp/udp	# pop3 protocol over TLS/SSL (was spop3)
+imaps		993/tcp/udp	# IMAP over TLS protocol
+pop3s		995/tcp/udp	# POP3 over TLS protocol
 vsinet		996/tcp/udp
 maitrd		997/tcp/udp
 busboy		998/tcp
@@ -4165,8 +4165,8 @@ htcp		4827/tcp/udp	# HTCP
 varadero-0	4837/tcp/udp	# Varadero-0
 varadero-1	4838/tcp/udp	# Varadero-1
 varadero-2	4839/tcp/udp	# Varadero-2
-opcua-tcp	4840/tcp	# OPC UA TCP Protocol
-opcua-udp	4840/udp	# OPC UA TCP Protocol
+opcua-tcp	4840/tcp	# OPC UA Connection Protocol
+opcua-udp	4840/udp	# OPC UA Multicast Datagram Protocol
 quosa		4841/tcp/udp	# QUOSA Virtual Library Service
 gw-asv		4842/tcp/udp	# nCode ICE-flow Library AppServer
 opcua-tls	4843/tcp/udp	# OPC UA TCP Protocol over TLS/SSL
@@ -4570,8 +4570,8 @@ dccm		5679/tcp/udp	# Direct Cable Connect Manager
 auriga-router	5680/tcp/udp	# Auriga Router Service
 ncxcp		5681/tcp/udp	# Net-coneX Control Protocol
 brightcore	5682/udp	# BrightCore control & data transfer exchange
-coap		5683/udp	# Constrained Application Protocol
-coaps		5684/udp	# DTLS-secured CoAP
+coap		5683/tcp/udp	# Constrained Application Protocol (CoAP)
+coaps		5684/tcp/udp	# Constrained Application Protocol (CoAP)
 gog-multiplayer	5687/udp	# GOG multiplayer game protocol
 ggz		5688/tcp/udp	# GGZ Gaming Zone
 qmvideo		5689/tcp/udp	# QM video network management protocol
@@ -5826,6 +5826,7 @@ track		20670/tcp/udp	# Track
 athand-mmp	20999/tcp/udp	# At Hand MMP
 irtrans		21000/tcp/udp	# IRTrans Control
 notezilla-lan	21010/tcp	# Notezilla.Lan Server
+trinket-agent	21212/tcp	# Distributed artificial intelligence
 aigairserver	21221/tcp	# Services for Air Server
 rdm-tfs		21553/tcp	# Raima RDM TFS
 dfserver	21554/tcp/udp	# MineScape Design File Server
@@ -5998,6 +5999,7 @@ dgi-serv	33333/tcp	# Digital Gaslight Service
 speedtrace	33334/tcp	# SpeedTrace TraceAgent
 speedtrace-disc	33334/udp	# SpeedTrace TraceAgent Discovery
 traceroute	33434/tcp/udp	# traceroute use
+mtrace		33435/udp	# IP Multicast Traceroute
 snip-slave	33656/tcp/udp	# SNIP Slave
 turbonote-2	34249/tcp/udp	# TurboNote Relay Server Default Port
 p-net-local	34378/tcp/udp	# P-Net on IP local

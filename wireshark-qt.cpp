@@ -57,9 +57,7 @@
 
 #include <codecs/codecs.h>
 
-#ifdef HAVE_EXTCAP
 #include <extcap.h>
-#endif
 
 /* general (not Qt specific) */
 #include "file.h"
@@ -80,6 +78,7 @@
 #include "ui/dissect_opts.h"
 #include "ui/commandline.h"
 #include "ui/capture_ui_utils.h"
+#include "ui/taps.h"
 
 #include "ui/qt/conversation_dialog.h"
 #include "ui/qt/utils/color_utils.h"
@@ -117,6 +116,8 @@
 #if (QT_VERSION < QT_VERSION_CHECK(5, 0, 0))
 #include <QTextCodec>
 #endif
+
+#include <ui/qt/utils/qt_ui_utils.h>
 
 #define INVALID_OPTION 1
 #define INIT_FAILED 2
@@ -253,6 +254,33 @@ get_wireshark_runtime_info(GString *str)
     g_string_append(str, ", ");
     get_runtime_airpcap_version(str);
 #endif
+}
+
+static void
+g_log_message_handler(QtMsgType type, const QMessageLogContext &, const QString &msg)
+{
+    GLogLevelFlags log_level = G_LOG_LEVEL_DEBUG;
+
+    switch (type) {
+    case QtDebugMsg:
+    default:
+        break;
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
+    case QtInfoMsg:
+        log_level = G_LOG_LEVEL_INFO;
+        break;
+#endif
+    case QtWarningMsg:
+        log_level = G_LOG_LEVEL_WARNING;
+        break;
+    case QtCriticalMsg:
+        log_level = G_LOG_LEVEL_CRITICAL;
+        break;
+    case QtFatalMsg:
+        log_level = G_LOG_FLAG_FATAL;
+        break;
+    }
+    g_log(LOG_DOMAIN_MAIN, log_level, "%s", qUtf8Printable(msg));
 }
 
 #ifdef HAVE_LIBPCAP
@@ -581,6 +609,7 @@ int main(int argc, char *qt_argv[])
 #endif
 
     set_console_log_handler();
+    qInstallMessageHandler(g_log_message_handler);
 #ifdef DEBUG_STARTUP_TIME
     g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "set_console_log_handler, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 #endif
@@ -596,22 +625,6 @@ int main(int argc, char *qt_argv[])
                         write_failure_alert_box);
 
     wtap_init();
-
-#ifdef HAVE_PLUGINS
-    /* Register all the plugin types we have. */
-    epan_register_plugin_types(); /* Types known to libwireshark */
-    codec_register_plugin_types(); /* Types known to libwscodecs */
-
-    /* Scan for plugins.  This does *not* call their registration routines;
-       that's done later. */
-    scan_plugins(REPORT_LOAD_FAILURE);
-
-    /* Register all libwiretap plugin modules. */
-    register_all_wiretap_modules();
-#endif
-
-    /* Register all audio codec plugins. */
-    register_all_codecs();
 
     splash_update(RA_DISSECTORS, NULL, NULL);
 #ifdef DEBUG_STARTUP_TIME
@@ -634,6 +647,9 @@ int main(int argc, char *qt_argv[])
     g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "epan done, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 #endif
 
+    /* Register all audio codecs. */
+    codecs_init();
+
     // Read the dynamic part of the recent file. This determines whether or
     // not the recent list appears in the main window so the earlier we can
     // call this the better.
@@ -643,6 +659,7 @@ int main(int argc, char *qt_argv[])
                       rf_path, g_strerror(rf_open_errno));
         g_free(rf_path);
     }
+    wsApp->refreshRecentCaptures();
 
     splash_update(RA_LISTENERS, NULL, NULL);
 #ifdef DEBUG_STARTUP_TIME
@@ -658,7 +675,10 @@ int main(int argc, char *qt_argv[])
     register_all_plugin_tap_listeners();
 #endif
 
-    register_all_tap_listeners();
+    /* Register all tap listeners. */
+    for (tap_reg_t *t = tap_reg_listener; t->cb_func != NULL; t++) {
+        t->cb_func();
+    }
     conversation_table_set_gui_info(init_conversation_table);
     hostlist_table_set_gui_info(init_endpoint_table);
     srt_table_iterate_tables(register_service_response_tables, NULL);
@@ -669,13 +689,11 @@ int main(int argc, char *qt_argv[])
         in_file_type = open_info_name_to_type(ex_opt_get_next("read_format"));
     }
 
-#ifdef HAVE_EXTCAP
 #ifdef DEBUG_STARTUP_TIME
     g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling extcap_register_preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 #endif
     splash_update(RA_EXTCAP, NULL, NULL);
     extcap_register_preferences();
-#endif
     splash_update(RA_PREFERENCES, NULL, NULL);
     g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling module preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 
@@ -933,9 +951,7 @@ int main(int argc, char *qt_argv[])
     recent_cleanup();
     epan_cleanup();
 
-#ifdef HAVE_EXTCAP
     extcap_cleanup();
-#endif
 
     AirPDcapDestroyContext(&airpdcap_ctx);
 
@@ -954,11 +970,9 @@ clean_exit:
     capture_opts_cleanup(&global_capture_opts);
 #endif
     col_cleanup(&CaptureFile::globalCapFile()->cinfo);
+    codecs_cleanup();
     wtap_cleanup();
     free_progdirs();
-#ifdef HAVE_PLUGINS
-    plugins_cleanup();
-#endif
     return ret_val;
 }
 

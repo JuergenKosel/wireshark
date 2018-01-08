@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = docsis
 
+PLUGIN_VERSION = 0.0.5
+
 BUILT_SOURCES = \
 	plugin.c
 
@@ -46,10 +48,9 @@ HEADER_FILES = \
 	$(FLEX_GENERATED_HEADER_FILES) \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = docsis.la
+epan_plugin_LTLIBRARIES = docsis.la
 
 docsis_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -62,14 +63,9 @@ docsis_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 docsis_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	docsis \
-	*~
-
 DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	README			\
 	CMakeLists.txt

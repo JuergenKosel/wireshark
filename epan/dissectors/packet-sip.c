@@ -9,26 +9,14 @@
  * Copyright 2001, Jean-Francois Mule <jfm@cablelabs.com>
  * Copyright 2004, Anders Broman <anders.broman@ericsson.com>
  * Copyright 2011, Anders Broman <anders.broman@ericsson.com>, Johan Wahl <johan.wahl@ericsson.com>
+ * Copyright 2018, Anders Broman <anders.broman@ericsson.com>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * Copied from packet-cops.c
+ * SPDX-License-Identifier: GPL-2.0+
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #include "config.h"
@@ -196,9 +184,11 @@ static gint hf_sip_via_ttl                = -1;
 static gint hf_sip_via_comp               = -1;
 static gint hf_sip_via_sigcomp_id         = -1;
 static gint hf_sip_via_oc                 = -1;
+static gint hf_sip_via_oc_val             = -1;
 static gint hf_sip_via_oc_algo            = -1;
 static gint hf_sip_via_oc_validity        = -1;
 static gint hf_sip_via_oc_seq             = -1;
+static gint hf_sip_oc_seq_timestamp       = -1;
 
 static gint hf_sip_rack_rseq_no           = -1;
 static gint hf_sip_rack_cseq_no           = -1;
@@ -2753,15 +2743,42 @@ static void dissect_sip_via_header(tvbuff_t *tvb, proto_tree *tree, gint start_o
                     if (equals_found)
                     {
                         proto_tree_add_item(tree, *(via_parameter->hf_item), tvb,
-                                            parameter_name_end+1, current_offset-parameter_name_end-1,
-                                            ENC_UTF_8|ENC_NA);
+                            parameter_name_end + 1, current_offset - parameter_name_end - 1,
+                            ENC_UTF_8 | ENC_NA);
 
-                        if (sip_via_branch_handle && g_ascii_strcasecmp (param_name, "branch") == 0)
+                        if (sip_via_branch_handle && g_ascii_strcasecmp(param_name, "branch") == 0)
                         {
                             tvbuff_t *next_tvb;
                             next_tvb = tvb_new_subset_length_caplen(tvb, parameter_name_end + 1, current_offset - parameter_name_end - 1, current_offset - parameter_name_end - 1);
 
-                            call_dissector (sip_via_branch_handle, next_tvb, pinfo, tree);
+                            call_dissector(sip_via_branch_handle, next_tvb, pinfo, tree);
+                        }
+                        else if (g_ascii_strcasecmp(param_name, "oc") == 0) {
+                            proto_item *ti;
+                            char *value = tvb_get_string_enc(wmem_packet_scope(), tvb, parameter_name_end + 1,
+                                current_offset - parameter_name_end - 1, ENC_UTF_8 | ENC_NA);
+                            ti = proto_tree_add_uint(tree, hf_sip_via_oc_val, tvb,
+                                parameter_name_end + 1, current_offset - parameter_name_end - 1,
+                                (guint32)strtoul(value, NULL, 10));
+                            PROTO_ITEM_SET_GENERATED(ti);
+                        }
+                        else if (g_ascii_strcasecmp(param_name, "oc-seq") == 0) {
+                            proto_item *ti;
+                            nstime_t ts;
+                            int dec_p_off = tvb_find_guint8(tvb, parameter_name_end + 1, - 1, '.');
+                            char *value;
+
+                            if(dec_p_off > 0){
+                                value = tvb_get_string_enc(wmem_packet_scope(), tvb,
+                                    parameter_name_end + 1, dec_p_off - parameter_name_end, ENC_UTF_8 | ENC_NA);
+                                ts.secs = (guint32)strtoul(value, NULL, 10);
+                                value = tvb_get_string_enc(wmem_packet_scope(), tvb,
+                                    dec_p_off + 1, current_offset - parameter_name_end - 1, ENC_UTF_8 | ENC_NA);
+                                ts.nsecs = (guint32)strtoul(value, NULL, 10) * 1000;
+                                ti = proto_tree_add_time(tree, hf_sip_oc_seq_timestamp, tvb,
+                                    parameter_name_end + 1, current_offset - parameter_name_end - 1, &ts);
+                                PROTO_ITEM_SET_GENERATED(ti);
+                            }
                         }
                     }
                     else
@@ -4636,7 +4653,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
 static void
 dfilter_sip_request_line(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gint offset, guint meth_len, gint linelen)
 {
-    char    *value;
+    const guint8    *value;
     guint   parameter_len = meth_len;
     uri_offset_info uri_offsets;
 
@@ -4649,14 +4666,13 @@ dfilter_sip_request_line(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gi
      */
 
     /* get method string*/
-    value = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, parameter_len, ENC_UTF_8|ENC_NA);
+    proto_tree_add_item_ret_string(tree, hf_sip_Method, tvb, offset, parameter_len, ENC_ASCII | ENC_NA,
+        wmem_packet_scope(), &value);
 
     /* Copy request method for telling tap */
     stat_info->request_method = value;
 
     if (tree) {
-        proto_tree_add_string(tree, hf_sip_Method, tvb, offset, parameter_len, value);
-
         /* build Request-URI tree*/
         offset=offset + parameter_len+1;
         sip_uri_offset_init(&uri_offsets);
@@ -5528,9 +5544,11 @@ static void sip_stat_init(stat_tap_table_ui* new_stat, new_stat_tap_gui_init_cb 
     stat_tap_table_item_type items[sizeof(sip_stat_fields)/sizeof(stat_tap_table_item)];
     guint i;
 
-    new_stat_tap_add_table(new_stat, req_table);
     new_stat_tap_add_table(new_stat, resp_table);
+    new_stat_tap_add_table(new_stat, req_table);
 
+
+    // These values are fixed for all entries.
     items[REQ_RESP_METHOD_COLUMN].type = TABLE_ITEM_STRING;
     items[COUNT_COLUMN].type = TABLE_ITEM_UINT;
     items[COUNT_COLUMN].value.uint_value = 0;
@@ -5543,17 +5561,19 @@ static void sip_stat_init(stat_tap_table_ui* new_stat, new_stat_tap_gui_init_cb 
     items[MAX_SETUP_COLUMN].type = TABLE_ITEM_FLOAT;
     items[MAX_SETUP_COLUMN].value.float_value = 0.0f;
 
-    for (i = 0; i < array_length(sip_methods); i++) {
+    // For req_table, first column value is method.
+    for (i = 1; i < array_length(sip_methods); i++) {
         items[REQ_RESP_METHOD_COLUMN].value.string_value = g_strdup(sip_methods[i]);
-        new_stat_tap_init_table_row(req_table, i, num_fields, items);
+        new_stat_tap_init_table_row(req_table, i-1, num_fields, items);
     }
 
-    for (i = 0; response_code_vals[i].strptr; i++) {
+    // For responses entries, first column gets code and description.
+    for (i = 1; response_code_vals[i].strptr; i++) {
         unsigned response_code = response_code_vals[i].value;
         items[REQ_RESP_METHOD_COLUMN].value.string_value =
                 g_strdup_printf("%u %s", response_code, response_code_vals[i].strptr);
         items[REQ_RESP_METHOD_COLUMN].user_data.uint_value = response_code;
-        new_stat_tap_init_table_row(resp_table, i, num_fields, items);
+        new_stat_tap_init_table_row(resp_table, i-1, num_fields, items);
     }
 }
 
@@ -5567,7 +5587,7 @@ sip_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, 
 
     if (info_value->request_method && info_value->response_code < 1) {
         /* Request table */
-        stat_tap_table *req_table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, 0);
+        stat_tap_table *req_table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, 1);
         stat_tap_table_item_type *item_data;
         guint element;
 
@@ -5582,7 +5602,7 @@ sip_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, 
 
     } else if (info_value->response_code > 0) {
         /* Response table */
-        stat_tap_table *resp_table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, 1);
+        stat_tap_table *resp_table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, 0);
         guint response_code = info_value->response_code;
         stat_tap_table_item_type *item_data;
         guint element;
@@ -6644,7 +6664,7 @@ void proto_register_sip(void)
         },
         { &hf_sip_original_frame,
           { "Suspected resend of frame",  "sip.resend-original",
-            FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+            FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_RETRANS_PREV), 0x0,
             "Original transmission of frame", HFILL}
         },
         { &hf_sip_matching_request_frame,
@@ -6822,6 +6842,11 @@ void proto_register_sip(void)
             FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_sip_via_oc_val,
+        { "Overload Control Value",  "sip.Via.oc_val",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_sip_via_oc_validity,
         { "Overload Control Validity",  "sip.Via.oc_validity",
             FT_STRING, BASE_NONE, NULL, 0x0,
@@ -6830,6 +6855,12 @@ void proto_register_sip(void)
         { &hf_sip_via_oc_seq,
         { "Overload Control Sequence",  "sip.Via.oc_seq",
             FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_sip_oc_seq_timestamp,
+        { "Overload Control Sequence Time Stamp",
+            "sip.Via.oc_seq.ts",
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_sip_via_oc_algo,

@@ -50,7 +50,7 @@ if(WIN32)
 	# Needed for GREATER_EQUAL operator
 	cmake_minimum_required(VERSION 3.7)
 else()
-	cmake_minimum_required(VERSION 2.8.11)
+	cmake_minimum_required(VERSION 2.8.12)
 endif()
 
 #Where to find local cmake scripts
@@ -212,8 +212,8 @@ set(RC_VERSION ${PROJECT_MAJOR_VERSION},${PROJECT_MINOR_VERSION},${PROJECT_PATCH
 message(STATUS "V: ${PROJECT_VERSION}, MaV: ${PROJECT_MAJOR_VERSION}, MiV: ${PROJECT_MINOR_VERSION}, PL: ${PROJECT_PATCH_VERSION}, EV: ${PROJECT_VERSION_EXTENSION}.")
 
 include(UseLemon)
-include(UseMakeDissectorReg)
-include(UseMakeTapReg)
+include(UseMakePluginReg)
+include(UseMakeTaps)
 include(UseAsn2Wrs)
 
 # The following snippet has been taken from
@@ -257,8 +257,6 @@ endif()
 include_directories(
 	${CMAKE_BINARY_DIR}
 	${CMAKE_SOURCE_DIR}
-	${CMAKE_SOURCE_DIR}/epan
-	${CMAKE_SOURCE_DIR}/tools/lemon
 )
 
 include( CMakeOptions.txt )
@@ -466,15 +464,14 @@ else()
 		-Wno-overlength-strings
 		-Wno-long-long
 		-Wheader-guard
-		-Wcomma
 	)
 
 	#
 	# Code that may be worth looking into (coding practices)
 	#
-	if((NOT ENABLE_ASAN) AND (NOT ENABLE_UBSAN) AND (NOT DISABLE_FRAME_LARGER_THAN_WARNING))
+	if((NOT ENABLE_ASAN) AND (NOT ENABLE_TSAN) AND (NOT ENABLE_UBSAN) AND (NOT DISABLE_FRAME_LARGER_THAN_WARNING))
 		#
-		# Only do this if neither ASan nor UBSan are
+		# Only do this if none of ASan, TSan, and UBSan are
 		# enabled; the instrumentation they add increases
 		# the stack usage - we only care about stack
 		# usage in normal operation.
@@ -519,6 +516,11 @@ else()
 		# -Wimplicit-function-declaration into an error by default.
 		#
 		-Werror=implicit
+		#
+		# The Qt headers in version 5.10 introduced a lot of
+		# "Possible misuse of comma operator here" warnings.
+		#
+		-Wcomma
 	)
 
 	set(CXX_WARN_FLAGS
@@ -530,6 +532,13 @@ else()
 		# errors on 64-bit systems so only enable this for version 5.9 and greater.
 		set(CXX_WARN_FLAGS ${CXX_WARN_FLAGS}
 			-Wshorten-64-to-32
+		)
+	endif()
+	if (Qt5Core_VERSION VERSION_LESS 5.10)
+		# The Qt headers in version 5.10 introduced a lot of
+		# "Possible misuse of comma operator here" warnings.
+		set(CXX_WARN_FLAGS ${CXX_WARN_FLAGS}
+			-Wcomma
 		)
 	endif()
 
@@ -638,12 +647,8 @@ include(CheckCXXCompilerFlag)
 
 if(ENABLE_STATIC)
 	set(BUILD_SHARED_LIBS 0)
-	set(LINK_MODE_LIB STATIC)
-	set(LINK_MODE_MODULE STATIC)
 else()
 	set(BUILD_SHARED_LIBS 1)
-	set(LINK_MODE_LIB SHARED)
-	set(LINK_MODE_MODULE MODULE)
 endif()
 
 # Sigh: Have to use THIS_FLAG instead of ${F} for some reason
@@ -716,7 +721,23 @@ if(ENABLE_ASAN)
 	endif()
 endif()
 
+if(ENABLE_TSAN)
+	# Available since Clang >= 3.2 and GCC >= 4.8
+	cmake_push_check_state()
+	set(CMAKE_REQUIRED_LIBRARIES "-fsanitize=thread")
+	check_c_compiler_flag(-fsanitize=thread C__fsanitize_thread_VALID)
+	check_cxx_compiler_flag(-fsanitize=thread CXX__fsanitize_thread_VALID)
+	cmake_pop_check_state()
+	if(NOT C__fsanitize_thread_VALID OR NOT CXX__fsanitize_thread_VALID)
+		message(FATAL_ERROR "ENABLE_TSAN was requested, but not supported!")
+	endif()
+	set(CMAKE_C_FLAGS "-fsanitize=thread ${CMAKE_C_FLAGS}")
+	set(CMAKE_CXX_FLAGS "-fsanitize=thread ${CMAKE_CXX_FLAGS}")
+	set(WS_LINK_FLAGS "-fsanitize=thread ${WS_LINK_FLAGS}")
+endif()
+
 if(ENABLE_UBSAN)
+	# Available since Clang >= 3.3 and GCC >= 4.9
 	cmake_push_check_state()
 	set(CMAKE_REQUIRED_LIBRARIES "-fsanitize=undefined")
 	check_c_compiler_flag(-fsanitize=undefined C__fsanitize_undefined_VALID)
@@ -826,7 +847,7 @@ endif()
 # - set HAVE_XXX
 
 # The minimum package list
-set(PACKAGELIST Gettext M Git GLIB2 GMODULE2 GTHREAD2 GCRYPT LEX YACC Perl SH PythonInterp)
+set(PACKAGELIST Git GLIB2 GMODULE2 GTHREAD2 GCRYPT LEX YACC Perl SH PythonInterp)
 set(LEX_OPTIONS REQUIRED)
 set(GLIB2_OPTIONS REQUIRED)
 set(GLIB2_FIND_OPTIONS REQUIRED)
@@ -838,6 +859,7 @@ set(Python_ADDITIONAL_VERSIONS 3)
 set(YACC_OPTIONS REQUIRED)
 
 if (NOT WIN32)
+	set(PACKAGELIST ${PACKAGELIST} Gettext M)
 	set(M_OPTIONS REQUIRED)
 endif()
 
@@ -881,11 +903,19 @@ if(BUILD_wireshark)
 			Qt5Svg
 			Qt5Widgets
 		)
+		set(Qt5Core_OPTIONS REQUIRED)
+		set(Qt5LinguistTools_OPTIONS REQUIRED)
+		set(Qt5Multimedia_OPTIONS REQUIRED)
+		set(Qt5PrintSupport_OPTIONS REQUIRED)
+		set(Qt5Svg_OPTIONS REQUIRED)
+		set(Qt5Widgets_OPTIONS REQUIRED)
 		if (APPLE)
 			set(PACKAGELIST ${PACKAGELIST} Qt5MacExtras)
+			set(Qt5MacExtras_OPTIONS REQUIRED)
 		endif()
 		if( WIN32 )
 			set(PACKAGELIST ${PACKAGELIST} Qt5WinExtras)
+			set(Qt5WinExtras_OPTIONS REQUIRED)
 		endif()
 		set(QT_VERSION 5)
 	else()
@@ -1299,18 +1329,15 @@ if(BUILD_wireshark AND QT_FOUND)
 	add_subdirectory( ui/qt )
 endif()
 
-if(ENABLE_EXTCAP)
-	# Target platform locations
-	# UN*X in general, including macOS if not building an app bundle:
-	# $DESTDIR/lib/wireshark/extcap
-	# Windows: $DESTDIR/extcap
-	# macOS app bundle: Wireshark.app/Contents/Resources/share/wireshark/extcap
-	set(HAVE_EXTCAP 1)
-	if (WIN32)
-		set(EXTCAP_DIR "extcap")
-	else ()
-		set(EXTCAP_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/${CPACK_PACKAGE_NAME}/extcap")
-	endif()
+# Target platform locations
+# UN*X in general, including macOS if not building an app bundle:
+# $DESTDIR/lib/wireshark/extcap
+# Windows: $DESTDIR/extcap
+# macOS app bundle: Wireshark.app/Contents/Resources/share/wireshark/extcap
+if (WIN32)
+	set(EXTCAP_DIR "extcap")
+else ()
+	set(EXTCAP_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/${CPACK_PACKAGE_NAME}/extcap")
 endif()
 
 if(LIBSSH_FOUND)
@@ -1543,54 +1570,48 @@ endif()
 # sources common for wireshark, tshark, rawshark and sharkd
 set(SHARK_COMMON_SRC
 	cfile.c
+	file_packet_provider.c
 	frame_tvbuff.c
 	sync_pipe_write.c
 	version_info.c
+	extcap.c
+	extcap_parser.c
+	extcap_spawn.c
 )
 
-# sources for external capture interfaces
-if(ENABLE_EXTCAP)
-	set(SHARK_COMMON_SRC
-		${SHARK_COMMON_SRC}
-		extcap.c
-		extcap_parser.c
-		extcap_spawn.c
-	)
-endif()
-
 set(TSHARK_TAP_SRC
-	ui/cli/tap-camelsrt.c
-	ui/cli/tap-comparestat.c
-	ui/cli/tap-diameter-avp.c
-	ui/cli/tap-expert.c
-	ui/cli/tap-exportobject.c
-	ui/cli/tap-endpoints.c
-	ui/cli/tap-flow.c
-	ui/cli/tap-follow.c
-	ui/cli/tap-funnel.c
-	ui/cli/tap-gsm_astat.c
-	ui/cli/tap-hosts.c
-	ui/cli/tap-httpstat.c
-	ui/cli/tap-icmpstat.c
-	ui/cli/tap-icmpv6stat.c
-	ui/cli/tap-iostat.c
-	ui/cli/tap-iousers.c
-	ui/cli/tap-macltestat.c
-	ui/cli/tap-protocolinfo.c
-	ui/cli/tap-protohierstat.c
-	ui/cli/tap-rlcltestat.c
-	ui/cli/tap-rpcprogs.c
-	ui/cli/tap-rtd.c
-	ui/cli/tap-rtp.c
-	ui/cli/tap-rtspstat.c
-	ui/cli/tap-sctpchunkstat.c
-	ui/cli/tap-simple_stattable.c
-	ui/cli/tap-sipstat.c
-	ui/cli/tap-smbsids.c
-	ui/cli/tap-srt.c
-	ui/cli/tap-stats_tree.c
-	ui/cli/tap-sv.c
-	ui/cli/tap-wspstat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-camelsrt.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-comparestat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-diameter-avp.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-expert.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-exportobject.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-endpoints.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-flow.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-follow.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-funnel.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-gsm_astat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-hosts.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-httpstat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-icmpstat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-icmpv6stat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-iostat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-iousers.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-macltestat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-protocolinfo.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-protohierstat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-rlcltestat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-rpcprogs.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-rtd.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-rtp.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-rtspstat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-sctpchunkstat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-simple_stattable.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-sipstat.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-smbsids.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-srt.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-stats_tree.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-sv.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-wspstat.c
 )
 
 set(INSTALL_DIRS
@@ -1660,7 +1681,6 @@ endif()
 
 set(LIBEPAN_LIBS
 		epan
-#		$(plugin_ldadd)	# in case of static
 		${AIRPCAP_LIBRARIES}
 		${PCAP_LIBRARIES}
 		${CARES_LIBRARIES}
@@ -1946,14 +1966,12 @@ foreach(_install_file ${INSTALL_FILES})
 	list(APPEND copy_data_files_depends "${_output_file}")
 endforeach()
 
-if(ENABLE_EXTCAP)
-	# Ensure "run/extcap" exists
-	add_custom_command(OUTPUT "${DATAFILE_DIR}/extcap"
-		COMMAND ${CMAKE_COMMAND} -E make_directory
-			"${DATAFILE_DIR}/extcap"
-	)
-	list(APPEND copy_data_files_depends "${DATAFILE_DIR}/extcap")
-endif()
+# Ensure "run/extcap" exists
+add_custom_command(OUTPUT "${DATAFILE_DIR}/extcap"
+	COMMAND ${CMAKE_COMMAND} -E make_directory
+		"${DATAFILE_DIR}/extcap"
+)
+list(APPEND copy_data_files_depends "${DATAFILE_DIR}/extcap")
 
 # faq.txt is handled separately below.
 set(_help_source_files
@@ -2419,7 +2437,6 @@ if(BUILD_wireshark_gtk AND GTK_FOUND)
 endif()
 
 register_tap_files(tshark-tap-register.c
-	tshark-taps
 	${TSHARK_TAP_SRC}
 )
 
@@ -2543,6 +2560,22 @@ if(BUILD_randpkt)
 	set_extra_executable_properties(randpkt "Executables")
 	target_link_libraries(randpkt ${randpkt_LIBS})
 	install(TARGETS randpkt RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
+if(BUILD_fuzzshark)
+	set(fuzzshark_LIBS
+		${LIBEPAN_LIBS}
+	)
+	set(fuzzshark_FILES
+		tools/oss-fuzzshark/fuzzshark.c
+		tools/oss-fuzzshark/StandaloneFuzzTargetMain.c
+		version_info.c
+	)
+	add_executable(fuzzshark ${fuzzshark_FILES})
+	add_dependencies(fuzzshark version)
+	set_extra_executable_properties(fuzzshark "Executables")
+	target_link_libraries(fuzzshark ${fuzzshark_LIBS})
+	install(TARGETS fuzzshark RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 if(BUILD_text2pcap)
@@ -2770,7 +2803,7 @@ endif()
 
 add_custom_target(extcaps)
 
-if(ENABLE_EXTCAP AND BUILD_androiddump)
+if(BUILD_androiddump)
 	if(EXTCAP_ANDROIDDUMP_LIBPCAP)
 		if(HAVE_LIBPCAP)
 			set(androiddump_LIBS
@@ -2803,7 +2836,7 @@ if(ENABLE_EXTCAP AND BUILD_androiddump)
 	add_dependencies(extcaps androiddump)
 endif()
 
-if(ENABLE_EXTCAP AND BUILD_sshdump AND LIBSSH_FOUND)
+if(BUILD_sshdump AND LIBSSH_FOUND)
 	set(sshdump_LIBS
 		wsutil
 		${GLIB2_LIBRARIES}
@@ -2826,7 +2859,7 @@ elseif (BUILD_sshdump)
 	#message( WARNING "Cannot find libssh, cannot build sshdump" )
 endif()
 
-if(ENABLE_EXTCAP AND BUILD_ciscodump AND LIBSSH_FOUND)
+if(BUILD_ciscodump AND LIBSSH_FOUND)
 	set(ciscodump_LIBS
 		writecap
 		wsutil
@@ -2850,7 +2883,7 @@ elseif (BUILD_ciscodump)
 	#message( WARNING "Cannot find libssh, cannot build ciscodump" )
 endif()
 
-if(ENABLE_EXTCAP AND BUILD_udpdump)
+if(BUILD_udpdump)
 	set(udpdump_LIBS
 		${GLIB2_LIBRARIES}
 		${CMAKE_DL_LIBS}
@@ -2869,7 +2902,7 @@ if(ENABLE_EXTCAP AND BUILD_udpdump)
 	add_dependencies(extcaps udpdump)
 endif()
 
-if(ENABLE_EXTCAP AND BUILD_randpktdump)
+if(BUILD_randpktdump)
 	set(randpktdump_LIBS
 		randpkt_core
 		ui
@@ -2995,7 +3028,6 @@ set(SHARK_PUBLIC_HEADERS
 	file.h
 	globals.h
 	log.h
-	register.h
 	ws_attributes.h
 	ws_compiler_tests.h
 	ws_diag_control.h
@@ -3072,7 +3104,7 @@ install(
 		${CMAKE_MODULE_PATH}/FindWSWinLibs.cmake
 		${CMAKE_MODULE_PATH}/UseAsn2Wrs.cmake
 		${CMAKE_MODULE_PATH}/LocatePythonModule.cmake
-		${CMAKE_MODULE_PATH}/UseMakeDissectorReg.cmake
+		${CMAKE_MODULE_PATH}/UseMakePluginReg.cmake
 		${CMAKE_BINARY_DIR}/WiresharkConfig.cmake
 		${CMAKE_BINARY_DIR}/WiresharkConfigVersion.cmake
 	DESTINATION

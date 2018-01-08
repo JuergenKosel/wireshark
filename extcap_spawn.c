@@ -18,6 +18,7 @@
 
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
+#include <wsutil/ws_pipe.h>
 #ifdef _WIN32
 #include <wsutil/win32-utils.h>
 #endif
@@ -26,35 +27,6 @@
 
 #include "extcap.h"
 #include "extcap_spawn.h"
-
-#ifdef _WIN32
-
-void win32_readfrompipe(HANDLE read_pipe, gint32 max_buffer, gchar *buffer)
-{
-    gboolean bSuccess = FALSE;
-    gint32 bytes_written = 0;
-    gint32 max_bytes = 0;
-
-    DWORD dwRead;
-    DWORD bytes_avail = 0;
-
-    for (;;)
-    {
-        if (!PeekNamedPipe(read_pipe, NULL, 0, NULL, &bytes_avail, NULL)) break;
-        if (bytes_avail <= 0) break;
-
-        max_bytes = max_buffer - bytes_written - 1;
-
-        bSuccess = ReadFile(read_pipe, &buffer[bytes_written], max_bytes, &dwRead, NULL);
-        if (!bSuccess || dwRead == 0) break;
-
-        bytes_written += dwRead;
-        if ((bytes_written + 1) >= max_buffer) break;
-    }
-
-    buffer[bytes_written] = '\0';
-}
-#endif
 
 gboolean extcap_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **args, gchar **command_output)
 {
@@ -65,8 +37,7 @@ gboolean extcap_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **ar
     gchar *local_output = NULL;
 #ifdef _WIN32
 
-#define BUFFER_SIZE 4096
-    gchar buffer[BUFFER_SIZE];
+#define BUFFER_SIZE 16384
 
     GString *winargs = g_string_sized_new(200);
     gchar *quoted_arg;
@@ -147,9 +118,16 @@ gboolean extcap_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **ar
 
     if (CreateProcess(NULL, wcommandline, NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &info, &processInfo))
     {
+        gchar* buffer;
+
         WaitForSingleObject(processInfo.hProcess, INFINITE);
-        win32_readfrompipe(child_stdout_rd, BUFFER_SIZE, buffer);
-        local_output = g_strdup_printf("%s", buffer);
+        buffer = (gchar*)g_malloc(BUFFER_SIZE);
+        status = ws_read_string_from_pipe(child_stdout_rd, buffer, BUFFER_SIZE);
+        if (status)
+        {
+            local_output = g_strdup_printf("%s", buffer);
+        }
+        g_free(buffer);
 
         CloseHandle(child_stdout_rd);
         CloseHandle(child_stdout_wr);
@@ -158,7 +136,6 @@ gboolean extcap_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **ar
 
         CloseHandle(processInfo.hProcess);
         CloseHandle(processInfo.hThread);
-        status = TRUE;
     }
     else
         status = FALSE;

@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = wimaxmacphy
 
+PLUGIN_VERSION = 0.0.1
+
 BUILT_SOURCES = \
 	plugin.c
 
@@ -42,10 +44,9 @@ CLEAN_HEADER_FILES = \
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = wimaxmacphy.la
+epan_plugin_LTLIBRARIES = wimaxmacphy.la
 
 wimaxmacphy_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -58,13 +59,8 @@ wimaxmacphy_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 wimaxmacphy_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	wimaxmacphy \
-	*~
-
 DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	CMakeLists.txt

@@ -24,6 +24,8 @@ include ../Makefile.am.inc
 # the name of the plugin
 PLUGIN_NAME = unistim
 
+PLUGIN_VERSION = 0.0.2
+
 BUILT_SOURCES = \
 	plugin.c
 
@@ -51,10 +53,9 @@ CLEAN_HEADER_FILES = \
 HEADER_FILES = \
 	$(CLEAN_HEADER_FILES)
 
-plugin_LTLIBRARIES = unistim.la
+epan_plugin_LTLIBRARIES = unistim.la
 
 unistim_la_SOURCES = \
-	moduleinfo.h \
 	$(SRC_FILES)	\
 	$(HEADER_FILES)
 
@@ -67,13 +68,8 @@ unistim_la_CFLAGS = $(AM_CFLAGS) $(PLUGIN_CFLAGS)
 
 unistim_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 
-CLEANFILES = \
-	unistim \
-	*~
-
 DISTCLEANFILES = \
 	plugin.c
 
 EXTRA_DIST = \
-	plugin.rc.in		\
 	CMakeLists.txt

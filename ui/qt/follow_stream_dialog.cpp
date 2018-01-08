@@ -83,7 +83,8 @@ FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, follow_
     last_from_server_(0),
     turns_(0),
     save_as_(false),
-    use_regex_find_(false)
+    use_regex_find_(false),
+    terminating_(false)
 {
     ui->setupUi(this);
     loadGeometry(parent.width() * 2 / 3, parent.height());
@@ -144,7 +145,8 @@ FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, follow_
             this, SLOT(fillHintLabel(int)));
     connect(ui->teStreamContent, SIGNAL(mouseClickedOnTextCursorPosition(int)),
             this, SLOT(goToPacketForTextPos(int)));
-    connect(&cap_file_, SIGNAL(captureFileClosing()), this, SLOT(captureFileClosing()));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
+            this, SLOT(captureEvent(CaptureEvent *)));
 
     fillHintLabel(-1);
 }
@@ -241,9 +243,9 @@ void FollowStreamDialog::useRegexFind(bool use_regex)
 {
     use_regex_find_ = use_regex;
     if (use_regex_find_)
-        ui->lFind->setText("Regex Find:");
+        ui->lFind->setText(tr("Regex Find:"));
     else
-        ui->lFind->setText("Find:");
+        ui->lFind->setText(tr("Find:"));
 }
 
 void FollowStreamDialog::findText(bool go_back)
@@ -304,6 +306,9 @@ void FollowStreamDialog::helpButton()
 
 void FollowStreamDialog::backButton()
 {
+    if (terminating_)
+        return;
+
     output_filter_ = previous_filter_;
 
     close();
@@ -311,6 +316,9 @@ void FollowStreamDialog::backButton()
 
 void FollowStreamDialog::filterOut()
 {
+    if (terminating_)
+        return;
+
     output_filter_ = filter_out_filter_;
 
     close();
@@ -318,6 +326,8 @@ void FollowStreamDialog::filterOut()
 
 void FollowStreamDialog::close()
 {
+    terminating_ = true;
+
     // Update filter - Use:
     //     previous_filter if 'Close' (passed in follow() method)
     //     filter_out_filter_ if 'Filter Out This Stream' (built by appending !current_stream to previous_filter)
@@ -373,9 +383,12 @@ void FollowStreamDialog::on_streamNumberSpinBox_valueChanged(int stream_num)
     }
 }
 
-// Not sure why we have to do this manually.
 void FollowStreamDialog::on_buttonBox_rejected()
 {
+    // Ignore the close button if FollowStreamDialog::close() is running.
+    if (terminating_)
+        return;
+
     WiresharkDialog::reject();
 }
 
@@ -530,7 +543,7 @@ void FollowStreamDialog::addText(QString text, gboolean is_from_server, guint32 
         tcf = ui->teStreamContent->currentCharFormat();
         tcf.setBackground(palette().window().color());
         tcf.setForeground(palette().windowText().color());
-        ui->teStreamContent->insertPlainText(tr("\n[Stream output truncated]"));
+        ui->teStreamContent->insertPlainText("\n" + tr("[Stream output truncated]"));
         ui->teStreamContent->moveCursor(QTextCursor::End);
     } else {
         ui->teStreamContent->verticalScrollBar()->setValue(cur_pos);
@@ -931,7 +944,7 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     wmem_free(NULL, port0);
     wmem_free(NULL, port1);
 
-    both_directions_string = QString("Entire conversation (%1)")
+    both_directions_string = tr("Entire conversation (%1)")
             .arg(gchar_free_to_qstring(format_size(
                                             follow_info_.bytes_written[0] + follow_info_.bytes_written[1],
                     format_size_unit_bytes|format_size_prefix_si)));
@@ -958,12 +971,15 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     return true;
 }
 
-void FollowStreamDialog::captureFileClosing()
+void FollowStreamDialog::captureEvent(CaptureEvent *e)
 {
-    QString tooltip = tr("File closed.");
-    ui->streamNumberSpinBox->setToolTip(tooltip);
-    ui->streamNumberLabel->setToolTip(tooltip);
-    WiresharkDialog::captureFileClosing();
+    if ((e->captureContext() == CaptureEvent::File) &&
+            (e->eventType() == CaptureEvent::Closing)) {
+            QString tooltip = tr("File closed.");
+            ui->streamNumberSpinBox->setToolTip(tooltip);
+            ui->streamNumberLabel->setToolTip(tooltip);
+            WiresharkDialog::captureFileClosing();
+    }
 }
 
 /*

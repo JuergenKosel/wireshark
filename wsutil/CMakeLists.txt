@@ -78,6 +78,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	ws_cpuid.h
 	ws_mempbrk.h
 	ws_mempbrk_int.h
+	ws_pipe.h
 	ws_printf.h
 	wsjsmn.h
 	xtea.h
@@ -127,6 +128,7 @@ set(WSUTIL_COMMON_FILES
 	type_util.c
 	unicode-utils.c
 	ws_mempbrk.c
+	ws_pipe.c
 	wsgcrypt.c
 	wsjsmn.c
 	xtea.c
@@ -260,7 +262,7 @@ if (HAVE_SSE4_2)
 	)
 endif()
 
-add_library(wsutil ${LINK_MODE_LIB}
+add_library(wsutil
 	${WSUTIL_FILES}
 	${CMAKE_BINARY_DIR}/image/libwsutil.rc
 )
@@ -295,13 +297,11 @@ add_custom_command(OUTPUT libwsutil.abi.tar.gz
 
 target_link_libraries(wsutil ${wsutil_LIBS})
 
-if(NOT ${ENABLE_STATIC})
-	install(TARGETS wsutil
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	)
-endif()
+install(TARGETS wsutil
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 
 if(NOT WIN32)
 	install(FILES ${WSUTIL_PUBLIC_HEADERS}

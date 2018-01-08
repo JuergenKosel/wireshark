@@ -26,7 +26,6 @@
 
 class QListWidget;
 class QListWidgetItem;
-class QTreeWidgetItem;
 class QMenu;
 
 #include "splash_overlay.h"
@@ -77,9 +76,7 @@ signals:
     void pushFilterSyntaxStatus(const QString&);
     void popFilterSyntaxStatus();
     void captureFilterSyntaxChanged(bool valid);
-#ifdef HAVE_EXTCAP
     void showExtcapOptions(QString &device_name);
-#endif
     void interfacesChanged();
 
 public slots:
@@ -96,9 +93,7 @@ private slots:
     void copyRecentPath();
     void removeRecentPath();
 
-#ifdef HAVE_EXTCAP
     void on_interfaceFrame_showExtcapOptions(QString device_name);
-#endif
     void on_interfaceFrame_startCapture();
 };
 

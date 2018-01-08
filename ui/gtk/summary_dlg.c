@@ -26,8 +26,6 @@
 
 #include <gtk/gtk.h>
 
-
-
 #include <version_info.h>
 
 #include "../../file.h"
@@ -44,6 +42,8 @@
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/help_dlg.h"
 #include "ui/gtk/packet_list.h"
+
+#include "globals.h"
 
 #define SUM_STR_MAX      1024
 #define FILTER_SNIP_LEN    50
@@ -274,7 +274,7 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
     add_string_to_grid(grid, &row, "Packet size limit:", string_buff);
   }
 
-  shb_inf = wtap_file_get_shb(cfile.wth);
+  shb_inf = wtap_file_get_shb(cfile.provider.wth);
 
   /* Capture file comment area */
   if (wtap_dump_can_write(cfile.linktypes, WTAP_COMMENT_PER_SECTION)) {
@@ -761,7 +761,7 @@ summary_to_texbuff(GtkTextBuffer *buffer)
   g_snprintf(string_buff, SUM_STR_MAX, "Capture:\n");
   gtk_text_buffer_insert_at_cursor (buffer, string_buff, -1);
 
-  shb_inf = wtap_file_get_shb(cfile.wth);
+  shb_inf = wtap_file_get_shb(cfile.provider.wth);
   if (shb_inf != NULL) {
     char *str;
 
@@ -896,7 +896,7 @@ summary_to_texbuff(GtkTextBuffer *buffer)
   gtk_text_buffer_insert_at_cursor (buffer, string_buff, -1);
 
   /* Trace file comments from SHB */
-  shb_inf = wtap_file_get_shb(cfile.wth);
+  shb_inf = wtap_file_get_shb(cfile.provider.wth);
   if (shb_inf != NULL) {
     char *opt_comment;
 

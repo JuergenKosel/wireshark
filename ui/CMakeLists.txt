@@ -96,6 +96,10 @@ set_target_properties(ui PROPERTIES
 	FOLDER "UI"
 )
 
+add_executable(make-taps make-taps.c)
+# wsutil is only required for glib-compat.c
+target_link_libraries(make-taps ${GLIB2_LIBRARIES} wsutil)
+
 if (HTML_HELP_COMPILER)
 	add_definitions(-DHHC_DIR)
 	target_link_libraries(ui Htmlhelp.lib)

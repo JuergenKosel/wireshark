@@ -25,6 +25,7 @@
 #include "epan/addr_resolv.h"
 
 #include "file.h"
+
 #include "wsutil/nstime.h"
 #include "wsutil/utf8_entities.h"
 #include "wsutil/file_util.h"
@@ -403,6 +404,7 @@ void SequenceDialog::on_buttonBox_accepted()
             if (outfile != NULL) {
                 sequence_analysis_dump_to_file(outfile, info_->sainfo(), 0);
                 save_ok = true;
+                fclose(outfile);
             } else {
                 save_ok = false;
             }

@@ -290,6 +290,8 @@ typedef struct _rtps_dissector_data {
 #define PID_IDENTITY_TOKEN                      (0x1001)
 #define PID_PERMISSIONS_TOKEN                   (0x1002)
 #define PID_DATA_TAGS                           (0x1003)
+#define PID_ENDPOINT_SECURITY_INFO              (0x1004)
+#define PID_PARTICIPANT_SECURITY_INFO           (0x1005)
 
 /* Vendor-specific: PT */
 #define PID_PRISMTECH_WRITER_INFO               (0x8001)
@@ -341,16 +343,18 @@ typedef struct _rtps_dissector_data {
 #define ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_READER (0x000200c7)
 
 /* Secure DDS */
-#define ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_WRITER        (0xff0003c2)
-#define ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_READER        (0xff0003c7)
-#define ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_SECURE_WRITER       (0xff0004c2)
-#define ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_SECURE_READER       (0xff0004c7)
-#define ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_SECURE_WRITER  (0xff0200c2)
-#define ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_SECURE_READER  (0xff0200c7)
-#define ENTITYID_P2P_BUILTIN_PARTICIPANT_STATELESS_WRITER       (0x000201c3)
-#define ENTITYID_P2P_BUILTIN_PARTICIPANT_STATELESS_READER       (0x000201c4)
-#define ENTITYID_P2P_BUILTIN_PARTICIPANT_VOLATILE_SECURE_WRITER (0xff0202c2)
-#define ENTITYID_P2P_BUILTIN_PARTICIPANT_VOLATILE_SECURE_READER (0xff0202c7)
+#define ENTITYID_P2P_BUILTIN_PARTICIPANT_STATELESS_WRITER          (0x000201c3)
+#define ENTITYID_P2P_BUILTIN_PARTICIPANT_STATELESS_READER          (0x000201c4)
+#define ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_WRITER           (0xff0003c2)
+#define ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_READER           (0xff0003c7)
+#define ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_SECURE_WRITER          (0xff0004c2)
+#define ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_SECURE_READER          (0xff0004c7)
+#define ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_SECURE_WRITER     (0xff0200c2)
+#define ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_SECURE_READER     (0xff0200c7)
+#define ENTITYID_P2P_BUILTIN_PARTICIPANT_VOLATILE_SECURE_WRITER    (0xff0202c2)
+#define ENTITYID_P2P_BUILTIN_PARTICIPANT_VOLATILE_SECURE_READER    (0xff0202c7)
+#define ENTITYID_SPDP_RELIABLE_BUILTIN_PARTICIPANT_SECURE_WRITER   (0xff0101c2)
+#define ENTITYID_SPDP_RELIABLE_BUILTIN_PARTICIPANT_SECURE_READER   (0xff0101c7)
 
 /* Vendor-specific: RTI */
 #define ENTITYID_RTI_BUILTIN_SERVICE_REQUEST_WRITER             (0x00020082)
@@ -508,6 +512,7 @@ typedef struct _rtps_dissector_data {
 #define LOCATOR_KIND_TLSV4_LAN          (10)
 #define LOCATOR_KIND_TLSV4_WAN          (11)
 #define LOCATOR_KIND_SHMEM              (0x01000000)
+#define LOCATOR_KIND_TUDPV4             (0x01001001)
 
 /* History Kind */
 #define HISTORY_KIND_KEEP_LAST          (0)
@@ -557,12 +562,14 @@ typedef struct _rtps_dissector_data {
 #define NDDS_TRANSPORT_CLASSID_ITP                  (13)
 #define NDDS_TRANSPORT_CLASSID_SHMEM                (0x01000000)
 
-#define TOPIC_INFO_ADD_GUID                      (1)
-#define TOPIC_INFO_ADD_TYPE_NAME                 (2)
-#define TOPIC_INFO_ADD_TOPIC_NAME                (4)
-#define TOPIC_INFO_ALL_SET                       (TOPIC_INFO_ADD_GUID | \
-                                                  TOPIC_INFO_ADD_TYPE_NAME | \
-                                                  TOPIC_INFO_ADD_TOPIC_NAME)
+#define TOPIC_INFO_ADD_GUID                      (0x01)
+#define TOPIC_INFO_ADD_TYPE_NAME                 (0x02)
+#define TOPIC_INFO_ADD_TOPIC_NAME                (0x04)
+#define TOPIC_INFO_ADD_RELIABILITY               (0x08)
+#define TOPIC_INFO_ADD_DURABILITY                (0x10)
+#define TOPIC_INFO_ADD_OWNERSHIP                 (0x20)
+#define TOPIC_INFO_ALL_SET                       (0x3f)
+
 /* Utilities to add elements to the protocol tree for packet-rtps.h and packet-rtps2.h */
 extern guint16 rtps_util_add_protocol_version(proto_tree *tree, tvbuff_t* tvb, gint offset);
 extern guint16 rtps_util_add_vendor_id(proto_tree *tree, tvbuff_t * tvb, gint offset);

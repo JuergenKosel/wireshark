@@ -451,6 +451,10 @@ libwireshark.so.0 libwireshark0 #MINVER#
  dissector_handle_get_protocol_index@Base 1.9.1
  dissector_handle_get_short_name@Base 1.9.1
  dissector_hostlist_init@Base 1.99.0
+ dissector_reg_handoff@Base 2.5.0
+ dissector_reg_handoff_count@Base 2.5.0
+ dissector_reg_proto@Base 2.5.0
+ dissector_reg_proto_count@Base 2.5.0
  dissector_reset_payload@Base 2.5.0
  dissector_reset_string@Base 1.9.1
  dissector_reset_uint@Base 1.9.1
@@ -466,6 +470,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  dissector_try_payload@Base 2.5.0
  dissector_try_payload_new@Base 2.5.0
  dissector_try_string@Base 1.9.1
+ dissector_try_string_new@Base 2.5.0
  dissector_try_uint@Base 1.9.1
  dissector_try_uint_new@Base 1.12.0~rc1
  draw_tap_listeners@Base 1.9.1
@@ -529,7 +534,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  epan_load_settings@Base 2.3.0
  epan_memmem@Base 1.9.1
  epan_new@Base 1.12.0~rc1
- epan_register_plugin_types@Base 1.12.0~rc1
+ epan_register_plugin@Base 2.5.0
  epan_strcasestr@Base 1.9.1
  escape_string@Base 1.9.1
  escape_string_len@Base 1.9.1
@@ -980,10 +985,12 @@ libwireshark.so.0 libwireshark0 #MINVER#
  prefs_get_color_value@Base 2.3.0
  prefs_get_control@Base 2.3.0
  prefs_get_description@Base 2.3.0
+ prefs_get_effect_flags@Base 2.5.0
  prefs_get_enum_value@Base 2.3.0
  prefs_get_enum_radiobuttons@Base 2.3.0
  prefs_get_enumvals@Base 2.3.0
  prefs_get_gui_type@Base 2.3.0
+ prefs_get_module_effect_flags@Base 2.5.0
  prefs_get_max_value@Base 2.3.0
  prefs_get_name@Base 2.3.0
  prefs_get_ordinal@Base 2.3.0
@@ -1013,6 +1020,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  prefs_range_add_value@Base 2.3.0
  prefs_range_remove_value@Base 2.3.0
  prefs_register_bool_preference@Base 1.9.1
+ prefs_register_codec@Base 2.5.0
  prefs_register_directory_preference@Base 1.9.1
  prefs_register_enum_preference@Base 1.9.1
  prefs_register_filename_preference@Base 1.9.1
@@ -1031,8 +1039,11 @@ libwireshark.so.0 libwireshark0 #MINVER#
  prefs_set_bool_value@Base 2.3.0
  prefs_set_color_value@Base 2.3.0
  prefs_set_control@Base 2.3.0
+ prefs_set_effect_flags@Base 2.5.0
+ prefs_set_effect_flags_by_name@Base 2.5.0
  prefs_set_enum_value@Base 2.3.0
  prefs_set_gui_theme_is_dark@Base 2.5.0
+ prefs_set_module_effect_flags@Base 2.5.0
  prefs_set_pref@Base 1.9.1
  prefs_set_range_value@Base 2.1.0
  prefs_set_range_value_work@Base 2.3.0
@@ -1112,6 +1123,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  proto_register_field_array@Base 1.9.1
  proto_register_fields_manual@Base 1.12.0~rc1
  proto_register_fields_section@Base 1.12.0~rc1
+ proto_register_plugin@Base 2.5.0
  proto_register_prefix@Base 1.9.1
  proto_register_protocol@Base 1.9.1
  proto_register_protocol_in_name_only@Base 2.3.0
@@ -1276,10 +1288,10 @@ libwireshark.so.0 libwireshark0 #MINVER#
  read_keytab_file@Base 1.9.1
  read_keytab_file_from_preferences@Base 1.9.1
  read_prefs_file@Base 1.9.1
- reassembly_table_register@Base 2.3.0
  reassembly_table_destroy@Base 1.9.1
  reassembly_table_init@Base 1.9.1
- register_all_plugin_tap_listeners@Base 1.9.1
+ reassembly_table_register@Base 2.3.0
+ register_all_plugin_tap_listeners@Base 2.5.0
  register_all_protocol_handoffs@Base 1.9.1
  register_all_protocols@Base 1.9.1
  register_ber_oid_dissector@Base 2.1.0
@@ -1299,6 +1311,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  register_depend_dissector@Base 2.1.0
  register_dissector@Base 2.1.0
  register_dissector_table@Base 1.9.1
+ register_dissector_with_data@Base 2.5.0
  register_export_object@Base 2.3.0
  register_export_pdu_tap@Base 1.99.0
  register_follow_stream@Base 2.1.0
@@ -1382,6 +1395,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  scsi_sbc_vals_ext@Base 1.12.0~rc1
  scsi_smc_vals_ext@Base 1.12.0~rc1
  scsi_ssc_vals_ext@Base 1.12.0~rc1
+ scsistat_param@Base 2.5.0
  sctp_port_to_display@Base 1.99.2
  sequence_analysis_create_sai_with_addresses@Base 2.5.0
  sequence_analysis_dump_to_file@Base 2.5.0
@@ -1494,6 +1508,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  tap_listeners_dfilter_recompile@Base 2.0.0
  tap_listeners_require_dissection@Base 1.9.1
  tap_queue_packet@Base 1.9.1
+ tap_register_plugin@Base 2.5.0
  tcp_dissect_pdus@Base 1.9.1
  tcp_port_to_display@Base 1.99.2
  tfs_accept_reject@Base 1.9.1

@@ -45,11 +45,12 @@ bin_PROGRAMS = \
 	@dumpcap_bin@		\
 	@reordercap_bin@	\
 	@rawshark_bin@		\
-	@sharkd_bin@
+	@sharkd_bin@		\
+	@fuzzshark_bin@
 
 EXTRA_PROGRAMS = wireshark-gtk wireshark tshark tfshark capinfos captype \
 	editcap mergecap dftest randpkt text2pcap dumpcap reordercap \
-	rawshark sharkd
+	rawshark sharkd fuzzshark
 
 #
 # Wireshark configuration files are put in $(pkgdatadir).
@@ -351,22 +352,6 @@ dist_wimaxasncp_DATA = \
 	wimaxasncp/dictionary.xml \
 	wimaxasncp/dictionary.dtd
 
-if HAVE_PLUGINS
--include plugins/Custom.make
-plugin_ldadd = $(_CUSTOM_plugin_ldadd_) \
-	-dlopen plugins/docsis/docsis.la \
-	-dlopen plugins/ethercat/ethercat.la \
-	-dlopen plugins/gryphon/gryphon.la \
-	-dlopen plugins/irda/irda.la \
-	-dlopen plugins/mate/mate.la \
-	-dlopen plugins/opcua/opcua.la \
-	-dlopen plugins/profinet/profinet.la \
-	-dlopen plugins/stats_tree/stats_tree.la \
-	-dlopen plugins/unistim/unistim.la \
-	-dlopen plugins/wimax/wimax.la \
-	-dlopen plugins/wimaxmacphy/wimaxmacphy.la
-endif
-
 # "BUILT_SOURCES" are built before any "make all" or "make check" targets.
 BUILT_HEADER_FILES = \
 	version.h
@@ -386,16 +371,15 @@ GENERATED_C_FILES =
 # All the generated files.
 GENERATED_FILES = $(GENERATED_C_FILES) $(GENERATED_HEADER_FILES)
 
-EXTCAP_COMMON_SRC = \
-	extcap.c		\
-	extcap_parser.c		\
-	extcap_spawn.c
-
 # sources common for wireshark, tshark, and rawshark
 SHARK_COMMON_SRC = \
 	cfile.c			\
+	file_packet_provider.c	\
 	frame_tvbuff.c		\
-	sync_pipe_write.c
+	sync_pipe_write.c	\
+	extcap.c		\
+	extcap_parser.c		\
+	extcap_spawn.c
 
 # wireshark specifics
 WIRESHARK_COMMON_SRC = \
@@ -406,16 +390,6 @@ WIRESHARK_COMMON_SRC = \
 	fileset.c		\
 	summary.c		\
 	version_info.c
-
-if HAVE_EXTCAP
-SHARK_COMMON_SRC += $(EXTCAP_COMMON_SRC)
-endif
-
-if ENABLE_STATIC
-EXTRALINKFLAGS = -Wl,-static -all-static
-else
-EXTRALINKFLAGS = -export-dynamic
-endif
 
 EPAN_EXTRA_LIBS = \
 	@C_ARES_LIBS@			\
@@ -438,7 +412,6 @@ wireshark_common_ldadd = \
 	wiretap/libwiretap.la		\
 	epan/libwireshark.la		\
 	wsutil/libwsutil.la		\
-	$(plugin_ldadd)			\
 	@PCAP_LIBS@			\
 	$(EPAN_EXTRA_LIBS)		\
 	@LIBNL_LIBS@
@@ -448,7 +421,7 @@ wireshark_SOURCES = $(WIRESHARK_COMMON_SRC) wireshark-qt.cpp
 
 wireshark_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS) $(Qt_CFLAGS)
 
-wireshark_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS) $(Qt_LDFLAGS)
+wireshark_LDFLAGS = $(AM_LDFLAGS) $(Qt_LDFLAGS)
 
 wireshark_LDADD = \
 	ui/qt/libqtui.a			\
@@ -466,7 +439,7 @@ wireshark_gtk_SOURCES = $(WIRESHARK_COMMON_SRC)
 
 wireshark_gtk_CPPFLAGS = $(AM_CPPFLAGS) $(GTK_CFLAGS)
 
-wireshark_gtk_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
+wireshark_gtk_LDFLAGS = $(AM_LDFLAGS)
 
 wireshark_gtk_LDADD = \
 	ui/gtk/libgtkui.a		\
@@ -474,6 +447,22 @@ wireshark_gtk_LDADD = \
 	$(GTK_LIBS)			\
 	@PORTAUDIO_LIBS@
 endif
+
+fuzzshark_SOURCES = \
+	tools/oss-fuzzshark/fuzzshark.c \
+	tools/oss-fuzzshark/StandaloneFuzzTargetMain.c \
+	version_info.c
+
+fuzzshark_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
+
+fuzzshark_LDFLAGS = $(AM_LDFLAGS)
+
+fuzzshark_LDADD = \
+	wiretap/libwiretap.la		\
+	epan/libwireshark.la		\
+	wsutil/libwsutil.la		\
+	@GLIB_LIBS@			\
+	${EPAN_EXTRA_LIBS}
 
 tshark_SOURCES = \
 	$(SHARK_COMMON_SRC)	\
@@ -483,7 +472,7 @@ tshark_SOURCES = \
 
 tshark_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
-tshark_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
+tshark_LDFLAGS = $(AM_LDFLAGS)
 
 # Libraries and plugin flags with which to link tshark.
 tshark_LDADD = \
@@ -494,7 +483,6 @@ tshark_LDADD = \
 	wiretap/libwiretap.la		\
 	epan/libwireshark.la		\
 	wsutil/libwsutil.la		\
-	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
 	${EPAN_EXTRA_LIBS}
@@ -506,7 +494,7 @@ tfshark_SOURCES = \
 
 tfshark_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
-tfshark_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
+tfshark_LDFLAGS = $(AM_LDFLAGS)
 
 # Libraries and plugin flags with which to link tfshark.
 tfshark_LDADD = \
@@ -515,7 +503,6 @@ tfshark_LDADD = \
 	wiretap/libwiretap.la		\
 	epan/libwireshark.la		\
 	wsutil/libwsutil.la		\
-	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
 	${EPAN_EXTRA_LIBS}
@@ -527,7 +514,7 @@ rawshark_SOURCES = \
 
 rawshark_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
-rawshark_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
+rawshark_LDFLAGS = $(AM_LDFLAGS)
 
 # Libraries and plugin flags with which to link rawshark.
 rawshark_LDADD = \
@@ -536,7 +523,6 @@ rawshark_LDADD = \
 	wiretap/libwiretap.la		\
 	epan/libwireshark.la		\
 	wsutil/libwsutil.la		\
-	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
 	${EPAN_EXTRA_LIBS}
@@ -555,7 +541,7 @@ if HAVE_SPEEXDSP
 sharkd_CPPFLAGS += $(SPEEXDSP_CFLAGS)
 endif
 
-sharkd_LDFLAGS = $(AM_LDFLAGS) $(EXTRALINKFLAGS)
+sharkd_LDFLAGS = $(AM_LDFLAGS)
 
 # Libraries and plugin flags with which to link sharkd.
 sharkd_LDADD = \
@@ -565,7 +551,6 @@ sharkd_LDADD = \
 	wiretap/libwiretap.la		\
 	epan/libwireshark.la		\
 	wsutil/libwsutil.la		\
-	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
 	${EPAN_EXTRA_LIBS}
@@ -687,7 +672,6 @@ dftest_LDADD = \
 	wiretap/libwiretap.la		\
 	wsutil/libwsutil.la		\
 	epan/libwireshark.la		\
-	$(plugin_ldadd)			\
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
 	${EPAN_EXTRA_LIBS}
@@ -723,7 +707,6 @@ pkginclude_HEADERS = \
 	file.h			\
 	globals.h		\
 	log.h			\
-	register.h		\
 	ws_attributes.h		\
 	ws_compiler_tests.h	\
 	ws_diag_control.h	\
@@ -731,6 +714,7 @@ pkginclude_HEADERS = \
 
 # this target needed for distribution only
 noinst_HEADERS = \
+	tools/oss-fuzzshark/FuzzerInterface.h \
 	capture_info.h		\
 	capture_opts.h		\
 	capture_stop_conditions.h	\
@@ -769,7 +753,6 @@ services:
 	$(PYTHON) $(srcdir)/tools/make-services.py
 
 CLEANFILES = \
-	*~		\
 	doxygen-core.tag	\
 	vgcore.*
 
@@ -844,12 +827,12 @@ endif
 
 
 if HAVE_PLUGINS
+if !ENABLE_STATIC
 plugins_subdir = plugins
 endif
-
-if HAVE_EXTCAP
-extcap_subdir = extcap
 endif
+
+extcap_subdir = extcap
 
 DIST_SUBDIRS = \
 	capchild	\

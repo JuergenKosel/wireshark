@@ -194,7 +194,7 @@ void PreferenceEditorFrame::on_preferenceLineEdit_returnPressed()
 
 void PreferenceEditorFrame::on_buttonBox_accepted()
 {
-    bool apply = false;
+    unsigned int apply = 0;
     switch(prefs_get_type(pref_)) {
     case PREF_UINT:
     case PREF_DECODE_AS_UINT:
@@ -261,6 +261,8 @@ void PreferenceEditorFrame::keyPressEvent(QKeyEvent *event)
             }
         }
     }
+
+    AccordionFrame::keyPressEvent(event);
 }
 
 /*

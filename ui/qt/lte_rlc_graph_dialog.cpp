@@ -36,17 +36,15 @@
 #include <QMenu>
 #include <QRubberBand>
 
+#include <wsutil/utf8_entities.h>
 #include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
 #include "simple_dialog.h"
-
-#include "globals.h"
 
 #include <epan/dissectors/packet-rlc-lte.h>
 
 #include <ui/tap-rlc-graph.h>
 
-// TODO:
 
 const QRgb graph_color_ack =         tango_sky_blue_4;    // Blue for ACK lines
 const QRgb graph_color_nack =        tango_scarlet_red_3; // Red for NACKs
@@ -104,6 +102,8 @@ LteRlcGraphDialog::LteRlcGraphDialog(QWidget &parent, CaptureFile &cf, bool chan
     ctx_menu_->addAction(ui->actionDragZoom);
 //    ctx_menu_->addAction(ui->actionToggleTimeOrigin);
     ctx_menu_->addAction(ui->actionCrosshairs);
+    ctx_menu_->addSeparator();
+    ctx_menu_->addAction(ui->actionSwitchDirection);
 
     // Zero out this struct.
     memset(&graph_, 0, sizeof(graph_));
@@ -112,7 +112,6 @@ LteRlcGraphDialog::LteRlcGraphDialog(QWidget &parent, CaptureFile &cf, bool chan
     if (!channelKnown) {
         completeGraph();
     }
-
 }
 
 // Destructor
@@ -123,7 +122,8 @@ LteRlcGraphDialog::~LteRlcGraphDialog()
 
 // Set the channel information that this graph should show.
 void LteRlcGraphDialog::setChannelInfo(guint16 ueid, guint8 rlcMode,
-                                       guint16 channelType, guint16 channelId, guint8 direction)
+                                       guint16 channelType, guint16 channelId, guint8 direction,
+                                       bool maybe_empty)
 {
     graph_.ueid = ueid;
     graph_.rlcMode = rlcMode;
@@ -132,16 +132,16 @@ void LteRlcGraphDialog::setChannelInfo(guint16 ueid, guint8 rlcMode,
     graph_.channelSet = TRUE;
     graph_.direction = direction;
 
-    completeGraph();
+    completeGraph(maybe_empty);
 }
 
 // Once channel details are known, complete the graph with details that depend upon the channel.
-void LteRlcGraphDialog::completeGraph()
+void LteRlcGraphDialog::completeGraph(bool may_be_empty)
 {
     QCustomPlot *rp = ui->rlcPlot;
 
     // If no channel chosen already, try to use currently selected frame.
-    findChannel();
+    findChannel(may_be_empty);
 
     // Set window title here.
     if (graph_.channelSet) {
@@ -177,9 +177,15 @@ void LteRlcGraphDialog::completeGraph()
     tracer_->setVisible(false);
     toggleTracerStyle(true);
 
+    // Change label on save/export button.
+    QPushButton *save_bt = ui->buttonBox->button(QDialogButtonBox::Save);
+    save_bt->setText(tr("Save As" UTF8_HORIZONTAL_ELLIPSIS));
+
     connect(rp, SIGNAL(mousePress(QMouseEvent*)), this, SLOT(graphClicked(QMouseEvent*)));
     connect(rp, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(mouseMoved(QMouseEvent*)));
     connect(rp, SIGNAL(mouseRelease(QMouseEvent*)), this, SLOT(mouseReleased(QMouseEvent*)));
+    disconnect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
+    this->setResult(QDialog::Accepted);
 
     // Extract the data that the graph can use.
     fillGraph();
@@ -196,7 +202,7 @@ bool LteRlcGraphDialog::compareHeaders(rlc_segment *seg)
 }
 
 // Look for channel to plot based upon currently selected frame.
-void LteRlcGraphDialog::findChannel()
+void LteRlcGraphDialog::findChannel(bool may_fail)
 {
     // Temporarily disconnect mouse move signals.
     QCustomPlot *rp = ui->rlcPlot;
@@ -207,7 +213,9 @@ void LteRlcGraphDialog::findChannel()
     // Rescan for channel data.
     rlc_graph_segment_list_free(&graph_);
     if (!rlc_graph_segment_list_get(cap_file_.capFile(), &graph_, graph_.channelSet,
-                                    &err_string)) {
+                                    &err_string) &&
+        !may_fail) {
+
         // Pop up an error box to report error.
         simple_error_message_box("%s", err_string);
         g_free(err_string);
@@ -304,6 +312,8 @@ void LteRlcGraphDialog::fillGraph()
     mouseMoved(NULL);
     resetAxes();
 
+    // This is why, in mouseMoved(), we only match the entries
+    // corresponding to data segments (base_graph_)...
     tracer_->setGraph(base_graph_);
 
     // XXX QCustomPlot doesn't seem to draw any sort of focus indicator.
@@ -325,7 +335,6 @@ void LteRlcGraphDialog::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Minus:
     case Qt::Key_Underscore:    // Shifted minus on U.S. keyboards
     case Qt::Key_O:             // GTK+
-    case Qt::Key_R:
         zoomAxes(false);
         break;
     case Qt::Key_Plus:
@@ -380,6 +389,7 @@ void LteRlcGraphDialog::keyPressEvent(QKeyEvent *event)
     case Qt::Key_0:
     case Qt::Key_ParenRight:    // Shifted 0 on U.S. keyboards
     case Qt::Key_Home:
+	case Qt::Key_R:
         resetAxes();
         break;
 
@@ -392,6 +402,11 @@ void LteRlcGraphDialog::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Z:
         on_actionDragZoom_triggered();
         break;
+
+    case Qt::Key_D:
+        on_actionSwitchDirection_triggered();
+        break;
+
     }
 
     WiresharkDialog::keyPressEvent(event);
@@ -495,6 +510,7 @@ void LteRlcGraphDialog::panAxes(int x_pixels, int y_pixels)
     }
 }
 
+// Given a selected rect in pixels, work out what this should be in graph units.
 // Don't accidentally zoom into a 1x1 rect if you happen to click on the graph
 // in zoom mode.
 const int min_zoom_pixels_ = 20;
@@ -597,6 +613,9 @@ void LteRlcGraphDialog::mouseMoved(QMouseEvent *event)
 
         tracer_->setVisible(true);
         packet_num_ = packet_seg->num;
+        // N.B. because tracer only looks up entries in base_graph_,
+        // we know that packet_seg will be a data segment, so no need to check
+        // iscontrolPDU or isResegmented fields.
         hint += tr("%1 %2 (%3s seq %4 len %5)")
                 .arg(cap_file_.capFile() ? tr("Click to select packet") : tr("Packet"))
                 .arg(packet_num_)
@@ -611,6 +630,7 @@ void LteRlcGraphDialog::mouseMoved(QMouseEvent *event)
 
     } else {
         if (event && rubber_band_ && rubber_band_->isVisible()) {
+            // Work out zoom based upon selected region (in pixels).
             rubber_band_->setGeometry(QRect(rb_origin_, event->pos()).normalized());
             QRectF zoom_ranges = getZoomRanges(QRect(rb_origin_, event->pos()));
             if (zoom_ranges.width() > 0.0 && zoom_ranges.height() > 0.0) {
@@ -637,6 +657,7 @@ void LteRlcGraphDialog::mouseReleased(QMouseEvent *event)
     if (rubber_band_) {
         rubber_band_->hide();
         if (!mouse_drags_) {
+            resetAxes();
             QRectF zoom_ranges = getZoomRanges(QRect(rb_origin_, event->pos()));
             if (zoom_ranges.width() > 0.0 && zoom_ranges.height() > 0.0) {
                 rp->xAxis->setRangeLower(zoom_ranges.x());
@@ -776,6 +797,20 @@ void LteRlcGraphDialog::on_actionMoveDown1_triggered()
     panAxes(0, -1);
 }
 
+void LteRlcGraphDialog::on_actionSwitchDirection_triggered()
+{
+    // Channel settings exactly the same, except change direction.
+    // N.B. do not fail and close if there are no packets in opposite direction.
+    setChannelInfo(graph_.ueid,
+                   graph_.rlcMode,
+                   graph_.channelType,
+                   graph_.channelId,
+                   !graph_.direction,
+                   true /* maybe_empty */);
+}
+
+
+
 // Switch between zoom/drag.
 void LteRlcGraphDialog::on_actionDragZoom_triggered()
 {
@@ -804,6 +839,51 @@ void LteRlcGraphDialog::on_resetButton_clicked()
 {
     resetAxes();
 }
+
+void LteRlcGraphDialog::on_otherDirectionButton_clicked()
+{
+    on_actionSwitchDirection_triggered();
+}
+
+// Prompt for filename/format to save graph to.
+// N.B. Copied from tcp_stream_dialog.cpp
+void LteRlcGraphDialog::on_buttonBox_accepted()
+{
+    QString file_name, extension;
+    QDir path(wsApp->lastOpenDir());
+    QString pdf_filter = tr("Portable Document Format (*.pdf)");
+    QString png_filter = tr("Portable Network Graphics (*.png)");
+    QString bmp_filter = tr("Windows Bitmap (*.bmp)");
+    // Gaze upon my beautiful graph with lossy artifacts!
+    QString jpeg_filter = tr("JPEG File Interchange Format (*.jpeg *.jpg)");
+    QString filter = QString("%1;;%2;;%3;;%4")
+            .arg(pdf_filter)
+            .arg(png_filter)
+            .arg(bmp_filter)
+            .arg(jpeg_filter);
+
+    file_name = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
+                                             path.canonicalPath(), filter, &extension);
+
+    if (file_name.length() > 0) {
+        bool save_ok = false;
+        if (extension.compare(pdf_filter) == 0) {
+            save_ok = ui->rlcPlot->savePdf(file_name);
+        } else if (extension.compare(png_filter) == 0) {
+            save_ok = ui->rlcPlot->savePng(file_name);
+        } else if (extension.compare(bmp_filter) == 0) {
+            save_ok = ui->rlcPlot->saveBmp(file_name);
+        } else if (extension.compare(jpeg_filter) == 0) {
+            save_ok = ui->rlcPlot->saveJpg(file_name);
+        }
+        // else error dialog?
+        if (save_ok) {
+            path = QDir(file_name);
+            wsApp->setLastOpenDir(path.canonicalPath().toUtf8().constData());
+        }
+    }
+}
+
 
 // No need to register tap listeners here.  This is done
 // in calls to the common functions in ui/tap-rlc-graph.c

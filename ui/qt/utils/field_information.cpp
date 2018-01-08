@@ -4,42 +4,40 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #include <stdint.h>
 
 #include <ui/qt/utils/field_information.h>
 
-FieldInformation::FieldInformation(field_info * fi, QObject * parent)
+FieldInformation::FieldInformation(field_info *fi, QObject * parent)
 :QObject(parent)
 {
     fi_ = fi;
     parent_fi_ = 0;
 }
 
+FieldInformation::FieldInformation(proto_node *node, QObject * parent)
+:QObject(parent)
+{
+    fi_ = NULL;
+    if (node) {
+        fi_ = node->finfo;
+    }
+    parent_fi_ = NULL;
+}
+
 bool FieldInformation::isValid()
 {
     bool ret = false;
 
-    if ( fi_ )
+    if ( fi_ && fi_->hfinfo )
     {
         if (fi_->hfinfo->blurb != 0 && fi_->hfinfo->blurb[0] != '\0') {
             ret = true;
         } else {
-            ret = ((QString().fromUtf8(fi_->hfinfo->name)).length() > 0 );
+            ret = QString((fi_->hfinfo->name)).length() > 0;
         }
     }
 
@@ -51,6 +49,15 @@ void FieldInformation::setParentField(field_info * par_fi)
     parent_fi_ = par_fi;
 }
 
+int FieldInformation::treeType()
+{
+    if (fi_) {
+        Q_ASSERT(fi_->tree_type >= -1 && fi_->tree_type < num_tree_types);
+        return fi_->tree_type;
+    }
+    return -1;
+}
+
 field_info * FieldInformation::fieldInfo() const
 {
     return fi_;
@@ -59,14 +66,26 @@ field_info * FieldInformation::fieldInfo() const
 FieldInformation::HeaderInfo FieldInformation::headerInfo() const
 {
     HeaderInfo header;
-    header.isValid = false;
 
     if ( fi_ && fi_->hfinfo )
     {
+        header.name = fi_->hfinfo->name;
+        header.description = fi_->hfinfo->blurb;
+        header.abbreviation = fi_->hfinfo->abbrev;
         header.isValid = true;
-        header.name = QString().fromUtf8(fi_->hfinfo->name);
-        header.description = QString().fromUtf8(fi_->hfinfo->blurb);
-        header.abbreviation = QString().fromUtf8(fi_->hfinfo->abbrev);
+        header.type = fi_->hfinfo->type;
+        header.parent = fi_->hfinfo->parent;
+        header.id = fi_->hfinfo->id;
+    }
+    else
+    {
+        header.name = "";
+        header.description = "";
+        header.abbreviation = "";
+        header.isValid = false;
+        header.type = FT_NONE;
+        header.parent = 0;
+        header.id = 0;
     }
 
     return header;
@@ -74,7 +93,7 @@ FieldInformation::HeaderInfo FieldInformation::headerInfo() const
 
 FieldInformation * FieldInformation::parentField() const
 {
-    return new FieldInformation(parent_fi_);
+    return new FieldInformation(parent_fi_, parent());
 }
 
 bool FieldInformation::tvbContains(FieldInformation *child)
@@ -85,31 +104,59 @@ bool FieldInformation::tvbContains(FieldInformation *child)
     return false;
 }
 
+unsigned FieldInformation::flag(unsigned mask)
+{
+    if (fi_) {
+        return FI_GET_FLAG(fi_, mask);
+    }
+    return 0;
+}
+
+const QString FieldInformation::moduleName()
+{
+    QString module_name;
+    if (isValid()) {
+        if (headerInfo().parent == -1) {
+            module_name = fi_->hfinfo->abbrev;
+        } else {
+            module_name = proto_registrar_get_abbrev(headerInfo().parent);
+        }
+    }
+    return module_name;
+}
+
+QString FieldInformation::url()
+{
+    QString url;
+    if (flag(FI_URL) && headerInfo().isValid && IS_FT_STRING(fi_->hfinfo->type)) {
+        gchar *url_str;
+        url_str = fvalue_to_string_repr(NULL, &fi_->value, FTREPR_DISPLAY, fi_->hfinfo->display);
+        if (url_str) {
+            url = url_str;
+        }
+        wmem_free(NULL, url_str);
+    }
+    return url;
+}
+
 FieldInformation::Position FieldInformation::position() const
 {
-    Position pos = {-1, -1, -1};
+    Position pos = {-1, -1};
     if ( fi_ && fi_->ds_tvb )
     {
-        guint len = tvb_captured_length(fi_->ds_tvb);
+        int len = (int) tvb_captured_length(fi_->ds_tvb);
 
         pos.start = fi_->start;
         pos.length = fi_->length;
 
-        if (pos.start >= 0 && pos.length > 0 && (guint)pos.start < len)
+        if (pos.start < 0 || pos.length < 0 || pos.start >= len)
         {
-            pos.end = pos.start + pos.length;
-        }
-        else
-        {
-            if ( fi_->appendix_start >= 0 && fi_->appendix_length > 0 && (guint)fi_->appendix_start < len )
+            if ( fi_->appendix_start >= 0 && fi_->appendix_length > 0 && fi_->appendix_start < len )
             {
                 pos.start = fi_->appendix_start;
-                pos.end = fi_->appendix_start + fi_->appendix_length;
+                pos.length = fi_->appendix_length;
             }
         }
-
-        if (pos.end != -1 && (guint)pos.end > len)
-            pos.end = len;
     }
 
     return pos;
@@ -117,32 +164,17 @@ FieldInformation::Position FieldInformation::position() const
 
 FieldInformation::Position FieldInformation::appendix() const
 {
-    Position pos = {-1, -1, -1};
+    Position pos = {-1, -1};
     if ( fi_ && fi_->ds_tvb )
     {
-        guint len = tvb_captured_length(fi_->ds_tvb);
-
         pos.start = fi_->appendix_start;
         pos.length = fi_->appendix_length;
-
-        if (pos.start >= 0 && pos.length > 0 && (guint)pos.start < len)
-            pos.end = pos.start + pos.length;
-
-        /* sanity check with total field length */
-        if ( position().end == -1 )
-        {
-            pos.start = -1;
-            pos.end = -1;
-        }
-
-        if (pos.end != -1 && (guint)pos.end > len)
-            pos.end = len;
     }
 
     return pos;
 }
-#include <QDebug>
-QByteArray FieldInformation::printableData()
+
+const QByteArray FieldInformation::printableData()
 {
     QByteArray data;
 
@@ -154,7 +186,6 @@ QByteArray FieldInformation::printableData()
         int length = pos.length;
         if ( length > rem_length )
             length = rem_length;
-qDebug() << "Bin hier";
         uint8_t * dataSet = (uint8_t *)tvb_memdup(wmem_file_scope(), fi_->ds_tvb, pos.start, length );
         data = QByteArray::fromRawData((char *)dataSet, length);
     }

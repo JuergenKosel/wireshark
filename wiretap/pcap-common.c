@@ -361,6 +361,8 @@ static const struct {
 	{ 197,		WTAP_ENCAP_ERF },
 	/* IPMB */
 	{ 199,		WTAP_ENCAP_IPMB },
+	/* Juniper-private data link type, used for capturing data on a secure tunnel interface. */
+	{ 200,		WTAP_ENCAP_JUNIPER_ST },
 	/* Bluetooth HCI UART transport (part H:4) frames, like hcidump */
 	{ 201,		WTAP_ENCAP_BLUETOOTH_H4_WITH_PHDR },
 	/* AX.25 packet with a 1-byte KISS header */
@@ -464,6 +466,9 @@ static const struct {
 
 	/* Nordic BLE Sniffer */
 	{ 272,		WTAP_ENCAP_NORDIC_BLE },
+
+	/* mPackets as specified by 802.3br */
+	{ 274,		WTAP_ENCAP_ETHERNET_MPACKET },
 
 	/*
 	 * To repeat:
