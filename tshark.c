@@ -454,9 +454,10 @@ print_usage(FILE *output)
   fprintf(output, "                           use \"-G help\" for more help\n");
 #ifdef __linux__
   fprintf(output, "\n");
-  fprintf(output, "WARNING: dumpcap will enable kernel BPF JIT compiler if available.\n");
-  fprintf(output, "You might want to reset it\n");
-  fprintf(output, "By doing \"echo 0 > /proc/sys/net/core/bpf_jit_enable\"\n");
+  fprintf(output, "Dumpcap can benefit from an enabled BPF JIT compiler if available.\n");
+  fprintf(output, "You might want to enable it by executing:\n");
+  fprintf(output, " \"echo 1 > /proc/sys/net/core/bpf_jit_enable\"\n");
+  fprintf(output, "Note that this can make your system less secure!\n");
 #endif
 
 }
@@ -892,7 +893,7 @@ main(int argc, char *argv[])
   timestamp_set_precision(TS_PREC_AUTO);
   timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
-  wtap_init();
+  wtap_init(TRUE);
 
   /* Register all dissectors; we must do this before checking for the
      "-G" flag, as the "-G" flag dumps information registered by the
@@ -1685,7 +1686,7 @@ main(int argc, char *argv[])
       if (global_capture_opts.saving_to_file) {
         /* They specified a "-w" flag, so we'll be saving to a capture file. */
 
-        /* When capturing, we only support writing pcap or pcap-ng format. */
+        /* When capturing, we only support writing pcap or pcapng format. */
         if (out_file_type != WTAP_FILE_TYPE_SUBTYPE_PCAP &&
             out_file_type != WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
           cmdarg_err("Live captures can only be saved in pcap or pcapng format.");

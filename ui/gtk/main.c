@@ -2192,7 +2192,7 @@ main(int argc, char *argv[])
         g_free(init_progfile_dir_error);
     }
 
-    wtap_init();
+    wtap_init(TRUE);
 
     splash_update(RA_DISSECTORS, NULL, (gpointer)splash_win);
 
@@ -2333,6 +2333,7 @@ main(int argc, char *argv[])
        changed either from one of the preferences file or from the command
        line that their preferences have changed. */
     prefs_apply_all();
+    prefs_to_capture_opts();
 
 #ifdef HAVE_LIBPCAP
     if ((global_capture_opts.num_selected == 0) &&

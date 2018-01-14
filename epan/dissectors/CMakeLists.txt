@@ -142,6 +142,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mudurl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-nbap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-novell_pkis.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-nr-rrc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ns_cert_exts.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ocsp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-p1.c
@@ -448,6 +449,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-nfs.h
 	packet-nisplus.h
 	packet-nlm.h
+	packet-nr-rrc.h
 	packet-nsh.h
 	packet-ntlmssp.h
 	packet-ntp.h
@@ -1268,6 +1270,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lsc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lsd.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ltp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-lustre.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lwapp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lwm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lwm2mtlv.c
@@ -1872,6 +1875,10 @@ set(ALL_DISSECTOR_SRC
 add_executable(make-dissectors make-dissectors.c)
 # wsutil is only required for glib-compat.c
 target_link_libraries(make-dissectors ${GLIB2_LIBRARIES} wsutil)
+
+if(WIN32)
+	add_dependencies(make-dissectors copy_cli_dlls)
+endif()
 
 #
 # We pass the arguments to make-dissectors in a file to avoid limitations

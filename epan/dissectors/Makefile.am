@@ -157,6 +157,7 @@ ASN1_DISSECTOR_SRC = \
 	packet-mpeg-pes.c	\
 	packet-mudurl.c		\
 	packet-nbap.c		\
+	packet-nr-rrc.c		\
 	packet-novell_pkis.c	\
 	packet-ns_cert_exts.c	\
 	packet-ocsp.c		\
@@ -891,6 +892,7 @@ DISSECTOR_SRC = \
 	packet-lsc.c		\
 	packet-lsd.c		\
 	packet-ltp.c		\
+	packet-lustre.c		\
 	packet-lwapp.c		\
 	packet-lwm.c		\
 	packet-lwm2mtlv.c	\
@@ -1692,6 +1694,7 @@ DISSECTOR_INCLUDES = \
 	packet-nfs.h		\
 	packet-nisplus.h	\
 	packet-nlm.h		\
+	packet-nr-rrc.h		\
 	packet-nsh.h		\
 	packet-ntlmssp.h	\
 	packet-ntp.h		\
@@ -1801,6 +1804,7 @@ DISSECTOR_INCLUDES = \
 	packet-tcp.h		\
 	packet-tetra.h		\
 	packet-tftp.h		\
+	packet-thrift.h		\
 	packet-tn3270.h		\
 	packet-tn5250.h		\
 	packet-tpkt.h		\

@@ -2984,7 +2984,7 @@ prefs_register_modules(void)
     module_t *printing, *capture_module, *console_module,
         *gui_layout_module, *gui_font_module;
     module_t *extcap_module;
-
+    unsigned int layout_gui_flags;
     struct pref_custom_cbs custom_cbs;
 
     if (protocols_module != NULL) {
@@ -3306,27 +3306,35 @@ prefs_register_modules(void)
 
     /* User Interface : Layout */
     gui_layout_module = prefs_register_subtree(gui_module, "Layout", "Layout", gui_layout_callback);
+    /* Adjust the preference effects of layout GUI for better handling of preferences at Wireshark (GUI) level */
+    layout_gui_flags = prefs_get_module_effect_flags(gui_layout_module);
+    layout_gui_flags |= PREF_EFFECT_GUI_LAYOUT;
+    layout_gui_flags &= (~PREF_EFFECT_DISSECTION);
 
     prefs_register_uint_preference(gui_layout_module, "layout_type",
                                    "Layout type",
                                    "Layout type (1-6)",
                                    10,
                                    (guint*)(void*)(&prefs.gui_layout_type));
+    prefs_set_effect_flags_by_name(gui_layout_module, "layout_type", layout_gui_flags);
 
     prefs_register_enum_preference(gui_layout_module, "layout_content_1",
                        "Layout content of the pane 1",
                        "Layout content of the pane 1",
                        (gint*)(void*)(&prefs.gui_layout_content_1), gui_layout_content, FALSE);
+    prefs_set_effect_flags_by_name(gui_layout_module, "layout_content_1", layout_gui_flags);
 
     prefs_register_enum_preference(gui_layout_module, "layout_content_2",
                        "Layout content of the pane 2",
                        "Layout content of the pane 2",
                        (gint*)(void*)(&prefs.gui_layout_content_2), gui_layout_content, FALSE);
+    prefs_set_effect_flags_by_name(gui_layout_module, "layout_content_2", layout_gui_flags);
 
     prefs_register_enum_preference(gui_layout_module, "layout_content_3",
                        "Layout content of the pane 3",
                        "Layout content of the pane 3",
                        (gint*)(void*)(&prefs.gui_layout_content_3), gui_layout_content, FALSE);
+    prefs_set_effect_flags_by_name(gui_layout_module, "layout_content_3", layout_gui_flags);
 
     prefs_register_bool_preference(gui_layout_module, "packet_list_separator.enabled",
                                    "Enable Packet List Separator",
@@ -3464,11 +3472,14 @@ prefs_register_modules(void)
         "Interface capture filter (Ex: en0(tcp),en1(udp),...)",
         &prefs.capture_devices_filter, PREF_STRING, NULL, FALSE);
 
-    prefs_register_bool_preference(capture_module, "pcap_ng", "Capture in Pcap-NG format",
-        "Capture in Pcap-NG format?", &prefs.capture_pcap_ng);
+    prefs_register_bool_preference(capture_module, "pcap_ng", "Capture in pcapng format",
+        "Capture in pcapng format?", &prefs.capture_pcap_ng);
 
     prefs_register_bool_preference(capture_module, "real_time_update", "Update packet list in real time during capture",
         "Update packet list in real time during capture?", &prefs.capture_real_time);
+
+    prefs_register_bool_preference(capture_module, "no_extcap", "Disable external capture interfaces",
+        "Disable external capture modules (extcap)", &prefs.capture_no_extcap);
 
     /* We might want to make this a "recent" setting. */
     prefs_register_bool_preference(capture_module, "auto_scroll", "Scroll packet list during capture",
@@ -4133,6 +4144,7 @@ pre_init_prefs(void)
     prefs.capture_pcap_ng               = FALSE;
 #endif
     prefs.capture_real_time             = TRUE;
+    prefs.capture_no_extcap             = FALSE;
     prefs.capture_auto_scroll           = TRUE;
     prefs.capture_show_info             = FALSE;
 

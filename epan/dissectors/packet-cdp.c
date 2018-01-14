@@ -38,9 +38,13 @@
  *
  * and
  *
- *      http://www.cisco.com/c/en/us/support/docs/switches/catalyst-4500-series-switches/13414-103.html#cdp
+ *    http://www.cisco.com/c/en/us/support/docs/switches/catalyst-4500-series-switches/13414-103.html#cdp
  *
  * for some more information on CDP version 2 (a superset of version 1).
+ *
+ * Also see
+ *
+ *    http://www.rhyshaden.com/cdp.htm
  */
 
 void proto_register_cdp(void);
@@ -279,12 +283,13 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     int         offset   = 0;
     guint16     type;
     guint16     length, data_length;
-    proto_item *tlvi     = NULL;
-    proto_tree *tlv_tree = NULL;
+    proto_item *tlvi;
+    proto_tree *tlv_tree;
     int         real_length;
     guint32     naddresses;
     guint32     power_avail_len, power_avail;
     guint32     power_req_len, power_req;
+    gboolean    first;
     int         addr_length;
     vec_t       cksum_vec[1];
 
@@ -342,6 +347,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     offset += 2;
 
     while (tvb_reported_length_remaining(tvb, offset) != 0) {
+        tlv_tree = NULL;
         type = tvb_get_ntohs(tvb, offset + TLV_TYPE);
         length = tvb_get_ntohs(tvb, offset + TLV_LENGTH);
         if (length < 4) {
@@ -575,52 +581,58 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             break;
 
         case TYPE_VOIP_VLAN_REPLY:
+            tlvi = NULL;
             if (tree) {
-                if (length >= 7) {
-                    tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb, offset, length, ett_cdp_tlv, NULL,
-                                               "VoIP VLAN Reply: %u", tvb_get_ntohs(tvb, offset + 5));
-                } else {
-                    /*
-                     * XXX - what are these?  I've seen them in some captures;
-                     * they have a length of 6, and run up to the end of
-                     * the packet, so if we try to dissect it the same way
-                     * we dissect the 7-byte ones, we report a malformed
-                     * frame.
-                     */
-                    tlv_tree = proto_tree_add_subtree(cdp_tree, tvb,
-                                               offset, length, ett_cdp_tlv, NULL, "VoIP VLAN Reply");
-                }
+                guint32 vlan_id;
+
+                tlv_tree = proto_tree_add_subtree(cdp_tree, tvb,
+                                           offset, length, ett_cdp_tlv, &tlvi,
+                                           "VoIP VLAN Reply");
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
-                proto_tree_add_item(tlv_tree, hf_cdp_data, tvb, offset + 4, 1, ENC_NA);
-                if (length >= 7) {
-                    proto_tree_add_item(tlv_tree, hf_cdp_voice_vlan, tvb, offset + 5, 2, ENC_BIG_ENDIAN);
+                if (length == 6) {
+                    /*
+                     * XXX - this doesn't appear to happen, so report it
+                     * as an error.
+                     */
+                    proto_tree_add_item(tlv_tree, hf_cdp_data, tvb, offset + 4, 2, ENC_NA);
+                } else {
+                    /*
+                     * XXX - the first byte appears to be a 1-byte
+                     * "appliance type" code.
+                     */
+                    proto_tree_add_item(tlv_tree, hf_cdp_data, tvb, offset + 4, 1, ENC_NA);
+                    proto_tree_add_item_ret_uint(tlv_tree, hf_cdp_voice_vlan, tvb, offset + 5, 2, ENC_BIG_ENDIAN, &vlan_id);
+                    proto_item_append_text(tlvi, ": VLAN %u", vlan_id);
                 }
             }
             offset += length;
             break;
 
         case TYPE_VOIP_VLAN_QUERY:
+            tlvi = NULL;
             if (tree) {
-                if (length >= 7) {
-                    tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb, offset, length,
-                                               ett_cdp_tlv, NULL, "VoIP VLAN Query: %u", tvb_get_ntohs(tvb, offset + 5));
-                } else {
-                    /*
-                     * XXX - what are these?  I've seen them in some captures;
-                     * they have a length of 6, and run up to the end of
-                     * the packet, so if we try to dissect it the same way
-                     * we dissect the 7-byte ones, we report a malformed
-                     * frame.
-                     */
-                    tlv_tree = proto_tree_add_subtree(cdp_tree, tvb,
-                                               offset, length, ett_cdp_tlv, NULL, "VoIP VLAN Query");
-                }
+                guint32 vlan_id;
+
+                tlv_tree = proto_tree_add_subtree(cdp_tree, tvb,
+                                           offset, length, ett_cdp_tlv, &tlvi,
+                                           "VoIP VLAN Query");
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
-                proto_tree_add_item(tlv_tree, hf_cdp_data, tvb, offset + 4, 1, ENC_NA);
-                if (length >= 7) {
-                    proto_tree_add_item(tlv_tree, hf_cdp_voice_vlan, tvb, offset + 5, 2, ENC_BIG_ENDIAN);
+                if (length == 6) {
+                    /*
+                     * This is some unknown value; it's typically 0x20 0x00,
+                     * which, as a big-endian value, is not a VLAN ID, as
+                     * VLAN IDs are 12 bits long.
+                     */
+                    proto_tree_add_item(tlv_tree, hf_cdp_data, tvb, offset + 4, 2, ENC_BIG_ENDIAN);
+                } else {
+                    /*
+                     * XXX - is this a 1-byte "appliance type" code?
+                     */
+                    proto_tree_add_item(tlv_tree, hf_cdp_data, tvb, offset + 4, 1, ENC_NA);
+                    proto_tree_add_item_ret_uint(tlv_tree, hf_cdp_voice_vlan, tvb, offset + 5, 2, ENC_BIG_ENDIAN, &vlan_id);
+                    proto_item_append_text(tlvi, ": VLAN %u", vlan_id);
                 }
             }
             offset += length;
@@ -739,57 +751,69 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             break;
 
         case TYPE_POWER_REQUESTED:
+            tlvi = NULL;
             if (tree) {
                 tlv_tree = proto_tree_add_subtree(cdp_tree, tvb,
-                                           offset, length, ett_cdp_tlv, NULL, "Power Request: ");
+                                           offset, length, ett_cdp_tlv, &tlvi,
+                                           "Power Request");
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_request_id, tvb, offset + 4, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_management_id, tvb, offset + 6, 2, ENC_BIG_ENDIAN);
             }
-            power_req_len = (tvb_get_ntohs(tvb, offset + TLV_LENGTH)) - 8;
+            power_req_len = tvb_get_ntohs(tvb, offset + TLV_LENGTH);
+            if (power_req_len < 8) {
+                offset += power_req_len;
+                break;
+            }
+            power_req_len -= 8;
             /* Move offset to where the list of Power Request Values Exist */
             offset += 8;
-            while(power_req_len) {
-                if (power_req_len > 4) {
-                    proto_tree_add_item_ret_uint(tlv_tree, hf_cdp_power_requested, tvb, offset, 4, ENC_BIG_ENDIAN, &power_req);
-                    proto_item_append_text(tlvi, "%u mW, ", power_req);
-                    power_req_len -= 4;
-                    offset += 4;
-                } else {
-                    if (power_req_len == 4) {
-                        proto_tree_add_item_ret_uint(tlv_tree, hf_cdp_power_requested, tvb, offset, 4, ENC_BIG_ENDIAN, &power_req);
-                        proto_item_append_text(tlvi, "%u mW", power_req);
-                    }
-                    offset += power_req_len;
-                    break;
-                }
+            first = TRUE;
+            while (power_req_len >= 4) {
+                proto_tree_add_item_ret_uint(tlv_tree, hf_cdp_power_requested, tvb, offset, 4, ENC_BIG_ENDIAN, &power_req);
+                if (first) {
+                    proto_item_append_text(tlvi, ": %u mW", power_req);
+                    first = FALSE;
+                } else
+                    proto_item_append_text(tlvi, ", %u mW", power_req);
+                power_req_len -= 4;
+                offset += 4;
             }
+            offset += power_req_len;
             break;
 
         case TYPE_POWER_AVAILABLE:
+            tlvi = NULL;
             if (tree) {
                 tlv_tree = proto_tree_add_subtree(cdp_tree, tvb,
-                                           offset, length, ett_cdp_tlv, NULL, "Power Available: ");
+                                           offset, length, ett_cdp_tlv, &tlvi,
+                                           "Power Available");
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_request_id, tvb, offset + 4, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_management_id, tvb, offset + 6, 2, ENC_BIG_ENDIAN);
             }
-            power_avail_len = (tvb_get_ntohs(tvb, offset + TLV_LENGTH)) - 8;
+            power_avail_len = tvb_get_ntohs(tvb, offset + TLV_LENGTH);
+            if (power_avail_len < 8) {
+                offset += power_avail_len;
+                break;
+            }
+            power_avail_len -= 8;
             /* Move offset to where the list of Power Available Values Exist */
             offset += 8;
-            while(power_avail_len) {
-                if (power_avail_len >= 4) {
-                    proto_tree_add_item_ret_uint(tlv_tree, hf_cdp_power_available, tvb, offset, 4, ENC_BIG_ENDIAN, &power_avail);
-                    proto_item_append_text(tlvi, "%u mW, ", power_avail);
-                    power_avail_len -= 4;
-                    offset += 4;
-                } else {
-                    offset += power_avail_len;
-                    break;
-                }
+            first = TRUE;
+            while (power_avail_len >= 4) {
+                proto_tree_add_item_ret_uint(tlv_tree, hf_cdp_power_available, tvb, offset, 4, ENC_BIG_ENDIAN, &power_avail);
+                if (first) {
+                    proto_item_append_text(tlvi, ": %u mW", power_avail);
+                    first = FALSE;
+                } else
+                    proto_item_append_text(tlvi, ", %u mW", power_avail);
+                power_avail_len -= 4;
+                offset += 4;
             }
+            offset += power_avail_len;
             break;
 
         case TYPE_NRGYZ:
@@ -1109,6 +1133,13 @@ dissect_address_tlv(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
         }
     }
     if ((protocol_type == PROTO_TYPE_IEEE_802_2) && (protocol_length == 8) && (etypeid > 0)) {
+        /*
+         * See also:
+         *
+         *    http://www.rhyshaden.com/cdp.htm
+         *
+         * where other Ethertypes are mentioned.
+         */
         switch (etypeid) {
 
         case ETHERTYPE_IPv6:

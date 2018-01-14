@@ -260,26 +260,36 @@ static const value_string ext_op_types[] = {
 #define NTPCTRL_MORE_MASK 0x20
 #define NTPCTRL_OP_MASK 0x1f
 
-#define NTPCTRL_OP_UNSPEC 0
-#define NTPCTRL_OP_READSTAT 1
-#define NTPCTRL_OP_READVAR 2
-#define NTPCTRL_OP_WRITEVAR 3
-#define NTPCTRL_OP_READCLOCK 4
-#define NTPCTRL_OP_WRITECLOCK 5
-#define NTPCTRL_OP_SETTRAP 6
-#define NTPCTRL_OP_ASYNCMSG 7
-#define NTPCTRL_OP_UNSETTRAP 31
+#define NTPCTRL_OP_UNSPEC 0		/* unspeciffied */
+#define NTPCTRL_OP_READSTAT 1		/* read status */
+#define NTPCTRL_OP_READVAR 2		/* read variables */
+#define NTPCTRL_OP_WRITEVAR 3		/* write variables */
+#define NTPCTRL_OP_READCLOCK 4		/* read clock variables */
+#define NTPCTRL_OP_WRITECLOCK 5		/* write clock variables */
+#define NTPCTRL_OP_SETTRAP 6		/* set trap address */
+#define NTPCTRL_OP_ASYNCMSG 7		/* asynchronous message */
+#define NTPCTRL_OP_CONFIGURE 8		/* runtime configuration */
+#define NTPCTRL_OP_SAVECONFIG 9		/* save config to file */
+#define NTPCTRL_OP_READ_MRU 10		/* retrieve MRU (mrulist) */
+#define NTPCTRL_OP_READ_ORDLIST_A 11	/* ordered list req. auth. */
+#define NTPCTRL_OP_REQ_NONCE 12		/* request a client nonce */
+#define NTPCTRL_OP_UNSETTRAP 31		/* unset trap */
 
 static const value_string ctrl_op_types[] = {
-	{ NTPCTRL_OP_UNSPEC,		"UNSPEC" },
-	{ NTPCTRL_OP_READSTAT,		"READSTAT" },
-	{ NTPCTRL_OP_READVAR,		"READVAR" },
-	{ NTPCTRL_OP_WRITEVAR,		"WRITEVAR" },
-	{ NTPCTRL_OP_READCLOCK,		"READCLOCK" },
-	{ NTPCTRL_OP_WRITECLOCK,	"WRITECLOCK" },
-	{ NTPCTRL_OP_SETTRAP,		"SETTRAP" },
-	{ NTPCTRL_OP_ASYNCMSG,		"ASYNCMSG" },
-	{ NTPCTRL_OP_UNSETTRAP,		"UNSETTRAP" },
+	{ NTPCTRL_OP_UNSPEC,		"reserved" },
+	{ NTPCTRL_OP_READSTAT,		"read status" },
+	{ NTPCTRL_OP_READVAR,		"read variables" },
+	{ NTPCTRL_OP_WRITEVAR,		"write variables" },
+	{ NTPCTRL_OP_READCLOCK,		"read clock variables" },
+	{ NTPCTRL_OP_WRITECLOCK,	"write clock variables" },
+	{ NTPCTRL_OP_SETTRAP,		"set trap address/port" },
+	{ NTPCTRL_OP_ASYNCMSG,		"asynchronous message" },
+	{ NTPCTRL_OP_CONFIGURE,		"runtime configuration" },
+	{ NTPCTRL_OP_SAVECONFIG,	"save config to file" },
+	{ NTPCTRL_OP_READ_MRU,		"retrieve MRU (mrulist)" },
+	{ NTPCTRL_OP_READ_ORDLIST_A,	"retrieve ordered list" },
+	{ NTPCTRL_OP_REQ_NONCE,		"request a client nonce" },
+	{ NTPCTRL_OP_UNSETTRAP,		"unset trap address/port" },
 	{ 0,		NULL}
 };
 
@@ -304,13 +314,21 @@ static const value_string ctrl_sys_status_clksource_types[] = {
 
 static const value_string ctrl_sys_status_event_types[] = {
 	{ 0,		"unspecified" },
-	{ 1,		"system restart" },
-	{ 2,		"system or hardware fault" },
-	{ 3,		"system new status word (leap bits or synchronization change)" },
-	{ 4,		"system new synchronization source or stratum (sys.peer or sys.stratum change)" },
-	{ 5,		"system clock reset (offset correction exceeds CLOCK.MAX)" },
-	{ 6,		"system invalid time or date (see NTP spec.)" },
-	{ 7,		"system clock exception (see system clock status word)" },
+	{ 1,		"frequency correction (drift) file not available" },
+	{ 2,		"frequency correction started (frequency stepped)" },
+	{ 3,		"spike detected and ignored, starting stepout timer" },
+	{ 4,		"frequency training started" },
+	{ 5,		"clock synchronized" },
+	{ 6,		"system restart" },
+	{ 7,		"panic stop (required step greater than panic threshold)" },
+	{ 8,		"no system peer" },
+	{ 9,		"leap second insertion/deletion armed" },
+	{ 10,		"leap second disarmed" },
+	{ 11,		"leap second inserted or deleted" },
+	{ 12,		"clock stepped (stepout timer expired)" },
+	{ 13,		"kernel loop discipline status changed" },
+	{ 14,		"leapseconds table loaded from file" },
+	{ 15,		"leapseconds table outdated, updated file needed" },
 	{ 0,		NULL}
 };
 
@@ -319,13 +337,13 @@ static const value_string ctrl_sys_status_event_types[] = {
 #define NTPCTRL_PEERSTATUS_AUTHENABLE_MASK	0x4000
 #define NTPCTRL_PEERSTATUS_AUTHENTIC_MASK	0x2000
 #define NTPCTRL_PEERSTATUS_REACH_MASK		0x1000
-#define NTPCTRL_PEERSTATUS_RESERVED_MASK	0x0800
-#define NTPCTRL_PEERSTATUS_SEL_MASK			0x0700
+#define NTPCTRL_PEERSTATUS_BCAST_MASK		0x0800
+#define NTPCTRL_PEERSTATUS_SEL_MASK		0x0700
 #define NTPCTRL_PEERSTATUS_COUNT_MASK		0x00F0
 #define NTPCTRL_PEERSTATUS_CODE_MASK		0x000F
 
 static const true_false_string tfs_ctrl_peer_status_config = {"configured (peer.config)", "not configured (peer.config)" };
-static const true_false_string tfs_ctrl_peer_status_authenable = { "authentication enabled (peer.authenable", "authentication disabled (peer.authenable" };
+static const true_false_string tfs_ctrl_peer_status_authenable = { "authentication enabled (peer.authenable)", "authentication disabled (peer.authenable)" };
 static const true_false_string tfs_ctrl_peer_status_authentic = { "authentication okay (peer.authentic)", "authentication not okay (peer.authentic)" };
 static const true_false_string tfs_ctrl_peer_status_reach = {"reachability okay (peer.reach != 0)", "reachability not okay (peer.reach != 0)" };
 
@@ -343,11 +361,22 @@ static const value_string ctrl_peer_status_selection_types[] = {
 
 static const value_string ctrl_peer_status_event_types[] = {
 	{ 0,		"unspecified" },
-	{ 1,		"peer IP error" },
-	{ 2,		"peer authentication failure (peer.authentic bit was one now zero)" },
+	{ 1,		"association mobilized" },
+	{ 2,		"association demobilized" },
 	{ 3,		"peer unreachable (peer.reach was nonzero now zero)" },
 	{ 4,		"peer reachable (peer.reach was zero now nonzero)" },
-	{ 5,		"peer clock exception (see peer clock status word)" },
+	{ 5,		"association restarted or timed out" },
+	{ 6,		"no server found (ntpdate mode)" },
+	{ 7,		"rate exceeded (kiss code RATE)" },
+	{ 8,		"access denied (kiss code DENY)" },
+	{ 9,		"leap armed from server LI code" },
+	{ 10,		"become system peer" },
+	{ 11,		"reference clock event (see clock status word)" },
+	{ 12,		"authentication failure" },
+	{ 13,		"popcorn spike suppressor" },
+	{ 14,		"entering interleave mode" },
+	{ 15,		"interleave error (recovered)" },
+	{ 16,		"leapsecond values update from server" },
 	{ 0,		NULL}
 };
 
@@ -543,6 +572,10 @@ static int hf_ntpctrl_count = -1;
 static int hf_ntpctrl_data = -1;
 static int hf_ntpctrl_item = -1;
 static int hf_ntpctrl_trapmsg = -1;
+static int hf_ntpctrl_ordlist = -1;
+static int hf_ntpctrl_configuration = -1;
+static int hf_ntpctrl_mru = -1;
+static int hf_ntpctrl_nonce = -1;
 
 static int hf_ntppriv_flags_r = -1;
 static int hf_ntppriv_flags_more = -1;
@@ -1048,6 +1081,7 @@ dissect_ntp_ctrl(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ntp_tree)
 	guint16		 datalen;
 	guint16		 data_offset;
 	gint		 length_remaining;
+	gboolean	 auth_diss = FALSE;
 
 	tvbparse_t	*tt;
 	tvbparse_elem_t *element;
@@ -1195,6 +1229,23 @@ dissect_ntp_ctrl(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ntp_tree)
 		case NTPCTRL_OP_ASYNCMSG:
 			proto_tree_add_item(data_tree, hf_ntpctrl_trapmsg, tvb, data_offset, datalen, ENC_ASCII|ENC_NA);
 			break;
+		case NTPCTRL_OP_CONFIGURE:
+		case NTPCTRL_OP_SAVECONFIG:
+			proto_tree_add_item(data_tree, hf_ntpctrl_configuration, tvb, data_offset, datalen, ENC_ASCII|ENC_NA);
+			auth_diss = TRUE;
+			break;
+		case NTPCTRL_OP_READ_MRU:
+			proto_tree_add_item(data_tree, hf_ntpctrl_mru, tvb, data_offset, datalen, ENC_ASCII|ENC_NA);
+			auth_diss = TRUE;
+			break;
+		case NTPCTRL_OP_READ_ORDLIST_A:
+			proto_tree_add_item(data_tree, hf_ntpctrl_ordlist, tvb, data_offset, datalen, ENC_ASCII|ENC_NA);
+			auth_diss = TRUE;
+			break;
+		case NTPCTRL_OP_REQ_NONCE:
+			proto_tree_add_item(data_tree, hf_ntpctrl_nonce, tvb, data_offset, datalen, ENC_ASCII|ENC_NA);
+			auth_diss = TRUE;
+			break;
 		/* these opcodes doesn't carry any data: NTPCTRL_OP_SETTRAP, NTPCTRL_OP_UNSETTRAP, NTPCTRL_OP_UNSPEC */
 		}
 	}
@@ -1202,7 +1253,7 @@ dissect_ntp_ctrl(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ntp_tree)
 	data_offset = 12+datalen;
 
 	/* Check if there is authentication */
-	if ((flags2 & NTPCTRL_R_MASK) == 0)
+	if (((flags2 & NTPCTRL_R_MASK) == 0) || auth_diss == TRUE)
 	{
 		gint padding_length;
 
@@ -1566,8 +1617,8 @@ proto_register_ntp(void)
 			"Peer Status", "ntp.ctrl.peer_status.reach", FT_BOOLEAN, 16,
 			TFS(&tfs_ctrl_peer_status_reach), NTPCTRL_PEERSTATUS_REACH_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_b4, {
-			"Peer Status: reserved", "ntp.ctrl.peer_status.reserved", FT_UINT16, BASE_DEC,
-			NULL, NTPCTRL_PEERSTATUS_RESERVED_MASK, NULL, HFILL }},
+			"Peer Status broadcast association", "ntp.ctrl.peer_status.bcast", FT_BOOLEAN, 16,
+			TFS(&tfs_set_notset), NTPCTRL_PEERSTATUS_BCAST_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_selection, {
 			"Peer Selection", "ntp.ctrl.peer_status.selection", FT_UINT16, BASE_DEC,
 			VALS(ctrl_peer_status_selection_types), NTPCTRL_PEERSTATUS_SEL_MASK, NULL, HFILL }},
@@ -1600,6 +1651,18 @@ proto_register_ntp(void)
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntpctrl_trapmsg, {
 			"Trap message", "ntp.ctrl.trapmsg", FT_STRING, BASE_NONE,
+			NULL, 0, NULL, HFILL }},
+		{ &hf_ntpctrl_configuration, {
+			"Configuration", "ntp.ctrl.configuration", FT_STRING, BASE_NONE,
+			NULL, 0, NULL, HFILL }},
+		{ &hf_ntpctrl_mru, {
+			"MRU", "ntp.ctrl.mru", FT_STRING, BASE_NONE,
+			NULL, 0, NULL, HFILL }},
+		{ &hf_ntpctrl_ordlist, {
+			"Ordered List", "ntp.ctrl.ordlist", FT_STRING, BASE_NONE,
+			NULL, 0, NULL, HFILL }},
+		{ &hf_ntpctrl_nonce, {
+			"Nonce", "ntp.ctrl.nonce", FT_STRING, BASE_NONE,
 			NULL, 0, NULL, HFILL }},
 
 		{ &hf_ntppriv_flags_r, {

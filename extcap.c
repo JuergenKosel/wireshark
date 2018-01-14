@@ -97,6 +97,9 @@ static void extcap_load_interface_list(void);
 GHashTable *
 extcap_loaded_interfaces(void)
 {
+    if (prefs.capture_no_extcap)
+        return NULL;
+
     if ( !_loaded_interfaces || g_hash_table_size(_loaded_interfaces) == 0 )
         extcap_load_interface_list();
 
@@ -506,6 +509,9 @@ append_extcap_interface_list(GList *list, char **err_str _U_)
     extcap_interface *data = NULL;
     GList *ifutilkeys_head = NULL, *ifutilkeys = NULL;
 
+    if (prefs.capture_no_extcap)
+        return list;
+
     /* Update the extcap interfaces and get a list of their if_infos */
     if ( !_loaded_interfaces || g_hash_table_size(_loaded_interfaces) == 0 )
         extcap_load_interface_list();
@@ -564,6 +570,9 @@ extcap_register_preferences_callback(gpointer key, gpointer value _U_, gpointer 
 
 void extcap_register_preferences(void)
 {
+    if (prefs.capture_no_extcap)
+        return;
+
     module_t *dev_module = prefs_find_module("extcap");
 
     if (!dev_module)
@@ -1474,6 +1483,9 @@ extcap_ensure_interface(const gchar * toolname, gboolean create_if_nonexist)
 {
     extcap_info * element = 0;
 
+    if ( prefs.capture_no_extcap )
+        return NULL;
+
     if ( ! toolname )
         return element;
 
@@ -1660,6 +1672,9 @@ extcap_load_interface_list(void)
 {
     gchar *argv;
     gchar *error;
+
+    if (prefs.capture_no_extcap)
+        return;
 
     if (_toolbars)
     {

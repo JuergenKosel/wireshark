@@ -1023,7 +1023,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>pcap-ng</source>
+        <source>pcapng</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1317,7 +1317,7 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Capture packets in pcap-ng format</source>
+        <source>Capture packets in pcapng format</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1334,6 +1334,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Automatic scrolling in live capture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Disable external capture interfaces</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -3454,6 +3458,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Show hidden interfaces</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>External capture interfaces disabled.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10723,7 +10731,7 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Initializing extcap</source>
+        <source>Initializing external capture plugins</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

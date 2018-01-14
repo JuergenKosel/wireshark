@@ -193,6 +193,9 @@ static dissector_handle_t bgp_handle;
 #define FOURHEX0                     0x00000000
 #define FOURHEXF                     0xFFFF0000
 
+/* IANA assigned AS */
+#define BGP_AS_TRANS        23456
+
 /* attribute types */
 #define BGPTYPE_ORIGIN               1 /* RFC4271           */
 #define BGPTYPE_AS_PATH              2 /* RFC4271           */
@@ -1458,6 +1461,7 @@ static int hf_bgp_notify_minor_cease = -1;
 static int hf_bgp_notify_minor_cap_msg = -1;
 static int hf_bgp_notify_minor_unknown = -1;
 static int hf_bgp_notify_data = -1;
+static int hf_bgp_notify_error_open_bad_peer_as = -1;
 static int hf_bgp_notify_communication_length = -1;
 static int hf_bgp_notify_communication = -1;
 
@@ -5830,6 +5834,7 @@ dissect_bgp_open(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
     int             cend;      /* capabilities end      */
     int             oend;      /* options end           */
     int             offset;    /* tvb offset counter    */
+    guint32         as_num;    /* AS Number             */
     proto_item      *ti;       /* tree item             */
     proto_tree      *opt_tree;  /* subtree for options   */
     proto_tree      *par_tree;  /* subtree for par options   */
@@ -5839,7 +5844,10 @@ dissect_bgp_open(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
     proto_tree_add_item(tree, hf_bgp_open_version, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
-    proto_tree_add_item(tree, hf_bgp_open_myas, tvb, offset, 2, ENC_BIG_ENDIAN);
+    ti = proto_tree_add_item_ret_uint(tree, hf_bgp_open_myas, tvb, offset, 2, ENC_BIG_ENDIAN, &as_num);
+    if (as_num == BGP_AS_TRANS) {
+        proto_item_append_text(ti, " (AS_TRANS)");
+    }
     offset += 2;
 
     proto_tree_add_item(tree, hf_bgp_open_holdtime, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -6784,6 +6792,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, guint16 path_attr_len,
     proto_item    *ti;                        /* tree item                */
     proto_item    *ti_communities;            /* tree communities         */
     proto_item    *ti_community;              /* tree for each community  */
+    proto_item    *ti_as;                     /* tree for each as         */
     proto_item    *attr_len_item;
     proto_item    *aigp_type_item;
     proto_tree    *subtree2;                  /* path attribute subtree   */
@@ -6826,6 +6835,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, guint16 path_attr_len,
         guint8  saf, snpa;
         guint8  nexthop_len;
         guint8  asn_len = 0;
+        guint32 as_num;
 
         static const int * path_flags[] = {
             &hf_bgp_update_path_attribute_flags_optional,
@@ -6932,9 +6942,12 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, guint16 path_attr_len,
                     for (j = 0; j < length; j++)
                     {
                         if(asn_len == 2) {
-                            proto_tree_add_item(as_path_segment_tree,
+                            ti_as = proto_tree_add_item_ret_uint(as_path_segment_tree,
                                                 hf_bgp_update_path_attribute_as_path_segment_as2,
-                                                tvb, q, 2, ENC_BIG_ENDIAN);
+                                                tvb, q, 2, ENC_BIG_ENDIAN, &as_num);
+                            if (as_num == BGP_AS_TRANS) {
+                                proto_item_append_text(ti_as, " (AS_TRANS)");
+                            }
                             proto_item_append_text(ti_pa, "%u",
                                                    tvb_get_ntohs(tvb, q));
                             proto_item_append_text(ti, "%u",
@@ -7771,6 +7784,8 @@ dissect_bgp_notification(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
             while (offset < hlen) {
                 offset = dissect_bgp_capability_item(tvb, tree, pinfo, offset, FALSE);
             }
+        } else if (major_error == BGP_MAJOR_ERROR_OPEN_MSG && minor_cease == 2 ) { /* Display Bad Peer AS Number */
+            proto_tree_add_item(tree, hf_bgp_notify_error_open_bad_peer_as, tvb, offset, hlen - BGP_MIN_NOTIFICATION_MSG_SIZE, ENC_NA);
         } else {
             proto_tree_add_item(tree, hf_bgp_notify_data, tvb, offset, hlen - BGP_MIN_NOTIFICATION_MSG_SIZE, ENC_NA);
         }
@@ -8299,6 +8314,9 @@ proto_register_bgp(void)
           NULL, 0x0, NULL, HFILL }},
       { &hf_bgp_notify_data,
         { "Data", "bgp.notify.minor_data", FT_BYTES, BASE_NONE,
+           NULL, 0x0, NULL, HFILL }},
+      { &hf_bgp_notify_error_open_bad_peer_as,
+        { "Bad Peer AS", "bgp.notify.error_open.bad_peer_as", FT_UINT32, BASE_DEC,
            NULL, 0x0, NULL, HFILL }},
       { &hf_bgp_notify_communication_length,
         { "BGP Shutdown Communication Length", "bgp.notify.communication_length", FT_UINT8, BASE_DEC,

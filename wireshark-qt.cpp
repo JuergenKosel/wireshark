@@ -78,6 +78,7 @@
 #include "ui/dissect_opts.h"
 #include "ui/commandline.h"
 #include "ui/capture_ui_utils.h"
+#include "ui/preference_utils.h"
 #include "ui/taps.h"
 
 #include "ui/qt/conversation_dialog.h"
@@ -387,10 +388,10 @@ int main(int argc, char *qt_argv[])
 #ifdef HAVE_LIBPCAP
     int                  caps_queries = 0;
 #endif
-    /* Start time in microseconds*/
-    guint64 start_time = g_get_monotonic_time();
 #ifdef DEBUG_STARTUP_TIME
-    /* At least on Windows there is a problem with the loging as the preferences is taken
+    /* Start time in microseconds */
+    guint64 start_time = g_get_monotonic_time();
+    /* At least on Windows there is a problem with the logging as the preferences is taken
      * into account and the preferences are loaded pretty late in the startup process.
      */
     prefs.console_log_level = DEBUG_STARTUP_TIME_LOGLEVEL;
@@ -624,7 +625,7 @@ int main(int argc, char *qt_argv[])
                         open_failure_alert_box, read_failure_alert_box,
                         write_failure_alert_box);
 
-    wtap_init();
+    wtap_init(TRUE);
 
     splash_update(RA_DISSECTORS, NULL, NULL);
 #ifdef DEBUG_STARTUP_TIME
@@ -695,7 +696,9 @@ int main(int argc, char *qt_argv[])
     splash_update(RA_EXTCAP, NULL, NULL);
     extcap_register_preferences();
     splash_update(RA_PREFERENCES, NULL, NULL);
+#ifdef DEBUG_STARTUP_TIME
     g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling module preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
 
     global_commandline_info.prefs_p = ws_app.readConfigurationFiles(false);
 
@@ -789,7 +792,6 @@ int main(int argc, char *qt_argv[])
     capture_opts_trim_ring_num_files(&global_capture_opts);
 #endif /* HAVE_LIBPCAP */
 
-
     /* Notify all registered modules that have had any of their preferences
        changed either from one of the preferences file or from the command
        line that their preferences have changed. */
@@ -797,6 +799,7 @@ int main(int argc, char *qt_argv[])
     g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Calling prefs_apply_all, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 #endif
     prefs_apply_all();
+    prefs_to_capture_opts();
     wsApp->emitAppSignal(WiresharkApplication::PreferencesChanged);
 
 #ifdef HAVE_LIBPCAP
@@ -860,7 +863,9 @@ int main(int argc, char *qt_argv[])
 #endif /* HAVE_LIBPCAP */
 
     wsApp->allSystemsGo();
+#ifdef DEBUG_STARTUP_TIME
     g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_INFO, "Wireshark is up and ready to go, elapsed time %" G_GUINT64_FORMAT "us \n", g_get_monotonic_time() - start_time);
+#endif
     SimpleDialog::displayQueuedMessages(main_w);
 
     /* User could specify filename, or display filter, or both */
