@@ -91,6 +91,7 @@ fill_list(GtkWidget *main_w)
        * and use it later without any crashes.  This may not be a
        * valid assumption.
        */
+      g_free(l_select);
       l_select = (GtkTreeIter *)g_memdup(&iter, sizeof(iter));
     }
     fl_entry = g_list_next(fl_entry);
@@ -137,11 +138,11 @@ profile_select(GtkWidget *main_w, GtkTreeView *profile_l, gboolean destroy)
 static void
 profile_apply(GtkWidget *main_w, GtkTreeView *profile_l, gboolean destroy)
 {
-  const gchar *err_msg;
+  gchar *err_msg;
 
   if ((err_msg = apply_profile_changes()) != NULL) {
     simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err_msg);
-    g_free((gchar*)err_msg);
+    g_free(err_msg);
     return;
   }
 

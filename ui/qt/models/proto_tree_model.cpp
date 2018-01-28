@@ -25,6 +25,17 @@ ProtoTreeModel::ProtoTreeModel(QObject * parent) :
     root_node_(0)
 {}
 
+Qt::ItemFlags ProtoTreeModel::flags(const QModelIndex &index) const
+{
+    Qt::ItemFlags item_flags = QAbstractItemModel::flags(index);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+    if (rowCount(index) < 1) {
+        item_flags |= Qt::ItemNeverHasChildren;
+    }
+#endif
+    return item_flags;
+}
+
 QModelIndex ProtoTreeModel::index(int row, int, const QModelIndex &parent) const
 {
     ProtoNode parent_node(root_node_);
@@ -67,6 +78,12 @@ int ProtoTreeModel::rowCount(const QModelIndex &parent) const
     return ProtoNode(root_node_).childrenCount();
 }
 
+// The QItemDelegate documentation says
+// "When displaying items from a custom model in a standard view, it is
+//  often sufficient to simply ensure that the model returns appropriate
+//  data for each of the roles that determine the appearance of items in
+//  views."
+// We might want to move this to a delegate regardless.
 QVariant ProtoTreeModel::data(const QModelIndex &index, int role) const
 {
     ProtoNode index_node = protoNodeFromIndex(index);
@@ -106,11 +123,20 @@ QVariant ProtoTreeModel::data(const QModelIndex &index, int role) const
         if(finfo.flag(PI_SEVERITY_MASK)) {
             return ColorUtils::expert_color_foreground;
         }
+        if (finfo.isLink()) {
+            return QApplication::palette().link();
+        }
         if(finfo.headerInfo().type == FT_PROTOCOL) {
             return QApplication::palette().windowText();
         }
         return QApplication::palette().text();
     }
+    case Qt::FontRole:
+        if (finfo.isLink()) {
+            QFont font;
+            font.setUnderline(true);
+            return font;
+        }
     default:
         break;
     }

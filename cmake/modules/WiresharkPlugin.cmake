@@ -12,7 +12,6 @@ macro(SET_MODULE_INFO _plugin _ver_major _ver_minor _ver_micro _ver_extra)
 		set(MODULE_VERSION "${MODULE_VERSION_MAJOR}.${MODULE_VERSION_MINOR}.${MODULE_VERSION_MICRO}.${MODULE_VERSION_EXTRA}")
 		set(RC_MODULE_VERSION "${MODULE_VERSION_MAJOR},${MODULE_VERSION_MINOR},${MODULE_VERSION_MICRO},${MODULE_VERSION_EXTRA}")
 
-		# XXX This is wrong
 		set(MSVC_VARIANT "${CMAKE_GENERATOR}")
 
 		# Create the plugin.rc file from the template
@@ -41,17 +40,9 @@ macro(ADD_PLUGIN_LIBRARY _plugin _subfolder)
 		FOLDER "Plugins"
 	)
 
-	if(ENABLE_APPLICATION_BUNDLE)
-		set_target_properties(${_plugin} PROPERTIES
-			LIBRARY_OUTPUT_DIRECTORY ${PLUGIN_DIR}/${_subfolder}
-		)
-	else()
-		# Why don't we just write to ${PLUGIN_DIR}/${_subfolder}
-		# everywhere?
-		set_target_properties(${_plugin} PROPERTIES
-			LIBRARY_OUTPUT_DIRECTORY ${PLUGIN_DIR}
+	set_target_properties(${_plugin} PROPERTIES
+		LIBRARY_OUTPUT_DIRECTORY ${PLUGIN_DIR}/${_subfolder}
 	)
-endif()
 
 	# Try to force output to ${PLUGIN_DIR} without the configuration
 	# type appended. Needed on Windows.

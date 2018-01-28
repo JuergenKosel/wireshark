@@ -55,7 +55,7 @@
 #include "epan/dissectors/packet-t30.h"
 #include "epan/dissectors/packet-h248.h"
 #include "epan/dissectors/packet-sccp.h"
-#include "plugins/unistim/packet-unistim.h"
+#include "plugins/epan/unistim/packet-unistim.h"
 #include "epan/dissectors/packet-skinny.h"
 #include "epan/dissectors/packet-iax2.h"
 #include "epan/rtp_pt.h"
@@ -1530,6 +1530,22 @@ mtp3_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt 
     return FALSE;
 }
 
+static gboolean
+m3ua_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt _U_, const void *mtp3_info)
+{
+    voip_calls_tapinfo_t *tapinfo = tap_id_to_base(tap_offset_ptr, tap_id_offset_m3ua_);
+    const mtp3_tap_rec_t *pi = (const mtp3_tap_rec_t *)mtp3_info;
+
+    /* keep the data in memory to use when the ISUP information arrives */
+
+    tapinfo->mtp3_opc = pi->addr_opc.pc;
+    tapinfo->mtp3_dpc = pi->addr_dpc.pc;
+    tapinfo->mtp3_ni = pi->addr_opc.ni;
+    tapinfo->mtp3_frame_num = pinfo->num;
+
+    return FALSE;
+}
+
 /****************************************************************************/
 
 void
@@ -1555,7 +1571,7 @@ mtp3_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             NULL,
             0,
             NULL,
-            mtp3_calls_packet,
+            m3ua_calls_packet,
             NULL
             );
 
@@ -2290,7 +2306,7 @@ h245dg_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *ed
            tunnel OFF but we did not matched the h245 add, in this case nobady will set this label
            since the frame_num will not match */
 
-        h245_add_label(tapinfo, pinfo->num, (gchar *) pi->frame_label, (gchar *) pi->comment);
+        h245_add_label(tapinfo, pinfo->num, pi->frame_label, pi->comment);
     }
 
     tapinfo->redraw |= REDRAW_H245DG;

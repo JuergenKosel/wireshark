@@ -84,13 +84,13 @@ void ByteViewText::createContextMenu()
 
     QActionGroup * format_actions = new QActionGroup(this);
     action = format_actions->addAction(tr("Show bytes as hexadecimal"));
-    action->setData(qVariantFromValue(BYTES_HEX));
+    action->setData(QVariant::fromValue(BYTES_HEX));
     action->setCheckable(true);
     if (recent.gui_bytes_view == BYTES_HEX) {
         action->setChecked(true);
     }
     action = format_actions->addAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as bits"));
-    action->setData(qVariantFromValue(BYTES_BITS));
+    action->setData(QVariant::fromValue(BYTES_BITS));
     action->setCheckable(true);
     if (recent.gui_bytes_view == BYTES_BITS) {
         action->setChecked(true);
@@ -103,19 +103,19 @@ void ByteViewText::createContextMenu()
 
     QActionGroup * encoding_actions = new QActionGroup(this);
     action = encoding_actions->addAction(tr("Show text based on packet"));
-    action->setData(qVariantFromValue(BYTES_ENC_FROM_PACKET));
+    action->setData(QVariant::fromValue(BYTES_ENC_FROM_PACKET));
     action->setCheckable(true);
     if (recent.gui_bytes_encoding == BYTES_ENC_FROM_PACKET) {
         action->setChecked(true);
     }
     action = encoding_actions->addAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as ASCII"));
-    action->setData(qVariantFromValue(BYTES_ENC_ASCII));
+    action->setData(QVariant::fromValue(BYTES_ENC_ASCII));
     action->setCheckable(true);
     if (recent.gui_bytes_encoding == BYTES_ENC_ASCII) {
         action->setChecked(true);
     }
     action = encoding_actions->addAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as EBCDIC"));
-    action->setData(qVariantFromValue(BYTES_ENC_EBCDIC));
+    action->setData(QVariant::fromValue(BYTES_ENC_EBCDIC));
     action->setCheckable(true);
     if (recent.gui_bytes_encoding == BYTES_ENC_EBCDIC) {
         action->setChecked(true);
@@ -143,11 +143,13 @@ void ByteViewText::markProtocol(int start, int length)
     viewport()->update();
 }
 
-void ByteViewText::markField(int start, int length)
+void ByteViewText::markField(int start, int length, bool scroll_to)
 {
     field_start_ = start;
     field_len_ = length;
-    scrollToByte(start);
+    if (scroll_to) {
+        scrollToByte(start);
+    }
     viewport()->update();
 }
 
@@ -160,13 +162,15 @@ void ByteViewText::markAppendix(int start, int length)
 
 void ByteViewText::setMonospaceFont(const QFont &mono_font)
 {
-    mono_font_ = mono_font;
+    mono_font_ = QFont(mono_font);
+    mono_font_.setStyleStrategy(QFont::ForceIntegerMetrics);
 
-    const QFontMetricsF fm(mono_font);
+    const QFontMetricsF fm(mono_font_);
     font_width_  = fm.width('M');
 
-    setFont(mono_font);
-    layout_->setFont(mono_font);
+    setFont(mono_font_);
+    viewport()->setFont(mono_font_);
+    layout_->setFont(mono_font_);
 
     // We should probably use ProtoTree::rowHeight.
     line_height_ = fontMetrics().height();
@@ -179,7 +183,6 @@ void ByteViewText::paintEvent(QPaintEvent *)
 {
     QPainter painter(viewport());
     painter.translate(-horizontalScrollBar()->value() * font_width_, 0);
-    painter.setFont(font());
 
     // Pixel offset of this row
     int row_y = 0;
@@ -203,16 +206,44 @@ void ByteViewText::paintEvent(QPaintEvent *)
 
     // Data rows
     int widget_height = height();
+    int leading = fontMetrics().leading();
     painter.save();
 
     x_pos_to_column_.clear();
     while( (int) (row_y + line_height_) < widget_height && offset < (int) data_.count()) {
         drawLine(&painter, offset, row_y);
         offset += row_width_;
-        row_y += line_height_;
+        row_y += line_height_ + leading;
     }
 
     painter.restore();
+
+    // We can't do this in drawLine since the next line might draw over our rect.
+    if (!hover_outlines_.isEmpty()) {
+        qreal pen_width = 1.0;
+        QPen ho_pen;
+        QColor ho_color = palette().text().color();
+        ho_color.setAlphaF(0.5);
+        ho_pen.setColor(ho_color);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 1, 0)
+        if (devicePixelRatio() > 1) {
+            pen_width = 0.5;
+        }
+#endif
+        ho_pen.setWidthF(pen_width);
+
+        painter.save();
+        painter.setPen(ho_pen);
+        painter.setBrush(Qt::NoBrush);
+        foreach (QRect ho_rect, hover_outlines_) {
+            // These look good on retina and non-retina displays on macOS.
+            // We might want to use fontMetrics numbers instead.
+            ho_rect.adjust(-1, 0, -1, -1);
+            painter.drawRect(ho_rect);
+        }
+        painter.restore();
+    }
+    hover_outlines_.clear();
 
     QStyleOptionFocusRect option;
     option.initFrom(this);
@@ -237,6 +268,7 @@ void ByteViewText::mousePressEvent (QMouseEvent *event) {
         mouseMoveEvent(event);
     }
     emit byteSelected(marked_byte_offset_);
+    viewport()->update();
 }
 
 void ByteViewText::mouseMoveEvent(QMouseEvent *event)
@@ -247,13 +279,11 @@ void ByteViewText::mouseMoveEvent(QMouseEvent *event)
 
     hovered_byte_offset_ = byteOffsetAtPixel(event->pos());
     emit byteHovered(hovered_byte_offset_);
-
     viewport()->update();
 }
 
 void ByteViewText::leaveEvent(QEvent *event)
 {
-    QString empty;
     emit byteHovered(-1);
 
     viewport()->update();
@@ -331,6 +361,13 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
             if (build_x_pos) {
                 x_pos_to_column_ += QVector<int>().fill(tvb_pos - offset, fontMetrics().width(line) - x_pos_to_column_.size() + slop);
             }
+            if (tvb_pos == hovered_byte_offset_) {
+                int ho_len = recent.gui_bytes_view == BYTES_HEX ? 2 : 8;
+                QRect ho_rect = painter->boundingRect(QRect(), Qt::AlignHCenter|Qt::AlignVCenter, line.right(ho_len));
+                ho_rect.moveRight(fontMetrics().width(line));
+                ho_rect.moveTop(row_y);
+                hover_outlines_.append(ho_rect);
+            }
         }
         line += QString(ascii_start - line.length(), ' ');
         if (build_x_pos) {
@@ -344,9 +381,6 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
         addHexFormatRange(fmt_list, field_a_start_, field_a_len_, offset, max_tvb_pos, ModeField);
         if (marked_byte_offset_ >= offset && marked_byte_offset_ <= max_tvb_pos) {
             addHexFormatRange(fmt_list, marked_byte_offset_, 1, offset, max_tvb_pos, ModeMarked);
-        }
-        if (hovered_byte_offset_ >= offset && hovered_byte_offset_ <= max_tvb_pos) {
-            addHexFormatRange(fmt_list, hovered_byte_offset_, 1, offset, max_tvb_pos, ModeHover);
         }
     }
 
@@ -391,6 +425,12 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
             if (build_x_pos) {
                 x_pos_to_column_ += QVector<int>().fill(tvb_pos - offset, fontMetrics().width(line) - x_pos_to_column_.size());
             }
+            if (tvb_pos == hovered_byte_offset_) {
+                QRect ho_rect = painter->boundingRect(QRect(), 0, line.right(1));
+                ho_rect.moveRight(fontMetrics().width(line));
+                ho_rect.moveTop(row_y);
+                hover_outlines_.append(ho_rect);
+            }
         }
         if (in_non_printable) {
             addAsciiFormatRange(fmt_list, np_start, np_len, offset, max_tvb_pos, ModeNonPrintable);
@@ -402,9 +442,6 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
         addAsciiFormatRange(fmt_list, field_a_start_, field_a_len_, offset, max_tvb_pos, ModeField);
         if (marked_byte_offset_ >= offset && marked_byte_offset_ <= max_tvb_pos) {
             addAsciiFormatRange(fmt_list, marked_byte_offset_, 1, offset, max_tvb_pos, ModeMarked);
-        }
-        if (hovered_byte_offset_ >= offset && hovered_byte_offset_ <= max_tvb_pos) {
-            addAsciiFormatRange(fmt_list, hovered_byte_offset_, 1, offset, max_tvb_pos, ModeHover);
         }
     }
 
@@ -418,7 +455,7 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
     layout_->beginLayout();
     QTextLine tl = layout_->createLine();
     tl.setLineWidth(totalPixels());
-    tl.setPosition(QPointF(0.0, 0.0));
+    tl.setLeadingIncluded(true);
     layout_->endLayout();
     layout_->draw(painter, QPointF(0.0, row_y));
 }
@@ -431,7 +468,6 @@ bool ByteViewText::addFormatRange(QList<QTextLayout::FormatRange> &fmt_list, int
     QTextLayout::FormatRange format_range;
     format_range.start = start;
     format_range.length = length;
-    format_range.format.setProperty(QTextFormat::LineHeight, line_height_);
     switch (mode) {
     case ModeNormal:
         return false;
@@ -447,15 +483,9 @@ bool ByteViewText::addFormatRange(QList<QTextLayout::FormatRange> &fmt_list, int
     case ModeOffsetField:
         format_range.format.setForeground(offset_field_fg_);
         break;
-    case ModeHover:
-        // QTextCharFormat doesn't appear to let us draw a complete border.
-        // This is the next best thing.
-        format_range.format.setFontUnderline(true);
-        format_range.format.setFontOverline(true);
-        break;
     case ModeMarked:
         // XXX Should we get rid of byteViewMarkColor and just draw an
-        // overline + underline instead?
+        // outline instead?
         format_range.format.setForeground(ColorUtils::byteViewMarkColor(false));
         format_range.format.setBackground(ColorUtils::byteViewMarkColor(true));
         break;
@@ -473,16 +503,17 @@ bool ByteViewText::addHexFormatRange(QList<QTextLayout::FormatRange> &fmt_list, 
     if (mark_start < 0 || mark_length < 1) return false;
     if (mark_start > max_tvb_pos && mark_end < tvb_offset) return false;
 
-    int chars_per_byte = recent.gui_bytes_view == BYTES_HEX ? 3 : 9;
+    int chars_per_byte = recent.gui_bytes_view == BYTES_HEX ? 2 : 8;
+    int chars_plus_pad = chars_per_byte + 1;
     int byte_start = qMax(tvb_offset, mark_start) - tvb_offset;
     int byte_end = qMin(max_tvb_pos, mark_end) - tvb_offset;
     int fmt_start = offsetChars() + 1 // offset + spacing
             + (byte_start / separator_interval_)
-            + (byte_start * chars_per_byte);
+            + (byte_start * chars_plus_pad);
     int fmt_length = offsetChars() + 1 // offset + spacing
             + (byte_end / separator_interval_)
-            + (byte_end * chars_per_byte)
-            + 2 // Both the high and low nibbles.
+            + (byte_end * chars_plus_pad)
+            + chars_per_byte
             - fmt_start;
     return addFormatRange(fmt_list, fmt_start, fmt_length, mode);
 }

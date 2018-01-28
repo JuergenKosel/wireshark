@@ -47,7 +47,6 @@
 #include <ui/qt/utils/variant_pointer.h>
 #include <ui/qt/models/astringlist_list_model.h>
 #include <ui/qt/models/url_link_delegate.h>
-#include <ui/qt/models/html_text_delegate.h>
 
 #include <QFontMetrics>
 #include <QKeySequence>
@@ -82,7 +81,7 @@ AStringListListModel(parent)
         if ( line.startsWith("------") )
             continue;
 
-        if ( line.compare(QStringLiteral("Acknowledgements") ) == 0 )
+        if ( line == "Acknowledgements" )
         {
             readAck = true;
             continue;
@@ -106,7 +105,7 @@ QString AuthorListModel::acknowledgment() const
 
 QStringList AuthorListModel::headerColumns() const
 {
-    return QStringList() << tr("Name") << tr("E-Mail");
+    return QStringList() << tr("Name") << tr("Email");
 }
 
 static void plugins_add_description(const char *name, const char *version,
@@ -135,7 +134,7 @@ PluginListModel::PluginListModel(QObject * parent) : AStringListListModel(parent
         while (walker && walker->data) {
             extcap_info * tool = (extcap_info *)g_hash_table_lookup(tools, walker->data);
             if (tool) {
-                QStringList plugin_row = QStringList() << tool->basename << tool->version << "extcap" << tool->full_path;
+                QStringList plugin_row = QStringList() << tool->basename << tool->version << tr("extcap") << tool->full_path;
                 plugin_data << plugin_row;
             }
             walker = g_list_next(walker);
@@ -198,63 +197,63 @@ FolderListModel::FolderListModel(QObject * parent):
         AStringListListModel(parent)
 {
     /* "file open" */
-    appendRow( QStringList() << "\"File\" dialogs" << get_last_open_dir() << "capture files");
+    appendRow( QStringList() << tr("\"File\" dialogs") << get_last_open_dir() << tr("capture files"));
 
     /* temp */
-    appendRow( QStringList() <<  "Temp" << g_get_tmp_dir() << "untitled capture files");
+    appendRow( QStringList() << tr("Temp") << g_get_tmp_dir() << tr("untitled capture files"));
 
     /* pers conf */
-    appendRow( QStringList() << "Personal configuration"
+    appendRow( QStringList() << tr("Personal configuration")
             << gchar_free_to_qstring(get_persconffile_path("", FALSE))
-            << "<i>dfilters</i>, <i>preferences</i>, <i>ethers</i>, " UTF8_HORIZONTAL_ELLIPSIS);
+            << tr("dfilters, preferences, ethers, " UTF8_HORIZONTAL_ELLIPSIS));
 
     /* global conf */
     QString dirPath = get_datafile_dir();
     if (! dirPath.isEmpty()) {
-        appendRow ( QStringList() << "Global configuration" << dirPath
-                << "<i>dfilters</i>, <i>preferences</i>, <i>manuf</i>, " UTF8_HORIZONTAL_ELLIPSIS);
+        appendRow ( QStringList() << tr("Global configuration") << dirPath
+                << tr("dfilters, preferences, manuf, " UTF8_HORIZONTAL_ELLIPSIS));
     }
 
     /* system */
-    appendRow( QStringList() << "System" << get_systemfile_dir() << "<i>ethers</i>, <i>ipxnets</i>");
+    appendRow( QStringList() << tr("System") << get_systemfile_dir() << tr("ethers, ipxnets"));
 
     /* program */
-    appendRow( QStringList() << "Program" << get_progfile_dir() << "program files");
+    appendRow( QStringList() << tr("Program") << get_progfile_dir() << tr("program files"));
 
 #ifdef HAVE_PLUGINS
     /* pers plugins */
-    appendRow( QStringList() << "Personal Plugins" << get_plugins_pers_dir_with_version() << "binary plugins");
+    appendRow( QStringList() << tr("Personal Plugins") << get_plugins_pers_dir_with_version() << tr("binary plugins"));
 
     /* global plugins */
-    appendRow( QStringList() << "Global Plugins" << get_plugins_dir_with_version() << "binary plugins");
+    appendRow( QStringList() << tr("Global Plugins") << get_plugins_dir_with_version() << tr("binary plugins"));
 #endif
 
 #ifdef HAVE_LUA
     /* pers plugins */
-    appendRow( QStringList() << "Personal Lua Plugins" << get_plugins_pers_dir() << "lua scripts");
+    appendRow( QStringList() << tr("Personal Lua Plugins") << get_plugins_pers_dir() << tr("lua scripts"));
 
     /* global plugins */
-    appendRow( QStringList() << "Global Lua Plugins" << get_plugins_dir() << "lua scripts");
+    appendRow( QStringList() << tr("Global Lua Plugins") << get_plugins_dir() << tr("lua scripts"));
 #endif
 
     /* Extcap */
     QStringList extPaths = QString(get_extcap_dir()).split(G_SEARCHPATH_SEPARATOR_S);
 
     foreach(QString path, extPaths)
-        appendRow( QStringList() << "Extcap path" << path.trimmed() << "Extcap Plugins search path");
+        appendRow( QStringList() << tr("Extcap path") << path.trimmed() << tr("Extcap Plugins search path"));
 
 #ifdef HAVE_GEOIP
     /* GeoIP */
     QStringList geoIpPaths = QString(geoip_db_get_paths()).split(G_SEARCHPATH_SEPARATOR_S);
     foreach(QString path, geoIpPaths)
-        appendRow( QStringList() << "GeoIP path" << path.trimmed() << "GeoIP database search path");
+        appendRow( QStringList() << tr("GeoIP path") << path.trimmed() << tr("GeoIP database search path"));
 #endif
 
 #ifdef HAVE_LIBSMI
     /* SMI MIBs/PIBs */
     QStringList smiPaths = QString(oid_get_default_mib_path()).split(G_SEARCHPATH_SEPARATOR_S);
     foreach(QString path, smiPaths)
-        appendRow( QStringList() << "MIB/PIB path" << path.trimmed() << "SMI MIB/PIB search path");
+        appendRow( QStringList() << tr("MIB/PIB path") << path.trimmed() << tr("SMI MIB/PIB search path"));
 #endif
 }
 
@@ -293,7 +292,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->pte_Authors->moveCursor(QTextCursor::Start);
 
     ui->tblAuthors->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->tblAuthors, &QTreeView::customContextMenuRequested, this, &AboutDialog::handleCopyMenu);
+    connect(ui->tblAuthors, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
     connect(ui->searchAuthors, SIGNAL(textChanged(QString)), proxyAuthorModel, SLOT(setFilter(QString)));
 
     /* Wireshark tab */
@@ -333,11 +332,10 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->tblFolders->setModel(folderDisplayModel);
     ui->tblFolders->setRootIsDecorated(false);
     ui->tblFolders->setItemDelegateForColumn(1, new UrlLinkDelegate(this));
-    ui->tblFolders->setItemDelegateForColumn(2, new HTMLTextDelegate(this));
     ui->tblFolders->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->tblFolders, &QTreeView::customContextMenuRequested, this, &AboutDialog::handleCopyMenu);
+    connect(ui->tblFolders, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
     connect(ui->searchFolders, SIGNAL(textChanged(QString)), folderProxyModel, SLOT(setFilter(QString)));
-    connect(ui->tblFolders, &QTreeView::clicked, this, &AboutDialog::urlClicked );
+    connect(ui->tblFolders, SIGNAL(clicked(QModelIndex)), this, SLOT(urlClicked(QModelIndex)));
 
 
     /* Plugins */
@@ -354,7 +352,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->tblPlugins->setRootIsDecorated(false);
     ui->cmbType->addItems(pluginModel->typeNames());
     ui->tblPlugins->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->tblPlugins, &QTreeView::customContextMenuRequested, this, &AboutDialog::handleCopyMenu);
+    connect(ui->tblPlugins, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
     connect(ui->searchPlugins, SIGNAL(textChanged(QString)), pluginFilterModel, SLOT(setFilter(QString)));
     connect(ui->cmbType, SIGNAL(currentIndexChanged(QString)), pluginTypeModel, SLOT(setFilter(QString)));
 
@@ -372,7 +370,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->tblShortcuts->setModel(shortcutProxyModel);
     ui->tblShortcuts->setRootIsDecorated(false);
     ui->tblShortcuts->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->tblShortcuts, &QTreeView::customContextMenuRequested, this, &AboutDialog::handleCopyMenu);
+    connect(ui->tblShortcuts, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
     connect(ui->searchShortcuts, SIGNAL(textChanged(QString)), shortcutProxyModel, SLOT(setFilter(QString)));
 
     /* License */
@@ -460,11 +458,11 @@ void AboutDialog::handleCopyMenu(QPoint pos)
 
     QAction * copyColumnAction = menu->addAction(tr("Copy"));
     copyColumnAction->setData(VariantPointer<QTreeView>::asQVariant(tree));
-    connect(copyColumnAction, &QAction::triggered, this, &AboutDialog::copyActionTriggered);
+    connect(copyColumnAction, SIGNAL(triggered()), this, SLOT(copyActionTriggered()));
 
     QAction * copyRowAction = menu->addAction(tr("Copy Row(s)"));
     copyRowAction->setData(VariantPointer<QTreeView>::asQVariant(tree));
-    connect(copyRowAction, &QAction::triggered, this, &AboutDialog::copyRowActionTriggered);
+    connect(copyRowAction, SIGNAL(triggered()), this, SLOT(copyRowActionTriggered()));
 
     menu->popup(tree->viewport()->mapToGlobal(pos));
 }

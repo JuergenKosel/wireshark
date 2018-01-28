@@ -338,20 +338,27 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		/MP
 	)
 
+	set(WS_LINK_FLAGS "/LARGEADDRESSAWARE /MANIFEST:NO /INCREMENTAL:NO /RELEASE")
+
 	if(MSVC12)
 		# /Zo                               Enhanced debugging of optimised code for VS2013 Update 3 and beyond,
 		#                                   Assume all VS2013 builds are at least Update 3.
 		#                                   See http://msdn.microsoft.com/en-us/library/dn785163.aspx
-		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} "/Zo")
+		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} /Zo)
 	elseif(MSVC14)
 		# /Zo                               Enhanced debugging of optimised code
 		# /utf-8                            Set Source and Executable character sets to UTF-8
 		#                                   VS2015(MSVC14): On by default when /Zi or /Z7 used.
-		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} "/Zo" "/utf-8")
+		# /guard:cf                         Control Flow Guard (compile and link).
+		#                                   See https://msdn.microsoft.com/en-us/library/windows/desktop/mt637065.aspx
+		# /Qspectre                         Speculative execution attack mitigation
+		#                                   See https://blogs.msdn.microsoft.com/vcblog/2018/01/15/spectre-mitigations-in-msvc/
+		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} /Zo /utf-8 /guard:cf /Qspectre)
+		set(WS_LINK_FLAGS "${WS_LINK_FLAGS} /guard:cf")
 	endif()
 
 	if(ENABLE_CODE_ANALYSIS)
-		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} "/analyze:WX-")
+		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} /analyze:WX-)
 	endif()
 
 	# Additional compiler warnings to be treated as "Level 3"
@@ -360,16 +367,14 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 	## 4189: local variable is initialized but not referenced
 	# Disable warnings about about use of flexible array members:
 	## 4200: nonstandard extension used : zero-sized array in struct/union
-	set(WARNINGS_CFLAGS "/w34295 /w34189 /wd4200")
+	set(WARNINGS_CFLAGS /w34295 /w34189 /wd4200)
 
 	set(WIRESHARK_COMMON_FLAGS
 		${LOCAL_CFLAGS}
 		${WARNINGS_CFLAGS}
 	)
 
-	set(WS_LINK_FLAGS "/LARGEADDRESSAWARE /MANIFEST:NO /INCREMENTAL:NO /RELEASE")
-
-else()
+else() # ! MSVC
 	if(CMAKE_OSX_DEPLOYMENT_TARGET)
 		if(APPLE)
 			if(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.0")
@@ -633,7 +638,25 @@ else()
 		-DG_DISABLE_DEPRECATED
 		-DG_DISABLE_SINGLE_INCLUDES
 	)
-endif()
+
+	set(WIRESHARK_LD_FLAGS
+		-Wl,--as-needed
+		# -flto
+		# -fwhopr
+		# -fwhole-program
+	)
+	# CMAKE_POSITION_INDEPENDENT_CODE is only supported starting with CMake
+	# 2.8.9. Do not add -pie automatically for older versions.
+	#
+	# XXX - are there other compilers that don't support -pie?  It's
+	# not as if the only platforms we support are Windows and Linux....
+	#
+	if(NOT CMAKE_VERSION VERSION_LESS "2.8.9")
+		set(WIRESHARK_LD_FLAGS ${WIRESHARK_LD_FLAGS}
+			-pie
+		)
+	endif()
+endif() # ! MSVC
 
 set( C_FLAG_TESTS ${WIRESHARK_COMMON_FLAGS} ${WIRESHARK_C_ONLY_FLAGS} )
 set( CXX_FLAG_TESTS ${WIRESHARK_COMMON_FLAGS} ${WIRESHARK_CXX_ONLY_FLAGS} )
@@ -798,24 +821,6 @@ if( NOT CMAKE_C_COMPILER_ID MATCHES "MSVC")
 				" All shared library symbols will be exported.")
 		endif()
 	endif()
-endif()
-
-set(WIRESHARK_LD_FLAGS
-	-Wl,--as-needed
-	# -flto
-	# -fwhopr
-	# -fwhole-program
-)
-# CMAKE_POSITION_INDEPENDENT_CODE is only supported starting with CMake
-# 2.8.9. Do not add -pie automatically for older versions.
-#
-# XXX - are there other compilers that don't support -pie?  It's
-# not as if the only platforms we support are Windows and Linux....
-#
-if(NOT CMAKE_VERSION VERSION_LESS "2.8.9")
-	set(WIRESHARK_LD_FLAGS ${WIRESHARK_LD_FLAGS}
-		-pie
-	)
 endif()
 
 include(CheckCLinkerFlag)
@@ -1370,19 +1375,19 @@ if(ENABLE_PLUGINS)
 	add_custom_target(plugins)
 	set_target_properties(plugins PROPERTIES FOLDER "Plugins")
 	set(PLUGIN_SRC_DIRS
-		plugins/docsis
-		plugins/ethercat
-		plugins/gryphon
-		plugins/irda
-		plugins/mate
-		plugins/opcua
-		plugins/profinet
-		plugins/stats_tree
-		plugins/transum
-		plugins/unistim
-		plugins/wimax
-		plugins/wimaxasncp
-		plugins/wimaxmacphy
+		plugins/epan/docsis
+		plugins/epan/ethercat
+		plugins/epan/gryphon
+		plugins/epan/irda
+		plugins/epan/mate
+		plugins/epan/opcua
+		plugins/epan/profinet
+		plugins/epan/stats_tree
+		plugins/epan/transum
+		plugins/epan/unistim
+		plugins/epan/wimax
+		plugins/epan/wimaxasncp
+		plugins/epan/wimaxmacphy
 		${CUSTOM_PLUGIN_SRC_DIR}
 	)
 
@@ -1390,7 +1395,7 @@ if(ENABLE_PLUGINS)
 	if(ENABLE_PLUGIN_IFDEMO)
 		set(PLUGIN_SRC_DIRS
 			${PLUGIN_SRC_DIRS}
-			plugins/pluginifdemo
+			plugins/epan/pluginifdemo
 		)
 	endif()
 
@@ -1713,128 +1718,64 @@ if(WIN32)
 	# The cairo, freetype, gio, gnutls, png, and other OBS-generated DLLs
 	# depend on zlib1.dll. We compile zlib locally but the Debug
 	# configuration (the default) creates zlibd1.dll.
-	file (TO_NATIVE_PATH "${_dll_output_dir}" _dll_output_dir_win )
-	foreach( _dll ${GLIB2_DLLS} $<$<CONFIG:Debug>:zlib1.dll> )
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			# It would be really handy if copy, xcopy, or "cmake
-			# -E copy_if_different" supported multiple files
-			# separated by whitespace, or if robocpy had a sane
-			# notion of exit codes.
-			COMMAND if exist \"${_dll}\" xcopy ${_dll} "${_dll_output_dir_win}" /D /Y
-			WORKING_DIRECTORY "${GLIB2_DLL_DIR}"
-		)
-	endforeach(_dll)
+	# Note: Passing multiple files to copy_if_different requires
+	# CMake 3.5 or later.
+	add_custom_command(TARGET copy_cli_dlls PRE_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			${GLIB2_DLLS} $<$<CONFIG:Debug>:zlib1.dll>
+			"${_dll_output_dir}"
+		WORKING_DIRECTORY "${GLIB2_DLL_DIR}"
+	)
 
-	# Optional
+	# Optional DLLs.
+	set (OPTIONAL_DLLS)
 	if (AIRPCAP_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${AIRPCAP_DLL_DIR}/${AIRPCAP_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${AIRPCAP_DLL_DIR}/${AIRPCAP_DLL}")
 	endif(AIRPCAP_FOUND)
 	if (CARES_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${CARES_DLL_DIR}/${CARES_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${CARES_DLL_DIR}/${CARES_DLL}")
 	endif(CARES_FOUND)
 	if (GEOIP_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${GEOIP_DLL_DIR}/${GEOIP_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${GEOIP_DLL_DIR}/${GEOIP_DLL}")
 	endif(GEOIP_FOUND)
 	if (LIBSSH_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${LIBSSH_DLL_DIR}/${LIBSSH_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${LIBSSH_DLL_DIR}/${LIBSSH_DLL}")
 	endif(LIBSSH_FOUND)
 	foreach( _dll ${GCRYPT_DLLS} )
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${GCRYPT_DLL_DIR}/${_dll}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${GCRYPT_DLL_DIR}/${_dll}")
 	endforeach(_dll)
-	if(GNUTLS_FOUND)
-		foreach( _dll ${GNUTLS_DLLS} )
-			add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					"${GNUTLS_DLL_DIR}/${_dll}"
-					"${_dll_output_dir}"
-			)
-		endforeach(_dll)
-	endif(GNUTLS_FOUND)
-	if(KERBEROS_FOUND)
-		foreach( _dll ${KERBEROS_DLLS} )
-			add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					"${KERBEROS_DLL_DIR}/${_dll}"
-					"${_dll_output_dir}"
-			)
-		endforeach(_dll)
-	endif(KERBEROS_FOUND)
+	foreach( _dll ${GNUTLS_DLLS} )
+		list (APPEND OPTIONAL_DLLS "${GNUTLS_DLL_DIR}/${_dll}")
+	endforeach(_dll)
+	foreach( _dll ${KERBEROS_DLLS} )
+		list (APPEND OPTIONAL_DLLS "${KERBEROS_DLL_DIR}/${_dll}")
+	endforeach(_dll)
 	if (LUA_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${LUA_DLL_DIR}/${LUA_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${LUA_DLL_DIR}/${LUA_DLL}")
 	endif(LUA_FOUND)
 	if (LZ4_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${LZ4_DLL_DIR}/${LZ4_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${LZ4_DLL_DIR}/${LZ4_DLL}")
 	endif(LZ4_FOUND)
 	if (NGHTTP2_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${NGHTTP2_DLL_DIR}/${NGHTTP2_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${NGHTTP2_DLL_DIR}/${NGHTTP2_DLL}")
 	endif(NGHTTP2_FOUND)
 	if (SBC_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${SBC_DLL_DIR}/${SBC_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${SBC_DLL_DIR}/${SBC_DLL}")
 	endif(SBC_FOUND)
 	if (SPANDSP_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${SPANDSP_DLL_DIR}/${SPANDSP_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${SPANDSP_DLL_DIR}/${SPANDSP_DLL}")
 	endif(SPANDSP_FOUND)
 	if (BCG729_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${BCG729_DLL_DIR}/${BCG729_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${BCG729_DLL_DIR}/${BCG729_DLL}")
 	endif(BCG729_FOUND)
 	if (LIBXML2_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${LIBXML2_DLL_DIR}/${LIBXML2_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${LIBXML2_DLL_DIR}/${LIBXML2_DLL}")
 	endif(LIBXML2_FOUND)
 	if (SMI_FOUND)
+		list (APPEND OPTIONAL_DLLS "${SMI_DLL_DIR}/${SMI_DLL}")
 		# Wireshark.nsi wants SMI_DIR which is the base SMI directory
 		get_filename_component(SMI_DIR ${SMI_DLL_DIR} DIRECTORY)
 		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${SMI_DLL_DIR}/${SMI_DLL}"
-				"${_dll_output_dir}"
 			COMMAND ${CMAKE_COMMAND} -E make_directory
 				"${_dll_output_dir}/snmp"
 			COMMAND ${CMAKE_COMMAND} -E make_directory
@@ -1872,19 +1813,22 @@ if(WIN32)
 		)
 	endif(SMI_FOUND)
 	if (SNAPPY_FOUND)
-		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${SNAPPY_DLL_DIR}/${SNAPPY_DLL}"
-				"${_dll_output_dir}"
-		)
+		list (APPEND OPTIONAL_DLLS "${SNAPPY_DLL_DIR}/${SNAPPY_DLL}")
 	endif(SNAPPY_FOUND)
 	if (WINSPARKLE_FOUND)
+		list (APPEND OPTIONAL_DLLS "${WINSPARKLE_DLL_DIR}/${WINSPARKLE_DLL}")
+	endif(WINSPARKLE_FOUND)
+
+	# With libs downloaded to c:/wireshark-win64-libs this currently
+	# (early 2018) expands to about 1900 characters.
+	if (OPTIONAL_DLLS)
 		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${WINSPARKLE_DLL_DIR}/${WINSPARKLE_DLL}"
+				${OPTIONAL_DLLS}
 				"${_dll_output_dir}"
+			VERBATIM
 		)
-	endif(WINSPARKLE_FOUND)
+	endif(OPTIONAL_DLLS)
 
 	# This might not be needed since make-dissectors has the same dependency.
 	add_dependencies(epan copy_cli_dlls)
@@ -1957,7 +1901,7 @@ foreach(_install_file ${INSTALL_FILES})
 	get_filename_component(_install_basename "${_install_file}" NAME)
 	set(_output_file "${DATAFILE_DIR}/${_install_basename}")
 	add_custom_command(OUTPUT "${_output_file}"
-		COMMAND ${CMAKE_COMMAND} -E copy
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
 			"${_install_file_src}"
 			"${_output_file}"
 		DEPENDS
@@ -2027,7 +1971,7 @@ if(LUA_FOUND AND ENABLE_LUA)
 		list(APPEND copy_data_files_depends
 			"${DATAFILE_DIR}/${_lua_filename}")
 		add_custom_command(OUTPUT "${DATAFILE_DIR}/${_lua_filename}"
-			COMMAND ${CMAKE_COMMAND} -E copy
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
 				"${_lua_file}"
 				"${DATAFILE_DIR}/${_lua_filename}"
 			DEPENDS
@@ -2040,16 +1984,6 @@ endif(LUA_FOUND AND ENABLE_LUA)
 
 # TODO shouldn't this use full (relative) paths instead of glob patterns?
 list(APPEND DATA_FILES_SRC
-	"dtds/*.dtd"
-
-	"radius/README.radius_dictionary"
-	"radius/custom.includes"
-	"radius/dictionary"
-	"radius/dictionary.*"
-
-	"diameter/*.dtd"
-	"diameter/*.xml"
-	"profiles/*/*"
 	"tpncp/tpncp.dat"
 	"wimaxasncp/*.dtd"
 	"wimaxasncp/*.xml"
@@ -2057,10 +1991,12 @@ list(APPEND DATA_FILES_SRC
 
 # Copy all paths from the source tree to the data directory. Directories are
 # automatically created if missing as the filename is given.
+# TODO Switch to cmake -E copy_if_different when our minimum CMake version
+# is >= 3.5 everywhere.
 file(GLOB _data_files RELATIVE "${CMAKE_SOURCE_DIR}" ${DATA_FILES_SRC})
 foreach(_data_file ${_data_files})
 	add_custom_command(OUTPUT "${DATAFILE_DIR}/${_data_file}"
-		COMMAND ${CMAKE_COMMAND} -E copy
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
 			"${CMAKE_SOURCE_DIR}/${_data_file}"
 			"${DATAFILE_DIR}/${_data_file}"
 		DEPENDS
@@ -2069,8 +2005,100 @@ foreach(_data_file ${_data_files})
 	list(APPEND copy_data_files_depends "${DATAFILE_DIR}/${_data_file}")
 endforeach()
 
+if(CMAKE_VERSION VERSION_LESS 3.5)
+	# To bad -u / --update is a GNU extension.
+	set (MULTI_COPY_COMMAND cp)
+else()
+	set (MULTI_COPY_COMMAND ${CMAKE_COMMAND} -E copy_if_different)
+endif()
+
+add_custom_command(
+	OUTPUT "${DATAFILE_DIR}/dtds" "${DATAFILE_DIR}/diameter" "${DATAFILE_DIR}/radius"
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/dtds"
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/diameter"
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/radius"
+)
+
+file(GLOB _dtds_src_files RELATIVE "${CMAKE_SOURCE_DIR}" "dtds/*.dtd")
+
+set (_dtds_data_files)
+foreach(_data_file ${_dtds_src_files})
+	list(APPEND _dtds_data_files "${DATAFILE_DIR}/${_data_file}")
+endforeach()
+
+add_custom_command(
+	OUTPUT ${_dtds_data_files}
+	COMMAND ${MULTI_COPY_COMMAND}
+		${_dtds_src_files}
+		"${DATAFILE_DIR}/dtds"
+	VERBATIM
+	DEPENDS "${DATAFILE_DIR}/dtds"
+	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+file(GLOB _diameter_src_files RELATIVE "${CMAKE_SOURCE_DIR}"
+	diameter/*.dtd
+	diameter/*.xml
+)
+
+set (_diameter_data_files)
+foreach(_data_file ${_diameter_src_files})
+	list(APPEND _diameter_data_files "${DATAFILE_DIR}/${_data_file}")
+endforeach()
+
+add_custom_command(
+	OUTPUT ${_diameter_data_files}
+	COMMAND ${MULTI_COPY_COMMAND}
+		${_diameter_src_files}
+		"${DATAFILE_DIR}/diameter"
+	VERBATIM
+	DEPENDS "${DATAFILE_DIR}/diameter"
+	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+file(GLOB _radius_src_files RELATIVE "${CMAKE_SOURCE_DIR}"
+	radius/README.radius_dictionary
+	radius/custom.includes
+	radius/dictionary
+	radius/dictionary.*
+)
+
+set (_radius_data_files)
+foreach(_data_file ${_radius_src_files})
+	list(APPEND _radius_data_files "${DATAFILE_DIR}/${_data_file}")
+endforeach()
+
+add_custom_command(
+	OUTPUT ${_radius_data_files}
+	COMMAND ${MULTI_COPY_COMMAND}
+		${_radius_src_files}
+		"${DATAFILE_DIR}/radius"
+	VERBATIM
+	DEPENDS "${DATAFILE_DIR}/radius"
+	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+file(GLOB _profiles_src_files RELATIVE "${CMAKE_SOURCE_DIR}" profiles/*/*)
+set (_profiles_data_files)
+foreach(_data_file ${_profiles_src_files})
+	list(APPEND _profiles_data_files "${DATAFILE_DIR}/${_data_file}")
+endforeach()
+
+add_custom_command(
+	OUTPUT ${_profiles_data_files}
+	COMMAND ${CMAKE_COMMAND} -E copy_directory
+		"${CMAKE_SOURCE_DIR}/profiles" "${DATAFILE_DIR}/profiles"
+)
+
+list(APPEND copy_data_files_depends
+	${_dtds_data_files}
+	${_diameter_data_files}
+	${_radius_data_files}
+	${_profiles_data_files}
+)
+
 # Copy files including ${INSTALL_FILES} and ${INSTALL_DIRS} to ${DATAFILE_DIR}
-add_custom_target(copy_data_files ALL DEPENDS ${copy_data_files_depends})
+add_custom_target(copy_data_files ALL DEPENDS ${copy_data_files_depends} )
 set_target_properties(copy_data_files PROPERTIES FOLDER "Copy Tasks")
 
 if( (BUILD_wireshark AND QT_FOUND) OR (BUILD_wireshark_gtk AND GTK_FOUND) )
@@ -2176,6 +2204,9 @@ if(BUILD_wireshark AND QT_FOUND)
 	)
 
 	add_executable(wireshark WIN32 MACOSX_BUNDLE wireshark-qt.cpp ${wireshark_FILES} ${EXTRA_BUNDLE_FILES})
+	if(QT_VERSION EQUAL 4)
+		target_compile_definitions(wireshark PRIVATE Q_NULLPTR=NULL)
+	endif()
 	add_dependencies(wireshark version)
 	set(PROGLIST ${PROGLIST} wireshark)
 	if(CMAKE_VERSION VERSION_LESS "2.8.12"

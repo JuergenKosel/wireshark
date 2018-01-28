@@ -141,7 +141,7 @@ MACRO(XML2HTML _target_dep _dir_pfx _mode _dbk_source _gfx_sources)
         COMMAND ${CMAKE_COMMAND}
            -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${_gfx_dir}/toolbar ${_out_dir}/${_gfx_dir}/toolbar
         COMMAND ${CMAKE_COMMAND}
-            -E copy ${CMAKE_CURRENT_SOURCE_DIR}/ws.css ${_out_dir}
+            -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/ws.css ${_out_dir}
         COMMAND ${XSLTPROC_EXECUTABLE}
             --path "${_xsltproc_path}"
             --stringparam base.dir ${_basedir}/
@@ -173,7 +173,7 @@ ENDMACRO(XML2HTML)
 #       custom_layer_pdf.xsl
 #       A4 or letter
 #)
-MACRO(XML2PDF _target_dep _output _dbk_source _stylesheet _paper)
+MACRO(XML2PDF _target_dep _output _dbk_source _stylesheet)
     # We depend on the docbook target to avoid parallel builds.
     SET(_dbk_dep ${_target_dep}_docbook)
     file(RELATIVE_PATH _img_relative_path ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -184,12 +184,9 @@ MACRO(XML2PDF _target_dep _output _dbk_source _stylesheet _paper)
             ${_output}.fo
         COMMAND ${XSLTPROC_EXECUTABLE}
             --path "${_xsltproc_path}"
-            --stringparam paper.type ${_paper}
             --stringparam img.src.path ${_img_relative_path}/
             --stringparam use.id.as.filename 1
-            --stringparam admon.graphics 1
             --stringparam admon.graphics.path ${_img_relative_path}/common_graphics/
-            --stringparam admon.graphics.extension .svg
             --nonet
             --output ${_output}.fo
             ${_stylesheet}

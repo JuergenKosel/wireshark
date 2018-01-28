@@ -1502,6 +1502,7 @@ AC_SUBST(wireshark_bin)
 AC_SUBST(wireshark_man)
 AC_SUBST(wireshark_SUBDIRS)
 AM_CONDITIONAL(HAVE_Qt, test "$have_qt" = "yes")
+AM_CONDITIONAL(HAVE_QT_VERSION_4, [test $qt_version -eq 4])
 AM_CONDITIONAL(HAVE_GTK, test "$have_gtk" = "yes")
 
 # Enable/disable tshark
@@ -2809,19 +2810,19 @@ AC_CONFIG_FILES(
   packaging/rpm/SPECS/wireshark.spec
   packaging/wix/Makefile
   plugins/Makefile
-  plugins/docsis/Makefile
-  plugins/ethercat/Makefile
-  plugins/gryphon/Makefile
-  plugins/irda/Makefile
-  plugins/mate/Makefile
-  plugins/opcua/Makefile
-  plugins/profinet/Makefile
-  plugins/stats_tree/Makefile
-  plugins/transum/Makefile
-  plugins/unistim/Makefile
-  plugins/wimax/Makefile
-  plugins/wimaxasncp/Makefile
-  plugins/wimaxmacphy/Makefile
+  plugins/epan/docsis/Makefile
+  plugins/epan/ethercat/Makefile
+  plugins/epan/gryphon/Makefile
+  plugins/epan/irda/Makefile
+  plugins/epan/mate/Makefile
+  plugins/epan/opcua/Makefile
+  plugins/epan/profinet/Makefile
+  plugins/epan/stats_tree/Makefile
+  plugins/epan/transum/Makefile
+  plugins/epan/unistim/Makefile
+  plugins/epan/wimax/Makefile
+  plugins/epan/wimaxasncp/Makefile
+  plugins/epan/wimaxmacphy/Makefile
   _CUSTOM_PLUGIN_CONFIG_FILES_
   randpkt_core/doxygen.cfg
   randpkt_core/Makefile

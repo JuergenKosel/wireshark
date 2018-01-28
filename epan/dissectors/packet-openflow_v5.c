@@ -2563,12 +2563,12 @@ dissect_openflow_port_desc_prop_optical_v5(tvbuff_t *tvb, packet_info *pinfo _U_
     offset+=4;
 
     /* uint16_t tx_pwr_min; */
-    proto_tree_add_item(tree, hf_openflow_v5_port_desc_prop_optical_tx_pwr_min, tvb, offset, 4, ENC_BIG_ENDIAN);
-    offset+=4;
+    proto_tree_add_item(tree, hf_openflow_v5_port_desc_prop_optical_tx_pwr_min, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset+=2;
 
     /* uint16_t tx_pwr_max; */
-    proto_tree_add_item(tree, hf_openflow_v5_port_desc_prop_optical_tx_pwr_max, tvb, offset, 4, ENC_BIG_ENDIAN);
-    offset+=4;
+    proto_tree_add_item(tree, hf_openflow_v5_port_desc_prop_optical_tx_pwr_max, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset+=2;
 
     return offset;
 }
@@ -4188,8 +4188,8 @@ dissect_openflow_port_stats_prop_ethernet_v5(tvbuff_t *tvb, packet_info *pinfo _
 #define OFPOSF_RX_TUNE   1<<0
 #define OFPOSF_TX_TUNE   1<<1
 #define OFPOSF_TX_PWR    1<<2
-#define OFPOSF_RX_PWR    1<<3
-#define OFPOSF_TX_BIAS   1<<4
+#define OFPOSF_RX_PWR    1<<4
+#define OFPOSF_TX_BIAS   1<<5
 #define OFPOSF_TX_TEMP   1<<6
 static int
 dissect_openflow_port_stats_prop_optical_v5(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, guint16 length _U_)
@@ -6891,7 +6891,7 @@ proto_register_openflow_v5(void)
                NULL, HFILL }
         },
         { &hf_openflow_v5_port_length,
-            { "Pad", "openflow_v5.port.length",
+            { "Length", "openflow_v5.port.length",
                FT_UINT16, BASE_DEC, NULL, 0x0,
                NULL, HFILL }
         },
@@ -6901,7 +6901,7 @@ proto_register_openflow_v5(void)
                NULL, HFILL }
         },
         { &hf_openflow_v5_port_pad2,
-            { "Pad", "openflow_v5.port.pad2",
+            { "Pad2", "openflow_v5.port.pad2",
                FT_BYTES, BASE_NONE, NULL, 0x0,
                NULL, HFILL }
         },

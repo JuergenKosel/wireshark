@@ -43,8 +43,7 @@
 
 ByteViewTab::ByteViewTab(QWidget *parent) :
     QTabWidget(parent),
-    cap_file_(0),
-    curSelected(0)
+    cap_file_(0)
 {
     setAccessibleName(tr("Packet bytes"));
     setTabPosition(QTabWidget::South);
@@ -100,7 +99,7 @@ void ByteViewTab::addTab(const char *name, tvbuff_t *tvb) {
 
     ByteViewText * byte_view_text = new ByteViewText(data, encoding, this);
     byte_view_text->setAccessibleName(name);
-    byte_view_text->setMonospaceFont(wsApp->monospaceFont());
+    byte_view_text->setMonospaceFont(wsApp->monospaceFont(true));
 
     if ( tvb )
     {
@@ -113,7 +112,7 @@ void ByteViewTab::addTab(const char *name, tvbuff_t *tvb) {
     }
 
     int idx = QTabWidget::addTab(byte_view_text, name);
-    byte_view_text->setProperty("tab_index", qVariantFromValue(idx));
+    byte_view_text->setProperty("tab_index", QVariant::fromValue(idx));
 
     QTabWidget::setTabToolTip(idx, name);
 }
@@ -130,7 +129,9 @@ void ByteViewTab::byteViewTextHovered(int idx)
             field_info * fi = proto_find_field_from_offset(tree, idx, tvb);
             if ( fi )
             {
-                emit fieldHighlight(new FieldInformation(fi, this));
+                FieldInformation finfo(fi, this);
+                highlightedFieldChanged(&finfo);
+                emit fieldHighlight(&finfo);
                 return;
             }
         }
@@ -151,7 +152,8 @@ void ByteViewTab::byteViewTextMarked(int idx)
             field_info * fi = proto_find_field_from_offset(tree, idx, tvb);
             if ( fi )
             {
-                emit fieldSelected(new FieldInformation(fi, this));
+                FieldInformation finfo(fi, this);
+                emit fieldSelected(&finfo);
                 return;
             }
         }
@@ -203,14 +205,14 @@ ByteViewText * ByteViewTab::findByteViewTextForTvb(tvbuff_t * search_tvb, int * 
     return item;
 }
 
-void ByteViewTab::tabInserted(int index) {
+void ByteViewTab::tabInserted(int tab_index) {
     setTabsVisible();
-    QTabWidget::tabInserted(index);
+    QTabWidget::tabInserted(tab_index);
 }
 
-void ByteViewTab::tabRemoved(int index) {
+void ByteViewTab::tabRemoved(int tab_index) {
     setTabsVisible();
-    QTabWidget::tabRemoved(index);
+    QTabWidget::tabRemoved(tab_index);
 }
 
 void ByteViewTab::setTabsVisible() {
@@ -251,7 +253,6 @@ void ByteViewTab::selectedFrameChanged(int frameNum)
 
 void ByteViewTab::selectedFieldChanged(FieldInformation *selected)
 {
-
     ByteViewText * byte_view_text = 0;
 
     if (selected) {
@@ -286,8 +287,30 @@ void ByteViewTab::selectedFieldChanged(FieldInformation *selected)
             byte_view_text->markAppendix(selected->appendix().start, selected->appendix().length);
         }
     }
+}
 
-    curSelected = selected;
+void ByteViewTab::highlightedFieldChanged(FieldInformation *highlighted)
+{
+    ByteViewText * byte_view_text = qobject_cast<ByteViewText *>(currentWidget());
+    if (!highlighted || !byte_view_text) {
+        return;
+    }
+
+    int f_start = -1, f_length = -1;
+
+    if (cap_file_->search_in_progress && (cap_file_->hex || (cap_file_->string && cap_file_->packet_data))) {
+        // In the hex view, only highlight the target bytes or string. The entire
+        // field can then be displayed by clicking on any of the bytes in the field.
+        f_start = cap_file_->search_pos - cap_file_->search_len + 1;
+        f_length = (int) cap_file_->search_len;
+    } else {
+        f_start = highlighted->position().start;
+        f_length = highlighted->position().length;
+    }
+
+    byte_view_text->markField(f_start, f_length, false);
+    byte_view_text->markProtocol(-1, -1);
+    byte_view_text->markAppendix(-1, -1);
 }
 
 void ByteViewTab::setCaptureFile(capture_file *cf)

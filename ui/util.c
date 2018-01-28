@@ -63,6 +63,12 @@ get_args_as_string(int argc, char **argv, int optindex)
     }
 
     /*
+     * If no arguments, return empty string
+     */
+    if (len == 0)
+        return g_strdup("");
+
+    /*
      * Allocate the buffer for the string.
      */
     argstring = (char *)g_malloc(len);

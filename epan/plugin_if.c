@@ -44,26 +44,19 @@ static void
 plugin_if_init_hashtable(void)
 {
     if ( plugin_if_callback_functions == 0 )
-        plugin_if_callback_functions = g_hash_table_new(g_int_hash, g_int_equal);
+        plugin_if_callback_functions = g_hash_table_new(g_direct_hash, g_direct_equal);
 }
 
 static void plugin_if_call_gui_cb(plugin_if_callback_t actionType, GHashTable * dataSet)
 {
     plugin_if_gui_cb action;
-    gint * key = 0;
-
-    key = (gint *)g_malloc0(sizeof(gint));
-    *key = (gint) actionType;
 
     plugin_if_init_hashtable();
 
-    if ( g_hash_table_size(plugin_if_callback_functions) != 0 )
+    if ( g_hash_table_lookup_extended(plugin_if_callback_functions, GINT_TO_POINTER(actionType), NULL, (gpointer*)&action) )
     {
-        if ( g_hash_table_lookup_extended(plugin_if_callback_functions, key, NULL, (gpointer*)&action) )
-        {
-            if ( action != NULL )
-                action(dataSet);
-        }
+        if ( action != NULL )
+            action(dataSet);
     }
 }
 
@@ -241,8 +234,8 @@ ext_toolbar_compare(gconstpointer  a, gconstpointer  b)
     if ( !a || !b )
         return -1;
 
-    ext_toolbar_t * ta = (ext_toolbar_t *)a;
-    ext_toolbar_t * tb = (ext_toolbar_t *)b;
+    const ext_toolbar_t * ta = (const ext_toolbar_t *)a;
+    const ext_toolbar_t * tb = (const ext_toolbar_t *)b;
 
     return strcmp(ta->name, tb->name);
 }
@@ -298,8 +291,8 @@ void ext_toolbar_unregister_toolbar(ext_toolbar_t * toolbar)
 static gint
 ext_toolbar_insert_sort(gconstpointer a, gconstpointer b)
 {
-    ext_toolbar_t * ca = (ext_toolbar_t *)a;
-    ext_toolbar_t * cb = (ext_toolbar_t *)b;
+    const ext_toolbar_t * ca = (const ext_toolbar_t *)a;
+    const ext_toolbar_t * cb = (const ext_toolbar_t *)b;
 
     if ( ca == 0 || cb == 0 )
         return 0;
@@ -371,11 +364,11 @@ ext_toolbar_search_label(gconstpointer tb, gconstpointer lbl)
     if ( ! tb || ! lbl )
         return -1;
 
-    ext_toolbar_t * toolbar = (ext_toolbar_t *) tb;
+    const ext_toolbar_t * toolbar = (const ext_toolbar_t *) tb;
     if ( toolbar->type != EXT_TOOLBAR_ITEM )
         return -2;
 
-    gchar * label = (gchar * )lbl;
+    const gchar * label = (const gchar * )lbl;
 
     return g_strcmp0(toolbar->name, label);
 }
@@ -417,8 +410,8 @@ ext_toolbar_find_item(gconstpointer a, gconstpointer b)
     if ( a == 0 || b == 0 )
         return -1;
 
-    ext_toolbar_update_list_t * item = (ext_toolbar_update_list_t *)a;
-    ext_toolbar_t * entry = (ext_toolbar_t *)b;
+    const ext_toolbar_update_list_t * item = (const ext_toolbar_update_list_t *)a;
+    const ext_toolbar_t * entry = (const ext_toolbar_t *)b;
 
     if ( item->item && g_strcmp0 ( item->item->name, entry->name ) == 0 )
         return 0;
@@ -596,15 +589,10 @@ extern void plugin_if_get_ws_info(ws_info_t **ws_info_ptr)
 
 extern void plugin_if_register_gui_cb(plugin_if_callback_t actionType, plugin_if_gui_cb callback)
 {
-    gint * key = 0;
-
-    key = (gint *)g_malloc0(sizeof(gint));
-    *key = actionType;
-
     plugin_if_init_hashtable();
 
-    if ( ! g_hash_table_lookup_extended(plugin_if_callback_functions, key, NULL, NULL ) )
-        g_hash_table_insert(plugin_if_callback_functions, key, (gpointer)callback);
+    if ( ! g_hash_table_lookup_extended(plugin_if_callback_functions, GINT_TO_POINTER(actionType), NULL, NULL ) )
+        g_hash_table_insert(plugin_if_callback_functions, GINT_TO_POINTER(actionType), (gpointer)callback);
 }
 
 /*

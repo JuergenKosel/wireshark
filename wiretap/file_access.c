@@ -3,19 +3,7 @@
  * Wiretap Library
  * Copyright (c) 1998 by Gilbert Ramirez <gram@alumni.rice.edu>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0+
  */
 
 #include "config.h"
@@ -720,6 +708,7 @@ wtap_open_offline(const char *filename, unsigned int type, int *err, char **err_
 {
 	int	fd;
 	ws_statb64 statb;
+	gboolean ispipe = FALSE;
 	wtap	*wth;
 	unsigned int	i;
 	gboolean use_stdin = FALSE;
@@ -761,6 +750,7 @@ wtap_open_offline(const char *filename, unsigned int type, int *err, char **err_
 			*err = WTAP_ERR_RANDOM_OPEN_PIPE;
 			return NULL;
 		}
+		ispipe = TRUE;
 	} else if (S_ISDIR(statb.st_mode)) {
 		/*
 		 * Return different errors for "this is a directory"
@@ -836,6 +826,7 @@ wtap_open_offline(const char *filename, unsigned int type, int *err, char **err_
 		wth->random_fh = NULL;
 
 	/* initialization */
+	wth->ispipe = ispipe;
 	wth->file_encap = WTAP_ENCAP_UNKNOWN;
 	wth->subtype_sequential_close = NULL;
 	wth->subtype_close = NULL;

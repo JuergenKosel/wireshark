@@ -748,6 +748,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bzr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-c15ch.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-calcappprotocol.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-caneth.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-canopen.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-capwap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-carp.c
@@ -801,6 +802,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-csn1.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ctdb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cups.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-cvspserver.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-daap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-data.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-daytime.c

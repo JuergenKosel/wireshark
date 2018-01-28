@@ -371,6 +371,7 @@ DISSECTOR_SRC = \
 	packet-bzr.c		\
 	packet-c15ch.c		\
 	packet-calcappprotocol.c	\
+	packet-caneth.c		\
 	packet-canopen.c	\
 	packet-capwap.c		\
 	packet-carp.c		\
@@ -424,6 +425,7 @@ DISSECTOR_SRC = \
 	packet-csn1.c		\
 	packet-ctdb.c		\
 	packet-cups.c		\
+	packet-cvspserver.c	\
 	packet-daap.c		\
 	packet-data.c		\
 	packet-daytime.c	\

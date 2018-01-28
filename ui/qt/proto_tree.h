@@ -23,6 +23,7 @@
 #include <QMenu>
 
 class ProtoTreeModel;
+class ProtoNode;
 
 class ProtoTree : public QTreeView
 {
@@ -32,18 +33,18 @@ public:
     QMenu *colorizeMenu() { return &colorize_menu_; }
     void setRootNode(proto_node *root_node);
     void emitRelatedFrame(int related_frame, ft_framenum_type_t framenum_type = FT_FRAMENUM_NONE);
+    void autoScrollTo(const QModelIndex &index);
     void goToHfid(int hfid);
     void clear();
     void closeContextMenu();
     void restoreSelectedField();
-    const QString toString(const QModelIndex &index = QModelIndex()) const;
+    const QString toString(const QModelIndex &start_idx = QModelIndex()) const;
 
 protected:
     virtual void contextMenuEvent(QContextMenuEvent *event);
     virtual void timerEvent(QTimerEvent *event);
     virtual void keyReleaseEvent(QKeyEvent *event);
     virtual bool eventFilter(QObject * obj, QEvent * ev);
-    virtual void rowsInserted(const QModelIndex & parent, int start, int end);
 
 private:
     ProtoTreeModel *proto_tree_model_;
@@ -62,6 +63,7 @@ private:
     capture_file *cap_file_;
 
     void saveSelectedField(QModelIndex &index);
+    static void foreachTreeNode(proto_node *node, gpointer proto_tree_ptr);
 
 signals:
     void fieldSelected(FieldInformation *);
@@ -76,8 +78,8 @@ public slots:
     /* Set the capture file */
     void setCaptureFile(capture_file *cf);
     void setMonospaceFont(const QFont &mono_font);
-    void expand(const QModelIndex & index);
-    void collapse(const QModelIndex & index);
+    void syncExpanded(const QModelIndex & index);
+    void syncCollapsed(const QModelIndex & index);
     void expandSubtrees();
     void collapseSubtrees();
     void expandAll();
