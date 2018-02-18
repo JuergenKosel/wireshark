@@ -10,19 +10,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 /*
@@ -854,6 +842,7 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   guint32     mqtt_str_len;
   guint16     mqtt_len_offset;
   gint        mqtt_payload_len;
+  guint32     mqtt_msgid;
   conversation_t *conv;
   mqtt_conv_t *mqtt;
   guint       offset = 0;
@@ -1066,9 +1055,12 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
       /* Message ID is included only when QoS > 0 */
       if (mqtt_fixed_hdr & MQTT_MASK_QOS)
       {
-        proto_tree_add_item(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN, &mqtt_msgid);
         offset += 2;
+        col_append_fstr(pinfo->cinfo, COL_INFO, " (id=%u)", mqtt_msgid);
       }
+
+      col_append_fstr(pinfo->cinfo, COL_INFO, " [%s]", topic_str);
 
       if (mqtt->runtime_proto_version == MQTT_PROTO_V50)
       {
@@ -1090,8 +1082,9 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
        * at least once:
        * |TopicName|QoS|
        */
-      proto_tree_add_item(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN, &mqtt_msgid);
       offset += 2;
+      col_append_fstr(pinfo->cinfo, COL_INFO, " (id=%u)", mqtt_msgid);
 
       if (mqtt->runtime_proto_version == MQTT_PROTO_V50)
       {
@@ -1103,8 +1096,11 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
         proto_tree_add_item_ret_uint(mqtt_tree, hf_mqtt_topic_len, tvb, offset, 2, ENC_BIG_ENDIAN, &mqtt_str_len);
         offset += 2;
 
-        proto_tree_add_item(mqtt_tree, hf_mqtt_topic, tvb, offset, mqtt_str_len, ENC_UTF_8|ENC_NA);
+        proto_tree_add_item_ret_string(mqtt_tree, hf_mqtt_topic, tvb, offset, mqtt_str_len, ENC_UTF_8|ENC_NA,
+                                       wmem_epan_scope(), &topic_str);
         offset += mqtt_str_len;
+
+        col_append_fstr(pinfo->cinfo, COL_INFO, " [%s]", topic_str);
 
         if (mqtt->runtime_proto_version == MQTT_PROTO_V50)
         {
@@ -1124,8 +1120,9 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
        * at least once:
        * |TopicName|
        */
-      proto_tree_add_item(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN, &mqtt_msgid);
       offset += 2;
+      col_append_fstr(pinfo->cinfo, COL_INFO, " (id=%u)", mqtt_msgid);
 
       while (offset < tvb_reported_length(tvb))
       {
@@ -1141,8 +1138,9 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
       /* The SUBACK message contains a list of granted QoS levels that come
        * after the Message Id field. The size of each QoS entry is 1 byte.
        */
-      proto_tree_add_item(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN, &mqtt_msgid);
       offset += 2;
+      col_append_fstr(pinfo->cinfo, COL_INFO, " (id=%u)", mqtt_msgid);
 
       if (mqtt->runtime_proto_version == MQTT_PROTO_V50)
       {
@@ -1168,8 +1166,9 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     case MQTT_PUBREC:
     case MQTT_PUBREL:
     case MQTT_PUBCOMP:
-      proto_tree_add_item(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN, &mqtt_msgid);
       offset += 2;
+      col_append_fstr(pinfo->cinfo, COL_INFO, " (id=%u)", mqtt_msgid);
 
       if (mqtt->runtime_proto_version == MQTT_PROTO_V50)
       {
@@ -1181,8 +1180,9 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
       break;
 
     case MQTT_UNSUBACK:
-      proto_tree_add_item(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(mqtt_tree, hf_mqtt_msgid, tvb, offset, 2, ENC_BIG_ENDIAN, &mqtt_msgid);
       offset += 2;
+      col_append_fstr(pinfo->cinfo, COL_INFO, " (id=%u)", mqtt_msgid);
 
       if (mqtt->runtime_proto_version == MQTT_PROTO_V50)
       {

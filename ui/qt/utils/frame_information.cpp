@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include <epan/epan_dissect.h>
 #include "epan/epan.h"
@@ -53,14 +40,14 @@ void FrameInformation::loadFrameTree()
     if (!cf_read_record(cap_file_->capFile(), fi_))
         return;
 
-    struct wtap_pkthdr phdr_ = cap_file_->capFile()->phdr;
+    wtap_rec rec_ = cap_file_->capFile()->rec;
     packet_data_ = (guint8 *) g_memdup(ws_buffer_start_ptr(&(cap_file_->capFile()->buf)), fi_->cap_len);
 
     /* proto tree, visible. We need a proto tree if there's custom columns */
     epan_dissect_init(&edt_, cap_file_->capFile()->epan, TRUE, TRUE);
     col_custom_prime_edt(&edt_, &(cap_file_->capFile()->cinfo));
 
-    epan_dissect_run(&edt_, cap_file_->capFile()->cd_t, &phdr_,
+    epan_dissect_run(&edt_, cap_file_->capFile()->cd_t, &rec_,
                      frame_tvbuff_new(&cap_file_->capFile()->provider, fi_, packet_data_),
                      fi_, &(cap_file_->capFile()->cinfo));
     epan_dissect_fill_in_columns(&edt_, TRUE, TRUE);

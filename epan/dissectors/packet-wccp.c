@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -2050,6 +2038,8 @@ dissect_wccp2_alternate_mask_value_set_element(tvbuff_t *tvb, int offset, gint l
   for (i=0; i < number_of_elements; i++) {
     new_length=dissect_wccp2_web_cache_value_element(tvb, offset, length, pinfo, value_tree, addr_table);
     total_length += length - new_length;
+    if (total_length < 0)
+        return length;
     NOTE_EATEN_LENGTH(new_length);
   }
   proto_item_set_len(header, total_length);

@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #ifndef BYTE_VIEW_TAB_H
 #define BYTE_VIEW_TAB_H
@@ -42,7 +29,7 @@ class ByteViewTab : public QTabWidget
     Q_OBJECT
 
 public:
-    explicit ByteViewTab(QWidget *parent = 0);
+    explicit ByteViewTab(QWidget *parent = 0, epan_dissect_t *edt_fixed = 0);
 
 public slots:
     /* Set the capture file */
@@ -60,6 +47,10 @@ signals:
 
 private:
     capture_file *cap_file_;
+    bool is_fixed_packet_;  /* true if this byte view is related to a single
+                               packet in the packet dialog and false if the
+                               packet dissection context can change. */
+    epan_dissect_t *edt_;   /* Packet dissection result for the currently selected packet. */
 
     void setTabsVisible();
     ByteViewText * findByteViewTextForTvb(tvbuff_t * search, int * idx = 0);

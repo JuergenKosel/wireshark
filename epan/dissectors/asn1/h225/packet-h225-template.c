@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * To quote the author of the previous H323/H225/H245 dissector:
  *   "This is a complete replacement of the previous limitied dissector
@@ -44,6 +32,7 @@
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/rtd_table.h>
+#include "packet-frame.h"
 #include "packet-tpkt.h"
 #include "packet-per.h"
 #include "packet-h225.h"
@@ -329,6 +318,14 @@ h225ras_call_t * append_h225ras_call(h225ras_call_t *prev_call, packet_info *pin
   return h225ras_call;
 }
 
+static void
+h225_frame_end(void)
+{
+  /* next_tvb pointers are allocated in packet scope, clear it. */
+  next_tvb_init(&h245_list);
+  next_tvb_init(&tp_list);
+}
+
 static int
 dissect_h225_H323UserInformation(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
@@ -342,6 +339,7 @@ dissect_h225_H323UserInformation(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
   h225_pi->msg_type = H225_CS;
   p_add_proto_data(pinfo->pool, pinfo, proto_h225, 0, h225_pi);
 
+  register_frame_end_routine(pinfo, h225_frame_end);
   next_tvb_init(&h245_list);
   next_tvb_init(&tp_list);
 
@@ -376,6 +374,8 @@ dissect_h225_h225_RasMessage(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
   h225_pi = create_h225_packet_info(pinfo);
   h225_pi->msg_type = H225_RAS;
   p_add_proto_data(pinfo->pool, pinfo, proto_h225, 0, h225_pi);
+
+  register_frame_end_routine(pinfo, h225_frame_end);
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
 

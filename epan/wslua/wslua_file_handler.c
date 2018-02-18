@@ -10,19 +10,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "wslua_file_common.h"
@@ -144,7 +132,7 @@ wslua_filehandler_read(wtap *wth, int *err, gchar **err_info,
                       gint64 *data_offset);
 static gboolean
 wslua_filehandler_seek_read(wtap *wth, gint64 seek_off,
-    struct wtap_pkthdr *phdr, Buffer *buf,
+    wtap_rec *rec, Buffer *buf,
     int *err, gchar **err_info);
 static void
 wslua_filehandler_close(wtap *wth);
@@ -272,11 +260,11 @@ wslua_filehandler_read(wtap *wth, int *err, gchar **err_info,
         *err = errno = 0;
     }
 
-    wth->phdr.opt_comment = NULL;
+    wth->rec.opt_comment = NULL;
 
     fp = push_File(L, wth->fh);
     fc = push_CaptureInfo(L, wth, FALSE);
-    fi = push_FrameInfo(L, &wth->phdr, wth->frame_buffer);
+    fi = push_FrameInfo(L, &wth->rec, wth->rec_data);
 
     switch ( lua_pcall(L,3,1,1) ) {
         case 0:
@@ -312,7 +300,7 @@ wslua_filehandler_read(wtap *wth, int *err, gchar **err_info,
  */
 static gboolean
 wslua_filehandler_seek_read(wtap *wth, gint64 seek_off,
-    struct wtap_pkthdr *phdr, Buffer *buf,
+    wtap_rec *rec, Buffer *buf,
     int *err, gchar **err_info)
 {
     FileHandler fh = (FileHandler)(wth->wslua_data);
@@ -328,11 +316,11 @@ wslua_filehandler_seek_read(wtap *wth, gint64 seek_off,
     if (err) {
         *err = errno = 0;
     }
-    phdr->opt_comment = NULL;
+    rec->opt_comment = NULL;
 
     fp = push_File(L, wth->random_fh);
     fc = push_CaptureInfo(L, wth, FALSE);
-    fi = push_FrameInfo(L, phdr, buf);
+    fi = push_FrameInfo(L, rec, buf);
     lua_pushnumber(L, (lua_Number)seek_off);
 
     switch ( lua_pcall(L,4,1,1) ) {
@@ -468,7 +456,7 @@ wslua_filehandler_can_write_encap(int encap, void* data)
 
 /* some declarations */
 static gboolean
-wslua_filehandler_dump(wtap_dumper *wdh, const struct wtap_pkthdr *phdr,
+wslua_filehandler_dump(wtap_dumper *wdh, const wtap_rec *rec,
                       const guint8 *pd, int *err, gchar **err_info);
 static gboolean
 wslua_filehandler_dump_finish(wtap_dumper *wdh, int *err);
@@ -539,7 +527,7 @@ wslua_filehandler_dump_open(wtap_dumper *wdh, int *err)
  * else FALSE.
 */
 static gboolean
-wslua_filehandler_dump(wtap_dumper *wdh, const struct wtap_pkthdr *phdr,
+wslua_filehandler_dump(wtap_dumper *wdh, const wtap_rec *rec,
                       const guint8 *pd, int *err, gchar **err_info _U_)
 {
     FileHandler fh = (FileHandler)(wdh->wslua_data);
@@ -558,7 +546,7 @@ wslua_filehandler_dump(wtap_dumper *wdh, const struct wtap_pkthdr *phdr,
 
     fp = push_Wdh(L, wdh);
     fc = push_CaptureInfoConst(L,wdh);
-    fi = push_FrameInfoConst(L, phdr, pd);
+    fi = push_FrameInfoConst(L, rec, pd);
 
     errno = WTAP_ERR_CANT_WRITE;
     switch ( lua_pcall(L,3,1,1) ) {
@@ -621,7 +609,7 @@ wslua_filehandler_dump_finish(wtap_dumper *wdh, int *err)
 WSLUA_CONSTRUCTOR FileHandler_new(lua_State* L) {
     /* Creates a new FileHandler */
 #define WSLUA_ARG_FileHandler_new_NAME 1 /* The name of the file type, for display purposes only. E.g., "Wireshark - pcapng" */
-#define WSLUA_ARG_FileHandler_new_SHORTNAME 2 /* The file type short name, used as a shortcut in various places. E.g., "pcapng". Note: the name cannot already be in use. */
+#define WSLUA_ARG_FileHandler_new_SHORTNAME 2 /* The file type short name, used as a shortcut in various places. E.g., "pcapng". Note: The name cannot already be in use. */
 #define WSLUA_ARG_FileHandler_new_DESCRIPTION 3 /* Descriptive text about this file format, for display purposes only */
 #define WSLUA_ARG_FileHandler_new_TYPE 4 /* The type of FileHandler, "r"/"w"/"rw" for reader/writer/both, include "m" for magic, "s" for strong heuristic */
 
@@ -849,7 +837,9 @@ WSLUA_ATTRIBUTE_FUNC_SETTER(FileHandler,read);
 
     The called Lua function should return true if the read was successful, or false if it hit an error.
     Since 2.4.0, a number is also acceptable to signal success, this allows for reuse of `FileHandler:read`:
-    @code
+
+    [source,lua]
+    ----
     local function fh_read(file, capture, frame) ... end
     myfilehandler.read = fh_read
 
@@ -862,7 +852,7 @@ WSLUA_ATTRIBUTE_FUNC_SETTER(FileHandler,read);
         -- Now try to read one frame
         return fh_read(file, capture, frame)
     end
-    @endcode
+    ----
  */
 WSLUA_ATTRIBUTE_FUNC_SETTER(FileHandler,seek_read);
 

@@ -11,19 +11,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef _PACKET_LUA_H
@@ -267,13 +255,13 @@ struct _wslua_captureinfo {
 };
 
 struct _wslua_phdr {
-    struct wtap_pkthdr *phdr; /* this also exists in wtap struct, but is different for seek_read ops */
-    Buffer *buf;              /* can't use the one in wtap because it's different for seek_read ops */
+    wtap_rec *rec;      /* this also exists in wtap struct, but is different for seek_read ops */
+    Buffer *buf;        /* can't use the one in wtap because it's different for seek_read ops */
     gboolean expired;
 };
 
 struct _wslua_const_phdr {
-    const struct wtap_pkthdr *phdr;
+    const wtap_rec *rec;
     const guint8 *pd;
     gboolean expired;
 };
@@ -578,7 +566,7 @@ extern int wslua_reg_attributes(lua_State *L, const wslua_attribute_table *t, gb
     })
 
 /* to make this integral-safe, we treat it as int32 and then cast
-   Note: this will truncate 64-bit integers (but then Lua itself only has doubles */
+   Note: This will truncate 64-bit integers (but then Lua itself only has doubles */
 #define WSLUA_ATTRIBUTE_NAMED_NUMBER_SETTER(C,name,member,cast) \
     WSLUA_ATTRIBUTE_SET(C,name, { \
         if (! lua_isnumber(L,-1) ) \

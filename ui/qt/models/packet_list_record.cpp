@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include "packet_list_record.h"
 
@@ -112,8 +99,8 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_color)
     epan_dissect_t edt;
     column_info *cinfo = NULL;
     gboolean create_proto_tree;
-    struct wtap_pkthdr phdr; /* Packet header */
-    Buffer buf; /* Packet data */
+    wtap_rec rec; /* Record metadata */
+    Buffer buf;   /* Record data */
 
     if (!col_text_) col_text_ = new ColumnTextList;
     gboolean dissect_columns = col_text_->isEmpty() || data_ver_ != col_data_ver_;
@@ -122,14 +109,14 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_color)
         return;
     }
 
-    memset(&phdr, 0, sizeof(struct wtap_pkthdr));
+    memset(&rec, 0, sizeof rec);
 
     if (dissect_columns) {
         cinfo = &cap_file->cinfo;
     }
 
     ws_buffer_init(&buf, 1500);
-    if (!cf_read_record_r(cap_file, fdata_, &phdr, &buf)) {
+    if (!cf_read_record_r(cap_file, fdata_, &rec, &buf)) {
         /*
          * Error reading the record.
          *
@@ -185,7 +172,7 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_color)
      * XXX - need to catch an OutOfMemoryError exception and
      * attempt to recover from it.
      */
-    epan_dissect_run(&edt, cap_file->cd_t, &phdr,
+    epan_dissect_run(&edt, cap_file->cd_t, &rec,
                      frame_tvbuff_new_buffer(&cap_file->provider, fdata_, &buf),
                      fdata_, cinfo);
 

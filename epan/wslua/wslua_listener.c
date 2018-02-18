@@ -11,19 +11,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -205,7 +193,7 @@ WSLUA_CONSTRUCTOR Listener_new(lua_State* L) {
 #define WSLUA_OPTARG_Listener_new_FILTER 2 /* A filter that when matches the `tap.packet` function gets
                                               called (use nil to be called for every packet). */
 #define WSLUA_OPTARG_Listener_new_ALLFIELDS 3 /* Whether to generate all fields. (default=false)
-                                                 Note: this impacts performance. */
+                                                 Note: This impacts performance. */
 
     const gchar* tap_type = luaL_optstring(L,WSLUA_OPTARG_Listener_new_TAP,"frame");
     const gchar* filter = luaL_optstring(L,WSLUA_OPTARG_Listener_new_FILTER,NULL);
@@ -263,7 +251,7 @@ compare_dissector_key_name(gconstpointer dissector_a, gconstpointer dissector_b)
 WSLUA_CONSTRUCTOR Listener_list (lua_State *L) {
     /* Gets a Lua array table of all registered `Listener` tap names.
 
-       Note: this is an expensive operation, and should only be used for troubleshooting.
+       Note: This is an expensive operation, and should only be used for troubleshooting.
 
        @since 1.11.3
      */
@@ -315,9 +303,15 @@ WSLUA_METAMETHOD Listener__tostring(lua_State* L) {
       2. A `Tvb` object
       3. A `tapinfo` table
 
-    @code function tap.packet(pinfo,tvb,tapinfo) ... end @endcode
+    [source,lua]
+    ----
+    function tap.packet(pinfo,tvb,tapinfo) ... end
+    ----
 
-    @note `tapinfo` is a table of info based on the `Listener`'s type, or nil.
+    [NOTE]
+    ====
+    `tapinfo` is a table of info based on the `Listener`'s type, or nil.
+    ====
 */
 WSLUA_ATTRIBUTE_FUNC_SETTER(Listener,packet);
 
@@ -327,7 +321,10 @@ WSLUA_ATTRIBUTE_FUNC_SETTER(Listener,packet);
 
     When later called by Wireshark, the `draw` function will not be given any arguments.
 
-    @code function tap.draw() ... end @endcode
+    [source,lua]
+    ----
+    function tap.draw() ... end
+    ----
 */
 WSLUA_ATTRIBUTE_FUNC_SETTER(Listener,draw);
 
@@ -335,7 +332,10 @@ WSLUA_ATTRIBUTE_FUNC_SETTER(Listener,draw);
 
     When later called by Wireshark, the `reset` function will not be given any arguments.
 
-    @code function tap.reset() ... end @endcode
+    [source,lua]
+    ----
+    function tap.reset() ... end
+    ----
 */
 WSLUA_ATTRIBUTE_FUNC_SETTER(Listener,reset);
 

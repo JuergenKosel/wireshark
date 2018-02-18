@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef ASTRINGLIST_LIST_MODEL_H
@@ -33,12 +33,13 @@ public:
     virtual QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
 protected:
-    virtual void appendRow(const QStringList &, const QModelIndex &parent = QModelIndex());
+    virtual void appendRow(const QStringList &, const QString & row_tooltip = QString(), const QModelIndex &parent = QModelIndex());
 
     virtual QStringList headerColumns() const = 0;
 
 private:
-    QList<QStringList> modelData;
+    QList<QStringList> display_data_;
+    QStringList tooltip_data_;
 };
 
 class AStringListListSortFilterProxyModel : public QSortFilterProxyModel

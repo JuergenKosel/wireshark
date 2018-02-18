@@ -8,19 +8,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #ifndef PACKET_IEEE802154_H
 #define PACKET_IEEE802154_H
@@ -481,7 +469,7 @@ void dissect_ieee802154_superframe      (tvbuff_t *, packet_info *, proto_tree *
 void dissect_ieee802154_gtsinfo         (tvbuff_t *, packet_info *, proto_tree *, guint *);
 void dissect_ieee802154_pendaddr        (tvbuff_t *, packet_info *, proto_tree *, guint *);
 void dissect_ieee802154_aux_sec_header_and_key(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, ieee802154_packet *packet, guint *offset);
-void ccm_init_block(gchar *block, gboolean adata, gint M, guint64 addr, guint32 frame_counter, guint8 level, gint ctr_val);
+void ccm_init_block(gchar *block, gboolean adata, gint M, guint64 addr, guint32 frame_counter, guint8 level, gint ctr_val, const gchar *generic_nonce);
 gboolean ccm_ctr_encrypt(const gchar *key, const gchar *iv, gchar *mic, gchar *data, gint length);
 gboolean ccm_cbc_mac(const gchar *key, const gchar *iv, const gchar *a, gint a_len, const gchar *m, gint m_len, gchar *mic);
 

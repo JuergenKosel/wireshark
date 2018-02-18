@@ -44,7 +44,11 @@
         <translation>Modules complémentaires</translation>
     </message>
     <message>
-        <source>Search plugins</source>
+        <source>No plugins found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Search Plugins</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -740,29 +744,6 @@
         <source>Automatically detect file type</source>
         <translation type="unfinished"></translation>
     </message>
-    <message numerus="yes">
-        <source>%1, error after %Ln packet(s)</source>
-        <oldsource>%1, error after %2 packets</oldsource>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%1, timed out at %Ln packet(s)</source>
-        <oldsource>%1, timed out at %2 packets</oldsource>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%1, %Ln packet(s)</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
-        </translation>
-    </message>
     <message>
         <source>Prepend packets</source>
         <translation>Ajout de paquets</translation>
@@ -834,6 +815,27 @@
     <message>
         <source>error opening file</source>
         <translation>erreur pour ouvrir le fichier</translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, error after %Ln record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, timed out at %Ln data record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, %Ln data record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
     </message>
     <message>
         <source>unknown</source>
@@ -1429,6 +1431,13 @@ NOTE: Une option DOIT être sélectionnée.</translation>
     </message>
 </context>
 <context>
+    <name>ColoringRulesDelegate</name>
+    <message>
+        <source>the &quot;@&quot; symbol will be ignored.</source>
+        <translation type="unfinished">le caractère &quot;@&quot; sera ignoré.</translation>
+    </message>
+</context>
+<context>
     <name>ColoringRulesDialog</name>
     <message>
         <source>Dialog</source>
@@ -1436,11 +1445,11 @@ NOTE: Une option DOIT être sélectionnée.</translation>
     </message>
     <message>
         <source>Name</source>
-        <translation>Nom</translation>
+        <translation type="vanished">Nom</translation>
     </message>
     <message>
         <source>Filter</source>
-        <translation>Filtre</translation>
+        <translation type="vanished">Filtre</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
@@ -1484,7 +1493,7 @@ NOTE: Une option DOIT être sélectionnée.</translation>
     </message>
     <message>
         <source>Coloring Rules</source>
-        <translation>Règles de coloration</translation>
+        <translation type="vanished">Règles de coloration</translation>
     </message>
     <message>
         <source>Import</source>
@@ -1504,7 +1513,11 @@ NOTE: Une option DOIT être sélectionnée.</translation>
     </message>
     <message>
         <source>the &quot;@&quot; symbol will be ignored.</source>
-        <translation>le caractère &quot;@&quot; sera ignoré.</translation>
+        <translation type="vanished">le caractère &quot;@&quot; sera ignoré.</translation>
+    </message>
+    <message>
+        <source>Coloring Rules %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Double click to edit. Drag to move. Rules are processed in order until a match is found.</source>
@@ -1526,9 +1539,20 @@ NOTE: Une option DOIT être sélectionnée.</translation>
         <source>Wireshark doesn&apos;t recognize one or more of your coloring rules. They have been disabled.</source>
         <translation type="unfinished"></translation>
     </message>
+</context>
+<context>
+    <name>ColoringRulesModel</name>
     <message>
-        <source>Unable to save coloring rules: %s</source>
+        <source>Unable to save coloring rules: %1</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished">Nom</translation>
+    </message>
+    <message>
+        <source>Filter</source>
+        <translation type="unfinished">Filtre</translation>
     </message>
 </context>
 <context>
@@ -6562,6 +6586,14 @@ a:hover {
     <message>
         <source>HTTP load distribution</source>
         <translation>Répartition de charge HTTP</translation>
+    </message>
+    <message>
+        <source>Referers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>HTTP referers</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Packet Lengths</source>

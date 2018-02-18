@@ -5,19 +5,7 @@
  * Copyright 2017 Richard Sharpe <realrichardsharpe@gmail.com>
  * Copyright 2017 The WiFi Alliance
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 /*
@@ -148,12 +136,14 @@ static gint ett_wifi_dpp_attributes = -1;
 static gint ett_wifi_dpp_pa = -1;
 static gint ett_wifi_dpp_attribute = -1;
 static gint ett_wifi_dpp_attr_header = -1;
+static gint ett_wifi_dpp_attr_value = -1;
 
 static int hf_wifi_dpp_ie_attr_id = -1;
 static int hf_wifi_dpp_ie_attr_len = -1;
 static int hf_wifi_dpp_ie_generic = -1;  /* Remove eventually */
 static int hf_wifi_dpp_action_dialog_token = -1;
 static int hf_wifi_dpp_action_subtype = -1;
+static int hf_wifi_dpp_crypto_suite = -1;
 static int hf_wifi_dpp_public_action_subtype = -1;
 static int hf_wifi_dpp_status = -1;
 static int hf_wifi_dpp_init_hash = -1;
@@ -166,6 +156,8 @@ static int hf_wifi_dpp_capabilities = -1;
 static int hf_wifi_dpp_code_identifier = -1;
 static int hf_wifi_dpp_enc_key_attribute = -1;
 static int hf_wifi_dpp_primary_wrapped_data = -1;
+static int hf_wifi_dpp_connector_attr = -1;
+static int hf_wifi_dpp_initiator_nonce = -1;
 static int hf_wifi_dpp_unknown_anqp_item = -1;
 
 static int
@@ -195,7 +187,7 @@ dissect_wifi_dpp_attributes(packet_info *pinfo _U_, proto_tree *tree,
 {
   proto_item *si = NULL;
   guint8 status;
-  proto_tree *specific_attr, *attr_hdr;
+  proto_tree *attr, *specific_attr, *attr_hdr;
   guint16 attribute_id;
   guint16 attribute_len;
   guint attributes_len = 0;
@@ -204,13 +196,13 @@ dissect_wifi_dpp_attributes(packet_info *pinfo _U_, proto_tree *tree,
   while (remaining_len) {
     attribute_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
     attribute_len = tvb_get_guint16(tvb, offset + 2, ENC_LITTLE_ENDIAN);
-    specific_attr = proto_tree_add_subtree_format(tree, tvb, offset,
+    attr = proto_tree_add_subtree_format(tree, tvb, offset,
                                 attribute_len + 4, ett_wifi_dpp_attribute,
                                 &si, "%s Attribute",
                                 val_to_str(attribute_id,
                                         dpp_ie_attr_ids,
                                         "Unknown (%u)"));
-    attr_hdr = proto_tree_add_subtree_format(specific_attr, tvb, offset, 4,
+    attr_hdr = proto_tree_add_subtree_format(attr, tvb, offset, 4,
                                         ett_wifi_dpp_attr_header, NULL,
                                         "Attribute Header");
 
@@ -218,6 +210,10 @@ dissect_wifi_dpp_attributes(packet_info *pinfo _U_, proto_tree *tree,
     offset += 2;
     proto_tree_add_item(attr_hdr, hf_wifi_dpp_ie_attr_len, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     offset += 2;
+    specific_attr = proto_tree_add_subtree(attr, tvb, offset, attribute_len,
+                                        ett_wifi_dpp_attr_value,
+                                        NULL, "Attribute Value");
+
     switch (attribute_id) {
     case DPP_STATUS:
       status = tvb_get_guint8(tvb, offset);
@@ -267,15 +263,19 @@ dissect_wifi_dpp_attributes(packet_info *pinfo _U_, proto_tree *tree,
       proto_tree_add_item(specific_attr, hf_wifi_dpp_primary_wrapped_data, tvb, offset, attribute_len, ENC_NA);
       break;
 
+    case DPP_CONNECTOR:
+      proto_tree_add_item(specific_attr, hf_wifi_dpp_connector_attr, tvb, offset, attribute_len, ENC_NA);
+      break;
+
     case DPP_INITIATOR_NONCE:
+      proto_tree_add_item(specific_attr, hf_wifi_dpp_initiator_nonce, tvb, offset, attribute_len, ENC_NA);
+      break;
 
     case DPP_INITIATOR_AUTHENTICATING_TAG:
 
     case DPP_RESPONDER_AUTHENTICATING_TAG:
 
     case DPP_CONFIGURATION_OBJECT:
-
-    case DPP_CONNECTOR:
 
     case DPP_CONFIGURATION_ATTRIBUTES_OBJECT:
 
@@ -331,7 +331,8 @@ dissect_wifi_dpp_public_action(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "wifi_dpp");
 
-  subtype = tvb_get_guint8(tvb, offset);
+  /* The Crypto suite comes before the subtype */
+  subtype = tvb_get_guint8(tvb, offset + 1);
   col_append_fstr(pinfo->cinfo, COL_INFO, ", DPP - %s",
                   val_to_str(subtype, dpp_public_action_subtypes, "Unknown (%u)"));
 
@@ -342,6 +343,10 @@ dissect_wifi_dpp_public_action(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
   proto_item_append_text(dpp_item, ": %s", val_to_str(subtype,
                                                       dpp_public_action_subtypes,
                                                       "Unknown (%u)"));
+  proto_tree_add_item(dpp_tree, hf_wifi_dpp_crypto_suite, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+  offset++;
+  remaining_len--;
+
   proto_tree_add_item(dpp_tree, hf_wifi_dpp_public_action_subtype, tvb, offset, 1, ENC_LITTLE_ENDIAN);
   offset++;  /* Skip the OUI Subtype/DPP Request type */
   remaining_len--;
@@ -407,6 +412,12 @@ proto_register_wifi_dpp(void)
     { &hf_wifi_dpp_primary_wrapped_data,
       { "Wi-Fi DPP Primary Wrapped Data", "dpp.primary.wrapped_data",
         FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+    { &hf_wifi_dpp_connector_attr,
+      { "Wi-Fi DPP Connector Attribute", "dpp.connector_data",
+        FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+    { &hf_wifi_dpp_initiator_nonce,
+      { "Wi-Fi DPP Initiator Nonce", "dpp.initiator_nonce",
+        FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
     { &hf_wifi_dpp_ie_attr_id,
       { "Wi-Fi DPP IE Attribute ID", "dpp.ie.attr_id",
         FT_UINT16, BASE_HEX, VALS(dpp_ie_attr_ids), 0x0, NULL, HFILL }},
@@ -422,6 +433,9 @@ proto_register_wifi_dpp(void)
     { &hf_wifi_dpp_action_dialog_token,
       { "Wi-Fi DPP Action Dialog Token", "dpp.action.dialog_token",
         FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+    { &hf_wifi_dpp_crypto_suite,
+      { "Wi-Fi DPP Cryptographic Suite", "dpp.public_action.crypto_suite",
+        FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
     { &hf_wifi_dpp_public_action_subtype,
       { "Wi-Fi DPP Public Action Subtype", "dpp.public_action.subtype",
         FT_UINT8, BASE_DEC, VALS(dpp_public_action_subtypes), 0x0, NULL, HFILL }},
@@ -435,6 +449,7 @@ proto_register_wifi_dpp(void)
     &ett_wifi_dpp_pa,
     &ett_wifi_dpp_attribute,
     &ett_wifi_dpp_attr_header,
+    &ett_wifi_dpp_attr_value,
   };
 
   proto_wifi_dpp = proto_register_protocol("Wi-Fi Device Provisioning Protocol", "Wi-Fi DPP", "dpp");

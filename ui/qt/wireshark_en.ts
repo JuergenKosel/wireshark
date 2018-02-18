@@ -44,7 +44,11 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Search plugins</source>
+        <source>No plugins found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Search Plugins</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -743,7 +747,7 @@
     <message numerus="yes">
         <source>%1, error after %Ln packet(s)</source>
         <oldsource>%1, error after %2 packets</oldsource>
-        <translation>
+        <translation type="vanished">
             <numerusform>%1, error after %Ln packet</numerusform>
             <numerusform>%1, error after %Ln packets</numerusform>
         </translation>
@@ -751,14 +755,14 @@
     <message numerus="yes">
         <source>%1, timed out at %Ln packet(s)</source>
         <oldsource>%1, timed out at %2 packets</oldsource>
-        <translation>
+        <translation type="vanished">
             <numerusform>%1, timed out at %Ln packet</numerusform>
             <numerusform>%1, timed out at %Ln packets</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <source>%1, %Ln packet(s)</source>
-        <translation>
+        <translation type="vanished">
             <numerusform>%1, %Ln packet</numerusform>
             <numerusform>%1, %Ln packets</numerusform>
         </translation>
@@ -834,6 +838,27 @@
     <message>
         <source>error opening file</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, error after %Ln record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, timed out at %Ln data record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, %Ln data record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
     </message>
     <message>
         <source>unknown</source>
@@ -1426,17 +1451,16 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
 </context>
 <context>
+    <name>ColoringRulesDelegate</name>
+    <message>
+        <source>the &quot;@&quot; symbol will be ignored.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ColoringRulesDialog</name>
     <message>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Name</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1480,10 +1504,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Coloring Rules</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Import</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1500,7 +1520,7 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>the &quot;@&quot; symbol will be ignored.</source>
+        <source>Coloring Rules %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1523,8 +1543,19 @@ PLEASE NOTE: One option MUST be selected.</source>
         <source>Wireshark doesn&apos;t recognize one or more of your coloring rules. They have been disabled.</source>
         <translation type="unfinished"></translation>
     </message>
+</context>
+<context>
+    <name>ColoringRulesModel</name>
     <message>
-        <source>Unable to save coloring rules: %s</source>
+        <source>Unable to save coloring rules: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -6502,6 +6533,14 @@ a:hover {
     </message>
     <message>
         <source>HTTP load distribution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Referers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>HTTP referers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

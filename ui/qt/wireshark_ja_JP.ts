@@ -44,7 +44,11 @@
         <translation>プラグイン</translation>
     </message>
     <message>
-        <source>Search plugins</source>
+        <source>No plugins found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Search Plugins</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -740,26 +744,6 @@
         <source>Automatically detect file type</source>
         <translation type="unfinished"></translation>
     </message>
-    <message numerus="yes">
-        <source>%1, error after %Ln packet(s)</source>
-        <oldsource>%1, error after %2 packets</oldsource>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%1, timed out at %Ln packet(s)</source>
-        <oldsource>%1, timed out at %2 packets</oldsource>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%1, %Ln packet(s)</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-        </translation>
-    </message>
     <message>
         <source>Prepend packets</source>
         <translation>前にパケットを挿入</translation>
@@ -831,6 +815,24 @@
     <message>
         <source>error opening file</source>
         <translation>ファイルオープンエラー</translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, error after %Ln record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, timed out at %Ln data record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, %Ln data record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
     </message>
     <message>
         <source>unknown</source>
@@ -1424,6 +1426,13 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
 </context>
 <context>
+    <name>ColoringRulesDelegate</name>
+    <message>
+        <source>the &quot;@&quot; symbol will be ignored.</source>
+        <translation type="unfinished">この &quot;@&quot; シンボルは無視されます</translation>
+    </message>
+</context>
+<context>
     <name>ColoringRulesDialog</name>
     <message>
         <source>Dialog</source>
@@ -1431,11 +1440,11 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Name</source>
-        <translation>名前</translation>
+        <translation type="vanished">名前</translation>
     </message>
     <message>
         <source>Filter</source>
-        <translation>フィルタ</translation>
+        <translation type="vanished">フィルタ</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
@@ -1479,7 +1488,7 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Coloring Rules</source>
-        <translation>色付けルール</translation>
+        <translation type="vanished">色付けルール</translation>
     </message>
     <message>
         <source>Import</source>
@@ -1499,7 +1508,11 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>the &quot;@&quot; symbol will be ignored.</source>
-        <translation>この &quot;@&quot; シンボルは無視されます</translation>
+        <translation type="vanished">この &quot;@&quot; シンボルは無視されます</translation>
+    </message>
+    <message>
+        <source>Coloring Rules %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Double click to edit. Drag to move. Rules are processed in order until a match is found.</source>
@@ -1523,7 +1536,22 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Unable to save coloring rules: %s</source>
-        <translation>色付けルール %s を保存できません</translation>
+        <translation type="vanished">色付けルール %s を保存できません</translation>
+    </message>
+</context>
+<context>
+    <name>ColoringRulesModel</name>
+    <message>
+        <source>Unable to save coloring rules: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished">名前</translation>
+    </message>
+    <message>
+        <source>Filter</source>
+        <translation type="unfinished">フィルタ</translation>
     </message>
 </context>
 <context>
@@ -6549,6 +6577,14 @@ a:hover {
     <message>
         <source>HTTP load distribution</source>
         <translation>HTTP負荷分散</translation>
+    </message>
+    <message>
+        <source>Referers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>HTTP referers</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Packet Lengths</source>

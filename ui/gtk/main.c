@@ -54,8 +54,6 @@
 #include <wsutil/report_message.h>
 #include <version_info.h>
 
-#include <wiretap/merge.h>
-
 #include <epan/addr_resolv.h>
 #include <epan/column.h>
 #include <epan/disabled_protos.h>
@@ -88,7 +86,6 @@
 /* general (not GTK specific) */
 #include "../../file.h"
 #include "../../frame_tvbuff.h"
-#include "../../summary.h"
 #include <epan/color_filters.h>
 #include "epan/register.h"
 #include "../../ringbuffer.h"
@@ -106,6 +103,7 @@
 #include "ui/recent.h"
 #include "ui/recent_utils.h"
 #include "ui/software_update.h"
+#include "ui/summary.h"
 #include "ui/ws_ui_util.h"
 #include "ui/util.h"
 #include "ui/dissect_opts.h"
@@ -531,7 +529,7 @@ get_ip_address_list_from_packet_list_row(gpointer data)
         epan_dissect_init(&edt, cfile.epan, FALSE, FALSE);
         col_custom_prime_edt(&edt, &cfile.cinfo);
 
-        epan_dissect_run(&edt, cfile.cd_t, &cfile.phdr,
+        epan_dissect_run(&edt, cfile.cd_t, &cfile.rec,
             frame_tvbuff_new_buffer(&cfile.provider, fdata, &cfile.buf),
             fdata, &cfile.cinfo);
         epan_dissect_fill_in_columns(&edt, TRUE, TRUE);
@@ -573,7 +571,7 @@ get_filter_from_packet_list_row_and_column(gpointer data)
         epan_dissect_init(&edt, cfile.epan, have_custom_cols(&cfile.cinfo), FALSE);
         col_custom_prime_edt(&edt, &cfile.cinfo);
 
-        epan_dissect_run(&edt, cfile.cd_t, &cfile.phdr,
+        epan_dissect_run(&edt, cfile.cd_t, &cfile.rec,
                          frame_tvbuff_new_buffer(&cfile.provider, fdata, &cfile.buf),
                          fdata, &cfile.cinfo);
         epan_dissect_fill_in_columns(&edt, TRUE, TRUE);

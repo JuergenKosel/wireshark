@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <config.h>
@@ -1009,6 +1009,9 @@ gboolean MainWindow::filter_expression_add_action(const void *key _U_, void *val
     dfb_action->setProperty(dfe_property_label_, QString(fe->label));
     dfb_action->setProperty(dfe_property_expression_, QString(fe->expression));
 
+    if (data->window->filter_expression_toolbar_->actions().count() > 0) {
+        data->window->filter_expression_toolbar_->addSeparator();
+    }
     data->window->filter_expression_toolbar_->addAction(dfb_action);
     connect(dfb_action, SIGNAL(triggered()), data->window, SLOT(displayFilterButtonClicked()));
     data->actions_added = true;
@@ -1022,14 +1025,17 @@ void MainWindow::filterExpressionsChanged()
     data.window = this;
     data.actions_added = false;
 
+    // Hiding and showing seems to be the only way to get the layout to
+    // work correctly in some cases. See bug 14121 for details.
+    setUpdatesEnabled(false);
+    filter_expression_toolbar_->hide();
     filter_expression_toolbar_->clear();
 
     // XXX Add a context menu for removing and changing buttons.
     filter_expression_iterate_expressions(filter_expression_add_action, &data);
 
-    if (data.actions_added) {
-        main_ui_->displayFilterToolBar->adjustSize();
-    }
+    filter_expression_toolbar_->show();
+    setUpdatesEnabled(true);
 }
 
 //
@@ -3308,6 +3314,11 @@ void MainWindow::on_actionStatisticsHTTPRequests_triggered()
 void MainWindow::on_actionStatisticsHTTPLoadDistribution_triggered()
 {
     openStatisticsTreeDialog("http_srv");
+}
+
+void MainWindow::on_actionStatisticsHTTPReferers_triggered()
+{
+    openStatisticsTreeDialog("http_ref");
 }
 
 void MainWindow::on_actionStatisticsPacketLengths_triggered()

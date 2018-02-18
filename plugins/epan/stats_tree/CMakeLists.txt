@@ -29,17 +29,15 @@ set(PLUGIN_FILES
 	pinfo_stats_tree.c
 )
 
-set(CLEAN_FILES
-	${PLUGIN_FILES}
-)
-
 set_source_files_properties(
-	${CLEAN_FILES}
+	${PLUGIN_FILES}
 	PROPERTIES
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
 add_plugin_library(stats_tree epan)
+
+target_link_libraries(stats_tree epan)
 
 install_plugin(stats_tree epan)
 
@@ -50,7 +48,7 @@ CHECKAPI(
 	SWITCHES
 	  -g abort -g termoutput -build
 	SOURCES
-	  ${CLEAN_FILES}
+	  ${PLUGIN_FILES}
 	  ${PLUGIN_HEADERS}
 )
 

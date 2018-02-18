@@ -36,7 +36,7 @@ ${StrRep}
 ; ============================================================================
 
 ; The file to write
-OutFile "${PROGRAM_NAME}-${WIRESHARK_TARGET_PLATFORM}-${VERSION}.exe"
+OutFile "${OUTFILE_DIR}\${PROGRAM_NAME}-${WIRESHARK_TARGET_PLATFORM}-${VERSION}.exe"
 ; Installer icon
 Icon "${TOP_SRC_DIR}\image\wiresharkinst.ico"
 
@@ -1014,7 +1014,6 @@ SectionGroup "Plugins & Extensions" SecPluginsGroup
 Section "Dissector Plugins" SecPlugins
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\epan'
-File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\epan\docsis.dll"
 File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\epan\ethercat.dll"
 File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\epan\gryphon.dll"
 File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\epan\irda.dll"
@@ -1044,6 +1043,12 @@ Section "TRANSUM - network and application performance analysis" SecTransum
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\epan'
 File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\epan\transum.dll"
+SectionEnd
+
+Section "File type plugins - capture file support" SecWiretap
+;-------------------------------------------
+SetOutPath '$INSTDIR\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\wiretap'
+File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\wiretap\usbdump.dll"
 SectionEnd
 
 Section "Configuration Profiles" SecProfiles

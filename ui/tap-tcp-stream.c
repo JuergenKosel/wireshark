@@ -7,20 +7,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include "config.h"
 
@@ -319,7 +306,7 @@ select_tcpip_session(capture_file *cf, struct segment *hdrs)
 
     epan_dissect_init(&edt, cf->epan, TRUE, FALSE);
     epan_dissect_prime_with_dfilter(&edt, sfcode);
-    epan_dissect_run_with_taps(&edt, cf->cd_t, &cf->phdr,
+    epan_dissect_run_with_taps(&edt, cf->cd_t, &cf->rec,
                                frame_tvbuff_new_buffer(&cf->provider, fdata, &cf->buf),
                                fdata, NULL);
     rel_ts = edt.pi.rel_ts;

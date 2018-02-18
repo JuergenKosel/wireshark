@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __SSL_UTILS_H_
@@ -32,6 +20,7 @@
 #include <epan/wmem/wmem.h>
 #include <epan/expert.h>
 #include <epan/conversation.h>
+#include <epan/unit_strings.h>
 #include <wsutil/wsgcrypt.h>
 
 #ifdef HAVE_LIBGNUTLS
@@ -643,18 +632,7 @@ ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint
  * and mode are Libgcrypt identifiers.
  */
 tls13_cipher *
-tls13_cipher_create(guint8 tls13_draft_version, int cipher_algo, int cipher_mode, int hash_algo, StringInfo *secret, const gchar **error);
-
-/*
- * Calculate HKDF-Extract(salt, IKM) -> PRK according to RFC 5869.
- * Caller must ensure that 'prk' is large enough to store the digest.
- */
-static inline gcry_error_t
-hkdf_extract(int algo, const guint8 *salt, size_t salt_len, const guint8 *ikm, size_t ikm_len, guint8 *prk)
-{
-    /* PRK = HMAC-Hash(salt, IKM) where salt is key, and IKM is input. */
-    return ws_hmac_buffer(algo, prk, ikm, ikm_len, salt, salt_len);
-}
+tls13_cipher_create(guint8 tls13_draft_version, int cipher_algo, int cipher_mode, int hash_algo, const StringInfo *secret, const gchar **error);
 
 
 /* Common part bitween SSL and DTLS dissectors */
@@ -1095,9 +1073,9 @@ tls_dissect_sct_list(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo
                      guint32 offset, guint32 offset_end, guint16 version);
 
 extern gboolean
-tls13_hkdf_expand_label(guchar draft_version,
-                        int md, const StringInfo *secret, const char *label, const char *hash_value,
-                        guint16 out_len, guchar **out);
+tls13_hkdf_expand_label_common(int md, const StringInfo *secret,
+                               const char *label_prefix, const char *label,
+                               guint16 out_len, guchar **out);
 
 /* {{{ */
 #define SSL_COMMON_LIST_T(name) \
@@ -1694,7 +1672,7 @@ ssl_common_dissect_t name = {   \
     { & name .hf.hs_session_ticket_lifetime_hint,                       \
       { "Session Ticket Lifetime Hint",                                 \
         prefix ".handshake.session_ticket_lifetime_hint",               \
-        FT_UINT32, BASE_DEC, NULL, 0x0,                                 \
+        FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_second_seconds, 0x0, \
         "New Session Ticket Lifetime Hint", HFILL }                     \
     },                                                                  \
     { & name .hf.hs_session_ticket_age_add,                             \

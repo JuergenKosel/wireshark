@@ -5,12 +5,10 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
-
-#ifdef HAVE_PLUGINS
 
 #include <time.h>
 
@@ -45,10 +43,8 @@ typedef struct _plugin {
 #define TYPE_NAME_FILE_TYPE "file type"
 #define TYPE_NAME_CODEC     "codec"
 
-/* array of plugins */
-static GPtrArray *plugins_array = NULL;
-/* map of names to plugin */
-static GHashTable *plugins_table = NULL;
+
+static GSList *plugins_module_list = NULL;
 
 
 static inline const char *
@@ -97,11 +93,11 @@ free_plugin(gpointer data)
 static gint
 compare_plugins(gconstpointer a, gconstpointer b)
 {
-    return g_strcmp0((*(const plugin **)a)->name, (*(const plugin **)b)->name);
+    return g_strcmp0((*(plugin *const *)a)->name, (*(plugin *const *)b)->name);
 }
 
 static void
-plugins_scan_dir(GPtrArray **plugins_ptr, const char *dirpath, plugin_type_e type, gboolean append_type)
+scan_plugins_dir(GHashTable *plugins_module, const char *dirpath, plugin_type_e type, gboolean append_type)
 {
     GDir          *dir;
     const char    *name;            /* current file name */
@@ -111,7 +107,6 @@ plugins_scan_dir(GPtrArray **plugins_ptr, const char *dirpath, plugin_type_e typ
     gpointer       symbol;
     const char    *plug_version, *plug_release;
     plugin        *new_plug;
-    gchar         *dot;
 
     if (append_type)
         plugin_folder = g_build_filename(dirpath, type_to_dir(type), (gchar *)NULL);
@@ -126,24 +121,13 @@ plugins_scan_dir(GPtrArray **plugins_ptr, const char *dirpath, plugin_type_e typ
 
     while ((name = g_dir_read_name(dir)) != NULL) {
         /* Skip anything but files with G_MODULE_SUFFIX. */
-        dot = strrchr(name, '.');
-        if (dot == NULL || strcmp(dot+1, G_MODULE_SUFFIX) != 0)
+        if (!g_str_has_suffix(name, "." G_MODULE_SUFFIX))
             continue;
-
-#if WIN32
-        if (strncmp(name, "nordic_ble.dll", 14) == 0) {
-            /*
-             * Skip the Nordic BLE Sniffer dll on WIN32 because
-             * the dissector has been added as internal.
-             */
-            continue;
-        }
-#endif
 
         /*
          * Check if the same name is already registered.
          */
-        if (g_hash_table_lookup(plugins_table, name)) {
+        if (g_hash_table_lookup(plugins_module, name)) {
             /* Yes, it is. */
             report_warning("The plugin '%s' was found "
                                 "in multiple directories", name);
@@ -200,11 +184,7 @@ DIAG_ON(pedantic)
         new_plug->type_name = type_to_name(type);
 
         /* Add it to the list of plugins. */
-        if (*plugins_ptr == NULL)
-            *plugins_ptr = g_ptr_array_new_with_free_func(free_plugin);
-        g_ptr_array_add(*plugins_ptr, new_plug);
-        g_ptr_array_add(plugins_array, new_plug);
-        g_hash_table_insert(plugins_table, new_plug->name, new_plug);
+        g_hash_table_insert(plugins_module, new_plug->name, new_plug);
     }
     ws_dir_close(dir);
     g_free(plugin_folder);
@@ -214,7 +194,7 @@ DIAG_ON(pedantic)
  * Scan the buildir for plugins.
  */
 static void
-scan_plugins_build_dir(GPtrArray **plugins_ptr, plugin_type_e type)
+scan_plugins_build_dir(GHashTable *plugins_module, plugin_type_e type)
 {
     const char *name;
     char *dirpath;
@@ -223,7 +203,7 @@ scan_plugins_build_dir(GPtrArray **plugins_ptr, plugin_type_e type)
     WS_DIRENT *file;            /* current file */
 
     /* Cmake */
-    plugins_scan_dir(plugins_ptr, get_plugins_dir_with_version(), type, TRUE);
+    scan_plugins_dir(plugins_module, get_plugins_dir_with_version(), type, TRUE);
 
     /* Autotools */
     dirpath = g_build_filename(get_plugins_dir(), type_to_dir(type), (char *)NULL);
@@ -255,7 +235,7 @@ scan_plugins_build_dir(GPtrArray **plugins_ptr, plugin_type_e type)
             g_free(plugin_folder);
             plugin_folder = g_build_filename(get_plugins_dir(), name, (gchar *)NULL);
         }
-        plugins_scan_dir(plugins_ptr, plugin_folder, type, FALSE);
+        scan_plugins_dir(plugins_module, plugin_folder, type, FALSE);
         g_free(plugin_folder);
     }
     ws_dir_close(dir);
@@ -271,12 +251,7 @@ plugins_init(plugin_type_e type)
     if (!g_module_supported())
         return NULL; /* nothing to do */
 
-    GPtrArray *plugins = NULL;
-
-    if (plugins_table == NULL)
-        plugins_table = g_hash_table_new(g_str_hash, g_str_equal);
-    if (plugins_array == NULL)
-        plugins_array = g_ptr_array_new();
+    GHashTable *plugins_module = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, free_plugin);
 
     /*
      * Scan the global plugin directory.
@@ -285,13 +260,11 @@ plugins_init(plugin_type_e type)
      * out-of-tree build. If we find subdirectories scan those since
      * they will contain plugins in the case of an in-tree build.
      */
-    if (running_in_build_directory())
-    {
-        scan_plugins_build_dir(&plugins, type);
+    if (running_in_build_directory()) {
+        scan_plugins_build_dir(plugins_module, type);
     }
-    else
-    {
-        plugins_scan_dir(&plugins, get_plugins_dir_with_version(), type, TRUE);
+    else {
+        scan_plugins_dir(plugins_module, get_plugins_dir_with_version(), type, TRUE);
     }
 
     /*
@@ -302,26 +275,37 @@ plugins_init(plugin_type_e type)
      * if we need privileges to start capturing, we'd need to
      * reclaim them before each time we start capturing.)
      */
-    if (!started_with_special_privs())
-    {
-        plugins_scan_dir(&plugins, get_plugins_pers_dir_with_version(), type, TRUE);
+    if (!started_with_special_privs()) {
+        scan_plugins_dir(plugins_module, get_plugins_pers_dir_with_version(), type, TRUE);
     }
 
-    g_ptr_array_sort(plugins_array, compare_plugins);
+    plugins_module_list = g_slist_prepend(plugins_module_list, plugins_module);
 
-    return plugins;
+    return plugins_module;
 }
 
 WS_DLL_PUBLIC void
 plugins_get_descriptions(plugin_description_callback callback, void *callback_data)
 {
-    if (!plugins_array)
-        return;
+    GPtrArray *plugins_array = g_ptr_array_new();
+    GHashTableIter iter;
+    gpointer value;
+
+    for (GSList *l = plugins_module_list; l != NULL; l = l->next) {
+        g_hash_table_iter_init (&iter, (GHashTable *)l->data);
+        while (g_hash_table_iter_next (&iter, NULL, &value)) {
+            g_ptr_array_add(plugins_array, value);
+        }
+    }
+
+    g_ptr_array_sort(plugins_array, compare_plugins);
 
     for (guint i = 0; i < plugins_array->len; i++) {
         plugin *plug = (plugin *)plugins_array->pdata[i];
         callback(plug->name, plug->version, plug->type_name, g_module_name(plug->handle), callback_data);
     }
+
+    g_ptr_array_free(plugins_array, FALSE);
 }
 
 static void
@@ -341,37 +325,23 @@ plugins_dump_all(void)
 int
 plugins_get_count(void)
 {
-    if (plugins_table)
-        return g_hash_table_size(plugins_table);
-    return 0;
+    guint count = 0;
+
+    for (GSList *l = plugins_module_list; l != NULL; l = l->next) {
+        count += g_hash_table_size((GHashTable *)l->data);
+    }
+    return count;
 }
 
 void
 plugins_cleanup(plugins_t *plugins)
 {
-    if (plugins)
-        g_ptr_array_free((GPtrArray *)plugins, TRUE);
+    if (!plugins)
+        return;
 
-    /*
-     * This module uses global bookkeeping data structures and per-library
-     * objects sharing data. To avoid having to walk the plugins GPtrArray
-     * and delete each plugin from the global data structures we purge them
-     * once the first plugin cleanup function is called. This means that after
-     * calling ONE OF POSSIBLY MANY plugin cleanup function NO OTHER plugin
-     * APIs can be used except plugins_cleanup. If it ever becomes an issue
-     * it will be easy to change, for a small performance penalty.
-     */
-    if (plugins_table) {
-        g_hash_table_destroy(plugins_table);
-        plugins_table = NULL;
-    }
-    if (plugins_array) {
-        g_ptr_array_free(plugins_array, FALSE);
-        plugins_array = NULL;
-    }
+    plugins_module_list = g_slist_remove(plugins_module_list, plugins);
+    g_hash_table_destroy((GHashTable *)plugins);
 }
-
-#endif /* HAVE_PLUGINS */
 
 /*
  * Editor modelines

@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef ABOUT_DIALOG_H
@@ -93,11 +93,13 @@ private:
     Ui::AboutDialog *ui;
 
 private slots:
-    void urlClicked(const QModelIndex &);
+    void urlDoubleClicked(const QModelIndex &);
     void handleCopyMenu(QPoint);
     void copyActionTriggered(bool row = false);
     void copyRowActionTriggered();
-
+#ifdef HAVE_LUA
+    void on_tblPlugins_doubleClicked(const QModelIndex &index);
+#endif
 };
 
 #endif // ABOUT_DIALOG_H

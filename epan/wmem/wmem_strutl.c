@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -178,6 +166,87 @@ wmem_strconcat(wmem_allocator_t *allocator, const gchar *first, ...)
     va_end(args);
 
     return concat;
+}
+
+gchar *
+wmem_strjoin(wmem_allocator_t *allocator,
+             const gchar *separator, const gchar *first, ...)
+{
+    gsize   len;
+    va_list args;
+    gsize separator_len;
+    gchar   *s;
+    gchar   *concat;
+    gchar   *ptr;
+
+    if (!first)
+        return NULL;
+
+    if (separator == NULL) {
+        separator = "";
+    }
+
+    separator_len = strlen (separator);
+
+    len = 1 + strlen(first); /* + 1 for null byte */
+    va_start(args, first);
+    while ((s = va_arg(args, gchar*))) {
+        len += (separator_len + strlen(s));
+    }
+    va_end(args);
+
+    ptr = concat = (gchar *)wmem_alloc(allocator, len);
+    ptr = g_stpcpy(ptr, first);
+    va_start(args, first);
+    while ((s = va_arg(args, gchar*))) {
+        ptr = g_stpcpy(ptr, separator);
+        ptr = g_stpcpy(ptr, s);
+    }
+    va_end(args);
+
+    return concat;
+
+}
+
+gchar *
+wmem_strjoinv(wmem_allocator_t *allocator,
+              const gchar *separator, gchar **str_array)
+{
+    gchar *string = NULL;
+
+    if (!str_array)
+        return NULL;
+
+    if (separator == NULL) {
+        separator = "";
+    }
+
+    if (str_array[0]) {
+        gint i;
+        gchar *ptr;
+        gsize len, separator_len;
+
+        separator_len = strlen(separator);
+
+        /* Get first part of length. Plus one for null byte. */
+        len = 1 + strlen(str_array[0]);
+        /* Get the full length, including the separators. */
+        for (i = 1; str_array[i] != NULL; i++) {
+            len += separator_len;
+            len += strlen(str_array[i]);
+        }
+
+        /* Allocate and build the string. */
+        string = (gchar *)wmem_alloc(allocator, len);
+        ptr = g_stpcpy(string, str_array[0]);
+        for (i = 1; str_array[i] != NULL; i++) {
+            ptr = g_stpcpy(ptr, separator);
+            ptr = g_stpcpy(ptr, str_array[i]);
+        }
+    }
+
+    return string;
+
 }
 
 gchar **

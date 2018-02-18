@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <stdio.h>
@@ -31,7 +31,6 @@
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 #include <QWindow>
 #endif
-
 
 // To do:
 // - Fix "apply as filter" behavior.
@@ -302,47 +301,29 @@ void ProtoTree::goToHfid(int hfid)
 void ProtoTree::selectionChanged(const QItemSelection &selected, const QItemSelection &deselected)
 {
     QTreeView::selectionChanged(selected, deselected);
-    if (selected.isEmpty()) return;
+    if (selected.isEmpty()) {
+        emit fieldSelected(0);
+        return;
+    }
 
     QModelIndex index = selected.indexes().first();
+    saveSelectedField(index);
 
+    // Find and highlight the protocol bytes. select above won't call
+    // selectionChanged if the current and selected indexes are the same
+    // so we do this here.
     FieldInformation finfo(proto_tree_model_->protoNodeFromIndex(index).protoNode(), this);
-    if (!finfo.isValid()) return;
-
-    // Find and highlight the protocol bytes
-    QModelIndex parent = index;
-    while (parent.isValid() && parent.parent().isValid()) {
-        parent = parent.parent();
-    }
-    if (parent.isValid()) {
-        FieldInformation parent_finfo(proto_tree_model_->protoNodeFromIndex(parent).protoNode());
-        finfo.setParentField(parent_finfo.fieldInfo());
-    }
-
-    if ( finfo.isValid() )
-    {
-        saveSelectedField(index);
+    if (finfo.isValid()) {
+        QModelIndex parent = index;
+        while (parent.isValid() && parent.parent().isValid()) {
+            parent = parent.parent();
+        }
+        if (parent.isValid()) {
+            FieldInformation parent_finfo(proto_tree_model_->protoNodeFromIndex(parent).protoNode());
+            finfo.setParentField(parent_finfo.fieldInfo());
+        }
         emit fieldSelected(&finfo);
     }
-    // else the GTK+ version pushes an empty string as described below.
-    /*
-     * Don't show anything if the field name is zero-length;
-     * the pseudo-field for text-only items is such
-     * a field, and we don't want "Text (text)" showing up
-     * on the status line if you've selected such a field.
-     *
-     * XXX - there are zero-length fields for which we *do*
-     * want to show the field name.
-     *
-     * XXX - perhaps the name and abbrev field should be null
-     * pointers rather than null strings for that pseudo-field,
-     * but we'd have to add checks for null pointers in some
-     * places if we did that.
-     *
-     * Or perhaps text-only items should have -1 as the field
-     * index, with no pseudo-field being used, but that might
-     * also require special checks for -1 to be added.
-     */
 }
 
 void ProtoTree::syncExpanded(const QModelIndex &index) {
@@ -453,12 +434,19 @@ void ProtoTree::itemDoubleClicked(const QModelIndex &index) {
 
 void ProtoTree::selectedFieldChanged(FieldInformation *finfo)
 {
-    QModelIndex index = proto_tree_model_->findFieldInformation(finfo);
-    if (!index.isValid() || finfo->parent() == this) {
-        // We only want valid, inbound signals.
+    if (finfo && finfo->parent() == this) {
+        // We only want inbound signals.
         return;
     }
+
+    QModelIndex index = proto_tree_model_->findFieldInformation(finfo);
+    setUpdatesEnabled(false);
+    // The new finfo might match the current index. Clear our selection
+    // so that we force a fresh item selection, so that fieldSelected
+    // will in turn be emitted.
+    selectionModel()->clearSelection();
     autoScrollTo(index);
+    setUpdatesEnabled(true);
 }
 
 // Remember the currently focussed field based on:
@@ -468,11 +456,12 @@ void ProtoTree::selectedFieldChanged(FieldInformation *finfo)
 void ProtoTree::saveSelectedField(QModelIndex &index)
 {
     selected_hfid_path_.clear();
-    while (index.isValid()) {
-        FieldInformation finfo(proto_tree_model_->protoNodeFromIndex(index).protoNode());
+    QModelIndex save_index = index;
+    while (save_index.isValid()) {
+        FieldInformation finfo(proto_tree_model_->protoNodeFromIndex(save_index).protoNode());
         if (!finfo.isValid()) break;
-        selected_hfid_path_.prepend(QPair<int,int>(index.row(), finfo.headerInfo().id));
-        index = index.parent();
+        selected_hfid_path_.prepend(QPair<int,int>(save_index.row(), finfo.headerInfo().id));
+        save_index = save_index.parent();
     }
 }
 
@@ -596,6 +585,18 @@ bool ProtoTree::eventFilter(QObject * obj, QEvent * event)
     }
 
     return QTreeView::eventFilter(obj, event);
+}
+
+QModelIndex ProtoTree::moveCursor(QAbstractItemView::CursorAction cursorAction, Qt::KeyboardModifiers modifiers)
+{
+    if (cursorAction == MoveLeft && selectionModel()->hasSelection()) {
+        QModelIndex cur_idx = selectionModel()->selectedIndexes().first();
+        QModelIndex parent = cur_idx.parent();
+        if (!isExpanded(cur_idx) && parent.isValid() && parent != rootIndex()) {
+            return parent;
+        }
+    }
+    return QTreeView::moveCursor(cursorAction, modifiers);
 }
 
 /*

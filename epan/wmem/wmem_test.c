@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -882,7 +870,10 @@ wmem_test_map(void)
     wmem_allocator_t   *allocator, *extra_allocator;
     wmem_map_t       *map;
     gchar            *str_key;
+    const void       *str_key_ret;
     unsigned int      i;
+    unsigned int     *key_ret;
+    unsigned int     *value_ret;
     void             *ret;
 
     allocator = wmem_allocator_new(WMEM_ALLOCATOR_STRICT);
@@ -903,8 +894,22 @@ wmem_test_map(void)
     for (i=0; i<CONTAINER_ITERS; i++) {
         ret = wmem_map_lookup(map, GINT_TO_POINTER(i));
         g_assert(ret == GINT_TO_POINTER(i));
+        g_assert(wmem_map_contains(map, GINT_TO_POINTER(i)) == TRUE);
+        g_assert(wmem_map_lookup_extended(map, GINT_TO_POINTER(i), NULL, NULL));
+        key_ret = NULL;
+        g_assert(wmem_map_lookup_extended(map, GINT_TO_POINTER(i), GINT_TO_POINTER(&key_ret), NULL));
+        g_assert(key_ret == GINT_TO_POINTER(i));
+        value_ret = NULL;
+        g_assert(wmem_map_lookup_extended(map, GINT_TO_POINTER(i), NULL, GINT_TO_POINTER(&value_ret)));
+        g_assert(value_ret == GINT_TO_POINTER(i));
+        key_ret = NULL;
+        value_ret = NULL;
+        g_assert(wmem_map_lookup_extended(map, GINT_TO_POINTER(i), GINT_TO_POINTER(&key_ret), GINT_TO_POINTER(&value_ret)));
+        g_assert(key_ret == GINT_TO_POINTER(i));
+        g_assert(value_ret == GINT_TO_POINTER(i));
         ret = wmem_map_remove(map, GINT_TO_POINTER(i));
         g_assert(ret == GINT_TO_POINTER(i));
+        g_assert(wmem_map_contains(map, GINT_TO_POINTER(i)) == FALSE);
         ret = wmem_map_lookup(map, GINT_TO_POINTER(i));
         g_assert(ret == NULL);
         ret = wmem_map_remove(map, GINT_TO_POINTER(i));
@@ -938,6 +943,12 @@ wmem_test_map(void)
         wmem_map_insert(map, str_key, GINT_TO_POINTER(i));
         ret = wmem_map_lookup(map, str_key);
         g_assert(ret == GINT_TO_POINTER(i));
+        g_assert(wmem_map_contains(map, str_key) == TRUE);
+        str_key_ret = NULL;
+        value_ret = NULL;
+        g_assert(wmem_map_lookup_extended(map, str_key, &str_key_ret, GINT_TO_POINTER(&value_ret)) == TRUE);
+        g_assert(g_str_equal(str_key_ret, str_key));
+        g_assert(value_ret == GINT_TO_POINTER(i));
     }
 
     /* test foreach */

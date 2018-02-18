@@ -22,6 +22,7 @@
 
 include $(top_srcdir)/Makefile.am.inc
 
+# The installation location and DOC_DIR in ui/help_url.c must match.
 AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) -DDOC_DIR=\"$(docdir)\" \
 	$(GLIB_CFLAGS) $(PCAP_CFLAGS) $(LIBGCRYPT_CFLAGS) $(LIBGNUTLS_CFLAGS) $(PORTAUDIO_INCLUDES)
 
@@ -55,6 +56,7 @@ WIRESHARK_UI_SRC = \
 	export_object_ui.c	\
 	export_pdu_ui_utils.c	\
 	failure_message.c	\
+	file_dialog.c		\
 	filter_files.c		\
 	firewall_rules.c	\
 	iface_toolbar.c		\
@@ -75,6 +77,7 @@ WIRESHARK_UI_SRC = \
 	service_response_time.c	\
 	software_update.c	\
 	ssl_key_export.c	\
+	summary.c		\
 	tap_export_pdu.c	\
 	tap-iax2-analysis.c	\
 	tap-rlc-graph.c		\
@@ -126,6 +129,7 @@ WIRESHARK_UI_INCLUDES = \
 	simple_dialog.h		\
 	software_update.h	\
 	ssl_key_export.h	\
+	summary.h		\
 	tap_export_pdu.h	\
 	tap-iax2-analysis.h	\
 	tap-rlc-graph.h		\
@@ -149,7 +153,7 @@ libui_a_SOURCES = \
 
 libui_generated_a_SOURCES = $(GENERATED_FILES)
 
-libui_generated_a_CFLAGS = $(GENERATED_CFLAGS)
+libui_generated_a_CFLAGS = $(AM_CFLAGS)
 
 EXTRA_DIST = \
 	$(GENERATOR_FILES)		\

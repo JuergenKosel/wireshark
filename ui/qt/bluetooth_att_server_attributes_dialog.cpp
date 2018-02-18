@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include "bluetooth_att_server_attributes_dialog.h"
 #include <ui_bluetooth_att_server_attributes_dialog.h>
@@ -249,12 +236,15 @@ gboolean BluetoothAttServerAttributesDialog::tapPacket(void *tapinfo_ptr, packet
     if (dialog->file_closed_)
         return FALSE;
 
-    if (pinfo->phdr->presence_flags & WTAP_HAS_INTERFACE_ID) {
+    if (pinfo->rec->rec_type != REC_TYPE_PACKET)
+        return FALSE;
+
+    if (pinfo->rec->presence_flags & WTAP_HAS_INTERFACE_ID) {
         gchar       *interface;
         const char  *interface_name;
 
-        interface_name = epan_get_interface_name(pinfo->epan, pinfo->phdr->interface_id);
-        interface = wmem_strdup_printf(wmem_packet_scope(), "%u: %s", pinfo->phdr->interface_id, interface_name);
+        interface_name = epan_get_interface_name(pinfo->epan, pinfo->rec->rec_header.packet_header.interface_id);
+        interface = wmem_strdup_printf(wmem_packet_scope(), "%u: %s", pinfo->rec->rec_header.packet_header.interface_id, interface_name);
 
         if (dialog->ui->interfaceComboBox->findText(interface) == -1)
             dialog->ui->interfaceComboBox->addItem(interface);
@@ -274,7 +264,7 @@ gboolean BluetoothAttServerAttributesDialog::tapPacket(void *tapinfo_ptr, packet
 
     if (addr && dialog->ui->deviceComboBox->currentIndex() > 0) {
         if (dialog->ui->deviceComboBox->currentText() != addr)
-        return TRUE;
+            return TRUE;
     }
 
     handle.sprintf("0x%04x", tap_handles->handle);

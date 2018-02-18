@@ -6,7 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <config.h>
@@ -20,6 +20,9 @@
 #include <io.h>
 #else
 #include <unistd.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 #endif
 
 #include <glib.h>

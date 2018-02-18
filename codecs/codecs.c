@@ -5,7 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -86,10 +86,6 @@ codecs_init(void)
 #ifdef HAVE_BCG729
     register_codec("g729", codec_g729_init, codec_g729_release,
             codec_g729_get_channels, codec_g729_get_frequency, codec_g729_decode);
-#endif
-#ifdef HAVE_SBC
-    register_codec("SBC", codec_sbc_init, codec_sbc_release,
-            codec_sbc_get_channels, codec_sbc_get_frequency, codec_sbc_decode);
 #endif
 #ifdef HAVE_SBC
     register_codec("SBC", codec_sbc_init, codec_sbc_release,

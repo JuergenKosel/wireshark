@@ -4,7 +4,7 @@
 * By Gerald Combs <gerald@wireshark.org>
 * Copyright 1998 Gerald Combs
 *
-* SPDX-License-Identifier: GPL-2.0+
+* SPDX-License-Identifier: GPL-2.0-or-later
 *
 * Note used by proprietarry dissectors (too).
 */
@@ -40,6 +40,7 @@ typedef enum
 typedef struct _thrift_struct_t {
     const int *p_id;                 /* The hf field for the struct member*/
     int fid;                         /* The Thrift field id of the stuct memeber*/
+    gboolean optional;               /* TRUE if element is optional, FALSE otherwise */
     trift_type_enum_t type;          /* The thrift type of the struct member */
 } thrift_struct_t;
 
@@ -51,6 +52,8 @@ WS_DLL_PUBLIC int dissect_thrift_t_stop(tvbuff_t* tvb, packet_info* pinfo _U_, p
 
 WS_DLL_PUBLIC int dissect_thrift_t_byte(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree, int offset, int field_id _U_, gint hf_id);
 WS_DLL_PUBLIC int dissect_thrift_t_i32(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree, int offset, int field_id _U_, gint hf_id);
+WS_DLL_PUBLIC int dissect_thrift_t_u64(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree, int offset, int field_id _U_, gint hf_id);
+WS_DLL_PUBLIC int dissect_thrift_t_i64(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree, int offset, int field_id _U_, gint hf_id);
 WS_DLL_PUBLIC int dissect_thrift_t_utf7(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree, int offset, int field_id _U_, gint hf_id);
 
 /** Dissect a Thrift struct

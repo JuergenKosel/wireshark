@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include <wiretap/wtap.h>
 
@@ -700,22 +687,13 @@ int CaptureFileDialog::mergeType() {
 void CaptureFileDialog::preview(const QString & path)
 {
     wtap        *wth;
-    int          err = 0;
+    int          err;
     gchar       *err_info;
-    gint64       data_offset;
-    const struct wtap_pkthdr *phdr;
-    double       start_time = 0; /* seconds, with nsec resolution */
-    double       stop_time = 0;  /* seconds, with nsec resolution */
-    double       cur_time;
-    unsigned int packets = 0;
-    bool         timed_out = FALSE;
-    time_t       time_preview;
-    time_t       time_current;
+    ws_file_preview_stats stats;
+    ws_file_preview_stats_status status;
     time_t       ti_time;
     struct tm   *ti_tm;
     unsigned int elapsed_time;
-
-    // Follow the same steps as ui/win32/file_dlg_win32.c
 
     foreach (QLabel *lbl, preview_labels_) {
         lbl->setEnabled(false);
@@ -757,74 +735,73 @@ void CaptureFileDialog::preview(const QString & path)
     // Finder and Windows Explorer use IEC. What do the various Linux file managers use?
     QString size_str(gchar_free_to_qstring(format_size(filesize, format_size_unit_bytes|format_size_prefix_iec)));
 
-    time(&time_preview);
-    while ((wtap_read(wth, &err, &err_info, &data_offset))) {
-        phdr = wtap_phdr(wth);
-        cur_time = nstime_to_sec(&phdr->ts);
-        if(packets == 0) {
-            start_time = cur_time;
-            stop_time = cur_time;
-        }
-        if (cur_time < start_time) {
-            start_time = cur_time;
-        }
-        if (cur_time > stop_time){
-            stop_time = cur_time;
-        }
+    status = get_stats_for_preview(wth, &stats, &err, &err_info);
 
-        packets++;
-        if(packets%1000 == 0) {
-            /* do we have a timeout? */
-            time(&time_current);
-            if(time_current-time_preview >= (time_t) prefs.gui_fileopen_preview) {
-                timed_out = TRUE;
-                break;
-            }
-        }
-    }
-
-    if(err != 0) {
-        preview_size_.setText(tr("%1, error after %Ln packet(s)", "", packets)
+    if(status == PREVIEW_READ_ERROR) {
+        // XXX - give error details?
+        g_free(err_info);
+        preview_size_.setText(tr("%1, error after %Ln record(s)", "", stats.records)
                               .arg(size_str));
         return;
     }
 
     // Packet count
-    if(timed_out) {
-        preview_size_.setText(tr("%1, timed out at %Ln packet(s)", "", packets)
+    if(status == PREVIEW_TIMED_OUT) {
+        preview_size_.setText(tr("%1, timed out at %Ln data record(s)", "", stats.data_records)
                               .arg(size_str));
     } else {
-        preview_size_.setText(tr("%1, %Ln packet(s)", "", packets)
+        preview_size_.setText(tr("%1, %Ln data record(s)", "", stats.data_records)
                               .arg(size_str));
     }
 
     // First packet + elapsed time
-    ti_time = (long)start_time;
-    ti_tm = localtime(&ti_time);
-    QString first_elapsed = "?";
-    if(ti_tm) {
-        first_elapsed = QString().sprintf(
-                 "%04d-%02d-%02d %02d:%02d:%02d",
-                 ti_tm->tm_year + 1900,
-                 ti_tm->tm_mon + 1,
-                 ti_tm->tm_mday,
-                 ti_tm->tm_hour,
-                 ti_tm->tm_min,
-                 ti_tm->tm_sec
-                 );
+    QString first_elapsed;
+    if(stats.have_times) {
+        //
+        // We saw at least one record with a time stamp, so we can give
+        // a start time (if we have a mix of records with and without
+        // time stamps, and there were records without time stamps
+        // before the first one with a time stamp, this may be inaccurate).
+        //
+        ti_time = (long)stats.start_time;
+        ti_tm = localtime(&ti_time);
+        first_elapsed = "?";
+        if(ti_tm) {
+            first_elapsed = QString().sprintf(
+                     "%04d-%02d-%02d %02d:%02d:%02d",
+                     ti_tm->tm_year + 1900,
+                     ti_tm->tm_mon + 1,
+                     ti_tm->tm_mday,
+                     ti_tm->tm_hour,
+                     ti_tm->tm_min,
+                     ti_tm->tm_sec
+                     );
+        }
+    } else {
+        first_elapsed = tr("unknown");
     }
 
     // Elapsed time
     first_elapsed += " / ";
-    elapsed_time = (unsigned int)(stop_time-start_time);
-    if(timed_out) {
-        first_elapsed += tr("unknown");
-    } else if(elapsed_time/86400) {
-        first_elapsed += QString().sprintf("%02u days %02u:%02u:%02u",
-                elapsed_time/86400, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+    if(status == PREVIEW_SUCCEEDED && stats.have_times) {
+        //
+        // We didn't time out, so we looked at all packets, and we got
+        // at least one packet with a time stamp, so we can calculate
+        // an elapsed time from the time stamp of the last packet with
+        // with a time stamp (if we have a mix of records with and without
+        // time stamps, and there were records without time stamps after
+        // the last one with a time stamp, this may be inaccurate).
+        //
+        elapsed_time = (unsigned int)(stats.stop_time-stats.start_time);
+        if(elapsed_time/86400) {
+            first_elapsed += QString().sprintf("%02u days %02u:%02u:%02u",
+                    elapsed_time/86400, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+        } else {
+            first_elapsed += QString().sprintf("%02u:%02u:%02u",
+                    elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+        }
     } else {
-        first_elapsed += QString().sprintf("%02u:%02u:%02u",
-                elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+        first_elapsed += tr("unknown");
     }
     preview_first_elapsed_.setText(first_elapsed);
 

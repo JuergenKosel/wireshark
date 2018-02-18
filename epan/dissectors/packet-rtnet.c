@@ -8,19 +8,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1999 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 /* Include files */
@@ -36,7 +24,8 @@
  *
  *        http://www.rtnet.org/
  *
- *        http://www.rts.uni-hannover.de/rtnet/lxr/source/Documentation/RTmac.spec
+ *        https://github.com/iocroblab/rtnet/blob/master/Documentation/RTcfg.spec
+ *        https://github.com/iocroblab/rtnet/blob/master/Documentation/RTmac.spec
  */
 
 void proto_register_rtmac(void);
@@ -862,8 +851,13 @@ dissect_rtcfg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
              break;
          }
 
-         switch (pinfo->pkt_encap) {
-           case WTAP_ENCAP_ETHERNET:
+         /*
+          * Infer the type of the physical address from the type of the
+          * source address of this packet.
+          */
+         switch( pinfo->dl_src.type )
+         {
+           case AT_ETHER:
              proto_tree_add_bytes_format_value( rtcfg_tree, hf_rtcfg_client_hw_address, tvb, offset, 32,
                                           NULL, "%s",
                                           tvb_ether_to_str(tvb, offset));

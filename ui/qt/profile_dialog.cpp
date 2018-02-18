@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include "config.h"
 #include <glib.h>
@@ -28,6 +15,7 @@
 #include <ui/qt/utils/qt_ui_utils.h>
 
 #include "ui/profile.h"
+#include "ui/recent.h"
 
 #include <ui/qt/utils/variant_pointer.h>
 
@@ -351,6 +339,15 @@ void ProfileDialog::on_buttonBox_accepted()
         item_data_removed = (item == default_item);
     }
 
+    if (write_recent) {
+        /* Get the current geometry, before writing it to disk */
+        wsApp->emitAppSignal(WiresharkApplication::ProfileChanging);
+
+        /* Write recent file for current profile now because
+         * the profile may be renamed in apply_profile_changes() */
+        write_profile_recent();
+    }
+
     if ((err_msg = apply_profile_changes()) != NULL) {
         QMessageBox::critical(this, tr("Profile Error"),
                               err_msg,
@@ -366,11 +363,11 @@ void ProfileDialog::on_buttonBox_accepted()
 
     if (profile_exists (profile_name, FALSE) || profile_exists (profile_name, TRUE)) {
         // The new profile exists, change.
-        wsApp->setConfigurationProfile (profile_name, write_recent);
+        wsApp->setConfigurationProfile (profile_name, FALSE);
     } else if (!profile_exists (get_profile_name(), FALSE)) {
         // The new profile does not exist, and the previous profile has
         // been deleted.  Change to the default profile.
-        wsApp->setConfigurationProfile (NULL, write_recent);
+        wsApp->setConfigurationProfile (NULL, FALSE);
     }
 }
 

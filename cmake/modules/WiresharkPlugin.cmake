@@ -53,7 +53,6 @@ macro(ADD_PLUGIN_LIBRARY _plugin _subfolder)
 		)
 	endforeach()
 
-	target_link_libraries(${_plugin} epan)
 	add_dependencies(plugins ${_plugin})
 endmacro()
 

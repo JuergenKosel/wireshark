@@ -44,7 +44,11 @@
         <translation>插件</translation>
     </message>
     <message>
-        <source>Search plugins</source>
+        <source>No plugins found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Search Plugins</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -743,20 +747,20 @@
     <message numerus="yes">
         <source>%1, error after %Ln packet(s)</source>
         <oldsource>%1, error after %2 packets</oldsource>
-        <translation>
+        <translation type="vanished">
             <numerusform>%1，在 %Ln 个分组后出错</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <source>%1, timed out at %Ln packet(s)</source>
         <oldsource>%1, timed out at %2 packets</oldsource>
-        <translation>
+        <translation type="vanished">
             <numerusform>%1，在 %Ln 个分组后超时</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <source>%1, %Ln packet(s)</source>
-        <translation>
+        <translation type="vanished">
             <numerusform>%1，%Ln 个分组</numerusform>
         </translation>
     </message>
@@ -831,6 +835,24 @@
     <message>
         <source>error opening file</source>
         <translation>打开文件出错</translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, error after %Ln record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, timed out at %Ln data record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%1, %Ln data record(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
     </message>
     <message>
         <source>unknown</source>
@@ -1425,6 +1447,13 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
 </context>
 <context>
+    <name>ColoringRulesDelegate</name>
+    <message>
+        <source>the &quot;@&quot; symbol will be ignored.</source>
+        <translation type="unfinished">忽略&quot;@&quot;符号。</translation>
+    </message>
+</context>
+<context>
     <name>ColoringRulesDialog</name>
     <message>
         <source>Dialog</source>
@@ -1432,11 +1461,11 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Name</source>
-        <translation>名称</translation>
+        <translation type="vanished">名称</translation>
     </message>
     <message>
         <source>Filter</source>
-        <translation>过滤器</translation>
+        <translation type="vanished">过滤器</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
@@ -1480,7 +1509,7 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Coloring Rules</source>
-        <translation>着色规则</translation>
+        <translation type="vanished">着色规则</translation>
     </message>
     <message>
         <source>Import</source>
@@ -1500,7 +1529,11 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>the &quot;@&quot; symbol will be ignored.</source>
-        <translation>忽略&quot;@&quot;符号。</translation>
+        <translation type="vanished">忽略&quot;@&quot;符号。</translation>
+    </message>
+    <message>
+        <source>Coloring Rules %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Double click to edit. Drag to move. Rules are processed in order until a match is found.</source>
@@ -1524,7 +1557,22 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Unable to save coloring rules: %s</source>
-        <translation>无法保存着色规则: %s</translation>
+        <translation type="vanished">无法保存着色规则: %s</translation>
+    </message>
+</context>
+<context>
+    <name>ColoringRulesModel</name>
+    <message>
+        <source>Unable to save coloring rules: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished">名称</translation>
+    </message>
+    <message>
+        <source>Filter</source>
+        <translation type="unfinished">过滤器</translation>
     </message>
 </context>
 <context>
@@ -6576,6 +6624,14 @@ text-decoration: underline;
     <message>
         <source>HTTP load distribution</source>
         <translation>HTTP 负载分配</translation>
+    </message>
+    <message>
+        <source>Referers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>HTTP referers</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Packet Lengths</source>

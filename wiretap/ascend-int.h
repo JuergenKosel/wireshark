@@ -6,7 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __ASCEND_INT_H__
@@ -40,7 +40,7 @@ typedef struct {
 } ascend_state_t;
 
 extern int
-run_ascend_parser(FILE_T fh, struct wtap_pkthdr *phdr, guint8 *pd,
+run_ascend_parser(FILE_T fh, wtap_rec *rec, guint8 *pd,
                   ascend_state_t *parser_state, int *err, gchar **err_info);
 
 #endif /* ! __ASCEND_INT_H__ */

@@ -10,19 +10,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "epan/packet.h"
@@ -30,11 +18,16 @@
 
 #include "packet-btavdtp.h"
 
+
+#define RTP_MEDIA_AUDIO 1
+#define RTP_MEDIA_VIDEO 2
+#define RTP_MEDIA_OTHER 4
+
 struct _rtp_info {
 	unsigned int  info_version;
 	gboolean      info_padding_set;
 	gboolean      info_marker_set;
-	gboolean      info_is_video;
+	guint32       info_media_types;
 	unsigned int  info_payload_type;
 	unsigned int  info_padding_count;
 	guint16       info_seq_num;
@@ -177,7 +170,7 @@ struct _rtp_conversation_info
 {
 	gchar   method[MAX_RTP_SETUP_METHOD_SIZE + 1];
 	guint32 frame_number;			/* the frame where this conversation is started */
-	gboolean is_video;
+	guint32 media_types;
 	rtp_dyn_payload_t *rtp_dyn_payload;	/* the dynamic RTP payload info - see comments above */
 
 	guint32 extended_seqno;			/* the sequence number, extended to a 32-bit
@@ -200,7 +193,7 @@ void rtp_add_address(packet_info *pinfo,
                      int other_port,
                      const gchar *setup_method,
                      guint32 setup_frame_number,
-					 gboolean is_video,
+                     guint32 media_types,
                      rtp_dyn_payload_t *rtp_dyn_payload);
 
 /* Add an SRTP conversation with the given details */
@@ -211,7 +204,7 @@ void srtp_add_address(packet_info *pinfo,
                      int other_port,
                      const gchar *setup_method,
                      guint32 setup_frame_number,
-					 gboolean is_video,
+                     guint32 media_types,
                      rtp_dyn_payload_t *rtp_dyn_payload,
                      struct srtp_info *srtp_info);
 
@@ -219,4 +212,4 @@ void srtp_add_address(packet_info *pinfo,
 void
 bluetooth_add_address(packet_info *pinfo, address *addr, guint32 stream_number,
          const gchar *setup_method, guint32 setup_frame_number,
-         gboolean is_video, void *data);
+         guint32 media_types, void *data);

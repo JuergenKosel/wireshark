@@ -5,7 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -7818,7 +7818,7 @@ register_number_string_decoding_error(void)
 	proto_set_cant_toggle(proto_number_string_decoding_error);
 }
 
-#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (192000+PRE_ALLOC_EXPERT_FIELDS_MEM)
+#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (195000+PRE_ALLOC_EXPERT_FIELDS_MEM)
 static int
 proto_register_field_init(header_field_info *hfinfo, const int parent)
 {

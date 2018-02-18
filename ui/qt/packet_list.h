@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef PACKET_LIST_H
@@ -151,7 +151,7 @@ public slots:
     void setMonospaceFont(const QFont &mono_font);
     void goNextPacket();
     void goPreviousPacket();
-    void goFirstPacket();
+    void goFirstPacket(bool user_selected = true);
     void goLastPacket();
     void goToPacket(int packet);
     void goToPacket(int packet, int hf_id);

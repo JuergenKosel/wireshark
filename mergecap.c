@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Mergecap written by Scott Renfro <scott@renfro.org> based on
  * editcap by Richard Sharpe and Guy Harris
@@ -211,7 +211,7 @@ merge_callback(merge_event event, int num,
       fprintf(stderr, "mergecap: ready to merge records\n");
       break;
 
-    case MERGE_EVENT_PACKET_WAS_READ:
+    case MERGE_EVENT_RECORD_WAS_READ:
       /* for this event, num = count */
       fprintf(stderr, "Record: %d\n", num);
       break;

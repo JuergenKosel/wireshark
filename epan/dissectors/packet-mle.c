@@ -15,19 +15,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -417,7 +405,7 @@ dissect_mle_decrypt(tvbuff_t * tvb,
      *=====================================================
      */
     /* Create the CCM* initial block for decryption (Adata=0, M=0, counter=0). */
-    ccm_init_block(tmp, FALSE, 0, srcAddr, packet->frame_counter, packet->security_level, 0);
+    ccm_init_block(tmp, FALSE, 0, srcAddr, packet->frame_counter, packet->security_level, 0, NULL);
 
     /* Decrypt the ciphertext, and place the plaintext in a new tvb. */
     if (IEEE802154_IS_ENCRYPTED(packet->security_level) && captured_len) {
@@ -471,8 +459,8 @@ dissect_mle_decrypt(tvbuff_t * tvb,
 
         DISSECTOR_ASSERT(pinfo->src.len == 16);
         DISSECTOR_ASSERT(pinfo->dst.len == 16);
-        memcpy(d_a, (guint8 *)pinfo->src.data, pinfo->src.len);
-        memcpy(d_a+16, (guint8 *)pinfo->dst.data, pinfo->dst.len);
+        memcpy(d_a, pinfo->src.data, pinfo->src.len);
+        memcpy(d_a+16, pinfo->dst.data, pinfo->dst.len);
 
         tvb_memcpy(tvb, d_a+32, payload_info->aux_offset, payload_info->aux_length);
         l_a = 32 + payload_info->aux_length;
@@ -484,7 +472,7 @@ dissect_mle_decrypt(tvbuff_t * tvb,
         }
 
         /* Create the CCM* initial block for authentication (Adata!=0, M!=0, counter=l(m)). */
-        ccm_init_block(tmp, TRUE, M, srcAddr, packet->frame_counter, packet->security_level, l_m);
+        ccm_init_block(tmp, TRUE, M, srcAddr, packet->frame_counter, packet->security_level, l_m, NULL);
 
         /* Compute CBC-MAC authentication tag. */
         /*

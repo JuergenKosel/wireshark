@@ -5,19 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __CONVERSATION_H__
@@ -236,7 +224,7 @@ WS_DLL_PUBLIC guint32 conversation_get_endpoint_by_id(struct _packet_info *pinfo
 extern gboolean
 try_conversation_dissector(const address *addr_a, const address *addr_b, const endpoint_type etype,
     const guint32 port_a, const guint32 port_b, tvbuff_t *tvb, packet_info *pinfo,
-    proto_tree *tree, void* data);
+    proto_tree *tree, void* data, const guint options);
 
 extern gboolean
 try_conversation_dissector_by_id(const endpoint_type etype, const guint32 id, tvbuff_t *tvb,

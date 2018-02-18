@@ -12,19 +12,7 @@
  * by   Maria-Luiza Crivat <luizacri@gmail.com>
  * &    Brice Augustin <bricecotte@gmail.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Added support for ICMP extensions RFC 4884 and RFC 5837
  * (c) 2011 Gaurav Tungatkar <gstungat@ncsu.edu>
@@ -45,6 +33,8 @@
 #include <epan/ipproto.h>
 #include <epan/capture_dissectors.h>
 #include <epan/proto_data.h>
+
+#include <wsutil/pint.h>
 
 #include "packet-ip.h"
 #include "packet-icmp.h"
@@ -363,17 +353,19 @@ static const value_string interface_role_str[] = {
 #define MPLS_EXTENDED_PAYLOAD_C_TYPE             1
 
 /* Return true if the address is in the 224.0.0.0/4 network block */
-#define is_a_multicast_addr(a)	in4_addr_is_multicast(g_ntohl(a))
+#define is_a_multicast_addr(a)	in4_addr_is_multicast(a)
 
 /* Return true if the address is the 255.255.255.255 broadcast address */
-#define is_a_broadcast_addr(a) \
-	(g_ntohl(a) == 0xffffffff)
+#define is_a_broadcast_addr(a)	((a) == 0xffffffffU)
 
+/*
+ * XXX - should these be checking the address *type*, instead?
+ */
 #define ADDR_IS_MULTICAST(addr) \
-	(((addr)->len == 4) && is_a_multicast_addr(*(const guint32 *)((addr)->data)))
+	(((addr)->len == 4) && is_a_multicast_addr(pntoh32((addr)->data)))
 
 #define ADDR_IS_BROADCAST(addr) \
-	(((addr)->len == 4) && is_a_broadcast_addr(*(const guint32 *)((addr)->data)))
+	(((addr)->len == 4) && is_a_broadcast_addr(pntoh32((addr)->data)))
 
 #define ADDR_IS_NOT_UNICAST(addr) \
 	(ADDR_IS_MULTICAST(addr) || ADDR_IS_BROADCAST(addr))

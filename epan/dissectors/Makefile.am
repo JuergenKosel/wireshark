@@ -517,6 +517,10 @@ DISSECTOR_SRC = \
 	packet-dmx.c		\
 	packet-dnp.c		\
 	packet-dns.c		\
+	packet-docsis.c		\
+	packet-docsis-macmgmt.c	\
+	packet-docsis-tlv.c	\
+	packet-docsis-vendor.c	\
 	packet-dof.c		\
 	packet-dplay.c		\
 	packet-dpnet.c		\
@@ -1260,6 +1264,7 @@ DISSECTOR_SRC = \
 	packet-smb2.c		\
 	packet-smcr.c		\
 	packet-sml.c		\
+	packet-smp.c		\
 	packet-smpp.c		\
 	packet-smtp.c		\
 	packet-sna.c		\
@@ -1288,6 +1293,7 @@ DISSECTOR_SRC = \
 	packet-starteam.c	\
 	packet-stat-notify.c	\
 	packet-stat.c		\
+	packet-steam-ihs-discovery.c	\
 	packet-stt.c		\
 	packet-stun.c		\
 	packet-sua.c		\
@@ -1439,6 +1445,7 @@ DISSECTOR_SRC = \
 	packet-xmpp-utils.c	\
 	packet-xmpp.c		\
 	packet-xot.c		\
+	packet-xra.c		\
 	packet-xtp.c		\
 	packet-xyplex.c		\
 	packet-yami.c		\
@@ -1563,6 +1570,7 @@ DISSECTOR_INCLUDES = \
 	packet-diffserv-mpls-common.h	\
 	packet-disp.h		\
 	packet-dns.h		\
+	packet-docsis-tlv.h	\
 	packet-dop.h		\
 	packet-dsp.h		\
 	packet-dtls.h		\
@@ -1891,7 +1899,7 @@ libdirtydissectors_la_SOURCES = \
 	$(DIRTY_ASN1_DISSECTOR_SRC) \
 	$(DIRTY_CORBA_IDL_DISSECTOR_SRC)
 
-libdirtydissectors_la_CFLAGS = $(GENERATED_CFLAGS)
+libdirtydissectors_la_CFLAGS = $(DIRTY_CFLAGS)
 
 libfiledissectors_la_SOURCES = \
 	$(FILE_DISSECTOR_SRC)

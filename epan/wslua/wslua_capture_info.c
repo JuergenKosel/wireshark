@@ -10,19 +10,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "wslua_file_common.h"
@@ -81,7 +69,7 @@ WSLUA_METAMETHOD CaptureInfo__tostring(lua_State* L) {
     } else {
         wtap *wth = fi->wth;
         lua_pushfstring(L, "CaptureInfo: file_type_subtype=%d, snapshot_length=%d, pkt_encap=%d, file_tsprec='%s'",
-            wth->file_type_subtype, wth->snapshot_length, wth->phdr.pkt_encap, wth->file_tsprec);
+            wth->file_type_subtype, wth->snapshot_length, wth->rec.rec_header.packet_header.pkt_encap, wth->file_tsprec);
     }
 
     WSLUA_RETURN(1); /* String of debug information. */
@@ -144,7 +132,11 @@ WSLUA_ATTRIBUTE_NAMED_OPT_BLOCK_STRING_SETTER(CaptureInfo,user_app,wth->shb_hdrs
 
     For example, if the capture file identifies one resolved IPv4 address of 1.2.3.4 to `foo.com`, then you must set
     `CaptureInfo.hosts` to a table of:
-    @code { ipv4_addresses = { { addr = "\01\02\03\04", name = "foo.com" } } } @endcode
+
+    [source,lua]
+    ----
+    { ipv4_addresses = { { addr = "\01\02\03\04", name = "foo.com" } } }
+    ----
 
     Note that either the `ipv4_addresses` or the `ipv6_addresses` table, or both, may be empty or nil.
     */
@@ -388,7 +380,11 @@ WSLUA_ATTRIBUTE_NAMED_OPT_BLOCK_STRING_GETTER(CaptureInfoConst,user_app,wth->shb
 
     For example, if the current capture has one resolved IPv4 address of 1.2.3.4 to `foo.com`, then getting
     `CaptureInfoConst.hosts` will get a table of:
-    @code { ipv4_addresses = { { addr = "\01\02\03\04", name = "foo.com" } }, ipv6_addresses = { } } @endcode
+
+    [source,lua]
+    ----
+    { ipv4_addresses = { { addr = "\01\02\03\04", name = "foo.com" } }, ipv6_addresses = { } }
+    ----
 
     Note that either the `ipv4_addresses` or the `ipv6_addresses` table, or both, may be empty, however they will not
     be nil. */

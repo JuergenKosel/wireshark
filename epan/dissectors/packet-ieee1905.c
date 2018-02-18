@@ -8,19 +8,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 /*
@@ -247,6 +235,7 @@ static int hf_ieee1905_metrics_channel_util_threshold = -1;
 static int hf_ieee1905_assoc_sta_traffic_stats_inclusion = -1;
 static int hf_ieee1905_assoc_sta_link_metrics_inclusion = -1;
 static int hf_ieee1905_reporting_policy_flags_reserved = -1;
+static int hf_ieee1905_ap_metric_query_bssid_cnt = -1;
 static int hf_ieee1905_ap_metric_query_bssid = -1;
 static int hf_ieee1905_sta_mac_address_type = -1;
 static int hf_ieee1905_assoc_sta_mac_addr = -1;
@@ -2716,7 +2705,8 @@ dissect_metric_reporting_policy(tvbuff_t *tvb, packet_info *pinfo _U_,
     static const int *ieee1905_reporting_policy_flags[] = {
         &hf_ieee1905_assoc_sta_traffic_stats_inclusion,
         &hf_ieee1905_assoc_sta_link_metrics_inclusion,
-        &hf_ieee1905_reporting_policy_flags_reserved
+        &hf_ieee1905_reporting_policy_flags_reserved,
+        NULL
     };
 
     proto_tree_add_item(tree, hf_ieee1905_ap_metrics_reporting_interval,
@@ -3760,6 +3750,10 @@ dissect_ap_metric_query(tvbuff_t *tvb, packet_info *pinfo _U_,
     proto_tree *bssid_list = NULL;
     proto_item *pi = NULL;
     guint saved_offset;
+
+    proto_tree_add_item(tree, hf_ieee1905_ap_metric_query_bssid_cnt, tvb,
+                        offset, 1, ENC_NA);
+    offset++;
 
     bssid_list = proto_tree_add_subtree(tree, tvb, offset, -1,
                             ett_ap_metric_query_bssid_list, &pi,
@@ -5396,6 +5390,10 @@ proto_register_ieee1905(void)
         { &hf_ieee1905_metrics_channel_util_threshold,
           { "Utilization Reporting threshold", "ieee1905.sta_metric_policy.utilization_threshold",
             FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0, NULL, HFILL }},
+
+        { &hf_ieee1905_ap_metric_query_bssid_cnt,
+          { "BSSID Count", "ieee1905.ap_metrics_query.bssid_cnt",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_ap_metric_query_bssid,
           { "Query BSSID", "ieee1905.ap_metrics_query.bssid",

@@ -5,19 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __PACKET_INFO_H__
@@ -60,10 +48,9 @@ typedef struct _packet_info {
   guint32 num;                      /**< Frame number */
   nstime_t abs_ts;                  /**< Packet absolute time stamp */
   nstime_t rel_ts;                  /**< Relative timestamp (yes, it can be negative) */
-  gint pkt_encap;                   /**< Per-packet encapsulation/data-link type */
   frame_data *fd;
   union wtap_pseudo_header *pseudo_header;
-  struct wtap_pkthdr *phdr;         /**< Record metadata */
+  wtap_rec *rec;                    /**< Record metadata */
   GSList *data_src;                 /**< Frame data sources */
   address dl_src;                   /**< link-layer source address */
   address dl_dst;                   /**< link-layer destination address */

@@ -7,19 +7,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 /* Documentation:
@@ -188,15 +176,15 @@ static const value_string twamp_control_state_vals[] = {
 static
 gint find_twamp_session_by_sender_port (gconstpointer element, gconstpointer compared)
 {
-    guint16 *sender_port = (guint16*) compared;
-    twamp_session_t *session = (twamp_session_t*) element;
+    const guint16 *sender_port = (const guint16*) compared;
+    const twamp_session_t *session = (const twamp_session_t*) element;
     return !(session->sender_port == *sender_port);
 }
 
 static
 gint find_twamp_session_by_first_accept_waiting (gconstpointer element)
 {
-    twamp_session_t *session = (twamp_session_t*) element;
+    const twamp_session_t *session = (const twamp_session_t*) element;
     if (session->accepted == 0)
         return 0;
 

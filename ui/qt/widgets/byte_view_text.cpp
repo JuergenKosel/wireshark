@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "byte_view_text.h"
@@ -147,6 +147,9 @@ void ByteViewText::markField(int start, int length, bool scroll_to)
 {
     field_start_ = start;
     field_len_ = length;
+    // This might be called as a result of (de)selecting a proto tree
+    // item, so take us out of marked mode.
+    marked_byte_offset_ = -1;
     if (scroll_to) {
         scrollToByte(start);
     }
@@ -221,16 +224,20 @@ void ByteViewText::paintEvent(QPaintEvent *)
     // We can't do this in drawLine since the next line might draw over our rect.
     if (!hover_outlines_.isEmpty()) {
         qreal pen_width = 1.0;
+        qreal hover_alpha = 0.6;
         QPen ho_pen;
         QColor ho_color = palette().text().color();
-        ho_color.setAlphaF(0.5);
-        ho_pen.setColor(ho_color);
+        if (marked_byte_offset_ < 0) {
+            hover_alpha = 0.3;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 1, 0)
-        if (devicePixelRatio() > 1) {
-            pen_width = 0.5;
-        }
+            if (devicePixelRatio() > 1) {
+                pen_width = 0.5;
+            }
 #endif
+        }
         ho_pen.setWidthF(pen_width);
+        ho_color.setAlphaF(hover_alpha);
+        ho_pen.setColor(ho_color);
 
         painter.save();
         painter.setPen(ho_pen);
@@ -260,15 +267,26 @@ void ByteViewText::mousePressEvent (QMouseEvent *event) {
         return;
     }
 
-    if (marked_byte_offset_ < 0) {
-        marked_byte_offset_ = byteOffsetAtPixel(event->pos());
+    // byteSelected does the following:
+    // - Triggers selectedFieldChanged in ProtoTree, which clears the
+    //   selection and selects the corresponding (or no) item.
+    // - The new tree selection triggers markField, which clobbers
+    //   marked_byte_offset_.
+
+    const bool hover_mode = marked_byte_offset_ < 0;
+    const int byte_offset = byteOffsetAtPixel(event->pos());
+    setUpdatesEnabled(false);
+    emit byteSelected(byte_offset);
+    if (hover_mode && byte_offset >= 0) {
+        // Switch to marked mode.
         hovered_byte_offset_ = -1;
+        marked_byte_offset_ = byte_offset;
+        viewport()->update();
     } else {
-        marked_byte_offset_ = -1;
+        // Back to hover mode.
         mouseMoveEvent(event);
     }
-    emit byteSelected(marked_byte_offset_);
-    viewport()->update();
+    setUpdatesEnabled(true);
 }
 
 void ByteViewText::mouseMoveEvent(QMouseEvent *event)
@@ -284,7 +302,8 @@ void ByteViewText::mouseMoveEvent(QMouseEvent *event)
 
 void ByteViewText::leaveEvent(QEvent *event)
 {
-    emit byteHovered(-1);
+    hovered_byte_offset_ = -1;
+    emit byteHovered(hovered_byte_offset_);
 
     viewport()->update();
     QAbstractScrollArea::leaveEvent(event);
@@ -361,7 +380,7 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
             if (build_x_pos) {
                 x_pos_to_column_ += QVector<int>().fill(tvb_pos - offset, fontMetrics().width(line) - x_pos_to_column_.size() + slop);
             }
-            if (tvb_pos == hovered_byte_offset_) {
+            if (tvb_pos == hovered_byte_offset_ || tvb_pos == marked_byte_offset_) {
                 int ho_len = recent.gui_bytes_view == BYTES_HEX ? 2 : 8;
                 QRect ho_rect = painter->boundingRect(QRect(), Qt::AlignHCenter|Qt::AlignVCenter, line.right(ho_len));
                 ho_rect.moveRight(fontMetrics().width(line));
@@ -379,9 +398,6 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
             offset_mode = ModeOffsetField;
         }
         addHexFormatRange(fmt_list, field_a_start_, field_a_len_, offset, max_tvb_pos, ModeField);
-        if (marked_byte_offset_ >= offset && marked_byte_offset_ <= max_tvb_pos) {
-            addHexFormatRange(fmt_list, marked_byte_offset_, 1, offset, max_tvb_pos, ModeMarked);
-        }
     }
 
     // ASCII
@@ -425,7 +441,7 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
             if (build_x_pos) {
                 x_pos_to_column_ += QVector<int>().fill(tvb_pos - offset, fontMetrics().width(line) - x_pos_to_column_.size());
             }
-            if (tvb_pos == hovered_byte_offset_) {
+            if (tvb_pos == hovered_byte_offset_ || tvb_pos == marked_byte_offset_) {
                 QRect ho_rect = painter->boundingRect(QRect(), 0, line.right(1));
                 ho_rect.moveRight(fontMetrics().width(line));
                 ho_rect.moveTop(row_y);
@@ -440,9 +456,6 @@ void ByteViewText::drawLine(QPainter *painter, const int offset, const int row_y
             offset_mode = ModeOffsetField;
         }
         addAsciiFormatRange(fmt_list, field_a_start_, field_a_len_, offset, max_tvb_pos, ModeField);
-        if (marked_byte_offset_ >= offset && marked_byte_offset_ <= max_tvb_pos) {
-            addAsciiFormatRange(fmt_list, marked_byte_offset_, 1, offset, max_tvb_pos, ModeMarked);
-        }
     }
 
     // XXX Fields won't be highlighted if neither hex nor ascii are enabled.
@@ -482,12 +495,6 @@ bool ByteViewText::addFormatRange(QList<QTextLayout::FormatRange> &fmt_list, int
         break;
     case ModeOffsetField:
         format_range.format.setForeground(offset_field_fg_);
-        break;
-    case ModeMarked:
-        // XXX Should we get rid of byteViewMarkColor and just draw an
-        // outline instead?
-        format_range.format.setForeground(ColorUtils::byteViewMarkColor(false));
-        format_range.format.setBackground(ColorUtils::byteViewMarkColor(true));
         break;
     case ModeNonPrintable:
         format_range.format.setForeground(offset_normal_fg_);

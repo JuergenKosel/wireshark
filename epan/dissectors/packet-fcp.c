@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -680,7 +668,7 @@ dissect_fcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
         proto_data = (fcp_proto_data_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_fcp, 0);
     }
 
-    if ((r_ctl != FCP_IU_CMD) && (r_ctl != FCP_IU_UNSOL_CTL)) {
+    if ((r_ctl != FCP_IU_CMD) && (r_ctl != FCP_IU_UNSOL_CTL) && (proto_data != NULL)) {
         request_data = (fcp_request_data_t *)wmem_map_lookup(fcp_conv_data->luns, GUINT_TO_POINTER((guint)(proto_data->lun)));
     }
 

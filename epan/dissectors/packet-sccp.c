@@ -18,19 +18,7 @@
  *
  * Copied from packet-m2pa.c
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 
@@ -2483,7 +2471,7 @@ dissect_sccp_isni_param(tvbuff_t *tvb, proto_tree *tree, guint length)
  */
 static guint16
 dissect_sccp_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *sccp_tree,
-                       proto_tree *tree, guint8 parameter_type, guint16 offset,
+                       proto_tree *tree, guint8 parameter_type, int offset,
                        guint16 parameter_length, sccp_decode_context_t *sccp_info)
 {
   tvbuff_t *parameter_tvb;
@@ -2636,7 +2624,7 @@ dissect_sccp_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *sccp_tree,
 static guint16
 dissect_sccp_variable_parameter(tvbuff_t *tvb, packet_info *pinfo,
                                 proto_tree *sccp_tree, proto_tree *tree,
-                                guint8 parameter_type, guint16 offset, sccp_decode_context_t* sccp_info)
+                                guint8 parameter_type, int offset, sccp_decode_context_t* sccp_info)
 {
   guint16     parameter_length;
   guint8      length_length;
@@ -2676,7 +2664,7 @@ dissect_sccp_variable_parameter(tvbuff_t *tvb, packet_info *pinfo,
 static void
 dissect_sccp_optional_parameters(tvbuff_t *tvb, packet_info *pinfo,
                                  proto_tree *sccp_tree, proto_tree *tree,
-                                 guint16 offset, sccp_decode_context_t* sccp_info)
+                                 int offset, sccp_decode_context_t* sccp_info)
 {
   guint8 parameter_type;
 
@@ -2739,7 +2727,7 @@ dissect_sccp_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *sccp_tree,
 {
   guint16   variable_pointer1 = 0, variable_pointer2 = 0, variable_pointer3 = 0;
   guint16   optional_pointer  = 0, orig_opt_ptr = 0;
-  guint16   offset = 0;
+  int   offset = 0;
   gboolean  save_fragmented;
   tvbuff_t *new_tvb = NULL;
   fragment_head *frag_msg = NULL;

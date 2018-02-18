@@ -173,7 +173,8 @@ if(PORTAUDIO_FOUND)
 			PUBLIC "/w44305"
 		)
 
-		# Portaudio has some size_t > long warnings as a result of using strlen() on x64.
+		# Portaudio has some size_t > long warnings as a result of using strlen()
+		# and other warnings on x64.
 		if ("${WIRESHARK_TARGET_PLATFORM}" STREQUAL "win64")
 			#set_source_files_properties(${PORTAUDIO_SRC_DIR}/hostapi/wmme/pa_win_wmme.c
 			#	PROPERTIES
@@ -181,6 +182,8 @@ if(PORTAUDIO_FOUND)
 			#)
 			target_compile_options(portaudio
 				PUBLIC "/w44267"
+				PUBLIC "/w44311"
+				PUBLIC "/w44312"
 			)
 		endif()
 	endif()
@@ -215,17 +218,6 @@ set(WIRESHARK_TAP_SRC
 	${WIRESHARK_CUSTOM_TAP_SRC}
 )
 
-set(CLEAN_FILES
-	${WIRESHARK_GTK_SRC}
-	${WIRESHARK_TAP_SRC}
-)
-
-set_source_files_properties(
-	${CLEAN_FILES}
-	PROPERTIES
-	COMPILE_FLAGS "${WERROR_COMMON_FLAGS} ${NO_ERROR_DEPRECATED_DECLARATIONS_COMPILE_FLAGS}"
-)
-
 if (ENABLE_GTK3)
 	add_definitions(
 		${GTK3_DEFINITIONS}
@@ -255,6 +247,18 @@ if(WIN32)
 		capture_if_details_dlg_win32.c
 	)
 endif()
+
+set(GTKUI_FILES
+	${WIRESHARK_GTK_SRC}
+	${WIRESHARK_TAP_SRC}
+	${PLATFORM_UI_SRC}
+)
+
+set_source_files_properties(
+	${GTKUI_FILES}
+	PROPERTIES
+	COMPILE_FLAGS "${WERROR_COMMON_FLAGS} ${NO_ERROR_DEPRECATED_DECLARATIONS_COMPILE_FLAGS}"
+)
 
 register_tap_files(wireshark-tap-register.c
 	${WIRESHARK_TAP_SRC}
@@ -300,9 +304,7 @@ else()
 endif()
 
 add_library(gtkui STATIC
-	${WIRESHARK_GTK_SRC}
-	${WIRESHARK_TAP_SRC}
-	${PLATFORM_UI_SRC}
+	${GTKUI_FILES}
 	${PORTAUDIO_OBJ}
 	wireshark-tap-register.c
 	${PIXBUF_SRC}

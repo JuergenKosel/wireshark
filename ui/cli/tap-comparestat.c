@@ -7,20 +7,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 /* This module provides statistics about two merged capture files, to find packet loss,
  * time delay, ip header checksum errors and order check to tshark.
@@ -232,12 +219,15 @@ call_foreach_count_ip_id(gpointer key _U_, gpointer value, gpointer arg)
 
 	/* collect TTL's */
 	if (TTL_method && (fInfo->num < TTL_SEARCH)) {
+		gboolean found = FALSE;
 		for (i=0; i < cs->ip_ttl_list->len; i++) {
 			if (g_array_index(cs->ip_ttl_list, guint8, i) == fInfo->ip_ttl) {
-				return;
+				found = TRUE;
+				break;
 			}
 		}
-		g_array_append_val(cs->ip_ttl_list, fInfo->ip_ttl);
+		if (!found)
+			g_array_prepend_val(cs->ip_ttl_list, fInfo->ip_ttl);
 	}
 
 	g_free(pinfo->fd);

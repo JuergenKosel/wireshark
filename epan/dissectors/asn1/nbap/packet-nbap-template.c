@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Ref: 3GPP TS 25.433 version 6.6.0 Release 6
  */
@@ -78,6 +66,7 @@ static int proto_nbap = -1;
 static int hf_nbap_transportLayerAddress_ipv4 = -1;
 static int hf_nbap_transportLayerAddress_ipv6 = -1;
 static int hf_nbap_transportLayerAddress_nsap = -1;
+static int hf_nbap_reassembled_information_block = -1;
 
 #include "packet-nbap-hf.c"
 
@@ -189,6 +178,34 @@ enum TransportFormatSet_type_enum
   NBAP_PCH
 };
 
+#define NBAP_MAX_IB_SEGMENT_LENGTH 222
+
+typedef struct nbap_ib_segment_t {
+  guint32 bit_length;
+  guint8* data;
+} nbap_ib_segment_t;
+
+static nbap_ib_segment_t* nbap_parse_ib_segment_t(tvbuff_t *tvb,gboolean is_short)
+{
+  guint8 bit_length;
+  guint8* data;
+  nbap_ib_segment_t* output;
+  if ( tvb_captured_length(tvb) < 2 ) {
+    return NULL;
+  }
+  if (is_short) {
+    bit_length = tvb_get_guint8(tvb,0) + 1;
+    data = (guint8*)tvb_memdup(wmem_packet_scope(),tvb,1,(bit_length+7)/8);
+  }
+  else {
+    bit_length = NBAP_MAX_IB_SEGMENT_LENGTH;
+    data = (guint8*)tvb_memdup(wmem_packet_scope(),tvb,0,(bit_length+7)/8);
+  }
+  output = wmem_new(wmem_packet_scope(), nbap_ib_segment_t);
+  output->bit_length = bit_length;
+  output->data = data;
+  return output;
+}
 
 /*****************************************************************************/
 /* Packet private data                                                       */
@@ -233,6 +250,7 @@ typedef struct nbap_private_data_t
   gint hsdsch_macdflow_ids[maxNrOfMACdFlows];
   nbap_hsdsch_channel_info_t nbap_hsdsch_channel_info[maxNrOfMACdFlows];
   nbap_common_channel_info_t nbap_common_channel_info[maxNrOfMACdFlows];	/*TODO: Fix this!*/
+  wmem_list_t* ib_segments; /* Information block segments */
 } nbap_private_data_t;
 
 
@@ -651,6 +669,18 @@ static nbap_common_channel_info_t* private_data_get_nbap_common_channel_info(pac
 {
   nbap_private_data_t *private_data = (nbap_private_data_t*)nbap_get_private_data(pinfo);
   return private_data->nbap_common_channel_info;
+}
+
+static wmem_list_t* private_data_get_ib_segments(packet_info *pinfo)
+{
+  nbap_private_data_t *private_data = (nbap_private_data_t*)nbap_get_private_data(pinfo);
+  return private_data->ib_segments;
+}
+
+static void private_data_set_ib_segments(packet_info *pinfo, wmem_list_t* ib_segments)
+{
+  nbap_private_data_t *private_data = (nbap_private_data_t*)nbap_get_private_data(pinfo);
+  private_data->ib_segments = ib_segments;
 }
 
 /*****************************************************************************/
@@ -1084,6 +1114,10 @@ void proto_register_nbap(void)
     NULL, HFILL }},
   { &hf_nbap_transportLayerAddress_nsap,
     { "transportLayerAddress NSAP", "nbap.transportLayerAddress_NSAP",
+    FT_BYTES, BASE_NONE, NULL, 0,
+    NULL, HFILL }},
+  { &hf_nbap_reassembled_information_block,
+    { "Reassembled Information Block", "nbap.reassembled_information_block",
     FT_BYTES, BASE_NONE, NULL, 0,
     NULL, HFILL }},
   #include "packet-nbap-hfarr.c"

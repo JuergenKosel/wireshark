@@ -8,19 +8,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -239,6 +227,14 @@ const value_string link_type_vals[] = {
     { 262,  "ZWAVE_R3" },
     { 263,  "WATTSTOPPER_DLM" },
     { 264,  "ISO_14443" },
+    { 265,  "RDS" },
+    { 266,  "USB_DARWIN" },
+    { 268,  "SDLC" },
+    { 270,  "LORATAP" },
+    { 271,  "VSOCK" },
+    { 272,  "NORDIC_BLE" },
+    { 273,  "DOCSIS31_XRA31" },
+    { 274,  "ETHERNET_MPACKET" },
     { 0, NULL }
 };
 
@@ -268,12 +264,12 @@ dissect_pcap_pktdata(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
      * We're passed a pointer to a LINKTYPE_ value.
      * Find the Wiretap encapsulation for that value.
      */
-    pinfo->phdr->pkt_encap = wtap_pcap_encap_to_wtap_encap(*link_type);
+    pinfo->rec->rec_header.packet_header.pkt_encap = wtap_pcap_encap_to_wtap_encap(*link_type);
 
     /*
      * Do we know that type?
      */
-    if (pinfo->phdr->pkt_encap == WTAP_ENCAP_UNKNOWN) {
+    if (pinfo->rec->rec_header.packet_header.pkt_encap == WTAP_ENCAP_UNKNOWN) {
         /*
          * Nothing we know.
          * Just report that and give up.
@@ -297,11 +293,11 @@ dissect_pcap_pktdata(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
      * pseudo-header from the bytes at the beginning of the
      * packet data.
      */
-    if (wtap_encap_requires_phdr(pinfo->phdr->pkt_encap)) {
+    if (wtap_encap_requires_phdr(pinfo->rec->rec_header.packet_header.pkt_encap)) {
         /*
          * It does.  Do we have code to do that?
          */
-        switch (pinfo->phdr->pkt_encap) {
+        switch (pinfo->rec->rec_header.packet_header.pkt_encap) {
 
         case WTAP_ENCAP_BLUETOOTH_H4_WITH_PHDR:
             pseudoheader_item = proto_tree_add_item(tree, hf_pcap_pktdata_pseudoheader, tvb, offset, 4, ENC_NA);
@@ -353,7 +349,7 @@ dissect_pcap_pktdata(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
          * These also require a pseudo-header, but it's not constructed
          * from packet data.
          */
-        switch (pinfo->phdr->pkt_encap) {
+        switch (pinfo->rec->rec_header.packet_header.pkt_encap) {
 
         case WTAP_ENCAP_ETHERNET:
             eth.fcs_len = -1;    /* Unknown whether we have an FCS */
@@ -368,7 +364,7 @@ dissect_pcap_pktdata(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
 
     next_tvb = tvb_new_subset_remaining(tvb, offset);
 
-    offset = dissector_try_uint_new(wtap_encap_table, pinfo->phdr->pkt_encap, next_tvb, pinfo, tree, TRUE, phdr);
+    offset = dissector_try_uint_new(wtap_encap_table, pinfo->rec->rec_header.packet_header.pkt_encap, next_tvb, pinfo, tree, TRUE, phdr);
 
     return offset;
 }

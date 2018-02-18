@@ -5,7 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __FILE_H__
@@ -152,13 +152,13 @@ cf_read_status_t cf_read(capture_file *cf, gboolean from_save);
  *
  * @param cf the capture file from which to read the record
  * @param fdata the frame_data structure for the record in question
- * @param phdr pointer to a wtap_pkthdr structure to contain the
+ * @param rec pointer to a wtap_rec structure to contain the
  * record's metadata
  * @param buf a Buffer into which to read the record's raw data
  * @return TRUE if the read succeeded, FALSE if there was an error
  */
 gboolean cf_read_record_r(capture_file *cf, const frame_data *fdata,
-                          struct wtap_pkthdr *phdr, Buffer *buf);
+                          wtap_rec *rec, Buffer *buf);
 
 /**
  * Read the metadata and raw data for a record into a

@@ -13,19 +13,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *------------------------------------------------------------
  *
  *  In IEEE 802.15.4 packets, all fields are little endian. And
@@ -3600,9 +3588,9 @@ dissect_ieee802154_decrypt(tvbuff_t *tvb,
      */
     /* Create the CCM* initial block for decryption (Adata=0, M=0, counter=0). */
     if (packet->version == IEEE802154_VERSION_2003)
-        ccm_init_block(tmp, FALSE, 0, srcAddr, packet->frame_counter, packet->key_sequence_counter, 0);
+        ccm_init_block(tmp, FALSE, 0, srcAddr, packet->frame_counter, packet->key_sequence_counter, 0, NULL);
     else
-        ccm_init_block(tmp, FALSE, 0, srcAddr, packet->frame_counter, packet->security_level, 0);
+        ccm_init_block(tmp, FALSE, 0, srcAddr, packet->frame_counter, packet->security_level, 0, NULL);
 
     /* Decrypt the ciphertext, and place the plaintext in a new tvb. */
     if (IEEE802154_IS_ENCRYPTED(packet->security_level) && captured_len) {
@@ -3661,9 +3649,9 @@ dissect_ieee802154_decrypt(tvbuff_t *tvb,
 
         /* Create the CCM* initial block for authentication (Adata!=0, M!=0, counter=l(m)). */
         if (packet->version == IEEE802154_VERSION_2003)
-            ccm_init_block(tmp, TRUE, M, srcAddr, packet->frame_counter, packet->key_sequence_counter, l_m);
+            ccm_init_block(tmp, TRUE, M, srcAddr, packet->frame_counter, packet->key_sequence_counter, l_m, NULL);
         else
-            ccm_init_block(tmp, TRUE, M, srcAddr, packet->frame_counter, packet->security_level, l_m);
+            ccm_init_block(tmp, TRUE, M, srcAddr, packet->frame_counter, packet->security_level, l_m, NULL);
 
         /* Compute CBC-MAC authentication tag. */
         /*
@@ -3696,9 +3684,10 @@ dissect_ieee802154_decrypt(tvbuff_t *tvb,
  * @param frame_counter Packet frame counter
  * @param level Security level or key_sequence_counter for 802.15.4-2003
  * @param ctr_val Value in the last L bytes of the block.
+ * @param generic_nonce 13-byte nonce to be set by non 802.15.4 calls. If set addr, frame_counter and level are ignored.
  */
 void
-ccm_init_block(gchar *block, gboolean adata, gint M, guint64 addr, guint32 frame_counter, guint8 level, gint ctr_val)
+ccm_init_block(gchar *block, gboolean adata, gint M, guint64 addr, guint32 frame_counter, guint8 level, gint ctr_val, const gchar *generic_nonce)
 {
     gint                i = 0;
 
@@ -3707,21 +3696,26 @@ ccm_init_block(gchar *block, gboolean adata, gint M, guint64 addr, guint32 frame
     if (M > 0) block[i] |= (((M-2)/2) << 3); /* (M-2)/2 */
     if (adata) block[i] |= (1 << 6); /* Adata */
     i++;
-    /* 2003 CCM Nonce:  Source Address || Frame Counter || Key Sequence Counter */
-    /* 2006 CCM* Nonce: Source Address || Frame Counter || Security Level */
-    block[i++] = (guint8)((addr >> 56) & 0xff);
-    block[i++] = (guint8)((addr >> 48) & 0xff);
-    block[i++] = (guint8)((addr >> 40) & 0xff);
-    block[i++] = (guint8)((addr >> 32) & 0xff);
-    block[i++] = (guint8)((addr >> 24) & 0xff);
-    block[i++] = (guint8)((addr >> 16) & 0xff);
-    block[i++] = (guint8)((addr >> 8) & 0xff);
-    block[i++] = (guint8)((addr >> 0) & 0xff);
-    block[i++] = (guint8)((frame_counter >> 24) & 0xff);
-    block[i++] = (guint8)((frame_counter >> 16) & 0xff);
-    block[i++] = (guint8)((frame_counter >> 8) & 0xff);
-    block[i++] = (guint8)((frame_counter >> 0) & 0xff);
-    block[i++] = level;
+    if (generic_nonce == NULL) {
+        /* 2003 CCM Nonce:  Source Address || Frame Counter || Key Sequence Counter */
+        /* 2006 CCM* Nonce: Source Address || Frame Counter || Security Level */
+        block[i++] = (guint8)((addr >> 56) & 0xff);
+        block[i++] = (guint8)((addr >> 48) & 0xff);
+        block[i++] = (guint8)((addr >> 40) & 0xff);
+        block[i++] = (guint8)((addr >> 32) & 0xff);
+        block[i++] = (guint8)((addr >> 24) & 0xff);
+        block[i++] = (guint8)((addr >> 16) & 0xff);
+        block[i++] = (guint8)((addr >> 8) & 0xff);
+        block[i++] = (guint8)((addr >> 0) & 0xff);
+        block[i++] = (guint8)((frame_counter >> 24) & 0xff);
+        block[i++] = (guint8)((frame_counter >> 16) & 0xff);
+        block[i++] = (guint8)((frame_counter >> 8) & 0xff);
+        block[i++] = (guint8)((frame_counter >> 0) & 0xff);
+        block[i++] = level;
+    } else {
+        memcpy(&block[i], generic_nonce, 13);
+        i += 13;
+    }
     /* Plaintext length. */
     block[i++] = (guint8)((ctr_val >> 8) & 0xff);
     block[i] = (guint8)((ctr_val >> 0) & 0xff);

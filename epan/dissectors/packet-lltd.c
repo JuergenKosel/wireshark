@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -322,10 +310,10 @@ const true_false_string tfs_full_half_duplex = { "Full Duplex", "Half Duplex" };
 static int
 dissect_lltd_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, gboolean* end)
 {
-    guint8     i, type, length = 0;
+    guint8     type, length = 0;
     proto_item *tlv_item, *type_item;
     proto_tree *tlv_tree, *type_tree;
-    guint32 temp32;
+    guint32 i, temp32;
 
     type = tvb_get_guint8(tvb, offset);
     if (type == 0)

@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <QSortFilterProxyModel>
@@ -19,16 +19,17 @@ AStringListListModel::AStringListListModel(QObject * parent):
 QAbstractTableModel(parent)
 {}
 
-AStringListListModel::~AStringListListModel() { modelData.clear(); }
+AStringListListModel::~AStringListListModel() { display_data_.clear(); }
 
-void AStringListListModel::appendRow(const QStringList & data, const QModelIndex &parent)
+void AStringListListModel::appendRow(const QStringList & display_strings, const QString & row_tooltip, const QModelIndex &parent)
 {
     QStringList columns = headerColumns();
-    if ( data.count() != columns.count() )
+    if ( display_strings.count() != columns.count() )
         return;
 
     emit beginInsertRows(parent, rowCount(), rowCount());
-    modelData << data;
+    display_data_ << display_strings;
+    tooltip_data_ << row_tooltip;
     emit endInsertRows();
 }
 
@@ -36,12 +37,13 @@ int AStringListListModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent);
 
-    return modelData.count();
+    return display_data_.count();
 }
 
 int AStringListListModel::columnCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    if ( rowCount(parent) == 0 )
+        return 0;
 
     return headerColumns().count();
 }
@@ -65,10 +67,17 @@ QVariant AStringListListModel::data(const QModelIndex &index, int role) const
 
     if ( role == Qt::DisplayRole )
     {
-        QStringList data = modelData.at(index.row());
+        QStringList data = display_data_.at(index.row());
 
         if ( index.column() < columnCount() )
             return QVariant::fromValue(data.at(index.column()));
+    }
+    else if ( role == Qt::ToolTipRole )
+    {
+        QString tooltip = tooltip_data_.at(index.row());
+        if (!tooltip.isEmpty()) {
+            return tooltip;
+        }
     }
 
     return QVariant();

@@ -5,19 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -69,7 +57,7 @@ static build_valid_func next_proto_values[] = { next_proto_value };
 static decode_as_value_t next_proto_da_values =
                         { next_proto_prompt, 1, next_proto_values };
 
-dissector_table_t register_decode_as_next_proto(int proto, const gchar *title, const gchar *table_name, const gchar *ui_name, build_label_func* label_func)
+dissector_table_t register_decode_as_next_proto(int proto, const gchar *title, const gchar *table_name, const gchar *ui_name, build_label_func label_func)
 {
     decode_as_t *da;
 
@@ -87,7 +75,7 @@ dissector_table_t register_decode_as_next_proto(int proto, const gchar *title, c
     else
     {
         da->values = wmem_new(wmem_epan_scope(), decode_as_value_t);
-        da->values->label_func = *label_func;
+        da->values->label_func = label_func;
         da->values->num_values = 1;
         da->values->build_values = next_proto_values;
     }

@@ -7,19 +7,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -897,8 +885,8 @@ get_chancount(tvbuff_t *tvb)
                     int i, j;
                     guint8 entries = 0;
                     gint32 check_len = tlv_len;
-                    guint8 check_offset = offset + 1; /* Channel page first */
-                    guint8 masklen;
+                    gint check_offset = offset + 1; /* Channel page first */
+                    guint16 masklen;
 
                     /* Check consistency of entries */
                     while (check_len > 0) {
@@ -1741,8 +1729,8 @@ dissect_thread_mc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                     int i;
                     guint8 entries = 0;
                     gint32 check_len = tlv_len;
-                    guint8 check_offset = offset + 1; /* Channel page first */
-                    guint8 masklen;
+                    gint check_offset = offset + 1; /* Channel page first */
+                    guint16 masklen;
 
                     /* Check consistency of entries */
                     while (check_len > 0) {
@@ -2115,12 +2103,12 @@ static int
 dissect_thread_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
     coap_info           *coinfo;
-    gchar               *uri;
+    const gchar         *uri;
     gchar               **tokens;
 
     /* Obtain the CoAP info */
     coinfo = (coap_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_coap, 0);
-    uri = (gchar *)wmem_strbuf_get_str(coinfo->uri_str_strbuf);
+    uri = wmem_strbuf_get_str(coinfo->uri_str_strbuf);
 
     tokens = wmem_strsplit(wmem_packet_scope(), uri, "/", 3);
     if ((tokens[0] != NULL) && (tokens[1] != NULL)) {

@@ -5,14 +5,16 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 2006 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __FILE_DLG_WIN32_H__
 #define __FILE_DLG_WIN32_H__
 
+#ifndef RC_INVOKED // RC warns about gatomic's long identifiers.
 #include "ui/file_dialog.h"
 #include "ui/packet_range.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

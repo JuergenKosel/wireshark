@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include "byte_view_tab.h"
 
@@ -41,17 +28,24 @@
 // - We might want to add a callback to free_data_sources in so that we
 //   don't have to blindly call clear().
 
-ByteViewTab::ByteViewTab(QWidget *parent) :
+ByteViewTab::ByteViewTab(QWidget *parent, epan_dissect_t *edt_fixed) :
     QTabWidget(parent),
-    cap_file_(0)
+    cap_file_(0),
+    is_fixed_packet_(edt_fixed != NULL),
+    edt_(edt_fixed)
 {
     setAccessibleName(tr("Packet bytes"));
     setTabPosition(QTabWidget::South);
     setDocumentMode(true);
 
-    connect(wsApp, SIGNAL(appInitialized()), this, SLOT(connectToMainWindow()));
+    if (!edt_fixed) {
+        connect(wsApp, SIGNAL(appInitialized()), this, SLOT(connectToMainWindow()));
+    }
 }
 
+// Connects the byte view with the main window, acting on changes to the packet
+// list selection. It MUST NOT be used with the packet dialog as that is
+// independent of the selection in the packet list.
 void ByteViewTab::connectToMainWindow()
 {
     connect(this, SIGNAL(fieldSelected(FieldInformation *)),
@@ -94,8 +88,10 @@ void ByteViewTab::addTab(const char *name, tvbuff_t *tvb) {
         encoding = (packet_char_enc)cap_file_->current_frame->flags.encoding;
 
     QByteArray data;
-    if ( tvb )
-        data = QByteArray((const char *) tvb_memdup(wmem_file_scope(), tvb, 0, -1), tvb_captured_length(tvb));
+    if ( tvb ) {
+        int data_len = (int) tvb_captured_length(tvb);
+        data = QByteArray::fromRawData((const char *) tvb_get_ptr(tvb, 0, data_len), data_len);
+    }
 
     ByteViewText * byte_view_text = new ByteViewText(data, encoding, this);
     byte_view_text->setAccessibleName(name);
@@ -119,10 +115,10 @@ void ByteViewTab::addTab(const char *name, tvbuff_t *tvb) {
 
 void ByteViewTab::byteViewTextHovered(int idx)
 {
-    if ( idx >= 0 && cap_file_ && cap_file_->edt )
+    if ( idx >= 0 && edt_ )
     {
         tvbuff_t * tvb = VariantPointer<tvbuff_t>::asPtr(sender()->property(tvb_data_property));
-        proto_tree * tree = cap_file_->edt->tree;
+        proto_tree * tree = edt_->tree;
 
         if ( tvb && tree )
         {
@@ -142,10 +138,10 @@ void ByteViewTab::byteViewTextHovered(int idx)
 
 void ByteViewTab::byteViewTextMarked(int idx)
 {
-    if ( idx >= 0 && cap_file_ && cap_file_->edt )
+    if ( idx >= 0 && edt_ )
     {
         tvbuff_t * tvb = VariantPointer<tvbuff_t>::asPtr(sender()->property(tvb_data_property));
-        proto_tree * tree = cap_file_->edt->tree;
+        proto_tree * tree = edt_->tree;
 
         if ( tvb && tree )
         {
@@ -227,6 +223,20 @@ void ByteViewTab::selectedFrameChanged(int frameNum)
     clear();
     qDeleteAll(findChildren<ByteViewText *>());
 
+    if (!is_fixed_packet_) {
+        /* If this is not a fixed packet (not the packet dialog), it must be the
+         * byte view associated with the packet list. */
+        if (cap_file_ && cap_file_->edt) {
+            /* Assumes that this function is called as a result of selecting a
+             * packet in the packet list (PacketList::selectionChanged). That
+             * invokes "cf_select_packet" which will update "cap_file_->edt". */
+            edt_ = cap_file_->edt;
+        } else {
+            /* capture file is closing or packet is deselected. */
+            edt_ = NULL;
+        }
+    }
+
     if ( frameNum >= 0 )
     {
         if ( ! cap_file_ || ! cap_file_->edt )
@@ -236,7 +246,7 @@ void ByteViewTab::selectedFrameChanged(int frameNum)
          * really check, if the dissection happened for the correct frame. In the future we might
          * rewrite this for directly calling the dissection engine here. */
         GSList *src_le;
-        for (src_le = cap_file_->edt->pi.data_src; src_le != NULL; src_le = src_le->next) {
+        for (src_le = edt_->pi.data_src; src_le != NULL; src_le = src_le->next) {
             struct data_source *source;
             char* source_name;
             source = (struct data_source *)src_le->data;
@@ -253,7 +263,11 @@ void ByteViewTab::selectedFrameChanged(int frameNum)
 
 void ByteViewTab::selectedFieldChanged(FieldInformation *selected)
 {
-    ByteViewText * byte_view_text = 0;
+    // We need to handle both selection and deselection.
+    ByteViewText * byte_view_text = qobject_cast<ByteViewText *>(currentWidget());
+    int f_start = -1, f_length = -1;
+    int p_start = -1, p_length = -1;
+    int fa_start = -1, fa_length = -1;
 
     if (selected) {
         if (selected->parent() == this) {
@@ -266,29 +280,31 @@ void ByteViewTab::selectedFieldChanged(FieldInformation *selected)
         if ( fi )
             byte_view_text = findByteViewTextForTvb(fi->ds_tvb, &idx);
 
-        if (byte_view_text)
-        {
-            int f_start = -1, f_length = -1;
-
-            if (cap_file_->search_in_progress && (cap_file_->hex || (cap_file_->string && cap_file_->packet_data))) {
-                // In the hex view, only highlight the target bytes or string. The entire
-                // field can then be displayed by clicking on any of the bytes in the field.
-                f_start = cap_file_->search_pos - cap_file_->search_len + 1;
-                f_length = (int) cap_file_->search_len;
-            } else {
-                f_start = selected->position().start;
-                f_length = selected->position().length;
-            }
-
-            setCurrentIndex(idx);
-
-            byte_view_text->markField(f_start, f_length);
-            byte_view_text->markProtocol(selected->parentField()->position().start, selected->parentField()->position().length);
-            byte_view_text->markAppendix(selected->appendix().start, selected->appendix().length);
+        if (cap_file_->search_in_progress && (cap_file_->hex || (cap_file_->string && cap_file_->packet_data))) {
+            // In the hex view, only highlight the target bytes or string. The entire
+            // field can then be displayed by clicking on any of the bytes in the field.
+            f_start = cap_file_->search_pos - cap_file_->search_len + 1;
+            f_length = (int) cap_file_->search_len;
+        } else {
+            f_start = selected->position().start;
+            f_length = selected->position().length;
         }
+
+        setCurrentIndex(idx);
+
+        p_start = selected->parentField()->position().start;
+        p_length = selected->parentField()->position().length;
+        fa_start = selected->appendix().start;
+        fa_length = selected->appendix().length;
+    }
+
+    if (byte_view_text)
+    {
+        byte_view_text->markField(f_start, f_length);
+        byte_view_text->markProtocol(p_start, p_length);
+        byte_view_text->markAppendix(fa_start, fa_length);
     }
 }
-
 void ByteViewTab::highlightedFieldChanged(FieldInformation *highlighted)
 {
     ByteViewText * byte_view_text = qobject_cast<ByteViewText *>(currentWidget());

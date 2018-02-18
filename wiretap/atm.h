@@ -3,7 +3,7 @@
  * Wiretap Library
  * Copyright (c) 1998 by Gilbert Ramirez <gram@alumni.rice.edu>
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __ATM_H__
@@ -18,9 +18,9 @@
  */
 
 extern void
-atm_guess_traffic_type(struct wtap_pkthdr *phdr, const guint8 *pd);
+atm_guess_traffic_type(wtap_rec *rec, const guint8 *pd);
 
 extern void
-atm_guess_lane_type(struct wtap_pkthdr *phdr, const guint8 *pd);
+atm_guess_lane_type(wtap_rec *rec, const guint8 *pd);
 
 #endif /* __ATM_H__ */

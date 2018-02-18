@@ -9,19 +9,7 @@
  *
  * Copied from packet-pop.c
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -455,10 +443,10 @@ dissect_Conf2ACK(packet_info *pinfo) {
   dummy_srtp_info->auth_tag_len = 4;
 
   srtp_add_address(pinfo, PT_UDP, &pinfo->net_src, pinfo->srcport, pinfo->destport,
-                   "ZRTP", pinfo->num, FALSE, NULL, dummy_srtp_info);
+                   "ZRTP", pinfo->num, RTP_MEDIA_AUDIO, NULL, dummy_srtp_info);
 
   srtp_add_address(pinfo, PT_UDP, &pinfo->net_dst, pinfo->destport, pinfo->srcport,
-                   "ZRTP", pinfo->num, FALSE, NULL, dummy_srtp_info);
+                   "ZRTP", pinfo->num, RTP_MEDIA_AUDIO, NULL, dummy_srtp_info);
 
   srtcp_add_address(pinfo, &pinfo->net_src, pinfo->srcport+1, pinfo->destport+1,
                     "ZRTP", pinfo->num, dummy_srtp_info);

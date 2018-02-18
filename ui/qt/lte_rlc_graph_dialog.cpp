@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include "lte_rlc_graph_dialog.h"
 #include <ui_lte_rlc_graph_dialog.h>
@@ -182,9 +169,13 @@ void LteRlcGraphDialog::completeGraph(bool may_be_empty)
     QPushButton *save_bt = ui->buttonBox->button(QDialogButtonBox::Save);
     save_bt->setText(tr("Save As" UTF8_HORIZONTAL_ELLIPSIS));
 
-    connect(rp, SIGNAL(mousePress(QMouseEvent*)), this, SLOT(graphClicked(QMouseEvent*)));
-    connect(rp, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(mouseMoved(QMouseEvent*)));
-    connect(rp, SIGNAL(mouseRelease(QMouseEvent*)), this, SLOT(mouseReleased(QMouseEvent*)));
+    // Don't want to connect again after first time. - causes mouse handlers to get called
+    // multiple times.
+    if (!may_be_empty) {
+        connect(rp, SIGNAL(mousePress(QMouseEvent*)), this, SLOT(graphClicked(QMouseEvent*)));
+        connect(rp, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(mouseMoved(QMouseEvent*)));
+        connect(rp, SIGNAL(mouseRelease(QMouseEvent*)), this, SLOT(mouseReleased(QMouseEvent*)));
+    }
     disconnect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
     this->setResult(QDialog::Accepted);
 
@@ -658,8 +649,9 @@ void LteRlcGraphDialog::mouseReleased(QMouseEvent *event)
     if (rubber_band_) {
         rubber_band_->hide();
         if (!mouse_drags_) {
-            resetAxes();
+            // N.B. work out range to zoom to *before* resetting axes.
             QRectF zoom_ranges = getZoomRanges(QRect(rb_origin_, event->pos()));
+            resetAxes();
             if (zoom_ranges.width() > 0.0 && zoom_ranges.height() > 0.0) {
                 rp->xAxis->setRangeLower(zoom_ranges.x());
                 rp->xAxis->setRangeUpper(zoom_ranges.x() + zoom_ranges.width());

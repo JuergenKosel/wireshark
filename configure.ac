@@ -7,7 +7,7 @@
 #
 m4_define([version_major], [2])
 m4_define([version_minor], [5])
-m4_define([version_micro], [0])
+m4_define([version_micro], [1])
 dnl Updated by make-version.pl
 m4_define([version_extra], [])
 m4_define([version_micro_extra], m4_join([], version_micro, version_extra))
@@ -444,6 +444,15 @@ AC_ARG_ENABLE(guides,
 # Check for programs used when building DocBook documentation.
 #
 have_wsug=yes
+AC_PATH_PROGS(ASCIIDOCTOR, [asciidoctorj asciidoctor])
+AC_CHECK_PROGS(HAVE_ASCIIDOCTOR, [asciidoctorj asciidoctor], "yes", "no")
+AM_CONDITIONAL(HAVE_ASCIIDOCTOR, test x$HAVE_ASCIIDOCTOR = xyes)
+AS_IF([test ! -x "$ASCIIDOCTOR"],
+	[
+	  AS_IF([test "x$want_wsug" = xyes],
+		[AC_MSG_ERROR([Asciidoctor not found. This is required to build the release notes and guides])])
+	  have_wsug=no
+	])
 AC_PATH_PROG(XSLTPROC, xsltproc, xsltproc)
 AS_IF([test ! -x "$XSLTPROC"],
 	[
@@ -451,33 +460,14 @@ AS_IF([test ! -x "$XSLTPROC"],
 		[AC_MSG_ERROR([xlstproc not found but required to build the Wireshark User's Guide])])
 	  have_wsug=no
 	])
-AC_PATH_PROG(A2X, a2x, a2x)
-AS_IF([test ! -x "$A2X"],
-	[
-	  AS_IF([test "x$want_wsug" = xyes],
-		[AC_MSG_ERROR([a2x not found but required to build the Wireshark User's Guide])])
-	  have_wsug=no
-	])
-
-AC_PATH_PROG(FOP, fop, fop)
 
 AM_CONDITIONAL(BUILD_USER_GUIDE, [test "x$have_wsug" = xyes -a "x$want_wsug" != xno])
-
-# HTML to text processor
-AC_MSG_CHECKING([for an HTML to text processor])
-AS_IF([w3m -version >&AS_MESSAGE_LOG_FD 2>&1], [have_a2x_text=w3m],
-	[lynx -version >&AS_MESSAGE_LOG_FD 2>&1], [have_a2x_text=lynx],
-	[have_a2x_text=no])
-AC_MSG_RESULT([$have_a2x_text])
-AM_CONDITIONAL(HAVE_A2X_TEXT, [test "x$have_a2x_text" != xno])
-AS_IF([test $have_a2x_text = lynx], [A2X_LYNX="--lynx"])
-AC_SUBST(A2X_LYNX)
 
 # RPM
 AC_CHECK_PROGS(RPMBUILD, [rpmbuild], [rpmbuild])
 
 # Shellcheck
-AC_CHECK_PROGS(SHELLCHECK, shellcheck, shellcheck)
+AC_CHECK_PROG(SHELLCHECK, shellcheck)
 
 #
 # Check compiler vendor. For GCC this will be 'gnu' and for Clang 'clang'.
@@ -2111,7 +2101,7 @@ dnl	   environment such as Cygwin (although Wireshark should be built
 dnl	   natively rather than using Cygwin).
 dnl
 AC_CHECK_HEADERS(fcntl.h getopt.h grp.h inttypes.h netdb.h pwd.h unistd.h)
-AC_CHECK_HEADERS(sys/ioctl.h sys/param.h sys/socket.h sys/sockio.h sys/stat.h sys/time.h sys/types.h sys/utsname.h sys/wait.h)
+AC_CHECK_HEADERS(sys/ioctl.h sys/param.h sys/select.h sys/socket.h sys/sockio.h sys/stat.h sys/time.h sys/types.h sys/utsname.h sys/wait.h)
 AC_CHECK_HEADERS(netinet/in.h)
 AC_CHECK_HEADERS(arpa/inet.h arpa/nameser.h)
 AC_CHECK_HEADERS(ifaddrs.h)
@@ -2810,7 +2800,6 @@ AC_CONFIG_FILES(
   packaging/rpm/SPECS/wireshark.spec
   packaging/wix/Makefile
   plugins/Makefile
-  plugins/epan/docsis/Makefile
   plugins/epan/ethercat/Makefile
   plugins/epan/gryphon/Makefile
   plugins/epan/irda/Makefile
@@ -2823,6 +2812,7 @@ AC_CONFIG_FILES(
   plugins/epan/wimax/Makefile
   plugins/epan/wimaxasncp/Makefile
   plugins/epan/wimaxmacphy/Makefile
+  plugins/wiretap/usbdump/Makefile
   _CUSTOM_PLUGIN_CONFIG_FILES_
   randpkt_core/doxygen.cfg
   randpkt_core/Makefile

@@ -5,7 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __MERGE_H__
@@ -18,8 +18,8 @@ extern "C" {
 #endif /* __cplusplus */
 
 typedef enum {
-    PACKET_PRESENT,
-    PACKET_NOT_PRESENT,
+    RECORD_PRESENT,
+    RECORD_NOT_PRESENT,
     AT_EOF,
     GOT_ERROR
 } in_file_state_e;
@@ -30,7 +30,6 @@ typedef enum {
 typedef struct merge_in_file_s {
     const char     *filename;
     wtap           *wth;
-    gint64          data_offset;
     in_file_state_e state;
     guint32         packet_num;     /* current packet number */
     gint64          size;           /* file size */
@@ -57,7 +56,7 @@ typedef enum {
     MERGE_EVENT_INPUT_FILES_OPENED,
     MERGE_EVENT_FRAME_TYPE_SELECTED,
     MERGE_EVENT_READY_TO_MERGE,
-    MERGE_EVENT_PACKET_WAS_READ,
+    MERGE_EVENT_RECORD_WAS_READ,
     MERGE_EVENT_DONE
 } merge_event;
 

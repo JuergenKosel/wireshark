@@ -6,19 +6,7 @@
  * Copyright 1998 Gerald Combs
  *
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -163,19 +151,13 @@ frame_data_compare(const struct epan_session *epan, const frame_data *fdata1, co
 }
 
 void
-frame_data_init(frame_data *fdata, guint32 num,
-                const struct wtap_pkthdr *phdr, gint64 offset,
-                guint32 cum_bytes)
+frame_data_init(frame_data *fdata, guint32 num, const wtap_rec *rec,
+                gint64 offset, guint32 cum_bytes)
 {
   fdata->pfd = NULL;
   fdata->num = num;
-  fdata->pkt_len = phdr->len;
-  fdata->cum_bytes = cum_bytes + phdr->len;
-  fdata->cap_len = phdr->caplen;
   fdata->file_off = offset;
   fdata->subnum = 0;
-  /* To save some memory, we coerce it into a gint16 */
-  g_assert(phdr->pkt_encap <= G_MAXINT16);
   fdata->flags.passed_dfilter = 0;
   fdata->flags.dependent_of_displayed = 0;
   fdata->flags.encoding = PACKET_CHAR_ENC_CHAR_ASCII;
@@ -183,13 +165,42 @@ frame_data_init(frame_data *fdata, guint32 num,
   fdata->flags.marked = 0;
   fdata->flags.ref_time = 0;
   fdata->flags.ignored = 0;
-  fdata->flags.has_ts = (phdr->presence_flags & WTAP_HAS_TS) ? 1 : 0;
-  fdata->flags.has_phdr_comment = (phdr->opt_comment != NULL);
+  fdata->flags.has_ts = (rec->presence_flags & WTAP_HAS_TS) ? 1 : 0;
+  switch (rec->rec_type) {
+
+  case REC_TYPE_PACKET:
+    fdata->pkt_len = rec->rec_header.packet_header.len;
+    fdata->cum_bytes = cum_bytes + rec->rec_header.packet_header.len;
+    fdata->cap_len = rec->rec_header.packet_header.caplen;
+    break;
+
+  case REC_TYPE_FT_SPECIFIC_EVENT:
+  case REC_TYPE_FT_SPECIFIC_REPORT:
+    /*
+     * XXX
+     */
+    fdata->pkt_len = 0;
+    fdata->cap_len = 0;
+    break;
+
+  case REC_TYPE_SYSCALL:
+    /*
+     * XXX - is cum_bytes supposed to count non-packet bytes?
+     */
+    fdata->pkt_len = rec->rec_header.syscall_header.event_len;
+    fdata->cum_bytes = cum_bytes + rec->rec_header.syscall_header.event_len;
+    fdata->cap_len = rec->rec_header.syscall_header.event_filelen;
+    break;
+  }
+
+  /* To save some memory, we coerce it into a gint16 */
+  g_assert(rec->tsprec <= G_MAXINT16);
+  fdata->tsprec = (gint16)rec->tsprec;
+  fdata->abs_ts = rec->ts;
+  fdata->flags.has_phdr_comment = (rec->opt_comment != NULL);
   fdata->flags.has_user_comment = 0;
   fdata->flags.need_colorize = 0;
-  fdata->tsprec = (gint16)phdr->pkt_tsprec;
   fdata->color_filter = NULL;
-  fdata->abs_ts = phdr->ts;
   fdata->shift_offset.secs = 0;
   fdata->shift_offset.nsecs = 0;
   fdata->frame_ref_num = 0;

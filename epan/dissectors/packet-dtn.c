@@ -13,19 +13,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Specification reference:
  * RFC 5050
@@ -2201,7 +2189,7 @@ dissect_tcpcl_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
                 col_add_str(pinfo->cinfo, COL_INFO, ", TCPL KEEPALIVE Segment");
             }
         } else {
-            col_set_str(pinfo->cinfo, COL_INFO, "TCPL KEEPALIVE Sgement");
+            col_set_str(pinfo->cinfo, COL_INFO, "TCPL KEEPALIVE Segment");
         }
         /*No valid flags in Keep Alive*/
         processed_length = 1;
@@ -2213,7 +2201,7 @@ dissect_tcpcl_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
                 col_add_str(pinfo->cinfo, COL_INFO, ", TCPL SHUTDOWN Segment");
             }
         } else {
-            col_set_str(pinfo->cinfo, COL_INFO, "TCPL SHUTDOWN Sgement");
+            col_set_str(pinfo->cinfo, COL_INFO, "TCPL SHUTDOWN Segment");
         }
         /* Add tree for Shutdown Flags */
         sub_item = proto_tree_add_item(conv_tree, hf_tcp_convergence_shutdown_flags, tvb,
@@ -2244,7 +2232,7 @@ dissect_tcpcl_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
                 col_add_str(pinfo->cinfo, COL_INFO, ", TCPL REFUSE_BUNDLE Segment");
             }
         } else {
-            col_set_str(pinfo->cinfo, COL_INFO, "TCPL REFUSE_BUNDLE Sgement");
+            col_set_str(pinfo->cinfo, COL_INFO, "TCPL REFUSE_BUNDLE Segment");
         }
         /*No valid flags*/
         processed_length = tvb_captured_length(tvb);

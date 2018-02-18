@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 2000 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -121,7 +109,8 @@ dissect_file_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, 
 
 		fh_tree = proto_item_add_subtree(ti, ett_file);
 
-		proto_tree_add_int(fh_tree, hf_file_ftap_encap, tvb, 0, 0, pinfo->pkt_encap);
+		if (pinfo->rec->rec_type == REC_TYPE_PACKET)
+			proto_tree_add_int(fh_tree, hf_file_ftap_encap, tvb, 0, 0, pinfo->rec->rec_header.packet_header.pkt_encap);
 
 		proto_tree_add_uint(fh_tree, hf_file_record_number, tvb, 0, 0, pinfo->num);
 
@@ -177,12 +166,13 @@ dissect_file_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, 
 		*/
 		__try {
 #endif
-			if (!dissector_try_uint(file_encap_dissector_table, pinfo->pkt_encap,
+			if (pinfo->rec->rec_type != REC_TYPE_PACKET ||
+			    !dissector_try_uint(file_encap_dissector_table, pinfo->rec->rec_header.packet_header.pkt_encap,
 						tvb, pinfo, parent_tree)) {
 
 				col_set_str(pinfo->cinfo, COL_PROTOCOL, "UNKNOWN");
 				col_add_fstr(pinfo->cinfo, COL_INFO, "FTAP_ENCAP = %d",
-					     pinfo->pkt_encap);
+					     pinfo->rec->rec_header.packet_header.pkt_encap);
 				call_data_dissector(tvb, pinfo, parent_tree);
 			}
 #ifdef _MSC_VER

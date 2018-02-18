@@ -6,7 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef TREE_MODEL_HELPERS_H
@@ -39,7 +39,24 @@ public:
 
     void appendChild(Item* child)
     {
+        childItems_.append(VariantPointer<Item>::asQVariant(child));
+    }
+
+    void prependChild(Item* child)
+    {
         childItems_.prepend(VariantPointer<Item>::asQVariant(child));
+    }
+
+
+    void insertChild(int row, Item* child)
+    {
+        childItems_.insert(row, VariantPointer<Item>::asQVariant(child));
+    }
+
+    void removeChild(int row)
+    {
+        delete VariantPointer<Item>::asPtr(childItems_.value(row));
+        childItems_.removeAt(row);
     }
 
     Item* child(int row)

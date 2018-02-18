@@ -115,7 +115,6 @@ set(WSUTIL_COMMON_FILES
 	nstime.c
 	cpu_info.c
 	os_version_info.c
-	plugins.c
 	privileges.c
 	rsa.c
 	sober128.c
@@ -134,13 +133,19 @@ set(WSUTIL_COMMON_FILES
 	xtea.c
 )
 
+if(ENABLE_PLUGINS)
+	list(APPEND WSUTIL_COMMON_FILES
+		plugins.c
+	)
+endif()
+
 set(WSUTIL_FILES ${WSUTIL_COMMON_FILES})
 if(WIN32)
 	list(APPEND WSUTIL_FILES
 		file_util.c
 		win32-utils.c
 	)
-ENDIF(WIN32)
+endif(WIN32)
 
 
 if(HAVE_MACOS_FRAMEWORKS)
@@ -243,12 +248,8 @@ IF(WIN32)
 	set(wsutil_LIBS ${wsutil_LIBS} "iphlpapi.lib" "ws2_32.lib")
 ENDIF(WIN32)
 
-set(CLEAN_FILES
-	${WSUTIL_FILES}
-)
-
 set_source_files_properties(
-	${CLEAN_FILES}
+	${WSUTIL_FILES}
 	PROPERTIES
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )

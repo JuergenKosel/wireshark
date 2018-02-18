@@ -13,19 +13,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef PACKET_CIP_H
@@ -235,6 +223,7 @@ typedef struct cip_simple_request_info {
    guint32 iInstance;
    guint32 iAttribute;
    guint32 iMember;
+   guint32 iConnPoint;
 } cip_simple_request_info_t;
 
 enum cip_datatype {
@@ -316,6 +305,7 @@ typedef struct cip_conn_info {
    cip_safety_epath_info_t safety;
    gboolean                motion;
    guint32                 ClassID;
+   guint32                 ConnPoint;
 } cip_conn_info_t;
 
 typedef struct cip_req_info {
@@ -355,6 +345,7 @@ extern attribute_info_t* cip_get_attribute(guint class_id, guint instance, guint
 extern int dissect_cip_get_attribute_all_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     int offset, cip_simple_request_info_t* req_data);
 extern void load_cip_request_data(packet_info *pinfo, cip_simple_request_info_t *req_data);
+void dissect_cip_run_idle(tvbuff_t* tvb, int offset, proto_tree* item_tree);
 
 /*
 ** Exported variables

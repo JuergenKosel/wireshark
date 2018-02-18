@@ -8,19 +8,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -859,7 +847,7 @@ dissect_atp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         conversation_set_dissector(conversation, sub);
       }
       else if (!try_conversation_dissector(&pinfo->src, &pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype),
-                                           pinfo->srcport, pinfo->destport, new_tvb,pinfo, tree, &aspinfo)) {
+                                           pinfo->srcport, pinfo->destport, new_tvb,pinfo, tree, &aspinfo, 0)) {
         call_data_dissector(new_tvb, pinfo, tree);
 
       }

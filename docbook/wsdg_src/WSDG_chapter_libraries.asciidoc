@@ -1,6 +1,4 @@
-++++++++++++++++++++++++++++++++++++++
-<!-- WSDG Chapter Libraries -->
-++++++++++++++++++++++++++++++++++++++
+// WSDG Chapter Libraries
 
 [[ChapterLibraries]]
 
@@ -13,11 +11,11 @@
 Several libraries are needed to build and run Wireshark. Most of them
 are split into three packages:
 
-. 'Runtime'. System and third party libraries such as 'MSVCR110.dll' and 'libglib-2.0-0.dll'.
+. _Runtime_. System and third party libraries such as _MSVCR110.dll_ and _libglib-2.0-0.dll_.
 
-. 'Developer'. Documentation, header files, import libraries, and other files needed for compilation.
+. _Developer_. Documentation, header files, import libraries, and other files needed for compilation.
 
-. 'Source'. Library sources, which are usually not required to
+. _Source_. Library sources, which are usually not required to
 build Wireshark.
 
 [TIP]
@@ -63,7 +61,7 @@ format. You will recognize MSVC libraries by the .lib/.dll file extension.
 ==== Win32: cygwin gcc
 
 Cygwin provides most of the required libraries (with file extension .a or .lib)
-for Wireshark suitable for cygwin's gcc compiler.
+for Wireshark suitable for cygwin’s gcc compiler.
 
 
 [[ChLibsSetup]]
@@ -99,8 +97,8 @@ For more information on the Qt libraries, see <<ChUIQt>>.
 
 Most Linux distributions provide Qt and its development libraries as standard packages.
 The required libraries and tools will likely be split across several packages. For example,
-building on Ubuntu requires 'qttools5-dev', 'qttools5-dev-tools', 'libqt5svg5-dev,
-'qtmultimedia5-dev', and possibly others.
+building on Ubuntu requires _qttools5-dev_, _qttools5-dev-tools_, _libqt5svg5-dev_,
+_qtmultimedia5-dev_, and possibly others.
 
 The Qt Project provides an installation tool for macOS, similar to Windows.
 It is available at https://www.qt.io/download-open-source/#section-2[].
@@ -120,7 +118,7 @@ bin directory, e.g. C:\Qt\Qt5.6.2\5.6\msvc2013
 
 === GTK+ / GLib / GDK / Pango / ATK / GNU gettext / GNU libiconv
 
-The Glib library is used as a basic platform abstraction library, it's
+The Glib library is used as a basic platform abstraction library, it’s
 not related to graphical user interface (GUI) things. For a detailed
 description about GLib, see <<ChCodeGLib>>.
 
@@ -172,7 +170,7 @@ http://www.ibr.cs.tu-bs.de/projects/libsmi/[].
 
 Wireshark uses the source libSMI distribution at
 http://www.ibr.cs.tu-bs.de/projects/libsmi/[].
-LibSMI is cross-compiled using MinGW32. It's stored in the libsmi zip archive at
+LibSMI is cross-compiled using MinGW32. It’s stored in the libsmi zip archive at
 https://anonsvn.wireshark.org/wireshark-win32-libs/trunk/packages/[].
 
 [[ChLibsCares]]
@@ -230,7 +228,7 @@ locally.
 === libpcap/WinPcap (optional)
 
 Libpcap and WinPcap provide that packet capture capabilities that are central
-to Wireshark's core functionality.
+to Wireshark’s core functionality.
 
 [[ChLibsLibpcap]]
 
@@ -243,7 +241,7 @@ platform, you can get it at {tcpdump-main-url}.
 
 ==== Win32 MSVC: WinPcap
 
-You can get the "Windows packet capture library" at:
+You can get the ``Windows packet capture library'' at:
 https://www.winpcap.org/install/[]
 
 [[ChLibsGNUTLS]]
@@ -390,6 +388,4 @@ WinSparkle is an easy-to-use software update library for Windows developers.
 We provide a copy of the WinSparkle package at
 https://anonsvn.wireshark.org/wireshark-win32-libs/trunk/packages/[].
 
-++++++++++++++++++++++++++++++++++++++
-<!-- End of WSDG Chapter Libraries -->
-++++++++++++++++++++++++++++++++++++++
+// End of WSDG Chapter Libraries

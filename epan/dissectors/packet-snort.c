@@ -12,19 +12,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 
@@ -1158,7 +1146,7 @@ snort_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
         if (!pinfo->fd->flags.visited && current_session.working) {
             int write_err = 0;
             gchar *err_info;
-            struct wtap_pkthdr wtp;
+            wtap_rec rec;
 
             /* First time, open current_session.in to write to for dumping into snort with */
             if (!current_session.pdh) {
@@ -1166,11 +1154,18 @@ snort_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
 
                 /* Older versions of Snort don't support capture file with several encapsulations (like pcapng),
                  * so write in pcap format and hope we have just one encap.
-                 * Newer versions of Snort can read pcapng now, but still write in pcap format.
+                 * Newer versions of Snort can read pcapng now, but still
+                 * write in pcap format; if "newer versions of Snort" really
+                 * means "Snort, when using newer versions of libpcap", then,
+                 * yes, they can read pcapng, but they can't read pcapng
+                 * files with more than one encapsulation type, as libpcap's
+                 * API currently can't handle that, so even those "newer
+                 * versions of Snort" wouldn't handle multiple encapsulation
+                 * types.
                  */
                 current_session.pdh = wtap_dump_fdopen(current_session.in,
                                                        WTAP_FILE_TYPE_SUBTYPE_PCAP,
-                                                       pinfo->pkt_encap,
+                                                       pinfo->rec->rec_header.packet_header.pkt_encap,
                                                        WTAP_MAX_PACKET_SIZE_STANDARD,
                                                        FALSE,                 /* compressed */
                                                        &open_err);
@@ -1181,25 +1176,24 @@ snort_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
             }
 
             /* Start with all same values... */
-            memcpy(&wtp, pinfo->phdr, sizeof(wtp));
+            rec = *pinfo->rec;
 
             /* Copying packet details into wtp for writing */
-            wtp.ts = pinfo->fd->abs_ts;
+            rec.ts = pinfo->fd->abs_ts;
 
-            /* NB: overwriting wtp.ts.nsecs so we can see packet number back if an alert is written for this frame!!!! */
+            /* NB: overwriting the time stamp so we can see packet number back if an alert is written for this frame!!!! */
             /* TODO: does this seriously affect snort's ability to reason about time?
              * At least all packets will still be in order... */
-            wtp.ts.nsecs = pinfo->fd->num * 1000;    /* XXX, max 999'999 frames */
+            rec.ts.nsecs = pinfo->fd->num * 1000;    /* XXX, max 999'999 frames */
 
-            wtp.caplen = tvb_captured_length(tvb);
-            wtp.len = tvb_reported_length(tvb);
-            wtp.pkt_encap = pinfo->pkt_encap;
-            if (current_session.pdh->encap != wtp.pkt_encap) {
+            rec.rec_header.packet_header.caplen = tvb_captured_length(tvb);
+            rec.rec_header.packet_header.len = tvb_reported_length(tvb);
+            if (current_session.pdh->encap != rec.rec_header.packet_header.pkt_encap) {
                 /* XXX, warning! convert? */
             }
 
             /* Dump frame into snort's stdin */
-            if (!wtap_dump(current_session.pdh, &wtp, tvb_get_ptr(tvb, 0, tvb_reported_length(tvb)), &write_err, &err_info)) {
+            if (!wtap_dump(current_session.pdh, &rec, tvb_get_ptr(tvb, 0, tvb_reported_length(tvb)), &write_err, &err_info)) {
                 current_session.working = FALSE;
                 return 0;
             }

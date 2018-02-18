@@ -15,19 +15,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 /* Information sources:
@@ -848,7 +836,7 @@ static void dissect_server_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
                             ENC_UTF_16|ENC_LITTLE_ENDIAN, wmem_packet_scope(), &server_version);
 
         col_append_fstr(pinfo->cinfo, COL_INFO, " (version='%s')",
-                    format_text(wmem_packet_scope(), (guchar*)server_version, strlen(server_version)));
+                    format_text(wmem_packet_scope(), (const guchar*)server_version, strlen(server_version)));
     }
     offset += (server_version_length*2);
 
@@ -902,7 +890,7 @@ static void dissect_client_player_info(tvbuff_t *tvb, packet_info *pinfo, proto_
                         ENC_UTF_16|ENC_LITTLE_ENDIAN, wmem_packet_scope(), &player_info);
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)",
-                    format_text(wmem_packet_scope(), (guchar*)player_info, strlen(player_info)));
+                    format_text(wmem_packet_scope(), (const guchar*)player_info, strlen(player_info)));
 }
 
 /* Dissect info about where client wants to start playing from */
@@ -977,7 +965,7 @@ static void dissect_request_server_file(tvbuff_t *tvb, packet_info *pinfo, proto
                         ENC_UTF_16|ENC_LITTLE_ENDIAN, wmem_packet_scope(), &server_file);
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)",
-                    format_text(wmem_packet_scope(), (guchar*)server_file, strlen(server_file)));
+                    format_text(wmem_packet_scope(), (const guchar*)server_file, strlen(server_file)));
 }
 
 /* Dissect media details from server */

@@ -5,33 +5,46 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <ui/qt/models/url_link_delegate.h>
 
-#include <QComboBox>
-#include <QEvent>
-#include <QLineEdit>
 #include <QPainter>
-#include <QTextDocument>
-#include <QRect>
-#include <QStyledItemDelegate>
-#include <QStyleOptionViewItem>
-#include <QTextEdit>
+#include <QRegExp>
 
 UrlLinkDelegate::UrlLinkDelegate(QObject *parent)
- : QStyledItemDelegate(parent)
+ : QStyledItemDelegate(parent),
+   re_col_(-1),
+   url_re_(new QRegExp())
 {}
 
+UrlLinkDelegate::~UrlLinkDelegate()
+{
+    delete url_re_;
+}
+
+void UrlLinkDelegate::setColCheck(int column, QString &pattern)
+{
+    re_col_ = column;
+    url_re_->setPattern(pattern);
+}
+
 void UrlLinkDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const {
-    QStyleOptionViewItem options = option;
-    initStyleOption(&options, index);
+    if (re_col_ >= 0 && url_re_) {
+        QModelIndex re_idx = index.model()->index(index.row(), re_col_);
+        QString col_text = index.model()->data(re_idx).toString();
+        if (url_re_->indexIn(col_text) < 0) {
+            QStyledItemDelegate::paint(painter, option, index);
+            return;
+        }
+    }
 
     QStyleOptionViewItem opt = option;
     initStyleOption(&opt, index);
 
     opt.font.setUnderline(true);
+    opt.palette.setColor(QPalette::Text, opt.palette.link().color());
 
     QStyledItemDelegate::paint(painter, opt, index);
 }

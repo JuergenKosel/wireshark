@@ -10,19 +10,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -165,9 +153,11 @@ WSLUA_METHOD TreeItem_add_packet_field(lua_State *L) {
      be `ENC_BIG_ENDIAN` or `ENC_LITTLE_ENDIAN`.
 
      The signature of this function:
-     @code
+
+     [source,lua]
+     ----
      tree_item:add_packet_field(proto_field [,tvbrange], encoding, ...)
-     @endcode
+     ----
 
      In Wireshark version 1.11.3, this function was changed to return more than
      just the new child `TreeItem`. The child is the first return value, so that
@@ -189,14 +179,16 @@ WSLUA_METHOD TreeItem_add_packet_field(lua_State *L) {
      string encoding types can be used for this, such as `ENC_ASCII` and `ENC_UTF_8`.
 
      For example, assuming the `Tvb` named "`tvb`" contains the string "123":
-     @code
+
+     [source,lua]
+     ----
      -- this is done earlier in the script
      local myfield = ProtoField.new("Transaction ID", "myproto.trans_id", ftypes.UINT16)
 
      -- this is done inside a dissector, post-dissector, or heuristic function
      -- child will be the created child tree, and value will be the number 123 or nil on failure
      local child, value = tree:add_packet_field(myfield, tvb:range(0,3), ENC_UTF_8 + ENC_STRING)
-     @endcode
+     ----
 
     */
 #define WSLUA_ARG_TreeItem_add_packet_field_PROTOFIELD 2 /* The ProtoField field object to add to the tree. */
@@ -409,12 +401,20 @@ static int TreeItem_add_item_any(lua_State *L, gboolean little_endian) {
                 case FT_IPv4:
                     {
                         Address addr = checkAddress(L,1);
+                        guint32 addr_value;
+
                         if (addr->type != AT_IPv4) {
                             luaL_error(L, "Expected IPv4 address for FT_IPv4 field");
                             return 0;
                         }
 
-                        item = proto_tree_add_ipv4(tree_item->tree,hfid,tvbr->tvb->ws_tvb,tvbr->offset,tvbr->len,*((const guint32*)(addr->data)));
+			/*
+			 * The address is not guaranteed to be aligned on a
+			 * 32-bit boundary, so we can't safely dereference
+			 * the pointer as if it were so aligned.
+			 */
+			memcpy(&addr_value, addr->data, sizeof addr_value);
+                        item = proto_tree_add_ipv4(tree_item->tree,hfid,tvbr->tvb->ws_tvb,tvbr->offset,tvbr->len,addr_value);
                     }
                     break;
                 case FT_IPv6:
@@ -425,7 +425,7 @@ static int TreeItem_add_item_any(lua_State *L, gboolean little_endian) {
                             return 0;
                         }
 
-                        item = proto_tree_add_ipv6(tree_item->tree, hfid, tvbr->tvb->ws_tvb, tvbr->offset, tvbr->len, (ws_in6_addr *)addr->data);
+                        item = proto_tree_add_ipv6(tree_item->tree, hfid, tvbr->tvb->ws_tvb, tvbr->offset, tvbr->len, (const ws_in6_addr *)addr->data);
                     }
                     break;
                 case FT_ETHER:
@@ -880,7 +880,7 @@ WSLUA_METHOD TreeItem_referenced(lua_State *L) {
     This function takes one parameter that can be a ProtoField or a Dissector. The Dissector form is
     usefull when you need to decide whether to call a sub-dissector.
 
-    @since 2.4
+    @since 2.4.0
     */
 #define WSLUA_ARG_TreeItem_referenced_PROTOFIELD 2 /* The ProtoField or Dissector to check if referenced. */
     TreeItem ti = checkTreeItem(L, 1);

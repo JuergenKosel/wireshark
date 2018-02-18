@@ -9,7 +9,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 2007 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __WSGCRYPT_H__
@@ -45,6 +45,35 @@ WS_DLL_PUBLIC void crypt_des_ecb(guint8 *output, const guint8 *buffer, const gui
 
 /* Convenience function for RSA decryption. Returns decrypted length on success, 0 on failure */
 WS_DLL_PUBLIC size_t rsa_decrypt_inplace(const guint len, guchar* data, gcry_sexp_t pk, gboolean pkcs1_padding, char **err);
+
+/**
+ * RFC 5869 HMAC-based Extract-and-Expand Key Derivation Function (HKDF):
+ * HKDF-Expand(PRK, info, L) -> OKM
+ *
+ * @param hashalgo  [in] Libgcrypt hash algorithm identifier.
+ * @param prk       [in] Pseudo-random key.
+ * @param prk_len   [in] Length of prk.
+ * @param info      [in] Optional context (can be NULL if info_len is zero).
+ * @param info_len  [in] Length of info.
+ * @param out       [out] Output keying material.
+ * @param out_len   [in] Size of output keying material.
+ * @return 0 on success and an error code otherwise.
+ */
+WS_DLL_PUBLIC gcry_error_t
+hkdf_expand(int hashalgo, const guint8 *prk, guint prk_len, const guint8 *info, guint info_len,
+            guint8 *out, guint out_len);
+
+/*
+ * Calculate HKDF-Extract(salt, IKM) -> PRK according to RFC 5869.
+ * Caller MUST ensure that 'prk' is large enough to store the digest from hash
+ * algorithm 'hashalgo' (e.g. 32 bytes for SHA-256).
+ */
+static inline gcry_error_t
+hkdf_extract(int hashalgo, const guint8 *salt, size_t salt_len, const guint8 *ikm, size_t ikm_len, guint8 *prk)
+{
+    /* PRK = HMAC-Hash(salt, IKM) where salt is key, and IKM is input. */
+    return ws_hmac_buffer(hashalgo, prk, ikm, ikm_len, salt, salt_len);
+}
 
 
 #endif /* __WSGCRYPT_H__ */

@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "packet_dialog.h"
@@ -33,12 +33,19 @@
 PacketDialog::PacketDialog(QWidget &parent, CaptureFile &cf, frame_data *fdata) :
     WiresharkDialog(parent, cf),
     ui(new Ui::PacketDialog),
-    phdr_(wtap_pkthdr()),
+    proto_tree_(NULL),
+    byte_view_tab_(NULL),
+    rec_(wtap_rec()),
     packet_data_(NULL)
 {
     ui->setupUi(this);
     loadGeometry(parent.width() * 4 / 5, parent.height() * 4 / 5);
     ui->hintLabel->setSmallText();
+    edt_.session = NULL;
+    edt_.tvb = NULL;
+    edt_.tree = NULL;
+
+    memset(&edt_.pi, 0x0, sizeof(edt_.pi));
 
     setWindowSubtitle(tr("Packet %1").arg(fdata->num));
 
@@ -47,14 +54,14 @@ PacketDialog::PacketDialog(QWidget &parent, CaptureFile &cf, frame_data *fdata) 
         return;
     }
 
-    phdr_ = cap_file_.capFile()->phdr;
+    rec_ = cap_file_.capFile()->rec;
     packet_data_ = (guint8 *) g_memdup(ws_buffer_start_ptr(&(cap_file_.capFile()->buf)), fdata->cap_len);
 
     /* proto tree, visible. We need a proto tree if there's custom columns */
     epan_dissect_init(&edt_, cap_file_.capFile()->epan, TRUE, TRUE);
     col_custom_prime_edt(&edt_, &(cap_file_.capFile()->cinfo));
 
-    epan_dissect_run(&edt_, cap_file_.capFile()->cd_t, &phdr_,
+    epan_dissect_run(&edt_, cap_file_.capFile()->cd_t, &rec_,
                      frame_tvbuff_new(&cap_file_.capFile()->provider, fdata, packet_data_),
                      fdata, &(cap_file_.capFile()->cinfo));
     epan_dissect_fill_in_columns(&edt_, TRUE, TRUE);
@@ -62,7 +69,7 @@ PacketDialog::PacketDialog(QWidget &parent, CaptureFile &cf, frame_data *fdata) 
     proto_tree_ = new ProtoTree(ui->packetSplitter);
     proto_tree_->setRootNode(edt_.tree);
 
-    byte_view_tab_ = new ByteViewTab(ui->packetSplitter);
+    byte_view_tab_ = new ByteViewTab(ui->packetSplitter, &edt_);
     byte_view_tab_->setCaptureFile(cap_file_.capFile());
     byte_view_tab_->selectedFrameChanged(0);
 

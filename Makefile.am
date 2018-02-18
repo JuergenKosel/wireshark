@@ -41,11 +41,13 @@ bin_PROGRAMS = \
 	@captype_bin@		\
 	@editcap_bin@		\
 	@randpkt_bin@		\
-	@dftest_bin@		\
 	@dumpcap_bin@		\
 	@reordercap_bin@	\
 	@rawshark_bin@		\
-	@sharkd_bin@		\
+	@sharkd_bin@
+
+noinst_PROGRAMS = \
+	@dftest_bin@		\
 	@fuzzshark_bin@
 
 EXTRA_PROGRAMS = wireshark-gtk wireshark tshark tfshark capinfos captype \
@@ -388,7 +390,6 @@ WIRESHARK_COMMON_SRC = \
 	capture_opts.c		\
 	file.c			\
 	fileset.c		\
-	summary.c		\
 	version_info.c
 
 EPAN_EXTRA_LIBS = \
@@ -570,11 +571,7 @@ text2pcap_SOURCES = \
 
 text2pcap_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
-# Don't turn on -Werror for text2pcap: its source includes text2pcap-scanner.c
-# which is generated (and therefore not always clean).
-# We could generate text2pcap.o as a library with -Werror but for now it
-# doesn't seem worth the effort.
-text2pcap_CFLAGS = $(GENERATED_CFLAGS)
+text2pcap_CFLAGS = $(AM_CFLAGS)
 
 # Libraries with which to link text2pcap.
 text2pcap_LDADD = \
@@ -729,7 +726,6 @@ noinst_HEADERS = \
 	fileset.h		\
 	frame_tvbuff.h		\
 	ringbuffer.h		\
-	summary.h		\
 	sync_pipe.h		\
 	version_info.h
 
@@ -1001,7 +997,6 @@ shellcheck:
 	$(SHELLCHECK) --external-sources \
 	  tools/fuzz-test.sh \
 	  tools/randpkt-test.sh \
-	  tools/runa2x.sh \
 	  tools/test-captures.sh \
 	  tools/valgrind-wireshark.sh
 

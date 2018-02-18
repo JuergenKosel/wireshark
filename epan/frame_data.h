@@ -5,19 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef __FRAME_DATA_H__
@@ -103,7 +91,7 @@ WS_DLL_PUBLIC void frame_data_reset(frame_data *fdata);
 WS_DLL_PUBLIC void frame_data_destroy(frame_data *fdata);
 
 WS_DLL_PUBLIC void frame_data_init(frame_data *fdata, guint32 num,
-                const struct wtap_pkthdr *phdr, gint64 offset,
+                const wtap_rec *rec, gint64 offset,
                 guint32 cum_bytes);
 
 extern void frame_delta_abs_time(const struct epan_session *epan, const frame_data *fdata,

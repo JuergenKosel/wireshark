@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef RECENT_FILE_STATUS_H
@@ -19,13 +19,11 @@ class RecentFileStatus : public QObject, public QRunnable
 public:
     RecentFileStatus(const QString filename, QObject *parent);
 
-    QString getFilename() const;
-
 protected:
     void run();
 
 private:
-    QString    filename_;
+    const QString    filename_;
     QFileInfo  fileinfo_;
 
 signals:

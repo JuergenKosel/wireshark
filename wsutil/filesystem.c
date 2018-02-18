@@ -5,7 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <config.h>
@@ -638,12 +638,6 @@ DIAG_ON(pedantic)
                  * That's not it.  If there are more
                  * path components to test, try them.
                  */
-                if (*path_end == '\0') {
-                    /*
-                     * There's nothing more to try.
-                     */
-                    break;
-                }
                 if (*path_end == ':')
                     path_end++;
                 path_start = path_end;
@@ -1470,9 +1464,14 @@ gboolean
 profile_exists(const gchar *profilename, gboolean global)
 {
     gchar *path = NULL, *global_path;
-    if (!profilename)
-        return FALSE;
+
     if (global) {
+        /*
+         * If we're looking up a global profile, we must have a
+         * profile name.
+         */
+        if (!profilename)
+            return FALSE;
         global_path = get_global_profiles_dir();
         path = g_strdup_printf ("%s%s%s", global_path,
                            G_DIR_SEPARATOR_S, profilename);
@@ -1482,6 +1481,10 @@ profile_exists(const gchar *profilename, gboolean global)
             return TRUE;
         }
     } else {
+        /*
+         * If we didn't supply a profile name, i.e. if profilename is
+         * null, get_persconffile_dir() returns the default profile.
+         */
         path = get_persconffile_dir (profilename);
         if (test_for_directory (path) == EISDIR) {
             g_free (path);

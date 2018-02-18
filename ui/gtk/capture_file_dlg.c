@@ -34,8 +34,6 @@
 
 #include <wsutil/file_util.h>
 
-#include <wiretap/merge.h>
-
 #include "ui/util.h"
 #include "ui/alert_box.h"
 #include "ui/simple_dialog.h"
@@ -89,7 +87,7 @@ static gboolean test_file_close(capture_file *cf, gboolean from_quit,
 #define PREVIEW_TABLE_KEY         "preview_table_key"
 #define PREVIEW_FORMAT_KEY        "preview_format_key"
 #define PREVIEW_SIZE_KEY          "preview_size_key"
-#define PREVIEW_PACKETS_KEY       "preview_packets_key"
+#define PREVIEW_DATA_RECORDS_KEY  "preview_data_records_key"
 #define PREVIEW_FIRST_ELAPSED_KEY "preview_first_elapsed_key"
 
 /* XXX - can we make these not be static? */
@@ -115,7 +113,7 @@ preview_set_filename(GtkWidget *prev, const gchar *cf_name)
   gtk_label_set_text(GTK_LABEL(label), "-");
   label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_SIZE_KEY);
   gtk_label_set_text(GTK_LABEL(label), "-");
-  label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_PACKETS_KEY);
+  label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_DATA_RECORDS_KEY);
   gtk_label_set_text(GTK_LABEL(label), "-");
   label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_FIRST_ELAPSED_KEY);
   gtk_label_set_text(GTK_LABEL(label), "-");
@@ -166,93 +164,82 @@ static void
 preview_do(GtkWidget *prev, wtap *wth)
 {
   GtkWidget    *label;
-  unsigned int  elapsed_time;
-  time_t        time_preview;
-  time_t        time_current;
-  int           err        = 0;
+  int           err;
   gchar        *err_info;
-  gint64        data_offset;
-  double        start_time   = 0; /* seconds, with nsec resolution */
-  double        stop_time    = 0; /* seconds, with nsec resolution */
-  double        cur_time;
-  unsigned int  packets    = 0;
-  gboolean      is_breaked = FALSE;
+  ws_file_preview_stats stats;
+  ws_file_preview_stats_status status;
   gchar         string_buff[PREVIEW_STR_MAX];
   gchar         first_buff[PREVIEW_STR_MAX];
   time_t        ti_time;
   struct tm    *ti_tm;
-  const struct wtap_pkthdr *phdr;
+  unsigned int  elapsed_time;
 
+  status = get_stats_for_preview(wth, &stats, &err, &err_info);
 
-  time(&time_preview);
-  while ( (wtap_read(wth, &err, &err_info, &data_offset)) ) {
-    phdr = wtap_phdr(wth);
-    cur_time = nstime_to_sec(&phdr->ts);
-    if (packets == 0) {
-      start_time = cur_time;
-      stop_time = cur_time;
-    }
-    if (cur_time < start_time) {
-      start_time = cur_time;
-    }
-    if (cur_time > stop_time) {
-      stop_time = cur_time;
-    }
-
-    packets++;
-    if (packets%1000 == 0) {
-      /* do we have a timeout? */
-      time(&time_current);
-      if (time_current-time_preview >= (time_t) prefs.gui_fileopen_preview) {
-        is_breaked = TRUE;
-        break;
-      }
-    }
-  }
-
-  if (err != 0) {
-    g_snprintf(string_buff, PREVIEW_STR_MAX, "error after reading %u packets", packets);
-    label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_PACKETS_KEY);
+  if(status == PREVIEW_READ_ERROR) {
+    /* XXX - give error details? */
+    g_free(err_info);
+    g_snprintf(string_buff, PREVIEW_STR_MAX, "error after reading %u records", stats.records);
+    label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_DATA_RECORDS_KEY);
     gtk_label_set_text(GTK_LABEL(label), string_buff);
     wtap_close(wth);
     return;
   }
 
   /* packet count */
-  if (is_breaked) {
-    g_snprintf(string_buff, PREVIEW_STR_MAX, "more than %u packets (preview timeout)", packets);
+  if(status == PREVIEW_TIMED_OUT) {
+    g_snprintf(string_buff, PREVIEW_STR_MAX, "more than %u data records (preview timeout)", stats.data_records);
   } else {
-    g_snprintf(string_buff, PREVIEW_STR_MAX, "%u", packets);
+    g_snprintf(string_buff, PREVIEW_STR_MAX, "%u", stats.data_records);
   }
-  label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_PACKETS_KEY);
+  label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_DATA_RECORDS_KEY);
   gtk_label_set_text(GTK_LABEL(label), string_buff);
 
-  /* first packet */
-  ti_time = (long)start_time;
-  ti_tm = localtime( &ti_time );
-  if (ti_tm) {
-    g_snprintf(first_buff, PREVIEW_STR_MAX,
-               "%04d-%02d-%02d %02d:%02d:%02d",
-               ti_tm->tm_year + 1900,
-               ti_tm->tm_mon + 1,
-               ti_tm->tm_mday,
-               ti_tm->tm_hour,
-               ti_tm->tm_min,
-               ti_tm->tm_sec);
+  /* First packet */
+  if(stats.have_times) {
+    /*
+     * We saw at least one record with a time stamp, so we can give
+     * a start time (if we have a mix of records with and without
+     * time stamps, and there were records without time stamps
+     * before the one with a time stamp, this may be inaccurate).
+     */
+    ti_time = (long)stats.start_time;
+    ti_tm = localtime( &ti_time );
+    if (ti_tm) {
+      g_snprintf(first_buff, PREVIEW_STR_MAX,
+                 "%04d-%02d-%02d %02d:%02d:%02d",
+                 ti_tm->tm_year + 1900,
+                 ti_tm->tm_mon + 1,
+                 ti_tm->tm_mday,
+                 ti_tm->tm_hour,
+                 ti_tm->tm_min,
+                 ti_tm->tm_sec);
+    } else {
+      g_snprintf(first_buff, PREVIEW_STR_MAX, "?");
+    }
   } else {
-    g_snprintf(first_buff, PREVIEW_STR_MAX, "?");
+    g_snprintf(first_buff, PREVIEW_STR_MAX, "unknown");
   }
 
-  /* elapsed time */
-  elapsed_time = (unsigned int)(stop_time-start_time);
-  if (elapsed_time/86400) {
-    g_snprintf(string_buff, PREVIEW_STR_MAX, "%s / %02u days %02u:%02u:%02u",
-               first_buff, elapsed_time/86400, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+  /* Elapsed time */
+  if(status == PREVIEW_SUCCEEDED && stats.have_times) {
+    /*
+     * We didn't time out, so we looked at all packets, and we got
+     * at least one packet with a time stamp, so we can calculate
+     * an elapsed time from the time stamp of the last packet with
+     * with a time stamp (if we have a mix of records with and without
+     * time stamps, and there were records without time stamps after
+     * the last one with a time stamp, this may be inaccurate).
+     */
+    elapsed_time = (unsigned int)(stats.stop_time-stats.start_time);
+    if (elapsed_time/86400) {
+      g_snprintf(string_buff, PREVIEW_STR_MAX, "%s / %02u days %02u:%02u:%02u",
+                 first_buff, elapsed_time/86400, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+    } else {
+      g_snprintf(string_buff, PREVIEW_STR_MAX, "%s / %02u:%02u:%02u",
+                 first_buff, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+    }
   } else {
-    g_snprintf(string_buff, PREVIEW_STR_MAX, "%s / %02u:%02u:%02u",
-               first_buff, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
-  }
-  if (is_breaked) {
     g_snprintf(string_buff, PREVIEW_STR_MAX, "%s / unknown", first_buff);
   }
   label = (GtkWidget *)g_object_get_data(G_OBJECT(prev), PREVIEW_FIRST_ELAPSED_KEY);
@@ -389,7 +376,7 @@ preview_new(void)
   label = add_string_to_grid(grid, &row, "Size:", "-");
   g_object_set_data(G_OBJECT(grid), PREVIEW_SIZE_KEY, label);
   label = add_string_to_grid(grid, &row, "Packets:", "-");
-  g_object_set_data(G_OBJECT(grid), PREVIEW_PACKETS_KEY, label);
+  g_object_set_data(G_OBJECT(grid), PREVIEW_DATA_RECORDS_KEY, label);
   label = add_string_to_grid(grid, &row, "Start / elapsed:", "-");
   g_object_set_data(G_OBJECT(grid), PREVIEW_FIRST_ELAPSED_KEY, label);
 

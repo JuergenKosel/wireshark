@@ -7,19 +7,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -185,7 +173,10 @@ WSLUA_CONSTRUCTOR Dir_remove_all(lua_State* L) {
 WSLUA_CONSTRUCTOR Dir_open(lua_State* L) {
     /* Opens a directory and returns a `Dir` object representing the files in the directory.
 
-       @code for filename in Dir.open(path) do ... end @endcode
+    [source,lua]
+    ----
+    for filename in Dir.open(path) do ... end
+    ----
     */
 #define WSLUA_ARG_Dir_open_PATHNAME 1 /* The pathname of the directory. */
 #define WSLUA_OPTARG_Dir_open_EXTENSION 2 /* If given, only files with this extension will be returned. */

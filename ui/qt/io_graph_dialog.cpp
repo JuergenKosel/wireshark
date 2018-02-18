@@ -4,20 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
+ * SPDX-License-Identifier: GPL-2.0-or-later*/
 
 #include "io_graph_dialog.h"
 #include <ui_io_graph_dialog.h>
@@ -789,14 +776,14 @@ IOGraph *IOGraphDialog::currentActiveGraph() const
 {
     QModelIndex index = ui->graphUat->currentIndex();
     if (index.isValid()) {
-        return ioGraphs_[index.row()];
+        return ioGraphs_.value(index.row(), NULL);
     }
 
     //if no currently selected item, go with first item enabled
     for (int row = 0; row < uat_model_->rowCount(); row++)
     {
         if (graphIsEnabled(row)) {
-            return ioGraphs_[row];
+            return ioGraphs_.value(row, NULL);
         }
     }
 
@@ -1171,7 +1158,7 @@ void IOGraphDialog::on_intervalComboBox_currentIndexChanged(int)
 
     if (uat_model_ != NULL) {
         for (int row = 0; row < uat_model_->rowCount(); row++) {
-            IOGraph *iog = ioGraphs_[row];
+            IOGraph *iog = ioGraphs_.value(row, NULL);
             if (iog) {
                 iog->setInterval(interval);
                 if (iog->visible()) {

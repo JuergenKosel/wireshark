@@ -5,19 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -76,6 +64,12 @@ static wmem_map_t *conversation_hashtable_no_addr2_or_port2 = NULL;
 
 
 static guint32 new_index;
+
+/*
+ * Placeholder for address-less conversations.
+ */
+static address null_address_ = ADDRESS_INIT_NONE;
+
 
 /*
  * Creates a new conversation with known endpoints based on a conversation
@@ -626,9 +620,9 @@ conversation_new(const guint32 setup_frame, const address *addr1, const address 
 	conversation_t *conversation=NULL;
 	conversation_key_t new_key;
 
-	DPRINT(("creating conversation for frame #%d: %s:%d -> %s:%d (ptype=%d)",
+	DPRINT(("creating conversation for frame #%d: %s:%d -> %s:%d (etype=%d)",
 		    setup_frame, address_to_str(wmem_packet_scope(), addr1), port1,
-		    address_to_str(wmem_packet_scope(), addr2), port2, ptype));
+		    address_to_str(wmem_packet_scope(), addr2), port2, etype));
 
 	if (options & NO_ADDR2) {
 		if (options & (NO_PORT2|NO_PORT2_FORCE)) {
@@ -1190,7 +1184,7 @@ find_conversation(const guint32 frame_num, const address *addr_a, const address 
 conversation_t *find_conversation_by_id(const guint32 frame, const endpoint_type etype, const guint32 id, const guint options)
 {
 	/* Force the lack of a address or port B */
-	return find_conversation(frame, NULL, NULL, etype, id, 0, options|NO_ADDR_B|NO_PORT_B);
+	return find_conversation(frame, &null_address_, &null_address_, etype, id, 0, options|NO_ADDR_B|NO_PORT_B);
 }
 
 void
@@ -1239,6 +1233,23 @@ conversation_get_dissector(conversation_t *conversation, const guint32 frame_num
 	return (dissector_handle_t)wmem_tree_lookup32_le(conversation->dissector_tree, frame_num);
 }
 
+static gboolean try_conversation_call_dissector_helper(conversation_t *conversation, gboolean* dissector_success,
+					tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
+{
+	int ret;
+	dissector_handle_t handle = (dissector_handle_t)wmem_tree_lookup32_le(
+					conversation->dissector_tree, pinfo->num);
+	if (handle == NULL)
+		return FALSE;
+
+	ret = call_dissector_only(handle, tvb, pinfo, tree, data);
+
+	/* Let the caller decide what to do with success or rejection */
+	(*dissector_success) = (ret != 0);
+
+	return TRUE;
+}
+
 /*
  * Given two address/port pairs for a packet, search for a matching
  * conversation and, if found and it has a conversation dissector,
@@ -1252,28 +1263,43 @@ conversation_get_dissector(conversation_t *conversation, const guint32 frame_num
 gboolean
 try_conversation_dissector(const address *addr_a, const address *addr_b, const endpoint_type etype,
     const guint32 port_a, const guint32 port_b, tvbuff_t *tvb, packet_info *pinfo,
-    proto_tree *tree, void* data)
+    proto_tree *tree, void* data, const guint options)
 {
 	conversation_t *conversation;
+	gboolean dissector_success;
 
-	conversation = find_conversation(pinfo->num, addr_a, addr_b, etype, port_a,
-	    port_b, 0);
+	/* Try each mode based on option flags */
 
+	conversation = find_conversation(pinfo->num, addr_a, addr_b, etype, port_a, port_b, 0);
 	if (conversation != NULL) {
-		int ret;
-		dissector_handle_t handle = (dissector_handle_t)wmem_tree_lookup32_le(conversation->dissector_tree, pinfo->num);
-		if (handle == NULL)
-			return FALSE;
-		ret=call_dissector_only(handle, tvb, pinfo, tree, data);
-		if(!ret) {
-			/* this packet was rejected by the dissector
-			 * so return FALSE in case our caller wants
-			 * to do some cleaning up.
-			 */
-			return FALSE;
-		}
-		return TRUE;
+		if (try_conversation_call_dissector_helper(conversation, &dissector_success, tvb, pinfo, tree, data))
+			return dissector_success;
 	}
+
+	if (options & NO_ADDR_B) {
+		conversation = find_conversation(pinfo->num, addr_a, addr_b, etype, port_a, port_b, NO_ADDR_B);
+		if (conversation != NULL) {
+			if (try_conversation_call_dissector_helper(conversation, &dissector_success, tvb, pinfo, tree, data))
+				return dissector_success;
+		}
+	}
+
+	if (options & NO_PORT_B) {
+		conversation = find_conversation(pinfo->num, addr_a, addr_b, etype, port_a, port_b, NO_PORT_B);
+		if (conversation != NULL) {
+			if (try_conversation_call_dissector_helper(conversation, &dissector_success, tvb, pinfo, tree, data))
+				return dissector_success;
+		}
+	}
+
+	if (options & (NO_ADDR_B|NO_PORT_B)) {
+		conversation = find_conversation(pinfo->num, addr_a, addr_b, etype, port_a, port_b, NO_ADDR_B|NO_PORT_B);
+		if (conversation != NULL) {
+			if (try_conversation_call_dissector_helper(conversation, &dissector_success, tvb, pinfo, tree, data))
+				return dissector_success;
+		}
+	}
+
 	return FALSE;
 }
 
@@ -1393,7 +1419,7 @@ void conversation_create_endpoint_by_id(struct _packet_info *pinfo,
     endpoint_type etype, guint32 id, const guint options)
 {
 	/* Force the lack of a address or port B */
-	conversation_create_endpoint(pinfo, NULL, NULL, etype, id, 0, options|NO_ADDR_B|NO_PORT_B);
+	conversation_create_endpoint(pinfo, &null_address_, &null_address_, etype, id, 0, options|NO_ADDR_B|NO_PORT_B);
 }
 
 guint32 conversation_get_endpoint_by_id(struct _packet_info *pinfo, endpoint_type etype, const guint options)

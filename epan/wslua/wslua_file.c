@@ -10,19 +10,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "wslua_file_common.h"
@@ -67,11 +55,13 @@ WSLUA_CLASS_DEFINE(File,FAIL_ON_NULL_OR_EXPIRED("File"));
     `write_open()`, `write()`, and `write_close()`, then the File object's `read()` and `lines()`
     functions are not usable and will raise an error if used.
 
-    Note: a `File` object should never be stored/saved beyond the scope of the callback function
+    Note: A `File` object should never be stored/saved beyond the scope of the callback function
     it is passed in to.
 
     For example:
-    @code
+
+    [source,lua]
+    ----
     function myfilehandler.read_open(file, capture)
         local position = file:seek()
 
@@ -86,7 +76,7 @@ WSLUA_CLASS_DEFINE(File,FAIL_ON_NULL_OR_EXPIRED("File"));
         -- return false because it's not our file type
         return false
     end
-    @endcode
+    ----
 
    @since 1.11.3
  */

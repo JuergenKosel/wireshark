@@ -317,6 +317,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-diffserv-mpls-common.h
 	packet-disp.h
 	packet-dns.h
+	packet-docsis-tlv.h
 	packet-dop.h
 	packet-dsp.h
 	packet-dtls.h
@@ -894,6 +895,10 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dmx.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dnp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dns.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-docsis.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-docsis-macmgmt.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-docsis-tlv.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-docsis-vendor.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dof.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dplay.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dpnet.c
@@ -1637,6 +1642,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smb2.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smcr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sml.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-smp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smpp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smtp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sna.c
@@ -1665,6 +1671,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-starteam.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-stat-notify.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-stat.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-steam-ihs-discovery.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-stt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-stun.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sua.c
@@ -1816,6 +1823,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-xmpp-utils.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-xmpp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-xot.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-xra.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-xtp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-xyplex.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-yami.c

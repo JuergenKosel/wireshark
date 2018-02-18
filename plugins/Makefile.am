@@ -23,7 +23,6 @@
 
 SUBDIRS = \
 	$(_CUSTOM_SUBDIRS_) \
-	epan/docsis		\
 	epan/ethercat		\
 	epan/gryphon		\
 	epan/irda		\
@@ -35,7 +34,8 @@ SUBDIRS = \
 	epan/unistim		\
 	epan/wimax		\
 	epan/wimaxasncp		\
-	epan/wimaxmacphy
+	epan/wimaxmacphy	\
+	wiretap/usbdump
 
 EXTRA_DIST = \
 	$(_CUSTOM_EXTRA_DIST_) \

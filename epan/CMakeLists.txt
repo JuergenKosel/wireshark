@@ -173,7 +173,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	xdlc.h
 )
 
-set(LIBWIRESHARK_FILES
+set(LIBWIRESHARK_NONGENERATED_FILES
 	addr_and_mask.c
 	addr_resolv.c
 	address_types.c
@@ -259,11 +259,9 @@ set(LIBWIRESHARK_FILES
 	${CMAKE_SOURCE_DIR}/version_info.c
 )
 
-set(LIBWIRESHARK_CLEAN_FILES
-	${LIBWIRESHARK_FILES}
-)
+set(LIBWIRESHARK_FILES ${LIBWIRESHARK_NONGENERATED_FILES})
 
-add_lex_files(LEX_FILES GENERATED_FILES
+add_lex_files(LEX_FILES LIBWIRESHARK_FILES
 	diam_dict.l
 	dtd_parse.l
 	dtd_preparse.l
@@ -271,7 +269,7 @@ add_lex_files(LEX_FILES GENERATED_FILES
 	uat_load.l
 )
 
-add_lemon_files(LEMON_FILES GENERATED_FILES
+add_lemon_files(LEMON_FILES LIBWIRESHARK_FILES
 	dtd_grammar.lemon
 )
 
@@ -296,12 +294,8 @@ set(epan_LIBS
 	${LIBXML2_LIBRARIES}
 )
 
-set(CLEAN_FILES
-	${LIBWIRESHARK_CLEAN_FILES}
-)
-
 set_source_files_properties(
-	${CLEAN_FILES}
+	${LIBWIRESHARK_FILES}
 	PROPERTIES
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
@@ -315,7 +309,6 @@ else()
 endif()
 add_library(epan
 	${LIBWIRESHARK_FILES}
-	${GENERATED_FILES}
 	$<TARGET_OBJECTS:crypt>
 	$<TARGET_OBJECTS:dfilter>
 	$<TARGET_OBJECTS:dissectors>
@@ -440,7 +433,7 @@ CHECKAPI(
 	SWITCHES
 	  -g termoutput -build
 	SOURCES
-	  ${LIBWIRESHARK_FILES}
+	  ${LIBWIRESHARK_NONGENERATED_FILES}
 )
 
 #

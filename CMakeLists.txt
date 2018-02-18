@@ -25,7 +25,7 @@ project(Wireshark C CXX)
 set(GIT_REVISION 0)
 set(PROJECT_MAJOR_VERSION 2)
 set(PROJECT_MINOR_VERSION 5)
-set(PROJECT_PATCH_VERSION 0)
+set(PROJECT_PATCH_VERSION 1)
 set(PROJECT_BUILD_VERSION ${GIT_REVISION})
 set(PROJECT_VERSION_EXTENSION "")
 set(PROJECT_RELEASE_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}")
@@ -82,9 +82,9 @@ if(WIN32)
 	endif()
 
 	if ("${WIRESHARK_TARGET_PLATFORM}" MATCHES "win64")
-		set(PROCESSOR_ARCHITECTURE amd64)
+		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE amd64)
 	else()
-		set(PROCESSOR_ARCHITECTURE x86)
+		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE x86)
 	endif()
 
 	# Sanity check
@@ -351,6 +351,8 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		#                                   VS2015(MSVC14): On by default when /Zi or /Z7 used.
 		# /guard:cf                         Control Flow Guard (compile and link).
 		#                                   See https://msdn.microsoft.com/en-us/library/windows/desktop/mt637065.aspx
+		#                                   Note: This requires CMake 3.9.0 or newer.
+		#                                   https://gitlab.kitware.com/cmake/cmake/commit/f973d49ab9d4c59b93f6dac812a94bb130200836
 		# /Qspectre                         Speculative execution attack mitigation
 		#                                   See https://blogs.msdn.microsoft.com/vcblog/2018/01/15/spectre-mitigations-in-msvc/
 		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} /Zo /utf-8 /guard:cf /Qspectre)
@@ -1035,9 +1037,7 @@ endif()
 
 set(PACKAGELIST ${PACKAGELIST} POD)
 
-if(ENABLE_HTML_GUIDES)
-	set(PACKAGELIST ${PACKAGELIST} DOXYGEN)
-endif()
+set(PACKAGELIST ${PACKAGELIST} DOXYGEN)
 
 set(PROGLIST)
 
@@ -1294,7 +1294,7 @@ add_subdirectory( capchild )
 add_subdirectory( caputils )
 add_subdirectory( codecs )
 add_subdirectory( doc )
-add_subdirectory( docbook )
+add_subdirectory( docbook EXCLUDE_FROM_ALL )
 add_subdirectory( epan )
 add_subdirectory( randpkt_core )
 add_subdirectory( tools/lemon )
@@ -1375,7 +1375,6 @@ if(ENABLE_PLUGINS)
 	add_custom_target(plugins)
 	set_target_properties(plugins PROPERTIES FOLDER "Plugins")
 	set(PLUGIN_SRC_DIRS
-		plugins/epan/docsis
 		plugins/epan/ethercat
 		plugins/epan/gryphon
 		plugins/epan/irda
@@ -1388,6 +1387,7 @@ if(ENABLE_PLUGINS)
 		plugins/epan/wimax
 		plugins/epan/wimaxasncp
 		plugins/epan/wimaxmacphy
+		plugins/wiretap/usbdump
 		${CUSTOM_PLUGIN_SRC_DIR}
 	)
 
@@ -1413,11 +1413,6 @@ set (PLUGIN_DIR ${_plugin_dir} CACHE INTERNAL "Build time plugin location.")
 foreach(_plugin_src_dir ${PLUGIN_SRC_DIRS})
 	add_subdirectory( ${_plugin_src_dir} )
 endforeach()
-
-
-# Basedir where to install guides
-set(DOC_DIR "$ENV{docdir}" CACHE FILEPATH "Installation directory for ug and dg pdfs.")
-message(STATUS "docdir: ${DOC_DIR}")
 
 if(ENABLE_PCAP_NG_DEFAULT)
 	set(PCAP_NG_DEFAULT 1)
@@ -2107,7 +2102,6 @@ if( (BUILD_wireshark AND QT_FOUND) OR (BUILD_wireshark_gtk AND GTK_FOUND) )
 		capture_opts.c
 		file.c
 		fileset.c
-		summary.c
 		${SHARK_COMMON_SRC}
 		${PLATFORM_UI_SRC}
 	)
@@ -2569,7 +2563,6 @@ if(BUILD_dftest)
 	add_dependencies(dftest version)
 	set_extra_executable_properties(dftest "Tests")
 	target_link_libraries(dftest ${dftest_LIBS})
-	install(TARGETS dftest RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 if(BUILD_randpkt)
@@ -2607,7 +2600,6 @@ if(BUILD_fuzzshark)
 	add_dependencies(fuzzshark version)
 	set_extra_executable_properties(fuzzshark "Executables")
 	target_link_libraries(fuzzshark ${fuzzshark_LIBS})
-	install(TARGETS fuzzshark RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 if(BUILD_text2pcap)
@@ -2617,18 +2609,15 @@ if(BUILD_text2pcap)
 		${M_LIBRARIES}
 		${ZLIB_LIBRARIES}
 	)
-	set(text2pcap_CLEAN_FILES
+	set(text2pcap_FILES
 		text2pcap.c
 		version_info.c
 	)
-	set(text2pcap_FILES
-		${text2pcap_CLEAN_FILES}
-		${CMAKE_BINARY_DIR}/image/text2pcap.rc
-	)
-	add_lex_files(text2pcap_LEX_FILES text2pcap_GENERATED_FILES
+	add_lex_files(text2pcap_LEX_FILES text2pcap_FILES
 		text2pcap-scanner.l
 	)
-	add_executable(text2pcap ${text2pcap_FILES} ${text2pcap_GENERATED_FILES})
+	add_executable(text2pcap ${text2pcap_FILES}
+		${CMAKE_BINARY_DIR}/image/text2pcap.rc)
 	add_dependencies(text2pcap version)
 	set_extra_executable_properties(text2pcap "Executables")
 	target_link_libraries(text2pcap ${text2pcap_LIBS})
@@ -3020,7 +3009,7 @@ set(CLEAN_C_FILES
 	${randpkt_FILES}
 	${randpktdump_FILES}
 	${udpdump_FILES}
-	${text2pcap_CLEAN_FILES}
+	${text2pcap_FILES}
 	${mergecap_FILES}
 	${capinfos_FILES}
 	${captype_FILES}
@@ -3051,6 +3040,10 @@ set_source_files_properties(
 install(
 	FILES
 		${INSTALL_FILES}
+	PERMISSIONS
+		OWNER_WRITE OWNER_READ
+		GROUP_READ
+		WORLD_READ
 	DESTINATION
 		${CMAKE_INSTALL_DATADIR}/${CPACK_PACKAGE_NAME}
 )
@@ -3115,12 +3108,16 @@ install(
 install(
 	DIRECTORY
 		${INSTALL_DIRS}
+	DESTINATION
+		${CMAKE_INSTALL_DATADIR}/${CPACK_PACKAGE_NAME}
+	FILE_PERMISSIONS
+		OWNER_WRITE OWNER_READ
+		GROUP_READ
+		WORLD_READ
 	DIRECTORY_PERMISSIONS
 		OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		GROUP_EXECUTE GROUP_READ
 		WORLD_EXECUTE WORLD_READ
-	DESTINATION
-		${CMAKE_INSTALL_DATADIR}/${CPACK_PACKAGE_NAME}
 	PATTERN ".git" EXCLUDE
 	PATTERN ".svn" EXCLUDE
 	PATTERN "Makefile.*" EXCLUDE
@@ -3142,22 +3139,6 @@ install(
 	DESTINATION
 		${CMAKE_INSTALL_MODULES_DIR}
 )
-
-if(DOC_DIR)
-	message(STATUS "Docdir install: ${DOC_DIR}")
-	INSTALL(
-		DIRECTORY
-			${CMAKE_BINARY_DIR}/docbook/
-		DIRECTORY_PERMISSIONS
-			OWNER_EXECUTE OWNER_WRITE OWNER_READ
-			GROUP_EXECUTE GROUP_READ
-			WORLD_EXECUTE WORLD_READ
-		DESTINATION
-			${DOC_DIR}/guides
-		FILES_MATCHING
-		PATTERN "*.pdf"
-	)
-endif()
 
 # Test suite wrapper
 if(ENABLE_APPLICATION_BUNDLE)
@@ -3249,7 +3230,6 @@ if (NOT "${SHELLCHECK_EXECUTABLE}" STREQUAL "SHELLCHECK_EXECUTABLE-NOTFOUND")
 		COMMAND shellcheck --external-sources
 			tools/fuzz-test.sh
 			tools/randpkt-test.sh
-			tools/runa2x.sh
 			tools/test-captures.sh
 			tools/valgrind-wireshark.sh
 		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

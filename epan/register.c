@@ -5,7 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "register.h"
@@ -68,7 +68,7 @@ register_all_protocols(register_cb cb, gpointer cb_data)
     }
     g_thread_join(rapw_thread);
     if (cb && !called_back) {
-            cb(RA_REGISTER, "Registration finished", cb_data);
+        cb(RA_REGISTER, "finished", cb_data);
     }
 }
 
@@ -104,7 +104,7 @@ register_all_protocol_handoffs(register_cb cb, gpointer cb_data)
     }
     g_thread_join(raphw_thread);
     if (cb && !called_back) {
-            cb(RA_HANDOFF, "Registration finished", cb_data);
+        cb(RA_HANDOFF, "finished", cb_data);
     }
     g_async_queue_unref(register_cb_done_q);
 

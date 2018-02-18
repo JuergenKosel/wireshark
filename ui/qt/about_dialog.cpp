@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -14,6 +14,9 @@
 
 #include "wireshark_application.h"
 #include <wsutil/filesystem.h>
+
+#include <QDesktopServices>
+#include <QUrl>
 
 #ifdef HAVE_LIBSMI
 #include <epan/oids.h>
@@ -108,6 +111,7 @@ QStringList AuthorListModel::headerColumns() const
     return QStringList() << tr("Name") << tr("Email");
 }
 
+#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
 static void plugins_add_description(const char *name, const char *version,
                                     const char *types, const char *filename,
                                     void *user_data)
@@ -116,6 +120,7 @@ static void plugins_add_description(const char *name, const char *version,
     QStringList plugin_row = QStringList() << name << version << types << filename;
     *plugin_data << plugin_row;
 }
+#endif
 
 PluginListModel::PluginListModel(QObject * parent) : AStringListListModel(parent)
 {
@@ -144,7 +149,8 @@ PluginListModel::PluginListModel(QObject * parent) : AStringListListModel(parent
     typeNames_ << QString("");
     foreach(QStringList row, plugin_data)
     {
-        typeNames_ << row.at(2);
+        QString type_name = row.at(2);
+        typeNames_ << type_name;
         appendRow(row);
     }
 
@@ -274,9 +280,11 @@ AboutDialog::AboutDialog(QWidget *parent) :
     QFile f_license;
     QString message;
 
-    GString *comp_info_str = get_compiled_version_info(get_wireshark_qt_compiled_info,
-                                              get_gui_compiled_info);
-    GString *runtime_info_str = get_runtime_version_info(get_wireshark_runtime_info);
+    QString vcs_version_info_str = get_ws_vcs_version_info();
+    QString copyright_info_str = get_copyright_info();
+    QString comp_info_str = gstring_free_to_qbytearray(get_compiled_version_info(get_wireshark_qt_compiled_info,
+                                              get_gui_compiled_info));
+    QString runtime_info_str = gstring_free_to_qbytearray(get_runtime_version_info(get_wireshark_runtime_info));
 
 
     AuthorListModel * authorModel = new AuthorListModel(this);
@@ -298,20 +306,16 @@ AboutDialog::AboutDialog(QWidget *parent) :
     /* Wireshark tab */
 
     /* Construct the message string */
-    message = QString(
-        "Version %1\n"
-        "\n"
-        "%2"
-        "\n"
-        "%3"
-        "\n"
-        "%4"
-        "\n"
-        "Wireshark is Open Source Software released under the GNU General Public License.\n"
-        "\n"
-        "Check the man page and http://www.wireshark.org for more information.")
-        .arg(get_ws_vcs_version_info(), get_copyright_info(), comp_info_str->str, runtime_info_str->str);
+    message = "<p>Version " + vcs_version_info_str.toHtmlEscaped() + "</p>\n\n";
+    message += "<p>" + copyright_info_str.toHtmlEscaped() + "</p>\n\n";
+    message += "<p>" + comp_info_str.toHtmlEscaped() + "</p>\n\n";
+    message += "<p>" + runtime_info_str.toHtmlEscaped() + "</p>\n\n";
+    message += "<p>Wireshark is Open Source Software released under the GNU General Public License.</p>\n\n";
+    message += "<p>Check the man page and http://www.wireshark.org for more information.</p>\n\n";
 
+    ui->label_wireshark->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    ui->label_wireshark->setTextFormat(Qt::RichText);
+    ui->label_wireshark->setWordWrap(true);
     ui->label_wireshark->setTextInteractionFlags(Qt::TextSelectableByMouse);
     ui->label_wireshark->setText(message);
 
@@ -333,14 +337,14 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->tblFolders->setRootIsDecorated(false);
     ui->tblFolders->setItemDelegateForColumn(1, new UrlLinkDelegate(this));
     ui->tblFolders->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->tblFolders->setTextElideMode(Qt::ElideMiddle);
     connect(ui->tblFolders, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
     connect(ui->searchFolders, SIGNAL(textChanged(QString)), folderProxyModel, SLOT(setFilter(QString)));
-    connect(ui->tblFolders, SIGNAL(clicked(QModelIndex)), this, SLOT(urlClicked(QModelIndex)));
+    connect(ui->tblFolders, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(urlDoubleClicked(QModelIndex)));
 
 
     /* Plugins */
-#if defined(HAVE_PLUGINS) || defined(HAVE_LUA)
-
+    ui->label_no_plugins->hide();
     PluginListModel * pluginModel = new PluginListModel(this);
     AStringListListSortFilterProxyModel * pluginFilterModel = new AStringListListSortFilterProxyModel(this);
     pluginFilterModel->setSourceModel(pluginModel);
@@ -350,15 +354,26 @@ AboutDialog::AboutDialog(QWidget *parent) :
     pluginTypeModel->setColumnToFilter(2);
     ui->tblPlugins->setModel(pluginTypeModel);
     ui->tblPlugins->setRootIsDecorated(false);
+#ifdef HAVE_LUA
+    UrlLinkDelegate *plugin_delegate = new UrlLinkDelegate(this);
+    QString pattern = QString("^%1$").arg(wslua_plugin_type_name());
+    plugin_delegate->setColCheck(2, pattern);
+    ui->tblPlugins->setItemDelegateForColumn(3, plugin_delegate);
+#endif
     ui->cmbType->addItems(pluginModel->typeNames());
     ui->tblPlugins->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->tblPlugins->setTextElideMode(Qt::ElideMiddle);
     connect(ui->tblPlugins, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
     connect(ui->searchPlugins, SIGNAL(textChanged(QString)), pluginFilterModel, SLOT(setFilter(QString)));
     connect(ui->cmbType, SIGNAL(currentIndexChanged(QString)), pluginTypeModel, SLOT(setFilter(QString)));
-
-#else
-    ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->tab_plugins));
-#endif
+    if (ui->tblPlugins->model()->rowCount() < 1) {
+        foreach (QWidget *w, ui->tab_plugins->findChildren<QWidget *>()) {
+            w->hide();
+        }
+        ui->label_no_plugins->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
+        ui->label_no_plugins->setEnabled(false);
+        ui->label_no_plugins->show();
+    }
 
     /* Shortcuts */
     ShortcutListModel * shortcutModel = new ShortcutListModel(this);
@@ -396,37 +411,41 @@ AboutDialog::~AboutDialog()
 
 void AboutDialog::showEvent(QShowEvent * event)
 {
-    QList<QWidget *> pages;
+    int one_em = fontMetrics().height();
 
-    // Authors, Folders & Shortcuts: Equal-sized columns.
-    pages << ui->tab_authors << ui->tab_folders << ui->tab_shortcuts;
-
-    foreach ( QWidget * tabPage, pages )
-    {
-        QList<QTreeView *> childs = tabPage->findChildren<QTreeView*>();
-        if ( childs.count() == 0 )
-            continue;
-
-        QTreeView * tree = childs.at(0);
-
-        int columnCount = tree->model()->columnCount();
-        for ( int cnt = 0; cnt < columnCount; cnt++ )
-            tree->setColumnWidth(cnt, tabPage->width() / columnCount);
-        tree->header()->setStretchLastSection(true);
+    // Authors: Names slightly narrower than emails.
+    QAbstractItemModel *model = ui->tblAuthors->model();
+    int column_count = model->columnCount();
+    if (column_count) {
+        ui->tblAuthors->setColumnWidth(0, (ui->tblAuthors->parentWidget()->width() / column_count) - one_em);
     }
 
-    // Plugins: Content-sized columns
+    // Folders: First and last to contents.
+    ui->tblFolders->resizeColumnToContents(0);
+    ui->tblFolders->resizeColumnToContents(2);
+    ui->tblFolders->setColumnWidth(1, ui->tblFolders->parentWidget()->width() -
+                                   (ui->tblFolders->columnWidth(0) + ui->tblFolders->columnWidth(2)));
 
-    QAbstractItemModel *model = ui->tblPlugins->model();
-    for (int col = 0; col < model->columnCount() - 1; col++) {
+    // Plugins: All but the last to contents.
+    model = ui->tblPlugins->model();
+    for (int col = 0; model && col < model->columnCount() - 1; col++) {
         ui->tblPlugins->resizeColumnToContents(col);
     }
+
+    // Contents + 2 em-widths
+    ui->tblShortcuts->resizeColumnToContents(0);
+    ui->tblShortcuts->setColumnWidth(0, ui->tblShortcuts->columnWidth(0) + (one_em * 2));
+    ui->tblShortcuts->setColumnWidth(1, one_em * 12);
+    ui->tblShortcuts->resizeColumnToContents(2);
 
     QDialog::showEvent(event);
 }
 
-void AboutDialog::urlClicked(const QModelIndex &idx)
+void AboutDialog::urlDoubleClicked(const QModelIndex &idx)
 {
+    if (idx.column() != 1) {
+        return;
+    }
     QTreeView * table = qobject_cast<QTreeView *>(sender());
     if ( ! table )
         return;
@@ -532,6 +551,22 @@ void AboutDialog::copyActionTriggered(bool copyRow)
     QClipboard * clipBoard = QApplication::clipboard();
     clipBoard->setText(clipdata);
 }
+
+#ifdef HAVE_LUA
+void AboutDialog::on_tblPlugins_doubleClicked(const QModelIndex &index)
+{
+    const int type_col = 2;
+    const int path_col = 3;
+    if (index.column() != path_col) {
+        return;
+    }
+    const int row = index.row();
+    const QAbstractItemModel *model = index.model();
+    if (model->index(row, type_col).data().toString() == wslua_plugin_type_name()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(model->index(row, path_col).data().toString()));
+    }
+}
+#endif
 
 /*
  * Editor modelines

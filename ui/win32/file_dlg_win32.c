@@ -5,7 +5,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 2004 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -40,6 +40,12 @@
 #include "ui/all_files_wildcard.h"
 
 #include "file_dlg_win32.h"
+
+typedef enum {
+    merge_append,
+    merge_chrono,
+    merge_prepend
+} merge_action_e;
 
 #define FILE_OPEN_DEFAULT 1 /* All Files */
 
@@ -1105,24 +1111,17 @@ preview_set_file_info(HWND of_hwnd, gchar *preview_file) {
     HWND        cur_ctrl;
     int         i;
     wtap       *wth;
-    const struct wtap_pkthdr *phdr;
-    int         err = 0;
+    int         err;
     gchar      *err_info;
+    ws_file_preview_stats stats;
+    ws_file_preview_stats_status status;
     TCHAR       string_buff[PREVIEW_STR_MAX];
     TCHAR       first_buff[PREVIEW_STR_MAX];
-    gint64      data_offset;
-    guint       packet = 0;
     gint64      filesize;
     gchar      *size_str;
     time_t      ti_time;
     struct tm  *ti_tm;
     guint       elapsed_time;
-    time_t      time_preview;
-    time_t      time_current;
-    double      start_time = 0;
-    double      stop_time = 0;
-    double      cur_time;
-    gboolean    is_breaked = FALSE;
 
     for (i = EWFD_PTX_FORMAT; i <= EWFD_PTX_START_ELAPSED; i++) {
         cur_ctrl = GetDlgItem(of_hwnd, i);
@@ -1176,33 +1175,13 @@ preview_set_file_info(HWND of_hwnd, gchar *preview_file) {
     // Windows Explorer uses IEC.
     size_str = format_size(filesize, format_size_unit_bytes|format_size_prefix_iec);
 
-    time(&time_preview);
-    while ( (wtap_read(wth, &err, &err_info, &data_offset)) ) {
-        phdr = wtap_phdr(wth);
-        cur_time = nstime_to_sec( (const nstime_t *) &phdr->ts );
-        if(packet == 0) {
-            start_time  = cur_time;
-            stop_time = cur_time;
-        }
-        if (cur_time < start_time) {
-            start_time = cur_time;
-        }
-        if (cur_time > stop_time){
-            stop_time = cur_time;
-        }
-        packet++;
-        if(packet%100 == 0) {
-            time(&time_current);
-            if(time_current-time_preview >= (time_t) prefs.gui_fileopen_preview) {
-                is_breaked = TRUE;
-                break;
-            }
-        }
-    }
+    status = get_stats_for_preview(wth, &stats, &err, &err_info);
 
-    if(err != 0) {
-        utf_8to16_snprintf(string_buff, PREVIEW_STR_MAX, "%s, error after %u packets",
-            size_str, packet);
+    if(status == PREVIEW_READ_ERROR) {
+        /* XXX - give error details? */
+        g_free(err_info);
+        utf_8to16_snprintf(string_buff, PREVIEW_STR_MAX, "%s, error after %u records",
+            size_str, stats.records);
         g_free(size_str);
         cur_ctrl = GetDlgItem(of_hwnd, EWFD_PTX_SIZE);
         SetWindowText(cur_ctrl, string_buff);
@@ -1210,44 +1189,66 @@ preview_set_file_info(HWND of_hwnd, gchar *preview_file) {
         return TRUE;
     }
 
-    /* Packets */
-    if(is_breaked) {
-        utf_8to16_snprintf(string_buff, PREVIEW_STR_MAX, "%s, timed out at %u packets",
-            size_str, packet);
+    /* Packet count */
+    if(status == PREVIEW_TIMED_OUT) {
+        utf_8to16_snprintf(string_buff, PREVIEW_STR_MAX, "%s, timed out at %u data records",
+            size_str, stats.data_records);
     } else {
-        utf_8to16_snprintf(string_buff, PREVIEW_STR_MAX, "%s, %u packets",
-            size_str, packet);
+        utf_8to16_snprintf(string_buff, PREVIEW_STR_MAX, "%s, %u data records",
+            size_str, stats.data_records);
     }
     g_free(size_str);
     cur_ctrl = GetDlgItem(of_hwnd, EWFD_PTX_SIZE);
     SetWindowText(cur_ctrl, string_buff);
 
     /* First packet / elapsed time */
-    ti_time = (long)start_time;
-    ti_tm = localtime( &ti_time );
-    if(ti_tm) {
-        StringCchPrintf(first_buff, PREVIEW_STR_MAX,
-                 _T("%04d-%02d-%02d %02d:%02d:%02d"),
-                 ti_tm->tm_year + 1900,
-                 ti_tm->tm_mon + 1,
-                 ti_tm->tm_mday,
-                 ti_tm->tm_hour,
-                 ti_tm->tm_min,
-                 ti_tm->tm_sec);
+    if(stats.have_times) {
+        /*
+         * We saw at least one record with a time stamp, so we can give
+         * a start time (if we have a mix of records with and without
+         * time stamps, and there were records without time stamps
+         * before the one with a time stamp, this may be inaccurate).
+         */
+        ti_time = (long)stats.start_time;
+        ti_tm = localtime( &ti_time );
+        if(ti_tm) {
+            StringCchPrintf(first_buff, PREVIEW_STR_MAX,
+                     _T("%04d-%02d-%02d %02d:%02d:%02d"),
+                     ti_tm->tm_year + 1900,
+                     ti_tm->tm_mon + 1,
+                     ti_tm->tm_mday,
+                     ti_tm->tm_hour,
+                     ti_tm->tm_min,
+                     ti_tm->tm_sec);
+        } else {
+            StringCchPrintf(first_buff, PREVIEW_STR_MAX, _T("?"));
+        }
     } else {
-        StringCchPrintf(first_buff, PREVIEW_STR_MAX, _T("?"));
+        StringCchPrintf(first_buff, PREVIEW_STR_MAX, _T("unknown"));
     }
 
-    elapsed_time = (unsigned int)(stop_time-start_time);
-    if(elapsed_time/86400) {
-        StringCchPrintf(string_buff, PREVIEW_STR_MAX, _T("%s / %02u days %02u:%02u:%02u"),
-        first_buff, elapsed_time/86400, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+    /* Elapsed time */
+    if(status == PREVIEW_SUCCEEDED && stats.have_times) {
+        /*
+         * We didn't time out, so we looked at all packets, and we got
+         * at least one packet with a time stamp, so we can calculate
+         * an elapsed time from the time stamp of the last packet with
+         * with a time stamp (if we have a mix of records with and without
+         * time stamps, and there were records without time stamps after
+         * the last one with a time stamp, this may be inaccurate).
+         */
+        elapsed_time = (unsigned int)(stats.stop_time-stats.start_time);
+        if(status == PREVIEW_TIMED_OUT) {
+            StringCchPrintf(string_buff, PREVIEW_STR_MAX, _T("%s / unknown"), first_buff);
+        } else if(elapsed_time/86400) {
+            StringCchPrintf(string_buff, PREVIEW_STR_MAX, _T("%s / %02u days %02u:%02u:%02u"),
+                first_buff, elapsed_time/86400, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+        } else {
+            StringCchPrintf(string_buff, PREVIEW_STR_MAX, _T("%s / %02u:%02u:%02u"),
+                first_buff, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
+        }
     } else {
-        StringCchPrintf(string_buff, PREVIEW_STR_MAX, _T("%s / %02u:%02u:%02u"),
-        first_buff, elapsed_time%86400/3600, elapsed_time%3600/60, elapsed_time%60);
-    }
-    if(is_breaked) {
-        StringCchPrintf(string_buff, PREVIEW_STR_MAX, _T("%s / unknown"), first_buff);
+        StringCchPrintf(string_buff, PREVIEW_STR_MAX, _T("%s / unknown"));
     }
     cur_ctrl = GetDlgItem(of_hwnd, EWFD_PTX_START_ELAPSED);
     SetWindowText(cur_ctrl, string_buff);

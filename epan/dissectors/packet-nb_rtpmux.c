@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -242,6 +230,7 @@ proto_register_nb_rtpmux(void)
 
     /* Register the protocol name and description */
     proto_nb_rtpmux = proto_register_protocol("3GPP Nb Interface RTP Multiplex", "NB_RTPMUX", "nb_rtpmux");
+    register_dissector("nb_rtpmux", dissect_nb_rtpmux, proto_nb_rtpmux);
 
     /* Required function calls to register the header fields and subtrees used */
     proto_register_field_array(proto_nb_rtpmux, hf, array_length(hf));

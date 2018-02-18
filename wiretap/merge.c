@@ -9,7 +9,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
-* SPDX-License-Identifier: GPL-2.0+ */
+* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "config.h"
 
@@ -99,9 +99,9 @@ add_idb_index_map(merge_in_file_t *in_file, const guint orig_index, const guint 
 
 /** Open a number of input files to merge.
  *
- * @param in_file_count number of entries in in_file_names and in_files
+ * @param in_file_count number of entries in in_file_names
  * @param in_file_names filenames of the input files
- * @param in_files input file array to be filled (>= sizeof(merge_in_file_t) * in_file_count)
+ * @param out_files output pointer with filled file array, or NULL
  * @param err wiretap error, if failed
  * @param err_info wiretap error string, if failed
  * @param err_fileno file on which open failed, if failed
@@ -109,7 +109,7 @@ add_idb_index_map(merge_in_file_t *in_file, const guint orig_index, const guint 
  */
 static gboolean
 merge_open_in_files(guint in_file_count, const char *const *in_file_names,
-                    merge_in_file_t **in_files, merge_progress_callback_t* cb,
+                    merge_in_file_t **out_files, merge_progress_callback_t* cb,
                     int *err, gchar **err_info, guint *err_fileno)
 {
     guint i;
@@ -119,19 +119,19 @@ merge_open_in_files(guint in_file_count, const char *const *in_file_names,
     gint64 size;
 
     files = (merge_in_file_t *)g_malloc0(files_size);
-    *in_files = files;
+    *out_files = NULL;
 
     for (i = 0; i < in_file_count; i++) {
         files[i].filename    = in_file_names[i];
         files[i].wth         = wtap_open_offline(in_file_names[i], WTAP_TYPE_AUTO, err, err_info, FALSE);
-        files[i].data_offset = 0;
-        files[i].state       = PACKET_NOT_PRESENT;
+        files[i].state       = RECORD_NOT_PRESENT;
         files[i].packet_num  = 0;
 
         if (!files[i].wth) {
             /* Close the files we've already opened. */
             for (j = 0; j < i; j++)
                 cleanup_in_file(&files[j]);
+            g_free(files);
             *err_fileno = i;
             return FALSE;
         }
@@ -139,6 +139,7 @@ merge_open_in_files(guint in_file_count, const char *const *in_file_names,
         if (size == -1) {
             for (j = 0; j != G_MAXUINT && j <= i; j++)
                 cleanup_in_file(&files[j]);
+            g_free(files);
             *err_fileno = i;
             return FALSE;
         }
@@ -149,6 +150,7 @@ merge_open_in_files(guint in_file_count, const char *const *in_file_names,
     if (cb)
         cb->callback_func(MERGE_EVENT_INPUT_FILES_OPENED, 0, files, in_file_count, cb->data);
 
+    *out_files = files;
     return TRUE;
 }
 
@@ -243,33 +245,49 @@ merge_read_packet(int in_file_count, merge_in_file_t in_files[],
     int i;
     int ei = -1;
     nstime_t tv = { sizeof(time_t) > sizeof(int) ? LONG_MAX : INT_MAX, INT_MAX };
-    struct wtap_pkthdr *phdr;
+    wtap_rec *rec;
 
     /*
-     * Make sure we have a packet available from each file, if there are any
-     * packets left in the file in question, and search for the packet
-     * with the earliest time stamp.
+     * Make sure we have a record available from each file that's not at
+     * EOF, and search for the record with the earliest time stamp or
+     * with no time stamp (those records are treated as earlier than
+     * all other records).  Yes, this means you won't get a chronological
+     * merge of those records, but you obviously *can't* get that.
      */
     for (i = 0; i < in_file_count; i++) {
-        if (in_files[i].state == PACKET_NOT_PRESENT) {
+        gint64 data_offset;
+
+        if (in_files[i].state == RECORD_NOT_PRESENT) {
             /*
              * No packet available, and we haven't seen an error or EOF yet,
              * so try to read the next packet.
              */
-            if (!wtap_read(in_files[i].wth, err, err_info, &in_files[i].data_offset)) {
+            if (!wtap_read(in_files[i].wth, err, err_info, &data_offset)) {
                 if (*err != 0) {
                     in_files[i].state = GOT_ERROR;
                     return &in_files[i];
                 }
                 in_files[i].state = AT_EOF;
             } else
-                in_files[i].state = PACKET_PRESENT;
+                in_files[i].state = RECORD_PRESENT;
         }
 
-        if (in_files[i].state == PACKET_PRESENT) {
-            phdr = wtap_phdr(in_files[i].wth);
-            if (is_earlier(&phdr->ts, &tv)) {
-                tv = phdr->ts;
+        if (in_files[i].state == RECORD_PRESENT) {
+            rec = wtap_get_rec(in_files[i].wth);
+            if (!(rec->presence_flags & WTAP_HAS_TS)) {
+                /*
+                 * No time stamp.  Pick this record, and stop looking.
+                 */
+                ei = i;
+                break;
+            }
+            if (is_earlier(&rec->ts, &tv)) {
+                /*
+                 * This record's time stamp is earlier than any of the
+                 * records we've seen so far.  Pick it, for now, but
+                 * keep looking.
+                 */
+                tv = rec->ts;
                 ei = i;
             }
         }
@@ -282,7 +300,7 @@ merge_read_packet(int in_file_count, merge_in_file_t in_files[],
     }
 
     /* We'll need to read another packet from this file. */
-    in_files[ei].state = PACKET_NOT_PRESENT;
+    in_files[ei].state = RECORD_NOT_PRESENT;
 
     /* Count this packet. */
     in_files[ei].packet_num++;
@@ -320,6 +338,7 @@ merge_append_read_packet(int in_file_count, merge_in_file_t in_files[],
                          int *err, gchar **err_info)
 {
     int i;
+    gint64 data_offset;
 
     /*
      * Find the first file not at EOF, and read the next packet from it.
@@ -327,7 +346,7 @@ merge_append_read_packet(int in_file_count, merge_in_file_t in_files[],
     for (i = 0; i < in_file_count; i++) {
         if (in_files[i].state == AT_EOF)
             continue; /* This file is already at EOF */
-        if (wtap_read(in_files[i].wth, err, err_info, &in_files[i].data_offset))
+        if (wtap_read(in_files[i].wth, err, err_info, &data_offset))
             break; /* We have a packet */
         if (*err != 0) {
             /* Read error - quit immediately. */
@@ -745,7 +764,7 @@ generate_merged_idb(merge_in_file_t *in_files, const guint in_file_count, const 
                     /*
                      * It's the same as a previous IDB, so we're going to "merge"
                      * them into one by adding a map from its old IDB index to the new
-                     * one. This will be used later to change the phdr interface_id.
+                     * one. This will be used later to change the rec interface_id.
                      */
                     add_idb_index_map(&in_files[i], itf_count, merged_index);
                 }
@@ -768,26 +787,26 @@ generate_merged_idb(merge_in_file_t *in_files, const guint in_file_count, const 
 }
 
 static gboolean
-map_phdr_interface_id(struct wtap_pkthdr *phdr, const merge_in_file_t *in_file)
+map_rec_interface_id(wtap_rec *rec, const merge_in_file_t *in_file)
 {
     guint current_interface_id = 0;
-    g_assert(phdr != NULL);
+    g_assert(rec != NULL);
     g_assert(in_file != NULL);
     g_assert(in_file->idb_index_map != NULL);
 
-    if (phdr->presence_flags & WTAP_HAS_INTERFACE_ID) {
-        current_interface_id = phdr->interface_id;
+    if (rec->presence_flags & WTAP_HAS_INTERFACE_ID) {
+        current_interface_id = rec->rec_header.packet_header.interface_id;
     }
 
     if (current_interface_id >= in_file->idb_index_map->len) {
         /* this shouldn't happen, but in a malformed input file it could */
-        merge_debug("merge::map_phdr_interface_id: current_interface_id (%u) >= in_file->idb_index_map->len (%u) (ERROR?)",
+        merge_debug("merge::map_rec_interface_id: current_interface_id (%u) >= in_file->idb_index_map->len (%u) (ERROR?)",
             current_interface_id, in_file->idb_index_map->len);
         return FALSE;
     }
 
-    phdr->interface_id = g_array_index(in_file->idb_index_map, guint, current_interface_id);
-    phdr->presence_flags |= WTAP_HAS_INTERFACE_ID;
+    rec->rec_header.packet_header.interface_id = g_array_index(in_file->idb_index_map, guint, current_interface_id);
+    rec->presence_flags |= WTAP_HAS_INTERFACE_ID;
 
     return TRUE;
 }
@@ -804,7 +823,7 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
     merge_in_file_t    *in_file;
     int                 count = 0;
     gboolean            stop_flag = FALSE;
-    struct wtap_pkthdr *phdr, snap_phdr;
+    wtap_rec *rec,      snap_rec;
 
     for (;;) {
         *err = 0;
@@ -831,7 +850,7 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
 
         count++;
         if (cb)
-            stop_flag = cb->callback_func(MERGE_EVENT_PACKET_WAS_READ, count, in_files, in_file_count, cb->data);
+            stop_flag = cb->callback_func(MERGE_EVENT_RECORD_WAS_READ, count, in_files, in_file_count, cb->data);
 
         if (stop_flag) {
             /* The user decided to abort the merge. */
@@ -839,19 +858,27 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
             break;
         }
 
-        phdr = wtap_phdr(in_file->wth);
+        rec = wtap_get_rec(in_file->wth);
 
-        if (snaplen != 0 && phdr->caplen > snaplen) {
-            /*
-             * The dumper will only write up to caplen bytes out, so we only
-             * need to change that value, instead of cloning the whole packet
-             * with fewer bytes.
-             *
-             * XXX: but do we need to change the IDBs' snap_len?
-             */
-            snap_phdr = *phdr;
-            snap_phdr.caplen = snaplen;
-            phdr = &snap_phdr;
+        switch (rec->rec_type) {
+
+        case REC_TYPE_PACKET:
+            if (rec->presence_flags & WTAP_HAS_CAP_LEN) {
+                if (snaplen != 0 &&
+                    rec->rec_header.packet_header.caplen > snaplen) {
+                    /*
+                     * The dumper will only write up to caplen bytes out,
+                     * so we only need to change that value, instead of
+                     * cloning the whole packet with fewer bytes.
+                     *
+                     * XXX: but do we need to change the IDBs' snap_len?
+                     */
+                    snap_rec = *rec;
+                    snap_rec.rec_header.packet_header.caplen = snaplen;
+                    rec = &snap_rec;
+                }
+            }
+            break;
         }
 
         if (file_type == WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
@@ -861,15 +888,15 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
              * now, we hardcode that, but we need to figure
              * out a more general way to handle this.
              */
-            if (phdr->rec_type == REC_TYPE_PACKET) {
-                if (!map_phdr_interface_id(phdr, in_file)) {
+            if (rec->rec_type == REC_TYPE_PACKET) {
+                if (!map_rec_interface_id(rec, in_file)) {
                     status = MERGE_ERR_BAD_PHDR_INTERFACE_ID;
                     break;
                 }
             }
         }
 
-        if (!wtap_dump(pdh, phdr, wtap_buf_ptr(in_file->wth), err, err_info)) {
+        if (!wtap_dump(pdh, rec, wtap_get_buf_ptr(in_file->wth), err, err_info)) {
             status = MERGE_ERR_CANT_WRITE_OUTFILE;
             break;
         }

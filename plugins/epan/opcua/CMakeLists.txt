@@ -48,12 +48,8 @@ set(PLUGIN_FILES
 	${DISSECTOR_SUPPORT_SRC}
 )
 
-set(CLEAN_FILES
-	${PLUGIN_FILES}
-)
-
 set_source_files_properties(
-	${CLEAN_FILES}
+	${PLUGIN_FILES}
 	PROPERTIES
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
@@ -67,6 +63,8 @@ register_plugin_files(plugin.c
 )
 
 add_plugin_library(opcua epan)
+
+target_link_libraries(opcua epan)
 
 install_plugin(opcua epan)
 

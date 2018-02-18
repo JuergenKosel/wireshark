@@ -4,7 +4,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 // warning C4267: 'argument' : conversion from 'size_t' to 'int', possible loss of data
@@ -917,6 +917,9 @@ void WiresharkApplication::emitAppSignal(AppSignal signal)
         break;
     case PacketDissectionChanged:
         emit packetDissectionChanged();
+        break;
+    case ProfileChanging:
+        emit profileChanging();
         break;
     case RecentCapturesChanged:
         emit updateRecentCaptureStatus(NULL, 0, false);

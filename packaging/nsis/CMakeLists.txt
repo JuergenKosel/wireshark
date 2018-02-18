@@ -120,13 +120,13 @@ elseif(MSVC_VERSION GREATER_EQUAL 1800)
 endif()
 
 find_program(VCREDIST_EXE "${_vcredist_name}"
-	PATHS "${_PROJECT_LIB_DIR}" ENV "VCINSTALLDIR"
+	PATHS "${_PROJECT_LIB_DIR}" $ENV{VCToolsRedistDir} $ENV{VCINSTALLDIR}
 	PATH_SUFFIXES ${_ws_vcredist_subdir} ${_ms_vcredist_subdir}
 	NO_DEFAULT_PATH
 )
 if(VCREDIST_EXE)
 	file(TO_NATIVE_PATH "${VCREDIST_EXE}" VCREDIST_EXE)
-	message(STATUS "Using ${VCREDIST_EXE} for the installer")
+	message(STATUS "Using ${VCREDIST_EXE} for the NSIS installer.")
 endif()
 
 # Ideally we would generate this at compile time using a separate cmake
@@ -177,11 +177,13 @@ endif()
 file(WRITE "${_gtk_dll_manifest}" "${_gtk_dll_manifest_contents}")
 
 file(TO_NATIVE_PATH "${DATAFILE_DIR}" _staging_dir)
+file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}" _outfile_dir)
 file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}" _nsis_include_dir)
 
 # Variables we can't set via config.nsh.
 set(NSIS_DEFINES
 	-DSTAGING_DIR=${_staging_dir}
+	-DOUTFILE_DIR=${_outfile_dir}
 	-DNSIS_INCLUDE_DIR=${_nsis_include_dir}
 	PARENT_SCOPE
 )
@@ -222,7 +224,7 @@ macro( ADD_NSIS_PACKAGE_TARGET )
 		DEPENDS
 			${NSIS_FILES}
 			copy_data_files
-			user_guides
+			user_guide_chm
 			${CMAKE_BINARY_DIR}/docbook/user-guide.chm
 			${DATAFILE_DIR}/uninstall.exe
 	)

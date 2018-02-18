@@ -8,19 +8,7 @@
 * By Gerald Combs <gerald@wireshark.org>
 * Copyright 1998 Gerald Combs
 *
-* This program is free software; you can redistribute it and/or
-* modify it under the terms of the GNU General Public License
-* as published by the Free Software Foundation; either version 2
-* of the License, or (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program; if not, write to the Free Software
-* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+* SPDX-License-Identifier: GPL-2.0-or-later
 *
 * Ref 3GPP TS 29.244 V14.1.0 (2017-09)
 */
@@ -225,15 +213,16 @@ static int hf_pfcp_b0_dldr = -1;
 static int hf_pfcp_offending_ie = -1;
 
 static int hf_pfcp_up_function_features = -1;
-static int hf_pfcp_b8_empu = -1;
-static int hf_pfcp_b7_treu = -1;
-static int hf_pfcp_b6_heeu = -1;
-static int hf_pfcp_b5_pfdm = -1;
-static int hf_pfcp_b4_ftup = -1;
-static int hf_pfcp_b3_trst = -1;
-static int hf_pfcp_b2_dlbd = -1;
-static int hf_pfcp_b1_ddnd = -1;
-static int hf_pfcp_b0_bucp = -1;
+static int hf_pfcp_b1_b7_spare = -1;
+static int hf_pfcp_b0_empu = -1;
+static int hf_pfcp_b15_treu = -1;
+static int hf_pfcp_b14_heeu = -1;
+static int hf_pfcp_b13_pfdm = -1;
+static int hf_pfcp_b12_ftup = -1;
+static int hf_pfcp_b11_trst = -1;
+static int hf_pfcp_b10_dlbd = -1;
+static int hf_pfcp_b9_ddnd = -1;
+static int hf_pfcp_b8_bucp = -1;
 static int hf_pfcp_sequence_number = -1;
 static int hf_pfcp_metric = -1;
 static int hf_pfcp_timer_unit = -1;
@@ -331,6 +320,7 @@ static int hf_pfcp_upiri_teid_range = -1;
 static int hf_pfcp_upiri_ipv4 = -1;
 static int hf_pfcp_upiri_ipv6 = -1;
 static int hf_pfcp_upiri_network_instance = -1;
+static int hf_pfcp_user_plane_inactivity_timer = -1;
 
 static int ett_pfcp = -1;
 static int ett_pfcp_flags = -1;
@@ -1349,18 +1339,20 @@ dissect_pfcp_up_function_features(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     int offset = 0;
 
     static const int * pfcp_up_function_features_flags[] = {
-        &hf_pfcp_b8_empu,
-        &hf_pfcp_b7_treu,
-        &hf_pfcp_b6_heeu,
-        &hf_pfcp_b5_pfdm,
-        &hf_pfcp_b4_ftup,
-        &hf_pfcp_b3_trst,
-        &hf_pfcp_b2_dlbd,
-        &hf_pfcp_b1_ddnd,
-        &hf_pfcp_b0_bucp,
+        &hf_pfcp_b15_treu,
+        &hf_pfcp_b14_heeu,
+        &hf_pfcp_b13_pfdm,
+        &hf_pfcp_b12_ftup,
+        &hf_pfcp_b11_trst,
+        &hf_pfcp_b10_dlbd,
+        &hf_pfcp_b9_ddnd,
+        &hf_pfcp_b8_bucp,
+        &hf_pfcp_b1_b7_spare,
+        &hf_pfcp_b0_empu,
         NULL
     };
-    /* Octet 5  LIUSA   DROTH   STOPT   START   QUHTI   TIMTH   VOLTH   PERIO*/
+    /* Octet 5  TREU   HEEU   PFDM   FTUP   TRST   DLBD   DDND   BUCP*/
+    /* Octet 6  Spare   Spare   Spare   Spare   Spare   Spare   Spare   EMPU*/
     proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_up_function_features,
         ett_pfcp_up_function_features, pfcp_up_function_features_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
     offset += 2;
@@ -2351,12 +2343,12 @@ dissect_pfcp_linked_urr_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 
 static const value_string pfcp_outer_hdr_desc_vals[] = {
 
-    { 0x01, "GTP-U/UDP/IPv4 " },
-    { 0x02, "GTP-U/UDP/IPv6 " },
-    { 0x03, "GTP-U/UDP/IPv4/IPv6 " },
-    { 0x04, "UDP/IPv4 " },
-    { 0x08, "UDP/IPv6 " },
-    { 0x0C, "UDP/IPv4/IPv6 " },
+    { 0x0100, "GTP-U/UDP/IPv4 " },
+    { 0x0200, "GTP-U/UDP/IPv6 " },
+    { 0x0300, "GTP-U/UDP/IPv4/IPv6 " },
+    { 0x0400, "UDP/IPv4 " },
+    { 0x0800, "UDP/IPv6 " },
+    { 0x0C00, "UDP/IPv4/IPv6 " },
     { 0, NULL }
 };
 
@@ -2374,7 +2366,7 @@ dissect_pfcp_outer_header_creation(tvbuff_t *tvb, packet_info *pinfo, proto_tree
      * The TEID field shall be present if the Outer Header Creation Description requests the creation of a GTP-U header.
      * Otherwise it shall not be present
      */
-    if ((value & 0x01) || (value & 0x02)) {
+    if ((value & 0x0100) || (value & 0x0200)) {
         proto_tree_add_item(tree, hf_pfcp_outer_hdr_creation_teid, tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
     }
@@ -2383,7 +2375,7 @@ dissect_pfcp_outer_header_creation(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     * p to (p+3)   IPv4
     * The IPv4 Address field shall be present if the Outer Header Creation Description requests the creation of a IPv4 header
     */
-    if ((value & 0x01) || (value & 0x04)) {
+    if ((value & 0x0100) || (value & 0x0400)) {
         proto_tree_add_item(tree, hf_pfcp_outer_hdr_creation_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
     }
@@ -2392,7 +2384,7 @@ dissect_pfcp_outer_header_creation(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     * q to (q+15)   IPv6
     * The IPv6 Address field shall be present if the Outer Header Creation Description requests the creation of a IPv6 header
     */
-    if ((value & 0x02) || (value & 0x08)) {
+    if ((value & 0x0200) || (value & 0x0800)) {
         proto_tree_add_item(tree, hf_pfcp_outer_hdr_creation_ipv6, tvb, offset, 16, ENC_NA);
         offset += 16;
     }
@@ -2401,7 +2393,7 @@ dissect_pfcp_outer_header_creation(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     * r to (r+1)   Port Number
     * The Port Number field shall be present if the Outer Header Creation Description requests the creation of a UDP/IP header
     */
-    if ((value & 0x04) || (value & 0x08)) {
+    if ((value & 0x0400) || (value & 0x0800)) {
         proto_tree_add_item(tree, hf_pfcp_outer_hdr_creation_port, tvb, offset, 2, ENC_BIG_ENDIAN);
         offset += 2;
     }
@@ -3261,6 +3253,33 @@ dissect_pfcp_user_plane_ip_resource_infomation(tvbuff_t *tvb, packet_info *pinfo
 
 }
 
+/*
+ * 8.2.83    User Plane Inactivity Timer
+ */
+static void
+dissect_pfcp_user_plane_inactivity_timer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
+{
+    int offset = 0;
+    guint32 value;
+    /*
+    * The User Plane Inactivity Timer field shall be encoded as an Unsigned32 binary integer value.
+    * The timer value "0" shall be interpreted as an indication that
+    * user plane inactivity detection and reporting is stopped.
+    */
+
+    /* 5 to 8   Inactivity Timer */
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_user_plane_inactivity_timer, tvb, offset, 4, ENC_BIG_ENDIAN, &value);
+    offset += 4;
+
+    if(value == 0)
+        proto_item_append_text(item, " (Stopped)");
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+
+}
+
 /* Array of functions to dissect IEs
 * (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type)
 */
@@ -3386,6 +3405,7 @@ static const pfcp_ie_t pfcp_ies[] = {
 /*    114 */    { dissect_pfcp_failed_rule_id },                                /* Failed Rule ID                                  Extendable / Subclause 8.2.80 */
 /*    115 */    { dissect_pfcp_time_qouta_mechanism },                          /* Time Quota Mechanism                            Extendable / Subclause 8.2.81 */
 /*    116 */    { dissect_pfcp_user_plane_ip_resource_infomation },             /* User Plane IP Resource Information              Extendable / Subclause 8.2.82 */
+/*    117 */    { dissect_pfcp_user_plane_inactivity_timer },             	/* User Plane Inactivity Timer 			   Extendable / Subclause 8.2.83 */
     { NULL },                                                        /* End of List */
 };
 
@@ -4343,7 +4363,7 @@ proto_register_pfcp(void)
         },
         { &hf_pfcp_outer_hdr_desc,
         { "Outer Header Creation Description", "pfcp.outer_hdr_desc",
-            FT_UINT8, BASE_DEC, VALS(pfcp_outer_hdr_desc_vals), 0x0,
+            FT_UINT16, BASE_DEC, VALS(pfcp_outer_hdr_desc_vals), 0x0,
             NULL, HFILL }
         },
         { &hf_pfcp_outer_hdr_creation_teid,
@@ -4765,49 +4785,54 @@ proto_register_pfcp(void)
             FT_UINT16, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_bucp,
+        { &hf_pfcp_b8_bucp,
         { "BUCP", "pfcp.up_function_features.bucp",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0001,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0100,
             "Downlink Data Buffering in CP function", HFILL }
         },
-        { &hf_pfcp_b1_ddnd,
+        { &hf_pfcp_b9_ddnd,
         { "DDND", "pfcp.up_function_features.ddnd",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0002,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0200,
             "Buffering parameter 'Downlink Data Notification Delay", HFILL }
         },
-        { &hf_pfcp_b2_dlbd,
+        { &hf_pfcp_b10_dlbd,
         { "DLBD", "pfcp.up_function_features.dlbd",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0004,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0400,
             NULL, HFILL }
         },
-        { &hf_pfcp_b3_trst,
+        { &hf_pfcp_b11_trst,
         { "TRST", "pfcp.up_function_features.trst",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0008,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0800,
             "Traffic Steering", HFILL }
         },
-        { &hf_pfcp_b4_ftup,
+        { &hf_pfcp_b12_ftup,
         { "FTUP", "pfcp.up_function_features.ftup",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0010,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x1000,
             "F-TEID allocation / release in the UP function", HFILL }
         },
-        { &hf_pfcp_b5_pfdm,
+        { &hf_pfcp_b13_pfdm,
         { "PFDM", "pfcp.up_function_features.pfdm",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0020,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x2000,
             "PFD Management procedure", HFILL }
         },
-        { &hf_pfcp_b6_heeu,
+        { &hf_pfcp_b14_heeu,
         { "HEEU", "pfcp.up_function_features.heeu",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0040,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x4000,
             "Header Enrichment of Uplink traffic", HFILL }
         },
-        { &hf_pfcp_b7_treu,
+        { &hf_pfcp_b15_treu,
         { "TREU", "pfcp.up_function_features.treu",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0080,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x8000,
             "Traffic Redirection Enforcement in the UP function", HFILL }
         },
-        { &hf_pfcp_b8_empu,
+        { &hf_pfcp_b0_empu,
         { "EMPU", "pfcp.up_function_features.empu",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0100,
+            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0001,
+            "Sending of End Marker packets", HFILL }
+        },
+        { &hf_pfcp_b1_b7_spare,
+        { "Spare", "pfcp.up_function_features.spare",
+            FT_BOOLEAN, 16, NULL , 0x00FE,
             "Sending of End Marker packets", HFILL }
         },
         { &hf_pfcp_sequence_number,
@@ -5203,6 +5228,11 @@ proto_register_pfcp(void)
         { &hf_pfcp_upiri_network_instance,
         { "Network Instance", "pfcp.upiri.network_instance",
             FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_user_plane_inactivity_timer,
+        { "User Plane Inactivity Timer", "pfcp.user_plane_inactivity_time",
+            FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_seconds, 0,
             NULL, HFILL }
         },
 

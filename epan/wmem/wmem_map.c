@@ -6,19 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "config.h"
 
@@ -238,6 +226,30 @@ wmem_map_insert(wmem_map_t *map, const void *key, void *value)
     return NULL;
 }
 
+gboolean
+wmem_map_contains(wmem_map_t *map, const void *key)
+{
+    wmem_map_item_t *item;
+
+    /* Make sure we have a table */
+    if (map->table == NULL) {
+        return FALSE;
+    }
+
+    /* find correct slot */
+    item = map->table[HASH(map, key)];
+
+    /* scan list of items in this slot for the correct value */
+    while (item) {
+        if (map->eql_func(key, item->key)) {
+            return TRUE;
+        }
+        item = item->next;
+    }
+
+    return FALSE;
+}
+
 void *
 wmem_map_lookup(wmem_map_t *map, const void *key)
 {
@@ -260,6 +272,36 @@ wmem_map_lookup(wmem_map_t *map, const void *key)
     }
 
     return NULL;
+}
+
+gboolean
+wmem_map_lookup_extended(wmem_map_t *map, const void *key, const void **orig_key, void **value)
+{
+    wmem_map_item_t *item;
+
+    /* Make sure we have a table */
+    if (map->table == NULL) {
+        return FALSE;
+    }
+
+    /* find correct slot */
+    item = map->table[HASH(map, key)];
+
+    /* scan list of items in this slot for the correct value */
+    while (item) {
+        if (map->eql_func(key, item->key)) {
+            if (orig_key) {
+                *orig_key = item->key;
+            }
+            if (value) {
+                *value = item->value;
+            }
+            return TRUE;
+        }
+        item = item->next;
+    }
+
+    return FALSE;
 }
 
 void *
