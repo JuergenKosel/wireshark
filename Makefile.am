@@ -58,7 +58,7 @@ EXTRA_PROGRAMS = wireshark-gtk wireshark tshark tfshark capinfos captype \
 # Wireshark configuration files are put in $(pkgdatadir).
 #
 dist_pkgdata_DATA = COPYING manuf services cfilters colorfilters dfilters \
-	smi_modules ipmap.html pdml2html.xsl enterprises.tsv wka
+	smi_modules pdml2html.xsl enterprises.tsv wka
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = wireshark.pc
@@ -380,8 +380,7 @@ SHARK_COMMON_SRC = \
 	frame_tvbuff.c		\
 	sync_pipe_write.c	\
 	extcap.c		\
-	extcap_parser.c		\
-	extcap_spawn.c
+	extcap_parser.c
 
 # wireshark specifics
 WIRESHARK_COMMON_SRC = \
@@ -722,7 +721,6 @@ noinst_HEADERS = \
 	conditions.h		\
 	extcap.h		\
 	extcap_parser.h		\
-	extcap_spawn.h		\
 	fileset.h		\
 	frame_tvbuff.h		\
 	ringbuffer.h		\
@@ -787,7 +785,6 @@ EXTRA_DIST = \
 	fix			\
 	idl			\
 	image			\
-	ipmap.html		\
 	m4			\
 	macosx-support-lib-patches	\
 	make-version.pl		\

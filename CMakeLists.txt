@@ -1388,6 +1388,7 @@ if(ENABLE_PLUGINS)
 		plugins/epan/wimaxasncp
 		plugins/epan/wimaxmacphy
 		plugins/wiretap/usbdump
+		plugins/codecs/l16_mono
 		${CUSTOM_PLUGIN_SRC_DIR}
 	)
 
@@ -1576,7 +1577,6 @@ set(SHARK_COMMON_SRC
 	version_info.c
 	extcap.c
 	extcap_parser.c
-	extcap_spawn.c
 )
 
 set(TSHARK_TAP_SRC
@@ -1629,7 +1629,6 @@ set(INSTALL_FILES
 	colorfilters
 	dfilters
 	enterprises.tsv
-	ipmap.html
 	manuf
 	pdml2html.xsl
 	services
@@ -1850,7 +1849,11 @@ if(WIN32)
 		file(TO_NATIVE_PATH "${_pdb_zip}" _pdb_zip_win)
 		add_custom_command(TARGET pdb_zip_package POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E remove -f "${_pdb_zip}"
-			COMMAND ${ZIP_EXECUTABLE} a -tzip -mmt=on "${_pdb_zip_win}" *.pdb *.lib
+			COMMAND ${ZIP_EXECUTABLE} a -tzip -mmt=on "${_pdb_zip_win}"
+				*.pdb *.lib
+				extcap/*.pdb
+				${PLUGIN_VERSION_DIR}/epan/*.pdb
+				${PLUGIN_VERSION_DIR}/wiretap/*.pdb
 			WORKING_DIRECTORY "${_dll_output_dir}"
 		)
 		add_dependencies(pdb_zip_package epan)
@@ -2248,17 +2251,6 @@ if(BUILD_wireshark AND QT_FOUND)
 		BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR}
 	)
 
-	if(NOT ENABLE_APPLICATION_BUNDLE)
-		# Map for endpoints dialog
-		ADD_CUSTOM_COMMAND(
-			TARGET wireshark
-			POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${PROJECT_SOURCE_DIR}/ipmap.html"
-				$<TARGET_FILE_DIR:wireshark>
-		)
-	endif()
-
 	if(WIN32 AND Qt5Core_FOUND)
 		# Use windeployqt to copy our required DLLs to the run path.
 		# Ideally one of the modules in ${QTDIR}/lib/cmake would expose
@@ -2382,15 +2374,6 @@ if(BUILD_wireshark_gtk AND GTK_FOUND)
 	)
 	target_link_libraries(wireshark-gtk ${wireshark_gtk_LIBS})
 	install(TARGETS wireshark-gtk RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-	# Map for endpoints dialog
-	ADD_CUSTOM_COMMAND(
-		TARGET wireshark-gtk
-		POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			"${PROJECT_SOURCE_DIR}/ipmap.html"
-			$<TARGET_FILE_DIR:wireshark-gtk>
-	)
 
 	if(WIN32)
 		add_custom_target(copy_gtk_dlls)
@@ -2963,9 +2946,6 @@ if(ENABLE_APPLICATION_BUNDLE)
 	)
 
 	ADD_CUSTOM_TARGET( dmg_package
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					"${PROJECT_SOURCE_DIR}/ipmap.html"
-					$<TARGET_FILE_DIR:wireshark>
 		COMMAND ${CMAKE_COMMAND} -E copy_directory
 					${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF
 					${CMAKE_BINARY_DIR}/run/ChmodBPF

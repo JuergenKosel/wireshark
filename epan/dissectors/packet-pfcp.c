@@ -92,6 +92,10 @@ static int hf_pfcp_pdn_type = -1;
 static int hf_pfcp_failed_rule_id_type = -1;
 static int hf_pfcp_time_qouta_mechanism_bti_type = -1;
 static int hf_pfcp_time_qouta_mechanism_bti = -1;
+static int hf_pfcp_multiplier_value_digits = -1;
+static int hf_pfcp_multiplier_exponent = -1;
+static int hf_pfcp_aggregated_urr_id_ie_urr_id = -1;
+
 static int hf_pfcp_ue_ip_address_flags = -1;
 static int hf_pfcp_ue_ip_address_flag_b0_v6 = -1;
 static int hf_pfcp_ue_ip_address_flag_b1_v4 = -1;
@@ -99,16 +103,20 @@ static int hf_pfcp_ue_ip_address_flag_b2_sd = -1;
 static int hf_pfcp_ue_ip_addr_ipv4 = -1;
 static int hf_pfcp_ue_ip_add_ipv6 = -1;
 static int hf_pfcp_application_id = -1;
+
 static int hf_pfcp_sdf_filter_flags = -1;
-static int hf_pfcp_sdf_filter_b0_fd = -1;
-static int hf_pfcp_sdf_filter_b1_ttc = -1;
-static int hf_pfcp_sdf_filter_b2_spi = -1;
-static int hf_pfcp_sdf_filter_b3_fl = -1;
+static int hf_pfcp_sdf_filter_flags_b0_fd = -1;
+static int hf_pfcp_sdf_filter_flags_b1_ttc = -1;
+static int hf_pfcp_sdf_filter_flags_b2_spi = -1;
+static int hf_pfcp_sdf_filter_flags_b3_fl = -1;
+
 static int hf_pfcp_flow_desc_len = -1;
-static int hf_pfcp_fd = -1;
-static int hf_pfcp_ttc = -1;
+static int hf_pfcp_flow_desc = -1;
+static int hf_pfcp_traffic_class = -1;
+static int hf_pfcp_traffic_mask = -1;
 static int hf_pfcp_spi = -1;
-static int hf_pfcp_fl = -1;
+static int hf_pfcp_flow_label_spare_bit = -1;
+static int hf_pfcp_flow_label = -1;
 static int hf_pfcp_out_hdr_desc = -1;
 static int hf_pfcp_far_id_flg = -1;
 static int hf_pfcp_far_id = -1;
@@ -117,12 +125,14 @@ static int hf_pfcp_urr_id = -1;
 static int hf_pfcp_qer_id_flg = -1;
 static int hf_pfcp_qer_id = -1;
 static int hf_pfcp_predef_rules_name = -1;
+
 static int hf_pfcp_apply_action_flags = -1;
-static int hf_pfcp_apply_action_b4_dupl = -1;
-static int hf_pfcp_apply_action_b3_nocp = -1;
-static int hf_pfcp_apply_action_b2_buff = -1;
-static int hf_pfcp_apply_action_b1_forw = -1;
-static int hf_pfcp_apply_action_b0_drop = -1;
+static int hf_pfcp_apply_action_flags_b4_dupl = -1;
+static int hf_pfcp_apply_action_flags_b3_nocp = -1;
+static int hf_pfcp_apply_action_flags_b2_buff = -1;
+static int hf_pfcp_apply_action_flags_b1_forw = -1;
+static int hf_pfcp_apply_action_flags_b0_drop = -1;
+
 static int hf_pfcp_bar_id = -1;
 static int hf_pfcp_fq_csid_node_id_type = -1;
 static int hf_pfcp_num_csid = -1;
@@ -145,41 +155,44 @@ static int hf_pfcp_outer_hdr_creation_teid = -1;
 static int hf_pfcp_outer_hdr_creation_ipv4 = -1;
 static int hf_pfcp_outer_hdr_creation_ipv6 = -1;
 static int hf_pfcp_outer_hdr_creation_port = -1;
-static int hf_pfcp_tos_traf_class = -1;
 static int hf_pfcp_time_threshold = -1;
 static int hf_pfcp_forwarding_policy_id_len = -1;
 static int hf_pfcp_forwarding_policy_id = -1;
+
 static int hf_pfcp_measurement_method_flags = -1;
-static int hf_pfcp_b0_durat = -1;
-static int hf_pfcp_b1_volume = -1;
-static int hf_pfcp_b2_event = -1;
+static int hf_pfcp_measurement_method_flags_b0_durat = -1;
+static int hf_pfcp_measurement_method_flags_b1_volume = -1;
+static int hf_pfcp_measurement_method_flags_b2_event = -1;
+
 static int hf_pfcp_subsequent_time_threshold = -1;
 static int hf_pfcp_inactivity_detection_time = -1;
 static int hf_pfcp_monitoring_time = -1;
 
 static int hf_pfcp_reporting_triggers = -1;
-static int hf_pfcp_reporting_triggers_b15_liusa = -1;
-static int hf_pfcp_reporting_triggers_b14_droth = -1;
-static int hf_pfcp_reporting_triggers_b13_stopt = -1;
-static int hf_pfcp_reporting_triggers_b12_start = -1;
-static int hf_pfcp_reporting_triggers_b11_quhti = -1;
-static int hf_pfcp_reporting_triggers_b10_timth = -1;
-static int hf_pfcp_reporting_triggers_b9_volth = -1;
-static int hf_pfcp_reporting_triggers_b8_perio = -1;
-static int hf_pfcp_reporting_triggers_b7_b3_spare = -1;
-static int hf_pfcp_reporting_triggers_b2_envcl = -1;
-static int hf_pfcp_reporting_triggers_b1_timqu = -1;
-static int hf_pfcp_reporting_triggers_b0_volqu = -1;
+static int hf_pfcp_reporting_triggers_o5_b7_liusa = -1;
+static int hf_pfcp_reporting_triggers_o5_b6_droth = -1;
+static int hf_pfcp_reporting_triggers_o5_b5_stopt = -1;
+static int hf_pfcp_reporting_triggers_o5_b4_start = -1;
+static int hf_pfcp_reporting_triggers_o5_b3_quhti = -1;
+static int hf_pfcp_reporting_triggers_o5_b2_timth = -1;
+static int hf_pfcp_reporting_triggers_o5_b1_volth = -1;
+static int hf_pfcp_reporting_triggers_o5_b0_perio = -1;
+static int hf_pfcp_reporting_triggers_o6_b2_envcl = -1;
+static int hf_pfcp_reporting_triggers_o6_b1_timqu = -1;
+static int hf_pfcp_reporting_triggers_o6_b0_volqu = -1;
 
 static int hf_pfcp_volume_threshold = -1;
-static int hf_pfcp_b2_dlvol = -1;
-static int hf_pfcp_b1_ulvol = -1;
-static int hf_pfcp_b0_tovol = -1;
+static int hf_pfcp_volume_threshold_b2_dlvol = -1;
+static int hf_pfcp_volume_threshold_b1_ulvol = -1;
+static int hf_pfcp_volume_threshold_b0_tovol = -1;
 static int hf_pfcp_volume_threshold_tovol = -1;
 static int hf_pfcp_volume_threshold_ulvol = -1;
 static int hf_pfcp_volume_threshold_dlvol = -1;
 
 static int hf_pfcp_volume_quota = -1;
+static int hf_pfcp_volume_quota_b2_dlvol = -1;
+static int hf_pfcp_volume_quota_b1_ulvol = -1;
+static int hf_pfcp_volume_quota_b0_tovol = -1;
 static int hf_pfcp_volume_quota_tovol = -1;
 static int hf_pfcp_volume_quota_ulvol = -1;
 static int hf_pfcp_volume_quota_dlvol = -1;
@@ -191,6 +204,7 @@ static int hf_pfcp_subseq_volume_threshold_b0_tovol = -1;
 static int hf_pfcp_subseq_volume_threshold_tovol = -1;
 static int hf_pfcp_subseq_volume_threshold_ulvol = -1;
 static int hf_pfcp_subseq_volume_threshold_dlvol = -1;
+
 static int hf_pfcp_time_quota = -1;
 static int hf_pfcp_start_time = -1;
 static int hf_pfcp_end_time = -1;
@@ -206,85 +220,100 @@ static int hf_pfcp_ul_mbr = -1;
 static int hf_pfcp_dl_mbr = -1;
 static int hf_pfcp_ul_gbr = -1;
 static int hf_pfcp_dl_gbr = -1;
+
 static int hf_pfcp_report_type = -1;
-static int hf_pfcp_b2_erir = -1;
-static int hf_pfcp_b1_usar = -1;
-static int hf_pfcp_b0_dldr = -1;
+static int hf_pfcp_report_type_b3_upir = -1;
+static int hf_pfcp_report_type_b2_erir = -1;
+static int hf_pfcp_report_type_b1_usar = -1;
+static int hf_pfcp_report_type_b0_dldr = -1;
+
 static int hf_pfcp_offending_ie = -1;
 
 static int hf_pfcp_up_function_features = -1;
-static int hf_pfcp_b1_b7_spare = -1;
-static int hf_pfcp_b0_empu = -1;
-static int hf_pfcp_b15_treu = -1;
-static int hf_pfcp_b14_heeu = -1;
-static int hf_pfcp_b13_pfdm = -1;
-static int hf_pfcp_b12_ftup = -1;
-static int hf_pfcp_b11_trst = -1;
-static int hf_pfcp_b10_dlbd = -1;
-static int hf_pfcp_b9_ddnd = -1;
-static int hf_pfcp_b8_bucp = -1;
+static int hf_pfcp_up_function_features_o6_b0_empu = -1;
+static int hf_pfcp_up_function_features_o5_b7_treu = -1;
+static int hf_pfcp_up_function_features_o5_b6_heeu = -1;
+static int hf_pfcp_up_function_features_o5_b5_pfdm = -1;
+static int hf_pfcp_up_function_features_o5_b4_ftup = -1;
+static int hf_pfcp_up_function_features_o5_b3_trst = -1;
+static int hf_pfcp_up_function_features_o5_b2_dlbd = -1;
+static int hf_pfcp_up_function_features_o5_b1_ddnd = -1;
+static int hf_pfcp_up_function_features_o5_b0_bucp = -1;
+
 static int hf_pfcp_sequence_number = -1;
 static int hf_pfcp_metric = -1;
 static int hf_pfcp_timer_unit = -1;
 static int hf_pfcp_timer_value = -1;
 
 static int hf_pfcp_usage_report_trigger = -1;
-static int hf_pfcp_usage_report_trigger_b15_immer = -1;
-static int hf_pfcp_usage_report_trigger_b14_droth = -1;
-static int hf_pfcp_usage_report_trigger_b13_stopt = -1;
-static int hf_pfcp_usage_report_trigger_b12_start = -1;
-static int hf_pfcp_usage_report_trigger_b11_quhti = -1;
-static int hf_pfcp_usage_report_trigger_b10_timth = -1;
-static int hf_pfcp_usage_report_trigger_b9_volth = -1;
-static int hf_pfcp_usage_report_trigger_b8_perio = -1;
-static int hf_pfcp_usage_report_trigger_b7_b6_spare = -1;
-static int hf_pfcp_usage_report_trigger_b5_envcl = -1;
-static int hf_pfcp_usage_report_trigger_b4_monit = -1;
-static int hf_pfcp_usage_report_trigger_b3_termr = -1;
-static int hf_pfcp_usage_report_trigger_b2_liusa = -1;
-static int hf_pfcp_usage_report_trigger_b1_timqu = -1;
-static int hf_pfcp_usage_report_trigger_b0_volqu = -1;
+static int hf_pfcp_usage_report_trigger_o5_b7_immer = -1;
+static int hf_pfcp_usage_report_trigger_o5_b6_droth = -1;
+static int hf_pfcp_usage_report_trigger_o5_b5_stopt = -1;
+static int hf_pfcp_usage_report_trigger_o5_b4_start = -1;
+static int hf_pfcp_usage_report_trigger_o5_b3_quhti = -1;
+static int hf_pfcp_usage_report_trigger_o5_b2_timth = -1;
+static int hf_pfcp_usage_report_trigger_o5_b1_volth = -1;
+static int hf_pfcp_usage_report_trigger_o5_b0_perio = -1;
+static int hf_pfcp_usage_report_trigger_o6_b5_envcl = -1;
+static int hf_pfcp_usage_report_trigger_o6_b4_monit = -1;
+static int hf_pfcp_usage_report_trigger_o6_b3_termr = -1;
+static int hf_pfcp_usage_report_trigger_o6_b2_liusa = -1;
+static int hf_pfcp_usage_report_trigger_o6_b1_timqu = -1;
+static int hf_pfcp_usage_report_trigger_o6_b0_volqu = -1;
 
 static int hf_pfcp_volume_measurement = -1;
+static int hf_pfcp_volume_measurement_b2_dlvol = -1;
+static int hf_pfcp_volume_measurement_b1_ulvol = -1;
+static int hf_pfcp_volume_measurement_b0_tovol = -1;
 static int hf_pfcp_vol_meas_tovol = -1;
 static int hf_pfcp_vol_meas_ulvol = -1;
 static int hf_pfcp_vol_meas_dlvol = -1;
+
 static int hf_pfcp_cp_function_features = -1;
-static int hf_pfcp_b0_load = -1;
-static int hf_pfcp_b1_ovrl = -1;
+static int hf_pfcp_cp_function_features_b0_load = -1;
+static int hf_pfcp_cp_function_features_b1_ovrl = -1;
+
 static int hf_pfcp_usage_information = -1;
-static int hf_pfcp_b3_ube = -1;
-static int hf_pfcp_b2_uae = -1;
-static int hf_pfcp_b1_aft = -1;
-static int hf_pfcp_b0_bef = -1;
+static int hf_pfcp_usage_information_b3_ube = -1;
+static int hf_pfcp_usage_information_b2_uae = -1;
+static int hf_pfcp_usage_information_b1_aft = -1;
+static int hf_pfcp_usage_information_b0_bef = -1;
+
 static int hf_pfcp_application_instance_id = -1;
 static int hf_pfcp_flow_dir = -1;
 static int hf_pfcp_packet_rate = -1;
-static int hf_pfcp_ulpr_b0 = -1;
-static int hf_pfcp_dlpr_b1 = -1;
+static int hf_pfcp_packet_rate_b0_ulpr = -1;
+static int hf_pfcp_packet_rate_b1_dlpr = -1;
 static int hf_pfcp_ul_time_unit = -1;
 static int hf_pfcp_max_ul_pr = -1;
 static int hf_pfcp_dl_time_unit = -1;
 static int hf_pfcp_max_dl_pr = -1;
+
 static int hf_pfcp_dl_flow_level_marking = -1;
-static int hf_pfcp_b0_ttc = -1;
-static int hf_pfcp_b1_sci = -1;
+static int hf_pfcp_dl_flow_level_marking_b0_ttc = -1;
+static int hf_pfcp_dl_flow_level_marking_b1_sci = -1;
+
 static int hf_pfcp_sci = -1;
 static int hf_pfcp_dl_data_notification_delay = -1;
 static int hf_pfcp_packet_count = -1;
-static int hf_pfcp_pfcp_dl_data_service_inf_flags = -1;
-static int hf_pfcp_b0_ppi = -1;
+static int hf_pfcp_dl_data_service_inf_flags = -1;
+static int hf_pfcp_dl_data_service_inf_b0_ppi = -1;
 static int hf_pfcp_ppi = -1;
-static int hf_pfcp_sxsmreq_flags = -1;
-static int hf_pfcp_b0_drobu = -1;
-static int hf_pfcp_b1_sndem = -1;
-static int hf_pfcp_b2_qaurr = -1;
-static int hf_pfcp_sxsrrsp_flags = -1;
+
+static int hf_pfcp_pfcpsmreq_flags = -1;
+static int hf_pfcp_pfcpsmreq_flags_b0_drobu = -1;
+static int hf_pfcp_pfcpsmreq_flags_b1_sndem = -1;
+static int hf_pfcp_pfcpsmreq_flags_b2_qaurr = -1;
+
+static int hf_pfcp_pfcpsrrsp_flags = -1;
+static int hf_pfcp_pfcpsrrsp_flags_b0_drobu = -1;
+
 static int hf_pfcp_pfd_contents_flags = -1;
-static int hf_pfcp_b0_fd = -1;
-static int hf_pfcp_b3_cp = -1;
-static int hf_pfcp_b2_dn = -1;
-static int hf_pfcp_b1_url = -1;
+static int hf_pfcp_pfd_contents_flags_b3_cp = -1;
+static int hf_pfcp_pfd_contents_flags_b2_dn = -1;
+static int hf_pfcp_pfd_contents_flags_b1_url = -1;
+static int hf_pfcp_pfd_contents_flags_b0_fd = -1;
+
 static int hf_pfcp_url_len = -1;
 static int hf_pfcp_url = -1;
 static int hf_pfcp_dn_len = -1;
@@ -296,31 +325,49 @@ static int hf_pfcp_hf_len = -1;
 static int hf_pfcp_hf_name = -1;
 static int hf_pfcp_hf_val_len = -1;
 static int hf_pfcp_hf_val = -1;
+
 static int hf_pfcp_measurement_info = -1;
-static int hf_pfcp_b0_mbqe = -1;
-static int hf_pfcp_b1_inam = -1;
+static int hf_pfcp_measurement_info_b0_mbqe = -1;
+static int hf_pfcp_measurement_info_b1_inam = -1;
+static int hf_pfcp_measurement_info_b2_radi = -1;
+
 static int hf_pfcp_node_report_type = -1;
-static int hf_pfcp_b0_upfr = -1;
-static int hf_pfcp_remote_gtp_u_peer = -1;
-static int hf_pfcp_gtp_u_peer_flag_b0_v6 = -1;
-static int hf_pfcp_gtp_u_peer_flag_b1_v4 = -1;
+static int hf_pfcp_node_report_type_b0_upfr = -1;
+
+static int hf_pfcp_remote_gtp_u_peer_flags = -1;
+static int hf_pfcp_remote_gtp_u_peer_flags_b0_v6 = -1;
+static int hf_pfcp_remote_gtp_u_peer_flags_b1_v4 = -1;
 static int hf_pfcp_remote_gtp_u_peer_ipv4 = -1;
 static int hf_pfcp_remote_gtp_u_peer_ipv6 = -1;
 static int hf_pfcp_ur_seqn = -1;
+
 static int hf_pfcp_oci_flags = -1;
-static int hf_pfcp_b0_aoci = -1;
-static int hf_pfcp_sx_assoc_rel_req_flags = -1;
-static int hf_pfcp_b0_sarr = -1;
+static int hf_pfcp_oci_flags_b0_aoci = -1;
+
+static int hf_pfcp_pfcp_assoc_rel_req_flags = -1;
+static int hf_pfcp_pfcp_assoc_rel_req_b0_sarr = -1;
+
 static int hf_pfcp_upiri_flags = -1;
-static int hf_pfcp_upiri_flg_b0_v4 = -1;
-static int hf_pfcp_upiri_flg_b1_v6 = -1;
+static int hf_pfcp_upiri_flags_b0_v4 = -1;
+static int hf_pfcp_upiri_flags_b1_v6 = -1;
 static int hf_pfcp_upiri_flg_b5_assoni = -1;
 static int hf_pfcp_upiri_teidri = -1;
 static int hf_pfcp_upiri_teid_range = -1;
 static int hf_pfcp_upiri_ipv4 = -1;
 static int hf_pfcp_upiri_ipv6 = -1;
 static int hf_pfcp_upiri_network_instance = -1;
+
 static int hf_pfcp_user_plane_inactivity_timer = -1;
+
+static int hf_pfcp_subsequent_volume_quota = -1;
+static int hf_pfcp_subsequent_volume_quota_b2_dlvol = -1;
+static int hf_pfcp_subsequent_volume_quota_b1_ulvol = -1;
+static int hf_pfcp_subsequent_volume_quota_b0_tovol = -1;
+static int hf_pfcp_subsequent_volume_quota_tovol = -1;
+static int hf_pfcp_subsequent_volume_quota_ulvol = -1;
+static int hf_pfcp_subsequent_volume_quota_dlvol = -1;
+
+static int hf_pfcp_subsequent_time_quota = -1;
 
 static int ett_pfcp = -1;
 static int ett_pfcp_flags = -1;
@@ -347,14 +394,20 @@ static int ett_pfcp_usage_information = -1;
 static int ett_pfcp_packet_rate = -1;
 static int ett_pfcp_pfcp_dl_flow_level_marking = -1;
 static int ett_pfcp_dl_data_service_inf = -1;
-static int ett_pfcp_sxsmreq = -1;
-static int ett_pfcp_sxsrrsp = -1;
+static int ett_pfcp_pfcpsmreq = -1;
+static int ett_pfcp_pfcpsrrsp = -1;
 static int ett_pfcp_measurement_info = -1;
 static int ett_pfcp_node_report_type = -1;
 static int ett_pfcp_remote_gtp_u_peer = -1;
 static int ett_pfcp_oci_flags = -1;
 static int ett_sx_assoc_rel_req_flags = -1;
 static int ett_pfcp_upiri_flags = -1;
+static int ett_pfcp_flow_desc = -1;
+static int ett_pfcp_tos = -1;
+static int ett_pfcp_spi = -1;
+static int ett_pfcp_flow_label = -1;
+static int ett_pfcp_subsequent_volume_quota = -1;
+
 
 static expert_field ei_pfcp_ie_reserved = EI_INIT;
 static expert_field ei_pfcp_ie_data_not_decoded = EI_INIT;
@@ -402,6 +455,7 @@ static void dissect_pfcp_remove_bar(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 static void dissect_pfcp_error_indication_report(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type);
 static void dissect_pfcp_user_plane_path_failure_report(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type);
 static void dissect_pfcp_update_duplicating_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type);
+static void dissect_pfcp_aggregated_urrs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type);
 
 static const true_false_string pfcp_id_predef_dynamic_tfs = {
     "Predefined by UP",
@@ -482,6 +536,7 @@ static value_string_ext pfcp_message_type_ext = VALUE_STRING_EXT_INIT(pfcp_messa
 #define PFCP_ERROR_INDICATION_REPORT           99
 #define PFCP_USER_PLANE_PATH_FAILURE_REPORT   102
 #define PFCP_UPDATE_DUPLICATING_PARAMETERS    105
+#define PFCP_AGGREGATED_URRS                  118
 
 static const value_string pfcp_ie_type[] = {
 
@@ -534,8 +589,8 @@ static const value_string pfcp_ie_type[] = {
     { 46, "Downlink Data Notification Delay" },                     /* Extendable / Subclause 8.2.28 */
     { 47, "DL Buffering Duration" },                                /* Extendable / Subclause 8.2.29 */
     { 48, "DL Buffering Suggested Packet Count" },                  /* Variable / Subclause 8.2.30 */
-    { 49, "SxSMReq-Flags" },                                        /* Extendable / Subclause 8.2.31 */
-    { 50, "SxSRRsp-Flags" },                                        /* Extendable / Subclause 8.2.32 */
+    { 49, "PFCPSMReq-Flags" },                                      /* Extendable / Subclause 8.2.31 */
+    { 50, "PFCPSRRsp-Flags" },                                      /* Extendable / Subclause 8.2.32 */
     { 51, "Load Control Information" },                             /* Extendable / Table 7.5.3.3-1 */
     { 52, "Sequence Number" },                                      /* Fixed Length / Subclause 8.2.33 */
     { 53, "Metric" },                                               /* Fixed Length / Subclause 8.2.34 */
@@ -602,7 +657,13 @@ static const value_string pfcp_ie_type[] = {
     { 114, "Failed Rule ID" },                                      /* Extendable / Subclause 8.2.80 */
     { 115, "Time Quota Mechanism" },                                /* Extendable / Subclause 8.2.81 */
     { 116, "User Plane IP Resource Information" },                  /* Extendable / Subclause 8.2.82 */
-    //117 to 65535	Spare. For future use.
+    { 117, "User Plane Inactivity Timer" },                         /* Extendable / Subclause 8.2.83 */
+    { 118, "Aggregated URRs" },                                     /* Extendable / Table 7.5.2.4-2 */
+    { 119, "Multiplier" },                                          /* Fixed Length / Subclause 8.2.84 */
+    { 120, "Aggregated URR ID IE" },                                /* Fixed Length / Subclause 8.2.85 */
+    { 121, "Subsequent Volume Quota" },                             /* Extendable / Subclause 8.2.86 */
+    { 122, "Subsequent Time Quota" },                               /* Extendable / Subclause 8.2.87 */
+    //123 to 65535	Spare. For future use.
     {0, NULL}
 };
 
@@ -641,10 +702,12 @@ static const value_string pfcp_cause_vals[] = {
 };
 
 static void
-dissect_pfcp_cause(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length _U_, guint8 message_type _U_)
+dissect_pfcp_cause(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, guint16 length _U_, guint8 message_type _U_)
 {
+    guint32 value;
     /* Octet 5 Cause value */
-    proto_tree_add_item(tree, hf_pfcp2_cause, tvb, 0, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_pfcp2_cause, tvb, 0, 1, ENC_BIG_ENDIAN, &value);
+    proto_item_append_text(item, "%s", val_to_str_const(value, pfcp_cause_vals, "Unknown"));
 }
 /*
  * 8.2.2    Source Interface
@@ -678,7 +741,7 @@ dissect_pfcp_source_interface(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
  * 8.2.3    F-TEID
  */
 static void
-dissect_pfcp_f_teid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
+dissect_pfcp_f_teid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_)
 {
     int offset = 0;
     guint64 fteid_flags_val;
@@ -719,16 +782,19 @@ dissect_pfcp_f_teid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_i
 
         /* Octet 6 to 9    TEID */
         proto_tree_add_item(tree, hf_pfcp_f_teid_teid, tvb, offset, 4, ENC_BIG_ENDIAN);
+        proto_item_append_text(item, "TEID: 0x%s", tvb_bytes_to_str(wmem_packet_scope(), tvb, offset, 4));
         offset += 4;
 
         if ((fteid_flags_val & 0x1) == 1) {
             /* m to (m+3)    IPv4 address */
             proto_tree_add_item(tree, hf_pfcp_f_teid_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
+            proto_item_append_text(item, ", IPv4 %s", tvb_ip_to_str(tvb, offset));
             offset += 4;
         }
         if ((fteid_flags_val & 0x2) == 2) {
             /* p to (p+15)   IPv6 address */
             proto_tree_add_item(tree, hf_pfcp_f_teid_ipv6, tvb, offset, 16, ENC_NA);
+            proto_item_append_text(item, ", IPv6 %s", tvb_ip6_to_str(tvb, offset));
             offset += 16;
         }
         /* If the value of CH bit is set to "0", but the value of CHID bit is "1" */
@@ -757,18 +823,19 @@ dissect_pfcp_network_instance(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
  * 8.2.5    SDF Filter
  */
 static void
-dissect_pfcp_sdf_filter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length _U_, guint8 message_type _U_)
+dissect_pfcp_sdf_filter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, guint16 length _U_, guint8 message_type _U_)
 {
     int offset = 0;
     guint64 flags_val;
     guint32 fd_length;
+    proto_tree *flow_desc_tree, *tos_tree, *spi_tree, *flow_label_tree;
 
     static const int * pfcp_sdf_filter_flags[] = {
         &hf_pfcp_spare_h1,
-        &hf_pfcp_sdf_filter_b3_fl,
-        &hf_pfcp_sdf_filter_b2_spi,
-        &hf_pfcp_sdf_filter_b1_ttc,
-        &hf_pfcp_sdf_filter_b0_fd,
+        &hf_pfcp_sdf_filter_flags_b3_fl,
+        &hf_pfcp_sdf_filter_flags_b2_spi,
+        &hf_pfcp_sdf_filter_flags_b1_ttc,
+        &hf_pfcp_sdf_filter_flags_b0_fd,
         NULL
     };
     /* Octet 5  Spare   FL  SPI TTC FD*/
@@ -783,14 +850,15 @@ dissect_pfcp_sdf_filter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         /* FD (Flow Description): If this bit is set to "1",
          * then the Length of Flow Description and the Flow Description fields shall be present
          */
+        flow_desc_tree = proto_item_add_subtree(item, ett_pfcp_flow_desc);
         /* m to (m+1)	Length of Flow Description */
-        proto_tree_add_item_ret_uint(tree, hf_pfcp_flow_desc_len, tvb, offset, 2, ENC_BIG_ENDIAN, &fd_length);
+        proto_tree_add_item_ret_uint(flow_desc_tree, hf_pfcp_flow_desc_len, tvb, offset, 2, ENC_BIG_ENDIAN, &fd_length);
         offset += 2;
         /* Flow Description
          * The Flow Description field, when present, shall be encoded as an OctetString
          * as specified in subclause 5.4.2 of 3GPP TS 29.212
          */
-        proto_tree_add_item(tree, hf_pfcp_fd, tvb, offset, fd_length, ENC_NA);
+        proto_tree_add_item(flow_desc_tree, hf_pfcp_flow_desc, tvb, offset, fd_length, ENC_ASCII|ENC_NA);
         offset += fd_length;
     }
     if ((flags_val & 0x2) == 2) {
@@ -798,8 +866,11 @@ dissect_pfcp_sdf_filter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         /* ToS Traffic Class field, when present, shall be encoded as an OctetString on two octets
          * as specified in subclause 5.3.15 of 3GPP TS 29.212
          */
-        proto_tree_add_item(tree, hf_pfcp_ttc, tvb, offset, 2, ENC_NA);
-        offset += 2;
+        tos_tree = proto_item_add_subtree(item, ett_pfcp_tos);
+        proto_tree_add_item(tos_tree, hf_pfcp_traffic_class, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        proto_tree_add_item(tos_tree, hf_pfcp_traffic_mask, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
     }
 
     if ((flags_val & 0x4) == 4) {
@@ -807,7 +878,8 @@ dissect_pfcp_sdf_filter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
          * contain the IPsec security parameter index (which is a 32-bit field),
          * as specified in subclause 5.3.51 of 3GPP TS 29.212
          */
-        proto_tree_add_item(tree, hf_pfcp_spi, tvb, offset, 4, ENC_NA);
+        spi_tree = proto_item_add_subtree(item, ett_pfcp_spi);
+        proto_tree_add_item(spi_tree, hf_pfcp_spi, tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
     }
     if ((flags_val & 0x8) == 8) {
@@ -815,7 +887,9 @@ dissect_pfcp_sdf_filter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
          * subclause 5.3.52 of 3GPP TS 29.212 and shall contain an IPv6 flow label (which is a 20-bit field).
          * The bits 8 to 5 of the octet "v" shall be spare and set to zero, and the remaining 20 bits shall
          * contain the IPv6 flow label.*/
-        proto_tree_add_item(tree, hf_pfcp_fl, tvb, offset, 3, ENC_NA);
+        flow_label_tree = proto_item_add_subtree(item, ett_pfcp_flow_label);
+        proto_tree_add_bits_item(flow_label_tree, hf_pfcp_flow_label_spare_bit, tvb, (offset<<3), 4, ENC_BIG_ENDIAN);
+        proto_tree_add_item(flow_label_tree, hf_pfcp_flow_label, tvb, offset, 3, ENC_BIG_ENDIAN);
         offset += 3;
     }
 
@@ -976,8 +1050,10 @@ dissect_pfcp_transport_level_marking(tvbuff_t *tvb, packet_info *pinfo _U_, prot
     * The ToS/Traffic Class shall be encoded on two octets as an OctetString.
     * The first octet shall contain the IPv4 Type-of-Service or the IPv6 Traffic-Class field and the second octet shall contain the ToS/Traffic Class mask field
     */
-    proto_tree_add_item(tree, hf_pfcp_tos_traf_class, tvb, offset, 2, ENC_BIG_ENDIAN);
-    offset += 2;
+    proto_tree_add_item(tree, hf_pfcp_traffic_class, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+    proto_tree_add_item(tree, hf_pfcp_traffic_mask, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
 
     if (offset < length) {
         proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
@@ -996,9 +1072,9 @@ dissect_pfcp_volume_threshold(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 
     static const int * pfcp_volume_threshold_flags[] = {
         &hf_pfcp_spare_b7_b3,
-        &hf_pfcp_b2_dlvol,
-        &hf_pfcp_b1_ulvol,
-        &hf_pfcp_b0_tovol,
+        &hf_pfcp_volume_threshold_b2_dlvol,
+        &hf_pfcp_volume_threshold_b1_ulvol,
+        &hf_pfcp_volume_threshold_b0_tovol,
         NULL
     };
     /* Octet 5  Spare   DLVOL   ULVOL   TOVOL*/
@@ -1178,26 +1254,32 @@ dissect_pfcp_reporting_triggers(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 {
     int offset = 0;
 
-    static const int * pfcp_reporting_triggers_flags[] = {
-		&hf_pfcp_reporting_triggers_b15_liusa,
-		&hf_pfcp_reporting_triggers_b14_droth,
-		&hf_pfcp_reporting_triggers_b13_stopt,
-		&hf_pfcp_reporting_triggers_b12_start,
-		&hf_pfcp_reporting_triggers_b11_quhti,
-		&hf_pfcp_reporting_triggers_b10_timth,
-		&hf_pfcp_reporting_triggers_b9_volth,
-		&hf_pfcp_reporting_triggers_b8_perio,
-		&hf_pfcp_reporting_triggers_b7_b3_spare,
-		&hf_pfcp_reporting_triggers_b2_envcl,
-		&hf_pfcp_reporting_triggers_b1_timqu,
-		&hf_pfcp_reporting_triggers_b0_volqu,
+    static const int * pfcp_reporting_triggers_o5_flags[] = {
+        &hf_pfcp_reporting_triggers_o5_b7_liusa,
+        &hf_pfcp_reporting_triggers_o5_b6_droth,
+        &hf_pfcp_reporting_triggers_o5_b5_stopt,
+        &hf_pfcp_reporting_triggers_o5_b4_start,
+        &hf_pfcp_reporting_triggers_o5_b3_quhti,
+        &hf_pfcp_reporting_triggers_o5_b2_timth,
+        &hf_pfcp_reporting_triggers_o5_b1_volth,
+        &hf_pfcp_reporting_triggers_o5_b0_perio,
+        NULL
+    };
+    static const int * pfcp_reporting_triggers_o6_flags[] = {
+        &hf_pfcp_spare_b7_b3,
+        &hf_pfcp_reporting_triggers_o6_b2_envcl,
+        &hf_pfcp_reporting_triggers_o6_b1_timqu,
+        &hf_pfcp_reporting_triggers_o6_b0_volqu,
         NULL
     };
     /* Octet 5 [Bits 15-08] LIUSA   DROTH   STOPT   START   QUHTI   TIMTH   VOLTH   PERIO */
     /* Octet 6 [Bits 07-00] SPARE   SPARE   SPARE   SPARE   SPARE   ENVCL   TIMQU   VOLQU */
     proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_reporting_triggers,
-        ett_pfcp_reporting_triggers, pfcp_reporting_triggers_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
-    offset += 2;
+        ett_pfcp_reporting_triggers, pfcp_reporting_triggers_o5_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
+    offset++;
+    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_reporting_triggers,
+        ett_pfcp_reporting_triggers, pfcp_reporting_triggers_o6_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
+    offset++;
 
     if (offset < length) {
         proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
@@ -1249,13 +1331,14 @@ dissect_pfcp_report_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, pr
     int offset = 0;
 
     static const int * pfcp_report_type_flags[] = {
-        &hf_pfcp_spare_b7_b3,
-        &hf_pfcp_b2_erir,
-        &hf_pfcp_b1_usar,
-        &hf_pfcp_b0_dldr,
+        &hf_pfcp_spare_b7_b4,
+        &hf_pfcp_report_type_b3_upir,
+        &hf_pfcp_report_type_b2_erir,
+        &hf_pfcp_report_type_b1_usar,
+        &hf_pfcp_report_type_b0_dldr,
         NULL
     };
-    /* Octet 5  Spare   ERIR    USAR    DLDR */
+    /* Octet 5  Spare   UPIR   ERIR    USAR    DLDR */
     proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_report_type,
         ett_pfcp_report_type, pfcp_report_type_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
     offset += 1;
@@ -1338,24 +1421,30 @@ dissect_pfcp_up_function_features(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 {
     int offset = 0;
 
-    static const int * pfcp_up_function_features_flags[] = {
-        &hf_pfcp_b15_treu,
-        &hf_pfcp_b14_heeu,
-        &hf_pfcp_b13_pfdm,
-        &hf_pfcp_b12_ftup,
-        &hf_pfcp_b11_trst,
-        &hf_pfcp_b10_dlbd,
-        &hf_pfcp_b9_ddnd,
-        &hf_pfcp_b8_bucp,
-        &hf_pfcp_b1_b7_spare,
-        &hf_pfcp_b0_empu,
+    static const int * pfcp_up_function_features_o5_flags[] = {
+        &hf_pfcp_up_function_features_o5_b7_treu,
+        &hf_pfcp_up_function_features_o5_b6_heeu,
+        &hf_pfcp_up_function_features_o5_b5_pfdm,
+        &hf_pfcp_up_function_features_o5_b4_ftup,
+        &hf_pfcp_up_function_features_o5_b3_trst,
+        &hf_pfcp_up_function_features_o5_b2_dlbd,
+        &hf_pfcp_up_function_features_o5_b1_ddnd,
+        &hf_pfcp_up_function_features_o5_b0_bucp,
         NULL
     };
-    /* Octet 5  TREU   HEEU   PFDM   FTUP   TRST   DLBD   DDND   BUCP*/
-    /* Octet 6  Spare   Spare   Spare   Spare   Spare   Spare   Spare   EMPU*/
+    static const int * pfcp_up_function_features_o6_flags[] = {
+        &hf_pfcp_spare_b7_b1,
+        &hf_pfcp_up_function_features_o6_b0_empu,
+        NULL
+    };
+    /* Octet 5  TREU    HEEU    PFDM    FTUP    TRST    DLBD    DDND    BUCP */
+    /* Octet 6  Spare   Spare   Spare   Spare   Spare   Spare   Spare   EMPU */
     proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_up_function_features,
-        ett_pfcp_up_function_features, pfcp_up_function_features_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
-    offset += 2;
+        ett_pfcp_up_function_features, pfcp_up_function_features_o5_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
+    offset++;
+    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_up_function_features,
+        ett_pfcp_up_function_features, pfcp_up_function_features_o6_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
+    offset++;
 
     if (offset < length) {
         proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
@@ -1372,11 +1461,11 @@ dissect_pfcp_apply_action(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
 
     static const int * pfcp_apply_action_flags[] = {
         &hf_pfcp_spare_b7_b5,
-        &hf_pfcp_apply_action_b4_dupl,
-        &hf_pfcp_apply_action_b3_nocp,
-        &hf_pfcp_apply_action_b2_buff,
-        &hf_pfcp_apply_action_b1_forw,
-        &hf_pfcp_apply_action_b0_drop,
+        &hf_pfcp_apply_action_flags_b4_dupl,
+        &hf_pfcp_apply_action_flags_b3_nocp,
+        &hf_pfcp_apply_action_flags_b2_buff,
+        &hf_pfcp_apply_action_flags_b1_forw,
+        &hf_pfcp_apply_action_flags_b0_drop,
         NULL
     };
     /* Octet 5  Spare   Spare   Spare   DUPL    NOCP    BUFF    FORW    DROP */
@@ -1400,11 +1489,11 @@ dissect_pfcp_dl_data_service_inf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 
     static const int * pfcp_dl_data_service_inf_flags[] = {
         &hf_pfcp_spare_b7_b1,
-        &hf_pfcp_b0_ppi,
+        &hf_pfcp_dl_data_service_inf_b0_ppi,
         NULL
     };
     /* Octet 5  Spare   PPI */
-    proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_pfcp_dl_data_service_inf_flags,
+    proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_dl_data_service_inf_flags,
         ett_pfcp_dl_data_service_inf, pfcp_dl_data_service_inf_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT | BMT_NO_TFS, &flags);
     offset += 1;
     /* The PPI flag in octet 5 indicates whether the Paging Policy Indication value in octet 'm' shall be present */
@@ -1469,32 +1558,33 @@ dissect_pfcp_dl_buffering_dur(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
     offset++;
 
     unit = unit >> 5;
-    switch (unit) {
-    case 0:
-        proto_item_append_text(item, "%u s", value * 2);
-        break;
-    case 1:
-        proto_item_append_text(item, "%u min", value);
-        break;
-    case 2:
-        proto_item_append_text(item, "%u min", value * 10);
-        break;
-    case 3:
-        proto_item_append_text(item, "%u hours", value);
-        break;
-    case 4:
-        proto_item_append_text(item, "%u hours", value * 10);
-        break;
-    case 7:
-        proto_item_append_text(item, "%u Infinite", value);
-        break;
-        /* Value 5 and 6 */
-    default:
-        proto_item_append_text(item, "%u min", value * 10);
-        break;
-    }
-    if ((unit != 7) && (value == 0)) {
+    if ((unit == 0) && (value == 0)) {
         proto_item_append_text(item, " Stopped");
+    } else {
+        switch (unit) {
+        case 0:
+            proto_item_append_text(item, "%u s", value * 2);
+            break;
+        case 1:
+            proto_item_append_text(item, "%u min", value);
+            break;
+        case 2:
+            proto_item_append_text(item, "%u min", value * 10);
+            break;
+        case 3:
+            proto_item_append_text(item, "%u hours", value);
+            break;
+        case 4:
+            proto_item_append_text(item, "%u hours", value * 10);
+            break;
+        case 7:
+            proto_item_append_text(item, "%u Infinite", value);
+            break;
+            /* Value 5 and 6 */
+        default:
+            proto_item_append_text(item, "%u min", value);
+            break;
+        }
     }
 
     if (offset < length) {
@@ -1507,31 +1597,34 @@ dissect_pfcp_dl_buffering_dur(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
  * 8.2.30   DL Buffering Suggested Packet Count
  */
 static void
-dissect_pfcp_dl_buffering_suggested_packet_count(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
+dissect_pfcp_dl_buffering_suggested_packet_count(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_)
 {
+    guint32 value;
     /* Octet 5 to n+4 Packet Count Value
     * The length shall be set to 1 or 2 octets.
     */
-    proto_tree_add_item(tree, hf_pfcp_packet_count, tvb, 0, length, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_packet_count, tvb, 0, length, ENC_BIG_ENDIAN, &value);
+
+    proto_item_append_text(item, "%u", value);
 }
 /*
- * 8.2.31   SxSMReq-Flags
+ * 8.2.31   PFCPSMReq-Flags
  */
 static void
-dissect_pfcp_sxsmreq_flags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
+dissect_pfcp_pfcpsmreq_flags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
 {
     int offset = 0;
 
-    static const int * pfcp_sxsmreq_flags[] = {
+    static const int * pfcp_pfcpsmreq_flags[] = {
         &hf_pfcp_spare_b7_b3,
-        &hf_pfcp_b2_qaurr,
-        &hf_pfcp_b1_sndem,
-        &hf_pfcp_b0_drobu,
+        &hf_pfcp_pfcpsmreq_flags_b2_qaurr,
+        &hf_pfcp_pfcpsmreq_flags_b1_sndem,
+        &hf_pfcp_pfcpsmreq_flags_b0_drobu,
         NULL
     };
     /* Octet 5  Spare   Spare   Spare   Spare   Spare   QAURR   SNDEM   DROBU */
-    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_sxsmreq_flags,
-        ett_pfcp_sxsmreq, pfcp_sxsmreq_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
+    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_pfcpsmreq_flags,
+        ett_pfcp_pfcpsmreq, pfcp_pfcpsmreq_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
     offset += 1;
 
     if (offset < length) {
@@ -1540,21 +1633,21 @@ dissect_pfcp_sxsmreq_flags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 
 }
 /*
- * 8.2.32   SxSRRsp-Flags
+ * 8.2.32   PFCPSRRsp-Flags
  */
 static void
-dissect_pfcp_sxsrrsp_flags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
+dissect_pfcp_pfcpsrrsp_flags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
 {
     int offset = 0;
 
-    static const int * pfcp_sxsrrsp_flags[] = {
+    static const int * pfcp_pfcpsrrsp_flags[] = {
         &hf_pfcp_spare_b7_b1,
-        &hf_pfcp_b0_drobu,
+        &hf_pfcp_pfcpsrrsp_flags_b0_drobu,
         NULL
     };
     /* Octet 5  Spare   Spare   Spare   Spare   Spare   Spare   Spare   DROBU */
-    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_sxsrrsp_flags,
-        ett_pfcp_sxsrrsp, pfcp_sxsrrsp_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
+    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_pfcpsrrsp_flags,
+        ett_pfcp_pfcpsrrsp, pfcp_pfcpsrrsp_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
     offset += 1;
 
     if (offset < length) {
@@ -1606,32 +1699,33 @@ dissect_pfcp_timer(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, prot
     offset++;
 
     unit = unit >> 5;
-    switch (unit) {
-    case 0:
-        proto_item_append_text(item, "%u s", value * 2);
-        break;
-    case 1:
-        proto_item_append_text(item, "%u min", value);
-        break;
-    case 2:
-        proto_item_append_text(item, "%u min", value * 10);
-        break;
-    case 3:
-        proto_item_append_text(item, "%u hours", value);
-        break;
-    case 4:
-        proto_item_append_text(item, "%u hours", value * 10);
-        break;
-    case 7:
-        proto_item_append_text(item, "%u Infinite", value);
-        break;
-        /* Value 5 and 6 */
-    default:
-        proto_item_append_text(item, "%u min", value * 10);
-        break;
-    }
-    if ((unit != 7) && (value == 0)) {
+    if ((unit == 0) && (value == 0)) {
         proto_item_append_text(item, " Stopped");
+    } else {
+        switch (unit) {
+        case 0:
+            proto_item_append_text(item, "%u s", value * 2);
+            break;
+        case 1:
+            proto_item_append_text(item, "%u min", value);
+            break;
+        case 2:
+            proto_item_append_text(item, "%u min", value * 10);
+            break;
+        case 3:
+            proto_item_append_text(item, "%u hours", value);
+            break;
+        case 4:
+            proto_item_append_text(item, "%u hours", value * 10);
+            break;
+        case 7:
+            proto_item_append_text(item, "%u Infinite", value);
+            break;
+            /* Value 5 and 6 */
+        default:
+            proto_item_append_text(item, "%u min", value * 1);
+            break;
+        }
     }
 
     if (offset < length) {
@@ -1670,7 +1764,7 @@ dissect_pfcp_pdr_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_i
  * 8.2.37   F-SEID
  */
 static void
-dissect_pfcp_f_seid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
+dissect_pfcp_f_seid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_)
 {
     int offset = 0;
     guint64 f_seid_flags;
@@ -1697,15 +1791,18 @@ dissect_pfcp_f_seid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_i
     }
     /* Octet 6 to 13    SEID  */
     proto_tree_add_item(tree, hf_pfcp_seid, tvb, offset, 8, ENC_BIG_ENDIAN);
+    proto_item_append_text(item, "SEID: 0x%s", tvb_bytes_to_str(wmem_packet_scope(), tvb, offset, 8));
     offset += 8;
     /* IPv4 address (if present)*/
     if ((f_seid_flags & 0x2) == 2) {
         proto_tree_add_item(tree, hf_pfcp_f_seid_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
+        proto_item_append_text(item, ", IPv4 %s", tvb_ip_to_str(tvb, offset));
         offset += 4;
     }
     /* IPv6 address (if present)*/
     if ((f_seid_flags & 0x1) == 1) {
         proto_tree_add_item(tree, hf_pfcp_f_seid_ipv6, tvb, offset, 16, ENC_NA);
+        proto_item_append_text(item, ", IPv6 %s", tvb_ip6_to_str(tvb, offset));
         offset += 16;
     }
     if (offset < length) {
@@ -1735,19 +1832,20 @@ dissect_pfcp_node_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_
     /* Octet 5    Spare Node ID Type*/
     proto_tree_add_item(tree, hf_pfcp_spare_h1, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item_ret_uint(tree, hf_pfcp_node_id_type, tvb, offset, 1, ENC_BIG_ENDIAN, &node_id_type);
+    proto_item_append_text(item, "%s: ", val_to_str_const(node_id_type, pfcp_node_id_type_vals, "Unknown"));
     offset++;
 
     switch (node_id_type) {
         case 0:
             /* IPv4 address */
             proto_tree_add_item(tree, hf_pfcp_node_id_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
-            proto_item_append_text(item, "IPv4 %s", tvb_ip_to_str(tvb, offset));
+            proto_item_append_text(item, "%s", tvb_ip_to_str(tvb, offset));
             offset += 4;
             break;
         case 1:
             /* IPv6 address */
             proto_tree_add_item(tree, hf_pfcp_node_id_ipv6, tvb, offset, 16, ENC_NA);
-            proto_item_append_text(item, "IPv6 %s", tvb_ip6_to_str(tvb, offset));
+            proto_item_append_text(item, "%s", tvb_ip6_to_str(tvb, offset));
             offset += 16;
             break;
         case 2:
@@ -1798,13 +1896,13 @@ dissect_pfcp_pfd_contents(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
 
     static const int * pfcp_pfd_contents_flags[] = {
         &hf_pfcp_spare_b7_b4,
-        &hf_pfcp_b3_cp,
-        &hf_pfcp_b2_dn,
-        &hf_pfcp_b1_url,
-        &hf_pfcp_b0_fd,
+        &hf_pfcp_pfd_contents_flags_b3_cp,
+        &hf_pfcp_pfd_contents_flags_b2_dn,
+        &hf_pfcp_pfd_contents_flags_b1_url,
+        &hf_pfcp_pfd_contents_flags_b0_fd,
         NULL
     };
-    /* Octet 5  Spare   CP  DN  URL FD*/
+    /* Octet 5  Spare   CP  DN  URL FD */
     proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_pfd_contents_flags,
         ett_pfcp_measurement_method_flags, pfcp_pfd_contents_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT, &flags);
     offset += 1;
@@ -1821,7 +1919,7 @@ dissect_pfcp_pfd_contents(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
         offset += 2;
 
         /* (m+2) to p   Flow Description */
-        proto_tree_add_item(tree, hf_pfcp_fd, tvb, offset, len, ENC_NA);
+        proto_tree_add_item(tree, hf_pfcp_flow_desc, tvb, offset, len, ENC_ASCII|ENC_NA);
         offset += len;
     }
 
@@ -1876,12 +1974,12 @@ dissect_pfcp_measurement_method(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 
     static const int * pfcp_measurement_method_flags[] = {
         &hf_pfcp_spare_b7_b3,
-        &hf_pfcp_b2_event,
-        &hf_pfcp_b1_volume,
-        &hf_pfcp_b0_durat,
+        &hf_pfcp_measurement_method_flags_b2_event,
+        &hf_pfcp_measurement_method_flags_b1_volume,
+        &hf_pfcp_measurement_method_flags_b0_durat,
         NULL
     };
-    /* Octet 5  Spare   Spare   Spare   Spare   Spare   EVENT   VOLUM   DURAT*/
+    /* Octet 5  Spare   Spare   Spare   Spare   Spare   EVENT   VOLUM   DURAT */
     proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_measurement_method_flags,
         ett_pfcp_measurement_method_flags, pfcp_measurement_method_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
     offset += 1;
@@ -1900,30 +1998,35 @@ dissect_pfcp_usage_report_trigger(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 {
     int offset = 0;
 
-    static const int * pfcp_usage_report_trigger_flags[] = {
-
-        &hf_pfcp_usage_report_trigger_b15_immer,
-        &hf_pfcp_usage_report_trigger_b14_droth,
-        &hf_pfcp_usage_report_trigger_b13_stopt,
-        &hf_pfcp_usage_report_trigger_b12_start,
-        &hf_pfcp_usage_report_trigger_b11_quhti,
-        &hf_pfcp_usage_report_trigger_b10_timth,
-        &hf_pfcp_usage_report_trigger_b9_volth,
-        &hf_pfcp_usage_report_trigger_b8_perio,
-        &hf_pfcp_usage_report_trigger_b7_b6_spare,
-        &hf_pfcp_usage_report_trigger_b5_envcl,
-        &hf_pfcp_usage_report_trigger_b4_monit,
-        &hf_pfcp_usage_report_trigger_b3_termr,
-        &hf_pfcp_usage_report_trigger_b2_liusa,
-        &hf_pfcp_usage_report_trigger_b1_timqu,
-        &hf_pfcp_usage_report_trigger_b0_volqu,
+    static const int * pfcp_usage_report_trigger_o5_flags[] = {
+        &hf_pfcp_usage_report_trigger_o5_b7_immer,
+        &hf_pfcp_usage_report_trigger_o5_b6_droth,
+        &hf_pfcp_usage_report_trigger_o5_b5_stopt,
+        &hf_pfcp_usage_report_trigger_o5_b4_start,
+        &hf_pfcp_usage_report_trigger_o5_b3_quhti,
+        &hf_pfcp_usage_report_trigger_o5_b2_timth,
+        &hf_pfcp_usage_report_trigger_o5_b1_volth,
+        &hf_pfcp_usage_report_trigger_o5_b0_perio,
+        NULL
+    };
+    static const int * pfcp_usage_report_trigger_o6_flags[] = {
+        &hf_pfcp_spare_b7_b6,
+        &hf_pfcp_usage_report_trigger_o6_b5_envcl,
+        &hf_pfcp_usage_report_trigger_o6_b4_monit,
+        &hf_pfcp_usage_report_trigger_o6_b3_termr,
+        &hf_pfcp_usage_report_trigger_o6_b2_liusa,
+        &hf_pfcp_usage_report_trigger_o6_b1_timqu,
+        &hf_pfcp_usage_report_trigger_o6_b0_volqu,
         NULL
     };
     /* Octet 5  IMMER   DROTH   STOPT   START   QUHTI   TIMTH   VOLTH   PERIO*/
     /* Octet 6  Spare   Spare   ENVCL   MONIT   TERMR   LIUSA   TIMQU   VOLQU*/
     proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_usage_report_trigger,
-        ett_pfcp_report_trigger, pfcp_usage_report_trigger_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
-    offset += 2;
+        ett_pfcp_report_trigger, pfcp_usage_report_trigger_o5_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
+    offset++;
+    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_usage_report_trigger,
+        ett_pfcp_report_trigger, pfcp_usage_report_trigger_o6_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
+    offset++;
 
     if (offset < length) {
         proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
@@ -2019,9 +2122,9 @@ dissect_pfcp_volume_measurement(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 
     static const int * pfcp_volume_measurement_flags[] = {
         &hf_pfcp_spare_b7_b3,
-        &hf_pfcp_b2_dlvol,
-        &hf_pfcp_b1_ulvol,
-        &hf_pfcp_b0_tovol,
+        &hf_pfcp_volume_measurement_b2_dlvol,
+        &hf_pfcp_volume_measurement_b1_ulvol,
+        &hf_pfcp_volume_measurement_b0_tovol,
         NULL
     };
     /* Octet 5  Spare   DLVOL   ULVOL   TOVOL*/
@@ -2177,9 +2280,9 @@ dissect_pfcp_volume_quota(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
 
     static const int * pfcp_volume_quota_flags[] = {
         &hf_pfcp_spare_b7_b3,
-        &hf_pfcp_b2_dlvol,
-        &hf_pfcp_b1_ulvol,
-        &hf_pfcp_b0_tovol,
+        &hf_pfcp_volume_quota_b2_dlvol,
+        &hf_pfcp_volume_quota_b1_ulvol,
+        &hf_pfcp_volume_quota_b0_tovol,
         NULL
     };
     /* Octet 5  Spare   DLVOL   ULVOL   TOVOL*/
@@ -2330,7 +2433,7 @@ dissect_pfcp_linked_urr_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     proto_tree_add_item_ret_uint(tree, hf_pfcp_linked_urr_id, tvb, offset, 4, ENC_BIG_ENDIAN, &value);
     offset += 4;
 
-    proto_item_append_text(item, "%u s", value);
+    proto_item_append_text(item, "%u", value);
 
     if (offset < length) {
         proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
@@ -2407,12 +2510,14 @@ dissect_pfcp_outer_header_creation(tvbuff_t *tvb, packet_info *pinfo, proto_tree
  * 8.2.57   BAR ID
  */
 static int
-decode_pfcp_bar_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 offset)
+decode_pfcp_bar_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, guint16 offset)
 {
+    guint32 value;
     /* Octet 5 BAR ID value
     * The BAR ID value shall be encoded as a binary integer value
     */
-    proto_tree_add_item(tree, hf_pfcp_bar_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_bar_id, tvb, offset, 1, ENC_BIG_ENDIAN, &value);
+    proto_item_append_text(item, "%u", value);
     offset++;
 
     return offset;
@@ -2439,8 +2544,8 @@ dissect_pfcp_cp_function_features(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     int offset = 0;
 
     static const int * pfcp_cp_function_features_flags[] = {
-        &hf_pfcp_b1_ovrl,
-        &hf_pfcp_b0_load,
+        &hf_pfcp_cp_function_features_b1_ovrl,
+        &hf_pfcp_cp_function_features_b0_load,
         NULL
     };
     /* Octet 5
@@ -2467,10 +2572,10 @@ dissect_pfcp_usage_information(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 
     static const int * pfcp_usage_information_flags[] = {
         &hf_pfcp_spare_h1,
-        &hf_pfcp_b3_ube,
-        &hf_pfcp_b2_uae,
-        &hf_pfcp_b1_aft,
-        &hf_pfcp_b0_bef,
+        &hf_pfcp_usage_information_b3_ube,
+        &hf_pfcp_usage_information_b2_uae,
+        &hf_pfcp_usage_information_b1_aft,
+        &hf_pfcp_usage_information_b0_bef,
         NULL
     };
     /* Octet 5  Spare   UBE UAE AFT BEF */
@@ -2524,7 +2629,7 @@ dissect_pfcp_flow_inf(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, p
     * The Flow Description field, when present, shall be encoded as an OctetString
     * as specified in subclause 5.4.2 of 3GPP TS 29.212
     */
-    proto_tree_add_item(tree, hf_pfcp_fd, tvb, offset, len, ENC_NA);
+    proto_tree_add_item(tree, hf_pfcp_flow_desc, tvb, offset, len, ENC_ASCII|ENC_NA);
     offset += len;
 
     if (offset < length) {
@@ -2595,8 +2700,8 @@ dissect_pfcp_packet_rate(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, pr
 
     static const int * pfcp_packet_rate_flags[] = {
         &hf_pfcp_spare_b7_b2,
-        &hf_pfcp_dlpr_b1,
-        &hf_pfcp_ulpr_b0,
+        &hf_pfcp_packet_rate_b1_dlpr,
+        &hf_pfcp_packet_rate_b0_ulpr,
         NULL
     };
     /* Octet 5  Spare   DLPR    ULPR */
@@ -2692,8 +2797,8 @@ dissect_pfcp_dl_flow_level_marking(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
 
     static const int * pfcp_dl_flow_level_marking_flags[] = {
         &hf_pfcp_spare_b7_b2,
-        &hf_pfcp_b1_sci,
-        &hf_pfcp_b0_ttc,
+        &hf_pfcp_dl_flow_level_marking_b1_sci,
+        &hf_pfcp_dl_flow_level_marking_b0_ttc,
         NULL
     };
     /* Octet 5  Spare   SCI TTC*/
@@ -2710,8 +2815,10 @@ dissect_pfcp_dl_flow_level_marking(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
         * The first octet shall contain the IPv4 Type-of-Service or the IPv6 Traffic-Class field and
         * the second octet shall contain the ToS/Traffic Class mask field
         */
-        proto_tree_add_item(tree, hf_pfcp_tos_traf_class, tvb, offset, 2, ENC_BIG_ENDIAN);
-        offset += 2;
+        proto_tree_add_item(tree, hf_pfcp_traffic_class, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        proto_tree_add_item(tree, hf_pfcp_traffic_mask, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
     }
     /* SCI (Service Class Indicator): If this bit is set to "1",
      * then the Service Class Indicator field shall be present
@@ -2782,9 +2889,10 @@ dissect_pfcp_measurement_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     int offset = 0;
 
     static const int * pfcp_measurement_info_flags[] = {
-        &hf_pfcp_spare_b7_b2,
-        &hf_pfcp_b1_inam,
-        &hf_pfcp_b0_mbqe,
+        &hf_pfcp_spare_b7_b3,
+        &hf_pfcp_measurement_info_b2_radi,
+        &hf_pfcp_measurement_info_b1_inam,
+        &hf_pfcp_measurement_info_b0_mbqe,
         NULL
     };
     /* Octet 5  Spare   INAM    MBQE */
@@ -2807,7 +2915,7 @@ dissect_pfcp_node_report_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 
     static const int * pfcp_node_report_type_flags[] = {
         &hf_pfcp_spare_b7_b1,
-        &hf_pfcp_b0_upfr,
+        &hf_pfcp_node_report_type_b0_upfr,
         NULL
     };
     /* Octet 5  Spare   INAM    MBQE */
@@ -2831,26 +2939,26 @@ dissect_pfcp_remote_gtp_u_peer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 
     static const int * pfcp_remote_gtp_u_peer_flags[] = {
         &hf_pfcp_spare_b7_b2,
-        &hf_pfcp_gtp_u_peer_flag_b1_v4,
-        &hf_pfcp_gtp_u_peer_flag_b0_v6,
+        &hf_pfcp_remote_gtp_u_peer_flags_b1_v4,
+        &hf_pfcp_remote_gtp_u_peer_flags_b0_v6,
         NULL
     };
     /* Octet 5  Spare   V4  V6*/
-    proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_remote_gtp_u_peer,
+    proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_remote_gtp_u_peer_flags,
         ett_pfcp_remote_gtp_u_peer, pfcp_remote_gtp_u_peer_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT | BMT_NO_TFS, &flags);
     offset += 1;
 
-    /* IPv6 address (if present)*/
-    if ((flags & 0x1) == 1) {
-        proto_tree_add_item(tree, hf_pfcp_remote_gtp_u_peer_ipv6, tvb, offset, 16, ENC_NA);
-        proto_item_append_text(item, "IPv6 %s", tvb_ip6_to_str(tvb, offset));
-        offset += 16;
-    }
     /* IPv4 address (if present)*/
     if ((flags & 0x2) == 2) {
         proto_tree_add_item(tree, hf_pfcp_remote_gtp_u_peer_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
-        proto_item_append_text(item, "IPv4 %s", tvb_ip_to_str(tvb, offset));
+        proto_item_append_text(item, "IPv4 %s ", tvb_ip_to_str(tvb, offset));
         offset += 4;
+    }
+    /* IPv6 address (if present)*/
+    if ((flags & 0x1) == 1) {
+        proto_tree_add_item(tree, hf_pfcp_remote_gtp_u_peer_ipv6, tvb, offset, 16, ENC_NA);
+        proto_item_append_text(item, "IPv6 %s ", tvb_ip6_to_str(tvb, offset));
+        offset += 16;
     }
 
     if (offset < length) {
@@ -2981,7 +3089,7 @@ dissect_pfcp_oci_flags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, prot
 
     static const int * pfcp_oci_flags_flags[] = {
         &hf_pfcp_spare_b7_b1,
-        &hf_pfcp_b0_aoci,
+        &hf_pfcp_oci_flags_b0_aoci,
         NULL
     };
     /* Octet 5  Spare   AOCI */
@@ -2996,20 +3104,20 @@ dissect_pfcp_oci_flags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, prot
 }
 
 /*
- * 8.2.77   Sx Association Release Request
+ * 8.2.77   PFCP Association Release Request
  */
 static void
-dissect_pfcp_sx_assoc_rel_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
+dissect_pfcp_pfcp_assoc_rel_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
 {
     int offset = 0;
 
     static const int * pfcp_sx_assoc_rel_req_flags[] = {
         &hf_pfcp_spare_b7_b1,
-        &hf_pfcp_b0_sarr,
+        &hf_pfcp_pfcp_assoc_rel_req_b0_sarr,
         NULL
     };
     /* Octet 5  Spare    SARR */
-    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_sx_assoc_rel_req_flags,
+    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_pfcp_assoc_rel_req_flags,
         ett_sx_assoc_rel_req_flags, pfcp_sx_assoc_rel_req_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT);
     offset += 1;
 
@@ -3033,33 +3141,33 @@ dissect_pfcp_graceful_release_period(tvbuff_t *tvb, packet_info *pinfo _U_, prot
     proto_tree_add_item_ret_uint(tree, hf_pfcp_timer_value, tvb, offset, 1, ENC_BIG_ENDIAN, &value);
     offset++;
 
-    unit = unit >> 5;
-    switch (unit) {
-    case 0:
-        proto_item_append_text(item, "%u s", value * 2);
-        break;
-    case 1:
-        proto_item_append_text(item, "%u min", value);
-        break;
-    case 2:
-        proto_item_append_text(item, "%u min", value * 10);
-        break;
-    case 3:
-        proto_item_append_text(item, "%u hours", value);
-        break;
-    case 4:
-        proto_item_append_text(item, "%u hours", value * 10);
-        break;
-    case 7:
-        proto_item_append_text(item, "%u Infinite", value);
-        break;
-        /* Value 5 and 6 */
-    default:
-        proto_item_append_text(item, "%u min", value * 10);
-        break;
-    }
-    if ((unit != 7) && (value == 0)) {
+    if ((unit == 0) && (value == 0)) {
         proto_item_append_text(item, " Stopped");
+    } else {
+        switch (unit) {
+        case 0:
+            proto_item_append_text(item, "%u s", value * 2);
+            break;
+        case 1:
+            proto_item_append_text(item, "%u min", value);
+            break;
+        case 2:
+            proto_item_append_text(item, "%u min", value * 10);
+            break;
+        case 3:
+            proto_item_append_text(item, "%u hours", value);
+            break;
+        case 4:
+            proto_item_append_text(item, "%u hours", value * 10);
+            break;
+        case 7:
+            proto_item_append_text(item, "%u Infinite", value);
+            break;
+            /* Value 5 and 6 */
+        default:
+            proto_item_append_text(item, "%u min", value * 1);
+            break;
+        }
     }
 
     if (offset < length) {
@@ -3198,8 +3306,8 @@ dissect_pfcp_user_plane_ip_resource_infomation(tvbuff_t *tvb, packet_info *pinfo
     static const int * pfcp_upiri_flags[] = {
         &hf_pfcp_spare_b7_b6,
         &hf_pfcp_upiri_flg_b5_assoni,
-        &hf_pfcp_upiri_flg_b1_v6,
-        &hf_pfcp_upiri_flg_b0_v4,
+        &hf_pfcp_upiri_flags_b1_v6,
+        &hf_pfcp_upiri_flags_b0_v4,
         NULL
     };
     /* Octet 5  Spare  Spare  ASSONI  TEIDRI  TEIDRI  TEIDRI  V6  V4*/
@@ -3280,6 +3388,109 @@ dissect_pfcp_user_plane_inactivity_timer(tvbuff_t *tvb, packet_info *pinfo, prot
 
 }
 
+/*
+ * 8.2.84    Multiplier
+ */
+static void
+dissect_pfcp_multiplier(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length _U_, guint8 message_type _U_)
+{
+
+    /* 5 to 12  Value-Digits */
+    proto_tree_add_item(tree, hf_pfcp_multiplier_value_digits, tvb, 0, 8, ENC_BIG_ENDIAN);
+
+    /* 12 to 15  Exponent */
+    proto_tree_add_item(tree, hf_pfcp_multiplier_exponent, tvb, 8, 4, ENC_BIG_ENDIAN);
+
+}
+
+/*
+ * 8.2.85    Aggregated URR ID IE
+ */
+static void
+dissect_pfcp_aggregated_urr_id_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, guint16 length _U_, guint8 message_type _U_)
+{
+    guint32 value;
+    /* 5 to 8  URR ID */
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_aggregated_urr_id_ie_urr_id, tvb, 0, 4, ENC_BIG_ENDIAN, &value);
+
+    proto_item_append_text(item, "%u", value);
+}
+
+/*
+ * 8.2.86   Subsequent Volume Quota
+ */
+static void
+dissect_pfcp_subsequent_volume_quota(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_)
+{
+    int offset = 0;
+    guint64 flags_val;
+
+    static const int * pfcp_subsequent_volume_quota_flags[] = {
+        &hf_pfcp_spare_b7_b3,
+        &hf_pfcp_subsequent_volume_quota_b2_dlvol,
+        &hf_pfcp_subsequent_volume_quota_b1_ulvol,
+        &hf_pfcp_subsequent_volume_quota_b0_tovol,
+        NULL
+    };
+    /* Octet 5  Spare   DLVOL   ULVOL   TOVOL*/
+    proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_subsequent_volume_quota,
+        ett_pfcp_subsequent_volume_quota, pfcp_subsequent_volume_quota_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT, &flags_val);
+    offset += 1;
+
+    /* The Total Volume, Uplink Volume and Downlink Volume fields shall be encoded as an Unsigned64 binary integer value.
+    * They shall contain the total, uplink or downlink number of octets respectively.
+    */
+    if ((flags_val & 0x1) == 1) {
+        /* m to (m+7)   Total Volume
+        * TOVOL: If this bit is set to "1", then the Total Volume field shall be present
+        */
+        proto_tree_add_item(tree, hf_pfcp_subsequent_volume_quota_tovol, tvb, offset, 8, ENC_BIG_ENDIAN);
+        offset += 8;
+    }
+    if ((flags_val & 0x2) == 2) {
+        /* p to (p+7)	Uplink Volume
+        * ULVOL: If this bit is set to "1", then the Uplink Volume field shall be present
+        */
+        proto_tree_add_item(tree, hf_pfcp_subsequent_volume_quota_ulvol, tvb, offset, 8, ENC_BIG_ENDIAN);
+        offset += 8;
+    }
+    if ((flags_val & 0x4) == 4) {
+        /* q to (q+7)   Downlink Volume
+        * DLVOL: If this bit is set to "1", then the Downlink Volume field shall be present
+        */
+        proto_tree_add_item(tree, hf_pfcp_subsequent_volume_quota_dlvol, tvb, offset, 8, ENC_BIG_ENDIAN);
+        offset += 8;
+    }
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+/*
+ * 8.2.87   Subsequent Time Quota
+ */
+static void
+dissect_pfcp_subsequent_time_quota(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_)
+{
+    int offset = 0;
+    guint value;
+
+    /* Octet 5 to 8 Time Quota
+    * The Time Quota field shall be encoded as an Unsigned32 binary integer value.
+    * It shall contain the duration in seconds.
+    */
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_subsequent_time_quota, tvb, offset, 4, ENC_BIG_ENDIAN, &value);
+    offset += 4;
+
+    proto_item_append_text(item, "%u s", value);
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+
+}
+
 /* Array of functions to dissect IEs
 * (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type)
 */
@@ -3337,8 +3548,8 @@ static const pfcp_ie_t pfcp_ies[] = {
 /*     46 */    { dissect_pfcp_dl_data_notification_delay },                    /* Downlink Data Notification Delay                Extendable / Subclause 8.2.28 */
 /*     47 */    { dissect_pfcp_dl_buffering_dur },                              /* DL Buffering Duration                           Extendable / Subclause 8.2.29 */
 /*     48 */    { dissect_pfcp_dl_buffering_suggested_packet_count },           /* DL Buffering Suggested Packet Count             Variable / Subclause 8.2.30 */
-/*     49 */    { dissect_pfcp_sxsmreq_flags },                                 /* SxSMReq-Flags                                   Extendable / Subclause 8.2.31 */
-/*     50 */    { dissect_pfcp_sxsrrsp_flags },                                 /* SxSRRsp-Flags                                   Extendable / Subclause 8.2.32 */
+/*     49 */    { dissect_pfcp_pfcpsmreq_flags },                               /* PFCPSMReq-Flags                                 Extendable / Subclause 8.2.31 */
+/*     50 */    { dissect_pfcp_pfcpsrrsp_flags },                               /* PFCPSRRsp-Flags                                 Extendable / Subclause 8.2.32 */
 /*     51 */    { dissect_pfcp_load_control_information },                      /* Load Control Information                        Extendable / Table 7.5.3.3-1 */
 /*     52 */    { dissect_pfcp_sequence_number },                               /* Sequence Number                                 Fixed Length / Subclause 8.2.33 */
 /*     53 */    { dissect_pfcp_metric },                                        /* Metric                                          Fixed Length / Subclause 8.2.34 */
@@ -3399,13 +3610,18 @@ static const pfcp_ie_t pfcp_ies[] = {
 /*    108 */    { dissect_pfcp_far_id },                                        /* FAR ID                                          Extendable / Subclause 8.2.74 */
 /*    109 */    { dissect_pfcp_qer_id },                                        /* QER ID                                          Extendable / Subclause 8.2.75 */
 /*    110 */    { dissect_pfcp_oci_flags },                                     /* OCI Flags                                       Extendable / Subclause 8.2.76 */
-/*    111 */    { dissect_pfcp_sx_assoc_rel_req },                              /* Sx Association Release Request                  Extendable / Subclause 8.2.77 */
+/*    111 */    { dissect_pfcp_pfcp_assoc_rel_req },                            /* PFCP Association Release Request                Extendable / Subclause 8.2.77 */
 /*    112 */    { dissect_pfcp_graceful_release_period },                       /* Graceful Release Period                         Extendable / Subclause 8.2.78 */
 /*    113 */    { dissect_pfcp_pdn_type },                                      /* PDN Type                                        Fixed Length / Subclause 8.2.79 */
 /*    114 */    { dissect_pfcp_failed_rule_id },                                /* Failed Rule ID                                  Extendable / Subclause 8.2.80 */
 /*    115 */    { dissect_pfcp_time_qouta_mechanism },                          /* Time Quota Mechanism                            Extendable / Subclause 8.2.81 */
 /*    116 */    { dissect_pfcp_user_plane_ip_resource_infomation },             /* User Plane IP Resource Information              Extendable / Subclause 8.2.82 */
-/*    117 */    { dissect_pfcp_user_plane_inactivity_timer },             	/* User Plane Inactivity Timer 			   Extendable / Subclause 8.2.83 */
+/*    117 */    { dissect_pfcp_user_plane_inactivity_timer },                   /* User Plane Inactivity Timer                     Extendable / Subclause 8.2.83 */
+/*    118 */    { dissect_pfcp_aggregated_urrs },                               /* Aggregated URRs                                 Extendable / Table 7.5.2.4-2 */
+/*    119 */    { dissect_pfcp_multiplier },                                    /* Multiplier                                      Fixed Length / Subclause 8.2.84 */
+/*    120 */    { dissect_pfcp_aggregated_urr_id_ie },                          /* Aggregated URR ID IE                            Fixed Length / Subclause 8.2.85 */
+/*    121 */    { dissect_pfcp_subsequent_volume_quota },                       /* Subsequent Volume Quota                         Extendable / Subclause 8.2.86 */
+/*    122 */    { dissect_pfcp_subsequent_time_quota },                         /* Subsequent Time Quota                           Extendable / Subclause 8.2.87 */
     { NULL },                                                        /* End of List */
 };
 
@@ -3635,6 +3851,11 @@ dissect_pfcp_update_duplicating_parameters(tvbuff_t *tvb, packet_info *pinfo, pr
     dissect_pfcp_grouped_ie(tvb, pinfo, tree, item, length, message_type, ett_pfcp_elem[PFCP_UPDATE_DUPLICATING_PARAMETERS]);
 }
 
+static void
+dissect_pfcp_aggregated_urrs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type)
+{
+    dissect_pfcp_grouped_ie(tvb, pinfo, tree, item, length, message_type, ett_pfcp_elem[PFCP_AGGREGATED_URRS]);
+}
 
 static void
 dissect_pfcp_ies_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, gint offset, guint8 message_type)
@@ -3853,12 +4074,12 @@ proto_register_pfcp(void)
         NULL, HFILL }
         },
         { &hf_pfcp_mp_flag,
-        { "MP", "pfcp.mp_flag",
+        { "Message Priority (MP)", "pfcp.mp_flag",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }
         },
         { &hf_pfcp_s_flag,
-        { "S", "pfcp.s",
+        { "SEID (S)", "pfcp.s",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }
         },
@@ -4106,6 +4327,21 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_DEC, VALS(pfcp_pdn_type_vals), 0x7,
             NULL, HFILL }
         },
+        { &hf_pfcp_multiplier_value_digits,
+        { "Value Digits", "pfcp.multiplier.value_digits",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_multiplier_exponent,
+        { "Exponent", "pfcp.multiplier.exponent",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_aggregated_urr_id_ie_urr_id,
+        { "URR ID", "pfcp.aggregated_urr_id_ie.urr_id",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_pfcp_failed_rule_id_type,
         { "Failed Rule ID Type", "pfcp.failed_rule_id_type",
             FT_UINT8, BASE_DEC, VALS(pfcp_failed_rule_id_type_vals), 0x7,
@@ -4161,22 +4397,22 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_sdf_filter_b0_fd,
+        { &hf_pfcp_sdf_filter_flags_b0_fd,
         { "FD (Flow Description)", "pfcp.sdf_filter.fd",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_sdf_filter_b1_ttc,
+        { &hf_pfcp_sdf_filter_flags_b1_ttc,
         { "TTC (ToS Traffic Class)", "pfcp.sdf_filter.ttc",
             FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_sdf_filter_b2_spi,
+        { &hf_pfcp_sdf_filter_flags_b2_spi,
         { "SPI (Security Parameter Index)", "pfcp.sdf_filter.spi",
             FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_sdf_filter_b3_fl,
+        { &hf_pfcp_sdf_filter_flags_b3_fl,
         { "FL (Flow Label)", "pfcp.sdf_filter.fl",
             FT_BOOLEAN, 8, NULL, 0x08,
             NULL, HFILL }
@@ -4186,24 +4422,34 @@ proto_register_pfcp(void)
             FT_UINT16, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_fd,
-        { "Flow Description field", "pfcp.fd",
-            FT_BYTES, BASE_NONE, NULL, 0x0,
+        { &hf_pfcp_flow_desc,
+        { "Flow Description", "pfcp.flow_desc",
+            FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_ttc,
-        { "ToS Traffic Class field", "pfcp.ttc",
-            FT_BYTES, BASE_NONE, NULL, 0x0,
+        { &hf_pfcp_traffic_class,
+        { "ToS Traffic Class", "pfcp.traffic_class",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_traffic_mask,
+        { "Mask field", "pfcp.traffic_mask",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_pfcp_spi,
-        { "Security Parameter Index field", "pfcp.spi",
-            FT_BYTES, BASE_NONE, NULL, 0x0,
+        { "Security Parameter Index", "pfcp.spi",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_fl,
-        { "Flow Label field", "pfcp.fl",
-            FT_BYTES, BASE_NONE, NULL, 0x0,
+        { &hf_pfcp_flow_label_spare_bit,
+        { "Spare bit", "pfcp.flow_label_spare_bit",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_flow_label,
+        { "Flow Label", "pfcp.flow_label",
+            FT_UINT24, BASE_HEX, NULL, 0x0FFFFF,
             NULL, HFILL }
         },
         { &hf_pfcp_out_hdr_desc,
@@ -4251,27 +4497,27 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_apply_action_b0_drop,
+        { &hf_pfcp_apply_action_flags_b0_drop,
         { "DROP (Drop)", "pfcp.apply_action.drop",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_apply_action_b1_forw,
+        { &hf_pfcp_apply_action_flags_b1_forw,
         { "FORW (Forward)", "pfcp.apply_action.forw",
             FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_apply_action_b2_buff,
+        { &hf_pfcp_apply_action_flags_b2_buff,
         { "BUFF (Buffer)", "pfcp.apply_action.buff",
             FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_apply_action_b3_nocp,
+        { &hf_pfcp_apply_action_flags_b3_nocp,
         { "NOCP (Notify the CP function)", "pfcp.apply_action.nocp",
             FT_BOOLEAN, 8, NULL, 0x08,
             NULL, HFILL }
         },
-        { &hf_pfcp_apply_action_b4_dupl,
+        { &hf_pfcp_apply_action_flags_b4_dupl,
         { "DUPL (Duplicate)", "pfcp.apply_action.dupl",
             FT_BOOLEAN, 8, NULL, 0x10,
             NULL, HFILL }
@@ -4386,14 +4632,9 @@ proto_register_pfcp(void)
             FT_UINT16, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_tos_traf_class,
-        { "ToS/Traffic Class", "pfcp.tos_traf_class.port",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
-            NULL, HFILL }
-        },
         { &hf_pfcp_time_threshold,
         { "Time Threshold", "pfcp.time_threshold",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_pfcp_forwarding_policy_id_len,
@@ -4411,17 +4652,17 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_durat,
+        { &hf_pfcp_measurement_method_flags_b0_durat,
         { "DURAT (Duration)", "pfcp.measurement_method_flags.durat",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_b1_volume,
+        { &hf_pfcp_measurement_method_flags_b1_volume,
         { "VOLUM (Volume)", "pfcp.measurement_method_flags.volume",
             FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_b2_event,
+        { &hf_pfcp_measurement_method_flags_b2_event,
         { "EVENT (Event)", "pfcp.measurement_method_flags.event",
             FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
@@ -4446,64 +4687,59 @@ proto_register_pfcp(void)
             FT_UINT16, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-	{ &hf_pfcp_reporting_triggers_b0_volqu,
-        { "VOLQU (Volume Quota)", "pfcp.reporting_triggers_flags.volqu",
-            FT_BOOLEAN, 16, NULL, 0x0001,
-            NULL, HFILL }
-        },
-        { &hf_pfcp_reporting_triggers_b1_timqu,
-        { "TIMQU (Time Quota)", "pfcp.reporting_triggers_flags.timqu",
-            FT_BOOLEAN, 16, NULL, 0x0002,
-            NULL, HFILL }
-        },
-        { &hf_pfcp_reporting_triggers_b2_envcl,
-        { "ENVCL (Envelope Closure)", "pfcp.reporting_triggers_flags.envcl",
-            FT_BOOLEAN, 16, NULL, 0x0004,
-            NULL, HFILL }
-        },
-        { &hf_pfcp_reporting_triggers_b7_b3_spare,
-        { "Spare", "pfcp.reporting_triggers_flags.spare",
-            FT_UINT16, BASE_DEC, NULL, 0x00F8,
-            NULL, HFILL }
-        },
-        { &hf_pfcp_reporting_triggers_b8_perio,
+        { &hf_pfcp_reporting_triggers_o5_b0_perio,
         { "PERIO (Periodic Reporting)", "pfcp.reporting_triggers_flags.perio",
-            FT_BOOLEAN, 16, NULL, 0x0100,
+            FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_reporting_triggers_b9_volth,
+        { &hf_pfcp_reporting_triggers_o5_b1_volth,
         { "VOLTH (Volume Threshold)", "pfcp.reporting_triggers_flags.volth",
-            FT_BOOLEAN, 16, NULL, 0x0200,
+            FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_reporting_triggers_b10_timth,
+        { &hf_pfcp_reporting_triggers_o5_b2_timth,
 		{ "TIMTH (Time Threshold)", "pfcp.reporting_triggers_flags.timth",
-            FT_BOOLEAN, 16, NULL, 0x0400,
+            FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_reporting_triggers_b11_quhti,
+        { &hf_pfcp_reporting_triggers_o5_b3_quhti,
         { "QUHTI (Quota Holding Time)", "pfcp.reporting_triggers_flags.quhti",
-            FT_BOOLEAN, 16, NULL, 0x0800,
+            FT_BOOLEAN, 8, NULL, 0x08,
             NULL, HFILL }
         },
-        { &hf_pfcp_reporting_triggers_b12_start,
+        { &hf_pfcp_reporting_triggers_o5_b4_start,
         { "START (Start of Traffic)", "pfcp.reporting_triggers_flags.start",
-            FT_BOOLEAN, 16, NULL, 0x1000,
+            FT_BOOLEAN, 8, NULL, 0x10,
             NULL, HFILL }
         },
-        { &hf_pfcp_reporting_triggers_b13_stopt,
+        { &hf_pfcp_reporting_triggers_o5_b5_stopt,
         { "STOPT (Stop of Traffic)", "pfcp.reporting_triggers_flags.stopt",
-            FT_BOOLEAN, 16, NULL, 0x2000,
+            FT_BOOLEAN, 8, NULL, 0x20,
             NULL, HFILL }
         },
-        { &hf_pfcp_reporting_triggers_b14_droth,
+        { &hf_pfcp_reporting_triggers_o5_b6_droth,
         { "DROTH (Dropped DL Traffic Threshold)", "pfcp.reporting_triggers_flags.droth",
-            FT_BOOLEAN, 16, NULL, 0x4000,
+            FT_BOOLEAN, 8, NULL, 0x40,
             NULL, HFILL }
         },
-        { &hf_pfcp_reporting_triggers_b15_liusa,
+        { &hf_pfcp_reporting_triggers_o5_b7_liusa,
         { "LIUSA (Linked Usage Reporting)", "pfcp.reporting_triggers_flags.liusa",
-            FT_BOOLEAN, 16, NULL, 0x8000,
+            FT_BOOLEAN, 8, NULL, 0x80,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_reporting_triggers_o6_b0_volqu,
+        { "VOLQU (Volume Quota)", "pfcp.reporting_triggers_flags.volqu",
+            FT_BOOLEAN, 8, NULL, 0x01,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_reporting_triggers_o6_b1_timqu,
+        { "TIMQU (Time Quota)", "pfcp.reporting_triggers_flags.timqu",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_reporting_triggers_o6_b2_envcl,
+        { "ENVCL (Envelope Closure)", "pfcp.reporting_triggers_flags.envcl",
+            FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
 
@@ -4513,79 +4749,74 @@ proto_register_pfcp(void)
             NULL, HFILL }
         },
 
-        { &hf_pfcp_usage_report_trigger_b0_volqu,
+        { &hf_pfcp_usage_report_trigger_o6_b0_volqu,
         { "VOLQU (Volume Quota)", "pfcp.usage_report_trigger_flags.volqu",
-            FT_BOOLEAN, 16, NULL, 0x0001,
+            FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b1_timqu,
+        { &hf_pfcp_usage_report_trigger_o6_b1_timqu,
         { "TIMQU (Time Quota)", "pfcp.usage_report_trigger_flags.timqu",
-            FT_BOOLEAN, 16, NULL, 0x0002,
+            FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b2_liusa,
+        { &hf_pfcp_usage_report_trigger_o6_b2_liusa,
 		{ "LIUSA (Linked Usage Reporting)", "pfcp.usage_report_trigger_flags.liusa",
-            FT_BOOLEAN, 16, NULL, 0x0004,
+            FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b3_termr,
+        { &hf_pfcp_usage_report_trigger_o6_b3_termr,
         { "TERMR (Termination Report)", "pfcp.usage_report_trigger.term",
-            FT_BOOLEAN, 16, NULL, 0x0008,
+            FT_BOOLEAN, 8, NULL, 0x08,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b4_monit,
+        { &hf_pfcp_usage_report_trigger_o6_b4_monit,
         { "MONIT (Monitoring Time)", "pfcp.usage_report_trigger.monit",
-            FT_BOOLEAN, 16, NULL, 0x0010,
+            FT_BOOLEAN, 8, NULL, 0x10,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b5_envcl,
+        { &hf_pfcp_usage_report_trigger_o6_b5_envcl,
         { "ENVCL (Envelope Closure)", "pfcp.usage_report_trigger_flags.envcl",
-            FT_BOOLEAN, 16, NULL, 0x0020,
+            FT_BOOLEAN, 8, NULL, 0x20,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b7_b6_spare,
-        { "Spare", "pfcp.reporting_triggers_flags.spare",
-            FT_UINT16, BASE_DEC, NULL, 0x00C0,
-            NULL, HFILL }
-        },
-        { &hf_pfcp_usage_report_trigger_b8_perio,
+        { &hf_pfcp_usage_report_trigger_o5_b0_perio,
         { "PERIO (Periodic Reporting)", "pfcp.usage_report_trigger_flags.perio",
-            FT_BOOLEAN, 16, NULL, 0x0100,
+            FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b9_volth,
+        { &hf_pfcp_usage_report_trigger_o5_b1_volth,
         { "VOLTH (Volume Threshold)", "pfcp.usage_report_trigger_flags.volth",
-            FT_BOOLEAN, 16, NULL, 0x0200,
+            FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b10_timth,
+        { &hf_pfcp_usage_report_trigger_o5_b2_timth,
         { "TIMTH (Time Threshold)", "pfcp.usage_report_trigger_flags.timth",
-            FT_BOOLEAN, 16, NULL, 0x0400,
+            FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b11_quhti,
+        { &hf_pfcp_usage_report_trigger_o5_b3_quhti,
         { "QUHTI (Quota Holding Time)", "pfcp.usage_report_trigger_flags.quhti",
-            FT_BOOLEAN, 16, NULL, 0x0800,
+            FT_BOOLEAN, 8, NULL, 0x08,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b12_start,
+        { &hf_pfcp_usage_report_trigger_o5_b4_start,
         { "START (Start of Traffic)", "pfcp.usage_report_trigger_flags.start",
-            FT_BOOLEAN, 16, NULL, 0x1000,
+            FT_BOOLEAN, 8, NULL, 0x10,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b13_stopt,
+        { &hf_pfcp_usage_report_trigger_o5_b5_stopt,
         { "STOPT (Stop of Traffic)", "pfcp.usage_report_trigger_flags.stopt",
-            FT_BOOLEAN, 16, NULL, 0x2000,
+            FT_BOOLEAN, 8, NULL, 0x20,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b14_droth,
+        { &hf_pfcp_usage_report_trigger_o5_b6_droth,
         { "DROTH (Dropped DL Traffic Threshold)", "pfcp.usage_report_trigger_flags.droth",
-            FT_BOOLEAN, 16, NULL, 0x4000,
+            FT_BOOLEAN, 8, NULL, 0x40,
             NULL, HFILL }
         },
-        { &hf_pfcp_usage_report_trigger_b15_immer,
+        { &hf_pfcp_usage_report_trigger_o5_b7_immer,
         { "IMMER (Immediate Report)", "pfcp.usage_report_trigger.immer",
-            FT_BOOLEAN, 16, NULL, 0x8000,
+            FT_BOOLEAN, 8, NULL, 0x80,
             NULL, HFILL }
         },
 
@@ -4594,18 +4825,18 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_tovol,
-        { "TOVOL", "pfcp.tovol_flg",
+        { &hf_pfcp_volume_threshold_b0_tovol,
+        { "TOVOL", "pfcp.volume_threshold_flags.tovol",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_b1_ulvol,
-        { "ULVOL", "pfcp.ulvol_flg",
+        { &hf_pfcp_volume_threshold_b1_ulvol,
+        { "ULVOL", "pfcp.volume_threshold_flags.ulvol",
             FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_b2_dlvol,
-        { "DLVOL", "pfcp.dlvol_flg",
+        { &hf_pfcp_volume_threshold_b2_dlvol,
+        { "DLVOL", "pfcp.volume_threshold_flags.dlvol",
             FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
@@ -4627,6 +4858,21 @@ proto_register_pfcp(void)
         { &hf_pfcp_volume_quota,
         { "Flags", "pfcp.volume_quota",
             FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_volume_quota_b0_tovol,
+        { "TOVOL", "pfcp.volume_quota_flags.tovol",
+            FT_BOOLEAN, 8, NULL, 0x01,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_volume_quota_b1_ulvol,
+        { "ULVOL", "pfcp.volume_quota_flags.ulvol",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_volume_quota_b2_dlvol,
+        { "DLVOL", "pfcp.volume_quota_flags.dlvol",
+            FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
         { &hf_pfcp_volume_quota_tovol,
@@ -4731,7 +4977,7 @@ proto_register_pfcp(void)
         },
         { &hf_pfcp_gate_status_b3b2_ulgate,
         { "UL Gate", "pfcp.gate_status.ulgate",
-            FT_UINT8, BASE_DEC, VALS(pfcp_gate_status_vals), 0x0e,
+            FT_UINT8, BASE_DEC, VALS(pfcp_gate_status_vals), 0x0c,
             NULL, HFILL }
         },
         { &hf_pfcp_ul_mbr,
@@ -4759,17 +5005,22 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b2_erir,
+        { &hf_pfcp_report_type_b3_upir,
+        { "UPIR (User Plane Inactivity Report)", "pfcp.report_type.upir",
+            FT_BOOLEAN, 8, NULL, 0x08,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_report_type_b2_erir,
         { "ERIR (Error Indication Report)", "pfcp.report_type.erir",
             FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_b1_usar,
+        { &hf_pfcp_report_type_b1_usar,
         { "USAR (Usage Report)", "pfcp.report_type.usar",
             FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_dldr,
+        { &hf_pfcp_report_type_b0_dldr,
         { "DLDR (Downlink Data Report)", "pfcp.report_type.dldr",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
@@ -4785,54 +5036,49 @@ proto_register_pfcp(void)
             FT_UINT16, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b8_bucp,
+        { &hf_pfcp_up_function_features_o5_b0_bucp,
         { "BUCP", "pfcp.up_function_features.bucp",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0100,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x01,
             "Downlink Data Buffering in CP function", HFILL }
         },
-        { &hf_pfcp_b9_ddnd,
+        { &hf_pfcp_up_function_features_o5_b1_ddnd,
         { "DDND", "pfcp.up_function_features.ddnd",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0200,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x02,
             "Buffering parameter 'Downlink Data Notification Delay", HFILL }
         },
-        { &hf_pfcp_b10_dlbd,
+        { &hf_pfcp_up_function_features_o5_b2_dlbd,
         { "DLBD", "pfcp.up_function_features.dlbd",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0400,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_b11_trst,
+        { &hf_pfcp_up_function_features_o5_b3_trst,
         { "TRST", "pfcp.up_function_features.trst",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0800,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x08,
             "Traffic Steering", HFILL }
         },
-        { &hf_pfcp_b12_ftup,
+        { &hf_pfcp_up_function_features_o5_b4_ftup,
         { "FTUP", "pfcp.up_function_features.ftup",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x1000,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x10,
             "F-TEID allocation / release in the UP function", HFILL }
         },
-        { &hf_pfcp_b13_pfdm,
+        { &hf_pfcp_up_function_features_o5_b5_pfdm,
         { "PFDM", "pfcp.up_function_features.pfdm",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x2000,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x20,
             "PFD Management procedure", HFILL }
         },
-        { &hf_pfcp_b14_heeu,
+        { &hf_pfcp_up_function_features_o5_b6_heeu,
         { "HEEU", "pfcp.up_function_features.heeu",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x4000,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x40,
             "Header Enrichment of Uplink traffic", HFILL }
         },
-        { &hf_pfcp_b15_treu,
+        { &hf_pfcp_up_function_features_o5_b7_treu,
         { "TREU", "pfcp.up_function_features.treu",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x8000,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x80,
             "Traffic Redirection Enforcement in the UP function", HFILL }
         },
-        { &hf_pfcp_b0_empu,
+        { &hf_pfcp_up_function_features_o6_b0_empu,
         { "EMPU", "pfcp.up_function_features.empu",
-            FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0001,
-            "Sending of End Marker packets", HFILL }
-        },
-        { &hf_pfcp_b1_b7_spare,
-        { "Spare", "pfcp.up_function_features.spare",
-            FT_BOOLEAN, 16, NULL , 0x00FE,
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x01,
             "Sending of End Marker packets", HFILL }
         },
         { &hf_pfcp_sequence_number,
@@ -4860,6 +5106,21 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_pfcp_volume_measurement_b0_tovol,
+        { "TOVOL", "pfcp.volume_measurement_flags.tovol",
+            FT_BOOLEAN, 8, NULL, 0x01,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_volume_measurement_b1_ulvol,
+        { "ULVOL", "pfcp.volume_measurement_flags.ulvol",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_volume_measurement_b2_dlvol,
+        { "DLVOL", "pfcp.volume_measurement_flags.dlvol",
+            FT_BOOLEAN, 8, NULL, 0x04,
+            NULL, HFILL }
+        },
         { &hf_pfcp_vol_meas_tovol,
         { "Total Volume", "pfcp.volume_measurement.tovol",
             FT_UINT64, BASE_DEC, NULL, 0x0,
@@ -4880,12 +5141,12 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_load,
+        { &hf_pfcp_cp_function_features_b0_load,
         { "LOAD", "pfcp.cp_function_features.load",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x01,
             "Load Control", HFILL }
         },
-        { &hf_pfcp_b1_ovrl,
+        { &hf_pfcp_cp_function_features_b1_ovrl,
         { "OVRL", "pfcp.cp_function_features.ovrl",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x02,
             "Overload Control", HFILL }
@@ -4895,22 +5156,22 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_bef,
+        { &hf_pfcp_usage_information_b0_bef,
         { "BEF (Before)", "pfcp.usage_information.bef",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_b1_aft,
+        { &hf_pfcp_usage_information_b1_aft,
         { "AFT (After)", "pfcp.usage_information.aft",
             FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_b2_uae,
+        { &hf_pfcp_usage_information_b2_uae,
         { "UAE (Usage After Enforcement)", "pfcp.usage_information.uae",
             FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_b3_ube,
+        { &hf_pfcp_usage_information_b3_ube,
         { "UBE (Usage Before Enforcement)", "pfcp.usage_information.ube",
             FT_BOOLEAN, 8, NULL, 0x08,
             NULL, HFILL }
@@ -4930,12 +5191,12 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_ulpr_b0,
+        { &hf_pfcp_packet_rate_b0_ulpr,
         { "ULPR (Uplink Packet Rate)", "pfcp.packet_rate.ulpr",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_dlpr_b1,
+        { &hf_pfcp_packet_rate_b1_dlpr,
         { "DLPR (Downlink Packet Rate)", "pfcp.packet_rate.dlpr",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x02,
             NULL, HFILL }
@@ -4965,12 +5226,12 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_ttc,
+        { &hf_pfcp_dl_flow_level_marking_b0_ttc,
         { "TTC (ToS/Traffic Class)", "pfcp.dl_flow_level_marking.ttc",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_b1_sci,
+        { &hf_pfcp_dl_flow_level_marking_b1_sci,
         { "SCI(Service Class Indicator)", "pfcp.dl_flow_level_marking.sci",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x02,
             NULL, HFILL }
@@ -4990,12 +5251,12 @@ proto_register_pfcp(void)
             FT_UINT16, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_pfcp_dl_data_service_inf_flags,
+        { &hf_pfcp_dl_data_service_inf_flags,
         { "Flags", "pfcp.dl_data_service_inf_flags",
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_ppi,
+        { &hf_pfcp_dl_data_service_inf_b0_ppi,
         { "PPI(Paging Policy Indication)", "pfcp.dl_data_service_inf.ppi",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x01,
             NULL, HFILL }
@@ -5005,29 +5266,34 @@ proto_register_pfcp(void)
             FT_UINT16, BASE_DEC, NULL, 0x7f,
             NULL, HFILL }
         },
-        { &hf_pfcp_sxsmreq_flags,
-        { "Flags", "pfcp.sxsmreq_flags",
+        { &hf_pfcp_pfcpsmreq_flags,
+        { "Flags", "pfcp.smreq_flags",
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_drobu,
-        { "DROBU (Drop Buffered Packets)", "pfcp.sxsmreq_flags.drobu",
+        { &hf_pfcp_pfcpsmreq_flags_b0_drobu,
+        { "DROBU (Drop Buffered Packets)", "pfcp.smreq_flags.drobu",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_b1_sndem,
-        { "SNDEM (Send End Marker Packets)", "pfcp.sxsmreq_flags.sndem",
+        { &hf_pfcp_pfcpsmreq_flags_b1_sndem,
+        { "SNDEM (Send End Marker Packets)", "pfcp.smreq_flags.sndem",
             FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_b2_qaurr,
-        { "QAURR (Query All URRs)", "pfcp.sxsmreq_flags.qaurr",
+        { &hf_pfcp_pfcpsmreq_flags_b2_qaurr,
+        { "QAURR (Query All URRs)", "pfcp.smreq_flags.qaurr",
             FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_sxsrrsp_flags,
-        { "Flags", "pfcp.sxsrrsp_flags",
+        { &hf_pfcp_pfcpsrrsp_flags,
+        { "Flags", "pfcp.srrsp_flags",
             FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_pfcpsrrsp_flags_b0_drobu,
+        { "DROBU (Drop Buffered Packets)", "pfcp.srrsp_flags.drobu",
+            FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
         { &hf_pfcp_pfd_contents_flags,
@@ -5035,22 +5301,22 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_fd,
+        { &hf_pfcp_pfd_contents_flags_b0_fd,
         { "FD (Flow Description)", "pfcp.pfd_contents_flags.fd",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_b1_url,
+        { &hf_pfcp_pfd_contents_flags_b1_url,
         { "URL (URL)", "pfcp.pfd_contents_flags.url",
             FT_BOOLEAN, 8, NULL, 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_b2_dn,
+        { &hf_pfcp_pfd_contents_flags_b2_dn,
         { "DN (Domain Name)", "pfcp.pfd_contents_flags.dn",
             FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
-        { &hf_pfcp_b3_cp,
+        { &hf_pfcp_pfd_contents_flags_b3_cp,
         { "CP (Custom PFD Content)", "pfcp.pfd_contents_flags.cp",
             FT_BOOLEAN, 8, NULL, 0x08,
             NULL, HFILL }
@@ -5115,14 +5381,19 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_mbqe,
+        { &hf_pfcp_measurement_info_b0_mbqe,
         { "MBQE (Measurement Before QoS Enforcement)", "pfcp.measurement_info.fd",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_b1_inam,
+        { &hf_pfcp_measurement_info_b1_inam,
         { "INAM (Inactive Measurement)", "pfcp.measurement_info.inam",
             FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_measurement_info_b2_radi,
+        { "RADI (Reduced Application Detection Information)", "pfcp.measurement_info.radi",
+            FT_BOOLEAN, 8, NULL, 0x04,
             NULL, HFILL }
         },
         { &hf_pfcp_node_report_type,
@@ -5130,23 +5401,23 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_upfr,
+        { &hf_pfcp_node_report_type_b0_upfr,
         { "UPFR (User Plane Path Failure Report)", "pfcp.node_report_type.upfr",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_remote_gtp_u_peer,
-        { "Flags", "pfcp.remote_gtp_u_peer",
+        { &hf_pfcp_remote_gtp_u_peer_flags,
+        { "Flags", "pfcp.remote_gtp_u_peer_flags",
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_gtp_u_peer_flag_b0_v6,
-        { "V6 (IPv6)", "pfcp.gtp_u_peer_flag.v6",
+        { &hf_pfcp_remote_gtp_u_peer_flags_b0_v6,
+        { "V6 (IPv6)", "pfcp.remote_gtp_u_peer_flags.v6",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_gtp_u_peer_flag_b1_v4,
-        { "V4 (IPv4)", "pfcp.gtp_u_peer_flag.v4",
+        { &hf_pfcp_remote_gtp_u_peer_flags_b1_v4,
+        { "V4 (IPv4)", "pfcp.remote_gtp_u_peer_flags.v4",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x02,
             NULL, HFILL }
         },
@@ -5170,18 +5441,18 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_aoci,
+        { &hf_pfcp_oci_flags_b0_aoci,
         { "AOCI: Associate OCI with Node ID", "pfcp.oci_flags.aoci",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
-        { &hf_pfcp_sx_assoc_rel_req_flags,
-        { "Flags", "pfcp.sx_assoc_rel_req",
+        { &hf_pfcp_pfcp_assoc_rel_req_flags,
+        { "Flags", "pfcp.assoc_rel_req",
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_pfcp_b0_sarr,
-        { "SARR (Sx Association Release Request)", "pfcp.sx_assoc_rel_req.sarr",
+        { &hf_pfcp_pfcp_assoc_rel_req_b0_sarr,
+        { "SARR (PFCP Association Release Request)", "pfcp.assoc_rel_req.sarr",
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
@@ -5195,12 +5466,12 @@ proto_register_pfcp(void)
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x20,
             NULL, HFILL }
         },
-        { &hf_pfcp_upiri_flg_b1_v6,
+        { &hf_pfcp_upiri_flags_b1_v6,
         { "V6 (IPv6)", "pfcp.upiri_flags.v6",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x02,
             NULL, HFILL }
         },
-        { &hf_pfcp_upiri_flg_b0_v4,
+        { &hf_pfcp_upiri_flags_b0_v4,
         { "V4 (IPv4)", "pfcp.upiri_flags.v4",
             FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x01,
             NULL, HFILL }
@@ -5236,10 +5507,52 @@ proto_register_pfcp(void)
             NULL, HFILL }
         },
 
+        { &hf_pfcp_subsequent_volume_quota,
+        { "Flags", "pfcp.subsequent_volume_quota",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_subsequent_volume_quota_b0_tovol,
+        { "TOVOL", "pfcp.subsequent_volume_quota_flags.tovol",
+            FT_BOOLEAN, 8, NULL, 0x01,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_subsequent_volume_quota_b1_ulvol,
+        { "ULVOL", "pfcp.subsequent_volume_quota_flags.ulvol",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_subsequent_volume_quota_b2_dlvol,
+        { "DLVOL", "pfcp.subsequent_volume_quota_flags.dlvol",
+            FT_BOOLEAN, 8, NULL, 0x04,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_subsequent_volume_quota_tovol,
+        { "Total Volume", "pfcp.subsequent_volume_quota.tovol",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_subsequent_volume_quota_ulvol,
+        { "Uplink Volume", "pfcp.subsequent_volume_quota.ulvol",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_subsequent_volume_quota_dlvol,
+        { "Downlink Volume", "pfcp.subsequent_volume_quota.dlvol",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_subsequent_time_quota,
+        { "Subsequent Time Quota", "pfcp.subsequent_time_quota",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+
     };
 
     /* Setup protocol subtree array */
-#define NUM_INDIVIDUAL_ELEMS_PFCP    33
+#define NUM_INDIVIDUAL_ELEMS_PFCP    38
     gint *ett[NUM_INDIVIDUAL_ELEMS_PFCP +
         (NUM_PFCP_IES - 1)];
 
@@ -5268,14 +5581,19 @@ proto_register_pfcp(void)
     ett[22] = &ett_pfcp_packet_rate;
     ett[23] = &ett_pfcp_pfcp_dl_flow_level_marking;
     ett[24] = &ett_pfcp_dl_data_service_inf;
-    ett[25] = &ett_pfcp_sxsmreq;
-    ett[26] = &ett_pfcp_sxsrrsp;
+    ett[25] = &ett_pfcp_pfcpsmreq;
+    ett[26] = &ett_pfcp_pfcpsrrsp;
     ett[27] = &ett_pfcp_measurement_info;
     ett[28] = &ett_pfcp_node_report_type;
     ett[29] = &ett_pfcp_remote_gtp_u_peer;
     ett[30] = &ett_pfcp_oci_flags;
     ett[31] = &ett_sx_assoc_rel_req_flags;
     ett[32] = &ett_pfcp_upiri_flags;
+    ett[33] = &ett_pfcp_flow_desc;
+    ett[34] = &ett_pfcp_tos;
+    ett[35] = &ett_pfcp_spi;
+    ett[36] = &ett_pfcp_flow_label;
+    ett[37] = &ett_pfcp_subsequent_volume_quota;
 
 
     static ei_register_info ei[] = {

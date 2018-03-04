@@ -645,6 +645,25 @@ about_folders(void)
 
 }
 
+static gboolean
+must_do_dissection(dfilter_t *rfcode, dfilter_t *dfcode,
+                   gchar *volatile pdu_export_arg)
+{
+  /* We have to dissect each packet if:
+
+        we're printing information about each packet;
+
+        we're using a read filter on the packets;
+
+        we're using a display filter on the packets;
+
+        we're exporting PDUs;
+
+        we're using any taps that need dissection. */
+  return print_packet_info || rfcode || dfcode || pdu_export_arg ||
+      tap_listeners_require_dissection() || dissect_color;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -923,7 +942,7 @@ main(int argc, char *argv[])
   hostlist_table_set_gui_info(init_hostlists);
   srt_table_iterate_tables(register_srt_tables, NULL);
   rtd_table_iterate_tables(register_rtd_tables, NULL);
-  new_stat_tap_iterate_tables(register_simple_stat_tables, NULL);
+  stat_tap_iterate_tables(register_simple_stat_tables, NULL);
 
   /* If invoked with the "-G" flag, we dump out information based on
      the argument to the "-G" flag; if no argument is specified,
@@ -1780,11 +1799,6 @@ main(int argc, char *argv[])
      line that their preferences have changed. */
   prefs_apply_all();
 
-  /* At this point MATE will have registered its field array so we can
-     have a tap filter with one of MATE's late-registered fields as part
-     of the filter.  We can now process all the "-z" arguments. */
-  start_requested_stats();
-
   /* We can also enable specified taps for export object */
   start_exportobjects();
 
@@ -1985,19 +1999,6 @@ main(int argc, char *argv[])
       }
   }
 
-  /* We have to dissect each packet if:
-
-        we're printing information about each packet;
-
-        we're using a read filter on the packets;
-
-        we're using a display filter on the packets;
-
-        we're exporting PDUs;
-
-        we're using any taps that need dissection. */
-  do_dissection = print_packet_info || rfcode || dfcode || pdu_export_arg ||
-      tap_listeners_require_dissection() || dissect_color;
   tshark_debug("tshark: do_dissection = %s", do_dissection ? "TRUE" : "FALSE");
 
   if (cf_name) {
@@ -2011,6 +2012,19 @@ main(int argc, char *argv[])
       exit_status = INVALID_FILE;
       goto clean_exit;
     }
+
+    /* Start statistics taps; we do so after successfully opening the
+       capture file, so we know we have something to compute stats
+       on, and after registering all dissectors, so that MATE will
+       have registered its field array so we can have a tap filter
+       with one of MATE's late-registered fields as part of the
+       filter. */
+    start_requested_stats();
+
+    /* Do we need to do dissection of packets?  That depends on, among
+       other things, what taps are listening, so determine that after
+       starting the statistics taps. */
+    do_dissection = must_do_dissection(rfcode, dfcode, pdu_export_arg);
 
     /* Process the packets in the file */
     tshark_debug("tshark: invoking process_cap_file() to process the packets");
@@ -2147,6 +2161,22 @@ main(int argc, char *argv[])
     }
 
     tshark_debug("tshark: performing live capture");
+
+    /* Start statistics taps; we should only do so after the capture
+       started successfully, so we know we have something to compute
+       stats, but we currently don't check for that - see below.
+
+       We do so after registering all dissectors, so that MATE will
+       have registered its field array so we can have a tap filter
+       with one of MATE's late-registered fields as part of the
+       filter. */
+    start_requested_stats();
+
+    /* Do we need to do dissection of packets?  That depends on, among
+       other things, what taps are listening, so determine that after
+       starting the statistics taps. */
+    do_dissection = must_do_dissection(rfcode, dfcode, pdu_export_arg);
+
     /*
      * XXX - this returns FALSE if an error occurred, but it also
      * returns FALSE if the capture stops because a time limit

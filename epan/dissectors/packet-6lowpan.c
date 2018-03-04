@@ -2398,7 +2398,7 @@ dissect_6lowpan_iphc_nhc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gi
         guint16         udp_src_port, udp_dst_port;
 
         /* Create a tree for the UDP header. */
-        nhc_tree = proto_tree_add_subtree(tree, tvb, 0, 1, ett_6lowpan_nhc_udp, NULL, "UDP header compression");
+        nhc_tree = proto_tree_add_subtree(tree, tvb, offset, 1, ett_6lowpan_nhc_udp, NULL, "UDP header compression");
         /* Display the UDP NHC ID pattern. */
         proto_tree_add_bits_item(nhc_tree, hf_6lowpan_nhc_pattern, tvb, offset<<3, LOWPAN_NHC_PATTERN_UDP_BITS, ENC_BIG_ENDIAN);
 
@@ -2457,7 +2457,8 @@ dissect_6lowpan_iphc_nhc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gi
             offset += 2;
         }
         else {
-            udp.checksum = 0;
+            /* Checksum must be != 0 or the UDP dissector will flag the packet with a PI_ERROR */
+            udp.checksum = 0xffff;
         }
 
         /* Compute the datagram length. */
@@ -2475,7 +2476,7 @@ dissect_6lowpan_iphc_nhc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gi
          * disallows sending UDP datagrams without checksums. Likewise, 6LoWPAN
          * requires that we recompute the checksum.
          *
-         * If the datagram is incomplete, then leave the checksum at 0.
+         * If the datagram is incomplete, then leave the checksum at 0xffff.
          */
 #if 0
         /*
@@ -2485,7 +2486,8 @@ dissect_6lowpan_iphc_nhc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gi
          *
          * If we want to display the checksums, they will have to be recomputed
          * after packet reassembly. Lots of work for not much gain, since we can
-         * just set the UDP checksum to 0 and Wireshark doesn't care.
+         * just set the UDP checksum to 0xffff (anything != 0) and Wireshark
+         * doesn't care.
          */
         if ((udp_flags & LOWPAN_NHC_UDP_CHECKSUM) && tvb_bytes_exist(tvb, offset, length)) {
             vec_t      cksum_vec[3];

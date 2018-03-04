@@ -28,10 +28,6 @@
 
 #include <wsutil/os_version_info.h>
 
-#ifdef _WIN32
-typedef void (WINAPI *nativesi_func_ptr)(LPSYSTEM_INFO);
-#endif
-
 /*
  * Handles the rather elaborate process of getting OS version information
  * from macOS (we want the macOS version, not the Darwin version, the latter
@@ -190,10 +186,8 @@ void
 get_os_version_info(GString *str)
 {
 #if defined(_WIN32)
-	HMODULE kernel_dll_handle;
 	OSVERSIONINFOEX info;
 	SYSTEM_INFO system_info;
-	nativesi_func_ptr nativesi_func;
 #elif defined(HAVE_SYS_UTSNAME_H)
 	struct utsname name;
 #endif
@@ -228,21 +222,9 @@ get_os_version_info(GString *str)
 	}
 
 	memset(&system_info, '\0', sizeof system_info);
-	/* Look for and use the GetNativeSystemInfo() function if available to get the correct processor
-	 * architecture even when running 32-bit Wireshark in WOW64 (x86 emulation on 64-bit Windows) */
-	kernel_dll_handle = GetModuleHandle(_T("kernel32.dll"));
-	if (kernel_dll_handle == NULL) {
-		/*
-		 * XXX - get the failure reason.
-		 */
-		g_string_append(str, "unknown Windows version");
-		return;
-	}
-	nativesi_func = (nativesi_func_ptr)GetProcAddress(kernel_dll_handle, "GetNativeSystemInfo");
-	if(nativesi_func)
-		nativesi_func(&system_info);
-	else
-		GetSystemInfo(&system_info);
+	/* Look for and use the GetNativeSystemInfo() function to get the correct processor architecture
+	 * even when running 32-bit Wireshark in WOW64 (x86 emulation on 64-bit Windows) */
+	GetNativeSystemInfo(&system_info);
 
 	switch (info.dwPlatformId) {
 
@@ -489,6 +471,21 @@ get_os_version_info(GString *str)
 		 *
 		 * and the Lib/Platform.py file in recent Python 2.x
 		 * releases.
+		 *
+		 * And then there's
+		 *
+		 *	http://0pointer.de/blog/projects/os-release
+		 *
+		 * which, apparently, is something that all distributions
+		 * with systemd have, which seems to mean "most distributions"
+		 * these days.  It also has a list of several of the assorted
+		 * *other* such files that various distributions have.
+		 *
+		 * Maybe look at what pre-version-43 systemd does?  43
+		 * removed support for the old files, but I guess that
+		 * means older versions *did* support them:
+		 *
+		 *	https://lists.freedesktop.org/archives/systemd-devel/2012-February/004475.html
 		 */
 		g_string_append_printf(str, "%s %s", name.sysname, name.release);
 #endif /* HAVE_MACOS_FRAMEWORKS */

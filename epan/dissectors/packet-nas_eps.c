@@ -14,13 +14,13 @@
 
 #include "config.h"
 
-#include <math.h>
 #include <epan/packet.h>
 #include <epan/asn1.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/exceptions.h>
 #include <epan/show_exception.h>
+#include <wsutil/pow2.h>
 #include "packet-gsm_map.h"
 #include "packet-gsm_a_common.h"
 #include "packet-e212.h"
@@ -52,6 +52,7 @@ int hf_nas_eps_common_elem_id = -1;
 int hf_nas_eps_emm_elem_id = -1;
 static int hf_nas_eps_bearer_id = -1;
 static int hf_nas_eps_spare_bits = -1;
+static int hf_nas_eps_spare_b7 = -1;
 static int hf_nas_eps_security_header_type = -1;
 static int hf_nas_eps_msg_auth_code = -1;
 static int hf_nas_eps_seq_no = -1;
@@ -2113,45 +2114,78 @@ de_emm_ue_sec_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
 {
     guint32 curr_offset;
 
+    static const int * oct3_flags[] = {
+        &hf_nas_eps_emm_eea0,
+        &hf_nas_eps_emm_128eea1,
+        &hf_nas_eps_emm_128eea2,
+        &hf_nas_eps_emm_eea3,
+        &hf_nas_eps_emm_eea4,
+        &hf_nas_eps_emm_eea5,
+        &hf_nas_eps_emm_eea6,
+        &hf_nas_eps_emm_eea7,
+        NULL
+    };
+
+    static const int * oct4_flags[] = {
+        &hf_nas_eps_emm_eia0,
+        &hf_nas_eps_emm_128eia1,
+        &hf_nas_eps_emm_128eia2,
+        &hf_nas_eps_emm_eia3,
+        &hf_nas_eps_emm_eia4,
+        &hf_nas_eps_emm_eia5,
+        &hf_nas_eps_emm_eia6,
+        &hf_nas_eps_emm_eia7,
+        NULL
+    };
+
+    static const int * oct5_flags[] = {
+        &hf_nas_eps_emm_uea0,
+        &hf_nas_eps_emm_uea1,
+        &hf_nas_eps_emm_uea2,
+        &hf_nas_eps_emm_uea3,
+        &hf_nas_eps_emm_uea4,
+        &hf_nas_eps_emm_uea5,
+        &hf_nas_eps_emm_uea6,
+        &hf_nas_eps_emm_uea7,
+        NULL
+    };
+
+    static const int * oct6_flags[] = {
+        &hf_nas_eps_spare_b7,
+        &hf_nas_eps_emm_uia1,
+        &hf_nas_eps_emm_uia2,
+        &hf_nas_eps_emm_uia3,
+        &hf_nas_eps_emm_uia4,
+        &hf_nas_eps_emm_uia5,
+        &hf_nas_eps_emm_uia6,
+        &hf_nas_eps_emm_uia7,
+        NULL
+    };
+
+    static const int * oct7_flags[] = {
+        &hf_nas_eps_spare_b7,
+        &hf_nas_eps_emm_gea1,
+        &hf_nas_eps_emm_gea2,
+        &hf_nas_eps_emm_gea3,
+        &hf_nas_eps_emm_gea4,
+        &hf_nas_eps_emm_gea5,
+        &hf_nas_eps_emm_gea6,
+        &hf_nas_eps_emm_gea7,
+        NULL
+    };
+
     curr_offset = offset;
 
     /* EPS encryption algorithms supported (octet 3) */
-    /* EPS encryption algorithm EEA0 supported (octet 3, bit 8) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eea0, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS encryption algorithm 128-EEA1 supported (octet 3, bit 7) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_128eea1, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS encryption algorithm 128-EEA2 supported (octet 3, bit 6) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_128eea2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS encryption algorithm 128-EEA3 supported (octet 3, bit 5) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eea3, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS encryption algorithm EEA4 supported (octet 3, bit 4) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eea4, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS encryption algorithm EEA5 supported (octet 3, bit 3) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eea5, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS encryption algorithm EEA6 supported (octet 3, bit 2) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eea6, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS encryption algorithm EEA7 supported (octet 3, bit 1) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eea7, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_bitmask_list(tree, tvb, curr_offset, 1, oct3_flags, ENC_NA);
+    curr_offset++;
+
     curr_offset++;
 
 
     /* EPS integrity algorithms supported (octet 4) */
-    /* EPS integrity algorithm EIA0 supported (octet 4, bit 8) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eia0, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS integrity algorithm 128-EIA1 supported (octet 4, bit 7) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_128eia1, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS integrity algorithm 128-EIA2 supported (octet 4, bit 6) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_128eia2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS integrity algorithm 128-EIA3 supported (octet 4, bit 5) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eia3, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS integrity algorithm EIA4 supported (octet 4, bit 4) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eia4, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS integrity algorithm EIA5 supported (octet 4, bit 3) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eia5, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS integrity algorithm EIA6 supported (octet 4, bit 2) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eia6, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* EPS integrity algorithm EIA7 supported (octet 4, bit 1) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_eia7, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    /* EIA0    128-EIA1    128-EIA2    128-EIA3    EIA4    EIA5    EIA6    EIA7 */
+    proto_tree_add_bitmask_list(tree, tvb, curr_offset, 1, oct4_flags, ENC_NA);
     curr_offset++;
 
 
@@ -2161,63 +2195,23 @@ de_emm_ue_sec_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     if (len == 2)
         return(len);
 
-    /* UMTS encryption algorithms supported (octet 5) */
-    /* UMTS encryption algorithm UEA0 supported (octet 5, bit 8) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uea0, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS encryption algorithm UEA1 supported (octet 5, bit 7) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uea1, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS encryption algorithm UEA2 supported (octet 5, bit 6) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uea2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS encryption algorithm UEA3 supported (octet 5, bit 5) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uea3, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS encryption algorithm UEA4 supported (octet 5, bit 4) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uea4, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS encryption algorithm UEA5 supported (octet 5, bit 3) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uea5, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS encryption algorithm UEA6 supported (octet 5, bit 2) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uea6, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS encryption algorithm UEA7 supported (octet 5, bit 1) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uea7, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    /* UMTS encryption algorithms supported (octet 5)
+     * UEA0    UEA1    UEA2    UEA3    UEA4    UEA5    UEA6    UEA7
+     */
+    proto_tree_add_bitmask_list(tree, tvb, curr_offset, 1, oct5_flags, ENC_NA);
     curr_offset++;
 
     /* UMTS integrity algorithms supported (octet 6) */
-    /* Bit 8 of octet 6 is spare and shall be coded as zero. */
-    proto_tree_add_bits_item(tree, hf_nas_eps_spare_bits, tvb, (curr_offset<<3), 1, ENC_BIG_ENDIAN);
-    /* UMTS integrity algorithm UIA1 supported (octet 6, bit 7) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uia1, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS integrity algorithm UIA2 supported (octet 6, bit 6) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uia2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS integrity algorithm UIA3 supported (octet 6, bit 5) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uia3, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS integrity algorithm UIA4 supported (octet 6, bit 4) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uia4, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS integrity algorithm UIA5 supported (octet 6, bit 3) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uia5, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS integrity algorithm UIA6 supported (octet 6, bit 2) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uia6, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* UMTS integrity algorithm UIA7 supported (octet 6, bit 1) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_uia7, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    /* Spare    UIA1    UIA2    UIA3    UIA4    UIA5    UIA6    UIA7 */
+    proto_tree_add_bitmask_list(tree, tvb, curr_offset, 1, oct6_flags, ENC_NA);
     curr_offset++;
 
     if (len == 4)
         return(len);
 
-    /* Bit 8 of octet 7 is spare and shall be coded as zero. */
-    proto_tree_add_bits_item(tree, hf_nas_eps_spare_bits, tvb, (curr_offset<<3), 1, ENC_BIG_ENDIAN);
-    /* GPRS encryption algorithm GEA1 supported (octet 7, bit 7) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_gea1, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* GPRS encryption algorithm GEA2 supported (octet 7, bit 6) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_gea2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* GPRS encryption algorithm GEA3 supported (octet 7, bit 5) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_gea3, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* GPRS encryption algorithm GEA4 supported (octet 7, bit 4) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_gea4, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* GPRS encryption algorithm GEA5 supported (octet 7, bit 3) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_gea5, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* GPRS encryption algorithm GEA6 supported (octet 7, bit 2) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_gea6, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    /* GPRS encryption algorithm GEA7 supported (octet 7, bit 1) */
-    proto_tree_add_item(tree, hf_nas_eps_emm_gea7, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    /* GPRS encryption algorithms supported (octet 7) */
+    /* 0 spare    GEA1    GEA2    GEA3    GEA4    GEA5    GEA6    GEA7*/
+    proto_tree_add_bitmask_list(tree, tvb, curr_offset, 1, oct7_flags, ENC_NA);
     curr_offset++;
 
     return(len);
@@ -3538,16 +3532,16 @@ get_ext_ambr_unit(guint32 byte, const char **unit_str)
         mult = 0;
         *unit_str = "";
     } else if (byte <= 0x06) {
-        mult = (guint32)pow(4, byte-0x02);
+        mult = pow4(guint32, byte-0x02);
         *unit_str = "Mbps";
     } else if (byte <= 0x0b) {
-        mult = (guint32)pow(4, byte-0x07);
+        mult = pow4(guint32, byte-0x07);
         *unit_str = "Gbps";
     } else if (byte <= 0x10) {
-        mult = (guint32)pow(4, byte-0x0c);
+        mult = pow4(guint32, byte-0x0c);
         *unit_str = "Tbps";
     } else if (byte <= 0x15) {
-        mult = (guint32)pow(4, byte-0x11);
+        mult = pow4(guint32, byte-0x11);
         *unit_str = "Pbps";
     } else {
         mult = 256;
@@ -3622,16 +3616,16 @@ get_ext_eps_qos_unit(guint32 byte, const char **unit_str)
         mult = 200;
         *unit_str = "kbps";
     } else if (byte <= 0x06) {
-        mult = (guint32)pow(4, byte-0x02);
+        mult = pow4(guint32, byte-0x02);
         *unit_str = "Mbps";
     } else if (byte <= 0x0b) {
-        mult = (guint32)pow(4, byte-0x07);
+        mult = pow4(guint32, byte-0x07);
         *unit_str = "Gbps";
     } else if (byte <= 0x10) {
-        mult = (guint32)pow(4, byte-0x0c);
+        mult = pow4(guint32, byte-0x0c);
         *unit_str = "Tbps";
     } else if (byte <= 0x15) {
-        mult = (guint32)pow(4, byte-0x11);
+        mult = pow4(guint32, byte-0x11);
         *unit_str = "Pbps";
     } else {
         mult = 256;
@@ -3740,6 +3734,8 @@ guint16 (*emm_elem_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, g
     NULL,   /* NONE */
 };
 
+#if 0
+defined in packet-gsm_a_common.h
 /* 9.9.4 EPS Session Management (ESM) information elements */
 typedef enum
 {
@@ -3779,6 +3775,7 @@ typedef enum
     DE_ESM_NONE                     /* NONE */
 }
 nas_esm_elem_idx_t;
+#endif
 
 static const value_string nas_esm_elem_strings[] = {
     { DE_ESM_APN, "Access point name" },                                          /* 9.9.4.1 Access point name */
@@ -6310,7 +6307,12 @@ proto_register_nas_eps(void)
         FT_UINT8, BASE_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_nas_eps_security_header_type,
+    { &hf_nas_eps_spare_b7,
+        { "Spare", "nas_eps.spare.b7",
+        FT_UINT8, BASE_HEX, NULL, 0x80,
+        NULL, HFILL }
+    },
+  { &hf_nas_eps_security_header_type,
         { "Security header type","nas_eps.security_header_type",
         FT_UINT8,BASE_DEC|BASE_EXT_STRING, &security_header_type_vals_ext, 0xf0,
         NULL, HFILL }
@@ -7748,9 +7750,44 @@ proto_register_nas_eps(void)
                                    &g_nas_eps_user_data_container_as_ip);
 }
 
+/* Heuristic dissector looks for "nas-eps" string at packet start  */
+static gboolean dissect_nas_eps_heur(tvbuff_t *tvb, packet_info *pinfo,
+                                     proto_tree *tree, void *data _U_)
+{
+    gint                 offset = 0;
+    tvbuff_t             *nas_tvb;
+
+    /* Needs to be at least as long as:
+       - the signature string
+       - at least one byte of NAS PDU payload */
+    if (tvb_captured_length_remaining(tvb, offset) < (gint)(strlen(PFNAME)+1)) {
+        return FALSE;
+    }
+
+    /* OK, compare with signature string */
+    if (tvb_strneql(tvb, offset, PFNAME, strlen(PFNAME)) != 0) {
+        return FALSE;
+    }
+    offset += (gint)strlen(PFNAME);
+
+    /* Clear protocol name */
+    col_clear(pinfo->cinfo, COL_PROTOCOL);
+
+    /* Clear info column */
+    col_clear(pinfo->cinfo, COL_INFO);
+
+    /* Create tvb that starts at actual NAS PDU */
+    nas_tvb = tvb_new_subset_remaining(tvb, offset);
+    dissect_nas_eps(nas_tvb, pinfo, tree, NULL);
+
+    return TRUE;
+}
+
 void
 proto_reg_handoff_nas_eps(void)
 {
+    heur_dissector_add("udp", dissect_nas_eps_heur, "NAS-EPS over UDP", "nas_eps_udp", proto_nas_eps, HEURISTIC_DISABLE);
+
     gsm_a_dtap_handle = find_dissector_add_dependency("gsm_a_dtap", proto_nas_eps);
     lpp_handle = find_dissector_add_dependency("lpp", proto_nas_eps);
     nbifom_handle = find_dissector_add_dependency("nbifom", proto_nas_eps);

@@ -214,7 +214,7 @@ static int hf_radiotap_he_spatial_reuse_3_known = -1;
 static int hf_radiotap_he_spatial_reuse_4_known = -1;
 static int hf_radiotap_he_data_bw_ru_allocation_known = -1;
 static int hf_radiotap_he_doppler_known = -1;
-static int hf_radiotap_he_d2_reserved_b1 = -1;
+static int hf_radiotap_he_pri_sec_80_mhz_known = -1;
 static int hf_radiotap_he_gi_known = -1;
 static int hf_radiotap_he_ltf_symbols_known = -1;
 static int hf_radiotap_he_pre_fec_padding_factor_known = -1;
@@ -222,7 +222,9 @@ static int hf_radiotap_he_txbf_known = -1;
 static int hf_radiotap_he_pe_disambiguity_known = -1;
 static int hf_radiotap_he_txop_known = -1;
 static int hf_radiotap_he_midamble_periodicity_known = -1;
-static int hf_radiotap_he_d2_reserved_ff00 = -1;
+static int hf_radiotap_he_ru_allocation_offset = -1;
+static int hf_radiotap_he_ru_allocation_offset_known = -1;
+static int hf_radiotap_he_pri_sec_80_mhz = -1;
 static int hf_radiotap_he_bss_color = -1;
 static int hf_radiotap_he_bss_color_unknown = -1;
 static int hf_radiotap_he_beam_change = -1;
@@ -776,7 +778,7 @@ static const value_string he_pdu_format_vals[] = {
 };
 
 static const int *data2_headers[] = {
-	&hf_radiotap_he_d2_reserved_b1,
+	&hf_radiotap_he_pri_sec_80_mhz_known,
 	&hf_radiotap_he_gi_known,
 	&hf_radiotap_he_ltf_symbols_known,
 	&hf_radiotap_he_pre_fec_padding_factor_known,
@@ -784,8 +786,15 @@ static const int *data2_headers[] = {
 	&hf_radiotap_he_pe_disambiguity_known,
 	&hf_radiotap_he_txop_known,
 	&hf_radiotap_he_midamble_periodicity_known,
-	&hf_radiotap_he_d2_reserved_ff00,
+	&hf_radiotap_he_ru_allocation_offset,
+	&hf_radiotap_he_ru_allocation_offset_known,
+	&hf_radiotap_he_pri_sec_80_mhz,
 	NULL
+};
+
+static const true_false_string tfs_pri_sec_80_mhz = {
+	"secondary",
+	"primary"
 };
 
 static const int *data3_headers[] = {
@@ -1131,25 +1140,25 @@ dissect_radiotap_flags(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 		phdr->fcs_len = 0;
 
 	ft = proto_tree_add_item(tree, hf_radiotap_flags, tvb, offset,
-				1, ENC_BIG_ENDIAN);
+				1, ENC_LITTLE_ENDIAN);
 	flags_tree = proto_item_add_subtree(ft, ett_radiotap_flags);
 
 	proto_tree_add_item(flags_tree, hf_radiotap_flags_cfp, tvb, offset,
-				1, ENC_BIG_ENDIAN);
+				1, ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(flags_tree, hf_radiotap_flags_preamble, tvb, offset,
-				1, ENC_BIG_ENDIAN);
+				1, ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(flags_tree, hf_radiotap_flags_wep, tvb, offset, 1,
-				ENC_BIG_ENDIAN);
+				ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(flags_tree, hf_radiotap_flags_frag, tvb, offset, 1,
-				ENC_BIG_ENDIAN);
+				ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(flags_tree, hf_radiotap_flags_fcs, tvb, offset, 1,
-				ENC_BIG_ENDIAN);
+				ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(flags_tree, hf_radiotap_flags_datapad, tvb, offset,
-				1, ENC_BIG_ENDIAN);
+				1, ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(flags_tree, hf_radiotap_flags_badfcs, tvb, offset,
-				1, ENC_BIG_ENDIAN);
+				1, ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(flags_tree, hf_radiotap_flags_shortgi, tvb, offset,
-				1, ENC_BIG_ENDIAN);
+				1, ENC_LITTLE_ENDIAN);
 }
 
 static void
@@ -1344,9 +1353,9 @@ dissect_radiotap_fhss(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 	phdr->phy_info.info_11_fhss.has_hop_pattern = TRUE;
 	phdr->phy_info.info_11_fhss.hop_pattern = tvb_get_guint8(tvb, offset + 1);
 	proto_tree_add_item(tree, hf_radiotap_fhss_hopset, tvb, offset, 1,
-			    ENC_BIG_ENDIAN);
+			    ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(tree, hf_radiotap_fhss_pattern, tvb, offset + 1, 1,
-			    ENC_BIG_ENDIAN);
+			    ENC_LITTLE_ENDIAN);
 }
 
 static void
@@ -1602,7 +1611,7 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 	guint8      version;
 	guint       length;
 	proto_item *rate_ti;
-	gint8       db;
+	guint8      db;
 	gboolean    have_rflags       = FALSE;
 	guint8      rflags            = 0;
 	/* backward compat with bit 14 == fcs in header */
@@ -1659,7 +1668,7 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 		proto_tree_add_uint(radiotap_tree, hf_radiotap_version,
 				    tvb, 0, 1, version);
 		proto_tree_add_item(radiotap_tree, hf_radiotap_pad,
-				    tvb, 1, 1, ENC_BIG_ENDIAN);
+				    tvb, 1, 1, ENC_LITTLE_ENDIAN);
 		proto_tree_add_uint(radiotap_tree, hf_radiotap_length,
 				    tvb, 2, 2, length);
 	}
@@ -1849,10 +1858,16 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 							 "%s-%d",
 							 manuf_name, subns);
 			ven_tree = proto_item_add_subtree(vt, ett_radiotap_vendor);
+			/*
+			 * This is defined on the Radiotap site as an array
+			 * of 3 octets, containing an OUI, but we show fields
+			 * of that sort as a 24-bit big-endian field, so
+			 * ENC_BIG_ENDIAN is correct here.
+			 */
 			proto_tree_add_item(ven_tree, hf_radiotap_ven_oui,
 					    tvb, offset, 3, ENC_BIG_ENDIAN);
 			proto_tree_add_item(ven_tree, hf_radiotap_ven_subns,
-					    tvb, offset + 3, 1, ENC_BIG_ENDIAN);
+					    tvb, offset + 3, 1, ENC_LITTLE_ENDIAN);
 			proto_tree_add_item(ven_tree, hf_radiotap_ven_skip, tvb,
 					    offset + 4, 2, ENC_LITTLE_ENDIAN);
 			proto_tree_add_item(ven_tree, hf_radiotap_ven_data, tvb,
@@ -1911,13 +1926,13 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 		case IEEE80211_RADIOTAP_TX_ATTENUATION:
 			proto_tree_add_item(radiotap_tree,
 					    hf_radiotap_tx_attenuation, tvb,
-					    offset, 2, ENC_BIG_ENDIAN);
+					    offset, 2, ENC_LITTLE_ENDIAN);
 			break;
 
 		case IEEE80211_RADIOTAP_DB_TX_ATTENUATION:
 			proto_tree_add_item(radiotap_tree,
 					    hf_radiotap_db_tx_attenuation, tvb,
-					    offset, 2, ENC_BIG_ENDIAN);
+					    offset, 2, ENC_LITTLE_ENDIAN);
 			break;
 
 		case IEEE80211_RADIOTAP_DBM_TX_POWER:
@@ -2880,44 +2895,46 @@ void proto_register_radiotap(void)
 		  "Antenna number this frame was sent/received over (starting at 0)", HFILL}},
 
 		{&hf_radiotap_dbm_antsignal,
-		 {"SSI Signal", "radiotap.dbm_antsignal",
-		  FT_INT32, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0x0,
-		  "RF signal power at the antenna from a fixed,"
-		  " arbitrary value in decibels from one milliwatt", HFILL}},
+		 {"Antenna signal", "radiotap.dbm_antsignal",
+		  FT_INT8, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0x0,
+		  "RF signal power at the antenna expressed as decibels"
+		  " from one milliwatt", HFILL}},
 
 		{&hf_radiotap_db_antsignal,
-		 {"SSI Signal", "radiotap.db_antsignal",
-		  FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_decibels, 0x0,
-		  "RF signal power at the antenna from a fixed, arbitrary value in decibels", HFILL}},
+		 {"dB antenna signal", "radiotap.db_antsignal",
+		  FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_decibels, 0x0,
+		  "RF signal power at the antenna expressed as decibels"
+		  " from a fixed, arbitrary value", HFILL}},
 
 		{&hf_radiotap_dbm_antnoise,
-		 {"SSI Noise", "radiotap.dbm_antnoise",
-		  FT_INT32, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0x0,
-		  "RF noise power at the antenna from a fixed, arbitrary value"
-		  " in decibels per one milliwatt", HFILL}},
+		 {"Antenna noise", "radiotap.dbm_antnoise",
+		  FT_INT8, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0x0,
+		  "RF noise power at the antenna expressed as decibels"
+		  " from one milliwatt", HFILL}},
 
 		{&hf_radiotap_db_antnoise,
-		 {"SSI Noise", "radiotap.db_antnoise",
-		  FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_decibels, 0x0,
-		  "RF noise power at the antenna from a fixed, arbitrary value"
-		  " in decibels", HFILL}},
+		 {"dB antenna noise", "radiotap.db_antnoise",
+		  FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_decibels, 0x0,
+		  "RF noise power at the antenna expressed as decibels"
+		  " from a fixed, arbitrary value", HFILL}},
 
 		{&hf_radiotap_tx_attenuation,
-		 {"Transmit attenuation", "radiotap.txattenuation",
+		 {"TX attenuation", "radiotap.txattenuation",
 		  FT_UINT16, BASE_DEC, NULL, 0x0,
 		  "Transmit power expressed as unitless distance from max power"
-		  " set at factory (0 is max power)", HFILL}},
+		  " set at factory calibration (0 is max power)", HFILL}},
 
 		{&hf_radiotap_db_tx_attenuation,
-		 {"Transmit attenuation (dB)", "radiotap.db_txattenuation",
-		  FT_UINT16, BASE_DEC, NULL, 0x0,
+		 {"dB TX attenuation", "radiotap.db_txattenuation",
+		  FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_decibels, 0x0,
 		  "Transmit power expressed as decibels from max power"
-		  " set at factory (0 is max power)", HFILL}},
+		  " set at factory calibration (0 is max power)", HFILL}},
 
 		{&hf_radiotap_txpower,
 		 {"Transmit power", "radiotap.txpower",
-		  FT_INT32, BASE_DEC, NULL, 0x0,
-		  "Transmit power in decibels per one milliwatt (dBm)", HFILL}},
+		  FT_INT8, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0x0,
+		  "Transmit power at the antenna port expressed as decibels"
+		  " from one milliwatt", HFILL}},
 
 		{&hf_radiotap_mcs,
 		 {"MCS information", "radiotap.mcs",
@@ -3417,9 +3434,9 @@ void proto_register_radiotap(void)
 		  FT_UINT16, BASE_HEX, NULL, 0x0,
 		  "Data 1 of the HE Info field", HFILL}},
 
-		{&hf_radiotap_he_d2_reserved_b1,
-		 {"Reserved", "radiotap.he.data_2.reserved_ff00",
-		  FT_UINT16, BASE_HEX, NULL, IEEE80211_RADIOTAP_HE_RESERVED_D2_B1,
+		{&hf_radiotap_he_pri_sec_80_mhz_known,
+		 {"pri/sec 80 MHz known", "radiotap.he.data_2.pri_sec_80_mhz_known",
+		  FT_BOOLEAN, 16, NULL, IEEE80211_RADIOTAP_HE_PRI_SEC_80_MHZ_KNOWN,
 		  NULL, HFILL}},
 
 		{&hf_radiotap_he_gi_known,
@@ -3457,9 +3474,21 @@ void proto_register_radiotap(void)
 		  FT_BOOLEAN, 16, TFS(&tfs_known_unknown), IEEE80211_RADIOTAP_HE_MIDAMBLE_PERIODICITY_KNOWN,
 		  NULL, HFILL}},
 
-		{&hf_radiotap_he_d2_reserved_ff00,
-		 {"Reserved", "radiotap.he.data_2.reserved_ff00",
-		  FT_UINT16, BASE_HEX, NULL, IEEE80211_RADIOTAP_HE_RESERVED_D2_FF00,
+		{&hf_radiotap_he_ru_allocation_offset,
+		 {"RU allocation offset", "radiotap.he.data_2.ru_allocation_offset",
+		  FT_UINT16, BASE_HEX, NULL, IEEE80211_RADIOTAP_HE_RU_ALLOCATION_OFFSET,
+		  NULL, HFILL}},
+
+		{&hf_radiotap_he_ru_allocation_offset_known,
+		 {"RU allocation offset known", "radiotap.he.data_2.ru_allocation_offseti_known",
+		  FT_BOOLEAN, 16, TFS(&tfs_known_unknown),
+			IEEE80211_RADIOTAP_HE_RU_ALLOCATION_OFFSET_KNOWN,
+		  NULL, HFILL}},
+
+		{&hf_radiotap_he_pri_sec_80_mhz,
+		 {"pri/sec 80 MHz", "radiotap.he.data_2.pri_sec_80_mhz",
+		  FT_BOOLEAN, 16, TFS(&tfs_pri_sec_80_mhz),
+			IEEE80211_RADIOTAP_HE_PRI_SEC_80_MHZ,
 		  NULL, HFILL}},
 
 		{&hf_radiotap_he_bss_color,

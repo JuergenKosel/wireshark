@@ -7865,17 +7865,14 @@ static int dissect_ccm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
             const guint8 *epp_buf = tvb_get_ptr(tvb, 0, -1);
             guint a_len = offset;
             guint16 e_off;
-            guint8 *buf = (guint8 *)g_malloc(e_len);
+            guint8 *buf = (guint8 *)g_malloc0(e_len);
             tvbuff_t *app;
 
             /* The default nonce is a function of whether or not this is the server
             * or the client and the packet count. The packet count either comes from
             * the PDU or is a function of the previous value (of the sending node).
             */
-            guint8 nonce[] = { 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00,
-                0x00,
-                0x00, 0x00, 0x00, 0x00 };
+            guint8 nonce[11];
 
             nonce[0] = (pdata->nid) >> 24;
             nonce[1] = (pdata->nid) >> 16;

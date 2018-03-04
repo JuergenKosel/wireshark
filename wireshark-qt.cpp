@@ -112,7 +112,7 @@
 //#  include "airpcap_gui_utils.h"
 #endif
 
-#include "epan/crypt/airpdcap_ws.h"
+#include "epan/crypt/dot11decrypt_ws.h"
 
 #if (QT_VERSION < QT_VERSION_CHECK(5, 0, 0))
 #include <QTextCodec>
@@ -151,7 +151,6 @@ void main_window_update(void)
 /* quit a nested main window */
 void main_window_nested_quit(void)
 {
-//    if (gtk_main_level() > 0)
     wsApp->quit();
 }
 
@@ -162,6 +161,13 @@ void main_window_quit(void)
 }
 
 #endif /* HAVE_LIBPCAP */
+
+void exit_application(int status) {
+    if (wsApp) {
+        wsApp->quit();
+    }
+    exit(status);
+}
 
 /*
  * Report an error in command-line arguments.
@@ -534,7 +540,7 @@ int main(int argc, char *qt_argv[])
     // https://bugreports.qt.io/browse/QTBUG-53022 - The device pixel ratio is pretty much bogus on Windows.
     // https://bugreports.qt.io/browse/QTBUG-55510 - Windows have wrong size
 #if defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
-     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
 
     /* Create The Wireshark app */
@@ -544,7 +550,7 @@ int main(int argc, char *qt_argv[])
     // xxx qtshark
     //initialize_funnel_ops();
 
-    AirPDcapInitContext(&airpdcap_ctx);
+    Dot11DecryptInitContext(&dot11decrypt_ctx);
 
     QString cf_name;
     unsigned int in_file_type = WTAP_TYPE_AUTO;
@@ -688,7 +694,7 @@ int main(int argc, char *qt_argv[])
     hostlist_table_set_gui_info(init_endpoint_table);
     srt_table_iterate_tables(register_service_response_tables, NULL);
     rtd_table_iterate_tables(register_response_time_delay_tables, NULL);
-    new_stat_tap_iterate_tables(register_simple_stat_tables, NULL);
+    stat_tap_iterate_tables(register_simple_stat_tables, NULL);
 
     if (ex_opt_count("read_format") > 0) {
         in_file_type = open_info_name_to_type(ex_opt_get_next("read_format"));
@@ -716,10 +722,6 @@ int main(int argc, char *qt_argv[])
         read_filter = QString(global_commandline_info.rfilter);
     if (global_commandline_info.dfilter != NULL)
         dfilter = QString(global_commandline_info.dfilter);
-
-    /* Removed thread code:
-     * https://code.wireshark.org/review/gitweb?p=wireshark.git;a=commit;h=9e277ae6154fd04bf6a0a34ec5655a73e5a736a3
-     */
 
     timestamp_set_type(recent.gui_time_format);
     timestamp_set_precision(recent.gui_time_precision);
@@ -933,6 +935,7 @@ int main(int argc, char *qt_argv[])
     profile_store_persconffiles(FALSE);
 
     ret_val = wsApp->exec();
+    wsApp = NULL;
 
     delete main_w;
     recent_cleanup();
@@ -940,7 +943,7 @@ int main(int argc, char *qt_argv[])
 
     extcap_cleanup();
 
-    AirPDcapDestroyContext(&airpdcap_ctx);
+    Dot11DecryptDestroyContext(&dot11decrypt_ctx);
 
 #ifdef _WIN32
     /* Shutdown windows sockets */
@@ -960,7 +963,7 @@ clean_exit:
     codecs_cleanup();
     wtap_cleanup();
     free_progdirs();
-    return ret_val;
+    exit_application(ret_val);
 }
 
 /*

@@ -759,11 +759,6 @@ main(int argc, char *argv[])
     }
 #endif /* _WIN32 */
 
-    /* At this point MATE will have registered its field array so we can
-       have a tap filter with one of MATE's late-registered fields as part
-       of the filter.  We can now process all the "-z" arguments. */
-    start_requested_stats();
-
     /*
      * Enabled and disabled protocols and heuristic dissectors as per
      * command-line options.
@@ -844,7 +839,6 @@ clean_exit:
  * packet header followed by the payload.
  * @param pd [IN] A POSIX file descriptor.  Because that's _exactly_ the sort
  *           of thing you want to use in Windows.
- * @param phdr [OUT] Packet header information.
  * @param err [OUT] Error indicator.  Uses wiretap values.
  * @param err_info [OUT] Error message.
  * @param data_offset [OUT] data offset in the pipe.

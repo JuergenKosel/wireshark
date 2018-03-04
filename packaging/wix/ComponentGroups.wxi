@@ -75,9 +75,6 @@
         <Component Id="cmpExtcap_html" Guid="*">
           <File Id="filExtcap_html" KeyPath="yes" Source="$(var.Staging.Dir)\extcap.html" />
         </Component>
-        <Component Id="cmpIpmap_html" Guid="*">
-          <File Id="filIpmap_html" KeyPath="yes" Source="$(var.Staging.Dir)\ipmap.html" />
-        </Component>
       </DirectoryRef>
     </Fragment>
     <Fragment>
@@ -101,7 +98,6 @@
         <ComponentRef Id="cmpDumpcap_exe" />
         <ComponentRef Id="cmpDumpcap_html" />
         <ComponentRef Id="cmpExtcap_html" />
-        <ComponentRef Id="cmpIpmap_html" />
       </ComponentGroup>
     </Fragment>
 

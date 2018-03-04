@@ -69,6 +69,7 @@
 #ifdef Q_OS_WIN
 #include "wsutil/file_util.h"
 #include <QSysInfo>
+#include <Uxtheme.h>
 #endif
 
 // To do:
@@ -264,18 +265,8 @@ PacketList::PacketList(QWidget *parent) :
 
 #ifdef Q_OS_WIN // && Qt version >= 4.8.6
     if (QSysInfo::windowsVersion() < QSysInfo::WV_WINDOWS8) {
-        // See if we're running Vista or 7 and we have a theme applied.
-        HMODULE uxtheme_lib = (HMODULE) ws_load_library("uxtheme.dll");
-
-        if (uxtheme_lib) {
-            typedef BOOL (WINAPI *IsAppThemedHandler)(void);
-            typedef BOOL (WINAPI *IsThemeActiveHandler)(void);
-
-            IsAppThemedHandler PIsAppThemed = (IsAppThemedHandler) GetProcAddress(uxtheme_lib, "IsAppThemed");
-            IsThemeActiveHandler PIsThemeActive = (IsThemeActiveHandler) GetProcAddress(uxtheme_lib, "IsThemeActive");
-            if (PIsAppThemed && PIsAppThemed() && PIsThemeActive && PIsThemeActive()) {
-                style_inactive_selected = false;
-            }
+        if (IsAppThemed() && IsThemeActive()) {
+            style_inactive_selected = false;
         }
     }
 #endif
@@ -1002,6 +993,7 @@ QString PacketList::getFilterFromRowAndColumn()
              */
             if (strlen(cap_file_->cinfo.col_expr.col_expr[ctx_column_]) != 0 &&
                 strlen(cap_file_->cinfo.col_expr.col_expr_val[ctx_column_]) != 0) {
+                gboolean is_string_value = FALSE;
                 if (cap_file_->cinfo.columns[ctx_column_].col_fmt == COL_CUSTOM) {
                     header_field_info *hfi = proto_registrar_get_byname(cap_file_->cinfo.columns[ctx_column_].col_custom_fields);
                     if (hfi && hfi->parent == -1) {
@@ -1009,15 +1001,26 @@ QString PacketList::getFilterFromRowAndColumn()
                         filter.append(cap_file_->cinfo.col_expr.col_expr[ctx_column_]);
                     } else if (hfi && hfi->type == FT_STRING) {
                         /* Custom string, add quotes */
+                        is_string_value = TRUE;
+                    }
+                } else {
+                    header_field_info *hfi = proto_registrar_get_byname(cap_file_->cinfo.col_expr.col_expr[ctx_column_]);
+                    if (hfi && hfi->type == FT_STRING) {
+                        /* Could be an address type such as usb.src which must be quoted. */
+                        is_string_value = TRUE;
+                    }
+                }
+
+                if (filter.isEmpty()) {
+                    if (is_string_value) {
                         filter.append(QString("%1 == \"%2\"")
                                       .arg(cap_file_->cinfo.col_expr.col_expr[ctx_column_])
                                       .arg(cap_file_->cinfo.col_expr.col_expr_val[ctx_column_]));
+                    } else {
+                        filter.append(QString("%1 == %2")
+                                      .arg(cap_file_->cinfo.col_expr.col_expr[ctx_column_])
+                                      .arg(cap_file_->cinfo.col_expr.col_expr_val[ctx_column_]));
                     }
-                }
-                if (filter.isEmpty()) {
-                    filter.append(QString("%1 == %2")
-                                  .arg(cap_file_->cinfo.col_expr.col_expr[ctx_column_])
-                                  .arg(cap_file_->cinfo.col_expr.col_expr_val[ctx_column_]));
                 }
             }
         }

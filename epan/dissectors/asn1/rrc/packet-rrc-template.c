@@ -351,11 +351,6 @@ static gint rrc_key_cmp(gconstpointer b_ptr, gconstpointer a_ptr, gpointer ignor
     return GPOINTER_TO_INT(a_ptr) < GPOINTER_TO_INT(b_ptr);
 }
 
-static void rrc_free_key(gpointer key _U_){
-            /*Keys should be de allocated elsewhere.*/
-
-}
-
 static void rrc_free_value(gpointer value ){
             g_free(value);
 }
@@ -366,16 +361,19 @@ get_or_create_cipher_info(fp_info *fpinf, rlc_info *rlcinf) {
   guint32 ueid;
   int i;
 
-  ueid = rlcinf->ueid[fpinf->cur_tb];
+  if (!fpinf || !rlcinf)
+    return NULL;
 
+  ueid = rlcinf->ueid[fpinf->cur_tb];
   cipher_info = (rrc_ciphering_info *)g_tree_lookup(rrc_ciph_info_tree, GINT_TO_POINTER((gint)ueid));
+
   if( cipher_info == NULL ){
     cipher_info = g_new0(rrc_ciphering_info,1);
 
     /*Initiate tree with START_PS values.*/
     if(!cipher_info->start_ps)
       cipher_info->start_ps = g_tree_new_full(rrc_key_cmp,
-                                        NULL,rrc_free_key,rrc_free_value);
+                                        NULL,NULL,rrc_free_value);
 
     /*Clear and initialize seq_no matrix*/
     for(i = 0; i< 31; i++){
@@ -462,7 +460,7 @@ rrc_init(void) {
     /*Initialize structure for muxed flow indication*/
     hsdsch_muxed_flows = g_tree_new_full(rrc_key_cmp,
                        NULL,      /* data pointer, optional */
-                       rrc_free_key,
+                       NULL,
                        rrc_free_value);
 
     rrc_ciph_info_tree = g_tree_new_full(rrc_key_cmp,

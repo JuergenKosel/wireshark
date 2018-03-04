@@ -1,9 +1,7 @@
 #!/bin/bash
 #
 # USAGE
-# osx-app [-s] [-l /path/to/libraries] -bp /path/to/wireshark/bin
-#     -lp /path/to/wireshark/lib -ep /path/to/wireshark/extcap/binaries
-#     -pp /path/to/wireshark/plugins -p /path/to/Info.plist
+# osx-app [-s] [-l /path/to/libraries]
 #
 # This script attempts to build an Wireshark.app bundle for macOS, resolving
 # dynamic libraries, etc.
@@ -37,54 +35,13 @@
 
 # Defaults
 strip=false
-binary_path="/tmp/inst/bin"
-library_path="/tmp/inst/lib"
-plugin_path="/tmp/inst/lib/wireshark/plugins"
-extcap_path="/tmp/inst/lib/wireshark/extcap"
-plist="./Info.plist"
 exclude_prefixes="/System/|/Library/|/usr/lib/|/usr/X11/|/opt/X11/|@rpath|@executable_path"
-create_bundle=false
 
 # Bundle always has the same name. Version information is stored in
 # the Info.plist file which is filled in by the configure script.
 bundle="Wireshark.app"
 
-# Name of the Wireshark executable
-wireshark_bin_name="wireshark"
-
-#
-# Command-line executables
-#
-cli_binary_list="
-	capinfos
-	dftest
-	dumpcap
-	editcap
-	mergecap
-	randpkt
-	rawshark
-	text2pcap
-	tshark
-"
-
-extcap_binaries="
-	androiddump
-	ciscodump
-	randpktdump
-	sshdump
-	udpdump
-"
-
-for extcap_binary in $extcap_binaries
-do
-	if [ -x "extcap/$extcap_binary" ]; then
-		extcap_binary_list="$extcap_binary_list extcap/$extcap_binary"
-	fi
-done
-
-cs_binary_list=
-
-# Location for libraries (macosx-setup.sh defaults to whatever the
+# Location for libraries (tools/macos-setup.sh defaults to whatever the
 # various support libraries use as their standard installation location,
 # which is /usr/local)
 if [ -z $LIBPREFIX ]; then
@@ -100,7 +57,7 @@ echo -e "
 Create an app bundle for macOS
 
 USAGE
-	$0 [-s] [-l /path/to/libraries] -bp /path/to/wireshark/binaries -p /path/to/Info.plist
+	$0 [-s] [-l /path/to/libraries]
 
 OPTIONS
 	-h,--help
@@ -111,27 +68,9 @@ OPTIONS
 		Specify the path to the libraries Wireshark depends on
 		(typically /sw or /opt/local). By default it is
 		/usr/local.
-	-bp,--binary-path
-		Specify the path to the Wireshark binaries. By default it
-		is /tmp/inst/bin.
-	-lp,--library-path
-		Specify the path to the Wireshark libraries. By default it
-		is /tmp/inst/lib.
-	-pp,--plugin-path
-		Specify the path to the Wireshark plugins. By default it
-		is /tmp/inst/lib/wireshark/plugins.
-	-ep,--extcap-path
-		Specify the path to the Wireshark extcap binaries. By
-		default it is /tmp/inst/lib/wireshark/extcap.
-	-p,--plist
-		Specify the path to Info.plist. Info.plist can be found
-		in the base directory of the source code once configure
-		has been run.
-	-sdkroot
-		Specify the root of the SDK to use.
 
 EXAMPLE
-	$0 -s -l /opt/local -bp ../../Build/bin -p Info.plist -sdkroot /Developer/SDKs/MacOSX10.5.sdk
+	$0 -s -l /opt/local
 "
 }
 
@@ -146,29 +85,9 @@ do
 		-l|--libraries)
 			LIBPREFIX="$2"
 			shift 1 ;;
-		-bp|--binary-path)
-			binary_path="$2"
-			shift 1 ;;
-		-lp|--library-path)
-			library_path="$2"
-			shift 1 ;;
-		-pp|--plugin-path)
-			plugin_path="$2"
-			shift 1 ;;
-		-ep|--extcap-path)
-			extcap_path="$2"
-			shift 1 ;;
-		-cb|--create-bundle)
-			create_bundle=true;;
-		-p|--plist)
-			plist="$2"
-			shift 1 ;;
 		-h|--help)
 			help
 			exit 0 ;;
-		-sdkroot)
-			sdkroot="$2"
-			shift 1 ;;
 		*)
 			echo "Invalid command line option: $1"
 			exit 2 ;;
@@ -182,39 +101,10 @@ if [ ! -e "$LIBPREFIX" ]; then
 	exit 1
 fi
 
-if [ "$create_bundle" = "true" ]; then
-	echo -e "\nCREATE WIRESHARK APP BUNDLE\n"
-
-	if [ ! -x "$binary_path/$wireshark_bin_name" ]; then
-		echo "Couldn't find $binary_path/$wireshark_bin_name (or it's not executable)" >&2
-		exit 1
-	fi
-
-	for binary in $cli_binary_list ; do
-		binary=$( basename $binary )
-		if [ ! -x "$binary_path/$binary" ]; then
-			echo "Couldn't find $binary (or it's not executable)" >&2
-			exit 1
-		fi
-	done
-
-	for binary in $extcap_binary_list ; do
-		binary=$( basename $binary )
-		if [ ! -x "$extcap_path/$binary" ]; then
-			echo "Couldn't find $binary (or it's not executable)" >&2
-			exit 1
-		fi
-	done
-
-	if [ ! -f "$plist" ]; then
-		echo "Need plist file" >&2
-		exit 1
-	fi
-elif [ ! -d "$bundle" ] ; then
+if [ ! -d "$bundle" ] ; then
 	echo "$bundle not found" >&2
 	exit 1
 fi
-
 
 qt_frameworks_dir=$( qmake -query QT_INSTALL_LIBS )
 if [ ! -d "$qt_frameworks_dir" ] ; then
@@ -230,18 +120,18 @@ exclude_prefixes="$exclude_prefixes|$qt_frameworks_dir"
 # Package paths
 pkgexec="$bundle/Contents/MacOS"
 pkgres="$bundle/Contents/Resources"
-pkgbin="$pkgres/bin"
 pkglib="$bundle/Contents/Frameworks"
 pkgplugin="$bundle/Contents/PlugIns/wireshark/@VERSION_MAJOR@.@VERSION_MINOR@"
 
 # Set the 'macosx' directory, usually the current directory.
 resdir=`pwd`
 
-if [ -z "$cs_binary_list" ]; then
-	for binary in Wireshark $cli_binary_list ; do
-		cs_binary_list="$cs_binary_list $pkgexec/$binary"
-	done
-fi
+#
+# Get a list of all binaries in the bundle.
+# Treat all plain files with read and execute permissions for all as
+# binaries.
+#
+bundle_binary_list=`find $pkgexec -type f -perm -0555 -print`
 
 echo -e "\nFixing up $bundle...\n"
 
@@ -250,22 +140,37 @@ echo -e "\nFixing up $bundle...\n"
 a=1
 nfiles=0
 endl=true
-lib_dep_search_list="
-	$pkglib/*
-	$pkgexec/*
-	$pkgexec/extcap/*
-	"
-
 while $endl; do
 	echo -e "Looking for dependencies. Round" $a
 	#
-	# libssh, for some reason, has its "install name" set to
-	# just libssh.4.dylib, rather than /usr/local/lib/libssh.4.dylib,
-	# when built by macosx-setup.sh.  We have to fix that; that's
-	# what the sed command does.
+	# To find dependencies, we:
+	#
+	#    run otool -L on all the binaries in the bundle, and on all
+	#    the shared libraries in the $pkglib directory, to find all
+	#    the libraries they depend on (we don't bother with the
+	#    frameworks, as the only frameworks we ship are the Qt
+	#    frameworks, which don't depend on any libraries that
+	#    don't ship with the OS, and as it's hard to find the
+	#    framework libraries under $pkglib without getting
+	#    non-framework files);
+	#
+	#    filter out all lines that don't contain "compatibility" to
+	#    remove lines of output that don't correspond to dependencies;
+	#
+	#    use cut to extract the library name from the output;
+	#
+	#    replace "libssh" with "/usr/local/lib/libssh" because
+	#    libssh, for some reason, has its "install name" set to
+	#    just libssh.4.dylib, rather than /usr/local/lib/libssh.4.dylib,
+	#    when built by tools/macos-setup.sh;
+	#
+	#    strip out system libraries, as we don't bundle them with
+	#    Wireshark;
+	#
+	#    eliminate duplicates.
 	#
 	libs="`\
-		otool -L $lib_dep_search_list 2>/dev/null \
+		otool -L $bundle_binary_list "$pkglib"/*.dylib 2>/dev/null \
 		| fgrep compatibility \
 		| cut -d\( -f1 \
 		| sed '1,$s;^	libssh;	/usr/local/lib/libssh;' \
@@ -290,14 +195,14 @@ chmod 755 "$pkglib"/*.dylib
 if [ "$strip" = "true" ]; then
 	echo -e "\nStripping debugging symbols...\n"
 	strip -x "$pkglib"/*.dylib
-	strip -ur "$binpath"
+	strip -ur "$bundle_binary_list"
 fi
 
 #
 # This may not work on Qt 5.5.0 or 5.5.1:
 # https://bugreports.qt.io/browse/QTBUG-47868
 #
-macdeployqt "$bundle" -verbose=2 || exit 1
+macdeployqt "$bundle" -no-strip -verbose=2 || exit 1
 
 #
 # The build process added to the Wireshark binary an rpath entry
@@ -317,7 +222,7 @@ rpathify_file () {
 	#
 	# OK, what type of file is this?
 	#
-	filetype=$( otool -hv "$1" | sed -n '4p' | awk '{print $5}' ; exit ${PIPESTATUS[0]} )
+	filetype=$( otool -hv "$1" | egrep MH_MAGIC | awk '{print $5}' ; exit ${PIPESTATUS[0]} )
 	if [ $? -ne 0 ] ; then
 		echo "Unable to rpathify $1 in $( pwd ): file type failed."
 		exit 1
@@ -486,12 +391,41 @@ else
 	echo "Could not rewrite dylib paths for bundled libraries.  This requires" >&2
 	echo "the support libraries to be installed in a PREFIX of at least 6 characters in length." >&2
 	echo "" >&2
-	echo "The bundle will still work if the following line is uncommented in" >&2
-	echo "Wireshark.app/Contents/Resources/bin/{various scripts}:" >&2
-	echo '        export DYLD_LIBRARY_PATH="$TOP/lib"' >&2
 	exit 1
 
 fi
+
+echo "Dsymifying executables"
+if [ -z "$bundle_binary_list" ] ; then
+	echo "No executables specified for dsymifying."
+	exit 1
+fi
+for binary in $bundle_binary_list ; do
+	if [ -e "$binary" ];then
+		dsymutil "$binary"
+	fi
+done
+
+echo "Dsymifying frameworks"
+for framework in $pkglib/*.framework/Versions/*/* ; do
+	if [ -f "$framework" ];then
+		dsymutil "$framework"
+	fi
+done
+
+echo "Dsymifying libraries"
+for library in $pkglib/*.dylib ; do
+	#
+	# Squelch warnings, in case the .o files from building
+	# support libraries aren't around any more.
+	#
+	dsymutil "$library" | egrep -v 'unable to open object file'
+done
+
+echo "Dsymifying plugins"
+for plugin in $pkgplugin/*/*.so ; do
+	dsymutil "$plugin"
+done
 
 codesign_file () {
 	codesign --sign "Developer ID Application: $CODE_SIGN_IDENTITY" --verbose "$1"
@@ -503,11 +437,11 @@ if [ -n "$CODE_SIGN_IDENTITY" ] ; then
 	security find-identity -v -s "$CODE_SIGN_IDENTITY" -p codesigning
 
 	echo "Signing executables"
-	if [ -z "$cs_binary_list" ] ; then
+	if [ -z "$bundle_binary_list" ] ; then
 		echo "No executables specified for code signing."
 		exit 1
 	fi
-	for binary in $cs_binary_list ; do
+	for binary in $bundle_binary_list ; do
 		if [ -e "$binary" ];then
 			codesign_file "$binary"
 		fi

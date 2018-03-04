@@ -92,6 +92,7 @@ const value_string ssl_versions[] = {
     { 0x7F15,               "TLS 1.3 (draft 21)" },
     { 0x7F16,               "TLS 1.3 (draft 22)" },
     { 0x7F17,               "TLS 1.3 (draft 23)" },
+    { 0x7F18,               "TLS 1.3 (draft 24)" },
     { DTLSV1DOT0_OPENSSL_VERSION, "DTLS 1.0 (OpenSSL pre 0.9.8f)" },
     { DTLSV1DOT0_VERSION,   "DTLS 1.0" },
     { DTLSV1DOT2_VERSION,   "DTLS 1.2" },
@@ -2743,12 +2744,26 @@ static gint tls12_handshake_hash(SslDecryptSession* ssl, gint md, StringInfo* ou
     return 0;
 }
 
+/**
+ * Obtains the label prefix used in HKDF-Expand-Label.  This function can be
+ * inlined and removed once support for draft 19 and before is dropped.
+ */
+static inline const char *
+tls13_hkdf_label_prefix(guint8 tls13_draft_version)
+{
+    if (tls13_draft_version && tls13_draft_version < 20) {
+        return "TLS 1.3, ";
+    } else {
+        return "tls13 ";
+    }
+}
+
 /*
  * Computes HKDF-Expand-Label(Secret, Label, "", Length) with a custom label
  * prefix.
  */
 gboolean
-tls13_hkdf_expand_label_common(int md, const StringInfo *secret,
+tls13_hkdf_expand_label(int md, const StringInfo *secret,
                         const char *label_prefix, const char *label,
                         guint16 out_len, guchar **out)
 {
@@ -2796,20 +2811,6 @@ tls13_hkdf_expand_label_common(int md, const StringInfo *secret,
     }
 
     return TRUE;
-}
-
-static gboolean
-tls13_hkdf_expand_label(guchar draft_version,
-                        int md, const StringInfo *secret, const char *label,
-                        guint16 out_len, guchar **out)
-{
-    if (draft_version && draft_version < 20) {
-        /* Draft -19 and before use a different prefix.
-         * TODO remove this once implementations are updated for D20. */
-        return tls13_hkdf_expand_label_common(md, secret, "TLS 1.3, ", label, out_len, out);
-    } else {
-        return tls13_hkdf_expand_label_common(md, secret, "tls13 ", label, out_len, out);
-    }
 }
 /* HMAC and the Pseudorandom function }}} */
 
@@ -3007,7 +3008,7 @@ tls13_cipher_destroy_cb(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _
 }
 
 tls13_cipher *
-tls13_cipher_create(guint8 tls13_draft_version, int cipher_algo, int cipher_mode, int hash_algo, const StringInfo *secret, const gchar **error)
+tls13_cipher_create(const char *label_prefix, int cipher_algo, int cipher_mode, int hash_algo, const StringInfo *secret, const gchar **error)
 {
     tls13_cipher       *cipher = NULL;
     guchar             *write_key = NULL, *write_iv = NULL;
@@ -3022,11 +3023,11 @@ tls13_cipher_create(guint8 tls13_draft_version, int cipher_algo, int cipher_mode
     key_length = (guint) gcry_cipher_get_algo_keylen(cipher_algo);
     iv_length = TLS13_AEAD_NONCE_LENGTH;
 
-    if (!tls13_hkdf_expand_label(tls13_draft_version, hash_algo, secret, "key", key_length, &write_key)) {
+    if (!tls13_hkdf_expand_label(hash_algo, secret, label_prefix, "key", key_length, &write_key)) {
         *error = "Key expansion (key) failed";
         return NULL;
     }
-    if (!tls13_hkdf_expand_label(tls13_draft_version, hash_algo, secret, "iv", iv_length, &write_iv)) {
+    if (!tls13_hkdf_expand_label(hash_algo, secret, label_prefix, "iv", iv_length, &write_iv)) {
         *error = "Key expansion (IV) failed";
         goto end;
     }
@@ -3577,11 +3578,12 @@ tls13_generate_keys(SslDecryptSession *ssl_session, const StringInfo *secret, gb
     iv_length = 12;
     ssl_debug_printf("%s key_length %u iv_length %u\n", G_STRFUNC, key_length, iv_length);
 
-    if (!tls13_hkdf_expand_label(ssl_session->session.tls13_draft_version, hash_algo, secret, "key", key_length, &write_key)) {
+    const char *label_prefix = tls13_hkdf_label_prefix(ssl_session->session.tls13_draft_version);
+    if (!tls13_hkdf_expand_label(hash_algo, secret, label_prefix, "key", key_length, &write_key)) {
         ssl_debug_printf("%s write_key expansion failed\n", G_STRFUNC);
         return FALSE;
     }
-    if (!tls13_hkdf_expand_label(ssl_session->session.tls13_draft_version, hash_algo, secret, "iv", iv_length, &write_iv)) {
+    if (!tls13_hkdf_expand_label(hash_algo, secret, label_prefix, "iv", iv_length, &write_iv)) {
         ssl_debug_printf("%s write_iv expansion failed\n", G_STRFUNC);
         goto end;
     }
@@ -5056,8 +5058,9 @@ tls13_key_update(SslDecryptSession *ssl, gboolean is_from_server)
     int hash_algo = ssl_get_digest_by_name(hash_name);
     const guint hash_len = app_secret->data_len;
     guchar *new_secret;
-    if (!tls13_hkdf_expand_label(ssl->session.tls13_draft_version,
-                                 hash_algo, app_secret, "application traffic secret",
+    if (!tls13_hkdf_expand_label(hash_algo, app_secret,
+                                 tls13_hkdf_label_prefix(ssl->session.tls13_draft_version),
+                                 "application traffic secret",
                                  hash_len, &new_secret)) {
         ssl_debug_printf("%s traffic_secret_N+1 expansion failed\n", G_STRFUNC);
         return;
@@ -6443,7 +6446,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                                                     proto_tree *tree, guint32 offset, guint32 offset_end,
                                                     guint8 hnd_type, SslDecryptSession *ssl _U_)
 {
-    guint32 quic_length, parameter_length, supported_versions_length, next_offset, version;
+    guint32 quic_length, parameter_length, supported_versions_length, next_offset;
 
     /* https://tools.ietf.org/html/draft-ietf-quic-transport-08#section-7.4
      *  uint32 QuicVersion;
@@ -6479,23 +6482,14 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
      */
     switch (hnd_type) {
     case SSL_HND_CLIENT_HELLO:
-        version = tvb_get_ntohl(tvb, offset);
-        if(version <= 0xff000007){ /* No longer negotiated_version on Client Hello with >= draft-07 */
-            proto_tree_add_item(tree, hf->hf.hs_ext_quictp_negotiated_version,
-                                tvb, offset, 4, ENC_BIG_ENDIAN);
-            offset += 4;
-        }
         proto_tree_add_item(tree, hf->hf.hs_ext_quictp_initial_version,
                             tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
         break;
     case SSL_HND_ENCRYPTED_EXTENSIONS:
-        version = tvb_get_ntohl(tvb, offset);
-        if(version > 0xff000007){ /* Now negotiated_version on Encrypted Extensions (>= draft-08) */
-            proto_tree_add_item(tree, hf->hf.hs_ext_quictp_negotiated_version,
-                                tvb, offset, 4, ENC_BIG_ENDIAN);
-            offset += 4;
-        }
+        proto_tree_add_item(tree, hf->hf.hs_ext_quictp_negotiated_version,
+                            tvb, offset, 4, ENC_BIG_ENDIAN);
+        offset += 4;
         /* QuicVersion supported_versions<4..2^8-4>;*/
         if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &supported_versions_length,
                             hf->hf.hs_ext_quictp_supported_versions_len, 4, G_MAXUINT8-3)) {

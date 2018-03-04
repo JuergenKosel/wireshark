@@ -2054,7 +2054,8 @@ test_length(header_field_info *hfinfo, tvbuff_t *tvb,
 		return;
 
 	if ((hfinfo->type == FT_STRINGZ) ||
-		((encoding & (ENC_VARINT_PROTOBUF|ENC_VARINT_QUIC)) && (IS_FT_UINT(hfinfo->type) ||  IS_FT_UINT(hfinfo->type)))) {
+	    ((encoding & (ENC_VARINT_PROTOBUF|ENC_VARINT_QUIC)) &&
+	     (IS_FT_UINT(hfinfo->type) || IS_FT_INT(hfinfo->type)))) {
 		/* If we're fetching until the end of the TVB, only validate
 		 * that the offset is within range.
 		 */
@@ -5965,7 +5966,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 							double d_value = fvalue_get_floating(&finfo->value);
 							g_snprintf(result+offset_r, size-offset_r,
 									"%." G_STRINGIFY(FLT_DIG) "g%s", d_value,
-									unit_name_string_get_double(d_value, (unit_name_string*)hfinfo->strings));
+									unit_name_string_get_double(d_value, (const unit_name_string*)hfinfo->strings));
 						} else {
 							g_snprintf(result+offset_r, size-offset_r,
 									"%." G_STRINGIFY(FLT_DIG) "g", fvalue_get_floating(&finfo->value));
@@ -5978,7 +5979,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 							double d_value = fvalue_get_floating(&finfo->value);
 							g_snprintf(result+offset_r, size-offset_r,
 									"%." G_STRINGIFY(DBL_DIG) "g%s", d_value,
-									unit_name_string_get_double(d_value, (unit_name_string*)hfinfo->strings));
+									unit_name_string_get_double(d_value, (const unit_name_string*)hfinfo->strings));
 						} else {
 							g_snprintf(result+offset_r, size-offset_r,
 									"%." G_STRINGIFY(DBL_DIG) "g", fvalue_get_floating(&finfo->value));
@@ -7149,8 +7150,18 @@ free_deregistered_field (gpointer data, gpointer user_data _U_)
 				g_free ((gchar *)tf->false_string);
 				break;
 			}
+			case FT_UINT40:
+			case FT_INT40:
+			case FT_UINT48:
+			case FT_INT48:
+			case FT_UINT56:
+			case FT_INT56:
 			case FT_UINT64:
 			case FT_INT64: {
+				/*
+				 * XXX - if it's BASE_RANGE_STRING, or
+				 * BASE_EXT_STRING, should we free it?
+				 */
 				if (hfi->display & BASE_UNIT_STRING) {
 					unit_name_string *unit = (unit_name_string*)hfi->strings;
 					g_free ((gchar *)unit->singular);
@@ -7164,8 +7175,21 @@ free_deregistered_field (gpointer data, gpointer user_data _U_)
 				}
 				break;
 			}
-			default: {
-				/* Other Integer types */
+			case FT_CHAR:
+			case FT_UINT8:
+			case FT_INT8:
+			case FT_UINT16:
+			case FT_INT16:
+			case FT_UINT24:
+			case FT_INT24:
+			case FT_UINT32:
+			case FT_INT32:
+			case FT_FLOAT:
+			case FT_DOUBLE: {
+				/*
+				 * XXX - if it's BASE_RANGE_STRING, or
+				 * BASE_EXT_STRING, should we free it?
+				 */
 				if (hfi->display & BASE_UNIT_STRING) {
 					unit_name_string *unit = (unit_name_string*)hfi->strings;
 					g_free ((gchar *)unit->singular);
@@ -7177,6 +7201,8 @@ free_deregistered_field (gpointer data, gpointer user_data _U_)
 						vs++;
 					}
 				}
+				break;
+			default:
 				break;
 			}
 		}
@@ -7403,7 +7429,7 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 				if ((start_values[m].value == current->value) &&
 				    (strcmp(start_values[m].strptr, current->strptr) != 0)) {
 					ws_g_warning("Field '%s' (%s) has a conflicting entry in its"
-						  " value_string: %u is at indices %u (%s) and %u (%s))\n",
+						  " value_string: %u is at indices %u (%s) and %u (%s)\n",
 						  hfinfo->name, hfinfo->abbrev,
 						  current->value, m, start_values[m].strptr, n, current->strptr);
 				}
@@ -8199,7 +8225,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 				g_snprintf(label_str, ITEM_LABEL_LENGTH,
 					   "%s: %." G_STRINGIFY(FLT_DIG) "g%s",
 					   hfinfo->name, d_value,
-					   unit_name_string_get_double(d_value, (unit_name_string*)hfinfo->strings));
+					   unit_name_string_get_double(d_value, (const unit_name_string*)hfinfo->strings));
 			} else {
 				g_snprintf(label_str, ITEM_LABEL_LENGTH,
 					   "%s: %." G_STRINGIFY(FLT_DIG) "g",
@@ -8215,7 +8241,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 				g_snprintf(label_str, ITEM_LABEL_LENGTH,
 					   "%s: %." G_STRINGIFY(DBL_DIG) "g%s",
 					   hfinfo->name, d_value,
-					   unit_name_string_get_double(d_value, (unit_name_string*)hfinfo->strings));
+					   unit_name_string_get_double(d_value, (const unit_name_string*)hfinfo->strings));
 			} else {
 				g_snprintf(label_str, ITEM_LABEL_LENGTH,
 					   "%s: %." G_STRINGIFY(DBL_DIG) "g",
@@ -8443,7 +8469,7 @@ hf_try_val_to_str(guint32 value, const header_field_info *hfinfo)
 		return try_val64_to_str(value, (const val64_string *) hfinfo->strings);
 
 	if (hfinfo->display & BASE_UNIT_STRING)
-		return unit_name_string_get_value(value, (struct unit_name_string*) hfinfo->strings);
+		return unit_name_string_get_value(value, (const struct unit_name_string*) hfinfo->strings);
 
 	return try_val_to_str(value, (const value_string *) hfinfo->strings);
 }
@@ -8458,7 +8484,7 @@ hf_try_val64_to_str(guint64 value, const header_field_info *hfinfo)
 		return try_rval64_to_str(value, (const range_string *) hfinfo->strings);
 
 	if (hfinfo->display & BASE_UNIT_STRING)
-		return unit_name_string_get_value64(value, (struct unit_name_string*) hfinfo->strings);
+		return unit_name_string_get_value64(value, (const struct unit_name_string*) hfinfo->strings);
 
 	/* If this is reached somebody registered a 64-bit field with a 32-bit
 	 * value-string, which isn't right. */
@@ -9767,12 +9793,14 @@ proto_registrar_dump_values(void)
 			     hfinfo->type == FT_INT40  ||
 			     hfinfo->type == FT_INT48  ||
 			     hfinfo->type == FT_INT56  ||
-			     hfinfo->type == FT_INT64)) {
+			     hfinfo->type == FT_INT64  ||
+			     hfinfo->type == FT_FLOAT  ||
+			     hfinfo->type == FT_DOUBLE)) {
 
 				if (hfinfo->display & BASE_RANGE_STRING) {
 					range = (const range_string *)hfinfo->strings;
 				} else if (hfinfo->display & BASE_EXT_STRING) {
-					vals = VALUE_STRING_EXT_VS_P((value_string_ext *)hfinfo->strings);
+					vals = VALUE_STRING_EXT_VS_P((const value_string_ext *)hfinfo->strings);
 				} else if (hfinfo->display & BASE_VAL64_STRING) {
 					vals64 = (const val64_string *)hfinfo->strings;
 				} else if (hfinfo->display & BASE_UNIT_STRING) {
@@ -10520,7 +10548,7 @@ proto_item_add_bitmask_tree(proto_item *item, tvbuff_t *tvb, const int offset,
 
 				out = hfinfo_number_value_format(hf, buf, (guint32) tmpval);
 				if (hf->display & BASE_UNIT_STRING) {
-					proto_item_append_text(item, "%s: %s%s", hf->name, out, unit_name_string_get_value((guint32) tmpval, (unit_name_string*)hf->strings));
+					proto_item_append_text(item, "%s: %s%s", hf->name, out, unit_name_string_get_value((guint32) tmpval, (const unit_name_string*)hf->strings));
 				} else {
 					proto_item_append_text(item, "%s: %s", hf->name, out);
 				}
@@ -10563,7 +10591,7 @@ proto_item_add_bitmask_tree(proto_item *item, tvbuff_t *tvb, const int offset,
 
 				out = hfinfo_number_value_format(hf, buf, (gint32) integer32);
 				if ((hf->strings) &&(!(hf->display & BASE_UNIT_STRING))) {
-					proto_item_append_text(item, "%s: %s%s", hf->name, out, unit_name_string_get_value((guint32) tmpval, (unit_name_string*)hf->strings));
+					proto_item_append_text(item, "%s: %s%s", hf->name, out, unit_name_string_get_value((guint32) tmpval, (const unit_name_string*)hf->strings));
 				} else {
 					proto_item_append_text(item, "%s: %s", hf->name, out);
 				}

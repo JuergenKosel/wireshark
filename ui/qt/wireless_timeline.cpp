@@ -360,10 +360,10 @@ void WirelessTimeline::tap_timeline_reset(void* tapdata)
 gboolean WirelessTimeline::tap_timeline_packet(void *tapdata, packet_info* pinfo, epan_dissect_t* edt _U_, const void *data)
 {
     WirelessTimeline* timeline = (WirelessTimeline*)tapdata;
-    struct wlan_radio *wlan_radio_info = (struct wlan_radio *)data;
+    const struct wlan_radio *wlan_radio_info = (const struct wlan_radio *)data;
 
     /* Save the radio information in our own (GUI) hashtable */
-    g_hash_table_insert(timeline->radio_packet_list, GUINT_TO_POINTER(pinfo->num), wlan_radio_info);
+    g_hash_table_insert(timeline->radio_packet_list, GUINT_TO_POINTER(pinfo->num), (gpointer)wlan_radio_info);
     return FALSE;
 }
 
@@ -574,7 +574,7 @@ WirelessTimeline::paintEvent(QPaintEvent *qpe)
             first_packet = packet;
 
         if (fdata->color_filter) {
-            const color_t *c = &((color_filter_t *) fdata->color_filter)->fg_color;
+            const color_t *c = &((const color_filter_t *) fdata->color_filter)->fg_color;
             red = c->red / 65535.0;
             green = c->green / 65535.0;
             blue = c->blue / 65535.0;

@@ -18,7 +18,6 @@
 
 #include "config.h"
 
-#include <math.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
@@ -28,6 +27,7 @@
 
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/crc16.h>
+#include <wsutil/pow2.h>
 
 void proto_register_sigcomp(void);
 void proto_reg_handoff_sigcomp(void);
@@ -165,10 +165,14 @@ static dissector_handle_t sigcomp_handle;
 /* Default preference whether to display the bytecode in UDVM operands or not */
 static gboolean display_udvm_bytecode = FALSE;
 /* Default preference whether to dissect the UDVM code or not */
-static gboolean dissect_udvm_code = TRUE;
+/* WARNING: Setting this to true might result in the entire dissector being
+   disabled by default or removed completely. */
+static gboolean dissect_udvm_code = FALSE;
 static gboolean display_raw_txt = FALSE;
 /* Default preference whether to decompress the message or not */
-static gboolean decompress = TRUE;
+/* WARNING: Setting this to true might result in the entire dissector being
+   disabled by default or removed completely. */
+static gboolean decompress = FALSE;
 /* Default preference whether to print debug info at execution of UDVM
  * 0 = No printout
  * 1 = details level 1
@@ -6340,7 +6344,7 @@ dissect_udvm_multitype_operand(tvbuff_t *udvm_tvb, proto_tree *sigcomp_udvm_tree
                     if ( display_udvm_bytecode )
                         proto_tree_add_uint(sigcomp_udvm_tree, hf_udvm_multitype_bytecode,
                                 udvm_tvb, offset, 1, display_bytecode);
-                    result = (guint32)pow(2,( bytecode & 0x07) + 8);
+                    result = pow2(guint32, (bytecode & 0x07) + 8);
                     operand = result & 0xffff;
                     *start_offset = offset;
                     *value = operand;
@@ -6355,7 +6359,7 @@ dissect_udvm_multitype_operand(tvbuff_t *udvm_tvb, proto_tree *sigcomp_udvm_tree
                         if ( display_udvm_bytecode )
                             proto_tree_add_uint(sigcomp_udvm_tree, hf_udvm_multitype_bytecode,
                                 udvm_tvb, offset, 1, display_bytecode);
-                        result = (guint32)pow(2,( bytecode & 0x01) + 6);
+                        result = pow2(guint32, (bytecode & 0x01) + 6);
                         operand = result & 0xffff;
                         *start_offset = offset;
                         *value = operand;

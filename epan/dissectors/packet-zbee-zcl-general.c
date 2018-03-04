@@ -49,6 +49,7 @@
 #define ZBEE_ZCL_ATTR_ID_BASIC_DEVICE_ENABLED           0x0012  /* Device Enabled */
 #define ZBEE_ZCL_ATTR_ID_BASIC_ALARM_MASK               0x0013  /* Alarm Mask */
 #define ZBEE_ZCL_ATTR_ID_BASIC_DISABLE_LOCAL_CFG        0x0014  /* Disable Local Config */
+#define ZBEE_ZCL_ATTR_ID_BASIC_SW_BUILD_ID              0x4000  /* SW Build Id */
 
 /* Server Commands Received */
 #define ZBEE_ZCL_CMD_ID_BASIC_RESET_FACTORY_DEFAULTS    0x00  /* Reset to Factory Defaults */
@@ -129,6 +130,7 @@ static const value_string zbee_zcl_basic_attr_names[] = {
     { ZBEE_ZCL_ATTR_ID_BASIC_DEVICE_ENABLED,        "Device Enabled" },
     { ZBEE_ZCL_ATTR_ID_BASIC_ALARM_MASK,            "Alarm Mask" },
     { ZBEE_ZCL_ATTR_ID_BASIC_DISABLE_LOCAL_CFG,     "Disable Local Config" },
+    { ZBEE_ZCL_ATTR_ID_BASIC_SW_BUILD_ID,           "Software Build Id" },
     { 0, NULL }
 };
 
@@ -283,6 +285,7 @@ dissect_zcl_basic_attr_data(proto_tree *tree, tvbuff_t *tvb, guint *offset, guin
         case ZBEE_ZCL_ATTR_ID_BASIC_DATE_CODE:
         case ZBEE_ZCL_ATTR_ID_BASIC_PHY_ENVIRONMENT:
         case ZBEE_ZCL_ATTR_ID_BASIC_LOCATION_DESCR:
+        case ZBEE_ZCL_ATTR_ID_BASIC_SW_BUILD_ID:
         default:
             dissect_zcl_attr_data(tvb, tree, offset, data_type);
             break;
@@ -426,6 +429,7 @@ proto_reg_handoff_zbee_zcl_basic(void)
 #define ZBEE_ZCL_ATTR_ID_POWER_CONF_MAINS_VOLTAGE_MAX_THR   0x0012  /* Mains Voltage Max Threshold */
 #define ZBEE_ZCL_ATTR_ID_POWER_CONF_MAINS_VOLTAGE_DWELL_TP  0x0013  /* Mains Voltage Dwell Trip Point */
 #define ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_VOLTAGE         0x0020  /* Battery Voltage */
+#define ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_PERCENTAGE      0x0021  /* Battery Percentage Remaining */
 #define ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_MANUFACTURER    0x0030  /* Battery Manufacturer */
 #define ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_SIZE            0x0031  /* Battery Size */
 #define ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_AH_RATING       0x0032  /* Battery AHr Rating */
@@ -489,6 +493,7 @@ static int hf_zbee_zcl_power_config_mains_voltage_min_thr = -1;
 static int hf_zbee_zcl_power_config_mains_voltage_max_thr = -1;
 static int hf_zbee_zcl_power_config_mains_voltage_dwell_tp = -1;
 static int hf_zbee_zcl_power_config_batt_voltage = -1;
+static int hf_zbee_zcl_power_config_batt_percentage = -1;
 static int hf_zbee_zcl_power_config_batt_ah_rating = -1;
 static int hf_zbee_zcl_power_config_batt_rated_voltage = -1;
 static int hf_zbee_zcl_power_config_batt_voltage_min_thr = -1;
@@ -506,6 +511,7 @@ static const value_string zbee_zcl_power_config_attr_names[] = {
     { ZBEE_ZCL_ATTR_ID_POWER_CONF_MAINS_VOLTAGE_MAX_THR,   "Mains Voltage Max Threshold" },
     { ZBEE_ZCL_ATTR_ID_POWER_CONF_MAINS_VOLTAGE_DWELL_TP,  "Mains Voltage Dwell Trip Point" },
     { ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_VOLTAGE,         "Battery Voltage" },
+    { ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_PERCENTAGE,      "Battery Percentage Remaining" },
     { ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_MANUFACTURER,    "Battery Manufacturer" },
     { ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_SIZE,            "Battery Size" },
     { ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_AH_RATING,       "Battery AHr Rating" },
@@ -573,7 +579,26 @@ decode_power_conf_voltage(gchar *s, guint32 value)
     return;
 } /*decode_power_conf_voltage*/
 
-/*FUNCTION:------------------------------------------------------
+  /*FUNCTION:------------------------------------------------------
+  *  NAME
+  *    decode_power_conf_percentage
+  *  DESCRIPTION
+  *    this function decodes percentage values
+  *  PARAMETERS
+  *      guint *s        - string to display
+  *      guint32 value   - value to decode
+  *  RETURNS
+  *    none
+  *---------------------------------------------------------------
+  */
+static void
+decode_power_conf_percentage(gchar *s, guint32 value)
+{
+    g_snprintf(s, ITEM_LABEL_LENGTH, "%.1f [%%]", value/2.0);
+    return;
+} /*decode_power_conf_percentage*/
+
+  /*FUNCTION:------------------------------------------------------
  *  NAME
  *    decode_power_conf_frequency
  *  DESCRIPTION
@@ -686,6 +711,10 @@ dissect_zcl_power_config_attr_data(proto_tree *tree, tvbuff_t *tvb, guint *offse
             proto_tree_add_item(tree, hf_zbee_zcl_power_config_batt_voltage, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
             *offset += 1;
             break;
+        case ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_PERCENTAGE:
+            proto_tree_add_item(tree, hf_zbee_zcl_power_config_batt_percentage, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+            *offset += 1;
+            break;
         case ZBEE_ZCL_ATTR_ID_POWER_CONF_BATTERY_AH_RATING:
             proto_tree_add_item(tree, hf_zbee_zcl_power_config_batt_ah_rating, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
             *offset += 2;
@@ -788,6 +817,10 @@ proto_register_zbee_zcl_power_config(void)
 
         { &hf_zbee_zcl_power_config_batt_voltage,
             { "Measured Battery Voltage", "zbee_zcl_general.power_config.attr.batt_voltage", FT_UINT8, BASE_CUSTOM, CF_FUNC(decode_power_conf_voltage),
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_power_config_batt_percentage,
+            { "Remaining Battery Percentage", "zbee_zcl_general.power_config.attr.batt_percentage", FT_UINT8, BASE_CUSTOM, CF_FUNC(decode_power_conf_percentage),
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_power_config_batt_ah_rating,
@@ -1101,6 +1134,7 @@ proto_reg_handoff_zbee_zcl_device_temperature_configuration(void)
 /* Server Commands Received */
 #define ZBEE_ZCL_CMD_ID_IDENTIFY_IDENTITY               0x00  /* Identify */
 #define ZBEE_ZCL_CMD_ID_IDENTIFY_IDENTITY_QUERY         0x01  /* Identify Query */
+#define ZBEE_ZCL_CMD_ID_IDENTIFY_TRIGGER_EFFECT         0x40  /* Trigger Effect */
 
 /* Server Commands Generated */
 #define ZBEE_ZCL_CMD_ID_IDENTIFY_IDENTITY_QUERY_RSP     0x00  /* Identify Query Response */
@@ -1116,6 +1150,7 @@ void proto_reg_handoff_zbee_zcl_identify(void);
 /* Command Dissector Helpers */
 static void dissect_zcl_identify_identify               (tvbuff_t *tvb, proto_tree *tree, guint *offset);
 static void dissect_zcl_identify_identifyqueryrsp       (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_identify_triggereffect          (tvbuff_t *tvb, proto_tree *tree, guint *offset);
 static void dissect_zcl_identify_attr_data              (proto_tree *tree, tvbuff_t *tvb, guint *offset, guint16 attr_id, guint data_type);
 
 /* Private functions prototype */
@@ -1129,6 +1164,8 @@ static int proto_zbee_zcl_identify = -1;
 static int hf_zbee_zcl_identify_attr_id = -1;
 static int hf_zbee_zcl_identify_identify_time = -1;
 static int hf_zbee_zcl_identify_identify_timeout = -1;
+static int hf_zbee_zcl_identify_effect_id = -1;
+static int hf_zbee_zcl_identify_effect_variant = -1;
 static int hf_zbee_zcl_identify_srv_rx_cmd_id = -1;
 static int hf_zbee_zcl_identify_srv_tx_cmd_id = -1;
 
@@ -1145,12 +1182,24 @@ static const value_string zbee_zcl_identify_attr_names[] = {
 static const value_string zbee_zcl_identify_srv_rx_cmd_names[] = {
     { ZBEE_ZCL_CMD_ID_IDENTIFY_IDENTITY,            "Identify" },
     { ZBEE_ZCL_CMD_ID_IDENTIFY_IDENTITY_QUERY,      "Identify Query" },
+    { ZBEE_ZCL_CMD_ID_IDENTIFY_TRIGGER_EFFECT,      "Trigger Effect" },
     { 0, NULL }
 };
 
 /* Server Commands Generated */
 static const value_string zbee_zcl_identify_srv_tx_cmd_names[] = {
     { ZBEE_ZCL_CMD_ID_IDENTIFY_IDENTITY_QUERY_RSP,  "Identify Query Response" },
+    { 0, NULL }
+};
+
+/* Trigger Effects */
+static const value_string zbee_zcl_identify_effect_id_names[] = {
+    { 0x00,     "Blink" },
+    { 0x01,     "Breathe" },
+    { 0x02,     "Okay" },
+    { 0x0b,     "Channel change" },
+    { 0xfe,     "Finish" },
+    { 0xff,     "Stop" },
     { 0, NULL }
 };
 
@@ -1210,6 +1259,10 @@ dissect_zbee_zcl_identify(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
 
                 case ZBEE_ZCL_CMD_ID_IDENTIFY_IDENTITY_QUERY:
                     /* without payload*/
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_IDENTIFY_TRIGGER_EFFECT:
+                    dissect_zcl_identify_triggereffect(tvb, payload_tree, &offset);
                     break;
 
                 default:
@@ -1292,6 +1345,33 @@ dissect_zcl_identify_identifyqueryrsp(tvbuff_t *tvb, proto_tree *tree, guint *of
 
 } /*dissect_zcl_identify_identifyqueryrsp*/
 
+ /*FUNCTION:------------------------------------------------------
+ *  NAME
+ *      dissect_zcl_identify_triggereffect
+ *  DESCRIPTION
+ *      this function decodes the Trigger Effect payload.
+ *  PARAMETERS
+ *      tvb     - the tv buffer of the current data_type
+ *      tree    - the tree to append this item to
+ *      offset  - offset of data in tvb
+ *  RETURNS
+ *      none
+ *---------------------------------------------------------------
+ */
+static void
+dissect_zcl_identify_triggereffect(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Retrieve "Trigger Effect Id" field */
+    proto_tree_add_item(tree, hf_zbee_zcl_identify_effect_id, tvb, *offset, 1, ENC_NA);
+    *offset += 1;
+
+    /* Retrieve "Trigger Effect Variant" field */
+    proto_tree_add_item(tree, hf_zbee_zcl_identify_effect_variant, tvb, *offset, 1, ENC_NA);
+    *offset += 1;
+
+} /*dissect_zcl_identify_triggereffect*/
+
+
 /*FUNCTION:------------------------------------------------------
  *  NAME
  *      dissect_zcl_identify_attr_data
@@ -1354,6 +1434,14 @@ proto_register_zbee_zcl_identify(void)
 
         { &hf_zbee_zcl_identify_identify_timeout,
             { "Identify Timeout", "zbee_zcl_general.identify.identify_timeout", FT_UINT16, BASE_CUSTOM, CF_FUNC(decode_zcl_time_in_seconds),
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_identify_effect_id,
+            { "Effect", "zbee_zcl_general.identify.effect_id", FT_UINT8, BASE_HEX, VALS(zbee_zcl_identify_effect_id_names),
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_identify_effect_variant,
+            { "Variant", "zbee_zcl_general.identify.effect_variant", FT_UINT8, BASE_DEC, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_identify_srv_rx_cmd_id,

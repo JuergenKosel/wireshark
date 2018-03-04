@@ -292,7 +292,7 @@ capture_input_read_all(capture_session *cap_session, gboolean is_tempfile,
 
 static const char *
 cf_open_error_message(int err, gchar *err_info, gboolean for_writing,
-    int file_type)
+                      int file_type)
 {
     const char *errmsg;
     static char errmsg_errno[1024 + 1];
@@ -313,8 +313,8 @@ cf_open_error_message(int err, gchar *err_info, gboolean for_writing,
         case WTAP_ERR_UNSUPPORTED:
             /* Seen only when opening a capture file for reading. */
             g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                "The file \"%%s\" contains record data that Wireshark doesn't support.\n"
-                "(%s)", err_info != NULL ? err_info : "no information supplied");
+                       "The file \"%%s\" contains record data that Wireshark doesn't support.\n"
+                       "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
             errmsg = errmsg_errno;
             break;
@@ -322,8 +322,8 @@ cf_open_error_message(int err, gchar *err_info, gboolean for_writing,
         case WTAP_ERR_CANT_WRITE_TO_PIPE:
             /* Seen only when opening a capture file for writing. */
             g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                "The file \"%%s\" is a pipe, and %s capture files can't be "
-                "written to a pipe.", wtap_file_type_subtype_string(file_type));
+                       "The file \"%%s\" is a pipe, and %s capture files can't be "
+                       "written to a pipe.", wtap_file_type_subtype_string(file_type));
             errmsg = errmsg_errno;
             break;
 
@@ -347,8 +347,8 @@ cf_open_error_message(int err, gchar *err_info, gboolean for_writing,
         case WTAP_ERR_BAD_FILE:
             /* Seen only when opening a capture file for reading. */
             g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                "The file \"%%s\" appears to be damaged or corrupt.\n"
-                "(%s)", err_info != NULL ? err_info : "no information supplied");
+                       "The file \"%%s\" appears to be damaged or corrupt.\n"
+                       "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
             errmsg = errmsg_errno;
             break;
@@ -371,25 +371,25 @@ cf_open_error_message(int err, gchar *err_info, gboolean for_writing,
 
         case WTAP_ERR_DECOMPRESS:
             g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                "The compressed file \"%%s\" appears to be damaged or corrupt.\n"
-                "(%s)", err_info != NULL ? err_info : "no information supplied");
+                       "The compressed file \"%%s\" appears to be damaged or corrupt.\n"
+                       "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
             errmsg = errmsg_errno;
             break;
 
         case WTAP_ERR_DECOMPRESSION_NOT_SUPPORTED:
             g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                "We don't support the form of compression used by the compressed file \"%%s\".\n"
-                "(%s)", err_info != NULL ? err_info : "no information supplied");
+                       "We don't support the form of compression used by the compressed file \"%%s\".\n"
+                       "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
             errmsg = errmsg_errno;
             break;
 
         default:
             g_snprintf(errmsg_errno, sizeof(errmsg_errno),
-                "The file \"%%s\" could not be %s: %s.",
-                for_writing ? "created" : "opened",
-                wtap_strerror(err));
+                       "The file \"%%s\" could not be %s: %s.",
+                       for_writing ? "created" : "opened",
+                       wtap_strerror(err));
             errmsg = errmsg_errno;
             break;
         }
@@ -466,8 +466,8 @@ capture_input_new_file(capture_session *cap_session, gchar *new_file)
         cap_session->cap_data_info->wtap = wtap_open_offline(new_file, WTAP_TYPE_AUTO, &err, &err_info, FALSE);
         if (!cap_session->cap_data_info->wtap) {
             err_msg = g_strdup_printf(cf_open_error_message(err, err_info, FALSE, WTAP_FILE_TYPE_SUBTYPE_UNKNOWN),
-                new_file);
-            g_warning("capture_info_new_file: %d (%s)", err, err_msg);
+                                      new_file);
+            g_warning("capture_input_new_file: %d (%s)", err, err_msg);
             g_free(err_msg);
             return FALSE;
         }
@@ -710,8 +710,11 @@ capture_input_closed(capture_session *cap_session, gchar *msg)
         }
     }
 
-    if(capture_opts->show_info)
-        capture_info_close(cap_session->cap_data_info);
+    if(capture_opts->show_info) {
+        capture_info_ui_destroy(&cap_session->cap_data_info->ui);
+        if(cap_session->cap_data_info->wtap)
+            wtap_close(cap_session->cap_data_info->wtap);
+    }
 
     cap_session->state = CAPTURE_STOPPED;
 

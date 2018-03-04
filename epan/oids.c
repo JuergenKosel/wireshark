@@ -624,23 +624,27 @@ static void register_mibs(void) {
 			if ( typedata && oid_data->value_hfid == -2 ) {
 				SmiNamedNumber* smiEnum;
 				hf_register_info hf;
+				char *name;
+				char *blurb;
+
+				name = g_strdup(oid_data->name);
+				blurb = smiRenderOID(smiNode->oidlen, smiNode->oid, SMI_RENDER_ALL);
+				/* Don't allow duplicate blurb/name */
+				if (strcmp(blurb, name) == 0) {
+					smi_free(blurb);
+					blurb = NULL;
+				}
 
 				hf.p_id                     = &(oid_data->value_hfid);
-				hf.hfinfo.name              = g_strdup(oid_data->name);
+				hf.hfinfo.name              = name;
 				hf.hfinfo.abbrev            = alnumerize(oid_data->name);
 				hf.hfinfo.type              = typedata->ft_type;
 				hf.hfinfo.display           = typedata->display;
 				hf.hfinfo.strings           = NULL;
 				hf.hfinfo.bitmask           = 0;
-				hf.hfinfo.blurb             = smiRenderOID(smiNode->oidlen, smiNode->oid, SMI_RENDER_ALL);
+				hf.hfinfo.blurb             = blurb;
 				/* HFILL */
 				HFILL_INIT(hf);
-
-				/* Don't allow duplicate blurb/name */
-				if (strcmp(hf.hfinfo.blurb, hf.hfinfo.name) == 0) {
-					smi_free((void *) hf.hfinfo.blurb);
-					hf.hfinfo.blurb = NULL;
-				}
 
 				oid_data->value_hfid = -1;
 
@@ -698,27 +702,25 @@ static void register_mibs(void) {
 
 			if ((key = oid_data->key)) {
 				for(; key; key = key->next) {
-					hf_register_info hf;
-
-					hf.p_id                     = &(key->hfid);
-					hf.hfinfo.name              = key->name;
-					hf.hfinfo.abbrev            = alnumerize(key->name);
-					hf.hfinfo.type              = key->ft_type;
-					hf.hfinfo.display           = key->display;
-					hf.hfinfo.strings           = NULL;
-					hf.hfinfo.bitmask           = 0;
-					hf.hfinfo.blurb             = NULL;
-					/* HFILL */
-					HFILL_INIT(hf);
-
 					D(5,("\t\t\tIndex: name=%s subids=%u key_type=%d",
 						 key->name, key->num_subids, key->key_type ));
 
 					if (key->hfid == -2) {
+						hf_register_info hf;
+
+						hf.p_id                     = &(key->hfid);
+						hf.hfinfo.name              = key->name;
+						hf.hfinfo.abbrev            = alnumerize(key->name);
+						hf.hfinfo.type              = key->ft_type;
+						hf.hfinfo.display           = key->display;
+						hf.hfinfo.strings           = NULL;
+						hf.hfinfo.bitmask           = 0;
+						hf.hfinfo.blurb             = NULL;
+						/* HFILL */
+						HFILL_INIT(hf);
+
 						wmem_array_append_one(hfa,hf);
 						key->hfid = -1;
-					} else {
-						g_free((void*)hf.hfinfo.abbrev);
 					}
 				}
 			}

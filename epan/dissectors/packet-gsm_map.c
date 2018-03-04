@@ -1977,7 +1977,7 @@ static int hf_NokiaMAP_Extensions_AccessSubscriptionListExt_item = -1;  /* Acces
 static int hf_NokiaMAP_Extensions_AllowedServiceData_amr_wb_allowed = -1;
 
 /*--- End of included file: packet-gsm_map-hf.c ---*/
-#line 171 "./asn1/gsm_map/packet-gsm_map-template.c"
+#line 159 "./asn1/gsm_map/packet-gsm_map-template.c"
 
 /* Initialize the subtree pointers */
 static gint ett_gsm_map = -1;
@@ -2703,7 +2703,7 @@ static gint ett_NokiaMAP_Extensions_AccessSubscriptionListExt = -1;
 static gint ett_NokiaMAP_Extensions_AllowedServiceData = -1;
 
 /*--- End of included file: packet-gsm_map-ett.c ---*/
-#line 205 "./asn1/gsm_map/packet-gsm_map-template.c"
+#line 193 "./asn1/gsm_map/packet-gsm_map-template.c"
 
 static expert_field ei_gsm_map_unknown_sequence3 = EI_INIT;
 static expert_field ei_gsm_map_unknown_sequence = EI_INIT;
@@ -21364,7 +21364,7 @@ dissect_NokiaMAP_Extensions_AllowedServiceData(gboolean implicit_tag _U_, tvbuff
 
 
 /*--- End of included file: packet-gsm_map-fn.c ---*/
-#line 1110 "./asn1/gsm_map/packet-gsm_map-template.c"
+#line 1098 "./asn1/gsm_map/packet-gsm_map-template.c"
 
 /* Specific translation for MAP V3 */
 const value_string gsm_map_V1V2_opr_code_strings[] = {
@@ -21586,7 +21586,7 @@ const value_string gsm_map_opr_code_strings[] = {
 /* Unknown or empty loop list OPERATION */
 
 /*--- End of included file: packet-gsm_map-table.c ---*/
-#line 1121 "./asn1/gsm_map/packet-gsm_map-template.c"
+#line 1109 "./asn1/gsm_map/packet-gsm_map-template.c"
   { 0, NULL }
 };
 
@@ -21803,7 +21803,7 @@ static const value_string gsm_map_err_code_string_vals[] = {
 /* Unknown or empty loop list OPERATION */
 
 /*--- End of included file: packet-gsm_map-table.c ---*/
-#line 1127 "./asn1/gsm_map/packet-gsm_map-template.c"
+#line 1115 "./asn1/gsm_map/packet-gsm_map-template.c"
     { 0, NULL }
 };
 #endif
@@ -23455,7 +23455,7 @@ static stat_tap_table_item gsm_map_stat_fields[] = {
   {TABLE_ITEM_FLOAT, TAP_ALIGN_RIGHT, "Avg Bytes", "%d"},
 };
 
-static void gsm_map_stat_init(stat_tap_table_ui* new_stat, new_stat_tap_gui_init_cb gui_callback, void* gui_data)
+static void gsm_map_stat_init(stat_tap_table_ui* new_stat, stat_tap_gui_init_cb gui_callback, void* gui_data)
 {
   int num_fields = sizeof(gsm_map_stat_fields)/sizeof(stat_tap_table_item);
   stat_tap_table* table;
@@ -23475,8 +23475,8 @@ static void gsm_map_stat_init(stat_tap_table_ui* new_stat, new_stat_tap_gui_init
   items[TOT_BYTES_COLUMN].type = TABLE_ITEM_UINT;
   items[AVG_BYTES_COLUMN].type = TABLE_ITEM_FLOAT;
 
-  table = new_stat_tap_init_table("GSM MAP Operation Statistics", num_fields, 0, NULL, gui_callback, gui_data);
-  new_stat_tap_add_table(new_stat, table);
+  table = stat_tap_init_table("GSM MAP Operation Statistics", num_fields, 0, NULL, gui_callback, gui_data);
+  stat_tap_add_table(new_stat, table);
 
   /* Add a row for each value type */
   for (i = 0; i < GSM_MAP_MAX_NUM_OPR_CODES; i++)
@@ -23491,14 +23491,14 @@ static void gsm_map_stat_init(stat_tap_table_ui* new_stat, new_stat_tap_gui_init
 
     items[ID_COLUMN].value.uint_value = i;
     items[OP_CODE_COLUMN].value.string_value = col_str;
-    new_stat_tap_init_table_row(table, i, num_fields, items);
+    stat_tap_init_table_row(table, i, num_fields, items);
   }
 }
 
 static gboolean
 gsm_map_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gmtr_ptr)
 {
-  new_stat_data_t* stat_data = (new_stat_data_t*)tapdata;
+  stat_data_t* stat_data = (stat_data_t*)tapdata;
   const gsm_map_tap_rec_t *gmtr = (const gsm_map_tap_rec_t *)gmtr_ptr;
   stat_tap_table* table;
   stat_tap_table_item_type *invoke_data, *fwd_bytes_data, *result_data, *rev_bytes_data, *avg_data;
@@ -23507,26 +23507,26 @@ gsm_map_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _
 
   table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, i);
 
-  invoke_data = new_stat_tap_get_field_data(table, gmtr->opcode, INVOKES_COLUMN);
-  fwd_bytes_data = new_stat_tap_get_field_data(table, gmtr->opcode, NUM_BYTES_FWD_COLUMN);
-  result_data = new_stat_tap_get_field_data(table, gmtr->opcode, RET_RES_COLUMN);
-  rev_bytes_data = new_stat_tap_get_field_data(table, gmtr->opcode, NUM_BYTES_REV_COLUMN);
+  invoke_data = stat_tap_get_field_data(table, gmtr->opcode, INVOKES_COLUMN);
+  fwd_bytes_data = stat_tap_get_field_data(table, gmtr->opcode, NUM_BYTES_FWD_COLUMN);
+  result_data = stat_tap_get_field_data(table, gmtr->opcode, RET_RES_COLUMN);
+  rev_bytes_data = stat_tap_get_field_data(table, gmtr->opcode, NUM_BYTES_REV_COLUMN);
 
   if (gmtr->invoke)
   {
     invoke_data->value.uint_value++;
-    new_stat_tap_set_field_data(table, gmtr->opcode, INVOKES_COLUMN, invoke_data);
+    stat_tap_set_field_data(table, gmtr->opcode, INVOKES_COLUMN, invoke_data);
 
     fwd_bytes_data->value.uint_value += gmtr->size;
-    new_stat_tap_set_field_data(table, gmtr->opcode, NUM_BYTES_FWD_COLUMN, fwd_bytes_data);
+    stat_tap_set_field_data(table, gmtr->opcode, NUM_BYTES_FWD_COLUMN, fwd_bytes_data);
   }
   else
   {
     result_data->value.uint_value++;
-    new_stat_tap_set_field_data(table, gmtr->opcode, RET_RES_COLUMN, result_data);
+    stat_tap_set_field_data(table, gmtr->opcode, RET_RES_COLUMN, result_data);
 
     rev_bytes_data->value.uint_value += gmtr->size;
-    new_stat_tap_set_field_data(table, gmtr->opcode, NUM_BYTES_REV_COLUMN, rev_bytes_data);
+    stat_tap_set_field_data(table, gmtr->opcode, NUM_BYTES_REV_COLUMN, rev_bytes_data);
   }
 
   invokes = invoke_data->value.uint_value;
@@ -23536,20 +23536,20 @@ gsm_map_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _
 
   if (gmtr->invoke)
   {
-    avg_data = new_stat_tap_get_field_data(table, gmtr->opcode, AVG_BYTES_FWD_COLUMN);
+    avg_data = stat_tap_get_field_data(table, gmtr->opcode, AVG_BYTES_FWD_COLUMN);
     avg_data->value.float_value += (float) fwd_bytes / invokes;
-    new_stat_tap_set_field_data(table, gmtr->opcode, AVG_BYTES_FWD_COLUMN, avg_data);
+    stat_tap_set_field_data(table, gmtr->opcode, AVG_BYTES_FWD_COLUMN, avg_data);
   }
   else
   {
-    avg_data = new_stat_tap_get_field_data(table, gmtr->opcode, AVG_BYTES_REV_COLUMN);
+    avg_data = stat_tap_get_field_data(table, gmtr->opcode, AVG_BYTES_REV_COLUMN);
     avg_data->value.float_value += (float) rev_bytes / results;
-    new_stat_tap_set_field_data(table, gmtr->opcode, AVG_BYTES_REV_COLUMN, avg_data);
+    stat_tap_set_field_data(table, gmtr->opcode, AVG_BYTES_REV_COLUMN, avg_data);
   }
 
-  avg_data = new_stat_tap_get_field_data(table, gmtr->opcode, AVG_BYTES_COLUMN);
+  avg_data = stat_tap_get_field_data(table, gmtr->opcode, AVG_BYTES_COLUMN);
   avg_data->value.float_value += (float) (fwd_bytes + rev_bytes) / (invokes + results);
-  new_stat_tap_set_field_data(table, gmtr->opcode, AVG_BYTES_COLUMN, avg_data);
+  stat_tap_set_field_data(table, gmtr->opcode, AVG_BYTES_COLUMN, avg_data);
   return TRUE;
 }
 
@@ -23561,9 +23561,9 @@ gsm_map_stat_reset(stat_tap_table* table)
 
   for (element = 0; element < table->num_elements; element++)
   {
-    item_data = new_stat_tap_get_field_data(table, element, INVOKES_COLUMN);
+    item_data = stat_tap_get_field_data(table, element, INVOKES_COLUMN);
     item_data->value.uint_value = 0;
-    new_stat_tap_set_field_data(table, element, INVOKES_COLUMN, item_data);
+    stat_tap_set_field_data(table, element, INVOKES_COLUMN, item_data);
   }
 }
 
@@ -31164,7 +31164,7 @@ void proto_register_gsm_map(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-gsm_map-hfarr.c ---*/
-#line 3410 "./asn1/gsm_map/packet-gsm_map-template.c"
+#line 3398 "./asn1/gsm_map/packet-gsm_map-template.c"
   };
 
   /* List of subtrees */
@@ -31892,7 +31892,7 @@ void proto_register_gsm_map(void) {
     &ett_NokiaMAP_Extensions_AllowedServiceData,
 
 /*--- End of included file: packet-gsm_map-ettarr.c ---*/
-#line 3446 "./asn1/gsm_map/packet-gsm_map-template.c"
+#line 3434 "./asn1/gsm_map/packet-gsm_map-template.c"
   };
 
   static ei_register_info ei[] = {
@@ -32036,7 +32036,7 @@ void proto_register_gsm_map(void) {
 
 
 /*--- End of included file: packet-gsm_map-dis-tab.c ---*/
-#line 3506 "./asn1/gsm_map/packet-gsm_map-template.c"
+#line 3494 "./asn1/gsm_map/packet-gsm_map-template.c"
   oid_add_from_string("ericsson-gsm-Map-Ext","1.2.826.0.1249.58.1.0" );
   oid_add_from_string("accessTypeNotAllowed-id","1.3.12.2.1107.3.66.1.2");
   /*oid_add_from_string("map-ac networkLocUp(1) version3(3)","0.4.0.0.1.0.1.3" );

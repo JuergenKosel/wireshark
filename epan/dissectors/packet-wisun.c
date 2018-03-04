@@ -1,4 +1,4 @@
-/* packet-ieee802154.c
+/* packet-wisun.c
  *
  * Wi-SUN IE Dissectors for Wireshark
  * By Owen Kirby <osk@exegin.com>
@@ -41,6 +41,8 @@ typedef struct {
 // map to the shared edfe_exchange_t
 static wmem_map_t* edfe_byaddr;
 
+static dissector_handle_t eapol_handle;  // for the eapol relay
+
 
 /* Wi-SUN Header IE Sub-ID Values. */
 #define WISUN_SUBID_UTT     1
@@ -49,6 +51,7 @@ static wmem_map_t* edfe_byaddr;
 #define WISUN_SUBID_RSL     4
 #define WISUN_SUBID_MHDS    5
 #define WISUN_SUBID_VH      6
+#define WISUN_SUBID_EA      9
 
 /* Wi-SUN Payload/Nested ID values. */
 #define WISUN_PIE_SUBID_US      1
@@ -73,6 +76,8 @@ static wmem_map_t* edfe_byaddr;
 #define WISUN_CHANNEL_EXCLUDE_RANGE     1
 #define WISUN_CHANNEL_EXCLUDE_MASK      2
 
+#define WISUN_EAPOL_RELAY_UDP_PORT 10253
+
 static int proto_wisun = -1;
 static int hf_wisun_subid = -1;
 static int hf_wisun_unknown_ie = -1;
@@ -85,15 +90,21 @@ static int hf_wisun_btie_bfio = -1;
 static int hf_wisun_fcie = -1;
 static int hf_wisun_fcie_tx = -1;
 static int hf_wisun_fcie_rx = -1;
+static int hf_wisun_fcie_src = -1;
+static int hf_wisun_fcie_initial_frame = -1;
 static int hf_wisun_rslie = -1;
 static int hf_wisun_rslie_rsl = -1;
 static int hf_wisun_vhie = -1;
 static int hf_wisun_vhie_vid = -1;
+static int hf_wisun_eaie = -1;
+static int hf_wisun_eaie_eui = -1;
 static int hf_wisun_pie = -1;
 static int hf_wisun_wsie = -1;
 static int hf_wisun_wsie_type = -1;
 static int hf_wisun_wsie_id = -1;
 static int hf_wisun_wsie_length = -1;
+static int hf_wisun_wsie_id_short = -1;
+static int hf_wisun_wsie_length_short = -1;
 static int hf_wisun_usie = -1;
 static int hf_wisun_usie_dwell_interval = -1;
 static int hf_wisun_usie_clock_drift = -1;
@@ -141,12 +152,21 @@ static int hf_wisun_sec_function = -1;
 static int hf_wisun_sec_error_type = -1;
 static int hf_wisun_sec_error_nonce = -1;
 
+// EAPOL Relay
+static dissector_handle_t wisun_eapol_relay_handle;
+static int proto_wisun_eapol_relay = -1;
+static int hf_wisun_eapol_relay_sup = -1;
+static int hf_wisun_eapol_relay_kmp_id = -1;
+static int hf_wisun_eapol_relay_direction = -1;
+
+
 static gint ett_wisun_unknown_ie = -1;
 static gint ett_wisun_uttie = -1;
 static gint ett_wisun_btie = -1;
 static gint ett_wisun_fcie = -1;
 static gint ett_wisun_rslie = -1;
 static gint ett_wisun_vhie = -1;
+static gint ett_wisun_eaie = -1;
 static gint ett_wisun_pie = -1;
 static gint ett_wisun_wsie_bitmap = -1;
 static gint ett_wisun_usie = -1;
@@ -159,6 +179,7 @@ static gint ett_wisun_netnameie = -1;
 static gint ett_wisun_panverie = -1;
 static gint ett_wisun_gtkhashie = -1;
 static gint ett_wisun_sec = -1;
+static gint ett_wisun_eapol_relay = -1;
 
 static const value_string wisun_wsie_types[] = {
     { 0, "Short" },
@@ -173,6 +194,7 @@ static const value_string wisun_subid_vals[] = {
     { WISUN_SUBID_RSL,      "Received Signal Level IE" },
     { WISUN_SUBID_MHDS,     "Multi-Hop Delivery Service IE" },
     { WISUN_SUBID_VH,       "Vendor Header IE" },
+    { WISUN_SUBID_EA,       "EAPOL Authenticator EUI-64 IE" },
     { 0, NULL }
 };
 
@@ -253,8 +275,14 @@ static const int * wisun_format_nested_ie[] = {
     NULL
 };
 
+static const int * wisun_format_nested_ie_short[] = {
+    &hf_wisun_wsie_type,
+    &hf_wisun_wsie_id_short,
+    &hf_wisun_wsie_length_short,
+    NULL
+};
+
 static expert_field ei_wisun_subid_unsupported = EI_INIT;
-static expert_field ei_wisun_wsie_short_format = EI_INIT;
 static expert_field ei_wisun_wsie_unsupported = EI_INIT;
 static expert_field ei_wisun_usie_channel_plan_invalid = EI_INIT;
 static expert_field ei_wisun_edfe_start_not_found = EI_INIT;
@@ -299,8 +327,9 @@ static int
 dissect_wisun_btie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint offset)
 {
     proto_tree_add_item(tree, hf_wisun_btie_slot, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(tree, hf_wisun_btie_bfio, tvb, offset+2, 4, ENC_LITTLE_ENDIAN);
-    return 6;
+    /* as of FAN TPS 1v14, this is 3 bytes instead of 4 */
+    proto_tree_add_item(tree, hf_wisun_btie_bfio, tvb, offset+2, 3, ENC_LITTLE_ENDIAN);
+    return 5;
 }
 
 static void
@@ -333,11 +362,15 @@ dissect_wisun_fcie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint of
         // first packet has source address
         if (!hints->map_rec && packet->src_addr_mode == IEEE802154_FCF_ADDR_EXT) {
             edfe_exchange_t* ex = wmem_new(wmem_file_scope(), edfe_exchange_t);
-            ex->initiator.proto = ex->target.proto = "Wi-SUN";
+            ex->initiator.proto = "Wi-SUN";
+            ex->target.proto = "Wi-SUN";
+            ex->initiator.start_fnum = pinfo->num;
+            ex->target.start_fnum = pinfo->num;
+            ex->initiator.end_fnum = ~(guint)0;
+            ex->target.end_fnum = ~(guint)0;
+
             ex->initiator.addr64 = packet->src64;
             ex->target.addr64 = packet->dst64;
-            ex->initiator.start_fnum = pinfo->num;
-            ex->initiator.end_fnum = ~(guint)0;
             edfe_insert_exchange(&ex->initiator.addr64, ex);
             edfe_insert_exchange(&ex->target.addr64, ex);
         } else if (packet->src_addr_mode == IEEE802154_FCF_ADDR_NONE) {
@@ -362,6 +395,10 @@ dissect_wisun_fcie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint of
                 *p_addr = pntoh64(&(hints->map_rec->addr64));
                 set_address(&pinfo->dl_src, AT_EUI64, 8, p_addr);
                 copy_address_shallow(&pinfo->src, &pinfo->dl_src);
+                proto_item* src = proto_tree_add_eui64(tree, hf_wisun_fcie_src, tvb, 0, 0, hints->map_rec->addr64);
+                PROTO_ITEM_SET_GENERATED(src);
+                proto_item* frm = proto_tree_add_uint(tree, hf_wisun_fcie_initial_frame, tvb, 0, 0, hints->map_rec->start_fnum);
+                PROTO_ITEM_SET_GENERATED(frm);
             } else {
                 expert_add_info(pinfo, tree, &ei_wisun_edfe_start_not_found);
             }
@@ -384,6 +421,13 @@ dissect_wisun_vhie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint of
     guint vidlen = wisun_add_wbxml_uint(tvb, tree, hf_wisun_vhie_vid, offset);
     call_data_dissector(tvb_new_subset_remaining(tvb, offset + vidlen), pinfo, tree);
     return tvb_reported_length(tvb);
+}
+
+static int
+dissect_wisun_eaie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint offset)
+{
+    proto_tree_add_item(tree, hf_wisun_eaie_eui, tvb, offset, 8, ENC_BIG_ENDIAN);
+    return 8;
 }
 
 static int
@@ -419,6 +463,11 @@ dissect_wisun_hie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
         case WISUN_SUBID_VH:
             subtree = wisun_create_hie_tree(tvb, tree, hf_wisun_vhie, ett_wisun_vhie);
             offset += dissect_wisun_vhie(tvb, pinfo, subtree, offset);
+            break;
+
+        case WISUN_SUBID_EA:
+            subtree = wisun_create_hie_tree(tvb, tree, hf_wisun_eaie, ett_wisun_eaie);
+            offset += dissect_wisun_eaie(tvb, pinfo, subtree, offset);
             break;
 
         default:
@@ -615,7 +664,7 @@ dissect_wisun_panie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, voi
     item = proto_tree_add_item(tree, hf_wisun_panie, tvb, 0, tvb_reported_length(tvb), ENC_NA);
     subtree = proto_item_add_subtree(item, ett_wisun_panie);
 
-    proto_tree_add_bitmask(subtree, tvb, offset, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(subtree, tvb, offset, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie_short, ENC_LITTLE_ENDIAN);
     offset += 2;
     proto_tree_add_item(subtree, hf_wisun_panie_size, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     offset += 2;
@@ -636,7 +685,7 @@ dissect_wisun_netnameie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
     item = proto_tree_add_item(tree, hf_wisun_netnameie, tvb, 0, tvb_reported_length(tvb), ENC_NA);
     subtree = proto_item_add_subtree(item, ett_wisun_netnameie);
 
-    proto_tree_add_bitmask(subtree, tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(subtree, tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie_short, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(subtree, hf_wisun_netnameie_name, tvb, 2, tvb_reported_length_remaining(tvb, 2), ENC_ASCII|ENC_NA);
     return tvb_reported_length(tvb);
 }
@@ -650,7 +699,7 @@ dissect_wisun_panverie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
     item = proto_tree_add_item(tree, hf_wisun_panverie, tvb, 0, tvb_reported_length(tvb), ENC_NA);
     subtree = proto_item_add_subtree(item, ett_wisun_panverie);
 
-    proto_tree_add_bitmask(subtree, tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(subtree, tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie_short, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(subtree, hf_wisun_panverie_version, tvb, 2, 2, ENC_LITTLE_ENDIAN);
     return tvb_reported_length(tvb);
 }
@@ -664,11 +713,11 @@ dissect_wisun_gtkhashie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
     item = proto_tree_add_item(tree, hf_wisun_gtkhashie, tvb, 0, tvb_reported_length(tvb), ENC_NA);
     subtree = proto_item_add_subtree(item, ett_wisun_gtkhashie);
 
-    proto_tree_add_bitmask(subtree, tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(subtree, hf_wisun_gtkhashie_gtk0, tvb, 2, 8, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(subtree, hf_wisun_gtkhashie_gtk1, tvb, 10, 8, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(subtree, hf_wisun_gtkhashie_gtk2, tvb, 18, 8, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(subtree, hf_wisun_gtkhashie_gtk3, tvb, 26, 8, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(subtree, tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie_short, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(subtree, hf_wisun_gtkhashie_gtk0, tvb, 2, 8, ENC_NA);
+    proto_tree_add_item(subtree, hf_wisun_gtkhashie_gtk1, tvb, 10, 8, ENC_NA);
+    proto_tree_add_item(subtree, hf_wisun_gtkhashie_gtk2, tvb, 18, 8, ENC_NA);
+    proto_tree_add_item(subtree, hf_wisun_gtkhashie_gtk3, tvb, 26, 8, ENC_NA);
     return 34;
 }
 
@@ -683,50 +732,59 @@ dissect_wisun_pie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *ies_tree, void 
         guint16     wsie_len;
         tvbuff_t *  wsie_tvb;
 
-        /* No Wi-SUN Sub-IEs are currently defined for the short format. */
-        if (!(wsie_ie & IEEE802154_PSIE_TYPE_MASK)) {
-            wsie_len = (wsie_ie & IEEE802154_PSIE_LENGTH_MASK_SHORT) + 2;
-            call_data_dissector(tvb_new_subset_remaining(tvb, offset), pinfo, tree);
-            expert_add_info(pinfo, tree, &ei_wisun_wsie_short_format);
-            offset += wsie_len + 2;
-            continue;
-        }
+        if (wsie_ie & IEEE802154_PSIE_TYPE_MASK) {
+            /* long format: Table 7-17-Sub-ID allocation for long format */
+            wsie_len = (wsie_ie & IEEE802154_PSIE_LENGTH_MASK_LONG);
+            wsie_tvb = tvb_new_subset_length(tvb, offset, wsie_len + 2);
+            switch ((wsie_ie & IEEE802154_PSIE_ID_MASK_LONG) >> 11) {
+                case WISUN_PIE_SUBID_US:
+                    dissect_wisun_usie(wsie_tvb, pinfo, tree, data);
+                    break;
+                case WISUN_PIE_SUBID_BS:
+                    dissect_wisun_bsie(wsie_tvb, pinfo, tree, data);
+                    break;
+                case WISUN_PIE_SUBID_VP:
+                    dissect_wisun_vpie(wsie_tvb, pinfo, tree, data);
+                    break;
 
-        wsie_len = (wsie_ie & IEEE802154_PSIE_LENGTH_MASK_LONG);
-        wsie_tvb = tvb_new_subset_length(tvb, offset, wsie_len + 2);
-        switch ((wsie_ie & IEEE802154_PSIE_ID_MASK_LONG) >> 11) {
-            case WISUN_PIE_SUBID_US:
-                dissect_wisun_usie(wsie_tvb, pinfo, tree, data);
-                break;
-            case WISUN_PIE_SUBID_BS:
-                dissect_wisun_bsie(wsie_tvb, pinfo, tree, data);
-                break;
-            case WISUN_PIE_SUBID_VP:
-                dissect_wisun_vpie(wsie_tvb, pinfo, tree, data);
-                break;
-            case WISUN_PIE_SUBID_PAN:
-                dissect_wisun_panie(wsie_tvb, pinfo, tree, data);
-                break;
-            case WISUN_PIE_SUBID_NETNAME:
-                dissect_wisun_netnameie(wsie_tvb, pinfo, tree, data);
-                break;
-            case WISUN_PIE_SUBID_PENVER:
-                dissect_wisun_panverie(wsie_tvb, pinfo, tree, data);
-                break;
-            case WISUN_PIE_SUBID_GTKHASH:
-                dissect_wisun_gtkhashie(wsie_tvb, pinfo, tree, data);
-                break;
+                default:{
+                    proto_item *item = proto_tree_add_item(tree, hf_wisun_unknown_ie, wsie_tvb, 0, tvb_reported_length(wsie_tvb), ENC_NA);
+                    proto_tree *subtree = proto_item_add_subtree(item, ett_wisun_unknown_ie);
+                    proto_tree_add_bitmask(subtree, wsie_tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie, ENC_LITTLE_ENDIAN);
+                    expert_add_info(pinfo, subtree, &ei_wisun_wsie_unsupported);
+                    call_data_dissector(tvb_new_subset_remaining(wsie_tvb, 2), pinfo, subtree);
+                    break;
+                }
+            }
+        } else {
+            /* short format: Table 7-16-Sub-ID allocation for short format */
+            wsie_len = (wsie_ie & IEEE802154_PSIE_LENGTH_MASK_SHORT);
+            wsie_tvb = tvb_new_subset_length(tvb, offset, wsie_len + 2);
+            switch ((wsie_ie & IEEE802154_PSIE_ID_MASK_SHORT) >> 8) {
+                case WISUN_PIE_SUBID_PAN:
+                    dissect_wisun_panie(wsie_tvb, pinfo, tree, data);
+                    break;
+                case WISUN_PIE_SUBID_NETNAME:
+                    dissect_wisun_netnameie(wsie_tvb, pinfo, tree, data);
+                    break;
+                case WISUN_PIE_SUBID_PENVER:
+                    dissect_wisun_panverie(wsie_tvb, pinfo, tree, data);
+                    break;
+                case WISUN_PIE_SUBID_GTKHASH:
+                    dissect_wisun_gtkhashie(wsie_tvb, pinfo, tree, data);
+                    break;
 
-            default:{
-                proto_item *item = proto_tree_add_item(tree, hf_wisun_unknown_ie, wsie_tvb, 0, tvb_reported_length(wsie_tvb), ENC_NA);
-                proto_tree *subtree = proto_item_add_subtree(item, ett_wisun_unknown_ie);
-                proto_tree_add_bitmask(subtree, wsie_tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie, ENC_LITTLE_ENDIAN);
-                expert_add_info(pinfo, subtree, &ei_wisun_wsie_unsupported);
-                call_data_dissector(tvb_new_subset_remaining(wsie_tvb, 2), pinfo, subtree);
-                break;
+                default:{
+                    proto_item *item = proto_tree_add_item(tree, hf_wisun_unknown_ie, wsie_tvb, 0, tvb_reported_length(wsie_tvb), ENC_NA);
+                    proto_tree *subtree = proto_item_add_subtree(item, ett_wisun_unknown_ie);
+                    proto_tree_add_bitmask(subtree, wsie_tvb, 0, hf_wisun_wsie, ett_wisun_wsie_bitmap, wisun_format_nested_ie, ENC_LITTLE_ENDIAN);
+                    expert_add_info(pinfo, subtree, &ei_wisun_wsie_unsupported);
+                    call_data_dissector(tvb_new_subset_remaining(wsie_tvb, 2), pinfo, subtree);
+                    break;
+                }
             }
         }
-        offset += (wsie_ie & IEEE802154_PSIE_LENGTH_MASK_LONG) + 2;
+        offset += tvb_reported_length(wsie_tvb);
     }
     return offset;
 }
@@ -768,6 +826,41 @@ dissect_wisun_sec(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             return tvb_reported_length(tvb);
     }
 }
+
+
+/*-----------------------------------------------
+ * Wi-SUN FAN EAPOL Relay
+ *---------------------------------------------*/
+
+static int dissect_wisun_eapol_relay(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+    guint offset = 0;
+    proto_item *subitem = proto_tree_add_item(tree, proto_wisun_eapol_relay, tvb, offset, 9, ENC_NA);
+    proto_tree *subtree = proto_item_add_subtree(subitem, ett_wisun_eapol_relay);
+
+    proto_tree_add_item(subtree, hf_wisun_eapol_relay_sup, tvb, offset, 8, ENC_BIG_ENDIAN);
+    offset += 8;
+    proto_tree_add_item(subtree, hf_wisun_eapol_relay_kmp_id, tvb, offset, 1, ENC_NA);
+    offset += 1;
+
+    int up = 0;
+    // eapol.type == EAP_PACKET?
+    if (tvb_get_guint8(tvb, offset+1) == 0) {
+        up = tvb_get_guint8(tvb, offset+4) == 2;  // eap.code == EAP_CODE_RESPONSE
+    } else {
+        up = (tvb_get_guint8(tvb, offset+6) & 0x80) == 0;  // Key Info ACK==0
+    }
+    proto_item* diritem = proto_tree_add_boolean(subtree, hf_wisun_eapol_relay_direction, tvb, offset, 0, (guint32) up);
+    PROTO_ITEM_SET_GENERATED(diritem);
+
+    int r = call_dissector(eapol_handle, tvb_new_subset_remaining(tvb, offset), pinfo, tree);
+
+    // UTF-8 arrow up or down
+    col_append_str(pinfo->cinfo, COL_INFO, up ? " [Relay \xe2\x86\x91]" : " [Relay \xe2\x86\x93]");
+
+    return offset + r;
+}
+
 
 /*-----------------------------------------------
  * Wi-SUN Protocol Registration
@@ -831,6 +924,16 @@ void proto_register_wisun(void)
             NULL, HFILL }
         },
 
+        { &hf_wisun_fcie_src,
+          { "Source Address", "wisun.fcie.src", FT_EUI64, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_wisun_fcie_initial_frame,
+          { "Initial Frame", "wisun.fcie.initial_frame", FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_REQUEST), 0x0,
+            NULL, HFILL }
+        },
+
         { &hf_wisun_rslie,
           { "Received Signal Level IE", "wisun.rslie", FT_NONE, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
@@ -848,6 +951,16 @@ void proto_register_wisun(void)
 
         { &hf_wisun_vhie_vid,
           { "Vendor ID", "wisun.vhie.vid", FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_wisun_eaie,
+          { "EAPOL Authenticator IE", "wisun.eaie", FT_NONE, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_wisun_eaie_eui,
+          { "Authenticator EUI-64", "wisun.eaie.eui", FT_EUI64, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
 
@@ -874,6 +987,16 @@ void proto_register_wisun(void)
 
         { &hf_wisun_wsie_length,
           { "Length", "wisun.wsie.length", FT_UINT16, BASE_DEC, NULL, IEEE802154_PSIE_LENGTH_MASK_LONG,
+            NULL, HFILL }
+        },
+
+        { &hf_wisun_wsie_id_short,
+          { "Sub ID", "wisun.wsie.id", FT_UINT16, BASE_DEC, VALS(wisun_wsie_names), IEEE802154_PSIE_ID_MASK_SHORT,
+            NULL, HFILL }
+        },
+
+        { &hf_wisun_wsie_length_short,
+          { "Length", "wisun.wsie.length", FT_UINT16, BASE_DEC, NULL, IEEE802154_PSIE_LENGTH_MASK_SHORT,
             NULL, HFILL }
         },
 
@@ -1063,22 +1186,22 @@ void proto_register_wisun(void)
         },
 
         { &hf_wisun_gtkhashie_gtk0,
-          { "GTK0 Hash", "wisun.gtkhashie.gtk0", FT_UINT64, BASE_HEX, NULL, 0x0,
+          { "GTK0 Hash", "wisun.gtkhashie.gtk0", FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
 
         { &hf_wisun_gtkhashie_gtk1,
-          { "GTK1 Hash", "wisun.gtkhashie.gtk1", FT_UINT64, BASE_HEX, NULL, 0x0,
+          { "GTK1 Hash", "wisun.gtkhashie.gtk1", FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
 
         { &hf_wisun_gtkhashie_gtk2,
-          { "GTK2 Hash", "wisun.gtkhashie.gtk2", FT_UINT64, BASE_HEX, NULL, 0x0,
+          { "GTK2 Hash", "wisun.gtkhashie.gtk2", FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
 
         { &hf_wisun_gtkhashie_gtk3,
-          { "GTK3 Hash", "wisun.gtkhashie.gtk3", FT_UINT64, BASE_HEX, NULL, 0x0,
+          { "GTK3 Hash", "wisun.gtkhashie.gtk3", FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
 
@@ -1097,6 +1220,20 @@ void proto_register_wisun(void)
           { "Initiator Nonce", "wisun.sec.nonce", FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
+
+        /* EAPOL Relay */
+        { &hf_wisun_eapol_relay_sup,
+          { "SUP EUI-64", "wisun.eapol_relay.sup", FT_EUI64, BASE_NONE, NULL, 0x0,
+          NULL, HFILL }},
+
+        { &hf_wisun_eapol_relay_kmp_id,
+          { "KMP ID", "wisun.eapol_relay.kmp_id", FT_UINT8, BASE_DEC, VALS(ieee802154_mpx_kmp_id_vals), 0x0,
+          NULL, HFILL }},
+
+        { &hf_wisun_eapol_relay_direction,
+          { "Direction", "wisun.eapol_relay.direction", FT_BOOLEAN, BASE_NONE, TFS(&tfs_up_down), 0x0,
+          NULL, HFILL }},
+
     };
 
     /* Subtrees */
@@ -1107,6 +1244,7 @@ void proto_register_wisun(void)
         &ett_wisun_fcie,
         &ett_wisun_rslie,
         &ett_wisun_vhie,
+        &ett_wisun_eaie,
         &ett_wisun_pie,
         &ett_wisun_wsie_bitmap,
         &ett_wisun_usie,
@@ -1117,14 +1255,13 @@ void proto_register_wisun(void)
         &ett_wisun_netnameie,
         &ett_wisun_panverie,
         &ett_wisun_gtkhashie,
-        &ett_wisun_sec
+        &ett_wisun_sec,
+        &ett_wisun_eapol_relay,
     };
 
     static ei_register_info ei[] = {
         { &ei_wisun_subid_unsupported, { "wisun.subid.unsupported", PI_PROTOCOL, PI_WARN,
                 "Unsuppoted Header Sub ID", EXPFILL }},
-        { &ei_wisun_wsie_short_format, { "wisun.wsie.short_format", PI_PROTOCOL, PI_WARN,
-                "Wi-SUN Sub-IE are not valid for the short format", EXPFILL }},
         { &ei_wisun_usie_channel_plan_invalid, { "wisun.usie.channel.plan.invalid", PI_PROTOCOL, PI_WARN,
                 "Invalid Channel Plan", EXPFILL }},
         { &ei_wisun_wsie_unsupported, { "wisun.wsie.unsupported", PI_PROTOCOL, PI_WARN,
@@ -1137,6 +1274,7 @@ void proto_register_wisun(void)
 
     proto_wisun = proto_register_protocol("Wi-SUN Field Area Network", "Wi-SUN", "wisun");
     proto_wisun_sec = proto_register_protocol("Wi-SUN FAN Security Extension", "Wi-SUN WM-SEC", "wisun.sec");
+    proto_wisun_eapol_relay = proto_register_protocol("Wi-SUN FAN EAPOL Relay", "Wi-SUN EAPOL-Relay", "wisun.eapol_relay");
 
     proto_register_field_array(proto_wisun, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
@@ -1147,12 +1285,18 @@ void proto_register_wisun(void)
     register_dissector("wisun.sec", dissect_wisun_sec, proto_wisun_sec);
 
     edfe_byaddr = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_int64_hash, g_int64_equal);
+
+    wisun_eapol_relay_handle = register_dissector("wisun.eapol_relay", dissect_wisun_eapol_relay, proto_wisun_eapol_relay);
 }
 
 void proto_reg_handoff_wisun(void)
 {
     dissector_add_uint(IEEE802154_HEADER_IE_DTABLE, IEEE802154_HEADER_IE_WISUN, create_dissector_handle(dissect_wisun_hie, proto_wisun));
     dissector_add_uint(IEEE802154_PAYLOAD_IE_DTABLE, IEEE802154_PAYLOAD_IE_WISUN, create_dissector_handle(dissect_wisun_pie, proto_wisun));
+
+    // For EAPOL relay
+    dissector_add_uint("udp.port", WISUN_EAPOL_RELAY_UDP_PORT, wisun_eapol_relay_handle);
+    eapol_handle = find_dissector("eapol");
 }
 
 /*

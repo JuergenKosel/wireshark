@@ -148,12 +148,16 @@ XMIT-Max7:20: (task "_brouterControlTask" at 0xb094ac20, time: 1481.51) 20 octet
 #include "ascendtext.h"
 #include "ascend-int.h"
 #include "ascend.h"
+DIAG_OFF_BYACC
 #include "ascend_scanner_lex.h"
+DIAG_ON_BYACC
 #include "file_wrappers.h"
 
 #define NO_USER "<none>"
 
 extern void yyerror (void *yyscanner, ascend_state_t *state, FILE_T fh _U_, const char *s);
+
+DIAG_OFF_BYACC
 %}
 
 %union {
@@ -429,6 +433,8 @@ datagroup: dataln
 
 %%
 
+DIAG_ON_BYACC
+
 /* Run the parser. */
 int
 run_ascend_parser(FILE_T fh, wtap_rec *rec, guint8 *pd,
@@ -489,3 +495,5 @@ yyerror (void *yyscanner, ascend_state_t *state _U_, FILE_T fh _U_, const char *
 {
   ascendget_extra(yyscanner)->ascend_parse_error = s;
 }
+
+DIAG_OFF_BYACC

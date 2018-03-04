@@ -68,6 +68,7 @@ WSUTIL_PUBLIC_INCLUDES = \
 	os_version_info.h	\
 	pint.h			\
 	plugins.h		\
+	pow2.h			\
 	privileges.h		\
 	processes.h		\
 	report_message.h	\
@@ -123,7 +124,6 @@ libwsutil_sse42_la_CFLAGS = $(AM_CFLAGS) $(CFLAGS_SSE42)
 
 libwsutil_la_SOURCES = \
 	adler32.c		\
-	airpdcap_wep.c		\
 	base32.c		\
 	base64.c		\
 	bitswap.c		\
@@ -141,6 +141,7 @@ libwsutil_la_SOURCES = \
 	crc16.c			\
 	crc16-plain.c		\
 	crc32.c			\
+	dot11decrypt_wep.c	\
 	eax.c			\
 	filesystem.c		\
 	frequency-utils.c	\
