@@ -1,4 +1,6 @@
 image: crondaemon/wireshark
+variables:
+  GIT_SUBMODULE_STRATEGY: normal
 before_script:
   - rm -rf /etc/apt/sources.list.d/*
   - echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial main" >  /etc/apt/sources.list.d/clang.list
