@@ -4,19 +4,7 @@
 # By Gerald Combs <gerald@wireshark.org>
 # Copyright 1998 Gerald Combs
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# SPDX-License-Identifier: GPL-2.0-or-later
 #
 
 project(Wireshark C CXX)
@@ -25,7 +13,7 @@ project(Wireshark C CXX)
 set(GIT_REVISION 0)
 set(PROJECT_MAJOR_VERSION 2)
 set(PROJECT_MINOR_VERSION 5)
-set(PROJECT_PATCH_VERSION 1)
+set(PROJECT_PATCH_VERSION 2)
 set(PROJECT_BUILD_VERSION ${GIT_REVISION})
 set(PROJECT_VERSION_EXTENSION "")
 set(PROJECT_RELEASE_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}")
@@ -335,7 +323,7 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		# /Zo                               Enhanced debugging of optimised code for VS2013 Update 3 and beyond,
 		#                                   Assume all VS2013 builds are at least Update 3.
 		#                                   See http://msdn.microsoft.com/en-us/library/dn785163.aspx
-		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} /Zo)
+		list(APPEND LOCAL_CFLAGS /Zo)
 	elseif(MSVC14)
 		# /Zo                               Enhanced debugging of optimised code
 		# /utf-8                            Set Source and Executable character sets to UTF-8
@@ -346,26 +334,28 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		#                                   https://gitlab.kitware.com/cmake/cmake/commit/f973d49ab9d4c59b93f6dac812a94bb130200836
 		# /Qspectre                         Speculative execution attack mitigation
 		#                                   See https://blogs.msdn.microsoft.com/vcblog/2018/01/15/spectre-mitigations-in-msvc/
-		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} /Zo /utf-8 /guard:cf /Qspectre)
+		list(APPEND LOCAL_CFLAGS /Zo /utf-8 /guard:cf /Qspectre)
 		set(WS_LINK_FLAGS "${WS_LINK_FLAGS} /guard:cf")
 	endif()
 
 	if(ENABLE_CODE_ANALYSIS)
-		set(LOCAL_CFLAGS ${LOCAL_CFLAGS} /analyze:WX-)
+		list(APPEND LOCAL_CFLAGS /analyze:WX-)
 	endif()
 
 	# Additional compiler warnings to be treated as "Level 3"
-	#  when compiling Wireshark sources. (Selected from "level 4" warnings).
+	# when compiling Wireshark sources. (Selected from "level 4" warnings).
 	## 4295: array is too small to include a terminating null character
 	## 4189: local variable is initialized but not referenced
 	# Disable warnings about about use of flexible array members:
 	## 4200: nonstandard extension used : zero-sized array in struct/union
-	set(WARNINGS_CFLAGS /w34295 /w34189 /wd4200)
+	list(APPEND LOCAL_CFLAGS /w34295 /w34189 /wd4200)
 
-	set(WIRESHARK_COMMON_FLAGS
-		${LOCAL_CFLAGS}
-		${WARNINGS_CFLAGS}
-	)
+	# We've matched these to specific compiler versions using the
+	# checks above. There's no need to pass them to check_c_compiler_flag
+	# or check_cxx_compiler_flag, which can be slow.
+	string(REPLACE ";" " " _flags "${LOCAL_CFLAGS}")
+	set(CMAKE_C_FLAGS "${_flags} ${CMAKE_C_FLAGS}")
+	set(CMAKE_CXX_FLAGS "${_flags} ${CMAKE_CXX_FLAGS}")
 
 else() # ! MSVC
 	if(CMAKE_OSX_DEPLOYMENT_TARGET)
@@ -845,7 +835,7 @@ endif()
 # - set HAVE_XXX
 
 # The minimum package list
-set(PACKAGELIST Git GLIB2 GMODULE2 GTHREAD2 GCRYPT LEX YACC Perl SH PythonInterp)
+set(PACKAGELIST Git GLIB2 GMODULE2 GTHREAD2 GCRYPT LEX YACC Perl PythonInterp)
 set(LEX_OPTIONS REQUIRED)
 set(GLIB2_OPTIONS REQUIRED)
 set(GLIB2_FIND_OPTIONS REQUIRED)
@@ -923,6 +913,11 @@ if(BUILD_wireshark)
 	endif()
 endif()
 
+# MaxMind DB address resolution
+if(BUILD_mmdbresolve)
+	set(PACKAGELIST ${PACKAGELIST} MaxMindDB)
+endif()
+
 # SMI SNMP
 if(ENABLE_SMI)
 	set(PACKAGELIST ${PACKAGELIST} SMI)
@@ -966,7 +961,11 @@ if(ENABLE_ZLIB)
 		set(ZLIB_DLL "zlib1.dll")
 		set_target_properties(zlib PROPERTIES FOLDER "Libs/zlib")
 		# Annoyingly zlib also builds some other stuff we aren't interested in
-		set_target_properties(zlibstatic PROPERTIES FOLDER "Libs/zlib")
+		set_target_properties(zlibstatic PROPERTIES
+			FOLDER "Libs/zlib"
+			EXCLUDE_FROM_ALL True
+			EXCLUDE_FROM_DEFAULT_BUILD True
+		)
 	endif()
 	set(PACKAGELIST ${PACKAGELIST} ZLIB)
 endif()
@@ -989,11 +988,6 @@ endif()
 # Embedded Lua interpreter
 if(ENABLE_LUA)
 	set(PACKAGELIST ${PACKAGELIST} LUA)
-endif()
-
-# GeoIP address resolving
-if(ENABLE_GEOIP)
-	set(PACKAGELIST ${PACKAGELIST} GEOIP)
 endif()
 
 if(ENABLE_NETLINK)
@@ -1117,8 +1111,8 @@ endif()
 if(HAVE_LIBKERBEROS)
 	set(HAVE_KERBEROS 1)
 endif()
-if(HAVE_LIBGEOIP)
-	set(HAVE_GEOIP 1)
+if(MAXMINDDB_FOUND)
+	set(HAVE_MAXMINDDB 1)
 endif()
 if(LIBSSH_FOUND)
 	set(HAVE_LIBSSH 1)
@@ -1255,10 +1249,6 @@ if(APPLE)
 endif()
 
 include(ConfigureChecks.cmake)
-
-#Big or little endian ?
-include(TestBigEndian)
-test_big_endian(WORDS_BIGENDIAN)
 
 # Global properties
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -1648,6 +1638,10 @@ set(INSTALL_FILES
 	${CMAKE_BINARY_DIR}/doc/wireshark-filter.html
 )
 
+if(MAXMINDDB_FOUND)
+	list(APPEND INSTALL_FILES ${CMAKE_BINARY_DIR}/doc/mmdbresolve.html)
+endif()
+
 if (BUILD_corbaidl2wrs)
 	list(APPEND INSTALL_FILES ${CMAKE_BINARY_DIR}/doc/idl2wrs.html)
 endif()
@@ -1720,9 +1714,9 @@ if(WIN32)
 	if (CARES_FOUND)
 		list (APPEND OPTIONAL_DLLS "${CARES_DLL_DIR}/${CARES_DLL}")
 	endif(CARES_FOUND)
-	if (GEOIP_FOUND)
-		list (APPEND OPTIONAL_DLLS "${GEOIP_DLL_DIR}/${GEOIP_DLL}")
-	endif(GEOIP_FOUND)
+	if (MAXMINDDB_FOUND)
+		list (APPEND OPTIONAL_DLLS "${MAXMINDDB_DLL_DIR}/${MAXMINDDB_DLL}")
+	endif(MAXMINDDB_FOUND)
 	if (LIBSSH_FOUND)
 		list (APPEND OPTIONAL_DLLS "${LIBSSH_DLL_DIR}/${LIBSSH_DLL}")
 	endif(LIBSSH_FOUND)
@@ -2919,6 +2913,21 @@ if(BUILD_randpktdump)
 	add_dependencies(extcaps randpktdump)
 endif()
 
+if (MAXMINDDB_FOUND)
+	set(mmdbresolve_LIBS
+		# Note: libmaxminddb is not GPL-2 compatible.
+		${MAXMINDDB_LIBRARY}
+	)
+	set(mmdbresolve_FILES
+		mmdbresolve.c
+	)
+	add_executable(mmdbresolve ${mmdbresolve_FILES})
+	set_extra_executable_properties(mmdbresolve "Executables")
+	target_link_libraries(mmdbresolve ${mmdbresolve_LIBS})
+	target_include_directories(mmdbresolve PUBLIC ${MAXMINDDB_INCLUDE_DIR})
+	install(TARGETS mmdbresolve RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 if(ENABLE_APPLICATION_BUNDLE)
 	add_custom_target(app_bundle)
 	set_target_properties(app_bundle PROPERTIES FOLDER "Copy Tasks")
@@ -2990,7 +2999,7 @@ set(CLEAN_C_FILES
 	${androiddump_FILES}
 	${sshdump_FILES}
 	${ciscodump_FILES}
-	${udpdump_FILES}
+	${mmdbresolve_FILES}
 )
 
 # Make sure we don't pass /WX to rc.exe. Rc doesn't have a /WX flag,
@@ -3126,7 +3135,24 @@ add_custom_target(test-sh
 		-P ${CMAKE_SOURCE_DIR}/cmake/modules/GenerateTestSh.cmake
 	DEPENDS ${CMAKE_SOURCE_DIR}/cmake/modules/GenerateTestSh.cmake
 )
-set_target_properties(test-sh PROPERTIES FOLDER "Tests")
+set_target_properties(test-sh PROPERTIES
+	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
+)
+
+add_custom_target(test-programs
+	DEPENDS test-sh
+		exntest
+		oids_test
+		reassemble_test
+		tvbtest
+		wmem_test
+	COMMENT "Building unit test programs and wrapper"
+)
+set_target_properties(test-programs PROPERTIES
+	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
+)
 
 if (GIT_EXECUTABLE)
 	# Update AUTHORS file with entries from git shortlog
@@ -3139,17 +3165,6 @@ else (GIT_EXECUTABLE)
 	add_custom_target( gen-authors COMMAND ${CMAKE_COMMAND} -E echo "Git not found." )
 endif (GIT_EXECUTABLE)
 set_target_properties(gen-authors PROPERTIES FOLDER "Docs")
-
-add_custom_target(test-programs
-	DEPENDS test-sh
-		exntest
-		oids_test
-		reassemble_test
-		tvbtest
-		wmem_test
-	COMMENT "Building unit test programs and wrapper"
-)
-set_target_properties(test-programs PROPERTIES FOLDER "Tests")
 
 if (WIN32)
 	file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/tools/Get-HardenFlags.ps1 _win_harden_flags)

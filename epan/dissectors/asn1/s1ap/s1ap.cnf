@@ -1694,6 +1694,7 @@ SecondaryRATusageDataRequst                     N s1ap.ies id-SecondaryRATusageD
 SecondaryRATusageReportList                     N s1ap.ies id-SecondaryRATusageReportList
 UE-Application-Layer-Measurement-Capability     N s1ap.ies id-UE-Application-Layer-Measurement-Capability
 HandoverFlag                                    N s1ap.ies id-HandoverFlag
+EmergencyAreaIDListForRestart                   N s1ap.ies id-EmergencyAreaIDListForRestart
 
 #S1AP-PROTOCOL-IES-PAIR
 #RAB-SetupOrModifyItemFirst             N s1ap.ies.pair.first id-RAB-SetupOrModifyItem
@@ -1721,7 +1722,6 @@ COUNTValueExtended                      N s1ap.extension id-DLCOUNTValueExtended
 ReceiveStatusOfULPDCPSDUsExtended       N s1ap.extension id-ReceiveStatusOfULPDCPSDUsExtended
 Correlation-ID                          N s1ap.extension id-SIPTO-Correlation-ID
 TransportInformation                    N s1ap.extension id-TransportInformation
-EmergencyAreaIDListForRestart           N s1ap.extension id-EmergencyAreaIDListForRestart
 ENBIndirectX2TransportLayerAddresses    N s1ap.extension id-eNBIndirectX2TransportLayerAddresses
 LoggedMBSFNMDT                          N s1ap.extension id-LoggedMBSFNMDT
 UE-HistoryInformationFromTheUE          N s1ap.extension id-uE-HistoryInformationFromTheUE
@@ -2118,6 +2118,17 @@ SecondaryRATReport                      N s1ap.proc.imsg id-SecondaryRATReport
 %(DEFAULT_BODY)s
   col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [Misc-cause=%%s]", val_to_str_const(value, s1ap_CauseMisc_vals, "Unknown"));
 
+#.END
+
+#.FIELD_ATTR
+EUTRAN-CGI/cell-ID ABBREV=CellIdentity TYPE=FT_UINT32 DISPLAY=BASE_HEX
+#.FN_BODY CellIdentity VAL_PTR = &cell_id_tvb HF_INDEX=-1
+  tvbuff_t *cell_id_tvb = NULL;
+%(DEFAULT_BODY)s
+  if (cell_id_tvb) {
+    guint32 cell_id = tvb_get_bits32(cell_id_tvb, 0, 28, ENC_BIG_ENDIAN);
+    actx->created_item = proto_tree_add_uint(tree, hf_index, cell_id_tvb, 0, 4, cell_id);
+  }
 #.END
 
 #

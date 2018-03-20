@@ -4,43 +4,30 @@
 # By Gerald Combs <gerald@wireshark.org>
 # Copyright 1998 Gerald Combs
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# SPDX-License-Identifier: GPL-2.0-or-later
 #
 
 include(CMakePushCheckState)
 
+if(WIN32)
+	# Prepopulate some values. Compilation checks on Windows can be slow.
+	set(HAVE_FCNTL_H TRUE)
+	set(HAVE_SYS_STAT_H TRUE)
+	set(HAVE_FLOORL TRUE)
+	set(HAVE_LRINT TRUE)
+endif(WIN32)
+
 #check system for includes
 include(CheckIncludeFile)
 check_include_file("arpa/inet.h"         HAVE_ARPA_INET_H)
-check_include_file("arpa/nameser.h"      HAVE_ARPA_NAMESER_H)
-check_include_file("dlfcn.h"             HAVE_DLFCN_H)
 check_include_file("fcntl.h"             HAVE_FCNTL_H)
 check_include_file("getopt.h"            HAVE_GETOPT_H)
 check_include_file("grp.h"               HAVE_GRP_H)
 check_include_file("ifaddrs.h"           HAVE_IFADDRS_H)
 check_include_file("netinet/in.h"        HAVE_NETINET_IN_H)
 check_include_file("netdb.h"             HAVE_NETDB_H)
-# We need to set the path to Wpdpack in order to find Ntddndis.h
-#cmake_push_check_state()
-#set(CMAKE_REQUIRED_INCLUDES ${PCAP_INCLUDE_DIRS})
-#check_include_file("Ntddndis.h"          HAVE_NTDDNDIS_H)
-#cmake_pop_check_state()
-check_include_file("portaudio.h"         HAVE_PORTAUDIO_H)
 check_include_file("pwd.h"               HAVE_PWD_H)
 check_include_file("sys/ioctl.h"         HAVE_SYS_IOCTL_H)
-check_include_file("sys/param.h"         HAVE_SYS_PARAM_H)
 check_include_file("sys/select.h"        HAVE_SYS_SELECT_H)
 check_include_file("sys/socket.h"        HAVE_SYS_SOCKET_H)
 check_include_file("sys/sockio.h"        HAVE_SYS_SOCKIO_H)
@@ -83,7 +70,6 @@ endif()
 #Functions
 include(CheckFunctionExists)
 include(CheckSymbolExists)
-check_function_exists("chown"            HAVE_CHOWN)
 
 cmake_push_check_state()
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_DL_LIBS})
@@ -98,7 +84,7 @@ cmake_push_check_state()
 set(CMAKE_REQUIRED_INCLUDES ${M_INCLUDE_DIRS})
 set(CMAKE_REQUIRED_LIBRARIES ${M_LIBRARIES})
 check_symbol_exists("floorl" "math.h"    HAVE_FLOORL)
-check_symbol_exists("lrint"  "math.h"    HAVE_LRINT)
+check_symbol_exists("lrint"  "math.h"    HAVE_LRINT) # GTK+ only
 cmake_pop_check_state()
 
 check_function_exists("getopt_long"      HAVE_GETOPT_LONG)
@@ -111,9 +97,7 @@ if(HAVE_GETOPT_LONG)
 endif()
 check_function_exists("getifaddrs"       HAVE_GETIFADDRS)
 check_function_exists("issetugid"        HAVE_ISSETUGID)
-check_function_exists("mkdtemp"          HAVE_MKDTEMP)
 check_function_exists("mkstemps"         HAVE_MKSTEMPS)
-check_function_exists("popcount"         HAVE_POPCOUNT)
 check_function_exists("setresgid"        HAVE_SETRESGID)
 check_function_exists("setresuid"        HAVE_SETRESUID)
 check_function_exists("strptime"         HAVE_STRPTIME)

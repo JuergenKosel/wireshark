@@ -291,6 +291,7 @@ static inline guint8 tls13_draft_version(guint32 version) {
 #define SSL_SERVER_EXTENDED_MASTER_SECRET (1<<8)
 #define SSL_NEW_SESSION_TICKET  (1<<10)
 #define SSL_ENCRYPT_THEN_MAC    (1<<11)
+#define SSL_SEEN_0RTT_APPDATA   (1<<12)
 
 #define SSL_EXTENDED_MASTER_SECRET_MASK (SSL_CLIENT_EXTENDED_MASTER_SECRET|SSL_SERVER_EXTENDED_MASTER_SECRET)
 
@@ -616,6 +617,7 @@ ssl_change_cipher(SslDecryptSession *ssl_session, gboolean server);
  @param decoder the stream decoder to be used
  @param ct the content type of this ssl record
  @param record_version the version as contained in the record
+ @param ignore_mac_failed whether to ignore MAC or authenticity failures
  @param in a pointer to the ssl record to be decrypted
  @param inl the record length
  @param comp_str a pointer to the store the compression data
@@ -624,6 +626,7 @@ ssl_change_cipher(SslDecryptSession *ssl_session, gboolean server);
  @return 0 on success */
 extern gint
 ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint16 record_version,
+        gboolean ignore_mac_failed,
         const guchar *in, guint16 inl, StringInfo *comp_str, StringInfo *out_str, guint *outl);
 
 /**
@@ -691,6 +694,13 @@ ssl_save_session(SslDecryptSession* ssl, GHashTable *session_hash);
 
 extern void
 ssl_finalize_decryption(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map);
+
+extern gboolean
+tls13_generate_keys(SslDecryptSession *ssl_session, const StringInfo *secret, gboolean is_from_server);
+
+extern StringInfo *
+tls13_load_secret(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,
+                  gboolean is_from_server, TLSRecordType type);
 
 extern void
 tls13_change_key(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,

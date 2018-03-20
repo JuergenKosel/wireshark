@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2018-03-03)
+# (last updated 2018-03-17)
 
 0	Reserved
 1	NxNetworks
@@ -21083,7 +21083,7 @@
 21236	Laseur Enterprises
 21237	Wright Express
 21238	BrasilSat Harald S/A
-21239	Geist Manufacturing, Inc
+21239	Vertiv	# formerly 'Geist Manufacturing, Inc'
 21240	PinguSolution Meierhoff/Woltmann GbR
 21241	Chezwam
 21242	SimDesk Technologies Inc.
@@ -41478,7 +41478,7 @@
 41651	Dapesco S.A.
 41652	IdentSign
 41653	KCG Europe Ltd	# formerly 'GETCO Europe Ltd'
-41654	EAL (Apeldoorn) BV
+41654	E.A.L. Apeldoorn B.V.
 41655	CardSmart Technologies
 41656	2024Sight INC.
 41657	Bressner Technology
@@ -46600,7 +46600,7 @@
 46777	Air New Zealand
 46778	NTx Back Office Consulting Group
 46779	Belgian Supreme Administrative Court
-46780	Leo Angelo
+46780	Domaincracy LLC
 46781	Sasola Limited
 46782	John Holland PTY LTD
 46783	Nephos6
@@ -49696,7 +49696,6 @@
 49877	Skylads Ltd
 49878	Wanless Systems Limited
 49879	Gorilla Technology
-49880	wevcode
 49881	Prismview
 49882	Synanetics Ltd
 49883	MES Solutions by ASTOR
@@ -51061,7 +51060,7 @@
 51245	Movenda S.p.A.
 51246	Evidencias Certificadas, S.L.
 51247	Siemens Postal, Parcel & Airport Logistics GmbH
-51248	Family Herder
+51248	BDSDEV	# formerly 'Family Herder'
 51249	Jages TransportAB
 51250	Dalfors Åkeri AB
 51251	DeepCore Systems
@@ -51371,3 +51370,90 @@
 51555	Jason Letanosky
 51556	Max Planck Institute for Biology of Ageing
 51557	SecurIT360 LLC
+51558	Europower Consulting GmbH
+51559	duagon AG
+51560	Informatics Systemhaus
+51561	Fry-IT Limited
+51562	Fasttrack Immediate Care LLC
+51563	TelcoEdge Pty Ltd
+51564	National Institute of Information and Communications Technology (NICT)
+51565	Shenzhen Ehilink Technology Ltd.
+51566	AMBA
+51567	Plusnet GmbH & Co. KG
+51568	Buck Institute
+51569	Technology Bjumper S.L.
+51570	Clinic Management Group
+51571	Observer-X LLC
+51572	DEVtec.io
+51573	Nachiket V. Patel, MD, PA
+51574	CENTRAL JERSEY SPORTS MEDICINE & ORTHOPAEDIC CENTER, PC
+51575	TUC Co
+51576	Timber Technologies, Inc.
+51577	CTI Certificate Authority Co., Ltd
+51578	Codilis and Associates, P.C.
+51579	Thauris
+51580	MetaNetworks
+51581	Localdomain.dk
+51582	Darling Ingredients Inc
+51583	Tarrell, Inc.
+51584	Vision Net
+51585	Kohler Co.
+51586	TrellisWare Technologies, Inc.
+51587	RICIS, Inc.
+51588	Allegiance Consulting (Pty) Ltd
+51589	White Hat Security
+51590	The Austins
+51591	L'Empire Troll
+51592	Cloud Way Computing
+51593	Theben AG
+51594	Royalunibrew
+51595	Ikast-Brande Kommune
+51596	DCT Gdansk S.A.
+51597	Cullman Regional Urgent Care
+51598	ESIREM
+51599	NeoPrime, LLC
+51600	Stengele Holz- & Kunststofftechnik GmbH
+51601	PJSC First Ukrainian International Bank
+51602	Uman GmbH
+51603	Martin Currie Investment Management Ltd
+51604	Arrcus, Inc
+51605	Cryptodira
+51606	Wafrum Consulting & Caeli Online Services
+51607	Fara Afrand Co.
+51608	Winnebago County
+51609	K33BZ.COM
+51610	Off Lease Only, Inc.
+51611	Ultimate Access Primary Care
+51612	IVM srl
+51613	Controlled Power Company
+51614	Lumileds LLC
+51615	ZhuHai JinFangDa Technology Co., Ltd
+51616	CatIT
+51617	Novo Holdings A/S
+51618	ITS Bel Ltd
+51619	Celonis SE
+51620	Getzner Textil Aktiengesellschaft
+51621	TaraTech Co.
+51622	San@sro Inc.
+51623	Lyft
+51624	Garrett Container Systems
+51625	Open Stack, Inc.
+51626	Dortmunder Blankstahl GmbH
+51627	NMBS-SNCB
+51628	Solid Optics
+51629	Mektoso
+51630	HealthTrust, Inc.
+51631	Bocom BBM
+51632	AND Agency
+51633	Eurotel Bilgi Iletisim Sistemleri A.S.
+51634	RobotSzoft
+51635	PagerDuty, Inc.
+51636	CEGI
+51637	Ovostar Union
+51638	YADA
+51639	DI Christian Linhart GmbH
+51640	JustinWiebe.ca
+51641	Allianz Technology SE - Global Document and Archive Management
+51642	IIC Workshop
+51643	Janus Henderson Investors
+51644	IP-Only Networks AB

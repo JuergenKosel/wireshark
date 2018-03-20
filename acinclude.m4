@@ -2,20 +2,7 @@ dnl Macros that test for specific features.
 dnl This file is part of the Autoconf packaging for Wireshark.
 dnl Copyright (C) 1998-2000 by Gerald Combs.
 dnl
-dnl This program is free software; you can redistribute it and/or modify
-dnl it under the terms of the GNU General Public License as published by
-dnl the Free Software Foundation; either version 2, or (at your option)
-dnl any later version.
-dnl
-dnl This program is distributed in the hope that it will be useful,
-dnl but WITHOUT ANY WARRANTY; without even the implied warranty of
-dnl MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-dnl GNU General Public License for more details.
-dnl
-dnl You should have received a copy of the GNU General Public License
-dnl along with this program; if not, write to the Free Software
-dnl Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-dnl 02111-1307, USA.
+dnl SPDX-License-Identifier: GPL-2.0-or-later
 dnl
 dnl As a special exception, the Free Software Foundation gives unlimited
 dnl permission to copy, distribute and modify the configure scripts that
@@ -1162,36 +1149,24 @@ AC_DEFUN([AC_WIRESHARK_KRB5_CHECK],
 ])
 
 #
-# AC_WIRESHARK_GEOIP_CHECK
+# AC_WIRESHARK_MAXMINDDB_CHECK
 #
-AC_DEFUN([AC_WIRESHARK_GEOIP_CHECK],
+AC_DEFUN([AC_WIRESHARK_MAXMINDDB_CHECK],
 [
-	want_geoip=defaultyes
+	want_maxminddb=defaultyes
 
-	if test "x$want_geoip" = "xdefaultyes"; then
-		want_geoip=yes
+	if test "x$want_maxminddb" = "xdefaultyes"; then
+		want_maxminddb=yes
 	fi
 
-	if test "x$want_geoip" = "xyes"; then
-		AC_CHECK_LIB(GeoIP, GeoIP_new,
+	if test "x$want_maxminddb" = "xyes"; then
+		AC_CHECK_LIB(maxminddb, MMDB_open,
 		  [
-		    GEOIP_LIBS=-lGeoIP
-	    	AC_DEFINE(HAVE_GEOIP, 1, [Define to use GeoIP library])
-		have_good_geoip=yes
+		    MAXMINDDB_LIBS=-lmaxminddb
+		    AC_DEFINE(HAVE_MAXMINDDB, 1, [Define to use MaxMind DB library])
+		    have_good_maxminddb=yes
 		  ],,
 		)
-		if test "x$have_good_geoip" = "xyes"; then
-			AC_CHECK_LIB(GeoIP, GeoIP_country_name_by_ipnum_v6,
-			  [
-				AC_DEFINE(HAVE_GEOIP_V6, 1, [Define if GeoIP supports IPv6 (GeoIP 1.4.5 and later)])
-			  ],,
-			)
-			AC_CHECK_LIB(GeoIP, GeoIP_free,
-			  [
-				AC_DEFINE(HAVE_GEOIP_FREE, 1, [Define if GeoIP has GeoIP_free])
-			  ],,
-			)
-		fi
 	else
 		AC_MSG_RESULT(not required)
 	fi

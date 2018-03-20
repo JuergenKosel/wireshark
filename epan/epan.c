@@ -85,6 +85,10 @@
 #include <libxml/parser.h>
 #endif
 
+#ifndef _WIN32
+#include <signal.h>
+#endif
+
 static GSList *epan_register_all_procotols = NULL;
 static GSList *epan_register_all_handoffs = NULL;
 
@@ -223,6 +227,12 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 	xmlInitParser();
 	LIBXML_TEST_VERSION;
 #endif
+
+#ifndef _WIN32
+	// We might receive a SIGPIPE due to maxmind_db.
+	signal(SIGPIPE, SIG_IGN);
+#endif
+
 	TRY {
 		tap_init();
 		prefs_init();
@@ -727,13 +737,13 @@ epan_get_compiled_version_info(GString *str)
 	g_string_append(str, "without Kerberos");
 #endif /* HAVE_KERBEROS */
 
-	/* GeoIP */
+	/* MaxMindDB */
 	g_string_append(str, ", ");
-#ifdef HAVE_GEOIP
-	g_string_append(str, "with GeoIP");
+#ifdef HAVE_MAXMINDDB
+	g_string_append(str, "with MaxMind DB resolver");
 #else
-	g_string_append(str, "without GeoIP");
-#endif /* HAVE_GEOIP */
+	g_string_append(str, "without MaxMind DB resolver");
+#endif /* HAVE_MAXMINDDB */
 
 	/* nghttp2 */
 	g_string_append(str, ", ");

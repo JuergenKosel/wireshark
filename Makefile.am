@@ -32,19 +32,20 @@ COMMONCPPFLAGS =
 AM_CPPFLAGS = $(INCLUDEDIRS) $(WS_CPPFLAGS) $(COMMONCPPFLAGS)
 
 bin_PROGRAMS = \
-	@wireshark_bin@		\
-	@tshark_bin@		\
-	@tfshark_bin@		\
-	@text2pcap_bin@		\
-	@mergecap_bin@		\
 	@capinfos_bin@		\
 	@captype_bin@		\
-	@editcap_bin@		\
-	@randpkt_bin@		\
 	@dumpcap_bin@		\
-	@reordercap_bin@	\
+	@editcap_bin@		\
+	@mergecap_bin@		\
+	@mmdbresolve_bin@	\
+	@randpkt_bin@		\
 	@rawshark_bin@		\
-	@sharkd_bin@
+	@reordercap_bin@	\
+	@sharkd_bin@		\
+	@text2pcap_bin@		\
+	@tfshark_bin@		\
+	@tshark_bin@		\
+	@wireshark_bin@
 
 noinst_PROGRAMS = \
 	@dftest_bin@		\
@@ -52,7 +53,7 @@ noinst_PROGRAMS = \
 
 EXTRA_PROGRAMS = wireshark-gtk wireshark tshark tfshark capinfos captype \
 	editcap mergecap dftest randpkt text2pcap dumpcap reordercap \
-	rawshark sharkd fuzzshark
+	mmdbresolve rawshark sharkd fuzzshark
 
 #
 # Wireshark configuration files are put in $(pkgdatadir).
@@ -530,6 +531,11 @@ rawshark_LDADD = \
 	@GLIB_LIBS@			\
 	@PCAP_LIBS@			\
 	${EPAN_EXTRA_LIBS}
+
+mmdbresolve_SOURCES = mmdbresolve.c
+mmdbresolve_CPPFLAGS = $(AM_CPPFLAGS)
+mmdbresolve_LDFLAGS = $(AM_LDFLAGS)
+mmdbresolve_LDADD = @MAXMINDDB_LIBS@
 
 sharkd_SOURCES = \
 	$(SHARK_COMMON_SRC)	\

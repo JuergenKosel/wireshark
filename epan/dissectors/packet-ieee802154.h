@@ -19,16 +19,17 @@
 /* PANID dissector list is for Decode-As and stateful dissection only. */
 #define IEEE802154_PROTOABBREV_WPAN_PANID   "wpan.panid"
 
-/* Dissector tables for the Header IEs and Payload IEs */
+/* Dissector tables */
 #define IEEE802154_HEADER_IE_DTABLE         "wpan.header_ie"
 #define IEEE802154_PAYLOAD_IE_DTABLE        "wpan.payload_ie"
 #define IEEE802154_MLME_IE_DTABLE           "wpan.mlme_ie"
+#define IEEE802154_CMD_VENDOR_DTABLE        "wpan.cmd.vendor"
 
 /*  Packet Overhead from MAC header + footer (excluding addressing) */
 #define IEEE802154_MAX_FRAME_LEN            127
 #define IEEE802154_FCS_LEN                  2
 
-/*  Command Frame Identifier Types Definions */
+/*  Command Frame Identifier Types Definitions */
 #define IEEE802154_CMD_ASSOC_REQ                0x01
 #define IEEE802154_CMD_ASSOC_RSP                0x02
 #define IEEE802154_CMD_DISASSOC_NOTIFY          0x03
@@ -55,7 +56,9 @@
 #define IEEE802154_CMD_RIT_DATA_REQ             0x20
 #define IEEE802154_CMD_DBS_REQ                  0x21
 #define IEEE802154_CMD_DBS_RSP                  0x22
-/* 0x22-0x1f reserved in IEEE802.15.4-2015 */
+#define IEEE802154_CMD_RIT_DATA_RSP             0x23
+#define IEEE802154_CMD_VENDOR_SPECIFIC          0x24
+/* 0x25-0xff reserved in IEEE802.15.4-2015 */
 
 /*  Definitions for Association Response Command */
 #define IEEE802154_CMD_ASRSP_AS_SUCCESS         0x00
@@ -380,7 +383,7 @@ typedef struct {
     gboolean    seqno_suppression;
     gboolean    ie_present;
     guint8      seqno;
-    /* determined during processing of Header IE*/
+    /* Determined during processing of Header IE*/
     gboolean    payload_ie_present;
     /* Addressing Info. */
     guint16     dst_pan;
@@ -475,6 +478,56 @@ gboolean ccm_cbc_mac(const gchar *key, const gchar *iv, const gchar *a, gint a_l
 
 proto_tree *ieee802154_create_hie_tree(tvbuff_t *tvb, proto_tree *tree, int hf, gint ett);
 proto_tree *ieee802154_create_pie_tree(tvbuff_t *tvb, proto_tree *tree, int hf, gint ett);
+
+
+/** Even if the FCF Security Enabled flag is set, there is no auxiliary security header present (used by Wi-SUN Netricity) */
+#define IEEE802154_DISSECT_HEADER_OPTION_NO_AUX_SEC_HDR  (1 << 1)
+/**
+ * Dissect the IEEE 802.15.4 header starting from the FCF up to and including the Header IEs (the non-encrypted part)
+ * @param tvb the IEEE 802.15.4 frame
+ * @param pinfo packet info of the currently processed packet
+ * @param tree current protocol tree
+ * @param options bitmask of IEEE802154_DISSECT_HEADER_OPTION_XX flags
+ * @param[out] created_header_tree will be set to the tree created for the header
+ * @param[out] parsed_info will be set to the (wmem allocated) IEEE 802.15.4 packet information
+ * @return the MHR length or 0 if an error occurred
+ */
+guint ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint options, proto_tree **created_header_tree, ieee802154_packet **parsed_info);
+
+/**
+ * Decrypt the IEEE 802.15.4 payload starting from the Payload IEs
+ *
+ * If the packet is not encrypted, just return the payload.
+ * @param tvb the IEEE 802.15.4 frame
+ * @param mhr_len the size of the IEEE 802.15.4 header (MHR)
+ * @param pinfo packet info of the currently processed packet
+ * @param ieee802154_tree the tree for the IEEE 802.15.4 header/protocol
+ * @param packet the IEEE 802.15.4 packet information
+ * @return the plaintext payload or NULL if decryption failed
+ */
+tvbuff_t* ieee802154_decrypt_payload(tvbuff_t *tvb, guint mhr_len, packet_info *pinfo, proto_tree *ieee802154_tree, ieee802154_packet *packet);
+
+/**
+ * Dissect the IEEE 802.15.4 Payload IEs (if present)
+ * @param tvb the (decrypted) IEEE 802.15.4 payload
+ * @param pinfo packet info of the currently processed packet
+ * @param ieee802154_tree the tree for the IEEE 802.15.4 header/protocol
+ * @param packet the IEEE 802.15.4 packet information
+ * @return the number of bytes dissected
+ */
+guint ieee802154_dissect_payload_ies(tvbuff_t *tvb, packet_info *pinfo, proto_tree *ieee802154_tree, ieee802154_packet *packet);
+
+/**
+ * Dissect the IEEE 802.15.4 frame payload (after the Payload IEs)
+ * @param tvb the (decrypted) IEEE 802.15.4 frame payload (after the Payload IEs)
+ * @param pinfo packet info of the currently processed packet
+ * @param ieee802154_tree the tree for the IEEE 802.15.4 header/protocol
+ * @param packet the IEEE 802.15.4 packet information
+ * @param fcs_ok set to FALSE if the FCS verification failed, which is used to suppress some further processing
+ * @return the number of bytes dissected
+ */
+guint ieee802154_dissect_frame_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *ieee802154_tree, ieee802154_packet *packet, gboolean fcs_ok);
+
 
 /* Results for the decryption */
 typedef struct {

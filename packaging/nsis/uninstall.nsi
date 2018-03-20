@@ -125,22 +125,25 @@ SetShellVarContext all
 !insertmacro IsWiresharkRunning
 
 Push "${EXECUTABLE_MARKER}"
-Push "androiddump"
-Push "ciscodump"
-Push "sshdump"
-Push "udpdump"
-Push "dumpcap"
 Push "${PROGRAM_NAME}"
-Push "tshark"
-Push "qtshark"
+Push "androiddump"
+Push "capinfos"
+Push "ciscodump"
+Push "dftest"
+Push "dumpcap"
 Push "editcap"
-Push "text2pcap"
 Push "mergecap"
 Push "randpktdump"
-Push "reordercap"
-Push "capinfos"
 Push "rawshark"
-Push "dftest"
+Push "reordercap"
+Push "sshdump"
+Push "text2pcap"
+Push "tshark"
+Push "udpdump"
+
+!ifdef MMDBRESOLVE_EXE
+Push "mmdbresolve"
+!endif
 
 Pop $EXECUTABLE
 ${DoUntil} $EXECUTABLE == ${EXECUTABLE_MARKER}

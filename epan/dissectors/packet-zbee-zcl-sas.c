@@ -427,15 +427,11 @@ proto_register_zbee_zcl_ias_ace(void)
 void
 proto_reg_handoff_zbee_zcl_ias_ace(void)
 {
-    dissector_handle_t ias_ace_handle;
-
-    /* Register our dissector with the ZigBee application dissectors. */
-    ias_ace_handle = find_dissector(ZBEE_PROTOABBREV_ZCL_IAS_ACE);
-    dissector_add_uint("zbee.zcl.cluster", ZBEE_ZCL_CID_IAS_ACE, ias_ace_handle);
-
-    zbee_zcl_init_cluster(  proto_zbee_zcl_ias_ace,
+    zbee_zcl_init_cluster(  ZBEE_PROTOABBREV_ZCL_IAS_ACE,
+                            proto_zbee_zcl_ias_ace,
                             ett_zbee_zcl_ias_ace,
                             ZBEE_ZCL_CID_IAS_ACE,
+                            ZBEE_MFG_CODE_NONE,
                             -1,
                             hf_zbee_zcl_ias_ace_srv_rx_cmd_id,
                             hf_zbee_zcl_ias_ace_srv_tx_cmd_id,
@@ -746,15 +742,11 @@ proto_register_zbee_zcl_ias_wd(void)
 void
 proto_reg_handoff_zbee_zcl_ias_wd(void)
 {
-    dissector_handle_t ias_wd_handle;
-
-    /* Register our dissector with the ZigBee application dissectors. */
-    ias_wd_handle = find_dissector(ZBEE_PROTOABBREV_ZCL_IAS_WD);
-    dissector_add_uint("zbee.zcl.cluster", ZBEE_ZCL_CID_IAS_WD, ias_wd_handle);
-
-    zbee_zcl_init_cluster(  proto_zbee_zcl_ias_wd,
+    zbee_zcl_init_cluster(  ZBEE_PROTOABBREV_ZCL_IAS_WD,
+                            proto_zbee_zcl_ias_wd,
                             ett_zbee_zcl_ias_wd,
                             ZBEE_ZCL_CID_IAS_WD,
+                            ZBEE_MFG_CODE_NONE,
                             hf_zbee_zcl_ias_wd_attr_id,
                             hf_zbee_zcl_ias_wd_srv_rx_cmd_id,
                             -1,

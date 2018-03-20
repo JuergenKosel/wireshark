@@ -511,6 +511,7 @@
 	</avp>
 </application>	<!-- 3GPP Gq -->
 
+
 <!-- The AVP codes from 500 to 599 are reserved for TS 29.209, 29.211, and 29.229. -->
 <application id="16777236" name="3GPP Rx" uri="http://www.3gpp.org/DynaReport/29214.htm">
 	<avp name="Codec-Data" code="524" mandatory="must" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
@@ -586,6 +587,33 @@
 		<type type-name="Unsigned32"/>
 	</avp>
 	<avp name="Retry-Interval" code="541" mandatory="may"  may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
+	</avp>
+	<avp name="Content-Version" code="552" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned64"/>
+	</avp>
+	<avp name="Extended-Max-Requested-BW-DL" code="554" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
+	</avp>
+	<avp name="Extended-Max-Requested-BW-UL" code="555" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
+	</avp>
+	<avp name="Extended-Max-Supported-BW-DL" code="556" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
+	</avp>
+	<avp name="Extended-Max-Supported-BW-UL" code="557" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
+	</avp>
+	<avp name="Extended-Min-Desired-BW-DL" code="558" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
+	</avp>
+	<avp name="Extended-Min-Desired-BW-UL" code="559" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
+	</avp>
+	<avp name="Extended-Min-Requested-BW-DL" code="560" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
+	</avp>
+	<avp name="Extended-Min-Requested-BW-UL" code="561" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
 		<type type-name="Unsigned32"/>
 	</avp>
 </application>	<!-- 3GPP Rx -->
@@ -1441,6 +1469,19 @@
 	</avp>
 	<avp name="RRC-Counter-Timestamp" code="4320" mandatory="must" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
 		<type type-name="Time"/>
+	</avp>
+	<avp name="Idle-Status-Indication" code="4322" mandatory="mustnot" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+		<grouped>
+			<gavp name="Idle-Status-Timestamp"/>
+			<gavp name="Active-Time"/>
+			<gavp name="Subscribed-Periodic-RAU-TAU-Timer"/>
+		</grouped>
+	</avp>
+	<avp name="Idle-Status-Timestamp" code="4323" mandatory="mustnot" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+		<type type-name="Time"/>
+	</avp>
+	<avp name="Idle-Status-Timestamp" code="4324" mandatory="mustnot" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+		<type type-name="Unsigned32"/>
 	</avp>
 	<!--
 	Note: The AVP codes from 4300 to 4399 are reserved for TS 29.128

@@ -2606,11 +2606,11 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>GeoIP path</source>
+        <source>MaxMind DB path</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>GeoIP database search path</source>
+        <source>MaxMind DB database search path</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7683,22 +7683,6 @@ a:hover {
     </message>
     <message>
         <source>Confirm unsaved capture files</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>If checked the packet detail items will be automatically scrolled when they are expanded.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Automatically scroll packet details</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Percentage distance from the top to scroll packet details.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Packet detail scroll percentage:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

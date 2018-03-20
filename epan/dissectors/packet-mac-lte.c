@@ -6,15 +6,7 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
-
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -1370,12 +1362,6 @@ static const value_string bit_rate_vals[] =
     { 0, NULL }
 };
 static value_string_ext bit_rate_vals_ext = VALUE_STRING_EXT_INIT(bit_rate_vals);
-
-static const true_false_string activated_deactivated_vals =
-{
-    "Activated",
-    "Deactivated"
-};
 
 static const value_string header_only_vals[] =
 {
@@ -9204,49 +9190,49 @@ void proto_register_mac_lte(void)
         { &hf_mac_lte_control_activation_deactivation_csi_rs_a8,
             { "CSI-RS Resource Index 8",
               "mac-lte.control.activation-deactivation-csi-rs.a8", FT_BOOLEAN, 8,
-              TFS(&activated_deactivated_vals), 0x80, NULL, HFILL
+              TFS(&tfs_activated_deactivated), 0x80, NULL, HFILL
             }
         },
         { &hf_mac_lte_control_activation_deactivation_csi_rs_a7,
             { "CSI-RS Resource Index 7",
               "mac-lte.control.activation-deactivation-csi-rs.a7", FT_BOOLEAN, 8,
-              TFS(&activated_deactivated_vals), 0x40, NULL, HFILL
+              TFS(&tfs_activated_deactivated), 0x40, NULL, HFILL
             }
         },
         { &hf_mac_lte_control_activation_deactivation_csi_rs_a6,
             { "CSI-RS Resource Index 6",
               "mac-lte.control.activation-deactivation-csi-rs.a6", FT_BOOLEAN, 8,
-              TFS(&activated_deactivated_vals), 0x20, NULL, HFILL
+              TFS(&tfs_activated_deactivated), 0x20, NULL, HFILL
             }
         },
         { &hf_mac_lte_control_activation_deactivation_csi_rs_a5,
             { "CSI-RS Resource Index 5",
               "mac-lte.control.activation-deactivation-csi-rs.a5", FT_BOOLEAN, 8,
-              TFS(&activated_deactivated_vals), 0x10, NULL, HFILL
+              TFS(&tfs_activated_deactivated), 0x10, NULL, HFILL
             }
         },
         { &hf_mac_lte_control_activation_deactivation_csi_rs_a4,
             { "CSI-RS Resource Index 4",
               "mac-lte.control.activation-deactivation-csi-rs.a4", FT_BOOLEAN, 8,
-              TFS(&activated_deactivated_vals), 0x08, NULL, HFILL
+              TFS(&tfs_activated_deactivated), 0x08, NULL, HFILL
             }
         },
         { &hf_mac_lte_control_activation_deactivation_csi_rs_a3,
             { "CSI-RS Resource Index 3",
               "mac-lte.control.activation-deactivation-csi-rs.a3", FT_BOOLEAN, 8,
-              TFS(&activated_deactivated_vals), 0x04, NULL, HFILL
+              TFS(&tfs_activated_deactivated), 0x04, NULL, HFILL
             }
         },
         { &hf_mac_lte_control_activation_deactivation_csi_rs_a2,
             { "CSI-RS Resource Index 2",
               "mac-lte.control.activation-deactivation-csi-rs.a2", FT_BOOLEAN, 8,
-              TFS(&activated_deactivated_vals), 0x02, NULL, HFILL
+              TFS(&tfs_activated_deactivated), 0x02, NULL, HFILL
             }
         },
         { &hf_mac_lte_control_activation_deactivation_csi_rs_a1,
             { "CSI-RS Resource Index 1",
               "mac-lte.control.activation-deactivation-csi-rs.a1", FT_BOOLEAN, 8,
-              TFS(&activated_deactivated_vals), 0x01, NULL, HFILL
+              TFS(&tfs_activated_deactivated), 0x01, NULL, HFILL
             }
         },
 

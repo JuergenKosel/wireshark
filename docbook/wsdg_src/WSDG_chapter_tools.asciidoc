@@ -40,8 +40,8 @@ tested.
 Documentation for these tools is outside the scope of this document. If you need
 further information on using a specific tool you should find lots of useful
 information on the web, as these tools are commonly used. You can also get help
-for the UNIX based tools with +**toolname** --help+ or the man page via +man
-**toolname**+.
+for the UNIX based tools with `**toolname** --help` or the man page via `man
+**toolname**`.
 
 You will find explanations of the tool usage for some of the specific
 development tasks in <<ChapterSources>>.
@@ -52,12 +52,14 @@ Chocolatey is a Windows package manager that can be used to install (and update)
 many of the packages required for Wireshark development. Chocolatey can be
 obtained from the http://chocolatey.org[website] or from a Command Prompt:
 
+[source,cmd]
 ----
 C:\>@powershell -NoProfile -ExecutionPolicy unrestricted -Command "iex ((new-object net.webclient).DownloadString(_https://chocolatey.org/install.ps1_))" && SET PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin
 ----
 
 or a Powershell prompt:
 
+[source,cmd]
 ----
 PS:\>iex ((new-object net.webclient).DownloadString(_https://chocolatey.org/install.ps1_))
 ----
@@ -147,6 +149,7 @@ between:
 Chocolatey supports Cygwin as an external package source.
 To install Cygwin itself run
 
+[source,cmd]
 ----
 PS$>choco install cygwin
 # You might also need to install cyg-get:
@@ -157,9 +160,92 @@ Chocolatey installs Cygwin in _C:\ProgramData\chocolatey\lib\Cygwin\tools\cygwin
 
 One or more Cygwin packages can be installed using `cyg-get`:
 
+[source,cmd]
 ----
 PS$>cyg-get sed asciidoc
 ----
+
+[[ChToolsCMake]]
+
+=== CMake
+
+Wireshark’s build environment can be configured using CMake on Windows,
+Linux, macOS, and UNIX. CMake is designed to support out of tree builds.
+So much so, that in tree builds do not work properly in all cases. Along
+with being cross-platform, CMake supports many build tools and
+environments including traditional make, Ninja, and MSBuild. Our
+Buildbot runs CMake steps on Ubuntu, Win32, Win64, and macOS. In
+particular, the macOS and Windows packages are built using CMake.
+
+Building with CMake typically includes creating a build directory and
+specifying a *generator*, aka a build tool. For example, to build
+Wireshark using Ninja in the directory _wireshark-ninja_ you might
+run the following commands:
+
+[source,sh]
+----
+# Starting from your Wireshark source directory, create a build directory
+# alongside it.
+$ cd ..
+$ mkdir wireshark-ninja
+$ cd wireshark-ninja
+# Assumes your source directory is named "wireshark".
+$ cmake -G Ninja ../wireshark
+$ ninja (or cmake --build .)
+----
+
+Using CMake on Windows is described further in <<ChWin32Generate>>.
+
+Along with specifying a generator with the `-G` flag you can set variables
+using the `-D` flag. Useful variables and generators include the following:
+
+-DBUILD_wireshark=OFF:: Don't build the Wireshark GUI application.
+Each command line utility has its own BUILD_xxx flag as well. For
+example, you can use -DBUILD_mmdbresolve=OFF to disable mmdbresolve.
+
+-DENABLE_CAP=OFF:: Disable the POSIX capabilities check
+
+-DCMAKE_BUILD_TYPE=Debug:: Enable debugging symbols
+
+-DCARES_INCLUDE_DIR=/your/custom/cares/include, -DCARES_LIBRARY=/your/custom/cares/lib/libcares.so::
+Let you set the path to a locally-compiled version of c-ares. Most
+optional libraries have xxx_INCLUDE_DIR and xxx_LIB flags that let you
+control their discovery.
+
+
+-DPYTHON_EXECUTABLE=c:/Python27/python:: Force the Python path. Useful on Windows since Cygwin’s /usrbin/python is a symlink.
+
+-DENABLE_APPLICATION_BUNDLE=OFF:: Disable building an application bundle (Wireshark.app) on macOS
+
+You can list all build variables (with help) by running `cmake -LH [options]
+../<Name_of_WS_source_dir>`. This lists the cache of build variables
+after the cmake run. To only view the current cache, add option `-N`.
+
+After running cmake, you can always run `make help` to see a list of all possible make targets.
+
+Note that CMake honors user umask for creating directories as of now. You should set
+the umask explicitly before running the `install` target.
+
+CMake links:
+
+The home page of the CMake project: https://cmake.org/
+
+Official documentation: https://cmake.org/documentation/
+
+About CMake in general and why KDE4 uses it: http://lwn.net/Articles/188693/
+
+Introductory tutorial/presentation:
+http://ait.web.psi.ch/services/linux/hpc/hpc_user_cookbook/tools/cmake/docs/Cmake_VM_2007.pdf
+
+Introductory article in the Linux Journal:
+http://www.linuxjournal.com/node/6700/print
+
+Useful variables: http://www.cmake.org/Wiki/CMake_Useful_Variables
+
+Frequently Asked Questions: http://www.cmake.org/Wiki/CMake_FAQ
+
+// 2017-08-04 dead
+//Additional cmake modules: http://code.google.com/p/cmake-modules/
 
 [[ChToolsGNUChain]]
 
@@ -179,6 +265,7 @@ http://gcc.gnu.org/[].
 After correct installation, typing at the
 bash command line prompt:
 
+[source,sh]
 ----
 $ gcc --version
 ----
@@ -193,79 +280,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ----
 
 Your version string may vary, of course.
-
-[[ChToolsCMake]]
-
-Wireshark’s build environment can be configured using CMake on Windows
-and either CMake or Autotools on Linux, macOS, and UNIX. CMake is designed
-to support out of tree builds. So much so, that in tree builds do not work
-properly in all cases. Along with being cross-platform, CMake supports
-many build tools and environments including traditional make, Ninja, and
-MSBuild. Our Buildbot runs CMake steps on Ubuntu, Win32, Win64, and macOS.
-In particular, the macOS and Windows packages are built using CMake.
-
-Building with CMake typically includes creating a build directory and
-specifying a *generator*, aka a build tool. For example, to build
-Wireshark using Ninja in the directory _wireshark-ninja_ you might
-run the following commands:
-
-----
-# Starting from your Wireshark source directory, create a build directory
-# alongside it.
-$ cd ..
-$ mkdir wireshark-ninja
-$ cd wireshark-ninja
-# Assumes your source directory is named "wireshark".
-$ cmake -G Ninja ../wireshark
-$ ninja (or cmake --build .)
-----
-
-Using CMake on Windows is described further in <<ChWin32Generate>>.
-
-Along with specifying a generator with the `-G` flag you can set variables
-using the `-D` flag. Useful variables and generators include the following:
-
--DENABLE_CAP=OFF:: Disable the POSIX capabilities check
-
--DCMAKE_BUILD_TYPE=Debug:: Enable debugging symbols
-
--DENABLE_GTK3=ON:: Enable GTK+ 3
-
-+++-DCMAKE_C_FLAGS='-Qunused-arguments'+++:: Make ccache and clang work together
-
--DPYTHON_EXECUTABLE=c:/Python27/python:: Force the Python path. Useful on Windows since Cygwin’s /usrbin/python is a symlink.
-
--DENABLE_APPLICATION_BUNDLE=OFF:: Disable building an application bundle (Wireshark.app) on macOS
-
-You can list all build variables (with help) by running *`cmake -LH [options]
-../<Name_of_WS_source_dir>`*. This lists the cache of build variables
-after the cmake run. To only view the current cache, add option `-N`.
-
-After running cmake, you can always run *`make help`* to see a list of all possible make targets.
-
-Note that CMake honors user umask for creating directories as of now. You should set
-the umask explicitly before running the `install` target.
-
-CMake links:
-
-The home page of the CMake project: http://www.cmake.org/
-
-Official documentation: https://cmake.org/documentation/
-
-About CMake in general and why KDE4 uses it: http://lwn.net/Articles/188693/
-
-Introductory tutorial/presentation:
-http://ait.web.psi.ch/services/linux/hpc/hpc_user_cookbook/tools/cmake/docs/Cmake_VM_2007.pdf
-
-Introductory article in the Linux Journal:
-http://www.linuxjournal.com/node/6700/print
-
-Useful variables: http://www.cmake.org/Wiki/CMake_Useful_Variables
-
-Frequently Asked Questions: http://www.cmake.org/Wiki/CMake_FAQ
-
-// 2017-08-04 dead
-//Additional cmake modules: http://code.google.com/p/cmake-modules/
 
 [[ChToolsGDB]]
 
@@ -284,6 +298,7 @@ http://www.gnu.org/software/gdb/gdb.html[].
 
 After correct installation:
 
+[source,sh]
 ----
 $ gdb --version
 ----
@@ -339,6 +354,7 @@ http://www.gnu.org/software/make/[].
 
 After correct installation:
 
+[source,sh]
 ----
 $ make --version
 ----
@@ -450,6 +466,7 @@ requires a a {cpp} redistributable
 
 You can use Chocolatey to install Visual Studio, e.g:
 
+[source,cmd]
 ----
 PS:\> choco install VisualStudioCommunity2013
 ----
@@ -471,6 +488,7 @@ versions ordered by release date.
 After correct installation of the toolchain, typing
 at the Visual Studio Command line prompt (cmd.exe):
 
+[source,cmd]
 ----
 > cl
 ----
@@ -493,6 +511,7 @@ http://msdn.microsoft.com/en-us/library/wk21sfcf.aspx[Microsoft MSDN]
 
 After correct installation, typing at the Visual Studio Command line prompt (cmd.exe):
 
+[source,cmd]
 ----
 > link
 ----
@@ -513,7 +532,6 @@ Documentation on the linker can be found at
 http://msdn.microsoft.com/en-us/library/t2fck18t.aspx[Microsoft MSDN]
 
 [[msvc-runtime-redistributable]]
-
 
 ==== C-Runtime "Redistributable" Files
 
@@ -591,7 +609,7 @@ is used (this produces the smallest package).
 
 The Windows Platform SDK (PSDK) or Windows SDK is a free
 (as in beer) download and contains platform specific headers and
-libraries (e.g. _windows.h_, _WSock32.lib_, etc.). As new Windows
+libraries (e.g. `windows.h`, `WSock32.lib`, etc.). As new Windows
 features evolve in time, updated SDK’s become available that
 include new and updated APIs.
 
@@ -605,14 +623,53 @@ Older versions of the SDK should also work. However, the
 command to set the environment settings will be different, try
 search for SetEnv.* in the SDK directory.
 
+=== Documentation Toolchain
+
+Wireshark’s documentation is split across two directories. The `doc`
+directory contains man pages written in Perl’s POD (Plain Old
+Documentation) format. The `docbook` directory contains the User’s
+Guide, Developer’s Guide, and the release notes, which are written in
+Asciidoctor markup.
+
+Our various output formats are generated using the following tools.
+Intermediate formats are in _italics_.
+
+Guide HTML:: Asciidoctor → _DocBook XML_ → xsltproc + DocBook XSL
+Guide PDF:: Asciidoctor
+Guide HTML Help:: Asciidoctor → _DocBook XML_ → xsltproc + DocBook XSL → HHC
+
+Release notes HTML:: Asciidoctor
+Release notes text:: Asciidoctor → _HTML_ → html2text.py
+
+==== Asciidoctor
+
+Asciidoctor[https://asciidoctor.org/] comes in several flavors: a Ruby
+gem (Asciidoctor), a Java bundle (AsciidoctorJ), and transpiled
+JavaScript (Asciidoctor.js). Only the Asciidoctor and AsciidoctorJ
+flavors are supported for building the Wireshark documentation and
+AsciidoctorJ is recommended.
+
+The guides and release notes were originally written in DocBook (hence
+the directory name). They were later converted to AsciiDoc and then
+migrated to Asciidoctor.
+`compat-mode`[https://asciidoctor.org/docs/migration/] is currently
+enabled for the guides, but we are steadily migrating to Asciidoctor’s
+modern (>= 1.5.0) syntax.
+
+PDF output requires Asciidoctor PDF. It is included with AsciidoctorJ
+but _not_ with Asciidoctor.
+
+==== Xsltproc And DocBook
+
+The single HTML, chunked HTML, and HTML Help guides are generated using
+DocBook XSL stylesheets. They in turn require an XSLT processor. We use
+`xsltproc`.
+
 ==== HTML Help
 
-HTML Help is used to create the User’s and Developer’s Guide in .chm format and
-to show the User’s Guide as the Wireshark "Online Help".
-
-Both features are currently optional, and might be removed in future versions.
-
-===== HTML Help Compiler (hhc.exe)
+HTML Help is used to create the User’s and Developer’s Guide in .chm format.
+The User’s Guide .chm file is included with the NSIS and WiX installers and
+is used as Wireshark's built-in help on Windows.
 
 This compiler is used to generate a .chm file from a bunch of HTML files -- in
 our case to generate the User’s and Developer’s Guide in .chm format.
@@ -622,9 +679,7 @@ download. If you want to compile the guides yourself, you need to download and
 install this. If you don't install it into the default directory, you may also
 have a look at the HHC_DIR setting in the file docbook/Makefile.
 
-===== HTML Help Build Files (htmlhelp.c / htmlhelp.lib)
-
-The files _htmlhelp.c_ and _htmlhelp.lib_ are required to
+The files `htmlhelp.c` and `htmlhelp.lib` are required to
 be able to open .chm files from Wireshark and show the
 online help. Both files are part of the SDK (standalone (P)SDK or MSVC
 since 2002).
@@ -650,6 +705,7 @@ To set the correct paths for Visual Studio when running Wireshark under the
 debugger, add the build output directory to the path before opening Visual
 Studio from the same command prompt, e.g.
 
+[source,cmd]
 ----
 C:\Development\wsbuild32>set PATH="%PATH%;C:\Development\wsbuild32\run\RelwithDebInfo"
 C:\Development\wsbuild32>wireshark.sln
@@ -657,6 +713,7 @@ C:\Development\wsbuild32>wireshark.sln
 
 for PowerShell use
 
+[source,cmd]
 ----
 PS C:\Development\wsbuild32>$env:PATH += ";$(Convert-Path run\RelWithDebInfo)"
 PS C:\Development\wsbuild32>wireshark.sln
@@ -693,6 +750,7 @@ http://msdn.microsoft.com/en-us/library/windows/hardware/ff551063%28v=vs.85%29.a
 
 You can also use Chocolatey to install WinDbg:
 
+[source,cmd]
 ----
 PS:\> choco install windbg
 ----
@@ -728,6 +786,7 @@ http://www.gnu.org/software/bash/bash.html[].
 
 After correct installation, typing at the bash command line prompt:
 
+[source,sh]
 ----
 $ bash --version
 ----
@@ -760,12 +819,14 @@ a symbolic link, which causes confusion outside Cygwin.
 
 You can also use Chocolatey to install Python:
 
+[source,cmd]
 ----
 PS:\> choco install Python3
 ----
 
 or
 
+[source,cmd]
 ----
 PS:\> choco install Python2
 ----
@@ -773,12 +834,14 @@ PS:\> choco install Python2
 Chocolatey installs Python into _C:\tools\python3_ or _C:\tools\python2_ by
 default. You can verify your Python version by running
 
+[source,sh]
 ----
 $ python --version
 ----
 
 on UNIX and Linux and
 
+[source,cmd]
 ----
 rem Official package
 C:> cd python35
@@ -822,6 +885,7 @@ http://www.perl.com/[].
 After correct installation, typing at the
 bash command line prompt:
 
+[source,sh]
 ----
 $ perl --version
 ----
@@ -907,6 +971,7 @@ platform you can get it at: http://www.gnu.org/software/bison/bison.html[].
 
 After correct installation running the following
 
+[source,sh]
 ----
 $ bison --version
 ----
@@ -955,6 +1020,7 @@ you can get it at http://www.gnu.org/software/flex/[].
 
 After correct installation running the following
 
+[source,sh]
 ----
 $ flex --version
 ----
@@ -975,6 +1041,7 @@ A native Windows version of flex is available in the _winflexbison_
 https://chocolatey.org/[Chocolatey] package. Note that the executable is named
 _win_flex_.
 
+[source,cmd]
 ----
 PS:\>choco install winflexbison
 ----
@@ -1012,6 +1079,7 @@ can get it at: http://git-scm.com/[].
 
 After correct installation, typing at the bash command line prompt:
 
+[source,sh]
 ----
 $ git --version
 ----
@@ -1019,18 +1087,19 @@ $ git --version
 should result in something like:
 
 ----
-git version 1.8.3.4
+git version 2.14.1
 ----
 
 Your version will likely be different.
 
 [[ChToolsWindowsGit]]
 
-==== Windows native: git
+==== Windows Native: git
 
 The Git command line tools for Windows can be found at
 http://git-scm.com/download/win[] and can also be installed using Chocolatey:
 
+[source,cmd]
 ----
 PS:\> choco install git
 ----
@@ -1038,14 +1107,15 @@ PS:\> choco install git
 After correct installation, typing at the command
 line prompt (cmd.exe):
 
+[source,cmd]
 ----
-$ git --version
+> git --version
 ----
 
 should result in something like:
 
 ----
-git version 1.8.3.4
+git version 2.16.1.windows.1
 ----
 
 However, the version string may vary.
@@ -1058,6 +1128,7 @@ A useful tool for command line git on Windows is https://github.com/dahlbyk/posh
 Poshgit provides git command completion and alters the prompt to indicate the local working
 copy status.  You can install it using Chocolatey:
 
+[source,cmd]
 ----
 PS:\>choco install poshgit
 ----
@@ -1103,6 +1174,7 @@ http://www.gnu.org/software/patch/patch.html[].
 After correct installation, typing at the
 bash command line prompt:
 
+[source,sh]
 ----
 $ patch --version
 ----
@@ -1142,9 +1214,10 @@ needed to be installed, including all required DLLs, plugins, and supporting
 files.
 
 To install it, download the latest released version from
-http://nsis.sourceforge.net[]. NSIS v3 is recommended and may be
-required in the future. You can also install it using Chocolatey:
+http://nsis.sourceforge.net[]. NSIS v3 is required. You can also install
+it using Chocolatey:
 
+[source,cmd]
 ----
 PS$> choco install nsis
 ----

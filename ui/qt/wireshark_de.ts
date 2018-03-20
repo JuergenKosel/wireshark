@@ -2016,21 +2016,6 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     </message>
 </context>
 <context>
-    <name>EndpointDialog</name>
-    <message>
-        <source>Map</source>
-        <translation type="vanished">Karte</translation>
-    </message>
-    <message>
-        <source>Draw IPv4 or IPv6 endpoints on a map.</source>
-        <translation type="vanished">IPv4 und IPv6 Endpunkte auf einer Karte anzeigen.</translation>
-    </message>
-    <message>
-        <source>Map file error</source>
-        <translation type="vanished">Fehler bei der Kartendatei</translation>
-    </message>
-</context>
-<context>
     <name>ExpertInfoDialog</name>
     <message>
         <source>Dialog</source>
@@ -2626,12 +2611,12 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Suchpfad für Extcap Plugins</translation>
     </message>
     <message>
-        <source>GeoIP path</source>
-        <translation>GeoIP Pfad</translation>
+        <source>MaxMind DB path</source>
+        <translation>MaxMind DB Pfad</translation>
     </message>
     <message>
-        <source>GeoIP database search path</source>
-        <translation>Suchpfad für GeoIP Datenbank</translation>
+        <source>MaxMind DB database search path</source>
+        <translation>Suchpfad für MaxMind Datenbank</translation>
     </message>
     <message>
         <source>MIB/PIB path</source>
@@ -7791,19 +7776,19 @@ text-decoration: underline;
     </message>
     <message>
         <source>If checked the packet detail items will be automatically scrolled when they are expanded.</source>
-        <translation>Wenn aktiviert scrollen ausgeklappte Paketdetails automatisch.</translation>
+        <translation type="vanished">Wenn aktiviert scrollen ausgeklappte Paketdetails automatisch.</translation>
     </message>
     <message>
         <source>Automatically scroll packet details</source>
-        <translation>Automatisches Scrollen der Paketdetails</translation>
+        <translation type="vanished">Automatisches Scrollen der Paketdetails</translation>
     </message>
     <message>
         <source>Percentage distance from the top to scroll packet details.</source>
-        <translation>Prozentualer Abstand von oben bis zu den scrollenden Paketdetails.</translation>
+        <translation type="vanished">Prozentualer Abstand von oben bis zu den scrollenden Paketdetails.</translation>
     </message>
     <message>
         <source>Packet detail scroll percentage:</source>
-        <translation>Prozentualer Scrollfortschritt Paketdetails:</translation>
+        <translation type="vanished">Prozentualer Scrollfortschritt Paketdetails:</translation>
     </message>
     <message>
         <source>Main toolbar style:</source>

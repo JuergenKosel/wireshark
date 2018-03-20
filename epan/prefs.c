@@ -10,6 +10,8 @@
 
 #include "config.h"
 
+#include "ws_diag_control.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -21,9 +23,7 @@
 #include <epan/address.h>
 #include <epan/addr_resolv.h>
 #include <epan/oids.h>
-#ifdef HAVE_GEOIP
-#include <epan/geoip_db.h>
-#endif
+#include <epan/maxmind_db.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/proto.h>
@@ -321,7 +321,9 @@ prefs_init(void)
 static void
 free_string_like_preference(pref_t *pref)
 {
-    g_free(*pref->varp.string);
+DIAG_OFF(cast-qual)
+    g_free((char *)*pref->varp.string);
+DIAG_ON(cast-qual)
     *pref->varp.string = NULL;
     g_free(pref->default_val.string);
     pref->default_val.string = NULL;
@@ -349,10 +351,7 @@ free_pref(gpointer data, gpointer user_data _U_)
     case PREF_SAVE_FILENAME:
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
-        g_free(*pref->varp.string);
-        *pref->varp.string = NULL;
-        g_free(pref->default_val.string);
-        pref->default_val.string = NULL;
+        free_string_like_preference(pref);
         break;
     case PREF_RANGE:
     case PREF_DECODE_AS_RANGE:
@@ -401,6 +400,9 @@ prefs_cleanup(void)
 
     /* Clean the uats */
     uat_cleanup();
+
+    /* Shut down mmdbresolve */
+    maxmind_db_pref_cleanup();
 
     g_free(prefs.saved_at_version);
     g_free(gpf_path);
@@ -1384,6 +1386,18 @@ register_string_like_preference(module_t *module, const char *name,
 }
 
 /*
+ * Assign to a string preference.
+ */
+static void
+pref_set_string_like_pref_value(pref_t *pref, const gchar *value)
+{
+DIAG_OFF(cast-qual)
+    g_free((void *)*pref->varp.string);
+DIAG_ON(cast-qual)
+    *pref->varp.string = g_strdup(value);
+}
+
+/*
  * For use by UI code that sets preferences.
  */
 unsigned int
@@ -1419,11 +1433,10 @@ prefs_set_string_value(pref_t *pref, const char* value, pref_source_t source)
         if (*pref->varp.string) {
             if (strcmp(*pref->varp.string, value) != 0) {
                 changed = prefs_get_effect_flags(pref);
-                g_free(*pref->varp.string);
-                *pref->varp.string = g_strdup(value);
+                pref_set_string_like_pref_value(pref, value);
             }
         } else if (value) {
-            *pref->varp.string = g_strdup(value);
+            pref_set_string_like_pref_value(pref, value);
         }
         break;
     default:
@@ -2007,7 +2020,7 @@ pref_unstash(pref_t *pref, gpointer unstash_data_p)
             if (unstash_data->handle_decode_as) {
                 sub_dissectors = find_dissector_table(pref->name);
                 if (sub_dissectors != NULL) {
-                    handle = dissector_table_get_dissector_handle(sub_dissectors, (gchar*)unstash_data->module->title);
+                    handle = dissector_table_get_dissector_handle(sub_dissectors, unstash_data->module->title);
                     if (handle != NULL) {
                         dissector_change_uint(pref->name, *pref->varp.uint, handle);
                     }
@@ -2056,7 +2069,7 @@ pref_unstash(pref_t *pref, gpointer unstash_data_p)
             if (unstash_data->handle_decode_as) {
                 sub_dissectors = find_dissector_table(pref->name);
                 if (sub_dissectors != NULL) {
-                    handle = dissector_table_get_dissector_handle(sub_dissectors, (gchar*)unstash_data->module->title);
+                    handle = dissector_table_get_dissector_handle(sub_dissectors, unstash_data->module->title);
                     if (handle != NULL) {
                         /* Delete all of the old values from the dissector table */
                         for (i = 0; i < (*pref->varp.range)->nranges; i++) {
@@ -3506,9 +3519,7 @@ prefs_register_modules(void)
         "Name Resolution", NULL, TRUE);
     addr_resolve_pref_init(nameres_module);
     oid_pref_init(nameres_module);
-#ifdef HAVE_GEOIP
-    geoip_db_pref_init(nameres_module);
-#endif
+    maxmind_db_pref_init(nameres_module);
 
     /* Printing */
     printing = prefs_register_module(NULL, "print", "Printing",
@@ -5253,7 +5264,7 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
             if (p == value || *p != '\0')
                 return FALSE;        /* number was bad */
 
-            module = prefs_find_module((gchar*)port_prefs[i].module_name);
+            module = prefs_find_module(port_prefs[i].module_name);
             pref = prefs_find_preference(module, port_prefs[i].table_name);
             if (pref != NULL)
             {
@@ -5266,7 +5277,7 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
             {
                 sub_dissectors = find_dissector_table(port_prefs[i].table_name);
                 if (sub_dissectors != NULL) {
-                    handle = dissector_table_get_dissector_handle(sub_dissectors, (gchar*)port_prefs[i].module_name);
+                    handle = dissector_table_get_dissector_handle(sub_dissectors, port_prefs[i].module_name);
                     if (handle != NULL) {
                         dissector_change_uint(port_prefs[i].table_name, uval, handle);
                         decode_build_reset_list(port_prefs[i].table_name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER(uval), NULL, NULL);
@@ -5298,7 +5309,7 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
                     g_assert_not_reached();
                 }
 
-                module = prefs_find_module((gchar*)port_range_prefs[i].module_name);
+                module = prefs_find_module(port_range_prefs[i].module_name);
                 pref = prefs_find_preference(module, port_range_prefs[i].table_name);
                 if (pref != NULL)
                 {
@@ -5307,7 +5318,7 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
                         return FALSE;        /* number was bad */
                     }
 
-                    handle = dissector_table_get_dissector_handle(sub_dissectors, (gchar*)port_range_prefs[i].module_name);
+                    handle = dissector_table_get_dissector_handle(sub_dissectors, port_range_prefs[i].module_name);
                     if (handle != NULL) {
 
                         for (range_i = 0; range_i < (*pref->varp.range)->nranges; range_i++) {
@@ -5824,7 +5835,7 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
                 /* Name of preference is the dissector table */
                 sub_dissectors = find_dissector_table(pref->name);
                 if (sub_dissectors != NULL) {
-                    handle = dissector_table_get_dissector_handle(sub_dissectors, (gchar*)module->title);
+                    handle = dissector_table_get_dissector_handle(sub_dissectors, module->title);
                     if (handle != NULL) {
                         if (uval != 0) {
                             dissector_change_uint(pref->name, uval, handle);
@@ -5899,7 +5910,7 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
                 /* Name of preference is the dissector table */
                 sub_dissectors = find_dissector_table(pref->name);
                 if (sub_dissectors != NULL) {
-                    handle = dissector_table_get_dissector_handle(sub_dissectors, (gchar*)module->title);
+                    handle = dissector_table_get_dissector_handle(sub_dissectors, module->title);
                     if (handle != NULL) {
                         /* Delete all of the old values from the dissector table */
 		                for (i = 0; i < (*pref->varp.range)->nranges; i++) {

@@ -53,7 +53,7 @@ Icon "${TOP_SRC_DIR}\image\wiresharkinst.ico"
 ;!addplugindir ".\Plugins"
 
 !define MUI_ICON "${TOP_SRC_DIR}\image\wiresharkinst.ico"
-BrandingText "Wireshark Installer (tm)"
+BrandingText "Wireshark${U+00ae} Installer"
 
 !define MUI_COMPONENTSPAGE_SMALLDESC
 !define MUI_FINISHPAGE_NOAUTOCLOSE
@@ -398,12 +398,12 @@ Function DisplayAdditionalTasksPage
 FunctionEnd
 
 Function DisplayWinPcapPage
-  !insertmacro MUI_HEADER_TEXT "Install WinPcap?" "WinPcap is required to capture live network data. Should WinPcap be installed?"
+  !insertmacro MUI_HEADER_TEXT "Packet Capture" "Wireshark requires either Npcap or WinPcap to capture live network data."
   !insertmacro MUI_INSTALLOPTIONS_DISPLAY "WinPcapPage.ini"
 FunctionEnd
 
 Function DisplayUSBPcapPage
-  !insertmacro MUI_HEADER_TEXT "Install USBPcap?" "USBPcap is required to capture USB traffic. Should USBPcap be installed (experimental)?"
+  !insertmacro MUI_HEADER_TEXT "USB Capture" "USBPcap is required to capture USB traffic. Should USBPcap be installed (experimental)?"
   !insertmacro MUI_INSTALLOPTIONS_DISPLAY "USBPcapPage.ini"
 FunctionEnd
 
@@ -1117,6 +1117,16 @@ File "${STAGING_DIR}\rawshark.exe"
 File "${STAGING_DIR}\rawshark.html"
 SectionEnd
 
+!ifdef MMDBRESOLVE_EXE
+Section "MMDBResolve" SecMMDBResolve
+;-------------------------------------------
+SetOutPath $INSTDIR
+File "${STAGING_DIR}\mmdbresolve.html"
+SetOutPath $INSTDIR
+File "${STAGING_DIR}\mmdbresolve.exe"
+SectionEnd
+!endif
+
 Section /o "Androiddump" SecAndroiddumpinfos
 ;-------------------------------------------
 SetOutPath $INSTDIR
@@ -1208,6 +1218,7 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SecDFTest} "Shows display filter byte-code, for debugging dfilter routines"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecCapinfos} "Print information about capture files."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecRawshark} "Raw packet filter."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecMMDBResolve} "MaxMind Database resolution tool"
 
 !ifdef USER_GUIDE_DIR
   !insertmacro MUI_DESCRIPTION_TEXT ${SecUsersGuide} "Install an offline copy of the User's Guide."
@@ -1334,7 +1345,7 @@ Function myShowCallback
     ; check also if Npcap is installed
     ReadRegStr $NPCAP_NAME HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\NpcapInst" "DisplayName"
     IfErrors 0 lbl_npcap_installed
-    WriteINIStr "$PLUGINSDIR\WinPcapPage.ini" "Field 2" "Text" "WinPcap is currently not installed"
+    WriteINIStr "$PLUGINSDIR\WinPcapPage.ini" "Field 2" "Text" "Neither of these are installed"
     WriteINIStr "$PLUGINSDIR\WinPcapPage.ini" "Field 2" "Flags" "DISABLED"
     WriteINIStr "$PLUGINSDIR\WinPcapPage.ini" "Field 5" "Text" "(Use Add/Remove Programs first to uninstall any undetected old WinPcap versions)"
     Goto lbl_winpcap_done

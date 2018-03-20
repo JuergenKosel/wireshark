@@ -734,15 +734,11 @@ proto_register_zbee_zcl_color_control(void)
 void
 proto_reg_handoff_zbee_zcl_color_control(void)
 {
-    dissector_handle_t color_control_handle;
-
-    /* Register our dissector with the ZigBee application dissectors. */
-    color_control_handle = find_dissector(ZBEE_PROTOABBREV_ZCL_COLOR_CONTROL);
-    dissector_add_uint("zbee.zcl.cluster", ZBEE_ZCL_CID_COLOR_CONTROL, color_control_handle);
-
-    zbee_zcl_init_cluster(  proto_zbee_zcl_color_control,
+    zbee_zcl_init_cluster(  ZBEE_PROTOABBREV_ZCL_COLOR_CONTROL,
+                            proto_zbee_zcl_color_control,
                             ett_zbee_zcl_color_control,
                             ZBEE_ZCL_CID_COLOR_CONTROL,
+                            ZBEE_MFG_CODE_NONE,
                             hf_zbee_zcl_color_control_attr_id,
                             hf_zbee_zcl_color_control_srv_rx_cmd_id,
                             -1,
@@ -995,15 +991,11 @@ proto_register_zbee_zcl_ballast_configuration(void)
 void
 proto_reg_handoff_zbee_zcl_ballast_configuration(void)
 {
-    dissector_handle_t ballast_config_handle;
-
-    /* Register our dissector with the ZigBee application dissectors. */
-    ballast_config_handle = find_dissector(ZBEE_PROTOABBREV_ZCL_BALLAST_CONFIG);
-    dissector_add_uint("zbee.zcl.cluster", ZBEE_ZCL_CID_BALLAST_CONFIG, ballast_config_handle);
-
-    zbee_zcl_init_cluster(  proto_zbee_zcl_ballast_configuration,
+    zbee_zcl_init_cluster(  ZBEE_PROTOABBREV_ZCL_BALLAST_CONFIG,
+                            proto_zbee_zcl_ballast_configuration,
                             ett_zbee_zcl_ballast_configuration,
                             ZBEE_ZCL_CID_BALLAST_CONFIG,
+                            ZBEE_MFG_CODE_NONE,
                             hf_zbee_zcl_ballast_configuration_attr_id,
                             -1, -1,
                             (zbee_zcl_fn_attr_data)dissect_zcl_ballast_configuration_attr_data

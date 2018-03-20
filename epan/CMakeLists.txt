@@ -4,19 +4,7 @@
 # By Gerald Combs <gerald@wireshark.org>
 # Copyright 1998 Gerald Combs
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# SPDX-License-Identifier: GPL-2.0-or-later
 #
 
 include(UseABICheck)
@@ -105,7 +93,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	frame_data_sequence.h
 	funnel.h
 	garrayfix.h
-	geoip_db.h
+	#geoip_db.h
 	golay.h
 	guid-utils.h
 	iana_charsets.h
@@ -117,6 +105,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	ipv6.h
 	lapd_sapi.h
 	llcsaps.h
+	maxmind_db.h
 	media_params.h
 	next_tvb.h
 	nlpid.h
@@ -208,12 +197,13 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	frame_data.c
 	frame_data_sequence.c
 	funnel.c
-	geoip_db.c
+	#geoip_db.c
 	golay.c
 	guid-utils.c
 	iana_charsets.c
 	in_cksum.c
 	ipproto.c
+	maxmind_db.c
 	media_params.c
 	next_tvb.c
 	oids.c
@@ -278,8 +268,9 @@ set(epan_LIBS
 	wsutil
 	${CARES_LIBRARIES}
 	${GCRYPT_LIBRARIES}
-	${GEOIP_LIBRARIES}
+	#${GEOIP_LIBRARIES}
 	${GLIB2_LIBRARIES}
+	${GIO2_LIBRARIES}
 	${GTHREAD2_LIBRARIES}
 	${GNUTLS_LIBRARIES}
 	${KERBEROS_LIBRARIES}
@@ -404,6 +395,7 @@ add_executable(exntest EXCLUDE_FROM_ALL exntest.c except.c)
 target_link_libraries(exntest ${GLIB2_LIBRARIES})
 set_target_properties(exntest PROPERTIES
 	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 )
 
@@ -411,6 +403,7 @@ add_executable(oids_test EXCLUDE_FROM_ALL oids_test.c)
 target_link_libraries(oids_test epan ${ZLIB_LIBRARIES})
 set_target_properties(oids_test PROPERTIES
 	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 )
 
@@ -418,12 +411,14 @@ add_executable(reassemble_test EXCLUDE_FROM_ALL reassemble_test.c)
 target_link_libraries(reassemble_test epan)
 set_target_properties(reassemble_test PROPERTIES
 	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
 )
 
 add_executable(tvbtest EXCLUDE_FROM_ALL tvbtest.c)
 target_link_libraries(tvbtest epan)
 set_target_properties(tvbtest PROPERTIES
 	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 )
 

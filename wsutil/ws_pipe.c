@@ -30,7 +30,7 @@
 #include <glib.h>
 #include <log.h>
 
-#include <wsutil/filesystem.h>
+#include "wsutil/filesystem.h"
 #include "wsutil/ws_pipe.h"
 
 gboolean ws_pipe_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **args, gchar **command_output)
@@ -46,7 +46,6 @@ gboolean ws_pipe_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **a
 
     GString *winargs = g_string_sized_new(200);
     gchar *quoted_arg;
-    gunichar2 *wcommandline;
 
     STARTUPINFO info;
     PROCESS_INFORMATION processInfo;
@@ -110,8 +109,6 @@ gboolean ws_pipe_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **a
         g_free(quoted_arg);
     }
 
-    wcommandline = g_utf8_to_utf16(winargs->str, (glong)winargs->len, NULL, NULL, NULL);
-
     memset(&processInfo, 0, sizeof(PROCESS_INFORMATION));
     memset(&info, 0, sizeof(STARTUPINFO));
 
@@ -121,7 +118,7 @@ gboolean ws_pipe_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **a
     info.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
     info.wShowWindow = SW_HIDE;
 
-    if (CreateProcess(NULL, wcommandline, NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &info, &processInfo))
+    if (win32_create_process(NULL, winargs->str, NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &info, &processInfo))
     {
         gchar* buffer;
 
@@ -187,7 +184,6 @@ GPid ws_pipe_spawn_async(ws_pipe_t *ws_pipe, GPtrArray *args)
 
     GString *winargs = g_string_sized_new(200);
     gchar *quoted_arg;
-    gunichar2 *wcommandline;
 
     STARTUPINFO info;
     PROCESS_INFORMATION processInfo;
@@ -240,8 +236,6 @@ GPid ws_pipe_spawn_async(ws_pipe_t *ws_pipe, GPtrArray *args)
         g_free(quoted_arg);
     }
 
-    wcommandline = g_utf8_to_utf16(winargs->str, (glong)winargs->len, NULL, NULL, NULL);
-
     memset(&processInfo, 0, sizeof(PROCESS_INFORMATION));
     memset(&info, 0, sizeof(STARTUPINFO));
 
@@ -252,7 +246,7 @@ GPid ws_pipe_spawn_async(ws_pipe_t *ws_pipe, GPtrArray *args)
     info.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
     info.wShowWindow = SW_HIDE;
 
-    if (CreateProcess(NULL, wcommandline, NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &info, &processInfo))
+    if (win32_create_process(NULL, winargs->str, NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &info, &processInfo))
     {
         ws_pipe->stdin_fd = _open_osfhandle((intptr_t)(child_stdin_wr), _O_BINARY);
         ws_pipe->stdout_fd = _open_osfhandle((intptr_t)(child_stdout_rd), _O_BINARY);

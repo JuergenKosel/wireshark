@@ -4,19 +4,7 @@
 # By Gerald Combs <gerald@wireshark.org>
 # Copyright 1998 Gerald Combs
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# SPDX-License-Identifier: GPL-2.0-or-later
 #
 
 ADD_CUSTOM_CMAKE_INCLUDE()
@@ -106,6 +94,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dsp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ecp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ess.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-f1ap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ftam.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-goose.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gsm_map.c
@@ -334,6 +323,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-epmd.h
 	packet-ess.h
 	packet-eth.h
+	packet-f5ethtrailer.h
 	packet-fc.h
 	packet-fcbls.h
 	packet-fcct.h
@@ -457,6 +447,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-nvme.h
 	packet-ocsp.h
 	packet-opensafety.h
+	packet-oscore.h
 	packet-osi.h
 	packet-osi-options.h
 	packet-p1.h
@@ -496,6 +487,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-rdt.h
 	packet-reload.h
 	packet-rlc-lte.h
+	packet-rlc-nr.h
 	packet-rmi.h
 	packet-rmt-common.h
 	packet-rohc.h
@@ -584,6 +576,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-wtp.h
 	packet-x11.h
 	packet-x11-keysymdef.h
+	packet-x2ap.h
 	packet-x509af.h
 	packet-x509ce.h
 	packet-x509if.h
@@ -966,6 +959,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-exec.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-exported_pdu.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-extreme.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-f5ethtrailer.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fc00.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fcct.c
@@ -1289,6 +1283,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-maap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mac-lte-framed.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mac-lte.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-mac-nr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-maccontrol.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-macsec.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mactelnet.c
@@ -1364,6 +1359,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-multipart.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mux27010.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mysql.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-nano.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-nas_5gs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-nas_eps.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-nasdaq-itch.c
@@ -1453,6 +1449,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-opsi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-optommp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-osc.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-oscore.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-osi-options.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-osi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ositp.c
@@ -1547,6 +1544,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rip.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ripng.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rlc-lte.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rlc-nr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rlm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rlogin.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rmcp.c

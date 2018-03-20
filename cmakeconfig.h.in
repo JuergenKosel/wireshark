@@ -44,9 +44,6 @@
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #cmakedefine HAVE_ARPA_INET_H 1
 
-/* Define to 1 if you have the <arpa/nameser.h> header file. */
-#cmakedefine HAVE_ARPA_NAMESER_H 1
-
 /* Define to 1 if you have the `bpf_image' function. */
 #cmakedefine HAVE_BPF_IMAGE 1
 
@@ -56,20 +53,11 @@
 /* Define to 1 if you have the `dladdr' function. */
 #cmakedefine HAVE_DLADDR 1
 
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#cmakedefine HAVE_DLFCN_H 1
-
 /* Define to 1 if you have the <fcntl.h> header file. */
 #cmakedefine HAVE_FCNTL_H 1
 
-/* Define to use GeoIP library */
-#cmakedefine HAVE_GEOIP 1
-
-/* Define if GeoIP supports IPv6 (GeoIP 1.4.5 and later) */
-#cmakedefine HAVE_GEOIP_V6 1
-
-/* Define if GeoIP has GeoIP_free */
-#cmakedefine HAVE_GEOIP_FREE 1
+/* Define to use the MaxMind DB library */
+#cmakedefine HAVE_MAXMINDDB 1
 
 /* Define to 1 if you have the <ifaddrs.h> header file. */
 #cmakedefine HAVE_IFADDRS_H 1
@@ -134,9 +122,6 @@
 /* Define to use libpcap library */
 #cmakedefine HAVE_LIBPCAP 1
 
-/* Define to use libportaudio library */
-#cmakedefine HAVE_LIBPORTAUDIO 1
-
 /* Define to 1 if you have the `smi' library (-lsmi). */
 #cmakedefine HAVE_LIBSMI 1
 
@@ -167,9 +152,6 @@
 /* Define to use MIT kerberos */
 #cmakedefine HAVE_MIT_KERBEROS 1
 
-/* Define to 1 if you have the `mkdtemp' function. */
-#cmakedefine HAVE_MKDTEMP 1
-
 /* Define to 1 if you have the `mkstemps' function. */
 #cmakedefine HAVE_MKSTEMPS 1
 
@@ -196,9 +178,6 @@
 
 /* VHT_CAPABILITY is supported */
 #cmakedefine HAVE_NL80211_VHT_CAPABILITY 1
-
-/* Define to 1 if you have the <Ntddndis.h> header file. */
-#cmakedefine HAVE_NTDDNDIS_H 1
 
 /* Define to 1 if you have macOS frameworks */
 #cmakedefine HAVE_MACOS_FRAMEWORKS 1
@@ -264,12 +243,6 @@
 /* Define to 1 if you have the `pcap_set_tstamp_type' function. */
 #cmakedefine HAVE_PCAP_SET_TSTAMP_TYPE 1
 
-/* Define to 1 if you have the popcount function. */
-#cmakedefine HAVE_POPCOUNT 1
-
-/* Define to 1 if you have the <portaudio.h> header file. */
-#cmakedefine HAVE_PORTAUDIO_H 1
-
 /* Define to 1 if you have the <pwd.h> header file. */
 #cmakedefine HAVE_PWD_H 1
 
@@ -314,9 +287,6 @@
 
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
 #cmakedefine HAVE_SYS_IOCTL_H 1
-
-/* Define to 1 if you have the <sys/param.h> header file. */
-#cmakedefine HAVE_SYS_PARAM_H 1
 
 /* Define to 1 if you have the <sys/socket.h> header file. */
 #cmakedefine HAVE_SYS_SOCKET_H 1
@@ -381,10 +351,6 @@
 /* Define if we have QtWinExtras */
 /* #cmakedefine QT_WINEXTRAS_LIB 1 */
 
-/* Define to 1 if your processor stores words with the most significant byte
-   first (like Motorola and SPARC, unlike Intel and VAX). */
-#cmakedefine WORDS_BIGENDIAN 1
-
 /* Build androiddump with libpcap instead of wireshark stuff */
 #cmakedefine ANDROIDDUMP_USE_LIBPCAP 1
 
@@ -425,9 +391,6 @@
 #  if !defined(QT_VERSION) || !defined(_SSIZE_T_DEFINED)
    typedef int ssize_t;
 #  endif
-
-   /* FIXME: Detection doesn't work */
-#  define HAVE_NTDDNDIS_H 1
 
    /*
     * Flex (v 2.5.35) uses this symbol to "exclude" unistd.h

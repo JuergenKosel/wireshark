@@ -23,9 +23,9 @@ user interface. It will not be supported or available in Wireshark 3.0.
 Many user interface improvements have been made. See the “New and Updated
 Features” section below for more details.
 
-//=== Bug Fixes
+=== Bug Fixes
 
-//The following bugs have been fixed:
+The following bugs have been fixed:
 
 //* ws_buglink:5000[]
 //* ws_buglink:6000[Wireshark bug]
@@ -34,12 +34,17 @@ Features” section below for more details.
 
 //_Non-empty section placeholder._
 
+Dumpcap might not quit if Wireshark or TShark crashes.
+(ws_buglink:1419[])
+
 === New and Updated Features
 
 The following features are new (or have been significantly updated)
 since version 2.5.0:
 
 * HTTP Referer statistics are now supported.
+* Wireshark now supports MaxMind DB files. Support for GeoIP and GeoLite
+  Legacy databases has been removed.
 * The Windows packages are now built using Microsoft Visual Studio 2017.
 * The IP map feature (the “Map” button in the “Endpoints” dialog) has been removed.
 
@@ -98,6 +103,8 @@ Broadcom tags (Broadcom Ethernet switch management frames)
 CVS password server
 CAN-ETH
 Excentis DOCSIS31 XRA header
+F1 Application Protocol
+F5ethtrailer
 FP Mux
 GRPC (gRPC)
 IEEE 802.3br Frame Preemption Protocol
@@ -109,9 +116,13 @@ LoRaTap
 LoRaWAN
 Lustre Network
 Lustre Filesystem
+Nano / RaiBlocks Cryptocurrency Protocol (UDP)
 Network Functional Application Platform Interface (NFAPI) Protocol
 New Radio Radio Resource Control protocol
+New Radio Radio Link Control protocol
+NR (5G) MAC protocol
 NXP 802.15.4 Sniffer Protocol
+Object Security for Constrained RESTful Environments (OSCORE)
 PFCP (Packet Forwarding Control Protocol)
 Protobuf (Protocol Buffers)
 QUIC (IETF)
@@ -167,9 +178,6 @@ from platform to platform. You can use About→Folders to find the default
 locations on your system.
 
 == Known Problems
-
-Dumpcap might not quit if Wireshark or TShark crashes.
-(ws_buglink:1419[])
 
 The BER dissector might infinitely loop.
 (ws_buglink:1516[])

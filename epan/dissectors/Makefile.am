@@ -4,25 +4,13 @@
 # By Gerald Combs <gerald@wireshark.org>
 # Copyright 2004 Gerald Combs
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 include $(top_srcdir)/Makefile.am.inc
 
 AM_CPPFLAGS = $(INCLUDEDIRS) -I$(top_srcdir)/epan $(WS_CPPFLAGS) \
 	$(GLIB_CFLAGS) $(LIBGNUTLS_CFLAGS) $(LIBGCRYPT_CFLAGS) \
-	$(LIBGEOIP_CFLAGS) $(KRB5_CFLAGS) $(LIBXML2_CFLAGS)
+	$(KRB5_CFLAGS) $(LIBXML2_CFLAGS)
 
 include Custom.common
 
@@ -121,6 +109,7 @@ ASN1_DISSECTOR_SRC = \
 	packet-dsp.c		\
 	packet-ecp.c		\
 	packet-ess.c		\
+	packet-f1ap.c		\
 	packet-ftam.c		\
 	packet-goose.c		\
 	packet-gsm_map.c	\
@@ -588,6 +577,7 @@ DISSECTOR_SRC = \
 	packet-exec.c		\
 	packet-exported_pdu.c	\
 	packet-extreme.c	\
+	packet-f5ethtrailer.c	\
 	packet-fc00.c		\
 	packet-fc.c		\
 	packet-fcct.c		\
@@ -910,6 +900,7 @@ DISSECTOR_SRC = \
 	packet-maap.c		\
 	packet-mac-lte-framed.c	\
 	packet-mac-lte.c	\
+	packet-mac-nr.c         \
 	packet-maccontrol.c	\
 	packet-macsec.c		\
 	packet-mactelnet.c	\
@@ -985,6 +976,7 @@ DISSECTOR_SRC = \
 	packet-multipart.c	\
 	packet-mux27010.c	\
 	packet-mysql.c		\
+	packet-nano.c		\
 	packet-nas_5gs.c	\
 	packet-nas_eps.c	\
 	packet-nasdaq-itch.c	\
@@ -1075,6 +1067,7 @@ DISSECTOR_SRC = \
 	packet-opsi.c		\
 	packet-optommp.c	\
 	packet-osc.c		\
+	packet-oscore.c		\
 	packet-osi-options.c	\
 	packet-osi.c		\
 	packet-ositp.c		\
@@ -1169,6 +1162,7 @@ DISSECTOR_SRC = \
 	packet-rip.c		\
 	packet-ripng.c		\
 	packet-rlc-lte.c	\
+	packet-rlc-nr.c		\
 	packet-rlm.c		\
 	packet-rlogin.c		\
 	packet-rmcp.c		\
@@ -1588,6 +1582,7 @@ DISSECTOR_INCLUDES = \
 	packet-epmd.h		\
 	packet-ess.h		\
 	packet-eth.h		\
+	packet-f5ethtrailer.h	\
 	packet-fc.h		\
 	packet-fcbls.h		\
 	packet-fcct.h		\
@@ -1677,6 +1672,7 @@ DISSECTOR_INCLUDES = \
 	packet-lpp.h		\
 	packet-lte-rrc.h	\
 	packet-mac-lte.h	\
+	packet-mac-nr.h         \
 	packet-mausb.h		\
 	packet-mbim.h		\
 	packet-mbtcp.h		\
@@ -1712,6 +1708,7 @@ DISSECTOR_INCLUDES = \
 	packet-nvme.h		\
 	packet-ocsp.h		\
 	packet-opensafety.h	\
+	packet-oscore.h		\
 	packet-osi.h		\
 	packet-osi-options.h	\
 	packet-p1.h		\
@@ -1752,6 +1749,7 @@ DISSECTOR_INCLUDES = \
 	packet-rdt.h		\
 	packet-reload.h		\
 	packet-rlc-lte.h	\
+	packet-rlc-nr.h		\
 	packet-rmi.h		\
 	packet-rmt-common.h	\
 	packet-rohc.h		\
@@ -1849,6 +1847,7 @@ DISSECTOR_INCLUDES = \
 	x11-extension-errors.h	\
 	x11-glx-render-enum.h	\
 	x11-enum.h		\
+	packet-x2ap.h		\
 	packet-x509af.h		\
 	packet-x509ce.h		\
 	packet-x509if.h		\

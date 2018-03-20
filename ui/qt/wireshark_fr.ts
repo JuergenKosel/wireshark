@@ -1991,21 +1991,6 @@ NOTE: Une option DOIT être sélectionnée.</translation>
     </message>
 </context>
 <context>
-    <name>EndpointDialog</name>
-    <message>
-        <source>Map</source>
-        <translation type="vanished">Carte</translation>
-    </message>
-    <message>
-        <source>Draw IPv4 or IPv6 endpoints on a map.</source>
-        <translation type="vanished">Dessine des extrémités IPv4 ou IPv6 sur une carte.</translation>
-    </message>
-    <message>
-        <source>Map file error</source>
-        <translation type="vanished">Erreur de fichier de carte</translation>
-    </message>
-</context>
-<context>
     <name>ExpertInfoDialog</name>
     <message>
         <source>Dialog</source>
@@ -2601,11 +2586,11 @@ NOTE: Une option DOIT être sélectionnée.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>GeoIP path</source>
+        <source>MaxMind DB path</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>GeoIP database search path</source>
+        <source>MaxMind DB database search path</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7740,19 +7725,19 @@ a:hover {
     </message>
     <message>
         <source>If checked the packet detail items will be automatically scrolled when they are expanded.</source>
-        <translation>Cocher les éléments de détail paquets seront automatiquement défiler quand ils sont étendus.</translation>
+        <translation type="vanished">Cocher les éléments de détail paquets seront automatiquement défiler quand ils sont étendus.</translation>
     </message>
     <message>
         <source>Automatically scroll packet details</source>
-        <translation>Défilement automatique lors de l&apos;affichage des détails</translation>
+        <translation type="vanished">Défilement automatique lors de l&apos;affichage des détails</translation>
     </message>
     <message>
         <source>Percentage distance from the top to scroll packet details.</source>
-        <translation>Distance en pourcentage du haut pour faire défiler les détails des paquets.</translation>
+        <translation type="vanished">Distance en pourcentage du haut pour faire défiler les détails des paquets.</translation>
     </message>
     <message>
         <source>Packet detail scroll percentage:</source>
-        <translation>Pourcentage détail paquet de défilement:</translation>
+        <translation type="vanished">Pourcentage détail paquet de défilement:</translation>
     </message>
     <message>
         <source>Main toolbar style:</source>

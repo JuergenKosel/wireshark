@@ -93,6 +93,8 @@ const value_string ssl_versions[] = {
     { 0x7F16,               "TLS 1.3 (draft 22)" },
     { 0x7F17,               "TLS 1.3 (draft 23)" },
     { 0x7F18,               "TLS 1.3 (draft 24)" },
+    { 0x7F19,               "TLS 1.3 (draft 25)" },
+    { 0x7F1A,               "TLS 1.3 (draft 26)" },
     { DTLSV1DOT0_OPENSSL_VERSION, "DTLS 1.0 (OpenSSL pre 0.9.8f)" },
     { DTLSV1DOT0_VERSION,   "DTLS 1.0" },
     { DTLSV1DOT2_VERSION,   "DTLS 1.2" },
@@ -3530,7 +3532,7 @@ fail:
 }
 
 /* Generated the key material based on the given secret. */
-static gboolean
+gboolean
 tls13_generate_keys(SslDecryptSession *ssl_session, const StringInfo *secret, gboolean is_from_server)
 {
     gboolean    success = FALSE;
@@ -3848,6 +3850,11 @@ tls_decrypt_aead_record(SslDecryptSession *ssl, SslDecoder *decoder,
 #else
         guint8 ct _U_, guint16 record_version _U_,
 #endif
+        gboolean ignore_mac_failed
+#ifndef HAVE_LIBGCRYPT_AEAD
+        _U_
+#endif
+        ,
         const guchar *in, guint16 inl, StringInfo *out_str, guint *outl)
 {
     /* RFC 5246 (TLS 1.2) 6.2.3.3 defines the TLSCipherText.fragment as:
@@ -3864,6 +3871,7 @@ tls_decrypt_aead_record(SslDecryptSession *ssl, SslDecoder *decoder,
     guchar          nonce[12];
     const ssl_cipher_mode_t cipher_mode = decoder->cipher_suite->mode;
 #ifdef HAVE_LIBGCRYPT_AEAD
+    const guint8    draft_version = ssl->session.tls13_draft_version;
     const guchar   *auth_tag_wire;
     guchar          auth_tag_calc[16];
 #else
@@ -3971,7 +3979,7 @@ tls_decrypt_aead_record(SslDecryptSession *ssl, SslDecoder *decoder,
         gcry_cipher_ctl(decoder->evp, GCRYCTL_SET_CCM_LENGTHS, lengths, sizeof(lengths));
     }
 
-    /* (D)TLS 1.2 needs specific AAD, TLS 1.3 uses empty AAD. */
+    /* (D)TLS 1.2 needs specific AAD, TLS 1.3 (before -25) uses empty AAD. */
     if (is_v12) {
         guchar aad[13];
         phton64(aad, decoder->seq);         /* record sequence number */
@@ -3983,6 +3991,17 @@ tls_decrypt_aead_record(SslDecryptSession *ssl, SslDecoder *decoder,
         aad[8] = ct;                        /* TLSCompressed.type */
         phton16(aad + 9, record_version);   /* TLSCompressed.version */
         phton16(aad + 11, ciphertext_len);  /* TLSCompressed.length */
+        ssl_print_data("AAD", aad, sizeof(aad));
+        err = gcry_cipher_authenticate(decoder->evp, aad, sizeof(aad));
+        if (err) {
+            ssl_debug_printf("%s failed to set AAD: %s\n", G_STRFUNC, gcry_strerror(err));
+            return FALSE;
+        }
+    } else if (draft_version >= 25 || draft_version == 0) {
+        guchar aad[5];
+        aad[0] = ct;                        /* TLSCiphertext.opaque_type (23) */
+        phton16(aad + 1, record_version);   /* TLSCiphertext.legacy_record_version (0x0303) */
+        phton16(aad + 3, inl);              /* TLSCiphertext.length */
         ssl_print_data("AAD", aad, sizeof(aad));
         err = gcry_cipher_authenticate(decoder->evp, aad, sizeof(aad));
         if (err) {
@@ -4018,7 +4037,7 @@ tls_decrypt_aead_record(SslDecryptSession *ssl, SslDecoder *decoder,
             ssl_print_data("auth_tag(expect)", auth_tag_calc, auth_tag_len);
             ssl_print_data("auth_tag(actual)", auth_tag_wire, auth_tag_len);
         }
-        if (ssl_ignore_mac_failed) {
+        if (ignore_mac_failed) {
             ssl_debug_printf("%s: auth check failed, but ignored for troubleshooting ;-)\n", G_STRFUNC);
         } else {
             return FALSE;
@@ -4038,6 +4057,7 @@ tls_decrypt_aead_record(SslDecryptSession *ssl, SslDecoder *decoder,
  * we have a non-NULL decoder->cipher_suite. */
 int
 ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint16 record_version,
+        gboolean ignore_mac_failed,
         const guchar *in, guint16 inl, StringInfo *comp_str, StringInfo *out_str, guint *outl)
 {
     guint   pad, worklen, uncomplen, maclen, mac_fraglen = 0;
@@ -4067,7 +4087,7 @@ ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint
         decoder->cipher_suite->mode == MODE_POLY1305 ||
         ssl->session.version == TLSV1DOT3_VERSION) {
 
-        if (!tls_decrypt_aead_record(ssl, decoder, ct, record_version, in, inl, out_str, &worklen)) {
+        if (!tls_decrypt_aead_record(ssl, decoder, ct, record_version, ignore_mac_failed, in, inl, out_str, &worklen)) {
             /* decryption failed */
             return -1;
         }
@@ -4195,7 +4215,7 @@ ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint
         worklen, ssl->session.version, ct, decoder->seq);
     if(ssl->session.version==SSLV3_VERSION){
         if(ssl3_check_mac(decoder,ct,mac_frag,mac_fraglen,mac) < 0) {
-            if(ssl_ignore_mac_failed) {
+            if(ignore_mac_failed) {
                 ssl_debug_printf("ssl_decrypt_record: mac failed, but ignored for troubleshooting ;-)\n");
             }
             else{
@@ -4209,7 +4229,7 @@ ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint
     }
     else if(ssl->session.version==TLSV1_VERSION || ssl->session.version==TLSV1DOT1_VERSION || ssl->session.version==TLSV1DOT2_VERSION){
         if(tls_check_mac(decoder,ct,ssl->session.version,mac_frag,mac_fraglen,mac)< 0) {
-            if(ssl_ignore_mac_failed) {
+            if(ignore_mac_failed) {
                 ssl_debug_printf("ssl_decrypt_record: mac failed, but ignored for troubleshooting ;-)\n");
             }
             else{
@@ -4231,7 +4251,7 @@ ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint
         else if(tls_check_mac(decoder,ct,TLSV1_VERSION,mac_frag,mac_fraglen,mac)>= 0) {
             ssl_debug_printf("ssl_decrypt_record: dtls rfc-compliant mac failed, but old openssl's non-rfc-compliant mac ok\n");
         }
-        else if(ssl_ignore_mac_failed) {
+        else if(ignore_mac_failed) {
             ssl_debug_printf("ssl_decrypt_record: mac failed, but ignored for troubleshooting ;-)\n");
         }
         else{
@@ -4940,23 +4960,23 @@ ssl_finalize_decryption(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map)
     }
 } /* }}} */
 
-/* Load the new key. */
-void
-tls13_change_key(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,
-                 gboolean is_from_server, TLSRecordType type)
+/* Load the traffic key secret from the keylog file. */
+StringInfo *
+tls13_load_secret(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,
+                  gboolean is_from_server, TLSRecordType type)
 {
     GHashTable *key_map;
     const char *label;
 
     if (ssl->session.version != TLSV1DOT3_VERSION) {
         ssl_debug_printf("%s TLS version %#x is not 1.3\n", G_STRFUNC, ssl->session.version);
-        return;
+        return NULL;
     }
 
     if (ssl->client_random.data_len == 0) {
         /* May happen if Hello message is missing and Finished is found. */
         ssl_debug_printf("%s missing Client Random\n", G_STRFUNC);
-        return;
+        return NULL;
     }
 
     switch (type) {
@@ -5000,13 +5020,26 @@ tls13_change_key(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,
         } else {
             ssl->client = NULL;
         }
-        return;
+        return NULL;
     }
 
     /* TLS 1.3 secret found, set new keys. */
     ssl_debug_printf("%s Retrieved TLS 1.3 traffic secret.\n", G_STRFUNC);
     ssl_print_string("Client Random", &ssl->client_random);
     ssl_print_string(label, secret);
+    return secret;
+}
+
+/* Load the new key. */
+void
+tls13_change_key(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,
+                 gboolean is_from_server, TLSRecordType type)
+{
+    StringInfo *secret = tls13_load_secret(ssl, mk_map, is_from_server, type);
+    if (!secret) {
+        return;
+    }
+
     if (tls13_generate_keys(ssl, secret, is_from_server)) {
         /*
          * Remember the application traffic secret to support Key Update. The
@@ -5034,16 +5067,17 @@ tls13_change_key(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,
 void
 tls13_key_update(SslDecryptSession *ssl, gboolean is_from_server)
 {
-    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-18#section-7.2
+    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-27#section-7.2
      * traffic_secret_N+1 = HKDF-Expand-Label(
      *                          traffic_secret_N,
-     *                          "application traffic secret", "", Hash.length)
+     *                          "traffic upd", "", Hash.length)
      *
      * Note that traffic_secret_N is of the same length (Hash.length).
      */
     const SslCipherSuite *cipher_suite = ssl->cipher_suite;
     SslDecoder *decoder = is_from_server ? ssl->server : ssl->client;
     StringInfo *app_secret = decoder ? &decoder->app_traffic_secret : NULL;
+    guint8 tls13_draft_version = ssl->session.tls13_draft_version;
 
     if (!cipher_suite || !app_secret || app_secret->data_len == 0) {
         ssl_debug_printf("%s Cannot perform Key Update due to missing info\n", G_STRFUNC);
@@ -5058,10 +5092,13 @@ tls13_key_update(SslDecryptSession *ssl, gboolean is_from_server)
     int hash_algo = ssl_get_digest_by_name(hash_name);
     const guint hash_len = app_secret->data_len;
     guchar *new_secret;
+    const char *label = "traffic upd";
+    if (tls13_draft_version && tls13_draft_version < 20) {
+        label = "application traffic secret";
+    }
     if (!tls13_hkdf_expand_label(hash_algo, app_secret,
-                                 tls13_hkdf_label_prefix(ssl->session.tls13_draft_version),
-                                 "application traffic secret",
-                                 hash_len, &new_secret)) {
+                                 tls13_hkdf_label_prefix(tls13_draft_version),
+                                 label, hash_len, &new_secret)) {
         ssl_debug_printf("%s traffic_secret_N+1 expansion failed\n", G_STRFUNC);
         return;
     }
@@ -6146,7 +6183,8 @@ ssl_dissect_hnd_hello_ext_early_data(ssl_common_dissect_t *hf, tvbuff_t *tvb, pa
 
 static gint
 ssl_dissect_hnd_hello_ext_supported_versions(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
-                                             proto_tree *tree, guint32 offset, guint32 offset_end)
+                                             proto_tree *tree, guint32 offset, guint32 offset_end,
+                                             SslSession *session)
 {
 
    /* https://tools.ietf.org/html/draft-ietf-tls-tls13-18#section-4.2.1
@@ -6163,12 +6201,23 @@ ssl_dissect_hnd_hello_ext_supported_versions(ssl_common_dissect_t *hf, tvbuff_t 
     offset++;
     next_offset = offset + versions_length;
 
+    guint version;
+    guint8 draft_version, max_draft_version = 0;
     while (offset + 2 <= next_offset) {
-        proto_tree_add_item(tree, hf->hf.hs_ext_supported_version, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(tree, hf->hf.hs_ext_supported_version, tvb, offset, 2, ENC_BIG_ENDIAN, &version);
         offset += 2;
+
+        draft_version = tls13_draft_version(version);
+        max_draft_version = MAX(draft_version, max_draft_version);
     }
     if (!ssl_end_vector(hf, tvb, pinfo, tree, offset, next_offset)) {
         offset = next_offset;
+    }
+
+    /* XXX remove this when draft 19 support is dropped,
+     * this is only required for early data decryption. */
+    if (max_draft_version) {
+        session->tls13_draft_version = max_draft_version;
     }
 
     return offset;
@@ -7307,13 +7356,6 @@ ssl_dissect_hnd_cli_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     }
     offset += 2;
     next_offset = offset + cipher_suite_length;
-    if (ssl && cipher_suite_length == 2) {
-        /*
-         * If there is only a single cipher, assume that this will be used
-         * (needed for 0-RTT decryption support in TLS 1.3).
-         */
-        ssl_set_cipher(ssl, tvb_get_ntohs(tvb, offset));
-    }
     ti = proto_tree_add_none_format(tree,
                                     hf->hf.hs_cipher_suites,
                                     tvb, offset, cipher_suite_length,
@@ -8132,7 +8174,7 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
         case SSL_HND_HELLO_EXT_SUPPORTED_VERSIONS:
             switch (hnd_type) {
             case SSL_HND_CLIENT_HELLO:
-                offset = ssl_dissect_hnd_hello_ext_supported_versions(hf, tvb, pinfo, ext_tree, offset, next_offset);
+                offset = ssl_dissect_hnd_hello_ext_supported_versions(hf, tvb, pinfo, ext_tree, offset, next_offset, session);
                 break;
             case SSL_HND_SERVER_HELLO:
             case SSL_HND_HELLO_RETRY_REQUEST:

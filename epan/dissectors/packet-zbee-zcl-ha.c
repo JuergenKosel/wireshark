@@ -332,9 +332,11 @@ proto_register_zbee_zcl_appl_idt(void)
 void
 proto_reg_handoff_zbee_zcl_appl_idt(void)
 {
-    zbee_zcl_init_cluster(  proto_zbee_zcl_appl_idt,
+    zbee_zcl_init_cluster(  ZBEE_PROTOABBREV_ZCL_APPLIDT,
+                            proto_zbee_zcl_appl_idt,
                             ett_zbee_zcl_appl_idt,
                             ZBEE_ZCL_CID_APPLIANCE_IDENTIFICATION,
+                            ZBEE_MFG_CODE_NONE,
                             hf_zbee_zcl_appl_idt_attr_id,
                             -1, -1,
                             (zbee_zcl_fn_attr_data)dissect_zcl_appl_idt_attr_data
@@ -535,9 +537,11 @@ proto_register_zbee_zcl_met_idt(void)
 void
 proto_reg_handoff_zbee_zcl_met_idt(void)
 {
-    zbee_zcl_init_cluster(  proto_zbee_zcl_met_idt,
+    zbee_zcl_init_cluster(  ZBEE_PROTOABBREV_ZCL_METIDT,
+                            proto_zbee_zcl_met_idt,
                             ett_zbee_zcl_met_idt,
                             ZBEE_ZCL_CID_METER_IDENTIFICATION,
+                            ZBEE_MFG_CODE_NONE,
                             hf_zbee_zcl_met_idt_attr_id,
                             -1, -1,
                             (zbee_zcl_fn_attr_data)dissect_zcl_met_idt_attr_data
@@ -908,15 +912,11 @@ proto_register_zbee_zcl_appl_evtalt(void)
 void
 proto_reg_handoff_zbee_zcl_appl_evtalt(void)
 {
-    dissector_handle_t appl_evtalt_handle;
-
-    /* Register our dissector with the ZigBee application dissectors. */
-    appl_evtalt_handle = find_dissector(ZBEE_PROTOABBREV_ZCL_APPLEVTALT);
-    dissector_add_uint("zbee.zcl.cluster", ZBEE_ZCL_CID_APPLIANCE_EVENTS_AND_ALERT, appl_evtalt_handle);
-
-    zbee_zcl_init_cluster(  proto_zbee_zcl_appl_evtalt,
+    zbee_zcl_init_cluster(  ZBEE_PROTOABBREV_ZCL_APPLEVTALT,
+                            proto_zbee_zcl_appl_evtalt,
                             ett_zbee_zcl_appl_evtalt,
                             ZBEE_ZCL_CID_APPLIANCE_EVENTS_AND_ALERT,
+                            ZBEE_MFG_CODE_NONE,
                             -1,
                             hf_zbee_zcl_appl_evtalt_srv_rx_cmd_id,
                             hf_zbee_zcl_appl_evtalt_srv_tx_cmd_id,
@@ -1266,15 +1266,11 @@ proto_register_zbee_zcl_appl_stats(void)
 void
 proto_reg_handoff_zbee_zcl_appl_stats(void)
 {
-    dissector_handle_t appl_stats_handle;
-
-    /* Register our dissector with the ZigBee application dissectors. */
-    appl_stats_handle = find_dissector(ZBEE_PROTOABBREV_ZCL_APPLSTATS);
-    dissector_add_uint("zbee.zcl.cluster", ZBEE_ZCL_CID_APPLIANCE_STATISTICS, appl_stats_handle);
-
-    zbee_zcl_init_cluster(  proto_zbee_zcl_appl_stats,
+    zbee_zcl_init_cluster(  ZBEE_PROTOABBREV_ZCL_APPLSTATS,
+                            proto_zbee_zcl_appl_stats,
                             ett_zbee_zcl_appl_stats,
                             ZBEE_ZCL_CID_APPLIANCE_STATISTICS,
+                            ZBEE_MFG_CODE_NONE,
                             hf_zbee_zcl_appl_stats_attr_id,
                             hf_zbee_zcl_appl_stats_srv_rx_cmd_id,
                             hf_zbee_zcl_appl_stats_srv_tx_cmd_id,

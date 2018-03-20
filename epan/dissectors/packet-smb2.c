@@ -3684,7 +3684,7 @@ dissect_smb2_find_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 
 	if (!pinfo->fd->flags.visited && si->saved && olb.len) {
 		si->saved->extra_info_type = SMB2_EI_FINDPATTERN;
-		si->saved->extra_info = g_malloc(olb.len+1);
+		si->saved->extra_info = wmem_alloc(wmem_file_scope(), olb.len+1);
 		g_snprintf((char *)si->saved->extra_info,olb.len+1,"%s",buf);
 	}
 
@@ -4299,7 +4299,7 @@ dissect_smb2_find_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 				val_to_str(si->saved->infolevel, smb2_find_info_levels, "(Level:0x%02x)"),
 				(const char *)si->saved->extra_info);
 
-		g_free(si->saved->extra_info);
+		wmem_free(wmem_file_scope(), si->saved->extra_info);
 		si->saved->extra_info_type = SMB2_EI_NONE;
 		si->saved->extra_info = NULL;
 	}
@@ -7973,13 +7973,13 @@ dissect_smb2_create_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	/* save the name if it looks sane */
 	if (!pinfo->fd->flags.visited) {
 		if (si->saved && si->saved->extra_info_type == SMB2_EI_FILENAME) {
-			g_free(si->saved->extra_info);
+			wmem_free(wmem_file_scope(), si->saved->extra_info);
 			si->saved->extra_info = NULL;
 			si->saved->extra_info_type = SMB2_EI_NONE;
 		}
 		if (si->saved && f_olb.len < 256) {
 			si->saved->extra_info_type = SMB2_EI_FILENAME;
-			si->saved->extra_info = (gchar *)g_malloc(f_olb.len+1);
+			si->saved->extra_info = (gchar *)wmem_alloc(wmem_file_scope(), f_olb.len+1);
 			g_snprintf((gchar *)si->saved->extra_info, f_olb.len+1, "%s", fname);
 		}
 	}
@@ -8084,7 +8084,7 @@ dissect_smb2_create_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 
 	/* free si->saved->extra_info   we don't need it any more */
 	if (si->saved && si->saved->extra_info_type == SMB2_EI_FILENAME) {
-		g_free(si->saved->extra_info);
+		wmem_free(wmem_file_scope(), si->saved->extra_info);
 		si->saved->extra_info = NULL;
 		si->saved->extra_info_type = SMB2_EI_NONE;
 	}
@@ -10060,37 +10060,37 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_fs_info_01,
-			{ "SMB2_FS_INFO_01", "smb2.fs_info_01", FT_NONE, BASE_NONE,
+			{ "FileFsVolumeInformation", "smb2.fs_volume_info", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_03,
-			{ "SMB2_FS_INFO_03", "smb2.fs_info_03", FT_NONE, BASE_NONE,
+			{ "FileFsSizeInformation", "smb2.fs_size_info", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_04,
-			{ "SMB2_FS_INFO_04", "smb2.fs_info_04", FT_NONE, BASE_NONE,
+			{ "FileFsDeviceInformation", "smb2.fs_device_info", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_05,
-			{ "SMB2_FS_INFO_05", "smb2.fs_info_05", FT_NONE, BASE_NONE,
+			{ "FileFsAttributeInformation", "smb2.fs_attribute_info", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_06,
-			{ "SMB2_FS_INFO_06", "smb2.fs_info_06", FT_NONE, BASE_NONE,
+			{ "FileFsControlInformation", "smb2.fs_control_info", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_info_07,
-			{ "SMB2_FS_INFO_07", "smb2.fs_info_07", FT_NONE, BASE_NONE,
+			{ "FileFsFullSizeInformation", "smb2.fs_full_size_info", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_fs_objectid_info,
-			{ "SMB2_FS_OBJECTID_INFO", "smb2.fs_objectid_info", FT_NONE, BASE_NONE,
+			{ "FileFsObjectIdInformation", "smb2.fs_objectid_info", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
