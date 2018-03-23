@@ -1,4 +1,4 @@
 [submodule "epan/dissectors/s7commwireshark"]
 	path = epan/dissectors/s7commwireshark
-	url = https://github.com/JuergenKosel/s7commwireshark.git
+	url = ../s7commwireshark.git
 	branch = local-trunk
