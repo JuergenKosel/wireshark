@@ -1,3 +1,8 @@
+Build Status of Branch s7commwireshark
+--------------------------------------
+
+[![pipeline status](https://gitlab.com/juergen.kosel.jk/wireshark/badges/s7commwireshark/pipeline.svg)](https://gitlab.com/juergen.kosel.jk/wireshark/commits/s7commwireshark)
+
 General Information
 -------------------
 
