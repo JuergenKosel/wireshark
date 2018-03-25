@@ -980,7 +980,19 @@ else
 		#
 		# +O2 is supported both by the C and C++ compiler.
 		#
-		WS_CFLAGS="+O2 $WS_CFLAGS"
+		# Add -Wp,-H200000 to handle some large #defines we
+		# have; that flag is not necessary for the C++
+		# compiler unless the "legacy" C++ preprocessor is
+		# being used (+legacy_cpp).  We don't want the
+		# legacy preprocessor if it's not the default,
+		# so we just add -Wp,-H200000 to the C flags.
+		# (If there are older versions of aC++ that only
+		# support the legacy preprocessor, and require
+		# that we boost the table size, we'd have to check
+		# whether -Wp,-H200000 is supported by the C++
+		# compiler and add it only if it is.)
+		#
+		WS_CFLAGS="+O2 -Wp,-H200000 $WS_CFLAGS"
 		if test "$CC" = "$CC_FOR_BUILD"; then
 			#
 			# We're building the build tools with the same
@@ -988,10 +1000,10 @@ else
 			# Wireshark, so add the flags to the flags for
 			# that compiler as well.
 			#
-			CFLAGS_FOR_BUILD="-Ae +O2 $CFLAGS"
+			CFLAGS_FOR_BUILD="-Ae +O2 -Wp,-H200000 $CFLAGS"
 		fi
 		WS_CXXFLAGS="+O2 $WS_CXXFLAGS"
-		AC_MSG_RESULT(HP C/C++ compiler - added +O2)
+		AC_MSG_RESULT(HP C/C++ compiler - added +O2 -Wp,-H200000)
 		;;
 	solaris*)
 		#
@@ -2297,16 +2309,26 @@ AC_CHECK_MEMBERS([struct sockaddr.sa_len],,,
                   #endif])
 
 AC_REPLACE_FUNCS(getopt_long)
-dnl
-dnl Do we have optreset?
-dnl
 if test "x$ac_cv_func_getopt_long" = xyes; then
+  #
+  # The OS has getopt_long(), so it might have optreset.  Do we have it?
+  #
   AC_CACHE_CHECK([whether optreset is defined], ac_cv_have_optreset,
     AC_LINK_IFELSE([AC_LANG_SOURCE([[extern int optreset;return optreset;]])],
         ac_cv_have_optreset=yes, ac_cv_have_optreset=no))
   if test "$ac_cv_have_optreset" = yes ; then
     AC_DEFINE(HAVE_OPTRESET, 1, [Define to 1 if you have the optreset variable])
   fi
+else
+  #
+  # The OS doesn't have getopt_long(), so we're using the GNU libc
+  # version that we have in wsutil.  It doesn't have optreset, so we
+  # don't need to check for it.
+  #
+  # However, it uses alloca(), so we may need to include alloca.h;
+  # check for it.
+  #
+  AC_CHECK_HEADERS(alloca.h)
 fi
 
 AC_REPLACE_FUNCS(strptime)
