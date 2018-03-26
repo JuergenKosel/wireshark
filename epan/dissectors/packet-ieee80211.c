@@ -3248,6 +3248,7 @@ static int hf_ieee80211_3gpp_gc_gud = -1;
 static int hf_ieee80211_3gpp_gc_udhl = -1;
 static int hf_ieee80211_3gpp_gc_iei = -1;
 static int hf_ieee80211_3gpp_gc_num_plmns = -1;
+static int hf_ieee80211_3gpp_gc_plmn = -1;
 static int hf_ieee80211_3gpp_gc_plmn_len = -1;
 static int hf_ieee80211_ff_anqp_domain_name_len = -1;
 static int hf_ieee80211_ff_anqp_domain_name = -1;
@@ -6954,13 +6955,17 @@ dissect_3gpp_cellular_network_info(proto_tree *tree, tvbuff_t *tvb, packet_info 
   proto_tree_add_item(tree, hf_ieee80211_3gpp_gc_num_plmns, tvb, offset, 1, ENC_LITTLE_ENDIAN);
   offset += 1;
   while (num > 0) {
+    proto_item *plmn_item = NULL;
     proto_tree *plmn_tree = NULL;
+    guint plmn_val = 0;
 
     if (tvb_reported_length_remaining(tvb, offset) < 3)
       break;
-    plmn_tree = proto_tree_add_subtree_format(tree, tvb, offset, 3,
-                                ett_ieee80211_3gpp_plmn, NULL,
-                                "PLMN %d", plmn_idx++);
+    plmn_val = tvb_get_letoh24(tvb, offset);
+    plmn_item = proto_tree_add_uint_format(tree, hf_ieee80211_3gpp_gc_plmn,
+                                tvb, offset, 3, plmn_val, "PLMN %d (0x%x)",
+                                plmn_idx++, plmn_val);
+    plmn_tree = proto_item_add_subtree(plmn_item, ett_ieee80211_3gpp_plmn);
     dissect_e212_mcc_mnc_wmem_packet_str(tvb, pinfo, plmn_tree, offset, E212_NONE, TRUE);
     num--;
     offset += 3;
@@ -19813,7 +19818,7 @@ dissect_ieee80211_block_ack(tvbuff_t *tvb, packet_info *pinfo _U_,
 #define TRIGGER_TYPE_BQRP       6
 #define TRIGGER_TYPE_NFRP       7
 
-static const value_string trigger_type_vals[] = {
+static const val64_string trigger_type_vals[] = {
   { 0, "Basic" },
   { 1, "Beamforming Report Poll (BRP)" },
   { 2, "MU-BAR" },
@@ -19825,7 +19830,7 @@ static const value_string trigger_type_vals[] = {
   { 0, NULL }
 };
 
-static const value_string bw_subfield_vals[] = {
+static const val64_string bw_subfield_vals[] = {
   { 0, "20 MHz" },
   { 1, "40 MHz" },
   { 2, "80 MHz" },
@@ -19833,7 +19838,7 @@ static const value_string bw_subfield_vals[] = {
   { 0, NULL }
 };
 
-static const value_string gi_and_ltf_type_subfield_vals[] = {
+static const val64_string gi_and_ltf_type_subfield_vals[] = {
   { 0, "1x LTF + 1.6 us GI" },
   { 1, "2x LTF + 1.6 us GI" },
   { 2, "4x LTF + 3.2 us GI" },
@@ -20135,7 +20140,7 @@ dissect_ieee80211_he_trigger(tvbuff_t *tvb, packet_info *pinfo _U_,
 
   trigger_type = tvb_get_guint8(tvb, offset) & 0x0F;
   col_append_fstr(pinfo->cinfo, COL_INFO, " %s",
-                val_to_str(trigger_type, trigger_type_vals, "Reserved"));
+                val64_to_str(trigger_type, trigger_type_vals, "Reserved"));
   /*
    * Deal with the common Info and then any user info after that.
    */
@@ -26040,6 +26045,10 @@ proto_register_ieee80211(void)
       FT_UINT8, BASE_DEC, NULL, 0,
       NULL, HFILL }},
 
+    {&hf_ieee80211_3gpp_gc_plmn,
+     {"PLMN", "wlan.fixed.anqp.3gpp_cellular_info.plmn_info",
+      FT_UINT24, BASE_HEX, NULL, 0, NULL, HFILL }},
+
     {&hf_ieee80211_ff_anqp_domain_name_len,
      {"Domain Name Length", "wlan.fixed.anqp.domain_name_list.len",
       FT_UINT8, BASE_DEC, NULL, 0,
@@ -30309,7 +30318,7 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_he_trigger_type,
      {"Trigger Type", "wlan.trigger.he.trigger_type",
-      FT_UINT64, BASE_DEC, VALS(trigger_type_vals),
+      FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(trigger_type_vals),
         0x000000000000000F, NULL, HFILL }},
 
     {&hf_ieee80211_he_trigger_length,
@@ -30326,11 +30335,11 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_he_trigger_bw,
      {"BW", "wlan.trigger.he.bw",
-      FT_UINT64, BASE_DEC, VALS(bw_subfield_vals), 0x00000000000C0000, NULL, HFILL }},
+      FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(bw_subfield_vals), 0x00000000000C0000, NULL, HFILL }},
 
     {&hf_ieee80211_he_trigger_gi_and_ltf_type,
      {"GI And LTF Type", "wlan.trigger.he.gi_and_ltf_type",
-      FT_UINT64, BASE_DEC, VALS(gi_and_ltf_type_subfield_vals), 0x0000000000300000,
+      FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(gi_and_ltf_type_subfield_vals), 0x0000000000300000,
         NULL, HFILL }},
 
     {&hf_ieee80211_he_trigger_mu_mimo_ltf_mode,
