@@ -1168,7 +1168,7 @@ SectionGroupEnd ; "Tools"
 Section "User's Guide" SecUsersGuide
 ;-------------------------------------------
 SetOutPath $INSTDIR
-;File "${USER_GUIDE_DIR}\user-guide.chm"
+File "${USER_GUIDE_DIR}\user-guide.chm"
 SectionEnd
 !endif
 
