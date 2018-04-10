@@ -2253,6 +2253,13 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     </message>
 </context>
 <context>
+    <name>ExtArgSelector</name>
+    <message>
+        <source>Reload data</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ExtcapArgumentFileSelection</name>
     <message>
         <source>All Files (</source>
@@ -6610,14 +6617,6 @@ text-decoration: underline;
         <translation>HTTP Lastverteilung</translation>
     </message>
     <message>
-        <source>Referers</source>
-        <translation>Referers</translation>
-    </message>
-    <message>
-        <source>HTTP referers</source>
-        <translation>HTTP Referers</translation>
-    </message>
-    <message>
         <source>Packet Lengths</source>
         <translation>Paketlängen</translation>
     </message>
@@ -6988,6 +6987,14 @@ text-decoration: underline;
     <message>
         <source>SSL Stream</source>
         <translation>SSL Stream</translation>
+    </message>
+    <message>
+        <source>Request Sequences</source>
+        <translation>Anfrage Sequenzen</translation>
+    </message>
+    <message>
+        <source>HTTP Request Sequences</source>
+        <translation>HTTP Anfrage Sequenzen</translation>
     </message>
     <message>
         <source>Decode &amp;As…</source>

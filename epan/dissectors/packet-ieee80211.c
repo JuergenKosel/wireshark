@@ -6109,7 +6109,7 @@ add_mimo_compressed_beamforming_feedback_report(proto_tree *tree, tvbuff_t *tvb,
     gint8 snr;
     char edge_sign;
 
-    snr = (gint8) tvb_get_guint8(tvb, offset);
+    snr = tvb_get_gint8(tvb, offset);
 
     switch(snr) {
       case -128:
@@ -10347,7 +10347,7 @@ add_ff_vht_compressed_beamforming_report(proto_tree *tree, tvbuff_t *tvb, packet
     gint8 snr;
     char edge_sign;
 
-    snr = (gint8) tvb_get_guint8(tvb, offset);
+    snr = tvb_get_gint8(tvb, offset);
 
     switch(snr) {
       case -128:
@@ -15910,12 +15910,12 @@ ieee80211_tag_country_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 
       proto_tree_add_item(sub_tree, hf_ieee80211_tag_country_info_fnm_fcn,
                           tvb, offset, 1, ENC_LITTLE_ENDIAN);
-      proto_item_append_text(sub_item, ": First Channel Number: %d",
+      proto_item_append_text(sub_item, ": First Channel Number: %u",
                              tvb_get_guint8(tvb, offset));
       offset += 1;
       proto_tree_add_item(sub_tree, hf_ieee80211_tag_country_info_fnm_nc,
                           tvb, offset, 1, ENC_LITTLE_ENDIAN);
-      proto_item_append_text(sub_item, ", Number of Channels: %d",
+      proto_item_append_text(sub_item, ", Number of Channels: %u",
                              tvb_get_guint8(tvb, offset));
       offset += 1;
       proto_tree_add_item(sub_tree, hf_ieee80211_tag_country_info_fnm_mtpl,
@@ -15932,17 +15932,17 @@ ieee80211_tag_country_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
       proto_tree_add_item(sub_tree, hf_ieee80211_tag_country_info_rrc_oei,
                           tvb, offset, 1, ENC_LITTLE_ENDIAN);
       proto_item_append_text(sub_item,
-                             ": Operating Extension Identifier: %d",
+                             ": Operating Extension Identifier: %u",
                              tvb_get_guint8(tvb, offset));
       offset += 1;
       proto_tree_add_item(sub_tree, hf_ieee80211_tag_country_info_rrc_oc,
                           tvb, offset, 1, ENC_LITTLE_ENDIAN);
-      proto_item_append_text(sub_item, ", Operating Class: %d",
+      proto_item_append_text(sub_item, ", Operating Class: %u",
                              tvb_get_guint8(tvb, offset));
       offset += 1;
       proto_tree_add_item(sub_tree, hf_ieee80211_tag_country_info_rrc_cc,
                           tvb, offset, 1, ENC_LITTLE_ENDIAN);
-      proto_item_append_text(sub_item, ", Coverage Class: %d",
+      proto_item_append_text(sub_item, ", Coverage Class: %u",
                              tvb_get_guint8(tvb, offset));
       offset += 1;
     }
@@ -16462,11 +16462,11 @@ ieee80211_tag_power_capability(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
   }
 
   proto_tree_add_item(tree, hf_ieee80211_tag_power_capability_min, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-  proto_item_append_text(field_data->item_tag, " Min: %d", tvb_get_guint8(tvb, offset));
+  proto_item_append_text(field_data->item_tag, " Min: %d", tvb_get_gint8(tvb, offset));
   offset += 1;
 
   proto_tree_add_item(tree, hf_ieee80211_tag_power_capability_max, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-  proto_item_append_text(field_data->item_tag, ", Max :%d", tvb_get_guint8(tvb, offset));
+  proto_item_append_text(field_data->item_tag, ", Max: %d", tvb_get_gint8(tvb, offset));
   return tvb_captured_length(tvb);
 }
 
@@ -21295,32 +21295,40 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
             proto_tree_add_item(qos_tree, hf_ieee80211_qos_amsdu_present, tvb, qosoff, 2, ENC_LITTLE_ENDIAN);
             is_amsdu = QOS_AMSDU_PRESENT(qos_control);
           }
-          if (qos_eosp) {
-            /* queue size */
-            qos_ti = proto_tree_add_item(qos_tree, hf_ieee80211_qos_queue_size, tvb, qosoff, 2, ENC_LITTLE_ENDIAN);
-            switch (qos_field_content) {
-            case 0:
-              proto_item_append_text(qos_ti, " (no buffered traffic in the queue)");
-              break;
+          /*
+           * Only QoS Data, Qos CF-ACK and NULL frames To-DS have a Queue Size
+           * field.
+           */
+          if ((DATA_FRAME_IS_NULL(frame_type_subtype) ||
+               (frame_type_subtype & 0x7) == 0 ||
+               DATA_FRAME_IS_CF_ACK(frame_type_subtype))) {
+            if (qos_eosp) {
+              /* queue size */
+              qos_ti = proto_tree_add_item(qos_tree, hf_ieee80211_qos_queue_size, tvb, qosoff, 2, ENC_LITTLE_ENDIAN);
+              switch (qos_field_content) {
+              case 0:
+                proto_item_append_text(qos_ti, " (no buffered traffic in the queue)");
+                break;
 
-            default:
-              proto_item_append_text(qos_ti, " (%u bytes)", qos_field_content*256);
-              break;
+              default:
+                proto_item_append_text(qos_ti, " (%u bytes)", qos_field_content*256);
+                break;
 
-            case 254:
-              proto_item_append_text(qos_ti, " (more than 64768 octets)");
-              break;
+              case 254:
+                proto_item_append_text(qos_ti, " (more than 64768 octets)");
+                break;
 
-            case 255:
-              proto_item_append_text(qos_ti, " (unspecified or unknown)");
-              break;
-            }
-          } else {
-            /* txop duration requested */
-            qos_ti = proto_tree_add_item(qos_tree, hf_ieee80211_qos_txop_dur_req,
+              case 255:
+                proto_item_append_text(qos_ti, " (unspecified or unknown)");
+                break;
+              }
+            } else {
+              /* txop duration requested */
+              qos_ti = proto_tree_add_item(qos_tree, hf_ieee80211_qos_txop_dur_req,
                                    tvb, qosoff, 2, ENC_LITTLE_ENDIAN);
-            if (qos_field_content == 0) {
-              proto_item_append_text(qos_ti, " (no TXOP requested)");
+              if (qos_field_content == 0) {
+                proto_item_append_text(qos_ti, " (no TXOP requested)");
+              }
             }
           }
         }
@@ -23061,12 +23069,12 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_ff_rm_tx_power,
      {"Transmit Power Used", "wlan.rm.tx_power",
-      FT_INT8, BASE_DEC, NULL, 0,
+      FT_INT8, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0,
       NULL, HFILL }},
 
     {&hf_ieee80211_ff_rm_max_tx_power,
      {"Max Transmit Power", "wlan.rm.max_tx_power",
-      FT_INT8, BASE_DEC, NULL, 0,
+      FT_INT8, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0,
       NULL, HFILL }},
 
     {&hf_ieee80211_ff_tpc,
@@ -26436,8 +26444,8 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_country_info_fnm_mtpl,
-     {"Maximum Transmit Power Level (in dBm)", "wlan.country_info.fnm.mtpl",
-      FT_UINT8, BASE_DEC, NULL, 0x0,
+     {"Maximum Transmit Power Level", "wlan.country_info.fnm.mtpl",
+      FT_INT8, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_country_info_rrc,
@@ -28085,12 +28093,12 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_tag_power_capability_min,
      {"Minimum Transmit Power", "wlan.powercap.min",
-      FT_UINT8, BASE_DEC_HEX, NULL, 0,
+      FT_INT8, BASE_DEC, NULL, 0,
       "The nominal minimum transmit power with which the STA is capable of transmitting in the current channel", HFILL }},
 
     {&hf_ieee80211_tag_power_capability_max,
      {"Maximum Transmit Power", "wlan.powercap.max",
-      FT_UINT8, BASE_DEC_HEX, NULL, 0,
+      FT_INT8, BASE_DEC, NULL, 0,
       "The nominal maximum transmit power with which the STA is capable of transmitting in the current channel", HFILL }},
 
     {&hf_ieee80211_tag_tpc_report_trsmt_pow,

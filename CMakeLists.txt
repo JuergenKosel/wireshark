@@ -12,8 +12,8 @@ project(Wireshark C CXX)
 # Updated by make-version.pl
 set(GIT_REVISION 0)
 set(PROJECT_MAJOR_VERSION 2)
-set(PROJECT_MINOR_VERSION 5)
-set(PROJECT_PATCH_VERSION 2)
+set(PROJECT_MINOR_VERSION 9)
+set(PROJECT_PATCH_VERSION 0)
 set(PROJECT_BUILD_VERSION ${GIT_REVISION})
 set(PROJECT_VERSION_EXTENSION "")
 set(PROJECT_RELEASE_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}")
@@ -325,6 +325,8 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		#                                   See http://msdn.microsoft.com/en-us/library/dn785163.aspx
 		list(APPEND LOCAL_CFLAGS /Zo)
 	elseif(MSVC14)
+		# To do: Add /external:... See https://blogs.msdn.microsoft.com/vcblog/2017/12/13/broken-warnings-theory/
+		#
 		# /Zo                               Enhanced debugging of optimised code
 		# /utf-8                            Set Source and Executable character sets to UTF-8
 		#                                   VS2015(MSVC14): On by default when /Zi or /Z7 used.
@@ -383,41 +385,79 @@ else() # ! MSVC
 		endif()
 	endif()
 
-	if(CMAKE_VERSION VERSION_LESS "3.1")
-		# Many modern compilers use c99 by default, but for older ones
-		# (like GCC 4.4.7), -std=gnu99 is required to avoid errors about
-		# use constructs like "for (int i = 0; i < n; i++) ;"
+	#
+	# Do whatever is necessary to enable as much C99 support as
+	# possible in the C compiler.  Newer versions of compilers
+	# might default to supporting C99, but older versions may
+	# require a special flag.
+	#
+	# We do not want strict C99 support, as we may also want to
+	# use compiler extensions.
+	#
+	# Prior to CMake 3.1, setting CMAKE_C_STANDARD will not have
+	# any effect, so, unless and until we require CMake 3.1 or
+	# later, we have to do it ourselves on pre-3.1 CMake, so we
+	# just do it ourselves on all versions of CMake.
+	#
+	# Note: with CMake 3.1 through 3.5, the only compilers for
+	# which CMake handles CMAKE_C_STANDARD are GCC and Clang.
+	# 3.6 adds support only for Intel C; 3.9 adds support for
+	# PGI C, Sun C, and IBM XL C, and 3.10 adds support for
+	# Cray C and IAR C, but no version of CMake has support for
+	# HP C.  Therefore, even if we use CMAKE_C_STANDARD with
+	# compilers for which CMake supports it, we may still have
+	# to do it ourselves on other compilers.
+	#
+	# See the CMake documentation for the CMAKE_<LANG>_COMPILER_ID
+	# variables for a list of compiler IDs.
+	#
+	# We don't worry about MSVC; it doesn't have such a flag -
+	# either it doesn't support the C99 features we need at all,
+	# or it supports them regardless of the compiler flag.
+	#
+	# XXX - we add the flag for a given compiler to CMAKE_C_FLAGS,
+	# so we test whether it works and add it if we do.  We don't
+	# test whether it's necessary in order to get the C99 features
+	# that we use; if we ever have a user who tries to compile with
+	# a compiler that can't be made to support those features, we
+	# can add a test to make sure we actually *have* C99 support.
+	#
+	if(CMAKE_C_COMPILER_ID MATCHES "GNU" OR
+	   CMAKE_C_COMPILER_ID MATCHES "Clang")
 		#
-		# Older versions of IBM XL C may require -qlanglvl=extc99.
-		# With V7.0, the "xlc" command defaults to C89; with 10.1,
-		# it defaults to C99 (both with IBM syntax extensions).
+		# We use -std=gnu99 rather than -std=c99 because, for
+		# some older compilers such as GCC 4.4.7, -std=gnu99
+		# is required to avoid errors about C99 constructs
+		# such as "for (int i = 0; i < n; i++) ;".
 		#
-		# HP's manual for HP C/HP-UX B.11.11.04 (the tenth
-		# edition of the manual), for PA-RISC, "documents
-		# new HP C features that support C99 industry standards".
-		# The manual for Version A.06.25 for Itanium mentions an
-		# -AC99 flag to support C99, but says it's the default;
-		# some older versions might require -AC99.
+		set(CMAKE_C_FLAGS "-std=gnu99 ${CMAKE_C_FLAGS}")
+	elseif(CMAKE_C_COMPILER_ID MATCHES "XL")
 		#
-		# As of Sun Studio 8, the compiler appears to default
-		# to supporting some C99 language features, but not
-		# C99 library differences from C89; -xc99 will give
-		# you both.  The earlier Sun Forte Developer 6 update 2
-		# might or might not support thosee C99 language features
-		# by default, and doesn't speak of library differences;
-		# if it doesn't support the language features by default,
-		# -xc99 will support them.
+		# We want support for extensions picked up for
+		# GNU C compatibility, so we use -qlanglvl=extc99.
 		#
-		if(CMAKE_C_COMPILER_ID MATCHES "GNU")
-			set(CMAKE_C_FLAGS "-std=gnu99 ${CMAKE_C_FLAGS}")
-		endif()
-	else()
+		set(CMAKE_C_FLAGS "-qlanglvl=extc99 ${CMAKE_C_FLAGS}")
+	elseif(CMAKE_C_COMPILER_ID MATCHES "HP")
 		#
-		# Current versions of CMake do not support options to
-		# request C99 for XL C, HP C, or Oracle C.  (They may
-		# not be necessary for current versions.)
+		# We also need to add -Wp,-H200000 to handle some large
+		# #defines we have; that flag is not necessary for the
+		# C++ compiler unless the "legacy" C++ preprocessor is
+		# being used (+legacy_cpp).  We don't want the legacy
+		# preprocessor if it's not the default, so we just add
+		# -Wp,-H200000 to the C flags.  (If there are older
+		# versions of aC++ that only support the legacy
+		# preprocessor, and require that we boost the table
+		# size, we'd have to check whether -Wp,-H200000 is
+		# supported by the C++ compiler and add it only if it is.)
 		#
-		set(CMAKE_C_STANDARD 99)
+		set(CMAKE_C_FLAGS "-AC99 -Wp,-H200000 $WS_CFLAGS ${CMAKE_C_FLAGS}")
+	elseif(CMAKE_C_COMPILER_ID MATCHES "Sun")
+		#
+		# We also crank up the warning level.
+		#
+		set(CMAKE_C_FLAGS "-xc99 -v ${CMAKE_C_FLAGS}")
+	elseif(CMAKE_C_COMPILER_ID MATCHES "Intel")
+		set(CMAKE_C_FLAGS "-c99 ${CMAKE_C_FLAGS}")
 	endif()
 
 	if(CMAKE_C_COMPILER_ID MATCHES "Clang")
@@ -839,7 +879,7 @@ set(PACKAGELIST Git GLIB2 GMODULE2 GTHREAD2 GCRYPT LEX YACC Perl PythonInterp)
 set(LEX_OPTIONS REQUIRED)
 set(GLIB2_OPTIONS REQUIRED)
 set(GLIB2_FIND_OPTIONS REQUIRED)
-set(GLIB2_MIN_VERSION 2.22.0)
+set(GLIB2_MIN_VERSION 2.32.0)
 set(GTHREAD2_OPTIONS REQUIRED)
 set(GCRYPT_OPTIONS "1.4.2" REQUIRED)
 set(PythonInterp_FIND_VERSION 2)
@@ -862,54 +902,35 @@ if(ENABLE_AIRPCAP)
 	set(PACKAGELIST ${PACKAGELIST} AIRPCAP)
 endif()
 
-# Build the GTK-GUI?
-if(BUILD_wireshark_gtk)
-	if(ENABLE_GTK3)
-		set(PACKAGELIST ${PACKAGELIST} GTK3)
-	else()
-		set(PACKAGELIST ${PACKAGELIST} GTK2)
-		set(GTK2_OPTIONS COMPONENTS gtk)
-		set(GTK2_FIND_VERSION 2.12)
-		set(GTK2_DEBUG false)
-	endif()
-endif()
-
 # Build the Qt GUI?
 if(BUILD_wireshark)
-	if(ENABLE_QT5)
-		# Untested, may not work if CMAKE_PREFIX_PATH gets overwritten
-		# somewhere. The if WIN32 in this place is annoying as well.
-		if( WIN32 )
-			set( QT5_BASE_PATH "$ENV{QT5_BASE_DIR}" )
-			set( CMAKE_PREFIX_PATH "${QT5_BASE_PATH}" )
-		endif()
-		set(PACKAGELIST ${PACKAGELIST}
-			Qt5Core
-			Qt5LinguistTools
-			Qt5Multimedia
-			Qt5PrintSupport
-			Qt5Svg
-			Qt5Widgets
-		)
-		set(Qt5Core_OPTIONS REQUIRED)
-		set(Qt5LinguistTools_OPTIONS REQUIRED)
-		set(Qt5Multimedia_OPTIONS REQUIRED)
-		set(Qt5PrintSupport_OPTIONS REQUIRED)
-		set(Qt5Svg_OPTIONS REQUIRED)
-		set(Qt5Widgets_OPTIONS REQUIRED)
-		if (APPLE)
-			set(PACKAGELIST ${PACKAGELIST} Qt5MacExtras)
-			set(Qt5MacExtras_OPTIONS REQUIRED)
-		endif()
-		if( WIN32 )
-			set(PACKAGELIST ${PACKAGELIST} Qt5WinExtras)
-			set(Qt5WinExtras_OPTIONS REQUIRED)
-		endif()
-		set(QT_VERSION 5)
-	else()
-		set(PACKAGELIST ${PACKAGELIST} Qt4)
-		set(Qt4_OPTIONS 4.8 REQUIRED QtCore QtGui)
-		set(QT_VERSION 4)
+	# Untested, may not work if CMAKE_PREFIX_PATH gets overwritten
+	# somewhere. The if WIN32 in this place is annoying as well.
+	if( WIN32 )
+		set( QT5_BASE_PATH "$ENV{QT5_BASE_DIR}" )
+		set( CMAKE_PREFIX_PATH "${QT5_BASE_PATH}" )
+	endif()
+	set(PACKAGELIST ${PACKAGELIST}
+		Qt5Core
+		Qt5LinguistTools
+		Qt5Multimedia
+		Qt5PrintSupport
+		Qt5Svg
+		Qt5Widgets
+	)
+	set(Qt5Core_OPTIONS REQUIRED)
+	set(Qt5LinguistTools_OPTIONS REQUIRED)
+	set(Qt5Multimedia_OPTIONS REQUIRED)
+	set(Qt5PrintSupport_OPTIONS REQUIRED)
+	set(Qt5Svg_OPTIONS REQUIRED)
+	set(Qt5Widgets_OPTIONS REQUIRED)
+	if (APPLE)
+		set(PACKAGELIST ${PACKAGELIST} Qt5MacExtras)
+		set(Qt5MacExtras_OPTIONS REQUIRED)
+	endif()
+	if( WIN32 )
+		set(PACKAGELIST ${PACKAGELIST} Qt5WinExtras)
+		set(Qt5WinExtras_OPTIONS REQUIRED)
 	endif()
 endif()
 
@@ -934,12 +955,6 @@ endif()
 if(ENABLE_KERBEROS)
 	set(PACKAGELIST ${PACKAGELIST} KERBEROS)
 endif()
-
-# Portable audio (GTK+ only)
-if(ENABLE_PORTAUDIO AND BUILD_wireshark_gtk)
-	set(PACKAGELIST ${PACKAGELIST} PORTAUDIO)
-endif()
-
 
 # C Asynchronous resolver
 if(ENABLE_CARES)
@@ -1154,12 +1169,6 @@ if (HAVE_LIBWINSPARKLE)
 	set(HAVE_SOFTWARE_UPDATE 1)
 endif()
 
-# No matter which version of GTK is present
-if(GTK2_FOUND OR GTK3_FOUND)
-	message(WARNING "The GTK+ UI is deprecated and will be removed in a future release.")
-	set(GTK_FOUND ON)
-endif()
-
 if(HAVE_LIBZLIB)
 	set(HAVE_ZLIB 1)
 	# Always include the "true" zlib includes first. This works around a
@@ -1223,11 +1232,6 @@ elseif(QT4_FOUND)
 		# That's the name autofoo uses
 		set(QT_MULTIMEDIA_LIB 1)
 	endif()
-	if(NOT DEFINED MOC_OPTIONS)
-		if(QT_VERSION_MAJOR EQUAL 4 AND QT_VERSION_MINOR GREATER 7)
-			set(MOC_OPTIONS -nn)
-		endif()
-	endif()
 	if(WIN32 OR APPLE)
 		message(FATAL_ERROR "Windows and macOS builds should use Qt5.")
 	endif()
@@ -1244,6 +1248,7 @@ if(APPLE)
 	#
 	set(HAVE_MACOS_FRAMEWORKS 1)
 	FIND_LIBRARY (APPLE_APPLICATION_SERVICES_LIBRARY ApplicationServices)
+	FIND_LIBRARY (APPLE_APPKIT_LIBRARY AppKit)
 	FIND_LIBRARY (APPLE_CORE_FOUNDATION_LIBRARY CoreFoundation)
 	FIND_LIBRARY (APPLE_SYSTEM_CONFIGURATION_LIBRARY SystemConfiguration)
 endif()
@@ -1305,10 +1310,6 @@ add_subdirectory( wsutil )
 
 if(NOT WIN32)
 	add_custom_target(dumpabi DEPENDS dumpabi-libwireshark dumpabi-libwiretap dumpabi-libwsutil)
-endif()
-
-if(BUILD_wireshark_gtk AND GTK_FOUND)
-	add_subdirectory( ui/gtk )
 endif()
 
 if(BUILD_wireshark AND QT_FOUND)
@@ -1465,7 +1466,6 @@ set( IN_FILES
 	packaging/macosx/Wireshark_package.pmdoc/index.xml.in
 	randpkt_core/doxygen.cfg.in
 	ui/doxygen.cfg.in
-	ui/gtk/doxygen.cfg.in
 	ui/qt/doxygen.cfg.in
 	wireshark.pc.in
 	writecap/doxygen.cfg.in
@@ -1526,7 +1526,6 @@ feature_summary(WHAT ALL)
 
 link_directories(
 	${CMAKE_BINARY_DIR}/ui
-	${CMAKE_BINARY_DIR}/ui/gtk
 	${CMAKE_BINARY_DIR}/ui/qt
 	${CMAKE_BINARY_DIR}/capchild
 	${CMAKE_BINARY_DIR}/caputils
@@ -1546,6 +1545,10 @@ if(WIN32)
 	)
 	set(PLATFORM_UI_RC_FILES
 		image/file_dlg_win32.rc
+	)
+elseif(APPLE)
+	set(PLATFORM_UI_SRC
+		ui/macosx/cocoa_bridge.mm
 	)
 endif()
 
@@ -2084,7 +2087,7 @@ list(APPEND copy_data_files_depends
 add_custom_target(copy_data_files ALL DEPENDS ${copy_data_files_depends} )
 set_target_properties(copy_data_files PROPERTIES FOLDER "Copy Tasks")
 
-if( (BUILD_wireshark AND QT_FOUND) OR (BUILD_wireshark_gtk AND GTK_FOUND) )
+if(BUILD_wireshark AND QT_FOUND)
 	set(WIRESHARK_SRC
 		capture_info.c
 		capture_opts.c
@@ -2179,6 +2182,7 @@ if(BUILD_wireshark AND QT_FOUND)
 		wscodecs
 		${LIBEPAN_LIBS}
 		${APPLE_APPLICATION_SERVICES_LIBRARY}
+		${APPLE_APPKIT_LIBRARY}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
 		${NL_LIBRARIES}
@@ -2186,9 +2190,6 @@ if(BUILD_wireshark AND QT_FOUND)
 	)
 
 	add_executable(wireshark WIN32 MACOSX_BUNDLE wireshark-qt.cpp ${wireshark_FILES} ${EXTRA_BUNDLE_FILES})
-	if(QT_VERSION EQUAL 4)
-		target_compile_definitions(wireshark PRIVATE Q_NULLPTR=NULL)
-	endif()
 	add_dependencies(wireshark version)
 	set(PROGLIST ${PROGLIST} wireshark)
 	if(CMAKE_VERSION VERSION_LESS "2.8.12"
@@ -2329,106 +2330,6 @@ macro(set_extcap_executable_properties _executable)
 		endif()
 	endif()
 endmacro()
-
-if(BUILD_wireshark_gtk AND GTK_FOUND)
-	set(wireshark_gtk_LIBS
-		gtkui
-		ui
-		capchild
-		caputils
-		${GTK2_LIBRARIES}
-		${GTK3_LIBRARIES}
-		${GTHREAD2_LIBRARIES}
-		wscodecs
-		${PORTAUDIO_LIBRARIES}
-		${LIBEPAN_LIBS}
-		${APPLE_APPLICATION_SERVICES_LIBRARY}
-		${APPLE_CORE_SERVICES_LIBRARY}
-		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
-		${NL_LIBRARIES}
-		${WIN_COMCTL32_LIBRARY}
-	)
-	# wireshark and wireshark-gtk share wireshark_FILES
-
-	add_executable(wireshark-gtk WIN32 ${wireshark_FILES})
-	add_dependencies(wireshark-gtk version)
-	set(PROGLIST ${PROGLIST} wireshark-gtk)
-	set_target_properties(wireshark-gtk PROPERTIES
-		LINK_FLAGS "${WS_LINK_FLAGS}"
-		FOLDER "Executables"
-	)
-	target_link_libraries(wireshark-gtk ${wireshark_gtk_LIBS})
-	install(TARGETS wireshark-gtk RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-	if(WIN32)
-		add_custom_target(copy_gtk_dlls)
-		set_target_properties(copy_gtk_dlls PROPERTIES FOLDER "Copy Tasks")
-		add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E make_directory "${_dll_output_dir}"
-		)
-
-		if(GTK2_FOUND)
-			set(_gtk_dll_dir "${GTK2_DLL_DIR}")
-			set(_gtk_etc_dir "${GTK2_ETC_DIR}")
-			set(_gtk_dlls "${GTK2_DLLS}")
-			set(_gtk_etc_dir "${GTK2_ETC_DIR}")
-		else()
-			set(_gtk_dll_dir "${GTK3_DLL_DIR}")
-			set(_gtk_dlls "${GTK3_DLLS}")
-			set(_gtk_etc_dir "${GTK3_ETC_DIR}")
-		endif()
-
-		foreach(_dll ${_gtk_dlls})
-			add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					"${_gtk_dll_dir}/${_dll}" "${_dll_output_dir}"
-			)
-		endforeach(_dll)
-
-		# /etc
-		add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E make_directory "${_dll_output_dir}/etc"
-		)
-		add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${_gtk_etc_dir}" "${_dll_output_dir}/etc"
-		)
-
-		# XXX - Omitting ${GTK2_LIB_DIR}\loaders copying from Makefile.nmake
-		if(GTK2_FOUND)
-			# Engines
-			set (_engines_output_dir "${_dll_output_dir}/lib/gtk-2.0/2.10.0/engines")
-			add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-				COMMAND ${CMAKE_COMMAND} -E make_directory "${_engines_output_dir}"
-			)
-			foreach(_dll ${GTK2_ENGINES_DLLS})
-				add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-					COMMAND ${CMAKE_COMMAND} -E copy_if_different
-						"${GTK2_ENGINES_DLL_DIR}/${_dll}" "${_engines_output_dir}"
-				)
-			endforeach(_dll)
-
-			# Themes
-			add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					"${GTK2_THEMES_DIR}/gtkrc" "${_dll_output_dir}/etc/gtk-2.0"
-			)
-
-			# Modules
-			add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_directory
-					"${GTK2_LIB_DIR}" "${_dll_output_dir}/lib/gtk-2.0"
-			)
-		else()
-			add_custom_command(TARGET copy_gtk_dlls PRE_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_directory
-					"${CMAKE_SOURCE_DIR}/ui/win32/settings.ini" "${_dll_output_dir}/etc"
-			)
-		endif()
-
-		add_dependencies(wireshark-gtk copy_gtk_dlls copy_cli_dlls)
-	endif(WIN32)
-endif()
 
 register_tap_files(tshark-tap-register.c
 	${TSHARK_TAP_SRC}
@@ -3006,22 +2907,22 @@ if(RPMBUILD_EXECUTABLE AND GIT_EXECUTABLE)
 		list(APPEND _rpmbuild_with_args --with lua)
 	endif()
 	if (LZ4_FOUND AND SNAPPY_FOUND)
-		list(APPEND _rpmbuild_with_args --define "with_lz4_and_snappy 1")
+		list(APPEND _rpmbuild_with_args --with lz4_and_snappy)
 	endif()
 	if (CARES_FOUND)
-		list(APPEND _rpmbuild_with_args --define "with_c_ares 1")
+		list(APPEND _rpmbuild_with_args --with c_ares)
 	endif()
 	if (SPANDSP_FOUND)
-		list(APPEND _rpmbuild_with_args --define "with_spandsp 1")
+		list(APPEND _rpmbuild_with_args --with spandsp)
 	endif()
 	if (BCG729_FOUND)
-		list(APPEND _rpmbuild_with_args --define "with_bcg729 1")
+		list(APPEND _rpmbuild_with_args --with bcg729)
 	endif()
 	if (LIBXML2_FOUND)
-		list(APPEND _rpmbuild_with_args --define "with_libxml2 1")
+		list(APPEND _rpmbuild_with_args --with libxml2)
 	endif()
 	if (NGHTTP2_FOUND)
-		list(APPEND _rpmbuild_with_args --define "with_nghttp2 1")
+		list(APPEND _rpmbuild_with_args --with nghttp2)
 	endif()
 
 	execute_process(
@@ -3125,7 +3026,7 @@ if(NOT WIN32)
 endif()
 
 # Install icons and other desktop files for Freedesktop.org-compliant desktops.
-if(((BUILD_wireshark AND QT_FOUND) OR BUILD_wireshark_gtk) AND NOT (WIN32 OR APPLE))
+if((BUILD_wireshark AND QT_FOUND) AND NOT (WIN32 OR APPLE))
 	install(FILES wireshark-mime-package.xml
 		DESTINATION "${CMAKE_INSTALL_DATADIR}/mime/packages"
 		RENAME wireshark.xml
@@ -3135,10 +3036,6 @@ if(((BUILD_wireshark AND QT_FOUND) OR BUILD_wireshark_gtk) AND NOT (WIN32 OR APP
 	)
 	if(BUILD_wireshark AND QT_FOUND)
 		install(FILES wireshark.desktop
-			DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
-	endif()
-	if(BUILD_wireshark_gtk)
-		install(FILES wireshark-gtk.desktop
 			DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
 	endif()
 	foreach(size 16 24 32 48 64 128 256)

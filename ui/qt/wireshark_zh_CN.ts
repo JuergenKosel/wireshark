@@ -2244,6 +2244,13 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
 </context>
 <context>
+    <name>ExtArgSelector</name>
+    <message>
+        <source>Reload data</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ExtcapArgumentFileSelection</name>
     <message>
         <source>All Files (</source>
@@ -6591,14 +6598,6 @@ text-decoration: underline;
         <translation>HTTP 负载分配</translation>
     </message>
     <message>
-        <source>Referers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>HTTP referers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Packet Lengths</source>
         <translation>分组长度</translation>
     </message>
@@ -6969,6 +6968,14 @@ text-decoration: underline;
     <message>
         <source>SSL Stream</source>
         <translation>SSL 流</translation>
+    </message>
+    <message>
+        <source>Request Sequences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>HTTP Request Sequences</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Decode &amp;As…</source>

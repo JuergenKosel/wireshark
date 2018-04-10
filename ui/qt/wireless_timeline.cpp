@@ -31,7 +31,8 @@
 #include <ui/qt/utils/color_utils.h>
 #include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
-#include "wsutil/utf8_entities.h"
+#include <wsutil/report_message.h>
+#include <wsutil/utf8_entities.h>
 
 #ifdef Q_OS_WIN
 #include "wsutil/file_util.h"
@@ -110,11 +111,7 @@ static void accumulate_rgb(float rgb[TIMELINE_HEIGHT][3], int height, int dfilte
 
 void WirelessTimeline::mousePressEvent(QMouseEvent *event)
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
     start_x = last_x = event->localPos().x();
-#else
-    start_x = last_x = event->posF().x();
-#endif
 }
 
 
@@ -123,13 +120,8 @@ void WirelessTimeline::mouseMoveEvent(QMouseEvent *event)
     if (event->buttons() == Qt::NoButton)
         return;
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
     qreal offset = event->localPos().x() - last_x;
     last_x = event->localPos().x();
-#else
-    qreal offset = event->posF().x() - last_x;
-    last_x = event->posF().x();
-#endif
 
     qreal shift = ((qreal) (end_tsf - start_tsf))/width() * offset;
     start_tsf -= shift;
@@ -145,11 +137,7 @@ void WirelessTimeline::mouseMoveEvent(QMouseEvent *event)
 
 void WirelessTimeline::mouseReleaseEvent(QMouseEvent *event)
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
     QPointF localPos = event->localPos();
-#else
-    QPointF localPos = event->posF();
-#endif
     qreal offset = localPos.x() - start_x;
 
     /* if this was a drag, ignore it */
@@ -298,7 +286,12 @@ void WirelessTimeline::captureFileReadFinished()
 
 void WirelessTimeline::appInitialized()
 {
-    register_tap_listener("wlan_radio_timeline", this, NULL, TL_REQUIRES_NOTHING, tap_timeline_reset, tap_timeline_packet, NULL/*tap_draw_cb tap_draw*/);
+    GString *error_string;
+    error_string = register_tap_listener("wlan_radio_timeline", this, NULL, TL_REQUIRES_NOTHING, tap_timeline_reset, tap_timeline_packet, NULL/*tap_draw_cb tap_draw*/);
+    if (error_string) {
+        report_failure("Wireless Timeline - tap registration failed: %s", error_string->str);
+        g_string_free(error_string, TRUE);
+    }
 }
 
 void WirelessTimeline::resizeEvent(QResizeEvent*)
@@ -485,10 +478,7 @@ WirelessTimeline::paintEvent(QPaintEvent *qpe)
     QPainter p(this);
 
     // painting is done in device pixels in the x axis, get the ratio here
-    float ratio = 1.0;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 1, 0)
-    ratio = p.device()->devicePixelRatio();
-#endif
+    float ratio = p.device()->devicePixelRatio();
 
     unsigned int packet;
     double zoom;

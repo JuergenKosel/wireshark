@@ -31,6 +31,7 @@
 #include <capchild/capture_session.h>
 
 #include <QMainWindow>
+#include <QPointer>
 #include <QSplitter>
 
 #ifdef _WIN32
@@ -67,9 +68,6 @@ namespace Ui {
     class MainWindow;
 }
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-Q_DECLARE_METATYPE(QToolBar *)
-#endif
 Q_DECLARE_METATYPE(ts_type)
 Q_DECLARE_METATYPE(ts_precision)
 
@@ -159,7 +157,7 @@ private:
     QActionGroup *time_precision_actions_;
     FunnelStatistics *funnel_statistics_;
     QList<QPair<QAction *, bool> > freeze_actions_;
-    QWidget *freeze_focus_;
+    QPointer<QWidget> freeze_focus_;
     QMap<QAction *, ts_type> td_actions;
     QMap<QAction *, ts_precision> tp_actions;
     DragDropToolBar *filter_expression_toolbar_;
@@ -190,7 +188,7 @@ private:
     QSocketNotifier *pipe_notifier_;
 #endif
 
-#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(5, 2, 0)
+#if defined(Q_OS_MAC)
     QMenu *dock_menu_;
 #endif
 
@@ -612,7 +610,7 @@ private slots:
     void on_actionStatisticsHTTPPacketCounter_triggered();
     void on_actionStatisticsHTTPRequests_triggered();
     void on_actionStatisticsHTTPLoadDistribution_triggered();
-    void on_actionStatisticsHTTPReferers_triggered();
+    void on_actionStatisticsHTTPRequestSequences_triggered();
     void on_actionStatisticsPacketLengths_triggered();
     void statCommandIOGraph(const char *, void *);
     void on_actionStatisticsIOGraph_triggered();

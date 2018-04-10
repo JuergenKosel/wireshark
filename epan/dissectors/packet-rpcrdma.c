@@ -1027,7 +1027,7 @@ process_rdma_list(tvbuff_t *tvb, guint offset, wmem_array_t *p_list,
 
                 /* Add data before the xdr position */
                 size = xdrpos - xdrprev - lenprev;
-                if (size > 0 && tvb_captured_length_remaining(tvb, offset) > 0) {
+                if (size > 0 && tvb_captured_length_remaining(tvb, offset) > 0 && p_segment_info) {
                     tmp_tvb = tvb_new_subset_length(tvb, offset, size);
                     add_fragment(tmp_tvb, 0, p_segment_info->msgid, msg_num, TRUE, p_rdma_conv_info, pinfo, tree);
                     /* Message number for next fragment */
@@ -1254,7 +1254,7 @@ dissect_rpcrdma(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
     proto_item *ti;
     proto_tree *rpcordma_tree;
     guint offset = 0;
-    guint32 msg_type = tvb_get_ntohl(tvb, 12);
+    guint32 msg_type = 0;
     guint32 xid;
     guint32 val;
     guint write_size;
@@ -1263,6 +1263,10 @@ dissect_rpcrdma(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
     segment_info_t *p_segment_info;
     rdma_lists_t rdma_lists = { NULL, NULL, NULL };
 
+    /* tvb_get_ntohl() should not throw an exception while checking if
+       this is an rpcrdma packet */
+    if (tvb_captured_length(tvb) < 8)
+        return 0;
     if (tvb_get_ntohl(tvb, 4) != 1)  /* vers */
         return 0;
 
@@ -1285,8 +1289,8 @@ dissect_rpcrdma(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
     proto_tree_add_item(rpcordma_tree, hf_rpcordma_flow_control, tvb,
                 offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
-    proto_tree_add_item(rpcordma_tree, hf_rpcordma_message_type, tvb,
-                offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(rpcordma_tree, hf_rpcordma_message_type, tvb,
+                offset, 4, ENC_BIG_ENDIAN, &msg_type);
     offset += 4;
 
     switch (msg_type) {

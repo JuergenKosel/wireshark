@@ -117,6 +117,7 @@ static int hf_nas_5gs_mm_eia4 = -1;
 static int hf_nas_5gs_mm_eia5 = -1;
 static int hf_nas_5gs_mm_eia6 = -1;
 static int hf_nas_5gs_mm_eia7 = -1;
+static int hf_nas_5gs_mm_n1_mode_reg_b1 = -1;
 static int hf_nas_5gs_mm_s1_mode_reg_b0 = -1;
 
 static int hf_nas_5gs_pdu_ses_sts_psi_7_b7 = -1;
@@ -194,8 +195,6 @@ static expert_field ei_nas_5gs_unknown_value = EI_INIT;
 static expert_field ei_nas_5gs_num_pkt_flt = EI_INIT;
 static expert_field ei_nas_5gs_not_diss = EI_INIT;
 
-
-static guint16 de_nas_5gs_mm_s_nssai(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_);
 
 static const value_string nas_5gs_security_header_type_vals[] = {
     { 0,    "Plain NAS message, not security protected"},
@@ -1041,7 +1040,7 @@ de_nas_5gs_mm_rej_nssai(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
 /*
  *    9.8.3.37    S-NSSAI
  */
-static guint16
+guint16
 de_nas_5gs_mm_s_nssai(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     guint32 offset, guint len,
     gchar *add_string _U_, int string_len _U_)
@@ -1320,6 +1319,11 @@ de_nas_5gs_mm_ue_sec_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_
  *     9.8.3.49    UE status
  */
 
+static true_false_string tfs_nas_5gs_mm_n1_mod = {
+    "UE is in 5GMM-REGISTERED state",
+    "UE is not in 5GMM-REGISTERED state"
+};
+
 static true_false_string tfs_nas_5gs_mm_s1_mod = {
     "UE is in EMM-REGISTERED state",
     "UE is not in EMM-REGISTERED state"
@@ -1339,7 +1343,7 @@ de_nas_5gs_mm_ue_sts(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
         &hf_nas_5gs_spare_b4,
         &hf_nas_5gs_spare_b3,
         &hf_nas_5gs_spare_b2,
-        &hf_nas_5gs_spare_b1,
+        &hf_nas_5gs_mm_n1_mode_reg_b1,
         &hf_nas_5gs_mm_s1_mode_reg_b0,
         NULL
     };
@@ -1516,7 +1520,7 @@ static const value_string nas_5gs_sm_pf_type_values[] = {
  };
 
 
-static guint16
+guint16
 de_nas_5gs_sm_qos_rules(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
     guint32 offset, guint len,
     gchar *add_string _U_, int string_len _U_)
@@ -1692,7 +1696,8 @@ get_ext_ambr_unit(guint32 unit, const char **unit_str)
     }
     return mult;
 }
-static guint16
+
+guint16
 de_nas_5gs_sm_session_ambr(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     guint32 offset, guint len,
     gchar *add_string _U_, int string_len _U_)
@@ -1832,6 +1837,7 @@ guint16(*nas_5gs_common_elem_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info
 /*
  * 9.8.3    5GS mobility management (5GMM) information elements
  */
+#if 0
 typedef enum
 {
     DE_NAS_5GS_MM_5GMM_CAP,                  /* 9.8.3.1     5GMM capability*/
@@ -1886,6 +1892,7 @@ typedef enum
     DE_NAS_5GS_MM_NONE        /* NONE */
 }
 nas_5gs_mm_elem_idx_t;
+#endif
 
 static const value_string nas_5gs_mm_elem_strings[] = {
     { DE_NAS_5GS_MM_5GMM_CAP,                   "5GMM capability" },                    /* 9.8.3.1    5GMM capability*/
@@ -3470,6 +3477,25 @@ disect_nas_5gs_mm_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int o
 
 }
 
+const value_string nas_5gs_pdu_session_id_vals[] = {
+	{ 0x00, "No PDU session identity assigned" },
+	{ 0x01, "Reserved" },
+	{ 0x02, "Reserved" },
+	{ 0x03, "Reserved" },
+	{ 0x04, "Reserved" },
+	{ 0x05, "PDU session identity value 5" },
+	{ 0x06, "PDU session identity value 6" },
+	{ 0x07, "PDU session identity value 7" },
+	{ 0x08, "PDU session identity value 8" },
+	{ 0x09, "PDU session identity value 9" },
+	{ 0x0a, "PDU session identity value 10" },
+	{ 0x0b, "PDU session identity value 11" },
+	{ 0x0c, "PDU session identity value 12" },
+	{ 0x0d, "PDU session identity value 13" },
+	{ 0x0e, "PDU session identity value 14" },
+	{ 0x0f, "PDU session identity value 15" },
+    { 0, NULL }
+};
 
 static int
 dissect_nas_5gs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
@@ -3630,7 +3656,7 @@ proto_register_nas_5gs(void)
         },
         { &hf_nas_5gs_pdu_session_id,
         { "PDU session identity",   "nas_5gs.pdu_session_id",
-            FT_UINT8, BASE_DEC, NULL, 0x0,
+            FT_UINT8, BASE_DEC, VALS(nas_5gs_pdu_session_id_vals), 0x0,
             NULL, HFILL }
         },
         { &hf_nas_5gs_msg_elems,
@@ -3956,6 +3982,11 @@ proto_register_nas_5gs(void)
         { &hf_nas_5gs_mm_eia7,
         { "EIA7","nas_5gs.mm.eia7",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x01,
+            NULL, HFILL }
+        },
+        { &hf_nas_5gs_mm_n1_mode_reg_b1,
+        { "N1 mode reg","nas_5gs.mm.n1_mode_reg_b1",
+            FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_mm_n1_mod), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_s1_mode_reg_b0,
