@@ -18,6 +18,7 @@
 #include <epan/packet.h>
 #include <epan/to_str.h>
 #include <wsutil/bits_ctz.h>
+#include <wsutil/utf8_entities.h>
 
 #include "packet-zbee.h"
 #include "packet-zbee-aps.h"
@@ -31,9 +32,6 @@
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_BASIC_NUM_GENERIC_ETT                  3
-#define ZBEE_ZCL_BASIC_NUM_ETT                          ZBEE_ZCL_BASIC_NUM_GENERIC_ETT
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_BASIC_ZCL_VERSION              0x0000  /* ZCL Version */
@@ -367,11 +365,11 @@ proto_register_zbee_zcl_basic(void)
     };
 
     /* ZCL Basic subtrees */
-    static gint *ett[ZBEE_ZCL_BASIC_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_basic;
-    ett[1] = &ett_zbee_zcl_basic_alarm_mask;
-    ett[2] = &ett_zbee_zcl_basic_dis_local_cfg;
+    static gint *ett[] = {
+        &ett_zbee_zcl_basic,
+        &ett_zbee_zcl_basic_alarm_mask,
+        &ett_zbee_zcl_basic_dis_local_cfg
+    };
 
     /* Register the ZigBee ZCL Basic cluster protocol name and description */
     proto_zbee_zcl_basic = proto_register_protocol("ZigBee ZCL Basic", "ZCL Basic", ZBEE_PROTOABBREV_ZCL_BASIC);
@@ -1070,7 +1068,7 @@ proto_register_zbee_zcl_device_temperature_configuration(void)
     };
 
     /* ZCL Device Temperature Configuration subtrees */
-    static gint *ett[]={
+    static gint *ett[] = {
         &ett_zbee_zcl_device_temperature_configuration,
         &ett_zbee_zcl_device_temperature_configuration_device_temp_alarm_mask
     };
@@ -1118,9 +1116,6 @@ proto_reg_handoff_zbee_zcl_device_temperature_configuration(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_IDENTIFY_NUM_GENERIC_ETT               1
-#define ZBEE_ZCL_IDENTIFY_NUM_ETT                       ZBEE_ZCL_IDENTIFY_NUM_GENERIC_ETT
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_IDENTIFY_IDENTIFY_TIME         0x0000  /* Identify Time */
@@ -1450,8 +1445,9 @@ proto_register_zbee_zcl_identify(void)
     };
 
     /* ZCL Identify subtrees */
-    static gint *ett[ZBEE_ZCL_IDENTIFY_NUM_ETT];
-    ett[0] = &ett_zbee_zcl_identify;
+    static gint *ett[] = {
+        &ett_zbee_zcl_identify
+    };
 
     /* Register the ZigBee ZCL Identify cluster protocol name and description */
     proto_zbee_zcl_identify = proto_register_protocol("ZigBee ZCL Identify", "ZCL Identify", ZBEE_PROTOABBREV_ZCL_IDENTIFY);
@@ -1500,7 +1496,6 @@ proto_reg_handoff_zbee_zcl_identify(void)
 /* Defines               */
 /*************************/
 
-#define ZBEE_ZCL_GROUPS_NUM_ETT                                 2
 #define ZBEE_ZCL_CMD_ID_GROUPS_NAME_SUPPORT_MASK                0x80  /*Name support Mask*/
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_GROUPS_NAME_SUPPORT                    0x0000  /* Groups Name Support*/
@@ -2049,9 +2044,10 @@ proto_register_zbee_zcl_groups(void)
     };
 
     /* ZCL Groups subtrees */
-    static gint *ett[ZBEE_ZCL_GROUPS_NUM_ETT];
-    ett[0] = &ett_zbee_zcl_groups;
-    ett[1] = &ett_zbee_zcl_groups_grp_ctrl;
+    static gint *ett[] = {
+        &ett_zbee_zcl_groups,
+        &ett_zbee_zcl_groups_grp_ctrl
+    };
 
     /* Register the ZigBee ZCL Groups cluster protocol name and description */
     proto_zbee_zcl_groups = proto_register_protocol("ZigBee ZCL Groups", "ZCL Groups", ZBEE_PROTOABBREV_ZCL_GROUPS);
@@ -2100,8 +2096,7 @@ proto_reg_handoff_zbee_zcl_groups(void)
 /* Defines               */
 /*************************/
 
-#define ZBEE_ZCL_SCENES_NUM_ETT                                 2
-#define ZBEE_ZCL_ATTR_SCENES_SCENE_VALID_MASK                     0x01  /* bit     0 */
+#define ZBEE_ZCL_ATTR_SCENES_SCENE_VALID_MASK                   0x01  /* bit     0 */
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_SCENES_SCENE_COUNT                     0x0000  /* Scene Count */
@@ -2165,6 +2160,7 @@ static void dissect_zcl_scenes_remove_all_scenes_response                   (tvb
 static void dissect_zcl_scenes_get_scene_membership_response                (tvbuff_t *tvb, proto_tree *tree, guint *offset);
 static void dissect_zcl_scenes_copy_scene_response                          (tvbuff_t *tvb, proto_tree *tree, guint *offset);
 
+static void dissect_zcl_scenes_extension_fields                             (tvbuff_t *tvb, proto_tree *tree, guint *offset);
 static void dissect_zcl_scenes_attr_data                                    (proto_tree *tree, tvbuff_t *tvb, guint *offset, guint16 attr_id, guint data_type, gboolean client_attr);
 
 /* Private functions prototype */
@@ -2186,7 +2182,24 @@ static int hf_zbee_zcl_scenes_scene_id_from = -1;
 static int hf_zbee_zcl_scenes_scene_id_to = -1;
 static int hf_zbee_zcl_scenes_transit_time = -1;
 static int hf_zbee_zcl_scenes_enh_transit_time = -1;
-static int hf_zbee_zcl_scenes_extension_set_field = -1;
+static int hf_zbee_zcl_scenes_extension_set= -1;
+static int hf_zbee_zcl_scenes_extension_set_cluster = -1;
+static int hf_zbee_zcl_scenes_extension_set_onoff = -1;
+static int hf_zbee_zcl_scenes_extension_set_level = -1;
+static int hf_zbee_zcl_scenes_extension_set_x = -1;
+static int hf_zbee_zcl_scenes_extension_set_y = -1;
+static int hf_zbee_zcl_scenes_extension_set_hue = -1;
+static int hf_zbee_zcl_scenes_extension_set_saturation = -1;
+static int hf_zbee_zcl_scenes_extension_set_color_loop_active = -1;
+static int hf_zbee_zcl_scenes_extension_set_color_loop_direction = -1;
+static int hf_zbee_zcl_scenes_extension_set_color_loop_time = -1;
+static int hf_zbee_zcl_scenes_extension_set_cooling_setpoint = -1;
+static int hf_zbee_zcl_scenes_extension_set_heating_setpoint = -1;
+static int hf_zbee_zcl_scenes_extension_set_system_mode = -1;
+static int hf_zbee_zcl_scenes_extension_set_lock_state = -1;
+static int hf_zbee_zcl_scenes_extension_set_lift_percentage = -1;
+static int hf_zbee_zcl_scenes_extension_set_tilt_percentage = -1;
+
 static int hf_zbee_zcl_scenes_status = -1;
 static int hf_zbee_zcl_scenes_capacity = -1;
 static int hf_zbee_zcl_scenes_scene_count = -1;
@@ -2196,9 +2209,11 @@ static int hf_zbee_zcl_scenes_srv_rx_cmd_id = -1;
 static int hf_zbee_zcl_scenes_srv_tx_cmd_id = -1;
 static int hf_zbee_zcl_scenes_scene_list = -1;
 static int hf_zbee_zcl_scenes_copy_mode = -1;
+
 /* Initialize the subtree pointers */
 static gint ett_zbee_zcl_scenes = -1;
 static gint ett_zbee_zcl_scenes_scene_ctrl = -1;
+static gint ett_zbee_zcl_scenes_extension_field_set = -1;
 
 /* Attributes */
 static const value_string zbee_zcl_scenes_attr_names[] = {
@@ -2254,9 +2269,52 @@ static const value_string zbee_zcl_scenes_copy_mode_values[] = {
     { 0, NULL }
 };
 
+/* Color Loop Directions */
+static const value_string zbee_zcl_scenes_color_loop_direction_values[] = {
+    { 0x00,   "Hue is Decrementing" },
+    { 0x01,   "Hue is Incrementing" },
+    { 0, NULL }
+};
+
+
 /*************************/
 /* Function Bodies       */
 /*************************/
+
+/*FUNCTION:------------------------------------------------------
+ *  NAME
+ *    decode_color_xy
+ *  DESCRIPTION
+ *    this function decodes color xy values
+ *  PARAMETERS
+ *      guint *s        - string to display
+ *      guint16 value   - value to decode
+ *  RETURNS
+ *    none
+ *---------------------------------------------------------------
+ */
+static void
+decode_color_xy(gchar *s, guint16 value)
+{
+    g_snprintf(s, ITEM_LABEL_LENGTH, "%.4lf", value/65535.0);
+}
+
+/*FUNCTION:------------------------------------------------------
+ *  NAME
+ *    decode_setpoint
+ *  DESCRIPTION
+ *    this function decodes the setpoint
+ *  PARAMETERS
+ *      guint *s        - string to display
+ *      guint16 value   - value to decode
+ *  RETURNS
+ *    none
+ *---------------------------------------------------------------
+ */
+void decode_setpoint(gchar *s, gint16 value)
+{
+    g_snprintf(s, ITEM_LABEL_LENGTH, "%.2lf [" UTF8_DEGREE_SIGN "C]", value/100.0);
+}
 
 /*FUNCTION:------------------------------------------------------
  *  NAME
@@ -2434,7 +2492,7 @@ dissect_zcl_scenes_add_scene(tvbuff_t *tvb, proto_tree *tree, guint *offset, gbo
     *offset += attr_uint;
 
     /* Retrieve "Extension Set" field */
-    proto_tree_add_item(tree, hf_zbee_zcl_scenes_extension_set_field, tvb, *offset, -1, ENC_NA);
+    dissect_zcl_scenes_extension_fields(tvb, tree, offset);
 
 } /*dissect_zcl_scenes_add_scene*/
 
@@ -2614,7 +2672,7 @@ dissect_zcl_scenes_view_scene_response(tvbuff_t *tvb, proto_tree *tree, guint *o
         *offset += attr_uint;
 
         /* Retrieve "Extension Set" field */
-        proto_tree_add_item(tree, hf_zbee_zcl_scenes_extension_set_field, tvb, *offset, -1, ENC_NA);
+        dissect_zcl_scenes_extension_fields(tvb, tree, offset);
 
     }
 
@@ -2733,6 +2791,155 @@ dissect_zcl_scenes_copy_scene_response(tvbuff_t *tvb, proto_tree *tree, guint *o
    *offset += 1;
 
 } /*dissect_zcl_scenes_copy_scene_response*/
+
+
+/*FUNCTION:------------------------------------------------------
+ *  NAME
+ *      dissect_zcl_scenes_extension_fields
+ *  DESCRIPTION
+ *      this function decodes the extension set fields
+ *  PARAMETERS
+ *      proto_tree *tree    - pointer to data tree Wireshark uses to display packet.
+ *      tvbuff_t *tvb       - pointer to buffer containing raw packet.
+ *      guint *offset       - pointer to buffer offset
+ *  RETURNS
+ *      none
+ *---------------------------------------------------------------
+ */
+static void dissect_zcl_scenes_extension_fields(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    guint8      set = 1;
+    proto_tree *subtree;
+
+    // Is there an extension field?
+    gboolean hasExtensionField = hasExtensionField = tvb_offset_exists(tvb, *offset+2);
+
+    while (hasExtensionField)
+    {
+        // Retrieve the cluster and the length
+        guint32 cluster = tvb_get_guint16(tvb, *offset, ENC_LITTLE_ENDIAN);
+        guint8  length  = tvb_get_guint8 (tvb, *offset+2);
+
+        // Create a subtree
+        subtree = proto_tree_add_subtree_format(tree, tvb, *offset, length, ett_zbee_zcl_scenes_extension_field_set, NULL, "Extension field set %d", set++);
+        proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_cluster, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+        *offset += 3;
+
+        switch (cluster)
+        {
+        case ZBEE_ZCL_CID_ON_OFF:
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_onoff, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            break;
+
+        case ZBEE_ZCL_CID_LEVEL_CONTROL:
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_level, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            break;
+
+        case ZBEE_ZCL_CID_COLOR_CONTROL:
+            if (length >= 2)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_x, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+                length  -= 2;
+                *offset += 2;
+            }
+            if (length >= 2)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_y, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+                length  -= 2;
+                *offset += 2;
+            }
+            if (length >= 2)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_hue, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+                length  -= 2;
+                *offset += 2;
+            }
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_saturation, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_color_loop_active, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_color_loop_direction, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            if (length >= 2)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_color_loop_time, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+                length  -= 2;
+                *offset += 2;
+            }
+            break;
+
+        case ZBEE_ZCL_CID_DOOR_LOCK:
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_lock_state, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            break;
+
+        case ZBEE_ZCL_CID_WINDOW_COVERING:
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_lift_percentage, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_tilt_percentage, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            break;
+
+        case ZBEE_ZCL_CID_THERMOSTAT:
+            if (length >= 2)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_cooling_setpoint, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+                length  -= 2;
+                *offset += 2;
+            }
+            if (length >= 2)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_heating_setpoint, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+                length  -= 2;
+                *offset += 2;
+            }
+            if (length >= 1)
+            {
+                proto_tree_add_item(subtree, hf_zbee_zcl_scenes_extension_set_system_mode, tvb, *offset, 1, ENC_NA);
+                length  -= 1;
+                *offset += 1;
+            }
+            break;
+        }
+
+        *offset += length;
+        hasExtensionField = tvb_offset_exists(tvb, *offset+2);
+    }
+}
 
 
 /*FUNCTION:------------------------------------------------------
@@ -2865,8 +3072,72 @@ proto_register_zbee_zcl_scenes(void)
             { "String", "zbee_zcl_general.scenes.attr_str", FT_STRING, BASE_NONE, NULL,
             0x00, NULL, HFILL }},
 
-        { &hf_zbee_zcl_scenes_extension_set_field,
+        { &hf_zbee_zcl_scenes_extension_set,
             { "Extension Set", "zbee_zcl_general.scenes.extension_set", FT_BYTES, BASE_NONE, NULL,
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_cluster,
+            { "Cluster", "zbee_zcl_general.scenes.extension_set.cluster", FT_UINT16, BASE_HEX, VALS(zbee_aps_cid_names),
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_onoff,
+            { "On/Off", "zbee_zcl_general.scenes.extension_set.onoff", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_level,
+            { "Level", "zbee_zcl_general.scenes.extension_set.level", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_x,
+            { "Color X", "zbee_zcl_general.scenes.extension_set.color_x", FT_UINT16, BASE_CUSTOM, CF_FUNC(decode_color_xy),
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_y,
+            { "Color Y", "zbee_zcl_general.scenes.extension_set.color_y", FT_UINT16, BASE_CUSTOM, CF_FUNC(decode_color_xy),
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_hue,
+            { "Enhanced Hue", "zbee_zcl_general.scenes.extension_set.hue", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_saturation,
+            { "Saturation", "zbee_zcl_general.scenes.extension_set.saturation", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_color_loop_active,
+            { "Color Loop Active", "zbee_zcl_general.scenes.extension_set.color_loop_active", FT_BOOLEAN, 8, TFS(&tfs_true_false),
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_color_loop_direction,
+            { "Color Loop Direction", "zbee_zcl_general.scenes.extension_set.color_loop_direction", FT_UINT8, BASE_DEC, VALS(zbee_zcl_scenes_color_loop_direction_values),
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_color_loop_time,
+            { "Color Loop Time", "zbee_zcl_general.scenes.extension_set.color_loop_time", FT_UINT16, BASE_CUSTOM, CF_FUNC(decode_zcl_time_in_seconds),
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_lock_state,
+            { "Lock State", "zbee_zcl_general.scenes.extension_set.lock_state", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_lift_percentage,
+            { "Current Position Lift Percentage", "zbee_zcl_general.scenes.extension_set.current_position_lift_percentage", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_tilt_percentage,
+            { "Current Position Tilt Percentage", "zbee_zcl_general.scenes.extension_set.current_position_tilt_percentage", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_cooling_setpoint,
+            { "Occupied Cooling Setpoint", "zbee_zcl_general.scenes.extension_set.occupied_cooling_setpoint", FT_INT16, BASE_CUSTOM, CF_FUNC(decode_setpoint),
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_heating_setpoint,
+            { "Occupied Heating Setpoint", "zbee_zcl_general.scenes.extension_set.occupied_heating_setpoint", FT_INT16, BASE_CUSTOM, CF_FUNC(decode_setpoint),
+            0x00, NULL, HFILL }},
+
+        { &hf_zbee_zcl_scenes_extension_set_system_mode,
+            { "System Mode", "zbee_zcl_general.scenes.extension_set.system_mode", FT_UINT8, BASE_DEC, NULL,
             0x00, NULL, HFILL }},
 
         { &hf_zbee_zcl_scenes_copy_mode,
@@ -2884,9 +3155,11 @@ proto_register_zbee_zcl_scenes(void)
     };
 
     /* ZCL Scenes subtrees */
-    static gint *ett[ZBEE_ZCL_SCENES_NUM_ETT];
-    ett[0] = &ett_zbee_zcl_scenes;
-    ett[1] = &ett_zbee_zcl_scenes_scene_ctrl;
+    static gint *ett[] = {
+        &ett_zbee_zcl_scenes,
+        &ett_zbee_zcl_scenes_scene_ctrl,
+        &ett_zbee_zcl_scenes_extension_field_set
+    };
 
     /* Register the ZigBee ZCL Scenes cluster protocol name and description */
     proto_zbee_zcl_scenes = proto_register_protocol("ZigBee ZCL Scenes", "ZCL Scenes", ZBEE_PROTOABBREV_ZCL_SCENES);
@@ -3462,7 +3735,7 @@ proto_register_zbee_zcl_on_off_switch_configuration(void)
     };
 
     /* ZCL Identify subtrees */
-    static gint *ett[]={
+    static gint *ett[] = {
         &ett_zbee_zcl_on_off_switch_configuration
     };
 
@@ -3508,8 +3781,6 @@ proto_reg_handoff_zbee_zcl_on_off_switch_configuration(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_ALARMS_NUM_ETT                     1
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_ALARMS_ALARM_COUNT         0x0000  /* Alarm Count */
@@ -3818,8 +4089,9 @@ proto_register_zbee_zcl_alarms(void)
     };
 
     /* ZCL Alarms subtrees */
-    static gint *ett[ZBEE_ZCL_ALARMS_NUM_ETT];
-    ett[0] = &ett_zbee_zcl_alarms;
+    static gint *ett[] = {
+        &ett_zbee_zcl_alarms
+    };
 
     /* Register the ZigBee ZCL Alarms cluster protocol name and description */
     proto_zbee_zcl_alarms = proto_register_protocol("ZigBee ZCL Alarms", "ZCL Alarms", ZBEE_PROTOABBREV_ZCL_ALARMS);
@@ -3867,8 +4139,6 @@ proto_reg_handoff_zbee_zcl_alarms(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_TIME_NUM_ETT                   2
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_TIME_TIME              0x0000  /* Time */
@@ -4054,10 +4324,10 @@ proto_register_zbee_zcl_time(void)
     };
 
     /* ZCL Time subtrees */
-    static gint *ett[ZBEE_ZCL_TIME_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_time;
-    ett[1] = &ett_zbee_zcl_time_status_mask;
+    static gint *ett[] = {
+        &ett_zbee_zcl_time,
+        &ett_zbee_zcl_time_status_mask
+    };
 
     /* Register the ZigBee ZCL Time cluster protocol name and description */
     proto_zbee_zcl_time = proto_register_protocol("ZigBee ZCL Time", "ZCL Time", ZBEE_PROTOABBREV_ZCL_TIME);
@@ -4104,8 +4374,6 @@ proto_reg_handoff_zbee_zcl_time(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_LEVEL_CONTROL_NUM_ETT                          1
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_LEVEL_CONTROL_CURRENT_LEVEL            0x0000  /* Current Level */
@@ -4464,8 +4732,9 @@ proto_register_zbee_zcl_level_control(void)
     };
 
     /* ZCL Identify subtrees */
-    static gint *ett[ZBEE_ZCL_LEVEL_CONTROL_NUM_ETT];
-    ett[0] = &ett_zbee_zcl_level_control;
+    static gint *ett[] = {
+        &ett_zbee_zcl_level_control
+    };
 
     /* Register the ZigBee ZCL Level Control cluster protocol name and description */
     proto_zbee_zcl_level_control = proto_register_protocol("ZigBee ZCL Level Control", "ZCL Level Control", ZBEE_PROTOABBREV_ZCL_LEVEL_CONTROL);
@@ -4513,8 +4782,6 @@ proto_reg_handoff_zbee_zcl_level_control(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_RSSI_LOCATION_NUM_ETT                                      3
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_RSSI_LOCATION_LOCATION_TYPE                        0x0000  /* Location Type */
@@ -5669,10 +5936,11 @@ proto_register_zbee_zcl_rssi_location(void)
     };
 
     /* ZCL RSSI Location subtrees */
-    static gint *ett[ZBEE_ZCL_RSSI_LOCATION_NUM_ETT];
-    ett[0] = &ett_zbee_zcl_rssi_location;
-    ett[1] = &ett_zbee_zcl_rssi_location_location_type;
-    ett[2] = &ett_zbee_zcl_rssi_location_header;
+    static gint *ett[] = {
+        &ett_zbee_zcl_rssi_location,
+        &ett_zbee_zcl_rssi_location_location_type,
+        &ett_zbee_zcl_rssi_location_header
+    };
 
     /* Register the ZigBee ZCL RSSI Location cluster protocol name and description */
     proto_zbee_zcl_rssi_location = proto_register_protocol("ZigBee ZCL RSSI Location", "ZCL RSSI Location", ZBEE_PROTOABBREV_ZCL_RSSI_LOCATION);
@@ -5957,7 +6225,7 @@ proto_register_zbee_zcl_analog_input_basic(void)
     };
 
     /* ZCL Analog Input Basic subtrees */
-    static gint *ett[]={
+    static gint *ett[] = {
         &ett_zbee_zcl_analog_input_basic,
         &ett_zbee_zcl_analog_input_basic_status_flags
     };
@@ -6247,7 +6515,7 @@ proto_register_zbee_zcl_analog_output_basic(void)
     };
 
     /* ZCL Analog Output Basic subtrees */
-    static gint *ett[]={
+    static gint *ett[] = {
         &ett_zbee_zcl_analog_output_basic,
         &ett_zbee_zcl_analog_output_basic_status_flags,
         &ett_zbee_zcl_analog_output_basic_priority_array,
@@ -6530,7 +6798,7 @@ proto_register_zbee_zcl_analog_value_basic(void)
     };
 
     /* ZCL Analog Value Basic subtrees */
-    static gint *ett[]={
+    static gint *ett[] = {
         &ett_zbee_zcl_analog_value_basic,
         &ett_zbee_zcl_analog_value_basic_status_flags,
         &ett_zbee_zcl_analog_value_basic_priority_array,
@@ -6786,7 +7054,7 @@ proto_register_zbee_zcl_binary_input_basic(void)
     };
 
     /* ZCL Binary Input Basic subtrees */
-    static gint *ett[]={
+    static gint *ett[] = {
              &ett_zbee_zcl_binary_input_basic,
              &ett_zbee_zcl_binary_input_basic_status_flags
     };
@@ -7091,7 +7359,7 @@ proto_register_zbee_zcl_binary_output_basic(void)
     };
 
     /* ZCL Binary Output Basic subtrees */
-    static gint *ett[]={
+    static gint *ett[] = {
             &ett_zbee_zcl_binary_output_basic,
             &ett_zbee_zcl_binary_output_basic_status_flags,
             &ett_zbee_zcl_binary_output_basic_priority_array,
@@ -7380,7 +7648,7 @@ proto_register_zbee_zcl_binary_value_basic(void)
     };
 
     /* ZCL Binary Value Basic subtrees */
-    static gint *ett[]={
+    static gint *ett[] = {
         &ett_zbee_zcl_binary_value_basic,
         &ett_zbee_zcl_binary_value_basic_status_flags,
         &ett_zbee_zcl_binary_value_basic_priority_array,
@@ -7430,8 +7698,6 @@ proto_reg_handoff_zbee_zcl_binary_value_basic(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_MULTISTATE_INPUT_BASIC_NUM_ETT                                 2
 
 /*Attributes*/
 #define ZBEE_ZCL_ATTR_ID_MULTISTATE_INPUT_BASIC_STATE_TEXT                      0x000E  /* State Text */
@@ -7618,10 +7884,10 @@ proto_register_zbee_zcl_multistate_input_basic(void)
     };
 
     /* ZCL Multistate Input Basic subtrees */
-    static gint *ett[ZBEE_ZCL_MULTISTATE_INPUT_BASIC_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_multistate_input_basic;
-    ett[1] = &ett_zbee_zcl_multistate_input_basic_status_flags;
+    static gint *ett[] = {
+        &ett_zbee_zcl_multistate_input_basic,
+        &ett_zbee_zcl_multistate_input_basic_status_flags
+    };
 
     /* Register the ZigBee ZCL Multistate Input Basic cluster protocol name and description */
     proto_zbee_zcl_multistate_input_basic = proto_register_protocol("ZigBee ZCL Multistate Input Basic", "ZCL Multistate Input Basic", ZBEE_PROTOABBREV_ZCL_MULTISTATE_INPUT_BASIC);
@@ -7666,8 +7932,6 @@ proto_reg_handoff_zbee_zcl_multistate_input_basic(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_MULTISTATE_OUTPUT_BASIC_NUM_ETT                                 4
 
 /*Attributes*/
 #define ZBEE_ZCL_ATTR_ID_MULTISTATE_OUTPUT_BASIC_STATE_TEXT                      0x000E  /* State Text */
@@ -7907,12 +8171,12 @@ proto_register_zbee_zcl_multistate_output_basic(void)
 };
 
     /* ZCL Multistate Output Basic subtrees */
-    static gint *ett[ZBEE_ZCL_MULTISTATE_OUTPUT_BASIC_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_multistate_output_basic;
-    ett[1] = &ett_zbee_zcl_multistate_output_basic_status_flags;
-    ett[2] = &ett_zbee_zcl_multistate_output_basic_priority_array;
-    ett[3] = &ett_zbee_zcl_multistate_output_basic_priority_array_structure;
+    static gint *ett[] = {
+        &ett_zbee_zcl_multistate_output_basic,
+        &ett_zbee_zcl_multistate_output_basic_status_flags,
+        &ett_zbee_zcl_multistate_output_basic_priority_array,
+        &ett_zbee_zcl_multistate_output_basic_priority_array_structure
+    };
 
     /* Register the ZigBee ZCL Multistate Output Basic cluster protocol name and description */
     proto_zbee_zcl_multistate_output_basic = proto_register_protocol("ZigBee ZCL Multistate Output Basic", "ZCL Multistate Output Basic", ZBEE_PROTOABBREV_ZCL_MULTISTATE_OUTPUT_BASIC);
@@ -7957,8 +8221,6 @@ proto_reg_handoff_zbee_zcl_multistate_output_basic(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_MULTISTATE_VALUE_BASIC_NUM_ETT                                 4
 
 /*Attributes*/
 #define ZBEE_ZCL_ATTR_ID_MULTISTATE_VALUE_BASIC_STATE_TEXT                      0x000E  /* State Text */
@@ -8199,12 +8461,12 @@ proto_register_zbee_zcl_multistate_value_basic(void)
     };
 
     /* ZCL Multistate Value Basic subtrees */
-    static gint *ett[ZBEE_ZCL_MULTISTATE_VALUE_BASIC_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_multistate_value_basic;
-    ett[1] = &ett_zbee_zcl_multistate_value_basic_status_flags;
-    ett[2] = &ett_zbee_zcl_multistate_value_basic_priority_array;
-    ett[3] = &ett_zbee_zcl_multistate_value_basic_priority_array_structure;
+    static gint *ett[] = {
+        &ett_zbee_zcl_multistate_value_basic,
+        &ett_zbee_zcl_multistate_value_basic_status_flags,
+        &ett_zbee_zcl_multistate_value_basic_priority_array,
+        &ett_zbee_zcl_multistate_value_basic_priority_array_structure
+    };
 
     /* Register the ZigBee ZCL Multistate Value Basic cluster protocol name and description */
     proto_zbee_zcl_multistate_value_basic = proto_register_protocol("ZigBee ZCL Multistate Value Basic", "ZCL Multistate Value Basic", ZBEE_PROTOABBREV_ZCL_MULTISTATE_VALUE_BASIC);
@@ -8248,8 +8510,6 @@ proto_reg_handoff_zbee_zcl_multistate_value_basic(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_COMMISSIONING_NUM_ETT                                      3
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_COMMISSIONING_SHORT_ADDRESS                        0x0000  /* Short Address */
@@ -8800,10 +9060,11 @@ proto_register_zbee_zcl_commissioning(void)
     };
 
     /* ZCL Commissioning subtrees */
-    static gint *ett[ZBEE_ZCL_COMMISSIONING_NUM_ETT];
-    ett[0] = &ett_zbee_zcl_commissioning;
-    ett[1] = &ett_zbee_zcl_commissioning_restart_device_options;
-    ett[2] = &ett_zbee_zcl_commissioning_reset_startup_options;
+    static gint *ett[] = {
+        &ett_zbee_zcl_commissioning,
+        &ett_zbee_zcl_commissioning_restart_device_options,
+        &ett_zbee_zcl_commissioning_reset_startup_options
+    };
 
     /* Register the ZigBee ZCL Commissioning cluster protocol name and description */
     proto_zbee_zcl_commissioning = proto_register_protocol("ZigBee ZCL Commissioning", "ZCL Commissioning", ZBEE_PROTOABBREV_ZCL_COMMISSIONING);
@@ -9359,11 +9620,11 @@ void proto_register_zbee_zcl_part(void)
     };
 
     /* ZCL Partition subtrees */
-    gint *ett[ZBEE_ZCL_PART_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_part;
-    ett[1] = &ett_zbee_zcl_part_fragm_options;
-    ett[2] = &ett_zbee_zcl_part_ack_opts;
+    gint *ett[ZBEE_ZCL_PART_NUM_ETT] = {
+        &ett_zbee_zcl_part,
+        &ett_zbee_zcl_part_fragm_options,
+        &ett_zbee_zcl_part_ack_opts
+    };
 
     /* initialize attribute subtree types */
     for ( i = 0, j = ZBEE_ZCL_PART_NUM_GENERIC_ETT; i < ZBEE_ZCL_PART_NUM_NACK_ID_ETT; i++, j++) {
@@ -9420,9 +9681,6 @@ void proto_reg_handoff_zbee_zcl_part(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_OTA_NUM_GENERIC_ETT                        3
-#define ZBEE_ZCL_OTA_NUM_ETT                                (ZBEE_ZCL_OTA_NUM_GENERIC_ETT)
 
 /* Attributes */
 #define ZBEE_ZCL_ATTR_ID_OTA_UPGRADE_SERVER_ID              0x0000  /* Upgrade Server ID */
@@ -10564,10 +10822,11 @@ void proto_register_zbee_zcl_ota(void)
    };
 
     /* ZCL OTA subtrees */
-    gint *ett[ZBEE_ZCL_OTA_NUM_ETT];
-    ett[0] = &ett_zbee_zcl_ota;
-    ett[1] = &ett_zbee_zcl_ota_field_ctrl;
-    ett[2] = &ett_zbee_zcl_ota_file_version;
+    gint *ett[] = {
+        &ett_zbee_zcl_ota,
+        &ett_zbee_zcl_ota_field_ctrl,
+        &ett_zbee_zcl_ota_file_version
+    };
 
     /* Register ZigBee ZCL Ota protocol with Wireshark. */
     proto_zbee_zcl_ota = proto_register_protocol("ZigBee ZCL OTA", "ZCL OTA", ZBEE_PROTOABBREV_ZCL_OTA);
@@ -11692,12 +11951,12 @@ proto_register_zbee_zcl_pwr_prof(void)
   };
 
     /* ZCL PowerProfile subtrees */
-    static gint *ett[ZBEE_ZCL_PWR_PROF_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_pwr_prof;
-    ett[1] = &ett_zbee_zcl_pwr_prof_options;
-    ett[2] = &ett_zbee_zcl_pwr_prof_en_format;
-    ett[3] = &ett_zbee_zcl_pwr_prof_sched_mode;
+    static gint *ett[ZBEE_ZCL_PWR_PROF_NUM_ETT] = {
+        &ett_zbee_zcl_pwr_prof,
+        &ett_zbee_zcl_pwr_prof_options,
+        &ett_zbee_zcl_pwr_prof_en_format,
+        &ett_zbee_zcl_pwr_prof_sched_mode
+    };
 
     /* initialize attribute subtree types */
     for ( i = 0, j = ZBEE_ZCL_PWR_PROF_NUM_GENERIC_ETT; i < ZBEE_ZCL_PWR_PROF_NUM_PWR_PROF_ETT; i++, j++ ) {
@@ -12371,11 +12630,11 @@ proto_register_zbee_zcl_appl_ctrl(void)
     };
 
     /* ZCL ApplianceControl subtrees */
-    gint *ett[ZBEE_ZCL_APPL_CTRL_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_appl_ctrl;
-    ett[1] = &ett_zbee_zcl_appl_ctrl_flags;
-    ett[2] = &ett_zbee_zcl_appl_ctrl_time;
+    gint *ett[ZBEE_ZCL_APPL_CTRL_NUM_ETT] = {
+        &ett_zbee_zcl_appl_ctrl,
+        &ett_zbee_zcl_appl_ctrl_flags,
+        &ett_zbee_zcl_appl_ctrl_time
+    };
 
     /* initialize attribute subtree types */
     for ( i = 0, j = ZBEE_ZCL_APPL_CTRL_NUM_GENERIC_ETT; i < ZBEE_ZCL_APPL_CTRL_NUM_FUNC_ETT; i++, j++) {
@@ -12427,8 +12686,6 @@ proto_reg_handoff_zbee_zcl_appl_ctrl(void)
 /*************************/
 /* Defines               */
 /*************************/
-
-#define ZBEE_ZCL_POLL_CTRL_NUM_ETT                      1
 
 /* Poll Control Attributes */
 #define ZBEE_ZCL_ATTR_ID_POLL_CTRL_CHECK_IN             0x0000
@@ -12647,9 +12904,9 @@ proto_register_zbee_zcl_poll_ctrl(void)
     };
 
     /* ZCL Poll Control subtrees */
-    static gint *ett[ZBEE_ZCL_POLL_CTRL_NUM_ETT];
-
-    ett[0] = &ett_zbee_zcl_poll_ctrl;
+    static gint *ett[] = {
+        &ett_zbee_zcl_poll_ctrl
+    };
 
     /* Register the ZigBee ZCL Poll Control cluster protocol name and description */
     proto_zbee_zcl_poll_ctrl = proto_register_protocol("ZigBee ZCL Poll Control", "ZCL Poll Control", ZBEE_PROTOABBREV_ZCL_POLL);
