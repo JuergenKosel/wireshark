@@ -205,6 +205,11 @@ Requires:	libmaxminddb
 %prep
 %setup -q -n %{name}-%{package_version}
 
+# Suse has a wrong bindir for cmake. Set it to the right one.
+%if 0%{?suse_version}
+%define _bindir /usr/bin
+%endif
+
 # Don't specify the prefix here: configure is a macro which expands to set
 # the prefix and everything else too.  If you need to change the prefix
 # set _prefix (note the underscore) either in this file or on rpmbuild's
@@ -261,7 +266,6 @@ Requires:	libmaxminddb
 %if %{with ninja}
   -G Ninja \
 %endif
-  .
 
 %if %{with ninja}
 # Older RPM-based distributions used ninja-build in order to prevent a collision with
@@ -280,6 +284,7 @@ make %{?_smp_mflags}
 %install
 rm -rf $RPM_BUILD_ROOT
 %if %{with ninja}
+NINJA=$(which ninja || which ninja-build)
 DESTDIR=$RPM_BUILD_ROOT $NINJA install
 %if %{with guides}
 DESTDIR=$RPM_BUILD_ROOT $NINJA install_guides

@@ -98,6 +98,8 @@ static expert_field ei_pdcp_nr_sequence_analysis_wrong_sequence_number = EI_INIT
 static expert_field ei_pdcp_nr_reserved_bits_not_zero = EI_INIT;
 static expert_field ei_pdcp_nr_sequence_analysis_sn_repeated = EI_INIT;
 static expert_field ei_pdcp_nr_sequence_analysis_sn_missing = EI_INIT;
+static expert_field ei_pdcp_nr_unknown_udp_framing_tag = EI_INIT;
+static expert_field ei_pdcp_nr_missing_udp_framing_tag = EI_INIT;
 
 
 
@@ -678,6 +680,11 @@ static void show_pdcp_config(packet_info *pinfo, tvbuff_t *tvb, proto_tree *tree
     }
 
     if (p_pdcp_info->plane == NR_USER_PLANE) {
+        /* Seqnum length */
+        ti = proto_tree_add_uint(configuration_tree, hf_pdcp_nr_seqnum_length, tvb, 0, 0,
+                                 p_pdcp_info->seqnum_length);
+        PROTO_ITEM_SET_GENERATED(ti);
+
         /* ROHC compression */
         ti = proto_tree_add_boolean(configuration_tree, hf_pdcp_nr_rohc_compression, tvb, 0, 0,
                                     p_pdcp_info->rohc.rohc_compression);
@@ -769,6 +776,19 @@ static dissector_handle_t lookup_rrc_dissector_handle(struct pdcp_nr_info  *p_pd
 /* Forwad declarations */
 static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data);
 
+static void report_heur_error(proto_tree *tree, packet_info *pinfo, expert_field *eiindex,
+                              tvbuff_t *tvb, gint start, gint length)
+{
+    proto_item *ti;
+    proto_tree *subtree;
+
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "PDCP-NR");
+    col_clear(pinfo->cinfo, COL_INFO);
+    ti = proto_tree_add_item(tree, proto_pdcp_nr, tvb, 0, -1, ENC_NA);
+    subtree = proto_item_add_subtree(ti, ett_pdcp);
+    proto_tree_add_expert(subtree, pinfo, eiindex, tvb, start, length);
+}
+
 /* Heuristic dissector looks for supported framing protocol (see wiki page)  */
 static gboolean dissect_pdcp_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
                                      proto_tree *tree, void *data _U_)
@@ -784,9 +804,10 @@ static gboolean dissect_pdcp_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
 
     /* Needs to be at least as long as:
        - the signature string
-       - mandatory fields
-       - at least the payload tag and a byte of data.
-       However, let attempted dissection show if there are any tags at all. */
+       - fixed header byte(s)
+       - tag for data
+       - at least one byte of PDCP PDU payload.
+      However, let attempted dissection show if there are any tags at all. */
     gint min_length = (gint)(strlen(PDCP_NR_START_STRING) + 3); /* signature */
 
     if (tvb_captured_length_remaining(tvb, offset) < min_length) {
@@ -811,15 +832,18 @@ static gboolean dissect_pdcp_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
         infoAlreadySet = TRUE;
     }
 
+    /* Read fixed fields */
+    p_pdcp_nr_info->plane = (enum pdcp_nr_plane)tvb_get_guint8(tvb, offset++);
+    if (p_pdcp_nr_info->plane == NR_SIGNALING_PLANE) {
+        /* Signalling plane always has 12 SN bits */
+        p_pdcp_nr_info->seqnum_length = PDCP_NR_SN_LENGTH_12_BITS;
+    }
 
     /* Read tagged fields */
     while (tag != PDCP_NR_PAYLOAD_TAG) {
         /* Process next tag */
         tag = tvb_get_guint8(tvb, offset++);
         switch (tag) {
-            case PDCP_NR_PLANE_TAG:
-                p_pdcp_nr_info->plane = (enum pdcp_nr_plane)tvb_get_guint8(tvb, offset++);
-                break;
             case PDCP_NR_SEQNUM_LENGTH_TAG:
                 p_pdcp_nr_info->seqnum_length = tvb_get_guint8(tvb, offset);
                 offset++;
@@ -841,14 +865,12 @@ static gboolean dissect_pdcp_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
                 p_pdcp_nr_info->ueid = tvb_get_ntohs(tvb, offset);
                 offset += 2;
                 break;
-
             case PDCP_NR_ROHC_COMPRESSION_TAG:
-                p_pdcp_nr_info->rohc.rohc_compression = tvb_get_guint8(tvb, offset);
-                offset += 2;
+                p_pdcp_nr_info->rohc.rohc_compression = TRUE;
                 break;
             case PDCP_NR_ROHC_IP_VERSION_TAG:
-                p_pdcp_nr_info->rohc.rohc_ip_version = tvb_get_ntohs(tvb, offset);
-                offset += 2;
+                p_pdcp_nr_info->rohc.rohc_ip_version = tvb_get_guint8(tvb, offset);
+                offset++;
                 break;
             case PDCP_NR_ROHC_CID_INC_INFO_TAG:
                 p_pdcp_nr_info->rohc.cid_inclusion_info = tvb_get_guint8(tvb, offset);
@@ -882,13 +904,15 @@ static gboolean dissect_pdcp_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
 
             default:
                 /* It must be a recognised tag */
-                return FALSE;
+                report_heur_error(tree, pinfo, &ei_pdcp_nr_unknown_udp_framing_tag, tvb, offset-1, 1);
+                return TRUE;
         }
     }
 
     if ((p_pdcp_nr_info->plane == NR_USER_PLANE) && (seqnumLengthTagPresent == FALSE)) {
         /* Conditional field is not present */
-        return FALSE;
+        report_heur_error(tree, pinfo, &ei_pdcp_nr_missing_udp_framing_tag, tvb, 0, offset);
+        return TRUE;
     }
 
     if (!infoAlreadySet) {
@@ -1542,6 +1566,8 @@ void proto_register_pdcp_nr(void)
         { &ei_pdcp_nr_sequence_analysis_sn_repeated, { "pdcp-nr.sequence-analysis.sn-repeated", PI_SEQUENCE, PI_WARN, "PDCP SN repeated", EXPFILL }},
         { &ei_pdcp_nr_sequence_analysis_wrong_sequence_number, { "pdcp-nr.sequence-analysis.wrong-sequence-number", PI_SEQUENCE, PI_WARN, "Wrong Sequence Number", EXPFILL }},
         { &ei_pdcp_nr_reserved_bits_not_zero, { "pdcp-nr.reserved-bits-not-zero", PI_MALFORMED, PI_ERROR, "Reserved bits not zero", EXPFILL }},
+        { &ei_pdcp_nr_unknown_udp_framing_tag, { "pdcp-nr.unknown-udp-framing-tag", PI_UNDECODED, PI_WARN, "Unknown UDP framing tag, aborting dissection", EXPFILL }},
+        { &ei_pdcp_nr_missing_udp_framing_tag, { "pdcp-nr.missing-udp-framing-tag", PI_UNDECODED, PI_WARN, "Missing UDP framing conditional tag, aborting dissection", EXPFILL }}
     };
 
     static const enum_val_t sequence_analysis_vals[] = {

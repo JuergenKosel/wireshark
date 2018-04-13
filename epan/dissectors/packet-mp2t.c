@@ -24,6 +24,8 @@
 #include <epan/reassemble.h>
 #include <epan/address_types.h>
 #include <epan/proto_data.h>
+#include <epan/exceptions.h>
+#include <epan/show_exception.h>
 #include "packet-l2tp.h"
 
 void proto_register_mp2t(void);
@@ -551,24 +553,52 @@ mp2t_fragment_handle(tvbuff_t *tvb, guint offset, packet_info *pinfo,
 }
 
 
-/*  Decoding of DOCSIS MAC frames within MPEG packets. MAC frames may begin anywhere
- *  within an MPEG packet or span multiple MPEG packets.
- *  payload_unit_start_indicator bit in MPEG header, and pointer field are used to
- *  decode fragmented DOCSIS frames within MPEG packet.
- *-------------------------------------------------------------------------------
- *MPEG Header | pointer_field | stuff_bytes | Start of MAC Frame #1              |
- *(PUSI = 1)  | (= 0)         | (0 or more) |(up to 183 bytes)                   |
- *-------------------------------------------------------------------------------
- *-------------------------------------------------------------------------------
- *MPEG Header |  Continuation of MAC Frame #1                                    |
- *(PUSI = 0)  |  (up to 183 bytes)                                               |
- *-------------------------------------------------------------------------------
- *-------------------------------------------------------------------------------
- *MPEG Header | pointer_field |Tail of MAC Frame| stuff_bytes |Start of MAC Frame|
- *(PUSI = 1)  | (= M)         | #1  (M bytes)   | (0 or more) |# 2 (N bytes)     |
- *-------------------------------------------------------------------------------
- *  Source - Data-Over-Cable Service Interface Specifications
- *  CM-SP-DRFI-I07-081209
+/*
+ * Reassembly of various payload types.
+ *
+ * DOCSIS MAC frames, PES packets, etc. may begin anywhere within an MPEG-TS
+ * packet or span multiple MPEG packets.
+ *
+ * The payload_unit_start_indicator bit in the MPEG-TS header, and the pointer
+ * field, are used to reassemble fragmented frames from MPEG-TS packets.
+ *
+ * If that bit is set, a higher-level packet begins in this MPEG-TS
+ * packet, and the MPEG-TS header is followed by a 1-octet pointer field.
+ * The value of the pointer field indicates at which byte the higher-
+ * level packet begins.  If that bit is not set, the packet begun in
+ * an earlier MPEG-TS packet continues in this packet, with the data
+ * in the payload going after the data in the previous MPEG-TS packet
+ * (there can be more than one continuing packet).
+ *
+ * If the pointer field is non-zero, this MPEG-TS packet contains
+ * the conclusion of one higher-level packet and the beginning of
+ * the next packet.
+ *
+ * As the MPEG-TS packets are of a fixed size, stuff bytes are used
+ * as padding before the first byte of a higher-level packet as
+ * necessary.
+ *
+ * This diagram is from Data-Over-Cable Service Interface Specifications,
+ * Downstream RF Interface Specification, CM-SP-DRFI-I16-170111, section 7
+ * "DOWNSTREAM TRANSMISSION CONVERGENCE SUBLAYER", and shows how the
+ * higher-level packets are transported over the MPEG Transport Stream:
+ *
+ *+--------------------------------------------------------------------------------+
+ *|MPEG Header | pointer_field | stuff_bytes | Start of Packet #1                  |
+ *|(PUSI = 1)  | (= 0)         | (0 or more) | (up to 183 bytes)                   |
+ *+--------------------------------------------------------------------------------+
+ *+--------------------------------------------------------------------------------+
+ *|MPEG Header |  Continuation of Packet #1                                        |
+ *|(PUSI = 0)  |  (up to 183 bytes)                                                |
+ *+--------------------------------------------------------------------------------+
+ *+---------------------------------------------------------------------------------+
+ *|MPEG Header | pointer_field |Tail of Packet #1 | stuff_bytes |Start of Packet #2 |
+ *|(PUSI = 1)  | (= M)         |(M bytes)         | (0 or more) |(N bytes)          |
+ *+---------------------------------------------------------------------------------+
+ *
+ * For PES and PSI, see ISO/IEC 13818-1 / ITU-T Rec. H.222.0 (05/2006),
+ * section 2.4.3.3 "Semantic definition of fields in Transport Stream packet
+ * layer", which says much the same thing.
  */
 static void
 mp2t_process_fragmented_payload(tvbuff_t *tvb, gint offset, guint remaining_len, packet_info *pinfo,
@@ -1193,13 +1223,40 @@ dissect_tsp(tvbuff_t *tvb, gint offset, packet_info *pinfo,
 static int
 dissect_mp2t( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_ )
 {
-    guint         offset = 0;
-    conversation_t    *conv;
+    volatile guint offset = 0;
+    conversation_t *conv;
+    const char     *saved_proto;
 
     conv = find_or_create_conversation(pinfo);
 
     for (; tvb_reported_length_remaining(tvb, offset) >= MP2T_PACKET_SIZE; offset += MP2T_PACKET_SIZE) {
-       dissect_tsp(tvb, offset, pinfo, tree, conv);
+        /*
+         * Dissect the TSP.
+         *
+         * If it gets an error that means there's no point in
+         * dissecting any more TSPs, rethrow the exception in
+         * question.
+         *
+         * If it gets any other error, report it and continue, as that
+         * means that TSP got an error, but that doesn't mean we should
+         * stop dissecting TSPs within this frame or chunk of reassembled
+         * data.
+         */
+        saved_proto = pinfo->current_proto;
+        TRY {
+            dissect_tsp(tvb, offset, pinfo, tree, conv);
+        }
+        CATCH_NONFATAL_ERRORS {
+            show_exception(tvb, pinfo, tree, EXCEPT_CODE, GET_MESSAGE);
+
+            /*
+             * Restore the saved protocol as well; we do this after
+             * show_exception(), so that the "Malformed packet" indication
+             * shows the protocol for which dissection failed.
+             */
+            pinfo->current_proto = saved_proto;
+        }
+        ENDTRY;
     }
     return tvb_captured_length(tvb);
 }
