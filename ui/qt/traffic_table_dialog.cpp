@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "log.h"
 #include "traffic_table_dialog.h"
@@ -76,8 +77,8 @@ TrafficTableDialog::TrafficTableDialog(QWidget &parent, CaptureFile &cf, const c
     connect(wsApp, SIGNAL(addressResolutionChanged()), this, SLOT(updateWidgets()));
     connect(ui->trafficTableTabWidget, SIGNAL(currentChanged(int)),
             this, SLOT(currentTabChanged()));
-    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
-            this, SLOT(captureEvent(CaptureEvent *)));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent)),
+            this, SLOT(captureEvent(CaptureEvent)));
 }
 
 TrafficTableDialog::~TrafficTableDialog()
@@ -218,11 +219,11 @@ void TrafficTableDialog::on_displayFilterCheckBox_toggled(bool checked)
     cap_file_.retapPackets();
 }
 
-void TrafficTableDialog::captureEvent(CaptureEvent *e)
+void TrafficTableDialog::captureEvent(CaptureEvent e)
 {
-    if (e->captureContext() == CaptureEvent::Retap)
+    if (e.captureContext() == CaptureEvent::Retap)
     {
-        switch (e->eventType())
+        switch (e.eventType())
         {
         case CaptureEvent::Started:
             ui->displayFilterCheckBox->setEnabled(false);

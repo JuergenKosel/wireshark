@@ -229,11 +229,19 @@ static int hf_mac_nr_rar_subheader = -1;
 static int hf_mac_nr_rar_e = -1;
 static int hf_mac_nr_rar_t = -1;
 static int hf_mac_nr_rar_reserved = -1;
+static int hf_mac_nr_rar_reserved2 = -1;
 
 static int hf_mac_nr_rar_bi = -1;
 static int hf_mac_nr_rar_rapid = -1;
 static int hf_mac_nr_rar_ta = -1;
 static int hf_mac_nr_rar_grant = -1;
+static int hf_mac_nr_rar_grant_hopping = -1;
+static int hf_mac_nr_rar_grant_fra = -1;
+static int hf_mac_nr_rar_grant_tsa = -1;
+static int hf_mac_nr_rar_grant_mcs = -1;
+static int hf_mac_nr_rar_grant_tcsp = -1;
+static int hf_mac_nr_rar_grant_csi = -1;
+
 static int hf_mac_nr_rar_temp_crnti = -1;
 
 static int hf_mac_nr_padding = -1;
@@ -243,11 +251,15 @@ static int ett_mac_nr = -1;
 static int ett_mac_nr_context = -1;
 static int ett_mac_nr_subheader = -1;
 static int ett_mac_nr_rar_subheader = -1;
+static int ett_mac_nr_rar_grant = -1;
 static int ett_mac_nr_me_phr_entry = -1;
 
 static expert_field ei_mac_nr_no_per_frame_data = EI_INIT;
 static expert_field ei_mac_nr_sdu_length_different_from_dissected = EI_INIT;
 static expert_field ei_mac_nr_unknown_udp_framing_tag = EI_INIT;
+static expert_field ei_mac_nr_dl_sch_control_subheader_after_data_subheader = EI_INIT;
+static expert_field ei_mac_nr_ul_sch_control_subheader_before_data_subheader = EI_INIT;
+
 
 static dissector_handle_t nr_rrc_bcch_bch_handle;
 
@@ -752,6 +764,21 @@ static const value_string buffer_size_8bits_vals[] =
 };
 static value_string_ext buffer_size_8bits_vals_ext = VALUE_STRING_EXT_INIT(buffer_size_8bits_vals);
 
+static const value_string tpc_command_vals[] =
+{
+    { 0,   "-6dB"},
+    { 1,   "-4dB"},
+    { 2,   "-2dB"},
+    { 3,   "0dB"},
+    { 4,   "2dB"},
+    { 5,   "4dB"},
+    { 6,   "6dB"},
+    { 7,   "8dB"},
+    { 0,   NULL }
+};
+
+
+
 static const true_false_string power_backoff_affects_power_management_vals =
 {
     "Power backoff is applied to power management",
@@ -928,7 +955,7 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
             /* 2 reserved bits */
             proto_tree_add_item(rar_subheader_tree, hf_mac_nr_rar_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
 
-            /* BI */
+            /* BI (4 bits) */
             guint32 BI;
             proto_tree_add_item_ret_uint(rar_subheader_tree, hf_mac_nr_rar_bi, tvb, offset, 1, ENC_BIG_ENDIAN, &BI);
             offset++;
@@ -941,16 +968,32 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
             guint32 rapid;
             proto_tree_add_item_ret_uint(rar_subheader_tree, hf_mac_nr_rar_rapid, tvb, offset, 1, ENC_BIG_ENDIAN, &rapid);
             offset++;
+
             if (TRUE) {
                 /* SubPDU.  Not for SI request - TODO: define RAPID range for SI request in mac_nr_info */
+
+                /* 3 reserved bits */
+                proto_tree_add_item(rar_subheader_tree, hf_mac_nr_rar_reserved2, tvb, offset, 1, ENC_BIG_ENDIAN);
+
                 /* TA (12 bits) */
                 guint32 ta;
                 proto_tree_add_item_ret_uint(rar_subheader_tree, hf_mac_nr_rar_ta, tvb, offset, 2, ENC_BIG_ENDIAN, &ta);
                 offset++;
 
-                /* Grant (20 bits).  TODO: break down! */
-                proto_tree_add_item(rar_subheader_tree, hf_mac_nr_rar_grant, tvb, offset, 3, ENC_BIG_ENDIAN);
-                offset += 3;
+                /* Break down the 25-bits of the grant field, according to 38.213, section 8.2 */
+                static const int *rar_grant_fields[] = {
+                    &hf_mac_nr_rar_grant_hopping,
+                    &hf_mac_nr_rar_grant_fra,
+                    &hf_mac_nr_rar_grant_tsa,
+                    &hf_mac_nr_rar_grant_mcs,
+                    &hf_mac_nr_rar_grant_tcsp,
+                    &hf_mac_nr_rar_grant_csi,
+                    NULL
+                };
+
+                proto_tree_add_bitmask(rar_subheader_tree, tvb, offset, hf_mac_nr_rar_grant,
+                                       ett_mac_nr_rar_grant, rar_grant_fields, ENC_BIG_ENDIAN);
+                offset += 4;
 
                 /* C-RNTI (2 bytes) */
                 guint32 c_rnti;
@@ -1062,6 +1105,9 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                    mac_nr_info *p_mac_nr_info,
                                    proto_tree *context_tree _U_)
 {
+    gboolean ces_seen = FALSE;
+    gboolean data_seen = FALSE;
+
     /************************************************************************/
     /* Dissect each sub-pdu.                                             */
     do {
@@ -1091,7 +1137,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         /* LCID */
         proto_tree_add_uint(subheader_tree,
                             (p_mac_nr_info->direction == DIRECTION_UPLINK) ?
-                                hf_mac_nr_ulsch_lcid : hf_mac_nr_dlsch_lcid,
+                                  hf_mac_nr_ulsch_lcid : hf_mac_nr_dlsch_lcid,
                             tvb, offset, 1, lcid);
         offset++;
 
@@ -1122,9 +1168,21 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
                                      "(LCID:%u %u bytes) ", lcid, SDU_length);
             offset += SDU_length;
+
+            if (p_mac_nr_info->direction == DIRECTION_UPLINK) {
+                if (ces_seen) {
+                    expert_add_info_format(pinfo, subheader_ti, &ei_mac_nr_ul_sch_control_subheader_before_data_subheader,
+                                           "UL-SCH: should not have Data SDUs after Control Elements");
+                }
+            }
+            data_seen = TRUE;
         }
         else {
             /* Control Elements */
+            if (lcid != PADDING_LCID) {
+                ces_seen = TRUE;
+            }
+
             if (p_mac_nr_info->direction == DIRECTION_UPLINK) {
                 guint32 phr_ph, phr_pcmac_c, c_rnti, lcg_id, bs;
 
@@ -1312,6 +1370,13 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             else {
                 /* Downlink control elements */
                 guint32 ta_tag_id, ta_ta;
+
+                if (lcid != PADDING_LCID) {
+                    if (data_seen) {
+                        expert_add_info_format(pinfo, subheader_ti, &ei_mac_nr_dl_sch_control_subheader_after_data_subheader,
+                                               "DL-SCH: should not have Control Elements after Data SDUs");
+                    }
+                }
 
                 switch (lcid) {
                     case SP_ZP_CSI_RS_RESOURCE_SET_ACT_DEACT_LCID:
@@ -2055,6 +2120,13 @@ void proto_register_mac_nr(void)
               NULL, HFILL
             }
         },
+        { &hf_mac_nr_rar_reserved2,
+            { "Reserved",
+              "mac-nr.rar.reserved", FT_UINT8, BASE_DEC, NULL, 0xe0,
+              NULL, HFILL
+            }
+        },
+
         { &hf_mac_nr_rar_subheader,
             { "Subheader",
               "mac-nr.rar.subheader", FT_STRING, BASE_NONE, NULL, 0x0,
@@ -2075,16 +2147,54 @@ void proto_register_mac_nr(void)
         },
         { &hf_mac_nr_rar_ta,
             { "Timing Advance",
-              "mac-nr.rar.ta", FT_UINT16, BASE_DEC, NULL, 0xfff0,
+              "mac-nr.rar.ta", FT_UINT16, BASE_DEC, NULL, 0x1ffe,
               NULL, HFILL
             }
         },
+
         { &hf_mac_nr_rar_grant,
             { "Grant",
-              "mac-nr.rar.grant", FT_UINT24, BASE_DEC, NULL, 0x0fffff,
+              "mac-nr.rar.grant", FT_UINT32, BASE_HEX, NULL, 0x01ffffff,
               "UL Grant details", HFILL
             }
         },
+        { &hf_mac_nr_rar_grant_hopping,
+            { "Frequency hopping flag",
+              "mac-nr.rar.grant.hopping", FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x01000000,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_rar_grant_fra,
+            { "Msg3 PUSCH frequency resource allocation",
+              "mac-nr.rar.grant.fra", FT_UINT32, BASE_DEC, NULL, 0x00fff000,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_rar_grant_tsa,
+            { "Msg3 PUSCH time resource allocation",
+              "mac-nr.rar.grant.tsa", FT_UINT32, BASE_DEC, NULL, 0x00000f00,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_rar_grant_mcs,
+            { "MCS",
+              "mac-nr.rar.grant.mcs", FT_UINT32, BASE_DEC, NULL, 0x000000f0,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_rar_grant_tcsp,
+            { "TPC command for Msg3 PUSCH",
+              "mac-nr.rar.grant.tcsp", FT_UINT32, BASE_DEC, VALS(tpc_command_vals), 0x0000000e,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_rar_grant_csi,
+            { "CSI request",
+              "mac-nr.rar.grant.csi", FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001,
+              NULL, HFILL
+            }
+        },
+
         { &hf_mac_nr_rar_temp_crnti,
             { "Temporary C-RNTI",
               "mac-nr.rar.temp_crnti", FT_UINT16, BASE_HEX_DEC, NULL, 0x0,
@@ -3119,13 +3229,16 @@ void proto_register_mac_nr(void)
         &ett_mac_nr_context,
         &ett_mac_nr_subheader,
         &ett_mac_nr_rar_subheader,
+        &ett_mac_nr_rar_grant,
         &ett_mac_nr_me_phr_entry
     };
 
     static ei_register_info ei[] = {
-        { &ei_mac_nr_no_per_frame_data,                   { "mac-nr.no_per_frame_data", PI_UNDECODED, PI_WARN, "Can't dissect NR MAC frame because no per-frame info was attached!", EXPFILL }},
-        { &ei_mac_nr_sdu_length_different_from_dissected, { "mac-nr.sdu-length-different-from-dissected", PI_UNDECODED, PI_WARN, "Something is wrong with sdu length or dissection is wrong", EXPFILL }},
-        { &ei_mac_nr_unknown_udp_framing_tag,             { "mac-nr.unknown-udp-framing-tag", PI_UNDECODED, PI_WARN, "Unknown UDP framing tag, aborting dissection", EXPFILL }}
+        { &ei_mac_nr_no_per_frame_data,                              { "mac-nr.no_per_frame_data", PI_UNDECODED, PI_WARN, "Can't dissect NR MAC frame because no per-frame info was attached!", EXPFILL }},
+        { &ei_mac_nr_sdu_length_different_from_dissected,            { "mac-nr.sdu-length-different-from-dissected", PI_UNDECODED, PI_WARN, "Something is wrong with sdu length or dissection is wrong", EXPFILL }},
+        { &ei_mac_nr_unknown_udp_framing_tag,                        { "mac-nr.unknown-udp-framing-tag", PI_UNDECODED, PI_WARN, "Unknown UDP framing tag, aborting dissection", EXPFILL }},
+        { &ei_mac_nr_dl_sch_control_subheader_after_data_subheader,  { "mac-nr.ulsch.ce-after-data",  PI_SEQUENCE, PI_WARN, "For DL-SCH PDUs, CEs should come before data", EXPFILL }},
+        { &ei_mac_nr_ul_sch_control_subheader_before_data_subheader, { "mac-nr.dlsch.ce-before-data", PI_SEQUENCE, PI_WARN, "For UL-SCH PDUs, CEs should come after data", EXPFILL }}
     };
 
     module_t *mac_nr_module;

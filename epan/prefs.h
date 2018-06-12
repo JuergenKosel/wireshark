@@ -32,7 +32,6 @@ extern "C" {
 
 #define MAX_VAL_LEN  1024
 
-#define RTP_PLAYER_DEFAULT_VISIBLE 4
 #define TAP_UPDATE_DEFAULT_INTERVAL 3000
 #define ST_DEF_BURSTRES 5
 #define ST_DEF_BURSTLEN 100
@@ -64,6 +63,15 @@ char string_to_name_resolve(const char *string, struct _e_addr_resolve *name_res
 #define TB_STYLE_ICONS          0
 #define TB_STYLE_TEXT           1
 #define TB_STYLE_BOTH           2
+
+/*
+ * Color styles.
+ */
+#define COLOR_STYLE_DEFAULT     0
+#define COLOR_STYLE_FLAT        1
+#define COLOR_STYLE_GRADIENT    2
+
+#define COLOR_STYLE_ALPHA       0.25
 
 /*
  * Types of layout of summary/details/hex panes.
@@ -139,17 +147,20 @@ typedef struct _e_prefs {
   gint         num_cols;
   color_t      st_client_fg, st_client_bg, st_server_fg, st_server_bg;
   color_t      gui_text_valid, gui_text_invalid, gui_text_deprecated;
-  gboolean     gui_altern_colors; /* GTK only */
   gboolean     gui_expert_composite_eyecandy;
   gboolean     filter_toolbar_show_in_statusbar;
   gboolean     restore_filter_after_following_stream;
   gint         gui_ptree_line_style;
   gint         gui_ptree_expander_style;
-  gboolean     gui_hex_dump_highlight_style;
   gint         gui_toolbar_main_style;
-  gint         gui_toolbar_filter_style; /* GTK only? */
-  gchar       *gui_gtk2_font_name;
+  gint         gui_toolbar_filter_style;
   gchar       *gui_qt_font_name;
+  color_t      gui_active_fg;
+  color_t      gui_active_bg;
+  gint         gui_active_style;
+  color_t      gui_inactive_fg;
+  color_t      gui_inactive_bg;
+  gint         gui_inactive_style;
   color_t      gui_marked_fg;
   color_t      gui_marked_bg;
   color_t      gui_ignored_fg;
@@ -159,7 +170,6 @@ typedef struct _e_prefs {
   gboolean     gui_geometry_save_position;
   gboolean     gui_geometry_save_size;
   gboolean     gui_geometry_save_maximized;
-  gboolean     gui_macosx_style; /* GTK only */
   console_open_e gui_console_open;
   guint        gui_recent_df_entries_max;
   guint        gui_recent_files_count_max;
@@ -174,37 +184,30 @@ typedef struct _e_prefs {
   gchar       *gui_prepend_window_title;
   gchar       *gui_start_title;
   version_info_e gui_version_placement;
-  gboolean     gui_auto_scroll_on_expand; /* GTK+ only */
-  guint        gui_auto_scroll_percentage; /* GTK+ only */
   layout_type_e gui_layout_type;
   layout_pane_content_e gui_layout_content_1;
   layout_pane_content_e gui_layout_content_2;
   layout_pane_content_e gui_layout_content_3;
   gchar       *gui_interfaces_hide_types;
   gboolean     gui_interfaces_show_hidden;
-#ifdef HAVE_PCAP_REMOTE
   gboolean     gui_interfaces_remote_display;
-#endif
   gint         console_log_level;
   gchar       *capture_device;
   gchar       *capture_devices_linktypes;
   gchar       *capture_devices_descr;
   gchar       *capture_devices_hide;
   gchar       *capture_devices_monitor_mode;
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
   gchar       *capture_devices_buffersize;
-#endif
   gchar       *capture_devices_snaplen;
   gchar       *capture_devices_pmode;
   gchar       *capture_devices_filter; /* XXX - Mostly unused. Deprecate? */
   gboolean     capture_prom_mode;
   gboolean     capture_pcap_ng;
   gboolean     capture_real_time;
-  gboolean     capture_auto_scroll;
+  gboolean     capture_auto_scroll; /* XXX - Move to recent */
   gboolean     capture_no_extcap;
   gboolean     capture_show_info;
   GList       *capture_columns;
-  guint        rtp_player_max_visible;
   guint        tap_update_interval;
   gboolean     display_hidden_proto_items;
   gboolean     display_byte_fields_with_spaces;

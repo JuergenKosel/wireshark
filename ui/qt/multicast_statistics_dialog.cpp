@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "multicast_statistics_dialog.h"
 
@@ -242,8 +243,8 @@ MulticastStatisticsDialog::MulticastStatisticsDialog(QWidget &parent, CaptureFil
     connect(this, SIGNAL(updateFilter(QString)),
             this, SLOT(updateMulticastParameters()));
 
-    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
-            this, SLOT(captureEvent(CaptureEvent *)));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent)),
+            this, SLOT(captureEvent(CaptureEvent)));
 
     /* Register the tap listener */
     register_tap_listener_mcast_stream(tapinfo_);
@@ -445,10 +446,10 @@ void MulticastStatisticsDialog::fillTree()
     updateWidgets();
 }
 
-void MulticastStatisticsDialog::captureEvent(CaptureEvent *e)
+void MulticastStatisticsDialog::captureEvent(CaptureEvent e)
 {
-    if ((e->captureContext() == CaptureEvent::File) &&
-            (e->eventType() == CaptureEvent::Closing))
+    if ((e.captureContext() == CaptureEvent::File) &&
+            (e.eventType() == CaptureEvent::Closing))
     {
         /* Remove the stream tap listener */
         remove_tap_listener_mcast_stream(tapinfo_);

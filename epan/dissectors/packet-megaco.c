@@ -1,29 +1,29 @@
 /* packet-megaco.c
-* Routines for megaco packet disassembly
-* RFC 3015
-*
-* Christian Falckenberg, 2002/10/17
-* Copyright (c) 2002 by Christian Falckenberg
-*                       <christian.falckenberg@nortelnetworks.com>
-*
-* Christoph Wiest,      2003/06/28
-* Modified 2003 by      Christoph Wiest
-*                       <ch.wiest@tesionmail.de>
-* Modified 2004 by      Anders Broman
-*                       <anders.broman@ericsson.com>
-* To handle TPKT headers if over TCP
-* Modified 2005 by      Karl Knoebl
-*                       <karl.knoebl@siemens.com>
-*   provide info to COL_INFO and some "prettification"
-*
-* Copyright (c) 2006 Anders Broman <anders.broman@ericsson.com>
-*
-* Wireshark - Network traffic analyzer
-* By Gerald Combs <gerald@wireshark.org>
-* Copyright 1999 Gerald Combs
-*
-* SPDX-License-Identifier: GPL-2.0-or-later
-*/
+ * Routines for megaco packet disassembly
+ * RFC 3015
+ *
+ * Christian Falckenberg, 2002/10/17
+ * Copyright (c) 2002 by Christian Falckenberg
+ *                       <christian.falckenberg@nortelnetworks.com>
+ *
+ * Christoph Wiest,      2003/06/28
+ * Modified 2003 by      Christoph Wiest
+ *                       <ch.wiest@tesionmail.de>
+ * Modified 2004 by      Anders Broman
+ *                       <anders.broman@ericsson.com>
+ * To handle TPKT headers if over TCP
+ * Modified 2005 by      Karl Knoebl
+ *                       <karl.knoebl@siemens.com>
+ *   provide info to COL_INFO and some "prettification"
+ *
+ * Copyright (c) 2006 Anders Broman <anders.broman@ericsson.com>
+ *
+ * Wireshark - Network traffic analyzer
+ * By Gerald Combs <gerald@wireshark.org>
+ * Copyright 1999 Gerald Combs
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 
 #include "config.h"
@@ -1420,12 +1420,6 @@ nextcontext:
                             switch(trx_type) {
                                 case GCP_TRX_REQUEST: cmd_type = GCP_CMD_SVCCHG_REQ; break;
                                 case GCP_TRX_REPLY: cmd_type = GCP_CMD_SVCCHG_REPLY; break;
-                                default: cmd_type = GCP_CMD_NONE; break;
-                            }
-                        } else if ( g_str_equal(command,"Subtract") ) {
-                            switch(trx_type) {
-                                case GCP_TRX_REQUEST: cmd_type = GCP_CMD_SUB_REQ; break;
-                                case GCP_TRX_REPLY: cmd_type = GCP_CMD_SUB_REPLY; break;
                                 default: cmd_type = GCP_CMD_NONE; break;
                             }
                         } else {
@@ -3286,7 +3280,6 @@ dissect_megaco_LocalControldescriptor(tvbuff_t *tvb, proto_tree *megaco_mediades
             proto_tree_add_string(megaco_LocalControl_tree, hf_megaco_gm_rsb, tvb,
                 tvb_help_offset, tvb_offset - tvb_help_offset, tvb_format_text(tvb, tvb_current_offset, tokenlen));
             tvb_current_offset = megaco_tvb_skip_wsp(tvb, tvb_offset + 1);
-            break;
             break;
         case MEGACO_TMAN_POL:
             proto_tree_add_string(megaco_LocalControl_tree, hf_megaco_tman_pol, tvb,

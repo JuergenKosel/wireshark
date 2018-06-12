@@ -543,7 +543,7 @@ static gint dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
 /* alert message dissector */
 static void dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
                                proto_tree *tree, guint32 offset,
-                               const SslSession *session);
+                               guint32 record_length, const SslSession *session);
 
 /* handshake protocol dissector */
 static void dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
@@ -1302,15 +1302,14 @@ again:
 
 
     /* is it completely desegmented? */
-    if (ipfd_head) {
+    if (ipfd_head && ipfd_head->reassembled_in == pinfo->num) {
         /*
          * Yes, we think it is.
          * We only call subdissector for the last segment.
          * Note that the last segment may include more than what
          * we needed.
          */
-        if (ipfd_head->reassembled_in == pinfo->num &&
-            nxtseq < ipfd_head->datalen) {
+        if (nxtseq < msp->nxtpdu) {
             /*
              * This is *not* the last segment. It is part of a PDU in the same
              * frame, so no another PDU can follow this one.
@@ -1322,7 +1321,7 @@ again:
             another_pdu_follows = 0;
             col_clear(pinfo->cinfo, COL_INFO);
             another_segment_in_frame = TRUE;
-        } else if (ipfd_head->reassembled_in == pinfo->num) {
+        } else {
             /*
              * OK, this is the last segment of the PDU and also the
              * last segment in this frame.
@@ -1957,9 +1956,9 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
         break;
     case SSL_ID_ALERT:
         if (decrypted) {
-            dissect_ssl3_alert(decrypted, pinfo, ssl_record_tree, 0, session);
+            dissect_ssl3_alert(decrypted, pinfo, ssl_record_tree, 0, 2, session);
         } else {
-            dissect_ssl3_alert(tvb, pinfo, ssl_record_tree, offset, session);
+            dissect_ssl3_alert(tvb, pinfo, ssl_record_tree, offset, record_length, session);
         }
         break;
     case SSL_ID_HANDSHAKE:
@@ -2045,7 +2044,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
 /* dissects the alert message, filling in the tree */
 static void
 dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
-                   proto_tree *tree, guint32 offset,
+                   proto_tree *tree, guint32 offset, guint32 record_length,
                    const SslSession *session)
 {
     /*     struct {
@@ -2063,7 +2062,7 @@ dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
     if (tree)
     {
         ti = proto_tree_add_item(tree, hf_ssl_alert_message, tvb,
-                                 offset, 2, ENC_NA);
+                                 offset, record_length, ENC_NA);
         ssl_alert_tree = proto_item_add_subtree(ti, ett_ssl_alert);
     }
 
@@ -4647,6 +4646,10 @@ proto_register_ssl(void)
 
     /* heuristic dissectors for any premable e.g. CredSSP before RDP */
     ssl_heur_subdissector_list = register_heur_dissector_list("ssl", proto_ssl);
+
+    ssl_common_register_ssl_alpn_dissector_table("ssl.handshake.extensions_alpn_str",
+        "SSL/TLS Application-Layer Protocol Negotiation (ALPN) Protocol IDs",
+        proto_ssl);
 
     ssl_handle = register_dissector("ssl", dissect_ssl, proto_ssl);
 

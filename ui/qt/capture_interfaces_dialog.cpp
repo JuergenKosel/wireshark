@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -21,7 +22,6 @@
 #ifdef HAVE_LIBPCAP
 
 #include <QAbstractItemModel>
-#include <QFileDialog>
 #include <QMessageBox>
 #include <QTimer>
 
@@ -46,6 +46,7 @@
 
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/models/sparkline_delegate.h>
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 // To do:
 // - Set a size hint for item delegates.
@@ -108,13 +109,19 @@ public:
 
         QString default_str = QObject::tr("default");
 
-        QString linkname = QObject::tr("DLT %1").arg(device->active_dlt);
-        for (GList *list = device->links; list != NULL; list = g_list_next(list)) {
-            link_row *linkr = (link_row*)(list->data);
-            // XXX ...and if they're both -1?
-            if (linkr->dlt == device->active_dlt) {
-                linkname = linkr->name;
-                break;
+        // XXX - this is duplicated in InterfaceTreeModel::data;
+        // it should be done in common code somewhere.
+        QString linkname;
+        if (device->active_dlt == -1)
+            linkname = "Unknown";
+        else {
+            linkname = QObject::tr("DLT %1").arg(device->active_dlt);
+            for (GList *list = device->links; list != NULL; list = g_list_next(list)) {
+                link_row *linkr = (link_row*)(list->data);
+                if (linkr->dlt == device->active_dlt) {
+                    linkname = linkr->name;
+                    break;
+                }
             }
         }
         setText(col_link_, linkname);
@@ -361,7 +368,7 @@ void CaptureInterfacesDialog::browseButtonClicked()
             open_dir = prefs.gui_fileopen_dir;
         break;
     }
-    QString file_name = QFileDialog::getSaveFileName(this, tr("Specify a Capture File"), open_dir);
+    QString file_name = WiresharkFileDialog::getSaveFileName(this, tr("Specify a Capture File"), open_dir);
     ui->filenameLineEdit->setText(file_name);
 }
 

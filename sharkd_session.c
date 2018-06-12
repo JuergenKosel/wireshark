@@ -18,7 +18,7 @@
 
 #include <glib.h>
 
-#include <wsutil/wsjsmn.h>
+#include <wsutil/wsjson.h>
 #include <wsutil/ws_printf.h>
 
 #include <file.h>
@@ -34,6 +34,7 @@
 
 #include <ui/ssl_key_export.h>
 
+#include <ui/io_graph_item.h>
 #include <epan/stats_tree_priv.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/conversation_table.h>
@@ -62,7 +63,6 @@
 
 #include <epan/maxmind_db.h>
 
-#include <wsutil/glib-compat.h>
 #include <wsutil/pint.h>
 #include <wsutil/strtoi.h>
 
@@ -80,7 +80,7 @@ static GHashTable *filter_table = NULL;
 static gboolean
 json_unescape_str(char *input)
 {
-	return wsjsmn_unescape_json_string(input, input);
+	return wsjson_unescape_json_string(input, input);
 }
 
 static const char *
@@ -1223,8 +1223,9 @@ sharkd_session_geoip_addr(address *addr, const char *suffix)
 
 	if (addr->type == AT_IPv4)
 	{
-		guint32 ip = pntoh32(addr->data);
+		guint32 ip;
 
+		memcpy(&ip, addr->data, 4);
 		lookup = maxmind_db_lookup_ipv4(ip);
 	}
 	else if (addr->type == AT_IPv6)
@@ -1751,7 +1752,7 @@ sharkd_session_free_tap_nstat_cb(void *arg)
 {
 	stat_data_t *stat_data = (stat_data_t *) arg;
 
-	free_stat_tables(stat_data->stat_tap_data, NULL, NULL);
+	free_stat_tables(stat_data->stat_tap_data);
 }
 
 /**
@@ -1857,7 +1858,7 @@ sharkd_session_free_tap_rtd_cb(void *arg)
 {
 	rtd_data_t *rtd_data = (rtd_data_t *) arg;
 
-	free_rtd_table(&rtd_data->stat_table, NULL, NULL);
+	free_rtd_table(&rtd_data->stat_table);
 	g_free(rtd_data);
 }
 
@@ -1963,7 +1964,7 @@ sharkd_session_free_tap_srt_cb(void *arg)
 	srt_data_t *srt_data = (srt_data_t *) arg;
 	register_srt_t *srt = (register_srt_t *) srt_data->user_data;
 
-	free_srt_table(srt, srt_data->srt_array, NULL, NULL);
+	free_srt_table(srt, srt_data->srt_array);
 	g_array_free(srt_data->srt_array, TRUE);
 	g_free(srt_data);
 }
@@ -2317,7 +2318,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 				continue;
 			}
 
-			stat_tap->stat_tap_init_cb(stat_tap, NULL, NULL);
+			stat_tap->stat_tap_init_cb(stat_tap);
 
 			stat_data = g_new0(stat_data_t, 1);
 			stat_data->stat_tap_data = stat_tap;
@@ -2380,7 +2381,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 			srt_data = g_new0(srt_data_t, 1);
 			srt_data->srt_array = g_array_new(FALSE, TRUE, sizeof(srt_stat_table *));
 			srt_data->user_data = srt;
-			srt_table_dissector_init(srt, srt_data->srt_array, NULL, NULL);
+			srt_table_dissector_init(srt, srt_data->srt_array);
 
 			tap_error = register_tap_listener(get_srt_tap_listener_name(srt), srt_data, tap_filter, 0, NULL, get_srt_packet_func(srt), sharkd_session_process_tap_srt_cb);
 
@@ -2895,6 +2896,215 @@ sharkd_session_process_frame_cb(epan_dissect_t *edt, proto_tree *tree, struct ep
 	printf("]");
 
 	printf("}\n");
+}
+
+#define SHARKD_IOGRAPH_MAX_ITEMS 250000 /* 250k limit of items is taken from wireshark-qt, on x86_64 sizeof(io_graph_item_t) is 152, so single graph can take max 36 MB */
+
+struct sharkd_iograph
+{
+	/* config */
+	int hf_index;
+	io_graph_item_unit_t calc_type;
+	guint32 interval;
+
+	/* result */
+	int space_items;
+	int num_items;
+	io_graph_item_t *items;
+	GString *error;
+};
+
+static gboolean
+sharkd_iograph_packet(void *g, packet_info *pinfo, epan_dissect_t *edt, const void *dummy _U_)
+{
+	struct sharkd_iograph *graph = (struct sharkd_iograph *) g;
+	int idx;
+
+	idx = get_io_graph_index(pinfo, graph->interval);
+	if (idx < 0 || idx >= SHARKD_IOGRAPH_MAX_ITEMS)
+		return FALSE;
+
+	if (idx + 1 > graph->num_items)
+	{
+		if (idx + 1 > graph->space_items)
+		{
+			int new_size = idx + 1024;
+
+			graph->items = (io_graph_item_t *) g_realloc(graph->items, sizeof(io_graph_item_t) * new_size);
+			reset_io_graph_items(&graph->items[graph->space_items], new_size - graph->space_items);
+
+			graph->space_items = new_size;
+		}
+		else if (graph->items == NULL)
+		{
+			graph->items = (io_graph_item_t *) g_malloc(sizeof(io_graph_item_t) * graph->space_items);
+			reset_io_graph_items(graph->items, graph->space_items);
+		}
+
+		graph->num_items = idx + 1;
+	}
+
+	return update_io_graph_item(graph->items, idx, pinfo, edt, graph->hf_index, graph->calc_type, graph->interval);
+}
+
+/**
+ * sharkd_session_process_iograph()
+ *
+ * Process iograph request
+ *
+ * Input:
+ *   (o) interval - interval time in ms, if not specified: 1000ms
+ *   (m) graph0             - First graph request
+ *   (o) graph1...graph9    - Other graph requests
+ *   (o) filter0            - First graph filter
+ *   (o) filter1...filter9  - Other graph filters
+ *
+ * Graph requests can be one of: "packets", "bytes", "bits", "sum:<field>", "frames:<field>", "max:<field>", "min:<field>", "avg:<field>", "load:<field>",
+ * if you use variant with <field>, you need to pass field name in filter request.
+ *
+ * Output object with attributes:
+ *   (m) iograph - array of graph results with attributes:
+ *                  errmsg - graph cannot be constructed
+ *                  items  - graph values, zeros are skipped, if value is not a number it's next index encoded as hex string
+ */
+static void
+sharkd_session_process_iograph(char *buf, const jsmntok_t *tokens, int count)
+{
+	const char *tok_interval = json_find_attr(buf, tokens, count, "interval");
+	struct sharkd_iograph graphs[10];
+	gboolean is_any_ok = FALSE;
+	int graph_count;
+
+	guint32 interval_ms = 1000; /* default: one per second */
+	int i;
+
+	if (tok_interval)
+	{
+		if (!ws_strtou32(tok_interval, NULL, &interval_ms) || interval_ms == 0)
+		{
+			fprintf(stderr, "Invalid interval parameter: %s.\n", tok_interval);
+			return;
+		}
+	}
+
+	for (i = graph_count = 0; i < (int) G_N_ELEMENTS(graphs); i++)
+	{
+		struct sharkd_iograph *graph = &graphs[graph_count];
+
+		const char *tok_graph;
+		const char *tok_filter;
+		char tok_format_buf[32];
+		const char *field_name;
+
+		snprintf(tok_format_buf, sizeof(tok_format_buf), "graph%d", i);
+		tok_graph = json_find_attr(buf, tokens, count, tok_format_buf);
+		if (!tok_graph)
+			break;
+
+		snprintf(tok_format_buf, sizeof(tok_format_buf), "filter%d", i);
+		tok_filter = json_find_attr(buf, tokens, count, tok_format_buf);
+
+		if (!strcmp(tok_graph, "packets"))
+			graph->calc_type = IOG_ITEM_UNIT_PACKETS;
+		else if (!strcmp(tok_graph, "bytes"))
+			graph->calc_type = IOG_ITEM_UNIT_BYTES;
+		else if (!strcmp(tok_graph, "bits"))
+			graph->calc_type = IOG_ITEM_UNIT_BITS;
+		else if (g_str_has_prefix(tok_graph, "sum:"))
+			graph->calc_type = IOG_ITEM_UNIT_CALC_SUM;
+		else if (g_str_has_prefix(tok_graph, "frames:"))
+			graph->calc_type = IOG_ITEM_UNIT_CALC_FRAMES;
+		else if (g_str_has_prefix(tok_graph, "fields:"))
+			graph->calc_type = IOG_ITEM_UNIT_CALC_FIELDS;
+		else if (g_str_has_prefix(tok_graph, "max:"))
+			graph->calc_type = IOG_ITEM_UNIT_CALC_MAX;
+		else if (g_str_has_prefix(tok_graph, "min:"))
+			graph->calc_type = IOG_ITEM_UNIT_CALC_MIN;
+		else if (g_str_has_prefix(tok_graph, "avg:"))
+			graph->calc_type = IOG_ITEM_UNIT_CALC_AVERAGE;
+		else if (g_str_has_prefix(tok_graph, "load:"))
+			graph->calc_type = IOG_ITEM_UNIT_CALC_LOAD;
+		else
+			break;
+
+		field_name = strchr(tok_graph, ':');
+		if (field_name)
+			field_name = field_name + 1;
+
+		graph->interval = interval_ms;
+
+		graph->hf_index = -1;
+		graph->error = check_field_unit(field_name, &graph->hf_index, graph->calc_type);
+
+		graph->space_items = 0; /* TODO, can avoid realloc()s in sharkd_iograph_packet() by calculating: capture_time / interval */
+		graph->num_items = 0;
+		graph->items = NULL;
+
+		if (!graph->error)
+			graph->error = register_tap_listener("frame", graph, tok_filter, TL_REQUIRES_PROTO_TREE, NULL, sharkd_iograph_packet, NULL);
+
+		graph_count++;
+
+		if (graph->error == NULL)
+			is_any_ok = TRUE;
+	}
+
+	/* retap only if we have at least one ok */
+	if (is_any_ok)
+		sharkd_retap();
+
+	printf("{\"iograph\":[");
+
+	for (i = 0; i < graph_count; i++)
+	{
+		struct sharkd_iograph *graph = &graphs[i];
+
+		if (i)
+			printf(",");
+		printf("{");
+
+		if (graph->error)
+		{
+			printf("\"errmsg\":");
+			json_puts_string(graph->error->str);
+			g_string_free(graph->error, TRUE);
+		}
+		else
+		{
+			int idx;
+			int next_idx = 0;
+			const char *sepa = "";
+
+			printf("\"items\":[");
+			for (idx = 0; idx < graph->num_items; idx++)
+			{
+				double val;
+
+				val = get_io_graph_item(graph->items, graph->calc_type, idx, graph->hf_index, &cfile, graph->interval, graph->num_items);
+
+				/* if it's zero, don't display */
+				if (val == 0.0)
+					continue;
+
+				printf("%s", sepa);
+
+				/* cause zeros are not printed, need to output index */
+				if (next_idx != idx)
+					printf("\"%x\",", idx);
+
+				printf("%f", val);
+				next_idx = idx + 1;
+				sepa = ",";
+			}
+			printf("]");
+		}
+		printf("}");
+
+		remove_tap_listener(graph);
+		g_free(graph->items);
+	}
+
+	printf("]}\n");
 }
 
 /**
@@ -3955,6 +4165,8 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 			sharkd_session_process_tap(buf, tokens, count);
 		else if (!strcmp(tok_req, "follow"))
 			sharkd_session_process_follow(buf, tokens, count);
+		else if (!strcmp(tok_req, "iograph"))
+			sharkd_session_process_iograph(buf, tokens, count);
 		else if (!strcmp(tok_req, "intervals"))
 			sharkd_session_process_intervals(buf, tokens, count);
 		else if (!strcmp(tok_req, "frame"))
@@ -4004,12 +4216,17 @@ sharkd_session_main(void)
 
 	filter_table = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, sharkd_session_filter_free);
 
+#ifdef HAVE_MAXMINDDB
+	/* mmdbresolve was stopped before fork(), force starting it */
+	uat_get_table_by_name("MaxMind Database Paths")->post_update_cb();
+#endif
+
 	while (fgets(buf, sizeof(buf), stdin))
 	{
 		/* every command is line seperated JSON */
 		int ret;
 
-		ret = wsjsmn_parse(buf, NULL, 0);
+		ret = wsjson_parse(buf, NULL, 0);
 		if (ret < 0)
 		{
 			fprintf(stderr, "invalid JSON -> closing\n");
@@ -4027,12 +4244,16 @@ sharkd_session_main(void)
 
 		memset(tokens, 0, ret * sizeof(jsmntok_t));
 
-		ret = wsjsmn_parse(buf, tokens, ret);
+		ret = wsjson_parse(buf, tokens, ret);
 		if (ret < 0)
 		{
 			fprintf(stderr, "invalid JSON(2) -> closing\n");
 			return 2;
 		}
+
+#if defined(HAVE_C_ARES) || defined(HAVE_MAXMINDDB)
+		host_name_lookup_process();
+#endif
 
 		sharkd_session_process(buf, tokens, ret);
 	}

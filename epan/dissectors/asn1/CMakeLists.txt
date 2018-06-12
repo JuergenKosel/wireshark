@@ -34,6 +34,7 @@ set(ASN1_SRC_DIRS
 	ess
 	f1ap
 	ftam
+	glow
 	goose
 	gprscdr
 	gsm_map
@@ -68,6 +69,7 @@ set(ASN1_SRC_DIRS
 	mpeg-pes
 	mudurl
 	nbap
+	ngap
 	nr-rrc
 	ns_cert_exts
 	novell_pkis

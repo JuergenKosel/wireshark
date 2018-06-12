@@ -269,8 +269,10 @@ void MainStatusBar::selectedFieldChanged(FieldInformation * finfo)
 {
     QString item_info;
 
-    if ( ! finfo )
+    if ( ! finfo ) {
+        pushFieldStatus(item_info);
         return;
+    }
 
     FieldInformation::HeaderInfo hInfo = finfo->headerInfo();
 
@@ -632,26 +634,26 @@ void MainStatusBar::manageProfile()
     }
 }
 
-void MainStatusBar::captureEventHandler(CaptureEvent * ev)
+void MainStatusBar::captureEventHandler(CaptureEvent ev)
 {
-    switch(ev->captureContext())
+    switch(ev.captureContext())
     {
 #ifdef HAVE_LIBPCAP
     case CaptureEvent::Update:
-        switch ( ev->eventType() )
+        switch ( ev.eventType() )
         {
         case CaptureEvent::Continued:
-            updateCaptureStatistics(ev->capSession());
+            updateCaptureStatistics(ev.capSession());
             break;
         default:
             break;
         }
         break;
     case CaptureEvent::Fixed:
-        switch ( ev->eventType() )
+        switch ( ev.eventType() )
         {
         case CaptureEvent::Continued:
-            updateCaptureFixedStatistics(ev->capSession());
+            updateCaptureFixedStatistics(ev.capSession());
             break;
         default:
             break;
@@ -659,7 +661,7 @@ void MainStatusBar::captureEventHandler(CaptureEvent * ev)
         break;
 #endif
     case CaptureEvent::Save:
-        switch ( ev->eventType() )
+        switch ( ev.eventType() )
         {
         case CaptureEvent::Finished:
         case CaptureEvent::Failed:

@@ -132,6 +132,7 @@ set(WSUG_FILES
 	wsug_src/WSUG_chapter_customize.asciidoc
 	wsug_src/WSUG_chapter_introduction.asciidoc
 	wsug_src/WSUG_chapter_io.asciidoc
+	wsug_src/WSUG_chapter_mate.asciidoc
 	wsug_src/WSUG_chapter_statistics.asciidoc
 	wsug_src/WSUG_chapter_telephony.asciidoc
 	wsug_src/WSUG_chapter_troubleshoot.asciidoc
@@ -155,13 +156,22 @@ set(WSUG_GRAPHICS
 	wsug_graphics/ws-bytes-pane-tabs.png
 	wsug_graphics/ws-bytes-pane.png
 	wsug_graphics/ws-capture-info.png
+	wsug_graphics/ws-capture-interface-details.png
 	wsug_graphics/ws-capture-interfaces.png
 	wsug_graphics/ws-capture-interfaces-win32.png
 	wsug_graphics/ws-capture-menu.png
 	wsug_graphics/ws-capture-options.png
+	wsug_graphics/ws-capture-options-compile-selected-bpfs.png
+	wsug_graphics/ws-capture-options-manage-interfaces-local.png
+	wsug_graphics/ws-capture-options-manage-interfaces-pipes.png
+	wsug_graphics/ws-capture-options-manage-interfaces-remote-plus.png
+	wsug_graphics/ws-capture-options-manage-interfaces-remote.png
+	wsug_graphics/ws-capture-options-manage-interfaces.png
+	wsug_graphics/ws-capture-options-output.png
 	wsug_graphics/ws-capture-options-remote-capture.png
 	wsug_graphics/ws-capture-options-remote-interface.png
 	wsug_graphics/ws-capture-options-remote-settings.png
+	wsug_graphics/ws-capture-options-settings.png
 	wsug_graphics/ws-capture-preferences.png
 	wsug_graphics/ws-choose-color-rule.png
 	wsug_graphics/ws-coloring-fields.png
@@ -169,7 +179,6 @@ set(WSUG_GRAPHICS
 	wsug_graphics/ws-column-header-popup-menu.png
 	wsug_graphics/ws-decode-as-show.png
 	wsug_graphics/ws-decode-as.png
-	wsug_graphics/ws-column-header-popup-menu.png
 	wsug_graphics/ws-details-pane-popup-menu.png
 	wsug_graphics/ws-details-pane.png
 	wsug_graphics/ws-display-filter-tcp.png
@@ -198,6 +207,7 @@ set(WSUG_GRAPHICS
 	wsug_graphics/ws-gui-columns-preferences.png
 	wsug_graphics/ws-gui-config-profiles.png
 	wsug_graphics/ws-gui-font-preferences.png
+	wsug_graphics/ws-gui-interface-options.png
 	wsug_graphics/ws-gui-layout-preferences.png
 	wsug_graphics/ws-gui-preferences.png
 	wsug_graphics/ws-help-menu.png
@@ -206,6 +216,16 @@ set(WSUG_GRAPHICS
 	wsug_graphics/ws-logo.png
 	wsug_graphics/ws-main-toolbar.png
 	wsug_graphics/ws-main.png
+	wsug_graphics/ws-mate-analysis.png
+	wsug_graphics/ws-mate-dns_pane.png
+	wsug_graphics/ws-mate-dns_pdu.png
+	wsug_graphics/ws-mate-ftp_over_gre.png
+	wsug_graphics/ws-mate-gop_analysis.png
+	wsug_graphics/ws-mate-isup_over_mtp3_over_ip.png
+	wsug_graphics/ws-mate-mmse_over_http.png
+	wsug_graphics/ws-mate-pdu_analysis.png
+	wsug_graphics/ws-mate-tcp-output.png
+	wsug_graphics/ws-mate-transform.png
 	wsug_graphics/ws-menu.png
 	wsug_graphics/ws-merge-gtk24.png
 	wsug_graphics/ws-merge-win32.png
@@ -222,6 +242,7 @@ set(WSUG_GRAPHICS
 	wsug_graphics/ws-save-as-gtk24.png
 	wsug_graphics/ws-save-as-win32.png
 	wsug_graphics/ws-statistics-menu.png
+	wsug_graphics/ws-stats-compare.png
 	wsug_graphics/ws-stats-conversations.png
 	wsug_graphics/ws-stats-endpoints.png
 	wsug_graphics/ws-stats-hierarchy.png
@@ -233,8 +254,12 @@ set(WSUG_GRAPHICS
 	wsug_graphics/ws-stats-lte-rlc-traffic.png
 	wsug_graphics/ws-stats-wlan-traffic.png
 	wsug_graphics/ws-statusbar-empty.png
+	wsug_graphics/ws-statusbar-filter.png
 	wsug_graphics/ws-statusbar-loaded.png
+	wsug_graphics/ws-statusbar-profile.png
 	wsug_graphics/ws-statusbar-selected.png
+	wsug_graphics/ws-tcp-analysis.png
+	wsug_graphics/ws-tel-rtpstream-analysis.png
 	wsug_graphics/ws-telephony-menu.png
 	wsug_graphics/ws-time-reference.png
 	wsug_graphics/ws-tools-menu.png

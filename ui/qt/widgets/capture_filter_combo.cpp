@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include <stdio.h>
 
@@ -29,7 +30,8 @@ CaptureFilterCombo::CaptureFilterCombo(QWidget *parent, bool plain) :
     // completion for fields handled by CaptureFilterEdit.
     setAutoCompletion(false);
     setLineEdit(cf_edit_);
-    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    // Default is Preferred.
+    setSizePolicy(QSizePolicy::MinimumExpanding, sizePolicy().verticalPolicy());
     setInsertPolicy(QComboBox::NoInsert);
     setAccessibleName(tr("Capture filter selector"));
     setStyleSheet(

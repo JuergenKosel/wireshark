@@ -10,6 +10,32 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+/** @defgroup main_window_group Main window
+ * The main window has the following submodules:
+   @dot
+  digraph main_dependencies {
+      node [shape=record, fontname=Helvetica, fontsize=10];
+      main [ label="main window" URL="\ref main.h"];
+      menu [ label="menubar" URL="\ref menus.h"];
+      toolbar [ label="toolbar" URL="\ref main_toolbar.h"];
+      packet_list [ label="packet list pane" URL="\ref packet_list.h"];
+      proto_draw [ label="packet details & bytes panes" URL="\ref main_proto_draw.h"];
+      recent [ label="recent user settings" URL="\ref recent.h"];
+      main -> menu [ arrowhead="open", style="solid" ];
+      main -> toolbar [ arrowhead="open", style="solid" ];
+      main -> packet_list [ arrowhead="open", style="solid" ];
+      main -> proto_draw [ arrowhead="open", style="solid" ];
+      main -> recent [ arrowhead="open", style="solid" ];
+  }
+  @enddot
+ */
+
+/** @file
+ *  The main window
+ *  @ingroup main_window_group
+ *  @ingroup windows_group
+ */
+
 #include <stdio.h>
 
 #include <config.h>
@@ -55,7 +81,7 @@ class CaptureInterfacesDialog;
 class FileSetDialog;
 class FilterDialog;
 class FunnelStatistics;
-class MainWelcome;
+class WelcomePage;
 class PacketList;
 class ProtoTree;
 class WirelessFrame;
@@ -139,7 +165,7 @@ private:
     QSplitter master_split_;
     QSplitter extra_split_;
     QVector<unsigned> cur_layout_;
-    MainWelcome *main_welcome_;
+    WelcomePage *welcome_page_;
     DisplayFilterCombo *df_combo_box_;
     CaptureFile capture_file_;
     QFont mono_font_;
@@ -210,7 +236,9 @@ private:
     void exportSelectedPackets();
     void exportDissections(export_type_e export_type);
 
+#ifdef Q_OS_WIN
     void fileAddExtension(QString &file_name, int file_type, bool compressed);
+#endif // Q_OS_WIN
     bool testCaptureFileClose(QString before_what, FileCloseContext context = Default);
     void captureStop();
 
@@ -279,6 +307,9 @@ public slots:
     void updatePreferenceActions();
     void updateRecentActions();
 
+    void showWelcome();
+    void showCapture();
+
     void setTitlebarForCaptureFile();
     void setWSWindowTitle(QString title = QString());
 
@@ -305,7 +336,7 @@ public slots:
 
 private slots:
 
-    void captureEventHandler(CaptureEvent * ev);
+    void captureEventHandler(CaptureEvent ev);
 
     // Manually connected slots (no "on_<object>_<signal>").
 

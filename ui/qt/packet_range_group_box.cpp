@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "packet_range_group_box.h"
 #include <ui_packet_range_group_box.h>
@@ -24,8 +25,6 @@ PacketRangeGroupBox::PacketRangeGroupBox(QWidget *parent) :
 
 PacketRangeGroupBox::~PacketRangeGroupBox()
 {
-    if (range_)
-        wmem_free(NULL, range_->user_range);
     delete pr_ui_;
 }
 

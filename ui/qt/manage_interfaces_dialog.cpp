@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include <glib.h>
 #include "manage_interfaces_dialog.h"
@@ -39,7 +40,6 @@
 #include <ui/qt/models/path_chooser_delegate.h>
 
 #include <QCheckBox>
-#include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QStandardItemModel>

@@ -681,7 +681,7 @@ static void init_frag(tvbuff_t * tvb, body_parts * bp, guint length, guint offse
     mac_is_fragment * frag = wmem_new(wmem_file_scope(), mac_is_fragment);
     frag->type = type;
     frag->length = length;
-    frag->data = (guint8 *)g_malloc(length);
+    frag->data = (guint8 *)wmem_alloc(wmem_file_scope(), length);
     frag->frame_num = frame_num;
     frag->tsn = tsn;
     frag->next = NULL;
@@ -711,7 +711,7 @@ static void mac_is_copy(mac_is_sdu * sdu, mac_is_fragment * frag, guint total_le
         memcpy(sdu->data+sdu->length, frag->data, frag->length);
     }
     sdu->length += frag->length;
-    g_free(frag->data);
+    wmem_free(wmem_file_scope(), frag->data);
 }
 
 /*
@@ -877,7 +877,7 @@ static tvbuff_t * mac_is_add_fragment(tvbuff_t * tvb _U_, packet_info *pinfo, pr
     ch.ueid = ueid;
 
     /* If in first scan-through. */
-    if (pinfo->fd->flags.visited == FALSE) {
+    if (!PINFO_FD_VISITED(pinfo)) {
         /* Get body parts array for this channel. */
         body_parts ** body_parts_array = get_body_parts(&ch);
         /* Middle segment */

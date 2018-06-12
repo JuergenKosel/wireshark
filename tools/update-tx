@@ -7,13 +7,13 @@ NO_PUSH="False"
 while getopts "n" OPTCHAR ; do
     case $OPTCHAR in
         n) NO_PUSH="True" ;;
+        *) printf "Unknown option: %s\\n" "$OPTARG"
     esac
 done
 shift $((OPTIND - 1))
 
-# All .cpp, .h, and .ui files under ui/qt plus wireshark-qt.cpp.
+# All .cpp, .h, and .ui files under ui/qt
 LUPDATE_FILES=$(find ui/qt -name '*.cpp' -o -name '*.h' -o -name '*.ui')
-LUPDATE_FILES=($LUPDATE_FILES wireshark-qt.cpp)
 
 # Add line numbers
 for i in ui/qt/*.ts ; do

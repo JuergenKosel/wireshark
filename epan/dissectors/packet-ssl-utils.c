@@ -95,6 +95,8 @@ const value_string ssl_versions[] = {
     { 0x7F18,               "TLS 1.3 (draft 24)" },
     { 0x7F19,               "TLS 1.3 (draft 25)" },
     { 0x7F1A,               "TLS 1.3 (draft 26)" },
+    { 0x7F1B,               "TLS 1.3 (draft 27)" },
+    { 0x7F1C,               "TLS 1.3 (draft 28)" },
     { DTLSV1DOT0_OPENSSL_VERSION, "DTLS 1.0 (OpenSSL pre 0.9.8f)" },
     { DTLSV1DOT0_VERSION,   "DTLS 1.0" },
     { DTLSV1DOT2_VERSION,   "DTLS 1.2" },
@@ -1399,36 +1401,39 @@ static const bytes_string ct_logids[] = {
     { NULL, 0, NULL }
 };
 
-/* string_string is inappropriate as it compares strings while
- * "byte strings MUST NOT be truncated" (RFC 7301) */
-typedef struct ssl_alpn_protocol {
-    const char      *proto_name;
-    gboolean         match_exact;
+/*
+ * Application-Layer Protocol Negotiation (ALPN) dissector tables.
+ */
+static dissector_table_t ssl_alpn_dissector_table;
+static dissector_table_t dtls_alpn_dissector_table;
+
+/*
+ * Special cases for prefix matching of the ALPN, if the ALPN includes
+ * a version number for a draft or protocol revision.
+ */
+typedef struct ssl_alpn_prefix_match_protocol {
+    const char      *proto_prefix;
     const char      *dissector_name;
-} ssl_alpn_protocol_t;
-/* http://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids */
-static const ssl_alpn_protocol_t ssl_alpn_protocols[] = {
-    { "http/1.1",           TRUE,   "http" },
+} ssl_alpn_prefix_match_protocol_t;
+
+static const ssl_alpn_prefix_match_protocol_t ssl_alpn_prefix_match_protocols[] = {
     /* SPDY moves so fast, just 1, 2 and 3 are registered with IANA but there
      * already exists 3.1 as of this writing... match the prefix. */
-    { "spdy/",              FALSE,  "spdy" },
-    { "stun.turn",          TRUE,   "turnchannel" },
-    { "stun.nat-discovery", TRUE,   "stun" },
+    { "spdy/",              "spdy" },
     /* draft-ietf-httpbis-http2-16 */
-    { "h2-",                FALSE,  "http2" }, /* draft versions */
-    { "h2",                 TRUE,   "http2" }, /* final version */
+    { "h2-",                "http2" }, /* draft versions */
 };
 
 const value_string quic_transport_parameter_id[] = {
     { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA, "initial_max_stream_data" },
     { SSL_HND_QUIC_TP_INITIAL_MAX_DATA, "initial_max_data" },
-    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_BIDI, "initial_max_stream_id_bidi" },
+    { SSL_HND_QUIC_TP_INITIAL_MAX_BIDI_STREAMS, "initial_max_bidi_streams" },
     { SSL_HND_QUIC_TP_IDLE_TIMEOUT, "idle_timeout" },
-    { SSL_HND_QUIC_TP_OMIT_CONNECTION_ID, "omit_connection_id" },
+    { SSL_HND_QUIC_TP_OMIT_CONNECTION_ID, "omit_connection_id" }, // removed in draft -11
     { SSL_HND_QUIC_TP_MAX_PACKET_SIZE, "max_packet_size" },
     { SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN, "stateless_reset_token" },
     { SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT, "ack_delay_exponent" },
-    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_UNI, "initial_max_stream_id_uni" },
+    { SSL_HND_QUIC_TP_INITIAL_MAX_UNI_STREAMS, "initial_max_uni_streams" },
     { 0, NULL }
 };
 
@@ -5861,7 +5866,8 @@ static gint
 ssl_dissect_hnd_hello_ext_alpn(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                                packet_info *pinfo, proto_tree *tree,
                                guint32 offset, guint32 offset_end,
-                               guint8 hnd_type, SslSession *session)
+                               guint8 hnd_type, SslSession *session,
+                               gboolean is_dtls)
 {
 
     /* https://tools.ietf.org/html/rfc7301#section-3.1
@@ -5874,7 +5880,6 @@ ssl_dissect_hnd_hello_ext_alpn(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     proto_item *ti;
     guint32     next_offset, alpn_length, name_length;
     guint8     *proto_name = NULL;
-    guint32     proto_name_length = 0;
 
     /* ProtocolName protocol_name_list<2..2^16-1> */
     if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &alpn_length,
@@ -5902,9 +5907,10 @@ ssl_dissect_hnd_hello_ext_alpn(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                             tvb, offset, name_length, ENC_ASCII|ENC_NA);
         /* Remember first ALPN ProtocolName entry for server. */
         if (hnd_type == SSL_HND_SERVER_HELLO || hnd_type == SSL_HND_ENCRYPTED_EXTENSIONS) {
-            proto_name_length = name_length;
+            /* '\0'-terminated string for dissector table match and prefix
+             * comparison purposes. */
             proto_name = tvb_get_string_enc(wmem_packet_scope(), tvb, offset,
-                                            proto_name_length, ENC_ASCII);
+                                            name_length, ENC_ASCII);
         }
         offset += name_length;
     }
@@ -5912,28 +5918,37 @@ ssl_dissect_hnd_hello_ext_alpn(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     /* If ALPN is given in ServerHello, then ProtocolNameList MUST contain
      * exactly one "ProtocolName". */
     if (proto_name) {
-        /* '\0'-terminated string for prefix/full string comparison purposes. */
-        for (size_t i = 0; i < G_N_ELEMENTS(ssl_alpn_protocols); i++) {
-            const ssl_alpn_protocol_t *alpn_proto = &ssl_alpn_protocols[i];
+        dissector_handle_t handle;
 
-            if ((alpn_proto->match_exact &&
-                        proto_name_length == strlen(alpn_proto->proto_name) &&
-                        !strcmp(proto_name, alpn_proto->proto_name)) ||
-                (!alpn_proto->match_exact && g_str_has_prefix(proto_name, alpn_proto->proto_name))) {
+        if (is_dtls) {
+            handle = dissector_get_string_handle(dtls_alpn_dissector_table,
+                                                 proto_name);
+        } else {
+            handle = dissector_get_string_handle(ssl_alpn_dissector_table,
+                                                 proto_name);
+            if (handle == NULL) {
+                /* Try prefix matching */
+                for (size_t i = 0; i < G_N_ELEMENTS(ssl_alpn_prefix_match_protocols); i++) {
+                    const ssl_alpn_prefix_match_protocol_t *alpn_proto = &ssl_alpn_prefix_match_protocols[i];
 
-                dissector_handle_t handle;
-                /* ProtocolName match, so set the App data dissector handle.
-                 * This may override protocols given via the UAT dialog, but
-                 * since the ALPN hint is precise, do it anyway. */
-                handle = ssl_find_appdata_dissector(alpn_proto->dissector_name);
-                ssl_debug_printf("%s: changing handle %p to %p (%s)", G_STRFUNC,
-                                 (void *)session->app_handle,
-                                 (void *)handle, alpn_proto->dissector_name);
-                /* if dissector is disabled, do not overwrite previous one */
-                if (handle)
-                    session->app_handle = handle;
-                break;
+                    /* string_string is inappropriate as it compares strings
+                     * while "byte strings MUST NOT be truncated" (RFC 7301) */
+                    if (g_str_has_prefix(proto_name, alpn_proto->proto_prefix)) {
+                        handle = find_dissector(alpn_proto->dissector_name);
+                        break;
+                    }
+                }
             }
+        }
+        if (handle != NULL) {
+            /* ProtocolName match, so set the App data dissector handle.
+             * This may override protocols given via the UAT dialog, but
+             * since the ALPN hint is precise, do it anyway. */
+            ssl_debug_printf("%s: changing handle %p to %p (%s)", G_STRFUNC,
+                             (void *)session->app_handle,
+                             (void *)handle,
+                             dissector_handle_get_dissector_name(handle));
+            session->app_handle = handle;
         }
     }
 
@@ -6598,6 +6613,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
     while (offset < next_offset) {
         guint32 parameter_type;
         proto_tree *parameter_tree;
+        guint32 parameter_end_offset;
 
         parameter_tree = proto_tree_add_subtree(tree, tvb, offset, 4, hf->ett.hs_ext_quictp_parameter,
                                                 NULL, "Parameter");
@@ -6615,6 +6631,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
         offset += 2;
         proto_item_append_text(parameter_tree, " (len=%u)", parameter_length);
         proto_item_set_len(parameter_tree, 4 + parameter_length);
+        parameter_end_offset = offset + parameter_length;
 
         proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_value,
                             tvb, offset, parameter_length, ENC_NA);
@@ -6632,11 +6649,11 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                 proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
                 offset += 4;
             break;
-            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_BIDI:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_id_bidi,
-                                    tvb, offset, 4, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
-                offset += 4;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_BIDI_STREAMS:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_bidi_streams,
+                                    tvb, offset, 2, ENC_BIG_ENDIAN);
+                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohs(tvb, offset));
+                offset += 2;
             break;
             case SSL_HND_QUIC_TP_IDLE_TIMEOUT:
                 proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_idle_timeout,
@@ -6665,11 +6682,11 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                 /*TODO display multiplier (x8) and expert info about invaluid value (> 20) ? */
                 offset += 1;
             break;
-            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_ID_UNI:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_id_uni,
-                                    tvb, offset, 4, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
-                offset += 4;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_UNI_STREAMS:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_uni_streams,
+                                    tvb, offset, 2, ENC_BIG_ENDIAN);
+                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohs(tvb, offset));
+                offset += 2;
             break;
             default:
                 offset += parameter_length;
@@ -6677,6 +6694,10 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
             break;
         }
 
+        if (!ssl_end_vector(hf, tvb, pinfo, parameter_tree, offset, parameter_end_offset)) {
+            /* Dissection did not end at expected location, fix it. */
+            offset = parameter_end_offset;
+        }
     }
 
     return offset;
@@ -8140,7 +8161,7 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             offset++;
             break;
         case SSL_HND_HELLO_EXT_ALPN:
-            offset = ssl_dissect_hnd_hello_ext_alpn(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type, session);
+            offset = ssl_dissect_hnd_hello_ext_alpn(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type, session, is_dtls);
             break;
         case SSL_HND_HELLO_EXT_STATUS_REQUEST_V2:
             if (hnd_type == SSL_HND_CLIENT_HELLO)
@@ -8723,6 +8744,22 @@ tls13_dissect_hnd_key_update(ssl_common_dissect_t *hf, tvbuff_t *tvb,
      *  } KeyUpdate;
      */
     proto_tree_add_item(tree, hf->hf.hs_key_update_request_update, tvb, offset, 1, ENC_NA);
+}
+
+void
+ssl_common_register_ssl_alpn_dissector_table(const char *name,
+    const char *ui_name, const int proto)
+{
+    ssl_alpn_dissector_table = register_dissector_table(name, ui_name,
+        proto, FT_STRING, FALSE);
+}
+
+void
+ssl_common_register_dtls_alpn_dissector_table(const char *name,
+    const char *ui_name, const int proto)
+{
+    dtls_alpn_dissector_table = register_dissector_table(name, ui_name,
+        proto, FT_STRING, FALSE);
 }
 
 void

@@ -18,9 +18,7 @@
 #ifndef __CAPTURE_OPTS_H__
 #define __CAPTURE_OPTS_H__
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>     /* for gid_t */
-#endif
+#include <sys/types.h>     /* for gid_t */
 
 #include <caputils/capture_ifinfo.h>
 
@@ -284,7 +282,7 @@ typedef struct capture_options_tag {
 
     /* GUI related */
     gboolean           real_time_mode;        /**< Update list of packets in real time */
-    gboolean           show_info;             /**< show the info dialog. GTK+ only. */
+    gboolean           show_info;             /**< show the info dialog. */
     gboolean           restart;               /**< restart after closing is done */
     gchar             *orig_save_file;        /**< the original capture file name (saved for a restart) */
 

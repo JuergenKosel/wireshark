@@ -91,14 +91,11 @@ static ranap_private_data_t* ranap_get_private_data(asn1_ctx_t *actx)
 {
   packet_info *pinfo = actx->pinfo;
   ranap_private_data_t *private_data = (ranap_private_data_t *)p_get_proto_data(pinfo->pool, pinfo, proto_ranap, 0);
-  if(private_data != NULL ) {
-     return private_data;
-  }
-  else {
+  if(private_data == NULL ) {
     private_data = wmem_new0(pinfo->pool, ranap_private_data_t);
     p_add_proto_data(pinfo->pool, pinfo, proto_ranap, 0, private_data);
-    return private_data;
   }
+  return private_data;
 }
 
 /* Helper function to reset the the private data struct */
@@ -315,7 +312,7 @@ dissect_ranap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
   return tvb_reported_length(tvb);
 }
 
-#define RANAP_MSG_MIN_LENGTH 7
+#define RANAP_MSG_MIN_LENGTH 8
 static gboolean
 dissect_sccp_ranap_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
@@ -338,15 +335,19 @@ dissect_sccp_ranap_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   #define LENGTH_OFFSET 3
   #define CRIT_OFFSET 2
   #define MSG_TYPE_OFFSET 1
+  #define PDU_TYPE_OFFSET 0
   if (tvb_captured_length(tvb) < RANAP_MSG_MIN_LENGTH) { return FALSE; }
 
-  temp = tvb_get_guint8(tvb, 0) & 0x7f;
-  if (temp != 0x00 && temp != 0x20 &&temp != 0x40 && temp != 0x60) {
+  temp = tvb_get_guint8(tvb, PDU_TYPE_OFFSET);
+  if (temp & 0x1F) {
+    /* PDU Type byte is not 0x00 (initiatingMessage), 0x20 (succesfulOutcome),
+       0x40 (unsuccesfulOutcome) or 0x60 (outcome), ignore extension bit (0x80) */
     return FALSE;
   }
 
   temp = tvb_get_guint8(tvb, CRIT_OFFSET);
-  if (temp != 0x00 && temp != 0x40 && temp != 0x80) {
+  if (temp == 0xC0 || temp & 0x3F) {
+    /* Criticality byte is not 0x00 (reject), 0x40 (ignore) or 0x80 (notify) */
     return FALSE;
   }
 

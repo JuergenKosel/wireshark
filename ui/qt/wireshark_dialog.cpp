@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -38,8 +39,8 @@ WiresharkDialog::WiresharkDialog(QWidget &parent, CaptureFile &capture_file) :
     setWindowIcon(wsApp->normalIcon());
     setWindowTitleFromSubtitle();
 
-    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
-            this, SLOT(captureEvent(CaptureEvent *)));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent)),
+            this, SLOT(captureEvent(CaptureEvent)));
 }
 
 void WiresharkDialog::accept()
@@ -114,12 +115,12 @@ bool WiresharkDialog::registerTapListener(const char *tap_name, void *tap_data, 
     return true;
 }
 
-void WiresharkDialog::captureEvent(CaptureEvent *e)
+void WiresharkDialog::captureEvent(CaptureEvent e)
 {
-    switch (e->captureContext())
+    switch (e.captureContext())
     {
     case CaptureEvent::Retap:
-        switch (e->eventType())
+        switch (e.eventType())
         {
         case CaptureEvent::Started:
             beginRetapPackets();
@@ -132,7 +133,7 @@ void WiresharkDialog::captureEvent(CaptureEvent *e)
         }
         break;
     case CaptureEvent::File:
-        switch (e->eventType())
+        switch (e.eventType())
         {
         case CaptureEvent::Closing:
             captureFileClosing();

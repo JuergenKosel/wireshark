@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "follow_stream_dialog.h"
 #include <ui_follow_stream_dialog.h>
@@ -32,9 +33,11 @@
 #include "ws_symbol_export.h"
 
 #include <ui/qt/utils/color_utils.h>
+#include <ui/qt/utils/qt_ui_utils.h>
 
 #include "progress_frame.h"
-#include <ui/qt/utils/qt_ui_utils.h>
+
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QElapsedTimer>
 #include <QKeyEvent>
@@ -132,8 +135,8 @@ FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, follow_
             this, SLOT(fillHintLabel(int)));
     connect(ui->teStreamContent, SIGNAL(mouseClickedOnTextCursorPosition(int)),
             this, SLOT(goToPacketForTextPos(int)));
-    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
-            this, SLOT(captureEvent(CaptureEvent *)));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent)),
+            this, SLOT(captureEvent(CaptureEvent)));
 
     fillHintLabel(-1);
 }
@@ -263,7 +266,7 @@ void FollowStreamDialog::findText(bool go_back)
 
 void FollowStreamDialog::saveAs()
 {
-    QString file_name = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Stream Content As" UTF8_HORIZONTAL_ELLIPSIS)));
+    QString file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Stream Content As" UTF8_HORIZONTAL_ELLIPSIS)));
     if (!file_name.isEmpty()) {
         QTextStream out(&file_);
 
@@ -960,10 +963,10 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     return true;
 }
 
-void FollowStreamDialog::captureEvent(CaptureEvent *e)
+void FollowStreamDialog::captureEvent(CaptureEvent e)
 {
-    if ((e->captureContext() == CaptureEvent::File) &&
-            (e->eventType() == CaptureEvent::Closing)) {
+    if ((e.captureContext() == CaptureEvent::File) &&
+            (e.eventType() == CaptureEvent::Closing)) {
             QString tooltip = tr("File closed.");
             ui->streamNumberSpinBox->setToolTip(tooltip);
             ui->streamNumberLabel->setToolTip(tooltip);

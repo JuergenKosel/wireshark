@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "tcp_stream_dialog.h"
 #include <ui_tcp_stream_dialog.h>
@@ -23,10 +24,10 @@
 #include <ui/qt/utils/qt_ui_utils.h>
 #include "progress_frame.h"
 #include "wireshark_application.h"
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QCursor>
 #include <QDir>
-#include <QFileDialog>
 #include <QIcon>
 #include <QPushButton>
 
@@ -215,7 +216,7 @@ TCPStreamDialog::TCPStreamDialog(QWidget *parent, capture_file *cf, tcp_graph_ty
     ui->showBytesOutCheckBox->blockSignals(false);
 
     QCustomPlot *sp = ui->streamPlot;
-    QCPPlotTitle *file_title = new QCPPlotTitle(sp, cf_get_display_name(cap_file_));
+    QCPPlotTitle *file_title = new QCPPlotTitle(sp, gchar_free_to_qstring(cf_get_display_name(cap_file_)));
     file_title->setFont(sp->xAxis->labelFont());
     title_ = new QCPPlotTitle(sp);
     sp->plotLayout()->insertRow(0);
@@ -1806,7 +1807,7 @@ void TCPStreamDialog::on_buttonBox_accepted()
             .arg(bmp_filter)
             .arg(jpeg_filter);
 
-    file_name = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
+    file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
                                              path.canonicalPath(), filter, &extension);
 
     if (file_name.length() > 0) {

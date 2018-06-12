@@ -1504,10 +1504,8 @@ add_rr_to_tree(proto_tree  *rr_tree, tvbuff_t *tvb, int offset,
   proto_item *ttl_item;
   gchar      **srv_rr_info;
 
-  if (type == T_SRV) {
+  if (type == T_SRV && name[0]) {
     srv_rr_info = wmem_strsplit(wmem_packet_scope(), name, ".", 3);
-
-    /* The + 1 on the strings is to skip the leading '_' */
 
     proto_tree_add_string(rr_tree, hf_dns_srv_service, tvb, offset,
                           namelen, srv_rr_info[0]);
@@ -3990,7 +3988,7 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   }
 
   /* Collect stats */
-  if (!pinfo->flags.in_error_pkt) {
+  if (pinfo->flags.in_error_pkt) {
     return;
   }
   if (is_mdns) {

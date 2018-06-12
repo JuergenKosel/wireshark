@@ -33,6 +33,7 @@ set(WIRETAP_NONGENERATED_FILES
 	csids.c
 	daintree-sna.c
 	dbs-etherwatch.c
+	dpa400.c
 	dct3trace.c
 	erf.c
 	eyesdn.c
@@ -67,8 +68,10 @@ set(WIRETAP_NONGENERATED_FILES
 	pcapng.c
 	peekclassic.c
 	peektagged.c
+	pem.c
 	pppdump.c
 	radcom.c
+	ruby_marshal.c
 	snoop.c
 	stanag4607.c
 	tnef.c
@@ -115,13 +118,11 @@ add_library(wiretap
 
 add_dependencies(wiretap version)
 
-set(FULL_SO_VERSION "0.0.0")
-
 set_target_properties(wiretap PROPERTIES
 	PREFIX "lib"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
-	VERSION ${FULL_SO_VERSION} SOVERSION 0
+	VERSION "0.0.0" SOVERSION 0
 	FOLDER "DLLs"
 )
 

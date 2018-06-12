@@ -6,7 +6,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -23,7 +24,6 @@
 #include "ui/recent.h"
 
 #include <wsutil/file_util.h>
-#include <wsutil/glib-compat.h>
 
 static GList *current_profiles = NULL;
 static GList *edited_profiles = NULL;

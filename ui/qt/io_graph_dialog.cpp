@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "io_graph_dialog.h"
 #include <ui_io_graph_dialog.h>
@@ -28,9 +29,9 @@
 #include <wsutil/report_message.h>
 
 #include <ui/qt/utils/tango_colors.h> //provides some default colors
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QClipboard>
-#include <QFileDialog>
 #include <QFontMetrics>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -465,8 +466,8 @@ void IOGraphDialog::createIOGraph(int currentRow)
 
     connect(this, SIGNAL(recalcGraphData(capture_file *, bool)), iog, SLOT(recalcGraphData(capture_file *, bool)));
     connect(this, SIGNAL(reloadValueUnitFields()), iog, SLOT(reloadValueUnitField()));
-    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
-            iog, SLOT(captureEvent(CaptureEvent *)));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent)),
+            iog, SLOT(captureEvent(CaptureEvent)));
     connect(iog, SIGNAL(requestRetap()), this, SLOT(scheduleRetap()));
     connect(iog, SIGNAL(requestRecalc()), this, SLOT(scheduleRecalc()));
     connect(iog, SIGNAL(requestReplot()), this, SLOT(scheduleReplot()));
@@ -1403,7 +1404,7 @@ void IOGraphDialog::on_buttonBox_accepted()
     if (!file_closed_) {
         save_file += QString("/%1").arg(cap_file_.fileTitle());
     }
-    file_name = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
+    file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
                                              save_file, filter, &extension);
 
     if (file_name.length() > 0) {
@@ -1960,10 +1961,10 @@ void IOGraph::scaleGraphData(DataMap &map, int scalar)
     }
 }
 
-void IOGraph::captureEvent(CaptureEvent *e)
+void IOGraph::captureEvent(CaptureEvent e)
 {
-    if ((e->captureContext() == CaptureEvent::File) &&
-            (e->eventType() == CaptureEvent::Closing))
+    if ((e.captureContext() == CaptureEvent::File) &&
+            (e.eventType() == CaptureEvent::Closing))
     {
          remove_tap_listener(this);
     }
@@ -1982,156 +1983,11 @@ void IOGraph::setInterval(int interval)
 }
 
 // Get the value at the given interval (idx) for the current value unit.
-// Adapted from get_it_value in gtk/io_stat.c.
 double IOGraph::getItemValue(int idx, const capture_file *cap_file) const
 {
-    double     value = 0;          /* FIXME: loss of precision, visible on the graph for small values */
-    int        adv_type;
-    const io_graph_item_t *item;
-    guint32    interval;
-
     g_assert(idx < max_io_items_);
 
-    item = &items_[idx];
-
-    // Basic units
-    switch (val_units_) {
-    case IOG_ITEM_UNIT_PACKETS:
-        return item->frames;
-    case IOG_ITEM_UNIT_BYTES:
-        return item->bytes;
-    case IOG_ITEM_UNIT_BITS:
-        return (item->bytes * 8);
-    case IOG_ITEM_UNIT_CALC_FRAMES:
-        return item->frames;
-    case IOG_ITEM_UNIT_CALC_FIELDS:
-        return item->fields;
-    default:
-        /* If it's COUNT_TYPE_ADVANCED but not one of the
-         * generic ones we'll get it when we switch on the
-         * adv_type below. */
-        break;
-    }
-
-    if (hf_index_ < 0) {
-        return 0;
-    }
-    // Advanced units
-    adv_type = proto_registrar_get_ftype(hf_index_);
-    switch (adv_type) {
-    case FT_UINT8:
-    case FT_UINT16:
-    case FT_UINT24:
-    case FT_UINT32:
-    case FT_UINT64:
-    case FT_INT8:
-    case FT_INT16:
-    case FT_INT24:
-    case FT_INT32:
-    case FT_INT64:
-        switch (val_units_) {
-        case IOG_ITEM_UNIT_CALC_SUM:
-            value = item->int_tot;
-            break;
-        case IOG_ITEM_UNIT_CALC_MAX:
-            value = item->int_max;
-            break;
-        case IOG_ITEM_UNIT_CALC_MIN:
-            value = item->int_min;
-            break;
-        case IOG_ITEM_UNIT_CALC_AVERAGE:
-            if (item->fields) {
-                value = (double)item->int_tot / item->fields;
-            } else {
-                value = 0;
-            }
-            break;
-        default:
-            break;
-        }
-        break;
-    case FT_FLOAT:
-        switch (val_units_) {
-        case IOG_ITEM_UNIT_CALC_SUM:
-            value = item->float_tot;
-            break;
-        case IOG_ITEM_UNIT_CALC_MAX:
-            value = item->float_max;
-            break;
-        case IOG_ITEM_UNIT_CALC_MIN:
-            value = item->float_min;
-            break;
-        case IOG_ITEM_UNIT_CALC_AVERAGE:
-            if (item->fields) {
-                value = item->float_tot / item->fields;
-            } else {
-                value = 0;
-            }
-            break;
-        default:
-            break;
-        }
-        break;
-    case FT_DOUBLE:
-        switch (val_units_) {
-        case IOG_ITEM_UNIT_CALC_SUM:
-            value = item->double_tot;
-            break;
-        case IOG_ITEM_UNIT_CALC_MAX:
-            value = item->double_max;
-            break;
-        case IOG_ITEM_UNIT_CALC_MIN:
-            value = item->double_min;
-            break;
-        case IOG_ITEM_UNIT_CALC_AVERAGE:
-            if (item->fields) {
-                value = item->double_tot / item->fields;
-            } else {
-                value = 0;
-            }
-            break;
-        default:
-            break;
-        }
-        break;
-    case FT_RELATIVE_TIME:
-        switch (val_units_) {
-        case IOG_ITEM_UNIT_CALC_MAX:
-            value = nstime_to_sec(&item->time_max);
-            break;
-        case IOG_ITEM_UNIT_CALC_MIN:
-            value = nstime_to_sec(&item->time_min);
-            break;
-        case IOG_ITEM_UNIT_CALC_SUM:
-            value = nstime_to_sec(&item->time_tot);
-            break;
-        case IOG_ITEM_UNIT_CALC_AVERAGE:
-            if (item->fields) {
-                value = nstime_to_sec(&item->time_tot) / item->fields;
-            } else {
-                value = 0;
-            }
-            break;
-        case IOG_ITEM_UNIT_CALC_LOAD:
-            // "LOAD graphs plot the QUEUE-depth of the connection over time"
-            // (for response time fields such as smb.time, rpc.time, etc.)
-            // This interval is expressed in milliseconds.
-            if (idx == cur_idx_ && cap_file) {
-                interval = (guint32)(nstime_to_msec(&cap_file->elapsed_time) + 0.5);
-                interval -= (interval_ * idx);
-            } else {
-                interval = interval_;
-            }
-            value = nstime_to_msec(&item->time_tot) / interval;
-            break;
-        default:
-            break;
-        }
-        break;
-    default:
-        break;
-    }
-    return value;
+    return get_io_graph_item(items_, val_units_, idx, hf_index_, cap_file, interval_, cur_idx_);
 }
 
 // "tap_reset" callback for register_tap_listener

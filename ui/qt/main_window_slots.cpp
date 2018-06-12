@@ -77,6 +77,7 @@ DIAG_ON(frame-larger-than=)
 
 #include <ui/qt/utils/variant_pointer.h>
 #include <ui/qt/widgets/drag_drop_toolbar.h>
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #ifdef HAVE_SOFTWARE_UPDATE
 #include "ui/software_update.h"
@@ -306,167 +307,6 @@ void MainWindow::filterPackets(QString new_filter, bool force)
     }
 }
 
-// A new layout should be applied when it differs from the old layout AND
-// at the following times:
-// - At startup
-// - When the preferences change
-// - When the profile changes
-void MainWindow::layoutPanes()
-{
-    QVector<unsigned> new_layout = QVector<unsigned>() << prefs.gui_layout_type
-                                                       << prefs.gui_layout_content_1
-                                                       << prefs.gui_layout_content_2
-                                                       << prefs.gui_layout_content_3
-                                                       << recent.packet_list_show
-                                                       << recent.tree_view_show
-                                                       << recent.byte_view_show;
-
-    if (cur_layout_ == new_layout) return;
-
-    QSplitter *parents[3];
-
-    // Reparent all widgets and add them back in the proper order below.
-    // This hides each widget as well.
-    packet_list_->freeze(); // Clears tree and byte view tabs.
-    packet_list_->setParent(main_ui_->mainStack);
-    proto_tree_->setParent(main_ui_->mainStack);
-    byte_view_tab_->setParent(main_ui_->mainStack);
-    empty_pane_.setParent(main_ui_->mainStack);
-    extra_split_.setParent(main_ui_->mainStack);
-
-    // XXX We should try to preserve geometries if we can, e.g. by
-    // checking to see if the layout type is the same.
-    switch(prefs.gui_layout_type) {
-    case(layout_type_2):
-    case(layout_type_1):
-        extra_split_.setOrientation(Qt::Horizontal);
-        /* Fall Through */
-    case(layout_type_5):
-        master_split_.setOrientation(Qt::Vertical);
-        break;
-
-    case(layout_type_4):
-    case(layout_type_3):
-        extra_split_.setOrientation(Qt::Vertical);
-        /* Fall Through */
-    case(layout_type_6):
-        master_split_.setOrientation(Qt::Horizontal);
-        break;
-
-    default:
-        g_assert_not_reached();
-    }
-
-    switch(prefs.gui_layout_type) {
-    case(layout_type_5):
-    case(layout_type_6):
-        parents[0] = &master_split_;
-        parents[1] = &master_split_;
-        parents[2] = &master_split_;
-        break;
-    case(layout_type_2):
-    case(layout_type_4):
-        parents[0] = &master_split_;
-        parents[1] = &extra_split_;
-        parents[2] = &extra_split_;
-        break;
-    case(layout_type_1):
-    case(layout_type_3):
-        parents[0] = &extra_split_;
-        parents[1] = &extra_split_;
-        parents[2] = &master_split_;
-        break;
-    default:
-        g_assert_not_reached();
-    }
-
-    if (parents[0] == &extra_split_) {
-        master_split_.addWidget(&extra_split_);
-    }
-
-    parents[0]->addWidget(getLayoutWidget(prefs.gui_layout_content_1));
-
-    if (parents[2] == &extra_split_) {
-        master_split_.addWidget(&extra_split_);
-    }
-
-    parents[1]->addWidget(getLayoutWidget(prefs.gui_layout_content_2));
-    parents[2]->addWidget(getLayoutWidget(prefs.gui_layout_content_3));
-
-    const QList<QWidget *> ms_children = master_split_.findChildren<QWidget *>();
-
-    extra_split_.setVisible(ms_children.contains(&extra_split_));
-    packet_list_->setVisible(ms_children.contains(packet_list_) && recent.packet_list_show);
-    proto_tree_->setVisible(ms_children.contains(proto_tree_) && recent.tree_view_show);
-    byte_view_tab_->setVisible(ms_children.contains(byte_view_tab_) && recent.byte_view_show);
-
-    packet_list_->thaw(true);
-    cur_layout_ = new_layout;
-}
-
-// The recent layout geometry should be applied after the layout has been
-// applied AND at the following times:
-// - At startup
-// - When the profile changes
-void MainWindow::applyRecentPaneGeometry()
-{
-    // XXX This shrinks slightly each time the application is run. For some
-    // reason the master_split_ geometry is two pixels shorter when
-    // saveWindowGeometry is invoked.
-
-    // This is also an awful lot of trouble to go through to reuse the GTK+
-    // pane settings. We might want to add gui.geometry_main_master_sizes
-    // and gui.geometry_main_extra_sizes and save QSplitter::saveState in
-    // each.
-
-    // Force a geometry recalculation
-    QWidget *cur_w = main_ui_->mainStack->currentWidget();
-    main_ui_->mainStack->setCurrentWidget(&master_split_);
-    QRect geom = main_ui_->mainStack->geometry();
-    QList<int> master_sizes = master_split_.sizes();
-    QList<int> extra_sizes = extra_split_.sizes();
-    main_ui_->mainStack->setCurrentWidget(cur_w);
-
-    int master_last_size = master_split_.orientation() == Qt::Vertical ? geom.height() : geom.width();
-    master_last_size -= master_split_.handleWidth() * (master_sizes.length() - 1);
-
-    int extra_last_size = extra_split_.orientation() == Qt::Vertical ? geom.height() : geom.width();
-    extra_last_size -= extra_split_.handleWidth();
-
-    if (recent.gui_geometry_main_upper_pane > 0) {
-        master_sizes[0] = recent.gui_geometry_main_upper_pane;
-        master_last_size -= recent.gui_geometry_main_upper_pane;
-    } else {
-        master_sizes[0] = master_last_size / master_sizes.length();
-        master_last_size -= master_last_size / master_sizes.length();
-    }
-
-    if (recent.gui_geometry_main_lower_pane > 0) {
-        if (master_sizes.length() > 2) {
-            master_sizes[1] = recent.gui_geometry_main_lower_pane;
-            master_last_size -= recent.gui_geometry_main_lower_pane;
-        } else if (extra_sizes.length() > 0) {
-            extra_sizes[0] = recent.gui_geometry_main_lower_pane;
-            extra_last_size -= recent.gui_geometry_main_lower_pane;
-            extra_sizes.last() = extra_last_size;
-        }
-    } else {
-        if (master_sizes.length() > 2) {
-            master_sizes[1] = master_last_size / 2;
-            master_last_size -= master_last_size / 2;
-        } else {
-            extra_sizes[0] = extra_last_size / 2;
-            extra_last_size -= extra_last_size / 2;
-            extra_sizes.last() = extra_last_size;
-        }
-    }
-
-    master_sizes.last() = master_last_size;
-
-    master_split_.setSizes(master_sizes);
-    extra_split_.setSizes(extra_sizes);
-}
-
 void MainWindow::layoutToolbars()
 {
     Qt::ToolButtonStyle tbstyle = Qt::ToolButtonIconOnly;
@@ -659,7 +499,7 @@ void MainWindow::captureCapturePrepared(capture_session *) {
 
 //    /* Don't set up main window for a capture file. */
 //    main_set_for_capture_file(FALSE);
-    main_ui_->mainStack->setCurrentWidget(&master_split_);
+    showCapture();
 #endif // HAVE_LIBPCAP
 }
 
@@ -731,7 +571,7 @@ void MainWindow::captureCaptureFailed(capture_session *) {
     capture_stopping_ = false;
 
     setForCaptureInProgress(false);
-    main_ui_->mainStack->setCurrentWidget(main_welcome_);
+    showWelcome();
 
     // Reset expert information indicator
     main_ui_->statusBar->captureFileClosing();
@@ -749,12 +589,12 @@ void MainWindow::captureCaptureFailed(capture_session *) {
 
 // Callbacks from cfile.c and file.c via CaptureFile::captureFileCallback
 
-void MainWindow::captureEventHandler(CaptureEvent * ev)
+void MainWindow::captureEventHandler(CaptureEvent ev)
 {
-    switch (ev->captureContext()) {
+    switch (ev.captureContext()) {
 
     case CaptureEvent::File:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Opened:
             captureFileOpened();
             break;
@@ -776,7 +616,7 @@ void MainWindow::captureEventHandler(CaptureEvent * ev)
         break;
 
     case CaptureEvent::Reload:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Started:
             captureFileReadStarted(tr("Reloading"));
             break;
@@ -789,7 +629,7 @@ void MainWindow::captureEventHandler(CaptureEvent * ev)
         break;
 
     case CaptureEvent::Rescan:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Started:
             setMenusForCaptureFile(true);
             captureFileReadStarted(tr("Rescanning"));
@@ -803,7 +643,7 @@ void MainWindow::captureEventHandler(CaptureEvent * ev)
         break;
 
     case CaptureEvent::Retap:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Started:
             freeze();
             break;
@@ -819,7 +659,7 @@ void MainWindow::captureEventHandler(CaptureEvent * ev)
         break;
 
     case CaptureEvent::Merge:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Started:
             main_ui_->statusBar->popFileStatus();
             main_ui_->statusBar->pushFileStatus(tr("Merging files"), QString());
@@ -833,10 +673,10 @@ void MainWindow::captureEventHandler(CaptureEvent * ev)
         break;
 
     case CaptureEvent::Save:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Started:
         {
-            QFileInfo file_info(ev->filePath());
+            QFileInfo file_info(ev.filePath());
             main_ui_->statusBar->popFileStatus();
             main_ui_->statusBar->pushFileStatus(tr("Saving %1" UTF8_HORIZONTAL_ELLIPSIS).arg(file_info.baseName()));
             break;
@@ -848,28 +688,28 @@ void MainWindow::captureEventHandler(CaptureEvent * ev)
 
 #ifdef HAVE_LIBPCAP
     case CaptureEvent::Capture:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Prepared:
-            captureCapturePrepared(ev->capSession());
+            captureCapturePrepared(ev.capSession());
             break;
         case CaptureEvent::Stopping:
             capture_stopping_ = true;
             setMenusForCaptureStopping();
             break;
         case CaptureEvent::Failed:
-            captureCaptureFailed(ev->capSession());
+            captureCaptureFailed(ev.capSession());
         default:
             break;
         }
         break;
 
     case CaptureEvent::Update:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Started:
-            captureCaptureUpdateStarted(ev->capSession());
+            captureCaptureUpdateStarted(ev.capSession());
             break;
         case CaptureEvent::Finished:
-            captureCaptureUpdateFinished(ev->capSession());
+            captureCaptureUpdateFinished(ev.capSession());
             break;
         default:
             break;
@@ -877,9 +717,9 @@ void MainWindow::captureEventHandler(CaptureEvent * ev)
         break;
 
     case CaptureEvent::Fixed:
-        switch (ev->eventType()) {
+        switch (ev.eventType()) {
         case CaptureEvent::Finished:
-            captureCaptureFixedFinished(ev->capSession());
+            captureCaptureFixedFinished(ev.capSession());
             break;
         default:
             break;
@@ -907,7 +747,7 @@ void MainWindow::captureFileReadStarted(const QString &action) {
     QString msg = QString(tr("%1: %2")).arg(action).arg(capture_file_.fileName());
     QString msgtip = QString();
     main_ui_->statusBar->pushFileStatus(msg, msgtip);
-    main_ui_->mainStack->setCurrentWidget(&master_split_);
+    showCapture();
     main_ui_->actionAnalyzeReloadLuaPlugins->setEnabled(false);
     main_ui_->wirelessTimelineWidget->captureFileReadStarted(capture_file_.capFile());
 
@@ -976,7 +816,7 @@ void MainWindow::captureFileClosed() {
 
 #ifdef HAVE_LIBPCAP
     if (!global_capture_opts.multi_files_on)
-        main_ui_->mainStack->setCurrentWidget(main_welcome_);
+        showWelcome();
 #endif
 }
 
@@ -1069,7 +909,7 @@ void MainWindow::startCapture() {
         return;
     }
 
-    main_ui_->mainStack->setCurrentWidget(&master_split_);
+    showCapture();
 
     /* XXX - we might need to init other pref data as well... */
 
@@ -1085,6 +925,7 @@ void MainWindow::startCapture() {
     collect_ifaces(&global_capture_opts);
 
     CaptureFile::globalCapFile()->window = this;
+    info_data_.ui.ui = this;
     if (capture_start(&global_capture_opts, &cap_session_, &info_data_, main_window_update)) {
         capture_options *capture_opts = cap_session_.capture_opts;
         GString *interface_names;
@@ -1382,14 +1223,14 @@ void MainWindow::setMenusForSelectedPacket()
         next_selection_history = packet_list_->haveNextHistory();
         previous_selection_history = packet_list_->havePreviousHistory();
         have_frames = capture_file_.capFile()->count > 0;
-        have_marked = frame_selected && capture_file_.capFile()->marked_count > 0;
+        have_marked = capture_file_.capFile()->marked_count > 0;
         another_is_marked = have_marked &&
-                !(capture_file_.capFile()->marked_count == 1 && capture_file_.capFile()->current_frame->flags.marked);
+                !(capture_file_.capFile()->marked_count == 1 && frame_selected && capture_file_.capFile()->current_frame->flags.marked);
         have_filtered = capture_file_.capFile()->displayed_count > 0 && capture_file_.capFile()->displayed_count != capture_file_.capFile()->count;
         have_ignored = capture_file_.capFile()->ignored_count > 0;
         have_time_ref = capture_file_.capFile()->ref_time_count > 0;
-        another_is_time_ref = frame_selected && have_time_ref &&
-                !(capture_file_.capFile()->ref_time_count == 1 && capture_file_.capFile()->current_frame->flags.ref_time);
+        another_is_time_ref = have_time_ref &&
+                !(capture_file_.capFile()->ref_time_count == 1 && frame_selected && capture_file_.capFile()->current_frame->flags.ref_time);
 
         if (capture_file_.capFile()->edt)
         {
@@ -1615,7 +1456,7 @@ void MainWindow::captureFilterSyntaxChanged(bool valid)
 void MainWindow::startInterfaceCapture(bool valid, const QString capture_filter)
 {
     capture_filter_valid_ = valid;
-    main_welcome_->setCaptureFilter(capture_filter);
+    welcome_page_->setCaptureFilter(capture_filter);
     // The interface tree will update the selected interfaces via its timer
     // so no need to do anything here.
     startCapture();
@@ -1908,7 +1749,7 @@ void MainWindow::on_actionFileImportFromHexDump_triggered()
 void MainWindow::on_actionFileClose_triggered() {
     QString before_what(tr(" before closing the file"));
     if (testCaptureFileClose(before_what))
-        main_ui_->mainStack->setCurrentWidget(main_welcome_);
+        showWelcome();
 }
 
 void MainWindow::on_actionFileSave_triggered()
@@ -1987,7 +1828,7 @@ void MainWindow::on_actionFileExportPacketBytes_triggered()
 
     if (!capture_file_.capFile() || !capture_file_.capFile()->finfo_selected) return;
 
-    file_name = QFileDialog::getSaveFileName(this,
+    file_name = WiresharkFileDialog::getSaveFileName(this,
                                              wsApp->windowTitleString(tr("Export Selected Packet Bytes")),
                                              wsApp->lastOpenDir().canonicalPath(),
                                              tr("Raw data (*.bin *.dat *.raw);;All Files (" ALL_FILES_WILDCARD ")")
@@ -2062,7 +1903,7 @@ void MainWindow::on_actionFileExportSSLSessionKeys_triggered()
     }
 
     save_title.append(wsApp->windowTitleString(tr("Export SSL Session Keys (%Ln key(s))", "", keylist_len)));
-    file_name = QFileDialog::getSaveFileName(this,
+    file_name = WiresharkFileDialog::getSaveFileName(this,
                                              save_title,
                                              wsApp->lastOpenDir().canonicalPath(),
                                              tr("SSL Session Keys (*.keys *.txt);;All Files (" ALL_FILES_WILDCARD ")")
@@ -2107,8 +1948,10 @@ void MainWindow::on_actionStatisticsHpfeeds_triggered()
 
 void MainWindow::on_actionFilePrint_triggered()
 {
-    PrintDialog pdlg(this, capture_file_.capFile());
+    capture_file *cf = capture_file_.capFile();
+    g_return_if_fail(cf);
 
+    PrintDialog pdlg(this, cf);
     pdlg.exec();
 }
 
@@ -2225,6 +2068,7 @@ void MainWindow::on_actionEditMarkPacket_triggered()
     freeze();
     packet_list_->markFrame();
     thaw();
+    setMenusForSelectedPacket();
 }
 
 void MainWindow::on_actionEditMarkAllDisplayed_triggered()
@@ -2232,6 +2076,7 @@ void MainWindow::on_actionEditMarkAllDisplayed_triggered()
     freeze();
     packet_list_->markAllDisplayedFrames(true);
     thaw();
+    setMenusForSelectedPacket();
 }
 
 void MainWindow::on_actionEditUnmarkAllDisplayed_triggered()
@@ -2239,6 +2084,7 @@ void MainWindow::on_actionEditUnmarkAllDisplayed_triggered()
     freeze();
     packet_list_->markAllDisplayedFrames(false);
     thaw();
+    setMenusForSelectedPacket();
 }
 
 void MainWindow::on_actionEditNextMark_triggered()
@@ -2258,6 +2104,7 @@ void MainWindow::on_actionEditIgnorePacket_triggered()
     freeze();
     packet_list_->ignoreFrame();
     thaw();
+    setMenusForSelectedPacket();
 }
 
 void MainWindow::on_actionEditIgnoreAllDisplayed_triggered()
@@ -2265,6 +2112,7 @@ void MainWindow::on_actionEditIgnoreAllDisplayed_triggered()
     freeze();
     packet_list_->ignoreAllDisplayedFrames(true);
     thaw();
+    setMenusForSelectedPacket();
 }
 
 void MainWindow::on_actionEditUnignoreAllDisplayed_triggered()
@@ -2272,16 +2120,19 @@ void MainWindow::on_actionEditUnignoreAllDisplayed_triggered()
     freeze();
     packet_list_->ignoreAllDisplayedFrames(false);
     thaw();
+    setMenusForSelectedPacket();
 }
 
 void MainWindow::on_actionEditSetTimeReference_triggered()
 {
     packet_list_->setTimeReference();
+    setMenusForSelectedPacket();
 }
 
 void MainWindow::on_actionEditUnsetAllTimeReferences_triggered()
 {
     packet_list_->unsetAllTimeReferences();
+    setMenusForSelectedPacket();
 }
 
 void MainWindow::on_actionEditNextTimeReference_triggered()
@@ -2554,7 +2405,7 @@ void MainWindow::on_actionViewNormalSize_triggered()
 
 void MainWindow::on_actionViewColorizePacketList_triggered(bool checked) {
     recent.packet_list_colorize = checked;
-    packet_list_enable_color(checked);
+    packet_list_recolor_packets();
     packet_list_->packetListModel()->resetColorized();
 }
 
@@ -3860,17 +3711,17 @@ void MainWindow::on_actionCaptureOptions_triggered()
         connect(capture_interfaces_dialog_, SIGNAL(stopCapture()), this, SLOT(stopCapture()));
 
         connect(capture_interfaces_dialog_, SIGNAL(getPoints(int,PointList*)),
-                this->main_welcome_->getInterfaceFrame(), SLOT(getPoints(int,PointList*)));
+                this->welcome_page_->getInterfaceFrame(), SLOT(getPoints(int,PointList*)));
         connect(capture_interfaces_dialog_, SIGNAL(interfacesChanged()),
-                this->main_welcome_, SLOT(interfaceSelected()));
+                this->welcome_page_, SLOT(interfaceSelected()));
         connect(capture_interfaces_dialog_, SIGNAL(interfacesChanged()),
-                this->main_welcome_->getInterfaceFrame(), SLOT(updateSelectedInterfaces()));
+                this->welcome_page_->getInterfaceFrame(), SLOT(updateSelectedInterfaces()));
         connect(capture_interfaces_dialog_, SIGNAL(interfaceListChanged()),
-                this->main_welcome_->getInterfaceFrame(), SLOT(interfaceListChanged()));
+                this->welcome_page_->getInterfaceFrame(), SLOT(interfaceListChanged()));
         connect(capture_interfaces_dialog_, SIGNAL(captureFilterTextEdited(QString)),
-                this->main_welcome_, SLOT(setCaptureFilterText(QString)));
+                this->welcome_page_, SLOT(setCaptureFilterText(QString)));
         // Propagate selection changes from main UI to dialog.
-        connect(this->main_welcome_, SIGNAL(interfacesChanged()),
+        connect(this->welcome_page_, SIGNAL(interfacesChanged()),
                 capture_interfaces_dialog_, SLOT(interfaceSelected()));
 
         connect(capture_interfaces_dialog_, SIGNAL(setFilterValid(bool, const QString)),
@@ -3933,7 +3784,7 @@ void MainWindow::extcap_options_finished(int result)
     if (result == QDialog::Accepted) {
         startCapture();
     }
-    this->main_welcome_->getInterfaceFrame()->interfaceListChanged();
+    this->welcome_page_->getInterfaceFrame()->interfaceListChanged();
 }
 
 void MainWindow::showExtcapOptionsDialog(QString &device_name)

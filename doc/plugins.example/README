@@ -6,8 +6,13 @@ version. You should of course adapt to your own needs.
 
 To build/install the plugin:
 
-$ autoreconf -v -i
-$ PREFIX=/usr/local
-$ ./configure --prefix="$PREFIX" PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+$ mkdir build && cd build
+$ cmake ..
 $ make
-$ sudo make install # or single-user: make install-home
+$ sudo make install
+
+If your wireshark.pc file is not in one of the standard pkg-config search paths
+you will have to tell pkg-config where to find it. Arguably the easiest way to
+do so is setting PKG_CONFIG_PATH in your build environment, for example:
+
+$ export PKG_CONFIG_PATH="/usr/local/lib64/pkgconfig"

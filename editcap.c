@@ -1021,7 +1021,7 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    init_progfile_dir_error = init_progfile_dir(argv[0], main);
+    init_progfile_dir_error = init_progfile_dir(argv[0]);
     if (init_progfile_dir_error != NULL) {
         fprintf(stderr,
                 "editcap: Can't get pathname of directory containing the editcap program: %s.\n",
@@ -1308,6 +1308,7 @@ main(int argc, char *argv[])
         stoptm.tm_year = 135;
         stoptm.tm_mday = 31;
         stoptm.tm_mon = 11;
+        stoptm.tm_isdst = -1;
 
         stoptime = mktime(&stoptm);
     }

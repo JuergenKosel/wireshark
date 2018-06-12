@@ -54,9 +54,7 @@
 #include "ui/ws_ui_util.h"
 
 /* Needed for addrinfo */
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
+#include <sys/types.h>
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -69,10 +67,6 @@
 #ifdef _WIN32
 # include <winsock2.h>
 # include <ws2tcpip.h>
-#endif
-
-#ifdef HAVE_LIBPCAP
-gboolean auto_scroll_live; /* GTK+ only? */
 #endif
 
 static gboolean read_record(capture_file *cf, dfilter_t *dfcode,
@@ -322,7 +316,8 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   packet_list_queue_draw();
   cf_callback_invoke(cf_cb_file_opened, cf);
 
-  if (cf->cd_t == WTAP_FILE_TYPE_SUBTYPE_BER) {
+  if ((cf->cd_t == WTAP_FILE_TYPE_SUBTYPE_BER)
+      || (cf->cd_t == WTAP_FILE_TYPE_SUBTYPE_PEM)) {
     /* tell the BER dissector the file name */
     ber_set_filename(cf->filename);
   }
@@ -756,7 +751,6 @@ cf_continue_tail(capture_file *cf, volatile int to_read, int *err)
 
   *err = 0;
 
-  packet_list_check_end();
   /* Don't freeze/thaw the list when doing live capture */
   /*packet_list_freeze();*/
 
@@ -825,7 +819,7 @@ cf_continue_tail(capture_file *cf, volatile int to_read, int *err)
 
   /* moving to the end of the packet list - if the user requested so and
      we have some new packets. */
-  if (newly_displayed_packets && auto_scroll_live && cf->count != 0)
+  if (newly_displayed_packets && cf->count != 0)
       packet_list_moveto_end();
 
   if (cf->state == FILE_READ_ABORTED) {
@@ -903,7 +897,6 @@ cf_finish_tail(capture_file *cf, int *err)
     return CF_READ_ERROR;
   }
 
-  packet_list_check_end();
   /* Don't freeze/thaw the list when doing live capture */
   /*packet_list_freeze();*/
 
@@ -936,9 +929,6 @@ cf_finish_tail(capture_file *cf, int *err)
     cf_close(cf);
     return CF_READ_ABORTED;
   }
-
-  if (auto_scroll_live && cf->count != 0)
-    packet_list_moveto_end();
 
   /* We're done reading sequentially through the file. */
   cf->state = FILE_READ_DONE;
@@ -2124,6 +2114,7 @@ cf_retap_packets(capture_file *cf)
                                   "all packets", TRUE, retap_packet,
                                   &callback_args, TRUE);
 
+  packet_range_cleanup(&range);
   epan_dissect_cleanup(&callback_args.edt);
 
   cf_callback_invoke(cf_cb_file_retap_finished, cf);
@@ -3411,6 +3402,7 @@ find_packet(capture_file *cf,
 {
   frame_data  *start_fd;
   guint32      framenum;
+  guint32      prev_framenum;
   frame_data  *fdata;
   frame_data  *new_fd = NULL;
   progdlg_t   *progbar = NULL;
@@ -3425,131 +3417,129 @@ find_packet(capture_file *cf,
 
   start_fd = cf->current_frame;
   if (start_fd != NULL)  {
-    /* Iterate through the list of packets, starting at the packet we've
-       picked, calling a routine to run the filter on the packet, see if
-       it matches, and stop if so.  */
-    count = 0;
-    framenum = start_fd->num;
+    prev_framenum = start_fd->num;
+  } else {
+    prev_framenum = 0;  /* No start packet selected. */
+  }
 
-    g_timer_start(prog_timer);
-    /* Progress so far. */
-    progbar_val = 0.0f;
+  /* Iterate through the list of packets, starting at the packet we've
+     picked, calling a routine to run the filter on the packet, see if
+     it matches, and stop if so.  */
+  count = 0;
+  framenum = prev_framenum;
 
-    cf->stop_flag = FALSE;
-    g_get_current_time(&start_time);
+  g_timer_start(prog_timer);
+  /* Progress so far. */
+  progbar_val = 0.0f;
 
-    title = cf->sfilter?cf->sfilter:"";
-    for (;;) {
-      /* Create the progress bar if necessary.
-         We check on every iteration of the loop, so that it takes no
-         longer than the standard time to create it (otherwise, for a
+  cf->stop_flag = FALSE;
+  g_get_current_time(&start_time);
+
+  title = cf->sfilter?cf->sfilter:"";
+  for (;;) {
+    /* Create the progress bar if necessary.
+       We check on every iteration of the loop, so that it takes no
+       longer than the standard time to create it (otherwise, for a
          large file, we might take considerably longer than that standard
-         time in order to get to the next progress bar step). */
-      if (progbar == NULL)
-         progbar = delayed_create_progress_dlg(cf->window, "Searching", title,
-           FALSE, &cf->stop_flag, &start_time, progbar_val);
+       time in order to get to the next progress bar step). */
+    if (progbar == NULL)
+       progbar = delayed_create_progress_dlg(cf->window, "Searching", title,
+         FALSE, &cf->stop_flag, &start_time, progbar_val);
 
-      /*
-       * Update the progress bar, but do it only after PROGBAR_UPDATE_INTERVAL
-       * has elapsed. Calling update_progress_dlg and packets_bar_update will
-       * likely trigger UI paint events, which might take a while depending on
-       * the platform and display. Reset our timer *after* painting.
+    /*
+     * Update the progress bar, but do it only after PROGBAR_UPDATE_INTERVAL
+     * has elapsed. Calling update_progress_dlg and packets_bar_update will
+     * likely trigger UI paint events, which might take a while depending on
+     * the platform and display. Reset our timer *after* painting.
+     */
+    if (g_timer_elapsed(prog_timer, NULL) > PROGBAR_UPDATE_INTERVAL) {
+      /* let's not divide by zero. I should never be started
+       * with count == 0, so let's assert that
        */
-      if (g_timer_elapsed(prog_timer, NULL) > PROGBAR_UPDATE_INTERVAL) {
-        /* let's not divide by zero. I should never be started
-         * with count == 0, so let's assert that
+      g_assert(cf->count > 0);
+
+      progbar_val = (gfloat) count / cf->count;
+
+      g_snprintf(status_str, sizeof(status_str),
+                  "%4u of %u packets", count, cf->count);
+      update_progress_dlg(progbar, progbar_val, status_str);
+
+      g_timer_start(prog_timer);
+    }
+
+    if (cf->stop_flag) {
+      /* Well, the user decided to abort the search.  Go back to the
+         frame where we started. */
+      new_fd = start_fd;
+      break;
+    }
+
+    /* Go past the current frame. */
+    if (dir == SD_BACKWARD) {
+      /* Go on to the previous frame. */
+      if (framenum <= 1) {
+        /*
+         * XXX - other apps have a bit more of a detailed message
+         * for this, and instead of offering "OK" and "Cancel",
+         * they offer things such as "Continue" and "Cancel";
+         * we need an API for popping up alert boxes with
+         * {Verb} and "Cancel".
          */
-        g_assert(cf->count > 0);
 
-        progbar_val = (gfloat) count / cf->count;
+        if (prefs.gui_find_wrap) {
+          statusbar_push_temporary_msg("Search reached the beginning. Continuing at end.");
+          framenum = cf->count;     /* wrap around */
+        } else {
+          statusbar_push_temporary_msg("Search reached the beginning.");
+          framenum = prev_framenum; /* stay on previous packet */
+        }
+      } else
+        framenum--;
+    } else {
+      /* Go on to the next frame. */
+      if (framenum == cf->count) {
+        if (prefs.gui_find_wrap) {
+          statusbar_push_temporary_msg("Search reached the end. Continuing at beginning.");
+          framenum = 1;             /* wrap around */
+        } else {
+          statusbar_push_temporary_msg("Search reached the end.");
+          framenum = prev_framenum; /* stay on previous packet */
+        }
+      } else
+        framenum++;
+    }
 
-        g_snprintf(status_str, sizeof(status_str),
-                    "%4u of %u packets", count, cf->count);
-        update_progress_dlg(progbar, progbar_val, status_str);
+    fdata = frame_data_sequence_find(cf->provider.frames, framenum);
+    count++;
 
-        g_timer_start(prog_timer);
-      }
-
-      if (cf->stop_flag) {
-        /* Well, the user decided to abort the search.  Go back to the
-           frame where we started. */
+    /* Is this packet in the display? */
+    if (fdata && fdata->flags.passed_dfilter) {
+      /* Yes.  Does it match the search criterion? */
+      result = (*match_function)(cf, fdata, criterion);
+      if (result == MR_ERROR) {
+        /* Error; our caller has reported the error.  Go back to the frame
+           where we started. */
         new_fd = start_fd;
         break;
-      }
-
-      /* Go past the current frame. */
-      if (dir == SD_BACKWARD) {
-        /* Go on to the previous frame. */
-        if (framenum == 1) {
-          /*
-           * XXX - other apps have a bit more of a detailed message
-           * for this, and instead of offering "OK" and "Cancel",
-           * they offer things such as "Continue" and "Cancel";
-           * we need an API for popping up alert boxes with
-           * {Verb} and "Cancel".
-           */
-
-          if (prefs.gui_find_wrap)
-          {
-              statusbar_push_temporary_msg("Search reached the beginning. Continuing at end.");
-              framenum = cf->count;     /* wrap around */
-          }
-          else
-          {
-              statusbar_push_temporary_msg("Search reached the beginning.");
-              framenum = start_fd->num; /* stay on previous packet */
-          }
-        } else
-          framenum--;
-      } else {
-        /* Go on to the next frame. */
-        if (framenum == cf->count) {
-          if (prefs.gui_find_wrap)
-          {
-              statusbar_push_temporary_msg("Search reached the end. Continuing at beginning.");
-              framenum = 1;             /* wrap around */
-          }
-          else
-          {
-              statusbar_push_temporary_msg("Search reached the end.");
-              framenum = start_fd->num; /* stay on previous packet */
-          }
-        } else
-          framenum++;
-      }
-      fdata = frame_data_sequence_find(cf->provider.frames, framenum);
-
-      count++;
-
-      /* Is this packet in the display? */
-      if (fdata->flags.passed_dfilter) {
-        /* Yes.  Does it match the search criterion? */
-        result = (*match_function)(cf, fdata, criterion);
-        if (result == MR_ERROR) {
-          /* Error; our caller has reported the error.  Go back to the frame
-             where we started. */
-          new_fd = start_fd;
-          break;
-        } else if (result == MR_MATCHED) {
-          /* Yes.  Go to the new frame. */
-          new_fd = fdata;
-          break;
-        }
-      }
-
-      if (fdata == start_fd) {
-        /* We're back to the frame we were on originally, and that frame
-           doesn't match the search filter.  The search failed. */
+      } else if (result == MR_MATCHED) {
+        /* Yes.  Go to the new frame. */
+        new_fd = fdata;
         break;
       }
     }
 
-    /* We're done scanning the packets; destroy the progress bar if it
-       was created. */
-    if (progbar != NULL)
-      destroy_progress_dlg(progbar);
-    g_timer_destroy(prog_timer);
+    if (fdata == start_fd) {
+      /* We're back to the frame we were on originally, and that frame
+         doesn't match the search filter.  The search failed. */
+      break;
+    }
   }
+
+  /* We're done scanning the packets; destroy the progress bar if it
+     was created. */
+  if (progbar != NULL)
+    destroy_progress_dlg(progbar);
+  g_timer_destroy(prog_timer);
 
   if (new_fd != NULL) {
     /* Find and select */
@@ -3666,8 +3656,6 @@ cf_select_packet(capture_file *cf, int row)
 
   dfilter_macro_build_ftv_cache(cf->edt->tree);
 
-  cf_callback_invoke(cf_cb_packet_selected, cf);
-
   if (old_edt != NULL)
     epan_dissect_free(old_edt);
 
@@ -3685,23 +3673,9 @@ cf_unselect_packet(capture_file *cf)
   cf->current_frame = NULL;
   cf->current_row = 0;
 
-  cf_callback_invoke(cf_cb_packet_unselected, cf);
-
-  /* No protocol tree means no selected field. */
-  cf_unselect_field(cf);
-
   /* Destroy the epan_dissect_t for the unselected packet. */
   if (old_edt != NULL)
     epan_dissect_free(old_edt);
-}
-
-/* Unset the selected protocol tree field, if any. */
-void
-cf_unselect_field(capture_file *cf)
-{
-  cf->finfo_selected = NULL;
-
-  cf_callback_invoke(cf_cb_field_unselected, cf);
 }
 
 /*
@@ -4585,8 +4559,6 @@ cf_export_specified_packets(capture_file *cf, const char *fname,
   GArray                      *nrb_hdrs = NULL;
   int                          encap;
 
-  cf_callback_invoke(cf_cb_file_export_specified_packets_started, (gpointer)fname);
-
   packet_range_process_init(range);
 
   /* We're writing out specified packets from the specified capture
@@ -4653,7 +4625,6 @@ cf_export_specified_packets(capture_file *cf, const char *fname,
       wtap_dump_close(pdh, &err);
       if (fname_new != NULL)
         ws_unlink(fname_new);
-      cf_callback_invoke(cf_cb_file_export_specified_packets_stopped, NULL);
       return CF_WRITE_ABORTED;
     break;
 
@@ -4682,7 +4653,6 @@ cf_export_specified_packets(capture_file *cf, const char *fname,
     }
   }
 
-  cf_callback_invoke(cf_cb_file_export_specified_packets_finished, NULL);
   return CF_WRITE_OK;
 
 fail:
@@ -4696,7 +4666,6 @@ fail:
     ws_unlink(fname_new);
     g_free(fname_new);
   }
-  cf_callback_invoke(cf_cb_file_export_specified_packets_failed, NULL);
   return CF_WRITE_ERROR;
 }
 

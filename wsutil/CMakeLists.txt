@@ -39,12 +39,13 @@ set(WSUTIL_PUBLIC_HEADERS
 	filesystem.h
 	frequency-utils.h
 	g711.h
-	glib-compat.h
 	inet_addr.h
+	inet_ipv4.h
 	inet_ipv6.h
 	interface.h
 	jsmn.h
 	mpeg-audio.h
+	netlink.h
 	nstime.h
 	os_version_info.h
 	pint.h
@@ -69,7 +70,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	ws_mempbrk_int.h
 	ws_pipe.h
 	ws_printf.h
-	wsjsmn.h
+	wsjson.h
 	xtea.h
 )
 
@@ -96,7 +97,6 @@ set(WSUTIL_COMMON_FILES
 	filesystem.c
 	frequency-utils.c
 	g711.c
-	glib-compat.c
 	inet_addr.c
 	interface.c
 	jsmn.c
@@ -118,7 +118,7 @@ set(WSUTIL_COMMON_FILES
 	ws_mempbrk.c
 	ws_pipe.c
 	wsgcrypt.c
-	wsjsmn.c
+	wsjson.c
 	xtea.c
 )
 
@@ -229,6 +229,11 @@ set(wsutil_LIBS
 	${WIN_WSOCK32_LIBRARY}
 	${GNUTLS_LIBRARIES}
 )
+
+IF(HAVE_JSONGLIB)
+	list(APPEND wsutil_LIBS ${JSONGLIB_LIBRARIES})
+ENDIF()
+
 IF(WIN32)
 	set(wsutil_LIBS ${wsutil_LIBS} "iphlpapi.lib" "ws2_32.lib")
 ENDIF(WIN32)
@@ -253,13 +258,11 @@ add_library(wsutil
 	${CMAKE_BINARY_DIR}/image/libwsutil.rc
 )
 
-set(FULL_SO_VERSION "0.0.0")
-
 set_target_properties(wsutil PROPERTIES
 	PREFIX "lib"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
-	VERSION ${FULL_SO_VERSION} SOVERSION 0
+	VERSION "0.0.0" SOVERSION 0
 	FOLDER "DLLs"
 )
 

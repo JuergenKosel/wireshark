@@ -289,9 +289,7 @@ static void extcap_help_option_free(gpointer option)
 
 void extcap_base_cleanup(extcap_parameters ** extcap)
 {
-    /* g_list_free_full() only exists since 2.28. g_list_free_full((*extcap)->interfaces, extcap_iface_free);*/
-    g_list_foreach((*extcap)->interfaces, (GFunc)extcap_iface_free, NULL);
-    g_list_free((*extcap)->interfaces);
+    g_list_free_full((*extcap)->interfaces, extcap_iface_free);
     g_free((*extcap)->exename);
     g_free((*extcap)->fifo);
     g_free((*extcap)->interface);
@@ -299,13 +297,12 @@ void extcap_base_cleanup(extcap_parameters ** extcap)
     g_free((*extcap)->helppage);
     g_free((*extcap)->help_header);
     g_free((*extcap)->ws_version);
-    g_list_foreach((*extcap)->help_options, (GFunc)extcap_help_option_free, NULL);
-    g_list_free((*extcap)->help_options);
+    g_list_free_full((*extcap)->help_options, extcap_help_option_free);
     g_free(*extcap);
     *extcap = NULL;
 }
 
-static void extcap_print_option(gpointer option)
+static void extcap_print_option(gpointer option, gpointer user_data _U_)
 {
     extcap_option_t* o = (extcap_option_t*)option;
     printf("\t%s: %s\n", o->optname, o->optdesc);
@@ -318,7 +315,7 @@ void extcap_help_print(extcap_parameters * extcap)
     printf("%s", extcap->help_header);
     printf("\n");
     printf("Options:\n");
-    g_list_foreach(extcap->help_options, (GFunc)extcap_print_option, NULL);
+    g_list_foreach(extcap->help_options, extcap_print_option, NULL);
     printf("\n");
 }
 
@@ -358,11 +355,11 @@ void extcap_init_custom_log(const char* filename)
 void extcap_config_debug(unsigned* count)
 {
     printf("arg {number=%u}{call=--debug}{display=Run in debug mode}"
-    "{type=boolean}{default=false}{tooltip=Print debug messages}{required=false}\n",
-    (*count)++);
+    "{type=boolean}{default=false}{tooltip=Print debug messages}{required=false}"
+    "{group=Debug}\n", (*count)++);
     printf("arg {number=%u}{call=--debug-file}{display=Use a file for debug}"
-    "{type=string}{tooltip=Set a file where the debug messages are written}{required=false}\n",
-    (*count)++);
+    "{type=string}{tooltip=Set a file where the debug messages are written}{required=false}"
+    "{group=Debug}\n", (*count)++);
 }
 
 void extcap_cmdline_debug(char** ar, const unsigned n)

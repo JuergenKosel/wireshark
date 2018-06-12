@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -770,7 +771,10 @@ void InterfaceToolbar::stopCapture()
     {
         if (interface_[ifname].reader_thread)
         {
-            interface_[ifname].reader_thread->requestInterruption();
+            if (!interface_[ifname].reader_thread->isFinished())
+            {
+                interface_[ifname].reader_thread->requestInterruption();
+            }
             interface_[ifname].reader_thread = NULL;
         }
 

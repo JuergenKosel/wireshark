@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "epan/to_str.h"
 
@@ -38,7 +39,7 @@ SCTPAssocAnalyseDialog::SCTPAssocAnalyseDialog(QWidget *parent, sctp_assoc_info_
             | Qt::WindowMinimizeButtonHint
             | Qt::WindowCloseButtonHint;
     this->setWindowFlags(flags);
-    this->setWindowTitle(QString(tr("SCTP Analyse Association: %1 Port1 %2 Port2 %3")).arg(cf_get_display_name(cap_file_)).arg(selected_assoc->port1).arg(selected_assoc->port2));
+    this->setWindowTitle(QString(tr("SCTP Analyse Association: %1 Port1 %2 Port2 %3")).arg(gchar_free_to_qstring(cf_get_display_name(cap_file_))).arg(selected_assoc->port1).arg(selected_assoc->port2));
     fillTabs();
 }
 
@@ -66,10 +67,10 @@ sctp_assoc_info_t* SCTPAssocAnalyseDialog::findAssocForPacket(capture_file* cf)
         assoc = (sctp_assoc_info_t*)(list->data);
 
         framelist = g_list_first(assoc->frame_numbers);
+        guint32 fn;
         while (framelist) {
-            guint32 *fn;
-            fn = (guint32 *)framelist->data;
-            if (*fn == fdata->num) {
+            fn = GPOINTER_TO_UINT(framelist->data);
+            if (fn == fdata->num) {
                 frame_found = TRUE;
                 break;
             }

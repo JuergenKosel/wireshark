@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "sctp_all_assocs_dialog.h"
 #include <ui_sctp_all_assocs_dialog.h>
@@ -17,7 +18,6 @@
 
 #include <QWidget>
 #include <QDir>
-#include <QFileDialog>
 #include <QPushButton>
 
 //#include <QDebug>
@@ -33,7 +33,6 @@ SCTPAllAssocsDialog::SCTPAllAssocsDialog(QWidget *parent, capture_file *cf) :
             | Qt::WindowMaximizeButtonHint
             | Qt::WindowCloseButtonHint;
     this->setWindowFlags(flags);
-    sctp_assocs = (sctp_allassocs_info_t *)g_malloc(sizeof(sctp_allassocs_info_t));
     fillTable();
 }
 

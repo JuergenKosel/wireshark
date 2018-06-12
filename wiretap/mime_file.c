@@ -12,13 +12,13 @@
  * off to heuristic dissectors to try to identify the file's contents.
  *
  * Wiretap Library
-* SPDX-License-Identifier: GPL-2.0-or-later*/
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>

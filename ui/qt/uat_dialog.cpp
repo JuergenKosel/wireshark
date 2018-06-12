@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "uat_dialog.h"
 #include <ui_uat_dialog.h>
@@ -69,6 +70,9 @@ UatDialog::UatDialog(QWidget *parent, epan_uat *uat) :
     // Need to add uat_move or uat_insert to the UAT API.
     ui->uatTreeView->setDragEnabled(false);
     qDebug() << "FIX Add drag reordering to UAT dialog";
+
+    // Do NOT start editing the first column for the first item
+    ui->uatTreeView->setCurrentIndex(QModelIndex());
 }
 
 UatDialog::~UatDialog()

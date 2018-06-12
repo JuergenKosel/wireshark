@@ -25,12 +25,12 @@
 #include <QTimer>
 #include <QTranslator>
 
+#include "capture_event.h"
+
 struct _e_prefs;
 
 class QAction;
 class QSocketNotifier;
-
-class CaptureEvent;
 
 // Recent items:
 // - Read from prefs
@@ -202,7 +202,7 @@ public slots:
     void clearRecentCaptures();
     void refreshRecentCaptures();
 
-    void captureEventHandler(CaptureEvent *);
+    void captureEventHandler(CaptureEvent);
 
 private slots:
     void updateTaps();

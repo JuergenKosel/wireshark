@@ -128,8 +128,18 @@ static gint ett_camel_RPcause = -1;
 static gint ett_camel_stat = -1;
 static gint ett_camel_calledpartybcdnumber = -1;
 static gint ett_camel_callingpartynumber = -1;
+static gint ett_camel_originalcalledpartyid = -1;
+static gint ett_camel_redirectingpartyid = -1;
 static gint ett_camel_locationnumber = -1;
 static gint ett_camel_additionalcallingpartynumber = -1;
+static gint ett_camel_calledAddressValue = -1;
+static gint ett_camel_callingAddressValue = -1;
+static gint ett_camel_assistingSSPIPRoutingAddress = -1;
+static gint ett_camel_correlationID = -1;
+static gint ett_camel_dTMFDigitsCompleted = -1;
+static gint ett_camel_dTMFDigitsTimeOut = -1;
+static gint ett_camel_number = -1;
+static gint ett_camel_digitsResponse = -1;
 
 #include "packet-camel-ett.c"
 
@@ -320,13 +330,13 @@ static void dbg(guint level, char *fmt, ...) {
 #endif
 
 static void
-camelstat_init(struct register_srt* srt _U_, GArray* srt_array, srt_gui_init_cb gui_callback, void* gui_data)
+camelstat_init(struct register_srt* srt _U_, GArray* srt_array)
 {
   srt_stat_table *camel_srt_table;
   gchar* tmp_str;
   guint32 i;
 
-  camel_srt_table = init_srt_table("CAMEL Commands", NULL, srt_array, NB_CAMELSRT_CATEGORY, NULL, NULL, gui_callback, gui_data, NULL);
+  camel_srt_table = init_srt_table("CAMEL Commands", NULL, srt_array, NB_CAMELSRT_CATEGORY, NULL, NULL, NULL);
   for (i = 0; i < NB_CAMELSRT_CATEGORY; i++)
   {
     tmp_str = val_to_str_wmem(NULL,i,camelSRTtype_naming,"Unknown (%d)");
@@ -1200,10 +1210,10 @@ typedef enum
 
 static stat_tap_table_item camel_stat_fields[] = {{TABLE_ITEM_STRING, TAP_ALIGN_LEFT, "Message Type or Reason", "%-25s"}, {TABLE_ITEM_UINT, TAP_ALIGN_RIGHT, "Count", "%d"}};
 
-static void camel_stat_init(stat_tap_table_ui* new_stat, stat_tap_gui_init_cb gui_callback, void* gui_data)
+static void camel_stat_init(stat_tap_table_ui* new_stat)
 {
   int num_fields = sizeof(camel_stat_fields)/sizeof(stat_tap_table_item);
-  stat_tap_table* table = stat_tap_init_table("CAMEL Message Counters", num_fields, 0, NULL, gui_callback, gui_data);
+  stat_tap_table* table = stat_tap_init_table("CAMEL Message Counters", num_fields, 0, NULL);
   int i;
   stat_tap_table_item_type items[sizeof(camel_stat_fields)/sizeof(stat_tap_table_item)];
 
@@ -1490,8 +1500,18 @@ void proto_register_camel(void) {
     &ett_camel_stat,
     &ett_camel_calledpartybcdnumber,
     &ett_camel_callingpartynumber,
+    &ett_camel_originalcalledpartyid,
+    &ett_camel_redirectingpartyid,
     &ett_camel_locationnumber,
     &ett_camel_additionalcallingpartynumber,
+    &ett_camel_calledAddressValue,
+    &ett_camel_callingAddressValue,
+    &ett_camel_assistingSSPIPRoutingAddress,
+    &ett_camel_correlationID,
+    &ett_camel_dTMFDigitsCompleted,
+    &ett_camel_dTMFDigitsTimeOut,
+    &ett_camel_number,
+    &ett_camel_digitsResponse,
 
 #include "packet-camel-ettarr.c"
   };

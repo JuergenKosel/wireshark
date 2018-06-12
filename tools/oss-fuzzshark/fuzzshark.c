@@ -6,7 +6,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include <config.h>
 
@@ -233,7 +234,7 @@ fuzz_init(int argc _U_, char **argv)
 	/*
 	 * Attempt to get the pathname of the executable file.
 	 */
-	init_progfile_dir_error = init_progfile_dir(argv[0], fuzz_init);
+	init_progfile_dir_error = init_progfile_dir(argv[0]);
 	if (init_progfile_dir_error != NULL)
 		fprintf(stderr, "fuzzshark: Can't get pathname of oss-fuzzshark program: %s.\n", init_progfile_dir_error);
 

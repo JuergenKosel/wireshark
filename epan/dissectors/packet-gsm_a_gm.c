@@ -4353,9 +4353,11 @@ de_sm_apn(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, g
 	}
 
 	/* Highlight bytes including the first length byte */
-	pi = proto_tree_add_string(tree, hf_gsm_a_gm_apn, tvb, curr_offset, len, str+1);
-	if (len > 100) {
-		expert_add_info(pinfo, pi, &ei_gsm_a_gm_apn_too_long);
+	if (str[0]) {
+		pi = proto_tree_add_string(tree, hf_gsm_a_gm_apn, tvb, curr_offset, len, str+1);
+		if (len > 100) {
+			expert_add_info(pinfo, pi, &ei_gsm_a_gm_apn_too_long);
+		}
 	}
 	curr_offset += len;
 
@@ -4663,7 +4665,7 @@ de_sm_pco(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, g
 				break;
 			case 0x001b:
 				if (link_dir == P2P_DIR_DL && e_len >= 4) {
-					de_nas_5gs_mm_s_nssai(tvb, pco_tree, pinfo, curr_offset, e_len - 3, NULL, 0);
+					de_nas_5gs_cmn_s_nssai(tvb, pco_tree, pinfo, curr_offset, e_len - 3, NULL, 0);
 					dissect_e212_mcc_mnc(tvb, pinfo, pco_tree, curr_offset + e_len - 3, E212_NONE, TRUE);
 				}
 				break;
@@ -5507,7 +5509,7 @@ de_sm_linked_ti(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 off
 
 		proto_tree_add_uint(tree, hf_gsm_a_gm_ti_value, tvb, curr_offset, 1, oct&0x7f);
 
-		proto_tree_add_item(tree, hf_gsm_a_sm_ext, tvb, offset, 1, ENC_BIG_ENDIAN);
+		proto_tree_add_item(tree, hf_gsm_a_sm_ext, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
 
 		curr_offset++;
 	}

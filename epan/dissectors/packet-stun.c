@@ -17,9 +17,10 @@
  * - RFC 5245, formerly draft-ietf-mmusic-ice-19
  * - RFC 5780, formerly draft-ietf-behave-nat-behavior-discovery-08
  * - RFC 5766, formerly draft-ietf-behave-turn-16
- * - draft-ietf-behave-turn-ipv6-11
- * - RFC 3489, http://www.faqs.org/rfcs/rfc3489.html  (Addition of deprecated attributes for diagnostics purpose)
+ * - RFC 6156, formerly draft-ietf-behave-turn-ipv6-11
+ * - RFC 3489 (Addition of deprecated attributes for diagnostics purpose)
  * - RFC 6062
+ * - RFC 6544
  *
  * From MS (Lync)
  * MS-TURN: Traversal Using Relay NAT (TURN) Extensions http://msdn.microsoft.com/en-us/library/cc431507.aspx
@@ -460,8 +461,12 @@ get_stun_message_len(packet_info *pinfo _U_, tvbuff_t *tvb,
 
     if ((captured_length >= TCP_FRAME_COOKIE_LEN) &&
         (tvb_get_ntohl(tvb, 6) == 0x2112a442)) {
-        /* The magic cookie is off by two, this appears
-           to be RFC4751 framing */
+        /*
+         * The magic cookie is off by two, so this appears to be
+         * RFC 4571 framing, as per RFC 6544; use the length
+         * field from that framing, rather than the STUN/TURN
+         * ChannelData length field.
+         */
         return (tvb_get_ntohs(tvb, 0) + 2);
     }
 
@@ -563,7 +568,12 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
     tcp_framing_offset = 0;
     if ((!is_udp) && (captured_length >= TCP_FRAME_COOKIE_LEN) &&
        (tvb_get_ntohl(tvb, 6) == 0x2112a442)) {
-        /* we found ICE TCP framing according to RFC 4571 */
+        /*
+         * The magic cookie is off by two, so this appears to be
+         * RFC 4571 framing, as per RFC 6544; the STUN/TURN
+         * ChannelData header begins after the 2-octet
+         * RFC 4571 length field.
+         */
         tcp_framing_offset = 2;
     }
 
@@ -1707,6 +1717,7 @@ proto_register_stun(void)
     /* heuristic subdissectors (used for the DATA field) */
     heur_subdissector_list = register_heur_dissector_list("stun", proto_stun);
 
+    register_dissector("stun-tcp", dissect_stun_tcp, proto_stun);
     register_dissector("stun-udp", dissect_stun_udp, proto_stun);
     register_dissector("stun-heur", dissect_stun_heur, proto_stun);
 }
@@ -1714,11 +1725,18 @@ proto_register_stun(void)
 void
 proto_reg_handoff_stun(void)
 {
-    stun_tcp_handle = create_dissector_handle(dissect_stun_tcp, proto_stun);
-    stun_udp_handle = create_dissector_handle(dissect_stun_udp, proto_stun);
+    stun_tcp_handle = find_dissector("stun-tcp");
+    stun_udp_handle = find_dissector("stun-udp");
 
     dissector_add_uint_with_preference("tcp.port", TCP_PORT_STUN, stun_tcp_handle);
     dissector_add_uint_with_preference("udp.port", UDP_PORT_STUN, stun_udp_handle);
+
+    /*
+     * SSL/TLS and DTLS Application-Layer Protocol Negotiation (ALPN)
+     * protocol ID.
+     */
+    dissector_add_string("ssl.handshake.extensions_alpn_str", "stun.nat-discovery", stun_tcp_handle);
+    dissector_add_string("dtls.handshake.extensions_alpn_str", "stun.nat-discovery", stun_udp_handle);
 
     heur_dissector_add("udp", dissect_stun_heur, "STUN over UDP", "stun_udp", proto_stun, HEURISTIC_ENABLE);
 

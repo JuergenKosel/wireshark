@@ -466,25 +466,16 @@ launching the Wireshark.exe executable.
 
 ==== Unix/Linux
 
-When you want to investigate a problem with Wireshark you want to load
-the program into your debugger. But loading wireshark into debugger fails
-because of the libtool build environment. You'll have to wrap loading
-wireshark into a libtool command:
-
-[source,sh]
-----
-$ libtool --mode=execute gdb wireshark
-----
-
-If you prefer a graphic debugger you can use the Data Display Debugger
-(ddd) instead of GNU debugger (gdb).
+You can debug using command-line debuggers such as gdb, dbx, or lldb. 
+If you prefer a graphic debugger, you can use the Data Display Debugger
+(ddd).
 
 
 Additional traps can be set on GLib by setting the `G_DEBUG` environment variable:
 
 [source,sh]
 ----
-$ G_DEBUG=fatal_criticals libtool --mode=execute ddd wireshark
+$ G_DEBUG=fatal_criticals ddd wireshark
 ----
 
 See http://library.gnome.org/devel/glib/stable/glib-running.html[]
@@ -975,12 +966,12 @@ directory, you’d run `patch` in _that_ directory and run it with `-p0`.
 
 If you run it without `-pat` all, the patch tool
 flattens path names, so that if you
-have a patch file with patches to _Makefile.am_ and
-_wiretap/Makefile.am_,
+have a patch file with patches to _CMakeLists.txt_ and
+_wiretap/CMakeLists.txt_,
 it'll try to apply the first patch to the top-level
-_Makefile.am_ and then apply the
-_wiretap/Makefile.am_ patch to the top-level
-_Makefile.am_ as well.
+_CMakeLists.txt_ and then apply the
+_wiretap/CMakeLists.txt_ patch to the top-level
+_CMakeLists.txt_ as well.
 
 At which position in the filesystem should the patch tool be called?
 
@@ -993,7 +984,7 @@ if somebody did a patch to _packet-ip.c_ and ran `diff` or `git diff` in
 the _epan/dissectors_ directory -- you’d run it in that subdirectory.
 It is preferred that people *not* submit patches like
 that, especially if they're only patching files that exist in multiple
-directories such as _Makefile.am_.
+directories such as _CMakeLists.txt_.
 
 [[ChSrcBinary]]
 

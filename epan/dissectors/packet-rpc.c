@@ -340,7 +340,7 @@ rpcstat_find_procs(const gchar *table_name _U_, ftenum_t selector_type _U_, gpoi
 }
 
 static void
-rpcstat_init(struct register_srt* srt, GArray* srt_array, srt_gui_init_cb gui_callback, void* gui_data)
+rpcstat_init(struct register_srt* srt, GArray* srt_array)
 {
 	rpcstat_tap_data_t* tap_data = (rpcstat_tap_data_t*)get_srt_table_param_data(srt);
 	srt_stat_table *rpc_srt_table;
@@ -354,7 +354,7 @@ rpcstat_init(struct register_srt* srt, GArray* srt_array, srt_gui_init_cb gui_ca
 	hfi=proto_registrar_get_nth(hf_index);
 
 	g_snprintf(table_name, sizeof(table_name), "%s Version %u", tap_data->prog, tap_data->version);
-	rpc_srt_table = init_srt_table(table_name, NULL, srt_array, tap_data->num_procedures, NULL, hfi->abbrev, gui_callback, gui_data, tap_data);
+	rpc_srt_table = init_srt_table(table_name, NULL, srt_array, tap_data->num_procedures, NULL, hfi->abbrev, tap_data);
 	for (i = 0; i < rpc_srt_table->num_procs; i++)
 	{
 		char *proc_name = rpc_proc_name_internal(NULL, tap_data->program, tap_data->version, i);
@@ -1600,12 +1600,6 @@ dissect_rpc_authgss_priv_data(tvbuff_t *tvb, proto_tree *tree, int offset,
 	/* return_offset = */ call_dissector_with_data(spnego_krb5_wrap_handle,
 		             tvb_new_subset_remaining(tvb, offset),
 			     pinfo, tree, gssapi_encrypt);
-
-	if (!gssapi_encrypt->gssapi_decrypted_tvb) {
-		/* failed to decrypt the data */
-		offset += length;
-		return offset;
-	}
 
 	offset += length;
 	return offset;
@@ -3883,12 +3877,12 @@ static stat_tap_table_item rpc_prog_stat_fields[] = {
 	{TABLE_ITEM_FLOAT, TAP_ALIGN_RIGHT, "Avg SRT (s)", "%.2f"}
 };
 
-static void rpc_prog_stat_init(stat_tap_table_ui* new_stat, stat_tap_gui_init_cb gui_callback, void* gui_data)
+static void rpc_prog_stat_init(stat_tap_table_ui* new_stat)
 {
 	int num_fields = sizeof(rpc_prog_stat_fields)/sizeof(stat_tap_table_item);
 	stat_tap_table* table;
 
-	table = stat_tap_init_table("ONC-RPC Program Statistics", num_fields, 0, NULL, gui_callback, gui_data);
+	table = stat_tap_init_table("ONC-RPC Program Statistics", num_fields, 0, NULL);
 	stat_tap_add_table(new_stat, table);
 
 }

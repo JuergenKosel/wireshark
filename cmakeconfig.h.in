@@ -53,9 +53,6 @@
 /* Define to use c-ares library */
 #cmakedefine HAVE_C_ARES 1
 
-/* Define to 1 if you have the `dladdr' function. */
-#cmakedefine HAVE_DLADDR 1
-
 /* Define to 1 if you have the <fcntl.h> header file. */
 #cmakedefine HAVE_FCNTL_H 1
 
@@ -65,14 +62,26 @@
 /* Define to 1 if you have the <ifaddrs.h> header file. */
 #cmakedefine HAVE_IFADDRS_H 1
 
+/* Define to 1 if you have the `getexecname' function. */
+#cmakedefine HAVE_GETEXECNAME 1
+
 /* Define to 1 if you have the `getifaddrs' function. */
 #cmakedefine HAVE_GETIFADDRS 1
 
 /* Define if LIBSSH support is enabled */
 #cmakedefine HAVE_LIBSSH 1
 
+/* Define if JSONGLIB support is enabled */
+#cmakedefine HAVE_JSONGLIB 1
+
 /* Define if LIBSSH has ssh_userauth_agent() function */
 #cmakedefine HAVE_SSH_USERAUTH_AGENT 1
+
+/* Define if you have the 'dlget' function. */
+#cmakedefine HAVE_DLGET 1
+
+/* Define if you have the 'getexecname' function. */
+#cmakedefine HAVE_GETEXECNAME 1
 
 /* Define if you have the 'floorl' function. */
 #cmakedefine HAVE_FLOORL 1
@@ -133,6 +142,9 @@
 
 /* Define to use lz4 library */
 #cmakedefine HAVE_LZ4 1
+
+/* Check for lz4frame */
+#cmakedefine HAVE_LZ4FRAME_H 1
 
 /* Define to use snappy library */
 #cmakedefine HAVE_SNAPPY 1
@@ -297,14 +309,8 @@
 /* Define to 1 if you have the <sys/sockio.h> header file. */
 #cmakedefine HAVE_SYS_SOCKIO_H 1
 
-/* Define to 1 if you have the <sys/stat.h> header file. */
-#cmakedefine HAVE_SYS_STAT_H 1
-
 /* Define to 1 if you have the <sys/time.h> header file. */
 #cmakedefine HAVE_SYS_TIME_H 1
-
-/* Define to 1 if you have the <sys/types.h> header file. */
-#cmakedefine HAVE_SYS_TYPES_H 1
 
 /* Define to 1 if you have the <sys/utsname.h> header file. */
 #cmakedefine HAVE_SYS_UTSNAME_H 1
@@ -341,9 +347,6 @@
 
 /* Support for pcapng */
 #cmakedefine PCAP_NG_DEFAULT 1
-
-/* Define if we are using version of of the Portaudio library API */
-#cmakedefine PORTAUDIO_API_1 1
 
 /* Define if we have QtMultimedia */
 #cmakedefine QT_MULTIMEDIA_LIB 1

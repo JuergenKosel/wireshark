@@ -14,9 +14,9 @@
 #include <wsutil/utf8_entities.h>
 
 #include "wireshark_application.h"
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QDialogButtonBox>
-#include <QFileDialog>
 #include <QMessageBox>
 #include <QPushButton>
 
@@ -56,8 +56,8 @@ ExportObjectDialog::ExportObjectDialog(QWidget &parent, CaptureFile &cf, registe
     if (save_all_bt_) save_all_bt_->setEnabled(false);
     if (close_bt) close_bt->setDefault(true);
 
-    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
-            this, SLOT(captureEvent(CaptureEvent *)));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent)),
+            this, SLOT(captureEvent(CaptureEvent)));
 
     show();
     raise();
@@ -113,10 +113,10 @@ void ExportObjectDialog::accept()
     // Don't close the dialog.
 }
 
-void ExportObjectDialog::captureEvent(CaptureEvent *e)
+void ExportObjectDialog::captureEvent(CaptureEvent e)
 {
-    if ((e->captureContext() == CaptureEvent::File) &&
-            (e->eventType() == CaptureEvent::Closing))
+    if ((e.captureContext() == CaptureEvent::File) &&
+            (e.eventType() == CaptureEvent::Closing))
     {
         close();
     }
@@ -154,7 +154,7 @@ void ExportObjectDialog::saveCurrentEntry()
         return;
 
     GString *safe_filename = eo_massage_str(entry_filename.toUtf8().constData(), EXPORT_OBJECT_MAXFILELEN-path.canonicalPath().length(), 0);
-    QString file_name = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Object As" UTF8_HORIZONTAL_ELLIPSIS)),
+    QString file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Object As" UTF8_HORIZONTAL_ELLIPSIS)),
                                              safe_filename->str);
     g_string_free(safe_filename, TRUE);
 
@@ -176,7 +176,7 @@ void ExportObjectDialog::saveAllEntries()
     // as the native dialog is used, and it supports that; does
     // that also work on Windows and with Qt's own dialog?
     //
-    save_in_path = QFileDialog::getExistingDirectory(this, wsApp->windowTitleString(tr("Save All Objects In" UTF8_HORIZONTAL_ELLIPSIS)),
+    save_in_path = WiresharkFileDialog::getExistingDirectory(this, wsApp->windowTitleString(tr("Save All Objects In" UTF8_HORIZONTAL_ELLIPSIS)),
                                                      save_in_dir.canonicalPath(),
                                                      QFileDialog::ShowDirsOnly);
 

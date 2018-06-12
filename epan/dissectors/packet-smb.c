@@ -905,16 +905,16 @@ static int dissect_smb_command(tvbuff_t *tvb, packet_info *pinfo, int offset, pr
 #define NT_SRT_TABLE_INDEX     2
 
 static void
-smbstat_init(struct register_srt* srt _U_, GArray* srt_array, srt_gui_init_cb gui_callback, void* gui_data)
+smbstat_init(struct register_srt* srt _U_, GArray* srt_array)
 {
 	srt_stat_table *smb_srt_table;
 	srt_stat_table *trans2_srt_table;
 	srt_stat_table *nt_srt_table;
 	guint32 i;
 
-	smb_srt_table = init_srt_table("SMB Commands", NULL, srt_array, SMB_NUM_PROCEDURES, "Commands", "smb.cmd", gui_callback, gui_data, NULL);
-	trans2_srt_table = init_srt_table("Transaction2 Sub-Commands", NULL, srt_array, SMB_NUM_PROCEDURES, "Transaction2 Commands", "smb.trans2.cmd", gui_callback, gui_data, NULL);
-	nt_srt_table = init_srt_table("NT Transaction Sub-Commands", NULL, srt_array, SMB_NUM_PROCEDURES, "NT Transaction Sub-Commands", "smb.nt.function", gui_callback, gui_data, NULL);
+	smb_srt_table = init_srt_table("SMB Commands", NULL, srt_array, SMB_NUM_PROCEDURES, "Commands", "smb.cmd", NULL);
+	trans2_srt_table = init_srt_table("Transaction2 Sub-Commands", NULL, srt_array, SMB_NUM_PROCEDURES, "Transaction2 Commands", "smb.trans2.cmd", NULL);
+	nt_srt_table = init_srt_table("NT Transaction Sub-Commands", NULL, srt_array, SMB_NUM_PROCEDURES, "NT Transaction Sub-Commands", "smb.nt.function", NULL);
 	for (i = 0; i < SMB_NUM_PROCEDURES; i++)
 	{
 		init_srt_table_row(smb_srt_table, i, val_to_str_ext_const(i, &smb_cmd_vals_ext, "<unknown>"));
@@ -1011,7 +1011,8 @@ static const value_string smb2_fid_types[] = {
 	the row# in this GSList will match the row# in the entry list */
 
 typedef struct _active_file {
-	guint16   tid, uid, fid;
+	guint16   tid, uid;
+	guint32   fid;              /* 16-bit fid (smb) or 32-bit compressed fid (smb2) */
 	guint64   file_length;      /* The last free reported offset. We treat it as the file length */
 	guint64   data_gathered;    /* The actual total of data gathered */
 	guint8    flag_contains;    /* What kind of data it contains     */
@@ -1231,12 +1232,12 @@ smb_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const 
 	gboolean                is_supported_filetype;
 	gfloat                  percent;
 
-	gchar                  *aux_smb_fid_type_string;
+	const gchar            *aux_smb_fid_type_string;
 
 	if (eo_info->smbversion==1) {
 		/* Is this an eo_smb supported file_type? (right now we only support FILE) */
 		is_supported_filetype = (eo_info->fid_type == SMB_FID_TYPE_FILE);
-		aux_smb_fid_type_string=g_strdup(try_val_to_str(eo_info->fid_type, smb_fid_types));
+		aux_smb_fid_type_string = val_to_str_const(eo_info->fid_type, smb_fid_types, "?");
 
 		/* What kind of data this packet contains? */
 		switch(eo_info->cmd) {
@@ -1255,7 +1256,7 @@ smb_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const 
 	} else {
 		/* Is this an eo_smb supported file_type? (right now we only support FILE) */
 		is_supported_filetype = (eo_info->fid_type == SMB2_FID_TYPE_FILE );
-		aux_smb_fid_type_string=g_strdup(try_val_to_str(eo_info->fid_type, smb2_fid_types));
+		aux_smb_fid_type_string = val_to_str_const(eo_info->fid_type, smb2_fid_types, "?");
 
 		/* What kind of data this packet contains? */
 		switch(eo_info->cmd) {

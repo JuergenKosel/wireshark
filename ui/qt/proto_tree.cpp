@@ -33,12 +33,13 @@
 // To do:
 // - Fix "apply as filter" behavior.
 
-ProtoTree::ProtoTree(QWidget *parent) :
+ProtoTree::ProtoTree(QWidget *parent, epan_dissect_t *edt_fixed) :
     QTreeView(parent),
     proto_tree_model_(new ProtoTreeModel(this)),
     decode_as_(NULL),
     column_resize_timer_(0),
-    cap_file_(NULL)
+    cap_file_(NULL),
+    edt_(edt_fixed)
 {
     setAccessibleName(tr("Packet details"));
     // Leave the uniformRowHeights property as-is (false) since items might
@@ -477,7 +478,9 @@ void ProtoTree::restoreSelectedField()
         cur_index = proto_tree_model_->index(row, 0, cur_index);
         FieldInformation finfo(proto_tree_model_->protoNodeFromIndex(cur_index).protoNode());
         if (!finfo.isValid() || finfo.headerInfo().id != hf_id) {
+            // Did not find the selected hfid path in the selected packet
             cur_index = QModelIndex();
+            emit fieldSelected(0);
             break;
         }
     }
@@ -485,45 +488,56 @@ void ProtoTree::restoreSelectedField()
     autoScrollTo(cur_index);
 }
 
-const QString ProtoTree::toString(const QModelIndex &start_idx) const
+QString ProtoTree::traverseTree(const QModelIndex & travTree, int identLevel) const
 {
-    QModelIndex cur_idx = start_idx.isValid() ? start_idx : proto_tree_model_->index(0, 0);
-    QModelIndex stop_idx = proto_tree_model_->index(cur_idx.row() + 1, 0, cur_idx.parent());
-    QString tree_string;
-    int indent_level = 0;
+    QString result = "";
 
-    do {
-        tree_string.append(QString("    ").repeated(indent_level));
-        tree_string.append(cur_idx.data().toString());
-        tree_string.append("\n");
-        // Next child
-        if (isExpanded(cur_idx)) {
-            cur_idx = proto_tree_model_->index(0, 0, cur_idx);
-            indent_level++;
-            continue;
+    if ( travTree.isValid() )
+    {
+        result.append(QString("    ").repeated(identLevel));
+        result.append(travTree.data().toString());
+        result.append("\n");
+
+        /* if the element is expanded, we traverse one level down */
+        if ( isExpanded(travTree) )
+        {
+            int children = proto_tree_model_->rowCount(travTree);
+            identLevel++;
+            for ( int child = 0; child < children; child++ )
+                result += traverseTree(proto_tree_model_->index(child, 0, travTree), identLevel);
         }
-        // Next sibling
-        QModelIndex sibling = proto_tree_model_->index(cur_idx.row() + 1, 0, cur_idx.parent());
-        if (sibling.isValid()) {
-            cur_idx = sibling;
-            continue;
-        }
-        // Next parent
-        cur_idx = proto_tree_model_->index(cur_idx.parent().row() + 1, 0, cur_idx.parent().parent());
-        indent_level--;
-    } while (cur_idx.isValid() && cur_idx.internalPointer() != stop_idx.internalPointer() && indent_level >= 0);
+    }
+
+    return result;
+}
+
+QString ProtoTree::toString(const QModelIndex &start_idx) const
+{
+    QString tree_string = "";
+    if ( start_idx.isValid() )
+        tree_string = traverseTree(start_idx, 0);
+    else
+    {
+        int children = proto_tree_model_->rowCount();
+        for ( int child = 0; child < children; child++ )
+            tree_string += traverseTree(proto_tree_model_->index(child, 0, QModelIndex()), 0);
+    }
 
     return tree_string;
 }
 
 void ProtoTree::setCaptureFile(capture_file *cf)
 {
+    // For use by the main view, set the capture file which will later have a
+    // dissection (EDT) ready.
+    // The packet dialog sets a fixed EDT context and MUST NOT use this.
+    Q_ASSERT(edt_ == NULL);
     cap_file_ = cf;
 }
 
 bool ProtoTree::eventFilter(QObject * obj, QEvent * event)
 {
-    if ( cap_file_ && event->type() != QEvent::MouseButtonPress && event->type() != QEvent::MouseMove )
+    if ( event->type() != QEvent::MouseButtonPress && event->type() != QEvent::MouseMove )
         return QTreeView::eventFilter(obj, event);
 
     /* Mouse was over scrollbar, ignoring */
@@ -554,7 +568,10 @@ bool ProtoTree::eventFilter(QObject * obj, QEvent * event)
                 emit fieldSelected(&finfo);
                 selectionModel()->select(idx, QItemSelectionModel::ClearAndSelect);
 
-                QString filter = QString(proto_construct_match_selected_string(finfo.fieldInfo(), cap_file_->edt));
+                epan_dissect_t *edt = cap_file_ ? cap_file_->edt : edt_;
+                char *field_filter = proto_construct_match_selected_string(finfo.fieldInfo(), edt);
+                QString filter(field_filter);
+                wmem_free(NULL, field_filter);
 
                 if ( filter.length() > 0 )
                 {

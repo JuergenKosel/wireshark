@@ -72,6 +72,9 @@
 #include "pcap-encap.h"
 #include "nettrace_3gpp_32_423.h"
 #include "mplog.h"
+#include "dpa400.h"
+#include "pem.h"
+#include "ruby_marshal.h"
 
 /*
  * Add an extension, and all compressed versions thereof, to a GSList
@@ -141,7 +144,8 @@ static const struct file_extension_info file_type_extensions_base[] = {
 	{ "MPEG files", FALSE, "mpg;mp3" },
 	{ "Transport-Neutral Encapsulation Format", FALSE, "tnef" },
 	{ "JPEG/JFIF files", FALSE, "jpg;jpeg;jfif" },
-	{ "JavaScript Object Notation file", FALSE, "json" }
+	{ "JavaScript Object Notation file", FALSE, "json" },
+	{ "Ruby Marshal Object", FALSE, "" }
 };
 
 #define	N_FILE_TYPE_EXTENSIONS	(sizeof file_type_extensions_base / sizeof file_type_extensions_base[0])
@@ -323,7 +327,7 @@ wtap_get_all_capture_file_extensions_list(void)
  * If your file format has an expected extension (e.g., ".pcap") then you
  * should probably also add it to file_type_extensions_base[] (in this file).
  */
-static struct open_info open_info_base[] = {
+static const struct open_info open_info_base[] = {
 	{ "Wireshark/tcpdump/... - pcap",           OPEN_INFO_MAGIC,     libpcap_open,             "pcap",     NULL, NULL },
 	{ "Wireshark/... - pcapng",                 OPEN_INFO_MAGIC,     pcapng_open,              "pcapng",   NULL, NULL },
 	{ "Sniffer (DOS)",                          OPEN_INFO_MAGIC,     ngsniffer_open,           NULL,       NULL, NULL },
@@ -351,6 +355,8 @@ static struct open_info open_info_base[] = {
 	{ "Gammu DCT3 trace",                       OPEN_INFO_MAGIC,     dct3trace_open,           NULL,       NULL, NULL },
 	{ "MIME Files Format",                      OPEN_INFO_MAGIC,     mime_file_open,           NULL,       NULL, NULL },
 	{ "Micropross mplog",                       OPEN_INFO_MAGIC,     mplog_open,               "mplog",    NULL, NULL },
+	{ "Unigraf DPA-400 capture",                OPEN_INFO_MAGIC,     dpa400_open,              "bin",      NULL, NULL },
+	{ "ASN.1 (PEM-like encoding)",              OPEN_INFO_MAGIC,     pem_open,                 "pem;crt",  NULL, NULL },
 	{ "Novell LANalyzer",                       OPEN_INFO_HEURISTIC, lanalyzer_open,           "tr1",      NULL, NULL },
 	/*
 	 * PacketLogger must come before MPEG, because its files
@@ -398,7 +404,8 @@ static struct open_info open_info_base[] = {
 	/* Extremely weak heuristics - put them at the end. */
 	{ "Ixia IxVeriWave .vwr Raw Capture",       OPEN_INFO_HEURISTIC, vwr_open,                 "vwr",      NULL, NULL },
 	{ "CAM Inspector file",                     OPEN_INFO_HEURISTIC, camins_open,              "camins",   NULL, NULL },
-	{ "JavaScript Object Notation",             OPEN_INFO_HEURISTIC, json_open,                "json",     NULL, NULL }
+	{ "JavaScript Object Notation",             OPEN_INFO_HEURISTIC, json_open,                "json",     NULL, NULL },
+	{ "Ruby Marshal Object",                    OPEN_INFO_HEURISTIC, ruby_marshal_open,        "",      NULL, NULL }
 };
 
 /* this is only used to build the dynamic array on load, do NOT use this
@@ -1601,7 +1608,17 @@ static const struct file_type_subtype_info dump_open_table_base[] = {
 	  NULL, NULL, NULL },
 
 	/* WTAP_FILE_TYPE_SUBTYPE_MPLOG */
-	{ "Micropross mplog file", "mplog", "mplog", NULL,
+	{ "Micropross mplog", "mplog", "mplog", NULL,
+	  FALSE, FALSE, 0,
+	  NULL, NULL, NULL },
+
+	/* WTAP_FILE_TYPE_SUBTYPE_DPA400 */
+	{ "Unigraf DPA-400 capture", "dpa400", "bin", NULL,
+	  FALSE, FALSE, 0,
+	  NULL, NULL, NULL },
+
+	/* WTAP_FILE_TYPE_SUBTYPE_PEM */
+	{ "ASN.1 (PEM-like encoding)", "pem", NULL, NULL,
 	  FALSE, FALSE, 0,
 	  NULL, NULL, NULL }
 };
@@ -1893,6 +1910,7 @@ wtap_get_savable_file_types_subtypes(int file_type_subtype,
 						       required_comment_types)) {
 				/* OK, got it. */
 				default_file_type_subtype = ft;
+				break;
 			}
 		}
 	}

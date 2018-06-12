@@ -25,9 +25,7 @@
 #include <unistd.h>
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #endif
@@ -39,7 +37,6 @@
 
 #include "ui/iface_toolbar.h"
 
-#include <wsutil/glib-compat.h>
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/ws_pipe.h>
@@ -226,8 +223,7 @@ extcap_free_toolbar_control(iface_toolbar_control *control)
     if (control->ctrl_type == INTERFACE_TYPE_STRING) {
         g_free(control->default_value.string);
     }
-    g_list_foreach(control->values, (GFunc)extcap_free_toolbar_value, NULL);
-    g_list_free(control->values);
+    g_list_free_full(control->values, (GDestroyNotify)extcap_free_toolbar_value);
     g_free(control);
 }
 
@@ -244,8 +240,7 @@ extcap_free_toolbar(gpointer data)
     g_free(toolbar->menu_title);
     g_free(toolbar->help);
     g_list_free_full(toolbar->ifnames, g_free);
-    g_list_foreach(toolbar->controls, (GFunc)extcap_free_toolbar_control, NULL);
-    g_list_free(toolbar->controls);
+    g_list_free_full(toolbar->controls, (GDestroyNotify)extcap_free_toolbar_control);
     g_free(toolbar);
 }
 
@@ -519,8 +514,7 @@ static void extcap_free_interfaces(GList *interfaces)
         return;
     }
 
-    g_list_foreach(interfaces, (GFunc)extcap_free_interface, NULL);
-    g_list_free(interfaces);
+    g_list_free_full(interfaces, extcap_free_interface);
 }
 
 static gint
@@ -1384,6 +1378,11 @@ GPtrArray *extcap_prepare_arguments(interface_options *interface_opts)
     return result;
 }
 
+static void ptr_array_free(gpointer data, gpointer user_data _U_)
+{
+    g_free(data);
+}
+
 /* call mkfifo for each extcap,
  * returns FALSE if there's an error creating a FIFO */
 gboolean
@@ -1438,7 +1437,7 @@ extcap_init_interfaces(capture_options *capture_opts)
 
         pid = ws_pipe_spawn_async(pipedata, args);
 
-        g_ptr_array_foreach(args, (GFunc)g_free, NULL);
+        g_ptr_array_foreach(args, ptr_array_free, NULL);
         g_ptr_array_free(args, TRUE);
 
         if (pid == WS_INVALID_PID)
@@ -1649,12 +1648,6 @@ static gboolean cb_load_interfaces(extcap_callback_info_t cb_info)
     /* Load interfaces from utility */
     interfaces = extcap_parse_interfaces(cb_info.output, &control_items);
 
-    if (control_items)
-    {
-        toolbar_entry = g_new0(iface_toolbar, 1);
-        toolbar_entry->controls = control_items;
-    }
-
     g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG, "Loading interface list for %s ", cb_info.extcap);
 
     /* Seems, that there where no interfaces to be loaded */
@@ -1679,6 +1672,12 @@ static gboolean cb_load_interfaces(extcap_callback_info_t cb_info)
         g_list_free(interface_keys);
         g_free(toolname);
         return FALSE;
+    }
+
+    if (control_items)
+    {
+        toolbar_entry = g_new0(iface_toolbar, 1);
+        toolbar_entry->controls = control_items;
     }
 
     walker = interfaces;

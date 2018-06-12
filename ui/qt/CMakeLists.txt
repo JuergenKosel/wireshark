@@ -38,6 +38,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/stock_icon_tool_button.h
 	widgets/syntax_line_edit.h
 	widgets/tabnav_tree_view.h
+	widgets/wireshark_file_dialog.h
 )
 
 set(WIRESHARK_MANAGER_HEADERS
@@ -162,7 +163,7 @@ set(WIRESHARK_QT_HEADERS
 	lte_mac_statistics_dialog.h
 	lte_rlc_statistics_dialog.h
 	main_status_bar.h
-	main_welcome.h
+	welcome_page.h
 	main_window.h
 	main_window_preferences_frame.h
 	manage_interfaces_dialog.h
@@ -223,19 +224,11 @@ set(WIRESHARK_QT_HEADERS
 )
 
 if(HAVE_PCAP_REMOTE)
-	set(WIRESHARK_QT_HEADERS
-		${WIRESHARK_QT_HEADERS}
+	list(APPEND WIRESHARK_QT_HEADERS
 		remote_capture_dialog.h
 		remote_settings_dialog.h
 	)
 endif()
-
-file(GLOB EXTRA_QT_HEADERS
-	packet_list_record.h
-	models/sparkline_delegate.h
-	utils/qt_ui_utils.h
-	utils/stock_icon.h
-)
 
 set(WIRESHARK_WIDGET_SRCS
 	widgets/additional_toolbar.cpp
@@ -266,6 +259,7 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/stock_icon_tool_button.cpp
 	widgets/syntax_line_edit.cpp
 	widgets/tabnav_tree_view.cpp
+	widgets/wireshark_file_dialog.cpp
 )
 
 set(WIRESHARK_MANAGER_SRCS
@@ -378,9 +372,11 @@ set(WIRESHARK_QT_SRC
 	lte_rlc_graph_dialog.cpp
 	lte_rlc_statistics_dialog.cpp
 	main_status_bar.cpp
-	main_welcome.cpp
+	welcome_page.cpp
+	main.cpp
 	main_window.cpp
 	main_window_preferences_frame.cpp
+	main_window_layout.cpp
 	main_window_slots.cpp
 	manage_interfaces_dialog.cpp
 	module_preferences_scroll_area.cpp
@@ -437,8 +433,7 @@ set(WIRESHARK_QT_SRC
 )
 
 if(HAVE_PCAP_REMOTE)
-	set(WIRESHARK_QT_SRC
-		${WIRESHARK_QT_SRC}
+	list(APPEND WIRESHARK_QT_SRC
 		remote_capture_dialog.cpp
 		remote_settings_dialog.cpp
 	)
@@ -474,6 +469,7 @@ set(WIRESHARK_QT_UI
 	bluetooth_devices_dialog.ui
 	bluetooth_hci_summary_dialog.ui
 	capture_file_properties_dialog.ui
+	capture_info_dialog.ui
 	capture_interfaces_dialog.ui
 	capture_preferences_frame.ui
 	coloring_rules_dialog.ui
@@ -508,7 +504,7 @@ set(WIRESHARK_QT_UI
 	lbm_lbtru_transport_dialog.ui
 	lbm_stream_dialog.ui
 	lte_rlc_graph_dialog.ui
-	main_welcome.ui
+	welcome_page.ui
 	main_window.ui
 	main_window_preferences_frame.ui
 	manage_interfaces_dialog.ui
@@ -550,8 +546,7 @@ set(WIRESHARK_QT_UI
 )
 
 if(HAVE_PCAP_REMOTE)
-	set(WIRESHARK_QT_UI
-		${WIRESHARK_QT_UI}
+	list(APPEND WIRESHARK_QT_UI
 		remote_capture_dialog.ui
 		remote_settings_dialog.ui
 	)
@@ -571,7 +566,6 @@ foreach(_file ${WIRESHARK_QT_TS})
 	get_filename_component(_qresource ${_file} NAME_WE)
 	set(_qresource_qm "${_qresource}.qm")
 	set(i18n_qresource "${i18n_qresource}\n    <file>${_qresource_qm}</file>")
-	set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc PROPERTIES OBJECT_DEPENDS ${_qresource_qm})
 endforeach()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/i18n.qrc.in ${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc)
 
@@ -589,27 +583,14 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-SET(CMAKE_AUTOMOC TRUE)
+set(CMAKE_AUTOMOC TRUE)
+set(CMAKE_AUTOUIC TRUE)
+set(CMAKE_AUTORCC TRUE)
 
-if(CMAKE_VERSION VERSION_LESS "3.0.2")
-	# AUTOUIC and AUTORCC are not supported in CMAKE 2.8.x
-	QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
-	QT5_ADD_RESOURCES(WIRESHARK_QT_QRC_SRC ${WIRESHARK_QT_QRC})
-	QT5_WRAP_UI(WIRESHARK_QT_UI_SRC ${WIRESHARK_QT_UI})
-else()
-	SET(CMAKE_AUTOUIC TRUE)
-	SET(CMAKE_AUTORCC TRUE)
-
-	set(WIRESHARK_QT_QRC_SRC ${WIRESHARK_QT_QRC})
-	set(WIRESHARK_QT_UI_SRC ${WIRESHARK_QT_UI})
-
-	# Add .qrc files to library dependencies for AUTORCC.
-	set(WIRESHARK_QT_QRC_SRC ${WIRESHARK_QT_QRC})
-	QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
-endif()
+QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
 
 add_custom_target(
-	translations ALL
+	translations
 	DEPENDS
 		${WIRESHARK_QT_QM}
 )
@@ -653,24 +634,20 @@ add_library(qtui STATIC
 	${WIRESHARK_UTILS_SRCS}
 	${WIRESHARK_MODEL_SRCS}
 
+	# For AUTOUIC and AUTORCC.
+	${WIRESHARK_QT_UI}
+	${WIRESHARK_QT_QRC}
+
 	${WIRESHARK_QT_TAP_SRC}
-	${WIRESHARK_QT_UI_SRC}
-	${WIRESHARK_QT_QRC_SRC}
 	wireshark-tap-register.c
 )
-add_dependencies(qtui translations)
 set_target_properties(qtui PROPERTIES
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	FOLDER "UI"
-)
-if(NOT CMAKE_VERSION VERSION_LESS "3.0.2")
 	# Ensure .qm files are generated before autogenerating i18n.qrc
-	set_target_properties(qtui PROPERTIES
-		AUTOGEN_TARGET_DEPENDS "${WIRESHARK_QT_QM}"
-	)
-endif()
-
-if (WIN32)
+	AUTOGEN_TARGET_DEPENDS "${WIRESHARK_QT_QM}"
+)
+if(WIN32)
 	target_link_libraries(qtui "UxTheme.lib")
 endif()
 

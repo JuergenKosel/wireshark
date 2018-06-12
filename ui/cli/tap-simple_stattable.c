@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -98,11 +99,11 @@ init_stat_table(stat_tap_table_ui *stat_tap, const char *filter)
 	ui->stats.stat_tap_data = stat_tap;
 	ui->stats.user_data = ui;
 
-	stat_tap->stat_tap_init_cb(stat_tap, NULL, NULL);
+	stat_tap->stat_tap_init_cb(stat_tap);
 
 	error_string = register_tap_listener(stat_tap->tap_name, &ui->stats, filter, 0, NULL, stat_tap->packet_func, simple_draw);
 	if (error_string) {
-/*		free_rtd_table(&ui->rtd.stat_table, NULL, NULL); */
+/*		free_rtd_table(&ui->rtd.stat_table); */
 		fprintf(stderr, "tshark: Couldn't register tap: %s\n", error_string->str);
 		g_string_free(error_string, TRUE);
 		exit(1);

@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #ifndef IO_GRAPH_DIALOG_H
 #define IO_GRAPH_DIALOG_H
@@ -79,7 +80,7 @@ public:
 
 public slots:
     void recalcGraphData(capture_file *cap_file, bool enable_scaling);
-    void captureEvent(CaptureEvent *e);
+    void captureEvent(CaptureEvent e);
     void reloadValueUnitField();
 
 signals:

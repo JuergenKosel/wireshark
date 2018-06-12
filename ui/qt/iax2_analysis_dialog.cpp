@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "iax2_analysis_dialog.h"
 #include <ui_iax2_analysis_dialog.h>
@@ -28,7 +29,6 @@
 #include <wsutil/g711.h>
 #include <wsutil/pint.h>
 
-#include <QFileDialog>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTemporaryFile>
@@ -37,6 +37,7 @@
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/utils/stock_icon.h>
 #include "wireshark_application.h"
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 /*
  * @file RTP stream analysis dialog
@@ -396,8 +397,8 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
             this, SLOT(updateWidgets()));
     connect(ui->reverseTreeWidget, SIGNAL(itemSelectionChanged()),
             this, SLOT(updateWidgets()));
-    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent *)),
-            this, SLOT(captureEvent(CaptureEvent *)));
+    connect(&cap_file_, SIGNAL(captureEvent(CaptureEvent)),
+            this, SLOT(captureEvent(CaptureEvent)));
     updateWidgets();
 
     registerTapListener("IAX2", this, NULL, 0, tapReset, tapPacket, tapDraw);
@@ -415,10 +416,10 @@ Iax2AnalysisDialog::~Iax2AnalysisDialog()
     delete rev_tempfile_;
 }
 
-void Iax2AnalysisDialog::captureEvent(CaptureEvent *e)
+void Iax2AnalysisDialog::captureEvent(CaptureEvent e)
 {
-    if ((e->captureContext() == CaptureEvent::File) &&
-            (e->eventType() == CaptureEvent::Closing))
+    if ((e.captureContext() == CaptureEvent::File) &&
+            (e.eventType() == CaptureEvent::Closing))
     {
         updateWidgets();
     }
@@ -583,7 +584,7 @@ void Iax2AnalysisDialog::on_actionSaveGraph_triggered()
     if (!file_closed_) {
         save_file += QString("/%1").arg(cap_file_.fileTitle());
     }
-    file_name = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
+    file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
                                              save_file, filter, &extension);
 
     if (!file_name.isEmpty()) {
@@ -893,7 +894,7 @@ void Iax2AnalysisDialog::saveAudio(Iax2AnalysisDialog::StreamDirection direction
         ext_filter.append(tr(";;Raw (*.raw)"));
     }
     QString sel_filter;
-    QString file_path = QFileDialog::getSaveFileName(
+    QString file_path = WiresharkFileDialog::getSaveFileName(
                 this, caption, wsApp->lastOpenDir().absoluteFilePath("Saved RTP Audio.au"),
                 ext_filter, &sel_filter);
 
@@ -1159,7 +1160,7 @@ void Iax2AnalysisDialog::saveCsv(Iax2AnalysisDialog::StreamDirection direction)
         break;
     }
 
-    QString file_path = QFileDialog::getSaveFileName(
+    QString file_path = WiresharkFileDialog::getSaveFileName(
                 this, caption, wsApp->lastOpenDir().absoluteFilePath("RTP Packet Data.csv"),
                 tr("Comma-separated values (*.csv)"));
 

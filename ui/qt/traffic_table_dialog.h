@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #ifndef TRAFFIC_TABLE_DIALOG_H
 #define TRAFFIC_TABLE_DIALOG_H
@@ -161,7 +162,7 @@ private slots:
     void on_displayFilterCheckBox_toggled(bool checked);
     void setTabText(QWidget *tree, const QString &text);
     void toggleTable();
-    void captureEvent(CaptureEvent *e);
+    void captureEvent(CaptureEvent e);
 
     void copyAsCsv();
     void copyAsYaml();

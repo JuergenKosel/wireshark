@@ -142,6 +142,9 @@
  */
 #define LONGOPT_COLOR (65536+1000)
 #define LONGOPT_NO_DUPLICATE_KEYS (65536+1001)
+#ifdef HAVE_JSONGLIB
+#define LONGOPT_ELASTIC_MAPPING_FILTER (65536+1002)
+#endif
 
 #if 0
 #define tshark_debug(...) g_warning(__VA_ARGS__)
@@ -263,7 +266,7 @@ string_compare(gconstpointer a, gconstpointer b)
 }
 
 static void
-string_elem_print(gpointer data, gpointer not_used _U_)
+string_elem_print(gpointer data)
 {
   fprintf(stderr, "    %s - %s\n",
           ((struct string_elem *)data)->sstr,
@@ -286,8 +289,7 @@ list_capture_types(void) {
       list = g_slist_insert_sorted(list, &captypes[i], string_compare);
     }
   }
-  g_slist_foreach(list, string_elem_print, NULL);
-  g_slist_free(list);
+  g_slist_free_full(list, string_elem_print);
   g_free(captypes);
 }
 
@@ -308,8 +310,7 @@ list_read_capture_types(void) {
     captypes[i].lstr = (open_routines[i].type == OPEN_INFO_MAGIC) ? magic : heuristic;
     list = g_slist_insert_sorted(list, &captypes[i], string_compare);
   }
-  g_slist_foreach(list, string_elem_print, NULL);
-  g_slist_free(list);
+  g_slist_free_full(list, string_elem_print);
   g_free(captypes);
 }
 
@@ -439,7 +440,11 @@ print_usage(FILE *output)
   fprintf(output, "                           (Note that attributes are nonstandard)\n");
   fprintf(output, "  --no-duplicate-keys      If -T json is specified, merge duplicate keys in an object\n");
   fprintf(output, "                           into a single key with as value a json array containing all\n");
-  fprintf(output, "                           values");
+  fprintf(output, "                           values\n");
+#ifdef HAVE_JSONGLIB
+  fprintf(output, "  --elastic-mapping-filter <protocols> If -G elastic-mapping is specified, put only the\n");
+  fprintf(output, "                           specified protocols within the mapping file\n");
+#endif
 
   fprintf(output, "\n");
   fprintf(output, "Miscellaneous:\n");
@@ -476,6 +481,9 @@ glossary_option_help(void)
   fprintf(output, "  -G column-formats        dump column format codes and exit\n");
   fprintf(output, "  -G decodes               dump \"layer type\"/\"decode as\" associations and exit\n");
   fprintf(output, "  -G dissector-tables      dump dissector table names, types, and properties\n");
+#ifdef HAVE_JSONGLIB
+  fprintf(output, "  -G elastic-mapping       dump ElasticSearch mapping file\n");
+#endif
   fprintf(output, "  -G fieldcount            dump count of header fields and exit\n");
   fprintf(output, "  -G fields                dump fields glossary and exit\n");
   fprintf(output, "  -G ftypes                dump field type basic and descriptive names\n");
@@ -677,6 +685,9 @@ main(int argc, char *argv[])
     {"export-objects", required_argument, NULL, LONGOPT_EXPORT_OBJECTS},
     {"color", no_argument, NULL, LONGOPT_COLOR},
     {"no-duplicate-keys", no_argument, NULL, LONGOPT_NO_DUPLICATE_KEYS},
+#ifdef HAVE_JSONGLIB
+    {"elastic-mapping-filter", required_argument, NULL, LONGOPT_ELASTIC_MAPPING_FILTER},
+#endif
     {0, 0, 0, 0 }
   };
   gboolean             arg_error = FALSE;
@@ -720,6 +731,9 @@ main(int argc, char *argv[])
   gchar               *volatile pdu_export_arg = NULL;
   const char          *volatile exp_pdu_filename = NULL;
   exp_pdu_t            exp_pdu_tap_data;
+#ifdef HAVE_JSONGLIB
+  const gchar*         elastic_mapping_filter = NULL;
+#endif
 
 /*
  * The leading + ensures that getopt_long() does not permute the argv[]
@@ -754,9 +768,6 @@ main(int argc, char *argv[])
 #ifdef _WIN32
   arg_list_utf_16to8(argc, argv);
   create_app_running_mutex();
-#if !GLIB_CHECK_VERSION(2,31,0)
-  g_thread_init(NULL);
-#endif
 #endif /* _WIN32 */
 
   /*
@@ -772,7 +783,7 @@ main(int argc, char *argv[])
    * Attempt to get the pathname of the directory containing the
    * executable file.
    */
-  init_progfile_dir_error = init_progfile_dir(argv[0], main);
+  init_progfile_dir_error = init_progfile_dir(argv[0]);
   if (init_progfile_dir_error != NULL) {
     fprintf(stderr,
             "tshark: Can't get pathname of directory containing the tshark program: %s.\n"
@@ -864,6 +875,11 @@ main(int argc, char *argv[])
     case 'X':
       ex_opt_add(optarg);
       break;
+#ifdef HAVE_JSONGLIB
+    case LONGOPT_ELASTIC_MAPPING_FILTER:
+      elastic_mapping_filter = optarg;
+      break;
+#endif
     default:
       break;
     }
@@ -967,6 +983,10 @@ main(int argc, char *argv[])
         write_prefs(NULL);
       else if (strcmp(argv[2], "dissector-tables") == 0)
         dissector_dump_dissector_tables();
+#ifdef HAVE_JSONGLIB
+      else if (strcmp(argv[2], "elastic-mapping") == 0)
+        proto_registrar_dump_elastic(elastic_mapping_filter);
+#endif
       else if (strcmp(argv[2], "fieldcount") == 0) {
         /* return value for the test suite */
         exit_status = proto_registrar_dump_fieldcount();
@@ -2227,6 +2247,7 @@ clean_exit:
   wtap_cleanup();
   free_progdirs();
   cf_close(&cfile);
+  dfilter_free(dfcode);
   return exit_status;
 }
 
@@ -2325,12 +2346,8 @@ pipe_input_set_handler(gint source, gpointer user_data, ws_process_id *child_pro
   pipe_input.input_cb       = input_cb;
 
 #ifdef _WIN32
-#if GLIB_CHECK_VERSION(2,31,0)
   pipe_input.callback_running = g_malloc(sizeof(GMutex));
   g_mutex_init(pipe_input.callback_running);
-#else
-  pipe_input.callback_running = g_mutex_new();
-#endif
   /* Tricky to use pipes in win9x, as no concept of wait.  NT can
      do this but that doesn't cover all win32 platforms.  GTK can do
      this but doesn't seem to work over processes.  Attempt to do
@@ -2448,6 +2465,13 @@ capture(void)
 
   if (!ret)
     return FALSE;
+
+  /*
+   * Force synchronous resolution of IP addresses; we're doing only
+   * one pass, so we can't do it in the background and fix up past
+   * dissections.
+   */
+  set_resolution_synchrony(TRUE);
 
   /* the actual capture loop
    *
@@ -2888,11 +2912,6 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
      from the dissection or running taps on the packet; if we're doing
      any of that, we'll do it in the second pass.) */
   if (edt) {
-    if (gbl_resolv_flags.mac_name || gbl_resolv_flags.network_name ||
-        gbl_resolv_flags.transport_name)
-      /* Grab any resolved addresses */
-      host_name_lookup_process();
-
     /* If we're running a read filter, prime the epan_dissect_t with that
        filter. */
     if (cf->rfcode)
@@ -2969,11 +2988,6 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
      passes over the packets; that's the pass where we print
      packet information or run taps.) */
   if (edt) {
-    if (gbl_resolv_flags.mac_name || gbl_resolv_flags.network_name ||
-        gbl_resolv_flags.transport_name)
-      /* Grab any resolved addresses */
-      host_name_lookup_process();
-
     /* If we're running a display filter, prime the epan_dissect_t with that
        filter. */
     if (cf->dfcode)
@@ -3258,6 +3272,12 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
       edt = epan_dissect_new(cf->epan, create_proto_tree, print_packet_info && print_details);
     }
 
+    /*
+     * Force synchronous resolution of IP addresses; in this pass, we
+     * can't do it in the background and fix up past dissections.
+     */
+    set_resolution_synchrony(TRUE);
+
     for (framenum = 1; err == 0 && framenum <= cf->count; framenum++) {
       fdata = frame_data_sequence_find(cf->provider.frames, framenum);
       if (wtap_seek_read(cf->provider.wth, fdata->file_off, &rec, &buf, &err,
@@ -3339,6 +3359,13 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
          ("packet_details" is true). */
       edt = epan_dissect_new(cf->epan, create_proto_tree, print_packet_info && print_details);
     }
+
+    /*
+     * Force synchronous resolution of IP addresses; we're doing only
+     * one pass, so we can't do it in the background and fix up past
+     * dissections.
+     */
+    set_resolution_synchrony(TRUE);
 
     while (wtap_read(cf->provider.wth, &err, &err_info, &data_offset)) {
       framenum++;
@@ -3481,11 +3508,6 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, gint64 offset,
      over the packets, so, if we'll be printing packet information
      or running taps, we'll be doing it here.) */
   if (edt) {
-    if (print_packet_info && (gbl_resolv_flags.mac_name || gbl_resolv_flags.network_name ||
-        gbl_resolv_flags.transport_name))
-      /* Grab any resolved addresses */
-      host_name_lookup_process();
-
     /* If we're running a filter, prime the epan_dissect_t with that
        filter. */
     if (cf->dfcode)

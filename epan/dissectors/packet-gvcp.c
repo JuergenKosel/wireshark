@@ -1,17 +1,17 @@
 /* packet-gvcp.c
-* Routines for AIA GigE Vision (TM) Control Protocol dissection
-* Copyright 2012, AIA <www.visiononline.org> All rights reserved
-*
-* GigE Vision (TM): GigE Vision a standard developed under the sponsorship of the AIA for
-* the benefit of the machine vision industry. GVCP stands for GigE Vision (TM) Control
-* Protocol.
-*
-* Wireshark - Network traffic analyzer
-* By Gerald Combs <gerald@wireshark.org>
-* Copyright 1998 Gerald Combs
-*
-* SPDX-License-Identifier: GPL-2.0-or-later
-*/
+ * Routines for AIA GigE Vision (TM) Control Protocol dissection
+ * Copyright 2012, AIA <www.visiononline.org> All rights reserved
+ *
+ * GigE Vision (TM): GigE Vision a standard developed under the sponsorship of the AIA for
+ * the benefit of the machine vision industry. GVCP stands for GigE Vision (TM) Control
+ * Protocol.
+ *
+ * Wireshark - Network traffic analyzer
+ * By Gerald Combs <gerald@wireshark.org>
+ * Copyright 1998 Gerald Combs
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -319,7 +319,7 @@ static int hf_gvcp_actioncmd_device_key = -1;
 static int hf_gvcp_actioncmd_group_key = -1;
 static int hf_gvcp_actioncmd_group_mask = -1;
 static int hf_gvcp_time_to_completion = -1;
-static int hf_gvcp_devicemode_endianess = -1;
+static int hf_gvcp_devicemode_endianness = -1;
 static int hf_gvcp_devicemode_deviceclass = -1;
 static int hf_gvcp_devicemode_characterset = -1;
 static int hf_gvcp_machigh = -1;
@@ -821,7 +821,7 @@ static int dissect_register(guint32 addr, proto_tree *branch, tvbuff_t *tvb, gin
 		break;
 
 	case GVCP_DEVICE_MODE:
-		proto_tree_add_item(branch, hf_gvcp_devicemode_endianess, tvb, offset, 4, ENC_BIG_ENDIAN);
+		proto_tree_add_item(branch, hf_gvcp_devicemode_endianness, tvb, offset, 4, ENC_BIG_ENDIAN);
 		proto_tree_add_item(branch, hf_gvcp_devicemode_deviceclass, tvb, offset, 4, ENC_BIG_ENDIAN);
 		proto_tree_add_item(branch, hf_gvcp_devicemode_current_link_configuration_v2_0, tvb, offset, 4, ENC_BIG_ENDIAN);
 		proto_tree_add_item(branch, hf_gvcp_devicemode_characterset, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -1809,7 +1809,7 @@ static void dissect_eventdata_cmd(proto_tree *gvcp_telegram_tree, tvbuff_t *tvb,
 		if (extendedblockids)
 		{
 			proto_tree_add_item(gvcp_telegram_tree, hf_gvcp_eventcmd_extid_length, tvb, offset, 2, ENC_BIG_ENDIAN);
-			data_length = tvb_get_ntohs(tvb, offset); // We get the data length here 
+			data_length = tvb_get_ntohs(tvb, offset); // We get the data length here
 		}
 
 		/* skip reserved field */
@@ -2828,8 +2828,8 @@ void proto_register_gvcp(void)
 
 		/* GVCP_devicemode */
 
-		{ &hf_gvcp_devicemode_endianess,
-		{ "Endianess", "gvcp.bootstrap.devicemode.endianess",
+		{ &hf_gvcp_devicemode_endianness,
+		{ "Endianness", "gvcp.bootstrap.devicemode.endianness",
 		FT_BOOLEAN, 32, NULL, 0x80000000,
 		NULL, HFILL
 		}},

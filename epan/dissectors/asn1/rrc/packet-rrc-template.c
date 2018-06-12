@@ -82,14 +82,10 @@ typedef struct umts_rrc_private_data_t
 /* Helper function to get or create a struct that will be actx->private_data */
 static umts_rrc_private_data_t* umts_rrc_get_private_data(asn1_ctx_t *actx)
 {
-  if (actx->private_data != NULL) {
-    return (umts_rrc_private_data_t*)actx->private_data;
+  if (actx->private_data == NULL) {
+    actx->private_data = wmem_new0(wmem_packet_scope(), umts_rrc_private_data_t);
   }
-  else {
-    umts_rrc_private_data_t* new_struct = wmem_new0(wmem_packet_scope(), umts_rrc_private_data_t);
-    actx->private_data = new_struct;
-    return new_struct;
-  }
+  return (umts_rrc_private_data_t*)actx->private_data;
 }
 
 static guint32 private_data_get_s_rnc_id(asn1_ctx_t *actx)
@@ -266,6 +262,9 @@ static int dissect_SysInfoType22_PDU(tvbuff_t *tvb, packet_info *pinfo, proto_tr
 /* Initialize the protocol and registered fields */
 int proto_rrc = -1;
 static int hf_test;
+static int hf_urnti;
+static int hf_urnti_new;
+static int hf_urnti_current;
 #include "packet-rrc-hf.c"
 
 /* Initialize the subtree pointers */
@@ -490,6 +489,18 @@ void proto_register_rrc(void) {
       { "RAB Test", "rrc.RAB.test",
         FT_UINT8, BASE_DEC, NULL, 0,
         "rrc.RAB_Info_r6", HFILL }},
+    { &hf_urnti,
+      { "U-RNTI", "rrc.urnti",
+        FT_UINT32, BASE_HEX, NULL, 0,
+        NULL, HFILL }},
+    { &hf_urnti_new,
+      { "New U-RNTI", "rrc.urnti_new",
+        FT_UINT32, BASE_HEX, NULL, 0,
+        NULL, HFILL }},
+    { &hf_urnti_current,
+      { "Current U-RNTI", "rrc.urnti_current",
+        FT_UINT32, BASE_HEX, NULL, 0,
+        NULL, HFILL }},
     { &hf_rrc_eutra_feat_group_ind_1,
       { "Indicator 1", "rrc.eutra_feat_group_ind_1",
         FT_BOOLEAN, BASE_NONE, TFS(&rrc_eutra_feat_group_ind_1_val), 0,

@@ -197,7 +197,7 @@ dissect_zbee_zcl_basic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 
         if (tree) {
             /* Add the command ID. */
-            proto_tree_add_item(tree, hf_zbee_zcl_basic_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+            proto_tree_add_item(tree, hf_zbee_zcl_basic_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         }
         /*offset++;*/
 
@@ -1233,7 +1233,7 @@ dissect_zbee_zcl_identify(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_identify_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_identify_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -1266,7 +1266,7 @@ dissect_zbee_zcl_identify(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_identify_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_identify_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -1624,7 +1624,7 @@ dissect_zbee_zcl_groups(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_groups_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_groups_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -1669,7 +1669,7 @@ dissect_zbee_zcl_groups(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_groups_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_groups_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -2182,7 +2182,6 @@ static int hf_zbee_zcl_scenes_scene_id_from = -1;
 static int hf_zbee_zcl_scenes_scene_id_to = -1;
 static int hf_zbee_zcl_scenes_transit_time = -1;
 static int hf_zbee_zcl_scenes_enh_transit_time = -1;
-static int hf_zbee_zcl_scenes_extension_set= -1;
 static int hf_zbee_zcl_scenes_extension_set_cluster = -1;
 static int hf_zbee_zcl_scenes_extension_set_onoff = -1;
 static int hf_zbee_zcl_scenes_extension_set_level = -1;
@@ -2311,7 +2310,7 @@ decode_color_xy(gchar *s, guint16 value)
  *    none
  *---------------------------------------------------------------
  */
-void decode_setpoint(gchar *s, gint16 value)
+static void decode_setpoint(gchar *s, gint16 value)
 {
     g_snprintf(s, ITEM_LABEL_LENGTH, "%.2lf [" UTF8_DEGREE_SIGN "C]", value/100.0);
 }
@@ -2352,7 +2351,7 @@ dissect_zbee_zcl_scenes(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_scenes_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_scenes_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -2398,7 +2397,7 @@ dissect_zbee_zcl_scenes(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_scenes_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_scenes_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -2812,7 +2811,7 @@ static void dissect_zcl_scenes_extension_fields(tvbuff_t *tvb, proto_tree *tree,
     proto_tree *subtree;
 
     // Is there an extension field?
-    gboolean hasExtensionField = hasExtensionField = tvb_offset_exists(tvb, *offset+2);
+    gboolean hasExtensionField = tvb_offset_exists(tvb, *offset+2);
 
     while (hasExtensionField)
     {
@@ -3070,10 +3069,6 @@ proto_register_zbee_zcl_scenes(void)
 
         { &hf_zbee_zcl_scenes_attr_str,
             { "String", "zbee_zcl_general.scenes.attr_str", FT_STRING, BASE_NONE, NULL,
-            0x00, NULL, HFILL }},
-
-        { &hf_zbee_zcl_scenes_extension_set,
-            { "Extension Set", "zbee_zcl_general.scenes.extension_set", FT_BYTES, BASE_NONE, NULL,
             0x00, NULL, HFILL }},
 
         { &hf_zbee_zcl_scenes_extension_set_cluster,
@@ -3374,7 +3369,7 @@ dissect_zbee_zcl_on_off(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_on_off_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_on_off_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
         if (rem_len > 0) {
             payload_tree = proto_tree_add_subtree(tree, tvb, offset, rem_len, ett_zbee_zcl_on_off, NULL, "Payload");
@@ -3982,7 +3977,7 @@ dissect_zbee_zcl_alarms(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_alarms_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_alarms_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -4011,7 +4006,7 @@ dissect_zbee_zcl_alarms(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_alarms_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_alarms_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -4593,7 +4588,7 @@ dissect_zbee_zcl_level_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_level_control_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_level_control_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -5024,7 +5019,7 @@ dissect_zbee_zcl_rssi_location(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_rssi_location_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_rssi_location_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -5073,7 +5068,7 @@ dissect_zbee_zcl_rssi_location(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_rssi_location_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_rssi_location_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -6506,11 +6501,11 @@ proto_register_zbee_zcl_analog_output_basic(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_analog_output_basic_priority_array,
-            { "Priority Array", "zbee_zcl_general.analog_output_basic.priority_array.", FT_NONE, BASE_NONE, NULL,
+            { "Priority Array", "zbee_zcl_general.analog_output_basic.priority_array", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_analog_output_basic_structure,
-            { "Structure", "zbee_zcl_general.analog_output_basic.structure.", FT_NONE, BASE_NONE, NULL,
+            { "Structure", "zbee_zcl_general.analog_output_basic.structure", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } }
     };
 
@@ -6789,11 +6784,11 @@ proto_register_zbee_zcl_analog_value_basic(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_analog_value_basic_priority_array,
-            { "Priority Array", "zbee_zcl_general.analog_value_basic.priority_array.", FT_NONE, BASE_NONE, NULL,
+            { "Priority Array", "zbee_zcl_general.analog_value_basic.priority_array", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_analog_value_basic_structure,
-            { "Structure", "zbee_zcl_general.analog_value_basic.structure.", FT_NONE, BASE_NONE, NULL,
+            { "Structure", "zbee_zcl_general.analog_value_basic.structure", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } }
     };
 
@@ -7350,11 +7345,11 @@ proto_register_zbee_zcl_binary_output_basic(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_binary_output_basic_priority_array,
-            { "Priority Array", "zbee_zcl_general.binary_output_basic.priority_array.", FT_NONE, BASE_NONE, NULL,
+            { "Priority Array", "zbee_zcl_general.binary_output_basic.priority_array", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_binary_output_basic_structure,
-            { "Structure", "zbee_zcl_general.binary_output_basic.structure.", FT_NONE, BASE_NONE, NULL,
+            { "Structure", "zbee_zcl_general.binary_output_basic.structure", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } }
     };
 
@@ -7639,11 +7634,11 @@ proto_register_zbee_zcl_binary_value_basic(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_binary_value_basic_priority_array,
-            { "Priority Array", "zbee_zcl_general.binary_value_basic.priority_array.", FT_NONE, BASE_NONE, NULL,
+            { "Priority Array", "zbee_zcl_general.binary_value_basic.priority_array", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_binary_value_basic_structure,
-            { "Structure", "zbee_zcl_general.binary_value_basic.structure.", FT_NONE, BASE_NONE, NULL,
+            { "Structure", "zbee_zcl_general.binary_value_basic.structure", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } }
     };
 
@@ -8162,11 +8157,11 @@ proto_register_zbee_zcl_multistate_output_basic(void)
             0x00, NULL, HFILL } } ,
 
         { &hf_zbee_zcl_multistate_output_basic_priority_array,
-            { "Priority Array", "zbee_zcl_general.multistate_output_basic.priority_array.", FT_NONE, BASE_NONE, NULL,
+            { "Priority Array", "zbee_zcl_general.multistate_output_basic.priority_array", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_multistate_output_basic_structure,
-            { "Structure", "zbee_zcl_general.multistate_output_basic.structure.", FT_NONE, BASE_NONE, NULL,
+            { "Structure", "zbee_zcl_general.multistate_output_basic.structure", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } }
 };
 
@@ -8452,11 +8447,11 @@ proto_register_zbee_zcl_multistate_value_basic(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_multistate_value_basic_priority_array,
-            { "Priority Array", "zbee_zcl_general.multistate_value_basic.priority_array.", FT_NONE, BASE_NONE, NULL,
+            { "Priority Array", "zbee_zcl_general.multistate_value_basic.priority_array", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_multistate_value_basic_structure,
-            { "Structure", "zbee_zcl_general.multistate_value_basic.structure.", FT_NONE, BASE_NONE, NULL,
+            { "Structure", "zbee_zcl_general.multistate_value_basic.structure", FT_NONE, BASE_NONE, NULL,
             0x00, NULL, HFILL } }
     };
 
@@ -8716,7 +8711,7 @@ dissect_zbee_zcl_commissioning(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_commissioning_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_commissioning_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -8750,7 +8745,7 @@ dissect_zbee_zcl_commissioning(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_commissioning_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_commissioning_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check if this command has a payload, then add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -9273,7 +9268,7 @@ dissect_zbee_zcl_part(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_part_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_part_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -9306,7 +9301,7 @@ dissect_zbee_zcl_part(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_part_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_part_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -10595,7 +10590,7 @@ dissect_zbee_zcl_ota(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_ota_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_ota_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -10636,7 +10631,7 @@ dissect_zbee_zcl_ota(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_ota_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_ota_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -11117,7 +11112,7 @@ dissect_zbee_zcl_pwr_prof (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_pwr_prof_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_pwr_prof_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -11162,7 +11157,7 @@ dissect_zbee_zcl_pwr_prof (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_pwr_prof_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_pwr_prof_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -12282,7 +12277,7 @@ dissect_zbee_zcl_appl_ctrl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_appl_ctrl_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_appl_ctrl_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -12321,7 +12316,7 @@ dissect_zbee_zcl_appl_ctrl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_appl_ctrl_srv_tx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_appl_ctrl_srv_tx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         /* Check is this command has a payload, than add the payload tree */
         rem_len = tvb_reported_length_remaining(tvb, ++offset);
@@ -12783,7 +12778,7 @@ dissect_zbee_zcl_poll_ctrl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             zcl->tran_seqno);
 
         /* Add the command ID. */
-        proto_tree_add_item(tree, hf_zbee_zcl_poll_ctrl_srv_rx_cmd_id, tvb, offset, 1, cmd_id);
+        proto_tree_add_item(tree, hf_zbee_zcl_poll_ctrl_srv_rx_cmd_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         offset++;
 
         /* Handle the command dissection. */
@@ -15317,7 +15312,7 @@ proto_register_zbee_zcl_gp(void)
 
         /* GP Sink Commissioning Mode command */
         { &hf_zbee_zcl_gp_cmd_sink_comm_mode_options,
-          { "Options", "zbee_zcl_general.gp.sink_comm_mode.", FT_UINT8, BASE_HEX,
+          { "Options", "zbee_zcl_general.gp.sink_comm_mode.options", FT_UINT8, BASE_HEX,
             NULL, 0, NULL, HFILL }},
 
         { &hf_zbee_zcl_gp_cmd_sink_comm_mode_options_fld_action,
@@ -15575,7 +15570,7 @@ proto_register_zbee_zcl_gp(void)
           { "Translation Table", "zbee_zcl_general.gp.attr.gps_func.translation_table", FT_BOOLEAN, 24,
             NULL, ZBEE_ZCL_GP_ATTR_GPS_FUNC_FLD_TRANSLATION_TABLE, NULL, HFILL }},
         { &hf_zbee_zcl_gp_attr_gps_func_fld_gpd_ieee_address,
-          { "GPD IEEE address", "zbee_zcl_general.gp.attr.gps_func.", FT_BOOLEAN, 24,
+          { "GPD IEEE address", "zbee_zcl_general.gp.attr.gps_func.gpd_ieee_address", FT_BOOLEAN, 24,
             NULL, ZBEE_ZCL_GP_ATTR_GPS_FUNC_FLD_GPD_IEEE_ADDRESS, NULL, HFILL }},
 
         /* gpsActiveFunctionality attribute */

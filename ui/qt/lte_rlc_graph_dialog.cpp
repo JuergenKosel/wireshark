@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "lte_rlc_graph_dialog.h"
 #include <ui_lte_rlc_graph_dialog.h>
@@ -20,7 +21,6 @@
 
 #include <ui/qt/utils/tango_colors.h>
 
-#include <QFileDialog>
 #include <QMenu>
 #include <QRubberBand>
 
@@ -28,6 +28,7 @@
 #include <ui/qt/utils/qt_ui_utils.h>
 #include "wireshark_application.h"
 #include "simple_dialog.h"
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <epan/dissectors/packet-rlc-lte.h>
 
@@ -855,7 +856,7 @@ void LteRlcGraphDialog::on_buttonBox_accepted()
             .arg(bmp_filter)
             .arg(jpeg_filter);
 
-    file_name = QFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
+    file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
                                              path.canonicalPath(), filter, &extension);
 
     if (file_name.length() > 0) {

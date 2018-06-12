@@ -62,6 +62,8 @@
 #define SC_CM_FWD_CLOSE             0x4E
 #define SC_CM_UNCON_SEND            0x52
 #define SC_CM_FWD_OPEN              0x54
+#define SC_CM_GET_CONN_DATA         0x56
+#define SC_CM_SEARCH_CONN_DATA      0x57
 #define SC_CM_LARGE_FWD_OPEN        0x5B
 #define SC_CM_GET_CONN_OWNER        0x5A
 
@@ -439,6 +441,8 @@ enum cip_datatype {
 typedef int attribute_dissector_func(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb,
                              int offset, int total_len);
 
+#define CIP_ATTR_CLASS (TRUE)
+#define CIP_ATTR_INSTANCE (FALSE)
 typedef struct attribute_info {
    guint                     class_id;
    gboolean                  class_instance;
@@ -459,20 +463,22 @@ typedef struct cip_connID_info {
 
 enum cip_safety_format_type {CIP_SAFETY_BASE_FORMAT, CIP_SAFETY_EXTENDED_FORMAT};
 
+typedef struct cip_connection_triad {
+   guint16 ConnSerialNumber;
+   guint16 VendorID;
+   guint32 DeviceSerialNumber;
+} cip_connection_triad_t;
+
 typedef struct cip_safety_epath_info {
    gboolean safety_seg;
    enum cip_safety_format_type format;
    guint16 running_rollover_value;  /* Keep track of the rollover value over the course of the connection */
    guint16 running_timestamp_value; /* Keep track of the timestamp value over the course of the connection */
-   guint16 target_conn_sn;
-   guint16 target_vendorID;
-   guint32 target_device_sn;
+   cip_connection_triad_t target_triad;
 } cip_safety_epath_info_t;
 
 typedef struct cip_conn_info {
-   guint16                 ConnSerialNumber;
-   guint16                 VendorID;
-   guint32                 DeviceSerialNumber;
+   cip_connection_triad_t  triad;
    guint32                 forward_open_frame;
    cip_connID_info_t       O2T;
    cip_connID_info_t       T2O;

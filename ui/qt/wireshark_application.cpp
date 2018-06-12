@@ -423,7 +423,6 @@ void WiresharkApplication::setConfigurationProfile(const gchar *profile_name, bo
     timestamp_set_type(recent.gui_time_format);
     timestamp_set_precision(recent.gui_time_precision);
     timestamp_set_seconds_type (recent.gui_seconds_format);
-    packet_list_enable_color(recent.packet_list_colorize);
     tap_update_timer_.setInterval(prefs.tap_update_interval);
 
     prefs_to_capture_opts();
@@ -1326,14 +1325,14 @@ void WiresharkApplication::softwareUpdateShutdownRequest() {
 }
 #endif
 
-void WiresharkApplication::captureEventHandler(CaptureEvent * ev)
+void WiresharkApplication::captureEventHandler(CaptureEvent ev)
 {
-    switch(ev->captureContext())
+    switch(ev.captureContext())
     {
 #ifdef HAVE_LIBPCAP
     case CaptureEvent::Update:
     case CaptureEvent::Fixed:
-        switch ( ev->eventType() )
+        switch ( ev.eventType() )
         {
         case CaptureEvent::Started:
             active_captures_++;
@@ -1351,7 +1350,7 @@ void WiresharkApplication::captureEventHandler(CaptureEvent * ev)
     case CaptureEvent::File:
     case CaptureEvent::Reload:
     case CaptureEvent::Rescan:
-        switch ( ev->eventType() )
+        switch ( ev.eventType() )
         {
         case CaptureEvent::Started:
             QTimer::singleShot(TAP_UPDATE_DEFAULT_INTERVAL / 5, this, SLOT(updateTaps()));

@@ -5,7 +5,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include <config.h>
 
@@ -17,7 +18,6 @@
 
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
-#include <wsutil/glib-compat.h>
 #include <wsutil/report_message.h>
 
 #include "ui/filter_files.h"

@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include <ui/qt/widgets/overlay_scroll_bar.h>
 
@@ -104,8 +105,7 @@ void OverlayScrollBar::setNearOverlayImage(QImage &overlay_image, int packet_cou
     selected_pos_ = selected_pos;
 
     if (old_width != packet_map_img_.width()) {
-        qreal dp_ratio = 1.0;
-        dp_ratio = devicePixelRatio();
+        qreal dp_ratio = devicePixelRatio();
 
         packet_map_width_ = packet_map_img_.width() / dp_ratio;
 
@@ -116,8 +116,7 @@ void OverlayScrollBar::setNearOverlayImage(QImage &overlay_image, int packet_cou
 
 void OverlayScrollBar::setMarkedPacketImage(QImage &mp_image)
 {
-    qreal dp_ratio = 1.0;
-    dp_ratio = devicePixelRatio();
+    qreal dp_ratio = devicePixelRatio();
 
     marked_packet_img_ = mp_image;
     marked_packet_width_ = mp_image.width() / dp_ratio;
@@ -145,9 +144,8 @@ void OverlayScrollBar::resizeEvent(QResizeEvent *event)
 
 void OverlayScrollBar::paintEvent(QPaintEvent *event)
 {
-    qreal dp_ratio = 1.0;
+    qreal dp_ratio = devicePixelRatio();
     QSize pm_size(packet_map_width_, geometry().height());
-    dp_ratio = devicePixelRatio();
     pm_size *= dp_ratio;
 
     QPainter painter(this);
@@ -199,8 +197,7 @@ bool OverlayScrollBar::eventFilter(QObject *watched, QEvent *event)
 
         if (!marked_packet_img_.isNull()) {
             QRect groove_rect = grooveRect();
-            qreal dp_ratio = 1.0;
-            dp_ratio = devicePixelRatio();
+            qreal dp_ratio = devicePixelRatio();
             groove_rect.setTopLeft(groove_rect.topLeft() * dp_ratio);
             groove_rect.setSize(groove_rect.size() * dp_ratio);
 

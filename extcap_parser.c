@@ -169,6 +169,8 @@ static extcap_token_sentence *extcap_tokenize_sentence(const gchar *s) {
                 param_type = EXTCAP_PARAM_FILE_MUSTEXIST;
             } else if (g_ascii_strcasecmp(arg, "fileext") == 0) {
                 param_type = EXTCAP_PARAM_FILE_EXTENSION;
+            } else if (g_ascii_strcasecmp(arg, "group") == 0) {
+                param_type = EXTCAP_PARAM_GROUP;
             } else if (g_ascii_strcasecmp(arg, "name") == 0) {
                 param_type = EXTCAP_PARAM_NAME;
             } else if (g_ascii_strcasecmp(arg, "enabled") == 0) {
@@ -251,6 +253,7 @@ void extcap_free_arg(extcap_arg *a) {
     g_free(a->placeholder);
     g_free(a->fileextension);
     g_free(a->regexp);
+    g_free(a->group);
     g_free(a->device_name);
 
     if (a->range_start != NULL)
@@ -288,8 +291,7 @@ static void extcap_free_toolbar_control(iface_toolbar_control *c) {
 }
 
 void extcap_free_arg_list(GList *a) {
-    g_list_foreach(a, (GFunc)extcap_free_arg, NULL);
-    g_list_free(a);
+    g_list_free_full(a, (GDestroyNotify)extcap_free_arg);
 }
 
 static gint glist_find_numbered_arg(gconstpointer listelem, gconstpointer needle) {
@@ -461,6 +463,11 @@ static extcap_arg *extcap_parse_arg_sentence(GList *args, extcap_token_sentence 
         if ((param_value = (gchar *)g_hash_table_lookup(s->param_list, ENUM_KEY(EXTCAP_PARAM_VALIDATION)))
                 != NULL) {
             target_arg->regexp = g_strdup(param_value);
+        }
+
+        if ((param_value = (gchar *)g_hash_table_lookup(s->param_list, ENUM_KEY(EXTCAP_PARAM_GROUP)))
+                != NULL) {
+            target_arg->group = g_strdup(param_value);
         }
 
         if ((param_value = (gchar *)g_hash_table_lookup(s->param_list, ENUM_KEY(EXTCAP_PARAM_REQUIRED)))

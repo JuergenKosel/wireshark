@@ -285,6 +285,14 @@ static int hf_bthci_cmd_amp_remaining_assoc_length = -1;
 static int hf_bthci_cmd_amp_assoc_fragment = -1;
 static int hf_bthci_cmd_le_event_mask = -1;
 static int hf_bthci_cmd_le_event_mask_le_reserved = -1;
+static int hf_bthci_cmd_le_event_mask_le_channel_selection_algorithm = -1;
+static int hf_bthci_cmd_le_event_mask_le_scan_request_received = -1;
+static int hf_bthci_cmd_le_event_mask_le_extended_advertising_set_terminated = -1;
+static int hf_bthci_cmd_le_event_mask_le_extended_scan_timeout = -1;
+static int hf_bthci_cmd_le_event_mask_le_periodic_advertising_sync_lost = -1;
+static int hf_bthci_cmd_le_event_mask_le_periodic_advertising_report = -1;
+static int hf_bthci_cmd_le_event_mask_le_periodic_advertising_sync_established = -1;
+static int hf_bthci_cmd_le_event_mask_le_extended_advertising_report = -1;
 static int hf_bthci_cmd_le_event_mask_le_phy_update_complete = -1;
 static int hf_bthci_cmd_le_event_mask_le_direct_advertising_report  = -1;
 static int hf_bthci_cmd_le_event_mask_le_enhanced_connection_complete = -1;
@@ -498,6 +506,14 @@ static int hf_bthci_cmd_extended_inquiry_length = -1;
 
 static const int *hfx_bthci_cmd_le_event_mask[] = {
     &hf_bthci_cmd_le_event_mask_le_reserved,
+    &hf_bthci_cmd_le_event_mask_le_channel_selection_algorithm,
+    &hf_bthci_cmd_le_event_mask_le_scan_request_received,
+    &hf_bthci_cmd_le_event_mask_le_extended_advertising_set_terminated,
+    &hf_bthci_cmd_le_event_mask_le_extended_scan_timeout,
+    &hf_bthci_cmd_le_event_mask_le_periodic_advertising_sync_lost,
+    &hf_bthci_cmd_le_event_mask_le_periodic_advertising_report,
+    &hf_bthci_cmd_le_event_mask_le_periodic_advertising_sync_established,
+    &hf_bthci_cmd_le_event_mask_le_extended_advertising_report,
     &hf_bthci_cmd_le_event_mask_le_phy_update_complete,
     &hf_bthci_cmd_le_event_mask_le_direct_advertising_report ,
     &hf_bthci_cmd_le_event_mask_le_enhanced_connection_complete,
@@ -646,7 +662,8 @@ static gint hf_btcommon_eir_ad_flags_le_limited_discoverable_mode = -1;
 static gint hf_btcommon_eir_ad_uuid_16 = -1;
 static gint hf_btcommon_eir_ad_uuid_32 = -1;
 static gint hf_btcommon_eir_ad_uuid_128 = -1;
-static gint hf_btcommon_eir_ad_custom_uuid = -1;
+static gint hf_btcommon_eir_ad_custom_uuid_32 = -1;
+static gint hf_btcommon_eir_ad_custom_uuid_128 = -1;
 static gint hf_btcommon_eir_ad_name = -1;
 static gint hf_btcommon_eir_ad_tx_power = -1;
 static gint hf_btcommon_eir_ad_ssp_oob_length = -1;
@@ -2079,7 +2096,6 @@ static const value_string le_role_vals[] = {
     { 0x03, "Peripheral and Central Role supported, Central Role preferred for connection establishment" },
     { 0, NULL }
 };
-value_string_ext le_role_vals_ext = VALUE_STRING_EXT_INIT(le_role_vals);
 
 static const value_string tds_role_vals[] = {
     { 0x00, "Not Specified" },
@@ -6118,7 +6134,7 @@ proto_register_bthci_cmd(void)
             "Support for both LE and BR/EDR to same device", HFILL }
         },
         { &hf_bthci_cmd_le_event_mask,
-          { "LE Connection Complete",                      "bthci_cmd.le_event_mask",
+          { "LE Event Mask",                               "bthci_cmd.le_event_mask",
             FT_UINT64, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
@@ -6182,9 +6198,49 @@ proto_register_bthci_cmd(void)
             FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x800),
             NULL, HFILL }
         },
+        { &hf_bthci_cmd_le_event_mask_le_extended_advertising_report,
+          { "LE Extended Advertising Report",              "bthci_cmd.le_event_mask.le_extended_advertising_report",
+            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x1000),
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_event_mask_le_periodic_advertising_sync_established,
+          { "LE Periodic Advertising Sync Established",    "bthci_cmd.le_event_mask.le_periodic_advertising_sync_established",
+            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x2000),
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_event_mask_le_periodic_advertising_report,
+          { "LE Periodic Advertising Report",              "bthci_cmd.le_event_mask.le_periodic_advertising_report",
+            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x4000),
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_event_mask_le_periodic_advertising_sync_lost,
+          { "LE Periodic Advertising Sync Lost",           "bthci_cmd.le_event_mask.le_periodic_advertising_sync_lost",
+            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x8000),
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_event_mask_le_extended_scan_timeout,
+          { "LE Extended Scan Timeout",                    "bthci_cmd.le_event_mask.le_extended_scan_timeout",
+            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x10000),
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_event_mask_le_extended_advertising_set_terminated,
+          { "LE Extended Advertising Set Terminated",      "bthci_cmd.le_event_mask.le_extended_advertising_set_terminated",
+            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x20000),
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_event_mask_le_scan_request_received,
+          { "LE Scan Request Received",                    "bthci_cmd.le_event_mask.le_scan_request_received",
+            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x40000),
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_le_event_mask_le_channel_selection_algorithm,
+          { "LE Channel Selection Algorithm",              "bthci_cmd.le_event_mask.le_channel_selection_algorithm",
+            FT_BOOLEAN, 64, NULL, G_GUINT64_CONSTANT(0x80000),
+            NULL, HFILL }
+        },
         { &hf_bthci_cmd_le_event_mask_le_reserved,
           { "Reserved",                                    "bthci_cmd.le_event_mask.reserved",
-            FT_UINT64, BASE_HEX, NULL, G_GUINT64_CONSTANT(0xFFFFFFFFFFFFF000),
+            FT_UINT64, BASE_HEX, NULL, G_GUINT64_CONSTANT(0xFFFFFFFFFFF00000),
             NULL, HFILL }
         },
         { &hf_bthci_cmd_le_advts_interval_min,
@@ -7308,6 +7364,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
     gboolean     has_bd_addr = FALSE;
     guint8       bd_addr[6];
     guint8      *name = NULL;
+    bluetooth_uuid_t uuid;
 
     DISSECTOR_ASSERT(bluetooth_eir_ad_data);
 
@@ -7358,15 +7415,12 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
         case 0x1F: /* List of 32-bit Service Solicitation UUIDs */
             end_offset = offset + length;
             while (offset < end_offset) {
-                if (tvb_get_ntohs(tvb, offset) == 0x0000) {
-                    sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uuid_32, tvb, offset, 4, ENC_BIG_ENDIAN);
-                    proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(tvb_get_ntohs(tvb, offset + 2), &bluetooth_uuid_vals_ext, "Unknown"));
+                uuid = get_uuid(tvb, offset, 4);
+                if (uuid.bt_uuid) {
+                    sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+                    proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
                 } else {
-                    bluetooth_uuid_t  uuid;
-
-                    sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid, tvb, offset, 4, ENC_NA);
-                    uuid = get_uuid(tvb, offset, 4);
-
+                    sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
                     proto_item_append_text(sub_item, " (%s)", print_uuid(&uuid));
                 }
 
@@ -7379,18 +7433,13 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
         case 0x15: /* List of 128-bit Service Solicitation UUIDs */
             end_offset = offset + length;
             while (offset < end_offset) {
-                if (tvb_get_ntohs(tvb, offset) == 0x0000 &&
-                    tvb_get_ntohl(tvb, offset + 4) == 0x1000 &&
-                    tvb_get_ntoh64(tvb, offset + 8) == G_GUINT64_CONSTANT(0x800000805F9B34FB)) {
-                    sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uuid_128, tvb, offset, 16, ENC_NA);
-                    proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(tvb_get_ntohs(tvb, offset + 2), &bluetooth_uuid_vals_ext, "Unknown"));
+                uuid = get_uuid(tvb, offset, 16);
+                if (uuid.bt_uuid) {
+                    sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_uuid(&uuid));
+                    proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
                 }
                 else {
-                    bluetooth_uuid_t  uuid;
-
-                    sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid, tvb, offset, 16, ENC_NA);
-                    uuid = get_uuid(tvb, offset, 16);
-
+                    sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_custom_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_uuid(&uuid));
                     proto_item_append_text(sub_item, " (%s)", print_uuid(&uuid));
                 }
 
@@ -7518,16 +7567,13 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
             }
             break;
         case 0x20: /* Service Data - 32 bit UUID */
-            if (tvb_get_ntohs(tvb, offset) == 0x0000) {
-                sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uuid_32, tvb, offset, 4, ENC_BIG_ENDIAN);
-                proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(tvb_get_ntohs(tvb, offset + 2), &bluetooth_uuid_vals_ext, "Unknown"));
+            uuid = get_uuid(tvb, offset, 4);
+            if (uuid.bt_uuid) {
+                sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+                proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
             }
             else {
-                bluetooth_uuid_t  uuid;
-
-                sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid, tvb, offset, 4, ENC_NA);
-                uuid = get_uuid(tvb, offset, 4);
-
+                sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
                 proto_item_append_text(sub_item, " (%s)", print_uuid(&uuid));
             }
             offset += 4;
@@ -7538,18 +7584,13 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
             }
             break;
         case 0x21: /* Service Data - 128 bit UUID */
-            if (tvb_get_ntohs(tvb, offset) == 0x0000 &&
-                tvb_get_ntohl(tvb, offset + 4) == 0x1000 &&
-                tvb_get_ntoh64(tvb, offset + 8) == G_GUINT64_CONSTANT(0x800000805F9B34FB)) {
-                sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uuid_128, tvb, offset, 16, ENC_NA);
-                proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(tvb_get_ntohs(tvb, offset + 2), &bluetooth_uuid_vals_ext, "Unknown"));
+            uuid = get_uuid(tvb, offset, 16);
+            if (uuid.bt_uuid) {
+                sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_uuid(&uuid));
+                proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
             }
             else {
-                bluetooth_uuid_t  uuid;
-
-                sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid, tvb, offset, 16, ENC_NA);
-                uuid = get_uuid(tvb, offset, 16);
-
+                sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_custom_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_uuid(&uuid));
                 proto_item_append_text(sub_item, " (%s)", print_uuid(&uuid));
             }
             offset += 16;
@@ -8129,8 +8170,13 @@ proto_register_btcommon(void)
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_btcommon_eir_ad_custom_uuid,
-            { "Custom UUID",                     "btcommon.eir_ad.entry.custom_uuid",
+        { &hf_btcommon_eir_ad_custom_uuid_32,
+            { "Custom UUID",                     "btcommon.eir_ad.entry.custom_uuid_32",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_custom_uuid_128,
+            { "Custom UUID",                     "btcommon.eir_ad.entry.custom_uuid_128",
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
@@ -8156,17 +8202,17 @@ proto_register_btcommon(void)
         },
         { &hf_btcommon_eir_ad_le_bd_addr_reserved,
             { "Reserved",                        "btcommon.eir_ad.entry.le_bd_addr.reserved",
-            FT_BOOLEAN, 8, NULL, 0xFE,
+            FT_UINT8, BASE_HEX, NULL, 0xFE,
             NULL, HFILL }
         },
         { &hf_btcommon_eir_ad_le_bd_addr_type,
             { "Type",                            "btcommon.eir_ad.entry.le_bd_addr.type",
-            FT_BOOLEAN, 8, NULL, 0x01,
+            FT_UINT8, BASE_HEX, VALS(bluetooth_address_type_vals), 0x01,
             NULL, HFILL }
         },
         { &hf_btcommon_eir_ad_le_role,
             { "Type",                            "btcommon.eir_ad.entry.le_role",
-            FT_UINT8, BASE_HEX | BASE_EXT_STRING, &le_role_vals_ext, 0x01,
+            FT_UINT8, BASE_HEX, VALS(le_role_vals), 0,
             NULL, HFILL }
         },
         { &hf_btcommon_eir_ad_did_vendor_id_source,

@@ -138,6 +138,7 @@ static expert_field ei_http_te_unknown = EI_INIT;
 static expert_field ei_http_subdissector_failed = EI_INIT;
 static expert_field ei_http_ssl_port = EI_INIT;
 static expert_field ei_http_leading_crlf = EI_INIT;
+static expert_field ei_http_bad_header_name = EI_INIT;
 
 static dissector_handle_t http_handle;
 static dissector_handle_t http_tcp_handle;
@@ -158,10 +159,12 @@ typedef struct _header_field_t {
 	gchar* header_desc;
 } header_field_t;
 
-static header_field_t* header_fields = NULL;
-static guint num_header_fields = 0;
+static header_field_t* header_fields;
+static guint num_header_fields;
 
-static GHashTable* header_fields_hash = NULL;
+static GHashTable* header_fields_hash;
+static hf_register_info* dynamic_hf;
+static guint dynamic_hf_size;
 
 static gboolean
 header_fields_update_cb(void *r, char **err)
@@ -1046,7 +1049,6 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	int		first_linelen, linelen;
 	gboolean	is_request_or_reply, is_ssl = FALSE;
 	gboolean	saw_req_resp_or_header;
-	guchar		c;
 	http_type_t     http_type;
 	proto_item	*hdr_item = NULL;
 	ReqRespDissector reqresp_dissector;
@@ -1272,72 +1274,19 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		/*
 		 * No.  Does it look like a header?
 		 */
-		linep = line;
 		colon_offset = offset;
-		while (linep < lineend) {
-			c = *linep++;
 
+		linep = (const guchar *)memchr(line, ':', linelen);
+		if (linep) {
 			/*
-			 * This must be a CHAR, and must not be a CTL,
-			 * to be part of a token; that means it must
-			 * be printable ASCII.
-			 *
-			 * XXX - what about leading LWS on continuation
-			 * lines of a header?
+			 * Colon found, assume it is a header.
 			 */
-			if (!g_ascii_isprint(c))
-				break;
-
-			/*
-			 * This mustn't be a SEP to be part of a token;
-			 * a ':' ends the token, everything else is an
-			 * indication that this isn't a header.
-			 */
-			switch (c) {
-
-			case '(':
-			case ')':
-			case '<':
-			case '>':
-			case '@':
-			case ',':
-			case ';':
-			case '\\':
-			case '"':
-			case '/':
-			case '[':
-			case ']':
-			case '?':
-			case '=':
-			case '{':
-			case '}':
-			case ' ':
-				/*
-				 * It's a separator, so it's not part of a
-				 * token, so it's not a field name for the
-				 * beginning of a header.
-				 *
-				 * (We don't have to check for HT; that's
-				 * already been ruled out by "iscntrl()".)
-				 */
-				goto not_http;
-
-			case ':':
-				/*
-				 * This ends the token; we consider this
-				 * to be a header.
-				 */
-				goto is_http;
-
-			default:
-				colon_offset++;
-				break;
-			}
+			colon_offset += (int)(linep - line);
+			goto is_http;
 		}
 
 		/*
-		 * We haven't seen the colon, but everything else looks
-		 * OK for a header line.
+		 * We haven't seen the colon yet.
 		 *
 		 * If we've already seen an HTTP request or response
 		 * line, or a header line, and we're at the end of
@@ -1361,7 +1310,6 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		if (saw_req_resp_or_header)
 			tvb_ensure_bytes_exist(tvb, offset, linelen + 1);
 
-	not_http:
 		/*
 		 * We don't consider this part of an HTTP request or
 		 * reply, so we don't display it.
@@ -2778,52 +2726,67 @@ get_hf_for_header(char* header_name)
  *
  */
 static void
-header_fields_initialize_cb(void)
+deregister_header_fields(void)
 {
-	static hf_register_info* hf;
+	if (dynamic_hf) {
+		/* Deregister all fields */
+		for (guint i = 0; i < dynamic_hf_size; i++) {
+			proto_deregister_field (proto_http, *(dynamic_hf[i].p_id));
+			g_free (dynamic_hf[i].p_id);
+		}
+
+		proto_add_deregistered_data (dynamic_hf);
+		dynamic_hf = NULL;
+		dynamic_hf_size = 0;
+	}
+
+	if (header_fields_hash) {
+		g_hash_table_destroy (header_fields_hash);
+		header_fields_hash = NULL;
+	}
+}
+
+static void
+header_fields_post_update_cb(void)
+{
 	gint* hf_id;
-	guint i;
 	gchar* header_name;
 	gchar* header_name_key;
 
-	if (header_fields_hash && hf) {
-		guint hf_size = g_hash_table_size (header_fields_hash);
-		/* Deregister all fields */
-		for (i = 0; i < hf_size; i++) {
-			proto_deregister_field (proto_http, *(hf[i].p_id));
-			g_free (hf[i].p_id);
-		}
-		g_hash_table_destroy (header_fields_hash);
-		proto_add_deregistered_data (hf);
-		header_fields_hash = NULL;
-	}
+	deregister_header_fields();
 
 	if (num_header_fields) {
-		header_fields_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
-				g_free, NULL);
-		hf = g_new0(hf_register_info, num_header_fields);
+		header_fields_hash = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+		dynamic_hf = g_new0(hf_register_info, num_header_fields);
+		dynamic_hf_size = num_header_fields;
 
-		for (i = 0; i < num_header_fields; i++) {
+		for (guint i = 0; i < dynamic_hf_size; i++) {
 			hf_id = g_new(gint,1);
 			*hf_id = -1;
 			header_name = g_strdup(header_fields[i].header_name);
 			header_name_key = g_ascii_strdown(header_name, -1);
 
-			hf[i].p_id = hf_id;
-			hf[i].hfinfo.name = header_name;
-			hf[i].hfinfo.abbrev = g_strdup_printf("http.header.%s", header_name);
-			hf[i].hfinfo.type = FT_STRING;
-			hf[i].hfinfo.display = BASE_NONE;
-			hf[i].hfinfo.strings = NULL;
-			hf[i].hfinfo.bitmask = 0;
-			hf[i].hfinfo.blurb = g_strdup(header_fields[i].header_desc);
-			HFILL_INIT(hf[i]);
+			dynamic_hf[i].p_id = hf_id;
+			dynamic_hf[i].hfinfo.name = header_name;
+			dynamic_hf[i].hfinfo.abbrev = g_strdup_printf("http.header.%s", header_name);
+			dynamic_hf[i].hfinfo.type = FT_STRING;
+			dynamic_hf[i].hfinfo.display = BASE_NONE;
+			dynamic_hf[i].hfinfo.strings = NULL;
+			dynamic_hf[i].hfinfo.bitmask = 0;
+			dynamic_hf[i].hfinfo.blurb = g_strdup(header_fields[i].header_desc);
+			HFILL_INIT(dynamic_hf[i]);
 
 			g_hash_table_insert(header_fields_hash, header_name_key, hf_id);
 		}
 
-		proto_register_field_array(proto_http, hf, num_header_fields);
+		proto_register_field_array(proto_http, dynamic_hf, dynamic_hf_size);
 	}
+}
+
+static void
+header_fields_reset_cb(void)
+{
+	deregister_header_fields();
 }
 
 /**
@@ -2891,6 +2854,13 @@ http_parse_transfer_coding(const char *value, headers_t *eh_ptr)
 	return is_fully_parsed;
 }
 
+static gboolean
+is_token_char(char c)
+{
+	/* tchar according to https://tools.ietf.org/html/rfc7230#section-3.2.6 */
+	return strchr("!#$%&\\:*+-.^_`|~", c) || g_ascii_isalnum(c);
+}
+
 static void
 process_header(tvbuff_t *tvb, int offset, int next_offset,
 	       const guchar *line, int linelen, int colon_offset,
@@ -2915,7 +2885,51 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 	len = next_offset - offset;
 	line_end_offset = offset + linelen;
 	header_len = colon_offset - offset;
+
+	/*
+	 * Validate the header name. This allows no space between the field name
+	 * and colon (RFC 7230, Section. 3.2.4).
+	 */
+	gboolean valid_header_name = header_len != 0;
+	if (valid_header_name) {
+		for (i = 0; i < header_len; i++) {
+			/*
+			 * NUL is not a valid character; treat it specially
+			 * due to C's notion that strings are NUL-terminated.
+			 */
+			if (line[i] == '\0') {
+				valid_header_name = FALSE;
+				break;
+			}
+			if (!is_token_char(line[i])) {
+				valid_header_name = FALSE;
+				break;
+			}
+		}
+	}
+	/**
+	 * Not a valid header name? Just add a line plus expert info.
+	 */
+	if (!valid_header_name) {
+		if (http_type == HTTP_REQUEST) {
+			hf_index = hf_http_request_line;
+		} else if (http_type == HTTP_RESPONSE) {
+			hf_index = hf_http_response_line;
+		} else {
+			hf_index = hf_http_unknown_header;
+		}
+		it = proto_tree_add_item(tree, hf_index, tvb, offset, len, ENC_NA|ENC_ASCII);
+		proto_item_set_text(it, "%s", format_text(wmem_packet_scope(), line, len));
+		expert_add_info(pinfo, it, &ei_http_bad_header_name);
+		return;
+	}
+
+	/*
+	 * Make a null-terminated, all-lower-case version of the header
+	 * name.
+	 */
 	header_name = wmem_ascii_strdown(wmem_packet_scope(), &line[0], header_len);
+
 	hf_index = find_header_hf_value(tvb, offset, header_len);
 
 	/*
@@ -3910,6 +3924,7 @@ proto_register_http(void)
 		{ &ei_http_subdissector_failed, { "http.subdissector_failed", PI_MALFORMED, PI_NOTE, "HTTP body subdissector failed, trying heuristic subdissector", EXPFILL }},
 		{ &ei_http_ssl_port, { "http.ssl_port", PI_SECURITY, PI_WARN, "Unencrypted HTTP protocol detected over encrypted port, could indicate a dangerous misconfiguration.", EXPFILL }},
 		{ &ei_http_leading_crlf, { "http.leading_crlf", PI_MALFORMED, PI_ERROR, "Leading CRLF previous message in the stream may have extra CRLF", EXPFILL }},
+		{ &ei_http_bad_header_name, { "http.bad_header_name", PI_PROTOCOL, PI_WARN, "Illegal characters found in header name", EXPFILL }},
 	};
 
 	/* UAT for header fields */
@@ -3990,8 +4005,8 @@ proto_register_http(void)
 			      header_fields_copy_cb,
 			      header_fields_update_cb,
 			      header_fields_free_cb,
-			      header_fields_initialize_cb,
-			      NULL,
+			      header_fields_post_update_cb,
+			      header_fields_reset_cb,
 			      custom_header_uat_fields
 	);
 
@@ -4097,6 +4112,12 @@ proto_reg_handoff_http(void)
 	 */
 	ssdp_handle = create_dissector_handle(dissect_ssdp, proto_ssdp);
 	dissector_add_uint_with_preference("udp.port", UDP_PORT_SSDP, ssdp_handle);
+
+	/*
+	 * SSL/TLS Application-Layer Protocol Negotiation (ALPN) protocol
+	 * ID.
+	 */
+	dissector_add_string("ssl.handshake.extensions_alpn_str", "http/1.1", http_ssl_handle);
 
 	ntlmssp_handle = find_dissector_add_dependency("ntlmssp", proto_http);
 	gssapi_handle = find_dissector_add_dependency("gssapi", proto_http);

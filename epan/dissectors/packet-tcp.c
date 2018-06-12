@@ -132,6 +132,7 @@ static int proto_tcp_option_tfo = -1;
 static int proto_tcp_option_rvbd_probe = -1;
 static int proto_tcp_option_rvbd_trpy = -1;
 static int proto_tcp_option_exp = -1;
+static int proto_tcp_option_unknown = -1;
 static int proto_mptcp = -1;
 
 static int hf_tcp_srcport = -1;
@@ -207,6 +208,7 @@ static int hf_tcp_option_qs_rate = -1;
 static int hf_tcp_option_qs_ttl_diff = -1;
 static int hf_tcp_option_exp_data = -1;
 static int hf_tcp_option_exp_magic_number = -1;
+static int hf_tcp_option_unknown_payload = -1;
 
 static int hf_tcp_option_rvbd_probe_version1 = -1;
 static int hf_tcp_option_rvbd_probe_version2 = -1;
@@ -330,6 +332,7 @@ static gint ett_tcp_option_wscale = -1;
 static gint ett_tcp_option_sack = -1;
 static gint ett_tcp_option_snack = -1;
 static gint ett_tcp_option_scps = -1;
+static gint ett_tcp_scpsoption_flags = -1;
 static gint ett_tcp_option_scps_extended = -1;
 static gint ett_tcp_option_user_to = -1;
 static gint ett_tcp_option_exp = -1;
@@ -525,7 +528,7 @@ static const value_string tcp_option_kind_vs[] = {
     { TCPOPT_MPTCP, "Multipath TCP" },
     { TCPOPT_TFO, "TCP Fast Open Cookie" },
     { TCPOPT_RVBD_PROBE, "Riverbed Probe" },
-    { TCPOPT_RVBD_TRPY, "Riverbed Transparancy" },
+    { TCPOPT_RVBD_TRPY, "Riverbed Transparency" },
     { TCPOPT_EXP_FD, "RFC3692-style Experiment 1" },
     { TCPOPT_EXP_FE, "RFC3692-style Experiment 2" },
     { 0, NULL }
@@ -571,6 +574,7 @@ static heur_dissector_list_t heur_subdissector_list;
 static dissector_handle_t data_handle;
 static dissector_handle_t tcp_handle;
 static dissector_handle_t sport_handle;
+static dissector_handle_t tcp_opt_unknown_handle;
 static guint32 tcp_stream_count;
 static guint32 mptcp_stream_count;
 
@@ -1061,6 +1065,7 @@ follow_tcp_tap_listener(void *tapdata, packet_info *pinfo,
     guint32 length = follow_data->tcph->th_seglen;
     guint32 data_length = tvb_captured_length(follow_data->tvb);
     guint32 newseq;
+    gboolean added_follow_record = FALSE;
 
     follow_record = g_new0(follow_record_t, 1);
 
@@ -1137,6 +1142,7 @@ follow_tcp_tap_listener(void *tapdata, packet_info *pinfo,
         if (data_length > 0) {
             follow_info->bytes_written[follow_record->is_server] += follow_record->data->len;
             follow_info->payload = g_list_append(follow_info->payload, follow_record);
+            added_follow_record = TRUE;
         }
 
         /* done with the packet, see if it caused a fragment to fit */
@@ -1155,6 +1161,10 @@ follow_tcp_tap_listener(void *tapdata, packet_info *pinfo,
 
             follow_info->fragments[follow_record->is_server] = g_list_append(follow_info->fragments[follow_record->is_server], frag_follow_record);
         }
+    }
+    if (!added_follow_record) {
+        g_byte_array_free(follow_record->data, TRUE);
+        g_free(follow_record);
     }
     return FALSE;
 }
@@ -3646,14 +3656,12 @@ tcp_info_append_uint(packet_info *pinfo, const char *abbrev, guint32 val)
 }
 
 static gboolean
-tcp_option_len_check(proto_tree* tree, packet_info *pinfo, tvbuff_t *tvb, int proto, guint len, guint optlen)
+tcp_option_len_check(proto_item* length_item, packet_info *pinfo, guint len, guint optlen)
 {
     if (len != optlen) {
         /* Bogus - option length isn't what it's supposed to be for this option. */
-        proto_tree_add_expert_format(tree, pinfo, &ei_tcp_opt_len_invalid, tvb, 0, len,
-                            "%s (with option length = %u byte%s; should be %u)",
-                            proto_get_protocol_short_name(find_protocol_by_id(proto)),
-                            len, plurality(len, "", "s"), optlen);
+        expert_add_info_format(pinfo, length_item, &ei_tcp_opt_len_invalid,
+                               "option length should be %u", optlen);
         return FALSE;
     }
 
@@ -3661,20 +3669,39 @@ tcp_option_len_check(proto_tree* tree, packet_info *pinfo, tvbuff_t *tvb, int pr
 }
 
 static int
+dissect_tcpopt_unknown(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void* data _U_)
+{
+    proto_item *item;
+    proto_tree *exp_tree;
+    int offset = 0, optlen = tvb_reported_length(tvb);
+
+    item = proto_tree_add_item(tree, proto_tcp_option_unknown, tvb, offset, -1, ENC_NA);
+    exp_tree = proto_item_add_subtree(item, ett_tcp_unknown_opt);
+
+    proto_tree_add_item(exp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+    if (optlen > 2)
+        proto_tree_add_item(exp_tree, hf_tcp_option_unknown_payload, tvb, offset + 2, optlen - 2, ENC_NA);
+
+    return tvb_captured_length(tvb);
+}
+
+static int
 dissect_tcpopt_default_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int proto, int ett)
 {
     proto_item *item;
     proto_tree *exp_tree;
+    proto_item *length_item;
     int offset = 0;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto, tvb_reported_length(tvb), 2))
-        return tvb_captured_length(tvb);
-
-    item = proto_tree_add_item(tree, proto, tvb, offset, 2, ENC_NA);
+    item = proto_tree_add_item(tree, proto, tvb, offset, -1, ENC_NA);
     exp_tree = proto_item_add_subtree(item, ett);
 
     proto_tree_add_item(exp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), 2))
+        return tvb_captured_length(tvb);
 
     return tvb_captured_length(tvb);
 }
@@ -3721,14 +3748,14 @@ dissect_tcpopt_tfo(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
 {
     proto_item *item;
     proto_tree *exp_tree;
-    int offset = 0, optlen = tvb_reported_length(tvb);
+    int offset = 0;
 
-    item = proto_tree_add_item(tree, proto_tcp_option_tfo, tvb, offset, optlen, ENC_NA);
+    item = proto_tree_add_item(tree, proto_tcp_option_tfo, tvb, offset, -1, ENC_NA);
     exp_tree = proto_item_add_subtree(item, ett_tcp_option_exp);
     proto_tree_add_item(exp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
 
-    dissect_tcpopt_tfo_payload(tvb, offset, optlen, pinfo, exp_tree, data);
+    dissect_tcpopt_tfo_payload(tvb, offset, tvb_reported_length(tvb), pinfo, exp_tree, data);
     return tvb_captured_length(tvb);
 }
 
@@ -3740,7 +3767,7 @@ dissect_tcpopt_exp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
     guint16 magic;
     int offset = 0, optlen = tvb_reported_length(tvb);
 
-    item = proto_tree_add_item(tree, proto_tcp_option_exp, tvb, offset, optlen, ENC_NA);
+    item = proto_tree_add_item(tree, proto_tcp_option_exp, tvb, offset, -1, ENC_NA);
     exp_tree = proto_item_add_subtree(item, ett_tcp_option_exp);
 
     proto_tree_add_item(exp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -3770,18 +3797,20 @@ dissect_tcpopt_sack_perm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 {
     proto_item *item;
     proto_tree *exp_tree;
+    proto_item *length_item;
     int offset = 0;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_sack_perm, tvb_reported_length(tvb), TCPOLEN_SACK_PERM))
-        return tvb_captured_length(tvb);
-
-    item = proto_tree_add_item(tree, proto_tcp_option_sack_perm, tvb, offset, TCPOLEN_SACK_PERM, ENC_NA);
+    item = proto_tree_add_item(tree, proto_tcp_option_sack_perm, tvb, offset, -1, ENC_NA);
     exp_tree = proto_item_add_subtree(item, ett_tcp_option_sack_perm);
 
     proto_tree_add_item(exp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
 
     tcp_info_append_uint(pinfo, "SACK_PERM", TRUE);
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), TCPOLEN_SACK_PERM))
+        return tvb_captured_length(tvb);
+
     return tvb_captured_length(tvb);
 }
 
@@ -3789,18 +3818,20 @@ static int
 dissect_tcpopt_mss(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
     proto_item *item;
-    int offset = 0;
     proto_tree *exp_tree;
+    proto_item *length_item;
+    int offset = 0;
     guint32 mss;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_mss, tvb_reported_length(tvb), TCPOLEN_MSS))
-        return tvb_captured_length(tvb);
-
-    item = proto_tree_add_item(tree, proto_tcp_option_mss, tvb, offset, TCPOLEN_MSS, ENC_NA);
+    item = proto_tree_add_item(tree, proto_tcp_option_mss, tvb, offset, -1, ENC_NA);
     exp_tree = proto_item_add_subtree(item, ett_tcp_option_mss);
 
     proto_tree_add_item(exp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), TCPOLEN_MSS))
+        return tvb_captured_length(tvb);
+
     proto_tree_add_item_ret_uint(exp_tree, hf_tcp_option_mss_val, tvb, offset + 2, 2, ENC_BIG_ENDIAN, &mss);
     proto_item_append_text(item, ": %u bytes", mss);
     tcp_info_append_uint(pinfo, "MSS", mss);
@@ -3816,22 +3847,23 @@ dissect_tcpopt_wscale(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
     guint32 shift;
     proto_item *wscale_pi, *shift_pi, *gen_pi;
     proto_tree *wscale_tree;
+    proto_item *length_item;
     int offset = 0;
     struct tcp_analysis *tcpd;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_wscale, tvb_reported_length(tvb), TCPOLEN_WINDOW))
-        return tvb_captured_length(tvb);
-
     tcpd=get_tcp_conversation_data(NULL,pinfo);
 
-    wscale_pi = proto_tree_add_item(tree, proto_tcp_option_wscale, tvb, offset, TCPOLEN_WINDOW, ENC_NA);
+    wscale_pi = proto_tree_add_item(tree, proto_tcp_option_wscale, tvb, offset, -1, ENC_NA);
     wscale_tree = proto_item_add_subtree(wscale_pi, ett_tcp_option_wscale);
 
     proto_tree_add_item(wscale_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
-    proto_tree_add_item(wscale_tree, hf_tcp_option_len, tvb, offset, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(wscale_tree, hf_tcp_option_len, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), TCPOLEN_WINDOW))
+        return tvb_captured_length(tvb);
 
     shift_pi = proto_tree_add_item_ret_uint(wscale_tree, hf_tcp_option_wscale_shift, tvb, offset, 1, ENC_BIG_ENDIAN, &shift);
     if (shift > 14) {
@@ -3880,7 +3912,7 @@ dissect_tcpopt_sack(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         }
     }
 
-    ti = proto_tree_add_item(tree, proto_tcp_option_sack, tvb, offset, optlen, ENC_NA);
+    ti = proto_tree_add_item(tree, proto_tcp_option_sack, tvb, offset, -1, ENC_NA);
     field_tree = proto_item_add_subtree(ti, ett_tcp_option_sack);
 
     proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
@@ -3942,19 +3974,21 @@ dissect_tcpopt_echo(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 {
     proto_tree *field_tree;
     proto_item *item;
+    proto_item *length_item;
     guint32 echo;
     int offset = 0;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_echo, tvb_reported_length(tvb), TCPOLEN_ECHO))
-        return tvb_captured_length(tvb);
-
-    item = proto_tree_add_item(tree, proto_tcp_option_echo, tvb, offset, TCPOLEN_ECHO, ENC_NA);
+    item = proto_tree_add_item(tree, proto_tcp_option_echo, tvb, offset, -1, ENC_NA);
     field_tree = proto_item_add_subtree(item, ett_tcp_opt_echo);
 
     proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
                         offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+    length_item = proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
                         offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), TCPOLEN_ECHO))
+        return tvb_captured_length(tvb);
+
     proto_tree_add_item_ret_uint(field_tree, hf_tcp_option_echo, tvb,
                         offset + 2, 4, ENC_BIG_ENDIAN, &echo);
 
@@ -3972,21 +4006,22 @@ dissect_tcpopt_timestamp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 {
     proto_item *ti;
     proto_tree *ts_tree;
+    proto_item *length_item;
     int offset = 0;
     guint32 ts_val, ts_ecr;
     int len = tvb_reported_length(tvb);
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_timestamp, len, TCPOLEN_TIMESTAMP))
-        return tvb_captured_length(tvb);
-
-    ti = proto_tree_add_item(tree, proto_tcp_option_timestamp, tvb, offset, TCPOLEN_TIMESTAMP, ENC_NA);
+    ti = proto_tree_add_item(tree, proto_tcp_option_timestamp, tvb, offset, -1, ENC_NA);
     ts_tree = proto_item_add_subtree(ti, ett_tcp_option_timestamp);
 
     proto_tree_add_item(ts_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
-    proto_tree_add_item(ts_tree, hf_tcp_option_len, tvb, offset, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(ts_tree, hf_tcp_option_len, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
+
+    if (!tcp_option_len_check(length_item, pinfo, len, TCPOLEN_TIMESTAMP))
+        return tvb_captured_length(tvb);
 
     proto_tree_add_item_ret_uint(ts_tree, hf_tcp_option_timestamp_tsval, tvb, offset,
                         4, ENC_BIG_ENDIAN, &ts_val);
@@ -4171,7 +4206,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
     }
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "MPTCP");
-    main_item = proto_tree_add_item(tree, proto_mptcp, tvb, offset, optlen, ENC_NA);
+    main_item = proto_tree_add_item(tree, proto_mptcp, tvb, offset, -1, ENC_NA);
     mptcp_tree = proto_item_add_subtree(main_item, ett_tcp_option_mptcp);
 
     proto_tree_add_item(mptcp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -4560,19 +4595,21 @@ dissect_tcpopt_cc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 {
     proto_tree *field_tree;
     proto_item *item;
+    proto_item *length_item;
     int offset = 0;
     guint32 cc;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_cc, tvb_reported_length(tvb), TCPOLEN_CC))
-        return tvb_captured_length(tvb);
-
-    item = proto_tree_add_item(tree, proto_tcp_option_cc, tvb, offset, TCPOLEN_CC, ENC_NA);
+    item = proto_tree_add_item(tree, proto_tcp_option_cc, tvb, offset, -1, ENC_NA);
     field_tree = proto_item_add_subtree(item, ett_tcp_opt_cc);
 
     proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
                         offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+    length_item = proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
                         offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), TCPOLEN_CC))
+        return tvb_captured_length(tvb);
+
     proto_tree_add_item_ret_uint(field_tree, hf_tcp_option_cc, tvb,
                         offset + 2, 4, ENC_BIG_ENDIAN, &cc);
 
@@ -4585,19 +4622,21 @@ dissect_tcpopt_md5(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
 {
     proto_tree *field_tree;
     proto_item *item;
+    proto_item *length_item;
     int offset = 0, optlen = tvb_reported_length(tvb);
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_md5, optlen, TCPOLEN_MD5))
-        return tvb_captured_length(tvb);
-
-    item = proto_tree_add_item(tree, proto_tcp_option_md5, tvb, offset, TCPOLEN_MD5, ENC_NA);
+    item = proto_tree_add_item(tree, proto_tcp_option_md5, tvb, offset, -1, ENC_NA);
     field_tree = proto_item_add_subtree(item, ett_tcp_opt_md5);
 
     col_append_lstr(pinfo->cinfo, COL_INFO, " MD5", COL_ADD_LSTR_TERMINATOR);
     proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
                         offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                        offset + 1, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+                                      offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, optlen, TCPOLEN_MD5))
+        return tvb_captured_length(tvb);
+
     proto_tree_add_item(field_tree, hf_tcp_option_md5_digest, tvb,
                         offset + 2, optlen - 2, ENC_NA);
 
@@ -4609,19 +4648,20 @@ dissect_tcpopt_qs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 {
     proto_tree *field_tree;
     proto_item *item;
+    proto_item *length_item;
     guint8 rate;
     int offset = 0;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_qs, tvb_reported_length(tvb), TCPOLEN_QS))
-        return tvb_captured_length(tvb);
-
-    item = proto_tree_add_item(tree, proto_tcp_option_qs, tvb, offset, TCPOLEN_QS, ENC_NA);
+    item = proto_tree_add_item(tree, proto_tcp_option_qs, tvb, offset, -1, ENC_NA);
     field_tree = proto_item_add_subtree(item, ett_tcp_opt_qs);
 
     proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
                         offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                        offset + 1, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+                                      offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), TCPOLEN_QS))
+        return tvb_captured_length(tvb);
 
     rate = tvb_get_guint8(tvb, offset + 2) & 0x0f;
     col_append_lstr(pinfo->cinfo, COL_INFO,
@@ -4643,6 +4683,7 @@ dissect_tcpopt_scps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
     tcp_flow_t *flow;
     int         direction;
     proto_item *tf = NULL, *item;
+    proto_tree *flags_tree = NULL;
     guint8      capvector;
     guint8      connid;
     int         offset = 0, optlen = tvb_reported_length(tvb);
@@ -4662,37 +4703,36 @@ dissect_tcpopt_scps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
     else
         flow =&(tcpd->flow2);
 
+    item = proto_tree_add_item(tree, proto_tcp_option_scps,
+                               tvb, offset, -1, ENC_NA);
+    field_tree = proto_item_add_subtree(item, ett_tcp_option_scps);
+
+    proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+                        offset + 1, 1, ENC_BIG_ENDIAN);
+
     /* If the option length == 4, this is a real SCPS capability option
      * See "CCSDS 714.0-B-2 (CCSDS Recommended Standard for SCPS Transport Protocol
      * (SCPS-TP)" Section 3.2.3 for definition.
      */
     if (optlen == 4) {
-        item = proto_tree_add_item(tree, proto_tcp_option_scps,
-                                             tvb, offset, optlen, ENC_NA);
-        PROTO_ITEM_SET_HIDDEN(item);
-
-        capvector = tvb_get_guint8(tvb, offset + 2);
-        connid = tvb_get_guint8(tvb, offset + 3);
-
-        tf = proto_tree_add_item(tree, hf_tcp_option_scps_vector, tvb,
+        tf = proto_tree_add_item(field_tree, hf_tcp_option_scps_vector, tvb,
                                  offset + 2, 1, ENC_BIG_ENDIAN);
-        field_tree = proto_item_add_subtree(tf, ett_tcp_option_scps);
-        proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
-                            offset, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                            offset + 1, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(field_tree, hf_tcp_scpsoption_flags_bets, tvb,
+        flags_tree = proto_item_add_subtree(tf, ett_tcp_scpsoption_flags);
+        proto_tree_add_item(flags_tree, hf_tcp_scpsoption_flags_bets, tvb,
                             offset + 2, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(field_tree, hf_tcp_scpsoption_flags_snack1, tvb,
+        proto_tree_add_item(flags_tree, hf_tcp_scpsoption_flags_snack1, tvb,
                             offset + 2, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(field_tree, hf_tcp_scpsoption_flags_snack2, tvb,
+        proto_tree_add_item(flags_tree, hf_tcp_scpsoption_flags_snack2, tvb,
                             offset + 2, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(field_tree, hf_tcp_scpsoption_flags_compress, tvb,
+        proto_tree_add_item(flags_tree, hf_tcp_scpsoption_flags_compress, tvb,
                             offset + 2, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(field_tree, hf_tcp_scpsoption_flags_nlts, tvb,
+        proto_tree_add_item(flags_tree, hf_tcp_scpsoption_flags_nlts, tvb,
                             offset + 2, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(field_tree, hf_tcp_scpsoption_flags_reserved, tvb,
+        proto_tree_add_item(flags_tree, hf_tcp_scpsoption_flags_reserved, tvb,
                             offset + 2, 1, ENC_BIG_ENDIAN);
+        capvector = tvb_get_guint8(tvb, offset + 2);
 
         if (capvector) {
             struct capvec
@@ -4728,6 +4768,7 @@ dissect_tcpopt_scps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 
         proto_tree_add_item(field_tree, hf_tcp_scpsoption_connection_id, tvb,
                             offset + 3, 1, ENC_BIG_ENDIAN);
+        connid = tvb_get_guint8(tvb, offset + 3);
         flow->scps_capable = 1;
 
         if (connid)
@@ -4747,25 +4788,13 @@ dissect_tcpopt_scps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 
         if (flow->scps_capable != 1) {
             /* There was no SCPS capabilities option preceding this */
-            tf = proto_tree_add_uint_format(tree, hf_tcp_option_scps_vector,
-                                            tvb, offset, optlen, 0,
-                                            "Illegal SCPS Extended Capabilities (%d bytes)",
-                                            optlen);
-            field_tree=proto_item_add_subtree(tf, ett_tcp_option_scps_extended);
-            proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
-                                offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                                offset + 1, 1, ENC_BIG_ENDIAN);
+            proto_item_set_text(item,
+                                "Illegal SCPS Extended Capabilities (%u bytes)",
+                                optlen);
         } else {
-            tf = proto_tree_add_uint_format(tree, hf_tcp_option_scps_vector,
-                                            tvb, offset, optlen, 0,
-                                            "SCPS Extended Capabilities (%d bytes)",
-                                            optlen);
-            field_tree=proto_item_add_subtree(tf, ett_tcp_option_scps_extended);
-            proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
-                                offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                                offset + 1, 1, ENC_BIG_ENDIAN);
+            proto_item_set_text(item,
+                                "SCPS Extended Capabilities (%u bytes)",
+                                optlen);
 
             /* There may be multiple binding spaces included in a single option,
              * so we will semi-parse each of the stacked binding spaces - skipping
@@ -4815,19 +4844,20 @@ dissect_tcpopt_user_to(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 {
     proto_item *tf;
     proto_tree *field_tree;
+    proto_item *length_item;
     guint16 to;
     int offset = 0;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_user_to, tvb_reported_length(tvb), TCPOLEN_USER_TO))
-        return tvb_captured_length(tvb);
-
-    tf = proto_tree_add_item(tree, proto_tcp_option_user_to, tvb, offset, TCPOLEN_USER_TO, ENC_NA);
+    tf = proto_tree_add_item(tree, proto_tcp_option_user_to, tvb, offset, -1, ENC_NA);
     field_tree = proto_item_add_subtree(tf, ett_tcp_option_user_to);
 
     proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
                         offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                        offset + 1, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+                                      offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), TCPOLEN_USER_TO))
+        return tvb_captured_length(tvb);
 
     proto_tree_add_item(field_tree, hf_tcp_option_user_to_granularity, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
     to = tvb_get_ntohs(tvb, offset + 2) & 0x7FFF;
@@ -4874,17 +4904,18 @@ dissect_tcpopt_snack(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
     int     offset = 0;
     proto_item *hidden_item, *tf;
     proto_tree *field_tree;
+    proto_item *length_item;
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_snack, tvb_reported_length(tvb), TCPOLEN_SNACK))
-        return tvb_captured_length(tvb);
-
-    tf = proto_tree_add_item(tree, proto_tcp_option_snack, tvb, offset, TCPOLEN_SNACK, ENC_NA);
+    tf = proto_tree_add_item(tree, proto_tcp_option_snack, tvb, offset, -1, ENC_NA);
     field_tree = proto_item_add_subtree(tf, ett_tcp_option_snack);
 
     proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
                         offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                        offset + 1, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+                                      offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, tvb_reported_length(tvb), TCPOLEN_SNACK))
+        return tvb_captured_length(tvb);
 
     tcpd = get_tcp_conversation_data(NULL,pinfo);
 
@@ -5035,22 +5066,27 @@ dissect_tcpopt_rvbd_probe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
     guint8 ver, type;
     proto_tree *field_tree;
     proto_item *pitem;
+    proto_item *length_item;
     int offset = 0,
         optlen = tvb_reported_length(tvb);
     struct tcpheader *tcph = (struct tcpheader*)data;
 
+    pitem = proto_tree_add_item(tree, proto_tcp_option_rvbd_probe, tvb, offset, -1, ENC_NA);
+    field_tree = proto_item_add_subtree(pitem, ett_tcp_opt_rvbd_probe);
+
+    proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+                                      offset + 1, 1, ENC_BIG_ENDIAN);
+
     if (optlen < TCPOLEN_RVBD_PROBE_MIN) {
         /* Bogus - option length is less than what it's supposed to be for
            this option. */
-        proto_tree_add_expert_format(tree, pinfo, &ei_tcp_opt_len_invalid, tvb, offset, optlen,
-                            "%s (with option length = %u bytes; should be >= %u)",
-                            proto_get_protocol_short_name(find_protocol_by_id(proto_tcp_option_rvbd_probe)),
-                            optlen, TCPOLEN_RVBD_PROBE_MIN);
+        expert_add_info_format(pinfo, length_item, &ei_tcp_opt_len_invalid,
+                            "option length should be >= %u)",
+                            TCPOLEN_RVBD_PROBE_MIN);
         return tvb_captured_length(tvb);
     }
-
-    pitem = proto_tree_add_item(tree, proto_tcp_option_rvbd_probe, tvb, offset, optlen, ENC_NA);
-    field_tree = proto_item_add_subtree(pitem, ett_tcp_opt_rvbd_probe);
 
     rvbd_probe_decode_version_type(
         tvb_get_guint8(tvb, offset + PROBE_VERSION_TYPE_OFFSET),
@@ -5060,12 +5096,6 @@ dissect_tcpopt_rvbd_probe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
 
     if (type >= PROBE_TYPE_MAX)
         return tvb_captured_length(tvb);
-
-    /* optlen, type, ver are common for all probes */
-    proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
-                        offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                        offset + PROBE_OPTLEN_OFFSET, 1, ENC_BIG_ENDIAN);
 
     if (ver == PROBE_VERSION_1) {
         guint16 port;
@@ -5268,6 +5298,7 @@ dissect_tcpopt_rvbd_trpy(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 {
     proto_tree *field_tree;
     proto_item *pitem;
+    proto_item *length_item;
     guint16 sport, dport, flags;
     int offset = 0,
         optlen = tvb_reported_length(tvb);
@@ -5281,18 +5312,18 @@ dissect_tcpopt_rvbd_trpy(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
         NULL
     };
 
-    if (!tcp_option_len_check(tree, pinfo, tvb, proto_tcp_option_rvbd_trpy, optlen, TCPOLEN_RVBD_TRPY_MIN))
-        return tvb_captured_length(tvb);
-
     col_prepend_fstr(pinfo->cinfo, COL_INFO, "TRPY, ");
 
-    pitem = proto_tree_add_item(tree, proto_tcp_option_rvbd_trpy, tvb, offset, TCPOLEN_RVBD_TRPY_MIN, ENC_NA);
+    pitem = proto_tree_add_item(tree, proto_tcp_option_rvbd_trpy, tvb, offset, -1, ENC_NA);
     field_tree = proto_item_add_subtree(pitem, ett_tcp_opt_rvbd_trpy);
 
     proto_tree_add_item(field_tree, hf_tcp_option_kind, tvb,
                         offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
-                        offset + PROBE_OPTLEN_OFFSET, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item(field_tree, hf_tcp_option_len, tvb,
+                                      offset + 1, 1, ENC_BIG_ENDIAN);
+
+    if (!tcp_option_len_check(length_item, pinfo, optlen, TCPOLEN_RVBD_TRPY_MIN))
+        return tvb_captured_length(tvb);
 
     flags = tvb_get_ntohs(tvb, offset + TRPY_OPTIONS_OFFSET);
     proto_tree_add_bitmask_with_flags(field_tree, tvb, offset + TRPY_OPTIONS_OFFSET, hf_tcp_option_rvbd_trpy_flags,
@@ -5364,12 +5395,12 @@ tcp_dissect_options(tvbuff_t *tvb, int offset, guint length, int eol,
         if ((opt == TCPOPT_EOL) || (opt == TCPOPT_NOP)) {
             int local_proto;
             proto_item* field_item;
-          /* We assume that the only options with no length are EOL and NOP options,
-             so that we can treat unknown options as having a minimum length of 2,
-             and at least be able to move on to the next option by using the length in the option. */
 
-            if (opt == TCPOPT_EOL)
-            {
+            /* We assume that the only options with no length are EOL and
+               NOP options, so that we can treat unknown options as having
+               a minimum length of 2, and at least be able to move on to
+               the next option by using the length in the option. */
+            if (opt == TCPOPT_EOL) {
                 local_proto = proto_tcp_option_eol;
             } else if (opt == TCPOPT_NOP) {
                 local_proto = proto_tcp_option_nop;
@@ -5397,6 +5428,7 @@ tcp_dissect_options(tvbuff_t *tvb, int offset, guint length, int eol,
             option_dissector = dissector_get_uint_handle(tcp_option_table, opt);
             if (option_dissector == NULL) {
                 name = wmem_strdup_printf(wmem_packet_scope(), "Unknown (0x%02x)", opt);
+                option_dissector = tcp_opt_unknown_handle;
             } else {
                 name = dissector_handle_get_short_name(option_dissector);
             }
@@ -5428,14 +5460,10 @@ tcp_dissect_options(tvbuff_t *tvb, int offset, guint length, int eol,
                 return;
             }
 
-            if (option_dissector == NULL) {
-                proto_tree_add_subtree_format(opt_tree, tvb, offset, optlen, ett_tcp_unknown_opt, NULL, "%s (%u byte%s)",
-                                              name, optlen, plurality(optlen, "", "s"));
-            } else {
-                next_tvb = tvb_new_subset_length(tvb, offset, optlen);
-                call_dissector_with_data(option_dissector, next_tvb, pinfo, opt_tree/* tree */, data);
-                proto_item_append_text(proto_tree_get_parent(opt_tree), ", %s", name);
-            }
+            next_tvb = tvb_new_subset_length(tvb, offset, optlen);
+            call_dissector_with_data(option_dissector, next_tvb, pinfo, opt_tree/* tree */, data);
+            proto_item_append_text(proto_tree_get_parent(opt_tree), ", %s", name);
+
             offset += optlen;
             length -= (optlen-2); //already accounted for type and len bytes
         }
@@ -6786,6 +6814,10 @@ proto_register_tcp(void)
           { "Magic Number", "tcp.options.experimental.magic_number", FT_UINT16,
             BASE_HEX, NULL, 0x0, NULL, HFILL}},
 
+        { &hf_tcp_option_unknown_payload,
+          { "Payload", "tcp.options.unknown.payload", FT_BYTES,
+            BASE_NONE, NULL, 0x0, NULL, HFILL}},
+
         { &hf_tcp_option_sack_sle,
           {"TCP SACK Left Edge", "tcp.options.sack_le", FT_UINT32,
            BASE_DEC, NULL, 0x0, NULL, HFILL}},
@@ -7256,6 +7288,7 @@ proto_register_tcp(void)
         &ett_tcp_option_sack,
         &ett_tcp_option_snack,
         &ett_tcp_option_scps,
+        &ett_tcp_scpsoption_flags,
         &ett_tcp_option_scps_extended,
         &ett_tcp_option_user_to,
         &ett_tcp_option_exp,
@@ -7468,6 +7501,7 @@ proto_register_tcp(void)
     proto_tcp_option_rvbd_probe = proto_register_protocol_in_name_only("TCP Option - Riverbed Probe", "Riverbed Probe", "tcp.options.rvbd.probe", proto_tcp, FT_BYTES);
     proto_tcp_option_rvbd_trpy = proto_register_protocol_in_name_only("TCP Option - Riverbed Transparency", "Riverbed Transparency", "tcp.options.rvbd.trpy", proto_tcp, FT_BYTES);
     proto_tcp_option_exp = proto_register_protocol_in_name_only("TCP Option - Experimental", "Experimental", "tcp.options.experimental", proto_tcp, FT_BYTES);
+    proto_tcp_option_unknown = proto_register_protocol_in_name_only("TCP Option - Unknown", "Unknown", "tcp.options.unknown", proto_tcp, FT_BYTES);
 
     register_capture_dissector_table("tcp.port", "TCP");
 
@@ -7625,6 +7659,8 @@ proto_reg_handoff_tcp(void)
     dissector_add_uint("tcp.option", TCPOPT_EXP_FD, create_dissector_handle( dissect_tcpopt_exp, proto_tcp_option_exp ));
     dissector_add_uint("tcp.option", TCPOPT_EXP_FE, create_dissector_handle( dissect_tcpopt_exp, proto_tcp_option_exp ));
     dissector_add_uint("tcp.option", TCPOPT_MPTCP, create_dissector_handle( dissect_tcpopt_mptcp, proto_mptcp ));
+    /* Common handle for all the unknown/unsupported TCP options */
+    tcp_opt_unknown_handle = create_dissector_handle( dissect_tcpopt_unknown, proto_tcp_option_unknown );
 
     mptcp_tap = register_tap("mptcp");
     exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_4);

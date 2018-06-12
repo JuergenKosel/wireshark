@@ -643,6 +643,7 @@ static expert_field ei_bootp_boot_filename_overloaded_by_dhcp = EI_INIT;
 static expert_field ei_bootp_option_isns_ignored_bitfield = EI_INIT;
 static expert_field ei_bootp_option242_avaya_l2qvlan_invalid = EI_INIT;
 static expert_field ei_bootp_option242_avaya_vlantest_invalid = EI_INIT;
+static expert_field ei_bootp_option93_client_arch_ambiguous = EI_INIT;
 
 static dissector_table_t bootp_option_table;
 static dissector_table_t bootp_enterprise_table;
@@ -1044,8 +1045,8 @@ static const enum_val_t pkt_ccc_protocol_versions[] = {
 	{ NULL, NULL, 0 }
 };
 
-#define PACKETCABLE_BSDP  "AAPLBSDPC"
-#define PACKETCABLE_BSDPD "AAPLBSDPC/"
+#define APPLE_BSDP_SERVER "AAPLBSDPC"
+#define APPLE_BSDP_CLIENT "AAPLBSDPC/"
 
 static gint pkt_ccc_protocol_version = PACKETCABLE_CCC_RFC_3495;
 static guint pkt_ccc_option = 122;
@@ -1110,6 +1111,18 @@ static const value_string bootp_nbnt_vals[] = {
 	{0,	NULL	 }
 };
 
+/*
+ * There is confusion around some Client Architecture IDs: RFC 4578 section 2.1
+ * lists *requested* architecture IDs, however the actual assigned IDs
+ * (http://www.ietf.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xml#processor-architecture)
+ * differ.  Specifically,
+ *
+ *    EFI Byte Code (EFI BC, EBC) was 7 in RFC 4578, but is assigned 9 by IETF.
+ *    EFI x64 was 9 in RFC 4578, but is assigned 7 by IETF.
+ *
+ * For confirmation, refer to RFC erratum 4625:
+ *    https://www.rfc-editor.org/errata/eid4625
+ */
 static const value_string bootp_client_arch[] = {
 	{ 0x0000, "IA x86 PC" },
 	{ 0x0001, "NEC/PC98" },
@@ -1118,9 +1131,32 @@ static const value_string bootp_client_arch[] = {
 	{ 0x0004, "ArcX86" },
 	{ 0x0005, "Intel Lean Client" },
 	{ 0x0006, "EFI IA32" },
-	{ 0x0007, "EFI BC" },
+	{ 0x0007, "EFI x64" }, /* *Not* EFI BC.  See comment above. */
 	{ 0x0008, "EFI Xscale" },
-	{ 0x0009, "EFI x86-64" },
+	{ 0x0009, "EFI BC" },  /* *Not* EFI x64.  See comment above. */
+	{ 0x000a, "ARM 32-bit UEFI" },
+	{ 0x000b, "ARM 64-bit UEFI" },
+	{ 0x000c, "PowerPC Open Firmware" },
+	{ 0x000d, "PowerPC ePAPR" },
+	{ 0x000e, "POWER OPAL v3" },
+	{ 0x000f, "x86 UEFI HTTP" },
+	{ 0x0010, "x64 UEFI HTTP" },
+	{ 0x0011, "EBC UEFI HTTP" },
+	{ 0x0012, "ARM 32-bit UEFI HTTP" },
+	{ 0x0013, "ARM 64-bit UEFI HTTP" },
+	{ 0x0014, "PC/AT HTTP" },
+	{ 0x0015, "ARM 32-bit uboot" },
+	{ 0x0016, "ARM 64-bit uboot" },
+	{ 0x0017, "ARM 32-bit uboot HTTP" },
+	{ 0x0018, "ARM 64-bit uboot HTTP" },
+	{ 0x0019, "RISC-V 32-bit UEFI" },
+	{ 0x001a, "RISC-V 32-bit UEFI HTTP" },
+	{ 0x001b, "RISC-V 64-bit UEFI" },
+	{ 0x001c, "RISC-V 64-bit UEFI HTTP" },
+	{ 0x001d, "RISC-V 128-bit UEFI" },
+	{ 0x001e, "RISC-V 128-bit UEFI HTTP" },
+	{ 0x001f, "s390 Basic" },
+	{ 0x0020, "s390 Extended" },
 	{ 0,	  NULL }
 };
 
@@ -1256,7 +1292,7 @@ static const string_string option242_avaya_static_vals[] = {
 #define BOOTP_OPT_NUM	256
 
 /* All of the options that have a "basic" type that can be handled by dissect_bootpopt_basic_type() */
-#define BOOTP_OPTION_BASICTYPE_RANGE "1-20,22-32,34-42,44-51,53-54,56-59,64-76,86-87,91-93,100-101,112-113,116,118,137-138,142,150,153,156-157,161,209-210,252"
+#define BOOTP_OPTION_BASICTYPE_RANGE "1-20,22-32,34-42,44-51,53-54,56-59,64-76,86-87,91-92,100-101,112-113,116,118,137-138,142,150,153,156-157,161,209-210,252"
 
 /* Re-define structure.	 Values to be updated by bootp_init_protocol */
 static struct opt_info bootp_opt[BOOTP_OPT_NUM];
@@ -1355,7 +1391,7 @@ static struct opt_info default_bootp_opt[BOOTP_OPT_NUM] = {
 /*  90 */ { "Authentication",				special, NULL},
 /*  91 */ { "Client last transaction time",		time_in_u_secs, &hf_bootp_option_client_last_transaction_time },
 /*  92 */ { "Associated IP option",			ipv4_list, &hf_bootp_option_associated_ip_option },
-/*  93 */ { "Client System Architecture",		val_u_short, &hf_bootp_option_client_system_architecture },
+/*  93 */ { "Client System Architecture",		special, NULL},
 /*  94 */ { "Client Network Device Interface",		special, NULL},
 /*  95 */ { "LDAP [TODO:RFC3679]",			opaque, NULL },
 /*  96 */ { "Removed/Unassigned",			opaque, NULL },
@@ -2472,6 +2508,47 @@ dissect_bootpopt_dhcp_authentication(tvbuff_t *tvb, packet_info *pinfo, proto_tr
 
 		proto_tree_add_item(tree, hf_bootp_option_dhcp_authentication_information, tvb, offset, tvb_reported_length_remaining(tvb, offset), ENC_ASCII|ENC_NA);
 		break;
+	}
+
+	return tvb_captured_length(tvb);
+}
+
+static int
+dissect_bootpopt_client_architecture(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+{
+	int offset = 0;
+
+	while (tvb_reported_length_remaining(tvb, offset) > 1) {
+		guint32 architecture_id;
+		proto_item *pi;
+
+		pi = proto_tree_add_item_ret_uint(tree, hf_bootp_option_client_system_architecture, tvb, offset, 2, ENC_BIG_ENDIAN, &architecture_id);
+		offset += 2;
+
+		/*
+		 * Some Client Architecture IDs are widely misused.  For
+		 * details, refer to the comment at the definition of
+		 * bootp_client_arch.
+		 *
+		 * The most common problem is a client using architecture ID 9
+		 * when performing an EFI x64 boot.  Windows Server 2008 WDS
+		 * does not recognize ID 9, but most other DHCP servers
+		 * (including newer versions of WDS) silently map architecture
+		 * ID 9 to x64 in order to accommodate these clients.
+		 */
+		if (architecture_id == 9) {
+			expert_add_info_format(pinfo, pi, &ei_bootp_option93_client_arch_ambiguous, "Client Architecture ID 9 is often incorrectly used for EFI x64");
+		}
+
+		/*
+		 * Technically, architecture ID 7 is ambiguous for the same
+		 * reason, but it's extremely unlikely to be a real world
+		 * problem, so a warning would probably just be unwelcome
+		 * noise.
+		 */
+	}
+	if (tvb_reported_length_remaining(tvb, offset) > 0) {
+		expert_add_info_format(pinfo, tree, &ei_bootp_bad_length, "Option length isn't a multiple of 2");
 	}
 
 	return tvb_captured_length(tvb);
@@ -4077,6 +4154,7 @@ dissect_aruba_instant_ap_vendor_info_heur( tvbuff_t *tvb, packet_info *pinfo _U_
 }
 
 static const value_string option43_bsdp_suboption_vals[] = {
+	{  0, "Pad" },
 	{  1, "Message Type" },
 	{  2, "Version" },
 	{  3, "Server Identifier" },
@@ -4089,6 +4167,7 @@ static const value_string option43_bsdp_suboption_vals[] = {
 	{ 10, "NetBoot 1.0 Firmware" },
 	{ 11, "Boot Image Attributes Filter List" },
 	{ 12, "Maximum Message Size" },
+	{ 255, "End" },
 	{ 0, NULL}
 };
 
@@ -4113,22 +4192,31 @@ dissect_vendor_bsdp_suboption(packet_info *pinfo, proto_item *v_ti, proto_tree *
 	int	    attributes_off;
 	guint8      subopt, string_len;
 	guint8      subopt_len, attributes_len;
+	guint       item_len;
 	proto_tree *o43bsdp_v_tree, *o43bsdp_va_tree, *o43bsdp_vb_tree, *o43bsdp_vc_tree, *o43bsdp_vd_tree;
 	proto_item *vti, *ti, *tj;
 
 	subopt = tvb_get_guint8(tvb, optoff);
 	suboptoff++;
 
-	if (suboptoff >= optend) {
+	if (subopt == 0 || subopt == 255) {
+		/* Pad (0) and End (255) have implicit length of 1. */
+		item_len = 1;
+	} else if (suboptoff >= optend) {
 		expert_add_info_format(pinfo, v_ti, &ei_bootp_missing_subopt_length,
 									"Suboption %d: no room left in option for suboption length", subopt);
 		return (optend);
+	} else {
+		subopt_len = tvb_get_guint8(tvb, suboptoff);
+		item_len = subopt_len + 2;
 	}
 
-	subopt_len = tvb_get_guint8(tvb, suboptoff);
 	vti = proto_tree_add_uint_format_value(v_tree, hf_bootp_option43_bsdp_suboption,
-				tvb, optoff, subopt_len+2, subopt, "(%d) %s",
+				tvb, optoff, item_len, subopt, "(%d) %s",
 				subopt, val_to_str_const(subopt, option43_bsdp_suboption_vals, "Unknown"));
+	if (item_len == 1) {
+		return (optoff + 1);
+	}
 
 	o43bsdp_v_tree = proto_item_add_subtree(vti, ett_bootp_option43_suboption);
 	proto_tree_add_item(o43bsdp_v_tree, hf_bootp_suboption_length, tvb, suboptoff, 1, ENC_BIG_ENDIAN);
@@ -4210,19 +4298,19 @@ dissect_vendor_bsdp_suboption(packet_info *pinfo, proto_item *v_ti, proto_tree *
 			break;
 	}
 
-	optoff += (subopt_len + 2);
+	optoff += item_len;
 	return optoff;
 }
 
 static gboolean
-dissect_packetcable_bsdpd_vendor_info_heur( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+dissect_apple_bsdp_vendor_info_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
 	int offset = 0;
 	bootp_option_data_t *option_data = (bootp_option_data_t*)data;
 	proto_tree* vendor_tree;
 
 	if ((option_data->vendor_class_id == NULL) ||
-		(strncmp((const gchar*)option_data->vendor_class_id, PACKETCABLE_BSDP, strlen(PACKETCABLE_BSDP)) != 0))
+		(strncmp((const gchar*)option_data->vendor_class_id, APPLE_BSDP_SERVER, strlen(APPLE_BSDP_SERVER)) != 0))
 		return FALSE;
 
 	/* Apple BSDP */
@@ -5832,14 +5920,14 @@ dissect_packetcable_cm_vendor_id_heur( tvbuff_t *tvb, packet_info *pinfo _U_, pr
 }
 
 static gboolean
-dissect_packetcable_bsdpd_vendor_id_heur( tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_ )
+dissect_apple_bsdp_vendor_id_heur(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
 {
-	int vendor_id_len = (int)strlen(PACKETCABLE_BSDPD);
+	int vendor_id_len = (int)strlen(APPLE_BSDP_CLIENT);
 	if ((int)tvb_reported_length(tvb) < vendor_id_len) {
 		return FALSE;
 	}
 
-	if (tvb_memeql(tvb, 0, (const guint8*)PACKETCABLE_BSDPD, vendor_id_len) == 0 ) {
+	if (tvb_memeql(tvb, 0, (const guint8*)APPLE_BSDP_CLIENT, vendor_id_len) == 0) {
 		proto_tree_add_item(tree, hf_bootp_option_vendor_class_data, tvb, vendor_id_len, tvb_reported_length_remaining(tvb, vendor_id_len), ENC_ASCII|ENC_NA);
 		return TRUE;
 	}
@@ -6541,10 +6629,10 @@ typedef enum
 
 static stat_tap_table_item bootp_stat_fields[] = {{TABLE_ITEM_STRING, TAP_ALIGN_LEFT, "DHCP Message Type", "%-25s"}, {TABLE_ITEM_UINT, TAP_ALIGN_RIGHT, "Packets", "%d"}};
 
-static void bootp_stat_init(stat_tap_table_ui* new_stat, stat_tap_gui_init_cb gui_callback, void* gui_data)
+static void bootp_stat_init(stat_tap_table_ui* new_stat)
 {
 	int num_fields = sizeof(bootp_stat_fields)/sizeof(stat_tap_table_item);
-	stat_tap_table* table = stat_tap_init_table("DHCP Statistics", num_fields, 0, NULL, gui_callback, gui_data);
+	stat_tap_table* table = stat_tap_init_table("DHCP Statistics", num_fields, 0, NULL);
 	int i = 0;
 	stat_tap_table_item_type items[sizeof(bootp_stat_fields)/sizeof(stat_tap_table_item)];
 
@@ -8589,7 +8677,7 @@ proto_register_bootp(void)
 		    "Option 120: SIP Server Address", HFILL }},
 
 		{ &hf_bootp_option_classless_static_route,
-		  { "Subnet/MaskWidth-Router", "bootp.option.classless_static_route.",
+		  { "Subnet/MaskWidth-Router", "bootp.option.classless_static_route",
 		    FT_BYTES, BASE_NONE, NULL, 0x0,
 		    "Option 121: Subnet/MaskWidth-Router", HFILL }},
 
@@ -9167,7 +9255,8 @@ proto_register_bootp(void)
 		{ &ei_bootp_boot_filename_overloaded_by_dhcp, { "bootp.boot_filename_overloaded_by_dhcp", PI_PROTOCOL, PI_NOTE, "Boot file name option overloaded by DHCP", EXPFILL }},
 		{ &ei_bootp_option_isns_ignored_bitfield, { "bootp.option.isns.ignored_bitfield", PI_PROTOCOL, PI_NOTE, "Enabled field is not set - non-zero bitmask ignored", EXPFILL }},
 		{ &ei_bootp_option242_avaya_l2qvlan_invalid, { "bootp.option.vendor.avaya.l2qvlan.invalid", PI_PROTOCOL, PI_ERROR, "Option 242 (L2QVLAN) invalid", EXPFILL }},
-		{ &ei_bootp_option242_avaya_vlantest_invalid, { "bootp.option.vendor.avaya.vlantest.invalid", PI_PROTOCOL, PI_ERROR, "Option 242 (avaya vlantest) invalid", EXPFILL }}
+		{ &ei_bootp_option242_avaya_vlantest_invalid, { "bootp.option.vendor.avaya.vlantest.invalid", PI_PROTOCOL, PI_ERROR, "Option 242 (avaya vlantest) invalid", EXPFILL }},
+		{ &ei_bootp_option93_client_arch_ambiguous, { "bootp.option.client_architecture.ambiguous", PI_PROTOCOL, PI_WARN, "Client Architecture ID may be ambiguous", EXPFILL }},
 	};
 
 	static tap_param bootp_stat_params[] = {
@@ -9295,6 +9384,7 @@ proto_reg_handoff_bootp(void)
 	dissector_add_uint("bootp.option", 83, create_dissector_handle( dissect_bootpopt_isns, -1 ));
 	dissector_add_uint("bootp.option", 85, create_dissector_handle( dissect_bootpopt_novell_servers, -1 ));
 	dissector_add_uint("bootp.option", 90, create_dissector_handle( dissect_bootpopt_dhcp_authentication, -1 ));
+	dissector_add_uint("bootp.option", 93, create_dissector_handle( dissect_bootpopt_client_architecture, -1 ));
 	dissector_add_uint("bootp.option", 94, create_dissector_handle( dissect_bootpopt_client_network_interface_id, -1 ));
 	dissector_add_uint("bootp.option", 97, create_dissector_handle( dissect_bootpopt_client_identifier_uuid, -1 ));
 	dissector_add_uint("bootp.option", 99, create_dissector_handle( dissect_bootpopt_civic_location, -1 ));
@@ -9324,7 +9414,7 @@ proto_reg_handoff_bootp(void)
 	/* Create heuristic dissection for BOOTP vendor class id */
 	heur_dissector_add( "bootp.vendor_id", dissect_packetcable_mta_vendor_id_heur, "PacketCable MTA", "packetcable_mta_bootp", proto_bootp, HEURISTIC_ENABLE );
 	heur_dissector_add( "bootp.vendor_id", dissect_packetcable_cm_vendor_id_heur, "PacketCable CM", "packetcable_cm_bootp", proto_bootp, HEURISTIC_ENABLE );
-	heur_dissector_add( "bootp.vendor_id", dissect_packetcable_bsdpd_vendor_id_heur, "PacketCable BSDPD", "packetcable_bsdpd_bootp", proto_bootp, HEURISTIC_ENABLE );
+	heur_dissector_add( "bootp.vendor_id", dissect_apple_bsdp_vendor_id_heur, "Apple BSDP", "apple_bsdp_bootp", proto_bootp, HEURISTIC_ENABLE );
 
 	/* Create heuristic dissection for BOOTP vendor specific information */
 
@@ -9338,7 +9428,7 @@ proto_reg_handoff_bootp(void)
 	heur_dissector_add( "bootp.vendor_info", dissect_cablelabs_vendor_info_heur, "CableLabs", "cablelabs_bootp", proto_bootp, HEURISTIC_ENABLE );
 	heur_dissector_add( "bootp.vendor_info", dissect_aruba_ap_vendor_info_heur, ARUBA_AP, "aruba_ap_bootp", proto_bootp, HEURISTIC_ENABLE );
 	heur_dissector_add( "bootp.vendor_info", dissect_aruba_instant_ap_vendor_info_heur, ARUBA_INSTANT_AP, "aruba_instant_ap_bootp", proto_bootp, HEURISTIC_ENABLE );
-	heur_dissector_add( "bootp.vendor_info", dissect_packetcable_bsdpd_vendor_info_heur, "PacketCable BSDPD", "packetcable_bsdpd_info_bootp", proto_bootp, HEURISTIC_ENABLE );
+	heur_dissector_add( "bootp.vendor_info", dissect_apple_bsdp_vendor_info_heur, "Apple BSDP", "apple_bsdp_info_bootp", proto_bootp, HEURISTIC_ENABLE );
 
 	/* Create dissection function handles for BOOTP Enterprise dissection */
 	dissector_add_uint("bootp.enterprise", 4491, create_dissector_handle( dissect_vendor_cl_suboption, -1 ));

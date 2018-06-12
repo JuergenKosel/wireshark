@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "bluetooth_hci_summary_dialog.h"
 #include <ui_bluetooth_hci_summary_dialog.h>
@@ -25,12 +26,12 @@
 #include <ui/qt/utils/variant_pointer.h>
 
 #include "ui/simple_dialog.h"
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QClipboard>
 #include <QContextMenuEvent>
 #include <QPushButton>
 #include <QTreeWidget>
-#include <QFileDialog>
 
 static const int column_number_name = 0;
 static const int column_number_ogf = 1;
@@ -862,7 +863,7 @@ void BluetoothHciSummaryDialog::on_actionSave_as_image_triggered()
 {
     QPixmap image;
 
-    QString fileName = QFileDialog::getSaveFileName(this,
+    QString fileName = WiresharkFileDialog::getSaveFileName(this,
             tr("Save Table Image"),
             "bluetooth_hci_summary.png",
             tr("PNG Image (*.png)"));

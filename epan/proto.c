@@ -45,7 +45,10 @@
 
 #include <wsutil/ws_printf.h> /* ws_debug_printf/ws_g_warning */
 #include <wsutil/crash_info.h>
-#include <wsutil/glib-compat.h>
+
+#ifdef HAVE_JSONGLIB
+#include <json-glib/json-glib.h>
+#endif
 
 /* Ptvcursor limits */
 #define SUBTREE_ONCE_ALLOCATION_NUMBER 8
@@ -109,16 +112,19 @@ struct ptvcursor {
 	   not to do so.						\
 	*/								\
 	PTREE_DATA(tree)->count++;					\
+	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);			\
 	if (PTREE_DATA(tree)->count > MAX_TREE_ITEMS) {			\
 		free_block;						\
 		if (getenv("WIRESHARK_ABORT_ON_TOO_MANY_ITEMS") != NULL) \
-			g_error("More than %d items in the tree -- possible infinite loop", MAX_TREE_ITEMS); \
+			g_error("Adding %s would put more than %d items in the tree -- possible infinite loop", \
+			    hfinfo->abbrev, MAX_TREE_ITEMS);		\
 		/* Let the exception handler add items to the tree */	\
 		PTREE_DATA(tree)->count = 0;				\
 		THROW_MESSAGE(DissectorError,				\
-			wmem_strdup_printf(wmem_packet_scope(), "More than %d items in the tree -- possible infinite loop", MAX_TREE_ITEMS)); \
+			wmem_strdup_printf(wmem_packet_scope(),		\
+			    "Adding %s would put more than %d items in the tree -- possible infinite loop", \
+			    hfinfo->abbrev, MAX_TREE_ITEMS));		\
 	}								\
-	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);			\
 	if (!(PTREE_DATA(tree)->visible)) {				\
 		if (PTREE_FINFO(tree)) {				\
 			if ((hfinfo->ref_type != HF_REF_TYPE_DIRECT)	\
@@ -409,18 +415,6 @@ proto_compare_name(gconstpointer p1_arg, gconstpointer p2_arg)
 	return g_ascii_strcasecmp(p1->short_name, p2->short_name);
 }
 
-static inline guchar
-check_charset(const guint8 table[256], const char *str)
-{
-	const char *p = str;
-	guchar c;
-
-	do {
-		c = *(p++);
-	} while (table[c]);
-	return c;
-}
-
 #ifdef HAVE_PLUGINS
 static GSList *dissector_plugins = NULL;
 
@@ -595,12 +589,12 @@ proto_cleanup_base(void)
 	}
 
 	if (deregistered_fields) {
-		g_ptr_array_free(deregistered_fields, FALSE);
+		g_ptr_array_free(deregistered_fields, TRUE);
 		deregistered_fields = NULL;
 	}
 
 	if (deregistered_data) {
-		g_ptr_array_free(deregistered_data, FALSE);
+		g_ptr_array_free(deregistered_data, TRUE);
 		deregistered_data = NULL;
 	}
 
@@ -614,6 +608,7 @@ proto_cleanup_base(void)
 void
 proto_cleanup(void)
 {
+	proto_free_deregistered_fields();
 	proto_cleanup_base();
 
 #ifdef HAVE_PLUGINS
@@ -1660,7 +1655,8 @@ get_stringzpad_value(wmem_allocator_t *scope, tvbuff_t *tvb, gint start,
 /*
  * Epochs for various non-UN*X time stamp formats.
  */
-#define NTP_BASETIME G_GUINT64_CONSTANT(2208988800)	/* NTP */
+#define NTP_TIMEDIFF1900TO1970SEC G_GINT64_CONSTANT(2208988800)	/* NTP Time Diff 1900 to 1970 in sec */
+#define NTP_TIMEDIFF1970TO2036SEC G_GINT64_CONSTANT(2085978496)	/* NTP Time Diff 1970 to 2036 in sec */
 #define TOD_BASETIME G_GUINT64_CONSTANT(2208988800)	/* System/3x0 and z/Architecture TOD clock */
 
 /* this can be called when there is no tree, so tree may be null */
@@ -1723,12 +1719,17 @@ get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
 			/* We need a temporary variable here so the unsigned math
 			 * works correctly (for years > 2036 according to RFC 2030
 			 * chapter 3).
+			 *
+			 * If bit 0 is set, the UTC time is in the range 1968-2036 and
+			 * UTC time is reckoned from 0h 0m 0s UTC on 1 January 1900.
+			 * If bit 0 is not set, the time is in the range 2036-2104 and
+			 * UTC time is reckoned from 6h 28m 16s UTC on 7 February 2036.
 			 */
 			tmpsecs  = tvb_get_ntohl(tvb, start);
-			if (tmpsecs)
-				time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
+			if ((tmpsecs & 0x80000000) != 0)
+				time_stamp->secs = (time_t)((gint64)tmpsecs - NTP_TIMEDIFF1900TO1970SEC);
 			else
-				time_stamp->secs = tmpsecs; /* 0 */
+				time_stamp->secs = (time_t)((gint64)tmpsecs + NTP_TIMEDIFF1970TO2036SEC);
 
 			if (length == 8) {
 				/*
@@ -1751,11 +1752,20 @@ get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
 			 */
 			DISSECTOR_ASSERT(!is_relative);
 
+			/* We need a temporary variable here so the unsigned math
+			 * works correctly (for years > 2036 according to RFC 2030
+			 * chapter 3).
+			 *
+			 * If bit 0 is set, the UTC time is in the range 1968-2036 and
+			 * UTC time is reckoned from 0h 0m 0s UTC on 1 January 1900.
+			 * If bit 0 is not set, the time is in the range 2036-2104 and
+			 * UTC time is reckoned from 6h 28m 16s UTC on 7 February 2036.
+			 */
 			tmpsecs  = tvb_get_letohl(tvb, start);
-			if (tmpsecs)
-				time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
+			if ((tmpsecs & 0x80000000) != 0)
+				time_stamp->secs = (time_t)((gint64)tmpsecs - NTP_TIMEDIFF1900TO1970SEC);
 			else
-				time_stamp->secs = tmpsecs; /* 0 */
+				time_stamp->secs = (time_t)((gint64)tmpsecs + NTP_TIMEDIFF1970TO2036SEC);
 
 			if (length == 8) {
 				/*
@@ -1976,16 +1986,20 @@ get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
 
 			if (length == 4) {
 				/*
-				 * We need a temporary variable here so the
-				 * unsigned math works correctly (for
-				 * years > 2036 according to RFC 2030
-				 * chapter 3).
-				 */
+				* We need a temporary variable here so the unsigned math
+				* works correctly (for years > 2036 according to RFC 2030
+				* chapter 3).
+				*
+				* If bit 0 is set, the UTC time is in the range 1968-2036 and
+				* UTC time is reckoned from 0h 0m 0s UTC on 1 January 1900.
+				* If bit 0 is not set, the time is in the range 2036-2104 and
+				* UTC time is reckoned from 6h 28m 16s UTC on 7 February 2036.
+				*/
 				tmpsecs  = tvb_get_ntohl(tvb, start);
-				if (tmpsecs)
-					time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
+				if ((tmpsecs & 0x80000000) != 0)
+					time_stamp->secs = (time_t)((gint64)tmpsecs - NTP_TIMEDIFF1900TO1970SEC);
 				else
-					time_stamp->secs = tmpsecs; /* 0 */
+					time_stamp->secs = (time_t)((gint64)tmpsecs + NTP_TIMEDIFF1970TO2036SEC);
 				time_stamp->nsecs = 0;
 			} else
 				report_type_length_mismatch(tree, "an NTP seconds-only time stamp", length, TRUE);
@@ -1999,12 +2013,22 @@ get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
 			 */
 			DISSECTOR_ASSERT(!is_relative);
 
+			/*
+			 * We need a temporary variable here so the unsigned math
+			 * works correctly (for years > 2036 according to RFC 2030
+			 * chapter 3).
+			 *
+			 * If bit 0 is set, the UTC time is in the range 1968-2036 and
+			 * UTC time is reckoned from 0h 0m 0s UTC on 1 January 1900.
+			 * If bit 0 is not set, the time is in the range 2036-2104 and
+			 * UTC time is reckoned from 6h 28m 16s UTC on 7 February 2036.
+			 */
 			if (length == 4) {
 				tmpsecs  = tvb_get_letohl(tvb, start);
-				if (tmpsecs)
-					time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
+				if ((tmpsecs & 0x80000000) != 0)
+					time_stamp->secs = (time_t)((gint64)tmpsecs - NTP_TIMEDIFF1900TO1970SEC);
 				else
-					time_stamp->secs = tmpsecs; /* 0 */
+					time_stamp->secs = (time_t)((gint64)tmpsecs + NTP_TIMEDIFF1970TO2036SEC);
 				time_stamp->nsecs = 0;
 			} else
 				report_type_length_mismatch(tree, "an NTP seconds-only time stamp", length, TRUE);
@@ -2020,7 +2044,16 @@ get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
 
 				msecs = get_uint64_value(tree, tvb, start, length, encoding);
 				tmpsecs = (guint32)(msecs / 1000);
-				time_stamp->secs = (time_t)(tmpsecs - (guint32)NTP_BASETIME);
+				/*
+				* If bit 0 is set, the UTC time is in the range 1968-2036 and
+				* UTC time is reckoned from 0h 0m 0s UTC on 1 January 1900.
+				* If bit 0 is not set, the time is in the range 2036-2104 and
+				* UTC time is reckoned from 6h 28m 16s UTC on 7 February 2036.
+				*/
+				if ((tmpsecs & 0x80000000) != 0)
+					time_stamp->secs = (time_t)((gint64)tmpsecs - NTP_TIMEDIFF1900TO1970SEC);
+				else
+					time_stamp->secs = (time_t)((gint64)tmpsecs + NTP_TIMEDIFF1970TO2036SEC);
 				time_stamp->nsecs = (int)(msecs % 1000)*1000000;
 			}
 			else
@@ -3516,6 +3549,7 @@ proto_tree_add_protocol_format(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 			       gint start, gint length, const char *format, ...)
 {
 	proto_item	  *pi;
+	tvbuff_t	  *protocol_tvb;
 	va_list		   ap;
 	header_field_info *hfinfo;
 	gchar* protocol_rep;
@@ -3526,11 +3560,16 @@ proto_tree_add_protocol_format(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 
 	DISSECTOR_ASSERT_FIELD_TYPE(hfinfo, FT_PROTOCOL);
 
+	/*
+	 * This can throw an exception, so do it before we allocate anything.
+	 */
+	protocol_tvb = (start == 0 ? tvb : tvb_new_subset_length(tvb, start, length));
+
 	pi = proto_tree_add_pi(tree, hfinfo, tvb, start, &length);
 
 	va_start(ap, format);
 	protocol_rep = g_strdup_vprintf(format, ap);
-	proto_tree_set_protocol_tvb(PNODE_FINFO(pi), (start == 0 ? tvb : tvb_new_subset_length(tvb, start, length)), protocol_rep);
+	proto_tree_set_protocol_tvb(PNODE_FINFO(pi), protocol_tvb, protocol_rep);
 	g_free(protocol_rep);
 	va_end(ap);
 
@@ -4142,6 +4181,18 @@ proto_tree_add_string(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
 {
 	proto_item	  *pi;
 	header_field_info *hfinfo;
+	gint		  item_length;
+
+	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);
+	get_hfi_length(hfinfo, tvb, start, &length, &item_length, ENC_NA);
+	/*
+	 * Special case - if the length is 0, skip the test, so that
+	 * we can have an empty string right after the end of the
+	 * packet.  (This handles URL-encoded forms where the last field
+	 * has no value so the form ends right after the =.)
+	 */
+	if (item_length != 0)
+		test_length(hfinfo, tvb, start, item_length, ENC_NA);
 
 	CHECK_FOR_NULL_TREE(tree);
 
@@ -4206,6 +4257,10 @@ proto_tree_set_string(field_info *fi, const char* value)
 	if (value) {
 		fvalue_set_string(&fi->value, value);
 	} else {
+		/*
+		 * XXX - why is a null value for a string field
+		 * considered valid?
+		 */
 		fvalue_set_string(&fi->value, "[ Null ]");
 	}
 }
@@ -6224,7 +6279,11 @@ proto_item_set_end(proto_item *pi, tvbuff_t *tvb, gint end)
 int
 proto_item_get_len(const proto_item *pi)
 {
-	field_info *fi = PITEM_FINFO(pi);
+	field_info *fi;
+
+	if (!pi)
+		return -1;
+	fi = PITEM_FINFO(pi);
 	return fi ? fi->length : -1;
 }
 
@@ -6442,15 +6501,34 @@ proto_tree_set_appendix(proto_tree *tree, tvbuff_t *tvb, gint start,
 	fi->appendix_length = length;
 }
 
+static void
+check_valid_filter_name_or_fail(const char *filter_name)
+{
+	gboolean found_invalid = proto_check_field_name(filter_name);
+
+	/* Additionally forbid upper case characters. */
+	if (!found_invalid) {
+		for (guint i = 0; filter_name[i]; i++) {
+			if (g_ascii_isupper(filter_name[i])) {
+				found_invalid = TRUE;
+				break;
+			}
+		}
+	}
+
+	if (found_invalid) {
+		g_error("Protocol filter name \"%s\" has one or more invalid characters."
+			" Allowed are lower characters, digits, '-', '_' and non-repeating '.'."
+			" This might be caused by an inappropriate plugin or a development error.", filter_name);
+	}
+}
+
 int
 proto_register_protocol(const char *name, const char *short_name,
 			const char *filter_name)
 {
 	protocol_t *protocol;
 	header_field_info *hfinfo;
-	guint i;
-	gchar c;
-	gboolean found_invalid;
 
 	/*
 	 * Make sure there's not already a protocol with any of those
@@ -6471,18 +6549,7 @@ proto_register_protocol(const char *name, const char *short_name,
 			" This might be caused by an inappropriate plugin or a development error.", short_name);
 	}
 
-	found_invalid = FALSE;
-	for (i = 0; filter_name[i]; i++) {
-		c = filter_name[i];
-		if (!(g_ascii_islower(c) || g_ascii_isdigit(c) || c == '-' || c == '_' || c == '.')) {
-			found_invalid = TRUE;
-		}
-	}
-	if (found_invalid) {
-		g_error("Protocol filter name \"%s\" has one or more invalid characters."
-			" Allowed are lower characters, digits, '-', '_' and '.'."
-			" This might be caused by an inappropriate plugin or a development error.", filter_name);
-	}
+	check_valid_filter_name_or_fail(filter_name);
 
 	if (g_hash_table_lookup(proto_filter_names, filter_name)) {
 		g_error("Duplicate protocol filter_name \"%s\"!"
@@ -6531,9 +6598,6 @@ proto_register_protocol_in_name_only(const char *name, const char *short_name, c
 {
 	protocol_t *protocol;
 	header_field_info *hfinfo;
-	guint i;
-	gchar c;
-	gboolean found_invalid = FALSE;
 
 	/*
 	 * Helper protocols don't need the strict rules as a "regular" protocol
@@ -6548,17 +6612,7 @@ proto_register_protocol_in_name_only(const char *name, const char *short_name, c
 			" This might be caused by an inappropriate plugin or a development error.", name);
 	}
 
-	for (i = 0; filter_name[i]; i++) {
-		c = filter_name[i];
-		if (!(g_ascii_islower(c) || g_ascii_isdigit(c) || c == '-' || c == '_' || c == '.')) {
-			found_invalid = TRUE;
-		}
-	}
-	if (found_invalid) {
-		g_error("Protocol filter name \"%s\" has one or more invalid characters."
-			" Allowed are lower characters, digits, '-', '_' and '.'."
-			" This might be caused by an inappropriate plugin or a development error.", filter_name);
-	}
+	check_valid_filter_name_or_fail(filter_name);
 
 	/* Add this protocol to the list of helper protocols (just so it can be properly freed) */
 	protocol = g_new(protocol_t, 1);
@@ -7242,7 +7296,7 @@ proto_free_deregistered_fields (void)
 	deregistered_data = g_ptr_array_new();
 }
 
-/* chars allowed in field abbrev */
+/* chars allowed in field abbrev: alphanumerics, '-', "_", and ".". */
 static
 const guint8 fld_abbrev_chars[256] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0x00-0x0F */
@@ -7883,12 +7937,15 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
 
 		/* Check that the filter name (abbreviation) is legal;
 		 * it must contain only alphanumerics, '-', "_", and ".". */
-		c = check_charset(fld_abbrev_chars, hfinfo->abbrev);
+		c = proto_check_field_name(hfinfo->abbrev);
 		if (c) {
-			if (g_ascii_isprint(c))
+			if (c == '.') {
+				fprintf(stderr, "Invalid leading, duplicated or trailing '.' found in filter name '%s'\n", hfinfo->abbrev);
+			} else if (g_ascii_isprint(c)) {
 				fprintf(stderr, "Invalid character '%c' in filter name '%s'\n", c, hfinfo->abbrev);
-			else
+			} else {
 				fprintf(stderr, "Invalid byte \\%03o in filter name '%s'\n", c, hfinfo->abbrev);
+			}
 			DISSECTOR_ASSERT_NOT_REACHED();
 		}
 
@@ -8018,7 +8075,7 @@ label_mark_truncated(char *label_str, gsize name_pos)
 		   there's no need to use g_utf8_find_prev_char(), the search
 		    will always succeed since we copied trunc_str into the
 		    buffer */
-		last_char = g_utf8_prev_char(&label_str[ITEM_LABEL_LENGTH]);
+		last_char = g_utf8_prev_char(&label_str[ITEM_LABEL_LENGTH - 1]);
 		*last_char = '\0';
 
 	} else if (name_pos < ITEM_LABEL_LENGTH)
@@ -9972,6 +10029,236 @@ proto_registrar_dump_fieldcount(void)
 	return (gpa_hfinfo.allocated_len > PROTO_PRE_ALLOC_HF_FIELDS_MEM);
 }
 
+#ifdef HAVE_JSONGLIB
+
+static JsonBuilder*
+elastic_add_base_mapping(JsonBuilder* builder)
+{
+	json_builder_set_member_name(builder, "template");
+	json_builder_add_string_value(builder, "packets-*");
+
+	json_builder_set_member_name(builder, "settings");
+	json_builder_begin_object(builder);
+	json_builder_set_member_name(builder, "index.mapping.total_fields.limit");
+	json_builder_add_int_value(builder, 1000000);
+	json_builder_end_object(builder);
+
+	return builder;
+}
+
+gchar* ws_type_to_elastic(guint type _U_)
+{
+	switch(type) {
+		case FT_UINT16:
+		case FT_INT16:
+		case FT_INT32:
+		case FT_UINT32:
+		case FT_UINT24:
+		case FT_FRAMENUM:
+		case FT_UINT48:
+		case FT_INT48:
+		case FT_INT24:
+			return "integer";
+		case FT_INT8:
+		case FT_UINT8:
+			return "short";
+		case FT_UINT40:
+		case FT_UINT56:
+		case FT_UINT64:
+		case FT_INT64:
+			return "long";
+		case FT_FLOAT:
+		case FT_DOUBLE:
+			return "float";
+		case FT_IPv6:
+		case FT_IPv4:
+			return "ip";
+		case FT_ABSOLUTE_TIME:
+		case FT_RELATIVE_TIME:
+			return "date";
+		case FT_BYTES:
+		case FT_UINT_BYTES:
+			return "byte";
+		case FT_BOOLEAN:
+			return "boolean";
+		case FT_NONE:
+		case FT_STRING:
+		case FT_ETHER:
+		case FT_GUID:
+		case FT_OID:
+		case FT_STRINGZ:
+		case FT_UINT_STRING:
+		case FT_CHAR:
+		case FT_AX25:
+		case FT_REL_OID:
+		case FT_IEEE_11073_SFLOAT:
+		case FT_IEEE_11073_FLOAT:
+		case FT_STRINGZPAD:
+		case FT_PROTOCOL:
+		case FT_EUI64:
+		case FT_IPXNET:
+		case FT_SYSTEM_ID:
+		case FT_FCWWN:
+		case FT_VINES:
+			return "string";
+		default:
+			DISSECTOR_ASSERT_NOT_REACHED();
+	}
+}
+
+static gchar*
+dot_to_underscore(gchar* str)
+{
+	unsigned i;
+	for (i = 0; i < strlen(str); i++) {
+		if (str[i] == '.')
+			str[i] = '_';
+	}
+	return str;
+}
+
+/* Dumps a mapping file for ElasticSearch
+ */
+void
+proto_registrar_dump_elastic(const gchar* filter)
+{
+	header_field_info *hfinfo;
+	header_field_info *parent_hfinfo;
+	JsonGenerator* generator;
+	JsonBuilder* builder;
+	JsonNode* root;
+	gsize length;
+	guint i;
+	gboolean open_object = TRUE;
+	const char* prev_proto = NULL;
+	gchar* data;
+	gchar* str;
+	gchar** protos = NULL;
+	gchar* proto;
+	gboolean found;
+	guint j;
+
+	/* We have filtering protocols. Extract them. */
+	if (filter) {
+		protos = g_strsplit(filter, ",", -1);
+	}
+
+	/*
+	 * To help tracking down the json tree, objects have been appended with a comment:
+	 * n.label -> where n is the indentation level and label the name of the object
+	 */
+
+	builder = json_builder_new();
+	json_builder_begin_object(builder); // 1.root
+	builder = elastic_add_base_mapping(builder);
+
+	json_builder_set_member_name(builder, "mappings");
+	json_builder_begin_object(builder); // 2.mappings
+	json_builder_set_member_name(builder, "pcap_file");
+
+	json_builder_begin_object(builder); // 3.pcap_file
+	json_builder_set_member_name(builder, "dynamic");
+	json_builder_add_boolean_value(builder, FALSE);
+
+	json_builder_set_member_name(builder, "properties");
+	json_builder_begin_object(builder); // 4.properties
+	json_builder_set_member_name(builder, "timestamp");
+	json_builder_begin_object(builder); // 5.timestamp
+	json_builder_set_member_name(builder, "type");
+	json_builder_add_string_value(builder, "date");
+	json_builder_end_object(builder); // 5.timestamp
+
+	json_builder_set_member_name(builder, "layers");
+	json_builder_begin_object(builder); // 5.layers
+	json_builder_set_member_name(builder, "properties");
+	json_builder_begin_object(builder); // 6.properties
+
+	for (i = 0; i < gpa_hfinfo.len; i++) {
+		if (gpa_hfinfo.hfi[i] == NULL)
+			continue; /* This is a deregistered protocol or header field */
+
+		PROTO_REGISTRAR_GET_NTH(i, hfinfo);
+
+		/*
+		 * Skip the pseudo-field for "proto_tree_add_text()" since
+		 * we don't want it in the list of filterable protocols.
+		 */
+		if (hfinfo->id == hf_text_only)
+			continue;
+
+		if (!proto_registrar_is_protocol(i)) {
+			PROTO_REGISTRAR_GET_NTH(hfinfo->parent, parent_hfinfo);
+
+			/*
+			 * Skip the field if filter protocols have been set and this one's
+			 * parent is not listed.
+			 */
+			if (protos) {
+				found = FALSE;
+				j = 0;
+				proto = protos[0];
+				while(proto) {
+					if (!g_strcmp0(proto, parent_hfinfo->abbrev)) {
+						found = TRUE;
+						break;
+					}
+					j++;
+					proto = protos[j];
+				}
+				if (!found)
+					continue;
+			}
+
+			if (prev_proto && g_strcmp0(parent_hfinfo->abbrev, prev_proto)) {
+				json_builder_end_object(builder); // 8.properties
+				json_builder_end_object(builder); // 7.parent_hfinfo->abbrev
+				open_object = TRUE;
+			}
+
+			prev_proto = parent_hfinfo->abbrev;
+
+			if (open_object) {
+				json_builder_set_member_name(builder, parent_hfinfo->abbrev);
+				json_builder_begin_object(builder); // 7.parent_hfinfo->abbrev
+				json_builder_set_member_name(builder, "properties");
+				json_builder_begin_object(builder); // 8.properties
+				open_object = FALSE;
+			}
+			str = g_strdup(hfinfo->abbrev);
+			json_builder_set_member_name(builder, dot_to_underscore(str));
+			g_free(str);
+			json_builder_begin_object(builder); // 9.hfinfo->abbrev
+			json_builder_set_member_name(builder, "type");
+			json_builder_add_string_value(builder, ws_type_to_elastic(hfinfo->type));
+			json_builder_end_object(builder); // 9.hfinfo->abbrev
+		}
+	}
+
+	if (prev_proto) {
+		json_builder_end_object(builder); // 8.properties
+		json_builder_end_object(builder); // 7.parent_hfinfo->abbrev
+	}
+
+	json_builder_end_object(builder); // 6.properties
+	json_builder_end_object(builder); // 5.layers
+	json_builder_end_object(builder); // 4.properties
+	json_builder_end_object(builder); // 3.pcap_file
+	json_builder_end_object(builder); // 2.mappings
+	DISSECTOR_ASSERT(json_builder_end_object(builder)); // 1.root
+
+	generator = json_generator_new();
+	json_generator_set_pretty(generator, TRUE);
+	root = json_builder_get_root(builder);
+	json_generator_set_root(generator, root);
+	json_node_free(root);
+	g_object_unref(builder);
+	data = json_generator_to_data(generator, &length);
+	g_object_unref(generator);
+	ws_debug_printf("%s\n", data);
+	g_free(data);
+	g_strfreev(protos);
+}
+#endif
 
 /* Dumps the contents of the registration database to stdout. An independent
  * program can take this output and format it into nice tables or HTML or
@@ -10394,9 +10681,7 @@ proto_can_match_selected(field_info *finfo, epan_dissect_t *edt)
  * string for the specified field; if it can do so, it returns a pointer
  * to the string, otherwise it returns NULL.
  *
- * The string is allocated with packet lifetime scope.
- * You do not need to [g_]free() this string since it will be automatically
- * freed once the next packet is dissected.
+ * The string is wmem allocated and must be freed with "wmem_free(NULL, ...)".
  */
 char *
 proto_construct_match_selected_string(field_info *finfo, epan_dissect_t *edt)
@@ -11176,13 +11461,13 @@ proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hfindex, tvbu
 		guint64 crumb_mask, crumb_value;
 		guint8	crumb_end_bit_offset;
 
-		DISSECTOR_ASSERT(i < 64);
 		crumb_value = tvb_get_bits64(tvb,
 					     bit_offset + crumb_spec[i].crumb_bit_offset,
 					     crumb_spec[i].crumb_bit_length,
 					     ENC_BIG_ENDIAN);
 		value      += crumb_value;
 		no_of_bits += crumb_spec[i].crumb_bit_length;
+		DISSECTOR_ASSERT_HINT(no_of_bits <= 64, "a value larger than 64 bits cannot be represented");
 
 		/* The bitmask is 64 bit, left-aligned, starting at the first bit of the
 		   octet containing the initial offset.
@@ -11198,8 +11483,13 @@ proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hfindex, tvbu
 			if (crumb_end_bit_offset > mask_greatest_bit_offset) {
 				mask_greatest_bit_offset = crumb_end_bit_offset;
 			}
-			composite_bitmask |= (crumb_mask  << (64 - crumb_end_bit_offset));
-			composite_bitmap  |= (crumb_value << (64 - crumb_end_bit_offset));
+			/* Currently the bitmap of the crumbs are only shown if
+			 * smaller than 32 bits. Do not bother calculating the
+			 * mask if it is larger than that. */
+			if (crumb_end_bit_offset <= 32) {
+				composite_bitmask |= (crumb_mask  << (64 - crumb_end_bit_offset));
+				composite_bitmap  |= (crumb_value << (64 - crumb_end_bit_offset));
+			}
 		}
 		/* Shift left for the next segment */
 		value <<= crumb_spec[++i].crumb_bit_length;
@@ -11245,6 +11535,9 @@ proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hfindex, tvbu
 					    (guint32)(composite_bitmap  >> (64 - mask_greatest_bit_offset)),
 					    (guint32)(composite_bitmask >> (64 - mask_greatest_bit_offset)),
 					    mask_greatest_bit_offset);
+	} else {
+		/* If the bitmask is too large, try to describe its contents. */
+		g_snprintf(bf_str, sizeof(bf_str), "%d bits", no_of_bits);
 	}
 
 	switch (hf_field->type) {
@@ -11749,16 +12042,6 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 
 	DISSECTOR_ASSERT_HINT(hfinfo != NULL, "Not passed hfi!");
 
-	if (flags & PROTO_CHECKSUM_NOT_PRESENT) {
-		ti = proto_tree_add_uint_format_value(tree, hf_checksum, tvb, offset, 0, 0, "[missing]");
-		PROTO_ITEM_SET_GENERATED(ti);
-		if (hf_checksum_status != -1) {
-			ti2 = proto_tree_add_uint(tree, hf_checksum_status, tvb, offset, 0, PROTO_CHECKSUM_E_NOT_PRESENT);
-			PROTO_ITEM_SET_GENERATED(ti2);
-		}
-		return ti;
-	}
-
 	switch (hfinfo->type) {
 	case FT_UINT8:
 		len = 1;
@@ -11776,8 +12059,18 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 		DISSECTOR_ASSERT_NOT_REACHED();
 	}
 
+	if (flags & PROTO_CHECKSUM_NOT_PRESENT) {
+		ti = proto_tree_add_uint_format_value(tree, hf_checksum, tvb, offset, len, 0, "[missing]");
+		PROTO_ITEM_SET_GENERATED(ti);
+		if (hf_checksum_status != -1) {
+			ti2 = proto_tree_add_uint(tree, hf_checksum_status, tvb, offset, len, PROTO_CHECKSUM_E_NOT_PRESENT);
+			PROTO_ITEM_SET_GENERATED(ti2);
+		}
+		return ti;
+	}
+
 	if (flags & PROTO_CHECKSUM_GENERATED) {
-		ti = proto_tree_add_uint(tree, hf_checksum, tvb, offset, 0, computed_checksum);
+		ti = proto_tree_add_uint(tree, hf_checksum, tvb, offset, len, computed_checksum);
 		PROTO_ITEM_SET_GENERATED(ti);
 	} else {
 		ti = proto_tree_add_item_ret_uint(tree, hf_checksum, tvb, offset, len, encoding, &checksum);
@@ -11812,11 +12105,11 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 				if (flags & PROTO_CHECKSUM_ZERO) {
 					proto_item_append_text(ti, " [incorrect]");
 					if (bad_checksum_expert != NULL)
-						expert_add_info_format(pinfo, ti, bad_checksum_expert, "Bad checksum");
+						expert_add_info_format(pinfo, ti, bad_checksum_expert, "%s", expert_get_summary(bad_checksum_expert));
 				} else {
 					proto_item_append_text(ti, " incorrect, should be 0x%0*x", len*2, computed_checksum);
 					if (bad_checksum_expert != NULL)
-						expert_add_info_format(pinfo, ti, bad_checksum_expert, "Bad checksum [should be 0x%0*x]", len*2, computed_checksum);
+						expert_add_info_format(pinfo, ti, bad_checksum_expert, "%s [should be 0x%0*x]", expert_get_summary(bad_checksum_expert), len * 2, computed_checksum);
 				}
 			}
 		} else {
@@ -11834,7 +12127,23 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 guchar
 proto_check_field_name(const gchar *field_name)
 {
-	return check_charset(fld_abbrev_chars, field_name);
+	const char *p = field_name;
+	guchar c = '.', lastc;
+
+	do {
+		lastc = c;
+		c = *(p++);
+		/* Leading '.' or substring ".." are disallowed. */
+		if (c == '.' && lastc == '.') {
+			break;
+		}
+	} while (fld_abbrev_chars[c]);
+
+	/* Trailing '.' is disallowed. */
+	if (lastc == '.') {
+		return '.';
+	}
+	return c;
 }
 
 gboolean

@@ -398,7 +398,6 @@ setup_tree_presentation(gpointer k _U_, gpointer v, gpointer p)
     stats_tree_cfg *cfg = (stats_tree_cfg *)v;
     struct _stats_tree_pres_cbs *d = (struct _stats_tree_pres_cbs *)p;
 
-    cfg->in_use = FALSE;
     cfg->setup_node_pr = d->setup_node_pr;
     cfg->free_tree_pr = d->free_tree_pr;
 
@@ -1307,7 +1306,7 @@ WS_DLL_PUBLIC void stats_tree_format_node_as_str(const stat_node *node,
             stats_tree_format_node_as_str(g_array_index(Children,stat_node*,count), s, format_type,
                     indent, full_path, maxnamelen, sort_column, sort_descending);
         }
-        g_array_free(Children,FALSE);
+        g_array_free(Children, TRUE);
     }
     g_free(full_path);
 

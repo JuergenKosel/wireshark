@@ -293,6 +293,7 @@ e_addr_resolve gbl_resolv_flags = {
 };
 #ifdef HAVE_C_ARES
 static guint name_resolve_concurrency = 500;
+static gboolean resolve_synchronously = FALSE;
 #endif
 
 /*
@@ -318,7 +319,7 @@ gchar *g_penterprises_path = NULL;  /* personal enterprises file */
 /* c-ares */
 #ifdef HAVE_C_ARES
 /*
- * Submitted queries trigger a callback (c_ares_ghba_cb()).
+ * Submitted asynchronous queries trigger a callback (c_ares_ghba_cb()).
  * Queries are added to c_ares_queue_head. During processing, queries are
  * popped off the front of c_ares_queue_head and submitted using
  * ares_gethostbyaddr().
@@ -339,23 +340,170 @@ typedef struct _async_hostent {
     void *addrp;
 } async_hostent_t;
 
-ares_channel ghba_chan; /* ares_gethostbyaddr -- Usually non-interactive, no timeout */
-ares_channel ghbn_chan; /* ares_gethostbyname -- Usually interactive, timeout */
+/*
+ * Submitted synchronous queries trigger a callback (c_ares_ghba_sync_cb()).
+ * The callback processes the response, sets completed to TRUE if
+ * completed is non-NULL, then frees the request.
+ */
+typedef struct _sync_dns_data
+{
+    union {
+        guint32      ip4;
+        ws_in6_addr  ip6;
+    } addr;
+    int              family;
+    gboolean        *completed;
+} sync_dns_data_t;
+
+static ares_channel ghba_chan; /* ares_gethostbyaddr -- Usually non-interactive, no timeout */
+static ares_channel ghbn_chan; /* ares_gethostbyname -- Usually interactive, timeout */
 
 static  gboolean  async_dns_initialized = FALSE;
 static  guint       async_dns_in_flight = 0;
 static  wmem_list_t *async_dns_queue_head = NULL;
 
-/* push a dns request */
 static void
-add_async_dns_ipv4(int type, guint32 addr)
-{
-    async_dns_queue_msg_t *msg;
+c_ares_ghba_sync_cb(void *arg, int status, int timeouts _U_, struct hostent *he) {
+    sync_dns_data_t *sdd = (sync_dns_data_t *)arg;
+    char **p;
 
-    msg = wmem_new(wmem_epan_scope(), async_dns_queue_msg_t);
-    msg->family = type;
-    msg->addr.ip4 = addr;
-    wmem_list_append(async_dns_queue_head, (gpointer) msg);
+    if (status == ARES_SUCCESS) {
+        for (p = he->h_addr_list; *p != NULL; p++) {
+            switch(sdd->family) {
+                case AF_INET:
+                    add_ipv4_name(sdd->addr.ip4, he->h_name);
+                    break;
+                case AF_INET6:
+                    add_ipv6_name(&sdd->addr.ip6, he->h_name);
+                    break;
+                default:
+                    /* Throw an exception? */
+                    break;
+            }
+        }
+
+    }
+
+    /*
+     * Let our caller know that this is complete.
+     */
+    *sdd->completed = TRUE;
+
+    /*
+     * Free the structure for this call.
+     */
+    g_free(sdd);
+}
+
+static void
+wait_for_sync_resolv(gboolean *completed) {
+    int nfds;
+    fd_set rfds, wfds;
+    struct timeval tv;
+
+    while (!*completed) {
+        /*
+         * Not yet resolved; wait for something to show up on the
+         * address-to-name C-ARES channel.
+         *
+         * To quote the source code for ares_timeout() as of C-ARES
+         * 1.12.0, "WARNING: Beware that this is linear in the number
+         * of outstanding requests! You are probably far better off
+         * just calling ares_process() once per second, rather than
+         * calling ares_timeout() to figure out when to next call
+         * ares_process().", although we should have only one request
+         * outstanding.
+         *
+         * And, yes, we have to reset it each time, as select(), in
+         * some OSes modifies the timeout to reflect the time remaining
+         * (e.g., Linux) and select() in other OSes doesn't (most if not
+         * all other UN*Xes, Windows?), so we can't rely on *either*
+         * behavior.
+         */
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+
+        FD_ZERO(&rfds);
+        FD_ZERO(&wfds);
+        nfds = ares_fds(ghba_chan, &rfds, &wfds);
+        if (nfds > 0) {
+            if (select(nfds, &rfds, &wfds, NULL, &tv) == -1) { /* call to select() failed */
+                fprintf(stderr, "Warning: call to select() failed, error is %s\n", g_strerror(errno));
+                return;
+            }
+            ares_process(ghba_chan, &rfds, &wfds);
+        }
+    }
+}
+
+static void
+sync_lookup_ip4(const guint32 addr)
+{
+    gboolean completed = FALSE;
+    sync_dns_data_t *sdd;
+
+    if (!async_dns_initialized) {
+        /*
+         * c-ares not initialized.  Bail out.
+         */
+        return;
+    }
+
+    /*
+     * Start the request.
+     */
+    sdd = g_new(sync_dns_data_t, 1);
+    sdd->family = AF_INET;
+    sdd->addr.ip4 = addr;
+    sdd->completed = &completed;
+    ares_gethostbyaddr(ghba_chan, &addr, sizeof(guint32), AF_INET,
+                       c_ares_ghba_sync_cb, sdd);
+
+    /*
+     * Now wait for it to finish.
+     */
+    wait_for_sync_resolv(&completed);
+}
+
+static void
+sync_lookup_ip6(const ws_in6_addr *addr)
+{
+    gboolean completed = FALSE;
+    sync_dns_data_t *sdd;
+
+    if (!async_dns_initialized) {
+        /*
+         * c-ares not initialized.  Bail out.
+         */
+        return;
+    }
+
+    /*
+     * Start the request.
+     */
+    sdd = g_new(sync_dns_data_t, 1);
+    sdd->family = AF_INET6;
+    memcpy(&sdd->addr.ip6, addr, sizeof(sdd->addr.ip6));
+    sdd->completed = &completed;
+    ares_gethostbyaddr(ghba_chan, &addr, sizeof(ws_in6_addr), AF_INET6,
+                       c_ares_ghba_sync_cb, sdd);
+
+    /*
+     * Now wait for it to finish.
+     */
+    wait_for_sync_resolv(&completed);
+}
+
+void
+set_resolution_synchrony(gboolean synchronous)
+{
+    resolve_synchronously = synchronous;
+}
+#else
+void
+set_resolution_synchrony(gboolean synchronous _U_)
+{
+    /* Nothing to set. */
 }
 #endif /* HAVE_C_ARES */
 
@@ -754,10 +902,10 @@ enterprises_cleanup(void)
     g_assert(g_enterprises_path);
     g_free(g_enterprises_path);
     g_enterprises_path = NULL;
-    if (g_pservices_path) {
-        g_free(g_pservices_path);
-        g_pservices_path = NULL;
-    }
+    g_free(g_penterprises_path);
+    g_penterprises_path = NULL;
+    g_free(g_pservices_path);
+    g_pservices_path = NULL;
 }
 
 /* Fill in an IP4 structure with info from subnets file or just with the
@@ -887,8 +1035,28 @@ host_lookup(const guint addr)
         tp->flags |= TRIED_RESOLVE_ADDRESS;
 
 #ifdef HAVE_C_ARES
-        if (async_dns_initialized && name_resolve_concurrency > 0) {
-            add_async_dns_ipv4(AF_INET, addr);
+        if (async_dns_initialized) {
+            /* c-ares is initialized, so we can use it */
+            if (resolve_synchronously || name_resolve_concurrency == 0) {
+                /*
+                 * Either all names are to be resolved synchronously or
+                 * the concurrencly level is 0; do the resolution
+                 * synchronously.
+                 */
+                sync_lookup_ip4(addr);
+            } else {
+                /*
+                 * Names are to be resolved asynchronously, and we
+                 * allow at least one asynchronous request in flight;
+                 * post an asynchronous request.
+                 */
+                async_dns_queue_msg_t *caqm;
+
+                caqm = wmem_new(wmem_epan_scope(), async_dns_queue_msg_t);
+                caqm->family = AF_INET;
+                caqm->addr.ip4 = addr;
+                wmem_list_append(async_dns_queue_head, (gpointer) caqm);
+            }
         }
 #endif
     }
@@ -914,9 +1082,6 @@ static hashipv6_t *
 host_lookup6(const ws_in6_addr *addr)
 {
     hashipv6_t * volatile tp;
-#ifdef HAVE_C_ARES
-    async_dns_queue_msg_t *caqm;
-#endif
 
     tp = (hashipv6_t *)wmem_map_lookup(ipv6_hash_table, addr);
     if (tp == NULL) {
@@ -945,12 +1110,30 @@ host_lookup6(const ws_in6_addr *addr)
 
     if (gbl_resolv_flags.use_external_net_name_resolver) {
         tp->flags |= TRIED_RESOLVE_ADDRESS;
+
 #ifdef HAVE_C_ARES
-        if (async_dns_initialized && name_resolve_concurrency > 0) {
-            caqm = wmem_new(wmem_epan_scope(), async_dns_queue_msg_t);
-            caqm->family = AF_INET6;
-            memcpy(&caqm->addr.ip6, addr, sizeof(caqm->addr.ip6));
-            wmem_list_append(async_dns_queue_head, (gpointer) caqm);
+        if (async_dns_initialized) {
+            /* c-ares is initialized, so we can use it */
+            if (resolve_synchronously || name_resolve_concurrency == 0) {
+                /*
+                 * Either all names are to be resolved synchronously or
+                 * the concurrencly level is 0; do the resolution
+                 * synchronously.
+                 */
+                sync_lookup_ip6(addr);
+            } else {
+                /*
+                 * Names are to be resolved asynchronously, and we
+                 * allow at least one asynchronous request in flight;
+                 * post an asynchronous request.
+                 */
+                async_dns_queue_msg_t *caqm;
+
+                caqm = wmem_new(wmem_epan_scope(), async_dns_queue_msg_t);
+                caqm->family = AF_INET6;
+                memcpy(&caqm->addr.ip6, addr, sizeof(caqm->addr.ip6));
+                wmem_list_append(async_dns_queue_head, (gpointer) caqm);
+            }
         }
 #endif
     }
@@ -1101,11 +1284,8 @@ parse_ether_line(char *line, ether_t *eth, unsigned int *mask,
         return -1;
 
     if ((cp = strchr(line, '#'))) {
-        cp--;
-        while (g_ascii_isspace(*cp)) {
-            cp--;
-        }
         *cp = '\0';
+        g_strchomp(line);
     }
 
     if ((cp = strtok(line, " \t")) == NULL)
@@ -1119,7 +1299,7 @@ parse_ether_line(char *line, ether_t *eth, unsigned int *mask,
 
     g_strlcpy(eth->name, cp, MAXNAMELEN);
 
-    if ((cp = strtok(NULL, "")) != NULL)
+    if ((cp = strtok(NULL, "\t")) != NULL)
     {
         g_strlcpy(eth->longname, cp, MAXNAMELEN);
     } else {

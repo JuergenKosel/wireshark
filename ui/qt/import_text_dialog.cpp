@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -29,8 +30,8 @@
 #include <ui_import_text_dialog.h>
 #include "wireshark_application.h"
 #include <ui/qt/utils/qt_ui_utils.h>
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
-#include <QFileDialog>
 #include <QDebug>
 #include <QFile>
 
@@ -275,7 +276,7 @@ void ImportTextDialog::on_textFileBrowseButton_clicked()
         break;
     }
 
-    QString file_name = QFileDialog::getOpenFileName(this, wsApp->windowTitleString(tr("Import Text File")), open_dir);
+    QString file_name = WiresharkFileDialog::getOpenFileName(this, wsApp->windowTitleString(tr("Import Text File")), open_dir);
     ti_ui_->textFileLineEdit->setText(file_name);
 }
 

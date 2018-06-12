@@ -363,9 +363,6 @@ main(int argc, char *argv[])
 #ifdef _WIN32
   arg_list_utf_16to8(argc, argv);
   create_app_running_mutex();
-#if !GLIB_CHECK_VERSION(2,31,0)
-  g_thread_init(NULL);
-#endif
 #endif /* _WIN32 */
 
   /*
@@ -381,7 +378,7 @@ main(int argc, char *argv[])
    * Attempt to get the pathname of the directory containing the
    * executable file.
    */
-  init_progfile_dir_error = init_progfile_dir(argv[0], main);
+  init_progfile_dir_error = init_progfile_dir(argv[0]);
   if (init_progfile_dir_error != NULL) {
     fprintf(stderr,
             "tfshark: Can't get pathname of directory containing the tfshark program: %s.\n",

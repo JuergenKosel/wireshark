@@ -28,7 +28,7 @@ then
 	exit 1
 fi
 
-for op in $@
+for op
 do
 	if [ "$op" = "--install-optional" ]
 	then
@@ -38,31 +38,62 @@ do
 	fi
 done
 
-BASIC_LIST="libgtk2.0-dev libpcap-dev bison flex make automake \
-	libtool python perl libgcrypt-dev"
+BASIC_LIST="qttools5-dev \
+	qttools5-dev-tools \
+	libqt5svg5-dev \
+	qtmultimedia5-dev \
+	qt5-default \
+	libpcap-dev \
+	bison \
+	flex \
+	make \
+	python \
+	perl \
+	libgcrypt-dev"
 
-ADDITIONAL_LIST="libnl-3-dev qttools5-dev qttools5-dev-tools libgtk-3-dev \
-		libc-ares-dev libkrb5-dev libqt5svg5-dev libsmi2-dev \
-		portaudio19-dev asciidoctor libsbc-dev \
-		qtmultimedia5-dev liblua5.2-dev libnl-cli-3-dev \
-		libparse-yapp-perl qt5-default cmake libcap-dev \
-		liblz4-dev libsnappy-dev libspandsp-dev libxml2-dev \
-		git"
+ADDITIONAL_LIST="libnl-3-dev \
+	libc-ares-dev \
+	libkrb5-dev \
+	libsmi2-dev \
+	asciidoctor \
+	libsbc-dev \
+	liblua5.2-dev \
+	libnl-cli-3-dev \
+	libparse-yapp-perl \
+	libcap-dev \
+	liblz4-dev \
+	libsnappy-dev \
+	libspandsp-dev \
+	libxml2-dev \
+	git \
+	libjson-glib-dev \
+	ninja-build \
+	doxygen \
+	xsltproc"
 
-# Adds package $2 to list variable $1 if the package is found
+# Adds package $2 to list variable $1 if the package is found.
+# If $3 is given, then this version requirement must be satisfied.
 add_package() {
-	local list="$1" pkgname="$2"
+	local list="$1" pkgname="$2" versionreq="$3" version
 
+	version=$(apt-cache show "$pkgname" 2>/dev/null |
+		awk '/^Version:/{ print $2; exit}')
 	# fail if the package is not known
-	[ -n "$(apt-cache show "$pkgname" 2>/dev/null)" ] || return 1
+	if [ -z "$version" ]; then
+		return 1
+	elif [ -n "$versionreq" ]; then
+		# Require minimum version or fail.
+		dpkg --compare-versions $version $versionreq || return 1
+	fi
 
 	# package is found, append it to list
 	eval "${list}=\"\${${list}} \${pkgname}\""
 }
 
-# only needed for newer distro versions where "libtool" binary is separated.
-# Debian >= jessie, Ubuntu >= 16.04
-add_package BASIC_LIST libtool-bin
+# cmake3 3.5.1: Ubuntu 14.04
+# cmake >= 3.5: Debian >= jessie-backports, Ubuntu >= 16.04
+add_package BASIC_LIST cmake3 ||
+BASIC_LIST="$BASIC_LIST cmake"
 
 # Debian >= wheezy-backports, Ubuntu >= 16.04
 add_package ADDITIONAL_LIST libnghttp2-dev ||
@@ -76,7 +107,7 @@ echo "libssh-gcrypt-dev and libssh-dev are unavailable" >&2
 
 # libgnutls-dev: Debian <= jessie, Ubuntu <= 16.04
 # libgnutls28-dev: Debian >= wheezy-backports, Ubuntu >= 12.04
-add_package ADDITIONAL_LIST libgnutls28-dev ||
+add_package ADDITIONAL_LIST libgnutls28-dev ">= 3.2.14-1" ||
 add_package ADDITIONAL_LIST libgnutls-dev ||
 echo "libgnutls28-dev and libgnutls-dev are unavailable" >&2
 

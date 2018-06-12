@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Setup development environment on macOS (tested with 10.6.8 and Xcode
 # 3.2.6 and with 10.12.4 and Xcode 8.3).
 #
@@ -10,32 +10,47 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-#
-# To install cmake
-#
-CMAKE=1
+shopt -s extglob
 #
 # To install autotools
 #
 AUTOTOOLS=1
+
 #
-# To build all libraries as 32-bit libraries uncomment the following three lines.
+# Get the major version of Darwin, so we can check the major macOS
+# version.
 #
-# export CFLAGS="$CFLAGS -arch i386"
-# export CXXFLAGS="$CXXFLAGS -arch i386"
-# export LDFLAGS="$LDFLAGS -arch i386"
+DARWIN_MAJOR_VERSION=`uname -r | sed 's/\([0-9]*\).*/\1/'`
+
 #
-# and change "macx-clang" to "macx-clang-32" in the line below.
+# To make this work on Leopard (rather than working *on* Snow Leopard
+# when building *for* Leopard) will take more work.
 #
-# Note: when building against the 10.6 SDK, clang fails, because there's
-# a missing libstdc++.dylib in the SDK; this does not bother g++, however.
-#
-#TARGET_PLATFORM=macx-g++
-TARGET_PLATFORM=macx-clang
+if [[ $DARWIN_MAJOR_VERSION -le 9 ]]; then
+    echo "This script does not support any versions of macOS before Snow Leopard" 1>&2
+    exit 1
+fi
 
 #
 # Versions of packages to download and install.
 #
+
+#
+# We use curl, but older versions of curl in older macOS releases can't
+# handle some sites - including the xz site.
+#
+# If the version of curl in the system is older than 7.54.0, download
+# curl and install it.
+#
+current_curl_version=`curl --version | sed -n 's/curl \([0-9.]*\) .*/\1/p'`
+current_curl_major_version="`expr $current_curl_version : '\([0-9][0-9]*\).*'`"
+current_curl_minor_version="`expr $current_curl_version : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+current_curl_dotdot_version="`expr $current_curl_version : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+if [[ $current_curl_major_version -lt 7 ||
+     ($current_curl_major_version -eq 7 &&
+      $current_curl_minor_version -lt 54) ]]; then
+    CURL_VERSION=${CURL_VERSION-7.60.0}
+fi
 
 #
 # Some packages need xz to unpack their current source.
@@ -50,9 +65,28 @@ XZ_VERSION=5.2.3
 LZIP_VERSION=1.19
 
 #
-# In case we want to build with cmake.
+# CMake is required to do the build.
 #
-CMAKE_VERSION=${CMAKE_VERSION-2.8.12.2}
+# Sigh.  CMake versions 3.7 and later fail on Lion due to issues with
+# Lion's libc++, and CMake 3.5 and 3.6 have an annoying "Make sure the
+# combination of SDK and Deployment Target are allowed" check that fails
+# in some cases.
+#
+# So if you're on Lion, we choose version 3.5.2, otherwise we choose
+# version 3.7.2.
+#
+if [[ $DARWIN_MAJOR_VERSION -gt 11 ]]; then
+    CMAKE_VERSION=${CMAKE_VERSION-3.7.2}
+else
+    CMAKE_VERSION=${CMAKE_VERSION-3.5.2}
+fi
+
+#
+# Ninja isn't required, as make is provided with Xcode, but it is
+# claimed to build faster than make.
+# Comment it out if you don't want it.
+#
+NINJA_VERSION=${NINJA_VERSION-1.8.2}
 
 #
 # The following libraries and tools are required even to build only TShark.
@@ -76,15 +110,15 @@ LIBGCRYPT_VERSION=1.7.7
 # set to the new values. Setting the variable to empty will disable building
 # the toolkit and will uninstall # any version previously installed by the
 # script, e.g.
-# "QT_VERSION=5.9.1 ./macos-setup.sh"
-# will build and install with QT 5.9.1.
+# "QT_VERSION=5.10.1 ./macos-setup.sh"
+# will build and install with QT 5.10.1.
 #
 # Note that Qt 5, prior to 5.5.0, mishandles context menus in ways that,
 # for example, cause them not to work reliably in the packet detail or
 # packet data pane; see, for example, Qt bugs QTBUG-31937, QTBUG-41017,
 # and QTBUG-43464, all of which seem to be the same bug.
 #
-QT_VERSION=${QT_VERSION-5.8.0}
+QT_VERSION=${QT_VERSION-5.9.5}
 
 if [ "$QT_VERSION" ]; then
     QT_MAJOR_VERSION="`expr $QT_VERSION : '\([0-9][0-9]*\).*'`"
@@ -134,6 +168,9 @@ LIBSSH_FILENUM=210
 # mmdbresolve
 MAXMINDDB_VERSION=1.3.2
 
+ASCIIDOCTOR_VERSION=${ASCIIDOCTOR_VERSION-1.5.7.1}
+ASCIIDOCTORPDF_VERSION=${ASCIIDOCTORPDF_VERSION-1.5.0.alpha.16}
+
 NGHTTP2_VERSION=1.21.0
 SPANDSP_VERSION=0.0.6
 if [ "$SPANDSP_VERSION" ]; then
@@ -144,8 +181,6 @@ if [ "$SPANDSP_VERSION" ]; then
 fi
 BCG729_VERSION=1.0.2
 
-DARWIN_MAJOR_VERSION=`uname -r | sed 's/\([0-9]*\).*/\1/'`
-
 #
 # GNU autotools; they're provided with releases up to Snow Leopard, but
 # not in later releases, and the Snow Leopard version is too old for
@@ -154,6 +189,42 @@ DARWIN_MAJOR_VERSION=`uname -r | sed 's/\([0-9]*\).*/\1/'`
 AUTOCONF_VERSION=2.69
 AUTOMAKE_VERSION=1.15
 LIBTOOL_VERSION=2.4.6
+
+install_curl() {
+    if [ "$CURL_VERSION" -a ! -f curl-$CURL_VERSION-done ] ; then
+        echo "Downloading, building, and installing curl:"
+        [ -f curl-$CURL_VERSION.tar.bz2 ] || curl -L -O https://curl.haxx.se/download/curl-$CURL_VERSION.tar.bz2 || exit 1
+        $no_build && echo "Skipping installation" && return
+        bzcat curl-$CURL_VERSION.tar.bz2 | tar xf - || exit 1
+        cd curl-$CURL_VERSION
+        ./configure || exit 1
+        make $MAKE_BUILD_OPTS || exit 1
+        $DO_MAKE_INSTALL || exit 1
+        cd ..
+        touch curl-$CURL_VERSION-done
+    fi
+}
+
+uninstall_curl() {
+    if [ ! -z "$installed_curl_version" ] ; then
+        echo "Uninstalling curl:"
+        cd curl-$installed_curl_version
+        $DO_MAKE_UNINSTALL || exit 1
+        make distclean || exit 1
+        cd ..
+        rm curl-$installed_curl_version-done
+
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version.
+            #
+            rm -rf curl-$installed_curl_version
+            rm -rf curl-$installed_curl_version.tar.bz2
+        fi
+
+        installed_curl_version=""
+    fi
+}
 
 install_xz() {
     if [ "$XZ_VERSION" -a ! -f xz-$XZ_VERSION-done ] ; then
@@ -350,8 +421,89 @@ uninstall_libtool() {
     fi
 }
 
+install_ninja() {
+    if [ "$NINJA_VERSION" -a ! -f ninja-$NINJA_VERSION-done ] ; then
+        echo "Downloading and installing Ninja:"
+        #
+        # Download the zipball, unpack it, and move the binary to
+        # /usr/local/bin.
+        #
+        [ -f ninja-mac-v$NINJA_VERSION.zip ] || curl -L -o ninja-mac-v$NINJA_VERSION.zip https://github.com/ninja-build/ninja/releases/download/v$NINJA_VERSION/ninja-mac.zip || exit 1
+        $no_build && echo "Skipping installation" && return
+        unzip ninja-mac-v$NINJA_VERSION.zip
+        sudo mv ninja /usr/local/bin
+        touch ninja-$NINJA_VERSION-done
+    fi
+}
+
+uninstall_ninja() {
+    if [ ! -z "$installed_ninja_version" ]; then
+        echo "Uninstalling Ninja:"
+        sudo rm /usr/local/bin/ninja
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            rm -f ninja-mac-v$installed_ninja_version.zip
+        fi
+
+        installed_ninja_version=""
+    fi
+}
+
+install_asciidoctor() {
+    if [ ! -f asciidoctor-${ASCIIDOCTOR_VERSION}-done ]; then
+        echo "Downloading and installing Asciidoctor:"
+        sudo gem install -V asciidoctor --version "=${ASCIIDOCTOR_VERSION}"
+        touch asciidoctor-${ASCIIDOCTOR_VERSION}-done
+    fi
+}
+
+uninstall_asciidoctor() {
+    if [ ! -z "$installed_asciidoctor_version" ]; then
+        echo "Uninstalling Asciidoctor:"
+        sudo gem uninstall -V asciidoctor --version "=${installed_asciidoctor_version}"
+        rm asciidoctor-$installed_asciidoctor_version-done
+
+        ##if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version,
+            # whatever it might happen to be called.
+            #
+        ##    rm -f asciidoctor-$installed_asciidoctor_version
+        ##fi
+        installed_asciidoctor_version=""
+    fi
+}
+
+install_asciidoctorpdf() {
+    if [ ! -f asciidoctorpdf-${ASCIIDOCTORPDF_VERSION}-done ]; then
+        ## XXX gem does not track dependencies that are installed for asciidoctor-pdf
+        ## record them for uninstallation
+        ## ttfunk, pdf-core, prawn, prawn-table, Ascii85, ruby-rc4, hashery, afm, pdf-reader, prawn-templates, public_suffix, addressable, css_parser, prawn-svg, prawn-icon, safe_yaml, thread_safe, polyglot, treetop, asciidoctor-pdf
+        echo "Downloading and installing Asciidoctor-pdf:"
+        sudo gem install -V asciidoctor-pdf --prerelease --version "=${ASCIIDOCTORPDF_VERSION}"
+        touch asciidoctorpdf-${ASCIIDOCTORPDF_VERSION}-done
+    fi
+}
+
+uninstall_asciidoctorpdf() {
+    if [ ! -z "$installed_asciidoctorpdf_version" ]; then
+        echo "Uninstalling Asciidoctor:"
+        sudo gem uninstall -V asciidoctor-pdf --version "=${installed_asciidoctorpdf_version}"
+        ## XXX uninstall dependencies
+        rm asciidoctorpdf-$installed_asciidoctorpdf_version-done
+
+        ##if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version,
+            # whatever it might happen to be called.
+            #
+        ##    rm -f asciidoctorpdf-$installed_asciidoctorpdf_version
+        ##fi
+        installed_asciidoctorpdf_version=""
+    fi
+}
+
 install_cmake() {
-    if [ -n "$CMAKE" -a ! -f cmake-$CMAKE_VERSION-done ]; then
+    if [ ! -f cmake-$CMAKE_VERSION-done ]; then
         echo "Downloading and installing CMake:"
         CMAKE_MAJOR_VERSION="`expr $CMAKE_VERSION : '\([0-9][0-9]*\).*'`"
         CMAKE_MINOR_VERSION="`expr $CMAKE_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
@@ -479,7 +631,7 @@ install_gettext() {
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
-       touch gettext-$GETTEXT_VERSION-done
+        touch gettext-$GETTEXT_VERSION-done
     fi
 }
 
@@ -630,36 +782,58 @@ install_qt() {
         # What you get for this URL might just be a 302 Found reply, so use
         # -L so we get redirected.
         #
-        QT_VOLUME=qt-opensource-mac-x64-clang-$QT_VERSION
-        [ -f $QT_VOLUME.dmg ] || curl -L -O http://download.qt.io/archive/qt/$QT_MAJOR_MINOR_VERSION/$QT_MAJOR_MINOR_DOTDOT_VERSION/$QT_VOLUME.dmg || exit 1
-        $no_build && echo "Skipping installation" && return
-        sudo hdiutil attach $QT_VOLUME.dmg || exit 1
+        # 5.0 - 5.1:  qt-mac-opensource-{version}-clang-offline.dmg
+        # 5.2.0:      qt-mac-opensource-{version}.dmg
+        # 5.2.1:      qt-opensource-mac-x64-clang-{version}.dmg
+        # 5.3 - 5.8:  qt-opensource-mac-x64-clang-{version}.dmg
+        # 5.9 - 5.10: qt-opensource-mac-x64-{version}.dmg
+        #
+        case $QT_MAJOR_VERSION in
 
-        #
-        # Run the installer executable directly, so that we wait for
-        # it to finish.  Then unmount the volume.
-        #
-        /Volumes/$QT_VOLUME/$QT_VOLUME.app/Contents/MacOS/$QT_VOLUME
-        sudo hdiutil detach /Volumes/$QT_VOLUME
+        1|2|3|4)
+            echo "Qt $QT_VERSION" is too old 1>&2
+            ;;
 
-        #
-        # Versions 5.3.x through 5.5.0, at least, have bogus .pc files.
-        # See bugs QTBUG-35256 and QTBUG-47162.
-        #
-        # Fix the files.
-        #
-        for i in $HOME/Qt$QT_VERSION/$QT_MAJOR_MINOR_VERSION/clang_64/lib/pkgconfig/*.pc
-        do
-            ed - $i <<EOF
-H
-g/Cflags: /s;;Cflags: -F\${libdir} ;
-g/Cflags: /s;-I\${includedir}/Qt\([a-zA-Z0-9_]*\);-I\${libdir}/Qt\1.framework/Versions/5/Headers;
-g/Libs: /s;';;g
-w
-q
-EOF
-        done
-        touch qt-$QT_VERSION-done
+        5*)
+            case $QT_MINOR_VERSION in
+
+            0|1)
+                echo "Qt $QT_VERSION" is too old 1>&2
+                ;;
+
+            2)
+                case $QT_DOTDOT_VERSION in
+
+                0)
+                    QT_VOLUME=qt-mac-opensource-$QT_VERSION
+                    ;;
+
+                1)
+                    QT_VOLUME=qt-opensource-mac-x64-clang-$QT_VERSION
+                    ;;
+                esac
+                ;;
+
+            3|4|5|6|7|8)
+                QT_VOLUME=qt-opensource-mac-x64-clang-$QT_VERSION
+                ;;
+
+            9|10)
+                QT_VOLUME=qt-opensource-mac-x64-$QT_VERSION
+                ;;
+            esac
+            [ -f $QT_VOLUME.dmg ] || curl -L -O http://download.qt.io/archive/qt/$QT_MAJOR_MINOR_VERSION/$QT_MAJOR_MINOR_DOTDOT_VERSION/$QT_VOLUME.dmg || exit 1
+            $no_build && echo "Skipping installation" && return
+            sudo hdiutil attach $QT_VOLUME.dmg || exit 1
+
+            #
+            # Run the installer executable directly, so that we wait for
+            # it to finish.  Then unmount the volume.
+            #
+            /Volumes/$QT_VOLUME/$QT_VOLUME.app/Contents/MacOS/$QT_VOLUME
+            sudo hdiutil detach /Volumes/$QT_VOLUME
+            touch qt-$QT_VERSION-done
+        esac
     fi
 }
 
@@ -673,7 +847,51 @@ uninstall_qt() {
             #
             # Get rid of the previously downloaded version.
             #
-            rm -rf qt-opensource-mac-x64-clang-$installed_qt_version.dmg
+            # 5.0 - 5.1:  qt-mac-opensource-{version}-clang-offline.dmg
+            # 5.2.0:      qt-mac-opensource-{version}.dmg
+            # 5.2.1:      qt-opensource-mac-x64-clang-{version}.dmg
+            # 5.3 - 5.8:  qt-opensource-mac-x64-clang-{version}.dmg
+            # 5.9 - 5.10: qt-opensource-mac-x64-{version}.dmg
+            #
+            installed_qt_major_version="`expr $installed_qt_version : '\([0-9][0-9]*\).*'`"
+            installed_qt_minor_version="`expr $installed_qt_version : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+            installed_qt_dotdot_version="`expr $installed_qt_version : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+            case $installed_qt_major_version in
+
+            1|2|3|4)
+                echo "Qt $installed_qt_version" is too old 1>&2
+                ;;
+
+            5*)
+                case $installed_qt_minor_version in
+
+                0|1)
+                    installed_qt_volume=qt-mac-opensource-$installed_qt_version-clang-offline.dmg
+                    ;;
+
+                2)
+                    case $installed_qt_dotdot_version in
+
+                    0)
+                        installed_qt_volume=qt-mac-opensource-$installed_qt_version.dmg
+                        ;;
+
+                    1)
+                        installed_qt_volume=qt-opensource-mac-x64-clang-$installed_qt_version.dmg
+                        ;;
+                    esac
+                    ;;
+
+                3|4|5|6|7|8)
+                    installed_qt_volume=qt-opensource-mac-x64-clang-$installed_qt_version.dmg
+                    ;;
+
+                9|10)
+                    installed_qt_volume=qt-opensource-mac-x64-$installed_qt_version.dmg
+                    ;;
+                esac
+            esac
+            rm -f $installed_qt_volume
         fi
 
         installed_qt_version=""
@@ -1691,6 +1909,47 @@ install_all() {
         uninstall_gettext -r
     fi
 
+    if [ ! -z "$installed_ninja_version" -a \
+              "$installed_ninja_version" != "$NINJA_VERSION" ] ; then
+        echo "Installed Ninja version is $installed_ninja_version"
+        if [ -z "$NINJA_VERSION" ] ; then
+            echo "Ninja is not requested"
+        else
+            echo "Requested Ninja version is $NINJA_VERSION"
+        fi
+        uninstall_ninja -r
+    fi
+
+    if [ ! -z "$installed_asciidoctorpdf_version" -a \
+              "$installed_asciidoctorpdf_version" != "$ASCIIDOCTORPDF_VERSION" ] ; then
+        echo "Installed Asciidoctor-pdf version is $installed_asciidoctorpdf_version"
+        if [ -z "$ASCIIDOCTORPDF_VERSION" ] ; then
+            echo "Asciidoctor-pdf is not requested"
+        else
+            echo "Requested Asciidoctor-pdf version is $ASCIIDOCTORPDF_VERSION"
+        fi
+        # XXX - really remove this?
+        # Or should we remember it as installed only if this script
+        # installed it?
+        #
+        uninstall_asciidoctorpdf -r
+    fi
+
+    if [ ! -z "$installed_asciidoctor_version" -a \
+              "$installed_asciidoctor_version" != "$ASCIIDOCTOR_VERSION" ] ; then
+        echo "Installed Asciidoctor version is $installed_asciidoctor_version"
+        if [ -z "$ASCIIDOCTOR_VERSION" ] ; then
+            echo "Asciidoctor is not requested"
+        else
+            echo "Requested Asciidoctor version is $ASCIIDOCTOR_VERSION"
+        fi
+        # XXX - really remove this?
+        # Or should we remember it as installed only if this script
+        # installed it?
+        #
+        uninstall_asciidoctor -r
+    fi
+
     if [ ! -z "$installed_cmake_version" -a \
               "$installed_cmake_version" != "$CMAKE_VERSION" ] ; then
         echo "Installed CMake version is $installed_cmake_version"
@@ -1699,11 +1958,6 @@ install_all() {
         else
             echo "Requested CMake version is $CMAKE_VERSION"
         fi
-        #
-        # XXX - really remove this?
-        # Or should we remember it as installed only if this script
-        # installed it?
-        #
         uninstall_cmake -r
     fi
 
@@ -1762,8 +2016,24 @@ install_all() {
         uninstall_xz -r
     fi
 
+    if [ ! -z "$installed_curl_version" -a \
+              "$installed_curl_version" != "$CURL_VERSION" ] ; then
+        echo "Installed curl version is $installed_curl_version"
+        if [ -z "$CURL_VERSION" ] ; then
+            echo "curl is not requested"
+        else
+            echo "Requested curl version is $CURL_VERSION"
+        fi
+        uninstall_curl -r
+    fi
+
     #
-    # Start with xz: It is the sole download format of glib later than 2.31.2
+    # Start with curl: we may need it to download and install xz.
+    #
+    install_curl
+
+    #
+    # Now intall xz: it is the sole download format of glib later than 2.31.2.
     #
     install_xz
 
@@ -1776,6 +2046,12 @@ install_all() {
     install_libtool
 
     install_cmake
+
+    install_ninja
+
+    install_asciidoctor
+
+    install_asciidoctorpdf
 
     #
     # Start with GNU gettext; GLib requires it, and macOS doesn't have it
@@ -1853,9 +2129,9 @@ install_all() {
 }
 
 uninstall_all() {
-    if [ -d macosx-support-libs ]
+    if [ -d "${MACOSX_SUPPORT_LIBS}" ]
     then
-        cd macosx-support-libs
+        cd "${MACOSX_SUPPORT_LIBS}"
 
         #
         # Uninstall items in the reverse order from the order in which they're
@@ -1866,11 +2142,11 @@ uninstall_all() {
         # We also do a "make distclean", so that we don't have leftovers from
         # old configurations.
         #
-	uninstall_bcg729
+        uninstall_bcg729
 
-	uninstall_spandsp
+        uninstall_spandsp
 
-	uninstall_libtiff
+        uninstall_libtiff
 
         uninstall_nghttp2
 
@@ -1910,11 +2186,17 @@ uninstall_all() {
 
         uninstall_gettext
 
+        uninstall_ninja
+
         #
         # XXX - really remove this?
         # Or should we remember it as installed only if this script
         # installed it?
         #
+	uninstall_asciidoctorpdf
+
+	uninstall_asciidoctor
+
         uninstall_cmake
 
         uninstall_libtool
@@ -1926,6 +2208,8 @@ uninstall_all() {
         uninstall_lzip
 
         uninstall_xz
+
+        uninstall_curl
     fi
 }
 
@@ -1956,10 +2240,22 @@ fi
 # code will attempt to get you there, but is not perfect (particulary
 # if someone copies the script).
 
-dir=`dirname $0`
-cd $dir/..
+topdir=`pwd`/`dirname $0`/..
+cd $topdir
 
-#
+# Preference of the support libraries directory:
+#   ${MACOSX_SUPPORT_LIBS}
+#   ../macosx-support-libs
+#   ./macosx-support-libs (default if none exists)
+if [ ! -d "${MACOSX_SUPPORT_LIBS}" ]; then
+  unset MACOSX_SUPPORT_LIBS
+fi
+if [ -d ../macosx-support-libs ]; then
+  MACOSX_SUPPORT_LIBS=${MACOSX_SUPPORT_LIBS-../macosx-support-libs}
+else
+  MACOSX_SUPPORT_LIBS=${MACOSX_SUPPORT_LIBS-./macosx-support-libs}
+fi
+
 #
 # If we have SDKs available, the default target OS is the major version
 # of the one we're running; get that and strip off the third component
@@ -2015,9 +2311,9 @@ done
 #
 # Get the version numbers of installed packages, if any.
 #
-if [ -d macosx-support-libs ]
+if [ -d "${MACOSX_SUPPORT_LIBS}" ]
 then
-    cd macosx-support-libs
+    cd "${MACOSX_SUPPORT_LIBS}"
 
     installed_xz_version=`ls xz-*-done 2>/dev/null | sed 's/xz-\(.*\)-done/\1/'`
     installed_lzip_version=`ls lzip-*-done 2>/dev/null | sed 's/lzip-\(.*\)-done/\1/'`
@@ -2025,6 +2321,9 @@ then
     installed_automake_version=`ls automake-*-done 2>/dev/null | sed 's/automake-\(.*\)-done/\1/'`
     installed_libtool_version=`ls libtool-*-done 2>/dev/null | sed 's/libtool-\(.*\)-done/\1/'`
     installed_cmake_version=`ls cmake-*-done 2>/dev/null | sed 's/cmake-\(.*\)-done/\1/'`
+    installed_ninja_version=`ls ninja-*-done 2>/dev/null | sed 's/ninja-\(.*\)-done/\1/'`
+    installed_asciidoctor_version=`ls asciidoctor-*-done 2>/dev/null | sed 's/asciidoctor-\(.*\)-done/\1/'`
+    installed_asciidoctorpdf_version=`ls asciidoctorpdf-*-done 2>/dev/null | sed 's/asciidoctorpdf-\(.*\)-done/\1/'`
     installed_gettext_version=`ls gettext-*-done 2>/dev/null | sed 's/gettext-\(.*\)-done/\1/'`
     installed_pkg_config_version=`ls pkg-config-*-done 2>/dev/null | sed 's/pkg-config-\(.*\)-done/\1/'`
     installed_glib_version=`ls glib-*-done 2>/dev/null | sed 's/glib-\(.*\)-done/\1/'`
@@ -2047,7 +2346,7 @@ then
     installed_spandsp_version=`ls spandsp-*-done 2>/dev/null | sed 's/spandsp-\(.*\)-done/\1/'`
     installed_libtiff_version=`ls tiff-*-done 2>/dev/null | sed 's/tiff-\(.*\)-done/\1/'`
 
-    cd ..
+    cd $topdir
 fi
 
 if [ "$do_uninstall" = "yes" ]
@@ -2065,15 +2364,6 @@ fi
 #
 CFLAGS="-g -O2"
 CXXFLAGS="-g -O2"
-
-#
-# To make this work on Leopard (rather than working *on* Snow Leopard
-# when building *for* Leopard) will take more work.
-#
-if [[ $DARWIN_MAJOR_VERSION -le 9 ]]; then
-    echo "This script does not support any versions of macOS before Snow Leopard" 1>&2
-    exit 1
-fi
 
 # if no make options are present, set default options
 if [ -z "$MAKE_BUILD_OPTS" ] ; then
@@ -2247,12 +2537,12 @@ export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
 #
 # Do all the downloads and untarring in a subdirectory, so all that
 # stuff can be removed once we've installed the support libraries.
-#
-if [ ! -d macosx-support-libs ]
+
+if [ ! -d "${MACOSX_SUPPORT_LIBS}" ]
 then
-    mkdir macosx-support-libs || exit 1
+    mkdir "${MACOSX_SUPPORT_LIBS}" || exit 1
 fi
-cd macosx-support-libs
+cd "${MACOSX_SUPPORT_LIBS}"
 
 install_all
 
@@ -2275,31 +2565,22 @@ fi
 
 echo "You are now prepared to build Wireshark."
 echo
-if [[ $CMAKE ]]; then
-    echo "To build with CMAKE:"
-    echo
-    echo "export PKG_CONFIG_PATH=$pkg_config_path"
-    echo "export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH"
-    echo "export PATH=$PATH:$qt_base_path/bin"
-    echo
-    echo "mkdir build; cd build"
-    echo "cmake .."
+echo "To build:"
+echo
+echo "export PKG_CONFIG_PATH=$pkg_config_path"
+echo "export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH"
+echo "export PATH=$PATH:$qt_base_path/bin"
+echo
+echo "mkdir build; cd build"
+echo "cmake .."
+if [ ! -z "$NINJA_VERSION" ]; then
+    echo "ninja app_bundle"
+    echo "ninja install/strip"
+else
     echo "make $MAKE_BUILD_OPTS app_bundle"
     echo "make install/strip"
-    echo
 fi
-if [[ $AUTOTOOLS ]]; then
-    echo "To build with AUTOTOOLS:"
-    echo
-    echo "export PKG_CONFIG_PATH=$pkg_config_path"
-    echo
-    echo "./autogen.sh"
-    echo "mkdir build; cd build"
-    echo "../configure"
-    echo "make $MAKE_BUILD_OPTS"
-    echo "make install"
-    echo
-fi
+echo
 echo "Make sure you are allowed capture access to the network devices"
 echo "See: https://wiki.wireshark.org/CaptureSetup/CapturePrivileges"
 echo

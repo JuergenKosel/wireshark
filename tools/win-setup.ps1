@@ -38,17 +38,12 @@ contain the pattern "wireshark-*-libs".
 .PARAMETER Platform
 Target platform. One of "win64" or "win32".
 
-.PARAMETER VSVersion
-Visual Studio version. Must be the numeric version (e.g. "12", "11"),
-not the year.
-
 .PARAMETER Force
 Download each library even if exists on the local system.
 
 .INPUTS
 -Destination Destination directory.
 -Platform Target platform.
--VSVersion Visual Studio version.
 -Force Force fresh downloads.
 
 .OUTPUTS
@@ -71,11 +66,6 @@ Param(
     [String]
     $Platform,
 
-    [Parameter(Mandatory=$false, Position=2)]
-    [ValidateSet("14", "12", "11", "10")]
-    [String]
-    $VSVersion,
-
     [Parameter(Mandatory=$false)]
     [Switch]
     $Force
@@ -87,8 +77,8 @@ Param(
 # trouble instead of trying to catch exceptions everywhere.
 $ErrorActionPreference = "Stop"
 
-$Win64CurrentTag = "2018-03-16"
-$Win32CurrentTag = "2018-03-16"
+$Win64CurrentTag = "2018-05-02"
+$Win32CurrentTag = "2018-05-02"
 
 # Archive file / subdir.
 $Win64Archives = @{
@@ -96,7 +86,8 @@ $Win64Archives = @{
     "bcg729-1.0.4-win64ws.zip" = "";
     "c-ares-1.14.0-win64ws.zip" = "";
     "gnutls-3.4.11-1.35-win64ws.zip" = "";
-    "gtk+-bundle_2.24.23-3.39-2_win64ws.zip" = "gtk2";
+    "glib2-2.52.2-1.31-win64ws.zip" = "";
+    "json-glib-1.0.2-4.31-win64ws.zip" = "";
     "kfw-3-2-2-x64-ws.zip" = "";
     "libgcrypt-1.7.6-win64ws.zip" = "";
     "libsmi-svn-40773-win64ws.zip" = "";
@@ -106,11 +97,10 @@ $Win64Archives = @{
     "lz4-1.7.5-win64ws.zip" = "";
     "MaxMindDB-1.3.2-win64ws.zip" = "";
     "nghttp2-1.14.0-1-win64ws.zip" = "";
-    "portaudio_v19_2.zip" = "";
     "sbc-1.3-1-win64ws.zip" = "";
     "snappy-1.1.3-1-win64ws.zip" = "";
     "spandsp-0.0.6-1-win64ws.zip" = "";
-    "WinSparkle-0.5.6.zip" = "";
+    "WinSparkle-0.5.7.zip" = "";
     "WpdPack_4_1_2.zip" = "";
     "zlib-1.2.11-ws.zip" = "";
 }
@@ -120,7 +110,8 @@ $Win32Archives = @{
     "bcg729-1.0.4-win32ws.zip" = "";
     "c-ares-1.14.0-win32ws.zip" = "";
     "gnutls-3.4.11-1.36-win32ws.zip" = "";
-    "gtk+-bundle_2.24.23-1.1-1_win32ws.zip" = "gtk2";
+    "glib2-2.52.2-1.34-win32ws.zip" = "";
+    "json-glib-1.0.2-4.37-win32ws.zip" = "";
     "kfw-3-2-2-i386-ws-vc6.zip" = "";
     "libgcrypt-1.7.6-win32ws.zip" = "";
     "libsmi-svn-40773-win32ws.zip" = "";
@@ -130,11 +121,10 @@ $Win32Archives = @{
     "lz4-1.7.5-win32ws.zip" = "";
     "MaxMindDB-1.3.2-win32ws.zip" = "";
     "nghttp2-1.14.0-1-win32ws.zip" = "";
-    "portaudio_v19_2.zip" = "";
     "sbc-1.3-1-win32ws.zip" = "";
     "snappy-1.1.3-1-win32ws.zip" = "";
     "spandsp-0.0.6-1-win32ws.zip" = "";
-    "WinSparkle-0.5.6.zip" = "";
+    "WinSparkle-0.5.7.zip" = "";
     "WpdPack_4_1_2.zip" = "";
     "zlib-1.2.11-ws.zip" = "";
 }
@@ -168,8 +158,10 @@ $CleanupItems = @(
     "gnutls-3.1.22-*-win??ws"
     "gnutls-3.2.15-*-win??ws"
     "gnutls-3.4.11-*-win??ws"
+    "glib2-2.*-win??ws"
     "gtk2"
     "gtk3"
+    "json-glib-1.0.2-*-win??ws"
     "kfw-3-2-2-final"
     "kfw-3-2-2-i386-ws-vc6"
     "kfw-3-2-2-x64-ws"

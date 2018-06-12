@@ -38,21 +38,11 @@ if(WIN32)
 	# Needed for GREATER_EQUAL operator
 	cmake_minimum_required(VERSION 3.7)
 else()
-	cmake_minimum_required(VERSION 2.8.12)
+	cmake_minimum_required(VERSION 3.5)
 endif()
 
 #Where to find local cmake scripts
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
-
-# Set old behaviour for MACOSX_RPATH (since 3.0)
-if (POLICY CMP0042)
-	cmake_policy(SET CMP0042 OLD)
-endif()
-
-# Set old behaviour for variable quoting (since 3.1)
-if (POLICY CMP0054)
-	cmake_policy(SET CMP0054 OLD)
-endif()
 
 # If our target platform is enforced by our generator, set
 # WIRESHARK_TARGET_PLATFORM accordingly. Otherwise use
@@ -61,15 +51,15 @@ endif()
 if(WIN32)
 	find_package(PowerShell REQUIRED)
 
-	if(${CMAKE_CL_64} OR "${CMAKE_GENERATOR}" MATCHES "Win64")
+	if(CMAKE_CL_64 OR CMAKE_GENERATOR MATCHES "Win64")
 		set(WIRESHARK_TARGET_PLATFORM win64)
-	elseif("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+	elseif(CMAKE_GENERATOR MATCHES "Visual Studio")
 		set(WIRESHARK_TARGET_PLATFORM win32)
 	else()
 		set(WIRESHARK_TARGET_PLATFORM $ENV{WIRESHARK_TARGET_PLATFORM})
 	endif()
 
-	if ("${WIRESHARK_TARGET_PLATFORM}" MATCHES "win64")
+	if(WIRESHARK_TARGET_PLATFORM MATCHES "win64")
 		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE amd64)
 	else()
 		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE x86)
@@ -106,26 +96,15 @@ if(WIN32)
 	# Download third-party libraries
 	file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/tools/win-setup.ps1 _win_setup)
 	file (TO_NATIVE_PATH ${_PROJECT_LIB_DIR} _ws_lib_dir)
-	if(MSVC14)
-		set(_vsversion_args "14")
-	elseif(MSVC12)
-		set(_vsversion_args "12")
-	elseif(MSVC11)
-		set(_vsversion_args "11")
-	elseif(MSVC10)
-		set(_vsversion_args "10")
-	else()
-		message(FATAL_ERROR "Unsupported compiler ${CMAKE_C_COMPILER}")
-	endif()
 
 	# Is it possible to have a one-time, non-cached option in CMake? If
 	# so, we could add a "-DFORCE_WIN_SETUP" which passes -Force to
 	# win-setup.ps1.
 	execute_process(
-		COMMAND ${POWERSHELL_COMMAND} "\"${_win_setup}\"" -Destination "${_ws_lib_dir}" -Platform ${WIRESHARK_TARGET_PLATFORM} -VSVersion ${_vsversion_args}
+		COMMAND ${POWERSHELL_COMMAND} "\"${_win_setup}\"" -Destination "${_ws_lib_dir}" -Platform ${WIRESHARK_TARGET_PLATFORM}
 		RESULT_VARIABLE _win_setup_failed
 	)
-	if (${_win_setup_failed})
+	if(_win_setup_failed)
 		message(FATAL_ERROR "Windows setup (win-setup.ps1) failed.")
 	endif()
 
@@ -133,6 +112,18 @@ if(WIN32)
 
 	# Head off any attempts to use Cygwin's Python.
 	include(LocatePythonExecutable)
+
+	# Prepopulate some ConfigureChecks values. Compilation checks
+	# on Windows can be slow.
+	set(HAVE_FCNTL_H TRUE)
+	set(HAVE_FLOORL TRUE)
+	set(HAVE_LRINT TRUE)
+
+	# It looks like we call check_type_size somewhere, which checks
+	# for these.
+	set(HAVE_SYS_TYPES_H TRUE)
+	set(HAVE_STDINT_H TRUE)
+	set(HAVE_STDDEF_H TRUE)
 endif(WIN32)
 
 include(UseCustomIncludes)
@@ -177,10 +168,10 @@ include(GNUInstallDirs)
 # https://cmake.org/Wiki/CMake_RPATH_handling
 if(NOT CMAKE_INSTALL_RPATH AND NOT (WIN32 OR APPLE))
 	LIST(FIND CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_FULL_LIBDIR}" IS_SYSTEM_DIR)
-	if("${IS_SYSTEM_DIR}" STREQUAL "-1")
+	if(IS_SYSTEM_DIR STREQUAL "-1")
 		SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
 		SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-	endif("${IS_SYSTEM_DIR}" STREQUAL "-1")
+	endif()
 endif()
 
 # Banner shown at top right of Qt welcome screen.
@@ -210,31 +201,31 @@ include(UseAsn2Wrs)
 # lookup tables for the epan libraries
 # Check if CXX flags have been set to c++11 -> Setup Eclipse Indexer correctly!
 # Also setup the project slightly different
-if (${CMAKE_EXTRA_GENERATOR} MATCHES "Eclipse CDT4" )
+if(CMAKE_EXTRA_GENERATOR MATCHES "Eclipse CDT4")
 	SET(CXX_ENABLED 0)
 	LIST(LENGTH CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS LIST_LEN)
-	if ( ${LIST_LEN} GREATER 0 )
+	if(LIST_LEN GREATER 0)
 		SET(CXX_ENABLED 1)
 	endif()
 	SET(C_ENABLED 0)
 	LIST(LENGTH CMAKE_EXTRA_GENERATOR_C_SYSTEM_DEFINED_MACROS LIST_LEN)
-	if ( ${LIST_LEN} GREATER 0)
+	if(LIST_LEN GREATER 0)
 		SET(C_ENABLED 1)
 	endif()
-	if (${C_ENABLED} EQUAL 1 AND ${CXX_ENABLED} EQUAL 1)
+	if(C_ENABLED EQUAL 1 AND CXX_ENABLED EQUAL 1)
 		# Combined project (C and CXX). This will confuse the indexer. For that reason
 		# we unsert set the __cplusplus variable for the indexer
 		list(FIND CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS "__cplusplus" GEN_MACRO_INDEX)
-		if( ${GEN_MACRO_INDEX} GREATER -1 )
+		if(GEN_MACRO_INDEX GREATER -1)
 			list(REMOVE_AT CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS ${GEN_MACRO_INDEX})
 			list(REMOVE_AT CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS ${GEN_MACRO_INDEX})
 		endif()
 		SET(CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS ${CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS} CACHE INTERNAL "")
-	elseif ( (${CXX_ENABLED} EQUAL 1) AND (${CMAKE_CXX_FLAGS} MATCHES ".*-std=c\\+\\+11.*"))
+	elseif((CXX_ENABLED EQUAL 1) AND (CMAKE_CXX_FLAGS MATCHES ".*-std=c\\+\\+11.*"))
 		#add_definitions (-D__cplusplus=201103L)
 		# CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS
 		list(FIND CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS "199711L" GEN_MACRO_INDEX)
-		if( ${GEN_MACRO_INDEX} GREATER -1 )
+		if(GEN_MACRO_INDEX GREATER -1)
 			list(REMOVE_AT CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS ${GEN_MACRO_INDEX})
 			list(INSERT CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS ${GEN_MACRO_INDEX} "201103L")
 			SET(CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS ${CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS} CACHE INTERNAL "")
@@ -305,7 +296,7 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		/D_ALLOW_KEYWORD_MACROS
 	)
 
-	if(NOT "${WIRESHARK_TARGET_PLATFORM}" STREQUAL "win64")
+	if(NOT WIRESHARK_TARGET_PLATFORM STREQUAL "win64")
 		add_definitions("/D_BIND_TO_CURRENT_CRT_VERSION=1")
 	endif()
 
@@ -319,26 +310,21 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 
 	set(WS_LINK_FLAGS "/LARGEADDRESSAWARE /MANIFEST:NO /INCREMENTAL:NO /RELEASE")
 
-	if(MSVC12)
-		# /Zo                               Enhanced debugging of optimised code for VS2013 Update 3 and beyond,
-		#                                   Assume all VS2013 builds are at least Update 3.
-		#                                   See http://msdn.microsoft.com/en-us/library/dn785163.aspx
-		list(APPEND LOCAL_CFLAGS /Zo)
-	elseif(MSVC14)
-		# To do: Add /external:... See https://blogs.msdn.microsoft.com/vcblog/2017/12/13/broken-warnings-theory/
-		#
-		# /Zo                               Enhanced debugging of optimised code
-		# /utf-8                            Set Source and Executable character sets to UTF-8
-		#                                   VS2015(MSVC14): On by default when /Zi or /Z7 used.
-		# /guard:cf                         Control Flow Guard (compile and link).
-		#                                   See https://msdn.microsoft.com/en-us/library/windows/desktop/mt637065.aspx
-		#                                   Note: This requires CMake 3.9.0 or newer.
-		#                                   https://gitlab.kitware.com/cmake/cmake/commit/f973d49ab9d4c59b93f6dac812a94bb130200836
-		# /Qspectre                         Speculative execution attack mitigation
-		#                                   See https://blogs.msdn.microsoft.com/vcblog/2018/01/15/spectre-mitigations-in-msvc/
-		list(APPEND LOCAL_CFLAGS /Zo /utf-8 /guard:cf /Qspectre)
-		set(WS_LINK_FLAGS "${WS_LINK_FLAGS} /guard:cf")
-	endif()
+	# To do: Add /external:... See https://blogs.msdn.microsoft.com/vcblog/2017/12/13/broken-warnings-theory/
+	#
+	# /Zo                               Enhanced debugging of optimised code
+	# /utf-8                            Set Source and Executable character sets to UTF-8
+	#                                   VS2015(MSVC14): On by default when /Zi or /Z7 used.
+	# /guard:cf                         Control Flow Guard (compile and link).
+	#                                   See https://msdn.microsoft.com/en-us/library/windows/desktop/mt637065.aspx
+	#                                   Note: This requires CMake 3.9.0 or newer.
+	#                                   https://gitlab.kitware.com/cmake/cmake/commit/f973d49ab9d4c59b93f6dac812a94bb130200836
+	# /Qspectre                         Speculative execution attack mitigation
+	#                                   See https://blogs.msdn.microsoft.com/vcblog/2018/01/15/spectre-mitigations-in-msvc/
+	list(APPEND LOCAL_CFLAGS /Zo /utf-8 /guard:cf)
+	set(WS_LINK_FLAGS "${WS_LINK_FLAGS} /guard:cf")
+	# /Qspectre is not available for VS2015 or older VS2017. Test for its availability.
+	set(WIRESHARK_COMMON_FLAGS /Qspectre)
 
 	if(ENABLE_CODE_ANALYSIS)
 		list(APPEND LOCAL_CFLAGS /analyze:WX-)
@@ -362,13 +348,13 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 else() # ! MSVC
 	if(CMAKE_OSX_DEPLOYMENT_TARGET)
 		if(APPLE)
-			if(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.0")
+			if(CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "10.0")
 				message(FATAL_ERROR "We don't support building for Mac OS X 10.0")
-			elseif(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.1")
+			elseif(CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "10.1")
 				message(FATAL_ERROR "We don't support building for Mac OS X 10.1")
-			elseif(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.2")
+			elseif(CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "10.2")
 				message(FATAL_ERROR "We don't support building for Mac OS X 10.2")
-			elseif(${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.4" OR ${CMAKE_OSX_DEPLOYMENT_TARGET} STREQUAL "10.5")
+			elseif(CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "10.4" OR CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "10.5")
 				#
 				# Only 32-bit builds are supported.  10.5
 				# (and 10.4?) had a bug that causes some BPF
@@ -407,6 +393,12 @@ else() # ! MSVC
 	# HP C.  Therefore, even if we use CMAKE_C_STANDARD with
 	# compilers for which CMake supports it, we may still have
 	# to do it ourselves on other compilers.
+	#
+	# In addition, CMake 3.5.2 seems to think that GCC versions
+	# less than 4.4 don't support -std=gnu99, which we need in
+	# order to get support for "for (int i = 0; i < n; i++) ;",
+	# which is another reason not to rely on CMake's CMAKE_C_STANDARD
+	# support.
 	#
 	# See the CMake documentation for the CMAKE_<LANG>_COMPILER_ID
 	# variables for a list of compiler IDs.
@@ -505,7 +497,7 @@ else() # ! MSVC
 		# usage in normal operation.
 		#
 		set(COMMON_WARN_FLAGS ${COMMON_WARN_FLAGS}
-			-Wframe-larger-than=16384
+			-Wframe-larger-than=32768
 		)
 	endif()
 
@@ -518,7 +510,7 @@ else() # ! MSVC
 		# least some Xcode versions that come with Mac OS X
 		# 10.5, complain about variables in function and
 		# function pointer *declarations* shadowing other
-		# variables.  The autoconf script checks for that; we
+		# variables.  The autoconf script checked for that; we
 		# don't.
 		-Wshadow
 		-Wno-pointer-sign
@@ -527,7 +519,7 @@ else() # ! MSVC
 		#
 		# Some versions of GCC, such as 4.3.2 and 4.4.5,
 		# generate logical-op warnings when strchr() is given a
-		# constant string.  The autoconf script checks for that;
+		# constant string.  The autoconf script checked for that;
 		# we don't.
 		#
 		-Wlogical-op
@@ -882,6 +874,7 @@ set(GLIB2_FIND_OPTIONS REQUIRED)
 set(GLIB2_MIN_VERSION 2.32.0)
 set(GTHREAD2_OPTIONS REQUIRED)
 set(GCRYPT_OPTIONS "1.4.2" REQUIRED)
+set(Perl_OPTIONS REQUIRED)
 set(PythonInterp_FIND_VERSION 2)
 set(Python_ADDITIONAL_VERSIONS 3)
 set(YACC_OPTIONS REQUIRED)
@@ -893,6 +886,8 @@ endif()
 
 set(PACKAGELIST ${PACKAGELIST} LIBSSH)
 set(LIBSSH_OPTIONS "0.6")
+
+set(PACKAGELIST ${PACKAGELIST} JSONGLIB)
 
 if(ENABLE_PCAP)
 	set(PACKAGELIST ${PACKAGELIST} PCAP)
@@ -1047,28 +1042,18 @@ string(REPLACE ";" " " _package_list "${PACKAGELIST}")
 message(STATUS "Package List: ${_package_list}")
 # Let's loop the package list
 foreach(PACKAGE ${PACKAGELIST})
-	if(${PACKAGE} STREQUAL "Qt4")
-		set(PACKAGE_VAR "QT")
-	elseif(${PACKAGE} STREQUAL "PythonInterp")
-		set(PACKAGE_VAR "PYTHONINTERP")
-	elseif(${PACKAGE} STREQUAL "Gettext")
-		set(PACKAGE_VAR "GETTEXT")
-	elseif(${PACKAGE} STREQUAL "Perl")
-		set(PACKAGE_VAR "PERL")
-	elseif(${PACKAGE} STREQUAL "LibXml2")
-		set(PACKAGE_VAR "LIBXML2")
+	# Most packages export uppercase variables, but there are exceptions.
+	if(PACKAGE MATCHES "^(Qt5)")
+		set(PACKAGE_VAR "${PACKAGE}")
 	else()
-		set(PACKAGE_VAR ${PACKAGE})
+		string(TOUPPER "${PACKAGE}" PACKAGE_VAR)
 	endif()
 	if(${PACKAGE}_OPTIONS)
 		find_package(${PACKAGE} ${${PACKAGE}_OPTIONS})
 	else()
 		find_package(${PACKAGE})
 	endif()
-	# FindPackageHandleStandardArgs before CMake 3.2 always uses uppercase
-	# for the FOUND variables (e.g. GIT_FOUND is set, but not Git_FOUND).
-	string(TOUPPER "${PACKAGE_VAR}" PACKAGE_VAR_UPPER)
-	if (${PACKAGE_VAR}_FOUND OR ${PACKAGE_VAR_UPPER}_FOUND)
+	if (${PACKAGE_VAR}_FOUND)
 		message(STATUS "${PACKAGE_VAR} FOUND")
 		set(HAVE_LIB${PACKAGE_VAR} 1)
 		if (NOT DEFINED ${PACKAGE_VAR}_INCLUDE_DIRS AND ${PACKAGE_VAR}_INCLUDE_DIR)
@@ -1079,11 +1064,18 @@ foreach(PACKAGE ${PACKAGELIST})
 			message(STATUS "${PACKAGE} includes: ${${PACKAGE_VAR}_INCLUDE_DIRS}")
 		endif()
 		if (${PACKAGE_VAR}_LIBRARIES)
-			list(APPEND WS_ALL_LIBS ${${PACKAGE_VAR}_LIBRARIES})
 			message(STATUS "${PACKAGE} libs: ${${PACKAGE_VAR}_LIBRARIES}")
 		endif()
 		if (${PACKAGE_VAR}_DEFINITIONS)
 			message(STATUS "${PACKAGE} definitions: ${${PACKAGE_VAR}_DEFINITIONS}")
+			string(REPLACE ";" " " _definitions "${${PACKAGE_VAR}_DEFINITIONS}")
+			set(CMAKE_C_FLAGS "${_definitions} ${CMAKE_C_FLAGS}")
+			set(CMAKE_CXX_FLAGS "${_definitions} ${CMAKE_CXX_FLAGS}")
+		endif()
+		if (${PACKAGE_VAR}_LINK_FLAGS)
+			string(REPLACE ";" " " _link_flags "${${PACKAGE_VAR}_LINK_FLAGS}")
+			set(WS_LINK_FLAGS "${_link_flags} ${WS_LINK_FLAGS}")
+			message(STATUS "${PACKAGE} other link flags: ${_link_flags}")
 		endif()
 		if (${PACKAGE_VAR}_EXECUTABLE)
 			message(STATUS "${PACKAGE} executable: ${${PACKAGE_VAR}_EXECUTABLE}")
@@ -1106,13 +1098,10 @@ endforeach()
 include( UseWinLibs )
 
 # dist target that prepares source dir
+# XXX Duplicated in the RPM section below.
 add_custom_target(dist
-    COMMAND "${CMAKE_COMMAND}"
-        -DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
-        -DGIT_EXECUTABLE="${GIT_EXECUTABLE}"
-        -DWS_SOURCE_DIR="${WS_SOURCE_DIR}"
-        -P "${CMAKE_SOURCE_DIR}/cmake/modules/Dist.cmake"
-    COMMAND "${CMAKE_MAKE_PROGRAM}" package_source
+	COMMAND ./tools/git-export-release.sh -d "${CMAKE_BINARY_DIR}"
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
 
@@ -1131,6 +1120,9 @@ if(MAXMINDDB_FOUND)
 endif()
 if(LIBSSH_FOUND)
 	set(HAVE_LIBSSH 1)
+endif()
+if(JSONGLIB_FOUND)
+	set(HAVE_JSONGLIB 1)
 endif()
 if(NGHTTP2_FOUND)
 	set(HAVE_NGHTTP2 1)
@@ -1161,9 +1153,6 @@ else()
 	# non-empty value, be sure to clear it when not found.
 	set(LIBXML2_LIBRARIES "")
 endif()
-if(EXTCAP_ANDROIDDUMP_LIBPCAP)
-	set(ANDROIDDUMP_USE_LIBPCAP 1)
-endif()
 
 if (HAVE_LIBWINSPARKLE)
 	set(HAVE_SOFTWARE_UPDATE 1)
@@ -1182,32 +1171,30 @@ if(SNAPPY_FOUND)
 	set(HAVE_SNAPPY 1)
 endif()
 if (Qt5Widgets_FOUND)
+	if (Qt5Widgets_VERSION VERSION_LESS 5.2)
+		message(FATAL_ERROR "Qt 5.2 or later is required.")
+	endif()
 	if (Qt5Widgets_VERSION VERSION_GREATER 5.6
 	    AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang"))
-		# Qt 5.7 and later require C++ 11. If our minmimu required CMake version
-		# is ever >= 3.1 we can use CXX_STANDARD + CXX_STANDARD_REQUIRED.
-		message(STATUS "Checking for C++ 11 support (Required by Qt 5.7 and later)")
-		check_cxx_compiler_flag(-std=c++11 CXX__std_c__11_VALID)
-		if(NOT CXX__std_c__11_VALID)
-			message(FATAL_ERROR "Qt ${Qt5Widgets_VERSION} requires C++ 11")
-		endif()
-		set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+		# Qt 5.7 and later require C++ 11.
+		set(CMAKE_CXX_STANDARD 11)
+		set(CMAKE_CXX_STANDARD_REQUIRED ON)
 	endif()
 	set (QT_FOUND ON)
 	set (QT_LIBRARIES ${Qt5Widgets_LIBRARIES} ${Qt5PrintSupport_LIBRARIES})
 	if(Qt5Multimedia_FOUND)
 		set (QT_LIBRARIES ${QT_LIBRARIES} ${Qt5Multimedia_LIBRARIES})
-		# That's the name autofoo uses
+		# That's the name autotools used
 		set(QT_MULTIMEDIA_LIB 1)
 	endif()
 	if(Qt5Svg_FOUND)
 		set (QT_LIBRARIES ${QT_LIBRARIES} ${Qt5Svg_LIBRARIES})
-		# That's the name autofoo uses
+		# That's the name autotools used
 		set(QT_SVG_LIB 1)
 	endif()
 	if(Qt5MacExtras_FOUND)
 		set (QT_LIBRARIES ${QT_LIBRARIES} ${Qt5MacExtras_LIBRARIES})
-		# That's the name autofoo uses
+		# That's the name autotools used
 		set(QT_MACEXTRAS_LIB 1)
 	endif()
 	if(Qt5WinExtras_FOUND)
@@ -1217,23 +1204,6 @@ if (Qt5Widgets_FOUND)
 	if(NOT DEFINED MOC_OPTIONS)
 		# Squelch moc verbose "nothing to do" output
 		set(MOC_OPTIONS -nn)
-	endif()
-# If Qt4: QT_LIBRARIES and QT_INCLUDES are not set above. They require extra magic
-elseif(QT4_FOUND)
-	include(${QT_USE_FILE})
-	include_directories(${QT_INCLUDE_DIR})
-	message(STATUS "Qt includes: ${QT_INCLUDE_DIR}")
-	message(STATUS "Qt libs: ${QT_LIBRARIES}")
-	if(QT_QTMULTIMEDIA_FOUND)
-		include_directories(${QT_QTMULTIMEDIA_INCLUDE_DIR})
-		message(STATUS "QtMultimedia includes: ${QT_INCLUDE_DIR}")
-		set (QT_LIBRARIES ${QT_LIBRARIES} ${QT_QTMULTIMEDIA_LIBRARY})
-		message(STATUS "QtMultimedia libs: ${QT_QTMULTIMEDIA_LIBRARY}")
-		# That's the name autofoo uses
-		set(QT_MULTIMEDIA_LIB 1)
-	endif()
-	if(WIN32 OR APPLE)
-		message(FATAL_ERROR "Windows and macOS builds should use Qt5.")
 	endif()
 endif()
 
@@ -1276,12 +1246,26 @@ set_target_properties(checkAPI
 		EXCLUDE_FROM_DEFAULT_BUILD True
 )
 
+include( UseCheckAPI )
+
+# Target platform locations
+# UN*X in general, including macOS if not building an app bundle:
+# $DESTDIR/lib/wireshark/extcap
+# Windows: $DESTDIR/extcap
+# macOS app bundle: Wireshark.app/Contents/Resources/share/wireshark/extcap
+if (WIN32)
+	set(EXTCAP_DIR "extcap" CACHE INTERNAL "The extcap dir")
+else ()
+	set(EXTCAP_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/${CPACK_PACKAGE_NAME}/extcap" CACHE INTERNAL "The extcap dir")
+endif()
+
 add_subdirectory( capchild )
 add_subdirectory( caputils )
 add_subdirectory( codecs )
 add_subdirectory( doc )
 add_subdirectory( docbook EXCLUDE_FROM_ALL )
 add_subdirectory( epan )
+add_subdirectory( extcap )
 add_subdirectory( randpkt_core )
 add_subdirectory( tools/lemon )
 add_subdirectory( ui )
@@ -1314,25 +1298,6 @@ endif()
 
 if(BUILD_wireshark AND QT_FOUND)
 	add_subdirectory( ui/qt )
-endif()
-
-# Target platform locations
-# UN*X in general, including macOS if not building an app bundle:
-# $DESTDIR/lib/wireshark/extcap
-# Windows: $DESTDIR/extcap
-# macOS app bundle: Wireshark.app/Contents/Resources/share/wireshark/extcap
-if (WIN32)
-	set(EXTCAP_DIR "extcap")
-else ()
-	set(EXTCAP_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/${CPACK_PACKAGE_NAME}/extcap")
-endif()
-
-if(LIBSSH_FOUND)
-	SET(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${LIBSSH_LIBRARIES})
-	CHECK_FUNCTION_EXISTS(ssh_userauth_agent LIBSSH_USERAUTH_AGENT_FOUND)
-	if(LIBSSH_USERAUTH_AGENT_FOUND)
-		set(HAVE_SSH_USERAUTH_AGENT 1)
-	endif()
 endif()
 
 # Directory where plugins and Lua dissectors can be found.
@@ -1405,24 +1370,11 @@ endif()
 include(gmxTestLargeFiles)
 gmx_test_large_files(GMX_LARGEFILES)
 
-add_definitions( -DTOP_SRCDIR=\"${CMAKE_SOURCE_DIR}\" )
-
-if (${GIT_EXECUTABLE})
-	set(GIT_BIN_PARAM "--git-bin ${GIT_EXECUTABLE}")
-endif()
 set( VERSION ${PROJECT_VERSION} )
-if(NOT CMAKE_VERSION VERSION_LESS "3.2.1")
-	# Prevents unnecessary rebuilds by ensuring that dependents are not
-	# built before make-version.pl finishes (which may touch version.h).
-	set(version_byproducts BYPRODUCTS version.h)
-else()
-	set(version_byproducts "")
-endif()
 add_custom_target(version
-	${version_byproducts}
+	BYPRODUCTS version.h
 	COMMAND ${PERL_EXECUTABLE}
 		${CMAKE_SOURCE_DIR}/make-version.pl
-		--set-vcs ${GIT_BIN_PARAM}
 		${CMAKE_SOURCE_DIR}
 )
 set_target_properties(version PROPERTIES FOLDER "Auxiliary")
@@ -1435,14 +1387,17 @@ set( exec_prefix "\${prefix}" )
 set( libdir "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}" )
 set( includedir  "\${prefix}/include" )
 set( plugindir "\${libdir}/wireshark/${PLUGIN_VERSION_DIR}" )
+set( VERSION_RELEASE "${PROJECT_RELEASE_VERSION}" )
+
+# Doxygen variables
+file(GLOB TOP_LEVEL_SOURCE_LIST *.c *.cpp *.h)
+string (REPLACE ";" " " DOXYGEN_TOP_LEVEL_SOURCES "${TOP_LEVEL_SOURCE_LIST}")
+set(DOXYGEN_INPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(ICON_PATH "${CMAKE_SOURCE_DIR}/image/")
 set( IN_FILES
-	capchild/doxygen.cfg.in
-	caputils/doxygen.cfg.in
 	doxygen.cfg.in
-	doxygen_global.cfg
-	epan/doxygen.cfg.in
 	image/libwireshark.rc.in
 	image/text2pcap.rc.in
 	image/capinfos.rc.in
@@ -1464,11 +1419,7 @@ set( IN_FILES
 	packaging/macosx/osx-app.sh.in
 	packaging/macosx/osx-dmg.sh.in
 	packaging/macosx/Wireshark_package.pmdoc/index.xml.in
-	randpkt_core/doxygen.cfg.in
-	ui/doxygen.cfg.in
-	ui/qt/doxygen.cfg.in
 	wireshark.pc.in
-	writecap/doxygen.cfg.in
 )
 foreach( _in_file ${IN_FILES} )
 	get_filename_component( _path ${_in_file} PATH )
@@ -1541,7 +1492,6 @@ if(WIN32)
 	set(PLATFORM_UI_SRC
 		ui/win32/console_win32.c
 		ui/win32/file_dlg_win32.c
-		ui/win32/print_win32.c
 	)
 	set(PLATFORM_UI_RC_FILES
 		image/file_dlg_win32.rc
@@ -1697,11 +1647,9 @@ if(WIN32)
 	# the top-level CMakeLists.txt iterates over the package list?
 
 	# Required DLLs.
-	# The cairo, freetype, gio, gnutls, png, and other OBS-generated DLLs
-	# depend on zlib1.dll. We compile zlib locally but the Debug
-	# configuration (the default) creates zlibd1.dll.
-	# Note: Passing multiple files to copy_if_different requires
-	# CMake 3.5 or later.
+	# The gio, gnutls, png, and other OBS-generated DLLs depend on
+	# zlib1.dll. We compile zlib locally but the Debug configuration
+	# (the default) creates zlibd1.dll.
 	add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
 			${GLIB2_DLLS} $<$<CONFIG:Debug>:zlib1.dll>
@@ -1723,6 +1671,9 @@ if(WIN32)
 	if (LIBSSH_FOUND)
 		list (APPEND OPTIONAL_DLLS "${LIBSSH_DLL_DIR}/${LIBSSH_DLL}")
 	endif(LIBSSH_FOUND)
+	if (JSONGLIB_FOUND)
+		list (APPEND OPTIONAL_DLLS "${JSONGLIB_DLL_DIR}/${JSONGLIB_DLL}")
+	endif(JSONGLIB_FOUND)
 	foreach( _dll ${GCRYPT_DLLS} )
 		list (APPEND OPTIONAL_DLLS "${GCRYPT_DLL_DIR}/${_dll}")
 	endforeach(_dll)
@@ -1812,7 +1763,6 @@ if(WIN32)
 		)
 	endif(OPTIONAL_DLLS)
 
-	# This might not be needed since make-dissectors has the same dependency.
 	add_dependencies(epan copy_cli_dlls)
 
 	# We have a lot of choices for creating zip archives:
@@ -1828,9 +1778,7 @@ if(WIN32)
 		PATH "$ENV{PROGRAMFILES}/7-Zip" "$ENV{PROGRAMW6432}/7-Zip"
 		DOC "Path to the 7z utility."
 	)
-	# XXX "if(ZIP_EXECUTABLE)" doesn't work here. It looks like the
-	# absence of "-NOTFOUND" doesn't equal "true".
-	if (NOT "${ZIP_EXECUTABLE}" STREQUAL "ZIP_EXECUTABLE-NOTFOUND")
+	if(ZIP_EXECUTABLE)
 		add_custom_target(pdb_zip_package)
 		set_target_properties(pdb_zip_package PROPERTIES FOLDER "Packaging")
 		set(_pdb_zip "${CMAKE_BINARY_DIR}/Wireshark-pdb-${WIRESHARK_TARGET_PLATFORM}-${VERSION}.zip")
@@ -1896,13 +1844,6 @@ foreach(_install_file ${INSTALL_FILES})
 	)
 	list(APPEND copy_data_files_depends "${_output_file}")
 endforeach()
-
-# Ensure "run/extcap" exists
-add_custom_command(OUTPUT "${DATAFILE_DIR}/extcap"
-	COMMAND ${CMAKE_COMMAND} -E make_directory
-		"${DATAFILE_DIR}/extcap"
-)
-list(APPEND copy_data_files_depends "${DATAFILE_DIR}/extcap")
 
 # faq.txt is handled separately below.
 set(_help_source_files
@@ -1977,8 +1918,6 @@ list(APPEND DATA_FILES_SRC
 
 # Copy all paths from the source tree to the data directory. Directories are
 # automatically created if missing as the filename is given.
-# TODO Switch to cmake -E copy_if_different when our minimum CMake version
-# is >= 3.5 everywhere.
 file(GLOB _data_files RELATIVE "${CMAKE_SOURCE_DIR}" ${DATA_FILES_SRC})
 foreach(_data_file ${_data_files})
 	add_custom_command(OUTPUT "${DATAFILE_DIR}/${_data_file}"
@@ -1991,20 +1930,6 @@ foreach(_data_file ${_data_files})
 	list(APPEND copy_data_files_depends "${DATAFILE_DIR}/${_data_file}")
 endforeach()
 
-if(CMAKE_VERSION VERSION_LESS 3.5)
-	# To bad -u / --update is a GNU extension.
-	set (MULTI_COPY_COMMAND cp)
-else()
-	set (MULTI_COPY_COMMAND ${CMAKE_COMMAND} -E copy_if_different)
-endif()
-
-add_custom_command(
-	OUTPUT "${DATAFILE_DIR}/dtds" "${DATAFILE_DIR}/diameter" "${DATAFILE_DIR}/radius"
-	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/dtds"
-	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/diameter"
-	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/radius"
-)
-
 file(GLOB _dtds_src_files RELATIVE "${CMAKE_SOURCE_DIR}" "dtds/*.dtd")
 
 set (_dtds_data_files)
@@ -2014,11 +1939,12 @@ endforeach()
 
 add_custom_command(
 	OUTPUT ${_dtds_data_files}
-	COMMAND ${MULTI_COPY_COMMAND}
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/dtds"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		${_dtds_src_files}
 		"${DATAFILE_DIR}/dtds"
 	VERBATIM
-	DEPENDS "${DATAFILE_DIR}/dtds"
+	DEPENDS ${_dtds_src_files}
 	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
@@ -2034,11 +1960,12 @@ endforeach()
 
 add_custom_command(
 	OUTPUT ${_diameter_data_files}
-	COMMAND ${MULTI_COPY_COMMAND}
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/diameter"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		${_diameter_src_files}
 		"${DATAFILE_DIR}/diameter"
 	VERBATIM
-	DEPENDS "${DATAFILE_DIR}/diameter"
+	DEPENDS ${_diameter_src_files}
 	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
@@ -2056,11 +1983,12 @@ endforeach()
 
 add_custom_command(
 	OUTPUT ${_radius_data_files}
-	COMMAND ${MULTI_COPY_COMMAND}
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/radius"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		${_radius_src_files}
 		"${DATAFILE_DIR}/radius"
 	VERBATIM
-	DEPENDS "${DATAFILE_DIR}/radius"
+	DEPENDS ${_radius_src_files}
 	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
@@ -2189,7 +2117,7 @@ if(BUILD_wireshark AND QT_FOUND)
 		${WIN_VERSION_LIBRARY}
 	)
 
-	add_executable(wireshark WIN32 MACOSX_BUNDLE wireshark-qt.cpp ${wireshark_FILES} ${EXTRA_BUNDLE_FILES})
+	add_executable(wireshark WIN32 MACOSX_BUNDLE ${wireshark_FILES} ${EXTRA_BUNDLE_FILES})
 	add_dependencies(wireshark version)
 	set(PROGLIST ${PROGLIST} wireshark)
 	if(CMAKE_VERSION VERSION_LESS "2.8.12"
@@ -2251,7 +2179,7 @@ if(BUILD_wireshark AND QT_FOUND)
 			HINTS "${_qmake_location}"
 			DOC "Path to the windeployqt utility."
 		)
-		if (NOT "${QT_WINDEPLOYQT_EXECUTABLE}" STREQUAL "QT_WINDEPLOYQT_EXECUTABLE-NOTFOUND")
+		if(QT_WINDEPLOYQT_EXECUTABLE)
 			set(QT_BIN_PATH "${_qt_bin_path}" CACHE INTERNAL
 				"Path to qmake, windeployqt, and other Qt utilities."
 			)
@@ -2297,40 +2225,6 @@ macro(set_extra_executable_properties _executable _folder)
 	endif()
 endmacro()
 
-macro(set_extcap_executable_properties _executable)
-	set_target_properties(${_executable} PROPERTIES FOLDER "Executables/Extcaps")
-
-	set(PROGLIST ${PROGLIST} ${_executable})
-
-	if(WIN32)
-		set_target_properties(${_executable} PROPERTIES
-			LINK_FLAGS "${WS_LINK_FLAGS}"
-			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
-			RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/run/Debug/extcap
-			RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/run/Release/extcap
-			RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/run/MinSizeRel/extcap
-			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/run/RelWithDebInfo/extcap
-		)
-	else()
-		set_target_properties(${_executable} PROPERTIES
-			LINK_FLAGS "${WS_LINK_FLAGS}"
-			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
-		)
-		if(ENABLE_APPLICATION_BUNDLE)
-			set_target_properties(${_executable} PROPERTIES
-				RUNTIME_OUTPUT_DIRECTORY run/Wireshark.app/Contents/MacOS/extcap
-			)
-			# Add a wrapper script which runs each executable from the
-			# correct location. This adds convenience but makes debugging
-			# more difficult.
-			file(REMOVE ${CMAKE_BINARY_DIR}/run/${_executable})
-			file(WRITE ${CMAKE_BINARY_DIR}/run/${_executable} "#!/bin/sh\n")
-			file(APPEND ${CMAKE_BINARY_DIR}/run/${_executable} "exec ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/MacOS/extcap/${_executable} \"\$\@\"\n")
-			execute_process(COMMAND chmod a+x ${CMAKE_BINARY_DIR}/run/${_executable})
-		endif()
-	endif()
-endmacro()
-
 register_tap_files(tshark-tap-register.c
 	${TSHARK_TAP_SRC}
 )
@@ -2352,6 +2246,7 @@ if(BUILD_tshark)
 		${SHARK_COMMON_SRC}
 		${CMAKE_BINARY_DIR}/image/tshark.rc
 	)
+
 	add_executable(tshark ${tshark_FILES})
 	add_dependencies(tshark version)
 	set_extra_executable_properties(tshark "Executables")
@@ -2667,7 +2562,7 @@ if (WIN32)
 	# Must come after executable targets are defined.
 	find_package( NSIS )
 
-	if (NOT "${MAKENSIS_EXECUTABLE}" STREQUAL "MAKENSIS_EXECUTABLE-NOTFOUND")
+	if(MAKENSIS_EXECUTABLE)
 		add_subdirectory( packaging/nsis EXCLUDE_FROM_ALL )
 		ADD_NSIS_UNINSTALLER_TARGET()
 		ADD_NSIS_PACKAGE_TARGET()
@@ -2675,143 +2570,16 @@ if (WIN32)
 
 	find_package( WiX )
 
-	if (NOT "${WIX_CANDLE_EXECUTABLE}" STREQUAL "WIX_CANDLE_EXECUTABLE-NOTFOUND")
+	if(WIX_CANDLE_EXECUTABLE)
 		add_subdirectory( packaging/wix EXCLUDE_FROM_ALL )
 		ADD_WIX_PACKAGE_TARGET()
 	endif()
 
 	find_package( PortableApps )
-	if (
-		NOT "${PORTABLEAPPS_LAUNCHER_GENERATOR_EXECUTABLE}" STREQUAL "PORTABLEAPPS_LAUNCHER_GENERATOR_EXECUTABLE-NOTFOUND"
-		AND
-		NOT "${PORTABLEAPPS_INSTALLER_EXECUTABLE}" STREQUAL "PORTABLEAPPS_INSTALLER_EXECUTABLE-NOTFOUND"
-	)
+	if(PORTABLEAPPS_LAUNCHER_GENERATOR_EXECUTABLE AND PORTABLEAPPS_INSTALLER_EXECUTABLE)
 		add_subdirectory( packaging/portableapps EXCLUDE_FROM_ALL )
 		ADD_PORTABLEAPPS_PACKAGE_TARGET()
 	endif()
-endif()
-
-add_custom_target(extcaps)
-
-if(BUILD_androiddump)
-	if(EXTCAP_ANDROIDDUMP_LIBPCAP)
-		if(HAVE_LIBPCAP)
-			set(androiddump_LIBS
-				ui
-				${GLIB2_LIBRARIES}
-				${PCAP_LIBRARIES}
-			)
-		else()
-			message(FATAL_ERROR "You are trying to build androiddump with libpcap but do not have it")
-		endif()
-	else()
-		set(androiddump_LIBS
-			ui
-			wiretap
-			${GLIB2_LIBRARIES}
-			${ZLIB_LIBRARIES}
-			${CMAKE_DL_LIBS}
-		)
-	endif()
-	set(androiddump_FILES
-		extcap/androiddump.c
-		extcap/extcap-base.c
-	)
-
-	add_executable(androiddump WIN32 ${androiddump_FILES})
-	# XXX Shouldn't we add wsutil to androiddump_LIBS instead?
-	set_extcap_executable_properties(androiddump)
-	target_link_libraries(androiddump ${androiddump_LIBS})
-	install(TARGETS androiddump RUNTIME DESTINATION ${EXTCAP_DIR})
-	add_dependencies(extcaps androiddump)
-endif()
-
-if(BUILD_sshdump AND LIBSSH_FOUND)
-	set(sshdump_LIBS
-		wsutil
-		${GLIB2_LIBRARIES}
-		${CMAKE_DL_LIBS}
-		${LIBSSH_LIBRARIES}
-	)
-	set(sshdump_FILES
-		extcap/sshdump.c
-		extcap/extcap-base.c
-		extcap/ssh-base.c
-	)
-
-	add_executable(sshdump WIN32 ${sshdump_FILES})
-	set_extcap_executable_properties(sshdump)
-	target_link_libraries(sshdump ${sshdump_LIBS})
-	target_include_directories(sshdump PUBLIC ${LIBSSH_INCLUDE_DIR})
-	install(TARGETS sshdump RUNTIME DESTINATION ${EXTCAP_DIR})
-	add_dependencies(extcaps sshdump)
-elseif (BUILD_sshdump)
-	#message( WARNING "Cannot find libssh, cannot build sshdump" )
-endif()
-
-if(BUILD_ciscodump AND LIBSSH_FOUND)
-	set(ciscodump_LIBS
-		writecap
-		wsutil
-		${GLIB2_LIBRARIES}
-		${CMAKE_DL_LIBS}
-		${LIBSSH_LIBRARIES}
-	)
-	set(ciscodump_FILES
-		extcap/ciscodump.c
-		extcap/extcap-base.c
-		extcap/ssh-base.c
-	)
-
-	add_executable(ciscodump WIN32 ${ciscodump_FILES})
-	set_extcap_executable_properties(ciscodump)
-	target_link_libraries(ciscodump ${ciscodump_LIBS})
-	target_include_directories(ciscodump PUBLIC ${LIBSSH_INCLUDE_DIR})
-	install(TARGETS ciscodump RUNTIME DESTINATION ${EXTCAP_DIR})
-	add_dependencies(extcaps ciscodump)
-elseif (BUILD_ciscodump)
-	#message( WARNING "Cannot find libssh, cannot build ciscodump" )
-endif()
-
-if(BUILD_udpdump)
-	set(udpdump_LIBS
-		${GLIB2_LIBRARIES}
-		${CMAKE_DL_LIBS}
-		wsutil
-		writecap
-	)
-	set(udpdump_FILES
-		extcap/udpdump.c
-		extcap/extcap-base.c
-	)
-
-	add_executable(udpdump WIN32 ${udpdump_FILES})
-	set_extcap_executable_properties(udpdump)
-	target_link_libraries(udpdump ${udpdump_LIBS})
-	install(TARGETS udpdump RUNTIME DESTINATION ${EXTCAP_DIR})
-	add_dependencies(extcaps udpdump)
-endif()
-
-if(BUILD_randpktdump)
-	set(randpktdump_LIBS
-		randpkt_core
-		ui
-		wiretap
-		${GLIB2_LIBRARIES}
-		${ZLIB_LIBRARIES}
-		${CMAKE_DL_LIBS}
-	)
-	set(randpktdump_FILES
-		extcap/extcap-base.c
-		extcap/randpktdump.c
-	)
-
-	add_executable(randpktdump WIN32 ${randpktdump_FILES})
-	# XXX Shouldn't we add wsutil to randpktdump_LIBS instead?
-	set_extcap_executable_properties(randpktdump)
-	target_link_libraries(randpktdump ${randpktdump_LIBS})
-	install(TARGETS randpktdump RUNTIME DESTINATION ${EXTCAP_DIR})
-	add_dependencies(extcaps randpktdump)
 endif()
 
 if (MAXMINDDB_FOUND)
@@ -2887,8 +2655,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	find_program(GIT_EXECUTABLE git)
 endif()
 
-# This will fail if we're not building from a git checkout.
-if(RPMBUILD_EXECUTABLE AND GIT_EXECUTABLE)
+function(_SET_GITVERSION_CMAKE_VARIABLE OUTPUT_VARIABLE)
+	# Load version string and write it to a cmake variable so it can be accessed from cmake.
+	FILE(READ "${CMAKE_CURRENT_BINARY_DIR}/version.h" VERSION_H_FILE_CONTENT)
+	string(REPLACE "\n" "" VERSION_H_FILE_CONTENT ${VERSION_H_FILE_CONTENT})
+	#define VCSVERSION "v2.9.0rc0-305-gb8e8aa87"
+	string(SUBSTRING "${VERSION_H_FILE_CONTENT}" 21 -1 VERSION_STRING)
+	STRING(REGEX REPLACE "\"" "" VERSION_STRING "${VERSION_STRING}")
+	MESSAGE(STATUS "Version string created from version.h: ${VERSION_STRING}")
+	SET(${OUTPUT_VARIABLE} "${VERSION_STRING}"  CACHE INTERNAL "${OUTPUT_VARIABLE}")
+endfunction(_SET_GITVERSION_CMAKE_VARIABLE)
+
+
+if(RPMBUILD_EXECUTABLE)
 	foreach(_rpm_dir BUILD RPMS SOURCES SPECS SRPMS)
 		file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/packaging/rpm/${_rpm_dir}")
 	endforeach()
@@ -2926,33 +2705,41 @@ if(RPMBUILD_EXECUTABLE AND GIT_EXECUTABLE)
 	endif()
 
 	execute_process(
-		COMMAND git describe --abbrev=8 --match v[1-9]*
-		OUTPUT_VARIABLE _git_description
-		OUTPUT_STRIP_TRAILING_WHITESPACE
-		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		COMMAND ${PERL_EXECUTABLE}
+			${CMAKE_SOURCE_DIR}/make-version.pl
+			${CMAKE_SOURCE_DIR}
 	)
-	string(SUBSTRING "${_git_description}" 1 -1 RPM_TARBALL_VERSION)
-	string(REPLACE "-" "_" RPM_VERSION "${RPM_TARBALL_VERSION}")
+
+	_SET_GITVERSION_CMAKE_VARIABLE(_git_description)
+
+	if (NOT _git_description)
+		# We're building the rpm outside the source. Guess the version from the dirname.
+		get_filename_component(CMAKE_SOURCE_DIR_NAME ${CMAKE_SOURCE_DIR} NAME)
+		# XXX this assumes the directory to start with "wireshark-"
+		string(SUBSTRING "${CMAKE_SOURCE_DIR_NAME}" 10 -1 _git_description)
+	endif()
+	string(REPLACE "-" "_" RPM_VERSION "${_git_description}")
 	configure_file(packaging/rpm/wireshark.spec.in ${CMAKE_BINARY_DIR}/packaging/rpm/SPECS/wireshark.spec)
 
-	set(_export_tarball "${CPACK_PACKAGE_NAME}-${RPM_TARBALL_VERSION}.tar.xz")
+	# XXX Replace with the "dist" target?
+	set(_export_tarball "${CPACK_PACKAGE_NAME}-${_git_description}.tar.xz")
+	MESSAGE(STATUS "set(_export_tarball: ${_export_tarball}")
 	add_custom_command(
-		OUTPUT "${CMAKE_SOURCE_DIR}/${_export_tarball}"
-		COMMAND ./tools/git-export-release.sh "${_git_description}"
+		OUTPUT "${CMAKE_BINARY_DIR}/packaging/rpm/SOURCES/${_export_tarball}"
+		COMMAND ./tools/git-export-release.sh
+			-d "${CMAKE_BINARY_DIR}/packaging/rpm/SOURCES"
+			"${_git_description}"
 		# XXX Add an option to git-export-release.sh to write to a
 		# specific directory so that we can get rid of `ln` below.
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	)
 	add_custom_target(rpm-package
-		COMMAND ${CMAKE_COMMAND} -E create_symlink
-			"${CMAKE_SOURCE_DIR}/${_export_tarball}"
-			"SOURCES/${_export_tarball}"
 		COMMAND ${RPMBUILD_EXECUTABLE}
 			--define "_topdir ${CMAKE_BINARY_DIR}/packaging/rpm"
 			--define "_prefix ${CMAKE_INSTALL_PREFIX}"
 			${_rpmbuild_with_args}
 			--clean -ba SPECS/wireshark.spec
-		DEPENDS "${CMAKE_SOURCE_DIR}/${_export_tarball}"
+		DEPENDS "${CMAKE_BINARY_DIR}/packaging/rpm/SOURCES/${_export_tarball}"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/packaging/rpm"
 		COMMENT "Create a tarball from the current git commit."
 	)
@@ -2972,10 +2759,6 @@ set(CLEAN_C_FILES
 	${captype_FILES}
 	${editcap_FILES}
 	${idl2wrs_FILES}
-	${dumpcap_FILES}
-	${androiddump_FILES}
-	${sshdump_FILES}
-	${ciscodump_FILES}
 	${mmdbresolve_FILES}
 )
 
@@ -3014,6 +2797,7 @@ set(SHARK_PUBLIC_HEADERS
 	ws_compiler_tests.h
 	ws_diag_control.h
 	ws_symbol_export.h
+	version_info.h
 )
 
 if(NOT WIN32)
@@ -3093,29 +2877,27 @@ install(
 		${CMAKE_INSTALL_MODULES_DIR}
 )
 
-# Test suite wrapper
-if(ENABLE_APPLICATION_BUNDLE)
-	set(TEST_SH_BIN_DIR ${CMAKE_BINARY_DIR}/run)
-else()
-	set(TEST_SH_BIN_DIR $<TARGET_FILE_DIR:epan>)
-endif()
+if (DOXYGEN_EXECUTABLE)
+	# API reference
+	# We don't have a good way of tracking dependencies, so we simply
+	# recreate the whole thing from scratch each time.
+	add_custom_target(wsar_html
+		COMMAND ${CMAKE_COMMAND} -E remove_directory wsar_html
+		COMMAND ${DOXYGEN_EXECUTABLE} doxygen.cfg
+	)
 
-add_custom_target(test-sh
-	COMMAND ${CMAKE_COMMAND}
-		-DCMAKE_MODULE_PATH=${CMAKE_MODULE_PATH}
-		-DTEST_SH_BIN_DIR=${TEST_SH_BIN_DIR}
-		-DTEST_SH_SRC_DIR=${CMAKE_SOURCE_DIR}/test
-		-P ${CMAKE_SOURCE_DIR}/cmake/modules/GenerateTestSh.cmake
-	DEPENDS ${CMAKE_SOURCE_DIR}/cmake/modules/GenerateTestSh.cmake
-)
-set_target_properties(test-sh PROPERTIES
-	FOLDER "Tests"
-	EXCLUDE_FROM_DEFAULT_BUILD True
-)
+	add_custom_target(wsar_html_zip
+		COMMAND ${CMAKE_COMMAND} -E tar "cfv" "wsar_html.zip" --format=zip wsar_html
+		DEPENDS wsar_html
+	)
+	set_target_properties(wsar_html wsar_html_zip PROPERTIES
+		FOLDER "Docs"
+		EXCLUDE_FROM_DEFAULT_BUILD True
+	)
+endif(DOXYGEN_EXECUTABLE)
 
 add_custom_target(test-programs
-	DEPENDS test-sh
-		exntest
+	DEPENDS exntest
 		oids_test
 		reassemble_test
 		tvbtest
@@ -3126,6 +2908,51 @@ set_target_properties(test-programs PROPERTIES
 	FOLDER "Tests"
 	EXCLUDE_FROM_DEFAULT_BUILD True
 )
+
+# Test suites
+enable_testing()
+# We could try to build this list dynamically, but given that we tend to
+# go years between adding suites just run
+#     test/test.py --list-suites | sort
+# and paste the output here.
+set(_test_suite_list
+	suite_capture
+	suite_clopts
+	suite_decryption
+	suite_dfilter
+	suite_dissection
+	suite_fileformats
+	suite_io
+	suite_mergecap
+	suite_nameres
+	suite_text2pcap
+	suite_unittests
+	suite_wslua
+)
+if(WIN32)
+	set(_test_suite_program_path ./run/$<CONFIG>)
+else()
+	set(_test_suite_program_path ./run)
+endif()
+
+# We don't currently handle spaces in arguments. On Windows this
+# means that you will probably have to pass in an interface index
+# instead of a name.
+set(TEST_EXTRA_ARGS "" CACHE STRING "Extra arguments to pass to test/test.py")
+separate_arguments(TEST_EXTRA_ARGS)
+
+foreach(_suite_name ${_test_suite_list})
+	add_test(
+		NAME ${_suite_name}
+		COMMAND ${CMAKE_COMMAND} -E env PYTHONIOENCODING=UTF-8
+			${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test.py
+			--verbose
+			--program-path ${_test_suite_program_path}
+			${TEST_EXTRA_ARGS}
+			${_suite_name}
+		)
+	set_tests_properties(${_suite_name} PROPERTIES TIMEOUT 600)
+endforeach()
 
 if (GIT_EXECUTABLE)
 	# Update AUTHORS file with entries from git shortlog
@@ -3151,10 +2978,10 @@ else ()
 	find_program(HARDENING_CHECK_EXECUTABLE hardening-check
 		DOC "Path to the hardening-check utility."
 	)
-	if (NOT "${HARDENING_CHECK_EXECUTABLE}" STREQUAL "HARDENING_CHECK_EXECUTABLE-NOTFOUND")
+	if(HARDENING_CHECK_EXECUTABLE)
 		foreach(_prog ${PROGLIST})
 			get_target_property(_prog_dir ${_prog} RUNTIME_OUTPUT_DIRECTORY)
-			if ("${_prog_dir}" STREQUAL "_prog_dir-NOTFOUND")
+			if(NOT _prog_dir)
 				set(_prog_dir "${CMAKE_BINARY_DIR}/run")
 			endif()
 			set(_prog_paths ${_prog_paths} "${_prog_dir}/${_prog}")
@@ -3167,7 +2994,6 @@ else ()
 	endif()
 endif()
 
-include( UseCheckAPI )
 CHECKAPI(
 	NAME
 	  main
@@ -3181,15 +3007,24 @@ CHECKAPI(
 find_program(SHELLCHECK_EXECUTABLE shellcheck
 	DOC "Path to the shellcheck utility."
 )
-if (NOT "${SHELLCHECK_EXECUTABLE}" STREQUAL "SHELLCHECK_EXECUTABLE-NOTFOUND")
+if(SHELLCHECK_EXECUTABLE)
 	add_custom_target(shellcheck)
 	set_target_properties(shellcheck PROPERTIES FOLDER "Tests")
 	# --external-sources requires 0.4.0 or later.
 	add_custom_command(TARGET shellcheck POST_BUILD
 		COMMAND shellcheck --external-sources
+			image/stock_icons/svg-to-png.sh
+			packaging/macosx/osx-app.sh.in
+			packaging/macosx/osx-dmg.sh.in
+			tools/compress-pngs.sh
+			tools/git-export-release.sh
 			tools/fuzz-test.sh
+			tools/gen-bugnote
+			tools/pre-commit
 			tools/randpkt-test.sh
+			tools/release-update-debian-soversions.sh
 			tools/test-captures.sh
+			tools/update-tx
 			tools/valgrind-wireshark.sh
 		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 	)

@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #ifndef FOLLOW_STREAM_DIALOG_H
 #define FOLLOW_STREAM_DIALOG_H
@@ -44,7 +45,7 @@ public:
     bool follow(QString previous_filter = QString(), bool use_stream_index = false, int stream_num = -1);
 
 public slots:
-    void captureEvent(CaptureEvent *e);
+    void captureEvent(CaptureEvent e);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event);

@@ -283,6 +283,7 @@ set(epan_LIBS
 	${SNAPPY_LIBRARIES}
 	${WIN_PSAPI_LIBRARY}
 	${LIBXML2_LIBRARIES}
+	${JSONGLIB_LIBRARIES}
 )
 
 set_source_files_properties(
@@ -291,13 +292,6 @@ set_source_files_properties(
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
-# Cannot use $<$<BOOL:${HAVE_LIBLUA}>:$<TARGET_OBJECTS:wslua>> as that breaks
-# with CMake 3.0 (CMake 3.1 is OK)
-if(HAVE_LIBLUA)
-	set(wslua_sources $<TARGET_OBJECTS:wslua>)
-else()
-	set(wslua_sources)
-endif()
 add_library(epan
 	${LIBWIRESHARK_FILES}
 	$<TARGET_OBJECTS:crypt>
@@ -306,18 +300,16 @@ add_library(epan
 	$<TARGET_OBJECTS:dissectors-corba>
 	$<TARGET_OBJECTS:ftypes>
 	$<TARGET_OBJECTS:wmem>
-	${wslua_sources}
+	$<$<BOOL:${HAVE_LIBLUA}>:$<TARGET_OBJECTS:wslua>>
 	${CMAKE_BINARY_DIR}/image/libwireshark.rc
 )
 
 add_dependencies(epan version)
 
-set(FULL_SO_VERSION "0.0.0")
-
 set_target_properties(epan PROPERTIES
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
-	VERSION ${FULL_SO_VERSION} SOVERSION 0
+	VERSION "0.0.0" SOVERSION 0
 )
 
 if(ENABLE_APPLICATION_BUNDLE)

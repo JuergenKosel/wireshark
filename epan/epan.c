@@ -22,7 +22,6 @@
 
 #include <version_info.h>
 #include <wsutil/report_message.h>
-#include <wsutil/glib-compat.h>
 
 #include <epan/exceptions.h>
 
@@ -191,13 +190,6 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 	 * GLib 2.24, multiple invocations are allowed. Check for an earlier
 	 * invocation just in case.
 	 */
-#if !GLIB_CHECK_VERSION(2,31,0)
-#   if !GLIB_CHECK_VERSION(2,24,0)
-	if (!g_thread_get_initialized())
-#   endif
-		g_thread_init(NULL);
-#endif
-
 	/* initialize memory allocation subsystem */
 	wmem_init();
 
@@ -306,7 +298,7 @@ epan_cleanup(void)
 {
 #ifdef HAVE_PLUGINS
 	g_slist_foreach(epan_plugins, epan_plugin_cleanup, NULL);
-	g_slist_free_full(epan_plugins, g_free);
+	g_slist_free(epan_plugins);
 	epan_plugins = NULL;
 #endif
 	g_slist_free(epan_register_all_procotols);
@@ -315,13 +307,22 @@ epan_cleanup(void)
 	epan_register_all_handoffs = NULL;
 
 	dfilter_cleanup();
-	proto_cleanup();
-	prefs_cleanup();
 	decode_clear_all();
+
+	/*
+	 * Note: packet_cleanup() will call registered shutdown routines which
+	 * may be used to deregister dynamically registered protocol fields,
+	 * and prefs_cleanup() will call uat_clear() which also may be used to
+	 * deregister dynamically registered protocol fields. This must be done
+	 * before proto_cleanup() to avoid inconsistency and memory leaks.
+	 */
+	packet_cleanup();
+	prefs_cleanup();
+	proto_cleanup();
+
 	conversation_filters_cleanup();
 	reassembly_table_cleanup();
 	tap_cleanup();
-	packet_cleanup();
 	expert_cleanup();
 	capture_dissector_cleanup();
 	export_pdu_cleanup();

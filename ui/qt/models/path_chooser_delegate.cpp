@@ -5,7 +5,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -13,10 +14,10 @@
 #include "ui/last_open_dir.h"
 
 #include <ui/qt/models/path_chooser_delegate.h>
+#include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QHBoxLayout>
 #include <QPushButton>
-#include <QFileDialog>
 #include <QWidget>
 #include <QLineEdit>
 
@@ -81,7 +82,7 @@ void PathChooserDelegate::browse_button_clicked()
     }
 
     QWidget * qw = new QWidget();
-    QString file_name = QFileDialog::getOpenFileName(qw, tr("Open Pipe"), open_dir);
+    QString file_name = WiresharkFileDialog::getOpenFileName(qw, tr("Open Pipe"), open_dir);
     if ( !file_name.isEmpty() )
     {
         QWidget * parent = ((QPushButton *)sender())->parentWidget();

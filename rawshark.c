@@ -486,7 +486,7 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    init_progfile_dir_error = init_progfile_dir(argv[0], main);
+    init_progfile_dir_error = init_progfile_dir(argv[0]);
     if (init_progfile_dir_error != NULL) {
         fprintf(stderr, "rawshark: Can't get pathname of rawshark program: %s.\n",
                 init_progfile_dir_error);
@@ -700,14 +700,12 @@ main(int argc, char *argv[])
                 g_string_free(comp_info_str, TRUE);
                 g_string_free(runtime_info_str, TRUE);
                 goto clean_exit;
-                break;
             }
             default:
             case '?':        /* Bad flag - print usage message */
                 print_usage(stderr);
                 ret = INVALID_OPTION;
                 goto clean_exit;
-                break;
         }
     }
 

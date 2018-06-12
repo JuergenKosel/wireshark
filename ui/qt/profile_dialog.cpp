@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 #include <glib.h>
@@ -316,6 +317,7 @@ void ProfileDialog::on_copyToolButton_clicked()
     pd_ui_->profileTreeWidget->addTopLevelItem(new_item);
     pd_ui_->profileTreeWidget->setCurrentItem(new_item);
     pd_ui_->profileTreeWidget->editItem(new_item, 0);
+    g_free(new_name);
 }
 
 void ProfileDialog::on_buttonBox_accepted()

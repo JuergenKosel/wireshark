@@ -6,7 +6,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "config.h"
 
@@ -243,6 +244,7 @@ time_string_to_nstime(const gchar *time_text, nstime_t *packettime, nstime_t *ns
     tm.tm_hour = h;
     tm.tm_min = m;
     tm.tm_sec = (int)floorl(f);
+    tm.tm_isdst = -1;
     tt = mktime(&tm);
     if (tt == -1) {
         return "Mktime went wrong. Is the time valid?";

@@ -15,9 +15,7 @@
 
 #include <string.h>
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
+#include <sys/types.h>
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -117,9 +115,6 @@
 #include <conio.h>          /* _getch() */
 #endif
 #endif
-
-/* for g_thread_new */
-#include "wsutil/glib-compat.h"
 
 #ifdef DEBUG_CHILD_DUMPCAP
 FILE *debug_log;   /* for logging debug messages to  */
@@ -387,8 +382,11 @@ static void capture_loop_queue_packet_cb(u_char *pcap_src_p, const struct pcap_p
                                          const u_char *pd);
 static void capture_loop_write_pcapng_cb(capture_src *pcap_src, const struct pcapng_block_header_s *bh, const u_char *pd);
 static void capture_loop_queue_pcapng_cb(capture_src *pcap_src, const struct pcapng_block_header_s *bh, const u_char *pd);
-static void capture_loop_get_errmsg(char *errmsg, int errmsglen, const char *fname,
-                                    int err, gboolean is_close);
+static void capture_loop_get_errmsg(char *errmsg, size_t errmsglen,
+                                    char *secondary_errmsg,
+                                    size_t secondary_errmsglen,
+                                    const char *fname, int err,
+                                    gboolean is_close);
 
 static void WS_NORETURN exit_main(int err);
 
@@ -561,52 +559,69 @@ relinquish_all_capabilities(void)
 }
 #endif
 
-static void
-get_capture_device_open_failure_messages(const char *open_err_str,
-                                         const char *iface,
-                                         char *errmsg, size_t errmsg_len,
-                                         char *secondary_errmsg,
-                                         size_t secondary_errmsg_len)
-{
-#ifndef _WIN32
-    const char *libpcap_warn;
-    static const char ppamsg[] = "can't find PPA for ";
+/*
+ * Platform-dependent suggestions for fixing permissions.
+ */
+#if defined(__linux__)
+  #define PLATFORM_PERMISSIONS_SUGGESTION \
+    "\n\n" \
+    "On Debian and Debian derivatives such as Ubuntu, if you have " \
+    "installed Wireshark from a package, try running" \
+    "\n\n" \
+    "    sudo dpkg-reconfigure wireshark-common" \
+    "\n\n" \
+    "selecting \"<Yes>\" in response to the question" \
+    "\n\n" \
+    "    Should non-superusers be able to capture packets?" \
+    "\n\n" \
+    "adding yourself to the \"wireshark\" group by running" \
+    "\n\n" \
+    "    sudo usermod -a -G wireshark {your username}" \
+    "\n\n" \
+    "and then logging out and logging back in again."
+#elif defined(__APPLE__)
+  #define PLATFORM_PERMISSIONS_SUGGESTION \
+    "\n\n" \
+    "If you installed Wireshark using the package from wireshark.org, "\
+    "Try re-installing it and checking the box for the \"Set capture " \
+    "permissions on startup\" item."
+#else
+  #define PLATFORM_PERMISSIONS_SUGGESTION
 #endif
 
-    g_snprintf(errmsg, (gulong) errmsg_len,
-               "The capture session could not be initiated on interface '%s' (%s).",
-               iface, open_err_str);
+static const char *
+get_pcap_failure_secondary_error_message(cap_device_open_err open_err,
+                                         const char *open_err_str
+#ifndef __hpux
+                                                                  _U_
+#endif
+                                         )
+{
 #ifdef _WIN32
+    /*
+     * On Windows, first make sure they *have* WinPcap installed.
+     */
     if (!has_wpcap) {
-      g_snprintf(secondary_errmsg, (gulong) secondary_errmsg_len,
-                 "\n"
-                 "In order to capture packets, WinPcap must be installed; see\n"
-                 "\n"
-                 "        https://www.winpcap.org/\n"
-                 "\n"
-                 "for a downloadable version of WinPcap and for instructions on how to install\n"
-                 "WinPcap.");
-    } else {
-      g_snprintf(secondary_errmsg, (gulong) secondary_errmsg_len,
-                 "\n"
-                 "Please check that \"%s\" is the proper interface.\n"
-                 "\n"
-                 "\n"
-                 "Help can be found on the following pages:\n"
-                 "\n"
-                 "       https://wiki.wireshark.org/WinPcap\n"
-                 "       https://wiki.wireshark.org/CaptureSetup\n",
-                 iface);
+        return
+            "In order to capture packets, WinPcap must be installed; see\n"
+            "\n"
+            "        https://www.winpcap.org/\n"
+            "\n"
+            "for a downloadable version of WinPcap and for instructions on how to install\n"
+            "WinPcap.";
     }
-#else
-    /* If we got a "can't find PPA for X" message, warn the user (who
-       is running dumpcap on HP-UX) that they don't have a version of
-       libpcap that properly handles HP-UX (libpcap 0.6.x and later
-       versions, which properly handle HP-UX, say "can't find /dev/dlpi
-       PPA for X" rather than "can't find PPA for X"). */
-    if (strncmp(open_err_str, ppamsg, sizeof ppamsg - 1) == 0)
-        libpcap_warn =
-            "\n\n"
+#endif
+
+    /*
+     * Now deal with ancient versions of libpcap that, on HP-UX, don't
+     * correctly figure out how to open a device given the device name.
+     */
+#ifdef __hpux
+    /* HP-UX-specific suggestion. */
+    static const char ppamsg[] = "can't find PPA for ";
+
+    if (strncmp(open_err_str, ppamsg, sizeof ppamsg - 1) == 0) {
+        return
             "You are running (T)Wireshark with a version of the libpcap library\n"
             "that doesn't handle HP-UX network devices well; this means that\n"
             "(T)Wireshark may not be able to capture packets.\n"
@@ -616,13 +631,54 @@ get_capture_device_open_failure_messages(const char *open_err_str,
             "packaged binary form from the Software Porting And Archive Centre\n"
             "for HP-UX; the Centre is at http://hpux.connect.org.uk/ - the page\n"
             "at the URL lists a number of mirror sites.";
-    else
-        libpcap_warn = "";
+    }
+#endif
 
-    g_snprintf(secondary_errmsg, (gulong) secondary_errmsg_len,
+    /*
+     * OK, now just return a largely platform-independent error that might
+     * have platform-specific suggestions at the end (for example, suggestions
+     * for how to get permission to capture).
+     */
+    if (open_err == CAP_DEVICE_OPEN_ERR_GENERIC) {
+        /*
+         * We don't know what kind of error it is, so throw all the
+         * suggestions at the user.
+         */
+        return
                "Please check to make sure you have sufficient permissions, and that you have "
-               "the proper interface or pipe specified.%s", libpcap_warn);
-#endif /* _WIN32 */
+               "the proper interface or pipe specified."
+               PLATFORM_PERMISSIONS_SUGGESTION;
+    } else if (open_err == CAP_DEVICE_OPEN_ERR_PERMISSIONS) {
+        /*
+         * This is a permissions error, so no need to specify any other
+         * warnings.
+         */
+        return
+               "Please check to make sure you have sufficient permissions."
+               PLATFORM_PERMISSIONS_SUGGESTION;
+    } else {
+        /*
+         * This is not a permissons error, so no need to suggest
+         * checking permissions.
+         */
+        return
+            "Please check that you have the proper interface or pipe specified.";
+    }
+}
+
+static void
+get_capture_device_open_failure_messages(cap_device_open_err open_err,
+                                         const char *open_err_str,
+                                         const char *iface,
+                                         char *errmsg, size_t errmsg_len,
+                                         char *secondary_errmsg,
+                                         size_t secondary_errmsg_len)
+{
+    g_snprintf(errmsg, (gulong) errmsg_len,
+               "The capture session could not be initiated on interface '%s' (%s).",
+               iface, open_err_str);
+    g_snprintf(secondary_errmsg, (gulong) secondary_errmsg_len, "%s",
+               get_pcap_failure_secondary_error_message(open_err, open_err_str));
 }
 
 static gboolean
@@ -665,6 +721,7 @@ show_filter_code(capture_options *capture_opts)
 {
     interface_options *interface_opts;
     pcap_t *pcap_h;
+    cap_device_open_err open_err;
     gchar open_err_str[PCAP_ERRBUF_SIZE];
     char errmsg[MSG_MAX_LENGTH+1];
     char secondary_errmsg[MSG_MAX_LENGTH+1];
@@ -676,10 +733,10 @@ show_filter_code(capture_options *capture_opts)
     for (j = 0; j < capture_opts->ifaces->len; j++) {
         interface_opts = &g_array_index(capture_opts->ifaces, interface_options, j);
         pcap_h = open_capture_device(capture_opts, interface_opts,
-            CAP_READ_TIMEOUT, &open_err_str);
+            CAP_READ_TIMEOUT, &open_err, &open_err_str);
         if (pcap_h == NULL) {
             /* Open failed; get messages */
-            get_capture_device_open_failure_messages(open_err_str,
+            get_capture_device_open_failure_messages(open_err, open_err_str,
                                                      interface_opts->name,
                                                      errmsg, sizeof errmsg,
                                                      secondary_errmsg,
@@ -2049,9 +2106,6 @@ pcap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, int errms
     enum { PD_REC_HDR_READ, PD_DATA_READ, PD_PIPE_EOF, PD_PIPE_ERR,
            PD_ERR } result;
 #ifdef _WIN32
-#if !GLIB_CHECK_VERSION(2,31,18)
-    GTimeVal  wait_time;
-#endif
     gpointer  q_status;
     wchar_t  *err_str;
 #endif
@@ -2101,13 +2155,7 @@ pcap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, int errms
         }
 #ifdef _WIN32
         else {
-#if GLIB_CHECK_VERSION(2,31,18)
             q_status = g_async_queue_timeout_pop(pcap_src->cap_pipe_done_q, PIPE_READ_TIMEOUT);
-#else
-            g_get_current_time(&wait_time);
-            g_time_val_add(&wait_time, PIPE_READ_TIMEOUT);
-            q_status = g_async_queue_timed_pop(pcap_src->cap_pipe_done_q, &wait_time);
-#endif
             if (pcap_src->cap_pipe_err == PIPEOF) {
                 result = PD_PIPE_EOF;
                 break;
@@ -2163,13 +2211,7 @@ pcap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, int errms
 #ifdef _WIN32
         else {
 
-#if GLIB_CHECK_VERSION(2,31,18)
             q_status = g_async_queue_timeout_pop(pcap_src->cap_pipe_done_q, PIPE_READ_TIMEOUT);
-#else
-            g_get_current_time(&wait_time);
-            g_time_val_add(&wait_time, PIPE_READ_TIMEOUT);
-            q_status = g_async_queue_timed_pop(pcap_src->cap_pipe_done_q, &wait_time);
-#endif /* GLIB_CHECK_VERSION(2,31,18) */
             if (pcap_src->cap_pipe_err == PIPEOF) {
                 result = PD_PIPE_EOF;
                 break;
@@ -2295,9 +2337,6 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, int err
     enum { PD_REC_HDR_READ, PD_DATA_READ, PD_PIPE_EOF, PD_PIPE_ERR,
            PD_ERR } result;
 #ifdef _WIN32
-#if !GLIB_CHECK_VERSION(2,31,18)
-    GTimeVal  wait_time;
-#endif
     gpointer  q_status;
     wchar_t  *err_str;
 #endif
@@ -2338,13 +2377,7 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, int err
         }
 #ifdef _WIN32
         else {
-#if GLIB_CHECK_VERSION(2,31,18)
             q_status = g_async_queue_timeout_pop(pcap_src->cap_pipe_done_q, PIPE_READ_TIMEOUT);
-#else
-            g_get_current_time(&wait_time);
-            g_time_val_add(&wait_time, PIPE_READ_TIMEOUT);
-            q_status = g_async_queue_timed_pop(pcap_src->cap_pipe_done_q, &wait_time);
-#endif
             if (pcap_src->cap_pipe_err == PIPEOF) {
                 result = PD_PIPE_EOF;
                 break;
@@ -2394,13 +2427,7 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, int err
 #ifdef _WIN32
         else {
 
-#if GLIB_CHECK_VERSION(2,31,18)
             q_status = g_async_queue_timeout_pop(pcap_src->cap_pipe_done_q, PIPE_READ_TIMEOUT);
-#else
-            g_get_current_time(&wait_time);
-            g_time_val_add(&wait_time, PIPE_READ_TIMEOUT);
-            q_status = g_async_queue_timed_pop(pcap_src->cap_pipe_done_q, &wait_time);
-#endif /* GLIB_CHECK_VERSION(2,31,18) */
             if (pcap_src->cap_pipe_err == PIPEOF) {
                 result = PD_PIPE_EOF;
                 break;
@@ -2530,15 +2557,16 @@ capture_loop_open_input(capture_options *capture_opts, loop_data *ld,
                         char *errmsg, size_t errmsg_len,
                         char *secondary_errmsg, size_t secondary_errmsg_len)
 {
-    gchar             open_err_str[PCAP_ERRBUF_SIZE];
-    gchar            *sync_msg_str;
-    interface_options *interface_opts;
-    capture_src      *pcap_src;
-    guint             i;
+    cap_device_open_err open_err;
+    gchar               open_err_str[PCAP_ERRBUF_SIZE];
+    gchar              *sync_msg_str;
+    interface_options  *interface_opts;
+    capture_src        *pcap_src;
+    guint               i;
 #ifdef _WIN32
-    int         err;
-    WORD        wVersionRequested;
-    WSADATA     wsaData;
+    int                 err;
+    WORD                wVersionRequested;
+    WSADATA             wsaData;
 #endif
 
 /* XXX - opening Winsock on tshark? */
@@ -2617,12 +2645,8 @@ capture_loop_open_input(capture_options *capture_opts, loop_data *ld,
         pcap_src->cap_pipe_state = STATE_EXPECT_REC_HDR;
         pcap_src->cap_pipe_err = PIPOK;
 #ifdef _WIN32
-#if GLIB_CHECK_VERSION(2,31,0)
         pcap_src->cap_pipe_read_mtx = g_malloc(sizeof(GMutex));
         g_mutex_init(pcap_src->cap_pipe_read_mtx);
-#else
-        pcap_src->cap_pipe_read_mtx = g_mutex_new();
-#endif
         pcap_src->cap_pipe_pending_q = g_async_queue_new();
         pcap_src->cap_pipe_done_q = g_async_queue_new();
 #endif
@@ -2630,7 +2654,7 @@ capture_loop_open_input(capture_options *capture_opts, loop_data *ld,
 
         g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "capture_loop_open_input : %s", interface_opts->name);
         pcap_src->pcap_h = open_capture_device(capture_opts, interface_opts,
-            CAP_READ_TIMEOUT, &open_err_str);
+            CAP_READ_TIMEOUT, &open_err, &open_err_str);
 
         if (pcap_src->pcap_h != NULL) {
             /* we've opened "iface" as a network device */
@@ -2696,7 +2720,8 @@ capture_loop_open_input(capture_options *capture_opts, loop_data *ld,
                      * doesn't exist.  Report the error message for
                      * the interface.
                      */
-                    get_capture_device_open_failure_messages(open_err_str,
+                    get_capture_device_open_failure_messages(open_err,
+                                                             open_err_str,
                                                              interface_opts->name,
                                                              errmsg,
                                                              errmsg_len,
@@ -2780,8 +2805,8 @@ static void capture_loop_close_input(loop_data *ld)
                 g_list_free_full(pcap_src->cap_pipe_info.pcapng.saved_blocks, g_free);
                 pcap_src->cap_pipe_info.pcapng.saved_blocks = NULL;
             }
-	} else {
-	    /* Capture device.  If open, close the pcap_t. */
+        } else {
+            /* Capture device.  If open, close the pcap_t. */
             if (pcap_src->pcap_h != NULL) {
                 g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "capture_loop_close_input: closing %p", (void *)pcap_src->pcap_h);
                 pcap_close(pcap_src->pcap_h);
@@ -3656,18 +3681,9 @@ capture_loop_start(capture_options *capture_opts, gboolean *stats_known, struct 
         /* dispatch incoming packets */
         if (use_threads) {
             pcap_queue_element *queue_element;
-#if GLIB_CHECK_VERSION(2,31,18)
 
             g_async_queue_lock(pcap_queue);
             queue_element = (pcap_queue_element *)g_async_queue_timeout_pop_unlocked(pcap_queue, WRITER_THREAD_TIMEOUT);
-#else
-            GTimeVal write_thread_time;
-
-            g_get_current_time(&write_thread_time);
-            g_time_val_add(&write_thread_time, WRITER_THREAD_TIMEOUT);
-            g_async_queue_lock(pcap_queue);
-            queue_element = (pcap_queue_element *)g_async_queue_timed_pop_unlocked(pcap_queue, &write_thread_time);
-#endif
             if (queue_element) {
                 if (queue_element->pcap_src->from_pcapng) {
                     pcap_queue_bytes -= queue_element->u.bh.block_total_length;
@@ -3903,9 +3919,10 @@ capture_loop_start(capture_options *capture_opts, gboolean *stats_known, struct 
     if (global_ld.err == 0) {
         write_ok = TRUE;
     } else {
-        capture_loop_get_errmsg(errmsg, sizeof(errmsg), capture_opts->save_file,
-                                global_ld.err, FALSE);
-        report_capture_error(errmsg, please_report);
+        capture_loop_get_errmsg(errmsg, sizeof(errmsg), secondary_errmsg,
+                                sizeof(secondary_errmsg),
+                                capture_opts->save_file, global_ld.err, FALSE);
+        report_capture_error(errmsg, secondary_errmsg);
         write_ok = FALSE;
     }
 
@@ -3926,9 +3943,10 @@ capture_loop_start(capture_options *capture_opts, gboolean *stats_known, struct 
     /* If we've displayed a message about a write error, there's no point
        in displaying another message about an error on close. */
     if (!close_ok && write_ok) {
-        capture_loop_get_errmsg(errmsg, sizeof(errmsg), capture_opts->save_file, err_close,
-                                TRUE);
-        report_capture_error(errmsg, "");
+        capture_loop_get_errmsg(errmsg, sizeof(errmsg), secondary_errmsg,
+                                sizeof(secondary_errmsg),
+                                capture_opts->save_file, err_close, TRUE);
+        report_capture_error(errmsg, secondary_errmsg);
     }
 
     /*
@@ -4031,45 +4049,56 @@ capture_loop_stop(void)
 
 
 static void
-capture_loop_get_errmsg(char *errmsg, int errmsglen, const char *fname,
+capture_loop_get_errmsg(char *errmsg, size_t errmsglen, char *secondary_errmsg,
+                        size_t secondary_errmsglen, const char *fname,
                         int err, gboolean is_close)
 {
+    static const char find_space[] =
+        "You will need to free up space on that file system"
+        " or put the capture file on a different file system.";
+
     switch (err) {
 
     case ENOSPC:
-        g_snprintf(errmsg, errmsglen,
+        g_snprintf(errmsg, (gulong)errmsglen,
                    "Not all the packets could be written to the file"
                    " to which the capture was being saved\n"
                    "(\"%s\") because there is no space left on the file system\n"
                    "on which that file resides.",
                    fname);
+        g_snprintf(secondary_errmsg, (gulong)secondary_errmsglen, "%s",
+                   find_space);
         break;
 
 #ifdef EDQUOT
     case EDQUOT:
-        g_snprintf(errmsg, errmsglen,
+        g_snprintf(errmsg, (gulong)errmsglen,
                    "Not all the packets could be written to the file"
                    " to which the capture was being saved\n"
                    "(\"%s\") because you are too close to, or over,"
                    " your disk quota\n"
                    "on the file system on which that file resides.",
                    fname);
+        g_snprintf(secondary_errmsg, (gulong)secondary_errmsglen, "%s",
+                   find_space);
         break;
 #endif
 
     default:
         if (is_close) {
-            g_snprintf(errmsg, errmsglen,
+            g_snprintf(errmsg, (gulong)errmsglen,
                        "The file to which the capture was being saved\n"
                        "(\"%s\") could not be closed: %s.",
                        fname, g_strerror(err));
         } else {
-            g_snprintf(errmsg, errmsglen,
+            g_snprintf(errmsg, (gulong)errmsglen,
                        "An error occurred while writing to the file"
                        " to which the capture was being saved\n"
                        "(\"%s\"): %s.",
                        fname, g_strerror(err));
         }
+        g_snprintf(secondary_errmsg, (gulong)secondary_errmsglen,
+                   "%s", please_report);
         break;
     }
 }
@@ -4570,11 +4599,6 @@ main(int argc, char *argv[])
     /* Initialize the pcaps list */
     global_ld.pcaps = g_array_new(FALSE, FALSE, sizeof(capture_src *));
 
-#if !GLIB_CHECK_VERSION(2,31,0)
-    /* Initialize the thread system */
-    g_thread_init(NULL);
-#endif
-
 #ifdef _WIN32
     /* Load wpcap if possible. Do this before collecting the run-time version information */
     load_wpcap();
@@ -5030,6 +5054,7 @@ main(int argc, char *argv[])
     if (caps_queries) {
         /* Get the list of link-layer and/or timestamp types for the capture device. */
         if_capabilities_t *caps;
+        cap_device_open_err err;
         gchar *err_str;
         guint  ii;
 
@@ -5039,11 +5064,11 @@ main(int argc, char *argv[])
 
             interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, ii);
 
-            caps = get_if_capabilities(interface_opts, &err_str);
+            caps = get_if_capabilities(interface_opts, &err, &err_str);
             if (caps == NULL) {
                 cmdarg_err("The capabilities of the capture device \"%s\" could not be obtained (%s).\n"
-                           "Please check to make sure you have sufficient permissions, and that\n"
-                           "you have the proper interface or pipe specified.", interface_opts->name, err_str);
+                           "%s", interface_opts->name, err_str,
+                           get_pcap_failure_secondary_error_message(err, err_str));
                 g_free(err_str);
                 exit_main(2);
             }

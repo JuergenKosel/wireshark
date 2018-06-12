@@ -33,7 +33,7 @@
 # are set.
 %global use_wireshark_group 1
 
-%global package_version @RPM_TARBALL_VERSION@
+%global package_version @_git_description@
 
 
 Summary:	Wireshark is the world's foremost protocol analyzer
@@ -52,7 +52,11 @@ Obsoletes:	wireshark-devel
 
 BuildRoot:	/tmp/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires:	cmake
+%if 0%{?rhel}
+BuildRequires:	cmake3 >= 3.5
+%else
+BuildRequires:	cmake >= 3.5
+%endif
 BuildRequires:	gcc
 BuildRequires:	python
 BuildRequires:	perl
@@ -214,7 +218,11 @@ Requires:	libmaxminddb
 # the prefix and everything else too.  If you need to change the prefix
 # set _prefix (note the underscore) either in this file or on rpmbuild's
 # command-line.
+%if 0%{?rhel}
+cmake3 \
+%else
 %cmake \
+%endif
 %if %{with qt5}
   -DBUILD_wireshark=ON \
 %else
@@ -283,6 +291,9 @@ make %{?_smp_mflags}
 
 %install
 rm -rf $RPM_BUILD_ROOT
+%if 0%{?suse_version}
+cd build
+%endif
 %if %{with ninja}
 NINJA=$(which ninja || which ninja-build)
 DESTDIR=$RPM_BUILD_ROOT $NINJA install
@@ -294,6 +305,9 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %if %{with guides}
 make DESTDIR=$RPM_BUILD_ROOT install_guides
 %endif
+%endif
+%if 0%{?suse_version}
+cd -
 %endif
 
 # If we're being installed in an unusual prefix tell the loader where
@@ -309,6 +323,7 @@ make DESTDIR=$RPM_BUILD_ROOT install_guides
 # SuSE's packaging conventions
 # (http://en.opensuse.org/openSUSE:Packaging_Conventions_RPM_Macros#.25suse_update_desktop_file)
 # require this:
+install -Dm 0644 %{buildroot}/usr/local/share/applications/wireshark.desktop %{buildroot}/usr/share/applications/wireshark.desktop
 %suse_update_desktop_file %{name}
 %else
 # Fedora's packaging guidelines (https://fedoraproject.org/wiki/Packaging:Guidelines)
@@ -341,6 +356,12 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %endif
 
 %files
+
+%if 0%{?suse_version}
+# Before packing, we need to restore the bindir to the wireshark one
+%define _bindir /usr/local/bin
+%endif
+
 %defattr(-,root,root)
 %doc AUTHORS COPYING ChangeLog INSTALL NEWS README*
 
@@ -362,8 +383,7 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 
 # This generates a warning because dumpcap is listed twice. That's
 # probably preferable to listing each program (and keeping the list up to
-# date)...  Maybe if we can find a way to get the toplevel Makefile.am's
-# bin_PROGRAMS in here?
+# date)...
 %if %{use_wireshark_group} && %{setuid_dumpcap}
 # Setuid but only executable by members of the 'wireshark' group
 %attr(4750, root, wireshark) %{_bindir}/dumpcap
@@ -404,6 +424,9 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %files qt
 %defattr(-,root,root)
 %{_datadir}/applications/wireshark.desktop
+%if 0%{?suse_version}
+/usr/share/applications/wireshark.desktop
+%endif
 %{_datadir}/appdata/wireshark.appdata.xml
 %{_datadir}/icons/hicolor/*/apps/*
 %{_datadir}/icons/hicolor/*/mimetypes/*

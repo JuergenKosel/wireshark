@@ -4193,6 +4193,8 @@ socp-c		4882/udp	# SOCP Control Protocol
 wmlserver	4883/tcp	# Meier-Phelps License Server
 hivestor	4884/tcp/udp	# HiveStor Distributed File System
 abbs		4885/tcp/udp	# ABBS
+xcap-portal	4888/tcp	# xcap code analysis portal public user access
+xcap-control	4889/tcp	# xcap code analysis portal cluster control and administration
 lyskom		4894/tcp/udp	# LysKOM Protocol A
 radmin-port	4899/tcp/udp	# RAdmin Port
 hfcs		4900/tcp/udp	# HFSQL Client/Server Database Engine
@@ -4333,7 +4335,6 @@ social-alarm	5146/tcp	# Social Alarm Service
 atmp		5150/tcp/udp	# Ascend Tunnel Management Protocol
 esri-sde	5151/tcp/udp	# ESRI SDE Instance
 sde-discovery	5152/tcp/udp	# ESRI SDE Instance Discovery
-toruxserver	5153/tcp	# ToruX Game Server
 bzflag		5154/tcp/udp	# BZFlag game server
 asctrl-agent	5155/tcp/udp	# Oracle asControl Agent
 rugameonline	5156/tcp	# Russian Online Game

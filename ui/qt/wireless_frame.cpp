@@ -4,7 +4,8 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * SPDX-License-Identifier: GPL-2.0-or-later*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "wireless_frame.h"
 #include <ui_wireless_frame.h>
@@ -23,6 +24,7 @@
 #include <wsutil/frequency-utils.h>
 
 #include <QProcess>
+#include <QAbstractItemView>
 
 // To do:
 // - Disable or hide invalid channel types.
