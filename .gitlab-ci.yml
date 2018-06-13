@@ -139,6 +139,9 @@ clang-7-nopcap:
     - ninja
 rpm-centos-7:
   image: centos:7
+  except:
+    - s7commwireshark
+    - s7commwireshark-2.4
   script:
     - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
     - yum install -y which
@@ -150,6 +153,9 @@ rpm-centos-7:
     - ninja-build rpm-package
 rpm-opensuse-42.3:
   image: opensuse:42.3
+  except:
+    - s7commwireshark
+    - s7commwireshark-2.4
   script:
     - zypper --non-interactive install which update-desktop-files
     - tools/rpm-setup.sh --install-optional
