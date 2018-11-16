@@ -15,6 +15,10 @@ charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
 
+# CMake
+[{CMake*,*.cmake,*.cmake.in}]
+indent_style = tab
+
 # Makefiles. Although we dropped Autotools we still have a few lying around.
 [Makefile*]
 indent_style = tab
@@ -27,12 +31,12 @@ indent_size = 4
 
 # WiX. The `xmllint --format` default is two spaces.
 [*.wx?]
-indent_style = spaces
+indent_style = space
 indent_size = 2
 
 # NSIS
 [*.ns[ih]]
-indent_style = spaces
+indent_style = space
 indent_size = 2
 
 # C/C++

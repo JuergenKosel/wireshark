@@ -29,6 +29,7 @@
 #include <wsutil/report_message.h>
 
 #include <ui/qt/utils/tango_colors.h> //provides some default colors
+#include <ui/qt/widgets/copy_from_profile_menu.h>
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QClipboard>
@@ -288,6 +289,7 @@ static void io_graph_free_cb(void* p) {
 IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
     WiresharkDialog(parent, cf),
     ui(new Ui::IOGraphDialog),
+    copy_from_menu_(NULL),
     uat_model_(NULL),
     uat_delegate_(NULL),
     base_graph_(NULL),
@@ -312,6 +314,13 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
 
     QPushButton *copy_bt = ui->buttonBox->addButton(tr("Copy"), QDialogButtonBox::ActionRole);
     connect (copy_bt, SIGNAL(clicked()), this, SLOT(copyAsCsvClicked()));
+
+    QPushButton *copy_from_bt = ui->buttonBox->addButton(tr("Copy from"), QDialogButtonBox::ActionRole);
+    copy_from_menu_ = new CopyFromProfileMenu("io_graphs");
+    copy_from_bt->setMenu(copy_from_menu_);
+    copy_from_bt->setToolTip(tr("Copy graphs from another profile."));
+    copy_from_bt->setEnabled(copy_from_menu_->haveProfiles());
+    connect(copy_from_menu_, SIGNAL(triggered(QAction *)), this, SLOT(copyFromProfile(QAction *)));
 
     QPushButton *close_bt = ui->buttonBox->button(QDialogButtonBox::Close);
     if (close_bt) {
@@ -367,7 +376,7 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
     QCPPlotTitle *title = new QCPPlotTitle(iop);
     iop->plotLayout()->insertRow(0);
     iop->plotLayout()->addElement(0, 0, title);
-    title->setText(tr("Wireshark IO Graphs: %1").arg(cap_file_.fileTitle()));
+    title->setText(tr("Wireshark IO Graphs: %1").arg(cap_file_.fileDisplayName()));
 
     tracer_ = new QCPItemTracer(iop);
     iop->addItem(tracer_);
@@ -387,6 +396,8 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
 
     iop->rescaleAxes();
 
+    ui->clearToolButton->setEnabled(uat_model_->rowCount() != 0);
+
     //XXX - resize columns?
 
     ProgressFrame::addToButtonBox(ui->buttonBox, &parent);
@@ -403,8 +414,27 @@ IOGraphDialog::~IOGraphDialog()
     foreach(IOGraph* iog, ioGraphs_) {
         delete iog;
     }
+    delete copy_from_menu_;
     delete ui;
     ui = NULL;
+}
+
+void IOGraphDialog::copyFromProfile(QAction *action)
+{
+    QString filename = action->data().toString();
+    guint orig_data_len = iog_uat_->raw_data->len;
+
+    gchar *err = NULL;
+    if (uat_load(iog_uat_, filename.toUtf8().constData(), &err)) {
+        iog_uat_->changed = TRUE;
+        uat_model_->reloadUat();
+        for (guint i = orig_data_len; i < iog_uat_->raw_data->len; i++) {
+            createIOGraph(i);
+        }
+    } else {
+        report_failure("Error while loading %s: %s", iog_uat_->name, err);
+        g_free(err);
+    }
 }
 
 void IOGraphDialog::addGraph(bool checked, QString name, QString dfilter, int color_idx, IOGraph::PlotStyles style, io_graph_item_unit_t value_units, QString yfield, int moving_average)
@@ -446,9 +476,8 @@ void IOGraphDialog::addGraph(bool copy_from_current)
             return;
         }
         const QModelIndex &new_index = uat_model_->index(uat_model_->rowCount() - 1, 0);
-        if (copy_from_current) {
-            uat_model_->copyRow(new_index.row(), current.row());
-        }
+        uat_model_->copyRow(new_index.row(), current.row());
+        createIOGraph(new_index.row());
 
         ui->graphUat->setCurrentIndex(new_index);
     } else {
@@ -1134,7 +1163,7 @@ void IOGraphDialog::loadProfileGraphs()
                            io_graph_fields);
 
         char* err = NULL;
-        if (!uat_load(iog_uat_, &err)) {
+        if (!uat_load(iog_uat_, NULL, &err)) {
             report_failure("Error while loading %s: %s.  Default graph values will be used", iog_uat_->name, err);
             g_free(err);
             uat_clear(iog_uat_);
@@ -1148,6 +1177,7 @@ void IOGraphDialog::loadProfileGraphs()
 
     connect(uat_model_, SIGNAL(dataChanged(QModelIndex,QModelIndex)),
             this, SLOT(modelDataChanged(QModelIndex)));
+    connect(uat_model_, SIGNAL(modelReset()), this, SLOT(modelRowsReset()));
 }
 
 // Slots
@@ -1190,14 +1220,23 @@ void IOGraphDialog::on_todCheckBox_toggled(bool checked)
     mouseMoved(NULL); // Update hint
 }
 
+void IOGraphDialog::modelRowsReset()
+{
+    ui->deleteToolButton->setEnabled(false);
+    ui->copyToolButton->setEnabled(false);
+    ui->clearToolButton->setEnabled(uat_model_->rowCount() != 0);
+}
+
 void IOGraphDialog::on_graphUat_currentItemChanged(const QModelIndex &current, const QModelIndex&)
 {
     if (current.isValid()) {
         ui->deleteToolButton->setEnabled(true);
         ui->copyToolButton->setEnabled(true);
+        ui->clearToolButton->setEnabled(true);
     } else {
         ui->deleteToolButton->setEnabled(false);
         ui->copyToolButton->setEnabled(false);
+        ui->clearToolButton->setEnabled(false);
     }
 }
 
@@ -1251,6 +1290,20 @@ void IOGraphDialog::on_deleteToolButton_clicked()
 void IOGraphDialog::on_copyToolButton_clicked()
 {
     addGraph(true);
+}
+
+void IOGraphDialog::on_clearToolButton_clicked()
+{
+    if (uat_model_) {
+        foreach(IOGraph* iog, ioGraphs_) {
+            delete iog;
+        }
+        ioGraphs_.clear();
+        uat_model_->clearAll();
+    }
+
+    hint_err_.clear();
+    mouseMoved(NULL);
 }
 
 void IOGraphDialog::on_dragRadioButton_toggled(bool checked)
@@ -1402,7 +1455,7 @@ void IOGraphDialog::on_buttonBox_accepted()
 
     QString save_file = path.canonicalPath();
     if (!file_closed_) {
-        save_file += QString("/%1").arg(cap_file_.fileTitle());
+        save_file += QString("/%1").arg(cap_file_.fileBaseName());
     }
     file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
                                              save_file, filter, &extension);
@@ -1506,7 +1559,8 @@ IOGraph::IOGraph(QCustomPlot *parent) :
                           TL_REQUIRES_PROTO_TREE,
                           tapReset,
                           tapPacket,
-                          tapDraw);
+                          tapDraw,
+                          NULL);
     if (error_string) {
 //        QMessageBox::critical(this, tr("%1 failed to register tap listener").arg(name_),
 //                             error_string->str);

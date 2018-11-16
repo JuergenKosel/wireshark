@@ -14,7 +14,7 @@
 #include <epan/expert.h>
 #include <glib.h>
 #include "packet-tcp.h"
-#include "packet-ssl-utils.h"
+#include "packet-tls-utils.h"
 
 void proto_register_pcp(void);
 void proto_reg_handoff_pcp(void);
@@ -753,7 +753,7 @@ static int dissect_pcp_message_start(tvbuff_t *tvb, packet_info *pinfo, proto_tr
         /* Most likely we're in a SSL upgrade if this is the end of the start packet */
         if(status == PCP_SECURE_ACK_SUCCESSFUL) {
             expert_add_info(pinfo, tree, &ei_pcp_ssl_upgrade);
-            ssl_starttls_ack(find_dissector("ssl"), pinfo, pcp_handle);
+            ssl_starttls_ack(find_dissector("tls"), pinfo, pcp_handle);
         }
         else {
             expert_add_info(pinfo, tree, &ei_pcp_ssl_upgrade_failed);

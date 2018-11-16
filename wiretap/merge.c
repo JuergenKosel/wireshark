@@ -245,7 +245,7 @@ merge_read_packet(int in_file_count, merge_in_file_t in_files[],
 {
     int i;
     int ei = -1;
-    nstime_t tv = { sizeof(time_t) > sizeof(int) ? LONG_MAX : INT_MAX, INT_MAX };
+    nstime_t tv = NSTIME_INIT_MAX;
     wtap_rec *rec;
 
     /*
@@ -453,8 +453,11 @@ is_duplicate_idb(const wtap_block_t idb1, const wtap_block_t idb2)
     guint64 idb1_if_speed, idb2_if_speed;
     guint8 idb1_if_tsresol, idb2_if_tsresol;
     guint8 idb1_if_fcslen, idb2_if_fcslen;
-    char *idb1_opt_comment, *idb2_opt_comment, *idb1_if_name, *idb2_if_name,
-         *idb1_if_description, *idb2_if_description, *idb1_if_os, *idb2_if_os;
+    char *idb1_opt_comment, *idb2_opt_comment;
+    char *idb1_if_name, *idb2_if_name;
+    char *idb1_if_description, *idb2_if_description;
+    char *idb1_if_hardware, *idb2_if_hardware;
+    char *idb1_if_os, *idb2_if_os;
 
     g_assert(idb1 && idb2);
     idb1_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(idb1);
@@ -572,6 +575,18 @@ is_duplicate_idb(const wtap_block_t idb1, const wtap_block_t idb2)
         merge_debug("g_strcmp0(idb1_if_description, idb2_if_description) == 0: %s",
                      (g_strcmp0(idb1_if_description, idb2_if_description) == 0) ? "TRUE":"FALSE");
         if (g_strcmp0(idb1_if_description, idb2_if_description) != 0) {
+            merge_debug("merge::is_duplicate_idb() returning FALSE");
+            return FALSE;
+        }
+    }
+
+    /* XXX - what do to if we have only one value? */
+    have_idb1_value = (wtap_block_get_string_option_value(idb1, OPT_IDB_HARDWARE, &idb1_if_hardware) == WTAP_OPTTYPE_SUCCESS);
+    have_idb2_value = (wtap_block_get_string_option_value(idb2, OPT_IDB_HARDWARE, &idb2_if_hardware) == WTAP_OPTTYPE_SUCCESS);
+    if (have_idb1_value && have_idb2_value) {
+        merge_debug("g_strcmp0(idb1_if_hardware, idb2_if_hardware) == 0: %s",
+                     (g_strcmp0(idb1_if_hardware, idb2_if_hardware) == 0) ? "TRUE":"FALSE");
+        if (g_strcmp0(idb1_if_hardware, idb2_if_hardware) != 0) {
             merge_debug("merge::is_duplicate_idb() returning FALSE");
             return FALSE;
         }
@@ -993,6 +1008,9 @@ merge_files(const gchar* out_filename, const int file_type,
         cb->callback_func(MERGE_EVENT_FRAME_TYPE_SELECTED, frame_type, in_files, in_file_count, cb->data);
 
     /* prepare the outfile */
+    wtap_dump_params params = WTAP_DUMP_PARAMS_INIT;
+    params.encap = frame_type;
+    params.snaplen = snaplen;
     if (file_type == WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
         shb_hdrs = create_shb_header(in_files, in_file_count, app_name);
         merge_debug("merge_files: SHB created");
@@ -1000,15 +1018,12 @@ merge_files(const gchar* out_filename, const int file_type,
         idb_inf = generate_merged_idb(in_files, in_file_count, mode);
         merge_debug("merge_files: IDB merge operation complete, got %u IDBs", idb_inf ? idb_inf->interface_data->len : 0);
 
-        pdh = wtap_dump_open_ng(out_filename, file_type, frame_type, snaplen,
-                                FALSE /* compressed */, shb_hdrs, idb_inf,
-                                NULL, err);
+        /* XXX other blocks like NRB are now discarded. */
+        params.shb_hdrs = shb_hdrs;
+        params.idb_inf = idb_inf;
     }
-    else {
-        pdh = wtap_dump_open(out_filename, file_type, frame_type, snaplen,
-                             FALSE /* compressed */, err);
-    }
-
+    pdh = wtap_dump_open(out_filename, file_type, WTAP_UNCOMPRESSED, &params,
+                         err);
     if (pdh == NULL) {
         merge_close_in_files(in_file_count, in_files);
         g_free(in_files);
@@ -1096,6 +1111,9 @@ merge_files_to_tempfile(gchar **out_filenamep, const char *pfx,
         cb->callback_func(MERGE_EVENT_FRAME_TYPE_SELECTED, frame_type, in_files, in_file_count, cb->data);
 
     /* prepare the outfile */
+    wtap_dump_params params = WTAP_DUMP_PARAMS_INIT;
+    params.encap = frame_type;
+    params.snaplen = snaplen;
     if (file_type == WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
         shb_hdrs = create_shb_header(in_files, in_file_count, app_name);
         merge_debug("merge_files: SHB created");
@@ -1103,16 +1121,12 @@ merge_files_to_tempfile(gchar **out_filenamep, const char *pfx,
         idb_inf = generate_merged_idb(in_files, in_file_count, mode);
         merge_debug("merge_files: IDB merge operation complete, got %u IDBs", idb_inf ? idb_inf->interface_data->len : 0);
 
-        pdh = wtap_dump_open_tempfile_ng(out_filenamep, pfx, file_type,
-                                         frame_type, snaplen,
-                                         FALSE /* compressed */,
-                                         shb_hdrs, idb_inf, NULL, err);
+        /* XXX other blocks like NRB are now discarded. */
+        params.shb_hdrs = shb_hdrs;
+        params.idb_inf = idb_inf;
     }
-    else {
-        pdh = wtap_dump_open_tempfile(out_filenamep, pfx, file_type, frame_type,
-                                      snaplen, FALSE /* compressed */, err);
-    }
-
+    pdh = wtap_dump_open_tempfile(out_filenamep, pfx, file_type,
+                                  WTAP_UNCOMPRESSED, &params, err);
     if (pdh == NULL) {
         merge_close_in_files(in_file_count, in_files);
         g_free(in_files);
@@ -1195,6 +1209,9 @@ merge_files_to_stdout(const int file_type, const char *const *in_filenames,
         cb->callback_func(MERGE_EVENT_FRAME_TYPE_SELECTED, frame_type, in_files, in_file_count, cb->data);
 
     /* prepare the outfile */
+    wtap_dump_params params = WTAP_DUMP_PARAMS_INIT;
+    params.encap = frame_type;
+    params.snaplen = snaplen;
     if (file_type == WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
         shb_hdrs = create_shb_header(in_files, in_file_count, app_name);
         merge_debug("merge_files: SHB created");
@@ -1202,15 +1219,11 @@ merge_files_to_stdout(const int file_type, const char *const *in_filenames,
         idb_inf = generate_merged_idb(in_files, in_file_count, mode);
         merge_debug("merge_files: IDB merge operation complete, got %u IDBs", idb_inf ? idb_inf->interface_data->len : 0);
 
-        pdh = wtap_dump_open_stdout_ng(file_type, frame_type, snaplen,
-                                       FALSE /* compressed */, shb_hdrs,
-                                       idb_inf, NULL, err);
+        /* XXX other blocks like NRB are now discarded. */
+        params.shb_hdrs = shb_hdrs;
+        params.idb_inf = idb_inf;
     }
-    else {
-        pdh = wtap_dump_open_stdout(file_type, frame_type, snaplen,
-                                    FALSE /* compressed */, err);
-    }
-
+    pdh = wtap_dump_open_stdout(file_type, WTAP_UNCOMPRESSED, &params, err);
     if (pdh == NULL) {
         merge_close_in_files(in_file_count, in_files);
         g_free(in_files);

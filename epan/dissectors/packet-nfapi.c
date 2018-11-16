@@ -634,12 +634,6 @@ static const value_string dlsch_re13_pdsch_payload_type_vals[] = {
 	{ 0, NULL }
 };
 
-static const value_string csi_rs_flags_strname[] = {
-	{ 0, "CSI - RS parameters are not valid" },
-	{ 1, "CSI - RS parameters are valid" },
-	{ 0, NULL}
-};
-
 
 static const value_string paging_direct_indication_differtiation_flag_vals[] = {
 	{ 0, "Direct Information" },
@@ -8258,6 +8252,21 @@ static int dissect_p45_param_response_msg_id(tvbuff_t *tvb, packet_info *pinfo, 
 	return tvb_captured_length(tvb);
 }
 
+static int dissect_p45_config_request_msg_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
+{
+	int offset = dissect_p45_header(tvb, pinfo, tree, data);
+	ptvcursor_t *ptvc;
+
+	proto_tree_add_item(tree, hf_nfapi_num_tlv, tvb, offset, 1, ENC_BIG_ENDIAN);
+	offset += 1;
+
+	ptvc = ptvcursor_new(tree, tvb, offset);
+	dissect_tlv_list(ptvc, pinfo, tvb_reported_length(tvb));
+	ptvcursor_free(ptvc);
+
+	return tvb_captured_length(tvb);
+}
+
 static int dissect_p7_header(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint8* m, guint8* seg, guint8* seq)
 {
 	proto_tree *header_tree;
@@ -9960,7 +9969,7 @@ void proto_register_nfapi(void)
 		},
 		{ &hf_nfapi_csi_rs_flag,
 			{ "CSI RS Flag", "nfapi.csi.rs.flag",
-			FT_BOOLEAN, 8, TFS(&csi_rs_flags_strname), 0x0,
+			FT_BOOLEAN, 8, TFS(&tfs_valid_not_valid), 0x0,
 			"Indicates if parameters related to CSI-RS are valid or not.", HFILL }
 		},
 		{ &hf_nfapi_csi_rs_resource_config_r10,
@@ -11680,7 +11689,6 @@ void proto_reg_handoff_nfapi(void)
 
 	handle = create_dissector_handle( dissect_p45_header_with_error_and_list, -1 );
 	dissector_add_uint("nfapi.msg_id", NFAPI_PNF_PARAM_RESPONSE_MSG_ID, handle);
-	dissector_add_uint("nfapi.msg_id", NFAPI_CONFIG_REQUEST_MSG_ID, handle);
 	dissector_add_uint("nfapi.msg_id", NFAPI_MEASUREMENT_RESPONSE_MSG_ID, handle);
 
 	handle = create_dissector_handle( dissect_p45_header_with_p4_error_and_list, -1 );
@@ -11697,6 +11705,7 @@ void proto_reg_handoff_nfapi(void)
 	dissector_add_uint("nfapi.msg_id", NFAPI_SYSTEM_INFORMATION_SCHEDULE_REQUEST_MSG_ID, handle);
 	dissector_add_uint("nfapi.msg_id", NFAPI_SYSTEM_INFORMATION_REQUEST_MSG_ID, handle);
 
+	dissector_add_uint("nfapi.msg_id", NFAPI_CONFIG_REQUEST_MSG_ID, create_dissector_handle( dissect_p45_config_request_msg_id, -1 ));
 	dissector_add_uint("nfapi.msg_id", NFAPI_PARAM_RESPONSE_MSG_ID, create_dissector_handle( dissect_p45_param_response_msg_id, -1 ));
 	dissector_add_uint("nfapi.msg_id", NFAPI_DL_NODE_SYNC_MSG_ID, create_dissector_handle( dissect_p7_dl_node_sync_msg_id, -1 ));
 	dissector_add_uint("nfapi.msg_id", NFAPI_UL_NODE_SYNC_MSG_ID, create_dissector_handle( dissect_p7_ul_node_sync_msg_id, -1 ));

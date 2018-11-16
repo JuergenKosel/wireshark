@@ -24,10 +24,9 @@
 #include <epan/reassemble.h>
 #include <epan/proto_data.h>
 
-#include <wsutil/base64.h>
 #include <wsutil/str_util.h>
-#include "packet-ssl.h"
-#include "packet-ssl-utils.h"
+#include "packet-tls.h"
+#include "packet-tls-utils.h"
 
 /* RFC 2821 */
 #define TCP_PORT_SMTP      "25"
@@ -105,7 +104,7 @@ static const fragment_items smtp_data_frag_items = {
 };
 
 static  dissector_handle_t smtp_handle;
-static  dissector_handle_t ssl_handle;
+static  dissector_handle_t tls_handle;
 static  dissector_handle_t imf_handle;
 static  dissector_handle_t ntlmssp_handle;
 static  dissector_handle_t data_text_lines_handle;
@@ -310,10 +309,15 @@ decode_plain_auth(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   gint                       length_pass;
   guint8                    *decrypt   = NULL;
   proto_item                *ti;
+  gsize                      len = 0;
 
   decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, a_offset, a_linelen, ENC_ASCII);
   if (smtp_auth_parameter_decoding_enabled) {
-    returncode = (gint)ws_base64_decode_inplace(decrypt);
+    if (strlen(decrypt) > 1) {
+      g_base64_decode_inplace(decrypt, &len);
+      decrypt[len] = 0;
+    }
+    returncode = (gint)len;
     if (returncode) {
       length_user1 = (gint)strlen(decrypt);
       if (returncode >= (length_user1 + 1)) {
@@ -364,7 +368,7 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
   fragment_head             *frag_msg  = NULL;
   tvbuff_t                  *next_tvb;
   guint8                    *decrypt   = NULL;
-  size_t                     decrypt_len  = 0;
+  gsize                      decrypt_len  = 0;
   guint8                    *base64_string   = NULL;
   guint8                     line_code[3];
 
@@ -555,7 +559,10 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
               ((session_state->last_auth_frame == 0) || (pinfo->num <= session_state->last_auth_frame))) {
             decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset, linelen, ENC_ASCII);
             if ((smtp_auth_parameter_decoding_enabled) &&
-                ((decrypt_len = ws_base64_decode_inplace(decrypt)) > 0)) {
+                (strlen(decrypt) > 1) &&
+                (g_base64_decode_inplace(decrypt, &decrypt_len)) &&
+                (decrypt_len > 0)) {
+              decrypt[decrypt_len] = 0;
               line = decrypt;
               linelen = (int)decrypt_len;
             } else {
@@ -819,7 +826,13 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
             decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset, linelen, ENC_ASCII);
             decrypt_len = linelen;
             if (smtp_auth_parameter_decoding_enabled) {
-              if ((decrypt_len = ws_base64_decode_inplace(decrypt)) == 0) {
+              if (strlen(decrypt) > 1) {
+                g_base64_decode_inplace(decrypt, &decrypt_len);
+                decrypt[decrypt_len] = 0;
+              } else {
+                decrypt_len = 0;
+              }
+              if (decrypt_len == 0) {
                 /* Go back to the original string */
                 decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset, linelen, ENC_ASCII);
                 decrypt_len = linelen;
@@ -835,7 +848,13 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
             decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset, linelen, ENC_ASCII);
             decrypt_len = linelen;
             if (smtp_auth_parameter_decoding_enabled) {
-              if ((decrypt_len = ws_base64_decode_inplace(decrypt)) == 0) {
+              if (strlen(decrypt) > 1) {
+                g_base64_decode_inplace(decrypt, &decrypt_len);
+                decrypt[decrypt_len] = 0;
+              } else {
+                decrypt_len = 0;
+              }
+              if (decrypt_len == 0) {
                 /* Go back to the original string */
                 decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset, linelen, ENC_ASCII);
                 decrypt_len = linelen;
@@ -849,7 +868,13 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
           decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset, linelen, ENC_ASCII);
           decrypt_len = linelen;
           if (smtp_auth_parameter_decoding_enabled) {
-            if ((decrypt_len = ws_base64_decode_inplace(decrypt)) == 0) {
+            if (strlen(decrypt) > 1) {
+              g_base64_decode_inplace(decrypt, &decrypt_len);
+              decrypt[decrypt_len] = 0;
+            } else {
+              decrypt_len = 0;
+            }
+            if (decrypt_len == 0) {
               /* Go back to the original string */
               decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset, linelen, ENC_ASCII);
               decrypt_len = linelen;
@@ -896,7 +921,13 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
                  decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset + 11, linelen - 11, ENC_ASCII);
                  decrypt_len = linelen - 11;
                  if (smtp_auth_parameter_decoding_enabled) {
-                   if ((decrypt_len = ws_base64_decode_inplace(decrypt)) == 0) {
+                   if (strlen(decrypt) > 1) {
+                     g_base64_decode_inplace(decrypt, &decrypt_len);
+                     decrypt[decrypt_len] = 0;
+                   } else {
+                     decrypt_len = 0;
+                   }
+                   if (decrypt_len == 0) {
                      /* Go back to the original string */
                      decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset + 11, linelen - 11, ENC_ASCII);
                      decrypt_len = linelen - 11;
@@ -916,7 +947,13 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
               decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset + 10, linelen - 10, ENC_ASCII);
               decrypt_len = linelen - 10;
               if (smtp_auth_parameter_decoding_enabled) {
-                if ((decrypt_len = ws_base64_decode_inplace(decrypt)) == 0) {
+                if (strlen(decrypt) > 1) {
+                  g_base64_decode_inplace(decrypt, &decrypt_len);
+                  decrypt[decrypt_len] = 0;
+                } else {
+                  decrypt_len = 0;
+                }
+                if (decrypt_len == 0) {
                   /* Go back to the original string */
                   decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset + 10, linelen - 10, ENC_ASCII);
                   decrypt_len = linelen - 10;
@@ -1041,7 +1078,7 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
             if (session_state->smtp_state == SMTP_STATE_AWAITING_STARTTLS_RESPONSE) {
               if (code == 220) {
                 /* This is the last non-TLS frame. */
-                ssl_starttls_ack(ssl_handle, pinfo, smtp_handle);
+                ssl_starttls_ack(tls_handle, pinfo, smtp_handle);
               }
               session_state->smtp_state =  SMTP_STATE_READING_CMDS;
             }
@@ -1099,7 +1136,8 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
             if (linelen >= 4) {
                 if ((smtp_auth_parameter_decoding_enabled) && (code == 334)) {
                     decrypt = tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 4, linelen - 4, ENC_ASCII);
-                    if ((decrypt_len = ws_base64_decode_inplace(decrypt)) > 0) {
+                    if (strlen(decrypt) > 1 && (g_base64_decode_inplace(decrypt, &decrypt_len)) && decrypt_len > 0) {
+                      decrypt[decrypt_len] = 0;
                       if (g_ascii_strncasecmp(decrypt, "NTLMSSP", 7) == 0) {
                         base64_string = tvb_get_string_enc(wmem_packet_scope(), tvb, loffset + 4, linelen - 4, ENC_ASCII);
                         col_append_fstr(pinfo->cinfo, COL_INFO, "%d ", code);
@@ -1122,8 +1160,8 @@ dissect_smtp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
                     proto_tree_add_item(cmdresp_tree, hf_smtp_rsp_parameter, tvb,
                                       offset + 4, linelen - 4, ENC_ASCII|ENC_NA);
 
-                    col_append_fstr(pinfo->cinfo, COL_INFO, "%d %s", code,
-                                    tvb_format_text(tvb, offset + 4, linelen - 4));
+                    col_append_fstr(pinfo->cinfo, COL_INFO, "%s",
+                                    tvb_format_text(tvb, offset, linelen));
                 }
             } else {
                col_append_str(pinfo->cinfo, COL_INFO,
@@ -1288,8 +1326,8 @@ proto_register_smtp(void)
                                  &smtp_data_desegment);
 
   prefs_register_bool_preference(smtp_module, "decryption",
-                                 "Decode base-64-encoded AUTH parameters",
-                                 "Whether the SMTP dissector should decode base-64-encoded AUTH parameters",
+                                 "Decode Base64 encoded AUTH parameters",
+                                 "Whether the SMTP dissector should decode Base64 encoded AUTH parameters",
                                  &smtp_auth_parameter_decoding_enabled);
 }
 
@@ -1305,8 +1343,8 @@ proto_reg_handoff_smtp(void)
   /* find the IMF dissector */
   imf_handle = find_dissector_add_dependency("imf", proto_smtp);
 
-  /* find the SSL dissector */
-  ssl_handle = find_dissector_add_dependency("ssl", proto_smtp);
+  /* find the TLS dissector */
+  tls_handle = find_dissector_add_dependency("tls", proto_smtp);
 
   /* find the NTLM dissector */
   ntlmssp_handle = find_dissector_add_dependency("ntlmssp", proto_smtp);

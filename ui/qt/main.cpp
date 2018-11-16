@@ -13,6 +13,13 @@
 
 #include <locale.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <tchar.h>
+#include <wchar.h>
+#include <shellapi.h>
+#endif
+
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #endif
@@ -92,9 +99,7 @@
 #ifdef _WIN32
 #  include "caputils/capture-wpcap.h"
 #  include "caputils/capture_wpcap_packet.h"
-#  include <tchar.h> /* Needed for Unicode */
 #  include <wsutil/file_util.h>
-#  include <wsutil/os_version_info.h>
 #endif /* _WIN32 */
 
 #ifdef HAVE_AIRPCAP
@@ -306,7 +311,7 @@ check_and_warn_user_startup(const QString &cf_name)
 
 #ifdef _WIN32
     /* Warn the user if npf.sys isn't loaded. */
-    if (!get_stdin_capture() && cf_name.isEmpty() && !npf_sys_is_running() && recent.privs_warn_if_no_npf && get_windows_major_version() >= 6) {
+    if (!get_stdin_capture() && cf_name.isEmpty() && !npf_sys_is_running() && recent.privs_warn_if_no_npf) {
         simple_message_box(ESD_TYPE_WARN, &recent.privs_warn_if_no_npf, "%s",
         "The NPF driver isn't running. You may have trouble\n"
         "capturing or listing interfaces.");
@@ -352,7 +357,8 @@ int main(int argc, char *qt_argv[])
     MainWindow *main_w;
 
 #ifdef _WIN32
-    int                  opt;
+    LPWSTR              *wc_argv;
+    int                  wc_argc;
 #endif
     int                  ret_val = EXIT_SUCCESS;
     char               **argv = qt_argv;
@@ -401,12 +407,24 @@ int main(int argc, char *qt_argv[])
     setlocale(LC_ALL, "");
 
 #ifdef _WIN32
-    // QCoreApplication clobbers argv. Let's have a local copy.
-    argv = (char **) g_malloc(sizeof(char *) * argc);
-    for (opt = 0; opt < argc; opt++) {
-        argv[opt] = qt_argv[opt];
-    }
-    arg_list_utf_16to8(argc, argv);
+    //
+    // On Windows, QCoreApplication has its own WinMain(), which gets the
+    // command line using GetCommandLineW(), breaks it into individual
+    // arguments using CommandLineToArgvW(), and then "helpfully"
+    // converts those UTF-16LE arguments into strings in the local code
+    // page.
+    //
+    // We don't want that, because not all file names can be represented
+    // in the local code page, so we do the same, but we convert the
+    // strings into UTF-8.
+    //
+    wc_argv = CommandLineToArgvW(GetCommandLineW(), &wc_argc);
+    if (wc_argv) {
+        argc = wc_argc;
+        argv = arg_list_utf_16to8(wc_argc, wc_argv);
+        LocalFree(wc_argv);
+    } /* XXX else bail because something is horribly, horribly wrong? */
+
     create_app_running_mutex();
 #endif /* _WIN32 */
 
@@ -619,8 +637,7 @@ int main(int argc, char *qt_argv[])
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
-    if (!epan_init(register_all_protocols,register_all_protocol_handoffs,
-                   splash_update, NULL)) {
+    if (!epan_init(splash_update, NULL, TRUE)) {
         SimpleDialog::displayQueuedMessages(main_w);
         ret_val = INIT_FAILED;
         goto clean_exit;
@@ -707,7 +724,8 @@ int main(int argc, char *qt_argv[])
 #endif
     splash_update(RA_INTERFACES, NULL, NULL);
 
-    fill_in_local_interfaces(main_window_update);
+    if (!global_commandline_info.cf_name && !prefs.capture_no_interface_load)
+        fill_in_local_interfaces(main_window_update);
 
     if  (global_commandline_info.list_link_layer_types)
         caps_queries |= CAPS_QUERY_LINK_TYPES;

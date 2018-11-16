@@ -1,7 +1,7 @@
-= Wireshark Developer’s Guide
 //v1.0, February 2014: Finished conversion from DocBook to AsciiDoc
 :doctype: book
 include::attributes.asciidoc[]
+= Wireshark Developer’s Guide: Version {wireshark-version}
 
 // Convenience attribute.
 // XXX This should be surrounded by single quotes in the text. It’s
@@ -18,6 +18,7 @@ include::common_src/typographic_conventions.asciidoc[]
 
 [[PartEnvironment]]
 = Wireshark Build Environment
+
 [partintro]
 .Wireshark Build Environment
 --
@@ -37,6 +38,7 @@ include::wsdg_src/WSDG_chapter_libraries.asciidoc[]
 
 [[PartDevelopment]]
 = Wireshark Development
+
 [partintro]
 .Wireshark Development
 --

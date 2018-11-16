@@ -3057,7 +3057,7 @@ dissect_smb2_session_setup_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 		 * we exit from this dissector.
 		 */
 		error_string = register_tap_listener("ntlmssp", NULL, NULL,
-		    TL_IS_DISSECTOR_HELPER, NULL, NULL, NULL);
+		    TL_IS_DISSECTOR_HELPER, NULL, NULL, NULL, NULL);
 		if (!error_string) {
 			ntlmssp_tap_id = find_tap_id("ntlmssp");
 		} else {
@@ -9506,12 +9506,12 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_response_to,
 			{ "Response to", "smb2.response_to", FT_FRAMENUM, BASE_NONE,
-			NULL, 0, "This packet is a response to the packet in this frame", HFILL }
+			FRAMENUM_TYPE(FT_FRAMENUM_REQUEST), 0, "This packet is a response to the packet in this frame", HFILL }
 		},
 
 		{ &hf_smb2_response_in,
 			{ "Response in", "smb2.response_in", FT_FRAMENUM, BASE_NONE,
-			NULL, 0, "The response to this packet is in this packet", HFILL }
+			FRAMENUM_TYPE(FT_FRAMENUM_RESPONSE), 0, "The response to this packet is in this packet", HFILL }
 		},
 
 		{ &hf_smb2_time,

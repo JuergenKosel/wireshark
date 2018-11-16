@@ -406,7 +406,7 @@ my $StaticRegex             = qr/ static \s+                                    
 my $ConstRegex              = qr/ const  \s+                                                            /xs;
 my $Static_andor_ConstRegex = qr/ (?: $StaticRegex $ConstRegex | $StaticRegex | $ConstRegex)            /xs;
 my $ValueStringVarnameRegex = qr/ (?:value|val64|string|range|bytes)_string                             /xs;
-my $ValueStringRegex        = qr/ ^ \s* $Static_andor_ConstRegex ($ValueStringVarnameRegex) \ + [^;*]+ = [^;]+ [{] .+? [}] \s*? ;  /xms;
+my $ValueStringRegex        = qr/ $Static_andor_ConstRegex ($ValueStringVarnameRegex) \ + [^;*#]+ = [^;]+ [{] .+? [}] \s*? ;  /xs;
 my $EnumValRegex            = qr/ $Static_andor_ConstRegex enum_val_t \ + [^;*]+ = [^;]+ [{] .+? [}] \s*? ;  /xs;
 my $NewlineStringRegex      = qr/ ["] [^"]* \\n [^"]* ["] /xs;
 
@@ -623,22 +623,19 @@ sub check_ett_registration($$)
 {
         my ($fileContentsRef, $filename) = @_;
         my @ett_declarations;
-        my %ett_registrations;
-        my @unRegisteredEtts;
+        my @ett_address_uses;
+        my %ett_uses;
+        my @unUsedEtts;
         my $errorCount = 0;
 
         # A pattern to match ett variable names.  Obviously this assumes that
-        # they start with ett_
+        # they start with `ett_`
         my $EttVarName = qr{ (?: ett_[a-z0-9_]+ (?:\[[0-9]+\])? ) }xi;
 
-        # Remove macro lines
-        my $fileContents = ${$fileContentsRef};
-        $fileContents =~ s { ^\s*\#.*$} []xogm;
-
         # Find all the ett_ variables declared in the file
-        @ett_declarations = ($fileContents =~ m{
-                ^\s*static              # assume declarations are on their own line
-                \s+
+        @ett_declarations = (${$fileContentsRef} =~ m{
+                ^                       # assume declarations are on their own line
+                (?:static\s+)?          # some declarations aren't static
                 g?int                   # could be int or gint
                 \s+
                 ($EttVarName)           # variable name
@@ -647,71 +644,41 @@ sub check_ett_registration($$)
         }xgiom);
 
         if (!@ett_declarations) {
-                print STDERR "Found no etts in ".$filename."\n";
+                # Only complain if the file looks like a dissector
+                #print STDERR "Found no etts in ".$filename."\n" if
+                #        (${$fileContentsRef} =~ m{proto_register_field_array}os);
                 return;
         }
+        #print "Found these etts in ".$filename.": ".join(' ', @ett_declarations)."\n\n";
 
-        #print "Found these etts in ".$filename.": ".join(',', @ett_declarations)."\n\n";
+        # Find all the uses of the *addresses* of ett variables in the file.
+        # (We assume if someone is using the address they're using it to
+        # register the ett.)
+        @ett_address_uses = (${$fileContentsRef} =~ m{
+                &\s*($EttVarName)
+        }xgiom);
 
-        # Find the array used for registering the etts
-        # Save off the block of code containing just the variables
-        my @reg_blocks;
-        @reg_blocks = ($fileContents =~ m{
-                static
-                \s+
-                g?int
-                \s*\*\s*                # it's an array of pointers
-                [a-z0-9_]+              # array name; usually (always?) "ett"
-                \s*\[\s*\]\s*           # array brackets
-                =
-                \s*\{
-                ((?:\s*&\s*             # address of the following variable
-                $EttVarName             # variable name
-                \s*,?                   # the comma is optional (for the last entry)
-                \s*)+)                  # match one or more variable names
-                \}
-                \s*
-                ;
-        }xgios);
-        #print "Found this ett registration block in ".$filename.": ".join(',', @reg_blocks)."\n";
-
-        if (@reg_blocks == 0) {
-                print STDERR "Hmm, found ".@reg_blocks." ett registration blocks in ".$filename."\n";
-                # For now...
+        if (!@ett_address_uses) {
+                print STDERR "Found no ett address uses in ".$filename."\n";
+                # Don't treat this as an error.
+                # It's more likely a problem with checkAPIs.
                 return;
         }
+        #print "Found these etts addresses used in ".$filename.": ".join(' ', @ett_address_uses)."\n\n";
 
-        while (@reg_blocks) {
-                my ($block) = @reg_blocks;
-                shift @reg_blocks;
+        # Convert to a hash for fast lookup
+        $ett_uses{$_}++ for (@ett_address_uses);
 
-                # Convert the list returned by the match into a hash of the
-                # form ett_variable_name -> 1.  Then combine this new hash with
-                # the hash from the last registration block.
-                # (Of course) using hashes makes the lookups much faster.
-                %ett_registrations = map { $_ => 1 } ($block =~ m{
-                        \s*&\s*                 # address of the following variable
-                        ($EttVarName)           # variable name
-                        \s*,?                   # the comma is optional (for the last entry)
-                }xgios, %ett_registrations);
-        }
-        #print "Found these ett registrations in ".$filename.": ";
-        #while( my ($k, $v) = each %ett_registrations ) {
-        #          print "$k\n";
-        #}
-
-        # Find which declared etts are not registered.
-        # XXX - using <@ett_declarations> and $_ instead of $ett_var makes this
-        # MUCH slower...  Why?
+        # Find which declared etts are not used.
         while (@ett_declarations) {
                 my ($ett_var) = @ett_declarations;
                 shift @ett_declarations;
 
-                push(@unRegisteredEtts, $ett_var) if (!$ett_registrations{$ett_var});
+                push(@unUsedEtts, $ett_var) if (not exists $ett_uses{$ett_var});
         }
 
-        if (@unRegisteredEtts) {
-                print STDERR "Error: found these unregistered ett variables in ".$filename.": ".join(',', @unRegisteredEtts)."\n";
+        if (@unUsedEtts) {
+                print STDERR "Error: found these unused ett variables in ".$filename.": ".join(' ', @unUsedEtts)."\n";
                 $errorCount++;
         }
 
@@ -726,11 +693,23 @@ sub check_hf_entries($$)
         my $errorCount = 0;
 
         my @items;
-        @items = (${$fileContentsRef} =~ m{
+        my $hfRegex = qr{
                                   \{
                                   \s*
                                   &\s*([A-Z0-9_\[\]-]+)         # &hf
                                   \s*,\s*
+        }xis;
+        if (${$fileContentsRef} =~ /^#define\s+NEW_PROTO_TREE_API/m) {
+                $hfRegex = qr{
+                                  \sheader_field_info\s+
+                                  ([A-Z0-9_]+)
+                                  \s+
+                                  [A-Z0-9_]*
+                                  \s*=\s*
+                }xis;
+        }
+        @items = (${$fileContentsRef} =~ m{
+                                  $hfRegex                      # &hf or "new" hfi name
                                   \{\s*
                                   ("[A-Z0-9 '\./\(\)_:-]+")     # name
                                   \s*,\s*
@@ -738,7 +717,7 @@ sub check_hf_entries($$)
                                   \s*,\s*
                                   (FT_[A-Z0-9_]+)               # field type
                                   \s*,\s*
-                                  ([A-Z0-9x\|_]+)               # display
+                                  ([A-Z0-9x\|_\s]+)             # display
                                   \s*,\s*
                                   ([^,]+?)                      # convert
                                   \s*,\s*
@@ -754,6 +733,11 @@ sub check_hf_entries($$)
                 ##my $errorCount_save = $errorCount;
                 my ($hf, $name, $abbrev, $ft, $display, $convert, $bitmask, $blurb) = @items;
                 shift @items; shift @items; shift @items; shift @items; shift @items; shift @items; shift @items; shift @items;
+
+                $display =~ s/\s+//g;
+                $convert =~ s/\s+//g;
+                # GET_VALS_EXTP is a macro in packet-mq.h for packet-mq.c and packet-mq-pcf.c
+                $convert =~ s/\bGET_VALS_EXTP\(/VALS_EXT_PTR\(/;
 
                 #print "name=$name, abbrev=$abbrev, ft=$ft, display=$display, convert=>$convert<, bitmask=$bitmask, blurb=$blurb\n";
 
@@ -821,12 +805,24 @@ sub check_hf_entries($$)
                         print STDERR "Error: $hf uses RVALS but 'display' does not include BASE_RANGE_STRING in $filename\n";
                         $errorCount++;
                 }
-                if ($convert =~ m/^VALS\(&.*\)/) {
-                        print STDERR "Error: $hf is passing the address of a pointer to VALS in $filename\n";
+                if ($convert =~ m/VALS64/ && $display !~ m/BASE_VAL64_STRING/) {
+                        print STDERR "Error: $hf uses VALS64 but 'display' does not include BASE_VAL64_STRING in $filename\n";
                         $errorCount++;
                 }
-                if ($convert =~ m/^RVALS\(&.*\)/) {
-                        print STDERR "Error: $hf is passing the address of a pointer to RVALS in $filename\n";
+                if ($display =~ /BASE_EXT_STRING/ && $convert !~ /^(VALS_EXT_PTR\(|&)/) {
+                        print STDERR "Error: $hf: BASE_EXT_STRING should use VALS_EXT_PTR for 'strings' instead of '$convert' in $filename\n";
+                        $errorCount++;
+                }
+                if ($ft =~ m/^FT_U?INT(8|16|24|32)$/ && $convert =~ m/^VALS64\(/) {
+                        print STDERR "Error: $hf: 32-bit field must use VALS instead of VALS64 in $filename\n";
+                        $errorCount++;
+                }
+                if ($ft =~ m/^FT_U?INT(40|48|56|64)$/ && $convert =~ m/^VALS\(/) {
+                        print STDERR "Error: $hf: 64-bit field must use VALS64 instead of VALS in $filename\n";
+                        $errorCount++;
+                }
+                if ($convert =~ m/^(VALS|VALS64|RVALS)\(&.*\)/) {
+                        print STDERR "Error: $hf is passing the address of a pointer to $1 in $filename\n";
                         $errorCount++;
                 }
                 if ($convert !~ m/^((0[xX]0?)?0$|NULL$|VALS|VALS64|VALS_EXT_PTR|RVALS|TFS|CF_FUNC|FRAMENUM_TYPE|&|STRINGS_ENTERPRISES)/ && $display !~ /BASE_CUSTOM/) {
@@ -888,10 +884,42 @@ sub check_pref_var_dupes($$)
         return $errorcount;
 }
 
+# Check for forbidden control flow changes, see epan/exceptions.h
+sub check_try_catch($$)
+{
+        my ($fileContentsRef, $filename) = @_;
+        my $errorCount = 0;
+
+        # Match TRY { ... } ENDTRY (with an optional '\' in case of a macro).
+        my @items = (${$fileContentsRef} =~ m/ \bTRY\s*\{ (.+?) \}\s* \\? \s*ENDTRY\b /xsg);
+        for my $block (@items) {
+                if ($block =~ m/ \breturn\b /x) {
+                        print STDERR "Error: return is forbidden in TRY/CATCH in $filename\n";
+                        $errorCount++;
+                }
+
+                my @gotoLabels = $block =~ m/ \bgoto\s+ (\w+) /xsg;
+                my %seen = ();
+                for my $gotoLabel (@gotoLabels) {
+                        if ($seen{$gotoLabel}) {
+                                next;
+                        }
+                        $seen{$gotoLabel} = 1;
+
+                        if ($block !~ /^ \s* $gotoLabel \s* :/xsgm) {
+                                print STDERR "Error: goto to label '$gotoLabel' outside TRY/CATCH is forbidden in $filename\n";
+                                $errorCount++;
+                        }
+                }
+        }
+
+        return $errorCount;
+}
+
 sub print_usage
 {
-        print "Usage: checkAPIs.pl [-M] [-h] [-g group1] [-g group2] ... \n";
-        print "                    [--build] [-s group1] [-s group2] ... \n";
+        print "Usage: checkAPIs.pl [-M] [-h] [-g group1[:count]] [-g group2] ... \n";
+        print "                    [--build] [-summary-group group1] [-summary-group group2] ... \n";
         print "                    [--sourcedir=srcdir] \n";
         print "                    [--nocheck-value-string-array] \n";
         print "                    [--nocheck-addtext] [--nocheck-hf] [--debug]\n";
@@ -903,7 +931,8 @@ sub print_usage
         print "       -h: help, print usage message\n";
         print "       -g <group>:  Check input files for use of APIs in <group>\n";
         print "                    (in addition to the default groups)\n";
-        print "       -s <group>:  Output summary (count) for each API in <group>\n";
+        print "                    Maximum uses can be specified with <group>:<count>\n";
+        print "       -summary-group <group>:  Output summary (count) for each API in <group>\n";
         print "                    (-g <group> also req'd)\n";
         print "       ---nocheck-value-string-array: UNDOCUMENTED\n";
         print "       ---nocheck-addtext: UNDOCUMENTED\n";
@@ -920,94 +949,75 @@ sub print_usage
 # args     codeRef, fileName
 # returns: codeRef
 #
-# Essentially: Use s//patsub/meg to pass each line to patsub.
-#              patsub monitors #if/#if 0/etc and determines
-#               if a particular code line should be removed.
-# XXX: This is probably pretty inefficient;
-#      I could imagine using another approach such as converting
-#       the input string to an array of lines and then making
-#       a pass through the array deleting lines as needed.
+# Essentially: split the input into blocks of code or lines of #if/#if 0/etc.
+#               Remove blocks that follow '#if 0' until '#else/#endif' is found.
 
 {  # block begin
-my ($if_lvl, $if0_lvl, $if0); # shared vars
 my $debug = 0;
 
     sub remove_if0_code {
         my ($codeRef, $fileName)  = @_;
 
-        my ($preprocRegEx) = qr {
-                                    (                                    # $1 [complete line)
-                                        ^
-                                        (?:                              # non-capturing
-                                            \s* \# \s*
-                                            (if \s 0| if | else | endif) # $2 (only if #...)
-                                        ) ?
-                                        .*
-                                        $
-                                    )
-                            }xom;
+        # Preprocess output (ensure trailing LF and no leading WS before '#')
+        $$codeRef =~ s/^\s*#/#/m;
+        if ($$codeRef !~ /\n$/) { $$codeRef .= "\n"; }
 
-        ($if_lvl, $if0_lvl, $if0) = (0,0,0);
-        $$codeRef =~ s{ $preprocRegEx }{patsub($1,$2,$fileName)}xegm;
+        # Split into blocks of normal code or lines with conditionals.
+        my $ifRegExp = qr/if 0|if|else|endif/;
+        my @blocks = split(/^(#\s*(?:$ifRegExp).*\n)/m, $$codeRef);
+
+        my ($if_lvl, $if0_lvl, $if0) = (0,0,0);
+        my $lines = '';
+        for my $block (@blocks) {
+            my $if;
+            if ($block =~ /^#\s*($ifRegExp)/) {
+                # #if/#if 0/#else/#endif processing
+                $if = $1;
+                if ($debug == 99) {
+                    print(STDERR "if0=$if0 if0_lvl=$if0_lvl lvl=$if_lvl [$if] - $block");
+                }
+                if ($if eq 'if') {
+                    $if_lvl += 1;
+                } elsif ($if eq 'if 0') {
+                    $if_lvl += 1;
+                    if ($if0_lvl == 0) {
+                        $if0_lvl = $if_lvl;
+                        $if0     = 1;  # inside #if 0
+                    }
+                } elsif ($if eq 'else') {
+                    if ($if0_lvl == $if_lvl) {
+                        $if0 = 0;
+                    }
+                } elsif ($if eq 'endif') {
+                    if ($if0_lvl == $if_lvl) {
+                        $if0     = 0;
+                        $if0_lvl = 0;
+                    }
+                    $if_lvl -= 1;
+                    if ($if_lvl < 0) {
+                        die "patsub: #if/#endif mismatch in $fileName"
+                    }
+                }
+            }
+
+            if ($debug == 99) {
+                print(STDERR "if0=$if0 if0_lvl=$if0_lvl lvl=$if_lvl\n");
+            }
+            # Keep preprocessor lines and blocks that are not enclosed in #if 0
+            if ($if or $if0 != 1) {
+                $lines .= $block;
+            }
+        }
+        $$codeRef = $lines;
 
         ($debug == 2) && print "==> After Remove if0: code: [$fileName]\n$$codeRef\n===<\n";
         return $codeRef;
-    }
-
-    sub patsub {
-        my $fileName = @_[2];
-
-        if ($debug == 99) {
-            print "-->$_[0]\n";
-            (defined $_[1]) && print "  >$_[1]<\n";
-        }
-
-        # #if/#if 0/#else/#endif processing
-        if (defined $_[1]) {
-            my ($if) = $_[1];
-            if ($if eq 'if') {
-                $if_lvl += 1;
-            } elsif ($if eq 'if 0') {
-                $if_lvl += 1;
-                if ($if0_lvl == 0) {
-                    $if0_lvl = $if_lvl;
-                    $if0     = 1;  # inside #if 0
-                }
-            } elsif ($if eq 'else') {
-                if ($if0_lvl == $if_lvl) {
-                    $if0 = 0;
-                }
-            } elsif ($if eq 'endif') {
-                if ($if0_lvl == $if_lvl) {
-                    $if0     = 0;
-                    $if0_lvl = 0;
-                }
-                $if_lvl -= 1;
-                if ($if_lvl < 0) {
-                    die "patsub: #if/#endif mismatch in $fileName"
-                }
-            }
-            return $_[0];  # don't remove preprocessor lines themselves
-        }
-
-        # not preprocessor line: See if under #if 0: If so, remove
-        if ($if0 == 1) {
-            return '';  # remove
-        }
-        return $_[0];
     }
 }  # block end
 
 # The below Regexp are based on those from:
 # http://aspn.activestate.com/ASPN/Cookbook/Rx/Recipe/59811
 # They are in the public domain.
-
-# 1. A complicated regex which matches "classic C"-style comments.
-my $CComment = qr{ / [*] [^*]* [*]+ (?: [^/*] [^*]* [*]+ )* / }x;
-
-# 1.a A regex that matches C++/C99-and-later-style comments.
-# XXX handle comments after a statement and not just at the beginning of a line.
-my $CppComment = qr{ ^ \s* // (.*?) \n }xm;
 
 # 2. A regex which matches double-quoted strings.
 #    ?s added so that strings containing a 'line continuation'
@@ -1016,13 +1026,6 @@ my $DoubleQuotedStr = qr{ (?: ["] (?s: \\. | [^\"\\])* ["]) }x;
 
 # 3. A regex which matches single-quoted strings.
 my $SingleQuotedStr = qr{ (?: \' (?: \\. | [^\'\\])* [']) }x;
-
-# 4. Now combine 1 through 3 to produce a regex which
-#    matches _either_ double or single quoted strings
-#    OR comments. We surround the comment-matching
-#    regex in capturing parenthesis to store the contents
-#    of the comment in $1.
-#    my $commentAndStringRegex = qr{(?:$DoubleQuotedStr|$SingleQuotedStr)|($CComment)|($CppComment)};
 
 #
 # MAIN
@@ -1078,6 +1081,11 @@ for my $apiGroup (keys %APIs) {
 
         $APIs{$apiGroup}->{function_counts}   = {};
         @{$APIs{$apiGroup}->{function_counts}}{@functions} = ();  # Add fcn names as keys to the anonymous hash
+        $APIs{$apiGroup}->{max_function_count}   = -1;
+        if ($APIs{$apiGroup}->{count_errors}) {
+                $APIs{$apiGroup}->{max_function_count}   = 0;
+        }
+        $APIs{$apiGroup}->{cur_function_count}   = 0;
 }
 
 my @filelist;
@@ -1152,8 +1160,10 @@ while ($_ = pop @filelist)
                 $errorCount++;
         }
 
-        # Remove all the C/C++ comments
-        $fileContents =~ s{ $CComment | $CppComment } []xog;
+        # Remove C/C++ comments
+        # The below pattern is modified (to keep newlines at the end of C++-style comments) from that at:
+        # https://perldoc.perl.org/perlfaq6.html#How-do-I-use-a-regular-expression-to-strip-C-style-comments-from-a-file?
+        $fileContents =~ s#/\*[^*]*\*+([^/*][^*]*\*+)*/|//([^\\]|[^\n][\n]?)*?\n|("(\\.|[^"\\])*"|'(\\.|[^'\\])*'|.[^/"'\\]*)#defined $3 ? $3 : "\n"#gse;
 
         # optionally check the hf entries (including those under #if 0)
         if ($check_hf) {
@@ -1193,7 +1203,6 @@ while ($_ = pop @filelist)
         # Remove all the quoted strings
         $fileContents =~ s{ $DoubleQuotedStr | $SingleQuotedStr } []xog;
 
-        #$errorCount += check_ett_registration(\$fileContents, $filename);
         $errorCount += check_pref_var_dupes(\$fileContents, $filename);
 
         # Remove all blank lines
@@ -1201,6 +1210,8 @@ while ($_ = pop @filelist)
 
         # Remove all '#if 0'd' code
         remove_if0_code(\$fileContents, $filename);
+
+        $errorCount += check_ett_registration(\$fileContents, $filename);
 
         #checkAPIsCalledWithTvbGetPtr(\@TvbPtrAPIs, \$fileContents, \@foundAPIs);
         #if (@foundAPIs) {
@@ -1217,13 +1228,39 @@ while ($_ = pop @filelist)
 
         $errorCount += check_proto_tree_add_XXX(\$fileContents, $filename);
 
+        $errorCount += check_try_catch(\$fileContents, $filename);
+
 
         # Check and count APIs
-        for my $apiGroup (@apiGroups) {
+        for my $groupArg (@apiGroups) {
                 my $pfx = "Warning";
                 @foundAPIs = ();
+                my @groupParts = split(/:/, $groupArg);
+                my $apiGroup = $groupParts[0];
+                my $curFuncCount = 0;
+
+                if (scalar @groupParts > 1) {
+                        $APIs{$apiGroup}->{max_function_count} = $groupParts[1];
+                }
 
                 findAPIinFile($APIs{$apiGroup}, \$fileContents, \@foundAPIs);
+
+                for my $api (keys %{$APIs{$apiGroup}->{function_counts}}   ) {
+                        $curFuncCount += $APIs{$apiGroup}{function_counts}{$api};
+                }
+
+                # If we have a max function count and we've exceeded it, treat it
+                # as an error.
+                if (!$APIs{$apiGroup}->{count_errors} && $APIs{$apiGroup}->{max_function_count} >= 0) {
+                        if ($curFuncCount > $APIs{$apiGroup}->{max_function_count}) {
+                                print STDERR $pfx . ": " . $apiGroup . " exceeds maximum function count: " . $APIs{$apiGroup}->{max_function_count} . "\n";
+                                $APIs{$apiGroup}->{count_errors} = 1;
+                        }
+                }
+
+                if ($curFuncCount <= $APIs{$apiGroup}->{max_function_count}) {
+                        next;
+                }
 
                 if ($APIs{$apiGroup}->{count_errors}) {
                         # the use of "prohibited" APIs is an error, increment the error count
@@ -1244,14 +1281,20 @@ while ($_ = pop @filelist)
 
 # Summary: Print Use Counts of each API in each requested summary group
 
-for my $apiGroup (@apiSummaryGroups) {
-        printf "\n\nUse Counts\n";
-        for my $api (sort {"\L$a" cmp "\L$b"} (keys %{$APIs{$apiGroup}->{function_counts}}   )) {
-                printf "%-20.20s %5d  %-40.40s\n", $apiGroup . ':', $APIs{$apiGroup}{function_counts}{$api}, $api;
+if (scalar @apiSummaryGroups > 0) {
+        my $fileline = join(", ", @ARGV);
+        printf "\nSummary for " . substr($fileline, 0, 65) . "…\n";
+
+        for my $apiGroup (@apiSummaryGroups) {
+                printf "\nUse counts for %s (maximum allowed total is %d)\n", $apiGroup, $APIs{$apiGroup}->{max_function_count};
+                for my $api (sort {"\L$a" cmp "\L$b"} (keys %{$APIs{$apiGroup}->{function_counts}}   )) {
+                        if ($APIs{$apiGroup}{function_counts}{$api} < 1) { next; }
+                        printf "%5d  %-40.40s\n", $APIs{$apiGroup}{function_counts}{$api}, $api;
+                }
         }
 }
 
-exit($errorCount);
+exit($errorCount > 120 ? 120 : $errorCount);
 
 #
 # Editor modelines  -  http://www.wireshark.org/tools/modelines.html

@@ -72,6 +72,22 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>The directory does not exist</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Should the directory %1 be created?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The directory could not be created</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The directory %1 could not be created!</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation type="unfinished"></translation>
     </message>
@@ -909,7 +925,15 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source> (gzip compressed)</source>
+        <source>Hash (SHA256)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hash (RIPEMD160)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hash (SHA1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1288,6 +1312,10 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Switch to the next file after the specified number of packets have been captured.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;After capturing has switched to the next file and the given number of files has exceeded, the oldest file will be removed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1419,10 +1447,7 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Multiple files: No file limit given. You must specify a file size or interval at which is switched to the next capture file
- if you want to use multiple files.</source>
-        <oldsource>Multiple files: No file limit given. You must specify a file size or duration at which is switched to the next capture file
- if you want to use multiple files.</oldsource>
+        <source>Multiple files: No file limit given. You must specify a file size, interval, or number of packets for each file.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1469,6 +1494,10 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Don&apos;t load interfaces on startup</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Disable external capture interfaces</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1500,6 +1529,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Duplicate this coloring rule.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear all coloring rules.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1544,6 +1577,18 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Coloring Rules %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy from</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy coloring rules from another profile.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1693,7 +1738,7 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Dissector Tables</source>
+        <source>Conversation Hash Tables</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1743,7 +1788,15 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Clear all dissection behaviors.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Decode As</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open </source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2212,6 +2265,14 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Text Filter:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Only display entries containing this string</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Export</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2418,6 +2479,10 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Open </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>New filter</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2476,6 +2541,25 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Invalid filter expression.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>FilterExpressionToolBar</name>
+    <message>
+        <source>Filter Button Preferences...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Disable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2969,10 +3053,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source> (gzip compressed)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Format</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3137,6 +3217,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Duplicate this graph.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear all graphs.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3383,6 +3467,14 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy from</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy graphs from another profile.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3790,6 +3882,14 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Direction indication:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ExportPDU</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Payload</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5849,6 +5949,10 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Export TLS Session Keys…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>List Files</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6051,10 +6155,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Export Packet &amp;Bytes…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Export SSL Session Keys…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6287,6 +6387,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>TCP window scaling</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TLS Stream</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6787,10 +6891,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>UDP Stream</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SSL Stream</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7387,10 +7487,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>(File name can&apos;t be mapped to UTF-8)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>The Wireshark Network Analyzer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7438,14 +7534,10 @@ PLEASE NOTE: One option MUST be selected.</source>
         <source>No Keys</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>There are no SSL Session Keys to save.</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message numerus="yes">
         <source>Export SSL Session Keys (%Ln key(s))</source>
         <oldsource>Export SSL Session Keys (%1 key%2</oldsource>
-        <translation>
+        <translation type="vanished">
             <numerusform>Export SSL Session Keys (%Ln key)</numerusform>
             <numerusform>Export SSL Session Keys (%Ln keys)</numerusform>
         </translation>
@@ -7456,10 +7548,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Merging files</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SSL Session Keys (*.keys *.txt);;All Files (</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7499,6 +7587,21 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>There are no TLS Session Keys to save.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Export TLS Session Keys (%Ln key(s))</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>TLS Session Keys (*.keys *.txt);;All Files (</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source> before restarting the capture</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7508,22 +7611,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>&lt;p&gt;The Wireshark Wiki is maintained by the community.&lt;/p&gt;&lt;p&gt;The page you are about to load might be wonderful, incomplete, wrong, or nonexistent.&lt;/p&gt;&lt;p&gt;Proceed to the wiki?&lt;/p&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Filter Button Preferences...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Edit</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Disable</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Remove</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7584,6 +7671,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Confirm unsaved capture files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display autocompletion for filter text</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7717,10 +7808,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Length</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source> (gzip compressed)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7951,6 +8038,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Summary line</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Include column headings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10407,6 +10498,14 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Warning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not find SCTP Association with id: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Complete list of IP-Addresses as provided in the INIT-Chunk</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10587,6 +10686,10 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Relative TSNs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Only SACKs</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10600,10 +10703,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Reset to full size</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11385,7 +11484,7 @@ PLEASE NOTE: One option MUST be selected.</source>
 <context>
     <name>SyntaxLineEdit</name>
     <message>
-        <source>&quot;%1&quot; may have unexpected results (see the User&apos;s Guide)</source>
+        <source>&quot;%1&quot; is deprecated or may have unexpected results. See the User&apos;s Guide.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -12145,6 +12244,14 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Copy from</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy entries from another profile.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Open </source>
         <translation type="unfinished"></translation>
     </message>
@@ -12177,6 +12284,14 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Clear all entries.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy entries from another profile.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy from</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

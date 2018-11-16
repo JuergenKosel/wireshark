@@ -68,12 +68,13 @@ set(WIRETAP_NONGENERATED_FILES
 	pcapng.c
 	peekclassic.c
 	peektagged.c
-	pem.c
+	rfc7468.c
 	pppdump.c
 	radcom.c
 	ruby_marshal.c
 	snoop.c
 	stanag4607.c
+	systemd_journal.c
 	tnef.c
 	toshiba.c
 	visual.c
@@ -127,9 +128,16 @@ set_target_properties(wiretap PROPERTIES
 )
 
 if(ENABLE_APPLICATION_BUNDLE)
-	set_target_properties(wiretap PROPERTIES
-		LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Frameworks
-	)
+	if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
+		# Xcode
+		set_target_properties(wiretap PROPERTIES
+			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/Frameworks
+		)
+	else()
+		set_target_properties(wiretap PROPERTIES
+			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Frameworks
+		)
+	endif()
 endif()
 
 ABICHECK(libwiretap)
@@ -147,6 +155,7 @@ add_custom_command(OUTPUT libwiretap.abi.tar.gz
 target_link_libraries(wiretap ${wiretap_LIBS})
 
 install(TARGETS wiretap
+	EXPORT WiresharkTargets
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -162,9 +171,9 @@ CHECKAPI(
 	NAME
 	  wiretap
 	SWITCHES
-## 'abort' checking disabled for now pending resolution of existing use of g_assert & g_error
-##	  -g abort -g termoutput
-	  -g termoutput -build
+	  --group abort:10 --summary-group abort
+	  --group termoutput:1 --summary-group termoutput
+	  --build
 	SOURCES
 	  ${WIRETAP_NONGENERATED_FILES}
 # LEX files commented out due to use of malloc, free etc.

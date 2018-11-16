@@ -34,6 +34,7 @@ class QCPBars;
 class QCPGraph;
 class QCPItemTracer;
 class QCustomPlot;
+class CopyFromProfileMenu;
 
 // GTK+ sets this to 100000 (NUM_IO_ITEMS)
 const int max_io_items_ = 250000;
@@ -143,6 +144,7 @@ public slots:
     void scheduleReplot(bool now = false);
     void scheduleRecalc(bool now = false);
     void scheduleRetap(bool now = false);
+    void modelRowsReset();
     void reloadFields();
 
 protected:
@@ -157,6 +159,7 @@ signals:
 
 private:
     Ui::IOGraphDialog *ui;
+    CopyFromProfileMenu *copy_from_menu_;
 
     //Model and delegate were chosen over UatFrame because add/remove/copy
     //buttons would need realignment (UatFrame has its own)
@@ -199,6 +202,7 @@ private:
     bool graphIsEnabled(int row) const;
 
 private slots:
+    void copyFromProfile(QAction *action);
     void updateWidgets();
     void graphClicked(QMouseEvent *event);
     void mouseMoved(QMouseEvent *event);
@@ -218,6 +222,7 @@ private slots:
     void on_newToolButton_clicked();
     void on_deleteToolButton_clicked();
     void on_copyToolButton_clicked();
+    void on_clearToolButton_clicked();
     void on_dragRadioButton_toggled(bool checked);
     void on_zoomRadioButton_toggled(bool checked);
     void on_actionReset_triggered();

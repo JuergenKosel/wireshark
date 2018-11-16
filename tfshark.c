@@ -57,7 +57,6 @@
 #include "ui/util.h"
 #include "ui/decode_as_utils.h"
 #include "ui/dissect_opts.h"
-#include "epan/register.h"
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
@@ -304,8 +303,8 @@ get_tfshark_runtime_version_info(GString *str)
   epan_get_runtime_version_info(str);
 }
 
-int
-main(int argc, char *argv[])
+static int
+real_main(int argc, char *argv[])
 {
   GString             *comp_info_str;
   GString             *runtime_info_str;
@@ -361,7 +360,6 @@ main(int argc, char *argv[])
   cmdarg_err_init(failure_warning_message, failure_message_cont);
 
 #ifdef _WIN32
-  arg_list_utf_16to8(argc, argv);
   create_app_running_mutex();
 #endif /* _WIN32 */
 
@@ -491,8 +489,7 @@ main(int argc, char *argv[])
      "-G" flag, as the "-G" flag dumps information registered by the
      dissectors, and we must do it before we read the preferences, in
      case any dissectors register preferences. */
-  if (!epan_init(register_all_protocols, register_all_protocol_handoffs, NULL,
-                 NULL)) {
+  if (!epan_init(NULL, NULL, TRUE)) {
     exit_status = INIT_ERROR;
     goto clean_exit;
   }
@@ -1007,6 +1004,23 @@ clean_exit:
   wtap_cleanup();
   return exit_status;
 }
+
+#ifdef _WIN32
+int
+wmain(int argc, wchar_t *wc_argv[])
+{
+  char **argv;
+
+  argv = arg_list_utf_16to8(argc, wc_argv);
+  return real_main(argc, argv);
+}
+#else
+int
+main(int argc, char *argv[])
+{
+  return real_main(argc, argv);
+}
+#endif
 
 static const nstime_t *
 tfshark_get_frame_ts(struct packet_provider_data *prov, guint32 frame_num)

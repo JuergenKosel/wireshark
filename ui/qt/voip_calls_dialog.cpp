@@ -177,9 +177,9 @@ void VoipCallsDialog::tapDraw(void *tapinfo_ptr)
 
     GList *graph_item = g_queue_peek_nth_link(tapinfo->graph_analysis->items, 0);
     for (; graph_item; graph_item = g_list_next(graph_item)) {
-        for (GList *rsi_entry = g_list_first(tapinfo->rtp_stream_list); rsi_entry; rsi_entry = g_list_next(rsi_entry)) {
+        for (GList *rsi_entry = g_list_first(tapinfo->rtpstream_list); rsi_entry; rsi_entry = g_list_next(rsi_entry)) {
             seq_analysis_item_t * sai = (seq_analysis_item_t *)graph_item->data;
-            rtp_stream_info_t *rsi = (rtp_stream_info_t *)rsi_entry->data;
+            rtpstream_info_t *rsi = (rtpstream_info_t *)rsi_entry->data;
 
             if (rsi->start_fd->num == sai->frame_number) {
                 rsi->call_num = sai->conv_num;
@@ -241,9 +241,9 @@ void VoipCallsDialog::prepareFilter()
 
     QString filter_str;
     QSet<guint16> selected_calls;
+    QString frame_numbers;
 
     /* Build a new filter based on frame numbers */
-    const char *or_prepend = "";
     foreach (QModelIndex index, ui->callTreeView->selectionModel()->selectedIndexes()) {
         voip_calls_info_t *call_info = VoipCallsInfoModel::indexToCallInfo(index);
         if (!call_info) {
@@ -256,10 +256,14 @@ void VoipCallsDialog::prepareFilter()
     while (cur_ga_item && cur_ga_item->data) {
         seq_analysis_item_t *ga_item = (seq_analysis_item_t*) cur_ga_item->data;
         if (selected_calls.contains(ga_item->conv_num)) {
-            filter_str += QString("%1frame.number == %2").arg(or_prepend).arg(ga_item->frame_number);
-            or_prepend = " or ";
+            frame_numbers += QString("%1 ").arg(ga_item->frame_number);
         }
         cur_ga_item = g_list_next(cur_ga_item);
+    }
+
+    if (!frame_numbers.isEmpty()) {
+        frame_numbers.chop(1);
+        filter_str = QString("frame.number in {%1} or rtp.setup-frame in {%1}").arg(frame_numbers);
     }
 
 #if 0
@@ -387,8 +391,8 @@ void VoipCallsDialog::showPlayer()
         voip_calls_info_t *vci = VoipCallsInfoModel::indexToCallInfo(index);
         if (!vci) continue;
 
-        for (GList *rsi_entry = g_list_first(tapinfo_.rtp_stream_list); rsi_entry; rsi_entry = g_list_next(rsi_entry)) {
-            rtp_stream_info_t *rsi = (rtp_stream_info_t *)rsi_entry->data;
+        for (GList *rsi_entry = g_list_first(tapinfo_.rtpstream_list); rsi_entry; rsi_entry = g_list_next(rsi_entry)) {
+            rtpstream_info_t *rsi = (rtpstream_info_t *)rsi_entry->data;
             if (!rsi) continue;
 
             //VOIP_CALLS_DEBUG("checking call %u, start frame %u == stream call %u, start frame %u, setup frame %u",

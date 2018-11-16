@@ -1669,11 +1669,11 @@ proto_register_stun(void)
             BASE_HEX, NULL, 0x7FFFFFFF, NULL, HFILL}
          },
         { &hf_stun_att_address_rp_masb,
-          { "Maximum Send Bandwidth", "stun.att.adress_rp.masb", FT_UINT32,
+          { "Maximum Send Bandwidth", "stun.att.address_rp.masb", FT_UINT32,
             BASE_DEC, NULL, 0x0, "In kilobits per second", HFILL}
          },
         { &hf_stun_att_address_rp_marb,
-          { "Maximum Receive Bandwidth", "stun.att.adress_rp.marb", FT_UINT32,
+          { "Maximum Receive Bandwidth", "stun.att.address_rp.marb", FT_UINT32,
             BASE_DEC, NULL, 0x0, "In kilobits per second", HFILL}
          },
         { &hf_stun_att_sip_dialog_id,
@@ -1735,8 +1735,8 @@ proto_reg_handoff_stun(void)
      * SSL/TLS and DTLS Application-Layer Protocol Negotiation (ALPN)
      * protocol ID.
      */
-    dissector_add_string("ssl.handshake.extensions_alpn_str", "stun.nat-discovery", stun_tcp_handle);
-    dissector_add_string("dtls.handshake.extensions_alpn_str", "stun.nat-discovery", stun_udp_handle);
+    dissector_add_string("tls.alpn", "stun.nat-discovery", stun_tcp_handle);
+    dissector_add_string("dtls.alpn", "stun.nat-discovery", stun_udp_handle);
 
     heur_dissector_add("udp", dissect_stun_heur, "STUN over UDP", "stun_udp", proto_stun, HEURISTIC_ENABLE);
 

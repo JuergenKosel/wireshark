@@ -1623,20 +1623,11 @@ dissect_per_enumerated(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tr
 		offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_per_enum_index, 0, root_num - 1, &enum_index, FALSE);
 		if (!display_internal_per_fields) PROTO_ITEM_SET_HIDDEN(actx->created_item);
 	} else {
-		/* 13.3  */
-		if (ext_num == 1) {
-			/* 10.5.4	If "range" has the value 1,
-			 * then the result of the encoding shall be
-			 * an empty bit-field (no bits).
-			 */
-			enum_index = 0;
-		} else {
-			/* 13.3 ".. and the value shall be added to the field-list as a
-			 * normally small non-negative whole number whose value is the
-			 * enumeration index of the additional enumeration and with "lb" set to 0.."
-			 */
-			offset = dissect_per_normally_small_nonnegative_whole_number(tvb, offset, actx, tree, hf_per_enum_extension_index, &enum_index);
-		}
+		/* 13.3 ".. and the value shall be added to the field-list as a
+		 * normally small non-negative whole number whose value is the
+		 * enumeration index of the additional enumeration and with "lb" set to 0.."
+		 */
+		offset = dissect_per_normally_small_nonnegative_whole_number(tvb, offset, actx, tree, hf_per_enum_extension_index, &enum_index);
 		enum_index += root_num;
 	}
 	val = (value_map && (enum_index<(root_num+ext_num))) ? value_map[enum_index] : enum_index;
@@ -1965,7 +1956,7 @@ DEBUG_ENTRY("dissect_per_sequence");
 		for(i=0;i<num_extensions;i++){
 			guint32 length;
 			guint32 new_offset;
-			guint32 difference;
+			gint32 difference;
 			guint32 extension_index;
 			guint32 k;
 
@@ -2002,7 +1993,11 @@ DEBUG_ENTRY("dissect_per_sequence");
 				/* Difference could be 8 if open type has no bits and the length is 1 */
 				if ((length > 1) && (difference > 7)) {
 					proto_tree_add_expert_format(tree, actx->pinfo, &ei_per_encoding_error, tvb, new_offset>>3, (offset-new_offset)>>3,
-						"Possible encoding error full length not decoded. Open type length %u ,decoded %u",length, length - (difference>>3));
+						"Possible encoding error full length not decoded. Open type length %u, decoded %u",length, length - (difference>>3));
+				}
+				else if (difference < 0) {
+					proto_tree_add_expert_format(tree, actx->pinfo, &ei_per_encoding_error, tvb, new_offset>>3, (offset-new_offset)>>3,
+						"Possible encoding error open type length less than dissected bits. Open type length %u, decoded %u", length, length - (difference>>3));
 				}
 			} else {
 				dissect_per_not_decoded_yet(tree, actx->pinfo, tvb, index_get_field_name(sequence, extension_index));
@@ -2237,7 +2232,7 @@ DEBUG_ENTRY("dissect_per_bit_string");
 	}
 
 	/* 15.11 */
-	if (max_len != NO_BOUND) {
+	if (max_len != NO_BOUND && max_len < 65536) {
 		offset=dissect_per_constrained_integer(tvb, offset, actx,
 			tree, hf_per_bit_string_length, min_len, max_len,
 			&length, FALSE);
@@ -2446,7 +2441,7 @@ guint32 dissect_per_octet_string_containing_pdu_new(tvbuff_t *tvb, guint32 offse
 
 	offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index, min_len, max_len, has_extension, &val_tvb);
 
-	if (type_cb && val_tvb) {
+	if (type_cb && val_tvb && (tvb_reported_length(val_tvb) > 0)) {
 		subtree = proto_item_add_subtree(actx->created_item, ett_per_containing);
 		type_cb(val_tvb, actx->pinfo, subtree, NULL);
 	}

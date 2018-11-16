@@ -10,6 +10,7 @@ libwsutil.so.0 libwsutil0 #MINVER#
  cmdarg_err@Base 1.99.0
  cmdarg_err_cont@Base 1.99.0
  cmdarg_err_init@Base 1.99.0
+ config_file_exists_with_entries@Base 2.9.0
  copy_file_binary_mode@Base 1.12.0~rc1
  copy_persconffile_profile@Base 1.12.0~rc1
  crc11_307_noreflect_noxor@Base 1.10.0
@@ -44,6 +45,8 @@ libwsutil.so.0 libwsutil0 #MINVER#
  create_tempfile@Base 1.12.0~rc1
  create_timestamp@Base 2.5.0
  crypt_des_ecb@Base 2.3.0
+ crypto_scalarmult_curve25519@Base 2.9.0
+ crypto_scalarmult_curve25519_base@Base 2.9.0
  data_file_url@Base 2.3.0
  decrypt_xtea_ecb@Base 2.5.0
  decrypt_xtea_le_ecb@Base 2.5.0
@@ -76,7 +79,9 @@ libwsutil.so.0 libwsutil0 #MINVER#
  get_plugins_dir_with_version@Base 2.5.0
  get_plugins_pers_dir@Base 1.12.0~rc1
  get_plugins_pers_dir_with_version@Base 2.5.0
+ get_positive_double@Base 2.9.0
  get_positive_int@Base 1.99.0
+ get_profile_dir@Base 2.9.0
  get_profile_name@Base 1.12.0~rc1
  get_profiles_dir@Base 1.12.0~rc1
  get_progfile_dir@Base 1.12.0~rc1
@@ -158,7 +163,10 @@ libwsutil.so.0 libwsutil0 #MINVER#
  ws_ascii_strnatcasecmp@Base 1.99.1
  ws_ascii_strnatcmp@Base 1.99.1
  ws_base32_decode@Base 2.3.0
- ws_base64_decode_inplace@Base 1.12.0~rc1
+ ws_basestrtou16@Base 2.9.0
+ ws_basestrtou32@Base 2.9.0
+ ws_basestrtou64@Base 2.9.0
+ ws_basestrtou8@Base 2.9.0
  ws_buffer_append@Base 1.99.0
  ws_buffer_assure_space@Base 1.99.0
  ws_buffer_free@Base 1.99.0
@@ -176,6 +184,7 @@ libwsutil.so.0 libwsutil0 #MINVER#
  ws_inet_pton6@Base 2.1.2
  ws_mempbrk_compile@Base 1.99.4
  ws_mempbrk_exec@Base 1.99.4
+ ws_pipe_close@Base 2.6.5
  ws_pipe_data_available@Base 2.5.0
  ws_pipe_init@Base 2.5.1
  ws_pipe_spawn_async@Base 2.5.1

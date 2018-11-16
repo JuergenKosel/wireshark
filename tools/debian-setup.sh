@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Setup development environment on Debian and derivatives such as Ubuntu
 #
 # Wireshark - Network traffic analyzer
@@ -13,16 +13,17 @@
 
 if [ "$1" = "--help" ]
 then
-	echo "\nUtility to setup a debian-based system for Wireshark Development.\n"
-	echo "The basic usage installs the needed software\n\n"
-	echo "Usage: $0 [--install-optional] [...other options...]\n"
-	echo "\t--install-optional: install optional software as well"
-	echo "\t[other]: other options are passed as-is to apt\n"
+	printf "\\nUtility to setup a debian-based system for Wireshark Development.\\n"
+	printf "The basic usage installs the needed software\\n\\n"
+	printf "Usage: %s [--install-optional] [--install-deb-deps] [...other options...]\\n" "$0"
+	printf "\\t--install-optional: install optional software as well\\n"
+	printf "\\t--install-deb-deps: install packages required to build the .deb file\\n"
+	printf "\\t[other]: other options are passed as-is to apt\\n"
 	exit 1
 fi
 
 # Check if the user is root
-if [ $(id -u) -ne 0 ]
+if [ "$(id -u)" -ne 0 ]
 then
 	echo "You must be root."
 	exit 1
@@ -33,12 +34,16 @@ do
 	if [ "$op" = "--install-optional" ]
 	then
 		ADDITIONAL=1
+	elif [ "$op" = "--install-deb-deps" ]
+	then
+		DEBDEPS=1
 	else
 		OPTIONS="$OPTIONS $op"
 	fi
 done
 
-BASIC_LIST="qttools5-dev \
+BASIC_LIST="libglib2.0-dev \
+	qttools5-dev \
 	qttools5-dev-tools \
 	libqt5svg5-dev \
 	qtmultimedia5-dev \
@@ -47,7 +52,7 @@ BASIC_LIST="qttools5-dev \
 	bison \
 	flex \
 	make \
-	python \
+	python3 \
 	perl \
 	libgcrypt-dev"
 
@@ -71,6 +76,14 @@ ADDITIONAL_LIST="libnl-3-dev \
 	doxygen \
 	xsltproc"
 
+DEBDEPS_LIST="debhelper \
+	po-debconf \
+	python3-ply \
+	docbook-xsl \
+	docbook-xml \
+	libxml2-utils \
+	quilt"
+
 # Adds package $2 to list variable $1 if the package is found.
 # If $3 is given, then this version requirement must be satisfied.
 add_package() {
@@ -83,6 +96,7 @@ add_package() {
 		return 1
 	elif [ -n "$versionreq" ]; then
 		# Require minimum version or fail.
+		# shellcheck disable=SC2086
 		dpkg --compare-versions $version $versionreq || return 1
 	fi
 
@@ -115,6 +129,12 @@ echo "libgnutls28-dev and libgnutls-dev are unavailable" >&2
 add_package ADDITIONAL_LIST libmaxminddb-dev ||
 echo "libmaxminddb-dev is unavailable" >&2
 
+# libsystemd-journal-dev: Ubuntu 14.04
+# libsystemd-dev: Ubuntu >= 16.04
+add_package DEBDEPS_LIST libsystemd-dev ||
+add_package DEBDEPS_LIST libsystemd-journal-dev ||
+echo "libsystemd-dev is unavailable"
+
 ACTUAL_LIST=$BASIC_LIST
 
 # Now arrange for optional support libraries
@@ -123,13 +143,21 @@ then
 	ACTUAL_LIST="$ACTUAL_LIST $ADDITIONAL_LIST"
 fi
 
-apt-get install $ACTUAL_LIST $OPTIONS
-if [ $? != 0 ]
+if [ $DEBDEPS ]
 then
-	exit 2
+	ACTUAL_LIST="$ACTUAL_LIST $DEBDEPS_LIST"
 fi
+
+apt-get update || exit 2
+# shellcheck disable=SC2086
+apt-get install $ACTUAL_LIST $OPTIONS || exit 2
 
 if [ ! $ADDITIONAL ]
 then
-	echo "\n*** Optional packages not installed. Rerun with --install-optional to have them.\n"
+	printf "\\n*** Optional packages not installed. Rerun with --install-optional to have them.\\n"
+fi
+
+if [ ! $DEBDEPS ]
+then
+	printf "\n*** Debian packages build deps not installed. Rerun with --install-deb-deps to have them.\n"
 fi

@@ -76,7 +76,7 @@ set(WIRESHARK_LIB_DIR "${_wireshark_lib_dir}")
 set(WINPCAP_PACKAGE_VERSION ${WINPCAP_VERSION})
 string(REPLACE "_" "." PCAP_DISPLAY_VERSION "${WINPCAP_PACKAGE_VERSION}")
 
-set(USBPCAP_DISPLAY_VERSION "1.2.0.3")
+set(USBPCAP_DISPLAY_VERSION "1.2.0.4")
 
 set(PRODUCT_VERSION ${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}.${PROJECT_BUILD_VERSION})
 
@@ -271,8 +271,7 @@ macro( ADD_WIX_PACKAGE_TARGET )
 		DEPENDS
 			${WIX_FILES}
 			copy_data_files
-			user_guides
-			${CMAKE_BINARY_DIR}/docbook/user-guide.chm
+			user_guide_chm
 	)
 	set_target_properties(wix_package_prep PROPERTIES FOLDER "Packaging")
 

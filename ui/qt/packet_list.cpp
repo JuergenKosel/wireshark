@@ -488,6 +488,7 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
 
             if (!g_str_has_prefix(hfinfo->abbrev, "text") &&
                 !g_str_has_prefix(hfinfo->abbrev, "_ws.expert") &&
+                !g_str_has_prefix(hfinfo->abbrev, "_ws.lua") &&
                 !g_str_has_prefix(hfinfo->abbrev, "_ws.malformed")) {
 
                 if (hfinfo->parent == -1) {
@@ -565,7 +566,7 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     ctx_menu_.addMenu(submenu);
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTCPStream"));
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowUDPStream"));
-    submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowSSLStream"));
+    submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTLSStream"));
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowHTTPStream"));
 
     ctx_menu_.addSeparator();
@@ -1036,15 +1037,22 @@ QString PacketList::getFilterFromRowAndColumn()
 
     if (fdata != NULL) {
         epan_dissect_t edt;
+        wtap_rec rec; /* Record metadata */
+        Buffer buf;   /* Record data */
 
-        if (!cf_read_record(cap_file_, fdata))
+        wtap_rec_init(&rec);
+        ws_buffer_init(&buf, 1500);
+        if (!cf_read_record_r(cap_file_, fdata, &rec, &buf)) {
+            wtap_rec_cleanup(&rec);
+            ws_buffer_free(&buf);
             return filter; /* error reading the record */
+        }
         /* proto tree, visible. We need a proto tree if there's custom columns */
         epan_dissect_init(&edt, cap_file_->epan, have_custom_cols(&cap_file_->cinfo), FALSE);
         col_custom_prime_edt(&edt, &cap_file_->cinfo);
 
-        epan_dissect_run(&edt, cap_file_->cd_t, &cap_file_->rec,
-                         frame_tvbuff_new_buffer(&cap_file_->provider, fdata, &cap_file_->buf),
+        epan_dissect_run(&edt, cap_file_->cd_t, &rec,
+                         frame_tvbuff_new_buffer(&cap_file_->provider, fdata, &buf),
                          fdata, &cap_file_->cinfo);
         epan_dissect_fill_in_columns(&edt, TRUE, TRUE);
 
@@ -1093,6 +1101,8 @@ QString PacketList::getFilterFromRowAndColumn()
         }
 
         epan_dissect_cleanup(&edt);
+        wtap_rec_cleanup(&rec);
+        ws_buffer_free(&buf);
     }
 
     return filter;
@@ -1197,13 +1207,15 @@ void PacketList::deleteAllPacketComments()
 
 void PacketList::setCaptureFile(capture_file *cf)
 {
-    if (cf) {
-        // We're opening. Restore our column widths.
-        header()->restoreState(column_state_);
-    }
     cap_file_ = cf;
-    if (cap_file_ && columns_changed_) {
-        columnsChanged();
+    if (cf) {
+        if (columns_changed_) {
+            columnsChanged();
+        } else {
+            // Restore columns widths and visibility.
+            header()->restoreState(column_state_);
+            setColumnVisibility();
+        }
     }
     packet_list_model_->setCaptureFile(cf);
     create_near_overlay_ = true;
@@ -1443,9 +1455,7 @@ void PacketList::headerMenuTriggered()
     case caResolveNames:
         set_column_resolved(header_ctx_column_, checked);
         packet_list_model_->resetColumns();
-        if (!prefs.gui_use_pref_save) {
-            prefs_main_write();
-        }
+        prefs_main_write();
         redraw = true;
         break;
     case caResizeToContents:
@@ -1457,18 +1467,14 @@ void PacketList::headerMenuTriggered()
     case caHideColumn:
         set_column_visible(header_ctx_column_, FALSE);
         hideColumn(header_ctx_column_);
-        if (!prefs.gui_use_pref_save) {
-            prefs_main_write();
-        }
+        prefs_main_write();
         break;
     case caRemoveColumn:
     {
         if (header()->count() > 2) {
             column_prefs_remove_nth(header_ctx_column_);
             columnsChanged();
-            if (!prefs.gui_use_pref_save) {
-                prefs_main_write();
-            }
+            prefs_main_write();
         }
         break;
     }
@@ -1494,9 +1500,7 @@ void PacketList::columnVisibilityTriggered()
     if (ha->isChecked()) {
         setRecentColumnWidth(col);
     }
-    if (!prefs.gui_use_pref_save) {
-        prefs_main_write();
-    }
+    prefs_main_write();
 }
 
 void PacketList::sectionResized(int col, int, int new_width)
@@ -1573,9 +1577,7 @@ void PacketList::sectionMoved(int logicalIndex, int oldVisualIndex, int newVisua
         header()->resizeSection(i, saved_sizes[i]);
     }
 
-    if (!prefs.gui_use_pref_save) {
-        prefs_main_write();
-    }
+    prefs_main_write();
 
     wsApp->emitAppSignal(WiresharkApplication::ColumnsChanged);
 

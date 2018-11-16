@@ -114,6 +114,20 @@ static uat_t         *static_addr_uat  = NULL;
 static static_addr_t *static_addrs     = NULL;
 static guint          num_static_addrs = 0;
 
+static void*
+addr_uat_copy_cb(void *dest, const void *source, size_t len _U_)
+{
+    const static_addr_t* o = (const static_addr_t*)source;
+    static_addr_t* d = (static_addr_t*)dest;
+
+    d->eui64 = (guchar *)g_memdup(o->eui64, o->eui64_len);
+    d->eui64_len = o->eui64_len;
+    d->addr16 = o->addr16;
+    d->pan = o->pan;
+
+    return dest;
+}
+
 /* Sanity-checks a UAT record. */
 static gboolean
 addr_uat_update_cb(void *r, char **err)
@@ -136,6 +150,13 @@ addr_uat_update_cb(void *r, char **err)
     }
     return TRUE;
 } /* ieee802154_addr_uat_update_cb */
+
+static void
+addr_uat_free_cb(void *r)
+{
+    static_addr_t *rec = (static_addr_t *)r;
+    g_free(rec->eui64);
+}
 
 /* Field callbacks. */
 UAT_HEX_CB_DEF(addr_uat, addr16, static_addr_t)
@@ -300,6 +321,7 @@ static int hf_ieee802154_security = -1;
 static int hf_ieee802154_pending = -1;
 static int hf_ieee802154_ack_request = -1;
 static int hf_ieee802154_pan_id_compression = -1;
+static int hf_ieee802154_fcf_reserved = -1;
 static int hf_ieee802154_seqno_suppression = -1;
 static int hf_ieee802154_ie_present = -1;
 static int hf_ieee802154_src_addr_mode = -1;
@@ -958,6 +980,7 @@ dissect_ieee802154_fcf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, ieee
         &hf_ieee802154_pending,
         &hf_ieee802154_ack_request,
         &hf_ieee802154_pan_id_compression,
+        &hf_ieee802154_fcf_reserved,
         &hf_ieee802154_seqno_suppression,
         &hf_ieee802154_ie_present,
         &hf_ieee802154_dst_addr_mode,
@@ -2827,11 +2850,8 @@ dissect_hie_time_correction(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *i
 static int
 dissect_hie_global_time(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
 {
-    nstime_t ts;
     proto_tree *subtree = ieee802154_create_hie_tree(tvb, tree, hf_ieee802154_hie_global_time, ett_ieee802154_hie_global_time);
-    ts.secs = tvb_get_letohl(tvb, 2);
-    ts.nsecs = 0;
-    proto_tree_add_time(subtree, hf_ieee802154_hie_global_time_value, tvb, 2, 4, &ts);
+    proto_tree_add_item(subtree, hf_ieee802154_hie_global_time_value, tvb, 2, 4, ENC_TIME_SECS|ENC_LITTLE_ENDIAN);
     return 2 + 4;
 }
 
@@ -3196,7 +3216,7 @@ dissect_ieee802154_payload_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
         volatile int consumed = 0;
         guint16 ie_header = tvb_get_letohs(tvb, offset);
         guint16 id = (guint16) ((ie_header & IEEE802154_PAYLOAD_IE_ID_MASK) >> 11);
-        guint16 length = (guint16) (ie_header & IEEE802154_PAYLOAD_IE_LENGTH_MASK);
+        volatile guint16 length = (guint16) (ie_header & IEEE802154_PAYLOAD_IE_LENGTH_MASK);
         tvbuff_t *ie_tvb = tvb_new_subset_length(tvb, offset, 2 + length);
 
         if (id == IEEE802154_PAYLOAD_IE_TERMINATION) {
@@ -4306,6 +4326,10 @@ void proto_register_ieee802154(void)
         { "PAN ID Compression",             "wpan.pan_id_compression", FT_BOOLEAN, 16, NULL, IEEE802154_FCF_PAN_ID_COMPRESSION,
             "Whether this packet contains the PAN ID or not.", HFILL }},
 
+        { &hf_ieee802154_fcf_reserved,
+        { "Reserved",                       "wpan.fcf.reserved", FT_BOOLEAN, 16, NULL, 0x0080,
+            NULL, HFILL }},
+
         { &hf_ieee802154_seqno_suppression,
         { "Sequence Number Suppression",    "wpan.seqno_suppression", FT_BOOLEAN, 16, NULL, IEEE802154_FCF_SEQNO_SUPPRESSION,
             "Whether this packet contains the Sequence Number or not.", HFILL }},
@@ -5273,9 +5297,9 @@ void proto_register_ieee802154(void)
             &num_static_addrs,          /* numitems_ptr */
             UAT_AFFECTS_DISSECTION,     /* affects dissection of packets, but not set of named fields */
             NULL,                       /* help */
-            NULL,                       /* copy callback */
+            addr_uat_copy_cb,           /* copy callback */
             addr_uat_update_cb,         /* update callback */
-            NULL,                       /* free callback */
+            addr_uat_free_cb,           /* free callback */
             NULL,                       /* post update callback */
             NULL,                       /* reset callback */
             addr_uat_flds);             /* UAT field definitions */

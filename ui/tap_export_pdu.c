@@ -41,7 +41,6 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
 
     if(exp_pdu_data->tlv_buffer_len > 0){
         memcpy(packet_buf, exp_pdu_data->tlv_buffer, exp_pdu_data->tlv_buffer_len);
-        g_free(exp_pdu_data->tlv_buffer);
     }
     if(exp_pdu_data->tvb_captured_length > 0){
         tvb_memcpy(exp_pdu_data->pdu_tvb, packet_buf+exp_pdu_data->tlv_buffer_len, 0, exp_pdu_data->tvb_captured_length);
@@ -90,8 +89,6 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, char *comment)
 
     /* pcapng defs */
     wtap_block_t                 shb_hdr;
-    GArray                      *shb_hdrs = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
-    wtapng_iface_descriptions_t *idb_inf;
     wtap_block_t                 int_data;
     wtapng_if_descr_mandatory_t *int_data_mand;
     GString                     *os_info_str;
@@ -125,8 +122,8 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, char *comment)
     wtap_block_add_string_option_format(shb_hdr, OPT_SHB_USERAPPL, "Wireshark %s", get_ws_vcs_version_info());
 
     /* Create fake IDB info */
-    idb_inf = g_new(wtapng_iface_descriptions_t,1);
-    idb_inf->interface_data = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
+    exp_pdu_tap_data->idb_inf = g_new(wtapng_iface_descriptions_t,1);
+    exp_pdu_tap_data->idb_inf->interface_data = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
 
     /* create the fake interface data */
     int_data = wtap_block_create(WTAP_BLOCK_IF_DESCR);
@@ -138,13 +135,24 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, char *comment)
     wtap_block_add_string_option(int_data, OPT_IDB_NAME, "Fake IF, PDU->Export", strlen("Fake IF, PDU->Export"));
     wtap_block_add_uint8_option(int_data, OPT_IDB_TSRESOL, 9);
 
-    g_array_append_val(idb_inf->interface_data, int_data);
+    g_array_append_val(exp_pdu_tap_data->idb_inf->interface_data, int_data);
 
-    g_array_append_val(shb_hdrs, shb_hdr);
+    exp_pdu_tap_data->shb_hdrs = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
+    g_array_append_val(exp_pdu_tap_data->shb_hdrs, shb_hdr);
 
-    /* Use a random name for the temporary import buffer */
-    exp_pdu_tap_data->wdh = wtap_dump_fdopen_ng(fd, WTAP_FILE_TYPE_SUBTYPE_PCAPNG, WTAP_ENCAP_WIRESHARK_UPPER_PDU, WTAP_MAX_PACKET_SIZE_STANDARD, FALSE,
-        shb_hdrs, idb_inf, NULL, &err);
+    const wtap_dump_params params = {
+        .encap = WTAP_ENCAP_WIRESHARK_UPPER_PDU,
+        .snaplen = WTAP_MAX_PACKET_SIZE_STANDARD,
+        .shb_hdrs = exp_pdu_tap_data->shb_hdrs,
+        .idb_inf = exp_pdu_tap_data->idb_inf,
+    };
+    if (fd == 1) {
+        exp_pdu_tap_data->wdh = wtap_dump_open_stdout(WTAP_FILE_TYPE_SUBTYPE_PCAPNG,
+                WTAP_UNCOMPRESSED, &params, &err);
+    } else {
+        exp_pdu_tap_data->wdh = wtap_dump_fdopen(fd, WTAP_FILE_TYPE_SUBTYPE_PCAPNG,
+                WTAP_UNCOMPRESSED, &params, &err);
+    }
     if (exp_pdu_tap_data->wdh == NULL) {
         g_assert(err != 0);
         return err;
@@ -159,6 +167,9 @@ exp_pdu_close(exp_pdu_t *exp_pdu_tap_data)
     int err = 0;
     if (!wtap_dump_close(exp_pdu_tap_data->wdh, &err))
         g_assert(err != 0);
+
+    wtap_block_array_free(exp_pdu_tap_data->shb_hdrs);
+    wtap_free_idb_info(exp_pdu_tap_data->idb_inf);
 
     remove_tap_listener(exp_pdu_tap_data);
     return err;
@@ -181,6 +192,7 @@ exp_pdu_pre_open(const char *tap_name, const char *filter, exp_pdu_t *exp_pdu_ta
                                          TL_REQUIRES_PROTO_TREE,  /* flags for the tap listener */
                                          NULL,
                                          export_pdu_packet,
+                                         NULL,
                                          NULL);
     if (error_string != NULL)
         return g_string_free(error_string, FALSE);

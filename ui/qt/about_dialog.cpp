@@ -29,7 +29,6 @@
 #endif
 
 #include "log.h"
-#include "epan/register.h"
 
 #include "ui/alert_box.h"
 #include "ui/last_open_dir.h"
@@ -62,6 +61,7 @@
 #include <QClipboard>
 #include <QMenu>
 #include <QFileInfo>
+#include <QMessageBox>
 
 AuthorListModel::AuthorListModel(QObject * parent) :
 AStringListListModel(parent)
@@ -84,7 +84,7 @@ AStringListListModel(parent)
         if ( line.startsWith("------") )
             continue;
 
-        if ( line == "Acknowledgements" )
+        if ( line.contains("Acknowledgements") )
         {
             readAck = true;
             continue;
@@ -92,7 +92,7 @@ AStringListListModel(parent)
         else if ( rx.indexIn(line) != -1 )
             appendRow( QStringList() << rx.cap(1).trimmed() << rx.cap(2).trimmed());
 
-        if ( readAck )
+        if ( readAck && (!line.isEmpty() || !acknowledgement_.isEmpty()) )
             acknowledgement_.append(QString("%1\n").arg(line));
     }
     f_authors.close();
@@ -456,8 +456,20 @@ void AboutDialog::urlDoubleClicked(const QModelIndex &idx)
     if ( urlText.isEmpty() )
         return;
 
-    QFileInfo fi (urlText);
-    if ( fi.isDir() && fi.exists() )
+    if ( ! QDir(urlText).exists() )
+    {
+        if ( QMessageBox::question(this, tr("The directory does not exist"),
+                          QString(tr("Should the directory %1 be created?").arg(urlText)) ) == QMessageBox::Yes )
+        {
+            if ( ! QDir().mkdir(urlText) )
+            {
+                QMessageBox::warning(this, tr("The directory could not be created"),
+                                     QString(tr("The directory %1 could not be created!").arg(urlText)));
+            }
+        }
+    }
+
+    if ( QDir(urlText).exists() )
     {
         QUrl url = QUrl::fromLocalFile(urlText);
         if ( url.isValid() )

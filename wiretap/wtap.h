@@ -29,7 +29,7 @@ extern "C" {
  * what is contained in the packet trace file.
  *
  * WTAP_ENCAP_PER_PACKET is a value passed to "wtap_dump_open()" or
- * "wtap_dump_fd_open()" to indicate that there is no single encapsulation
+ * "wtap_dump_fdopen()" to indicate that there is no single encapsulation
  * type for all packets in the file; this may cause those routines to
  * fail if the capture file format being written can't support that.
  * It's also returned by "wtap_file_encap()" for capture files that
@@ -282,6 +282,8 @@ extern "C" {
 #define WTAP_ENCAP_DOCSIS31_XRA31               199
 #define WTAP_ENCAP_DPAUXMON                     200
 #define WTAP_ENCAP_RUBY_MARSHAL                 201
+#define WTAP_ENCAP_RFC7468                      202
+#define WTAP_ENCAP_SYSTEMD_JOURNAL              203 /* Event, not a packet */
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -374,8 +376,9 @@ extern "C" {
 #define WTAP_FILE_TYPE_SUBTYPE_NETTRACE_3GPP_32_423          79
 #define WTAP_FILE_TYPE_SUBTYPE_MPLOG                         80
 #define WTAP_FILE_TYPE_SUBTYPE_DPA400                        81
-#define WTAP_FILE_TYPE_SUBTYPE_PEM                           82
+#define WTAP_FILE_TYPE_SUBTYPE_RFC7468                       82
 #define WTAP_FILE_TYPE_SUBTYPE_RUBY_MARSHAL                  83
+#define WTAP_FILE_TYPE_SUBTYPE_SYSTEMD_JOURNAL               84
 
 #define WTAP_NUM_FILE_TYPES_SUBTYPES  wtap_get_num_file_types_subtypes()
 
@@ -428,10 +431,11 @@ struct eth_phdr {
     gint   fcs_len;  /* Number of bytes of FCS - -1 means "unknown" */
 };
 
-/* Packet "pseudo-header" information for X.25 capture files. */
+/* Packet "pseudo-header" information for capture files for traffic
+   between DTE and DCE. */
 #define FROM_DCE 0x80
-struct x25_phdr {
-    guint8  flags;   /* ENCAP_LAPB, ENCAP_V120 : 1st bit means From DCE */
+struct dte_dce_phdr {
+    guint8  flags;   /* ENCAP_LAPB, ENCAP_V120, ENCAP_FRELAY: 1st bit means From DCE */
 };
 
 /* Packet "pseudo-header" information for ISDN capture files. */
@@ -556,14 +560,9 @@ struct ascend_phdr {
     guint32 task;                         /* Task number */
 };
 
-/* Also defined in epan/packet_info.h */
-#define P2P_DIR_UNKNOWN -1
-#define P2P_DIR_SENT     0
-#define P2P_DIR_RECV     1
-
 /* Packet "pseudo-header" for point-to-point links with direction flags. */
 struct p2p_phdr {
-    int sent; /* TRUE=sent, FALSE=received, -1=unknown*/
+    gboolean sent;
 };
 
 /*
@@ -796,10 +795,10 @@ union ieee_802_11_phy_info {
 };
 
 struct ieee_802_11_phdr {
-    gint     fcs_len;        /* Number of bytes of FCS - -1 means "unknown" */
-    gboolean decrypted;      /* TRUE if frame is decrypted even if "protected" bit is set */
-    gboolean datapad;        /* TRUE if frame has padding between 802.11 header and payload */
-    guint    phy;            /* PHY type */
+    gint     fcs_len;          /* Number of bytes of FCS - -1 means "unknown" */
+    gboolean decrypted;        /* TRUE if frame is decrypted even if "protected" bit is set */
+    gboolean datapad;          /* TRUE if frame has padding between 802.11 header and payload */
+    guint    phy;              /* PHY type */
     union ieee_802_11_phy_info phy_info;
 
     /* Which of this information is present? */
@@ -810,19 +809,25 @@ struct ieee_802_11_phdr {
     guint    has_noise_percent:1;
     guint    has_signal_dbm:1;
     guint    has_noise_dbm:1;
+    guint    has_signal_db:1;
+    guint    has_noise_db:1;
     guint    has_tsf_timestamp:1;
-    guint    has_aggregate_info:1;    /* aggregate flags and ID */
+    guint    has_aggregate_info:1;        /* aggregate flags and ID */
+    guint    has_zero_length_psdu_type:1; /* zero-length PSDU type */
 
-    guint16  channel;        /* Channel number */
-    guint32  frequency;      /* Channel center frequency */
-    guint16  data_rate;      /* Data rate, in .5 Mb/s units */
-    guint8   signal_percent; /* Signal level, as a percentage */
-    guint8   noise_percent;  /* Noise level, as a percentage */
-    gint8    signal_dbm;     /* Signal level, in dBm */
-    gint8    noise_dbm;      /* Noise level, in dBm */
+    guint16  channel;                     /* Channel number */
+    guint32  frequency;                   /* Channel center frequency */
+    guint16  data_rate;                   /* Data rate, in .5 Mb/s units */
+    guint8   signal_percent;              /* Signal level, as a percentage */
+    guint8   noise_percent;               /* Noise level, as a percentage */
+    gint8    signal_dbm;                  /* Signal level, in dBm */
+    gint8    noise_dbm;                   /* Noise level, in dBm */
+    guint8   signal_db;                   /* Signal level, in dB from an arbitrary point */
+    guint8   noise_db;                    /* Noise level, in dB from an arbitrary point */
     guint64  tsf_timestamp;
-    guint32  aggregate_flags; /* A-MPDU flags */
-    guint32  aggregate_id;    /* ID for A-MPDU reassembly */
+    guint32  aggregate_flags;             /* A-MPDU flags */
+    guint32  aggregate_id;                /* ID for A-MPDU reassembly */
+    guint8   zero_length_psdu_type;       /* type of zero-length PSDU */
 };
 
 /*
@@ -830,6 +835,13 @@ struct ieee_802_11_phdr {
  */
 #define PHDR_802_11_LAST_PART_OF_A_MPDU    0x00000001 /* this is the last part of an A-MPDU */
 #define PHDR_802_11_A_MPDU_DELIM_CRC_ERROR 0x00000002 /* delimiter CRC error after this part */
+
+/*
+ * Zero-length PSDU types.
+ */
+#define PHDR_802_11_SOUNDING_PSDU                 0 /* sounding PPDU */
+#define PHDR_802_11_DATA_NOT_CAPTURED             1 /* data not captured, (e.g. multi-user PPDU) */
+#define PHDR_802_11_0_LENGTH_PSDU_VENDOR_SPECIFIC 0xff
 
 /* Packet "pseudo-header" for the output from CoSine L2 debug output. */
 
@@ -1112,7 +1124,7 @@ struct nstr_phdr {
     guint8 nicno_len;
     guint8 dir_offset;
     guint8 dir_len;
-    guint8 eth_offset;
+    guint16 eth_offset;
     guint8 pcb_offset;
     guint8 l_pcb_offset;
     guint8 rec_type;
@@ -1147,10 +1159,9 @@ struct logcat_phdr {
 /* Packet "pseudo-header" information for header data from NetMon files. */
 
 struct netmon_phdr {
-    guint32 titleLength;    /* Number of bytes in the comment title */
-    guint8* title;          /* Comment title */
+    guint8* title;          /* Comment title, as a null-terminated UTF-8 string */
     guint32 descLength;     /* Number of bytes in the comment description */
-    guint8* description;    /* Comment description */
+    guint8* description;    /* Comment description, in ASCII RTF */
     guint sub_encap;        /* "Real" encap value for the record that will be used once pseudo header data is display */
     union sub_wtap_pseudo_header {
         struct eth_phdr     eth;
@@ -1161,7 +1172,7 @@ struct netmon_phdr {
 
 union wtap_pseudo_header {
     struct eth_phdr     eth;
-    struct x25_phdr     x25;
+    struct dte_dce_phdr dte_dce;
     struct isdn_phdr    isdn;
     struct atm_phdr     atm;
     struct ascend_phdr  ascend;
@@ -1261,6 +1272,7 @@ typedef struct {
 
 typedef struct {
     guint     record_type;      /* the type of record this is - file type-specific value */
+    guint32   record_len;       /* length of the record */
 } wtap_ft_specific_header;
 
 typedef struct {
@@ -1408,6 +1420,29 @@ typedef struct addrinfo_lists {
     GList      *ipv4_addr_list; /**< A list of resolved hashipv4_t*/
     GList      *ipv6_addr_list; /**< A list of resolved hashipv6_t*/
 } addrinfo_lists_t;
+
+/**
+ * Parameters for various wtap_dump_* functions, specifying per-file
+ * information. The structure itself is no longer used after returning
+ * from wtap_dump_*, but its pointer fields must remain valid until
+ * wtap_dump_close is called.
+ *
+ * @note The shb_hdr, idb_inf, and nrb_hdr arguments will be used until
+ *     wtap_dump_close() is called, but will not be free'd by the dumper. If
+ *     you created them, you must free them yourself after wtap_dump_close().
+ *
+ * @see wtap_dump_params_init, wtap_dump_params_cleanup.
+ */
+typedef struct wtap_dump_params {
+    int         encap;                      /**< Per-file packet encapsulation, or WTAP_ENCAP_PER_PACKET */
+    int         snaplen;                    /**< Per-file snapshot length (what if it's per-interface?) */
+    GArray     *shb_hdrs;                   /**< The section header block(s) information, or NULL. */
+    wtapng_iface_descriptions_t *idb_inf;   /**< The interface description information, or NULL. */
+    GArray     *nrb_hdrs;                   /**< The name resolution blocks(s) comment/custom_opts information, or NULL. */
+} wtap_dump_params;
+
+/* Zero-initializer for wtap_dump_params. */
+#define WTAP_DUMP_PARAMS_INIT {.snaplen=0}
 
 struct wtap_dumper;
 
@@ -1655,6 +1690,15 @@ void wtap_rec_init(wtap_rec *rec);
 WS_DLL_PUBLIC
 void wtap_rec_cleanup(wtap_rec *rec);
 
+/*
+ * Types of compression for a file, including "none".
+ */
+typedef enum {
+    WTAP_UNCOMPRESSED,
+    WTAP_GZIP_COMPRESSED,
+    WTAP_NUM_COMPRESSION_TYPES
+} wtap_compression_type;
+
 /*** get various information snippets about the current file ***/
 
 /** Return an approximation of the amount of data we've read sequentially
@@ -1664,7 +1708,9 @@ gint64 wtap_read_so_far(wtap *wth);
 WS_DLL_PUBLIC
 gint64 wtap_file_size(wtap *wth, int *err);
 WS_DLL_PUBLIC
-gboolean wtap_iscompressed(wtap *wth);
+wtap_compression_type wtap_get_compression_type(wtap *wth);
+WS_DLL_PUBLIC
+const char *wtap_compression_type_description(wtap_compression_type compression_type);
 WS_DLL_PUBLIC
 guint wtap_snapshot_length(wtap *wth); /* per file */
 WS_DLL_PUBLIC
@@ -1838,116 +1884,87 @@ gboolean wtap_dump_has_name_resolution(int filetype);
 WS_DLL_PUBLIC
 gboolean wtap_dump_supports_comment_types(int filetype, guint32 comment_types);
 
+/**
+ * Initialize the per-file information based on an existing file. Its
+ * contents must be freed according to the requirements of wtap_dump_params.
+ *
+ * @param params The parameters for wtap_dump_* to initialize.
+ * @param wth The wiretap session.
+ */
 WS_DLL_PUBLIC
-wtap_dumper* wtap_dump_open(const char *filename, int file_type_subtype, int encap,
-    int snaplen, gboolean compressed, int *err);
+void wtap_dump_params_init(wtap_dump_params *params, wtap *wth);
+
+/**
+ * Free memory associated with the wtap_dump_params when it is no longer in
+ * use by wtap_dumper.
+ *
+ * @param params The parameters as initialized by wtap_dump_params_init.
+ */
+WS_DLL_PUBLIC
+void wtap_dump_params_cleanup(wtap_dump_params *params);
 
 /**
  * @brief Opens a new capture file for writing.
  *
- * @note The shb_hdr, idb_inf, and nrb_hdr arguments will be used until
- *     wtap_dump_close() is called, but will not be free'd by the dumper. If
- *     you created them, you must free them yourself after wtap_dump_close().
- *
  * @param filename The new file's name.
  * @param file_type_subtype The WTAP_FILE_TYPE_SUBTYPE_XXX file type.
- * @param encap The WTAP_ENCAP_XXX encapsulation type (WTAP_ENCAP_PER_PACKET for multi)
- * @param snaplen The maximum packet capture length.
- * @param compressed True if file should be compressed.
- * @param shb_hdrs The section header block(s) information, or NULL.
- * @param idb_inf The interface description information, or NULL.
- * @param nrb_hdrs The name resolution blocks(s) comment/custom_opts information, or NULL.
+ * @param compression_type Type of compression to use when writing, if any
+ * @param params The per-file information for this file.
  * @param[out] err Will be set to an error code on failure.
  * @return The newly created dumper object, or NULL on failure.
  */
 WS_DLL_PUBLIC
-wtap_dumper* wtap_dump_open_ng(const char *filename, int file_type_subtype, int encap,
-    int snaplen, gboolean compressed, GArray* shb_hdrs, wtapng_iface_descriptions_t *idb_inf,
-    GArray* nrb_hdrs, int *err);
-
-WS_DLL_PUBLIC
-wtap_dumper* wtap_dump_open_tempfile(char **filenamep, const char *pfx,
-    int file_type_subtype, int encap, int snaplen, gboolean compressed,
+wtap_dumper* wtap_dump_open(const char *filename, int file_type_subtype,
+    wtap_compression_type compression_type, const wtap_dump_params *params,
     int *err);
 
 /**
  * @brief Creates a dumper for a temporary file.
  *
- * @note The shb_hdr, idb_inf, and nrb_hdr arguments will be used until
- *     wtap_dump_close() is called, but will not be free'd by the dumper. If
- *     you created them, you must free them yourself after wtap_dump_close().
- *
  * @param filenamep Points to a pointer that's set to point to the
  *        pathname of the temporary file; it's allocated with g_malloc()
  * @param pfx A string to be used as the prefix for the temporary file name
  * @param file_type_subtype The WTAP_FILE_TYPE_SUBTYPE_XXX file type.
- * @param encap The WTAP_ENCAP_XXX encapsulation type (WTAP_ENCAP_PER_PACKET for multi)
- * @param snaplen The maximum packet capture length.
- * @param compressed True if file should be compressed.
- * @param shb_hdrs The section header block(s) information, or NULL.
- * @param idb_inf The interface description information, or NULL.
- * @param nrb_hdrs The name resolution blocks(s) comment/custom_opts information, or NULL.
+ * @param compression_type Type of compression to use when writing, if any
+ * @param params The per-file information for this file.
  * @param[out] err Will be set to an error code on failure.
  * @return The newly created dumper object, or NULL on failure.
  */
 WS_DLL_PUBLIC
-wtap_dumper* wtap_dump_open_tempfile_ng(char **filenamep, const char *pfx,
-    int file_type_subtype, int encap, int snaplen, gboolean compressed,
-    GArray* shb_hdrs, wtapng_iface_descriptions_t *idb_inf,
-    GArray* nrb_hdrs, int *err);
-
-WS_DLL_PUBLIC
-wtap_dumper* wtap_dump_fdopen(int fd, int file_type_subtype, int encap, int snaplen,
-    gboolean compressed, int *err);
+wtap_dumper* wtap_dump_open_tempfile(char **filenamep, const char *pfx,
+    int file_type_subtype, wtap_compression_type compression_type,
+    const wtap_dump_params *params, int *err);
 
 /**
  * @brief Creates a dumper for an existing file descriptor.
  *
- * @note The shb_hdr, idb_inf, and nrb_hdr arguments will be used until
- *     wtap_dump_close() is called, but will not be free'd by the dumper. If
- *     you created them, you must free them yourself after wtap_dump_close().
- *
  * @param fd The file descriptor for which the dumper should be created.
  * @param file_type_subtype The WTAP_FILE_TYPE_SUBTYPE_XXX file type.
- * @param encap The WTAP_ENCAP_XXX encapsulation type (WTAP_ENCAP_PER_PACKET for multi)
- * @param snaplen The maximum packet capture length.
- * @param compressed True if file should be compressed.
- * @param shb_hdrs The section header block(s) information, or NULL.
- * @param idb_inf The interface description information, or NULL.
- * @param nrb_hdrs The name resolution blocks(s) comment/custom_opts information, or NULL.
+ * @param compression_type Type of compression to use when writing, if any
+ * @param params The per-file information for this file.
  * @param[out] err Will be set to an error code on failure.
  * @return The newly created dumper object, or NULL on failure.
  */
 WS_DLL_PUBLIC
-wtap_dumper* wtap_dump_fdopen_ng(int fd, int file_type_subtype, int encap, int snaplen,
-                gboolean compressed, GArray* shb_hdrs, wtapng_iface_descriptions_t *idb_inf,
-                GArray* nrb_hdrs, int *err);
-
-WS_DLL_PUBLIC
-wtap_dumper* wtap_dump_open_stdout(int file_type_subtype, int encap, int snaplen,
-    gboolean compressed, int *err);
+wtap_dumper* wtap_dump_fdopen(int fd, int file_type_subtype,
+    wtap_compression_type compression_type, const wtap_dump_params *params,
+    int *err);
 
 /**
  * @brief Creates a dumper for the standard output.
  *
- * @note The shb_hdr, idb_inf, and nrb_hdr arguments will be used until
- *     wtap_dump_close() is called, but will not be free'd by the dumper. If
- *     you created them, you must free them yourself after wtap_dump_close().
- *
  * @param file_type_subtype The WTAP_FILE_TYPE_SUBTYPE_XXX file type.
  * @param encap The WTAP_ENCAP_XXX encapsulation type (WTAP_ENCAP_PER_PACKET for multi)
  * @param snaplen The maximum packet capture length.
- * @param compressed True if file should be compressed.
- * @param shb_hdrs The section header block(s) information, or NULL.
- * @param idb_inf The interface description information, or NULL.
- * @param nrb_hdrs The name resolution blocks(s) comment/custom_opts information, or NULL.
+ * @param compression_type Type of compression to use when writing, if any
+ * @param params The per-file information for this file.
  * @param[out] err Will be set to an error code on failure.
  * @return The newly created dumper object, or NULL on failure.
  */
 WS_DLL_PUBLIC
-wtap_dumper* wtap_dump_open_stdout_ng(int file_type_subtype, int encap, int snaplen,
-                gboolean compressed, GArray* shb_hdrs, wtapng_iface_descriptions_t *idb_inf,
-                GArray* nrb_hdrs, int *err);
+wtap_dumper* wtap_dump_open_stdout(int file_type_subtype,
+    wtap_compression_type compression_type, const wtap_dump_params *params,
+    int *err);
 
 WS_DLL_PUBLIC
 gboolean wtap_dump(wtap_dumper *, const wtap_rec *, const guint8 *,
@@ -2004,6 +2021,8 @@ WS_DLL_PUBLIC
 const char *wtap_default_file_extension(int filetype);
 WS_DLL_PUBLIC
 GSList *wtap_get_file_extensions_list(int filetype, gboolean include_compressed);
+WS_DLL_PUBLIC
+GSList *wtap_get_all_file_extensions_list(void);
 WS_DLL_PUBLIC
 void wtap_free_extensions_list(GSList *extensions);
 

@@ -70,9 +70,6 @@
 #include "ui/util.h"
 #include "ui/dissect_opts.h"
 #include "ui/failure_message.h"
-#include "epan/register.h"
-#include "conditions.h"
-#include "capture_stop_conditions.h"
 #include <epan/epan_dissect.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/timestamp.h>
@@ -191,7 +188,7 @@ print_usage(FILE *output)
     fprintf(output, "  -m                       virtual memory limit, in bytes\n");
 #endif
     fprintf(output, "  -n                       disable all name resolution (def: all enabled)\n");
-    fprintf(output, "  -N <name resolve flags>  enable specific name resolution(s): \"mnNtd\"\n");
+    fprintf(output, "  -N <name resolve flags>  enable specific name resolution(s): \"mnNtdv\"\n");
     fprintf(output, "  -p                       use the system's packet header format\n");
     fprintf(output, "                           (which may have 64-bit timestamps)\n");
     fprintf(output, "  -R <read filter>         packet filter in Wireshark display filter syntax\n");
@@ -406,8 +403,8 @@ set_link_type(const char *lt_arg) {
     return FALSE;
 }
 
-int
-main(int argc, char *argv[])
+static int
+real_main(int argc, char *argv[])
 {
     GString             *comp_info_str;
     GString             *runtime_info_str;
@@ -460,7 +457,6 @@ main(int argc, char *argv[])
         get_ws_vcs_version_info(), comp_info_str->str, runtime_info_str->str);
 
 #ifdef _WIN32
-    arg_list_utf_16to8(argc, argv);
     create_app_running_mutex();
 #endif /* _WIN32 */
 
@@ -520,8 +516,7 @@ main(int argc, char *argv[])
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
-    if (!epan_init(register_all_protocols, register_all_protocol_handoffs,
-                   NULL, NULL)) {
+    if (!epan_init(NULL, NULL, TRUE)) {
         ret = INIT_ERROR;
         goto clean_exit;
     }
@@ -697,8 +692,6 @@ main(int argc, char *argv[])
             case 'v':        /* Show version and exit */
             {
                 show_version("Rawshark (Wireshark)", comp_info_str, runtime_info_str);
-                g_string_free(comp_info_str, TRUE);
-                g_string_free(runtime_info_str, TRUE);
                 goto clean_exit;
             }
             default:
@@ -825,12 +818,32 @@ main(int argc, char *argv[])
     }
 
 clean_exit:
+    g_free(pipe_name);
+    g_string_free(comp_info_str, TRUE);
+    g_string_free(runtime_info_str, TRUE);
     epan_free(cfile.epan);
     epan_cleanup();
     extcap_cleanup();
     wtap_cleanup();
     return ret;
 }
+
+#ifdef _WIN32
+int
+wmain(int argc, wchar_t *wc_argv[])
+{
+    char **argv;
+
+    argv = arg_list_utf_16to8(argc, wc_argv);
+    return real_main(argc, argv);
+}
+#else
+int
+main(int argc, char *argv[])
+{
+    return real_main(argc, argv);
+}
+#endif
 
 /**
  * Read data from a raw pipe.  The "raw" data consists of a libpcap
@@ -1197,7 +1210,7 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
                                 DISSECTOR_ASSERT(!hfinfo->bitmask);
                                 svalue = fvalue_get_sinteger(&finfo->value);
                                 if (hfinfo->display & BASE_RANGE_STRING) {
-                                    g_string_append(label_s, rval_to_str_const(svalue, RVALS(hfinfo->strings), "Unknown"));
+                                    g_string_append(label_s, rval_to_str_const(svalue, (const range_string *) hfinfo->strings, "Unknown"));
                                 } else if (hfinfo->display & BASE_EXT_STRING) {
                                     g_string_append(label_s, val_to_str_ext_const(svalue, (value_string_ext *) hfinfo->strings, "Unknown"));
                                 } else {
@@ -1221,7 +1234,7 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
                                 DISSECTOR_ASSERT(!hfinfo->bitmask);
                                 uvalue = fvalue_get_uinteger(&finfo->value);
                                 if (!hfinfo->bitmask && hfinfo->display & BASE_RANGE_STRING) {
-                                    g_string_append(label_s, rval_to_str_const(uvalue, RVALS(hfinfo->strings), "Unknown"));
+                                    g_string_append(label_s, rval_to_str_const(uvalue, (const range_string *) hfinfo->strings, "Unknown"));
                                 } else if (hfinfo->display & BASE_EXT_STRING) {
                                     g_string_append(label_s, val_to_str_ext_const(uvalue, (value_string_ext *) hfinfo->strings, "Unknown"));
                                 } else {
@@ -1321,7 +1334,7 @@ protocolinfo_init(char *field)
     rs->filter=field;
     rs->cmd_line_index = g_cmd_line_index++;
 
-    error_string=register_tap_listener("frame", rs, rs->filter, TL_REQUIRES_PROTO_TREE, NULL, protocolinfo_packet, NULL);
+    error_string=register_tap_listener("frame", rs, rs->filter, TL_REQUIRES_PROTO_TREE, NULL, protocolinfo_packet, NULL, NULL);
     if(error_string){
         /* error, we failed to attach to the tap. complain and clean up */
         fprintf(stderr, "rawshark: Couldn't register field extraction tap: %s\n",

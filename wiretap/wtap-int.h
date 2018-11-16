@@ -88,7 +88,7 @@ struct wtap_dumper {
     int                     file_type_subtype;
     int                     snaplen;
     int                     encap;
-    gboolean                compressed;
+    wtap_compression_type   compression_type;
     gboolean                needs_reload;   /* TRUE if the file requires re-loading after saving with wtap */
     gint64                  bytes_dumped;
 
@@ -309,6 +309,19 @@ gboolean
 wtap_read_packet_bytes(FILE_T fh, Buffer *buf, guint length, int *err,
     gchar **err_info);
 
+/*
+ * Implementation of wth->subtype_read that reads the full file contents
+ * as a single packet.
+ */
+gboolean
+wtap_full_file_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset);
+
+/*
+ * Implementation of wth->subtype_seek_read that reads the full file contents
+ * as a single packet.
+ */
+gboolean
+wtap_full_file_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf, int *err, gchar **err_info);
 #endif /* __WTAP_INT_H__ */
 
 /*

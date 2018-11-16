@@ -23,27 +23,7 @@ import unittest
 # - Add a subprocesstest.SkipUnlessCapture decorator?
 # - Try to catch crashes? See the comments below in waitProcess.
 
-# XXX This should probably be in config.py and settable from
-# the command line.
-if sys.version_info[0] >= 3:
-    process_timeout = 300 # Seconds
-
-def capture_command(cmd, *args, **kwargs):
-    '''Convert the supplied arguments into a command suitable for SubprocessTestCase.
-
-    If shell is true, return a string. Otherwise, return a list of arguments.'''
-    shell = kwargs.pop('shell', False)
-    if shell:
-        cap_cmd = ['"' + cmd + '"']
-    else:
-        cap_cmd = [cmd]
-    if cmd == config.cmd_wireshark:
-        cap_cmd += ('-o', 'gui.update.enabled:FALSE', '-k')
-    cap_cmd += args
-    if shell:
-        return ' '.join(cap_cmd)
-    else:
-        return cap_cmd
+process_timeout = 300 # Seconds
 
 def cat_dhcp_command(mode):
     '''Create a command string for dumping dhcp.pcap to stdout'''
@@ -51,7 +31,8 @@ def cat_dhcp_command(mode):
     sd_cmd = ''
     if sys.executable:
         sd_cmd = '"{}" '.format(sys.executable)
-    sd_cmd += os.path.join(config.this_dir, 'util_dump_dhcp_pcap.py ' + mode)
+    this_dir = os.path.dirname(__file__)
+    sd_cmd += os.path.join(this_dir, 'util_dump_dhcp_pcap.py ' + mode)
     return sd_cmd
 
 class LoggingPopen(subprocess.Popen):
@@ -67,39 +48,33 @@ class LoggingPopen(subprocess.Popen):
         # Make sure communicate() gives us bytes.
         kwargs['universal_newlines'] = False
         self.cmd_str = 'command ' + repr(proc_args)
-        super(LoggingPopen, self).__init__(proc_args, *args, **kwargs)
+        super().__init__(proc_args, *args, **kwargs)
         self.stdout_str = ''
         self.stderr_str = ''
 
     def wait_and_log(self):
         '''Wait for the process to finish and log its output.'''
-        # Wherein we navigate the Python 2 and 3 Unicode compatibility maze.
-        if sys.version_info[0] >= 3:
-            out_data, err_data = self.communicate(timeout=process_timeout)
-            out_log = out_data.decode('UTF-8', 'replace')
-            err_log = err_data.decode('UTF-8', 'replace')
-        else:
-            out_data, err_data = self.communicate()
-            out_log = unicode(out_data, 'UTF-8', 'replace')
-            err_log = unicode(err_data, 'UTF-8', 'replace')
+        out_data, err_data = self.communicate(timeout=process_timeout)
+        out_log = out_data.decode('UTF-8', 'replace')
+        err_log = err_data.decode('UTF-8', 'replace')
+        self.log_fd.flush()
+        self.log_fd.write('-- Begin stdout for {} --\n'.format(self.cmd_str))
+        self.log_fd.write(out_log)
+        self.log_fd.write('-- End stdout for {} --\n'.format(self.cmd_str))
+        self.log_fd.write('-- Begin stderr for {} --\n'.format(self.cmd_str))
+        self.log_fd.write(err_log)
+        self.log_fd.write('-- End stderr for {} --\n'.format(self.cmd_str))
+        self.log_fd.flush()
         # Throwing a UnicodeDecodeError exception here is arguably a good thing.
         self.stdout_str = out_data.decode('UTF-8', 'strict')
         self.stderr_str = err_data.decode('UTF-8', 'strict')
-        self.log_fd.flush()
-        self.log_fd.write(u'-- Begin stdout for {} --\n'.format(self.cmd_str))
-        self.log_fd.write(out_log)
-        self.log_fd.write(u'-- End stdout for {} --\n'.format(self.cmd_str))
-        self.log_fd.write(u'-- Begin stderr for {} --\n'.format(self.cmd_str))
-        self.log_fd.write(err_log)
-        self.log_fd.write(u'-- End stderr for {} --\n'.format(self.cmd_str))
-        self.log_fd.flush()
 
     def stop_process(self, kill=False):
         '''Stop the process immediately.'''
         if kill:
-            super(LoggingPopen, self).kill()
+            super().kill()
         else:
-            super(LoggingPopen, self).terminate()
+            super().terminate()
 
     def terminate(self):
         '''Terminate the process. Do not log its output.'''
@@ -114,7 +89,7 @@ class SubprocessTestCase(unittest.TestCase):
     '''Run a program and gather its stdout and stderr.'''
 
     def __init__(self, *args, **kwargs):
-        super(SubprocessTestCase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.exit_ok = 0
         self.exit_command_line = 1
         self.exit_error = 2
@@ -126,10 +101,7 @@ class SubprocessTestCase(unittest.TestCase):
         self.dump_files = []
 
     def log_fd_write_bytes(self, log_data):
-        if sys.version_info[0] >= 3:
-            self.log_fd.write(log_data)
-        else:
-            self.log_fd.write(unicode(log_data, 'UTF-8', 'replace'))
+        self.log_fd.write(log_data)
 
     def filename_from_id(self, filename):
         '''Generate a filename prefixed with our test ID.'''
@@ -145,6 +117,17 @@ class SubprocessTestCase(unittest.TestCase):
                 proc.kill()
             except:
                 pass
+
+    def _error_count(self, result):
+        if not result:
+            return 0
+        if hasattr(result, 'failures'):
+            # Python standard unittest runner
+            return len(result.failures) + len(result.errors)
+        if hasattr(result, '_excinfo'):
+            # pytest test runner
+            return len(result._excinfo or [])
+        self.fail("Unexpected test result %r" % result)
 
     def run(self, result=None):
         # Subclass run() so that we can do the following:
@@ -162,11 +145,9 @@ class SubprocessTestCase(unittest.TestCase):
         # to handle line endings in the future.
         self.log_fd = io.open(self.log_fname, 'w', encoding='UTF-8', newline='\n')
         self.cleanup_files.append(self.log_fname)
-        pre_run_problem_count = 0
-        if result:
-            pre_run_problem_count = len(result.failures) + len(result.errors)
+        pre_run_problem_count = self._error_count(result)
         try:
-            super(SubprocessTestCase, self).run(result=result)
+            super().run(result=result)
         except KeyboardInterrupt:
             # XXX This doesn't seem to work on Windows, which is where we need it the most.
             self.kill_processes()
@@ -176,7 +157,7 @@ class SubprocessTestCase(unittest.TestCase):
         self.kill_processes()
         self.log_fd.close()
         if result:
-            post_run_problem_count = len(result.failures) + len(result.errors)
+            post_run_problem_count = self._error_count(result)
             if pre_run_problem_count != post_run_problem_count:
                 self.dump_files.append(self.log_fname)
                 # Leave some evidence behind.
@@ -197,18 +178,17 @@ class SubprocessTestCase(unittest.TestCase):
 
         capinfos_args must be a sequence.
         Default cap_file is <test id>.testout.pcap.'''
+        # XXX convert users to use a new fixture instead of this function.
+        cmd_capinfos = self._fixture_request.getfixturevalue('cmd_capinfos')
         if not cap_file:
             cap_file = self.filename_from_id('testout.pcap')
-        self.log_fd.write(u'\nOutput of {0} {1}:\n'.format(config.cmd_capinfos, cap_file))
-        capinfos_cmd = [config.cmd_capinfos]
+        self.log_fd.write('\nOutput of {0} {1}:\n'.format(cmd_capinfos, cap_file))
+        capinfos_cmd = [cmd_capinfos]
         if capinfos_args is not None:
             capinfos_cmd += capinfos_args
         capinfos_cmd.append(cap_file)
         capinfos_data = subprocess.check_output(capinfos_cmd)
-        if sys.version_info[0] >= 3:
-            capinfos_stdout = capinfos_data.decode('UTF-8', 'replace')
-        else:
-            capinfos_stdout = unicode(capinfos_data, 'UTF-8', 'replace')
+        capinfos_stdout = capinfos_data.decode('UTF-8', 'replace')
         self.log_fd.write(capinfos_stdout)
         return capinfos_stdout
 
@@ -216,7 +196,7 @@ class SubprocessTestCase(unittest.TestCase):
         '''Make sure a capture file contains a specific number of packets.'''
         got_num_packets = False
         capinfos_testout = self.getCaptureInfo(cap_file=cap_file)
-        count_pat = 'Number of packets:\s+{}'.format(num_packets)
+        count_pat = r'Number of packets:\s+{}'.format(num_packets)
         if re.search(count_pat, capinfos_testout):
             got_num_packets = True
         self.assertTrue(got_num_packets, 'Failed to capture exactly {} packets'.format(num_packets))
@@ -229,7 +209,7 @@ class SubprocessTestCase(unittest.TestCase):
         if proc is None:
             proc = self.processes[-1]
 
-        out_data = u''
+        out_data = ''
         if count_stdout:
             out_data = proc.stdout_str
         if count_stderr:
@@ -256,23 +236,26 @@ class SubprocessTestCase(unittest.TestCase):
         lines_b = blob_b.splitlines()
         diff = '\n'.join(list(difflib.unified_diff(lines_a, lines_b, *args, **kwargs)))
         if len(diff) > 0:
-            if sys.version_info[0] < 3 and not isinstance(diff, unicode):
-                diff = unicode(diff, 'UTF-8', 'replace')
             self.log_fd.flush()
-            self.log_fd.write(u'-- Begin diff output --\n')
+            self.log_fd.write('-- Begin diff output --\n')
             self.log_fd.writelines(diff)
-            self.log_fd.write(u'-- End diff output --\n')
+            self.log_fd.write('-- End diff output --\n')
             return False
         return True
 
-    def startProcess(self, proc_args, env=None, shell=False):
+    def startProcess(self, proc_args, stdin=None, env=None, shell=False):
         '''Start a process in the background. Returns a subprocess.Popen object.
 
         You typically wait for it using waitProcess() or assertWaitProcess().'''
         if env is None:
-            # Avoid using the test user's real environment by default.
-            env = config.test_env
-        proc = LoggingPopen(proc_args, env=env, shell=shell, log_fd=self.log_fd)
+            # Apply default test environment if no override is provided.
+            env = getattr(self, 'injected_test_env', None)
+            # Not all tests need test_env, but those that use runProcess or
+            # startProcess must either pass an explicit environment or load the
+            # fixture (via a test method parameter or class decorator).
+            assert not (env is None and hasattr(self, '_fixture_request')), \
+                "Decorate class with @fixtures.mark_usefixtures('test_env')"
+        proc = LoggingPopen(proc_args, stdin=stdin, env=env, shell=shell, log_fd=self.log_fd)
         self.processes.append(proc)
         return proc
 

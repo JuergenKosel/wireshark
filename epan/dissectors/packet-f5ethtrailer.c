@@ -229,7 +229,6 @@ Notes:
 #include <epan/etypes.h>
 #include <epan/to_str.h>
 #include <epan/stats_tree.h>
-#include <wsutil/ws_printf.h>	/* for ws_g_warning */
 #define F5FILEINFOTAP_SRC
 #include "packet-f5ethtrailer.h"
 #undef  F5FILEINFOTAP_SRC
@@ -1486,7 +1485,7 @@ static proto_item *displayIPv6as4(
 
 	if(tvb_memeql(tvb, offset, ipv4as6prefix, sizeof(ipv4as6prefix)) == 0) {
 		if(addrfield >= 0) {
-			pi = proto_tree_add_item(tree, addrfield, tvb, offset+sizeof(ipv4as6prefix), 4, ENC_BIG_ENDIAN);
+			pi = proto_tree_add_item(tree, addrfield, tvb, offset+(int)sizeof(ipv4as6prefix), 4, ENC_BIG_ENDIAN);
 			if(hidden) PROTO_ITEM_SET_HIDDEN(pi);
 		}
 	} else if(tvb_memeql(tvb, offset, f5rtdomprefix, sizeof(f5rtdomprefix)) == 0) {
@@ -1498,11 +1497,11 @@ static proto_item *displayIPv6as4(
 		 * when configuring, people usually see route domain after the address, so that is why this
 		 * particular ordering is used (and none of the callers currently use the return value). */
 		if(addrfield >= 0) {
-			pi = proto_tree_add_item(tree, addrfield, tvb, offset+sizeof(f5rtdomprefix)+2, 4, ENC_BIG_ENDIAN);
+			pi = proto_tree_add_item(tree, addrfield, tvb, offset+(int)sizeof(f5rtdomprefix)+2, 4, ENC_BIG_ENDIAN);
 			if(hidden) PROTO_ITEM_SET_HIDDEN(pi);
 		}
 		if(rtdomfield >= 0) {
-			pi = proto_tree_add_item(tree, rtdomfield, tvb, offset+sizeof(f5rtdomprefix), 2, ENC_BIG_ENDIAN);
+			pi = proto_tree_add_item(tree, rtdomfield, tvb, offset+(int)sizeof(f5rtdomprefix), 2, ENC_BIG_ENDIAN);
 			if(hidden) PROTO_ITEM_SET_HIDDEN(pi);
 		}
 	}
@@ -2204,19 +2203,19 @@ static void proto_init_f5ethtrailer(void)
 	if(pref_perform_analysis) {
 		GString *error_string;
 
-		error_string = register_tap_listener("ip", &tap_ip_enabled, NULL, TL_REQUIRES_NOTHING, NULL, ip_tap_pkt, NULL);
+		error_string = register_tap_listener("ip", &tap_ip_enabled, NULL, TL_REQUIRES_NOTHING, NULL, ip_tap_pkt, NULL, NULL);
 		if (error_string) {
-			ws_g_warning("Unable to register tap \"ip\" for f5ethtrailer: %s", error_string->str);
+			g_warning("Unable to register tap \"ip\" for f5ethtrailer: %s", error_string->str);
 			g_string_free(error_string, TRUE);
 		}
-		error_string = register_tap_listener("ipv6", &tap_ipv6_enabled, NULL, TL_REQUIRES_NOTHING, NULL, ipv6_tap_pkt, NULL);
+		error_string = register_tap_listener("ipv6", &tap_ipv6_enabled, NULL, TL_REQUIRES_NOTHING, NULL, ipv6_tap_pkt, NULL, NULL);
 		if (error_string) {
-			ws_g_warning("Unable to register tap \"ipv6\" for f5ethtrailer: %s", error_string->str);
+			g_warning("Unable to register tap \"ipv6\" for f5ethtrailer: %s", error_string->str);
 			g_string_free(error_string, TRUE);
 		}
-		error_string = register_tap_listener("tcp", &tap_tcp_enabled, NULL, TL_REQUIRES_NOTHING, NULL, tcp_tap_pkt, NULL);
+		error_string = register_tap_listener("tcp", &tap_tcp_enabled, NULL, TL_REQUIRES_NOTHING, NULL, tcp_tap_pkt, NULL, NULL);
 		if (error_string) {
-			ws_g_warning("Unable to register tap \"tcp\" for f5ethtrailer: %s", error_string->str);
+			g_warning("Unable to register tap \"tcp\" for f5ethtrailer: %s", error_string->str);
 			g_string_free(error_string, TRUE);
 		}
 	}

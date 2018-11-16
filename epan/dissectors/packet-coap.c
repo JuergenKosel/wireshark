@@ -373,7 +373,7 @@ dissect_coap_opt_uri_path(tvbuff_t *tvb, proto_item *head_item, proto_tree *subt
 		wmem_strbuf_append(coinfo->uri_str_strbuf, str);
 	}
 
-	proto_tree_add_string(subtree, hf, tvb, offset, opt_length, str);
+	proto_tree_add_item(subtree, hf, tvb, offset, opt_length, ENC_ASCII);
 
 	/* add info to the head of the packet detail */
 	proto_item_append_text(head_item, ": %s", str);
@@ -394,7 +394,7 @@ dissect_coap_opt_uri_query(tvbuff_t *tvb, proto_item *head_item,proto_tree *subt
 		wmem_strbuf_append(coinfo->uri_query_strbuf, str);
 	}
 
-	proto_tree_add_string(subtree, hf, tvb, offset, opt_length, str);
+	proto_tree_add_item(subtree, hf, tvb, offset, opt_length, ENC_ASCII);
 
 	/* add info to the head of the packet detail */
 	proto_item_append_text(head_item, ": %s", str);
@@ -411,7 +411,7 @@ dissect_coap_opt_location_path(tvbuff_t *tvb, proto_item *head_item, proto_tree 
 		str = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, opt_length, ENC_ASCII);
 	}
 
-	proto_tree_add_string(subtree, hf, tvb, offset, opt_length, str);
+	proto_tree_add_item(subtree, hf, tvb, offset, opt_length, ENC_ASCII);
 
 	/* add info to the head of the packet detail */
 	proto_item_append_text(head_item, ": %s", str);
@@ -428,7 +428,7 @@ dissect_coap_opt_location_query(tvbuff_t *tvb, proto_item *head_item, proto_tree
 		str = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, opt_length, ENC_ASCII);
 	}
 
-	proto_tree_add_string(subtree, hf, tvb, offset, opt_length, str);
+	proto_tree_add_item(subtree, hf, tvb, offset, opt_length, ENC_ASCII);
 
 	/* add info to the head of the packet detail */
 	proto_item_append_text(head_item, ": %s", str);
@@ -451,8 +451,11 @@ dissect_coap_opt_object_security(tvbuff_t *tvb, proto_item *head_item, proto_tre
 	coinfo->object_security = TRUE;
 
 	coinfo->oscore_info->piv = NULL;
+	coinfo->oscore_info->piv_len = 0;
 	coinfo->oscore_info->kid_context = NULL;
+	coinfo->oscore_info->kid_context_len = 0;
 	coinfo->oscore_info->kid = NULL;
+	coinfo->oscore_info->kid_len = 0;
 
 	if (opt_length == 0) { /* option length is zero, means flag byte is 0x00*/
 		/* add info to the head of the packet detail */
@@ -543,7 +546,7 @@ dissect_coap_opt_proxy_uri(tvbuff_t *tvb, proto_item *head_item, proto_tree *sub
 		str = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, opt_length, ENC_ASCII);
 	}
 
-	proto_tree_add_string(subtree, hf, tvb, offset, opt_length, str);
+	proto_tree_add_item(subtree, hf, tvb, offset, opt_length, ENC_ASCII);
 
 	/* add info to the head of the packet detail */
 	proto_item_append_text(head_item, ": %s", str);
@@ -560,7 +563,7 @@ dissect_coap_opt_proxy_scheme(tvbuff_t *tvb, proto_item *head_item, proto_tree *
 		str = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, opt_length, ENC_ASCII);
 	}
 
-	proto_tree_add_string(subtree, hf, tvb, offset, opt_length, str);
+	proto_tree_add_item(subtree, hf, tvb, offset, opt_length, ENC_ASCII);
 
 	/* add info to the head of the packet detail */
 	proto_item_append_text(head_item, ": %s", str);
@@ -998,11 +1001,12 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	coap_transaction *coap_trans = NULL;
 
 	/* Allocate information for upper layers */
-	if (!PINFO_FD_VISITED(pinfo)) {
+	coinfo = (coap_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_coap, 0);
+
+	if (coinfo == NULL)
+	{
 		coinfo = wmem_new0(wmem_file_scope(), coap_info);
 		p_add_proto_data(wmem_file_scope(), pinfo, proto_coap, 0, coinfo);
-	} else {
-		coinfo = (coap_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_coap, 0);
 	}
 
 	/* initialize the CoAP length and the content-Format */
@@ -1101,7 +1105,7 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 					coap_trans = wmem_new0(wmem_file_scope(), coap_transaction);
 					coap_trans->req_frame = pinfo->num;
 					coap_trans->rsp_frame = 0;
-					coap_trans->req_time = pinfo->fd->abs_ts;
+					coap_trans->req_time = pinfo->abs_ts;
 					if (coinfo->uri_str_strbuf) {
 						/* Store the URI into CoAP transaction info */
 						coap_trans->uri_str_strbuf = wmem_strbuf_new(wmem_file_scope(), wmem_strbuf_get_str(coinfo->uri_str_strbuf));
@@ -1147,11 +1151,9 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 							/* Indicate to OSCORE that this response contains its own PIV */
 							coinfo->oscore_info->piv_in_response = TRUE;
 							coap_trans->oscore_info->piv_in_response = TRUE;
-						} else {
-							if (coap_trans->oscore_info->piv) {
-								/* Use the PIV from the request */
-								coinfo->oscore_info->piv = (guint8 *) wmem_memdup(wmem_packet_scope(), coap_trans->oscore_info->piv, coap_trans->oscore_info->piv_len);
-							}
+						} else if (coap_trans->oscore_info->piv_len > 0) {
+							/* Use the PIV from the request */
+							coinfo->oscore_info->piv = (guint8 *) wmem_memdup(wmem_packet_scope(), coap_trans->oscore_info->piv, coap_trans->oscore_info->piv_len);
 							coinfo->oscore_info->piv_len = coap_trans->oscore_info->piv_len;
 						}
 						coinfo->oscore_info->response = TRUE;
@@ -1182,7 +1184,7 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 						tvb, 0, 0, coap_trans->req_frame);
 				PROTO_ITEM_SET_GENERATED(it);
 
-				nstime_delta(&ns, &pinfo->fd->abs_ts, &coap_trans->req_time);
+				nstime_delta(&ns, &pinfo->abs_ts, &coap_trans->req_time);
 				it = proto_tree_add_time(coap_tree, hf_coap_response_time, tvb, 0, 0, &ns);
 				PROTO_ITEM_SET_GENERATED(it);
 			}

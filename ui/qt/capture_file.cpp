@@ -86,7 +86,6 @@ QString CaptureFile::no_capture_file_ = QObject::tr("[no capture file]");
 CaptureFile::CaptureFile(QObject *parent, capture_file *cap_file) :
     QObject(parent),
     cap_file_(cap_file),
-    file_name_(no_capture_file_),
     file_state_(QString())
 {
 #ifdef HAVE_LIBPCAP
@@ -115,14 +114,88 @@ int CaptureFile::currentRow()
     return -1;
 }
 
+const QString CaptureFile::filePath()
+{
+    QString path;
+
+    if (isValid()) {
+        //
+        // Sadly, some UN*Xes don't necessarily use UTF-8
+        // for their file names, so we have to map the
+        // file path to UTF-8.  If that fails, we're somewhat
+        // stuck.
+        //
+        char *utf8_filename = g_filename_to_utf8(cap_file_->filename,
+                                                 -1,
+                                                 NULL,
+                                                 NULL,
+                                                 NULL);
+        if (utf8_filename) {
+            path = QString::fromUtf8(utf8_filename);
+            g_free(utf8_filename);
+        } else {
+            // So what the heck else can we do here?
+            path = QString();
+        }
+    } else {
+        path = QString();
+    }
+    return path;
+}
+
 const QString CaptureFile::fileName()
 {
-    if (isValid()) {
-        QFileInfo cfi(QString::fromUtf8(cap_file_->filename));
-        file_name_ = cfi.fileName();
+    QString path, name;
+
+    path = filePath();
+    if (!path.isEmpty()) {
+        QFileInfo cfi(path);
+        name = cfi.fileName();
+    } else {
+        name = QString();
     }
 
-    return file_name_;
+    return name;
+}
+
+const QString CaptureFile::fileBaseName()
+{
+    QString baseName;
+
+    if (isValid()) {
+        char *basename = cf_get_basename(cap_file_);
+        baseName = basename;
+        g_free(basename);
+    } else {
+        baseName = QString();
+    }
+    return baseName;
+}
+
+const QString CaptureFile::fileDisplayName()
+{
+    QString displayName;
+
+    if (isValid()) {
+        char *display_name = cf_get_display_name(cap_file_);
+        displayName = display_name;
+        g_free(display_name);
+    } else {
+        displayName = QString();
+    }
+    return displayName;
+}
+
+const QString CaptureFile::fileTitle()
+{
+    QString title;
+
+    if (isValid()) {
+        title = fileDisplayName() + file_state_;
+    } else {
+        title = no_capture_file_;
+    }
+    return title;
 }
 
 struct _packet_info *CaptureFile::packetInfo()
@@ -214,7 +287,6 @@ void CaptureFile::captureFileEvent(int event, gpointer data)
         file_state_ = tr(" [closed]");
         emit captureEvent(CaptureEvent(CaptureEvent::File, CaptureEvent::Closed));
         cap_file_ = NULL;
-        file_name_ = no_capture_file_;
         file_state_ = QString();
         break;
     case(cf_cb_file_read_started):
@@ -277,12 +349,9 @@ void CaptureFile::captureFileEvent(int event, gpointer data)
     }
 }
 
+#ifdef HAVE_LIBPCAP
 void CaptureFile::captureSessionEvent(int event, capture_session *cap_session)
 {
-#ifndef HAVE_LIBPCAP
-    Q_UNUSED(event)
-    Q_UNUSED(cap_session)
-#else
     switch(event) {
     case(capture_cb_capture_prepared):
         emit captureEvent(CaptureEvent(CaptureEvent::Capture, CaptureEvent::Prepared, cap_session));
@@ -317,8 +386,8 @@ void CaptureFile::captureSessionEvent(int event, capture_session *cap_session)
     default:
         qWarning() << "main_capture_callback: event " << event << " unknown";
     }
-#endif // HAVE_LIBPCAP
 }
+#endif // HAVE_LIBPCAP
 
 /*
  * Editor modelines

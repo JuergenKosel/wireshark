@@ -177,9 +177,7 @@ main(int argc, char *argv[])
     guint wrong_order_count = 0;
     gboolean write_output_regardless = TRUE;
     guint i;
-    GArray                      *shb_hdrs = NULL;
-    wtapng_iface_descriptions_t *idb_inf = NULL;
-    GArray                      *nrb_hdrs = NULL;
+    wtap_dump_params params;
     int                          ret = EXIT_SUCCESS;
 
     GPtrArray *frames;
@@ -285,26 +283,21 @@ main(int argc, char *argv[])
     }
     DEBUG_PRINT("file_type_subtype is %d\n", wtap_file_type_subtype(wth));
 
-    shb_hdrs = wtap_file_get_shb_for_new_file(wth);
-    idb_inf = wtap_file_get_idb_info(wth);
-    nrb_hdrs = wtap_file_get_nrb_for_new_file(wth);
+    wtap_dump_params_init(&params, wth);
 
     /* Open outfile (same filetype/encap as input file) */
     if (strcmp(outfile, "-") == 0) {
-      pdh = wtap_dump_open_stdout_ng(wtap_file_type_subtype(wth), wtap_file_encap(wth),
-                                     wtap_snapshot_length(wth), FALSE, shb_hdrs, idb_inf, nrb_hdrs, &err);
+      pdh = wtap_dump_open_stdout(wtap_file_type_subtype(wth), WTAP_UNCOMPRESSED, &params, &err);
     } else {
-      pdh = wtap_dump_open_ng(outfile, wtap_file_type_subtype(wth), wtap_file_encap(wth),
-                              wtap_snapshot_length(wth), FALSE, shb_hdrs, idb_inf, nrb_hdrs, &err);
+      pdh = wtap_dump_open(outfile, wtap_file_type_subtype(wth), WTAP_UNCOMPRESSED, &params, &err);
     }
-    g_free(idb_inf);
-    idb_inf = NULL;
+    g_free(params.idb_inf);
+    params.idb_inf = NULL;
 
     if (pdh == NULL) {
         cfile_dump_open_failure_message("reordercap", outfile, err,
                                         wtap_file_type_subtype(wth));
-        wtap_block_array_free(shb_hdrs);
-        wtap_block_array_free(nrb_hdrs);
+        wtap_dump_params_cleanup(&params);
         ret = OUTPUT_FILE_ERROR;
         goto clean_exit;
     }
@@ -371,13 +364,11 @@ main(int argc, char *argv[])
     /* Close outfile */
     if (!wtap_dump_close(pdh, &err)) {
         cfile_close_failure_message(outfile, err);
-        wtap_block_array_free(shb_hdrs);
-        wtap_block_array_free(nrb_hdrs);
+        wtap_dump_params_cleanup(&params);
         ret = OUTPUT_FILE_ERROR;
         goto clean_exit;
     }
-    wtap_block_array_free(shb_hdrs);
-    wtap_block_array_free(nrb_hdrs);
+    wtap_dump_params_cleanup(&params);
 
     /* Finally, close infile and release resources. */
     wtap_close(wth);

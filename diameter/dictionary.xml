@@ -138,16 +138,13 @@
 		<command name="3GPP-Device-Notification"	code="8388640" vendor-id="None"/>    <!--[3GPP TS 29.368][RFC5719] -->
 		<command name="3GPP-Subscriber-Information"	code="8388641" vendor-id="None"/>     <!-- 3GPP TS 29.336 -->
 		<command name="Cancel-VCSG-Location"	code="8388642" vendor-id="None"/>
-		<command name="3GPP-Device-Trigger"		code="8388643" vendor-id="None"/>     <!-- 3GPP TS 29.337 -->
-		<command name="3GPP-Delivery-Report"		code="8388644" vendor-id="None"/>   <!-- 3GPP TS 29.337 -->
+		<command name="3GPP-Device-Trigger"		code="8388643" vendor-id="None"/>       <!-- 3GPP TS 29.337 -->
+		<command name="3GPP-Delivery-Report"		code="8388644" vendor-id="None"/>     <!-- 3GPP TS 29.337 -->
 		<command name="MO-Forward-Short-Message"	code="8388645" vendor-id="None"/>   <!-- 3GPP TS 29.338 -->
-		<!--
-
-			8388646 MT-Forward-Short-Message Request/Answer (TFR/TFA) [3GPP TS 29.338][Kimmo_Kymalainen]
-			8388647 Send-Routing-Info-for-SM-Request/Answer (SRR/SRA) [3GPP TS 29.338][Kimmo_Kymalainen]
-			8388648 Alert-Service-Centre-Request/Answer (ALR/ALA) [3GPP TS 29.338][Kimmo_Kymalainen]
-			8388649 Report-SM-Delivery-Status-Request/Answer (RDR/RDA) [3GPP TS 29.338][Kimmo_Kymalainen]
-		-->
+		<command name="MT-Forward-Short-Message"	code="8388646" vendor-id="None"/>   <!-- 3GPP TS 29.338 -->
+		<command name="Send-Routing-Info-for-SM"	code="8388647" vendor-id="None"/>   <!-- 3GPP TS 29.338 -->
+		<command name="Alert-Service-Centre"	code="8388648" vendor-id="None"/>       <!-- 3GPP TS 29.338 -->
+		<command name="Report-SM-Delivery-Status"	code="8388649" vendor-id="None"/>   <!-- 3GPP TS 29.338 -->
 		<command name="NSN Cancel-LocationMS"		code="8388650" vendor-id="None"/>
 		<command name="NSN User-DataMS"		code="8388651" vendor-id="None"/>
 		<command name="NSN Profile-UpdateMS"		code="8388652" vendor-id="None"/>
@@ -237,8 +234,8 @@
 			8388731 TSSF-Notification-Request/Answer (TNR/TNA) [3GPP TS 29.212][Kimmo_Kymalainen]
 		-->
 		<command name="Connection-Management"		code="8388732" vendor-id="None"/>    <!-- 3GPP TS 29.128 -->
-	    <command name="MO-Data"		code="8388733" vendor-id="None"/>     <!-- 3GPP TS 29.128 -->
-	    <command name="MT-Data"		code="8388734" vendor-id="None"/>     <!-- 3GPP TS 29.128 -->
+		<command name="MO-Data"		code="8388733" vendor-id="None"/>     <!-- 3GPP TS 29.128 -->
+		<command name="MT-Data"		code="8388734" vendor-id="None"/>     <!-- 3GPP TS 29.128 -->
 		<!--
 			8388658-16777213 Unassigned
 			16777214 Experimental code [RFC3588]
@@ -2270,14 +2267,14 @@
 			<type type-name="OctetString"/>
 		</avp>
 		<avp name="Protocol" code="513" mandatory="may">
-      <!-- The values for this AVP are managed by IANA under the Protocol Numbers registry as defined in [RFC2780]
-      For now only add the most common ones to avoid a long value_string (see epan/ipproto.c).
-      -->
-      <type type-name="Enumerated"/>
-      <enum name="TCP Transmission Control" code="6"/>
-      <enum name="UDP User Datagram" code="17"/>
-      <enum name="SCTP Stream Control Transmission Protocol" code="132"/>
-    </avp>
+			<type type-name="Enumerated"/>
+			<!-- The values for this AVP are managed by IANA under the Protocol Numbers registry as defined in [RFC2780]
+			For now only add the most common ones to avoid a long value_string (see epan/ipproto.c).
+			-->
+			<enum name="TCP Transmission Control" code="6"/>
+			<enum name="UDP User Datagram" code="17"/>
+			<enum name="SCTP Stream Control Transmission Protocol" code="132"/>
+		</avp>
 		<avp name="Direction" code="514" mandatory="must" may-encrypt="yes" vendor-bit="mustnot">
 			<type type-name="Enumerated"/>
 			<enum name="IN" code="0"/>
@@ -2340,7 +2337,7 @@
 				<gavp name="IP-Bit-Mask-Width"/>
 			</grouped>
 		</avp>
-		<avp name="IP-Mask-Bit-Mask-Width" code="523" mandatory="may">
+		<avp name="IP-Bit-Mask-Width" code="523" mandatory="may">
 			<type type-name="Unsigned32"/>
 		</avp>
 		<avp name="MAC-Address" code="524" mandatory="may">
@@ -2364,6 +2361,9 @@
 				<gavp name="EUI64-Address-Mask-Pattern"/>
 			</grouped>
 		</avp>
+		<avp name="EUI64-Address-Mask-Pattern" code="529" mandatory="may">
+			<type type-name="OctetString"/>
+		</avp>
 		<avp name="Port" code="530" mandatory="may">
 			<type type-name="Integer32"/>
 		</avp>
@@ -2379,49 +2379,257 @@
 		<avp name="Port-End" code="533" mandatory="may">
 			<type type-name="Integer32"/>
 		</avp>
-
-		<!--
-		534 Use-Assigned-Address [RFC5777]
-		535 Diffserv-Code-Point [RFC5777]
-		536 Fragmentation-Flag [RFC5777]
-		537 IP-Option [RFC5777]
-		538 IP-Option-Type [RFC5777]
-		539 IP-Option-Value [RFC5777]
-		540 TCP-Option [RFC5777]
-		541 TCP-Option-Type [RFC5777]
-		542 TCP-Option-Value [RFC5777]
-		543 TCP-Flags [RFC5777]
-		544 TCP-Flag-Type [RFC5777]
-		545 ICMP-Type [RFC5777]
-		546 ICMP-Type-Number [RFC5777]
-		547 ICMP-Code [RFC5777]
-		548 ETH-Option [RFC5777]
-		549 ETH-Proto-Type [RFC5777]
-		550 ETH-Ether-Type [RFC5777]
-		551 ETH-SAP [RFC5777]
-		552 VLAN-ID-Range [RFC5777]
-		553 S-VID-Start [RFC5777]
-		554 S-VID-End [RFC5777]
-		555 C-VID-Start [RFC5777]
-		556 C-VID-End [RFC5777]
-		557 User-Priority-Range [RFC5777]
-		558 Low-User-Priority [RFC5777]
-		559 High-User-Priority [RFC5777]
-		560 Time-Of-Day-Condition [RFC5777]
-		-->
-
+		<avp name="Use-Assigned-Address" code="534" mandatory="may">
+			<type type-name="Enumerated"/>
+			<enum name="False" code="0"/>
+			<enum name="True" code="1"/>
+		</avp>
+		<avp name="Diffserv-Code-Point" code="535" mandatory="may">
+			<type type-name="Enumerated"/>
+			<enum name="CS0" code="0"/>
+			<enum name="CS1" code="8"/>
+			<enum name="CS2" code="16"/>
+			<enum name="CS3" code="24"/>
+			<enum name="CS4" code="32"/>
+			<enum name="CS5" code="40"/>
+			<enum name="CS6" code="48"/>
+			<enum name="CS7" code="56"/>
+			<enum name="AF11" code="10"/>
+			<enum name="AF12" code="12"/>
+			<enum name="AF13" code="14"/>
+			<enum name="AF21" code="18"/>
+			<enum name="AF22" code="20"/>
+			<enum name="AF23" code="22"/>
+			<enum name="AF31" code="26"/>
+			<enum name="AF32" code="28"/>
+			<enum name="AF33" code="30"/>
+			<enum name="AF41" code="34"/>
+			<enum name="AF42" code="36"/>
+			<enum name="AF43" code="38"/>
+			<enum name="EF" code="46"/>
+			<enum name="VOICE-ADMIT" code="44"/>
+			<!-- ECN fields aren't listed -->
+		</avp>
+		<avp name="Fragmentation-Flag" code="536" mandatory="may">
+			<type type-name="Enumerated"/>
+			<enum name="Don't Fragment (DF)" code="0"/>
+			<enum name="More Fragments (MF)" code="1"/>
+		</avp>
+		<avp name="IP-Option" code="537" mandatory="may">
+			<grouped>
+				<gavp name="IP-Option-Type"/>
+				<gavp name="IP-Option-Value"/>
+			</grouped>
+		</avp>
+		<avp name="IP-Option-Type" code="538" mandatory="may">
+			<type type-name="Enumerated"/>
+			<enum name="End of Options List" code="0"/>
+			<enum name="No Operation" code="1"/>
+			<enum name="Security" code="130"/>
+			<enum name="Loose Source Route" code="131"/>
+			<enum name="Time Stamp" code="68"/>
+			<enum name="Extended Security" code="133"/>
+			<enum name="Commercial Security" code="134"/>
+			<enum name="Record Route" code="7"/>
+			<enum name="Stream ID" code="136"/>
+			<enum name="Strict Source Route" code="137"/>
+			<enum name="Experimental Measurement" code="10"/>
+			<enum name="MTU Probe" code="11"/>
+			<enum name="MTU Reply" code="12"/>
+			<enum name="Experimental Flow Control" code="205"/>
+			<enum name="Experimental Access Control" code="142"/>
+			<enum name="ENCODE" code="15"/>
+			<enum name="IMI Traffic Descriptor" code="144"/>
+			<enum name="Extended Internet Protocol" code="145"/>
+			<enum name="Traceoute" code="82"/>
+			<enum name="Address Extension" code="147"/>
+			<enum name="Router Alert" code="148"/>
+			<enum name="Selective Directed Broadcast" code="149"/>
+			<enum name="Dynamic Packet State" code="151"/>
+			<enum name="Upstream Multicast Pkt." code="152"/>
+			<enum name="Quick-Start" code="25"/>
+			<enum name="RFC3692-style Experiment" code="30"/>
+			<enum name="RFC3692-style Experiment" code="94"/>
+			<enum name="RFC3692-style Experiment" code="158"/>
+			<enum name="RFC3692-style Experiment" code="222"/>
+		</avp>
+		<avp name="IP-Option-Value" code="539" mandatory="may">
+			<type type-name="OctetString"/>
+		</avp>
+		<avp name="TCP-Option" code="540" mandatory="may">
+			<grouped>
+				<gavp name="TCP-Option-Type"/>
+				<gavp name="TCP-Option-Value"/>
+				<gavp name="Negated"/>
+			</grouped>
+		</avp>
+		<avp name="TCP-Option-Type" code="541" mandatory="may">
+			<type type-name="Enumerated"/>
+			<enum name="End of Option List" code="0"/>
+			<enum name="No-Operation" code="1"/>
+			<enum name="Maximum Segment Size" code="2"/>
+			<enum name="Window Scale" code="3"/>
+			<enum name="SACK Permitted" code="4"/>
+			<enum name="SACK" code="5"/>
+			<enum name="Echo" code="6"/>
+			<enum name="Echo Reply" code="7"/>
+			<enum name="Timestamps" code="8"/>
+			<enum name="Partial Order Connection Permitted" code="9"/>
+			<enum name="Partial Order Service Profile" code="10"/>
+			<enum name="CC" code="11"/>
+			<enum name="CC.NEW" code="12"/>
+			<enum name="CC.ECHO" code="13"/>
+			<enum name="TCP Alternate Checksum Request" code="14"/>
+			<enum name="TCP Alternate Checksum Data" code="15"/>
+			<enum name="Skeeter" code="16"/>
+			<enum name="Bubba" code="17"/>
+			<enum name="Trailer Checksum Option" code="18"/>
+			<enum name="MD5 Signature Option" code="19"/>
+			<enum name="SCPS Capabilities" code="20"/>
+			<enum name="Selective Negative Acknowledgements" code="21"/>
+			<enum name="Record Boundaries" code="22"/>
+			<enum name="Corruption experienced" code="23"/>
+			<enum name="SNAP" code="24"/>
+			<enum name="TCP Compression Filter" code="26"/>
+			<enum name="Quick-Start Response" code="27"/>
+			<enum name="User Timeout Option" code="28"/>
+			<enum name="TCP Authentication Option (TCP-AO)" code="29"/>
+			<enum name="Multipath TCP (MPTCP)" code="30"/>
+			<enum name="TCP Fast Open Cookie" code="34"/>
+			<enum name="RFC3692-style Experiment 1" code="253"/>
+			<enum name="RFC3692-style Experiment 2" code="254"/>
+		</avp>
+		<avp name="TCP-Option-Value" code="542" mandatory="may">
+			<type type-name="OctetString"/>
+		</avp>
+		<avp name="TCP-Flags" code="543" mandatory="may">
+			<grouped>
+				<gavp name="TCP-Flag-Type"/>
+				<gavp name="Negated"/>
+			</grouped>
+		</avp>
+		<avp name="TCP-Flag-Type" code="544" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="ICMP-Type" code="545" mandatory="may">
+			<grouped>
+				<gavp name="ICMP-Type-Number"/>
+				<gavp name="ICMP-Code"/>
+				<gavp name="Negated"/>
+			</grouped>
+		</avp>
+		<avp name="ICMP-Type-Number" code="546" mandatory="may">
+			<type type-name="Enumerated"/>
+			<enum name="Echo Reply" code="0"/>
+			<enum name="Destination Unreachable" code="3"/>
+			<enum name="Source Quench" code="4"/>
+			<enum name="Redirect" code="5"/>
+			<enum name="Alternate Host Address" code="6"/>
+			<enum name="Echo" code="8"/>
+			<enum name="Router Advertisement" code="9"/>
+			<enum name="Router Solicitation" code="10"/>
+			<enum name="Time Exceeded" code="11"/>
+			<enum name="Parameter Problem" code="12"/>
+			<enum name="Timestamp" code="13"/>
+			<enum name="Timestamp Reply" code="14"/>
+			<enum name="Information Request" code="15"/>
+			<enum name="Information Reply" code="16"/>
+			<enum name="Address Mask Request" code="17"/>
+			<enum name="Address Mask Reply" code="18"/>
+			<enum name="Reserved (for Security)" code="19"/>
+			<enum name="Traceroute" code="30"/>
+			<enum name="Datagram Conversion Error" code="31"/>
+			<enum name="Mobile Host Redirect" code="32"/>
+			<enum name="IPv6 Where-Are-You" code="33"/>
+			<enum name="IPv6 I-Am-Here" code="34"/>
+			<enum name="Mobile Registration Request" code="35"/>
+			<enum name="Mobile Registration Reply" code="36"/>
+			<enum name="Domain Name Request" code="37"/>
+			<enum name="Domain Name Reply" code="38"/>
+			<enum name="SKIP" code="39"/>
+			<enum name="Photurius" code="40"/>
+			<enum name="ICMP messages utilized by experimental mobility protocols such as Seamoby" code="41"/>
+			<enum name="Extended Echo Request" code="42"/>
+			<enum name="Extended Echo Reply" code="43"/>
+			<enum name="RFC3692-style Experiment 1" code="253"/>
+			<enum name="RFC3692-style Experiment 2" code="254"/>
+			<enum name="Reserved" code="254"/>
+		</avp>
+		<avp name="ICMP-Code" code="547" mandatory="may">
+			<type type-name="Enumerated"/>
+			<!-- The codes depend on the type (above) -->
+		</avp>
+		<avp name="ETH-Option" code="548" mandatory="may">
+			<grouped>
+				<gavp name="ETH-Proto-Type"/>
+				<gavp name="VLAN-ID-Range"/>
+				<gavp name="User-Priority-Range"/>
+			</grouped>
+		</avp>
+		<avp name="ETH-Proto-Type" code="549" mandatory="may">
+			<grouped>
+				<gavp name="ETH-Ether-Type"/>
+				<gavp name="ETH-SAP"/>
+			</grouped>
+		</avp>
+		<avp name="ETH-Ether-Type" code="550" mandatory="may">
+			<type type-name="OctetString"/>
+		</avp>
+		<avp name="ETH-SAP" code="551" mandatory="may">
+			<type type-name="OctetString"/>
+		</avp>
+		<avp name="VLAN-ID-Range" code="552" mandatory="may">
+			<grouped>
+				<gavp name="S-VID-Start"/>
+				<gavp name="S-VID-End"/>
+				<gavp name="C-VID-Start"/>
+				<gavp name="C-VID-End"/>
+			</grouped>
+		</avp>
+		<avp name="S-VID-Start" code="553" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="S-VID-End" code="554" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="C-VID-Start" code="555" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="C-VID-End" code="556" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="User-Priority-Range" code="557" mandatory="may">
+			<grouped>
+				<gavp name="Low-User-Priority"/>
+				<gavp name="High-User-Priority"/>
+			</grouped>
+		</avp>
+		<avp name="Low-User-Priority" code="558" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="High-User-Priority" code="559" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="Time-Of-Day-Condition" code="560" mandatory="may">
+			<grouped>
+				<gavp name="Time-Of-Day-Start"/>
+				<gavp name="Time-Of-Day-End"/>
+				<gavp name="Day-Of-Week-Mask"/>
+				<gavp name="Day-Of-Month-Mask"/>
+				<gavp name="Month-Of-Year-Mask"/>
+				<gavp name="Absolute-Start-Time"/>
+				<gavp name="Absolute-End-Time"/>
+				<gavp name="Timezone-Flag"/>
+			</grouped>
+		</avp>
 		<avp name="Time-Of-Day-Start" code="561" mandatory="may">
 			<type type-name="Unsigned32"/>
 		</avp>
 		<avp name="Time-Of-Day-End" code="562" mandatory="may">
 			<type type-name="Unsigned32"/>
 		</avp>
-    <!-- 
-    type Unsigned32.  The
-    value is a bit mask that specifies the day of the week for the time
-    window to match
-   -->
 		<avp name="Day-Of-Week-Mask" code="563" mandatory="may">
+			<!-- This only works if only 1 bit is set -->
 			<type type-name="Enumerated"/>
 			<enum name="SUNDAY" code="0"/>
 			<enum name="MONDAY" code="2"/>
@@ -2431,18 +2639,46 @@
 			<enum name="FRIDAY" code="32"/>
 			<enum name="SATURDAY" code="64"/>
 		</avp>
-
-		<!--
-		564 Day-Of-Month-Mask [RFC5777]
-		565 Month-Of-Year-Mask [RFC5777]
-		566 Absolute-Start-Time [RFC5777]
-		567 Absolute-Start-Fractional-Seconds [RFC5777]
-		568 Absolute-End-Time [RFC5777]
-		569 Absolute-End-Fractional-Seconds [RFC5777]
-		570 Timezone-Flag [RFC5777]
-		571 Timezone-Offset [RFC5777]
-		572 Treatment-Action [RFC5777]
-   -->
+		<avp name="Day-Of-Month-Mask" code="564" mandatory="may">
+			<type type-name="Enumerated"/>
+		</avp>
+		<avp name="Month-Of-Year-Mask" code="565" mandatory="may">
+			<!-- This only works if only 1 bit is set -->
+			<type type-name="Enumerated"/>
+			<enum name="JANUARY" code="0"/>
+			<enum name="FEBRUARY" code="2"/>
+			<enum name="MARCH" code="4"/>
+			<enum name="APRIL" code="8"/>
+			<enum name="MAY" code="16"/>
+			<enum name="JUNE" code="32"/>
+			<enum name="JULY" code="64"/>
+			<enum name="AUGUST" code="128"/>
+			<enum name="SEPTEMBER" code="256"/>
+			<enum name="OCTOBER" code="512"/>
+			<enum name="NOVEMBER" code="1024"/>
+			<enum name="DECEMBER" code="2048"/>
+		</avp>
+		<avp name="Absolute-Start-Time" code="566" mandatory="may">
+			<type type-name="Time"/>
+		</avp>
+		<avp name="Absolute-Start-Fractional-Seconds" code="567" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="Absolute-End-Time" code="568" mandatory="may">
+			<type type-name="Time"/>
+		</avp>
+		<avp name="Absolute-End-Fractional-Seconds" code="569" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="Timezone-Flag" code="570" mandatory="may">
+			<type type-name="Enumerated"/>
+			<enum name="UTC" code="0"/>
+			<enum name="LOCAL" code="1"/>
+			<enum name="OFFSET" code="2"/>
+		</avp>
+		<avp name="Timezone-Offset" code="571" mandatory="may">
+			<type type-name="Integer32"/>
+		</avp>
 		<avp name="Treatment-Action" code="572" mandatory="may">
 			<type type-name="Enumerated"/>
 			<enum name="Drop" code="0"/>
@@ -2450,27 +2686,41 @@
 			<enum name="Mark" code="2"/>
 			<enum name="Permit" code="3"/>
 		</avp>
-    <avp name="QoS-Profile-Id" code="573" mandatory="may">
-      <type type-name="Unsigned32"/>
-    </avp>
-    <avp name="QoS-Profile-Template" code="574" mandatory="must" may-encrypt="no" protected="mustnot" vendor-bit="mustnot">
-      <grouped>
-        <gavp name="Vendor-Id"/>
-        <gavp name="QoS-Profile-Id"/>
-      </grouped>
-    </avp>
-    <avp name="QoS-Semantics" code="575" mandatory="may">
-      <type type-name="Enumerated"/>
-      <enum name="QoS-Desired" code="0"/>
-      <enum name="QoS-Available" code="1"/>
-      <enum name="QoS-Delivered" code="2"/>
-      <enum name="Minimum-QoS" code="3"/>
-      <enum name="QoS-Authorized" code="4"/>
-    </avp>
+		<avp name="QoS-Profile-Id" code="573" mandatory="may">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="QoS-Profile-Template" code="574" mandatory="must" may-encrypt="no" protected="mustnot" vendor-bit="mustnot">
+			<grouped>
+				<gavp name="Vendor-Id"/>
+				<gavp name="QoS-Profile-Id"/>
+			</grouped>
+		</avp>
+		<avp name="QoS-Semantics" code="575" mandatory="may">
+			<type type-name="Enumerated"/>
+			<enum name="QoS-Desired" code="0"/>
+			<enum name="QoS-Available" code="1"/>
+			<enum name="QoS-Delivered" code="2"/>
+			<enum name="Minimum-QoS" code="3"/>
+			<enum name="QoS-Authorized" code="4"/>
+		</avp>
+		<avp name="QoS-Parameters" code="576" mandatory="may">
+			<grouped>
+				<!-- Technically this isn't true; RFC 5777 does
+				     not list any AVPs that can be here;
+				     we use this as a dummy.
+				-->
+				<gavp name="QoS-Profile-Id"/>
+			</grouped>
+		</avp>
+		<avp name="Excess-Treatment" code="577" mandatory="may">
+			<grouped>
+				<gavp name="Treatment-Action"/>
+				<gavp name="QoS-Profile-Template"/>
+				<gavp name="QoS-Parameters"/>
+			</grouped>
+		</avp>
 
-    <!--
-		576 QoS-Parameters [RFC5777]
-		577 Excess-Treatment [RFC5777]
+		<!--
 		578 QoS-Capability [RFC5777]
 		579 QoS-Authorization-Data [RFC5866]
 		580 Bound-Auth-Session-Id [RFC5866]
@@ -4745,6 +4995,10 @@
 				<gavp name="V2X-Subscription-Data"/>
 				<gavp name="eDRX-Cycle-Length"/>
 				<gavp name="External-Identifier"/>
+				<gavp name="Active-Time"/>
+				<gavp name="Service-Gap-Time"/>
+				<gavp name="Broadcast-Location-Assistance-Data-Types"/>
+				<gavp name="Aerial-UE-Subscription-Information"/>
 			</grouped>
 		</avp>
 		<avp name="Terminal-Information" code="1401" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
@@ -4911,6 +5165,7 @@
 				<gavp name="SCEF-Realm"/>
 				<gavp name="Preferred-Data-Mode"/>
 				<gavp name="PDN-Connection-Continuity"/>
+				<gavp name="RDS-Indicator"/>
 			</grouped>
 		</avp>
 		<avp name="EPS-Subscribed-QoS-Profile" code="1431" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
@@ -5903,9 +6158,38 @@
 		<avp name="Carrier-Frequency" code="1696" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
 		</avp>
-		<!--
-		Note: The AVP codes from 1697 to 1699 are reserved for TS 29.272.
-		-->
+		<avp name="RDS-Indicator" code="1697" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Enumerated"/>
+			<enum name="DISABLED" code="0"/>
+			<enum name="ENABLED" code="1"/>
+		</avp>
+		<avp name="Service-Gap-Time" code="1698" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="Aerial-UE-Subscription-Information" code="1699" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="Broadcast-Location-Assistance-Data-Types" code="1700" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned64"/>
+		</avp>
+		<avp name="Paging-Time-Window" code="1701" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="Operation-Mode"/>
+				<gavp name="Paging-Time-Window-Length"/>
+			</grouped>
+		</avp>
+		<avp name="Operation-Mode" code="1702" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Enumerated"/>
+			<enum name="Iu mode" code="1"/>
+			<enum name="WB-S1 mode" code="2"/>
+			<enum name="NB-S1 mode" code="3"/>
+		</avp>
+		<avp name="Paging-Time-Window-Length" code="1703" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="OctetString"/>
+		</avp>
+		<avp name="Core-Network-Restrictions" code="1704" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
 
 		<avp name="SMS-Information" code="2000" vendor-bit="must" vendor-id="TGPP">
 			<grouped>
@@ -6898,7 +7182,7 @@
 				<gavp name="Change-Time"/>
 			</grouped>
 		</avp>
-    <avp name="Access-Transfer-Type" code="2710" vendor-bit="must" vendor-id="TGPP">
+		<avp name="Access-Transfer-Type" code="2710" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Enumerated"/>
 			<enum name="PS to CS Transfer" code="0"/>
 			<enum name="CS to PS Transfer" code="1"/>
@@ -7021,6 +7305,7 @@
 			<type type-name="Enumerated"/>
 			<enum name="In area" code="0"/>
 			<enum name="Out of area" code="1"/>
+			<enum name="Inactive" code="2"/>
 		</avp>
 		<avp name="NetLoc-Access-Support" code="2824" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
 			<type type-name="Enumerated"/>
@@ -7265,6 +7550,7 @@
 		<avp name="S6-Service-ID" code="3103" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Enumerated"/>
 			<enum name="DEVICE_TRIGGER" code="0"/>
+			<enum name="SMS_MO" code="1"/>
 		</avp>
 		<avp name="SCS-Identity" code="3104" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="OctetString"/>
@@ -7272,6 +7558,7 @@
 		<avp name="Service-Parameters" code="3105" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<grouped>
 				<gavp name="T4-Parameters"/>
+				<gavp name="Application-Port-Identifier"/>
 			</grouped>
 		</avp>
 		<avp name="T4-Parameters" code="3106" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
@@ -7324,6 +7611,8 @@
 		</avp>
 		<avp name="Periodic-Communication-Indicator" code="3115" mandatory="must" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+ 			<enum name="PERIODICALLY" code="0"/>
+ 			<enum name="ON_DEMAND" code="1"/>
 		</avp>
 		<avp name="Communication-Duration-Time" code="3116" mandatory="must" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
@@ -7340,6 +7629,8 @@
 		</avp>
 		<avp name="Stationary-Indication" code="3119" mandatory="must" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="STATIONARY_UE" code="0"/>
+			<enum name="MOBILE_UE" code="1"/>
 		</avp>
 		<avp name="AESE-Communication-Pattern-Config-Status" code="3120" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<grouped>
@@ -7367,6 +7658,7 @@
 				<gavp name="Location-Information-Configuration"/>
 				<gavp name="Association-Type"/>
 				<gavp name="DL-Buffering-Suggested-Packet-Count"/>
+				<gavp name="PLMN-ID-Requested"/>
 			</grouped>
 		</avp>
 		<!-- Monitoring-Event-Report supports T6a/T6b and S6t, but AVP formats are not the same -->
@@ -7374,6 +7666,7 @@
 			<grouped>
 				<gavp name="SCEF-Reference-ID"/>
 				<gavp name="SCEF-ID"/>
+				<gavp name="SCEF-Reference-ID-for-Deletion"/>
 				<gavp name="Visited-PLMN-Id"/>
 				<gavp name="Roaming-Information"/>
 				<gavp name="IMEI-Change"/>
@@ -7387,6 +7680,7 @@
 				<gavp name="Idle-Status-Indication"/>
 				<gavp name="Communication-Failure-Information"/>
 				<gavp name="Number-Of-UE-Per-Location-Report"/>
+				<gavp name="Visited-PLMN-Id"/>
 			</grouped>
 		</avp>
 		<avp name="SCEF-Reference-ID" code="3124" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
@@ -7400,6 +7694,16 @@
 		</avp>
 		<avp name="Monitoring-Type" code="3127" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="LOSS_OF_CONNECTIVITY" code="0"/>
+			<enum name="UE_REACHABILITY" code="1"/>
+			<enum name="LOCATION_REPORTING" code="2"/>
+			<enum name="CHANGE_OF_IMSI_IMEI(SV)_ASSOCIATION" code="3"/>
+			<enum name="ROAMING_STATUS" code="4"/>
+			<enum name="COMMUNICATION_FAILURE" code="5"/>
+			<enum name="AVAILABILITY_AFTER_DDN_FAILURE" code="6"/>
+			<enum name="NUMBER_OF_UES_PRESENT_IN_A_GEOGRAPHICAL_AREA" code="7"/>
+			<enum name="UE_REACHABILITY_AND_IDLE_STATUS_INDICATION" code="8"/>
+			<enum name="AVAILABILITY_AFTER_DDN_FAILURE_AND_IDLE_STATUS_INDICATION" code="9"/>
 		</avp>
 		<avp name="Maximum-Number-of-Reports" code="3128" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
@@ -7409,6 +7713,7 @@
 				<gavp name="Reachability-Type"/>
 				<gavp name="Maximum-Latency"/>
 				<gavp name="Maximum-Response-Time"/>
+				<gavp name="DL-Buffering-Suggested-Packet-Count"/>
 			</grouped>
 		</avp>
 		<avp name="Monitoring-Duration" code="3130" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
@@ -7419,6 +7724,8 @@
 		</avp>
 		<avp name="Reachability-Type" code="3132" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+ 			<enum name="Reachability for SMS" code="1"/>
+ 			<enum name="Reachability for Data" code="2"/>
 		</avp>
 		<avp name="Maximum-Latency" code="3133" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
@@ -7430,22 +7737,36 @@
 			<grouped>
 				<gavp name="MONTE-Location-Type"/>
 				<gavp name="Accuracy"/>
+				<gavp name="Periodic-Time"/>
 			</grouped>
 		</avp>
 		<avp name="MONTE-Location-Type" code="3136" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="CURRENT_LOCATION" code="0"/>
+			<enum name="LAST_KNOWN_LOCATION" code="1"/>
 		</avp>
 		<avp name="Accuracy" code="3137" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="CGI-ECGI" code="0"/>
+			<enum name="eNB" code="1"/>
+			<enum name="LA-TA-RA" code="2"/>
+			<enum name="PRA" code="3"/>
+			<enum name="PLMN-ID" code="4"/>
 		</avp>
 		<avp name="Association-Type" code="3138" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="IMEI-CHANGE" code="0"/>
+			<enum name="IMEISV-CHANGE" code="1"/>
 		</avp>
 		<avp name="Roaming-Information" code="3139" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="SUBSCRIBER_ROAMING" code="0"/>
+			<enum name="SUBSCRIBER_NOT_ROAMING" code="1"/>
 		</avp>
 		<avp name="Reachability-Information" code="3140" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="REACHABLE_FOR_SMS" code="0"/>
+			<enum name="REACHABLE_FOR_DATA" code="1"/>
 		</avp>
 		<avp name="IMEI-Change" code="3141" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
@@ -7483,6 +7804,9 @@
 		</avp>
 		<avp name="Event-Handling" code="3149" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="SUSPEND" code="0"/>
+			<enum name="RESUME" code="1"/>
+			<enum name="CANCEL" code="2"/>
 		</avp>
 		<avp name="NIDD-Authorization-Request" code="3150" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<grouped>
@@ -7506,6 +7830,9 @@
 		</avp>
 		<avp name="Node-Type" code="3153" mandatory="must" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="HSS" code="0"/>
+			<enum name="MME" code="1"/>
+			<enum name="SGSN" code="2"/>
 		</avp>
 		<avp name="S6t-HSS-Cause" code="3154" mandatory="must" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
@@ -7548,10 +7875,85 @@
 		</avp>
 		<avp name="Loss-Of-Connectivity-Reason" code="3162" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="UE_DETACHED_MME" code="0"/>
+			<enum name="UE_DETACHED_SGSN" code="1"/>
+			<enum name="MAX_DETECTION_TIME_EXPIRED_MME" code="2"/>
+			<enum name="MAX_DETECTION_TIME_EXPIRED_SGSN" code="3"/>
+			<enum name="UE_PURGED_MME" code="4"/>
+			<enum name="UE_PURGED_SGSN" code="5"/>
+		</avp>
+		<avp name="Group-Reporting-Guard-Timer" code="3163" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="CIA-Flags" code="3164" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="Group-Monitoring-Event-Report" code="3165" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+			<gavp name="SCEF-Reference-ID"/>
+			<gavp name="SCEF-ID"/>
+			<gavp name="Group-Monitoring-Event-Report-Item"/>
+			</grouped>
+		</avp>
+		<avp name="Group-Monitoring-Event-Report-Item" code="3166" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+			<gavp name="User-Identifier"/>
+				<gavp name="Visited-PLMN-Id"/>
+				<gavp name="Roaming-Information"/>
+				<gavp name="Reachability-Information"/>
+				<gavp name="Maximum-UE-Availability-Time"/>
+				<gavp name="EPS-Location-Information"/>
+				<gavp name="Monitoring-Type"/>
+				<gavp name="Service-Report"/>
+				<gavp name="S6t-HSS-Cause"/>
+			</grouped>
+		</avp>
+		<avp name="RIR-Flags" code="3167" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
 		</avp>
 		<avp name="Type-Of-External-Identifier" code="3168" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
+			<enum name="EXTERNAL-UE-IDENTIFIER-TYPE" code="0"/>
+			<enum name="EXTERNAL-GROUP-IDENTIFIER-TYPE" code="1"/>
 		</avp>
+		<avp name="APN-Validity-Time" code="3169" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+			<gavp name="Granted-Validity-Time"/>
+				<gavp name="Service-Selection"/>
+			</grouped>
+		</avp>
+		<avp name="Suggested-Network-Configuration" code="3170" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="SCEF-Reference-ID"/>
+				<gavp name="SCEF-ID"/>
+				<gavp name="Subscribed-Periodic-RAU-TAU-Timer"/>
+				<gavp name="Active-Time"/>
+				<gavp name="DL-Buffering-Suggested-Packet-Count"/>
+				<gavp name="Group-Reporting-Guard-Timer"/>
+			</grouped>
+		</avp>
+		<avp name="Monitoring-Event-Report-Status" code="3171" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="SCEF-Reference-ID"/>
+				<gavp name="SCEF-ID"/>
+				<gavp name="Result-Code"/>
+				<gavp name="Experimental-Result-Code"/>
+			</grouped>
+		</avp>
+		<avp name="PLMN-ID-Requested" code="3172" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Enumerated"/>
+			<enum name="TRUE" code="0"/>
+			<enum name="FALSE" code="1"/>
+		</avp>
+		<avp name="AdditionalIdentifiers" code="3173" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="External-Identifier"/>
+			</grouped>
+		</avp>
+		<avp name="NIR-Flags" code="3174" mandatory="mustnot" may-encrypt="no" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
+
 		<!--
 		Note: The AVP codes from 3163 to 3199 are reserved for TS 29.336
 		-->
@@ -7581,21 +7983,8 @@
 		<!--
 		Note: The AVP codes from 3206 to 3308 are reserved for TS 29.338
 		-->
-		<avp name="SM-RP-SMEA" code="3309" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
-			<type type-name="OctetString"/>
-		</avp>
-		<avp name="Maximum-UE-Availability-Time" code="3329" mandatory="mustnot" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
-			<type type-name="Time"/>
-		</avp>
-		<avp name="Maximum-Retransmission-Time" code="3330" mandatory="mustnot" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
-			<type type-name="Time"/>
-		</avp>
-		<avp name="Requested-Retransmission-Time" code="3331"  mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
-			<type type-name="Time"/>
-		</avp>
-		<avp name="SMS-GMSC-Address" code="3332"  mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
-			<type type-name="OctetString"/>
-		</avp>
+
+
 		<avp name="Reason-Header" code="3401" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<type type-name="UTF8String"/>
 		</avp>
@@ -8133,7 +8522,7 @@
 	<application id="16777309"	name="3GPP Tsp"				uri="http://www.3gpp.org/ftp/Specs/html-info/29368.htm"/>
 	<application id="16777310"	name="3GPP S6m"				uri="http://www.3gpp.org/ftp/Specs/html-info/29336.htm"/>
 	<application id="16777311"	name="3GPP T4"				uri="http://www.3gpp.org/ftp/Specs/html-info/29337.htm"/>
-	<application id="16777312"	name="3GPP S6c"				uri="http://www.3gpp.org/ftp/Specs/html-info/29338.htm"/>
+  <!-- application 16777312 3GPP S6c"is defined in TGPP.xml -->
 	<application id="16777313"	name="3GPP SGd"				uri="http://www.3gpp.org/ftp/Specs/html-info/29338.htm"/>
 	<application id="16777314"	name="Intrado-SLg"			uri="none"/>
 	<!-- application 16777315	is defined in Ericsson.xml -->

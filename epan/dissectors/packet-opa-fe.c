@@ -14,7 +14,7 @@
 #include <epan/packet.h>
 #include <epan/prefs.h>
 
-#include "packet-ssl.h"
+#include "packet-tls.h"
 #include "packet-tcp.h"
 
 void proto_reg_handoff_opa_fe(void);
@@ -139,9 +139,10 @@ void proto_register_opa_fe(void)
 
     opa_fe_module = prefs_register_protocol(proto_opa_fe, proto_reg_handoff_opa_fe);
     range_convert_str(wmem_epan_scope(), &global_fe_ssl_range, OPA_FE_SSL_RANGE, 65535);
-    prefs_register_range_preference(opa_fe_module, "ssl.port", "SSL/TLS Ports",
+    prefs_register_range_preference(opa_fe_module, "tls.port", "SSL/TLS Ports",
         "SSL/TLS Ports range",
         &global_fe_ssl_range, 65535);
+    prefs_register_obsolete_preference(opa_fe_module, "ssl.port");
 }
 
 void proto_reg_handoff_opa_fe(void)

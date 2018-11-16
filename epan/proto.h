@@ -66,17 +66,20 @@ WS_DLL_PUBLIC int hf_text_only;
 
 struct expert_field;
 
+/* Type-check that 'x' is compatible with 'type', should give compiler warnings otherwise. */
+#define cast_same(type, x) (0 ? (type)0 : (x))
+
 /** Make a const value_string[] look like a _value_string pointer, used to set header_field_info.strings */
-#define VALS(x)	(const struct _value_string*)(x)
+#define VALS(x)     (cast_same(const struct _value_string*, (x)))
 
 /** Make a const val64_string[] look like a _val64_string pointer, used to set header_field_info.strings */
-#define VALS64(x)   (const struct _val64_string*)(x)
+#define VALS64(x)   (cast_same(const struct _val64_string*, (x)))
 
 /** Something to satisfy checkAPIs when you have a pointer to a value_string_ext (e.g., one built with value_string_ext_new()) */
-#define VALS_EXT_PTR(x) (x)
+#define VALS_EXT_PTR(x) (cast_same(value_string_ext*, (x)))
 
 /** Make a const true_false_string[] look like a _true_false_string pointer, used to set header_field_info.strings */
-#define TFS(x)	(const struct true_false_string*)(x)
+#define TFS(x)      (cast_same(const struct true_false_string*, (x)))
 
 typedef void (*custom_fmt_func_t)(gchar *, guint32);
 
@@ -93,7 +96,7 @@ typedef void (*custom_fmt_func_64_t)(gchar *, guint64);
 
 /** Make a const range_string[] look like a _range_string pointer, used to set
  * header_field_info.strings */
-#define RVALS(x) (const struct _range_string*)(x)
+#define RVALS(x) (cast_same(const struct _range_string*, (x)))
 
 /** Cast a ft_framenum_type_t, used to set header_field_info.strings */
 #define FRAMENUM_TYPE(x) GINT_TO_POINTER(x)
@@ -123,7 +126,7 @@ void proto_report_dissector_bug(const char *format, ...)
 /** Macro used to provide a hint to static analysis tools.
  * (Currently only Visual C++.)
  */
-#if _MSC_VER >= 1400
+#ifdef _MSC_VER
 /* XXX - Is there a way to say "quit checking at this point"? */
 #define __DISSECTOR_ASSERT_STATIC_ANALYSIS_HINT(expression) \
   ; __analysis_assume(expression);
@@ -348,10 +351,14 @@ void proto_report_dissector_bug(const char *format, ...)
  *
  * We now support:
  *
- *  ENC_TIME_TIMESPEC - 8 bytes; the first 4 bytes are seconds and the
- *  next 4 bytes are nanoseconds.  If the time is absolute, the seconds
- *  are seconds since the UN*X epoch (1970-01-01 00:00:00 UTC).  (I.e.,
- *  a UN*X struct timespec with a 4-byte time_t.)
+ *  ENC_TIME_SECS_NSECS - 8, 12, or 16 bytes.  For 8 bytes, the first 4
+ *  bytes are seconds and the next 4 bytes are nanoseconds; for 12 bytes,
+ *  the first 8 bytes are seconds and the next 4 bytes are nanoseconds;
+ *  for 16 bytes, the first 8 bytes are seconds and the next 8 bytes are
+ *  nanoseconds.  If the time is absolute, the seconds are seconds since
+ *  the UN*X epoch (1970-01-01 00:00:00 UTC).  (I.e., a UN*X struct
+ *  timespec with a 4-byte or 8-byte time_t or a structure with an
+ *  8-byte time_t and an 8-byte nanoseconds field.)
  *
  *  ENC_TIME_NTP - 8 bytes; the first 4 bytes are seconds since the NTP
  *  epoch (1901-01-01 00:00:00 GMT) and the next 4 bytes are 1/2^32's of
@@ -368,7 +375,7 @@ void proto_report_dissector_bug(const char *format, ...)
  *  NTP time.)  It's used by the Object Management Group's Real-Time
  *  Publish-Subscribe Wire Protocol for the Data Distribution Service.
  *
- *  ENC_TIME_TIMEVAL - 8 bytes; the first 4 bytes are seconds and the
+ *  ENC_TIME_SECS_USECS - 8 bytes; the first 4 bytes are seconds and the
  *  next 4 bytes are microseconds.  If the time is absolute, the seconds
  *  are seconds since the UN*X epoch.  (I.e., a UN*X struct timeval with
  *  a 4-byte time_t.)
@@ -388,13 +395,19 @@ void proto_report_dissector_bug(const char *format, ...)
  *
  *  ENC_TIME_MSEC_NTP - 4-8 bytes, representing a count of milliseconds since
  *  the NTP epoch.  (I.e., milliseconds since the NTP epoch.)
+ *
+ * The backwards-compatibility names are defined as hex numbers so that
+ * the script to generate init.lua will add them as global variables,
+ * along with the new names.
  */
-#define ENC_TIME_TIMESPEC      0x00000000
+#define ENC_TIME_SECS_NSECS    0x00000000
+#define ENC_TIME_TIMESPEC      0x00000000 /* for backwards source compatibility */
 #define ENC_TIME_NTP           0x00000002
 #define ENC_TIME_TOD           0x00000004
 #define ENC_TIME_RTPS          0x00000008
-#define ENC_TIME_NTP_BASE_ZERO ENC_TIME_RTPS /* for backwards source compatibility */
-#define ENC_TIME_TIMEVAL       0x00000010
+#define ENC_TIME_NTP_BASE_ZERO 0x00000008 /* for backwards source compatibility */
+#define ENC_TIME_SECS_USECS    0x00000010
+#define ENC_TIME_TIMEVAL       0x00000010 /* for backwards source compatibility */
 #define ENC_TIME_SECS          0x00000012
 #define ENC_TIME_MSECS         0x00000014
 #define ENC_TIME_SECS_NTP      0x00000018
@@ -589,7 +602,7 @@ typedef enum {
 
 /* Following constants have to be ORed with a field_display_e when dissector
  * want to use specials value-string MACROs for a header_field_info */
-#define BASE_RANGE_STRING       0x0100
+#define BASE_RANGE_STRING       0x0100  /**< Use the supplied range string to convert the field to text */
 #define BASE_EXT_STRING         0x0200
 #define BASE_VAL64_STRING       0x0400
 #define BASE_ALLOW_ZERO         0x0800  /**< Display <none> instead of <MISSING> for zero sized byte array */
@@ -897,8 +910,9 @@ WS_DLL_PUBLIC void proto_register_plugin(const proto_plugin *plugin);
 #endif
 
 /** Sets up memory used by proto routines. Called at program startup */
-void proto_init(GSList *register_all_protocols_list, GSList *register_all_handoffs_list,
-		       register_cb cb, void *client_data);
+void proto_init(GSList *register_all_plugin_protocols_list,
+			GSList *register_all_plugin_handoffs_list,
+			register_cb cb, void *client_data);
 
 
 /** Frees memory used by proto routines. Called at program shutdown */
@@ -2183,6 +2197,13 @@ proto_register_protocol_in_name_only(const char *name, const char *short_name, c
 gboolean
 proto_deregister_protocol(const char *short_name);
 
+/** Register a protocol alias.
+ This is for dissectors whose original name has changed, e.g. BOOTP to DHCP.
+ @param proto_id protocol id returned by proto_register_protocol (0-indexed)
+ @param alias_name alias for the protocol's filter name */
+WS_DLL_PUBLIC void
+proto_register_alias(const int proto_id, const char *alias_name);
+
 /** This type of function can be registered to get called whenever
     a given field was not found but a its prefix is matched;
     It can be used to procrastinate the hf array registration.
@@ -2252,6 +2273,11 @@ WS_DLL_PUBLIC header_field_info* proto_registrar_get_nth(guint hfindex);
  @param field_name the field name to search for
  @return the registered item */
 WS_DLL_PUBLIC header_field_info* proto_registrar_get_byname(const char *field_name);
+
+/** Get the header_field information based upon a field alias.
+ @param alias_name the aliased field name to search for
+ @return the registered item */
+WS_DLL_PUBLIC header_field_info* proto_registrar_get_byalias(const char *alias_name);
 
 /** Get the header_field id based upon a field name.
  @param field_name the field name to search for
@@ -2371,7 +2397,7 @@ WS_DLL_PUBLIC void proto_heuristic_dissector_foreach(const protocol_t *protocol,
  * unchanged. May be NULL.
  * @param is_sctp Set to TRUE if the layer list contains SCTP, otherwise
  * unchanged. May be NULL.
- * @param is_ssl Set to TRUE if the layer list contains SSL/TLS, otherwise
+ * @param is_tls Set to TRUE if the layer list contains SSL/TLS, otherwise
  * unchanged. May be NULL.
  * @param is_rtp Set to TRUE if the layer list contains RTP, otherwise
  * unchanged. May be NULL.
@@ -2380,7 +2406,7 @@ WS_DLL_PUBLIC void proto_heuristic_dissector_foreach(const protocol_t *protocol,
  */
 WS_DLL_PUBLIC void proto_get_frame_protocols(const wmem_list_t *layers,
       gboolean *is_ip, gboolean *is_tcp, gboolean *is_udp, gboolean *is_sctp,
-      gboolean *is_ssl, gboolean *is_rtp, gboolean *is_lte_rlc);
+      gboolean *is_tls, gboolean *is_rtp, gboolean *is_lte_rlc);
 
 /** Check whether a protocol, specified by name, is in a layer list.
  * @param layers Protocol layer list

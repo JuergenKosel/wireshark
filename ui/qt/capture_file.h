@@ -43,18 +43,63 @@ public:
      */
     int currentRow();
 
-    /** Return a filename suitable for use in a window title.
+    /** Return the full pathname.
      *
-     * @return One of: the basename of the capture file without an extension,
-     *  the basename followed by "[closing]", "[closed]", or "[no capture file]".
+     * @return The entire pathname, converted from the native OS's encoding
+     * to Unicode if necessary, or a null string if the conversion can't
+     * be done.
      */
-    const QString fileTitle() { return fileName() + file_state_; }
+    const QString filePath();
 
     /** Return the plain filename.
      *
-     * @return The basename of the capture file without an extension.
+     * @return The last component of the pathname, including the extension,
+     * converted from the native OS's encoding to Unicode if necessary, or
+     * a null string if the conversion can't be done.
      */
     const QString fileName();
+
+    /** Return the plain filename without an extension.
+     *
+     * @return The last component of the pathname, without the extension,
+     * converted from the native OS's encoding to Unicode if necessary, or
+     * a null string if the conversion can't be done.
+     */
+    const QString fileBaseName();
+
+    /** Return a string representing the file suitable for use for
+     *  display in the UI in places such as a main window title.
+     *
+     * @return One of:
+     *
+     *    the devices on which the capture was done, if the file is a
+     *    temporary file for a capture;
+     *
+     *    the last component of the capture file's name, converted
+     *    from the native OS's encoding to Unicode if necessary (and
+     *    with REPLACEMENT CHARACTER inserted if the string can't
+     *    be converted).
+     *
+     *    a null string, if there is no capture file.
+     */
+    const QString fileDisplayName();
+
+    /** Return a string representing the file suitable for use in an
+     *  auxiliary window title.
+     *
+     * @return One of:
+     *
+     *    the result of fileDisplayName(), if the file is open;
+     *
+     *    the result of fileDisplayName() followed by [closing], if
+     *    the file is being closed;
+     *
+     *    the result of fileDisplayName() followed by [closed], if
+     *    the file has been closed;
+     *
+     *    [no capture file], if there is no capture file.
+     */
+    const QString fileTitle();
 
     /** Return the current packet information.
      *
@@ -116,7 +161,6 @@ private:
     static QString no_capture_file_;
 
     capture_file *cap_file_;
-    QString file_name_;
     QString file_state_;
 };
 

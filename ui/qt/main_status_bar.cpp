@@ -195,6 +195,7 @@ void MainStatusBar::showExpert() {
 void MainStatusBar::captureFileClosing() {
     expert_button_->hide();
     progress_frame_.captureFileClosing();
+    popFieldStatus();
 }
 
 void MainStatusBar::expertUpdate() {
@@ -429,9 +430,8 @@ void MainStatusBar::popProgressStatus()
     progress_frame_.hide();
 }
 
-void MainStatusBar::selectedFrameChanged(int frameNum)
+void MainStatusBar::selectedFrameChanged(int)
 {
-    Q_UNUSED(frameNum);
     showCaptureStatistics();
 }
 
@@ -558,6 +558,11 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
                 /* Current profile */
                 pa->setCheckable(true);
                 pa->setChecked(true);
+            }
+            if (profile->is_global) {
+                QFont ti_font = pa->font();
+                ti_font.setItalic(true);
+                pa->setFont(ti_font);
             }
             connect(pa, SIGNAL(triggered()), this, SLOT(switchToProfile()));
         }

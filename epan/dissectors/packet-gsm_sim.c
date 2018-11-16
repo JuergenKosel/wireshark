@@ -1097,6 +1097,7 @@ static const value_string sw_vals[] = {
 static const gchar *get_sw_string(guint16 sw)
 {
 	guint8 sw1 = sw >> 8;
+	guint8 sw2 = sw & 0xFF;
 
 	switch (sw1) {
 	case 0x91:
@@ -1104,13 +1105,20 @@ static const gchar *get_sw_string(guint16 sw)
 	case 0x9e:
 		return "Length of the response data given / SIM data download error";
 	case 0x9f:
-		return "Length of the response data";
+		return wmem_strdup_printf(wmem_packet_scope(), "Length of the response data, Length is %u", sw2);
 	case 0x92:
 		if ((sw & 0xf0) == 0x00)
 			return "Command successful but after internal retry routine";
 		break;
+	case 0x61:
+		return wmem_strdup_printf(wmem_packet_scope(), "Response ready, Response length is %u", sw2);
 	case 0x67:
-		return "Incorrect parameter P3";
+		if (sw2 == 0x00)
+			return "Wrong length"; /* TS 102.221 / Section 10.2.1.5 */
+		else
+			return "Incorrect parameter P3"; /* TS 51.011 / Section 9.4.6 */
+	case 0x6c:
+		return wmem_strdup_printf(wmem_packet_scope(), "Terminal should repeat command, Length for repeated command is %u", sw2);
 	case 0x6d:
 		return "Unknown instruction code";
 	case 0x6e:
@@ -1402,7 +1410,6 @@ dissect_rsp_apdu_tvb(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree 
 	offset += 2;
 
 	switch (sw >> 8) {
-	case 0x61:
 	case 0x90:
 	case 0x91:
 	case 0x92:

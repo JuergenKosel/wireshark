@@ -33,8 +33,9 @@
 #include <epan/afn.h>
 #include <epan/tap.h>
 #include <epan/stats_tree.h>
-#include "packet-ssl.h"
+#include "packet-tls.h"
 #include "packet-dtls.h"
+#include "packet-http2.h"
 
 void proto_register_dns(void);
 void proto_reg_handoff_dns(void);
@@ -449,6 +450,13 @@ static guint32 retransmission_timer = 5;
 static dissector_handle_t gssapi_handle;
 static dissector_handle_t ntlmssp_handle;
 
+/* Transport protocol for DNS. */
+enum DnsTransport {
+  DNS_TRANSPORT_UDP,    /* includes compatible transports like SCTP */
+  DNS_TRANSPORT_TCP,
+  DNS_TRANSPORT_HTTP
+};
+
 /* Structure containing transaction specific information */
 typedef struct _dns_transaction_t {
   guint32 req_frame;
@@ -617,6 +625,8 @@ typedef struct _dns_conv_info_t {
 #define O_PADDING       12              /* EDNS(0) Padding Option (RFC7830) */
 #define O_CHAIN         13              /* draft-ietf-dnsop-edns-chain-query */
 
+#define MIN_DNAME_LEN    2              /* minimum domain name length */
+
 static const true_false_string tfs_flags_response = {
   "Message is a response",
   "Message is a query"
@@ -777,6 +787,7 @@ static const value_string tkey_mode_vals[] = {
 #define TSSHFP_ALGO_DSA        (2)
 #define TSSHFP_ALGO_ECDSA      (3)
 #define TSSHFP_ALGO_ED25519    (4)
+#define TSSHFP_ALGO_XMSS       (5)
 
 #define TSSHFP_FTYPE_RESERVED  (0)
 #define TSSHFP_FTYPE_SHA1      (1)
@@ -788,6 +799,7 @@ static const value_string sshfp_algo_vals[] = {
   { TSSHFP_ALGO_DSA,      "DSA" },
   { TSSHFP_ALGO_ECDSA,    "ECDSA" },
   { TSSHFP_ALGO_ED25519,  "Ed25519" },
+  { TSSHFP_ALGO_XMSS,     "XMSS" },
   { 0, NULL }
 };
 
@@ -1165,12 +1177,11 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
          * than the minimum length, we're looking at bad data and we're liable
          * to put the dissector into a loop.  Instead we throw an exception */
 
-  maxname=MAXDNAME;
+  maxname = MAX_DNAME_LEN;
   np=(guchar *)wmem_alloc(wmem_packet_scope(), maxname);
   *name=np;
   (*name_len) = 0;
 
-  maxname--;   /* reserve space for the trailing '\0' */
   for (;;) {
     if (max_len && offset - start_offset > max_len - 1) {
       break;
@@ -1191,6 +1202,9 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
             (*name_len)++;
             maxname--;
           }
+        }
+        else {
+          maxname--;
         }
         while (component_len > 0) {
           if (max_len && offset - start_offset > max_len - 1) {
@@ -1222,7 +1236,7 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
             label_len = (bit_count - 1) / 8 + 1;
 
             if (maxname > 0) {
-              print_len = g_snprintf(np, maxname + 1, "\\[x");
+              print_len = g_snprintf(np, maxname, "\\[x");
               if (print_len <= maxname) {
                 np      += print_len;
                 maxname -= print_len;
@@ -1234,7 +1248,7 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
             }
             while (label_len--) {
               if (maxname > 0) {
-                print_len = g_snprintf(np, maxname + 1, "%02x",
+                print_len = g_snprintf(np, maxname, "%02x",
                                        tvb_get_guint8(tvb, offset));
                 if (print_len <= maxname) {
                   np      += print_len;
@@ -1248,7 +1262,7 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
               offset++;
             }
             if (maxname > 0) {
-              print_len = g_snprintf(np, maxname + 1, "/%d]", bit_count);
+              print_len = g_snprintf(np, maxname, "/%d]", bit_count);
               if (print_len <= maxname) {
                 np      += print_len;
                 maxname -= print_len;
@@ -1295,7 +1309,7 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
          * If we find a pointer to itself, it is a trivial loop. Otherwise if we
          * processed a large number of pointers, assume an indirect loop.
          */
-        if (indir_offset == offset + 2 || pointers_count > MAXDNAME/4) {
+        if (indir_offset == offset + 2 || pointers_count > MAX_DNAME_LEN) {
           *name="<Name contains a pointer that loops>";
           *name_len = (guint)strlen(*name);
           if (len < min_len) {
@@ -1309,7 +1323,15 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
     }
   }
 
-  *np = '\0';
+  // Do we have space for the terminating 0?
+  if (maxname > 0) {
+    *np = '\0';
+  }
+  else {
+    *name="<Name too long>";
+    *name_len = (guint)strlen(*name);
+  }
+
   /* If "len" is negative, we haven't seen a pointer, and thus haven't
      set the length, so set it. */
   if (len < 0) {
@@ -1326,18 +1348,17 @@ get_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
     const guchar **name, guint* name_len)
 {
   int len;
-  const int min_len = 2;
 
   len = expand_dns_name(tvb, offset, max_len, dns_data_offset, name, name_len);
 
   /* Zero-length name means "root server" */
-  if (**name == '\0' && len <= min_len) {
+  if (**name == '\0' && len <= MIN_DNAME_LEN) {
     *name="<Root>";
     *name_len = (guint)strlen(*name);
     return len;
   }
 
-  if ((len < min_len) || (len > min_len && *name_len == 0)) {
+  if ((len < MIN_DNAME_LEN) || (len > MIN_DNAME_LEN && *name_len == 0)) {
     THROW(ReportedBoundsError);
   }
 
@@ -3656,14 +3677,15 @@ dissect_answer_records(tvbuff_t *tvb, int cur_off, int dns_data_offset,
 
 static void
 dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
-    gboolean is_tcp, gboolean is_mdns, gboolean is_llmnr)
+    enum DnsTransport transport, gboolean is_mdns, gboolean is_llmnr)
 {
-  int                offset   = is_tcp ? 2 : 0;
+  int                offset   = transport == DNS_TRANSPORT_TCP ? 2 : 0;
   int                dns_data_offset;
   proto_tree        *dns_tree, *field_tree;
   proto_item        *ti, *tf, *transaction_item;
   guint16            flags, opcode, rcode, quest, ans, auth, add;
   guint              id;
+  guint32            reqresp_id = 0;
   int                cur_off;
   gboolean           isupdate;
   conversation_t    *conversation;
@@ -3676,7 +3698,7 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   gboolean           retransmission = FALSE;
   const guchar      *name;
   int                name_len;
-  nstime_t           delta = { 0, 0 };
+  nstime_t           delta = NSTIME_INIT_ZERO;
 
   dns_data_offset = offset;
 
@@ -3724,6 +3746,19 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   conversation = find_or_create_conversation(pinfo);
 
   /*
+   * DoH: Each DNS query-response pair is mapped into an HTTP exchange.
+   * For other transports, just use the DNS transaction ID as usual.
+   */
+  if (transport == DNS_TRANSPORT_HTTP) {
+    /* For DoH using HTTP/2, use the Stream ID if available. For HTTP/1,
+     * hopefully there is no pipelining or the DNS ID is unique enough. */
+    reqresp_id = http2_get_stream_id(pinfo);
+  }
+  if (reqresp_id == 0) {
+    reqresp_id = id;
+  }
+
+  /*
    * Do we already have a state structure for this conv
    */
   dns_info = (dns_conv_info_t *)conversation_get_proto_data(conversation, proto_dns);
@@ -3737,7 +3772,7 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   }
 
   key[0].length = 1;
-  key[0].key = &id;
+  key[0].key = &reqresp_id;
   key[1].length = 1;
   key[1].key = &pinfo->num;
   key[2].length = 0;
@@ -3750,7 +3785,7 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
       /* Check if we've seen this transaction before */
       dns_trans=(dns_transaction_t *)wmem_tree_lookup32_array_le(dns_info->pdus, key);
-      if ((dns_trans == NULL) || (dns_trans->id != id) || (dns_trans->rep_frame > 0)) {
+      if ((dns_trans == NULL) || (dns_trans->id != reqresp_id) || (dns_trans->rep_frame > 0)) {
         new_transaction = TRUE;
       } else {
         nstime_t request_delta;
@@ -3769,13 +3804,13 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         dns_trans->req_frame=pinfo->num;
         dns_trans->rep_frame=0;
         dns_trans->req_time=pinfo->abs_ts;
-        dns_trans->id = id;
+        dns_trans->id = reqresp_id;
         wmem_tree_insert32_array(dns_info->pdus, key, (void *)dns_trans);
       }
     } else {
       dns_trans=(dns_transaction_t *)wmem_tree_lookup32_array_le(dns_info->pdus, key);
       if (dns_trans) {
-        if (dns_trans->id != id) {
+        if (dns_trans->id != reqresp_id) {
           dns_trans = NULL;
         } else if (dns_trans->rep_frame == 0) {
           dns_trans->rep_frame=pinfo->num;
@@ -3787,7 +3822,7 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   } else {
     dns_trans=(dns_transaction_t *)wmem_tree_lookup32_array_le(dns_info->pdus, key);
     if (dns_trans) {
-      if (dns_trans->id != id) {
+      if (dns_trans->id != reqresp_id) {
         dns_trans = NULL;
       } else if ((!(flags & F_RESPONSE)) && (dns_trans->req_frame != pinfo->num)) {
         /* This is a request retransmission, create a "fake" dns_trans structure*/
@@ -3811,7 +3846,7 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     dns_trans->req_time=pinfo->abs_ts;
   }
 
-  if (is_tcp) {
+  if (transport == DNS_TRANSPORT_TCP) {
     /* Put the length indication into the tree. */
     proto_tree_add_item(dns_tree, hf_dns_length, tvb, offset - 2, 2, ENC_BIG_ENDIAN);
   }
@@ -4034,7 +4069,16 @@ dissect_dns_udp_sctp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 {
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "DNS");
 
-  dissect_dns_common(tvb, pinfo, tree, FALSE, FALSE, FALSE);
+  dissect_dns_common(tvb, pinfo, tree, DNS_TRANSPORT_UDP, FALSE, FALSE);
+  return tvb_captured_length(tvb);
+}
+
+static int
+dissect_dns_doh(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+{
+  col_set_str(pinfo->cinfo, COL_PROTOCOL, "DoH");
+
+  dissect_dns_common(tvb, pinfo, tree, DNS_TRANSPORT_HTTP, FALSE, FALSE);
   return tvb_captured_length(tvb);
 }
 
@@ -4043,7 +4087,7 @@ dissect_mdns_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
 {
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "MDNS");
 
-  dissect_dns_common(tvb, pinfo, tree, FALSE, TRUE, FALSE);
+  dissect_dns_common(tvb, pinfo, tree, DNS_TRANSPORT_UDP, TRUE, FALSE);
   return tvb_captured_length(tvb);
 }
 
@@ -4052,7 +4096,7 @@ dissect_llmnr_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 {
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "LLMNR");
 
-  dissect_dns_common(tvb, pinfo, tree, FALSE, FALSE, TRUE);
+  dissect_dns_common(tvb, pinfo, tree, DNS_TRANSPORT_UDP, FALSE, TRUE);
   return tvb_captured_length(tvb);
 }
 
@@ -4077,7 +4121,7 @@ dissect_dns_tcp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 {
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "DNS");
 
-  dissect_dns_common(tvb, pinfo, tree, TRUE, FALSE, FALSE);
+  dissect_dns_common(tvb, pinfo, tree, DNS_TRANSPORT_TCP, FALSE, FALSE);
   return tvb_reported_length(tvb);
 }
 
@@ -4092,10 +4136,12 @@ dissect_dns_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 static int
 dissect_dns(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
-  /* draft-ietf-doh-dns-over-https-03 */
-  gboolean is_doh = !g_strcmp0(pinfo->match_string, "application/dns-udpwireformat");
+  /* since draft-ietf-doh-dns-over-https-07 */
+  gboolean is_doh = !g_strcmp0(pinfo->match_string, "application/dns-message");
 
-  if (pinfo->ptype == PT_TCP && !is_doh) {
+  if (is_doh) {
+    return dissect_dns_doh(tvb, pinfo, tree, data);
+  } else if (pinfo->ptype == PT_TCP) {
     return dissect_dns_tcp(tvb, pinfo, tree, data);
   } else {
     dissect_dns_udp_sctp(tvb, pinfo, tree, data);
@@ -4214,7 +4260,7 @@ proto_reg_handoff_dns(void)
   dtls_dissector_add(UDP_PORT_DNS_DTLS, dns_handle);
   dissector_add_uint_range_with_preference("tcp.port", DEFAULT_DNS_TCP_PORT_RANGE, dns_handle);
   dissector_add_uint_range_with_preference("udp.port", DEFAULT_DNS_PORT_RANGE, dns_handle);
-  dissector_add_string("media_type", "application/dns-udpwireformat", dns_handle); /* draft-ietf-doh-dns-over-https-03 */
+  dissector_add_string("media_type", "application/dns-message", dns_handle); /* since draft-ietf-doh-dns-over-https-07 */
 }
 
 void

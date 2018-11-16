@@ -24,7 +24,8 @@ void register_tap_listener_expert_info(void);
 
 /* Tap data */
 typedef enum severity_level_t {
-    chat_level = 0,
+    comment_level = 0,
+    chat_level,
     note_level,
     warn_level,
     error_level,
@@ -33,7 +34,7 @@ typedef enum severity_level_t {
 
 /* This variable stores the lowest level that will be displayed.
    May be changed from the command line */
-static severity_level_t lowest_report_level = chat_level;
+static severity_level_t lowest_report_level = comment_level;
 
 typedef struct expert_entry
 {
@@ -81,6 +82,9 @@ expert_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U
     guint                n;
 
     switch (ei->severity) {
+        case PI_COMMENT:
+            severity_level = comment_level;
+            break;
         case PI_CHAT:
             severity_level = chat_level;
             break;
@@ -176,6 +180,17 @@ expert_stat_draw(void *phs _U_)
     draw_items_for_severity(hs->ei_array[warn_level],  "Warns");
     draw_items_for_severity(hs->ei_array[note_level],  "Notes");
     draw_items_for_severity(hs->ei_array[chat_level],  "Chats");
+    draw_items_for_severity(hs->ei_array[comment_level],  "Comments");
+}
+
+static void
+expert_tapdata_free(expert_tapdata_t* hs)
+{
+    for (int n = 0; n < max_level; n++) {
+        g_array_free(hs->ei_array[n], TRUE);
+    }
+    g_string_chunk_free(hs->text);
+    g_free(hs);
 }
 
 /* Create a new expert stats struct */
@@ -212,6 +227,9 @@ static void expert_stat_init(const char *opt_arg, void *userdata _U_)
         } else if (g_ascii_strncasecmp(args, ",chat", 5) == 0) {
             lowest_report_level = chat_level;
             args += 5;
+        } else if (g_ascii_strncasecmp(args, ",comment", 8) == 0) {
+            lowest_report_level = comment_level;
+            args += 8;
         }
     }
 
@@ -241,11 +259,12 @@ static void expert_stat_init(const char *opt_arg, void *userdata _U_)
                                          filter, 0,
                                          expert_stat_reset,
                                          expert_stat_packet,
-                                         expert_stat_draw);
+                                         expert_stat_draw,
+                                         (tap_finish_cb)expert_tapdata_free);
     if (error_string) {
         printf("Expert tap error (%s)!\n", error_string->str);
         g_string_free(error_string, TRUE);
-        g_free(hs);
+        expert_tapdata_free(hs);
         exit(1);
     }
 }

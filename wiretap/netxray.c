@@ -1350,7 +1350,7 @@ netxray_process_rec_header(wtap *wth, FILE_T fh, wtap_rec *rec,
 			 * is the direction flag.  (Probably true for other
 			 * HDLC encapsulations as well.)
 			 */
-			rec->rec_header.packet_header.pseudo_header.x25.flags =
+			rec->rec_header.packet_header.pseudo_header.dte_dce.flags =
 			    (hdr.hdr_2_x.xxx[12] & 0x01) ? 0x00 : FROM_DCE;
 
 			/*
@@ -1733,6 +1733,15 @@ netxray_dump_1_1(wtap_dumper *wdh,
 		return FALSE;
 	}
 
+	/*
+	 * Make sure this packet doesn't have a link-layer type that
+	 * differs from the one for the file.
+	 */
+	if (wdh->encap != rec->rec_header.packet_header.pkt_encap) {
+		*err = WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
+		return FALSE;
+	}
+
 	/* The captured length field is 16 bits, so there's a hard
 	   limit of 65535. */
 	if (rec->rec_header.packet_header.caplen > 65535) {
@@ -1912,6 +1921,15 @@ netxray_dump_2_0(wtap_dumper *wdh,
 		return FALSE;
 	}
 
+	/*
+	 * Make sure this packet doesn't have a link-layer type that
+	 * differs from the one for the file.
+	 */
+	if (wdh->encap != rec->rec_header.packet_header.pkt_encap) {
+		*err = WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
+		return FALSE;
+	}
+
 	/* Don't write anything we're not willing to read. */
 	if (rec->rec_header.packet_header.caplen > WTAP_MAX_PACKET_SIZE_STANDARD) {
 		*err = WTAP_ERR_PACKET_TOO_LARGE;
@@ -1971,7 +1989,7 @@ netxray_dump_2_0(wtap_dumper *wdh,
 		break;
 
 	case WTAP_ENCAP_FRELAY_WITH_PHDR:
-		rec_hdr.xxx[12] |= (pseudo_header->x25.flags & FROM_DCE) ? 0x00 : 0x01;
+		rec_hdr.xxx[12] |= (pseudo_header->dte_dce.flags & FROM_DCE) ? 0x00 : 0x01;
 		break;
 	}
 

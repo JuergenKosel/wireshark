@@ -111,8 +111,9 @@ QString Mtp3SummaryDialog::summaryToHtml()
         << table_row_end;
 
     QString format_str = wtap_file_type_subtype_string(summary.file_type);
-    if (summary.iscompressed) {
-        format_str.append(tr(" (gzip compressed)"));
+    const char *compression_type_description = wtap_compression_type_description(summary.compression_type);
+    if (compression_type_description != NULL) {
+        format_str += QString(" (%1)").arg(compression_type_description);
     }
     out << table_row_begin
         << table_vheader_tmpl.arg(tr("Format"))
@@ -366,6 +367,7 @@ register_tap_listener_qt_mtp3_summary(void)
     register_tap_listener("mtp3", &mtp3_stat, NULL, 0,
         mtp3_summary_reset,
         mtp3_summary_packet,
+        NULL,
         NULL);
 
     if (err_p != NULL)

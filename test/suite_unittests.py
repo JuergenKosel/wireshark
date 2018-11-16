@@ -11,65 +11,65 @@
 #
 '''EPAN unit tests'''
 
-import config
 import difflib
 import os.path
-import pprint
 import re
 import subprocesstest
-import unittest
+import fixtures
 
+
+@fixtures.uses_fixtures
 class case_unittests(subprocesstest.SubprocessTestCase):
-    def test_unit_exntest(self):
+    def test_unit_exntest(self, program, base_env):
         '''exntest'''
-        self.assertRun(os.path.join(config.program_path, 'exntest'))
+        self.assertRun(program('exntest'), env=base_env)
 
-    def test_unit_oids_test(self):
+    def test_unit_oids_test(self, program, base_env):
         '''oids_test'''
-        self.assertRun(os.path.join(config.program_path, 'oids_test'))
+        self.assertRun(program('oids_test'), env=base_env)
 
-    def test_unit_reassemble_test(self):
+    def test_unit_reassemble_test(self, program, base_env):
         '''reassemble_test'''
-        self.assertRun(os.path.join(config.program_path, 'reassemble_test'))
+        self.assertRun(program('reassemble_test'), env=base_env)
 
-    def test_unit_tvbtest(self):
+    def test_unit_tvbtest(self, program, base_env):
         '''tvbtest'''
-        self.assertRun(os.path.join(config.program_path, 'tvbtest'))
+        self.assertRun(program('tvbtest'), env=base_env)
 
-    def test_unit_wmem_test(self):
+    def test_unit_wmem_test(self, program, base_env):
         '''wmem_test'''
-        self.assertRun((os.path.join(config.program_path, 'wmem_test'),
+        self.assertRun((program('wmem_test'),
             '--verbose'
-        ))
+        ), env=base_env)
 
-    def test_unit_wmem_test(self):
+    def test_unit_wmem_test(self, program, base_env):
         '''wmem_test'''
-        self.assertRun((os.path.join(config.program_path, 'wmem_test'),
+        self.assertRun((program('wmem_test'),
             '--verbose'
-        ))
+        ), env=base_env)
 
-    def test_unit_fieldcount(self):
+    def test_unit_fieldcount(self, cmd_tshark, test_env):
         '''fieldcount'''
-        self.assertRun((config.cmd_tshark, '-G', 'fieldcount'))
+        self.assertRun((cmd_tshark, '-G', 'fieldcount'), env=test_env)
 
-    def test_unit_ctest_coverage(self):
+    def test_unit_ctest_coverage(self, all_test_groups):
         '''Make sure CTest runs all of our tests.'''
-        with open(os.path.join(config.this_dir, '..', 'CMakeLists.txt')) as cml_fd:
-            suite_re = re.compile('set *\( *_test_suite_list')
+        with open(os.path.join(os.path.dirname(__file__), '..', 'CMakeLists.txt')) as cml_fd:
+            group_re = re.compile(r'set *\( *_test_group_list')
             in_list = False
-            cml_suites = []
+            cml_groups = []
             for cml_line in cml_fd:
-                if suite_re.search(cml_line):
+                if group_re.search(cml_line):
                     in_list = True
                     continue
                 if in_list:
                     if ')' in cml_line:
                         break
-                    cml_suites.append(cml_line.strip())
-        cml_suites.sort()
-        if not config.all_suites == cml_suites:
-            diff = '\n'.join(list(difflib.unified_diff(config.all_suites, cml_suites, 'all test suites', 'CMakeLists.txt test suites')))
-            self.fail("CMakeLists.txt doesn't test all available suites:\n" + diff)
+                    cml_groups.append(cml_line.strip())
+        cml_groups.sort()
+        if not all_test_groups == cml_groups:
+            diff = '\n'.join(list(difflib.unified_diff(all_test_groups, cml_groups, 'all test groups', 'CMakeLists.txt test groups')))
+            self.fail("CMakeLists.txt doesn't test all available groups:\n" + diff)
 
 
 class Proto:
@@ -95,10 +95,12 @@ class Field:
         self.bitmask = int(data[6],0)
         self.blurb = data[7]
 
+
+@fixtures.uses_fixtures
 class case_unit_ftsanity(subprocesstest.SubprocessTestCase):
-    def test_unit_ftsanity(self):
+    def test_unit_ftsanity(self, cmd_tshark, base_env):
         """Looks for problems in field type definitions."""
-        tshark_proc = self.assertRun((config.cmd_tshark, "-G", "fields"))
+        tshark_proc = self.assertRun((cmd_tshark, "-G", "fields"), env=base_env)
 
         lines = tshark_proc.stdout_str.splitlines()
         # XXX We don't currently check protos.

@@ -24,12 +24,13 @@
 #include "wtap-int.h"
 #include "file_wrappers.h"
 #include "pcap-encap.h"
+#include "version_info.h"
 
 #include <wsutil/buffer.h>
 #include "wsutil/tempfile.h"
 #include "wsutil/os_version_info.h"
-#include "version_info.h"
 #include "wsutil/str_util.h"
+#include <wsutil/inet_addr.h>
 
 
 #include "pcapng.h"
@@ -80,16 +81,10 @@ typedef struct nettrace_3gpp_32_423_file_info {
 typedef struct exported_pdu_info {
 	guint32 precense_flags;
 	/*const char* proto_name;*/
-	guint8 src_ipv4_d1;
-	guint8 src_ipv4_d2;
-	guint8 src_ipv4_d3;
-	guint8 src_ipv4_d4;
+	guint8 src_ip[16];
 	guint32 ptype; /* Based on epan/address.h port_type valid for both src and dst*/
 	guint32 src_port;
-	guint8 dst_ipv4_d1;
-	guint8 dst_ipv4_d2;
-	guint8 dst_ipv4_d3;
-	guint8 dst_ipv4_d4;
+	guint8 dst_ip[16];
 	guint32 dst_port;
 	char* proto_col_str;
 }exported_pdu_info_t ;
@@ -110,6 +105,8 @@ typedef struct exported_pdu_info {
 
 #define EXP_PDU_TAG_IPV4_SRC        20
 #define EXP_PDU_TAG_IPV4_DST        21
+#define EXP_PDU_TAG_IPV6_SRC        22
+#define EXP_PDU_TAG_IPV6_DST        23
 #define EXP_PDU_TAG_SRC_PORT        25
 #define EXP_PDU_TAG_PORT_TYPE       24  /**< value part is port_type enum from epan/address.h */
 #define EXP_PDU_TAG_DST_PORT        26
@@ -128,13 +125,15 @@ typedef struct exported_pdu_info {
 *   COL_PROTOCOL might not be filled in.
 */
 
-#define EXP_PDU_TAG_IP_SRC_BIT          0x01
-#define EXP_PDU_TAG_IP_DST_BIT          0x02
-#define EXP_PDU_TAG_SRC_PORT_BIT        0x04
-#define EXP_PDU_TAG_DST_PORT_BIT        0x08
-#define EXP_PDU_TAG_SS7_OPC_BIT         0x20
-#define EXP_PDU_TAG_SS7_DPC_BIT         0x40
-#define EXP_PDU_TAG_ORIG_FNO_BIT        0x80
+#define EXP_PDU_TAG_IP_SRC_BIT          0x001
+#define EXP_PDU_TAG_IP_DST_BIT          0x002
+#define EXP_PDU_TAG_SRC_PORT_BIT        0x004
+#define EXP_PDU_TAG_DST_PORT_BIT        0x008
+#define EXP_PDU_TAG_ORIG_FNO_BIT        0x010
+#define EXP_PDU_TAG_SS7_OPC_BIT         0x020
+#define EXP_PDU_TAG_SS7_DPC_BIT         0x040
+#define EXP_PDU_TAG_IP6_SRC_BIT         0x080
+#define EXP_PDU_TAG_IP6_DST_BIT         0x100
 
 /* 2nd byte of optional tags bitmap */
 #define EXP_PDU_TAG_DVBCI_EVT_BIT       0x0100
@@ -145,6 +144,9 @@ typedef struct exported_pdu_info {
 #define EXP_PDU_TAG_PORT_TYPE_LEN       4
 #define EXP_PDU_TAG_SRC_PORT_LEN        4
 #define EXP_PDU_TAG_DST_PORT_LEN        4
+
+#define EXP_PDU_TAG_IPV4_LEN            4
+#define EXP_PDU_TAG_IPV6_LEN            16
 
 
 static gboolean
@@ -433,6 +435,11 @@ write_packet_data(wtap_dumper *wdh, wtap_rec *rec, int *err, gchar **err_info, g
 	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_IP_SRC_BIT) == EXP_PDU_TAG_IP_SRC_BIT) {
 		exp_pdu_tags_len += 4 + EXP_PDU_TAG_IPV4_SRC_LEN;
 	}
+
+	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_IP6_SRC_BIT) == EXP_PDU_TAG_IP6_SRC_BIT) {
+		exp_pdu_tags_len += 4 + EXP_PDU_TAG_IPV6_LEN;
+	}
+
 	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_SRC_PORT_BIT) == EXP_PDU_TAG_SRC_PORT_BIT) {
 		if (!port_type_defined) {
 			exp_pdu_tags_len += 4 + EXP_PDU_TAG_PORT_TYPE_LEN;
@@ -443,6 +450,10 @@ write_packet_data(wtap_dumper *wdh, wtap_rec *rec, int *err, gchar **err_info, g
 
 	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_IP_DST_BIT) == EXP_PDU_TAG_IP_DST_BIT) {
 		exp_pdu_tags_len += 4 + EXP_PDU_TAG_IPV4_DST_LEN;
+	}
+
+	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_IP6_DST_BIT) == EXP_PDU_TAG_IP6_DST_BIT) {
+		exp_pdu_tags_len += 4 + EXP_PDU_TAG_IPV6_LEN;
 	}
 
 	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_DST_PORT_BIT) == EXP_PDU_TAG_DST_PORT_BIT) {
@@ -516,14 +527,21 @@ write_packet_data(wtap_dumper *wdh, wtap_rec *rec, int *err, gchar **err_info, g
 		i++;
 		packet_buf[i] = EXP_PDU_TAG_IPV4_SRC_LEN; /* tag length */;
 		i++;
-		packet_buf[i] = exported_pdu_info->src_ipv4_d1;
+		memcpy(packet_buf+i, exported_pdu_info->src_ip, EXP_PDU_TAG_IPV4_SRC_LEN);
+		i += EXP_PDU_TAG_IPV4_SRC_LEN;
+	}
+
+	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_IP6_SRC_BIT) == EXP_PDU_TAG_IP6_SRC_BIT) {
+		packet_buf[i] = 0;
 		i++;
-		packet_buf[i] = exported_pdu_info->src_ipv4_d2;
+		packet_buf[i] = EXP_PDU_TAG_IPV6_SRC;
 		i++;
-		packet_buf[i] = exported_pdu_info->src_ipv4_d3;
+		packet_buf[i] = 0;
 		i++;
-		packet_buf[i] = exported_pdu_info->src_ipv4_d4;
+		packet_buf[i] = EXP_PDU_TAG_IPV6_LEN; /* tag length */;
 		i++;
+		memcpy(packet_buf+i, exported_pdu_info->src_ip, EXP_PDU_TAG_IPV6_LEN);
+		i += EXP_PDU_TAG_IPV6_LEN;
 	}
 
 	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_SRC_PORT_BIT) == EXP_PDU_TAG_SRC_PORT_BIT) {
@@ -571,16 +589,21 @@ write_packet_data(wtap_dumper *wdh, wtap_rec *rec, int *err, gchar **err_info, g
 		i++;
 		packet_buf[i] = 0;
 		i++;
-		packet_buf[i] = EXP_PDU_TAG_IPV4_DST_LEN; /* tag length */;
+		memcpy(packet_buf + i, exported_pdu_info->dst_ip, EXP_PDU_TAG_IPV4_DST_LEN);
+		i += EXP_PDU_TAG_IPV4_DST_LEN;
+	}
+
+	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_IP6_DST_BIT) == EXP_PDU_TAG_IP6_DST_BIT) {
+		packet_buf[i] = 0;
 		i++;
-		packet_buf[i] = exported_pdu_info->dst_ipv4_d1;
+		packet_buf[i] = EXP_PDU_TAG_IPV6_DST;
 		i++;
-		packet_buf[i] = exported_pdu_info->dst_ipv4_d2;
+		packet_buf[i] = 0;
 		i++;
-		packet_buf[i] = exported_pdu_info->dst_ipv4_d3;
+		packet_buf[i] = EXP_PDU_TAG_IPV6_LEN; /* tag length */;
 		i++;
-		packet_buf[i] = exported_pdu_info->dst_ipv4_d4;
-		i++;
+		memcpy(packet_buf + i, exported_pdu_info->dst_ip, EXP_PDU_TAG_IPV6_LEN);
+		i += EXP_PDU_TAG_IPV6_LEN;
 	}
 
 	if ((exported_pdu_info->precense_flags & EXP_PDU_TAG_DST_PORT_BIT) == EXP_PDU_TAG_DST_PORT_BIT) {
@@ -643,6 +666,8 @@ write_packet_data(wtap_dumper *wdh, wtap_rec *rec, int *err, gchar **err_info, g
 		}
 		else{
 			/* Something wrong, bail out */
+			*err_info = g_strdup("Could not parse hex data");
+			*err = WTAP_ERR_BAD_FILE;
 			g_free(packet_buf);
 			return WTAP_OPEN_ERROR;
 		}
@@ -719,19 +744,7 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 	/* Info to build exported_pdu tags*/
 	exported_pdu_info_t  exported_pdu_info;
 
-	exported_pdu_info.precense_flags = 0;
-	exported_pdu_info.src_ipv4_d1 = 0;
-	exported_pdu_info.src_ipv4_d2 = 0;
-	exported_pdu_info.src_ipv4_d3 = 0;
-	exported_pdu_info.src_ipv4_d4 = 0;
-	exported_pdu_info.ptype = OLD_PT_NONE;
-	exported_pdu_info.src_port = 0;
-	exported_pdu_info.dst_ipv4_d1 = 0;
-	exported_pdu_info.dst_ipv4_d2 = 0;
-	exported_pdu_info.dst_ipv4_d3 = 0;
-	exported_pdu_info.dst_ipv4_d4 = 0;
-	exported_pdu_info.dst_port = 0;
-	exported_pdu_info.proto_col_str = NULL;
+	memset(&exported_pdu_info, 0x0, sizeof(exported_pdu_info_t));
 
 	import_file_fd = create_tempfile(&(file_info->tmpname), "Wireshark_PDU_", NULL);
 
@@ -781,8 +794,15 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 
 	g_array_append_val(idb_inf->interface_data, int_data);
 
-	wdh_exp_pdu = wtap_dump_fdopen_ng(import_file_fd, WTAP_FILE_TYPE_SUBTYPE_PCAPNG, WTAP_ENCAP_WIRESHARK_UPPER_PDU,
-					  WTAP_MAX_PACKET_SIZE_STANDARD, FALSE, shb_hdrs, idb_inf, NULL, &exp_pdu_file_err);
+	const wtap_dump_params params = {
+		.encap = WTAP_ENCAP_WIRESHARK_UPPER_PDU,
+		.snaplen = WTAP_MAX_PACKET_SIZE_STANDARD,
+		.shb_hdrs = shb_hdrs,
+		.idb_inf = idb_inf,
+	};
+	wdh_exp_pdu = wtap_dump_fdopen(import_file_fd, WTAP_FILE_TYPE_SUBTYPE_PCAPNG,
+				       WTAP_UNCOMPRESSED, &params,
+				       &exp_pdu_file_err);
 	if (wdh_exp_pdu == NULL) {
 		result = WTAP_OPEN_ERROR;
 		goto end;
@@ -846,10 +866,22 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 	curr_pos = packet_buf + 12;
 	/* Find the file header */
 	curr_pos = strstr(curr_pos, "<fileHeader");
+	if (!curr_pos) {
+		*err = WTAP_ERR_BAD_FILE;
+		*err_info = g_strdup("Could not parse \"<fileHeader\"");
+		result = WTAP_OPEN_ERROR;
+		goto end;
+	}
 	curr_pos = curr_pos + 11;
 
 	/* Find start time */
 	curr_pos = strstr(curr_pos, "<traceCollec beginTime=\"");
+	if (!curr_pos) {
+		*err = WTAP_ERR_BAD_FILE;
+		*err_info = g_strdup("Could not parse \"<traceCollec beginTime=\"");
+		result = WTAP_OPEN_ERROR;
+		goto end;
+	}
 	curr_pos = curr_pos + 24;
 
 	curr_pos = nettrace_parse_begin_time(curr_pos, &rec);
@@ -879,15 +911,37 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 	/* Lets add the raw messages as packets after the main "packet" with the whole file */
 	while ((curr_pos = strstr(curr_pos, "<msg")) != NULL){
 		wtap_open_return_val temp_val;
+		char str[3];
 		/* Clear for each itteration */
 		exported_pdu_info.precense_flags = 0;
 		exported_pdu_info.ptype = OLD_PT_NONE;
 
-		curr_pos = curr_pos + 4;
+		prev_pos = curr_pos = curr_pos + 4;
+		/* Look for the end of the tag first */
+		next_msg_pos = strstr(curr_pos, ">");
+		if (!next_msg_pos) {
+			/* Somethings wrong, bail out */
+			*err = WTAP_ERR_BAD_FILE;
+			*err_info = g_strdup("Did not find end of tag \">\"");
+			result = WTAP_OPEN_ERROR;
+			goto end;
+		}
+		/* Check if its a tag close "/>" */
+		g_strlcpy(str, next_msg_pos - 1 , 3);
+		next_msg_pos = next_msg_pos - 1;
+		if (strcmp(str, "/>") == 0) {
+			/* There is no rawmsg here skip to nex msg */
+			curr_pos = next_msg_pos + 2;
+			continue;
+		}
+		curr_pos = prev_pos;
 		next_msg_pos = strstr(curr_pos, "</msg>");
 		if (!next_msg_pos){
 			/* Somethings wrong, bail out */
-			break;
+			*err = WTAP_ERR_BAD_FILE;
+			*err_info = g_strdup("Did not find \"</msg>\"");
+			result = WTAP_OPEN_ERROR;
+			goto end;
 		}
 		next_msg_pos = next_msg_pos + 6;
 		/* Check if we have a time stamp "changeTime"
@@ -903,6 +957,8 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 			next_pos = strstr(curr_pos, "\"");
 			name_str_len = (int)(next_pos - curr_pos);
 			if (name_str_len > 63) {
+				*err = WTAP_ERR_BAD_FILE;
+				*err_info = g_strdup("name_str_len > 63");
 				return WTAP_OPEN_ERROR;
 			}
 
@@ -948,10 +1004,10 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 					&d1, &d2, &d3, &d4, &port, transp_str);
 				if (scan_found == 6) {
 					exported_pdu_info.precense_flags = exported_pdu_info.precense_flags + EXP_PDU_TAG_IP_SRC_BIT + EXP_PDU_TAG_SRC_PORT_BIT;
-					exported_pdu_info.src_ipv4_d1 = d1;
-					exported_pdu_info.src_ipv4_d2 = d2;
-					exported_pdu_info.src_ipv4_d3 = d3;
-					exported_pdu_info.src_ipv4_d4 = d4;
+					exported_pdu_info.src_ip[0] = d1;
+					exported_pdu_info.src_ip[1] = d2;
+					exported_pdu_info.src_ip[2] = d3;
+					exported_pdu_info.src_ip[3] = d4;
 
 					/* Only add port_type once */
 					if(exported_pdu_info.ptype == OLD_PT_NONE){
@@ -961,7 +1017,37 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 					}
 					exported_pdu_info.src_port = port;
 				} else {
-					/* g_warning("scan_found:%u, %u.%u.%u.%u Port %u transport %s", scan_found, d1, d2, d3, d4, port, transp_str); */
+					/* See if we can find [ (an IPv6 address)*/
+					curr_pos = strstr(curr_pos, "[");
+					if ((curr_pos) && (curr_pos < next_pos)) {
+						char *square_brk_pos = curr_pos;
+						curr_pos = strstr(square_brk_pos + 1, "]");
+						if ((curr_pos) && (curr_pos < next_pos)) {
+							/* Found somthing between square brackets */
+							char ipv6_str[WS_INET6_ADDRSTRLEN];
+							ws_in6_addr ip6_addr;
+							int str_len;
+
+							str_len = (int)(curr_pos - square_brk_pos);
+							g_strlcpy(ipv6_str, square_brk_pos + 1, str_len);
+							/*g_warning("found IPv6 %s", ipv6_str);*/
+							if (ws_inet_pton6(ipv6_str, &ip6_addr)) {
+								curr_pos++;
+								scan_found = sscanf(curr_pos, ", %*s %*s %5u, %*s %*s %4s", &port, transp_str);
+								exported_pdu_info.precense_flags = exported_pdu_info.precense_flags + EXP_PDU_TAG_IP6_SRC_BIT + EXP_PDU_TAG_SRC_PORT_BIT;
+								memcpy(exported_pdu_info.src_ip, ip6_addr.bytes, EXP_PDU_TAG_IPV6_LEN);
+								/* Only add port_type once */
+								if (exported_pdu_info.ptype == OLD_PT_NONE) {
+									if (g_ascii_strncasecmp(transp_str, "udp", 3) == 0)  exported_pdu_info.ptype = OLD_PT_UDP;
+									else if (g_ascii_strncasecmp(transp_str, "tcp", 3) == 0)  exported_pdu_info.ptype = OLD_PT_TCP;
+									else if (g_ascii_strncasecmp(transp_str, "sctp", 4) == 0)  exported_pdu_info.ptype = OLD_PT_SCTP;
+
+								}
+							}
+						}
+					}
+					/* Failed to parse address */
+					curr_pos = next_pos;
 				}
 			} else {
 				/* address not found*/
@@ -988,17 +1074,19 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 				char transp_str[5];
 
 				curr_pos = curr_pos + 7;
-				/* Excample from one trace, unsure if it's generic...
+				/* Excample from traces, unsure if it's generic...
 				* {address == 192.168.73.1, port == 5062, transport == Udp}
+				* {address == [2001:1b70:8294:210a::78], port == 34189, transport == Tcp}
+				* {address == 2001:1B70:8294:210A::90, port == 7777, transport == TCP}
 				*/
 				scan_found = sscanf(curr_pos, "%*s %3u.%3u.%3u.%3u, %*s %*s %5u, %*s %*s %4s",
 					&d1, &d2, &d3, &d4, &port, transp_str);
 				if (scan_found == 6) {
 					exported_pdu_info.precense_flags = exported_pdu_info.precense_flags + EXP_PDU_TAG_IP_DST_BIT + EXP_PDU_TAG_DST_PORT_BIT;
-					exported_pdu_info.dst_ipv4_d1 = d1;
-					exported_pdu_info.dst_ipv4_d2 = d2;
-					exported_pdu_info.dst_ipv4_d3 = d3;
-					exported_pdu_info.dst_ipv4_d4 = d4;
+					exported_pdu_info.dst_ip[0] = d1;
+					exported_pdu_info.dst_ip[1] = d2;
+					exported_pdu_info.dst_ip[2] = d3;
+					exported_pdu_info.dst_ip[3] = d4;
 					/* Only add port_type once */
 					if (exported_pdu_info.ptype == OLD_PT_NONE) {
 						if (g_ascii_strncasecmp(transp_str, "udp", 3) == 0)  exported_pdu_info.ptype = OLD_PT_UDP;
@@ -1007,7 +1095,37 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 					}
 					exported_pdu_info.dst_port = port;
 				} else {
-					/* g_warning("scan_found:%u, %u.%u.%u.%u Port %u transport %s", scan_found, d1, d2, d3, d4, port, transp_str); */
+					/* See if we can find [ (an IPv6 address)*/
+					curr_pos = strstr(curr_pos, "[");
+					if ((curr_pos) && (curr_pos < next_pos)) {
+						char *square_brk_pos = curr_pos;
+						curr_pos = strstr(square_brk_pos + 1, "]");
+						if ((curr_pos) && (curr_pos < next_pos)) {
+							/* Found somthing between square brackets */
+							char ipv6_str[WS_INET6_ADDRSTRLEN];
+							ws_in6_addr ip6_addr;
+							int str_len;
+
+							str_len = (int)(curr_pos - square_brk_pos);
+							g_strlcpy(ipv6_str, square_brk_pos + 1, str_len);
+							/*g_warning("found IPv6 %s", ipv6_str);*/
+							if (ws_inet_pton6(ipv6_str, &ip6_addr)) {
+								curr_pos++;
+								scan_found = sscanf(curr_pos, ", %*s %*s %5u, %*s %*s %4s", &port, transp_str);
+								exported_pdu_info.precense_flags = exported_pdu_info.precense_flags + EXP_PDU_TAG_IP6_DST_BIT + EXP_PDU_TAG_DST_PORT_BIT;
+								memcpy(exported_pdu_info.dst_ip, ip6_addr.bytes, EXP_PDU_TAG_IPV6_LEN);
+								/* Only add port_type once */
+								if (exported_pdu_info.ptype == OLD_PT_NONE) {
+									if (g_ascii_strncasecmp(transp_str, "udp", 3) == 0)  exported_pdu_info.ptype = OLD_PT_UDP;
+									else if (g_ascii_strncasecmp(transp_str, "tcp", 3) == 0)  exported_pdu_info.ptype = OLD_PT_TCP;
+									else if (g_ascii_strncasecmp(transp_str, "sctp", 4) == 0)  exported_pdu_info.ptype = OLD_PT_SCTP;
+
+								}
+							}
+						}
+					}
+					/* Failed to parse address */
+					curr_pos = next_pos;
 				}
 			}
 			else {
@@ -1031,6 +1149,8 @@ create_temp_pcapng_file(wtap *wth, int *err, gchar **err_info, nettrace_3gpp_32_
 		temp_val = write_packet_data(wdh_exp_pdu, &rec, &wrt_err, &wrt_err_info, curr_pos, start_time, ms, &exported_pdu_info, name_str);
 		if (temp_val != WTAP_OPEN_MINE){
 			result = temp_val;
+			*err = wrt_err;
+			*err_info = g_strdup(wrt_err_info);
 			goto end;
 		}
 		curr_pos = next_msg_pos;

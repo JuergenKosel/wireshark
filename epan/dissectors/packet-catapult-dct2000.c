@@ -304,6 +304,7 @@ static void attach_pdcp_lte_info(packet_info *pinfo, guint *outhdr_values,
 
 
 
+
 /* Return the number of bytes used to encode the length field
    (we're not interested in the length value itself) */
 static int skipASNLength(guint8 value)
@@ -834,7 +835,7 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
                                packet_info *pinfo, proto_tree *tree,
                                enum LTE_or_NR lte_or_nr)
 {
-    guint8              tag;
+    guint8              opcode, tag;
     dissector_handle_t  protocol_handle = 0;
     gboolean            isUplink        = FALSE;
     LogicalChannelType  logicalChannelType;
@@ -843,15 +844,17 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
     tvbuff_t           *rrc_tvb;
 
     /* Top-level opcode */
-    tag = tvb_get_guint8(tvb, offset++);
-    switch (tag) {
+    opcode = tvb_get_guint8(tvb, offset++);
+    switch (opcode) {
         case 0x00:    /* Data_Req_UE */
+        case 0x05:    /* Data_Req_UE_SM */
         case 0x04:    /* Data_Ind_eNodeB */
             isUplink = TRUE;
             break;
 
         case 0x02:    /* Data_Req_eNodeB */
         case 0x03:    /* Data_Ind_UE */
+        case 0x07:    /* Data_Ind_UE_SM */
             isUplink = FALSE;
             break;
 
@@ -964,7 +967,21 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
             return;
     }
 
-    /* Data tag should follow */
+    if (opcode == 0x07) {
+        /* Data_Ind_UE_SM - 1 byte MAC */
+        offset++;
+    }
+    else if (opcode == 0x05) {
+        /* Data_Req_UE_SM - skip SecurityMode Params */
+        offset++;  /* tag */
+        guint8 len = tvb_get_guint8(tvb, offset); /* length */
+        offset += len;
+    }
+
+    /* Optional data tag may follow */
+    if (!tvb_reported_length_remaining(tvb, offset)) {
+        return;
+    }
     tag = tvb_get_guint8(tvb, offset++);
     if (tag != 0xaa) {
         return;
@@ -1376,7 +1393,7 @@ static dissector_handle_t look_for_dissector(const char *protocol_name)
         }
         else
         if (strcmp(protocol_name, "dhcpv4") == 0) {
-            return find_dissector("bootp");
+            return find_dissector("dhcp");
         }
         else
         if (strcmp(protocol_name, "wimax") == 0) {
@@ -1782,6 +1799,7 @@ static void attach_mac_lte_info(packet_info *pinfo, guint *outhdr_values, guint 
         p_mac_lte_info->detailed_phy_info.dl_info.present = FALSE;
     }
 
+    p_mac_lte_info->sfnSfInfoPresent = TRUE;
     p_mac_lte_info->subframeNumber = outhdr_values[i++];       // 4
     p_mac_lte_info->isPredefinedData = outhdr_values[i++];     // 5
     p_mac_lte_info->rnti = outhdr_values[i++];                 // 6
@@ -2122,6 +2140,7 @@ static void check_for_oob_mac_lte_events(packet_info *pinfo, tvbuff_t *tvb, prot
     }
 
     p_mac_lte_info->radioType = FDD_RADIO; /* TODO: will be the same as rest of log... */
+    p_mac_lte_info->sfnSfInfoPresent = FALSE;  /* We don't have this */
     p_mac_lte_info->oob_event = oob_event;
 
     /* Store info in packet */
@@ -2342,7 +2361,6 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                                                   outhdr_values);
         attach_pdcp_lte_info(pinfo, outhdr_values, outhdr_values_found);
     }
-
 
     else if ((strcmp(protocol_name, "nas_rrc_r8_lte") == 0) ||
              (strcmp(protocol_name, "nas_rrc_r9_lte") == 0) ||

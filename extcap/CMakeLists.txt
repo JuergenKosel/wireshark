@@ -47,16 +47,23 @@ macro(set_extcap_executable_properties _executable)
 			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
 		)
 		if(ENABLE_APPLICATION_BUNDLE)
-			set_target_properties(${_executable} PROPERTIES
-				RUNTIME_OUTPUT_DIRECTORY run/Wireshark.app/Contents/MacOS/extcap
-			)
-			# Add a wrapper script which runs each executable from the
-			# correct location. This adds convenience but makes debugging
-			# more difficult.
-			file(REMOVE ${CMAKE_BINARY_DIR}/run/${_executable})
-			file(WRITE ${CMAKE_BINARY_DIR}/run/${_executable} "#!/bin/sh\n")
-			file(APPEND ${CMAKE_BINARY_DIR}/run/${_executable} "exec ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/MacOS/extcap/${_executable} \"\$\@\"\n")
-			execute_process(COMMAND chmod a+x ${CMAKE_BINARY_DIR}/run/${_executable})
+			if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
+				# Xcode
+				set_target_properties(${_executable} PROPERTIES
+					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/MacOS/extcap
+				)
+			else()
+				set_target_properties(${_executable} PROPERTIES
+					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/MacOS/extcap
+				)
+				# Add a wrapper script which runs each executable from the
+				# correct location. This adds convenience but makes debugging
+				# more difficult.
+				file(REMOVE ${CMAKE_BINARY_DIR}/run/${_executable})
+				file(WRITE ${CMAKE_BINARY_DIR}/run/${_executable} "#!/bin/sh\n")
+				file(APPEND ${CMAKE_BINARY_DIR}/run/${_executable} "exec ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/MacOS/extcap/${_executable} \"\$\@\"\n")
+				execute_process(COMMAND chmod a+x ${CMAKE_BINARY_DIR}/run/${_executable})
+			endif()
 		endif()
 	endif()
 endmacro()
@@ -88,11 +95,12 @@ if(BUILD_androiddump)
 		extcap-base.c
 	)
 
-	add_executable(androiddump WIN32 ${androiddump_FILES})
+	set_executable_resources(androiddump "Androiddump")
+	add_executable(androiddump ${androiddump_FILES})
 	# XXX Shouldn't we add wsutil to androiddump_LIBS instead?
 	set_extcap_executable_properties(androiddump)
 	target_link_libraries(androiddump ${androiddump_LIBS})
-	install(TARGETS androiddump RUNTIME DESTINATION ${EXTCAP_DIR})
+	install(TARGETS androiddump RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps androiddump)
 endif()
 
@@ -109,11 +117,12 @@ if(BUILD_sshdump AND LIBSSH_FOUND)
 		ssh-base.c
 	)
 
-	add_executable(sshdump WIN32 ${sshdump_FILES})
+	set_executable_resources(sshdump "Sshdump")
+	add_executable(sshdump ${sshdump_FILES})
 	set_extcap_executable_properties(sshdump)
 	target_link_libraries(sshdump ${sshdump_LIBS})
 	target_include_directories(sshdump PUBLIC ${LIBSSH_INCLUDE_DIR})
-	install(TARGETS sshdump RUNTIME DESTINATION ${EXTCAP_DIR})
+	install(TARGETS sshdump RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps sshdump)
 elseif (BUILD_sshdump)
 	#message( WARNING "Cannot find libssh, cannot build sshdump" )
@@ -133,11 +142,12 @@ if(BUILD_ciscodump AND LIBSSH_FOUND)
 		ssh-base.c
 	)
 
-	add_executable(ciscodump WIN32 ${ciscodump_FILES})
+	set_executable_resources(ciscodump "Ciscodump")
+	add_executable(ciscodump ${ciscodump_FILES})
 	set_extcap_executable_properties(ciscodump)
 	target_link_libraries(ciscodump ${ciscodump_LIBS})
 	target_include_directories(ciscodump PUBLIC ${LIBSSH_INCLUDE_DIR})
-	install(TARGETS ciscodump RUNTIME DESTINATION ${EXTCAP_DIR})
+	install(TARGETS ciscodump RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps ciscodump)
 elseif (BUILD_ciscodump)
 	#message( WARNING "Cannot find libssh, cannot build ciscodump" )
@@ -156,11 +166,12 @@ if(BUILD_dpauxmon AND HAVE_LIBNL3)
 		extcap-base.c
 	)
 
-	add_executable(dpauxmon WIN32 ${dpauxmon_FILES})
+	set_executable_resources(dpauxmon "dpauxmon")
+	add_executable(dpauxmon ${dpauxmon_FILES})
 	set_extcap_executable_properties(dpauxmon)
 	target_link_libraries(dpauxmon ${dpauxmon_LIBS})
 	target_include_directories(dpauxmon PUBLIC ${NL_INCLUDE_DIR})
-	install(TARGETS dpauxmon RUNTIME DESTINATION ${EXTCAP_DIR})
+	install(TARGETS dpauxmon RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps dpauxmon)
 elseif (BUILD_dpauxmon)
 	#message( WARNING "Cannot find libnl3, cannot build dpauxmon" )
@@ -178,10 +189,11 @@ if(BUILD_udpdump)
 		extcap-base.c
 	)
 
-	add_executable(udpdump WIN32 ${udpdump_FILES})
+	set_executable_resources(udpdump "udpdump")
+	add_executable(udpdump ${udpdump_FILES})
 	set_extcap_executable_properties(udpdump)
 	target_link_libraries(udpdump ${udpdump_LIBS})
-	install(TARGETS udpdump RUNTIME DESTINATION ${EXTCAP_DIR})
+	install(TARGETS udpdump RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps udpdump)
 endif()
 
@@ -199,12 +211,39 @@ if(BUILD_randpktdump)
 		randpktdump.c
 	)
 
-	add_executable(randpktdump WIN32 ${randpktdump_FILES})
+	set_executable_resources(randpktdump "randpktdump")
+	add_executable(randpktdump ${randpktdump_FILES})
 	# XXX Shouldn't we add wsutil to randpktdump_LIBS instead?
 	set_extcap_executable_properties(randpktdump)
 	target_link_libraries(randpktdump ${randpktdump_LIBS})
-	install(TARGETS randpktdump RUNTIME DESTINATION ${EXTCAP_DIR})
+	install(TARGETS randpktdump RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps randpktdump)
+endif()
+
+if(BUILD_sdjournal AND SYSTEMD_FOUND)
+	set(sdjournal_LIBS
+		ui
+		wiretap
+		writecap
+		wsutil
+		${GLIB2_LIBRARIES}
+		${ZLIB_LIBRARIES}
+		${CMAKE_DL_LIBS}
+		${SYSTEMD_LIBRARIES}
+	)
+	set(sdjournal_FILES
+		extcap-base.c
+		sdjournal.c
+	)
+
+	set_executable_resources(sdjournal "sdjournal")
+	add_executable(sdjournal ${sdjournal_FILES})
+	set_extcap_executable_properties(sdjournal)
+	target_link_libraries(sdjournal ${sdjournal_LIBS})
+	install(TARGETS sdjournal RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
+	add_dependencies(extcaps sdjournal)
+elseif (BUILD_sdjournal)
+	#message( WARNING "Cannot find libsystemd, cannot build sdjournal" )
 endif()
 
 set(CLEAN_C_FILES

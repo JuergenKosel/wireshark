@@ -19,6 +19,7 @@
 #include <QMap>
 
 class QAbstractButton;
+class CopyFromProfileMenu;
 
 namespace Ui {
 class ColoringRulesDialog;
@@ -39,6 +40,7 @@ protected:
     void showEvent(QShowEvent *);
 
 private slots:
+    void copyFromProfile(QAction *action);
     void colorRuleSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void on_fGPushButton_clicked();
     void on_bGPushButton_clicked();
@@ -46,9 +48,11 @@ private slots:
     void on_newToolButton_clicked();
     void on_deleteToolButton_clicked();
     void on_copyToolButton_clicked();
+    void on_clearToolButton_clicked();
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_buttonBox_accepted();
     void on_buttonBox_helpRequested();
+    void rowCountChanged();
     void invalidField(const QModelIndex &index, const QString& errMessage);
     void validField(const QModelIndex &index);
 
@@ -56,11 +60,13 @@ private:
     Ui::ColoringRulesDialog *ui;
     QPushButton *import_button_;
     QPushButton *export_button_;
+    CopyFromProfileMenu *copy_from_menu_;
     ColoringRulesModel colorRuleModel_;
     ColoringRulesDelegate colorRuleDelegate_;
 
     QMap<QModelIndex, QString> errors_;
 
+    void checkUnknownColorfilters();
     void setColorButtons(QModelIndex &index);
     void updateHint();
 

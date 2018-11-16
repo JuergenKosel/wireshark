@@ -95,6 +95,9 @@ static int hf_auth_algorithm = -1;
 static int hf_auth_rdm = -1;
 static int hf_auth_replay_detection = -1;
 static int hf_auth_info = -1;
+static int hf_auth_realm = -1;
+static int hf_auth_key_id = -1;
+static int hf_auth_md5_data = -1;
 static int hf_opt_unicast = -1;
 static int hf_opt_status_code = -1;
 static int hf_opt_status_msg = -1;
@@ -624,6 +627,7 @@ static const value_string lq_query_vals[] = {
 #define CL_OPTION_RFC868_SERVERS          0x0025 /* 37 */
 #define CL_OPTION_TIME_OFFSET             0x0026 /* 38 */
 #define CL_OPTION_IP_PREF                 0x0027 /* 39 */
+#define CL_OPTION_CCAP_CORES              0x003D /* 61 */
 
 /** CableLabs DOCSIS Project Vendor Specific Options */
 #define CL_OPTION_DOCS_CMTS_CAP 0x0401  /* 1025 */
@@ -657,6 +661,7 @@ static const value_string cl_vendor_subopt_values[] = {
     /*   37 */ { CL_OPTION_RFC868_SERVERS,          "Time Protocol Servers : " },
     /*   38 */ { CL_OPTION_TIME_OFFSET,             "Time Offset = " },
     /*   39 */ { CL_OPTION_IP_PREF,                 "IP preference : " },
+    /*   61 */ { CL_OPTION_CCAP_CORES,              "CCAP-CORES : " },
     /* 1025 */ { CL_OPTION_DOCS_CMTS_CAP,           "CMTS Capabilities Option : " },
     /* 1026 */ { CL_CM_MAC_ADDR,                    "CM MAC Address Option = " },
     /* 1027 */ { CL_EROUTER_CONTAINER_OPTION,       "eRouter Container Option : " },
@@ -760,8 +765,27 @@ static const value_string modem_capabilities_encoding [] = {
     { 40,      "Extended Upstream Transmit Power Capability" },
     { 41,      "Optional 802.1ad, 802.1ah, MPLS Classification Support" },
     { 42,      "D-ONU Capabilities Encoding" },
-    { 43,      "TBD" },
+    { 43,      "Reserved" },
     { 44,      "Energy Management Capabilities" },
+/* Added TLV5.45-62 from CL-SP-CANN-I18-180509 */
+    { 45,      "C-DOCSIS Capability Encoding" },
+    { 46,      "CM-STATUS-ACK" },
+    { 47,      "Energy Management Preferences" },
+    { 48,      "Extended Packet Length Support Capability" },
+    { 49,      "Multiple Receive OFDM Channel Support" },
+    { 50,      "Multiple Transmit OFDMA Channel Support" },
+    { 51,      "Downstream OFDM Profile Support" },
+    { 52,      "Downstream OFDM channel subcarrier QAM modulation support" },
+    { 53,      "Upstream OFDM channel subcarrier QAM modulation support" },
+    { 54,      "Downstream Lower Band Edge Support" },
+    { 55,      "Downstream Upper Band Edge Support" },
+    { 56,      "Upstream Upper Band Edge Support" },
+    { 57,      "DOCSIS Time Protocol Support" },
+    { 58,      "DOCSIS Time Protocol Performance Support" },
+    { 59,      "Pmax" },
+    { 60,      "Diplexer Downstream Lower Band Edge" },
+    { 61,      "Diplexer Downstream Upper Band Edge" },
+    { 62,      "Diplexer Upstream Upper Band Edge" },
     { 0, NULL },
 };
 static value_string_ext modem_capabilities_encoding_ext = VALUE_STRING_EXT_INIT(modem_capabilities_encoding);
@@ -1166,6 +1190,7 @@ dissect_cablelabs_specific_opts(proto_tree *v_tree, proto_item *v_item, packet_i
             case CL_OPTION_TFTP_SERVERS:
             case CL_OPTION_SYSLOG_SERVERS:
             case CL_OPTION_RFC868_SERVERS:
+            case CL_OPTION_CCAP_CORES:
                 field_len = 16;
                 opt_len = tlv_len;
                 subtree = proto_item_add_subtree(ti, ett_dhcpv6_vendor_option);
@@ -1193,8 +1218,6 @@ dissect_cablelabs_specific_opts(proto_tree *v_tree, proto_item *v_item, packet_i
                 /* ToDo: review latest CL docs for updates */
                 opt_len = tlv_len;
 
-                if (device_type == NULL)
-                    break;
 
                 tlv5_counter = 0;
                 tlv5_cap_index = sub_off;
@@ -1202,8 +1225,8 @@ dissect_cablelabs_specific_opts(proto_tree *v_tree, proto_item *v_item, packet_i
                 subtree = proto_item_add_subtree(ti, ett_dhcpv6_tlv5_type);
 
                 while (tlv5_counter < tlv_len) {
-
-                    if (!g_ascii_strncasecmp(device_type, "ecm", 3)) {
+                    /*Device type is not mandatory for CM (see par 10.2.5.2.3 "Obtain IPv6 Management Address and Other Configuration Parameters" in  CM-SP-MULPIv3.1-114-180130*/
+                    if (device_type == NULL || !g_ascii_strncasecmp(device_type, "ecm", 3)) {
                         ti2 = proto_tree_add_item(subtree, hf_modem_capabilities_encoding_type, tvb, tlv5_cap_index, 1, ENC_BIG_ENDIAN);
                     } else if (!g_ascii_strncasecmp(device_type, "edva", 3)) {
                         ti2 = proto_tree_add_item(subtree, hf_eue_capabilities_encoding_type, tvb, tlv5_cap_index, 1, ENC_BIG_ENDIAN);
@@ -1369,6 +1392,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
     int         i;
     guint16     duidtype;
     guint32     enterprise_no;
+    guint      algorithm;
 
     /* option type and length must be present */
     if ((eoff - off) < 4) {
@@ -1778,11 +1802,20 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
         }
 
         proto_tree_add_item(subtree, hf_auth_protocol, tvb, off, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(subtree, hf_auth_algorithm, tvb, off+1, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(subtree, hf_auth_algorithm, tvb, off+1, 1, ENC_BIG_ENDIAN, &algorithm);
         proto_tree_add_item(subtree, hf_auth_rdm, tvb, off+2, 1, ENC_BIG_ENDIAN);
         proto_tree_add_item(subtree, hf_auth_replay_detection, tvb, off+3, 8, ENC_NA);
-        if (optlen != 11)
+        if (optlen > 11+20 && algorithm == 1) {  // RFC 3315, HMAC-MD5 (16) + Key ID (4) => 20 bytes
+            if (optlen-11-20 < 256) {
+                proto_tree_add_item(subtree, hf_auth_realm, tvb, off+11, optlen-11-20, ENC_ASCII|ENC_NA);
+            } else {
+                expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option, "DHCP realm: probably malformed option");
+            }
+            proto_tree_add_item(subtree, hf_auth_key_id, tvb, off+optlen-16-4, 4, ENC_BIG_ENDIAN);
+            proto_tree_add_item(subtree, hf_auth_md5_data, tvb, off+optlen-16, 16, ENC_NA);
+        } else {
             proto_tree_add_item(subtree, hf_auth_info, tvb, off+11, optlen-11, ENC_NA);
+        }
         break;
     case OPTION_UNICAST:
         if (optlen != 16) {
@@ -2417,6 +2450,12 @@ proto_register_dhcpv6(void)
           { "Replay Detection", "dhcpv6.auth.replay_detection", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}},
         { &hf_auth_info,
           { "Authentication Information", "dhcpv6.auth.info", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}},
+        { &hf_auth_realm,
+          { "DHCP realm", "dhcpv6.auth.realm", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
+        { &hf_auth_key_id,
+          {"Key ID", "dhcpv6.auth.key_id", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL}},
+        { &hf_auth_md5_data,
+          {"HMAC-MD5 data", "dhcpv6.auth.md5_data", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}},
         { &hf_opt_unicast,
           { "IPv6 address", "dhcpv6.unicast", FT_IPv6, BASE_NONE, NULL, 0x0, NULL, HFILL}},
         { &hf_opt_status_code,

@@ -12,7 +12,7 @@
  * References:
  *
  * http://web.archive.org/web/20150510093619/http://www.protocols.com/pbook/frame.htm
- * http://www.mplsforum.org/frame/Approved/FRF.3/FRF.3.2.pdf
+ * https://www.broadband-forum.org/technical/download/FRF.3/FRF.3.2.pdf
  * ITU Recommendations Q.922 and Q.933
  * RFC-1490
  * RFC-2427
@@ -378,7 +378,7 @@ dissect_fr_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   col_clear(pinfo->cinfo, COL_INFO);
 
   if (has_direction) {
-    if (pinfo->pseudo_header->x25.flags & FROM_DCE) {
+    if (pinfo->pseudo_header->dte_dce.flags & FROM_DCE) {
       col_set_str(pinfo->cinfo, COL_RES_DL_DST, "DTE");
       col_set_str(pinfo->cinfo, COL_RES_DL_SRC, "DCE");
     } else {

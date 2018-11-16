@@ -285,7 +285,9 @@ static int hf_mptcp_analysis_subflows_stream_id = -1;
 static int hf_mptcp_analysis_subflows = -1;
 static int hf_mptcp_number_of_removed_addresses = -1;
 static int hf_mptcp_related_mapping = -1;
-static int hf_mptcp_duplicated_data = -1;
+static int hf_mptcp_reinjection_of = -1;
+static int hf_mptcp_reinjected_in = -1;
+
 
 static int hf_tcp_option_fast_open_cookie_request = -1;
 static int hf_tcp_option_fast_open_cookie = -1;
@@ -952,6 +954,17 @@ typedef struct tcp_follow_tap_data
 
 } tcp_follow_tap_data_t;
 
+/*
+ * Tries to apply segments from fragments list to the reconstructed payload.
+ * Fragments that can be appended to the end of the payload will be applied (and
+ * removed from the list). Fragments that should have been received (according
+ * to the ack number) will also be appended to the payload (preceded by some
+ * dummy data to mark packet loss if any).
+ *
+ * Returns TRUE if one fragment has been applied or FALSE if no more fragments
+ * can be added the the payload (there might still be unacked fragments with
+ * missing segments before them).
+ */
 static gboolean
 check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 acknowledged, guint32 packet_num)
 {
@@ -964,10 +977,12 @@ check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 a
     if (fragment_entry == NULL)
         return FALSE;
 
+    fragment = (follow_record_t*)fragment_entry->data;
+    lowest_seq = fragment->seq;
+
     for (; fragment_entry != NULL; fragment_entry = g_list_next(fragment_entry))
     {
         fragment = (follow_record_t*)fragment_entry->data;
-        lowest_seq = fragment->seq;
 
         if( GT_SEQ(lowest_seq, fragment->seq) ) {
             lowest_seq = fragment->seq;
@@ -1001,7 +1016,7 @@ check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 a
                                                               fragment->data->data + new_pos,
                                                               new_frag_size);
 
-                    follow_info->payload = g_list_append(follow_info->payload, follow_record);
+                    follow_info->payload = g_list_prepend(follow_info->payload, follow_record);
                 }
 
                 follow_info->seq[is_server] += (fragment->data->len - new_pos);
@@ -1019,7 +1034,7 @@ check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 a
         if( EQ_SEQ(fragment->seq, follow_info->seq[is_server]) ) {
             /* this fragment fits the stream */
             if( fragment->data->len > 0 ) {
-                follow_info->payload = g_list_append(follow_info->payload, fragment);
+                follow_info->payload = g_list_prepend(follow_info->payload, fragment);
             }
 
             follow_info->seq[is_server] += fragment->data->len;
@@ -1035,6 +1050,7 @@ check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 a
          */
         dummy_str = g_strdup_printf("[%d bytes missing in capture file]",
                         (int)(lowest_seq - follow_info->seq[is_server]) );
+        // XXX the dummy replacement could be larger than the actual missing bytes.
 
         follow_record = g_new0(follow_record_t,1);
 
@@ -1047,7 +1063,7 @@ check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 a
         follow_record->seq = lowest_seq;
 
         follow_info->seq[is_server] = lowest_seq;
-        follow_info->payload = g_list_append(follow_info->payload, follow_record);
+        follow_info->payload = g_list_prepend(follow_info->payload, follow_record);
         return TRUE;
     }
 
@@ -1058,21 +1074,18 @@ static gboolean
 follow_tcp_tap_listener(void *tapdata, packet_info *pinfo,
                       epan_dissect_t *edt _U_, const void *data)
 {
-    follow_record_t *follow_record, *frag_follow_record;
+    follow_record_t *follow_record;
     follow_info_t *follow_info = (follow_info_t *)tapdata;
     const tcp_follow_tap_data_t *follow_data = (const tcp_follow_tap_data_t *)data;
+    gboolean is_server;
     guint32 sequence = follow_data->tcph->th_seq;
     guint32 length = follow_data->tcph->th_seglen;
+    guint32 data_offset = 0;
     guint32 data_length = tvb_captured_length(follow_data->tvb);
-    guint32 newseq;
-    gboolean added_follow_record = FALSE;
 
-    follow_record = g_new0(follow_record_t, 1);
-
-    follow_record->data = g_byte_array_append(g_byte_array_new(),
-                                              tvb_get_ptr(follow_data->tvb, 0, -1),
-                                              data_length);
-    follow_record->packet_num = pinfo->fd->num;
+    if (follow_data->tcph->th_flags & TH_SYN) {
+        sequence++;
+    }
 
     if (follow_info->client_port == 0) {
         follow_info->client_port = pinfo->srcport;
@@ -1081,90 +1094,71 @@ follow_tcp_tap_listener(void *tapdata, packet_info *pinfo,
         copy_address(&follow_info->server_ip, &pinfo->dst);
     }
 
-    if (addresses_equal(&follow_info->client_ip, &pinfo->src) && follow_info->client_port == pinfo->srcport)
-        follow_record->is_server = FALSE;
-    else
-        follow_record->is_server = TRUE;
+    is_server = !(addresses_equal(&follow_info->client_ip, &pinfo->src) && follow_info->client_port == pinfo->srcport);
 
-    /* update stream counter */
+   /* Check whether this frame ACKs fragments in flow from the other direction.
+    * This happens when frames are not in the capture file, but were actually
+    * seen by the receiving host (Fixes bug 592).
+    */
+    if (follow_info->fragments[!is_server] != NULL) {
+        while (check_follow_fragments(follow_info, !is_server, follow_data->tcph->th_ack, pinfo->fd->num));
+    }
 
-    if (follow_info->bytes_written[follow_record->is_server] == 0) {
-        follow_info->seq[follow_record->is_server] = sequence + length;
-        if (follow_data->tcph->th_flags & TH_SYN)
-            follow_info->seq[follow_record->is_server]++;
+    /*
+     * If this is the first segment of this stream, initialize the next expected
+     * sequence number. If there is any data, it will be added below.
+     */
+    if (follow_info->bytes_written[is_server] == 0 && follow_info->seq[is_server] == 0) {
+        follow_info->seq[is_server] = sequence;
+    }
 
-        follow_info->bytes_written[follow_record->is_server] += follow_record->data->len;
-        follow_info->payload = g_list_append(follow_info->payload, follow_record);
+    /* We have already seen this src (and received some segments), let's figure
+     * out whether this segment extends the stream or overlaps a previous gap. */
+    if (LT_SEQ(sequence, follow_info->seq[is_server])) {
+        /* This sequence number seems dated, but check the end in case it was a
+         * retransmission with more data. */
+        guint32 nextseq = sequence + length;
+        if (GT_SEQ(nextseq, follow_info->seq[is_server])) {
+            /* The begin of the segment was already seen, try to add the
+             * remaining data that we have not seen to the payload. */
+            data_offset = follow_info->seq[is_server] - sequence;
+            if (data_length <= data_offset) {
+                data_length = 0;
+            } else {
+                data_length -= data_offset;
+            }
+
+            sequence = follow_info->seq[is_server];
+            length = nextseq - follow_info->seq[is_server];
+        }
+    }
+    /*
+     * Ignore segments that have no new data (either because it was empty, or
+     * because it was fully overlapping with previously received data).
+     */
+    if (data_length == 0 || LT_SEQ(sequence, follow_info->seq[is_server])) {
         return FALSE;
     }
 
-   /* Before adding data for this flow, check whether this frame acks
-    * fragments that were already seen. This happens when frames are
-    * not in the capture file, but were actually seen by the
-    * receiving host (Fixes bug 592).
-    */
-    if (follow_info->fragments[follow_record->is_server] != NULL)
-    {
-        while(check_follow_fragments(follow_info, follow_record->is_server, follow_data->tcph->th_ack, pinfo->fd->num));
-    }
+    follow_record = g_new0(follow_record_t, 1);
+    follow_record->is_server = is_server;
+    follow_record->packet_num = pinfo->fd->num;
+    follow_record->seq = sequence;  /* start of fragment, used by check_follow_fragments. */
+    follow_record->data = g_byte_array_append(g_byte_array_new(),
+                                              tvb_get_ptr(follow_data->tvb, data_offset, data_length),
+                                              data_length);
 
-    /* if we are here, we have already seen this src, let's
-        try and figure out if this packet is in the right place */
-    if( LT_SEQ(sequence, follow_info->seq[follow_record->is_server]) ) {
-        /* this sequence number seems dated, but
-           check the end to make sure it has no more
-           info than we have already seen */
-        newseq = sequence + length;
-        if( GT_SEQ(newseq, follow_info->seq[follow_record->is_server])) {
-            guint32 new_len;
-
-            /* this one has more than we have seen. let's get the
-               payload that we have not seen. */
-            new_len = follow_info->seq[follow_record->is_server] - sequence;
-
-            if ( data_length <= new_len ) {
-                data_length = 0;
-            } else {
-                data_length -= new_len;
-            }
-
-            sequence = follow_info->seq[follow_record->is_server];
-            length = newseq - follow_info->seq[follow_record->is_server];
-
-            /* this will now appear to be right on time :) */
-        }
-    }
-    if ( EQ_SEQ(sequence, follow_info->seq[follow_record->is_server]) ) {
-        /* right on time */
-        follow_info->seq[follow_record->is_server] += length;
-        if (follow_data->tcph->th_flags & TH_SYN)
-            follow_info->seq[follow_record->is_server]++;
-        if (data_length > 0) {
-            follow_info->bytes_written[follow_record->is_server] += follow_record->data->len;
-            follow_info->payload = g_list_append(follow_info->payload, follow_record);
-            added_follow_record = TRUE;
-        }
+    if (EQ_SEQ(sequence, follow_info->seq[is_server])) {
+        /* The segment overlaps or extends the previous end of stream. */
+        follow_info->seq[is_server] += length;
+        follow_info->bytes_written[is_server] += follow_record->data->len;
+        follow_info->payload = g_list_prepend(follow_info->payload, follow_record);
 
         /* done with the packet, see if it caused a fragment to fit */
-        while(check_follow_fragments(follow_info, follow_record->is_server, 0, pinfo->fd->num));
+        while(check_follow_fragments(follow_info, is_server, 0, pinfo->fd->num));
     } else {
-        /* out of order packet */
-        if(data_length > 0 && GT_SEQ(sequence, follow_info->seq[follow_record->is_server]) ) {
-            frag_follow_record = g_new0(follow_record_t,1);
-
-            frag_follow_record->data = g_byte_array_append(g_byte_array_new(),
-                                                      tvb_get_ptr(follow_data->tvb, 0 /* POTENTIAL OFFSET COMPUTED */, -1),
-                                                      data_length);
-            frag_follow_record->packet_num = pinfo->fd->num;
-            frag_follow_record->is_server = follow_record->is_server;
-            frag_follow_record->seq = sequence;
-
-            follow_info->fragments[follow_record->is_server] = g_list_append(follow_info->fragments[follow_record->is_server], frag_follow_record);
-        }
-    }
-    if (!added_follow_record) {
-        g_byte_array_free(follow_record->data, TRUE);
-        g_free(follow_record);
+        /* Out of order packet (more preceding segments are expected). */
+        follow_info->fragments[is_server] = g_list_append(follow_info->fragments[is_server], follow_record);
     }
     return FALSE;
 }
@@ -1463,8 +1457,8 @@ mptcp_init_subflow(tcp_flow_t *flow)
 
     DISSECTOR_ASSERT(flow->mptcp_subflow == 0);
     flow->mptcp_subflow = sf;
-    sf->mappings        = wmem_itree_new(wmem_file_scope());
-    sf->dsn_map         = wmem_itree_new(wmem_file_scope());
+    sf->ssn2dsn_mappings        = wmem_itree_new(wmem_file_scope());
+    sf->dsn2packet_map         = wmem_itree_new(wmem_file_scope());
 }
 
 
@@ -2615,13 +2609,13 @@ guint64 rawdsn64low, guint64 rawdsn64high
     mptcp_dsn2packet_mapping_t *packet = NULL;
     proto_item *item = NULL;
 
-    results = wmem_itree_find_intervals(subflow->mappings,
+    results = wmem_itree_find_intervals(subflow->dsn2packet_map,
                     wmem_packet_scope(),
                     rawdsn64low,
                     rawdsn64high
                     );
 
-    for(packet_it=wmem_list_head(results);
+    for(packet_it = wmem_list_head(results);
         packet_it != NULL;
         packet_it = wmem_list_frame_next(packet_it))
     {
@@ -2629,43 +2623,18 @@ guint64 rawdsn64low, guint64 rawdsn64high
         packet = (mptcp_dsn2packet_mapping_t *) wmem_list_frame_data(packet_it);
         DISSECTOR_ASSERT(packet);
 
-        item = proto_tree_add_uint(tree, hf_mptcp_duplicated_data, tvb, 0, 0, packet->frame);
+        if(pinfo->num > packet->frame) {
+            item = proto_tree_add_uint(tree, hf_mptcp_reinjection_of, tvb, 0, 0, packet->frame);
+        }
+        else {
+            item = proto_tree_add_uint(tree, hf_mptcp_reinjected_in, tvb, 0, 0, packet->frame);
+        }
         PROTO_ITEM_SET_GENERATED(item);
     }
 
     return packet;
 }
 
-/* Finds mappings that cover the sent data */
-static mptcp_dss_mapping_t *
-mptcp_add_matching_dss_on_subflow(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, struct mptcp_subflow *subflow,
-guint32 relseq, guint32 seglen
-)
-{
-    wmem_list_t *results = NULL;
-    wmem_list_frame_t *dss_it = NULL;
-    mptcp_dss_mapping_t *mapping = NULL;
-    proto_item *item = NULL;
-
-    results = wmem_itree_find_intervals(subflow->mappings,
-                    wmem_packet_scope(),
-                    relseq,
-                    (seglen) ? relseq + seglen - 1 : relseq
-                    );
-
-    for(dss_it=wmem_list_head(results);
-        dss_it!= NULL;
-        dss_it= wmem_list_frame_next(dss_it))
-    {
-        mapping = (mptcp_dss_mapping_t *) wmem_list_frame_data(dss_it);
-        DISSECTOR_ASSERT(mapping);
-
-        item = proto_tree_add_uint(tree, hf_mptcp_related_mapping, tvb, 0, 0, mapping->frame);
-        PROTO_ITEM_SET_GENERATED(item);
-    }
-
-    return mapping;
-}
 
 /* Lookup mappings that describe the packet and then converts the tcp seq number
  * into the MPTCP Data Sequence Number (DSN)
@@ -2706,13 +2675,29 @@ mptcp_analysis_dsn_lookup(packet_info *pinfo , tvbuff_t *tvb,
         rawdsn = tcpd->fwd->mptcp_subflow->meta->base_dsn;
         convert = DSN_CONV_NONE;
     }
+    /* if it's a non-syn packet without data (just used to convey TCP options)
+     * then there would be no mappings */
+    else if(relseq == 1 && tcph->th_seglen == 0) {
+        rawdsn = tcpd->fwd->mptcp_subflow->meta->base_dsn + 1;
+        convert = DSN_CONV_NONE;
+    }
     else {
-        /* display packets that conveyed the mappings covering the data range */
-        mapping = mptcp_add_matching_dss_on_subflow(pinfo, parent_tree, tvb,
-                            tcpd->fwd->mptcp_subflow, relseq,
-                            (tcph->th_have_seglen) ? tcph->th_seglen : 0
-                                                    );
-        if(mapping == NULL) {
+
+        wmem_list_frame_t *dss_it = NULL;
+        wmem_list_t *results = NULL;
+        guint32 ssn_low = relseq;
+        guint32 seglen = tcph->th_seglen;
+
+        results = wmem_itree_find_intervals(tcpd->fwd->mptcp_subflow->ssn2dsn_mappings,
+                    wmem_packet_scope(),
+                    ssn_low,
+                    (seglen) ? ssn_low + seglen - 1 : ssn_low
+                    );
+        dss_it = wmem_list_head(results); /* assume it's always ok */
+        if(dss_it) {
+            mapping = (mptcp_dss_mapping_t *) wmem_list_frame_data(dss_it);
+        }
+        if(dss_it == NULL || mapping == NULL) {
             expert_add_info(pinfo, parent_tree, &ei_mptcp_mapping_missing);
             return;
         }
@@ -2721,6 +2706,19 @@ mptcp_analysis_dsn_lookup(packet_info *pinfo , tvbuff_t *tvb,
         }
 
         DISSECTOR_ASSERT(mapping);
+        if(seglen) {
+            /* Finds mappings that cover the sent data and adds them to the dissection tree */
+            for(dss_it = wmem_list_head(results);
+                dss_it != NULL;
+                dss_it = wmem_list_frame_next(dss_it))
+            {
+                mapping = (mptcp_dss_mapping_t *) wmem_list_frame_data(dss_it);
+                DISSECTOR_ASSERT(mapping);
+
+                item = proto_tree_add_uint(parent_tree, hf_mptcp_related_mapping, tvb, 0, 0, mapping->frame);
+                PROTO_ITEM_SET_GENERATED(item);
+            }
+        }
 
         convert = (mapping->extended_dsn) ? DSN_CONV_NONE : DSN_CONV_32_TO_64;
         DISSECTOR_ASSERT(mptcp_map_relssn_to_rawdsn(mapping, relseq, &rawdsn));
@@ -2740,39 +2738,40 @@ mptcp_analysis_dsn_lookup(packet_info *pinfo , tvbuff_t *tvb,
             proto_item_append_text(item, " (Relative)");
         }
 
-        /* register */
-        if (!PINFO_FD_VISITED(pinfo))
-        {
-            mptcp_dsn2packet_mapping_t *packet;
-            packet = wmem_new0(wmem_file_scope(), mptcp_dsn2packet_mapping_t);
-            packet->frame = pinfo->fd->num;
-            packet->subflow = tcpd;
+        /* register dsn->packet mapping */
+        if(mptcp_intersubflows_retransmission
+            && !PINFO_FD_VISITED(pinfo)
+            && tcph->th_seglen > 0
+          ) {
+                mptcp_dsn2packet_mapping_t *packet = 0;
+                packet = wmem_new0(wmem_file_scope(), mptcp_dsn2packet_mapping_t);
+                packet->frame = pinfo->fd->num;
+                packet->subflow = tcpd;
 
-            /* tcph->th_mptcp->mh_rawdsn64 */
-            if (tcph->th_have_seglen) {
-                wmem_itree_insert(tcpd->fwd->mptcp_subflow->dsn_map,
+                wmem_itree_insert(tcpd->fwd->mptcp_subflow->dsn2packet_map,
                         tcph->th_mptcp->mh_rawdsn64,
                         tcph->th_mptcp->mh_rawdsn64 + (tcph->th_seglen - 1 ),
                         packet
                         );
-            }
         }
         PROTO_ITEM_SET_GENERATED(item);
 
         /* We can do this only if rawdsn64 is valid !
         if enabled, look for overlapping mappings on other subflows */
-        if(mptcp_intersubflows_retransmission) {
+        if(mptcp_intersubflows_retransmission
+            && tcph->th_have_seglen
+            && tcph->th_seglen) {
 
             wmem_list_frame_t *subflow_it = NULL;
 
-            /* results should be some kind of  in case 2 DSS are needed to cover this packet */
+            /* results should be some kind of list in case 2 DSS are needed to cover this packet */
             for(subflow_it = wmem_list_head(mptcpd->subflows); subflow_it != NULL; subflow_it = wmem_list_frame_next(subflow_it)) {
                 struct tcp_analysis *sf_tcpd = (struct tcp_analysis *)wmem_list_frame_data(subflow_it);
                 struct mptcp_subflow *sf = mptcp_select_subflow_from_meta(sf_tcpd, tcpd->fwd->mptcp_subflow->meta);
 
                 /* for current subflow */
                 if (sf == tcpd->fwd->mptcp_subflow) {
-                    /* skip, was done just before */
+                    /* skip, this is the current subflow */
                 }
                 /* in case there were retransmissions on other subflows */
                 else  {
@@ -2784,7 +2783,7 @@ mptcp_analysis_dsn_lookup(packet_info *pinfo , tvbuff_t *tvb,
         }
     }
     else {
-        /* ignore and continue */
+        /* could not get the rawdsn64, ignore and continue */
     }
 
 }
@@ -2981,6 +2980,37 @@ static reassembly_table tcp_reassembly_table;
 /* Enable desegmenting of TCP streams */
 static gboolean tcp_desegment = TRUE;
 
+/* Enable buffering of out-of-order TCP segments before passing it to a
+ * subdissector (depends on "tcp_desegment"). */
+static gboolean tcp_reassemble_out_of_order = FALSE;
+
+/* Returns true iff any gap exists in the segments associated with msp up to the
+ * given sequence number (it ignores any gaps after the sequence number). */
+static gboolean
+missing_segments(packet_info *pinfo, struct tcp_multisegment_pdu *msp, guint32 seq)
+{
+    fragment_head *fd_head;
+    guint32 frag_offset = seq - msp->seq;
+
+    if ((gint32)frag_offset <= 0) {
+        return FALSE;
+    }
+
+    fd_head = fragment_get(&tcp_reassembly_table, pinfo, msp->first_frame, NULL);
+    /* msp implies existence of fragments, this should never be NULL. */
+    DISSECTOR_ASSERT(fd_head);
+
+    /* Find length of contiguous fragments. */
+    guint32 max = 0;
+    for (fragment_item *frag = fd_head; frag; frag = frag->next) {
+        guint32 frag_end = frag->offset + frag->len;
+        if (frag->offset <= max && max < frag_end) {
+            max = frag_end;
+        }
+    }
+    return max < frag_offset;
+}
+
 static void
 desegment_tcp(tvbuff_t *tvb, packet_info *pinfo, int offset,
               guint32 seq, guint32 nxtseq,
@@ -2999,6 +3029,7 @@ desegment_tcp(tvbuff_t *tvb, packet_info *pinfo, int offset,
     proto_item *item;
     struct tcp_multisegment_pdu *msp;
     gboolean cleared_writable = col_get_writable(pinfo->cinfo, COL_PROTOCOL);
+    const gboolean reassemble_ooo = tcp_desegment && tcp_reassemble_out_of_order;
 
 again:
     ipfd_head = NULL;
@@ -3027,8 +3058,11 @@ again:
     if (tcpd) {
         /* Have we seen this PDU before (and is it the start of a multi-
          * segment PDU)?
+         * Only shortcircuit here when the first segment of the MSP is known,
+         * and when this this first segment is not one to complete the MSP.
          */
-        if ((msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32(tcpd->fwd->multisegment_pdus, seq))) {
+        if ((msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32(tcpd->fwd->multisegment_pdus, seq)) &&
+                !(msp->flags & MSP_FLAGS_MISSING_FIRST_SEGMENT) && msp->last_frame != pinfo->num) {
             const char* str;
 
             /* Yes.  This could be because we've dissected this frame before
@@ -3071,6 +3105,18 @@ again:
         /* The above code only finds retransmission if the PDU boundaries and the seq coincide I think
          * If we have sequence analysis active use the TCP_A_RETRANSMISSION flag.
          * XXXX Could the above code be improved?
+         * XXX the following check works great for filtering duplicate
+         * retransmissions, but could there be a case where it prevents
+         * "tcp_reassemble_out_of_order" from functioning due to skipping
+         * retransmission of a lost segment?
+         * If the latter is enabled, it could use use "maxnextseq" for ignoring
+         * retransmitted single-segment PDUs (that would require storing
+         * per-packet state (tcp_per_packet_data_t) to make it work for two-pass
+         * and random access dissection). Retransmitted segments that are part
+         * of a MSP should already be passed only once to subdissectors due to
+         * the "reassembled_in" check below.
+         * The following should also check for TCP_A_SPURIOUS_RETRANSMISSION to
+         * address bug 10289.
          */
         if((tcpd->ta) && ((tcpd->ta->flags&TCP_A_RETRANSMISSION) == TCP_A_RETRANSMISSION)){
             const char* str = "Retransmitted ";
@@ -3081,7 +3127,62 @@ again:
             return;
         }
         /* Else, find the most previous PDU starting before this sequence number */
-        msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32_le(tcpd->fwd->multisegment_pdus, seq-1);
+        if (!msp) {
+            msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32_le(tcpd->fwd->multisegment_pdus, seq-1);
+        }
+    }
+
+    if (reassemble_ooo && tcpd && !PINFO_FD_VISITED(pinfo)) {
+        /* If there is a gap between this segment and any previous ones (that
+         * is, seqno is larger than the maximum expected seqno), then it is
+         * possibly an out-of-order segment. The very first segment is expected
+         * to be in-order though (otherwise captures starting in midst of a
+         * connection would never be reassembled).
+         */
+        if (tcpd->fwd->maxnextseq) {
+            /* Segments may be missing due to packet loss (assume later
+             * retransmission) or out-of-order (assume it will appear later).
+             *
+             * Extend an unfinished MSP when (1) missing segments exist between
+             * the start of the previous, (2) unfinished MSP and new segment.
+             *
+             * Create a new MSP when no (1) previous MSP exists and (2) a gap is
+             * detected between the previous largest nxtseq and the new segment.
+             */
+            /* Whether a previous MSP exists with missing segments. */
+            gboolean has_unfinished_msp = msp && !(msp->flags & MSP_FLAGS_GOT_ALL_SEGMENTS);
+            /* Whether the new segment creates a new gap. */
+            gboolean has_gap = LT_SEQ(tcpd->fwd->maxnextseq, seq);
+
+            if (has_unfinished_msp && missing_segments(pinfo, msp, seq)) {
+                /* The last PDU is part of a MSP which still needed more data,
+                 * extend it (if necessary) to cover the entire new segment.
+                 */
+                if (LT_SEQ(msp->nxtpdu, nxtseq)) {
+                    msp->nxtpdu = nxtseq;
+                }
+            } else if (!has_unfinished_msp && has_gap) {
+                /* Either the previous segment was a single PDU that did not
+                 * belong to a MSP, or the previous MSP was completed and cannot
+                 * be extended.
+                 * Create a new one starting at the expected next position and
+                 * extend it to the end of the new segment.
+                 */
+                msp = pdu_store_sequencenumber_of_next_pdu(pinfo,
+                    tcpd->fwd->maxnextseq, nxtseq,
+                    tcpd->fwd->multisegment_pdus);
+
+                msp->flags |= MSP_FLAGS_MISSING_FIRST_SEGMENT;
+            }
+            /* Now that the MSP is updated or created, continue adding the
+             * segments to the MSP below. The subdissector will not be called as
+             * the MSP is not complete yet. */
+        }
+        if (tcpd->fwd->maxnextseq == 0 || LT_SEQ(tcpd->fwd->maxnextseq, nxtseq)) {
+            /* Update the maximum expected seqno if no SYN packet was seen
+             * before, or if the new segment succeeds previous segments. */
+            tcpd->fwd->maxnextseq = nxtseq;
+        }
     }
 
     if (msp && msp->seq <= seq && msp->nxtpdu > seq) {
@@ -3103,6 +3204,21 @@ again:
         }
         last_fragment_len = len;
 
+
+        if (reassemble_ooo) {
+            /*
+             * If the previous segment requested more data (setting
+             * FD_PARTIAL_REASSEMBLY as the next segment length is unknown), but
+             * subsequently an OoO segment was received (for an earlier hole),
+             * then "fragment_add" would truncate the reassembled PDU to the end
+             * of this OoO segment. To prevent that, explicitly specify the MSP
+             * length before calling "fragment_add".
+             */
+            fragment_reset_tot_len(&tcp_reassembly_table, pinfo,
+                                   msp->first_frame, NULL,
+                                   MAX(seq + len, msp->nxtpdu) - msp->seq);
+        }
+
         ipfd_head = fragment_add(&tcp_reassembly_table, tvb, offset,
                                  pinfo, msp->first_frame, NULL,
                                  seq - msp->seq, len,
@@ -3121,6 +3237,19 @@ again:
              * the code.)
              */
             msp->nxtpdu = nxtseq;
+        }
+
+        if (reassemble_ooo && !PINFO_FD_VISITED(pinfo)) {
+            /* If the first segment of the MSP was seen, remember it. */
+            if (msp->seq == seq) {
+                msp->flags &= ~MSP_FLAGS_MISSING_FIRST_SEGMENT;
+            }
+            /* Remember when all segments are ready to avoid subsequent
+             * out-of-order packets from extending this MSP. If a subsdissector
+             * needs more segments, the flag will be cleared below. */
+            if (ipfd_head) {
+                msp->flags |= MSP_FLAGS_GOT_ALL_SEGMENTS;
+            }
         }
 
         if( (msp->nxtpdu < nxtseq)
@@ -3214,6 +3343,10 @@ again:
              * desegmented, or does it think we need even more
              * data?
              */
+            if (reassemble_ooo && !PINFO_FD_VISITED(pinfo) && pinfo->desegment_len) {
+                /* "desegment_len" isn't 0, so it needs more data to extend the MSP. */
+                msp->flags &= ~MSP_FLAGS_GOT_ALL_SEGMENTS;
+            }
             old_len = (int)(tvb_reported_length(next_tvb) - last_fragment_len);
             if (pinfo->desegment_len &&
                 pinfo->desegment_offset<=old_len) {
@@ -3247,13 +3380,24 @@ again:
                      * This means that the next segment
                      * will complete reassembly even if it
                      * is only one single byte in length.
+                     * If this is an OoO segment, then increment the MSP end.
                      */
-                    msp->nxtpdu = seq + tvb_reported_length_remaining(tvb, offset) + 1;
+                    msp->nxtpdu = MAX(seq + tvb_reported_length_remaining(tvb, offset), msp->nxtpdu) + 1;
                     msp->flags |= MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT;
                 } else if (pinfo->desegment_len == DESEGMENT_UNTIL_FIN) {
                     tcpd->fwd->flags |= TCP_FLOW_REASSEMBLE_UNTIL_FIN;
                 } else {
-                    msp->nxtpdu=seq + last_fragment_len + pinfo->desegment_len;
+                    if (seq + last_fragment_len >= msp->nxtpdu) {
+                        /* This is the segment (overlapping) the end of the MSP. */
+                        msp->nxtpdu = seq + last_fragment_len + pinfo->desegment_len;
+                    } else {
+                        /* This is a segment before the end of the MSP, so it
+                         * must be an out-of-order segmented that completed the
+                         * MSP. The requested additional data is relative to
+                         * that end.
+                         */
+                        msp->nxtpdu += pinfo->desegment_len;
+                    }
                 }
 
                 /* Since we need at least some more data
@@ -4453,7 +4597,6 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 
                     if (!PINFO_FD_VISITED(pinfo))
                     {
-
                         /* register SSN range described by the mapping into a subflow interval_tree */
                         mptcp_dss_mapping_t *mapping = NULL;
                         mapping = wmem_new0(wmem_file_scope(), mptcp_dss_mapping_t);
@@ -4464,7 +4607,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                         mapping->ssn_low = mph->mh_dss_ssn;
                         mapping->ssn_high = mph->mh_dss_ssn + mph->mh_dss_length-1;
 
-                        wmem_itree_insert(tcpd->fwd->mptcp_subflow->mappings,
+                        wmem_itree_insert(tcpd->fwd->mptcp_subflow->ssn2dsn_mappings,
                             mph->mh_dss_ssn,
                             mapping->ssn_high,
                             mapping
@@ -5507,10 +5650,15 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
         }
     }
 
-    if (tcp_no_subdissector_on_error && tcpd && tcpd->ta && tcpd->ta->flags & (TCP_A_RETRANSMISSION | TCP_A_OUT_OF_ORDER)) {
+    if (tcp_no_subdissector_on_error && !(tcp_desegment && tcp_reassemble_out_of_order) &&
+        tcpd && tcpd->ta && tcpd->ta->flags & (TCP_A_RETRANSMISSION | TCP_A_OUT_OF_ORDER)) {
         /* Don't try to dissect a retransmission high chance that it will mess
          * subdissectors for protocols that require in-order delivery of the
          * PDUs. (i.e. DCE/RPCoverHTTP and encryption)
+         * If OoO reassembly is enabled and if this segment was previously lost,
+         * then this retransmission could have finished reassembly, so continue.
+         * XXX should this option be removed? "tcp_reassemble_out_of_order"
+         * should have addressed the above in-order requirement.
          */
         return FALSE;
     }
@@ -6159,6 +6307,12 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
            /* Save the server port to help determine dissector used */
            tcpd->server_port = tcph->th_dport;
            tcpd->ts_mru_syn = pinfo->abs_ts;
+        }
+        /* Remember where the next segment will start. */
+        if (tcp_desegment && tcp_reassemble_out_of_order && tcpd && !PINFO_FD_VISITED(pinfo)) {
+            if (tcpd->fwd->maxnextseq == 0) {
+                tcpd->fwd->maxnextseq = tcph->th_seq + 1;
+            }
         }
     }
     if(tcph->th_flags & TH_FIN) {
@@ -7422,15 +7576,19 @@ proto_register_tcp(void)
             "This frame has some of the MPTCP analysis shown", HFILL }},
 
         { &hf_mptcp_related_mapping,
-          { "Related mapping",   "mptcp.related_mapping", FT_FRAMENUM , BASE_NONE, NULL, 0x0,
-            "Packet in which mapping describing current packet was sent", HFILL }},
+          { "Related mapping", "mptcp.related_mapping", FT_FRAMENUM , BASE_NONE, NULL, 0x0,
+            "Packet in which current packet DSS mapping was sent", HFILL }},
 
-        { &hf_mptcp_duplicated_data,
-          { "Was data duplicated",   "mptcp.duplicated_dsn", FT_FRAMENUM , BASE_NONE, NULL, 0x0,
+        { &hf_mptcp_reinjection_of,
+          { "Reinjection of", "mptcp.reinjection_of", FT_FRAMENUM , BASE_NONE, NULL, 0x0,
+            "This is a retransmission of data sent on another subflow", HFILL }},
+
+        { &hf_mptcp_reinjected_in,
+          { "Data reinjected in", "mptcp.reinjected_in", FT_FRAMENUM , BASE_NONE, NULL, 0x0,
             "This was retransmitted on another subflow", HFILL }},
 
         { &hf_mptcp_analysis_subflows,
-          { "TCP subflow stream id(s):",   "mptcp.analysis.subflows", FT_NONE, BASE_NONE, NULL, 0x0,
+          { "TCP subflow stream id(s):", "mptcp.analysis.subflows", FT_NONE, BASE_NONE, NULL, 0x0,
             "List all TCP connections mapped to this MPTCP connection", HFILL }},
 
         { &hf_mptcp_stream,
@@ -7520,6 +7678,11 @@ proto_register_tcp(void)
         "Allow subdissector to reassemble TCP streams",
         "Whether subdissector can request TCP streams to be reassembled",
         &tcp_desegment);
+    prefs_register_bool_preference(tcp_module, "reassemble_out_of_order",
+        "Reassemble out-of-order segments",
+        "Whether out-of-order segments should be buffered and reordered before passing it to a subdissector. "
+        "To use this option you must also enable \"Allow subdissector to reassemble TCP streams\".",
+        &tcp_reassemble_out_of_order);
     prefs_register_bool_preference(tcp_module, "analyze_sequence_numbers",
         "Analyze TCP sequence numbers",
         "Make the TCP dissector analyze TCP sequence numbers to find and flag segment retransmissions, missing segments and RTT",
@@ -7605,13 +7768,16 @@ proto_register_tcp(void)
         &mptcp_relative_seq);
 
     prefs_register_bool_preference(mptcp_module, "analyze_mappings",
-        "In depth analysis of Data Sequence Signal (DSS) mappings.",
+        "Deeper analysis of Data Sequence Signal (DSS)",
+        "Scales logarithmically with the number of packets"
         "You need to capture the handshake for this to work."
         "\"Map TCP subflows to their respective MPTCP connections\"",
         &mptcp_analyze_mappings);
 
     prefs_register_bool_preference(mptcp_module, "intersubflows_retransmission",
         "Check for data duplication across subflows",
+        "(Greedy algorithm: Scales linearly with number of subflows and"
+        " logarithmic scaling with number of packets)"
         "You need to enable DSS mapping analysis for this option to work",
         &mptcp_intersubflows_retransmission);
 

@@ -11,10 +11,10 @@
 --
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
--- Set disable_lua to true to disable Lua support.
-disable_lua = false
+-- Set enable_lua to false to disable Lua support.
+enable_lua = true
 
-if disable_lua then
+if not enable_lua then
     return
 end
 
@@ -36,13 +36,6 @@ if running_superuser then
     os = disabled_lib
     io = disabled_lib
     file = disabled_lib
-end
-
--- to avoid output to stdout which can cause problems lua's print ()
--- has been suppresed so that it yields an error.
--- have print() call info() instead.
-if gui_enabled() then
-    print = info
 end
 
 function typeof(obj)
@@ -74,7 +67,6 @@ end
 --
 -- since 1.11.3
 function package.prepend_path(name)
-    local debug = require "debug"
     -- get the function calling this package.prepend_path function
     local dt = debug.getinfo(2, "f")
     if not dt then

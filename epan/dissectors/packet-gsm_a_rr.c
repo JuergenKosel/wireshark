@@ -553,7 +553,9 @@ static int hf_gsm_a_rr_dl_egprs2 = -1;
 static int hf_gsm_a_rr_emst_ms_cap = -1;
 static int hf_gsm_a_rr_suspension_cause = -1;
 static int hf_gsm_a_rr_apdu_id = -1;
-static int hf_gsm_a_rr_apdu_flags = -1;
+static int hf_gsm_a_rr_apdu_flags_cr = -1;
+static int hf_gsm_a_rr_apdu_flags_fs = -1;
+static int hf_gsm_a_rr_apdu_flags_ls = -1;
 static int hf_gsm_a_rr_set_of_amr_codec_modes_v1_b8 = -1;
 static int hf_gsm_a_rr_set_of_amr_codec_modes_v1_b7 = -1;
 static int hf_gsm_a_rr_set_of_amr_codec_modes_v1_b6 = -1;
@@ -8784,16 +8786,27 @@ de_rr_apdu_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 o
 
 /*
  * [3] 10.5.2.49 APDU Flags
+ * Please note that value 1 means "not".
  */
-static const value_string gsm_a_rr_apdu_flags_vals[] = {
-    { 1, "Last or only segment" },
-    { 2, "First or only segment" },
-    { 0, NULL },
+static const true_false_string gsm_a_rr_apdu_flags_cr_value = {
+    "Not Command or Final Response",
+    "Command or Final Response",
 };
+static const true_false_string gsm_a_rr_apdu_flags_fs_value = {
+    "Not first or only segment",
+    "First or only segment",
+};
+static const true_false_string gsm_a_rr_apdu_flags_ls_value = {
+    "Not last or only segment",
+    "Last or only segment",
+};
+
 static guint16
 de_rr_apdu_flags(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
-    proto_tree_add_item(tree, hf_gsm_a_rr_apdu_flags, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_rr_apdu_flags_cr, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_rr_apdu_flags_fs, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_rr_apdu_flags_ls, tvb, offset, 1, ENC_BIG_ENDIAN);
 
     return 1;
 }
@@ -10188,7 +10201,7 @@ dtap_rr_imm_ass_ext(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
     /* Page Mode                                                10.5.2.26       M V 1/2 */
     /* Feature Indicator                                        10.5.2.76       M V 1/2 */
     ELEM_MAND_VV_SHORT(GSM_A_PDU_TYPE_RR, DE_RR_PAGE_MODE,
-                       GSM_A_PDU_TYPE_COMMON, DE_RR_FEATURE_INDICATOR, ei_gsm_a_rr_missing_mandatory_element);
+                       GSM_A_PDU_TYPE_RR, DE_RR_FEATURE_INDICATOR, ei_gsm_a_rr_missing_mandatory_element);
     /* Channel Description 1    Channel Description             10.5.2.5        M V 3 */
     ELEM_MAND_V(GSM_A_PDU_TYPE_RR, DE_RR_CH_DSC, " - Channel Description 1", ei_gsm_a_rr_missing_mandatory_element);
     /* Request Reference 1      Request Reference               10.5.2.30       M V 3   */
@@ -10225,9 +10238,9 @@ dtap_rr_imm_ass_rej(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
     curr_len = len;
 
     /* Page Mode                                        10.5.2.26       M V 1/2 */
-    /* Spare Half Octet         10.5.1.8        M V 1/2 */
+    /* Feature Indicator                                        10.5.2.76       M V 1/2 */
     ELEM_MAND_VV_SHORT(GSM_A_PDU_TYPE_RR, DE_RR_PAGE_MODE,
-                       GSM_A_PDU_TYPE_COMMON, DE_SPARE_NIBBLE, ei_gsm_a_rr_missing_mandatory_element);
+                       GSM_A_PDU_TYPE_RR, DE_RR_FEATURE_INDICATOR, ei_gsm_a_rr_missing_mandatory_element);
     /* Request Reference 1      Request Reference               10.5.2.30       M V 3   */
     ELEM_MAND_V(GSM_A_PDU_TYPE_RR, DE_RR_REQ_REF, " - Request Reference 1", ei_gsm_a_rr_missing_mandatory_element);
     /* Wait Indication 1        Wait Indication                 10.5.2.43       M V 1   */
@@ -10891,8 +10904,14 @@ dtap_rr_app_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32
     curr_offset = offset;
     curr_len    = len;
 
-    ELEM_MAND_V(GSM_A_PDU_TYPE_RR, DE_RR_APDU_ID, NULL, ei_gsm_a_rr_missing_mandatory_element);
-    ELEM_MAND_V(GSM_A_PDU_TYPE_RR, DE_RR_APDU_FLAGS, NULL, ei_gsm_a_rr_missing_mandatory_element);
+    /*
+     * APDU ID IE (10.5.2.48) M V 1/2
+     * APDU Flags (10.5.2.49) M V 1/2
+     */
+    ELEM_MAND_VV_SHORT(GSM_A_PDU_TYPE_RR, DE_RR_APDU_ID,
+                       GSM_A_PDU_TYPE_RR, DE_RR_APDU_FLAGS,
+                       ei_gsm_a_rr_missing_mandatory_element);
+
     ELEM_MAND_LV(GSM_A_PDU_TYPE_RR, DE_RR_APDU_DATA, NULL, ei_gsm_a_rr_missing_mandatory_element);
 }
 
@@ -12626,9 +12645,19 @@ proto_register_gsm_a_rr(void)
                 FT_UINT8,BASE_HEX,  VALS(gsm_a_rr_apdu_id_vals), 0x0f,
                 NULL, HFILL }
             },
-            { &hf_gsm_a_rr_apdu_flags,
-              { "APDU Flags","gsm_a.rr.apdu_flags",
-                FT_UINT8,BASE_HEX,  VALS(gsm_a_rr_apdu_flags_vals), 0xf0,
+            { &hf_gsm_a_rr_apdu_flags_cr,
+              { "C/R", "gsm_a.rr.apdu_flags_cr",
+                FT_BOOLEAN, 8, TFS(&gsm_a_rr_apdu_flags_cr_value), 0x10,
+                NULL, HFILL }
+            },
+            { &hf_gsm_a_rr_apdu_flags_fs,
+              { "First Segment", "gsm_a.rr.apdu_flags_fs",
+                FT_BOOLEAN, 8, TFS(&gsm_a_rr_apdu_flags_fs_value), 0x20,
+                NULL, HFILL }
+            },
+            { &hf_gsm_a_rr_apdu_flags_ls,
+              { "Last Segment", "gsm_a.rr.apdu_flags_ls",
+                FT_BOOLEAN, 8, TFS(&gsm_a_rr_apdu_flags_ls_value), 0x40,
                 NULL, HFILL }
             },
             { &hf_gsm_a_rr_set_of_amr_codec_modes_v1_b8,

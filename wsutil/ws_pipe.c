@@ -120,16 +120,74 @@ gboolean ws_pipe_spawn_sync(gchar *dirname, gchar *command, gint argc, gchar **a
 
     if (win32_create_process(NULL, winargs->str, NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &info, &processInfo))
     {
-        gchar* buffer;
+        gchar* buffer = (gchar*)g_malloc(BUFFER_SIZE);
+        DWORD dw;
+        DWORD bytes_read;
+        DWORD bytes_avail;
+        GString *output_string = g_string_new(NULL);
 
-        WaitForSingleObject(processInfo.hProcess, INFINITE);
-        buffer = (gchar*)g_malloc(BUFFER_SIZE);
-        status = ws_read_string_from_pipe(child_stdout_rd, buffer, BUFFER_SIZE);
-        if (status)
+        for (;;)
         {
-            local_output = g_strdup_printf("%s", buffer);
+            /* Keep peeking at pipes every 100 ms. */
+            dw = WaitForSingleObject(processInfo.hProcess, 100000);
+            if (dw == WAIT_OBJECT_0)
+            {
+                /* Process finished. Nothing left to do here. */
+                break;
+            }
+            else if (dw != WAIT_TIMEOUT)
+            {
+                g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG, "WaitForSingleObject returned 0x%08X. Error %d", dw, GetLastError());
+                break;
+            }
+
+            if (PeekNamedPipe(child_stdout_rd, NULL, 0, NULL, &bytes_avail, NULL))
+            {
+                if (bytes_avail > 0)
+                {
+                    bytes_avail = min(bytes_avail, BUFFER_SIZE);
+                    if (ReadFile(child_stdout_rd, &buffer[0], bytes_avail, &bytes_read, NULL))
+                    {
+                        g_string_append_len(output_string, buffer, bytes_read);
+                    }
+                }
+            }
+
+            /* Discard the stderr data just like non-windows version of this function does. */
+            if (PeekNamedPipe(child_stderr_rd, NULL, 0, NULL, &bytes_avail, NULL))
+            {
+                if (bytes_avail > 0)
+                {
+                    bytes_avail = min(bytes_avail, BUFFER_SIZE);
+                    ReadFile(child_stderr_rd, &buffer[0], bytes_avail, &bytes_read, NULL);
+                }
+            }
         }
+
+        /* At this point the process is finished but there might still be unread data in the pipe. */
+        while (PeekNamedPipe(child_stdout_rd, NULL, 0, NULL, &bytes_avail, NULL))
+        {
+            if (bytes_avail == 0)
+            {
+                /* Pipe is drained. */
+                break;
+            }
+            bytes_avail = min(bytes_avail, BUFFER_SIZE);
+            if (ReadFile(child_stdout_rd, &buffer[0], BUFFER_SIZE, &bytes_read, NULL))
+            {
+                g_string_append_len(output_string, buffer, bytes_read);
+            }
+        }
+
         g_free(buffer);
+
+        status = GetExitCodeProcess(processInfo.hProcess, &dw);
+        if (status && dw != 0)
+        {
+            status = FALSE;
+        }
+
+        local_output = g_string_free(output_string, FALSE);
 
         CloseHandle(child_stdout_rd);
         CloseHandle(child_stdout_wr);
@@ -270,6 +328,17 @@ GPid ws_pipe_spawn_async(ws_pipe_t *ws_pipe, GPtrArray *args)
     ws_pipe->pid = pid;
 
     return pid;
+}
+
+void ws_pipe_close(ws_pipe_t * ws_pipe)
+{
+    if (ws_pipe->pid != WS_INVALID_PID) {
+#ifdef _WIN32
+        TerminateProcess(ws_pipe->pid, 0);
+#endif
+        g_spawn_close_pid(ws_pipe->pid);
+        ws_pipe->pid = WS_INVALID_PID;
+    }
 }
 
 #ifdef _WIN32
@@ -508,8 +577,31 @@ ws_read_string_from_pipe(ws_pipe_handle read_pipe, gchar *buffer,
             break;
         }
 #else
+        /*
+         * Check if data is available before doing a blocking I/O read.
+         *
+         * XXX - this means that if part of the string, but not all of
+         * the string, has been written to the pipe, this will just
+         * return, as the string, the part that's been written as of
+         * this point.
+         *
+         * Pipes, on UN*X, are like TCP connections - there are *no*
+         * message boundaries, they're just byte streams.  Either 1)
+         * precisely *one* string can be sent on this pipe, and the
+         * sending side must be closed after the string is written to
+         * the pipe, so that an EOF indicates the end of the string
+         * or 2) the strings must either be preceded by a length indication
+         * or must be terminated with an end-of-string indication (such
+         * as a '\0'), so that we can determine when one string ends and
+         * another string begins.
+         */
+        if (!ws_pipe_data_available(read_pipe)) {
+            ret = TRUE;
+            break;
+        }
+
         bytes_to_read = buffer_bytes_remaining;
-        bytes_read = read(read_pipe, buffer, bytes_to_read);
+        bytes_read = read(read_pipe, &buffer[total_bytes_read], bytes_to_read);
         if (bytes_read == -1)
         {
             /* XXX - provide an error string */

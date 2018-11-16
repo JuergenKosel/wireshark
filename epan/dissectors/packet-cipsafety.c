@@ -2,6 +2,10 @@
  * Routines for CIP (Common Industrial Protocol) Safety dissection
  * CIP Safety Home: www.odva.org
  *
+ * This dissector includes items from:
+ *    CIP Volume 1: Common Industrial Protocol, Edition 3.24
+ *    CIP Volume 5: CIP Safety, Edition 2.17
+ *
  * Copyright 2011
  * Michael Mann <mmann@pyramidsolutions.com>
  *
@@ -2128,8 +2132,8 @@ proto_register_cipsafety(void)
       },
 
       { &hf_cipsafety_data,
-        { "Data", "enip.connection_transport_data",
-          FT_BYTES, BASE_NONE, NULL, 0, "Connection Transport Data", HFILL }
+        { "Data", "cipsafety.data",
+          FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }
       },
       { &hf_cipsafety_mode_byte,
         { "Mode Byte", "cipsafety.mode_byte",
@@ -2281,7 +2285,7 @@ proto_register_cipsafety(void)
       },
       { &hf_cipsafety_complement_data,
         { "Complement Data", "cipsafety.complement_data",
-          FT_BYTES, BASE_NONE, NULL, 0, "Connection Transport Data", HFILL }
+          FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }
       },
 
       { &hf_cip_sercosiii_link_snn,
@@ -3027,10 +3031,10 @@ proto_reg_handoff_cipsafety(void)
    heur_dissector_add("cip.sc", dissect_class_svalidator_heur, "CIP Safety Validator", "s_validator_cip", proto_cip_class_s_validator, HEURISTIC_ENABLE);
 
    /* Register dissector for I/O data handling */
-   dissector_add_for_decode_as("enip.io", cipsafety_base_data_handle );
-   dissector_add_for_decode_as("enip.io", cipsafety_extended_data_handle );
-   dissector_add_for_decode_as("enip.io", cipsafety_base_time_coord_handle );
-   dissector_add_for_decode_as("enip.io", cipsafety_extended_time_coord_handle );
+   dissector_add_for_decode_as("cip.io", cipsafety_base_data_handle );
+   dissector_add_for_decode_as("cip.io", cipsafety_extended_data_handle );
+   dissector_add_for_decode_as("cip.io", cipsafety_base_time_coord_handle );
+   dissector_add_for_decode_as("cip.io", cipsafety_extended_time_coord_handle );
 
    proto_cip = proto_get_id_by_filter_name( "cip" );
    subdissector_class_table = find_dissector_table("cip.class.iface");

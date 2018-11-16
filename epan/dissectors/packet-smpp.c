@@ -1894,7 +1894,7 @@ submit_sm(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
     const char *src_str = NULL;
     const char *dst_str = NULL;
     address   save_src, save_dst;
-    nstime_t  zero_time = {0, 0};
+    nstime_t  zero_time = NSTIME_INIT_ZERO;
 
     smpp_handle_string_z(tree, tvb, hf_smpp_service_type, &offset, "(Default)");
     smpp_handle_int1(tree, tvb, hf_smpp_source_addr_ton, &offset);
@@ -1970,7 +1970,7 @@ replace_sm(proto_tree *tree, tvbuff_t *tvb)
     int          offset = 0;
     guint8       flag;
     guint8       length;
-    nstime_t  zero_time = {0, 0};
+    nstime_t  zero_time = NSTIME_INIT_ZERO;
 
     smpp_handle_string(tree, tvb, hf_smpp_message_id, &offset);
     smpp_handle_int1(tree, tvb, hf_smpp_source_addr_ton, &offset);
@@ -2022,7 +2022,7 @@ submit_multi(proto_tree *tree, tvbuff_t *tvb)
     int          offset = 0;
     guint8       flag;
     guint8       length;
-    nstime_t     zero_time = {0, 0};
+    nstime_t     zero_time = NSTIME_INIT_ZERO;
 
     smpp_handle_string_z(tree, tvb, hf_smpp_service_type, &offset, "(Default)");
     smpp_handle_int1(tree, tvb, hf_smpp_source_addr_ton, &offset);
@@ -2120,7 +2120,7 @@ static void
 broadcast_sm(proto_tree *tree, tvbuff_t *tvb)
 {
     int          offset = 0;
-    nstime_t     zero_time = {0, 0};
+    nstime_t     zero_time = NSTIME_INIT_ZERO;
 
     smpp_handle_string_z(tree, tvb, hf_smpp_service_type, &offset, "(Default)");
     smpp_handle_int1(tree, tvb, hf_smpp_source_addr_ton, &offset);
@@ -2318,11 +2318,12 @@ huawei_sm_result_notify_resp(proto_tree *tree, tvbuff_t *tvb)
 static gboolean
 dissect_smpp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-    guint        command_id;            /* SMPP command         */
-    guint        command_status;        /* Status code          */
-    guint        command_length;        /* length of PDU        */
+    guint32      command_id;            /* SMPP command         */
+    guint32      command_status;        /* Status code          */
+    guint32      command_length;        /* length of PDU        */
 
-    if (tvb_reported_length(tvb) < SMPP_MIN_LENGTH)     /* Mandatory header     */
+    if (tvb_reported_length(tvb) < SMPP_MIN_LENGTH ||   /* Mandatory header     */
+        tvb_captured_length(tvb) < 12)
         return FALSE;
     command_length = tvb_get_ntohl(tvb, 0);
     if (command_length > 64 * 1024 || command_length < SMPP_MIN_LENGTH)

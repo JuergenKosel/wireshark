@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Wireshark tests
@@ -13,16 +13,21 @@
 # To do:
 # - Avoid printing Python tracebacks when we assert? It looks like we'd need
 #   to override unittest.TextTestResult.addFailure().
-# - Switch to Python 3 only? [Windows, Linux, macOS] x [Python 2, Python 3]
-#   is painful.
-# - Remove BIN_PATH/hosts via config.tearDownHostFiles + case_name_resolution.tearDownClass?
 
 
 import argparse
-import config
 import os.path
 import sys
 import unittest
+import fixtures
+# Required to make fixtures available to tests!
+import fixtures_ws
+
+_all_test_groups = None
+
+@fixtures.fixture(scope='session')
+def all_test_groups():
+    return _all_test_groups
 
 def find_test_ids(suite, all_ids):
     if hasattr(suite, '__iter__'):
@@ -41,27 +46,23 @@ def dump_failed_output(suite):
                 dump_failed_output(s)
 
 def main():
+    if sys.version_info[0] < 3:
+        print("Unit tests require Python 3")
+        sys.exit(2)
+
     parser = argparse.ArgumentParser(description='Wireshark unit tests')
     cap_group = parser.add_mutually_exclusive_group()
-    cap_group.add_argument('-e', '--enable-capture', action='store_true', help='Enable capture tests')
     cap_group.add_argument('-E', '--disable-capture', action='store_true', help='Disable capture tests')
-    cap_group.add_argument('-i', '--capture-interface', nargs=1, default=None, help='Capture interface index or name')
-    parser.add_argument('-p', '--program-path', nargs=1, default=os.path.curdir, help='Path to Wireshark executables.')
+    cap_group.add_argument('-i', '--capture-interface', help='Capture interface index or name')
+    parser.add_argument('-p', '--program-path', default=os.path.curdir, help='Path to Wireshark executables.')
     list_group = parser.add_mutually_exclusive_group()
     list_group.add_argument('-l', '--list', action='store_true', help='List tests. One of "all" or a full or partial test name.')
     list_group.add_argument('--list-suites', action='store_true', help='List all suites.')
-    list_group.add_argument('--list-cases', action='store_true', help='List all suites and cases.')
+    list_group.add_argument('--list-groups', action='store_true', help='List all suites and groups.')
+    list_group.add_argument('--list-cases', action='store_true', help='List all suites, groups, and cases.')
     parser.add_argument('-v', '--verbose', action='store_const', const=2, default=1, help='Verbose tests.')
     parser.add_argument('tests_to_run', nargs='*', metavar='test', default=['all'], help='Tests to run. One of "all" or a full or partial test name. Default is "all".')
     args = parser.parse_args()
-
-    if args.enable_capture:
-        config.setCanCapture(True)
-    elif args.disable_capture:
-        config.setCanCapture(False)
-
-    if args.capture_interface:
-        config.setCaptureInterface(args.capture_interface[0])
 
     all_tests = unittest.defaultTestLoader.discover(os.path.dirname(__file__), pattern='suite_*')
 
@@ -91,11 +92,25 @@ def main():
     for aid in all_ids:
         aparts = aid.split('.')
         all_suites |= {aparts[0]}
-    config.all_suites = list(all_suites)
-    config.all_suites.sort()
+    all_suites = sorted(all_suites)
+
+    all_groups = set()
+    for aid in all_ids:
+        aparts = aid.split('.')
+        if aparts[1].startswith('group_'):
+            all_groups |= {'.'.join(aparts[:2])}
+        else:
+            all_groups |= {aparts[0]}
+    all_groups = sorted(all_groups)
+    global _all_test_groups
+    _all_test_groups = all_groups
 
     if args.list_suites:
-        print('\n'.join(config.all_suites))
+        print('\n'.join(all_suites))
+        sys.exit(0)
+
+    if args.list_groups:
+        print('\n'.join(all_groups))
         sys.exit(0)
 
     if args.list_cases:
@@ -106,27 +121,22 @@ def main():
         print('\n'.join(list(cases)))
         sys.exit(0)
 
-    program_path = args.program_path[0]
-    if not config.setProgramPath(program_path):
-        print('One or more required executables not found at {}\n'.format(program_path))
-        parser.print_usage()
-        sys.exit(1)
-
-    #
     if sys.stdout.encoding != 'UTF-8':
         import codecs
         import locale
         sys.stderr.write('Warning: Output encoding is {0} and not UTF-8.\n'.format(sys.stdout.encoding))
-        if sys.version_info[0] >= 3:
-            sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout.buffer, 'backslashreplace')
-            sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr.buffer, 'backslashreplace')
-        else:
-            sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout, 'backslashreplace')
-            sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr, 'backslashreplace')
+        sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout.buffer, 'backslashreplace')
+        sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr.buffer, 'backslashreplace')
 
     run_suite = unittest.defaultTestLoader.loadTestsFromNames(run_ids)
     runner = unittest.TextTestRunner(verbosity=args.verbose)
-    test_result = runner.run(run_suite)
+    # for unittest compatibility (not needed with pytest)
+    fixtures_ws.fixtures.create_session(args)
+    try:
+        test_result = runner.run(run_suite)
+    finally:
+        # for unittest compatibility (not needed with pytest)
+        fixtures_ws.fixtures.destroy_session()
 
     dump_failed_output(run_suite)
 

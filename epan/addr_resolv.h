@@ -364,15 +364,9 @@ void set_resolution_synchrony(gboolean synchronous);
 WS_DLL_LOCAL
 void name_resolver_init(void);
 
-/* (Re)Initialize hostname resolution subsystem */
+/* Reinitialize hostname resolution subsystem */
 WS_DLL_LOCAL
-void host_name_lookup_init(void);
-
-/* Clean up only hostname resolutions (so they don't "leak" from one
- * file to the next).
- */
-WS_DLL_LOCAL
-void host_name_lookup_cleanup(void);
+void host_name_lookup_reset(void);
 
 WS_DLL_LOCAL
 void addr_resolv_init(void);
@@ -388,6 +382,9 @@ gboolean str_to_ip(const char *str, void *dst);
 
 WS_DLL_PUBLIC
 gboolean str_to_ip6(const char *str, void *dst);
+
+WS_DLL_LOCAL
+gboolean str_to_eth(const char *str, char *eth_bytes);
 
 WS_DLL_LOCAL
 guint ipv6_oat_hash(gconstpointer key);

@@ -32,7 +32,6 @@
 #include <epan/decode_as.h>
 #include "print.h"
 #include <wsutil/file_util.h>
-#include <wsutil/ws_printf.h> /* ws_g_warning */
 #include <wsutil/report_message.h>
 
 #include <epan/prefs-int.h>
@@ -43,12 +42,21 @@
 #include "epan/wmem/wmem.h"
 #include <epan/stats_tree.h>
 
+/*
+ * Module alias.
+ */
+typedef struct pref_module_alias {
+    const char *name;           /**< name of module alias */
+    module_t *module;           /**< module for which it's an alias */
+} module_alias_t;
+
 /* Internal functions */
 static module_t *find_subtree(module_t *parent, const char *tilte);
 static module_t *prefs_register_module_or_subtree(module_t *parent,
     const char *name, const char *title, const char *description, gboolean is_subtree,
     void (*apply_cb)(void), gboolean use_gui);
 static void prefs_register_modules(void);
+static module_t *prefs_find_module_alias(const char *name);
 static prefs_set_pref_e set_pref(gchar*, const gchar*, void *, gboolean);
 static void free_col_info(GList *);
 static void pre_init_prefs(void);
@@ -80,22 +88,6 @@ static int mgcp_tcp_port_count;
 static int mgcp_udp_port_count;
 
 e_prefs prefs;
-
-static const enum_val_t gui_ptree_line_style[] = {
-    {"NONE", "NONE", 0},
-    {"SOLID", "SOLID", 1},
-    {"DOTTED", "DOTTED", 2},
-    {"TABBED", "TABBED", 3},
-    {NULL, NULL, -1}
-};
-
-static const enum_val_t gui_ptree_expander_style[] = {
-    {"NONE", "NONE", 0},
-    {"SQUARE", "SQUARE", 1},
-    {"TRIANGLE", "TRIANGLE", 2},
-    {"CIRCULAR", "CIRCULAR", 3},
-    {NULL, NULL, -1}
-};
 
 static const enum_val_t gui_console_open_type[] = {
     {"NEVER", "NEVER", console_open_never},
@@ -288,6 +280,11 @@ static wmem_tree_t *prefs_modules = NULL;
  */
 static wmem_tree_t *prefs_top_level_modules = NULL;
 
+/*
+ * List of aliases for modules.
+ */
+static wmem_tree_t *prefs_module_aliases = NULL;
+
 /** Sets up memory used by proto routines. Called at program startup */
 void
 prefs_init(void)
@@ -295,6 +292,7 @@ prefs_init(void)
     memset(&prefs, 0, sizeof(prefs));
     prefs_modules = wmem_tree_new(wmem_epan_scope());
     prefs_top_level_modules = wmem_tree_new(wmem_epan_scope());
+    prefs_module_aliases = wmem_tree_new(wmem_epan_scope());
 }
 
 /*
@@ -556,6 +554,50 @@ prefs_register_module_or_subtree(module_t *parent, const char *name,
     }
 
     return module;
+}
+
+void
+prefs_register_module_alias(const char *name, module_t *module)
+{
+    module_alias_t *alias;
+    const char *p;
+    guchar c;
+
+    /*
+     * Yes.
+     * Make sure that only ASCII letters, numbers, underscores, hyphens,
+     * and dots appear in the name.  We allow upper-case letters, to
+     * handle the Diameter dissector having used "Diameter" rather
+     * than "diameter" as its preference module name in the past.
+     *
+     * Crash if there is, as that's an error in the code, but the name
+     * can be used on the command line, and shouldn't require quoting,
+     * etc.
+     */
+    for (p = name; (c = *p) != '\0'; p++) {
+        if (!(g_ascii_isalpha(c) || g_ascii_isdigit(c) || c == '_' ||
+              c == '-' || c == '.'))
+            g_error("Preference module alias \"%s\" contains invalid characters", name);
+    }
+
+    /*
+     * Make sure there's not already an alias with that
+     * name.  Crash if there is, as that's an error in the
+     * code, and the code has to be fixed not to register
+     * more than one alias with the same name.
+     *
+     * We search the list of all aliases.
+     */
+    g_assert(prefs_find_module_alias(name) == NULL);
+
+    alias = wmem_new(wmem_epan_scope(), module_alias_t);
+    alias->name = name;
+    alias->module = module;
+
+    /*
+     * Insert this module in the list of all modules.
+     */
+    wmem_tree_insert_string(prefs_module_aliases, name, alias, WMEM_TREE_STRING_NOCASE);
 }
 
 /*
@@ -906,6 +948,17 @@ prefs_apply(module_t *module)
 {
     if (module && module->prefs_changed_flags)
         call_apply_cb(NULL, module, NULL);
+}
+
+static module_t *
+prefs_find_module_alias(const char *name)
+{
+    module_alias_t *alias;
+
+    alias = (module_alias_t *)wmem_tree_lookup_string(prefs_module_aliases, name, WMEM_TREE_STRING_NOCASE);
+    if (alias == NULL)
+        return NULL;
+    return alias->module;
 }
 
 /*
@@ -2258,23 +2311,6 @@ prefs_pref_foreach(module_t *module, pref_cb callback, gpointer user_data)
     return 0;
 }
 
-static const enum_val_t print_format_vals[] = {
-    { "text",       "Plain Text", PR_FMT_TEXT },
-    { "postscript", "Postscript", PR_FMT_PS },
-    { NULL,         NULL,         0 }
-};
-
-static const enum_val_t print_dest_vals[] = {
-#ifdef _WIN32
-    /* "PR_DEST_CMD" means "to printer" on Windows */
-    { "command", "Printer", PR_DEST_CMD },
-#else
-    { "command", "Command", PR_DEST_CMD },
-#endif
-    { "file",    "File",    PR_DEST_FILE },
-    { NULL,      NULL,      0 }
-};
-
 static const enum_val_t st_sort_col_vals[] = {
     { "name",    "Node name (topic/item)", ST_SORT_COL_NAME },
     { "count",   "Item count", ST_SORT_COL_COUNT },
@@ -2353,7 +2389,8 @@ console_log_level_set_cb(pref_t* pref, const gchar* value, unsigned int* changed
 {
     guint    uval;
 
-    uval = (guint)strtoul(value, NULL, 10);
+    if (!ws_strtou32(value, NULL, &uval))
+        return PREFS_SET_SYNTAX_ERR;        /* number was bad */
 
     if (*pref->varp.uint != uval) {
         *changed_flags = prefs_get_effect_flags(pref);
@@ -3018,35 +3055,23 @@ prefs_register_modules(void)
     prefs_register_obsolete_preference(gui_module, "packet_list_sel_browse");
     prefs_register_obsolete_preference(gui_module, "protocol_tree_sel_browse");
     prefs_register_obsolete_preference(gui_module, "tree_view_altern_colors");
-
-    prefs_register_bool_preference(gui_module, "expert_composite_eyecandy",
-                                   "Display Icons on Expert Composite Dialog Tabs",
-                                   "Display Icons on Expert Composite Dialog Tabs?",
-                                   &prefs.gui_expert_composite_eyecandy);
-
-    prefs_register_bool_preference(gui_module, "filter_toolbar_show_in_statusbar",
-                                   "Place filter toolbar inside the statusbar",
-                                   "Place filter toolbar inside the statusbar?",
-                                   &prefs.filter_toolbar_show_in_statusbar);
+    prefs_register_obsolete_preference(gui_module, "expert_composite_eyecandy");
+    prefs_register_obsolete_preference(gui_module, "filter_toolbar_show_in_statusbar");
 
     prefs_register_bool_preference(gui_module, "restore_filter_after_following_stream",
                                    "Restore current display filter after following a stream",
                                    "Restore current display filter after following a stream?",
                                    &prefs.restore_filter_after_following_stream);
 
-    prefs_register_enum_preference(gui_module, "protocol_tree_line_style",
-                       "Protocol-tree line style",
-                       "Protocol-tree line style",
-                       &prefs.gui_ptree_line_style, gui_ptree_line_style, FALSE);
+    prefs_register_obsolete_preference(gui_module, "protocol_tree_line_style");
 
-    prefs_register_enum_preference(gui_module, "protocol_tree_expander_style",
-                       "Protocol-tree expander style",
-                       "Protocol-tree expander style",
-                       &prefs.gui_ptree_expander_style, gui_ptree_expander_style, FALSE);
+    prefs_register_obsolete_preference(gui_module, "protocol_tree_expander_style");
 
     prefs_register_obsolete_preference(gui_module, "hex_dump_highlight_style");
 
     gui_column_module = prefs_register_subtree(gui_module, "Columns", "Columns", NULL);
+    /* For reading older preference files with "column." preferences */
+    prefs_register_module_alias("column", gui_column_module);
 
     custom_cbs.free_cb = free_string_like_preference;
     custom_cbs.reset_cb = reset_string_like_preference;
@@ -3205,15 +3230,17 @@ prefs_register_modules(void)
                                    "Ask to save unsaved capture files?",
                                    &prefs.gui_ask_unsaved);
 
+    prefs_register_bool_preference(gui_module, "autocomplete_filter",
+                                   "Display autocompletion for filter text",
+                                   "Display an autocomplete suggestion for display and capture filter controls",
+                                   &prefs.gui_autocomplete_filter);
+
     prefs_register_bool_preference(gui_module, "find_wrap",
                                    "Wrap to beginning/end of file during search",
                                    "Wrap to beginning/end of file during search?",
                                    &prefs.gui_find_wrap);
 
-    prefs_register_bool_preference(gui_module, "use_pref_save",
-                                   "Settings dialogs use a save button",
-                                   "Settings dialogs use a save button?",
-                                   &prefs.gui_use_pref_save);
+    prefs_register_obsolete_preference(gui_module, "use_pref_save");
 
     prefs_register_bool_preference(gui_module, "geometry.save.position",
                                    "Save window position at exit",
@@ -3243,14 +3270,8 @@ prefs_register_modules(void)
                        "Main Toolbar style",
                        &prefs.gui_toolbar_main_style, gui_toolbar_style, FALSE);
 
-    prefs_register_enum_preference(gui_module, "toolbar_filter_style",
-                       "Filter Toolbar style",
-                       "Filter Toolbar style",
-                       &prefs.gui_toolbar_filter_style, gui_toolbar_style, FALSE);
-
-    register_string_like_preference(gui_module, "webbrowser", "The path to the webbrowser",
-        "The path to the webbrowser (Ex: mozilla)",
-        &prefs.gui_webbrowser, PREF_STRING, NULL, TRUE);
+    prefs_register_obsolete_preference(gui_module, "toolbar_filter_style");
+    prefs_register_obsolete_preference(gui_module, "webbrowser");
 
     prefs_register_bool_preference(gui_module, "update.enabled",
                                    "Check for updates",
@@ -3269,11 +3290,19 @@ prefs_register_modules(void)
                                    &prefs.gui_update_interval);
 
     register_string_like_preference(gui_module, "window_title", "Custom window title",
-        "Custom window title to be appended to the existing title\n%P = profile name\n%V = version info",
+        "Custom window title to be appended to the existing title\n"
+        "%F = file path of the capture file\n"
+        "%P = profile name\n"
+        "%S = a conditional separator (\" - \") that only shows when surrounded by variables with values or static text\n"
+        "%V = version info",
         &prefs.gui_window_title, PREF_STRING, NULL, TRUE);
 
     register_string_like_preference(gui_module, "prepend_window_title", "Custom window title prefix",
-        "Custom window title to be prepended to the existing title\n%P = profile name\n%V = version info",
+        "Custom window title to be prepended to the existing title\n"
+        "%F = file path of the capture file\n"
+        "%P = profile name\n"
+        "%S = a conditional separator (\" - \") that only shows when surrounded by variables with values or static text\n"
+        "%V = version info",
         &prefs.gui_prepend_window_title, PREF_STRING, NULL, TRUE);
 
     register_string_like_preference(gui_module, "start_title", "Custom start page title",
@@ -3458,6 +3487,9 @@ prefs_register_modules(void)
     prefs_register_bool_preference(capture_module, "real_time_update", "Update packet list in real time during capture",
         "Update packet list in real time during capture?", &prefs.capture_real_time);
 
+    prefs_register_bool_preference(capture_module, "no_interface_load", "Don't load interfaces on startup",
+        "Don't automatically load capture interfaces on startup", &prefs.capture_no_interface_load);
+
     prefs_register_bool_preference(capture_module, "no_extcap", "Disable external capture interfaces",
         "Disable external capture modules (extcap)", &prefs.capture_no_extcap);
 
@@ -3487,27 +3519,15 @@ prefs_register_modules(void)
     oid_pref_init(nameres_module);
     maxmind_db_pref_init(nameres_module);
 
-    /* Printing */
+    /* Printing
+     * None of these have any effect; we keep them as obsolete preferences
+     * in order to avoid errors when reading older preference files.
+     */
     printing = prefs_register_module(NULL, "print", "Printing",
-        "Printing", NULL, TRUE);
-
-    prefs_register_enum_preference(printing, "format",
-                                   "Format", "Can be one of \"text\" or \"postscript\"",
-                                   &prefs.pr_format, print_format_vals, TRUE);
-
-    prefs_register_enum_preference(printing, "destination",
-                                   "Print to", "Can be one of \"command\" or \"file\"",
-                                   &prefs.pr_dest, print_dest_vals, TRUE);
-
-#ifndef _WIN32
-    register_string_like_preference(printing, "command", "Command",
-        "Output gets piped to this command when the destination is set to \"command\"",
-        &prefs.pr_cmd, PREF_STRING, NULL, TRUE);
-#endif
-
-    register_string_like_preference(printing, "file", "File",
-        "This is the file that gets written to when the destination is set to \"file\"",
-        &prefs.pr_file, PREF_SAVE_FILENAME, NULL, TRUE);
+        "Printing", NULL, FALSE);
+    prefs_register_obsolete_preference(printing, "format");
+    prefs_register_obsolete_preference(printing, "command");
+    prefs_register_obsolete_preference(printing, "file");
 
     /* Codecs */
     codecs_module = prefs_register_module(NULL, "codecs", "Codecs",
@@ -3963,20 +3983,8 @@ pre_init_prefs(void)
         "Protocol", "%p", "Length",      "%L",
         "Info",     "%i"};
 
-    prefs.pr_format  = PR_FMT_TEXT;
-    prefs.pr_dest    = PR_DEST_CMD;
-    g_free(prefs.pr_file);
-    prefs.pr_file    = g_strdup("wireshark.out");
-    g_free(prefs.pr_cmd);
-    prefs.pr_cmd     = g_strdup("lpr");
-
-    prefs.gui_expert_composite_eyecandy = FALSE;
-    prefs.gui_ptree_line_style = 0;
-    prefs.gui_ptree_expander_style = 1;
-    prefs.filter_toolbar_show_in_statusbar = FALSE;
     prefs.restore_filter_after_following_stream = FALSE;
     prefs.gui_toolbar_main_style = TB_STYLE_ICONS;
-    prefs.gui_toolbar_filter_style = TB_STYLE_TEXT;
     /* We try to find the best font in the Qt code */
     g_free(prefs.gui_qt_font_name);
     prefs.gui_qt_font_name           = g_strdup("");
@@ -4058,13 +4066,11 @@ pre_init_prefs(void)
     prefs.gui_fileopen_dir           = g_strdup(get_persdatafile_dir());
     prefs.gui_fileopen_preview       = 3;
     prefs.gui_ask_unsaved            = TRUE;
+    prefs.gui_autocomplete_filter    = TRUE;
     prefs.gui_find_wrap              = TRUE;
-    prefs.gui_use_pref_save          = FALSE;
     prefs.gui_update_enabled         = TRUE;
     prefs.gui_update_channel         = UPDATE_CHANNEL_STABLE;
     prefs.gui_update_interval        = 60*60*24; /* Seconds */
-    g_free(prefs.gui_webbrowser);
-    prefs.gui_webbrowser             = g_strdup("");
     g_free(prefs.gui_window_title);
     prefs.gui_window_title           = g_strdup("");
     g_free(prefs.gui_prepend_window_title);
@@ -4216,15 +4222,27 @@ reset_pref(pref_t *pref)
 }
 
 static void
-reset_pref_cb(gpointer data, gpointer user_data _U_)
+reset_pref_cb(gpointer data, gpointer user_data)
 {
     pref_t *pref = (pref_t *) data;
+    module_t *module = (module_t *)user_data;
+
+    if (pref && (pref->type == PREF_RANGE || pref->type == PREF_DECODE_AS_RANGE)) {
+        /*
+         * Some dissectors expect the range (returned via prefs_get_range_value)
+         * to remain valid if it has not changed. If it did change, then we
+         * should set "prefs_changed_flags" to ensure that the preference apply
+         * callback is invoked. That callback will notify dissectors that it
+         * should no longer assume the range to be valid.
+         */
+        if (ranges_are_equal(*pref->varp.range, pref->default_val.range)) {
+            /* Optimization: do not invoke apply callback if nothing changed. */
+            return;
+        }
+        module->prefs_changed_flags |= prefs_get_effect_flags(pref);
+    }
     reset_pref(pref);
 }
-
-typedef struct {
-    module_t *module;
-} reset_pref_arg_t;
 
 /*
  * Reset all preferences for a module.
@@ -4232,10 +4250,8 @@ typedef struct {
 static gboolean
 reset_module_prefs(const void *key _U_, void *value, void *data _U_)
 {
-    reset_pref_arg_t arg;
-
-    arg.module = (module_t *)value;
-    g_list_foreach(arg.module->prefs, reset_pref_cb, &arg);
+    module_t *module = (module_t *)value;
+    g_list_foreach(module->prefs, reset_pref_cb, module);
     return FALSE;
 }
 
@@ -4442,7 +4458,7 @@ read_prefs_file(const char *pf_path, FILE *pf,
                                  * If the pref has a trailing comma, eliminate it.
                                  */
                                 cur_val->str[cur_val->len-1] = '\0';
-                                ws_g_warning ("%s line %d: trailing comma in \"%s\" %s", pf_path, pline, cur_var->str, hint);
+                                g_warning ("%s line %d: trailing comma in \"%s\" %s", pf_path, pline, cur_var->str, hint);
                             }
                         }
                         /* Call the routine to set the preference; it will parse
@@ -4458,36 +4474,35 @@ read_prefs_file(const char *pf_path, FILE *pf,
                             break;
 
                         case PREFS_SET_SYNTAX_ERR:
-                            ws_g_warning ("Syntax error in preference \"%s\" at line %d of\n%s %s",
+                            g_warning ("Syntax error in preference \"%s\" at line %d of\n%s %s",
                                        cur_var->str, pline, pf_path, hint);
                             break;
 
                         case PREFS_SET_NO_SUCH_PREF:
-                            /*
-                             * If "print.command" silently ignore it because it's valid
-                             * on non-Win32 platforms.
-                             */
-                            if (strcmp(cur_var->str, "print.command") != 0)
-                                ws_g_warning ("No such preference \"%s\" at line %d of\n%s %s",
-                                           cur_var->str, pline, pf_path, hint);
+                            g_warning ("No such preference \"%s\" at line %d of\n%s %s",
+                                       cur_var->str, pline, pf_path, hint);
                             prefs.unknown_prefs = TRUE;
                             break;
 
                         case PREFS_SET_OBSOLETE:
-                            if (strcmp(cur_var->str, "print.command") != 0)
-                                /* If an attempt is made to save the preferences, a popup warning will be
-                                   displayed stating that obsolete prefs have been detected and the user will
-                                   be given the opportunity to save these prefs under a different profile name.
-                                   The prefs in question need to be listed in the console window so that the
-                                   user can make an informed choice.
-                                */
-                                ws_g_warning ("Obsolete preference \"%s\" at line %d of\n%s %s",
-                                           cur_var->str, pline, pf_path, hint);
+                            /*
+                             * If an attempt is made to save the
+                             * preferences, a popup warning will be
+                             * displayed stating that obsolete prefs
+                             * have been detected and the user will
+                             * be given the opportunity to save these
+                             * prefs under a different profile name.
+                             * The prefs in question need to be listed
+                             * in the console window so that the
+                             * user can make an informed choice.
+                             */
+                            g_warning ("Obsolete preference \"%s\" at line %d of\n%s %s",
+                                       cur_var->str, pline, pf_path, hint);
                             prefs.unknown_prefs = TRUE;
                             break;
                         }
                     } else {
-                        ws_g_warning ("Incomplete preference at line %d: of\n%s %s", pline, pf_path, hint);
+                        g_warning ("Incomplete preference at line %d: of\n%s %s", pline, pf_path, hint);
                     }
                 }
                 state      = IN_VAR;
@@ -4500,7 +4515,7 @@ read_prefs_file(const char *pf_path, FILE *pf,
             } else if (got_c == '#') {
                 state = IN_SKIP;
             } else {
-                ws_g_warning ("Malformed preference at line %d of\n%s %s", fline, pf_path, hint);
+                g_warning ("Malformed preference at line %d of\n%s %s", fline, pf_path, hint);
             }
             break;
         case IN_VAR:
@@ -4545,12 +4560,12 @@ read_prefs_file(const char *pf_path, FILE *pf,
                 break;
 
             case PREFS_SET_SYNTAX_ERR:
-                ws_g_warning ("Syntax error in preference %s at line %d of\n%s %s",
+                g_warning ("Syntax error in preference %s at line %d of\n%s %s",
                            cur_var->str, pline, pf_path, hint);
                 break;
 
             case PREFS_SET_NO_SUCH_PREF:
-                ws_g_warning ("No such preference \"%s\" at line %d of\n%s %s",
+                g_warning ("No such preference \"%s\" at line %d of\n%s %s",
                            cur_var->str, pline, pf_path, hint);
                 prefs.unknown_prefs = TRUE;
                 break;
@@ -4560,7 +4575,7 @@ read_prefs_file(const char *pf_path, FILE *pf,
                 break;
             }
         } else {
-            ws_g_warning("Incomplete preference at line %d of\n%s %s",
+            g_warning("Incomplete preference at line %d of\n%s %s",
                        pline, pf_path, hint);
         }
     }
@@ -4803,8 +4818,8 @@ prefs_is_column_visible(const gchar *cols_hidden, fmt_data *cfmt)
             }
             if (cfmt->fmt == COL_CUSTOM) {
                 /*
-                 * A custom column has to have the
-                 * same custom field and occurrence.
+                 * A custom column has to have the same custom field,
+                 * occurrence and resolved settings.
                  */
                 if (cfmt_hidden.custom_fields && cfmt->custom_fields) {
                     if (strcmp(cfmt->custom_fields,
@@ -4814,8 +4829,9 @@ prefs_is_column_visible(const gchar *cols_hidden, fmt_data *cfmt)
                         cfmt_hidden.custom_fields = NULL;
                         continue;
                     }
-                    if (cfmt->custom_occurrence != cfmt_hidden.custom_occurrence) {
-                        /* Different occurrences. */
+                    if ((cfmt->custom_occurrence != cfmt_hidden.custom_occurrence) ||
+                        (cfmt->resolved != cfmt_hidden.resolved)) {
+                        /* Different occurrences or resolved settings. */
                         g_free(cfmt_hidden.custom_fields);
                         cfmt_hidden.custom_fields = NULL;
                         continue;
@@ -4922,10 +4938,6 @@ string_to_name_resolve(const char *string, e_addr_resolve *name_resolve)
             break;
         case 't':
             name_resolve->transport_name = TRUE;
-            break;
-        case 'C':
-            /* DEPRECATED */
-            /* name_resolve->concurrent_dns */
             break;
         case 'd':
             name_resolve->dns_pkt_addr_resolution = TRUE;
@@ -5202,7 +5214,6 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
     };
 
     unsigned int i;
-    char     *p;
     guint    uval;
     dissector_table_t sub_dissectors;
     dissector_handle_t handle, tpkt_handle;
@@ -5215,25 +5226,23 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
         for (i = 0; i < G_N_ELEMENTS(port_prefs); i++) {
             module = prefs_find_module(port_prefs[i].module_name);
             if (!module) {
-                ws_g_warning("Deprecated ports pref check - module '%s' not found", port_prefs[i].module_name);
+                g_warning("Deprecated ports pref check - module '%s' not found", port_prefs[i].module_name);
                 continue;
             }
             pref = prefs_find_preference(module, port_prefs[i].table_name);
             if (!pref) {
-                ws_g_warning("Deprecated ports pref '%s.%s' not found", module->name, port_prefs[i].table_name);
+                g_warning("Deprecated ports pref '%s.%s' not found", module->name, port_prefs[i].table_name);
                 continue;
             }
             if (pref->type != PREF_DECODE_AS_UINT && pref->type != PREF_DECODE_AS_RANGE) {
-                ws_g_warning("Deprecated ports pref '%s.%s' has wrong type: %#x (%s)", module->name, port_prefs[i].table_name, pref->type, prefs_pref_type_name(pref));
+                g_warning("Deprecated ports pref '%s.%s' has wrong type: %#x (%s)", module->name, port_prefs[i].table_name, pref->type, prefs_pref_type_name(pref));
             }
         }
     }
 
     for (i = 0; i < G_N_ELEMENTS(port_prefs); i++) {
         if (strcmp(pref_name, port_prefs[i].pref_name) == 0) {
-            /* XXX - give an error if it doesn't fit in a guint? */
-            uval = (guint)strtoul(value, &p, port_prefs[i].base);
-            if (p == value || *p != '\0')
+            if (!ws_basestrtou32(value, NULL, &uval, port_prefs[i].base))
                 return FALSE;        /* number was bad */
 
             module = prefs_find_module(port_prefs[i].module_name);
@@ -5322,8 +5331,7 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
         if (strcmp(pref_name, tpkt_subdissector_port_prefs[i].pref_name) == 0)
         {
             /* XXX - give an error if it doesn't fit in a guint? */
-            uval = (guint)strtoul(value, &p, tpkt_subdissector_port_prefs[i].base);
-            if (p == value || *p != '\0')
+            if (!ws_basestrtou32(value, NULL, &uval, tpkt_subdissector_port_prefs[i].base))
                 return FALSE;        /* number was bad */
 
             /* If the value is 0 or 102 (default TPKT port), don't add to the Decode As tables */
@@ -5354,15 +5362,13 @@ static prefs_set_pref_e
 set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
          gboolean return_range_errors)
 {
-    unsigned long int cval;
+    guint    cval;
     guint    uval;
     gboolean bval;
     gint     enum_val;
-    char     *p;
     gchar    *dotp, *last_dotp;
     static gchar *filter_label = NULL;
     static gboolean filter_enabled = FALSE;
-    gchar    *filter_expr = NULL;
     module_t *module, *containing_module;
     pref_t   *pref;
     int type;
@@ -5370,15 +5376,20 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
     //The PRS_GUI field names are here for backwards compatibility
     //display filters have been converted to a UAT.
     if (strcmp(pref_name, PRS_GUI_FILTER_LABEL) == 0) {
+        /* Assume that PRS_GUI_FILTER_EXPR follows this preference. In case of
+         * malicious preference files, free the previous value to limit the size
+         * of leaked memory.  */
+        g_free(filter_label);
         filter_label = g_strdup(value);
     } else if (strcmp(pref_name, PRS_GUI_FILTER_ENABLED) == 0) {
         filter_enabled = (strcmp(value, "TRUE") == 0) ? TRUE : FALSE;
     } else if (strcmp(pref_name, PRS_GUI_FILTER_EXPR) == 0) {
-        filter_expr = g_strdup(value);
         /* Comments not supported for "old" preference style */
-        filter_expression_new(filter_label, filter_expr, "", filter_enabled);
+        filter_expression_new(filter_label, value, "", filter_enabled);
         g_free(filter_label);
-        g_free(filter_expr);
+        filter_label = NULL;
+        /* Remember to save the new UAT to file. */
+        prefs.filter_expressions_old = TRUE;
     } else if (strcmp(pref_name, "gui.version_in_start_page") == 0) {
         /* Convert deprecated value to closest current equivalent */
         if (g_ascii_strcasecmp(value, "true") == 0) {
@@ -5461,36 +5472,40 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
                  * its modern name, the Nortel Discovery Protocol (NDP).
                  */
                 if (module == NULL) {
-                    if (strcmp(pref_name, "column") == 0)
-                        module = gui_column_module;
-                    else if (strcmp(pref_name, "Diameter") == 0)
-                        module = prefs_find_module("diameter");
-                    else if (strcmp(pref_name, "bxxp") == 0)
-                        module = prefs_find_module("beep");
-                    else if (strcmp(pref_name, "gtpv0") == 0 ||
-                             strcmp(pref_name, "gtpv1") == 0)
-                        module = prefs_find_module("gtp");
-                    else if (strcmp(pref_name, "smpp-gsm-sms") == 0)
-                        module = prefs_find_module("gsm-sms-ud");
-                    else if (strcmp(pref_name, "dcp") == 0)
-                        module = prefs_find_module("dccp");
-                    else if (strcmp(pref_name, "x.25") == 0)
-                        module = prefs_find_module("x25");
-                    else if (strcmp(pref_name, "x411") == 0)
-                        module = prefs_find_module("p1");
-                    else if (strcmp(pref_name, "nsip") == 0)
-                        module = prefs_find_module("gprs-ns");
-                    else if (strcmp(pref_name, "sonmp") == 0)
-                        module = prefs_find_module("ndp");
-                    else if (strcmp(pref_name, "etheric") == 0 ||
-                             strcmp(pref_name, "isup_thin") == 0) {
-                        /* This protocol was removed 7. July 2009 */
-                        return PREFS_SET_OBSOLETE;
+                    /*
+                     * See if there's a backwards-compatibility name
+                     * that maps to this module.
+                     */
+                    module = prefs_find_module_alias(pref_name);
+                    if (module == NULL) {
+                        /*
+                         * There's no alias for the module; see if the
+                         * module name matches any protocol aliases.
+                         */
+                        header_field_info *hfinfo = proto_registrar_get_byalias(pref_name);
+                        if (hfinfo) {
+                            module = (module_t *) wmem_tree_lookup_string(prefs_modules, hfinfo->abbrev, WMEM_TREE_STRING_NOCASE);
+                        }
+                    }
+                    if (module == NULL) {
+                        /*
+                         * There aren't any aliases.  Was the module
+                         * removed rather than renamed?
+                         */
+                        if (strcmp(pref_name, "etheric") == 0 ||
+                            strcmp(pref_name, "isup_thin") == 0) {
+                            /*
+                             * The dissectors for these protocols were
+                             * removed as obsolete on 2009-07-70 in change
+                             * 739bfc6ff035583abb9434e0e988048de38a8d9a.
+                             */
+                            return PREFS_SET_OBSOLETE;
+                        }
                     }
                     if (module) {
-                        ws_g_warning ("Preference \"%s.%s\" has been converted to \"%s.%s.%s\"\n"
+                        g_warning ("Preference \"%s.%s\" has been converted to \"%s.%s\"\n"
                                    "Save your preferences to make this change permanent.",
-                                   pref_name, dotp+1, module->parent->name, pref_name, dotp+1);
+                                   pref_name, dotp+1, module->name, dotp+1);
                         prefs.unknown_prefs = TRUE;
                     }
                 }
@@ -5783,9 +5798,7 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
         switch (type) {
 
         case PREF_UINT:
-            /* XXX - give an error if it doesn't fit in a guint? */
-            uval = (guint)strtoul(value, &p, pref->info.base);
-            if (p == value || *p != '\0')
+            if (!ws_basestrtou32(value, NULL, &uval, pref->info.base))
                 return PREFS_SET_SYNTAX_ERR;        /* number was bad */
             if (*pref->varp.uint != uval) {
                 containing_module->prefs_changed_flags |= prefs_get_effect_flags(pref);
@@ -5801,9 +5814,7 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
             dissector_table_t sub_dissectors;
             dissector_handle_t handle;
 
-            /* XXX - give an error if it doesn't fit in a guint? */
-            uval = (guint)strtoul(value, &p, pref->info.base);
-            if (p == value || *p != '\0')
+            if (!ws_basestrtou32(value, NULL, &uval, pref->info.base))
                 return PREFS_SET_SYNTAX_ERR;        /* number was bad */
 
             if (*pref->varp.uint != uval) {
@@ -5891,26 +5902,26 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
                     handle = dissector_table_get_dissector_handle(sub_dissectors, module->title);
                     if (handle != NULL) {
                         /* Delete all of the old values from the dissector table */
-		                for (i = 0; i < (*pref->varp.range)->nranges; i++) {
-			                for (j = (*pref->varp.range)->ranges[i].low; j < (*pref->varp.range)->ranges[i].high; j++) {
+                        for (i = 0; i < (*pref->varp.range)->nranges; i++) {
+                            for (j = (*pref->varp.range)->ranges[i].low; j < (*pref->varp.range)->ranges[i].high; j++) {
                                 dissector_delete_uint(pref->name, j, handle);
                                 decode_build_reset_list(pref->name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER(j), NULL, NULL);
                             }
 
                             dissector_delete_uint(pref->name, (*pref->varp.range)->ranges[i].high, handle);
                             decode_build_reset_list(pref->name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER((*pref->varp.range)->ranges[i].high), NULL, NULL);
-		                }
+                        }
 
                         /* Add new values to the dissector table */
-		                for (i = 0; i < newrange->nranges; i++) {
-			                for (j = newrange->ranges[i].low; j < newrange->ranges[i].high; j++) {
+                        for (i = 0; i < newrange->nranges; i++) {
+                            for (j = newrange->ranges[i].low; j < newrange->ranges[i].high; j++) {
                                 dissector_change_uint(pref->name, j, handle);
                                 decode_build_reset_list(pref->name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER(j), NULL, NULL);
                             }
 
                             dissector_change_uint(pref->name, newrange->ranges[i].high, handle);
                             decode_build_reset_list(pref->name, dissector_table_get_type(sub_dissectors), GUINT_TO_POINTER(newrange->ranges[i].high), NULL, NULL);
-		                }
+                        }
 
                         /* XXX - Do we save the decode_as_entries file here? */
                     }
@@ -5923,7 +5934,8 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
 
         case PREF_COLOR:
         {
-            cval = strtoul(value, NULL, 16);
+            if (!ws_hexstrtou32(value, NULL, &cval))
+                return PREFS_SET_SYNTAX_ERR;        /* number was bad */
             if ((pref->varp.colorp->red != RED_COMPONENT(cval)) ||
                 (pref->varp.colorp->green != GREEN_COMPONENT(cval)) ||
                 (pref->varp.colorp->blue != BLUE_COMPONENT(cval))) {
@@ -6575,6 +6587,21 @@ write_prefs(char **pf_path_return)
         g_free(pf_path);
     } else {
         pf = stdout;
+    }
+
+    /*
+     * If the preferences file is being written, be sure to write UAT files
+     * first that were migrated from the preferences file.
+     */
+    if (pf_path_return != NULL) {
+        if (prefs.filter_expressions_old) {
+            char *err = NULL;
+            prefs.filter_expressions_old = FALSE;
+            if (!uat_save(uat_get_table_by_name("Display expressions"), &err)) {
+                g_warning("Unable to save Display expressions: %s", err);
+                g_free(err);
+            }
+        }
     }
 
     fputs("# Configuration file for Wireshark " VERSION ".\n"

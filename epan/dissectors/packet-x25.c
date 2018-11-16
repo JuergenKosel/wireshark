@@ -1988,9 +1988,9 @@ static int
 dissect_x25_dir(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
     dissect_x25_common(tvb, pinfo, tree,
-        (pinfo->pseudo_header->x25.flags & FROM_DCE) ? X25_FROM_DCE :
+        (pinfo->pseudo_header->dte_dce.flags & FROM_DCE) ? X25_FROM_DCE :
                                                        X25_FROM_DTE,
-        pinfo->pseudo_header->x25.flags & FROM_DCE);
+        pinfo->pseudo_header->dte_dce.flags & FROM_DCE);
     return tvb_captured_length(tvb);
 }
 
@@ -2351,6 +2351,8 @@ proto_register_x25(void)
 
     /* Preferences */
     x25_module = prefs_register_protocol(proto_x25, NULL);
+    /* For reading older preference files with "x.25." preferences */
+    prefs_register_module_alias("x.25", x25_module);
     prefs_register_obsolete_preference(x25_module, "non_q_bit_is_sna");
     prefs_register_bool_preference(x25_module, "payload_is_qllc_sna",
             "Default to QLLC/SNA",

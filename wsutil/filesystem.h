@@ -123,6 +123,12 @@ WS_DLL_PUBLIC gboolean has_global_profiles(void);
 WS_DLL_PUBLIC char *get_profiles_dir(void);
 
 /*
+ * Get the directory used to store configuration files for a given profile.
+ * Caller must free the returned string.
+ */
+WS_DLL_PUBLIC char *get_profile_dir(const char *profilename, gboolean is_global);
+
+/*
  * Create the directory used to store configuration profile directories.
  */
 WS_DLL_PUBLIC int create_profiles_dir(char **pf_dir_path_return);
@@ -279,6 +285,12 @@ WS_DLL_PUBLIC int test_for_fifo(const char *);
  * Check, if file is existing.
  */
 WS_DLL_PUBLIC gboolean file_exists(const char *fname);
+
+/*
+ * Check if file is existing and has text entries which does not start
+ * with the comment character.
+ */
+WS_DLL_PUBLIC gboolean config_file_exists_with_entries(const char *fname, char comment_char);
 
 /*
  * Check if two filenames are identical (with absolute and relative paths).

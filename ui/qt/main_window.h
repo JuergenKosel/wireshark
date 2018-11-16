@@ -84,8 +84,10 @@ class FunnelStatistics;
 class WelcomePage;
 class PacketList;
 class ProtoTree;
+#if defined(HAVE_LIBNL) && defined(HAVE_NL80211)
 class WirelessFrame;
-class DragDropToolBar;
+#endif
+class FilterExpressionToolBar;
 
 class QAction;
 class QActionGroup;
@@ -169,7 +171,9 @@ private:
     DisplayFilterCombo *df_combo_box_;
     CaptureFile capture_file_;
     QFont mono_font_;
+#if defined(HAVE_LIBNL) && defined(HAVE_NL80211)
     WirelessFrame *wireless_frame_;
+#endif
     // XXX - packet_list_ and proto_tree_ should
     // probably be full-on values instead of pointers.
     PacketList *packet_list_;
@@ -186,7 +190,7 @@ private:
     QPointer<QWidget> freeze_focus_;
     QMap<QAction *, ts_type> td_actions;
     QMap<QAction *, ts_precision> tp_actions;
-    DragDropToolBar *filter_expression_toolbar_;
+    FilterExpressionToolBar *filter_expression_toolbar_;
     bool was_maximized_;
 
     /* the following values are maintained so that the capture file name and status
@@ -237,7 +241,7 @@ private:
     void exportDissections(export_type_e export_type);
 
 #ifdef Q_OS_WIN
-    void fileAddExtension(QString &file_name, int file_type, bool compressed);
+    void fileAddExtension(QString &file_name, int file_type, wtap_compression_type compression_type);
 #endif // Q_OS_WIN
     bool testCaptureFileClose(QString before_what, FileCloseContext context = Default);
     void captureStop();
@@ -268,8 +272,6 @@ private:
     void removeMenuActions(QList<QAction *> &actions, int menu_group);
     void goToConversationFrame(bool go_next);
     void colorizeWithFilter(QByteArray filter, int color_number = -1);
-
-    void createByteViewDialog();
 
 signals:
     void setCaptureFile(capture_file *cf);
@@ -313,26 +315,23 @@ public slots:
     void setTitlebarForCaptureFile();
     void setWSWindowTitle(QString title = QString());
 
+#ifdef HAVE_LIBPCAP
     void captureCapturePrepared(capture_session *);
     void captureCaptureUpdateStarted(capture_session *);
     void captureCaptureUpdateFinished(capture_session *);
     void captureCaptureFixedFinished(capture_session *cap_session);
     void captureCaptureFailed(capture_session *);
+#endif
 
     void captureFileOpened();
     void captureFileReadFinished();
     void captureFileClosing();
     void captureFileClosed();
 
-    void filterExpressionsChanged();
-    static gboolean filter_expression_add_action(const void *key, void *value, void *user_data);
-
     void launchRLCGraph(bool channelKnown, guint16 ueid, guint8 rlcMode,
                         guint16 channelType, guint16 channelId, guint8 direction);
 
     void on_actionViewFullScreen_triggered(bool checked);
-
-    int uatRowIndexForFilterExpression(QString label, QString expression);
 
 private slots:
 
@@ -380,14 +379,6 @@ private slots:
     QMenu * searchSubMenu(QString objectName);
     void activatePluginIFToolbar(bool);
 
-    void filterToolbarCustomMenuHandler(const QPoint& globalPos);
-    void filterToolbarShowPreferences();
-    void filterToolbarEditFilter();
-    void filterToolbarDisableFilter();
-    void filterToolbarRemoveFilter();
-    void filterToolbarActionMoved(QAction * action, int oldPos, int newPos);
-    void filterDropped(QString description, QString filter);
-
     void startInterfaceCapture(bool valid, const QString capture_filter);
 
     void applyGlobalCommandLineOptions();
@@ -395,7 +386,9 @@ private slots:
 
     void on_actionDisplayFilterExpression_triggered();
     void on_actionNewDisplayFilterExpression_triggered();
-    void displayFilterButtonClicked();
+    void onFilterSelected(QString, bool);
+    void onFilterPreferences();
+    void onFilterEdit(int uatIndex);
 
     // Handle FilterAction signals
     void queuedFilterAction(QString filter, FilterAction::Action action, FilterAction::ActionType type);
@@ -453,7 +446,7 @@ private slots:
     void on_actionFilePrint_triggered();
 
     void on_actionFileExportPDU_triggered();
-    void on_actionFileExportSSLSessionKeys_triggered();
+    void on_actionFileExportTLSSessionKeys_triggered();
 
     void actionEditCopyTriggered(MainWindow::CopySelected selection_type);
     void on_actionCopyAllVisibleItems_triggered();
@@ -557,7 +550,7 @@ private slots:
     void openFollowStreamDialog(follow_type_t type, int stream_num = -1);
     void on_actionAnalyzeFollowTCPStream_triggered();
     void on_actionAnalyzeFollowUDPStream_triggered();
-    void on_actionAnalyzeFollowSSLStream_triggered();
+    void on_actionAnalyzeFollowTLSStream_triggered();
     void on_actionAnalyzeFollowHTTPStream_triggered();
     void statCommandExpertInfo(const char *, void *);
     void on_actionAnalyzeExpertInfo_triggered();

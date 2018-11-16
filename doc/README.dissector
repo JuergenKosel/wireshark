@@ -293,7 +293,7 @@ ENC_LITTLE_ENDIAN for Little-Endian-to-host-order.
 Accessors for IPv4 and IPv6 addresses:
 
 guint32 tvb_get_ipv4(tvbuff_t *tvb, const gint offset);
-void tvb_get_ipv6(tvbuff_t *tvb, const gint offset, struct e_in6_addr *addr);
+void tvb_get_ipv6(tvbuff_t *tvb, const gint offset, ws_in6_addr *addr);
 
 NOTE: IPv4 addresses are not to be converted to host byte order before
 being passed to "proto_tree_add_ipv4()".  You should use "tvb_get_ipv4()"
@@ -313,7 +313,7 @@ Accessors for GUID:
 
 void tvb_get_ntohguid(tvbuff_t *tvb, const gint offset, e_guid_t *guid);
 void tvb_get_letohguid(tvbuff_t *tvb, const gint offset, e_guid_t *guid);
-void tvb_get_guid(tvbuff_t *tvb, const gint offset, e_guid_t *guid, const guint representation);
+void tvb_get_guid(tvbuff_t *tvb, const gint offset, e_guid_t *guid, const guint encoding);
 
 String accessors:
 
@@ -367,8 +367,8 @@ tvb_get_nstringz0() works like tvb_get_nstringz(), but never returns -1 since
 the string is guaranteed to have a terminating NULL. If the string was truncated
 when copied into buffer, a NULL is placed at the end of buffer to terminate it.
 
-gchar *tvb_get_ts_23_038_7bits_string(wmem_allocator_t *scope,
-    tvbuff_t *tvb, const gint bit_offset, gint no_of_chars);
+gchar *tvb_get_ts_23_038_7bits_string(wmem_allocator_t *scope, tvbuff_t *tvb,
+                                      const gint bit_offset, gint no_of_chars);
 
 tvb_get_ts_23_038_7bits_string() returns a string of a given number of
 characters and encoded according to 3GPP TS 23.038 7 bits alphabet.
@@ -378,7 +378,7 @@ information).
 
 Byte Array Accessors:
 
-gchar *tvb_bytes_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, gint offset, gint len);
+gchar *tvb_bytes_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint len);
 
 Formats a bunch of data from a tvbuff as bytes, returning a pointer
 to the string with the data formatted as two hex digits for each byte.
@@ -387,7 +387,8 @@ depending on its scope (typically wmem_packet_scope which is freed after the fra
 The formatted string will contain the hex digits for at most the first 16 bytes of
 the data. If len is greater than 16 bytes, a trailing "..." will be added to the string.
 
-gchar *tvb_bytes_to_str_punct(wmem_allocator_t *scope, tvbuff_t *tvb, gint offset, gint len, gchar punct);
+gchar *tvb_bytes_to_str_punct(wmem_allocator_t *scope, tvbuff_t *tvb,
+                              const gint offset, const gint len, const gchar punct);
 
 This function is similar to tvb_bytes_to_str(...) except that 'punct' is inserted
 between the hex representation of each byte.
@@ -413,12 +414,12 @@ A pointer to the packet scope allocated string will be returned.
 Note: a tvbuff content of 0xf is considered a 'filler' and will end the conversion.
 
 Copying memory:
-guint8* tvb_memcpy(tvbuff_t *tvb, guint8* target, gint offset, gint length);
+void* tvb_memcpy(tvbuff_t *tvb, void* target, const gint offset, size_t length);
 
 Copies into the specified target the specified length's worth of data
 from the specified tvbuff, starting at the specified offset.
 
-guint8* tvb_memdup(wmem_allocator_t *scope, tvbuff_t *tvb, gint offset, gint length);
+void *tvb_memdup(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, size_t length);
 
 Returns a buffer containing a copy of the given TVB bytes. The buffer is
 allocated in the given wmem scope (see README.wmem for more information).
@@ -429,7 +430,7 @@ Pointer-retrieval:
  * no guarantee that the user will honor the 'length' and not overstep the
  * boundaries of the buffer.  Also see the warning in the Portability section.
  */
-guint8* tvb_get_ptr(tvbuff_t *tvb, gint offset, gint length);
+const guint8* tvb_get_ptr(tvbuff_t *tvb, const gint offset, const gint length);
 
 Length query:
 Get amount of captured data in the buffer (which is *NOT* necessarily the
@@ -1006,6 +1007,25 @@ macro for the 'strings' field in the header_field_info struct array,
 'VALS64()' is used.
 
 BASE_SPECIAL_VALS can also be used for val64_string.
+
+-- val64_string_ext
+
+val64_string_ext is like value_string_ext, except that the integer type
+used is a guint64 (instead of guint32).
+
+Use this macro to initialize the extended val64_string at compile time:
+
+static val64_string_ext val64stringname_ext = VAL64_STRING_EXT_INIT(val64stringname);
+
+Extended val64 strings can be created at run time by calling
+   val64_string_ext_new(<ptr to val64_string array>,
+                        <total number of entries in the val64_string_array>, /* include {0, NULL} entry */
+                        <val64_string_name>);
+
+For hf[] array FT_(U)INT* fields that need a 'val64stringname_ext' struct, the
+'strings' field would be set to '&val64stringname_ext'. Furthermore, the 'display'
+field must be ORed with both 'BASE_EXT_STRING' and 'BASE_VAL64_STRING'
+(e.g. BASE_DEC|BASE_EXT_STRING|BASE_VAL64_STRING).
 
 -- Unit string
 Some integer fields, of type FT_UINT* and float fields, of type FT_FLOAT
@@ -1629,10 +1649,14 @@ For FT_ABSOLUTE_TIME fields, the encoding specifies the form in which
 the time stamp is specified, as well as its byte order.  The time stamp
 encodings that are currently supported are:
 
-    ENC_TIME_TIMESPEC - 8 bytes; the first 4 bytes are seconds since
-        the UN*X epoch (1970-01-01 00:00:00 UTC) and the next 4 bytes
-        are nanoseconds since that second.  (I.e., a UN*X struct
-        timespec with a 4-byte time_t.)
+    ENC_TIME_SECS_NSECS - 8, 12, or 16 bytes.  For 8 bytes, the first 4
+        bytes are seconds and the next 4 bytes are nanoseconds; for 12
+        bytes, the first 8 bytes are seconds and the next 4 bytes are
+        nanoseconds; for 16 bytes, the first 8 bytes are seconds and
+        the next 8 bytes are nanoseconds.  The seconds are seconds
+        since the UN*X epoch (1970-01-01 00:00:00 UTC).  (I.e., a UN*X
+        struct timespec with a 4-byte or 8-byte time_t or a structure
+        with an 8-byte time_t and an 8-byte nanoseconds field.)
 
     ENC_TIME_NTP - 8 bytes; the first 4 bytes are seconds since the NTP
         epoch (1900-01-01 00:00:00 GMT) and the next 4 bytes are 1/2^32's of
@@ -1649,7 +1673,7 @@ encodings that are currently supported are:
         NTP time.)  It's used by the Object Management Group's Real-Time
         Publish-Subscribe Wire Protocol for the Data Distribution Service.
 
-    ENC_TIME_TIMEVAL - 8 bytes; the first 4 bytes are seconds since the
+    ENC_TIME_SECS_USECS - 8 bytes; the first 4 bytes are seconds since the
         UN*X epoch and the next 4 bytes are microseconds since that
         second.  (I.e., a UN*X struct timeval with a 4-byte time_t.)
 
@@ -1673,10 +1697,13 @@ For FT_RELATIVE_TIME fields, the encoding specifies the form in which
 the time stamp is specified, as well as its byte order.  The time stamp
 encodings that are currently supported are:
 
-    ENC_TIME_TIMESPEC - 8 bytes; the first 4 bytes are seconds and the
-        next 4 bytes are nanoseconds.
+    ENC_TIME_SECS_NSECS - 8, 12, or 16 bytes.  For 8 bytes, the first 4
+        bytes are seconds and the next 4 bytes are nanoseconds; for 12
+        bytes, the first 8 bytes are seconds and the next 4 bytes are
+        nanoseconds; for 16 bytes, the first 8 bytes are seconds and
+        the next 8 bytes are nanoseconds.
 
-    ENC_TIME_TIMEVAL - 8 bytes; the first 4 bytes are seconds and the
+    ENC_TIME_SECS_USECS - 8 bytes; the first 4 bytes are seconds and the
         next 4 bytes are microseconds.
 
     ENC_TIME_SECS - 4 to 8 bytes, representing a value in seconds.

@@ -15,6 +15,7 @@
 
 #include "ui/decode_as_utils.h"
 #include "ui/simple_dialog.h"
+#include "wsutil/filesystem.h"
 #include <wsutil/utf8_entities.h>
 
 #include <ui/qt/utils/qt_ui_utils.h>
@@ -26,6 +27,8 @@
 #include <QFont>
 #include <QFontMetrics>
 #include <QLineEdit>
+#include <QUrl>
+
 #include <QDebug>
 
 // To do:
@@ -46,9 +49,28 @@ DecodeAsDialog::DecodeAsDialog(QWidget *parent, capture_file *cf, bool create_ne
     ui->decodeAsTreeView->setModel(model_);
     ui->decodeAsTreeView->setItemDelegate(delegate_);
 
+#ifdef Q_OS_MAC
+    ui->newToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->deleteToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->copyToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->clearToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->pathLabel->setAttribute(Qt::WA_MacSmallSize, true);
+#endif
+
     setWindowTitle(wsApp->windowTitleString(tr("Decode As" UTF8_HORIZONTAL_ELLIPSIS)));
 
+    QString abs_path = gchar_free_to_qstring(get_persconffile_path(DECODE_AS_ENTRIES_FILE_NAME, TRUE));
+    if (file_exists(abs_path.toUtf8().constData())) {
+        ui->pathLabel->setText(abs_path);
+        ui->pathLabel->setUrl(QUrl::fromLocalFile(abs_path).toString());
+        ui->pathLabel->setToolTip(tr("Open ") + DECODE_AS_ENTRIES_FILE_NAME);
+        ui->pathLabel->setEnabled(true);
+    }
+
     fillTable();
+
+    connect(model_, SIGNAL(modelReset()), this, SLOT(modelRowsReset()));
+    ui->clearToolButton->setEnabled(model_->rowCount() > 0);
 
     if (create_new)
         on_newToolButton_clicked();
@@ -83,14 +105,23 @@ void DecodeAsDialog::resizeColumns()
     }
 }
 
+void DecodeAsDialog::modelRowsReset()
+{
+    ui->deleteToolButton->setEnabled(false);
+    ui->copyToolButton->setEnabled(false);
+    ui->clearToolButton->setEnabled(false);
+}
+
 void DecodeAsDialog::on_decodeAsTreeView_currentItemChanged(const QModelIndex &current, const QModelIndex&)
 {
     if (current.isValid()) {
         ui->deleteToolButton->setEnabled(true);
         ui->copyToolButton->setEnabled(true);
+        ui->clearToolButton->setEnabled(true);
     } else {
         ui->deleteToolButton->setEnabled(false);
         ui->copyToolButton->setEnabled(false);
+        ui->clearToolButton->setEnabled(false);
     }
 }
 
@@ -136,6 +167,11 @@ void DecodeAsDialog::on_deleteToolButton_clicked()
 void DecodeAsDialog::on_copyToolButton_clicked()
 {
     addRecord(true);
+}
+
+void DecodeAsDialog::on_clearToolButton_clicked()
+{
+    model_->clearAll();
 }
 
 void DecodeAsDialog::applyChanges()

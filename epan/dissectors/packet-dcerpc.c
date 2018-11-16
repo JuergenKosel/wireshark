@@ -1019,9 +1019,6 @@ static const fragment_items dcerpc_frag_items = {
     "fragments"
 };
 
-/* list of hooks to be called when init_protocols is done */
-GHookList dcerpc_hooks_init_protos;
-
 /* try to desegment big DCE/RPC packets over TCP? */
 static gboolean dcerpc_cn_desegment = TRUE;
 
@@ -1322,7 +1319,7 @@ typedef struct _dcerpc_dissector_data
  * Subdissectors
  */
 
-dissector_table_t   uuid_dissector_table;
+static dissector_table_t    uuid_dissector_table;
 
 /* the registered subdissectors */
 GHashTable *dcerpc_uuids = NULL;
@@ -2878,16 +2875,16 @@ dissect_ndr_wchar_vstring(tvbuff_t *tvb, int offset, packet_info *pinfo,
                                FALSE, NULL);
 }
 
-static int current_depth = 0;
-static int len_ndr_pointer_list = 0;
-
 /* ndr pointer handling */
 /* Should we re-read the size of the list ?
  * Instead of re-calculating the size everytime, use the stored value unless this
  * flag is set which means: re-read the size of the list
  */
 static gboolean must_check_size = FALSE;
-/* list of pointers encountered so far in the current level */
+/*
+ * List of pointers encountered so far in the current level. Points to an
+ * element of list_ndr_pointer_list.
+ */
 static GSList *ndr_pointer_list = NULL;
 
 static GHashTable *ndr_pointer_hash = NULL;
@@ -2915,24 +2912,10 @@ typedef struct ndr_pointer_data {
     void                   *callback_args;
 } ndr_pointer_data_t;
 
-static GSList * create_empty_list(void)
-{
-    ndr_pointer_data_t *npd;
-    GSList *list;
-
-    npd = (ndr_pointer_data_t *)g_malloc(sizeof(ndr_pointer_data_t));
-    memset(npd, 0, sizeof(ndr_pointer_data_t));
-
-    /* First add a Dummy entry to get a real GSList pointer */
-    list = g_slist_append(NULL, npd);
-    return list;
-}
-
 void
 init_ndr_pointer_list(dcerpc_info *di)
 {
     di->conformant_run = 0;
-    current_depth = 0;
 
     while (list_ndr_pointer_list) {
         GSList *list = (GSList *)g_slist_nth_data(list_ndr_pointer_list, 0);
@@ -2945,14 +2928,11 @@ init_ndr_pointer_list(dcerpc_info *di)
     pointers_are_top_level = TRUE;
     must_check_size = FALSE;
 
-    ndr_pointer_list = create_empty_list();
-    list_ndr_pointer_list = g_slist_insert(list_ndr_pointer_list,
-                                           ndr_pointer_list, 0);
+    ndr_pointer_list = NULL;
     if (ndr_pointer_hash) {
         g_hash_table_destroy(ndr_pointer_hash);
     }
     ndr_pointer_hash = g_hash_table_new(g_int_hash, g_int_equal);
-    len_ndr_pointer_list = 1;
 }
 
 int
@@ -2961,26 +2941,33 @@ dissect_deferred_pointers(packet_info *pinfo, tvbuff_t *tvb, int offset, dcerpc_
     int          found_new_pointer;
     int          old_offset;
     int          next_pointer;
-    int          original_depth;
+    unsigned     original_depth;
     int          len;
     GSList      *current_ndr_pointer_list;
+
+    /* The list is assumed to be non-empty, otherwise this should not be called. */
+    DISSECTOR_ASSERT(list_ndr_pointer_list);
+
+    /* Probably not necessary, it is supposed to prevent more pointers from
+     * being added to the list. */
     ndr_pointer_list = NULL;
 
     next_pointer = 0;
 
-    original_depth = current_depth;
-    current_ndr_pointer_list = (GSList *)g_slist_nth_data(list_ndr_pointer_list, current_depth);
+    /* Obtain the current list of pointers at this level. */
+    current_ndr_pointer_list = (GSList *)g_slist_last(list_ndr_pointer_list)->data;
+    original_depth = g_slist_length(list_ndr_pointer_list);
 
     len = g_slist_length(current_ndr_pointer_list);
     do {
         int i;
 
         found_new_pointer = 0;
+process_list:
         for (i=next_pointer; i<len; i++) {
             ndr_pointer_data_t *tnpd = (ndr_pointer_data_t *)g_slist_nth_data(current_ndr_pointer_list, i);
 
             if (tnpd->fnct) {
-                int saved_len_ndr_pointer_list = 0;
                 GSList *saved_ndr_pointer_list = NULL;
 
                 dcerpc_dissect_fnct_t *fnct;
@@ -2995,11 +2982,8 @@ dissect_deferred_pointers(packet_info *pinfo, tvbuff_t *tvb, int offset, dcerpc_
                 di->conformant_run = 1;
                 di->conformant_eaten = 0;
                 old_offset = offset;
-                current_depth++;
                 saved_ndr_pointer_list = current_ndr_pointer_list;
-                saved_len_ndr_pointer_list = len_ndr_pointer_list;
-                len_ndr_pointer_list = 1;
-                ndr_pointer_list = create_empty_list();
+                ndr_pointer_list = NULL;
                 offset = (*(fnct))(tvb, offset, pinfo, NULL, di, drep);
 
                 DISSECTOR_ASSERT((offset-old_offset) == di->conformant_eaten);
@@ -3055,24 +3039,19 @@ dissect_deferred_pointers(packet_info *pinfo, tvbuff_t *tvb, int offset, dcerpc_
                 if (tnpd->callback)
                     tnpd->callback(pinfo, tnpd->tree, tnpd->item, di, tvb, old_offset, offset, tnpd->callback_args);
                 proto_item_set_len(tnpd->item, offset - old_offset);
-                if (len_ndr_pointer_list > 1) {
-                    /* We found some pointers to dissect let's create one more level */
-                    len = len_ndr_pointer_list;
+                if (ndr_pointer_list) {
+                    /* We found some pointers to dissect, descend into it. */
+                    next_pointer = 0;
+                    len = g_slist_length(ndr_pointer_list);
                     current_ndr_pointer_list = ndr_pointer_list;
-                    /* So we will arrive right away at the second element of the list
-                     * but that's not too importnt because the first one is always empty
-                    */
-                    i = next_pointer = 0;
-                    list_ndr_pointer_list = g_slist_insert(list_ndr_pointer_list,
-                                                           ndr_pointer_list, current_depth);
-                    ndr_pointer_list = create_empty_list();
-                    continue;
+                    ndr_pointer_list = NULL;
+                    goto process_list;          /* Process the new current_ndr_pointer_list */
                 } else {
-                    current_depth--;
                     current_ndr_pointer_list = saved_ndr_pointer_list;
-                    len_ndr_pointer_list = saved_len_ndr_pointer_list;
                 }
             }
+            /* If we found the end of the list, but add_pointer_to_list extended
+             * it, then be sure to handle those extra elements. */
             if (i == (len - 1) && (must_check_size == TRUE)) {
                 len = g_slist_length(ndr_pointer_list);
                 must_check_size = FALSE;
@@ -3082,12 +3061,11 @@ dissect_deferred_pointers(packet_info *pinfo, tvbuff_t *tvb, int offset, dcerpc_
         /* We reached the end of one level, go to the level bellow if possible
          * reset list a level n
          */
-        if ((i >= (len - 1)) && (current_depth > original_depth)) {
+        if ((i >= (len - 1)) && (g_slist_length(list_ndr_pointer_list) > original_depth)) {
             GSList *list;
             /* Remove existing list */
             g_slist_free_full(current_ndr_pointer_list, g_free);
-            list = (GSList *)g_slist_nth_data(list_ndr_pointer_list, current_depth);
-            current_depth--;
+            list = (GSList *)g_slist_last(list_ndr_pointer_list)->data;
             list_ndr_pointer_list = g_slist_remove(list_ndr_pointer_list, list);
 
             /* Rewind on the lower level, in theory it's not too great because we
@@ -3095,18 +3073,18 @@ dissect_deferred_pointers(packet_info *pinfo, tvbuff_t *tvb, int offset, dcerpc_
              * In practice it shouldn't be that bad !
              */
             next_pointer = 0;
-            current_ndr_pointer_list = (GSList *)g_slist_nth_data(list_ndr_pointer_list, current_depth);
+            /* Move to the next list of pointers. */
+            current_ndr_pointer_list = (GSList *)g_slist_last(list_ndr_pointer_list)->data;
             len = g_slist_length(current_ndr_pointer_list);
-            len_ndr_pointer_list = len;
             found_new_pointer = 1;
         }
 
     } while (found_new_pointer);
-    DISSECTOR_ASSERT(original_depth == current_depth);
+    DISSECTOR_ASSERT(original_depth == g_slist_length(list_ndr_pointer_list));
 
     g_slist_free_full(ndr_pointer_list, g_free);
-    ndr_pointer_list = (GSList *)g_slist_nth_data(list_ndr_pointer_list, current_depth);
-    len_ndr_pointer_list = g_slist_length(ndr_pointer_list);
+    /* Restore the previous list of pointers. */
+    ndr_pointer_list = (GSList *)g_slist_last(list_ndr_pointer_list)->data;
 
     return offset;
 }
@@ -3166,10 +3144,15 @@ add_pointer_to_list(packet_info *pinfo, proto_tree *tree, proto_item *item,
     p_id = wmem_new(wmem_file_scope(), guint);
     *p_id = id;
 
-    ndr_pointer_list = g_slist_insert(ndr_pointer_list, npd,
-                                      len_ndr_pointer_list);
+    /* Update the list of pointers for use by dissect_deferred_pointers. If this
+     * is the first pointer, create a list and add it to the stack. */
+    if (!ndr_pointer_list) {
+        ndr_pointer_list = g_slist_append(NULL, npd);
+        list_ndr_pointer_list = g_slist_append(list_ndr_pointer_list, ndr_pointer_list);
+    } else {
+        ndr_pointer_list = g_slist_append(ndr_pointer_list, npd);
+    }
     g_hash_table_insert(ndr_pointer_hash, p_id, p_id);
-    len_ndr_pointer_list++;
     must_check_size = TRUE;
 }
 
@@ -6346,18 +6329,18 @@ dissect_dcerpc_dg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
     if (hdr.ptype > 19)
         return FALSE;
 
-    /* flags1 has bit 1 and 8 as reserved so if any of them are set, it is
-       probably not a DCE/RPC packet
+    /* flags1 has bit 1 and 8 as reserved for implementations, with no
+       indication that they must be set to 0, so we don't check them.
     */
     hdr.flags1 = tvb_get_guint8(tvb, offset++);
-    if (hdr.flags1&0x81)
-        return FALSE;
 
-    /* flags2 has all bits except bit 2 as reserved so if any of them are set
+    /* flags2 has bit 1 reserved for implementations, bit 2 used,
+       and the other bits reserved for future use and specified
+       as "must be set to 0", so if any of the other bits are set
        it is probably not DCE/RPC.
     */
     hdr.flags2 = tvb_get_guint8(tvb, offset++);
-    if (hdr.flags2&0xfd)
+    if (hdr.flags2&0xfc)
         return FALSE;
 
 
@@ -6757,7 +6740,7 @@ proto_register_dcerpc(void)
         { &hf_dcerpc_dg_flags1,
           { "Flags1", "dcerpc.dg_flags1", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL }},
         { &hf_dcerpc_dg_flags1_rsrvd_01,
-          { "Reserved", "dcerpc.dg_flags1_rsrvd_01", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL1_RESERVED_01, NULL, HFILL }},
+          { "Reserved for implementation", "dcerpc.dg_flags1_rsrvd_01", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL1_RESERVED_01, NULL, HFILL }},
         { &hf_dcerpc_dg_flags1_last_frag,
           { "Last Fragment", "dcerpc.dg_flags1_last_frag", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL1_LASTFRAG, NULL, HFILL }},
         { &hf_dcerpc_dg_flags1_frag,
@@ -6771,25 +6754,25 @@ proto_register_dcerpc(void)
         { &hf_dcerpc_dg_flags1_broadcast,
           { "Broadcast", "dcerpc.dg_flags1_broadcast", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL1_BROADCAST, NULL, HFILL }},
         { &hf_dcerpc_dg_flags1_rsrvd_80,
-          { "Reserved", "dcerpc.dg_flags1_rsrvd_80", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL1_RESERVED_80, NULL, HFILL }},
+          { "Reserved for implementation", "dcerpc.dg_flags1_rsrvd_80", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL1_RESERVED_80, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2,
           { "Flags2", "dcerpc.dg_flags2", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2_rsrvd_01,
-          { "Reserved", "dcerpc.dg_flags2_rsrvd_01", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_01, NULL, HFILL }},
+          { "Reserved for implementation", "dcerpc.dg_flags2_rsrvd_01", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_01, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2_cancel_pending,
           { "Cancel Pending", "dcerpc.dg_flags2_cancel_pending", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_CANCEL_PENDING, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2_rsrvd_04,
-          { "Reserved", "dcerpc.dg_flags2_rsrvd_04", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_04, NULL, HFILL }},
+          { "Reserved for future use (MBZ)", "dcerpc.dg_flags2_rsrvd_04", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_04, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2_rsrvd_08,
-          { "Reserved", "dcerpc.dg_flags2_rsrvd_08", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_08, NULL, HFILL }},
+          { "Reserved for future use (MBZ)", "dcerpc.dg_flags2_rsrvd_08", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_08, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2_rsrvd_10,
-          { "Reserved", "dcerpc.dg_flags2_rsrvd_10", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_10, NULL, HFILL }},
+          { "Reserved for future use (MBZ)", "dcerpc.dg_flags2_rsrvd_10", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_10, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2_rsrvd_20,
-          { "Reserved", "dcerpc.dg_flags2_rsrvd_20", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_20, NULL, HFILL }},
+          { "Reserved for future use (MBZ)", "dcerpc.dg_flags2_rsrvd_20", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_20, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2_rsrvd_40,
-          { "Reserved", "dcerpc.dg_flags2_rsrvd_40", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_40, NULL, HFILL }},
+          { "Reserved for future use (MBZ)", "dcerpc.dg_flags2_rsrvd_40", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_40, NULL, HFILL }},
         { &hf_dcerpc_dg_flags2_rsrvd_80,
-          { "Reserved", "dcerpc.dg_flags2_rsrvd_80", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_80, NULL, HFILL }},
+          { "Reserved for future use (MBZ)", "dcerpc.dg_flags2_rsrvd_80", FT_BOOLEAN, 8, TFS(&tfs_set_notset), PFCL2_RESERVED_80, NULL, HFILL }},
         { &hf_dcerpc_dg_serial_lo,
           { "Serial Low", "dcerpc.dg_serial_lo", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL }},
         { &hf_dcerpc_dg_serial_hi,

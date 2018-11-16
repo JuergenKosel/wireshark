@@ -2349,7 +2349,7 @@ dissect_zcl_price_publish_block_period(tvbuff_t *tvb, proto_tree *tree, guint *o
 
     /* Block Period Duration */
     proto_tree_add_item(tree, hf_zbee_zcl_price_block_period_duration, tvb, *offset, 3, ENC_LITTLE_ENDIAN);
-    *offset += 1;
+    *offset += 3;
 
     /* Block Period Control */
     proto_tree_add_item(tree, hf_zbee_zcl_price_block_period_control, tvb, *offset, 1, ENC_NA);
@@ -3277,15 +3277,15 @@ proto_register_zbee_zcl_price(void)
 
         /* start Block Period Duration Type fields */
         { &hf_zbee_zcl_price_block_period_duration_type,
-            { "Block Period Duration Type", "zbee_zcl_se.price.block_period.duration.type", FT_UINT8, BASE_DEC, NULL,
+            { "Block Period Duration Type", "zbee_zcl_se.price.block_period.duration.type", FT_UINT8, BASE_HEX, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_block_period_duration_timebase,
-            { "Block Period Duration Timebase", "zbee_zcl_se.price.block_period.duration.timebase", FT_UINT8, BASE_DEC, NULL,
+            { "Duration Timebase", "zbee_zcl_se.price.block_period.duration.timebase", FT_UINT8, BASE_HEX, NULL,
             ZBEE_ZCL_PRICE_BLOCK_PERIOD_DURATION_TIMEBASE, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_block_period_duration_control,
-            { "Block Period Duration Control", "zbee_zcl_se.price.block_period.duration.control", FT_UINT8, BASE_DEC, NULL,
+            { "Duration Control", "zbee_zcl_se.price.block_period.duration.control", FT_UINT8, BASE_HEX, NULL,
             ZBEE_ZCL_PRICE_BLOCK_PERIOD_DURATION_CONTROL, NULL, HFILL } },
         /* end Block Period Duration Type fields */
 
@@ -3336,7 +3336,7 @@ proto_register_zbee_zcl_price(void)
          /* end Tariff Information Type/Charging Scheme fields */
 
         { &hf_zbee_zcl_price_tariff_information_tariff_label,
-            { "Tariff Label", "zbee_zcl_se.price.tariff_information.tariff_label", FT_STRING, BASE_NONE, NULL,
+            { "Tariff Label", "zbee_zcl_se.price.tariff_information.tariff_label", FT_UINT_STRING, STR_ASCII, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_tariff_information_number_of_price_tiers_in_use,
@@ -3465,7 +3465,7 @@ proto_register_zbee_zcl_price(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_billing_period_duration_time_base,
-            { "Time Base", "zbee_zcl_se.price.billing_period.duration.time_base", FT_UINT8, BASE_HEX, NULL,
+            { "Duration Timebase", "zbee_zcl_se.price.billing_period.duration.time_base", FT_UINT8, BASE_HEX, NULL,
             ZBEE_ZCL_PRICE_BILLING_PERIOD_DURATION_TIME_BASE, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_billing_period_duration_control,
@@ -4774,7 +4774,10 @@ VALUE_STRING_ARRAY(zbee_zcl_met_srv_tx_cmd_names);
 #define ZBEE_ZCL_FUNC_NOTI_FLAG_TUNNEL_MESSAGE_PENDING                          0x00200000
 #define ZBEE_ZCL_FUNC_NOTI_FLAG_GET_SNAPSHOT                                    0x00400000
 #define ZBEE_ZCL_FUNC_NOTI_FLAG_GET_SAMPLED_DATA                                0x00800000
-#define ZBEE_ZCL_FUNC_NOTI_FLAG_RESERVED_2                                      0xFF000000
+#define ZBEE_ZCL_FUNC_NOTI_FLAG_NEW_SUB_GHZ_CHANNEL_MASKS_AVAILABLE             0x01000000
+#define ZBEE_ZCL_FUNC_NOTI_FLAG_ENERGY_SCAN_PENDING                             0x02000000
+#define ZBEE_ZCL_FUNC_NOTI_FLAG_CHANNEL_CHANGE_PENDING                          0x04000000
+#define ZBEE_ZCL_FUNC_NOTI_FLAG_RESERVED_2                                      0xF8000000
 
 /* Notification Flags 2 */
 #define ZBEE_ZCL_NOTI_FLAG_2_PUBLISH_PRICE                                      0x00000001
@@ -4841,14 +4844,27 @@ void proto_reg_handoff_zbee_zcl_met(void);
 static void dissect_zcl_met_attr_data  (proto_tree *tree, tvbuff_t *tvb, guint *offset, guint16 attr_id, guint data_type, gboolean client_attr);
 
 /* Command Dissector Helpers */
-static void dissect_zcl_met_request_mirror_rsp      (tvbuff_t *tvb, proto_tree *tree, guint *offset);
-static void dissect_zcl_met_get_snapshot            (tvbuff_t *tvb, proto_tree *tree, guint *offset);
-static void dissect_zcl_met_get_sampled_data        (tvbuff_t *tvb, proto_tree *tree, guint *offset);
-static void dissect_zcl_met_local_change_supply     (tvbuff_t *tvb, proto_tree *tree, guint *offset);
-static void dissect_zcl_met_publish_snapshot        (tvbuff_t *tvb, proto_tree *tree, guint *offset);
-static void dissect_zcl_met_get_sampled_data_rsp    (tvbuff_t *tvb, proto_tree *tree, guint *offset);
-static void dissect_zcl_met_configure_mirror        (tvbuff_t *tvb, proto_tree *tree, guint *offset);
-static void dissect_zcl_met_get_notified_msg        (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_get_profile                     (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_request_mirror_rsp              (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_mirror_removed                  (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_request_fast_poll_mode          (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_schedule_snapshot               (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_take_snapshot                   (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_get_snapshot                    (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_start_sampling                  (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_get_sampled_data                (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_mirror_report_attribute_response(tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_reset_load_limit_counter        (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_change_supply                   (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_local_change_supply             (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_set_supply_status               (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_set_uncontrolled_flow_threshold (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_take_snapshot_response          (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_publish_snapshot                (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_get_sampled_data_rsp            (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_configure_mirror                (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_get_notified_msg                (tvbuff_t *tvb, proto_tree *tree, guint *offset);
+static void dissect_zcl_met_supply_status_response          (tvbuff_t *tvb, proto_tree *tree, guint *offset);
 
 /*************************/
 /* Global Variables      */
@@ -4882,6 +4898,9 @@ static int hf_zbee_zcl_met_func_noti_flag_set_uncontrolled_flow_threshold = -1;
 static int hf_zbee_zcl_met_func_noti_flag_tunnel_message_pending = -1;
 static int hf_zbee_zcl_met_func_noti_flag_get_snapshot = -1;
 static int hf_zbee_zcl_met_func_noti_flag_get_sampled_data = -1;
+static int hf_zbee_zcl_met_func_noti_flag_new_sub_ghz_channel_masks_available = -1;
+static int hf_zbee_zcl_met_func_noti_flag_energy_scan_pending = -1;
+static int hf_zbee_zcl_met_func_noti_flag_channel_change_pending = -1;
 static int hf_zbee_zcl_met_func_noti_flag_reserved = -1;
 static int hf_zbee_zcl_met_noti_flags_2 = -1;
 static int hf_zbee_zcl_met_noti_flag_2_publish_price = -1;
@@ -4933,16 +4952,57 @@ static int hf_zbee_zcl_met_noti_flag_5_update_site_id = -1;
 static int hf_zbee_zcl_met_noti_flag_5_reset_battery_counter = -1;
 static int hf_zbee_zcl_met_noti_flag_5_update_cin = -1;
 static int hf_zbee_zcl_met_noti_flag_5_reserved = -1;
+static int hf_zbee_zcl_met_get_profile_interval_channel = -1;
+static int hf_zbee_zcl_met_get_profile_end_time = -1;
+static int hf_zbee_zcl_met_get_profile_number_of_periods = -1;
 static int hf_zbee_zcl_met_request_mirror_rsp_endpoint_id = -1;
+static int hf_zbee_zcl_met_mirror_removed_removed_endpoint_id = -1;
+static int hf_zbee_zcl_met_request_fast_poll_mode_fast_poll_update_period = -1;
+static int hf_zbee_zcl_met_request_fast_poll_mode_duration = -1;
+static int hf_zbee_zcl_met_schedule_snapshot_issuer_event_id = -1;
+static int hf_zbee_zcl_met_schedule_snapshot_command_index = -1;
+static int hf_zbee_zcl_met_schedule_snapshot_total_number_of_commands = -1;
+static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload = -1;
+static int hf_zbee_zcl_met_take_snapshot_snapshot_cause = -1;
 static int hf_zbee_zcl_met_get_snapshot_start_time = -1;
 static int hf_zbee_zcl_met_get_snapshot_end_time = -1;
 static int hf_zbee_zcl_met_get_snapshot_snapshot_offset = -1;
 static int hf_zbee_zcl_met_get_snapshot_snapshot_cause = -1;
+static int hf_zbee_zcl_met_start_sampling_issuer_event_id = -1;
+static int hf_zbee_zcl_met_start_sampling_start_sampling_time = -1;
+static int hf_zbee_zcl_met_start_sampling_sample_type = -1;
+static int hf_zbee_zcl_met_start_sampling_sample_request_interval = -1;
+static int hf_zbee_zcl_met_start_sampling_max_number_of_samples = -1;
 static int hf_zbee_zcl_met_get_sampled_data_sample_id = -1;
 static int hf_zbee_zcl_met_get_sampled_data_sample_start_time = -1;
 static int hf_zbee_zcl_met_get_sampled_data_sample_type = -1;
 static int hf_zbee_zcl_met_get_sampled_data_number_of_samples = -1;
-static int hf_zbee_zcl_met_local_change_supply_supply_status = -1;
+static int hf_zbee_zcl_met_mirror_report_attribute_response_notification_scheme = -1;
+static int hf_zbee_zcl_met_mirror_report_attribute_response_notification_flags_n = -1;
+static int hf_zbee_zcl_met_reset_load_limit_counter_provider_id = -1;
+static int hf_zbee_zcl_met_reset_load_limit_counter_issuer_event_id = -1;
+static int hf_zbee_zcl_met_change_supply_provider_id = -1;
+static int hf_zbee_zcl_met_change_supply_issuer_event_id = -1;
+static int hf_zbee_zcl_met_change_supply_request_date_time = -1;
+static int hf_zbee_zcl_met_change_supply_implementation_date_time = -1;
+static int hf_zbee_zcl_met_change_supply_proposed_supply_status = -1;
+static int hf_zbee_zcl_met_change_supply_supply_control_bits = -1;
+static int hf_zbee_zcl_met_local_change_supply_proposed_supply_status = -1;
+static int hf_zbee_zcl_met_set_supply_status_issuer_event_id = -1;
+static int hf_zbee_zcl_met_set_supply_status_supply_tamper_state = -1;
+static int hf_zbee_zcl_met_set_supply_status_supply_depletion_state = -1;
+static int hf_zbee_zcl_met_set_supply_status_supply_uncontrolled_flow_state = -1;
+static int hf_zbee_zcl_met_set_supply_status_load_limit_supply_state = -1;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_provider_id = -1;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_issuer_event_id = -1;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_uncontrolled_flow_threshold = -1;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_unit_of_measure = -1;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_multiplier = -1;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_divisor = -1;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_stabilisation_period = -1;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_measurment_period = -1;
+static int hf_zbee_zcl_met_take_snapshot_response_snapshot_id = -1;
+static int hf_zbee_zcl_met_take_snapshot_response_snapshot_confirmation = -1;
 static int hf_zbee_zcl_met_publish_snapshot_snapshot_id = -1;
 static int hf_zbee_zcl_met_publish_snapshot_snapshot_time = -1;
 static int hf_zbee_zcl_met_publish_snapshot_snapshots_found = -1;
@@ -4964,6 +5024,141 @@ static int hf_zbee_zcl_met_configure_mirror_notification_scheme = -1;
 static int hf_zbee_zcl_met_get_notified_msg_notification_scheme = -1;
 static int hf_zbee_zcl_met_get_notified_msg_notification_flag_attribute_id = -1;
 static int hf_zbee_zcl_met_get_notified_msg_notification_flags = -1;
+static int hf_zbee_zcl_met_supply_status_response_provider_id = -1;
+static int hf_zbee_zcl_met_supply_status_response_issuer_event_id = -1;
+static int hf_zbee_zcl_met_supply_status_response_implementation_date_time = -1;
+static int hf_zbee_zcl_met_supply_status_response_supply_status_after_implementation = -1;
+static int hf_zbee_zcl_met_snapshot_cause_general = -1;
+static int hf_zbee_zcl_met_snapshot_cause_end_of_billing_period = -1;
+static int hf_zbee_zcl_met_snapshot_cause_end_of_block_period = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_tariff_information = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_price_matrix = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_block_thresholds = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_cv = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_cf = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_calendar = -1;
+static int hf_zbee_zcl_met_snapshot_cause_critical_peak_pricing = -1;
+static int hf_zbee_zcl_met_snapshot_cause_manually_triggered_from_client = -1;
+static int hf_zbee_zcl_met_snapshot_cause_end_of_resolve_period = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_tenancy = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_supplier = -1;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_meter_mode = -1;
+static int hf_zbee_zcl_met_snapshot_cause_debt_payment = -1;
+static int hf_zbee_zcl_met_snapshot_cause_scheduled_snapshot = -1;
+static int hf_zbee_zcl_met_snapshot_cause_ota_firmware_download = -1;
+static int hf_zbee_zcl_met_snapshot_cause_reserved = -1;
+
+static const int* zbee_zcl_met_func_noti_flags[] = {
+        &hf_zbee_zcl_met_func_noti_flag_new_ota_firmware,
+        &hf_zbee_zcl_met_func_noti_flag_cbke_update_request,
+        &hf_zbee_zcl_met_func_noti_flag_time_sync,
+        &hf_zbee_zcl_met_func_noti_flag_stay_awake_request_han,
+        &hf_zbee_zcl_met_func_noti_flag_stay_awake_request_wan,
+        &hf_zbee_zcl_met_func_noti_flag_push_historical_metering_data_attribute_set,
+        &hf_zbee_zcl_met_func_noti_flag_push_historical_prepayment_data_attribute_set,
+        &hf_zbee_zcl_met_func_noti_flag_push_all_static_data_basic_cluster,
+        &hf_zbee_zcl_met_func_noti_flag_push_all_static_data_metering_cluster,
+        &hf_zbee_zcl_met_func_noti_flag_push_all_static_data_prepayment_cluster,
+        &hf_zbee_zcl_met_func_noti_flag_network_key_active,
+        &hf_zbee_zcl_met_func_noti_flag_display_message,
+        &hf_zbee_zcl_met_func_noti_flag_cancel_all_messages,
+        &hf_zbee_zcl_met_func_noti_flag_change_supply,
+        &hf_zbee_zcl_met_func_noti_flag_local_change_supply,
+        &hf_zbee_zcl_met_func_noti_flag_set_uncontrolled_flow_threshold,
+        &hf_zbee_zcl_met_func_noti_flag_tunnel_message_pending,
+        &hf_zbee_zcl_met_func_noti_flag_get_snapshot,
+        &hf_zbee_zcl_met_func_noti_flag_get_sampled_data,
+        &hf_zbee_zcl_met_func_noti_flag_new_sub_ghz_channel_masks_available,
+        &hf_zbee_zcl_met_func_noti_flag_energy_scan_pending,
+        &hf_zbee_zcl_met_func_noti_flag_channel_change_pending,
+        &hf_zbee_zcl_met_func_noti_flag_reserved,
+        NULL
+};
+
+static const int* zbee_zcl_met_noti_flags_2[] = {
+        &hf_zbee_zcl_met_noti_flag_2_publish_price,
+        &hf_zbee_zcl_met_noti_flag_2_publish_block_period,
+        &hf_zbee_zcl_met_noti_flag_2_publish_tariff_info,
+        &hf_zbee_zcl_met_noti_flag_2_publish_conversion_factor,
+        &hf_zbee_zcl_met_noti_flag_2_publish_calorific_value,
+        &hf_zbee_zcl_met_noti_flag_2_publish_co2_value,
+        &hf_zbee_zcl_met_noti_flag_2_publish_billing_period,
+        &hf_zbee_zcl_met_noti_flag_2_publish_consolidated_bill,
+        &hf_zbee_zcl_met_noti_flag_2_publish_price_matrix,
+        &hf_zbee_zcl_met_noti_flag_2_publish_block_thresholds,
+        &hf_zbee_zcl_met_noti_flag_2_publish_currency_conversion,
+        &hf_zbee_zcl_met_noti_flag_2_publish_credit_payment_info,
+        &hf_zbee_zcl_met_noti_flag_2_publish_cpp_event,
+        &hf_zbee_zcl_met_noti_flag_2_publish_tier_labels,
+        &hf_zbee_zcl_met_noti_flag_2_cancel_tariff,
+        &hf_zbee_zcl_met_noti_flag_2_reserved,
+        NULL
+};
+
+static const int* zbee_zcl_met_noti_flags_3[] = {
+        &hf_zbee_zcl_met_noti_flag_3_publish_calendar,
+        &hf_zbee_zcl_met_noti_flag_3_publish_special_days,
+        &hf_zbee_zcl_met_noti_flag_3_publish_seasons,
+        &hf_zbee_zcl_met_noti_flag_3_publish_week,
+        &hf_zbee_zcl_met_noti_flag_3_publish_day,
+        &hf_zbee_zcl_met_noti_flag_3_cancel_calendar,
+        &hf_zbee_zcl_met_noti_flag_3_reserved,
+        NULL
+};
+
+static const int* zbee_zcl_met_noti_flags_4[] = {
+        &hf_zbee_zcl_met_noti_flag_4_select_available_emergency_credit,
+        &hf_zbee_zcl_met_noti_flag_4_change_debt,
+        &hf_zbee_zcl_met_noti_flag_4_emergency_credit_setup,
+        &hf_zbee_zcl_met_noti_flag_4_consumer_top_up,
+        &hf_zbee_zcl_met_noti_flag_4_credit_adjustment,
+        &hf_zbee_zcl_met_noti_flag_4_change_payment_mode,
+        &hf_zbee_zcl_met_noti_flag_4_get_prepay_snapshot,
+        &hf_zbee_zcl_met_noti_flag_4_get_top_up_log,
+        &hf_zbee_zcl_met_noti_flag_4_set_low_credit_warning_level,
+        &hf_zbee_zcl_met_noti_flag_4_get_debt_repayment_log,
+        &hf_zbee_zcl_met_noti_flag_4_set_maximum_credit_limit,
+        &hf_zbee_zcl_met_noti_flag_4_set_overall_debt_cap,
+        &hf_zbee_zcl_met_noti_flag_4_reserved,
+        NULL
+};
+
+static const int* zbee_zcl_met_noti_flags_5[] = {
+        &hf_zbee_zcl_met_noti_flag_5_publish_change_of_tenancy,
+        &hf_zbee_zcl_met_noti_flag_5_publish_change_of_supplier,
+        &hf_zbee_zcl_met_noti_flag_5_request_new_password_1_response,
+        &hf_zbee_zcl_met_noti_flag_5_request_new_password_2_response,
+        &hf_zbee_zcl_met_noti_flag_5_request_new_password_3_response,
+        &hf_zbee_zcl_met_noti_flag_5_request_new_password_4_response,
+        &hf_zbee_zcl_met_noti_flag_5_update_site_id,
+        &hf_zbee_zcl_met_noti_flag_5_reset_battery_counter,
+        &hf_zbee_zcl_met_noti_flag_5_update_cin,
+        &hf_zbee_zcl_met_noti_flag_5_reserved,
+        NULL
+};
+
+static const int* zbee_zcl_met_snapshot_cause_flags[] = {
+        &hf_zbee_zcl_met_snapshot_cause_general,
+        &hf_zbee_zcl_met_snapshot_cause_end_of_billing_period,
+        &hf_zbee_zcl_met_snapshot_cause_end_of_block_period,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_tariff_information,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_price_matrix,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_block_thresholds,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_cv,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_cf,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_calendar,
+        &hf_zbee_zcl_met_snapshot_cause_critical_peak_pricing,
+        &hf_zbee_zcl_met_snapshot_cause_manually_triggered_from_client,
+        &hf_zbee_zcl_met_snapshot_cause_end_of_resolve_period,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_tenancy,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_supplier,
+        &hf_zbee_zcl_met_snapshot_cause_change_of_meter_mode,
+        &hf_zbee_zcl_met_snapshot_cause_debt_payment,
+        &hf_zbee_zcl_met_snapshot_cause_scheduled_snapshot,
+        &hf_zbee_zcl_met_snapshot_cause_ota_firmware_download,
+        &hf_zbee_zcl_met_snapshot_cause_reserved,
+        NULL
+};
 
 /* Initialize the subtree pointers */
 static gint ett_zbee_zcl_met = -1;
@@ -4972,6 +5167,7 @@ static gint ett_zbee_zcl_met_noti_flags_2 = -1;
 static gint ett_zbee_zcl_met_noti_flags_3 = -1;
 static gint ett_zbee_zcl_met_noti_flags_4 = -1;
 static gint ett_zbee_zcl_met_noti_flags_5 = -1;
+static gint ett_zbee_zcl_met_snapshot_cause_flags = -1;
 
 /*************************/
 /* Function Bodies       */
@@ -5000,122 +5196,31 @@ dissect_zcl_met_attr_data(proto_tree *tree, tvbuff_t *tvb, guint *offset, guint1
 
             case ZBEE_ZCL_ATTR_ID_MET_CLNT_FUNC_NOTI_FLAGS:
                 proto_item_append_text(tree, ", Functional Notification Flags");
-
-                static const int* func_noti_flags[] = {
-                        &hf_zbee_zcl_met_func_noti_flag_new_ota_firmware,
-                        &hf_zbee_zcl_met_func_noti_flag_cbke_update_request,
-                        &hf_zbee_zcl_met_func_noti_flag_time_sync,
-                        &hf_zbee_zcl_met_func_noti_flag_stay_awake_request_han,
-                        &hf_zbee_zcl_met_func_noti_flag_stay_awake_request_wan,
-                        &hf_zbee_zcl_met_func_noti_flag_push_historical_metering_data_attribute_set,
-                        &hf_zbee_zcl_met_func_noti_flag_push_historical_prepayment_data_attribute_set,
-                        &hf_zbee_zcl_met_func_noti_flag_push_all_static_data_basic_cluster,
-                        &hf_zbee_zcl_met_func_noti_flag_push_all_static_data_metering_cluster,
-                        &hf_zbee_zcl_met_func_noti_flag_push_all_static_data_prepayment_cluster,
-                        &hf_zbee_zcl_met_func_noti_flag_network_key_active,
-                        &hf_zbee_zcl_met_func_noti_flag_display_message,
-                        &hf_zbee_zcl_met_func_noti_flag_cancel_all_messages,
-                        &hf_zbee_zcl_met_func_noti_flag_change_supply,
-                        &hf_zbee_zcl_met_func_noti_flag_local_change_supply,
-                        &hf_zbee_zcl_met_func_noti_flag_set_uncontrolled_flow_threshold,
-                        &hf_zbee_zcl_met_func_noti_flag_tunnel_message_pending,
-                        &hf_zbee_zcl_met_func_noti_flag_get_snapshot,
-                        &hf_zbee_zcl_met_func_noti_flag_get_sampled_data,
-                        &hf_zbee_zcl_met_func_noti_flag_reserved,
-                        NULL
-                };
-
-                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_func_noti_flags, ett_zbee_zcl_met_func_noti_flags, func_noti_flags, ENC_LITTLE_ENDIAN);
+                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_func_noti_flags, ett_zbee_zcl_met_func_noti_flags, zbee_zcl_met_func_noti_flags, ENC_LITTLE_ENDIAN);
                 *offset += 4;
                 break;
 
             case ZBEE_ZCL_ATTR_ID_MET_CLNT_NOTI_FLAGS_2:
                 proto_item_append_text(tree, ", Notification Flags 2");
-
-                static const int* noti_flags_2[] = {
-                        &hf_zbee_zcl_met_noti_flag_2_publish_price,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_block_period,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_tariff_info,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_conversion_factor,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_calorific_value,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_co2_value,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_billing_period,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_consolidated_bill,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_price_matrix,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_block_thresholds,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_currency_conversion,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_credit_payment_info,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_cpp_event,
-                        &hf_zbee_zcl_met_noti_flag_2_publish_tier_labels,
-                        &hf_zbee_zcl_met_noti_flag_2_cancel_tariff,
-                        &hf_zbee_zcl_met_noti_flag_2_reserved,
-                        NULL
-                };
-
-                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_2, ett_zbee_zcl_met_noti_flags_2, noti_flags_2, ENC_LITTLE_ENDIAN);
+                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_2, ett_zbee_zcl_met_noti_flags_2, zbee_zcl_met_noti_flags_2, ENC_LITTLE_ENDIAN);
                 *offset += 4;
                 break;
 
             case ZBEE_ZCL_ATTR_ID_MET_CLNT_NOTI_FLAGS_3:
                 proto_item_append_text(tree, ", Notification Flags 3");
-
-                static const int* noti_flags_3[] = {
-                        &hf_zbee_zcl_met_noti_flag_3_publish_calendar,
-                        &hf_zbee_zcl_met_noti_flag_3_publish_special_days,
-                        &hf_zbee_zcl_met_noti_flag_3_publish_seasons,
-                        &hf_zbee_zcl_met_noti_flag_3_publish_week,
-                        &hf_zbee_zcl_met_noti_flag_3_publish_day,
-                        &hf_zbee_zcl_met_noti_flag_3_cancel_calendar,
-                        &hf_zbee_zcl_met_noti_flag_3_reserved,
-                        NULL
-                };
-
-                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_3, ett_zbee_zcl_met_noti_flags_3, noti_flags_3, ENC_LITTLE_ENDIAN);
+                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_3, ett_zbee_zcl_met_noti_flags_3, zbee_zcl_met_noti_flags_3, ENC_LITTLE_ENDIAN);
                 *offset += 4;
                 break;
 
             case ZBEE_ZCL_ATTR_ID_MET_CLNT_NOTI_FLAGS_4:
                 proto_item_append_text(tree, ", Notification Flags 4");
-
-                static const int* noti_flags_4[] = {
-                        &hf_zbee_zcl_met_noti_flag_4_select_available_emergency_credit,
-                        &hf_zbee_zcl_met_noti_flag_4_change_debt,
-                        &hf_zbee_zcl_met_noti_flag_4_emergency_credit_setup,
-                        &hf_zbee_zcl_met_noti_flag_4_consumer_top_up,
-                        &hf_zbee_zcl_met_noti_flag_4_credit_adjustment,
-                        &hf_zbee_zcl_met_noti_flag_4_change_payment_mode,
-                        &hf_zbee_zcl_met_noti_flag_4_get_prepay_snapshot,
-                        &hf_zbee_zcl_met_noti_flag_4_get_top_up_log,
-                        &hf_zbee_zcl_met_noti_flag_4_set_low_credit_warning_level,
-                        &hf_zbee_zcl_met_noti_flag_4_get_debt_repayment_log,
-                        &hf_zbee_zcl_met_noti_flag_4_set_maximum_credit_limit,
-                        &hf_zbee_zcl_met_noti_flag_4_set_overall_debt_cap,
-                        &hf_zbee_zcl_met_noti_flag_4_reserved,
-                        NULL
-                };
-
-                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_4, ett_zbee_zcl_met_noti_flags_4, noti_flags_4, ENC_LITTLE_ENDIAN);
+                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_4, ett_zbee_zcl_met_noti_flags_4, zbee_zcl_met_noti_flags_4, ENC_LITTLE_ENDIAN);
                 *offset += 4;
                 break;
 
             case ZBEE_ZCL_ATTR_ID_MET_CLNT_NOTI_FLAGS_5:
                 proto_item_append_text(tree, ", Notification Flags 5");
-
-                static const int* noti_flags_5[] = {
-                        &hf_zbee_zcl_met_noti_flag_5_publish_change_of_tenancy,
-                        &hf_zbee_zcl_met_noti_flag_5_publish_change_of_supplier,
-                        &hf_zbee_zcl_met_noti_flag_5_request_new_password_1_response,
-                        &hf_zbee_zcl_met_noti_flag_5_request_new_password_2_response,
-                        &hf_zbee_zcl_met_noti_flag_5_request_new_password_3_response,
-                        &hf_zbee_zcl_met_noti_flag_5_request_new_password_4_response,
-                        &hf_zbee_zcl_met_noti_flag_5_update_site_id,
-                        &hf_zbee_zcl_met_noti_flag_5_reset_battery_counter,
-                        &hf_zbee_zcl_met_noti_flag_5_update_cin,
-                        &hf_zbee_zcl_met_noti_flag_5_reserved,
-                        NULL
-                };
-
-                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_5, ett_zbee_zcl_met_noti_flags_5, noti_flags_5, ENC_LITTLE_ENDIAN);
+                proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_5, ett_zbee_zcl_met_noti_flags_5, zbee_zcl_met_noti_flags_5, ENC_LITTLE_ENDIAN);
                 *offset += 4;
                 break;
 
@@ -5179,20 +5284,64 @@ dissect_zbee_zcl_met(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
             /* Call the appropriate command dissector */
             switch (cmd_id) {
 
+                case ZBEE_ZCL_CMD_ID_MET_GET_PROFILE:
+                    dissect_zcl_met_get_profile(tvb, payload_tree, &offset);
+                    break;
+
                 case ZBEE_ZCL_CMD_ID_MET_REQUEST_MIRROR_RSP:
                     dissect_zcl_met_request_mirror_rsp(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_MIRROR_REMOVED:
+                    dissect_zcl_met_mirror_removed(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_REQUEST_FAST_POLL_MODE:
+                    dissect_zcl_met_request_fast_poll_mode(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_SCHEDULE_SNAPSHOT:
+                    dissect_zcl_met_schedule_snapshot(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_TAKE_SNAPSHOT:
+                    dissect_zcl_met_take_snapshot(tvb, payload_tree, &offset);
                     break;
 
                 case ZBEE_ZCL_CMD_ID_MET_GET_SNAPSHOT:
                     dissect_zcl_met_get_snapshot(tvb, payload_tree, &offset);
                     break;
 
+                case ZBEE_ZCL_CMD_ID_MET_START_SAMPLING:
+                    dissect_zcl_met_start_sampling(tvb, payload_tree, &offset);
+                    break;
+
                 case ZBEE_ZCL_CMD_ID_MET_GET_SAMPLED_DATA:
                     dissect_zcl_met_get_sampled_data(tvb, payload_tree, &offset);
                     break;
 
+                case ZBEE_ZCL_CMD_ID_MET_MIRROR_REPORT_ATTRIBUTE_RESPONSE:
+                    dissect_zcl_met_mirror_report_attribute_response(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_RESET_LOAD_LIMIT_COUNTER:
+                    dissect_zcl_met_reset_load_limit_counter(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_CHANGE_SUPPLY:
+                    dissect_zcl_met_change_supply(tvb, payload_tree, &offset);
+                    break;
+
                 case ZBEE_ZCL_CMD_ID_MET_LOCAL_CHANGE_SUPPLY:
                     dissect_zcl_met_local_change_supply(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_SET_SUPPLY_STATUS:
+                    dissect_zcl_met_set_supply_status(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_SET_UNCONTROLLED_FLOW_THRESHOLD:
+                    dissect_zcl_met_set_uncontrolled_flow_threshold(tvb, payload_tree, &offset);
                     break;
 
                 default:
@@ -5217,8 +5366,28 @@ dissect_zbee_zcl_met(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
             /* Call the appropriate command dissector */
             switch (cmd_id) {
 
+                case ZBEE_ZCL_CMD_ID_MET_GET_PROFILE_RESPONSE:
+                    /* Add function to dissect payload */
+                    break;
+
                 case ZBEE_ZCL_CMD_ID_MET_REQUEST_MIRROR:
                     /* No payload */
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_REMOVE_MIRROR:
+                    /* No payload */
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_REQUEST_FAST_POLL_MODE_RESPONSE:
+                    /* Add function to dissect payload */
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_SCHEDULE_SNAPSHOT_RESPONSE:
+                    /* Add function to dissect payload */
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_TAKE_SNAPSHOT_RESPONSE:
+                    dissect_zcl_met_take_snapshot_response(tvb, payload_tree, &offset);
                     break;
 
                 case ZBEE_ZCL_CMD_ID_MET_PUBLISH_SNAPSHOT:
@@ -5233,8 +5402,24 @@ dissect_zbee_zcl_met(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                     dissect_zcl_met_configure_mirror(tvb, payload_tree, &offset);
                     break;
 
+                case ZBEE_ZCL_CMD_ID_MET_CONFIGURE_NOTIFICATION_SCHEME:
+                    /* Add function to dissect payload */
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_CONFIGURE_NOTIFICATION_FLAG:
+                    /* Add function to dissect payload */
+                    break;
+
                 case ZBEE_ZCL_CMD_ID_MET_GET_NOTIFIED_MESSAGE:
                     dissect_zcl_met_get_notified_msg(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_SUPPLY_STATUS_RESPONSE:
+                    dissect_zcl_met_supply_status_response(tvb, payload_tree, &offset);
+                    break;
+
+                case ZBEE_ZCL_CMD_ID_MET_START_SAMPLING_RESPONSE:
+                    /* Add function to dissect payload */
                     break;
 
                 default:
@@ -5245,6 +5430,33 @@ dissect_zbee_zcl_met(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 
     return tvb_captured_length(tvb);
 } /*dissect_zbee_zcl_met*/
+
+/**
+ *This function manages the Get Profile payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_get_profile(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    nstime_t end_time;
+
+    /* Interval Channel */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_get_profile_interval_channel, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* End Time */
+    end_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
+    end_time.nsecs = 0;
+    proto_tree_add_time(tree, hf_zbee_zcl_met_get_profile_end_time, tvb, *offset, 4, &end_time);
+    *offset += 4;
+
+    /* Number of Periods */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_get_profile_number_of_periods, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+} /*dissect_zcl_met_get_profile*/
 
 /**
  *This function manages the Request Mirror Response payload
@@ -5259,7 +5471,87 @@ dissect_zcl_met_request_mirror_rsp(tvbuff_t *tvb, proto_tree *tree, guint *offse
     /* EndPoint ID */
     proto_tree_add_item(tree, hf_zbee_zcl_met_request_mirror_rsp_endpoint_id, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
     *offset += 2;
-} /*dissect_zcl_met_get_snapshot*/
+} /*dissect_zcl_met_request_mirror_rsp*/
+
+/**
+ *This function manages the Mirror Removed payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_mirror_removed(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Removed EndPoint ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_mirror_removed_removed_endpoint_id, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    *offset += 2;
+} /*dissect_zcl_met_mirror_removed*/
+
+/**
+ *This function manages the Request Fast Poll Mode payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_request_fast_poll_mode(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Fast Poll Update Period */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_request_fast_poll_mode_fast_poll_update_period, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Duration */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_request_fast_poll_mode_duration, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+} /*dissect_zcl_met_request_fast_poll_mode*/
+
+/**
+ *This function manages the Schedule Snapshot payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_schedule_snapshot(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    gint rem_len;
+
+    /* Issue Event ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_schedule_snapshot_issuer_event_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Command Index */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_schedule_snapshot_command_index, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Total Number of Commands */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_schedule_snapshot_total_number_of_commands, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Snapshot Schedule Payload */
+    rem_len = tvb_reported_length_remaining(tvb, *offset);
+    proto_tree_add_item(tree, hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload, tvb, *offset, rem_len, ENC_NA);
+    *offset += rem_len;
+} /*dissect_zcl_met_schedule_snapshot*/
+
+/**
+ *This function manages the Take Snapshot payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_take_snapshot(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Snapshot Cause */
+    proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_take_snapshot_snapshot_cause,
+                           ett_zbee_zcl_met_snapshot_cause_flags, zbee_zcl_met_snapshot_cause_flags, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+} /*dissect_zcl_met_take_snapshot*/
 
 /**
  *This function manages the Get Snapshot payload
@@ -5293,9 +5585,45 @@ dissect_zcl_met_get_snapshot(tvbuff_t *tvb, proto_tree *tree, guint *offset)
     *offset += 1;
 
     /* Snapshot Cause */
-    proto_tree_add_item(tree, hf_zbee_zcl_met_get_snapshot_snapshot_cause, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_get_snapshot_snapshot_cause,
+                           ett_zbee_zcl_met_snapshot_cause_flags, zbee_zcl_met_snapshot_cause_flags, ENC_LITTLE_ENDIAN);
     *offset += 4;
 } /*dissect_zcl_met_get_snapshot*/
+
+/**
+ *This function manages the Start Sampling payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_start_sampling(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    nstime_t sample_time;
+
+    /* Issuer Event ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_start_sampling_issuer_event_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Start Sampling Time */
+    sample_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
+    sample_time.nsecs = 0;
+    proto_tree_add_time(tree, hf_zbee_zcl_met_start_sampling_start_sampling_time, tvb, *offset, 4, &sample_time);
+    *offset += 4;
+
+    /* Sample Type */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_start_sampling_sample_type, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Sample Request Interval */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_start_sampling_sample_request_interval, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    *offset += 2;
+
+    /* Max Number of Samples */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_start_sampling_max_number_of_samples, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    *offset += 2;
+} /*dissect_zcl_met_start_sampling*/
 
 /**
  *This function manages the Get Sampled Data payload
@@ -5329,6 +5657,86 @@ dissect_zcl_met_get_sampled_data(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 } /*dissect_zcl_met_get_sampled_data*/
 
 /**
+ *This function manages the Mirror Report Attribute Response payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_mirror_report_attribute_response(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Notification Scheme */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_mirror_report_attribute_response_notification_scheme, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Notification Flags #N */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_mirror_report_attribute_response_notification_flags_n, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+} /*dissect_zcl_met_mirror_report_attribute_response*/
+
+/**
+ *This function manages the Reset Load Limit Counter  payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_reset_load_limit_counter(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Provider ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_reset_load_limit_counter_provider_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Issuer Event ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_reset_load_limit_counter_issuer_event_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+} /*dissect_zcl_met_reset_load_limit_counter*/
+
+/**
+ *This function manages the Change Supply payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_change_supply(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    nstime_t request_time;
+    nstime_t implementation_time;
+
+    /* Provider ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_change_supply_provider_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Issuer Event ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_change_supply_issuer_event_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Request Date/Time */
+    request_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
+    request_time.nsecs = 0;
+    proto_tree_add_time(tree, hf_zbee_zcl_met_change_supply_request_date_time, tvb, *offset, 4, &request_time);
+    *offset += 4;
+
+    /* Implementation Date/Time */
+    implementation_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
+    implementation_time.nsecs = 0;
+    proto_tree_add_time(tree, hf_zbee_zcl_met_change_supply_implementation_date_time, tvb, *offset, 4, &implementation_time);
+    *offset += 4;
+
+    /* Proposed Supple Status */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_change_supply_proposed_supply_status, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Supple Control Bits */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_change_supply_supply_control_bits, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+} /*dissect_zcl_met_change_supply*/
+
+/**
  *This function manages the Local Change Supply payload
  *
  *@param tvb pointer to buffer containing raw packet.
@@ -5339,9 +5747,102 @@ static void
 dissect_zcl_met_local_change_supply(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
     /* Proposed Supply Status */
-    proto_tree_add_item(tree, hf_zbee_zcl_met_local_change_supply_supply_status, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(tree, hf_zbee_zcl_met_local_change_supply_proposed_supply_status, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
     *offset += 1;
 } /*dissect_zcl_met_local_change_supply*/
+
+/**
+ *This function manages the Set Supply Status payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_set_supply_status(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Issuer Event ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_supply_status_issuer_event_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Supply Tamper State */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_supply_status_supply_tamper_state, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Supply Depletion State */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_supply_status_supply_depletion_state, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Supply Uncontrolled Flow State */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_supply_status_supply_uncontrolled_flow_state, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Load Limit Supply State */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_supply_status_load_limit_supply_state, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+} /*dissect_zcl_met_set_supply_status*/
+
+/**
+ *This function manages the Set Uncontrolled Flow Threshold payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_set_uncontrolled_flow_threshold(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Provider ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_uncontrolled_flow_threshold_provider_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Issuer Event ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_uncontrolled_flow_threshold_issuer_event_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Uncontrolled Flow Threshold */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_uncontrolled_flow_threshold_uncontrolled_flow_threshold, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    *offset += 2;
+
+    /* Unit of Measure */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_uncontrolled_flow_threshold_unit_of_measure, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Multiplier */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_uncontrolled_flow_threshold_multiplier, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    *offset += 2;
+
+    /* Divisor */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_uncontrolled_flow_threshold_divisor, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    *offset += 2;
+
+    /* Stabilisation Period */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_uncontrolled_flow_threshold_stabilisation_period, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+
+    /* Measurement Period */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_set_uncontrolled_flow_threshold_measurment_period, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    *offset += 2;
+} /*dissect_zcl_met_set_uncontrolled_flow_threshold*/
+
+/**
+ *This function manages the Take Snapshot Response payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_take_snapshot_response(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    /* Snapshot ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_take_snapshot_response_snapshot_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Snapshot Confirmation */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_take_snapshot_response_snapshot_confirmation, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+} /*dissect_zcl_met_take_snapshot_response*/
 
 /**
  *This function manages the Publish Snapshot payload
@@ -5379,7 +5880,8 @@ dissect_zcl_met_publish_snapshot(tvbuff_t *tvb, proto_tree *tree, guint *offset)
     *offset += 1;
 
     /* Snapshot Cause */
-    proto_tree_add_item(tree, hf_zbee_zcl_met_publish_snapshot_snapshot_cause, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_publish_snapshot_snapshot_cause,
+                           ett_zbee_zcl_met_snapshot_cause_flags, zbee_zcl_met_snapshot_cause_flags, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Snapshot Payload Type */
@@ -5474,18 +5976,71 @@ dissect_zcl_met_configure_mirror(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 static void
 dissect_zcl_met_get_notified_msg(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
+    guint16 noti_flags_number;
+
     /* Notification Scheme */
     proto_tree_add_item(tree, hf_zbee_zcl_met_get_notified_msg_notification_scheme, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
     *offset += 1;
 
     /* Notification Flag attribute ID */
+    noti_flags_number = tvb_get_guint16(tvb, *offset, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(tree, hf_zbee_zcl_met_get_notified_msg_notification_flag_attribute_id, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
     *offset += 2;
 
     /* Notification Flags #N */
-    proto_tree_add_item(tree, hf_zbee_zcl_met_get_notified_msg_notification_flags, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    switch (noti_flags_number) {
+        case ZBEE_ZCL_ATTR_ID_MET_CLNT_FUNC_NOTI_FLAGS:
+            proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_func_noti_flags, ett_zbee_zcl_met_func_noti_flags, zbee_zcl_met_func_noti_flags, ENC_LITTLE_ENDIAN);
+            break;
+        case ZBEE_ZCL_ATTR_ID_MET_CLNT_NOTI_FLAGS_2:
+            proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_2, ett_zbee_zcl_met_noti_flags_2, zbee_zcl_met_noti_flags_2, ENC_LITTLE_ENDIAN);
+            break;
+        case ZBEE_ZCL_ATTR_ID_MET_CLNT_NOTI_FLAGS_3:
+            proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_3, ett_zbee_zcl_met_noti_flags_3, zbee_zcl_met_noti_flags_3, ENC_LITTLE_ENDIAN);
+            break;
+        case ZBEE_ZCL_ATTR_ID_MET_CLNT_NOTI_FLAGS_4:
+            proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_4, ett_zbee_zcl_met_noti_flags_4, zbee_zcl_met_noti_flags_4, ENC_LITTLE_ENDIAN);
+            break;
+        case ZBEE_ZCL_ATTR_ID_MET_CLNT_NOTI_FLAGS_5:
+            proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_met_noti_flags_5, ett_zbee_zcl_met_noti_flags_5, zbee_zcl_met_noti_flags_5, ENC_LITTLE_ENDIAN);
+            break;
+        default:
+            proto_tree_add_item(tree, hf_zbee_zcl_met_get_notified_msg_notification_flags, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+            break;
+    }
     *offset += 4;
 } /*dissect_zcl_met_get_notified_msg*/
+
+/**
+ *This function manages the Supply Status Response payload
+ *
+ *@param tvb pointer to buffer containing raw packet.
+ *@param tree pointer to data tree Wireshark uses to display packet.
+ *@param offset pointer to offset from caller
+*/
+static void
+dissect_zcl_met_supply_status_response(tvbuff_t *tvb, proto_tree *tree, guint *offset)
+{
+    nstime_t implementation_date_time;
+
+    /* Provider ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_supply_status_response_provider_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Issuer Event ID */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_supply_status_response_issuer_event_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    *offset += 4;
+
+    /* Implementation Date/Time */
+    implementation_date_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
+    implementation_date_time.nsecs = 0;
+    proto_tree_add_time(tree, hf_zbee_zcl_met_supply_status_response_implementation_date_time, tvb, *offset, 4, &implementation_date_time);
+    *offset += 4;
+
+    /* Supply Status After Implementation */
+    proto_tree_add_item(tree, hf_zbee_zcl_met_supply_status_response_supply_status_after_implementation, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
+    *offset += 1;
+} /*dissect_zcl_met_supply_status_response*/
 
 /**
  *This function registers the ZCL Metering dissector
@@ -5588,6 +6143,18 @@ proto_register_zbee_zcl_met(void)
         { &hf_zbee_zcl_met_func_noti_flag_get_sampled_data,
             { "Get Sampled Data", "zbee_zcl_se.met.attr.func_noti_flag.get_sampled_data", FT_BOOLEAN, 32, NULL,
             ZBEE_ZCL_FUNC_NOTI_FLAG_GET_SAMPLED_DATA, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_func_noti_flag_new_sub_ghz_channel_masks_available,
+            { "New Sub-GHz Channel Masks Available", "zbee_zcl_se.met.attr.func_noti_flag.new_sub_ghz_channel_masks_available", FT_BOOLEAN, 32, NULL,
+            ZBEE_ZCL_FUNC_NOTI_FLAG_NEW_SUB_GHZ_CHANNEL_MASKS_AVAILABLE, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_func_noti_flag_energy_scan_pending,
+            { "Energy Scan Pending", "zbee_zcl_se.met.attr.func_noti_flag.energy_scan_pending", FT_BOOLEAN, 32, NULL,
+            ZBEE_ZCL_FUNC_NOTI_FLAG_ENERGY_SCAN_PENDING, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_func_noti_flag_channel_change_pending,
+            { "Channel Change Pending", "zbee_zcl_se.met.attr.func_noti_flag.channel_change_pending", FT_BOOLEAN, 32, NULL,
+            ZBEE_ZCL_FUNC_NOTI_FLAG_CHANNEL_CHANGE_PENDING, NULL, HFILL } },
 
         { &hf_zbee_zcl_met_func_noti_flag_reserved,
             { "Reserved", "zbee_zcl_se.met.attr.func_noti_flag.reserved", FT_UINT32, BASE_HEX, NULL,
@@ -5805,8 +6372,52 @@ proto_register_zbee_zcl_met(void)
             { "Command", "zbee_zcl_se.met.cmd.srv_rx.id", FT_UINT8, BASE_HEX, VALS(zbee_zcl_met_srv_rx_cmd_names),
             0x00, NULL, HFILL } },
 
+        { &hf_zbee_zcl_met_get_profile_interval_channel,
+            { "Interval Channel", "zbee_zcl_se.met.get_profile.interval_channel", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_get_profile_end_time,
+            { "End Time", "zbee_zcl_se.met.get_profile.end_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_get_profile_number_of_periods,
+            { "Number of Periods", "zbee_zcl_se.met.get_profile.number_of_periods", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
         { &hf_zbee_zcl_met_request_mirror_rsp_endpoint_id,
             { "EndPoint ID", "zbee_zcl_se.met.request_mirror_rsp.endpoint_id", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_mirror_removed_removed_endpoint_id,
+            { "Removed EndPoint ID", "zbee_zcl_se.met.mirror_removed.removed_endpoint_id", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_request_fast_poll_mode_fast_poll_update_period,
+            { "Fast Poll Update Period", "zbee_zcl_se.met.request_fast_poll_mode.fast_poll_update_period", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_request_fast_poll_mode_duration,
+            { "Duration", "zbee_zcl_se.met.request_fast_poll_mode.duration", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_schedule_snapshot_issuer_event_id,
+            { "Issuer Event ID", "zbee_zcl_se.met.schedule_snapshot.issuer_event_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_schedule_snapshot_command_index,
+            { "Command Index", "zbee_zcl_se.met.schedule_snapshot.command_index", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_schedule_snapshot_total_number_of_commands,
+            { "Total Number of Commands", "zbee_zcl_se.met.schedule_snapshot.total_number_of_commands", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload,
+            { "Snapshot Schedule Payload", "zbee_zcl_se.met.schedule_snapshot.snapshot_schedule_payload", FT_BYTES, BASE_NONE, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_take_snapshot_snapshot_cause,
+            { "Snapshot Cause", "zbee_zcl_se.met.take_snapshot.snapshot_cause", FT_UINT32, BASE_HEX, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_met_get_snapshot_start_time,
@@ -5825,6 +6436,26 @@ proto_register_zbee_zcl_met(void)
             { "Snapshot Cause", "zbee_zcl_se.met.get_snapshot.snapshot_cause", FT_UINT32, BASE_HEX, NULL,
             0x00, NULL, HFILL } },
 
+        { &hf_zbee_zcl_met_start_sampling_issuer_event_id,
+            { "Issuer Event ID", "zbee_zcl_se.met.start_sampling.issuer_event_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_start_sampling_start_sampling_time,
+            { "Start Sampling Time", "zbee_zcl_se.met.start_sampling.start_sampling_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_start_sampling_sample_type,
+            { "Sample Type", "zbee_zcl_se.met.start_sampling.sample_type", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_start_sampling_sample_request_interval,
+            { "Sample Request Interval", "zbee_zcl_se.met.start_sampling.sample_request_interval", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_start_sampling_max_number_of_samples,
+            { "Max Number of Samples", "zbee_zcl_se.met.start_sampling.max_number_of_samples", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
         { &hf_zbee_zcl_met_get_sampled_data_sample_id,
             { "Sample ID", "zbee_zcl_se.met.get_sampled_data.sample_id", FT_UINT16, BASE_DEC, NULL,
             0x00, NULL, HFILL } },
@@ -5841,8 +6472,108 @@ proto_register_zbee_zcl_met(void)
             { "Number of Samples", "zbee_zcl_se.met.get_sampled_data.number_of_samples", FT_UINT16, BASE_DEC, NULL,
             0x00, NULL, HFILL } },
 
-        { &hf_zbee_zcl_met_local_change_supply_supply_status,
-            { "Proposed Supply Status", "zbee_zcl_se.met.local_change_supply.supply_status", FT_UINT8, BASE_DEC, NULL,
+        { &hf_zbee_zcl_met_mirror_report_attribute_response_notification_scheme,
+            { "Notification Scheme", "zbee_zcl_se.met.mirror_report_attribute_response.notification_scheme", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_mirror_report_attribute_response_notification_flags_n,
+            { "Notification Flags #N", "zbee_zcl_se.met.mirror_report_attribute_response.notification_flags_n", FT_UINT32, BASE_HEX, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_reset_load_limit_counter_provider_id,
+            { "Provider ID", "zbee_zcl_se.met.reset_load_limit_counter.provider_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_reset_load_limit_counter_issuer_event_id,
+            { "Issuer Event ID", "zbee_zcl_se.met.reset_load_limit_counter.issuer_event_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_change_supply_provider_id,
+            { "Provider ID", "zbee_zcl_se.met.change_supply.provider_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_change_supply_issuer_event_id,
+            { "Issuer Event ID", "zbee_zcl_se.met.change_supply.issuer_event_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_change_supply_request_date_time,
+            { "Request Date/Time", "zbee_zcl_se.met.change_supply.request_date_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_change_supply_implementation_date_time,
+            { "Implementation Date/Time", "zbee_zcl_se.met.change_supply.implementation_date_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_change_supply_proposed_supply_status,
+            { "Proposed Supply Status", "zbee_zcl_se.met.change_supply.proposed_supply_status", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_change_supply_supply_control_bits,
+            { "Supply Control bits", "zbee_zcl_se.met.change_supply.supply_control_bits", FT_UINT8, BASE_HEX, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_local_change_supply_proposed_supply_status,
+            { "Proposed Supply Status", "zbee_zcl_se.met.local_change_supply.proposed_supply_status", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_supply_status_issuer_event_id,
+            { "Issuer Event ID", "zbee_zcl_se.met.set_supply_status.issuer_event_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_supply_status_supply_tamper_state,
+            { "Supply Tamper State", "zbee_zcl_se.met.set_supply_status.supply_tamper_state", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_supply_status_supply_depletion_state,
+            { "Supply Depletion State", "zbee_zcl_se.met.set_supply_status.supply_depletion_state", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_supply_status_supply_uncontrolled_flow_state,
+            { "Supply Uncontrolled Flow State", "zbee_zcl_se.met.set_supply_status.supply_uncontrolled_flow_state", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_supply_status_load_limit_supply_state,
+            { "Load Limit Supply State", "zbee_zcl_se.met.set_supply_status.load_limit_supply_state", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_uncontrolled_flow_threshold_provider_id,
+            { "Provider ID", "zbee_zcl_se.met.set_uncontrolled_flow_threshold.provider_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_uncontrolled_flow_threshold_issuer_event_id,
+            { "Issuer Event ID", "zbee_zcl_se.met.set_uncontrolled_flow_threshold.issuer_event_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_uncontrolled_flow_threshold_uncontrolled_flow_threshold,
+            { "Uncontrolled Flow Threshold", "zbee_zcl_se.met.set_uncontrolled_flow_threshold.uncontrolled_flow_threshold", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_uncontrolled_flow_threshold_unit_of_measure,
+            { "Unit of Measure", "zbee_zcl_se.met.set_uncontrolled_flow_threshold.unit_of_measure", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_uncontrolled_flow_threshold_multiplier,
+            { "Multiplier", "zbee_zcl_se.met.set_uncontrolled_flow_threshold.multiplier", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_uncontrolled_flow_threshold_divisor,
+            { "Divisor", "zbee_zcl_se.met.set_uncontrolled_flow_threshold.divisor", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_uncontrolled_flow_threshold_stabilisation_period,
+            { "Stabilisation Period", "zbee_zcl_se.met.set_uncontrolled_flow_threshold.stabilisation_period", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_set_uncontrolled_flow_threshold_measurment_period,
+            { "Measurement Period", "zbee_zcl_se.met.set_uncontrolled_flow_threshold.measurment_period", FT_UINT16, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_take_snapshot_response_snapshot_id,
+            { "Snapshot ID", "zbee_zcl_se.met.take_snapshot_response.snapshot_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_take_snapshot_response_snapshot_confirmation,
+            { "Snapshot Confirmation", "zbee_zcl_se.met.take_snapshot_response.snapshot_confirmation", FT_UINT8, BASE_HEX, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_met_publish_snapshot_snapshot_id,
@@ -5927,7 +6658,81 @@ proto_register_zbee_zcl_met(void)
 
         { &hf_zbee_zcl_met_get_notified_msg_notification_flags,
             { "Notification Flags", "zbee_zcl_se.met.get_notified_msg.notification_flags", FT_UINT32, BASE_HEX, NULL,
-            0x00, NULL, HFILL } }
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_supply_status_response_provider_id,
+            { "Provider ID", "zbee_zcl_se.met.supply_status_response.provider_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_supply_status_response_issuer_event_id,
+            { "Issuer Event ID", "zbee_zcl_se.met.supply_status_response.issuer_event_id", FT_UINT32, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_supply_status_response_implementation_date_time,
+            { "Implementation Date/Time", "zbee_zcl_se.met.supply_status_response.implementation_date_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_supply_status_response_supply_status_after_implementation,
+            { "Supply Status After Implementation", "zbee_zcl_se.met.supply_status_response.supply_status_after_implementation", FT_UINT8, BASE_DEC, NULL,
+            0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_met_snapshot_cause_general,
+            { "General", "zbee_zcl_se.met.snapshot_cause.general", FT_BOOLEAN, 32, NULL,
+            0x00000001, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_end_of_billing_period,
+            { "End of Billing Period", "zbee_zcl_se.met.snapshot_cause.end_of_billing_period", FT_BOOLEAN, 32, NULL,
+            0x00000002, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_end_of_block_period,
+            { "End of Block Period", "zbee_zcl_se.met.snapshot_cause.end_of_block_period", FT_BOOLEAN, 32, NULL,
+            0x00000004, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_tariff_information,
+            { "Change of Tariff Information", "zbee_zcl_se.met.snapshot_cause.change_of_tariff_information", FT_BOOLEAN, 32, NULL,
+            0x00000008, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_price_matrix,
+            { "Change of Price Matrix", "zbee_zcl_se.met.snapshot_cause.change_of_price_matrix", FT_BOOLEAN, 32, NULL,
+            0x00000010, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_block_thresholds,
+            { "Change of Block Thresholds", "zbee_zcl_se.met.snapshot_cause.change_of_block_thresholds", FT_BOOLEAN, 32, NULL,
+            0x00000020, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_cv,
+            { "Change of CV", "zbee_zcl_se.met.snapshot_cause.change_of_cv", FT_BOOLEAN, 32, NULL,
+            0x00000040, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_cf,
+            { "Change of CF", "zbee_zcl_se.met.snapshot_cause.change_of_cf", FT_BOOLEAN, 32, NULL,
+            0x00000080, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_calendar,
+            { "Change of Calendar", "zbee_zcl_se.met.snapshot_cause.change_of_calendar", FT_BOOLEAN, 32, NULL,
+            0x00000100, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_critical_peak_pricing,
+            { "Critical Peak Pricing", "zbee_zcl_se.met.snapshot_cause.critical_peak_pricing", FT_BOOLEAN, 32, NULL,
+            0x00000200, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_manually_triggered_from_client,
+            { "Manually Triggered from Client", "zbee_zcl_se.met.snapshot_cause.manually_triggered_from_client", FT_BOOLEAN, 32, NULL,
+            0x00000400, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_end_of_resolve_period,
+            { "End of Resolve Period", "zbee_zcl_se.met.snapshot_cause.end_of_resolve_period", FT_BOOLEAN, 32, NULL,
+            0x00000800, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_tenancy,
+            { "Change of Tenancy", "zbee_zcl_se.met.snapshot_cause.change_of_tenancy", FT_BOOLEAN, 32, NULL,
+            0x00001000, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_supplier,
+            { "Change of Supplier", "zbee_zcl_se.met.snapshot_cause.change_of_supplier", FT_BOOLEAN, 32, NULL,
+            0x00002000, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_change_of_meter_mode,
+            { "Change of (Meter) Mode", "zbee_zcl_se.met.snapshot_cause.change_of_meter_mode", FT_BOOLEAN, 32, NULL,
+            0x00004000, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_debt_payment,
+            { "Debt Payment", "zbee_zcl_se.met.snapshot_cause.debt_payment", FT_BOOLEAN, 32, NULL,
+            0x00008000, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_scheduled_snapshot,
+            { "Scheduled Snapshot", "zbee_zcl_se.met.snapshot_cause.scheduled_snapshot", FT_BOOLEAN, 32, NULL,
+            0x00010000, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_ota_firmware_download,
+            { "OTA Firmware Download", "zbee_zcl_se.met.snapshot_cause.ota_firmware_download", FT_BOOLEAN, 32, NULL,
+            0x00020000, NULL, HFILL } },
+        { &hf_zbee_zcl_met_snapshot_cause_reserved,
+            { "Reserved", "zbee_zcl_se.met.snapshot_cause.reserved", FT_UINT32, BASE_HEX, NULL,
+            0xFFFC0000, NULL, HFILL } }
     };
 
     /* ZCL Metering subtrees */
@@ -5937,7 +6742,8 @@ proto_register_zbee_zcl_met(void)
         &ett_zbee_zcl_met_noti_flags_2,
         &ett_zbee_zcl_met_noti_flags_3,
         &ett_zbee_zcl_met_noti_flags_4,
-        &ett_zbee_zcl_met_noti_flags_5
+        &ett_zbee_zcl_met_noti_flags_5,
+        &ett_zbee_zcl_met_snapshot_cause_flags
     };
 
     /* Register the ZigBee ZCL Metering cluster protocol name and description */
@@ -7420,9 +8226,62 @@ static int hf_zbee_zcl_pp_publish_debt_log_collection_time = -1;
 static int hf_zbee_zcl_pp_publish_debt_log_amount_collected = -1;
 static int hf_zbee_zcl_pp_publish_debt_log_debt_type = -1;
 static int hf_zbee_zcl_pp_publish_debt_log_outstanding_debt = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_disconnection_enabled = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_prepayment_enabled = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_credit_management_enabled = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_credit_display_enabled = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_account_base = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_contactor_fitted = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_standing_charge_configuration = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_emergency_standing_charge_configuration = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_debt_configuration = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_emergency_debt_configuration = -1;
+static int hf_zbee_zcl_pp_payment_control_configuration_reserved = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_general = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_end_of_billing_period = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tariff_information = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_price_matrix = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_manually_triggered_from_client = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tenancy = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_supplier = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_meter_mode = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_top_up_addition = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_debt_credit_addition = -1;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_reserved = -1;
+
+static const int* zbee_zcl_pp_payment_control_configuration_flags[] = {
+        &hf_zbee_zcl_pp_payment_control_configuration_disconnection_enabled,
+        &hf_zbee_zcl_pp_payment_control_configuration_prepayment_enabled,
+        &hf_zbee_zcl_pp_payment_control_configuration_credit_management_enabled,
+        &hf_zbee_zcl_pp_payment_control_configuration_credit_display_enabled,
+        &hf_zbee_zcl_pp_payment_control_configuration_account_base,
+        &hf_zbee_zcl_pp_payment_control_configuration_contactor_fitted,
+        &hf_zbee_zcl_pp_payment_control_configuration_standing_charge_configuration,
+        &hf_zbee_zcl_pp_payment_control_configuration_emergency_standing_charge_configuration,
+        &hf_zbee_zcl_pp_payment_control_configuration_debt_configuration,
+        &hf_zbee_zcl_pp_payment_control_configuration_emergency_debt_configuration,
+        &hf_zbee_zcl_pp_payment_control_configuration_reserved,
+        NULL
+};
+
+static const int* zbee_zcl_pp_snapshot_payload_cause_flags[] = {
+        &hf_zbee_zcl_pp_snapshot_payload_cause_general,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_end_of_billing_period,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tariff_information,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_price_matrix,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_manually_triggered_from_client,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tenancy,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_supplier,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_meter_mode,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_top_up_addition,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_debt_credit_addition,
+        &hf_zbee_zcl_pp_snapshot_payload_cause_reserved,
+        NULL
+};
 
 /* Initialize the subtree pointers */
-#define ZBEE_ZCL_SE_PP_NUM_INDIVIDUAL_ETT             1
+#define ZBEE_ZCL_SE_PP_NUM_INDIVIDUAL_ETT             3
 #define ZBEE_ZCL_SE_PP_NUM_PUBLISH_TOP_UP_LOG_ETT     30
 #define ZBEE_ZCL_SE_PP_NUM_PUBLISH_DEBT_LOG_ETT       30
 #define ZBEE_ZCL_SE_PP_NUM_TOTAL_ETT                  (ZBEE_ZCL_SE_PP_NUM_INDIVIDUAL_ETT + \
@@ -7430,6 +8289,8 @@ static int hf_zbee_zcl_pp_publish_debt_log_outstanding_debt = -1;
                                                        ZBEE_ZCL_SE_PP_NUM_PUBLISH_DEBT_LOG_ETT)
 
 static gint ett_zbee_zcl_pp = -1;
+static gint ett_zbee_zcl_pp_payment_control_configuration = -1;
+static gint ett_zbee_zcl_pp_snapshot_payload_cause = -1;
 static gint ett_zbee_zcl_pp_publish_top_up_entry[ZBEE_ZCL_SE_PP_NUM_PUBLISH_TOP_UP_LOG_ETT];
 static gint ett_zbee_zcl_pp_publish_debt_log_entry[ZBEE_ZCL_SE_PP_NUM_PUBLISH_DEBT_LOG_ETT];
 
@@ -7456,7 +8317,12 @@ dissect_zcl_pp_attr_data(proto_tree *tree, tvbuff_t *tvb, guint *offset, guint16
             proto_tree_add_item(tree, hf_zbee_zcl_pp_attr_reporting_status, tvb, *offset, 1, ENC_NA);
             *offset += 1;
             break;
-
+        case ZBEE_ZCL_ATTR_ID_PP_PAYMENT_CONTROL_CONFIGURATION:
+            proto_item_append_text(tree, ", Payment Control Configuration");
+            proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_pp_payment_control_configuration,
+                                   ett_zbee_zcl_pp_payment_control_configuration, zbee_zcl_pp_payment_control_configuration_flags, ENC_LITTLE_ENDIAN);
+            *offset += 2;
+            break;
         default: /* Catch all */
             dissect_zcl_attr_data(tvb, tree, offset, data_type, client_attr);
             break;
@@ -7792,7 +8658,8 @@ dissect_zcl_pp_change_payment_mode(tvbuff_t *tvb, proto_tree *tree, guint *offse
     *offset += 4;
 
     /* Proposed Payment Control Configuration */
-    proto_tree_add_item(tree, hf_zbee_zcl_pp_change_payment_mode_proposed_payment_control_configuration, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_pp_change_payment_mode_proposed_payment_control_configuration,
+                           ett_zbee_zcl_pp_payment_control_configuration, zbee_zcl_pp_payment_control_configuration_flags, ENC_LITTLE_ENDIAN);
     *offset += 2;
 
     /* Cut Off Value */
@@ -7830,7 +8697,8 @@ dissect_zcl_pp_get_prepay_snapshot(tvbuff_t *tvb, proto_tree *tree, guint *offse
     *offset += 1;
 
     /* Snapshot Cause */
-    proto_tree_add_item(tree, hf_zbee_zcl_pp_get_prepay_snapshot_snapshot_cause, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_pp_get_prepay_snapshot_snapshot_cause,
+                           ett_zbee_zcl_pp_snapshot_payload_cause, zbee_zcl_pp_snapshot_payload_cause_flags, ENC_LITTLE_ENDIAN);
     *offset += 4;
 } /*dissect_zcl_pp_get_prepay_snapshot*/
 
@@ -8001,7 +8869,8 @@ dissect_zcl_pp_publish_prepay_snapshot(tvbuff_t *tvb, proto_tree *tree, guint *o
     *offset += 1;
 
     /* Snapshot Cause */
-    proto_tree_add_item(tree, hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_cause, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_bitmask(tree, tvb, *offset, hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_cause,
+                           ett_zbee_zcl_pp_snapshot_payload_cause, zbee_zcl_pp_snapshot_payload_cause_flags, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Snapshot Payload Type */
@@ -8480,11 +9349,84 @@ proto_register_zbee_zcl_pp(void)
         { &hf_zbee_zcl_pp_publish_debt_log_outstanding_debt,
             { "Outstanding Debt", "zbee_zcl_se.pp.publish_debt_log.outstanding_debt", FT_UINT32, BASE_DEC, NULL,
             0x00, NULL, HFILL } },
+
+        { &hf_zbee_zcl_pp_payment_control_configuration,
+            { "Payment Control Configuration", "zbee_zcl_se.pp.attr.payment_control_configuration", FT_UINT16, BASE_HEX, NULL,
+            0x00, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_disconnection_enabled,
+            { "Disconnection Enabled", "zbee_zcl_se.pp.attr.payment_control_configuration.disconnection_enabled", FT_BOOLEAN, 16, NULL,
+            0x0001, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_prepayment_enabled,
+            { "Prepayment Enabled", "zbee_zcl_se.pp.attr.payment_control_configuration.prepayment_enabled", FT_BOOLEAN, 16, NULL,
+            0x0002, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_credit_management_enabled,
+            { "Credit Management Enabled", "zbee_zcl_se.pp.attr.payment_control_configuration.credit_management_enabled", FT_BOOLEAN, 16, NULL,
+            0x0004, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_credit_display_enabled,
+            { "Credit Display Enabled", "zbee_zcl_se.pp.attr.payment_control_configuration.credit_display_enabled", FT_BOOLEAN, 16, NULL,
+            0x0010, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_account_base,
+            { "Account Base", "zbee_zcl_se.pp.attr.payment_control_configuration.account_base", FT_BOOLEAN, 16, NULL,
+            0x0040, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_contactor_fitted,
+            { "Contactor Fitted", "zbee_zcl_se.pp.attr.payment_control_configuration.contactor_fitted", FT_BOOLEAN, 16, NULL,
+            0x0080, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_standing_charge_configuration,
+            { "Standing Charge Configuration", "zbee_zcl_se.pp.attr.payment_control_configuration.standing_charge_configuration", FT_BOOLEAN, 16, NULL,
+            0x0100, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_emergency_standing_charge_configuration,
+            { "Emergency Standing Charge Configuration", "zbee_zcl_se.pp.attr.payment_control_configuration.emergency_standing_charge_configuration", FT_BOOLEAN, 16, NULL,
+            0x0200, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_debt_configuration,
+            { "Debt Configuration", "zbee_zcl_se.pp.attr.payment_control_configuration.debt_configuration", FT_BOOLEAN, 16, NULL,
+            0x0400, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_emergency_debt_configuration,
+            { "Emergency Debt Configuration", "zbee_zcl_se.pp.attr.payment_control_configuration.emergency_debt_configuration", FT_BOOLEAN, 16, NULL,
+            0x0800, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_payment_control_configuration_reserved,
+            { "Reserved", "zbee_zcl_se.pp.attr.payment_control_configuration.reserved", FT_UINT16, BASE_HEX, NULL,
+            0xF028, NULL, HFILL } },
+
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_general,
+            { "General", "zbee_zcl_se.pp.snapshot_payload_cause.general", FT_BOOLEAN, 32, NULL,
+            0x00000001, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_end_of_billing_period,
+            { "End of Billing Period", "zbee_zcl_se.pp.snapshot_payload_cause.end_of_billing_period", FT_BOOLEAN, 32, NULL,
+            0x00000002, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tariff_information,
+            { "Change of Tariff Information", "zbee_zcl_se.pp.snapshot_payload_cause.change_of_tariff_information", FT_BOOLEAN, 32, NULL,
+            0x00000008, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_price_matrix,
+            { "Change of Price Matrix", "zbee_zcl_se.pp.snapshot_payload_cause.change_of_price_matrix", FT_BOOLEAN, 32, NULL,
+            0x00000010, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_manually_triggered_from_client,
+            { "Manually Triggered from Client", "zbee_zcl_se.pp.snapshot_payload_cause.manually_triggered_from_client", FT_BOOLEAN, 32, NULL,
+            0x00000400, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tenancy,
+            { "Change of Tenancy", "zbee_zcl_se.pp.snapshot_payload_cause.change_of_tenancy", FT_BOOLEAN, 32, NULL,
+            0x00001000, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_supplier,
+            { "Change of Supplier", "zbee_zcl_se.pp.snapshot_payload_cause.change_of_supplier", FT_BOOLEAN, 32, NULL,
+            0x00002000, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_change_of_meter_mode,
+            { "Change of (Meter) Mode", "zbee_zcl_se.pp.snapshot_payload_cause.change_of_meter_mode", FT_BOOLEAN, 32, NULL,
+            0x00004000, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_top_up_addition,
+            { "TopUp addition", "zbee_zcl_se.pp.snapshot_payload_cause.top_up_addition", FT_BOOLEAN, 32, NULL,
+            0x00040000, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_debt_credit_addition,
+            { "Debt/Credit addition", "zbee_zcl_se.pp.snapshot_payload_cause.debt_credit_addition", FT_BOOLEAN, 32, NULL,
+            0x00080000, NULL, HFILL } },
+        { &hf_zbee_zcl_pp_snapshot_payload_cause_reserved,
+            { "Reserved", "zbee_zcl_se.pp.snapshot_payload_cause.reserved", FT_UINT32, BASE_HEX, NULL,
+            0xFFF38BE4, NULL, HFILL } },
     };
 
     /* ZCL Prepayment subtrees */
     gint *ett[ZBEE_ZCL_SE_PP_NUM_TOTAL_ETT];
     ett[0] = &ett_zbee_zcl_pp;
+    ett[1] = &ett_zbee_zcl_pp_payment_control_configuration;
+    ett[2] = &ett_zbee_zcl_pp_snapshot_payload_cause;
 
     guint j = ZBEE_ZCL_SE_PP_NUM_INDIVIDUAL_ETT;
 

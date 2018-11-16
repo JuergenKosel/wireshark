@@ -1150,6 +1150,7 @@ snort_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
 
             /* First time, open current_session.in to write to for dumping into snort with */
             if (!current_session.pdh) {
+                wtap_dump_params params = WTAP_DUMP_PARAMS_INIT;
                 int open_err;
 
                 /* Older versions of Snort don't support capture file with several encapsulations (like pcapng),
@@ -1163,11 +1164,12 @@ snort_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
                  * versions of Snort" wouldn't handle multiple encapsulation
                  * types.
                  */
+                params.encap = pinfo->rec->rec_header.packet_header.pkt_encap;
+                params.snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
                 current_session.pdh = wtap_dump_fdopen(current_session.in,
                                                        WTAP_FILE_TYPE_SUBTYPE_PCAP,
-                                                       pinfo->rec->rec_header.packet_header.pkt_encap,
-                                                       WTAP_MAX_PACKET_SIZE_STANDARD,
-                                                       FALSE,                 /* compressed */
+                                                       WTAP_UNCOMPRESSED,
+                                                       &params,
                                                        &open_err);
                 if (!current_session.pdh) {
                     current_session.working = FALSE;
@@ -1179,7 +1181,7 @@ snort_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
             rec = *pinfo->rec;
 
             /* Copying packet details into wtp for writing */
-            rec.ts = pinfo->fd->abs_ts;
+            rec.ts = pinfo->abs_ts;
 
             /* NB: overwriting the time stamp so we can see packet number back if an alert is written for this frame!!!! */
             /* TODO: does this seriously affect snort's ability to reason about time?

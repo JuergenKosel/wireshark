@@ -64,8 +64,8 @@ PS:\>iex ((new-object net.webclient).DownloadString(_https://chocolatey.org/inst
 
 Chocolatey sometimes installs packages in unexpected locations. Python
 is a notable example. While it's typically installed in a top-level
-directory, e.g. _C:\Python27_ or in %PROGRAMFILES%, e.g. _C:\Program
-Files\Python36_, Chocolatey tends to install it under
+directory, e.g. _C:\Python37_ or in %PROGRAMFILES%, e.g. _C:\Program
+Files\Python37_, Chocolatey tends to install it under
 _C:\ProgramData\chocolatey_ or _C:\Tools_. If you want to avoid this
 behavior you'll probabaly want to install Python using the packages from
 python.org.
@@ -301,8 +301,6 @@ There is NO WARRANTY, to the extent permitted by law.
 
 Your version string may vary, of course.
 
-[[ChToolsMSChain]]
-
 ==== Ninja
 
 Ninja is an alternative to make, and is available for many of the
@@ -319,6 +317,8 @@ If Ninja isn't already installed and isn't
 available as a package for your platform, you can get it from:
 https://ninja-build.org.  You can download the source code or binaries
 for Linux, macOS, and Windows (we have not tested Ninja on Windows).
+
+[[ChToolsMSChain]]
 
 === Microsoft compiler toolchain (Windows native)
 
@@ -343,7 +343,8 @@ _windows.h_, _WSock32.lib_)
 
 ==== Official Toolchain Packages And Alternatives
 
-The official Wireshark 2.4.x releases are compiled using Microsoft Visual {cpp} 2015.
+The official Wireshark 2.6.x releases are compiled using Microsoft Visual {cpp} 2017.
+The Wireshark 2.4.x releases are compiled using Microsoft Visual {cpp} 2015.
 The Wireshark 2.2.x and 2.0.x releases are compiled using Microsoft Visual {cpp} 2013.
 The Wireshark 1.12.x and 1.10.x releases were compiled using
 Microsoft Visual {cpp} 2010 SP1.
@@ -365,56 +366,26 @@ package is to be used. See
 <<msvc-runtime-redistributable>> below for more details.
 
 However, you might already have a different Microsoft {cpp} compiler
-installed. It should be possible to use any of the following with the considerations listed:
+installed.  It should be possible to use any of the following with the
+considerations listed.  You will need to sign up for a
+https://visualstudio.microsoft.com/dev-essentials/[Visual Studio Dev
+Essentials] account if you don't have a Visual Studio (MSDN)
+subscription.  The older versions can be downloaded from
+https://visualstudio.microsoft.com/vs/older-downloads/[].
 
-.Visual {cpp} 2013 Community Edition
+.Visual {cpp} 2015 Community Edition
 
 IDE + Debugger?:: Yes
-
-Purchase required?:: http://www.visualstudio.com/en-us/downloads/download-visual-studio-vs#d-community[Free Download]
 
 SDK required for 64-bit builds?:: No
 
-CMake Generator: *`Visual Studio 12`*
-
-.Visual {cpp} 2010 Express Edition
-
-IDE + Debugger?:: Yes
-
-Purchase required?:: http://www.microsoft.com/express/Downloads/#Visual_Studio_2010_Express_Downloads[Free Download]
-
-SDK required for 64-bit builds?:: Yes.
-
-CMake Generator: *`Visual Studio 10`*
-
-Remarks:: Installers created using express editions require a {cpp} redistributable
-_vcredist_x86.exe_ (3MB free
-download) is required to build
-Wireshark-win32-{wireshark-version}.exe, and
-_vcredist_x64.exe_ is required to build
-Wireshark-win64-{wireshark-version}.exe. The version of
-_vcredist_x86.exe_ or _vcredist_x64.exe_ _must_ match the version for your
-compiler including any service packs installed for the compiler.]
-
-.Visual Studio 2010
-
-IDE + Debugger?:: Yes
-
-Purchase required?:: Yes
-
-SDK required for 64-bit builds?:: No
-
-CMake Generator: *`Visual Studio 10`*
-
-Remarks:: Building a 64-bit installer
-requires a a {cpp} redistributable
-(_vcredist_x86.exe_).footnoteref[vcredist]
+CMake Generator: *`Visual Studio 14`*
 
 You can use Chocolatey to install Visual Studio, e.g:
 
 [source,cmd]
 ----
-PS:\> choco install VisualStudioCommunity2013
+PS:\> choco install VisualStudioCommunity2015
 ----
 
 ==== cl.exe (C Compiler)
@@ -426,9 +397,6 @@ versions ordered by release date.
 |===============
 |Compiler Package|cl.exe|_MSC_VER|CRT DLL
 |Visual Studio 2015|14.0|1900|msvcr140.dll
-|Visual Studio 2013|12.0|1800|msvcr120.dll
-|Visual Studio 2012|11.0|1700|msvcr110.dll
-|Visual Studio 2010|10.0|1600|msvcr100.dll
 |===============
 
 After correct installation of the toolchain, typing
@@ -451,7 +419,7 @@ usage: cl [ option... ] filename... [ /link linkoption...
 However, the version string may vary.
 
 Documentation on the compiler can be found at
-http://msdn.microsoft.com/en-us/library/wk21sfcf.aspx[Microsoft MSDN]
+https://docs.microsoft.com/en-us/cpp/build/reference/compiling-a-c-cpp-program?view=vs-2017[Microsoft Docs]
 
 ==== link.exe (Linker)
 
@@ -475,7 +443,7 @@ Copyright (C) Microsoft Corporation.  All rights reserved.
 However, the version string may vary.
 
 Documentation on the linker can be found at
-http://msdn.microsoft.com/en-us/library/t2fck18t.aspx[Microsoft MSDN]
+https://docs.microsoft.com/en-us/cpp/build/reference/linking?view=vs-2017[Microsoft Docs]
 
 [[msvc-runtime-redistributable]]
 
@@ -509,47 +477,16 @@ can't be legally redistributed by third parties like
 us.
 ====
 
-The following MSDN link is recommended for the
+The following Microsoft Docs link is recommended for the
 interested reader:
 
-* http://msdn.microsoft.com/en-us/library/ms235299.aspx[Redistributing Visual C++ Files]
+* https://docs.microsoft.com/en-us/cpp/ide/redistributing-visual-cpp-files?view=vs-2017[Redistributing Visual C++ Files]
 
 In all cases where _vcredist_x86.exe_ or _vcredist_x64.exe_ is
 downloaded it should be downloaded to the directory into which the support
 libraries for Wireshark have been downloaded and installed. This directory is
 specified by the WIRESHARK_BASE_DIR or WIRESHARK_LIB_DIR environment variables.
 It need not, and should not, be run after being downloaded.
-
-===== msvcr120.dll / vcredist_x86.exe / vcredist_x64.exe - Version 12.0 (2013)
-
-There are three redistribution methods that MSDN
-mentions for MSVC 2013 (see:
-http://msdn.microsoft.com/en-us/library/vstudio/ms235316(v=vs.120).aspx["Choosing a Deployment Method"]):
-
-. _Using Visual {cpp} Redistributable Package._
-The Microsoft libraries are installed by copying
-_vcredist_x64.exe_ or
-_vcredist_x86.exe_ to the target
-machine and executing it on that machine (MSDN recommends
-this for applications built with Visual Studio 2013)
-
-. _Using Visual {cpp} Redistributable Merge Modules._
-(Loadable modules for building msi installers.
-Not suitable for Wireshark’s NSIS based installer)
-
-. _Install a particular Visual {cpp} assembly as a
-private assembly for the application._ The
-Microsoft libraries are installed by copying the folder
-content of _Microsoft.VC120.CRT_ to
-the target directory (e.g. _C:\Program Files\Wireshark_)
-
-To save installer size, and to make a portable
-version of Wireshark (which must be completely self-contained,
-on a medium such as a flash drive, and not require that an
-installer be run to install anything on the target machine)
-possible, when building 32-bit Wireshark with MSVC2013, method
-3 (copying the content of _Microsoft.VC120.CRT_)
-is used (this produces the smallest package).
 
 ==== Windows (Platform) SDK
 
@@ -559,15 +496,8 @@ libraries (e.g. `windows.h`, `WSock32.lib`, etc.). As new Windows
 features evolve in time, updated SDK’s become available that
 include new and updated APIs.
 
-When you purchase a commercial Visual Studio or use the Community Edition, it will
-include an SDK. The free Express (as in beer) downloadable C compiler
-versions (V{cpp} 2012 Express, V{cpp} 2012 Express, etc.) do not
-contain an SDK -- you'll need to download a PSDK in order to
-have the required C header files and libraries.
-
-Older versions of the SDK should also work. However, the
-command to set the environment settings will be different, try
-search for SetEnv.* in the SDK directory.
+When you purchase a commercial Visual Studio or use the Community
+Edition, it will include an SDK.
 
 === Documentation Toolchain
 
@@ -589,7 +519,7 @@ Release notes text:: Asciidoctor → _HTML_ → html2text.py
 
 ==== Asciidoctor
 
-Asciidoctor[https://asciidoctor.org/] comes in several flavors: a Ruby
+https://asciidoctor.org/[Asciidoctor] comes in several flavors: a Ruby
 gem (Asciidoctor), a Java bundle (AsciidoctorJ), and transpiled
 JavaScript (Asciidoctor.js). Only the Asciidoctor and AsciidoctorJ
 flavors are supported for building the Wireshark documentation and
@@ -598,7 +528,7 @@ AsciidoctorJ is recommended.
 The guides and release notes were originally written in DocBook (hence
 the directory name). They were later converted to AsciiDoc and then
 migrated to Asciidoctor.
-`compat-mode`[https://asciidoctor.org/docs/migration/] is currently
+https://asciidoctor.org/docs/migration/[`compat-mode`] is currently
 enabled for the guides, but we are steadily migrating to Asciidoctor’s
 modern (>= 1.5.0) syntax.
 
@@ -692,7 +622,7 @@ debugging with the Visual Studio integrated debugger it can be helpful if you
 have to debug on a machine where an integrated debugger is not available.
 
 You can get it free of charge from Microsoft in several ways, see the
-http://msdn.microsoft.com/en-us/library/windows/hardware/ff551063%28v=vs.85%29.aspx)[Debugging tools for Windows] page.
+https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/[Debugging tools for Windows] page.
 
 You can also use Chocolatey to install WinDbg:
 
@@ -747,13 +677,12 @@ Your version string will likely vary.
 
 === Python
 
-http://python.org/[Python] is an interpreted programming language. It is
-used to generate some source files, documenation, and other tasks.
-Python 2.5 or later (including Python 3) should work fine and Python 3 is
-recommended. It may be required in the future.
+https://python.org/[Python] is an interpreted programming language. It is
+used to generate some source files, documentation, testing and other tasks.
+Python 3.4 and later is required. Python 2.7 is no longer supported.
 
 Python is either included or available as a package on most UNIX-like platforms.
-Windows packages and source are available at http://python.org/download/[].
+Windows packages and source are available at https://python.org/download/[].
 The Cygwin Python package is *not* recommended since _/usr/bin/python_ is
 a symbolic link, which causes confusion outside Cygwin.
 
@@ -764,19 +693,12 @@ You can also use Chocolatey to install Python:
 PS:\> choco install Python3
 ----
 
-or
-
-[source,cmd]
-----
-PS:\> choco install Python2
-----
-
-Chocolatey installs Python into _C:\tools\python3_ or _C:\tools\python2_ by
+Chocolatey installs Python into _C:\Python37_ by
 default. You can verify your Python version by running
 
 [source,sh]
 ----
-$ python --version
+$ python3 --version
 ----
 
 on UNIX-like platforms and
@@ -846,7 +768,7 @@ However, the version string may vary.
 
 [[ChToolsWindowsPerl]]
 
-==== Windows Native: Perl
+==== Windows native: Perl
 
 A native Windows Perl package can be obtained from
 http://www.ActiveState.com[Active State] or http://strawberryperl.com/[Strawberry Perl]. The installation
@@ -927,7 +849,7 @@ Your version string may vary.
 
 [[ChToolsWindowsBison]]
 
-==== Windows Native: Win flex-bison and bison
+==== Windows native: Win flex-bison and bison
 
 A native Windows version of bison is available in the _winflexbison_
 https://chocolatey.org/[Chocolatey] package. Note that the executable is named
@@ -971,7 +893,7 @@ Your version string may vary.
 
 [[ChToolsWindowsFlex]]
 
-==== Windows Native: Win flex-bison and flex
+==== Windows native: Win flex-bison and flex
 
 A native Windows version of flex is available in the _winflexbison_
 https://chocolatey.org/[Chocolatey] package. Note that the executable is named
@@ -1027,7 +949,7 @@ Your version will likely be different.
 
 [[ChToolsWindowsGit]]
 
-==== Windows Native: git
+==== Windows native: git
 
 The Git command line tools for Windows can be found at
 http://git-scm.com/download/win[] and can also be installed using Chocolatey:

@@ -549,6 +549,10 @@ void CaptureInterfacesDialog::updateInterfaces()
     }
 
     ui->gbNewFileAuto->setChecked(global_capture_opts.multi_files_on);
+    ui->PktCheckBox->setChecked(global_capture_opts.has_file_packets);
+    if (global_capture_opts.has_file_packets) {
+        ui->PktSpinBox->setValue(global_capture_opts.file_packets);
+    }
     ui->MBCheckBox->setChecked(global_capture_opts.has_autostop_filesize);
     ui->SecsCheckBox->setChecked(global_capture_opts.has_file_interval);
     if (global_capture_opts.has_autostop_filesize) {
@@ -850,6 +854,10 @@ bool CaptureInterfacesDialog::saveOptionsToPreferences()
                 break;
             }
          }
+         global_capture_opts.has_file_packets = ui->PktCheckBox->isChecked();
+         if (global_capture_opts.has_file_packets) {
+             global_capture_opts.file_packets = ui->PktSpinBox->value();
+         }
          global_capture_opts.has_autostop_filesize = ui->MBCheckBox->isChecked();
          if (global_capture_opts.has_autostop_filesize) {
              global_capture_opts.autostop_filesize = ui->MBSpinBox->value();
@@ -878,9 +886,12 @@ bool CaptureInterfacesDialog::saveOptionsToPreferences()
              QMessageBox::warning(this, tr("Error"),
                                       tr("Multiple files: No capture file name given. You must specify a filename if you want to use multiple files."));
              return false;
-         } else if (!global_capture_opts.has_autostop_filesize && !global_capture_opts.has_file_interval) {
+         } else if (!global_capture_opts.has_autostop_filesize &&
+                    !global_capture_opts.has_file_interval &&
+                    !global_capture_opts.has_file_duration &&
+                    !global_capture_opts.has_file_packets) {
              QMessageBox::warning(this, tr("Error"),
-                                      tr("Multiple files: No file limit given. You must specify a file size or interval at which is switched to the next capture file\n if you want to use multiple files."));
+                                      tr("Multiple files: No file limit given. You must specify a file size, interval, or number of packets for each file."));
              g_free(global_capture_opts.save_file);
              global_capture_opts.save_file = NULL;
              return false;
@@ -1056,9 +1067,7 @@ bool CaptureInterfacesDialog::saveOptionsToPreferences()
 #endif
         }
     }
-    if (!prefs.gui_use_pref_save) {
-        prefs_main_write();
-    }
+    prefs_main_write();
     return true;
 }
 
@@ -1322,9 +1331,9 @@ void InterfaceTreeDelegate::snapshotLengthChanged(int value)
     }
 }
 
+#ifdef SHOW_BUFFER_COLUMN
 void InterfaceTreeDelegate::bufferSizeChanged(int value)
 {
-#ifdef SHOW_BUFFER_COLUMN
     interface_t *device;
     QTreeWidgetItem *ti = tree_->currentItem();
     if (!ti) {
@@ -1336,10 +1345,8 @@ void InterfaceTreeDelegate::bufferSizeChanged(int value)
         return;
     }
     device->buffer = value;
-#else
-    Q_UNUSED(value)
-#endif
 }
+#endif
 
 #endif /* HAVE_LIBPCAP */
 

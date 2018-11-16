@@ -1,4 +1,4 @@
--- 3GPP TS 38.413 1.0.0 (2018-06-04)
+-- 3GPP TS 38.413 V15.1.0 (2018-09)
 -- 9.4.3	Elementary Procedure Definitions
 -- **************************************************************
 --
@@ -60,6 +60,8 @@ FROM NGAP-CommonDataTypes
 	NGSetupFailure,
 	NGSetupRequest,
 	NGSetupResponse,
+	OverloadStart,
+	OverloadStop,
 	Paging,
 	PathSwitchRequest,
 	PathSwitchRequestAcknowledge,
@@ -82,9 +84,9 @@ FROM NGAP-CommonDataTypes
 	RANConfigurationUpdateAcknowledge,
 	RANConfigurationUpdateFailure,
 	RerouteNASRequest,
+	RRCInactiveTransitionReport,
 	TraceFailureIndication,
 	TraceStart,
-	UECapabilityInfoIndication,
 	UEContextModificationFailure,
 	UEContextModificationRequest,
 	UEContextModificationResponse,
@@ -93,6 +95,7 @@ FROM NGAP-CommonDataTypes
 	UEContextReleaseRequest,
 	UERadioCapabilityCheckRequest,
 	UERadioCapabilityCheckResponse,
+	UERadioCapabilityInfoIndication,
 	UETNLABindingReleaseRequest,
 	UplinkNASTransport,
 	UplinkNonUEAssociatedNRPPaTransport,
@@ -125,6 +128,8 @@ FROM NGAP-PDU-Contents
 	id-NASNonDeliveryIndication,
 	id-NGReset,
 	id-NGSetup,
+	id-OverloadStart,
+	id-OverloadStop,
 	id-Paging,
 	id-PathSwitchRequest,
 	id-PDUSessionResourceModify,
@@ -138,13 +143,14 @@ FROM NGAP-PDU-Contents
 	id-PWSRestartIndication,
 	id-RANConfigurationUpdate,
 	id-RerouteNASRequest,
+	id-RRCInactiveTransitionReport,
 	id-TraceFailureIndication,
 	id-TraceStart,
-	id-UECapabilityInfoIndication,
 	id-UEContextModification,
 	id-UEContextRelease,
 	id-UEContextReleaseRequest,
 	id-UERadioCapabilityCheck,
+	id-UERadioCapabilityInfoIndication,
 	id-UETNLABindingRelease,
 	id-UplinkNASTransport,
 	id-UplinkNonUEAssociatedNRPPaTransport,
@@ -164,8 +170,8 @@ NGAP-ELEMENTARY-PROCEDURE ::= CLASS {
 	&InitiatingMessage				,
 	&SuccessfulOutcome							OPTIONAL,
 	&UnsuccessfulOutcome						OPTIONAL,
-	&procedureCode				ProcedureCode 	UNIQUE,
-	&criticality				Criticality 	DEFAULT ignore
+	&procedureCode				ProcedureCode	UNIQUE,
+	&criticality				Criticality	DEFAULT ignore
 }
 
 WITH SYNTAX {
@@ -227,7 +233,7 @@ NGAP-ELEMENTARY-PROCEDURES-CLASS-1 NGAP-ELEMENTARY-PROCEDURE ::= {
 	initialContextSetup				|
 	nGReset							|
 	nGSetup							|
-	pathSwitchRequest 				|
+	pathSwitchRequest				|
 	pDUSessionResourceModify		|
 	pDUSessionResourceModifyIndication			|
 	pDUSessionResourceRelease		|
@@ -256,16 +262,19 @@ NGAP-ELEMENTARY-PROCEDURES-CLASS-2 NGAP-ELEMENTARY-PROCEDURE ::= {
 	locationReportingControl		|
 	locationReportingFailureIndication	|
 	nASNonDeliveryIndication		|
-	paging 							|
+	overloadStart					|
+	overloadStop					|
+	paging							|
 	pDUSessionResourceNotify		|
 	privateMessage					|
 	pWSFailureIndication						|
 	pWSRestartIndication			|
 	rerouteNASRequest				|
+	rRCInactiveTransitionReport		|
 	traceFailureIndication			|
 	traceStart						|
-	uECapabilityInfoIndication		|
 	uEContextReleaseRequest			|
+	uERadioCapabilityInfoIndication	|
 	uETNLABindingRelease			|
 	uplinkNASTransport				|
 	uplinkNonUEAssociatedNRPPaTransport	|
@@ -283,7 +292,7 @@ NGAP-ELEMENTARY-PROCEDURES-CLASS-2 NGAP-ELEMENTARY-PROCEDURE ::= {
 aMFConfigurationUpdate NGAP-ELEMENTARY-PROCEDURE ::= {
 	INITIATING MESSAGE		AMFConfigurationUpdate
 	SUCCESSFUL OUTCOME		AMFConfigurationUpdateAcknowledge
-	UNSUCCESSFUL OUTCOME 	AMFConfigurationUpdateFailure
+	UNSUCCESSFUL OUTCOME	AMFConfigurationUpdateFailure
 	PROCEDURE CODE			id-AMFConfigurationUpdate
 	CRITICALITY				reject
 }
@@ -374,7 +383,7 @@ handoverResourceAllocation NGAP-ELEMENTARY-PROCEDURE ::= {
 initialContextSetup NGAP-ELEMENTARY-PROCEDURE ::= {
 	INITIATING MESSAGE		InitialContextSetupRequest
 	SUCCESSFUL OUTCOME		InitialContextSetupResponse
-	UNSUCCESSFUL OUTCOME 	InitialContextSetupFailure
+	UNSUCCESSFUL OUTCOME	InitialContextSetupFailure
 	PROCEDURE CODE			id-InitialContextSetup
 	CRITICALITY				reject
 }
@@ -419,8 +428,20 @@ nGReset NGAP-ELEMENTARY-PROCEDURE ::= {
 nGSetup NGAP-ELEMENTARY-PROCEDURE ::= {
 	INITIATING MESSAGE		NGSetupRequest
 	SUCCESSFUL OUTCOME		NGSetupResponse
-	UNSUCCESSFUL OUTCOME 	NGSetupFailure
+	UNSUCCESSFUL OUTCOME	NGSetupFailure
 	PROCEDURE CODE			id-NGSetup
+	CRITICALITY				reject
+}
+
+overloadStart NGAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		OverloadStart
+	PROCEDURE CODE			id-OverloadStart
+	CRITICALITY				ignore
+}
+
+overloadStop NGAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		OverloadStop
+	PROCEDURE CODE			id-OverloadStop
 	CRITICALITY				reject
 }
 
@@ -500,7 +521,7 @@ pWSRestartIndication NGAP-ELEMENTARY-PROCEDURE ::= {
 rANConfigurationUpdate NGAP-ELEMENTARY-PROCEDURE ::= {
 	INITIATING MESSAGE		RANConfigurationUpdate
 	SUCCESSFUL OUTCOME		RANConfigurationUpdateAcknowledge
-	UNSUCCESSFUL OUTCOME 	RANConfigurationUpdateFailure
+	UNSUCCESSFUL OUTCOME	RANConfigurationUpdateFailure
 	PROCEDURE CODE			id-RANConfigurationUpdate
 	CRITICALITY				reject
 }
@@ -509,6 +530,12 @@ rerouteNASRequest NGAP-ELEMENTARY-PROCEDURE ::= {
 	INITIATING MESSAGE		RerouteNASRequest
 	PROCEDURE CODE			id-RerouteNASRequest
 	CRITICALITY				reject
+}
+
+rRCInactiveTransitionReport NGAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		RRCInactiveTransitionReport
+	PROCEDURE CODE			id-RRCInactiveTransitionReport
+	CRITICALITY				ignore
 }
 
 traceFailureIndication NGAP-ELEMENTARY-PROCEDURE ::= {
@@ -523,16 +550,10 @@ traceStart NGAP-ELEMENTARY-PROCEDURE ::= {
 	CRITICALITY				ignore
 }
 
-uECapabilityInfoIndication NGAP-ELEMENTARY-PROCEDURE ::= {
-	INITIATING MESSAGE		UECapabilityInfoIndication
-	PROCEDURE CODE			id-UECapabilityInfoIndication
-	CRITICALITY				ignore
-}
-
 uEContextModification NGAP-ELEMENTARY-PROCEDURE ::= {
 	INITIATING MESSAGE		UEContextModificationRequest
 	SUCCESSFUL OUTCOME		UEContextModificationResponse
-	UNSUCCESSFUL OUTCOME 	UEContextModificationFailure
+	UNSUCCESSFUL OUTCOME	UEContextModificationFailure
 	PROCEDURE CODE			id-UEContextModification
 	CRITICALITY				reject
 }
@@ -555,6 +576,12 @@ uERadioCapabilityCheck NGAP-ELEMENTARY-PROCEDURE ::= {
 	SUCCESSFUL OUTCOME		UERadioCapabilityCheckResponse
 	PROCEDURE CODE			id-UERadioCapabilityCheck
 	CRITICALITY				reject
+}
+
+uERadioCapabilityInfoIndication NGAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		UERadioCapabilityInfoIndication
+	PROCEDURE CODE			id-UERadioCapabilityInfoIndication
+	CRITICALITY				ignore
 }
 
 uETNLABindingRelease NGAP-ELEMENTARY-PROCEDURE ::= {
@@ -601,3 +628,4 @@ writeReplaceWarning NGAP-ELEMENTARY-PROCEDURE ::= {
 }
 
 END
+

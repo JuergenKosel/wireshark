@@ -1,7 +1,7 @@
 /* packet-lte-rrc-template.c
  * Routines for Evolved Universal Terrestrial Radio Access (E-UTRA);
  * Radio Resource Control (RRC) protocol specification
- * (3GPP TS 36.331 V15.1.0 Release 15) packet dissection
+ * (3GPP TS 36.331 V15.3.0 Release 15) packet dissection
  * Copyright 2008, Vincent Helfre
  * Copyright 2009-2018, Pascal Quantin
  *
@@ -51,6 +51,8 @@ static dissector_handle_t rrc_irat_ho_to_utran_cmd_handle = NULL;
 static dissector_handle_t rrc_sys_info_cont_handle = NULL;
 static dissector_handle_t gsm_a_dtap_handle = NULL;
 static dissector_handle_t gsm_rlcmac_dl_handle = NULL;
+static dissector_handle_t nr_rrc_reconf_handle = NULL;
+static dissector_handle_t lte_rrc_conn_reconf_handle;
 static dissector_handle_t lte_rrc_dl_ccch_handle;
 
 static wmem_map_t *lte_rrc_etws_cmas_dcs_hash = NULL;
@@ -254,6 +256,14 @@ static int hf_lte_rrc_sib12_fragment_count = -1;
 static int hf_lte_rrc_sib12_reassembled_in = -1;
 static int hf_lte_rrc_sib12_reassembled_length = -1;
 static int hf_lte_rrc_sib12_reassembled_data = -1;
+static int hf_lte_rrc_measGapPatterns_v1520_bit1 = -1;
+static int hf_lte_rrc_measGapPatterns_v1520_bit2 = -1;
+static int hf_lte_rrc_measGapPatterns_v1520_bit3 = -1;
+static int hf_lte_rrc_measGapPatterns_v1520_bit4 = -1;
+static int hf_lte_rrc_measGapPatterns_v1520_bit5 = -1;
+static int hf_lte_rrc_measGapPatterns_v1520_bit6 = -1;
+static int hf_lte_rrc_measGapPatterns_v1520_bit7 = -1;
+static int hf_lte_rrc_measGapPatterns_v1520_bit8 = -1;
 
 /* Initialize the subtree pointers */
 static int ett_lte_rrc = -1;
@@ -293,8 +303,9 @@ static gint ett_lte_rrc_ul_DCCH_MessageNR_r15 = -1;
 static gint ett_lte_rrc_sourceRB_ConfigNR_r15 = -1;
 static gint ett_lte_rrc_sourceRB_ConfigSN_NR_r15 = -1;
 static gint ett_lte_rrc_sourceOtherConfigSN_NR_r15 = -1;
-static gint ett_lte_rrc_sourceContextENDC_r15 = -1;
+static gint ett_lte_rrc_sourceContextEN_DC_r15 = -1;
 static gint ett_lte_rrc_requestedFreqBandsNR_MRDC_r15 = -1;
+static gint ett_lte_rrc_measGapPatterns_v1520 = -1;
 
 static expert_field ei_lte_rrc_number_pages_le15 = EI_INIT;
 static expert_field ei_lte_rrc_si_info_value_changed = EI_INIT;
@@ -2551,6 +2562,45 @@ static const value_string lte_rrc_schedulingInfoSIB1_NB_r13_vals[] = {
 static value_string_ext lte_rrc_schedulingInfoSIB1_NB_r13_vals_ext = VALUE_STRING_EXT_INIT(lte_rrc_schedulingInfoSIB1_NB_r13_vals);
 
 static void
+lte_rrc_NRSRP_Range_NB_r14_fmt(gchar *s, guint32 v)
+{
+  if (v == 0) {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "NRSRP < -156dBm (0)");
+  } else if (v < 113) {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "%ddBm <= NRSRP < %ddBm (%u)", v-157, v-156, v);
+  } else {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "-44dBm <= NRSRP (97)");
+  }
+}
+
+static void
+lte_rrc_NRSRQ_Range_NB_r14_fmt(gchar *s, guint32 v)
+{
+  gint32 rsrq = (guint32)v;
+  if (rsrq == -30) {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "NRSRQ < -34dB (-30)");
+  } else if (rsrq < 0) {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "%.1fdB <= NRSRQ < %.1fdB (%d)", (((float)rsrq-1)/2)-19, ((float)rsrq/2)-19, rsrq);
+  } else if (rsrq == 0) {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "NRSRQ < -19.5dB (0)");
+  } else if (rsrq < 34) {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "%.1fdB <= NRSRQ < %.1fdB (%d)", (((float)rsrq-1)/2)-19.5, ((float)rsrq/2)-19.5, rsrq);
+  } else if (rsrq == 34) {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "-3 <= NRSRQ (34)");
+  } else if (rsrq < 46) {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "%.1fdB <= NRSRQ < %.1fdB (%d)", (((float)rsrq-1)/2)-20, ((float)rsrq/2)-20, rsrq);
+  } else {
+    g_snprintf(s, ITEM_LABEL_LENGTH, "2.5dB <= NRSRQ (46)");
+  }
+}
+
+static void
+lte_rrc_mbms_MaxBW_r14_fmt(gchar *s, guint32 v)
+{
+  g_snprintf(s, ITEM_LABEL_LENGTH, "%u MHz (%u)", 40*v, v);
+}
+
+static void
 lte_rrc_call_dissector(dissector_handle_t handle, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
   TRY {
@@ -3360,6 +3410,21 @@ dissect_lte_rrc_BCCH_BCH_NB(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 }
 
 static int
+dissect_lte_rrc_BCCH_BCH_TDD_NB(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+{
+  proto_item *ti;
+  proto_tree *lte_rrc_tree;
+
+  col_set_str(pinfo->cinfo, COL_PROTOCOL, "LTE RRC BCCH_BCH_TDD_NB");
+  col_clear(pinfo->cinfo, COL_INFO);
+
+  ti = proto_tree_add_item(tree, proto_lte_rrc, tvb, 0, -1, ENC_NA);
+  lte_rrc_tree = proto_item_add_subtree(ti, ett_lte_rrc);
+  dissect_BCCH_BCH_Message_TDD_NB_PDU(tvb, pinfo, lte_rrc_tree, NULL);
+  return tvb_captured_length(tvb);
+}
+
+static int
 dissect_lte_rrc_BCCH_DL_SCH_NB(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
   proto_item *ti;
@@ -4161,6 +4226,38 @@ void proto_register_lte_rrc(void) {
     { &hf_lte_rrc_sib12_reassembled_data,
       { "Reassembled Data", "lte-rrc.warningMessageSegment_r9.reassembled_data",
          FT_BYTES, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_lte_rrc_measGapPatterns_v1520_bit1,
+      { "Gap Pattern 4", "lte-rrc.measGapPatterns_v1520.bit1",
+        FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x80,
+        NULL, HFILL }},
+    { &hf_lte_rrc_measGapPatterns_v1520_bit2,
+      { "Gap Pattern 5", "lte-rrc.measGapPatterns_v1520.bit2",
+        FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x40,
+        NULL, HFILL }},
+    { &hf_lte_rrc_measGapPatterns_v1520_bit3,
+      { "Gap Pattern 6", "lte-rrc.measGapPatterns_v1520.bit3",
+        FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x20,
+        NULL, HFILL }},
+    { &hf_lte_rrc_measGapPatterns_v1520_bit4,
+      { "Gap Pattern 7", "lte-rrc.measGapPatterns_v1520.bit4",
+        FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x10,
+        NULL, HFILL }},
+    { &hf_lte_rrc_measGapPatterns_v1520_bit5,
+      { "Gap Pattern 8", "lte-rrc.measGapPatterns_v1520.bit5",
+        FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x08,
+        NULL, HFILL }},
+    { &hf_lte_rrc_measGapPatterns_v1520_bit6,
+      { "Gap Pattern 9", "lte-rrc.measGapPatterns_v1520.bit6",
+        FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x04,
+        NULL, HFILL }},
+    { &hf_lte_rrc_measGapPatterns_v1520_bit7,
+      { "Gap Pattern 10", "lte-rrc.measGapPatterns_v1520.bit7",
+        FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x02,
+        NULL, HFILL }},
+    { &hf_lte_rrc_measGapPatterns_v1520_bit8,
+      { "Gap Pattern 11", "lte-rrc.measGapPatterns_v1520.bit8",
+        FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x01,
         NULL, HFILL }}
   };
 
@@ -4202,8 +4299,9 @@ void proto_register_lte_rrc(void) {
     &ett_lte_rrc_sourceRB_ConfigNR_r15,
     &ett_lte_rrc_sourceRB_ConfigSN_NR_r15,
     &ett_lte_rrc_sourceOtherConfigSN_NR_r15,
-    &ett_lte_rrc_sourceContextENDC_r15,
-    &ett_lte_rrc_requestedFreqBandsNR_MRDC_r15
+    &ett_lte_rrc_sourceContextEN_DC_r15,
+    &ett_lte_rrc_requestedFreqBandsNR_MRDC_r15,
+    &ett_lte_rrc_measGapPatterns_v1520
   };
 
   static ei_register_info ei[] = {
@@ -4243,6 +4341,7 @@ void proto_register_lte_rrc(void) {
   register_dissector("lte_rrc.ul_ccch.nb", dissect_lte_rrc_UL_CCCH_NB, proto_lte_rrc);
   register_dissector("lte_rrc.ul_dcch.nb", dissect_lte_rrc_UL_DCCH_NB, proto_lte_rrc);
   register_dissector("lte_rrc.bcch_bch.nb", dissect_lte_rrc_BCCH_BCH_NB, proto_lte_rrc);
+  register_dissector("lte_rrc.bcch_bch.nb.tdd", dissect_lte_rrc_BCCH_BCH_TDD_NB, proto_lte_rrc);
   register_dissector("lte_rrc.bcch_dl_sch.nb", dissect_lte_rrc_BCCH_DL_SCH_NB, proto_lte_rrc);
   register_dissector("lte_rrc.pcch.nb", dissect_lte_rrc_PCCH_NB, proto_lte_rrc);
   register_dissector("lte_rrc.sc_mcch.nb", dissect_lte_rrc_SC_MCCH_NB, proto_lte_rrc);
@@ -4273,12 +4372,14 @@ void proto_register_lte_rrc(void) {
 void
 proto_reg_handoff_lte_rrc(void)
 {
-	dissector_add_for_decode_as_with_preference("udp.port", lte_rrc_dl_ccch_handle);
-	nas_eps_handle = find_dissector("nas-eps");
-	rrc_irat_ho_to_utran_cmd_handle = find_dissector("rrc.irat.ho_to_utran_cmd");
-	rrc_sys_info_cont_handle = find_dissector("rrc.sysinfo.cont");
-	gsm_a_dtap_handle = find_dissector("gsm_a_dtap");
-	gsm_rlcmac_dl_handle = find_dissector("gsm_rlcmac_dl");
+  dissector_add_for_decode_as_with_preference("udp.port", lte_rrc_dl_ccch_handle);
+  nas_eps_handle = find_dissector("nas-eps");
+  rrc_irat_ho_to_utran_cmd_handle = find_dissector("rrc.irat.ho_to_utran_cmd");
+  rrc_sys_info_cont_handle = find_dissector("rrc.sysinfo.cont");
+  gsm_a_dtap_handle = find_dissector("gsm_a_dtap");
+  gsm_rlcmac_dl_handle = find_dissector("gsm_rlcmac_dl");
+  nr_rrc_reconf_handle = find_dissector("nr-rrc.rrc_reconf");
+  lte_rrc_conn_reconf_handle = find_dissector("lte-rrc.rrc_conn_reconf");
 }
 
 

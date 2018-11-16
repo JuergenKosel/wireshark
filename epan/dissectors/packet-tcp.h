@@ -175,6 +175,10 @@ struct tcp_multisegment_pdu {
 	nstime_t last_frame_time;
 	guint32 flags;
 #define MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT	0x00000001
+/* Whether this MSP is finished and no more segments can be added. */
+#define MSP_FLAGS_GOT_ALL_SEGMENTS		0x00000002
+/* Whether the first segment of this MSP was not yet seen. */
+#define MSP_FLAGS_MISSING_FIRST_SEGMENT		0x00000004
 };
 
 
@@ -253,15 +257,16 @@ struct mptcp_subflow {
 	guint8 address_id;   /* sent during an MP_JOIN */
 
 
-	/* Attempt to map DSN to packets
-	 * Ideally this was to generate application latency
-	 * each node contains a GSList * ?
-	 * this should be done in tap or 3rd party tools
+	/* map DSN to packets
+	 * Used when looking for reinjections across subflows
 	 */
-	wmem_itree_t *dsn_map;
+	wmem_itree_t *dsn2packet_map;
 
-	/* Map SSN to a DSS mappings, each node registers a mptcp_dss_mapping_t */
-	wmem_itree_t *mappings;
+	/* Map SSN to a DSS mappings
+	 * a DSS can map DSN to SSNs possibily over several packets,
+	 * hence some packets may have been mapped by previous DSS,
+	 * whence the necessity to be able to look for SSN -> DSN */
+	wmem_itree_t *ssn2dsn_mappings;
 	/* meta flow to which it is attached. Helps setting forward and backward meta flow */
 	mptcp_meta_flow_t *meta;
 };
@@ -334,6 +339,11 @@ typedef struct _tcp_flow_t {
 
 	/* see TCP_A_* in packet-tcp.c */
 	guint32 lastsegmentflags;
+
+	/* The next (largest) sequence number after all segments seen so far.
+	 * Valid only on the first pass and used to handle out-of-order segments
+	 * during reassembly. */
+	guint32 maxnextseq;
 
 	/* This tree is indexed by sequence number and keeps track of all
 	 * all pdus spanning multiple segments for this flow.

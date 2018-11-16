@@ -187,6 +187,7 @@ static int proto_sdap = -1;
 static int hf_sdap_rdi = -1;
 static int hf_sdap_rqi = -1;
 static int hf_sdap_qfi = -1;
+static int hf_sdap_data_control = -1;
 static int hf_sdap_reserved = -1;
 static gint ett_sdap = -1;
 
@@ -220,6 +221,19 @@ enum layer_to_show {
     ShowRLCLayer, ShowPDCPLayer, ShowTrafficLayer
 };
 static gint     global_pdcp_nr_layer_to_show = (gint)ShowRLCLayer;
+
+
+/* Function to be called from outside this module (e.g. in a plugin) to get per-packet data */
+pdcp_nr_info *get_pdcp_nr_proto_data(packet_info *pinfo)
+{
+    return (pdcp_nr_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_pdcp_nr, 0);
+}
+
+/* Function to be called from outside this module (e.g. in a plugin) to set per-packet data */
+void set_pdcp_nr_proto_data(packet_info *pinfo, pdcp_nr_info *p_pdcp_nr_info)
+{
+    p_add_proto_data(wmem_file_scope(), pinfo, proto_pdcp_nr, 0, p_pdcp_nr_info);
+}
 
 
 
@@ -685,6 +699,7 @@ static void show_pdcp_config(packet_info *pinfo, tvbuff_t *tvb, proto_tree *tree
         ti = proto_tree_add_uint(configuration_tree, hf_pdcp_nr_ueid, tvb, 0, 0,
                                  p_pdcp_info->ueid);
         PROTO_ITEM_SET_GENERATED(ti);
+        write_pdu_label_and_info(configuration_ti, pinfo, "UEId=%3u", p_pdcp_info->ueid);
     }
 
     /* Bearer type */
@@ -696,6 +711,17 @@ static void show_pdcp_config(packet_info *pinfo, tvbuff_t *tvb, proto_tree *tree
         ti = proto_tree_add_uint(configuration_tree, hf_pdcp_nr_bearer_id, tvb, 0, 0,
                                  p_pdcp_info->bearerId);
         PROTO_ITEM_SET_GENERATED(ti);
+    }
+
+    /* Show channel type in root/Info */
+    if (p_pdcp_info->bearerType == Bearer_DCCH) {
+        write_pdu_label_and_info(configuration_ti, pinfo, "   %s-%u  ",
+                                 (p_pdcp_info->plane == NR_SIGNALING_PLANE) ? "SRB" : "DRB",
+                                 p_pdcp_info->bearerId);
+    }
+    else {
+        write_pdu_label_and_info(configuration_ti, pinfo, "   %s",
+                                 val_to_str_const(p_pdcp_info->bearerType, bearer_type_vals, "Unknown"));
     }
 
     if (p_pdcp_info->plane == NR_USER_PLANE) {
@@ -950,7 +976,7 @@ static gboolean dissect_pdcp_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
 
 /******************************/
 /* Main dissection function.  */
-static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
     const char           *mode;
     proto_tree           *pdcp_tree          = NULL;
@@ -969,7 +995,10 @@ static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     p_pdcp_info = (struct pdcp_nr_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_pdcp_nr, 0);
     /* Can't dissect anything without it... */
     if (p_pdcp_info == NULL) {
-        return 0;
+        if (!data) {
+            return 0;
+        }
+        p_pdcp_info = (struct pdcp_nr_info *)data;
     }
 
     /* Don't want to overwrite the RLC Info column if configured not to */
@@ -1272,6 +1301,7 @@ static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             sdap_ti = proto_tree_add_item(pdcp_tree, proto_sdap, payload_tvb, offset, 1, ENC_NA);
             sdap_tree = proto_item_add_subtree(sdap_ti, ett_sdap);
             if (p_pdcp_info->direction == PDCP_NR_DIRECTION_UPLINK) {
+                proto_tree_add_item(sdap_tree, hf_sdap_data_control, payload_tvb, offset, 1, ENC_NA);
                 proto_tree_add_item(sdap_tree, hf_sdap_reserved, payload_tvb, offset, 1, ENC_NA);
             } else {
                 proto_tree_add_item(sdap_tree, hf_sdap_rdi, payload_tvb, offset, 1, ENC_NA);
@@ -1282,13 +1312,13 @@ static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             payload_length--;
         }
 
-        /* If not compressed with ROHC, show as user-plane data */
-        if (!p_pdcp_info->rohc.rohc_compression) {
-            if (payload_length > 0) {
+        if (payload_length > 0) {
+            /* If not compressed with ROHC, show as user-plane data */
+            if (!p_pdcp_info->rohc.rohc_compression) {
                 /* Not attempting to decode payload if ciphering is enabled
                   (and NULL ciphering is not being used) */
                 if (global_pdcp_dissect_user_plane_as_ip) {
-                    tvbuff_t *ip_payload_tvb = tvb_new_subset_remaining(payload_tvb, offset);
+                    tvbuff_t *ip_payload_tvb = tvb_new_subset_length(payload_tvb, offset, payload_length);
 
                     /* Don't update info column for ROHC unless configured to */
                     if (global_pdcp_nr_layer_to_show != ShowTrafficLayer) {
@@ -1317,33 +1347,32 @@ static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
                     proto_tree_add_item(pdcp_tree, hf_pdcp_nr_user_plane_data, payload_tvb, offset, payload_length, ENC_NA);
                 }
             }
-        }
-        else {
-            /***************************/
-            /* ROHC packets            */
-            /***************************/
-
-            /* Only attempt ROHC if configured to */
-            if (!global_pdcp_dissect_rohc) {
-                col_append_fstr(pinfo->cinfo, COL_PROTOCOL, "|ROHC(%s)",
-                                val_to_str_const(p_pdcp_info->rohc.profile, rohc_profile_vals, "Unknown"));
-                proto_tree_add_item(pdcp_tree, hf_pdcp_nr_user_plane_data, payload_tvb, offset, payload_length, ENC_NA);
-            }
             else {
-                rohc_tvb = tvb_new_subset_length(payload_tvb, offset, payload_length);
+                /***************************/
+                /* ROHC packets            */
+                /***************************/
 
-                /* Only enable writing to column if configured to show ROHC */
-                if (global_pdcp_nr_layer_to_show != ShowTrafficLayer) {
-                    col_set_writable(pinfo->cinfo, COL_INFO, FALSE);
+                /* Only attempt ROHC if configured to */
+                if (!global_pdcp_dissect_rohc) {
+                    col_append_fstr(pinfo->cinfo, COL_PROTOCOL, "|ROHC(%s)",
+                                    val_to_str_const(p_pdcp_info->rohc.profile, rohc_profile_vals, "Unknown"));
+                    proto_tree_add_item(pdcp_tree, hf_pdcp_nr_user_plane_data, payload_tvb, offset, payload_length, ENC_NA);
                 }
                 else {
-                    col_clear(pinfo->cinfo, COL_INFO);
+                    rohc_tvb = tvb_new_subset_length(payload_tvb, offset, payload_length);
+
+                    /* Only enable writing to column if configured to show ROHC */
+                    if (global_pdcp_nr_layer_to_show != ShowTrafficLayer) {
+                        col_set_writable(pinfo->cinfo, COL_INFO, FALSE);
+                    }
+                    else {
+                        col_clear(pinfo->cinfo, COL_INFO);
+                    }
+
+                    /* Call the ROHC dissector */
+                    call_dissector_with_data(rohc_handle, rohc_tvb, pinfo, tree, &p_pdcp_info->rohc);
                 }
-
-                /* Call the ROHC dissector */
-                call_dissector_with_data(rohc_handle, rohc_tvb, pinfo, tree, &p_pdcp_info->rohc);
             }
-
         }
     }
 
@@ -1603,9 +1632,15 @@ void proto_register_pdcp_nr(void)
               NULL, HFILL
             }
         },
+        { &hf_sdap_data_control,
+            { "PDU Type",
+              "sdap.reserved", FT_BOOLEAN, 8, TFS(&pdu_type_bit), 0x80,
+              NULL, HFILL
+            }
+        },
         { &hf_sdap_reserved,
             { "Reserved",
-              "sdap.reserved", FT_UINT8, BASE_HEX, NULL, 0xc0,
+              "sdap.reserved", FT_UINT8, BASE_HEX, NULL, 0x40,
               NULL, HFILL
             }
         }

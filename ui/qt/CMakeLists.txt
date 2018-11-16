@@ -16,6 +16,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/capture_filter_combo.h
 	widgets/capture_filter_edit.h
 	widgets/clickable_label.h
+	widgets/copy_from_profile_menu.h
 	widgets/display_filter_combo.h
 	widgets/display_filter_edit.h
 	widgets/dissector_tables_view.h
@@ -27,6 +28,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/export_objects_view.h
 	widgets/elided_label.h
 	widgets/field_filter_edit.h
+	widgets/filter_expression_toolbar.h
 	widgets/find_line_edit.h
 	widgets/follow_stream_text.h
 	widgets/interface_toolbar_lineedit.h
@@ -237,6 +239,7 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/capture_filter_combo.cpp
 	widgets/capture_filter_edit.cpp
 	widgets/clickable_label.cpp
+	widgets/copy_from_profile_menu.cpp
 	widgets/display_filter_combo.cpp
 	widgets/display_filter_edit.cpp
 	widgets/dissector_tables_view.cpp
@@ -248,6 +251,7 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/expert_info_view.cpp
 	widgets/export_objects_view.cpp
 	widgets/field_filter_edit.cpp
+	widgets/filter_expression_toolbar.cpp
 	widgets/find_line_edit.cpp
 	widgets/follow_stream_text.cpp
 	widgets/interface_toolbar_lineedit.cpp

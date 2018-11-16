@@ -698,7 +698,7 @@ extcap_pref_for_argument(const gchar *ifname, struct _extcap_arg *arg)
     struct preference *pref = NULL;
 
     GRegex *regex_name = g_regex_new("[-]+", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
-    GRegex *regex_ifname = g_regex_new("(?![a-zA-Z1-9_]).", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
+    GRegex *regex_ifname = g_regex_new("(?![a-zA-Z0-9_]).", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
     if (regex_name && regex_ifname)
     {
         if (prefs_find_module("extcap"))
@@ -743,7 +743,7 @@ static gboolean cb_preference(extcap_callback_info_t cb_info)
         GList *walker = arguments;
 
         GRegex *regex_name = g_regex_new("[-]+", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
-        GRegex *regex_ifname = g_regex_new("(?![a-zA-Z1-9_]).", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
+        GRegex *regex_ifname = g_regex_new("(?![a-zA-Z0-9_]).", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
         if (regex_name && regex_ifname)
         {
             while (walker != NULL)
@@ -1131,13 +1131,13 @@ void extcap_if_cleanup(capture_options *capture_opts, gchar **errormsg)
         pipedata = (ws_pipe_t *) interface_opts->extcap_pipedata;
         if (pipedata)
         {
-            if (pipedata->stderr_fd > 0 && ws_pipe_data_available(pipedata->stderr_fd))
+            if (pipedata->stderr_fd > 0)
             {
                 buffer = (gchar *)g_malloc0(STDERR_BUFFER_SIZE + 1);
                 ws_read_string_from_pipe(ws_get_pipe_handle(pipedata->stderr_fd), buffer, STDERR_BUFFER_SIZE + 1);
                 if (strlen(buffer) > 0)
                 {
-                    pipedata->stderr_msg = g_strdup_printf("%s", buffer);
+                    pipedata->stderr_msg = g_strdup(buffer);
                     pipedata->exitcode = 1;
                 }
                 g_free(buffer);
@@ -1145,7 +1145,7 @@ void extcap_if_cleanup(capture_options *capture_opts, gchar **errormsg)
 
 #ifndef _WIN32
             /* Final child watch may not have been called */
-            if (interface_opts->extcap_child_watch != 0)
+            if (interface_opts->extcap_child_watch > 0)
             {
                 extcap_child_watch_cb(pipedata->pid, 0, capture_opts);
                 /* it will have changed in extcap_child_watch_cb */
@@ -1161,7 +1161,7 @@ void extcap_if_cleanup(capture_options *capture_opts, gchar **errormsg)
 
             if (overwrite_exitcode || pipedata->exitcode != 0)
             {
-                if (pipedata->stderr_msg != 0)
+                if (pipedata->stderr_msg != NULL)
                 {
                     if (*errormsg == NULL)
                     {
@@ -1187,16 +1187,25 @@ void extcap_if_cleanup(capture_options *capture_opts, gchar **errormsg)
             interface_opts->extcap_child_watch = 0;
         }
 
-        if (interface_opts->extcap_pid != WS_INVALID_PID)
-        {
-#ifdef _WIN32
-            TerminateProcess(interface_opts->extcap_pid, 0);
-#endif
-            g_spawn_close_pid(interface_opts->extcap_pid);
-            interface_opts->extcap_pid = WS_INVALID_PID;
+        if (pipedata) {
+            if (pipedata->stdout_fd > 0)
+            {
+                ws_close(pipedata->stdout_fd);
+            }
 
-            g_free(interface_opts->extcap_pipedata);
-            interface_opts->extcap_pipedata = NULL;
+            if (pipedata->stderr_fd > 0)
+            {
+                ws_close(pipedata->stderr_fd);
+            }
+
+            if (interface_opts->extcap_pid != WS_INVALID_PID)
+            {
+                ws_pipe_close(pipedata);
+                interface_opts->extcap_pid = WS_INVALID_PID;
+
+                g_free(pipedata);
+                interface_opts->extcap_pipedata = NULL;
+            }
         }
     }
 }

@@ -16,6 +16,7 @@
 #include "ui/help_url.h"
 #include <wsutil/report_message.h>
 
+#include <ui/qt/widgets/copy_from_profile_menu.h>
 #include <ui/qt/utils/qt_ui_utils.h>
 
 #include <QDesktopServices>
@@ -31,16 +32,12 @@ UatDialog::UatDialog(QWidget *parent, epan_uat *uat) :
     ui(new Ui::UatDialog),
     uat_model_(NULL),
     uat_delegate_(NULL),
+    copy_from_menu_(NULL),
     uat_(uat)
 {
     ui->setupUi(this);
     if (uat) loadGeometry(0, 0, uat->name);
 
-    ui->deleteToolButton->setEnabled(false);
-    ui->copyToolButton->setEnabled(false);
-    ui->moveUpToolButton->setEnabled(false);
-    ui->moveDownToolButton->setEnabled(false);
-    ui->clearToolButton->setEnabled(false);
     ok_button_ = ui->buttonBox->button(QDialogButtonBox::Ok);
     help_button_ = ui->buttonBox->button(QDialogButtonBox::Help);
 
@@ -58,7 +55,7 @@ UatDialog::UatDialog(QWidget *parent, epan_uat *uat) :
 
     // FIXME: this prevents the columns from being resized, even if the text
     // within a combobox needs more space (e.g. in the USER DLT settings).  For
-    // very long filenames in the SSL RSA keys dialog, it also results in a
+    // very long filenames in the TLS RSA keys dialog, it also results in a
     // vertical scrollbar. Maybe remove this since the editor is not limited to
     // the column width (and overlays other fields if more width is needed)?
     ui->uatTreeView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
@@ -80,6 +77,7 @@ UatDialog::~UatDialog()
     delete ui;
     delete uat_delegate_;
     delete uat_model_;
+    delete copy_from_menu_;
 }
 
 void UatDialog::setUat(epan_uat *uat)
@@ -97,6 +95,15 @@ void UatDialog::setUat(epan_uat *uat)
             title = uat_->name;
         }
 
+        if (uat->from_profile) {
+            QPushButton *copy_button = ui->buttonBox->addButton(tr("Copy from"), QDialogButtonBox::ActionRole);
+            copy_from_menu_ = new CopyFromProfileMenu(uat->filename);
+            copy_button->setMenu(copy_from_menu_);
+            copy_button->setToolTip(tr("Copy entries from another profile."));
+            copy_button->setEnabled(copy_from_menu_->haveProfiles());
+            connect(copy_from_menu_, SIGNAL(triggered(QAction *)), this, SLOT(copyFromProfile(QAction *)));
+        }
+
         QString abs_path = gchar_free_to_qstring(uat_get_actual_filename(uat_, FALSE));
         ui->pathLabel->setText(abs_path);
         ui->pathLabel->setUrl(QUrl::fromLocalFile(abs_path).toString());
@@ -107,6 +114,7 @@ void UatDialog::setUat(epan_uat *uat)
         uat_delegate_ = new UatDelegate;
         ui->uatTreeView->setModel(uat_model_);
         ui->uatTreeView->setItemDelegate(uat_delegate_);
+        ui->clearToolButton->setEnabled(uat_model_->rowCount() != 0);
 
         connect(uat_model_, SIGNAL(dataChanged(QModelIndex,QModelIndex)),
                 this, SLOT(modelDataChanged(QModelIndex)));
@@ -125,6 +133,20 @@ void UatDialog::setUat(epan_uat *uat)
     }
 
     setWindowTitle(title);
+}
+
+void UatDialog::copyFromProfile(QAction *action)
+{
+    QString filename = action->data().toString();
+
+    gchar *err = NULL;
+    if (uat_load(uat_, filename.toUtf8().constData(), &err)) {
+        uat_->changed = TRUE;
+        uat_model_->reloadUat();
+    } else {
+        report_failure("Error while loading %s: %s", uat_->name, err);
+        g_free(err);
+    }
 }
 
 // Invoked when a field in the model changes (e.g. by closing the editor)
@@ -156,7 +178,7 @@ void UatDialog::modelRowsRemoved()
 void UatDialog::modelRowsReset()
 {
     ui->deleteToolButton->setEnabled(false);
-    ui->clearToolButton->setEnabled(false);
+    ui->clearToolButton->setEnabled(uat_model_->rowCount() != 0);
     ui->copyToolButton->setEnabled(false);
     ui->moveUpToolButton->setEnabled(false);
     ui->moveDownToolButton->setEnabled(false);
@@ -348,7 +370,7 @@ void UatDialog::rejectChanges()
     if (uat_->changed) {
         gchar *err = NULL;
         uat_clear(uat_);
-        if (!uat_load(uat_, &err)) {
+        if (!uat_load(uat_, NULL, &err)) {
             report_failure("Error while loading %s: %s", uat_->name, err);
             g_free(err);
         }

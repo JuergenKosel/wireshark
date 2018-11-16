@@ -175,10 +175,6 @@ DIAG_ON(frame-larger-than=)
 // Public slots
 //
 
-static const char *dfe_property_ = "display filter expression"; //TODO : Fix Translate
-static const char *dfe_property_label_ = "display_filter_expression_label";
-static const char *dfe_property_expression_ = "display_filter_expression_expr";
-
 bool MainWindow::openCaptureFile(QString cf_path, QString read_filter, unsigned int type, gboolean is_tempfile)
 {
     QString file_name = "";
@@ -202,7 +198,13 @@ bool MainWindow::openCaptureFile(QString cf_path, QString read_filter, unsigned 
                 ret = false;
                 goto finish;
             }
+        } else {
+            this->welcome_page_->getInterfaceFrame()->showRunOnFile();
         }
+
+        // TODO detect call from "cf_read" -> "update_progress_dlg"
+        // ("capture_file_.capFile()->read_lock"), possibly queue opening the
+        // file and return early to avoid the warning in testCaptureFileClose.
 
         QString before_what(tr(" before opening another file"));
         if (!testCaptureFileClose(before_what)) {
@@ -248,7 +250,6 @@ bool MainWindow::openCaptureFile(QString cf_path, QString read_filter, unsigned 
         }
 
         switch (cf_read(CaptureFile::globalCapFile(), FALSE)) {
-
         case CF_READ_OK:
         case CF_READ_ERROR:
             /* Just because we got an error, that doesn't mean we were unable
@@ -267,6 +268,7 @@ bool MainWindow::openCaptureFile(QString cf_path, QString read_filter, unsigned 
         }
         break;
     }
+
     // get_dirname overwrites its path.
     wsApp->setLastOpenDir(get_dirname(cf_path.toUtf8().data()));
 
@@ -323,7 +325,9 @@ void MainWindow::layoutToolbars()
 
     main_ui_->mainToolBar->setVisible(recent.main_toolbar_show);
     main_ui_->displayFilterToolBar->setVisible(recent.filter_toolbar_show);
+#if defined(HAVE_LIBNL) && defined(HAVE_NL80211)
     main_ui_->wirelessToolBar->setVisible(recent.wireless_toolbar_show);
+#endif
     main_ui_->statusBar->setVisible(recent.statusbar_show);
 
     foreach (QAction *action, main_ui_->menuInterfaceToolbars->actions()) {
@@ -486,8 +490,8 @@ void MainWindow::queuedFilterAction(QString action_filter, FilterAction::Action 
 
 // Capture callbacks
 
-void MainWindow::captureCapturePrepared(capture_session *) {
 #ifdef HAVE_LIBPCAP
+void MainWindow::captureCapturePrepared(capture_session *) {
     setTitlebarForCaptureInProgress();
 
     setWindowIcon(wsApp->captureIcon());
@@ -500,11 +504,9 @@ void MainWindow::captureCapturePrepared(capture_session *) {
 //    /* Don't set up main window for a capture file. */
 //    main_set_for_capture_file(FALSE);
     showCapture();
-#endif // HAVE_LIBPCAP
 }
 
 void MainWindow::captureCaptureUpdateStarted(capture_session *session) {
-#ifdef HAVE_LIBPCAP
 
     /* We've done this in "prepared" above, but it will be cleared while
        switching to the next multiple file. */
@@ -513,12 +515,9 @@ void MainWindow::captureCaptureUpdateStarted(capture_session *session) {
     setForCaptureInProgress(true, session->capture_opts->ifaces);
 
     setForCapturedPackets(true);
-#else
-    Q_UNUSED(session)
-#endif // HAVE_LIBPCAP
 }
+
 void MainWindow::captureCaptureUpdateFinished(capture_session *) {
-#ifdef HAVE_LIBPCAP
 
     /* The capture isn't stopping any more - it's stopped. */
     capture_stopping_ = false;
@@ -538,11 +537,9 @@ void MainWindow::captureCaptureUpdateFinished(capture_session *) {
         // Don't pop up a dialog to ask for unsaved files etc.
         exit(0);
     }
-#endif // HAVE_LIBPCAP
 }
 
 void MainWindow::captureCaptureFixedFinished(capture_session *) {
-#ifdef HAVE_LIBPCAP
 
     /* The capture isn't stopping any more - it's stopped. */
     capture_stopping_ = false;
@@ -562,11 +559,9 @@ void MainWindow::captureCaptureFixedFinished(capture_session *) {
         // Don't pop up a dialog to ask for unsaved files etc.
         exit(0);
     }
-#endif // HAVE_LIBPCAP
 }
 
 void MainWindow::captureCaptureFailed(capture_session *) {
-#ifdef HAVE_LIBPCAP
     /* Capture isn't stopping any more. */
     capture_stopping_ = false;
 
@@ -584,8 +579,8 @@ void MainWindow::captureCaptureFailed(capture_session *) {
         // Don't pop up a dialog to ask for unsaved files etc.
         exit(0);
     }
-#endif // HAVE_LIBPCAP
 }
+#endif // HAVE_LIBPCAP
 
 // Callbacks from cfile.c and file.c via CaptureFile::captureFileCallback
 
@@ -678,7 +673,7 @@ void MainWindow::captureEventHandler(CaptureEvent ev)
         {
             QFileInfo file_info(ev.filePath());
             main_ui_->statusBar->popFileStatus();
-            main_ui_->statusBar->pushFileStatus(tr("Saving %1" UTF8_HORIZONTAL_ELLIPSIS).arg(file_info.baseName()));
+            main_ui_->statusBar->pushFileStatus(tr("Saving %1" UTF8_HORIZONTAL_ELLIPSIS).arg(file_info.fileName()));
             break;
         }
         default:
@@ -818,66 +813,6 @@ void MainWindow::captureFileClosed() {
     if (!global_capture_opts.multi_files_on)
         showWelcome();
 #endif
-}
-
-struct filter_expression_data
-{
-    MainWindow* window;
-    bool actions_added;
-};
-
-gboolean MainWindow::filter_expression_add_action(const void *key _U_, void *value, void *user_data)
-{
-    filter_expression_t* fe = (filter_expression_t*)value;
-    struct filter_expression_data* data = (filter_expression_data*)user_data;
-
-    if (!fe->enabled)
-        return FALSE;
-
-    QAction *dfb_action = new QAction(fe->label, data->window->filter_expression_toolbar_);
-    if (strlen(fe->comment) > 0)
-    {
-        QString tooltip = QString("%1\n%2").arg(fe->comment).arg(fe->expression);
-        dfb_action->setToolTip(tooltip);
-    }
-    else
-    {
-        dfb_action->setToolTip(fe->expression);
-    }
-    dfb_action->setData(fe->expression);
-    dfb_action->setProperty(dfe_property_, true);
-    dfb_action->setProperty(dfe_property_label_, QString(fe->label));
-    dfb_action->setProperty(dfe_property_expression_, QString(fe->expression));
-
-    if (data->actions_added) {
-        QFrame *sep = new QFrame();
-        sep->setEnabled(false);
-        data->window->filter_expression_toolbar_->addWidget(sep);
-    }
-    data->window->filter_expression_toolbar_->addAction(dfb_action);
-    connect(dfb_action, SIGNAL(triggered()), data->window, SLOT(displayFilterButtonClicked()));
-    data->actions_added = true;
-    return FALSE;
-}
-
-void MainWindow::filterExpressionsChanged()
-{
-    struct filter_expression_data data;
-
-    data.window = this;
-    data.actions_added = false;
-
-    // Hiding and showing seems to be the only way to get the layout to
-    // work correctly in some cases. See bug 14121 for details.
-    setUpdatesEnabled(false);
-    filter_expression_toolbar_->hide();
-    filter_expression_toolbar_->clear();
-
-    // XXX Add a context menu for removing and changing buttons.
-    filter_expression_iterate_expressions(filter_expression_add_action, &data);
-
-    filter_expression_toolbar_->show();
-    setUpdatesEnabled(true);
 }
 
 //
@@ -1177,7 +1112,7 @@ void MainWindow::recentActionTriggered() {
 
 void MainWindow::setMenusForSelectedPacket()
 {
-    gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_sctp = FALSE, is_ssl = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE, is_http = FALSE;
+    gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_sctp = FALSE, is_tls = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE, is_http = FALSE;
 
     /* Making the menu context-sensitive allows for easier selection of the
        desired item and has the added benefit, with large captures, of
@@ -1236,7 +1171,7 @@ void MainWindow::setMenusForSelectedPacket()
         {
             proto_get_frame_protocols(capture_file_.capFile()->edt->pi.layers,
                                       &is_ip, &is_tcp, &is_udp, &is_sctp,
-                                      &is_ssl, &is_rtp, &is_lte_rlc);
+                                      &is_tls, &is_rtp, &is_lte_rlc);
             is_http = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http");
         }
     }
@@ -1284,7 +1219,7 @@ void MainWindow::setMenusForSelectedPacket()
 
     main_ui_->actionAnalyzeFollowTCPStream->setEnabled(is_tcp);
     main_ui_->actionAnalyzeFollowUDPStream->setEnabled(is_udp);
-    main_ui_->actionAnalyzeFollowSSLStream->setEnabled(is_ssl);
+    main_ui_->actionAnalyzeFollowTLSStream->setEnabled(is_tls);
     main_ui_->actionAnalyzeFollowHTTPStream->setEnabled(is_http);
 
     foreach (QAction *cc_action, cc_actions) {
@@ -1457,9 +1392,12 @@ void MainWindow::startInterfaceCapture(bool valid, const QString capture_filter)
 {
     capture_filter_valid_ = valid;
     welcome_page_->setCaptureFilter(capture_filter);
-    // The interface tree will update the selected interfaces via its timer
-    // so no need to do anything here.
-    startCapture();
+    QString before_what(tr(" before starting a new capture"));
+    if (testCaptureFileClose(before_what)) {
+        // The interface tree will update the selected interfaces via its timer
+        // so no need to do anything here.
+        startCapture();
+    }
 }
 
 void MainWindow::applyGlobalCommandLineOptions()
@@ -1677,18 +1615,25 @@ void MainWindow::on_actionNewDisplayFilterExpression_triggered()
     main_ui_->filterExpressionFrame->addExpression(df_combo_box_->lineEdit()->text());
 }
 
-void MainWindow::displayFilterButtonClicked()
+void MainWindow::onFilterSelected(QString filterText, bool prepare)
 {
-    QAction *dfb_action = qobject_cast<QAction*>(sender());
-
-    if (!dfb_action)
+    if (filterText.length() <= 0)
         return;
 
-    df_combo_box_->setDisplayFilter(dfb_action->data().toString());
+    df_combo_box_->setDisplayFilter(filterText);
     // Holding down the Shift key will only prepare filter.
-    if (!(QApplication::keyboardModifiers() & Qt::ShiftModifier)) {
+    if (!prepare)
         df_combo_box_->applyDisplayFilter();
-    }
+}
+
+void MainWindow::onFilterPreferences()
+{
+    emit showPreferencesDialog(PrefsModel::FILTER_BUTTONS_PREFERENCE_TREE_NAME);
+}
+
+void MainWindow::onFilterEdit(int uatIndex)
+{
+    main_ui_->filterExpressionFrame->editExpression(uatIndex);
 }
 
 void MainWindow::openStatCommandDialog(const QString &menu_path, const char *arg, void *userdata)
@@ -1883,7 +1828,7 @@ void MainWindow::on_actionFileExportPDU_triggered()
     exportpdu_dialog->activateWindow();
 }
 
-void MainWindow::on_actionFileExportSSLSessionKeys_triggered()
+void MainWindow::on_actionFileExportTLSSessionKeys_triggered()
 {
     QString file_name;
     QString save_title;
@@ -1896,17 +1841,17 @@ void MainWindow::on_actionFileExportSSLSessionKeys_triggered()
         QMessageBox::warning(
                     this,
                     tr("No Keys"),
-                    tr("There are no SSL Session Keys to save."),
+                    tr("There are no TLS Session Keys to save."),
                     QMessageBox::Ok
                     );
         return;
     }
 
-    save_title.append(wsApp->windowTitleString(tr("Export SSL Session Keys (%Ln key(s))", "", keylist_len)));
+    save_title.append(wsApp->windowTitleString(tr("Export TLS Session Keys (%Ln key(s))", "", keylist_len)));
     file_name = WiresharkFileDialog::getSaveFileName(this,
                                              save_title,
                                              wsApp->lastOpenDir().canonicalPath(),
-                                             tr("SSL Session Keys (*.keys *.txt);;All Files (" ALL_FILES_WILDCARD ")")
+                                             tr("TLS Session Keys (*.keys *.txt);;All Files (" ALL_FILES_WILDCARD ")")
                                              );
     if (file_name.length() > 0) {
         gchar *keylist;
@@ -2227,9 +2172,11 @@ void MainWindow::showHideMainWidgets(QAction *action)
     } else if (widget == main_ui_->displayFilterToolBar) {
         recent.filter_toolbar_show = show;
         main_ui_->actionViewFilterToolbar->setChecked(show);
+#if defined(HAVE_LIBNL) && defined(HAVE_NL80211)
      } else if (widget == main_ui_->wirelessToolBar) {
         recent.wireless_toolbar_show = show;
         main_ui_->actionViewWirelessToolbar->setChecked(show);
+#endif
     } else if (widget == main_ui_->statusBar) {
         recent.statusbar_show = show;
         main_ui_->actionViewStatusBar->setChecked(show);
@@ -2835,9 +2782,9 @@ void MainWindow::on_actionAnalyzeFollowUDPStream_triggered()
     openFollowStreamDialog(FOLLOW_UDP);
 }
 
-void MainWindow::on_actionAnalyzeFollowSSLStream_triggered()
+void MainWindow::on_actionAnalyzeFollowTLSStream_triggered()
 {
-    openFollowStreamDialog(FOLLOW_SSL);
+    openFollowStreamDialog(FOLLOW_TLS);
 }
 
 void MainWindow::on_actionAnalyzeFollowHTTPStream_triggered()
@@ -2874,7 +2821,11 @@ void MainWindow::on_actionSCTPShowAllAssociations_triggered()
 
 void MainWindow::on_actionSCTPAnalyseThisAssociation_triggered()
 {
-    SCTPAssocAnalyseDialog *sctp_analyse = new SCTPAssocAnalyseDialog(this, NULL, capture_file_.capFile());
+    const sctp_assoc_info_t* assoc = SCTPAssocAnalyseDialog::findAssocForPacket(capture_file_.capFile());
+    if (!assoc) {
+        return;
+    }
+    SCTPAssocAnalyseDialog *sctp_analyse = new SCTPAssocAnalyseDialog(this, assoc, capture_file_.capFile());
     connect(sctp_analyse, SIGNAL(filterPackets(QString,bool)),
             this, SLOT(filterPackets(QString,bool)));
 
@@ -2893,7 +2844,7 @@ void MainWindow::on_actionSCTPAnalyseThisAssociation_triggered()
 
 void MainWindow::on_actionSCTPFilterThisAssociation_triggered()
 {
-    sctp_assoc_info_t* assoc = SCTPAssocAnalyseDialog::findAssocForPacket(capture_file_.capFile());
+    const sctp_assoc_info_t* assoc = SCTPAssocAnalyseDialog::findAssocForPacket(capture_file_.capFile());
     if (assoc) {
         QString newFilter = QString("sctp.assoc_index==%1").arg(assoc->assoc_id);
         assoc = NULL;
@@ -3782,7 +3733,10 @@ void MainWindow::gotoFrame(int packet_num)
 void MainWindow::extcap_options_finished(int result)
 {
     if (result == QDialog::Accepted) {
-        startCapture();
+        QString before_what(tr(" before starting a new capture"));
+        if (testCaptureFileClose(before_what)) {
+            startCapture();
+        }
     }
     this->welcome_page_->getInterfaceFrame()->interfaceListChanged();
 }
@@ -3875,169 +3829,6 @@ void MainWindow::activatePluginIFToolbar(bool)
                 sendingAction->setChecked(true);
             }
         }
-    }
-}
-
-void MainWindow::filterToolbarCustomMenuHandler(const QPoint& pos)
-{
-    QAction * filterAction = filter_expression_toolbar_->actionAt(pos);
-    if ( ! filterAction )
-        return;
-
-    QMenu * filterMenu = new QMenu(this);
-
-    QAction *actFilter = filterMenu->addAction(tr("Filter Button Preferences..."));
-    connect(actFilter, SIGNAL(triggered()), this, SLOT(filterToolbarShowPreferences()));
-    actFilter->setProperty(dfe_property_label_, filterAction->property(dfe_property_label_));
-    actFilter->setProperty(dfe_property_expression_, filterAction->property(dfe_property_expression_));
-    actFilter->setData(filterAction->data());
-    filterMenu->addSeparator();
-    QAction * actEdit = filterMenu->addAction(tr("Edit"));
-    connect(actEdit, SIGNAL(triggered()), this, SLOT(filterToolbarEditFilter()));
-    actEdit->setProperty(dfe_property_label_, filterAction->property(dfe_property_label_));
-    actEdit->setProperty(dfe_property_expression_, filterAction->property(dfe_property_expression_));
-    actEdit->setData(filterAction->data());
-    QAction * actDisable = filterMenu->addAction(tr("Disable"));
-    connect(actDisable, SIGNAL(triggered()), this, SLOT(filterToolbarDisableFilter()));
-    actDisable->setProperty(dfe_property_label_, filterAction->property(dfe_property_label_));
-    actDisable->setProperty(dfe_property_expression_, filterAction->property(dfe_property_expression_));
-    actDisable->setData(filterAction->data());
-    QAction * actRemove = filterMenu->addAction(tr("Remove"));
-    connect(actRemove, SIGNAL(triggered()), this, SLOT(filterToolbarRemoveFilter()));
-    actRemove->setProperty(dfe_property_label_, filterAction->property(dfe_property_label_));
-    actRemove->setProperty(dfe_property_expression_, filterAction->property(dfe_property_expression_));
-    actRemove->setData(filterAction->data());
-
-    filterMenu->exec(filter_expression_toolbar_->mapToGlobal(pos));
-}
-
-void MainWindow::filterToolbarShowPreferences()
-{
-    emit showPreferencesDialog(PrefsModel::FILTER_BUTTONS_PREFERENCE_TREE_NAME);
-}
-
-int MainWindow::uatRowIndexForFilterExpression(QString label, QString expression)
-{
-    int result = -1;
-
-    if ( expression.length() == 0 )
-        return result;
-
-    UatModel * uatModel = new UatModel(this, "Display expressions");
-
-    QModelIndex rowIndex;
-
-    if ( label.length() > 0 )
-    {
-        for ( int cnt = 0; cnt < uatModel->rowCount() && ! rowIndex.isValid(); cnt++ )
-        {
-            if ( uatModel->data(uatModel->index(cnt, 1), Qt::DisplayRole).toString().compare(label) == 0 &&
-                    uatModel->data(uatModel->index(cnt, 2), Qt::DisplayRole).toString().compare(expression) == 0 )
-            {
-                rowIndex = uatModel->index(cnt, 2);
-            }
-        }
-    }
-    else
-    {
-        rowIndex = uatModel->findRowForColumnContent(((QAction *)sender())->data(), 2);
-    }
-
-    if ( rowIndex.isValid() )
-        result = rowIndex.row();
-
-    delete uatModel;
-
-    return result;
-}
-
-void MainWindow::filterToolbarEditFilter()
-{
-    if ( ! sender() )
-        return;
-
-    QString label = ((QAction *)sender())->property(dfe_property_label_).toString();
-    QString expr = ((QAction *)sender())->property(dfe_property_expression_).toString();
-
-    int idx = uatRowIndexForFilterExpression(label, expr);
-
-    if ( idx > -1 )
-        main_ui_->filterExpressionFrame->editExpression(idx);
-}
-
-void MainWindow::filterDropped(QString description, QString filter)
-{
-    gchar* err = NULL;
-    if ( filter.length() == 0 )
-        return;
-
-    filter_expression_new(qUtf8Printable(description),
-            qUtf8Printable(filter), qUtf8Printable(description), TRUE);
-
-    uat_save(uat_get_table_by_name("Display expressions"), &err);
-    g_free(err);
-
-    filterExpressionsChanged();
-}
-
-void MainWindow::filterToolbarDisableFilter()
-{
-    gchar* err = NULL;
-
-    QString label = ((QAction *)sender())->property(dfe_property_label_).toString();
-    QString expr = ((QAction *)sender())->property(dfe_property_expression_).toString();
-
-    int idx = uatRowIndexForFilterExpression(label, expr);
-    UatModel * uatModel = new UatModel(this, "Display expressions");
-
-    QModelIndex rowIndex = uatModel->index(idx, 0);
-    if ( rowIndex.isValid() ) {
-        uatModel->setData(rowIndex, QVariant::fromValue(false));
-
-        uat_save(uat_get_table_by_name("Display expressions"), &err);
-        g_free(err);
-        filterExpressionsChanged();
-    }
-}
-
-void MainWindow::filterToolbarRemoveFilter()
-{
-    gchar* err = NULL;
-    UatModel * uatModel = new UatModel(this, "Display expressions");
-
-    QString label = ((QAction *)sender())->property(dfe_property_label_).toString();
-    QString expr = ((QAction *)sender())->property(dfe_property_expression_).toString();
-
-    int idx = uatRowIndexForFilterExpression(label, expr);
-
-    QModelIndex rowIndex = uatModel->index(idx, 0);
-    if ( rowIndex.isValid() ) {
-        uatModel->removeRow(rowIndex.row());
-
-        uat_save(uat_get_table_by_name("Display expressions"), &err);
-        g_free(err);
-        filterExpressionsChanged();
-    }
-}
-
-void MainWindow::filterToolbarActionMoved(QAction* action, int oldPos, int newPos)
-{
-    gchar* err = NULL;
-    if ( oldPos == newPos )
-        return;
-
-    QString label = action->property(dfe_property_label_).toString();
-    QString expr = action->property(dfe_property_expression_).toString();
-
-    int idx = uatRowIndexForFilterExpression(label, expr);
-
-    if ( idx > -1 && oldPos > -1 && newPos > -1 )
-    {
-        uat_t * table = uat_get_table_by_name("Display expressions");
-        uat_move_index(table, oldPos, newPos);
-        uat_save(table, &err);
-
-        g_free(err);
     }
 }
 

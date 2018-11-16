@@ -1696,7 +1696,7 @@ static const struct epl_datatype {
 	{ "Time_of_Day",    &hf_epl_od_time,    ENC_NA },
 	{ "Time_Diff",      &hf_epl_od_time_difference, ENC_NA  },
 #endif
-	{ "NETTIME",        &hf_epl_od_time, ENC_TIME_TIMESPEC, 8 },
+	{ "NETTIME",        &hf_epl_od_time, ENC_TIME_SECS_NSECS, 8 },
 
 	{ 0, 0, 0, 0 }
 };
@@ -2128,7 +2128,8 @@ dissect_epl_pdo(struct epl_convo *convo, proto_tree *epl_tree, tvbuff_t *tvb, pa
 	return offset + payload_len;
 }
 
-static address epl_placeholder_mac;
+static guint8 epl_placeholder_mac_addr[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+static address epl_placeholder_mac = ADDRESS_INIT(AT_ETHER, 6, epl_placeholder_mac_addr);
 
 static struct epl_convo *
 epl_get_convo(packet_info *pinfo, int opts)
@@ -2746,7 +2747,6 @@ dissect_epl_payload(proto_tree *epl_tree, tvbuff_t *tvb, packet_info *pinfo, gin
 static gint
 dissect_epl_soc(proto_tree *epl_tree, tvbuff_t *tvb, packet_info *pinfo, gint offset)
 {
-	nstime_t nettime;
 	guint8  flags;
 	static const int * soc_flags[] = {
 		&hf_epl_soc_mc,
@@ -2767,12 +2767,11 @@ dissect_epl_soc(proto_tree *epl_tree, tvbuff_t *tvb, packet_info *pinfo, gint of
 				((EPL_SOC_MC_MASK & flags) >> 7), ((EPL_SOC_PS_MASK & flags) >> 6));
 	}
 
-	nettime.secs  = tvb_get_letohl(tvb, offset);
-	nettime.nsecs = tvb_get_letohl(tvb, offset+4);
-	proto_tree_add_time(epl_tree, hf_epl_soc_nettime, tvb, offset, 8, &nettime);
+	proto_tree_add_item(epl_tree, hf_epl_soc_nettime, tvb, offset, 8, ENC_TIME_SECS_NSECS|ENC_LITTLE_ENDIAN);
+	offset += 8;
 
-	proto_tree_add_item(epl_tree, hf_epl_soc_relativetime, tvb, offset+8, 8, ENC_LITTLE_ENDIAN);
-	offset += 16;
+	proto_tree_add_item(epl_tree, hf_epl_soc_relativetime, tvb, offset, 8, ENC_TIME_SECS_NSECS|ENC_LITTLE_ENDIAN);
+	offset += 8;
 
 	return offset;
 }
@@ -6180,8 +6179,6 @@ proto_register_epl(void)
 	epl_profiles_by_device = wmem_map_new(wmem_epan_scope(), g_direct_hash, g_direct_equal);
 	epl_profiles_by_nodeid = wmem_map_new(wmem_epan_scope(), g_direct_hash, g_direct_equal);
 	epl_profiles_by_address = wmem_map_new(wmem_epan_scope(), epl_address_hash, epl_address_equal);
-
-	set_address(&epl_placeholder_mac, AT_ETHER, 6, "\xFF\xFF\xFF\xFF\xFF\xFF");
 
 #ifdef HAVE_LIBXML2
 	epl_xdd_init();

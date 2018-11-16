@@ -77,6 +77,11 @@
 #define CODEC_MPEG24_AAC      0x02
 #define CODEC_ATRAC           0x04
 #define CODEC_APT_X           0xFF01
+#define CODEC_APT_X_HD        0xFF24
+#define CODEC_LDAC            0xFFAA
+
+#define CODECID_APT_X         0x0001
+#define CODECID_APT_X_HD      0x0024
 
 #define CODEC_H263_BASELINE   0x01
 #define CODEC_MPEG4_VSP       0x02
@@ -239,6 +244,26 @@ static int hf_btavdtp_vendor_specific_aptx_channel_mode_mono               = -1;
 static int hf_btavdtp_vendor_specific_aptx_channel_mode_dual_channel       = -1;
 static int hf_btavdtp_vendor_specific_aptx_channel_mode_stereo             = -1;
 static int hf_btavdtp_vendor_specific_aptx_channel_mode_joint_stereo       = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_16000      = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_32000      = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_44100      = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_48000      = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_channel_mode_mono             = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_channel_mode_dual_channel     = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_channel_mode_stereo           = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_channel_mode_joint_stereo     = -1;
+static int hf_btavdtp_vendor_specific_aptxhd_rfa                           = -1;
+static int hf_btavdtp_vendor_specific_ldac_rfa1                            = -1;
+static int hf_btavdtp_vendor_specific_ldac_sampling_frequency_44100        = -1;
+static int hf_btavdtp_vendor_specific_ldac_sampling_frequency_48000        = -1;
+static int hf_btavdtp_vendor_specific_ldac_sampling_frequency_88200        = -1;
+static int hf_btavdtp_vendor_specific_ldac_sampling_frequency_96000        = -1;
+static int hf_btavdtp_vendor_specific_ldac_sampling_frequency_176400       = -1;
+static int hf_btavdtp_vendor_specific_ldac_sampling_frequency_192000       = -1;
+static int hf_btavdtp_vendor_specific_ldac_rfa2                            = -1;
+static int hf_btavdtp_vendor_specific_ldac_channel_mode_mono               = -1;
+static int hf_btavdtp_vendor_specific_ldac_channel_mode_dual_channel       = -1;
+static int hf_btavdtp_vendor_specific_ldac_channel_mode_stereo             = -1;
 static int hf_btavdtp_h263_level_10                                        = -1;
 static int hf_btavdtp_h263_level_20                                        = -1;
 static int hf_btavdtp_h263_level_30                                        = -1;
@@ -308,7 +333,9 @@ static const enum_val_t pref_a2dp_codec[] = {
     { "mp2t",        "MPEG12 AUDIO", CODEC_MPEG12_AUDIO },
     { "mpeg-audio",  "MPEG24 AAC",   CODEC_MPEG24_AAC },
 /* XXX: Not supported in Wireshark yet  { "atrac",      "ATRAC",                                  CODEC_ATRAC },*/
-    { "aptx",        "APT-X",        CODEC_APT_X },
+    { "aptx",        "aptX",         CODEC_APT_X },
+    { "aptx-hd",     "aptX HD",      CODEC_APT_X_HD },
+/* XXX: Not supported in Wireshark yet  { "ldac",        "LDAC",         CODEC_LDAC },*/
     { NULL, NULL, 0 }
 };
 
@@ -527,7 +554,9 @@ static const value_string content_protection_type_vals[] = {
 };
 
 static const value_string vendor_apt_codec_vals[] = {
-    { 0x0001,  "APT-X" },
+    { CODECID_APT_X,     "aptX" },
+    { CODECID_APT_X_HD,  "aptX HD" },
+    { 0x00AA,  "LDAC" },
     { 0, NULL }
 };
 
@@ -719,13 +748,11 @@ dissect_sep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset,
             key[6].length = 0;
             key[6].key    = NULL;
 
-            sep_data = wmem_new(wmem_file_scope(), sep_entry_t);
+            sep_data = wmem_new0(wmem_file_scope(), sep_entry_t);
             sep_data->seid = seid;
             sep_data->type = type;
             sep_data->media_type = media_type;
-            sep_data->int_seid = 0;
             sep_data->codec = -1;
-            sep_data->content_protection_type = 0;
             if (in_use) {
                 sep_data->state = SEP_STATE_IN_USE;
             } else {
@@ -809,7 +836,7 @@ dissect_codec(tvbuff_t *tvb, packet_info *pinfo, proto_item *service_item, proto
                             (value8[1] & 0x0C) ? "" : "not set ",
                             (value8[1] & 0x02) ? "SNR " : "",
                             (value8[1] & 0x01) ? "Loudness " : "",
-                            (value8[0] & 0x03) ? "" : "not set ",
+                            (value8[1] & 0x03) ? "" : "not set ",
                             value8[2],
                             value8[3]);
 
@@ -834,7 +861,7 @@ dissect_codec(tvbuff_t *tvb, packet_info *pinfo, proto_item *service_item, proto
                             (value8[1] & 0x0C) ? "" : "not set ",
                             (value8[1] & 0x02) ? "SNR " : "",
                             (value8[1] & 0x01) ? "Loudness " : "",
-                            (value8[0] & 0x03) ? "" : "not set ",
+                            (value8[1] & 0x03) ? "" : "not set ",
                             value8[2],
                             value8[3]);
                     } else {
@@ -920,18 +947,31 @@ dissect_codec(tvbuff_t *tvb, packet_info *pinfo, proto_item *service_item, proto
 
                     switch (tvb_get_letohl(tvb, offset)) {
                         case 0x004F: /* APT Licensing Ltd. */
+                        case 0x00D7: /* Qualcomm technologies, Inc. */
                             proto_tree_add_item(tree, hf_btavdtp_vendor_specific_apt_codec_id, tvb, offset + 4, 2, ENC_LITTLE_ENDIAN);
                             value = tvb_get_letohs(tvb, offset + 4);
 
-                            if (value == 0x0001) { /* APT-X Codec */
-                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_sampling_frequency_16000, tvb, offset + 6, 1, ENC_NA);
-                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_sampling_frequency_32000, tvb, offset + 6, 1, ENC_NA);
-                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_sampling_frequency_44100, tvb, offset + 6, 1, ENC_NA);
-                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_sampling_frequency_48000, tvb, offset + 6, 1, ENC_NA);
-                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_channel_mode_mono, tvb, offset + 6, 1, ENC_NA);
-                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_channel_mode_dual_channel, tvb, offset + 6, 1, ENC_NA);
-                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_channel_mode_stereo, tvb, offset + 6, 1, ENC_NA);
-                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_channel_mode_joint_stereo, tvb, offset + 6, 1, ENC_NA);
+                            if (value == CODECID_APT_X || value == CODECID_APT_X_HD) { /* APT-X or APT-X HD Codec */
+                                if (value == CODECID_APT_X) {
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_sampling_frequency_16000, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_sampling_frequency_32000, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_sampling_frequency_44100, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_sampling_frequency_48000, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_channel_mode_mono, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_channel_mode_dual_channel, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_channel_mode_stereo, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptx_channel_mode_joint_stereo, tvb, offset + 6, 1, ENC_NA);
+                                } else {
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_16000, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_32000, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_44100, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_48000, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_channel_mode_mono, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_channel_mode_dual_channel, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_channel_mode_stereo, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_channel_mode_joint_stereo, tvb, offset + 6, 1, ENC_NA);
+                                    proto_tree_add_item(tree, hf_btavdtp_vendor_specific_aptxhd_rfa, tvb, offset + 7, 4, ENC_NA);
+                                }
 
                                 col_append_fstr(pinfo->cinfo, COL_INFO, " (%s -",
                                     val_to_str_const(value, vendor_apt_codec_vals, "unknown codec"));
@@ -963,6 +1003,62 @@ dissect_codec(tvbuff_t *tvb, packet_info *pinfo, proto_item *service_item, proto
                                         (value & 0x02) ? " Stereo" : "",
                                         (value & 0x01) ? " JointStereo" : "",
                                         (value & 0x0F) ? "" : "not set ");
+                                } else {
+                                    col_append_fstr(pinfo->cinfo, COL_INFO, " none)");
+                                    proto_item_append_text(service_item, " none)");
+                                }
+                            } else {
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_value, tvb, offset + 6, losc - 6, ENC_NA);
+                            }
+                            break;
+                        case 0x012D: /* Sony Corporation */
+                            proto_tree_add_item(tree, hf_btavdtp_vendor_specific_apt_codec_id, tvb, offset + 4, 2, ENC_LITTLE_ENDIAN);
+                            value = tvb_get_letohs(tvb, offset + 4);
+                            if (value == 0x00AA) { /* LDAC Codec */
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_rfa1, tvb, offset + 6, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_sampling_frequency_44100, tvb, offset + 6, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_sampling_frequency_48000, tvb, offset + 6, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_sampling_frequency_88200, tvb, offset + 6, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_sampling_frequency_96000, tvb, offset + 6, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_sampling_frequency_176400, tvb, offset + 6, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_sampling_frequency_192000, tvb, offset + 6, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_rfa2, tvb, offset + 7, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_channel_mode_mono, tvb, offset + 7, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_channel_mode_dual_channel, tvb, offset + 7, 1, ENC_NA);
+                                proto_tree_add_item(tree, hf_btavdtp_vendor_specific_ldac_channel_mode_stereo, tvb, offset + 7, 1, ENC_NA);
+
+                                col_append_fstr(pinfo->cinfo, COL_INFO, " (%s -",
+                                    val_to_str_const(value, vendor_apt_codec_vals, "unknown codec"));
+                                proto_item_append_text(service_item, " (%s -",
+                                    val_to_str_const(value, vendor_apt_codec_vals, "unknown codec"));
+
+                                value = tvb_get_letohs(tvb, offset + 6);
+                                if (value) {
+                                    col_append_fstr(pinfo->cinfo, COL_INFO, "%s%s%s%s%s%s%s,%s%s%s%s)",
+                                        (value & 0x0020) ? " 44100" : "",
+                                        (value & 0x0010) ? " 48000" : "",
+                                        (value & 0x0008) ? " 88200" : "",
+                                        (value & 0x0004) ? " 96000" : "",
+                                        (value & 0x0002) ? " 176400" : "",
+                                        (value & 0x0001) ? " 192000" : "",
+                                        (value & 0x003F) ? "" : "not set ",
+                                        (value & 0x0400) ? " Mono" : "",
+                                        (value & 0x0200) ? " DualChannel" : "",
+                                        (value & 0x0100) ? " Stereo" : "",
+                                        (value & 0x0700) ? "" : "not set ");
+
+                                    proto_item_append_text(service_item, "%s%s%s%s%s%s%s,%s%s%s%s)",
+                                        (value & 0x0020) ? " 44100" : "",
+                                        (value & 0x0010) ? " 48000" : "",
+                                        (value & 0x0008) ? " 88200" : "",
+                                        (value & 0x0004) ? " 96000" : "",
+                                        (value & 0x0002) ? " 176400" : "",
+                                        (value & 0x0001) ? " 192000" : "",
+                                        (value & 0x003F) ? "" : "not set ",
+                                        (value & 0x0400) ? " Mono" : "",
+                                        (value & 0x0200) ? " DualChannel" : "",
+                                        (value & 0x0100) ? " Stereo" : "",
+                                        (value & 0x0700) ? "" : "not set ");
                                 } else {
                                     col_append_fstr(pinfo->cinfo, COL_INFO, " none)");
                                     proto_item_append_text(service_item, " none)");
@@ -2407,22 +2503,22 @@ proto_register_btavdtp(void)
             NULL, HFILL }
         },
         { &hf_btavdtp_mpeg24_object_type_mpeg2_aac_lc,
-            { "MPEG2 ACC LC",                   "btavdtp.codec.mpeg24.object_type.mpeg2_aac_lc",
+            { "MPEG2 AAC LC",                   "btavdtp.codec.mpeg24.object_type.mpeg2_aac_lc",
             FT_BOOLEAN, 8, NULL, 0x80,
             NULL, HFILL }
         },
         { &hf_btavdtp_mpeg24_object_type_mpeg4_aac_lc,
-            { "MPEG4 ACC LC",                   "btavdtp.codec.mpeg24.object_type.mpeg4_aac_lc",
+            { "MPEG4 AAC LC",                   "btavdtp.codec.mpeg24.object_type.mpeg4_aac_lc",
             FT_BOOLEAN, 8, NULL, 0x40,
             NULL, HFILL }
         },
         { &hf_btavdtp_mpeg24_object_type_mpeg4_aac_ltp,
-            { "MPEG4 ACC LTP",                  "btavdtp.codec.mpeg24.object_type.mpeg4_aac_ltp",
+            { "MPEG4 AAC LTP",                  "btavdtp.codec.mpeg24.object_type.mpeg4_aac_ltp",
             FT_BOOLEAN, 8, NULL, 0x20,
             NULL, HFILL }
         },
         { &hf_btavdtp_mpeg24_object_type_mpeg4_aac_scalable,
-            { "MPEG4 ACC Scalable",             "btavdtp.codec.mpeg24.object_type.mpeg4_aac_scalable",
+            { "MPEG4 AAC Scalable",             "btavdtp.codec.mpeg24.object_type.mpeg4_aac_scalable",
             FT_BOOLEAN, 8, NULL, 0x10,
             NULL, HFILL }
         },
@@ -2681,6 +2777,106 @@ proto_register_btavdtp(void)
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
+        { &hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_16000,
+            { "Sampling Frequency 16000 Hz",    "btavdtp.codec.aptxhd.sampling_frequency.16000",
+            FT_BOOLEAN, 8, NULL, 0x80,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_32000,
+            { "Sampling Frequency 32000 Hz",    "btavdtp.codec.aptxhd.sampling_frequency.32000",
+            FT_BOOLEAN, 8, NULL, 0x40,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_44100,
+            { "Sampling Frequency 44100 Hz",    "btavdtp.codec.aptxhd.sampling_frequency.44100",
+            FT_BOOLEAN, 8, NULL, 0x20,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_aptxhd_sampling_frequency_48000,
+            { "Sampling Frequency 48000 Hz",    "btavdtp.codec.aptxhd.sampling_frequency.48000",
+            FT_BOOLEAN, 8, NULL, 0x10,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_aptxhd_channel_mode_mono,
+            { "Channel Mode Mono",              "btavdtp.codec.aptxhd.channel_mode.mono",
+            FT_BOOLEAN, 8, NULL, 0x08,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_aptxhd_channel_mode_dual_channel,
+            { "Channel Mode Dual Channel",      "btavdtp.codec.aptxhd.channel_mode.dual_channel",
+            FT_BOOLEAN, 8, NULL, 0x04,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_aptxhd_channel_mode_stereo,
+            { "Channel Mode Stereo",            "btavdtp.codec.aptxhd.channel_mode.stereo",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_aptxhd_channel_mode_joint_stereo,
+            { "Channel Mode Joint Stereo",      "btavdtp.codec.aptxhd.channel_mode.joint_stereo",
+            FT_BOOLEAN, 8, NULL, 0x01,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_aptxhd_rfa,
+            { "RFA",                            "btavdtp.codec.aptxhd.rfa",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_rfa1,
+            { "RFA1",                           "btavdtp.codec.ldac.rfa1",
+            FT_UINT8, BASE_HEX, NULL, 0xC0,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_sampling_frequency_44100,
+            { "Sampling Frequency 44100 Hz",    "btavdtp.codec.ldac.sampling_frequency.44100",
+            FT_BOOLEAN, 8, NULL, 0x20,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_sampling_frequency_48000,
+            { "Sampling Frequency 48000 Hz",    "btavdtp.codec.ldac.sampling_frequency.48000",
+            FT_BOOLEAN, 8, NULL, 0x10,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_sampling_frequency_88200,
+            { "Sampling Frequency 88200 Hz",    "btavdtp.codec.ldac.sampling_frequency.88200",
+            FT_BOOLEAN, 8, NULL, 0x08,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_sampling_frequency_96000,
+            { "Sampling Frequency 96000 Hz",    "btavdtp.codec.ldac.sampling_frequency.96000",
+            FT_BOOLEAN, 8, NULL, 0x04,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_sampling_frequency_176400,
+            { "Sampling Frequency 176400 Hz",    "btavdtp.codec.ldac.sampling_frequency.176400",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_sampling_frequency_192000,
+            { "Sampling Frequency 192000 Hz",    "btavdtp.codec.ldac.sampling_frequency.192000",
+            FT_BOOLEAN, 8, NULL, 0x01,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_rfa2,
+            { "RFA2",                           "btavdtp.codec.ldac.rfa2",
+            FT_UINT8, BASE_HEX, NULL, 0xF8,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_channel_mode_mono,
+            { "Channel Mode Mono",              "btavdtp.codec.ldac.channel_mode.mono",
+            FT_BOOLEAN, 8, NULL, 0x04,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_channel_mode_dual_channel,
+            { "Channel Mode Dual Channel",      "btavdtp.codec.ldac.channel_mode.dual_channel",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_btavdtp_vendor_specific_ldac_channel_mode_stereo,
+            { "Channel Mode Stereo",            "btavdtp.codec.ldac.channel_mode.stereo",
+            FT_BOOLEAN, 8, NULL, 0x01,
+            NULL, HFILL }
+        },
         { &hf_btavdtp_capabilities,
             { "Capabilities",                   "btavdtp.capabilities",
             FT_NONE, BASE_NONE, NULL, 0x0,
@@ -2752,7 +2948,7 @@ dissect_aptx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
     info = (bta2dp_codec_info_t *) data;
 
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "APT-X");
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "aptX");
 
     switch (pinfo->p2p_dir) {
 
@@ -2774,7 +2970,7 @@ dissect_aptx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         break;
     }
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "APT-X");
+    col_append_fstr(pinfo->cinfo, COL_INFO, "aptX");
 
     aptx_item = proto_tree_add_item(tree, proto_aptx, tvb, 0, -1, ENC_NA);
     aptx_tree = proto_item_add_subtree(aptx_item, ett_aptx);
@@ -2909,7 +3105,7 @@ proto_register_aptx(void)
         &ett_aptx
     };
 
-    proto_aptx = proto_register_protocol("APT-X Codec", "APT-X", "aptx");
+    proto_aptx = proto_register_protocol("aptX Codec", "aptX", "aptx");
     proto_register_field_array(proto_aptx, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
@@ -3005,7 +3201,8 @@ dissect_bta2dp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         pitem = proto_tree_add_uint(bta2dp_tree, hf_bta2dp_vendor_codec_id, tvb, 0, 0, sep_data.vendor_codec);
         PROTO_ITEM_SET_GENERATED(pitem);
 
-        if (sep_data.vendor_id == 0x004F && sep_data.vendor_codec == 0x0001)
+        if ((sep_data.vendor_id == 0x004F && sep_data.vendor_codec == CODECID_APT_X) ||
+                (sep_data.vendor_id == 0x00D7 && sep_data.vendor_codec == CODECID_APT_X_HD))
             codec_dissector = aptx_handle;
     }
 
@@ -3041,6 +3238,7 @@ dissect_bta2dp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
             codec_dissector = atrac_handle;
             break;
         case CODEC_APT_X:
+        case CODEC_APT_X_HD:
             codec_dissector = aptx_handle;
             break;
     }

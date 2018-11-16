@@ -140,7 +140,7 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
     ctx_menu_.addMenu(submenu);
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTCPStream"));
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowUDPStream"));
-    submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowSSLStream"));
+    submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTLSStream"));
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowHTTPStream"));
     ctx_menu_.addSeparator();
 
@@ -181,7 +181,14 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
     ctx_menu_.addAction(window()->findChild<QAction *>("actionGoGoToLinkedPacket"));
     ctx_menu_.addAction(window()->findChild<QAction *>("actionContextShowLinkedPacketInNewWindow"));
 
-    proto_prefs_menu_.setModule(finfo.moduleName());
+    // The "text only" header field will not give preferences for the selected protocol.
+    // Use parent in this case.
+    proto_node *node = proto_tree_model_->protoNodeFromIndex(index).protoNode();
+    while (node && node->finfo && node->finfo->hfinfo && node->finfo->hfinfo->id == hf_text_only)
+        node = node->parent;
+
+    FieldInformation pref_finfo(node);
+    proto_prefs_menu_.setModule(pref_finfo.moduleName());
 
     decode_as_->setData(QVariant::fromValue(true));
 

@@ -50,6 +50,7 @@
 
 #include "ui/rtp_stream.h"
 #include "ui/simple_dialog.h"
+#include "ui/tap-rtp-common.h"
 #include "ui/ws_ui_util.h"
 #include "ui/voip_calls.h"
 
@@ -259,10 +260,10 @@ void
 voip_calls_reset_all_taps(voip_calls_tapinfo_t *tapinfo)
 {
     voip_calls_info_t *callsinfo;
-    rtp_stream_info_t *strinfo;
+    rtpstream_info_t *strinfo;
     GList *list = NULL;
 
-    /* VOIP_CALLS_DEBUG("reset packets: %d streams: %d", tapinfo->npackets, tapinfo->nrtp_streams); */
+    /* VOIP_CALLS_DEBUG("reset packets: %d streams: %d", tapinfo->npackets, tapinfo->nrtpstreams); */
 
     /* free the data items first */
     list = g_queue_peek_nth_link(tapinfo->callsinfos, 0);
@@ -288,16 +289,15 @@ voip_calls_reset_all_taps(voip_calls_tapinfo_t *tapinfo)
         g_hash_table_remove_all (tapinfo->callsinfo_hashtable[SIP_HASH]);
 
     /* free the strinfo data items first */
-    list = g_list_first(tapinfo->rtp_stream_list);
+    list = g_list_first(tapinfo->rtpstream_list);
     while(list)
     {
-        strinfo = (rtp_stream_info_t *)list->data;
-        wmem_free(NULL, strinfo->payload_type_name);
-        wmem_free(NULL, strinfo->ed137_info);
+        strinfo = (rtpstream_info_t *)list->data;
+        rtpstream_info_free_data(strinfo);
         list = g_list_next(list);
     }
-    g_list_free(tapinfo->rtp_stream_list);
-    tapinfo->rtp_stream_list = NULL;
+    g_list_free(tapinfo->rtpstream_list);
+    tapinfo->rtpstream_list = NULL;
 
     if (tapinfo->h245_labels) {
         memset(tapinfo->h245_labels, 0, sizeof(h245_labels_t));
@@ -526,6 +526,7 @@ rtp_event_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             rtp_event_packet,
+            NULL,
             NULL
             );
 
@@ -555,17 +556,20 @@ rtp_reset(void *tap_offset_ptr)
 {
     voip_calls_tapinfo_t *tapinfo = tap_id_to_base(tap_offset_ptr, tap_id_offset_rtp_);
     GList *list;
+    rtpstream_info_t *stream_info;
 
     /* free the data items first */
-    list = g_list_first(tapinfo->rtp_stream_list);
+    list = g_list_first(tapinfo->rtpstream_list);
     while (list)
     {
+        stream_info = (rtpstream_info_t*)(list->data);
+        rtpstream_info_free_data(stream_info);
         g_free(list->data);
         list = g_list_next(list);
     }
-    g_list_free(tapinfo->rtp_stream_list);
-    tapinfo->rtp_stream_list = NULL;
-    tapinfo->nrtp_streams = 0;
+    g_list_free(tapinfo->rtpstream_list);
+    tapinfo->rtpstream_list = NULL;
+    tapinfo->nrtpstreams = 0;
 
     if (tapinfo->tap_reset) {
         tapinfo->tap_reset(tapinfo);
@@ -580,8 +584,8 @@ static gboolean
 rtp_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt, void const *rtp_info_ptr)
 {
     voip_calls_tapinfo_t *tapinfo = tap_id_to_base(tap_offset_ptr, tap_id_offset_rtp_);
-    rtp_stream_info_t    *tmp_listinfo;
-    rtp_stream_info_t    *strinfo = NULL;
+    rtpstream_info_t    *tmp_listinfo;
+    rtpstream_info_t    *strinfo = NULL;
     GList                *list;
     struct _rtp_conversation_info *p_conv_data = NULL;
 
@@ -597,15 +601,15 @@ rtp_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt, void c
     }
 
     /* check whether we already have a RTP stream with this setup frame and ssrc in the list */
-    list = g_list_first(tapinfo->rtp_stream_list);
+    list = g_list_first(tapinfo->rtpstream_list);
     while (list)
     {
-        tmp_listinfo=(rtp_stream_info_t *)list->data;
+        tmp_listinfo=(rtpstream_info_t *)list->data;
         if ( (tmp_listinfo->setup_frame_number == rtp_info->info_setup_frame_num)
-                && (tmp_listinfo->ssrc == rtp_info->info_sync_src) && (tmp_listinfo->end_stream == FALSE)) {
+                && (tmp_listinfo->id.ssrc == rtp_info->info_sync_src) && (tmp_listinfo->end_stream == FALSE)) {
             /* if the payload type has changed, we mark the stream as finished to create a new one
                this is to show multiple payload changes in the Graph for example for DTMF RFC2833 */
-            if ( tmp_listinfo->payload_type != rtp_info->info_payload_type ) {
+            if ( tmp_listinfo->first_payload_type != rtp_info->info_payload_type ) {
                 tmp_listinfo->end_stream = TRUE;
             } else if ( ( ( tmp_listinfo->ed137_info == NULL ) && (rtp_info->info_ed137_info != NULL) ) ||
                         ( ( tmp_listinfo->ed137_info != NULL ) && (rtp_info->info_ed137_info == NULL) ) ||
@@ -616,7 +620,7 @@ rtp_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt, void c
             /* if ed137_info has changed, create new stream */
                 tmp_listinfo->end_stream = TRUE;
             } else {
-                strinfo = (rtp_stream_info_t*)(list->data);
+                strinfo = (rtpstream_info_t*)(list->data);
                 break;
             }
         }
@@ -630,37 +634,36 @@ rtp_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt, void c
 
     /* not in the list? then create a new entry */
     if (strinfo==NULL) {
-        strinfo = (rtp_stream_info_t *)g_malloc0(sizeof(rtp_stream_info_t));
-        copy_address(&(strinfo->src_addr), &(pinfo->src));
-        strinfo->src_port = pinfo->srcport;
-        copy_address(&(strinfo->dest_addr), &(pinfo->dst));
-        strinfo->dest_port = pinfo->destport;
-        strinfo->ssrc = rtp_info->info_sync_src;
-        strinfo->payload_type = rtp_info->info_payload_type;
+        strinfo = rtpstream_info_malloc_and_init();
+        rtpstream_id_copy_pinfo(pinfo,&(strinfo->id),FALSE);
+        strinfo->id.ssrc = rtp_info->info_sync_src;
+        strinfo->first_payload_type = rtp_info->info_payload_type;
         strinfo->is_srtp = rtp_info->info_is_srtp;
         /* if it is dynamic payload, let use the conv data to see if it is defined */
-        if ( (strinfo->payload_type >= PT_UNDF_96) && (strinfo->payload_type <= PT_UNDF_127) ) {
+        if ( (strinfo->first_payload_type >= PT_UNDF_96) && (strinfo->first_payload_type <= PT_UNDF_127) ) {
             /* Use existing packet info if available */
             p_conv_data = (struct _rtp_conversation_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_get_id_by_filter_name("rtp"), 0);
             if (p_conv_data && p_conv_data->rtp_dyn_payload) {
-                const gchar *encoding_name = rtp_dyn_payload_get_name(p_conv_data->rtp_dyn_payload, strinfo->payload_type);
+                const gchar *encoding_name = rtp_dyn_payload_get_name(p_conv_data->rtp_dyn_payload, strinfo->first_payload_type);
                 if (encoding_name) {
-                    strinfo->payload_type_name = wmem_strdup(NULL, encoding_name);
+                    strinfo->first_payload_type_name = encoding_name;
                 }
             }
         }
-        if (!strinfo->payload_type_name) strinfo->payload_type_name = (gchar*)val_to_str_ext_wmem(NULL, strinfo->payload_type, &rtp_payload_type_short_vals_ext, "%u");
+        if (!strinfo->first_payload_type_name) {
+            strinfo->first_payload_type_name = (gchar*)val_to_str_ext(strinfo->first_payload_type, &rtp_payload_type_short_vals_ext, "%u");
+        }
         strinfo->start_fd = pinfo->fd;
         strinfo->start_rel_time = pinfo->rel_ts;
         strinfo->setup_frame_number = rtp_info->info_setup_frame_num;
         strinfo->call_num = -1;
         strinfo->rtp_event = -1;
         if (rtp_info->info_ed137_info != NULL) {
-            strinfo->ed137_info = wmem_strdup(NULL, rtp_info->info_ed137_info);
+            strinfo->ed137_info = rtp_info->info_ed137_info;
         } else {
             strinfo->ed137_info = NULL;
         }
-        tapinfo->rtp_stream_list = g_list_prepend(tapinfo->rtp_stream_list, strinfo);
+        tapinfo->rtpstream_list = g_list_prepend(tapinfo->rtpstream_list, strinfo);
     }
 
     /* Add the info to the existing RTP stream */
@@ -687,8 +690,8 @@ static void
 rtp_draw(void *tap_offset_ptr)
 {
     voip_calls_tapinfo_t *tapinfo = tap_id_to_base(tap_offset_ptr, tap_id_offset_rtp_);
-    GList                *rtp_streams_list;
-    rtp_stream_info_t    *rtp_listinfo;
+    GList                *rtpstreams_list;
+    rtpstream_info_t     *rtp_listinfo;
     /* GList *voip_calls_graph_list; */
     seq_analysis_item_t  *gai     = NULL;
     seq_analysis_item_t  *new_gai;
@@ -697,10 +700,10 @@ rtp_draw(void *tap_offset_ptr)
     gchar                 time_str[COL_MAX_LEN];
 
     /* add each rtp stream to the graph */
-    rtp_streams_list = g_list_first(tapinfo->rtp_stream_list);
-    while (rtp_streams_list)
+    rtpstreams_list = g_list_first(tapinfo->rtpstream_list);
+    while (rtpstreams_list)
     {
-        rtp_listinfo = (rtp_stream_info_t *)rtp_streams_list->data;
+        rtp_listinfo = (rtpstream_info_t *)rtpstreams_list->data;
 
         /* using the setup frame number of the RTP stream, we get the call number that it belongs to*/
         /* voip_calls_graph_list = g_list_first(tapinfo->graph_analysis->list); */
@@ -718,18 +721,18 @@ rtp_draw(void *tap_offset_ptr)
                 g_free(gai->comment);
                 gai->comment = g_strdup_printf(comment_fmt,
                         (rtp_listinfo->is_srtp)?"SRTP":"RTP", rtp_listinfo->packet_count,
-                        duration/1000,(duration%1000), rtp_listinfo->ssrc);
+                        duration/1000,(duration%1000), rtp_listinfo->id.ssrc);
             } else {
                 new_gai = (seq_analysis_item_t *)g_malloc0(sizeof(seq_analysis_item_t));
                 new_gai->frame_number = rtp_listinfo->start_fd->num;
-                copy_address(&(new_gai->src_addr),&(rtp_listinfo->src_addr));
-                copy_address(&(new_gai->dst_addr),&(rtp_listinfo->dest_addr));
-                new_gai->port_src = rtp_listinfo->src_port;
-                new_gai->port_dst = rtp_listinfo->dest_port;
+                copy_address(&(new_gai->src_addr),&(rtp_listinfo->id.src_addr));
+                copy_address(&(new_gai->dst_addr),&(rtp_listinfo->id.dst_addr));
+                new_gai->port_src = rtp_listinfo->id.src_port;
+                new_gai->port_dst = rtp_listinfo->id.dst_port;
                 duration = (guint32)(nstime_to_msec(&rtp_listinfo->stop_rel_time) - nstime_to_msec(&rtp_listinfo->start_rel_time));
                 new_gai->frame_label = g_strdup_printf("%s (%s) %s%s%s",
                         (rtp_listinfo->is_srtp)?"SRTP":"RTP",
-                        rtp_listinfo->payload_type_name,
+                        rtp_listinfo->first_payload_type_name,
                         (rtp_listinfo->rtp_event == -1)?
                         "":val_to_str_ext_const(rtp_listinfo->rtp_event, &rtp_event_type_values_ext, "Unknown RTP Event"),
                         (rtp_listinfo->ed137_info!=NULL?" ":""),
@@ -737,7 +740,7 @@ rtp_draw(void *tap_offset_ptr)
                 );
                 new_gai->comment = g_strdup_printf(comment_fmt,
                         (rtp_listinfo->is_srtp)?"SRTP":"RTP", rtp_listinfo->packet_count,
-                        duration/1000,(duration%1000), rtp_listinfo->ssrc);
+                        duration/1000,(duration%1000), rtp_listinfo->id.ssrc);
                 new_gai->conv_num = conv_num;
                 set_fd_time(tapinfo->session, rtp_listinfo->start_fd, time_str);
                 new_gai->time_str = g_strdup(time_str);
@@ -747,8 +750,8 @@ rtp_draw(void *tap_offset_ptr)
                 g_hash_table_insert(tapinfo->graph_analysis->ht, &rtp_listinfo->start_fd, new_gai);
             }
         }
-        rtp_streams_list = g_list_next(rtp_streams_list);
-    } /* while (rtp_streams_list) */
+        rtpstreams_list = g_list_next(rtpstreams_list);
+    } /* while (rtpstreams_list) */
 
     if (tapinfo->tap_draw && (tapinfo->redraw & REDRAW_RTP)) {
         tapinfo->tap_draw(tapinfo);
@@ -760,8 +763,8 @@ static void
 rtp_packet_draw(void *tap_offset_ptr)
 {
     voip_calls_tapinfo_t *tapinfo = tap_id_to_base(tap_offset_ptr, tap_id_offset_rtp_);
-    GList                *rtp_streams_list;
-    rtp_stream_info_t    *rtp_listinfo;
+    GList                *rtpstreams_list;
+    rtpstream_info_t     *rtp_listinfo;
     GList                *voip_calls_graph_list;
     guint                 item;
     seq_analysis_item_t  *gai;
@@ -771,10 +774,10 @@ rtp_packet_draw(void *tap_offset_ptr)
     gchar                 time_str[COL_MAX_LEN];
 
     /* add each rtp stream to the graph */
-    rtp_streams_list = g_list_first(tapinfo->stream_list);
-    while (rtp_streams_list)
+    rtpstreams_list = g_list_first(tapinfo->stream_list);
+    while (rtpstreams_list)
     {
-        rtp_listinfo = rtp_streams_list->data;
+        rtp_listinfo = rtpstreams_list->data;
 
         /* using the setup frame number of the RTP stream, we get the call number that it belongs to*/
         voip_calls_graph_list = g_list_first(tapinfo->graph_analysis->list);
@@ -795,7 +798,7 @@ rtp_packet_draw(void *tap_offset_ptr)
                         g_free(gai->comment);
                         gai->comment = g_strdup_printf("%s Num packets:%u  Duration:%u.%03us SSRC:0x%X",
                                                        (rtp_listinfo->is_srtp)?"SRTP":"RTP", rtp_listinfo->npackets,
-                                                       duration/1000,(duration%1000), rtp_listinfo->ssrc);
+                                                       duration/1000,(duration%1000), rtp_listinfo->id.ssrc);
                         break;
                     }
 
@@ -808,19 +811,19 @@ rtp_packet_draw(void *tap_offset_ptr)
                         new_gai = g_malloc0(sizeof(seq_analysis_item_t));
                         new_gai->frame_number = rtp_listinfo->start_fd->num;
                         copy_address(&(new_gai->src_addr),&(rtp_listinfo->src_addr));
-                        copy_address(&(new_gai->dst_addr),&(rtp_listinfo->dest_addr));
-                        new_gai->port_src = rtp_listinfo->src_port;
-                        new_gai->port_dst = rtp_listinfo->dest_port;
+                        copy_address(&(new_gai->dst_addr),&(rtp_listinfo->dst_addr));
+                        new_gai->port_src = rtp_listinfo->id.src_port;
+                        new_gai->port_dst = rtp_listinfo->id.dst_port;
                         new_gai->protocol = g_strdup(port_type_to_str(pinfo->ptype));
                         duration = (guint32)(nstime_to_msec(&rtp_listinfo->stop_fd->rel_ts) - nstime_to_msec(&rtp_listinfo->start_fd->rel_ts));
                         new_gai->frame_label = g_strdup_printf("%s (%s) %s",
                                                                (rtp_listinfo->is_srtp)?"SRTP":"RTP",
-                                                               rtp_listinfo->payload_type_str,
+                                                               rtp_listinfo->first_payload_type_str,
                                                                (rtp_listinfo->rtp_event == -1)?
                                                                "":val_to_str_ext_const(rtp_listinfo->rtp_event, &rtp_event_type_values_ext, "Unknown RTP Event"));
                         new_gai->comment = g_strdup_printf("%s Num packets:%u  Duration:%u.%03us SSRC:0x%X",
                                                            (rtp_listinfo->is_srtp)?"SRTP":"RTP", rtp_listinfo->npackets,
-                                                           duration/1000,(duration%1000), rtp_listinfo->ssrc);
+                                                           duration/1000,(duration%1000), rtp_listinfo->id.ssrc);
                         new_gai->conv_num = conv_num;
                         set_fd_time(cfile.epan, rtp_listinfo->start_fd, time_str);
                         new_gai->time_str = g_strdup(time_str);
@@ -835,7 +838,7 @@ rtp_packet_draw(void *tap_offset_ptr)
             }
             voip_calls_graph_list = g_list_next(voip_calls_graph_list);
         }
-        rtp_streams_list = g_list_next(rtp_streams_list);
+        rtpstreams_list = g_list_next(rtpstreams_list);
     }
 }
 #endif
@@ -850,7 +853,8 @@ rtp_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             rtp_reset,
             rtp_packet,
-            rtp_draw
+            rtp_draw,
+            NULL
             );
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -1045,7 +1049,8 @@ t38_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             t38_packet,
-            t38_draw
+            t38_draw,
+            NULL
             );
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -1275,7 +1280,8 @@ sip_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             sip_calls_packet,
-            sip_calls_draw
+            sip_calls_draw,
+            NULL
             );
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -1474,7 +1480,8 @@ isup_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             isup_calls_packet,
-            isup_calls_draw
+            isup_calls_draw,
+            NULL
             );
 
     if (error_string != NULL) {
@@ -1543,6 +1550,7 @@ mtp3_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             mtp3_calls_packet,
+            NULL,
             NULL
             );
 
@@ -1557,6 +1565,7 @@ mtp3_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             m3ua_calls_packet,
+            NULL,
             NULL
             );
 
@@ -1870,7 +1879,8 @@ q931_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             q931_calls_packet,
-            q931_calls_draw
+            q931_calls_draw,
+            NULL
             );
 
     if (error_string != NULL) {
@@ -2161,7 +2171,8 @@ h225_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             h225_calls_packet,
-            h225_calls_draw
+            h225_calls_draw,
+            NULL
             );
 
     if (error_string != NULL) {
@@ -2325,7 +2336,8 @@ h245dg_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             h245dg_calls_packet,
-            h245dg_calls_draw
+            h245dg_calls_draw,
+            NULL
             );
 
     if (error_string != NULL) {
@@ -2395,7 +2407,8 @@ sdp_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             sdp_calls_packet,
-            sdp_calls_draw
+            sdp_calls_draw,
+            NULL
             );
 
     if (error_string != NULL) {
@@ -2780,7 +2793,8 @@ mgcp_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             TL_REQUIRES_PROTO_TREE,
             NULL,
             mgcp_calls_packet,
-            mgcp_calls_draw
+            mgcp_calls_draw,
+            NULL
             );
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -2904,7 +2918,8 @@ actrace_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             actrace_calls_packet,
-            actrace_calls_draw
+            actrace_calls_draw,
+            NULL
             );
 
     if (error_string != NULL) {
@@ -3074,7 +3089,8 @@ h248_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             megaco_calls_packet,
-            megaco_calls_draw);
+            megaco_calls_draw,
+            NULL);
 
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -3087,7 +3103,8 @@ h248_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             h248_calls_packet,
-            h248_calls_draw);
+            h248_calls_draw,
+            NULL);
 
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -3266,7 +3283,8 @@ void sccp_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             sccp_calls_packet,
-            sccp_calls_draw);
+            sccp_calls_draw,
+            NULL);
 
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -3279,7 +3297,8 @@ void sccp_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             sua_calls_packet,
-            sua_calls_draw);
+            sua_calls_draw,
+            NULL);
 
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -3787,7 +3806,8 @@ unistim_calls_init_tap(voip_calls_tapinfo_t *tap_id_base) {
             0,
             NULL,
             unistim_calls_packet,
-            unistim_calls_draw
+            unistim_calls_draw,
+            NULL
             );
 
     if (error_string != NULL) {
@@ -3954,7 +3974,8 @@ skinny_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             TL_REQUIRES_PROTO_TREE,
             NULL,
             skinny_calls_packet,
-            skinny_calls_draw
+            skinny_calls_draw,
+            NULL
             );
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
@@ -4095,7 +4116,8 @@ iax2_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             TL_REQUIRES_PROTO_TREE,
             NULL,
             iax2_calls_packet,
-            iax2_calls_draw
+            iax2_calls_draw,
+            NULL
             );
     if (error_string != NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s",
@@ -4207,7 +4229,8 @@ voip_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
             0,
             NULL,
             voip_calls_packet,
-            voip_calls_draw
+            voip_calls_draw,
+            NULL
             );
 
     if (error_string != NULL) {
@@ -4271,7 +4294,8 @@ prot_calls_init_tap(voip_calls_tapinfo_t *tap_id_base)
                                          0,
                                          NULL,
                                          prot_calls_packet,
-                                         prot_calls_draw
+                                         prot_calls_draw,
+                                         NULL
         );
 
     if (error_string != NULL) {

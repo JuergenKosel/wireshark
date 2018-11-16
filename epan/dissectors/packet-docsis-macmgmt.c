@@ -64,6 +64,8 @@
 #include <epan/expert.h>
 #include <wsutil/utf8_entities.h>
 #include "packet-docsis-tlv.h"
+#include <epan/reassemble.h>
+#include <epan/proto_data.h>
 
 void proto_register_docsis_mgmt(void);
 void proto_reg_handoff_docsis_mgmt(void);
@@ -115,10 +117,19 @@ void proto_reg_handoff_docsis_mgmt(void);
 #define MGT_REG_RSP_MP 45
 #define MGT_EM_REQ 46
 #define MGT_EM_RSP 47
-#define MGT_STATUS_ACK 48
+#define MGT_CM_STATUS_ACK 48
 #define MGT_OCD 49
 #define MGT_DPD 50
 #define MGT_TYPE51UCD 51
+#define MGT_ODS_REQ 52
+#define MGT_ODS_RSP 53
+#define MGT_OPT_REQ 54
+#define MGT_OPT_RSP 55
+#define MGT_OPT_ACK 56
+#define MGT_DPT_REQ 57
+#define MGT_DPT_RSP 58
+#define MGT_DPT_ACK 59
+#define MGT_DPT_INFO 60
 
 #define UCD_SYMBOL_RATE 1
 #define UCD_FREQUENCY 2
@@ -203,6 +214,7 @@ void proto_reg_handoff_docsis_mgmt(void);
 #define RNGRSP_RANGING_STATUS 5
 #define RNGRSP_DOWN_FREQ_OVER 6
 #define RNGRSP_UP_CHID_OVER 7
+#define RNGRSP_T4_TIMEOUT_MULTIPLIER 13
 #define RNGRSP_DYNAMIC_RANGE_WINDOW_UPPER_EDGE 14
 #define RNGRSP_TRANSMIT_EQ_ADJUST_OFDMA_CHANNELS 15
 #define RNGRSP_TRANSMIT_EQ_SET_OFDMA_CHANNELS 16
@@ -363,6 +375,8 @@ void proto_reg_handoff_docsis_mgmt(void);
 #define CM_PERIODIC_MAINTENANCE_TIMEOUT_INDICATOR 18
 #define DLS_BROADCAST_AND_MULTICAST_DELIVERY_METHOD 19
 #define CM_STATUS_EVENT_ENABLE_FOR_DOCSIS_3_1_EVENTS 20
+#define DIPLEXER_BAND_EDGE 21
+#define FULL_DUPLEX_DESCRIPTOR 22
 
 
 /*Downstream Active Channel List*/
@@ -491,6 +505,8 @@ void proto_reg_handoff_docsis_mgmt(void);
 #define CM_ON_BATTERY           9
 #define CM_ON_AC_POWER         10
 
+#define STATUS_EVENT            1
+
 #define EVENT_DESCR             2
 #define EVENT_DS_CH_ID          4
 #define EVENT_US_CH_ID          5
@@ -523,6 +539,28 @@ void proto_reg_handoff_docsis_mgmt(void);
 #define SUBCARRIER_ASSIGNMENT_RANGE_SKIPBY1 1
 #define SUBCARRIER_ASSIGNMENT_LIST 2
 
+#define OPT_REQ_REQ_STAT 1
+#define OPT_REQ_RXMER_THRESH_PARAMS 2
+#define OPT_REQ_RXMER_THRESH_PARAMS_MODULATION_ORDER 1
+
+#define OPT_RSP_RXMER_AND_SNR_MARGIN_DATA 1
+#define OPT_RSP_RXMER_PER_SUBCARRIER 1
+#define OPT_RSP_SNR_MARGIN 4
+
+#define DIPLEXER_US_UPPER_BAND_EDGE 1
+#define DIPLEXER_DS_LOWER_BAND_EDGE 2
+#define DIPLEXER_DS_UPPER_BAND_EDGE 3
+
+#define FDX_ALLOCATED_SPECTRUM 1
+#define FDX_TOTAL_NUMBER_OF_SUB_BANDS 2
+#define FDX_SUB_BAND_WIDTH 3
+#define FDX_SUB_BAND_DESCRIPTOR 4
+
+#define FDX_SUB_BAND_ID 1
+#define FDX_SUB_BAND_OFFSET 2
+
+#define KEY_MGMT_VERSION 0
+#define KEY_MGMT_MULTIPART 1
 
 static int proto_docsis_mgmt = -1;
 static int proto_docsis_sync = -1;
@@ -561,6 +599,7 @@ static int proto_docsis_dbcack = -1;
 static int proto_docsis_dpvreq = -1;
 static int proto_docsis_dpvrsp = -1;
 static int proto_docsis_cmstatus = -1;
+static int proto_docsis_cmstatusack = -1;
 static int proto_docsis_cmctrlreq = -1;
 static int proto_docsis_cmctrlrsp = -1;
 static int proto_docsis_regreqmp = -1;
@@ -568,6 +607,9 @@ static int proto_docsis_regrspmp = -1;
 static int proto_docsis_ocd = -1;
 static int proto_docsis_dpd = -1;
 static int proto_docsis_type51ucd = -1;
+static int proto_docsis_optreq = -1;
+static int proto_docsis_optrsp = -1;
+static int proto_docsis_optack = -1;
 
 static int hf_docsis_sync_cmts_timestamp = -1;
 
@@ -626,6 +668,10 @@ static int hf_docsis_ucd_change_ind_bitmask_burst_attr_iuc13 = -1;
 static int hf_docsis_ucd_change_ind_bitmask_burst_attr_iuc3_or_4 = -1;
 static int hf_docsis_ucd_change_ind_bitmask_reserved = -1;
 static int hf_docsis_ucd_ofdma_timestamp_snapshot = -1;
+static int hf_docsis_ucd_ofdma_timestamp_snapshot_reserved = -1;
+static int hf_docsis_ucd_ofdma_timestamp_snapshot_d30timestamp = -1;
+static int hf_docsis_ucd_ofdma_timestamp_snapshot_4msbits_of_div20 = -1;
+static int hf_docsis_ucd_ofdma_timestamp_snapshot_minislot_count = -1;
 static int hf_docsis_ucd_ofdma_cyclic_prefix_size = -1;
 static int hf_docsis_ucd_ofdma_rolloff_period_size = -1;
 static int hf_docsis_ucd_subc_spacing = -1;
@@ -698,6 +744,7 @@ static int hf_docsis_rngrsp_xmit_eq_adj = -1;
 static int hf_docsis_rngrsp_ranging_status = -1;
 static int hf_docsis_rngrsp_down_freq_over = -1;
 static int hf_docsis_rngrsp_upstream_ch_over = -1;
+static int hf_docsis_rngrsp_rngrsp_t4_timeout_multiplier = -1;
 static int hf_docsis_rngrsp_dynamic_range_window_upper_edge = -1;
 static int hf_docsis_rngrsp_tlv_unknown = -1;
 static int hf_docsis_rngrsp_trans_eq_data = -1;
@@ -932,6 +979,21 @@ static int hf_docsis_mdd_cm_status_event_d31_map_stor_overflow_ind = -1;
 static int hf_docsis_mdd_cm_status_event_d31_ofdm_map_stor_almost_full_ind = -1;
 static int hf_docsis_mdd_cm_status_event_d31_reserved = -1;
 
+static int hf_docsis_mdd_diplexer_band_edge = -1;
+static int hf_docsis_mdd_diplexer_band_edge_length = -1;
+static int hf_docsis_mdd_diplexer_us_upper_band_edge = -1;
+static int hf_docsis_mdd_diplexer_ds_lower_band_edge = -1;
+static int hf_docsis_mdd_diplexer_ds_upper_band_edge = -1;
+
+static int hf_docsis_mdd_full_duplex_descriptor = -1;
+static int hf_docsis_mdd_full_duplex_descriptor_length = -1;
+static int hf_docsis_mdd_full_duplex_allocated_spectrum = -1;
+static int hf_docsis_mdd_full_duplex_total_number_of_sub_bands = -1;
+static int hf_docsis_mdd_full_duplex_sub_band_width = -1;
+static int hf_docsis_mdd_full_duplex_sub_band_descriptor = -1;
+static int hf_docsis_mdd_full_duplex_sub_band_descriptor_length = -1;
+static int hf_docsis_mdd_full_duplex_sub_band_id = -1;
+static int hf_docsis_mdd_full_duplex_sub_band_offset = -1;
 
 static int hf_docsis_bintrngreq_mddsgid = -1;
 static int hf_docsis_bintrngreq_capflags = -1;
@@ -961,13 +1023,16 @@ static int hf_docsis_cmstatus_e_t_t3_e = -1;
 static int hf_docsis_cmstatus_e_t_rng_s = -1;
 static int hf_docsis_cmstatus_e_t_cm_b = -1;
 static int hf_docsis_cmstatus_e_t_cm_a = -1;
-static int hf_docsis_cmstatus_ds_ch_id = -1;
-static int hf_docsis_cmstatus_us_ch_id = -1;
-static int hf_docsis_cmstatus_dsid = -1;
-static int hf_docsis_cmstatus_descr = -1;
+static int hf_docsis_cmstatus_status_event_ds_ch_id = -1;
+static int hf_docsis_cmstatus_status_event_us_ch_id = -1;
+static int hf_docsis_cmstatus_status_event_dsid = -1;
+static int hf_docsis_cmstatus_status_event_descr = -1;
 static int hf_docsis_cmstatus_tlv_data = -1;
 static int hf_docsis_cmstatus_type = -1;
 static int hf_docsis_cmstatus_length = -1;
+static int hf_docsis_cmstatus_status_event_tlv_data = -1;
+static int hf_docsis_cmstatus_status_event_type = -1;
+static int hf_docsis_cmstatus_status_event_length = -1;
 
 static int hf_docsis_cmctrl_tlv_mute = -1;
 static int hf_docsis_cmctrl_tlv_mute_timeout = -1;
@@ -1031,6 +1096,42 @@ static int hf_docsis_dpd_tlv_data = -1;
 static int hf_docsis_dpd_type = -1;
 static int hf_docsis_dpd_length = -1;
 
+static int hf_docsis_optreq_tlv_unknown = -1;
+static int hf_docsis_optreq_prof_id = -1;
+static int hf_docsis_optreq_opcode = -1;
+static int hf_docsis_optreq_reserved = -1;
+static int hf_docsis_optreq_tlv_data = -1;
+static int hf_docsis_optreq_type = -1;
+static int hf_docsis_optreq_length = -1;
+static int hf_docsis_optreq_reqstat_rxmer_stat_subc = -1;
+static int hf_docsis_optreq_reqstat_rxmer_subc_threshold_comp = -1;
+static int hf_docsis_optreq_reqstat_snr_marg_cand_prof = -1;
+static int hf_docsis_optreq_reqstat_codew_stat_cand_prof = -1;
+static int hf_docsis_optreq_reqstat_codew_thresh_comp_cand_prof = -1;
+static int hf_docsis_optreq_reqstat_ncp_field_stat = -1;
+static int hf_docsis_optreq_reqstat_ncp_crc_thresh_comp = -1;
+static int hf_docsis_optreq_reqstat_reserved = -1;
+static int hf_docsis_optreq_tlv_xrmer_thresh_data = -1;
+static int hf_docsis_optreq_xmer_thresh_params_type = -1;
+static int hf_docsis_optreq_xmer_thresh_params_length = -1;
+static int hf_docsis_optreq_tlv_xrmer_thresh_data_mod_order = -1;
+
+static int hf_docsis_optrsp_tlv_unknown = -1;
+static int hf_docsis_optrsp_prof_id = -1;
+static int hf_docsis_optrsp_reserved = -1;
+static int hf_docsis_optrsp_status = -1;
+static int hf_docsis_optrsp_tlv_data = -1;
+static int hf_docsis_optrsp_type = -1;
+static int hf_docsis_optrsp_length = -1;
+static int hf_docsis_optrsp_tlv_xrmer_snr_margin_data = -1;
+static int hf_docsis_optrsp_xmer_snr_margin_type = -1;
+static int hf_docsis_optrsp_xmer_snr_margin_length = -1;
+static int hf_docsis_optrsp_tlv_xrmer_snr_margin_data_rxmer_subc = -1;
+static int hf_docsis_optrsp_tlv_rxmer_snr_margin_data_snr_margin = -1;
+
+static int hf_docsis_optack_prof_id = -1;
+static int hf_docsis_optack_reserved = -1;
+
 static int hf_docsis_mgt_upstream_chid = -1;
 static int hf_docsis_mgt_down_chid = -1;
 static int hf_docsis_mgt_tranid = -1;
@@ -1043,7 +1144,23 @@ static int hf_docsis_mgt_control = -1;
 static int hf_docsis_mgt_version = -1;
 static int hf_docsis_mgt_type = -1;
 static int hf_docsis_mgt_rsvd = -1;
+static int hf_docsis_mgt_multipart = -1;
+static int hf_docsis_mgt_multipart_number_of_fragments = -1;
+static int hf_docsis_mgt_multipart_fragment_sequence_number = -1;
 
+static int hf_docsis_tlv_fragments = -1;
+static int hf_docsis_tlv_fragment = -1;
+static int hf_docsis_tlv_fragment_overlap = -1;
+static int hf_docsis_tlv_fragment_overlap_conflict = -1;
+static int hf_docsis_tlv_fragment_multiple_tails = -1;
+static int hf_docsis_tlv_fragment_too_long_fragment = -1;
+static int hf_docsis_tlv_fragment_error = -1;
+static int hf_docsis_tlv_fragment_count = -1;
+static int hf_docsis_tlv_reassembled_in = -1;
+static int hf_docsis_tlv_reassembled_length = -1;
+static int hf_docsis_tlv_reassembled_data = -1;
+
+static int hf_docsis_tlv_reassembled = -1;
 
 static gint ett_docsis_sync = -1;
 
@@ -1127,6 +1244,9 @@ static gint ett_docsis_mdd_ip_init_param = -1;
 static gint ett_docsis_mdd_up_active_channel_list = -1;
 static gint ett_docsis_mdd_cm_status_event_control = -1;
 static gint ett_docsis_mdd_dsg_da_to_dsid = -1;
+static gint ett_docsis_mdd_diplexer_band_edge = -1;
+static gint ett_docsis_mdd_full_duplex_descriptor = -1;
+static gint ett_docsis_mdd_full_duplex_sub_band_descriptor = -1;
 
 static gint ett_docsis_bintrngreq = -1;
 
@@ -1140,6 +1260,10 @@ static gint ett_docsis_dpvrsp = -1;
 static gint ett_docsis_cmstatus = -1;
 static gint ett_docsis_cmstatus_tlv = -1;
 static gint ett_docsis_cmstatus_tlvtlv = -1;
+static gint ett_docsis_cmstatus_status_event_tlv = -1;
+static gint ett_docsis_cmstatus_status_event_tlvtlv = -1;
+
+static gint ett_docsis_cmstatusack = -1;
 
 static gint ett_docsis_cmctrlreq = -1;
 static gint ett_docsis_cmctrlreq_tlv = -1;
@@ -1161,8 +1285,26 @@ static gint ett_docsis_dpd_tlvtlv = -1;
 static gint ett_docsis_dpd_tlv_subcarrier_assignment = -1;
 static gint ett_docsis_dpd_tlv_subcarrier_assignment_vector = -1;
 
+static gint ett_docsis_optreq = -1;
+static gint ett_docsis_optreq_tlv = -1;
+static gint ett_docsis_optreq_tlvtlv = -1;
+static gint ett_docsis_optreq_tlv_rxmer_thresh_params = -1;
+static gint ett_docsis_optreq_tlv_rxmer_thresh_params_tlv = -1;
+
+static gint ett_docsis_optrsp = -1;
+static gint ett_docsis_optrsp_tlv = -1;
+static gint ett_docsis_optrsp_tlvtlv = -1;
+static gint ett_docsis_optrsp_tlv_rxmer_snr_margin_data = -1;
+static gint ett_docsis_optrsp_tlv_rxmer_snr_margin_tlv =-1;
+
+static gint ett_docsis_optack = -1;
+
 static gint ett_docsis_mgmt = -1;
 static gint ett_mgmt_pay = -1;
+
+static gint ett_docsis_tlv_fragments = -1;
+static gint ett_docsis_tlv_fragment = -1;
+static gint ett_docsis_tlv_reassembled = -1;
 
 static expert_field ei_docsis_mgmt_tlvlen_bad = EI_INIT;
 static expert_field ei_docsis_mgmt_tlvtype_unknown = EI_INIT;
@@ -1283,10 +1425,20 @@ static const value_string mgmt_type_vals[] = {
   {MGT_REG_RSP_MP,     "Multipart Registration Response"},
   {MGT_EM_REQ,         "Energy Management Request"},
   {MGT_EM_RSP,         "Energy Management Response"},
-  {MGT_STATUS_ACK,     "Status Report Acknowledge"},
+  {MGT_CM_STATUS_ACK,     "Status Report Acknowledge"},
   {MGT_OCD,            "OFDM Channel Descriptor"},
   {MGT_DPD,            "Downstream Profile Descriptor"},
   {MGT_TYPE51UCD,      "Upstream Channel Descriptor Type 51"},
+  {MGT_ODS_REQ,        "ODS-REQ"},
+  {MGT_ODS_RSP,        "ODS-RSP"},
+  {MGT_OPT_REQ,        "OFDM Downstream Profile Test Request"},
+  {MGT_OPT_RSP,        "OFDM Downstream Profile Test Response"},
+  {MGT_OPT_ACK,        "OFDM Downstream Profile Test Acknowledge"},
+  {MGT_OPT_ACK,        "OFDM Downstream Profile Test Acknowledge"},
+  {MGT_DPT_REQ,        "DOCSIS Time Protocol Request"},
+  {MGT_DPT_RSP,        "DOCSIS Time Protocol Response"},
+  {MGT_DPT_ACK,        "DOCSIS Time Protocol Acknowledge"},
+  {MGT_DPT_INFO,       "DOCSIS Time Protocol Information"},
   {0, NULL}
 };
 
@@ -1381,6 +1533,7 @@ static const value_string rngrsp_tlv_vals[] = {
   {RNGRSP_RANGING_STATUS,    "Ranging Status"},
   {RNGRSP_DOWN_FREQ_OVER,    "Downstream Frequency Override (Hz)"},
   {RNGRSP_UP_CHID_OVER,      "Upstream Channel ID Override"},
+  {RNGRSP_T4_TIMEOUT_MULTIPLIER, "T4 Timeout Multiplier"},
   {RNGRSP_DYNAMIC_RANGE_WINDOW_UPPER_EDGE, "Dynamic Range Window Upper Edge"},
   {RNGRSP_TRANSMIT_EQ_ADJUST_OFDMA_CHANNELS, "Transmit Equalization Adjust for OFDMA Channels"},
   {RNGRSP_TRANSMIT_EQ_SET_OFDMA_CHANNELS, "Transmit Equalization Set for OFDMA Channels"},
@@ -1678,6 +1831,8 @@ static const value_string mdd_tlv_vals[] = {
   {CM_PERIODIC_MAINTENANCE_TIMEOUT_INDICATOR  ,          "CM Periodic Maintenance Timeout Indicator"},
   {DLS_BROADCAST_AND_MULTICAST_DELIVERY_METHOD  ,        "DLS Broadcast and Multicast Delivery Method"},
   {CM_STATUS_EVENT_ENABLE_FOR_DOCSIS_3_1_EVENTS  ,       "CM-STATUS Event Enable for DOCSIS 3.1 Specific Events"},
+  {DIPLEXER_BAND_EDGE  ,                                 "Diplexer Band Edge"},
+  {FULL_DUPLEX_DESCRIPTOR  ,                             "Full Duplex Descriptor"},
   {0, NULL}
 };
 
@@ -1810,7 +1965,70 @@ static const value_string tlv20_vals[] = {
   {0, NULL}
 };
 
+static const value_string mdd_diplexer_band_edge_vals[] = {
+  {DIPLEXER_US_UPPER_BAND_EDGE, "Diplexer Upstream Upper Band Edge"},
+  {DIPLEXER_DS_LOWER_BAND_EDGE, "Diplexer Downstream Lower Band Edge"},
+  {DIPLEXER_DS_UPPER_BAND_EDGE, "Diplexer Downstream Upper Band Edge"},
+  {0, NULL}
+};
+
+static const value_string mdd_diplexer_us_upper_band_edge_vals[] = {
+  {0, "Upstream Frequency Range up to 42 MHz"},
+  {1, "Upstream Frequency Range up to 65 MHz"},
+  {2, "Upstream Frequency Range up to 85 MHz"},
+  {3, "Upstream Frequency Range up to 117 MHz"},
+  {4, "Upstream Frequency Range up to 204 MHz"},
+  {0, NULL}
+};
+
+static const value_string mdd_diplexer_ds_lower_band_edge_vals[] = {
+  {0, "Downstream Frequency Range starting from 108 MHz"},
+  {1, "Downstream Frequency Range starting from 258 MHz"},
+  {0, NULL}
+};
+
+static const value_string mdd_diplexer_ds_upper_band_edge_vals[] = {
+  {0, "Downstream Frequency Range up to 1218 MHz"},
+  {1, "Downstream Frequency Range up to 1794 MHz"},
+  {2, "Downstream Frequency Range up to 1002 MHz"},
+  {0, NULL}
+};
+
+static const value_string mdd_full_duplex_descriptor_vals[] = {
+  {FDX_ALLOCATED_SPECTRUM, "Full Duplex Allocated Spectrum"},
+  {FDX_TOTAL_NUMBER_OF_SUB_BANDS, "Total number of sub-bands"},
+  {FDX_SUB_BAND_WIDTH, "Full Duplex Sub-band Width"},
+  {FDX_SUB_BAND_DESCRIPTOR, "Full Duplex Sub-band Descriptor"},
+  {0, NULL}
+};
+
+static const value_string mdd_full_duplex_allocated_spectrum_vals[] = {
+  {0, "96 MHz"},
+  {1, "192 MHz"},
+  {2, "288 MHz"},
+  {3, "384 MHz"},
+  {4, "576 MHz"},
+  {0, NULL}
+};
+
+static const value_string mdd_full_duplex_sub_band_width_vals[] = {
+  {0, "96 MHz"},
+  {1, "192 MHz"},
+  {0, NULL}
+};
+
+static const value_string mdd_full_duplex_sub_band_vals[] = {
+  {FDX_SUB_BAND_ID, "Full Duplex Sub-band ID"},
+  {FDX_SUB_BAND_OFFSET, "Full Duplex Sub-band Offset"},
+  {0, NULL}
+};
+
 static const value_string cmstatus_tlv_vals[] = {
+  {STATUS_EVENT, "Status Event"},
+  {0, NULL}
+};
+
+static const value_string cmstatus_status_event_tlv_vals[] = {
   {EVENT_DS_CH_ID, "Downstream Channel ID"},
   {EVENT_US_CH_ID, "Upstream Channel ID"},
   {EVENT_DSID, "DSID"},
@@ -2020,6 +2238,87 @@ static const value_string ofdma_prof_mod_order[] = {
   {0, NULL}
 };
 
+static const value_string profile_id_vals[] = {
+  {0, "Profile A"},
+  {1, "Profile B"},
+  {2, "Profile C"},
+  {3, "Profile D"},
+  {4, "Profile E"},
+  {5, "Profile F"},
+  {6, "Profile G"},
+  {7, "Profile H"},
+  {8, "Profile I"},
+  {9, "Profile J"},
+  {10, "Profile K"},
+  {11, "Profile L"},
+  {12, "Profile M"},
+  {13, "Profile N"},
+  {14, "Profile O"},
+  {15, "Profile P"},
+  {254, "Profile for RxMER statistics only"},
+  {255, "NCP Profile"},
+  {0, NULL}
+};
+
+static const value_string opt_opcode_vals[] = {
+  {1, "Start"},
+  {2, "Abort"},
+  {0, NULL}
+};
+
+static const value_string opt_status_vals[] = {
+  {1, "Testing"},
+  {2, "Profile already testing from another request"},
+  {3, "No free profile resource on CM"},
+  {4, "Maximum duration expired"},
+  {5, "Aborted"},
+  {6, "Complete"},
+  {7, "Profile already assigned to the CM"},
+  {0, NULL}
+};
+
+static const value_string optreq_tlv_vals[] = {
+  {OPT_REQ_REQ_STAT, "Requested Statistics"},
+  {OPT_REQ_RXMER_THRESH_PARAMS, "RxMER Thresholding Parameters"},
+  {0, NULL}
+};
+
+static const value_string optreq_tlv_rxmer_thresh_params_vals[] = {
+  {OPT_REQ_RXMER_THRESH_PARAMS_MODULATION_ORDER, "Modulation Order"},
+  {0, NULL}
+};
+
+static const value_string opreq_tlv_rxmer_thresh_params_mod_order[] = {
+  {0, "reserved"},
+  {1, "reserved"},
+  {2, "QPSK"},
+  {3, "reserved"},
+  {4, "16-QAM"},
+  {5, "reserved"},
+  {6, "64-QAM"},
+  {7, "128-QAM"},
+  {8, "256-QAM"},
+  {9, "512-QAM"},
+  {10, "1024-QAM"},
+  {11, "2048-QAM"},
+  {12, "4096-QAM"},
+  {13, "8192-QAM"},
+  {14, "16384-QAM"},
+  {15, "reserved"},
+  {0, NULL}
+};
+
+static const value_string optrsp_tlv_vals [] = {
+  {OPT_RSP_RXMER_AND_SNR_MARGIN_DATA, "RxMER and SNR Margin Data"},
+  {0, NULL}
+};
+
+static const value_string optrsp_tlv_rxmer_snr_margin_vals [] = {
+  {OPT_RSP_RXMER_PER_SUBCARRIER, "RxMER per Subcarrier"},
+  {0, NULL}
+};
+
+
 /* Windows does not allow data copy between dlls */
 static const true_false_string mdd_tfs_on_off = { "On", "Off" };
 static const true_false_string mdd_tfs_en_dis = { "Enabled", "Disabled" };
@@ -2029,6 +2328,8 @@ static const true_false_string tfs_ucd_change_ind_vals = {"Changes", "No changes
 static const true_false_string tfs_allow_inhibit = { "Inhibit Initial Ranging", "Ranging Allowed" };
 const true_false_string type35ucd_tfs_present_not_present = { "UCD35 is present for this UCID",
                                                               "UCD35 is not present for this UCID" };
+
+static const true_false_string req_not_req_tfs = {"Requested", "Not Requested"};
 
 static const value_string unique_unlimited[] = {
   { 0, "Unlimited" },
@@ -2050,10 +2351,43 @@ ofdma_ir_pow_ctrl_step_size(char *buf, guint32 value)
 }
 
 static void
+mer_fourth_db(char *buf, guint32 value)
+{
+    g_snprintf(buf, ITEM_LABEL_LENGTH, "%f dB", value/4.0);
+}
+
+static void
 subc_assign_range(char *buf, guint32 value)
 {
     g_snprintf(buf, ITEM_LABEL_LENGTH, "%u - %u", value >> 16, value &0xFFFF);
 }
+
+static void
+multipart_number_of_fragments(char *buf, guint32 value)
+{
+    g_snprintf(buf, ITEM_LABEL_LENGTH, "%u (Actual Number of Fragments: %u)", value, value + 1);
+}
+
+static reassembly_table docsis_tlv_reassembly_table;
+static reassembly_table docsis_opt_tlv_reassembly_table;
+
+static const fragment_items docsis_tlv_frag_items = {
+  &ett_docsis_tlv_fragment,
+  &ett_docsis_tlv_fragments,
+  &hf_docsis_tlv_fragments,
+  &hf_docsis_tlv_fragment,
+  &hf_docsis_tlv_fragment_overlap,
+  &hf_docsis_tlv_fragment_overlap_conflict,
+  &hf_docsis_tlv_fragment_multiple_tails,
+  &hf_docsis_tlv_fragment_too_long_fragment,
+  &hf_docsis_tlv_fragment_error,
+  &hf_docsis_tlv_fragment_count,
+  &hf_docsis_tlv_reassembled_in,
+  &hf_docsis_tlv_reassembled_length,
+  &hf_docsis_tlv_reassembled_data,
+  "TLV fragments"
+};
+
 
 static int
 dissect_sync (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_)
@@ -2609,7 +2943,15 @@ dissect_any_ucd (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, int pro
     case UCD_OFDMA_TIMESTAMP_SNAPSHOT:
       if (length == 9)
       {
+        static const int* timestamp_snapshot_parts[] = {
+          &hf_docsis_ucd_ofdma_timestamp_snapshot_reserved,
+          &hf_docsis_ucd_ofdma_timestamp_snapshot_d30timestamp,
+          &hf_docsis_ucd_ofdma_timestamp_snapshot_4msbits_of_div20,
+          NULL
+        };
         proto_tree_add_item (tlv_tree, hf_docsis_ucd_ofdma_timestamp_snapshot, tvb, pos, length, ENC_NA);
+        proto_tree_add_bitmask_list(tlv_tree, tvb, pos, 5, timestamp_snapshot_parts, ENC_BIG_ENDIAN);
+        proto_tree_add_item (tlv_tree, hf_docsis_ucd_ofdma_timestamp_snapshot_minislot_count, tvb, pos+5, length-5, ENC_NA);
       }
       else
       {
@@ -3009,25 +3351,33 @@ dissect_rngrsp (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
         proto_tree_add_item (rngrsptlv_tree, hf_docsis_rngrsp_upstream_ch_over, tvb, pos, tlvlen, ENC_BIG_ENDIAN);
       }
       break;
-     case RNGRSP_DYNAMIC_RANGE_WINDOW_UPPER_EDGE:
-       if (tlvlen == 1)
-         proto_tree_add_item (rngrsptlv_tree, hf_docsis_rngrsp_dynamic_range_window_upper_edge, tvb, pos, tlvlen, ENC_BIG_ENDIAN);
-       else
-       {
-         expert_add_info_format(pinfo, rngrsptlv_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", tlvlen);
-       }
-       break;
-     case RNGRSP_TRANSMIT_EQ_ADJUST_OFDMA_CHANNELS:
-       dissect_rngrsp_transmit_equalization_encodings(tvb, rngrsptlv_tree, pos, tlvlen);
-       break;
-     case RNGRSP_TRANSMIT_EQ_SET_OFDMA_CHANNELS:
-       dissect_rngrsp_transmit_equalization_encodings(tvb, rngrsptlv_tree, pos, tlvlen);
-       break;
-     case RNGRSP_COMMANDED_POWER:
-       dissect_rngrsp_commanded_power(tvb, rngrsptlv_tree, pos, tlvlen);
-       break;
+    case RNGRSP_T4_TIMEOUT_MULTIPLIER:
+      if (tlvlen == 1)
+        proto_tree_add_item (rngrsptlv_tree, hf_docsis_rngrsp_rngrsp_t4_timeout_multiplier, tvb, pos, tlvlen, ENC_BIG_ENDIAN);
+      else
+      {
+        expert_add_info_format(pinfo, rngrsptlv_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", tlvlen);
+      }
+      break;
+    case RNGRSP_DYNAMIC_RANGE_WINDOW_UPPER_EDGE:
+      if (tlvlen == 1)
+        proto_tree_add_item (rngrsptlv_tree, hf_docsis_rngrsp_dynamic_range_window_upper_edge, tvb, pos, tlvlen, ENC_BIG_ENDIAN);
+      else
+      {
+        expert_add_info_format(pinfo, rngrsptlv_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", tlvlen);
+      }
+      break;
+    case RNGRSP_TRANSMIT_EQ_ADJUST_OFDMA_CHANNELS:
+      dissect_rngrsp_transmit_equalization_encodings(tvb, rngrsptlv_tree, pos, tlvlen);
+      break;
+    case RNGRSP_TRANSMIT_EQ_SET_OFDMA_CHANNELS:
+      dissect_rngrsp_transmit_equalization_encodings(tvb, rngrsptlv_tree, pos, tlvlen);
+      break;
+    case RNGRSP_COMMANDED_POWER:
+      dissect_rngrsp_commanded_power(tvb, rngrsptlv_tree, pos, tlvlen);
+      break;
 
-     default:
+    default:
        proto_tree_add_item (rngrsp_tree, hf_docsis_rngrsp_tlv_unknown, tvb, pos, tlvlen, ENC_NA);
     }                   /* switch(tlvtype) */
     pos += tlvlen;
@@ -3085,7 +3435,6 @@ dissect_uccreq (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
   proto_item *it;
   proto_tree *uccreq_tree;
   guint32 chid;
-  tvbuff_t *next_tvb;
 
   it = proto_tree_add_item (tree, proto_docsis_uccreq, tvb, 0, -1, ENC_NA);
   uccreq_tree = proto_item_add_subtree (it, ett_docsis_uccreq);
@@ -3093,12 +3442,9 @@ dissect_uccreq (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
   proto_tree_add_item_ret_uint (uccreq_tree, hf_docsis_mgt_upstream_chid, tvb, 0, 1, ENC_BIG_ENDIAN, &chid);
 
   col_add_fstr (pinfo->cinfo, COL_INFO,
-                "Upstream Channel Change request  Channel ID = %u (U%u)",
+                "Upstream Channel Change request: Channel ID = %u (U%u)",
                 chid, (chid > 0 ? chid - 1 : chid));
 
-  /* call dissector for Appendix C TLV's */
-  next_tvb = tvb_new_subset_remaining (tvb, 1);
-  call_dissector (docsis_tlv_handle, next_tvb, pinfo, uccreq_tree);
   return tvb_captured_length(tvb);
 }
 
@@ -3115,7 +3461,7 @@ dissect_uccrsp (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
   proto_tree_add_item_ret_uint (uccrsp_tree, hf_docsis_mgt_upstream_chid, tvb, 0, 1, ENC_BIG_ENDIAN, &chid);
 
   col_add_fstr (pinfo->cinfo, COL_INFO,
-                "Upstream Channel Change response  Channel ID = %u (U%u)",
+                "Upstream Channel Change response: Channel ID = %u (U%u)",
                 chid, (chid > 0 ? chid - 1 : chid));
 
   return tvb_captured_length(tvb);
@@ -4797,6 +5143,159 @@ dissect_mdd_dsg_da_to_dsid(tvbuff_t * tvb, packet_info* pinfo _U_, proto_tree * 
   }
 }
 
+static void
+dissect_mdd_diplexer_band_edge(tvbuff_t * tvb, packet_info* pinfo _U_, proto_tree * tree, int start, guint16 len)
+{
+  guint8 type;
+  guint32 length;
+  proto_tree *mdd_tree;
+  proto_item *mdd_item;
+  int pos;
+
+  pos = start;
+  while ( pos < ( start + len) )
+  {
+    type = tvb_get_guint8 (tvb, pos);
+    mdd_tree = proto_tree_add_subtree(tree, tvb, pos, 1,
+                                            ett_docsis_mdd_diplexer_band_edge, &mdd_item,
+                                            val_to_str(type, mdd_diplexer_band_edge_vals,
+                                                       "Unknown TLV (%u)"));
+    proto_tree_add_uint (mdd_tree, hf_docsis_mdd_diplexer_band_edge, tvb, pos, 1, type);
+    pos++;
+    proto_tree_add_item_ret_uint (mdd_tree, hf_docsis_mdd_diplexer_band_edge_length, tvb, pos, 1, ENC_BIG_ENDIAN, &length);
+    pos++;
+    proto_item_set_len(mdd_item, length + 2);
+
+    if (length == 1)
+    {
+      switch(type)
+      {
+      case DIPLEXER_US_UPPER_BAND_EDGE:
+        proto_tree_add_item (mdd_tree, hf_docsis_mdd_diplexer_us_upper_band_edge, tvb, pos, length, ENC_BIG_ENDIAN);
+        break;
+      case DIPLEXER_DS_LOWER_BAND_EDGE:
+        proto_tree_add_item (mdd_tree, hf_docsis_mdd_diplexer_ds_lower_band_edge, tvb, pos, length, ENC_BIG_ENDIAN);
+        break;
+      case DIPLEXER_DS_UPPER_BAND_EDGE:
+        proto_tree_add_item (mdd_tree, hf_docsis_mdd_diplexer_ds_upper_band_edge, tvb, pos, length, ENC_BIG_ENDIAN);
+        break;
+      default:
+        expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvtype_unknown, "Unknown Diplexer Band Edge TLV type: %u", type);
+        break;
+      }
+    } else
+    {
+      expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+      break;
+    }
+    pos += length;
+  }
+}
+
+static void
+dissect_mdd_full_duplex_descriptor(tvbuff_t * tvb, packet_info* pinfo _U_, proto_tree * tree, int start, guint16 len)
+{
+  guint8 type;
+  guint8 subtype;
+  guint32 length;
+  guint32 sublength;
+  proto_tree *mdd_tree;
+  proto_item *mdd_item;
+  int pos;
+  guint subpos;
+  guint32 sub_band_offset;
+
+  pos = start;
+  while ( pos < ( start + len) )
+  {
+    type = tvb_get_guint8 (tvb, pos);
+    mdd_tree = proto_tree_add_subtree(tree, tvb, pos, 1,
+                                            ett_docsis_mdd_full_duplex_descriptor, &mdd_item,
+                                            val_to_str(type, mdd_full_duplex_descriptor_vals,
+                                                       "Unknown TLV (%u)"));
+    proto_tree_add_uint (mdd_tree, hf_docsis_mdd_full_duplex_descriptor, tvb, pos, 1, type);
+    pos++;
+    proto_tree_add_item_ret_uint (mdd_tree, hf_docsis_mdd_full_duplex_descriptor_length, tvb, pos, 1, ENC_BIG_ENDIAN, &length);
+    pos++;
+    proto_item_set_len(mdd_item, length + 2);
+
+    switch(type)
+    {
+    case FDX_ALLOCATED_SPECTRUM:
+      if (length == 1)
+      {
+        proto_tree_add_item (mdd_tree, hf_docsis_mdd_full_duplex_allocated_spectrum, tvb, pos, length, ENC_BIG_ENDIAN);
+      } else
+      {
+        expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+      }
+      break;
+    case FDX_TOTAL_NUMBER_OF_SUB_BANDS:
+      if (length == 1)
+      {
+        proto_tree_add_item (mdd_tree, hf_docsis_mdd_full_duplex_total_number_of_sub_bands, tvb, pos, length, ENC_BIG_ENDIAN);
+      } else
+      {
+        expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+      }
+      break;
+    case FDX_SUB_BAND_WIDTH:
+      if (length == 1)
+      {
+        proto_tree_add_item (mdd_tree, hf_docsis_mdd_full_duplex_sub_band_width, tvb, pos, length, ENC_BIG_ENDIAN);
+      } else
+      {
+        expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+      }
+      break;
+    case FDX_SUB_BAND_DESCRIPTOR:
+      mdd_tree = proto_tree_add_subtree(mdd_tree, tvb, pos, 1,
+                                            ett_docsis_mdd_full_duplex_sub_band_descriptor, &mdd_item,
+                                            val_to_str(type, mdd_full_duplex_sub_band_vals,
+                                                       "Unknown TLV (%u)"));
+      proto_tree_add_item (mdd_tree, hf_docsis_mdd_full_duplex_sub_band_descriptor, tvb, pos, 1, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint (mdd_tree, hf_docsis_mdd_full_duplex_sub_band_descriptor_length, tvb, pos + 1, 1, ENC_BIG_ENDIAN, &sublength);
+      proto_item_set_len(mdd_item, length + 2);
+      subpos = pos + 2;
+      while (subpos < pos + length + 2) {
+        subtype = tvb_get_guint8 (tvb, subpos);
+        sublength = tvb_get_guint8 (tvb, subpos + 1);
+        switch(subtype) {
+          case FDX_SUB_BAND_ID:
+            if (length == 1)
+            {
+              proto_tree_add_item (mdd_tree, hf_docsis_mdd_full_duplex_sub_band_id, tvb, subpos + 2, sublength, ENC_BIG_ENDIAN);
+            } else
+            {
+              expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+            }
+            break;
+          case FDX_SUB_BAND_OFFSET:
+            if (length == 2)
+            {
+              mdd_item = proto_tree_add_item_ret_uint (mdd_tree, hf_docsis_mdd_full_duplex_sub_band_offset,
+                                                       tvb, subpos + 2, sublength, ENC_BIG_ENDIAN, &sub_band_offset);
+              proto_item_append_text(mdd_item, "%s", (sub_band_offset) ? " MHz" : " (108 MHz)");
+            } else
+            {
+              expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+            }
+            break;
+          default:
+            expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvtype_unknown, "Unknown Full Duplex Sub-band TLV type: %u", subtype);
+            break;
+        }
+        subpos += sublength + 2;
+      }
+      break;
+    default:
+      expert_add_info_format(pinfo, mdd_item, &ei_docsis_mgmt_tlvtype_unknown, "Unknown Diplexer Band Edge TLV type: %u", type);
+      break;
+    }
+    pos += length;
+  }
+}
+
 static int
 dissect_mdd (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_)
 {
@@ -4935,13 +5434,18 @@ dissect_mdd (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data 
           &hf_docsis_mdd_cm_status_event_d31_reserved,
           NULL
         };
-
         proto_tree_add_bitmask_list(tlv_tree, tvb, pos, length, mdd_cm_status_event_d31, ENC_BIG_ENDIAN);
       }
       else
       {
         expert_add_info_format(pinfo, tlv_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
       }
+      break;
+    case DIPLEXER_BAND_EDGE:
+      dissect_mdd_diplexer_band_edge(tvb, pinfo, tlv_tree, pos, length );
+      break;
+    case FULL_DUPLEX_DESCRIPTOR:
+      dissect_mdd_full_duplex_descriptor(tvb, pinfo, tlv_tree, pos, length );
       break;
     }
 
@@ -4988,23 +5492,53 @@ dissect_type35ucd(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* 
 static int
 dissect_dbcreq (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_)
 {
-  proto_item *dbcreq_item;
-  proto_tree *dbcreq_tree;
-  guint32 transid;
+  proto_item *dbcreq_item, *reassembled_item;
+  proto_tree *dbcreq_tree, *reassembled_tree;
+  guint32 transid, number_of_fragments, fragment_sequence_number;
   tvbuff_t *next_tvb;
 
   dbcreq_item = proto_tree_add_item(tree, proto_docsis_dbcreq, tvb, 0, -1, ENC_NA);
   dbcreq_tree = proto_item_add_subtree (dbcreq_item, ett_docsis_dbcreq);
   proto_tree_add_item_ret_uint(dbcreq_tree, hf_docsis_mgt_tranid, tvb, 0, 2, ENC_BIG_ENDIAN, &transid);
-  proto_tree_add_item( dbcreq_tree, hf_docsis_dbcreq_number_of_fragments, tvb, 2, 1, ENC_BIG_ENDIAN );
-  proto_tree_add_item( dbcreq_tree, hf_docsis_dbcreq_fragment_sequence_number, tvb, 3, 1, ENC_BIG_ENDIAN );
+  proto_tree_add_item_ret_uint( dbcreq_tree, hf_docsis_dbcreq_number_of_fragments, tvb, 2, 1, ENC_BIG_ENDIAN, &number_of_fragments);
+  proto_tree_add_item_ret_uint( dbcreq_tree, hf_docsis_dbcreq_fragment_sequence_number, tvb, 3, 1, ENC_BIG_ENDIAN, &fragment_sequence_number);
 
   col_add_fstr (pinfo->cinfo, COL_INFO,
                 "Dynamic Bonding Change Request: Tran-Id = %u", transid);
+  col_set_fence(pinfo->cinfo, COL_INFO);
 
-  /* Call Dissector for Appendix C TLV's */
-  next_tvb = tvb_new_subset_remaining (tvb, 4);
-  call_dissector (docsis_tlv_handle, next_tvb, pinfo, dbcreq_tree);
+  if(number_of_fragments > 1) {
+     pinfo->fragmented = TRUE;
+
+     fragment_head* reassembled_tlv = NULL;
+     reassembled_tlv = fragment_add_seq_check(&docsis_tlv_reassembly_table,
+                                  tvb, 4, pinfo,
+                                  transid, NULL, /* ID for fragments belonging together */
+                                  fragment_sequence_number -1, /*Sequence number starts at 0*/
+                                  tvb_reported_length_remaining(tvb, 4), /* fragment length - to the end */
+                                  (fragment_sequence_number != number_of_fragments)); /* More fragments? */
+
+     if (reassembled_tlv) {
+       tvbuff_t *tlv_tvb = NULL;
+
+       reassembled_item = proto_tree_add_item(dbcreq_tree, hf_docsis_tlv_reassembled, tvb, 0, -1, ENC_NA);
+       reassembled_tree = proto_item_add_subtree (reassembled_item, ett_docsis_tlv_reassembled );
+
+
+       tlv_tvb = process_reassembled_data(tvb, 4, pinfo, "Reassembled TLV", reassembled_tlv, &docsis_tlv_frag_items,
+                                                  NULL, reassembled_tree);
+
+       if (tlv_tvb && tvb_reported_length(tlv_tvb) > 0) {
+         call_dissector (docsis_tlv_handle, tlv_tvb, pinfo, reassembled_tree);
+       }
+     }
+
+  } else {
+    /* Call Dissector for Appendix C TLV's */
+    next_tvb = tvb_new_subset_remaining (tvb, 4);
+    call_dissector (docsis_tlv_handle, next_tvb, pinfo, dbcreq_tree);
+  }
+
   return tvb_captured_length(tvb);
 }
 
@@ -5109,36 +5643,36 @@ dissect_dpvrsp (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
 }
 
 static void
-dissect_cmstatus_tlv (tvbuff_t * tvb, packet_info* pinfo, proto_tree * tree)
+dissect_cmstatus_status_event_tlv (tvbuff_t * tvb, packet_info* pinfo, proto_tree * tree)
 {
   proto_item *it, *tlv_item, *tlv_len_item;
-  proto_tree *tlv_tree;
+  proto_tree *tlv_tree, *tlvtlv_tree;
   guint16 pos = 0;
   guint8 type;
   guint32 length;
 
-  it = proto_tree_add_item(tree, hf_docsis_cmstatus_tlv_data, tvb, 0, tvb_reported_length(tvb), ENC_NA);
-  tlv_tree = proto_item_add_subtree (it, ett_docsis_cmstatus_tlv);
+  it = proto_tree_add_item(tree, hf_docsis_cmstatus_status_event_tlv_data, tvb, 0, tvb_reported_length(tvb), ENC_NA);
+  tlv_tree = proto_item_add_subtree (it, ett_docsis_cmstatus_status_event_tlv);
 
   while (tvb_reported_length_remaining(tvb, pos) > 0)
   {
     type = tvb_get_guint8 (tvb, pos);
-    tlv_tree = proto_tree_add_subtree(tlv_tree, tvb, pos, -1,
-                                            ett_docsis_cmstatus_tlvtlv, &tlv_item,
-                                            val_to_str(type, cmstatus_tlv_vals,
-                                                       "Unknown TLV (%u)"));
-    proto_tree_add_uint (tlv_tree, hf_docsis_cmstatus_type, tvb, pos, 1, type);
+    tlvtlv_tree = proto_tree_add_subtree(tlv_tree, tvb, pos, -1,
+                                            ett_docsis_cmstatus_status_event_tlvtlv, &tlv_item,
+                                            val_to_str(type, cmstatus_status_event_tlv_vals,
+                                                       "Unknown Status Event TLV (%u)"));
+    proto_tree_add_uint (tlvtlv_tree, hf_docsis_cmstatus_status_event_type, tvb, pos, 1, type);
     pos++;
-    tlv_len_item = proto_tree_add_item_ret_uint (tlv_tree, hf_docsis_cmstatus_length, tvb, pos, 1, ENC_NA, &length);
+    tlv_len_item = proto_tree_add_item_ret_uint (tlvtlv_tree, hf_docsis_cmstatus_status_event_length, tvb, pos, 1, ENC_NA, &length);
     pos++;
     proto_item_set_len(tlv_item, length + 2);
 
     switch (type)
     {
     case EVENT_DS_CH_ID:
-      if (length == 3)
+      if (length == 1)
       {
-        proto_tree_add_item (tlv_tree, hf_docsis_cmstatus_ds_ch_id, tvb, pos + 1, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item (tlvtlv_tree, hf_docsis_cmstatus_status_event_ds_ch_id, tvb, pos, 1, ENC_BIG_ENDIAN);
       }
       else
       {
@@ -5147,9 +5681,9 @@ dissect_cmstatus_tlv (tvbuff_t * tvb, packet_info* pinfo, proto_tree * tree)
       break;
 
     case EVENT_US_CH_ID:
-      if (length == 3)
+      if (length == 1)
       {
-        proto_tree_add_item (tlv_tree, hf_docsis_cmstatus_us_ch_id, tvb, pos + 1, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item (tlvtlv_tree, hf_docsis_cmstatus_status_event_us_ch_id, tvb, pos, 1, ENC_BIG_ENDIAN);
       }
       else
       {
@@ -5158,9 +5692,9 @@ dissect_cmstatus_tlv (tvbuff_t * tvb, packet_info* pinfo, proto_tree * tree)
       break;
 
     case EVENT_DSID:
-      if (length == 5)
+      if (length == 3)
       {
-        proto_tree_add_item (tlv_tree, hf_docsis_cmstatus_dsid, tvb, pos + 1, 3, ENC_BIG_ENDIAN);
+        proto_tree_add_item (tlvtlv_tree, hf_docsis_cmstatus_status_event_dsid, tvb, pos, 3, ENC_BIG_ENDIAN);
       }
       else
       {
@@ -5169,9 +5703,9 @@ dissect_cmstatus_tlv (tvbuff_t * tvb, packet_info* pinfo, proto_tree * tree)
       break;
 
     case EVENT_DESCR:
-      if (length >= 3 && length <= 82)
+      if (length >= 1 && length <= 80)
       {
-        proto_tree_add_item (tlv_tree, hf_docsis_cmstatus_descr, tvb, pos + 1, length - 2, ENC_NA);
+        proto_tree_add_item (tlvtlv_tree, hf_docsis_cmstatus_status_event_descr, tvb, pos, length, ENC_NA);
       }
       else
       {
@@ -5183,13 +5717,101 @@ dissect_cmstatus_tlv (tvbuff_t * tvb, packet_info* pinfo, proto_tree * tree)
   } /* while */
 }
 
+static void
+dissect_cmstatus_tlv (tvbuff_t * tvb, packet_info* pinfo, proto_tree * tree)
+{
+  proto_item *it, *tlv_item;
+  proto_tree *tlv_tree, *tlvtlv_tree;
+  guint16 pos = 0;
+  guint8 type;
+  guint32 length;
+  tvbuff_t* next_tvb;
+
+  it = proto_tree_add_item(tree, hf_docsis_cmstatus_tlv_data, tvb, 0, tvb_reported_length(tvb), ENC_NA);
+  tlv_tree = proto_item_add_subtree (it, ett_docsis_cmstatus_tlv);
+
+  while (tvb_reported_length_remaining(tvb, pos) > 0)
+  {
+    type = tvb_get_guint8 (tvb, pos);
+    tlvtlv_tree = proto_tree_add_subtree(tlv_tree, tvb, pos, -1,
+                                            ett_docsis_cmstatus_tlvtlv, &tlv_item,
+                                            val_to_str(type, cmstatus_tlv_vals,
+                                                       "Unknown TLV (%u)"));
+    proto_tree_add_uint (tlvtlv_tree, hf_docsis_cmstatus_type, tvb, pos, 1, type);
+    pos++;
+    proto_tree_add_item_ret_uint (tlvtlv_tree, hf_docsis_cmstatus_length, tvb, pos, 1, ENC_NA, &length);
+    pos++;
+    proto_item_set_len(tlv_item, length + 2);
+
+    switch (type)
+    {
+    case STATUS_EVENT:
+      next_tvb = tvb_new_subset_length(tvb, pos, length);
+      dissect_cmstatus_status_event_tlv (next_tvb, pinfo, tlvtlv_tree);
+      break;
+
+    } /* switch */
+      pos += length;
+  } /* while */
+}
+
+static void
+dissect_cmstatus_common (tvbuff_t * tvb, proto_tree * tree)
+{
+  guint8 event_type;
+
+  event_type = tvb_get_guint8 (tvb, 2);
+  switch (event_type)
+  {
+  case SEC_CH_MDD_TIMEOUT:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_mdd_t, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+  case QAM_FEC_LOCK_FAILURE:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_qfl_f, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+  case SEQ_OUT_OF_RANGE:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_s_o, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+  case SEC_CH_MDD_RECOVERY:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_mdd_r, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+  case QAM_FEC_LOCK_RECOVERY:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_qfl_r, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+  case T4_TIMEOUT:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_t4_t, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+  case T3_RETRIES_EXCEEDED:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_t3_e, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+   case SUCCESS_RANGING_AFTER_T3_RETRIES_EXCEEDED:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_rng_s, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+  case CM_ON_BATTERY:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_cm_b, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+
+  case CM_ON_AC_POWER:
+    proto_tree_add_item (tree, hf_docsis_cmstatus_e_t_cm_a, tvb, 2, 1, ENC_BIG_ENDIAN);
+    break;
+  } /* switch */
+  return;
+}
+
 static int
 dissect_cmstatus (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_)
 {
   proto_item *it;
   proto_tree *cmstatus_tree;
   guint32 transid;
-  guint8 event_type;
   tvbuff_t* next_tvb;
 
   it = proto_tree_add_item(tree, proto_docsis_cmstatus, tvb, 0, -1, ENC_NA);
@@ -5198,53 +5820,29 @@ dissect_cmstatus (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* 
 
   col_add_fstr (pinfo->cinfo, COL_INFO, "CM-STATUS Report: Transaction ID = %u", transid);
 
-  event_type = tvb_get_guint8 (tvb, 2);
-  switch (event_type)
-  {
-  case SEC_CH_MDD_TIMEOUT:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_mdd_t, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-  case QAM_FEC_LOCK_FAILURE:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_qfl_f, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-  case SEQ_OUT_OF_RANGE:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_s_o, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-  case SEC_CH_MDD_RECOVERY:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_mdd_r, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-  case QAM_FEC_LOCK_RECOVERY:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_qfl_r, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-  case T4_TIMEOUT:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_t4_t, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-  case T3_RETRIES_EXCEEDED:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_t3_e, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-   case SUCCESS_RANGING_AFTER_T3_RETRIES_EXCEEDED:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_rng_s, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-  case CM_ON_BATTERY:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_cm_b, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-
-  case CM_ON_AC_POWER:
-    proto_tree_add_item (cmstatus_tree, hf_docsis_cmstatus_e_t_cm_a, tvb, 2, 1, ENC_BIG_ENDIAN);
-    break;
-  } /* switch */
+  dissect_cmstatus_common (tvb, cmstatus_tree);
 
   /* Call Dissector TLV's */
   next_tvb = tvb_new_subset_remaining(tvb, 3);
   dissect_cmstatus_tlv(next_tvb, pinfo, cmstatus_tree);
+  return tvb_captured_length(tvb);
+}
+
+static int
+dissect_cmstatusack (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_)
+{
+  proto_item *it;
+  proto_tree *cmstatus_tree;
+  guint32 transid;
+
+  it = proto_tree_add_item(tree, proto_docsis_cmstatusack, tvb, 0, -1, ENC_NA);
+  cmstatus_tree = proto_item_add_subtree (it, ett_docsis_cmstatusack);
+  proto_tree_add_item_ret_uint (cmstatus_tree, hf_docsis_mgt_tranid, tvb, 0, 2, ENC_BIG_ENDIAN, &transid);
+
+  col_add_fstr (pinfo->cinfo, COL_INFO, "CM-STATUS Report Acknowledge: Transaction ID = %u", transid);
+
+  dissect_cmstatus_common (tvb, cmstatus_tree);
+
   return tvb_captured_length(tvb);
 }
 
@@ -5517,25 +6115,60 @@ dissect_regreqmp (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* 
 static int
 dissect_regrspmp (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_)
 {
-  proto_item *it;
-  proto_tree *regrspmp_tree;
+  proto_item *it, *reassembled_item;
+  proto_tree *regrspmp_tree, *reassembled_tree;
+  guint sid, number_of_fragments, fragment_sequence_number;
+
   tvbuff_t *next_tvb;
 
-  col_set_str(pinfo->cinfo, COL_INFO, "REG-RSP-MP Message:");
+  col_set_str(pinfo->cinfo, COL_INFO, "REG-RSP-MP Message");
   /*Make sure embedded UCD does not overwrite REGRSPMP info*/
   col_set_fence(pinfo->cinfo, COL_INFO);
 
   it = proto_tree_add_item(tree, proto_docsis_regrspmp, tvb, 0, -1, ENC_NA);
   regrspmp_tree = proto_item_add_subtree (it, ett_docsis_regrspmp);
 
-  proto_tree_add_item (regrspmp_tree, hf_docsis_regrspmp_sid, tvb, 0, 2, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint (regrspmp_tree, hf_docsis_regrspmp_sid, tvb, 0, 2, ENC_BIG_ENDIAN, &sid);
   proto_tree_add_item (regrspmp_tree, hf_docsis_regrspmp_response, tvb, 2, 1, ENC_BIG_ENDIAN);
-  proto_tree_add_item (regrspmp_tree, hf_docsis_regrspmp_number_of_fragments, tvb, 3, 1, ENC_BIG_ENDIAN);
-  proto_tree_add_item (regrspmp_tree, hf_docsis_regrspmp_fragment_sequence_number, tvb, 4, 1, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint (regrspmp_tree, hf_docsis_regrspmp_number_of_fragments, tvb, 3, 1, ENC_BIG_ENDIAN, &number_of_fragments);
+  proto_tree_add_item_ret_uint (regrspmp_tree, hf_docsis_regrspmp_fragment_sequence_number, tvb, 4, 1, ENC_BIG_ENDIAN, &fragment_sequence_number);
 
-  /* Call Dissector for Appendix C TLV's */
-  next_tvb = tvb_new_subset_remaining (tvb, 5);
-  call_dissector (docsis_tlv_handle, next_tvb, pinfo, regrspmp_tree);
+  col_add_fstr(pinfo->cinfo, COL_INFO, " (fragment %d):", fragment_sequence_number);
+  /*Make sure embedded UCD does not overwrite REGRSPMP info*/
+  col_set_fence(pinfo->cinfo, COL_INFO);
+
+  if(number_of_fragments > 1) {
+     pinfo->fragmented = TRUE;
+
+     fragment_head* reassembled_tlv = NULL;
+     reassembled_tlv = fragment_add_seq_check(&docsis_tlv_reassembly_table,
+                                  tvb, 5, pinfo,
+                                  sid, NULL, /* ID for fragments belonging together */
+                                  fragment_sequence_number -1, /*Sequence number starts at 0*/
+                                  tvb_reported_length_remaining(tvb, 5), /* fragment length - to the end */
+                                  (fragment_sequence_number != number_of_fragments)); /* More fragments? */
+
+     if (reassembled_tlv) {
+       tvbuff_t *tlv_tvb = NULL;
+
+       reassembled_item = proto_tree_add_item(regrspmp_tree, hf_docsis_tlv_reassembled, tvb, 0, -1, ENC_NA);
+       reassembled_tree = proto_item_add_subtree (reassembled_item, ett_docsis_tlv_reassembled );
+
+
+       tlv_tvb = process_reassembled_data(tvb, 5, pinfo, "Reassembled TLV", reassembled_tlv, &docsis_tlv_frag_items,
+                                                  NULL, reassembled_tree);
+
+       if (tlv_tvb && tvb_reported_length(tlv_tvb) > 0) {
+         call_dissector (docsis_tlv_handle, tlv_tvb, pinfo, reassembled_tree);
+       }
+     }
+
+  } else {
+    /* Call Dissector for Appendix C TLV's */
+    next_tvb = tvb_new_subset_remaining (tvb, 5);
+    call_dissector (docsis_tlv_handle, next_tvb, pinfo, regrspmp_tree);
+  }
+
   return tvb_captured_length(tvb);
 }
 
@@ -5848,6 +6481,341 @@ dissect_type51ucd(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* 
   return dissect_any_ucd(tvb, pinfo, tree, proto_docsis_type51ucd, MGT_TYPE51UCD);
 }
 
+static void
+dissect_optreq_tlv_rxmer_thresholding_parameters (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
+{
+  proto_item *it, *tlv_item, *tlv_len_item;
+  proto_tree *tlv_tree;
+  guint pos = 0;
+  guint length;
+  guint8 type;
+
+  it = proto_tree_add_item(tree, hf_docsis_optreq_tlv_xrmer_thresh_data, tvb, 0, tvb_reported_length(tvb), ENC_NA);
+  tlv_tree = proto_item_add_subtree (it, ett_docsis_optreq_tlv_rxmer_thresh_params);
+
+  while (tvb_reported_length_remaining(tvb, pos) > 0)
+  {
+    type = tvb_get_guint8 (tvb, pos);
+    tlv_tree = proto_tree_add_subtree(tlv_tree, tvb, pos, -1,
+                                            ett_docsis_optreq_tlv_rxmer_thresh_params_tlv, &tlv_item,
+                                            val_to_str(type, optreq_tlv_rxmer_thresh_params_vals,
+                                                       "Unknown TLV (%u)"));
+    proto_tree_add_uint (tlv_tree, hf_docsis_optreq_xmer_thresh_params_type, tvb, pos, 1, type);
+    pos++;
+    tlv_len_item = proto_tree_add_item_ret_uint (tlv_tree, hf_docsis_optreq_xmer_thresh_params_length, tvb, pos, 1, ENC_NA, &length);
+    pos++;
+
+
+    switch (type)
+    {
+    case OPT_REQ_RXMER_THRESH_PARAMS_MODULATION_ORDER:
+      if (length == 1)
+      {
+        proto_tree_add_item(tree, hf_docsis_optreq_tlv_xrmer_thresh_data_mod_order, tvb, pos, length, ENC_NA);
+      }
+      else
+      {
+        expert_add_info_format(pinfo, tlv_len_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+      }
+      break;
+    default:
+      proto_tree_add_item (tlv_tree, hf_docsis_optreq_tlv_unknown, tvb, pos - 2, length+2, ENC_NA);
+      expert_add_info_format(pinfo, tlv_item, &ei_docsis_mgmt_tlvtype_unknown, "Unknown TLV: %u", type);
+      break;
+    } /* switch */
+    pos += length;
+  } /* while */
+}
+
+static void
+dissect_optreq_tlv (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
+{
+  proto_item *it, *tlv_item, *tlv_len_item;
+  proto_tree *tlv_tree;
+  guint pos = 0;
+  guint length;
+  guint8 type;
+  tvbuff_t *next_tvb;
+
+  it = proto_tree_add_item(tree, hf_docsis_optreq_tlv_data, tvb, 0, tvb_reported_length(tvb), ENC_NA);
+  tlv_tree = proto_item_add_subtree (it, ett_docsis_optreq_tlv);
+
+  while (tvb_reported_length_remaining(tvb, pos) > 0)
+  {
+    type = tvb_get_guint8 (tvb, pos);
+    tlv_tree = proto_tree_add_subtree(tlv_tree, tvb, pos, -1,
+                                            ett_docsis_optreq_tlvtlv, &tlv_item,
+                                            val_to_str(type, optreq_tlv_vals,
+                                                       "Unknown TLV (%u)"));
+    proto_tree_add_uint (tlv_tree, hf_docsis_optreq_type, tvb, pos, 1, type);
+    pos++;
+    tlv_len_item = proto_tree_add_item_ret_uint (tlv_tree, hf_docsis_optreq_length, tvb, pos, 1, ENC_NA, &length);
+    pos++;
+
+
+    switch (type)
+    {
+    case OPT_REQ_REQ_STAT:
+      if (length == 1)
+      {
+
+         static const int * req_stat[] = {
+           &hf_docsis_optreq_reqstat_rxmer_stat_subc,
+           &hf_docsis_optreq_reqstat_rxmer_subc_threshold_comp,
+           &hf_docsis_optreq_reqstat_snr_marg_cand_prof,
+           &hf_docsis_optreq_reqstat_codew_stat_cand_prof,
+           &hf_docsis_optreq_reqstat_codew_thresh_comp_cand_prof,
+           &hf_docsis_optreq_reqstat_ncp_field_stat,
+           &hf_docsis_optreq_reqstat_ncp_crc_thresh_comp,
+           &hf_docsis_optreq_reqstat_reserved,
+           NULL
+         };
+
+         proto_tree_add_bitmask_list(tlv_tree, tvb, pos, length, req_stat, ENC_BIG_ENDIAN);
+      }
+      else
+      {
+        expert_add_info_format(pinfo, tlv_len_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+      }
+      break;
+    case OPT_REQ_RXMER_THRESH_PARAMS:
+      next_tvb = tvb_new_subset_length(tvb, pos, length);
+      dissect_optreq_tlv_rxmer_thresholding_parameters(next_tvb, pinfo, tlv_tree);
+      break;
+    default:
+      proto_tree_add_item (tlv_tree, hf_docsis_optreq_tlv_unknown, tvb, pos - 2, length+2, ENC_NA);
+      expert_add_info_format(pinfo, tlv_item, &ei_docsis_mgmt_tlvtype_unknown, "Unknown TLV: %u", type);
+      break;
+    } /* switch */
+    pos += length;
+  } /* while */
+}
+
+static int
+dissect_optreq (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data  _U_)
+{
+  proto_item *it;
+  proto_tree *opt_tree;
+  tvbuff_t *next_tvb;
+
+  guint32 downstream_channel_id, profile_identifier, opcode;
+
+  it = proto_tree_add_item(tree, proto_docsis_optreq, tvb, 0, -1, ENC_NA);
+  opt_tree = proto_item_add_subtree (it, ett_docsis_optreq);
+  proto_tree_add_item (opt_tree, hf_docsis_optreq_reserved, tvb, 0, 2, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint (opt_tree, hf_docsis_mgt_down_chid, tvb, 2, 1, ENC_BIG_ENDIAN, &downstream_channel_id);
+  proto_tree_add_item_ret_uint (opt_tree, hf_docsis_optreq_prof_id, tvb, 3, 1, ENC_BIG_ENDIAN, &profile_identifier);
+  proto_tree_add_item_ret_uint (opt_tree, hf_docsis_optreq_opcode, tvb, 4, 1, ENC_BIG_ENDIAN, &opcode);
+
+  col_add_fstr (pinfo->cinfo, COL_INFO, "OPT-REQ: DS CH ID: %u, Profile ID: %s (%u), Opcode: %s (%u)", downstream_channel_id,
+                              val_to_str(profile_identifier, profile_id_vals, "Unknown Profile ID (%u)"), profile_identifier,
+                              val_to_str(opcode, opt_opcode_vals, "Unknown Opcode (%u)"), opcode);
+
+  /* Call Dissector TLV's */
+  if(tvb_reported_length_remaining(tvb, 5) > 0 )
+  {
+    next_tvb = tvb_new_subset_remaining(tvb, 5);
+    dissect_optreq_tlv(next_tvb, pinfo, opt_tree);
+  }
+
+  return tvb_reported_length(tvb);
+}
+
+static void
+dissect_optrsp_tlv_rxmer_and_snr_margin_data (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
+{
+  proto_item *it, *tlv_item, *tlv_len_item;
+  proto_tree *tlv_tree;
+  guint pos = 0;
+  guint length;
+  guint8 type;
+  guint number_of_subcarriers = 0;
+  guint i;
+
+  it = proto_tree_add_item(tree, hf_docsis_optrsp_tlv_xrmer_snr_margin_data, tvb, 0, tvb_reported_length(tvb), ENC_NA);
+  tlv_tree = proto_item_add_subtree (it, ett_docsis_optrsp_tlv_rxmer_snr_margin_data);
+
+  while (tvb_reported_length_remaining(tvb, pos) > 0)
+  {
+    type = tvb_get_guint8 (tvb, pos);
+    tlv_tree = proto_tree_add_subtree(tlv_tree, tvb, pos, -1,
+                                            ett_docsis_optrsp_tlv_rxmer_snr_margin_tlv, &tlv_item,
+                                            val_to_str(type, optrsp_tlv_rxmer_snr_margin_vals,
+                                                       "Unknown TLV (%u)"));
+    proto_tree_add_uint (tlv_tree, hf_docsis_optrsp_xmer_snr_margin_type, tvb, pos, 1, type);
+    pos++;
+    tlv_len_item = proto_tree_add_item_ret_uint (tlv_tree, hf_docsis_optrsp_xmer_snr_margin_length, tvb, pos, 2, ENC_NA, &length);
+    pos+=2;
+
+
+    switch (type)
+    {
+    case OPT_RSP_RXMER_PER_SUBCARRIER:
+      if ((guint) tvb_reported_length_remaining(tvb, pos) < length)
+      {
+        number_of_subcarriers = tvb_reported_length_remaining(tvb,pos);
+      } else {
+        number_of_subcarriers = length;
+      }
+      for(i=0; i < number_of_subcarriers;++i)
+      {
+        proto_tree_add_item(tlv_tree, hf_docsis_optrsp_tlv_xrmer_snr_margin_data_rxmer_subc, tvb, pos+i, 1, ENC_NA);
+      }
+      break;
+    case OPT_RSP_SNR_MARGIN:
+      if (length == 1)
+      {
+        proto_tree_add_item(tree, hf_docsis_optrsp_tlv_rxmer_snr_margin_data_snr_margin, tvb, pos, length, ENC_NA);
+      }
+      else
+      {
+        expert_add_info_format(pinfo, tlv_len_item, &ei_docsis_mgmt_tlvlen_bad, "Wrong TLV length: %u", length);
+      }
+      break;
+    default:
+      proto_tree_add_item (tlv_tree, hf_docsis_optrsp_tlv_unknown, tvb, pos - 2, length+2, ENC_NA);
+      expert_add_info_format(pinfo, tlv_item, &ei_docsis_mgmt_tlvtype_unknown, "Unknown TLV: %u", type);
+      break;
+    } /* switch */
+    pos += length;
+  } /* while */
+}
+
+static void
+dissect_optrsp_tlv (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
+{
+  proto_item *it, *tlv_item;
+  proto_tree *tlv_tree;
+  guint pos = 0;
+  guint length;
+  guint8 type;
+  tvbuff_t *next_tvb;
+
+
+  it = proto_tree_add_item(tree, hf_docsis_optrsp_tlv_data, tvb, 0, tvb_reported_length(tvb), ENC_NA);
+  tlv_tree = proto_item_add_subtree (it, ett_docsis_optrsp_tlv);
+
+  while (tvb_reported_length_remaining(tvb, pos) > 0)
+  {
+    type = tvb_get_guint8 (tvb, pos);
+    tlv_tree = proto_tree_add_subtree(tlv_tree, tvb, pos, -1,
+                                            ett_docsis_optrsp_tlvtlv, &tlv_item,
+                                            val_to_str(type, optrsp_tlv_vals,
+                                                       "Unknown TLV (%u)"));
+    proto_tree_add_uint (tlv_tree, hf_docsis_optrsp_type, tvb, pos, 1, type);
+    pos++;
+    proto_tree_add_item_ret_uint (tlv_tree, hf_docsis_optrsp_length, tvb, pos, 2, ENC_NA, &length);
+    pos+=2;
+
+    switch (type)
+    {
+    case OPT_RSP_RXMER_AND_SNR_MARGIN_DATA:
+      if ((guint) tvb_reported_length_remaining(tvb, pos) < length) {
+        next_tvb = tvb_new_subset_remaining(tvb, pos);
+      } else {
+        next_tvb = tvb_new_subset_length(tvb, pos, length);
+      }
+      dissect_optrsp_tlv_rxmer_and_snr_margin_data(next_tvb, pinfo, tlv_tree);
+      break;
+    default:
+      proto_tree_add_item (tlv_tree, hf_docsis_dpd_tlv_unknown, tvb, pos - 2, length+2, ENC_NA);
+      expert_add_info_format(pinfo, tlv_item, &ei_docsis_mgmt_tlvtype_unknown, "Unknown TLV: %u", type);
+      break;
+    } /* switch */
+    pos += length;
+  } /* while */
+}
+
+static int
+dissect_optrsp (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data  _U_)
+{
+  proto_item *it;
+  proto_tree *opt_tree;
+  address save_src, save_dst;
+  guint version, multipart, number_of_fragments, fragment_sequence_number;
+  tvbuff_t *tlv_tvb = NULL;
+
+  guint32 downstream_channel_id, profile_identifier, status;
+
+  it = proto_tree_add_item(tree, proto_docsis_optrsp, tvb, 0, -1, ENC_NA);
+  opt_tree = proto_item_add_subtree (it, ett_docsis_optrsp);
+  proto_tree_add_item (opt_tree, hf_docsis_optrsp_reserved, tvb, 0, 2, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint (opt_tree, hf_docsis_mgt_down_chid, tvb, 2, 1, ENC_BIG_ENDIAN, &downstream_channel_id);
+  proto_tree_add_item_ret_uint (opt_tree, hf_docsis_optrsp_prof_id, tvb, 3, 1, ENC_BIG_ENDIAN, &profile_identifier);
+  proto_tree_add_item_ret_uint (opt_tree, hf_docsis_optrsp_status, tvb, 4, 1, ENC_BIG_ENDIAN, &status);
+
+  col_add_fstr (pinfo->cinfo, COL_INFO, "OPT-RSP: DS CH ID: %u, Profile ID: %s (%u), Status: %s (%u)", downstream_channel_id,
+                              val_to_str(profile_identifier, profile_id_vals, "Unknown Profile ID (%u)"), profile_identifier,
+                              val_to_str(status, opt_status_vals, "Unknown status (%u)"), status);
+
+  version = GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, proto_docsis_mgmt, KEY_MGMT_VERSION));
+  if (version > 4) {
+    multipart = GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, proto_docsis_mgmt, KEY_MGMT_MULTIPART));
+  } else {
+    multipart = 0;
+  }
+
+  /* Reassemble TLV's */
+  if (tvb_reported_length_remaining(tvb, 5) > 0) {
+    if (version > 4 && multipart) {
+      /*Fragmented data*/
+      number_of_fragments = (multipart >> 4);
+      fragment_sequence_number = (multipart & 0x0F);
+
+      /*DOCSIS mac management messages do not have network (ip)  address. Use link (mac)  address instead. Same workflow as in wimax.*/
+      /* Save address pointers. */
+      copy_address_shallow(&save_src, &pinfo->src);
+      copy_address_shallow(&save_dst, &pinfo->dst);
+      /* Use dl_src and dl_dst in defragmentation. */
+      copy_address_shallow(&pinfo->src, &pinfo->dl_src);
+      copy_address_shallow(&pinfo->dst, &pinfo->dl_dst);
+
+      fragment_head* fh = fragment_add_seq_check(&docsis_opt_tlv_reassembly_table, tvb, 5, pinfo, downstream_channel_id, NULL,
+                                                fragment_sequence_number,
+                                                tvb_reported_length_remaining(tvb, 5),
+                                                (fragment_sequence_number != number_of_fragments));
+
+      /* Restore address pointers. */
+      copy_address_shallow(&pinfo->src, &save_src);
+      copy_address_shallow(&pinfo->dst, &save_dst);
+
+      if (fh) {
+        tlv_tvb = process_reassembled_data(tvb, 5, pinfo, "Reassembled OPT TLV", fh, &docsis_tlv_frag_items,
+                                           NULL, opt_tree);
+
+        if (tlv_tvb && tvb_reported_length(tlv_tvb) > 0) {
+          dissect_optrsp_tlv(tlv_tvb, pinfo, opt_tree);
+        }
+      }
+    } else { /*version > 4 && multipart*/
+      tlv_tvb = tvb_new_subset_remaining (tvb, 5);
+      dissect_optrsp_tlv(tlv_tvb, pinfo, opt_tree);
+    }
+  }
+
+  return tvb_reported_length(tvb);
+}
+
+static int
+dissect_optack (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data  _U_)
+{
+  proto_item *it;
+  proto_tree *opt_tree;
+
+  guint32 downstream_channel_id, profile_identifier;
+
+  it = proto_tree_add_item(tree, proto_docsis_optack, tvb, 0, -1, ENC_NA);
+  opt_tree = proto_item_add_subtree (it, ett_docsis_optack);
+  proto_tree_add_item (opt_tree, hf_docsis_optack_reserved, tvb, 0, 2, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint (opt_tree, hf_docsis_mgt_down_chid, tvb, 2, 1, ENC_BIG_ENDIAN, &downstream_channel_id);
+  proto_tree_add_item_ret_uint (opt_tree, hf_docsis_optack_prof_id, tvb, 3, 1, ENC_BIG_ENDIAN, &profile_identifier);
+
+  col_add_fstr (pinfo->cinfo, COL_INFO, "OPT-ACK: DS CH ID: %u, Profile ID: %s (%u)", downstream_channel_id,
+                              val_to_str(profile_identifier, profile_id_vals, "Unknown Profile ID (%u)"), profile_identifier);
+
+  return tvb_captured_length(tvb);
+}
+
 static int
 dissect_macmgmt (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_)
 {
@@ -5855,6 +6823,7 @@ dissect_macmgmt (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* d
   proto_item *mgt_hdr_it;
   proto_tree *mgt_hdr_tree;
   tvbuff_t *payload_tvb;
+  guint8 multipart;
 
   col_set_str (pinfo->cinfo, COL_PROTOCOL, "DOCSIS MGMT");
 
@@ -5864,6 +6833,12 @@ dissect_macmgmt (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* d
   copy_address_shallow(&pinfo->src, &pinfo->dl_src);
   set_address_tvb (&pinfo->dl_dst, AT_ETHER, 6, tvb, 0);
   copy_address_shallow(&pinfo->dst, &pinfo->dl_dst);
+
+  static const int * multipart_field[] = {
+    &hf_docsis_mgt_multipart_number_of_fragments,
+    &hf_docsis_mgt_multipart_fragment_sequence_number,
+    NULL
+  };
 
   mgt_hdr_it = proto_tree_add_item (tree, proto_docsis_mgmt, tvb, 0, 20, ENC_NA);
   mgt_hdr_tree = proto_item_add_subtree (mgt_hdr_it, ett_docsis_mgmt);
@@ -5875,7 +6850,16 @@ dissect_macmgmt (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* d
   proto_tree_add_item (mgt_hdr_tree, hf_docsis_mgt_control, tvb, 16, 1, ENC_BIG_ENDIAN);
   proto_tree_add_item_ret_uint (mgt_hdr_tree, hf_docsis_mgt_version, tvb, 17, 1, ENC_BIG_ENDIAN, &version);
   proto_tree_add_item_ret_uint (mgt_hdr_tree, hf_docsis_mgt_type, tvb, 18, 1, ENC_BIG_ENDIAN, &type);
-  proto_tree_add_item (mgt_hdr_tree, hf_docsis_mgt_rsvd, tvb, 19, 1, ENC_BIG_ENDIAN);
+
+  p_add_proto_data(pinfo->pool, pinfo, proto_docsis_mgmt, KEY_MGMT_VERSION, GUINT_TO_POINTER(version));
+
+  if (version < 5) {
+    proto_tree_add_item (mgt_hdr_tree, hf_docsis_mgt_rsvd, tvb, 19, 1, ENC_BIG_ENDIAN);
+  } else {
+    proto_tree_add_bitmask(mgt_hdr_tree, tvb, 19, hf_docsis_mgt_multipart, ett_sub_tlv, multipart_field, ENC_BIG_ENDIAN);
+    multipart = tvb_get_guint8 (tvb, 19);
+    p_add_proto_data(pinfo->pool, pinfo, proto_docsis_mgmt, KEY_MGMT_MULTIPART, GUINT_TO_POINTER(multipart));
+  }
 
   /* Code to Call subdissector */
   /* sub-dissectors are based on the type field */
@@ -6145,6 +7129,26 @@ proto_register_docsis_mgmt (void)
     {&hf_docsis_ucd_ofdma_timestamp_snapshot,
      {"OFDMA Timestamp Snapshot", "docsis_ucd.ofdma_timestamp_snapshot",
       FT_BYTES, BASE_NONE, NULL, 0x00,
+      NULL, HFILL}
+    },
+    {&hf_docsis_ucd_ofdma_timestamp_snapshot_reserved,
+     {"OFDMA Timestamp Snapshot - Reserved", "docsis_ucd.ofdma_timestamp_snapshot_reserved",
+      FT_UINT40, BASE_HEX, NULL, 0xF000000000,
+      NULL, HFILL}
+    },
+    {&hf_docsis_ucd_ofdma_timestamp_snapshot_d30timestamp,
+     {"OFDMA Timestamp Snapshot - D3.0 timestamp", "docsis_ucd.ofdma_timestamp_snapshot_d30timestamp",
+      FT_UINT40, BASE_HEX, NULL, 0x0FFFFFFFF0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_ucd_ofdma_timestamp_snapshot_4msbits_of_div20,
+     {"OFDMA Timestamp Snapshot - 4 Most Significant bits of div20 field", "docsis_ucd.ofdma_timestamp_snapshot_4msbits_of_div20",
+      FT_UINT40, BASE_HEX, NULL, 0x000000000F,
+      NULL, HFILL}
+    },
+    {&hf_docsis_ucd_ofdma_timestamp_snapshot_minislot_count,
+     {"OFDMA Timestamp Snapshot - Minislot Count", "docsis_ucd.ofdma_timestamp_snapshot_minislot_count",
+      FT_UINT32, BASE_HEX, NULL, 0x0,
       NULL, HFILL}
     },
     {&hf_docsis_ucd_ofdma_cyclic_prefix_size,
@@ -6521,6 +7525,11 @@ proto_register_docsis_mgmt (void)
      {"Upstream Channel ID Override", "docsis_rngrsp.chid_override",
       FT_UINT8, BASE_DEC, NULL, 0x0,
       NULL, HFILL}
+     },
+    {&hf_docsis_rngrsp_rngrsp_t4_timeout_multiplier,
+     {"Multiplier of the default T4 Timeout (the valid range is 1-10)", "docsis_rngrsp.t4_timeout_multiplier",
+      FT_UINT8, BASE_DEC, NULL, 0x0,
+      "T4 Timeout Multiplier", HFILL}
      },
     {&hf_docsis_rngrsp_dynamic_range_window_upper_edge,
      {"Dynamic Range Window Upper Edge (in units of 0.25 db below the max allowable setting)", "docsis_rngrsp.dynamic_range_window_upper_edge",
@@ -7960,6 +8969,76 @@ proto_register_docsis_mgmt (void)
        FT_UINT32, BASE_HEX, NULL, 0xFFFFF000,
        NULL, HFILL}
     },
+    {&hf_docsis_mdd_diplexer_band_edge,
+     { "Diplexer Band Edge", "docsis_mdd.diplexer_band_edge",
+       FT_UINT8, BASE_DEC, VALS(mdd_diplexer_band_edge_vals), 0x0,
+       NULL, HFILL}
+    },
+    {&hf_docsis_mdd_diplexer_band_edge_length,
+     {"Length", "docsis_mdd.diplexer_band_edge_length",
+      FT_UINT8, BASE_DEC, NULL, 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_diplexer_us_upper_band_edge,
+     {"Diplexer Upstream Upper Band Edge", "docsis_mdd.diplexer_us_upper_band_edge",
+      FT_UINT8, BASE_DEC, VALS(mdd_diplexer_us_upper_band_edge_vals), 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_diplexer_ds_lower_band_edge,
+     {"Diplexer Downstream Lower Band Edge", "docsis_mdd.diplexer_ds_lower_band_edge",
+      FT_UINT8, BASE_DEC, VALS(mdd_diplexer_ds_lower_band_edge_vals), 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_diplexer_ds_upper_band_edge,
+     {"Diplexer Downstream Upper Band Edge", "docsis_mdd.diplexer_ds_upper_band_edge",
+      FT_UINT8, BASE_DEC, VALS(mdd_diplexer_ds_upper_band_edge_vals), 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_descriptor,
+     {"Full Duplex Descriptor", "docsis_mdd.full_duplex_descriptor",
+      FT_UINT8, BASE_DEC, VALS(mdd_full_duplex_descriptor_vals), 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_descriptor_length,
+     {"Length", "docsis_mdd.full_duplex_descriptor_length",
+      FT_UINT8, BASE_DEC, NULL, 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_allocated_spectrum,
+     {"Full Duplex Allocated Spectrum", "docsis_mdd.full_duplex_full_allocated_spectrum",
+      FT_UINT8, BASE_DEC, VALS(mdd_full_duplex_allocated_spectrum_vals), 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_total_number_of_sub_bands,
+     {"Total number of sub-bands", "docsis_mdd.full_duplex_total_number_of_sub_bands",
+      FT_UINT8, BASE_DEC, NULL, 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_sub_band_width,
+     {"Full Duplex Sub-band Width", "docsis_mdd.full_duplex_sub_band_width",
+      FT_UINT8, BASE_DEC, VALS(mdd_full_duplex_sub_band_width_vals), 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_sub_band_descriptor,
+     {"Full Duplex Sub-band Descriptor", "docsis_mdd.full_duplex_sub_band_descriptor",
+      FT_UINT8, BASE_DEC, VALS(mdd_full_duplex_sub_band_vals), 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_sub_band_descriptor_length,
+     {"Length", "docsis_mdd.full_duplex_sub_band_descriptor_length",
+      FT_UINT8, BASE_DEC, NULL, 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_sub_band_id,
+     {"Full Duplex Sub-band ID", "docsis_mdd.full_duplex_sub_band_id",
+      FT_UINT8, BASE_DEC, NULL, 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mdd_full_duplex_sub_band_offset,
+     {"Full Duplex Sub-band ID", "docsis_mdd.full_duplex_sub_band_offset",
+      FT_UINT16, BASE_DEC, NULL, 0x0,
+      NULL, HFILL}
+    },
 
     /* B_INIT_RNG_REQ */
     {&hf_docsis_bintrngreq_capflags,
@@ -8066,17 +9145,17 @@ proto_register_docsis_mgmt (void)
     {&hf_docsis_cmstatus_e_t_cm_a,
      {"CM returned to A/C power", "docsis_cmstatus.cm_on_ac_power", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
     },
-    {&hf_docsis_cmstatus_descr,
-     {"Description", "docsis_cmstatus.description",FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+    {&hf_docsis_cmstatus_status_event_descr,
+     {"Description", "docsis_cmstatus.status_event.description",FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
     },
-    {&hf_docsis_cmstatus_ds_ch_id,
-     {"Downstream Channel ID", "docsis_cmstatus.ds_chid",FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    {&hf_docsis_cmstatus_status_event_ds_ch_id,
+     {"Downstream Channel ID", "docsis_cmstatus.status_event.ds_chid",FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
     },
-    {&hf_docsis_cmstatus_us_ch_id,
-     {"Upstream Channel ID", "docsis_cmstatus.us_chid",FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    {&hf_docsis_cmstatus_status_event_us_ch_id,
+     {"Upstream Channel ID", "docsis_cmstatus.status_event.us_chid",FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
     },
-    {&hf_docsis_cmstatus_dsid,
-     {"DSID", "docsis_cmstatus.dsid", FT_UINT24, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    {&hf_docsis_cmstatus_status_event_dsid,
+     {"DSID", "docsis_cmstatus.status_event.dsid", FT_UINT24, BASE_DEC, NULL, 0x0, NULL, HFILL}
     },
     {&hf_docsis_cmstatus_tlv_data,
      {"TLV Data", "docsis_cmstatus.tlv_data", FT_BYTES, BASE_NO_DISPLAY_VALUE, NULL, 0x0, NULL, HFILL}
@@ -8087,6 +9166,16 @@ proto_register_docsis_mgmt (void)
     {&hf_docsis_cmstatus_length,
      {"Length", "docsis_cmstatus.length",FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
     },
+    {&hf_docsis_cmstatus_status_event_tlv_data,
+     {"Status Event TLV Data", "docsis_cmstatus.status_event.tlv_data", FT_BYTES, BASE_NO_DISPLAY_VALUE, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_cmstatus_status_event_type,
+     {"Status Event Type", "docsis_cmstatus.status_event.type",FT_UINT8, BASE_DEC, VALS(cmstatus_status_event_tlv_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_cmstatus_status_event_length,
+     {"Status Event Length", "docsis_cmstatus.status_event.length",FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+
     /* CM_CTRL_REQ */
     {&hf_docsis_cmctrl_tlv_mute,
      {"Upstream Channel RF Mute", "docsis_cmctrl.mute",
@@ -8318,6 +9407,110 @@ proto_register_docsis_mgmt (void)
     {&hf_docsis_dpd_length,
      {"Length", "docsis_dpd.length",FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL}
     },
+    /* OPT-REQ */
+    {&hf_docsis_optreq_tlv_unknown,
+     {"Unknown TLV", "docsis_optreq.unknown_tlv", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reserved,
+     {"Reserved", "docsis_optreq.reserved", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_prof_id,
+     {"Profile Identifier", "docsis_optreq.prof_id", FT_UINT8, BASE_DEC, VALS(profile_id_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_opcode,
+     {"Opcode", "docsis_optreq.opcode", FT_UINT8, BASE_DEC, VALS(opt_opcode_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_tlv_data,
+     {"TLV Data", "docsis_optreq.tlv_data", FT_BYTES, BASE_NO_DISPLAY_VALUE, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_type,
+     {"Type", "docsis_optreq.type",FT_UINT8, BASE_DEC, VALS(optreq_tlv_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_length,
+     {"Length", "docsis_optreq.length",FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reqstat_rxmer_stat_subc,
+     {"RxMER Statistics per subcarrier", "docsis_optreq.reqstat.rxmer_stat_per_subcarrier", FT_BOOLEAN, 32, TFS(&req_not_req_tfs), 0x1, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reqstat_rxmer_subc_threshold_comp,
+     {"RxMER per Subcarrier Threshold Comparison for Candidate Profile", "docsis_optreq.reqstat.rxmer_per_subcarrrier_thresh_comp", FT_BOOLEAN, 32, TFS(&req_not_req_tfs), 0x2, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reqstat_snr_marg_cand_prof,
+     {"SNR Margin for Candidate Profile", "docsis_optreq.reqstat.snr_marg_cand_prof", FT_BOOLEAN, 32, TFS(&req_not_req_tfs), 0x4, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reqstat_codew_stat_cand_prof,
+     {"Codeword Statistics for Candidate Profile", "docsis_optreq.reqstat.codew_stat_cand_prof", FT_BOOLEAN, 32, TFS(&req_not_req_tfs), 0x8, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reqstat_codew_thresh_comp_cand_prof,
+     {"Codeword Threshold Comparison for Candidate Profile", "docsis_optreq.reqstat.codew_thresh_comp_cand_prof", FT_BOOLEAN, 32, TFS(&req_not_req_tfs), 0x10, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reqstat_ncp_field_stat,
+     {"NCP Field Statistics", "docsis_optreq.reqstat.ncp_field_stats", FT_BOOLEAN, 32, TFS(&req_not_req_tfs), 0x20, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reqstat_ncp_crc_thresh_comp,
+     {"NCP CRC Threshold Comparison", "docsis_optreq.reqstat.ncp_crc_thresh_comp", FT_BOOLEAN, 32, TFS(&req_not_req_tfs), 0x40, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_reqstat_reserved,
+     {"Reserved", "docsis_optreq.reqstat.reserved", FT_BOOLEAN, 32, TFS(&req_not_req_tfs), 0x80, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_tlv_xrmer_thresh_data,
+     {"TLV Data", "docsis_optreq.rxmer_thresh_params.tlv_data", FT_BYTES, BASE_NO_DISPLAY_VALUE, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_xmer_thresh_params_type,
+     {"Type", "docsis_optreq.rxmer_thres_params.type",FT_UINT8, BASE_DEC, VALS(optreq_tlv_rxmer_thresh_params_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_xmer_thresh_params_length,
+     {"Length", "docsis_optreq.rxmer_thres_params.length",FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optreq_tlv_xrmer_thresh_data_mod_order,
+     {"Modulation Order", "docsis_optreq.rxmer_thres_params.mod_order", FT_UINT8, BASE_DEC, VALS(opreq_tlv_rxmer_thresh_params_mod_order), 0x0, NULL, HFILL}
+    },
+    /* OPT-RSP */
+    {&hf_docsis_optrsp_tlv_unknown,
+     {"Unknown TLV", "docsis_optrsp.unknown_tlv", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_reserved,
+     {"Reserved", "docsis_optrsp.reserved", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_prof_id,
+     {"Profile Identifier", "docsis_optrsp.prof_id", FT_UINT8, BASE_DEC, VALS(profile_id_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_status,
+     {"Status", "docsis_optrsp.status", FT_UINT8, BASE_DEC, VALS(opt_status_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_tlv_data,
+     {"TLV Data", "docsis_optrsp.tlv_data", FT_BYTES, BASE_NO_DISPLAY_VALUE, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_type,
+     {"Type", "docsis_optrsp.type",FT_UINT8, BASE_DEC, VALS(optreq_tlv_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_length,
+     {"Length", "docsis_optrsp.length",FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_tlv_xrmer_snr_margin_data,
+     {"TLV Data", "docsis_optrsp.rxmer_snr_margin.tlv_data", FT_BYTES, BASE_NO_DISPLAY_VALUE, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_xmer_snr_margin_type,
+     {"Type", "docsis_optrsp.xmer_snr_margin.type",FT_UINT8, BASE_DEC, VALS(optrsp_tlv_rxmer_snr_margin_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_xmer_snr_margin_length,
+     {"Length", "docsis_optrsp.rxmer_snr_margin.length",FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_tlv_xrmer_snr_margin_data_rxmer_subc,
+     {"RxMER", "docsis_optrsp.rxmer_snr_margin.rxmer_per_subc", FT_UINT8, BASE_CUSTOM, CF_FUNC(mer_fourth_db), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optrsp_tlv_rxmer_snr_margin_data_snr_margin,
+     {"SNR Margin", "docsis_optrsp.rxmer_snr_margin.snr_margin", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+    /* OPT-ACK */
+    {&hf_docsis_optack_prof_id,
+     {"Profile Identifier", "docsis_optack.prof_id", FT_UINT8, BASE_DEC, VALS(profile_id_vals), 0x0, NULL, HFILL}
+    },
+    {&hf_docsis_optack_reserved,
+     {"Reserved", "docsis_optack.reserved", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL}
+    },
+
+
     /* MAC Management */
     {&hf_docsis_mgt_upstream_chid,
      {"Upstream Channel ID", "docsis_mgmt.upchid",
@@ -8378,6 +9571,81 @@ proto_register_docsis_mgmt (void)
      {"Reserved", "docsis_mgmt.rsvd",
       FT_UINT8, BASE_DEC, NULL, 0x0,
       NULL, HFILL}
+    },
+    {&hf_docsis_mgt_multipart,
+     {"Multipart", "docsis_mgmt.multipart",
+      FT_UINT8, BASE_HEX, NULL, 0x0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mgt_multipart_number_of_fragments,
+     {"Multipart - Number of Fragments", "docsis_mgmt.multipart.number_of_fragments",
+      FT_UINT8, BASE_CUSTOM, CF_FUNC(multipart_number_of_fragments), 0xF0,
+      NULL, HFILL}
+    },
+    {&hf_docsis_mgt_multipart_fragment_sequence_number,
+     {"Multipart - Fragment Sequence Number", "docsis_mgmt.multipart.fragment_sequence_number",
+      FT_UINT8, BASE_DEC, NULL, 0x0F,
+      NULL, HFILL}
+    },
+    { &hf_docsis_tlv_fragment_overlap,
+     { "Fragment overlap", "docsis_mgmt.tlv.fragment.overlap",
+       FT_BOOLEAN, BASE_NONE, NULL, 0x0,
+       "Fragment overlaps with other fragments", HFILL}
+    },
+    { &hf_docsis_tlv_fragment_overlap_conflict,
+     { "Conflicting data in fragment overlap", "docsis_mgmt.tlv.fragment.overlap.conflict",
+       FT_BOOLEAN, BASE_NONE, NULL, 0x0,
+       "Overlapping fragments contained conflicting data", HFILL}
+    },
+    { &hf_docsis_tlv_fragment_multiple_tails,
+     { "Multiple tail fragments found", "docsis_mgmt.tlv.fragment.multipletails",
+       FT_BOOLEAN, BASE_NONE, NULL, 0x0,
+       "Several tails were found when defragmenting the packet", HFILL}
+    },
+    { &hf_docsis_tlv_fragment_too_long_fragment,
+     { "Fragment too long", "docsis_mgmt.tlv.fragment.toolongfragment",
+       FT_BOOLEAN, BASE_NONE, NULL, 0x0,
+       "Fragment contained data past end of packet", HFILL}
+    },
+    { &hf_docsis_tlv_fragment_error,
+     { "Defragmentation error", "docsis_mgmt.tlv.fragment.error",
+       FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+       "Defragmentation error due to illegal fragments", HFILL}
+    },
+    { &hf_docsis_tlv_fragment_count,
+     { "Fragment count", "docsis_mgmt.tlv.fragment.count",
+       FT_UINT32, BASE_DEC, NULL, 0x0,
+       NULL, HFILL}
+    },
+    { &hf_docsis_tlv_fragment,
+     { "TLV Fragment", "docsis_mgmt.tlv.fragment",
+       FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+       NULL, HFILL}
+    },
+    { &hf_docsis_tlv_fragments,
+     { "TLV Fragments", "docsis_mgmt.tlv.fragments",
+       FT_BYTES, BASE_NONE, NULL, 0x0,
+       NULL, HFILL}
+    },
+    { &hf_docsis_tlv_reassembled_in,
+     { "Reassembled TLV in frame", "docsis_mgmt.tlv.reassembled_in",
+       FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+       "This TLV packet is reassembled in this frame", HFILL}
+    },
+    { &hf_docsis_tlv_reassembled_length,
+     { "Reassembled TLV length", "docsis_mgmt.tlv.reassembled.length",
+       FT_UINT32, BASE_DEC, NULL, 0x0,
+       "The total length of the reassembled payload", HFILL}
+    },
+    { &hf_docsis_tlv_reassembled_data,
+     { "Reassembled TLV data", "docsis_mgmt.tlv.reassembled.data",
+       FT_BYTES, BASE_NONE, NULL, 0x0,
+       "The reassembled payload", HFILL}
+    },
+    { &hf_docsis_tlv_reassembled,
+     { "Reassembled TLV", "docsis_mgmt.tlv.reassembled",
+       FT_BYTES, BASE_NONE, NULL, 0x0,
+       NULL, HFILL}
     },
   };
 
@@ -8447,6 +9715,9 @@ proto_register_docsis_mgmt (void)
     &ett_docsis_mdd_up_active_channel_list,
     &ett_docsis_mdd_cm_status_event_control,
     &ett_docsis_mdd_dsg_da_to_dsid,
+    &ett_docsis_mdd_diplexer_band_edge,
+    &ett_docsis_mdd_full_duplex_descriptor,
+    &ett_docsis_mdd_full_duplex_sub_band_descriptor,
     &ett_docsis_bintrngreq,
     &ett_docsis_dbcreq,
     &ett_docsis_dbcrsp,
@@ -8456,6 +9727,9 @@ proto_register_docsis_mgmt (void)
     &ett_docsis_cmstatus,
     &ett_docsis_cmstatus_tlv,
     &ett_docsis_cmstatus_tlvtlv,
+    &ett_docsis_cmstatus_status_event_tlv,
+    &ett_docsis_cmstatus_status_event_tlvtlv,
+    &ett_docsis_cmstatusack,
     &ett_docsis_cmctrlreq,
     &ett_docsis_cmctrlreq_tlv,
     &ett_docsis_cmctrlreq_tlvtlv,
@@ -8472,8 +9746,22 @@ proto_register_docsis_mgmt (void)
     &ett_docsis_dpd_tlvtlv,
     &ett_docsis_dpd_tlv_subcarrier_assignment,
     &ett_docsis_dpd_tlv_subcarrier_assignment_vector,
+    &ett_docsis_optreq,
+    &ett_docsis_optreq_tlv,
+    &ett_docsis_optreq_tlvtlv,
+    &ett_docsis_optreq_tlv_rxmer_thresh_params,
+    &ett_docsis_optreq_tlv_rxmer_thresh_params_tlv,
+    &ett_docsis_optrsp,
+    &ett_docsis_optrsp_tlv,
+    &ett_docsis_optrsp_tlvtlv,
+    &ett_docsis_optrsp_tlv_rxmer_snr_margin_data,
+    &ett_docsis_optrsp_tlv_rxmer_snr_margin_tlv,
+    &ett_docsis_optack,
     &ett_docsis_mgmt,
     &ett_mgmt_pay,
+    &ett_docsis_tlv_fragment,
+    &ett_docsis_tlv_fragments,
+    &ett_docsis_tlv_reassembled
   };
 
   static ei_register_info ei[] = {
@@ -8532,6 +9820,7 @@ proto_register_docsis_mgmt (void)
   proto_docsis_dpvreq = proto_register_protocol_in_name_only("DOCSIS Path Verify Request", "DOCSIS DPV-REQ", "docsis_dpv.req", proto_docsis_mgmt, FT_BYTES);
   proto_docsis_dpvrsp = proto_register_protocol_in_name_only("DOCSIS Path Verify Response", "DOCSIS DPV-RSP", "docsis_dpv.rsp", proto_docsis_mgmt, FT_BYTES);
   proto_docsis_cmstatus = proto_register_protocol_in_name_only("DOCSIS CM-STATUS Report", "DOCSIS CM-STATUS", "docsis_cmstatus", proto_docsis_mgmt, FT_BYTES);
+  proto_docsis_cmstatusack = proto_register_protocol_in_name_only("DOCSIS Status Report Acknowledge", "DOCSIS CM-STATUS-ACK", "docsis_cmstatusack", proto_docsis_mgmt, FT_BYTES);
   proto_docsis_cmctrlreq = proto_register_protocol_in_name_only("DOCSIS CM Control Request", "DOCSIS CM-CTRL-REQ", "docsis_cmctrl.req", proto_docsis_mgmt, FT_BYTES);
   proto_docsis_cmctrlrsp = proto_register_protocol_in_name_only("DOCSIS CM Control Response", "DOCSIS CM-CTRL-RSP", "docsis_cmctrlrsp", proto_docsis_mgmt, FT_BYTES);
   proto_docsis_regreqmp = proto_register_protocol_in_name_only("DOCSIS Registration Request Multipart", "DOCSIS Reg-Req-Mp", "docsis_regreqmp", proto_docsis_mgmt, FT_BYTES);
@@ -8539,6 +9828,9 @@ proto_register_docsis_mgmt (void)
   proto_docsis_ocd = proto_register_protocol_in_name_only("DOCSIS OFDM Channel Descriptor", "DOCSIS OCD", "docsis_ocd", proto_docsis_mgmt, FT_BYTES);
   proto_docsis_dpd = proto_register_protocol_in_name_only("DOCSIS Downstream Profile Descriptor", "DOCSIS DPD", "docsis_dpd", proto_docsis_mgmt, FT_BYTES);
   proto_docsis_type51ucd = proto_register_protocol_in_name_only("DOCSIS Upstream Channel Descriptor Type 51", "DOCSIS type51ucd", "docsis_type51ucd", proto_docsis_mgmt, FT_BYTES);
+  proto_docsis_optreq = proto_register_protocol_in_name_only("OFDM Downstream Profile Test Request", "DOCSIS OPT-REQ", "docsis_optreq", proto_docsis_mgmt, FT_BYTES);
+  proto_docsis_optrsp = proto_register_protocol_in_name_only("OFDM Downstream Profile Test Response", "DOCSIS OPT-RSP", "docsis_optrsp", proto_docsis_mgmt, FT_BYTES);
+  proto_docsis_optack = proto_register_protocol_in_name_only("OFDM Downstream Profile Test Acknowledge", "DOCSIS OPT-ACK", "docsis_optack", proto_docsis_mgmt, FT_BYTES);
 
   register_dissector ("docsis_mgmt", dissect_macmgmt, proto_docsis_mgmt);
   docsis_ucd_handle = register_dissector ("docsis_ucd", dissect_ucd, proto_docsis_ucd);
@@ -8584,6 +9876,7 @@ proto_reg_handoff_docsis_mgmt (void)
   dissector_add_uint ("docsis_mgmt", MGT_DPV_REQ, create_dissector_handle( dissect_dpvreq, proto_docsis_dpvreq ));
   dissector_add_uint ("docsis_mgmt", MGT_DPV_RSP, create_dissector_handle( dissect_dpvrsp, proto_docsis_dpvrsp ));
   dissector_add_uint ("docsis_mgmt", MGT_CM_STATUS, create_dissector_handle( dissect_cmstatus, proto_docsis_cmstatus ));
+  dissector_add_uint ("docsis_mgmt", MGT_CM_STATUS_ACK, create_dissector_handle( dissect_cmstatusack, proto_docsis_cmstatusack ));
   dissector_add_uint ("docsis_mgmt", MGT_CM_CTRL_REQ, create_dissector_handle( dissect_cmctrlreq, proto_docsis_cmctrlreq ));
   dissector_add_uint ("docsis_mgmt", MGT_CM_CTRL_RSP, create_dissector_handle( dissect_cmctrlrsp, proto_docsis_cmctrlrsp ));
   dissector_add_uint ("docsis_mgmt", MGT_REG_REQ_MP, create_dissector_handle( dissect_regreqmp, proto_docsis_regreqmp ));
@@ -8591,8 +9884,15 @@ proto_reg_handoff_docsis_mgmt (void)
   dissector_add_uint ("docsis_mgmt", MGT_OCD, create_dissector_handle( dissect_ocd, proto_docsis_ocd ));
   dissector_add_uint ("docsis_mgmt", MGT_DPD, create_dissector_handle( dissect_dpd, proto_docsis_dpd ));
   dissector_add_uint ("docsis_mgmt", MGT_TYPE51UCD, create_dissector_handle( dissect_type51ucd, proto_docsis_type51ucd ));
+  dissector_add_uint ("docsis_mgmt", MGT_OPT_REQ, create_dissector_handle( dissect_optreq, proto_docsis_optreq ));
+  dissector_add_uint ("docsis_mgmt", MGT_OPT_RSP, create_dissector_handle( dissect_optrsp, proto_docsis_optrsp ));
+  dissector_add_uint ("docsis_mgmt", MGT_OPT_ACK, create_dissector_handle( dissect_optack, proto_docsis_optack ));
 
   docsis_tlv_handle = find_dissector ("docsis_tlv");
+
+  reassembly_table_register(&docsis_tlv_reassembly_table, &addresses_reassembly_table_functions);
+  reassembly_table_register(&docsis_opt_tlv_reassembly_table, &addresses_reassembly_table_functions);
+
 }
 
 /*

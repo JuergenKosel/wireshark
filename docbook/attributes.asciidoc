@@ -25,7 +25,7 @@
 
 // Wireshark secondary URLs (pages)
 :wireshark-authors-url: {wireshark-main-url}about.html#authors
-:wireshark-buildbot-url: https://buildbot.wireshark.org/trunk/waterfall
+:wireshark-buildbot-url: https://buildbot.wireshark.org/wireshark-master/waterfall
 :wireshark-code-browse-url: {wireshark-code-review-url}/gitweb?p=wireshark.git
 :wireshark-developers-guide-url: {wireshark-main-url}docs/
 :wireshark-display-filter-reference-url: {wireshark-main-url}docs/dfref/
@@ -76,7 +76,6 @@
 :screenshot-attrs: scaledwidth="85%"
 :medium-screenshot-attrs: scaledwidth="60%"
 :small-screenshot-attrs: scaledwidth="35%"
-:toolbar-icon-attrs: height=24,width=24
 :related-attrs: height=18
 // XXX height=22 results in content-height="22px" in the .fo file. Not sure
 // how to make scaledwidth take precedence.
@@ -84,3 +83,5 @@
 
 :multiplication: ×
 :cmd: ⌘
+
+:missing: Not yet written. See https://wiki.wireshark.org/Development/SubmittingPatches

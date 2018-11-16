@@ -148,6 +148,7 @@ static int hf_mgcp_param_maxmgcpdatagram = -1;
 static int hf_mgcp_param_packagelist = -1;
 static int hf_mgcp_param_extension = -1;
 static int hf_mgcp_param_extension_critical = -1;
+static int hf_mgcp_param_resourceid = -1;
 static int hf_mgcp_param_invalid = -1;
 static int hf_mgcp_messagecount = -1;
 static int hf_mgcp_dup = -1;
@@ -807,7 +808,7 @@ static gint tvb_parse_param(tvbuff_t* tvb, gint offset, gint len, int** hf, mgcp
 
 	if (len > 0)
 	{
-		tempchar = tvb_get_guint8(tvb, tvb_current_offset);
+		tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset));
 
 		switch (tempchar)
 		{
@@ -871,18 +872,18 @@ static gint tvb_parse_param(tvbuff_t* tvb, gint offset, gint len, int** hf, mgcp
 				/* XRM/MCR */
 				else
 				if (len > (tvb_current_offset - offset) &&
-				   (tempchar = tvb_get_guint8(tvb,tvb_current_offset)) == 'R')
+				   (tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb,tvb_current_offset))) == 'R')
 				{
 					/* Move past 'R' */
 					tvb_current_offset += 3;
 					if (len > (tvb_current_offset - offset) &&
-						(tempchar = tvb_get_guint8(tvb,tvb_current_offset)) == 'R')
+						(tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb,tvb_current_offset))) == 'R')
 					{
 						*hf = &hf_mgcp_param_remotevoicemetrics;
 					}
 					else
 					if (len > (tvb_current_offset - offset) &&
-					   (tempchar = tvb_get_guint8(tvb,tvb_current_offset)) == 'L')
+					   (tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb,tvb_current_offset))) == 'L')
 					{
 						*hf = &hf_mgcp_param_localvoicemetrics;
 					}
@@ -932,7 +933,7 @@ static gint tvb_parse_param(tvbuff_t* tvb, gint offset, gint len, int** hf, mgcp
 			case 'M':
 				tvb_current_offset++;
 				if (len > (tvb_current_offset - offset) &&
-				   (tempchar = tvb_get_guint8(tvb, tvb_current_offset)) == ':')
+				   (tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset))) == ':')
 				{
 					*hf = &hf_mgcp_param_connectionmode;
 					tvb_current_offset--;
@@ -946,7 +947,7 @@ static gint tvb_parse_param(tvbuff_t* tvb, gint offset, gint len, int** hf, mgcp
 			case 'R':
 				tvb_current_offset++;
 				if (len > (tvb_current_offset - offset) &&
-				    (tempchar = tvb_get_guint8(tvb, tvb_current_offset)) == ':')
+				    (tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset))) == ':')
 				{
 					*hf = &hf_mgcp_param_reqevents;
 					tvb_current_offset--;
@@ -974,6 +975,18 @@ static gint tvb_parse_param(tvbuff_t* tvb, gint offset, gint len, int** hf, mgcp
 			case 'D':
 				if (tvb_get_guint8(tvb, tvb_current_offset+1) != ':')
 				{
+					if (len > (tvb_current_offset + 5 - offset) &&
+						(g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset + 1) == 'Q')) &&
+						(                tvb_get_guint8(tvb, tvb_current_offset + 2) == '-' ) &&
+						(g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset + 3) == 'R')) &&
+						(g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset + 4) == 'I')) &&
+						(                tvb_get_guint8(tvb, tvb_current_offset + 5) == ':' )
+					) {
+						tvb_current_offset+=4;
+						*hf = &hf_mgcp_param_resourceid;
+						break;
+					}
+
 					*hf = &hf_mgcp_param_invalid;
 					break;
 				}
@@ -992,7 +1005,7 @@ static gint tvb_parse_param(tvbuff_t* tvb, gint offset, gint len, int** hf, mgcp
 			case 'P':
 				tvb_current_offset++;
 				if (len > (tvb_current_offset - offset) &&
-				    (tempchar = tvb_get_guint8(tvb, tvb_current_offset)) == ':')
+				    (tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset))) == ':')
 				{
 					*hf = &hf_mgcp_param_connectionparam;
 					tvb_current_offset--;
@@ -1006,7 +1019,7 @@ static gint tvb_parse_param(tvbuff_t* tvb, gint offset, gint len, int** hf, mgcp
 			case 'E':
 				tvb_current_offset++;
 				if (len > (tvb_current_offset - offset) &&
-				    (tempchar = tvb_get_guint8(tvb, tvb_current_offset)) == ':')
+				    (tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset))) == ':')
 				{
 					*hf = &hf_mgcp_param_reasoncode;
 					tvb_current_offset--;
@@ -1020,7 +1033,7 @@ static gint tvb_parse_param(tvbuff_t* tvb, gint offset, gint len, int** hf, mgcp
 			case 'Z':
 				tvb_current_offset++;
 				if (len > (tvb_current_offset - offset) &&
-				    (tempchar = tvb_get_guint8(tvb, tvb_current_offset)) == ':')
+				    (tempchar = (guint8)g_ascii_toupper(tvb_get_guint8(tvb, tvb_current_offset))) == ':')
 				{
 					*hf = &hf_mgcp_param_specificendpoint;
 					tvb_current_offset--;
@@ -2645,6 +2658,9 @@ void proto_register_mgcp(void)
 			{ &hf_mgcp_param_extension_critical,
 			  { "Extension Parameter (critical)", "mgcp.param.extensioncritical", FT_STRING, BASE_NONE, NULL, 0x0,
 			    "Critical Extension Parameter", HFILL }},
+			{ &hf_mgcp_param_resourceid,
+			  { "ResourceIdentifier (DQ-RI)", "mgcp.param.resourceid", FT_STRING, BASE_NONE, NULL, 0x0,
+			    "Resource Identifier", HFILL }},
 			{ &hf_mgcp_param_invalid,
 			  { "Invalid Parameter", "mgcp.param.invalid", FT_STRING, BASE_NONE, NULL, 0x0,
 			    NULL, HFILL }},

@@ -443,11 +443,14 @@ static struct extcap_dumper extcap_dumper_open(char *fifo, int encap) {
         g_warning("Write to %s failed: %s", g_strerror(errno));
     }
 #else
+    wtap_dump_params params = WTAP_DUMP_PARAMS_INIT;
     int err = 0;
 
     wtap_init(FALSE);
 
-    extcap_dumper.dumper.wtap = wtap_dump_open(fifo, WTAP_FILE_TYPE_SUBTYPE_PCAP_NSEC, encap, PACKET_LENGTH, FALSE, &err);
+    params.encap = encap;
+    params.snaplen = PACKET_LENGTH;
+    extcap_dumper.dumper.wtap = wtap_dump_open(fifo, WTAP_FILE_TYPE_SUBTYPE_PCAP_NSEC, WTAP_UNCOMPRESSED, &params, &err);
     if (!extcap_dumper.dumper.wtap) {
         cfile_dump_open_failure_message("androiddump", fifo, err, WTAP_FILE_TYPE_SUBTYPE_PCAP_NSEC);
         exit(EXIT_CODE_CANNOT_SAVE_WIRETAP_DUMP);
@@ -2485,7 +2488,7 @@ static int capture_android_tcpdump(char *interface, char *fifo,
     return EXIT_CODE_SUCCESS;
 }
 
-int main(int argc, char **argv) {
+int real_main(int argc, char **argv) {
     int              ret = EXIT_CODE_GENERIC;
     int              option_idx = 0;
     int              result;
@@ -2512,8 +2515,6 @@ int main(int argc, char **argv) {
 
 #ifdef _WIN32
     WSADATA          wsaData;
-
-    attach_parent_console();
 #endif  /* _WIN32 */
 
     cmdarg_err_init(failure_warning_message, failure_warning_message);
@@ -2753,13 +2754,19 @@ end:
 }
 
 #ifdef _WIN32
-int _stdcall
-WinMain (struct HINSTANCE__ *hInstance,
-         struct HINSTANCE__ *hPrevInstance,
-         char               *lpszCmdLine,
-         int                 nCmdShow)
+int
+wmain(int argc, wchar_t *wc_argv[])
 {
-    return main(__argc, __argv);
+    char **argv;
+
+    argv = arg_list_utf_16to8(argc, wc_argv);
+    return real_main(argc, argv);
+}
+#else
+int
+main(int argc, char *argv[])
+{
+    return real_main(argc, argv);
 }
 #endif
 

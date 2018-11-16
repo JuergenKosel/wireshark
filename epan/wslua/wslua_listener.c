@@ -19,7 +19,6 @@
 /* WSLUA_MODULE Listener Post-dissection packet analysis */
 
 #include "wslua.h"
-#include <wsutil/ws_printf.h> /* ws_g_warning */
 
 WSLUA_CLASS_DEFINE(Listener,FAIL_ON_NULL("Listener"));
 /*
@@ -100,7 +99,7 @@ static gboolean lua_tap_packet(void *tapdata, packet_info *pinfo, epan_dissect_t
         case LUA_ERRRUN:
             break;
         case LUA_ERRMEM:
-            ws_g_warning("Memory alloc error while calling listener tap callback packet");
+            g_warning("Memory alloc error while calling listener tap callback packet");
             break;
         default:
             g_assert_not_reached();
@@ -135,10 +134,10 @@ static void lua_tap_reset(void *tapdata) {
         case 0:
             break;
         case LUA_ERRRUN:
-            ws_g_warning("Runtime error while calling a listener's init()");
+            g_warning("Runtime error while calling a listener's init()");
             break;
         case LUA_ERRMEM:
-            ws_g_warning("Memory alloc error while calling a listener's init()");
+            g_warning("Memory alloc error while calling a listener's init()");
             break;
         default:
             g_assert_not_reached();
@@ -160,10 +159,10 @@ static void lua_tap_draw(void *tapdata) {
             break;
         case LUA_ERRRUN:
             error = lua_tostring(tap->L,-1);
-            ws_g_warning("Runtime error while calling a listener's draw(): %s",error);
+            g_warning("Runtime error while calling a listener's draw(): %s",error);
             break;
         case LUA_ERRMEM:
-            ws_g_warning("Memory alloc error while calling a listener's draw()");
+            g_warning("Memory alloc error while calling a listener's draw()");
             break;
         default:
             g_assert_not_reached();
@@ -219,7 +218,7 @@ WSLUA_CONSTRUCTOR Listener_new(lua_State* L) {
      * XXX - do any Lua taps require the columns?  If so, we either need
      * to request them for this tap, or do so if any Lua taps require them.
      */
-    error = register_tap_listener(tap_type, tap, tap->filter, TL_REQUIRES_PROTO_TREE, lua_tap_reset, lua_tap_packet, lua_tap_draw);
+    error = register_tap_listener(tap_type, tap, tap->filter, TL_REQUIRES_PROTO_TREE, lua_tap_reset, lua_tap_packet, lua_tap_draw, NULL);
 
     if (error) {
         g_free(tap->filter);

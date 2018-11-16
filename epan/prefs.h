@@ -24,9 +24,6 @@ extern "C" {
 
 #include "ws_symbol_export.h"
 
-#define PR_DEST_CMD  0
-#define PR_DEST_FILE 1
-
 #define DEF_WIDTH 750
 #define DEF_HEIGHT 550
 
@@ -139,21 +136,12 @@ typedef enum {
 } software_update_channel_e;
 
 typedef struct _e_prefs {
-  gint         pr_format;
-  gint         pr_dest;
-  gchar       *pr_file;
-  gchar       *pr_cmd;
   GList       *col_list;
   gint         num_cols;
   color_t      st_client_fg, st_client_bg, st_server_fg, st_server_bg;
   color_t      gui_text_valid, gui_text_invalid, gui_text_deprecated;
-  gboolean     gui_expert_composite_eyecandy;
-  gboolean     filter_toolbar_show_in_statusbar;
   gboolean     restore_filter_after_following_stream;
-  gint         gui_ptree_line_style;
-  gint         gui_ptree_expander_style;
   gint         gui_toolbar_main_style;
-  gint         gui_toolbar_filter_style;
   gchar       *gui_qt_font_name;
   color_t      gui_active_fg;
   color_t      gui_active_bg;
@@ -177,9 +165,8 @@ typedef struct _e_prefs {
   gchar       *gui_fileopen_dir;
   guint        gui_fileopen_preview;
   gboolean     gui_ask_unsaved;
+  gboolean     gui_autocomplete_filter;
   gboolean     gui_find_wrap;
-  gboolean     gui_use_pref_save;
-  gchar       *gui_webbrowser;
   gchar       *gui_window_title;
   gchar       *gui_prepend_window_title;
   gchar       *gui_start_title;
@@ -205,6 +192,7 @@ typedef struct _e_prefs {
   gboolean     capture_pcap_ng;
   gboolean     capture_real_time;
   gboolean     capture_auto_scroll; /* XXX - Move to recent */
+  gboolean     capture_no_interface_load;
   gboolean     capture_no_extcap;
   gboolean     capture_show_info;
   GList       *capture_columns;
@@ -214,6 +202,7 @@ typedef struct _e_prefs {
   gboolean     enable_incomplete_dissectors_check;
   gboolean     incomplete_dissectors_check_debug;
   gboolean     strict_conversation_tracking_heuristics;
+  gboolean     filter_expressions_old;  /* TRUE if old filter expressions preferences were loaded. */
   gboolean     gui_update_enabled;
   software_update_channel_e gui_update_channel;
   gint         gui_update_interval;
@@ -269,6 +258,11 @@ WS_DLL_PUBLIC void prefs_set_gui_theme_is_dark(gboolean is_dark);
  * Register that a protocol has preferences.
  */
 WS_DLL_PUBLIC module_t *prefs_register_protocol(int id, void (*apply_cb)(void));
+
+/*
+ * Register an alias for a preference module.
+ */
+WS_DLL_PUBLIC void prefs_register_module_alias(const char *name, module_t *module);
 
 /**
  * Deregister preferences from a protocol.

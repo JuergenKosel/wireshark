@@ -30,7 +30,7 @@
 #include <epan/strutil.h>
 #include <epan/proto_data.h>
 #include "packet-tcp.h"
-#include "packet-ssl-utils.h"
+#include "packet-tls-utils.h"
 
 void proto_register_mysql(void);
 void proto_reg_handoff_mysql(void);
@@ -95,17 +95,19 @@ void proto_reg_handoff_mysql(void);
 /* status bitfield */
 #define MYSQL_STAT_IT 0x0001
 #define MYSQL_STAT_AC 0x0002
-#define MYSQL_STAT_MR 0x0004
-#define MYSQL_STAT_MU 0x0008
+#define MYSQL_STAT_MU 0x0004
+#define MYSQL_STAT_MR 0x0008
 #define MYSQL_STAT_BI 0x0010
 #define MYSQL_STAT_NI 0x0020
 #define MYSQL_STAT_CR 0x0040
 #define MYSQL_STAT_LR 0x0080
 #define MYSQL_STAT_DR 0x0100
 #define MYSQL_STAT_BS 0x0200
-#define MYSQL_STAT_SESSION_STATE_CHANGED 0x0400
+#define MYSQL_STAT_MC 0x0400
 #define MYSQL_STAT_QUERY_WAS_SLOW 0x0800
 #define MYSQL_STAT_PS_OUT_PARAMS 0x1000
+#define MYSQL_STAT_TRANS_READONLY 0x2000
+#define MYSQL_STAT_SESSION_STATE_CHANGED 0x4000
 
 /* bitfield for MYSQL_REFRESH */
 #define MYSQL_RFSH_GRANT   1   /* Refresh grant tables */
@@ -167,6 +169,11 @@ void proto_reg_handoff_mysql(void);
 #define MYSQL_COMPRESS_NONE   0
 #define MYSQL_COMPRESS_INIT   1
 #define MYSQL_COMPRESS_ACTIVE 2
+
+/* Generic Response Codes */
+#define MYSQL_RESPONSE_OK   0x00
+#define MYSQL_RESPONSE_ERR  0xFF
+#define MYSQL_RESPONSE_EOF  0xFE
 
 /* decoding table: command */
 static const value_string mysql_command_vals[] = {
@@ -425,6 +432,13 @@ static const value_string mysql_session_track_type_vals[] = {
 	{0, NULL}
 };
 
+static const value_string mysql_response_code_vals[] = {
+    { MYSQL_RESPONSE_OK,    "OK Packet" },
+    { MYSQL_RESPONSE_ERR,   "ERR Packet" },
+    { MYSQL_RESPONSE_EOF,   "EOF Packet" },
+    { 0, NULL }
+};
+
 /* protocol id */
 static int proto_mysql = -1;
 
@@ -491,9 +505,11 @@ static int hf_mysql_stat_cr = -1;
 static int hf_mysql_stat_lr = -1;
 static int hf_mysql_stat_dr = -1;
 static int hf_mysql_stat_bs = -1;
+static int hf_mysql_stat_mc = -1;
 static int hf_mysql_stat_session_state_changed = -1;
 static int hf_mysql_stat_query_was_slow = -1;
 static int hf_mysql_stat_ps_out_params = -1;
+static int hf_mysql_stat_trans_readonly = -1;
 static int hf_mysql_refresh = -1;
 static int hf_mysql_rfsh_grants = -1;
 static int hf_mysql_rfsh_log = -1;
@@ -507,6 +523,7 @@ static int hf_mysql_packet_length = -1;
 static int hf_mysql_packet_number = -1;
 static int hf_mysql_request = -1;
 static int hf_mysql_command = -1;
+static int hf_mysql_response_code = -1;
 static int hf_mysql_error_code = -1;
 static int hf_mysql_error_string = -1;
 static int hf_mysql_sqlstate = -1;
@@ -623,7 +640,7 @@ static int hf_mysql_compressed_packet_length_uncompressed = -1;
 static int hf_mysql_compressed_packet_number = -1;
 
 static dissector_handle_t mysql_handle;
-static dissector_handle_t ssl_handle;
+static dissector_handle_t tls_handle;
 
 static expert_field ei_mysql_eof = EI_INIT;
 static expert_field ei_mysql_dissector_incomplete = EI_INIT;
@@ -798,17 +815,19 @@ static const int *mysql_rfsh_flags[] = {
 static const int *mysql_stat_flags[] = {
 	&hf_mysql_stat_it,
 	&hf_mysql_stat_ac,
-	&hf_mysql_stat_mr,
 	&hf_mysql_stat_mu,
+	&hf_mysql_stat_mr,
 	&hf_mysql_stat_bi,
 	&hf_mysql_stat_ni,
 	&hf_mysql_stat_cr,
 	&hf_mysql_stat_lr,
 	&hf_mysql_stat_dr,
 	&hf_mysql_stat_bs,
-	&hf_mysql_stat_session_state_changed,
+	&hf_mysql_stat_mc,
 	&hf_mysql_stat_query_was_slow,
 	&hf_mysql_stat_ps_out_params,
+	&hf_mysql_stat_trans_readonly,
+	&hf_mysql_stat_session_state_changed,
 	NULL
 };
 
@@ -1023,7 +1042,7 @@ mysql_dissect_login(tvbuff_t *tvb, packet_info *pinfo, int offset,
 	{
 		col_set_str(pinfo->cinfo, COL_INFO, "Response: SSL Handshake");
 		conn_data->frame_start_ssl = pinfo->num;
-		ssl_starttls_ack(ssl_handle, pinfo, mysql_handle);
+		ssl_starttls_ack(tls_handle, pinfo, mysql_handle);
 	}
 	if (conn_data->clnt_caps & MYSQL_CAPS_CU) /* 4.1 protocol */
 	{
@@ -1625,12 +1644,14 @@ mysql_dissect_response(tvbuff_t *tvb, packet_info *pinfo, int offset,
 	response_code = tvb_get_guint8(tvb, offset);
 
 	if (response_code == 0xff ) {
+		proto_tree_add_item(tree, hf_mysql_response_code, tvb, offset, 1, ENC_NA);
 		offset = mysql_dissect_error_packet(tvb, pinfo, offset+1, tree);
 		mysql_set_conn_state(pinfo, conn_data, REQUEST);
 	}
 
 	else if (response_code == 0xfe && tvb_reported_length_remaining(tvb, offset) < 9) {
 
+		proto_tree_add_item(tree, hf_mysql_response_code, tvb, offset, 1, ENC_NA);
 		ti = proto_tree_add_item(tree, hf_mysql_eof, tvb, offset, 1, ENC_NA);
 
 		offset += 1;
@@ -1670,6 +1691,7 @@ mysql_dissect_response(tvbuff_t *tvb, packet_info *pinfo, int offset,
 	}
 
 	else if (response_code == 0) {
+		proto_tree_add_item(tree, hf_mysql_response_code, tvb, offset, 1, ENC_NA);
 		if (current_state == RESPONSE_PREPARE) {
 			offset = mysql_dissect_response_prepare(tvb, pinfo, offset, tree, conn_data);
 		} else if (tvb_reported_length_remaining(tvb, offset+1)  > tvb_get_fle(tvb, offset+1, NULL, NULL)) {
@@ -1694,6 +1716,7 @@ mysql_dissect_response(tvbuff_t *tvb, packet_info *pinfo, int offset,
 			break;
 
 		case RESPONSE_TABULAR:
+		case REQUEST: /* That shouldn't be the case; maybe two requests in a row (s. bug 15074) */
 			offset = mysql_dissect_result_header(tvb, pinfo, offset, tree, conn_data);
 			break;
 
@@ -2224,7 +2247,7 @@ dissect_mysql_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 	conversation_t  *conversation;
 	int             offset = 0;
 	guint           packet_number;
-	gboolean        is_response, is_ssl = FALSE;
+	gboolean        is_response, is_tls = FALSE;
 	mysql_conn_data_t  *conn_data;
 #ifdef CTDEBUG
 	mysql_state_t conn_state_in, conn_state_out, frame_state;
@@ -2311,7 +2334,7 @@ dissect_mysql_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 	}
 #endif
 
-	is_ssl = proto_is_frame_protocol(pinfo->layers, "ssl");
+	is_tls = proto_is_frame_protocol(pinfo->layers, "tls");
 
 	if (is_response) {
 		if (packet_number == 0 && mysql_frame_data_p->state == UNDEFINED) {
@@ -2322,7 +2345,7 @@ dissect_mysql_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 			offset = mysql_dissect_response(tvb, pinfo, offset, mysql_tree, conn_data, mysql_frame_data_p->state);
 		}
 	} else {
-		if (mysql_frame_data_p->state == LOGIN && (packet_number == 1 || (packet_number == 2 && is_ssl))) {
+		if (mysql_frame_data_p->state == LOGIN && (packet_number == 1 || (packet_number == 2 && is_tls))) {
 			col_set_str(pinfo->cinfo, COL_INFO, "Login Request");
 			offset = mysql_dissect_login(tvb, pinfo, offset, mysql_tree, conn_data);
 			if (conn_data->srv_caps & MYSQL_CAPS_CP) {
@@ -2378,7 +2401,7 @@ void proto_register_mysql(void)
 		{ &hf_mysql_packet_number,
 		{ "Packet Number", "mysql.packet_number",
 		FT_UINT8, BASE_DEC, NULL, 0x0,
-		NULL, HFILL }},
+		"Packet Number (now called: Sequence ID)", HFILL }},
 
 		{ &hf_mysql_request,
 		{ "Request Command", "mysql.request",
@@ -2388,6 +2411,11 @@ void proto_register_mysql(void)
 		{ &hf_mysql_command,
 		{ "Command", "mysql.command",
 		FT_UINT8, BASE_DEC|BASE_EXT_STRING, &mysql_command_vals_ext, 0x0,
+		NULL, HFILL }},
+
+		{ &hf_mysql_response_code,
+		{ "Response Code", "mysql.response_code",
+		FT_UINT8, BASE_HEX, VALS(mysql_response_code_vals), 0x0,
 		NULL, HFILL }},
 
 		{ &hf_mysql_error_code,
@@ -2751,9 +2779,9 @@ void proto_register_mysql(void)
 		NULL, HFILL }},
 
 		{ &hf_mysql_stat_mu,
-		{ "Multi query - more resultsets", "mysql.stat.mu",
+		{ "Multi query / Unused", "mysql.stat.mu",
 		FT_BOOLEAN, 16, TFS(&tfs_set_notset), MYSQL_STAT_MU,
-		NULL, HFILL }},
+		"Multi query / Unused with MySQL >= 5.6", HFILL }},
 
 		{ &hf_mysql_stat_bi,
 		{ "Bad index used", "mysql.stat.bi",
@@ -2776,13 +2804,18 @@ void proto_register_mysql(void)
 		NULL, HFILL }},
 
 		{ &hf_mysql_stat_dr,
-		{ "database dropped", "mysql.stat.dr",
+		{ "Database dropped", "mysql.stat.dr",
 		FT_BOOLEAN, 16, TFS(&tfs_set_notset), MYSQL_STAT_DR,
 		NULL, HFILL }},
 
 		{ &hf_mysql_stat_bs,
 		{ "No backslash escapes", "mysql.stat.bs",
 		FT_BOOLEAN, 16, TFS(&tfs_set_notset), MYSQL_STAT_BS,
+		NULL, HFILL }},
+
+		{ &hf_mysql_stat_mc,
+		{ "Metadata changed", "mysql.stat.mc",
+		FT_BOOLEAN, 16, TFS(&tfs_set_notset), MYSQL_STAT_MC,
 		NULL, HFILL }},
 
 		{ &hf_mysql_stat_session_state_changed,
@@ -2798,6 +2831,11 @@ void proto_register_mysql(void)
 		{ &hf_mysql_stat_ps_out_params,
 		{ "PS Out Params", "mysql.stat.ps_out_params",
 		FT_BOOLEAN, 16, TFS(&tfs_set_notset), MYSQL_STAT_PS_OUT_PARAMS,
+		NULL, HFILL }},
+
+		{ &hf_mysql_stat_trans_readonly,
+		{ "In Trans Readonly", "mysql.stat.trans_readonly",
+		FT_BOOLEAN, 16, TFS(&tfs_set_notset), MYSQL_STAT_TRANS_READONLY,
 		NULL, HFILL }},
 
 		{ &hf_mysql_refresh,
@@ -3284,7 +3322,7 @@ void proto_register_mysql(void)
 /* dissector registration */
 void proto_reg_handoff_mysql(void)
 {
-	ssl_handle = find_dissector("ssl");
+	tls_handle = find_dissector("tls");
 	dissector_add_uint_with_preference("tcp.port", TCP_PORT_MySQL, mysql_handle);
 }
 

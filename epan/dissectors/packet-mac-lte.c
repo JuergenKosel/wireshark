@@ -1515,7 +1515,7 @@ static lcid_drb_mapping_t *lcid_drb_mappings = NULL;
 static guint num_lcid_drb_mappings = 0;
 
 UAT_VS_DEF(lcid_drb_mappings, lcid, lcid_drb_mapping_t, guint16, 3, "LCID 3")
-UAT_DEC_CB_DEF(lcid_drb_mappings, drbid, lcid_drb_mapping_t)
+UAT_SIGNED_DEC_CB_DEF(lcid_drb_mappings, drbid, lcid_drb_mapping_t)
 UAT_VS_DEF(lcid_drb_mappings, channel_type, lcid_drb_mapping_t, rlc_channel_type_t, rlcAM, "AM")
 
 /* UAT object */
@@ -2442,6 +2442,8 @@ gboolean dissect_mac_lte_context_fields(struct mac_lte_info  *p_mac_lte_info, tv
 
     p_mac_lte_info->rntiType = tvb_get_guint8(tvb, offset++);
 
+    p_mac_lte_info->sfnSfInfoPresent = FALSE; /* Set this to true later if the relative tag is read */
+
     /* Initialize RNTI with a default value in case optional field is not present */
     switch (p_mac_lte_info->rntiType) {
         case SC_RNTI:
@@ -2482,6 +2484,7 @@ gboolean dissect_mac_lte_context_fields(struct mac_lte_info  *p_mac_lte_info, tv
                 break;
             case MAC_LTE_FRAME_SUBFRAME_TAG:
                 {
+                    p_mac_lte_info->sfnSfInfoPresent = TRUE;
                     guint16 sfn_sf = tvb_get_ntohs(tvb, offset);
                     p_mac_lte_info->sysframeNumber = (sfn_sf >> 4) & 0x03ff;
                     p_mac_lte_info->subframeNumber = sfn_sf & 0x000f;
@@ -2616,6 +2619,29 @@ gboolean dissect_mac_lte_context_fields(struct mac_lte_info  *p_mac_lte_info, tv
                     }
                 }
                 break;
+                case MAC_LTE_SR_TAG:
+                    {
+                        int n;
+                        // Read number of entries.
+                        guint16 no_entries = tvb_get_ntohs(tvb, offset);
+                        offset += 2;
+                        if ((no_entries == 0) || (no_entries > MAX_SRs)) {
+                            return FALSE;
+                        }
+                        else {
+                            p_mac_lte_info->oob_event = ltemac_send_sr;
+                            p_mac_lte_info->number_of_srs = no_entries;
+                        }
+
+                        // Read each entry.
+                        for (n=0; n < no_entries; n++) {
+                            p_mac_lte_info->oob_ueid[n] = tvb_get_ntohs(tvb, offset);
+                            offset += 2;
+                            p_mac_lte_info->oob_rnti[n] = tvb_get_ntohs(tvb, offset);
+                            offset += 2;
+                        }
+                    }
+                    break;
 
             case MAC_LTE_PAYLOAD_TAG:
                 /* Have reached data, so set payload length and get out of loop */
@@ -3486,7 +3512,7 @@ static void call_rlc_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
         p_rlc_lte_info = wmem_new0(wmem_file_scope(), struct rlc_lte_info);
     }
 
-    /* Fill in struct details for srb channels */
+    /* Fill in struct details for channel */
     p_rlc_lte_info->rlcMode = mode;
     p_rlc_lte_info->direction = direction;
     p_rlc_lte_info->priority = priority;
@@ -5930,9 +5956,10 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             }
         }
 
-        else if ((lcids[n] >= 2) && (lcids[n] <= 10)) {
+        else if ((lcids[n] >= 3) && (lcids[n] <= 10)) {
 
-            /* Look for mapping for this LCID to drb channel set by UAT table */
+            /* Look for mapping for this LCID to drb channel set by UAT table or through
+               configuration protocol. */
             rlc_channel_type_t rlc_channel_type;
             guint8 seqnum_length;
             gint drb_id;
@@ -6939,6 +6966,34 @@ int dissect_mac_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         PROTO_ITEM_SET_GENERATED(ti);
     }
 
+    if(p_mac_lte_info->sfnSfInfoPresent) {
+        ti = proto_tree_add_uint(context_tree, hf_mac_lte_context_sysframe_number,
+                                 tvb, 0, 0, p_mac_lte_info->sysframeNumber);
+        PROTO_ITEM_SET_GENERATED(ti);
+        if (p_mac_lte_info->sysframeNumber > 1023) {
+            expert_add_info_format(pinfo, ti, &ei_mac_lte_context_sysframe_number,
+                                   "Sysframe number (%u) out of range - valid range is 0-1023",
+                                   p_mac_lte_info->sysframeNumber);
+        }
+
+        ti = proto_tree_add_uint(context_tree, hf_mac_lte_context_subframe_number,
+                                 tvb, 0, 0, p_mac_lte_info->subframeNumber);
+        PROTO_ITEM_SET_GENERATED(ti);
+        if (p_mac_lte_info->subframeNumber > 9) {
+            /* N.B. if we set it to valid value, it won't trigger when we rescan
+               (at least with DCT2000 files where the context struct isn't re-read). */
+            expert_add_info_format(pinfo, ti, &ei_mac_lte_context_sysframe_number,
+                                   "Subframe number (%u) out of range - valid range is 0-9",
+                                   p_mac_lte_info->subframeNumber);
+        }
+
+        if (p_mac_lte_info->subframeNumberOfGrantPresent) {
+            ti = proto_tree_add_uint(context_tree, hf_mac_lte_context_grant_subframe_number,
+                                     tvb, 0, 0, p_mac_lte_info->subframeNumberOfGrant);
+            PROTO_ITEM_SET_GENERATED(ti);
+        }
+    }
+
     /* There are several out-of-band MAC events that may be indicated in the context info. */
     /* Handle them here */
     if (p_mac_lte_info->length == 0) {
@@ -7012,12 +7067,25 @@ int dissect_mac_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
                                            p_mac_lte_info->oob_rnti[n]);
 
                     /* Info column */
-                    if (n == 0) {
-                        write_pdu_label_and_info(pdu_ti, NULL, pinfo,
-                                                "Scheduling Requests (%u) sent: (UE=%u C-RNTI=%u)",
-                                                p_mac_lte_info->number_of_srs,
-                                                p_mac_lte_info->oob_ueid[n],
-                                                p_mac_lte_info->oob_rnti[n]);
+
+                    if(n == 0) {
+                        if (p_mac_lte_info->sfnSfInfoPresent) {
+                            write_pdu_label_and_info(pdu_ti, NULL, pinfo,
+                                                    "Scheduling Requests (%u) sent (SFN=%-4u, SF=%u): (UE=%u C-RNTI=%u)",
+                                                    p_mac_lte_info->number_of_srs,
+                                                    p_mac_lte_info->sysframeNumber,
+                                                    p_mac_lte_info->subframeNumber,
+                                                    p_mac_lte_info->oob_ueid[n],
+                                                    p_mac_lte_info->oob_rnti[n]
+                                                    );
+                        }
+                        else {
+                            write_pdu_label_and_info(pdu_ti, NULL, pinfo,
+                                                    "Scheduling Requests (%u) sent: (UE=%u C-RNTI=%u)",
+                                                    p_mac_lte_info->number_of_srs,
+                                                    p_mac_lte_info->oob_ueid[n],
+                                                    p_mac_lte_info->oob_rnti[n]);
+                        }
                     }
                     else {
                         write_pdu_label_and_info(pdu_ti, NULL, pinfo,
@@ -7061,32 +7129,6 @@ int dissect_mac_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
     }
 
     /* Show remaining meta information */
-    ti = proto_tree_add_uint(context_tree, hf_mac_lte_context_sysframe_number,
-                             tvb, 0, 0, p_mac_lte_info->sysframeNumber);
-    PROTO_ITEM_SET_GENERATED(ti);
-    if (p_mac_lte_info->sysframeNumber > 1023) {
-        expert_add_info_format(pinfo, ti, &ei_mac_lte_context_sysframe_number,
-                               "Sysframe number (%u) out of range - valid range is 0-1023",
-                               p_mac_lte_info->sysframeNumber);
-    }
-
-    ti = proto_tree_add_uint(context_tree, hf_mac_lte_context_subframe_number,
-                             tvb, 0, 0, p_mac_lte_info->subframeNumber);
-    PROTO_ITEM_SET_GENERATED(ti);
-    if (p_mac_lte_info->subframeNumber > 9) {
-        /* N.B. if we set it to valid value, it won't trigger when we rescan
-           (at least with DCT2000 files where the context struct isn't re-read). */
-        expert_add_info_format(pinfo, ti, &ei_mac_lte_context_sysframe_number,
-                               "Subframe number (%u) out of range - valid range is 0-9",
-                               p_mac_lte_info->subframeNumber);
-    }
-
-    if (p_mac_lte_info->subframeNumberOfGrantPresent) {
-        ti = proto_tree_add_uint(context_tree, hf_mac_lte_context_grant_subframe_number,
-                                 tvb, 0, 0, p_mac_lte_info->subframeNumberOfGrant);
-        PROTO_ITEM_SET_GENERATED(ti);
-    }
-
     if (p_mac_lte_info->rntiType != NO_RNTI) {
         ti = proto_tree_add_uint(context_tree, hf_mac_lte_context_rnti,
                                  tvb, 0, 0, p_mac_lte_info->rnti);

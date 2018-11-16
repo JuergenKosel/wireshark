@@ -931,7 +931,7 @@ dissect_ipopt_cipso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
   guint      tagtype, taglen;
   gint       offset = 2,
              optlen = tvb_reported_length(tvb);
-  int        offset_max = offset + optlen;
+  int        offset_max = optlen;
 
   field_tree = ip_var_option_header(tree, pinfo, tvb, proto_ip_option_cipso, ett_ip_option_cipso, &tf, optlen);
 
@@ -3028,6 +3028,7 @@ proto_reg_handoff_ip(void)
   dissector_add_uint("juniper.proto", JUNIPER_PROTO_IP, ip_handle);
   dissector_add_uint("juniper.proto", JUNIPER_PROTO_MPLS_IP, ip_handle);
   dissector_add_uint("pwach.channel_type", PW_ACH_TYPE_IPV4, ip_handle);
+  dissector_add_uint("mcc.proto", PW_ACH_TYPE_IPV4, ip_handle);
   dissector_add_uint("sflow_245.header_protocol", SFLOW_245_HEADER_IPv4, ip_handle);
   dissector_add_uint("l2tp.pw_type", L2TPv3_PROTOCOL_IP, ip_handle);
   dissector_add_for_decode_as_with_preference("udp.port", ip_handle);

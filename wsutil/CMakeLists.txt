@@ -9,14 +9,12 @@
 
 include(UseABICheck)
 
-if(NOT WIN32)
-	add_definitions(-DPLUGIN_DIR=\"${CMAKE_INSTALL_FULL_LIBDIR}/wireshark/plugins\")
-endif()
+add_definitions(-DPLUGIN_DIR=\"${CMAKE_INSTALL_PREFIX}/${PLUGIN_INSTALL_LIBDIR}\")
+add_definitions(-DEXTCAP_DIR=\"${CMAKE_INSTALL_PREFIX}/${EXTCAP_INSTALL_LIBDIR}\")
 
 set(WSUTIL_PUBLIC_HEADERS
 	adler32.h
 	base32.h
-	base64.h
 	bits_count_ones.h
 	bits_ctz.h
 	bitswap.h
@@ -35,6 +33,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	crc16.h
 	crc16-plain.h
 	crc32.h
+	curve25519.h
 	eax.h
 	filesystem.h
 	frequency-utils.h
@@ -77,7 +76,6 @@ set(WSUTIL_PUBLIC_HEADERS
 set(WSUTIL_COMMON_FILES
 	adler32.c
 	base32.c
-	base64.c
 	bitswap.c
 	buffer.c
 	clopts_common.c
@@ -92,6 +90,7 @@ set(WSUTIL_COMMON_FILES
 	crc7.c
 	crc8.c
 	crc11.c
+	curve25519.c
 	dot11decrypt_wep.c
 	eax.c
 	filesystem.c
@@ -267,9 +266,17 @@ set_target_properties(wsutil PROPERTIES
 )
 
 if(ENABLE_APPLICATION_BUNDLE)
-	set_target_properties(wsutil PROPERTIES
-		LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Frameworks
-	)
+
+	if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
+		# Xcode
+		set_target_properties(wsutil PROPERTIES
+			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/Frameworks
+		)
+	else()
+		set_target_properties(wsutil PROPERTIES
+			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Frameworks
+		)
+	endif()
 endif()
 
 ABICHECK(libwsutil)
@@ -287,6 +294,7 @@ add_custom_command(OUTPUT libwsutil.abi.tar.gz
 target_link_libraries(wsutil ${wsutil_LIBS})
 
 install(TARGETS wsutil
+	EXPORT WiresharkTargets
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -298,18 +306,11 @@ if(NOT WIN32)
 	)
 endif()
 
-# Export build-time datadir (note: the macro "DATAFILE_DIR" is defined in
-# config.h and points to the install-time data directory, hence the different
-# name).
-set_property(SOURCE filesystem.c APPEND PROPERTY
-	COMPILE_DEFINITIONS BUILD_TIME_DATAFILE_DIR="${DATAFILE_DIR}"
-)
-
 CHECKAPI(
 	NAME
 	  wsutil
 	SWITCHES
-	  -g termoutput -build
+	  --group termoutput:1 --summary-group termoutput --build
 	SOURCES
 	  ${WSUTIL_COMMON_FILES}
 )

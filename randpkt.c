@@ -99,8 +99,8 @@ usage(gboolean is_error)
 	fprintf(output, "\nIf type is not specified, a random packet will be chosen\n\n");
 }
 
-int
-main(int argc, char **argv)
+static int
+real_main(int argc, char **argv)
 {
 	char                   *init_progfile_dir_error;
 	int			opt;
@@ -143,7 +143,6 @@ main(int argc, char **argv)
 	cmdarg_err_init(failure_warning_message, failure_message_cont);
 
 #ifdef _WIN32
-	arg_list_utf_16to8(argc, argv);
 	create_app_running_mutex();
 #endif /* _WIN32 */
 
@@ -206,7 +205,7 @@ main(int argc, char **argv)
 		ret = randpkt_example_init(example, produce_filename, produce_max_bytes);
 		if (ret != EXIT_SUCCESS)
 			goto clean_exit;
-		randpkt_loop(example, produce_count);
+		randpkt_loop(example, produce_count, 0);
 	} else {
 		if (type) {
 			fprintf(stderr, "Can't set type in random mode\n");
@@ -225,7 +224,7 @@ main(int argc, char **argv)
 			goto clean_exit;
 
 		while (produce_count-- > 0) {
-			randpkt_loop(example, 1);
+			randpkt_loop(example, 1, 0);
 			produce_type = randpkt_parse_type(NULL);
 
 			savedump = example->dump;
@@ -246,6 +245,23 @@ clean_exit:
 	wtap_cleanup();
 	return ret;
 }
+
+#ifdef _WIN32
+int
+wmain(int argc, wchar_t **wc_argv)
+{
+	char **argv;
+
+	argv = arg_list_utf_16to8(argc, wc_argv);
+	return real_main(argc, argv);
+}
+#else
+int
+main(int argc, char **argv)
+{
+	return real_main(argc, argv);
+}
+#endif
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

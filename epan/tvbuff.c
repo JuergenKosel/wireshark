@@ -763,6 +763,14 @@ ensure_contiguous_no_exception(tvbuff_t *tvb, const gint offset, const gint leng
 	}
 
 	/*
+	 * Special case: if the caller (e.g. tvb_get_ptr) requested no data,
+	 * then it is acceptable to have an empty tvb (!tvb->real_data).
+	 */
+	if (length == 0) {
+		return NULL;
+	}
+
+	/*
 	 * We know that all the data is present in the tvbuff, so
 	 * no exceptions should be thrown.
 	 */
@@ -783,7 +791,7 @@ ensure_contiguous(tvbuff_t *tvb, const gint offset, const gint length)
 	const guint8 *p;
 
 	p = ensure_contiguous_no_exception(tvb, offset, length, &exception);
-	if (p == NULL) {
+	if (p == NULL && length != 0) {
 		DISSECTOR_ASSERT(exception > 0);
 		THROW(exception);
 	}
@@ -3322,6 +3330,17 @@ tvb_get_nstringz0(tvbuff_t *tvb, const gint offset, const guint bufsize, guint8*
 	}
 }
 
+gboolean tvb_ascii_isprint(tvbuff_t *tvb, const gint offset, const gint length)
+{
+	const guint8* buf = tvb_get_ptr(tvb, offset, length);
+
+	for (int i = 0; i < length; i++, buf++)
+		if (!g_ascii_isprint(*buf))
+			return FALSE;
+
+	return TRUE;
+}
+
 
 static ws_mempbrk_pattern pbrk_crlf;
 /*
@@ -3645,14 +3664,18 @@ tvb_skip_wsp(tvbuff_t *tvb, const gint offset, const gint maxlength)
 }
 
 gint
-tvb_skip_wsp_return(tvbuff_t *tvb, const gint offset) {
+tvb_skip_wsp_return(tvbuff_t *tvb, const gint offset)
+{
 	gint   counter = offset;
 	guint8 tempchar;
 
-	for(counter = offset; counter > 0 &&
+	DISSECTOR_ASSERT(tvb && tvb->initialized);
+
+	for (counter = offset; counter > 0 &&
 		((tempchar = tvb_get_guint8(tvb,counter)) == ' ' ||
 		tempchar == '\t' || tempchar == '\n' || tempchar == '\r'); counter--);
 	counter++;
+
 	return (counter);
 }
 

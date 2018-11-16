@@ -1,3 +1,8 @@
+=begin man
+
+=encoding utf8
+
+=end man
 
 =head1 NAME
 
@@ -177,6 +182,8 @@ resolution
 B<t> to enable transport-layer port number resolution
 
 B<d> to enable resolution from captured DNS packets
+
+B<v> to enable VLAN IDs to names resolution
 
 =item -o  E<lt>preferenceE<gt>:E<lt>valueE<gt>
 

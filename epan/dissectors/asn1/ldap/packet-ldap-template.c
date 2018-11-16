@@ -90,8 +90,8 @@
 
 #include "packet-ldap.h"
 #include "packet-ntlmssp.h"
-#include "packet-ssl.h"
-#include "packet-ssl-utils.h"
+#include "packet-tls.h"
+#include "packet-tls-utils.h"
 #include "packet-smb-common.h"
 #include "packet-gssapi.h"
 
@@ -217,7 +217,7 @@ static dissector_handle_t gssapi_handle;
 static dissector_handle_t gssapi_wrap_handle;
 static dissector_handle_t ntlmssp_handle;
 static dissector_handle_t spnego_handle;
-static dissector_handle_t ssl_handle;
+static dissector_handle_t tls_handle;
 static dissector_handle_t ldap_handle ;
 
 static void prefs_register_ldap(void); /* forward declaration for use in preferences registration */
@@ -633,8 +633,7 @@ dissect_ldap_AssertionValue(gboolean implicit_tag, tvbuff_t *tvb, int offset, as
   gint8 ber_class;
   gboolean pc, ind, is_ascii;
   gint32 tag;
-  guint32 len, i;
-  const guchar *str;
+  guint32 len;
 
   if(!implicit_tag){
     offset=get_ber_identifier(tvb, offset, &ber_class, &pc, &tag);
@@ -711,25 +710,13 @@ dissect_ldap_AssertionValue(gboolean implicit_tag, tvbuff_t *tvb, int offset, as
    * -- I don't think there are full schemas available that describe the
    *  interesting cases i.e. AD -- ronnie
    */
-  str=tvb_get_ptr(tvb, offset, len);
-  is_ascii=TRUE;
-  for(i=0;i<len;i++){
-    if(!g_ascii_isprint(str[i])){
-      is_ascii=FALSE;
-      break;
-    }
-  }
+  is_ascii=tvb_ascii_isprint(tvb, offset, len);
 
   /* convert the string into a printable string */
   if(is_ascii){
-    ldapvalue_string=wmem_strndup(wmem_packet_scope(), str, len);
+    ldapvalue_string= tvb_get_string_enc(wmem_packet_scope(), tvb, offset, len, ENC_ASCII);
   } else {
-    ldapvalue_string=(char*)wmem_alloc(wmem_packet_scope(), 3*len);
-    for(i=0;i<len;i++){
-      g_snprintf(ldapvalue_string+i*3,3,"%02x",str[i]&0xff);
-      ldapvalue_string[3*i+2]=':';
-    }
-    ldapvalue_string[3*len-1]=0;
+    ldapvalue_string= tvb_bytes_to_str_punct(wmem_packet_scope(), tvb, offset, len, ':');
   }
 
   proto_tree_add_string(tree, hf_index, tvb, offset, len, ldapvalue_string);
@@ -2205,9 +2192,10 @@ void proto_register_ldap(void) {
     " To use this option, you must also enable \"Allow subdissectors to reassemble TCP streams\" in the TCP protocol settings.",
     &ldap_desegment);
 
-  prefs_register_uint_preference(ldap_module, "ssl.port", "LDAPS TCP Port",
-                                 "Set the port for LDAP operations over SSL",
+  prefs_register_uint_preference(ldap_module, "tls.port", "LDAPS TCP Port",
+                                 "Set the port for LDAP operations over TLS",
                                  10, &global_ldaps_tcp_port);
+  prefs_register_obsolete_preference(ldap_module, "ssl.port");
   /* UAT */
   attributes_uat = uat_new("Custom LDAP AttributeValue types",
                            sizeof(attribute_type_t),
@@ -2260,7 +2248,7 @@ proto_reg_handoff_ldap(void)
 
   ntlmssp_handle = find_dissector_add_dependency("ntlmssp", proto_ldap);
 
-  ssl_handle = find_dissector_add_dependency("ssl", proto_ldap);
+  tls_handle = find_dissector_add_dependency("tls", proto_ldap);
 
   prefs_register_ldap();
 

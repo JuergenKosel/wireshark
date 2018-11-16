@@ -19,7 +19,7 @@
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,1">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,0,1">
      <item>
       <widget class="QToolButton" name="newToolButton">
        <property name="toolTip">
@@ -59,6 +59,20 @@
        <property name="icon">
         <iconset resource="../../image/stock_icons.qrc">
          <normaloff>:/stock/copy-8.png</normaloff>:/stock/copy-8.png</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="clearToolButton">
+       <property name="toolTip">
+        <string>Clear all dissection behaviors.</string>
+       </property>
+       <property name="icon">
+        <iconset resource="../../image/stock_icons.qrc">
+         <normaloff>:/stock/delete_list.png</normaloff>:/stock/delete_list.png</iconset>
+       </property>
+       <property name="enabled">
+        <bool>false</bool>
        </property>
       </widget>
      </item>

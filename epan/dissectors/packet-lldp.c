@@ -242,6 +242,29 @@ static int hf_ieee_802_3_mdi_power_source = -1;
 static int hf_ieee_802_3_mdi_power_priority = -1;
 static int hf_ieee_802_3_mdi_requested_power = -1;
 static int hf_ieee_802_3_mdi_allocated_power = -1;
+
+static int hf_ieee_802_3_bt_ds_pd_requested_power_value_mode_a = -1;
+static int hf_ieee_802_3_bt_ds_pd_requested_power_value_mode_b = -1;
+static int hf_ieee_802_3_bt_ds_pse_allocated_power_value_alt_a = -1;
+static int hf_ieee_802_3_bt_ds_pse_allocated_power_value_alt_b = -1;
+static int hf_ieee_802_3_bt_power_status = -1;
+static int hf_ieee_802_3_bt_pse_powering_status = -1;
+static int hf_ieee_802_3_bt_pd_powered_status = -1;
+static int hf_ieee_802_3_bt_pse_power_pairs_ext = -1;
+static int hf_ieee_802_3_bt_ds_pwr_class_ext_a = -1;
+static int hf_ieee_802_3_bt_ds_pwr_class_ext_b = -1;
+static int hf_ieee_802_3_bt_pwr_class_ext = -1;
+static int hf_ieee_802_3_bt_system_setup = -1;
+static int hf_ieee_802_3_bt_power_type_ext = -1;
+static int hf_ieee_802_3_bt_pse_maximum_available_power_value = -1;
+static int hf_ieee_802_3_bt_autoclass = -1;
+static int hf_ieee_802_3_bt_pse_autoclass_support = -1;
+static int hf_ieee_802_3_bt_autoclass_completed = -1;
+static int hf_ieee_802_3_bt_autoclass_request = -1;
+static int hf_ieee_802_3_bt_autoclass_reserved = -1;
+static int hf_ieee_802_3_bt_power_down = -1;
+static int hf_ieee_802_3_bt_power_down_request = -1;
+static int hf_ieee_802_3_bt_power_down_time = -1;
 static int hf_ieee_802_3_aggregation_status = -1;
 static int hf_ieee_802_3_aggregation_status_cap = -1;
 static int hf_ieee_802_3_aggregation_status_enabled = -1;
@@ -342,11 +365,31 @@ static int hf_profinet_orange_period_begin_offset = -1;
 static int hf_profinet_green_period_begin_valid = -1;
 static int hf_profinet_green_period_begin_offset = -1;
 static int hf_cisco_subtype = -1;
-static int hf_cisco_four_wire_power = -1;
-static int hf_cisco_four_wire_power_poe = -1;
-static int hf_cisco_four_wire_power_spare_pair_arch = -1;
-static int hf_cisco_four_wire_power_req_spare_pair_poe = -1;
-static int hf_cisco_four_wire_power_pse_spare_pair_poe = -1;
+static int hf_cisco_upoe = -1;
+static int hf_cisco_upoe_supported = -1;
+static int hf_cisco_upoe_altb_detection = -1;
+static int hf_cisco_upoe_req_spare_pair = -1;
+static int hf_cisco_upoe_pse_spare_pair_oper = -1;
+static int hf_cisco_aci_portstate = -1;
+static int hf_cisco_aci_noderole = -1;
+static int hf_cisco_aci_nodeid = -1;
+static int hf_cisco_aci_unknowncc = -1;
+static int hf_cisco_aci_pod = -1;
+static int hf_cisco_aci_fabricname = -1;
+static int hf_cisco_aci_apiclist = -1;
+static int hf_cisco_aci_apicid = -1;
+static int hf_cisco_aci_apicip = -1;
+static int hf_cisco_aci_apicuuid = -1;
+static int hf_cisco_aci_nodeip = -1;
+static int hf_cisco_aci_unknownd1 = -1;
+static int hf_cisco_aci_version = -1;
+static int hf_cisco_aci_fabricvlan = -1;
+static int hf_cisco_aci_serialno = -1;
+static int hf_cisco_aci_model = -1;
+static int hf_cisco_aci_nodename = -1;
+static int hf_cisco_aci_unknownd8 = -1;
+static int hf_cisco_aci_unknownd9 = -1;
+static int hf_cisco_aci_apicmode = -1;
 static int hf_hytec_tlv_subtype = -1;
 static int hf_hytec_group = -1;
 static int hf_hytec_identifier = -1;
@@ -386,6 +429,7 @@ static int hf_avaya_ipphone_mask = -1;
 static int hf_avaya_ipphone_gateway = -1;
 static int hf_unknown_subtype = -1;
 static int hf_unknown_subtype_content = -1;
+static int hf_subtype_content_remaining = -1;
 static int hf_iana_subtype = -1;
 static int hf_iana_mudurl = -1;
 
@@ -453,13 +497,17 @@ static gint ett_port_vlan_flags = -1;
 static gint ett_802_3_flags = -1;
 static gint ett_802_3_autoneg_advertised = -1;
 static gint ett_802_3_power = -1;
+static gint ett_802_3_bt_power = -1;
+static gint ett_802_3_bt_system_setup = -1;
+static gint ett_802_3_bt_autoclass = -1;
+static gint ett_802_3_bt_power_down = -1;
 static gint ett_802_3_aggregation = -1;
 static gint ett_802_1_aggregation = -1;
 static gint ett_802_1qbg_capabilities_flags = -1;
 static gint ett_802_3br_capabilities_flags = -1;
 static gint ett_media_capabilities = -1;
 static gint ett_profinet_period = -1;
-static gint ett_cisco_fourwire_tlv = -1;
+static gint ett_cisco_upoe_tlv = -1;
 static gint ett_avaya_ipphone_tlv = -1;
 static gint ett_org_spc_hytec_subtype_transceiver = -1;
 static gint ett_org_spc_hytec_subtype_trace = -1;
@@ -668,7 +716,51 @@ static const value_string profinet_subtypes[] = {
 
 /* Cisco Subtypes */
 static const value_string cisco_subtypes[] = {
-	{ 1, "Four-wire Power-via-MDI" },
+	/* UPOE: https://www.cisco.com/c/dam/en/us/solutions/collateral/workforce-experience/digital-building/digital-building-partner-guide.pdf */
+	{ 0x01, "4-wire Power-via-MDI (UPOE)" },
+	/* ACI */
+	{ 0xc9, "ACI Port State" },
+	{ 0xca, "ACI Node Role" },
+	{ 0xcb, "ACI Node ID" },
+	{ 0xcc, "ACI Unknown-CC" },
+	{ 0xcd, "ACI Pod" },
+	{ 0xce, "ACI Fabricname" },
+	{ 0xcf, "ACI APIC List" },
+	{ 0xd0, "ACI Node IP" },
+	{ 0xd1, "ACI Unknown-D1" },
+	{ 0xd2, "ACI Version" },
+	{ 0xd3, "ACI Fabric VLAN" },
+	{ 0xd4, "ACI SerialNo" },
+	{ 0xd6, "ACI Model" },
+	{ 0xd7, "ACI Node Name" },
+	{ 0xd8, "ACI Unknown-D8" },
+	{ 0xd9, "ACI Unknown D9" },
+	{ 0xda, "ACI APIC-Mode" },
+	{ 0xdb, "ACI Unknown-DB" },
+	{ 0, NULL }
+};
+
+static const true_false_string tfs_desired_not_desired = { "Desired", "Not Desired" };
+
+static const value_string cisco_portstate_vals[] = {
+	{ 1,	"In Service" },
+	{ 2,	"Out of Service" },
+	{ 0, NULL }
+};
+
+/* Guessing here, the output of apic show commands only has leaf and spine, and
+   those values are leaf=2, spine=3 (off by 1) */
+static const value_string cisco_noderole_vals[] = {
+	{ 0,	"APIC" },
+	{ 1,	"Leaf" },
+	{ 2,	"Spine" },
+	{ 3,	"Unknown" },
+	{ 0, NULL }
+};
+
+static const value_string cisco_apicmode_vals[] = {
+	{ 0,	"Active" },
+	{ 1,	"Standby" },
 	{ 0, NULL }
 };
 
@@ -1649,14 +1741,14 @@ dissect_lldp_system_name(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 										ett_system_name, NULL, "System Name = %s", strPtr);
 		if (column_info_selection == DEFAULT_COLUMN_INFO)
 		{
-			col_append_fstr(pinfo->cinfo, COL_INFO, "System Name = %s ", strPtr);
+			col_append_fstr(pinfo->cinfo, COL_INFO, "SysName = %s ", strPtr);
 		}
 	} else {
 		system_subtree = proto_tree_add_subtree_format(tree, tvb, offset, (dataLen + 2),
 										ett_system_desc, NULL, "System Description = %s", strPtr);
 		if (column_info_selection == DEFAULT_COLUMN_INFO)
 		{
-			col_append_fstr(pinfo->cinfo, COL_INFO, "System Description = %s ", strPtr);
+			col_append_fstr(pinfo->cinfo, COL_INFO, "SysDesc = %s ", strPtr);
 		}
 	}
 
@@ -1818,9 +1910,10 @@ dissect_lldp_management_address(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
 
 /* Dissect DCBX TLVs */
 static void
-dissect_dcbx_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_dcbx_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
 	guint8 subType;
+	guint32 offset = 0;
 	guint8 priomaskByte, prioCounter, appCount = 0;
 	guint16 dataLen;
 	guint16 tempShort;
@@ -2026,9 +2119,10 @@ dissect_dcbx_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint3
 
 /* Dissect IEEE 802.1 TLVs */
 static int
-dissect_ieee_802_1_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_ieee_802_1_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
 	guint8 subType;
+	guint32 offset = 0;
 	guint8 tempByte;
 	guint16 dcbApp, appCount;
 
@@ -2390,16 +2484,17 @@ dissect_ieee_802_1_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
 
 /* Dissect IEEE 802.1Qbg TLVs */
 static void
-dissect_oui_default_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_oui_default_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
-	proto_tree_add_item(tree, hf_unknown_subtype, tvb, offset, 1, ENC_BIG_ENDIAN);
-	proto_tree_add_item(tree, hf_unknown_subtype_content, tvb, (offset+1), -1, ENC_NA);
+	proto_tree_add_item(tree, hf_unknown_subtype, tvb, 0, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_item(tree, hf_unknown_subtype_content, tvb, 1, -1, ENC_NA);
 }
 
 static void
-dissect_ieee_802_1qbg_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_ieee_802_1qbg_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
 	guint8 subType;
+	guint32 offset = 0;
 
 	proto_tree *evb_capabilities_subtree = NULL;
 
@@ -2454,9 +2549,10 @@ dissect_ieee_802_1qbg_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
 
 /* Dissect IEEE 802.3 TLVs */
 static int
-dissect_ieee_802_3_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_ieee_802_3_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
 	guint8 subType;
+	guint32 offset = 0;
 	guint8 tempByte;
 	guint16 tlvLen = tvb_reported_length(tvb)-offset;
 
@@ -2610,6 +2706,56 @@ dissect_ieee_802_3_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
 		proto_tree_add_item(tree, hf_ieee_802_3_mdi_allocated_power, tvb, offset, 2, ENC_BIG_ENDIAN);
 
 		offset+=2;
+
+		if (tlvLen == 26) { /* 802.3BT TLV Extensions */
+			proto_tree_add_item(tree, hf_ieee_802_3_bt_ds_pd_requested_power_value_mode_a, tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset+=2;
+
+			proto_tree_add_item(tree, hf_ieee_802_3_bt_ds_pd_requested_power_value_mode_b, tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset+=2;
+
+			proto_tree_add_item(tree, hf_ieee_802_3_bt_ds_pse_allocated_power_value_alt_a, tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset+=2;
+
+			proto_tree_add_item(tree, hf_ieee_802_3_bt_ds_pse_allocated_power_value_alt_b, tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset+=2;
+
+			tf = proto_tree_add_item(tree, hf_ieee_802_3_bt_power_status, tvb, offset, 2, ENC_BIG_ENDIAN);
+			mac_phy_flags = proto_item_add_subtree(tf, ett_802_3_bt_power);
+
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_pse_powering_status, tvb, offset, 2, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_pd_powered_status, tvb, offset, 2, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_pse_power_pairs_ext, tvb, offset, 2, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_ds_pwr_class_ext_a, tvb, offset, 2, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_ds_pwr_class_ext_b, tvb, offset, 2, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_pwr_class_ext, tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset+=2;
+
+			tf = proto_tree_add_item(tree, hf_ieee_802_3_bt_system_setup, tvb, offset, 1, ENC_BIG_ENDIAN);
+			mac_phy_flags = proto_item_add_subtree(tf, ett_802_3_bt_system_setup);
+
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_power_type_ext, tvb, offset, 1, ENC_BIG_ENDIAN);
+			offset+=1;
+
+			proto_tree_add_item(tree, hf_ieee_802_3_bt_pse_maximum_available_power_value, tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset+=2;
+
+			tf = proto_tree_add_item(tree, hf_ieee_802_3_bt_autoclass, tvb, offset, 1, ENC_BIG_ENDIAN);
+			mac_phy_flags = proto_item_add_subtree(tf, ett_802_3_bt_autoclass);
+
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_pse_autoclass_support, tvb, offset, 1, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_autoclass_completed, tvb, offset, 1, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_autoclass_request, tvb, offset, 1, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_autoclass_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
+			offset+=1;
+
+			tf = proto_tree_add_item(tree, hf_ieee_802_3_bt_power_down, tvb, offset, 3, ENC_BIG_ENDIAN);
+			mac_phy_flags = proto_item_add_subtree(tf, ett_802_3_bt_power_down);
+
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_power_down_request, tvb, offset, 3, ENC_BIG_ENDIAN);
+			proto_tree_add_item(mac_phy_flags, hf_ieee_802_3_bt_power_down_time, tvb, offset, 3, ENC_BIG_ENDIAN);
+			offset+=3;
+		}
 		break;
 	}
 	case 0x03:	/* Link Aggregation */
@@ -2669,19 +2815,24 @@ dissect_ieee_802_3_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
 
 		/* Get Additional Ethernet Capabilities */
 		proto_tree_add_bitmask(tree, tvb, offset, hf_ieee_802_3br_aec, ett_802_3br_capabilities_flags, preemption_capabilities, ENC_BIG_ENDIAN);
+		offset+=2;
 		break;
 	}
 	}
 
+	if(tvb_reported_length_remaining(tvb, offset)) {
+		proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length_excess, tvb, offset, -1);
+	}
 	return offset;
 }
 
 /* Dissect Media TLVs */
 static void
-dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset)
+dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint16 tlvLen = tvb_reported_length(tvb)-offset;
+	guint16 tlvLen = tvb_reported_length(tvb);
 	guint8 subType;
+	guint32 offset = 0;
 	guint8 tempByte;
 	guint32 LCI_Length;
 
@@ -2700,7 +2851,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 		/* Get capabilities */
 		if (tlvLen < 2)
 		{
-			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 			return;
 		}
 
@@ -2719,7 +2870,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 		/* Get Class type */
 		if (tlvLen < 1)
 		{
-			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 			return;
 		}
 
@@ -2735,7 +2886,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 		/* Get application type */
 		if (tlvLen < 1)
 		{
-			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 			return;
 		}
 
@@ -2747,7 +2898,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 		/* Get flags */
 		if (tlvLen < 3)
 		{
-			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 			return;
 		}
 
@@ -2772,7 +2923,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 		/* Get location data format */
 		if (tlvLen < 1)
 		{
-			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+			proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 			return;
 		}
 
@@ -2793,7 +2944,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 			 */
 			if (tlvLen < 16)
 			{
-				proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+				proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 				return;
 			}
 
@@ -2842,7 +2993,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 			 */
 			if (tlvLen < 1)
 			{
-				proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+				proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 				return;
 			}
 
@@ -2865,7 +3016,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 			/* Get what value */
 			if (LCI_Length < 1)
 			{
-				proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+				proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 				return;
 			}
 
@@ -2877,7 +3028,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 			/* Get country code */
 			if (LCI_Length < 2)
 			{
-				proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+				proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 				return;
 			}
 
@@ -2897,7 +3048,7 @@ dissect_media_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 				/* Get CA Length */
 				if (LCI_Length < 1)
 				{
-					proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length , tvb, offset, tlvLen);
+					proto_tree_add_expert(tree, pinfo, &ei_lldp_bad_length, tvb, offset, tlvLen);
 					return;
 				}
 				tempByte = tvb_get_guint8(tvb, offset);
@@ -3137,7 +3288,7 @@ set_port_id_for_profinet_specialized_column_info
 {
 	if (pn_lldp_column_info->is_port_id_assigned != TRUE)
 	{
-        if (pn_lldp_column_info->port_id_locally_assigned != NULL)
+	if (pn_lldp_column_info->port_id_locally_assigned != NULL)
 		{
 			pn_lldp_column_info->is_port_id_assigned = TRUE;
 			col_append_fstr(pinfo->cinfo, COL_INFO, "Port Id = %s ", pn_lldp_column_info->port_id_locally_assigned);
@@ -3147,9 +3298,10 @@ set_port_id_for_profinet_specialized_column_info
 
 /* Dissect PROFINET TLVs */
 static void
-dissect_profinet_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset, profinet_lldp_column_info *pn_lldp_column_info)
+dissect_profinet_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, profinet_lldp_column_info *pn_lldp_column_info)
 {
 	guint8 subType;
+	guint32 offset = 0;
 	proto_item	*tf = NULL;
 	guint16 class2_PortStatus;
 	guint16 class3_PortStatus;
@@ -3283,39 +3435,203 @@ dissect_profinet_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, gu
 
 /* Dissect Cisco OUI TLVs */
 static void
-dissect_cisco_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_cisco_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
 	guint8 subType;
+	guint32 offset = 0;
+	guint length = tvb_reported_length(tvb);
 
-	proto_tree *fourwire_data = NULL;
+	field_info *fi;
+	gchar* value_str;
+
+	proto_tree *upoe_data = NULL;
 	proto_item *tf = NULL;
+	proto_item *parent_item = proto_tree_get_parent(tree);
+
+	if (tree == NULL) return;
 
 	/* Get subtype */
 	subType = tvb_get_guint8(tvb, offset);
 
 	proto_tree_add_item(tree, hf_cisco_subtype, tvb, offset, 1, ENC_BIG_ENDIAN);
-
 	offset++;
+	length--;
 
 	switch (subType)
 	{
-	case 0x01: /* Four-Wire Power-via-MDI TLV */
-		tf = proto_tree_add_item(tree, hf_cisco_four_wire_power, tvb, offset, 1, ENC_BIG_ENDIAN);
-		fourwire_data = proto_item_add_subtree(tf, ett_cisco_fourwire_tlv);
-		proto_tree_add_item(fourwire_data, hf_cisco_four_wire_power_poe, tvb, offset, 1, ENC_BIG_ENDIAN);
-		proto_tree_add_item(fourwire_data, hf_cisco_four_wire_power_spare_pair_arch, tvb, offset, 1, ENC_BIG_ENDIAN);
-		proto_tree_add_item(fourwire_data, hf_cisco_four_wire_power_req_spare_pair_poe, tvb, offset, 1, ENC_BIG_ENDIAN);
-		proto_tree_add_item(fourwire_data, hf_cisco_four_wire_power_pse_spare_pair_poe, tvb, offset, 1, ENC_BIG_ENDIAN);
+	/* UPOE */
+	case 0x01:
+		tf = proto_tree_add_item(tree, hf_cisco_upoe, tvb, offset, 1, ENC_BIG_ENDIAN);
+		upoe_data = proto_item_add_subtree(tf, ett_cisco_upoe_tlv);
+		proto_tree_add_item(upoe_data, hf_cisco_upoe_supported, tvb, offset, 1, ENC_BIG_ENDIAN);
+		proto_tree_add_item(upoe_data, hf_cisco_upoe_altb_detection, tvb, offset, 1, ENC_BIG_ENDIAN);
+		proto_tree_add_item(upoe_data, hf_cisco_upoe_req_spare_pair, tvb, offset, 1, ENC_BIG_ENDIAN);
+		proto_tree_add_item(upoe_data, hf_cisco_upoe_pse_spare_pair_oper, tvb, offset, 1, ENC_BIG_ENDIAN);
+		offset++;
+		length--;
+		break;
+	/* ACI */
+	case 0xc9:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_portstate, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xca:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_noderole, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xcb:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_nodeid, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += 4;
+		length -= 4;
+		break;
+	case 0xcc:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_unknowncc, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xcd:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_pod, tvb, offset, 2, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += 2;
+		length -= 2;
+		break;
+	case 0xce:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_fabricname, tvb, offset, length, ENC_ASCII|ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xcf:
+		proto_tree_add_item(tree, hf_cisco_aci_apiclist, tvb, offset, length, ENC_NA);
+		while (length > 0) {
+			tf = proto_tree_add_item(tree, hf_cisco_aci_apicid, tvb, offset, 1, ENC_NA);
+			fi = PITEM_FINFO(tf);
+			value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+			proto_item_append_text(parent_item, ": ID %s", value_str);
+			offset++;
+			length--;
+			proto_tree_add_item(tree, hf_cisco_aci_apicip, tvb, offset, 4, ENC_NA);
+			offset += 4;
+			length -= 4;
+			proto_tree_add_item(tree, hf_cisco_aci_apicuuid, tvb, offset, 36, ENC_ASCII|ENC_NA);
+			offset += 36;
+			length -= 36;
+		}
+		break;
+	case 0xd0:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_nodeip, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += 4;
+		length -= 4;
+		break;
+	case 0xd1:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_unknownd1, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xd2:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_version, tvb, offset, length, ENC_ASCII|ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xd3:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_fabricvlan, tvb, offset, 2, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += 2;
+		length -= 2;
+		break;
+	case 0xd4:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_serialno, tvb, offset, length, ENC_ASCII|ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xd6:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_model, tvb, offset, length, ENC_ASCII|ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xd7:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_nodename, tvb, offset, length, ENC_ASCII|ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xd8:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_unknownd8, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xd9:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_unknownd9, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
+		break;
+	case 0xda:
+		tf = proto_tree_add_item(tree, hf_cisco_aci_apicmode, tvb, offset, length, ENC_NA);
+		fi = PITEM_FINFO(tf);
+		value_str = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
+		proto_item_append_text(parent_item, ": %s", value_str);
+		offset += length;
+		length -= length;
 		break;
 	default:
-		proto_tree_add_item(tree, hf_unknown_subtype_content, tvb, offset, -1, ENC_NA);
+		if (length > 0) {
+			proto_tree_add_item(tree, hf_unknown_subtype_content, tvb, offset, length, ENC_NA);
+			offset += length;
+			length -= length;
+		}
 		break;
+	}
+	if (length > 0) {
+		proto_tree_add_item(tree, hf_subtype_content_remaining, tvb, offset, length, ENC_NA);
 	}
 }
 
 /* Dissect OUI HytecGer-TLV's */
 static void
-dissect_hytec_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_hytec_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
 	guint8 subtype, group, identifier;
 	gint32 bit_offset, msg_len, expected_data_length, maximum_data_length, temp_gint32;
@@ -3323,6 +3639,7 @@ dissect_hytec_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint
 	proto_item *tf = NULL;
 	proto_item *group_proto_item, *identifier_proto_item;
 	float float_value = 0.0f;
+	guint32 offset = 0;
 
 	subtype = tvb_get_guint8(tvb, offset);
 	proto_tree_add_uint(tree, hf_hytec_tlv_subtype, tvb, offset, 1, subtype);
@@ -3611,9 +3928,10 @@ dissect_hytec_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint
 
 /* Dissect Avaya OUI TLVs */
 static void
-dissect_avaya_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_avaya_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
-	guint8 subType;
+	guint8  subType;
+	guint32 offset = 0;
 
 	proto_tree *avaya_data = NULL;
 	proto_item *tf = NULL;
@@ -3669,10 +3987,11 @@ dissect_avaya_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint
 
 /* Dissect IANA OUI TLVs */
 static void
-dissect_iana_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
+dissect_iana_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
 	guint16 msg_len;
 	guint8  subType;
+	guint32 offset = 0;
 
 	/* Get subtype */
 	subType = tvb_get_guint8(tvb, offset);
@@ -3704,6 +4023,7 @@ dissect_organizational_specific_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 	gint    tempTree;
 	guint32 oui, tLength = tvb_reported_length(tvb);
 	guint8 subType;
+	tvbuff_t *vendor_tvb;
 	const char *ouiStr;
 	const char *subTypeStr;
 
@@ -3867,43 +4187,46 @@ dissect_organizational_specific_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 	}
 
 	/* Display organizational unique id */
-	proto_tree_add_uint(org_tlv_tree, hf_org_spc_oui, tvb, (offset + 2), 3, oui);
+	proto_tree_add_uint(org_tlv_tree, hf_org_spc_oui, tvb, offset + 2, 3, oui);
+
+	/* Try to make sure we don't overrun the sub-tlvs */
+	vendor_tvb = tvb_new_subset_length(tvb, offset + 5, dataLen - 3);
 
 	switch (oui)
 	{
 	case OUI_DCBX:
-		dissect_dcbx_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_dcbx_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 	case OUI_IEEE_802_1:
-		dissect_ieee_802_1_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_ieee_802_1_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 	case OUI_IEEE_802_3:
-		dissect_ieee_802_3_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_ieee_802_3_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 	case OUI_MEDIA_ENDPOINT:
-		dissect_media_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_media_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 	case OUI_PROFINET:
-		dissect_profinet_tlv(tvb, pinfo, org_tlv_tree, (offset + 5), pn_lldp_column_info);
+		dissect_profinet_tlv(vendor_tvb, pinfo, org_tlv_tree, pn_lldp_column_info);
 		break;
 	case OUI_CISCO_2:
-		dissect_cisco_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_cisco_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 	case OUI_IEEE_802_1QBG:
-		dissect_ieee_802_1qbg_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_ieee_802_1qbg_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 	case OUI_HYTEC_GER:
-		dissect_hytec_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_hytec_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 	case OUI_AVAYA:
-		dissect_avaya_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_avaya_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 	case OUI_IANA:
-		dissect_iana_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_iana_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
 
 	default:
-		dissect_oui_default_tlv(tvb, pinfo, org_tlv_tree, (offset + 5));
+		dissect_oui_default_tlv(vendor_tvb, pinfo, org_tlv_tree);
 	}
 
 	return offset + tvb_reported_length(tvb);
@@ -4816,6 +5139,94 @@ proto_register_lldp(void)
 			{ "PSE Allocated Power Value", "lldp.ieee.802_3.mdi_pse_allocated", FT_UINT16, BASE_CUSTOM,
 			CF_FUNC(mdi_power_base), 0, NULL, HFILL }
 		},
+		{ &hf_ieee_802_3_bt_ds_pd_requested_power_value_mode_a,
+			{ "DS PD Requested Power Value Mode A", "lldp.ieee.802_3.bt_ds_pd_requested_power_value_mode_a", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_ds_pd_requested_power_value_mode_b,
+			{ "DS PD Requested Power Value Mode B", "lldp.ieee.802_3.bt_ds_pd_requested_power_value_mode_b", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_ds_pse_allocated_power_value_alt_a,
+			{ "DS PSE Allocated Power Value Alt A", "lldp.ieee.802_3.bt_ds_pse_allocated_power_value_alt_a", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_ds_pse_allocated_power_value_alt_b,
+			{ "DS PSE Allocated Power Value Alt B", "lldp.ieee.802_3.bt_ds_pse_allocated_power_value_alt_b", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_power_status,
+			{ "Power Status", "lldp.ieee.802_3.bt_power_status", FT_UINT16, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_pse_powering_status,
+			{ "PSE Powering Status", "lldp.ieee.802_3.bt_pse_powering_status", FT_UINT16, BASE_DEC,
+			NULL, 0xC000, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_pd_powered_status,
+			{ "PD Powered Status", "lldp.ieee.802_3.bt_pd_powered_status", FT_UINT16, BASE_DEC,
+			NULL, 0x3000, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_pse_power_pairs_ext,
+			{ "PSE Power Pairs ext", "lldp.ieee.802_3.bt_pse_power_pairs_ext", FT_UINT16, BASE_DEC,
+			NULL, 0x0C00, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_ds_pwr_class_ext_a,
+			{ "DS Pwr Class Ext A", "lldp.ieee.802_3.bt_ds_pwr_class_ext_a", FT_UINT16, BASE_DEC,
+			NULL, 0x0380, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_ds_pwr_class_ext_b,
+			{ "DS Pwr Class Ext B", "lldp.ieee.802_3.bt_ds_pwr_class_ext_b", FT_UINT16, BASE_DEC,
+			NULL, 0x0070, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_pwr_class_ext,
+			{ "Pwr Class Ext", "lldp.ieee.802_3.bt_pwr_class_ext_", FT_UINT16, BASE_DEC,
+			NULL, 0x000F, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_system_setup,
+			{ "System Setup", "lldp.ieee.802_3.bt_system_setup", FT_UINT8, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_power_type_ext,
+			{ "Power Type Ext", "lldp.ieee.802_3.bt_power_type_ext", FT_UINT8, BASE_DEC,
+			NULL, 0x0E, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_pse_maximum_available_power_value,
+			{ "PSE Maximum Available Power Value", "lldp.ieee.802_3.bt_pse_maximum_available_power_value", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_autoclass,
+			{ "Autoclass", "lldp.ieee.802_3.bt_autoclass", FT_UINT8, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_pse_autoclass_support,
+			{ "PSE Autoclass support", "lldp.ieee.802_3.bt_pse_autoclass_support", FT_UINT8, BASE_DEC,
+			NULL, 0x04, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_autoclass_completed,
+			{ "Autoclass Completed", "lldp.ieee.802_3.bt_autoclass_completed", FT_UINT8, BASE_DEC,
+			NULL, 0x02, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_autoclass_request,
+			{ "Autoclass Request", "lldp.ieee.802_3.bt_autoclass_request", FT_UINT8, BASE_DEC,
+			NULL, 0x01, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_autoclass_reserved,
+			{ "Autoclass Reserved", "lldp.ieee.802_3.bt_autoclass_reserved", FT_UINT8, BASE_HEX,
+			NULL, 0xF8, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_power_down,
+			{ "Power down", "lldp.ieee.802_3.bt_power_down", FT_UINT24, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_power_down_request,
+			{ "Power down request", "lldp.ieee.802_3.bt_power_down_request", FT_UINT24, BASE_DEC,
+			NULL, 0xFC0000, NULL, HFILL }
+		},
+		{ &hf_ieee_802_3_bt_power_down_time,
+			{ "Power down time", "lldp.ieee.802_3.bt_power_down_time", FT_UINT24, BASE_DEC,
+			NULL, 0x03FFFF, NULL, HFILL }
+		},
 		{ &hf_ieee_802_3_aggregation_status,
 			{ "Aggregation Status", "lldp.ieee.802_3.aggregation_status", FT_UINT8, BASE_HEX,
 			NULL, 0x0, NULL, HFILL }
@@ -5217,25 +5628,106 @@ proto_register_lldp(void)
 			{ "Cisco Subtype",	"lldp.cisco.subtype", FT_UINT8, BASE_HEX,
 			VALS(cisco_subtypes), 0x0, NULL, HFILL }
 		},
-		{ &hf_cisco_four_wire_power,
-			{ "Four-Wire Power-via-MDI", "lldp.cisco.four_wire_power", FT_UINT8, BASE_HEX,
+		{ &hf_cisco_upoe,
+			{ "UPOE Capabilities", "lldp.cisco.upoe", FT_UINT8, BASE_HEX,
+			NULL, 0x0, "PSE/PD Capabilities", HFILL }
+		},
+		{ &hf_cisco_upoe_supported,
+			{ "UPOE Supported", "lldp.cisco.upoe.supported", FT_BOOLEAN, 8,
+			TFS(&tfs_yes_no), 0x01, "UPOE (4-pair POE) Supported", HFILL }
+		},
+		{ &hf_cisco_upoe_altb_detection,
+			{ "ALT-B Detection required", "lldp.cisco.upoe.altb_detection_required", FT_BOOLEAN, 8,
+			TFS(&tfs_yes_no), 0x02, "ALT-B pair Detection/Classification Required", HFILL }
+		},
+		{ &hf_cisco_upoe_req_spare_pair,
+			{ "PD Request Spare Pair PoE", "lldp.cisco.upoe.pd_altb_desired", FT_BOOLEAN, 8,
+			TFS(&tfs_desired_not_desired), 0x04, "PD ALT-B Pair Desired", HFILL }
+		},
+		{ &hf_cisco_upoe_pse_spare_pair_oper,
+			{ "PSE Spare Pair PoE", "lldp.cisco.upoe.pse_altb_oper", FT_BOOLEAN, 8,
+			TFS(&tfs_enabled_disabled), 0x08, "PSE ALT-B Pair Operational State", HFILL }
+		},
+		{ &hf_cisco_aci_portstate,
+			{ "Port State", "lldp.cisco.portstate", FT_UINT8, BASE_NONE,
+			VALS(cisco_portstate_vals), 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_noderole,
+			{ "Node Role", "lldp.cisco.noderole", FT_UINT8, BASE_DEC,
+			VALS(cisco_noderole_vals), 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_nodeid,
+			{ "Node ID", "lldp.cisco.nodeid", FT_UINT32, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }
 		},
-		{ &hf_cisco_four_wire_power_poe,
-			{ "PSE Four-Wire PoE", "lldp.cisco.four_wire_power.poe", FT_BOOLEAN, 8,
-			TFS(&tfs_supported_not_supported), 0x01, NULL, HFILL }
+		{ &hf_cisco_aci_unknowncc,
+			{ "Unknown 0xCC", "lldp.cisco.unknowncc", FT_BYTES, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
 		},
-		{ &hf_cisco_four_wire_power_spare_pair_arch,
-			{ "PD Spare Pair Architecture", "lldp.cisco.four_wire_power.spare_pair_arch", FT_BOOLEAN, 8,
-			TFS(&tfs_shared_independent), 0x02, NULL, HFILL }
+		{ &hf_cisco_aci_pod,
+			{ "Pod", "lldp.cisco.pod", FT_UINT16, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }
 		},
-		{ &hf_cisco_four_wire_power_req_spare_pair_poe,
-			{ "PD Request Spare Pair PoE", "lldp.cisco.four_wire_power.req_spare_pair_poe", FT_BOOLEAN, 8,
-			TFS(&tfs_on_off), 0x04, NULL, HFILL }
+		{ &hf_cisco_aci_fabricname,
+			{ "Fabric Name", "lldp.cisco.fabricname", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
 		},
-		{ &hf_cisco_four_wire_power_pse_spare_pair_poe,
-			{ "PSE Spare Pair PoE", "lldp.cisco.four_wire_power.pse_spare_pair_poe", FT_BOOLEAN, 8,
-			TFS(&tfs_on_off), 0x08, NULL, HFILL }
+		{ &hf_cisco_aci_apiclist,
+			{ "APIC List", "lldp.cisco.apiclist", FT_BYTES, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_apicid,
+			{ "APIC ID", "lldp.cisco.apicid", FT_UINT8, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_apicip,
+			{ "APIC IP", "lldp.cisco.apicip", FT_IPv4, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_apicuuid,
+			/* FIXME: Why can't I use FT_GUID here (malformed because len != 16)??? */
+			{ "APIC UUID", "lldp.cisco.apicuuid", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_nodeip,
+			{ "Node IP", "lldp.cisco.nodeip", FT_IPv4, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_unknownd1,
+			{ "Unknown 0xD1", "lldp.cisco.unknownd1", FT_BYTES, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_version,
+			{ "Version", "lldp.cisco.version", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_fabricvlan,
+			{ "Fabric VLAN", "lldp.cisco.fabricvlan", FT_UINT16, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_serialno,
+			{ "Serial No", "lldp.cisco.serialno", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_model,
+			{ "Model", "lldp.cisco.model", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_nodename,
+			{ "Node Name", "lldp.cisco.nodename", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_unknownd8,
+			{ "Unknown 0xD8", "lldp.cisco.unknownd8", FT_BYTES, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_unknownd9,
+			{ "Unknown 0xD9", "lldp.cisco.unknownd9", FT_BYTES, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_cisco_aci_apicmode,
+			{ "APIC Mode", "lldp.cisco.apicmode", FT_UINT8, BASE_NONE,
+			VALS(cisco_apicmode_vals), 0x0, NULL, HFILL }
 		},
 		{ &hf_hytec_tlv_subtype,
 			{ "Hytec Subtype",	"lldp.hytec.tlv_subtype", FT_UINT8, BASE_DEC,
@@ -5401,6 +5893,10 @@ proto_register_lldp(void)
 			{ "Unknown Subtype Content","lldp.unknown_subtype.content", FT_BYTES, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }
 		},
+		{ &hf_subtype_content_remaining,
+			{ "Subtype Unknown Trailing Bytes","lldp.subtype.content_remaining", FT_BYTES, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }
+		},
 	};
 
 	/* Setup protocol subtree array */
@@ -5465,13 +5961,17 @@ proto_register_lldp(void)
 		&ett_802_3_flags,
 		&ett_802_3_autoneg_advertised,
 		&ett_802_3_power,
+		&ett_802_3_bt_power,
+		&ett_802_3_bt_system_setup,
+		&ett_802_3_bt_autoclass,
+		&ett_802_3_bt_power_down,
 		&ett_802_3_aggregation,
 		&ett_802_1_aggregation,
 		&ett_802_1qbg_capabilities_flags,
 		&ett_802_3br_capabilities_flags,
 		&ett_media_capabilities,
 		&ett_profinet_period,
-		&ett_cisco_fourwire_tlv,
+		&ett_cisco_upoe_tlv,
 		&ett_avaya_ipphone_tlv,
 		&ett_org_spc_hytec_subtype_transceiver,
 		&ett_org_spc_hytec_subtype_trace,

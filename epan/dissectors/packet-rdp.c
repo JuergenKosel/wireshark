@@ -21,7 +21,7 @@
 #include <epan/asn1.h>
 #include <epan/expert.h>
 #include <epan/strutil.h>
-#include "packet-ssl.h"
+#include "packet-tls.h"
 #include "packet-t124.h"
 
 #define PNAME  "Remote Desktop Protocol"
@@ -349,8 +349,6 @@ static int hf_rdp_StandardBias = -1;
 static int hf_rdp_DaylightName = -1;
 static int hf_rdp_DaylightDate = -1;
 static int hf_rdp_DaylightBias = -1;
-
-static int hf_rdp_unused = -1;
 
 #define TYPE_RDP_NEG_REQ          0x01
 #define TYPE_RDP_NEG_RSP          0x02
@@ -1257,8 +1255,8 @@ dissect_rdp_shareDataHeader(tvbuff_t *tvb, int offset, packet_info *pinfo, proto
 
   offset = dissect_rdp_fields(tvb, offset, pinfo, tree, share_fields, 0);
 
-  if (pduType2 != PDUTYPE2_CONTROL)
-    col_append_sep_str(pinfo->cinfo, COL_INFO, ", ", val_to_str_const(pduType2, rdp_pduType2_vals, "Unknown"));
+  col_append_str(pinfo->cinfo, COL_INFO, "RDP PDU Type: ");
+  col_append_sep_str(pinfo->cinfo, COL_INFO, "", val_to_str_const(pduType2, rdp_pduType2_vals, "Unknown"));
 
   fields = NULL;
   switch(pduType2) {
@@ -1322,8 +1320,10 @@ dissect_rdp_shareDataHeader(tvbuff_t *tvb, int offset, packet_info *pinfo, proto
     offset = dissect_rdp_fields(tvb, offset, pinfo, tree, fields, 0);
   }
 
-  if (pduType2 == PDUTYPE2_CONTROL)
-    col_append_sep_str(pinfo->cinfo, COL_INFO, ", ", val_to_str_const(action, rdp_action_vals, "Unknown"));
+  if (pduType2 == PDUTYPE2_CONTROL) {
+    col_append_sep_str(pinfo->cinfo, COL_INFO, ", ", "Action: ");
+    col_append_sep_str(pinfo->cinfo, COL_INFO, "", val_to_str_const(action, rdp_action_vals, "Unknown"));
+  }
 
   return offset;
 }
@@ -3228,10 +3228,6 @@ proto_register_rdp(void) {
         NULL, HFILL }},
     { &hf_rdp_DaylightDate,
       { "DaylightDate", "rdp.Date.Daylight",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rdp_unused,
-      { "Unused", "rdp.unused",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
   };

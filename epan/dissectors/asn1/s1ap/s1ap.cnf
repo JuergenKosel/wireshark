@@ -23,26 +23,29 @@ Cause
 ENB-StatusTransfer-TransparentContainer_PDU
 Global-ENB-ID_PDU
 Global-ENB-ID
+SourceeNB-ToTargeteNB-TransparentContainer_PDU
 SONtransferApplicationIdentity_PDU
 SONtransferRequestContainer_PDU
 SONtransferRequestContainer
 SONtransferResponseContainer_PDU
 SONtransferResponseContainer
 SONtransferCause_PDU
+TargeteNB-ToSourceeNB-TransparentContainer_PDU
 UE-HistoryInformation_PDU
 
 #.PDU
+ENB-StatusTransfer-TransparentContainer
 S1AP-PDU
 SourceeNB-ToTargeteNB-TransparentContainer
-TargeteNB-ToSourceeNB-TransparentContainer
-ENB-StatusTransfer-TransparentContainer
 SONtransferApplicationIdentity
 SONtransferRequestContainer
 SONtransferResponseContainer
 SONtransferCause
+TargeteNB-ToSourceeNB-TransparentContainer
 UE-HistoryInformation
 
 #.MAKE_ENUM
+HandoverType
 ProcedureCode
 ProtocolIE-ID
 RAT-Type
@@ -53,6 +56,8 @@ SourceBSS-ToTargetBSS-TransparentContainer
 TargetBSS-ToSourceBSS-TransparentContainer
 SourceRNC-ToTargetRNC-TransparentContainer
 TargetRNC-ToSourceRNC-TransparentContainer
+SourceNgRanNode-ToTargetNgRanNode-TransparentContainer
+TargetNgRanNode-ToSourceNgRanNode-TransparentContainer
 ReportingCellList
 ReportingCellList-Item
 
@@ -238,7 +243,6 @@ MAX_VAL = asn1_param_get_integer(%(ACTX)s,"upperBound")
 #.FN_BODY ENBname VAL_PTR = parameter_tvb
   tvbuff_t *parameter_tvb=NULL;
   int length;
-  int p_offset;
   gboolean is_ascii;
 
 %(DEFAULT_BODY)s
@@ -248,20 +252,13 @@ MAX_VAL = asn1_param_get_integer(%(ACTX)s,"upperBound")
 
   length = tvb_reported_length(parameter_tvb);
 
-  is_ascii = TRUE;
-  for (p_offset=0; p_offset < length; p_offset++){
-    if(!g_ascii_isprint(tvb_get_guint8(parameter_tvb, p_offset ))){
-      is_ascii = FALSE;
-      break;
-    }
-  }
+  is_ascii = tvb_ascii_isprint(parameter_tvb, 0, length);
   if (is_ascii)
      proto_item_append_text(actx->created_item," (%%s)",tvb_format_text(parameter_tvb, 0, length));
 
 #.FN_BODY MMEname VAL_PTR = parameter_tvb
   tvbuff_t *parameter_tvb=NULL;
   int length;
-  int p_offset;
   gboolean is_ascii;
 
 %(DEFAULT_BODY)s
@@ -271,13 +268,7 @@ MAX_VAL = asn1_param_get_integer(%(ACTX)s,"upperBound")
 
   length = tvb_reported_length(parameter_tvb);
 
-  is_ascii = TRUE;
-  for (p_offset=0; p_offset < length; p_offset++){
-    if(!g_ascii_isprint(tvb_get_guint8(parameter_tvb, p_offset ))){
-      is_ascii = FALSE;
-      break;
-    }
-  }
+  is_ascii = tvb_ascii_isprint(parameter_tvb, 0, length);
   if (is_ascii)
      proto_item_append_text(actx->created_item," (%%s)",tvb_format_text(parameter_tvb, 0, length));
 
@@ -356,19 +347,19 @@ Port-Number TYPE = FT_UINT16 DISPLAY = BASE_DEC
   struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
 %(DEFAULT_BODY)s
 
-#Zero the value before use
+#Undef the value before use
 #.FN_HDR HandoverRequired
   struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
-  s1ap_data->handover_type_value = 0;
+  s1ap_data->handover_type_value = 0xff;
 #.FN_HDR HandoverCommand
   struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
-  s1ap_data->handover_type_value = 0;
+  s1ap_data->handover_type_value = 0xff;
 #.FN_HDR HandoverRequest
   struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
-  s1ap_data->handover_type_value = 0;
+  s1ap_data->handover_type_value = 0xff;
 #.FN_HDR HandoverRequestAcknowledge
   struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
-  s1ap_data->handover_type_value = 0;
+  s1ap_data->handover_type_value = 0xff;
 
 #.FN_BODY Source-ToTarget-TransparentContainer VAL_PTR = &parameter_tvb
 # I think the message is "directly encoded" into the octet string(no "double encoding")
@@ -398,36 +389,44 @@ Port-Number TYPE = FT_UINT16 DISPLAY = BASE_DEC
       utrantolte,
       gerantolte,
       ...
+      ltetonr,
+      nrtolte
       } */
-      case 0:
+      case intralte:
       /* intralte
         Intra E-UTRAN handover Source eNB to Target eNB
         Transparent Container 36.413
       */
-      dissect_SourceeNB_ToTargeteNB_TransparentContainer_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
+      dissect_s1ap_SourceeNB_ToTargeteNB_TransparentContainer_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
       break;
-      case 1:
+      case ltetoutran:
       /* ltetoutran
         Source RNC to Target RNC
         Transparent Container 25.413
       */
       dissect_ranap_SourceRNC_ToTargetRNC_TransparentContainer_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
       break;
-      case 2:
+      case ltetogeran:
       /* ltetogeran
         Source BSS to Target BSS
         Transparent Container 48.018
       */
       de_bssgp_source_BSS_to_target_BSS_transp_cont(parameter_tvb, subtree, actx->pinfo, 0, tvb_reported_length(parameter_tvb), NULL, 0);
       break;
-      case 3:
+      case utrantolte:
       /* utrantolte */
       break;
-      case 4:
+      case gerantolte:
       /* gerantolte */
       break;
+      case ltetonr:
+      /* ltetonr */
+      dissect_ngap_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
+      break;
+      case nrtolte:
+      /* nrtolte */
+      break;
       default:
-      DISSECTOR_ASSERT_NOT_REACHED();
       break;
     }
     /* Enable writing of the column again */
@@ -455,37 +454,44 @@ Port-Number TYPE = FT_UINT16 DISPLAY = BASE_DEC
       utrantolte,
       gerantolte,
       ...
+      ltetonr,
+      nrtolte
       } */
-      case 0:
+      case intralte:
       /* intralte
         Intra E-UTRAN handover Target eNB to Source eNB
         Transparent Container 36.413
       */
-      dissect_TargeteNB_ToSourceeNB_TransparentContainer_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
+      dissect_s1ap_TargeteNB_ToSourceeNB_TransparentContainer_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
       break;
-      case 1:
+      case ltetoutran:
       /* ltetoutran
         Target RNC to Source RNC
         Transparent Container 25.413
       */
       dissect_ranap_TargetRNC_ToSourceRNC_TransparentContainer_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
       break;
-      case 2:
+      case ltetogeran:
       /* ltetogeran
         Target BSS to Source BSS
         Transparent Container 48.018
       */
       de_bssgp_target_BSS_to_source_BSS_transp_cont(parameter_tvb, subtree, actx->pinfo, 0, tvb_reported_length(parameter_tvb), NULL, 0);
-
       break;
-      case 3:
+      case utrantolte:
       /* utrantolte */
       break;
-      case 4:
+      case gerantolte:
       /* gerantolte */
       break;
+      case ltetonr:
+      /* ltetonr */
+      dissect_ngap_TargetNGRANNode_ToSourceNGRANNode_TransparentContainer_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
+      break;
+      case nrtolte:
+      /* nrtolte */
+      break;
       default:
-      DISSECTOR_ASSERT_NOT_REACHED();
       break;
     }
   }
@@ -1028,7 +1034,8 @@ ExtendedBitRate DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_bit_sec
 %(DEFAULT_BODY)s
   if(parameter_tvb){
     const gint *fields[] = {
-      &hf_s1ap_UE_Application_Layer_Measurement_Capability_QoE_Measurement,
+      &hf_s1ap_UE_Application_Layer_Measurement_Capability_QoE_Measurement_for_streaming_service,
+      &hf_s1ap_UE_Application_Layer_Measurement_Capability_QoE_Measurement_for_MTSI_service,
       &hf_s1ap_UE_Application_Layer_Measurement_Capability_Reserved,
       NULL
     };
@@ -1067,6 +1074,15 @@ RAC TYPE = FT_UINT8 DISPLAY = BASE_DEC_HEX
 %(DEFAULT_BODY)s
   if (parameter_tvb) {
     actx->created_item = proto_tree_add_item(tree, hf_index, parameter_tvb, 0, 1, ENC_BIG_ENDIAN);
+  }
+
+#.TYPE_ATTR
+FiveGSTAC TYPE = FT_UINT24 DISPLAY = BASE_DEC_HEX
+#.FN_BODY FiveGSTAC VAL_PTR = &parameter_tvb HF_INDEX = -1
+  tvbuff_t *parameter_tvb = NULL;
+%(DEFAULT_BODY)s
+  if (parameter_tvb) {
+    actx->created_item = proto_tree_add_item(tree, hf_index, parameter_tvb, 0, 3, ENC_BIG_ENDIAN);
   }
 
 #.TYPE_ATTR
@@ -1161,6 +1177,37 @@ M-TMSI TYPE = FT_UINT32 DISPLAY = BASE_DEC_HEX
       wmem_tree_insert32_array(s1ap_data->s1ap_conv->nbiot_enb_ue_s1ap_id, tree_key, id);
     }
   }
+
+#.TYPE_ATTR
+Packet-LossRate DISPLAY = BASE_CUSTOM STRINGS = CF_FUNC(s1ap_Packet_LossRate_fmt)
+
+#.TYPE_ATTR
+BluetoothName TYPE=FT_STRING DISPLAY = STR_UNICODE
+#.FN_BODY BluetoothName VAL_PTR = &parameter_tvb HF_INDEX = -1
+  tvbuff_t *parameter_tvb = NULL;
+%(DEFAULT_BODY)s
+  actx->created_item = proto_tree_add_item(tree, hf_index, parameter_tvb, 0, -1, ENC_UTF_8|ENC_NA);
+#.END
+
+#.TYPE_ATTR
+WLANName TYPE=FT_STRING DISPLAY = STR_UNICODE
+#.FN_BODY WLANName VAL_PTR = &parameter_tvb HF_INDEX = -1
+  tvbuff_t *parameter_tvb = NULL;
+%(DEFAULT_BODY)s
+  actx->created_item = proto_tree_add_item(tree, hf_index, parameter_tvb, 0, -1, ENC_UTF_8|ENC_NA);
+#.END
+
+#.TYPE_ATTR
+Subscription-Based-UE-DifferentiationInfo/periodicTime DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_seconds
+
+#.TYPE_ATTR
+ScheduledCommunicationTime/timeofDayStart DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_seconds
+
+#.TYPE_ATTR
+ScheduledCommunicationTime/timeofDayEnd DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_seconds
+
+#.TYPE_ATTR
+TrafficLoadReductionIndication DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_percent
 
 #.ASSIGN_VALUE_TO_TYPE  # S1AP does not have constants assigned to types, they are pure INTEGER
 # ProcedureCode
@@ -1472,7 +1519,7 @@ id-extended-e-RAB-GuaranteedBitrateDL               ProtocolIE-ID
 id-extended-e-RAB-GuaranteedBitrateUL               ProtocolIE-ID
 id-extended-uEaggregateMaximumBitRateDL             ProtocolIE-ID
 id-extended-uEaggregateMaximumBitRateUL             ProtocolIE-ID
-id-NRrestriction                                    ProtocolIE-ID
+id-NRrestrictioninEPSasSecondaryRAT                 ProtocolIE-ID
 id-UEAppLayerMeasConfig                             ProtocolIE-ID
 id-UE-Application-Layer-Measurement-Capability      ProtocolIE-ID
 id-SecondaryRATDataUsageReportList                  ProtocolIE-ID
@@ -1483,6 +1530,22 @@ id-SecondaryRATDataUsageRequest                     ProtocolIE-ID
 id-NRUESecurityCapabilities                         ProtocolIE-ID
 id-UnlicensedSpectrumRestriction                    ProtocolIE-ID
 id-CE-ModeBRestricted                               ProtocolIE-ID
+id-LTE-M-Indication                                 ProtocolIE-ID
+id-DownlinkPacketLossRate                           ProtocolIE-ID
+id-UplinkPacketLossRate	                            ProtocolIE-ID
+id-UECapabilityInfoRequest                          ProtocolIE-ID
+id-serviceType                                      ProtocolIE-ID
+id-AerialUEsubscriptionInformation                  ProtocolIE-ID
+id-Subscription-Based-UE-DifferentiationInfo        ProtocolIE-ID
+id-EndIndication                                    ProtocolIE-ID
+id-EDT-Session                                      ProtocolIE-ID
+id-CNTypeRestrictions                               ProtocolIE-ID
+id-PendingDataIndication                            ProtocolIE-ID
+id-BluetoothMeasurementConfiguration                ProtocolIE-ID
+id-WLANMeasurementConfiguration                     ProtocolIE-ID
+id-WarningAreaCoordinates                           ProtocolIE-ID
+id-NRrestrictionin5GS                               ProtocolIE-ID
+
 #.END
 
 #.REGISTER
@@ -1697,6 +1760,14 @@ UE-Application-Layer-Measurement-Capability     N s1ap.ies id-UE-Application-Lay
 HandoverFlag                                    N s1ap.ies id-HandoverFlag
 EmergencyAreaIDListForRestart                   N s1ap.ies id-EmergencyAreaIDListForRestart
 CE-ModeBRestricted                              N s1ap.ies id-CE-ModeBRestricted
+AerialUEsubscriptionInformation                 N s1ap.ies id-AerialUEsubscriptionInformation
+UECapabilityInfoRequest                         N s1ap.ies id-UECapabilityInfoRequest
+EndIndication                                   N s1ap.ies id-EndIndication
+EDT-Session                                     N s1ap.ies id-EDT-Session
+LTE-M-Indication                                N s1ap.ies id-LTE-M-Indication
+Subscription-Based-UE-DifferentiationInfo       N s1ap.ies id-Subscription-Based-UE-DifferentiationInfo
+PendingDataIndication                           N s1ap.ies id-PendingDataIndication
+WarningAreaCoordinates                          N s1ap.ies id-WarningAreaCoordinates
 
 #S1AP-PROTOCOL-IES-PAIR
 #RAB-SetupOrModifyItemFirst             N s1ap.ies.pair.first id-RAB-SetupOrModifyItem
@@ -1742,11 +1813,18 @@ ExtendedBitRate                         N s1ap.extension id-extended-e-RAB-Maxim
 ExtendedBitRate                         N s1ap.extension id-extended-e-RAB-MaximumBitrateUL
 ExtendedBitRate                         N s1ap.extension id-extended-e-RAB-GuaranteedBitrateDL
 ExtendedBitRate                         N s1ap.extension id-extended-e-RAB-GuaranteedBitrateUL
-NRrestriction                           N s1ap.extension id-NRrestriction
+NRrestrictioninEPSasSecondaryRAT        N s1ap.extension id-NRrestrictioninEPSasSecondaryRAT
 UEAppLayerMeasConfig                    N s1ap.extension id-UEAppLayerMeasConfig
 ExtendedBitRate                         N s1ap.extension id-extended-uEaggregateMaximumBitRateDL
 ExtendedBitRate                         N s1ap.extension id-extended-uEaggregateMaximumBitRateUL
 UnlicensedSpectrumRestriction           N s1ap.extension id-UnlicensedSpectrumRestriction
+CNTypeRestrictions                      N s1ap.extension id-CNTypeRestrictions
+Packet-LossRate                         N s1ap.extension id-DownlinkPacketLossRate
+Packet-LossRate                         N s1ap.extension id-UplinkPacketLossRate
+ServiceType                             N s1ap.extension id-serviceType
+BluetoothMeasurementConfiguration       N s1ap.extension id-BluetoothMeasurementConfiguration
+WLANMeasurementConfiguration            N s1ap.extension id-WLANMeasurementConfiguration
+NRrestrictionin5GS                      N s1ap.extension id-NRrestrictionin5GS
 
 #S1AP-ELEMENTARY-PROCEDURE
 HandoverRequired                        N s1ap.proc.imsg id-HandoverPreparation

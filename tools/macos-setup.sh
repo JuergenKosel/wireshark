@@ -11,10 +11,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 shopt -s extglob
-#
-# To install autotools
-#
-AUTOTOOLS=1
 
 #
 # Get the major version of Darwin, so we can check the major macOS
@@ -45,7 +41,6 @@ fi
 current_curl_version=`curl --version | sed -n 's/curl \([0-9.]*\) .*/\1/p'`
 current_curl_major_version="`expr $current_curl_version : '\([0-9][0-9]*\).*'`"
 current_curl_minor_version="`expr $current_curl_version : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
-current_curl_dotdot_version="`expr $current_curl_version : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
 if [[ $current_curl_major_version -lt 7 ||
      ($current_curl_major_version -eq 7 &&
       $current_curl_minor_version -lt 54) ]]; then
@@ -73,10 +68,10 @@ LZIP_VERSION=1.19
 # in some cases.
 #
 # So if you're on Lion, we choose version 3.5.2, otherwise we choose
-# version 3.7.2.
+# the latest stable version (currently 3.12.4).
 #
 if [[ $DARWIN_MAJOR_VERSION -gt 11 ]]; then
-    CMAKE_VERSION=${CMAKE_VERSION-3.7.2}
+    CMAKE_VERSION=${CMAKE_VERSION-3.12.4}
 else
     CMAKE_VERSION=${CMAKE_VERSION-3.5.2}
 fi
@@ -92,7 +87,7 @@ NINJA_VERSION=${NINJA_VERSION-1.8.2}
 # The following libraries and tools are required even to build only TShark.
 #
 GETTEXT_VERSION=0.19.8.1
-GLIB_VERSION=2.36.0
+GLIB_VERSION=2.37.6	# json-glib requires at least 2.37.6
 PKG_CONFIG_VERSION=0.29.2
 #
 # libgpg-error is required for libgcrypt.
@@ -118,7 +113,7 @@ LIBGCRYPT_VERSION=1.7.7
 # packet data pane; see, for example, Qt bugs QTBUG-31937, QTBUG-41017,
 # and QTBUG-43464, all of which seem to be the same bug.
 #
-QT_VERSION=${QT_VERSION-5.9.5}
+QT_VERSION=${QT_VERSION-5.9.7}
 
 if [ "$QT_VERSION" ]; then
     QT_MAJOR_VERSION="`expr $QT_VERSION : '\([0-9][0-9]*\).*'`"
@@ -143,7 +138,6 @@ if [ "$GNUTLS_VERSION" ]; then
     #
     GNUTLS_MAJOR_VERSION="`expr $GNUTLS_VERSION : '\([0-9][0-9]*\).*'`"
     GNUTLS_MINOR_VERSION="`expr $GNUTLS_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
-    GNUTLS_DOTDOT_VERSION="`expr $GNUTLS_VERSION : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
     NETTLE_VERSION=3.3
 
     #
@@ -157,14 +151,11 @@ fi
 # features present in all three versions)
 LUA_VERSION=5.2.4
 SNAPPY_VERSION=1.1.4
-LIBXML2_VERSION=2.9.4
+LIBXML2_VERSION=2.9.7
 LZ4_VERSION=1.7.5
 SBC_VERSION=1.3
-CARES_VERSION=1.12.0
-# Redmine used by libssh.org numbers the files available for download,
-# so using version only isn't enough
-LIBSSH_VERSION=0.7.4
-LIBSSH_FILENUM=210
+CARES_VERSION=1.15.0
+LIBSSH_VERSION=0.8.5
 # mmdbresolve
 MAXMINDDB_VERSION=1.3.2
 
@@ -180,6 +171,8 @@ if [ "$SPANDSP_VERSION" ]; then
     LIBTIFF_VERSION=3.8.1
 fi
 BCG729_VERSION=1.0.2
+JSON_GLIB_VERSION=1.2.6
+PYTHON3_VERSION=3.7.1
 
 #
 # GNU autotools; they're provided with releases up to Snow Leopard, but
@@ -507,7 +500,6 @@ install_cmake() {
         echo "Downloading and installing CMake:"
         CMAKE_MAJOR_VERSION="`expr $CMAKE_VERSION : '\([0-9][0-9]*\).*'`"
         CMAKE_MINOR_VERSION="`expr $CMAKE_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
-        CMAKE_DOTDOT_VERSION="`expr $CMAKE_VERSION : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
         CMAKE_MAJOR_MINOR_VERSION=$CMAKE_MAJOR_VERSION.$CMAKE_MINOR_VERSION
 
         #
@@ -701,9 +693,6 @@ install_glib() {
     if [ ! -f glib-$GLIB_VERSION-done ] ; then
         echo "Downloading, building, and installing GLib:"
         glib_dir=`expr $GLIB_VERSION : '\([0-9][0-9]*\.[0-9][0-9]*\).*'`
-        GLIB_MAJOR_VERSION="`expr $GLIB_VERSION : '\([0-9][0-9]*\).*'`"
-        GLIB_MINOR_VERSION="`expr $GLIB_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
-        GLIB_DOTDOT_VERSION="`expr $GLIB_VERSION : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
         #
         # Starting with GLib 2.28.8, xz-compressed tarballs are available.
         #
@@ -937,7 +926,7 @@ uninstall_libsmi() {
 install_libgpg_error() {
     if [ "$LIBGPG_ERROR_VERSION" -a ! -f libgpg-error-$LIBGPG_ERROR_VERSION-done ] ; then
         echo "Downloading, building, and installing libgpg-error:"
-        [ -f libgpg-error-$LIBGPG_ERROR_VERSION.tar.bz2 ] || curl -L -O ftp://ftp.gnupg.org/gcrypt/libgpg-error/libgpg-error-$LIBGPG_ERROR_VERSION.tar.bz2 || exit 1
+        [ -f libgpg-error-$LIBGPG_ERROR_VERSION.tar.bz2 ] || curl -L -O https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-$LIBGPG_ERROR_VERSION.tar.bz2 || exit 1
         $no_build && echo "Skipping installation" && return
         bzcat libgpg-error-$LIBGPG_ERROR_VERSION.tar.bz2 | tar xf - || exit 1
         cd libgpg-error-$LIBGPG_ERROR_VERSION
@@ -987,7 +976,7 @@ install_libgcrypt() {
         fi
 
         echo "Downloading, building, and installing libgcrypt:"
-        [ -f libgcrypt-$LIBGCRYPT_VERSION.tar.gz ] || curl -L -O ftp://ftp.gnupg.org/gcrypt/libgcrypt/libgcrypt-$LIBGCRYPT_VERSION.tar.gz || exit 1
+        [ -f libgcrypt-$LIBGCRYPT_VERSION.tar.gz ] || curl -L -O https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-$LIBGCRYPT_VERSION.tar.gz || exit 1
         $no_build && echo "Skipping installation" && return
         gzcat libgcrypt-$LIBGCRYPT_VERSION.tar.gz | tar xf - || exit 1
         cd libgcrypt-$LIBGCRYPT_VERSION
@@ -1392,9 +1381,6 @@ uninstall_sbc() {
 install_maxminddb() {
     if [ "$MAXMINDDB_VERSION" -a ! -f maxminddb-$MAXMINDDB_VERSION-done ] ; then
         echo "Downloading, building, and installing MaxMindDB API:"
-        MAXMINDDB_MAJOR_VERSION="`expr $MAXMINDDB_VERSION : '\([0-9][0-9]*\).*'`"
-        MAXMINDDB_MINOR_VERSION="`expr $MAXMINDDB_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
-        MAXMINDDB_DOTDOT_VERSION="`expr $MAXMINDDB_VERSION : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
         [ -f libmaxminddb-$MAXMINDDB_VERSION.tar.gz ] || curl -L -O https://github.com/maxmind/libmaxminddb/releases/download/$MAXMINDDB_VERSION/libmaxminddb-$MAXMINDDB_VERSION.tar.gz || exit 1
         $no_build && echo "Skipping installation" && return
         gzcat libmaxminddb-$MAXMINDDB_VERSION.tar.gz | tar xf - || exit 1
@@ -1467,7 +1453,10 @@ uninstall_c_ares() {
 install_libssh() {
     if [ "$LIBSSH_VERSION" -a ! -f libssh-$LIBSSH_VERSION-done ] ; then
         echo "Downloading, building, and installing libssh:"
-        [ -f libssh-$LIBSSH_VERSION.tar.xz ] || curl -L -O https://red.libssh.org/attachments/download/$LIBSSH_FILENUM/libssh-$LIBSSH_VERSION.tar.xz || exit 1
+        LIBSSH_MAJOR_VERSION="`expr $LIBSSH_VERSION : '\([0-9][0-9]*\).*'`"
+        LIBSSH_MINOR_VERSION="`expr $LIBSSH_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+        LIBSSH_MAJOR_MINOR_VERSION=$LIBSSH_MAJOR_VERSION.$LIBSSH_MINOR_VERSION
+        [ -f libssh-$LIBSSH_VERSION.tar.xz ] || curl -L -O https://www.libssh.org/files/$LIBSSH_MAJOR_MINOR_VERSION/libssh-$LIBSSH_VERSION.tar.xz
         $no_build && echo "Skipping installation" && return
         xzcat libssh-$LIBSSH_VERSION.tar.xz | tar xf - || exit 1
         cd libssh-$LIBSSH_VERSION
@@ -1662,11 +1651,119 @@ uninstall_bcg729() {
     fi
 }
 
+install_json_glib() {
+    if [ "$JSON_GLIB_VERSION" -a ! -f json_glib-$JSON_GLIB_VERSION-done ] ; then
+        echo "Downloading, building, and installing json-glib:"
+        [ -f json-glib-$JSON_GLIB_VERSION.tar.xz ] || curl -L -O https://ftp.gnome.org/pub/GNOME/sources/json-glib/1.2/json-glib-$JSON_GLIB_VERSION.tar.xz || exit 1
+        $no_build && echo "Skipping installation" && return
+        xzcat json-glib-$JSON_GLIB_VERSION.tar.xz | tar xf - || exit 1
+        cd json-glib-$JSON_GLIB_VERSION
+        ./configure || exit 1
+        make $MAKE_BUILD_OPTS || exit 1
+        $DO_MAKE_INSTALL || exit 1
+        cd ..
+        touch json_glib-$JSON_GLIB_VERSION-done
+    fi
+}
+
+uninstall_json_glib() {
+    if [ ! -z "$installed_json_glib_version" ] ; then
+        echo "Uninstalling json-glib:"
+        cd json_glib-$installed_json_glib_version
+        $DO_MAKE_UNINSTALL || exit 1
+        make distclean || exit 1
+        cd ..
+        rm json_glib-$installed_json_glib_version-done
+
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version.
+            #
+            rm -rf json_glib-$installed_json_glib_version
+            rm -rf json_glib-$installed_json_glib_version.tar.xz
+        fi
+
+        installed_json_glib_version=""
+    fi
+}
+
+install_python3() {
+    local macver=10.9
+    if [[ $DARWIN_MAJOR_VERSION -lt 13 ]]; then
+        # The 64-bit installer requires 10.9 (Mavericks), use the 64-bit/32-bit
+        # variant for 10.6 (Snow Leopard) and newer.
+        macver=10.6
+    fi
+    if [ "$PYTHON3_VERSION" -a ! -f python3-$PYTHON3_VERSION-done ] ; then
+        echo "Downloading and installing python3:"
+        [ -f python-$PYTHON3_VERSION-macosx$macver.pkg ] || curl -L -O https://www.python.org/ftp/python/$PYTHON3_VERSION/python-$PYTHON3_VERSION-macosx$macver.pkg || exit 1
+        $no_build && echo "Skipping installation" && return
+        sudo installer -target / -pkg python-$PYTHON3_VERSION-macosx$macver.pkg || exit 1
+        touch python3-$PYTHON3_VERSION-done
+    fi
+}
+
+uninstall_python3() {
+    # Major version (e.g. "3.7")
+    local PYTHON_VERSION=${installed_python3_version%.*}
+    if [ ! -z "$installed_python3_version" ] ; then
+        echo "Uninstalling python3:"
+        frameworkdir="/Library/Frameworks/Python.framework/Versions/$PYTHON_VERSION"
+        sudo rm -rf "$frameworkdir"
+        sudo rm -rf "/Applications/Python $PYTHON_VERSION"
+        sudo find /usr/local/bin -maxdepth 1 -lname "*$frameworkdir/bin/*" -delete
+        # Remove three symlinks and empty directories. Removing directories
+        # might fail if for some reason multiple versions are installed.
+        sudo rm    /Library/Frameworks/Python.framework/Headers
+        sudo rm    /Library/Frameworks/Python.framework/Python
+        sudo rm    /Library/Frameworks/Python.framework/Resources
+        sudo rmdir /Library/Frameworks/Python.framework/Versions
+        sudo rmdir /Library/Frameworks/Python.framework
+        sudo pkgutil --forget org.python.Python.PythonApplications-$PYTHON_VERSION
+        sudo pkgutil --forget org.python.Python.PythonDocumentation-$PYTHON_VERSION
+        sudo pkgutil --forget org.python.Python.PythonFramework-$PYTHON_VERSION
+        sudo pkgutil --forget org.python.Python.PythonUnixTools-$PYTHON_VERSION
+        rm python3-$installed_python3_version-done
+
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version.
+            #
+            rm -f python-$installed_python3_version-macosx10.9.pkg
+            rm -f python-$installed_python3_version-macosx10.6.pkg
+        fi
+
+        installed_python3_version=""
+    fi
+}
+
 install_all() {
     #
     # Check whether the versions we have installed are the versions
     # requested; if not, uninstall the installed versions.
     #
+    if [ ! -z "$installed_python3_version" -a \
+              "$installed_python3_version" != "$PYTHON3_VERSION" ] ; then
+        echo "Installed python3 version is $installed_python3_version"
+        if [ -z "$PYTHON3_VERSION" ] ; then
+            echo "python3 is not requested"
+        else
+            echo "Requested python3 version is $PYTHON3_VERSION"
+        fi
+        uninstall_python3 -r
+    fi
+
+    if [ ! -z "$installed_json_glib_version" -a \
+              "$installed_json_glib_version" != "$JSON_GLIB_VERSION" ] ; then
+        echo "Installed json-glib version is $installed_json_glib_version"
+        if [ -z "$JSON_GLIB_VERSION" ] ; then
+            echo "json-glib is not requested"
+        else
+            echo "Requested json-glib version is $JSON_GLIB_VERSION"
+        fi
+        uninstall_json_glib -r
+    fi
+
     if [ ! -z "$installed_bcg729_version" -a \
               "$installed_bcg729_version" != "$BCG729_VERSION" ] ; then
         echo "Installed SpanDSP version is $installed_bcg729_version"
@@ -2126,6 +2223,10 @@ install_all() {
     install_spandsp
 
     install_bcg729
+
+    install_json_glib
+
+    install_python3
 }
 
 uninstall_all() {
@@ -2142,6 +2243,10 @@ uninstall_all() {
         # We also do a "make distclean", so that we don't have leftovers from
         # old configurations.
         #
+        uninstall_python3
+
+        uninstall_json_glib
+
         uninstall_bcg729
 
         uninstall_spandsp
@@ -2193,9 +2298,9 @@ uninstall_all() {
         # Or should we remember it as installed only if this script
         # installed it?
         #
-	uninstall_asciidoctorpdf
+        uninstall_asciidoctorpdf
 
-	uninstall_asciidoctor
+        uninstall_asciidoctor
 
         uninstall_cmake
 
@@ -2268,11 +2373,6 @@ do
     if [ -d "$i" ]
     then
         min_osx_target=`sw_vers -productVersion | sed 's/\([0-9]*\)\.\([0-9]*\)\.[0-9]*/\1.\2/'`
-
-        #
-        # That's also the OS whose SDK we'd be using.
-        #
-        sdk_target=$min_osx_target
         break
     fi
 done
@@ -2343,8 +2443,11 @@ then
     installed_cares_version=`ls c-ares-*-done 2>/dev/null | sed 's/c-ares-\(.*\)-done/\1/'`
     installed_libssh_version=`ls libssh-*-done 2>/dev/null | sed 's/libssh-\(.*\)-done/\1/'`
     installed_nghttp2_version=`ls nghttp2-*-done 2>/dev/null | sed 's/nghttp2-\(.*\)-done/\1/'`
-    installed_spandsp_version=`ls spandsp-*-done 2>/dev/null | sed 's/spandsp-\(.*\)-done/\1/'`
     installed_libtiff_version=`ls tiff-*-done 2>/dev/null | sed 's/tiff-\(.*\)-done/\1/'`
+    installed_spandsp_version=`ls spandsp-*-done 2>/dev/null | sed 's/spandsp-\(.*\)-done/\1/'`
+    installed_bcg729_version=`ls bcg729-*-done 2>/dev/null | sed 's/bcg729-\(.*\)-done/\1/'`
+    installed_json_glib_version=`ls json_glib-*-done 2>/dev/null | sed 's/json_glib-\(.*\)-done/\1/'`
+    installed_python3_version=`ls python3-*-done 2>/dev/null | sed 's/python3-\(.*\)-done/\1/'`
 
     cd $topdir
 fi
@@ -2428,7 +2531,6 @@ then
                 # Yes, use it.
                 #
                 sdkpath="$sdksdir/$sdk"
-                qt_sdk_arg="-sdk $sdk"
                 break 2
             fi
         done
@@ -2441,7 +2543,6 @@ then
     fi
 
     SDKPATH="$sdkpath"
-    sdk_target=10.$sdk_real_version
     echo "Using the 10.$sdk_real_version SDK"
 
     #
@@ -2478,27 +2579,6 @@ then
     #
     SDKFLAGS="-isysroot $SDKPATH"
 
-    if [[ "$min_osx_target" == "10.5" ]]
-    then
-        #
-        # Libgcrypt 1.5.0 fails to compile due to some problem with an
-        # asm in rijndael.c, at least with i686-apple-darwin10-gcc-4.2.1
-        # (GCC) 4.2.1 (Apple Inc. build 5666) (dot 3) when building
-        # 32-bit.
-        #
-        # We try libgcrypt 1.4.3 instead, as that's what shows up in
-        # the version from the Leopard buildbot.
-        LIBGCRYPT_VERSION=1.4.3
-
-        #
-        # Build 32-bit while we're at it; Leopard has a bug that
-        # causes some BPF functions not to work with 64-bit userland
-        # code, so capturing won't work.
-        #
-        CFLAGS="$CFLAGS -arch i386"
-        CXXFLAGS="$CXXFLAGS -arch i386"
-        export LDFLAGS="$LDFLAGS -arch i386"
-    fi
 fi
 
 export CFLAGS

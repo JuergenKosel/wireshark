@@ -49,53 +49,6 @@ typedef struct _extcap_option {
 
 FILE* custom_log = NULL;
 
-#ifdef _WIN32
-BOOLEAN IsHandleRedirected(DWORD handle)
-{
-    HANDLE h = GetStdHandle(handle);
-    if (h) {
-        BY_HANDLE_FILE_INFORMATION fi;
-        if (GetFileInformationByHandle(h, &fi)) {
-            return TRUE;
-        }
-    }
-    return FALSE;
-}
-
-void attach_parent_console()
-{
-    BOOL outRedirected, errRedirected;
-
-    outRedirected = IsHandleRedirected(STD_OUTPUT_HANDLE);
-    errRedirected = IsHandleRedirected(STD_ERROR_HANDLE);
-
-    if (outRedirected && errRedirected) {
-        /* Both standard output and error handles are redirected.
-         * There is no point in attaching to parent process console.
-         */
-        return;
-    }
-
-    if (AttachConsole(ATTACH_PARENT_PROCESS) == 0) {
-        /* Console attach failed. */
-        return;
-    }
-
-    /* Console attach succeeded */
-    if (outRedirected == FALSE) {
-        if (!freopen("CONOUT$", "w", stdout)) {
-            g_warning("Cannot redirect to stdout.");
-        }
-    }
-
-    if (errRedirected == FALSE) {
-        if (!freopen("CONOUT$", "w", stderr)) {
-            g_warning("Cannot redirect to strerr.");
-        }
-    }
-}
-#endif
-
 void extcap_base_register_interface(extcap_parameters * extcap, const char * interface, const char * ifdescription, uint16_t dlt, const char * dltdescription )
 {
     extcap_base_register_interface_ext(extcap, interface, ifdescription, dlt, NULL, dltdescription );
@@ -155,6 +108,8 @@ static void extcap_custom_log(const gchar *log_domain,
 
 uint8_t extcap_base_parse_options(extcap_parameters * extcap, int result, char * optargument)
 {
+    uint8_t ret = 1;
+
     switch (result) {
         case EXTCAP_OPT_DEBUG:
 #ifdef _WIN32
@@ -162,6 +117,7 @@ uint8_t extcap_base_parse_options(extcap_parameters * extcap, int result, char *
 #else
             setenv("G_MESSAGES_DEBUG", "all", 1);
 #endif
+            extcap->debug = TRUE;
             break;
         case EXTCAP_OPT_DEBUG_FILE:
             extcap_init_custom_log(optargument);
@@ -192,9 +148,11 @@ uint8_t extcap_base_parse_options(extcap_parameters * extcap, int result, char *
         case EXTCAP_OPT_FIFO:
             extcap->fifo = g_strdup(optargument);
             break;
+        default:
+            ret = 0;
     }
 
-    return 1;
+    return ret;
 }
 
 static void extcap_iface_print(gpointer data, gpointer userdata _U_)
@@ -230,9 +188,8 @@ static gint extcap_iface_listall(extcap_parameters * extcap, uint8_t list_ifs)
             extcap_print_version(extcap);
             g_list_foreach(extcap->interfaces, extcap_iface_print, extcap);
         }
-    } else {
-        if (extcap->do_version) {
-            extcap_print_version(extcap);
+    } else if (extcap->do_version) {
+        extcap_print_version(extcap);
     } else {
         GList * element = NULL;
         extcap_interface * iface = NULL;
@@ -245,7 +202,6 @@ static gint extcap_iface_listall(extcap_parameters * extcap, uint8_t list_ifs)
             printf ("{display=%s}\n", iface->dltdescription);
         else
             printf ("\n");
-        }
     }
 
     return 1;
@@ -355,7 +311,7 @@ void extcap_init_custom_log(const char* filename)
 void extcap_config_debug(unsigned* count)
 {
     printf("arg {number=%u}{call=--debug}{display=Run in debug mode}"
-    "{type=boolean}{default=false}{tooltip=Print debug messages}{required=false}"
+    "{type=boolflag}{default=false}{tooltip=Print debug messages}{required=false}"
     "{group=Debug}\n", (*count)++);
     printf("arg {number=%u}{call=--debug-file}{display=Use a file for debug}"
     "{type=string}{tooltip=Set a file where the debug messages are written}{required=false}"

@@ -177,41 +177,41 @@ typedef enum {
 } order_t;
 
 typedef struct _capture_info {
-  const char    *filename;
-  guint16        file_type;
-  gboolean       iscompressed;
-  int            file_encap;
-  int            file_tsprec;
-  gint64         filesize;
-  wtap_block_t   shb;
-  guint64        packet_bytes;
-  gboolean       times_known;
-  nstime_t       start_time;
-  int            start_time_tsprec;
-  nstime_t       stop_time;
-  int            stop_time_tsprec;
-  guint32        packet_count;
-  gboolean       snap_set;                /* If set in capture file header      */
-  guint32        snaplen;                 /* value from the capture file header */
-  guint32        snaplen_min_inferred;    /* If caplen < len for 1 or more rcds */
-  guint32        snaplen_max_inferred;    /*  ...                               */
-  gboolean       drops_known;
-  guint32        drop_count;
+  const char           *filename;
+  guint16               file_type;
+  wtap_compression_type compression_type;
+  int                   file_encap;
+  int                   file_tsprec;
+  gint64                filesize;
+  wtap_block_t          shb;
+  guint64               packet_bytes;
+  gboolean              times_known;
+  nstime_t              start_time;
+  int                   start_time_tsprec;
+  nstime_t              stop_time;
+  int                   stop_time_tsprec;
+  guint32               packet_count;
+  gboolean              snap_set;                 /* If set in capture file header      */
+  guint32               snaplen;                  /* value from the capture file header */
+  guint32               snaplen_min_inferred;     /* If caplen < len for 1 or more rcds */
+  guint32               snaplen_max_inferred;     /*  ...                               */
+  gboolean              drops_known;
+  guint32               drop_count;
 
-  nstime_t       duration;
-  int            duration_tsprec;
-  double         packet_rate;
-  double         packet_size;
-  double         data_rate;              /* in bytes */
-  gboolean       know_order;
-  order_t        order;
+  nstime_t              duration;
+  int                   duration_tsprec;
+  double                packet_rate;
+  double                packet_size;
+  double                data_rate;                /* in bytes/s */
+  gboolean              know_order;
+  order_t               order;
 
-  int           *encap_counts;           /* array of per_packet encap counts; array has one entry per wtap_encap type */
+  int                  *encap_counts;             /* array of per_packet encap counts; array has one entry per wtap_encap type */
 
-  guint          num_interfaces;         /* number of IDBs, and thus size of interface_packet_counts array */
-  GArray        *interface_packet_counts;  /* array of per_packet interface_id counts; one entry per file IDB */
-  guint32        pkt_interface_id_unknown; /* counts if packet interface_id didn't match a known one */
-  GArray        *idb_info_strings;       /* array of IDB info strings */
+  guint                 num_interfaces;           /* number of IDBs, and thus size of interface_packet_counts array */
+  GArray               *interface_packet_counts;  /* array of per_packet interface_id counts; one entry per file IDB */
+  guint32               pkt_interface_id_unknown; /* counts if packet interface_id didn't match a known one */
+  GArray               *idb_info_strings;         /* array of IDB info strings */
 } capture_info;
 
 static char *decimal_point;
@@ -583,10 +583,16 @@ print_stats(const gchar *filename, capture_info *cf_info)
   file_encap_string = wtap_encap_string(cf_info->file_encap);
 
   if (filename)           printf     ("File name:           %s\n", filename);
-  if (cap_file_type)      printf     ("File type:           %s%s\n",
-      file_type_string,
-      cf_info->iscompressed ? " (gzip compressed)" : "");
-
+  if (cap_file_type) {
+    const char *compression_type_description;
+    compression_type_description = wtap_compression_type_description(cf_info->compression_type);
+    if (compression_type_description == NULL)
+      printf     ("File type:           %s\n",
+        file_type_string);
+    else
+      printf     ("File type:           %s (%s)\n",
+        file_type_string, compression_type_description);
+  }
   if (cap_file_encap) {
     printf      ("File encapsulation:  %s\n", file_encap_string);
     if (cf_info->file_encap == WTAP_ENCAP_PER_PACKET) {
@@ -1241,7 +1247,7 @@ process_cap_file(wtap *wth, const char *filename)
 
   /* File Type */
   cf_info.file_type = wtap_file_type_subtype(wth);
-  cf_info.iscompressed = wtap_iscompressed(wth);
+  cf_info.compression_type = wtap_get_compression_type(wth);
 
   /* File Encapsulation */
   cf_info.file_encap = wtap_file_encap(wth);
@@ -1397,8 +1403,8 @@ hash_to_str(const unsigned char *hash, size_t length, char *str) {
   }
 }
 
-int
-main(int argc, char *argv[])
+static int
+real_main(int argc, char *argv[])
 {
   GString *comp_info_str;
   GString *runtime_info_str;
@@ -1445,7 +1451,6 @@ main(int argc, char *argv[])
   g_string_free(runtime_info_str, TRUE);
 
 #ifdef _WIN32
-  arg_list_utf_16to8(argc, argv);
   create_app_running_mutex();
 #endif /* _WIN32 */
 
@@ -1724,6 +1729,23 @@ exit:
   free_progdirs();
   return overall_error_status;
 }
+
+#ifdef _WIN32
+int
+wmain(int argc, wchar_t *wc_argv[])
+{
+  char **argv;
+
+  argv = arg_list_utf_16to8(argc, wc_argv);
+  return real_main(argc, argv);
+}
+#else
+int
+main(int argc, char *argv[])
+{
+  return real_main(argc, argv);
+}
+#endif
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

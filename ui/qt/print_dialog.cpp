@@ -176,12 +176,19 @@ gboolean PrintDialog::printLine(int indent, const char *line)
     out_rect = cur_painter_->boundingRect(cur_printer_->pageRect(), Qt::TextWordWrap, out_line);
 
     if (cur_printer_->pageRect().height() < page_pos_ + out_rect.height()) {
+        //
+        // We're past the end of the page, so this line will be on
+        // the next page.
+        //
         if (in_preview_) {
             // When generating a preview, only generate the first page;
             // if we're past the first page, stop the printing process.
             return FALSE;
         }
-        if (*line == '\0') { // Separator
+        if (*line == '\0') {
+            // This is an empty line, so it's a separator; no need to
+            // waste space printing it at the top of a page, as the
+            // page break suffices as a separator.
             return TRUE;
         }
         printHeader();
@@ -235,6 +242,7 @@ void PrintDialog::printPackets(QPrinter *printer, bool in_preview)
 
     print_args_.format              = PR_FMT_TEXT;
     print_args_.print_summary       = pd_ui_->formatGroupBox->summaryEnabled();
+    print_args_.print_col_headings  = pd_ui_->formatGroupBox->includeColumnHeadingsEnabled();
     print_args_.print_hex           = pd_ui_->formatGroupBox->bytesEnabled();
     print_args_.print_formfeed      = pd_ui_->formFeedCheckBox->isChecked();
 

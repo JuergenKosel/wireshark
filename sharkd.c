@@ -49,7 +49,6 @@
 #include "ui/filter_files.h"
 #include "ui/tap_export_pdu.h"
 #include "ui/failure_message.h"
-#include "epan/register.h"
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
 #include <epan/uat-int.h>
@@ -168,8 +167,7 @@ main(int argc, char *argv[])
      "-G" flag, as the "-G" flag dumps information registered by the
      dissectors, and we must do it before we read the preferences, in
      case any dissectors register preferences. */
-  if (!epan_init(register_all_protocols, register_all_protocol_handoffs, NULL,
-                 NULL)) {
+  if (!epan_init(NULL, NULL, TRUE)) {
     ret = EPAN_INIT_FAIL;
     goto clean_exit;
   }
@@ -413,10 +411,6 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
 
   /* The open succeeded.  Fill in the information for this file. */
 
-  /* Create new epan session for dissection. */
-  epan_free(cf->epan);
-  cf->epan = sharkd_epan_new(cf);
-
   cf->provider.wth = wth;
   cf->f_datalen = 0; /* not used, but set it anyway */
 
@@ -441,6 +435,10 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   cf->provider.ref = NULL;
   cf->provider.prev_dis = NULL;
   cf->provider.prev_cap = NULL;
+
+  /* Create new epan session for dissection. */
+  epan_free(cf->epan);
+  cf->epan = sharkd_epan_new(cf);
 
   cf->state = FILE_READ_IN_PROGRESS;
 
@@ -526,10 +524,10 @@ sharkd_get_frame(guint32 framenum)
 }
 
 int
-sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis_num, sharkd_dissect_func_t cb, int dissect_bytes, int dissect_columns, int dissect_tree, void *data)
+sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis_num, sharkd_dissect_func_t cb, guint32 dissect_flags, void *data)
 {
   frame_data *fdata;
-  column_info *cinfo = (dissect_columns) ? &cfile.cinfo : NULL;
+  column_info *cinfo = (dissect_flags & SHARKD_DISSECT_FLAG_COLUMNS) ? &cfile.cinfo : NULL;
   epan_dissect_t edt;
   gboolean create_proto_tree;
   wtap_rec rec; /* Record metadata */
@@ -546,12 +544,20 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis
   ws_buffer_init(&buf, 1500);
 
   if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, &rec, &buf, &err, &err_info)) {
+    wtap_rec_cleanup(&rec);
     ws_buffer_free(&buf);
     return -1; /* error reading the record */
   }
 
-  create_proto_tree = (dissect_tree) || (cinfo && have_custom_cols(cinfo));
-  epan_dissect_init(&edt, cfile.epan, create_proto_tree, dissect_tree);
+  create_proto_tree = ((dissect_flags & SHARKD_DISSECT_FLAG_PROTO_TREE) ||
+                      ((dissect_flags & SHARKD_DISSECT_FLAG_COLOR) && color_filters_used()) ||
+                      (cinfo && have_custom_cols(cinfo)));
+  epan_dissect_init(&edt, cfile.epan, create_proto_tree, (dissect_flags & SHARKD_DISSECT_FLAG_PROTO_TREE));
+
+  if (dissect_flags & SHARKD_DISSECT_FLAG_COLOR) {
+    color_filters_prime_edt(&edt);
+    fdata->flags.need_colorize = 1;
+  }
 
   if (cinfo)
     col_custom_prime_edt(&edt, cinfo);
@@ -572,7 +578,9 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis
     epan_dissect_fill_in_columns(&edt, FALSE, TRUE/* fill_fd_columns */);
   }
 
-  cb(&edt, dissect_tree ? edt.tree : NULL, cinfo, dissect_bytes ? edt.pi.data_src : NULL, data);
+  cb(&edt, (dissect_flags & SHARKD_DISSECT_FLAG_PROTO_TREE) ? edt.tree : NULL,
+     cinfo, (dissect_flags & SHARKD_DISSECT_FLAG_BYTES) ? edt.pi.data_src : NULL,
+     data);
 
   epan_dissect_cleanup(&edt);
   wtap_rec_cleanup(&rec);
@@ -597,6 +605,7 @@ sharkd_dissect_columns(frame_data *fdata, guint32 frame_ref_num, guint32 prev_di
 
   if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, &rec, &buf, &err, &err_info)) {
     col_fill_in_error(cinfo, fdata, FALSE, FALSE /* fill_fd_columns */);
+    wtap_rec_cleanup(&rec);
     ws_buffer_free(&buf);
     return -1; /* error reading the record */
   }
@@ -717,6 +726,12 @@ sharkd_filter(const char *dftext, guint8 **result)
   if (!dfilter_compile(dftext, &dfcode, &err_info)) {
     g_free(err_info);
     return -1;
+  }
+
+  /* if dfilter_compile() success, but (dfcode == NULL) all frames are matching */
+  if (dfcode == NULL) {
+    *result = NULL;
+    return 0;
   }
 
   frames_count = cfile.count;

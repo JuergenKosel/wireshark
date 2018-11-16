@@ -30,6 +30,7 @@
 #include <epan/expert.h>
 #include <epan/prefs.h>
 #include <epan/proto_data.h>
+#include <epan/exceptions.h>
 #include <epan/dissectors/packet-http.h> /* for getting status reason-phrase */
 #include <epan/dissectors/packet-http2.h>
 
@@ -1105,6 +1106,33 @@ get_http2_session(packet_info *pinfo)
 }
 
 #ifdef HAVE_NGHTTP2
+guint32
+http2_get_stream_id(packet_info *pinfo)
+{
+    conversation_t *conversation;
+    http2_session_t *h2session;
+
+    conversation = find_conversation_pinfo(pinfo, 0);
+    if (!conversation) {
+        return 0;
+    }
+
+    h2session = (http2_session_t*)conversation_get_proto_data(conversation, proto_http2);
+    if (!h2session) {
+        return 0;
+    }
+
+    return h2session->current_stream_id;
+}
+#else /* ! HAVE_NGHTTP2 */
+guint32
+http2_get_stream_id(packet_info *pinfo _U_)
+{
+    return 0;
+}
+#endif /* ! HAVE_NGHTTP2 */
+
+#ifdef HAVE_NGHTTP2
 static guint32
 select_http2_flow_index(packet_info *pinfo, http2_session_t *h2session)
 {
@@ -1550,7 +1578,7 @@ try_add_named_header_field(proto_tree *tree, tvbuff_t *tvb, int offset, guint32 
 
 static void
 inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset,
-                           proto_tree *tree, size_t headlen,
+                           proto_tree *tree, guint headlen,
                            http2_session_t *h2session, guint8 flags)
 {
     guint8 *headbuf;
@@ -1592,6 +1620,8 @@ inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset,
            This makes context out-of-sync. */
         int decompressed_bytes = 0;
 
+        /* Make sure the length isn't too large. */
+        tvb_ensure_bytes_exist(tvb, offset, headlen);
         headbuf = (guint8*)wmem_alloc(wmem_packet_scope(), headlen);
         tvb_memcpy(tvb, headbuf, offset, headlen);
 
@@ -1699,7 +1729,7 @@ inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset,
             wmem_list_append(header_stream_info->stream_header_list, headers);
         }
 
-    } else {
+    } else if (header_data->current) {
         headers = (wmem_array_t*)wmem_list_frame_data(header_data->current);
 
         header_data->current = wmem_list_frame_next(header_data->current);
@@ -1707,6 +1737,8 @@ inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset,
         if(!header_data->current) {
             header_data->current = wmem_list_head(header_list);
         }
+    } else {
+        return;
     }
 
     if(wmem_array_get_count(headers) == 0) {
@@ -2265,7 +2297,12 @@ dissect_http2_headers(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *http2_t
     offset = dissect_frame_padding(tvb, &padding, http2_tree, offset, flags);
     offset = dissect_frame_prio(tvb, http2_tree, offset, flags);
 
-    headlen = tvb_reported_length_remaining(tvb, offset) - padding;
+    headlen = tvb_reported_length_remaining(tvb, offset);
+    if (headlen < padding) {
+        /* XXX - what error *should* be reported here? */
+        THROW(ReportedBoundsError);
+    }
+    headlen -= padding;
     proto_tree_add_item(http2_tree, hf_http2_headers, tvb, offset, headlen, ENC_NA);
 
 #ifdef HAVE_NGHTTP2
@@ -2418,7 +2455,12 @@ dissect_http2_push_promise(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ht
                         offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
 
-    headlen = tvb_reported_length_remaining(tvb, offset) - padding;
+    headlen = tvb_reported_length_remaining(tvb, offset);
+    if (headlen < padding) {
+        /* XXX - what error *should* be reported here? */
+        THROW(ReportedBoundsError);
+    }
+    headlen -= padding;
     proto_tree_add_item(http2_tree, hf_http2_push_promise_header, tvb, offset, headlen,
                         ENC_NA);
 
@@ -2509,7 +2551,12 @@ dissect_http2_continuation(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ht
 
     offset = dissect_frame_padding(tvb, &padding, http2_tree, offset, flags);
 
-    headlen = tvb_reported_length_remaining(tvb, offset) - padding;
+    headlen = tvb_reported_length_remaining(tvb, offset);
+    if (headlen < padding) {
+        /* XXX - what error *should* be reported here? */
+        THROW(ReportedBoundsError);
+    }
+    headlen -= padding;
     proto_tree_add_item(http2_tree, hf_http2_continuation_header, tvb, offset, headlen, ENC_ASCII|ENC_NA);
 
 #ifdef HAVE_NGHTTP2
@@ -3327,12 +3374,13 @@ proto_reg_handoff_http2(void)
     dissector_add_for_decode_as_with_preference("tcp.port", http2_handle);
 
     /*
-     * SSL/TLS Application-Layer Protocol Negotiation (ALPN) protocol
-     * ID.
+     * SSL/TLS Application-Layer Protocol Negotiation (ALPN) protocol ID.
      */
-    dissector_add_string("ssl.handshake.extensions_alpn_str", "h2", http2_handle);
+    dissector_add_string("tls.alpn", "h2", http2_handle);
+    dissector_add_string("http.upgrade", "h2", http2_handle);
+    dissector_add_string("http.upgrade", "h2c", http2_handle);
 
-    heur_dissector_add("ssl", dissect_http2_heur_ssl, "HTTP2 over SSL", "http2_ssl", proto_http2, HEURISTIC_ENABLE);
+    heur_dissector_add("tls", dissect_http2_heur_ssl, "HTTP2 over TLS", "http2_tls", proto_http2, HEURISTIC_ENABLE);
     heur_dissector_add("http", dissect_http2_heur, "HTTP2 over TCP", "http2_tcp", proto_http2, HEURISTIC_ENABLE);
 
     stats_tree_register("http2", "http2", "HTTP2", 0, http2_stats_tree_packet, http2_stats_tree_init, NULL);

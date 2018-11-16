@@ -161,9 +161,25 @@ QString CaptureFilePropertiesDialog::summaryToHtml()
         << table_data_tmpl.arg(file_size_to_qstring(summary.file_length))
         << table_row_end;
 
+    out << table_row_begin
+        << table_vheader_tmpl.arg(tr("Hash (SHA256)"))
+        << table_data_tmpl.arg(summary.file_sha256)
+        << table_row_end;
+
+    out << table_row_begin
+        << table_vheader_tmpl.arg(tr("Hash (RIPEMD160)"))
+        << table_data_tmpl.arg(summary.file_rmd160)
+        << table_row_end;
+
+    out << table_row_begin
+        << table_vheader_tmpl.arg(tr("Hash (SHA1)"))
+        << table_data_tmpl.arg(summary.file_sha1)
+        << table_row_end;
+
     QString format_str = wtap_file_type_subtype_string(summary.file_type);
-    if (summary.iscompressed) {
-        format_str.append(tr(" (gzip compressed)"));
+    const char *compression_type_description = wtap_compression_type_description(summary.compression_type);
+    if (compression_type_description != NULL) {
+        format_str += QString(" (%1)").arg(compression_type_description);
     }
     out << table_row_begin
         << table_vheader_tmpl.arg(tr("Format"))
@@ -296,8 +312,8 @@ QString CaptureFilePropertiesDialog::summaryToHtml()
     }
 
     for (guint i = 0; i < summary.ifaces->len; i++) {
-        iface_options iface;
-        iface = g_array_index(summary.ifaces, iface_options, i);
+        iface_summary_info iface;
+        iface = g_array_index(summary.ifaces, iface_summary_info, i);
 
         /* interface */
         QString interface_name(unknown);

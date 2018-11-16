@@ -1168,7 +1168,8 @@ host_lookup6(const ws_in6_addr *addr)
 
 
 /*
- * If "accept_mask" is FALSE,  either 3 or 6 bytes are valid, but no other number of bytes is.
+ * If "accept_mask" is FALSE, cp must point to an address that consists
+ * of exactly 6 bytes.
  * If "accept_mask" is TRUE, parse an up-to-6-byte sequence with an optional
  * mask.
  */
@@ -2890,7 +2891,7 @@ add_manually_resolved(void)
     }
 }
 
-void
+static void
 host_name_lookup_init(void)
 {
     char *hostspath;
@@ -2960,7 +2961,7 @@ host_name_lookup_init(void)
     ss7pc_name_lookup_init();
 }
 
-void
+static void
 host_name_lookup_cleanup(void)
 {
     guint32 i, j;
@@ -2989,6 +2990,13 @@ host_name_lookup_cleanup(void)
 
     have_subnet_entry = FALSE;
     new_resolved_objects = FALSE;
+}
+
+
+void host_name_lookup_reset(void)
+{
+    host_name_lookup_cleanup();
+    host_name_lookup_init();
 }
 
 void
@@ -3468,8 +3476,7 @@ addr_resolv_init(void)
     initialize_ipxnets();
     initialize_vlans();
     initialize_enterprises();
-    /* host name initialization is done on a per-capture-file basis */
-    /*host_name_lookup_init();*/
+    host_name_lookup_init();
 }
 
 /* Clean up all the address resolution subsystems in this file */
@@ -3481,8 +3488,7 @@ addr_resolv_cleanup(void)
     ethers_cleanup();
     ipx_name_lookup_cleanup();
     enterprises_cleanup();
-    /* host name initialization is done on a per-capture-file basis */
-    /*host_name_lookup_cleanup();*/
+    host_name_lookup_cleanup();
 }
 
 gboolean
@@ -3495,6 +3501,23 @@ gboolean
 str_to_ip6(const char *str, void *dst)
 {
     return ws_inet_pton6(str, (ws_in6_addr *)dst);
+}
+
+/*
+ * convert a 0-terminated string that contains an ethernet address into
+ * the corresponding sequence of 6 bytes
+ * eth_bytes is a buffer >= 6 bytes that was allocated by the caller
+ */
+gboolean
+str_to_eth(const char *str, char *eth_bytes)
+{
+    ether_t eth;
+
+    if (!parse_ether_address(str, &eth, NULL, FALSE))
+        return FALSE;
+
+    memcpy(eth_bytes, eth.addr, sizeof(eth.addr));
+    return TRUE;
 }
 
 /*

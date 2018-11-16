@@ -36,12 +36,14 @@ set(NONGENERATED_UI_SRC
 	recent.c
 	rtp_media.c
 	rtp_stream.c
+	rtp_stream_id.c
 	service_response_time.c
 	software_update.c
 	ssl_key_export.c
 	summary.c
 	tap_export_pdu.c
 	tap-iax2-analysis.c
+	tap-rtp-analysis.c
 	tap-rtp-common.c
 	tap-sctp-analysis.c
 	tap-rlc-graph.c
@@ -57,6 +59,7 @@ set(NONGENERATED_UI_SRC
 file(GLOB EXTRA_UI_HEADERS
 	rtp_media.h
 	rtp_stream.h
+	rtp_stream_id.h
 	tap-iax2-analysis.h
 	tap-rtp-analysis.h
 )

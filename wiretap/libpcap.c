@@ -751,7 +751,7 @@ libpcap_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec,
 	}
 
 	phdr_len = pcap_process_pseudo_header(fh, wth->file_type_subtype,
-	    wth->file_encap, packet_size, TRUE, rec, err, err_info);
+	    wth->file_encap, packet_size, rec, err, err_info);
 	if (phdr_len < 0)
 		return FALSE;	/* error */
 
@@ -963,6 +963,15 @@ static gboolean libpcap_dump(wtap_dumper *wdh,
 	/* We can only write packet records. */
 	if (rec->rec_type != REC_TYPE_PACKET) {
 		*err = WTAP_ERR_UNWRITABLE_REC_TYPE;
+		return FALSE;
+	}
+
+	/*
+	 * Make sure this packet doesn't have a link-layer type that
+	 * differs from the one for the file.
+	 */
+	if (wdh->encap != rec->rec_header.packet_header.pkt_encap) {
+		*err = WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
 		return FALSE;
 	}
 

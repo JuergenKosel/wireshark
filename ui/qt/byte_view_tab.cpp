@@ -95,7 +95,11 @@ void ByteViewTab::addTab(const char *name, tvbuff_t *tvb) {
     QByteArray data;
     if ( tvb ) {
         int data_len = (int) tvb_captured_length(tvb);
-        data = QByteArray::fromRawData((const char *) tvb_get_ptr(tvb, 0, data_len), data_len);
+        if (data_len > 0) {
+            // Note: this does not copy the data and will be invalidated when
+            // the tvb becomes invalid (e.g. when the current packet changes).
+            data = QByteArray::fromRawData((const char *) tvb_get_ptr(tvb, 0, data_len), data_len);
+        }
     }
 
     ByteViewText * byte_view_text = new ByteViewText(data, encoding, this);

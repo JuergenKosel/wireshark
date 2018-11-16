@@ -685,7 +685,7 @@ init_progfile_dir(const char *arg0
                     g_free(cmake_file);
                 }
 #ifdef __APPLE__
-                if (!running_in_build_directory_flag) {
+                {
                     /*
                      * Scan up the path looking for a component
                      * named "Contents".  If we find it, we assume
@@ -765,10 +765,12 @@ get_progfile_dir(void)
  * On Windows, we use the directory in which the executable for this
  * process resides.
  *
- * On UN*X, we use the DATAFILE_DIR value supplied by the configure
- * script, unless we think we're being run from the build directory,
- * in which case we use the directory in which the executable for this
- * process resides.
+ * On macOS (when executed from an app bundle), use a directory within
+ * that app bundle.
+ *
+ * Otherwise, if the program was executed from the build directory, use the
+ * directory in which the executable for this process resides. In all other
+ * cases, use the DATAFILE_DIR value that was set at compile time.
  *
  * XXX - if we ever make libwireshark a real library, used by multiple
  * applications (more than just TShark and versions of Wireshark with
@@ -825,7 +827,30 @@ get_datafile_dir(void)
     }
 #else
 
-    if (running_in_build_directory_flag) {
+    if (g_getenv("WIRESHARK_DATA_DIR") && !started_with_special_privs()) {
+        /*
+         * The user specified a different directory for data files
+         * and we aren't running with special privileges.
+         * XXX - We might be able to dispense with the priv check
+         */
+        datafile_dir = g_strdup(g_getenv("WIRESHARK_DATA_DIR"));
+    }
+#ifdef __APPLE__
+    /*
+     * If we're running from an app bundle and weren't started
+     * with special privileges, use the Contents/Resources/share/wireshark
+     * subdirectory of the app bundle.
+     *
+     * (appbundle_dir is not set to a non-null value if we're
+     * started with special privileges, so we need only check
+     * it; we don't need to call started_with_special_privs().)
+     */
+    else if (appbundle_dir != NULL) {
+        datafile_dir = g_strdup_printf("%s/Contents/Resources/share/wireshark",
+                                       appbundle_dir);
+    }
+#endif
+    else if (running_in_build_directory_flag && progfile_dir != NULL) {
         /*
          * We're (probably) being run from the build directory and
          * weren't started with special privileges.
@@ -835,37 +860,12 @@ get_datafile_dir(void)
          * only check it; we don't need to call started_with_special_privs().)
          *
          * Data files (console.lua, radius/, etc.) are copied to the build
-         * directory during the build.
+         * directory during the build which also contains executables. A special
+         * exception is macOS (when built with an app bundle).
          */
-        datafile_dir = BUILD_TIME_DATAFILE_DIR;
-        return datafile_dir;
+        datafile_dir = progfile_dir;
     } else {
-        if (g_getenv("WIRESHARK_DATA_DIR") && !started_with_special_privs()) {
-            /*
-             * The user specified a different directory for data files
-             * and we aren't running with special privileges.
-             * XXX - We might be able to dispense with the priv check
-             */
-            datafile_dir = g_strdup(g_getenv("WIRESHARK_DATA_DIR"));
-        }
-#ifdef __APPLE__
-        /*
-         * If we're running from an app bundle and weren't started
-         * with special privileges, use the Contents/Resources/share/wireshark
-         * subdirectory of the app bundle.
-         *
-         * (appbundle_dir is not set to a non-null value if we're
-         * started with special privileges, so we need only check
-         * it; we don't need to call started_with_special_privs().)
-         */
-        else if (appbundle_dir != NULL) {
-            datafile_dir = g_strdup_printf("%s/Contents/Resources/share/wireshark",
-                                           appbundle_dir);
-        }
-#endif
-        else {
-            datafile_dir = DATAFILE_DIR;
-        }
+        datafile_dir = DATAFILE_DIR;
     }
 
 #endif
@@ -1419,40 +1419,50 @@ get_persconffile_dir(const gchar *profilename)
     return persconffile_profile_dir;
 }
 
-gboolean
-profile_exists(const gchar *profilename, gboolean global)
+char *
+get_profile_dir(const char *profilename, gboolean is_global)
 {
-    gchar *path = NULL, *global_path;
+    gchar *profile_dir;
 
-    if (global) {
-        /*
-         * If we're looking up a global profile, we must have a
-         * profile name.
-         */
-        if (!profilename)
-            return FALSE;
-        global_path = get_global_profiles_dir();
-        path = g_strdup_printf ("%s%s%s", global_path,
-                           G_DIR_SEPARATOR_S, profilename);
-        g_free(global_path);
-        if (test_for_directory (path) == EISDIR) {
-            g_free (path);
-            return TRUE;
+    if (is_global) {
+        if (profilename && strlen(profilename) > 0 &&
+            strcmp(profilename, DEFAULT_PROFILE) != 0)
+        {
+            gchar *global_path = get_global_profiles_dir();
+            profile_dir = g_build_filename(global_path, profilename, NULL);
+            g_free(global_path);
+        } else {
+            profile_dir = g_strdup(get_datafile_dir());
         }
     } else {
         /*
          * If we didn't supply a profile name, i.e. if profilename is
          * null, get_persconffile_dir() returns the default profile.
          */
-        path = get_persconffile_dir (profilename);
-        if (test_for_directory (path) == EISDIR) {
-            g_free (path);
-            return TRUE;
-        }
+        profile_dir = get_persconffile_dir(profilename);
     }
 
-    g_free (path);
-    return FALSE;
+    return profile_dir;
+}
+
+gboolean
+profile_exists(const gchar *profilename, gboolean global)
+{
+    gchar *path = NULL;
+    gboolean exists;
+
+    /*
+     * If we're looking up a global profile, we must have a
+     * profile name.
+     */
+    if (global && !profilename)
+        return FALSE;
+
+    path = get_profile_dir(profilename, global);
+    exists = (test_for_directory(path) == EISDIR) ? TRUE : FALSE;
+
+    g_free(path);
+    return exists;
 }
 
 static int
@@ -1673,20 +1683,10 @@ copy_persconffile_profile(const char *toname, const char *fromname, gboolean fro
 {
     gchar *from_dir;
     gchar *to_dir = get_persconffile_dir(toname);
-    gchar *filename, *from_file, *to_file, *global_path;
+    gchar *filename, *from_file, *to_file;
     GList *files, *file;
 
-    if (from_global) {
-        if (strcmp(fromname, DEFAULT_PROFILE) == 0) {
-            from_dir = get_global_profiles_dir();
-        } else {
-            global_path = get_global_profiles_dir();
-            from_dir = g_strdup_printf ("%s%s%s", global_path, G_DIR_SEPARATOR_S, fromname);
-            g_free(global_path);
-        }
-    } else {
-        from_dir = get_persconffile_dir(fromname);
-    }
+    from_dir = get_profile_dir(fromname, from_global);
 
     files = g_hash_table_get_keys(profile_files);
     file = g_list_first(files);
@@ -2017,28 +2017,41 @@ file_exists(const char *fname)
         return FALSE;
     }
 
-#if defined(_MSC_VER) && _MSC_VER < 1900
-
-    /*
-     * This is a bit tricky on win32. The st_ino field is documented as:
-     * "The inode, and therefore st_ino, has no meaning in the FAT, ..."
-     * but it *is* set to zero if stat() returns without an error,
-     * so this is working, but maybe not quite the way expected. ULFL
-     */
-    file_stat.st_ino = 1;   /* this will make things work if an error occurred */
-    ws_stat64(fname, &file_stat);
-    if (file_stat.st_ino == 0) {
-        return TRUE;
-    } else {
-        return FALSE;
-    }
-#else
     if (ws_stat64(fname, &file_stat) != 0 && errno == ENOENT) {
         return FALSE;
     } else {
         return TRUE;
     }
-#endif
+}
+
+gboolean config_file_exists_with_entries(const char *fname, char comment_char)
+{
+    gboolean start_of_line = TRUE;
+    gboolean has_entries = FALSE;
+    FILE *file;
+    int c;
+
+    if (!fname) {
+        return FALSE;
+    }
+
+    if ((file = ws_fopen(fname, "r")) == NULL) {
+        return FALSE;
+    }
+
+    do {
+        c = ws_getc_unlocked(file);
+        if (start_of_line && c != comment_char && !g_ascii_isspace(c) && g_ascii_isprint(c)) {
+            has_entries = TRUE;
+            break;
+        }
+        if (c == '\n' || !g_ascii_isspace(c)) {
+            start_of_line = (c == '\n');
+        }
+    } while (c != EOF);
+
+    fclose(file);
+    return has_entries;
 }
 
 /*

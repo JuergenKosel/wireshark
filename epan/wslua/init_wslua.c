@@ -524,11 +524,13 @@ static gboolean lua_load_script(const gchar* filename, const gchar* dirname, con
     lua_settop(L,0);
 
     lua_pushcfunction(L,lua_main_error_handler);
+    /* The source argument should start with with '@' to indicate a file. */
+    lua_pushfstring(L, "@%s", filename);
 
 #if LUA_VERSION_NUM >= 502
-    error = lua_load(L,getF,file,filename,NULL);
+    error = lua_load(L, getF, file, lua_tostring(L, -1), NULL);
 #else
-    error = lua_load(L,getF,file,filename);
+    error = lua_load(L, getF, file, lua_tostring(L, -1));
 #endif
 
     switch (error) {
@@ -540,23 +542,23 @@ static gboolean lua_load_script(const gchar* filename, const gchar* dirname, con
                 numargs = lua_script_push_args(file_count);
             }
             error = lua_pcall(L,numargs,0,1);
-            fclose(file);
-            lua_pop(L,1); /* pop the error handler */
-            return error ? FALSE : TRUE;
-        case LUA_ERRSYNTAX: {
+            break;
+
+        case LUA_ERRSYNTAX:
             report_failure("Lua: syntax error during precompilation of `%s':\n%s",filename,lua_tostring(L,-1));
-            fclose(file);
-            return FALSE;
-        }
+            break;
+
         case LUA_ERRMEM:
             report_failure("Lua: memory allocation error during precompilation of %s",filename);
-            fclose(file);
-            return FALSE;
+            break;
+
         default:
             report_failure("Lua: unknown error during precompilation of %s: %d",filename,error);
-            fclose(file);
-            return FALSE;
+            break;
     }
+    fclose(file);
+    lua_pop(L, 2);  /* pop the filename and error handler */
+    return error == 0;
 }
 
 /* This one is used to load the init.lua scripts, or anything else
@@ -767,6 +769,7 @@ wslua_allocf(void *ud _U_, void *ptr, size_t osize _U_, size_t nsize)
 void wslua_init(register_cb cb, gpointer client_data) {
     gchar* filename;
     const funnel_ops_t* ops = funnel_get_funnel_ops();
+    gboolean enable_lua = TRUE;
     gboolean run_anyway = FALSE;
     expert_module_t* expert_lua;
     int file_count = 1;
@@ -923,16 +926,25 @@ void wslua_init(register_cb cb, gpointer client_data) {
     filename = NULL;
 
     /* check if lua is to be disabled */
-    lua_getglobal(L,"disable_lua");
+    lua_getglobal(L, "disable_lua"); // 2.6 and earlier, deprecated
+    if (lua_isboolean(L,-1)) {
+        enable_lua = ! lua_toboolean(L,-1);
+    }
+    lua_pop(L,1);  /* pop the getglobal result */
 
-    if (lua_isboolean(L,-1) && lua_toboolean(L,-1)) {
+    lua_getglobal(L, "enable_lua"); // 3.0 and later
+    if (lua_isboolean(L,-1)) {
+        enable_lua = lua_toboolean(L,-1);
+    }
+    lua_pop(L,1);  /* pop the getglobal result */
+
+    if (!enable_lua) {
         /* disable lua */
         lua_close(L);
         L = NULL;
         first_time = FALSE;
         return;
     }
-    lua_pop(L,1);  /* pop the getglobal result */
 
     /* load global scripts */
     lua_load_global_plugins(cb, client_data, FALSE);

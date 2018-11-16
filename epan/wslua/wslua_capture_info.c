@@ -68,8 +68,8 @@ WSLUA_METAMETHOD CaptureInfo__tostring(lua_State* L) {
         lua_pushstring(L,"CaptureInfo pointer is NULL!");
     } else {
         wtap *wth = fi->wth;
-        lua_pushfstring(L, "CaptureInfo: file_type_subtype=%d, snapshot_length=%d, pkt_encap=%d, file_tsprec='%s'",
-            wth->file_type_subtype, wth->snapshot_length, wth->rec.rec_header.packet_header.pkt_encap, wth->file_tsprec);
+        lua_pushfstring(L, "CaptureInfo: file_type_subtype=%d, snapshot_length=%d, file_encap=%d, file_tsprec='%s'",
+            wth->file_type_subtype, wth->snapshot_length, wth->file_encap, wth->file_tsprec);
     }
 
     WSLUA_RETURN(1); /* String of debug information. */
@@ -337,8 +337,8 @@ WSLUA_METAMETHOD CaptureInfoConst__tostring(lua_State* L) {
         lua_pushstring(L,"CaptureInfoConst pointer is NULL!");
     } else {
         wtap_dumper *wdh = fi->wdh;
-        lua_pushfstring(L, "CaptureInfoConst: file_type_subtype=%d, snaplen=%d, encap=%d, compressed=%d",
-            wdh->file_type_subtype, wdh->snaplen, wdh->encap, wdh->compressed);
+        lua_pushfstring(L, "CaptureInfoConst: file_type_subtype=%d, snaplen=%d, encap=%d, compression_type=%d",
+            wdh->file_type_subtype, wdh->snaplen, wdh->encap, wdh->compression_type);
     }
 
     WSLUA_RETURN(1); /* String of debug information. */

@@ -27,35 +27,34 @@
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 #include "wireshark_application.h"
 
-SCTPGraphDialog::SCTPGraphDialog(QWidget *parent, sctp_assoc_info_t *assoc, capture_file *cf, int dir) :
+SCTPGraphDialog::SCTPGraphDialog(QWidget *parent, const sctp_assoc_info_t *assoc,
+        capture_file *cf, int dir) :
     QDialog(parent),
     ui(new Ui::SCTPGraphDialog),
-    selected_assoc(assoc),
     cap_file_(cf),
     frame_num(0),
     direction(dir),
-    gIsSackChunkPresent(false),
-    gIsNRSackChunkPresent(false),
     relative(false),
     type(1)
 {
+    Q_ASSERT(assoc);
+    selected_assoc_id = assoc->assoc_id;
+
     ui->setupUi(this);
-    if (!selected_assoc) {
-        selected_assoc = SCTPAssocAnalyseDialog::findAssocForPacket(cap_file_);
-    }
     Qt::WindowFlags flags = Qt::Window | Qt::WindowSystemMenuHint
             | Qt::WindowMinimizeButtonHint
             | Qt::WindowMaximizeButtonHint
             | Qt::WindowCloseButtonHint;
     this->setWindowFlags(flags);
-    this->setWindowTitle(QString(tr("SCTP TSNs and SACKs over Time: %1 Port1 %2 Port2 %3")).arg(gchar_free_to_qstring(cf_get_display_name(cap_file_))).arg(selected_assoc->port1).arg(selected_assoc->port2));
-    if ((direction == 1 && selected_assoc->n_array_tsn1 == 0) || (direction == 2 && selected_assoc->n_array_tsn2 == 0)) {
+    this->setWindowTitle(QString(tr("SCTP TSNs and SACKs over Time: %1 Port1 %2 Port2 %3"))
+            .arg(gchar_free_to_qstring(cf_get_display_name(cap_file_))).arg(assoc->port1).arg(assoc->port2));
+    if ((direction == 1 && assoc->n_array_tsn1 == 0) || (direction == 2 && assoc->n_array_tsn2 == 0)) {
         QMessageBox msgBox;
         msgBox.setText(tr("No Data Chunks sent"));
         msgBox.exec();
         return;
     } else {
-        drawGraph();
+        drawGraph(assoc);
     }
 }
 
@@ -64,7 +63,7 @@ SCTPGraphDialog::~SCTPGraphDialog()
     delete ui;
 }
 
-void SCTPGraphDialog::drawNRSACKGraph()
+void SCTPGraphDialog::drawNRSACKGraph(const sctp_assoc_info_t* selected_assoc)
 {
     tsn_t *sack;
     GList *list=NULL, *tlist;
@@ -92,7 +91,6 @@ void SCTPGraphDialog::drawNRSACKGraph()
         while (tlist) {
             type = ((struct chunk_header *)tlist->data)->type;
             if (type == SCTP_NR_SACK_CHUNK_ID) {
-                gIsNRSackChunkPresent = 1;
                 nr_sack_header =(struct nr_sack_chunk_header *)tlist->data;
                 numberOf_nr_gaps=g_ntohs(nr_sack_header->nr_of_nr_gaps);
                 numberOf_gaps=g_ntohs(nr_sack_header->nr_of_gaps);
@@ -132,7 +130,7 @@ void SCTPGraphDialog::drawNRSACKGraph()
     }
 }
 
-void SCTPGraphDialog::drawSACKGraph()
+void SCTPGraphDialog::drawSACKGraph(const sctp_assoc_info_t* selected_assoc)
 {
     GList *listSACK = NULL, *tlist;
     guint16 gap_start=0, gap_end=0, nr, dup_nr;
@@ -161,7 +159,6 @@ void SCTPGraphDialog::drawSACKGraph()
         while (tlist) {
             type = ((struct chunk_header *)tlist->data)->type;
             if (type == SCTP_SACK_CHUNK_ID) {
-                gIsSackChunkPresent = 1;
                 sack_header =(struct sack_chunk_header *)tlist->data;
                 nr=g_ntohs(sack_header->nr_of_gaps);
                 tsnumber = g_ntohl(sack_header->cum_tsn_ack);
@@ -261,7 +258,7 @@ void SCTPGraphDialog::drawSACKGraph()
     }
 }
 
-void SCTPGraphDialog::drawTSNGraph()
+void SCTPGraphDialog::drawTSNGraph(const sctp_assoc_info_t* selected_assoc)
 {
     GList *listTSN = NULL,*tlist;
     tsn_t *tsn;
@@ -317,12 +314,14 @@ void SCTPGraphDialog::drawTSNGraph()
     }
 }
 
-void SCTPGraphDialog::drawGraph()
+void SCTPGraphDialog::drawGraph(const sctp_assoc_info_t* selected_assoc)
 {
-    guint32 maxTSN, minTSN;
+    if (!selected_assoc) {
+        selected_assoc = SCTPAssocAnalyseDialog::findAssoc(this, selected_assoc_id);
+        if (!selected_assoc) return;
+    }
 
-    gIsSackChunkPresent = false;
-    gIsNRSackChunkPresent = false;
+    guint32 maxTSN, minTSN;
 
     if (direction == 1) {
         maxTSN = selected_assoc->max_tsn1;
@@ -332,19 +331,40 @@ void SCTPGraphDialog::drawGraph()
         minTSN = selected_assoc->min_tsn2;
     }
     ui->sctpPlot->clearGraphs();
+    xt.clear();
+    yt.clear();
+    xs.clear();
+    ys.clear();
+    xg.clear();
+    yg.clear();
+    xd.clear();
+    yd.clear();
+    xn.clear();
+    yn.clear();
+    ft.clear();
+    fs.clear();
+    fg.clear();
+    fd.clear();
+    fn.clear();
+    typeStrings.clear();
     switch (type) {
-    case 1: drawSACKGraph();
-        drawNRSACKGraph();
+    case 1:
+        drawSACKGraph(selected_assoc);
+        drawNRSACKGraph(selected_assoc);
         break;
-    case 2: drawTSNGraph();
+    case 2:
+        drawTSNGraph(selected_assoc);
         break;
-    case 3: drawTSNGraph();
-        drawSACKGraph();
-        drawNRSACKGraph();
+    case 3:
+        drawTSNGraph(selected_assoc);
+        drawSACKGraph(selected_assoc);
+        drawNRSACKGraph(selected_assoc);
         break;
-    default: drawTSNGraph();
-        drawSACKGraph();
-        drawNRSACKGraph();
+    default:
+        drawTSNGraph(selected_assoc);
+        drawSACKGraph(selected_assoc);
+        drawNRSACKGraph(selected_assoc);
+        break;
     }
 
     // give the axes some labels:
@@ -354,12 +374,11 @@ void SCTPGraphDialog::drawGraph()
     connect(ui->sctpPlot, SIGNAL(plottableClick(QCPAbstractPlottable*,QMouseEvent*)), this, SLOT(graphClicked(QCPAbstractPlottable*, QMouseEvent*)));
     // set axes ranges, so we see all data:
     QCPRange myXRange(selected_assoc->min_secs, (selected_assoc->max_secs+1));
-    QCPRange myYRange;
     if (relative) {
-        QCPRange myYRange(0, maxTSN - minTSN);
+        QCPRange myYRange(0, maxTSN - minTSN + 1);
         ui->sctpPlot->yAxis->setRange(myYRange);
     } else {
-        QCPRange myYRange(minTSN, maxTSN);
+        QCPRange myYRange(minTSN, maxTSN + 1);
         ui->sctpPlot->yAxis->setRange(myYRange);
     }
     ui->sctpPlot->xAxis->setRange(myXRange);
@@ -386,6 +405,9 @@ void SCTPGraphDialog::on_pushButton_3_clicked()
 
 void SCTPGraphDialog::on_pushButton_4_clicked()
 {
+    const sctp_assoc_info_t* selected_assoc = SCTPAssocAnalyseDialog::findAssoc(this, selected_assoc_id);
+    if (!selected_assoc) return;
+
     ui->sctpPlot->xAxis->setRange(selected_assoc->min_secs, selected_assoc->max_secs+1);
     if (relative) {
         if (direction == 1) {

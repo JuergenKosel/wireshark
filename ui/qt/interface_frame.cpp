@@ -73,7 +73,7 @@ InterfaceFrame::InterfaceFrame(QWidget * parent)
 
     QList<InterfaceTreeColumns> columns;
     columns.append(IFTREE_COL_EXTCAP);
-    columns.append(IFTREE_COL_NAME);
+    columns.append(IFTREE_COL_DISPLAY_NAME);
     columns.append(IFTREE_COL_STATS);
     proxyModel.setColumns(columns);
     proxyModel.setStoreOnChange(true);
@@ -249,15 +249,16 @@ void InterfaceFrame::resetInterfaceTreeDisplay()
     {
         ui->interfaceTree->setHidden(true);
         ui->lblNoInterfaces->setHidden(false);
-
         ui->lblNoInterfaces->setText( proxyModel.interfaceError() );
+        if ( prefs.capture_no_interface_load )
+            ui->lblNoInterfaces->setText( "Interfaces not loaded (due to preference). Go to Capture -> Refresh Interfaces to load." );
     }
     else
     {
         ui->interfaceTree->setHidden(false);
         ui->lblNoInterfaces->setHidden(true);
         ui->interfaceTree->resizeColumnToContents(proxyModel.mapSourceToColumn(IFTREE_COL_EXTCAP));
-        ui->interfaceTree->resizeColumnToContents(proxyModel.mapSourceToColumn(IFTREE_COL_NAME));
+        ui->interfaceTree->resizeColumnToContents(proxyModel.mapSourceToColumn(IFTREE_COL_DISPLAY_NAME));
         ui->interfaceTree->resizeColumnToContents(proxyModel.mapSourceToColumn(IFTREE_COL_STATS));
     }
 }
@@ -301,7 +302,7 @@ void InterfaceFrame::on_interfaceTree_doubleClicked(const QModelIndex &index)
 
 #ifdef HAVE_LIBPCAP
 
-    QString device_name = sourceModel.getColumnContent(realIndex.row(), IFTREE_COL_INTERFACE_NAME).toString();
+    QString device_name = sourceModel.getColumnContent(realIndex.row(), IFTREE_COL_NAME).toString();
     QString extcap_string = sourceModel.getColumnContent(realIndex.row(), IFTREE_COL_EXTCAP_PATH).toString();
 
     /* We trust the string here. If this interface is really extcap, the string is
@@ -329,7 +330,7 @@ void InterfaceFrame::on_interfaceTree_clicked(const QModelIndex &index)
         if ( ! realIndex.isValid() )
             return;
 
-        QString device_name = sourceModel.getColumnContent(realIndex.row(), IFTREE_COL_INTERFACE_NAME).toString();
+        QString device_name = sourceModel.getColumnContent(realIndex.row(), IFTREE_COL_NAME).toString();
         QString extcap_string = sourceModel.getColumnContent(realIndex.row(), IFTREE_COL_EXTCAP_PATH).toString();
 
         /* We trust the string here. If this interface is really extcap, the string is
@@ -370,6 +371,11 @@ void InterfaceFrame::updateStatistics(void)
 void InterfaceFrame::getPoints(int idx, PointList * pts)
 {
     sourceModel.getPoints(idx, pts);
+}
+
+void InterfaceFrame::showRunOnFile(void)
+{
+    ui->lblNoInterfaces->setText("Interfaces not loaded on startup (run on capture file). Go to Capture -> Refresh Interfaces to load.");
 }
 
 /*

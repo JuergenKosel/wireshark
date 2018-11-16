@@ -40,7 +40,7 @@
 #endif
 
 #include "packet-tcp.h"
-#include "packet-ssl.h"
+#include "packet-tls.h"
 
 #include <glib.h>
 #include <math.h>
@@ -448,7 +448,6 @@ static int hf_xattr_value = -1;
 static int hf_xattrs = -1;
 
 static int hf_flex_extras = -1;
-static int hf_flex_frame = -1;
 static int hf_flex_frame_id_len = -1;
 static int hf_flex_frame_id = -1;
 static int hf_flex_frame_len = -1;
@@ -1278,6 +1277,28 @@ dissect_extras(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     }
     break;
   case PROTOCOL_BINARY_DCP_EXPIRATION:
+    if (extlen) {
+        if (request) {
+            proto_tree_add_item(extras_tree, hf_extras_by_seqno, tvb, offset, 8, ENC_BIG_ENDIAN);
+            offset += 8;
+            proto_tree_add_item(extras_tree, hf_extras_rev_seqno, tvb, offset, 8, ENC_BIG_ENDIAN);
+            offset += 8;
+            if (extlen == 20) {
+                proto_tree_add_item(extras_tree, hf_extras_delete_time, tvb, offset, 4, ENC_BIG_ENDIAN);
+                offset += 4;
+            } else {
+                // Handle legacy expiration packet (despite its lack of use)
+                proto_tree_add_item(extras_tree, hf_extras_nmeta, tvb, offset, 2, ENC_BIG_ENDIAN);
+                offset += 2;
+            }
+        } else {
+            illegal = TRUE;
+        }
+    } else if (request) {
+        /* Request must have extras */
+        missing = TRUE;
+    }
+    break;
   case PROTOCOL_BINARY_DCP_FLUSH:
     if (extlen) {
       if (request) {
@@ -2392,7 +2413,6 @@ proto_register_couchbase(void)
     { &hf_flex_keylength, { "Key Length", "couchbase.key.length", FT_UINT8, BASE_DEC, NULL, 0x0, "Length in bytes of the text key that follows the command extras", HFILL } },
     { &hf_flex_extras_length, { "Flexible Framing Extras Length", "couchbase.flex_extras", FT_UINT8, BASE_DEC, NULL, 0x0, "Length in bytes of the flexible framing extras that follows the response header", HFILL } },
     { &hf_flex_extras, {"Flexible Framing Extras", "couchbase.flex_frame_extras", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
-    { &hf_flex_frame, {"Flexible Frame", "couchbase.flex_frame.frame", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
     { &hf_flex_frame_id_len, {"Flexible Frame Byte0", "couchbase.flex_frame.byte0", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_flex_frame_id, {"Flexible Frame ID", "couchbase.flex_frame.frame.id", FT_UINT8, BASE_DEC, VALS(flex_frame_ids), 0xF0, NULL, HFILL } },
     { &hf_flex_frame_id_esc, {"Flexible Frame ID (escaped)", "couchbase.flex_frame.frame.id", FT_UINT16, BASE_DEC, VALS(flex_frame_ids), 0xF0, NULL, HFILL } },
@@ -2584,9 +2604,10 @@ proto_register_couchbase(void)
                                  " to reassemble TCP streams\" in the TCP protocol settings.",
                                  &couchbase_desegment_body);
 
-  prefs_register_uint_preference(couchbase_module, "ssl_port", "SSL/TLS Data Port",
-                                 "The port used for communicating with the data service via ssl/tls",
+  prefs_register_uint_preference(couchbase_module, "tls.port", "SSL/TLS Data Port",
+                                 "The port used for communicating with the data service via SSL/TLS",
                                  10, &couchbase_ssl_port_pref);
+  prefs_register_obsolete_preference(couchbase_module, "ssl_port");
 
 
 }

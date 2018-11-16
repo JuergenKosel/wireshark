@@ -2080,7 +2080,7 @@ qip-login	2366/tcp/udp
 service-ctrl	2367/tcp/udp	# Service Control
 opentable	2368/tcp/udp	# OpenTable
 l3-hbmon	2370/tcp/udp	# L3-HBMon
-hp-rda		2371/tcp	# HP Remote Device Access
+rda		2371/tcp	# Remote Device Access
 lanmessenger	2372/tcp/udp	# LanMessenger
 remographlm	2373/tcp	# Remograph License Manager
 hydra		2374/tcp	# Hydra RPC
@@ -5149,6 +5149,7 @@ qbdb		8019/tcp/udp	# QB DB Dynamic Port
 intu-ec-svcdisc	8020/tcp/udp	# Intuit Entitlement Service and Discovery
 intu-ec-client	8021/tcp/udp	# Intuit Entitlement Client
 oa-system	8022/tcp/udp
+arca-api	8023/tcp/udp	# ARCATrust vault API
 ca-audit-da	8025/tcp/udp	# CA Audit Distribution Agent
 ca-audit-ds	8026/tcp/udp	# CA Audit Distribution Server
 pro-ed		8032/tcp/udp	# ProEd
@@ -5223,6 +5224,7 @@ lm-instmgr	8205/tcp/udp	# LM Instmgr
 lm-dta		8206/tcp/udp	# LM Dta
 lm-sserver	8207/tcp/udp	# LM SServer
 lm-webwatcher	8208/tcp/udp	# LM Webwatcher
+aruba-papi	8211/udp	# Aruba Networks AP management
 rexecj		8230/tcp/udp	# RexecJ Server
 hncp-udp-port	8231/udp	# HNCP
 hncp-dtls-port	8232/udp	# HNCP over DTLS
@@ -5310,6 +5312,7 @@ acd-pm		8793/tcp/udp	# Accedian Performance Measurement
 sunwebadmin	8800/tcp/udp	# Sun Web Server Admin Service
 truecm		8804/tcp/udp
 pfcp		8805/udp	# Destination Port number for PFCP
+hes-clip	8807/udp	# HES-CLIP Interoperability protocol
 ssports-bcast	8808/udp	# STATSports Broadcast Service
 dxspider	8873/tcp/udp	# dxspider linking protocol
 cddbp-alt	8880/tcp/udp	# CDDBP
@@ -5390,6 +5393,7 @@ xadmin		9105/tcp/udp	# Xadmin Control Service
 astergate	9106/tcp	# Astergate Control Service
 astergate-disc	9106/udp	# Astergate Discovery Service
 astergatefax	9107/tcp	# AstergateFax Control Service
+hexxorecore	9111/tcp/udp	# Multiple Purpose, Distributed Message Bus
 mxit		9119/tcp/udp	# MXit Instant Messaging
 grcmp		9122/tcp	# Global Relay compliant mobile instant messaging protocol
 grcp		9123/tcp	# Global Relay compliant instant messaging protocol
@@ -5897,6 +5901,7 @@ filesphere	24242/tcp/udp	# fileSphere
 vista-4gl	24249/tcp/udp	# Vista 4GL
 ild		24321/tcp/udp	# Isolv Local Directory
 hid		24322/udp	# Transport of Human Interface Device data streams
+vrmg-ip		24323/tcp	# Verimag mobile class protocol over TCP
 intel-rci	24386/tcp/udp	# Intel RCI
 tonidods	24465/tcp/udp	# Tonido Domain Server
 binkp		24554/tcp/udp	# BINKP
@@ -5942,6 +5947,7 @@ exoline-tcp	26486/tcp	# EXOline-TCP
 exoline-udp	26486/udp	# EXOline-UDP
 exoconfig	26487/tcp/udp	# EXOconfig
 exonet		26489/tcp/udp	# EXOnet
+flex-lmadmin	27010/tcp	# A protocol for managing license services
 imagepump	27345/tcp/udp	# ImagePump
 jesmsjc		27442/tcp/udp	# Job controller service
 kopek-httphead	27504/tcp/udp	# Kopek HTTP Head Port
@@ -6058,6 +6064,7 @@ fairview	38202/tcp/udp	# Fairview Message Service
 agpolicy	38203/tcp/udp	# AppGate Policy Server
 ng-control	38412/sctp	# NG Control Plane (3GPP)
 xn-control	38422/sctp	# Xn Control Plane (3GPP)
+e1-interface	38462/sctp	# E1 signalling transport
 f1-control	38472/sctp	# F1 Control Plane (3GPP)
 sruth		38800/tcp	# Sruth is a service for the distribution of routinely- generated but arbitrary files based on a publish/subscribe distribution model and implemented using a peer-to-peer transport mechanism
 secrmmsafecopya	38865/tcp	# Security approval process for use of the secRMM SafeCopy program

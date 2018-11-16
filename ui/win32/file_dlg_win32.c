@@ -28,13 +28,10 @@
 #include "wsutil/filesystem.h"
 #include "epan/prefs.h"
 
-#include "epan/color_filters.h"
-
 #include "ui/alert_box.h"
 #include "ui/help_url.h"
 #include "ui/last_open_dir.h"
 #include "ui/simple_dialog.h"
-#include "ui/ssl_key_export.h"
 #include "ui/util.h"
 #include "ui/ws_ui_util.h"
 #include "ui/all_files_wildcard.h"
@@ -60,23 +57,17 @@ typedef enum {
     _T("C Arrays (packet bytes) (*.c)\0")                _T("*.c\0")     \
     _T("JSON (*.json)\0")                                _T("*.json\0")
 
-#define FILE_TYPES_RAW \
-    _T("Raw data (*.bin, *.dat, *.raw)\0")               _T("*.bin;*.dat;*.raw\0") \
-    _T("All Files (") _T(ALL_FILES_WILDCARD) _T(")\0")   _T(ALL_FILES_WILDCARD) _T("\0")
-
-#define FILE_RAW_DEFAULT 1
-
-#define FILE_TYPES_SSLKEYS \
-    _T("SSL Session Keys (*.keys)\0")                    _T("*.keys\0") \
-    _T("All Files (") _T(ALL_FILES_WILDCARD) _T(")\0")   _T(ALL_FILES_WILDCARD) _T("\0")
-
-#define FILE_SSLKEYS_DEFAULT 1
-
-#define FILE_TYPES_COLOR \
-    _T("Text Files (*.txt)\0")                           _T("*.txt\0")   \
-    _T("All Files (") _T(ALL_FILES_WILDCARD) _T(")\0")   _T(ALL_FILES_WILDCARD) _T("\0")
-
-#define FILE_DEFAULT_COLOR 2
+static TCHAR *FILE_EXT_EXPORT[] =
+{
+    _T(""), /* export type starts at 1 */
+    _T("txt"),
+    _T("ps"),
+    _T("csv"),
+    _T("psml"),
+    _T("pdml"),
+    _T("c"),
+    _T("json")
+};
 
 static UINT_PTR CALLBACK open_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT_PTR CALLBACK save_as_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
@@ -84,8 +75,6 @@ static UINT_PTR CALLBACK save_as_statstree_hook_proc(HWND of_hwnd, UINT ui_msg, 
 static UINT_PTR CALLBACK export_specified_packets_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT_PTR CALLBACK merge_file_hook_proc(HWND mf_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT_PTR CALLBACK export_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
-static UINT_PTR CALLBACK export_raw_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
-static UINT_PTR CALLBACK export_sslkeys_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static void range_update_dynamics(HWND sf_hwnd, packet_range_t *range);
 static void range_handle_wm_initdialog(HWND dlg_hwnd, packet_range_t *range);
 static void range_handle_wm_command(HWND dlg_hwnd, HWND ctrl, WPARAM w_param, packet_range_t *range);
@@ -175,7 +164,7 @@ gboolean
 win32_open_file (HWND h_wnd, GString *file_name, unsigned int *type, GString *display_filter) {
     OPENFILENAME *ofn;
     TCHAR file_name16[MAX_PATH] = _T("");
-    int ofnsize;
+    int ofnsize = sizeof(OPENFILENAME);
     BOOL gofn_ok;
 
     if (!file_name || !display_filter)
@@ -191,7 +180,7 @@ win32_open_file (HWND h_wnd, GString *file_name, unsigned int *type, GString *di
         g_free(g_dfilter_str);
         g_dfilter_str = NULL;
     }
-    ofnsize = sizeof(OPENFILENAME);
+
     ofn = g_malloc0(ofnsize);
 
     ofn->lStructSize = ofnsize;
@@ -326,16 +315,17 @@ win32_check_save_as_with_comments(HWND parent, capture_file *cf, int file_type)
 
 gboolean
 win32_save_as_file(HWND h_wnd, capture_file *cf, GString *file_name, int *file_type,
-                   gboolean *compressed, gboolean must_support_all_comments)
+                   wtap_compression_type *compression_type,
+                   gboolean must_support_all_comments)
 {
     guint32 required_comment_types;
     GArray *savable_file_types;
     OPENFILENAME *ofn;
     TCHAR  file_name16[MAX_PATH] = _T("");
-    int    ofnsize;
+    int    ofnsize = sizeof(OPENFILENAME);
     BOOL gsfn_ok;
 
-    if (!file_name || !file_type || !compressed)
+    if (!file_name || !file_type || !compression_type)
         return FALSE;
 
     if (file_name->len > 0) {
@@ -355,7 +345,6 @@ win32_save_as_file(HWND h_wnd, capture_file *cf, GString *file_name, int *file_t
         return FALSE;  /* shouldn't happen - the "Save As..." item should be disabled if we can't save the file */
     g_compressed = FALSE;
 
-    ofnsize = sizeof(OPENFILENAME);
     ofn = g_malloc0(ofnsize);
 
     ofn->lStructSize = ofnsize;
@@ -387,7 +376,7 @@ win32_save_as_file(HWND h_wnd, capture_file *cf, GString *file_name, int *file_t
         g_string_printf(file_name, "%s", utf_16to8(file_name16));
         /* What file format was specified? */
         *file_type = g_array_index(savable_file_types, int, ofn->nFilterIndex - 1);
-        *compressed = g_compressed;
+        *compression_type = g_compressed ? WTAP_GZIP_COMPRESSED : WTAP_UNCOMPRESSED;
     } else {
         /* User cancelled or closed the dialog, or an error occurred. */
         if (CommDlgExtendedError() != 0) {
@@ -411,11 +400,8 @@ gboolean win32_save_as_statstree(HWND h_wnd, GString *file_name, int *file_type)
 {
     OPENFILENAME *ofn;
     TCHAR  file_name16[MAX_PATH] = _T("");
-    int    ofnsize;
+    int    ofnsize = sizeof(OPENFILENAME);
     BOOL gsfn_ok;
-#if (_MSC_VER >= 1500)
-    OSVERSIONINFO osvi;
-#endif
 
     if (!file_name || !file_type)
         return FALSE;
@@ -424,20 +410,7 @@ gboolean win32_save_as_statstree(HWND h_wnd, GString *file_name, int *file_type)
         StringCchCopy(file_name16, MAX_PATH, utf_8to16(file_name->str));
     }
 
-    /* see OPENFILENAME comment in win32_open_file */
-#if (_MSC_VER >= 1500)
-    SecureZeroMemory(&osvi, sizeof(OSVERSIONINFO));
-    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-    GetVersionEx(&osvi);
-    if (osvi.dwMajorVersion >= 5) {
-        ofnsize = sizeof(OPENFILENAME);
-    } else {
-        ofnsize = OPENFILENAME_SIZE_VERSION_400;
-    }
-#else
-    ofnsize = sizeof(OPENFILENAME) + 12;
-#endif
-    ofn = g_malloc0(ofnsize);
+    ofn = g_malloc0(sizeof(OPENFILENAME));
 
     ofn->lStructSize = ofnsize;
     ofn->hwndOwner = h_wnd;
@@ -479,15 +452,15 @@ gboolean
 win32_export_specified_packets_file(HWND h_wnd, capture_file *cf,
                                     GString *file_name,
                                     int *file_type,
-                                    gboolean *compressed,
+                                    wtap_compression_type *compression_type,
                                     packet_range_t *range) {
     GArray *savable_file_types;
     OPENFILENAME *ofn;
     TCHAR  file_name16[MAX_PATH] = _T("");
-    int    ofnsize;
+    int    ofnsize = sizeof(OPENFILENAME);
     BOOL gsfn_ok;
 
-    if (!file_name || !file_type || !compressed || !range)
+    if (!file_name || !file_type || !compression_type || !range)
         return FALSE;
 
     if (file_name->len > 0) {
@@ -503,7 +476,6 @@ win32_export_specified_packets_file(HWND h_wnd, capture_file *cf,
     g_cf = cf;
     g_compressed = FALSE;
 
-    ofnsize = sizeof(OPENFILENAME);
     ofn = g_malloc0(ofnsize);
 
     ofn->lStructSize = ofnsize;
@@ -535,7 +507,7 @@ win32_export_specified_packets_file(HWND h_wnd, capture_file *cf,
         g_string_printf(file_name, "%s", utf_16to8(file_name16));
         /* What file format was specified? */
         *file_type = g_array_index(savable_file_types, int, ofn->nFilterIndex - 1);
-        *compressed = g_compressed;
+        *compression_type = g_compressed ? WTAP_GZIP_COMPRESSED : WTAP_UNCOMPRESSED;
     } else {
         /* User cancelled or closed the dialog, or an error occurred. */
         if (CommDlgExtendedError() != 0) {
@@ -562,7 +534,7 @@ gboolean
 win32_merge_file (HWND h_wnd, GString *file_name, GString *display_filter, int *merge_type) {
     OPENFILENAME *ofn;
     TCHAR         file_name16[MAX_PATH] = _T("");
-    int           ofnsize;
+    int           ofnsize = sizeof(OPENFILENAME);
     BOOL          gofn_ok;
 
     if (!file_name || !display_filter || !merge_type)
@@ -579,7 +551,6 @@ win32_merge_file (HWND h_wnd, GString *file_name, GString *display_filter, int *
         g_dfilter_str = NULL;
     }
 
-    ofnsize = sizeof(OPENFILENAME);
     ofn = g_malloc0(ofnsize);
 
     ofn->lStructSize = ofnsize;
@@ -642,11 +613,10 @@ win32_export_file(HWND h_wnd, capture_file *cf, export_type_e export_type) {
     TCHAR             file_name[MAX_PATH] = _T("");
     char             *dirname;
     cf_print_status_t status;
-    int               ofnsize;
+    int               ofnsize = sizeof(OPENFILENAME);
 
     g_cf = cf;
 
-    ofnsize = sizeof(OPENFILENAME);
     ofn = g_malloc0(ofnsize);
 
     ofn->lStructSize = ofnsize;
@@ -665,7 +635,7 @@ win32_export_file(HWND h_wnd, capture_file *cf, export_type_e export_type) {
     ofn->Flags = OFN_ENABLESIZING  | OFN_ENABLETEMPLATE  | OFN_EXPLORER     |
                  OFN_NOCHANGEDIR   | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
                  OFN_PATHMUSTEXIST | OFN_ENABLEHOOK      | OFN_SHOWHELP;
-    ofn->lpstrDefExt = NULL;
+    ofn->lpstrDefExt = FILE_EXT_EXPORT[export_type];
     ofn->lCustData = (LPARAM) cf;
     ofn->lpfnHook = export_file_hook_proc;
     ofn->lpTemplateName = _T("WIRESHARK_EXPORTFILENAME_TEMPLATE");
@@ -744,271 +714,6 @@ win32_export_file(HWND h_wnd, capture_file *cf, export_type_e export_type) {
 
     g_cf = NULL;
     g_free( (void *) ofn);
-}
-
-void
-win32_export_raw_file(HWND h_wnd, capture_file *cf) {
-    OPENFILENAME *ofn;
-    TCHAR         file_name[MAX_PATH] = _T("");
-    char         *dirname;
-    const guint8 *data_p;
-    char         *file_name8;
-    int           fd;
-    int           ofnsize;
-
-    if (!cf->finfo_selected) {
-        /* This shouldn't happen */
-        simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "No bytes were selected.");
-        return;
-    }
-
-    ofnsize = sizeof(OPENFILENAME);
-    ofn = g_malloc0(ofnsize);
-
-    ofn->lStructSize = ofnsize;
-    ofn->hwndOwner = h_wnd;
-    ofn->hInstance = (HINSTANCE) GetWindowLongPtr(h_wnd, GWLP_HINSTANCE);
-    ofn->lpstrFilter = FILE_TYPES_RAW;
-    ofn->lpstrCustomFilter = NULL;
-    ofn->nMaxCustFilter = 0;
-    ofn->nFilterIndex = FILE_RAW_DEFAULT;
-    ofn->lpstrFile = file_name;
-    ofn->nMaxFile = MAX_PATH;
-    ofn->lpstrFileTitle = NULL;
-    ofn->nMaxFileTitle = 0;
-    ofn->lpstrInitialDir = utf_8to16(get_last_open_dir());
-    ofn->lpstrTitle = _T("Wireshark: Export Raw Data");
-    ofn->Flags = OFN_ENABLESIZING  | OFN_ENABLETEMPLATE  | OFN_EXPLORER     |
-                 OFN_NOCHANGEDIR   | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
-                 OFN_PATHMUSTEXIST | OFN_ENABLEHOOK      | OFN_SHOWHELP;
-    ofn->lpstrDefExt = NULL;
-    ofn->lCustData = cf->finfo_selected->length;
-    ofn->lpfnHook = export_raw_file_hook_proc;
-    ofn->lpTemplateName = _T("WIRESHARK_EXPORTRAWFILENAME_TEMPLATE");
-
-    /*
-     * XXX - The GTK+ code uses get_byte_view_data_and_length().  We just
-     * grab the info from cf->finfo_selected.  Which is more "correct"?
-     */
-
-    HANDLE save_da_ctx = set_thread_per_monitor_v2_awareness();
-    BOOL gsfn_ok = GetSaveFileName(ofn);
-    revert_thread_per_monitor_v2_awareness(save_da_ctx);
-
-    if (gsfn_ok) {
-        g_free( (void *) ofn);
-        file_name8 = utf_16to8(file_name);
-        data_p = tvb_get_ptr(cf->finfo_selected->ds_tvb, 0, -1) +
-                cf->finfo_selected->start;
-        fd = ws_open(file_name8, O_WRONLY|O_CREAT|O_TRUNC|O_BINARY, 0666);
-        if (fd == -1) {
-            open_failure_alert_box(file_name8, errno, TRUE);
-            return;
-        }
-        if (ws_write(fd, data_p, cf->finfo_selected->length) < 0) {
-            write_failure_alert_box(file_name8, errno);
-            ws_close(fd);
-            return;
-        }
-        if (ws_close(fd) < 0) {
-            write_failure_alert_box(file_name8, errno);
-            return;
-        }
-
-        /* Save the directory name for future file dialogs. */
-        dirname = get_dirname(file_name8);  /* Overwrites cf_name */
-        set_last_open_dir(dirname);
-    } else {
-        g_free( (void *) ofn);
-    }
-}
-
-void
-win32_export_sslkeys_file(HWND h_wnd) {
-    OPENFILENAME *ofn;
-    TCHAR         file_name[MAX_PATH] = _T("");
-    char         *dirname;
-    gchar        *keylist = NULL;
-    char         *file_name8;
-    int           fd;
-    int           ofnsize;
-    int           keylist_size;
-
-    keylist_size = ssl_session_key_count();
-    if (keylist_size==0) {
-        /* This shouldn't happen */
-        simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "No SSL Session Keys to export.");
-        return;
-    }
-
-    ofnsize = sizeof(OPENFILENAME);
-    ofn = g_malloc0(ofnsize);
-
-    ofn->lStructSize = ofnsize;
-    ofn->hwndOwner = h_wnd;
-    ofn->hInstance = (HINSTANCE) GetWindowLongPtr(h_wnd, GWLP_HINSTANCE);
-    ofn->lpstrFilter = FILE_TYPES_SSLKEYS;
-    ofn->lpstrCustomFilter = NULL;
-    ofn->nMaxCustFilter = 0;
-    ofn->nFilterIndex = FILE_SSLKEYS_DEFAULT;
-    ofn->lpstrFile = file_name;
-    ofn->nMaxFile = MAX_PATH;
-    ofn->lpstrFileTitle = NULL;
-    ofn->nMaxFileTitle = 0;
-    ofn->lpstrInitialDir = utf_8to16(get_last_open_dir());
-    ofn->lpstrTitle = _T("Wireshark: Export SSL Session Keys");
-    ofn->Flags = OFN_ENABLESIZING  | OFN_ENABLETEMPLATE  | OFN_EXPLORER     |
-                 OFN_NOCHANGEDIR   | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
-                 OFN_PATHMUSTEXIST | OFN_ENABLEHOOK      | OFN_SHOWHELP;
-    ofn->lpstrDefExt = NULL;
-    ofn->lCustData = keylist_size;
-    ofn->lpfnHook = export_sslkeys_file_hook_proc;
-    ofn->lpTemplateName = _T("WIRESHARK_EXPORTSSLKEYSFILENAME_TEMPLATE");
-
-    HANDLE save_da_ctx = set_thread_per_monitor_v2_awareness();
-    BOOL gsfn_ok = GetSaveFileName(ofn);
-    revert_thread_per_monitor_v2_awareness(save_da_ctx);
-
-    if (gsfn_ok) {
-        g_free( (void *) ofn);
-        file_name8 = utf_16to8(file_name);
-        keylist = ssl_export_sessions();
-        fd = ws_open(file_name8, O_WRONLY|O_CREAT|O_TRUNC|O_BINARY, 0666);
-        if (fd == -1) {
-            open_failure_alert_box(file_name8, errno, TRUE);
-            g_free(keylist);
-            return;
-        }
-        /*
-         * Thanks, Microsoft, for not using size_t for the third argument to
-         * _write().  Presumably this string will be <= 4GiB long....
-         */
-        if (ws_write(fd, keylist, (unsigned int)strlen(keylist)) < 0) {
-            write_failure_alert_box(file_name8, errno);
-            ws_close(fd);
-            g_free(keylist);
-            return;
-        }
-        if (ws_close(fd) < 0) {
-            write_failure_alert_box(file_name8, errno);
-            g_free(keylist);
-            return;
-        }
-
-        /* Save the directory name for future file dialogs. */
-        dirname = get_dirname(file_name8);  /* Overwrites cf_name */
-        set_last_open_dir(dirname);
-    } else {
-        g_free( (void *) ofn);
-    }
-    g_free(keylist);
-}
-
-void
-win32_export_color_file(HWND h_wnd, capture_file *cf, gpointer filter_list) {
-    OPENFILENAME *ofn;
-    TCHAR  file_name[MAX_PATH] = _T("");
-    gchar *dirname;
-    int    ofnsize;
-    gchar *err_msg = NULL;
-
-    ofnsize = sizeof(OPENFILENAME);
-    ofn = g_malloc0(ofnsize);
-
-    ofn->lStructSize = ofnsize;
-    ofn->hwndOwner = h_wnd;
-    ofn->hInstance = (HINSTANCE) GetWindowLongPtr(h_wnd, GWLP_HINSTANCE);
-    ofn->lpstrFilter = FILE_TYPES_COLOR;
-    ofn->lpstrCustomFilter = NULL;
-    ofn->nMaxCustFilter = 0;
-    ofn->nFilterIndex = FILE_DEFAULT_COLOR;
-    ofn->lpstrFile = file_name;
-    ofn->nMaxFile = MAX_PATH;
-    ofn->lpstrFileTitle = NULL;
-    ofn->nMaxFileTitle = 0;
-    ofn->lpstrInitialDir = utf_8to16(get_last_open_dir());
-    ofn->lpstrTitle = _T("Wireshark: Export Color Filters");
-    ofn->Flags = OFN_ENABLESIZING  | OFN_EXPLORER        |
-                 OFN_NOCHANGEDIR   | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
-                 OFN_PATHMUSTEXIST | OFN_ENABLEHOOK;
-    ofn->lpstrDefExt = NULL;
-    ofn->lpfnHook = NULL;
-    ofn->lpTemplateName = NULL;
-
-    g_filetype = cf->cd_t;
-
-    /* XXX - Support marked filters */
-    HANDLE save_da_ctx = set_thread_per_monitor_v2_awareness();
-    BOOL gsfn_ok = GetSaveFileName(ofn);
-    revert_thread_per_monitor_v2_awareness(save_da_ctx);
-
-    if (gsfn_ok) {
-        g_free( (void *) ofn);
-        if (!color_filters_export(utf_16to8(file_name), filter_list, FALSE /* all filters */, &err_msg))
-        {
-            simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err_msg);
-            g_free(err_msg);
-            return;
-        }
-
-        /* Save the directory name for future file dialogs. */
-        dirname = get_dirname(utf_16to8(file_name));  /* Overwrites cf_name */
-        set_last_open_dir(dirname);
-    } else {
-        g_free( (void *) ofn);
-    }
-}
-
-void
-win32_import_color_file(HWND h_wnd, gpointer color_filters) {
-    OPENFILENAME *ofn;
-    TCHAR  file_name[MAX_PATH] = _T("");
-    gchar *dirname;
-    int    ofnsize;
-    gchar *err_msg = NULL;
-
-    ofnsize = sizeof(OPENFILENAME);
-    ofn = g_malloc0(ofnsize);
-
-    ofn->lStructSize = ofnsize;
-    ofn->hwndOwner = h_wnd;
-    ofn->hInstance = (HINSTANCE) GetWindowLongPtr(h_wnd, GWLP_HINSTANCE);
-    ofn->lpstrFilter = FILE_TYPES_COLOR;
-    ofn->lpstrCustomFilter = NULL;
-    ofn->nMaxCustFilter = 0;
-    ofn->nFilterIndex = FILE_DEFAULT_COLOR;
-    ofn->lpstrFile = file_name;
-    ofn->nMaxFile = MAX_PATH;
-    ofn->lpstrFileTitle = NULL;
-    ofn->nMaxFileTitle = 0;
-    ofn->lpstrInitialDir = utf_8to16(get_last_open_dir());
-    ofn->lpstrTitle = _T("Wireshark: Import Color Filters");
-    ofn->Flags = OFN_ENABLESIZING  | OFN_EXPLORER        |
-                 OFN_NOCHANGEDIR   | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
-                 OFN_PATHMUSTEXIST | OFN_ENABLEHOOK;
-    ofn->lpstrDefExt = NULL;
-    ofn->lpfnHook = NULL;
-    ofn->lpTemplateName = NULL;
-
-    /* XXX - Support export limited to selected filters */
-    HANDLE save_da_ctx = set_thread_per_monitor_v2_awareness();
-    BOOL gofn_ok = GetOpenFileName(ofn);
-    revert_thread_per_monitor_v2_awareness(save_da_ctx);
-
-    if (gofn_ok) {
-        g_free( (void *) ofn);
-        if (!color_filters_import(utf_16to8(file_name), color_filters, &err_msg, color_filter_add_cb)) {
-            simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err_msg);
-            g_free(err_msg);
-            return;
-        }
-
-        /* Save the directory name for future file dialogs. */
-        dirname = get_dirname(utf_16to8(file_name));  /* Overwrites cf_name */
-        set_last_open_dir(dirname);
-    } else {
-        g_free( (void *) ofn);
-    }
 }
 
 
@@ -2331,62 +2036,6 @@ export_file_hook_proc(HWND ef_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
                     break;
             }
             break;
-        default:
-            break;
-    }
-    return 0;
-}
-
-static UINT_PTR CALLBACK
-export_raw_file_hook_proc(HWND ef_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
-    HWND          cur_ctrl;
-    OPENFILENAME *ofnp = (OPENFILENAME *) l_param;
-    TCHAR         raw_msg[STATIC_LABEL_CHARS];
-    OFNOTIFY      *notify = (OFNOTIFY *) l_param;
-
-    switch(msg) {
-        case WM_INITDIALOG:
-            StringCchPrintf(raw_msg, STATIC_LABEL_CHARS, _T("%d byte%s of raw binary data will be written"),
-                    (int)ofnp->lCustData, utf_8to16(plurality(ofnp->lCustData, "", "s")));
-            cur_ctrl = GetDlgItem(ef_hwnd, EWFD_EXPORTRAW_ST);
-            SetWindowText(cur_ctrl, raw_msg);
-            break;
-        case WM_NOTIFY:
-            switch (notify->hdr.code) {
-                case CDN_HELP:
-                    topic_action(HELP_EXPORT_BYTES_WIN32_DIALOG);
-                    break;
-                default:
-                    break;
-            }
-        default:
-            break;
-    }
-    return 0;
-}
-
-static UINT_PTR CALLBACK
-export_sslkeys_file_hook_proc(HWND ef_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
-    HWND          cur_ctrl;
-    OPENFILENAME *ofnp = (OPENFILENAME *) l_param;
-    TCHAR         sslkeys_msg[STATIC_LABEL_CHARS];
-    OFNOTIFY      *notify = (OFNOTIFY *) l_param;
-
-    switch(msg) {
-        case WM_INITDIALOG:
-            StringCchPrintf(sslkeys_msg, STATIC_LABEL_CHARS, _T("%d SSL Session Key%s will be written"),
-                    (int)ofnp->lCustData, utf_8to16(plurality(ofnp->lCustData, "", "s")));
-            cur_ctrl = GetDlgItem(ef_hwnd, EWFD_EXPORTSSLKEYS_ST);
-            SetWindowText(cur_ctrl, sslkeys_msg);
-            break;
-        case WM_NOTIFY:
-            switch (notify->hdr.code) {
-                case CDN_HELP:
-                    topic_action(HELP_EXPORT_BYTES_WIN32_DIALOG);
-                    break;
-                default:
-                    break;
-            }
         default:
             break;
     }
