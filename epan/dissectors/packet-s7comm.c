@@ -436,12 +436,12 @@ static const value_string item_transportsizenames[] = {
 #define S7COMM_SYNTAXID_ALARM_ACKSET        0x19        /* Alarm acknowledge message dataset */
 #define S7COMM_SYNTAXID_ALARM_QUERYREQSET   0x1a        /* Alarm query request dataset */
 #define S7COMM_SYNTAXID_NOTIFY_INDSET       0x1c        /* Notify indication dataset */
-#define S7COMM_SYNTAXID_DRIVEESANY          0xa2        /* seen on Drive ES Starter with routing over S7 */
-#define S7COMM_SYNTAXID_1200SYM             0xb2        /* Symbolic address mode of S7-1200 */
-#define S7COMM_SYNTAXID_DBREAD              0xb0        /* Kind of DB block read, seen only at an S7-400 */
 #define S7COMM_SYNTAXID_NCK                 0x82        /* Sinumerik NCK HMI access (current units) */
 #define S7COMM_SYNTAXID_NCK_METRIC          0x83        /* Sinumerik NCK HMI access metric units */
 #define S7COMM_SYNTAXID_NCK_INCH            0x84        /* Sinumerik NCK HMI access inch */
+#define S7COMM_SYNTAXID_DRIVEESANY          0xa2        /* seen on Drive ES Starter with routing over S7 */
+#define S7COMM_SYNTAXID_1200SYM             0xb2        /* Symbolic address mode of S7-1200 */
+#define S7COMM_SYNTAXID_DBREAD              0xb0        /* Kind of DB block read, seen only at an S7-400 */
 
 static const value_string item_syntaxid_names[] = {
     { S7COMM_SYNTAXID_S7ANY,                "S7ANY" },
@@ -451,12 +451,12 @@ static const value_string item_syntaxid_names[] = {
     { S7COMM_SYNTAXID_ALARM_ACKSET,         "ALARM_ACK" },
     { S7COMM_SYNTAXID_ALARM_QUERYREQSET,    "ALARM_QUERYREQ" },
     { S7COMM_SYNTAXID_NOTIFY_INDSET,        "NOTIFY_IND" },
-    { S7COMM_SYNTAXID_DRIVEESANY,           "DRIVEESANY" },
-    { S7COMM_SYNTAXID_1200SYM,              "1200SYM" },
-    { S7COMM_SYNTAXID_DBREAD,               "DBREAD" },
     { S7COMM_SYNTAXID_NCK,                  "NCK" },
     { S7COMM_SYNTAXID_NCK_METRIC,           "NCK_M" },
     { S7COMM_SYNTAXID_NCK_INCH,             "NCK_I" },
+    { S7COMM_SYNTAXID_DRIVEESANY,           "DRIVEESANY" },
+    { S7COMM_SYNTAXID_1200SYM,              "1200SYM" },
+    { S7COMM_SYNTAXID_DBREAD,               "DBREAD" },
     { 0,                                    NULL }
 };
 
