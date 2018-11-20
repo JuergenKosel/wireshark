@@ -577,6 +577,18 @@ else() # ! MSVC
 		-Werror=implicit
 	)
 
+	#
+	# The universal zero initializer (in C: struct s x = { 0 };) for
+	# structures with multiple members is perfectly legal, but some older
+	# compilers warn about it. Silence those older compilers.
+	#
+	if((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS "4.7") OR
+	   (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_LESS "6.0") OR
+	   (CMAKE_C_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_C_COMPILER_VERSION VERSION_LESS "10.0"))
+		list(APPEND WIRESHARK_C_ONLY_FLAGS -Wno-missing-field-initializers)
+	endif()
+
+
 	list(APPEND WIRESHARK_CXX_ONLY_FLAGS
 	)
 
@@ -899,8 +911,6 @@ endif()
 set(PACKAGELIST ${PACKAGELIST} LIBSSH)
 set(LIBSSH_OPTIONS "0.6")
 
-set(PACKAGELIST ${PACKAGELIST} JSONGLIB)
-
 if(ENABLE_PCAP)
 	set(PACKAGELIST ${PACKAGELIST} PCAP)
 endif()
@@ -1134,9 +1144,6 @@ if(MAXMINDDB_FOUND)
 endif()
 if(LIBSSH_FOUND)
 	set(HAVE_LIBSSH 1)
-endif()
-if(JSONGLIB_FOUND)
-	set(HAVE_JSONGLIB 1)
 endif()
 if(NGHTTP2_FOUND)
 	set(HAVE_NGHTTP2 1)
@@ -1716,9 +1723,6 @@ if(WIN32)
 	if (LIBSSH_FOUND)
 		list (APPEND OPTIONAL_DLLS "${LIBSSH_DLL_DIR}/${LIBSSH_DLL}")
 	endif(LIBSSH_FOUND)
-	if (JSONGLIB_FOUND)
-		list (APPEND OPTIONAL_DLLS "${JSONGLIB_DLL_DIR}/${JSONGLIB_DLL}")
-	endif(JSONGLIB_FOUND)
 	foreach( _dll ${GCRYPT_DLLS} )
 		list (APPEND OPTIONAL_DLLS "${GCRYPT_DLL_DIR}/${_dll}")
 	endforeach(_dll)

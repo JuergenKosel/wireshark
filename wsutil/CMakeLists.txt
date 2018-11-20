@@ -43,6 +43,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	inet_ipv6.h
 	interface.h
 	jsmn.h
+	json_dumper.h
 	mpeg-audio.h
 	netlink.h
 	nstime.h
@@ -99,6 +100,7 @@ set(WSUTIL_COMMON_FILES
 	inet_addr.c
 	interface.c
 	jsmn.c
+	json_dumper.c
 	mpeg-audio.c
 	nstime.c
 	cpu_info.c
@@ -228,10 +230,6 @@ set(wsutil_LIBS
 	${WIN_WSOCK32_LIBRARY}
 	${GNUTLS_LIBRARIES}
 )
-
-IF(HAVE_JSONGLIB)
-	list(APPEND wsutil_LIBS ${JSONGLIB_LIBRARIES})
-ENDIF()
 
 IF(WIN32)
 	set(wsutil_LIBS ${wsutil_LIBS} "iphlpapi.lib" "ws2_32.lib")
