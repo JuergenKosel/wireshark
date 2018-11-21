@@ -98,6 +98,9 @@ rpm-centos-7:
     - ninja-build
     - ninja-build rpm-package
 rpm-opensuse-42.3:
+  except:
+    - s7commwireshark
+    - s7commwireshark-2.4
   image: opensuse:42.3
   except:
     - s7commwireshark
@@ -111,6 +114,9 @@ rpm-opensuse-42.3:
     - make
     - make rpm-package
 rpm-fedora-28:
+  except:
+    - s7commwireshark
+    - s7commwireshark-2.4
   image: fedora:28
   script:
     - yum install -y which
