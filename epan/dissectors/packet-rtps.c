@@ -284,6 +284,12 @@ static int hf_rtps_virtual_heartbeat_num_writers                = -1;
 static int hf_rtps_param_extended_parameter                     = -1;
 static int hf_rtps_param_extended_pid_length                    = -1;
 static int hf_rtps_param_type_consistency_kind                  = -1;
+static int hf_rtps_param_ignore_sequence_bounds                 = -1;
+static int hf_rtps_param_ignore_string_bounds                   = -1;
+static int hf_rtps_param_ignore_member_names                    = -1;
+static int hf_rtps_param_prevent_type_widening                  = -1;
+static int hf_rtps_param_force_type_validation                  = -1;
+static int hf_rtps_param_ignore_enum_literal_names              = -1;
 static int hf_rtps_parameter_data                               = -1;
 static int hf_rtps_param_product_version_major                  = -1;
 static int hf_rtps_param_product_version_minor                  = -1;
@@ -571,6 +577,7 @@ static expert_field ei_rtps_locator_port = EI_INIT;
 static expert_field ei_rtps_more_samples_available = EI_INIT;
 static expert_field ei_rtps_parameter_not_decoded = EI_INIT;
 static expert_field ei_rtps_sm_octets_to_next_header_not_zero = EI_INIT;
+static expert_field pid_type_csonsistency_invalid_size = EI_INIT;
 
 /***************************************************************************/
 /* Preferences                                                             */
@@ -4017,6 +4024,7 @@ static int rtps_util_add_fragment_number_set(proto_tree *tree, packet_info *pinf
 static void rtps_util_store_type_mapping(packet_info *pinfo, tvbuff_t *tvb, gint offset,
         type_mapping * type_mapping_object, const gchar * value,
         gint topic_info_add_id, const guint encoding) {
+
   if (enable_topic_info && type_mapping_object) {
     switch (topic_info_add_id) {
       case TOPIC_INFO_ADD_GUID: {
@@ -4066,8 +4074,8 @@ static void rtps_util_store_type_mapping(packet_info *pinfo, tvbuff_t *tvb, gint
     }
     if ((type_mapping_object->fields_visited & TOPIC_INFO_ALL_SET) == TOPIC_INFO_ALL_SET &&
             !wmem_map_lookup(registry, &(type_mapping_object->guid))) {
-      if (((type_mapping_object->guid.entity_id & 0x02) == 0x02)){
-        /* If it is an application defined writer matches 0x02 */
+      if (((type_mapping_object->guid.entity_id & 0x02) == 0x02) || ((type_mapping_object->guid.entity_id & 0x04) == 0x04)){
+        /* If it is an application defined writer matches 0x02. Matches 0x04 if it is an application defined reader */
         type_mapping_object->dcps_publication_frame_number = pinfo->num;
         wmem_map_insert(registry, &(type_mapping_object->guid), type_mapping_object);
       }
@@ -4566,15 +4574,55 @@ static gboolean dissect_parameter_sequence_rti_dds(proto_tree *rtps_parameter_tr
       break;
     }
 
-    /* 0...2...........7...............15.............23...............31
+    /* Product Version Version 5.3.1 and earlier
+    * 0...2...........7...............15.............23...............31
     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     * | PID_TYPE_CONSISTENCY_KIND     |            length             |
     * +---------------+---------------+---------------+---------------+
-    * | unsigned short value          | = =  u n u s e d  = = = = = = |
+    * | unsigned short value Kind     | = =  u n u s e d  = = = = = = |
     * +---------------+---------------+---------------+---------------+
+    *
+    * Product Version 5.3.3 and later
+    * 0...2...........7...............15.............23...............31
+    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    * | PID_TYPE_CONSISTENCY_KIND     |            length             |
+    * +---------------+---------------+---------------+---------------+
+    * | unsigned short value Kind     | Boolean ISeqB | Boolean IStrB |
+    * +---------------+---------------+---------------+---------------+
+    * | Boolean IMemN | Boolean PTypW | Boolean FtypV | Boolean IEnLN |
+    * +---------------+---------------+---------------+---------------+
+    * ISeqB = Ignore Sequence Names
+    * IStrB = Ignore String names
+    * IMemN = Ignore Member Names
+    * PTypW = Prevent Type Widening
+    * FtypV = Force Type Validation
+    * IEnLN = Ignore Enum Literal Names
     */
     case PID_TYPE_CONSISTENCY: {
+      if (param_length !=4 && param_length !=8) {
+        expert_add_info_format(pinfo, rtps_parameter_tree,
+          &pid_type_csonsistency_invalid_size,
+          "PID_TYPE_CONSISTENCY invalid size. It has a size of %d bytes. Expected %d or %d bytes.",
+          param_length, 4, 8);
+        break;
+      }
       proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_type_consistency_kind, tvb, offset, 2, encoding);
+      /* Parameter size can be used as a discriminator between product versions. */
+      if (param_length == 8) {
+          offset += 2;
+          proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_ignore_sequence_bounds,
+            tvb, offset, 1, encoding);
+          proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_ignore_string_bounds,
+            tvb, offset + 1, 1, encoding);
+          proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_ignore_member_names,
+            tvb, offset + 2, 1, encoding);
+          proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_prevent_type_widening,
+            tvb, offset + 3, 1, encoding);
+          proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_force_type_validation,
+            tvb, offset + 4, 1, encoding);
+          proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_ignore_enum_literal_names,
+            tvb, offset + 5, 1, encoding);
+      }
       break;
     }
 
@@ -6369,7 +6417,8 @@ static void dissect_APP_ACK_CONF(tvbuff_t *tvb,
   const guint encoding,
   int octets_to_next_header,
   proto_tree *tree,
-  proto_item *item)
+  proto_item *item,
+  endpoint_guid * guid)
   {
   /*
   * 0...2...........7...............15.............23...............31
@@ -6391,6 +6440,7 @@ static void dissect_APP_ACK_CONF(tvbuff_t *tvb,
   */
   gint original_offset; /* Offset to the readerEntityId */
   gint32 virtual_writer_count;
+  guint32 wid;
   proto_item *octet_item;
   proto_tree_add_bitmask_value(tree, tvb, offset + 1, hf_rtps_sm_flags, ett_rtps_flags, APP_ACK_CONF_FLAGS, flags);
 
@@ -6424,8 +6474,10 @@ static void dissect_APP_ACK_CONF(tvbuff_t *tvb,
     hf_rtps_sm_wrentity_id_kind,
     ett_rtps_wrentity,
     "writerEntityId",
-    NULL);
+    &wid);
   offset += 4;
+  guid->entity_id = wid;
+  rtps_util_topic_info_add_tree(tree, tvb, offset, guid);
 
 
   /* virtualWriterCount */
@@ -6632,7 +6684,8 @@ static void dissect_APP_ACK(tvbuff_t *tvb,
   const guint encoding,
   int octets_to_next_header,
   proto_tree *tree,
-  proto_item *item)
+  proto_item *item,
+  endpoint_guid * guid)
   {
   /*
   * 0...2...........7...............15.............23...............31
@@ -6683,8 +6736,10 @@ static void dissect_APP_ACK(tvbuff_t *tvb,
     hf_rtps_sm_rdentity_id_kind,
     ett_rtps_rdentity,
     "readerEntityId",
-    NULL);
+    &wid);
   offset += 4;
+  guid->entity_id = wid;
+  rtps_util_topic_info_add_tree(tree, tvb, offset, guid);
 
   /* writerEntityId */
   rtps_util_add_entity_id(tree,
@@ -6697,7 +6752,6 @@ static void dissect_APP_ACK(tvbuff_t *tvb,
     "writerEntityId",
     &wid);
   offset += 4;
-
 
   /* virtualWriterCount */
   proto_tree_add_item_ret_int(tree, hf_rtps_param_app_ack_virtual_writer_count, tvb, offset, 4, encoding, &virtual_writer_count);
@@ -9621,11 +9675,11 @@ static gboolean dissect_rtps_submessage_v2(tvbuff_t *tvb, packet_info *pinfo, gi
       break;
 
     case SUBMESSAGE_APP_ACK:
-      dissect_APP_ACK(tvb, pinfo, offset, flags, encoding, octets_to_next_header, rtps_submessage_tree, submessage_item);
+      dissect_APP_ACK(tvb, pinfo, offset, flags, encoding, octets_to_next_header, rtps_submessage_tree, submessage_item, guid);
       break;
 
     case SUBMESSAGE_APP_ACK_CONF:
-      dissect_APP_ACK_CONF(tvb, pinfo, offset, flags, encoding, octets_to_next_header, rtps_submessage_tree, submessage_item);
+      dissect_APP_ACK_CONF(tvb, pinfo, offset, flags, encoding, octets_to_next_header, rtps_submessage_tree, submessage_item, guid);
       break;
 
     case SUBMESSAGE_HEARTBEAT_SESSION:
@@ -11421,6 +11475,36 @@ void proto_register_rtps(void) {
         FT_UINT16, BASE_HEX, VALS(type_consistency_kind_vals), 0, NULL, HFILL }
     },
 
+    { &hf_rtps_param_ignore_sequence_bounds, {
+        "Ignore Sequence Bounds", "rtps.param.ignore_sequence_bounds",
+        FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }
+    },
+
+    { &hf_rtps_param_ignore_string_bounds, {
+        "Ignore String Bounds", "rtps.param.ignore_string_bounds",
+        FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }
+    },
+
+    { &hf_rtps_param_ignore_member_names, {
+        "Ignore Member Names", "rtps.param.ignore_member_names",
+        FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }
+    },
+
+    { &hf_rtps_param_prevent_type_widening, {
+         "Prevent Type Widening", "rtps.param.prevent_type_widening",
+        FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }
+    },
+
+    { &hf_rtps_param_force_type_validation, {
+         "Force Type Validation", "rtps.param.force_type_validation",
+        FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }
+    },
+
+    { &hf_rtps_param_ignore_enum_literal_names, {
+        "Ignore Enum Literal Names", "rtps.param.ignore_enum_literal_names",
+        FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }
+    },
+
     { &hf_rtps_param_acknowledgment_kind, {
         "Acknowledgment Kind", "rtps.param.acknowledgment_kind",
         FT_UINT32, BASE_HEX, VALS(acknowledgement_kind_vals), 0, NULL, HFILL }
@@ -12439,7 +12523,8 @@ void proto_register_rtps(void) {
      { &ei_rtps_sm_octets_to_next_header_not_zero, { "rtps.sm.octetsToNextHeader.not_zero", PI_PROTOCOL, PI_WARN, "Should be ZERO", EXPFILL }},
      { &ei_rtps_extra_bytes, { "rtps.extra_bytes", PI_MALFORMED, PI_ERROR, "Don't know how to decode those extra bytes: %d", EXPFILL }},
      { &ei_rtps_missing_bytes, { "rtps.missing_bytes", PI_MALFORMED, PI_ERROR, "Not enough bytes to decode", EXPFILL }},
-     { &ei_rtps_more_samples_available, { "rtps.more_samples_available", PI_PROTOCOL, PI_NOTE, "More samples available. Configure this limit from preferences dialog", EXPFILL }}
+     { &ei_rtps_more_samples_available, { "rtps.more_samples_available", PI_PROTOCOL, PI_NOTE, "More samples available. Configure this limit from preferences dialog", EXPFILL }},
+     { &pid_type_csonsistency_invalid_size, { "rtps.pid_type_consistency_invalid_size", PI_MALFORMED, PI_ERROR, "PID_TYPE_CONSISTENCY invalid size. Has a size of %d bytes. Expected %d or %d bytes.", EXPFILL }}
   };
 
   module_t *rtps_module;
