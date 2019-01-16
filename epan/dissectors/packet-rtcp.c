@@ -784,7 +784,7 @@ void srtcp_add_address( packet_info *pinfo,
      * we've already done this work, so we don't need to do it
      * again.
      */
-    if (pinfo->fd->flags.visited)
+    if (pinfo->fd->visited)
     {
         return;
     }
@@ -5568,7 +5568,7 @@ proto_register_rtcp(void)
         {
             &hf_rtcp_xr_idms_spst,
             {
-                "Syncronization Packet Sender Type",
+                "Synchronization Packet Sender Type",
                 "rtcp.xr.idms.spst",
                 FT_UINT8,
                 BASE_DEC,

@@ -73,6 +73,7 @@ static int hf_http_request_version = -1;
 static int hf_http_response_version = -1;
 static int hf_http_response_code = -1;
 static int hf_http_response_code_desc = -1;
+static int hf_http_response_for_uri = -1;
 static int hf_http_response_phrase = -1;
 static int hf_http_authorization = -1;
 static int hf_http_proxy_authenticate = -1;
@@ -337,7 +338,7 @@ typedef struct _http_eo_t {
 	const guint8 *payload_data;
 } http_eo_t;
 
-static gboolean
+static tap_packet_status
 http_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *data)
 {
 	export_object_list_t *object_list = (export_object_list_t *)tapdata;
@@ -358,9 +359,9 @@ http_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const
 
 		object_list->add_entry(object_list->gui_data, entry);
 
-		return TRUE; /* State changed - window should be redrawn */
+		return TAP_PACKET_REDRAW; /* State changed - window should be redrawn */
 	} else {
-		return FALSE; /* State unchanged - no window updates needed */
+		return TAP_PACKET_DONT_REDRAW; /* State unchanged - no window updates needed */
 	}
 }
 
@@ -455,14 +456,14 @@ static int st_node_resps_by_srv_addr = -1;
 static void
 http_reqs_stats_tree_init(stats_tree* st)
 {
-	st_node_reqs = stats_tree_create_node(st, st_str_reqs, 0, TRUE);
-	st_node_reqs_by_srv_addr = stats_tree_create_node(st, st_str_reqs_by_srv_addr, st_node_reqs, TRUE);
-	st_node_reqs_by_http_host = stats_tree_create_node(st, st_str_reqs_by_http_host, st_node_reqs, TRUE);
-	st_node_resps_by_srv_addr = stats_tree_create_node(st, st_str_resps_by_srv_addr, 0, TRUE);
+	st_node_reqs = stats_tree_create_node(st, st_str_reqs, 0, STAT_DT_INT, TRUE);
+	st_node_reqs_by_srv_addr = stats_tree_create_node(st, st_str_reqs_by_srv_addr, st_node_reqs, STAT_DT_INT, TRUE);
+	st_node_reqs_by_http_host = stats_tree_create_node(st, st_str_reqs_by_http_host, st_node_reqs, STAT_DT_INT, TRUE);
+	st_node_resps_by_srv_addr = stats_tree_create_node(st, st_str_resps_by_srv_addr, 0, STAT_DT_INT, TRUE);
 }
 
 /* HTTP/Load Distribution stats packet function */
-static int
+static tap_packet_status
 http_reqs_stats_tree_packet(stats_tree* st, packet_info* pinfo, epan_dissect_t* edt _U_, const void* p)
 {
 	const http_info_value_t* v = (const http_info_value_t*)p;
@@ -490,7 +491,7 @@ http_reqs_stats_tree_packet(stats_tree* st, packet_info* pinfo, epan_dissect_t* 
 
 		wmem_free(NULL, ip_str);
 
-		return 1;
+		return TAP_PACKET_REDRAW;
 
 	} else if (i != 0) {
 		ip_str = address_to_str(NULL, &pinfo->src);
@@ -506,10 +507,10 @@ http_reqs_stats_tree_packet(stats_tree* st, packet_info* pinfo, epan_dissect_t* 
 
 		wmem_free(NULL, ip_str);
 
-		return 1;
+		return TAP_PACKET_REDRAW;
 	}
 
-	return 0;
+	return TAP_PACKET_DONT_REDRAW;
 }
 
 
@@ -520,11 +521,11 @@ static const gchar *st_str_requests_by_host = "HTTP Requests by HTTP Host";
 static void
 http_req_stats_tree_init(stats_tree* st)
 {
-	st_node_requests_by_host = stats_tree_create_node(st, st_str_requests_by_host, 0, TRUE);
+	st_node_requests_by_host = stats_tree_create_node(st, st_str_requests_by_host, 0, STAT_DT_INT, TRUE);
 }
 
 /* HTTP/Requests stats packet function */
-static int
+static tap_packet_status
 http_req_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_, epan_dissect_t* edt _U_, const void* p)
 {
 	const http_info_value_t* v = (const http_info_value_t*)p;
@@ -541,10 +542,10 @@ http_req_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_, epan_dissect_
 			}
 		}
 
-		return 1;
+		return TAP_PACKET_REDRAW;
 	}
 
-	return 0;
+	return TAP_PACKET_DONT_REDRAW;
 }
 
 static const gchar *st_str_packets = "Total HTTP Packets";
@@ -574,20 +575,20 @@ static int st_node_other = -1;
 static void
 http_stats_tree_init(stats_tree* st)
 {
-	st_node_packets = stats_tree_create_node(st, st_str_packets, 0, TRUE);
+	st_node_packets = stats_tree_create_node(st, st_str_packets, 0, STAT_DT_INT, TRUE);
 	st_node_requests = stats_tree_create_pivot(st, st_str_requests, st_node_packets);
-	st_node_responses = stats_tree_create_node(st, st_str_responses, st_node_packets, TRUE);
-	st_node_resp_broken = stats_tree_create_node(st, st_str_resp_broken, st_node_responses, TRUE);
-	st_node_resp_100    = stats_tree_create_node(st, st_str_resp_100,    st_node_responses, TRUE);
-	st_node_resp_200    = stats_tree_create_node(st, st_str_resp_200,    st_node_responses, TRUE);
-	st_node_resp_300    = stats_tree_create_node(st, st_str_resp_300,    st_node_responses, TRUE);
-	st_node_resp_400    = stats_tree_create_node(st, st_str_resp_400,    st_node_responses, TRUE);
-	st_node_resp_500    = stats_tree_create_node(st, st_str_resp_500,    st_node_responses, TRUE);
-	st_node_other = stats_tree_create_node(st, st_str_other, st_node_packets,FALSE);
+	st_node_responses = stats_tree_create_node(st, st_str_responses, st_node_packets, STAT_DT_INT, TRUE);
+	st_node_resp_broken = stats_tree_create_node(st, st_str_resp_broken, st_node_responses, STAT_DT_INT, TRUE);
+	st_node_resp_100    = stats_tree_create_node(st, st_str_resp_100,    st_node_responses, STAT_DT_INT, TRUE);
+	st_node_resp_200    = stats_tree_create_node(st, st_str_resp_200,    st_node_responses, STAT_DT_INT, TRUE);
+	st_node_resp_300    = stats_tree_create_node(st, st_str_resp_300,    st_node_responses, STAT_DT_INT, TRUE);
+	st_node_resp_400    = stats_tree_create_node(st, st_str_resp_400,    st_node_responses, STAT_DT_INT, TRUE);
+	st_node_resp_500    = stats_tree_create_node(st, st_str_resp_500,    st_node_responses, STAT_DT_INT, TRUE);
+	st_node_other = stats_tree_create_node(st, st_str_other, st_node_packets, STAT_DT_INT, FALSE);
 }
 
 /* HTTP/Packet Counter stats packet function */
-static int
+static tap_packet_status
 http_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_, epan_dissect_t* edt _U_, const void* p)
 {
 	const http_info_value_t* v = (const http_info_value_t*)p;
@@ -632,7 +633,7 @@ http_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_, epan_dissect_t* e
 		tick_stat_node(st, st_str_other, st_node_packets, FALSE);
 	}
 
-	return 1;
+	return TAP_PACKET_REDRAW;
 }
 
 /*
@@ -686,7 +687,7 @@ http_seq_stats_tree_init(stats_tree* st)
 	refstats_uri_to_node_id_hash = wmem_map_new(wmem_file_scope(), wmem_str_hash, g_str_equal);
 
 	/* Add the root node and its mappings */
-	st_node_requests_by_referer = stats_tree_create_node(st, st_str_request_sequences, root_node_id, TRUE);
+	st_node_requests_by_referer = stats_tree_create_node(st, st_str_request_sequences, root_node_id, STAT_DT_INT, TRUE);
 	node_id_p = GINT_TO_POINTER(st_node_requests_by_referer);
 	uri = wmem_strdup(wmem_file_scope(), st_str_request_sequences);
 
@@ -858,7 +859,7 @@ determine_http_location_target(const gchar *base_url, const gchar * location_url
 }
 
 /* HTTP/Request Sequences stats packet function */
-static int
+static tap_packet_status
 http_seq_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_, epan_dissect_t* edt _U_, const void* p)
 {
 	const http_info_value_t* v = (const http_info_value_t*)p;
@@ -914,7 +915,7 @@ http_seq_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_, epan_dissect_
 			current_node_id_p = parent_node_id_p;
 		}
 	}
-	return 0;
+	return TAP_PACKET_DONT_REDRAW;
 }
 
 
@@ -1451,6 +1452,19 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			}
 			if (next && next->res_framenum) {
 				pi = proto_tree_add_uint(http_tree, hf_http_next_response_in, tvb, 0, 0, next->res_framenum);
+				PROTO_ITEM_SET_GENERATED(pi);
+			}
+
+			/*
+			 * add the request URI to the response to allow filtering responses filtered by URI
+			 */
+			if (conv_data && (conv_data->full_uri || conv_data->request_uri)) {
+				if (conv_data->full_uri) {
+					pi = proto_tree_add_string(http_tree, hf_http_response_for_uri, tvb, 0, 0, conv_data->full_uri);
+				}
+				else {
+					pi = proto_tree_add_string(http_tree, hf_http_response_for_uri, tvb, 0, 0, conv_data->request_uri);
+				}
 				PROTO_ITEM_SET_GENERATED(pi);
 			}
 
@@ -3661,104 +3675,108 @@ proto_register_http(void)
 {
 	static hf_register_info hf[] = {
 	    { &hf_http_notification,
-	      { "Notification",		"http.notification",
+	      { "Notification", "http.notification",
 		FT_BOOLEAN, BASE_NONE, NULL, 0x0,
 		"TRUE if HTTP notification", HFILL }},
 	    { &hf_http_response,
-	      { "Response",		"http.response",
+	      { "Response", "http.response",
 		FT_BOOLEAN, BASE_NONE, NULL, 0x0,
 		"TRUE if HTTP response", HFILL }},
 	    { &hf_http_request,
-	      { "Request",		"http.request",
+	      { "Request", "http.request",
 		FT_BOOLEAN, BASE_NONE, NULL, 0x0,
 		"TRUE if HTTP request", HFILL }},
 	    { &hf_http_response_number,
-	      { "Response number",		"http.response_number",
+	      { "Response number", "http.response_number",
 		FT_UINT32, BASE_DEC, NULL, 0x0,
 		NULL, HFILL }},
 	    { &hf_http_request_number,
-	      { "Request number",		"http.request_number",
+	      { "Request number", "http.request_number",
 		FT_UINT32, BASE_DEC, NULL, 0x0,
 		NULL, HFILL }},
 	    { &hf_http_basic,
-	      { "Credentials",		"http.authbasic",
+	      { "Credentials", "http.authbasic",
 		FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 	    { &hf_http_citrix,
-	      { "Citrix AG Auth",	"http.authcitrix",
+	      { "Citrix AG Auth", "http.authcitrix",
 		FT_BOOLEAN, BASE_NONE, NULL, 0x0,
 		"TRUE if CitrixAGBasic Auth", HFILL }},
 	    { &hf_http_citrix_user,
-	      { "Citrix AG Username",	"http.authcitrix.user",
+	      { "Citrix AG Username", "http.authcitrix.user",
 		FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 	    { &hf_http_citrix_domain,
-	      { "Citrix AG Domain",	"http.authcitrix.domain",
+	      { "Citrix AG Domain", "http.authcitrix.domain",
 		FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 	    { &hf_http_citrix_passwd,
-	      { "Citrix AG Password",	"http.authcitrix.password",
+	      { "Citrix AG Password", "http.authcitrix.password",
 		FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 	    { &hf_http_citrix_session,
-	      { "Citrix AG Session ID",	"http.authcitrix.session",
+	      { "Citrix AG Session ID", "http.authcitrix.session",
 		FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 	    { &hf_http_response_line,
-	      { "Response line",	"http.response.line",
+	      { "Response line", "http.response.line",
 		FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 	    { &hf_http_request_line,
-	      { "Request line",		"http.request.line",
+	      { "Request line", "http.request.line",
 		FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 	    { &hf_http_request_method,
-	      { "Request Method",	"http.request.method",
+	      { "Request Method", "http.request.method",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Request Method", HFILL }},
 	    { &hf_http_request_uri,
-	      { "Request URI",	"http.request.uri",
+	      { "Request URI", "http.request.uri",
 		FT_STRING, STR_UNICODE, NULL, 0x0,
 		"HTTP Request-URI", HFILL }},
 	    { &hf_http_request_path,
-	      { "Request URI Path",	"http.request.uri.path",
+	      { "Request URI Path", "http.request.uri.path",
 		FT_STRING, STR_UNICODE, NULL, 0x0,
 		"HTTP Request-URI Path", HFILL }},
 	    { &hf_http_request_query,
-	      { "Request URI Query",	"http.request.uri.query",
+	      { "Request URI Query", "http.request.uri.query",
 		FT_STRING, STR_UNICODE, NULL, 0x0,
 		"HTTP Request-URI Query", HFILL }},
 	    { &hf_http_request_query_parameter,
-	      { "Request URI Query Parameter",	"http.request.uri.query.parameter",
+	      { "Request URI Query Parameter", "http.request.uri.query.parameter",
 		FT_STRING, STR_UNICODE, NULL, 0x0,
 		"HTTP Request-URI Query Parameter", HFILL }},
 	    { &hf_http_request_version,
-	      { "Request Version",	"http.request.version",
+	      { "Request Version", "http.request.version",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Request HTTP-Version", HFILL }},
 	    { &hf_http_response_version,
-	      { "Response Version",	"http.response.version",
+	      { "Response Version", "http.response.version",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Response HTTP-Version", HFILL }},
 	    { &hf_http_request_full_uri,
-	      { "Full request URI",	"http.request.full_uri",
+	      { "Full request URI", "http.request.full_uri",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"The full requested URI (including host name)", HFILL }},
 	    { &hf_http_response_code,
-	      { "Status Code",	"http.response.code",
+	      { "Status Code", "http.response.code",
 		FT_UINT16, BASE_DEC, NULL, 0x0,
 		"HTTP Response Status Code", HFILL }},
 	    { &hf_http_response_code_desc,
 	      { "Status Code Description", "http.response.code.desc",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Response Status Code Description", HFILL }},
-		{ &hf_http_response_phrase,
-		  { "Response Phrase", "http.response.phrase",
-	    FT_STRING, BASE_NONE, NULL, 0x0,
+	    { &hf_http_response_for_uri,
+	      { "Request URI", "http.response_for.uri",
+		FT_STRING, STR_UNICODE, NULL, 0x0,
+		"HTTP Response For-URI", HFILL }},
+	    { &hf_http_response_phrase,
+	      { "Response Phrase", "http.response.phrase",
+	        FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Response Reason Phrase", HFILL }},
 	    { &hf_http_authorization,
-	      { "Authorization",	"http.authorization",
+	      { "Authorization", "http.authorization",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Authorization header", HFILL }},
 	    { &hf_http_proxy_authenticate,
-	      { "Proxy-Authenticate",	"http.proxy_authenticate",
+	      { "Proxy-Authenticate", "http.proxy_authenticate",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Proxy-Authenticate header", HFILL }},
 	    { &hf_http_proxy_authorization,
-	      { "Proxy-Authorization",	"http.proxy_authorization",
+	      { "Proxy-Authorization", "http.proxy_authorization",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Proxy-Authorization header", HFILL }},
 	    { &hf_http_proxy_connect_host,
@@ -3766,119 +3784,119 @@ proto_register_http(void)
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Proxy Connect Hostname", HFILL }},
 	    { &hf_http_proxy_connect_port,
-	      { "Proxy-Connect-Port",	"http.proxy_connect_port",
+	      { "Proxy-Connect-Port", "http.proxy_connect_port",
 		FT_UINT16, BASE_DEC, NULL, 0x0,
 		"HTTP Proxy Connect Port", HFILL }},
 	    { &hf_http_www_authenticate,
-	      { "WWW-Authenticate",	"http.www_authenticate",
+	      { "WWW-Authenticate", "http.www_authenticate",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP WWW-Authenticate header", HFILL }},
 	    { &hf_http_content_type,
-	      { "Content-Type",	"http.content_type",
+	      { "Content-Type", "http.content_type",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Content-Type header", HFILL }},
 	    { &hf_http_content_length_header,
-	      { "Content-Length",	"http.content_length_header",
+	      { "Content-Length", "http.content_length_header",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Content-Length header", HFILL }},
 	    { &hf_http_content_length,
-	      { "Content length",	"http.content_length",
+	      { "Content length", "http.content_length",
 		FT_UINT64, BASE_DEC, NULL, 0x0,
 		NULL, HFILL }},
 	    { &hf_http_content_encoding,
-	      { "Content-Encoding",	"http.content_encoding",
+	      { "Content-Encoding", "http.content_encoding",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Content-Encoding header", HFILL }},
 	    { &hf_http_transfer_encoding,
-	      { "Transfer-Encoding",	"http.transfer_encoding",
+	      { "Transfer-Encoding", "http.transfer_encoding",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Transfer-Encoding header", HFILL }},
 	    { &hf_http_upgrade,
-	      { "Upgrade",	"http.upgrade",
+	      { "Upgrade", "http.upgrade",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Upgrade header", HFILL }},
 	    { &hf_http_user_agent,
-	      { "User-Agent",	"http.user_agent",
+	      { "User-Agent", "http.user_agent",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP User-Agent header", HFILL }},
 	    { &hf_http_host,
-	      { "Host",	"http.host",
+	      { "Host", "http.host",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Host", HFILL }},
 	    { &hf_http_connection,
-	      { "Connection",	"http.connection",
+	      { "Connection", "http.connection",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Connection", HFILL }},
 	    { &hf_http_cookie,
-	      { "Cookie",	"http.cookie",
+	      { "Cookie", "http.cookie",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Cookie", HFILL }},
 	    { &hf_http_cookie_pair,
-	      { "Cookie pair",	"http.cookie_pair",
+	      { "Cookie pair", "http.cookie_pair",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"A name/value HTTP cookie pair", HFILL }},
 	    { &hf_http_accept,
-	      { "Accept",	"http.accept",
+	      { "Accept", "http.accept",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Accept", HFILL }},
 	    { &hf_http_referer,
-	      { "Referer",	"http.referer",
+	      { "Referer", "http.referer",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Referer", HFILL }},
 	    { &hf_http_accept_language,
-	      { "Accept-Language",	"http.accept_language",
+	      { "Accept-Language", "http.accept_language",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Accept Language", HFILL }},
 	    { &hf_http_accept_encoding,
-	      { "Accept Encoding",	"http.accept_encoding",
+	      { "Accept Encoding", "http.accept_encoding",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Accept Encoding", HFILL }},
 	    { &hf_http_date,
-	      { "Date",	"http.date",
+	      { "Date", "http.date",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Date", HFILL }},
 	    { &hf_http_cache_control,
-	      { "Cache-Control",	"http.cache_control",
+	      { "Cache-Control", "http.cache_control",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Cache Control", HFILL }},
 	    { &hf_http_server,
-	      { "Server",	"http.server",
+	      { "Server", "http.server",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Server", HFILL }},
 	    { &hf_http_location,
-	      { "Location",	"http.location",
+	      { "Location", "http.location",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Location", HFILL }},
 	    { &hf_http_sec_websocket_accept,
-	      { "Sec-WebSocket-Accept",	"http.sec_websocket_accept",
+	      { "Sec-WebSocket-Accept", "http.sec_websocket_accept",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		NULL, HFILL }},
 	    { &hf_http_sec_websocket_extensions,
-	      { "Sec-WebSocket-Extensions",	"http.sec_websocket_extensions",
+	      { "Sec-WebSocket-Extensions", "http.sec_websocket_extensions",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		NULL, HFILL }},
 	    { &hf_http_sec_websocket_key,
-	      { "Sec-WebSocket-Key",	"http.sec_websocket_key",
+	      { "Sec-WebSocket-Key", "http.sec_websocket_key",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		NULL, HFILL }},
 	    { &hf_http_sec_websocket_protocol,
-	      { "Sec-WebSocket-Protocol",	"http.sec_websocket_protocol",
+	      { "Sec-WebSocket-Protocol", "http.sec_websocket_protocol",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		NULL, HFILL }},
 	    { &hf_http_sec_websocket_version,
-	      { "Sec-WebSocket-Version",	"http.sec_websocket_version",
+	      { "Sec-WebSocket-Version", "http.sec_websocket_version",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		NULL, HFILL }},
 	    { &hf_http_set_cookie,
-	      { "Set-Cookie",	"http.set_cookie",
+	      { "Set-Cookie", "http.set_cookie",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Set Cookie", HFILL }},
 	    { &hf_http_last_modified,
-	      { "Last-Modified",	"http.last_modified",
+	      { "Last-Modified", "http.last_modified",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Last Modified", HFILL }},
 	    { &hf_http_x_forwarded_for,
-	      { "X-Forwarded-For",	"http.x_forwarded_for",
+	      { "X-Forwarded-For", "http.x_forwarded_for",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP X-Forwarded-For", HFILL }},
 	    { &hf_http_request_in,
@@ -3886,7 +3904,7 @@ proto_register_http(void)
 		FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_REQUEST), 0,
 		"This packet is a response to the packet with this number", HFILL }},
 	    { &hf_http_response_in,
-	      { "Response in frame","http.response_in",
+	      { "Response in frame", "http.response_in",
 		FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_RESPONSE), 0,
 		"This packet will be responded in the packet with this number", HFILL }},
 	    { &hf_http_next_request_in,
@@ -3894,7 +3912,7 @@ proto_register_http(void)
 		FT_FRAMENUM, BASE_NONE, NULL, 0,
 		"The next HTTP request starts in packet number", HFILL }},
 	    { &hf_http_next_response_in,
-	      { "Next response in frame","http.next_response_in",
+	      { "Next response in frame", "http.next_response_in",
 		FT_FRAMENUM, BASE_NONE, NULL, 0,
 		"The next HTTP response starts in packet number", HFILL }},
 	    { &hf_http_prev_request_in,
@@ -3902,7 +3920,7 @@ proto_register_http(void)
 		FT_FRAMENUM, BASE_NONE, NULL, 0,
 		"The previous HTTP request starts in packet number", HFILL }},
 	    { &hf_http_prev_response_in,
-	      { "Prev response in frame","http.prev_response_in",
+	      { "Prev response in frame", "http.prev_response_in",
 		FT_FRAMENUM, BASE_NONE, NULL, 0,
 		"The previous HTTP response starts in packet number", HFILL }},
 	    { &hf_http_time,

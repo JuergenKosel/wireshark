@@ -33,7 +33,7 @@ find_library( PCAP_LIBRARY
 
 
 include( FindPackageHandleStandardArgs )
-find_package_handle_standard_args( PCAP DEFAULT_MSG PCAP_INCLUDE_DIR PCAP_LIBRARY )
+find_package_handle_standard_args( PCAP DEFAULT_MSG PCAP_LIBRARY PCAP_INCLUDE_DIR )
 
 if( PCAP_FOUND )
   set( PCAP_INCLUDE_DIRS ${PCAP_INCLUDE_DIR} )
@@ -54,7 +54,7 @@ if( PCAP_FOUND )
   set( CMAKE_REQUIRED_LIBRARIES ${PCAP_LIBRARIES} )
 
   if(WIN32)
-    # Prepopulate some values. WinPcap and NPcap always have these and
+    # Prepopulate some values. WinPcap and Npcap always have these and
     # compilation checks on Windows can be slow.
     set(HAVE_PCAP_OPEN_DEAD TRUE)
     set(HAVE_PCAP_FREECODE TRUE)

@@ -138,7 +138,7 @@ install(
 		dtd_gen.lua
 		${CMAKE_CURRENT_BINARY_DIR}/init.lua
 	DESTINATION
-		${CMAKE_INSTALL_DATADIR}/${CPACK_PACKAGE_NAME}
+		${CMAKE_INSTALL_DATADIR}
 )
 
 add_library(wslua OBJECT

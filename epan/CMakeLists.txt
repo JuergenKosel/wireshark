@@ -248,7 +248,6 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	unit_strings.c
 	xdlc.c
 	${CMAKE_CURRENT_BINARY_DIR}/ps.c
-	${CMAKE_SOURCE_DIR}/version_info.c
 )
 
 set(LIBWIRESHARK_FILES ${LIBWIRESHARK_NONGENERATED_FILES})
@@ -278,12 +277,11 @@ add_library(epan
 	$<TARGET_OBJECTS:dissectors>
 	$<TARGET_OBJECTS:dissectors-corba>
 	$<TARGET_OBJECTS:ftypes>
+	$<TARGET_OBJECTS:version_info>
 	$<TARGET_OBJECTS:wmem>
 	$<$<BOOL:${HAVE_LIBLUA}>:$<TARGET_OBJECTS:wslua>>
 	${CMAKE_BINARY_DIR}/image/libwireshark.rc
 )
-
-add_dependencies(epan version)
 
 if(ENABLE_PLUGINS)
 	target_compile_definitions(epan PUBLIC HAVE_PLUGINS)
@@ -294,19 +292,6 @@ set_target_properties(epan PROPERTIES
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	VERSION "0.0.0" SOVERSION 0
 )
-
-if(ENABLE_APPLICATION_BUNDLE)
-	if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
-		# Xcode
-		set_target_properties(epan PROPERTIES
-			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/Frameworks
-		)
-	else()
-		set_target_properties(epan PROPERTIES
-			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Frameworks
-		)
-	endif()
-endif()
 
 ABICHECK(libwireshark)
 
@@ -378,6 +363,7 @@ target_link_libraries(epan
 		${SNAPPY_LIBRARIES}
 		${WIN_PSAPI_LIBRARY}
 		${LIBXML2_LIBRARIES}
+		${ZLIB_LIBRARIES}
 )
 
 target_include_directories(epan
@@ -392,8 +378,8 @@ add_dependencies(epan lemon)
 
 install(TARGETS epan
 	EXPORT WiresharkTargets
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 

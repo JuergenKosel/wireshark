@@ -203,6 +203,8 @@ dissect_per_open_type_internal(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, 
 		if (fragmented_length) {
 			val_tvb = pdu_tvb;
 		} else {
+			if (!pdu_length)
+				return end_offset;
 			val_tvb = tvb_new_octet_aligned(pdu_tvb, pdu_offset, pdu_length * 8);
 			/* Add new data source if the offet was unaligned */
 			if ((pdu_offset & 7) != 0) {
@@ -229,7 +231,8 @@ dissect_per_open_type_internal(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, 
 				((per_type_fn)type_cb)(pdu_tvb, pdu_offset, actx, tree, hf_index);
 				break;
 			case CB_NEW_DISSECTOR:
-				((dissector_t)type_cb)(val_tvb, actx->pinfo, subtree, NULL);
+				/* Pas actx->private_data as "data" to the called function */
+				((dissector_t)type_cb)(val_tvb, actx->pinfo, subtree, actx->private_data);
 				break;
 			case CB_DISSECTOR_HANDLE:
 				break;

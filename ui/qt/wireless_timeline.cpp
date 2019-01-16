@@ -151,7 +151,7 @@ void WirelessTimeline::mouseReleaseEvent(QMouseEvent *event)
         return;
 
     frame_data *fdata = frame_data_sequence_find(cfile.provider.frames, num);
-    if (!fdata->flags.passed_dfilter && fdata->prev_dis_num > 0)
+    if (!fdata->passed_dfilter && fdata->prev_dis_num > 0)
         num = fdata->prev_dis_num;
 
     cf_goto_frame(&cfile, num);
@@ -349,14 +349,14 @@ void WirelessTimeline::tap_timeline_reset(void* tapdata)
     timeline->radio_packet_list = g_hash_table_new(g_direct_hash, g_direct_equal);
 }
 
-gboolean WirelessTimeline::tap_timeline_packet(void *tapdata, packet_info* pinfo, epan_dissect_t* edt _U_, const void *data)
+tap_packet_status WirelessTimeline::tap_timeline_packet(void *tapdata, packet_info* pinfo, epan_dissect_t* edt _U_, const void *data)
 {
     WirelessTimeline* timeline = (WirelessTimeline*)tapdata;
     const struct wlan_radio *wlan_radio_info = (const struct wlan_radio *)data;
 
     /* Save the radio information in our own (GUI) hashtable */
     g_hash_table_insert(timeline->radio_packet_list, GUINT_TO_POINTER(pinfo->num), (gpointer)wlan_radio_info);
-    return FALSE;
+    return TAP_PACKET_DONT_REDRAW;
 }
 
 struct wlan_radio* WirelessTimeline::get_wlan_radio(guint32 packet_num)
@@ -584,12 +584,12 @@ WirelessTimeline::paintEvent(QPaintEvent *qpe)
              * with all other sub pixels that fall within this
              * pixel */
             last_x = x;
-            accumulate_rgb(rgb, height, fdata->flags.passed_dfilter, width, red, green, blue);
+            accumulate_rgb(rgb, height, fdata->passed_dfilter, width, red, green, blue);
         } else {
             /* it spans more than 1 pixel.
              * first accumulate the part that does fit */
             float partial = ((int) x) + 1 - x;
-            accumulate_rgb(rgb, height, fdata->flags.passed_dfilter, partial, red, green, blue);
+            accumulate_rgb(rgb, height, fdata->passed_dfilter, partial, red, green, blue);
             /* and render it */
             render_pixels(p, (int) x, 1, rgb, ratio);
             last_x = -1;
@@ -597,14 +597,14 @@ WirelessTimeline::paintEvent(QPaintEvent *qpe)
             width -= partial;
             /* are there any whole pixels of width left to draw? */
             if (width > 1.0) {
-                render_rectangle(p, x, width, height, fdata->flags.passed_dfilter, red, green, blue, ratio);
+                render_rectangle(p, x, width, height, fdata->passed_dfilter, red, green, blue, ratio);
                 x += (int) width;
                 width -= (int) width;
             }
             /* is there a partial pixel left */
             if (width > 0.0) {
                 last_x = x;
-                accumulate_rgb(rgb, height, fdata->flags.passed_dfilter, width, red, green, blue);
+                accumulate_rgb(rgb, height, fdata->passed_dfilter, width, red, green, blue);
             }
         }
     }

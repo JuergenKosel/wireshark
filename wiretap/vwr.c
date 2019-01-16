@@ -771,12 +771,12 @@ static guint8       get_cck_rate(const guint8 *plcp);
 static void         setup_defaults(vwr_t *, guint16);
 
 static gboolean     vwr_read(wtap *, int *, gchar **, gint64 *);
-static gboolean     vwr_seek_read(wtap *, gint64, wtap_rec *rec,
+static gboolean     vwr_seek_read(wtap *, gint64, wtap_rec *record,
                                   Buffer *, int *, gchar **);
 
 static gboolean     vwr_read_rec_header(vwr_t *, FILE_T, int *, int *, int *, int *, gchar **);
 static gboolean     vwr_process_rec_data(FILE_T fh, int rec_size,
-                                         wtap_rec *rec, Buffer *buf,
+                                         wtap_rec *record, Buffer *buf,
                                          vwr_t *vwr, int IS_TX, int log_mode, int *err,
                                          gchar **err_info);
 
@@ -2142,9 +2142,10 @@ static gboolean vwr_read_s3_W_rec(vwr_t *vwr, wtap_rec *record,
         end_time = e_time / NS_IN_US;                       /* convert to microseconds first */
 
         /* extract the 32 LSBs of the signature timestamp field */
-        m_ptr = &(rec[stats_offset+8+12]);
+        int m_ptr_offset = stats_offset + 8 + 12;
+        m_ptr = rec + m_ptr_offset;
         pay_off = 42;         /* 24 (MAC) + 8 (SNAP) + IP */
-        sig_off = find_signature(m_ptr, rec_size - 20, pay_off, flow_id, flow_seq);
+        sig_off = find_signature(m_ptr, rec_size - m_ptr_offset, pay_off, flow_id, flow_seq);
         if (m_ptr[sig_off] == 0xdd)
             sig_ts = get_signature_ts(m_ptr, sig_off, rec_size - vVW510021_W_STATS_TRAILER_LEN);
         else

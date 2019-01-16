@@ -41,7 +41,6 @@
 #include "packet-x509af.h"
 #include "packet-x509if.h"
 #include "packet-icmp.h"    /* same transaction_t used both both v4 and v6 */
-#include "packet-icmp-int.h"
 #include "packet-ieee802154.h"
 #include "packet-6lowpan.h"
 #include "packet-ip.h"
@@ -625,6 +624,7 @@ static expert_field ei_icmpv6_rpl_p2p_dro_zero = EI_INIT;
 static dissector_handle_t icmpv6_handle;
 
 static dissector_handle_t ipv6_handle;
+static dissector_handle_t icmp_extension_handle;
 
 #define ICMP6_DST_UNREACH                 1
 #define ICMP6_PACKET_TOO_BIG              2
@@ -1339,14 +1339,14 @@ static const value_string ext_echo_reply_state_str[] = {
 
 /* whenever a ICMPv6 packet is seen by the tap listener */
 /* Add a new frame into the graph */
-static gboolean
+static tap_packet_status
 icmpv6_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_, const void *dummy _U_)
 {
     seq_analysis_info_t *sainfo = (seq_analysis_info_t *) ptr;
     seq_analysis_item_t *sai = sequence_analysis_create_sai_with_addresses(pinfo, sainfo);
 
     if (!sai)
-        return FALSE;
+        return TAP_PACKET_DONT_REDRAW;
 
     sai->frame_number = pinfo->num;
 
@@ -1372,7 +1372,7 @@ icmpv6_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _
 
     g_queue_push_tail(sainfo->items, sai);
 
-    return TRUE;
+    return TAP_PACKET_REDRAW;
 }
 
 
@@ -4622,7 +4622,9 @@ dissect_icmpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 proto_tree_add_item(icmp6_tree, hf_icmpv6_ext_echo_req_local, tvb, offset, 1,
                                     ENC_BIG_ENDIAN);
                 offset += 1;
-                offset = dissect_icmp_extension_structure(tvb, pinfo, offset, icmp6_tree);
+
+                tvbuff_t * extension_tvb = tvb_new_subset_remaining(tvb, offset);
+                offset += call_dissector(icmp_extension_handle, extension_tvb, pinfo, icmp6_tree);
                 break;
             }
 
@@ -6088,6 +6090,7 @@ proto_reg_handoff_icmpv6(void)
      * Get a handle for the IPv6 dissector.
      */
     ipv6_handle = find_dissector_add_dependency("ipv6", proto_icmpv6);
+    icmp_extension_handle = find_dissector("icmp_extension");
 }
 
 /*

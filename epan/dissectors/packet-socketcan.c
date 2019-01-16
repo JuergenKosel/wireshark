@@ -23,16 +23,6 @@
 #include "packet-sll.h"
 #include "packet-socketcan.h"
 
-/* controller area network (CAN) kernel definitions
- * These masks are usually defined within <linux/can.h> but are not
- * available on non-Linux platforms; that's the reason for the
- * redefinitions below
- *
- * special address description flags for the CAN_ID */
-#define CAN_EFF_FLAG 0x80000000 /* EFF/SFF is set in the MSB */
-#define CAN_RTR_FLAG 0x40000000 /* remote transmission request */
-#define CAN_ERR_FLAG 0x20000000 /* error frame */
-
 void proto_register_socketcan(void);
 void proto_reg_handoff_socketcan(void);
 
@@ -90,7 +80,6 @@ dissect_socketcan_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	guint8      frame_type;
 	gint        frame_len;
 	struct can_identifier can_id;
-	guint32 raw_can_id;
 	tvbuff_t*   next_tvb;
 	int * can_flags[] = {
 		&hf_can_ident_ext,
@@ -100,18 +89,18 @@ dissect_socketcan_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		NULL,
 	};
 
-	raw_can_id = tvb_get_guint32(tvb, 0, encoding);
-	frame_len  = tvb_get_guint8( tvb, CAN_LEN_OFFSET);
+	can_id.id = tvb_get_guint32(tvb, 0, encoding);
+	frame_len = tvb_get_guint8(tvb, CAN_LEN_OFFSET);
 
-	if (raw_can_id & CAN_EFF_FLAG)
+	if (can_id.id & CAN_EFF_FLAG)
 	{
 		frame_type = LINUX_CAN_EXT;
-		can_id.id = raw_can_id & CAN_EFF_MASK;
+		can_id.id &= (CAN_EFF_MASK | CAN_FLAG_MASK);
 	}
 	else
 	{
 		frame_type = LINUX_CAN_STD;
-		can_id.id = raw_can_id & CAN_SFF_MASK;
+		can_id.id &= (CAN_SFF_MASK | CAN_FLAG_MASK);
 		can_flags[0] = &hf_can_ident_std;
 	}
 
@@ -119,14 +108,15 @@ dissect_socketcan_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	col_clear(pinfo->cinfo, COL_INFO);
 
 	/* Error Message Frames are only encapsulated in Classic CAN frames */
-	if (raw_can_id & CAN_ERR_FLAG)
+	if (can_id.id & CAN_ERR_FLAG)
 	{
 		frame_type = LINUX_CAN_ERR;
 	}
 
 	col_add_fstr(pinfo->cinfo, COL_INFO, "%s: 0x%08x   ",
-		     val_to_str(frame_type, frame_type_vals, "Unknown (0x%02x)"), can_id.id);
-	if (raw_can_id & CAN_RTR_FLAG)
+		     val_to_str(frame_type, frame_type_vals, "Unknown (0x%02x)"), (can_id.id & ~CAN_FLAG_MASK));
+
+	if (can_id.id & CAN_RTR_FLAG)
 	{
 		col_append_str(pinfo->cinfo, COL_INFO, "(Remote Transmission Request)");
 	}
@@ -188,7 +178,6 @@ dissect_socketcanfd_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	guint8      frame_type;
 	gint        frame_len;
 	struct can_identifier can_id;
-	guint32 raw_can_id;
 	tvbuff_t*   next_tvb;
 	int * can_flags_fd[] = {
 		&hf_can_ident_ext,
@@ -201,18 +190,18 @@ dissect_socketcanfd_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		NULL,
 	};
 
-	raw_can_id = tvb_get_guint32(tvb, 0, encoding);
-	frame_len  = tvb_get_guint8( tvb, CAN_LEN_OFFSET);
+	can_id.id = tvb_get_guint32(tvb, 0, encoding);
+	frame_len = tvb_get_guint8(tvb, CAN_LEN_OFFSET);
 
-	if (raw_can_id & CAN_EFF_FLAG)
+	if (can_id.id & CAN_EFF_FLAG)
 	{
 		frame_type = LINUX_CAN_EXT;
-		can_id.id = raw_can_id & CAN_EFF_MASK;
+		can_id.id &= (CAN_EFF_MASK | CAN_FLAG_MASK);
 	}
 	else
 	{
 		frame_type = LINUX_CAN_STD;
-		can_id.id = raw_can_id & CAN_SFF_MASK;
+		can_id.id &= (CAN_SFF_MASK | CAN_FLAG_MASK);
 		can_flags_fd[0] = &hf_can_ident_std;
 	}
 
@@ -220,7 +209,7 @@ dissect_socketcanfd_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	col_clear(pinfo->cinfo, COL_INFO);
 
 	col_add_fstr(pinfo->cinfo, COL_INFO, "%s: 0x%08x   %s",
-		     val_to_str(frame_type, frame_type_vals, "Unknown (0x%02x)"), can_id.id,
+		     val_to_str(frame_type, frame_type_vals, "Unknown (0x%02x)"), (can_id.id & ~CAN_FLAG_MASK),
 		     tvb_bytes_to_str_punct(wmem_packet_scope(), tvb, CAN_DATA_OFFSET, frame_len, ' '));
 
 	ti = proto_tree_add_item(tree, proto_canfd, tvb, 0, -1, ENC_NA);
@@ -230,7 +219,7 @@ dissect_socketcanfd_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	proto_tree_add_item(can_tree, hf_can_len, tvb, CAN_LEN_OFFSET, 1, ENC_NA);
 	proto_tree_add_bitmask_list(can_tree, tvb, CANFD_FLAG_OFFSET, 1, canfd_flag_fields, ENC_NA);
-    proto_tree_add_item(can_tree, hf_can_reserved, tvb, CANFD_FLAG_OFFSET+1, 2, ENC_NA);
+	proto_tree_add_item(can_tree, hf_can_reserved, tvb, CANFD_FLAG_OFFSET+1, 2, ENC_NA);
 
 	next_tvb = tvb_new_subset_length(tvb, CAN_DATA_OFFSET, frame_len);
 
@@ -239,10 +228,10 @@ dissect_socketcanfd_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		call_data_dissector(next_tvb, pinfo, tree);
 	}
 
-    if (tvb_captured_length_remaining(tvb, CAN_DATA_OFFSET+frame_len) > 0)
-    {
-        proto_tree_add_item(can_tree, hf_can_padding, tvb, CAN_DATA_OFFSET+frame_len, -1, ENC_NA);
-    }
+	if (tvb_captured_length_remaining(tvb, CAN_DATA_OFFSET+frame_len) > 0)
+	{
+		proto_tree_add_item(can_tree, hf_can_padding, tvb, CAN_DATA_OFFSET+frame_len, -1, ENC_NA);
+	}
 
 	return tvb_captured_length(tvb);
 }

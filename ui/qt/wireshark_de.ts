@@ -88,12 +88,23 @@
         <translation>Das Verzeichnis %1 konnte nicht erstellt werden!</translation>
     </message>
     <message>
+        <source>Show in Finder</source>
+        <translation>Im Finder anzeigen</translation>
+    </message>
+    <message>
+        <source>Show in Folder</source>
+        <translation>Im Ordner anzeigen</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>Kopieren</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <source>Copy Row(s)</source>
-        <translation>Zeile(n) kopieren</translation>
+        <translation>
+            <numerusform>Zeile kopieren</numerusform>
+            <numerusform>Zeilen kopieren</numerusform>
+        </translation>
     </message>
 </context>
 <context>
@@ -2293,14 +2304,6 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <source>Save All Objects In</source>
         <translation>Alle Objekte sichern in</translation>
     </message>
-    <message>
-        <source>Object Export</source>
-        <translation>Objektexport</translation>
-    </message>
-    <message>
-        <source>Some files could not be saved.</source>
-        <translation>Einige Dateien konnten nicht gespeichert werden.</translation>
-    </message>
 </context>
 <context>
     <name>ExportObjectModel</name>
@@ -3931,10 +3934,6 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
         <translation>Maximale Framelänge:</translation>
     </message>
     <message>
-        <source>The maximum size of the frames to write to the import capture file (max 64000)</source>
-        <translation>Die maximale Framegröße beim Schreiben in die Mitschnittdatei (max 64000)</translation>
-    </message>
-    <message>
         <source>Encapsulation</source>
         <translation>Kapselung</translation>
     </message>
@@ -4057,6 +4056,10 @@ Achtung: Eine Option MUSS ausgewählt sein.</translation>
     <message>
         <source>IPv4</source>
         <translation>IPv4</translation>
+    </message>
+    <message>
+        <source>The maximum size of the frames to write to the import capture file (max 256kiB)</source>
+        <translation>Die maximale Framegröße beim Schreiben in die Mitschnittdatei (max 256kiB)</translation>
     </message>
     <message>
         <source>Import From Hex Dump</source>
@@ -12745,8 +12748,9 @@ text-decoration: underline;
         <translation>Dateipfad kopieren</translation>
     </message>
     <message>
-        <source>Remove</source>
-        <translation>Entfernen</translation>
+        <source>Remove from list</source>
+        <oldsource>Remove</oldsource>
+        <translation type="unfinished">Entfernen</translation>
     </message>
 </context>
 <context>

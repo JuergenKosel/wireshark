@@ -69,22 +69,22 @@ Param(
 # trouble instead of trying to catch exceptions everywhere.
 $ErrorActionPreference = "Stop"
 
-$Win64CurrentTag = "2018-08-15"
-$Win32CurrentTag = "2018-08-15"
+$Win64CurrentTag = "2019-01-04"
+$Win32CurrentTag = "2019-01-04"
 
 # Archive file / SHA256
 $Win64Archives = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "09d637f28a79b1d2ecb09f35436271a90c0f69bd0a1ee82b803abaaf63c18a69";
     "bcg729-1.0.4-win64ws.zip" = "9a095fda4c39860d96f0c568830faa6651cd17635f68e27aa6de46c689aa0ee2";
-    "c-ares-1.14.0-win64ws.zip" = "91b1e1460bda513375910977a3410afd024575eebc528adecf3abea7814c0ef1";
-    "gnutls-3.4.11-1.35-win64ws.zip" = "defc04f430f88e0c1217b98157e38b0e9fc8b4e7ad744c6dd0c24dd17648f9f4";
+    "c-ares-1.15.0-win64ws.zip" = "ade864fd08e887d353a9c939fa6e68b0bf3e08761b6e81f60ce15e6543256552";
+    "gnutls-3.6.3-1-win64ws.zip" = "994ac2578e7b4ca01e589ab2598927d53f7370bc3ff679f3006b0e6bb7a06df4";
     "glib2-2.52.2-1.31-win64ws.zip" = "e19a7812db6715c632a5bbf96452ab474a4eaf0c6aaee999323ac7beb7ebe6db";
     "kfw-3-2-2-x64-ws.zip" = "91654ffe0b6d418b369c95bc060414a90f91627e55c19a3e753803c9deb2fe9a";
     "libgcrypt-1.8.3-win64ws.zip" = "53b1c636cb89de308ca4ea01b4990cf1deca7f6c2446189c7ff6e971137ffd76";
     "libsmi-svn-40773-win64ws.zip" = "571fcee71d741bf847c3247d4c2e1c42388ca6a9feebe08fc0d4ce053571d15d";
     "libssh-0.7.3-1-win64ws.zip" = "3a81b9f4a914a46f15243bbb13b6919ef1c20d4bf502c47646caeccff2cbd75c";
     "libxml2-2.9.4-win64ws.zip" = "bb1892f5506f281d8f2b6c8be4fa8e83a9a3fb94c9160466fa59afdc5110d52e";
-    "lua-5.2.4_Win64_dllw4_lib.zip" = "cb019c1f771af6c0d6dfb7ddfe162b4984772416349ef1f40871feac6141f805";
+    "lua-5.2.4-unicode-win64-vc14.zip" = "e8968d2c7871ce1ea82cbd29ac1b3a2c59d3dec25e483c5e12de85df66f5d928";
     "lz4-1.7.5-win64ws.zip" = "dc946b68238c25cbc216901332d608d7f4b084be2d401210f74ce68b9b93207f";
     "MaxMindDB-1.3.2-win64ws.zip" = "9025c43e9b21ff0bfbaf206b8ed96e2920ef1434107f789e4c7c0c1d8b508952";
     "nghttp2-1.14.0-1-win64ws.zip" = "a4f15854f30b4fbb65cbf150011612e4580683dc9bbb339c632c37e414c938cb";
@@ -93,21 +93,21 @@ $Win64Archives = @{
     "spandsp-0.0.6-1-win64ws.zip" = "0e46c61a5a8dca562c36e88a8962a50c1ec1a9fcf89dd05996dac5a79e454527";
     "WinSparkle-0.5.7.zip" = "56d396ef0c4e8b0589ea74134e484376ca6459d972cd1ab1da6b9624d82e6d04";
     "WpdPack_4_1_2.zip" = "ea799cf2f26e4afb1892938070fd2b1ca37ce5cf75fec4349247df12b784edbd";
-    "zlib-1.2.11-ws.zip" = "8c963c0594c3c8cea64eb3e32ae9ef9a5af98553e56673bdef0901ff6c692028";
+    "zlib-1.2.11-2-ws.zip" = "82764f71649cdc1e5467686289936ca7f632966186e2fce35df94037e4ecb596";
 }
 
 $Win32Archives = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "09d637f28a79b1d2ecb09f35436271a90c0f69bd0a1ee82b803abaaf63c18a69";
     "bcg729-1.0.4-win32ws.zip" = "b785ec78dec6bca8252130eb884bfa28c1140001dd7369a535579176de9e4271";
-    "c-ares-1.14.0-win32ws.zip" = "7355f3ad6d6ec05541c59e5b398b8dbd9a41bf6776b26d9656d8d54ecd58178e";
-    "gnutls-3.4.11-1.36-win32ws.zip" = "10cd21d25b22cfba2566c8d6f5afbbd23d0f8faceb5bc167ccbb8fbb97d6873f";
+    "c-ares-1.15.0-win32ws.zip" = "a54151203a631b478470aaa21b3a1fde6178f2fea9f15a1a6da4bfcecc92cfcd";
+    "gnutls-3.6.3-1-win32ws.zip" = "42d8313ffb888f525d6c39330c39bcc2182e68ee8433a09dd85e1f1e1474f592";
     "glib2-2.52.2-1.34-win32ws.zip" = "28c426a7b64c1cd5b058c2f25685ddfaebca29083bd8f94fec2a8910ece6faf0";
     "kfw-3-2-2-i386-ws-vc6.zip" = "527deb2cf1c3ba0cf743f2b9b8011a22096b54f7ce62fc7ba31b520bbac0e802";
     "libgcrypt-1.8.3-win32ws.zip" = "409b72f2809019050cca91b9e670047c50a0752ff52999089178da54ef926393";
     "libsmi-svn-40773-win32ws.zip" = "44bc81edfeb8948322ca365fc632e419383907c305cc922e6b74fdbb13827958";
     "libssh-0.7.3-1-win32ws.zip" = "b02f0d318175194ac538a24c9c9fc280a0ecad69fb3afd4945c106b4b7c4fa6f";
     "libxml2-2.9.4-win32ws.zip" = "147e521abacdd96913f7f94d1da44d59ee138e510922f3c1e03e485c8c9d8d1c";
-    "lua-5.2.4_Win32_dllw4_lib.zip" = "a4e93f923b23cfe2ec2f2150a09639cd6dd822e64dd50f1db253affa1afd360b";
+    "lua-5.2.4-unicode-win32-vc14.zip" = "ca2368a83f623674178e9441f71fb791e3c0b46f208e3dac28c6ac735f034bff";
     "lz4-1.7.5-win32ws.zip" = "1b2e4b509163bc5039c0694369b9e40ba27cdbf4c4c88fcd454ba6a34c79b41b";
     "MaxMindDB-1.3.2-win32ws.zip" = "5c8b4bf3092da8fad6edb005a5283c6a74b7e115a50da010953eed77d33c11b7";
     "nghttp2-1.14.0-1-win32ws.zip" = "939ec18c81fed2e44270dc924fad8beffe90a74300cc98360442300fb0a5c292";
@@ -116,25 +116,23 @@ $Win32Archives = @{
     "spandsp-0.0.6-1-win32ws.zip" = "3c25f2f4d641d4257ec9922f6db77346a8eed2e360e7d0e27b828ade19c4705b";
     "WinSparkle-0.5.7.zip" = "56d396ef0c4e8b0589ea74134e484376ca6459d972cd1ab1da6b9624d82e6d04";
     "WpdPack_4_1_2.zip" = "ea799cf2f26e4afb1892938070fd2b1ca37ce5cf75fec4349247df12b784edbd";
-    "zlib-1.2.11-ws.zip" = "8c963c0594c3c8cea64eb3e32ae9ef9a5af98553e56673bdef0901ff6c692028";
+    "zlib-1.2.11-2-ws.zip" = "82764f71649cdc1e5467686289936ca7f632966186e2fce35df94037e4ecb596";
 }
 
 # Subdirectory to extract an archive to
 $ArchivesSubDirectory = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "AirPcap_Devpack_4_1_0_1622";
-    "lua-5.2.4_Win64_dllw4_lib.zip" = "lua5.2.4";
-    "lua-5.2.4_Win32_dllw4_lib.zip" = "lua5.2.4";
 }
 
 # Plain file downloads
 
 $Win32Files = @{
-    "WinPcap_4_1_3.exe" = "fc4623b113a1f603c0d9ad5f83130bd6de1c62b973be9892305132389c8588de";
+    "npcap-0.99-r8.exe" = "c8f996c430d7d6395edf94c0a85c849d034c324bd234b74a0f6ac62e4f0f04e0";
     "USBPcapSetup-1.2.0.4.exe" = "0a5ac30b0264e058f262e9c28e5865af7b836620ca5d68bb4bb42c9a808f7a43";
 }
 
 $Win64Files = @{
-    "WinPcap_4_1_3.exe" = "fc4623b113a1f603c0d9ad5f83130bd6de1c62b973be9892305132389c8588de";
+    "npcap-0.99-r8.exe" = "c8f996c430d7d6395edf94c0a85c849d034c324bd234b74a0f6ac62e4f0f04e0";
     "USBPcapSetup-1.2.0.4.exe" = "0a5ac30b0264e058f262e9c28e5865af7b836620ca5d68bb4bb42c9a808f7a43";
 }
 
@@ -152,12 +150,11 @@ $CleanupItems = @(
     "bcg729-1.0.4-win??ws"
     "c-ares-1.9.1-1-win??ws"
     "c-ares-1.1*-win??ws"
-    "gnutls-3.1.22-*-win??ws"
-    "gnutls-3.2.15-*-win??ws"
-    "gnutls-3.4.11-*-win??ws"
+    "gnutls-3.?.*-*-win??ws"
     "glib2-2.*-win??ws"
     "gtk2"
     "gtk3"
+    "json-glib-1.0.2-*-win??ws"
     "kfw-3-2-2-final"
     "kfw-3-2-2-i386-ws-vc6"
     "kfw-3-2-2-x64-ws"
@@ -168,6 +165,8 @@ $CleanupItems = @(
     "libxml2-*-win??ws"
     "lua5.1.4"
     "lua5.2.?"
+    "lua5.2.?-win??"
+    "lua-5.?.?-win??-vc??"
     "lz4-*-win??ws"
     "MaxMindDB-1.3.2-win??ws"
     "nghttp2-*-win??ws"

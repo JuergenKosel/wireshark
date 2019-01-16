@@ -57,10 +57,13 @@ def program_path(request):
     Path to the Wireshark binaries as set by the --program-path option, the
     WS_BIN_PATH environment variable or (curdir)/run.
     '''
+    curdir_run = os.path.join(os.curdir, 'run')
+    if sys.platform == 'win32':
+        curdir_run = os.path.join(curdir_run, 'RelWithDebInfo')
     paths = (
         request.config.getoption('--program-path', default=None),
         os.environ.get('WS_BIN_PATH'),
-        os.path.join(os.curdir, 'run'),
+        curdir_run,
     )
     for path in paths:
         if type(path) == str and os.path.isdir(path):
@@ -74,7 +77,7 @@ def program(program_path):
         dotexe = ''
         if sys.platform.startswith('win32'):
             dotexe = '.exe'
-        path = os.path.normpath(os.path.join(program_path, name + dotexe))
+        path = os.path.abspath(os.path.join(program_path, name + dotexe))
         if not os.access(path, os.X_OK):
             fixtures.skip('Program %s is not available' % (name,))
         return path
@@ -145,11 +148,14 @@ def features(cmd_tshark, make_env):
         tshark_v = ''
     gcry_m = re.search(r'with +Gcrypt +([0-9]+\.[0-9]+)', tshark_v)
     return types.SimpleNamespace(
+        have_x64='Compiled (64-bit)' in tshark_v,
         have_lua='with Lua' in tshark_v,
         have_nghttp2='with nghttp2' in tshark_v,
         have_kerberos='with MIT Kerberos' in tshark_v or 'with Heimdal Kerberos' in tshark_v,
         have_libgcrypt16=gcry_m and float(gcry_m.group(1)) >= 1.6,
         have_libgcrypt17=gcry_m and float(gcry_m.group(1)) >= 1.7,
+        have_gnutls='with GnuTLS' in tshark_v,
+        have_pkcs11='and PKCS #11 support' in tshark_v,
     )
 
 
@@ -256,3 +262,21 @@ def test_env(base_env, conf_path, request, dirs):
         # Inject the test environment as default if it was not overridden.
         request.instance.injected_test_env = env
     return env
+
+
+@fixtures.fixture
+def unicode_env(home_path, make_env):
+    '''A Wireshark configuration directory with Unicode in its path.'''
+    home_env = 'APPDATA' if sys.platform.startswith('win32') else 'HOME'
+    uni_home = os.path.join(home_path, 'unicode-Ф-€-中-testcases')
+    env = make_env(home=uni_home)
+    if sys.platform == 'win32':
+        pluginsdir = os.path.join(uni_home, 'Wireshark', 'plugins')
+    else:
+        pluginsdir = os.path.join(uni_home, '.local/lib/wireshark/plugins')
+    os.makedirs(pluginsdir)
+    return types.SimpleNamespace(
+        path=lambda *args: os.path.join(uni_home, *args),
+        env=env,
+        pluginsdir=pluginsdir
+    )

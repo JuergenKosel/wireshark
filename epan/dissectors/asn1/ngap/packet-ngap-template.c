@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.413 v15.0.0 (2018-06)
+ * References: 3GPP TS 38.413 v15.2.0 (2018-12)
  */
 
 #include "config.h"
@@ -27,6 +27,7 @@
 #include "packet-per.h"
 #include "packet-e212.h"
 #include "packet-s1ap.h"
+#include "packet-ranap.h"
 #include "packet-lte-rrc.h"
 #include "packet-nr-rrc.h"
 #include "packet-gsm_map.h"
@@ -47,6 +48,7 @@ static dissector_handle_t ngap_handle;
 static dissector_handle_t nas_5gs_handle;
 static dissector_handle_t nr_rrc_ue_radio_paging_info_handle;
 static dissector_handle_t nr_rrc_ue_radio_access_cap_info_handle;
+static dissector_handle_t lte_rrc_ue_radio_paging_info_handle;
 
 #include "packet-ngap-val.h"
 
@@ -83,6 +85,7 @@ static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia1 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia2 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia3 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_reserved = -1;
+static int hf_ngap_NASSecurityParametersFromNGRAN_sn = -1;
 #include "packet-ngap-hf.c"
 
 /* Initialize the subtree pointers */
@@ -102,9 +105,13 @@ static gint ett_ngap_NrencryptionAlgorithms = -1;
 static gint ett_ngap_NrintegrityProtectionAlgorithms = -1;
 static gint ett_ngap_EUTRAencryptionAlgorithms = -1;
 static gint ett_ngap_EUTRAintegrityProtectionAlgorithms = -1;
-static gint ett_ngap_UERadioCapabilityForPaging = -1;
+static gint ett_ngap_UERadioCapabilityForPagingOfNR = -1;
+static gint ett_ngap_UERadioCapabilityForPagingOfEUTRA = -1;
 static gint ett_ngap_UERadioCapability = -1;
 static gint ett_ngap_LastVisitedEUTRANCellInformation = -1;
+static gint ett_ngap_LastVisitedUTRANCellInformation = -1;
+static gint ett_ngap_LastVisitedGERANCellInformation = -1;
+static gint ett_ngap_NASSecurityParametersFromNGRAN = -1;
 #include "packet-ngap-ett.c"
 
 static expert_field ei_ngap_number_pages_le15 = EI_INIT;
@@ -423,6 +430,7 @@ proto_reg_handoff_ngap(void)
     nas_5gs_handle = find_dissector_add_dependency("nas-5gs", proto_ngap);
     nr_rrc_ue_radio_paging_info_handle = find_dissector_add_dependency("nr-rrc.ue_radio_paging_info", proto_ngap);
     nr_rrc_ue_radio_access_cap_info_handle = find_dissector_add_dependency("nr-rrc.ue_radio_access_cap_info", proto_ngap);
+    lte_rrc_ue_radio_paging_info_handle = find_dissector_add_dependency("lte-rrc.ue_radio_paging_info", proto_ngap);
     dissector_add_for_decode_as("sctp.port", ngap_handle);
     dissector_add_uint("sctp.ppi", NGAP_PROTOCOL_ID,   ngap_handle);
     Initialized=TRUE;
@@ -569,6 +577,10 @@ void proto_register_ngap(void) {
       { "Reserved", "ngap.EUTRAintegrityProtectionAlgorithms.reserved",
         FT_UINT16, BASE_HEX, NULL, 0x1fff,
         NULL, HFILL }},
+    { &hf_ngap_NASSecurityParametersFromNGRAN_sn,
+      { "NAS Sequence Number", "ngap.NASSecurityParametersFromNGRAN.sn",
+        FT_UINT8, BASE_DEC, NULL, 0,
+        NULL, HFILL }},
 #include "packet-ngap-hfarr.c"
   };
 
@@ -590,9 +602,13 @@ void proto_register_ngap(void) {
     &ett_ngap_NrintegrityProtectionAlgorithms,
     &ett_ngap_EUTRAencryptionAlgorithms,
     &ett_ngap_EUTRAintegrityProtectionAlgorithms,
-    &ett_ngap_UERadioCapabilityForPaging,
+    &ett_ngap_UERadioCapabilityForPagingOfNR,
+    &ett_ngap_UERadioCapabilityForPagingOfEUTRA,
     &ett_ngap_UERadioCapability,
     &ett_ngap_LastVisitedEUTRANCellInformation,
+    &ett_ngap_LastVisitedUTRANCellInformation,
+    &ett_ngap_LastVisitedGERANCellInformation,
+    &ett_ngap_NASSecurityParametersFromNGRAN,
 #include "packet-ngap-ettarr.c"
   };
 

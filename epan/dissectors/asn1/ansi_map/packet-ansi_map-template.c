@@ -391,7 +391,7 @@ update_saved_invokedata(packet_info *pinfo, struct ansi_tcap_private_t *p_privat
     dst_str = address_to_str(wmem_packet_scope(), dst);
 
     /* Data from the TCAP dissector */
-    if ((!pinfo->fd->flags.visited)&&(p_private_tcap->TransactionID_str)){
+    if ((!pinfo->fd->visited)&&(p_private_tcap->TransactionID_str)){
         /* Only do this once XXX I hope it's the right thing to do */
         /* The hash string needs to contain src and dest to distiguish differnt flows */
         switch(ansi_map_response_matching_type){
@@ -4474,7 +4474,7 @@ static void ansi_map_stat_init(stat_tap_table_ui* new_stat)
 }
 
 
-static gboolean
+static tap_packet_status
 ansi_map_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *data)
 {
     stat_data_t* stat_data = (stat_data_t*)tapdata;
@@ -4485,7 +4485,7 @@ ansi_map_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt 
 
     /* Only tracking field values we know */
     if (try_val_to_str(data_p->message_type, ansi_map_opr_code_strings) == NULL)
-        return FALSE;
+        return TAP_PACKET_DONT_REDRAW;
 
     table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, i);
 
@@ -4503,7 +4503,7 @@ ansi_map_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt 
     item_data->value.float_value = (float)total_bytes/(float)count;
     stat_tap_set_field_data(table, data_p->message_type, AVG_BYTES_COLUMN, item_data);
 
-    return TRUE;
+    return TAP_PACKET_REDRAW;
 }
 
 static void

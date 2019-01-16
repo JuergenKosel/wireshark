@@ -29,6 +29,8 @@
 #include <epan/stat_tap_ui.h>
 #include <epan/dissectors/packet-icmp.h>
 
+#include <ui/cmdarg_err.h>
+
 void register_tap_listener_icmpv6stat(void);
 
 /* used to keep track of the ICMPv6 statistics */
@@ -101,10 +103,10 @@ static gint compare_doubles(gconstpointer a, gconstpointer b)
  * "icmpv6" tap, the third parameter type is icmp_transaction_t.
  *
  * function returns :
- *  FALSE: no updates, no need to call (*draw) later
- *  TRUE: state has changed, call (*draw) sometime later
+ *  TAP_PACKET_DONT_REDRAW: no updates, no need to call (*draw) later
+ *  TAP_PACKET_REDRAW: state has changed, call (*draw) sometime later
  */
-static gboolean
+static tap_packet_status
 icmpv6stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *data)
 {
     icmpv6stat_t *icmpv6stat = (icmpv6stat_t *)tapdata;
@@ -112,13 +114,13 @@ icmpv6stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_
     double resp_time, *rt;
 
     if (trans == NULL)
-        return FALSE;
+        return TAP_PACKET_DONT_REDRAW;
 
     if (trans->resp_frame) {
         resp_time = nstime_to_msec(&trans->resp_time);
         rt = g_new(double, 1);
         if (rt == NULL)
-            return FALSE;
+            return TAP_PACKET_DONT_REDRAW;
         *rt = resp_time;
         icmpv6stat->rt_list = g_slist_prepend(icmpv6stat->rt_list, rt);
         icmpv6stat->num_resps++;
@@ -134,9 +136,9 @@ icmpv6stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_
     } else if (trans->rqst_frame)
         icmpv6stat->num_rqsts++;
     else
-        return FALSE;
+        return TAP_PACKET_DONT_REDRAW;
 
-    return TRUE;
+    return TAP_PACKET_REDRAW;
 }
 
 
@@ -266,7 +268,7 @@ icmpv6stat_init(const char *opt_arg, void *userdata _U_)
 
     icmpv6stat = (icmpv6stat_t *)g_try_malloc(sizeof(icmpv6stat_t));
     if (icmpv6stat == NULL) {
-        fprintf(stderr, "tshark: g_try_malloc() fatal error.\n");
+        cmdarg_err("Couldn't register icmpv6,srt tap: Out of memory");
         exit(1);
     }
     memset(icmpv6stat, 0, sizeof(icmpv6stat_t));
@@ -291,8 +293,7 @@ icmpv6stat_init(const char *opt_arg, void *userdata _U_)
         g_free(icmpv6stat->filter);
         g_free(icmpv6stat);
 
-        fprintf(stderr, "tshark: Couldn't register icmpv6,srt tap: %s\n",
-            error_string->str);
+        cmdarg_err("Couldn't register icmpv6,srt tap: %s", error_string->str);
         g_string_free(error_string, TRUE);
         exit(1);
     }

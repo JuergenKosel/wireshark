@@ -29,6 +29,9 @@ install:
   # Py2 fails the test_tshark_unicode_display_filter test, so use Py3.
   - set PATH=C:\Python37-x64;C:\Python37-x64\Scripts;%PATH%
   - pip install pytest pytest-xdist
+  - ps: |   # For pkcs11 tests.
+      Invoke-WebRequest -Uri https://github.com/disig/SoftHSM2-for-Windows/releases/download/v2.5.0/SoftHSM2-2.5.0.msi -OutFile $Env:WIRESHARK_BASE_DIR\SoftHSM2-2.5.0.msi
+      & msiexec /qn /i $Env:WIRESHARK_BASE_DIR\SoftHSM2-2.5.0.msi
 
 # Note: the NSIS installer lacks debug dlls for Debug builds.
 configuration: RelWithDebInfo
@@ -38,9 +41,7 @@ build:
   project: build\Wireshark.sln
 
 before_build:
-  # Write ASCII (not UTF-16). Cannot use cmd due to repeated '%' unescapes.
-  - ps: echo "pkg_format=-%#-AppVeyor" | Out-File -Encoding ASCII version.conf
-  - perl make-version.pl --set-release
+  - perl tools/make-version.pl --set-release --untagged-version-extra=-{vcsinfo}-AppVeyor --tagged-version-extra=-AppVeyor
   - mkdir build
   - cd build
   - cmake -E time cmake -G "%CMAKE_GENERATOR%" ..
@@ -55,8 +56,12 @@ before_test:
   - msbuild /m test-programs.vcxproj
 
 test_script:
-  - set WS_BIN_PATH=%CD%\run\%CONFIGURATION%
-  - pytest -nauto -ra ..\test
+  - pytest
+
+on_finish:
+  - ps: |
+      $Tshark = "run\\$Env:CONFIGURATION\\tshark.exe"
+      if (Test-Path $Tshark) { & $Tshark --version }
 
 # AppVeyor prevents to store artifacts exceeding 50 GB. Commenting out
 # their upload for now. They can be re-enabled on your own repo from the

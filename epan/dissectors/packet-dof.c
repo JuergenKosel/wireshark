@@ -5383,7 +5383,7 @@ static int dof_dissect_dpp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
             {
                 col_append_fstr(pinfo->cinfo, COL_INFO, "DNP/DPP Negotiation");
 
-                if (pinfo->fd->flags.visited &&
+                if (pinfo->fd->visited &&
                     api_data->transport_session->negotiation_required &&
                     ((api_data->transport_session->negotiation_complete_at == 0) || (api_data->transport_session->negotiation_complete_at_ts.secs - api_data->transport_session->session_start_ts.secs > 10)))
                 {
@@ -10864,7 +10864,6 @@ static void dof_register(void)
     uat_t *secmode_uat;
     uat_t *seckey_uat;
     uat_t *identsecret_uat;
-    char *uat_load_err;
     expert_module_t *expert_security;
 
     dsp_option_dissectors = register_dissector_table("dof.dsp.options", "DSP Protocol Options", proto_2008_1_dsp, FT_UINT32, BASE_DEC);
@@ -10959,10 +10958,6 @@ static void dof_register(void)
     prefs_register_uat_preference(dof_module, "custom_dof_identsecret_list", "DPS Identity Secrets",
                                   "A table of secrets for different identities.",
                                   identsecret_uat);
-
-    uat_load(secmode_uat, NULL, &uat_load_err);
-    uat_load(seckey_uat, NULL, &uat_load_err);
-    uat_load(identsecret_uat, NULL, &uat_load_err);
 }
 
 static void dof_handoff(void)

@@ -2088,7 +2088,7 @@ gtpstat_init(struct register_srt* srt _U_, GArray* srt_array)
     init_srt_table_row(gtp_srt_table, 3, "Delete PDP context");
 }
 
-static int
+static tap_packet_status
 gtpstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const void *prv)
 {
     guint i = 0;
@@ -2099,11 +2099,11 @@ gtpstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const voi
 
     /* we are only interested in reply packets */
     if(gtp->is_request){
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
     /* if we have not seen the request, just ignore it */
     if(!gtp->req_frame){
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     /* Only use the commands we know how to handle, this is not a comprehensive list */
@@ -2122,13 +2122,13 @@ gtpstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const voi
     case GTP_MSG_DELETE_PDP_REQ: idx=3;
         break;
     default:
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     gtp_srt_table = g_array_index(data->srt_array, srt_stat_table*, i);
     add_srt_table_data(gtp_srt_table, idx, &gtp->req_time, pinfo);
 
-    return 1;
+    return TAP_PACKET_REDRAW;
 }
 
 
@@ -3125,7 +3125,7 @@ static _gtp_mess_items umts_mess_items[] = {
             {GTP_EXT_RAT_TYPE, GTP_OPTIONAL},           /* RAT Type Optional 7.7.50 */
             {GTP_EXT_USR_LOC_INF, GTP_OPTIONAL},        /* User Location Information Optional 7.7.51 */
             {GTP_EXT_MS_TIME_ZONE, GTP_OPTIONAL},       /* MS Time Zone Optional 7.7.52 */
-            {GTP_EXT_ADD_TRS_INF, GTP_OPTIONAL},        /* Additonal Trace Info Optional 7.7.62 */
+            {GTP_EXT_ADD_TRS_INF, GTP_OPTIONAL},        /* Additional Trace Info Optional 7.7.62 */
             {GTP_EXT_DIRECT_TUNNEL_FLGS, GTP_OPTIONAL}, /* Direct Tunnel Flags     7.7.81 */
             {GTP_EXT_PRIV_EXT, GTP_OPTIONAL},
             {0, 0}
@@ -3482,7 +3482,7 @@ static _gtp_mess_items umts_mess_items[] = {
             {GTP_EXT_MS_TIME_ZONE, GTP_OPTIONAL},       /* MS Time Zone Optional 7.7.52 */
             {GTP_EXT_IMEISV, GTP_OPTIONAL},             /* IMEI(SV) Optional 7.7.53 */
             {GTP_EXT_MBMS_PROT_CONF_OPT, GTP_OPTIONAL}, /* MBMS Protocol Configuration Options Optional 7.7.58 */
-            {GTP_EXT_ADD_TRS_INF, GTP_OPTIONAL},        /* Additonal Trace Info Optional 7.7.62 */
+            {GTP_EXT_ADD_TRS_INF, GTP_OPTIONAL},        /* Additional Trace Info Optional 7.7.62 */
             {GTP_EXT_ENH_NSAPI, GTP_MANDATORY},         /* Enhanced NSAPI Mandatory 7.7.67 */
             {GTP_EXT_ADD_MBMS_TRS_INF, GTP_OPTIONAL},   /* Additional MBMS Trace Info Optional 7.7.68 */
             {GTP_EXT_PRIV_EXT, GTP_OPTIONAL},
@@ -6384,6 +6384,9 @@ gchar *dissect_radius_user_loc(proto_tree * tree, tvbuff_t * tvb, packet_info* p
             offset+=3;
             proto_tree_add_item(tree, hf_gtp_lac, tvb, offset, 2, ENC_BIG_ENDIAN);
             offset+=2;
+            /* The CI is of fixed length with 2 octets and it can be coded using a full
+             * hexadecimal representation
+             */
             proto_tree_add_item(tree, hf_gtp_cgi_ci, tvb, offset, 2, ENC_BIG_ENDIAN);
             break;
         case 1:
@@ -6391,10 +6394,15 @@ gchar *dissect_radius_user_loc(proto_tree * tree, tvbuff_t * tvb, packet_info* p
              * Area Identity (SAI) of where the user currently is registered.
              * SAI is defined in sub-clause 9.2.3.9 of 3GPP TS 25.413 [7].
              */
+            /* PLMN identity    M   9.2.3.55
+             * 9.2.3.55 PLMN identity    M   OCTET STRING (SIZE (3))
+             */
             dissect_e212_mcc_mnc(tvb, pinfo, tree, offset, E212_SAI, TRUE);
             offset+=3;
+            /* LAC  M   OCTET STRING (SIZE(2))  0000 and FFFE not allowed.*/
             proto_tree_add_item(tree, hf_gtp_lac, tvb, offset, 2, ENC_BIG_ENDIAN);
             offset+=2;
+            /* SAC  M   OCTET STRING (SIZE(2)) */
             proto_tree_add_item(tree, hf_gtp_sai_sac, tvb, offset, 2, ENC_BIG_ENDIAN);
             break;
         case 2:
@@ -6407,7 +6415,10 @@ gchar *dissect_radius_user_loc(proto_tree * tree, tvbuff_t * tvb, packet_info* p
             offset+=3;
             proto_tree_add_item(tree, hf_gtp_lac, tvb, offset, 2, ENC_BIG_ENDIAN);
             offset+=2;
-            proto_tree_add_item(tree, hf_gtp_rai_rac, tvb, offset, 2, ENC_BIG_ENDIAN);
+            /* Routing Area Code (RAC) which is a fixed length code (of 1 octet)
+             * identifying a routing area within a location area.
+             */
+            proto_tree_add_item(tree, hf_gtp_rai_rac, tvb, offset, 1, ENC_BIG_ENDIAN);
             break;
         case 128:
             /* Geographic Location field included and it holds the Tracking
@@ -6476,6 +6487,7 @@ dissect_gtp_uli(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tr
             offset+=3;
             proto_tree_add_item(tree, hf_gtp_lac, tvb, offset, 2, ENC_BIG_ENDIAN);
             offset+=2;
+            /* The CI is of fixed length with 2 octets and it can be coded using a full hexadecimal representation */
             proto_tree_add_item(tree, hf_gtp_cgi_ci, tvb, offset, 2, ENC_BIG_ENDIAN);
             break;
         case 1:
@@ -10334,12 +10346,12 @@ proto_register_gtp(void)
         },
         {&hf_gtp_cgi_ci,
          { "Cell ID (CI)", "gtp.cgi_ci",
-           FT_UINT8, BASE_DEC, NULL, 0,
+           FT_UINT16, BASE_DEC, NULL, 0,
            NULL, HFILL}
         },
         {&hf_gtp_sai_sac,
          { "Service Area Code (SAC)", "gtp.sai_sac",
-           FT_UINT8, BASE_DEC, NULL, 0,
+           FT_UINT16, BASE_DEC, NULL, 0,
            NULL, HFILL}
         },
         {&hf_gtp_rai_rac,

@@ -157,6 +157,7 @@ enum ws_nl80211_commands {
     WS_NL80211_CMD_EXTERNAL_AUTH,
     WS_NL80211_CMD_STA_OPMODE_CHANGED,
     WS_NL80211_CMD_CONTROL_PORT_FRAME,
+    WS_NL80211_CMD_GET_FTM_RESPONDER_STATS,
 };
 
 enum ws_nl80211_attrs {
@@ -430,6 +431,8 @@ enum ws_nl80211_attrs {
     WS_NL80211_ATTR_TXQ_MEMORY_LIMIT,
     WS_NL80211_ATTR_TXQ_QUANTUM,
     WS_NL80211_ATTR_HE_CAPABILITY,
+    WS_NL80211_ATTR_FTM_RESPONDER,
+    WS_NL80211_ATTR_FTM_RESPONDER_STATS,
 };
 
 enum ws_nl80211_iftype {
@@ -530,7 +533,9 @@ enum ws_nl80211_sta_info {
     WS_NL80211_STA_INFO_RX_DURATION,
     WS_NL80211_STA_INFO_PAD,
     WS_NL80211_STA_INFO_ACK_SIGNAL,
-    WS_NL80211_STA_INFO_DATA_ACK_SIGNAL_AVG,
+    WS_NL80211_STA_INFO_ACK_SIGNAL_AVG,
+    WS_NL80211_STA_INFO_RX_MPDUS,
+    WS_NL80211_STA_INFO_FCS_ERROR_COUNT,
 };
 
 enum ws_nl80211_tid_stats {
@@ -1159,6 +1164,7 @@ static const value_string ws_nl80211_commands_vals[] = {
     { WS_NL80211_CMD_EXTERNAL_AUTH,         "NL80211_CMD_EXTERNAL_AUTH" },
     { WS_NL80211_CMD_STA_OPMODE_CHANGED,    "NL80211_CMD_STA_OPMODE_CHANGED" },
     { WS_NL80211_CMD_CONTROL_PORT_FRAME,    "NL80211_CMD_CONTROL_PORT_FRAME" },
+    { WS_NL80211_CMD_GET_FTM_RESPONDER_STATS, "NL80211_CMD_GET_FTM_RESPONDER_STATS" },
     { 0, NULL }
 };
 static value_string_ext ws_nl80211_commands_vals_ext = VALUE_STRING_EXT_INIT(ws_nl80211_commands_vals);
@@ -1434,6 +1440,8 @@ static const value_string ws_nl80211_attrs_vals[] = {
     { WS_NL80211_ATTR_TXQ_MEMORY_LIMIT,     "NL80211_ATTR_TXQ_MEMORY_LIMIT" },
     { WS_NL80211_ATTR_TXQ_QUANTUM,          "NL80211_ATTR_TXQ_QUANTUM" },
     { WS_NL80211_ATTR_HE_CAPABILITY,        "NL80211_ATTR_HE_CAPABILITY" },
+    { WS_NL80211_ATTR_FTM_RESPONDER,        "NL80211_ATTR_FTM_RESPONDER" },
+    { WS_NL80211_ATTR_FTM_RESPONDER_STATS,  "NL80211_ATTR_FTM_RESPONDER_STATS" },
     { 0, NULL }
 };
 static value_string_ext ws_nl80211_attrs_vals_ext = VALUE_STRING_EXT_INIT(ws_nl80211_attrs_vals);
@@ -1546,7 +1554,9 @@ static const value_string ws_nl80211_sta_info_vals[] = {
     { WS_NL80211_STA_INFO_RX_DURATION,      "NL80211_STA_INFO_RX_DURATION" },
     { WS_NL80211_STA_INFO_PAD,              "NL80211_STA_INFO_PAD" },
     { WS_NL80211_STA_INFO_ACK_SIGNAL,       "NL80211_STA_INFO_ACK_SIGNAL" },
-    { WS_NL80211_STA_INFO_DATA_ACK_SIGNAL_AVG, "NL80211_STA_INFO_DATA_ACK_SIGNAL_AVG" },
+    { WS_NL80211_STA_INFO_ACK_SIGNAL_AVG,   "NL80211_STA_INFO_ACK_SIGNAL_AVG" },
+    { WS_NL80211_STA_INFO_RX_MPDUS,         "NL80211_STA_INFO_RX_MPDUS" },
+    { WS_NL80211_STA_INFO_FCS_ERROR_COUNT,  "NL80211_STA_INFO_FCS_ERROR_COUNT" },
     { 0, NULL }
 };
 static value_string_ext ws_nl80211_sta_info_vals_ext = VALUE_STRING_EXT_INIT(ws_nl80211_sta_info_vals);
@@ -2480,6 +2490,14 @@ static header_field_info hfi_nl80211_attr_value32 NETLINK_NL80211_HFI_INIT =
     { "Attribute Value", "nl80211.attr_value32", FT_UINT32, BASE_HEX_DEC,
       NULL, 0x00, NULL, HFILL };
 
+static header_field_info hfi_nl80211_ifname NETLINK_NL80211_HFI_INIT =
+    { "Interface Name", "nl80211.ifname", FT_STRINGZ, STR_ASCII,
+      NULL, 0x00, NULL, HFILL };
+
+static header_field_info hfi_nl80211_mac NETLINK_NL80211_HFI_INIT =
+    { "MAC address", "nl80211.mac", FT_ETHER, BASE_NONE,
+      NULL, 0x00, NULL, HFILL };
+
 static int
 dissect_nl80211_generic(tvbuff_t *tvb, void *data, proto_tree *tree, _U_ int nla_type, int offset, int len)
 {
@@ -2748,7 +2766,9 @@ dissect_nl80211_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type,
     static const struct attr_lookup values[] = {
         { WS_NL80211_ATTR_CHANNEL_WIDTH, &hfi_nl80211_chan_width, NULL, NULL },
         { WS_NL80211_ATTR_WIPHY_CHANNEL_TYPE, &hfi_nl80211_channel_type, NULL, NULL },
+        { WS_NL80211_ATTR_IFNAME, &hfi_nl80211_ifname, NULL, NULL },
         { WS_NL80211_ATTR_IFTYPE, &hfi_nl80211_iftype, NULL, NULL },
+        { WS_NL80211_ATTR_MAC, &hfi_nl80211_mac, NULL, NULL },
         { WS_NL80211_ATTR_STA_PLINK_ACTION, &hfi_plink_actions, NULL, NULL },
         { WS_NL80211_ATTR_MPATH_INFO, &hfi_nl80211_mpath_info, NULL, NULL },
         { WS_NL80211_ATTR_REG_INITIATOR, &hfi_nl80211_reg_initiator, NULL, NULL },
@@ -2838,6 +2858,8 @@ proto_register_netlink_nl80211(void)
         &hfi_nl80211_attr_value,
         &hfi_nl80211_attr_value16,
         &hfi_nl80211_attr_value32,
+        &hfi_nl80211_ifname,
+        &hfi_nl80211_mac,
 /* Extracted using tools/generate-nl80211-fields.py */
 /* Definitions from linux/nl80211.h {{{ */
         &hfi_nl80211_commands,

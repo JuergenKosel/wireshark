@@ -58,6 +58,7 @@ set(ASN1_SRC_DIRS
 	ilp
 	inap
 	isdn-sup
+	its
 	kerberos
 	lcsap
 	ldap
@@ -127,6 +128,7 @@ set(ASN1_SRC_DIRS
 	x509if
 	x509sat
 	xnap
+	z3950
 	${CUSTOM_ASN1_SRC_DIR}
 )
 

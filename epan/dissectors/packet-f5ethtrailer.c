@@ -633,9 +633,9 @@ static const gchar *st_str_virtdist_novirt = "Flow without virtual server name";
 static void f5eth_tmmdist_stats_tree_init(
 	stats_tree *st
 ) {
-	st_node_tmmpktdist = stats_tree_create_node(st, st_str_tmmdist_pkts, 0, TRUE);
+	st_node_tmmpktdist = stats_tree_create_node(st, st_str_tmmdist_pkts, 0, STAT_DT_INT, TRUE);
 	stat_node_set_flags(st, st_str_tmmdist_pkts, 0, TRUE, ST_FLG_SORT_TOP);
-	st_node_tmmbytedist = stats_tree_create_node(st, st_str_tmmdist_bytes, 0, TRUE);
+	st_node_tmmbytedist = stats_tree_create_node(st, st_str_tmmdist_bytes, 0, STAT_DT_INT, TRUE);
 } /* f5eth_tmmdist_stats_tree_init() */
 
 #define PER_TMM_STAT_NAME_BUF_LEN (sizeof("slot SSS,tmm TTT"))
@@ -649,10 +649,11 @@ static void f5eth_tmmdist_stats_tree_init(
  *   @param pinfo   A pointer to the packet info.
  *   @param edt     Unused
  *   @param data    A pointer to the data provided by the tap
- *   @return        1 if the data was actually used to alter the statistics, 0 otherwise.
+ *   @return        TAP_PACKET_REDRAW if the data was actually used to alter
+ *                  the statistics, TAP_PACKET_DONT_REDRAW otherwise.
  *
  */
-static int f5eth_tmmdist_stats_tree_packet(
+static tap_packet_status f5eth_tmmdist_stats_tree_packet(
 	stats_tree *st,
 	packet_info *pinfo,
 	epan_dissect_t *edt _U_,
@@ -667,12 +668,12 @@ static int f5eth_tmmdist_stats_tree_packet(
 	char tmm_stat_name_buffer[PER_TMM_STAT_NAME_BUF_LEN];
 
 	if(tdata == NULL)
-		return 0;
+		return TAP_PACKET_DONT_REDRAW;
 
 	/* Unnecessary since this tap packet function and the F5 Ethernet trailer dissector are both in
 	 * the same source file.  If you are using this function as an example in a separate tap source
 	 * file, you should uncomment this.
-	if(check_f5eth_tap_magic(tdata) == 0) return 0;
+	if(check_f5eth_tap_magic(tdata) == 0) return TAP_PACKET_DONT_REDRAW;
 	 */
 
 	g_snprintf(tmm_stat_name_buffer, PER_TMM_STAT_NAME_BUF_LEN, "slot %3d,tmm %3d",
@@ -734,30 +735,30 @@ static int f5eth_tmmdist_stats_tree_packet(
 		increase_stat_node(st, st_str_tmm_flow_none, st_node_tmm_bytes, FALSE, 0);
 	}
 
-	return 1;
+	return TAP_PACKET_REDRAW;
 } /* f5eth_tmmdist_stats_tree_packet() */
 
 /*-----------------------------------------------------------------------------------------------*/
 static void f5eth_virtdist_stats_tree_init(
 	stats_tree *st
 ) {
-	st_node_virtpktdist = stats_tree_create_node(st, st_str_virtdist_pkts, 0, TRUE);
+	st_node_virtpktdist = stats_tree_create_node(st, st_str_virtdist_pkts, 0, STAT_DT_INT, TRUE);
 	stat_node_set_flags(st, st_str_virtdist_pkts, 0, TRUE, ST_FLG_SORT_TOP);
-	st_node_virtbytedist = stats_tree_create_node(st, st_str_virtdist_bytes, 0, TRUE);
+	st_node_virtbytedist = stats_tree_create_node(st, st_str_virtdist_bytes, 0, STAT_DT_INT, TRUE);
 
-	stats_tree_create_node(st, st_str_virtdist_noflow, st_node_virtpktdist, TRUE);
+	stats_tree_create_node(st, st_str_virtdist_noflow, st_node_virtpktdist, STAT_DT_INT, TRUE);
 	stat_node_set_flags(st, st_str_virtdist_noflow, st_node_virtpktdist, TRUE, ST_FLG_SORT_TOP);
-	stats_tree_create_node(st, st_str_virtdist_novirt, st_node_virtpktdist, TRUE);
+	stats_tree_create_node(st, st_str_virtdist_novirt, st_node_virtpktdist, STAT_DT_INT, TRUE);
 	stat_node_set_flags(st, st_str_virtdist_novirt, st_node_virtpktdist, TRUE, ST_FLG_SORT_TOP);
 
-	stats_tree_create_node(st, st_str_virtdist_noflow, st_node_virtbytedist, TRUE);
+	stats_tree_create_node(st, st_str_virtdist_noflow, st_node_virtbytedist, STAT_DT_INT, TRUE);
 	stat_node_set_flags(st, st_str_virtdist_noflow, st_node_virtbytedist, TRUE, ST_FLG_SORT_TOP);
-	stats_tree_create_node(st, st_str_virtdist_novirt, st_node_virtbytedist, TRUE);
+	stats_tree_create_node(st, st_str_virtdist_novirt, st_node_virtbytedist, STAT_DT_INT, TRUE);
 	stat_node_set_flags(st, st_str_virtdist_novirt, st_node_virtbytedist, TRUE, ST_FLG_SORT_TOP);
 } /* f5eth_virtdist_stats_tree_init() */
 
 /*-----------------------------------------------------------------------------------------------*/
-static int f5eth_virtdist_stats_tree_packet(
+static tap_packet_status f5eth_virtdist_stats_tree_packet(
 	stats_tree *st,
 	packet_info *pinfo,
 	epan_dissect_t *edt _U_,
@@ -767,11 +768,11 @@ static int f5eth_virtdist_stats_tree_packet(
 	guint32 pkt_len;
 
 	if (tdata == NULL)
-		return 0;
+		return TAP_PACKET_DONT_REDRAW;
 	/* Unnecessary since this tap packet function and the F5 Ethernet trailer dissector are both in
 	 * the same source file.  If you are using this function as an example in a separate tap source
 	 * file, you should uncomment this.
-	if(check_f5eth_tap_magic(tdata) == 0) return 0;
+	if(check_f5eth_tap_magic(tdata) == 0) return TAP_PACKET_DONT_REDRAW;
 	 */
 
 	pkt_len = pinfo->fd->pkt_len - tdata->trailer_len;
@@ -797,7 +798,7 @@ static int f5eth_virtdist_stats_tree_packet(
 		increase_stat_node(st, tdata->virtual_name, st_node_virtbytedist, TRUE, pkt_len);
 	}
 
-	return 1;
+	return TAP_PACKET_REDRAW;
 } /* f5eth_virtdist_stats_tree_packet() */
 
 
@@ -1262,26 +1263,6 @@ static struct f5eth_analysis_data_t *new_f5eth_analysis_data_t(void)
 } /* new_f5eth_analysis_data_t() */
 
 
-/*-----------------------------------------------------------------------------------------------*/
-/** \brief Retrieves the analysis data structure from the packet info.  If it doesn't exist, it
- *  creates one and attaches it.
- *
- *   @param pinfo  A pointer to the packet info to look at for the analysis data.
- *   @return       A pointer to the analysis data structure retrieved or created.  NULL if error.
- */
-static struct f5eth_analysis_data_t *get_f5eth_analysis_data(packet_info *pinfo)
-{
-	struct f5eth_analysis_data_t *analysis_data;
-
-	analysis_data = (struct f5eth_analysis_data_t*)p_get_proto_data(wmem_file_scope(), pinfo,
-		proto_f5ethtrailer, 0);
-	if(analysis_data == NULL) {
-		analysis_data = new_f5eth_analysis_data_t();
-		p_add_proto_data(wmem_file_scope(), pinfo, proto_f5ethtrailer, 0, analysis_data);
-	}
-	return(analysis_data);
-} /* get_f5eth_analysis_data() */
-
 /* Functions for find a subtree of a particular type of the current tree. */
 
 /** Structure used as the anonymous data in the proto_tree_children_foreach() function */
@@ -1393,19 +1374,22 @@ static void render_analysis(
 /*-----------------------------------------------------------------------------------------------*/
 /** \brief Tap call back to retrieve information about the IP headers.
  */
-static gboolean ip_tap_pkt(
+static tap_packet_status ip_tap_pkt(
 	void *tapdata _U_,
 	packet_info *pinfo,
 	epan_dissect_t *edt _U_,
 	const void *data
 ) {
-	struct f5eth_analysis_data_t *ad = get_f5eth_analysis_data(pinfo);
+	struct f5eth_analysis_data_t *ad;
 	const ws_ip4 *iph;
 
-	if(ad->ip_visited == 1) return(FALSE);
+	ad = (struct f5eth_analysis_data_t*)p_get_proto_data(wmem_file_scope(), pinfo,
+		proto_f5ethtrailer, 0);
+	if(ad == NULL) return(TAP_PACKET_DONT_REDRAW);	/* No F5 information */
+	if(ad->ip_visited == 1) return(TAP_PACKET_DONT_REDRAW);
 	ad->ip_visited = 1;
 
-	if(data == NULL) return(FALSE);
+	if(data == NULL) return(TAP_PACKET_DONT_REDRAW);
 	iph = (const ws_ip4 *)data;
 
 	/* Only care about TCP at this time */
@@ -1415,31 +1399,34 @@ static gboolean ip_tap_pkt(
 	 */
 	if(iph->ip_proto != IP_PROTO_TCP) {
 		ad->ip_istcp = 0;
-		return(FALSE);
+		return(TAP_PACKET_DONT_REDRAW);
 	}
 
 	ad->ip_istcp = 1;
 	ad->ip_isfrag = ((iph->ip_off & IP_OFFSET_MASK) || (iph->ip_off & IP_MF)) ? 1 : 0;
 
-	return(TRUE);
+	return(TAP_PACKET_REDRAW);
 } /* ip_tap_pkt() */
 
 /*-----------------------------------------------------------------------------------------------*/
 /** \brief Tap call back to retrieve information about the IPv6 headers.
  */
-static gboolean ipv6_tap_pkt(
+static tap_packet_status ipv6_tap_pkt(
 	void *tapdata _U_,
 	packet_info *pinfo,
 	epan_dissect_t *edt _U_,
 	const void *data
 ) {
-	struct f5eth_analysis_data_t *ad = get_f5eth_analysis_data(pinfo);
+	struct f5eth_analysis_data_t *ad;
 	const struct ws_ip6_hdr *ipv6h;
 
-	if(ad->ip_visited == 1) return(FALSE);
+	ad = (struct f5eth_analysis_data_t*)p_get_proto_data(wmem_file_scope(), pinfo,
+		proto_f5ethtrailer, 0);
+	if(ad == NULL) return(TAP_PACKET_DONT_REDRAW);	/* No F5 information */
+	if(ad->ip_visited == 1) return(TAP_PACKET_DONT_REDRAW);
 	ad->ip_visited = 1;
 
-	if(data == NULL) return(FALSE);
+	if(data == NULL) return(TAP_PACKET_DONT_REDRAW);
 	ipv6h = (const struct ws_ip6_hdr *)data;
 
 	/* Only care about TCP at this time */
@@ -1453,30 +1440,33 @@ static gboolean ipv6_tap_pkt(
 	 * fragment, we don't care anyways (too much effort). */
 	if(ipv6h->ip6h_nxt != IP_PROTO_TCP) {
 		ad->ip_istcp = 0;
-		return(FALSE);
+		return(TAP_PACKET_DONT_REDRAW);
 	}
 
 	ad->ip_istcp = 1;
 
-	return(TRUE);
+	return(TAP_PACKET_REDRAW);
 } /* ipv6_tap_pkt() */
 
 /*-----------------------------------------------------------------------------------------------*/
 /** \brief Tap call back to retrieve information about the TCP headers.
  */
-static gboolean tcp_tap_pkt(
+static tap_packet_status tcp_tap_pkt(
 	void *tapdata _U_,
 	packet_info *pinfo,
 	epan_dissect_t *edt _U_,
 	const void *data
 ) {
-	struct f5eth_analysis_data_t *ad = get_f5eth_analysis_data(pinfo);
+	struct f5eth_analysis_data_t *ad;
 	const tcp_info_t *tcph;
 
-	if(ad->tcp_visited == 1) return(FALSE);
+	ad = (struct f5eth_analysis_data_t*)p_get_proto_data(wmem_file_scope(), pinfo,
+		proto_f5ethtrailer, 0);
+	if(ad == NULL) return(TAP_PACKET_DONT_REDRAW);	/* No F5 information */
+	if(ad->tcp_visited == 1) return(TAP_PACKET_DONT_REDRAW);
 	ad->tcp_visited = 1;
 
-	if(data == NULL) return(FALSE);
+	if(data == NULL) return(TAP_PACKET_DONT_REDRAW);
 	tcph = (const tcp_info_t *)data;
 
 	ad->tcp_synset = (tcph->th_flags & TH_SYN) ? 1 : 0;
@@ -1502,7 +1492,7 @@ static gboolean tcp_tap_pkt(
 		}
 	}
 
-	return(TRUE);
+	return(TAP_PACKET_REDRAW);
 } /* tcp_tap_pkt() */
 
 /* End of analysis functions */
@@ -2187,7 +2177,6 @@ dissect_dpt_trailer_noise_high(
 	proto_tree_add_item(tree, hf_peer_local_port, tvb, o, 2, ENC_BIG_ENDIAN);
 	pi = proto_tree_add_item(tree, hf_peer_port, tvb, o, 2, ENC_BIG_ENDIAN);
 	PROTO_ITEM_SET_HIDDEN(pi);
-	o += 2;
 
 	return(len);
 } /* dissect_dpt_trailer_noise_high() */
@@ -2334,10 +2323,9 @@ dissect_dpt_trailer_noise_med(
 				ENC_ASCII));
 			proto_tree_add_item(rc_tree, hf_rstcause_txt, tvb, o, rstcauselen-(o-startcause),
 				ENC_ASCII|ENC_NA);
-			o = startcause + rstcauselen;
+			/*o = startcause + rstcauselen;*/
 			break;
 		default:
-			o += rstcauselen;
 			break;
 		}
 	}
@@ -2447,7 +2435,6 @@ dissect_dpt_trailer_noise_low(
 	}
 	o += 1;
 	proto_tree_add_item(tree, hf_vip, tvb, o, vipnamelen, ENC_ASCII|ENC_NA);
-	o += vipnamelen;
 
 	return(len);
 } /* dissect_dpt_trailer_noise_low() */
@@ -2765,9 +2752,13 @@ dissect_f5ethtrailer(
 
 	if(pref_perform_analysis) {
 		/* Get the analysis data information for this packet */
-		ad = get_f5eth_analysis_data(pinfo);
-
-		if(ad != NULL && ad->analysis_done == 0) {
+		ad = (struct f5eth_analysis_data_t*)p_get_proto_data(wmem_file_scope(), pinfo,
+			proto_f5ethtrailer, 0);
+		if(ad == NULL) {
+			ad = new_f5eth_analysis_data_t();
+			p_add_proto_data(wmem_file_scope(), pinfo, proto_f5ethtrailer, 0, ad);
+		}
+		if(ad->analysis_done == 0) {
 			ad->pkt_ingress = tdata->ingress;
 			if(tdata->flows_set == 1) {
 				ad->pkt_has_flow = tdata->flow == 0 ? 0 : 1;
@@ -3153,7 +3144,7 @@ void proto_register_f5ethtrailer (void)
 		" tcp.port and udp.port).  Enabling this will allow filters that"
 		" reference those fields to also find data in the trailers but"
 		" will reduce performance.  After disabling, you should restart"
-		" Wireshark to get perfomance back.", &pop_other_fields);
+		" Wireshark to get performance back.", &pop_other_fields);
 #else
 	/* If we are not building with this, silently delete the preference */
 	prefs_register_obsolete_preference(f5ethtrailer_module,

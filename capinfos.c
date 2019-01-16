@@ -59,10 +59,10 @@
 
 #include <wiretap/wtap.h>
 
-#include <wsutil/cmdarg_err.h>
-#include <wsutil/crash_info.h>
+#include <ui/cmdarg_err.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
+#include <cli_main.h>
 #include <version_info.h>
 #include <wiretap/wtap_opttypes.h>
 
@@ -79,10 +79,6 @@
 #ifndef HAVE_GETOPT_LONG
 #include "wsutil/wsgetopt.h"
 #endif
-
-#ifdef _WIN32
-#include <wsutil/unicode-utils.h>
-#endif /* _WIN32 */
 
 #include "ui/failure_message.h"
 
@@ -580,7 +576,7 @@ print_stats(const gchar *filename, capture_info *cf_info)
 
   /* Build printable strings for various stats */
   file_type_string = wtap_file_type_subtype_string(cf_info->file_type);
-  file_encap_string = wtap_encap_string(cf_info->file_encap);
+  file_encap_string = wtap_encap_description(cf_info->file_encap);
 
   if (filename)           printf     ("File name:           %s\n", filename);
   if (cap_file_type) {
@@ -601,7 +597,7 @@ print_stats(const gchar *filename, capture_info *cf_info)
       for (i=0; i<WTAP_NUM_ENCAP_TYPES; i++) {
         if (cf_info->encap_counts[i] > 0)
           printf("                     %s (%d)\n",
-                 wtap_encap_string(i), cf_info->encap_counts[i]);
+                 wtap_encap_description(i), cf_info->encap_counts[i]);
       }
     }
   }
@@ -803,7 +799,7 @@ print_stats_table(const gchar *filename, capture_info *cf_info)
 
   /* Build printable strings for various stats */
   file_type_string = wtap_file_type_subtype_string(cf_info->file_type);
-  file_encap_string = wtap_encap_string(cf_info->file_encap);
+  file_encap_string = wtap_encap_description(cf_info->file_encap);
 
   if (filename) {
     putquote();
@@ -1365,7 +1361,7 @@ print_usage(FILE *output)
   fprintf(output, "  -A generate all infos (default)\n");
   fprintf(output, "  -K disable displaying the capture comment\n");
   fprintf(output, "\n");
-  fprintf(output, "Options are processed from left to right order with later options superceding\n");
+  fprintf(output, "Options are processed from left to right order with later options superseding\n");
   fprintf(output, "or adding to earlier options.\n");
   fprintf(output, "\n");
   fprintf(output, "If no options are given the default is to display all infos in long report\n");
@@ -1403,11 +1399,9 @@ hash_to_str(const unsigned char *hash, size_t length, char *str) {
   }
 }
 
-static int
-real_main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-  GString *comp_info_str;
-  GString *runtime_info_str;
   char  *init_progfile_dir_error;
   wtap  *wth;
   int    err;
@@ -1434,21 +1428,8 @@ real_main(int argc, char *argv[])
   /* Get the decimal point. */
   decimal_point = g_strdup(localeconv()->decimal_point);
 
-  /* Get the compile-time version information string */
-  comp_info_str = get_compiled_version_info(NULL, NULL);
-
-  /* Get the run-time version information string */
-  runtime_info_str = get_runtime_version_info(NULL);
-
-  /* Add it to the information to be reported on a crash. */
-  ws_add_crash_info("Capinfos (Wireshark) %s\n"
-         "\n"
-         "%s"
-         "\n"
-         "%s",
-      get_ws_vcs_version_info(), comp_info_str->str, runtime_info_str->str);
-  g_string_free(comp_info_str, TRUE);
-  g_string_free(runtime_info_str, TRUE);
+  /* Initialize the version information. */
+  ws_init_version_info("Capinfos (Wireshark)", NULL, NULL, NULL);
 
 #ifdef _WIN32
   create_app_running_mutex();
@@ -1632,20 +1613,13 @@ real_main(int argc, char *argv[])
         break;
 
       case 'h':
-        printf("Capinfos (Wireshark) %s\n"
-               "Print various information (infos) about capture files.\n"
-               "See https://www.wireshark.org for more information.\n",
-               get_ws_vcs_version_info());
+        show_help_header("Print various information (infos) about capture files.");
         print_usage(stdout);
         goto exit;
         break;
 
       case 'v':
-        comp_info_str = get_compiled_version_info(NULL, NULL);
-        runtime_info_str = get_runtime_version_info(NULL);
-        show_version("Capinfos (Wireshark)", comp_info_str, runtime_info_str);
-        g_string_free(comp_info_str, TRUE);
-        g_string_free(runtime_info_str, TRUE);
+        show_version();
         goto exit;
         break;
 
@@ -1729,23 +1703,6 @@ exit:
   free_progdirs();
   return overall_error_status;
 }
-
-#ifdef _WIN32
-int
-wmain(int argc, wchar_t *wc_argv[])
-{
-  char **argv;
-
-  argv = arg_list_utf_16to8(argc, wc_argv);
-  return real_main(argc, argv);
-}
-#else
-int
-main(int argc, char *argv[])
-{
-  return real_main(argc, argv);
-}
-#endif
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

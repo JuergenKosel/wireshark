@@ -707,6 +707,8 @@ class EthCtx:
             else:
                 attr.update(self.type[t]['attr'])
                 attr.update(self.eth_type[self.type[t]['ethname']]['attr'])
+        if attr['STRINGS'].startswith('VALS64('):
+            attr['DISPLAY'] += '|BASE_VAL64_STRING'
         #print " ", attr
         return attr
 
@@ -1202,7 +1204,12 @@ class EthCtx:
                 if (use_ext):
                     self.eth_type[nm]['attr']['STRINGS'] = '&%s_ext' % (self.eth_vals_nm(nm))
                 else:
-                    self.eth_type[nm]['attr']['STRINGS'] = 'VALS(%s)' % (self.eth_vals_nm(nm))
+                    if self.eth_type[nm]['val'].type == 'IntegerType' \
+                       and self.eth_type[nm]['val'].HasConstraint() \
+                       and self.eth_type[nm]['val'].constr.Needs64b(self):
+                        self.eth_type[nm]['attr']['STRINGS'] = 'VALS64(%s)' % (self.eth_vals_nm(nm))
+                    else:
+                        self.eth_type[nm]['attr']['STRINGS'] = 'VALS(%s)' % (self.eth_vals_nm(nm))
             self.eth_type[nm]['attr'].update(self.conform.use_item('ETYPE_ATTR', nm))
         for t in self.eth_type_ord:
             bits = self.eth_type[t]['val'].eth_named_bits()
@@ -1384,7 +1391,11 @@ class EthCtx:
             out += 'static '
         if (self.eth_type[tname]['export'] & EF_VALS) and (self.eth_type[tname]['export'] & EF_TABLE):
             out += 'static '
-        out += "const value_string %s[] = {\n" % (self.eth_vals_nm(tname))
+        if self.eth_type[tname]['val'].HasConstraint() and self.eth_type[tname]['val'].constr.Needs64b(self) \
+           and self.eth_type[tname]['val'].type == 'IntegerType':
+            out += "const val64_string %s[] = {\n" % (self.eth_vals_nm(tname))
+        else:
+            out += "const value_string %s[] = {\n" % (self.eth_vals_nm(tname))
         for (val, id) in vals:
             if (has_enum):
                 vval = self.eth_enum_item(tname, id)
@@ -1629,7 +1640,11 @@ class EthCtx:
                         fx.write("WS_DLL_PUBLIC ")
                     else:
                         fx.write("extern ")
-                    fx.write("const value_string %s[];\n" % (self.eth_vals_nm(t)))
+                    if self.eth_type[t]['val'].HasConstraint() and self.eth_type[t]['val'].constr.Needs64b(self) \
+                       and self.eth_type[t]['val'].type == 'IntegerType':
+                        fx.write("const val64_string %s[];\n" % (self.eth_vals_nm(t)))
+                    else:
+                        fx.write("const value_string %s[];\n" % (self.eth_vals_nm(t)))
                 else:
                     fx.write(self.eth_type[t]['val'].eth_type_vals(t, self))
         for t in self.eth_export_ord:  # functions
@@ -1786,7 +1801,11 @@ class EthCtx:
                 if self.eth_type[t]['no_emit'] & EF_VALS:
                     pass
                 elif self.eth_type[t]['user_def'] & EF_VALS:
-                    fx.write("extern const value_string %s[];\n" % (self.eth_vals_nm(t)))
+                    if self.eth_type[t]['val'].HasConstraint() and self.eth_type[t]['val'].constr.Needs64b(self) \
+                       and self.eth_type[t]['val'].type == 'IntegerType':
+                        fx.write("extern const val64_string %s[];\n" % (self.eth_vals_nm(t)))
+                    else:
+                        fx.write("extern const value_string %s[];\n" % (self.eth_vals_nm(t)))
                 elif (self.eth_type[t]['export'] & EF_VALS) and (self.eth_type[t]['export'] & EF_TABLE):
                     pass
                 else:

@@ -48,6 +48,7 @@ static int hf_rsl_rach_slot_cnt        = -1;
 static int hf_rsl_rach_busy_cnt        = -1;
 static int hf_rsl_rach_acc_cnt         = -1;
 static int hf_rsl_req_ref_ra           = -1;
+static int hf_rsl_req_ref_ra_est_cause = -1;
 static int hf_rsl_req_ref_T1prim       = -1;
 static int hf_rsl_req_ref_T3           = -1;
 static int hf_rsl_req_ref_T2           = -1;
@@ -93,6 +94,7 @@ static int hf_rsl_rxlev_sub_up         = -1;
 static int hf_rsl_rxqual_full_up       = -1;
 static int hf_rsl_rxqual_sub_up        = -1;
 static int hf_rsl_class                = -1;
+static int hf_rsl_cause_value          = -1;
 static int hf_rsl_paging_grp           = -1;
 static int hf_rsl_paging_load          = -1;
 static int hf_rsl_sys_info_type        = -1;
@@ -180,6 +182,7 @@ static int ett_ie_paging_load = -1;
 static int ett_ie_access_delay = -1;
 static int ett_ie_rach_load = -1;
 static int ett_ie_req_ref = -1;
+static int ett_ie_req_ref_ra = -1;
 static int ett_ie_rel_mode = -1;
 static int ett_ie_resource_inf = -1;
 static int ett_ie_rlm_cause = -1;
@@ -473,26 +476,26 @@ static const value_string rsl_msg_type_vals[] = {
     /*  0 1 - - - - - - Location Services messages: */
 /* 0x41 */ {  0x41,    "Location Information" },                       /* 8.7.1 */
     /* ip.access */
-    {  0x48, "ip.access PDCH ACTIVATION" },
-    {  0x49, "ip.access PDCH ACTIVATION ACK" },
-    {  0x4a, "ip.access PDCH ACTIVATION NACK" },
-    {  0x4b, "ip.access PDCH DEACTIVATION" },
-    {  0x4c, "ip.access PDCH DEACTIVATION ACK" },
-    {  0x4d, "ip.access PDCH DEACTIVATION NACK" },
-    {  0x60, "ip.access MEASurement PREPROCessing DeFauLT" },
-    {  0x61, "ip.access HANDOover CANDidate ENQuiry" },
-    {  0x62, "ip.access HANDOover CANDidate RESPonse" },
-    {  0x70, "ip.access CRCX" },
-    {  0x71, "ip.access CRCX ACK" },
-    {  0x72, "ip.access CRCX NACK" },
-    {  0x73, "ip.access MDCX" },
-    {  0x74, "ip.access MDCX ACK" },
-    {  0x75, "ip.access MDCX NACK" },
-    {  0x76, "ip.access DLCX INDication" },
-    {  0x77, "ip.access DLCX" },
-    {  0x78, "ip.access DLCX ACK" },
-    {  0x79, "ip.access DLCX NACK" },
-    { 0,        NULL }
+/* 0x48 */ {  RSL_MSG_TYPE_IPAC_PDCH_ACT,       "ip.access PDCH ACTIVATION" },
+/* 0x49 */ {  RSL_MSG_TYPE_IPAC_PDCH_ACT_ACK,   "ip.access PDCH ACTIVATION ACK" },
+/* 0x4a */ {  RSL_MSG_TYPE_IPAC_PDCH_ACT_NACK,  "ip.access PDCH ACTIVATION NACK" },
+/* 0x4b */ {  RSL_MSG_TYPE_IPAC_PDCH_DEACT,     "ip.access PDCH DEACTIVATION" },
+/* 0x4c */ {  RSL_MSG_TYPE_IPAC_PDCH_DEACT_ACK, "ip.access PDCH DEACTIVATION ACK" },
+/* 0x4d */ {  RSL_MSG_TYPE_IPAC_PDCH_DEACT_NACK,"ip.access PDCH DEACTIVATION NACK" },
+/* 0x60 */ {  RSL_MSG_TYPE_IPAC_MEAS_PP_DEF,    "ip.access MEASurement PREPROCessing DeFauLT" },
+/* 0x61 */ {  RSL_MSG_TYPE_IPAC_HO_CAND_INQ,    "ip.access HANDOover CANDidate ENQuiry" },
+/* 0x62 */ {  RSL_MSG_TYPE_IPAC_HO_CAND_RESP,   "ip.access HANDOover CANDidate RESPonse" },
+/* 0x70 */ {  RSL_MSG_TYPE_IPAC_CRCX,           "ip.access CRCX" },
+/* 0x71 */ {  RSL_MSG_TYPE_IPAC_CRCX_ACK,       "ip.access CRCX ACK" },
+/* 0x72 */ {  RSL_MSG_TYPE_IPAC_CRCX_NACK,      "ip.access CRCX NACK" },
+/* 0x73 */ {  RSL_MSG_TYPE_IPAC_MDCX,           "ip.access MDCX" },
+/* 0x74 */ {  RSL_MSG_TYPE_IPAC_MDCX_ACK,       "ip.access MDCX ACK" },
+/* 0x75 */ {  RSL_MSG_TYPE_IPAC_MDCX_NACK,      "ip.access MDCX NACK" },
+/* 0x76 */ {  RSL_MSG_TYPE_IPAC_DLCX_IND,       "ip.access DLCX INDication" },
+/* 0x77 */ {  RSL_MSG_TYPE_IPAC_DLCX,           "ip.access DLCX" },
+/* 0x78 */ {  RSL_MSG_TYPE_IPAC_DLCX_ACK,       "ip.access DLCX ACK" },
+/* 0x79 */ {  RSL_MSG_TYPE_IPAC_DLCX_NACK,      "ip.access DLCX NACK" },
+/* 0x48 */ { 0,        NULL }
 };
 static value_string_ext rsl_msg_type_vals_ext = VALUE_STRING_EXT_INIT(rsl_msg_type_vals);
 
@@ -642,24 +645,24 @@ static const value_string rsl_ie_type_vals[] = {
             Not used
 
     */
-/* 0xe0 */    { 0xe0,     "SRTP Configuration" },
-/* 0xe1 */    { 0xe1,     "BSC Proxy UDP Port" },
-/* 0xe2 */    { 0xe2,     "BSC Multiplex Timeout" },
-/* 0xf0 */    { 0xf0,     "Remote IP Address" },
-/* 0xf1 */    { 0xf1,     "Remote RTP Port" },
-/* 0xf2 */    { 0xf2,     "RTP Payload Type" },
-/* 0xf3 */    { 0xf3,     "Local RTP Port" },
-/* 0xf4 */    { 0xf4,     "Speech Mode" },
-/* 0xf5 */    { 0xf5,     "Local IP Address" },
-/* 0xf6 */    { 0xf6,     "Connection Statistics" },
-/* 0xf7 */    { 0xf7,     "Handover C Parameters" },
-/* 0xf8 */    { 0xf8,     "Connection Identifier" },
-/* 0xf9 */    { 0xf9,     "RTP CSD Format" },
-/* 0xfa */    { 0xfa,     "RTP Jitter Buffer" },
-/* 0xfb */    { 0xfb,     "RTP Compression" },
-/* 0xfc */    { 0xfc,     "RTP Payload Type 2" },
-/* 0xfd */    { 0xfd,     "RTP Multiplex" },
-/* 0xfe */    { 0xfe,     "RTP Multiplex Identifier" },
+/* 0xe0 */    { RSL_IE_IPAC_SRTP_CONFIG,"SRTP Configuration" },
+/* 0xe1 */    { RSL_IE_IPAC_PROXY_UDP,  "BSC Proxy UDP Port" },
+/* 0xe2 */    { RSL_IE_IPAC_BSCMPL_TOUT,"BSC Multiplex Timeout" },
+/* 0xf0 */    { RSL_IE_IPAC_REMOTE_IP,  "Remote IP Address" },
+/* 0xf1 */    { RSL_IE_IPAC_REMOTE_PORT,"Remote RTP Port" },
+/* 0xf2 */    { RSL_IE_IPAC_RTP_PAYLOAD,"RTP Payload Type" },
+/* 0xf3 */    { RSL_IE_IPAC_LOCAL_PORT, "Local RTP Port" },
+/* 0xf4 */    { RSL_IE_IPAC_SPEECH_MODE,"Speech Mode" },
+/* 0xf5 */    { RSL_IE_IPAC_LOCAL_IP,   "Local IP Address" },
+/* 0xf6 */    { RSL_IE_IPAC_CONN_STAT,  "Connection Statistics" },
+/* 0xf7 */    { RSL_IE_IPAC_HO_C_PARMS, "Handover C Parameters" },
+/* 0xf8 */    { RSL_IE_IPAC_CONN_ID,    "Connection Identifier" },
+/* 0xf9 */    { RSL_IE_IPAC_RTP_CSD_FMT,"RTP CSD Format" },
+/* 0xfa */    { RSL_IE_IPAC_RTP_JIT_BUF,"RTP Jitter Buffer" },
+/* 0xfb */    { RSL_IE_IPAC_RTP_COMPR,  "RTP Compression" },
+/* 0xfc */    { RSL_IE_IPAC_RTP_PAYLOAD2,"RTP Payload Type 2" },
+/* 0xfd */    { RSL_IE_IPAC_RTP_MPLEX,  "RTP Multiplex" },
+/* 0xfe */    { RSL_IE_IPAC_RTP_MPLEX_ID,"RTP Multiplex Identifier" },
     { 0, NULL }
 };
 static value_string_ext rsl_ie_type_vals_ext = VALUE_STRING_EXT_INIT(rsl_ie_type_vals);
@@ -1793,8 +1796,9 @@ dissect_rsl_ie_rach_load(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 static int
 dissect_rsl_ie_req_ref(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, gboolean is_mandatory)
 {
-    proto_tree *ie_tree;
+    proto_tree *ie_tree, *ra_tree;
     guint8      ie_id;
+    proto_item *ti;
 
     if (is_mandatory == FALSE) {
         ie_id = tvb_get_guint8(tvb, offset);
@@ -1807,7 +1811,9 @@ dissect_rsl_ie_req_ref(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
     /* Element identifier */
     proto_tree_add_item(ie_tree, hf_rsl_ie_id, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
-    proto_tree_add_item(ie_tree, hf_rsl_req_ref_ra, tvb, offset, 1, ENC_BIG_ENDIAN);
+    ti = proto_tree_add_item(ie_tree, hf_rsl_req_ref_ra, tvb, offset, 1, ENC_BIG_ENDIAN);
+    ra_tree = proto_item_add_subtree(ti, ett_ie_req_ref_ra);
+    proto_tree_add_item(ra_tree, hf_rsl_req_ref_ra_est_cause, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
     proto_tree_add_item(ie_tree, hf_rsl_req_ref_T1prim, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(ie_tree, hf_rsl_req_ref_T3, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -2090,7 +2096,9 @@ dissect_rsl_ie_uplik_meas(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
     return ie_offset+length;
 }
 
-
+ /*
+  * 9.3.26 Cause
+  */
 static const value_string rsl_class_vals[] = {
     {  0x00,    "Normal event" },
     {  0x01,    "Normal event" },
@@ -2103,9 +2111,59 @@ static const value_string rsl_class_vals[] = {
     { 0,            NULL }
 };
 
- /*
-  * 9.3.26 Cause
-  */
+static const value_string rsl_cause_value_vals[] = {
+    {  0x00,    "radio interface failure" },
+    {  0x01,    "radio link failure" },
+    {  0x02,    "handover access failure" },
+    /* 0x03..0x06: "reserved for international use" */
+    {  0x07,    "O&M intervention" },
+    /* 0x08..0x0e: "reserved for international use" */
+    {  0x0f,    "normal event, unspecified" },
+    /* 0x10..0x17: "reserved for international use" */
+    /* 0x18..0x1f: "reserved for national use" */
+    {  0x20,    "equipment failure" },
+    {  0x21,    "radio resource not available" },
+    {  0x22,    "terrestrial channel failure" },
+    {  0x23,    "CCCH overload" },
+    {  0x24,    "ACCH overload" },
+    {  0x25,    "processor overload" },
+    /* 0x26: "reserved for international use" */
+    {  0x27,    "BTS not equiped" },
+    {  0x28,    "remote transcoder issue" },
+    /* 0x29..0x2b: "reserved for international use" */
+    /* 0x2c..0x2e: "reserved for national use" */
+    {  0x2f,    "resource not available, unspecified" },
+    {  0x30,    "requested transcoding/rate adaption not available" },
+    /* 0x31..0x37: "reserved for international use" */
+    /* 0x38..0x3e: "reserved for national use" */
+    {  0x3f,    "service or option not implemented, unspecified" },
+    {  0x40,    "encryption algorithm not implemented" },
+    /* 0x41..0x47: "reserved for international use" */
+    /* 0x48..0x4e: "reserved for national use" */
+    {  0x4f,    "service or option not implemented, unspecified" },
+    {  0x50,    "radio channel already activated/allocated" },
+    /* 0x51..0x57: "reserved for international use" */
+    /* 0x58..0x5e: "reserved for national use" */
+    {  0x5f,    "invalid message, unspecified" },
+    {  0x60,    "message discriminator error" },
+    {  0x61,    "message type error" },
+    {  0x62,    "message sequence error" },
+    {  0x63,    "general information element error" },
+    {  0x64,    "mandatory information element error" },
+    {  0x65,    "optional information element error" },
+    {  0x66,    "information element non-existent" },
+    {  0x67,    "information element length error" },
+    {  0x68,    "invalid information element contents" },
+    /* 0x69..0x6b: "reserved for international use" */
+    /* 0x6c..0x6e: "reserved for national use" */
+    {  0x6f,    "protocol error, unspecified" },
+    /* 0x70..0x77: "reserved for international use" */
+    /* 0x78..0x7e: "reserved for international use" */
+    {  0x7f,    "interworking, unspecified" },
+    { 0,            NULL }
+};
+static value_string_ext rsl_cause_value_vals_ext = VALUE_STRING_EXT_INIT(rsl_cause_value_vals);
+
 static int
 dissect_rsl_ie_cause(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, gboolean is_mandatory)
 {
@@ -2138,11 +2196,15 @@ dissect_rsl_ie_cause(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, in
     octet = tvb_get_guint8(tvb, offset);
     proto_tree_add_item(tree, hf_rsl_extension_bit, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_rsl_class, tvb, offset, 1, ENC_BIG_ENDIAN);
-    if ((octet & 0x80) == 0x80)
-    /* Cause Extension*/
+    if ((octet & 0x80) != 0x80) {
+        proto_tree_add_item(tree, hf_rsl_cause_value, tvb, offset, 1, ENC_BIG_ENDIAN);
+    } else {
+        /* TODO: Cause Extension*/
         offset++;
+    }
+    offset++;
 
-    /* Diagnostic(s) if any */
+    /* TODO: Diagnostic(s) if any */
     return ie_offset+length;
 }
 /*
@@ -3447,20 +3509,28 @@ dissct_rsl_ipaccess_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
             return tvb_reported_length(tvb);
         }
 
-        ti = proto_tree_add_item(tree, hf_rsl_ie_id, tvb, offset, 1, ENC_BIG_ENDIAN);
-        ie_tree = proto_item_add_subtree(ti, ett_ie_local_port);
-        offset += hlen;
 
         switch (tag) {
         case RSL_IE_CH_NO:
-            dissect_rsl_ie_ch_no(tvb, pinfo, ie_tree, offset, FALSE);
+            dissect_rsl_ie_ch_no(tvb, pinfo, tree, offset, FALSE);
             break;
         case RSL_IE_FRAME_NO:
-            dissect_rsl_ie_frame_no(tvb, pinfo, ie_tree, offset, FALSE);
+            dissect_rsl_ie_frame_no(tvb, pinfo, tree, offset, FALSE);
             break;
         case RSL_IE_MS_POW:
-            dissect_rsl_ie_ms_pow(tvb, pinfo, ie_tree, offset, FALSE);
+            dissect_rsl_ie_ms_pow(tvb, pinfo, tree, offset, FALSE);
             break;
+        case RSL_IE_CAUSE:
+            dissect_rsl_ie_cause(tvb, pinfo, tree, offset, FALSE);
+            break;
+        default:
+            ti = proto_tree_add_item(tree, hf_rsl_ie_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+            ie_tree = proto_item_add_subtree(ti, ett_ie_local_port);
+        }
+
+        offset += hlen;
+
+        switch (tag) {
         case RSL_IE_IPAC_REMOTE_IP:
             proto_tree_add_item(ie_tree, hf_rsl_remote_ip, tvb,
                                 offset, len, ENC_BIG_ENDIAN);
@@ -4222,6 +4292,77 @@ static const value_string rsl_ipacc_rtp_csd_fmt_ir_vals[] = {
     { 0, NULL }
 };
 
+/* GSM 04.08 9.1.8 Channel request, ESTABLISHMENT CAUSE */
+static void
+req_ref_ra_est_cause_convert(gchar *result, guint32 ra)
+{
+    gchar *str;
+
+    switch (ra & 0xe0) { /* 3 bit Establishment Cause codes */
+    case 0x00:
+        str = "Location updating and the network does not set NECI bit to 1";
+        goto found;
+    case 0x80:
+        str = "Answer to paging: 'Any Channel', or ('TCH/F' or 'TCH/H or TCH/F') if MS is 'Full rate only'";
+        goto found;
+    case 0xa0:
+        str = "Emergency call";
+        goto found;
+    case 0xc0:
+        str = "Call re-establishment; TCH/F was in use, or TCH/H was in use but the network does not set NECI bit to 1";
+        goto found;
+    case 0xe0:
+        str = "Originating call and TCH/F is needed, or originating call and the network does not set NECI bit to 1,"
+              " or procedures that can be completed with a SDCCH and the network does not set NECI bit to 1";
+        goto found;
+    }
+
+    switch (ra & 0xf0) { /* 4 bit Establishment Cause codes */
+    case 0x00:
+        str = "Location updating and the network sets NECI bit to 1";
+        goto found;
+    case 0x10:
+        str = "Answer to paging: 'SDCCH' / Other procedures which can be completed with an SDCCH and the network sets NECI bit to 1";
+        goto found;
+    case 0x20:
+        str = "Answer to paging: MS is dual rate capable and requests 'TCH/F' only";
+        goto found;
+    case 0x30:
+        str = "Answer to paging: MS is dual rate capable and requests 'TCH/H or TCH/F'";
+        goto found;
+    case 0x40:
+        str = "Originating speech call from dual-rate mobile station when TCH/H is sufficient and the network sets NECI bit to 1";
+        goto found;
+    case 0x50:
+        str = "Originating data call from dual-rate mobile station when TCH/H is sufficient and the network sets NECI bit to 1";
+        goto found;
+    case 0x70:
+        str = "Reserved for future use. An SDCCH may be allocated";
+        goto found;
+    }
+
+    switch (ra & 0xf8) { /* 5 bit Establishment Cause codes */
+    case 0x60:
+        str = "Reserved for future use. An SDCCH may be allocated";
+        goto found;
+    }
+
+    switch (ra & 0xfc) { /* 6 bit Establishment Cause codes */
+    case 0x68:
+        str = "Call re-establishment; TCH/H was in use and the network sets NECI bit to 1";
+        goto found;
+    case 0x6c:
+        str = "Call re-establishment; TCH/H + TCH/H was in use and the network sets NECI bit to 1";
+        goto found;
+    }
+
+    g_snprintf(result, ITEM_LABEL_LENGTH, "unknown ra %u", ra);
+    return;
+
+found:
+    g_snprintf(result, ITEM_LABEL_LENGTH, "%s", str);
+}
+
 static int
 dissect_rsl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
@@ -4318,6 +4459,11 @@ void proto_register_rsl(void)
         { &hf_rsl_req_ref_ra,
           { "Random Access Information (RA)", "gsm_abis_rsl.req_ref_ra",
             FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_rsl_req_ref_ra_est_cause,
+          { "Channel Request Establishment Cause", "gsm_abis_rsl.req_ref_ra.est_cause",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(req_ref_ra_est_cause_convert), 0x0,
             NULL, HFILL }
         },
         { &hf_rsl_req_ref_T1prim,
@@ -4562,6 +4708,11 @@ void proto_register_rsl(void)
         { &hf_rsl_class,
           { "Class",           "gsm_abis_rsl.class",
             FT_UINT8, BASE_DEC, VALS(rsl_class_vals), 0x70,
+            NULL, HFILL }
+        },
+        { &hf_rsl_cause_value,
+          { "Cause Value",           "gsm_abis_rsl.cause_value",
+            FT_UINT8, BASE_DEC|BASE_EXT_STRING, &rsl_cause_value_vals_ext, 0x7f,
             NULL, HFILL }
         },
         { &hf_rsl_paging_grp,
@@ -4809,6 +4960,7 @@ void proto_register_rsl(void)
         &ett_ie_access_delay,
         &ett_ie_rach_load,
         &ett_ie_req_ref,
+        &ett_ie_req_ref_ra,
         &ett_ie_rel_mode,
         &ett_ie_resource_inf,
         &ett_ie_rlm_cause,

@@ -152,7 +152,7 @@ class case_tshark_name_resolution_clopts(subprocesstest.SubprocessTestCase):
 class case_tshark_unicode_clopts(subprocesstest.SubprocessTestCase):
     def test_tshark_unicode_display_filter(self, cmd_tshark, capture_file):
         '''Unicode (UTF-8) display filter'''
-        self.runProcess((cmd_tshark, '-r', capture_file('http.pcap'), '-Y', 'tcp.flags.str == "·······AP···"'))
+        self.assertRun((cmd_tshark, '-r', capture_file('http.pcap'), '-Y', 'tcp.flags.str == "·······AP···"'))
         self.assertTrue(self.grepOutput('HEAD.*/v4/iuident.cab'))
 
 
@@ -180,7 +180,7 @@ class case_tshark_dump_glossaries(subprocesstest.SubprocessTestCase):
             self.assertTrue(decoded, '{} is not valid UTF-8'.format(glossary))
 
     def test_tshark_glossary_plugin_count(self, cmd_tshark, base_env):
-        self.runProcess((cmd_tshark, '-G', 'plugins'), env=base_env)
+        self.assertRun((cmd_tshark, '-G', 'plugins'), env=base_env)
         self.assertGreaterEqual(self.countOutput('dissector'), 10, 'Fewer than 10 dissector plugins found')
 
     def test_tshark_elastic_mapping(self, cmd_tshark, dirs, base_env):
@@ -197,6 +197,13 @@ class case_tshark_dump_glossaries(subprocesstest.SubprocessTestCase):
             if key not in keys_to_check:
                 del ip_props[key]
         self.assertEqual(actual_obj, expected_obj)
+
+    def test_tshark_unicode_folders(self, cmd_tshark, unicode_env):
+        '''Folders output with unicode'''
+        proc = self.assertRun((cmd_tshark, '-G', 'folders'), env=unicode_env.env)
+        out = proc.stdout_str
+        pluginsdir = [x.split('\t', 1)[1] for x in out.splitlines() if x.startswith('Personal Lua Plugins:')]
+        self.assertEqual([unicode_env.pluginsdir], pluginsdir)
 
 
 @fixtures.mark_usefixtures('test_env')

@@ -34,7 +34,6 @@ class QCPBars;
 class QCPGraph;
 class QCPItemTracer;
 class QCustomPlot;
-class CopyFromProfileMenu;
 
 // GTK+ sets this to 100000 (NUM_IO_ITEMS)
 const int max_io_items_ = 250000;
@@ -92,7 +91,7 @@ signals:
 private:
     // Callbacks for register_tap_listener
     static void tapReset(void *iog_ptr);
-    static gboolean tapPacket(void *iog_ptr, packet_info *pinfo, epan_dissect_t *edt, const void *data);
+    static tap_packet_status tapPacket(void *iog_ptr, packet_info *pinfo, epan_dissect_t *edt, const void *data);
     static void tapDraw(void *iog_ptr);
 
     void calculateScaledValueUnit();
@@ -159,7 +158,6 @@ signals:
 
 private:
     Ui::IOGraphDialog *ui;
-    CopyFromProfileMenu *copy_from_menu_;
 
     //Model and delegate were chosen over UatFrame because add/remove/copy
     //buttons would need realignment (UatFrame has its own)

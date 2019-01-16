@@ -1359,7 +1359,7 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
   /* Sequence number analysis */
   if (g_esp_do_sequence_analysis) {
-    if (!pinfo->fd->flags.visited) {
+    if (!pinfo->fd->visited) {
       check_esp_sequence_info(spi, sequence_number, pinfo);
     }
     show_esp_sequence_info(spi, sequence_number,
@@ -1536,9 +1536,6 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
         if((authentication_check_using_hmac_libgcrypt) && (!authentication_ok))
         {
-          gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
-          gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
-
           /* Allocate Buffers for Authenticator Field  */
           authenticator_data = (guint8 *)wmem_alloc0(wmem_packet_scope(), esp_auth_len + 1);
           tvb_memcpy(tvb, authenticator_data, len - esp_auth_len, esp_auth_len);

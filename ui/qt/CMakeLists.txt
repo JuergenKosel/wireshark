@@ -563,6 +563,9 @@ set(WIRESHARK_QT_TS
 	wireshark_it.ts
 	wireshark_ja_JP.ts
 	wireshark_pl.ts
+	wireshark_ru.ts
+	wireshark_sv.ts
+	wireshark_uk.ts
 	wireshark_zh_CN.ts
 )
 
@@ -624,7 +627,7 @@ source_group("ui\\Models Source" FILES ${WIRESHARK_MODEL_SRCS})
 source_group("ui\\Manager Headers" FILES ${WIRESHARK_MANAGER_HEADERS})
 source_group("ui\\Manager Source" FILES ${WIRESHARK_MANAGER_SRCS})
 
-add_library(qtui STATIC
+add_library(qtui OBJECT
 	#Included so that Visual Studio can properly put header files in solution
 	${WIRESHARK_QT_HEADERS}
 	${WIRESHARK_WIDGET_HEADERS}
@@ -651,9 +654,6 @@ set_target_properties(qtui PROPERTIES
 	# Ensure .qm files are generated before autogenerating i18n.qrc
 	AUTOGEN_TARGET_DEPENDS "${WIRESHARK_QT_QM}"
 )
-if(WIN32)
-	target_link_libraries(qtui "UxTheme.lib")
-endif()
 
 #
 # Editor modelines  -  http://www.wireshark.org/tools/modelines.html

@@ -527,9 +527,13 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
 /* Capture child told us how many dropped packets it counted.
  */
 void
-capture_input_drops(capture_session *cap_session, guint32 dropped)
+capture_input_drops(capture_session *cap_session, guint32 dropped, char* interface_name)
 {
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_INFO, "%u packet%s dropped", dropped, plurality(dropped, "", "s"));
+    if (interface_name != NULL) {
+        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_INFO, "%u packet%s dropped from %s", dropped, plurality(dropped, "", "s"), interface_name);
+    } else {
+        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_INFO, "%u packet%s dropped", dropped, plurality(dropped, "", "s"));
+    }
 
     g_assert(cap_session->state == CAPTURE_RUNNING);
 
@@ -765,10 +769,13 @@ capture_stat_start(capture_options *capture_opts)
     int stat_fd;
     ws_process_id fork_child;
     gchar *msg;
-    if_stat_cache_t *sc = NULL;
+    if_stat_cache_t *sc = g_new0(if_stat_cache_t, 1);
     if_stat_cache_item_t *sc_item;
     guint i;
     interface_t *device;
+
+    sc->stat_fd = -1;
+    sc->fork_child = WS_INVALID_PID;
 
     /* Fire up dumpcap. */
     /*
@@ -790,10 +797,8 @@ capture_stat_start(capture_options *capture_opts)
      * counts might not always be a good idea.
      */
     if (sync_interface_stats_open(&stat_fd, &fork_child, &msg, NULL) == 0) {
-        sc = (if_stat_cache_t *)g_malloc(sizeof(if_stat_cache_t));
         sc->stat_fd = stat_fd;
         sc->fork_child = fork_child;
-        sc->cache_list = NULL;
 
         /* Initialize the cache */
         for (i = 0; i < capture_opts->all_ifaces->len; i++) {
@@ -821,8 +826,9 @@ capture_stat_cache_update(if_stat_cache_t *sc)
     GList *sc_entry;
     if_stat_cache_item_t *sc_item;
 
-    if (!sc)
+    if (!sc || sc->fork_child == WS_INVALID_PID) {
         return;
+    }
 
     while (sync_pipe_gets_nonblock(sc->stat_fd, stat_line, MAX_STAT_LINE_LEN) > 0) {
         g_strstrip(stat_line);
@@ -849,7 +855,7 @@ capture_stats(if_stat_cache_t *sc, char *ifname, struct pcap_stat *ps)
     GList *sc_entry;
     if_stat_cache_item_t *sc_item;
 
-    if (!sc || !ifname || !ps) {
+    if (!sc || sc->fork_child == WS_INVALID_PID || !ifname || !ps) {
         return FALSE;
     }
 
@@ -872,8 +878,9 @@ capture_stat_stop(if_stat_cache_t *sc)
     int ret;
     gchar *msg;
 
-    if (!sc)
+    if (!sc || sc->fork_child == WS_INVALID_PID) {
         return;
+    }
 
     ret = sync_interface_stats_close(&sc->stat_fd, &sc->fork_child, &msg);
     if (ret == -1) {

@@ -221,7 +221,7 @@ WSLUA_CONSTRUCTOR Dumper_new(lua_State* L) {
         case WTAP_ERR_UNWRITABLE_ENCAP:
             luaL_error(L,"Files of file type %s don't support encapsulation %s",
                        wtap_file_type_subtype_string(filetype),
-                       wtap_encap_short_string(encap));
+                       wtap_encap_name(encap));
             break;
 
         default:
@@ -384,7 +384,7 @@ WSLUA_METHOD Dumper_new_for_current(lua_State* L) {
         case WTAP_ERR_UNWRITABLE_ENCAP:
             luaL_error(L,"Files of file type %s don't support encapsulation %s",
                        wtap_file_type_subtype_string(filetype),
-                       wtap_encap_short_string(encap));
+                       wtap_encap_name(encap));
             break;
 
         default:
@@ -440,10 +440,10 @@ WSLUA_METHOD Dumper_dump_current(lua_State* L) {
     rec.rec_header.packet_header.pkt_encap = lua_pinfo->rec->rec_header.packet_header.pkt_encap;
     rec.rec_header.packet_header.pseudo_header = *lua_pinfo->pseudo_header;
 
-    if (lua_pinfo->fd->flags.has_user_comment) {
+    if (lua_pinfo->fd->has_user_comment) {
         rec.opt_comment = wmem_strdup(wmem_packet_scope(), epan_get_user_comment(lua_pinfo->epan, lua_pinfo->fd));
         rec.has_comment_changed = TRUE;
-    } else if (lua_pinfo->fd->flags.has_phdr_comment) {
+    } else if (lua_pinfo->fd->has_phdr_comment) {
         rec.opt_comment = wmem_strdup(wmem_packet_scope(), lua_pinfo->rec->opt_comment);
     }
 

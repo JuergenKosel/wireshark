@@ -46,13 +46,13 @@
 #include <glib.h>
 #include <epan/epan.h>
 
-#include <wsutil/cmdarg_err.h>
-#include <wsutil/crash_info.h>
+#include <ui/cmdarg_err.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
 #include <wsutil/plugins.h>
 #include <wsutil/privileges.h>
 #include <wsutil/report_message.h>
+#include <ui/clopts_common.h>
 
 #include "globals.h"
 #include <epan/packet.h>
@@ -73,7 +73,6 @@
 #include <epan/epan_dissect.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/timestamp.h>
-#include <wsutil/unicode-utils.h>
 #include "epan/column-utils.h"
 #include "epan/proto.h"
 #include <epan/tap.h>
@@ -82,7 +81,7 @@
 #include <wiretap/libpcap.h>
 #include <wiretap/pcap-encap.h>
 
-#include <wsutil/clopts_common.h>
+#include <cli_main.h>
 #include <version_info.h>
 
 #include "caputils/capture-pcap-util.h"
@@ -403,11 +402,9 @@ set_link_type(const char *lt_arg) {
     return FALSE;
 }
 
-static int
-real_main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-    GString             *comp_info_str;
-    GString             *runtime_info_str;
     char                *init_progfile_dir_error;
     int                  opt, i;
 
@@ -442,19 +439,10 @@ real_main(int argc, char *argv[])
 
     cmdarg_err_init(rawshark_cmdarg_err, rawshark_cmdarg_err_cont);
 
-    /* Get the compile-time version information string */
-    comp_info_str = get_compiled_version_info(NULL, epan_get_compiled_version_info);
-
-    /* Get the run-time version information string */
-    runtime_info_str = get_runtime_version_info(NULL);
-
-    /* Add it to the information to be reported on a crash. */
-    ws_add_crash_info("Rawshark (Wireshark) %s\n"
-           "\n"
-           "%s"
-           "\n"
-           "%s",
-        get_ws_vcs_version_info(), comp_info_str->str, runtime_info_str->str);
+    /* Initialize the version information. */
+    ws_init_version_info("Rawshark (Wireshark)", NULL,
+                         epan_get_compiled_version_info,
+                         NULL);
 
 #ifdef _WIN32
     create_app_running_mutex();
@@ -553,10 +541,7 @@ real_main(int argc, char *argv[])
                 g_ptr_array_add(disp_fields, g_strdup(optarg));
                 break;
             case 'h':        /* Print help and exit */
-                printf("Rawshark (Wireshark) %s\n"
-                       "Dump and analyze network traffic.\n"
-                       "See https://www.wireshark.org for more information.\n",
-                       get_ws_vcs_version_info());
+                show_help_header("Dump and analyze network traffic.");
                 print_usage(stdout);
                 goto clean_exit;
                 break;
@@ -691,7 +676,7 @@ real_main(int argc, char *argv[])
                 break;
             case 'v':        /* Show version and exit */
             {
-                show_version("Rawshark (Wireshark)", comp_info_str, runtime_info_str);
+                show_version();
                 goto clean_exit;
             }
             default:
@@ -819,31 +804,12 @@ real_main(int argc, char *argv[])
 
 clean_exit:
     g_free(pipe_name);
-    g_string_free(comp_info_str, TRUE);
-    g_string_free(runtime_info_str, TRUE);
     epan_free(cfile.epan);
     epan_cleanup();
     extcap_cleanup();
     wtap_cleanup();
     return ret;
 }
-
-#ifdef _WIN32
-int
-wmain(int argc, wchar_t *wc_argv[])
-{
-    char **argv;
-
-    argv = arg_list_utf_16to8(argc, wc_argv);
-    return real_main(argc, argv);
-}
-#else
-int
-main(int argc, char *argv[])
-{
-    return real_main(argc, argv);
-}
-#endif
 
 /**
  * Read data from a raw pipe.  The "raw" data consists of a libpcap
@@ -1222,7 +1188,7 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
                             case FT_INT56:
                             case FT_INT64:
                                 DISSECTOR_ASSERT(!hfinfo->bitmask);
-                                svalue64 = (gint64)fvalue_get_sinteger64(&finfo->value);
+                                svalue64 = fvalue_get_sinteger64(&finfo->value);
                                 if (hfinfo->display & BASE_VAL64_STRING) {
                                     g_string_append(label_s, val64_to_str_const(svalue64, (const val64_string *)(hfinfo->strings), "Unknown"));
                                 }
@@ -1281,7 +1247,7 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
     return TRUE;
 }
 
-static int
+static tap_packet_status
 protocolinfo_packet(void *prs, packet_info *pinfo _U_, epan_dissect_t *edt, const void *dummy _U_)
 {
     pci_t *rs=(pci_t *)prs;
@@ -1291,7 +1257,7 @@ protocolinfo_packet(void *prs, packet_info *pinfo _U_, epan_dissect_t *edt, cons
     gp=proto_get_finfo_ptr_array(edt->tree, rs->hf_index);
     if(!gp){
         printf(" n.a.");
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     /*
@@ -1301,7 +1267,7 @@ protocolinfo_packet(void *prs, packet_info *pinfo _U_, epan_dissect_t *edt, cons
         print_field_value((field_info *)gp->pdata[i], rs->cmd_line_index);
     }
 
-    return 0;
+    return TAP_PACKET_DONT_REDRAW;
 }
 
 int g_cmd_line_index = 0;

@@ -3546,7 +3546,7 @@ proto_register_capwap_control(void)
               NULL, HFILL }
         },
         { &hf_capwap_header_padding,
-            { "Padding for 4 Byte Alignement", "capwap.header.padding",
+            { "Padding for 4 Byte Alignment", "capwap.header.padding",
               FT_BYTES, BASE_NONE, NULL, 0x0,
               NULL, HFILL }
         },
@@ -5778,6 +5778,7 @@ proto_reg_handoff_capwap(void)
 
     dissector_add_uint_with_preference("udp.port", UDP_PORT_CAPWAP_CONTROL, capwap_control_handle);
     dissector_add_uint_with_preference("udp.port", UDP_PORT_CAPWAP_DATA, capwap_data_handle);
+    apply_capwap_prefs();
 }
 /*
  * Editor modelines

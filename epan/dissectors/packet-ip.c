@@ -261,6 +261,7 @@ static expert_field ei_ip_ttl_lncb = EI_INIT;
 static expert_field ei_ip_ttl_too_small = EI_INIT;
 static expert_field ei_ip_cipso_tag = EI_INIT;
 static expert_field ei_ip_bogus_ip_version = EI_INIT;
+static expert_field ei_ip_bogus_header_length = EI_INIT;
 
 static dissector_handle_t ip_handle;
 static dissector_table_t ip_option_table;
@@ -505,7 +506,7 @@ static const char* ip_conv_get_filter_type(conv_item_t* conv, conv_filter_type_e
 
 static ct_dissector_info_t ip_ct_dissector_info = {&ip_conv_get_filter_type};
 
-static int
+static tap_packet_status
 ip_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip)
 {
     conv_hash_t *hash = (conv_hash_t*) pct;
@@ -513,7 +514,7 @@ ip_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, c
 
     add_conversation_table_data(hash, &iph->ip_src, &iph->ip_dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &ip_ct_dissector_info, ENDPOINT_NONE);
 
-    return 1;
+    return TAP_PACKET_REDRAW;
 }
 
 static const char* ip_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
@@ -526,7 +527,7 @@ static const char* ip_host_get_filter_type(hostlist_talker_t* host, conv_filter_
 
 static hostlist_dissector_info_t ip_host_dissector_info = {&ip_host_get_filter_type};
 
-static int
+static tap_packet_status
 ip_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip)
 {
     conv_hash_t *hash = (conv_hash_t*) pit;
@@ -537,7 +538,7 @@ ip_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const
     XXX - this could probably be done more efficiently inside hostlist_table */
     add_hostlist_table_data(hash, &iph->ip_src, 0, TRUE, 1, pinfo->fd->pkt_len, &ip_host_dissector_info, ENDPOINT_NONE);
     add_hostlist_table_data(hash, &iph->ip_dst, 0, FALSE, 1, pinfo->fd->pkt_len, &ip_host_dissector_info, ENDPOINT_NONE);
-    return 1;
+    return TAP_PACKET_REDRAW;
 }
 
 static gboolean
@@ -1918,9 +1919,10 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     col_add_fstr(pinfo->cinfo, COL_INFO,
                  "Bogus IP header length (%u, must be at least %u)",
                  hlen, IPH_MIN_LEN);
-
-    proto_tree_add_uint_bits_format_value(ip_tree, hf_ip_hdr_len, tvb, (offset<<3)+4, 4, hlen,
-                                 "%u bytes (bogus, must be at least %u)", hlen, IPH_MIN_LEN);
+    tf = proto_tree_add_uint_bits_format_value(ip_tree, hf_ip_hdr_len, tvb, (offset<<3)+4, 4, hlen,
+                                               "%u bytes (%u)", hlen, hlen>>2);
+    expert_add_info_format(pinfo, tf, &ei_ip_bogus_header_length,
+                           "Bogus IP header length (%u, must be at least %u)", hlen, IPH_MIN_LEN);
     return tvb_captured_length(tvb);
   }
 
@@ -2911,6 +2913,7 @@ proto_register_ip(void)
      { &ei_ip_ttl_too_small, { "ip.ttl.too_small", PI_SEQUENCE, PI_NOTE, "Time To Live", EXPFILL }},
      { &ei_ip_cipso_tag, { "ip.cipso.malformed", PI_SEQUENCE, PI_ERROR, "Malformed CIPSO tag", EXPFILL }},
      { &ei_ip_bogus_ip_version, { "ip.bogus_ip_version", PI_PROTOCOL, PI_ERROR, "Bogus IP version", EXPFILL }},
+     { &ei_ip_bogus_header_length, { "ip.bogus_header_length", PI_PROTOCOL, PI_ERROR, "Bogus IP header length", EXPFILL }},
   };
 
   /* Decode As handling */

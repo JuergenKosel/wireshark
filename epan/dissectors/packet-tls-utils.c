@@ -30,6 +30,7 @@
 #include <epan/asn1.h>
 #include <epan/proto_data.h>
 #include <epan/oids.h>
+#include <epan/secrets.h>
 
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
@@ -1358,20 +1359,20 @@ const value_string compress_certificate_algorithm_vals[] = {
 
 
 const value_string quic_transport_parameter_id[] = {
-    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL, "initial_max_stream_data_bidi_local" },
-    { SSL_HND_QUIC_TP_INITIAL_MAX_DATA, "initial_max_data" },
-    { SSL_HND_QUIC_TP_INITIAL_MAX_BIDI_STREAMS, "initial_max_bidi_streams" },
+    { SSL_HND_QUIC_TP_ORIGINAL_CONNECTION_ID, "original_connection_id" },
     { SSL_HND_QUIC_TP_IDLE_TIMEOUT, "idle_timeout" },
-    { SSL_HND_QUIC_TP_PREFERRED_ADDRESS, "preferred_address" },
-    { SSL_HND_QUIC_TP_MAX_PACKET_SIZE, "max_packet_size" },
     { SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN, "stateless_reset_token" },
-    { SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT, "ack_delay_exponent" },
-    { SSL_HND_QUIC_TP_INITIAL_MAX_UNI_STREAMS, "initial_max_uni_streams" },
-    { SSL_HND_QUIC_TP_DISABLE_MIGRATION, "disable_migration" },
+    { SSL_HND_QUIC_TP_MAX_PACKET_SIZE, "max_packet_size" },
+    { SSL_HND_QUIC_TP_INITIAL_MAX_DATA, "initial_max_data" },
+    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL, "initial_max_stream_data_bidi_local" },
     { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE, "initial_max_stream_data_bidi_remote" },
     { SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_UNI, "initial_max_stream_data_uni" },
+    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAMS_UNI, "initial_max_streams_uni" },
+    { SSL_HND_QUIC_TP_INITIAL_MAX_STREAMS_BIDI, "initial_max_streams_bidi" },
+    { SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT, "ack_delay_exponent" },
     { SSL_HND_QUIC_TP_MAX_ACK_DELAY, "max_ack_delay" },
-    { SSL_HND_QUIC_TP_ORIGINAL_CONNECTION_ID, "original_connection_id" },
+    { SSL_HND_QUIC_TP_DISABLE_MIGRATION, "disable_migration" },
+    { SSL_HND_QUIC_TP_PREFERRED_ADDRESS, "preferred_address" },
     { 0, NULL }
 };
 
@@ -3033,7 +3034,7 @@ end:
 static int
 ssl_decrypt_pre_master_secret(SslDecryptSession *ssl_session,
                               StringInfo *encrypted_pre_master,
-                              gcry_sexp_t pk);
+                              GHashTable *key_hash);
 #endif /* HAVE_LIBGNUTLS */
 
 static gboolean
@@ -3044,6 +3045,9 @@ gboolean
 ssl_generate_pre_master_secret(SslDecryptSession *ssl_session,
                                guint32 length, tvbuff_t *tvb, guint32 offset,
                                const gchar *ssl_psk,
+#ifdef HAVE_LIBGNUTLS
+                               GHashTable *key_hash,
+#endif
                                const ssl_master_key_map_t *mk_map)
 {
     /* check for required session data */
@@ -3121,7 +3125,6 @@ ssl_generate_pre_master_secret(SslDecryptSession *ssl_session,
     }
     else
     {
-        StringInfo encrypted_pre_master;
         guint encrlen, skip;
         encrlen = length;
         skip = 0;
@@ -3154,15 +3157,15 @@ ssl_generate_pre_master_secret(SslDecryptSession *ssl_session,
             return FALSE;
         }
 
-        encrypted_pre_master.data = (guchar *)wmem_alloc(wmem_file_scope(), encrlen);
-        encrypted_pre_master.data_len = encrlen;
-        tvb_memcpy(tvb, encrypted_pre_master.data, offset+skip, encrlen);
+        StringInfo encrypted_pre_master = {
+            .data = (guchar *)tvb_memdup(wmem_packet_scope(), tvb, offset + skip, encrlen),
+            .data_len = encrlen,
+        };
 
 #ifdef HAVE_LIBGNUTLS
-        if (ssl_session->private_key) {
-            /* try to decrypt encrypted pre-master with RSA key */
-            if (ssl_decrypt_pre_master_secret(ssl_session,
-                &encrypted_pre_master, ssl_session->private_key))
+        /* Try to lookup an appropriate RSA private key to decrypt the Encrypted Pre-Master Secret. */
+        if (ssl_session->cert_key_id) {
+            if (ssl_decrypt_pre_master_secret(ssl_session, &encrypted_pre_master, key_hash))
                 return TRUE;
 
             ssl_debug_printf("%s: can't decrypt pre-master secret\n",
@@ -3592,11 +3595,10 @@ end:
 #ifdef HAVE_LIBGNUTLS
 /* Decrypt RSA pre-master secret using RSA private key. {{{ */
 static gboolean
-ssl_decrypt_pre_master_secret(SslDecryptSession*ssl_session,
-    StringInfo* encrypted_pre_master, gcry_sexp_t pk)
+ssl_decrypt_pre_master_secret(SslDecryptSession *ssl_session,
+    StringInfo *encrypted_pre_master, GHashTable *key_hash)
 {
-    size_t i;
-    char *err;
+    int ret;
 
     if (!encrypted_pre_master)
         return FALSE;
@@ -3609,32 +3611,41 @@ ssl_decrypt_pre_master_secret(SslDecryptSession*ssl_session,
                          val_to_str_ext_const(ssl_session->session.cipher,
                              &ssl_31_ciphersuite_ext, "unknown"));
         return FALSE;
-    } else if(ssl_session->cipher_suite->kex != KEX_RSA) {
+    } else if (ssl_session->cipher_suite->kex != KEX_RSA) {
          ssl_debug_printf("%s key exchange %d different from KEX_RSA (%d)\n",
                           G_STRFUNC, ssl_session->cipher_suite->kex, KEX_RSA);
         return FALSE;
     }
 
-    /* with tls key loading will fail if not rsa type, so no need to check*/
-    ssl_print_string("pre master encrypted",encrypted_pre_master);
-    ssl_debug_printf("%s: RSA_private_decrypt\n", G_STRFUNC);
-    i=rsa_decrypt_inplace(encrypted_pre_master->data_len,
-        encrypted_pre_master->data, pk, TRUE, &err);
-    if (i == 0) {
-        ssl_debug_printf("rsa_decrypt_inplace: %s\n", err);
-        g_free(err);
-    }
+    gnutls_privkey_t pk = (gnutls_privkey_t)g_hash_table_lookup(key_hash, ssl_session->cert_key_id);
 
-    if (i!=48) {
-        ssl_debug_printf("%s wrong pre_master_secret length (%zd, expected "
-                         "%d)\n", G_STRFUNC, i, 48);
+    ssl_print_string("pre master encrypted", encrypted_pre_master);
+    ssl_debug_printf("%s: RSA_private_decrypt\n", G_STRFUNC);
+    const gnutls_datum_t epms = { encrypted_pre_master->data, encrypted_pre_master->data_len };
+    gnutls_datum_t pms = { 0 };
+    if (pk) {
+        // Try to decrypt using the RSA keys table from (D)TLS preferences.
+        ret = gnutls_privkey_decrypt_data(pk, 0, &epms, &pms);
+    } else {
+        // Try to decrypt using a hardware token.
+        ret = secrets_rsa_decrypt(ssl_session->cert_key_id, epms.data, epms.size, &pms.data, &pms.size);
+    }
+    if (ret < 0) {
+        ssl_debug_printf("%s: decryption failed: %d (%s)\n", G_STRFUNC, ret, gnutls_strerror(ret));
         return FALSE;
     }
 
-    /* the decrypted data has been written into the pre_master key buffer */
-    ssl_session->pre_master_secret.data = encrypted_pre_master->data;
-    ssl_session->pre_master_secret.data_len=48;
-    ssl_print_string("pre master secret",&ssl_session->pre_master_secret);
+    if (pms.size != 48) {
+        ssl_debug_printf("%s wrong pre_master_secret length (%d, expected %d)\n",
+                         G_STRFUNC, pms.size, 48);
+        gnutls_free(pms.data);
+        return FALSE;
+    }
+
+    ssl_session->pre_master_secret.data = (guint8 *)wmem_memdup(wmem_file_scope(), pms.data, 48);
+    ssl_session->pre_master_secret.data_len = 48;
+    gnutls_free(pms.data);
+    ssl_print_string("pre master secret", &ssl_session->pre_master_secret);
 
     /* Remove the master secret if it was there.
        This forces keying material regeneration in
@@ -4254,15 +4265,15 @@ skip_mac:
 
 
 
-#if defined(HAVE_LIBGNUTLS)
+#ifdef HAVE_LIBGNUTLS
 
 /* RSA private key file processing {{{ */
 static void
-ssl_find_private_key_by_pubkey(SslDecryptSession *ssl, GHashTable *key_hash,
+ssl_find_private_key_by_pubkey(SslDecryptSession *ssl,
                                gnutls_datum_t *subjectPublicKeyInfo)
 {
     gnutls_pubkey_t pubkey = NULL;
-    guchar key_id[20];
+    cert_key_id_t key_id;
     size_t key_id_len = sizeof(key_id);
     int r;
 
@@ -4285,24 +4296,35 @@ ssl_find_private_key_by_pubkey(SslDecryptSession *ssl, GHashTable *key_hash,
         goto end;
     }
 
+    if (gnutls_pubkey_get_pk_algorithm(pubkey, NULL) != GNUTLS_PK_RSA) {
+        ssl_debug_printf("%s: Not a RSA public key - ignoring.\n", G_STRFUNC);
+        goto end;
+    }
+
     /* Generate a 20-byte SHA-1 hash. */
-    r = gnutls_pubkey_get_key_id(pubkey, 0, key_id, &key_id_len);
+    r = gnutls_pubkey_get_key_id(pubkey, 0, key_id.key_id, &key_id_len);
     if (r < 0) {
         ssl_debug_printf("%s: failed to extract key id from pubkey: %s\n",
                 G_STRFUNC, gnutls_strerror(r));
         goto end;
     }
 
-    ssl_print_data("lookup(KeyID)", key_id, key_id_len);
-    ssl->private_key = (gcry_sexp_t)g_hash_table_lookup(key_hash, key_id);
-    ssl_debug_printf("%s: lookup result: %p\n", G_STRFUNC, (void *) ssl->private_key);
+    if (key_id_len != sizeof(key_id)) {
+        ssl_debug_printf("%s: expected Key ID size %zu, got %zu\n",
+                G_STRFUNC, sizeof(key_id), key_id_len);
+        goto end;
+    }
+
+    ssl_print_data("Certificate.KeyID", key_id.key_id, key_id_len);
+    ssl->cert_key_id = wmem_new(wmem_file_scope(), cert_key_id_t);
+    *ssl->cert_key_id = key_id;
 
 end:
     gnutls_pubkey_deinit(pubkey);
 }
 
 /* RSA private key file processing }}} */
-#endif /* ! defined(HAVE_LIBGNUTLS) */
+#endif  /* HAVE_LIBGNUTLS */
 
 /*--- Start of dissector-related code below ---*/
 
@@ -4371,8 +4393,8 @@ static void ssl_reset_session(SslSession *session, SslDecryptSession *ssl, gbool
             clear_flags |= SSL_SERVER_EXTENDED_MASTER_SECRET | SSL_NEW_SESSION_TICKET;
             ssl->server_random.data_len = 0;
             ssl->pre_master_secret.data_len = 0;
-#if defined(HAVE_LIBGNUTLS)
-            ssl->private_key = NULL;
+#ifdef HAVE_LIBGNUTLS
+            ssl->cert_key_id = NULL;
 #endif
             ssl->psk.data_len = 0;
         }
@@ -4492,27 +4514,6 @@ ssl_hash  (gconstpointer v)
 
     for (l=4; (l < id->data_len); l+=4, cur++)
         hash = hash ^ (*cur);
-
-    return hash;
-}
-
-gboolean
-ssl_private_key_equal (gconstpointer v, gconstpointer v2)
-{
-    /* key ID length (SHA-1 hash, per GNUTLS_KEYID_USE_SHA1) */
-    return !memcmp(v, v2, 20);
-}
-
-guint
-ssl_private_key_hash (gconstpointer v)
-{
-    guint        l, hash = 0;
-    const guint8 *cur = (const guint8 *)v;
-
-    /* The public key' SHA-1 hash (which maps to a private key) has a uniform
-     * distribution, hence simply xor'ing them should be sufficient. */
-    for (l = 0; l < 20; l += 4, cur += 4)
-        hash ^= pntoh32(cur);
 
     return hash;
 }
@@ -4728,8 +4729,8 @@ ssl_common_cleanup(ssl_master_key_map_t *mk_map, FILE **ssl_keylog_file,
 void
 ssl_parse_key_list(const ssldecrypt_assoc_t *uats, GHashTable *key_hash, const char* dissector_table_name, dissector_handle_t main_handle, gboolean tcp)
 {
-    gnutls_x509_privkey_t priv_key;
-    gcry_sexp_t        private_key;
+    gnutls_x509_privkey_t x509_priv_key;
+    gnutls_privkey_t   priv_key = NULL;
     FILE*              fp     = NULL;
     int                ret;
     size_t             key_id_len = 20;
@@ -4744,13 +4745,13 @@ ssl_parse_key_list(const ssldecrypt_assoc_t *uats, GHashTable *key_hash, const c
     }
 
     if ((gint)strlen(uats->password) == 0) {
-        priv_key = rsa_load_pem_key(fp, &err);
+        x509_priv_key = rsa_load_pem_key(fp, &err);
     } else {
-        priv_key = rsa_load_pkcs12(fp, uats->password, &err);
+        x509_priv_key = rsa_load_pkcs12(fp, uats->password, &err);
     }
     fclose(fp);
 
-    if (!priv_key) {
+    if (!x509_priv_key) {
         if (err) {
             report_failure("Can't load private key from %s: %s",
                            uats->keyfile, err);
@@ -4766,25 +4767,32 @@ ssl_parse_key_list(const ssldecrypt_assoc_t *uats, GHashTable *key_hash, const c
         g_free(err);
     }
 
+    gnutls_privkey_init(&priv_key);
+    ret = gnutls_privkey_import_x509(priv_key, x509_priv_key,
+            GNUTLS_PRIVKEY_IMPORT_AUTO_RELEASE|GNUTLS_PRIVKEY_IMPORT_COPY);
+    if (ret < 0) {
+        report_failure("Can't convert private key %s: %s",
+                uats->keyfile, gnutls_strerror(ret));
+        goto end;
+    }
+
     key_id = (guchar *) g_malloc0(key_id_len);
-    ret = gnutls_x509_privkey_get_key_id(priv_key, 0, key_id, &key_id_len);
+    ret = gnutls_x509_privkey_get_key_id(x509_priv_key, 0, key_id, &key_id_len);
     if (ret < 0) {
         report_failure("Can't calculate public key ID for %s: %s",
                 uats->keyfile, gnutls_strerror(ret));
         goto end;
     }
     ssl_print_data("KeyID", key_id, key_id_len);
-
-    private_key = rsa_privkey_to_sexp(priv_key, &err);
-    if (!private_key) {
-        ssl_debug_printf("%s\n", err);
-        g_free(err);
-        report_failure("Can't extract private key parameters for %s", uats->keyfile);
+    if (key_id_len != 20) {
+        report_failure("Expected Key ID size %u for %s, got %zu", 20,
+                uats->keyfile, key_id_len);
         goto end;
     }
 
-    g_hash_table_replace(key_hash, key_id, private_key);
+    g_hash_table_replace(key_hash, key_id, priv_key);
     key_id = NULL; /* used in key_hash, do not free. */
+    priv_key = NULL;
     ssl_debug_printf("ssl_init private key file %s successfully loaded.\n", uats->keyfile);
 
     handle = ssl_find_appdata_dissector(uats->protocol);
@@ -4805,16 +4813,11 @@ ssl_parse_key_list(const ssldecrypt_assoc_t *uats, GHashTable *key_hash, const c
     }
 
 end:
-    gnutls_x509_privkey_deinit(priv_key);
+    gnutls_x509_privkey_deinit(x509_priv_key);
+    gnutls_privkey_deinit(priv_key);
     g_free(key_id);
 }
 /* }}} */
-#else
-void
-ssl_parse_key_list(const ssldecrypt_assoc_t *uats _U_, GHashTable *key_hash _U_, const char* dissector_table_name _U_, dissector_handle_t main_handle _U_, gboolean tcp _U_)
-{
-    report_failure("Can't load private key files, support is not compiled in.");
-}
 #endif
 
 
@@ -6590,23 +6593,23 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
 {
     guint32 quic_length, parameter_length, supported_versions_length, next_offset;
 
-    /* https://tools.ietf.org/html/draft-ietf-quic-transport-14#section-6.6
+    /* https://tools.ietf.org/html/draft-ietf-quic-transport-17#section-18
     *  uint32 QuicVersion;
      *  enum {
-     *     initial_max_stream_data_bidi_local(0),
-     *     initial_max_data(1),
-     *     initial_max_bidi_streams(2),
-     *     idle_timeout(3),
-     *     preferred_address(4),
-     *     max_packet_size(5),
-     *     stateless_reset_token(6),
-     *     ack_delay_exponent(7),
-     *     initial_max_uni_streams(8),
-     *     disable_migration(9),
-     *     initial_max_stream_data_bidi_remote(10),
-     *     initial_max_stream_data_uni(11),
-     *     max_ack_delay(12),
-     *     original_connection_id(13),
+     *     original_connection_id(0),
+     *     idle_timeout(1),
+     *     stateless_reset_token(2),
+     *     max_packet_size(3),
+     *     initial_max_data(4),
+     *     initial_max_stream_data_bidi_local(5),
+     *     initial_max_stream_data_bidi_remote(6),
+     *     initial_max_stream_data_uni(7),
+     *     initial_max_streams_bidi(8),
+     *     initial_max_streams_uni(9),
+     *     ack_delay_exponent(10),
+     *     max_ack_delay(11),
+     *     disable_migration(12),
+     *     preferred_address(13),
      *     (65535)
      *  } TransportParameterId;
      *
@@ -6624,7 +6627,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
      *              QuicVersion negotiated_version;
      *              QuicVersion supported_versions<4..2^8-4>;
      *      };
-     *      TransportParameter parameters<22..2^16-1>;
+     *      TransportParameter parameters<0..2^16-1>;
      *  } TransportParameters;
      *
      *  struct {
@@ -6677,6 +6680,8 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
         guint32 parameter_type;
         proto_tree *parameter_tree;
         guint32 parameter_end_offset;
+        guint64 value;
+        guint32 len = 0;
 
         parameter_tree = proto_tree_add_subtree(tree, tvb, offset, 4, hf->ett.hs_ext_quictp_parameter,
                                                 NULL, "Parameter");
@@ -6700,29 +6705,79 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                             tvb, offset, parameter_length, ENC_NA);
 
         switch (parameter_type) {
-            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_data_bidi_local,
-                                    tvb, offset, 4, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
-                offset += 4;
-            break;
-            case SSL_HND_QUIC_TP_INITIAL_MAX_DATA:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_data,
-                                    tvb, offset, 4, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
-                offset += 4;
-            break;
-            case SSL_HND_QUIC_TP_INITIAL_MAX_BIDI_STREAMS:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_bidi_streams,
-                                    tvb, offset, 2, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohs(tvb, offset));
-                offset += 2;
+            case SSL_HND_QUIC_TP_ORIGINAL_CONNECTION_ID:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_ocid,
+                                    tvb, offset, parameter_length, ENC_NA);
+                offset += parameter_length;
             break;
             case SSL_HND_QUIC_TP_IDLE_TIMEOUT:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_idle_timeout,
-                                    tvb, offset, 2, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u secs", tvb_get_ntohs(tvb, offset));
-                offset += 2;
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_idle_timeout,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u secs", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_stateless_reset_token,
+                                    tvb, offset, 16, ENC_BIG_ENDIAN);
+                offset += 16;
+            break;
+            case SSL_HND_QUIC_TP_MAX_PACKET_SIZE:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_max_packet_size,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                /*TODO display expert info about invalid value (< 1252 or >65527) ? */
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_DATA:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_data,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_data_bidi_local,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_data_bidi_remote,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_UNI:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_data_uni,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAMS_UNI:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_streams_uni,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAMS_BIDI:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_streams_bidi,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_ack_delay_exponent,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len);
+                /*TODO display multiplier (x8) and expert info about invalid value (> 20) ? */
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_MAX_ACK_DELAY:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_max_ack_delay,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_DISABLE_MIGRATION:
+                /* No Payload */
             break;
             case SSL_HND_QUIC_TP_PREFERRED_ADDRESS: {
                 guint32 ipversion, ipaddress_length, connectionid_length;
@@ -6768,56 +6823,6 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                                     tvb, offset, 16, ENC_NA);
                 offset += 16;
             }
-            break;
-            case SSL_HND_QUIC_TP_MAX_PACKET_SIZE:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_max_packet_size,
-                                    tvb, offset, 2, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohs(tvb, offset));
-                /*TODO display expert info about invalid value (< 1252 or >65527) ? */
-                offset += 2;
-            break;
-            case SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_stateless_reset_token,
-                                    tvb, offset, 16, ENC_BIG_ENDIAN);
-                offset += 16;
-            break;
-            case SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_ack_delay_exponent,
-                                    tvb, offset, 1, ENC_BIG_ENDIAN);
-                /*TODO display multiplier (x8) and expert info about invalid value (> 20) ? */
-                offset += 1;
-            break;
-            case SSL_HND_QUIC_TP_INITIAL_MAX_UNI_STREAMS:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_uni_streams,
-                                    tvb, offset, 2, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohs(tvb, offset));
-                offset += 2;
-            break;
-            case SSL_HND_QUIC_TP_DISABLE_MIGRATION:
-                /* No Payload */
-            break;
-            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_data_bidi_remote,
-                                    tvb, offset, 4, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
-                offset += 4;
-            break;
-            case SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_UNI:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_initial_max_stream_data_uni,
-                                    tvb, offset, 4, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_ntohl(tvb, offset));
-                offset += 4;
-            break;
-            case SSL_HND_QUIC_TP_MAX_ACK_DELAY:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_max_ack_delay,
-                                    tvb, offset, 1, ENC_BIG_ENDIAN);
-                proto_item_append_text(parameter_tree, " %u", tvb_get_guint8(tvb, offset));
-                offset += 1;
-            break;
-            case SSL_HND_QUIC_TP_ORIGINAL_CONNECTION_ID:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_ocid,
-                                    tvb, offset, parameter_length, ENC_NA);
-                offset += parameter_length;
             break;
             default:
                 offset += parameter_length;
@@ -7862,7 +7867,7 @@ void
 ssl_dissect_hnd_cert(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                      guint32 offset, guint32 offset_end, packet_info *pinfo,
                      SslSession *session, SslDecryptSession *ssl _U_,
-                     GHashTable *key_hash _U_, gboolean is_from_server, gboolean is_dtls)
+                     gboolean is_from_server, gboolean is_dtls)
 {
     /* opaque ASN.1Cert<1..2^24-1>;
      *
@@ -7990,7 +7995,7 @@ ssl_dissect_hnd_cert(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
             dissect_x509af_Certificate(FALSE, tvb, offset, &asn1_ctx, subtree, hf->hf.hs_certificate);
 #if defined(HAVE_LIBGNUTLS)
             if (is_from_server && ssl && certificate_index == 0) {
-                ssl_find_private_key_by_pubkey(ssl, key_hash, &subjectPublicKeyInfo);
+                ssl_find_private_key_by_pubkey(ssl, &subjectPublicKeyInfo);
                 /* Only attempt to get the RSA modulus for the first cert. */
                 asn1_ctx.private_data = NULL;
             }
@@ -8265,7 +8270,7 @@ void
 ssl_dissect_hnd_compress_certificate(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                                       guint32 offset, guint32 offset_end, packet_info *pinfo,
                                       SslSession *session _U_, SslDecryptSession *ssl _U_,
-                                      GHashTable *key_hash _U_, gboolean is_from_server _U_, gboolean is_dtls _U_)
+                                      gboolean is_from_server _U_, gboolean is_dtls _U_)
 {
     guint32 compressed_certificate_message_length;
     /*

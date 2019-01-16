@@ -11,7 +11,7 @@ include(UseABICheck)
 
 add_definitions(-DPLUGIN_DIR=\"${CMAKE_INSTALL_PREFIX}/${PLUGIN_INSTALL_LIBDIR}\")
 add_definitions(-DEXTCAP_DIR=\"${CMAKE_INSTALL_PREFIX}/${EXTCAP_INSTALL_LIBDIR}\")
-add_definitions(-DDATAFILE_DIR=\"${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/${CPACK_PACKAGE_NAME}\")
+add_definitions(-DDATA_DIR=\"${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}\")
 
 set(WSUTIL_PUBLIC_HEADERS
 	adler32.h
@@ -20,8 +20,6 @@ set(WSUTIL_PUBLIC_HEADERS
 	bits_ctz.h
 	bitswap.h
 	buffer.h
-	clopts_common.h
-	cmdarg_err.h
 	color.h
 	copyright_info.h
 	cpu_info.h
@@ -80,8 +78,6 @@ set(WSUTIL_COMMON_FILES
 	base32.c
 	bitswap.c
 	buffer.c
-	clopts_common.c
-	cmdarg_err.c
 	copyright_info.c
 	crash_info.c
 	crc10.c
@@ -221,21 +217,6 @@ if(APPLE)
 	FIND_LIBRARY (APPLE_CORE_FOUNDATION_LIBRARY CoreFoundation)
 endif()
 
-set(wsutil_LIBS
-	${CMAKE_DL_LIBS}
-	${APPLE_CORE_FOUNDATION_LIBRARY}
-	${GMODULE2_LIBRARIES}
-	${GLIB2_LIBRARIES}
-	${GCRYPT_LIBRARIES}
-	${ZLIB_LIBRARIES}
-	${WIN_WSOCK32_LIBRARY}
-	${GNUTLS_LIBRARIES}
-)
-
-IF(WIN32)
-	set(wsutil_LIBS ${wsutil_LIBS} "iphlpapi.lib" "ws2_32.lib")
-ENDIF(WIN32)
-
 set_source_files_properties(
 	${WSUTIL_FILES}
 	PROPERTIES
@@ -264,20 +245,6 @@ set_target_properties(wsutil PROPERTIES
 	FOLDER "DLLs"
 )
 
-if(ENABLE_APPLICATION_BUNDLE)
-
-	if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
-		# Xcode
-		set_target_properties(wsutil PROPERTIES
-			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/Frameworks
-		)
-	else()
-		set_target_properties(wsutil PROPERTIES
-			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Frameworks
-		)
-	endif()
-endif()
-
 ABICHECK(libwsutil)
 
 add_custom_command(OUTPUT libwsutil.abi.tar.gz
@@ -290,12 +257,25 @@ add_custom_command(OUTPUT libwsutil.abi.tar.gz
 	COMMAND rm -rf ${ABICHECK_TMPDIR} ${CMAKE_CURRENT_BINARY_DIR}/abi_dumps
 	DEPENDS ${HEADERS} wsutil)
 
-target_link_libraries(wsutil ${wsutil_LIBS})
+target_link_libraries(wsutil
+	PUBLIC
+	${CMAKE_DL_LIBS}
+	${APPLE_CORE_FOUNDATION_LIBRARY}
+	${GMODULE2_LIBRARIES}
+	${GLIB2_LIBRARIES}
+	${GCRYPT_LIBRARIES}
+	${WIN_WSOCK32_LIBRARY}
+	${GNUTLS_LIBRARIES}
+)
+
+if(WIN32)
+	target_link_libraries(wsutil PRIVATE "iphlpapi.lib" "ws2_32.lib")
+endif(WIN32)
 
 install(TARGETS wsutil
 	EXPORT WiresharkTargets
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
@@ -307,7 +287,7 @@ CHECKAPI(
 	NAME
 	  wsutil
 	SWITCHES
-	  --group termoutput:1 --summary-group termoutput --build
+	  --group termoutput:2 --summary-group termoutput --build
 	SOURCES
 	  ${WSUTIL_COMMON_FILES}
 )

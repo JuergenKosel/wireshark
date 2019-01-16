@@ -39,6 +39,13 @@ Lua scripts as well.
 The Lua code will be executed once after all the protocol dissectors have been
 initialized and before reading any file.
 
+Lua 5.2 is the current supported version, future releases might use Lua 5.3.
+
+Wireshark for Windows uses a modified Lua runtime
+(link:https://github.com/Lekensteyn/lua-unicode[lua-unicode]) in order to
+support Unicode (UTF-8) filesystem paths. This brings consistency with other
+platforms (for example, Linux and macOS).
+
 [[wslua_dissector_example]]
 
 === Example of Dissector written in Lua
@@ -287,11 +294,11 @@ characters stand for compilation flags. Combinations of the following characters
 
 * _m_ = G_REGEX_MULTILINE - By default, GRegex treats the strings as
   consisting of a single line of characters (even if it actually contains
-  newlines). The ``start of line'' metacharacter (“^”) matches only at the start
-  of the string, while the ``end of line'' metacharacter (“$”) matches only at
+  newlines). The “start of line” metacharacter (“^”) matches only at the start
+  of the string, while the “end of line” metacharacter (“$”) matches only at
   the end of the string, or before a terminating newline (unless
-  G_REGEX_DOLLAR_ENDONLY is set). When G_REGEX_MULTILINE is set, the ``start of
-  line'' and ``end of line'' constructs match immediately following or
+  G_REGEX_DOLLAR_ENDONLY is set). When G_REGEX_MULTILINE is set, the “start of
+  line” and “end of line” constructs match immediately following or
   immediately before any newline in the string, respectively, as well as at the
   very start and end. This can be changed within a pattern by a “(?m)” option
   setting.

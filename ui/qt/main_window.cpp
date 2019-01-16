@@ -208,7 +208,7 @@ static void plugin_if_mainwindow_get_ws_info(GHashTable * data_set)
 
         if (cf->state == FILE_READ_DONE && cf->current_frame) {
             ws_info->cf_framenr = cf->current_frame->num;
-            ws_info->frame_passed_dfilter = (cf->current_frame->flags.passed_dfilter == 1);
+            ws_info->frame_passed_dfilter = (cf->current_frame->passed_dfilter == 1);
         }
         else {
             ws_info->cf_framenr = 0;
@@ -270,7 +270,6 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     main_ui_(new Ui::MainWindow),
     cur_layout_(QVector<unsigned>()),
-    df_combo_box_(new DisplayFilterCombo),
     packet_list_(NULL),
     proto_tree_(NULL),
     previous_focus_(NULL),
@@ -372,12 +371,11 @@ MainWindow::MainWindow(QWidget *parent) :
         Qt::BlockingQueuedConnection);
 #endif
 
+    df_combo_box_ = new DisplayFilterCombo(this);
     const DisplayFilterEdit *df_edit = qobject_cast<DisplayFilterEdit *>(df_combo_box_->lineEdit());
     connect(df_edit, SIGNAL(pushFilterSyntaxStatus(const QString&)),
             main_ui_->statusBar, SLOT(pushFilterStatus(const QString&)));
     connect(df_edit, SIGNAL(popFilterSyntaxStatus()), main_ui_->statusBar, SLOT(popFilterStatus()));
-    connect(df_edit, SIGNAL(pushFilterSyntaxWarning(const QString&)),
-            main_ui_->statusBar, SLOT(pushTemporaryStatus(const QString&)));
     connect(df_edit, SIGNAL(filterPackets(QString,bool)), this, SLOT(filterPackets(QString,bool)));
     connect(df_edit, SIGNAL(showPreferencesDialog(QString)),
             this, SLOT(showPreferencesDialog(QString)));
@@ -689,12 +687,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
     /* Register Interface Toolbar callbacks */
     iface_toolbar_register_cb(mainwindow_add_toolbar, mainwindow_remove_toolbar);
-
-    // We set the minimum width of df_combo_box_ in resizeEvent so that it won't shrink
-    // down too much if we have a lot of filter buttons. Unfortunately that can break
-    // Aero snapping if our window is large or maximized. Set a minimum width here in
-    // order to counteract that.
-    setMinimumWidth(350); // Arbitrary
 
     showWelcome();
 }
@@ -2499,12 +2491,6 @@ void MainWindow::changeEvent(QEvent* event)
         }
     }
     QMainWindow::changeEvent(event);
-}
-
-void MainWindow::resizeEvent(QResizeEvent *event)
-{
-    df_combo_box_->setMinimumWidth(width() * 2 / 3); // Arbitrary
-    QMainWindow::resizeEvent(event);
 }
 
 /* Update main window items based on whether there's a capture in progress. */

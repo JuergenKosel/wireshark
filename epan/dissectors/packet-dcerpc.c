@@ -1940,7 +1940,7 @@ dcerpcstat_init(struct register_srt* srt, GArray* srt_array)
     }
 }
 
-static int
+static tap_packet_status
 dcerpcstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const void *prv)
 {
     guint i = 0;
@@ -1953,31 +1953,31 @@ dcerpcstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const 
     tap_data = (dcerpcstat_tap_data_t*)dcerpc_srt_table->table_specific_data;
 
     if(!ri->call_data){
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
     if(!ri->call_data->req_frame){
         /* we have not seen the request so we don't know the delta*/
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
     if(ri->call_data->opnum >= tap_data->num_procedures){
         /* don't handle this since it's outside of known table */
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     /* we are only interested in reply packets */
     if(ri->ptype != PDU_RESP){
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     /* we are only interested in certain program/versions */
     if( (!uuid_equal( (&ri->call_data->uuid), (&tap_data->uuid)))
         ||(ri->call_data->ver != tap_data->ver)){
-        return 0;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     add_srt_table_data(dcerpc_srt_table, ri->call_data->opnum, &ri->call_data->req_time, pinfo);
 
-    return 1;
+    return TAP_PACKET_REDRAW;
 }
 
 static guint
@@ -2723,7 +2723,7 @@ PIDL_dissect_cvstring(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
         }
         /* Save string to dcv->private_data */
         if ((param & PIDL_STR_SAVE)
-           && (!pinfo->fd->flags.visited)) {
+           && (!pinfo->fd->visited)) {
             dcerpc_call_value *dcv = (dcerpc_call_value *)di->call_data;
             dcv->private_data = wmem_strdup(wmem_file_scope(), s);
         }
@@ -3112,7 +3112,7 @@ add_pointer_to_list(packet_info *pinfo, proto_tree *tree, proto_item *item,
         value = di->call_data;
 
         if (di->ptype == PDU_REQ) {
-            if (!(pinfo->fd->flags.visited)) {
+            if (!(pinfo->fd->visited)) {
                 if (id > value->max_ptr) {
                     value->max_ptr = id;
                 }
@@ -4063,7 +4063,7 @@ dissect_dcerpc_cn_bind(tvbuff_t *tvb, gint offset, packet_info *pinfo,
            match to the interface.
            XXX We assume that BINDs will NEVER be fragmented.
         */
-        if (!(pinfo->fd->flags.visited)) {
+        if (!(pinfo->fd->visited)) {
             dcerpc_bind_key   *key;
             dcerpc_bind_value *value;
 
@@ -4356,7 +4356,7 @@ dissect_dcerpc_cn_stub(tvbuff_t *tvb, int offset, packet_info *pinfo,
        and if so dissect the full pdu.
        then exit
     */
-    if (pinfo->fd->flags.visited) {
+    if (pinfo->fd->visited) {
         fd_head = fragment_get_reassembled(&dcerpc_co_reassembly_table, frame);
         goto end_cn_stub;
     }
@@ -4519,7 +4519,7 @@ dissect_dcerpc_cn_rqst(tvbuff_t *tvb, gint offset, packet_info *pinfo,
         dcerpc_matched_key matched_key, *new_matched_key;
         dcerpc_call_value *value;
 
-        /* !!! we can NOT check flags.visited here since this will interact
+        /* !!! we can NOT check visited here since this will interact
            badly with when SMB handles (i.e. calls the subdissector)
            and desegmented pdu's .
            Instead we check if this pdu is already in the matched table or not
@@ -4684,7 +4684,7 @@ dissect_dcerpc_cn_resp(tvbuff_t *tvb, gint offset, packet_info *pinfo,
     } else {
         dcerpc_matched_key matched_key, *new_matched_key;
 
-        /* !!! we can NOT check flags.visited here since this will interact
+        /* !!! we can NOT check visited here since this will interact
            badly with when SMB handles (i.e. calls the subdissector)
            and desegmented pdu's .
            Instead we check if this pdu is already in the matched table or not
@@ -4851,7 +4851,7 @@ dissect_dcerpc_cn_fault(tvbuff_t *tvb, gint offset, packet_info *pinfo,
     } else {
         dcerpc_matched_key matched_key, *new_matched_key;
 
-        /* !!! we can NOT check flags.visited here since this will interact
+        /* !!! we can NOT check visited here since this will interact
            badly with when SMB handles (i.e. calls the subdissector)
            and desegmented pdu's .
            Instead we check if this pdu is already in the matched table or not
@@ -4966,7 +4966,7 @@ dissect_dcerpc_cn_fault(tvbuff_t *tvb, gint offset, packet_info *pinfo,
                     }
                 }
                 if (hdr->flags&PFC_FIRST_FRAG) {  /* FIRST fragment */
-                    if ( (!pinfo->fd->flags.visited) && value->rep_frame ) {
+                    if ( (!pinfo->fd->visited) && value->rep_frame ) {
                         fragment_add_seq_next(&dcerpc_co_reassembly_table,
                                               stub_tvb, 0,
                                               pinfo, value->rep_frame, NULL,
@@ -5011,7 +5011,7 @@ dissect_dcerpc_cn_fault(tvbuff_t *tvb, gint offset, packet_info *pinfo,
                         }
                     }
                 } else {  /* MIDDLE fragment(s) */
-                    if ( (!pinfo->fd->flags.visited) && value->rep_frame ) {
+                    if ( (!pinfo->fd->visited) && value->rep_frame ) {
                         fragment_add_seq_next(&dcerpc_co_reassembly_table,
                                               stub_tvb, 0,
                                               pinfo, value->rep_frame, NULL,
@@ -6102,7 +6102,7 @@ dissect_dcerpc_dg_rqst(tvbuff_t *tvb, int offset, packet_info *pinfo,
     proto_item         *pi;
     proto_item         *parent_pi;
 
-    if (!(pinfo->fd->flags.visited)) {
+    if (!(pinfo->fd->visited)) {
         dcerpc_call_value *call_value;
         dcerpc_dg_call_key *call_key;
 
@@ -6181,7 +6181,7 @@ dissect_dcerpc_dg_resp(tvbuff_t *tvb, int offset, packet_info *pinfo,
     proto_item         *pi;
     proto_item         *parent_pi;
 
-    if (!(pinfo->fd->flags.visited)) {
+    if (!(pinfo->fd->visited)) {
         dcerpc_call_value *call_value;
         dcerpc_dg_call_key call_key;
 
@@ -6243,7 +6243,7 @@ dissect_dcerpc_dg_ping_ack(tvbuff_t *tvb, int offset, packet_info *pinfo,
                            e_dce_dg_common_hdr_t *hdr, conversation_t *conv)
 {
     proto_item         *parent_pi;
-/*    if (!(pinfo->fd->flags.visited)) {*/
+/*    if (!(pinfo->fd->visited)) {*/
     dcerpc_call_value  *call_value;
     dcerpc_dg_call_key  call_key;
 

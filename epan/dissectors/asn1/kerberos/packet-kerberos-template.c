@@ -69,7 +69,7 @@
 
 #include "packet-gssapi.h"
 #include "packet-smb-common.h"
-
+#include "packet-x509af.h"
 
 void proto_register_kerberos(void);
 void proto_reg_handoff_kerberos(void);
@@ -86,9 +86,10 @@ typedef struct kerberos_key {
 } kerberos_key_t;
 
 typedef struct {
-	gboolean is_request;
+	guint32 msg_type;
 	guint32 etype;
 	guint32 padata_type;
+	guint32 is_enc_padata;
 	guint32 enctype;
 	kerberos_key_t key;
 	guint32 ad_type;
@@ -103,6 +104,7 @@ static int dissect_kerberos_Applications(gboolean implicit_tag _U_, tvbuff_t *tv
 static int dissect_kerberos_PA_ENC_TIMESTAMP(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 static int dissect_kerberos_KERB_PA_PAC_REQUEST(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 static int dissect_kerberos_PA_S4U2Self(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static int dissect_kerberos_PA_S4U_X509_USER(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 static int dissect_kerberos_ETYPE_INFO(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 static int dissect_kerberos_ETYPE_INFO2(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 static int dissect_kerberos_AD_IF_RELEVANT(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
@@ -264,7 +266,7 @@ add_encryption_key(packet_info *pinfo, int keytype, int keylength, const char *k
 {
 	enc_key_t *new_key;
 
-	if(pinfo->fd->flags.visited){
+	if(pinfo->fd->visited){
 		return;
 	}
 
@@ -608,7 +610,7 @@ add_encryption_key(packet_info *pinfo, int keytype, int keylength, const char *k
 {
 	service_key_t *new_key;
 
-	if(pinfo->fd->flags.visited){
+	if(pinfo->fd->visited){
 		return;
 	}
 
@@ -1984,10 +1986,10 @@ dissect_kerberos_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 			default:
 				return 0;
 		}
-	if (do_col_protocol) {
+		if (do_col_protocol) {
 			col_set_str(pinfo->cinfo, COL_PROTOCOL, "KRB5");
-	}
-	if (gbl_do_col_info) {
+		}
+		if (gbl_do_col_info) {
 			col_clear(pinfo->cinfo, COL_INFO);
 		}
 		if (tree) {

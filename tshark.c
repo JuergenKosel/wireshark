@@ -45,13 +45,13 @@
 #include <epan/exceptions.h>
 #include <epan/epan.h>
 
-#include <wsutil/clopts_common.h>
-#include <wsutil/cmdarg_err.h>
-#include <wsutil/crash_info.h>
+#include <ui/clopts_common.h>
+#include <ui/cmdarg_err.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
 #include <wsutil/report_message.h>
+#include <cli_main.h>
 #include <version_info.h>
 #include <wiretap/wtap_opttypes.h>
 #include <wiretap/pcapng.h>
@@ -104,7 +104,6 @@
 #include "caputils/capture_ifinfo.h"
 #ifdef _WIN32
 #include "caputils/capture-wpcap.h"
-#include <wsutil/unicode-utils.h>
 #endif /* _WIN32 */
 #include <capchild/capture_session.h>
 #include <capchild/capture_sync.h>
@@ -115,6 +114,7 @@
 
 #include <wsutil/str_util.h>
 #include <wsutil/utf8_entities.h>
+#include <wsutil/json_dumper.h>
 
 #include "extcap.h"
 
@@ -193,6 +193,8 @@ static pf_flags protocolfilter_flags = PF_NONE;
 
 static gboolean no_duplicate_keys = FALSE;
 static proto_node_children_grouper_func node_children_grouper = proto_node_group_children_by_unique;
+
+static json_dumper jdumper;
 
 /* The line separator used between packets, changeable via the -S option */
 static const char *separator = "";
@@ -386,10 +388,18 @@ print_usage(FILE *output)
 
   /*fprintf(output, "\n");*/
   fprintf(output, "Output:\n");
+#ifdef PCAP_NG_DEFAULT
+  fprintf(output, "  -w <outfile|->           write packets to a pcapng-format file named \"outfile\"\n");
+#else
   fprintf(output, "  -w <outfile|->           write packets to a pcap-format file named \"outfile\"\n");
+#endif
   fprintf(output, "                           (or to the standard output for \"-\")\n");
   fprintf(output, "  -C <config profile>      start with specified configuration profile\n");
+#ifdef PCAP_NG_DEFAULT
   fprintf(output, "  -F <output file type>    set the output file type, default is pcapng\n");
+#else
+  fprintf(output, "  -F <output file type>    set the output file type, default is pcap\n");
+#endif
   fprintf(output, "                           an empty \"-F\" option will list the file types\n");
   fprintf(output, "  -V                       add output of packet tree        (Packet Details)\n");
   fprintf(output, "  -O <protocols>           Only show packet details of these protocols, comma\n");
@@ -467,7 +477,7 @@ glossary_option_help(void)
 
   output = stdout;
 
-  fprintf(output, "TShark (Wireshark) %s\n", get_ws_vcs_version_info());
+  fprintf(output, "%s\n", get_appname_and_version());
 
   fprintf(output, "\n");
   fprintf(output, "Usage: tshark -G [report]\n");
@@ -662,11 +672,9 @@ must_do_dissection(dfilter_t *rfcode, dfilter_t *dfcode,
       tap_listeners_require_dissection() || dissect_color;
 }
 
-static int
-real_main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-  GString             *comp_info_str;
-  GString             *runtime_info_str;
   char                *init_progfile_dir_error;
   int                  opt;
   static const struct option long_options[] = {
@@ -698,6 +706,7 @@ real_main(int argc, char *argv[])
   gchar               *err_str;
 #else
   gboolean             capture_option_specified = FALSE;
+  volatile int         max_packet_count = 0;
 #endif
   gboolean             quiet = FALSE;
 #ifdef PCAP_NG_DEFAULT
@@ -791,22 +800,10 @@ real_main(int argc, char *argv[])
 #endif /* HAVE_LIBPCAP */
 #endif /* _WIN32 */
 
-  /* Get the compile-time version information string */
-  comp_info_str = get_compiled_version_info(get_tshark_compiled_version_info,
-                                            epan_get_compiled_version_info);
-
-  /* Get the run-time version information string */
-  runtime_info_str = get_runtime_version_info(get_tshark_runtime_version_info);
-
-  /* Add it to the information to be reported on a crash. */
-  ws_add_crash_info("TShark (Wireshark) %s\n"
-         "\n"
-         "%s"
-         "\n"
-         "%s",
-      get_ws_vcs_version_info(), comp_info_str->str, runtime_info_str->str);
-  g_string_free(comp_info_str, TRUE);
-  g_string_free(runtime_info_str, TRUE);
+  /* Initialize the version information. */
+  ws_init_version_info("TShark (Wireshark)", get_tshark_compiled_version_info,
+                       epan_get_compiled_version_info,
+                       get_tshark_runtime_version_info);
 
   /* Fail sometimes. Useful for testing fuzz scripts. */
   /* if (g_random_int_range(0, 100) < 5) abort(); */
@@ -1098,6 +1095,8 @@ real_main(int argc, char *argv[])
          * file.
          */
         output_file_name = g_strdup(optarg);
+      } else if (opt == 'c') {
+        max_packet_count = get_positive_int(optarg, "packet count");
       } else {
         capture_option_specified = TRUE;
         arg_error = TRUE;
@@ -1180,10 +1179,7 @@ real_main(int argc, char *argv[])
       break;
 
     case 'h':        /* Print help and exit */
-      printf("TShark (Wireshark) %s\n"
-             "Dump and analyze network traffic.\n"
-             "See https://www.wireshark.org for more information.\n",
-             get_ws_vcs_version_info());
+      show_help_header("Dump and analyze network traffic.");
       print_usage(stdout);
       exit_status = EXIT_SUCCESS;
       goto clean_exit;
@@ -1362,12 +1358,7 @@ real_main(int argc, char *argv[])
         break;
     }
     case 'v':         /* Show version and exit */
-      comp_info_str = get_compiled_version_info(get_tshark_compiled_version_info,
-                                                epan_get_compiled_version_info);
-      runtime_info_str = get_runtime_version_info(get_tshark_runtime_version_info);
-      show_version("TShark (Wireshark)", comp_info_str, runtime_info_str);
-      g_string_free(comp_info_str, TRUE);
-      g_string_free(runtime_info_str, TRUE);
+      show_version();
       /* We don't really have to cleanup here, but it's a convenient way to test
        * start-up and shut-down of the epan library without any UI-specific
        * cruft getting in the way. Makes the results of running
@@ -1992,10 +1983,10 @@ real_main(int argc, char *argv[])
       /* Activate the export PDU tap */
       comment = g_strdup_printf("Dump of PDUs from %s", cf_name);
       err = exp_pdu_open(&exp_pdu_tap_data, exp_fd, comment);
+      g_free(comment);
       if (err != 0) {
           cfile_dump_open_failure_message("TShark", exp_pdu_filename, err,
                                           WTAP_FILE_TYPE_SUBTYPE_PCAPNG);
-          g_free(comment);
           exit_status = INVALID_EXPORT;
           goto clean_exit;
       }
@@ -2036,7 +2027,7 @@ real_main(int argc, char *argv[])
           global_capture_opts.has_autostop_packets ? global_capture_opts.autostop_packets : 0,
           global_capture_opts.has_autostop_filesize ? global_capture_opts.autostop_filesize : 0);
 #else
-      success = process_cap_file(&cfile, output_file_name, out_file_type, out_file_name_res, 0, 0);
+      success = process_cap_file(&cfile, output_file_name, out_file_type, out_file_name_res, max_packet_count, 0);
 #endif
     }
     CATCH(OutOfMemoryError) {
@@ -2246,23 +2237,6 @@ clean_exit:
   dfilter_free(dfcode);
   return exit_status;
 }
-
-#ifdef _WIN32
-int
-wmain(int argc, wchar_t *wc_argv[])
-{
-  char **argv;
-
-  argv = arg_list_utf_16to8(argc, wc_argv);
-  return real_main(argc, argv);
-}
-#else
-int
-main(int argc, char *argv[])
-{
-  return real_main(argc, argv);
-}
-#endif
 
 /*#define USE_BROKEN_G_MAIN_LOOP*/
 
@@ -2599,7 +2573,7 @@ gboolean
 capture_input_new_file(capture_session *cap_session, gchar *new_file)
 {
   capture_options *capture_opts = cap_session->capture_opts;
-  capture_file *cf = (capture_file *) cap_session->cf;
+  capture_file *cf = cap_session->cf;
   gboolean is_tempfile;
   int      err;
 
@@ -2638,9 +2612,9 @@ capture_input_new_file(capture_session *cap_session, gchar *new_file)
   /* if we are in real-time mode, open the new file now */
   if (do_dissection) {
     /* this is probably unecessary, but better safe than sorry */
-    ((capture_file *)cap_session->cf)->open_type = WTAP_TYPE_AUTO;
+    cap_session->cf->open_type = WTAP_TYPE_AUTO;
     /* Attempt to open the capture file and set up to read from it. */
-    switch(cf_open((capture_file *)cap_session->cf, capture_opts->save_file, WTAP_TYPE_AUTO, is_tempfile, &err)) {
+    switch(cf_open(cap_session->cf, capture_opts->save_file, WTAP_TYPE_AUTO, is_tempfile, &err)) {
     case CF_OK:
       break;
     case CF_ERROR:
@@ -2666,7 +2640,7 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
   int           err;
   gchar        *err_info;
   gint64        data_offset;
-  capture_file *cf = (capture_file *)cap_session->cf;
+  capture_file *cf = cap_session->cf;
   gboolean      filtering_tap_listeners;
   guint         tap_flags;
 
@@ -2806,7 +2780,7 @@ report_counts_siginfo(int signum _U_)
 
 /* capture child detected any packet drops? */
 void
-capture_input_drops(capture_session *cap_session _U_, guint32 dropped)
+capture_input_drops(capture_session *cap_session _U_, guint32 dropped, char* interface_name)
 {
   if (print_packet_counts) {
     /* We're printing packet counts to stderr.
@@ -2817,7 +2791,11 @@ capture_input_drops(capture_session *cap_session _U_, guint32 dropped)
   if (dropped != 0) {
     /* We're printing packet counts to stderr.
        Send a newline so that we move to the line after the packet count. */
-    fprintf(stderr, "%u packet%s dropped\n", dropped, plurality(dropped, "", "s"));
+    if (interface_name != NULL) {
+      fprintf(stderr, "%u packet%s dropped from %s\n", dropped, plurality(dropped, "", "s"), interface_name);
+    } else {
+      fprintf(stderr, "%u packet%s dropped\n", dropped, plurality(dropped, "", "s"));
+    }
   }
 }
 
@@ -2829,7 +2807,7 @@ capture_input_drops(capture_session *cap_session _U_, guint32 dropped)
 void
 capture_input_closed(capture_session *cap_session, gchar *msg)
 {
-  capture_file *cf = (capture_file *) cap_session->cf;
+  capture_file *cf = cap_session->cf;
 
   if (msg != NULL)
     fprintf(stderr, "tshark: %s\n", msg);
@@ -3030,7 +3008,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
 
     if (dissect_color) {
       color_filters_prime_edt(edt);
-      fdata->flags.need_colorize = 1;
+      fdata->need_colorize = 1;
     }
 
     epan_dissect_run_with_taps(edt, cf->cd_t, rec,
@@ -3068,7 +3046,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
   if (edt) {
     epan_dissect_reset(edt);
   }
-  return passed || fdata->flags.dependent_of_displayed;
+  return passed || fdata->dependent_of_displayed;
 }
 
 static gboolean
@@ -3098,7 +3076,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
     /* If we don't have an application name add Tshark */
     if (wtap_block_get_string_option_value(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, &shb_user_appl) != WTAP_OPTTYPE_SUCCESS) {
         /* this is free'd by wtap_block_free() later */
-        wtap_block_add_string_option_format(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, "TShark (Wireshark) %s", get_ws_vcs_version_info());
+        wtap_block_add_string_option_format(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, "%s", get_appname_and_version());
     }
 
     tshark_debug("tshark: writing format type %d, to %s", out_file_type, save_file);
@@ -3514,7 +3492,7 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, gint64 offset,
 
     if (dissect_color) {
       color_filters_prime_edt(edt);
-      fdata.flags.need_colorize = 1;
+      fdata.need_colorize = 1;
     }
 
     epan_dissect_run_with_taps(edt, cf->cd_t, rec,
@@ -3584,11 +3562,11 @@ write_preamble(capture_file *cf)
 
   case WRITE_JSON:
   case WRITE_JSON_RAW:
-    write_json_preamble(stdout);
+    jdumper = write_json_preamble(stdout);
     return !ferror(stdout);
 
   case WRITE_EK:
-    return !ferror(stdout);
+    return TRUE;
 
   default:
     g_assert_not_reached();
@@ -3941,7 +3919,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
     if (print_details) {
       write_json_proto_tree(output_fields, print_dissections_expanded,
                             print_hex, protocolfilter, protocolfilter_flags,
-                            edt, &cf->cinfo, node_children_grouper, stdout);
+                            edt, &cf->cinfo, node_children_grouper, &jdumper);
       return !ferror(stdout);
     }
     break;
@@ -3952,7 +3930,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
     if (print_details) {
       write_json_proto_tree(output_fields, print_dissections_none, TRUE,
                             protocolfilter, protocolfilter_flags,
-                            edt, &cf->cinfo, node_children_grouper, stdout);
+                            edt, &cf->cinfo, node_children_grouper, &jdumper);
       return !ferror(stdout);
     }
     break;
@@ -3997,11 +3975,11 @@ write_finale(void)
 
   case WRITE_JSON:
   case WRITE_JSON_RAW:
-    write_json_finale(stdout);
+    write_json_finale(&jdumper);
     return !ferror(stdout);
 
   case WRITE_EK:
-    return !ferror(stdout);
+    return TRUE;
 
   default:
     g_assert_not_reached();

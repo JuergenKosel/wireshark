@@ -24,7 +24,7 @@ set(NSIS_FILES
 	GetWindowsVersion.nsh
 	servicelib.nsh
 	AdditionalTasksPage.ini
-	WinPcapPage.ini
+	NpcapPage.ini
 	USBPcapPage.ini
 	${NSIS_GENERATED_FILES}
 	PARENT_SCOPE
@@ -45,22 +45,21 @@ else()
 endif()
 set (MMDBRESOLVE_EXE ${MAXMINDDB_FOUND})
 
-# Path to the WinPcap installer.
+# Path to the Npcap installer.
 # XXX Come up with a better variable, e.g. cache WIRESHARK_LIB_DIR in FindWSWinLibs.
 file(TO_NATIVE_PATH "${GLIB2_DLL_DIR}/../.." _wireshark_lib_dir)
 set(WIRESHARK_LIB_DIR "${_wireshark_lib_dir}")
 
-# Must match ${WIRESHARK_LIB_DIR}/WinPcap_X_Y_Z.exe
-set(WINPCAP_PACKAGE_VERSION ${WINPCAP_VERSION})
-string(REPLACE "_" "." PCAP_DISPLAY_VERSION "${WINPCAP_PACKAGE_VERSION}")
+# Must match ${WIRESHARK_LIB_DIR}/Npcap-X.Y.Z.exe
+set(NPCAP_PACKAGE_VERSION "0.99-r8")
 
-set(USBPCAP_DISPLAY_VERSION "1.2.0.4")
+set(USBPCAP_PACKAGE_VERSION "1.2.0.4")
 
 set(PRODUCT_VERSION ${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}.${PROJECT_BUILD_VERSION})
 
 # To do:
 # - Sync the various version names between CMake and NSIS.
-# - Set CMakeLists.txt version strings in make-version.pl
+# - Set CMakeLists.txt version strings in tools/make-version.pl
 # - Add a VERSION_EXTRA cmake option
 set (VERSION "${PROJECT_VERSION}")
 set (PRODUCT_VERSION=${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}.${VERSION_BUILD})
@@ -108,7 +107,8 @@ find_path(VCINSTALLDIR Redist PATHS
 	"[HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\VisualStudio\\SxS\\VS7;${_msvs_version}]\\VC"
 	NO_DEFAULT_PATH
 )
-message(STATUS "Using VCINSTALLDIR: ${VCINSTALLDIR}")
+file(TO_NATIVE_PATH "${VCINSTALLDIR}" VCINSTALLDIR_NATIVE)
+message(STATUS "Using VCINSTALLDIR: ${VCINSTALLDIR_NATIVE}")
 
 # Visual Studio Community 2017 version 15.7.5 uses VCRT 14.14.26405, but an
 # earlier version used 14.10.25008. Let's just glob for the right value.
@@ -160,10 +160,11 @@ file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}" _outfile_dir)
 file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}" _nsis_include_dir)
 
 # Variables we can't set via config.nsh.
-set(NSIS_DEFINES
-	-DSTAGING_DIR=${_staging_dir}
-	-DOUTFILE_DIR=${_outfile_dir}
-	-DNSIS_INCLUDE_DIR=${_nsis_include_dir}
+set(NSIS_OPTIONS
+	/DSTAGING_DIR=${_staging_dir}
+	/DOUTFILE_DIR=${_outfile_dir}
+	/DNSIS_INCLUDE_DIR=${_nsis_include_dir}
+	/V4
 	PARENT_SCOPE
 )
 
@@ -177,7 +178,7 @@ macro( ADD_NSIS_UNINSTALLER_TARGET )
 	add_custom_command(OUTPUT ${DATAFILE_DIR}/uninstall.exe
 		DEPENDS ${_nsis_source_dir}/uninstall.nsi
 			${_nsis_source_dir}/common.nsh
-		COMMAND ${MAKENSIS_EXECUTABLE} ${NSIS_DEFINES}
+		COMMAND ${MAKENSIS_EXECUTABLE} ${NSIS_OPTIONS}
 			uninstall.nsi
 		COMMAND ${DATAFILE_DIR}/uninstall_installer.exe
 		COMMAND ${CMAKE_COMMAND} -E remove ${DATAFILE_DIR}/uninstall_installer.exe
@@ -211,7 +212,7 @@ macro( ADD_NSIS_PACKAGE_TARGET )
 	# Dump the installer into ${CMAKE_CURRENT_SOURCE_DIR}/packaging/nsis
 	# Note that executables and DLLs *must* be built separately
 	add_custom_target(nsis_package
-		COMMAND ${MAKENSIS_EXECUTABLE} ${NSIS_DEFINES}
+		COMMAND ${MAKENSIS_EXECUTABLE} ${NSIS_OPTIONS}
 			wireshark.nsi
 		WORKING_DIRECTORY ${_nsis_source_dir}
 	)

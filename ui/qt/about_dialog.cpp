@@ -313,13 +313,13 @@ AboutDialog::AboutDialog(QWidget *parent) :
     message += "<p>" + html_escape(comp_info_str) + "</p>\n\n";
     message += "<p>" + html_escape(runtime_info_str) + "</p>\n\n";
     message += "<p>Wireshark is Open Source Software released under the GNU General Public License.</p>\n\n";
-    message += "<p>Check the man page and http://www.wireshark.org for more information.</p>\n\n";
+    message += "<p>Check the man page and ";
+    message += "<a href=http://www.wireshark.org>http://www.wireshark.org</a> ";
+    message += "for more information.</p>\n\n";
 
-    ui->label_wireshark->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    ui->label_wireshark->setTextFormat(Qt::RichText);
-    ui->label_wireshark->setWordWrap(true);
-    ui->label_wireshark->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    ui->label_wireshark->setText(message);
+    ui->pte_wireshark->setFrameStyle(QFrame::NoFrame);
+    ui->pte_wireshark->viewport()->setAutoFillBackground(false);
+    ui->pte_wireshark->setHtml(message);
 
 /* Check if it is a dev release... (VERSION_MINOR is odd in dev release) */
 #if VERSION_MINOR & 1
@@ -356,12 +356,10 @@ AboutDialog::AboutDialog(QWidget *parent) :
     pluginTypeModel->setColumnToFilter(2);
     ui->tblPlugins->setModel(pluginTypeModel);
     ui->tblPlugins->setRootIsDecorated(false);
-#ifdef HAVE_LUA
     UrlLinkDelegate *plugin_delegate = new UrlLinkDelegate(this);
-    QString pattern = QString("^%1$").arg(wslua_plugin_type_name());
-    plugin_delegate->setColCheck(2, pattern);
+    script_pattern = QString("\\.(lua|py)$");
+    plugin_delegate->setColCheck(3, script_pattern);
     ui->tblPlugins->setItemDelegateForColumn(3, plugin_delegate);
-#endif
     ui->cmbType->addItems(pluginModel->typeNames());
     ui->tblPlugins->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->tblPlugins->setTextElideMode(Qt::ElideMiddle);
@@ -489,15 +487,44 @@ void AboutDialog::handleCopyMenu(QPoint pos)
 
     QMenu * menu = new QMenu(this);
 
+    if (ui->tabWidget->currentWidget() == ui->tab_plugins)
+    {
+#ifdef Q_OS_MAC
+        QString show_in_str = tr("Show in Finder");
+#else
+        QString show_in_str = tr("Show in Folder");
+#endif
+        QAction * showInFolderAction = menu->addAction(show_in_str);
+        showInFolderAction->setData(VariantPointer<QTreeView>::asQVariant(tree));
+        connect(showInFolderAction, SIGNAL(triggered()), this, SLOT(showInFolderActionTriggered()));
+    }
+
     QAction * copyColumnAction = menu->addAction(tr("Copy"));
     copyColumnAction->setData(VariantPointer<QTreeView>::asQVariant(tree));
     connect(copyColumnAction, SIGNAL(triggered()), this, SLOT(copyActionTriggered()));
 
-    QAction * copyRowAction = menu->addAction(tr("Copy Row(s)"));
+    QModelIndexList selectedRows = tree->selectionModel()->selectedRows();
+    QAction * copyRowAction = menu->addAction(tr("Copy Row(s)", "", selectedRows.count()));
     copyRowAction->setData(VariantPointer<QTreeView>::asQVariant(tree));
     connect(copyRowAction, SIGNAL(triggered()), this, SLOT(copyRowActionTriggered()));
 
     menu->popup(tree->viewport()->mapToGlobal(pos));
+}
+
+void AboutDialog::showInFolderActionTriggered()
+{
+    QAction * sendingAction = qobject_cast<QAction *>(sender());
+    if (!sendingAction)
+        return;
+
+    QTreeView * tree = VariantPointer<QTreeView>::asPtr(sendingAction->data());
+    QModelIndexList selectedRows = tree->selectionModel()->selectedRows();
+
+    foreach (QModelIndex index, selectedRows)
+    {
+        QString cf_path = tree->model()->index(index.row(), 3).data().toString();
+        desktop_show_in_folder(cf_path);
+    }
 }
 
 void AboutDialog::copyRowActionTriggered()
@@ -566,21 +593,18 @@ void AboutDialog::copyActionTriggered(bool copyRow)
     clipBoard->setText(clipdata);
 }
 
-#ifdef HAVE_LUA
 void AboutDialog::on_tblPlugins_doubleClicked(const QModelIndex &index)
 {
-    const int type_col = 2;
     const int path_col = 3;
     if (index.column() != path_col) {
         return;
     }
     const int row = index.row();
     const QAbstractItemModel *model = index.model();
-    if (model->index(row, type_col).data().toString() == wslua_plugin_type_name()) {
+    if (model->index(row, path_col).data().toString().contains(QRegExp(script_pattern))) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(model->index(row, path_col).data().toString()));
     }
 }
-#endif
 
 /*
  * Editor modelines

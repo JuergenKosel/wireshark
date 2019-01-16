@@ -22,6 +22,8 @@
 #include <epan/stat_tap_ui.h>
 #include <epan/dissectors/packet-http.h>
 
+#include <ui/cmdarg_err.h>
+
 void register_tap_listener_httpstat(void);
 
 /* used to keep track of the statictics for an entire program interface */
@@ -195,7 +197,7 @@ httpstat_reset(void *psp  )
 
 }
 
-static int
+static tap_packet_status
 httpstat_packet(void *psp , packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *pri)
 {
 	const http_info_value_t *value = (const http_info_value_t *)pri;
@@ -216,7 +218,7 @@ httpstat_packet(void *psp , packet_info *pinfo _U_, epan_dissect_t *edt _U_, con
 			 */
 			int i = value->response_code;
 			if ((i < 100) || (i >= 600)) {
-				return 0;
+				return TAP_PACKET_DONT_REDRAW;
 			}
 			else if (i < 200) {
 				key = 199;	/* Hopefully, this status code will never be used */
@@ -237,7 +239,7 @@ httpstat_packet(void *psp , packet_info *pinfo _U_, epan_dissect_t *edt _U_, con
 				sp->hash_responses,
 				GUINT_TO_POINTER(key));
 			if (sc == NULL)
-				return 0;
+				return TAP_PACKET_DONT_REDRAW;
 		}
 		sc->packets++;
 	}
@@ -257,9 +259,9 @@ httpstat_packet(void *psp , packet_info *pinfo _U_, epan_dissect_t *edt _U_, con
 			sc->packets++;
 		}
 	} else {
-		return 0;
+		return TAP_PACKET_DONT_REDRAW;
 	}
-	return 1;
+	return TAP_PACKET_REDRAW;
 }
 
 
@@ -269,7 +271,7 @@ httpstat_draw(void *psp  )
 	httpstat_t *sp = (httpstat_t *)psp;
 	printf("\n");
 	printf("===================================================================\n");
-	if (! sp->filter[0])
+	if (! sp->filter || ! sp->filter[0])
 		printf("HTTP Statistics\n");
 	else
 		printf("HTTP Statistics with filter %s\n", sp->filter);
@@ -318,7 +320,7 @@ httpstat_init(const char *opt_arg, void *userdata _U_)
 		/* error, we failed to attach to the tap. clean up */
 		g_free(sp->filter);
 		g_free(sp);
-		fprintf (stderr, "tshark: Couldn't register http,stat tap: %s\n",
+		cmdarg_err("Couldn't register http,stat tap: %s",
 			 error_string->str);
 		g_string_free(error_string, TRUE);
 		exit(1);

@@ -428,6 +428,8 @@ static int hf_pn_io_PreambleLength = -1;
 static int hf_pn_io_mau_type = -1;
 static int hf_pn_io_mau_type_mode = -1;
 static int hf_pn_io_port_state = -1;
+static int hf_pn_io_link_state_port = -1;
+static int hf_pn_io_link_state_link = -1;
 static int hf_pn_io_line_delay = -1;
 static int hf_pn_io_line_delay_value = -1;
 static int hf_pn_io_cable_delay_value = -1;
@@ -2047,6 +2049,33 @@ static const value_string pn_io_port_state[] = {
     { 0x0003, "testing" },
     { 0x0004, "unknown" },
     /*0x0005 - 0xFFFF reserved */
+    { 0, NULL }
+};
+
+
+static const value_string pn_io_link_state_port[] = {
+    { 0x00, "unknown" },
+    { 0x01, "disabled/discarding" },
+    { 0x02, "blocking" },
+    { 0x03, "listening" },
+    { 0x04, "learning" },
+    { 0x05, "forwarding" },
+    { 0x06, "broken" },
+    /*0x07 - 0xFF reserved */
+    { 0, NULL }
+};
+
+
+static const value_string pn_io_link_state_link[] = {
+    { 0x00, "reserved" },
+    { 0x01, "up" },
+    { 0x02, "down" },
+    { 0x03, "testing" },
+    { 0x04, "unknown" },
+    { 0x05, "dormant" },
+    { 0x06, "notpresent" },
+    { 0x07, "lowerlayerdown" },
+    /*0x08 - 0xFF reserved */
     { 0, NULL }
 };
 
@@ -4908,7 +4937,8 @@ dissect_PDPortDataReal_block(tvbuff_t *tvb, int offset,
     guint16  u16MAUType;
     guint32  u32DomainBoundary;
     guint32  u32MulticastBoundary;
-    guint16  u16PortState;
+    guint8   u8LinkStatePort;
+    guint8   u8LinkStateLink;
     guint32  u32MediaType;
     guint32  u32LineDelayValue;
 
@@ -4990,9 +5020,12 @@ dissect_PDPortDataReal_block(tvbuff_t *tvb, int offset,
     /* MulticastBoundary */
     offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_multicast_boundary, &u32MulticastBoundary);
-    /* PortState */
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-                        hf_pn_io_port_state, &u16PortState);
+    /* LinkState.Port */
+    offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
+                        hf_pn_io_link_state_port, &u8LinkStatePort);
+    /* LinkState.Link */
+    offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
+                        hf_pn_io_link_state_link, &u8LinkStateLink);
     /* Padding */
     offset = dissect_pn_align4(tvb, offset, pinfo, tree);
 
@@ -5000,9 +5033,10 @@ dissect_PDPortDataReal_block(tvbuff_t *tvb, int offset,
     offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_media_type, &u32MediaType);
 
-    proto_item_append_text(item, ": Slot:0x%x/0x%x, OwnPortID:%s, Peers:%u PortState:%s MediaType:%s",
+    proto_item_append_text(item, ": Slot:0x%x/0x%x, OwnPortID:%s, Peers:%u LinkState.Port:%s LinkState.Link:%s MediaType:%s",
         u16SlotNr, u16SubslotNr, pOwnPortID, u8NumberOfPeers,
-        val_to_str(u16PortState, pn_io_port_state, "0x%x"),
+        val_to_str(u8LinkStatePort, pn_io_link_state_port, "0x%x"),
+        val_to_str(u8LinkStateLink, pn_io_link_state_link, "0x%x"),
         val_to_str(u32MediaType, pn_io_media_type, "0x%x"));
 
     return offset;
@@ -7649,14 +7683,14 @@ dissect_ARBlockReq_block(tvbuff_t *tvb, int offset,
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, sub_tree_selector, drep, hf_pn_io_ar_arreserved, &u16ArReserved);
 
         /* When ARType==IOCARSR, then find or create conversation for this frame */
-        if (!pinfo->fd->flags.visited) {
+        if (!pinfo->fd->visited) {
             /* Get current conversation endpoints using MAC addresses */
             conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_UDP, 0, 0, 0);
             if (conversation == NULL) {
-                /* If conversation is null, then create new conversation */
-                /* Connect Request is sent by controller and not by device. */
-                /* All conversations are based on Controller MAC as address */
-                conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_UDP, 0, 0, 0);
+                /* Create new conversation, if no "Ident OK" frame as been dissected yet!
+                 * Need to switch dl_src & dl_dst, as current packet is sent by controller and not by device.
+                 * All conversations are based on Device MAC as addr1 */
+                conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
             }
 
             /* Try to get apdu status switch information from the conversation */
@@ -7887,7 +7921,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
 
         /* Set global Variant for Number of IO Data Objects */
         /* Notice: Handle Input & Output seperate!!! */
-        if (!pinfo->fd->flags.visited) {
+        if (!pinfo->fd->visited) {
             /* Get current conversation endpoints using MAC addresses */
             conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
             if (conversation == NULL) {
@@ -7929,7 +7963,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
 
             proto_item_set_len(sub_item, offset - u32SubStart);
 
-            if (!pinfo->fd->flags.visited && station_info != NULL) {
+            if (!pinfo->fd->visited && station_info != NULL) {
                 io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
                 io_data_object->slotNr = u16SlotNr;
                 io_data_object->subSlotNr = u16SubslotNr;
@@ -7971,7 +8005,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
                             hf_pn_io_number_of_iocs, &u16NumberOfIOCS);
 
         /* Set global Vairant for NumberOfIOCS */
-        if (!pinfo->fd->flags.visited) {
+        if (!pinfo->fd->visited) {
             if (station_info != NULL) {
                 station_info->iocsNr = u16NumberOfIOCS;
             }
@@ -7998,7 +8032,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
 
             proto_item_set_len(sub_item, offset - u32SubStart);
 
-            if (!pinfo->fd->flags.visited) {
+            if (!pinfo->fd->visited) {
                 if (station_info != NULL) {
                     if (u16IOCRType == PN_INPUT_CR) {
                         iocs_list = station_info->iocs_data_in;
@@ -8668,11 +8702,14 @@ dissect_DataDescription(tvbuff_t *tvb, int offset,
     proto_item_set_len(sub_item, offset - u32SubStart);
 
     /* Save new data for IO Data Objects */
-    if (!pinfo->fd->flags.visited) {
+    if (!pinfo->fd->visited) {
         /* Get current conversation endpoints using MAC addresses */
         conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
         if (conversation == NULL) {
-            conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+            /* Create new conversation, if no "Ident OK" frame as been dissected yet!
+             * Need to switch dl_src & dl_dst, as current packet is sent by controller and not by device.
+             * All conversations are based on Device MAC as addr1 */
+           conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
         }
 
         station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -8804,7 +8841,10 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
     /* Get current conversation endpoints using MAC addresses */
     conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
     if (conversation == NULL) {
-        conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+        /* Create new conversation, if no "Ident OK" frame as been dissected yet!
+        * Need to switch dl_src & dl_dst, as current packet is sent by controller and not by device.
+        * All conversations are based on Device MAC as addr1 */
+        conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
     }
 
     station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -9189,7 +9229,7 @@ dissect_ModuleDiffBlock_block(tvbuff_t *tvb, int offset,
                 u16NumberOfSubmodules);
 
 
-            if (!pinfo->fd->flags.visited) {
+            if (!pinfo->fd->visited) {
                 /* Get current conversation endpoints using MAC addresses */
                 conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
                 if (conversation == NULL) {
@@ -10652,11 +10692,14 @@ dissect_ProfiSafeParameterRequest(tvbuff_t *tvb, int offset,
                 prm_flag1, prm_flag2, src_addr, dst_addr, wd_time, par_crc);
     }
 
-    if (!pinfo->fd->flags.visited) {
+    if (!pinfo->fd->visited) {
         /* Get current conversation endpoints using MAC addresses */
         conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
         if (conversation == NULL) {
-            conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+            /* Create new conversation, if no "Ident OK" frame as been dissected yet!
+             * Need to switch dl_src & dl_dst, as current packet is sent by controller and not by device.
+             * All conversations are based on Device MAC as addr1 */
+            conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
         }
 
         station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -10721,12 +10764,15 @@ dissect_RecordDataWrite(tvbuff_t *tvb, int offset,
     /* Get current conversation endpoints using MAC addresses */
     conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
     if (conversation == NULL) {
-        conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+        /* Create new conversation, if no "Ident OK" frame as been dissected yet!
+        * Need to switch dl_src & dl_dst, as current packet is sent by controller and not by device.
+        * All conversations are based on Device MAC as addr1 */
+        conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
     }
 
     station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
     if (station_info != NULL) {
-        if (!pinfo->fd->flags.visited) {
+        if (!pinfo->fd->visited) {
             /* Search within the entire existing list for current input object data */
             for (frame = wmem_list_head(station_info->ioobject_data_in); frame != NULL; frame = wmem_list_frame_next(frame)) {
                 io_data_object = (ioDataObject*)wmem_list_frame_data(frame);
@@ -12744,14 +12790,24 @@ proto_register_pn_io (void)
         FT_UINT32, BASE_HEX, VALS(pn_io_peer_to_peer_boundary_value_bit2), 0x4,
         NULL, HFILL }
     },
-      { &hf_pn_io_peer_to_peer_boundary_value_otherbits,
-    { "AdjustPeerToPeer-Boundary", "pn_io.peer_to_peer_boundary_value_otherbits",
+    { &hf_pn_io_peer_to_peer_boundary_value_otherbits,
+      { "AdjustPeerToPeer-Boundary", "pn_io.peer_to_peer_boundary_value_otherbits",
         FT_UINT32, BASE_HEX, NULL, 0xFFFFFFF8,
         NULL, HFILL }
     },
     { &hf_pn_io_port_state,
       { "PortState", "pn_io.port_state",
         FT_UINT16, BASE_HEX, VALS(pn_io_port_state), 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_link_state_port,
+      { "LinkState.Port", "pn_io.link_state_port",
+        FT_UINT8, BASE_HEX, VALS(pn_io_link_state_port), 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_link_state_link,
+      { "LinkState.Link", "pn_io.link_state_link",
+        FT_UINT8, BASE_HEX, VALS(pn_io_link_state_link), 0x0,
         NULL, HFILL }
     },
     { &hf_pn_io_line_delay,

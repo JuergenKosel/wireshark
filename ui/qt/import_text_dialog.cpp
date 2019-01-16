@@ -94,7 +94,7 @@ ImportTextDialog::ImportTextDialog(QWidget *parent) :
         if ((wtap_wtap_encap_to_pcap_encap(encap) > 0) && !wtap_encap_requires_phdr(encap)) {
             const char *name;
             /* If it has got a name */
-            if ((name = wtap_encap_string(encap)))
+            if ((name = wtap_encap_description(encap)))
             {
                 ti_ui_->encapComboBox->addItem(name, QVariant(encap));
             }
@@ -125,7 +125,7 @@ void ImportTextDialog::convertTextFile() {
     params.encap = import_info_.encapsulation;
     params.snaplen = import_info_.max_frame_length;
     /* Use a random name for the temporary import buffer */
-    import_info_.wdh = wtap_dump_open_tempfile(&tmpname, "import", WTAP_FILE_TYPE_SUBTYPE_PCAP, WTAP_UNCOMPRESSED, &params, &err);
+    import_info_.wdh = wtap_dump_open_tempfile(&tmpname, "import", WTAP_FILE_TYPE_SUBTYPE_PCAPNG, WTAP_UNCOMPRESSED, &params, &err);
     capfile_name_.append(tmpname ? tmpname : "temporary file");
     qDebug() << capfile_name_ << ":" << import_info_.wdh << import_info_.encapsulation << import_info_.max_frame_length;
     if (import_info_.wdh == NULL) {
@@ -267,7 +267,7 @@ int ImportTextDialog::exec() {
         }
     }
     if (import_info_.max_frame_length == 0) {
-        import_info_.max_frame_length = IMPORT_MAX_PACKET;
+        import_info_.max_frame_length = WTAP_MAX_PACKET_SIZE_STANDARD;
     }
 
     convertTextFile();
@@ -513,7 +513,7 @@ void ImportTextDialog::on_payloadLineEdit_textChanged(const QString &payload)
 
 void ImportTextDialog::on_maxLengthLineEdit_textChanged(const QString &max_frame_len_str)
 {
-    check_line_edit(ti_ui_->maxLengthLineEdit, max_len_ok_, max_frame_len_str, 10, IMPORT_MAX_PACKET, true, &import_info_.max_frame_length);
+    check_line_edit(ti_ui_->maxLengthLineEdit, max_len_ok_, max_frame_len_str, 10, WTAP_MAX_PACKET_SIZE_STANDARD, true, &import_info_.max_frame_length);
 }
 
 void ImportTextDialog::on_buttonBox_helpRequested()

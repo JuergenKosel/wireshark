@@ -54,7 +54,6 @@ static tap_dissector_t *tap_dissector_list=NULL;
  * processing of the packet depending on whether we're currently dissecting
  * the packet in error or not.
  *
- *
  * It also means that a tap listener can't depend on the source and destination
  * addresses being the correct ones for the packet being processed if, for
  * example, you have some tunneling that causes multiple layers of the same
@@ -81,6 +80,7 @@ typedef struct _tap_listener_t {
 	struct _tap_listener_t *next;
 	int tap_id;
 	gboolean needs_redraw;
+	gboolean failed;
 	guint flags;
 	gchar *fstring;
 	dfilter_t *code;
@@ -305,19 +305,58 @@ tap_push_tapped_queue(epan_dissect_t *edt)
 	for(i=0;i<tap_packet_index;i++){
 		for(tl=tap_listener_queue;tl;tl=tl->next){
 			tp=&tap_packet_array[i];
-			/* Don't tap the packet if it's an "error" unless the listener tells us to */
+			/* Don't tap the packet if it's an "error packet"
+			 * unless the listener has requested that we do so.
+			 */
 			if (!(tp->flags & TAP_PACKET_IS_ERROR_PACKET) || (tl->flags & TL_REQUIRES_ERROR_PACKETS))
 			{
 				if(tp->tap_id==tl->tap_id){
-					gboolean passed=TRUE;
-					if(tl->code){
-						passed=dfilter_apply_edt(tl->code, edt);
+					if(!tl->packet){
+						/* There isn't a per-packet
+						 * routine for this tap.
+						 */
+						continue;
 					}
-					if(passed && tl->packet){
-						tl->needs_redraw|=tl->packet(tl->tapdata, tp->pinfo, edt, tp->tap_specific_data);
+					if(tl->failed){
+						/* A previous call failed,
+						 * meaning "stop running this
+						 * tap", so don't call the
+						 * packet routine.
+						 */
+						continue;
+					}
+
+					/* If we have a filter, see if the
+					 * packet passes.
+					 */
+					if(tl->code){
+						if (!dfilter_apply_edt(tl->code, edt)){
+							/* The packet didn't
+							 * pass the filter. */
+							continue;
+						}
+					}
+
+					/* So call the per-packet routine. */
+					tap_packet_status status;
+
+					status = tl->packet(tl->tapdata, tp->pinfo, edt, tp->tap_specific_data);
+
+					switch (status) {
+
+					case TAP_PACKET_DONT_REDRAW:
+						break;
+
+					case TAP_PACKET_REDRAW:
+						tl->needs_redraw=TRUE;
+						break;
+
+					case TAP_PACKET_FAILED:
+						tl->failed=TRUE;
+						break;
 					}
 				}
-            }
+			}
 		}
 	}
 }
@@ -379,6 +418,7 @@ reset_tap_listeners(void)
 			tl->reset(tl->tapdata);
 		}
 		tl->needs_redraw=TRUE;
+		tl->failed=FALSE;
 	}
 
 }
@@ -388,7 +428,7 @@ reset_tap_listeners(void)
    when we open/start a new capture or if we need to rescan the packet list.
    It should be called from a low priority thread say once every 3 seconds
 
-   If draw_all is true, redraw all aplications regardless if they have
+   If draw_all is true, redraw all applications regardless if they have
    changed or not.
 */
 void
@@ -489,6 +529,7 @@ register_tap_listener(const char *tapname, void *tapdata, const char *fstring,
 
 	tl=(tap_listener_t *)g_malloc0(sizeof(tap_listener_t));
 	tl->needs_redraw=TRUE;
+	tl->failed=FALSE;
 	tl->flags=flags;
 	if(fstring){
 		if(!dfilter_compile(fstring, &code, &err_msg)){
@@ -712,7 +753,7 @@ void tap_cleanup(void)
 	while(head_dl){
 		elem_dl = head_dl;
 		head_dl = head_dl->next;
-		g_free((char*)elem_dl->name);
+		g_free(elem_dl->name);
 		g_free((gpointer)elem_dl);
 	}
 

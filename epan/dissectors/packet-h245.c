@@ -471,7 +471,7 @@ static void h245_setup_channels(packet_info *pinfo, channel_info_t *upcoming_cha
 	if (upcoming_channel_lcl->media_addr.addr.type!=AT_NONE && upcoming_channel_lcl->media_addr.port!=0) {
 		srtp_add_address(pinfo, PT_UDP, &upcoming_channel_lcl->media_addr.addr,
 						upcoming_channel_lcl->media_addr.port, 0,
-						"H245", pinfo->num, upcoming_channel_lcl->is_video , rtp_dyn_payload, dummy_srtp_info);
+						"H245", pinfo->num, upcoming_channel_lcl->is_video , rtp_dyn_payload, dummy_srtp_info, NULL);
 	}
 	if (upcoming_channel_lcl->media_control_addr.addr.type!=AT_NONE && upcoming_channel_lcl->media_control_addr.port!=0 && rtcp_handle) {
 		srtcp_add_address(pinfo, &upcoming_channel_lcl->media_control_addr.addr,
@@ -8734,7 +8734,7 @@ dissect_h245_OpenLogicalChannel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 #line 129 "./asn1/h245/h245.cnf"
   gint32 temp;
 
-  upcoming_olc = (!actx->pinfo->fd->flags.visited) ? wmem_new0(wmem_file_scope(), olc_info_t) : NULL;
+  upcoming_olc = (!actx->pinfo->fd->visited) ? wmem_new0(wmem_file_scope(), olc_info_t) : NULL;
 
   h223_fw_lc_num = 0;
   h223_lc_params_temp = NULL;
@@ -11081,7 +11081,7 @@ dissect_h245_OpenLogicalChannelAck(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
   const gchar *olc_key;
   olc_info_t *olc_req;
 
-  upcoming_olc = (!actx->pinfo->fd->flags.visited) ? wmem_new0(wmem_packet_scope(), olc_info_t) : NULL;
+  upcoming_olc = (!actx->pinfo->fd->visited) ? wmem_new0(wmem_packet_scope(), olc_info_t) : NULL;
 
   h223_fw_lc_num = 0;
   h223_rev_lc_num = 0;

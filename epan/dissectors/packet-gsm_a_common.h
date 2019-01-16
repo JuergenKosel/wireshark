@@ -779,6 +779,7 @@ guint16 de_emm_ue_net_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, g
 guint16 de_emm_trac_area_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
 guint16 de_emm_sec_par_from_eutra(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_);
 guint16 de_emm_sec_par_to_eutra(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_);
+guint16 de_emm_ue_add_sec_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_);
 guint16 de_esm_qos(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_);
 guint16 de_esm_apn_aggr_max_br(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_);
 guint16 de_esm_ext_apn_agr_max_br(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_);
@@ -835,6 +836,7 @@ extern const value_string nas_eps_emm_cause_values[];
 extern const value_string nas_eps_esm_cause_vals[];
 
 extern const value_string nas_5gs_pdu_session_id_vals[];
+extern const value_string nas_5gs_sm_cause_vals[];
 
 typedef enum
 {
@@ -1608,6 +1610,7 @@ typedef enum
     DE_NAS_5GS_MM_5GS_REG_TYPE,              /* 9.10.3.7     5GS registration type*/
     DE_NAS_5GS_MM_5GS_TA_ID,                 /* 9.10.3.8     5GS tracking area identity */
     DE_NAS_5GS_MM_5GS_TA_ID_LIST,            /* 9.10.3.9     5GS tracking area identity list */
+    DE_NAS_5GS_MM_ABBA,                      /* 9.11.3.10    ABBA */
     DE_NAS_5GS_MM_ACCESS_TYPE,               /* 9.10.3.10    Access type */
     DE_NAS_5GS_MM_ALLOW_PDU_SES_STS,         /* 9.10.3.11    Allowed PDU session status*/
     DE_NAS_5GS_MM_AUT_FAIL_PAR,              /* 9.10.3.12    Authentication failure parameter */

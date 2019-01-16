@@ -17,7 +17,7 @@ variables:
 gcc-4:
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build gcc-4.9 g++-4.9 -y
+    - ../tools/debian-setup.sh --install-optional gcc-4.9 g++-4.9 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-4.9 -DCMAKE_CXX_COMPILER=g++-4.9 ..
     - ninja
 gcc-5:
@@ -26,7 +26,7 @@ gcc-5:
     - s7commwireshark-2.4
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build gcc-5 g++-5 -y
+    - ../tools/debian-setup.sh --install-optional gcc-5 g++-5 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_CXX_COMPILER=g++-5 ..
     - ninja
 gcc-6:
@@ -35,43 +35,43 @@ gcc-6:
     - s7commwireshark-2.4
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build gcc-6 g++-6 -y
+    - ../tools/debian-setup.sh --install-optional gcc-6 g++-6 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 ..
     - ninja
 gcc-7:
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build gcc-7 g++-7 -y
+    - ../tools/debian-setup.sh --install-optional gcc-7 g++-7 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 ..
     - ninja
 gcc-8:
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build gcc-8 g++-8 -y
+    - ../tools/debian-setup.sh --install-optional gcc-8 g++-8 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
     - ninja
 gcc-8-nopcap:
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build gcc-8 g++-8 -y
+    - ../tools/debian-setup.sh --install-optional gcc-8 g++-8 -y
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
     - ninja
 clang-5:
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build clang-5.0 -y
+    - ../tools/debian-setup.sh --install-optional clang-5.0 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=clang-5.0 -DCMAKE_CXX_COMPILER=clang++-5.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
 clang-6:
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build clang-6.0 -y
+    - ../tools/debian-setup.sh --install-optional clang-6.0 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=clang-6.0 -DCMAKE_CXX_COMPILER=clang++-6.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
 clang-7:
   <<: *ubuntu
   script:
-     - ../tools/debian-setup.sh --install-optional ninja-build clang-7 -y
+     - ../tools/debian-setup.sh --install-optional clang-7 -y
      - cmake -GNinja -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
      - ninja
 clang-7-nopcap:
@@ -80,7 +80,7 @@ clang-7-nopcap:
     - s7commwireshark-2.4
   <<: *ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional ninja-build clang-7 -y
+    - ../tools/debian-setup.sh --install-optional clang-7 -y
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
 rpm-centos-7:
@@ -90,12 +90,10 @@ rpm-centos-7:
     - s7commwireshark-2.4
   script:
     - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-    - yum install -y which
     - tools/rpm-setup.sh --install-optional -y
     - mkdir build
     - cd build
     - cmake3 -GNinja ..
-    - ninja-build
     - ninja-build rpm-package
 rpm-opensuse-42.3:
   except:
@@ -106,12 +104,12 @@ rpm-opensuse-42.3:
     - s7commwireshark
     - s7commwireshark-2.4
   script:
-    - zypper --non-interactive install which update-desktop-files
-    - tools/rpm-setup.sh --install-optional
+    - zypper --non-interactive install update-desktop-files
+    - tools/rpm-setup.sh --install-optional ruby
+    - gem install asciidoctor
     - mkdir build
     - cd build
     - cmake ..
-    - make
     - make rpm-package
 rpm-fedora-28:
   except:
@@ -119,12 +117,13 @@ rpm-fedora-28:
     - s7commwireshark-2.4
   image: fedora:28
   script:
-    - yum install -y which
+    - dnf upgrade -y
     - tools/rpm-setup.sh --install-optional -y
     - mkdir build
     - cd build
     - cmake3 -GNinja ..
-    - ninja-build
     - ninja-build rpm-package
 after_script:
-  - if [ -f build/run/tshark ];then build/run/tshark --version; fi
+  - for builddir in build/packaging/rpm/BUILD/wireshark-*/build build/packaging/rpm/BUILD/wireshark-* build; do [ ! -d "$builddir" ] || break; done
+  - if [ "$CI_JOB_NAME" = "rpm-opensuse-42.3" ]; then export LD_LIBRARY_PATH=$builddir/run; fi
+  - if [ -f $builddir/run/tshark ]; then $builddir/run/tshark --version; fi

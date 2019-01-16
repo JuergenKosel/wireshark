@@ -88,12 +88,23 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Copy</source>
+        <source>Show in Finder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Copy Row(s)</source>
+        <source>Show in Folder</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Copy Row(s)</source>
+        <translation type="unfinished">
+            <numerusform>Copy Row</numerusform>
+            <numerusform>Copy Rows</numerusform>
+        </translation>
     </message>
 </context>
 <context>
@@ -2288,14 +2299,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <source>Save All Objects In</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>Object Export</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Some files could not be saved.</source>
-        <translation type="unfinished"></translation>
-    </message>
 </context>
 <context>
     <name>ExportObjectModel</name>
@@ -3897,10 +3900,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>The maximum size of the frames to write to the import capture file (max 64000)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Encapsulation</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4022,6 +4021,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>IPv4</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The maximum size of the frames to write to the import capture file (max 256kiB)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7589,8 +7592,8 @@ PLEASE NOTE: One option MUST be selected.</source>
     <message numerus="yes">
         <source>Export TLS Session Keys (%Ln key(s))</source>
         <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+            <numerusform>Export TLS Session Keys (%Ln key)</numerusform>
+            <numerusform>Export TLS Session Keys (%Ln keys)</numerusform>
         </translation>
     </message>
     <message>
@@ -12549,7 +12552,7 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Remove</source>
+        <source>Remove from list</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

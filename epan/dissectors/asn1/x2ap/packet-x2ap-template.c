@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Ref:
- * 3GPP TS 36.423 V15.3.0 (2018-09)
+ * 3GPP TS 36.423 V15.4.0 (2018-12)
  */
 
 #include "config.h"
@@ -29,6 +29,8 @@
 #include "packet-e212.h"
 #include "packet-lte-rrc.h"
 #include "packet-nr-rrc.h"
+#include "packet-ngap.h"
+#include "packet-ranap.h"
 #include "packet-ntp.h"
 
 #ifdef _MSC_VER
@@ -140,6 +142,8 @@ static int ett_x2ap_RRCContainer = -1;
 static int ett_x2ap_NRencryptionAlgorithms = -1;
 static int ett_x2ap_NRintegrityProtectionAlgorithms = -1;
 static int ett_x2ap_measurementTimingConfiguration = -1;
+static int ett_x2ap_LastVisitedNGRANCellInformation = -1;
+static int ett_x2ap_LastVisitedUTRANCellInformation = -1;
 #include "packet-x2ap-ett.c"
 
 typedef enum {
@@ -148,10 +152,16 @@ typedef enum {
   RRC_CONTAINER_TYPE_NR_UE_MEAS_REPORT
 } rrc_container_type_e;
 
+enum{
+  INITIATING_MESSAGE,
+  SUCCESSFUL_OUTCOME,
+  UNSUCCESSFUL_OUTCOME
+};
+
 struct x2ap_private_data {
   guint32 procedure_code;
   guint32 protocol_ie_id;
-  guint32 triggering_message;
+  guint32 message_type;
   rrc_container_type_e rrc_container_type;
 };
 
@@ -263,6 +273,7 @@ static int dissect_InitiatingMessageValue(tvbuff_t *tvb, packet_info *pinfo, pro
 {
   struct x2ap_private_data *x2ap_data = x2ap_get_private_data(pinfo);
 
+  x2ap_data->message_type = INITIATING_MESSAGE;
   return (dissector_try_uint_new(x2ap_proc_imsg_dissector_table, x2ap_data->procedure_code, tvb, pinfo, tree, FALSE, NULL)) ? tvb_captured_length(tvb) : 0;
 }
 
@@ -270,6 +281,7 @@ static int dissect_SuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, pro
 {
   struct x2ap_private_data *x2ap_data = x2ap_get_private_data(pinfo);
 
+  x2ap_data->message_type = SUCCESSFUL_OUTCOME;
   return (dissector_try_uint_new(x2ap_proc_sout_dissector_table, x2ap_data->procedure_code, tvb, pinfo, tree, FALSE, NULL)) ? tvb_captured_length(tvb) : 0;
 }
 
@@ -277,6 +289,7 @@ static int dissect_UnsuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, p
 {
   struct x2ap_private_data *x2ap_data = x2ap_get_private_data(pinfo);
 
+  x2ap_data->message_type = UNSUCCESSFUL_OUTCOME;
   return (dissector_try_uint_new(x2ap_proc_uout_dissector_table, x2ap_data->procedure_code, tvb, pinfo, tree, FALSE, NULL)) ? tvb_captured_length(tvb) : 0;
 }
 
@@ -580,6 +593,8 @@ void proto_register_x2ap(void) {
     &ett_x2ap_NRencryptionAlgorithms,
     &ett_x2ap_NRintegrityProtectionAlgorithms,
     &ett_x2ap_measurementTimingConfiguration,
+    &ett_x2ap_LastVisitedNGRANCellInformation,
+    &ett_x2ap_LastVisitedUTRANCellInformation,
 #include "packet-x2ap-ettarr.c"
   };
 

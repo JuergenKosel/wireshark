@@ -20,6 +20,8 @@
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
 
+#include <ui/cmdarg_err.h>
+
 void register_tap_listener_protohierstat(void);
 
 typedef struct _phs_t {
@@ -51,7 +53,7 @@ new_phs_t(phs_t *parent)
 }
 
 
-static int
+static tap_packet_status
 protohierstat_packet(void *prs, packet_info *pinfo, epan_dissect_t *edt, const void *dummy _U_)
 {
 	phs_t *rs = (phs_t *)prs;
@@ -60,13 +62,13 @@ protohierstat_packet(void *prs, packet_info *pinfo, epan_dissect_t *edt, const v
 	field_info *fi;
 
 	if (!edt) {
-		return 0;
+		return TAP_PACKET_DONT_REDRAW;
 	}
 	if (!edt->tree) {
-		return 0;
+		return TAP_PACKET_DONT_REDRAW;
 	}
 	if (!edt->tree->first_child) {
-		return 0;
+		return TAP_PACKET_DONT_REDRAW;
 	}
 
 	for (node=edt->tree->first_child; node; node=node->next) {
@@ -110,7 +112,7 @@ protohierstat_packet(void *prs, packet_info *pinfo, epan_dissect_t *edt, const v
 		}
 		rs = rs->child;
 	}
-	return 1;
+	return TAP_PACKET_REDRAW;
 }
 
 static void
@@ -167,7 +169,7 @@ protohierstat_init(const char *opt_arg, void *userdata _U_)
 			filter = opt_arg+pos;
 		}
 	} else {
-		fprintf(stderr, "tshark: invalid \"-z io,phs[,<filter>]\" argument\n");
+		cmdarg_err("invalid \"-z io,phs[,<filter>]\" argument");
 		exit(1);
 	}
 
@@ -180,7 +182,7 @@ protohierstat_init(const char *opt_arg, void *userdata _U_)
 		g_free(rs->filter);
 		g_free(rs);
 
-		fprintf(stderr, "tshark: Couldn't register io,phs tap: %s\n",
+		cmdarg_err("Couldn't register io,phs tap: %s",
 			error_string->str);
 		g_string_free(error_string, TRUE);
 		exit(1);

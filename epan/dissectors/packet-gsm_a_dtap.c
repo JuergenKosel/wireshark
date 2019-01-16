@@ -516,6 +516,7 @@ static int hf_gsm_a_dtap_codec_fr_amr = -1;
 static int hf_gsm_a_dtap_codec_gsm_efr = -1;
 static int hf_gsm_a_dtap_codec_gsm_hr = -1;
 static int hf_gsm_a_dtap_codec_gsm_fr = -1;
+static int hf_gsm_a_dtap_codec_umts_evs = -1;
 static int hf_gsm_a_dtap_codec_ohr_amr_wb = -1;
 static int hf_gsm_a_dtap_codec_ofr_amr_wb = -1;
 static int hf_gsm_a_dtap_codec_ohr_amr = -1;
@@ -1321,7 +1322,7 @@ de_mm_timer(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
  * [3] 10.5.4.4 Auxiliary states
  */
 
-static const value_string gsm_a_dtap_hold_auxilary_state_vals[] = {
+static const value_string gsm_a_dtap_hold_auxiliary_state_vals[] = {
     { 0x00, "Idle" },
     { 0x01, "Hold request" },
     { 0x02, "Call held" },
@@ -1329,7 +1330,7 @@ static const value_string gsm_a_dtap_hold_auxilary_state_vals[] = {
     { 0, NULL }
 };
 
-static const value_string gsm_a_dtap_multi_party_auxilary_state_vals[] = {
+static const value_string gsm_a_dtap_multi_party_auxiliary_state_vals[] = {
     { 0x00, "Idle" },
     { 0x01, "MPTY request" },
     { 0x02, "Call in MPTY" },
@@ -3261,8 +3262,8 @@ de_sup_codec_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
              * TDMA      UMTS      UMTS     HR AMR  FR AMR  GSM EFR GSM HR  GSM FR Octet 1
              * EFR       AMR 2     AMR
              * bit 16    15        14       13      12      11      10      bit 9
-             *(reserved) (reserved)OHR      OFR     OHR     UMTS    FR      PDC EFR Octet 2
-             *                     AMR-WB   AMR-WB  AMR     AMR-WB  AMR-WB
+             *(reserved) UMTS      OHR      OFR     OHR     UMTS    FR      PDC EFR Octet 2
+             *           EVS       AMR-WB   AMR-WB  AMR     AMR-WB  AMR-WB
              * A Codec Type is supported, if the corresponding bit is set to "1".
              * All reserved bits shall be set to "0".
              *
@@ -3274,14 +3275,18 @@ de_sup_codec_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
              *
              * Right now we are sure that at least the first octet of the bitmap is present
              */
-            proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_tdma_efr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_umts_amr_2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_umts_amr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_hr_amr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_fr_amr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_gsm_efr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_gsm_hr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-            proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_gsm_fr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+            static const int * oct1_flags[] = {
+                &hf_gsm_a_dtap_codec_tdma_efr,
+                &hf_gsm_a_dtap_codec_umts_amr_2,
+                &hf_gsm_a_dtap_codec_umts_amr,
+                &hf_gsm_a_dtap_codec_hr_amr,
+                &hf_gsm_a_dtap_codec_fr_amr,
+                &hf_gsm_a_dtap_codec_gsm_efr,
+                &hf_gsm_a_dtap_codec_gsm_hr,
+                &hf_gsm_a_dtap_codec_gsm_fr,
+                NULL
+            };
+            proto_tree_add_bitmask_list(subtree, tvb, curr_offset, 1, oct1_flags, ENC_NA);
             curr_offset++;
             length--;
 
@@ -3290,13 +3295,19 @@ de_sup_codec_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
                 /*
                  * We can proceed with the second octet of the bitmap
                  */
-                proto_tree_add_bits_item(subtree, hf_gsm_a_spare_bits, tvb, curr_offset << 3, 2, ENC_BIG_ENDIAN);
-                proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_ohr_amr_wb, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-                proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_ofr_amr_wb, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-                proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_ohr_amr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-                proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_umts_amr_wb, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-                proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_fr_amr_wb, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-                proto_tree_add_item(subtree, hf_gsm_a_dtap_codec_pdc_efr, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+                static const int * oct2_flags[] = {
+                    &hf_gsm_a_dtap_codec_umts_evs,
+                    &hf_gsm_a_dtap_codec_ohr_amr_wb,
+                    &hf_gsm_a_dtap_codec_ofr_amr_wb,
+                    &hf_gsm_a_dtap_codec_ohr_amr,
+                    &hf_gsm_a_dtap_codec_umts_amr_wb,
+                    &hf_gsm_a_dtap_codec_fr_amr_wb,
+                    &hf_gsm_a_dtap_codec_pdc_efr,
+                    NULL
+                };
+
+                proto_tree_add_bits_item(subtree, hf_gsm_a_spare_bits, tvb, curr_offset << 3, 1, ENC_BIG_ENDIAN);
+                proto_tree_add_bitmask_list(subtree, tvb, curr_offset, 1, oct2_flags, ENC_NA);
                 curr_offset++;
                 length--;
             }
@@ -7391,6 +7402,11 @@ proto_register_gsm_a_dtap(void)
             FT_BOOLEAN, 8, NULL, 0x01,
             NULL, HFILL }
         },
+        { &hf_gsm_a_dtap_codec_umts_evs,
+          { "UMTS EVS", "gsm_a.dtap.codec.umts_evs",
+            FT_BOOLEAN, 8, NULL, 0x40,
+            NULL, HFILL }
+        },
         { &hf_gsm_a_dtap_codec_ohr_amr_wb,
           { "OHR AMR-WB", "gsm_a.dtap.codec.ohr_amr_wb",
             FT_BOOLEAN, 8, NULL, 0x20,
@@ -7874,12 +7890,12 @@ proto_register_gsm_a_dtap(void)
         },
         { &hf_gsm_a_dtap_hold_auxiliary_state,
           { "Hold auxiliary state", "gsm_a.dtap.hold_auxiliary_state",
-            FT_UINT8, BASE_DEC, VALS(gsm_a_dtap_hold_auxilary_state_vals), 0x0C,
+            FT_UINT8, BASE_DEC, VALS(gsm_a_dtap_hold_auxiliary_state_vals), 0x0C,
             NULL, HFILL }
         },
         { &hf_gsm_a_dtap_multi_party_auxiliary_state,
           { "Multi party auxiliary state", "gsm_a.dtap.multi_party_auxiliary_state",
-            FT_UINT8, BASE_DEC, VALS(gsm_a_dtap_multi_party_auxilary_state_vals), 0x03,
+            FT_UINT8, BASE_DEC, VALS(gsm_a_dtap_multi_party_auxiliary_state_vals), 0x03,
             NULL, HFILL }
         },
         { &hf_gsm_a_dtap_radio_channel_requirement,

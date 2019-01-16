@@ -1,9 +1,7 @@
 // Common attributes
 
-:wireshark-version: 2.9.0
+:wireshark-version: 2.9.1
 
-// We're migrating from AsciiDoc.
-:compat-mode:
 // Required for btn, kbd:, and menu: macros.
 :experimental:
 
@@ -44,11 +42,15 @@
 :pcap-filter-man-page-url: {tcpdump-main-url}manpages/pcap-filter.7.html
 :tcpdump-man-page-url: {tcpdump-main-url}manpages/tcpdump.1.html
 
+:npcap-main-url: https://nmap.org/npcap/
+:npcap-development-url: https://github.com/nmap/npcap
+:npcap-license-url: https://raw.githubusercontent.com/nmap/npcap/master/LICENSE
 :winpcap-main-url: https://www.winpcap.org/
 :winpcap-download-url: {winpcap-main-url}install/
 
 :sysfs-main-url: http://linux-diag.sourceforge.net/Sysfsutils.html
 :wikipedia-main-url: https://en.wikipedia.org/wiki/
+:pcre2pattern-url: https://www.pcre.org/current/doc/html/pcre2pattern.html
 
 :greenwichmeantime-main-url: http://wwp.greenwichmeantime.com/
 :timeanddate-main-url: http://www.timeanddate.com/worldclock/

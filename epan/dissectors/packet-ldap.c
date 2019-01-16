@@ -516,7 +516,7 @@ ldapstat_init(struct register_srt* srt _U_, GArray* srt_array)
   }
 }
 
-static int
+static tap_packet_status
 ldapstat_packet(void *pldap, packet_info *pinfo, epan_dissect_t *edt _U_, const void *psi)
 {
   guint i = 0;
@@ -526,11 +526,11 @@ ldapstat_packet(void *pldap, packet_info *pinfo, epan_dissect_t *edt _U_, const 
 
   /* we are only interested in reply packets */
   if(ldap->is_request){
-    return 0;
+    return TAP_PACKET_DONT_REDRAW;
   }
   /* if we havnt seen the request, just ignore it */
   if(!ldap->req_frame){
-    return 0;
+    return TAP_PACKET_DONT_REDRAW;
   }
 
   /* only use the commands we know how to handle */
@@ -545,13 +545,13 @@ ldapstat_packet(void *pldap, packet_info *pinfo, epan_dissect_t *edt _U_, const 
   case LDAP_REQ_EXTENDED:
     break;
   default:
-    return 0;
+    return TAP_PACKET_DONT_REDRAW;
   }
 
   ldap_srt_table = g_array_index(data->srt_array, srt_stat_table*, i);
 
   add_srt_table_data(ldap_srt_table, ldap->protocolOpTag, &ldap->req_time, pinfo);
-  return 1;
+  return TAP_PACKET_REDRAW;
 }
 
 /*
@@ -1306,7 +1306,7 @@ char *mechanism = NULL;
    * type and mechanism, if you can unbind and rebind with a
    * different type and/or mechanism.
    */
-  if(!actx->pinfo->fd->flags.visited) {
+  if(!actx->pinfo->fd->visited) {
     mechanism = tvb_get_string_enc(wmem_file_scope(), parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb,0), ENC_UTF_8|ENC_NA);
     ldap_info->first_auth_frame = 0; /* not known until we see the bind reply */
     /*
@@ -3200,7 +3200,7 @@ dissect_ldap_ProtocolOp(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
     switch(ProtocolOp) {
 
     case LDAP_RES_SEARCH_ENTRY:
-      if (!actx->pinfo->fd->flags.visited)
+      if (!actx->pinfo->fd->visited)
         ldap_info->num_results++;
 
       proto_item_append_text(tree, " [%d result%s]",

@@ -24,7 +24,7 @@
 #include "tap_export_pdu.h"
 
 /* Main entry point to the tap */
-static gboolean
+static tap_packet_status
 export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const void *data)
 {
     const exp_pdu_data_t *exp_pdu_data = (const exp_pdu_data_t *)data;
@@ -54,15 +54,15 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
 
     rec.rec_header.packet_header.pkt_encap = exp_pdu_tap_data->pkt_encap;
 
-    if (pinfo->fd->flags.has_user_comment) {
+    if (pinfo->fd->has_user_comment) {
         rec.opt_comment = g_strdup(epan_get_user_comment(edt->session, pinfo->fd));
         rec.has_comment_changed = TRUE;
-    } else if (pinfo->fd->flags.has_phdr_comment) {
+    } else if (pinfo->fd->has_phdr_comment) {
         rec.opt_comment = g_strdup(pinfo->rec->opt_comment);
     }
 
     /* XXX: should the rec.rec_header.packet_header.pseudo_header be set to the pinfo's pseudo-header? */
-    /* XXX: report errors! */
+    /* XXX: report errors and return TAP_PACKET_FAILED! */
     if (!wtap_dump(exp_pdu_tap_data->wdh, &rec, packet_buf, &err, &err_info)) {
         switch (err) {
 
@@ -78,11 +78,11 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
     g_free(packet_buf);
     g_free(rec.opt_comment);
 
-    return FALSE; /* Do not redraw */
+    return TAP_PACKET_DONT_REDRAW; /* Do not redraw */
 }
 
 int
-exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, char *comment)
+exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, const char *comment)
 {
 
     int   err;
@@ -103,7 +103,6 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, char *comment)
 
     /* options */
     wtap_block_add_string_option(shb_hdr, OPT_COMMENT, comment, strlen(comment));
-    g_free(comment);
 
     /*
      * UTF-8 string containing the name of the operating system used to create
@@ -119,7 +118,7 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int fd, char *comment)
      * UTF-8 string containing the name of the application used to create
      * this section.
      */
-    wtap_block_add_string_option_format(shb_hdr, OPT_SHB_USERAPPL, "Wireshark %s", get_ws_vcs_version_info());
+    wtap_block_add_string_option_format(shb_hdr, OPT_SHB_USERAPPL, "%s", get_appname_and_version());
 
     /* Create fake IDB info */
     exp_pdu_tap_data->idb_inf = g_new(wtapng_iface_descriptions_t,1);

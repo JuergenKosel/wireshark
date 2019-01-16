@@ -10,7 +10,12 @@
 '''Decryption tests'''
 
 import os.path
+import shutil
+import subprocess
 import subprocesstest
+import sys
+import sysconfig
+import types
 import unittest
 import fixtures
 
@@ -21,7 +26,7 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
     def test_80211_wpa_psk(self, cmd_tshark, capture_file):
         '''IEEE 802.11 WPA PSK'''
         # https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=view&target=wpa-Induction.pcap
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-o', 'wlan.enable_decryption: TRUE',
                 '-Tfields',
                 '-e', 'http.request.uri',
@@ -33,7 +38,7 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
     def test_80211_wpa_eap(self, cmd_tshark, capture_file):
         '''IEEE 802.11 WPA EAP (EAPOL Rekey)'''
         # Included in git sources test/captures/wpa-eap-tls.pcap.gz
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-o', 'wlan.enable_decryption: TRUE',
                 '-r', capture_file('wpa-eap-tls.pcap.gz'),
                 '-Y', 'wlan.analysis.tk==7d9987daf5876249b6c773bf454a0da7',
@@ -43,7 +48,7 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
     def test_80211_wpa_eapol_incomplete_rekeys(self, cmd_tshark, capture_file):
         '''WPA decode with message1+2 only and secure bit set on message 2'''
         # Included in git sources test/captures/wpa-test-decode.pcap.gz
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-o', 'wlan.enable_decryption: TRUE',
                 '-r', capture_file('wpa-test-decode.pcap.gz'),
                 '-Y', 'icmp.resp_to == 4263',
@@ -53,7 +58,7 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
     def test_80211_wpa_psk_mfp(self, cmd_tshark, capture_file):
         '''WPA decode management frames with MFP enabled (802.11w)'''
         # Included in git sources test/captures/wpa-test-decode-mgmt.pcap.gz
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-o', 'wlan.enable_decryption: TRUE',
                 '-r', capture_file('wpa-test-decode-mgmt.pcap.gz'),
                 '-Y', 'wlan.fixed.reason_code == 2 || wlan.fixed.category_code == 3',
@@ -66,7 +71,7 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
         if not features.have_libgcrypt16:
             self.skipTest('Requires GCrypt 1.6 or later.')
         # Included in git sources test/captures/wpa-test-decode-tdls.pcap.gz
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 #'-ouat:80211_keys:"wpa-pwd","12345678"',
                 '-o', 'wlan.enable_decryption: TRUE',
                 '-r', capture_file('wpa-test-decode-tdls.pcap.gz'),
@@ -78,10 +83,12 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
 @fixtures.mark_usefixtures('test_env')
 @fixtures.uses_fixtures
 class case_decrypt_dtls(subprocesstest.SubprocessTestCase):
-    def test_dtls(self, cmd_tshark, capture_file):
+    def test_dtls_rsa(self, cmd_tshark, capture_file, features):
         '''DTLS'''
+        if not features.have_gnutls:
+            self.skipTest('Requires GnuTLS.')
         # https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=view&target=snakeoil.tgz
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('snakeoil-dtls.pcap'),
                 '-Tfields',
                 '-e', 'data.data',
@@ -91,7 +98,7 @@ class case_decrypt_dtls(subprocesstest.SubprocessTestCase):
 
     def test_dtls_psk_aes128ccm8(self, cmd_tshark, capture_file):
         '''DTLS 1.2 with PSK, AES-128-CCM-8'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('dtls12-aes128ccm8.pcap'),
                 '-o', 'dtls.psk:ca19e028a8a372ad2d325f950fcaceed',
                 '-x'
@@ -100,10 +107,12 @@ class case_decrypt_dtls(subprocesstest.SubprocessTestCase):
         wfm_count = self.countOutput('Works for me!.')
         self.assertTrue(dt_count == 7 and wfm_count == 2)
 
-    def test_dtls_udt(self, cmd_tshark, dirs, capture_file):
+    def test_dtls_udt(self, cmd_tshark, dirs, capture_file, features):
         '''UDT over DTLS 1.2 with RSA key'''
+        if not features.have_gnutls:
+            self.skipTest('Requires GnuTLS.')
         key_file = os.path.join(dirs.key_dir, 'udt-dtls.key')
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('udt-dtls.pcapng.gz'),
                 '-o', 'dtls.keys_list:0.0.0.0,0,data,{}'.format(key_file),
                 '-Y', 'dtls && udt.type==ack',
@@ -114,10 +123,12 @@ class case_decrypt_dtls(subprocesstest.SubprocessTestCase):
 @fixtures.mark_usefixtures('test_env')
 @fixtures.uses_fixtures
 class case_decrypt_tls(subprocesstest.SubprocessTestCase):
-    def test_tls(self, cmd_tshark, capture_file):
-        '''TLS using the server's private key'''
+    def test_tls_rsa(self, cmd_tshark, capture_file, features):
+        '''TLS using the server's private RSA key.'''
+        if not features.have_gnutls:
+            self.skipTest('Requires GnuTLS.')
         # https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=view&target=snakeoil2_070531.tgz
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('rsasnakeoil2.pcap'),
                 '-Tfields',
                 '-e', 'http.request.uri',
@@ -125,11 +136,13 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
             ))
         self.assertTrue(self.grepOutput('favicon.ico'))
 
-    def test_tls_rsa_pq(self, cmd_tshark, dirs, capture_file):
+    def test_tls_rsa_pq(self, cmd_tshark, dirs, capture_file, features):
         '''TLS using the server's private key with p < q
         (test whether libgcrypt is correctly called)'''
+        if not features.have_gnutls:
+            self.skipTest('Requires GnuTLS.')
         key_file = os.path.join(dirs.key_dir, 'rsa-p-lt-q.key')
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('rsa-p-lt-q.pcap'),
                 '-o', 'tls.keys_list:0.0.0.0,443,http,{}'.format(key_file),
                 '-Tfields',
@@ -138,9 +151,25 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
             ))
         self.assertTrue(self.grepOutput('/'))
 
-    def test_tls_with_password(self, cmd_tshark, capture_file):
+    def test_tls_rsa_privkeys_uat(self, cmd_tshark, dirs, capture_file, features):
+        '''Check TLS decryption works using the rsa_keys UAT.'''
+        if not features.have_gnutls:
+            self.skipTest('Requires GnuTLS.')
+        key_file = os.path.join(dirs.key_dir, 'rsa-p-lt-q.key')
+        proc = self.assertRun((cmd_tshark,
+                '-r', capture_file('rsa-p-lt-q.pcap'),
+                '-o', 'uat:rsa_keys:"{}",""'.format(key_file.replace('\\', '\\x5c')),
+                '-Tfields',
+                '-e', 'http.request.uri',
+                '-Y', 'http',
+            ))
+        self.assertIn('/', proc.stdout_str)
+
+    def test_tls_rsa_with_password(self, cmd_tshark, capture_file, features):
         '''TLS using the server's private key with password'''
-        self.runProcess((cmd_tshark,
+        if not features.have_gnutls:
+            self.skipTest('Requires GnuTLS.')
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('dmgr.pcapng'),
                 '-Tfields',
                 '-e', 'http.request.uri',
@@ -151,7 +180,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
     def test_tls_master_secret(self, cmd_tshark, dirs, capture_file):
         '''TLS using the master secret and ssl.keylog_file preference aliasing'''
         key_file = os.path.join(dirs.key_dir, 'dhe1_keylog.dat')
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('dhe1.pcapng.gz'),
                 '-o', 'ssl.keylog_file: {}'.format(key_file),
                 '-o', 'tls.desegment_ssl_application_data: FALSE',
@@ -164,10 +193,12 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
             ))
         self.assertTrue(self.grepOutput(r'GET\s+/test\s+HTTP/1.0'))
 
-    def test_tls12_renegotiation(self, cmd_tshark, dirs, capture_file):
+    def test_tls12_renegotiation(self, cmd_tshark, dirs, capture_file, features):
         '''TLS 1.2 with renegotiation'''
+        if not features.have_gnutls:
+            self.skipTest('Requires GnuTLS.')
         key_file = os.path.join(dirs.key_dir, 'rsasnakeoil2.key')
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('tls-renegotiation.pcap'),
                 '-o', 'tls.keys_list:0.0.0.0,4433,http,{}'.format(key_file),
                 '-Tfields',
@@ -180,7 +211,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
 
     def test_tls12_psk_aes128ccm(self, cmd_tshark, capture_file):
         '''TLS 1.2 with PSK, AES-128-CCM'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('tls12-aes128ccm.pcap'),
                 '-o', 'tls.psk:ca19e028a8a372ad2d325f950fcaceed',
                 '-q',
@@ -190,7 +221,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
 
     def test_tls12_psk_aes256gcm(self, cmd_tshark, capture_file):
         '''TLS 1.2 with PSK, AES-256-GCM'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('tls12-aes256gcm.pcap'),
                 '-o', 'tls.psk:ca19e028a8a372ad2d325f950fcaceed',
                 '-q',
@@ -214,7 +245,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
         ]
         stream = 0
         for cipher in ciphers:
-            self.runProcess((cmd_tshark,
+            self.assertRun((cmd_tshark,
                     '-r', capture_file('tls12-chacha20poly1305.pcap'),
                     '-o', 'tls.keylog_file: {}'.format(key_file),
                     '-q',
@@ -228,7 +259,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
         if not features.have_libgcrypt17:
             self.skipTest('Requires GCrypt 1.7 or later.')
         key_file = os.path.join(dirs.key_dir, 'tls13-20-chacha20poly1305.keys')
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('tls13-20-chacha20poly1305.pcap'),
                 '-o', 'tls.keylog_file: {}'.format(key_file),
                 '-q',
@@ -241,7 +272,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
         if not features.have_libgcrypt16:
             self.skipTest('Requires GCrypt 1.6 or later.')
         key_file = os.path.join(dirs.key_dir, 'tls13-rfc8446.keys')
-        proc = self.runProcess((cmd_tshark,
+        proc = self.assertRun((cmd_tshark,
                 '-r', capture_file('tls13-rfc8446.pcap'),
                 '-otls.keylog_file:{}'.format(key_file),
                 '-Y', 'http',
@@ -265,7 +296,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
         if not features.have_libgcrypt16:
             self.skipTest('Requires GCrypt 1.6 or later.')
         key_file = os.path.join(dirs.key_dir, 'tls13-rfc8446-noearly.keys')
-        proc = self.runProcess((cmd_tshark,
+        proc = self.assertRun((cmd_tshark,
                 '-r', capture_file('tls13-rfc8446.pcap'),
                 '-otls.keylog_file:{}'.format(key_file),
                 '-Y', 'http',
@@ -285,7 +316,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
 
     def test_tls12_dsb(self, cmd_tshark, capture_file):
         '''TLS 1.2 with master secrets in pcapng Decryption Secrets Blocks.'''
-        output = self.runProcess((cmd_tshark,
+        output = self.assertRun((cmd_tshark,
                 '-r', capture_file('tls12-dsb.pcapng'),
                 '-Tfields',
                 '-e', 'http.host',
@@ -301,7 +332,7 @@ class case_decrypt_zigbee(subprocesstest.SubprocessTestCase):
     def test_zigbee(self, cmd_tshark, capture_file):
         '''ZigBee'''
         # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=7022
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('sample_control4_2012-03-24.pcap'),
                 '-Tfields',
                 '-e', 'data.data',
@@ -316,7 +347,7 @@ class case_decrypt_ansi_c1222(subprocesstest.SubprocessTestCase):
     def test_ansi_c1222(self, cmd_tshark, capture_file):
         '''ANSI C12.22'''
         # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=9196
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('c1222_std_example8.pcap'),
                 '-o', 'c1222.decrypt: TRUE',
                 '-o', 'c1222.baseoid: 2.16.124.113620.1.22.0',
@@ -333,7 +364,7 @@ class case_decrypt_dvb_ci(subprocesstest.SubprocessTestCase):
         '''DVB-CI'''
         # simplified version of the sample capture in
         # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=6700
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('dvb-ci_UV1_0000.pcap'),
                 '-o', 'dvb-ci.sek: 00000000000000000000000000000000',
                 '-o', 'dvb-ci.siv: 00000000000000000000000000000000',
@@ -349,7 +380,7 @@ class case_decrypt_ipsec(subprocesstest.SubprocessTestCase):
     def test_ipsec_esp(self, cmd_tshark, capture_file):
         '''IPsec ESP'''
         # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12671
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('esp-bug-12671.pcapng.gz'),
                 '-o', 'esp.enable_encryption_decode: TRUE',
                 '-Tfields',
@@ -364,7 +395,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
     def test_ikev1_certs(self, cmd_tshark, capture_file):
         '''IKEv1 (ISAKMP) with certificates'''
         # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=7951
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev1-certs.pcap'),
                 '-Tfields',
                 '-e', 'x509sat.printableString',
@@ -374,7 +405,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
     def test_ikev1_simultaneous(self, cmd_tshark, capture_file):
         '''IKEv1 (ISAKMP) simultaneous exchanges'''
         # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12610
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev1-bug-12610.pcapng.gz'),
                 '-Tfields',
                 '-e', 'isakmp.hash',
@@ -384,7 +415,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
     def test_ikev1_unencrypted(self, cmd_tshark, capture_file):
         '''IKEv1 (ISAKMP) unencrypted phase 1'''
         # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12620
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev1-bug-12620.pcapng.gz'),
                 '-Tfields',
                 '-e', 'isakmp.hash',
@@ -393,7 +424,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev2_3des_sha160(self, cmd_tshark, capture_file):
         '''IKEv2 decryption test (3DES-CBC/SHA1_160)'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev2-decrypt-3des-sha1_160.pcap'),
                 '-Tfields',
                 '-e', 'isakmp.auth.data',
@@ -402,7 +433,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev2_aes128_ccm12(self, cmd_tshark, capture_file):
         '''IKEv2 decryption test (AES-128-CCM-12) - with CBC-MAC verification'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev2-decrypt-aes128ccm12.pcap'),
                 '-Tfields',
                 '-e', 'isakmp.auth.data',
@@ -411,7 +442,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev2_aes128_ccm12_2(self, cmd_tshark, capture_file):
         '''IKEv2 decryption test (AES-128-CCM-12 using CTR mode, without checksum)'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev2-decrypt-aes128ccm12-2.pcap'),
                 '-Tfields',
                 '-e', 'isakmp.auth.data',
@@ -420,7 +451,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev2_aes192ctr_sha512(self, cmd_tshark, capture_file):
         '''IKEv2 decryption test (AES-192-CTR/SHA2-512)'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev2-decrypt-aes192ctr.pcap'),
                 '-Tfields',
                 '-e', 'isakmp.auth.data',
@@ -429,7 +460,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev2_aes256cbc_sha256(self, cmd_tshark, capture_file):
         '''IKEv2 decryption test (AES-256-CBC/SHA2-256)'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev2-decrypt-aes256cbc.pcapng'),
                 '-Tfields',
                 '-e', 'isakmp.auth.data',
@@ -438,7 +469,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev2_aes256ccm16(self, cmd_tshark, capture_file):
         '''IKEv2 decryption test (AES-256-CCM-16)'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev2-decrypt-aes256ccm16.pcapng'),
                 '-Tfields',
                 '-e', 'isakmp.auth.data',
@@ -447,7 +478,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev2_aes256gcm16(self, cmd_tshark, capture_file):
         '''IKEv2 decryption test (AES-256-GCM-16)'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev2-decrypt-aes256gcm16.pcap'),
                 '-Tfields',
                 '-e', 'isakmp.auth.data',
@@ -456,7 +487,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev2_aes256gcm8(self, cmd_tshark, capture_file):
         '''IKEv2 decryption test (AES-256-GCM-8)'''
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev2-decrypt-aes256gcm8.pcap'),
                 '-Tfields',
                 '-e', 'isakmp.auth.data',
@@ -471,7 +502,7 @@ class case_decrypt_http2(subprocesstest.SubprocessTestCase):
         '''HTTP2 (HPACK)'''
         if not features.have_nghttp2:
             self.skipTest('Requires nghttp2.')
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('packet-h2-14_headers.pcapng'),
                 '-Tfields',
                 '-e', 'http2.header.value',
@@ -480,7 +511,7 @@ class case_decrypt_http2(subprocesstest.SubprocessTestCase):
         test_passed = self.grepOutput('nghttp2')
         if not test_passed:
             self.log_fd.write('\n\n-- Verbose output --\n\n')
-            self.runProcess((cmd_tshark,
+            self.assertRun((cmd_tshark,
                     '-r', capture_file('packet-h2-14_headers.pcapng'),
                     '-V',
                     '-d', 'tcp.port==3000,http2',
@@ -497,7 +528,7 @@ class case_decrypt_kerberos(subprocesstest.SubprocessTestCase):
         if not features.have_kerberos:
             self.skipTest('Requires kerberos.')
         keytab_file = os.path.join(dirs.key_dir, 'krb-816.keytab')
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('krb-816.pcap.gz'),
                 '-o', 'kerberos.decrypt: TRUE',
                 '-o', 'kerberos.file: {}'.format(keytab_file),
@@ -518,7 +549,7 @@ def run_wireguard_test(cmd_tshark, capture_file, features):
             args += ['-owg.keylog_file:%s' % keylog_file]
             with open(keylog_file, 'w') as f:
                 f.write("\n".join(keylog))
-        proc = self.runProcess([cmd_tshark, '-r', capture_file(pcap_file)] + args)
+        proc = self.assertRun([cmd_tshark, '-r', capture_file(pcap_file)] + args)
         lines = proc.stdout_str.splitlines()
         return lines
     return runOne
@@ -744,7 +775,7 @@ class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
     def test_knxip_data_security_decryption_ok(self, cmd_tshark, capture_file):
         '''KNX/IP: Data Security decryption OK'''
         # capture_file('knxip_DataSec.pcap') contains KNX/IP ConfigReq DataSec PropExtValueWriteCon telegram
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('knxip_DataSec.pcap'),
                 '-o', 'kip.key_1:00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F',
             ))
@@ -754,7 +785,7 @@ class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
     def test_knxip_data_security_decryption_fails(self, cmd_tshark, capture_file):
         '''KNX/IP: Data Security decryption fails'''
         # capture_file('knxip_DataSec.pcap') contains KNX/IP ConfigReq DataSec PropExtValueWriteCon telegram
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('knxip_DataSec.pcap'),
                 '-o', 'kip.key_1:""', # "" is really necessary, otherwise test fails
             ))
@@ -764,7 +795,7 @@ class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
     def test_knxip_secure_wrapper_decryption_ok(self, cmd_tshark, capture_file):
         '''KNX/IP: SecureWrapper decryption OK'''
         # capture_file('knxip_SecureWrapper.pcap') contains KNX/IP SecureWrapper RoutingInd telegram
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('knxip_SecureWrapper.pcap'),
                 '-o', 'kip.key_1:00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F',
             ))
@@ -774,7 +805,7 @@ class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
     def test_knxip_secure_wrapper_decryption_fails(self, cmd_tshark, capture_file):
         '''KNX/IP: SecureWrapper decryption fails'''
         # capture_file('knxip_SecureWrapper.pcap') contains KNX/IP SecureWrapper RoutingInd telegram
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('knxip_SecureWrapper.pcap'),
                 '-o', 'kip.key_1:""', # "" is really necessary, otherwise test fails
             ))
@@ -784,7 +815,7 @@ class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
     def test_knxip_timer_notify_authentication_ok(self, cmd_tshark, capture_file):
         '''KNX/IP: TimerNotify authentication OK'''
         # capture_file('knxip_TimerNotify.pcap') contains KNX/IP TimerNotify telegram
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('knxip_TimerNotify.pcap'),
                 '-o', 'kip.key_1:00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F',
             ))
@@ -794,7 +825,7 @@ class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
     def test_knxip_timer_notify_authentication_fails(self, cmd_tshark, capture_file):
         '''KNX/IP: TimerNotify authentication fails'''
         # capture_file('knxip_TimerNotify.pcap') contains KNX/IP TimerNotify telegram
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-r', capture_file('knxip_TimerNotify.pcap'),
                 '-o', 'kip.key_1:""', # "" is really necessary, otherwise test fails
             ))
@@ -807,7 +838,7 @@ class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
         key_file = os.path.join(dirs.key_dir, 'knx_keyring.xml')
         # capture_file('empty.pcap') is empty
         # Write extracted key info to stdout
-        self.runProcess((cmd_tshark,
+        self.assertRun((cmd_tshark,
                 '-o', 'kip.key_file:' + key_file,
                 '-o', 'kip.key_info_file:-',
                 '-r', capture_file('empty.pcap'),
@@ -836,3 +867,122 @@ class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
         self.assertTrue(self.grepOutput('^IA 1[.]1[.]4 SeqNr 12345$'))
         self.assertTrue(self.grepOutput('^IA 2[.]1[.]0 key B0 B1 B2 B3 B4 B5 B6 B7 B8 B9 BA BB BC BD BE BF$'))
         self.assertTrue(self.grepOutput('^IA 2[.]1[.]0 SeqNr 1234$'))
+
+
+@fixtures.fixture(scope='session')
+def softhsm_paths(features):
+    if sys.platform == 'win32':
+        search_path = os.getenv('PATH') + r';C:\SoftHSM2\bin'
+    else:
+        search_path = None
+    softhsm_tool = shutil.which('softhsm2-util', path=search_path)
+    if not softhsm_tool:
+        # Note: do not fallback to SoftHSMv1. While available on Ubuntu 14.04
+        # (and 16.04), it is built with botan < 1.11.10 which causes a crash due
+        # to a conflict with the GMP library that is also used by GnuTLS/nettle.
+        # See https://github.com/randombit/botan/issues/1090
+        fixtures.skip('SoftHSM is not found')
+    # Find provider library path.
+    bindir = os.path.dirname(softhsm_tool)
+    libdir = os.path.join(os.path.dirname(bindir), 'lib')
+    if sys.platform == 'win32':
+        libdirs = [libdir, bindir]
+        if features.have_x64:
+            name = 'softhsm2-x64.dll'
+        else:
+            name = 'softhsm2.dll'
+    else:
+        # Debian/Ubuntu-specific paths
+        madir = sysconfig.get_config_var('multiarchsubdir')
+        libdir64_sub = os.path.join(libdir + '64', 'softhsm')
+        libdir_sub = os.path.join(libdir, 'softhsm')
+        libdirs = [os.path.join(libdir + madir, 'softhsm')] if madir else []
+        libdirs += [libdir_sub, libdir64_sub]
+        name = 'libsofthsm2.so'
+    for libdir in libdirs:
+        provider = os.path.join(libdir, name)
+        if os.path.exists(provider):
+            break
+    else:
+        # Even if p11-kit can automatically locate it, do not rely on it.
+        fixtures.skip('SoftHSM provider library not detected')
+    # Now check whether the import tool is usable. SoftHSM < 2.3.0 did not
+    # set CKA_DECRYPT when using softhsm2-tool --import and therefore cannot be
+    # used to import keys for decryption. Use GnuTLS p11tool as workaround.
+    softhsm_version = subprocess.check_output([softhsm_tool, '--version'],
+            universal_newlines=True).strip()
+    use_p11tool = softhsm_version in ('2.0.0', '2.1.0', '2.2.0')
+    if use_p11tool and not shutil.which('p11tool'):
+        fixtures.skip('SoftHSM available, but GnuTLS p11tool is unavailable')
+    return use_p11tool, softhsm_tool, provider
+
+
+@fixtures.fixture
+def softhsm(softhsm_paths, home_path, base_env):
+    '''Creates a temporary SoftHSM token store (and set it in the environment),
+    returns a function to populate that token store and the path to the PKCS #11
+    provider library.'''
+    use_p11tool, softhsm_tool, provider = softhsm_paths
+    conf_path = os.path.join(home_path, 'softhsm-test.conf')
+    db_path = os.path.join(home_path, 'softhsm-test-tokens')
+    os.makedirs(db_path)
+    with open(conf_path, 'w') as f:
+        f.write('directories.tokendir = %s\n' % db_path)
+        f.write('objectstore.backend = file\n')
+        # Avoid syslog spam
+        f.write('log.level = ERROR\n')
+    base_env['SOFTHSM2_CONF'] = conf_path
+
+    tool_env = base_env.copy()
+    if sys.platform == 'win32':
+        # Ensure that softhsm2-util can find the library.
+        tool_env['PATH'] += ';%s' % os.path.dirname(provider)
+
+    # Initialize tokens store.
+    token_name = 'Wireshark-Test-Tokens'
+    pin = 'Secret'
+    subprocess.check_call([softhsm_tool, '--init-token', '--slot', '0',
+        '--label', token_name, '--so-pin', 'Supersecret', '--pin', pin],
+        env=tool_env)
+    if use_p11tool:
+        tool_env['GNUTLS_PIN'] = pin
+
+    # Arbitrary IDs and labels.
+    ids = iter(range(0xab12, 0xffff))
+    def import_key(keyfile):
+        '''Returns a PKCS #11 URI to identify the imported key.'''
+        label = os.path.basename(keyfile)
+        obj_id = '%x' % next(ids)
+        if not use_p11tool:
+            tool_args = [softhsm_tool, '--import', keyfile, '--label', label,
+                    '--id', obj_id, '--pin', pin, '--token', token_name]
+        else:
+            # Fallback for SoftHSM < 2.3.0
+            tool_args = ['p11tool', '--provider', provider, '--batch',
+                    '--login', '--write', 'pkcs11:token=%s' % token_name,
+                    '--load-privkey', keyfile, '--label', label, '--id', obj_id]
+        subprocess.check_call(tool_args, env=tool_env)
+        id_str = '%{}{}%{}{}'.format(*obj_id)
+        return 'pkcs11:token=%s;id=%s;type=private' % (token_name, id_str)
+
+    return types.SimpleNamespace(import_key=import_key, provider=provider, pin=pin)
+
+
+@fixtures.mark_usefixtures('test_env')
+@fixtures.uses_fixtures
+class case_decrypt_pkcs11(subprocesstest.SubprocessTestCase):
+    def test_tls_pkcs11(self, cmd_tshark, dirs, capture_file, features, softhsm):
+        '''Check that a RSA key in a PKCS #11 token enables decryption.'''
+        if not features.have_pkcs11:
+            self.skipTest('Requires GnuTLS with PKCS #11 support.')
+        key_file = os.path.join(dirs.key_dir, 'rsa-p-lt-q.p8')
+        key_uri = softhsm.import_key(key_file)
+        proc = self.assertRun((cmd_tshark,
+                '-r', capture_file('rsa-p-lt-q.pcap'),
+                '-o', 'uat:pkcs11_libs:"{}"'.format(softhsm.provider.replace('\\', '\\x5c')),
+                '-o', 'uat:rsa_keys:"{}","{}"'.format(key_uri, softhsm.pin),
+                '-Tfields',
+                '-e', 'http.request.uri',
+                '-Y', 'http',
+            ))
+        self.assertIn('/', proc.stdout_str)

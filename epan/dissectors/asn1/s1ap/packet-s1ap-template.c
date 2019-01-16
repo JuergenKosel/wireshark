@@ -10,7 +10,7 @@
  *
  * Based on the RANAP dissector
  *
- * References: 3GPP TS 36.413 V15.3.0 (2018-09)
+ * References: 3GPP TS 36.413 V15.4.0 (2018-12)
  */
 
 #include "config.h"
@@ -132,6 +132,7 @@ static int ett_s1ap_E_UTRAN_Trace_ID = -1;
 static int ett_s1ap_InterfacesToTrace = -1;
 static int ett_s1ap_EncryptionAlgorithms = -1;
 static int ett_s1ap_IntegrityProtectionAlgorithms = -1;
+static int ett_s1ap_LastVisitedNGRANCellInformation = -1;
 static int ett_s1ap_LastVisitedUTRANCellInformation = -1;
 static int ett_s1ap_SerialNumber = -1;
 static int ett_s1ap_WarningType = -1;
@@ -698,6 +699,7 @@ void proto_register_s1ap(void) {
     &ett_s1ap_InterfacesToTrace,
     &ett_s1ap_EncryptionAlgorithms,
     &ett_s1ap_IntegrityProtectionAlgorithms,
+    &ett_s1ap_LastVisitedNGRANCellInformation,
     &ett_s1ap_LastVisitedUTRANCellInformation,
     &ett_s1ap_SerialNumber,
     &ett_s1ap_WarningType,

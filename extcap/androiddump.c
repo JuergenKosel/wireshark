@@ -20,7 +20,7 @@
 #include <time.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/filesystem.h>
-#include <wsutil/cmdarg_err.h>
+#include <ui/cmdarg_err.h>
 #include <wsutil/inet_addr.h>
 
 #include "ui/failure_message.h"
@@ -75,6 +75,8 @@
     #include "wiretap/wtap.h"
     #include "wiretap/pcap-encap.h"
 #endif
+
+#include <cli_main.h>
 
 #ifdef ANDROIDDUMP_USE_LIBPCAP
     #define EXTCAP_ENCAP_BLUETOOTH_H4_WITH_PHDR DLT_BLUETOOTH_H4_WITH_PHDR
@@ -2478,7 +2480,7 @@ static int capture_android_tcpdump(char *interface, char *fifo,
     return EXIT_CODE_SUCCESS;
 }
 
-int real_main(int argc, char **argv) {
+int main(int argc, char *argv[]) {
     int              ret = EXIT_CODE_GENERIC;
     int              option_idx = 0;
     int              result;
@@ -2742,23 +2744,6 @@ end:
 
     return ret;
 }
-
-#ifdef _WIN32
-int
-wmain(int argc, wchar_t *wc_argv[])
-{
-    char **argv;
-
-    argv = arg_list_utf_16to8(argc, wc_argv);
-    return real_main(argc, argv);
-}
-#else
-int
-main(int argc, char *argv[])
-{
-    return real_main(argc, argv);
-}
-#endif
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

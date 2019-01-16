@@ -59,7 +59,7 @@
  *      dissector versions was dissected only when a proto_tree context was
  *      available
  *
- *     We are at Packet reception if time pinfo->fd->flags.visited == 0
+ *     We are at Packet reception if time pinfo->fd->visited == 0
  *
  */
 
@@ -98,8 +98,10 @@
 
 void proto_register_tls(void);
 
+#ifdef HAVE_LIBGNUTLS
 static ssldecrypt_assoc_t *tlskeylist_uats = NULL;
 static guint ntlsdecrypt = 0;
+#endif
 
 static gboolean tls_desegment          = TRUE;
 static gboolean tls_desegment_app_data = TRUE;
@@ -239,17 +241,18 @@ static ssl_master_key_map_t       ssl_master_key_map;
 GHashTable *ssl_session_hash;
 GHashTable *ssl_crandom_hash;
 
+#ifdef HAVE_LIBGNUTLS
 static GHashTable         *ssl_key_hash             = NULL;
 static wmem_stack_t       *key_list_stack            = NULL;
+static uat_t              *ssldecrypt_uat           = NULL;
+static const gchar        *ssl_keys_list            = NULL;
+#endif
 static dissector_table_t   ssl_associations         = NULL;
 static dissector_handle_t  tls_handle               = NULL;
 static StringInfo          ssl_compressed_data      = {NULL, 0};
 static StringInfo          ssl_decrypted_data       = {NULL, 0};
 static gint                ssl_decrypted_data_avail = 0;
 static FILE               *ssl_keylog_file          = NULL;
-
-static uat_t              *ssldecrypt_uat           = NULL;
-static const gchar        *ssl_keys_list            = NULL;
 static ssl_common_options_t ssl_options = { NULL, NULL};
 
 /* List of dissectors to call for TLS data */
@@ -292,10 +295,12 @@ ssl_init(void)
 static void
 ssl_cleanup(void)
 {
+#ifdef HAVE_LIBGNUTLS
     if (key_list_stack != NULL) {
         wmem_destroy_stack(key_list_stack);
         key_list_stack = NULL;
     }
+#endif
     ssl_common_cleanup(&ssl_master_key_map, &ssl_keylog_file,
                        &ssl_decrypted_data, &ssl_compressed_data);
 
@@ -305,6 +310,7 @@ ssl_cleanup(void)
     ssl_crandom_hash = NULL;
 }
 
+#ifdef HAVE_LIBGNUTLS
 /* parse ssl related preferences (private keys and ports association strings) */
 static void
 ssl_parse_uat(void)
@@ -330,8 +336,7 @@ ssl_parse_uat(void)
         }
     }
     /* parse private keys string, load available keys and put them in key hash*/
-    ssl_key_hash = g_hash_table_new_full(ssl_private_key_hash,
-            ssl_private_key_equal, g_free, rsa_private_key_free);
+    ssl_key_hash = privkey_hash_table_new();
 
 
     if (ntlsdecrypt > 0) {
@@ -348,14 +353,12 @@ ssl_parse_uat(void)
     ssl_debug_flush();
 }
 
-#if defined(HAVE_LIBGNUTLS)
 static void
 ssl_reset_uat(void)
 {
     g_hash_table_destroy(ssl_key_hash);
     ssl_key_hash = NULL;
 }
-#endif
 
 static void
 ssl_parse_old_keys(void)
@@ -387,9 +390,10 @@ ssl_parse_old_keys(void)
         g_strfreev(old_keys);
     }
 }
+#endif  /* HAVE_LIBGNUTLS */
 
 
-static gboolean
+static tap_packet_status
 ssl_follow_tap_listener(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *ssl)
 {
     follow_info_t *      follow_info = (follow_info_t*) tapdata;
@@ -399,7 +403,7 @@ ssl_follow_tap_listener(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _
     show_stream_t        from = FROM_CLIENT;
 
     /* Skip packets without decrypted payload data. */
-    if (!pi || !pi->records) return FALSE;
+    if (!pi || !pi->records) return TAP_PACKET_DONT_REDRAW;
 
     /* Compute the packet's sender. */
     if (follow_info->client_port == 0) {
@@ -451,7 +455,7 @@ ssl_follow_tap_listener(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _
         follow_info->bytes_written[from] += appl_data->data_len;
     }
 
-    return FALSE;
+    return TAP_PACKET_DONT_REDRAW;
 }
 
 /*********************************************************************
@@ -581,7 +585,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
         }
     }
 
-    ssl_debug_printf("\ndissect_ssl enter frame #%u (%s)\n", pinfo->num, (pinfo->fd->flags.visited)?"already visited":"first time");
+    ssl_debug_printf("\ndissect_ssl enter frame #%u (%s)\n", pinfo->num, (pinfo->fd->visited)?"already visited":"first time");
 
     /* Track the version using conversations to reduce the
      * chance that a packet that simply *looks* like a v2 or
@@ -609,7 +613,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 
     /* try decryption only the first time we see this packet
      * (to keep cipher synchronized) */
-    if (pinfo->fd->flags.visited)
+    if (pinfo->fd->visited)
          ssl_session = NULL;
 
     ssl_debug_printf("  conversation = %p, ssl_session = %p\n", (void *)conversation, (void *)ssl_session);
@@ -785,7 +789,7 @@ dissect_tls13_handshake(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     SslSession        *session;
     gint               is_from_server;
 
-    ssl_debug_printf("\n%s enter frame #%u (%s)\n", G_STRFUNC, pinfo->num, (pinfo->fd->flags.visited)?"already visited":"first time");
+    ssl_debug_printf("\n%s enter frame #%u (%s)\n", G_STRFUNC, pinfo->num, (pinfo->fd->visited)?"already visited":"first time");
 
     conversation = find_or_create_conversation(pinfo);
     ssl_session = ssl_get_session(conversation, tls_handle);
@@ -2327,7 +2331,7 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
 
             case SSL_HND_CERTIFICATE:
                 ssl_dissect_hnd_cert(&dissect_ssl3_hf, tvb, ssl_hand_tree,
-                        offset, offset + length, pinfo, session, ssl, ssl_key_hash, is_from_server, FALSE);
+                        offset, offset + length, pinfo, session, ssl, is_from_server, FALSE);
                 break;
 
             case SSL_HND_SERVER_KEY_EXCHG:
@@ -2358,6 +2362,9 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
                 /* try to find master key from pre-master key */
                 if (!ssl_generate_pre_master_secret(ssl, length, tvb, offset,
                             ssl_options.psk,
+#ifdef HAVE_LIBGNUTLS
+                            ssl_key_hash,
+#endif
                             &ssl_master_key_map)) {
                     ssl_debug_printf("dissect_ssl3_handshake can't generate pre master secret\n");
                 }
@@ -2394,7 +2401,7 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
             case SSL_HND_COMPRESSED_CERTIFICATE:
                 ssl_dissect_hnd_compress_certificate(&dissect_ssl3_hf, tvb, ssl_hand_tree,
                                                      offset, offset + length, pinfo, session,
-                                                     ssl, ssl_key_hash, is_from_server, FALSE);
+                                                     ssl, is_from_server, FALSE);
                 break;
 
             case SSL_HND_ENCRYPTED_EXTS:
@@ -3628,7 +3635,7 @@ tls13_exporter(packet_info *pinfo, gboolean is_early,
 
 /* UAT */
 
-#if defined(HAVE_LIBGNUTLS)
+#ifdef HAVE_LIBGNUTLS
 static void
 ssldecrypt_free_cb(void *r)
 {
@@ -3687,7 +3694,7 @@ ssldecrypt_uat_fld_protocol_chk_cb(void* r _U_, const char* p, guint len _U_, co
     *err = NULL;
     return TRUE;
 }
-#endif
+#endif  /* HAVE_LIBGNUTLS */
 
 static void
 ssl_src_prompt(packet_info *pinfo, gchar *result)
@@ -4125,17 +4132,17 @@ proto_register_tls(void)
             "RSA keys list",
             "A table of RSA keys for TLS decryption",
             ssldecrypt_uat);
-#endif /* HAVE_LIBGNUTLS */
-
-        prefs_register_filename_preference(ssl_module, "debug_file", "TLS debug file",
-            "Redirect TLS debug to the file specified. Leave empty to disable debugging "
-            "or use \"" SSL_DEBUG_USE_STDERR "\" to redirect output to stderr.",
-            &ssl_debug_file_name, TRUE);
 
         prefs_register_string_preference(ssl_module, "keys_list", "RSA keys list (deprecated)",
              "Semicolon-separated list of private RSA keys used for TLS decryption. "
              "Used by versions of Wireshark prior to 1.6",
              &ssl_keys_list);
+#endif  /* HAVE_LIBGNUTLS */
+
+        prefs_register_filename_preference(ssl_module, "debug_file", "TLS debug file",
+            "Redirect TLS debug to the file specified. Leave empty to disable debugging "
+            "or use \"" SSL_DEBUG_USE_STDERR "\" to redirect output to stderr.",
+            &ssl_debug_file_name, TRUE);
 
         prefs_register_bool_preference(ssl_module,
              "desegment_ssl_records",
@@ -4203,9 +4210,11 @@ void
 proto_reg_handoff_ssl(void)
 {
 
+#ifdef HAVE_LIBGNUTLS
     /* parse key list */
     ssl_parse_uat();
     ssl_parse_old_keys();
+#endif
 
     /*
      * XXX the port preferences should probably be removed in favor of Decode

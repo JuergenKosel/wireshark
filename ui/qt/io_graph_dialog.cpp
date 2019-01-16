@@ -289,7 +289,6 @@ static void io_graph_free_cb(void* p) {
 IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
     WiresharkDialog(parent, cf),
     ui(new Ui::IOGraphDialog),
-    copy_from_menu_(NULL),
     uat_model_(NULL),
     uat_delegate_(NULL),
     base_graph_(NULL),
@@ -316,11 +315,11 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
     connect (copy_bt, SIGNAL(clicked()), this, SLOT(copyAsCsvClicked()));
 
     QPushButton *copy_from_bt = ui->buttonBox->addButton(tr("Copy from"), QDialogButtonBox::ActionRole);
-    copy_from_menu_ = new CopyFromProfileMenu("io_graphs");
-    copy_from_bt->setMenu(copy_from_menu_);
+    CopyFromProfileMenu *copy_from_menu = new CopyFromProfileMenu("io_graphs", copy_from_bt);
+    copy_from_bt->setMenu(copy_from_menu);
     copy_from_bt->setToolTip(tr("Copy graphs from another profile."));
-    copy_from_bt->setEnabled(copy_from_menu_->haveProfiles());
-    connect(copy_from_menu_, SIGNAL(triggered(QAction *)), this, SLOT(copyFromProfile(QAction *)));
+    copy_from_bt->setEnabled(copy_from_menu->haveProfiles());
+    connect(copy_from_menu, SIGNAL(triggered(QAction *)), this, SLOT(copyFromProfile(QAction *)));
 
     QPushButton *close_bt = ui->buttonBox->button(QDialogButtonBox::Close);
     if (close_bt) {
@@ -414,7 +413,6 @@ IOGraphDialog::~IOGraphDialog()
     foreach(IOGraph* iog, ioGraphs_) {
         delete iog;
     }
-    delete copy_from_menu_;
     delete ui;
     ui = NULL;
 }
@@ -2055,11 +2053,11 @@ void IOGraph::tapReset(void *iog_ptr)
 }
 
 // "tap_packet" callback for register_tap_listener
-gboolean IOGraph::tapPacket(void *iog_ptr, packet_info *pinfo, epan_dissect_t *edt, const void *)
+tap_packet_status IOGraph::tapPacket(void *iog_ptr, packet_info *pinfo, epan_dissect_t *edt, const void *)
 {
     IOGraph *iog = static_cast<IOGraph *>(iog_ptr);
     if (!pinfo || !iog) {
-        return FALSE;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     int idx = get_io_graph_index(pinfo, iog->interval_);
@@ -2068,7 +2066,7 @@ gboolean IOGraph::tapPacket(void *iog_ptr, packet_info *pinfo, epan_dissect_t *e
     /* some sanity checks */
     if ((idx < 0) || (idx >= max_io_items_)) {
         iog->cur_idx_ = max_io_items_ - 1;
-        return FALSE;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     /* update num_items */
@@ -2092,7 +2090,7 @@ gboolean IOGraph::tapPacket(void *iog_ptr, packet_info *pinfo, epan_dissect_t *e
     }
 
     if (!update_io_graph_item(iog->items_, idx, pinfo, adv_edt, iog->hf_index_, iog->val_units_, iog->interval_)) {
-        return FALSE;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
 //    qDebug() << "=tapPacket" << iog->name_ << idx << iog->hf_index_ << iog->val_units_ << iog->num_items_;
@@ -2100,7 +2098,7 @@ gboolean IOGraph::tapPacket(void *iog_ptr, packet_info *pinfo, epan_dissect_t *e
     if (recalc) {
         emit iog->requestRecalc();
     }
-    return TRUE;
+    return TAP_PACKET_REDRAW;
 }
 
 // "tap_draw" callback for register_tap_listener

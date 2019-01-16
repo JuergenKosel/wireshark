@@ -12,9 +12,9 @@
 
 /*
  * See https://quicwg.org
- * https://tools.ietf.org/html/draft-ietf-quic-transport-15
- * https://tools.ietf.org/html/draft-ietf-quic-tls-15
- * https://tools.ietf.org/html/draft-ietf-quic-invariants-02
+ * https://tools.ietf.org/html/draft-ietf-quic-transport-17
+ * https://tools.ietf.org/html/draft-ietf-quic-tls-17
+ * https://tools.ietf.org/html/draft-ietf-quic-invariants-03
  */
 
 #include <config.h>
@@ -64,14 +64,12 @@ static int hf_quic_short_reserved = -1;
 static int hf_quic_payload = -1;
 static int hf_quic_protected_payload = -1;
 static int hf_quic_remaining_payload = -1;
-static int hf_quic_odcil_draft13 = -1;
 static int hf_quic_odcil = -1;
 static int hf_quic_odcid = -1;
 static int hf_quic_retry_token = -1;
 
 static int hf_quic_frame = -1;
 static int hf_quic_frame_type = -1;
-static int hf_quic_frame_type_draft14 = -1;
 static int hf_quic_frame_type_stream_fin = -1;
 static int hf_quic_frame_type_stream_len = -1;
 static int hf_quic_frame_type_stream_off = -1;
@@ -95,21 +93,19 @@ static int hf_quic_frame_type_rsts_stream_id = -1;
 static int hf_quic_frame_type_rsts_application_error_code = -1;
 static int hf_quic_frame_type_rsts_final_offset = -1;
 static int hf_quic_frame_type_cc_error_code = -1;
+static int hf_quic_frame_type_cc_error_code_app = -1;
 static int hf_quic_frame_type_cc_error_code_tls_alert = -1;
 static int hf_quic_frame_type_cc_frame_type = -1;
 static int hf_quic_frame_type_cc_reason_phrase_length = -1;
 static int hf_quic_frame_type_cc_reason_phrase = -1;
-static int hf_quic_frame_type_ac_error_code = -1;
-static int hf_quic_frame_type_ac_reason_phrase_length = -1;
-static int hf_quic_frame_type_ac_reason_phrase = -1;
 static int hf_quic_frame_type_md_maximum_data = -1;
 static int hf_quic_frame_type_msd_stream_id = -1;
 static int hf_quic_frame_type_msd_maximum_stream_data = -1;
-static int hf_quic_frame_type_msi_stream_id = -1;
-static int hf_quic_frame_type_blocked_offset = -1;
-static int hf_quic_frame_type_sb_stream_id = -1;
-static int hf_quic_frame_type_sb_offset = -1;
-static int hf_quic_frame_type_sib_stream_id = -1;
+static int hf_quic_frame_type_ms_max_streams = -1;
+static int hf_quic_frame_type_db_stream_data_limit = -1;
+static int hf_quic_frame_type_sdb_stream_id = -1;
+static int hf_quic_frame_type_sdb_stream_data_limit = -1;
+static int hf_quic_frame_type_sb_stream_limit = -1;
 static int hf_quic_frame_type_nci_sequence = -1;
 static int hf_quic_frame_type_nci_connection_id_length = -1;
 static int hf_quic_frame_type_nci_connection_id = -1;
@@ -182,8 +178,12 @@ typedef struct quic_cid {
 
 /** QUIC decryption context. */
 typedef struct quic_cipher {
-    gcry_cipher_hd_t    pn_cipher;  /* Packet number protection cipher. */
-    gcry_cipher_hd_t    pp_cipher;  /* Packet protection cipher. */
+    // TODO hp_cipher does not change after KeyUpdate, but is still tied to the
+    //      current encryption level (initial, 0rtt, handshake, appdata).
+    //      Maybe move this into quic_info_data (2x) and quic_pp_state?
+    //      See https://tools.ietf.org/html/draft-ietf-quic-tls-17#section-5.4
+    gcry_cipher_hd_t    hp_cipher;  /**< Header protection cipher. */
+    gcry_cipher_hd_t    pp_cipher;  /**< Packet protection cipher. */
     guint8              pp_iv[TLS13_AEAD_NONCE_LENGTH];
 } quic_cipher;
 
@@ -235,7 +235,7 @@ struct quic_packet_info {
     struct quic_packet_info *next;
     guint64                 packet_number;  /**< Reconstructed full packet number. */
     quic_decrypt_result_t   decryption;
-    guint8                  pkn_len;        /**< Length of PKN (1/2/4) or unknown (0). */
+    guint8                  pkn_len;        /**< Length of PKN (1/2/3/4) or unknown (0). */
 };
 typedef struct quic_packet_info quic_packet_info_t;
 
@@ -269,10 +269,13 @@ static inline guint8 quic_draft_version(guint32 version) {
     }
     return 0;
 }
+
+#if 0
 static inline gboolean is_quic_draft_max(guint32 version, guint8 max_version) {
     guint8 draft_version = quic_draft_version(version);
     return draft_version && draft_version <= max_version;
 }
+#endif
 
 static inline guint8 is_gquic_version(guint32 version) {
     return version == 0x51303434; /* Q044 is the first release to use IETF QUIC (draft-12) packet header */
@@ -293,6 +296,8 @@ const value_string quic_version_vals[] = {
     { 0xff00000d, "draft-13" },
     { 0xff00000e, "draft-14" },
     { 0xff00000f, "draft-15" },
+    { 0xff000010, "draft-16" },
+    { 0xff000011, "draft-17" },
     { 0, NULL }
 };
 
@@ -324,10 +329,10 @@ static const value_string quic_cid_len_vals[] = {
     { 0, NULL }
 };
 
-#define QUIC_LPT_INITIAL    0x7F
-#define QUIC_LPT_RETRY      0x7E
-#define QUIC_LPT_HANDSHAKE  0x7D
-#define QUIC_LPT_0RTT       0x7C
+#define QUIC_LPT_INITIAL    0x0
+#define QUIC_LPT_RETRY      0x1
+#define QUIC_LPT_HANDSHAKE  0x2
+#define QUIC_LPT_0RTT       0x3
 #define QUIC_SHORT_PACKET   0xff    /* dummy value that is definitely not LPT */
 
 static const value_string quic_long_packet_type_vals[] = {
@@ -338,85 +343,60 @@ static const value_string quic_long_packet_type_vals[] = {
     { 0, NULL }
 };
 
-#define FT_PADDING          0x00
-#define FT_RST_STREAM       0x01
-#define FT_CONNECTION_CLOSE 0x02
-#define FT_APPLICATION_CLOSE 0x03 /* Add in draft07 */
-#define FT_MAX_DATA         0x04
-#define FT_MAX_STREAM_DATA  0x05
-#define FT_MAX_STREAM_ID    0x06
-#define FT_PING             0x07
-#define FT_BLOCKED          0x08
-#define FT_STREAM_BLOCKED   0x09
-#define FT_STREAM_ID_BLOCKED 0x0a
-#define FT_NEW_CONNECTION_ID 0x0b
-#define FT_STOP_SENDING     0x0c
-#define FT_ACK_OLD          0x0d /* Remove in draft 15, replaced by 0x1a */
-#define FT_RETIRE_CONNECTION_ID 0x0d
-#define FT_PATH_CHALLENGE   0x0e
-#define FT_PATH_RESPONSE    0x0f
-#define FT_STREAM_10        0x10
-#define FT_STREAM_11        0x11
-#define FT_STREAM_12        0x12
-#define FT_STREAM_13        0x13
-#define FT_STREAM_14        0x14
-#define FT_STREAM_15        0x15
-#define FT_STREAM_16        0x16
-#define FT_STREAM_17        0x17
-#define FT_CRYPTO           0x18
-#define FT_NEW_TOKEN        0x19 /* Add in draft 13 */
-#define FT_ACK              0x1a
-#define FT_ACK_ECN          0x1b
-#define FT_ACK_ECN_OLD      0x1a /* Add in draft 14 */
-#define FT_ACK_ECN_OLD_OLD  0x20 /* Remove in draft 14 */
-
-static const range_string quic_frame_type_draft14_vals[] = {
-    { 0x00, 0x00,   "PADDING" },
-    { 0x01, 0x01,   "RST_STREAM" },
-    { 0x02, 0x02,   "CONNECTION_CLOSE" },
-    { 0x03, 0x03,   "APPLICATION_CLOSE" },
-    { 0x04, 0x04,   "MAX_DATA" },
-    { 0x05, 0x05,   "MAX_STREAM_DATA" },
-    { 0x06, 0x06,   "MAX_STREAM_ID" },
-    { 0x07, 0x07,   "PING" },
-    { 0x08, 0x08,   "BLOCKED" },
-    { 0x09, 0x09,   "STREAM_BLOCKED" },
-    { 0x0a, 0x0a,   "STREAM_ID_BLOCKED" },
-    { 0x0b, 0x0b,   "NEW_CONNECTION_ID" },
-    { 0x0c, 0x0c,   "STOP_SENDING" },
-    { 0x0d, 0x0d,   "ACK" },
-    { 0x0e, 0x0e,   "PATH_CHALLENGE" },
-    { 0x0f, 0x0f,   "PATH_RESPONSE" },
-    { 0x10, 0x17,   "STREAM" },
-    { 0x18, 0x18,   "CRYPTO" },
-    { 0x19, 0x19,   "NEW_TOKEN" },
-    { 0x1a, 0x1a,   "ACK_ECN" },
-    { 0x20, 0x20,   "ACK_ECN" },
-    { 0,    0,        NULL },
-};
+#define FT_PADDING              0x00
+#define FT_PING                 0x01
+#define FT_ACK                  0x02
+#define FT_ACK_ECN              0x03
+#define FT_RESET_STREAM         0x04
+#define FT_STOP_SENDING         0x05
+#define FT_CRYPTO               0x06
+#define FT_NEW_TOKEN            0x07
+#define FT_STREAM_8             0x08
+#define FT_STREAM_9             0x09
+#define FT_STREAM_A             0x0a
+#define FT_STREAM_B             0x0b
+#define FT_STREAM_C             0x0c
+#define FT_STREAM_D             0x0d
+#define FT_STREAM_E             0x0e
+#define FT_STREAM_F             0x0f
+#define FT_MAX_DATA             0x10
+#define FT_MAX_STREAM_DATA      0x11
+#define FT_MAX_STREAMS_BIDI     0x12
+#define FT_MAX_STREAMS_UNI      0x13
+#define FT_DATA_BLOCKED         0x14
+#define FT_STREAM_DATA_BLOCKED  0x15
+#define FT_STREAMS_BLOCKED_BIDI 0x16
+#define FT_STREAMS_BLOCKED_UNI  0x17
+#define FT_NEW_CONNECTION_ID    0x18
+#define FT_RETIRE_CONNECTION_ID 0x19
+#define FT_PATH_CHALLENGE       0x1a
+#define FT_PATH_RESPONSE        0x1b
+#define FT_CONNECTION_CLOSE_TPT 0x1c
+#define FT_CONNECTION_CLOSE_APP 0x1d
 
 static const range_string quic_frame_type_vals[] = {
     { 0x00, 0x00,   "PADDING" },
-    { 0x01, 0x01,   "RST_STREAM" },
-    { 0x02, 0x02,   "CONNECTION_CLOSE" },
-    { 0x03, 0x03,   "APPLICATION_CLOSE" },
-    { 0x04, 0x04,   "MAX_DATA" },
-    { 0x05, 0x05,   "MAX_STREAM_DATA" },
-    { 0x06, 0x06,   "MAX_STREAM_ID" },
-    { 0x07, 0x07,   "PING" },
-    { 0x08, 0x08,   "BLOCKED" },
-    { 0x09, 0x09,   "STREAM_BLOCKED" },
-    { 0x0a, 0x0a,   "STREAM_ID_BLOCKED" },
-    { 0x0b, 0x0b,   "NEW_CONNECTION_ID" },
-    { 0x0c, 0x0c,   "STOP_SENDING" },
-    { 0x0d, 0x0d,   "RETIRE_CONNECTION_ID" },
-    { 0x0e, 0x0e,   "PATH_CHALLENGE" },
-    { 0x0f, 0x0f,   "PATH_RESPONSE" },
-    { 0x10, 0x17,   "STREAM" },
-    { 0x18, 0x18,   "CRYPTO" },
-    { 0x19, 0x19,   "NEW_TOKEN" },
-    { 0x1a, 0x1a,   "ACK" },
-    { 0x1b, 0x1b,   "ACK_ECN" },
+    { 0x01, 0x01,   "PING" },
+    { 0x02, 0x03,   "ACK" },
+    { 0x04, 0x04,   "RESET_STREAM" },
+    { 0x05, 0x05,   "STOP_SENDING" },
+    { 0x06, 0x06,   "CRYPTO" },
+    { 0x07, 0x07,   "NEW_TOKEN" },
+    { 0x08, 0x0f,   "STREAM" },
+    { 0x10, 0x10,   "MAX_DATA" },
+    { 0x11, 0x11,   "MAX_STREAM_DATA" },
+    { 0x12, 0x12,   "MAX_STREAMS (BIDI)" },
+    { 0x13, 0x13,   "MAX_STREAMS (UNI)" },
+    { 0x14, 0x14,   "DATA_BLOCKED" },
+    { 0x15, 0x15,   "STREAM_DATA_BLOCKED" },
+    { 0x16, 0x16,   "STREAMS_BLOCKED (BIDI)" },
+    { 0x16, 0x17,   "STREAMS_BLOCKED (UNI)" },
+    { 0x18, 0x18,   "NEW_CONNECTION_ID" },
+    { 0x19, 0x19,   "RETIRE_CONNECTION_ID" },
+    { 0x1a, 0x1a,   "PATH_CHALLENGE" },
+    { 0x1b, 0x1b,   "PATH_RESPONSE" },
+    { 0x1c, 0x1c,   "CONNECTION_CLOSE (Transport)" },
+    { 0x1d, 0x1d,   "CONNECTION_CLOSE (Application)" },
     { 0,    0,        NULL },
 };
 
@@ -451,7 +431,7 @@ static const value_string quic_application_error_code_vals[] = {
 static void
 quic_cipher_reset(quic_cipher *cipher)
 {
-    gcry_cipher_close(cipher->pn_cipher);
+    gcry_cipher_close(cipher->hp_cipher);
     gcry_cipher_close(cipher->pp_cipher);
     memset(cipher, 0, sizeof(*cipher));
 }
@@ -472,103 +452,83 @@ static guint64 quic_pkt_adjust_pkt_num(guint64 max_pkt_num, guint64 pkt_num,
   return b;
 }
 
-#ifdef HAVE_LIBGCRYPT_AEAD
-static guint
-quic_decrypt_packet_number(tvbuff_t *tvb, guint offset, quic_cipher *cipher,
-                           int pn_cipher_algo, guint64 *pkn)
+/**
+ * Given a header protection cipher, a buffer and the packet number offset,
+ * return the unmasked first byte and packet number.
+ */
+static gboolean
+quic_decrypt_header(tvbuff_t *tvb, guint pn_offset, gcry_cipher_hd_t hp_cipher, int hp_cipher_algo,
+                    guint8 *first_byte, guint32 *pn)
 {
-    guint32 pkt_pkn;
-    guint   pkn_len;
-    guint8 *pkn_bytes = (guint8 *)&pkt_pkn;
-    gcry_cipher_hd_t h;
-    if (!cipher || !(h = cipher->pn_cipher)) {
+#ifdef HAVE_LIBGCRYPT_AEAD
+    gcry_cipher_hd_t h = hp_cipher;
+    if (!hp_cipher) {
         // need to know the cipher.
-        return 0;
+        return FALSE;
     }
 
-    tvb_memcpy(tvb, pkn_bytes, offset, sizeof(pkt_pkn));
-
-    // Both AES-CTR and ChaCha20 use 16 octets as sample length.
-    // https://tools.ietf.org/html/draft-ietf-quic-tls-13#section-5.3
-    const guint sample_length = 16;
-    guint sample_offset = offset + 4;
+    // Sample is always 16 bytes and starts after PKN (assuming length 4).
+    // https://tools.ietf.org/html/draft-ietf-quic-tls-17#section-5.4.2
     guint8 sample[16];
-    if (sample_offset + sample_length > tvb_reported_length(tvb)) {
-        sample_offset = tvb_reported_length(tvb) - sample_length;
-    }
-    tvb_memcpy(tvb, sample, sample_offset, sample_length);
+    tvb_memcpy(tvb, sample, pn_offset + 4, 16);
 
-    switch (pn_cipher_algo) {
+    guint8  mask[5] = { 0 };
+    switch (hp_cipher_algo) {
     case GCRY_CIPHER_AES128:
     case GCRY_CIPHER_AES256:
-        if (gcry_cipher_setctr(h, sample, sample_length)) {
-            return 0;
+        /* Encrypt in-place with AES-ECB and extract the mask. */
+        if (gcry_cipher_encrypt(h, sample, sizeof(sample), NULL, 0)) {
+            return FALSE;
         }
+        memcpy(mask, sample, sizeof(mask));
         break;
 #ifdef HAVE_LIBGCRYPT_CHACHA20
     case GCRY_CIPHER_CHACHA20:
         /* If Gcrypt receives a 16 byte IV, it will assume the buffer to be
          * counter || nonce (in little endian), as desired. */
         if (gcry_cipher_setiv(h, sample, 16)) {
-            return 0;
+            return FALSE;
+        }
+        /* Apply ChaCha20, encrypt in-place five zero bytes. */
+        if (gcry_cipher_encrypt(h, mask, sizeof(mask), NULL, 0)) {
+            return FALSE;
         }
         break;
 #endif /* HAVE_LIBGCRYPT_CHACHA20 */
     default:
-        return 0;
+        return FALSE;
     }
 
-    /* in-place decrypt. */
-    if (gcry_cipher_decrypt(h, pkn_bytes, 4, NULL, 0)) {
-        return 0;
+    // https://tools.ietf.org/html/draft-ietf-quic-tls-17#section-5.4.1
+    guint8 packet0 = tvb_get_guint8(tvb, 0);
+    if ((packet0 & 0x80) == 0x80) {
+        // Long header: 4 bits masked
+        packet0 ^= mask[0] & 0x0f;
+    } else {
+        // Short header: 5 bits masked
+        packet0 ^= mask[0] & 0x1f;
     }
+    guint pkn_len = (packet0 & 0x03) + 1;
 
-    // | First octet pattern | Encoded Length | Bits Present |
-    // | 0b0xxxxxxx          | 1 octet        | 7            |
-    // | 0b10xxxxxx          | 2              | 14           |
-    // | 0b11xxxxxx          | 4              | 30           |
-    switch (pkn_bytes[0] >> 6) {
-    default:
-        pkn_len = 1;
-        break;
-    case 2:
-        pkn_len = 2;
-        pkn_bytes[0] &= 0x3f;
-        break;
-    case 3:
-        pkn_len = 4;
-        pkn_bytes[0] &= 0x3f;
-        break;
+    guint8 pkn_bytes[4];
+    tvb_memcpy(tvb, pkn_bytes, pn_offset, pkn_len);
+    guint32 pkt_pkn = 0;
+    for (guint i = 0; i < pkn_len; i++) {
+        pkt_pkn |= (pkn_bytes[i] ^ mask[1 + i]) << (8 * (pkn_len - 1 - i));
     }
-    *pkn = g_htonl(pkt_pkn) >> (8 * (4 - pkn_len));
-    return pkn_len;
-}
-
-static void
-quic_encode_packet_number(guint8 *output, guint32 pkn, guint pkn_len)
-{
-    switch (pkn_len) {
-    default:
-        output[0] = (guint8)pkn;
-        break;
-    case 2:
-        phton16(output, (guint16)pkn);
-        output[0] |= 0x80;
-        break;
-    case 4:
-        phton32(output, pkn);
-        output[0] |= 0xc0;
-        break;
-    }
-}
-#else /* !HAVE_LIBGCRYPT_AEAD */
-static inline guint
-quic_decrypt_packet_number(tvbuff_t *tvb _U_, guint offset _U_, quic_cipher *cipher _U_,
-                           int pn_cipher_algo _U_, guint64 *pkn _U_)
-{
-    return 0;
-}
+    *first_byte = packet0;
+    *pn = pkt_pkn;
+    return TRUE;
+#else
+    (void)tvb;
+    (void)pn_offset;
+    (void)hp_cipher;
+    (void)hp_cipher_algo;
+    (void)first_byte;
+    (void)pn;
+    return FALSE;
 #endif /* !HAVE_LIBGCRYPT_AEAD */
+}
 
 /**
  * Calculate the full packet number and store it for later use.
@@ -577,16 +537,21 @@ static guint32
 dissect_quic_packet_number(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint offset,
                            quic_info_data_t *quic_info, quic_packet_info_t *quic_packet,
                            gboolean from_server,
-                           quic_cipher *cipher, int pn_cipher_algo, guint64 *pkn_out)
+                           gcry_cipher_hd_t hp_cipher, int hp_cipher_algo,
+                           guint8 *first_byte, guint64 *pkn_out)
 {
     proto_item *ti;
-    guint       pkn_len;
-    guint64     pkn;
+    guint       pkn_len = 0;
+    guint64     pkn = 0;
 
     /* Try to decrypt on the first pass, reuse results on the second pass. */
     if (!PINFO_FD_VISITED(pinfo)) {
-        pkn_len = quic_decrypt_packet_number(tvb, offset, cipher, pn_cipher_algo, &pkn);
-        quic_packet->pkn_len = pkn_len;
+        guint32 pkn32 = 0;
+        if (quic_decrypt_header(tvb, offset, hp_cipher, hp_cipher_algo, first_byte, &pkn32)) {
+            pkn_len = (*first_byte & 3) + 1;
+            pkn = pkn32;
+            quic_packet->pkn_len = pkn_len;
+        }
     } else {
         pkn_len = quic_packet->pkn_len;
         pkn = quic_packet->packet_number & ((1UL << (8 * pkn_len)) - 1);
@@ -927,13 +892,8 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
     ti_ft = proto_tree_add_item(quic_tree, hf_quic_frame, tvb, offset, 1, ENC_NA);
     ft_tree = proto_item_add_subtree(ti_ft, ett_quic_ft);
 
-    if (is_quic_draft_max(quic_info->version, 14)) {
-        ti_ftflags = proto_tree_add_item_ret_uint(ft_tree, hf_quic_frame_type_draft14, tvb, offset, 1, ENC_NA, &frame_type);
-        proto_item_set_text(ti_ft, "%s", rval_to_str(frame_type, quic_frame_type_draft14_vals, "Unknown"));
-    } else {
-        ti_ftflags = proto_tree_add_item_ret_uint(ft_tree, hf_quic_frame_type, tvb, offset, 1, ENC_NA, &frame_type);
-        proto_item_set_text(ti_ft, "%s", rval_to_str(frame_type, quic_frame_type_vals, "Unknown"));
-    }
+    ti_ftflags = proto_tree_add_item_ret_uint(ft_tree, hf_quic_frame_type, tvb, offset, 1, ENC_NA, &frame_type);
+    proto_item_set_text(ti_ft, "%s", rval_to_str(frame_type, quic_frame_type_vals, "Unknown"));
     offset += 1;
 
     switch(frame_type){
@@ -951,7 +911,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             offset += pad_len - 1;
         }
         break;
-        case FT_RST_STREAM:{
+        case FT_RESET_STREAM:{
             guint64 stream_id;
             guint32 error_code, len_streamid = 0, len_finaloffset = 0;
 
@@ -969,24 +929,31 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             proto_item_append_text(ti_ft, " Stream ID: %" G_GINT64_MODIFIER "u, Error code: %s", stream_id, val_to_str(error_code, quic_application_error_code_vals, "0x%04x"));
         }
         break;
-        case FT_CONNECTION_CLOSE:{
+        case FT_CONNECTION_CLOSE_TPT:
+        case FT_CONNECTION_CLOSE_APP:{
             guint32 len_reasonphrase, len_frametype, error_code;
             guint64 len_reason = 0;
             const char *tls_alert = NULL;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", CC");
 
-            proto_tree_add_item_ret_uint(ft_tree, hf_quic_frame_type_cc_error_code, tvb, offset, 2, ENC_BIG_ENDIAN, &error_code);
-            if ((error_code & 0xff00) == 0x0100) {  // CRYPTO_ERROR
-                tls_alert = try_val_to_str(error_code & 0xff, ssl_31_alert_description);
-                if (tls_alert) {
-                    proto_tree_add_item(ft_tree, hf_quic_frame_type_cc_error_code_tls_alert, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+            if (frame_type == FT_CONNECTION_CLOSE_TPT) {
+                proto_tree_add_item_ret_uint(ft_tree, hf_quic_frame_type_cc_error_code, tvb, offset, 2, ENC_BIG_ENDIAN, &error_code);
+                if ((error_code & 0xff00) == 0x0100) {  // CRYPTO_ERROR
+                    tls_alert = try_val_to_str(error_code & 0xff, ssl_31_alert_description);
+                    if (tls_alert) {
+                        proto_tree_add_item(ft_tree, hf_quic_frame_type_cc_error_code_tls_alert, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+                    }
                 }
-            }
-            offset += 2;
+                offset += 2;
 
-            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_cc_frame_type, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_frametype);
-            offset += len_frametype;
+                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_cc_frame_type, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_frametype);
+                offset += len_frametype;
+            } else { /* FT_CONNECTION_CLOSE_APP) */
+                proto_tree_add_item_ret_uint(ft_tree, hf_quic_frame_type_cc_error_code_app, tvb, offset, 2, ENC_BIG_ENDIAN, &error_code);
+                offset += 2;
+            }
+
 
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_cc_reason_phrase_length, tvb, offset, -1, ENC_VARINT_QUIC, &len_reason, &len_reasonphrase);
             offset += len_reasonphrase;
@@ -998,23 +965,6 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             if (tls_alert) {
                 proto_item_append_text(ti_ft, " (%s)", tls_alert);
             }
-        }
-        break;
-        case FT_APPLICATION_CLOSE:{
-            guint32 len_reasonphrase, error_code;
-            guint64 len_reason;
-
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", AC");
-
-            proto_tree_add_item_ret_uint(ft_tree, hf_quic_frame_type_ac_error_code, tvb, offset, 2, ENC_BIG_ENDIAN, &error_code);
-            offset += 2;
-
-            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ac_reason_phrase_length, tvb, offset, -1, ENC_VARINT_QUIC, &len_reason, &len_reasonphrase);
-            offset += len_reasonphrase;
-            proto_tree_add_item(ft_tree, hf_quic_frame_type_ac_reason_phrase, tvb, offset, (guint32)len_reason, ENC_ASCII|ENC_NA);
-            offset += (guint32)len_reason;
-
-            proto_item_append_text(ti_ft, " Error code: %s", val_to_str(error_code, quic_application_error_code_vals, "0x%04x"));
         }
         break;
         case FT_MAX_DATA:{
@@ -1038,12 +988,13 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             offset += len_maximumstreamdata;
         }
         break;
-        case FT_MAX_STREAM_ID:{
+        case FT_MAX_STREAMS_BIDI:
+        case FT_MAX_STREAMS_UNI:{
             guint32 len_streamid;
 
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", MSI");
+            col_append_fstr(pinfo->cinfo, COL_INFO, ", MS");
 
-            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_msi_stream_id, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_streamid);
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ms_max_streams, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_streamid);
             offset += len_streamid;
         }
         break;
@@ -1051,33 +1002,34 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             col_append_fstr(pinfo->cinfo, COL_INFO, ", PING");
         }
         break;
-        case FT_BLOCKED:{
+        case FT_DATA_BLOCKED:{
             guint32 len_offset;
 
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", B");
+            col_append_fstr(pinfo->cinfo, COL_INFO, ", DB");
 
-            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_blocked_offset, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_offset);
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_db_stream_data_limit, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_offset);
             offset += len_offset;
         }
         break;
-        case FT_STREAM_BLOCKED:{
+        case FT_STREAM_DATA_BLOCKED:{
             guint32 len_streamid, len_offset;
+
+            col_append_fstr(pinfo->cinfo, COL_INFO, ", SDB");
+
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_sdb_stream_id, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_streamid);
+            offset += len_streamid;
+
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_sdb_stream_data_limit, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_offset);
+            offset += len_offset;
+        }
+        break;
+        case FT_STREAMS_BLOCKED_BIDI:
+        case FT_STREAMS_BLOCKED_UNI:{
+            guint32 len_streamid;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", SB");
 
-            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_sb_stream_id, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_streamid);
-            offset += len_streamid;
-
-            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_sb_offset, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_offset);
-            offset += len_offset;
-        }
-        break;
-        case FT_STREAM_ID_BLOCKED:{
-            guint32 len_streamid;
-
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", SIB");
-
-            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_sib_stream_id, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_streamid);
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_sb_stream_limit, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_streamid);
             offset += len_streamid;
         }
         break;
@@ -1088,10 +1040,9 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", NCI");
 
-            if (is_quic_draft_max(quic_info->version, 14)) {
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_nci_sequence, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_sequence);
-                offset += len_sequence;
-            }
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_nci_sequence, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_sequence);
+            offset += len_sequence;
+
             ti = proto_tree_add_item_ret_uint(ft_tree, hf_quic_frame_type_nci_connection_id_length, tvb, offset, 1, ENC_BIG_ENDIAN, &nci_length);
             offset++;
 
@@ -1109,11 +1060,6 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
                 quic_connection_add_cid(quic_info, &cid, from_server);
             }
             offset += nci_length;
-
-            if (!is_quic_draft_max(quic_info->version, 14)) {
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_nci_sequence, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_sequence);
-                offset += len_sequence;
-            }
 
             proto_tree_add_item(ft_tree, hf_quic_frame_type_nci_stateless_reset_token, tvb, offset, 16, ENC_NA);
             offset += 16;
@@ -1134,119 +1080,42 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_RETIRE_CONNECTION_ID:{
-            if (is_quic_draft_max(quic_info->version, 14)) { /* FT_ACK_OLD */
-                guint64 ack_block_count;
-                guint32 lenvar;
-
-                col_append_fstr(pinfo->cinfo, COL_INFO, ", ACK");
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_largest_acknowledged, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_delay, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_block_count, tvb, offset, -1, ENC_VARINT_QUIC, &ack_block_count, &lenvar);
-                offset += lenvar;
-
-                /* ACK Block */
-                /* First ACK Block Length */
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_fab, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                /* Repeated "Ack Block Count" */
-                while(ack_block_count){
-
-                    /* Gap To Next Block */
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_gap, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                    offset += lenvar;
-
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_block, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                    offset += lenvar;
-
-                    ack_block_count--;
-                }
-            } else {
-                guint32 len_sequence;
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_rci_sequence, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_sequence);
-                offset += len_sequence;
-            }
+            guint32 len_sequence;
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_rci_sequence, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_sequence);
+            offset += len_sequence;
         }
         break;
         case FT_ACK:{
-            if (is_quic_draft_max(quic_info->version, 14)) { /* FT_ACK_ECN_OLD */
-                guint64 ack_block_count;
-                guint32 lenvar;
+            guint64 ack_block_count;
+            guint32 lenvar;
 
-                col_append_fstr(pinfo->cinfo, COL_INFO, ", AE");
+            col_append_fstr(pinfo->cinfo, COL_INFO, ", ACK");
 
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_largest_acknowledged, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_largest_acknowledged, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+            offset += lenvar;
+
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_delay, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+            offset += lenvar;
+
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_block_count, tvb, offset, -1, ENC_VARINT_QUIC, &ack_block_count, &lenvar);
+            offset += lenvar;
+
+            /* ACK Block */
+            /* First ACK Block Length */
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_fab, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+            offset += lenvar;
+
+            /* Repeated "Ack Block Count" */
+            while(ack_block_count){
+
+                /* Gap To Next Block */
+                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_gap, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
                 offset += lenvar;
 
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_ack_delay, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_block, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
                 offset += lenvar;
 
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_ect0_count, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_ect1_count, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_ecn_ce_count, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_ack_block_count, tvb, offset, -1, ENC_VARINT_QUIC, &ack_block_count, &lenvar);
-                offset += lenvar;
-
-                /* ACK Block */
-                /* First ACK Block Length */
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_fab, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                /* Repeated "Ack Block Count" */
-                while(ack_block_count){
-
-                    /* Gap To Next Block */
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_gap, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                    offset += lenvar;
-
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ae_ack_block, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                    offset += lenvar;
-
-                    ack_block_count--;
-                }
-            } else {
-                guint64 ack_block_count;
-                guint32 lenvar;
-
-                col_append_fstr(pinfo->cinfo, COL_INFO, ", ACK");
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_largest_acknowledged, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_delay, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_block_count, tvb, offset, -1, ENC_VARINT_QUIC, &ack_block_count, &lenvar);
-                offset += lenvar;
-
-                /* ACK Block */
-                /* First ACK Block Length */
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_fab, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-
-                /* Repeated "Ack Block Count" */
-                while(ack_block_count){
-
-                    /* Gap To Next Block */
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_gap, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                    offset += lenvar;
-
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_frame_type_ack_ack_block, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                    offset += lenvar;
-
-                    ack_block_count--;
-                }
+                ack_block_count--;
             }
         }
         break;
@@ -1264,14 +1133,14 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             offset += 8;
         }
         break;
-        case FT_STREAM_10:
-        case FT_STREAM_11:
-        case FT_STREAM_12:
-        case FT_STREAM_13:
-        case FT_STREAM_14:
-        case FT_STREAM_15:
-        case FT_STREAM_16:
-        case FT_STREAM_17: {
+        case FT_STREAM_8:
+        case FT_STREAM_9:
+        case FT_STREAM_A:
+        case FT_STREAM_B:
+        case FT_STREAM_C:
+        case FT_STREAM_D:
+        case FT_STREAM_E:
+        case FT_STREAM_F: {
             guint64 stream_id, length;
             guint32 lenvar;
 
@@ -1419,7 +1288,8 @@ quic_cipher_init(guint32 version, quic_cipher *cipher, int hash_algo, guint8 key
  * https://tools.ietf.org/html/draft-ietf-quic-transport-13#section-4.8
  */
 static void
-quic_decrypt_message(quic_cipher *cipher, tvbuff_t *head, guint header_length, guint pkn_len, guint64 packet_number, quic_decrypt_result_t *result)
+quic_decrypt_message(quic_cipher *cipher, tvbuff_t *head, guint header_length,
+                     guint8 first_byte, guint pkn_len, guint64 packet_number, quic_decrypt_result_t *result)
 {
     gcry_error_t    err;
     guint8         *header;
@@ -1433,9 +1303,12 @@ quic_decrypt_message(quic_cipher *cipher, tvbuff_t *head, guint header_length, g
     DISSECTOR_ASSERT(cipher->pp_cipher != NULL);
     DISSECTOR_ASSERT(pkn_len < header_length);
     DISSECTOR_ASSERT(1 <= pkn_len && pkn_len <= 4);
-    // copy header, but replace encrypted PKN by plaintext PKN.
+    // copy header, but replace encrypted first byte and PKN by plaintext.
     header = (guint8 *)tvb_memdup(wmem_packet_scope(), head, 0, header_length);
-    quic_encode_packet_number(header + header_length - pkn_len, (guint32)packet_number, pkn_len);
+    header[0] = first_byte;
+    for (guint i = 0; i < pkn_len; i++) {
+        header[header_length - 1 - i] = (guint8)(packet_number >> (8 * i));
+    }
 
     /* Input is "header || ciphertext (buffer) || auth tag (16 bytes)" */
     buffer_length = tvb_captured_length_remaining(head, header_length + 16);
@@ -1487,7 +1360,7 @@ quic_hkdf_expand_label(int hash_algo, guint8 *secret, guint secret_len, const ch
 {
     const StringInfo secret_si = { secret, secret_len };
     guchar *out_mem = NULL;
-    if (tls13_hkdf_expand_label(hash_algo, &secret_si, "quic ", label, out_len, &out_mem)) {
+    if (tls13_hkdf_expand_label(hash_algo, &secret_si, "tls13 ", label, out_len, &out_mem)) {
         memcpy(out, out_mem, out_len);
         wmem_free(NULL, out_mem);
         return TRUE;
@@ -1508,9 +1381,9 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
                             const gchar **error)
 {
     /*
-     * https://tools.ietf.org/html/draft-ietf-quic-tls-14#section-5.1.1
+     * https://tools.ietf.org/html/draft-ietf-quic-tls-17#section-5.2
      *
-     * initial_salt = 0x9c108f98520a5c5c32968e950e8a2c5fe06d6c38
+     * initial_salt = 0xef4fb0abb47470c41befcf8031334fae485e09a0
      * initial_secret = HKDF-Extract(initial_salt, client_dst_connection_id)
      *
      * client_initial_secret = HKDF-Expand-Label(initial_secret,
@@ -1521,8 +1394,8 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
      * Hash for handshake packets is SHA-256 (output size 32).
      */
     static const guint8 handshake_salt[20] = {
-        0x9c, 0x10, 0x8f, 0x98, 0x52, 0x0a, 0x5c, 0x5c, 0x32, 0x96,
-        0x8e, 0x95, 0x0e, 0x8a, 0x2c, 0x5f, 0xe0, 0x6d, 0x6c, 0x38
+        0xef, 0x4f, 0xb0, 0xab, 0xb4, 0x74, 0x70, 0xc4, 0x1b, 0xef,
+        0xcf, 0x80, 0x31, 0x33, 0x4f, 0xae, 0x48, 0x5e, 0x09, 0xa0
     };
     gcry_error_t    err;
     guint8          secret[HASH_SHA2_256_LENGTH];
@@ -1552,19 +1425,19 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
 
 /**
  * Maps a Packet Protection cipher to the Packet Number protection cipher.
- * See https://tools.ietf.org/html/draft-ietf-quic-tls-14#section-5.3
+ * See https://tools.ietf.org/html/draft-ietf-quic-tls-17#section-5.4.3
  */
 static gboolean
-quic_get_pn_cipher_algo(int cipher_algo, int *pn_cipher_mode)
+quic_get_pn_cipher_algo(int cipher_algo, int *hp_cipher_mode)
 {
     switch (cipher_algo) {
     case GCRY_CIPHER_AES128:
     case GCRY_CIPHER_AES256:
-        *pn_cipher_mode = GCRY_CIPHER_MODE_CTR;
+        *hp_cipher_mode = GCRY_CIPHER_MODE_ECB;
         return TRUE;
 #ifdef HAVE_LIBGCRYPT_CHACHA20
     case GCRY_CIPHER_CHACHA20:
-        *pn_cipher_mode = 0;
+        *hp_cipher_mode = 0;
         return TRUE;
 #endif /* HAVE_LIBGCRYPT_CHACHA20 */
     default:
@@ -1583,13 +1456,13 @@ quic_cipher_prepare(guint32 version, quic_cipher *cipher, int hash_algo, int cip
     /* Clear previous state (if any). */
     quic_cipher_reset(cipher);
 
-    int pn_cipher_mode;
-    if (!quic_get_pn_cipher_algo(cipher_algo, &pn_cipher_mode)) {
+    int hp_cipher_mode;
+    if (!quic_get_pn_cipher_algo(cipher_algo, &hp_cipher_mode)) {
         *error = "Unsupported cipher algorithm";
         return FALSE;
     }
 
-    if (gcry_cipher_open(&cipher->pn_cipher, cipher_algo, pn_cipher_mode, 0) ||
+    if (gcry_cipher_open(&cipher->hp_cipher, cipher_algo, hp_cipher_mode, 0) ||
         gcry_cipher_open(&cipher->pp_cipher, cipher_algo, cipher_mode, 0)) {
         quic_cipher_reset(cipher);
         *error = "Failed to create ciphers";
@@ -1718,20 +1591,20 @@ static gboolean
 quic_cipher_init(guint32 version _U_, quic_cipher *cipher, int hash_algo, guint8 key_length, guint8 *secret)
 {
     guchar      write_key[256/8];   /* Maximum key size is for AES256 cipher. */
-    guchar      pn_key[256/8];
+    guchar      hp_key[256/8];
     guint       hash_len = gcry_md_get_algo_dlen(hash_algo);
 
     if (key_length > sizeof(write_key)) {
         return FALSE;
     }
 
-    if (!quic_hkdf_expand_label(hash_algo, secret, hash_len, "key", write_key, key_length) ||
-        !quic_hkdf_expand_label(hash_algo, secret, hash_len, "iv", cipher->pp_iv, sizeof(cipher->pp_iv)) ||
-        !quic_hkdf_expand_label(hash_algo, secret, hash_len, "pn", pn_key, key_length)) {
+    if (!quic_hkdf_expand_label(hash_algo, secret, hash_len, "quic key", write_key, key_length) ||
+        !quic_hkdf_expand_label(hash_algo, secret, hash_len, "quic iv", cipher->pp_iv, sizeof(cipher->pp_iv)) ||
+        !quic_hkdf_expand_label(hash_algo, secret, hash_len, "quic hp", hp_key, key_length)) {
         return FALSE;
     }
 
-    return gcry_cipher_setkey(cipher->pn_cipher, pn_key, key_length) == 0 &&
+    return gcry_cipher_setkey(cipher->hp_cipher, hp_key, key_length) == 0 &&
            gcry_cipher_setkey(cipher->pp_cipher, write_key, key_length) == 0;
 }
 
@@ -1752,7 +1625,8 @@ quic_update_key(int hash_algo, quic_pp_state_t *pp_state, gboolean from_client)
  * See also "PROTECTED PAYLOAD DECRYPTION" comment on top of this file.
  */
 static quic_cipher *
-quic_get_pp_cipher(packet_info *pinfo, gboolean key_phase, quic_info_data_t *quic_info, gboolean from_server)
+quic_get_pp_cipher(packet_info *pinfo, gboolean key_phase, quic_info_data_t *quic_info,
+                   gboolean from_server, gcry_cipher_hd_t *hp_cipher)
 {
     guint32     version = quic_info->version;
     const char *error = NULL;
@@ -1793,6 +1667,9 @@ quic_get_pp_cipher(packet_info *pinfo, gboolean key_phase, quic_info_data_t *qui
         }
         quic_update_key(quic_info->hash_algo, pp_state, !from_server);
     }
+
+    // Header Protect cipher does not change after Key Update.
+    *hp_cipher = pp_state->cipher[0].hp_cipher;
 
     /*
      * If the key phase changed, try to decrypt the packet using the new cipher.
@@ -1846,7 +1723,7 @@ quic_get_pp_cipher(packet_info *pinfo, gboolean key_phase, quic_info_data_t *qui
 static void
 quic_process_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *ti, guint offset,
                      quic_info_data_t *quic_info, quic_packet_info_t *quic_packet, gboolean from_server,
-                     quic_cipher *cipher, guint pkn_len)
+                     quic_cipher *cipher, guint8 first_byte, guint pkn_len)
 {
     quic_decrypt_result_t *decryption = &quic_packet->decryption;
 
@@ -1856,7 +1733,7 @@ quic_process_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_
      */
     if (!PINFO_FD_VISITED(pinfo)) {
         if (!quic_packet->decryption.error && cipher && cipher->pp_cipher) {
-            quic_decrypt_message(cipher, tvb, offset, pkn_len, quic_packet->packet_number, &quic_packet->decryption);
+            quic_decrypt_message(cipher, tvb, offset, first_byte, pkn_len, quic_packet->packet_number, &quic_packet->decryption);
         }
     }
 
@@ -1881,7 +1758,7 @@ quic_process_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_
 static void
 quic_process_payload(tvbuff_t *tvb _U_, packet_info *pinfo, proto_tree *tree _U_, proto_item *ti, guint offset _U_,
                      quic_info_data_t *quic_info _U_, quic_packet_info_t *quic_packet _U_, gboolean from_server _U_,
-                     quic_cipher *cipher _U_, guint pkn_len _U_)
+                     quic_cipher *cipher _U_, guint8 first_byte _U_, guint pkn_len _U_)
 {
     expert_add_info_format(pinfo, ti, &ei_quic_decryption_failed, "Libgcrypt >= 1.6.0 is required for QUIC decryption");
 }
@@ -1967,8 +1844,6 @@ dissect_quic_retry_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 {
     guint       offset = 0;
     guint32     version;
-    guint32     len_payload_length;
-    guint64     payload_length;
     quic_cid_t  dcid = {.len=0}, scid = {.len=0};
     guint32     odcil = 0;
     guint       retry_token_len;
@@ -1979,18 +1854,9 @@ dissect_quic_retry_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 
     offset = dissect_quic_long_header_common(tvb, pinfo, quic_tree, offset, quic_packet, &version, &dcid, &scid);
 
-    if (is_quic_draft_max(version, 13)) {
-        proto_tree_add_item_ret_varint(quic_tree, hf_quic_length, tvb, offset, -1, ENC_VARINT_QUIC, &payload_length, &len_payload_length);
-        offset += len_payload_length;
-        // PKN is encrypted, but who cares about draft -13 anyway.
-        proto_tree_add_item(quic_tree, hf_quic_packet_number, tvb, offset, 1, ENC_NA);
-        offset += 1;
-        proto_tree_add_item_ret_uint(quic_tree, hf_quic_odcil_draft13, tvb, offset, 1, ENC_NA, &odcil);
-    } else {
-        proto_tree_add_item_ret_uint(quic_tree, hf_quic_odcil, tvb, offset, 1, ENC_NA, &odcil);
-        if (odcil) {
-            odcil += 3;
-        }
+    proto_tree_add_item_ret_uint(quic_tree, hf_quic_odcil, tvb, offset, 1, ENC_NA, &odcil);
+    if (odcil) {
+        odcil += 3;
     }
     offset += 1;
     proto_tree_add_item(quic_tree, hf_quic_odcid, tvb, offset, odcil, ENC_NA);
@@ -2014,6 +1880,7 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     guint64 token_length;
     guint32 len_payload_length;
     guint64 payload_length;
+    guint8  first_byte = 0;
     guint32 pkn_len;
     guint64 pkn;
     quic_info_data_t *conn = dgram_info->conn;
@@ -2045,6 +1912,9 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     offset += len_payload_length;
 
 #ifdef HAVE_LIBGCRYPT_AEAD
+    // TODO the following code is already necessary to unmask the first byte. It
+    //      should probably moved above, but then DCID needs to be extracted
+    //      first. The version also needs to be checked.
     if (conn) {
         if (long_packet_type == QUIC_LPT_INITIAL) {
             cipher = !from_server ? &conn->client_initial_cipher : &conn->server_initial_cipher;
@@ -2061,7 +1931,7 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
              * ID from the *very first* Client Initial packet. */
             quic_create_initial_decoders(&dcid, &error, conn);
         } else if (long_packet_type == QUIC_LPT_HANDSHAKE) {
-            if (!cipher->pn_cipher) {
+            if (!cipher->hp_cipher) {
                 quic_create_decoders(pinfo, version, conn, cipher, from_server, TLS_SECRET_HANDSHAKE, &error);
             }
         }
@@ -2077,7 +1947,7 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     }
 
     pkn_len = dissect_quic_packet_number(tvb, pinfo, quic_tree, offset, conn, quic_packet, from_server,
-                                         cipher, GCRY_CIPHER_AES128, &pkn);
+                                         cipher ? cipher->hp_cipher : NULL, GCRY_CIPHER_AES128, &first_byte, &pkn);
     if (pkn_len == 0) {
         return offset;
     }
@@ -2089,7 +1959,7 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
 
     if (conn) {
         quic_process_payload(tvb, pinfo, quic_tree, ti, offset,
-                             conn, quic_packet, from_server, cipher, pkn_len);
+                             conn, quic_packet, from_server, cipher, first_byte, pkn_len);
     }
     offset += tvb_reported_length_remaining(tvb, offset);
 
@@ -2102,13 +1972,15 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 {
     guint offset = 0;
     quic_cid_t dcid = {.len=0};
-    guint32 pkn_len;
+    guint8  first_byte = 0;
+    guint32 pkn_len = 0;
     guint64 pkn;
     proto_item *ti;
     gboolean    key_phase = FALSE;
     quic_cipher *cipher = NULL;
     quic_info_data_t *conn = dgram_info->conn;
     const gboolean from_server = dgram_info->from_server;
+    gcry_cipher_hd_t hp_cipher = NULL;
 
     proto_tree_add_item_ret_boolean(quic_tree, hf_quic_short_kp_flag, tvb, offset, 1, ENC_NA, &key_phase);
     proto_tree_add_item(quic_tree, hf_quic_short_reserved, tvb, offset, 1, ENC_NA);
@@ -2130,7 +2002,7 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 
 #ifdef HAVE_LIBGCRYPT_AEAD
     if (!PINFO_FD_VISITED(pinfo) && conn) {
-        cipher = quic_get_pp_cipher(pinfo, key_phase, conn, from_server);
+        cipher = quic_get_pp_cipher(pinfo, key_phase, conn, from_server, &hp_cipher);
     }
 #endif /* !HAVE_LIBGCRYPT_AEAD */
     if (!conn || conn->skip_decryption) {
@@ -2139,7 +2011,7 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 
     /* Packet Number */
     pkn_len = dissect_quic_packet_number(tvb, pinfo, quic_tree, offset, conn, quic_packet, from_server,
-                                         cipher, conn ? conn->cipher_algo : 0, &pkn);
+                                         hp_cipher, conn->cipher_algo, &first_byte, &pkn);
     if (pkn_len == 0) {
         return offset;
     }
@@ -2152,7 +2024,7 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 
     if (conn) {
         quic_process_payload(tvb, pinfo, quic_tree, ti, offset,
-                             conn, quic_packet, from_server, cipher, pkn_len);
+                             conn, quic_packet, from_server, cipher, first_byte, pkn_len);
     }
     offset += tvb_reported_length_remaining(tvb, offset);
 
@@ -2192,7 +2064,7 @@ quic_get_message_tvb(tvbuff_t *tvb, const guint offset)
     guint64 token_length;
     guint64 payload_length;
     guint8 packet_type = tvb_get_guint8(tvb, offset);
-    guint8 long_packet_type = packet_type & 0x7f;
+    guint8 long_packet_type = (packet_type & 0x30) >> 4;
     // Retry and VN packets cannot be coalesced (clarified in draft -14).
     if ((packet_type & 0x80) && long_packet_type != QUIC_LPT_RETRY) {
         // long header form, check version
@@ -2242,7 +2114,7 @@ quic_extract_header(tvbuff_t *tvb, guint8 *long_packet_type, guint32 *version,
     gboolean is_long_header = packet_type & 0x80;
     if (is_long_header) {
         // long header form
-        *long_packet_type = packet_type & 0x7f;
+        *long_packet_type = (packet_type & 0x30) >> 4;
     } else {
         // short header form, store dummy value that is not a long packet type.
         *long_packet_type = QUIC_SHORT_PACKET;
@@ -2484,7 +2356,7 @@ proto_register_quic(void)
 
         { &hf_quic_long_packet_type,
           { "Packet Type", "quic.long.packet_type",
-            FT_UINT8, BASE_DEC, VALS(quic_long_packet_type_vals), 0x7F,
+            FT_UINT8, BASE_DEC, VALS(quic_long_packet_type_vals), 0x30,
             "Long Header Packet Type", HFILL }
         },
         { &hf_quic_dcid,
@@ -2575,11 +2447,6 @@ proto_register_quic(void)
             "Remaining payload in a packet (possibly PKN followed by encrypted payload)", HFILL }
         },
 
-        { &hf_quic_odcil_draft13,
-          { "Original Destination Connection ID Length", "quic.odcil_draft13",
-            FT_UINT8, BASE_DEC, NULL, 0x0,
-            NULL, HFILL }
-        },
         { &hf_quic_odcil,
           { "Original Destination Connection ID Length", "quic.odcil",
             FT_UINT8, BASE_DEC, VALS(quic_cid_len_vals), 0x0f,
@@ -2599,11 +2466,6 @@ proto_register_quic(void)
         { &hf_quic_frame,
           { "Frame", "quic.frame",
             FT_NONE, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
-        { &hf_quic_frame_type_draft14,
-          { "Frame Type", "quic.frame_type.draft14",
-            FT_UINT8, BASE_RANGE_STRING | BASE_HEX, RVALS(quic_frame_type_draft14_vals), 0x0,
             NULL, HFILL }
         },
         { &hf_quic_frame_type,
@@ -2720,6 +2582,11 @@ proto_register_quic(void)
               FT_UINT16, BASE_DEC|BASE_RANGE_STRING, RVALS(quic_transport_error_code_vals), 0x0,
               "Indicates the reason for closing this connection", HFILL }
         },
+        { &hf_quic_frame_type_cc_error_code_app,
+            { "Application Error code", "quic.frame_type.cc.error_code.app",
+              FT_UINT16, BASE_DEC, VALS(quic_application_error_code_vals), 0x0,
+              "Indicates the reason for closing this application", HFILL }
+        },
         { &hf_quic_frame_type_cc_error_code_tls_alert,
             { "TLS Alert Description", "quic.frame_type.cc.error_code.tls_alert",
               FT_UINT8, BASE_DEC, VALS(ssl_31_alert_description), 0x0,
@@ -2740,22 +2607,6 @@ proto_register_quic(void)
               FT_STRING, BASE_NONE, NULL, 0x0,
               "A human-readable explanation for why the connection was closed", HFILL }
         },
-        /* APPLICATION_CLOSE */
-        { &hf_quic_frame_type_ac_error_code,
-            { "Application Error code", "quic.frame_type.ac.error_code",
-              FT_UINT16, BASE_DEC, VALS(quic_application_error_code_vals), 0x0,
-              "Indicates the reason for closing this application", HFILL }
-        },
-        { &hf_quic_frame_type_ac_reason_phrase_length,
-            { "Reason phrase Length", "quic.frame_type.ac.reason_phrase.length",
-              FT_UINT64, BASE_DEC, NULL, 0x0,
-              "Specifying the length of the reason phrase", HFILL }
-        },
-        { &hf_quic_frame_type_ac_reason_phrase,
-            { "Reason phrase", "quic.frame_type.ac.reason_phrase",
-              FT_STRING, BASE_NONE, NULL, 0x0,
-              "A human-readable explanation for why the application was closed", HFILL }
-        },
         /* MAX_DATA */
         { &hf_quic_frame_type_md_maximum_data,
             { "Maximum Data", "quic.frame_type.md.maximum_data",
@@ -2773,34 +2624,34 @@ proto_register_quic(void)
               FT_UINT64, BASE_DEC, NULL, 0x0,
               "Indicating the maximum amount of data that can be sent on the identified stream, in units of octets", HFILL }
         },
-        /* MAX_STREAM_ID */
-        { &hf_quic_frame_type_msi_stream_id,
-            { "Stream ID", "quic.frame_type.msi.stream_id",
+        /* MAX_STREAMS */
+        { &hf_quic_frame_type_ms_max_streams,
+            { "Max Streams", "quic.frame_type.ms.max_streams",
               FT_UINT64, BASE_DEC, NULL, 0x0,
-              "ID of the maximum peer-initiated stream ID for the connection", HFILL }
+              "A count of the cumulative number of streams of the corresponding type that can be opened over the lifetime of the connection", HFILL }
         },
-        /* BLOCKED */
-        { &hf_quic_frame_type_blocked_offset,
-            { "Offset", "quic.frame_type.sb.offset",
+        /* DATA_BLOCKED */
+        { &hf_quic_frame_type_db_stream_data_limit,
+            { "Stream Data Limit", "quic.frame_type.sb.stream_data_limit",
               FT_UINT64, BASE_DEC, NULL, 0x0,
-              "Indicating the connection-level offset at which the blocking occurred", HFILL }
+              "Indicating the connection-level limit at which the blocking occurred", HFILL }
         },
-        /* STREAM_BLOCKED */
-        { &hf_quic_frame_type_sb_stream_id,
-            { "Stream ID", "quic.frame_type.sb.stream_id",
+        /* STREAM_DATA_BLOCKED */
+        { &hf_quic_frame_type_sdb_stream_id,
+            { "Stream ID", "quic.frame_type.sdb.stream_id",
               FT_UINT64, BASE_DEC, NULL, 0x0,
               "Indicating the stream which is flow control blocked", HFILL }
         },
-        { &hf_quic_frame_type_sb_offset,
-            { "Offset", "quic.frame_type.sb.offset",
+        { &hf_quic_frame_type_sdb_stream_data_limit,
+            { "Stream Data Limit", "quic.frame_type.sb.stream_data_limit",
               FT_UINT64, BASE_DEC, NULL, 0x0,
               "Indicating the offset of the stream at which the blocking occurred", HFILL }
         },
-        /* STREAM_ID_BLOCKED */
-        { &hf_quic_frame_type_sib_stream_id,
-            { "Stream ID", "quic.frame_type.sib.stream_id",
+        /* STREAMS_BLOCKED */
+        { &hf_quic_frame_type_sb_stream_limit,
+            { "Stream Limit", "quic.frame_type.sib.stream_limit",
               FT_UINT64, BASE_DEC, NULL, 0x0,
-              "Indicating the highest stream ID that the sender was permitted to open", HFILL }
+              "Indicating the stream limit at the time the frame was sent", HFILL }
         },
         /* NEW_CONNECTION_ID */
         { &hf_quic_frame_type_nci_sequence,

@@ -2809,12 +2809,24 @@ tvb_get_string_enc(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset,
 		strptr = tvb_get_string_unichar2(scope, tvb, offset, length, charset_table_cp1250);
 		break;
 
+	case ENC_WINDOWS_1251:
+		strptr = tvb_get_string_unichar2(scope, tvb, offset, length, charset_table_cp1251);
+		break;
+
 	case ENC_MAC_ROMAN:
 		strptr = tvb_get_string_unichar2(scope, tvb, offset, length, charset_table_mac_roman);
 		break;
 
 	case ENC_CP437:
 		strptr = tvb_get_string_unichar2(scope, tvb, offset, length, charset_table_cp437);
+		break;
+
+	case ENC_CP855:
+		strptr = tvb_get_string_unichar2(scope, tvb, offset, length, charset_table_cp855);
+		break;
+
+	case ENC_CP866:
+		strptr = tvb_get_string_unichar2(scope, tvb, offset, length, charset_table_cp866);
 		break;
 
 	case ENC_3GPP_TS_23_038_7BITS:
@@ -3703,6 +3715,73 @@ tvb_skip_guint8(tvbuff_t *tvb, int offset, const int maxlength, const guint8 ch)
 	}
 
 	return offset;
+}
+
+static ws_mempbrk_pattern pbrk_whitespace;
+
+int tvb_get_token_len(tvbuff_t *tvb, const gint offset, int len, gint *next_offset, const gboolean desegment)
+{
+	gint   eob_offset;
+	gint   eot_offset;
+	int    tokenlen;
+	guchar found_needle = 0;
+	static gboolean compiled = FALSE;
+
+	DISSECTOR_ASSERT(tvb && tvb->initialized);
+
+	if (len == -1) {
+		len = _tvb_captured_length_remaining(tvb, offset);
+		/* if offset is past the end of the tvbuff, len is now 0 */
+	}
+
+	eob_offset = offset + len;
+
+	if (!compiled) {
+		ws_mempbrk_compile(&pbrk_whitespace, " \r\n");
+		compiled = TRUE;
+	}
+
+	/*
+	* Look either for a space, CR, or LF.
+	*/
+	eot_offset = tvb_ws_mempbrk_pattern_guint8(tvb, offset, len, &pbrk_whitespace, &found_needle);
+	if (eot_offset == -1) {
+		/*
+		* No space, CR or LF - token is presumably continued in next packet.
+		*/
+		if (desegment) {
+			/*
+			* Tell our caller we saw no whitespace, so they can
+			* try to desegment and get the entire line
+			* into one tvbuff.
+			*/
+			return -1;
+		}
+		else {
+			/*
+			* Pretend the token runs to the end of the tvbuff.
+			*/
+			tokenlen = eob_offset - offset;
+			if (next_offset)
+				*next_offset = eob_offset;
+		}
+	}
+	else {
+		/*
+		* Find the number of bytes between the starting offset
+		* and the space, CR or LF.
+		*/
+		tokenlen = eot_offset - offset;
+
+		/*
+		* Return the offset of the character after the last
+		* character in the line, skipping over the last character
+		* in the line terminator.
+		*/
+		if (next_offset)
+			*next_offset = eot_offset + 1;
+	}
+	return tokenlen;
 }
 
 /*

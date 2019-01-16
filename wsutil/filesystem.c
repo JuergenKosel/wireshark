@@ -54,6 +54,7 @@
 #define ENV_CONFIG_PATH_VAR  "WIRESHARK_CONFIG_DIR"
 
 char *persconffile_dir = NULL;
+char *datafile_dir = NULL;
 char *persdatafile_dir = NULL;
 char *persconfprofile = NULL;
 
@@ -585,7 +586,7 @@ init_progfile_dir(const char *arg0
         if (getcwd(curdir, path_max) == NULL) {
             /*
              * It failed - give up, and just stick
-             * with DATAFILE_DIR.
+             * with DATA_DIR.
              */
             g_free(curdir);
             return g_strdup_printf("getcwd failed: %s\n",
@@ -770,7 +771,7 @@ get_progfile_dir(void)
  *
  * Otherwise, if the program was executed from the build directory, use the
  * directory in which the executable for this process resides. In all other
- * cases, use the DATAFILE_DIR value that was set at compile time.
+ * cases, use the DATA_DIR value that was set at compile time.
  *
  * XXX - if we ever make libwireshark a real library, used by multiple
  * applications (more than just TShark and versions of Wireshark with
@@ -796,8 +797,6 @@ get_progfile_dir(void)
 const char *
 get_datafile_dir(void)
 {
-    static const char *datafile_dir = NULL;
-
     if (datafile_dir != NULL)
         return datafile_dir;
 
@@ -817,13 +816,13 @@ get_datafile_dir(void)
         /*
          * Yes, we do; use that.
          */
-        datafile_dir = progfile_dir;
+        datafile_dir = g_strdup(progfile_dir);
     } else {
         /*
          * No, we don't.
          * Fall back on the default installation directory.
          */
-        datafile_dir = "C:\\Program Files\\Wireshark\\";
+        datafile_dir = g_strdup("C:\\Program Files\\Wireshark\\");
     }
 #else
 
@@ -863,9 +862,9 @@ get_datafile_dir(void)
          * directory during the build which also contains executables. A special
          * exception is macOS (when built with an app bundle).
          */
-        datafile_dir = progfile_dir;
+        datafile_dir = g_strdup(progfile_dir);
     } else {
-        datafile_dir = DATAFILE_DIR;
+        datafile_dir = g_strdup(DATA_DIR);
     }
 
 #endif
@@ -2210,6 +2209,8 @@ free_progdirs(void)
 {
     g_free(persconffile_dir);
     persconffile_dir = NULL;
+    g_free(datafile_dir);
+    datafile_dir = NULL;
     g_free(persdatafile_dir);
     persdatafile_dir = NULL;
     g_free(persconfprofile);

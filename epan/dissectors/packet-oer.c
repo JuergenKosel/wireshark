@@ -74,7 +74,8 @@ oer_tvb_new_subset_length(tvbuff_t *tvb, const gint backing_offset, const gint b
     return tvb_new_subset_length(tvb, backing_offset, (length_remaining > backing_length) ? backing_length : length_remaining);
 }
 
-void dissect_oer_not_decoded_yet(proto_tree* tree, packet_info* pinfo, tvbuff_t *tvb, const char* reason)
+static void
+dissect_oer_not_decoded_yet(proto_tree* tree, packet_info* pinfo, tvbuff_t *tvb, const char* reason)
 {
     proto_tree_add_expert_format(tree, pinfo, &ei_oer_undecoded, tvb, 0, 0, "something unknown here [%s]", reason);
     col_append_fstr(pinfo->cinfo, COL_INFO, "[UNKNOWN OER: %s]", reason);
@@ -122,6 +123,8 @@ dissect_oer_length_determinant(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, 
     if (!length) {
         length = &len;
     }
+
+    *length = 0;
 
     /* 8.6.3 There are two forms of length determinant - a short form and a long form...
      * 8.6.4 The short form of length determinant consists of a single octet. Bit 8 of this octet shall be set to '0',
@@ -537,7 +540,7 @@ dissect_oer_sequence_of(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_t
     proto_item *item;
     proto_tree *tree;
     guint32 old_offset = offset;
-    guint32 occ_len, occurence;
+    guint32 occ_len, occurrence;
     header_field_info *hfi;
 
     DEBUG_ENTRY("dissect_oer_sequence_of");
@@ -552,34 +555,34 @@ dissect_oer_sequence_of(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_t
 
     switch (occ_len) {
     case 1:
-        occurence = tvb_get_guint8(tvb, offset);
+        occurrence = tvb_get_guint8(tvb, offset);
         break;
     case 2:
-        occurence = tvb_get_ntohs(tvb, offset);
+        occurrence = tvb_get_ntohs(tvb, offset);
         break;
     case 3:
-        occurence = tvb_get_ntoh24(tvb, offset);
+        occurrence = tvb_get_ntoh24(tvb, offset);
         break;
     case 4:
-        occurence = tvb_get_ntohl(tvb, offset);
+        occurrence = tvb_get_ntohl(tvb, offset);
         break;
     default:
         proto_tree_add_expert_format(parent_tree, actx->pinfo, &ei_oer_not_decoded_yet, tvb, offset, 1,
-            "sequence_of Occurence %u octets not handled", occ_len);
+            "sequence_of Occurrence %u octets not handled", occ_len);
         return tvb_reported_length(tvb);
     }
 
     offset = offset + occ_len;
     hfi = proto_registrar_get_nth(hf_index);
     if (IS_FT_UINT(hfi->type)) {
-        item = proto_tree_add_uint(parent_tree, hf_index, tvb, old_offset, occ_len, occurence);
-        proto_item_append_text(item, (occurence == 1) ? " item" : " items");
+        item = proto_tree_add_uint(parent_tree, hf_index, tvb, old_offset, occ_len, occurrence);
+        proto_item_append_text(item, (occurrence == 1) ? " item" : " items");
     } else {
         item = proto_tree_add_item(parent_tree, hf_index, tvb, old_offset, 0, ENC_BIG_ENDIAN);
     }
     tree = proto_item_add_subtree(item, ett_index);
 
-    offset = dissect_oer_sequence_of_helper(tvb, offset, actx, tree, seq->func, *seq->p_id, occurence);
+    offset = dissect_oer_sequence_of_helper(tvb, offset, actx, tree, seq->func, *seq->p_id, occurrence);
 
 
     proto_item_set_len(item, offset - old_offset);
@@ -669,7 +672,7 @@ dissect_oer_choice(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *
 guint32
 dissect_oer_UTF8String(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len _U_, int max_len _U_, gboolean has_extension _U_)
 {
-    guint32 length;
+    guint32 length = 0;
     /* 27.3 For every other character string type, the encoding shall consist of a length determinant
      * (see 8.6) followed by the series of octets specified in 27.4.
      */

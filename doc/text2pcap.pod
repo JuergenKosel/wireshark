@@ -19,6 +19,7 @@ S<[ B<-h> ]>
 S<[ B<-i> E<lt>protoE<gt> ]>
 S<[ B<-l> E<lt>typenumE<gt> ]>
 S<[ B<-n> ]>
+S<[ B<-N> E<lt>intf-nameE<gt> ]>
 S<[ B<-m> E<lt>max-packetE<gt> ]>
 S<[ B<-o> hex|oct|dec ]>
 S<[ B<-q> ]>
@@ -36,7 +37,7 @@ E<lt>I<outfile>E<gt>|-
 =head1 DESCRIPTION
 
 B<Text2pcap> is a program that reads in an ASCII hex dump and writes the
-data described into a B<pcap> capture file.  B<text2pcap> can
+data described into a B<pcap> or B<pcapng> capture file.  B<text2pcap> can
 read hexdumps with multiple packets in them, and build a capture file of
 multiple packets.  B<text2pcap> is also capable of generating dummy
 Ethernet, IP and UDP, TCP, or SCTP headers, in order to build fully
@@ -171,6 +172,11 @@ TCP packets.
 =item -n
 
 Write the file in pcapng format rather than pcap format.
+
+=item -N E<lt>intf-nameE<gt>
+
+Specify a name for the interface included when writing a pcapng format
+file. By default no name is defined.
 
 =item -o hex|oct|dec
 

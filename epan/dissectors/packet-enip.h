@@ -92,9 +92,9 @@ typedef struct {
 } enip_request_info_t;
 
 typedef struct enip_conn_val {
-   cip_connection_triad_t triad;
    guint32 O2TConnID;
    guint32 T2OConnID;
+   cip_connection_triad_t triad;
    guint8  TransportClass_trigger;
    guint32 open_frame;
    guint32 open_reply_frame;
@@ -103,6 +103,11 @@ typedef struct enip_conn_val {
    cip_safety_epath_info_t safety;
    guint32 ClassID;
    guint32 ConnPoint;
+
+   guint32 FwdOpenPathLenBytes;
+   void *pFwdOpenPathData;
+   guint32 O2Tapi;
+   guint32 T2Oapi;
 } enip_conn_val_t;
 
 enum enip_connid_type {ECIDT_UNKNOWN, ECIDT_O2T, ECIDT_T2O};

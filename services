@@ -690,8 +690,10 @@ gdoi		848/tcp/udp	# GDOI
 domain-s	853/tcp/udp	# DNS query-response protocol run over TLS/DTLS
 dlep		854/tcp/udp	# Dynamic Link Exchange Protocol (DLEP)
 iscsi		860/tcp/udp	# iSCSI
-owamp-control	861/tcp/udp	# OWAMP-Control
-twamp-control	862/tcp/udp	# Two-way Active Measurement Protocol (TWAMP) Control
+owamp-control	861/tcp		# OWAMP-Control
+owamp-test	861/udp		# OWAMP-Test
+twamp-control	862/tcp		# TWAMP-Control
+twamp-test	862/udp		# TWAMP-Test Receiver Port
 rsync		873/tcp/udp
 iclcnet-locate	886/tcp/udp	# ICL coNETion locate server
 iclcnet-svinfo	887/tcp/udp	# ICL coNETion server info
@@ -3925,8 +3927,7 @@ netconf-ch-ssh	4334/tcp	# NETCONF Call Home (SSH)
 netconf-ch-tls	4335/tcp	# NETCONF Call Home (TLS)
 restconf-ch-tls	4336/tcp	# RESTCONF Call Home (TLS)
 gaia		4340/tcp/udp	# Gaia Connector Protocol
-lisp-data	4341/tcp/udp	# LISP Data Packets
-lisp-cons	4342/tcp	# LISP-CONS Control
+lisp-data	4341/udp	# LISP Data Packets
 lisp-control	4342/udp	# LISP Control Packets
 unicall		4343/tcp/udp	# UNICALL
 vinainstall	4344/tcp/udp	# VinaInstall
@@ -5145,6 +5146,7 @@ wpl-disc	8006/udp	# World Programming analytics discovery
 warppipe	8007/tcp/udp	# I/O oriented cluster computing software
 http-alt	8008/tcp/udp	# HTTP Alternate
 nvme-disc	8009/tcp	# NVMe over Fabrics Discovery Service
+cfg-cloud	8015/tcp	# Configuration Cloud Service
 qbdb		8019/tcp/udp	# QB DB Dynamic Port
 intu-ec-svcdisc	8020/tcp/udp	# Intuit Entitlement Service and Discovery
 intu-ec-client	8021/tcp/udp	# Intuit Entitlement Client
@@ -5229,6 +5231,7 @@ rexecj		8230/tcp/udp	# RexecJ Server
 hncp-udp-port	8231/udp	# HNCP
 hncp-dtls-port	8232/udp	# HNCP over DTLS
 synapse-nhttps	8243/tcp/udp	# Synapse Non Blocking HTTPS
+espeasy-p2p	8266/udp	# ESPeasy peer-2-peer communication
 robot-remote	8270/tcp	# Robot Framework Remote Library Interface
 pando-sec	8276/tcp/udp	# Pando Media Controlled Distribution
 synapse-nhttp	8280/tcp/udp	# Synapse Non Blocking HTTP

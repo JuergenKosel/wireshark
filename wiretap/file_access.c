@@ -1699,7 +1699,15 @@ wtap_register_file_type_subtypes(const struct file_type_subtype_info* fi, const 
 {
 	struct file_type_subtype_info* finfo;
 
-	if (!fi || !fi->name || !fi->short_name || subtype > wtap_num_file_types_subtypes) {
+	/*
+	 * Check for required fields (name and short_name). If an existing file
+	 * type is overridden (as opposed as creating a new registration),
+	 * prevent internal subtypes from being overridden by Lua plugins.
+	 */
+	if (!fi || !fi->name || !fi->short_name ||
+			(subtype != WTAP_FILE_TYPE_SUBTYPE_UNKNOWN &&
+			(subtype <= (int)G_N_ELEMENTS(dump_open_table_base) ||
+			subtype > wtap_num_file_types_subtypes))) {
 		g_error("no file type info or invalid file type to register");
 		return subtype;
 	}
@@ -2399,6 +2407,8 @@ wtap_dump_open_tempfile(char **filenamep, const char *pfx,
     const wtap_dump_params *params, int *err)
 {
 	int fd;
+	const char *ext;
+	char sfx[16];
 	char *tmpname;
 	wtap_dumper *wdh;
 	WFILE_T fh;
@@ -2412,8 +2422,16 @@ wtap_dump_open_tempfile(char **filenamep, const char *pfx,
 	if (wdh == NULL)
 		return NULL;
 
+	/* Choose an appropriate suffix for the file */
+	ext = wtap_default_file_extension(file_type_subtype);
+	if (ext == NULL)
+		ext = "tmp";
+	sfx[0] = '.';
+	sfx[1] = '\0';
+	g_strlcat(sfx, ext, 16);
+
 	/* Choose a random name for the file */
-	fd = create_tempfile(&tmpname, pfx, ".pcapng");
+	fd = create_tempfile(&tmpname, pfx, sfx);
 	if (fd == -1) {
 		*err = errno;
 		g_free(wdh);

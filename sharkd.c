@@ -23,9 +23,8 @@
 #include <epan/exceptions.h>
 #include <epan/epan.h>
 
-#include <wsutil/clopts_common.h>
-#include <wsutil/cmdarg_err.h>
-#include <wsutil/crash_info.h>
+#include <ui/clopts_common.h>
+#include <ui/cmdarg_err.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
@@ -103,8 +102,6 @@ print_current_user(void) {
 int
 main(int argc, char *argv[])
 {
-  GString             *comp_info_str;
-  GString             *runtime_info_str;
   char                *init_progfile_dir_error;
 
   char                *err_msg = NULL;
@@ -131,21 +128,10 @@ main(int argc, char *argv[])
             init_progfile_dir_error);
   }
 
-  /* Get the compile-time version information string */
-  comp_info_str = get_compiled_version_info(NULL, epan_get_compiled_version_info);
-
-  /* Get the run-time version information string */
-  runtime_info_str = get_runtime_version_info(epan_get_runtime_version_info);
-
-  /* Add it to the information to be reported on a crash. */
-  ws_add_crash_info("Sharkd (Wireshark) %s\n"
-         "\n"
-         "%s"
-         "\n"
-         "%s",
-      get_ws_vcs_version_info(), comp_info_str->str, runtime_info_str->str);
-  g_string_free(comp_info_str, TRUE);
-  g_string_free(runtime_info_str, TRUE);
+  /* Initialize the version information. */
+  ws_init_version_info("Sharkd (Wireshark)", NULL,
+                       epan_get_compiled_version_info,
+                       epan_get_runtime_version_info);
 
   if (sharkd_init(argc, argv) < 0)
   {
@@ -558,7 +544,7 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis
 
   if (dissect_flags & SHARKD_DISSECT_FLAG_COLOR) {
     color_filters_prime_edt(&edt);
-    fdata->flags.need_colorize = 1;
+    fdata->need_colorize = 1;
   }
 
   if (cinfo)
@@ -568,7 +554,7 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis
    * XXX - need to catch an OutOfMemoryError exception and
    * attempt to recover from it.
    */
-  fdata->flags.ref_time = (framenum == frame_ref_num);
+  fdata->ref_time = (framenum == frame_ref_num);
   fdata->frame_ref_num = frame_ref_num;
   fdata->prev_dis_num = prev_dis_num;
   epan_dissect_run(&edt, cfile.cd_t, &rec,
@@ -618,7 +604,7 @@ sharkd_dissect_columns(frame_data *fdata, guint32 frame_ref_num, guint32 prev_di
 
   if (dissect_color) {
     color_filters_prime_edt(&edt);
-    fdata->flags.need_colorize = 1;
+    fdata->need_colorize = 1;
   }
 
   if (cinfo)
@@ -628,7 +614,7 @@ sharkd_dissect_columns(frame_data *fdata, guint32 frame_ref_num, guint32 prev_di
    * XXX - need to catch an OutOfMemoryError exception and
    * attempt to recover from it.
    */
-  fdata->flags.ref_time = (fdata->num == frame_ref_num);
+  fdata->ref_time = (fdata->num == frame_ref_num);
   fdata->frame_ref_num = frame_ref_num;
   fdata->prev_dis_num = prev_dis_num;
   epan_dissect_run(&edt, cfile.cd_t, &rec,
@@ -690,7 +676,7 @@ sharkd_retap(void)
     if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, &rec, &buf, &err, &err_info))
       break;
 
-    fdata->flags.ref_time = FALSE;
+    fdata->ref_time = FALSE;
     fdata->frame_ref_num = (framenum != 1) ? 1 : 0;
     fdata->prev_dis_num = framenum - 1;
     epan_dissect_run_with_taps(&edt, cfile.cd_t, &rec,
@@ -759,7 +745,7 @@ sharkd_filter(const char *dftext, guint8 **result)
     /* frame_data_set_before_dissect */
     epan_dissect_prime_with_dfilter(&edt, dfcode);
 
-    fdata->flags.ref_time = FALSE;
+    fdata->ref_time = FALSE;
     fdata->frame_ref_num = (framenum != 1) ? 1 : 0;
     fdata->prev_dis_num = prev_dis_num;
     epan_dissect_run(&edt, cfile.cd_t, &rec,

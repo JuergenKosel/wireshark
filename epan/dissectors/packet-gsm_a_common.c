@@ -758,6 +758,7 @@ static expert_field ei_gsm_a_unknown_pdu_type = EI_INIT;
 static expert_field ei_gsm_a_no_element_dissector = EI_INIT;
 static expert_field ei_gsm_a_format_not_supported = EI_INIT;
 static expert_field ei_gsm_a_mobile_identity_type = EI_INIT;
+static expert_field ei_gsm_a_ie_length_too_short = EI_INIT;
 
 sccp_assoc_info_t* sccp_assoc;
 
@@ -2432,8 +2433,10 @@ de_ms_cm_2(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, 
 #define AVAILABLE_BITS_CHECK(n) \
     bits_left = ((len + offset) << 3) - bit_offset; \
     if (bits_left < (n)) { \
-        if (bits_left) \
+        if (bits_left > 0) \
             proto_tree_add_bits_item(tree, hf_gsm_a_spare_bits, tvb, bit_offset, bits_left, ENC_BIG_ENDIAN); \
+        else if (bits_left < 0) \
+            proto_tree_add_expert(tree, pinfo, &ei_gsm_a_ie_length_too_short, tvb, offset, len); \
         return len; \
     }
 
@@ -2445,7 +2448,8 @@ de_ms_cm_3(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, 
     guint8      length;
     proto_tree *subtree;
     proto_item *item;
-    guint32     bits_left, target_bit_offset, old_bit_offset;
+    gint32      bits_left;
+    guint32     target_bit_offset, old_bit_offset;
     guint64     multi_bnd_sup_fields, rsupport, multislotCapability;
     guint64     msMeasurementCapability, msPosMethodCapPresent;
     guint64     ecsdMultiSlotCapability, eightPskStructPresent, eightPskStructRfPowerCapPresent;
@@ -3649,7 +3653,7 @@ static void gsm_a_sacch_rr_stat_init(stat_tap_table_ui* new_stat)
                     "GSM A-I/F SACCH Statistics", gsm_a_rr_short_pd_msg_strings);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_stat_packet(void *tapdata, const void *gatr_ptr, guint8 pdu_type, int protocol_disc)
 {
     stat_data_t* stat_data = (stat_data_t*)tapdata;
@@ -3658,73 +3662,73 @@ gsm_a_stat_packet(void *tapdata, const void *gatr_ptr, guint8 pdu_type, int prot
     stat_tap_table_item_type* msg_data;
     guint i = 0;
 
-    if (gatr->pdu_type != pdu_type) return FALSE;
-    if (pdu_type == BSSAP_PDU_TYPE_DTAP && (int)gatr->protocol_disc != protocol_disc) return FALSE;
-    if (pdu_type == GSM_A_PDU_TYPE_SACCH && gatr->protocol_disc != 0) return FALSE;
+    if (gatr->pdu_type != pdu_type) return TAP_PACKET_DONT_REDRAW;
+    if (pdu_type == BSSAP_PDU_TYPE_DTAP && (int)gatr->protocol_disc != protocol_disc) return TAP_PACKET_DONT_REDRAW;
+    if (pdu_type == GSM_A_PDU_TYPE_SACCH && gatr->protocol_disc != 0) return TAP_PACKET_DONT_REDRAW;
 
     table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, i);
     msg_data = stat_tap_get_field_data(table, gatr->message_type, COUNT_COLUMN);
     msg_data->value.uint_value++;
     stat_tap_set_field_data(table, gatr->message_type, COUNT_COLUMN, msg_data);
 
-    return TRUE;
+    return TAP_PACKET_REDRAW;
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_bssmap_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_BSSMAP, 0);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_dtap_mm_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_DTAP, PD_MM);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_dtap_rr_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_DTAP, PD_RR);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_dtap_cc_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_DTAP, PD_CC);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_dtap_gmm_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_DTAP, PD_GMM);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_dtap_sms_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_DTAP, PD_SMS);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_dtap_sm_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_DTAP, PD_SM);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_dtap_ss_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_DTAP, PD_SS);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_dtap_tp_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, BSSAP_PDU_TYPE_DTAP, PD_TP);
 }
 
-static gboolean
+static tap_packet_status
 gsm_a_sacch_rr_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *gatr_ptr)
 {
     return gsm_a_stat_packet(tapdata, gatr_ptr, GSM_A_PDU_TYPE_SACCH, 0);
@@ -4691,6 +4695,7 @@ proto_register_gsm_a_common(void)
         { &ei_gsm_a_no_element_dissector, { "gsm_a.no_element_dissector", PI_PROTOCOL, PI_WARN, "No element dissector, rest of dissection may be incorrect", EXPFILL }},
         { &ei_gsm_a_format_not_supported, { "gsm_a.format_not_supported", PI_PROTOCOL, PI_WARN, "Format not supported", EXPFILL }},
         { &ei_gsm_a_mobile_identity_type, { "gsm_a.ie.mobileid.type.unknown", PI_PROTOCOL, PI_WARN, "Format unknown", EXPFILL }},
+        { &ei_gsm_a_ie_length_too_short, { "gsm_a.ie.length_too_short", PI_PROTOCOL, PI_ERROR, "IE length too short", EXPFILL }}
     };
 
     expert_module_t* expert_a_common;

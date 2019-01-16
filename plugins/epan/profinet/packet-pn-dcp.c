@@ -540,11 +540,18 @@ dissect_PNDCP_Suboption_Device(tvbuff_t *tvb, int offset, packet_info *pinfo,
         proto_item_append_text(block_item, ", DeviceVendorValue: \"%s\"", typeofstation);
 
 
-        if (pinfo->fd->flags.visited == FALSE) {
+        if (pinfo->fd->visited == FALSE) {
             /* Create a conversation between the MAC addresses */
             conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
             if (conversation == NULL) {
-                conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+                /* Create new conversation, need to switch dl_src & dl_dst if not a response
+                 * All conversations are based on Device MAC as addr1 */
+                if (is_response) {
+                   conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+                }
+                else {
+                   conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
+                }
             }
 
             station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -578,11 +585,18 @@ dissect_PNDCP_Suboption_Device(tvbuff_t *tvb, int offset, packet_info *pinfo,
         proto_item_append_text(block_item, ", \"%s\"", nameofstation);
 
 
-        if (pinfo->fd->flags.visited == FALSE) {
+        if (pinfo->fd->visited == FALSE) {
             /* Create a conversation between the MAC addresses */
             conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
             if (conversation == NULL) {
-                conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+                /* Create new conversation, need to switch dl_src & dl_dst if not a response
+                 * All conversations are based on Device MAC as addr1 */
+                if (is_response) {
+                   conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+                }
+                else {
+                   conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
+                }
             }
 
             station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);
@@ -602,11 +616,18 @@ dissect_PNDCP_Suboption_Device(tvbuff_t *tvb, int offset, packet_info *pinfo,
         offset = dissect_pn_uint16(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_vendor_id, &vendor_id);
         offset = dissect_pn_uint16(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_device_id, &device_id);
 
-        if (pinfo->fd->flags.visited == FALSE) {
+        if (pinfo->fd->visited == FALSE) {
             /* Create a conversation between the MAC addresses */
             conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
             if (conversation == NULL) {
-                conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+                /* Create new conversation, need to switch dl_src & dl_dst if not a response
+                 * All conversations are based on Device MAC as addr1 */
+                if (is_response) {
+                   conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+                }
+                else {
+                   conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, ENDPOINT_NONE, 0, 0, 0);
+                }
             }
 
             station_info = (stationInfo*)conversation_get_proto_data(conversation, proto_pn_dcp);

@@ -181,7 +181,6 @@ static int hf_zbee_zdp_complex = -1;
        int hf_zbee_zdp_lqi = -1;
 static int hf_zbee_zdp_scan_channel = -1;
        int hf_zbee_zdp_ieee_join_start_index = -1;
-       int hf_zbee_zdp_ieee_join_status = -1;
        int hf_zbee_zdp_ieee_join_update_id = -1;
        int hf_zbee_zdp_ieee_join_policy = -1;
        int hf_zbee_zdp_ieee_join_list_total = -1;
@@ -282,7 +281,6 @@ const value_string zbee_zdp_cluster_names[] = {
     { ZBEE_ZDP_REQ_MGMT_NWKUPDATE,                "Network Update Request" },
     { ZBEE_ZDP_REQ_MGMT_NWKUPDATE_ENH,            "Network Update Enhanced Request" },
     { ZBEE_ZDP_REQ_MGMT_IEEE_JOIN_LIST,           "IEEE Joining List Request" },
-    { ZBEE_ZDP_REQ_MGMT_UNSOLICITED_NWKUPDATE,    "Unsolicited Enhanced Network Update Notify" },
 
     { ZBEE_ZDP_RSP_NWK_ADDR,                      "Network Address Response" },
     { ZBEE_ZDP_RSP_IEEE_ADDR,                     "Extended Address Response" },
@@ -325,9 +323,10 @@ const value_string zbee_zdp_cluster_names[] = {
     { ZBEE_ZDP_RSP_MGMT_DIRECT_JOIN,              "Direct Join Response" },
     { ZBEE_ZDP_RSP_MGMT_PERMIT_JOIN,              "Permit Join Response" },
     { ZBEE_ZDP_RSP_MGMT_CACHE,                    "Cache Response" },
-    { ZBEE_ZDP_RSP_MGMT_NWKUPDATE,                "Network Update Notify" },
-    { ZBEE_ZDP_RSP_MGMT_NWKUPDATE_ENH,            "Network Enhanced Update Notify" },
+    { ZBEE_ZDP_NOT_MGMT_NWKUPDATE,                "Network Update Notify" },
+    { ZBEE_ZDP_NOT_MGMT_NWKUPDATE_ENH,            "Network Enhanced Update Notify" },
     { ZBEE_ZDP_RSP_MGMT_IEEE_JOIN_LIST,           "IEEE Joining List Response" },
+    { ZBEE_ZDP_NOT_MGMT_UNSOLICITED_NWKUPDATE,    "Unsolicited Enhanced Network Update Notify" },
     { 0, NULL }
 };
 
@@ -1190,9 +1189,6 @@ dissect_zbee_zdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
         case ZBEE_ZDP_REQ_MGMT_IEEE_JOIN_LIST:
             dissect_zbee_zdp_req_mgmt_ieee_join_list(zdp_tvb, pinfo, zdp_tree);
             break;
-        case ZBEE_ZDP_REQ_MGMT_UNSOLICITED_NWKUPDATE:
-            dissect_zbee_zdp_req_mgmt_unsolicited_nwkupdate(zdp_tvb, pinfo, zdp_tree);
-            break;
         case ZBEE_ZDP_RSP_NWK_ADDR:
             dissect_zbee_zdp_rsp_nwk_addr(zdp_tvb, pinfo, zdp_tree);
             break;
@@ -1316,12 +1312,15 @@ dissect_zbee_zdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
         case ZBEE_ZDP_RSP_MGMT_CACHE:
             dissect_zbee_zdp_rsp_mgmt_cache(zdp_tvb, pinfo, zdp_tree);
             break;
-        case ZBEE_ZDP_RSP_MGMT_NWKUPDATE:
-        case ZBEE_ZDP_RSP_MGMT_NWKUPDATE_ENH:
-            dissect_zbee_zdp_rsp_mgmt_nwkupdate(zdp_tvb, pinfo, zdp_tree);
+        case ZBEE_ZDP_NOT_MGMT_NWKUPDATE:
+        case ZBEE_ZDP_NOT_MGMT_NWKUPDATE_ENH:
+            dissect_zbee_zdp_not_mgmt_nwkupdate(zdp_tvb, pinfo, zdp_tree);
             break;
         case ZBEE_ZDP_RSP_MGMT_IEEE_JOIN_LIST:
             dissect_zbee_zdp_rsp_mgmt_ieee_join_list(zdp_tvb, pinfo, zdp_tree);
+            break;
+        case ZBEE_ZDP_NOT_MGMT_UNSOLICITED_NWKUPDATE:
+            dissect_zbee_zdp_not_mgmt_unsolicited_nwkupdate(zdp_tvb, pinfo, zdp_tree);
             break;
         default:
             /* Invalid Cluster Identifier. */
@@ -1754,7 +1753,7 @@ void proto_register_zbee_zdp(void)
             NULL, HFILL }},
 
         { &hf_zbee_zdp_nwk_desc_profile,
-        { "Profile",         "zbee_zdp.profile", FT_UINT8, BASE_HEX, NULL, 0x0F,
+        { "Profile",         "zbee_zdp.profile", FT_UINT16, BASE_HEX, NULL, 0x0F,
             NULL, HFILL }},
 
         { &hf_zbee_zdp_profile_version,
@@ -1839,10 +1838,6 @@ void proto_register_zbee_zdp(void)
 
         { &hf_zbee_zdp_ieee_join_start_index,
         { "Start Index",                "zbee_zdp.ieee_joining_list.start_index", FT_UINT8, BASE_DEC, NULL, 0x0,
-            NULL, HFILL }},
-
-        { &hf_zbee_zdp_ieee_join_status,
-        { "Status",                "zbee_zdp.ieee_joining_list.status", FT_UINT8, BASE_HEX, VALS(zbee_zdp_status_names), 0x0,
             NULL, HFILL }},
 
         { &hf_zbee_zdp_ieee_join_update_id,

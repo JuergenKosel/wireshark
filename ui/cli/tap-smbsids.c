@@ -23,12 +23,14 @@
 #include <epan/value_string.h>
 #include <epan/dissectors/packet-smb.h>
 
+#include <ui/cmdarg_err.h>
+
 void register_tap_listener_smbsids(void);
 
-static int
+static tap_packet_status
 smbsids_packet(void *pss _U_, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *psi _U_)
 {
-	return 1;
+	return TAP_PACKET_REDRAW;
 }
 
 static void
@@ -68,7 +70,7 @@ smbsids_init(const char *opt_arg _U_, void *userdata _U_)
 
 	error_string = register_tap_listener("smb", NULL, NULL, 0, NULL, smbsids_packet, smbsids_draw, NULL);
 	if (error_string) {
-		fprintf(stderr, "tshark: Couldn't register smb,sids tap:%s\n",
+		cmdarg_err("Couldn't register smb,sids tap: %s",
 			error_string->str);
 		g_string_free(error_string, TRUE);
 		exit(1);

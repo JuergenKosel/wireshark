@@ -150,20 +150,20 @@ typedef enum {
 #define SSL_HND_CERT_STATUS_TYPE_OCSP_MULTI  2
 #define SSL_HND_CERT_TYPE_RAW_PUBLIC_KEY     2
 
-#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL  0
-#define SSL_HND_QUIC_TP_INITIAL_MAX_DATA                    1
-#define SSL_HND_QUIC_TP_INITIAL_MAX_BIDI_STREAMS            2
-#define SSL_HND_QUIC_TP_IDLE_TIMEOUT                        3
-#define SSL_HND_QUIC_TP_PREFERRED_ADDRESS                   4
-#define SSL_HND_QUIC_TP_MAX_PACKET_SIZE                     5
-#define SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN               6
-#define SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT                  7
-#define SSL_HND_QUIC_TP_INITIAL_MAX_UNI_STREAMS             8
-#define SSL_HND_QUIC_TP_DISABLE_MIGRATION                   9
-#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE 10
-#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_UNI         11
-#define SSL_HND_QUIC_TP_MAX_ACK_DELAY                       12
-#define SSL_HND_QUIC_TP_ORIGINAL_CONNECTION_ID              13
+#define SSL_HND_QUIC_TP_ORIGINAL_CONNECTION_ID              0
+#define SSL_HND_QUIC_TP_IDLE_TIMEOUT                        1
+#define SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN               2
+#define SSL_HND_QUIC_TP_MAX_PACKET_SIZE                     3
+#define SSL_HND_QUIC_TP_INITIAL_MAX_DATA                    4
+#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL  5
+#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE 6
+#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAM_DATA_UNI         7
+#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAMS_BIDI            8
+#define SSL_HND_QUIC_TP_INITIAL_MAX_STREAMS_UNI             9
+#define SSL_HND_QUIC_TP_ACK_DELAY_EXPONENT                  10
+#define SSL_HND_QUIC_TP_MAX_ACK_DELAY                       11
+#define SSL_HND_QUIC_TP_DISABLE_MIGRATION                   12
+#define SSL_HND_QUIC_TP_PREFERRED_ADDRESS                   13
 
 /*
  * Lookup tables
@@ -408,6 +408,8 @@ typedef struct _SslSession {
 /* RFC 5246, section 8.1 says that the master secret is always 48 bytes */
 #define SSL_MASTER_SECRET_LENGTH        48
 
+struct cert_key_id; /* defined in epan/secrets.h */
+
 /* This holds state information for a SSL conversation */
 typedef struct _SslDecryptSession {
     guchar _master_secret[SSL_MASTER_SECRET_LENGTH];
@@ -434,7 +436,7 @@ typedef struct _SslDecryptSession {
     SslDecoder *server_new;
     SslDecoder *client_new;
 #if defined(HAVE_LIBGNUTLS)
-    gcry_sexp_t private_key;
+    struct cert_key_id *cert_key_id;   /**< SHA-1 Key ID of public key in certificate. */
 #endif
     StringInfo psk;
     StringInfo app_data_segment;
@@ -569,6 +571,9 @@ gboolean
 ssl_generate_pre_master_secret(SslDecryptSession *ssl_session,
                                guint32 length, tvbuff_t *tvb, guint32 offset,
                                const gchar *ssl_psk,
+#ifdef HAVE_LIBGNUTLS
+                               GHashTable *key_hash,
+#endif
                                const ssl_master_key_map_t *mk_map);
 
 /** Expand the pre_master_secret to generate all the session information
@@ -607,20 +612,7 @@ tls13_cipher *
 tls13_cipher_create(const char *label_prefix, int cipher_algo, int cipher_mode, int hash_algo, const StringInfo *secret, const gchar **error);
 
 
-/* Common part bitween SSL and DTLS dissectors */
-/* Hash Functions for RSA private keys table */
-
-extern gboolean
-ssl_private_key_equal (gconstpointer v, gconstpointer v2);
-
-extern guint
-ssl_private_key_hash  (gconstpointer v);
-
-/* private key table entries have a scope 'larger' then packet capture,
- * so we can't rely on wmem_file_scope function */
-extern void
-ssl_private_key_free(gpointer key);
-
+/* Common part between TLS and DTLS dissectors */
 
 /* handling of association between tls/dtls ports and clear text protocol */
 extern void
@@ -657,9 +649,11 @@ extern void
 ssl_load_keyfile(const gchar *ssl_keylog_filename, FILE **keylog_file,
                  const ssl_master_key_map_t *mk_map);
 
+#ifdef HAVE_LIBGNUTLS
 /* parse ssl related preferences (private keys and ports association strings) */
 extern void
 ssl_parse_key_list(const ssldecrypt_assoc_t * uats, GHashTable *key_hash, const char* dissector_table_name, dissector_handle_t main_handle, gboolean tcp);
+#endif
 
 /* store master secret into session data cache */
 extern void
@@ -866,10 +860,18 @@ typedef struct ssl_common_dissect {
         gint hs_ext_quictp_parameter_type;
         gint hs_ext_quictp_parameter_len;
         gint hs_ext_quictp_parameter_value;
-        gint hs_ext_quictp_parameter_initial_max_stream_data_bidi_local;
-        gint hs_ext_quictp_parameter_initial_max_data;
-        gint hs_ext_quictp_parameter_initial_max_bidi_streams;
+        gint hs_ext_quictp_parameter_ocid;
         gint hs_ext_quictp_parameter_idle_timeout;
+        gint hs_ext_quictp_parameter_stateless_reset_token;
+        gint hs_ext_quictp_parameter_initial_max_data;
+        gint hs_ext_quictp_parameter_initial_max_stream_data_bidi_local;
+        gint hs_ext_quictp_parameter_initial_max_stream_data_bidi_remote;
+        gint hs_ext_quictp_parameter_initial_max_stream_data_uni;
+        gint hs_ext_quictp_parameter_initial_max_streams_bidi;
+        gint hs_ext_quictp_parameter_initial_max_streams_uni;
+        gint hs_ext_quictp_parameter_ack_delay_exponent;
+        gint hs_ext_quictp_parameter_max_ack_delay;
+        gint hs_ext_quictp_parameter_max_packet_size;
         gint hs_ext_quictp_parameter_pa_ipversion;
         gint hs_ext_quictp_parameter_pa_ipaddress_length;
         gint hs_ext_quictp_parameter_pa_ipaddress_ipv4;
@@ -878,14 +880,6 @@ typedef struct ssl_common_dissect {
         gint hs_ext_quictp_parameter_pa_connectionid_length;
         gint hs_ext_quictp_parameter_pa_connectionid;
         gint hs_ext_quictp_parameter_pa_statelessresettoken;
-        gint hs_ext_quictp_parameter_max_packet_size;
-        gint hs_ext_quictp_parameter_stateless_reset_token;
-        gint hs_ext_quictp_parameter_ack_delay_exponent;
-        gint hs_ext_quictp_parameter_initial_max_uni_streams;
-        gint hs_ext_quictp_parameter_initial_max_stream_data_bidi_remote;
-        gint hs_ext_quictp_parameter_initial_max_stream_data_uni;
-        gint hs_ext_quictp_parameter_max_ack_delay;
-        gint hs_ext_quictp_parameter_ocid;
 
         gint esni_suite;
         gint esni_record_digest_length;
@@ -1043,7 +1037,7 @@ extern void
 ssl_dissect_hnd_cert(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                      guint32 offset, guint32 offset_end, packet_info *pinfo,
                      SslSession *session, SslDecryptSession *ssl,
-                     GHashTable *key_hash, gboolean is_from_server, gboolean is_dtls);
+                     gboolean is_from_server, gboolean is_dtls);
 
 extern void
 ssl_dissect_hnd_cert_req(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
@@ -1099,7 +1093,7 @@ extern void
 ssl_dissect_hnd_compress_certificate(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree,
                                      guint32 offset, guint32 offset_end, packet_info *pinfo,
                                      SslSession *session _U_, SslDecryptSession *ssl _U_,
-                                     GHashTable *key_hash _U_, gboolean is_from_server _U_, gboolean is_dtls _U_);
+                                     gboolean is_from_server _U_, gboolean is_dtls _U_);
 /* {{{ */
 #define SSL_COMMON_LIST_T(name) \
 ssl_common_dissect_t name = {   \
@@ -1911,25 +1905,65 @@ ssl_common_dissect_t name = {   \
         FT_BYTES, BASE_NONE, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
     },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_data_bidi_local, \
-      { "initial_max_stream_data_bidi_local", prefix ".quic.parameter.initial_max_stream_data_bidi_local", \
-        FT_UINT32, BASE_DEC, NULL, 0x00,                                \
-        "Initial stream maximum data for bidirectional, locally-initiated streams", HFILL }                                                                 \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_initial_max_data,              \
-      { "initial_max_data", prefix ".quic.parameter.initial_max_data",  \
-        FT_UINT32, BASE_DEC, NULL, 0x00,                                \
-        "Contains the initial value for the maximum amount of data that can be sent on the connection", HFILL }                                                                 \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_initial_max_bidi_streams,      \
-      { "initial_max_bidi_streams", prefix ".quic.parameter.initial_max_bidi_streams",  \
-        FT_UINT16, BASE_DEC, NULL, 0x00,                                \
-        "Initial maximum number of application-owned bidirectional streams", HFILL } \
+    { & name .hf.hs_ext_quictp_parameter_ocid,                          \
+      { "original_connection_id", prefix ".quic.parameter.ocid",        \
+        FT_BYTES, BASE_NONE, NULL, 0x00,                                \
+        "The value of the Destination Connection ID field from the first Initial packet sent by the client", HFILL } \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_idle_timeout,                  \
       { "idle_timeout", prefix ".quic.parameter.idle_timeout",          \
-        FT_UINT16, BASE_DEC, NULL, 0x00,                                \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
         "In seconds", HFILL }                                           \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_stateless_reset_token,         \
+      { "stateless_reset_token", prefix ".quic.parameter.stateless_reset_token",    \
+        FT_BYTES, BASE_NONE, NULL, 0x00,                                \
+        "Used in verifying a stateless reset", HFILL }                  \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_max_packet_size,               \
+      { "max_packet_size", prefix ".quic.parameter.max_packet_size",    \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Indicates that packets larger than this limit will be dropped", HFILL }    \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_initial_max_data,              \
+      { "initial_max_data", prefix ".quic.parameter.initial_max_data",  \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Contains the initial value for the maximum amount of data that can be sent on the connection", HFILL }                                                                 \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_data_bidi_local, \
+      { "initial_max_stream_data_bidi_local", prefix ".quic.parameter.initial_max_stream_data_bidi_local", \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Initial stream maximum data for bidirectional, locally-initiated streams", HFILL }                                                                 \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_data_bidi_remote, \
+      { "initial_max_stream_data_bidi_remote", prefix ".quic.parameter.initial_max_stream_data_bidi_remote", \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Initial stream maximum data for bidirectional, peer-initiated streams", HFILL }                                                                 \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_data_uni,   \
+      { "initial_max_stream_data_uni", prefix ".quic.parameter.initial_max_stream_data_uni", \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Initial stream maximum data for unidirectional streams parameter", HFILL } \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_initial_max_streams_bidi,      \
+      { "initial_max_streams_bidi", prefix ".quic.parameter.initial_max_streams_bidi",  \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Initial maximum number of application-owned bidirectional streams", HFILL } \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_initial_max_streams_uni,       \
+      { "initial_max_streams_uni", prefix ".quic.parameter.initial_max_streams_uni",    \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Initial maximum number of application-owned unidirectional streams", HFILL }   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_ack_delay_exponent,            \
+      { "ack_delay_exponent", prefix ".quic.parameter.ack_delay_exponent",  \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Indicating an exponent used to decode the ACK Delay field in the ACK frame,", HFILL }  \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_max_ack_delay,                 \
+      { "max_ack_delay", prefix ".quic.parameter.max_ack_delay",        \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        "Indicating the maximum amount of time in milliseconds by which it will delay sending of acknowledgments", HFILL } \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_pa_ipversion,                  \
       { "ipVersion", prefix ".quic.parameter.preferred_address.ipversion",  \
@@ -1970,46 +2004,6 @@ ssl_common_dissect_t name = {   \
       { "statelessResetToken", prefix ".quic.parameter.preferred_address.statelessresettoken",  \
         FT_BYTES, BASE_NONE, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_max_packet_size,               \
-      { "max_packet_size", prefix ".quic.parameter.max_packet_size",    \
-        FT_UINT16, BASE_DEC, NULL, 0x00,                                \
-        "Indicates that packets larger than this limit will be dropped", HFILL }    \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_stateless_reset_token,         \
-      { "stateless_reset_token", prefix ".quic.parameter.stateless_reset_token",    \
-        FT_BYTES, BASE_NONE, NULL, 0x00,                                \
-        "Used in verifying a stateless reset", HFILL }                  \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_ack_delay_exponent,            \
-      { "ack_delay_exponent", prefix ".quic.parameter.ack_delay_exponent",  \
-        FT_UINT8, BASE_DEC, NULL, 0x00,                                 \
-        "Indicating an exponent used to decode the ACK Delay field in the ACK frame,", HFILL }  \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_initial_max_uni_streams,       \
-      { "initial_max_uni_streams", prefix ".quic.parameter.initial_max_uni_streams",    \
-        FT_UINT16, BASE_DEC, NULL, 0x00,                                \
-        "Initial maximum number of application-owned unidirectional streams", HFILL }   \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_data_bidi_remote, \
-      { "initial_max_stream_data_bidi_remote", prefix ".quic.parameter.initial_max_stream_data_bidi_remote", \
-        FT_UINT32, BASE_DEC, NULL, 0x00,                                \
-        "Initial stream maximum data for bidirectional, peer-initiated streams", HFILL }                                                                 \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_initial_max_stream_data_uni,   \
-      { "initial_max_stream_data_uni", prefix ".quic.parameter.initial_max_stream_data_uni", \
-        FT_UINT32, BASE_DEC, NULL, 0x00,                                \
-        "Initial stream maximum data for unidirectional streams parameter", HFILL } \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_max_ack_delay,                 \
-      { "max_ack_delay", prefix ".quic.parameter.max_ack_delay",        \
-        FT_UINT8, BASE_DEC, NULL, 0x00,                                 \
-        "Indicating the maximum amount of time in milliseconds by which it will delay sending of acknowledgments", HFILL } \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_parameter_ocid,                          \
-      { "original_connection_id", prefix ".quic.parameter.ocid",        \
-        FT_BYTES, BASE_NONE, NULL, 0x00,                                \
-        "The value of the Destination Connection ID field from the first Initial packet sent by the client", HFILL } \
     },                                                                  \
     { & name .hf.esni_suite,                                            \
       { "Cipher Suite", prefix ".esni.suite",                           \

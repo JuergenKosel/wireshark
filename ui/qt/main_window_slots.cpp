@@ -1160,12 +1160,12 @@ void MainWindow::setMenusForSelectedPacket()
         have_frames = capture_file_.capFile()->count > 0;
         have_marked = capture_file_.capFile()->marked_count > 0;
         another_is_marked = have_marked &&
-                !(capture_file_.capFile()->marked_count == 1 && frame_selected && capture_file_.capFile()->current_frame->flags.marked);
+                !(capture_file_.capFile()->marked_count == 1 && frame_selected && capture_file_.capFile()->current_frame->marked);
         have_filtered = capture_file_.capFile()->displayed_count > 0 && capture_file_.capFile()->displayed_count != capture_file_.capFile()->count;
         have_ignored = capture_file_.capFile()->ignored_count > 0;
         have_time_ref = capture_file_.capFile()->ref_time_count > 0;
         another_is_time_ref = have_time_ref &&
-                !(capture_file_.capFile()->ref_time_count == 1 && frame_selected && capture_file_.capFile()->current_frame->flags.ref_time);
+                !(capture_file_.capFile()->ref_time_count == 1 && frame_selected && capture_file_.capFile()->current_frame->ref_time);
 
         if (capture_file_.capFile()->edt)
         {
@@ -2099,6 +2099,9 @@ void MainWindow::on_actionEditTimeShift_triggered()
             &ts_dialog, SLOT(setCaptureFile(capture_file*)));
     connect(&ts_dialog, SIGNAL(timeShifted()), packet_list_, SLOT(applyTimeShift()));
     ts_dialog.exec();
+    if (capture_file_.capFile()->unsaved_changes) {
+        updateForUnsavedChanges();
+    }
 }
 
 void MainWindow::on_actionEditPacketComment_triggered()

@@ -385,7 +385,7 @@ diameterstat_init(struct register_srt* srt _U_, GArray* srt_array)
 	init_srt_table_row(diameter_srt_table, 0, "Unknown");
 }
 
-static int
+static tap_packet_status
 diameterstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const void *prv)
 {
 	guint i = 0;
@@ -398,7 +398,7 @@ diameterstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, cons
 	 * Unpaired diameter messages are currently not supported by statistics.
 	 * Return 0, since redraw is not needed. */
 	if(!diameter || diameter->processing_request || !diameter->req_frame)
-		return 0;
+		return TAP_PACKET_DONT_REDRAW;
 
 	diameter_srt_table = g_array_index(data->srt_array, srt_stat_table*, i);
 
@@ -412,7 +412,7 @@ diameterstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, cons
 
 	add_srt_table_data(diameter_srt_table, *idx, &diameter->req_time, pinfo);
 
-	return 1;
+	return TAP_PACKET_REDRAW;
 }
 
 
@@ -1339,7 +1339,7 @@ dissect_diameter_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 	}
 
 	if (pdus_tree) {
-		if (!pinfo->fd->flags.visited) {
+		if (!pinfo->fd->visited) {
 			if (flags_bits & DIAM_FLAGS_R) {
 				/* This is a request */
 				diameter_pair = wmem_new(wmem_file_scope(), diameter_req_ans_pair_t);

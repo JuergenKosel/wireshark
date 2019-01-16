@@ -48,6 +48,8 @@
 #include <wsutil/inet_addr.h>
 #include <wsutil/filesystem.h>
 
+#include <cli_main.h>
+
 #define PCAP_SNAPLEN 0xffff
 
 #define UDPDUMP_DEFAULT_PORT 5555
@@ -354,7 +356,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 	g_free(buf);
 }
 
-int real_main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	int option_idx = 0;
 	int result;
@@ -474,23 +476,6 @@ end:
 	g_free(payload);
 	return ret;
 }
-
-#ifdef _WIN32
-int
-wmain(int argc, wchar_t *wc_argv[])
-{
-	char **argv;
-
-	argv = arg_list_utf_16to8(argc, wc_argv);
-	return real_main(argc, argv);
-}
-#else
-int
-main(int argc, char *argv[])
-{
-	return real_main(argc, argv);
-}
-#endif
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

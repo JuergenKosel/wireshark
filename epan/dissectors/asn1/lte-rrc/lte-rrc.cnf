@@ -37,7 +37,6 @@ WLAN-backhaulRate-r12
 HandoverCommand_PDU
 HandoverPreparationInformation_PDU
 HandoverPreparationInformation-NB_PDU
-MeasurementReport_PDU
 RLF-Report-r9_PDU
 RLF-Report-v9e0_PDU
 RRCConnectionReconfigurationComplete_PDU
@@ -54,7 +53,6 @@ VisitedCellInfoList-r12_PDU
 HandoverCommand
 HandoverPreparationInformation
 HandoverPreparationInformation-NB
-MeasurementReport
 RLF-Report-r9
 RLF-Report-v9e0
 RRCConnectionReconfiguration @rrc_conn_reconf
@@ -1845,7 +1843,7 @@ SoundingRS-UL-ConfigDedicated/setup/duration STRINGS=TFS(&lte_rrc_duration_val)
   /* Track whether systemInfoValue has changed since last seen, indicating new SI config
      TODO: add link back to previous config and (if known) time since previous config
      was first seen */
-  if (!actx->pinfo->fd->flags.visited) {
+  if (!actx->pinfo->fd->visited) {
     if (system_info_value_current_set && (value != system_info_value_current)) {
       /* Add entry to the hash table.  Offset by one to distinguish 0 from lookup failure */
       wmem_map_insert(lte_rrc_system_info_value_changed_hash, GUINT_TO_POINTER(actx->pinfo->num),

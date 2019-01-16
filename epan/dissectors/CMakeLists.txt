@@ -118,6 +118,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ilp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-inap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-isdn-sup.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-its.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-kerberos.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lcsap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ldap.c
@@ -349,6 +350,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-fmp.h
 	packet-frame.h
 	packet-ftam.h
+	packet-geonw.h
 	packet-giop.h
 	packet-gluster.h
 	packet-gmr1_common.h
@@ -383,6 +385,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-icmp.h
 	packet-idmp.h
 	packet-idp.h
+	packet-ieee1609dot2.h
 	packet-ieee80211.h
 	packet-ieee80211-radio.h
 	packet-ieee80211-radiotap-iter.h
@@ -403,6 +406,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-isis-clv.h
 	packet-isl.h
 	packet-isup.h
+	packet-its.h
 	packet-iwarp-ddp-rdmap.h
 	packet-juniper.h
 	packet-jxta.h
@@ -690,6 +694,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-atmtcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-auto_rp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-avsp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-awdl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ax25.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ax25-kiss.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ax25-nol3.c
@@ -771,6 +776,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cell_broadcast.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cemi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ceph.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-cesoeth.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cfdp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cfm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cgmp.c
@@ -1028,12 +1034,14 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fw1.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-g723.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gadu-gadu.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-gbcs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gcsna.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gdb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gdsdb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gearman.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ged125.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-geneve.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-geonw.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gfp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gift.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-giop.c
@@ -1501,6 +1509,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pcep.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pcli.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pcnfsd.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-pcomtcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdcp-lte.c
@@ -1875,6 +1884,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-yppasswd.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ypserv.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ypxfr.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-z3950.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-aps.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-nwk.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-nwk-gp.c

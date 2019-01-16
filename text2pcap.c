@@ -19,7 +19,7 @@
  * This utility reads in an ASCII hexdump of this common format:
  *
  * 00000000  00 E0 1E A7 05 6F 00 10 5A A0 B9 12 08 00 46 00 .....o..Z.....F.
- * 00000010  03 68 00 00 00 00 0A 2E EE 33 0F 19 08 7F 0F 19 .h.......3.....
+ * 00000010  03 68 00 00 00 00 0A 2E EE 33 0F 19 08 7F 0F 19 .h.......3......
  * 00000020  03 80 94 04 00 00 10 01 16 A2 0A 00 03 50 00 0C .............P..
  * 00000030  01 01 0F 19 03 80 11 01 1E 61 00 0C 03 01 0F 19 .........a......
  *
@@ -59,8 +59,9 @@
  * hexdump line is dropped (including mail forwarding '>'). The offset
  * can be any hex number of four digits or greater.
  *
- * This converter cannot read a single packet greater than 64KiB-1. Packet
- * snaplength is automatically set to 64KiB-1.
+ * This converter cannot read a single packet greater than
+ * WTAP_MAX_PACKET_SIZE_STANDARD.  The snapshot length is automatically
+ * set to WTAP_MAX_PACKET_SIZE_STANDARD.
  */
 
 #include <config.h>
@@ -99,7 +100,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wsutil/file_util.h>
-#include <wsutil/crash_info.h>
+#include <cli_main.h>
 #include <version_info.h>
 #include <wsutil/inet_addr.h>
 
@@ -131,14 +132,13 @@
 
 #include "wiretap/wtap.h"
 
-#ifdef _WIN32
-#include <wsutil/unicode-utils.h>
-#endif /* _WIN32 */
-
 /*--- Options --------------------------------------------------------------------*/
 
 /* File format */
 static gboolean use_pcapng = FALSE;
+
+/* Interface name */
+static char *interface_name = NULL;
 
 /* Debug level */
 static int debug = 0;
@@ -196,7 +196,7 @@ static gboolean identify_ascii = FALSE;
 static gboolean has_direction = FALSE;
 static guint32 direction = 0;
 
-/*--- Local date -----------------------------------------------------------------*/
+/*--- Local data -----------------------------------------------------------------*/
 
 /* This is where we store the packet currently being built */
 static guint8  packet_buf[WTAP_MAX_PACKET_SIZE_STANDARD];
@@ -291,14 +291,16 @@ typedef struct {
 
 /* Fixed IP address values */
 #if G_BYTE_ORDER == G_BIG_ENDIAN
+#define IP_ID  0x1234
 #define IP_SRC 0x0a010101
 #define IP_DST 0x0a020202
 #else
+#define IP_ID  0x3412
 #define IP_SRC 0x0101010a
 #define IP_DST 0x0202020a
 #endif
 
-static hdr_ip_t HDR_IP = {0x45, 0, 0, 0x3412, 0, 0, 0xff, 0, 0, IP_SRC, IP_DST};
+static hdr_ip_t HDR_IP = {0x45, 0, 0, IP_ID, 0, 0, 0xff, 0, 0, IP_SRC, IP_DST};
 
 static struct {         /* pseudo header for checksum calculation */
     guint32 src_addr;
@@ -386,7 +388,6 @@ static char tempbuf[64];
 /*----------------------------------------------------------------------
  * Stuff for writing a PCap file
  */
-#define PCAP_SNAPLEN        0xffff
 
 /* Link-layer type; see http://www.tcpdump.org/linktypes.html for details */
 static guint32 pcap_link_type = 1;   /* Default is LINKTYPE_ETHERNET */
@@ -875,30 +876,27 @@ write_file_header (void)
     gboolean success;
 
     if (use_pcapng) {
-        char *appname;
         char *comment;
 
-        appname = g_strdup_printf("text2pcap (Wireshark) %s", get_ws_vcs_version_info());
         comment = g_strdup_printf("Generated from input file %s.", input_filename);
-        success = pcapng_write_session_header_block(output_file,
+        success = pcapng_write_section_header_block(output_file,
                                                     comment,
                                                     NULL,    /* HW */
                                                     NULL,    /* OS */
-                                                    appname,
+                                                    get_appname_and_version(),
                                                     -1,      /* section_length */
                                                     &bytes_written,
                                                     &err);
-        g_free(appname);
         g_free(comment);
         if (success) {
             success = pcapng_write_interface_description_block(output_file,
                                                                NULL,
-                                                               NULL,
+                                                               interface_name,
                                                                NULL,
                                                                "",
                                                                NULL,
                                                                pcap_link_type,
-                                                               PCAP_SNAPLEN,
+                                                               WTAP_MAX_PACKET_SIZE_STANDARD,
                                                                &bytes_written,
                                                                0,
                                                                9,
@@ -906,7 +904,7 @@ write_file_header (void)
         }
     } else {
         success = libpcap_write_file_header(output_file, pcap_link_type,
-                                            PCAP_SNAPLEN, FALSE,
+                                            WTAP_MAX_PACKET_SIZE_STANDARD, FALSE,
                                             &bytes_written, &err);
     }
     if (!success) {
@@ -1396,6 +1394,7 @@ print_usage (FILE *output)
             "                         Example: -l 7 for ARCNet packets.\n"
             "  -m <max-packet>        max packet length in output; default is %d\n"
             "  -n                     use pcapng instead of pcap as output format.\n"
+            "  -N <intf-name>         assign name to the interface in the pcapng file.\n"
             "\n"
             "Prepend dummy header:\n"
             "  -e <l3pid>             prepend dummy Ethernet II header with specified L3PID\n"
@@ -1444,8 +1443,6 @@ print_usage (FILE *output)
 static int
 parse_options (int argc, char *argv[])
 {
-    GString *comp_info_str;
-    GString *runtime_info_str;
     int   c;
     char *p;
     static const struct option long_options[] = {
@@ -1455,30 +1452,14 @@ parse_options (int argc, char *argv[])
     };
     struct tm *now_tm;
 
-    /* Get the compile-time version information string */
-    comp_info_str = get_compiled_version_info(NULL, NULL);
-
-    /* get the run-time version information string */
-    runtime_info_str = get_runtime_version_info(NULL);
-
-    /* Add it to the information to be reported on a crash. */
-    ws_add_crash_info("Text2pcap (Wireshark) %s\n"
-         "\n"
-         "%s"
-         "\n"
-         "%s",
-      get_ws_vcs_version_info(), comp_info_str->str, runtime_info_str->str);
-    g_string_free(comp_info_str, TRUE);
-    g_string_free(runtime_info_str, TRUE);
+    /* Initialize the version information. */
+    ws_init_version_info("Text2pcap (Wireshark)", NULL, NULL, NULL);
 
     /* Scan CLI parameters */
-    while ((c = getopt_long(argc, argv, "aDdhqe:i:l:m:no:u:s:S:t:T:v4:6:", long_options, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "aDdhqe:i:l:m:nN:o:u:s:S:t:T:v4:6:", long_options, NULL)) != -1) {
         switch (c) {
         case 'h':
-            printf("Text2pcap (Wireshark) %s\n"
-                   "Generate a capture file from an ASCII hexdump of packets.\n"
-                   "See https://www.wireshark.org for more information.\n",
-                   get_ws_vcs_version_info());
+            show_help_header("Generate a capture file from an ASCII hexdump of packets.");
             print_usage(stdout);
             exit(0);
             break;
@@ -1488,6 +1469,7 @@ parse_options (int argc, char *argv[])
         case 'l': pcap_link_type = (guint32)strtol(optarg, NULL, 0); break;
         case 'm': max_offset = (guint32)strtol(optarg, NULL, 0); break;
         case 'n': use_pcapng = TRUE; break;
+        case 'N': interface_name = optarg; break;
         case 'o':
             if (optarg[0] != 'h' && optarg[0] != 'o' && optarg[0] != 'd') {
                 fprintf(stderr, "Bad argument for '-o': %s\n", optarg);
@@ -1668,11 +1650,7 @@ parse_options (int argc, char *argv[])
             break;
 
         case 'v':
-            comp_info_str = get_compiled_version_info(NULL, NULL);
-            runtime_info_str = get_runtime_version_info(NULL);
-            show_version("Text2pcap (Wireshark)", comp_info_str, runtime_info_str);
-            g_string_free(comp_info_str, TRUE);
-            g_string_free(runtime_info_str, TRUE);
+            show_version();
             exit(0);
             break;
 
@@ -1874,8 +1852,8 @@ parse_options (int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-static int
-real_main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     int ret = EXIT_SUCCESS;
 
@@ -1945,23 +1923,6 @@ clean_exit:
     }
     return ret;
 }
-
-#ifdef _WIN32
-int
-wmain(int argc, wchar_t *wc_argv[])
-{
-    char **argv;
-
-    argv = arg_list_utf_16to8(argc, wc_argv);
-    return real_main(argc, argv);
-}
-#else
-int
-main(int argc, char *argv[])
-{
-    return real_main(argc, argv);
-}
-#endif
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

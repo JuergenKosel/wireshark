@@ -88,12 +88,23 @@
         <translation>La cartella %1 non può essere creata!</translation>
     </message>
     <message>
+        <source>Show in Finder</source>
+        <translation>Mostra in Finder</translation>
+    </message>
+    <message>
+        <source>Show in Folder</source>
+        <translation>Mostra in Finder</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>Copia</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <source>Copy Row(s)</source>
-        <translation>Copia righe</translation>
+        <translation>
+            <numerusform>Copia riga</numerusform>
+            <numerusform>Copia righe</numerusform>
+        </translation>
     </message>
 </context>
 <context>
@@ -2293,14 +2304,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <source>Save All Objects In</source>
         <translation>Salva tutti gli oggetti in</translation>
     </message>
-    <message>
-        <source>Object Export</source>
-        <translation>Esporta oggetti</translation>
-    </message>
-    <message>
-        <source>Some files could not be saved.</source>
-        <translation>Alcuni file non possono essere salvati.</translation>
-    </message>
 </context>
 <context>
     <name>ExportObjectModel</name>
@@ -3931,10 +3934,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Lunghezza massima del frame:</translation>
     </message>
     <message>
-        <source>The maximum size of the frames to write to the import capture file (max 64000)</source>
-        <translation>Dimensione massima dei frame da scrivere sul file di importazione della cattura (max 64000)</translation>
-    </message>
-    <message>
         <source>Encapsulation</source>
         <translation>Incapsulamento</translation>
     </message>
@@ -4057,6 +4056,10 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>IPv4</source>
         <translation>IPv4</translation>
+    </message>
+    <message>
+        <source>The maximum size of the frames to write to the import capture file (max 256kiB)</source>
+        <translation>La dimensione massima dei frame da scrivere sul file di importazione della cattura (max 256kiB)</translation>
     </message>
     <message>
         <source>Import From Hex Dump</source>
@@ -12740,8 +12743,9 @@ a:hover {
         <translation>Copia percorso del file</translation>
     </message>
     <message>
-        <source>Remove</source>
-        <translation>Rimuovi</translation>
+        <source>Remove from list</source>
+        <oldsource>Remove</oldsource>
+        <translation type="unfinished">Rimuovi</translation>
     </message>
 </context>
 <context>

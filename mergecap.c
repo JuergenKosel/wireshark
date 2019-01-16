@@ -30,13 +30,14 @@
 #include <wsutil/wsgetopt.h>
 #endif
 
-#include <wsutil/clopts_common.h>
-#include <wsutil/cmdarg_err.h>
-#include <wsutil/crash_info.h>
+#include <ui/clopts_common.h>
+#include <ui/cmdarg_err.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
 #include <wsutil/strnatcmp.h>
+
+#include <cli_main.h>
 #include <version_info.h>
 
 #ifdef HAVE_PLUGINS
@@ -46,10 +47,6 @@
 #include <wsutil/report_message.h>
 
 #include <wiretap/merge.h>
-
-#ifdef _WIN32
-#include <wsutil/unicode-utils.h>
-#endif /* _WIN32 */
 
 #include "ui/failure_message.h"
 
@@ -67,7 +64,11 @@ print_usage(FILE *output)
   fprintf(output, "                    default is to merge based on frame timestamps.\n");
   fprintf(output, "  -s <snaplen>      truncate packets to <snaplen> bytes of data.\n");
   fprintf(output, "  -w <outfile>|-    set the output filename to <outfile> or '-' for stdout.\n");
+#ifdef PCAP_NG_DEFAULT
   fprintf(output, "  -F <capture type> set the output file type; default is pcapng.\n");
+#else
+  fprintf(output, "  -F <capture type> set the output file type; default is pcap.\n");
+#endif
   fprintf(output, "                    an empty \"-F\" option will list the file types.\n");
   fprintf(output, "  -I <IDB merge mode> set the merge mode for Interface Description Blocks; default is 'all'.\n");
   fprintf(output, "                    an empty \"-I\" option will list the merge modes.\n");
@@ -192,19 +193,19 @@ merge_callback(merge_event event, int num,
             fprintf(stderr, "          defaulting to WTAP_ENCAP_PER_PACKET\n");
             fprintf(stderr, "          %s had type %s (%s)\n",
                     in_files[0].filename,
-                    wtap_encap_string(first_frame_type),
-                    wtap_encap_short_string(first_frame_type));
+                    wtap_encap_description(first_frame_type),
+                    wtap_encap_name(first_frame_type));
             fprintf(stderr, "          %s had type %s (%s)\n",
                     in_files[i].filename,
-                    wtap_encap_string(this_frame_type),
-                    wtap_encap_short_string(this_frame_type));
+                    wtap_encap_description(this_frame_type),
+                    wtap_encap_name(this_frame_type));
             break;
           }
         }
       }
       fprintf(stderr, "mergecap: selected frame_type %s (%s)\n",
-              wtap_encap_string(num),
-              wtap_encap_short_string(num));
+              wtap_encap_description(num),
+              wtap_encap_name(num));
       break;
 
     case MERGE_EVENT_READY_TO_MERGE:
@@ -225,11 +226,9 @@ merge_callback(merge_event event, int num,
   return FALSE;
 }
 
-static int
-real_main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-  GString            *comp_info_str;
-  GString            *runtime_info_str;
   char               *init_progfile_dir_error;
   int                 opt;
   static const struct option long_options[] = {
@@ -242,9 +241,9 @@ real_main(int argc, char *argv[])
   int                 in_file_count      = 0;
   guint32             snaplen            = 0;
 #ifdef PCAP_NG_DEFAULT
-  int                 file_type          = WTAP_FILE_TYPE_SUBTYPE_PCAPNG; /* default to pcap format */
+  int                 file_type          = WTAP_FILE_TYPE_SUBTYPE_PCAPNG; /* default to pcapng format */
 #else
-  int                 file_type          = WTAP_FILE_TYPE_SUBTYPE_PCAP; /* default to pcapng format */
+  int                 file_type          = WTAP_FILE_TYPE_SUBTYPE_PCAP; /* default to pcap format */
 #endif
   int                 err                = 0;
   gchar              *err_info           = NULL;
@@ -261,21 +260,8 @@ real_main(int argc, char *argv[])
   create_app_running_mutex();
 #endif /* _WIN32 */
 
-  /* Get the compile-time version information string */
-  comp_info_str = get_compiled_version_info(NULL, NULL);
-
-  /* Get the run-time version information string */
-  runtime_info_str = get_runtime_version_info(NULL);
-
-  /* Add it to the information to be reported on a crash. */
-  ws_add_crash_info("Mergecap (Wireshark) %s\n"
-       "\n"
-       "%s"
-       "\n"
-       "%s",
-    get_ws_vcs_version_info(), comp_info_str->str, runtime_info_str->str);
-  g_string_free(comp_info_str, TRUE);
-  g_string_free(runtime_info_str, TRUE);
+  /* Initialize the version information. */
+  ws_init_version_info("Mergecap (Wireshark)", NULL, NULL, NULL);
 
   /*
    * Get credential information for later use.
@@ -319,10 +305,7 @@ real_main(int argc, char *argv[])
       break;
 
     case 'h':
-      printf("Mergecap (Wireshark) %s\n"
-             "Merge two or more capture files into one.\n"
-             "See https://www.wireshark.org for more information.\n",
-             get_ws_vcs_version_info());
+      show_help_header("Merge two or more capture files into one.");
       print_usage(stdout);
       goto clean_exit;
       break;
@@ -347,11 +330,7 @@ real_main(int argc, char *argv[])
       break;
 
     case 'V':
-      comp_info_str = get_compiled_version_info(NULL, NULL);
-      runtime_info_str = get_runtime_version_info(NULL);
-      show_version("Mergecap (Wireshark)", comp_info_str, runtime_info_str);
-      g_string_free(comp_info_str, TRUE);
-      g_string_free(runtime_info_str, TRUE);
+      show_version();
       goto clean_exit;
       break;
 
@@ -412,13 +391,15 @@ real_main(int argc, char *argv[])
     status = merge_files_to_stdout(file_type,
                                    (const char *const *) &argv[optind],
                                    in_file_count, do_append, mode, snaplen,
-                                   "mergecap", verbose ? &cb : NULL,
+                                   get_appname_and_version(),
+                                   verbose ? &cb : NULL,
                                    &err, &err_info, &err_fileno, &err_framenum);
   } else {
     /* merge the files to the outfile */
     status = merge_files(out_filename, file_type,
                          (const char *const *) &argv[optind], in_file_count,
-                         do_append, mode, snaplen, "mergecap", verbose ? &cb : NULL,
+                         do_append, mode, snaplen, get_appname_and_version(),
+                         verbose ? &cb : NULL,
                          &err, &err_info, &err_fileno, &err_framenum);
   }
 
@@ -470,23 +451,6 @@ clean_exit:
   free_progdirs();
   return (status == MERGE_OK) ? 0 : 2;
 }
-
-#ifdef _WIN32
-int
-wmain(int argc, wchar_t *wc_argv[])
-{
-  char **argv;
-
-  argv = arg_list_utf_16to8(argc, wc_argv);
-  return real_main(argc, argv);
-}
-#else
-int
-main(int argc, char *argv[])
-{
-  return real_main(argc, argv);
-}
-#endif
 
 /*
  * Editor modelines  -  http://www.wireshark.org/tools/modelines.html

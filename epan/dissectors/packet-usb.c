@@ -1769,13 +1769,13 @@ static const char* usb_conv_get_filter_type(conv_item_t* conv, conv_filter_type_
 
 static ct_dissector_info_t usb_ct_dissector_info = {&usb_conv_get_filter_type};
 
-static int
+static tap_packet_status
 usb_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip _U_)
 {
     conv_hash_t *hash = (conv_hash_t*) pct;
     add_conversation_table_data(hash, &pinfo->src, &pinfo->dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &usb_ct_dissector_info, ENDPOINT_NONE);
 
-    return 1;
+    return TAP_PACKET_REDRAW;
 }
 
 static const char* usb_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
@@ -1794,7 +1794,7 @@ usb_col_filter_str(const address* addr _U_, gboolean is_src)
 
 static hostlist_dissector_info_t usb_host_dissector_info = {&usb_host_get_filter_type};
 
-static int
+static tap_packet_status
 usb_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip _U_)
 {
     conv_hash_t *hash = (conv_hash_t*) pit;
@@ -1805,7 +1805,7 @@ usb_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, cons
     add_hostlist_table_data(hash, &pinfo->src, 0, TRUE, 1, pinfo->fd->pkt_len, &usb_host_dissector_info, ENDPOINT_NONE);
     add_hostlist_table_data(hash, &pinfo->dst, 0, FALSE, 1, pinfo->fd->pkt_len, &usb_host_dissector_info, ENDPOINT_NONE);
 
-    return 1;
+    return TAP_PACKET_REDRAW;
 }
 
 /* SETUP dissectors */
@@ -1968,7 +1968,7 @@ dissect_usb_device_qualifier_descriptor(packet_info *pinfo _U_, proto_tree *pare
         proto_item_append_text(nitem, " (%s)", description);
     offset += 1;
 
-    if (!pinfo->fd->flags.visited) {
+    if (!pinfo->fd->visited) {
         guint                   k_bus_id;
         guint                   k_device_address;
         guint                   k_frame_number;
@@ -2079,7 +2079,7 @@ dissect_usb_device_descriptor(packet_info *pinfo, proto_tree *parent_tree,
                                      product_id);
     offset += 2;
 
-    if (!pinfo->fd->flags.visited) {
+    if (!pinfo->fd->visited) {
         guint                   k_bus_id;
         guint                   k_device_address;
         guint                   k_frame_number;
@@ -2246,7 +2246,7 @@ dissect_usb_interface_descriptor(packet_info *pinfo, proto_tree *parent_tree,
     class_str = val_to_str_ext(usb_conv_info->interfaceClass, &usb_class_vals_ext, "unknown (0x%X)");
     proto_item_append_text(item, " (%u.%u): class %s", interface_num, alt_setting, class_str);
 
-    if (!pinfo->fd->flags.visited) {
+    if (!pinfo->fd->visited) {
         usb_alt_setting_t alternate_setting;
 
         /* Register conversation for this interface in case CONTROL messages are sent to it */
@@ -2409,7 +2409,7 @@ dissect_usb_endpoint_descriptor(packet_info *pinfo, proto_tree *parent_tree,
      * All endpoints for the same interface descriptor share the same
      * usb_conv_info structure.
      */
-    if ((!pinfo->fd->flags.visited) && usb_trans_info && usb_trans_info->interface_info) {
+    if ((!pinfo->fd->visited) && usb_trans_info && usb_trans_info->interface_info) {
         if (pinfo->destport == NO_ENDPOINT) {
             address tmp_addr;
             usb_address_t *usb_addr = wmem_new0(wmem_packet_scope(), usb_address_t);
@@ -4007,7 +4007,7 @@ static usb_trans_info_t
 
     } else {
         /* this is a response */
-        if (pinfo->fd->flags.visited) {
+        if (pinfo->fd->visited) {
             usb_trans_info = (usb_trans_info_t *)wmem_tree_lookup32_array(usb_conv_info->transactions, key);
 
         } else {
@@ -4611,7 +4611,7 @@ netmon_fid_USBPORT_Endpoint_Descriptor(proto_tree *tree, tvbuff_t *tvb, int offs
 {
     proto_tree *endpoint_desc_tree;
 
-    endpoint_desc_tree = proto_tree_add_subtree(tree, tvb, offset, 7, ett_usbport_endpoint_desc, NULL, "Endpoint Decriptor");
+    endpoint_desc_tree = proto_tree_add_subtree(tree, tvb, offset, 7, ett_usbport_endpoint_desc, NULL, "Endpoint Descriptor");
     proto_tree_add_item(endpoint_desc_tree, hf_usbport_endpoint_desc_length, tvb, offset, 1, ENC_LITTLE_ENDIAN);
     offset += 1;
     proto_tree_add_item(endpoint_desc_tree, hf_usbport_endpoint_desc_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);

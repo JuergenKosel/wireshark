@@ -152,14 +152,14 @@ static dissector_table_t wtap_fts_rec_dissector_table;
 /****************************************************************************/
 /* whenever a frame packet is seen by the tap listener */
 /* Add a new frame into the graph */
-static gboolean
+static tap_packet_status
 frame_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_, const void *dummy _U_)
 {
 	seq_analysis_info_t *sainfo = (seq_analysis_info_t *) ptr;
 	seq_analysis_item_t *sai = sequence_analysis_create_sai_with_addresses(pinfo, sainfo);
 
 	if (!sai)
-		return FALSE;
+		return TAP_PACKET_DONT_REDRAW;
 
 	sai->frame_number = pinfo->num;
 
@@ -176,7 +176,7 @@ frame_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U
 
 	g_queue_push_tail(sainfo->items, sai);
 
-	return TRUE;
+	return TAP_PACKET_REDRAW;
 }
 
 /*
@@ -490,7 +490,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 						   0, 0, &(pinfo->rel_ts));
 			PROTO_ITEM_SET_GENERATED(item);
 
-			if (pinfo->fd->flags.ref_time) {
+			if (pinfo->fd->ref_time) {
 				ti = proto_tree_add_item(fh_tree, hf_frame_time_reference, tvb, 0, 0, ENC_NA);
 				PROTO_ITEM_SET_GENERATED(ti);
 			}
@@ -520,10 +520,10 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			PROTO_ITEM_SET_GENERATED(ti);
 		}
 
-		ti = proto_tree_add_boolean(fh_tree, hf_frame_marked, tvb, 0, 0,pinfo->fd->flags.marked);
+		ti = proto_tree_add_boolean(fh_tree, hf_frame_marked, tvb, 0, 0,pinfo->fd->marked);
 		PROTO_ITEM_SET_GENERATED(ti);
 
-		ti = proto_tree_add_boolean(fh_tree, hf_frame_ignored, tvb, 0, 0,pinfo->fd->flags.ignored);
+		ti = proto_tree_add_boolean(fh_tree, hf_frame_ignored, tvb, 0, 0,pinfo->fd->ignored);
 		PROTO_ITEM_SET_GENERATED(ti);
 
 		if (pinfo->rec->rec_type == REC_TYPE_PACKET) {
@@ -549,7 +549,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 		}
 	}
 
-	if (pinfo->fd->flags.ignored) {
+	if (pinfo->fd->ignored) {
 		/* Ignored package, stop handling here */
 		col_set_str(pinfo->cinfo, COL_INFO, "<Ignored>");
 		proto_tree_add_boolean_format(tree, hf_frame_ignored, tvb, 0, 0, TRUE, "This frame is marked as ignored");
@@ -712,10 +712,10 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 	}
 
 	/* Attempt to (re-)calculate color filters (if any). */
-	if (pinfo->fd->flags.need_colorize) {
+	if (pinfo->fd->need_colorize) {
 		color_filter = color_filters_colorize_packet(fr_data->color_edt);
 		pinfo->fd->color_filter = color_filter;
-		pinfo->fd->flags.need_colorize = 0;
+		pinfo->fd->need_colorize = 0;
 	} else {
 		color_filter = pinfo->fd->color_filter;
 	}
@@ -983,7 +983,7 @@ proto_register_frame(void)
 
 		for (i = 0; i < encap_count; i++) {
 			arr[i].value = i;
-			arr[i].strptr = wtap_encap_string(i);
+			arr[i].strptr = wtap_encap_description(i);
 		}
 		arr[encap_count].value = 0;
 		arr[encap_count].strptr = NULL;

@@ -224,6 +224,7 @@ static gint hf_sip_p_acc_net_i_ucid_3gpp  = -1;
 static gint hf_sip_service_priority = -1;
 static gint hf_sip_icid_value = -1;
 static gint hf_sip_icid_gen_addr = -1;
+static gint hf_sip_call_id_gen = -1;
 
 /* Initialize the subtree pointers */
 static gint ett_sip                       = -1;
@@ -3338,7 +3339,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
     char    cseq_method[MAX_CSEQ_METHOD_SIZE] = "";
     char    call_id[MAX_CALL_ID_SIZE] = "";
     gchar  *media_type_str_lower_case = NULL;
-    http_message_info_t message_info = { HTTP_OTHERS, NULL };
+    http_message_info_t message_info = { SIP_DATA, NULL, NULL };
     char   *content_encoding_parameter_str = NULL;
     guint   resend_for_packet = 0;
     guint   request_for_response = 0;
@@ -4096,6 +4097,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                     case POS_CALL_ID :
                     {
                         char *value = tvb_get_string_enc(wmem_packet_scope(), tvb, value_offset, value_len, ENC_UTF_8|ENC_NA);
+                        proto_item *gen_item;
 
                         /* Store the Call-id */
                         g_strlcpy(call_id, value, MAX_CALL_ID_SIZE);
@@ -4106,6 +4108,11 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                                                     hf_header_array[hf_index], tvb,
                                                     offset, next_offset - offset,
                                                     value);
+                        gen_item = proto_tree_add_string(hdr_tree,
+                                                    hf_sip_call_id_gen, tvb,
+                                                    offset, next_offset - offset,
+                                                    value);
+                        PROTO_ITEM_SET_GENERATED(gen_item);
                         sip_proto_set_format_text(hdr_tree, sip_element_item, tvb, offset, linelen);
                     }
                     break;
@@ -4667,6 +4674,14 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
          * There's a message body starting at "offset".
          * Set the length of the header item.
          */
+        sdp_setup_info_t setup_info;
+
+        setup_info.setup_proto = g_strdup("SIP");
+        setup_info.hf_id = hf_sip_call_id_gen;
+        setup_info.hf_type = SDP_TRACE_ID_HF_TYPE_STR;
+        setup_info.trace_id = g_strdup(call_id);
+        message_info.data = &setup_info;
+
         proto_item_set_end(th, tvb, offset);
         if(content_encoding_parameter_str != NULL &&
             (!strncmp(content_encoding_parameter_str, "gzip", 4) ||
@@ -4707,7 +4722,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                         DPRINT(("calling setup_sdp_transport() SDP_EXCHANGE_OFFER frame=%d",
                                 pinfo->num));
                         DINDENT();
-                        setup_sdp_transport(next_tvb, pinfo, SDP_EXCHANGE_OFFER, pinfo->num, sip_delay_sdp_changes);
+                        setup_sdp_transport(next_tvb, pinfo, SDP_EXCHANGE_OFFER, pinfo->num, sip_delay_sdp_changes, &setup_info);
                         DENDENT();
                     } else if (line_type == STATUS_LINE) {
                         if (stat_info->response_code >= 400) {
@@ -4716,7 +4731,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                                     request_for_response, pinfo->num));
                             DINDENT();
                             /* SIP client request failed, so SDP offer should fail */
-                            setup_sdp_transport(next_tvb, pinfo, SDP_EXCHANGE_ANSWER_REJECT, request_for_response, sip_delay_sdp_changes);
+                            setup_sdp_transport(next_tvb, pinfo, SDP_EXCHANGE_ANSWER_REJECT, request_for_response, sip_delay_sdp_changes, &setup_info);
                             DENDENT();
                         }
                         else if ((stat_info->response_code >= 200) && (stat_info->response_code <= 299)) {
@@ -4725,7 +4740,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                                     request_for_response, pinfo->num));
                             DINDENT();
                             /* SIP success request, so SDP offer should be accepted */
-                            setup_sdp_transport(next_tvb, pinfo, SDP_EXCHANGE_ANSWER_ACCEPT, request_for_response, sip_delay_sdp_changes);
+                            setup_sdp_transport(next_tvb, pinfo, SDP_EXCHANGE_ANSWER_ACCEPT, request_for_response, sip_delay_sdp_changes, &setup_info);
                             DENDENT();
                         }
                     }
@@ -5151,7 +5166,7 @@ guint sip_is_packet_resend(packet_info *pinfo,
     }
 
     /* Return any answer stored from previous dissection */
-    if (pinfo->fd->flags.visited)
+    if (pinfo->fd->visited)
     {
         sip_frame_result = (sip_frame_result_value*)p_get_proto_data(wmem_file_scope(), pinfo, proto_sip, pinfo->curr_layer_num);
         if (sip_frame_result != NULL)
@@ -5349,7 +5364,7 @@ guint sip_find_request(packet_info *pinfo,
     }
 
     /* Return any answer stored from previous dissection */
-    if (pinfo->fd->flags.visited)
+    if (pinfo->fd->visited)
     {
         sip_frame_result = (sip_frame_result_value*)p_get_proto_data(wmem_file_scope(), pinfo, proto_sip, pinfo->curr_layer_num);
         if (sip_frame_result != NULL)
@@ -5463,7 +5478,7 @@ guint sip_find_invite(packet_info *pinfo,
     }
 
     /* Return any answer stored from previous dissection */
-    if (pinfo->fd->flags.visited)
+    if (pinfo->fd->visited)
     {
         sip_frame_result = (sip_frame_result_value*)p_get_proto_data(wmem_file_scope(), pinfo, proto_sip, pinfo->curr_layer_num);
         if (sip_frame_result != NULL)
@@ -5759,7 +5774,7 @@ static void sip_stat_init(stat_tap_table_ui* new_stat)
     }
 }
 
-static gboolean
+static tap_packet_status
 sip_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *siv_ptr)
 {
     stat_data_t* stat_data = (stat_data_t*) tapdata;
@@ -5805,7 +5820,7 @@ sip_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, 
         }
 
     } else {
-        return FALSE;
+        return TAP_PACKET_DONT_REDRAW;
     }
 
     if (cur_table) {
@@ -5852,7 +5867,7 @@ sip_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, 
         }
     }
 
-    return TRUE;
+    return TAP_PACKET_REDRAW;
 }
 
 static void
@@ -7199,7 +7214,13 @@ void proto_register_sip(void)
         { "icid-gen-addr",  "sip.icid_gen_addr",
             FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
-        }
+        },
+        { &hf_sip_call_id_gen,
+        { "Call-ID",         "sip.call_id_generated",
+            FT_STRING, BASE_NONE,NULL,0x0,
+            "Use to catch call id across protocols", HFILL }
+        },
+
     };
 
     /* raw_sip header field(s) */

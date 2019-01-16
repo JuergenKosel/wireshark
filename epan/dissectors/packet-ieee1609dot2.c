@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-ieee1609dot2.c                                                      */
-/* asn2wrs.py -p ieee1609dot2 -c ./ieee1609dot2.cnf -s ./packet-ieee1609dot2-template -D . -O ../.. IEEE1609dot2BaseTypes.asn IEEE1609dot2DataTypes.asn */
+/* asn2wrs.py -p ieee1609dot2 -c ./ieee1609dot2.cnf -s ./packet-ieee1609dot2-template -D . -O ../.. IEEE1609dot2BaseTypes.asn IEEE1609dot2DataTypes.asn IEEE1609dot12.asn */
 
 /* Input file: packet-ieee1609dot2-template.c */
 
@@ -17,21 +17,26 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+/* Also contains IEEE std 1609.12
+ * section 4.1.3 PSID allocations
+ */
+
 #include "config.h"
 
 #include <epan/packet.h>
 #include <epan/conversation.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <epan/proto_data.h>
 
 #include "packet-oer.h"
+#include "packet-ieee1609dot2.h"
 
 #define PNAME  "IEEE1609dot2"
 #define PSNAME "IEEE1609dot2"
 #define PFNAME "ieee1609dot2"
 
-void proto_register_IEEE1609dot2(void);
-void proto_reg_handoff_IEEE1609dot2(void);
+void proto_register_ieee1609dot2(void);
 
 /* Initialize the protocol and registered fields */
 int proto_ieee1609dot2 = -1;
@@ -96,10 +101,11 @@ static int hf_ieee1609dot2_eciesBrainpoolP256r1 = -1;  /* EccP256CurvePoint */
 static int hf_ieee1609dot2_ecdsaNistP256 = -1;    /* EccP256CurvePoint */
 static int hf_ieee1609dot2_ecdsaBrainpoolP256r1 = -1;  /* EccP256CurvePoint */
 static int hf_ieee1609dot2_aes128Ccm = -1;        /* OCTET_STRING_SIZE_16 */
-static int hf_ieee1609dot2_psid = -1;             /* Psid */
+static int hf_ieee1609dot2_psid = -1;             /* T_psid */
 static int hf_ieee1609dot2_ssp = -1;              /* ServiceSpecificPermissions */
 static int hf_ieee1609dot2_SequenceOfPsidSsp_item = -1;  /* PsidSsp */
-static int hf_ieee1609dot2_opaque = -1;           /* OCTET_STRING_SIZE_0_MAX */
+static int hf_ieee1609dot2_opaque = -1;           /* T_opaque */
+static int hf_ieee1609dot2_psid_01 = -1;          /* Psid */
 static int hf_ieee1609dot2_sspRange = -1;         /* SspRange */
 static int hf_ieee1609dot2_SequenceOfPsidSspRange_item = -1;  /* PsidSspRange */
 static int hf_ieee1609dot2_opaque_01 = -1;        /* SequenceOfOctetString */
@@ -125,6 +131,7 @@ static int hf_ieee1609dot2_self = -1;             /* NULL */
 static int hf_ieee1609dot2_payload = -1;          /* SignedDataPayload */
 static int hf_ieee1609dot2_headerInfo = -1;       /* HeaderInfo */
 static int hf_ieee1609dot2_sha256HashedData = -1;  /* OCTET_STRING_SIZE_32 */
+static int hf_ieee1609dot2_psid_02 = -1;          /* T_psid_01 */
 static int hf_ieee1609dot2_generationTime = -1;   /* Time64 */
 static int hf_ieee1609dot2_expiryTime = -1;       /* Time64 */
 static int hf_ieee1609dot2_generationLocation = -1;  /* ThreeDLocation */
@@ -186,9 +193,10 @@ static int hf_ieee1609dot2_EndEntityType_app = -1;
 static int hf_ieee1609dot2_EndEntityType_enrol = -1;
 
 /*--- End of included file: packet-ieee1609dot2-hf.c ---*/
-#line 31 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
+#line 37 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
 
 /* Initialize the subtree pointers */
+static int ett_ieee1609dot2_ssp = -1;
 
 /*--- Included file: packet-ieee1609dot2-ett.c ---*/
 #line 1 "./asn1/ieee1609dot2/packet-ieee1609dot2-ett.c"
@@ -257,9 +265,23 @@ static gint ett_ieee1609dot2_SubjectPermissions = -1;
 static gint ett_ieee1609dot2_VerificationKeyIndicator = -1;
 
 /*--- End of included file: packet-ieee1609dot2-ett.c ---*/
-#line 34 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
+#line 41 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
 
-static dissector_handle_t j2735_handle;
+static dissector_table_t unsecured_data_subdissector_table;
+static dissector_table_t ssp_subdissector_table;
+
+typedef struct ieee1609_private_data {
+  tvbuff_t *unsecured_data;
+  guint64 psidssp; // psid for Service Specific Permissions
+} ieee1609_private_data_t;
+
+void
+ieee1609dot2_set_next_default_psid(packet_info *pinfo, guint32 psid)
+{
+  guint32 *ctxt = wmem_new0(wmem_file_scope(), guint32);
+  *ctxt = psid;
+  p_add_proto_data(wmem_file_scope(), pinfo, proto_ieee1609dot2, 0, (void*)ctxt);
+}
 
 
 /*--- Included file: packet-ieee1609dot2-fn.c ---*/
@@ -976,6 +998,76 @@ dissect_ieee1609dot2_PublicVerificationKey(tvbuff_t *tvb _U_, int offset _U_, as
 }
 
 
+const val64_string ieee1609dot2_Psid_vals[] = {
+  { psid_system, "psid-system" },
+  { psid_electronic_fee_collection, "psid-electronic-fee-collection" },
+  { psid_freight_fleet_management, "psid-freight-fleet-management" },
+  { psid_public_transport, "psid-public-transport" },
+  { psid_traffic_traveller_information, "psid-traffic-traveller-information" },
+  { psid_traffic_control, "psid-traffic-control" },
+  { psid_parking_management, "psid-parking-management" },
+  { psid_geographic_road_database, "psid-geographic-road-database" },
+  { psid_medium_range_preinformation, "psid-medium-range-preinformation" },
+  { psid_man_machine_interface, "psid-man-machine-interface" },
+  { psid_intersystem_interface, "psid-intersystem-interface" },
+  { psid_automatic_vehicle_identification, "psid-automatic-vehicle-identification" },
+  { psid_emergency_warning, "psid-emergency-warning" },
+  { psid_private, "psid-private" },
+  { psid_multi_purpose_payment, "psid-multi-purpose-payment" },
+  { psid_dsrc_resource_manager, "psid-dsrc-resource-manager" },
+  { psid_after_theft_systems, "psid-after-theft-systems" },
+  { psid_cruise_assist_highway_system, "psid-cruise-assist-highway-system" },
+  { psid_multi_purpose_information_system, "psid-multi-purpose-information-system" },
+  { psid_multi_mobile_information_system, "psid-multi-mobile-information-system" },
+  { psid_efc_compliance_check_communication_applications, "psid-efc-compliance-check-communication-applications" },
+  { psid_efc_localisation_augmentation_communication_applications, "psid-efc-localisation-augmentation-communication-applications" },
+  { psid_iso_cen_dsrc_applications_0x16, "psid-iso-cen-dsrc-applications-0x16" },
+  { psid_iso_cen_dsrc_applications_0x17, "psid-iso-cen-dsrc-applications-0x17" },
+  { psid_iso_cen_dsrc_applications_0x18, "psid-iso-cen-dsrc-applications-0x18" },
+  { psid_iso_cen_dsrc_applications_0x19, "psid-iso-cen-dsrc-applications-0x19" },
+  { psid_iso_cen_dsrc_applications_0x1a, "psid-iso-cen-dsrc-applications-0x1a" },
+  { psid_iso_cen_dsrc_applications_0x1b, "psid-iso-cen-dsrc-applications-0x1b" },
+  { psid_iso_cen_dsrc_applications_0x1c, "psid-iso-cen-dsrc-applications-0x1c" },
+  { psid_private_use_0x1d, "psid-private-use-0x1d" },
+  { psid_private_use_0x1e, "psid-private-use-0x1e" },
+  { psid_iso_cen_dsrc_applications_0x1f, "psid-iso-cen-dsrc-applications-0x1f" },
+  { psid_vehicle_to_vehicle_safety_and_awarenesss, "psid-vehicle-to-vehicle-safety-and-awarenesss" },
+  { psid_limited_sensor_vehicle_to_vehicle_safety_and_awarenesss, "psid-limited-sensor-vehicle-to-vehicle-safety-and-awarenesss" },
+  { psid_tracked_vehicle_safety_and_awarenesss, "psid-tracked-vehicle-safety-and-awarenesss" },
+  { psid_wave_security_managements, "psid-wave-security-managements" },
+  { psid_ca_basic_services, "psid-ca-basic-services" },
+  { psid_den_basic_services, "psid-den-basic-services" },
+  { psid_misbehavior_reporting_for_common_applications, "psid-misbehavior-reporting-for-common-applications" },
+  { psid_vulnerable_road_users_safety_applications, "psid-vulnerable-road-users-safety-applications" },
+  { psid_testings, "psid-testings" },
+  { psid_differential_gps_corrections_uncompressed, "psid-differential-gps-corrections-uncompressed" },
+  { psid_differential_gps_corrections_compressed, "psid-differential-gps-corrections-compressed" },
+  { psid_intersection_safety_and_awareness, "psid-intersection-safety-and-awareness" },
+  { psid_traveller_information_and_roadside_signage, "psid-traveller-information-and-roadside-signage" },
+  { psid_mobile_probe_exchanges, "psid-mobile-probe-exchanges" },
+  { psid_emergency_and_erratic_vehicles_present_in_roadway, "psid-emergency-and-erratic-vehicles-present-in-roadway" },
+  { psid_remote_management_protocol_execution, "psid-remote-management-protocol-execution" },
+  { psid_wave_service_advertisement, "psid-wave-service-advertisement" },
+  { psid_peer_to_peer_distribution_of_security_management_information, "psid-peer-to-peer-distribution-of-security-management-information" },
+  { psid_traffic_light_manoeuver_service, "psid-traffic-light-manoeuver-service" },
+  { psid_road_and_lane_topology_service, "psid-road-and-lane-topology-service" },
+  { psid_infrastructure_to_vehicle_information_service, "psid-infrastructure-to-vehicle-information-service" },
+  { psid_traffic_light_control_service, "psid-traffic-light-control-service" },
+  { psid_geonetworking_management_communications, "psid-geonetworking-management-communications" },
+  { psid_certificate_revocation_list_application, "psid-certificate-revocation-list-application" },
+  { psid_vehicle_initiated_distress_notivication, "psid-vehicle-initiated-distress-notivication" },
+  { psid_fast_service_advertisement_protocol, "psid-fast-service-advertisement-protocol" },
+  { psid_its_station_internal_management_communications_protocol, "psid-its-station-internal-management-communications-protocol" },
+  { psid_veniam_delay_tolerant_networking, "psid-veniam-delay-tolerant-networking" },
+  { psid_transcore_software_update, "psid-transcore-software-update" },
+  { psid_sra_private_applications_0x204084, "psid-sra-private-applications-0x204084" },
+  { psid_sra_private_applications_0x204085, "psid-sra-private-applications-0x204085" },
+  { psid_sra_private_applications_0x204086, "psid-sra-private-applications-0x204086" },
+  { psid_sra_private_applications_0x204087, "psid-sra-private-applications-0x204087" },
+  { psid_ipv6_routing, "psid-ipv6-routing" },
+  { 0, NULL }
+};
+
 
 static int
 dissect_ieee1609dot2_Psid(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -988,9 +1080,33 @@ dissect_ieee1609dot2_Psid(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 
 static int
-dissect_ieee1609dot2_OCTET_STRING_SIZE_0_MAX(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_ieee1609dot2_T_psid(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 84 "./asn1/ieee1609dot2/ieee1609dot2.cnf"
+  offset = dissect_oer_constrained_integer_64b_no_ub(tvb, offset, actx, tree, hf_index,
+                                               0U, NO_BOUND, &((ieee1609_private_data_t*)actx->private_data)->psidssp, FALSE);
+
+
+
+  return offset;
+}
+
+
+
+static int
+dissect_ieee1609dot2_T_opaque(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 88 "./asn1/ieee1609dot2/ieee1609dot2.cnf"
+  tvbuff_t *ssp;
+  ieee1609_private_data_t *my_private_data = (ieee1609_private_data_t*)actx->private_data;
+
   offset = dissect_oer_octet_string(tvb, offset, actx, tree, hf_index,
-                                       0, NO_BOUND, FALSE, NULL);
+                                       0, NO_BOUND, FALSE, &ssp);
+  if (ssp) {
+    // Create subtree
+    proto_tree *subtree = proto_item_add_subtree(actx->created_item, ett_ieee1609dot2_ssp);
+    /* Call next dissector here */
+    dissector_try_uint(ssp_subdissector_table, (guint32) my_private_data->psidssp, ssp, actx->pinfo, subtree);
+  }
+
 
   return offset;
 }
@@ -1002,7 +1118,7 @@ static const value_string ieee1609dot2_ServiceSpecificPermissions_vals[] = {
 };
 
 static const oer_choice_t ServiceSpecificPermissions_choice[] = {
-  {   0, &hf_ieee1609dot2_opaque , ASN1_EXTENSION_ROOT    , dissect_ieee1609dot2_OCTET_STRING_SIZE_0_MAX },
+  {   0, &hf_ieee1609dot2_opaque , ASN1_EXTENSION_ROOT    , dissect_ieee1609dot2_T_opaque },
   { 0, NULL, 0, NULL }
 };
 
@@ -1017,7 +1133,7 @@ dissect_ieee1609dot2_ServiceSpecificPermissions(tvbuff_t *tvb _U_, int offset _U
 
 
 static const oer_sequence_t PsidSsp_sequence[] = {
-  { &hf_ieee1609dot2_psid   , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_Psid },
+  { &hf_ieee1609dot2_psid   , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_T_psid },
   { &hf_ieee1609dot2_ssp    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_ieee1609dot2_ServiceSpecificPermissions },
   { NULL, 0, 0, NULL }
 };
@@ -1039,6 +1155,16 @@ static int
 dissect_ieee1609dot2_SequenceOfPsidSsp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_oer_sequence_of(tvb, offset, actx, tree, hf_index,
                                       ett_ieee1609dot2_SequenceOfPsidSsp, SequenceOfPsidSsp_sequence_of);
+
+  return offset;
+}
+
+
+
+static int
+dissect_ieee1609dot2_OCTET_STRING_SIZE_0_MAX(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_oer_octet_string(tvb, offset, actx, tree, hf_index,
+                                       0, NO_BOUND, FALSE, NULL);
 
   return offset;
 }
@@ -1081,7 +1207,7 @@ dissect_ieee1609dot2_SspRange(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 
 static const oer_sequence_t PsidSspRange_sequence[] = {
-  { &hf_ieee1609dot2_psid   , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_Psid },
+  { &hf_ieee1609dot2_psid_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_Psid },
   { &hf_ieee1609dot2_sspRange, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_ieee1609dot2_SspRange },
   { NULL, 0, 0, NULL }
 };
@@ -1194,16 +1320,42 @@ dissect_ieee1609dot2_GroupLinkageValue(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 static int
 dissect_ieee1609dot2_T_unsecuredData(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 43 "./asn1/ieee1609dot2/ieee1609dot2.cnf"
-
-tvbuff_t *parameter_tvb=NULL;
+#line 51 "./asn1/ieee1609dot2/ieee1609dot2.cnf"
+  ieee1609_private_data_t *my_private_data = (ieee1609_private_data_t*)actx->private_data;
 
   offset = dissect_oer_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, &parameter_tvb);
+                                       NO_BOUND, NO_BOUND, FALSE, &my_private_data->unsecured_data);
 
-  if((parameter_tvb)&& (j2735_handle)){
+  if (my_private_data->unsecured_data) {
+    // psid may also be provided in HeaderInfo
+    guint32 *psid = (guint32*)p_get_proto_data(wmem_file_scope(), actx->pinfo, proto_ieee1609dot2, 0);
+    if (psid) {
+      /* Call next dissector here */
+      dissector_try_uint(unsecured_data_subdissector_table, *psid, my_private_data->unsecured_data, actx->pinfo, tree);
+      my_private_data->unsecured_data = NULL;
+    }
+    // else: wait for the HeaderInfo for a second chance to dissect the content
+  }
+
+
+
+  return offset;
+}
+
+
+
+static int
+dissect_ieee1609dot2_T_psid_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 70 "./asn1/ieee1609dot2/ieee1609dot2.cnf"
+  guint64 psid;
+  ieee1609_private_data_t *my_private_data = (ieee1609_private_data_t*)actx->private_data;
+
+  offset = dissect_oer_constrained_integer_64b_no_ub(tvb, offset, actx, tree, hf_index,
+                                                            0U, NO_BOUND, &psid, FALSE);
+  if (my_private_data->unsecured_data) {
     /* Call next dissector here */
-    call_dissector(j2735_handle, parameter_tvb, actx->pinfo, tree);
+    dissector_try_uint(unsecured_data_subdissector_table, (guint32) psid, my_private_data->unsecured_data, actx->pinfo, tree);
+    my_private_data->unsecured_data = NULL;
   }
 
 
@@ -1228,7 +1380,7 @@ dissect_ieee1609dot2_MissingCrlIdentifier(tvbuff_t *tvb _U_, int offset _U_, asn
 
 
 static const oer_sequence_t HeaderInfo_sequence[] = {
-  { &hf_ieee1609dot2_psid   , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_Psid },
+  { &hf_ieee1609dot2_psid_02, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_T_psid_01 },
   { &hf_ieee1609dot2_generationTime, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ieee1609dot2_Time64 },
   { &hf_ieee1609dot2_expiryTime, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ieee1609dot2_Time64 },
   { &hf_ieee1609dot2_generationLocation, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ieee1609dot2_ThreeDLocation },
@@ -1747,6 +1899,9 @@ static const oer_sequence_t Ieee1609Dot2Data_sequence[] = {
 
 static int
 dissect_ieee1609dot2_Ieee1609Dot2Data(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 47 "./asn1/ieee1609dot2/ieee1609dot2.cnf"
+  actx->private_data = (void*)wmem_new0(wmem_packet_scope(), ieee1609_private_data_t);
+
   offset = dissect_oer_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ieee1609dot2_Ieee1609Dot2Data, Ieee1609Dot2Data_sequence);
 
@@ -1800,7 +1955,7 @@ static int dissect_Ieee1609Dot2Data_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U
 
 
 /*--- End of included file: packet-ieee1609dot2-fn.c ---*/
-#line 38 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
+#line 59 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
 
 
 /*--- proto_register_ieee1609dot2 ----------------------------------------------*/
@@ -2045,7 +2200,7 @@ void proto_register_ieee1609dot2(void) {
         "OCTET_STRING_SIZE_16", HFILL }},
     { &hf_ieee1609dot2_psid,
       { "psid", "ieee1609dot2.psid",
-        FT_UINT64, BASE_DEC, NULL, 0,
+        FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(ieee1609dot2_Psid_vals), 0,
         NULL, HFILL }},
     { &hf_ieee1609dot2_ssp,
       { "ssp", "ieee1609dot2.ssp",
@@ -2058,7 +2213,11 @@ void proto_register_ieee1609dot2(void) {
     { &hf_ieee1609dot2_opaque,
       { "opaque", "ieee1609dot2.opaque",
         FT_BYTES, BASE_NONE, NULL, 0,
-        "OCTET_STRING_SIZE_0_MAX", HFILL }},
+        NULL, HFILL }},
+    { &hf_ieee1609dot2_psid_01,
+      { "psid", "ieee1609dot2.psid",
+        FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(ieee1609dot2_Psid_vals), 0,
+        NULL, HFILL }},
     { &hf_ieee1609dot2_sspRange,
       { "sspRange", "ieee1609dot2.sspRange",
         FT_UINT32, BASE_DEC, VALS(ieee1609dot2_SspRange_vals), 0,
@@ -2159,6 +2318,10 @@ void proto_register_ieee1609dot2(void) {
       { "sha256HashedData", "ieee1609dot2.sha256HashedData",
         FT_BYTES, BASE_NONE, NULL, 0,
         "OCTET_STRING_SIZE_32", HFILL }},
+    { &hf_ieee1609dot2_psid_02,
+      { "psid", "ieee1609dot2.psid",
+        FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(ieee1609dot2_Psid_vals), 0,
+        "T_psid_01", HFILL }},
     { &hf_ieee1609dot2_generationTime,
       { "generationTime", "ieee1609dot2.generationTime",
         FT_UINT64, BASE_DEC, NULL, 0,
@@ -2393,7 +2556,7 @@ void proto_register_ieee1609dot2(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-ieee1609dot2-hfarr.c ---*/
-#line 46 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
+#line 67 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
   };
 
   /* List of subtrees */
@@ -2466,7 +2629,8 @@ void proto_register_ieee1609dot2(void) {
     &ett_ieee1609dot2_VerificationKeyIndicator,
 
 /*--- End of included file: packet-ieee1609dot2-ettarr.c ---*/
-#line 51 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
+#line 72 "./asn1/ieee1609dot2/packet-ieee1609dot2-template.c"
+        &ett_ieee1609dot2_ssp,
   };
 
   /* Register protocol */
@@ -2477,11 +2641,10 @@ void proto_register_ieee1609dot2(void) {
   proto_register_subtree_array(ett, array_length(ett));
 
   register_dissector("ieee1609dot2.data", dissect_Ieee1609Dot2Data_PDU, proto_ieee1609dot2);
-}
 
-void
-proto_reg_handoff_IEEE1609dot2(void)
-{
-
-    j2735_handle = find_dissector_add_dependency("j2735", proto_ieee1609dot2);
+  // See TS17419_ITS-AID_AssignedNumbers
+  unsecured_data_subdissector_table = register_dissector_table("ieee1609dot2.psid",
+        "ATS-AID/PSID based dissector for unsecured/signed data", proto_ieee1609dot2, FT_UINT32, BASE_HEX);
+  ssp_subdissector_table = register_dissector_table("ieee1609dot2.ssp",
+        "ATS-AID/PSID based dissector for Service Specific Permissions (SSP)", proto_ieee1609dot2, FT_UINT32, BASE_HEX);
 }

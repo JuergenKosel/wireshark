@@ -39,7 +39,6 @@
 
 #include "packet-ip.h"
 #include "packet-icmp.h"
-#include "packet-icmp-int.h"
 
 void proto_register_icmp(void);
 void proto_reg_handoff_icmp(void);
@@ -437,14 +436,14 @@ static const value_string interface_role_str[] = {
 
 /* whenever a ICMP packet is seen by the tap listener */
 /* Add a new frame into the graph */
-static gboolean
+static tap_packet_status
 icmp_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_, const void *dummy _U_)
 {
 	seq_analysis_info_t *sainfo = (seq_analysis_info_t *) ptr;
 	seq_analysis_item_t *sai = sequence_analysis_create_sai_with_addresses(pinfo, sainfo);
 
 	if (!sai)
-		return FALSE;
+		return TAP_PACKET_DONT_REDRAW;
 
 	sai->frame_number = pinfo->num;
 
@@ -470,7 +469,7 @@ icmp_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_
 
 	g_queue_push_tail(sainfo->items, sai);
 
-	return TRUE;
+	return TAP_PACKET_REDRAW;
 }
 
 static conversation_t *_find_or_create_conversation(packet_info * pinfo)
@@ -905,11 +904,9 @@ dissect_interface_identification_object(tvbuff_t * tvb, gint offset,
 	switch(c_type) {
 		case ICMP_EXT_ECHO_IDENT_NAME:
 			proto_tree_add_item(ext_object_tree, hf_icmp_int_ident_name_string, tvb, offset, obj_length - 4, ENC_ASCII|ENC_NA);
-			offset += (obj_length - 4);
 			break;
 		case ICMP_EXT_ECHO_IDENT_INDEX:
 			proto_tree_add_item(ext_object_tree, hf_icmp_int_ident_index, tvb, offset, 4, ENC_NA);
-			offset += 4;
 			break;
 		case ICMP_EXT_ECHO_IDENT_ADDRESS:
 			proto_tree_add_item_ret_uint(ext_object_tree, hf_icmp_int_ident_afi, tvb, offset, 2, ENC_BIG_ENDIAN, &afi);
@@ -942,8 +939,10 @@ dissect_interface_identification_object(tvbuff_t * tvb, gint offset,
 
 }				/*end dissect_interface_identification_object */
 
-gint dissect_icmp_extension_structure(tvbuff_t * tvb, packet_info *pinfo, gint offset, proto_tree * tree)
+static int
+dissect_icmp_extension(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_)
 {
+	int offset = 0;
 	guint8 version;
 	guint8 class_num;
 	guint8 c_type;
@@ -1664,7 +1663,8 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 		if ((tvb_reported_length(tvb) > 8 + 128)
 		    && (tvb_get_ntohs(tvb, 8 + 2) <= 128
 			|| favor_icmp_mpls_ext)) {
-			dissect_icmp_extension_structure(tvb, pinfo, 8 + 128, icmp_tree);
+			tvbuff_t * extension_tvb = tvb_new_subset_remaining(tvb, 8 + 128);
+			dissect_icmp_extension(extension_tvb, pinfo, icmp_tree, NULL);
 		}
 		break;
 	case ICMP_ECHOREPLY:
@@ -1800,7 +1800,8 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 
 	case ICMP_EXTECHO:
 		if (tvb_reported_length(tvb) > 8) {
-			dissect_icmp_extension_structure(tvb, pinfo, 8, icmp_tree);
+			tvbuff_t * extension_tvb = tvb_new_subset_remaining(tvb, 8);
+			dissect_icmp_extension(extension_tvb, pinfo, icmp_tree, NULL);
 		}
 		break;
 	}
@@ -2311,6 +2312,7 @@ void proto_register_icmp(void)
 
 	register_seq_analysis("icmp", "ICMP Flows", proto_icmp, NULL, TL_REQUIRES_COLUMNS, icmp_seq_analysis_packet);
 	icmp_handle = register_dissector("icmp", dissect_icmp, proto_icmp);
+	register_dissector("icmp_extension", dissect_icmp_extension, proto_icmp);
 	icmp_tap = register_tap("icmp");
 }
 

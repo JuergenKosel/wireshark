@@ -25,6 +25,8 @@
 #include <epan/stat_tap_ui.h>
 #include <epan/dissectors/packet-rtsp.h>
 
+#include <ui/cmdarg_err.h>
+
 void register_tap_listener_rtspstat(void);
 
 /* used to keep track of the statictics for an entire program interface */
@@ -124,7 +126,7 @@ rtspstat_reset(void *psp  )
 
 }
 
-static int
+static tap_packet_status
 rtspstat_packet(void *psp , packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *pri)
 {
 	const rtsp_info_value_t *value = (const rtsp_info_value_t *)pri;
@@ -145,7 +147,7 @@ rtspstat_packet(void *psp , packet_info *pinfo _U_, epan_dissect_t *edt _U_, con
 			 */
 			int i = value->response_code;
 			if ((i < 100) || (i >= 600)) {
-				return 0;
+				return TAP_PACKET_DONT_REDRAW;
 			}
 			else if (i < 200) {
 				key = 199;	/* Hopefully, this status code will never be used */
@@ -166,7 +168,7 @@ rtspstat_packet(void *psp , packet_info *pinfo _U_, epan_dissect_t *edt _U_, con
 				sp->hash_responses,
 				GINT_TO_POINTER(key));
 			if (sc == NULL)
-				return 0;
+				return TAP_PACKET_DONT_REDRAW;
 		}
 		sc->packets++;
 	}
@@ -186,9 +188,9 @@ rtspstat_packet(void *psp , packet_info *pinfo _U_, epan_dissect_t *edt _U_, con
 			sc->packets++;
 		}
 	} else {
-		return 0;
+		return TAP_PACKET_DONT_REDRAW;
 	}
-	return 1;
+	return TAP_PACKET_REDRAW;
 }
 
 
@@ -247,7 +249,7 @@ rtspstat_init(const char *opt_arg, void *userdata _U_)
 		/* error, we failed to attach to the tap. clean up */
 		g_free(sp->filter);
 		g_free(sp);
-		fprintf (stderr, "tshark: Couldn't register rtsp,stat tap: %s\n",
+		cmdarg_err("Couldn't register rtsp,stat tap: %s",
 				error_string->str);
 		g_string_free(error_string, TRUE);
 		exit(1);

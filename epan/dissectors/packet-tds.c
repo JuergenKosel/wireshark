@@ -9390,12 +9390,12 @@ proto_register_tds(void)
             NULL, HFILL }
         },
         { &hf_tdslogin_halogin,
-          { "High Availibility login", "tds.login.halogin",
+          { "High Availability login", "tds.login.halogin",
             FT_BOOLEAN, BASE_NONE, TFS(&tfs_yes_no), 0x0,
             NULL, HFILL }
         },
         { &hf_tdslogin_hasessionid,
-          { "High Availibility session id", "tds.login.hasessionid",
+          { "High Availability session id", "tds.login.hasessionid",
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
@@ -10151,6 +10151,7 @@ proto_reg_handoff_tds(void)
 {
     /* Initial TDS ports: MS SQL default ports */
     dissector_add_uint_range_with_preference("tcp.port", TDS_PORT_RANGE, tds_tcp_handle);
+    apply_tds_prefs();
     heur_dissector_add("tcp", dissect_tds_tcp_heur, "Tabular Data Stream over TCP", "tds_tcp", proto_tds, HEURISTIC_ENABLE);
 
     ntlmssp_handle = find_dissector_add_dependency("ntlmssp", proto_tds);

@@ -24,6 +24,8 @@
 #include <epan/dissectors/packet-sctp.h>
 #include <epan/to_str.h>
 
+#include <ui/cmdarg_err.h>
+
 void register_tap_listener_sctpstat(void);
 
 typedef struct sctp_ep {
@@ -90,7 +92,7 @@ alloc_sctp_ep(const struct _sctp_info *si)
 
 
 
-static int
+static tap_packet_status
 sctpstat_packet(void *phs, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *phi)
 {
 
@@ -101,7 +103,7 @@ sctpstat_packet(void *phs, packet_info *pinfo _U_, epan_dissect_t *edt _U_, cons
 	guint8  chunk_type;
 
 	if (!hs)
-		return (0);
+		return (TAP_PACKET_DONT_REDRAW);
 
 	hs->number_of_packets++;
 
@@ -129,7 +131,7 @@ sctpstat_packet(void *phs, packet_info *pinfo _U_, epan_dissect_t *edt _U_, cons
 	}
 
 	if (!te)
-		return (0);
+		return (TAP_PACKET_DONT_REDRAW);
 
 
 	if (si->number_of_tvbs > 0) {
@@ -142,7 +144,7 @@ sctpstat_packet(void *phs, packet_info *pinfo _U_, epan_dissect_t *edt _U_, cons
 				te->chunk_count[CHUNK_TYPE(si->tvb[tvb_number])]++;
 		}
 	}
-	return (1);
+	return (TAP_PACKET_REDRAW);
 }
 
 
@@ -205,7 +207,7 @@ sctpstat_init(const char *opt_arg, void *userdata _U_)
 		g_free(hs->filter);
 		g_free(hs);
 
-		fprintf(stderr, "tshark: Couldn't register sctp,stat tap: %s\n",
+		cmdarg_err("Couldn't register sctp,stat tap: %s",
 			error_string->str);
 		g_string_free(error_string, TRUE);
 		exit(1);

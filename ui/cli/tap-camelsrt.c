@@ -24,6 +24,7 @@
 #include "epan/timestats.h"
 #include "epan/stat_tap_ui.h"
 
+#include <ui/cmdarg_err.h>
 
 void register_tap_listener_camelsrt(void);
 
@@ -49,10 +50,10 @@ static void camelsrt_reset(void *phs)
 }
 
 
-static int camelsrt_packet(void *phs,
-                           packet_info *pinfo _U_,
-                           epan_dissect_t *edt _U_,
-                           const void *phi)
+static tap_packet_status camelsrt_packet(void *phs,
+                                         packet_info *pinfo _U_,
+                                         epan_dissect_t *edt _U_,
+                                         const void *phi)
 {
   struct camelsrt_t *hs = (struct camelsrt_t *)phs;
   const struct camelsrt_info_t * pi = (const struct camelsrt_info_t *)phi;
@@ -74,7 +75,7 @@ static int camelsrt_packet(void *phs,
       }
     }
   }
-  return 1;
+  return TAP_PACKET_REDRAW;
 }
 
 
@@ -222,8 +223,7 @@ static void camelsrt_init(const char *opt_arg, void *userdata _U_)
     g_free(p_camelsrt->filter);
     g_free(p_camelsrt);
 
-    fprintf(stderr, "tshark: Couldn't register camel,srt tap: %s\n",
-            error_string->str);
+    cmdarg_err("Couldn't register camel,srt tap: %s", error_string->str);
     g_string_free(error_string, TRUE);
     exit(1);
   }
