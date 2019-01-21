@@ -22,7 +22,6 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/dissector_tables_view.h
 	widgets/drag_drop_toolbar.h
 	widgets/drag_label.h
-	widgets/editor_color_dialog.h
 	widgets/editor_file_dialog.h
 	widgets/expert_info_view.h
 	widgets/export_objects_view.h
@@ -245,7 +244,6 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/dissector_tables_view.cpp
 	widgets/drag_drop_toolbar.cpp
 	widgets/drag_label.cpp
-	widgets/editor_color_dialog.cpp
 	widgets/editor_file_dialog.cpp
 	widgets/elided_label.cpp
 	widgets/expert_info_view.cpp
@@ -594,6 +592,15 @@ set(CMAKE_AUTOMOC TRUE)
 set(CMAKE_AUTOUIC TRUE)
 set(CMAKE_AUTORCC TRUE)
 
+if(NOT Qt5Widgets_VERSION VERSION_LESS "5.9")
+	# Drop the file modification time of source files from generated files
+	# to help with reproducible builds. We do not use QFileInfo.lastModified
+	# so this has no unwanted side effects. This mtime started appearing in
+	# Qt 5.8. The option to force the old file format without mtime was
+	# added in Qt 5.9. See https://bugreports.qt.io/browse/QTBUG-58769
+	set(CMAKE_AUTORCC_OPTIONS --format-version 1)
+endif()
+
 QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
 
 add_custom_target(
@@ -648,6 +655,20 @@ add_library(qtui OBJECT
 	${WIRESHARK_QT_TAP_SRC}
 	wireshark-tap-register.c
 )
+
+target_include_directories(qtui SYSTEM
+	PUBLIC
+		${QT_INCLUDE_DIRS}
+		${WINSPARKLE_INCLUDE_DIRS}
+	PRIVATE
+		${PCAP_INCLUDE_DIRS}
+)
+
+target_compile_definitions(qtui
+	PUBLIC
+		${QT_COMPILE_DEFINITIONS}
+)
+
 set_target_properties(qtui PROPERTIES
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	FOLDER "UI"

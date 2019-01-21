@@ -467,6 +467,9 @@ static const struct {
 	/* Elektrobit High Speed Capture and Replay */
 	{ 279,		WTAP_ENCAP_EBHSCR },
 
+	/* VPP dispatch trace */
+	{ 280,		WTAP_ENCAP_VPP },
+
 	/*
 	 * To repeat:
 	 *
@@ -735,14 +738,19 @@ wtap_wtap_encap_to_pcap_encap(int encap)
  * some programs reading them to allocate a huge and wasteful buffer
  * and, at least on 32-bit platforms, run the risk of running out of
  * memory.
+ * For EBHSCR, we use WTAP_MAX_PACKET_SIZE_EBHSCR, because the maximum
+ * EBHSCR message size is 8MB
  */
 guint
 wtap_max_snaplen_for_encap(int wtap_encap)
 {
 	if (wtap_encap == WTAP_ENCAP_DBUS)
 		return WTAP_MAX_PACKET_SIZE_DBUS;
+	else if (wtap_encap == WTAP_ENCAP_EBHSCR)
+		return WTAP_MAX_PACKET_SIZE_EBHSCR;
 	else
 		return WTAP_MAX_PACKET_SIZE_STANDARD;
+
 }
 
 /*

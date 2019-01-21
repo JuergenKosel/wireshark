@@ -285,6 +285,7 @@ extern "C" {
 #define WTAP_ENCAP_RFC7468                      202
 #define WTAP_ENCAP_SYSTEMD_JOURNAL              203 /* Event, not a packet */
 #define WTAP_ENCAP_EBHSCR                       204
+#define WTAP_ENCAP_VPP                          205
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -408,6 +409,7 @@ extern "C" {
  * allocate a buffer much larger than necessary, wasting memory.
  */
 #define WTAP_MAX_PACKET_SIZE_STANDARD    262144
+#define WTAP_MAX_PACKET_SIZE_EBHSCR      (8*1024*1024)
 #define WTAP_MAX_PACKET_SIZE_DBUS        (128*1024*1024)
 
 /*

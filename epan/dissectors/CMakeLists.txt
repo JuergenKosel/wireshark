@@ -356,7 +356,6 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-gmr1_common.h
 	packet-gmr1_rr.h
 	packet-gprscdr.h
-	packet-gquic.h
 	packet-gre.h
 	packet-gsm_a_common.h
 	packet-gsm_a_rr.h
@@ -693,6 +692,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-atm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-atmtcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-auto_rp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-autosar-nm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-avsp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-awdl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ax25.c
@@ -1784,7 +1784,6 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ucp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-udld.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-udp.c
-	${CMAKE_CURRENT_SOURCE_DIR}/packet-udp-nm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-uds.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-udt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-uftp.c
@@ -1822,6 +1821,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vnc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vntag.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vp8.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-vpp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vrrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vrt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vsip.c

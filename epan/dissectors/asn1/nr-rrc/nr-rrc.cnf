@@ -39,6 +39,7 @@ T-StatusProhibit
 UL-DataSplitThreshold
 
 #.EXPORTS
+BandCombinationInfoSN_PDU
 CellGroupConfig_PDU
 CG-Config_PDU
 CG-ConfigInfo_PDU
@@ -48,7 +49,7 @@ HandoverCommand_PDU
 HandoverPreparationInformation_PDU
 MeasConfig_PDU
 MeasGapConfig_PDU
-MeasResults_PDU
+MeasResultSCG-Failure_PDU
 MeasurementTimingConfiguration_PDU
 MIB_PDU
 P-Max_PDU
@@ -71,6 +72,7 @@ UL-DCCH-Message_PDU
 UplinkTxDirectCurrentList_PDU
 
 #.PDU
+BandCombinationInfoSN
 BCCH-BCH-Message                   @bcch.bch
 BCCH-DL-SCH-Message                @bcch.dl.sch
 CellGroupConfig
@@ -84,7 +86,7 @@ HandoverCommand
 HandoverPreparationInformation
 MeasConfig
 MeasGapConfig
-MeasResults
+MeasResultSCG-Failure
 MeasurementTimingConfiguration
 MIB
 P-Max

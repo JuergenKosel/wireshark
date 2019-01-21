@@ -250,6 +250,7 @@ static int proto_nr_rrc = -1;
 static int hf_nr_rrc_nr_rrc_HandoverCommand_PDU = -1;  /* HandoverCommand */
 static int hf_nr_rrc_nr_rrc_HandoverPreparationInformation_PDU = -1;  /* HandoverPreparationInformation */
 static int hf_nr_rrc_nr_rrc_CG_Config_PDU = -1;   /* CG_Config */
+static int hf_nr_rrc_nr_rrc_BandCombinationInfoSN_PDU = -1;  /* BandCombinationInfoSN */
 static int hf_nr_rrc_nr_rrc_CG_ConfigInfo_PDU = -1;  /* CG_ConfigInfo */
 static int hf_nr_rrc_nr_rrc_ConfigRestrictInfoSCG_PDU = -1;  /* ConfigRestrictInfoSCG */
 static int hf_nr_rrc_nr_rrc_MeasurementTimingConfiguration_PDU = -1;  /* MeasurementTimingConfiguration */
@@ -278,7 +279,7 @@ static int hf_nr_rrc_nr_rrc_SIB9_PDU = -1;        /* SIB9 */
 static int hf_nr_rrc_nr_rrc_CellGroupConfig_PDU = -1;  /* CellGroupConfig */
 static int hf_nr_rrc_nr_rrc_MeasConfig_PDU = -1;  /* MeasConfig */
 static int hf_nr_rrc_nr_rrc_MeasGapConfig_PDU = -1;  /* MeasGapConfig */
-static int hf_nr_rrc_nr_rrc_MeasResults_PDU = -1;  /* MeasResults */
+static int hf_nr_rrc_nr_rrc_MeasResultSCG_Failure_PDU = -1;  /* MeasResultSCG_Failure */
 static int hf_nr_rrc_nr_rrc_P_Max_PDU = -1;       /* P_Max */
 static int hf_nr_rrc_nr_rrc_RadioBearerConfig_PDU = -1;  /* RadioBearerConfig */
 static int hf_nr_rrc_nr_rrc_UplinkTxDirectCurrentList_PDU = -1;  /* UplinkTxDirectCurrentList */
@@ -288,7 +289,6 @@ static int hf_nr_rrc_UE_CapabilityRequestFilterNR_PDU = -1;  /* UE_CapabilityReq
 static int hf_nr_rrc_nr_rrc_UE_MRDC_Capability_PDU = -1;  /* UE_MRDC_Capability */
 static int hf_nr_rrc_nr_rrc_UE_NR_Capability_PDU = -1;  /* UE_NR_Capability */
 static int hf_nr_rrc_MeasResultList2NR_PDU = -1;  /* MeasResultList2NR */
-static int hf_nr_rrc_MeasResultSCG_Failure_PDU = -1;  /* MeasResultSCG_Failure */
 static int hf_nr_rrc_SystemInformation_PDU = -1;  /* SystemInformation */
 static int hf_nr_rrc_criticalExtensions = -1;     /* T_criticalExtensions */
 static int hf_nr_rrc_c1 = -1;                     /* T_c1 */
@@ -4534,7 +4534,6 @@ nr_rrc_SINR_Range_fmt(gchar *s, guint32 v)
 #line 1 "./asn1/nr-rrc/packet-nr-rrc-fn.c"
 /*--- PDUs declarations ---*/
 static int dissect_MeasResultList2NR_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
-static int dissect_MeasResultSCG_Failure_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
 static int dissect_SystemInformation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
 
 
@@ -6678,7 +6677,7 @@ dissect_nr_rrc_T_failureType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 static int
 dissect_nr_rrc_T_measResultSCG(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
-                                                                NO_BOUND, NO_BOUND, FALSE, dissect_MeasResultSCG_Failure_PDU);
+                                                                NO_BOUND, NO_BOUND, FALSE, dissect_nr_rrc_MeasResultSCG_Failure_PDU);
 
   return offset;
 }
@@ -41066,6 +41065,14 @@ int dissect_nr_rrc_CG_Config_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, prot
   offset += 7; offset >>= 3;
   return offset;
 }
+int dissect_nr_rrc_BandCombinationInfoSN_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, FALSE, pinfo);
+  offset = dissect_nr_rrc_BandCombinationInfoSN(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_nr_rrc_BandCombinationInfoSN_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
 int dissect_nr_rrc_CG_ConfigInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
@@ -41290,11 +41297,11 @@ int dissect_nr_rrc_MeasGapConfig_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, 
   offset += 7; offset >>= 3;
   return offset;
 }
-int dissect_nr_rrc_MeasResults_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+int dissect_nr_rrc_MeasResultSCG_Failure_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, FALSE, pinfo);
-  offset = dissect_nr_rrc_MeasResults(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_nr_rrc_MeasResults_PDU);
+  offset = dissect_nr_rrc_MeasResultSCG_Failure(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_nr_rrc_MeasResultSCG_Failure_PDU);
   offset += 7; offset >>= 3;
   return offset;
 }
@@ -41370,14 +41377,6 @@ static int dissect_MeasResultList2NR_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _
   offset += 7; offset >>= 3;
   return offset;
 }
-static int dissect_MeasResultSCG_Failure_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
-  asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, FALSE, pinfo);
-  offset = dissect_nr_rrc_MeasResultSCG_Failure(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_MeasResultSCG_Failure_PDU);
-  offset += 7; offset >>= 3;
-  return offset;
-}
 static int dissect_SystemInformation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
@@ -41410,6 +41409,10 @@ proto_register_nr_rrc(void) {
         NULL, HFILL }},
     { &hf_nr_rrc_nr_rrc_CG_Config_PDU,
       { "CG-Config", "nr-rrc.CG_Config_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_nr_rrc_BandCombinationInfoSN_PDU,
+      { "BandCombinationInfoSN", "nr-rrc.BandCombinationInfoSN_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_nr_rrc_nr_rrc_CG_ConfigInfo_PDU,
@@ -41524,8 +41527,8 @@ proto_register_nr_rrc(void) {
       { "MeasGapConfig", "nr-rrc.MeasGapConfig_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_nr_rrc_MeasResults_PDU,
-      { "MeasResults", "nr-rrc.MeasResults_element",
+    { &hf_nr_rrc_nr_rrc_MeasResultSCG_Failure_PDU,
+      { "MeasResultSCG-Failure", "nr-rrc.MeasResultSCG_Failure_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_nr_rrc_nr_rrc_P_Max_PDU,
@@ -41563,10 +41566,6 @@ proto_register_nr_rrc(void) {
     { &hf_nr_rrc_MeasResultList2NR_PDU,
       { "MeasResultList2NR", "nr-rrc.MeasResultList2NR",
         FT_UINT32, BASE_DEC, NULL, 0,
-        NULL, HFILL }},
-    { &hf_nr_rrc_MeasResultSCG_Failure_PDU,
-      { "MeasResultSCG-Failure", "nr-rrc.MeasResultSCG_Failure_element",
-        FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_nr_rrc_SystemInformation_PDU,
       { "SystemInformation", "nr-rrc.SystemInformation_element",

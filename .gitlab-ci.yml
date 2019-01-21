@@ -14,6 +14,11 @@ variables:
     - apt-get update -qq
     - mkdir build
     - cd build
+.rpm: &rpm
+  artifacts:
+    paths:
+      - build/packaging/rpm/RPMS
+    expire_in: 3 days
 gcc-4:
   <<: *ubuntu
   script:
@@ -84,6 +89,7 @@ clang-7-nopcap:
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
 rpm-centos-7:
+  <<: *rpm
   image: centos:7
   except:
     - s7commwireshark
@@ -96,6 +102,7 @@ rpm-centos-7:
     - cmake3 -GNinja ..
     - ninja-build rpm-package
 rpm-opensuse-42.3:
+  <<: *rpm
   except:
     - s7commwireshark
     - s7commwireshark-2.4
@@ -109,9 +116,10 @@ rpm-opensuse-42.3:
     - gem install asciidoctor
     - mkdir build
     - cd build
-    - cmake ..
-    - make rpm-package
+    - cmake -GNinja ..
+    - ninja rpm-package
 rpm-fedora-28:
+  <<: *rpm
   except:
     - s7commwireshark
     - s7commwireshark-2.4
