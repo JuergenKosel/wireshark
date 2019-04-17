@@ -57,6 +57,7 @@ set(PIDL_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-efs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-eventlog.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-frstrans.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-fsrvp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-initshutdown.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-lsa.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-mapi.c
@@ -299,7 +300,6 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-dcerpc-budb.h
 	packet-dcerpc-butc.h
 	packet-dcerpc-dce122.h
-	packet-dcerpc-dcom.h
 	packet-dcerpc-dnsserver.h
 	packet-dcerpc-frsapi.h
 	packet-dcerpc-frsrpc.h
@@ -563,6 +563,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-tcap.h
 	packet-tcp.h
 	packet-tetra.h
+	packet-thrift.h
 	packet-tls-utils.h
 	packet-tls.h
 	packet-tn3270.h
@@ -615,6 +616,10 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-zbee-zcl.h
 	packet-zbee-zdp.h
 	packet-ziop.h
+)
+
+set(DISSECTOR_HEADER_FILES
+	${DISSECTOR_PUBLIC_HEADERS}
 )
 
 set(DISSECTOR_SRC
@@ -753,6 +758,10 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btle.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btle_rf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btmesh.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-btmesh-pbadv.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-btmesh-provisioning.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-btmesh-beacon.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-btmesh-proxy.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btmcap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btrfcomm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btsap.c
@@ -887,9 +896,11 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcom-dispatch.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcom-oxid.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcom-provideclassinfo.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcom-remact.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcom-remunkn.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcom-sysact.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcom-typeinfo.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcom.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcp-etsi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ddtp.c
@@ -924,6 +935,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dpnet.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dpnss-link.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dpnss.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-drbd.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-drda.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-drb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dsi.c
@@ -952,12 +964,15 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-e212.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-eap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-eapol.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ebhscr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-echo.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ecmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ecp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ecpri.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ecp-oui.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-edonkey.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-egd.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-eero.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ehdlc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ehs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-eigrp.c
@@ -1966,6 +1981,10 @@ set_source_files_properties(
 )
 
 add_library(dissectors OBJECT
+	#Included so that Visual Studio can properly put header files in solution
+	${DISSECTOR_HEADER_FILES}
+
+
 	${DISSECTOR_FILES}
 	${DISSECTOR_SUPPORT_SRC}
 )
@@ -1976,7 +1995,7 @@ set_target_properties(dissectors PROPERTIES
 )
 
 install(FILES ${DISSECTOR_PUBLIC_HEADERS}
-	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/epan/dissectors"
+	DESTINATION "${PROJECT_INSTALL_INCLUDEDIR}/epan/dissectors"
 )
 
 set(CHECKAPI_FILE_LIST "${CMAKE_CURRENT_BINARY_DIR}/files.txt")

@@ -770,8 +770,9 @@ static guint8       get_ofdm_rate(const guint8 *);
 static guint8       get_cck_rate(const guint8 *plcp);
 static void         setup_defaults(vwr_t *, guint16);
 
-static gboolean     vwr_read(wtap *, int *, gchar **, gint64 *);
-static gboolean     vwr_seek_read(wtap *, gint64, wtap_rec *record,
+static gboolean     vwr_read(wtap *, wtap_rec *, Buffer *, int *,
+                             gchar **, gint64 *);
+static gboolean     vwr_seek_read(wtap *, gint64, wtap_rec *,
                                   Buffer *, int *, gchar **);
 
 static gboolean     vwr_read_rec_header(vwr_t *, FILE_T, int *, int *, int *, int *, gchar **);
@@ -851,10 +852,11 @@ wtap_open_return_val vwr_open(wtap *wth, int *err, gchar **err_info)
 /*  frame, and a 64-byte statistics block trailer.                                         */
 /* The PLCP frame consists of a 4-byte or 6-byte PLCP header, followed by the MAC frame    */
 
-static gboolean vwr_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
+static gboolean vwr_read(wtap *wth, wtap_rec *rec, Buffer *buf,
+    int *err, gchar **err_info, gint64 *data_offset)
 {
     vwr_t *vwr      = (vwr_t *)wth->priv;
-    int    rec_size = 0, IS_TX, log_mode;
+    int    rec_size = 0, IS_TX = 0, log_mode = 0;
 
     /* read the next frame record header in the capture file; if no more frames, return */
     if (!vwr_read_rec_header(vwr, wth->fh, &rec_size, &IS_TX, &log_mode, err, err_info))
@@ -867,8 +869,8 @@ static gboolean vwr_read(wtap *wth, int *err, gchar **err_info, gint64 *data_off
     *data_offset = (file_tell(wth->fh) - VW_RECORD_HEADER_LENGTH);
 
     /* got a frame record; read and process it */
-    if (!vwr_process_rec_data(wth->fh, rec_size, &wth->rec,
-                              wth->rec_data, vwr, IS_TX, log_mode, err, err_info))
+    if (!vwr_process_rec_data(wth->fh, rec_size, rec, buf, vwr, IS_TX,
+                              log_mode, err, err_info))
        return FALSE;
 
     return TRUE;
@@ -880,7 +882,7 @@ static gboolean vwr_seek_read(wtap *wth, gint64 seek_off,
     wtap_rec *record, Buffer *buf, int *err, gchar **err_info)
 {
     vwr_t *vwr = (vwr_t *)wth->priv;
-    int    rec_size, IS_TX, log_mode;
+    int    rec_size, IS_TX = 0, log_mode = 0;
 
     /* first seek to the indicated record header */
     if (file_seek(wth->random_fh, seek_off, SEEK_SET, err) == -1)

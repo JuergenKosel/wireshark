@@ -58,7 +58,7 @@ set(PROGRAM_NAME ${CMAKE_PROJECT_NAME})
 file(TO_NATIVE_PATH "${CMAKE_SOURCE_DIR}" TOP_SRC_DIR)
 # STAGING_DIR depends on the build configuration so we pass it
 # on the command line below.
-file(TO_NATIVE_PATH "${CMAKE_BINARY_DIR}/docbook" USER_GUIDE_DIR)
+file(TO_NATIVE_PATH "${CMAKE_BINARY_DIR}/docbook" DOCBOOK_DIR)
 if(WIRESHARK_TARGET_PLATFORM STREQUAL "win32")
 	set(TARGET_MACHINE x86)
 elseif(WIRESHARK_TARGET_PLATFORM STREQUAL "win64")
@@ -114,7 +114,7 @@ SET(unique_component "")
 foreach(_dll ${GLIB2_DLLS} ${CARES_DLL} ${GCRYPT_DLLS}
 		${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLL} ${LUA_DLL}
 		${LZ4_DLL} ${NGHTTP2_DLL} ${SBC_DLL} ${SMI_DLL} ${SNAPPY_DLL}
-		${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLL} ${WINSPARKLE_DLL}
+		${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLLS} ${WINSPARKLE_DLL}
 		${ZLIB_DLL}
 		# Required for mmdbresolve
 		${MAXMINDDB_DLL}
@@ -142,7 +142,7 @@ SET(unique_file "")
 foreach(_dll ${GLIB2_DLLS} ${CARES_DLL} ${GCRYPT_DLLS}
 		${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLL} ${LUA_DLL}
 		${LZ4_DLL} ${NGHTTP2_DLL} ${SBC_DLL} ${SMI_DLL} ${SNAPPY_DLL}
-		${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLL} ${WINSPARKLE_DLL}
+		${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLLS} ${WINSPARKLE_DLL}
 		${ZLIB_DLL}
 		# mmdbresolve
 		${MAXMINDDB_DLL}
@@ -217,66 +217,90 @@ set(WIX_HEAT_FLAGS
 )
 
 macro( ADD_WIX_PACKAGE_TARGET )
-	set (_wix_source_dir ${CMAKE_SOURCE_DIR}/packaging/wix )
-	set (_wix_binary_dir ${CMAKE_BINARY_DIR}/packaging/wix )
+	#
+	# XXX - if we're not building Wireshark, we can't build
+	# QtDependentComponents.wxs..  On the other hand, if we're
+	# not building Wireshark, we have no need to include Qt
+	# in the installer, so it's not clear we need that file.
+	#
+	# This should probably be fixed, so that people can produce
+	# command-line-only installer packages.
+	if(BUILD_wireshark)
+		set (_wix_source_dir ${CMAKE_SOURCE_DIR}/packaging/wix )
+		set (_wix_binary_dir ${CMAKE_BINARY_DIR}/packaging/wix )
 
-	# QtDependentComponents.wxs. Created using Wireshark.exe.
-	add_custom_command(OUTPUT ${_wix_binary_dir}/QtDependentComponents.wxs
-		COMMAND set "PATH=${QT_BIN_PATH};%PATH%"
-		COMMAND ${POWERSHELL_COMMAND} "${_wix_source_dir}/windeployqt-to-wix.ps1"
-			-Executable $<TARGET_FILE:wireshark>
-			-FilePath ${_wix_binary_dir}/QtDependentComponents.wxs
-	)
+		# QtDependentComponents.wxs. Created using Wireshark.exe.
+		add_custom_command(OUTPUT ${_wix_binary_dir}/QtDependentComponents.wxs
+			COMMAND set "PATH=${QT_BIN_PATH};%PATH%"
+			COMMAND ${POWERSHELL_COMMAND} "${_wix_source_dir}/windeployqt-to-wix.ps1"
+				-Executable $<TARGET_FILE:wireshark>
+				-FilePath ${_wix_binary_dir}/QtDependentComponents.wxs
+		)
 
-	# SNMPMibs.wxs. Collects all MIBs in "output" snmp/mibs directory. Generated with heat.exe
-	add_custom_command(OUTPUT ${_wix_binary_dir}/SNMPMibs.wxs
-		COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/snmp/mibs
-				${WIX_HEAT_FLAGS} -cg CG.Plugins.SNMP -dr dirSnmpMibs -var var.SnmpMibDir
-				-out ${_wix_binary_dir}/SNMPMibs.wxs
-	)
+		# SNMPMibs.wxs. Collects all MIBs in "output" snmp/mibs
+		# directory. Generated with heat.exe
+		add_custom_command(OUTPUT ${_wix_binary_dir}/SNMPMibs.wxs
+			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/snmp/mibs
+					${WIX_HEAT_FLAGS} -cg CG.Plugins.SNMP -dr dirSnmpMibs -var var.SnmpMibDir
+					-out ${_wix_binary_dir}/SNMPMibs.wxs
+		)
 
-	# RadiusDict.wxs. Collects all Radius dictionary files in "output" radius directory. Generated with heat.exe
-	add_custom_command(OUTPUT ${_wix_binary_dir}/RadiusDict.wxs
-		COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/radius
-				${WIX_HEAT_FLAGS} -cg CG.RadiusDict -dr dirRadius -var var.RadiusDictDir
-				-out ${_wix_binary_dir}/RadiusDict.wxs
-	)
+		# RadiusDict.wxs. Collects all Radius dictionary files in
+		# "output" radius directory. Generated with heat.exe
+		add_custom_command(OUTPUT ${_wix_binary_dir}/RadiusDict.wxs
+			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/radius
+					${WIX_HEAT_FLAGS} -cg CG.RadiusDict -dr dirRadius -var var.RadiusDictDir
+					-out ${_wix_binary_dir}/RadiusDict.wxs
+		)
 
-	# Diameter.wxs. Collects all Diameter XML dictionary files in "output" diameter directory. Generated with heat.exe
-	add_custom_command(OUTPUT ${_wix_binary_dir}/Diameter.wxs
-		COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/diameter
-				${WIX_HEAT_FLAGS} -cg CG.Diameter -dr dirDiameter -var var.DiameterDir
-				-out ${_wix_binary_dir}/Diameter.wxs
-	)
+		# Diameter.wxs. Collects all Diameter XML dictionary files
+		# in "output" diameter directory. Generated with heat.exe
+		add_custom_command(OUTPUT ${_wix_binary_dir}/Diameter.wxs
+			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/diameter
+					${WIX_HEAT_FLAGS} -cg CG.Diameter -dr dirDiameter -var var.DiameterDir
+					-out ${_wix_binary_dir}/Diameter.wxs
+		)
 
-	# QtTranslation.wxs. Collects all Qt translation files in "output" translations directory. Generated with heat.exe
-	add_custom_command(OUTPUT ${_wix_binary_dir}/QtTranslation.wxs
-		COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/translations
-				${WIX_HEAT_FLAGS} -cg CG.QtTranslations -dr dirTranslations -var var.QtTranslationDir
-				-out ${_wix_binary_dir}/QtTranslation.wxs
-	)
+		# QtTranslation.wxs. Collects all Qt translation files in
+		# "output" translations directory. Generated with heat.exe
+		add_custom_command(OUTPUT ${_wix_binary_dir}/QtTranslation.wxs
+			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/translations
+					${WIX_HEAT_FLAGS} -cg CG.QtTranslations -dr dirTranslations -var var.QtTranslationDir
+					-out ${_wix_binary_dir}/QtTranslation.wxs
+		)
 
-	# Build WiX package dependencies. We build the package in two stages
-	# so that wix_package below doesn't trigger any dependencies that
-	# might clobber any signed executables.
-	add_custom_target(wix_package_prep
-		DEPENDS
-			${WIX_FILES}
-			copy_data_files
-			user_guide_chm
-	)
-	set_target_properties(wix_package_prep PROPERTIES FOLDER "Packaging")
+		# Build WiX package dependencies. We build the package in
+		# two stages so that wix_package below doesn't trigger any
+		# dependencies that might clobber any signed executables.
+		add_custom_target(wix_package_prep
+			DEPENDS
+				${WIX_FILES}
+				copy_data_files
+				user_guide_chm
+				faq_html
+		)
+		set_target_properties(wix_package_prep PROPERTIES
+			FOLDER "Packaging"
+			EXCLUDE_FROM_DEFAULT_BUILD True
+		)
 
-	# Dump the installer into ${CMAKE_CURRENT_SOURCE_DIR}/packaging/wix
-	# Note that executables and DLLs *must* be built separately
-	add_custom_target(wix_package
-		COMMAND ${WIX_CANDLE_EXECUTABLE} ${WIX_CANDLE_DEFINES} ${WIX_SOURCE_FILES}
-		WORKING_DIRECTORY ${_wix_source_dir}
+		# Dump the installer into
+		# ${CMAKE_CURRENT_SOURCE_DIR}/packaging/wix
+		# Note that executables and DLLs *must* be built separately
+		add_custom_target(wix_package
+			COMMAND ${WIX_CANDLE_EXECUTABLE} ${WIX_CANDLE_DEFINES} ${WIX_SOURCE_FILES}
+			WORKING_DIRECTORY ${_wix_source_dir}
 
-		COMMAND ${WIX_LIGHT_EXECUTABLE} ${WIX_LIGHT_DEFINES} ${WIX_OUT_FILES}
-		WORKING_DIRECTORY ${_wix_binary_dir}
-	)
-	set_target_properties(wix_package PROPERTIES FOLDER "Packaging")
+			COMMAND ${WIX_LIGHT_EXECUTABLE} ${WIX_LIGHT_DEFINES} ${WIX_OUT_FILES}
+			WORKING_DIRECTORY ${_wix_binary_dir}
+		)
+		set_target_properties(wix_package PROPERTIES
+			FOLDER "Packaging"
+			EXCLUDE_FROM_DEFAULT_BUILD True
+		)
+	else()
+		message(WARNING "The WiX installer cannot be built if the Wireshark program isn't built.")
+	endif()
 endmacro( ADD_WIX_PACKAGE_TARGET )
 
 set(CLEAN_FILES

@@ -1209,11 +1209,6 @@
         <translation>File:</translation>
     </message>
     <message>
-        <source>Create a new file automatically after…</source>
-        <oldsource>Create a new file automatically after...</oldsource>
-        <translation>Crea un nuovo file automaticamente dopo...</translation>
-    </message>
-    <message>
         <source>megabytes</source>
         <oldsource>Megabytes</oldsource>
         <translation>megabyte</translation>
@@ -1307,20 +1302,6 @@
         <translation>Cattura su un file permanente</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Invece di usare un singolo file di cattura, saranno creati file multipli.&lt;/p&gt;&lt;p&gt;I nomi di file generati conterranno un numero incrementale e l&apos;orario di inizio della cattura.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If the selected file size is exceeded, capturing switches to the next file.&lt;/p&gt;&lt;p&gt;PLEASE NOTE: One option MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Se si supera la dimensione del file selezionata, la cattura passa al file successivo.&lt;/p&gt;&lt;p&gt;NOTA: un&apos;opzione DEVE essere selezionata.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>If the selected file size is exceeded, capturing switches to the next file.
-PLEASE NOTE: One option MUST be selected.</source>
-        <translation>Se si supera la dimensione del file selezionata, la cattura passa al file successivo.
-NOTA: un&apos;opzione DEVE essere selezionata.</translation>
-    </message>
-    <message>
         <source>gigabytes</source>
         <oldsource>Gigabytes</oldsource>
         <translation>gigabyte</translation>
@@ -1328,6 +1309,36 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>Switch to the next file after the specified number of packets have been captured.</source>
         <translation>Passa al file successivo dopo aver catturato il numero di pacchetti specificato.</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;p&gt;NOTE: If enabled, at least one of the new-file criteria MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Invece di usare un singolo file di cattura, saranno creati file multipli.&lt;/p&gt;&lt;p&gt;I nomi di file generati conterranno un numero incrementale e l&apos;orario di inizio della cattura.&lt;/p&gt;&lt;p&gt;NOTA: se abilitata, almeno uno dei criteri per i nuovi file deve essere selezionato.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Create a new file automatically…</source>
+        <translation>Crea un nuovo file automaticamente</translation>
+    </message>
+    <message>
+        <source>after</source>
+        <translation>dopo</translation>
+    </message>
+    <message>
+        <source>Switch to the next file after the file size exceeds the specified file size.</source>
+        <translation>Passa al file successivo quando la dimensione dei file supera la dimensione dei file specificata.</translation>
+    </message>
+    <message>
+        <source>Switch to the next file when the time capturing to the current file exceeds the specified time.</source>
+        <translation>Passa al file successivo quando il tempo di cattura del file corrente supera il tempo specificato.</translation>
+    </message>
+    <message>
+        <source>when time is a multiple of</source>
+        <translation>quando il tempo è un multiplo di</translation>
+    </message>
+    <message>
+        <source>Switch to the next file when the (wall clock) time is an even multiple of the specified interval.
+For example, use 1 hour to have a new file created every hour on the hour.</source>
+        <translation>Passa al file successivo quando l&apos;ora (orolgio a muro) è un multiplo pari dell&apos;intervallo specificato.
+Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;After capturing has switched to the next file and the given number of files has exceeded, the oldest file will be removed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -2100,6 +2111,45 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>Description</source>
         <translation>Descrizione</translation>
+    </message>
+</context>
+<context>
+    <name>EndpointDialog</name>
+    <message>
+        <source>Map</source>
+        <translation>Mappa</translation>
+    </message>
+    <message>
+        <source>Draw IPv4 or IPv6 endpoints on a map.</source>
+        <translation>Disegna i terminatori IPv4 o IPv6 su una mappa.</translation>
+    </message>
+    <message>
+        <source>Open in browser</source>
+        <translation>Apri nel browser</translation>
+    </message>
+    <message>
+        <source>Save As</source>
+        <translation>Salva come</translation>
+    </message>
+    <message>
+        <source>Map file error</source>
+        <translation>Errore nel file di mappa</translation>
+    </message>
+    <message>
+        <source>No endpoints available to map</source>
+        <translation>Nessun terminatore disponibile per la mappa</translation>
+    </message>
+    <message>
+        <source>Unable to create temporary file</source>
+        <translation>Impossibile creare il file temporaneo</translation>
+    </message>
+    <message>
+        <source>Save Endpoints Map</source>
+        <translation>Salva mappa dei terminatori</translation>
+    </message>
+    <message>
+        <source>Failed to save map file %1.</source>
+        <translation>Impossibile salvare il file di mappa %1.</translation>
     </message>
 </context>
 <context>
@@ -5695,10 +5745,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Annulla</translation>
     </message>
     <message>
-        <source>Open Recent</source>
-        <translation>Apri recenti</translation>
-    </message>
-    <message>
         <source>File Set</source>
         <translation>Gruppo di file</translation>
     </message>
@@ -5717,10 +5763,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>&amp;Time Display Format</source>
         <translation>Formato di visualizzazione del &amp;tempo</translation>
-    </message>
-    <message>
-        <source>Name Resolution</source>
-        <translation>Risoluzione dei nomi</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -5815,10 +5857,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>RTSP</translation>
     </message>
     <message>
-        <source>RTP</source>
-        <translation>RTP</translation>
-    </message>
-    <message>
         <source>&amp;Edit</source>
         <translation>&amp;Modifica</translation>
     </message>
@@ -5831,16 +5869,8 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Barra degli strumenti dei filtri di visualizzazione</translation>
     </message>
     <message>
-        <source>Open</source>
-        <translation>Apri</translation>
-    </message>
-    <message>
         <source>Open a capture file</source>
         <translation>Apri un file di cattura</translation>
-    </message>
-    <message>
-        <source>Quit</source>
-        <translation>Esci</translation>
     </message>
     <message>
         <source>Quit Wireshark</source>
@@ -5861,10 +5891,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>Stop capturing packets</source>
         <translation>Ferma la cattura dei pacchetti</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation>Chiudi</translation>
     </message>
     <message>
         <source>No files found</source>
@@ -6059,6 +6085,26 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Riavvia la cattura attuale</translation>
     </message>
     <message>
+        <source>As &amp;CSV…</source>
+        <translation>Come &amp;CSV...</translation>
+    </message>
+    <message>
+        <source>As &quot;C&quot; &amp;Arrays…</source>
+        <translation>Come &amp;array &quot;C&quot;...</translation>
+    </message>
+    <message>
+        <source>As P&amp;SML XML…</source>
+        <translation>Come P&amp;SML XML...</translation>
+    </message>
+    <message>
+        <source>As P&amp;DML XML…</source>
+        <translation>Come P&amp;DML XML...</translation>
+    </message>
+    <message>
+        <source>As &amp;JSON…</source>
+        <translation>Come &amp;JSON...</translation>
+    </message>
+    <message>
         <source>Description</source>
         <translation>Descrizione</translation>
     </message>
@@ -6113,26 +6159,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>Conversation Filter</source>
         <translation>Filtro di conversazione</translation>
-    </message>
-    <message>
-        <source>Service Response Time</source>
-        <translation>Tempo di risposta del servizio</translation>
-    </message>
-    <message>
-        <source>ANSI</source>
-        <translation>ANSI</translation>
-    </message>
-    <message>
-        <source>GSM</source>
-        <translation>GSM</translation>
-    </message>
-    <message>
-        <source>LTE</source>
-        <translation>LTE</translation>
-    </message>
-    <message>
-        <source>MTP3</source>
-        <translation>MTP3</translation>
     </message>
     <message>
         <source>Osmux</source>
@@ -6232,10 +6258,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Ricarica come file di formato/cattura</translation>
     </message>
     <message>
-        <source>As JSON…</source>
-        <translation>Come JSON...</translation>
-    </message>
-    <message>
         <source>Copy this item&apos;s description</source>
         <translation>Copia la descrizione di questo elemento</translation>
     </message>
@@ -6288,10 +6310,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Marca tutti i pacchetti visualizzati</translation>
     </message>
     <message>
-        <source>Unmark All Displayed</source>
-        <translation>Rimuovi la selezione da tutti i visualizzati</translation>
-    </message>
-    <message>
         <source>Unmark all displayed packets</source>
         <translation>Rimuovi la selezione da tutti i pacchetti visualizzati</translation>
     </message>
@@ -6330,10 +6348,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>Unignore All Displayed</source>
         <translation>Considera tutti i visualizzati</translation>
-    </message>
-    <message>
-        <source>Unignore all displayed packets</source>
-        <translation>Considera tutti i pacchetti visualizzati</translation>
     </message>
     <message>
         <source>Set/Unset Time Reference</source>
@@ -6382,6 +6396,10 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>Remove all packet comments in the capture file</source>
         <translation>Rimuovi tutti i commenti dei pacchetti nel file di cattura</translation>
+    </message>
+    <message>
+        <source>&amp;Configuration Profiles…</source>
+        <translation>Profili di &amp;configurazione...</translation>
     </message>
     <message>
         <source>Configuration profiles</source>
@@ -6700,6 +6718,14 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Filtra questa associazione</translation>
     </message>
     <message>
+        <source>&amp;Conversations</source>
+        <translation>&amp;Conversazioni</translation>
+    </message>
+    <message>
+        <source>&amp;Endpoints</source>
+        <translation>T&amp;erminatori</translation>
+    </message>
+    <message>
         <source>Shrink the main window text</source>
         <translation>Riduci il testo della finestra principale</translation>
     </message>
@@ -6716,24 +6742,12 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Ripristina la disposizione dell&apos;aspetto alla dimensione predefinita</translation>
     </message>
     <message>
-        <source>Conversation Hash Tables</source>
-        <translation>Tabella hash di conversazione</translation>
-    </message>
-    <message>
         <source>Show each conversation hash table</source>
         <translation>Mostri ogni tabella degli hash di conversazione</translation>
     </message>
     <message>
-        <source>Dissector Tables</source>
-        <translation>Tabella dei decodificatori</translation>
-    </message>
-    <message>
         <source>Show each dissector table and its entries</source>
         <translation>Mostra ogni tabella dei decodificatori e le sue voci</translation>
-    </message>
-    <message>
-        <source>Supported Protocols</source>
-        <translation>Protocolli supportati</translation>
     </message>
     <message>
         <source>Show the currently supported protocols and display filter fields</source>
@@ -6754,10 +6768,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>LTE RLC statistics</source>
         <translation>Statistiche RLC LTE</translation>
-    </message>
-    <message>
-        <source>RLC Graph</source>
-        <translation>Grafico RLC</translation>
     </message>
     <message>
         <source>LTE RLC graph</source>
@@ -6802,6 +6812,10 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>Show Packet Bytes…</source>
         <translation>Mostra byte del pacchetto...</translation>
+    </message>
+    <message>
+        <source>Go to &amp;Linked Packet</source>
+        <translation>Vai a&amp;l pacchetto collegato</translation>
     </message>
     <message>
         <source>UDP Multicast Streams</source>
@@ -6856,22 +6870,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Come &amp;testo semplice...</translation>
     </message>
     <message>
-        <source>As CSV…</source>
-        <translation>Come CSV...</translation>
-    </message>
-    <message>
-        <source>As &quot;C&quot; Arrays…</source>
-        <translation>Come array &quot;C&quot;...</translation>
-    </message>
-    <message>
-        <source>As PSML XML…</source>
-        <translation>Come PSML XML...</translation>
-    </message>
-    <message>
-        <source>As PDML XML…</source>
-        <translation>Come PDML XML...</translation>
-    </message>
-    <message>
         <source>All Visible Items</source>
         <translation>Tutti gli elementi visibili</translation>
     </message>
@@ -6912,10 +6910,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>... o non selezionati</translation>
     </message>
     <message>
-        <source>Display Filters…</source>
-        <translation>Filtri di visualizzazione...</translation>
-    </message>
-    <message>
         <source>Display Filter &amp;Macros…</source>
         <translation>Visualizza &amp;macro dei filtri...</translation>
     </message>
@@ -6938,10 +6932,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>Packet Comment…</source>
         <translation>Commento del pacchetto...</translation>
-    </message>
-    <message>
-        <source>Configuration Profiles…</source>
-        <translation>Profili di configurazione...</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -6996,16 +6986,8 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Mostra o nascondi la barra degli strumenti del filtro di visualizzazione</translation>
     </message>
     <message>
-        <source>Conversations</source>
-        <translation>Conversazioni</translation>
-    </message>
-    <message>
         <source>Conversations at different protocol levels</source>
         <translation>Conversazioni a diversi livelli di protocollo</translation>
-    </message>
-    <message>
-        <source>Endpoints</source>
-        <translation>Terminatori</translation>
     </message>
     <message>
         <source>Endpoints at different protocol levels</source>
@@ -7220,12 +7202,28 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Mostra o nascondi i byte del pacchetto</translation>
     </message>
     <message>
+        <source>&amp;Conversation Hash Tables</source>
+        <translation>Tabelle hash di &amp;conversazione</translation>
+    </message>
+    <message>
+        <source>&amp;Dissector Tables</source>
+        <translation>Tabella dei &amp;decodificatori</translation>
+    </message>
+    <message>
+        <source>&amp;Supported Protocols</source>
+        <translation>Protocolli &amp;supportati</translation>
+    </message>
+    <message>
         <source>MAP Summary</source>
         <translation>Riepilogo MAP</translation>
     </message>
     <message>
         <source>GSM MAP summary statistics</source>
         <translation>Statistiche riepilogo GSM MAP</translation>
+    </message>
+    <message>
+        <source>RLC &amp;Graph</source>
+        <translation>&amp;Grafico RLC</translation>
     </message>
     <message>
         <source>&amp;Coloring Rules…</source>
@@ -7249,6 +7247,10 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Nuova regola di colorazione...</translation>
     </message>
     <message>
+        <source>IA&amp;X2 Stream Analysis</source>
+        <translation>Analisi flusso IA&amp;X2</translation>
+    </message>
+    <message>
         <source>Enabled Protocols…</source>
         <oldsource>Enable Protocols…</oldsource>
         <translation>Abilita protocolli...</translation>
@@ -7270,16 +7272,72 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <translation>Apri la pagina di riferimento del filtro di visualizzazione per questo campo di filtro.</translation>
     </message>
     <message>
-        <source>Go to Linked Packet</source>
-        <translation>Vai al pacchetto collegato</translation>
-    </message>
-    <message>
         <source>Go to the packet referenced by the selected field.</source>
         <translation>Vai al pacchetto referenziato dal campo selezionato.</translation>
     </message>
     <message>
         <source>&amp;VoIP Calls</source>
         <translation>Chiamate &amp;VoIP</translation>
+    </message>
+    <message>
+        <source>Open &amp;Recent</source>
+        <translation>Apri &amp;recenti</translation>
+    </message>
+    <message>
+        <source>Name Resol&amp;ution</source>
+        <translation>Risol&amp;uzione dei nomi</translation>
+    </message>
+    <message>
+        <source>Service &amp;Response Time</source>
+        <translation>Tempo di &amp;risposta del servizio</translation>
+    </message>
+    <message>
+        <source>&amp;RTP</source>
+        <translation>&amp;RTP</translation>
+    </message>
+    <message>
+        <source>S&amp;CTP</source>
+        <translation>S&amp;CTP</translation>
+    </message>
+    <message>
+        <source>&amp;ANSI</source>
+        <translation>&amp;ANSI</translation>
+    </message>
+    <message>
+        <source>&amp;GSM</source>
+        <translation>&amp;GSM</translation>
+    </message>
+    <message>
+        <source>&amp;LTE</source>
+        <translation>&amp;LTE</translation>
+    </message>
+    <message>
+        <source>&amp;MTP3</source>
+        <translation>&amp;MTP3</translation>
+    </message>
+    <message>
+        <source>&amp;Open</source>
+        <translation>&amp;Apri</translation>
+    </message>
+    <message>
+        <source>&amp;Quit</source>
+        <translation>&amp;Esci</translation>
+    </message>
+    <message>
+        <source>&amp;Close</source>
+        <translation>Chiudi</translation>
+    </message>
+    <message>
+        <source>Display &amp;Filters…</source>
+        <translation>&amp;Filtri di visualizzazione...</translation>
+    </message>
+    <message>
+        <source>&amp;Unmark All Displayed</source>
+        <translation>Rim&amp;uovi la selezione da tutti i visualizzati</translation>
+    </message>
+    <message>
+        <source>U&amp;nignore all displayed packets</source>
+        <translation>Co&amp;nsidera tutti i pacchetti visualizzati</translation>
     </message>
     <message>
         <source>All VoIP Calls</source>
@@ -8266,10 +8324,6 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
 <context>
     <name>PluginListModel</name>
     <message>
-        <source>extcap</source>
-        <translation>extcap</translation>
-    </message>
-    <message>
         <source>Name</source>
         <translation>Nome</translation>
     </message>
@@ -8355,6 +8409,10 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <source>Filter Buttons</source>
         <translation>Pulsanti di filtro</translation>
     </message>
+    <message>
+        <source>RSA Keys</source>
+        <translation>Chiavi RSA</translation>
+    </message>
 </context>
 <context>
     <name>PrintDialog</name>
@@ -8437,6 +8495,10 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>(system provided)</source>
         <translation>(fornito dal sistema)</translation>
+    </message>
+    <message>
+        <source>(deleted)</source>
+        <translation>(eliminato)</translation>
     </message>
     <message>
         <source>Created from default settings</source>
@@ -9335,6 +9397,97 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
     <message>
         <source>ONC-RPC Service Response Times</source>
         <translation>Tempi di risposta del servizio ONC-RPC</translation>
+    </message>
+</context>
+<context>
+    <name>RsaKeysFrame</name>
+    <message>
+        <source>RSA Keys</source>
+        <translation>Chiavi RSA</translation>
+    </message>
+    <message>
+        <source>RSA private keys are loaded from a file or PKCS #11 token.</source>
+        <translation>Le chiavi private RSA sono caricate da un file o da un token PKCS #11.</translation>
+    </message>
+    <message>
+        <source>Add new keyfile…</source>
+        <translation>Aggiungi nuova chiave...</translation>
+    </message>
+    <message>
+        <source>Add new token…</source>
+        <translation>Aggiungi nuovo token...</translation>
+    </message>
+    <message>
+        <source>Remove key</source>
+        <translation>Rimuovi chiave</translation>
+    </message>
+    <message>
+        <source>PKCS #11 provider libraries.</source>
+        <translation>Librerie del fornitore PKCS #11.</translation>
+    </message>
+    <message>
+        <source>Add new provider…</source>
+        <translation>Aggiungi nuovo fornitore...</translation>
+    </message>
+    <message>
+        <source>Remove provider</source>
+        <translation>Rimuovi fornitore</translation>
+    </message>
+    <message>
+        <source>Add PKCS #11 token or key</source>
+        <translation>Aggiungi token o chiave PKCS #11</translation>
+    </message>
+    <message>
+        <source>No new PKCS #11 tokens or keys found, consider adding a PKCS #11 provider.</source>
+        <translation>Nessun nuovo token o chiave PKCS #11 trovato, considera di aggiungere un fornitore PKCS #11.</translation>
+    </message>
+    <message>
+        <source>Select a new PKCS #11 token or key</source>
+        <translation>Seleziona un nuovo token o chiave PKCS #11</translation>
+    </message>
+    <message>
+        <source>PKCS #11 token or key</source>
+        <translation>Token o chiave PKCS #11</translation>
+    </message>
+    <message>
+        <source>Enter PIN or password for %1 (it will be stored unencrypted)</source>
+        <translation>Digita il PIN o la password per %1 (sarà memorizzata senza cifratura)</translation>
+    </message>
+    <message>
+        <source>Enter PIN or password for key</source>
+        <translation>Digita il PIN o la password per la chiave</translation>
+    </message>
+    <message>
+        <source>Key could not be added: %1</source>
+        <translation>La chiave non può essere aggiunta: %1</translation>
+    </message>
+    <message>
+        <source>RSA private key (*.pem *.p12 *.pfx *.key);;All Files (</source>
+        <translation>Chiave privata RSA (*.pem *.p12 *.pfx *.key);;Tutti i file (</translation>
+    </message>
+    <message>
+        <source>Select RSA private key file</source>
+        <translation>Seleziona file della chiave privata RSA</translation>
+    </message>
+    <message>
+        <source>Libraries (*.dll)</source>
+        <translation>Librerie (*.dll)</translation>
+    </message>
+    <message>
+        <source>Libraries (*.so)</source>
+        <translation>Librerie (*.so)</translation>
+    </message>
+    <message>
+        <source>Select PKCS #11 Provider Library</source>
+        <translation>Seleziona libreria del fornitore PKCS #11</translation>
+    </message>
+    <message>
+        <source>Changes will apply after a restart</source>
+        <translation>Le modifiche saranno applicate dopo il riavvio</translation>
+    </message>
+    <message>
+        <source>PKCS #11 provider %1 will be removed after the next restart.</source>
+        <translation>Il fornitore PKCS #11 %1 sarà rimosso dopo il prossimo riavvio.</translation>
     </message>
 </context>
 <context>
@@ -12639,11 +12792,11 @@ NOTA: un&apos;opzione DEVE essere selezionata.</translation>
         <source>&lt;html&gt;&lt;head&gt;
 &lt;style&gt;
 a:link {
-  color: inherit;
+  color: palette(text);
   text-decoration: none;
 }
 a:hover {
-  color: inherit;
+  color: palette(text);
   text-decoration: underline;
 }
 &lt;/style&gt;
@@ -12670,11 +12823,11 @@ a:hover {
         <translation>&lt;html&gt;&lt;head&gt;
 &lt;style&gt;
 a:link {
-  color: inherit;
+  color: palette(text);
   text-decoration: none;
 }
 a:hover {
-  color: inherit;
+  color: palette(text);
   text-decoration: underline;
 }
 &lt;/style&gt;
@@ -12694,7 +12847,7 @@ a:hover {
 
 &lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
 
-&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/lists/&quot;&gt;Mailing list&lt;/a&gt;&lt;/th&gt;
+&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/lists/&quot;&gt;Mailing List&lt;/a&gt;&lt;/th&gt;
 
 &lt;/tr&gt;&lt;/table&gt;
 &lt;/body&gt;&lt;/html&gt;</translation>

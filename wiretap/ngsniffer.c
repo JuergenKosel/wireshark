@@ -495,8 +495,8 @@ static int process_rec_header2_v2(wtap *wth, unsigned char *buffer,
     guint16 length, int *err, gchar **err_info);
 static int process_rec_header2_v145(wtap *wth, unsigned char *buffer,
     guint16 length, gint16 maj_vers, int *err, gchar **err_info);
-static gboolean ngsniffer_read(wtap *wth, int *err, gchar **err_info,
-    gint64 *data_offset);
+static gboolean ngsniffer_read(wtap *wth, wtap_rec *rec, Buffer *buf,
+    int *err, gchar **err_info, gint64 *data_offset);
 static gboolean ngsniffer_seek_read(wtap *wth, gint64 seek_off,
     wtap_rec *rec, Buffer *buf, int *err, gchar **err_info);
 static int ngsniffer_process_record(wtap *wth, gboolean is_random,
@@ -1007,7 +1007,8 @@ process_rec_header2_v145(wtap *wth, unsigned char *buffer, guint16 length,
 
 /* Read the next packet */
 static gboolean
-ngsniffer_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
+ngsniffer_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
+    gchar **err_info, gint64 *data_offset)
 {
 	ngsniffer_t *ngsniffer;
 	int	ret;
@@ -1025,7 +1026,7 @@ ngsniffer_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
 		 * Process the record.
 		 */
 		ret = ngsniffer_process_record(wth, FALSE, &padding,
-		    &wth->rec, wth->rec_data, err, err_info);
+		    rec, buf, err, err_info);
 		if (ret < 0) {
 			/* Read error or short read */
 			return FALSE;
@@ -1766,7 +1767,7 @@ infer_pkt_encap(const guint8 *pd, int len)
 		 * although there might be other frame types as well.
 		 * Scan forward until we see the last DLCI byte, with
 		 * the low-order bit being 1, and then check the next
-		 * byte to see if it's a control byte.
+		 * byte, if it exists, to see if it's a control byte.
 		 *
 		 * XXX - in version 4 and 5 captures, wouldn't this just
 		 * have a capture subtype of NET_FRAME_RELAY?  Or is this
@@ -1774,22 +1775,27 @@ infer_pkt_encap(const guint8 *pd, int len)
 		 * file, where we might just not yet have found where
 		 * the subtype is specified in the capture?
 		 *
-		 * Bay^H^H^HNortel Networks has a mechanism in the Optivity
+		 * Bay Networks/Nortel Networks had a mechanism in the Optivity
 		 * software for some of their routers to save captures
 		 * in Sniffer format; they use a version number of 4.9, but
 		 * don't put out any header records before the first FRAME2
-		 * record.  That means we have to use heuristics to guess
+		 * record. That means we have to use heuristics to guess
 		 * what type of packet we have.
 		 */
 		for (i = 0; i < len && (pd[i] & 0x01) == 0; i++)
 			;
-		i++;	/* advance to the byte after the last DLCI byte */
-		if (i == len) {
+		if (i >= len - 1) {
 			/*
-			 * No control byte.
+			 * Either all the bytes have the low-order bit
+			 * clear, so we didn't even find the last DLCI
+			 * byte, or the very last byte had the low-order
+			 * bit set, so, if that's a DLCI, it fills the
+			 * buffer, so there is no control byte after
+			 * the last DLCI byte.
 			 */
 			return WTAP_ENCAP_LAPB;
 		}
+		i++;	/* advance to the byte after the last DLCI byte */
 		if (pd[i] == 0x03)
 			return WTAP_ENCAP_FRELAY_WITH_PHDR;
 	}

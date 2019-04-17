@@ -1214,11 +1214,6 @@
         <translation>Plik:</translation>
     </message>
     <message>
-        <source>Create a new file automatically after…</source>
-        <oldsource>Create a new file automatically after...</oldsource>
-        <translation>Stwórz nowy plik automatycznie po…</translation>
-    </message>
-    <message>
         <source>megabytes</source>
         <oldsource>Megabytes</oldsource>
         <translation>megabajty</translation>
@@ -1312,26 +1307,41 @@
         <translation>Przechwytuj do pliku</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zamiast używać pojedyńczego pliku przechwytywania, wiele plików będzie tworzonych.&lt;/p&gt;&lt;p&gt;Użyte nazwy plików będą zawierać zwiększający się liczbę i czas rozpoczęcia przechwytywania.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If the selected file size is exceeded, capturing switches to the next file.&lt;/p&gt;&lt;p&gt;PLEASE NOTE: One option MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Jeśli wybrany rozmiar pliku zostanie przekroczony to przechwytywanie będzie kontynuowane do nowego pliku.&lt;/p&gt;&lt;p&gt;UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>If the selected file size is exceeded, capturing switches to the next file.
-PLEASE NOTE: One option MUST be selected.</source>
-        <translation>Jeśli wybrany rozmiar pliku zostanie przekroczony to  przechwytywanie będzie kontynuuowane do nowego pliku.
-UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
-    </message>
-    <message>
         <source>gigabytes</source>
         <oldsource>Gigabytes</oldsource>
         <translation>gigabajty</translation>
     </message>
     <message>
         <source>Switch to the next file after the specified number of packets have been captured.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;p&gt;NOTE: If enabled, at least one of the new-file criteria MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Create a new file automatically…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>after</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch to the next file after the file size exceeds the specified file size.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch to the next file when the time capturing to the current file exceeds the specified time.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>when time is a multiple of</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch to the next file when the (wall clock) time is an even multiple of the specified interval.
+For example, use 1 hour to have a new file created every hour on the hour.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2105,6 +2115,45 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>Description</source>
         <translation>Opis</translation>
+    </message>
+</context>
+<context>
+    <name>EndpointDialog</name>
+    <message>
+        <source>Map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Draw IPv4 or IPv6 endpoints on a map.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open in browser</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save As</source>
+        <translation type="unfinished">Zapisz jako</translation>
+    </message>
+    <message>
+        <source>Map file error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No endpoints available to map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to create temporary file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Endpoints Map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to save map file %1.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -5703,10 +5752,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Anuluj</translation>
     </message>
     <message>
-        <source>Open Recent</source>
-        <translation>Ostatnio otwarte</translation>
-    </message>
-    <message>
         <source>File Set</source>
         <translation>Zbiór plików</translation>
     </message>
@@ -5725,10 +5770,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>&amp;Time Display Format</source>
         <translation>Format czasu</translation>
-    </message>
-    <message>
-        <source>Name Resolution</source>
-        <translation>Rozwiązywanie nazw</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -5823,10 +5864,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>RTSP</translation>
     </message>
     <message>
-        <source>RTP</source>
-        <translation>RTP</translation>
-    </message>
-    <message>
         <source>&amp;Edit</source>
         <translation>&amp;Edytuj</translation>
     </message>
@@ -5839,16 +5876,8 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Pasek filtrowania</translation>
     </message>
     <message>
-        <source>Open</source>
-        <translation>Otwórz</translation>
-    </message>
-    <message>
         <source>Open a capture file</source>
         <translation>Otwórz plik</translation>
-    </message>
-    <message>
-        <source>Quit</source>
-        <translation>Zamknij</translation>
     </message>
     <message>
         <source>Quit Wireshark</source>
@@ -5869,10 +5898,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>Stop capturing packets</source>
         <translation>Zatrzymaj przechwytywanie pakietów</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation>Zamknij</translation>
     </message>
     <message>
         <source>No files found</source>
@@ -6067,6 +6092,26 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Restartuj aktualne przechwytywanie</translation>
     </message>
     <message>
+        <source>As &amp;CSV…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As &quot;C&quot; &amp;Arrays…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As P&amp;SML XML…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As P&amp;DML XML…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As &amp;JSON…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Description</source>
         <translation>Opis</translation>
     </message>
@@ -6121,26 +6166,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>Conversation Filter</source>
         <translation>Filtr Konwersacji</translation>
-    </message>
-    <message>
-        <source>Service Response Time</source>
-        <translation>Czas odpowiedzi serwisu</translation>
-    </message>
-    <message>
-        <source>ANSI</source>
-        <translation>ANSI</translation>
-    </message>
-    <message>
-        <source>GSM</source>
-        <translation>GSM</translation>
-    </message>
-    <message>
-        <source>LTE</source>
-        <translation>LTE</translation>
-    </message>
-    <message>
-        <source>MTP3</source>
-        <translation>MTP3</translation>
     </message>
     <message>
         <source>Osmux</source>
@@ -6240,10 +6265,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Przeładuj jako format pliku/plik przechwytywania</translation>
     </message>
     <message>
-        <source>As JSON…</source>
-        <translation>Jako JSON…</translation>
-    </message>
-    <message>
         <source>Copy this item&apos;s description</source>
         <translation>Kopiuj opis tej pozycji</translation>
     </message>
@@ -6296,10 +6317,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Zaznacz wszystkie wyświetlane pakiety</translation>
     </message>
     <message>
-        <source>Unmark All Displayed</source>
-        <translation>Odzaznacz wszystkie wyświetlane</translation>
-    </message>
-    <message>
         <source>Unmark all displayed packets</source>
         <translation>Odzaznacz wszystkie wyświetlane pakiety</translation>
     </message>
@@ -6338,10 +6355,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>Unignore All Displayed</source>
         <translation>Odignoruj wszystkie wyświetlane</translation>
-    </message>
-    <message>
-        <source>Unignore all displayed packets</source>
-        <translation>Odignoruj wszystkie wyświetlane pakiety</translation>
     </message>
     <message>
         <source>Set/Unset Time Reference</source>
@@ -6389,6 +6402,10 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     </message>
     <message>
         <source>Remove all packet comments in the capture file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Configuration Profiles…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6708,6 +6725,14 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Wyfiltruj tą asocjacje</translation>
     </message>
     <message>
+        <source>&amp;Conversations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Endpoints</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Shrink the main window text</source>
         <translation>Pomniejsz</translation>
     </message>
@@ -6724,24 +6749,12 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Conversation Hash Tables</source>
-        <translation>Tablice mieszające konwersacji</translation>
-    </message>
-    <message>
         <source>Show each conversation hash table</source>
         <translation>Pokaż tablice mieszające konwersacji</translation>
     </message>
     <message>
-        <source>Dissector Tables</source>
-        <translation>Tabele Dekoderów</translation>
-    </message>
-    <message>
         <source>Show each dissector table and its entries</source>
         <translation>Pokaż tabelę dekoderów i jego wpisy</translation>
-    </message>
-    <message>
-        <source>Supported Protocols</source>
-        <translation>Obsługiwane Protokoły</translation>
     </message>
     <message>
         <source>Show the currently supported protocols and display filter fields</source>
@@ -6762,10 +6775,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>LTE RLC statistics</source>
         <translation>Statystyki LTE RLC</translation>
-    </message>
-    <message>
-        <source>RLC Graph</source>
-        <translation>Wykres RLC</translation>
     </message>
     <message>
         <source>LTE RLC graph</source>
@@ -6810,6 +6819,10 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>Show Packet Bytes…</source>
         <translation>Prezentuj Bajty Pakietu…</translation>
+    </message>
+    <message>
+        <source>Go to &amp;Linked Packet</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>UDP Multicast Streams</source>
@@ -6864,22 +6877,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Jako tekst…</translation>
     </message>
     <message>
-        <source>As CSV…</source>
-        <translation>Jako CSV…</translation>
-    </message>
-    <message>
-        <source>As &quot;C&quot; Arrays…</source>
-        <translation>Jako tablica w języku C…</translation>
-    </message>
-    <message>
-        <source>As PSML XML…</source>
-        <translation>Jako PSML XML…</translation>
-    </message>
-    <message>
-        <source>As PDML XML…</source>
-        <translation>Jako PDML XML…</translation>
-    </message>
-    <message>
         <source>All Visible Items</source>
         <translation>Wszystkie widoczne pozycje</translation>
     </message>
@@ -6920,10 +6917,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>…lub nie wybrane</translation>
     </message>
     <message>
-        <source>Display Filters…</source>
-        <translation>Filtry wyświetlania…</translation>
-    </message>
-    <message>
         <source>Display Filter &amp;Macros…</source>
         <translation>Makra filtrów wyświetlania…</translation>
     </message>
@@ -6946,10 +6939,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>Packet Comment…</source>
         <translation>Komentarz pakietu…</translation>
-    </message>
-    <message>
-        <source>Configuration Profiles…</source>
-        <translation>Konfiguracja profili…</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -7004,16 +6993,8 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Pokaż lub ukryj pasek filtrowania</translation>
     </message>
     <message>
-        <source>Conversations</source>
-        <translation>Konwersacje</translation>
-    </message>
-    <message>
         <source>Conversations at different protocol levels</source>
         <translation>Konwersacje na różnych poziomach protokołów</translation>
-    </message>
-    <message>
-        <source>Endpoints</source>
-        <translation>Punkty krańcowe</translation>
     </message>
     <message>
         <source>Endpoints at different protocol levels</source>
@@ -7228,12 +7209,28 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Pokaż/ukryj bajty pakietu</translation>
     </message>
     <message>
+        <source>&amp;Conversation Hash Tables</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Dissector Tables</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Supported Protocols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>MAP Summary</source>
         <translation>Podsumowanie MAP</translation>
     </message>
     <message>
         <source>GSM MAP summary statistics</source>
         <translation>Statystyki podsumowania GSM MAP</translation>
+    </message>
+    <message>
+        <source>RLC &amp;Graph</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;Coloring Rules…</source>
@@ -7257,6 +7254,10 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Nowa reguła kolorowania...</translation>
     </message>
     <message>
+        <source>IA&amp;X2 Stream Analysis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Enabled Protocols…</source>
         <oldsource>Enable Protocols…</oldsource>
         <translation>Używane protokoły…</translation>
@@ -7278,16 +7279,72 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <translation>Otwórz stronę filtru wyświetlania dla tego pola.</translation>
     </message>
     <message>
-        <source>Go to Linked Packet</source>
-        <translation>Idź do podlinkowanego pakietu</translation>
-    </message>
-    <message>
         <source>Go to the packet referenced by the selected field.</source>
         <translation>Idź do pakietu do którego odwołuje się zaznaczone pole.</translation>
     </message>
     <message>
         <source>&amp;VoIP Calls</source>
         <translation>Połączenia VoIP</translation>
+    </message>
+    <message>
+        <source>Open &amp;Recent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name Resol&amp;ution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Service &amp;Response Time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;RTP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>S&amp;CTP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;ANSI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;GSM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;LTE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;MTP3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Open</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Quit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display &amp;Filters…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Unmark All Displayed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>U&amp;nignore all displayed packets</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>All VoIP Calls</source>
@@ -8275,10 +8332,6 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
 <context>
     <name>PluginListModel</name>
     <message>
-        <source>extcap</source>
-        <translation>extcap</translation>
-    </message>
-    <message>
         <source>Name</source>
         <translation>Nazwa</translation>
     </message>
@@ -8364,6 +8417,10 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <source>Filter Buttons</source>
         <translation>Przyciski filtrowania</translation>
     </message>
+    <message>
+        <source>RSA Keys</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>PrintDialog</name>
@@ -8446,6 +8503,10 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>(system provided)</source>
         <translation>(dostarczone przez system)</translation>
+    </message>
+    <message>
+        <source>(deleted)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Created from default settings</source>
@@ -9344,6 +9405,97 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
     <message>
         <source>ONC-RPC Service Response Times</source>
         <translation>Czas odpowiedzi serwisu ONC-RPC</translation>
+    </message>
+</context>
+<context>
+    <name>RsaKeysFrame</name>
+    <message>
+        <source>RSA Keys</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RSA private keys are loaded from a file or PKCS #11 token.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add new keyfile…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add new token…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKCS #11 provider libraries.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add new provider…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove provider</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add PKCS #11 token or key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No new PKCS #11 tokens or keys found, consider adding a PKCS #11 provider.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select a new PKCS #11 token or key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKCS #11 token or key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter PIN or password for %1 (it will be stored unencrypted)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter PIN or password for key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key could not be added: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RSA private key (*.pem *.p12 *.pfx *.key);;All Files (</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select RSA private key file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Libraries (*.dll)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Libraries (*.so)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select PKCS #11 Provider Library</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Changes will apply after a restart</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKCS #11 provider %1 will be removed after the next restart.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12652,11 +12804,11 @@ UWAGA: Przynajmniej jedna opcja MUSI zostać zaznaczona.</translation>
         <source>&lt;html&gt;&lt;head&gt;
 &lt;style&gt;
 a:link {
-  color: inherit;
+  color: palette(text);
   text-decoration: none;
 }
 a:hover {
-  color: inherit;
+  color: palette(text);
   text-decoration: underline;
 }
 &lt;/style&gt;
@@ -12680,37 +12832,7 @@ a:hover {
 
 &lt;/tr&gt;&lt;/table&gt;
 &lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head&gt;
-&lt;style&gt;
-a:link {
-  color: inherit;
-  text-decoration: none;
-}
-a:hover {
-  color: inherit;
-  text-decoration: underline;
-}
-&lt;/style&gt;
-&lt;/head&gt;
-&lt;body&gt;
-
-&lt;table&gt;&lt;tr&gt;
-&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/docs/wsug_html_chunked/&quot;&gt;Podręcznik użytkownika&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://wiki.wireshark.org/&quot;&gt;Wiki&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://ask.wireshark.org/&quot;&gt;Pytania i Odpowiedzi&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/lists/&quot;&gt;Grupy dyskusyjne&lt;/a&gt;&lt;/th&gt;
-
-&lt;/tr&gt;&lt;/table&gt;
-&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Show in Finder</source>

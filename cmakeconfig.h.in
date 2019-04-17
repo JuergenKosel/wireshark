@@ -16,7 +16,7 @@
 #define VERSION_MINOR ${PROJECT_MINOR_VERSION}
 #define VERSION_MICRO ${PROJECT_PATCH_VERSION}
 
-#define VERSION_RELEASE "${PROJECT_RELEASE_VERSION}"
+#define PLUGIN_PATH_ID "${PLUGIN_PATH_ID}"
 #define VERSION_FLAVOR "${VERSION_FLAVOR}"
 
 /* Build wsutil with SIMD optimization */
@@ -292,6 +292,9 @@
 
 /* Define if st_flags field exists in struct stat */
 #cmakedefine HAVE_STRUCT_STAT_ST_FLAGS 1
+
+/* Define if st_blksize field exists in struct stat */
+#cmakedefine HAVE_STRUCT_STAT_ST_BLKSIZE 1
 
 /* Define to 1 if `__st_birthtime' is a member of `struct stat'. */
 #cmakedefine HAVE_STRUCT_STAT___ST_BIRTHTIME 1

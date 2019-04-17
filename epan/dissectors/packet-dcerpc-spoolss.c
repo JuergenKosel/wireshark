@@ -315,6 +315,7 @@ static expert_field ei_driver_info_level = EI_INIT;
 static expert_field ei_level = EI_INIT;
 static expert_field ei_notify_info_data_type = EI_INIT;
 static expert_field ei_enumprinterdataex_value = EI_INIT;
+static expert_field ei_buffer_size_too_long = EI_INIT;
 
 /* Registry data types */
 
@@ -440,6 +441,13 @@ dissect_spoolss_buffer_data(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
 				    hf_buffer_size, &size);
+
+	/* Before going any further, we must ensure the bytes
+	   actually esist in the tvb */
+	if ((guint32)tvb_reported_length_remaining(tvb, offset) < size) {
+		expert_add_info(pinfo, tree, &ei_buffer_size_too_long);
+		return offset;
+	}
 
 	offset = dissect_ndr_uint8s(tvb, offset, pinfo, NULL, di, drep,
 				    hf_buffer_data, size, &data);
@@ -703,7 +711,7 @@ dissect_printerdata_data(tvbuff_t *tvb, int offset,
 			hidden_item = proto_tree_add_item_ret_string(
 				tree, hf_printerdata_data_sz, tvb,
 				offset - size, size, ENC_UTF_16|ENC_LITTLE_ENDIAN, wmem_packet_scope(), &data);
-			PROTO_ITEM_SET_HIDDEN(hidden_item);
+			proto_item_set_hidden(hidden_item);
 
 			proto_item_append_text(item, ": %s", data);
 
@@ -722,7 +730,7 @@ dissect_printerdata_data(tvbuff_t *tvb, int offset,
 			hidden_item = proto_tree_add_uint(
 				tree, hf_printerdata_data_dword, tvb,
 				offset - size, 4, data);
-			PROTO_ITEM_SET_HIDDEN(hidden_item);
+			proto_item_set_hidden(hidden_item);
 
 			break;
 		}
@@ -757,7 +765,7 @@ SpoolssGetPrinterData_q(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -797,7 +805,7 @@ SpoolssGetPrinterData_r(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -835,7 +843,7 @@ SpoolssGetPrinterDataEx_q(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -884,7 +892,7 @@ SpoolssGetPrinterDataEx_r(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -928,7 +936,7 @@ SpoolssSetPrinterData_q(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -975,7 +983,7 @@ SpoolssSetPrinterData_r(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -1004,7 +1012,7 @@ SpoolssSetPrinterDataEx_q(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -1050,7 +1058,7 @@ SpoolssSetPrinterDataEx_r(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -1415,7 +1423,7 @@ dissect_DEVMODE_fields(tvbuff_t *tvb, gint offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_devmode, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	offset = dissect_ndr_uint32(tvb, offset, pinfo, NULL, di, drep, -1, &fields);
 
@@ -3429,7 +3437,7 @@ SpoolssEnumForms_q(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -3468,7 +3476,7 @@ SpoolssEnumForms_r(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -3598,7 +3606,7 @@ SpoolssEnumPrinterData_q(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -3636,7 +3644,7 @@ SpoolssEnumPrinterData_r(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -3659,7 +3667,7 @@ SpoolssEnumPrinterData_r(tvbuff_t *tvb, int offset,
 
 		hidden_item = proto_tree_add_string(
 			tree, hf_printerdata_value, tvb, offset, 0, value);
-		PROTO_ITEM_SET_HIDDEN(hidden_item);
+		proto_item_set_hidden(hidden_item);
 	}
 
 	proto_item_set_len(value_item, value_len * 2 + 4);
@@ -3934,7 +3942,7 @@ SpoolssAddForm_q(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -3965,7 +3973,7 @@ SpoolssAddForm_r(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -3988,7 +3996,7 @@ SpoolssDeleteForm_q(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -4014,7 +4022,7 @@ SpoolssDeleteForm_r(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -4038,7 +4046,7 @@ SpoolssSetForm_q(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -4071,7 +4079,7 @@ SpoolssSetForm_r(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -4096,7 +4104,7 @@ SpoolssGetForm_q(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -4140,7 +4148,7 @@ SpoolssGetForm_r(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_form, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -4950,7 +4958,7 @@ SpoolssDeletePrinterData_q(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -4976,7 +4984,7 @@ SpoolssDeletePrinterData_r(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -5527,7 +5535,7 @@ cb_notify_str_postprocess(packet_info *pinfo _U_,
 	if (hf_index != -1) {
 		hidden_item = proto_tree_add_string(
 			tree, hf_index, tvb, start_offset, len, s);
-		PROTO_ITEM_SET_HIDDEN(hidden_item);
+		proto_item_set_hidden(hidden_item);
 	}
 }
 
@@ -5839,7 +5847,7 @@ dissect_NOTIFY_INFO_DATA_job(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		hidden_item = proto_tree_add_uint(
 			tree, job_notify_hf_index(field), tvb,
 			offset, 4, value);
-		PROTO_ITEM_SET_HIDDEN(hidden_item);
+		proto_item_set_hidden(hidden_item);
 
 		break;
 	}
@@ -6287,7 +6295,7 @@ SpoolssEnumPrinterDataEx_q(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -6428,7 +6436,7 @@ SpoolssEnumPrinterDataEx_r(tvbuff_t *tvb, int offset,
 
 	hidden_item = proto_tree_add_uint(
 		tree, hf_printerdata, tvb, offset, 0, 1);
-	PROTO_ITEM_SET_HIDDEN(hidden_item);
+	proto_item_set_hidden(hidden_item);
 
 	/* Parse packet */
 
@@ -8315,6 +8323,7 @@ proto_register_dcerpc_spoolss(void)
 		{ &ei_level, { "spoolss.level.unknown", PI_PROTOCOL, PI_WARN, "Info level unknown", EXPFILL }},
 		{ &ei_notify_info_data_type, { "spoolss.notify_info_data.type.unknown", PI_PROTOCOL, PI_WARN, "Unknown notify type", EXPFILL }},
 		{ &ei_enumprinterdataex_value, { "spoolss.enumprinterdataex.val_unknown", PI_PROTOCOL, PI_WARN, "Unknown value type", EXPFILL }},
+		{ &ei_buffer_size_too_long, { "spoolss.buffer.size.invalid", PI_PROTOCOL, PI_ERROR, "Buffer size too long", EXPFILL }},
 	};
 
 	expert_module_t* expert_dcerpc_spoolss;

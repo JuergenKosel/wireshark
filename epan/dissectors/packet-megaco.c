@@ -54,6 +54,9 @@ void proto_reg_handoff_megaco(void);
 #define PORT_MEGACO_TXT 2944
 #define PORT_MEGACO_BIN 2945
 
+static pref_t *sip_hide_generatd_call_ids;
+
+
 /* Define the megaco proto */
 static int proto_megaco         = -1;
 
@@ -543,7 +546,7 @@ megaco_tree_add_string(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 
     pi = proto_tree_add_string(tree, hfindex, tvb, start, length, value);
     if (!global_megaco_dissect_tree) {
-        PROTO_ITEM_SET_HIDDEN(pi);
+        proto_item_set_hidden(pi);
     }
 
     return(pi);
@@ -560,7 +563,7 @@ my_proto_tree_add_uint(proto_tree *tree, int hfindex, tvbuff_t *tvb,
     proto_item_set_len(pi, length);
 
     if (!global_megaco_dissect_tree) {
-        PROTO_ITEM_SET_HIDDEN(pi);
+        proto_item_set_hidden(pi);
     }
 
     return(pi);
@@ -1105,7 +1108,7 @@ nextcontext:
                 megaco_tree_command_line = proto_item_add_subtree(sub_ti, ett_megaco_command_line);
                 */
                 if (!global_megaco_dissect_tree) {
-                    PROTO_ITEM_SET_HIDDEN(sub_ti);
+                    proto_item_set_hidden(sub_ti);
                 }
 
                 tvb_next_offset = tvb_command_start_offset + tokenlen;
@@ -3022,16 +3025,20 @@ dissect_megaco_LocalRemotedescriptor(tvbuff_t *tvb, proto_tree *megaco_mediadesc
 {
     gint tokenlen;
     tvbuff_t *next_tvb;
-    http_message_info_t message_info = { SIP_DATA, NULL, NULL };
+    http_message_info_t message_info = { SIP_DATA, NULL, NULL, NULL };
 
     sdp_setup_info_t setup_info;
 
     /* Only fill in the info when we have valid contex */
     if ((context != 0) && (context < 0xfffffffe)) {
-        setup_info.setup_proto = g_strdup("MEGACO");
         setup_info.hf_id = hf_megaco_Context;
         setup_info.hf_type = SDP_TRACE_ID_HF_TYPE_GUINT32;
-        setup_info.trace_id_num = context;
+        if (!sip_hide_generatd_call_ids) {
+            setup_info.add_hidden = FALSE;
+        } else {
+            setup_info.add_hidden = prefs_get_bool_value(sip_hide_generatd_call_ids, pref_current);
+        }
+        setup_info.trace_id.num = context;
         message_info.data = &setup_info;
     }
 
@@ -3889,7 +3896,8 @@ proto_reg_handoff_megaco(void)
 {
     static gboolean megaco_prefs_initialized = FALSE;
     static dissector_handle_t megaco_text_tcp_handle;
-    /*
+
+        /*
     * Variables to allow for proper deletion of dissector registration when
     * the user changes port from the gui.
     */
@@ -3925,6 +3933,8 @@ proto_reg_handoff_megaco(void)
     dissector_add_uint("sctp.port", global_megaco_txt_sctp_port, megaco_text_handle);
 
     exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);
+
+    sip_hide_generatd_call_ids = prefs_find_preference(prefs_find_module("sip"), "hide_generatd_call_id");
 
 }
 

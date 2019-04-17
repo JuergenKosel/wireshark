@@ -36,14 +36,15 @@ public:
 QMap<int, int> PacketListRecord::cinfo_column_;
 unsigned PacketListRecord::col_data_ver_ = 1;
 
-PacketListRecord::PacketListRecord(frame_data *frameData) :
+PacketListRecord::PacketListRecord(frame_data *frameData, struct _GStringChunk *string_cache_pool) :
     col_text_(0),
     fdata_(frameData),
     lines_(1),
     line_count_changed_(false),
     data_ver_(0),
     colorized_(false),
-    conv_(NULL)
+    conv_(NULL),
+    string_cache_pool_(string_cache_pool)
 {
 }
 
@@ -110,14 +111,14 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_color)
         return;
     }
 
-    memset(&rec, 0, sizeof rec);
 
     if (dissect_columns) {
         cinfo = &cap_file->cinfo;
     }
 
-    ws_buffer_init(&buf, 1500);
-    if (!cf_read_record_r(cap_file, fdata_, &rec, &buf)) {
+    wtap_rec_init(&rec);
+    ws_buffer_init(&buf, 1514);
+    if (!cf_read_record(cap_file, fdata_, &rec, &buf)) {
         /*
          * Error reading the record.
          *
@@ -138,6 +139,7 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_color)
             colorized_ = true;
         }
         ws_buffer_free(&buf);
+        wtap_rec_cleanup(&rec);
         return;    /* error reading the record */
     }
 
@@ -193,14 +195,7 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_color)
 
     epan_dissect_cleanup(&edt);
     ws_buffer_free(&buf);
-}
-
-// This assumes only one packet list. We might want to move this to
-// PacketListModel (or replace this with a wmem allocator).
-struct _GStringChunk *PacketListRecord::string_pool_ = g_string_chunk_new(1 * 1024 * 1024);
-void PacketListRecord::clearStringPool()
-{
-    g_string_chunk_clear(string_pool_);
+    wtap_rec_cleanup(&rec);
 }
 
 //#define MINIMIZE_STRING_COPYING 1
@@ -296,7 +291,7 @@ void PacketListRecord::cacheColumnStrings(column_info *cinfo)
         // https://git.gnome.org/browse/glib/tree/glib/gstringchunk.c
         // We might be better off adding the equivalent functionality to
         // wmem_tree.
-        col_text_->append(g_string_chunk_insert_const(string_pool_, col_str));
+        col_text_->append(g_string_chunk_insert_const(string_cache_pool_, col_str));
         for (int i = 0; col_str[i]; i++) {
             if (col_str[i] == '\n') col_lines++;
         }

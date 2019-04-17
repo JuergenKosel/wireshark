@@ -1686,7 +1686,7 @@ dissect_arfcn_list_core(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gui
                 arfcn++;
                 if (((oct >> bit) & 1) == 1)
                 {
-                    proto_item_append_text(item," %d",arfcn);
+                    proto_item_append_text(item," %d",arfcn % 1024);
                 }
             }
             bit = 8;
@@ -2392,12 +2392,16 @@ de_rr_ch_dsc3(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, guint3
 /* Channel Mode  */
 static const value_string gsm_a_rr_channel_mode_vals[] = {
     { 0x00, "signalling only"},
-    { 0x01, "speech full rate or half rate version 1(GSM FR or GSM HR)"},
-    { 0x21, "speech full rate or half rate version 2(GSM EFR)"},
-    { 0x41, "speech full rate or half rate version 3(FR AMR or HR AMR)"},
-    { 0x81, "speech full rate or half rate version 4(OFR AMR-WB or OHR AMR-WB)"},
-    { 0x82, "speech full rate or half rate version 5(FR AMR-WB )"},
-    { 0x83, "speech full rate or half rate version 6(OHR AMR )"},
+    { 0x01, "speech full rate or half rate version 1 (GSM FR or GSM HR)"},
+    { 0xc1, "speech full rate or half rate version 1 (GSM FR or GSM HR) in VAMOS mode" },
+    { 0x21, "speech full rate or half rate version 2 (GSM EFR)"},
+    { 0xC2, "speech full rate or half rate version 2 (GSM EFR) in VAMOS mode"},
+    { 0x41, "speech full rate or half rate version 3 (FR AMR or HR AMR)"},
+    { 0xc3, "speech full rate or half rate version 3 (FR AMR or HR AMR) in VAMOS mode"},
+    { 0x81, "speech full rate or half rate version 4 (OFR AMR-WB or OHR AMR-WB)"},
+    { 0x82, "speech full rate or half rate version 5 (FR AMR-WB )"},
+    { 0xc5, "speech full rate or half rate version 5 (FR AMR-WB ) in VAMOS mode"},
+    { 0x83, "speech full rate or half rate version 6 (OHR AMR )"},
     { 0x61, "data, 43.5 kbit/s (downlink)+14.5 kbps (uplink)"},
     { 0x62, "data, 29.0 kbit/s (downlink)+14.5 kbps (uplink)"},
     { 0x64, "data, 43.5 kbit/s (downlink)+29.0 kbps (uplink)"},
@@ -2411,6 +2415,7 @@ static const value_string gsm_a_rr_channel_mode_vals[] = {
     { 0x03, "data, 12.0 kbit/s radio interface rate"},
     { 0x0b, "data, 6.0 kbit/s radio interface rate"},
     { 0x13, "data, 3.6 kbit/s radio interface rate"},
+    { 0x10, "data, 64.0 kbit/s Transparent Data Bearer"},
     {    0, NULL }
 };
 
@@ -3383,7 +3388,7 @@ de_tbf_starting_time(tvbuff_t *tvb, proto_tree *tree, guint32 bit_offset)
     rfn = (guint16)((51 * t) + t3 + (51 * 26 * t1));
 
     item = proto_tree_add_uint(tree, hf_gsm_a_rr_tbf_starting_time, tvb, bit_offset >> 3, ((curr_bit_offset - bit_offset) >> 3) + 1, rfn);
-    PROTO_ITEM_SET_GENERATED(item);
+    proto_item_set_generated(item);
     return(curr_bit_offset - bit_offset);
 }
 
@@ -5208,7 +5213,7 @@ de_rr_req_ref(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, guint3
     proto_tree_add_item(subtree, hf_gsm_a_rr_T2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
     curr_offset++;
     item = proto_tree_add_uint(subtree, hf_gsm_a_rr_rfn, tvb, curr_offset-2, 2, rfn);
-    PROTO_ITEM_SET_GENERATED(item);
+    proto_item_set_generated(item);
 
     return(curr_offset - offset);
 }
@@ -8512,7 +8517,7 @@ de_rr_starting_time(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
     proto_tree_add_item(tree, hf_gsm_a_rr_T2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
     curr_offset++;
     item = proto_tree_add_uint(tree, hf_gsm_a_rr_rfn, tvb, curr_offset-2, 2, rfn);
-    PROTO_ITEM_SET_GENERATED(item);
+    proto_item_set_generated(item);
     return(curr_offset - offset);
 }
 /*

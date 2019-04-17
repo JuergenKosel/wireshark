@@ -8,7 +8,7 @@
 #
 '''Fixtures that are specific to Wireshark.'''
 
-import logging
+from contextlib import contextmanager
 import os
 import re
 import subprocess
@@ -24,31 +24,36 @@ import subprocesstest
 def capture_interface(request, cmd_dumpcap):
     '''
     Name of capture interface. Tests will be skipped if dumpcap is not
-    available or if the capture interface is unknown.
+    available or no Loopback interface is available.
     '''
-    iface = request.config.getoption('--capture-interface', default=None)
     disabled = request.config.getoption('--disable-capture', default=False)
     if disabled:
         fixtures.skip('Capture tests are disabled via --disable-capture')
-    if iface:
-        # If a non-empty interface is given, assume capturing is possible.
+    proc = subprocess.Popen((cmd_dumpcap, '-D'), stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, universal_newlines=True)
+    outs, errs = proc.communicate()
+    if proc.returncode != 0:
+        print('"dumpcap -D" exited with %d. stderr:\n%s' %
+              (proc.returncode, errs))
+        fixtures.skip('Test requires capture privileges and an interface.')
+    # Matches: "lo (Loopback)" (Linux), "lo0 (Loopback)" (macOS) or
+    # "\Device\NPF_{...} (Npcap Loopback Adapter)" (Windows)
+    print('"dumpcap -D" output:\n%s' % (outs,))
+    m = re.search(r'^(\d+)\. .*\(.*Loopback.*\)', outs, re.MULTILINE)
+    if not m:
+        fixtures.skip('Test requires a capture interface.')
+    iface = m.group(1)
+    # Interface found, check for capture privileges (needed for Linux).
+    try:
+        subprocess.check_output((cmd_dumpcap, '-L', '-i', iface),
+                                stderr=subprocess.STDOUT,
+                                universal_newlines=True)
         return iface
-    else:
-        if sys.platform == 'win32':
-            patterns = '.*(Ethernet|Network Connection|VMware|Intel)'
-        else:
-            patterns = None
-        if patterns:
-            try:
-                output = subprocess.check_output((cmd_dumpcap, '-D'),
-                                                 stderr=subprocess.DEVNULL,
-                                                 universal_newlines=True)
-                m = re.search(r'^(\d+)\. %s' % patterns, output, re.MULTILINE)
-                if m:
-                    return m.group(1)
-            except subprocess.CalledProcessError:
-                pass
-    fixtures.skip('Test requires capture privileges and an interface.')
+    except subprocess.CalledProcessError as e:
+        print('"dumpcap -L -i %s" exited with %d. Output:\n%s' % (iface,
+                                                                  e.returncode,
+                                                                  e.output))
+        fixtures.skip('Test requires capture privileges.')
 
 
 @fixtures.fixture(scope='session')
@@ -132,9 +137,11 @@ def cmd_wireshark(program):
 
 @fixtures.fixture(scope='session')
 def wireshark_command(cmd_wireshark):
-    if sys.platform not in ('win32', 'darwin'):
-        # TODO check DISPLAY for X11 on Linux or BSD?
-        fixtures.skip('Wireshark GUI tests requires DISPLAY')
+    # Windows and macOS can always display the GUI. On Linux, headless mode is
+    # used, see QT_QPA_PLATFORM in the 'test_env' fixture.
+    if sys.platform not in ('win32', 'darwin', 'linux'):
+        if 'DISPLAY' not in os.environ:
+            fixtures.skip('Wireshark GUI tests requires DISPLAY')
     return (cmd_wireshark, '-ogui.update.enabled:FALSE')
 
 
@@ -150,7 +157,7 @@ def features(cmd_tshark, make_env):
         )
         tshark_v = re.sub(r'\s+', ' ', tshark_v)
     except subprocess.CalledProcessError as ex:
-        logging.warning('Failed to detect tshark features: %s', ex)
+        print('Failed to detect tshark features: %s' % (ex,))
         tshark_v = ''
     gcry_m = re.search(r'with +Gcrypt +([0-9]+\.[0-9]+)', tshark_v)
     return types.SimpleNamespace(
@@ -263,6 +270,16 @@ def test_env(base_env, conf_path, request, dirs):
     env['WIRESHARK_RUN_FROM_BUILD_DIRECTORY'] = '1'
     env['WIRESHARK_QUIT_AFTER_CAPTURE'] = '1'
 
+    # Allow GUI tests to be run without opening windows nor requiring a Xserver.
+    # Set envvar QT_DEBUG_BACKINGSTORE=1 to save the window contents to a file
+    # in the current directory, output0000.png, output0001.png, etc. Note that
+    # this will overwrite existing files.
+    if sys.platform == 'linux':
+        # This option was verified working on Arch Linux with Qt 5.12.0-2 and
+        # Ubuntu 16.04 with libqt5gui5 5.5.1+dfsg-16ubuntu7.5. On macOS and
+        # Windows it unfortunately crashes (Qt 5.12.0).
+        env['QT_QPA_PLATFORM'] = 'minimal'
+
     # Remove this if test instances no longer inherit from SubprocessTestCase?
     if isinstance(request.instance, subprocesstest.SubprocessTestCase):
         # Inject the test environment as default if it was not overridden.
@@ -286,3 +303,34 @@ def unicode_env(home_path, make_env):
         env=env,
         pluginsdir=pluginsdir
     )
+
+
+@fixtures.fixture(scope='session')
+def make_screenshot():
+    '''Creates a screenshot and save it to a file. Intended for CI purposes.'''
+    def make_screenshot_real(filename):
+        try:
+            if sys.platform == 'darwin':
+                subprocess.check_call(['screencapture', filename])
+            else:
+                print("Creating a screenshot on this platform is not supported")
+                return
+            size = os.path.getsize(filename)
+            print("Created screenshot %s (%d bytes)" % (filename, size))
+        except (subprocess.CalledProcessError, OSError) as e:
+            print("Failed to take screenshot:", e)
+    return make_screenshot_real
+
+
+@fixtures.fixture
+def make_screenshot_on_error(request, make_screenshot):
+    '''Writes a screenshot when a process times out.'''
+    @contextmanager
+    def make_screenshot_on_error_real():
+        try:
+            yield
+        except subprocess.TimeoutExpired:
+            filename = request.instance.filename_from_id('screenshot.png')
+            make_screenshot(filename)
+            raise
+    return make_screenshot_on_error_real

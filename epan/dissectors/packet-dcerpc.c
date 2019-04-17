@@ -974,11 +974,11 @@ decode_dcerpc_binding_reset(const char *name _U_, gconstpointer pattern)
 }
 
 static gboolean
-dcerpc_decode_as_change(const char *name, gconstpointer pattern, gpointer handle, gchar* list_name)
+dcerpc_decode_as_change(const char *name, gconstpointer pattern, gconstpointer handle, const gchar* list_name)
 {
     const decode_dcerpc_bind_values_t *binding = (const decode_dcerpc_bind_values_t*)pattern;
     decode_dcerpc_bind_values_t *stored_binding;
-    guid_key     *key = *((guid_key**)handle);
+    guid_key     *key = *((guid_key *const *)handle);
 
     /* remove a probably existing old binding */
     decode_dcerpc_binding_reset(name, binding);
@@ -1462,12 +1462,12 @@ dissect_dcerpc_guid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
         if ((dissector_data->info->ptype == PDU_REQ) && (dissector_data->info->call_data->rep_frame != 0)) {
             pi = proto_tree_add_uint(sub_tree, hf_dcerpc_response_in,
                                      tvb, 0, 0, dissector_data->info->call_data->rep_frame);
-            PROTO_ITEM_SET_GENERATED(pi);
+            proto_item_set_generated(pi);
         }
         if ((dissector_data->info->ptype == PDU_RESP) && (dissector_data->info->call_data->req_frame != 0)) {
             pi = proto_tree_add_uint(sub_tree, hf_dcerpc_request_in,
                                      tvb, 0, 0, dissector_data->info->call_data->req_frame);
-            PROTO_ITEM_SET_GENERATED(pi);
+            proto_item_set_generated(pi);
         }
     } /* tree */
 
@@ -2628,13 +2628,8 @@ dissect_ndr_cvstring(tvbuff_t *tvb, int offset, packet_info *pinfo,
      */
     tvb_ensure_bytes_exist(tvb, offset, buffer_len);
     if (size_is == sizeof(guint16)) {
-        /*
-         * Assume little-endian UTF-16.
-         *
-         * XXX - is this always little-endian?
-         */
         s = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, buffer_len,
-                               ENC_UTF_16|ENC_LITTLE_ENDIAN);
+                               ENC_UTF_16|DREP_ENC_INTEGER(drep));
     } else {
         /*
          * XXX - what if size_is is neither 1 nor 2?
@@ -2808,13 +2803,8 @@ dissect_ndr_vstring(tvbuff_t *tvb, int offset, packet_info *pinfo,
      */
     tvb_ensure_bytes_exist(tvb, offset, buffer_len);
     if (size_is == sizeof(guint16)) {
-        /*
-         * Assume little-endian UTF-16.
-         *
-         * XXX - is this always little-endian?
-         */
         s = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, buffer_len,
-                               ENC_UTF_16|ENC_LITTLE_ENDIAN);
+                               ENC_UTF_16|DREP_ENC_INTEGER(drep));
     } else {
         /*
          * XXX - what if size_is is neither 1 nor 2?
@@ -3721,7 +3711,7 @@ dcerpc_try_handoff(packet_info *pinfo, proto_tree *tree,
 
         hidden_item = proto_tree_add_boolean(dcerpc_tree, hf_dcerpc_unknown_if_id,
                                              tvb, offset, 0, TRUE);
-        PROTO_ITEM_SET_HIDDEN(hidden_item);
+        proto_item_set_hidden(hidden_item);
         col_append_fstr(pinfo->cinfo, COL_INFO, " %s V%u",
         guids_resolve_guid_to_str(&info->call_data->uuid), info->call_data->ver);
 
@@ -3740,7 +3730,7 @@ dissect_dcerpc_cn_auth_move(dcerpc_auth_info *auth_info, proto_tree *dcerpc_tree
         proto_item *last_item = proto_tree_add_item(dcerpc_tree, hf_dcerpc_auth_info,
                                                     auth_info->auth_tvb, 0, 0, ENC_NA);
         if (last_item != NULL) {
-            PROTO_ITEM_SET_HIDDEN(last_item);
+            proto_item_set_hidden(last_item);
             proto_tree_move_item(dcerpc_tree, last_item, auth_info->auth_item);
         }
     }
@@ -4438,7 +4428,7 @@ end_cn_stub:
                 pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_reassembled_in,
                                          payload_tvb, 0, 0, fd_head->reassembled_in);
             }
-            PROTO_ITEM_SET_GENERATED(pi);
+            proto_item_set_generated(pi);
             parent_pi = proto_tree_get_parent(dcerpc_tree);
             if (parent_pi != NULL) {
                 proto_item_append_text(parent_pi, ", [Reas: #%u]", fd_head->reassembled_in);
@@ -4612,7 +4602,7 @@ dissect_dcerpc_cn_rqst(tvbuff_t *tvb, gint offset, packet_info *pinfo,
             if (value->rep_frame != 0) {
                 pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_response_in,
                                          tvb, 0, 0, value->rep_frame);
-                PROTO_ITEM_SET_GENERATED(pi);
+                proto_item_set_generated(pi);
                 if (parent_pi != NULL) {
                     proto_item_append_text(parent_pi, ", [Resp: #%u]", value->rep_frame);
                 }
@@ -4728,14 +4718,14 @@ dissect_dcerpc_cn_resp(tvbuff_t *tvb, gint offset, packet_info *pinfo,
             di->call_data = value;
 
             pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_opnum, tvb, 0, 0, value->opnum);
-            PROTO_ITEM_SET_GENERATED(pi);
+            proto_item_set_generated(pi);
 
             /* (optional) "Object UUID" from request */
             if (dcerpc_tree && (memcmp(&value->object_uuid, &obj_id_null, sizeof(obj_id_null)) != 0)) {
                 pi = proto_tree_add_guid_format(dcerpc_tree, hf_dcerpc_obj_id, tvb,
                                                 offset, 0, (e_guid_t *) &value->object_uuid, "Object UUID: %s",
                                                 guid_to_str(wmem_packet_scope(), (e_guid_t *) &value->object_uuid));
-                PROTO_ITEM_SET_GENERATED(pi);
+                proto_item_set_generated(pi);
             }
 
             /* request in */
@@ -4743,13 +4733,13 @@ dissect_dcerpc_cn_resp(tvbuff_t *tvb, gint offset, packet_info *pinfo,
                 nstime_t delta_ts;
                 pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_request_in,
                                          tvb, 0, 0, value->req_frame);
-                PROTO_ITEM_SET_GENERATED(pi);
+                proto_item_set_generated(pi);
                 if (parent_pi != NULL) {
                     proto_item_append_text(parent_pi, ", [Req: #%u]", value->req_frame);
                 }
                 nstime_delta(&delta_ts, &pinfo->abs_ts, &value->req_time);
                 pi = proto_tree_add_time(dcerpc_tree, hf_dcerpc_time, tvb, offset, 0, &delta_ts);
-                PROTO_ITEM_SET_GENERATED(pi);
+                proto_item_set_generated(pi);
             } else {
                 proto_tree_add_expert(dcerpc_tree, pinfo, &ei_dcerpc_no_request_found, tvb, 0, 0);
             }
@@ -4896,19 +4886,19 @@ dissect_dcerpc_cn_fault(tvbuff_t *tvb, gint offset, packet_info *pinfo,
             di->call_data = value;
 
             pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_opnum, tvb, 0, 0, value->opnum);
-            PROTO_ITEM_SET_GENERATED(pi);
+            proto_item_set_generated(pi);
             if (value->req_frame != 0) {
                 nstime_t delta_ts;
                 pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_request_in,
                                          tvb, 0, 0, value->req_frame);
-                PROTO_ITEM_SET_GENERATED(pi);
+                proto_item_set_generated(pi);
                 parent_pi = proto_tree_get_parent(dcerpc_tree);
                 if (parent_pi != NULL) {
                     proto_item_append_text(parent_pi, ", [Req: #%u]", value->req_frame);
                 }
                 nstime_delta(&delta_ts, &pinfo->abs_ts, &value->req_time);
                 pi = proto_tree_add_time(dcerpc_tree, hf_dcerpc_time, tvb, offset, 0, &delta_ts);
-                PROTO_ITEM_SET_GENERATED(pi);
+                proto_item_set_generated(pi);
             } else {
                 proto_tree_add_expert(dcerpc_tree, pinfo, &ei_dcerpc_no_request_found, tvb, 0, 0);
             }
@@ -6078,7 +6068,7 @@ dissect_dcerpc_dg_stub(tvbuff_t *tvb, int offset, packet_info *pinfo,
                 /* ...and this isn't the reassembled RPC PDU */
                 pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_reassembled_in,
                                          tvb, 0, 0, fd_head->reassembled_in);
-                PROTO_ITEM_SET_GENERATED(pi);
+                proto_item_set_generated(pi);
                 parent_pi = proto_tree_get_parent(dcerpc_tree);
                 if (parent_pi != NULL) {
                     proto_item_append_text(parent_pi, ", [Reas: #%u]", fd_head->reassembled_in);
@@ -6161,7 +6151,7 @@ dissect_dcerpc_dg_rqst(tvbuff_t *tvb, int offset, packet_info *pinfo,
     if (value->rep_frame != 0) {
         pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_response_in,
                                  tvb, 0, 0, value->rep_frame);
-        PROTO_ITEM_SET_GENERATED(pi);
+        proto_item_set_generated(pi);
         parent_pi = proto_tree_get_parent(dcerpc_tree);
         if (parent_pi != NULL) {
             proto_item_append_text(parent_pi, ", [Resp: #%u]", value->rep_frame);
@@ -6223,14 +6213,14 @@ dissect_dcerpc_dg_resp(tvbuff_t *tvb, int offset, packet_info *pinfo,
         nstime_t delta_ts;
         pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_request_in,
                                  tvb, 0, 0, value->req_frame);
-        PROTO_ITEM_SET_GENERATED(pi);
+        proto_item_set_generated(pi);
         parent_pi = proto_tree_get_parent(dcerpc_tree);
         if (parent_pi != NULL) {
             proto_item_append_text(parent_pi, ", [Req: #%u]", value->req_frame);
         }
         nstime_delta(&delta_ts, &pinfo->abs_ts, &value->req_time);
         pi = proto_tree_add_time(dcerpc_tree, hf_dcerpc_time, tvb, offset, 0, &delta_ts);
-        PROTO_ITEM_SET_GENERATED(pi);
+        proto_item_set_generated(pi);
     } else {
         proto_tree_add_expert(dcerpc_tree, pinfo, &ei_dcerpc_no_request_found, tvb, 0, 0);
     }
@@ -6257,7 +6247,7 @@ dissect_dcerpc_dg_ping_ack(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
         pi = proto_tree_add_uint(dcerpc_tree, hf_dcerpc_request_in,
                                  tvb, 0, 0, call_value->req_frame);
-        PROTO_ITEM_SET_GENERATED(pi);
+        proto_item_set_generated(pi);
         parent_pi = proto_tree_get_parent(dcerpc_tree);
         if (parent_pi != NULL) {
             proto_item_append_text(parent_pi, ", [Req: #%u]", call_value->req_frame);
@@ -6267,7 +6257,7 @@ dissect_dcerpc_dg_ping_ack(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
         nstime_delta(&delta_ts, &pinfo->abs_ts, &call_value->req_time);
         pi = proto_tree_add_time(dcerpc_tree, hf_dcerpc_time, tvb, offset, 0, &delta_ts);
-        PROTO_ITEM_SET_GENERATED(pi);
+        proto_item_set_generated(pi);
 /*    }*/
     }
 }

@@ -182,7 +182,7 @@ int dissect_lua(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data 
         push_Tvb(L,tvb);
         push_Pinfo(L,pinfo);
         lua_tree = push_TreeItem(L, tree, proto_tree_add_item(tree, hf_wslua_fake, tvb, 0, 0, ENC_NA));
-        PROTO_ITEM_SET_HIDDEN(lua_tree->item);
+        proto_item_set_hidden(lua_tree->item);
 
         if  ( lua_pcall(L,3,1,0) ) {
             proto_tree_add_expert_format(tree, pinfo, &ei_lua_error, tvb, 0, 0, "Lua Error: %s", lua_tostring(L,-1));
@@ -281,7 +281,7 @@ gboolean heur_dissect_lua(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, v
     push_Tvb(L,tvb);
     push_Pinfo(L,pinfo);
     lua_tree = push_TreeItem(L, tree, proto_tree_add_item(tree, hf_wslua_fake, tvb, 0, 0, ENC_NA));
-    PROTO_ITEM_SET_HIDDEN(lua_tree->item);
+    proto_item_set_hidden(lua_tree->item);
 
     if  ( lua_pcall(L,3,1,0) ) {
         proto_tree_add_expert_format(tree, pinfo, &ei_lua_error, tvb, 0, 0,
@@ -402,10 +402,16 @@ static const char *getF(lua_State *LS _U_, void *ud, size_t *size)
     return (*size>0) ? buff : NULL;
 }
 
-static int lua_main_error_handler(lua_State* LS) {
-    const gchar* error =  lua_tostring(LS,1);
-    report_failure("Lua: Error during loading:\n %s",error);
-    return 0;
+static int error_handler_with_callback(lua_State *LS) {
+#if LUA_VERSION_NUM >= 502
+    const char *msg = lua_tostring(LS, 1);
+    luaL_traceback(LS, LS, msg, 1);     /* push message with traceback.  */
+    lua_remove(LS, -2);                 /* remove original msg */
+#else
+    /* Return error message, unmodified */
+    (void)LS;
+#endif
+    return 1;
 }
 
 static void wslua_add_plugin(const gchar *name, const gchar *version, const gchar *filename)
@@ -523,7 +529,7 @@ static gboolean lua_load_script(const gchar* filename, const gchar* dirname, con
 
     lua_settop(L,0);
 
-    lua_pushcfunction(L,lua_main_error_handler);
+    lua_pushcfunction(L, error_handler_with_callback);
     /* The source argument should start with with '@' to indicate a file. */
     lua_pushfstring(L, "@%s", filename);
 
@@ -541,19 +547,35 @@ static gboolean lua_load_script(const gchar* filename, const gchar* dirname, con
             if (file_count > 0) {
                 numargs = lua_script_push_args(file_count);
             }
-            error = lua_pcall(L,numargs,0,1);
+            error = lua_pcall(L, numargs, 0, 1);
+            if (error) {
+                switch (error) {
+                    case LUA_ERRRUN:
+                        report_failure("Lua: Error during loading:\n%s", lua_tostring(L, -1));
+                        break;
+                    case LUA_ERRMEM:
+                        report_failure("Lua: Error during loading: out of memory");
+                        break;
+                    case LUA_ERRERR:
+                        report_failure("Lua: Error during loading: error while retrieving error message");
+                        break;
+                    default:
+                        report_failure("Lua: Error during loading: unknown error %d", error);
+                        break;
+                }
+            }
             break;
 
         case LUA_ERRSYNTAX:
-            report_failure("Lua: syntax error during precompilation of `%s':\n%s",filename,lua_tostring(L,-1));
+            report_failure("Lua: syntax error: %s", lua_tostring(L, -1));
             break;
 
         case LUA_ERRMEM:
-            report_failure("Lua: memory allocation error during precompilation of %s",filename);
+            report_failure("Lua: memory allocation error during precompilation of %s", filename);
             break;
 
         default:
-            report_failure("Lua: unknown error during precompilation of %s: %d",filename,error);
+            report_failure("Lua: unknown error during precompilation of %s: %d", filename, error);
             break;
     }
     fclose(file);
@@ -1012,6 +1034,10 @@ void wslua_init(register_cb cb, gpointer client_data) {
     Proto_commit(L);
 
     first_time = FALSE;
+}
+
+void wslua_early_cleanup(void) {
+    wslua_deregister_protocols(L);
 }
 
 void wslua_reload_plugins (register_cb cb, gpointer client_data) {

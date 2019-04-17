@@ -170,9 +170,11 @@ struct tcp_acked {
 struct tcp_multisegment_pdu {
 	guint32 seq;
 	guint32 nxtpdu;
-	guint32 first_frame;
+	guint32 first_frame;            /* The frame where this MSP was created (used as key in reassembly tables). */
 	guint32 last_frame;
 	nstime_t last_frame_time;
+	guint32 first_frame_with_seq;   /* The frame that contains the first frame that matches 'seq'
+					   (same as 'first_frame', larger than 'first_frame' for OoO segments) */
 	guint32 flags;
 #define MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT	0x00000001
 /* Whether this MSP is finished and no more segments can be added. */
@@ -506,9 +508,9 @@ WS_DLL_PUBLIC guint32 get_tcp_stream_count(void);
 WS_DLL_PUBLIC guint32 get_mptcp_stream_count(void);
 
 /* Follow Stream functionality shared with HTTP (and SSL?) */
-extern gchar* tcp_follow_conv_filter(packet_info* pinfo, int* stream);
-extern gchar* tcp_follow_index_filter(int stream);
-extern gchar* tcp_follow_address_filter(address* src_addr, address* dst_addr, int src_port, int dst_port);
+extern gchar *tcp_follow_conv_filter(packet_info *pinfo, guint *stream);
+extern gchar *tcp_follow_index_filter(guint stream);
+extern gchar *tcp_follow_address_filter(address *src_addr, address *dst_addr, int src_port, int dst_port);
 
 #ifdef __cplusplus
 }

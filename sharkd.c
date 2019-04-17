@@ -233,7 +233,7 @@ sharkd_epan_new(capture_file *cf)
 
 static gboolean
 process_packet(capture_file *cf, epan_dissect_t *edt,
-               gint64 offset, wtap_rec *rec, const guchar *pd)
+               gint64 offset, wtap_rec *rec, Buffer *buf)
 {
   frame_data     fdlocal;
   gboolean       passed;
@@ -276,7 +276,7 @@ process_packet(capture_file *cf, epan_dissect_t *edt,
     }
 
     epan_dissect_run(edt, cf->cd_t, rec,
-                     frame_tvbuff_new(&cf->provider, &fdlocal, pd),
+                     frame_tvbuff_new_buffer(&cf->provider, &fdlocal, buf),
                      &fdlocal, NULL);
 
     /* Run the read filter if we have one. */
@@ -320,6 +320,8 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
   int          err;
   gchar       *err_info = NULL;
   gint64       data_offset;
+  wtap_rec     rec;
+  Buffer       buf;
   epan_dissect_t *edt = NULL;
 
   {
@@ -348,9 +350,11 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
       edt = epan_dissect_new(cf->epan, create_proto_tree, FALSE);
     }
 
-    while (wtap_read(cf->provider.wth, &err, &err_info, &data_offset)) {
-      if (process_packet(cf, edt, data_offset, wtap_get_rec(cf->provider.wth),
-                         wtap_get_buf_ptr(cf->provider.wth))) {
+    wtap_rec_init(&rec);
+    ws_buffer_init(&buf, 1514);
+
+    while (wtap_read(cf->provider.wth, &rec, &buf, &err, &err_info, &data_offset)) {
+      if (process_packet(cf, edt, data_offset, &rec, &buf)) {
         /* Stop reading if we have the maximum number of packets;
          * When the -c option has not been used, max_packet_count
          * starts at 0, which practically means, never stop reading.
@@ -367,6 +371,9 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
       epan_dissect_free(edt);
       edt = NULL;
     }
+
+    wtap_rec_cleanup(&rec);
+    ws_buffer_free(&buf);
 
     /* Close the sequential I/O side, to free up memory it requires. */
     wtap_sequential_close(cf->provider.wth);
@@ -529,7 +536,7 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis
     return -1;
 
   wtap_rec_init(&rec);
-  ws_buffer_init(&buf, 1500);
+  ws_buffer_init(&buf, 1514);
 
   if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, &rec, &buf, &err, &err_info)) {
     wtap_rec_cleanup(&rec);
@@ -589,7 +596,7 @@ sharkd_dissect_columns(frame_data *fdata, guint32 frame_ref_num, guint32 prev_di
   char *err_info = NULL;
 
   wtap_rec_init(&rec);
-  ws_buffer_init(&buf, 1500);
+  ws_buffer_init(&buf, 1514);
 
   if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, &rec, &buf, &err, &err_info)) {
     col_fill_in_error(cinfo, fdata, FALSE, FALSE /* fill_fd_columns */);
@@ -665,7 +672,7 @@ sharkd_retap(void)
     (have_filtering_tap_listeners() || (tap_flags & TL_REQUIRES_PROTO_TREE));
 
   wtap_rec_init(&rec);
-  ws_buffer_init(&buf, 1500);
+  ws_buffer_init(&buf, 1514);
   epan_dissect_init(&edt, cfile.epan, create_proto_tree, FALSE);
 
   reset_tap_listeners();
@@ -680,7 +687,7 @@ sharkd_retap(void)
     fdata->frame_ref_num = (framenum != 1) ? 1 : 0;
     fdata->prev_dis_num = framenum - 1;
     epan_dissect_run_with_taps(&edt, cfile.cd_t, &rec,
-                               frame_tvbuff_new(&cfile.provider, fdata, ws_buffer_start_ptr(&buf)),
+                               frame_tvbuff_new_buffer(&cfile.provider, fdata, &buf),
                                fdata, cinfo);
     epan_dissect_reset(&edt);
   }
@@ -725,7 +732,7 @@ sharkd_filter(const char *dftext, guint8 **result)
   frames_count = cfile.count;
 
   wtap_rec_init(&rec);
-  ws_buffer_init(&buf, 1500);
+  ws_buffer_init(&buf, 1514);
   epan_dissect_init(&edt, cfile.epan, TRUE, FALSE);
 
   passed_bits = 0;

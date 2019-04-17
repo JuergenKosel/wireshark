@@ -5,6 +5,7 @@
 #.OPT
 PER
 UNALIGNED
+PROTO_ROOT_NAME    proto_lte_rrc
 #.END
 
 #.USE_VALS_EXT
@@ -44,6 +45,7 @@ WLAN-backhaulRate-r12
 HandoverCommand_PDU
 HandoverPreparationInformation_PDU
 HandoverPreparationInformation-NB_PDU
+MeasurementReport_PDU
 RLF-Report-r9_PDU
 RLF-Report-v9e0_PDU
 RRCConnectionReconfigurationComplete_PDU
@@ -60,6 +62,7 @@ VisitedCellInfoList-r12_PDU
 HandoverCommand
 HandoverPreparationInformation
 HandoverPreparationInformation-NB
+MeasurementReport
 RLF-Report-r9
 RLF-Report-v9e0
 RRCConnectionReconfiguration @rrc_conn_reconf
@@ -200,6 +203,14 @@ SI-OrPSI-GERAN TYPE_PREFIX
   if (freq_band_list_tvb) {
     proto_tree *subtree = proto_item_add_subtree(actx->created_item, ett_lte_rrc_requestedFreqBandsNR_MRDC_r15);
     dissect_nr_rrc_FreqBandList_PDU(freq_band_list_tvb, actx->pinfo, subtree, NULL);
+  }
+
+#.FN_BODY UECapabilityEnquiry-v1550-IEs/requestedCapabilityNR-r15 VAL_PTR = &ue_cap_req_filter_nr_tvb
+  tvbuff_t *ue_cap_req_filter_nr_tvb = NULL;
+%(DEFAULT_BODY)s
+  if (ue_cap_req_filter_nr_tvb) {
+    proto_tree *subtree = proto_item_add_subtree(actx->created_item, ett_lte_rrc_requestedFreqBandsNR_MRDC_r15);
+    dissect_nr_rrc_UE_CapabilityRequestFilterNR_PDU(ue_cap_req_filter_nr_tvb, actx->pinfo, subtree, NULL);
   }
 
 #.FN_BODY UE-CapabilityRAT-Container
@@ -1334,6 +1345,9 @@ CarrierFreqNR-r15/q-RxLevMin-r15 DISPLAY=BASE_DEC|BASE_EXT_STRING STRINGS=&lte_r
 CarrierFreqNR-r15/q-RxLevMinSUL-r15 DISPLAY=BASE_DEC|BASE_EXT_STRING STRINGS=&lte_rrc_q_RxLevMin_vals_ext
 
 #.TYPE_ATTR
+CarrierFreqNR-r15/q-QualMin-r15 DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_decibels
+
+#.TYPE_ATTR
 Q-OffsetRangeInterRAT DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_decibels
 
 #.TYPE_ATTR
@@ -1427,6 +1441,9 @@ RSRP-RangeSL3-r12 DISPLAY=BASE_DEC STRINGS=VALS(lte_rrc_RSRP_RangeSL3_vals)
 RSRP-RangeSL4-r13 DISPLAY=BASE_DEC|BASE_EXT_STRING STRINGS=&lte_rrc_RSRP_RangeSL4_vals_ext
 
 #.TYPE_ATTR
+RSRP-RangeNR-r15 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(lte_rrc_RSRP_RangeNR_r15_fmt)
+
+#.TYPE_ATTR
 RSRQ-Range DISPLAY=BASE_DEC|BASE_EXT_STRING STRINGS=&lte_rrc_RSRQ_Range_vals_ext
 
 #.TYPE_ATTR
@@ -1436,7 +1453,13 @@ RSRQ-Range-v1250 DISPLAY=BASE_DEC|BASE_EXT_STRING STRINGS=&lte_rrc_RSRQ_Range_va
 RSRQ-Range-r13 DISPLAY=BASE_DEC|BASE_EXT_STRING STRINGS=&lte_rrc_RSRQ_Range_vals_ext
 
 #.TYPE_ATTR
+RSRQ-RangeNR-r15 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(lte_rrc_RSRQ_RangeNR_r15_fmt)
+
+#.TYPE_ATTR
 RS-SINR-Range-r13 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(lte_rrc_RS_SINR_Range_r13_fmt)
+
+#.TYPE_ATTR
+RS-SINR-RangeNR-r15 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(lte_rrc_RS_SINR_RangeNR_r15_fmt)
 
 #.TYPE_ATTR
 RSSI-Range-r13 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(lte_rrc_RSSI_Range_r13_fmt)
@@ -2377,9 +2400,9 @@ DRX-Config/setup/shortDRX/drxShortCycleTimer DISPLAY=BASE_DEC|BASE_UNIT_STRING S
   /* Show parts as generated fields */
   subtree = proto_item_add_subtree(actx->created_item, ett_lte_rrc_sr_ConfigIndex);
   ti = proto_tree_add_uint(subtree, hf_lte_rrc_sr_config_periodicity, tvb, index_offset>>3, 1, periodicity);
-  PROTO_ITEM_SET_GENERATED(ti);
+  proto_item_set_generated(ti);
   ti = proto_tree_add_uint(subtree, hf_lte_rrc_sr_config_subframe_offset, tvb, index_offset>>3, 1, subframe_offset);
-  PROTO_ITEM_SET_GENERATED(ti);
+  proto_item_set_generated(ti);
 
 #.FN_BODY SchedulingRequestConfigSCell-r13/setup/sr-ConfigIndex-r13 VAL_PTR=&value
   guint32 value;
@@ -2393,9 +2416,9 @@ DRX-Config/setup/shortDRX/drxShortCycleTimer DISPLAY=BASE_DEC|BASE_UNIT_STRING S
   /* Show parts as generated fields */
   subtree = proto_item_add_subtree(actx->created_item, ett_lte_rrc_sr_ConfigIndex);
   ti = proto_tree_add_uint(subtree, hf_lte_rrc_sr_config_periodicity, tvb, index_offset>>3, 1, periodicity);
-  PROTO_ITEM_SET_GENERATED(ti);
+  proto_item_set_generated(ti);
   ti = proto_tree_add_uint(subtree, hf_lte_rrc_sr_config_subframe_offset, tvb, index_offset>>3, 1, subframe_offset);
-  PROTO_ITEM_SET_GENERATED(ti);
+  proto_item_set_generated(ti);
 
 #.FN_BODY FreqBandIndicator VAL_PTR=&value
   guint32 value;
@@ -2421,7 +2444,7 @@ DRX-Config/setup/shortDRX/drxShortCycleTimer DISPLAY=BASE_DEC|BASE_UNIT_STRING S
     /* Add a generated item showing serving & target band for this entry */
     it = proto_tree_add_uint(tree, hf_lte_rrc_bandEUTRA, tvb, 0, 0, serving_band);
     proto_item_append_text(it, " -> band %%u", target_band);
-    PROTO_ITEM_SET_GENERATED(it);
+    proto_item_set_generated(it);
   }
 
 #.FN_BODY UE-EUTRA-Capability/measParameters

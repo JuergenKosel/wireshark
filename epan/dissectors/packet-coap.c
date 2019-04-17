@@ -44,11 +44,15 @@ static int hf_coap_mid						= -1;
 static int hf_coap_response_in					= -1;
 static int hf_coap_response_to					= -1;
 static int hf_coap_response_time				= -1;
+static int hf_coap_request_resend_in				= -1;
+static int hf_coap_response_resend_in				= -1;
 static int hf_coap_oscore_kid					= -1;
 static int hf_coap_oscore_kid_context				= -1;
 static int hf_coap_oscore_piv					= -1;
 
 static gint ett_coap						= -1;
+
+static expert_field ei_retransmitted				= EI_INIT;
 
 static COAP_COMMON_LIST_T(dissect_coap_hf);
 
@@ -117,6 +121,7 @@ static const value_string vals_code[] = {
 	{ 141, "4.13 Request Entity Too Large" },
 	{ 143, "4.15 Unsupported Content-Format" },
 	{ 150, "4.22 Unprocessable Entity" },		/* RFC8132 */
+	{ 157, "4.29 Too Many Requests" },		/* RFC8516 */
 	{ 160, "5.00 Internal Server Error" },
 	{ 161, "5.01 Not Implemented" },
 	{ 162, "5.02 Bad Gateway" },
@@ -967,7 +972,7 @@ dissect_coap_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, p
 
 	proto_tree_add_string(payload_tree, dissect_hf->hf.payload_desc, tvb, offset, 0, coinfo->ctype_str);
 	length_item = proto_tree_add_uint(payload_tree, dissect_hf->hf.payload_length, tvb, offset, 0, payload_length);
-	PROTO_ITEM_SET_GENERATED(length_item);
+	proto_item_set_generated(length_item);
 	payload_tvb = tvb_new_subset_length(tvb, offset, payload_length);
 
 	message_info.type = HTTP_OTHERS;
@@ -1127,8 +1132,10 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 			} else {
 				if ((code_class >= 2) && (code_class <= 5)) {
 					if (!PINFO_FD_VISITED(pinfo)) {
-						/* Log the first matching response frame */
-						coap_trans->rsp_frame = pinfo->num;
+						if (coap_trans->rsp_frame == 0) {
+							/* Log the first matching response frame */
+							coap_trans->rsp_frame = pinfo->num;
+						}
 					}
 					if (coap_trans->uri_str_strbuf) {
 						/* Copy the URI stored in matching transaction info into CoAP packet info */
@@ -1163,50 +1170,6 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 		}
 	}
 
-	if (coap_trans != NULL) {
-		/* Print state tracking in the tree */
-		if (code_class == 0) {
-			/* This is a request */
-			if (coap_trans->rsp_frame) {
-				proto_item *it;
-
-				it = proto_tree_add_uint(coap_tree, hf_coap_response_in,
-						tvb, 0, 0, coap_trans->rsp_frame);
-				PROTO_ITEM_SET_GENERATED(it);
-			}
-		} else if ((code_class >= 2) && (code_class <= 5)) {
-			/* This is a reply */
-			if (coap_trans->req_frame) {
-				proto_item *it;
-				nstime_t ns;
-
-				it = proto_tree_add_uint(coap_tree, hf_coap_response_to,
-						tvb, 0, 0, coap_trans->req_frame);
-				PROTO_ITEM_SET_GENERATED(it);
-
-				nstime_delta(&ns, &pinfo->abs_ts, &coap_trans->req_time);
-				it = proto_tree_add_time(coap_tree, hf_coap_response_time, tvb, 0, 0, &ns);
-				PROTO_ITEM_SET_GENERATED(it);
-			}
-			if (coinfo->object_security && coap_trans->oscore_info) {
-				proto_item *it;
-
-				it = proto_tree_add_bytes(coap_tree, hf_coap_oscore_kid, tvb, 0, coap_trans->oscore_info->kid_len, coap_trans->oscore_info->kid);
-				PROTO_ITEM_SET_GENERATED(it);
-
-				it = proto_tree_add_bytes(coap_tree, hf_coap_oscore_kid_context, tvb, 0, coap_trans->oscore_info->kid_context_len, coap_trans->oscore_info->kid_context);
-				PROTO_ITEM_SET_GENERATED(it);
-
-				if (coap_trans->oscore_info->piv_in_response) {
-					it = proto_tree_add_bytes(coap_tree, hf_coap_oscore_piv, tvb, 0, coinfo->oscore_info->piv_len, coinfo->oscore_info->piv);
-				} else {
-					it = proto_tree_add_bytes(coap_tree, hf_coap_oscore_piv, tvb, 0, coap_trans->oscore_info->piv_len, coap_trans->oscore_info->piv);
-				}
-				PROTO_ITEM_SET_GENERATED(it);
-			}
-		}
-	}
-
 	/* add informations to the packet list */
 	if (coap_token_str != NULL)
 		col_append_fstr(pinfo->cinfo, COL_INFO, ", TKN:%s", coap_token_str);
@@ -1217,10 +1180,68 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 		col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", wmem_strbuf_get_str(coinfo->uri_str_strbuf));
 		/* Add a generated protocol item as well */
 		pi = proto_tree_add_string(coap_tree, dissect_coap_hf.hf.opt_uri_path_recon, tvb, 0, 0, wmem_strbuf_get_str(coinfo->uri_str_strbuf));
-		PROTO_ITEM_SET_GENERATED(pi);
+		proto_item_set_generated(pi);
 	}
 	if (wmem_strbuf_get_len(coinfo->uri_query_strbuf) > 0)
 		col_append_str(pinfo->cinfo, COL_INFO, wmem_strbuf_get_str(coinfo->uri_query_strbuf));
+
+	if (coap_trans != NULL) {
+		/* Print state tracking in the tree */
+		if (code_class == 0) {
+			/* This is a request */
+			if (coap_trans->rsp_frame) {
+				proto_item *it;
+
+				it = proto_tree_add_uint(coap_tree, hf_coap_response_in,
+						tvb, 0, 0, coap_trans->rsp_frame);
+				proto_item_set_generated(it);
+			}
+			if (coap_trans->req_frame != pinfo->num) {
+				col_append_str(pinfo->cinfo, COL_INFO, " [Retransmission]");
+				proto_item *it = proto_tree_add_uint(coap_tree, hf_coap_request_resend_in,
+				                                     tvb, 0, 0, coap_trans->req_frame);
+				proto_item_set_generated(it);
+				expert_add_info(pinfo, it, &ei_retransmitted);
+			}
+		} else if ((code_class >= 2) && (code_class <= 5)) {
+			/* This is a reply */
+			if (coap_trans->req_frame) {
+				proto_item *it;
+				nstime_t ns;
+
+				it = proto_tree_add_uint(coap_tree, hf_coap_response_to,
+						tvb, 0, 0, coap_trans->req_frame);
+				proto_item_set_generated(it);
+
+				nstime_delta(&ns, &pinfo->abs_ts, &coap_trans->req_time);
+				it = proto_tree_add_time(coap_tree, hf_coap_response_time, tvb, 0, 0, &ns);
+				proto_item_set_generated(it);
+			}
+			if (coap_trans->rsp_frame != pinfo->num) {
+				col_append_str(pinfo->cinfo, COL_INFO, " [Retransmission]");
+				proto_item *it = proto_tree_add_uint(coap_tree, hf_coap_response_resend_in,
+				                                     tvb, 0, 0, coap_trans->rsp_frame);
+				proto_item_set_generated(it);
+				expert_add_info(pinfo, it, &ei_retransmitted);
+			}
+			if (coinfo->object_security && coap_trans->oscore_info) {
+				proto_item *it;
+
+				it = proto_tree_add_bytes(coap_tree, hf_coap_oscore_kid, tvb, 0, coap_trans->oscore_info->kid_len, coap_trans->oscore_info->kid);
+				proto_item_set_generated(it);
+
+				it = proto_tree_add_bytes(coap_tree, hf_coap_oscore_kid_context, tvb, 0, coap_trans->oscore_info->kid_context_len, coap_trans->oscore_info->kid_context);
+				proto_item_set_generated(it);
+
+				if (coap_trans->oscore_info->piv_in_response) {
+					it = proto_tree_add_bytes(coap_tree, hf_coap_oscore_piv, tvb, 0, coinfo->oscore_info->piv_len, coinfo->oscore_info->piv);
+				} else {
+					it = proto_tree_add_bytes(coap_tree, hf_coap_oscore_piv, tvb, 0, coap_trans->oscore_info->piv_len, coap_trans->oscore_info->piv);
+				}
+				proto_item_set_generated(it);
+			}
+		}
+	}
 
 	/* dissect the payload */
 	if (coap_length > offset) {
@@ -1277,6 +1298,16 @@ proto_register_coap(void)
 		    FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
 		    "The time between the Call and the Reply", HFILL }
 		},
+		{ &hf_coap_request_resend_in,
+		  { "Retransmission of request in", "coap.request_first_in",
+		    FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+		    "This request was first sent in this frame", HFILL }
+		},
+		{ &hf_coap_response_resend_in,
+		  { "Retransmission of response in", "coap.response_first_in",
+		    FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+		    "This response was first sent in this frame", HFILL }
+		},
 		{ &hf_coap_oscore_kid,
 		  { "OSCORE Key ID", "coap.oscore_kid", FT_BYTES, BASE_NONE, NULL, 0x0,
 		    "Matched OSCORE Key ID", HFILL }
@@ -1298,6 +1329,10 @@ proto_register_coap(void)
 	};
 
 	static ei_register_info ei[] = {
+		{ &ei_retransmitted,
+		  { "coap.retransmitted", PI_SEQUENCE, PI_NOTE,
+		    "Retransmitted", EXPFILL }
+		},
 		COAP_COMMON_EI_LIST(dissect_coap_hf, "coap")
 	};
 

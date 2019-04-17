@@ -20,6 +20,7 @@
 #include <epan/packet.h>
 #include <epan/to_str.h>
 #include <epan/uat.h>
+#include <epan/strutil.h>
 #include <wsutil/str_util.h>
 
 #include "packet-http.h"
@@ -111,12 +112,12 @@ typedef struct _lwm2m_resource_t {
 	char   *name;
 	guint   data_type;
 	gint   *hf_id;
-	gint   *ett_id;
+	gint    ett_id;
 	char   *field_name;
 } lwm2m_resource_t;
 
 /* RESOURCE_FILL initializes all the dynamic fields in a lwm2m_resource_t. */
-#define RESOURCE_FILL NULL, NULL, NULL
+#define RESOURCE_FILL NULL, -1, NULL
 
 #define DATA_TYPE_NONE             0
 #define DATA_TYPE_STRING           1
@@ -404,13 +405,10 @@ static void lwm2m_resource_free_cb(void *record)
 static void lwm2m_add_resource(lwm2m_resource_t *resource, hf_register_info *hf)
 {
 	gchar *resource_abbrev;
-	gint *hf_id, *ett_id;
+	gint *hf_id;
 
 	hf_id = g_new(gint,1);
 	*hf_id = -1;
-
-	ett_id = g_new(gint, 1);
-	*ett_id = -1;
 
 	if (resource->field_name) {
 		resource_abbrev = g_strdup(resource->field_name);
@@ -424,7 +422,7 @@ static void lwm2m_add_resource(lwm2m_resource_t *resource, hf_register_info *hf)
 	}
 
 	resource->hf_id = hf_id;
-	resource->ett_id = ett_id;
+	resource->ett_id = -1;
 
 	hf->p_id = hf_id;
 	hf->hfinfo.name = g_strdup(resource->name);
@@ -485,7 +483,7 @@ static void deregister_resource_fields(void)
 	}
 
 	if (dynamic_ett) {
-		proto_add_deregistered_data(g_array_free(dynamic_ett, TRUE));
+		g_array_free(dynamic_ett, TRUE);
 		dynamic_ett = NULL;
 	}
 }
@@ -499,8 +497,9 @@ static void lwm2m_resource_post_update_cb(void)
 		dynamic_ett = g_array_new(TRUE, TRUE, sizeof(gint*));
 
 		for (guint i = 0; i < num_lwm2m_uat_resources; i++) {
+			gint *ettp = &(lwm2m_uat_resources[i].ett_id);
 			lwm2m_add_resource(&lwm2m_uat_resources[i], &dynamic_hf[dynamic_hf_size++]);
-			g_array_append_val(dynamic_ett, lwm2m_uat_resources[i].ett_id);
+			g_array_append_val(dynamic_ett, ettp);
 		}
 
 		proto_register_field_array(proto_lwm2mtlv, dynamic_hf, dynamic_hf_size);
@@ -599,12 +598,12 @@ addElementTree(tvbuff_t *tvb, proto_tree *tlv_tree, lwm2mElement_t *element, con
 		                                     "%02u", element->identifier);
 
 	case RESOURCE_ARRAY:
-		ett_id = resource ? *resource->ett_id : ett_lwm2mtlv_resourceArray;
+		ett_id = resource ? resource->ett_id : ett_lwm2mtlv_resourceArray;
 		return proto_tree_add_subtree_format(tlv_tree, tvb, 0, element->totalLength, ett_id, NULL,
 		                                     "%s", identifier);
 
 	case RESOURCE:
-		ett_id = resource ? *resource->ett_id : ett_lwm2mtlv_resource;
+		ett_id = resource ? resource->ett_id : ett_lwm2mtlv_resource;
 		return proto_tree_add_subtree_format(tlv_tree, tvb, 0, element->totalLength, ett_id, NULL,
 		                                     "%s", identifier);
 	}
@@ -626,7 +625,7 @@ addValueInterpretations(tvbuff_t *tvb, proto_tree *tlv_tree, lwm2mElement_t *ele
 		{
 			const guint8 *strval;
 			proto_tree_add_item_ret_string(tlv_tree, *resource->hf_id, tvb, valueOffset, element->length_of_value, ENC_UTF_8, wmem_packet_scope(), &strval);
-			proto_item_append_text(tlv_tree, ": %s", strval);
+			proto_item_append_text(tlv_tree, ": %s", format_text(wmem_packet_scope(), strval, strlen(strval)));
 			break;
 		}
 		case DATA_TYPE_INTEGER:
@@ -719,7 +718,7 @@ addValueTree(tvbuff_t *tvb, proto_tree *tlv_tree, lwm2mElement_t *element, const
 
 	if (resource && (element->type == RESOURCE || element->type == RESOURCE_ARRAY)) {
 		proto_item *ti = proto_tree_add_string(tlv_tree, hf_lwm2mtlv_resource_name, tvb, 0, 0, resource->name);
-		PROTO_ITEM_SET_GENERATED(ti);
+		proto_item_set_generated(ti);
 	}
 
 	if ( element->type == RESOURCE || element->type == RESOURCE_INSTANCE ) {
@@ -885,7 +884,7 @@ dissect_lwm2mtlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *
 
 			if (object_name && object_name[0]) {
 				proto_item *ti = proto_tree_add_string(lwm2mtlv_tree, hf_lwm2mtlv_object_name, tvb, 0, 0, object_name);
-				PROTO_ITEM_SET_GENERATED(ti);
+				proto_item_set_generated(ti);
 				proto_item_append_text(lwm2mtlv_item, ", %s", object_name);
 			}
 		}
@@ -906,7 +905,7 @@ static void lwm2m_shutdown_routine(void)
 	proto_add_deregistered_data(static_hf);
 	static_hf = NULL;
 
-	proto_add_deregistered_data(g_array_free(static_ett, TRUE));
+	g_array_free(static_ett, TRUE);
 	static_ett = NULL;
 }
 
@@ -1091,8 +1090,9 @@ void proto_register_lwm2mtlv(void)
 	static_ett = g_array_new(TRUE, TRUE, sizeof(gint*));
 
 	for (guint i = 0; i < array_length(lwm2m_oma_resources); i++) {
+		gint *ettp = &(lwm2m_oma_resources[i].ett_id);
 		lwm2m_add_resource(&lwm2m_oma_resources[i], &static_hf[i]);
-		g_array_append_val(static_ett, lwm2m_oma_resources[i].ett_id);
+		g_array_append_val(static_ett, ettp);
 	}
 
 	proto_register_field_array(proto_lwm2mtlv, static_hf, array_length(lwm2m_oma_resources));

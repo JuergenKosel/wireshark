@@ -407,7 +407,7 @@ static gboolean ber_decode_as_reset(const char *name _U_, gconstpointer pattern 
     return FALSE;
 }
 
-static gboolean ber_decode_as_change(const char *name _U_, gconstpointer pattern _U_, gpointer handle _U_, gchar* list_name)
+static gboolean ber_decode_as_change(const char *name _U_, gconstpointer pattern _U_, gconstpointer handle _U_, const gchar* list_name)
 {
     ber_decode_as(list_name);
     return FALSE;
@@ -888,7 +888,7 @@ try_dissect_unknown_ber(packet_info *pinfo, tvbuff_t *tvb, volatile int offset, 
                 offset = dissect_ber_real(FALSE, &asn1_ctx, tree, tvb, start_offset, hf_ber_unknown_REAL, NULL);
                 break;
             case BER_UNI_TAG_BITSTRING:
-                offset = dissect_ber_bitstring(FALSE, &asn1_ctx, tree, tvb, start_offset, NULL, hf_ber_unknown_BITSTRING, -1, NULL);
+                offset = dissect_ber_bitstring(FALSE, &asn1_ctx, tree, tvb, start_offset, NULL, 0, hf_ber_unknown_BITSTRING, -1, NULL);
                 break;
             case BER_UNI_TAG_ENUMERATED:
                 offset = dissect_ber_integer(FALSE, &asn1_ctx, tree, tvb, start_offset, hf_ber_unknown_ENUMERATED, NULL);
@@ -3658,7 +3658,7 @@ dissect_ber_GeneralizedTime(gboolean implicit_tag, asn1_ctx_t *actx, proto_tree 
 
     first_delim[0]  = 0;
     second_delim[0] = 0;
-    ret = sscanf( tmpstr, "%14d%1[.,+-Z]%4d%1[+-Z]%4d", &tmp_int, first_delim, &first_digits, second_delim, &second_digits);
+    ret = sscanf(tmpstr, "%14d%1[.,+-Z]%4d%1[+-Z]%4d", &tmp_int, first_delim, &first_digits, second_delim, &second_digits);
     /* tmp_int does not contain valid value because of overflow but we use it just for format checking */
     if (ret < 1) {
         /* Nothing matched */
@@ -3684,9 +3684,11 @@ dissect_ber_GeneralizedTime(gboolean implicit_tag, asn1_ctx_t *actx, proto_tree 
             /*
              * Fraction of a minute or an hour.
              */
-            if (ret == 2) {
+            if (ret == 2 || first_digits < 0 || first_digits > 999) {
                 /*
-                 * We saw the decimal sign, but didn't see the fraction.
+                 * We saw the decimal sign, but didn't see the fraction
+                 * or
+                 * we got a number outside the valid range.
                  */
                 goto invalid;
             }
@@ -3917,24 +3919,24 @@ malformed:
 
 
 /* 8.6 Encoding of a bitstring value */
+
 int
-dissect_ber_constrained_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto_tree *parent_tree, tvbuff_t *tvb, int offset, gint32 min_len, gint32 max_len, const asn_namedbit *named_bits, gint hf_id, gint ett_id, tvbuff_t **out_tvb)
+dissect_ber_constrained_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto_tree *parent_tree, tvbuff_t *tvb, int offset, gint32 min_len, gint32 max_len, const int **named_bits, int num_named_bits, gint hf_id, gint ett_id, tvbuff_t **out_tvb)
 {
     gint8       ber_class;
     gboolean    pc, ind;
     gint32      tag;
     int         identifier_offset;
     int         identifier_len;
-    guint32     len, byteno;
-    guint8      pad  = 0, b0, b1, val, *bitstring;
+    gint        len;
+    guint8      pad = 0;
     int         end_offset;
     int         hoffset;
     proto_item *item = NULL;
     proto_item *cause;
     proto_tree *tree = NULL;
-    const char *sep;
-    gboolean    term;
-    const asn_namedbit *nb;
+    /*const char *sep;*/
+    /*const int **nb;*/
 
     if (!implicit_tag) {
         hoffset = offset;
@@ -3954,8 +3956,8 @@ dissect_ber_constrained_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto
            still cause a problem. */
 
         if (!implicit_tag && (ber_class != BER_CLASS_APP)) {
-            if ( (ber_class != BER_CLASS_UNI)
-              || (tag != BER_UNI_TAG_BITSTRING) ) {
+            if ((ber_class != BER_CLASS_UNI)
+                || (tag != BER_UNI_TAG_BITSTRING)) {
                 tvb_ensure_bytes_exist(tvb, hoffset, 2);
                 cause = proto_tree_add_expert_format(
                     parent_tree, actx->pinfo, &ei_ber_expected_bitstring,
@@ -3972,9 +3974,9 @@ dissect_ber_constrained_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto
             }
         }
     } else {
-        pc=0;
+        pc = 0;
         len = tvb_reported_length_remaining(tvb, offset);
-        end_offset = offset+len;
+        end_offset = offset + len;
     }
     if ((int)len <= 0) {
         proto_tree_add_expert_format(
@@ -3991,9 +3993,20 @@ dissect_ber_constrained_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto
     } else {
         /* primitive */
         pad = tvb_get_guint8(tvb, offset);
+        /* 8.6.2.4 If a bitstring value has no 1 bits, then an encoder (as a sender's option)
+         * may encode the value with a length of 1 and with an initial octet set to 0
+         * or may encode it as a bit string with one or more 0 bits following the initial octet.
+         */
         if ((pad == 0) && (len == 1)) {
             /* empty */
+            item = proto_tree_add_item(parent_tree, hf_id, tvb, offset, len, ENC_BIG_ENDIAN);
+            actx->created_item = item;
             proto_tree_add_item(parent_tree, hf_ber_bitstring_empty, tvb, offset, 1, ENC_BIG_ENDIAN);
+            if (out_tvb) {
+                *out_tvb = ber_tvb_new_subset_length(tvb, offset, len);
+            }
+            ber_check_length(8 * len - pad, min_len, max_len, actx, item, TRUE);
+            return end_offset;
         } else {
             /* padding */
             proto_item *pad_item = proto_tree_add_item(parent_tree, hf_ber_bitstring_padding, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -4006,10 +4019,50 @@ dissect_ber_constrained_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto
         offset++;
         len--;
         if (hf_id >= 0) {
-            item = proto_tree_add_item(parent_tree, hf_id, tvb, offset, len, ENC_BIG_ENDIAN);
+            item = proto_tree_add_item(parent_tree, hf_id, tvb, offset, len, ENC_NA);
             actx->created_item = item;
-            if (ett_id != -1) {
-                tree = proto_item_add_subtree(item, ett_id);
+            if (named_bits) {
+                const int named_bits_bytelen = (num_named_bits + 7) / 8;
+                if (show_internal_ber_fields) {
+                    guint zero_bits_omitted = 0;
+                    if (len < named_bits_bytelen) {
+                        zero_bits_omitted = num_named_bits - ((len * 8) - pad);
+                        proto_item_append_text(item, " [%u zero bits not encoded, but displayed]", zero_bits_omitted);
+                    }
+                }
+                if (ett_id != -1) {
+                    tree = proto_item_add_subtree(item, ett_id);
+                }
+                for (int i = 0; i < named_bits_bytelen; i++) {
+                    // If less data is available than the number of named bits, then
+                    // the trailing (right) bits are assumed to be 0.
+                    guint64 value = 0;
+                    if (i < len) {
+                        value = tvb_get_guint8(tvb, offset + i);
+                    }
+
+                    // Process 8 bits at a time instead of 64, each field masks a
+                    // single byte.
+                    const int bit_offset = 8 * i;
+                    const int** section_named_bits = named_bits + bit_offset;
+                    int* flags[9];
+                    if (num_named_bits - bit_offset > 8) {
+                        memcpy(&flags[0], named_bits + bit_offset, 8 * sizeof(int*));
+                        flags[8] = NULL;
+                        section_named_bits = (const int** )flags;
+                    }
+
+                    // TODO should non-zero pad bits be masked from the value?
+                    // When trailing zeroes are not present in the data, mark the
+                    // last byte for the lack of a better alternative.
+                    proto_tree_add_bitmask_list_value(tree, tvb, offset + MIN(i, len - 1), 1, section_named_bits, value);
+                }
+                // If more data is available than the number of named bits, then
+                // either the spec was updated or the packet is malformed.
+                if (named_bits_bytelen < len) {
+                    expert_add_info_format(actx->pinfo, item, &ei_ber_bits_unknown, "Unknown bit(s): 0x%s",
+                        tvb_bytes_to_str(wmem_packet_scope(), tvb, offset + named_bits_bytelen, len - named_bits_bytelen));
+                }
             }
         }
         if (out_tvb) {
@@ -4017,56 +4070,9 @@ dissect_ber_constrained_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto
         }
     }
 
-    if (named_bits) {
-        sep  = " (";
-        term = FALSE;
-        nb = named_bits;
-        bitstring = (guint8 *)tvb_memdup(wmem_packet_scope(), tvb, offset, len);
-
-        while (nb->p_id) {
-            if ((len > 0) && (pad < 8*len) && (nb->bit < (8*len-pad))) {
-                val = tvb_get_guint8(tvb, offset + nb->bit/8);
-                bitstring[(nb->bit/8)] &= ~(0x80 >> (nb->bit%8));
-                val &= 0x80 >> (nb->bit%8);
-                b0 = (nb->gb0 == -1) ? nb->bit/8 :
-                               ((guint32)nb->gb0)/8;
-                b1 = (nb->gb1 == -1) ? nb->bit/8 :
-                               ((guint32)nb->gb1)/8;
-                proto_tree_add_item(tree, *(nb->p_id), tvb, offset + b0, b1 - b0 + 1, ENC_BIG_ENDIAN);
-            } else {  /* 8.6.2.4 */
-                val = 0;
-                proto_tree_add_boolean(tree, *(nb->p_id), tvb, offset + len, 0, 0x00);
-            }
-            if (val) {
-                if (item && nb->tstr) {
-                    proto_item_append_text(item, "%s%s", sep, nb->tstr);
-                    sep  = ", ";
-                    term = TRUE;
-                }
-            } else {
-                if (item && nb->fstr) {
-                    proto_item_append_text(item, "%s%s", sep, nb->fstr);
-                    sep  = ", ";
-                    term = TRUE;
-                }
-            }
-            nb++;
-        }
-        if (term)
-            proto_item_append_text(item, ")");
-
-        for (byteno = 0; byteno < len; byteno++) {
-            if (bitstring[byteno]) {
-                expert_add_info_format(
-                    actx->pinfo, item, &ei_ber_bits_unknown,
-                    "Unknown bit(s): 0x%s", bytes_to_str(wmem_packet_scope(), bitstring, len));
-                break;
-            }
-        }
-    }
 
     if ((pad > 0) && (pad < 8) && (len > 0)) {
-        guint8 bits_in_pad = tvb_get_guint8(tvb, offset + len - 1) & (0xFF >> (8-pad));
+        guint8 bits_in_pad = tvb_get_guint8(tvb, offset + len - 1) & (0xFF >> (8 - pad));
         if (bits_in_pad) {
             expert_add_info_format(
                 actx->pinfo, item, &ei_ber_bits_set_padded,
@@ -4074,68 +4080,16 @@ dissect_ber_constrained_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto
         }
     }
 
-    ber_check_length(8*len-pad, min_len, max_len, actx, item, TRUE);
+    ber_check_length(8 * len - pad, min_len, max_len, actx, item, TRUE);
 
     return end_offset;
 }
 
-int
-dissect_ber_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto_tree *parent_tree, tvbuff_t *tvb, int offset, const asn_namedbit *named_bits, gint hf_id, gint ett_id, tvbuff_t **out_tvb)
-{
-  return dissect_ber_constrained_bitstring(implicit_tag, actx, parent_tree, tvb, offset, -1, -1, named_bits, hf_id, ett_id, out_tvb);
-}
 
 int
-dissect_ber_bitstring32(gboolean implicit_tag, asn1_ctx_t *actx, proto_tree *parent_tree, tvbuff_t *tvb, int offset, int **bit_fields, gint hf_id, gint ett_id, tvbuff_t **out_tvb)
+dissect_ber_bitstring(gboolean implicit_tag, asn1_ctx_t *actx, proto_tree *parent_tree, tvbuff_t *tvb, int offset, const int **named_bits, gint num_named_bits, gint hf_id, gint ett_id, tvbuff_t **out_tvb)
 {
-    tvbuff_t           *tmp_tvb = NULL;
-    proto_tree         *tree;
-    guint32             val;
-    int               **bf;
-    header_field_info  *hfi;
-    const char         *sep;
-    gboolean            term;
-    unsigned int        i, tvb_len;
-
-    offset = dissect_ber_bitstring(implicit_tag, actx, parent_tree, tvb, offset, NULL, hf_id, ett_id, &tmp_tvb);
-
-    tree = proto_item_get_subtree(actx->created_item);
-    if (bit_fields && tree && tmp_tvb) {
-        /* tmp_tvb points to the actual bitstring (including any pad bits at the end.
-         * note that this bitstring is not necessarily always encoded as 4 bytes
-         * so we have to read it byte by byte.
-         */
-        val = 0;
-        tvb_len = tvb_reported_length(tmp_tvb);
-        for (i=0; i<4; i++) {
-            val <<= 8;
-            if (i < tvb_len) {
-                val |= tvb_get_guint8(tmp_tvb, i);
-            }
-        }
-        bf   = bit_fields;
-        sep  = " (";
-        term = FALSE;
-        while (*bf) {
-            if (**bf >= 0) {
-                proto_tree_add_boolean(tree, **bf, tmp_tvb, 0, tvb_len, val);
-                hfi = proto_registrar_get_nth(**bf);
-                if (val & hfi->bitmask) {
-                    proto_item_append_text(actx->created_item, "%s%s", sep, hfi->name);
-                    sep = ", ";
-                    term = TRUE;
-                }
-            }
-            bf++;
-        }
-        if (term)
-            proto_item_append_text(actx->created_item, ")");
-    }
-
-    if (out_tvb)
-        *out_tvb = tmp_tvb;
-
-    return offset;
+    return dissect_ber_constrained_bitstring(implicit_tag, actx, parent_tree, tvb, offset, -1, -1, named_bits, num_named_bits, hf_id, ett_id, out_tvb);
 }
 
 /*
@@ -4218,7 +4172,7 @@ dissect_ber_T_arbitrary(gboolean implicit_tag, tvbuff_t *tvb, int offset, asn1_c
         offset = actx->external.u.ber.ber_callback(FALSE, tvb, offset, actx, tree, hf_index);
     } else {
         offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
-                                       NULL, hf_index, -1, &actx->external.arbitrary);
+                                       NULL, 0, hf_index, -1, &actx->external.arbitrary);
     }
 
     return offset;

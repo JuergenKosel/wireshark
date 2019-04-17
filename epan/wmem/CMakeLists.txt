@@ -29,6 +29,19 @@ set(WMEM_PUBLIC_HEADERS
 	wmem_user_cb.h
 )
 
+set(WMEM_HEADER_FILES
+	${WMEM_PUBLIC_HEADERS}
+	wmem_allocator.h
+	wmem_allocator_block.h
+	wmem_allocator_block_fast.h
+	wmem_allocator_simple.h
+	wmem_allocator_strict.h
+	wmem_interval_tree.h
+	wmem_map_int.h
+	wmem_tree-int.h
+	wmem_user_cb_int.h
+)
+
 set(WMEM_FILES
 	wmem_array.c
 	wmem_core.c
@@ -56,6 +69,9 @@ set_source_files_properties(
 )
 
 add_library(wmem OBJECT
+	#Included so that Visual Studio can properly put header files in solution
+	${WMEM_HEADER_FILES}
+
 	${WMEM_FILES}
 )
 
@@ -75,7 +91,7 @@ set_target_properties(wmem_test PROPERTIES
 )
 
 install(FILES ${WMEM_PUBLIC_HEADERS}
-	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/epan/wmem"
+	DESTINATION "${PROJECT_INSTALL_INCLUDEDIR}/epan/wmem"
 )
 
 CHECKAPI(

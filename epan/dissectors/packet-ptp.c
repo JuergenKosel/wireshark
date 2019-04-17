@@ -46,6 +46,7 @@
 #include <epan/expert.h>
 #include <epan/exceptions.h>
 #include <epan/oui.h>
+#include <epan/addr_resolv.h>
 #include "packet-ptp.h"
 
 /**********************************************************/
@@ -687,12 +688,15 @@ static gint ett_ptp_time2 = -1;
 /* Common offsets for all Messages (Sync, Delay_Req, Follow_Up, Delay_Resp ....) */
 #define PTP_V2_TRANSPORT_SPECIFIC_MESSAGE_ID_OFFSET                  0
 #define PTP_V2_VERSIONPTP_OFFSET                                     1
+#define PTP_V2_RESERVED1_OFFSET               PTP_V2_VERSIONPTP_OFFSET
 #define PTP_V2_MESSAGE_LENGTH_OFFSET                                 2
 #define PTP_V2_DOMAIN_NUMBER_OFFSET                                  4
+#define PTP_V2_RESERVED2_OFFSET                                      5
 #define PTP_V2_FLAGS_OFFSET                                          6
 #define PTP_V2_CORRECTION_OFFSET                                     8
 #define PTP_V2_CORRECTIONNS_OFFSET                                   8
 #define PTP_V2_CORRECTIONSUBNS_OFFSET                               14
+#define PTP_V2_RESERVED3_OFFSET                                     16
 #define PTP_V2_CLOCKIDENTITY_OFFSET                                 20
 #define PTP_V2_SOURCEPORTID_OFFSET                                  28
 #define PTP_V2_SEQUENCEID_OFFSET                                    30
@@ -1360,8 +1364,10 @@ static int hf_ptp_v2_transportspecific = -1;
 static int hf_ptp_v2_transportspecific_v1_compatibility = -1; /* over UDP */
 static int hf_ptp_v2_transportspecific_802as_conform = -1; /* over Ethernet */
 static int hf_ptp_v2_messageid = -1;
+static int hf_ptp_v2_reserved1 = -1;
 static int hf_ptp_v2_versionptp = -1;
 static int hf_ptp_v2_messagelength = -1;
+static int hf_ptp_v2_reserved2 = -1;
 static int hf_ptp_v2_domainnumber = -1;
 static int hf_ptp_v2_flags = -1;
 static int hf_ptp_v2_flags_alternatemaster = -1;
@@ -1378,7 +1384,9 @@ static int hf_ptp_v2_flags_timetraceable = -1;
 static int hf_ptp_v2_flags_frequencytraceable = -1;
 static int hf_ptp_v2_correction = -1;
 static int hf_ptp_v2_correctionsubns = -1;
+static int hf_ptp_v2_reserved3 = -1;
 static int hf_ptp_v2_clockidentity = -1;
+static int hf_ptp_v2_clockidentity_manuf = -1;
 static int hf_ptp_v2_sourceportid = -1;
 static int hf_ptp_v2_sequenceid = -1;
 static int hf_ptp_v2_control = -1;
@@ -1666,6 +1674,7 @@ static int hf_ptp_v2_mm_transmitAlternateMulticastSync = -1;
 /* Initialize the subtree pointers */
 static gint ett_ptp_v2 = -1;
 static gint ett_ptp_v2_flags = -1;
+static gint ett_ptp_v2_clockidentity = -1;
 static gint ett_ptp_v2_correction = -1;
 static gint ett_ptp_v2_time = -1;
 static gint ett_ptp_v2_time2 = -1;
@@ -2489,11 +2498,13 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
     guint64 timeStamp;
     guint16 msg_len;
     guint16 temp;
+    const gchar *manuf_name;
 
     /* Set up structures needed to add the protocol subtree and manage it */
-    proto_item  *ti = NULL, *msg_len_item = NULL, *transportspecific_ti, *flags_ti, *managementData_ti, *clockType_ti, *protocolAddress_ti;
-    proto_tree  *ptp_tree = NULL, *ptp_transportspecific_tree, *ptp_flags_tree, *ptp_managementData_tree,
-                *ptp_clockType_tree, *ptp_protocolAddress_tree;
+    proto_item  *ti = NULL, *msg_len_item = NULL, *transportspecific_ti, *flags_ti, *clockidentity_ti,
+		*managementData_ti, *clockType_ti, *protocolAddress_ti;
+    proto_tree  *ptp_tree = NULL, *ptp_transportspecific_tree, *ptp_flags_tree, *ptp_clockidentity_tree,
+		*ptp_managementData_tree, *ptp_clockType_tree, *ptp_protocolAddress_tree;
 
     /* Make entries in Protocol column and Info column on summary display */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "PTPv2");
@@ -2618,6 +2629,9 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
             hf_ptp_v2_messageid, tvb, PTP_V2_TRANSPORT_SPECIFIC_MESSAGE_ID_OFFSET, 1, ENC_BIG_ENDIAN);
 
         proto_tree_add_item(ptp_tree,
+            hf_ptp_v2_reserved1, tvb, PTP_V2_RESERVED1_OFFSET, 1, ENC_BIG_ENDIAN);
+
+        proto_tree_add_item(ptp_tree,
             hf_ptp_v2_versionptp, tvb, PTP_V2_VERSIONPTP_OFFSET, 1, ENC_BIG_ENDIAN);
 
         msg_len_item = proto_tree_add_item(ptp_tree,
@@ -2649,6 +2663,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
         proto_tree_add_item(ptp_tree,
             hf_ptp_v2_domainnumber, tvb, PTP_V2_DOMAIN_NUMBER_OFFSET, 1, ENC_BIG_ENDIAN);
 
+        proto_tree_add_item(ptp_tree,
+            hf_ptp_v2_reserved2, tvb, PTP_V2_RESERVED2_OFFSET, 1, ENC_BIG_ENDIAN);
 
         flags_ti = proto_tree_add_item(ptp_tree,
             hf_ptp_v2_flags, tvb, PTP_V2_FLAGS_OFFSET, 2, ENC_BIG_ENDIAN);
@@ -2696,7 +2712,19 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
         dissect_ptp_v2_timeInterval(tvb, &temp, ptp_tree, "correction", hf_ptp_v2_correction, hf_ptp_v2_correctionsubns);
 
         proto_tree_add_item(ptp_tree,
+            hf_ptp_v2_reserved3, tvb, PTP_V2_RESERVED3_OFFSET, 4, ENC_BIG_ENDIAN);
+
+        clockidentity_ti = proto_tree_add_item(ptp_tree,
             hf_ptp_v2_clockidentity, tvb, PTP_V2_CLOCKIDENTITY_OFFSET, 8, ENC_BIG_ENDIAN);
+
+	/* EUI-64: vendor ID | 0xFF - 0xFE | card ID */
+	if (tvb_get_ntohs(tvb, PTP_V2_CLOCKIDENTITY_OFFSET + 3) == 0xFFFE) {
+            ptp_clockidentity_tree = proto_item_add_subtree(clockidentity_ti, ett_ptp_v2_clockidentity);
+
+	    manuf_name = tvb_get_manuf_name(tvb, PTP_V2_CLOCKIDENTITY_OFFSET);
+	    proto_tree_add_bytes_format_value(ptp_clockidentity_tree, hf_ptp_v2_clockidentity_manuf,
+	        tvb, PTP_V2_CLOCKIDENTITY_OFFSET, 3, NULL, "%s", manuf_name);
+	}
 
         proto_tree_add_item(ptp_tree,
             hf_ptp_v2_sourceportid, tvb, PTP_V2_SOURCEPORTID_OFFSET, 2, ENC_BIG_ENDIAN);
@@ -5235,6 +5263,11 @@ proto_register_ptp(void)
             FT_UINT8, BASE_HEX | BASE_EXT_STRING, &ptp_v2_messageid_vals_ext, 0x0F,
             NULL, HFILL }
         },
+        { &hf_ptp_v2_reserved1,
+          { "Reserved",             "ptp.v2.reserved1",
+            FT_UINT8, BASE_DEC, NULL, 0xF0,
+            NULL, HFILL }
+        },
         { &hf_ptp_v2_versionptp,
           { "versionPTP",           "ptp.v2.versionptp",
             FT_UINT8, BASE_DEC, NULL, 0x0F,
@@ -5243,6 +5276,11 @@ proto_register_ptp(void)
         { &hf_ptp_v2_messagelength,
           { "messageLength",           "ptp.v2.messagelength",
             FT_UINT16, BASE_DEC, NULL, 0x00,
+            NULL, HFILL }
+        },
+        { &hf_ptp_v2_reserved2,
+          { "Reserved",                  "ptp.v2.reserved2",
+            FT_UINT8, BASE_DEC, NULL, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_domainnumber,
@@ -5315,6 +5353,11 @@ proto_register_ptp(void)
             FT_BOOLEAN, 16, NULL, PTP_V2_FLAGS_FREQUENCY_TRACEABLE_BITMASK,
             NULL, HFILL }
         },
+        { &hf_ptp_v2_reserved3,
+          { "Reserved",           "ptp.v2.reserved3",
+            FT_UINT32, BASE_DEC, NULL, 0x00,
+            NULL, HFILL }
+        },
         { &hf_ptp_v2_correction,
           { "correction",           "ptp.v2.correction.ns",
             FT_UINT64, BASE_DEC, NULL, 0x00,
@@ -5328,6 +5371,11 @@ proto_register_ptp(void)
         { &hf_ptp_v2_clockidentity,
           { "ClockIdentity",           "ptp.v2.clockidentity",
             FT_UINT64, BASE_HEX, NULL, 0x00,
+            NULL, HFILL }
+        },
+        { &hf_ptp_v2_clockidentity_manuf,
+          { "MAC Vendor",       "ptp.v2.clockidentity_manuf",
+            FT_BYTES, BASE_NONE, NULL, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sourceportid,
@@ -6564,6 +6612,7 @@ proto_register_ptp(void)
         &ett_ptp_v2,
         &ett_ptp_v2_transportspecific,
         &ett_ptp_v2_flags,
+        &ett_ptp_v2_clockidentity,
         &ett_ptp_v2_correction,
         &ett_ptp_v2_time,
         &ett_ptp_v2_time2,

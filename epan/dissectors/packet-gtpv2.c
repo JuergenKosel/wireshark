@@ -468,6 +468,7 @@ static int hf_gtpv2_throttling_delay_value = -1;
 static int hf_gtpv2_timer_value = -1;
 static int hf_gtpv2_lapi = -1;
 
+static int hf_gtpv2_pres_rep_area_act_inapra = -1;
 static int hf_gtpv2_pres_rep_area_action = -1;
 static int hf_gtpv2_pres_rep_area_id = -1;
 static int hf_gtpv2_pres_rep_area_act_no_tai = -1;
@@ -3587,7 +3588,7 @@ static const value_string gtpv2_mm_context_unc_vals[] = {
     {0, "No ciphering"},
     {1, "128-EEA1"},
     {2, "128-EEA2"},
-    {3, "EEA3"},
+    {3, "128-EEA3"},
     {4, "EEA4"  },
     {5, "EEA5"},
     {6, "EEA6"},
@@ -3610,14 +3611,14 @@ static const value_string gtpv2_mm_context_used_cipher_vals[] = {
 
 /* Table 8.38-4: Used NAS integrity protection algorithm Values */
 static const value_string gtpv2_mm_context_unipa_vals[] = {
-    {0, "No ciphering"},
-    {1, "128-EEA1"},
-    {2, "128-EEA2"},
-    {3, "EEA3"},
-    {4, "EEA4"  },
-    {5, "EEA5"},
-    {6, "EEA6"},
-    {7, "EEA7"},
+    {0, "No integrity protection"},
+    {1, "128-EIA1"},
+    {2, "128-EIA2"},
+    {3, "128-EIA3"},
+    {4, "EIA4"  },
+    {5, "EIA5"},
+    {6, "EIA6"},
+    {7, "EIA7"},
     {0, NULL}
 };
 
@@ -4278,7 +4279,7 @@ dissect_gtpv2_mm_context_eps_qq(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
         qua_tree = proto_item_add_subtree(qua_item, ett_gtpv2_qua);
         offset = dissect_gtpv2_authentication_quadruplets(tvb, qua_tree, offset, nr_qua);
     }else {
-        PROTO_ITEM_SET_GENERATED(qua_item);
+        proto_item_set_generated(qua_item);
     }
 
     qui_item = proto_tree_add_uint(tree, hf_gtpv2_authentication_quintuplets, tvb, offset, 0, nr_qui);
@@ -4286,7 +4287,7 @@ dissect_gtpv2_mm_context_eps_qq(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
         qui_tree = proto_item_add_subtree(qui_item, ett_gtpv2_qui);
         offset = dissect_gtpv2_authentication_quintuplets(tvb, qui_tree, offset, nr_qui);
     }else{
-        PROTO_ITEM_SET_GENERATED(qui_item);
+        proto_item_set_generated(qui_item);
     }
 
     /* (h+1) to (h+2) DRX parameter */
@@ -5915,6 +5916,7 @@ dissect_gtpv2_epc_timer(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         proto_item_append_text(item, "DL Buffering Duration");
         break;
     }
+    /* XXX Todo: use code from packaet-gsm_a_gm.c ?  10.5.7.4a GPRS TIMER 3*/
     proto_tree_add_item(tree, hf_gtpv2_timer_unit, tvb, 0, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_gtpv2_timer_value, tvb, 0, 1, ENC_BIG_ENDIAN);
 
@@ -6596,8 +6598,14 @@ dissect_gtpv2_pres_rep_area_action(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     int offset = 0;
     tvbuff_t * new_tvb;
 
-    /* Octet 5  Spare   Action */
-    proto_tree_add_item(tree, hf_gtpv2_pres_rep_area_action, tvb, offset, 1, ENC_BIG_ENDIAN);
+    static const int * flags[] = {
+        &hf_gtpv2_pres_rep_area_act_inapra,
+        &hf_gtpv2_pres_rep_area_action,
+        NULL
+    };
+
+    /* Octet 5  Spare INAPRA Action */
+    proto_tree_add_bitmask_list(tree, tvb, offset, 1, flags, ENC_BIG_ENDIAN);
     offset++;
 
     if (length == 1)
@@ -7379,15 +7387,15 @@ gtpv2_match_response(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, gin
 
         if (gcrp->is_request) {
             it = proto_tree_add_uint(tree, hf_gtpv2_response_in, tvb, 0, 0, gcrp->rep_frame);
-            PROTO_ITEM_SET_GENERATED(it);
+            proto_item_set_generated(it);
         } else {
             nstime_t ns;
 
             it = proto_tree_add_uint(tree, hf_gtpv2_response_to, tvb, 0, 0, gcrp->req_frame);
-            PROTO_ITEM_SET_GENERATED(it);
+            proto_item_set_generated(it);
             nstime_delta(&ns, &pinfo->abs_ts, &gcrp->req_time);
             it = proto_tree_add_time(tree, hf_gtpv2_response_time, tvb, 0, 0, &ns);
-            PROTO_ITEM_SET_GENERATED(it);
+            proto_item_set_generated(it);
             if (g_gtp_session && !PINFO_FD_VISITED(pinfo)) {
                 /* GTP session */
                 /* If it's not already in the list */
@@ -7420,7 +7428,7 @@ track_gtpv2_session(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, gtpv
         session = (guint32*)g_hash_table_lookup(session_table, &pinfo->num);
         if (session) {
             it = proto_tree_add_uint(tree, hf_gtpv2_session, tvb, 0, 0, *session);
-            PROTO_ITEM_SET_GENERATED(it);
+            proto_item_set_generated(it);
         }
     }
 
@@ -9712,6 +9720,11 @@ void proto_register_gtpv2(void)
         { &hf_gtpv2_mmbr_dl,
           {"Max MBR/APN-AMBR for downlink", "gtpv2.mmbr_dl",
            FT_UINT32, BASE_DEC, NULL, 0x0,
+           NULL, HFILL}
+        },
+        { &hf_gtpv2_pres_rep_area_act_inapra,
+          {"INAPRA", "gtpv2.pres_rep_area_action.inapra",
+           FT_UINT8, BASE_DEC, NULL, 0x08,
            NULL, HFILL}
         },
         { &hf_gtpv2_pres_rep_area_action,

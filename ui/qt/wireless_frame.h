@@ -35,11 +35,16 @@ signals:
 protected:
     void timerEvent(QTimerEvent *event);
 
+public slots:
+    void handleInterfaceEvent(const char *ifname, int added, int up);
+
 private:
+    int startTimer(int interval);
     void getInterfaceInfo();
     void setInterfaceInfo();
     int getCenterFrequency(int control_frequency, int bandwidth);
     int getBandwidthFromChanType(int chan_type);
+    void updateInterfaceList();
 
 private slots:
     void updateWidgets();

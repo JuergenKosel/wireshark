@@ -40,6 +40,7 @@
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/ws_pipe.h>
+#include <wsutil/ws_printf.h>
 #include <wsutil/tempfile.h>
 
 #include "capture_opts.h"
@@ -151,7 +152,7 @@ thread_pool_wait(thread_pool_t *pool)
     g_mutex_clear(&pool->data_mutex);
 }
 
-GHashTable *
+static GHashTable *
 extcap_loaded_interfaces(void)
 {
     if (prefs.capture_no_extcap)
@@ -173,6 +174,53 @@ extcap_clear_interfaces(void)
     if ( _tool_for_ifname )
         g_hash_table_destroy(_tool_for_ifname);
     _tool_for_ifname = NULL;
+}
+
+static gint
+compare_tools(gconstpointer a, gconstpointer b)
+{
+    return g_strcmp0((*(extcap_info *const *)a)->basename, (*(extcap_info *const *)b)->basename);
+}
+
+void
+extcap_get_descriptions(plugin_description_callback callback, void *callback_data)
+{
+    GHashTable * tools = extcap_loaded_interfaces();
+    GPtrArray *tools_array = g_ptr_array_new();
+
+    if (tools && g_hash_table_size(tools) > 0) {
+        GList * walker = g_list_first(g_hash_table_get_keys(tools));
+        while (walker && walker->data) {
+            extcap_info * tool = (extcap_info *)g_hash_table_lookup(tools, walker->data);
+            if (tool) {
+                g_ptr_array_add(tools_array, tool);
+            }
+            walker = g_list_next(walker);
+        }
+    }
+
+    g_ptr_array_sort(tools_array, compare_tools);
+
+    for (guint i = 0; i < tools_array->len; i++) {
+        extcap_info *tool = (extcap_info *)tools_array->pdata[i];
+        callback(tool->basename, tool->version, "extcap", tool->full_path, callback_data);
+    }
+
+    g_ptr_array_free(tools_array, TRUE);
+}
+
+static void
+print_extcap_description(const char *basename, const char *version,
+                        const char *description, const char *filename,
+                        void *user_data _U_)
+{
+    ws_debug_printf("%-16s\t%s\t%s\t%s\n", basename, version, description, filename);
+}
+
+void
+extcap_dump_all(void)
+{
+    extcap_get_descriptions(print_extcap_description, NULL);
 }
 
 /**
@@ -770,8 +818,8 @@ extcap_pref_for_argument(const gchar *ifname, struct _extcap_arg *arg)
 {
     struct preference *pref = NULL;
 
-    GRegex *regex_name = g_regex_new("[-]+", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
-    GRegex *regex_ifname = g_regex_new("(?![a-zA-Z0-9_]).", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
+    GRegex *regex_name = g_regex_new("[-]+", G_REGEX_RAW, (GRegexMatchFlags) 0, NULL);
+    GRegex *regex_ifname = g_regex_new("(?![a-zA-Z0-9_]).", G_REGEX_RAW, (GRegexMatchFlags) 0, NULL);
     if (regex_name && regex_ifname)
     {
         if (prefs_find_module("extcap"))
@@ -815,8 +863,8 @@ static gboolean cb_preference(extcap_callback_info_t cb_info)
     {
         GList *walker = arguments;
 
-        GRegex *regex_name = g_regex_new("[-]+", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
-        GRegex *regex_ifname = g_regex_new("(?![a-zA-Z0-9_]).", (GRegexCompileFlags) 0, (GRegexMatchFlags) 0, NULL);
+        GRegex *regex_name = g_regex_new("[-]+", G_REGEX_RAW, (GRegexMatchFlags) 0, NULL);
+        GRegex *regex_ifname = g_regex_new("(?![a-zA-Z0-9_]).", G_REGEX_RAW, (GRegexMatchFlags) 0, NULL);
         if (regex_name && regex_ifname)
         {
             while (walker != NULL)
@@ -1937,10 +1985,7 @@ extcap_list_interfaces_cb(thread_pool_t *pool, void *data, char *output)
 }
 
 
-/* Handles loading of the interfaces.
- *
- * A list of interfaces can be obtained by calling \ref extcap_loaded_interfaces
- */
+/* Handles loading of the interfaces. */
 static void
 extcap_load_interface_list(void)
 {

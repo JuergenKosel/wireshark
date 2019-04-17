@@ -20,6 +20,7 @@
 
 
 #include <epan/packet.h>
+#include <epan/exceptions.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/tap.h>
@@ -42,6 +43,9 @@
 #include <wsutil/wsgcrypt.h>
 
 #define NT_STATUS_PENDING	0x00000103
+#define NT_STATUS_BUFFER_TOO_SMALL	0xC0000023
+#define NT_STATUS_STOPPED_ON_SYMLINK	0x8000002D
+#define NT_STATUS_BAD_NETWORK_NAME	0xC00000CC
 
 void proto_register_smb2(void);
 void proto_reg_handoff_smb2(void);
@@ -55,6 +59,7 @@ static int hf_smb2_nt_status = -1;
 static int hf_smb2_response_to = -1;
 static int hf_smb2_response_in = -1;
 static int hf_smb2_time = -1;
+static int hf_smb2_preauth_hash = -1;
 static int hf_smb2_header_len = -1;
 static int hf_smb2_msg_id = -1;
 static int hf_smb2_pid = -1;
@@ -454,6 +459,18 @@ static int hf_smb2_error_context_count = -1;
 static int hf_smb2_error_reserved = -1;
 static int hf_smb2_error_byte_count = -1;
 static int hf_smb2_error_data = -1;
+static int hf_smb2_error_context = -1;
+static int hf_smb2_error_context_length = -1;
+static int hf_smb2_error_context_id = -1;
+static int hf_smb2_error_min_buf_length = -1;
+static int hf_smb2_error_redir_context = -1;
+static int hf_smb2_error_redir_struct_size = -1;
+static int hf_smb2_error_redir_notif_type = -1;
+static int hf_smb2_error_redir_flags = -1;
+static int hf_smb2_error_redir_target_type = -1;
+static int hf_smb2_error_redir_ip_count = -1;
+static int hf_smb2_error_redir_ip_list = -1;
+static int hf_smb2_error_redir_res_name = -1;
 static int hf_smb2_reserved = -1;
 static int hf_smb2_reserved_random = -1;
 static int hf_smb2_transform_signature = -1;
@@ -485,12 +502,19 @@ static int hf_smb2_cchunk_xfer_len = -1;
 static int hf_smb2_cchunk_chunks_written = -1;
 static int hf_smb2_cchunk_bytes_written = -1;
 static int hf_smb2_cchunk_total_written = -1;
+static int hf_smb2_reparse_data_buffer = -1;
+static int hf_smb2_reparse_tag = -1;
+static int hf_smb2_reparse_guid = -1;
+static int hf_smb2_reparse_data_length = -1;
+static int hf_smb2_nfs_type = -1;
+static int hf_smb2_nfs_symlink_target = -1;
+static int hf_smb2_nfs_chr_major = -1;
+static int hf_smb2_nfs_chr_minor = -1;
+static int hf_smb2_nfs_blk_major = -1;
+static int hf_smb2_nfs_blk_minor = -1;
 static int hf_smb2_symlink_error_response = -1;
 static int hf_smb2_symlink_length = -1;
 static int hf_smb2_symlink_error_tag = -1;
-static int hf_smb2_SYMBOLIC_LINK_REPARSE_DATA_BUFFER = -1;
-static int hf_smb2_reparse_tag = -1;
-static int hf_smb2_reparse_data_length = -1;
 static int hf_smb2_unparsed_path_length = -1;
 static int hf_smb2_symlink_substitute_name = -1;
 static int hf_smb2_symlink_print_name = -1;
@@ -593,8 +617,11 @@ static gint ett_smb2_pipe_fragments = -1;
 static gint ett_smb2_cchunk_entry = -1;
 static gint ett_smb2_fsctl_odx_token = -1;
 static gint ett_smb2_symlink_error_response = -1;
-static gint ett_smb2_SYMBOLIC_LINK_REPARSE_DATA_BUFFER = -1;
+static gint ett_smb2_reparse_data_buffer = -1;
 static gint ett_smb2_error_data = -1;
+static gint ett_smb2_error_context = -1;
+static gint ett_smb2_error_redir_context = -1;
+static gint ett_smb2_error_redir_ip_list = -1;
 
 static expert_field ei_smb2_invalid_length = EI_INIT;
 static expert_field ei_smb2_bad_response = EI_INIT;
@@ -816,7 +843,79 @@ static const val64_string unique_unsolicited_response[] = {
 	{ 0, NULL }
 };
 
+#define SMB2_ERROR_ID_DEFAULT 0x00000000
+#define SMB2_ERROR_ID_SHARE_REDIRECT 0x72645253
+static const value_string smb2_error_id_vals[] = {
+	{ SMB2_ERROR_ID_DEFAULT, "ERROR_ID_DEFAULT" },
+	{ SMB2_ERROR_ID_SHARE_REDIRECT, "ERROR_ID_SHARE_REDIRECT" },
+	{ 0, NULL }
+};
+
+#define REPARSE_TAG_RESERVED_ZERO      0x00000000 /* Reserved reparse tag value. */
+#define REPARSE_TAG_RESERVED_ONE       0x00000001 /* Reserved reparse tag value. */
+#define REPARSE_TAG_MOUNT_POINT        0xA0000003 /* Used for mount point */
+#define REPARSE_TAG_HSM                0xC0000004 /* Obsolete. Used by legacy Hierarchical Storage Manager Product. */
+#define REPARSE_TAG_DRIVER_EXTENDER    0x80000005 /* Home server drive extender. */
+#define REPARSE_TAG_HSM2               0x80000006 /* Obsolete. Used by legacy Hierarchical Storage Manager Product. */
+#define REPARSE_TAG_SIS                0x80000007 /* Used by single-instance storage (SIS) filter driver. */
+#define REPARSE_TAG_DFS                0x8000000A /* Used by the DFS filter. */
+#define REPARSE_TAG_FILTER_MANAGER     0x8000000B /* Used by filter manager test harness */
+#define REPARSE_TAG_SYMLINK            0xA000000C /* Used for symbolic link support. */
+#define REPARSE_TAG_DFSR               0x80000012 /* Used by the DFS filter. */
+#define REPARSE_TAG_NFS                0x80000014 /* Used by the Network File System (NFS) component. */
+static const value_string reparse_tag_vals[] = {
+	{ REPARSE_TAG_RESERVED_ZERO,   "REPARSE_TAG_RESERVED_ZERO"},
+	{ REPARSE_TAG_RESERVED_ONE,    "REPARSE_TAG_RESERVED_ONE"},
+	{ REPARSE_TAG_MOUNT_POINT,     "REPARSE_TAG_MOUNT_POINT"},
+	{ REPARSE_TAG_HSM,             "REPARSE_TAG_HSM"},
+	{ REPARSE_TAG_DRIVER_EXTENDER, "REPARSE_TAG_DRIVER_EXTENDER"},
+	{ REPARSE_TAG_HSM2,            "REPARSE_TAG_HSM2"},
+	{ REPARSE_TAG_SIS,             "REPARSE_TAG_SIS"},
+	{ REPARSE_TAG_DFS,             "REPARSE_TAG_DFS"},
+	{ REPARSE_TAG_FILTER_MANAGER,  "REPARSE_TAG_FILTER_MANAGER"},
+	{ REPARSE_TAG_SYMLINK,         "REPARSE_TAG_SYMLINK"},
+	{ REPARSE_TAG_DFSR,            "REPARSE_TAG_DFSR"},
+	{ REPARSE_TAG_NFS,             "REPARSE_TAG_NFS"},
+	{ 0, NULL }
+};
+
+#define NFS_SPECFILE_LNK 0x00000000014B4E4C
+#define NFS_SPECFILE_CHR 0x0000000000524843
+#define NFS_SPECFILE_BLK 0x00000000004B4C42
+#define NFS_SPECFILE_FIFO 0x000000004F464946
+#define NFS_SPECFILE_SOCK 0x000000004B434F53
+static const val64_string nfs_type_vals[] = {
+	{ NFS_SPECFILE_LNK,  "Symbolic Link" },
+	{ NFS_SPECFILE_CHR,  "Character Device" },
+	{ NFS_SPECFILE_BLK,  "Block Device" },
+	{ NFS_SPECFILE_FIFO, "FIFO" },
+	{ NFS_SPECFILE_SOCK, "UNIX Socket" },
+	{ 0, NULL }
+};
+
 #define SMB2_NUM_PROCEDURES     256
+
+static int dissect_windows_sockaddr_storage(tvbuff_t *, packet_info *, proto_tree *, int, int);
+static void dissect_smb2_error_data(tvbuff_t *, packet_info *, proto_tree *, int, int, smb2_info_t *);
+
+static void update_preauth_hash(void *buf, tvbuff_t *tvb)
+{
+	gcry_error_t err;
+	gcry_md_hd_t md;
+	void *pkt;
+
+	err = gcry_md_open(&md, GCRY_MD_SHA512, 0);
+	if (err)
+		return;
+
+	/* we dup in case of non-contiguous packet */
+	pkt = tvb_memdup(wmem_packet_scope(), tvb, 0, tvb_captured_length(tvb));
+	gcry_md_write(md, buf, SMB2_PREAUTH_HASH_SIZE);
+	gcry_md_write(md, pkt, tvb_captured_length(tvb));
+	gcry_md_final(md);
+	memcpy(buf, gcry_md_read(md, 0), SMB2_PREAUTH_HASH_SIZE);
+	gcry_md_close(md);
+}
 
 static void
 smb2stat_init(struct register_srt* srt _U_, GArray* srt_array)
@@ -1100,6 +1199,62 @@ smb2_conv_destroy(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _U_,
 	/* This conversation is gone, return FALSE to indicate we don't
 	 * want to be called again for this conversation. */
 	return FALSE;
+}
+
+static smb2_sesid_info_t *
+smb2_get_session(smb2_conv_info_t *conv, guint64 id, packet_info *pinfo, smb2_info_t *si)
+{
+	smb2_sesid_info_t key = {.sesid = id};
+	smb2_sesid_info_t *ses = (smb2_sesid_info_t *)g_hash_table_lookup(conv->sesids, &key);
+
+	if (!ses) {
+		ses = wmem_new0(wmem_file_scope(), smb2_sesid_info_t);
+		ses->sesid = id;
+		ses->auth_frame = (guint32)-1;
+		ses->tids = wmem_map_new(wmem_file_scope(), smb2_tid_info_hash, smb2_tid_info_equal);
+		seskey_find_sid_key(id, ses->session_key);
+		if (pinfo && si) {
+			if (si->flags & SMB2_FLAGS_RESPONSE) {
+				ses->server_port = pinfo->srcport;
+			} else {
+				ses->server_port = pinfo->destport;
+			}
+		}
+		g_hash_table_insert(conv->sesids, ses, ses);
+	}
+
+	return ses;
+}
+
+static void
+smb2_add_session_info(proto_tree *tree, tvbuff_t *tvb, gint start, smb2_sesid_info_t *ses)
+{
+	proto_item  *item;
+	if (!ses)
+		return;
+
+	if (ses->acct_name) {
+		item = proto_tree_add_string(tree, hf_smb2_acct_name, tvb, start, 0, ses->acct_name);
+		proto_item_set_generated(item);
+		proto_item_append_text(item, " Acct:%s", ses->acct_name);
+	}
+
+	if (ses->domain_name) {
+		item = proto_tree_add_string(tree, hf_smb2_domain_name, tvb, start, 0, ses->domain_name);
+		proto_item_set_generated(item);
+		proto_item_append_text(item, " Domain:%s", ses->domain_name);
+	}
+
+	if (ses->host_name) {
+		item = proto_tree_add_string(tree, hf_smb2_host_name, tvb, start, 0, ses->host_name);
+		proto_item_set_generated(item);
+		proto_item_append_text(item, " Host:%s", ses->host_name);
+	}
+
+	if (ses->auth_frame != (guint32)-1) {
+		item = proto_tree_add_uint(tree, hf_smb2_auth_frame, tvb, start, 0, ses->auth_frame);
+		proto_item_set_generated(item);
+	}
 }
 
 static void smb2_key_derivation(const guint8 *KI, guint32 KI_len,
@@ -1544,7 +1699,7 @@ static const true_false_string tfs_flags_dfs_op = {
 };
 
 static const true_false_string tfs_flags_chained = {
-	"This pdu a CHAINED command",
+	"This pdu is a CHAINED command",
 	"This pdu is NOT a chained command"
 };
 
@@ -1560,7 +1715,7 @@ static const true_false_string tfs_flags_replay_operation = {
 
 static const true_false_string tfs_flags_priority_mask = {
 	"This pdu contains a PRIORITY",
-	"This pdu does NOT contain a PRIORITY1"
+	"This pdu does NOT contain a PRIORITY"
 };
 
 static const true_false_string tfs_cap_dfs = {
@@ -3020,24 +3175,33 @@ dissect_smb2_secblob(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, smb2_i
  * Derive client and server decryption keys from the secret session key
  * and set them in the session object.
  */
-static void smb2_set_session_keys(smb2_sesid_info_t *sesid, const guint8 *session_key)
+static void smb2_generate_decryption_keys(smb2_conv_info_t *conv, smb2_sesid_info_t *ses)
 {
-	if (memcmp(session_key, zeros, NTLMSSP_KEY_LEN) != 0) {
-		smb2_key_derivation(session_key,
+	if (memcmp(ses->session_key, zeros, NTLMSSP_KEY_LEN) == 0)
+		return;
+
+	if (conv->dialect == 0x300) {
+		smb2_key_derivation(ses->session_key,
 				    NTLMSSP_KEY_LEN,
 				    "SMB2AESCCM", 11,
 				    "ServerIn ", 10,
-				    sesid->server_decryption_key);
-		smb2_key_derivation(session_key,
+				    ses->server_decryption_key);
+		smb2_key_derivation(ses->session_key,
 				    NTLMSSP_KEY_LEN,
 				    "SMB2AESCCM", 11,
 				    "ServerOut", 10,
-				    sesid->client_decryption_key);
-	} else {
-		memset(sesid->server_decryption_key, 0,
-		       sizeof(sesid->server_decryption_key));
-		memset(sesid->client_decryption_key, 0,
-		       sizeof(sesid->client_decryption_key));
+				    ses->client_decryption_key);
+	} else if (conv->dialect >= 0x311) {
+		smb2_key_derivation(ses->session_key,
+				    NTLMSSP_KEY_LEN,
+				    "SMBC2SCipherKey", 16,
+				    ses->preauth_hash, SMB2_PREAUTH_HASH_SIZE,
+				    ses->server_decryption_key);
+		smb2_key_derivation(ses->session_key,
+				    NTLMSSP_KEY_LEN,
+				    "SMBS2CCipherKey", 16,
+				    ses->preauth_hash, SMB2_PREAUTH_HASH_SIZE,
+				    ses->client_decryption_key);
 	}
 }
 
@@ -3047,6 +3211,8 @@ dissect_smb2_session_setup_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 	offset_length_buffer_t  s_olb;
 	const ntlmssp_header_t *ntlmssph;
 	static int ntlmssp_tap_id = 0;
+	smb2_saved_info_t *ssi = si->saved;
+	proto_item *hash_item;
 	int        idx;
 
 	if (!ntlmssp_tap_id) {
@@ -3065,6 +3231,24 @@ dissect_smb2_session_setup_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 		}
 	}
 
+	if (!pinfo->fd->visited && ssi) {
+		/* compute preauth hash on first pass */
+
+		/* start from last preauth hash of the connection if 1st request */
+		if (si->sesid == 0)
+			memcpy(si->conv->preauth_hash_ses, si->conv->preauth_hash_con, SMB2_PREAUTH_HASH_SIZE);
+
+		ssi->preauth_hash_req = (guint8*)wmem_alloc0(wmem_file_scope(), SMB2_PREAUTH_HASH_SIZE);
+		update_preauth_hash(si->conv->preauth_hash_current, tvb);
+		memcpy(ssi->preauth_hash_req, si->conv->preauth_hash_current, SMB2_PREAUTH_HASH_SIZE);
+	}
+
+	if (ssi && ssi->preauth_hash_req) {
+		hash_item = proto_tree_add_bytes_with_length(tree, hf_smb2_preauth_hash, tvb,
+							     0, tvb_captured_length(tvb),
+							     ssi->preauth_hash_req, SMB2_PREAUTH_HASH_SIZE);
+		proto_item_set_generated(hash_item);
+	}
 
 	/* buffer code */
 	offset = dissect_smb2_buffercode(tree, tvb, offset, NULL);
@@ -3101,34 +3285,67 @@ dissect_smb2_session_setup_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 		idx = 0;
 		while ((ntlmssph = (const ntlmssp_header_t *)fetch_tapped_data(ntlmssp_tap_id, idx++)) != NULL) {
 			if (ntlmssph && ntlmssph->type == NTLMSSP_AUTH) {
-				smb2_sesid_info_t *sesid;
-				guint8 custom_seskey[NTLMSSP_KEY_LEN];
-				const guint8 *session_key;
-
-				sesid = wmem_new(wmem_file_scope(), smb2_sesid_info_t);
-				sesid->sesid = si->sesid;
-				sesid->acct_name = wmem_strdup(wmem_file_scope(), ntlmssph->acct_name);
-				sesid->domain_name = wmem_strdup(wmem_file_scope(), ntlmssph->domain_name);
-				sesid->host_name = wmem_strdup(wmem_file_scope(), ntlmssph->host_name);
-
-				/* Try to see first if we have a
-				 * session key set in the pref for
-				 * this particular session id */
-				if (seskey_find_sid_key(si->sesid, custom_seskey)) {
-					session_key = custom_seskey;
-				} else {
-					session_key = ntlmssph->session_key;
+				si->session = smb2_get_session(si->conv, si->sesid, pinfo, si);
+				si->session->acct_name = wmem_strdup(wmem_file_scope(), ntlmssph->acct_name);
+				si->session->domain_name = wmem_strdup(wmem_file_scope(), ntlmssph->domain_name);
+				si->session->host_name = wmem_strdup(wmem_file_scope(), ntlmssph->host_name);
+				/* don't overwrite session key from preferences */
+				if (memcmp(si->session->session_key, zeros, SMB_SESSION_ID_SIZE) == 0) {
+					memcpy(si->session->session_key, ntlmssph->session_key, NTLMSSP_KEY_LEN);
 				}
-				smb2_set_session_keys(sesid, session_key);
-				sesid->server_port = pinfo->destport;
-				sesid->auth_frame = pinfo->num;
-				sesid->tids = g_hash_table_new(smb2_tid_info_hash, smb2_tid_info_equal);
-				g_hash_table_insert(si->conv->sesids, sesid, sesid);
+				si->session->auth_frame = pinfo->num;
 			}
 		}
 	}
 
 	return offset;
+}
+
+static void
+dissect_smb2_share_redirect_error(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int offset, smb2_info_t *si _U_)
+{
+	proto_tree *tree;
+	proto_item *item;
+	proto_tree *ips_tree;
+	proto_item *ips_item;
+
+	offset_length_buffer_t res_olb;
+	guint32 i, ip_count;
+
+	item = proto_tree_add_item(parent_tree, hf_smb2_error_redir_context, tvb, offset, 0, ENC_NA);
+	tree = proto_item_add_subtree(item, ett_smb2_error_redir_context);
+
+	/* structure size */
+	proto_tree_add_item(tree, hf_smb2_error_redir_struct_size, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	/* notification type */
+	proto_tree_add_item(tree, hf_smb2_error_redir_notif_type, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	/* resource name offset/length */
+	offset = dissect_smb2_olb_length_offset(tvb, offset, &res_olb, OLB_O_UINT32_S_UINT32, hf_smb2_error_redir_res_name);
+
+	/* flags */
+	proto_tree_add_item(tree, hf_smb2_error_redir_flags, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	offset += 2;
+
+	/* target type */
+	proto_tree_add_item(tree, hf_smb2_error_redir_target_type, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	offset += 2;
+
+	/* ip addr count */
+	proto_tree_add_item_ret_uint(tree, hf_smb2_error_redir_ip_count, tvb, offset, 4, ENC_LITTLE_ENDIAN, &ip_count);
+	offset += 4;
+
+	/* ip addr list */
+	ips_item = proto_tree_add_item(tree, hf_smb2_error_redir_ip_list, tvb, offset, 0, ENC_NA);
+	ips_tree = proto_item_add_subtree(ips_item, ett_smb2_error_redir_ip_list);
+	for (i = 0; i < ip_count; i++)
+		offset += dissect_windows_sockaddr_storage(tvb, pinfo, ips_tree, offset, -1);
+
+	/* resource name */
+	dissect_smb2_olb_off_string(pinfo, tree, tvb, &res_olb, offset, OLB_TYPE_UNICODE_STRING);
 }
 
 static void
@@ -3177,34 +3394,89 @@ dissect_smb2_STATUS_STOPPED_ON_SYMLINK(tvbuff_t *tvb, packet_info *pinfo _U_, pr
 	dissect_smb2_olb_off_string(pinfo, tree, tvb, &p_olb, offset, OLB_TYPE_UNICODE_STRING);
 }
 
+static int
+dissect_smb2_error_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int offset, smb2_info_t *si _U_)
+{
+	proto_tree *tree;
+	proto_item *item;
+	tvbuff_t *sub_tvb;
+	guint32 length;
+	guint32 id;
+
+	item = proto_tree_add_item(parent_tree, hf_smb2_error_context, tvb, offset, -1, ENC_NA);
+	tree = proto_item_add_subtree(item, ett_smb2_error_context);
+
+	proto_tree_add_item_ret_uint(tree, hf_smb2_error_context_length, tvb, offset, 4, ENC_LITTLE_ENDIAN, &length);
+	offset += 4;
+
+	proto_tree_add_item_ret_uint(tree, hf_smb2_error_context_id, tvb, offset, 4, ENC_LITTLE_ENDIAN, &id);
+	offset += 4;
+
+	sub_tvb = tvb_new_subset_length(tvb, offset, length);
+	dissect_smb2_error_data(sub_tvb, pinfo, tree, 0, id, si);
+	offset += length;
+
+	return offset;
+}
+
+/*
+ * Assumes it is being called with a sub-tvb (dissects at offsets 0)
+ */
 static void
-dissect_smb2_error_data(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int error_context_count, smb2_info_t *si _U_)
+dissect_smb2_error_data(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree,
+			int error_context_count, int error_id,
+			smb2_info_t *si _U_)
 {
 	proto_tree *tree;
 	proto_item *item;
 
 	int offset = 0;
+	int i;
 
 	item = proto_tree_add_item(parent_tree, hf_smb2_error_data, tvb, offset, -1, ENC_NA);
 	tree = proto_item_add_subtree(item, ett_smb2_error_data);
 
 	if (error_context_count == 0) {
+		if (tvb_captured_length_remaining(tvb, offset) <= 1)
+			return;
 		switch (si->status) {
-		case 0x8000002D: /* STATUS_STOPPED_ON_SYMLINK */
+		case NT_STATUS_STOPPED_ON_SYMLINK:
 			dissect_smb2_STATUS_STOPPED_ON_SYMLINK(tvb, pinfo, tree, offset, si);
-
 			break;
+		case NT_STATUS_BUFFER_TOO_SMALL:
+			proto_tree_add_item(tree, hf_smb2_error_min_buf_length, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+			break;
+		case NT_STATUS_BAD_NETWORK_NAME:
+			if (error_id == SMB2_ERROR_ID_SHARE_REDIRECT)
+				dissect_smb2_share_redirect_error(tvb, pinfo, tree, offset, si);
 		default:
 			break;
 		}
 	} else {
-		/* TODO SMB311 supports multiple error contexts */
+		for (i = 0; i < error_context_count; i++)
+			offset += dissect_smb2_error_context(tvb, pinfo, tree, offset, si);
 	}
 }
 
-/* This needs more fixes for cases when the original header had also the constant value of 9.
-   This should be fixed on caller side where it decides if it has to call this or not.
-*/
+/*
+ * SMB2 Error responses are a bit convoluted. Error data can be a list
+ * of error contexts which themselves can hold an error data field.
+ * See [MS-SMB2] 2.2.2.1.
+ *
+ * ERROR_RESP := ERROR_DATA
+ *
+ * ERROR_DATA := ( ERROR_CONTEXT + )
+ *             | ERROR_STATUS_STOPPED_ON_SYMLINK
+ *             | ERROR_ID_SHARE_REDIRECT
+ *             | ERROR_BUFFER_TOO_SMALL
+ *
+ * ERROR_CONTEXT := ... + ERROR_DATA
+ *                | ERROR_ID_SHARE_REDIRECT
+ *
+ * This needs more fixes for cases when the original header had also the constant value of 9.
+ * This should be fixed on caller side where it decides if it has to call this or not.
+ *
+ */
 static int
 dissect_smb2_error_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, smb2_info_t *si,
 							gboolean* continue_dissection)
@@ -3249,16 +3521,58 @@ dissect_smb2_error_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *t
 		sub_tvb = tvb_new_subset_length(tvb, offset, byte_count);
 		offset += byte_count;
 
-		dissect_smb2_error_data(sub_tvb, pinfo, tree, error_context_count, si);
+		dissect_smb2_error_data(sub_tvb, pinfo, tree, error_context_count, 0, si);
 	}
 
 	return offset;
 }
 
 static int
-dissect_smb2_session_setup_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, smb2_info_t *si _U_)
+dissect_smb2_session_setup_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, smb2_info_t *si)
 {
 	offset_length_buffer_t s_olb;
+	proto_item *hash_item;
+	smb2_saved_info_t *ssi = si->saved;
+
+	si->session = smb2_get_session(si->conv, si->sesid, pinfo, si);
+	if (si->status == 0) {
+		si->session->auth_frame = pinfo->num;
+	}
+
+	/* compute preauth hash on first pass */
+	if (!pinfo->fd->visited && ssi) {
+		ssi->preauth_hash_res = (guint8*)wmem_alloc0(wmem_file_scope(), SMB2_PREAUTH_HASH_SIZE);
+		/*
+		 * Preauth hash can only be used if the session is
+		 * established i.e. last session setup response has a
+		 * success status. As per the specification, the last
+		 * response is NOT hashed.
+		 */
+		if (si->status != 0) {
+			/*
+			 * Not sucessful means either more req/rsp
+			 * processing is required or we reached an
+			 * error, so update hash.
+			 */
+			update_preauth_hash(si->conv->preauth_hash_current, tvb);
+		} else {
+			/*
+			 * Session is established, we can generate the keys
+			 */
+			memcpy(si->session->preauth_hash, si->conv->preauth_hash_current, SMB2_PREAUTH_HASH_SIZE);
+			smb2_generate_decryption_keys(si->conv, si->session);
+		}
+
+		/* In all cases, stash the preauth hash */
+		memcpy(ssi->preauth_hash_res, si->conv->preauth_hash_current, SMB2_PREAUTH_HASH_SIZE);
+	}
+
+	if (ssi && ssi->preauth_hash_res) {
+		hash_item = proto_tree_add_bytes_with_length(tree, hf_smb2_preauth_hash, tvb,
+							     0, tvb_captured_length(tvb),
+							     ssi->preauth_hash_res, SMB2_PREAUTH_HASH_SIZE);
+		proto_item_set_generated(hash_item);
+	}
 
 	/* session_setup is special and we don't use dissect_smb2_error_response() here! */
 
@@ -3292,27 +3606,7 @@ dissect_smb2_session_setup_response(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 		}
 
 		if (ek != NULL) {
-			smb2_sesid_info_t *sesid;
-			guint8 custom_seskey[NTLMSSP_KEY_LEN] = { 0, };
-			const guint8 *session_key;
-
-			sesid = wmem_new(wmem_file_scope(), smb2_sesid_info_t);
-			sesid->sesid = si->sesid;
-			/* TODO: fill in the correct information */
-			sesid->acct_name = NULL;
-			sesid->domain_name = NULL;
-			sesid->host_name = NULL;
-
-			if (seskey_find_sid_key(si->sesid, custom_seskey)) {
-				session_key = custom_seskey;
-			} else {
-				session_key = ek->keyvalue;
-			}
-			smb2_set_session_keys(sesid, session_key);
-			sesid->server_port = pinfo->srcport;
-			sesid->auth_frame = pinfo->num;
-			sesid->tids = g_hash_table_new(smb2_tid_info_hash, smb2_tid_info_equal);
-			g_hash_table_insert(si->conv->sesids, sesid, sesid);
+			/* TODO: fill in the correct user/dom/host information */
 		}
 	}
 #endif
@@ -3380,9 +3674,9 @@ dissect_smb2_tree_connect_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 		smb2_tid_info_t *tid, tid_key;
 
 		tid_key.tid = si->tid;
-		tid = (smb2_tid_info_t *)g_hash_table_lookup(si->session->tids, &tid_key);
+		tid = (smb2_tid_info_t *)wmem_map_lookup(si->session->tids, &tid_key);
 		if (tid) {
-			g_hash_table_remove(si->session->tids, &tid_key);
+			wmem_map_remove(si->session->tids, &tid_key);
 		}
 		tid = wmem_new(wmem_file_scope(), smb2_tid_info_t);
 		tid->tid = si->tid;
@@ -3390,7 +3684,7 @@ dissect_smb2_tree_connect_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 		tid->connect_frame = pinfo->num;
 		tid->share_type = share_type;
 
-		g_hash_table_insert(si->session->tids, tid, tid);
+		wmem_map_insert(si->session->tids, tid, tid);
 
 		si->saved->extra_info_type = SMB2_EI_NONE;
 		si->saved->extra_info = NULL;
@@ -4291,7 +4585,7 @@ dissect_smb2_find_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 	if (si->saved) {
 		/* infolevel */
 		item = proto_tree_add_uint(tree, hf_smb2_find_info_level, tvb, offset, 0, si->saved->infolevel);
-		PROTO_ITEM_SET_GENERATED(item);
+		proto_item_set_generated(item);
 	}
 
 	if (!pinfo->fd->visited && si->saved && si->saved->extra_info_type == SMB2_EI_FINDPATTERN) {
@@ -4390,13 +4684,33 @@ dissect_smb2_negotiate_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 }
 
 static int
-dissect_smb2_negotiate_protocol_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, smb2_info_t *si _U_)
+dissect_smb2_negotiate_protocol_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, smb2_info_t *si)
 {
 	guint16 dc;
 	guint16 i;
 	gboolean supports_smb_3_10 = FALSE;
 	guint32 nco;
 	guint16 ncc;
+	proto_item *hash_item = NULL;
+	smb2_saved_info_t *ssi = si->saved;
+
+	/* compute preauth hash on first pass */
+	if (!pinfo->fd->visited && ssi) {
+		ssi->preauth_hash_req = (guint8*)wmem_alloc0(wmem_file_scope(), SMB2_PREAUTH_HASH_SIZE);
+		memset(si->conv->preauth_hash_ses, 0, SMB2_PREAUTH_HASH_SIZE);
+		memset(si->conv->preauth_hash_con, 0, SMB2_PREAUTH_HASH_SIZE);
+		si->conv->preauth_hash_current = si->conv->preauth_hash_con;
+		update_preauth_hash(si->conv->preauth_hash_current, tvb);
+		memcpy(ssi->preauth_hash_req, si->conv->preauth_hash_current, SMB2_PREAUTH_HASH_SIZE);
+	}
+
+	if (ssi && ssi->preauth_hash_req) {
+		hash_item = proto_tree_add_bytes_with_length(tree,
+							     hf_smb2_preauth_hash, tvb,
+							     0, tvb_captured_length(tvb),
+							     ssi->preauth_hash_req, SMB2_PREAUTH_HASH_SIZE);
+		proto_item_set_generated(hash_item);
+	}
 
 	/* buffer code */
 	offset = dissect_smb2_buffercode(tree, tvb, offset, NULL);
@@ -4469,14 +4783,38 @@ dissect_smb2_negotiate_protocol_request(tvbuff_t *tvb, packet_info *pinfo _U_, p
 }
 
 static int
-dissect_smb2_negotiate_protocol_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, smb2_info_t *si _U_)
+dissect_smb2_negotiate_protocol_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, smb2_info_t *si)
 {
 	offset_length_buffer_t s_olb;
-	guint16 d;
 	guint16 i;
 	guint32 nco;
 	guint16 ncc;
 	gboolean continue_dissection;
+	proto_item *hash_item = NULL;
+	smb2_saved_info_t *ssi = si->saved;
+
+	/* compute preauth hash on first pass */
+	if (!pinfo->fd->visited && ssi) {
+		ssi->preauth_hash_res = (guint8*)wmem_alloc0(wmem_file_scope(), SMB2_PREAUTH_HASH_SIZE);
+		update_preauth_hash(si->conv->preauth_hash_current, tvb);
+		memcpy(ssi->preauth_hash_res, si->conv->preauth_hash_current, SMB2_PREAUTH_HASH_SIZE);
+
+		/*
+		 * All new sessions on this conversation must reuse
+		 * the preauth hash value at the time of the negprot
+		 * response, so we stash it and switch buffers
+		 */
+		memcpy(si->conv->preauth_hash_ses, si->conv->preauth_hash_current, SMB2_PREAUTH_HASH_SIZE);
+		si->conv->preauth_hash_current = si->conv->preauth_hash_ses;
+	}
+
+	if (ssi && ssi->preauth_hash_res) {
+		hash_item = proto_tree_add_bytes_with_length(tree,
+							     hf_smb2_preauth_hash, tvb,
+							     0, tvb_captured_length(tvb),
+							     ssi->preauth_hash_res, SMB2_PREAUTH_HASH_SIZE);
+		proto_item_set_generated(hash_item);
+	}
 
 	switch (si->status) {
 	/* buffer code */
@@ -4490,7 +4828,7 @@ dissect_smb2_negotiate_protocol_response(tvbuff_t *tvb, packet_info *pinfo, prot
 	offset++;
 
 	/* dialect picked */
-	d = tvb_get_letohs(tvb, offset);
+	si->conv->dialect = tvb_get_letohs(tvb, offset);
 	proto_tree_add_item(tree, hf_smb2_dialect, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	offset += 2;
 
@@ -4539,7 +4877,7 @@ dissect_smb2_negotiate_protocol_response(tvbuff_t *tvb, packet_info *pinfo, prot
 
 	offset = dissect_smb2_olb_tvb_max_offset(offset, &s_olb);
 
-	if (d < 0x310) {
+	if (si->conv->dialect < 0x310) {
 		ncc = 0;
 	}
 
@@ -4680,12 +5018,12 @@ dissect_smb2_class_infolevel(packet_info *pinfo, tvbuff_t *tvb, int offset, prot
 	/* class */
 	item = proto_tree_add_uint(tree, hf_smb2_class, tvb, offset, 1, cl);
 	if (si->flags & SMB2_FLAGS_RESPONSE) {
-		PROTO_ITEM_SET_GENERATED(item);
+		proto_item_set_generated(item);
 	}
 	/* infolevel */
 	item = proto_tree_add_uint(tree, hfindex, tvb, offset+1, 1, il);
 	if (si->flags & SMB2_FLAGS_RESPONSE) {
-		PROTO_ITEM_SET_GENERATED(item);
+		proto_item_set_generated(item);
 	}
 	offset += 2;
 
@@ -4961,7 +5299,7 @@ dissect_smb2_infolevel(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
 	if (si->status == 0x80000005) {
 		proto_item *item;
 		item = proto_tree_add_item(tree, hf_smb2_truncated, tvb, old_offset, 0, ENC_NA);
-		PROTO_ITEM_SET_GENERATED(item);
+		proto_item_set_generated(item);
 	}
 	return offset;
 }
@@ -5434,7 +5772,7 @@ dissect_file_data_smb2_pipe(tvbuff_t *raw_tvb, packet_info *pinfo, proto_tree *t
 		proto_item *item;
 		item = proto_tree_add_uint(top_tree, hf_smb2_pipe_reassembled_in,
 					   tvb, 0, 0, fd_head->reassembled_in);
-		PROTO_ITEM_SET_GENERATED(item);
+		proto_item_set_generated(item);
 		goto clean_up_and_exit;
 	}
 
@@ -6058,7 +6396,7 @@ dissect_smb2_FSCTL_STORAGE_QOS_CONTROL(tvbuff_t *tvb, packet_info *pinfo, proto_
 	}
 }
 
-static void
+static int
 dissect_windows_sockaddr_in(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int offset, int len)
 {
 	proto_item *sub_item;
@@ -6066,7 +6404,7 @@ dissect_windows_sockaddr_in(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *p
 	proto_item *parent_item;
 
 	if (len == -1) {
-		len = 16;
+		len = 8;
 	}
 
 	sub_tree = proto_tree_add_subtree(parent_tree, tvb, offset, len, ett_windows_sockaddr, &sub_item, "Socket Address");
@@ -6082,12 +6420,13 @@ dissect_windows_sockaddr_in(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *p
 
 	/* IPv4 address */
 	proto_tree_add_item(sub_tree, hf_windows_sockaddr_in_addr, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-
 	proto_item_append_text(sub_item, ", IPv4: %s", tvb_ip_to_str(tvb, offset));
 	proto_item_append_text(parent_item, ", IPv4: %s", tvb_ip_to_str(tvb, offset));
+	offset += 4;
+	return offset;
 }
 
-static void
+static int
 dissect_windows_sockaddr_in6(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int offset, int len)
 {
 	proto_item        *sub_item;
@@ -6095,7 +6434,7 @@ dissect_windows_sockaddr_in6(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 	proto_item        *parent_item;
 
 	if (len == -1) {
-		len = 16;
+		len = 26;
 	}
 
 	sub_tree = proto_tree_add_subtree(parent_tree, tvb, offset, len, ett_windows_sockaddr, &sub_item, "Socket Address");
@@ -6113,7 +6452,7 @@ dissect_windows_sockaddr_in6(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 	proto_tree_add_item(sub_tree, hf_windows_sockaddr_in6_flowinfo, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	offset += 4;
 
-	/* IPv4 address */
+	/* IPv6 address */
 	proto_tree_add_item(sub_tree, hf_windows_sockaddr_in6_addr, tvb, offset, 16, ENC_NA);
 	proto_item_append_text(sub_item, ", IPv6: %s", tvb_ip6_to_str(tvb, offset));
 	proto_item_append_text(parent_item, ", IPv6: %s", tvb_ip6_to_str(tvb, offset));
@@ -6121,12 +6460,14 @@ dissect_windows_sockaddr_in6(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 
 	/* sin6_scope_id */
 	proto_tree_add_item(sub_tree, hf_windows_sockaddr_in6_scope_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	offset += 2;
+
+	return offset;
 }
 
-static void
-dissect_windows_sockaddr_storage(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int offset)
+static int
+dissect_windows_sockaddr_storage(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int offset, int len)
 {
-	int         len         = 128;
 	proto_item *sub_item;
 	proto_tree *sub_tree;
 	proto_item *parent_item;
@@ -6135,11 +6476,9 @@ dissect_windows_sockaddr_storage(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 	family = tvb_get_letohs(tvb, offset);
 	switch (family) {
 	case WINSOCK_AF_INET:
-		dissect_windows_sockaddr_in(tvb, pinfo, parent_tree, offset, len);
-		return;
+		return dissect_windows_sockaddr_in(tvb, pinfo, parent_tree, offset, len);
 	case WINSOCK_AF_INET6:
-		dissect_windows_sockaddr_in6(tvb, pinfo, parent_tree, offset, len);
-		return;
+		return dissect_windows_sockaddr_in6(tvb, pinfo, parent_tree, offset, len);
 	}
 
 	sub_tree = proto_tree_add_subtree(parent_tree, tvb, offset, len, ett_windows_sockaddr, &sub_item, "Socket Address");
@@ -6149,10 +6488,7 @@ dissect_windows_sockaddr_storage(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 	proto_tree_add_item(sub_tree, hf_windows_sockaddr_family, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	proto_item_append_text(sub_item, ", Family: %d (0x%04x)", family, family);
 	proto_item_append_text(parent_item, ", Family: %d (0x%04x)", family, family);
-	/*offset += 2;*/
-
-	/* unknown */
-	/*offset += 126;*/
+	return offset + len;
 }
 
 #define NETWORK_INTERFACE_CAP_RSS 0x00000001
@@ -6233,7 +6569,7 @@ dissect_smb2_NETWORK_INTERFACE_INFO(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 	offset += 8;
 
 	/* socket address */
-	dissect_windows_sockaddr_storage(tvb, pinfo, sub_tree, offset);
+	dissect_windows_sockaddr_storage(tvb, pinfo, sub_tree, offset, -1);
 
 	if (next_offset) {
 		tvbuff_t *next_tvb;
@@ -6593,23 +6929,77 @@ dissect_smb2_FSCTL_SRV_COPYCHUNK(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
 }
 
 static void
+dissect_smb2_reparse_nfs(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, guint32 length)
+{
+	guint64 type;
+	int symlink_length;
+	const gchar *symlink_target;
+	guint16 bytes_left;
+
+	type = tvb_get_letoh64(tvb, offset);
+	proto_tree_add_item(tree, hf_smb2_nfs_type, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+	offset += 8;
+	bytes_left = length;
+
+	switch (type) {
+	case NFS_SPECFILE_LNK:
+		/*
+		 * According to [MS-FSCC] 2.1.2.6 "length" contains
+		 * the 8-byte type plus the symlink target in Unicode
+		 * non-NULL terminated.
+		 */
+		if (length < 8) {
+			THROW(ReportedBoundsError);
+		}
+		symlink_length = length - 8;
+		symlink_target = get_unicode_or_ascii_string(tvb, &offset, TRUE,
+							     &symlink_length, TRUE,
+							     TRUE, &bytes_left);
+		proto_tree_add_string(tree, hf_smb2_nfs_symlink_target, tvb, offset,
+				      symlink_length, symlink_target);
+		break;
+	case NFS_SPECFILE_CHR:
+		proto_tree_add_item(tree, hf_smb2_nfs_chr_major, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+		proto_tree_add_item(tree, hf_smb2_nfs_chr_minor, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+		break;
+	case NFS_SPECFILE_BLK:
+		proto_tree_add_item(tree, hf_smb2_nfs_blk_major, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+		proto_tree_add_item(tree, hf_smb2_nfs_blk_minor, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+		break;
+	case NFS_SPECFILE_FIFO:
+	case NFS_SPECFILE_SOCK:
+		/* no data */
+		break;
+	}
+}
+
+static void
 dissect_smb2_FSCTL_REPARSE_POINT(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int offset)
 {
 	proto_item *item = NULL;
 	proto_tree *tree = NULL;
 
+	guint32 tag;
+	guint32 length;
 	offset_length_buffer_t  s_olb, p_olb;
 
-	/* SYMBOLIC_LINK_REPARSE_DATA_BUFFER */
+	/* REPARSE_DATA_BUFFER */
 	if (parent_tree) {
-		item = proto_tree_add_item(parent_tree, hf_smb2_SYMBOLIC_LINK_REPARSE_DATA_BUFFER, tvb, offset, -1, ENC_NA);
-		tree = proto_item_add_subtree(item, ett_smb2_SYMBOLIC_LINK_REPARSE_DATA_BUFFER);
+		item = proto_tree_add_item(parent_tree, hf_smb2_reparse_data_buffer, tvb, offset, -1, ENC_NA);
+		tree = proto_item_add_subtree(item, ett_smb2_reparse_data_buffer);
 	}
 
 	/* reparse tag */
+	tag = tvb_get_letohl(tvb, offset);
 	proto_tree_add_item(tree, hf_smb2_reparse_tag, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 	offset += 4;
 
+	/* reparse data length */
+	length = tvb_get_letohs(tvb, offset);
 	proto_tree_add_item(tree, hf_smb2_reparse_data_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	offset += 2;
 
@@ -6617,21 +7007,37 @@ dissect_smb2_FSCTL_REPARSE_POINT(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
 	proto_tree_add_item(tree, hf_smb2_reserved, tvb, offset, 2, ENC_NA);
 	offset += 2;
 
-	/* substitute name  offset/length */
-	offset = dissect_smb2_olb_length_offset(tvb, offset, &s_olb, OLB_O_UINT16_S_UINT16, hf_smb2_symlink_substitute_name);
+	if (!(tag & 0x80000000)) {
+		/* if high bit is not set, this buffer has a GUID field */
+		/* reparse guid */
+		proto_tree_add_item(tree, hf_smb2_reparse_guid, tvb, offset, 16, ENC_NA);
+		offset += 16;
+	}
 
-	/* print name offset/length */
-	offset = dissect_smb2_olb_length_offset(tvb, offset, &p_olb, OLB_O_UINT16_S_UINT16, hf_smb2_symlink_print_name);
+	switch (tag) {
+	case REPARSE_TAG_SYMLINK:
+		/* substitute name  offset/length */
+		offset = dissect_smb2_olb_length_offset(tvb, offset, &s_olb, OLB_O_UINT16_S_UINT16, hf_smb2_symlink_substitute_name);
 
-	/* flags */
-	proto_tree_add_item(tree, hf_smb2_symlink_flags, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-	offset += 4;
+		/* print name offset/length */
+		offset = dissect_smb2_olb_length_offset(tvb, offset, &p_olb, OLB_O_UINT16_S_UINT16, hf_smb2_symlink_print_name);
 
-	/* substitute name string */
-	dissect_smb2_olb_off_string(pinfo, tree, tvb, &s_olb, offset, OLB_TYPE_UNICODE_STRING);
+		/* flags */
+		proto_tree_add_item(tree, hf_smb2_symlink_flags, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
 
-	/* print name string */
-	dissect_smb2_olb_off_string(pinfo, tree, tvb, &p_olb, offset, OLB_TYPE_UNICODE_STRING);
+		/* substitute name string */
+		dissect_smb2_olb_off_string(pinfo, tree, tvb, &s_olb, offset, OLB_TYPE_UNICODE_STRING);
+
+		/* print name string */
+		dissect_smb2_olb_off_string(pinfo, tree, tvb, &p_olb, offset, OLB_TYPE_UNICODE_STRING);
+		break;
+	case REPARSE_TAG_NFS:
+		dissect_smb2_reparse_nfs(tvb, pinfo, tree, offset, length);
+		break;
+	default:
+		proto_tree_add_item(tree, hf_smb2_unknown, tvb, offset, length, ENC_NA);
+	}
 }
 
 static void
@@ -8899,11 +9305,9 @@ dissect_smb2_transform_header(packet_info *pinfo, proto_tree *tree,
 {
 	proto_item        *sesid_item     = NULL;
 	proto_tree        *sesid_tree     = NULL;
-	smb2_sesid_info_t  sesid_key;
 	int                sesid_offset;
 	guint8            *plain_data     = NULL;
 	guint8            *decryption_key = NULL;
-	proto_item        *item;
 
 	static const int *sf_fields[] = {
 		&hf_smb2_encryption_aes128_ccm,
@@ -8944,27 +9348,10 @@ dissect_smb2_transform_header(packet_info *pinfo, proto_tree *tree,
 	offset += 8;
 
 	/* now we need to first lookup the uid session */
-	sesid_key.sesid = sti->sesid;
-	sti->session = (smb2_sesid_info_t *)g_hash_table_lookup(sti->conv->sesids, &sesid_key);
+	sti->session = smb2_get_session(sti->conv, sti->sesid, NULL, NULL);
+	smb2_add_session_info(sesid_tree, tvb, sesid_offset, sti->session);
 
-	if (sti->session != NULL && sti->session->auth_frame != (guint32)-1) {
-		item = proto_tree_add_string(sesid_tree, hf_smb2_acct_name, tvb, sesid_offset, 0, sti->session->acct_name);
-		PROTO_ITEM_SET_GENERATED(item);
-		proto_item_append_text(sesid_item, " Acct:%s", sti->session->acct_name);
-
-		item = proto_tree_add_string(sesid_tree, hf_smb2_domain_name, tvb, sesid_offset, 0, sti->session->domain_name);
-		PROTO_ITEM_SET_GENERATED(item);
-		proto_item_append_text(sesid_item, " Domain:%s", sti->session->domain_name);
-
-		item = proto_tree_add_string(sesid_tree, hf_smb2_host_name, tvb, sesid_offset, 0, sti->session->host_name);
-		PROTO_ITEM_SET_GENERATED(item);
-		proto_item_append_text(sesid_item, " Host:%s", sti->session->host_name);
-
-		item = proto_tree_add_uint(sesid_tree, hf_smb2_auth_frame, tvb, sesid_offset, 0, sti->session->auth_frame);
-		PROTO_ITEM_SET_GENERATED(item);
-	}
-
-	if (sti->session != NULL && sti->alg == ENC_ALG_aes128_ccm) {
+	if (sti->alg == ENC_ALG_aes128_ccm) {
 		if (pinfo->destport == sti->session->server_port) {
 			decryption_key = sti->session->server_decryption_key;
 		} else {
@@ -9100,66 +9487,34 @@ dissect_smb2_tid_sesid(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, 
 	sesid_key.sesid = si->sesid;
 	si->session = (smb2_sesid_info_t *)g_hash_table_lookup(si->conv->sesids, &sesid_key);
 	if (!si->session) {
-		guint8 seskey[NTLMSSP_KEY_LEN] = {0, };
-
-		if (si->opcode != 0x03)
+		if (si->opcode != SMB2_COM_TREE_CONNECT)
 			return offset;
 
-
 		/* if we come to a session that is unknown, and the operation is
-		 * a tree connect, we create a dummy sessison, so we can hang the
+		 * a tree connect, we create a dummy session, so we can hang the
 		 * tree data on it
 		 */
-		si->session = wmem_new0(wmem_file_scope(), smb2_sesid_info_t);
-		si->session->sesid      = si->sesid;
-		si->session->auth_frame = (guint32)-1;
-		si->session->tids       = g_hash_table_new(smb2_tid_info_hash, smb2_tid_info_equal);
-		if (si->flags & SMB2_FLAGS_RESPONSE) {
-			si->session->server_port = pinfo->srcport;
-		} else {
-			si->session->server_port = pinfo->destport;
-		}
-		if (seskey_find_sid_key(si->sesid, seskey)) {
-			smb2_set_session_keys(si->session, seskey);
-		}
-
-		g_hash_table_insert(si->conv->sesids, si->session, si->session);
-
+		si->session = smb2_get_session(si->conv, si->sesid, pinfo, si);
 		return offset;
 	}
 
-	if (si->session->auth_frame != (guint32)-1) {
-		item = proto_tree_add_string(sesid_tree, hf_smb2_acct_name, tvb, sesid_offset, 0, si->session->acct_name);
-		PROTO_ITEM_SET_GENERATED(item);
-		proto_item_append_text(sesid_item, " Acct:%s", si->session->acct_name);
-
-		item = proto_tree_add_string(sesid_tree, hf_smb2_domain_name, tvb, sesid_offset, 0, si->session->domain_name);
-		PROTO_ITEM_SET_GENERATED(item);
-		proto_item_append_text(sesid_item, " Domain:%s", si->session->domain_name);
-
-		item = proto_tree_add_string(sesid_tree, hf_smb2_host_name, tvb, sesid_offset, 0, si->session->host_name);
-		PROTO_ITEM_SET_GENERATED(item);
-		proto_item_append_text(sesid_item, " Host:%s", si->session->host_name);
-
-		item = proto_tree_add_uint(sesid_tree, hf_smb2_auth_frame, tvb, sesid_offset, 0, si->session->auth_frame);
-		PROTO_ITEM_SET_GENERATED(item);
-	}
+	smb2_add_session_info(sesid_tree, tvb, sesid_offset, si->session);
 
 	if (!(si->flags&SMB2_FLAGS_ASYNC_CMD)) {
 		/* see if we can find the name for this tid */
 		tid_key.tid = si->tid;
-		si->tree = (smb2_tid_info_t *)g_hash_table_lookup(si->session->tids, &tid_key);
+		si->tree = (smb2_tid_info_t *)wmem_map_lookup(si->session->tids, &tid_key);
 		if (!si->tree) return offset;
 
 		item = proto_tree_add_string(tid_tree, hf_smb2_tree, tvb, tid_offset, 4, si->tree->name);
-		PROTO_ITEM_SET_GENERATED(item);
+		proto_item_set_generated(item);
 		proto_item_append_text(tid_item, "  %s", si->tree->name);
 
 		item = proto_tree_add_uint(tid_tree, hf_smb2_share_type, tvb, tid_offset, 0, si->tree->share_type);
-		PROTO_ITEM_SET_GENERATED(item);
+		proto_item_set_generated(item);
 
 		item = proto_tree_add_uint(tid_tree, hf_smb2_tcon_frame, tvb, tid_offset, 0, si->tree->connect_frame);
-		PROTO_ITEM_SET_GENERATED(item);
+		proto_item_set_generated(item);
 	}
 
 	return offset;
@@ -9202,7 +9557,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		/* no smb2_into_t structure for this conversation yet,
 		 * create it.
 		 */
-		si->conv = wmem_new(wmem_file_scope(), smb2_conv_info_t);
+		si->conv = wmem_new0(wmem_file_scope(), smb2_conv_info_t);
 		/* qqq this leaks memory for now since we never free
 		   the hashtables */
 		si->conv->matched = g_hash_table_new(smb2_saved_info_hash_matched,
@@ -9214,6 +9569,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		si->conv->fids = g_hash_table_new(smb2_fid_info_hash,
 			smb2_fid_info_equal);
 		si->conv->files = g_hash_table_new(smb2_eo_files_hash,smb2_eo_files_equal);
+		si->conv->preauth_hash_current = si->conv->preauth_hash_con;
 
 		/* Bit of a hack to avoid leaking the hash tables - register a
 		 * callback to free them. Ideally wmem would implement a simple
@@ -9304,7 +9660,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 
 		/* Next Command */
 		chain_offset = tvb_get_letohl(tvb, offset);
-		proto_tree_add_item(header_tree, hf_smb2_chain_offset, tvb, offset, 4, ENC_BIG_ENDIAN);
+		proto_tree_add_item(header_tree, hf_smb2_chain_offset, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 		offset += 4;
 
 		/* Message ID */
@@ -9405,7 +9761,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 				if (ssi->frame_res) {
 					proto_item *tmp_item;
 					tmp_item = proto_tree_add_uint(header_tree, hf_smb2_response_in, tvb, 0, 0, ssi->frame_res);
-					PROTO_ITEM_SET_GENERATED(tmp_item);
+					proto_item_set_generated(tmp_item);
 				}
 			} else {
 				if (ssi->frame_req) {
@@ -9413,12 +9769,12 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 					nstime_t    t, deltat;
 
 					tmp_item = proto_tree_add_uint(header_tree, hf_smb2_response_to, tvb, 0, 0, ssi->frame_req);
-					PROTO_ITEM_SET_GENERATED(tmp_item);
+					proto_item_set_generated(tmp_item);
 					t = pinfo->abs_ts;
 					nstime_delta(&deltat, &t, &ssi->req_time);
 					tmp_item = proto_tree_add_time(header_tree, hf_smb2_time, tvb,
 					0, 0, &deltat);
-					PROTO_ITEM_SET_GENERATED(tmp_item);
+					proto_item_set_generated(tmp_item);
 				}
 			}
 			if (si->file != NULL) {
@@ -9517,6 +9873,11 @@ proto_register_smb2(void)
 		{ &hf_smb2_time,
 			{ "Time from request", "smb2.time", FT_RELATIVE_TIME, BASE_NONE,
 			NULL, 0, "Time between Request and Response for SMB2 cmds", HFILL }
+		},
+
+		{ &hf_smb2_preauth_hash,
+			{ "Preauth Hash", "smb2.preauth_hash", FT_BYTES, BASE_NONE,
+			NULL, 0, "SMB3.1.1 pre-authentication SHA512 hash after hashing the packet", HFILL }
 		},
 
 		{ &hf_smb2_header_len,
@@ -11245,6 +11606,66 @@ proto_register_smb2(void)
 			NULL, 0, NULL, HFILL }
 		},
 
+		{ &hf_smb2_error_context,
+			{ "Error Context", "smb2.error.context", FT_BYTES, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_context_id,
+			{ "Type", "smb2.error.context.id", FT_UINT32, BASE_HEX,
+			VALS(smb2_error_id_vals), 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_context_length,
+			{ "Type", "smb2.error.context.length", FT_UINT32, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_min_buf_length,
+			{ "Minimum required buffer length", "smb2.error.min_buf_length", FT_UINT32, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_redir_context,
+			{ "Share Redirect", "smb2.error.share_redirect", FT_NONE, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_redir_struct_size,
+			{ "Struct Size", "smb2.error.share_redirect.struct_size", FT_UINT32, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_redir_notif_type,
+			{ "Notification Type", "smb2.error.share_redirect.notif_type", FT_UINT32, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_redir_flags,
+			{ "Flags", "smb2.error.share_redirect.flags", FT_UINT16, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_redir_target_type,
+			{ "Target Type", "smb2.error.share_redirect.target_type", FT_UINT16, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_redir_ip_count,
+			{ "IP Addr Count", "smb2.error.share_redirect.ip_count", FT_UINT32, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_redir_ip_list,
+			{ "IP Addr List", "smb2.error.share_redirect.ip_list", FT_NONE, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_error_redir_res_name,
+			{ "Resourse Name", "smb2.error.share_redirect.res_name", FT_STRING, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
 		{ &hf_smb2_reserved,
 			{ "Reserved", "smb2.reserved", FT_BYTES, BASE_NONE,
 			NULL, 0, NULL, HFILL }
@@ -11659,33 +12080,57 @@ proto_register_smb2(void)
 			{ "Total Bytes Written", "smb2.fsctl.cchunk.total_written", FT_UINT32, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }
 		},
-
+		{ &hf_smb2_reparse_tag,
+			{ "Reparse Tag", "smb2.reparse_tag", FT_UINT32, BASE_HEX,
+			VALS(reparse_tag_vals), 0x0, NULL, HFILL }
+		},
+		{ &hf_smb2_reparse_guid,
+			{ "Reparse GUID", "smb2.reparse_guid", FT_NONE, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_smb2_reparse_data_length,
+			{ "Reparse Data Length", "smb2.reparse_data_length", FT_UINT16, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_smb2_reparse_data_buffer,
+			{ "Reparse Data Buffer", "smb2.reparse_data_buffer", FT_NONE, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+		{ &hf_smb2_nfs_type,
+			{ "NFS file type", "smb2.nfs.type", FT_UINT64, BASE_HEX|BASE_VAL64_STRING,
+			VALS64(nfs_type_vals), 0x0, NULL, HFILL }
+		},
+		{ &hf_smb2_nfs_symlink_target,
+			{ "Symlink Target", "smb2.nfs.symlink.target", FT_STRING,
+			BASE_NONE, NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_smb2_nfs_chr_major,
+			{ "Major", "smb2.nfs.char.major", FT_UINT32,
+			BASE_HEX, NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_smb2_nfs_chr_minor,
+			{ "Minor", "smb2.nfs.char.minor", FT_UINT32,
+			BASE_HEX, NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_smb2_nfs_blk_major,
+			{ "Major", "smb2.nfs.block.major", FT_UINT32,
+			BASE_HEX, NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_smb2_nfs_blk_minor,
+			{ "Minor", "smb2.nfs.block.minor", FT_UINT32,
+			BASE_HEX, NULL, 0x0, NULL, HFILL }
+		},
 		{ &hf_smb2_symlink_error_response,
 			{ "Symbolic Link Error Response", "smb2.symlink_error_response", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
-
 		{ &hf_smb2_symlink_length,
 			{ "SymLink Length", "smb2.symlink.length", FT_UINT32,
 			BASE_DEC, NULL, 0x0, NULL, HFILL }
 		},
-
 		{ &hf_smb2_symlink_error_tag,
 			{ "SymLink Error Tag", "smb2.symlink.error_tag", FT_UINT32,
 			BASE_HEX, NULL, 0x0, NULL, HFILL }
-		},
-
-		{ &hf_smb2_SYMBOLIC_LINK_REPARSE_DATA_BUFFER,
-			{ "SYMBOLIC_LINK_REPARSE_DATA_BUFFER", "smb2.SYMBOLIC_LINK_REPARSE_DATA_BUFFER", FT_NONE, BASE_NONE,
-			NULL, 0, NULL, HFILL }
-		},
-		{ &hf_smb2_reparse_tag,
-			{ "Reparse Tag", "smb2.symlink.reparse_tag", FT_UINT32, BASE_HEX,
-			NULL, 0x0, NULL, HFILL }
-		},
-		{ &hf_smb2_reparse_data_length,
-			{ "Reparse Data Length", "smb2.symlink.reparse_data_length", FT_UINT16, BASE_DEC,
-			NULL, 0x0, NULL, HFILL }
 		},
 		{ &hf_smb2_unparsed_path_length,
 			{ "Unparsed Path Length", "smb2.symlink.unparsed_path_length", FT_UINT16, BASE_DEC,
@@ -11803,8 +12248,11 @@ proto_register_smb2(void)
 		&ett_smb2_cchunk_entry,
 		&ett_smb2_fsctl_odx_token,
 		&ett_smb2_symlink_error_response,
-		&ett_smb2_SYMBOLIC_LINK_REPARSE_DATA_BUFFER,
+		&ett_smb2_reparse_data_buffer,
 		&ett_smb2_error_data,
+		&ett_smb2_error_context,
+		&ett_smb2_error_redir_context,
+		&ett_smb2_error_redir_ip_list,
 	};
 
 	static ei_register_info ei[] = {

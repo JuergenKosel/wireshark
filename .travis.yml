@@ -64,8 +64,7 @@ matrix:
         - QT5_BASE_DIR: C:/Qt/5.12.0/msvc2017_64
       cache:
         directories:
-          - $WIRESHARK_BASE_DIR
-          - C:/Qt
+          - travis-cache
     - name: Windows (VS2017 Win32)
       # Set a supported language, otherwise the Windows worker will not start.
       language: shell
@@ -76,17 +75,21 @@ matrix:
         - QT5_BASE_DIR: C:/Qt/5.12.0/msvc2017
       cache:
         directories:
-          - $WIRESHARK_BASE_DIR
-          - C:/Qt
+          - travis-cache
+  # Windows builds are experimental in Travis and are unreliable, do not force it.
+  allow_failures:
+    - os: windows
 before_install:
   - echo $TRAVIS_OS_NAME
   # macos
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then ./tools/macos-setup-brew.sh; fi
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install softhsm; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then sed s/access_bpf/staff/ packaging/macosx/ChmodBPF/ChmodBPF | sudo bash; fi
   # linux
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo ./tools/debian-setup.sh --install-optional --install-test-deps -q; fi
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get install -y python3-pip; fi
   # windows
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then tools/travis-cache-windows.sh restore; fi
   - if [ "$TRAVIS_OS_NAME" == "windows" ]; then cinst -y --no-progress python3 winflexbison strawberryperl; fi
   - |
     if [ "$TRAVIS_OS_NAME" == "windows" ]; then
@@ -98,22 +101,10 @@ before_install:
         [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", ""
       } | Select -Unique | % { cygpath $_ }) -Join ":"')"
       echo "PATH=$PATH"
-      # Workaround broken casher implementation that extracts absolute paths to the current working directory
-      # See https://github.com/travis-ci/casher/pull/38
-      for path in wireshark-libs Qt; do if [ -d "$path" ]; then echo "Restoring C:/$path"; mv "$path/"* "C:/$path"; fi; done
-      # Update checksums to avoid invalidating the cache (saves 2-3mins).
-      if [ -d Qt ]; then md5deep64 -o f -r "C:/wireshark-libs" "C:/Qt" | sort > ~/.casher/md5sums_before; fi
       # Workaround to avoid using perl from git-bash $PATH which lacks modules such as Pod::Usage
       export CMAKE_PROGRAM_PATH=C:/Strawberry/perl/bin
     fi
-  - |
-    if [ "$TRAVIS_OS_NAME" == "windows" ] && [ ! -e "$QT5_BASE_DIR/bin/moc.exe" ]; then
-      curl -vLo ~/qt-unified-windows-x86-online.exe http://download.qt.io/official_releases/online_installers/qt-unified-windows-x86-online.exe
-      if ! ~/qt-unified-windows-x86-online.exe --verbose --script tools/qt-installer-windows.qs > ~/qt-installer-output.txt; then
-        cat ~/qt-installer-output.txt; exit 1
-      fi
-      du -sm "$QT5_BASE_DIR"
-    fi
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then tools/travis-install-qt-windows.sh; fi
   # all platforms
   - pip3 install pytest pytest-xdist
 before_script:
@@ -124,11 +115,18 @@ before_script:
 script:
   # Enable parallelism for msbuild too (since CMake 3.12; ninja does not need it)
   - export CMAKE_BUILD_PARALLEL_LEVEL=0
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then cmake() { ../tools/filter-msbuild.py cmake "$@"; }; fi
   # Invoke ninja (Linux/macOS, --config is ignored) or msbuild (Windows)
   - cmake --build . --config RelWithDebInfo
   - cmake --build . --config RelWithDebInfo --target test-programs
   - if [ "$PCAP" = "OFF" ]; then export PYTEST_ADDOPTS=--skip-missing-programs=dumpcap,rawshark; fi
+  - if [ "$TRAVIS_OS_NAME" == "linux" -a "$PCAP" = "ON" ]; then sudo setcap "CAP_NET_RAW+eip CAP_NET_ADMIN+eip" run/dumpcap; fi
   - pytest
+  - cd ..
+before_cache:
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then tools/travis-cache-windows.sh save; fi
 after_script:
+  - cd build
   - if [ -f run/tshark ]; then run/tshark --version; fi
   - if [ -f run/RelWithDebInfo/tshark.exe ]; then run/RelWithDebInfo/tshark.exe --version; fi
+  - ../test/travis-upload-artifacts.sh

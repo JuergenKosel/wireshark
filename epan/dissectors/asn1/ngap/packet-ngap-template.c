@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.413 v15.2.0 (2018-12)
+ * References: 3GPP TS 38.413 v15.3.0 (2019-03)
  */
 
 #include "config.h"
@@ -34,6 +34,8 @@
 #include "packet-cell_broadcast.h"
 #include "packet-ntp.h"
 #include "packet-gsm_a_common.h"
+#include "packet-http.h"
+#include "packet-ngap.h"
 
 #define PNAME  "NG Application Protocol"
 #define PSNAME "NGAP"
@@ -46,10 +48,13 @@ void proto_register_ngap(void);
 void proto_reg_handoff_ngap(void);
 
 static dissector_handle_t ngap_handle;
+static dissector_handle_t ngap_media_type_handle;
 static dissector_handle_t nas_5gs_handle;
 static dissector_handle_t nr_rrc_ue_radio_paging_info_handle;
 static dissector_handle_t nr_rrc_ue_radio_access_cap_info_handle;
 static dissector_handle_t lte_rrc_ue_radio_paging_info_handle;
+
+static dissector_table_t ngap_n2_sm_dissector_table;
 
 #include "packet-ngap-val.h"
 
@@ -113,6 +118,7 @@ static gint ett_ngap_LastVisitedUTRANCellInformation = -1;
 static gint ett_ngap_LastVisitedGERANCellInformation = -1;
 static gint ett_ngap_NASSecurityParametersFromNGRAN = -1;
 static gint ett_ngap_NASC = -1;
+static gint ett_ngap_EN_DCSONConfigurationTransfer = -1;
 #include "packet-ngap-ett.c"
 
 static expert_field ei_ngap_number_pages_le15 = EI_INIT;
@@ -193,6 +199,7 @@ static int dissect_SuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, pro
 static int dissect_UnsuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *);
 
 static int dissect_InitialUEMessage_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data);
+static int dissect_PDUSessionResourceReleaseResponseTransfer_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
 
 const value_string ngap_serialNumber_gs_vals[] = {
   { 0, "Display mode iamfdiate, cell wide"},
@@ -420,6 +427,22 @@ dissect_ngap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
   return dissect_NGAP_PDU_PDU(tvb, pinfo, ngap_tree, NULL);
 }
 
+/*
+ * 6.1.6.4.3 N2 SM Information
+ * N2 SM Information shall encode NG Application Protocol (NGAP) IEs, as specified in subclause 9.3 of 3GPP TS 38.413 [9] (ASN.1 encoded),
+ * using the vnd.3gpp.ngap content-type.
+ */
+static int
+dissect_ngap_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
+{
+    http_message_info_t *message_info = (http_message_info_t *)data;
+
+    if (! message_info->content_id)
+        return 0;
+
+    return (dissector_try_string(ngap_n2_sm_dissector_table, message_info->content_id, tvb, pinfo, tree, NULL)) ? tvb_captured_length(tvb) : 0;
+}
+
 /*--- proto_reg_handoff_ngap ---------------------------------------*/
 void
 proto_reg_handoff_ngap(void)
@@ -436,6 +459,9 @@ proto_reg_handoff_ngap(void)
     dissector_add_uint("sctp.ppi", NGAP_PROTOCOL_ID,   ngap_handle);
     Initialized=TRUE;
 #include "packet-ngap-dis-tab.c"
+    dissector_add_string("ngap.n2.sm", "PduSessionResourceReleaseCommandTransfer", create_dissector_handle(dissect_PDUSessionResourceReleaseCommandTransfer_PDU, proto_ngap));
+
+    dissector_add_string("media_type", "application/vnd.3gpp.ngap", ngap_media_type_handle);
   } else {
     if (SctpPort != 0) {
       dissector_delete_uint("sctp.port", SctpPort, ngap_handle);
@@ -607,6 +633,7 @@ void proto_register_ngap(void) {
     &ett_ngap_LastVisitedGERANCellInformation,
     &ett_ngap_NASSecurityParametersFromNGRAN,
     &ett_ngap_NASC,
+    &ett_ngap_EN_DCSONConfigurationTransfer,
 #include "packet-ngap-ettarr.c"
   };
 
@@ -627,6 +654,7 @@ void proto_register_ngap(void) {
 
   /* Register dissector */
   ngap_handle = register_dissector("ngap", dissect_ngap, proto_ngap);
+  ngap_media_type_handle = register_dissector("ngap_media_type", dissect_ngap_media_type, proto_ngap);
 
   /* Register dissector tables */
   ngap_ies_dissector_table = register_dissector_table("ngap.ies", "NGAP-PROTOCOL-IES", proto_ngap, FT_UINT32, BASE_DEC);
@@ -636,6 +664,10 @@ void proto_register_ngap(void) {
   ngap_proc_imsg_dissector_table = register_dissector_table("ngap.proc.imsg", "NGAP-ELEMENTARY-PROCEDURE InitiatingMessage", proto_ngap, FT_UINT32, BASE_DEC);
   ngap_proc_sout_dissector_table = register_dissector_table("ngap.proc.sout", "NGAP-ELEMENTARY-PROCEDURE SuccessfulOutcome", proto_ngap, FT_UINT32, BASE_DEC);
   ngap_proc_uout_dissector_table = register_dissector_table("ngap.proc.uout", "NGAP-ELEMENTARY-PROCEDURE UnsuccessfulOutcome", proto_ngap, FT_UINT32, BASE_DEC);
+
+  /* 3GPP TS 29.502 */
+  ngap_n2_sm_dissector_table = register_dissector_table("ngap.n2.sm", "NGAP N2 SM Information table", proto_ngap, FT_STRING, BASE_NONE);
+
 
   /* Register configuration options for ports */
   ngap_module = prefs_register_protocol(proto_ngap, proto_reg_handoff_ngap);

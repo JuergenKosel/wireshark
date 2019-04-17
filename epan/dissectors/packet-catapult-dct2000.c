@@ -1029,6 +1029,15 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
                 if (lte_or_nr == LTE) {
                     protocol_handle = find_dissector("lte_rrc.ul_ccch");
                 }
+                else {
+                    if (tvb_captured_length_remaining(tvb, offset) == 6) {
+                        protocol_handle = find_dissector("nr-rrc.ul.ccch");
+                    }
+                    else {
+                        /* Should be 8 bytes.. */
+                        protocol_handle = find_dissector("nr-rrc.ul.ccch1");
+                    }
+                }
                 break;
 
             default:
@@ -1051,10 +1060,16 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
                 if (lte_or_nr == LTE) {
                     protocol_handle = find_dissector("lte_rrc.dl_ccch");
                 }
+                else {
+                    protocol_handle = find_dissector("nr-rrc.dl.ccch");
+                }
                 break;
             case Channel_PCCH:
                 if (lte_or_nr == LTE) {
                     protocol_handle = find_dissector("lte_rrc.pcch");
+                }
+                else {
+                    protocol_handle = find_dissector("nr-rrc.pcch");
                 }
                 break;
             case Channel_BCCH:
@@ -1069,6 +1084,9 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
                 else {
                     if (lte_or_nr == LTE) {
                         protocol_handle = find_dissector("lte_rrc.bcch_dl_sch");
+                    }
+                    else {
+                        protocol_handle = find_dissector("nr-rrc.bcch.dl.sch");
                     }
                 }
                 break;
@@ -2512,10 +2530,10 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                 /* Add PDCP thread info as generated fields */
                 ti = proto_tree_add_uint(dct2000_tree, hf_catapult_dct2000_lte_ueid, tvb, 0, 0,
                                          pinfo->pseudo_header->dct2000.inner_pseudo_header.pdcp.ueid);
-                PROTO_ITEM_SET_GENERATED(ti);
+                proto_item_set_generated(ti);
                 ti = proto_tree_add_uint(dct2000_tree, hf_catapult_dct2000_lte_drbid, tvb, 0, 0,
                                          pinfo->pseudo_header->dct2000.inner_pseudo_header.pdcp.drbid);
-                PROTO_ITEM_SET_GENERATED(ti);
+                proto_item_set_generated(ti);
             }
 #endif
             break;
@@ -2650,7 +2668,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                 if (strncmp(string, ">> ERR", 6) == 0) {
                     proto_item *error_ti = proto_tree_add_item(dct2000_tree, hf_catapult_dct2000_error_comment, tvb,
                                                                offset, -1, ENC_NA);
-                    PROTO_ITEM_SET_GENERATED(error_ti);
+                    proto_item_set_generated(error_ti);
                     expert_add_info_format(pinfo, string_ti, &ei_catapult_dct2000_error_comment_expert,
                                           "%s", string);
                 }
@@ -2803,7 +2821,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                                                           hf_catapult_dct2000_ipprim_addr_v6,
                                                       tvb, source_addr_offset, source_addr_length,
                                                       ENC_NA);
-                        PROTO_ITEM_SET_HIDDEN(addr_ti);
+                        proto_item_set_hidden(addr_ti);
                     }
                     if (source_port_offset != 0) {
                         proto_item *port_ti;
@@ -2820,7 +2838,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                                                           hf_catapult_dct2000_ipprim_udp_port :
                                                           hf_catapult_dct2000_ipprim_tcp_port,
                                                       tvb, source_port_offset, 2, ENC_BIG_ENDIAN);
-                        PROTO_ITEM_SET_HIDDEN(port_ti);
+                        proto_item_set_hidden(port_ti);
                     }
                     if (dest_addr_offset != 0) {
                         proto_item *addr_ti;
@@ -2843,7 +2861,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                                                           hf_catapult_dct2000_ipprim_addr_v6,
                                                       tvb, dest_addr_offset, dest_addr_length,
                                                       ENC_NA);
-                        PROTO_ITEM_SET_HIDDEN(addr_ti);
+                        proto_item_set_hidden(addr_ti);
                     }
                     if (dest_port_offset != 0) {
                         proto_item *port_ti;
@@ -2860,7 +2878,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                                                           hf_catapult_dct2000_ipprim_udp_port :
                                                           hf_catapult_dct2000_ipprim_tcp_port,
                                                       tvb, dest_port_offset, 2, ENC_BIG_ENDIAN);
-                        PROTO_ITEM_SET_HIDDEN(port_ti);
+                        proto_item_set_hidden(port_ti);
                     }
                     if (conn_id_offset != 0) {
                         proto_tree_add_item(ipprim_tree,
@@ -2952,7 +2970,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                                                           hf_catapult_dct2000_sctpprim_addr_v6,
                                                       tvb, dest_addr_offset, dest_addr_length,
                                                       ENC_NA);
-                        PROTO_ITEM_SET_HIDDEN(addr_ti);
+                        proto_item_set_hidden(addr_ti);
                     }
 
                     if (dest_port_offset != 0) {
@@ -3024,7 +3042,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
             proto_item *ti_local = proto_tree_add_uint(dct2000_tree,
                                                  hf_catapult_dct2000_dissected_length,
                                                  tvb, 0, 0, tvb_reported_length(tvb)-offset);
-            PROTO_ITEM_SET_GENERATED(ti_local);
+            proto_item_set_generated(ti_local);
         }
     }
 

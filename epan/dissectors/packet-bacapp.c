@@ -6960,7 +6960,7 @@ fPresentValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint offset,
             break;
         case BACAPP_PRESENT_VALUE_OCTET_STRING:
             if (lvt > 0)
-                tree_item = proto_tree_add_string(tree, hf_bacapp_present_value_octet_string, tvb, offset, lvt+tag_len, NULL);
+                tree_item = proto_tree_add_item(tree, hf_bacapp_present_value_octet_string, tvb, offset, lvt+tag_len, ENC_NA);
             curr_offset += tag_len + lvt;
             break;
         case BACAPP_PRESENT_VALUE_CHARACTER_STRING:
@@ -8528,7 +8528,7 @@ fAbstractSyntaxNType(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint 
             fSessionKey(tvb, pinfo, tree, offset);
             break;
         case 77: /* object-name */
-            fObjectName(tvb, pinfo, tree, offset);
+            offset = fObjectName(tvb, pinfo, tree, offset);
             break;
         case 79: /* object-type */
         case 96: /* protocol-object-types-supported */
@@ -10476,7 +10476,7 @@ fNotificationParameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gui
             switch (fTagNo(tvb, offset)) {
             case 0:
                 offset += fTagHeaderTree(tvb, pinfo, subtree, offset, &tag_no, &tag_info, &lvt);
-                fPresentValue(tvb, pinfo, tree, offset, BACnetStatusFlags, 0, BACAPP_PRESENT_VALUE_ENUM);
+                offset = fPresentValue(tvb, pinfo, tree, offset, BACnetStatusFlags, 0, BACAPP_PRESENT_VALUE_ENUM);
                 offset += fTagHeaderTree(tvb, pinfo, subtree, offset, &tag_no, &tag_info, &lvt);
                 break;
             case 1:

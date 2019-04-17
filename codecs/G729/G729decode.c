@@ -46,7 +46,7 @@ codec_g729_decode(void *ctx, const void *input, size_t inputSizeBytes, void *out
         size_t *outputSizeBytes)
 {
     bcg729DecoderChannelContextStruct *state = (bcg729DecoderChannelContextStruct *)ctx;
-    guint8 *dataIn = (guint8 *) input;
+    const guint8 *dataIn = (const guint8 *) input;
     gint16 *dataOut = (gint16 *) output;
     size_t i;
 
@@ -63,7 +63,15 @@ codec_g729_decode(void *ctx, const void *input, size_t inputSizeBytes, void *out
        pass to the bcg729 decoder chunks of 10ms (10 bytes)
     */
     for (i = 0; i < (inputSizeBytes/10); i++) {
-        bcg729Decoder(state, dataIn + i*10, 10, 0, 0, 0, dataOut + i*80);
+        /* The bcg729 decoder library fails to declare the second
+           argument to bcg729Decoder() to be a const pointer.  If you
+           fix it, and some other functions, to use const, the library
+           compiles, so presumably it doesn't modify its input and
+           therefore can safely be passed a const pointer.  Cast away
+           the problem for now; a patch will be sent to the maintainers
+           of the library.
+        */
+        bcg729Decoder(state, (guint8 *)dataIn + i*10, 10, 0, 0, 0, dataOut + i*80);
     }
     *outputSizeBytes = 80*2*(inputSizeBytes/10);
     return *outputSizeBytes;

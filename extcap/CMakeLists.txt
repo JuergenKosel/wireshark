@@ -12,8 +12,12 @@ if(EXTCAP_ANDROIDDUMP_LIBPCAP)
 endif()
 
 if(LIBSSH_FOUND)
-	SET(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${LIBSSH_LIBRARIES})
-	CHECK_FUNCTION_EXISTS(ssh_userauth_agent LIBSSH_USERAUTH_AGENT_FOUND)
+	include(CMakePushCheckState)
+	cmake_push_check_state()
+	set(CMAKE_REQUIRED_INCLUDES ${LIBSSH_INCLUDE_DIRS})
+	set(CMAKE_REQUIRED_LIBRARIES ${LIBSSH_LIBRARIES})
+	check_function_exists(ssh_userauth_agent LIBSSH_USERAUTH_AGENT_FOUND)
+	cmake_pop_check_state()
 	if(LIBSSH_USERAUTH_AGENT_FOUND)
 		set(HAVE_SSH_USERAUTH_AGENT 1)
 	endif()
@@ -28,13 +32,16 @@ endif()
 
 
 macro(set_extcap_executable_properties _executable)
-	set_target_properties(${_executable} PROPERTIES FOLDER "Executables/Extcaps")
+	set_target_properties(${_executable} PROPERTIES
+		LINK_FLAGS "${WS_LINK_FLAGS}"
+		FOLDER "Executables/Extcaps"
+		INSTALL_RPATH "${EXTCAP_INSTALL_RPATH}"
+	)
 
 	set(PROGLIST ${PROGLIST} ${_executable})
 
 	if(WIN32)
 		set_target_properties(${_executable} PROPERTIES
-			LINK_FLAGS "${WS_LINK_FLAGS}"
 			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
 			RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/run/Debug/extcap
 			RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/run/Release/extcap
@@ -43,15 +50,8 @@ macro(set_extcap_executable_properties _executable)
 		)
 	else()
 		set_target_properties(${_executable} PROPERTIES
-			LINK_FLAGS "${WS_LINK_FLAGS}"
 			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
 		)
-		if(CMAKE_INSTALL_RPATH MATCHES "\\$ORIGIN")
-			# Use relative path from ${EXTCAP_INSTALL_LIBDIR} to ${CMAKE_INSTALL_LIBDIR}
-			set_target_properties(${_executable} PROPERTIES
-				INSTALL_RPATH "$ORIGIN/../.."
-			)
-		endif()
 		if(ENABLE_APPLICATION_BUNDLE)
 			if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
 				# Xcode
@@ -218,7 +218,6 @@ endif()
 if(BUILD_randpktdump)
 	set(randpktdump_LIBS
 		randpkt_core
-		ui
 		wiretap
 		${GLIB2_LIBRARIES}
 		${ZLIB_LIBRARIES}
@@ -240,7 +239,6 @@ endif()
 
 if(BUILD_sdjournal AND SYSTEMD_FOUND)
 	set(sdjournal_LIBS
-		ui
 		wiretap
 		writecap
 		wsutil
@@ -259,11 +257,8 @@ if(BUILD_sdjournal AND SYSTEMD_FOUND)
 	set_extcap_executable_properties(sdjournal)
 	target_link_libraries(sdjournal ${sdjournal_LIBS})
 	target_include_directories(sdjournal SYSTEM PRIVATE ${SYSTEMD_INCLUDE_DIRS})
-	target_compile_definitions(sdjournal PRIVATE ${SYSTEMD_DEFINITIONS})
 	install(TARGETS sdjournal RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps sdjournal)
-elseif (BUILD_sdjournal)
-	#message( WARNING "Cannot find libsystemd, cannot build sdjournal" )
 endif()
 
 #

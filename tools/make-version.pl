@@ -239,7 +239,7 @@ sub read_repo_info {
 		unlink($tortoise_file);
 	}
 
-	if ($num_commits == 0 and -e "$src_dir/.git") {
+	if (defined $num_commits and $num_commits == 0 and -e "$src_dir/.git") {
 
 		# Try git...
 		eval {
@@ -272,7 +272,7 @@ sub read_repo_info {
 			1;
 			};
 	}
-	if ($num_commits == 0 and -d "$src_dir/.bzr") {
+	if (defined $num_commits and $num_commits == 0 and -d "$src_dir/.bzr") {
 
 		# Try bzr...
 		eval {
@@ -298,9 +298,8 @@ sub read_repo_info {
 	# 'svn info' failed or the user really wants us to dig around in .svn/entries
 	if ($do_hack) {
 		# Start of ugly internal SVN file hack
-		if (! open (ENTRIES, "< $src_dir/.svn/entries")) {
-			print STDERR "Unable to open $src_dir/.svn/entries\n";
-		} else {
+		if (open (ENTRIES, "< $src_dir/.svn/entries")) {
+			print STDERR "Opening $src_dir/.svn/entries\n";
 			$info_source = "Prodding .svn";
 			# We need to find out whether our parser can handle the entries file
 			$line = <ENTRIES>;
@@ -359,10 +358,19 @@ sub read_repo_info {
 	# If we picked up the revision and modification time,
 	# generate our strings.
 	if ($package_string) {
-		if($commit_id){
-			$package_string =~ s/{vcsinfo}/$num_commits-$commit_id/;
-		}else{
-			$package_string =~ s/{vcsinfo}/$num_commits/;
+		if(defined $num_commits){
+			if($commit_id){
+				$package_string =~ s/{vcsinfo}/$num_commits-$commit_id/;
+			}else{
+				$package_string =~ s/{vcsinfo}/$num_commits/;
+			}
+		}
+		else{
+			if($commit_id){
+				$package_string =~ s/{vcsinfo}/-$commit_id/;
+			}else{
+				$package_string =~ s/{vcsinfo}//;
+			}
 		}
 	}
 	$package_string = $release_candidate . $package_string;
@@ -418,14 +426,14 @@ sub update_cmakelists_txt
 	print "$filepath has been updated.\n";
 }
 
-# Read docbook/attributes.asciidoc, then write it back out with an updated
+# Read docbook/attributes.adoc, then write it back out with an updated
 # wireshark-version replacement line.
 sub update_attributes_asciidoc
 {
 	my $line;
 	my $contents = "";
 	my $version = "";
-	my $filepath = "$src_dir/docbook/attributes.asciidoc";
+	my $filepath = "$src_dir/docbook/attributes.adoc";
 
 	open(ADOC_CONF, "< $filepath") || die "Can't read $filepath!";
 	while ($line = <ADOC_CONF>) {
@@ -626,9 +634,9 @@ sub get_version
 
 	close(CFGIN);
 
-	die "Couldn't get major version" if (!$version_major);
-	die "Couldn't get minor version" if (!$version_minor);
-	die "Couldn't get micro version" if (!$version_micro);
+	die "Couldn't get major version" if (!defined($version_major));
+	die "Couldn't get minor version" if (!defined($version_minor));
+	die "Couldn't get micro version" if (!defined($version_micro));
 }
 
 # Read values from the configuration file, if it exists.
@@ -747,7 +755,7 @@ Print the vcs version to standard output
 =item --set-version=<x.y.z>, -v <x.y.z>
 
 Set the major, minor, and micro versions in the top-level
-CMakeLists.txt, configure.ac, docbook/attributes.asciidoc,
+CMakeLists.txt, configure.ac, docbook/attributes.adoc,
 debian/changelog, and the CMakeLists.txt for all libraries
 to the provided version number.
 

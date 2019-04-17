@@ -16,29 +16,28 @@ endif()
 if(POLICY CMP0083)
 	cmake_policy(SET CMP0083 NEW)
 endif()
-project(Wireshark C CXX)
+
+if(WIN32)
+	set(_project_name Wireshark)
+else()
+	set(_project_name wireshark)
+endif()
+
+project(${_project_name} C CXX)
 
 # Updated by tools/make-version.pl
 set(GIT_REVISION 0)
-set(PROJECT_MAJOR_VERSION 2)
-set(PROJECT_MINOR_VERSION 9)
-set(PROJECT_PATCH_VERSION 1)
+set(PROJECT_MAJOR_VERSION 3)
+set(PROJECT_MINOR_VERSION 1)
+set(PROJECT_PATCH_VERSION 0)
 set(PROJECT_BUILD_VERSION ${GIT_REVISION})
 set(PROJECT_VERSION_EXTENSION "")
-set(PROJECT_RELEASE_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}")
 
 if(DEFINED ENV{WIRESHARK_VERSION_EXTRA})
 	set(PROJECT_VERSION_EXTENSION "$ENV{WIRESHARK_VERSION_EXTRA}")
 endif()
 
 set(PROJECT_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}${PROJECT_VERSION_EXTENSION}")
-
-# packaging information
-if(WIN32)
-        set(CPACK_PACKAGE_NAME Wireshark)
-else()
-        set(CPACK_PACKAGE_NAME wireshark)
-endif()
 
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 
@@ -111,6 +110,8 @@ if(WIN32)
 		message(FATAL_ERROR "Windows setup (win-setup.ps1) failed.")
 	endif()
 
+	set(EXTRA_INSTALLER_DIR ${_ws_lib_dir})
+
 	# XXX Add a dependency on ${_ws_lib_dir}/current_tag.txt?
 
 	# Prepopulate some ConfigureChecks values. Compilation checks
@@ -135,24 +136,21 @@ if( NOT CMAKE_BUILD_TYPE )
 		"Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel."
 		FORCE)
 endif()
-message(STATUS "Configuration types: ${CMAKE_CONFIGURATION_TYPES}")
-string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
-message(STATUS "CMAKE_C_FLAGS_${_build_type}: ${CMAKE_C_FLAGS_${_build_type}}")
-message(STATUS "CMAKE_CXX_FLAGS_${_build_type}: ${CMAKE_CXX_FLAGS_${_build_type}}")
+message(STATUS "CMake build type: ${CMAKE_BUILD_TYPE}")
 
 # Ensure that all executables and libraries end up in the same directory. Actual
 # files might end up in a configuration subdirectory, e.g. run/Debug or
 # run/Release. We try to set DATAFILE_DIR to actual location below.
 if(NOT ARCHIVE_OUTPUT_PATH)
-	set(ARCHIVE_OUTPUT_PATH ${Wireshark_BINARY_DIR}/run CACHE INTERNAL
+	set(ARCHIVE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/run CACHE INTERNAL
 		   "Single output directory for building all archives.")
 endif()
 if(NOT EXECUTABLE_OUTPUT_PATH)
-	set(EXECUTABLE_OUTPUT_PATH ${Wireshark_BINARY_DIR}/run CACHE INTERNAL
+	set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/run CACHE INTERNAL
 		   "Single output directory for building all executables.")
 endif()
 if(NOT LIBRARY_OUTPUT_PATH)
-	set(LIBRARY_OUTPUT_PATH ${Wireshark_BINARY_DIR}/run CACHE INTERNAL
+	set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/run CACHE INTERNAL
 		   "Single output directory for building all libraries.")
 endif()
 
@@ -169,18 +167,24 @@ if(WIN32)
 	set(CMAKE_INSTALL_LIBDIR ".")
 	set(CMAKE_INSTALL_INCLUDEDIR "include")
 	set(CMAKE_INSTALL_DATADIR ".")
+	set(CMAKE_INSTALL_DOCDIR ".")
 else()
 	# By default INSTALL_DATADIR is set to INSTALL_DATAROOTDIR, set the
 	# proper value here.
-	set(CMAKE_INSTALL_DATADIR "share/${CPACK_PACKAGE_NAME}"
+	set(CMAKE_INSTALL_DATADIR "share/${PROJECT_NAME}"
 		CACHE PATH "Read-only architecture-independent data"
 	)
 endif()
 include(GNUInstallDirs)
 
+set(PROJECT_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}")
+
 # Make sure our executables can can load our libraries if we install into
 # a non-default directory on Unix-like systems other than macOS.
 # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
+set(LIBRARY_INSTALL_RPATH "")
+set(EXECUTABLE_INSTALL_RPATH "")
+set(EXTCAP_INSTALL_RPATH "")
 if(NOT (WIN32 OR APPLE))
 	# Try to set a RPATH for installed binaries if the library directory is
 	# not already included in the default search list.
@@ -190,16 +194,33 @@ if(NOT (WIN32 OR APPLE))
 		# binaries. In other cases, only absolute paths can be used.
 		# https://www.lekensteyn.nl/rpath.html
 		if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|SunOS|FreeBSD)$")
-			set(ENABLE_RPATH_ORIGIN TRUE CACHE BOOL
+			# Provide a knob to optionally force absolute rpaths,
+			# to support old/buggy systems and as a user preference
+			# for hardening.
+			set(_enable_rpath_origin TRUE)
+			if(BUILD_dumpcap AND PCAP_FOUND)
+				# dumpcap will most likely be installed with
+				# capabilities or setuid. Relative RPATHs that
+				# resolve to non-standard library directories
+				# are ignored for such binaries and since we
+				# cannot achieve relocatable builds, just
+				# disable it by default.
+				set(_enable_rpath_origin FALSE)
+			endif()
+			set(ENABLE_RPATH_ORIGIN ${_enable_rpath_origin} CACHE BOOL
 				"Use $ORIGIN with INSTALL_RPATH")
 			mark_as_advanced(ENABLE_RPATH_ORIGIN)
 		else()
 			set(ENABLE_RPATH_ORIGIN FALSE)
 		endif()
 		if(ENABLE_RPATH_ORIGIN)
-			set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+			set(LIBRARY_INSTALL_RPATH     "$ORIGIN")
+			set(EXECUTABLE_INSTALL_RPATH  "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+			set(EXTCAP_INSTALL_RPATH      "$ORIGIN/../..")
 		else()
-			set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
+			set(LIBRARY_INSTALL_RPATH     "${CMAKE_INSTALL_FULL_LIBDIR}")
+			set(EXECUTABLE_INSTALL_RPATH  "${CMAKE_INSTALL_FULL_LIBDIR}")
+			set(EXTCAP_INSTALL_RPATH      "${CMAKE_INSTALL_FULL_LIBDIR}")
 		endif()
 		# Include non-standard external libraries by default in RPATH.
 		if(NOT DEFINED CMAKE_INSTALL_RPATH_USE_LINK_PATH)
@@ -926,12 +947,44 @@ if(APPLE AND EXISTS /usr/local/opt/gettext)
 	link_directories(/usr/local/opt/gettext/lib)
 endif()
 
+# Resets cache variables if the <PackageName>_LIBRARY has become invalid.
+# Call it before a find_package(<PackageName> ...) invocation that uses
+# find_library(<PackageName>_LIBRARY ...).
+#
+# Usage: reset_find_package(<PackageName> [<extra variables to clear>])
+function(reset_find_package _package_name)
+	set(variables
+		# find_library / find_package
+		${_package_name}_LIBRARY
+		${_package_name}_INCLUDE_DIR
+		# mark_as_advanced
+		${_package_name}_LIBRARIES
+		${_package_name}_INCLUDE_DIRS
+		# Others
+		${_package_name}_DLL_DIR
+		${_package_name}_DLLS
+		${_package_name}_DLL
+		${_package_name}_PDB
+		${ARGN}
+	)
+	if(NOT ${_package_name}_LIBRARY OR EXISTS ${${_package_name}_LIBRARY})
+		# Cache variable is already missing or cache entry is valid.
+		return()
+	endif()
+	message(STATUS "Package ${_package_name} has changed, clearing cache.")
+	foreach(_var IN LISTS variables)
+		unset(${_var} CACHE)
+	endforeach()
+endfunction()
+
 # ws_find_package(<PackageName>
 #             <CMakeOptions.txt boolean variable>
 #             <cmakeconfig.h.in macro definition>
 #             [remaining find_package() arguments])
 macro(ws_find_package _package_name _enable_package _package_cmakedefine)
 	if(${_enable_package})
+		# Clear outdated cache variables if not already.
+		reset_find_package(${_package_name})
 		find_package(${_package_name} ${ARGN})
 		if(${_package_name}_FOUND)
 			set(${_package_cmakedefine} 1)
@@ -942,10 +995,14 @@ endmacro()
 # The minimum package list
 find_package(Git)
 set(GLIB2_MIN_VERSION 2.32.0)
+reset_find_package(GLIB2 GLIB2_MAIN_INCLUDE_DIR GLIB2_INTERNAL_INCLUDE_DIR)
 find_package(GLIB2 REQUIRED)
 include_directories(SYSTEM ${GLIB2_INCLUDE_DIRS})
+reset_find_package(GMODULE2)
 find_package(GMODULE2)
+reset_find_package(GTHREAD2)
 find_package(GTHREAD2 REQUIRED)
+reset_find_package(GCRYPT GCRYPT_ERROR_LIBRARY)
 find_package(GCRYPT "1.4.2" REQUIRED)
 find_package(LEX REQUIRED)
 find_package(YACC REQUIRED)
@@ -1028,6 +1085,7 @@ endif()
 ws_find_package(MaxMindDB BUILD_mmdbresolve HAVE_MAXMINDDB)
 
 # SMI SNMP
+reset_find_package(SMI SMI_SHARE_DIR)
 ws_find_package(SMI ENABLE_SMI HAVE_LIBSMI)
 
 # Support for TLS decryption using RSA private keys.
@@ -1038,37 +1096,9 @@ ws_find_package(KERBEROS ENABLE_KERBEROS HAVE_KERBEROS)
 
 # C Asynchronous resolver
 ws_find_package(CARES ENABLE_CARES HAVE_C_ARES "1.5.0")
-if(NOT CARES_FOUND)
-	message(WARNING "Not using c-ares.")
-	message(WARNING "DNS name resolution for captures will be disabled.")
-endif()
 
 # Zlib compression
-if(ENABLE_ZLIB)
-	if (WIN32)
-		# On Windows we build our own version of zlib, so add the paths
-		set(ZLIB_SRC_DIR "${_PROJECT_LIB_DIR}/zlib-1.2.11-2-ws")
-		set(SKIP_INSTALL_STATIC True)
-		set(SKIP_INSTALL_HEADERS True)
-		set(SKIP_INSTALL_FILES True)
-		set(ZLIB_EXPORTS "WiresharkTargets")
-		add_subdirectory("${ZLIB_SRC_DIR}" "${CMAKE_BINARY_DIR}/zlib")
-		unset(SKIP_INSTALL_STATIC)
-		unset(SKIP_INSTALL_HEADERS)
-		unset(SKIP_INSTALL_FILES)
-		set(ZLIB_INCLUDE_DIR  "${ZLIB_SRC_DIR}" "${CMAKE_BINARY_DIR}/zlib")
-		set(ZLIB_LIBRARY zlib)
-		set(ZLIB_DLL "zlib1.dll")
-		set_target_properties(zlib PROPERTIES FOLDER "Libs/zlib")
-		# Annoyingly zlib also builds some other stuff we aren't interested in
-		set_target_properties(zlibstatic PROPERTIES
-			FOLDER "Libs/zlib"
-			EXCLUDE_FROM_ALL True
-			EXCLUDE_FROM_DEFAULT_BUILD True
-		)
-	endif()
-	ws_find_package(ZLIB ENABLE_ZLIB HAVE_ZLIB)
-endif()
+ws_find_package(ZLIB ENABLE_ZLIB HAVE_ZLIB)
 
 # LZ4 compression
 ws_find_package(LZ4 ENABLE_LZ4 HAVE_LZ4)
@@ -1090,12 +1120,22 @@ ws_find_package(SPANDSP ENABLE_SPANDSP HAVE_SPANDSP)
 
 ws_find_package(BCG729 ENABLE_BCG729 HAVE_BCG729)
 
+# CMake 3.9 and below used 'LIBXML2_LIBRARIES' as the name of the cache entry
+# storing the find_library result. Transfer it to the new cache variable such
+# that reset_find_package can detect and clear outdated cache variables.
+if(DEFINED LIBXML2_LIBRARIES AND NOT DEFINED LIBXML2_LIBRARY)
+	set(LIBXML2_LIBRARY ${LIBXML2_LIBRARIES} CACHE FILEPATH "")
+endif()
+# Call reset_find_package explicitly since variables are in upper case.
+reset_find_package(LIBXML2)
 ws_find_package(LibXml2 ENABLE_LIBXML2 HAVE_LIBXML2)
 if(NOT LIBXML2_FOUND)
-	# The (official) FindLibXml2.cmake file sets this cache variable to a
-	# non-empty value, be sure to clear it when not found.
+	# CMake 3.9 and below used LIBXML2_LIBRARIES as the name of
+	# the cache entry storing the find_library result.
+	# Current CMake (3.13) and below sets LIBXML2_LIBRARIES and LIBXML2_INCLUDE_DIRS
+	# to a non-empty value, be sure to clear it when not found.
 	set(LIBXML2_LIBRARIES "")
-	set(LIBXML2_INCLUDE_DIR "")
+	set(LIBXML2_INCLUDE_DIRS "")
 endif()
 
 # Capabilities
@@ -1107,7 +1147,7 @@ endif()
 # Windows version updates
 ws_find_package(WINSPARKLE ENABLE_WINSPARKLE HAVE_SOFTWARE_UPDATE)
 
-find_package(POD)
+find_package(POD REQUIRED)
 
 find_package(DOXYGEN)
 
@@ -1166,6 +1206,10 @@ if (QT_FOUND)
 			HINTS "${QT_BIN_PATH}"
 			DOC "Path to the windeployqt utility."
 		)
+		if(Qt5Widgets_VERSION VERSION_GREATER "5.5.999")
+			set(QT_WINDEPLOYQT_EXTRA_OPTS --pdb)
+		endif()
+
 	elseif(APPLE)
 		find_program(QT_MACDEPLOYQT_EXECUTABLE macdeployqt
 			HINTS "${QT_BIN_PATH}"
@@ -1252,17 +1296,35 @@ include( UseCheckAPI )
 if (WIN32)
 	set(EXTCAP_INSTALL_LIBDIR "extcap" CACHE INTERNAL "The extcap dir")
 else ()
-	set(EXTCAP_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/${CPACK_PACKAGE_NAME}/extcap" CACHE INTERNAL "The extcap dir")
+	set(EXTCAP_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}/extcap" CACHE INTERNAL "The extcap dir")
+endif()
+
+if(APPLE)
+	#
+	# As https://developer.apple.com/library/archive/technotes/tn2206/_index.html
+	# says,
+	#
+	# "Note that a location where code is expected to reside cannot generally
+	# contain directories full of nested code, because those directories tend
+	# to be interpreted as bundles. So this occasional practice is not
+	# recommended and not officially supported. If you do do this, do not use
+	# periods in the directory names. The code signing machinery interprets
+	# directories with periods in their names as code bundles and will reject
+	# them if they don't conform to the expected code bundle layout."
+	#
+	set(PLUGIN_PATH_ID "${PROJECT_MAJOR_VERSION}-${PROJECT_MINOR_VERSION}")
+else()
+	set(PLUGIN_PATH_ID "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}")
 endif()
 
 # Directory where plugins and Lua dissectors can be found.
 if(WIN32)
 	set(PLUGIN_INSTALL_LIBDIR "plugins" CACHE INTERNAL "The plugin dir")
 else()
-	set(PLUGIN_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/${CPACK_PACKAGE_NAME}/plugins" CACHE INTERNAL "The plugin dir")
+	set(PLUGIN_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}/plugins" CACHE INTERNAL "The plugin dir")
 endif()
-set(PLUGIN_INSTALL_VERSION_LIBDIR "${PLUGIN_INSTALL_LIBDIR}/${PROJECT_RELEASE_VERSION}")
-set(PLUGIN_VERSION_DIR "plugins/${PROJECT_RELEASE_VERSION}")
+set(PLUGIN_INSTALL_VERSION_LIBDIR "${PLUGIN_INSTALL_LIBDIR}/${PLUGIN_PATH_ID}")
+set(PLUGIN_VERSION_DIR "plugins/${PLUGIN_PATH_ID}")
 
 add_subdirectory( capchild )
 add_subdirectory( caputils )
@@ -1353,10 +1415,10 @@ endif()
 
 if(ENABLE_APPLICATION_BUNDLE)
 	if(CMAKE_CFG_INTDIR STREQUAL ".")
-		set(_plugin_dir "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/PlugIns/wireshark/${PROJECT_RELEASE_VERSION}")
+		set(_plugin_dir "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/PlugIns/wireshark/${PLUGIN_PATH_ID}")
 	else()
-	  # Xcode
-		set(_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/PlugIns/wireshark/${PROJECT_RELEASE_VERSION}")
+		# Xcode
+		set(_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/PlugIns/wireshark/${PLUGIN_PATH_ID}")
 	endif()
 elseif(WIN32 AND NOT CMAKE_CFG_INTDIR STREQUAL ".")
 	set(_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/${PLUGIN_VERSION_DIR}")
@@ -1465,10 +1527,35 @@ set_package_properties(NGHTTP2 PROPERTIES
 	URL "https://nghttp2.org"
 	PURPOSE "Header decompression in HTTP2"
 )
+set_package_properties(CARES PROPERTIES
+	DESCRIPTION "Library for asynchronous DNS requests"
+	URL "https://c-ares.haxx.se/"
+	PURPOSE "DNS name resolution for captures"
+)
+set_package_properties(Systemd PROPERTIES
+	URL "https://freedesktop.org/wiki/Software/systemd/"
+	DESCRIPTION "System and Service Manager (libraries)"
+	PURPOSE "Support for systemd journal extcap interface (sdjournal)"
+)
+set_package_properties(NL PROPERTIES
+	URL "https://www.infradead.org/~tgr/libnl/"
+	DESCRIPTION "Libraries for using the Netlink protocol on Linux"
+	PURPOSE "Support for managing wireless 802.11 interfaces"
+)
+set_package_properties(MaxMindDB PROPERTIES
+	URL "https://github.com/maxmind/libmaxminddb"
+	DESCRIPTION "C library for the MaxMind DB file format"
+	PURPOSE "Support for GeoIP lookup"
+)
 
-message(STATUS "C-Flags: ${CMAKE_C_FLAGS}")
-message(STATUS "CXX-Flags: ${CMAKE_CXX_FLAGS}")
-message(STATUS "Warnings as errors: ${WERROR_COMMON_FLAGS}")
+string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
+message(STATUS "C-Flags: ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${_build_type}}")
+message(STATUS "CXX-Flags: ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${_build_type}}")
+if(WERROR_COMMON_FLAGS)
+	message(STATUS "Warnings as errors enabled: ${WERROR_COMMON_FLAGS}")
+else()
+	message(STATUS "Warnings as errors disabled")
+endif()
 
 feature_summary(WHAT ALL)
 
@@ -1529,20 +1616,12 @@ set(INSTALL_DIRS
 	wimaxasncp
 )
 
-# FIXME: The help files are textfified on Windows into the staging dir.
-# The DATAFILE_DIR depends on CMAKE_CFG_INTDIR therefore it cannot be
-# added to an install() command with build systems supporting multiple
-# configurations in the build tree (e.g.: Visual Studio).
-if(NOT WIN32)
-	list(APPEND INSTALL_DIRS help)
-endif()
-
-
 set(INSTALL_FILES
 	cfilters
 	colorfilters
 	dfilters
 	enterprises.tsv
+	ipmap.html
 	manuf
 	pdml2html.xsl
 	services
@@ -1614,13 +1693,11 @@ if(WIN32)
 	# XXX Can (and should) we iterate over these similar to the way
 	# the top-level CMakeLists.txt iterates over the package list?
 
-	# Required DLLs.
-	# The gio, gnutls, png, and other OBS-generated DLLs depend on
-	# zlib1.dll. We compile zlib locally but the Debug configuration
-	# (the default) creates zlibd1.dll.
+	# Required DLLs and their corresponding PDBs.
 	add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			${GLIB2_DLLS} $<$<CONFIG:Debug>:zlib1.dll>
+			${GLIB2_DLLS}
+			${GLIB2_PDBS}
 			"${_dll_output_dir}"
 		WORKING_DIRECTORY "${GLIB2_DLL_DIR}"
 	)
@@ -1655,6 +1732,7 @@ if(WIN32)
 	endif(LUA_FOUND)
 	if (LZ4_FOUND)
 		list (APPEND OPTIONAL_DLLS "${LZ4_DLL_DIR}/${LZ4_DLL}")
+		list (APPEND OPTIONAL_PDBS "${LZ4_DLL_DIR}/${LZ4_PDB}")
 	endif(LZ4_FOUND)
 	if (NGHTTP2_FOUND)
 		list (APPEND OPTIONAL_DLLS "${NGHTTP2_DLL_DIR}/${NGHTTP2_DLL}")
@@ -1669,7 +1747,12 @@ if(WIN32)
 		list (APPEND OPTIONAL_DLLS "${BCG729_DLL_DIR}/${BCG729_DLL}")
 	endif(BCG729_FOUND)
 	if (LIBXML2_FOUND)
-		list (APPEND OPTIONAL_DLLS "${LIBXML2_DLL_DIR}/${LIBXML2_DLL}")
+		foreach( _dll ${LIBXML2_DLLS} )
+			list (APPEND OPTIONAL_DLLS "${LIBXML2_DLL_DIR}/${_dll}")
+		endforeach(_dll)
+		foreach( _pdb ${LIBXML2_PDBS} )
+			list (APPEND OPTIONAL_PDBS "${LIBXML2_DLL_DIR}/${_pdb}")
+		endforeach(_pdb)
 	endif(LIBXML2_FOUND)
 	if (SMI_FOUND)
 		list (APPEND OPTIONAL_DLLS "${SMI_DLL_DIR}/${SMI_DLL}")
@@ -1718,6 +1801,10 @@ if(WIN32)
 	if (WINSPARKLE_FOUND)
 		list (APPEND OPTIONAL_DLLS "${WINSPARKLE_DLL_DIR}/${WINSPARKLE_DLL}")
 	endif(WINSPARKLE_FOUND)
+	if (ZLIB_FOUND)
+		list (APPEND OPTIONAL_DLLS "${ZLIB_DLL_DIR}/${ZLIB_DLL}")
+		list (APPEND OPTIONAL_PDBS "${ZLIB_DLL_DIR}/${ZLIB_PDB}")
+	endif(ZLIB_FOUND)
 
 	# With libs downloaded to c:/wireshark-win64-libs this currently
 	# (early 2018) expands to about 1900 characters.
@@ -1774,12 +1861,6 @@ endif(WIN32)
 # List of extra dependencies for the "copy_data_files" target
 set(copy_data_files_depends)
 
-# glob patterns relative to the source directory that should be copied to
-# ${DATAFILE_DIR} (including directory prefixes)
-set(DATA_FILES_SRC
-	"help/toc"
-)
-
 if(WIN32)
 	foreach(_text_file ${TEXTIFY_FILES})
 		add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/${_text_file}.txt
@@ -1820,45 +1901,6 @@ foreach(_install_file ${INSTALL_FILES})
 	list(APPEND copy_data_files_depends "${_output_file}")
 endforeach()
 
-# faq.txt is handled separately below.
-set(_help_source_files
-	help/capture_filters.txt
-	help/capturing.txt
-	help/display_filters.txt
-	help/getting_started.txt
-	help/overview.txt
-)
-
-if(WIN32)
-	file(TO_NATIVE_PATH "${DATAFILE_DIR}/help" _help_dest_dir)
-	foreach(_help_file IN LISTS _help_source_files)
-		add_custom_command(OUTPUT "${DATAFILE_DIR}/${_help_file}"
-			COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/help"
-			COMMAND ${POWERSHELL_COMMAND} "${CMAKE_SOURCE_DIR}/tools/textify.ps1"
-				-Destination "${_help_dest_dir}"
-				"${CMAKE_SOURCE_DIR}/${_help_file}"
-			DEPENDS
-				"${CMAKE_SOURCE_DIR}/${_help_file}"
-		)
-		list(APPEND copy_data_files_depends "${DATAFILE_DIR}/${_help_file}")
-	endforeach()
-else()
-	list(APPEND DATA_FILES_SRC ${_help_source_files})
-endif(WIN32)
-
-# Create help/faq.txt when missing
-add_custom_command(OUTPUT "${DATAFILE_DIR}/help/faq.txt"
-	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/help"
-	COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/help/faq.py -b > faq.tmp.html
-	COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/html2text.py
-		faq.tmp.html > "${DATAFILE_DIR}/help/faq.txt"
-	COMMAND ${CMAKE_COMMAND} -E remove faq.tmp.html
-	DEPENDS
-		"${CMAKE_SOURCE_DIR}/help/faq.py"
-		"${CMAKE_SOURCE_DIR}/tools/html2text.py"
-)
-list(APPEND copy_data_files_depends "${DATAFILE_DIR}/help/faq.txt")
-
 # Install LUA files in staging directory such that LUA can used when Wireshark
 # is ran from the build directory. For install targets, see
 # epan/wslua/CMakeLists.txt
@@ -1884,8 +1926,10 @@ if(LUA_FOUND AND ENABLE_LUA)
 endif(LUA_FOUND AND ENABLE_LUA)
 # doc/*.html handled elsewhere.
 
+# Glob patterns relative to the source directory that should be copied to
+# ${DATAFILE_DIR} (including directory prefixes)
 # TODO shouldn't this use full (relative) paths instead of glob patterns?
-list(APPEND DATA_FILES_SRC
+set(DATA_FILES_SRC
 	"tpncp/tpncp.dat"
 	"wimaxasncp/*.dtd"
 	"wimaxasncp/*.xml"
@@ -2126,6 +2170,7 @@ if(BUILD_wireshark AND QT_FOUND)
 	set_target_properties(wireshark PROPERTIES
 		LINK_FLAGS "${WS_LINK_FLAGS}"
 		FOLDER "Executables"
+		INSTALL_RPATH "${EXECUTABLE_INSTALL_RPATH}"
 	)
 	if(ENABLE_APPLICATION_BUNDLE OR WIN32)
 		set_target_properties(wireshark PROPERTIES OUTPUT_NAME Wireshark)
@@ -2170,6 +2215,7 @@ if(BUILD_wireshark AND QT_FOUND)
 				$<$<NOT:$<CONFIG:Debug>>:--release>
 				--no-compiler-runtime
 				--verbose 10
+				${QT_WINDEPLOYQT_EXTRA_OPTS}
 				"$<TARGET_FILE:wireshark>"
 		)
 		add_dependencies(copy_qt_dlls wireshark)
@@ -2188,6 +2234,7 @@ macro(set_extra_executable_properties _executable _folder)
 	set_target_properties(${_executable} PROPERTIES
 		LINK_FLAGS "${WILDCARD_OBJ} ${WS_LINK_FLAGS}"
 		FOLDER ${_folder}
+		INSTALL_RPATH "${EXECUTABLE_INSTALL_RPATH}"
 	)
 
 	set(PROGLIST ${PROGLIST} ${_executable})
@@ -2675,8 +2722,8 @@ if(RPMBUILD_EXECUTABLE)
 	if(CCACHE_EXECUTABLE)
 		list(APPEND _rpmbuild_with_args --with ccache)
 	endif()
-	if (BUILD_wireshark)
-		list(APPEND _rpmbuild_with_args --with qt5)
+	if(NOT BUILD_wireshark)
+		list(APPEND _rpmbuild_with_args --without qt5)
 	endif()
 	if (MAXMINDDB_FOUND)
 		list(APPEND _rpmbuild_with_args --with mmdbresolve)
@@ -2713,7 +2760,7 @@ if(RPMBUILD_EXECUTABLE)
 	)
 
 	# XXX Replace with the "dist" target?
-	set(_export_tarball "${CPACK_PACKAGE_NAME}-${VERSION}.tar.xz")
+	set(_export_tarball "${PROJECT_NAME}-${VERSION}.tar.xz")
 	add_custom_command(
 		OUTPUT "${CMAKE_BINARY_DIR}/packaging/rpm/SOURCES/${_export_tarball}"
 		COMMAND ${CMAKE_BINARY_DIR}/packaging/source/git-export-release.sh
@@ -2848,7 +2895,7 @@ set(SHARK_PUBLIC_HEADERS
 )
 
 install(FILES ${SHARK_PUBLIC_HEADERS}
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}
+	DESTINATION ${PROJECT_INSTALL_INCLUDEDIR}
 )
 
 # Install icons and other desktop files for Freedesktop.org-compliant desktops.
@@ -2907,7 +2954,7 @@ if(WIN32)
 	# path (incorrect relative path computation).
 	set(WIRESHARK_INSTALL_CMAKEDIR "cmake")
 else()
-	set(WIRESHARK_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/${CPACK_PACKAGE_NAME}/cmake")
+	set(WIRESHARK_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}/cmake")
 endif()
 
 install(

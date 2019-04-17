@@ -365,9 +365,15 @@ static const value_string ospf_v3_lsa_link_id_vals[] = {
     {0, NULL},
 };
 
+/* OSPFv3 LLS TLV Types */
+#define LLS_V2_EXT_OPT         1
+#define LLS_V2_CRYPTO_OPT      2
+#define LLS_V2_LI_ID_OPT       18
+
 static const value_string lls_tlv_type_vals[] = {
-    {1,                                   "Extended options TLV"         },
-    {2,                                   "Crypto Authentication TLV"    },
+    {LLS_V2_EXT_OPT,                      "Extended options TLV"         },
+    {LLS_V2_CRYPTO_OPT,                   "Crypto Authentication TLV"    },
+    {LLS_V2_LI_ID_OPT,                    "Local Interface ID"           },
     {0,                                   NULL                           }
 };
 
@@ -904,6 +910,7 @@ static int hf_ospf_mpls_interface_mtu = -1;
 static int hf_ospf_v3_lsa_neighbor_interface_id = -1;
 static int hf_ospf_lsa_number_of_links = -1;
 static int hf_ospf_v2_lls_auth_data = -1;
+static int hf_ospf_v2_lls_li_id = -1;
 static int hf_ospf_oif_switching_cap = -1;
 static int hf_ospf_ls_number_of_lsas = -1;
 static int hf_ospf_v3_lls_neighbor = -1;
@@ -1261,7 +1268,7 @@ dissect_ospf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
         hidden_item = proto_tree_add_item(ospf_header_tree,
                                           *hf_ospf_msg_type_array[ospf_msg_type_to_filter(packet_type)],
                                           tvb, 1, 1, ENC_BIG_ENDIAN);
-        PROTO_ITEM_SET_HIDDEN(hidden_item);
+        proto_item_set_hidden(hidden_item);
     }
     proto_tree_add_item(ospf_header_tree, hf_ospf_header_packet_length, tvb, 2, 2, ENC_BIG_ENDIAN);
     proto_tree_add_item(ospf_header_tree, hf_ospf_header_src_router, tvb, 4, 4, ENC_BIG_ENDIAN);
@@ -1461,13 +1468,15 @@ dissect_ospfv2_lls_tlv(tvbuff_t *tvb, int offset, proto_tree *tree)
     proto_tree_add_item(ospf_lls_tlv_tree, hf_ospf_tlv_length, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
 
     switch(type) {
-    case 1:
+    case LLS_V2_EXT_OPT:
         proto_tree_add_bitmask(ospf_lls_tlv_tree, tvb, offset + 4, hf_ospf_lls_ext_options, ett_ospf_lls_ext_options, bf_lls_ext_options, ENC_BIG_ENDIAN);
         break;
-    case 2:
+    case LLS_V2_CRYPTO_OPT:
         proto_tree_add_item(ospf_lls_tlv_tree, hf_ospf_v2_lls_sequence_number, tvb, offset + 4, 4, ENC_BIG_ENDIAN);
         proto_tree_add_item(ospf_lls_tlv_tree, hf_ospf_v2_lls_auth_data, tvb, offset + 8, length - 4, ENC_NA);
         break;
+    case LLS_V2_LI_ID_OPT:
+        proto_tree_add_item(ospf_lls_tlv_tree, hf_ospf_v2_lls_li_id, tvb, offset + 4, 4, ENC_NA);
     }
 
     return offset + length + 4;
@@ -2027,7 +2036,7 @@ dissect_ospf_lsa_mpls(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree 
                              ett_ospf_lsa_mpls, NULL, "MPLS Traffic Engineering LSA");
     hidden_item = proto_tree_add_item(tree, hf_ospf_ls_mpls,
                                       tvb, offset, 2, ENC_BIG_ENDIAN);
-    PROTO_ITEM_SET_HIDDEN(hidden_item);
+    proto_item_set_hidden(hidden_item);
 
     while (length != 0) {
         tlv_type = tvb_get_ntohs(tvb, offset);
@@ -3183,7 +3192,7 @@ dissect_ospf_v2_lsa(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *t
         hidden_item = proto_tree_add_item(ospf_lsa_tree,
                                           *hf_ospf_ls_type_array[ospf_ls_type_to_filter(ls_type)], tvb,
                                           offset + 3, 1, ENC_BIG_ENDIAN);
-        PROTO_ITEM_SET_HIDDEN(hidden_item);
+        proto_item_set_hidden(hidden_item);
     }
 
     if (options & OSPF_V2_OPTIONS_MT) {
@@ -3441,7 +3450,7 @@ dissect_ospf_v3_lsa(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *t
         hidden_item = proto_tree_add_item(ospf_lsa_tree,
                                           *hf_ospf_v3_ls_type_array[ospf_v3_ls_type_to_filter(ls_type)], tvb,
                                           offset + 2, 2, ENC_BIG_ENDIAN);
-        PROTO_ITEM_SET_HIDDEN(hidden_item);
+        proto_item_set_hidden(hidden_item);
     }
 
     proto_tree_add_item(ospf_lsa_tree, hf_ospf_link_state_id, tvb, offset + 4, 4, ENC_BIG_ENDIAN);
@@ -4470,6 +4479,9 @@ proto_register_ospf(void)
            NULL, 0x0, NULL, HFILL }},
         {&hf_ospf_v3_lls_fsf_tlv,
          { "Full State For TLV", "ospf.v3.lls.fsf.tlv", FT_NONE, BASE_NONE,
+           NULL, 0x0, NULL, HFILL }},
+        {&hf_ospf_v2_lls_li_id,
+         { "Local Interface ID", "ospf.v3.lls.ll_id", FT_BYTES, BASE_NONE,
            NULL, 0x0, NULL, HFILL }},
       /* Generated from convert_proto_tree_add_text.pl */
       { &hf_ospf_v2_lls_sequence_number, { "Sequence number", "ospf.v2.lls.sequence_number", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL }},

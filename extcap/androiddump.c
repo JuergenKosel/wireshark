@@ -20,6 +20,7 @@
 #include <time.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/filesystem.h>
+#include <wsutil/privileges.h>
 #include <ui/cmdarg_err.h>
 #include <wsutil/inet_addr.h>
 
@@ -942,7 +943,7 @@ static int add_tcpdump_interfaces(extcap_parameters * extcap_conf, const char *a
     }
     response[data_length] = '\0';
 
-    regex = g_regex_new(regex_ifaces, (GRegexCompileFlags)0, (GRegexMatchFlags)0, &err);
+    regex = g_regex_new(regex_ifaces, G_REGEX_RAW, (GRegexMatchFlags)0, &err);
     if (!regex) {
         g_warning("Failed to compile regex for tcpdump interface matching");
         return EXIT_CODE_GENERIC;
@@ -2325,7 +2326,7 @@ static int capture_android_tcpdump(char *interface, char *fifo,
     GMatchInfo                              *match = NULL;
     char                                     tcpdump_cmd[80];
 
-    regex = g_regex_new(regex_interface, (GRegexCompileFlags)0, (GRegexMatchFlags)0, &err);
+    regex = g_regex_new(regex_interface, G_REGEX_RAW, (GRegexMatchFlags)0, &err);
     if (!regex) {
         g_warning("Failed to compile regex for tcpdump interface");
         return EXIT_CODE_GENERIC;
@@ -2481,6 +2482,7 @@ static int capture_android_tcpdump(char *interface, char *fifo,
 }
 
 int main(int argc, char *argv[]) {
+    char            *init_progfile_dir_error;
     int              ret = EXIT_CODE_GENERIC;
     int              option_idx = 0;
     int              result;
@@ -2510,6 +2512,22 @@ int main(int argc, char *argv[]) {
 #endif  /* _WIN32 */
 
     cmdarg_err_init(failure_warning_message, failure_warning_message);
+
+    /*
+     * Get credential information for later use.
+     */
+    init_process_policies();
+
+    /*
+     * Attempt to get the pathname of the directory containing the
+     * executable file.
+     */
+    init_progfile_dir_error = init_progfile_dir(argv[0]);
+    if (init_progfile_dir_error != NULL) {
+        g_warning("Can't get pathname of directory containing the captype program: %s.",
+                  init_progfile_dir_error);
+        g_free(init_progfile_dir_error);
+    }
 
     extcap_conf = g_new0(extcap_parameters, 1);
 
@@ -2611,7 +2629,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
-            if (g_regex_match_simple("(^|\\s)-[bBcDfgLnpPrv]", optarg, (GRegexCompileFlags)0, (GRegexMatchFlags)0)) {
+            if (g_regex_match_simple("(^|\\s)-[bBcDfgLnpPrv]", optarg, G_REGEX_RAW, (GRegexMatchFlags)0)) {
                 g_error("Found prohibited option in logcat-custom-options");
                 return EXIT_CODE_GENERIC;
             }

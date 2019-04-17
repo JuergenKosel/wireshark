@@ -22,6 +22,9 @@
 void proto_register_netlink_nl80211(void);
 void proto_reg_handoff_netlink_nl80211(void);
 
+static dissector_handle_t ieee80211_handle;
+static dissector_table_t ieee80211_tag_dissector_table;
+
 #define NETLINK_NL80211_HFI_INIT HFI_INIT(proto_netlink_generic)
 
 /* Extracted using tools/generate-nl80211-fields.py */
@@ -2477,6 +2480,8 @@ static dissector_handle_t netlink_nl80211_handle;
 static header_field_info *hfi_netlink_nl80211 = NULL;
 
 static gint ett_nl80211 = -1;
+static gint ett_nl80211_frame = -1;
+static gint ett_nl80211_tag = -1;
 
 static header_field_info hfi_nl80211_attr_value NETLINK_NL80211_HFI_INIT =
     { "Attribute Value", "nl80211.attr_value", FT_BYTES, BASE_NONE,
@@ -2490,12 +2495,28 @@ static header_field_info hfi_nl80211_attr_value32 NETLINK_NL80211_HFI_INIT =
     { "Attribute Value", "nl80211.attr_value32", FT_UINT32, BASE_HEX_DEC,
       NULL, 0x00, NULL, HFILL };
 
+static header_field_info hfi_nl80211_attr_value64 NETLINK_NL80211_HFI_INIT =
+    { "Attribute Value", "nl80211.attr_value64", FT_UINT64, BASE_HEX_DEC,
+      NULL, 0x00, NULL, HFILL };
+
+static header_field_info hfi_nl80211_wiphy_name NETLINK_NL80211_HFI_INIT =
+    { "Wiphy Name", "nl80211.wiphy_name", FT_STRINGZ, STR_ASCII,
+      NULL, 0x00, NULL, HFILL };
+
 static header_field_info hfi_nl80211_ifname NETLINK_NL80211_HFI_INIT =
     { "Interface Name", "nl80211.ifname", FT_STRINGZ, STR_ASCII,
       NULL, 0x00, NULL, HFILL };
 
 static header_field_info hfi_nl80211_mac NETLINK_NL80211_HFI_INIT =
     { "MAC address", "nl80211.mac", FT_ETHER, BASE_NONE,
+      NULL, 0x00, NULL, HFILL };
+
+static header_field_info hfi_nl80211_alpha2 NETLINK_NL80211_HFI_INIT =
+    { "Alpha2", "nl80211.alpha2", FT_STRINGZ, STR_ASCII,
+      NULL, 0x00, NULL, HFILL };
+
+static header_field_info hfi_nl80211_dbm NETLINK_NL80211_HFI_INIT =
+    { "dBm", "nl80211.dbm", FT_INT32, BASE_DEC,
       NULL, 0x00, NULL, HFILL };
 
 static int
@@ -2512,6 +2533,8 @@ dissect_nl80211_generic(tvbuff_t *tvb, void *data, proto_tree *tree, _U_ int nla
             proto_tree_add_item(tree, &hfi_nl80211_attr_value16, tvb, offset, len, genl_info->encoding);
         } else if (len == 4) {
             proto_tree_add_item(tree, &hfi_nl80211_attr_value32, tvb, offset, len, genl_info->encoding);
+        } else if (len == 8) {
+            proto_tree_add_item(tree, &hfi_nl80211_attr_value64, tvb, offset, len, genl_info->encoding);
         } else {
             proto_tree_add_item(tree, &hfi_nl80211_attr_value, tvb, offset, len, genl_info->encoding);
         }
@@ -2576,6 +2599,17 @@ dissect_value(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int off
 }
 
 static packet_info *m_pinfo = NULL; /* TODO find a better way to pass pinfo to functions */
+
+static int
+dissect_tag(tvbuff_t *tvb, proto_tree *tree _U_, int offset, int len, guint8 tag)
+{
+    proto_item *item;
+    ieee80211_tagged_field_data_t field_data = { 0 };
+    tvbuff_t *next_tvb = tvb_new_subset_length(tvb, offset, len);
+    proto_tree *subtree = proto_tree_add_subtree(tree, next_tvb, 0, -1, ett_nl80211_tag, &item, "Attribute Value");
+    dissector_try_uint_new(ieee80211_tag_dissector_table, tag, next_tvb, m_pinfo, subtree, FALSE, &field_data);
+    return offset +  len;
+}
 
 static int
 dissect_information_elements(tvbuff_t *tvb, proto_tree *tree, int offset, int len)
@@ -2715,7 +2749,16 @@ dissect_nl80211_sta_info(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_ty
         offset = dissect_nested_attr_array(tvb, data, tree, nla_type, offset, len, nested_arr);
     }
     if (offset < offset_end) {
+        genl_info_t *genl_info = (genl_info_t *)data;
         switch (type) {
+        case WS_NL80211_STA_INFO_SIGNAL:
+        case WS_NL80211_STA_INFO_SIGNAL_AVG:
+        case WS_NL80211_STA_INFO_BEACON_SIGNAL_AVG:
+        case WS_NL80211_STA_INFO_ACK_SIGNAL:
+        case WS_NL80211_STA_INFO_ACK_SIGNAL_AVG:
+            proto_tree_add_item(tree, &hfi_nl80211_dbm, tvb, offset, len, genl_info->encoding);
+            offset += len;
+            break;
         default:
             offset = dissect_nl80211_generic(tvb, data, tree, nla_type, offset, len);
             break;
@@ -2765,12 +2808,14 @@ dissect_nl80211_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type,
     };
     static const struct attr_lookup values[] = {
         { WS_NL80211_ATTR_CHANNEL_WIDTH, &hfi_nl80211_chan_width, NULL, NULL },
+        { WS_NL80211_ATTR_WIPHY_NAME, &hfi_nl80211_wiphy_name, NULL, NULL },
         { WS_NL80211_ATTR_WIPHY_CHANNEL_TYPE, &hfi_nl80211_channel_type, NULL, NULL },
         { WS_NL80211_ATTR_IFNAME, &hfi_nl80211_ifname, NULL, NULL },
         { WS_NL80211_ATTR_IFTYPE, &hfi_nl80211_iftype, NULL, NULL },
         { WS_NL80211_ATTR_MAC, &hfi_nl80211_mac, NULL, NULL },
         { WS_NL80211_ATTR_STA_PLINK_ACTION, &hfi_plink_actions, NULL, NULL },
         { WS_NL80211_ATTR_MPATH_INFO, &hfi_nl80211_mpath_info, NULL, NULL },
+        { WS_NL80211_ATTR_REG_ALPHA2, &hfi_nl80211_alpha2, NULL, NULL },
         { WS_NL80211_ATTR_REG_INITIATOR, &hfi_nl80211_reg_initiator, NULL, NULL },
         { WS_NL80211_ATTR_REG_TYPE, &hfi_nl80211_reg_type, NULL, NULL },
         { WS_NL80211_ATTR_AUTH_TYPE, &hfi_nl80211_auth_type, NULL, NULL },
@@ -2781,6 +2826,7 @@ dissect_nl80211_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type,
         { WS_NL80211_ATTR_STA_PLINK_STATE, &hfi_nl80211_plink_state, NULL, NULL },
         { WS_NL80211_ATTR_TDLS_OPERATION, &hfi_nl80211_tdls_operation, NULL, NULL },
         { WS_NL80211_ATTR_DFS_REGION, &hfi_nl80211_dfs_regions, NULL, NULL },
+        { WS_NL80211_ATTR_RX_SIGNAL_DBM, &hfi_nl80211_dbm, NULL, NULL},
         { WS_NL80211_ATTR_USER_REG_HINT_TYPE, &hfi_nl80211_user_reg_hint_type, NULL, NULL },
         { WS_NL80211_ATTR_CONN_FAILED_REASON, &hfi_nl80211_connect_failed_reason, NULL, NULL },
         { WS_NL80211_ATTR_LOCAL_MESH_POWER_MODE, &hfi_nl80211_mesh_power_mode, NULL, NULL },
@@ -2805,17 +2851,30 @@ dissect_nl80211_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type,
         offset = dissect_value(tvb, data, tree, nla_type, offset, len, values);
     }
     if (offset < offset_end) {
+        tvbuff_t *next_tvb;
+        proto_tree *subtree;
+        proto_item *item;
+
         switch (type) {
-        case WS_NL80211_ATTR_HT_CAPABILITY:
         case WS_NL80211_ATTR_IE:
         case WS_NL80211_ATTR_REQ_IE:
         case WS_NL80211_ATTR_RESP_IE:
         case WS_NL80211_ATTR_IE_PROBE_RESP:
         case WS_NL80211_ATTR_IE_ASSOC_RESP:
-        case WS_NL80211_ATTR_VHT_CAPABILITY:
         case WS_NL80211_ATTR_CSA_IES:
-        case WS_NL80211_ATTR_HE_CAPABILITY:
             offset = dissect_information_elements(tvb, tree, offset, len);
+            break;
+        case WS_NL80211_ATTR_HT_CAPABILITY:
+            offset = dissect_tag(tvb, tree, offset, len, 45 /* TAG_HT_CAPABILITY */);
+            break;
+        case WS_NL80211_ATTR_VHT_CAPABILITY:
+            offset = dissect_tag(tvb, tree, offset, len, 191 /* TAG_VHT_CAPABILITY */);
+            break;
+        case WS_NL80211_ATTR_FRAME:
+            next_tvb = tvb_new_subset_length(tvb, offset, len);
+            subtree = proto_tree_add_subtree(tree, next_tvb, 0, -1, ett_nl80211_frame,
+                                             &item, "Attribute Value");
+            call_dissector(ieee80211_handle, next_tvb, m_pinfo, subtree);
             break;
         /* TODO add more fields here? */
         default:
@@ -2858,8 +2917,12 @@ proto_register_netlink_nl80211(void)
         &hfi_nl80211_attr_value,
         &hfi_nl80211_attr_value16,
         &hfi_nl80211_attr_value32,
+        &hfi_nl80211_attr_value64,
+        &hfi_nl80211_wiphy_name,
         &hfi_nl80211_ifname,
         &hfi_nl80211_mac,
+        &hfi_nl80211_alpha2,
+        &hfi_nl80211_dbm,
 /* Extracted using tools/generate-nl80211-fields.py */
 /* Definitions from linux/nl80211.h {{{ */
         &hfi_nl80211_commands,
@@ -2929,6 +2992,8 @@ proto_register_netlink_nl80211(void)
 
     static gint *ett[] = {
         &ett_nl80211,
+        &ett_nl80211_frame,
+        &ett_nl80211_tag,
 /* Extracted using tools/generate-nl80211-fields.py */
 /* Definitions from linux/nl80211.h {{{ */
         &ett_nl80211_commands,
@@ -3002,6 +3067,8 @@ proto_register_netlink_nl80211(void)
     proto_register_subtree_array(ett, array_length(ett));
 
     netlink_nl80211_handle = create_dissector_handle(dissect_netlink_nl80211, proto_netlink_nl80211);
+    ieee80211_handle = find_dissector_add_dependency("wlan", proto_netlink_nl80211);
+    ieee80211_tag_dissector_table = find_dissector_table("wlan.tag.number");
 }
 
 void

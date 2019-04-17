@@ -16,6 +16,7 @@
 #include <wsutil/interface.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/filesystem.h>
+#include <wsutil/privileges.h>
 #include <extcap/ssh-base.h>
 #include <writecap/pcapio.h>
 
@@ -191,7 +192,7 @@ static int parse_line(char* packet, unsigned* offset, char* line, int status)
 	/* we got the packet header                                    */
 	/* The packet header is a line like:                           */
 	/* 16:09:37.171 ITA Mar 18 2016 : IPv4 LES CEF    : Gi0/1 None */
-	if (g_regex_match_simple("^\\d{2}:\\d{2}:\\d{2}.\\d+ .*", line, G_REGEX_CASELESS, G_REGEX_MATCH_ANCHORED)) {
+	if (g_regex_match_simple("^\\d{2}:\\d{2}:\\d{2}.\\d+ .*", line, (GRegexCompileFlags) (G_REGEX_CASELESS | G_REGEX_RAW), G_REGEX_MATCH_ANCHORED)) {
 		return CISCODUMP_PARSER_IN_HEADER;
 	}
 
@@ -517,6 +518,7 @@ static int list_config(char *interface, unsigned int remote_port)
 
 int main(int argc, char *argv[])
 {
+	char* init_progfile_dir_error;
 	int result;
 	int option_idx = 0;
 	ssh_params_t* ssh_params = ssh_params_new();
@@ -531,6 +533,22 @@ int main(int argc, char *argv[])
 #ifdef _WIN32
 	WSADATA wsaData;
 #endif  /* _WIN32 */
+
+	/*
+	 * Get credential information for later use.
+	 */
+	init_process_policies();
+
+	/*
+	 * Attempt to get the pathname of the directory containing the
+	 * executable file.
+	 */
+	init_progfile_dir_error = init_progfile_dir(argv[0]);
+	if (init_progfile_dir_error != NULL) {
+		g_warning("Can't get pathname of directory containing the captype program: %s.",
+			init_progfile_dir_error);
+		g_free(init_progfile_dir_error);
+	}
 
 	help_url = data_file_url("ciscodump.html");
 	extcap_base_set_util_info(extcap_conf, argv[0], CISCODUMP_VERSION_MAJOR, CISCODUMP_VERSION_MINOR,

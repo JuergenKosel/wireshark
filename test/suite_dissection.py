@@ -87,3 +87,62 @@ class case_dissect_tcp(subprocesstest.SubprocessTestCase):
                 '-Y', 'dns', '-Tfields', '-edns.qry.name',
             ))
         self.assertEqual(proc.stdout_str.strip(), 'example.com')
+
+    def test_tcp_out_of_order_first_gap(self, cmd_tshark, capture_file):
+        '''
+        Test reporting of "reassembled_in" in the OoO frame that contains the
+        initial segment (Bug 15420). Additionally, test for proper reporting
+        when the initial segment is retransmitted.
+        For PDU H123 (where H is the HTTP Request header and 1, 2 and 3 are part
+        of the body), the order is: (SYN) 2 H H 1 3 H.
+        '''
+        proc = self.assertRun((cmd_tshark,
+            '-r', capture_file('http-ooo2.pcap'),
+            '-otcp.reassemble_out_of_order:TRUE',
+            '-Tfields',
+            '-eframe.number', '-etcp.reassembled_in', '-e_ws.col.Info',
+            '-2',
+            ))
+        lines = proc.stdout_str.replace('\r', '').split('\n')
+        # 2 - start of OoO MSP
+        self.assertIn('2\t6\t[TCP Previous segment not captured]', lines[1])
+        self.assertIn('[TCP segment of a reassembled PDU]', lines[1])
+        # H - first time that the start of the MSP is delivered
+        self.assertIn('3\t6\t[TCP Out-Of-Order]', lines[2])
+        self.assertIn('[TCP segment of a reassembled PDU]', lines[2])
+        # H - first retransmission.
+        self.assertIn('4\t\t', lines[3])
+        self.assertNotIn('[TCP segment of a reassembled PDU]', lines[3])
+        # 1 - continue reassembly
+        self.assertIn('5\t6\t[TCP Out-Of-Order]', lines[4])
+        self.assertIn('[TCP segment of a reassembled PDU]', lines[4])
+        # 3 - finish reassembly
+        self.assertIn('6\t\tPUT /0 HTTP/1.1', lines[5])
+        # H - second retransmission.
+        self.assertIn('7\t\t', lines[6])
+        self.assertNotIn('[TCP segment of a reassembled PDU]', lines[6])
+
+    def test_tcp_reassembly_more_data_1(self, cmd_tshark, capture_file):
+        '''
+        Tests that reassembly also works when a new packet begins at the same
+        sequence number as the initial segment. This models behavior with the
+        ZeroWindowProbe: the initial segment contains a single byte. The second
+        segment contains that byte, plus the remainder.
+        '''
+        proc = self.assertRun((cmd_tshark,
+            '-r', capture_file('retrans-tls.pcap'),
+            '-Ytls', '-Tfields', '-eframe.number', '-etls.record.length',))
+        output = proc.stdout_str.replace('\r', '')
+        # First pass dissection actually accepted the first frame as TLS, but
+        # subsequently requested reassembly.
+        self.assertEqual(output, '1\t\n2\t16\n')
+
+    def test_tcp_reassembly_more_data_2(self, cmd_tshark, capture_file):
+        '''
+        Like test_tcp_reassembly_more_data_1, but checks the second pass (-2).
+        '''
+        proc = self.assertRun((cmd_tshark,
+            '-r', capture_file('retrans-tls.pcap'),
+            '-Ytls', '-Tfields', '-eframe.number', '-etls.record.length', '-2'))
+        output = proc.stdout_str.replace('\r', '')
+        self.assertEqual(output, '2\t16\n')

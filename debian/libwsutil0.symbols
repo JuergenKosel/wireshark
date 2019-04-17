@@ -102,6 +102,7 @@ libwsutil.so.0 libwsutil0 #MINVER#
  json_dumper_finish@Base 2.9.0
  json_dumper_set_member_name@Base 2.9.0
  json_dumper_value_anyf@Base 2.9.0
+ json_dumper_value_double@Base 3.0.0
  json_dumper_value_string@Base 2.9.0
  json_dumper_value_va_list@Base 2.9.1
  json_dumper_write_base64@Base 2.9.1
@@ -129,6 +130,8 @@ libwsutil.so.0 libwsutil0 #MINVER#
  nstime_sum@Base 1.12.0~rc1
  nstime_to_msec@Base 1.12.0~rc1
  nstime_to_sec@Base 1.12.0~rc1
+ please_report_bug@Base 3.1.0
+ please_report_bug_short@Base 3.1.0
  plugins_cleanup@Base 2.3.0
  plugins_dump_all@Base 1.12.0~rc1
  plugins_get_count@Base 2.5.0
@@ -178,6 +181,7 @@ libwsutil.so.0 libwsutil0 #MINVER#
  ws_buffer_free@Base 1.99.0
  ws_buffer_init@Base 1.99.0
  ws_buffer_remove_start@Base 1.99.0
+ ws_cmac_buffer@Base 3.1.0
  ws_buffer_cleanup@Base 2.3.0
  ws_hexstrtou16@Base 2.3.0
  ws_hexstrtou32@Base 2.3.0

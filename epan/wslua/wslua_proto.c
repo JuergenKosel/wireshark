@@ -618,9 +618,11 @@ int wslua_deregister_protocols(lua_State* L) {
         if (proto->prefs_module) {
             Pref pref;
             prefs_deregister_protocol(proto->hfid);
+            /* Preferences are unregistered, now free its memory via Pref__gc */
             for (pref = proto->prefs.next; pref; pref = pref->next) {
-                g_free(pref->name);
-                pref->name = NULL; /* Deregister Pref, freed in Pref__gc */
+                int pref_ref = pref->ref;
+                pref->ref = LUA_NOREF;
+                luaL_unref(L, LUA_REGISTRYINDEX, pref_ref);
             }
         }
         if (proto->expert_module) {
@@ -632,6 +634,12 @@ int wslua_deregister_protocols(lua_State* L) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, proto->fields);
         for (lua_pushnil(L); lua_next(L, -2); lua_pop(L, 1)) {
             ProtoField f = checkProtoField(L, -1);
+
+            /* Memory ownership was previously transferred to epan in Proto_commit */
+            f->name = NULL;
+            f->abbrev = NULL;
+            f->blob = NULL;
+
             f->hfid = -2; /* Deregister ProtoField, freed in ProtoField__gc */
         }
         lua_pop(L, 1);
@@ -650,11 +658,8 @@ int wslua_deregister_protocols(lua_State* L) {
             g_array_free(proto->hfa,TRUE);
         }
 
-        if (proto->etta->len) {
-            proto_add_deregistered_data(g_array_free(proto->etta,FALSE));
-        } else {
-            g_array_free(proto->etta,TRUE);
-        }
+        /* No need for deferred deletion of subtree indexes */
+        g_array_free(proto->etta,TRUE);
 
         if (proto->eia->len) {
             proto_add_deregistered_data(g_array_free(proto->eia,FALSE));
@@ -711,6 +716,7 @@ int Proto_commit(lua_State* L) {
             hfri.hfinfo.bitmask = f->mask;
             hfri.hfinfo.blurb = f->blob;
 
+            // XXX this will leak resources.
             if (f->hfid != -2) {
                 return luaL_error(L,"fields can be registered only once");
             }

@@ -79,6 +79,38 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
                 ))
         self.assertEqual(self.countOutput('ICMP.*Echo .ping'), 2)
 
+    def test_80211_wpa3_personal(self, cmd_tshark, capture_file):
+        '''IEEE 802.11 decode WPA3 personal / SAE'''
+        # Included in git sources test/captures/wpa3-sae.pcapng.gz
+        self.assertRun((cmd_tshark,
+                '-o', 'wlan.enable_decryption: TRUE',
+                '-r', capture_file('wpa3-sae.pcapng.gz'),
+                '-Y', 'wlan.analysis.tk == 20a2e28f4329208044f4d7edca9e20a6 || wlan.analysis.gtk == 1fc82f8813160031d6bf87bca22b6354',
+                ))
+        self.assertTrue(self.grepOutput('Who has 192.168.5.18'))
+        self.assertTrue(self.grepOutput('DHCP ACK'))
+
+    def test_80211_owe(self, cmd_tshark, capture_file):
+        '''IEEE 802.11 decode OWE'''
+        # Included in git sources test/captures/owe.pcapng.gz
+        self.assertRun((cmd_tshark,
+                '-o', 'wlan.enable_decryption: TRUE',
+                '-r', capture_file('owe.pcapng.gz'),
+                '-Y', 'wlan.analysis.tk == 10f3deccc00d5c8f629fba7a0fff34aa || wlan.analysis.gtk == 016b04ae9e6050bcc1f940dda9ffff2b',
+                ))
+        self.assertTrue(self.grepOutput('Who has 192.168.5.2'))
+        self.assertTrue(self.grepOutput('DHCP ACK'))
+
+    def test_80211_wpa1_gtk_rekey(self, cmd_tshark, capture_file):
+        '''Decode WPA1 with multiple GTK rekeys'''
+        # Included in git sources test/captures/wpa1-gtk-rekey.pcapng.gz
+        self.assertRun((cmd_tshark,
+                '-o', 'wlan.enable_decryption: TRUE',
+                '-r', capture_file('wpa1-gtk-rekey.pcapng.gz'),
+                '-Y', 'wlan.analysis.tk == "d0e57d224c1bb8806089d8c23154074c" || wlan.analysis.gtk == "6eaf63f4ad7997ced353723de3029f4d" || wlan.analysis.gtk == "fb42811bcb59b7845376246454fbdab7"',
+                ))
+        self.assertTrue(self.grepOutput('DHCP Discover'))
+        self.assertEqual(self.countOutput('ICMP.*Echo .ping'), 8)
 
 @fixtures.mark_usefixtures('test_env')
 @fixtures.uses_fixtures
@@ -208,9 +240,11 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
         if not features.have_gnutls:
             self.skipTest('Requires GnuTLS.')
         key_file = os.path.join(dirs.key_dir, 'rsasnakeoil2.key')
+        # Test protocol alias while at it (ssl -> tls)
         self.assertRun((cmd_tshark,
                 '-r', capture_file('tls-renegotiation.pcap'),
                 '-o', 'tls.keys_list:0.0.0.0,4433,http,{}'.format(key_file),
+                '-d', 'tcp.port==4433,ssl',
                 '-Tfields',
                 '-e', 'http.content_length',
                 '-Y', 'http',
@@ -996,3 +1030,55 @@ class case_decrypt_pkcs11(subprocesstest.SubprocessTestCase):
                 '-Y', 'http',
             ))
         self.assertIn('/', proc.stdout_str)
+
+@fixtures.mark_usefixtures('test_env')
+@fixtures.uses_fixtures
+class case_decrypt_smb2(subprocesstest.SubprocessTestCase):
+    def test_smb300_bad_key(self, cmd_tshark, capture_file):
+        '''Check that a bad session key doesn't crash'''
+        seskey = 'ffffffffffffffffffffffffffffffff'
+        sesid = '1900009c003c0000'
+        proc = self.assertRun((cmd_tshark,
+                '-r', capture_file('smb300-aes-128-ccm.pcap.gz'),
+                '-o', 'uat:smb2_seskey_list:{},{}'.format(sesid, seskey),
+                '-Y', 'frame.number == 7',
+        ))
+        self.assertIn('unknown', proc.stdout_str)
+
+    def test_smb311_bad_key(self, cmd_tshark, capture_file):
+        seskey = 'ffffffffffffffffffffffffffffffff'
+        sesid = '2900009c003c0000'
+        proc = self.assertRun((cmd_tshark,
+                '-r', capture_file('smb311-aes-128-ccm.pcap.gz'),
+                '-o', 'uat:smb2_seskey_list:{},{}'.format(sesid, seskey),
+                '-Y', 'frame.number == 7'
+        ))
+        self.assertIn('unknown', proc.stdout_str)
+
+    def test_smb300_aes128ccm(self, cmd_tshark, capture_file):
+        '''Check SMB 3.0 AES128CCM decryption.'''
+        sesid = '1900009c003c0000'
+        seskey = '9a9ea16a0cdbeb6064772318073f172f'
+        tree = r'\\dfsroot1.foo.test\IPC$'
+        proc = self.assertRun((cmd_tshark,
+                '-r', capture_file('smb300-aes-128-ccm.pcap.gz'),
+                '-o', 'uat:smb2_seskey_list:{},{}'.format(sesid, seskey),
+                '-Tfields',
+                '-e', 'smb2.tree',
+                '-Y', 'smb2.tree == "{}"'.format(tree.replace('\\', '\\\\')),
+        ))
+        self.assertEqual(tree, proc.stdout_str.strip())
+
+    def test_smb311_aes128ccm(self, cmd_tshark, capture_file):
+        '''Check SMB 3.1.1 AES128CCM decryption.'''
+        sesid = '2900009c003c0000'
+        seskey = 'f1fa528d3cd182cca67bd4596dabd885'
+        tree = r'\\dfsroot1.foo.test\IPC$'
+        proc = self.assertRun((cmd_tshark,
+                '-r', capture_file('smb311-aes-128-ccm.pcap.gz'),
+                '-o', 'uat:smb2_seskey_list:{},{}'.format(sesid, seskey),
+                '-Tfields',
+                '-e', 'smb2.tree',
+                '-Y', 'smb2.tree == "{}"'.format(tree.replace('\\', '\\\\')),
+        ))
+        self.assertEqual(tree, proc.stdout_str.strip())

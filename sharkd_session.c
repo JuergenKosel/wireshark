@@ -1223,10 +1223,9 @@ sharkd_session_geoip_addr(address *addr, const char *suffix)
 
 	if (addr->type == AT_IPv4)
 	{
-		guint32 ip;
+		const ws_in4_addr *ip4 = (const ws_in4_addr *) addr->data;
 
-		memcpy(&ip, addr->data, 4);
-		lookup = maxmind_db_lookup_ipv4(ip);
+		lookup = maxmind_db_lookup_ipv4(ip4);
 	}
 	else if (addr->type == AT_IPv6)
 	{
@@ -3872,7 +3871,7 @@ sharkd_rtp_download_decode(struct sharkd_download_rtp *req)
 	SAMPLE *resample_buff = (SAMPLE *) g_malloc(resample_buff_len);
 	spx_uint32_t cur_in_rate = 0;
 	char *write_buff = NULL;
-	gint64 write_bytes = 0;
+	size_t write_bytes = 0;
 	unsigned channels = 0;
 	unsigned sample_rate = 0;
 

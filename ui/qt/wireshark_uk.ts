@@ -1190,11 +1190,6 @@
         <translation>Файл:</translation>
     </message>
     <message>
-        <source>Create a new file automatically after…</source>
-        <oldsource>Create a new file automatically after...</oldsource>
-        <translation>Автоматично створити новий файл після...</translation>
-    </message>
-    <message>
         <source>megabytes</source>
         <oldsource>Megabytes</oldsource>
         <translation type="unfinished"></translation>
@@ -1288,26 +1283,41 @@
         <translation>Захоплювати до постійного файлу</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Замість того, щоб використовувати єдиний файл для захоплення, буде створено набір файлів.&lt;/p&gt;&lt;p&gt;Згенеровані імена файлів міститимуть зростаюче число та час початку захоплення.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If the selected file size is exceeded, capturing switches to the next file.&lt;/p&gt;&lt;p&gt;PLEASE NOTE: One option MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Після перевищення вибраного розміру файлу, захоплення перемикається на наступний файл.&lt;/p&gt;&lt;p&gt;БУДЬ ЛАСКА ЗАУВАЖТЕ: ви ПОВИННІ вибрати одну з опцій.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>If the selected file size is exceeded, capturing switches to the next file.
-PLEASE NOTE: One option MUST be selected.</source>
-        <translation>Після перевищення вибраного розміру файлу, захоплення перемикається на наступний файл.
-БУДЬ ЛАСКА ЗАУВАЖТЕ: ви ПОВИННІ вибрати одну з опцій.</translation>
-    </message>
-    <message>
         <source>gigabytes</source>
         <oldsource>Gigabytes</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Switch to the next file after the specified number of packets have been captured.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;p&gt;NOTE: If enabled, at least one of the new-file criteria MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Create a new file automatically…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>after</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch to the next file after the file size exceeds the specified file size.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch to the next file when the time capturing to the current file exceeds the specified time.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>when time is a multiple of</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch to the next file when the (wall clock) time is an even multiple of the specified interval.
+For example, use 1 hour to have a new file created every hour on the hour.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2079,6 +2089,45 @@ PLEASE NOTE: One option MUST be selected.</source>
     <message>
         <source>Description</source>
         <translation type="unfinished">Опис</translation>
+    </message>
+</context>
+<context>
+    <name>EndpointDialog</name>
+    <message>
+        <source>Map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Draw IPv4 or IPv6 endpoints on a map.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open in browser</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save As</source>
+        <translation type="unfinished">Зберегти Як</translation>
+    </message>
+    <message>
+        <source>Map file error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No endpoints available to map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to create temporary file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Endpoints Map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to save map file %1.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -5630,10 +5679,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>Скасувати</translation>
     </message>
     <message>
-        <source>Open Recent</source>
-        <translation>Відрити Недавній</translation>
-    </message>
-    <message>
         <source>File Set</source>
         <translation>Набір Файлів</translation>
     </message>
@@ -5652,10 +5697,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     <message>
         <source>&amp;Time Display Format</source>
         <translation>&amp;Формат Відображення Часу</translation>
-    </message>
-    <message>
-        <source>Name Resolution</source>
-        <translation>Визначення Імен</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -5750,10 +5791,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>RTSP</translation>
     </message>
     <message>
-        <source>RTP</source>
-        <translation>RTP</translation>
-    </message>
-    <message>
         <source>&amp;Edit</source>
         <translation>&amp;Правка</translation>
     </message>
@@ -5766,16 +5803,8 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>Показувати Панель Фільтрації </translation>
     </message>
     <message>
-        <source>Open</source>
-        <translation>Відкрити</translation>
-    </message>
-    <message>
         <source>Open a capture file</source>
         <translation>Відкрити файл захоплення</translation>
-    </message>
-    <message>
-        <source>Quit</source>
-        <translation>Вийти</translation>
     </message>
     <message>
         <source>Quit Wireshark</source>
@@ -5796,10 +5825,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     <message>
         <source>Stop capturing packets</source>
         <translation>Зупинити захоплення пакетів</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation>Закрити</translation>
     </message>
     <message>
         <source>No files found</source>
@@ -5994,6 +6019,26 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>Перезапустити сеанс захоплення</translation>
     </message>
     <message>
+        <source>As &amp;CSV…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As &quot;C&quot; &amp;Arrays…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As P&amp;SML XML…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As P&amp;DML XML…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As &amp;JSON…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Description</source>
         <translation>Опис</translation>
     </message>
@@ -6048,26 +6093,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     <message>
         <source>Conversation Filter</source>
         <translation>Фільтр Взаємодій</translation>
-    </message>
-    <message>
-        <source>Service Response Time</source>
-        <translation>Час Відповіді Сервісу</translation>
-    </message>
-    <message>
-        <source>ANSI</source>
-        <translation>ANSI</translation>
-    </message>
-    <message>
-        <source>GSM</source>
-        <translation>GSM</translation>
-    </message>
-    <message>
-        <source>LTE</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>MTP3</source>
-        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Osmux</source>
@@ -6167,10 +6192,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>As JSON…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Copy this item&apos;s description</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6223,10 +6244,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>Позначити всі відображені пакети</translation>
     </message>
     <message>
-        <source>Unmark All Displayed</source>
-        <translation>Зняти Позначки з Усіх Відображених</translation>
-    </message>
-    <message>
         <source>Unmark all displayed packets</source>
         <translation>Зняти позначки з усіх відображених пакетів</translation>
     </message>
@@ -6265,10 +6282,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     <message>
         <source>Unignore All Displayed</source>
         <translation>Повернути Всі Відображені</translation>
-    </message>
-    <message>
-        <source>Unignore all displayed packets</source>
-        <translation>Повернути всі відображені пакети</translation>
     </message>
     <message>
         <source>Set/Unset Time Reference</source>
@@ -6316,6 +6329,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Remove all packet comments in the capture file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Configuration Profiles…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6635,6 +6652,14 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>&amp;Conversations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Endpoints</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Shrink the main window text</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6651,23 +6676,11 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Conversation Hash Tables</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Show each conversation hash table</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Dissector Tables</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Show each dissector table and its entries</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Supported Protocols</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6688,10 +6701,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>LTE RLC statistics</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>RLC Graph</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6736,6 +6745,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Show Packet Bytes…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to &amp;Linked Packet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6791,22 +6804,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>Як Звичайний &amp;Текст...</translation>
     </message>
     <message>
-        <source>As CSV…</source>
-        <translation>Як CSV...</translation>
-    </message>
-    <message>
-        <source>As &quot;C&quot; Arrays…</source>
-        <translation>Як Масиви &quot;C&quot;...</translation>
-    </message>
-    <message>
-        <source>As PSML XML…</source>
-        <translation>Як PSML XML...</translation>
-    </message>
-    <message>
-        <source>As PDML XML…</source>
-        <translation>Як PDML XML...</translation>
-    </message>
-    <message>
         <source>All Visible Items</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6847,10 +6844,6 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>...або не Вибрані</translation>
     </message>
     <message>
-        <source>Display Filters…</source>
-        <translation>Фільтри Відображення...</translation>
-    </message>
-    <message>
         <source>Display Filter &amp;Macros…</source>
         <translation>&amp;Макроси Фільтру Відображення...</translation>
     </message>
@@ -6873,10 +6866,6 @@ PLEASE NOTE: One option MUST be selected.</source>
     <message>
         <source>Packet Comment…</source>
         <translation>Коментар До Пакету...</translation>
-    </message>
-    <message>
-        <source>Configuration Profiles…</source>
-        <translation>Профілі Конфігурації...</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -6931,16 +6920,8 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>Показати чи приховати панель фільтру відображення</translation>
     </message>
     <message>
-        <source>Conversations</source>
-        <translation>Взаємодії</translation>
-    </message>
-    <message>
         <source>Conversations at different protocol levels</source>
         <translation>Взаємодії по протоколам різних рівнів</translation>
-    </message>
-    <message>
-        <source>Endpoints</source>
-        <translation>Кінцеві Точки</translation>
     </message>
     <message>
         <source>Endpoints at different protocol levels</source>
@@ -7155,12 +7136,28 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation>Показати чи приховати байти пакету</translation>
     </message>
     <message>
+        <source>&amp;Conversation Hash Tables</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Dissector Tables</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Supported Protocols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>MAP Summary</source>
         <translation>Зведені дані MAP</translation>
     </message>
     <message>
         <source>GSM MAP summary statistics</source>
         <translation>Загальна статистика GSM MAP</translation>
+    </message>
+    <message>
+        <source>RLC &amp;Graph</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;Coloring Rules…</source>
@@ -7181,6 +7178,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     <message>
         <source>New Coloring Rule…</source>
         <oldsource>New Conversation Rule…</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IA&amp;X2 Stream Analysis</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7205,16 +7206,72 @@ PLEASE NOTE: One option MUST be selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Go to Linked Packet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Go to the packet referenced by the selected field.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;VoIP Calls</source>
         <translation>&amp;Виклики VoIP</translation>
+    </message>
+    <message>
+        <source>Open &amp;Recent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name Resol&amp;ution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Service &amp;Response Time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;RTP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>S&amp;CTP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;ANSI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;GSM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;LTE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;MTP3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Open</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Quit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display &amp;Filters…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Unmark All Displayed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>U&amp;nignore all displayed packets</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>All VoIP Calls</source>
@@ -8192,10 +8249,6 @@ PLEASE NOTE: One option MUST be selected.</source>
 <context>
     <name>PluginListModel</name>
     <message>
-        <source>extcap</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Name</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8281,6 +8334,10 @@ PLEASE NOTE: One option MUST be selected.</source>
         <source>Filter Buttons</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>RSA Keys</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>PrintDialog</name>
@@ -8362,6 +8419,10 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>(system provided)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(deleted)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -9250,6 +9311,97 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>ONC-RPC Service Response Times</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>RsaKeysFrame</name>
+    <message>
+        <source>RSA Keys</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RSA private keys are loaded from a file or PKCS #11 token.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add new keyfile…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add new token…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKCS #11 provider libraries.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add new provider…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove provider</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add PKCS #11 token or key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No new PKCS #11 tokens or keys found, consider adding a PKCS #11 provider.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select a new PKCS #11 token or key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKCS #11 token or key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter PIN or password for %1 (it will be stored unencrypted)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter PIN or password for key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key could not be added: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RSA private key (*.pem *.p12 *.pfx *.key);;All Files (</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select RSA private key file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Libraries (*.dll)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Libraries (*.so)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select PKCS #11 Provider Library</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Changes will apply after a restart</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKCS #11 provider %1 will be removed after the next restart.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10401,7 +10553,7 @@ PLEASE NOTE: One option MUST be selected.</source>
     </message>
     <message>
         <source>Close</source>
-        <translation type="unfinished">Закрити</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Number of Data Chunks from EP2 to EP1: </source>
@@ -12477,11 +12629,11 @@ PLEASE NOTE: One option MUST be selected.</source>
         <source>&lt;html&gt;&lt;head&gt;
 &lt;style&gt;
 a:link {
-  color: inherit;
+  color: palette(text);
   text-decoration: none;
 }
 a:hover {
-  color: inherit;
+  color: palette(text);
   text-decoration: underline;
 }
 &lt;/style&gt;

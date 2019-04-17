@@ -503,6 +503,7 @@ File "${STAGING_DIR}\wireshark-filter.html"
 File "${STAGING_DIR}\dumpcap.exe"
 File "${STAGING_DIR}\dumpcap.html"
 File "${STAGING_DIR}\extcap.html"
+File "${STAGING_DIR}\ipmap.html"
 
 ; C-runtime redistributable
 ; vcredist_x64.exe or vc_redist_x86.exe - copy and execute the redistributable installer
@@ -519,9 +520,11 @@ DetailPrint "vcredist_${TARGET_MACHINE} returned $0"
 ; https://docs.microsoft.com/en-us/windows/desktop/Msi/error-codes
 !define ERROR_SUCCESS 0
 !define ERROR_SUCCESS_REBOOT_INITIATED 1641
+!define ERROR_PRODUCT_VERSION 1638
 !define ERROR_SUCCESS_REBOOT_REQUIRED 3010
 ${Switch} $0
   ${Case} ${ERROR_SUCCESS}
+  ${Case} ${ERROR_PRODUCT_VERSION}
     ${Break}
   ${Case} ${ERROR_SUCCESS_REBOOT_INITIATED} ; Shouldn't happen.
   ${Case} ${ERROR_SUCCESS_REBOOT_REQUIRED}
@@ -692,6 +695,7 @@ File "${STAGING_DIR}\radius\dictionary.localweb"
 File "${STAGING_DIR}\radius\dictionary.lucent"
 File "${STAGING_DIR}\radius\dictionary.manzara"
 File "${STAGING_DIR}\radius\dictionary.meinberg"
+File "${STAGING_DIR}\radius\dictionary.meraki"
 File "${STAGING_DIR}\radius\dictionary.merit"
 File "${STAGING_DIR}\radius\dictionary.meru"
 File "${STAGING_DIR}\radius\dictionary.microsemi"
@@ -836,15 +840,6 @@ File "${STAGING_DIR}\wimaxasncp\dictionary.xml"
 File "${STAGING_DIR}\wimaxasncp\dictionary.dtd"
 SetOutPath $INSTDIR
 
-SetOutPath $INSTDIR\help
-File "${STAGING_DIR}\help\toc"
-File "${STAGING_DIR}\help\overview.txt"
-File "${STAGING_DIR}\help\getting_started.txt"
-File "${STAGING_DIR}\help\capturing.txt"
-File "${STAGING_DIR}\help\capture_filters.txt"
-File "${STAGING_DIR}\help\display_filters.txt"
-File "${STAGING_DIR}\help\faq.txt"
-
 ; Write the uninstall keys for Windows
 ; http://nsis.sourceforge.net/Add_uninstall_information_to_Add/Remove_Programs
 ; https://msdn.microsoft.com/en-us/library/ms954376.aspx
@@ -894,8 +889,8 @@ IfSilent SecRequired_skip_Npcap
 ReadINIStr $0 "$PLUGINSDIR\NpcapPage.ini" "Field 4" "State"
 StrCmp $0 "0" SecRequired_skip_Npcap
 SetOutPath $INSTDIR
-File "${WIRESHARK_LIB_DIR}\npcap-${NPCAP_PACKAGE_VERSION}.exe"
-ExecWait '"$INSTDIR\npcap-${NPCAP_PACKAGE_VERSION}.exe"' $0
+File "${EXTRA_INSTALLER_DIR}\npcap-${NPCAP_PACKAGE_VERSION}.exe"
+ExecWait '"$INSTDIR\npcap-${NPCAP_PACKAGE_VERSION}.exe" /winpcap_mode=no' $0
 DetailPrint "Npcap installer returned $0"
 SecRequired_skip_Npcap:
 
@@ -905,7 +900,7 @@ IfSilent SecRequired_skip_USBPcap
 ReadINIStr $0 "$PLUGINSDIR\USBPcapPage.ini" "Field 4" "State"
 StrCmp $0 "0" SecRequired_skip_USBPcap
 SetOutPath $INSTDIR
-File "${WIRESHARK_LIB_DIR}\USBPcapSetup-${USBPCAP_PACKAGE_VERSION}.exe"
+File "${EXTRA_INSTALLER_DIR}\USBPcapSetup-${USBPCAP_PACKAGE_VERSION}.exe"
 ExecWait '"$INSTDIR\USBPcapSetup-${USBPCAP_PACKAGE_VERSION}.exe"' $0
 DetailPrint "USBPcap installer returned $0"
 ${If} $0 == "0"
@@ -1159,11 +1154,12 @@ SectionEnd
 
 SectionGroupEnd ; "Tools"
 
-!ifdef USER_GUIDE_DIR
-Section "User's Guide" SecUsersGuide
+!ifdef DOCBOOK_DIR
+Section "Documentation" SecDocumentation
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "${USER_GUIDE_DIR}\user-guide.chm"
+File "${DOCBOOK_DIR}\user-guide.chm"
+File "${DOCBOOK_DIR}\faq.html"
 SectionEnd
 !endif
 
@@ -1215,8 +1211,8 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SecRandpkt} "Random packet generator."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMMDBResolve} "MaxMind Database resolution tool"
 
-!ifdef USER_GUIDE_DIR
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecUsersGuide} "Install an offline copy of the User's Guide."
+!ifdef DOCBOOK_DIR
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecDocumentation} "Install an offline copy of the User's Guide and FAQ."
 !endif
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
@@ -1305,7 +1301,7 @@ lbl_npcap_installed:
 lbl_winpcap_installed:
     WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 2" "Text" "$WINPCAP_NAME"
     WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 4" "State" "1"
-    WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 5" "Text" "The currently installed $WINPCAP_NAME will be uninstalled first."
+    WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 5" "Text" "The currently installed $WINPCAP_NAME may be uninstalled first."
     Goto lbl_npcap_done
 
 lbl_npcap_do_install:

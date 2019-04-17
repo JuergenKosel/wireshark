@@ -220,6 +220,11 @@ static int hf_isakmp_nonce = -1;
 
 static int hf_isakmp_notify_data_3gpp_backoff_timer_len = -1;
 
+static int hf_isakmp_notify_data_3gpp_device_identity_len = -1;
+static int hf_isakmp_notify_data_3gpp_device_identity_type = -1;
+static int hf_isakmp_notify_data_3gpp_device_identity_imei = -1;
+static int hf_isakmp_notify_data_3gpp_device_identity_imeisv = -1;
+
 static int hf_isakmp_notify_data_3gpp_emergency_call_numbers_len = -1;
 static int hf_isakmp_notify_data_3gpp_emergency_call_numbers_spare = -1;
 static int hf_isakmp_notify_data_3gpp_emergency_call_numbers_element_len = -1;
@@ -396,6 +401,7 @@ static expert_field ei_isakmp_enc_pad_length_big = EI_INIT;
 static expert_field ei_isakmp_attribute_value_empty = EI_INIT;
 static expert_field ei_isakmp_payload_bad_length = EI_INIT;
 static expert_field ei_isakmp_bad_fragment_number = EI_INIT;
+static expert_field ei_isakmp_notify_data_3gpp_unknown_device_identity = EI_INIT;
 
 static dissector_handle_t eap_handle = NULL;
 static dissector_handle_t isakmp_handle;
@@ -1648,6 +1654,11 @@ static const range_string signature_hash_algorithms[] = {
   {0,0,         NULL },
 };
 
+static const value_string device_identity_types[] = {
+  { 0x01,  "IMEI" },
+  { 0x02,  "IMEISV" },
+  { 0,     NULL },
+};
 
 #define ISAKMP_HDR_SIZE ((int)sizeof(struct isakmp_hdr) + (2 * COOKIE_SIZE))
 
@@ -4197,7 +4208,7 @@ dissect_cert(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int isakmp
         length -= 20;
 
         ti_url = proto_tree_add_item(tree, hf_isakmp_cert_x509_url, tvb, offset, length, ENC_ASCII|ENC_NA);
-        PROTO_ITEM_SET_URL(ti_url);
+        proto_item_set_url(ti_url);
         }
         break;
       default:
@@ -4694,6 +4705,49 @@ dissect_notif(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, proto_t
         proto_tree_add_item(tree, hf_isakmp_notify_data_3gpp_backoff_timer_len, tvb, offset, 1, ENC_BIG_ENDIAN);
         offset++;
         de_gc_timer3(tvb, tree, pinfo, offset, 1, NULL, 0);
+        break;
+      case 41101: /* DEVICE_IDENTITY */
+        if(length>=3) {
+            guint64 octet;
+            guint32 bit_offset;
+
+            /* As specified in 3GPP TS 24.302  (Section 8.2.9.2) */
+            /* Payload Octet 5,6 - Identity length */
+            proto_tree_add_item(tree, hf_isakmp_notify_data_3gpp_device_identity_len, tvb, offset, 2, ENC_BIG_ENDIAN);
+            offset += 2;
+
+            bit_offset = offset<<3;
+            bit_offset += 6;
+
+            /* Payload Octet 7 - Identity type */
+            proto_tree_add_bits_ret_val(tree, hf_isakmp_notify_data_3gpp_device_identity_type, tvb, bit_offset, 2, &octet, ENC_LITTLE_ENDIAN);
+
+            offset += 1;
+            length -= 3;
+
+            if(length==0) {
+                break;
+            }
+
+            /* Payload Octet 8-n - Identity value */
+            const gchar *imei_str;
+            const gchar *imeisv_str;
+            switch (octet) {
+                case 1:
+                    /* IMEI */
+                    imei_str = tvb_bcd_dig_to_wmem_packet_str(tvb, offset, length, NULL, FALSE);
+                    proto_tree_add_string(tree, hf_isakmp_notify_data_3gpp_device_identity_imei, tvb, offset, length, imei_str);
+                    break;
+                case 2:
+                    /* IMEISV */
+                    imeisv_str = tvb_bcd_dig_to_wmem_packet_str(tvb, offset, length, NULL, FALSE);
+                    proto_tree_add_string(tree, hf_isakmp_notify_data_3gpp_device_identity_imeisv, tvb, offset, length, imeisv_str);
+                    break;
+                default:
+                    proto_tree_add_expert(tree, pinfo, &ei_isakmp_notify_data_3gpp_unknown_device_identity, tvb, offset, length);
+                    break;
+            }
+        }
         break;
       case 41134:
         /* private status 3GPP EMERGENCY_CALL_NUMBERS*/
@@ -5792,6 +5846,8 @@ free_cookie_value(gpointer value)
 {
   decrypt_data_t *decr = (decrypt_data_t *)value;
 
+  g_free(decr->gi);
+  g_free(decr->gr);
   g_hash_table_destroy(decr->iv_hash);
   g_slice_free1(sizeof(decrypt_data_t), decr);
 }
@@ -7209,6 +7265,24 @@ proto_register_isakmp(void)
       { "Length", "isakmp.notyfy.priv.3gpp.backoff_timer_len",
         FT_UINT8, BASE_DEC, NULL, 0x0,
         NULL, HFILL }},
+
+    { &hf_isakmp_notify_data_3gpp_device_identity_len,
+      { "Identity Length", "isakmp.notify.priv.3gpp.device_identity_len",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
+        NULL, HFILL }},
+    { &hf_isakmp_notify_data_3gpp_device_identity_type,
+      { "Identity Type", "isakmp.notify.priv.3gpp.device_identity_type",
+        FT_UINT8, BASE_DEC, VALS(device_identity_types), 0x0,
+        NULL, HFILL }},
+    { &hf_isakmp_notify_data_3gpp_device_identity_imei,
+      { "IMEI", "isakmp.notify.priv.3gpp.device_identity_imei",
+        FT_STRING, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_isakmp_notify_data_3gpp_device_identity_imeisv,
+      { "IMEISV", "isakmp.notify.priv.3gpp.device_identity_imeisv",
+        FT_STRING, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+
     { &hf_isakmp_notify_data_3gpp_emergency_call_numbers_len,
       { "Total Length", "isakmp.notify.priv.3gpp.emergency_call_numbers_len",
         FT_UINT8, BASE_DEC, NULL, 0x0,
@@ -7277,6 +7351,7 @@ proto_register_isakmp(void)
      { &ei_isakmp_attribute_value_empty, { "isakmp.attribute_value_empty", PI_PROTOCOL, PI_NOTE, "Attribute value is empty", EXPFILL }},
      { &ei_isakmp_payload_bad_length, { "isakmp.payloadlength.invalid", PI_MALFORMED, PI_ERROR, "Invalid payload length", EXPFILL }},
      { &ei_isakmp_bad_fragment_number, { "isakmp.fragment_number.invalid", PI_MALFORMED, PI_ERROR, "Invalid fragment numbering", EXPFILL }},
+     { &ei_isakmp_notify_data_3gpp_unknown_device_identity, { "isakmp.notify.priv.3gpp.unknown_device_identity", PI_PROTOCOL, PI_WARN, "Type of device identity not known", EXPFILL }},
   };
 
   expert_module_t* expert_isakmp;

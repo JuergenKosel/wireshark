@@ -116,6 +116,7 @@ set_target_properties(wiretap PROPERTIES
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	VERSION "0.0.0" SOVERSION 0
 	FOLDER "DLLs"
+	INSTALL_RPATH "${LIBRARY_INSTALL_RPATH}"
 )
 
 ABICHECK(libwiretap)
@@ -151,14 +152,14 @@ install(TARGETS wiretap
 )
 
 install(FILES ${WIRETAP_PUBLIC_HEADERS}
-	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/wiretap"
+	DESTINATION "${PROJECT_INSTALL_INCLUDEDIR}/wiretap"
 )
 
 CHECKAPI(
 	NAME
 	  wiretap
 	SWITCHES
-	  --group abort:10 --summary-group abort
+	  --group abort:11 --summary-group abort
 	  --group termoutput:1 --summary-group termoutput
 	  --build
 	SOURCES

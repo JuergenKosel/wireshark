@@ -1040,11 +1040,15 @@ static const value_string ssl_31_ciphersuite[] = {
     { 0xC0AF, "TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8" },
     /* https://www.ietf.org/archive/id/draft-cragie-tls-ecjpake-01.txt */
     { 0xC0FF, "TLS_ECJPAKE_WITH_AES_128_CCM_8" },
+    /* draft-smyshlyaev-tls12-gost-suites */
+    { 0xC100, "TLS_GOSTR341112_256_WITH_KUZNYECHIK_CTR_OMAC" },
+    { 0xC101, "TLS_GOSTR341112_256_WITH_MAGMA_CTR_OMAC" },
+    { 0xC102, "TLS_GOSTR341112_256_WITH_28147_CNT_IMIT" },
     /* https://tools.ietf.org/html/draft-ietf-tls-grease */
     { 0xCACA, "Reserved (GREASE)" },
 /*
 0xC0,0xAB-FF Unassigned
-0xC1-FD,* Unassigned
+0xC1,0x03-FD,* Unassigned
 0xFE,0x00-FD Unassigned
 0xFE,0xFE-FF Reserved to avoid conflicts with widely deployed implementations [Pasi_Eronen]
 0xFF,0x00-FF Reserved for Private Use [RFC5246]
@@ -1353,7 +1357,7 @@ static const ssl_alpn_prefix_match_protocol_t ssl_alpn_prefix_match_protocols[] 
 
 const value_string compress_certificate_algorithm_vals[] = {
     { 1, "zlib" },
-    { 2, "broli" },
+    { 2, "brotli" },
     { 0, NULL }
 };
 
@@ -1376,6 +1380,7 @@ const value_string quic_transport_parameter_id[] = {
     { 0, NULL }
 };
 
+// Removed in QUIC draft -18
 const value_string quic_tp_preferred_address_vals[] = {
     { 4, "IPv4" },
     { 6, "IPv6" },
@@ -3638,13 +3643,21 @@ ssl_decrypt_pre_master_secret(SslDecryptSession *ssl_session,
     if (pms.size != 48) {
         ssl_debug_printf("%s wrong pre_master_secret length (%d, expected %d)\n",
                          G_STRFUNC, pms.size, 48);
-        gnutls_free(pms.data);
+        if (pk) {
+            gnutls_free(pms.data);
+        } else {
+            g_free(pms.data);
+        }
         return FALSE;
     }
 
     ssl_session->pre_master_secret.data = (guint8 *)wmem_memdup(wmem_file_scope(), pms.data, 48);
     ssl_session->pre_master_secret.data_len = 48;
-    gnutls_free(pms.data);
+    if (pk) {
+        gnutls_free(pms.data);
+    } else {
+        g_free(pms.data);
+    }
     ssl_print_string("pre master secret", &ssl_session->pre_master_secret);
 
     /* Remove the master secret if it was there.
@@ -5153,7 +5166,7 @@ ssl_compile_keyfile_regex(void)
 
     if (!regex) {
         regex = g_regex_new(pattern,
-                (GRegexCompileFlags)(G_REGEX_OPTIMIZE | G_REGEX_ANCHORED),
+                (GRegexCompileFlags)(G_REGEX_OPTIMIZE | G_REGEX_ANCHORED | G_REGEX_RAW),
                 G_REGEX_MATCH_ANCHORED, &gerr);
         if (gerr) {
             ssl_debug_printf("%s failed to compile regex: %s\n", G_STRFUNC,
@@ -6618,6 +6631,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
      *     opaque value<0..2^16-1>;
      *  } TransportParameter;
      *
+     *  // draft -18 and before
      *  struct {
      *      select (Handshake.msg_type) {
      *          case client_hello:
@@ -6630,6 +6644,10 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
      *      TransportParameter parameters<0..2^16-1>;
      *  } TransportParameters;
      *
+     *  // since draft 19
+     *  TransportParameter TransportParameters<0..2^16-1>;
+     *
+     *  // draft -17 and before
      *  struct {
      *    enum { IPv4(4), IPv6(6), (15) } ipVersion;
      *    opaque ipAddress<4..2^8-1>;
@@ -6637,40 +6655,54 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
      *    opaque connectionId<0..18>;
      *    opaque statelessResetToken[16];
      *  } PreferredAddress;
+     *
+     *  // Since draft -18
+     *  struct {
+     *    opaque ipv4Address[4];
+     *    uint16 ipv4Port;
+     *    opaque ipv6Address[16];
+     *    uint16 ipv6Port;
+     *    opaque connectionId<0..18>;
+     *    opaque statelessResetToken[16];
+     *  } PreferredAddress;
      */
-    switch (hnd_type) {
-    case SSL_HND_CLIENT_HELLO:
-        proto_tree_add_item(tree, hf->hf.hs_ext_quictp_initial_version,
-                            tvb, offset, 4, ENC_BIG_ENDIAN);
-        offset += 4;
-        break;
-    case SSL_HND_ENCRYPTED_EXTENSIONS:
-        proto_tree_add_item(tree, hf->hf.hs_ext_quictp_negotiated_version,
-                            tvb, offset, 4, ENC_BIG_ENDIAN);
-        offset += 4;
-        /* QuicVersion supported_versions<4..2^8-4>;*/
-        if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &supported_versions_length,
-                            hf->hf.hs_ext_quictp_supported_versions_len, 4, G_MAXUINT8-3)) {
-            return offset_end;
-        }
-        offset += 1;
-        next_offset = offset + supported_versions_length;
-
-        while (offset < next_offset) {
-            proto_tree_add_item(tree, hf->hf.hs_ext_quictp_supported_versions,
+    // Heuristically detect draft -18 vs draft -19.
+    if (offset_end - offset >= 4 && tvb_get_ntoh24(tvb, offset) == 0xff0000) {
+        // Draft -18 and before start with a (draft) version field.
+        switch (hnd_type) {
+        case SSL_HND_CLIENT_HELLO:
+            proto_tree_add_item(tree, hf->hf.hs_ext_quictp_initial_version,
                                 tvb, offset, 4, ENC_BIG_ENDIAN);
             offset += 4;
+            break;
+        case SSL_HND_ENCRYPTED_EXTENSIONS:
+            proto_tree_add_item(tree, hf->hf.hs_ext_quictp_negotiated_version,
+                                tvb, offset, 4, ENC_BIG_ENDIAN);
+            offset += 4;
+            /* QuicVersion supported_versions<4..2^8-4>;*/
+            if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &supported_versions_length,
+                                hf->hf.hs_ext_quictp_supported_versions_len, 4, G_MAXUINT8-3)) {
+                return offset_end;
+            }
+            offset += 1;
+            next_offset = offset + supported_versions_length;
+
+            while (offset < next_offset) {
+                proto_tree_add_item(tree, hf->hf.hs_ext_quictp_supported_versions,
+                                    tvb, offset, 4, ENC_BIG_ENDIAN);
+                offset += 4;
+            }
+            break;
+        case SSL_HND_NEWSESSION_TICKET:
+            break;
+        default:
+            return offset;
         }
-        break;
-    case SSL_HND_NEWSESSION_TICKET:
-        break;
-    default:
-        return offset;
     }
 
-    /* TransportParameter parameters<22..2^16-1>; */
+    /* TransportParameter TransportParameters<0..2^16-1>; */
     if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &quic_length,
-                        hf->hf.hs_ext_quictp_len, 22, G_MAXUINT16)) {
+                        hf->hf.hs_ext_quictp_len, 0, G_MAXUINT16)) {
         return offset_end;
     }
     offset += 2;
@@ -6713,7 +6745,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
             case SSL_HND_QUIC_TP_IDLE_TIMEOUT:
                 proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_idle_timeout,
                                                tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
-                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u secs", value);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u ms", value);
                 offset += len;
             break;
             case SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN:
@@ -6781,33 +6813,51 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
             break;
             case SSL_HND_QUIC_TP_PREFERRED_ADDRESS: {
                 guint32 ipversion, ipaddress_length, connectionid_length;
-                proto_tree_add_item_ret_uint(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipversion,
-                                             tvb, offset, 1, ENC_BIG_ENDIAN, &ipversion);
-                offset += 1;
-                if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &ipaddress_length,
-                                    hf->hf.hs_ext_quictp_parameter_pa_ipaddress_length, 4, G_MAXUINT8-1)) {
-                    break;
-                }
-                offset += 1;
-                switch (ipversion){
+                // Heuristically detect draft -17 vs draft -18.
+                ipversion = tvb_get_guint8(tvb, offset);
+                if (ipversion == 4 || ipversion == 6) {
+                    // Draft -17 and earlier.
+                    proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipversion,
+                                        tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset += 1;
+                    if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &ipaddress_length,
+                                        hf->hf.hs_ext_quictp_parameter_pa_ipaddress_length, 4, G_MAXUINT8-1)) {
+                        break;
+                    }
+                    offset += 1;
+                    switch (ipversion) {
                     case 4:
-                        proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipaddress_ipv4,
+                        proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv4address,
                                             tvb, offset, 4, ENC_BIG_ENDIAN);
-                    break;
+                        offset += 4;
+                        proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv4port,
+                                            tvb, offset, 2, ENC_BIG_ENDIAN);
+                        offset += 2;
+                        break;
                     case 6:
-                        proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipaddress_ipv6,
+                        proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv6address,
                                             tvb, offset, 16, ENC_NA);
-                    break;
-                    default:
-                        proto_tree_add_expert(tree, pinfo, &hf->ei.hs_ext_quictp_parameter_pa_ipaddress,
-                                              tvb, offset, ipaddress_length);
-                    break;
+                        offset += 16;
+                        proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv6port,
+                                            tvb, offset, 2, ENC_BIG_ENDIAN);
+                        offset += 2;
+                        break;
+                    }
+                } else {
+                    // Since draft -18
+                    proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv4address,
+                                        tvb, offset, 4, ENC_BIG_ENDIAN);
+                    offset += 4;
+                    proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv4port,
+                                        tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv6address,
+                                        tvb, offset, 16, ENC_NA);
+                    offset += 16;
+                    proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv6port,
+                                        tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
                 }
-                offset += ipaddress_length;
-
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_port,
-                                    tvb, offset, 2, ENC_BIG_ENDIAN);
-                offset += 2;
 
                 if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &connectionid_length,
                                     hf->hf.hs_ext_quictp_parameter_pa_connectionid_length, 0, 18)) {
@@ -7518,11 +7568,21 @@ ssl_set_cipher(SslDecryptSession *ssl, guint16 cipher)
     /* store selected cipher suite for decryption */
     ssl->session.cipher = cipher;
 
-    if (!(ssl->cipher_suite = ssl_find_cipher(cipher))) {
+    const SslCipherSuite *cs = ssl_find_cipher(cipher);
+    if (!cs) {
+        ssl->cipher_suite = NULL;
         ssl->state &= ~SSL_CIPHER;
         ssl_debug_printf("%s can't find cipher suite 0x%04X\n", G_STRFUNC, cipher);
+    } else if (ssl->session.version == SSLV3_VERSION && !(cs->dig == DIG_MD5 || cs->dig == DIG_SHA)) {
+        /* A malicious packet capture contains a SSL 3.0 session using a TLS 1.2
+         * cipher suite that uses for example MACAlgorithm SHA256. Reject that
+         * to avoid a potential buffer overflow in ssl3_check_mac. */
+        ssl->cipher_suite = NULL;
+        ssl->state &= ~SSL_CIPHER;
+        ssl_debug_printf("%s invalid SSL 3.0 cipher suite 0x%04X\n", G_STRFUNC, cipher);
     } else {
         /* Cipher found, save this for the delayed decoder init */
+        ssl->cipher_suite = cs;
         ssl->state |= SSL_CIPHER;
         ssl_debug_printf("%s found CIPHER 0x%04X %s -> state 0x%02X\n", G_STRFUNC, cipher,
                          val_to_str_ext_const(cipher, &ssl_31_ciphersuite_ext, "unknown"),

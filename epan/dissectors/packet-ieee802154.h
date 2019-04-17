@@ -170,10 +170,10 @@
 
 /* Vendor OUIs */
 
-/*  Bit-masks for CC24xx style FCS */
-#define IEEE802154_CC24xx_CORRELATION       0x7F00
-#define IEEE802154_CC24xx_CRC_OK            0x8000
-#define IEEE802154_CC24xx_RSSI              0x00FF
+/*  Bit-masks for TI CC24xx end-of-packet metadata */
+#define IEEE802154_CC24xx_CRC_OK            0x8000 /* 1 if CRC OK, 0 if not */
+#define IEEE802154_CC24xx_CORRELATION       0x7F00 /* Some LQI stuff */
+#define IEEE802154_CC24xx_RSSI              0x00FF /* Raw RSSI */
 
 /*  Special IEEE802.15.4 Addresses */
 #define IEEE802154_NO_ADDR16                0xFFFE
@@ -299,6 +299,9 @@ typedef enum {
 /* IEEE 802.15.4 cipher block size. */
 #define IEEE802154_CIPHER_SIZE                16
 
+/* IEEE 802.15 CID */
+#define IEEE80215_CID       0xBA55ECULL
+
 /* Macro to compute the MIC length. */
 #define IEEE802154_MIC_LENGTH(_level_) ((0x2 << ((_level_) & 0x3)) & ~0x3)
 /* Macro to check for payload encryption. */
@@ -399,6 +402,7 @@ typedef struct {
     gboolean    frame_counter_suppression; /* 802.15.4-2015 */
     guint32     frame_counter;
     guint8      key_sequence_counter;    /* Only for 802.15.4-2003 security suite with encryption */
+    guint64     asn;
 
     union {
         guint32 addr32;
@@ -570,5 +574,7 @@ extern gboolean ieee802154_long_addr_invalidate(guint64, guint);
 extern ieee802154_map_tab_t ieee802154_map;
 
 extern const value_string ieee802154_mpx_kmp_id_vals[];
+
+extern guint ieee802154_fcs_len;
 
 #endif /* PACKET_IEEE802154_H */

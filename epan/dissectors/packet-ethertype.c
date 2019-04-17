@@ -133,6 +133,7 @@ const value_string etype_vals[] = {
 	{ ETHERTYPE_VMLAB,                "VMware Lab Manager" },
 	{ ETHERTYPE_COBRANET,             "Cirrus Cobranet Packet" },
 	{ ETHERTYPE_NSRP,                 "Juniper Netscreen Redundant Protocol" },
+	{ ETHERTYPE_EERO,                 "EERO Broadcast Packet" },
 	/*
 	 * NDISWAN on Windows translates Ethernet frames from higher-level
 	 * protocols into PPP frames to hand to the PPP driver, and translates
@@ -180,6 +181,7 @@ const value_string etype_vals[] = {
 	{ ETHERTYPE_QINQ_OLD,             "QinQ: old non-standard 802.1ad" },
 	{ ETHERTYPE_6LOWPAN,              "6LoWPAN" },
 	{ ETHERTYPE_AVSP,                 "Arista Timestamp" },
+	{ ETHERTYPE_ECPRI,                "eCPRI" },
 	{ 0, NULL }
 };
 

@@ -339,6 +339,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  dissect_h225_ReleaseCompleteReason@Base 1.9.1
  dissect_h245_H223Capability@Base 1.9.1
  dissect_isup_called_party_number_parameter@Base 1.9.1
+ dissect_isup_calling_geodetic_location_parameter@Base 3.1.0
  dissect_isup_calling_party_number_parameter@Base 1.9.1
  dissect_isup_original_called_number_parameter@Base 1.9.1
  dissect_isup_redirecting_number_parameter@Base 1.9.1
@@ -700,6 +701,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  ftype_can_slice@Base 1.9.1
  ftype_name@Base 1.9.1
  ftype_pretty_name@Base 1.9.1
+ funnel_cleanup@Base 2.9.1
  funnel_get_funnel_ops@Base 1.9.1
  funnel_register_all_menus@Base 1.9.1
  funnel_register_menu@Base 1.9.1
@@ -844,6 +846,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  get_utf_16_string@Base 1.12.0~rc1
  get_vlan_hash_table@Base 2.1.0
  get_wka_hashtable@Base 1.12.0~rc1
+ giop_add_CDR_string@Base 3.1.0
  golay_decode@Base 1.9.1
  golay_encode@Base 1.9.1
  golay_errors@Base 1.9.1
@@ -1130,10 +1133,17 @@ libwireshark.so.0 libwireshark0 #MINVER#
  proto_item_get_parent@Base 1.9.1
  proto_item_get_parent_nth@Base 1.9.1
  proto_item_get_subtree@Base 1.9.1
+ proto_item_is_hidden@Base 3.1.0
+ proto_item_is_generated@Base 3.1.0
+ proto_item_is_url@Base 3.1.0
  proto_item_prepend_text@Base 1.9.1
  proto_item_set_end@Base 1.9.1
+ proto_item_set_hidden@Base 3.1.0
+ proto_item_set_generated@Base 3.1.0
  proto_item_set_len@Base 1.9.1
  proto_item_set_text@Base 1.9.1
+ proto_item_set_url@Base 3.1.0
+ proto_item_set_visible@Base 3.1.0
  proto_name_already_registered@Base 2.0.1
  proto_node_group_children_by_json_key@Base 2.5.0
  proto_node_group_children_by_unique@Base 2.5.0
@@ -1415,7 +1425,9 @@ libwireshark.so.0 libwireshark0 #MINVER#
  scsi_ssc_vals_ext@Base 1.12.0~rc1
  scsistat_param@Base 2.5.0
  sctp_port_to_display@Base 1.99.2
+ secrets_get_available_keys@Base 2.9.1
  secrets_rsa_decrypt@Base 2.9.0
+ secrets_verify_key@Base 2.9.1
  secrets_wtap_callback@Base 2.9.0
  sequence_analysis_create_sai_with_addresses@Base 2.5.0
  sequence_analysis_dump_to_file@Base 2.5.0
@@ -1556,6 +1568,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  tfs_available_not_available@Base 1.9.1
  tfs_c2s_s2c@Base 2.5.0
  tfs_capable_not_capable@Base 1.9.1
+ tfs_changed_not_changed@Base 2.9.1
  tfs_client_server@Base 2.1.0
  tfs_command_response@Base 1.9.1
  tfs_complete_incomplete@Base 1.12.0~rc1
@@ -1585,6 +1598,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  tfs_invalid_valid@Base 1.99.0
  tfs_low_normal@Base 2.5.1
  tfs_more_nomore@Base 1.9.1
+ tfs_needed_not_needed@Base 2.9.1
  tfs_no_yes@Base 1.9.1
  tfs_not_allowed_allowed@Base 1.9.1
  tfs_not_supported_supported@Base 2.9.1
@@ -1609,6 +1623,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  tfs_restricted_not_restricted@Base 2.5.0
  tfs_s2c_c2s@Base 2.5.0
  tfs_segmentation_no_segmentation@Base 2.1.0
+ tfs_selected_not_selected@Base 2.9.1
  tfs_server_client@Base 2.1.0
  tfs_set_notset@Base 1.9.1
  tfs_shared_independent@Base 1.9.1

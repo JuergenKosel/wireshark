@@ -543,10 +543,12 @@ dissect_encrypted_frame (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
    * - Fragmentation MAC Frames;
    * - Registration Request (REG-REQ-MP) MAC Management Message Frames;
    * - Isolation PDU MAC Frames.
+   * There are also other corner cases when MAC Management frames might be encrypted
+   * (e.g. EH_TYPE=7 as described in CM-SP-MULPIv3.1-I15-180509 Table 17 and Table 20)
    */
   if (fctype == FCTYPE_MACSPC) {
     if (fcparm == FCPARM_MAC_MGMT_HDR) {
-      col_append_str (pinfo->cinfo, COL_INFO, " (Encrypted REG-REQ-MP)");
+      col_append_str (pinfo->cinfo, COL_INFO, " (Encrypted MMM)");
     } else if (fcparm == FCPARM_FRAG_HDR) {
       col_append_str (pinfo->cinfo, COL_INFO, " (Encrypted Fragmentation MAC Frame)");
     } else {
@@ -572,7 +574,7 @@ dissect_encrypted_frame (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
       addr_tree = proto_item_add_subtree(addr_item, ett_addr);
       addr_item=proto_tree_add_string(addr_tree, hf_docsis_dst_resolved, tvb, 0, 6,
           dst_addr_name);
-      PROTO_ITEM_SET_GENERATED(addr_item);
+      proto_item_set_generated(addr_item);
       proto_tree_add_item(addr_tree, hf_docsis_lg, tvb, 0, 3, ENC_BIG_ENDIAN);
       proto_tree_add_item(addr_tree, hf_docsis_ig, tvb, 0, 3, ENC_BIG_ENDIAN);
 
@@ -580,7 +582,7 @@ dissect_encrypted_frame (tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
       addr_tree = proto_item_add_subtree(addr_item, ett_addr);
       addr_item=proto_tree_add_string(addr_tree, hf_docsis_src_resolved, tvb, 6, 6,
           src_addr_name);
-      PROTO_ITEM_SET_GENERATED(addr_item);
+      proto_item_set_generated(addr_item);
       proto_tree_add_item(addr_tree, hf_docsis_lg, tvb, 6, 3, ENC_BIG_ENDIAN);
       proto_tree_add_item(addr_tree, hf_docsis_ig, tvb, 6, 3, ENC_BIG_ENDIAN);
 

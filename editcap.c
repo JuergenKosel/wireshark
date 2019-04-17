@@ -170,6 +170,7 @@ static gboolean               rem_vlan                  = FALSE;
 static gboolean               dup_detect                = FALSE;
 static gboolean               dup_detect_by_time        = FALSE;
 static gboolean               skip_radiotap             = FALSE;
+static gboolean               remove_all_secrets        = FALSE;
 
 static int                    do_strict_time_adjustment = FALSE;
 static struct time_adjustment strict_time_adj           = {NSTIME_INIT_ZERO, 0}; /* strict time adjustment */
@@ -339,7 +340,7 @@ selected(guint recno)
         }
     }
 
-  return 0;
+    return 0;
 }
 
 static gboolean
@@ -835,6 +836,12 @@ print_usage(FILE *output)
     fprintf(output, "  -T <encap type>        set the output file encapsulation type; default is the\n");
     fprintf(output, "                         same as the input file. An empty \"-T\" option will\n");
     fprintf(output, "                         list the encapsulation types.\n");
+    fprintf(output, "  --inject-secrets <type>,<file>  Insert decryption secrets from <file>. List\n");
+    fprintf(output, "                         supported secret types with \"--inject-secrets help\".\n");
+    fprintf(output, "  --discard-all-secrets  Discard all decryption secrets from the input file\n");
+    fprintf(output, "                         when writing the output file.  Does not discard\n");
+    fprintf(output, "                         secrets added by \"--inject-secrets\" in the same\n");
+    fprintf(output, "                         command line.\n");
     fprintf(output, "\n");
     fprintf(output, "Miscellaneous:\n");
     fprintf(output, "  -h                     display this help and exit.\n");
@@ -930,6 +937,24 @@ lookup_secrets_type(const char *type)
     return 0;
 }
 
+static void
+validate_secrets_file(const char *filename, guint32 secrets_type, const char *data)
+{
+    if (secrets_type == SECRETS_TYPE_TLS) {
+        /*
+         * A key log file is unlikely going to look like either:
+         * - a PEM-encoded private key file.
+         * - a BER-encoded PKCS #12 file ("PFX file"). (Look for a Constructed
+         *   SEQUENCE tag, e.g. bytes 0x30 which happens to be ASCII '0'.)
+         */
+        if (g_str_has_prefix(data, "-----BEGIN ") || data[0] == 0x30) {
+            fprintf(stderr,
+                    "editcap: Warning: \"%s\" is not a key log file, but an unsupported private key file. Decryption will not work.\n",
+                    filename);
+        }
+    }
+}
+
 static int
 framenum_compare(gconstpointer a, gconstpointer b, gpointer user_data _U_)
 {
@@ -949,9 +974,9 @@ framenum_compare(gconstpointer a, gconstpointer b, gpointer user_data _U_)
 static void
 failure_warning_message(const char *msg_format, va_list ap)
 {
-  fprintf(stderr, "editcap: ");
-  vfprintf(stderr, msg_format, ap);
-  fprintf(stderr, "\n");
+    fprintf(stderr, "editcap: ");
+    vfprintf(stderr, msg_format, ap);
+    fprintf(stderr, "\n");
 }
 
 /*
@@ -960,25 +985,25 @@ failure_warning_message(const char *msg_format, va_list ap)
 static void
 failure_message_cont(const char *msg_format, va_list ap)
 {
-  vfprintf(stderr, msg_format, ap);
-  fprintf(stderr, "\n");
+    vfprintf(stderr, msg_format, ap);
+    fprintf(stderr, "\n");
 }
 
 static wtap_dumper *
 editcap_dump_open(const char *filename, const wtap_dump_params *params,
                   int *write_err)
 {
-  wtap_dumper *pdh;
+    wtap_dumper *pdh;
 
-  if (strcmp(filename, "-") == 0) {
-    /* Write to the standard output. */
-    pdh = wtap_dump_open_stdout(out_file_type_subtype, WTAP_UNCOMPRESSED,
-                                params, write_err);
-  } else {
-    pdh = wtap_dump_open(filename, out_file_type_subtype, WTAP_UNCOMPRESSED,
-                         params, write_err);
-  }
-  return pdh;
+    if (strcmp(filename, "-") == 0) {
+        /* Write to the standard output. */
+        pdh = wtap_dump_open_stdout(out_file_type_subtype, WTAP_UNCOMPRESSED,
+                                    params, write_err);
+    } else {
+        pdh = wtap_dump_open(filename, out_file_type_subtype, WTAP_UNCOMPRESSED,
+                             params, write_err);
+    }
+    return pdh;
 }
 
 int
@@ -989,11 +1014,17 @@ main(int argc, char *argv[])
     int           i, j, read_err, write_err;
     gchar        *read_err_info, *write_err_info;
     int           opt;
+#define LONGOPT_NO_VLAN              0x8100
+#define LONGOPT_SKIP_RADIOTAP_HEADER 0x8101
+#define LONGOPT_SEED                 0x8102
+#define LONGOPT_INJECT_SECRETS       0x8103
+#define LONGOPT_DISCARD_ALL_SECRETS   0x8104
     static const struct option long_options[] = {
-        {"novlan", no_argument, NULL, 0x8100},
-        {"skip-radiotap-header", no_argument, NULL, 0x8101},
-        {"seed", required_argument, NULL, 0x8102},
-        {"inject-secrets", required_argument, NULL, 0x8103},
+        {"novlan", no_argument, NULL, LONGOPT_NO_VLAN},
+        {"skip-radiotap-header", no_argument, NULL, LONGOPT_SKIP_RADIOTAP_HEADER},
+        {"seed", required_argument, NULL, LONGOPT_SEED},
+        {"inject-secrets", required_argument, NULL, LONGOPT_INJECT_SECRETS},
+        {"discard-all-secrets", no_argument, NULL, LONGOPT_DISCARD_ALL_SECRETS},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'V'},
         {0, 0, 0, 0 }
@@ -1023,6 +1054,8 @@ main(int argc, char *argv[])
     guint         max_packet_number  = 0;
     GArray       *dsb_types          = NULL;
     GPtrArray    *dsb_filenames      = NULL;
+    wtap_rec                     read_rec;
+    Buffer                       read_buf;
     const wtap_rec              *rec;
     wtap_rec                     temp_rec;
     wtap_dump_params             params = WTAP_DUMP_PARAMS_INIT;
@@ -1067,19 +1100,19 @@ main(int argc, char *argv[])
     /* Process the options */
     while ((opt = getopt_long(argc, argv, ":a:A:B:c:C:dD:E:F:hi:I:Lo:rs:S:t:T:vVw:", long_options, NULL)) != -1) {
         switch (opt) {
-        case 0x8100:
+        case LONGOPT_NO_VLAN:
         {
             rem_vlan = TRUE;
             break;
         }
 
-        case 0x8101:
+        case LONGOPT_SKIP_RADIOTAP_HEADER:
         {
             skip_radiotap = TRUE;
             break;
         }
 
-        case 0x8102:
+        case LONGOPT_SEED:
         {
             if (sscanf(optarg, "%u", &seed) != 1) {
                 fprintf(stderr, "editcap: \"%s\" isn't a valid seed\n\n",
@@ -1091,7 +1124,7 @@ main(int argc, char *argv[])
             break;
         }
 
-        case 0x8103: /* --inject-secrets */
+        case LONGOPT_INJECT_SECRETS:
         {
             guint32 secrets_type_id = 0;
             const char *secrets_filename = NULL;
@@ -1100,13 +1133,17 @@ main(int argc, char *argv[])
                 goto clean_exit;
             }
             gchar **splitted = g_strsplit(optarg, ",", 2);
-            if (splitted[0]) {
+            if (splitted[0] && splitted[0][0] != '\0') {
                 secrets_type_id = lookup_secrets_type(splitted[0]);
+                if (secrets_type_id == 0) {
+                    fprintf(stderr, "editcap: \"%s\" isn't a valid secrets type\n", splitted[0]);
+                    g_strfreev(splitted);
+                    ret = INVALID_OPTION;
+                    goto clean_exit;
+                }
                 secrets_filename = splitted[1];
-            }
-
-            if (secrets_type_id == 0) {
-                fprintf(stderr, "editcap: \"%s\" isn't a valid secrets type\n", secrets_filename);
+            } else {
+                fprintf(stderr, "editcap: no secrets type was specified for --inject-secrets\n");
                 g_strfreev(splitted);
                 ret = INVALID_OPTION;
                 goto clean_exit;
@@ -1118,6 +1155,12 @@ main(int argc, char *argv[])
             g_array_append_val(dsb_types, secrets_type_id);
             g_ptr_array_add(dsb_filenames, g_strdup(secrets_filename));
             g_strfreev(splitted);
+            break;
+        }
+
+        case LONGOPT_DISCARD_ALL_SECRETS:
+        {
+            remove_all_secrets = TRUE;
             break;
         }
 
@@ -1441,6 +1484,13 @@ main(int argc, char *argv[])
 
     wtap_dump_params_init(&params, wth);
 
+    /*
+     * Discard any secrets we read in while opening the file.
+     */
+    if (remove_all_secrets) {
+        wtap_dump_params_discard_decryption_secrets(&params);
+    }
+
     if (dsb_filenames) {
         for (guint k = 0; k < dsb_filenames->len; k++) {
             guint32 secrets_type_id = g_array_index(dsb_types, guint32, k);
@@ -1467,6 +1517,9 @@ main(int argc, char *argv[])
                 g_free(data);
                 continue;
             }
+
+            /* Warn for badly formatted files, but proceed anyway. */
+            validate_secrets_file(secrets_filename, secrets_type_id, data);
 
             block = wtap_block_create(WTAP_BLOCK_DSB);
             dsb = (wtapng_dsb_mandatory_t *)wtap_block_get_mandatory_data(block);
@@ -1515,13 +1568,15 @@ main(int argc, char *argv[])
     }
 
     /* Read all of the packets in turn */
-    while (wtap_read(wth, &read_err, &read_err_info, &data_offset)) {
+    wtap_rec_init(&read_rec);
+    ws_buffer_init(&read_buf, 1514);
+    while (wtap_read(wth, &read_rec, &read_buf, &read_err, &read_err_info, &data_offset)) {
         if (max_packet_number <= read_count)
             break;
 
         read_count++;
 
-        rec = wtap_get_rec(wth);
+        rec = &read_rec;
 
         /* Extra actions for the first packet */
         if (read_count == 1) {
@@ -1554,7 +1609,7 @@ main(int argc, char *argv[])
         } /* first packet only handling */
 
 
-        buf = wtap_get_buf_ptr(wth);
+        buf = ws_buffer_start_ptr(&read_buf);
 
         /*
          * Not all packets have time stamps. Only process the time
@@ -1648,7 +1703,7 @@ main(int argc, char *argv[])
             /* We simply write it, perhaps after truncating it; we could
              * do other things, like modify it. */
 
-            rec = wtap_get_rec(wth);
+            rec = &read_rec;
 
             if (rec->presence_flags & WTAP_HAS_TS) {
                 /* Do we adjust timestamps to ensure strict chronological
@@ -1939,7 +1994,8 @@ main(int argc, char *argv[])
                 if (comment != NULL) {
                     /* Copy and change rather than modify returned rec */
                     temp_rec = *rec;
-                    temp_rec.opt_comment = g_strdup(comment);
+                    /* The comment is not modified by dumper, cast away. */
+                    temp_rec.opt_comment = (char *)comment;
                     temp_rec.has_comment_changed = TRUE;
                     rec = &temp_rec;
                 } else {
@@ -1948,6 +2004,14 @@ main(int argc, char *argv[])
                     temp_rec.has_comment_changed = FALSE;
                     rec = &temp_rec;
                 }
+            }
+
+            if (remove_all_secrets) {
+                /*
+                 * Discard any secrets we've read since the last packet
+                 * we wrote.
+                 */
+                wtap_dump_discard_decryption_secrets(pdh);
             }
 
             /* Attempt to dump out current frame to the output file */
@@ -1964,6 +2028,8 @@ main(int argc, char *argv[])
         }
         count++;
     }
+    wtap_rec_cleanup(&read_rec);
+    ws_buffer_free(&read_buf);
 
     g_free(fprefix);
     g_free(fsuffix);

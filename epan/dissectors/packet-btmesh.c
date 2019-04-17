@@ -13,6 +13,7 @@
  */
 
 #include "config.h"
+#include "packet-btmesh.h"
 
 #include <epan/packet.h>
 #include <epan/prefs.h>
@@ -26,8 +27,6 @@ void proto_register_btmesh(void);
 gint net_mic_size_chosen = 1;
 
 static int proto_btmesh = -1;
-
-
 
 /*-------------------------------------
  * UAT for BT Mesh
@@ -107,7 +106,6 @@ static int ett_btmesh_transp_ctrl_msg = -1;
 static int ett_btmesh_upper_transp_acc_pdu = -1;
 
 static expert_field ei_btmesh_not_decoded_yet = EI_INIT;
-static expert_field ei_btmesh_decrypt_failed = EI_INIT;
 
 static const value_string btmesh_ctl_vals[] = {
     { 0, "Access Message" },
@@ -186,33 +184,6 @@ static const value_string  btmesh_szmic_vals[] = {
 { 0x1, "64-bit" },
 { 0, NULL }
 };
-
-static gint
-dissect_btmesh_msg_no_decrypt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
-{
-    proto_item *item;
-    proto_tree *sub_tree;
-    int offset = 0;
-
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "BT Mesh");
-    col_clear(pinfo->cinfo, COL_INFO);
-
-    item = proto_tree_add_item(tree, proto_btmesh, tvb, offset, -1, ENC_NA);
-    sub_tree = proto_item_add_subtree(item, ett_btmesh);
-
-    /* First byte in plaintext */
-    /* IVI 1 bit Least significant bit of IV Index */
-    proto_tree_add_item(sub_tree, hf_btmesh_ivi, tvb, offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(sub_tree, hf_btmesh_nid, tvb, offset, 1, ENC_BIG_ENDIAN);
-    offset++;
-
-    proto_tree_add_item(sub_tree, hf_btmesh_obfuscated, tvb, offset, 6, ENC_NA);
-    offset += 6;
-
-    proto_tree_add_item(sub_tree, hf_btmesh_encrypted, tvb, offset, -1, ENC_NA);
-
-    return tvb_reported_length(tvb);
-}
 
 /* A BT Mesh dissector is not realy useful without decryption as all packets are encrypted. Just leave a stub dissector outside of*/
 #if GCRYPT_VERSION_NUMBER >= 0x010600 /* 1.6.0 */
@@ -365,6 +336,9 @@ k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
      * (EncryptionKey)
      */
 
+    /* Now close the mac handle */
+    gcry_mac_close(mac_hd);
+
     memcpy(p_t2, t1, 16);
     memcpy(&p_t2[16], p, plen);
     p_t2[16 + plen] = 0x02;
@@ -394,6 +368,9 @@ k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
         gcry_mac_close(mac_hd);
         return FALSE;
     }
+
+    /* Now close the mac handle */
+    gcry_mac_close(mac_hd);
 
     /* T3 = AES-CMAC_T(T2 || P || 0x03) */
     /* PrivacyKey */
@@ -427,6 +404,9 @@ k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
         return FALSE;
     }
 
+    /* Now close the mac handle */
+    gcry_mac_close(mac_hd);
+
     return TRUE;
 }
 
@@ -457,14 +437,16 @@ btmesh_deobfuscate(tvbuff_t *tvb, packet_info *pinfo, int offset _U_, uat_btmesh
     guint8 *plaintextnetworkheader = (guint8 *)wmem_alloc(pinfo->pool, 6);
     int i;
 
+    /* at least 1 + 6 + 2 + 1 + 4 + 4 = 18 octets must be present in tvb to decrypt */
+    if (!tvb_bytes_exist(tvb, 0, 18)) {
+        return NULL;
+    }
+
     memset(in, 0x00, 5);
-    in[5] = net_key_set->ivindex[0];
-    in[6] = net_key_set->ivindex[1];
-    in[7] = net_key_set->ivindex[2];
-    in[8] = net_key_set->ivindex[3];
+    memcpy((guint8 *)&in + 5, net_key_set->ivindex, 4);
 
     /* Privacy random */
-    tvb_memcpy(tvb, (guint8 *)&in+9, 7, 7);
+    tvb_memcpy(tvb, (guint8 *)&in + 9, 7, 7);
 
     if (gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_ECB, 0)) {
         return NULL;
@@ -484,13 +466,11 @@ btmesh_deobfuscate(tvbuff_t *tvb, packet_info *pinfo, int offset _U_, uat_btmesh
     /* Now close the mac handle */
     gcry_cipher_close(cipher_hd);
 
-    for ( i = 0; i<6; i++) {
-        plaintextnetworkheader[i] = tvb_get_guint8(tvb,i+1) ^ pecb[i];
+    for ( i = 0; i < 6; i++) {
+        plaintextnetworkheader[i] = tvb_get_guint8(tvb, i + 1) ^ pecb[i];
     }
 
     de_obf_tvb = tvb_new_child_real_data(tvb, plaintextnetworkheader, 6, 6);
-    add_new_data_source(pinfo, de_obf_tvb, "Deobfuscated data");
-
     return de_obf_tvb;
 }
 
@@ -682,7 +662,105 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
             dissect_btmesh_transport_access_message(tvb, pinfo, tree, offset, 4/*TransMic is 32 bits*/);
         }
     }
+}
 
+tvbuff_t *
+btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint8 **decrypted_data, int *enc_data_len, guint8 nonce_type) {
+    guint i;
+    guint8 nid;
+    int offset = 0;
+    tvbuff_t *de_obf_tvb;
+    guint8 networknonce[13];
+    uat_btmesh_record_t *record;
+    gcry_cipher_hd_t cipher_hd;
+    guint32 net_mic_size;
+    gboolean cry_error;
+    guint64 ccm_lengths[3];
+    int enc_offset;
+
+    nid = tvb_get_guint8(tvb, offset) & 0x7f;
+
+    /* Get the next record to try */
+    for (i = 0; i < num_btmesh_uat; i++) {
+        record = &uat_btmesh_records[i];
+        if (nid == record->nid) {
+            offset = 1;
+            de_obf_tvb = btmesh_deobfuscate(tvb, pinfo, offset, record);
+
+            if (de_obf_tvb == NULL) {
+                continue;
+            }
+            net_mic_size = (((tvb_get_guint8(de_obf_tvb, 0) & 0x80) >> 7 ) + 1 ) * 4; /* CTL */
+            offset +=6;
+
+            (*enc_data_len) = tvb_reported_length(tvb) - offset - net_mic_size;
+            enc_offset = offset;
+
+            /* Start setting network nounce.*/
+            networknonce[0] = nonce_type; /* Nonce Type */
+
+            tvb_memcpy(de_obf_tvb, (guint8 *)&networknonce + 1, 0, 6);
+            if (nonce_type == MESH_NONCE_TYPE_PROXY) {
+                networknonce[1] = 0x00;    /*Pad*/
+            }
+            networknonce[7] = 0x00;    /*Pad*/
+            networknonce[8] = 0x00;    /*Pad*/
+
+            memcpy((guint8 *)&networknonce + 9, record->ivindex, 4);
+            /* Decrypt packet EXPERIMENTAL CODE */
+            if (gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_CCM, 0)) {
+                return NULL;
+            }
+
+            cry_error = gcry_cipher_setkey(cipher_hd, record->encryptionkey, 16);
+            if (cry_error) {
+                gcry_cipher_close(cipher_hd);
+                continue;
+            }
+
+            /* Load nonce */
+            cry_error = gcry_cipher_setiv(cipher_hd, &networknonce, 13);
+            if (cry_error) {
+                gcry_cipher_close(cipher_hd);
+                continue;
+            }
+            /* */
+            ccm_lengths[0] = (*enc_data_len);
+            ccm_lengths[1] = 0; /* aad */
+            ccm_lengths[2] = net_mic_size; /* icv NOT SURE ABOUT THIS ONE */
+
+            cry_error = gcry_cipher_ctl(cipher_hd, GCRYCTL_SET_CCM_LENGTHS, ccm_lengths, sizeof(ccm_lengths));
+            if (cry_error) {
+                gcry_cipher_close(cipher_hd);
+                continue;
+            }
+
+            (*decrypted_data) = (guint8 *)wmem_alloc(pinfo->pool, *enc_data_len);
+            /* Decrypt */
+            cry_error = gcry_cipher_decrypt(cipher_hd, (*decrypted_data), *enc_data_len, tvb_get_ptr(tvb, enc_offset, *enc_data_len), *enc_data_len);
+            if (cry_error) {
+                gcry_cipher_close(cipher_hd);
+                continue;
+            }
+
+            guint8 *tag;
+            tag = (guint8 *)wmem_alloc(wmem_packet_scope(), net_mic_size);
+            cry_error = gcry_cipher_gettag(cipher_hd, tag, net_mic_size);
+
+            if (cry_error == 0 && !memcmp(tag, tvb_get_ptr(tvb, enc_offset + (*enc_data_len), net_mic_size), net_mic_size)) {
+                /* Tag authenticated, now close the cypher handle */
+                gcry_cipher_close(cipher_hd);
+                return de_obf_tvb;
+            }  else {
+                /* Now close the cypher handle */
+                gcry_cipher_close(cipher_hd);
+
+                /* Tag mismatch or cipher error */
+                continue;
+            }
+        }
+    }
+    return NULL;
 }
 
 static gint
@@ -690,39 +768,13 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
 {
     proto_item *item;
     proto_tree *netw_tree, *sub_tree;
-    int offset = 0, enc_offset;
-    guint i;
-    guint8 nid;
-    gboolean found;
+    int offset = 0;
     guint32 net_mic_size, seq, src;
-    int enc_data_len;
+    int enc_data_len = 0;
     tvbuff_t *de_obf_tvb;
-    guint8 networknonce[13];
-    gcry_cipher_hd_t cipher_hd;
-    /*gcry_error_t cry_error;*/
-    gboolean cry_error;
-    guint64 ccm_lengths[3];
     tvbuff_t *de_cry_tvb;
     int decry_off;
-    guint8 *decrypted_data;
-    uat_btmesh_record_t *record;
-
-
-    nid = tvb_get_guint8(tvb, offset) & 0x7f;
-    found = FALSE;
-
-    /* Get the next record to try */
-    for (i = 0; i < num_btmesh_uat; i++) {
-        record = &uat_btmesh_records[i];
-        if (nid == record->nid) {
-            found = TRUE;
-            break;
-        }
-    }
-    if (!found) {
-        /* No matching UAT records found */
-        return dissect_btmesh_msg_no_decrypt(tvb, pinfo, tree, data);
-    }
+    guint8 *decrypted_data = NULL;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "BT Mesh");
     col_clear(pinfo->cinfo, COL_INFO);
@@ -731,18 +783,20 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
     netw_tree = proto_item_add_subtree(item, ett_btmesh);
 
     sub_tree = proto_tree_add_subtree(netw_tree, tvb, offset, -1, ett_btmesh_net_pdu, NULL, "Network PDU");
-    /* Check lengt >= , if not error packet */
+    /* Check length >= , if not error packet */
     /* First byte in plaintext */
     /* IVI 1 bit Least significant bit of IV Index */
     proto_tree_add_item(sub_tree, hf_btmesh_ivi, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(sub_tree, hf_btmesh_nid, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
 
-    de_obf_tvb = btmesh_deobfuscate(tvb, pinfo, offset, record);
+    de_obf_tvb = btmesh_network_find_key_and_decrypt(tvb, pinfo, &decrypted_data, &enc_data_len, MESH_NONCE_TYPE_NETWORK);
+
     if (de_obf_tvb) {
+        add_new_data_source(pinfo, de_obf_tvb, "Deobfuscated data");
+
         gboolean cntrl;
-        /* Start setting network nounce.*/
-        networknonce[0] = 0; /* Nonce Type */
+
         /* CTL 1 bit Network Control*/
         proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_ctl, de_obf_tvb, 0, 1, ENC_BIG_ENDIAN, &net_mic_size);
         /* 32 or 64 bits ( 0 or 1 )*/
@@ -750,80 +804,13 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
         net_mic_size = (net_mic_size + 1) * 4;
         /* The TTL field is a 7-bit field */
         proto_tree_add_item(sub_tree, hf_btmesh_ttl, de_obf_tvb, 0, 1, ENC_BIG_ENDIAN);
-        networknonce[1] = tvb_get_guint8(de_obf_tvb,0);/* CTL and TTL */
 
         /* SEQ field is a 24-bit integer */
         proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_seq, de_obf_tvb, 1, 3, ENC_BIG_ENDIAN, &seq);
-        networknonce[2] = seq >> 16;
-        networknonce[3] = seq >> 8;
-        networknonce[4] = seq;
-
 
         /* SRC field is a 16-bit value */
         proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_src, de_obf_tvb, 4, 2, ENC_BIG_ENDIAN, &src);
         offset += 6;
-        networknonce[5] = src >> 8;
-        networknonce[6] = src;
-
-        networknonce[7] = 0x00;    /*Pad*/
-        networknonce[8] = 0x00;    /*Pad*/
-
-        networknonce[9] =  record->ivindex[0];
-        networknonce[10] = record->ivindex[1];
-        networknonce[11] = record->ivindex[2];
-        networknonce[12] = record->ivindex[3];
-
-
-        enc_data_len = tvb_reported_length(tvb) - 1 - 6 - net_mic_size;
-
-        enc_offset = offset;
-
-        /* Decrypt packet EXPERIMENTAL CODE */
-
-        if (gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_CCM, 0)) {
-            return offset;
-        }
-
-        cry_error = gcry_cipher_setkey(cipher_hd, record->encryptionkey, 16);
-        if (cry_error) {
-            g_warning("gcry_cipher_setkey failed\n");
-            gcry_cipher_close(cipher_hd);
-            return offset;
-        }
-
-        /* Load nonce */
-        cry_error = gcry_cipher_setiv(cipher_hd, &networknonce, 13);
-        if (cry_error) {
-            g_warning("gcry_cipher_setiv failed\n");
-            gcry_cipher_close(cipher_hd);
-            return offset;
-        }
-
-        /* */
-        ccm_lengths[0] = enc_data_len;
-        ccm_lengths[1] = 0; /* aad */
-        ccm_lengths[2] = net_mic_size; /* icv NOT SURE ABOUT THIS ONE */
-
-        cry_error = gcry_cipher_ctl(cipher_hd, GCRYCTL_SET_CCM_LENGTHS, ccm_lengths, sizeof(ccm_lengths));
-        if (cry_error) {
-            g_warning("gcry_cipher_ctl failed %s enc_data_len %u\n",
-                gcry_strerror(cry_error),
-                enc_data_len);
-            gcry_cipher_close(cipher_hd);
-            return offset;
-        }
-
-        decrypted_data = (guint8 *)wmem_alloc(pinfo->pool, enc_data_len);
-        /* Decrypt */
-        cry_error = gcry_cipher_decrypt(cipher_hd, decrypted_data, enc_data_len, tvb_get_ptr(tvb, enc_offset, enc_data_len), enc_data_len);
-        if (cry_error) {
-            expert_add_info(pinfo, item, &ei_btmesh_decrypt_failed);
-            g_warning("gcry_cipher_decrypt failed %s\n", gcry_strerror(cry_error));
-            gcry_cipher_close(cipher_hd);
-            return offset;
-        }
-        /* Now close the cypher handle */
-        gcry_cipher_close(cipher_hd);
 
         de_cry_tvb = tvb_new_child_real_data(tvb, decrypted_data, enc_data_len, enc_data_len);
         add_new_data_source(pinfo, de_cry_tvb, "Decrypted data");
@@ -862,9 +849,30 @@ create_master_security_keys(uat_btmesh_record_t * net_key_set _U_)
 
 /* Stub dissector if decryption not available on build system */
 static gint
-dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-    return dissect_btmesh_msg_no_decrypt(tvb, pinfo, tree, data);
+    proto_item *item;
+    proto_tree *sub_tree;
+    int offset = 0;
+
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "BT Mesh");
+    col_clear(pinfo->cinfo, COL_INFO);
+
+    item = proto_tree_add_item(tree, proto_btmesh, tvb, offset, -1, ENC_NA);
+    sub_tree = proto_item_add_subtree(item, ett_btmesh);
+
+    /* First byte in plaintext */
+    /* IVI 1 bit Least significant bit of IV Index */
+    proto_tree_add_item(sub_tree, hf_btmesh_ivi, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(sub_tree, hf_btmesh_nid, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset++;
+
+    proto_tree_add_item(sub_tree, hf_btmesh_obfuscated, tvb, offset, 6, ENC_NA);
+    offset += 6;
+
+    proto_tree_add_item(sub_tree, hf_btmesh_encrypted, tvb, offset, -1, ENC_NA);
+
+    return tvb_reported_length(tvb);
 }
 
 #endif /* GCRYPT_VERSION_NUMBER >= 0x010600 */
@@ -965,8 +973,11 @@ uat_btmesh_record_update_cb(void *r, char **err _U_)
 
     /* Compute keys & lengths once and for all */
     if (rec->network_key_string) {
+        g_free(rec->network_key);
         rec->network_key_length = compute_ascii_key(&rec->network_key, rec->network_key_string);
+        g_free(rec->encryptionkey);
         rec->encryptionkey = (guint8 *)g_malloc(16 * sizeof(guint8));
+        g_free(rec->privacykey);
         rec->privacykey = (guint8 *)g_malloc(16 * sizeof(guint8));
         create_master_security_keys(rec);
     }
@@ -975,7 +986,8 @@ uat_btmesh_record_update_cb(void *r, char **err _U_)
         rec->network_key = NULL;
     }
     if (rec->ivindex_string) {
-        rec-> ivindex_string_length = compute_ascii_key(&rec->ivindex, rec->ivindex_string);
+        g_free(rec->ivindex);
+        rec->ivindex_string_length = compute_ascii_key(&rec->ivindex, rec->ivindex_string);
     }
     return TRUE;
 }
@@ -989,6 +1001,7 @@ uat_btmesh_record_copy_cb(void *n, const void *o, size_t siz _U_)
     /* Copy UAT fields */
     new_rec->network_key_string = g_strdup(old_rec->network_key_string);
     new_rec->ivindex_string = g_strdup(old_rec->ivindex_string);
+
     /* Parse keys as in an update */
     uat_btmesh_record_update_cb(new_rec, NULL);
 
@@ -1002,6 +1015,10 @@ uat_btmesh_record_free_cb(void *r)
 
     g_free(rec->network_key_string);
     g_free(rec->network_key);
+    g_free(rec->ivindex_string);
+    g_free(rec->ivindex);
+    g_free(rec->privacykey);
+    g_free(rec->encryptionkey);
 }
 
 UAT_CSTRING_CB_DEF(uat_btmesh_records, network_key_string, uat_btmesh_record_t)
@@ -1232,7 +1249,7 @@ proto_register_btmesh(void)
             NULL, HFILL }
         },
         { &hf_btmesh_segment,
-        { "Sewgment", "btmesh.segment",
+        { "Segment", "btmesh.segment",
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
@@ -1248,7 +1265,6 @@ proto_register_btmesh(void)
 
     static ei_register_info ei[] = {
         { &ei_btmesh_not_decoded_yet,{ "btmesh.not_decoded_yet", PI_PROTOCOL, PI_NOTE, "Not decoded yet", EXPFILL } },
-        { &ei_btmesh_decrypt_failed,{ "btmesh.decryption_failed", PI_PROTOCOL, PI_WARN, "Decryption failed", EXPFILL } },
     };
 
     expert_module_t* expert_btmesh;
@@ -1271,6 +1287,10 @@ proto_register_btmesh(void)
     expert_register_field_array(expert_btmesh, ei, array_length(ei));
 
     btmesh_module = prefs_register_protocol_subtree("Bluetooth", proto_btmesh, NULL);
+
+    prefs_register_static_text_preference(btmesh_module, "version",
+            "Bluetooth Mesh Profile v1.0",
+            "Version of protocol supported by this dissector.");
 
     btmesh_uat = uat_new("BTMesh Network keys",
         sizeof(uat_btmesh_record_t),    /* record size */

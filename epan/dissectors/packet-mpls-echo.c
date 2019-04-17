@@ -952,7 +952,6 @@ dissect_mpls_echo_tlv_fec(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto
                     adj_offset += 4;
                     proto_tree_add_item(tlv_fec_tree, hf_mpls_echo_tlv_fec_igp_adj_rec_ident_ospf,
                                         tvb, adj_offset, 4, ENC_NA);
-                    adj_offset += 4;
                     break;
                 case SUB_TLV_FEC_SR_PROTO_ISIS:
                     proto_tree_add_item(tlv_fec_tree, hf_mpls_echo_tlv_fec_igp_adj_adv_ident_isis,
@@ -960,7 +959,6 @@ dissect_mpls_echo_tlv_fec(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto
                     adj_offset += 6;
                     proto_tree_add_item(tlv_fec_tree, hf_mpls_echo_tlv_fec_igp_adj_rec_ident_isis,
                                         tvb, adj_offset, 6, ENC_NA);
-                    adj_offset += 6;
                     break;
                 case SUB_TLV_FEC_SR_PROTO_ANY:
                     proto_tree_add_item(tlv_fec_tree, hf_mpls_echo_tlv_fec_igp_adj_adv_ident,
@@ -968,7 +966,6 @@ dissect_mpls_echo_tlv_fec(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto
                     adj_offset += 4;
                     proto_tree_add_item(tlv_fec_tree, hf_mpls_echo_tlv_fec_igp_adj_rec_ident,
                                         tvb, adj_offset, 4, ENC_NA);
-                    adj_offset += 4;
                     break;
             }
             break;
@@ -1691,7 +1688,7 @@ dissect_mpls_echo_tlv(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tre
             hidden_item = proto_tree_add_item(mpls_echo_tlv_tree,
                                               hf_mpls_echo_tlv_responder_indent_len, tvb,
                                               offset + 6, 2, ENC_BIG_ENDIAN);
-            PROTO_ITEM_SET_HIDDEN(hidden_item);
+            proto_item_set_hidden(hidden_item);
             proto_tree_add_item(mpls_echo_tlv_tree, hf_mpls_echo_tlv_responder_indent_ipv4,
                                 tvb, offset + 8, 4, ENC_BIG_ENDIAN);
             break;
@@ -1707,7 +1704,7 @@ dissect_mpls_echo_tlv(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tre
                                 tvb, offset + 4, 2, ENC_BIG_ENDIAN);
             hidden_item = proto_tree_add_item(mpls_echo_tlv_tree, hf_mpls_echo_tlv_responder_indent_len,
                                               tvb, offset + 6, 2, ENC_BIG_ENDIAN);
-            PROTO_ITEM_SET_HIDDEN(hidden_item);
+            proto_item_set_hidden(hidden_item);
             proto_tree_add_item(mpls_echo_tlv_tree, hf_mpls_echo_tlv_responder_indent_ipv4,
                                 tvb, offset + 8, 16, ENC_BIG_ENDIAN);
             break;

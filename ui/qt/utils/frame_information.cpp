@@ -30,7 +30,7 @@ FrameInformation::FrameInformation(CaptureFile * capfile, frame_data * fi, QObje
  cap_file_(capfile)
 {
     wtap_rec_init(&rec_);
-    ws_buffer_init(&buf_, 1500);
+    ws_buffer_init(&buf_, 1514);
     loadFrameTree();
 }
 
@@ -39,7 +39,7 @@ void FrameInformation::loadFrameTree()
     if ( ! fi_ || ! cap_file_ || !cap_file_->capFile())
         return;
 
-    if (!cf_read_record_r(cap_file_->capFile(), fi_, &rec_, &buf_))
+    if (!cf_read_record(cap_file_->capFile(), fi_, &rec_, &buf_))
         return;
 
     /* proto tree, visible. We need a proto tree if there's custom columns */

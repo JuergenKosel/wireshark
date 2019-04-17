@@ -1,7 +1,7 @@
 /* packet-xnap.c
  * Routines for dissecting NG-RAN Xn application protocol (XnAP)
  * 3GPP TS 38.423 packet dissection
- * Copyright 2018-2019, Pascal Quantin <pascal.quantin@gmail.com>
+ * Copyright 2018-2019, Pascal Quantin <pascal@wireshark.org>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -10,7 +10,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Ref:
- * 3GPP TS 38.423 V15.2.0 (2018-12)
+ * 3GPP TS 38.423 V15.3.0 (2019-03)
  */
 
 #include "config.h"
@@ -29,6 +29,7 @@
 #include "packet-ngap.h"
 #include "packet-s1ap.h"
 #include "packet-ranap.h"
+#include "packet-ntp.h"
 
 #ifdef _MSC_VER
 /* disable: "warning C4146: unary minus operator applied to unsigned type, result still unsigned" */

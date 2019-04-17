@@ -827,7 +827,7 @@ static void dissect_h248_annexc_SDP_C(proto_tree* tree, tvbuff_t* tvb, packet_in
 
 	if (param_tvb){
 		ti = proto_tree_add_item(tree, hf_h248_sdp_connection_info, param_tvb, 0, -1, ENC_BIG_ENDIAN);
-		PROTO_ITEM_SET_GENERATED(ti);
+		proto_item_set_generated(ti);
 	}
 }
 
@@ -856,7 +856,7 @@ static void dissect_h248_annexc_SDP_M(proto_tree* tree, tvbuff_t* tvb, packet_in
 					gboolean port_valid;
 					port_valid = ws_strtoi32(port_str, NULL, &port);
 					ti = proto_tree_add_uint(tree, hf_h248_sdp_media_port, param_tvb, offset, tokenlen, port);
-					PROTO_ITEM_SET_GENERATED(ti);
+					proto_item_set_generated(ti);
 					if (!port_valid)
 						proto_tree_add_expert(tree, pinfo, &ei_h248_sdp_media_port_invalid, param_tvb, offset,
 							tokenlen);
@@ -1561,7 +1561,7 @@ void proto_register_h248_annex_c(void) {
 	};
 
 	static ei_register_info ei[] = {
-		{ &ei_h248_sdp_media_port_invalid, { "sdp.media.port.invalid", PI_MALFORMED, PI_ERROR,
+		{ &ei_h248_sdp_media_port_invalid, { "h248.annexc.sdp.media.port.invalid", PI_MALFORMED, PI_ERROR,
 			"Invalid SDP media port", EXPFILL }}
 	};
 

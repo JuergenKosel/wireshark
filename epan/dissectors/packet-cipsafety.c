@@ -565,7 +565,7 @@ dissect_cip_s_supervisor_data( proto_tree *item_tree,
          cmd_data_tree = proto_tree_add_subtree( item_tree, tvb, offset+4+add_stat_size,
                          item_length-4-add_stat_size, ett_ssupervisor_cmd_data, NULL, "Command Specific Data" );
 
-         if( gen_status == CI_GRC_SUCCESS || gen_status == CI_GRC_SERVICE_ERROR )
+         if( gen_status == CI_GRC_SUCCESS )
          {
             switch (service & CIP_SC_MASK)
             {
@@ -1126,7 +1126,7 @@ dissect_cip_s_validator_data( proto_tree *item_tree,
          cmd_data_tree = proto_tree_add_subtree( item_tree, tvb, offset+4+add_stat_size, item_length-4-add_stat_size,
                                 ett_ssupervisor_cmd_data, &pi, "Command Specific Data" );
 
-         if( gen_status == CI_GRC_SUCCESS || gen_status == CI_GRC_SERVICE_ERROR )
+         if( gen_status == CI_GRC_SUCCESS )
          {
             /* Success responses */
             if (((service & CIP_SC_MASK) == SC_GET_ATT_ALL) &&
@@ -1577,7 +1577,7 @@ dissect_cip_safety_data( proto_tree *tree, proto_item *item, tvbuff_t *tvb, int 
          {
             crc_s5_status_item = proto_tree_add_uint(tree, hf_cipsafety_crc_s5_status, tvb, 5, 0, PROTO_CHECKSUM_E_UNVERIFIED);
          }
-         PROTO_ITEM_SET_GENERATED(crc_s5_status_item);
+         proto_item_set_generated(crc_s5_status_item);
 
          break;
       }
@@ -1820,7 +1820,7 @@ dissect_cip_safety_data( proto_tree *tree, proto_item *item, tvbuff_t *tvb, int 
             {
                crc_s5_status_item = proto_tree_add_uint(tree, hf_cipsafety_crc_s5_status, tvb, io_data_size+5, 0, PROTO_CHECKSUM_E_UNVERIFIED);
             }
-            PROTO_ITEM_SET_GENERATED(crc_s5_status_item);
+            proto_item_set_generated(crc_s5_status_item);
 
             if (multicast)
             {
@@ -1922,7 +1922,7 @@ dissect_cip_safety_data( proto_tree *tree, proto_item *item, tvbuff_t *tvb, int 
             {
                crc_s5_status_item = proto_tree_add_uint(tree, hf_cipsafety_crc_s5_status, tvb, (io_data_size*2)+7, 0, PROTO_CHECKSUM_E_UNVERIFIED);
             }
-            PROTO_ITEM_SET_GENERATED(crc_s5_status_item);
+            proto_item_set_generated(crc_s5_status_item);
 
             if (multicast)
             {

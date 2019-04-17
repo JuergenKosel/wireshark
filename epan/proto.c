@@ -2016,6 +2016,7 @@ get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
 			break;
 
 		case ENC_TIME_MSECS|ENC_BIG_ENDIAN:
+		case ENC_TIME_MSECS|ENC_LITTLE_ENDIAN:
 			/*
 			 * Milliseconds, 1 to 8 bytes.
 			 * For absolute times, it's milliseconds since the
@@ -2048,7 +2049,7 @@ get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
 				 * The upper 48 bits are seconds since the
 				 * UN*X epoch.
 				 */
-				time_stamp->secs  = tvb_get_ntoh48(tvb, start);
+				time_stamp->secs  = (time_t)tvb_get_ntoh48(tvb, start);
 				/*
 				 * The lower 16 bits are 1/2^16s of a second;
 				 * convert them to nanoseconds.
@@ -2086,7 +2087,7 @@ get_time_value(proto_tree *tree, tvbuff_t *tvb, const gint start,
 				 * The lower 48 bits are seconds since the
 				 * UN*X epoch.
 				 */
-				time_stamp->secs  = tvb_get_letoh48(tvb, start+2);
+				time_stamp->secs  = (time_t)tvb_get_letoh48(tvb, start+2);
 				/*
 				 * The upper 16 bits are 1/2^16s of a second;
 				 * convert them to nanoseconds.
@@ -5674,7 +5675,7 @@ proto_tree_set_representation_value(proto_item *pi, const char *format, va_list 
 
 	/* If the tree (GUI) or item isn't visible it's pointless for us to generate the protocol
 	 * items string representation */
-	if (PTREE_DATA(pi)->visible && !PROTO_ITEM_IS_HIDDEN(pi)) {
+	if (PTREE_DATA(pi)->visible && !proto_item_is_hidden(pi)) {
 		int               ret = 0;
 		field_info        *fi = PITEM_FINFO(pi);
 		header_field_info *hf;
@@ -5727,7 +5728,7 @@ proto_tree_set_representation(proto_item *pi, const char *format, va_list ap)
 
 	DISSECTOR_ASSERT(fi);
 
-	if (!PROTO_ITEM_IS_HIDDEN(pi)) {
+	if (!proto_item_is_hidden(pi)) {
 		ITEM_LABEL_NEW(PNODE_POOL(pi), fi->rep);
 		ret = g_vsnprintf(fi->rep->representation, ITEM_LABEL_LENGTH,
 				  format, ap);
@@ -6327,7 +6328,7 @@ proto_item_append_text(proto_item *pi, const char *format, ...)
 		return;
 	}
 
-	if (!PROTO_ITEM_IS_HIDDEN(pi)) {
+	if (!proto_item_is_hidden(pi)) {
 		/*
 		 * If we don't already have a representation,
 		 * generate the default representation.
@@ -6362,7 +6363,7 @@ proto_item_prepend_text(proto_item *pi, const char *format, ...)
 		return;
 	}
 
-	if (!PROTO_ITEM_IS_HIDDEN(pi)) {
+	if (!proto_item_is_hidden(pi)) {
 		/*
 		 * If we don't already have a representation,
 		 * generate the default representation.
@@ -6845,6 +6846,8 @@ proto_deregister_protocol(const char *short_name)
 		g_ptr_array_free(protocol->fields, TRUE);
 		protocol->fields = NULL;
 	}
+
+	g_list_free(protocol->heur_list);
 
 	/* Remove this protocol from the list of known protocols */
 	protocols = g_list_remove(protocols, protocol);
@@ -8110,7 +8113,7 @@ register_string_errors(void)
 	proto_set_cant_toggle(proto_string_errors);
 }
 
-#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (210000+PRE_ALLOC_EXPERT_FIELDS_MEM)
+#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (220000+PRE_ALLOC_EXPERT_FIELDS_MEM)
 static int
 proto_register_field_init(header_field_info *hfinfo, const int parent)
 {
@@ -9867,7 +9870,7 @@ check_for_offset(proto_node *node, gpointer data)
 	offset_search_t	*offsearch = (offset_search_t *)data;
 
 	/* !fi == the top most container node which holds nothing */
-	if (fi && !PROTO_ITEM_IS_HIDDEN(node) && !PROTO_ITEM_IS_GENERATED(node) && fi->ds_tvb && offsearch->tvb == fi->ds_tvb) {
+	if (fi && !proto_item_is_hidden(node) && !proto_item_is_generated(node) && fi->ds_tvb && offsearch->tvb == fi->ds_tvb) {
 		if (offsearch->offset >= (guint) fi->start &&
 				offsearch->offset < (guint) (fi->start + fi->length)) {
 
@@ -12281,17 +12284,17 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 
 	if (flags & PROTO_CHECKSUM_NOT_PRESENT) {
 		ti = proto_tree_add_uint_format_value(tree, hf_checksum, tvb, offset, len, 0, "[missing]");
-		PROTO_ITEM_SET_GENERATED(ti);
+		proto_item_set_generated(ti);
 		if (hf_checksum_status != -1) {
 			ti2 = proto_tree_add_uint(tree, hf_checksum_status, tvb, offset, len, PROTO_CHECKSUM_E_NOT_PRESENT);
-			PROTO_ITEM_SET_GENERATED(ti2);
+			proto_item_set_generated(ti2);
 		}
 		return ti;
 	}
 
 	if (flags & PROTO_CHECKSUM_GENERATED) {
 		ti = proto_tree_add_uint(tree, hf_checksum, tvb, offset, len, computed_checksum);
-		PROTO_ITEM_SET_GENERATED(ti);
+		proto_item_set_generated(ti);
 	} else {
 		ti = proto_tree_add_item_ret_uint(tree, hf_checksum, tvb, offset, len, encoding, &checksum);
 		if (flags & PROTO_CHECKSUM_VERIFY) {
@@ -12300,7 +12303,7 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 					proto_item_append_text(ti, " [correct]");
 					if (hf_checksum_status != -1) {
 						ti2 = proto_tree_add_uint(tree, hf_checksum_status, tvb, offset, 0, PROTO_CHECKSUM_E_GOOD);
-						PROTO_ITEM_SET_GENERATED(ti2);
+						proto_item_set_generated(ti2);
 					}
 					incorrect_checksum = FALSE;
 				} else if (flags & PROTO_CHECKSUM_IN_CKSUM) {
@@ -12311,7 +12314,7 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 					proto_item_append_text(ti, " [correct]");
 					if (hf_checksum_status != -1) {
 						ti2 = proto_tree_add_uint(tree, hf_checksum_status, tvb, offset, 0, PROTO_CHECKSUM_E_GOOD);
-						PROTO_ITEM_SET_GENERATED(ti2);
+						proto_item_set_generated(ti2);
 					}
 					incorrect_checksum = FALSE;
 				}
@@ -12320,7 +12323,7 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 			if (incorrect_checksum) {
 				if (hf_checksum_status != -1) {
 					ti2 = proto_tree_add_uint(tree, hf_checksum_status, tvb, offset, 0, PROTO_CHECKSUM_E_BAD);
-					PROTO_ITEM_SET_GENERATED(ti2);
+					proto_item_set_generated(ti2);
 				}
 				if (flags & PROTO_CHECKSUM_ZERO) {
 					proto_item_append_text(ti, " [incorrect]");
@@ -12336,7 +12339,7 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
 			if (hf_checksum_status != -1) {
 				proto_item_append_text(ti, " [unverified]");
 				ti2 = proto_tree_add_uint(tree, hf_checksum_status, tvb, offset, 0, PROTO_CHECKSUM_E_UNVERIFIED);
-				PROTO_ITEM_SET_GENERATED(ti2);
+				proto_item_set_generated(ti2);
 			}
 		}
 	}

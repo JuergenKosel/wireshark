@@ -1709,6 +1709,11 @@ static const true_false_string isup_end_to_end_info_ind_value = {
   "no end-to-end information available"
 };
 
+static const true_false_string ansi_isup_iam_seg_ind_value = {
+  "Additional information has been received and incorporated into call set-up",
+  "No Indication"
+};
+
 static const true_false_string isup_ISDN_user_part_ind_value = {
   "ISDN user part used all the way",
   "ISDN user part not used all the way"
@@ -2315,8 +2320,8 @@ static const true_false_string isup_calling_party_address_request_ind_value = {
   "calling party address not requested"
 };
 static const true_false_string isup_holding_ind_value = {
-  "holding requested",
-  "holding not requested"
+  "holding requested/(ANSI)holding required (No procedure specified for U.S. networks)",
+  "holding not requested/(ANSI)holding not required"
 };
 static const true_false_string isup_calling_partys_category_request_ind_value = {
   "Calling Party's category requested",
@@ -2819,6 +2824,7 @@ static int hf_isup_backw_call_called_partys_category_ind = -1;
 static int hf_isup_backw_call_end_to_end_method_ind = -1;
 static int hf_isup_backw_call_interworking_ind = -1;
 static int hf_isup_backw_call_end_to_end_info_ind = -1;
+static int hf_isup_backw_call_iam_seg_ind = -1;
 static int hf_isup_backw_call_isdn_user_part_ind = -1;
 static int hf_isup_backw_call_holding_ind = -1;
 static int hf_isup_backw_call_isdn_access_ind = -1;
@@ -2907,6 +2913,12 @@ static int hf_isup_app_Release_call_ind             = -1;
 static int hf_isup_cause_location                   = -1;
 
 static int hf_ansi_isup_coding_standard             = -1;
+static int hf_ansi_isup_spare_b7 = -1;
+static int hf_ansi_isup_type_of_nw_id = -1;
+static int hf_ansi_isup_nw_id_plan = -1;
+static int hf_ansi_isup_tns_nw_id_plan = -1;
+static int hf_ansi_isup_nw_id = -1;
+static int hf_ansi_isup_circuit_code = -1;
 
 static int hf_length_indicator                      = -1;
 static int hf_afi                                   = -1;
@@ -3559,6 +3571,28 @@ dissect_isup_backward_call_indicators_parameter(tvbuff_t *parameter_tvb, proto_t
   proto_tree_add_bitmask_list(parameter_tree, parameter_tvb, 0, BACKWARD_CALL_IND_LENGTH, indicators, ENC_BIG_ENDIAN);
   proto_item_append_text(parameter_item, " : 0x%x", tvb_get_ntohs(parameter_tvb, 0));
 }
+
+static void
+dissect_ansi_isup_backward_call_indicators_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item)
+{
+  static const int * indicators[] = {
+    &hf_isup_backw_call_charge_ind,
+    &hf_isup_backw_call_called_partys_status_ind,
+    &hf_isup_backw_call_called_partys_category_ind,
+    &hf_isup_backw_call_end_to_end_method_ind,
+    &hf_isup_backw_call_interworking_ind,
+    &hf_isup_backw_call_iam_seg_ind,
+    &hf_isup_backw_call_isdn_user_part_ind,
+    &hf_isup_backw_call_holding_ind,
+    &hf_isup_backw_call_isdn_access_ind,
+    &hf_isup_backw_call_echo_control_device_ind,
+    &hf_isup_backw_call_sccp_method_ind,
+    NULL
+  };
+
+  proto_tree_add_bitmask_list(parameter_tree, parameter_tvb, 0, BACKWARD_CALL_IND_LENGTH, indicators, ENC_BIG_ENDIAN);
+  proto_item_append_text(parameter_item, " : 0x%x", tvb_get_ntohs(parameter_tvb, 0));
+}
 /* ------------------------------------------------------------------
   Dissector Parameter Cause Indicators - no detailed dissection since defined in Rec. Q.850
  */
@@ -3910,6 +3944,77 @@ dissect_ansi_isup_cause_indicators_parameter(tvbuff_t *parameter_tvb, proto_tree
       proto_tree_add_item(parameter_tree, hf_isup_extension_ind, parameter_tvb, offset, 1, ENC_BIG_ENDIAN);
       break;
   }
+}
+
+/* ------------------------------------------------------------------
+  Dissector ANSI Transit network selection
+ */
+
+static const value_string ansi_isup_tns_nw_id_plan_vals[] = {
+    { 0x00, "Unknown" },
+    { 0x01, "3-digit carrier id with circuit code" },
+    { 0x02, "4-digit carrier id with circuit code" },
+    {    0, NULL } };
+
+static void
+dissect_ansi_isup_transit_network_selection_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo _U_, proto_tree *parameter_tree, proto_item *parameter_item _U_)
+{
+  gint        offset = 0;
+  const char *digit_str;
+
+  static const int * indicators_fields[] = {
+    &hf_ansi_isup_spare_b7,
+    &hf_isup_type_of_network_identification,
+    &hf_ansi_isup_tns_nw_id_plan,
+    NULL
+  };
+
+  proto_tree_add_bitmask_list(parameter_tree, parameter_tvb, 0, 1, indicators_fields, ENC_NA);
+  offset = 1;
+
+  digit_str = tvb_bcd_dig_to_wmem_packet_str(parameter_tvb, offset, 2, NULL, FALSE);
+  proto_tree_add_string(parameter_tree, hf_ansi_isup_nw_id, parameter_tvb, offset, 2, digit_str);
+  offset += 2;
+  proto_tree_add_item(parameter_tree, hf_ansi_isup_circuit_code, parameter_tvb, offset, 1, ENC_BIG_ENDIAN);
+
+}
+
+static const value_string ansi_isup_type_of_nw_id_vals[] = {
+    { 0x00, "Spare" },
+    { 0x01, "Spare" },
+    { 0x02, "National network identification" },
+    { 0x03, "Spare" },
+    { 0x04, "Spare" },
+    { 0x05, "Spare" },
+    { 0x06, "Spare" },
+    { 0x07, "Spare" },
+    {    0, NULL } };
+
+static const value_string ansi_isup_nw_id_plan_vals[] = {
+    { 0x00, "Unknown" },
+    { 0x01, "3-digit carrier id" },
+    { 0x02, "4-digit carrier id" },
+    {    0, NULL } };
+
+static void
+dissect_ansi_isup_param_carrier_id(tvbuff_t *parameter_tvb, packet_info *pinfo _U_, proto_tree *parameter_tree, proto_item *parameter_item _U_)
+{
+  int offset = 0;
+  const char *digit_str;
+
+  static const int * flags[] = {
+    &hf_ansi_isup_spare_b7,
+    &hf_ansi_isup_type_of_nw_id,
+    &hf_ansi_isup_nw_id_plan,
+    NULL
+  };
+
+  proto_tree_add_bitmask_list(parameter_tree, parameter_tvb, offset, 1, flags, ENC_BIG_ENDIAN);
+  offset++;
+
+  digit_str = tvb_bcd_dig_to_wmem_packet_str(parameter_tvb, offset, 2, NULL, FALSE);
+  proto_tree_add_string(parameter_tree, hf_ansi_isup_nw_id, parameter_tvb, offset, 2, digit_str);
+
 }
 
 /* ------------------------------------------------------------------
@@ -6451,7 +6556,7 @@ dissect_isup_collect_call_request_parameter(tvbuff_t *parameter_tvb, proto_tree 
 /* ------------------------------------------------------------------
   Dissector Parameter Calling geodetic location
  */
-static void
+void
 dissect_isup_calling_geodetic_location_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo, proto_tree *parameter_tree, proto_item *parameter_item _U_)
 {
   guint  length = tvb_reported_length(parameter_tvb);
@@ -8285,7 +8390,7 @@ dissect_ansi_isup_optional_parameter(tvbuff_t *optional_parameters_tvb, packet_i
             dissect_isup_continuity_indicators_parameter(parameter_tvb, parameter_tree, parameter_item);
             break;
           case PARAM_TYPE_BACKW_CALL_IND:
-            dissect_isup_backward_call_indicators_parameter(parameter_tvb, parameter_tree, parameter_item);
+            dissect_ansi_isup_backward_call_indicators_parameter(parameter_tvb, parameter_tree, parameter_item);
             break;
           case PARAM_TYPE_CAUSE_INDICATORS:
             dissect_ansi_isup_cause_indicators_parameter(parameter_tvb, parameter_tree, parameter_item);
@@ -8321,7 +8426,7 @@ dissect_ansi_isup_optional_parameter(tvbuff_t *optional_parameters_tvb, packet_i
             dissect_isup_suspend_resume_indicators_parameter(parameter_tvb, parameter_tree, parameter_item);
             break;
           case PARAM_TYPE_TRANSIT_NETW_SELECT:
-            dissect_isup_transit_network_selection_parameter(parameter_tvb, pinfo, parameter_tree, parameter_item);
+            dissect_ansi_isup_transit_network_selection_parameter(parameter_tvb, pinfo, parameter_tree, parameter_item);
             break;
           case PARAM_TYPE_EVENT_INFO:
             dissect_isup_event_information_parameter(parameter_tvb, parameter_tree, parameter_item);
@@ -8494,7 +8599,9 @@ dissect_ansi_isup_optional_parameter(tvbuff_t *optional_parameters_tvb, packet_i
           case PARAM_TYPE_APPLICATON_TRANS:
             dissect_isup_application_transport_parameter(parameter_tvb, pinfo, parameter_tree, parameter_item);
             break;
-
+          case ANSI_ISUP_PARAM_TYPE_CARRIER_ID:
+            dissect_ansi_isup_param_carrier_id(parameter_tvb, pinfo, parameter_tree, parameter_item);
+            break;
           default:
             dissect_isup_unknown_parameter(parameter_tvb, parameter_tree, parameter_item);
             break;
@@ -8831,6 +8938,28 @@ dissect_isup_address_complete_message(tvbuff_t *message_tvb, proto_tree *isup_tr
   actual_length = tvb_ensure_captured_length_remaining(message_tvb, offset);
   parameter_tvb = tvb_new_subset_length_caplen(message_tvb, offset, MIN(BACKWARD_CALL_IND_LENGTH, actual_length), BACKWARD_CALL_IND_LENGTH);
   dissect_isup_backward_call_indicators_parameter(parameter_tvb, parameter_tree, parameter_item);
+  offset += BACKWARD_CALL_IND_LENGTH;
+  return offset;
+}
+
+static gint
+dissect_ansi_isup_address_complete_message(tvbuff_t *message_tvb, proto_tree *isup_tree)
+{
+  proto_item *parameter_item;
+  proto_tree *parameter_tree;
+  tvbuff_t   *parameter_tvb;
+  gint        offset = 0;
+  gint        parameter_type, actual_length;
+
+  /* Do stuff for first mandatory fixed parameter: backward call indicators*/
+  parameter_type = PARAM_TYPE_BACKW_CALL_IND;
+  parameter_tree = proto_tree_add_subtree(isup_tree, message_tvb, offset,
+    BACKWARD_CALL_IND_LENGTH, ett_isup_parameter, &parameter_item,
+    "Backward Call Indicators");
+  proto_tree_add_uint(parameter_tree, hf_isup_mand_parameter_type, message_tvb, 0, 0, parameter_type);
+  actual_length = tvb_ensure_captured_length_remaining(message_tvb, offset);
+  parameter_tvb = tvb_new_subset_length_caplen(message_tvb, offset, MIN(BACKWARD_CALL_IND_LENGTH, actual_length), BACKWARD_CALL_IND_LENGTH);
+  dissect_ansi_isup_backward_call_indicators_parameter(parameter_tvb, parameter_tree, parameter_item);
   offset += BACKWARD_CALL_IND_LENGTH;
   return offset;
 }
@@ -9549,7 +9678,7 @@ dissect_ansi_isup_message(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree 
       offset += dissect_isup_continuity_message(parameter_tvb, isup_tree);
       break;
     case MESSAGE_TYPE_ADDR_CMPL:
-      offset += dissect_isup_address_complete_message(parameter_tvb, isup_tree);
+      offset += dissect_ansi_isup_address_complete_message(parameter_tvb, isup_tree);
       opt_part_possible = TRUE;
       break;
     case MESSAGE_TYPE_CONNECT:
@@ -10781,6 +10910,11 @@ proto_register_isup(void)
         FT_BOOLEAN, 16, TFS(&isup_end_to_end_info_ind_value), J_16BIT_MASK,
         NULL, HFILL }},
 
+    { &hf_isup_backw_call_iam_seg_ind,
+      { "IAM segmentation indicator",  "isup.backw_call_iam_seg_ind",
+        FT_BOOLEAN, 16, TFS(&ansi_isup_iam_seg_ind_value), J_16BIT_MASK,
+        NULL, HFILL } },
+
     { &hf_isup_backw_call_isdn_user_part_ind,
       { "ISDN user part indicator",  "isup.backw_call_isdn_user_part_indicator",
         FT_BOOLEAN, 16, TFS(&isup_ISDN_user_part_ind_value), K_16BIT_MASK,
@@ -11111,10 +11245,35 @@ proto_register_isup(void)
         NULL, HFILL }},
 
     { &hf_ansi_isup_coding_standard,
-      { "Coding standard", "ansi_isup.coding_standard", FT_UINT8, BASE_HEX,
-        VALS(ansi_isup_coding_standard_vals), 0x60, NULL, HFILL }},
+      { "Coding standard", "ansi_isup.coding_standard",
+        FT_UINT8, BASE_HEX, VALS(ansi_isup_coding_standard_vals), 0x60,
+        NULL, HFILL }},
+    { &hf_ansi_isup_spare_b7,
+      { "Spare", "ansi_isup.spare.b7",
+      FT_UINT8, BASE_DEC, NULL, 0x80,
+      NULL, HFILL }},
+    { &hf_ansi_isup_type_of_nw_id,
+      { "Type of network identification", "ansi_isup.type_of_nw_id",
+        FT_UINT8, BASE_DEC, VALS(ansi_isup_type_of_nw_id_vals), 0x70,
+        NULL, HFILL } },
+    { &hf_ansi_isup_nw_id_plan,
+      { "Network identification plan", "ansi_isup.nw_id_plan",
+        FT_UINT8, BASE_DEC, VALS(ansi_isup_nw_id_plan_vals), 0x0f,
+        NULL, HFILL } },
+    { &hf_ansi_isup_tns_nw_id_plan,
+      { "Network identification plan", "ansi_isup.tns.nw_id_plan",
+        FT_UINT8, BASE_DEC, VALS(ansi_isup_tns_nw_id_plan_vals), 0x0f,
+        NULL, HFILL } },
+    { &hf_ansi_isup_nw_id,
+      { "Network id",  "ansi_isup.nw_id",
+        FT_STRING, BASE_NONE, NULL, 0x0,
+        NULL, HFILL } },
+    { &hf_ansi_isup_circuit_code,
+      { "Circuit code", "ansi_isup.circuit_code",
+        FT_UINT8, BASE_DEC, NULL, 0xf0,
+        NULL, HFILL } },
 
-    { &hf_bat_ase_identifier,
+      { &hf_bat_ase_identifier,
       { "BAT ASE Identifiers",  "bicc.bat_ase_identifier",
         FT_UINT8, BASE_HEX|BASE_EXT_STRING, &bat_ase_list_of_Identifiers_vals_ext, 0x0,
         NULL, HFILL }},

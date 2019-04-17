@@ -29,7 +29,7 @@ include_directories(
 		${SMI_INCLUDE_DIRS}
 		${SNAPPY_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
-		${LIBXML2_INCLUDE_DIR}
+		${LIBXML2_INCLUDE_DIRS}
 )
 
 add_definitions(
@@ -185,6 +185,10 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	xdlc.h
 )
 
+set(LIBWIRESHARK_HEADER_FILES
+	${LIBWIRESHARK_PUBLIC_HEADERS}
+)
+
 set(LIBWIRESHARK_NONGENERATED_FILES
 	addr_and_mask.c
 	addr_resolv.c
@@ -293,6 +297,9 @@ set_source_files_properties(
 )
 
 add_library(epan
+	#Included so that Visual Studio can properly put header files in solution
+	${LIBWIRESHARK_HEADER_FILES}
+
 	${LIBWIRESHARK_FILES}
 	$<TARGET_OBJECTS:crypt>
 	$<TARGET_OBJECTS:dfilter>
@@ -313,6 +320,7 @@ set_target_properties(epan PROPERTIES
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	VERSION "0.0.0" SOVERSION 0
+	INSTALL_RPATH "${LIBRARY_INSTALL_RPATH}"
 )
 
 ABICHECK(libwireshark)
@@ -406,7 +414,7 @@ install(TARGETS epan
 )
 
 install(FILES ${LIBWIRESHARK_PUBLIC_HEADERS}
-	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/epan"
+	DESTINATION "${PROJECT_INSTALL_INCLUDEDIR}/epan"
 )
 
 add_executable(exntest EXCLUDE_FROM_ALL exntest.c except.c)

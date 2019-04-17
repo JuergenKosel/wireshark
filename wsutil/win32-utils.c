@@ -83,31 +83,64 @@ protect_arg (const gchar *argv)
 }
 
 /*
- * Generate a string for a Win32 error.
+ * Generate a UTF-8 string for a Windows error.
  */
-#define ERRBUF_SIZE    1024
+
+/*
+ * We make the buffer at least this big, under the assumption that doing
+ * so will reduce the number of reallocations to do.  (Otherwise, why
+ * did Microsoft bother supporting a minimum buffer size?)
+ */
+#define ERRBUF_SIZE    128
 const char *
 win32strerror(DWORD error)
 {
-    static char errbuf[ERRBUF_SIZE+1];
-    size_t errlen;
-    char *p;
-
-    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                   NULL, error, 0, errbuf, ERRBUF_SIZE, NULL);
+    DWORD retval;
+    WCHAR *utf16_message;
+    char *utf8_message;
+    char *tempmsg;
+    const char *msg;
 
     /*
-     * "FormatMessage()" "helpfully" sticks CR/LF at the end of the
-     * message.  Get rid of it.
+     * XXX - what language ID to use?
+     *
+     * For UN*Xes, g_strerror() may or may not return localized strings.
+     *
+     * We currently don't have localized strings, except for GUI items,
+     * but we might want to do so.  On the other hand, if most of these
+     * messages are going to be read by Wireshark developers, English
+     * might be a better choice, so the developer doesn't have to get
+     * the message translated if it's in a language they don't happen
+     * to understand.  Then again, we're including the error number,
+     * so the developer can just look that up.
      */
-    errlen = strlen(errbuf);
-    if (errlen >= 2) {
-        errbuf[errlen - 1] = '\0';
-        errbuf[errlen - 2] = '\0';
+    retval = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_MAX_WIDTH_MASK,
+                            NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                            (LPTSTR)&utf16_message, ERRBUF_SIZE, NULL);
+    if (retval == 0) {
+        /* Failed. */
+        tempmsg = g_strdup_printf("Couldn't get error message for error (%lu) (because %lu)",
+                                  error, GetLastError());
+        msg = g_intern_string(tempmsg);
+        g_free(tempmsg);
+        return msg;
     }
-    p = strchr(errbuf, '\0');
-    g_snprintf(p, (gulong)(sizeof errbuf - (p-errbuf)), " (%lu)", error);
-    return errbuf;
+
+    utf8_message = g_utf16_to_utf8(utf16_message, -1, NULL, NULL, NULL);
+    LocalFree(utf16_message);
+    if (utf8_message == NULL) {
+        /* Conversion failed. */
+        tempmsg = g_strdup_printf("Couldn't convert error message for error to UTF-8 (%lu) (because %lu)",
+                                  error, GetLastError());
+        msg = g_intern_string(tempmsg);
+        g_free(tempmsg);
+        return msg;
+    }
+    tempmsg = g_strdup_printf("%s (%lu)", utf8_message, error);
+    g_free(utf8_message);
+    msg = g_intern_string(tempmsg);
+    g_free(tempmsg);
+    return msg;
 }
 
 /*

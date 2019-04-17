@@ -170,7 +170,7 @@ proto_tree_print_node(proto_node *node, gpointer data)
     g_assert(fi);
 
     /* Don't print invisible entries. */
-    if (PROTO_ITEM_IS_HIDDEN(node) && (prefs.display_hidden_proto_items == FALSE))
+    if (proto_item_is_hidden(node) && (prefs.display_hidden_proto_items == FALSE))
         return;
 
     /* Give up if we've already gotten an error. */
@@ -186,12 +186,12 @@ proto_tree_print_node(proto_node *node, gpointer data)
         proto_item_fill_label(fi, label_str);
     }
 
-    if (PROTO_ITEM_IS_GENERATED(node))
+    if (proto_item_is_generated(node))
         label_ptr = g_strconcat("[", label_ptr, "]", NULL);
 
     pdata->success = print_line(pdata->stream, pdata->level, label_ptr);
 
-    if (PROTO_ITEM_IS_GENERATED(node))
+    if (proto_item_is_generated(node))
         g_free(label_ptr);
 
     if (!pdata->success)
@@ -390,7 +390,7 @@ write_ek_proto_tree(output_fields_t* fields,
             proto_tree_write_node_ek(edt->tree, &data);
         } else {
             /* Write out specified fields */
-            write_specified_fields(FORMAT_EK, fields, edt, cinfo, fh, data.dumper);
+            write_specified_fields(FORMAT_EK, fields, edt, cinfo, NULL, data.dumper);
         }
 
         json_dumper_end_object(&dumper);
@@ -534,7 +534,7 @@ proto_tree_write_node_pdml(proto_node *node, gpointer data)
             print_escaped_xml(pdata->fh, label_ptr);
         }
 
-        if (PROTO_ITEM_IS_HIDDEN(node) && (prefs.display_hidden_proto_items == FALSE))
+        if (proto_item_is_hidden(node) && (prefs.display_hidden_proto_items == FALSE))
             fprintf(pdata->fh, "\" hide=\"yes");
 
         fprintf(pdata->fh, "\" size=\"%d", fi->length);
@@ -767,7 +767,7 @@ write_json_proto_tree(output_fields_t* fields,
  * key and its associated nodes in the proto_tree.
  * @param proto_node_list_head A 2-dimensional list containing a list of values for each different node json key. The
  * elements themselves are a linked list of values associated with the same json key.
- * @param data json writing metadata
+ * @param pdata json writing metadata
  */
 static void
 write_json_proto_node_list(GSList *proto_node_list_head, write_json_data *pdata)
@@ -853,7 +853,7 @@ write_json_proto_node_list(GSList *proto_node_list_head, write_json_data *pdata)
  * @param node_values_head Linked list containing all nodes associated with the same json key in this object.
  * @param suffix Suffix that should be added to the json key.
  * @param value_writer A function which writes the actual values of the node json key.
- * @param data json writing metadata
+ * @param pdata json writing metadata
  */
 static void
 write_json_proto_node(GSList *node_values_head,
@@ -874,7 +874,7 @@ write_json_proto_node(GSList *node_values_head,
  * Writes a list of values of a single json key. If multiple values are passed they are wrapped in a json array.
  * @param node_values_head Linked list containing all values that should be written.
  * @param value_writer Function which writes the separate values.
- * @param data json writing metadata
+ * @param pdata json writing metadata
  */
 static void
 write_json_proto_node_value_list(GSList *node_values_head, proto_node_value_writer value_writer, write_json_data *pdata)
@@ -1278,7 +1278,8 @@ ek_write_field_value(field_info *fi, write_json_data* pdata)
     }
     else {
         /* show, value, and unmaskedvalue attributes */
-        if (fi->hfinfo->type == FT_PROTOCOL) {
+        switch(fi->hfinfo->type) {
+        case FT_PROTOCOL:
             if (fi->rep) {
                 json_dumper_value_string(pdata->dumper, fi->rep->representation);
             }
@@ -1286,13 +1287,17 @@ ek_write_field_value(field_info *fi, write_json_data* pdata)
                 proto_item_fill_label(fi, label_str);
                 json_dumper_value_string(pdata->dumper, label_str);
             }
-        }
-        else if (fi->hfinfo->type != FT_NONE) {
+            break;
+        case FT_NONE:
+            json_dumper_value_string(pdata->dumper, NULL);
+            break;
+        default:
             dfilter_string = fvalue_to_string_repr(NULL, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
             if (dfilter_string != NULL) {
                 json_dumper_value_string(pdata->dumper, dfilter_string);
             }
             wmem_free(NULL, dfilter_string);
+            break;
         }
     }
 }
@@ -1414,7 +1419,8 @@ proto_tree_write_node_ek(proto_node *node, write_json_data *pdata)
     g_hash_table_destroy(attr_table);
 
     // Print attributes
-    GSList *current_attr = g_slist_reverse(attr_list);
+    attr_list = g_slist_reverse(attr_list);
+    GSList *current_attr = attr_list;
     while (current_attr != NULL) {
         GSList *attr_instances = (GSList *) current_attr->data;
 
@@ -2338,7 +2344,12 @@ static void write_specified_fields(fields_format format, output_fields_t *fields
     g_assert(fields);
     g_assert(fields->fields);
     g_assert(edt);
-    g_assert(fh);
+    /* JSON formats must go through json_dumper */
+    if (format == FORMAT_JSON || format == FORMAT_EK) {
+        g_assert(!fh && dumper);
+    } else {
+        g_assert(fh && !dumper);
+    }
 
     data.fields = fields;
     data.edt = edt;

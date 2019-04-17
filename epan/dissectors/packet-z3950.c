@@ -1506,6 +1506,7 @@ static int hf_z3950_Options_U_resourceCtrl = -1;
 static int hf_z3950_Options_U_accessCtrl = -1;
 static int hf_z3950_Options_U_scan = -1;
 static int hf_z3950_Options_U_sort = -1;
+static int hf_z3950_Options_U_spare_bit9 = -1;
 static int hf_z3950_Options_U_extendedServices = -1;
 static int hf_z3950_Options_U_level_1Segmentation = -1;
 static int hf_z3950_Options_U_level_2Segmentation = -1;
@@ -2116,17 +2117,17 @@ dissect_z3950_ReferenceId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 }
 
 
-static const asn_namedbit ProtocolVersion_U_bits[] = {
-  {  0, &hf_z3950_ProtocolVersion_U_version_1, -1, -1, "version-1", NULL },
-  {  1, &hf_z3950_ProtocolVersion_U_version_2, -1, -1, "version-2", NULL },
-  {  2, &hf_z3950_ProtocolVersion_U_version_3, -1, -1, "version-3", NULL },
-  { 0, NULL, 0, 0, NULL, NULL }
+static const int * ProtocolVersion_U_bits[] = {
+  &hf_z3950_ProtocolVersion_U_version_1,
+  &hf_z3950_ProtocolVersion_U_version_2,
+  &hf_z3950_ProtocolVersion_U_version_3,
+  NULL
 };
 
 static int
 dissect_z3950_ProtocolVersion_U(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
-                                    ProtocolVersion_U_bits, hf_index, ett_z3950_ProtocolVersion_U,
+                                    ProtocolVersion_U_bits, 3, hf_index, ett_z3950_ProtocolVersion_U,
                                     NULL);
 
   return offset;
@@ -2143,28 +2144,29 @@ dissect_z3950_ProtocolVersion(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int 
 }
 
 
-static const asn_namedbit Options_U_bits[] = {
-  {  0, &hf_z3950_Options_U_search, -1, -1, "search", NULL },
-  {  1, &hf_z3950_Options_U_present, -1, -1, "present", NULL },
-  {  2, &hf_z3950_Options_U_delSet, -1, -1, "delSet", NULL },
-  {  3, &hf_z3950_Options_U_resourceReport, -1, -1, "resourceReport", NULL },
-  {  4, &hf_z3950_Options_U_triggerResourceCtrl, -1, -1, "triggerResourceCtrl", NULL },
-  {  5, &hf_z3950_Options_U_resourceCtrl, -1, -1, "resourceCtrl", NULL },
-  {  6, &hf_z3950_Options_U_accessCtrl, -1, -1, "accessCtrl", NULL },
-  {  7, &hf_z3950_Options_U_scan, -1, -1, "scan", NULL },
-  {  8, &hf_z3950_Options_U_sort, -1, -1, "sort", NULL },
-  { 10, &hf_z3950_Options_U_extendedServices, -1, -1, "extendedServices", NULL },
-  { 11, &hf_z3950_Options_U_level_1Segmentation, -1, -1, "level-1Segmentation", NULL },
-  { 12, &hf_z3950_Options_U_level_2Segmentation, -1, -1, "level-2Segmentation", NULL },
-  { 13, &hf_z3950_Options_U_concurrentOperations, -1, -1, "concurrentOperations", NULL },
-  { 14, &hf_z3950_Options_U_namedResultSets, -1, -1, "namedResultSets", NULL },
-  { 0, NULL, 0, 0, NULL, NULL }
+static const int * Options_U_bits[] = {
+  &hf_z3950_Options_U_search,
+  &hf_z3950_Options_U_present,
+  &hf_z3950_Options_U_delSet,
+  &hf_z3950_Options_U_resourceReport,
+  &hf_z3950_Options_U_triggerResourceCtrl,
+  &hf_z3950_Options_U_resourceCtrl,
+  &hf_z3950_Options_U_accessCtrl,
+  &hf_z3950_Options_U_scan,
+  &hf_z3950_Options_U_sort,
+  &hf_z3950_Options_U_spare_bit9,
+  &hf_z3950_Options_U_extendedServices,
+  &hf_z3950_Options_U_level_1Segmentation,
+  &hf_z3950_Options_U_level_2Segmentation,
+  &hf_z3950_Options_U_concurrentOperations,
+  &hf_z3950_Options_U_namedResultSets,
+  NULL
 };
 
 static int
 dissect_z3950_Options_U(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
-                                    Options_U_bits, hf_index, ett_z3950_Options_U,
+                                    Options_U_bits, 15, hf_index, ett_z3950_Options_U,
                                     NULL);
 
   return offset;
@@ -12020,71 +12022,75 @@ void proto_register_z3950(void) {
         FT_STRING, BASE_NONE, NULL, 0,
         "InternationalString", HFILL }},
     { &hf_z3950_ProtocolVersion_U_version_1,
-      { "version-1", "z3950.version-1",
+      { "version-1", "z3950.ProtocolVersion.U.version.1",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_z3950_ProtocolVersion_U_version_2,
-      { "version-2", "z3950.version-2",
+      { "version-2", "z3950.ProtocolVersion.U.version.2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_z3950_ProtocolVersion_U_version_3,
-      { "version-3", "z3950.version-3",
+      { "version-3", "z3950.ProtocolVersion.U.version.3",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_z3950_Options_U_search,
-      { "search", "z3950.search",
+      { "search", "z3950.Options.U.search",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_z3950_Options_U_present,
-      { "present", "z3950.present",
+      { "present", "z3950.Options.U.present",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_z3950_Options_U_delSet,
-      { "delSet", "z3950.delSet",
+      { "delSet", "z3950.Options.U.delSet",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_z3950_Options_U_resourceReport,
-      { "resourceReport", "z3950.resourceReport",
+      { "resourceReport", "z3950.Options.U.resourceReport",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_z3950_Options_U_triggerResourceCtrl,
-      { "triggerResourceCtrl", "z3950.triggerResourceCtrl",
+      { "triggerResourceCtrl", "z3950.Options.U.triggerResourceCtrl",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_z3950_Options_U_resourceCtrl,
-      { "resourceCtrl", "z3950.resourceCtrl",
+      { "resourceCtrl", "z3950.Options.U.resourceCtrl",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
     { &hf_z3950_Options_U_accessCtrl,
-      { "accessCtrl", "z3950.accessCtrl",
+      { "accessCtrl", "z3950.Options.U.accessCtrl",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
     { &hf_z3950_Options_U_scan,
-      { "scan", "z3950.scan",
+      { "scan", "z3950.Options.U.scan",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
     { &hf_z3950_Options_U_sort,
-      { "sort", "z3950.sort",
+      { "sort", "z3950.Options.U.sort",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
+    { &hf_z3950_Options_U_spare_bit9,
+      { "spare_bit9", "z3950.Options.U.spare.bit9",
+        FT_BOOLEAN, 8, NULL, 0x40,
+        NULL, HFILL }},
     { &hf_z3950_Options_U_extendedServices,
-      { "extendedServices", "z3950.extendedServices",
+      { "extendedServices", "z3950.Options.U.extendedServices",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_z3950_Options_U_level_1Segmentation,
-      { "level-1Segmentation", "z3950.level-1Segmentation",
+      { "level-1Segmentation", "z3950.Options.U.level.1Segmentation",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_z3950_Options_U_level_2Segmentation,
-      { "level-2Segmentation", "z3950.level-2Segmentation",
+      { "level-2Segmentation", "z3950.Options.U.level.2Segmentation",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_z3950_Options_U_concurrentOperations,
-      { "concurrentOperations", "z3950.concurrentOperations",
+      { "concurrentOperations", "z3950.Options.U.concurrentOperations",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
     { &hf_z3950_Options_U_namedResultSets,
-      { "namedResultSets", "z3950.namedResultSets",
+      { "namedResultSets", "z3950.Options.U.namedResultSets",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
 

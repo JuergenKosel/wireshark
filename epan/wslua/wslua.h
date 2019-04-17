@@ -165,6 +165,7 @@ typedef struct _wslua_pref_t {
 
     struct _wslua_pref_t* next;
     struct _wslua_proto_t* proto;
+    int ref;            /* Reference to enable Proto to deregister prefs. */
 } wslua_pref_t;
 
 typedef struct _wslua_proto_t {
@@ -215,6 +216,12 @@ struct _wslua_treeitem {
     proto_item* item;
     proto_tree* tree;
     gboolean expired;
+};
+
+// Internal structure for wslua_field.c to track info about registered fields.
+struct _wslua_header_field_info {
+    char *name;
+    header_field_info *hfi;
 };
 
 struct _wslua_field_info {
@@ -320,7 +327,7 @@ typedef address* Address;
 typedef nstime_t* NSTime;
 typedef gint64 Int64;
 typedef guint64 UInt64;
-typedef header_field_info** Field;
+typedef struct _wslua_header_field_info* Field;
 typedef struct _wslua_field_info* FieldInfo;
 typedef struct _wslua_tap* Listener;
 typedef struct _wslua_tw* TextWindow;
@@ -416,36 +423,36 @@ extern int wslua_reg_attributes(lua_State *L, const wslua_attribute_table *t, gb
     /* pop the metatable */ \
     lua_pop(L, 1)
 
-#define __WSLUA_REGISTER_META(C, ATTRS_BLOCK) { \
+#define __WSLUA_REGISTER_META(C, ATTRS) { \
     const wslua_class C ## _class = { \
         .name               = #C, \
         .instance_meta      = C ## _meta, \
-        ATTRS_BLOCK \
+        .attrs              = ATTRS \
     }; \
     wslua_register_classinstance_meta(L, &C ## _class); \
     WSLUA_REGISTER_GC(C); \
 }
 
-#define WSLUA_REGISTER_META(C)  __WSLUA_REGISTER_META(C,)
+#define WSLUA_REGISTER_META(C)  __WSLUA_REGISTER_META(C, NULL)
 #define WSLUA_REGISTER_META_WITH_ATTRS(C) \
-    __WSLUA_REGISTER_META(C, .attrs = C ## _attributes)
+    __WSLUA_REGISTER_META(C, C ## _attributes)
 
-#define __WSLUA_REGISTER_CLASS(C, ATTRS_BLOCK) { \
+#define __WSLUA_REGISTER_CLASS(C, ATTRS) { \
     const wslua_class C ## _class = { \
         .name               = #C, \
         .class_methods      = C ## _methods, \
         .class_meta         = C ## _meta, \
         .instance_methods   = C ## _methods, \
         .instance_meta      = C ## _meta, \
-        ATTRS_BLOCK \
+        .attrs              = ATTRS \
     }; \
     wslua_register_class(L, &C ## _class); \
     WSLUA_REGISTER_GC(C); \
 }
 
-#define WSLUA_REGISTER_CLASS(C)  __WSLUA_REGISTER_CLASS(C,)
+#define WSLUA_REGISTER_CLASS(C)  __WSLUA_REGISTER_CLASS(C, NULL)
 #define WSLUA_REGISTER_CLASS_WITH_ATTRS(C) \
-    __WSLUA_REGISTER_CLASS(C, .attrs = C ## _attributes)
+    __WSLUA_REGISTER_CLASS(C, C ## _attributes)
 
 #define WSLUA_INIT(L) \
     luaL_openlibs(L); \
@@ -781,6 +788,7 @@ extern void clear_outstanding_FieldInfo(void);
 extern void wslua_print_stack(char* s, lua_State* L);
 
 extern void wslua_init(register_cb cb, gpointer client_data);
+extern void wslua_early_cleanup(void);
 extern void wslua_cleanup(void);
 
 extern tap_extractor_t wslua_get_tap_extractor(const gchar* name);

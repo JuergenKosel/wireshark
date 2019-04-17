@@ -1214,12 +1214,14 @@ class EthCtx:
         for t in self.eth_type_ord:
             bits = self.eth_type[t]['val'].eth_named_bits()
             if (bits):
+                old_val = 0
                 for (val, id) in bits:
                     self.named_bit.append({'name' : id, 'val' : val,
-                                           'ethname' : 'hf_%s_%s_%s' % (self.eproto, t, asn2c(id)),
-                                           'ftype'   : 'FT_BOOLEAN', 'display' : '8',
-                                           'strings' : 'NULL',
-                                           'bitmask' : '0x'+('80','40','20','10','08','04','02','01')[val%8]})
+                                            'ethname' : 'hf_%s_%s_%s' % (self.eproto, t, asn2c(id)),
+                                            'ftype'   : 'FT_BOOLEAN', 'display' : '8',
+                                            'strings' : 'NULL',
+                                            'bitmask' : '0x'+('80','40','20','10','08','04','02','01')[val%8]})
+                    old_val = val + 1
             if self.eth_type[t]['val'].eth_need_tree():
                 self.eth_type[t]['tree'] = "ett_%s_%s" % (self.eth_type[t]['proto'], t)
             else:
@@ -1461,10 +1463,10 @@ class EthCtx:
     def eth_bits(self, tname, bits):
         out = ""
         out += "static const "
-        out += "asn_namedbit %(TABLE)s[] = {\n"
+        out += "int * %(TABLE)s[] = {\n"
         for (val, id) in bits:
-            out += '  { %2d, &hf_%s_%s_%s, -1, -1, "%s", NULL },\n' % (val, self.eproto, tname, asn2c(id), id)
-        out += "  { 0, NULL, 0, 0, NULL, NULL }\n};\n"
+            out += '  &hf_%s_%s_%s,\n' % (self.eproto, tname, asn2c(id))
+        out += "  NULL\n};\n"
         return out
 
     #--- eth_type_fn_h ----------------------------------------------------------
@@ -1497,6 +1499,13 @@ class EthCtx:
         out += ');\n'
         return out
 
+    def output_proto_root(self):
+        out = ''
+        if self.conform.proto_root_name:
+            out += '  proto_item *prot_ti = proto_tree_add_item(tree, ' + self.conform.proto_root_name + ', tvb, 0, -1, ENC_NA);\n'
+            out += '  proto_item_set_hidden(prot_ti);\n'
+        return out
+
     #--- eth_type_fn_hdr --------------------------------------------------------
     def eth_type_fn_hdr(self, tname):
         out = '\n'
@@ -1510,6 +1519,9 @@ class EthCtx:
         #if self.conform.get_fn_presence(tname):
         #  out += self.conform.get_fn_text(tname, 'FN_HDR')
         #el
+        if self.conform.check_item('PDU', tname):
+            out += self.output_proto_root()
+
         if self.conform.get_fn_presence(self.eth_type[tname]['ref'][0]):
             out += self.conform.get_fn_text(self.eth_type[tname]['ref'][0], 'FN_HDR')
         return out
@@ -1600,8 +1612,13 @@ class EthCtx:
             fx.write('        %(TYPE)s, %(DISPLAY)s, %(STRINGS)s, %(BITMASK)s,\n' % attr)
             fx.write('        %(BLURB)s, HFILL }},\n' % attr)
         for nb in self.named_bit:
+            flt_str = nb['ethname']
+            # cut out hf_
+            flt_str = flt_str[3:]
+            flt_str = flt_str.replace('_' , '.')
+            #print("filter string=%s" % (flt_str))
             fx.write('    { &%s,\n' % (nb['ethname']))
-            fx.write('      { "%s", "%s.%s",\n' % (nb['name'], self.proto, nb['name']))
+            fx.write('      { "%s", "%s",\n' % (nb['name'], flt_str))
             fx.write('        %s, %s, %s, %s,\n' % (nb['ftype'], nb['display'], nb['strings'], nb['bitmask']))
             fx.write('        NULL, HFILL }},\n')
         self.output.file_close(fx)
@@ -1739,6 +1756,8 @@ class EthCtx:
                 out += 'static '
             out += 'int '
             out += 'dissect_'+f+'(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {\n'
+            out += self.output_proto_root()
+
             out += '  int offset = 0;\n'
             off_par = 'offset'
             ret_par = 'offset'
@@ -2161,6 +2180,7 @@ class EthCnf:
         self.report = {}
         self.suppress_line = False
         self.include_path = []
+        self.proto_root_name = None
         #                                   Value name             Default value       Duplicity check   Usage check
         self.tblcfg['EXPORTS']         = { 'val_nm' : 'flag',     'val_dflt' : 0,     'chk_dup' : True, 'chk_use' : True }
         self.tblcfg['MAKE_ENUM']       = { 'val_nm' : 'flag',     'val_dflt' : 0,     'chk_dup' : True, 'chk_use' : True }
@@ -2744,7 +2764,7 @@ class EthCnf:
                 self.report[name][-1]['text'] += line
 
     def set_opt(self, opt, par, fn, lineno):
-        #print "set_opt: %s, %s" % (opt, par)
+        #print("set_opt: %s, %s" % (opt, par))
         if opt in ("-I",):
             par = self.check_par(par, 1, 1, fn, lineno)
             if not par: return
@@ -2769,6 +2789,10 @@ class EthCnf:
         elif opt in ("-u", "UNALIGNED"):
             par = self.check_par(par, 0, 0, fn, lineno)
             self.ectx.aligned = False
+        elif opt in ("PROTO_ROOT_NAME"):
+            par = self.check_par(par, 1, 1, fn, lineno)
+            if not par: return
+            self.proto_root_name = par[0]
         elif opt in ("-d",):
             par = self.check_par(par, 1, 1, fn, lineno)
             if not par: return
@@ -4054,7 +4078,7 @@ class SeqType (SqType):
                 e.val.eth_reg(ident, ectx, tstrip=1, parent=ident)
 
     def eth_type_default_table(self, ectx, tname):
-        #print "eth_type_default_table(tname='%s')" % (tname)
+        #print ("eth_type_default_table(tname='%s')" % (tname))
         fname = ectx.eth_type[tname]['ref'][0]
         table = "static const %(ER)s_sequence_t %(TABLE)s[] = {\n"
         if hasattr(self, 'ext_list'):
@@ -5313,6 +5337,8 @@ class ObjectIdentifierValue (Value):
 class NamedNumber(Node):
     def to_python (self, ctx):
         return "('%s',%s)" % (self.ident, self.val)
+    def __lt__(self, other):
+        return int(self.val) < int(other.val)
 
 class NamedNumListBase(Node):
     def to_python (self, ctx):
@@ -5477,7 +5503,7 @@ class BitStringType (Type):
         return ('BER_CLASS_UNI', 'BER_UNI_TAG_BITSTRING')
 
     def eth_ftype(self, ectx):
-        return ('FT_BYTES', 'BASE_NONE')
+            return ('FT_BYTES', 'BASE_NONE')
 
     def eth_need_tree(self):
         return self.named_list
@@ -5491,11 +5517,24 @@ class BitStringType (Type):
                         'new' : ectx.default_containing_variant == '_pdu_new' }
         return pdu
 
+    def sortNamedBits(self):
+        return self.named_list.val
+
     def eth_named_bits(self):
         bits = []
         if (self.named_list):
-            for e in (self.named_list):
+            sorted_list = self.named_list
+            sorted_list.sort()
+            expected_bit_no = 0;
+            for e in (sorted_list):
+            # Fill the table with "spare_bit" for "un named bits"
+                if (int(e.val) != 0) and (expected_bit_no != int(e.val)):
+                        while ( expected_bit_no < int(e.val)):
+                            bits.append((expected_bit_no, ("spare_bit%u" % (expected_bit_no))))
+                            expected_bit_no = expected_bit_no + 1
+                            #print ("Adding named bits to list %s bit no %d" % (e.ident, int (e.val)))
                 bits.append((int(e.val), e.ident))
+                expected_bit_no = int(e.val) + 1
         return bits
 
     def eth_type_default_pars(self, ectx, tname):
@@ -5526,24 +5565,25 @@ class BitStringType (Type):
         return pars
 
     def eth_type_default_table(self, ectx, tname):
-        #print "eth_type_default_table(tname='%s')" % (tname)
+        #print ("eth_type_default_table(tname='%s')" % (tname))
         table = ''
         bits = self.eth_named_bits()
-        if (bits and ectx.Ber()):
+        if (bits):
             table = ectx.eth_bits(tname, bits)
         return table
 
     def eth_type_default_body(self, ectx, tname):
+        bits = self.eth_named_bits()
         if (ectx.Ber()):
             if (ectx.constraints_check and self.HasSizeConstraint()):
                 body = ectx.eth_fn_call('dissect_%(ER)s_constrained_bitstring', ret='offset',
                                         par=(('%(IMPLICIT_TAG)s', '%(ACTX)s', '%(TREE)s', '%(TVB)s', '%(OFFSET)s'),
-                                             ('%(MIN_VAL)s', '%(MAX_VAL)s', '%(TABLE)s', '%(HF_INDEX)s', '%(ETT_INDEX)s',),
+                                             ('%(MIN_VAL)s', '%(MAX_VAL)s', '%(TABLE)s', '%s' %  len(bits),'%(HF_INDEX)s', '%(ETT_INDEX)s',),
                                              ('%(VAL_PTR)s',),))
             else:
                 body = ectx.eth_fn_call('dissect_%(ER)s_bitstring', ret='offset',
                                         par=(('%(IMPLICIT_TAG)s', '%(ACTX)s', '%(TREE)s', '%(TVB)s', '%(OFFSET)s'),
-                                             ('%(TABLE)s', '%(HF_INDEX)s', '%(ETT_INDEX)s',),
+                                             ('%(TABLE)s', '%s' % len(bits), '%(HF_INDEX)s', '%(ETT_INDEX)s',),
                                              ('%(VAL_PTR)s',),))
         elif (ectx.Per() or ectx.Oer()):
             if self.HasContentsConstraint():
@@ -5553,7 +5593,7 @@ class BitStringType (Type):
             else:
                 body = ectx.eth_fn_call('dissect_%(ER)s_bit_string', ret='offset',
                                         par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s'),
-                                             ('%(MIN_VAL)s', '%(MAX_VAL)s', '%(EXT)s', '%(VAL_PTR)s', '%(LEN_PTR)s'),))
+                                             ('%(MIN_VAL)s', '%(MAX_VAL)s', '%(EXT)s','%(TABLE)s', '%s' %  len(bits), '%(VAL_PTR)s', '%(LEN_PTR)s'),))
         else:
             body = '#error Can not decode %s' % (tname)
         return body

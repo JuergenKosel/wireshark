@@ -267,7 +267,8 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
         ui->actionSaveReverseAudio->setEnabled(false);
     }
 
-    QMenu *save_menu = new QMenu();
+    QPushButton *save_bt = ui->buttonBox->button(QDialogButtonBox::Save);
+    QMenu *save_menu = new QMenu(save_bt);
     save_menu->addAction(ui->actionSaveAudio);
     save_menu->addAction(ui->actionSaveForwardAudio);
     save_menu->addAction(ui->actionSaveReverseAudio);
@@ -277,7 +278,7 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
     save_menu->addAction(ui->actionSaveReverseCsv);
     save_menu->addSeparator();
     save_menu->addAction(ui->actionSaveGraph);
-    ui->buttonBox->button(QDialogButtonBox::Save)->setMenu(save_menu);
+    save_bt->setMenu(save_menu);
 
     ui->buttonBox->button(QDialogButtonBox::Close)->setDefault(true);
 
@@ -308,9 +309,9 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
         return;
     }
 
-    frame_data *fdata = cap_file_.capFile()->current_frame;
+    if (!cf_read_current_record(cap_file_.capFile())) close();
 
-    if (!cf_read_record(cap_file_.capFile(), fdata)) close();
+    frame_data *fdata = cap_file_.capFile()->current_frame;
 
     epan_dissect_t edt;
 
@@ -741,7 +742,7 @@ void Iax2AnalysisDialog::savePayload(QTemporaryFile *tmpfile, packet_info *pinfo
 
     if (iax2info->payload_len > 0) {
         const char *data = (const char *) iax2info->payload_data;
-        size_t nchars;
+        qint64 nchars;
 
         nchars = tmpfile->write(data, iax2info->payload_len);
         if (nchars != (iax2info->payload_len)) {
@@ -907,7 +908,7 @@ void Iax2AnalysisDialog::saveAudio(Iax2AnalysisDialog::StreamDirection direction
     gint16     sample;
     guint8     pd[4];
     gboolean   stop_flag = FALSE;
-    size_t     nchars;
+    qint64     nchars;
 
     save_file.open(QIODevice::WriteOnly);
     fwd_tempfile_->seek(0);

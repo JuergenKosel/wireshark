@@ -73,6 +73,7 @@ static int hf_mbtcp_protid = -1;
 static int hf_mbtcp_len = -1;
 static int hf_mbtcp_unitid = -1;
 static int hf_modbus_request_frame = -1;
+static int hf_modbus_response_time = -1;
 static int hf_modbus_functioncode = -1;
 static int hf_modbus_reference = -1;
 static int hf_modbus_padding = -1;
@@ -189,6 +190,7 @@ typedef struct {
     guint16 reg_base;
     guint16 num_reg;
     guint32 req_frame_num;
+    nstime_t req_time;
     gboolean request_found;
 } modbus_pkt_info_t;
 
@@ -898,7 +900,7 @@ dissect_modbus_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint8 
                     bit_tree = proto_tree_add_subtree_format(tree, next_tvb, data_offset, 1,
                         ett_bit, NULL, "Bit %u : %u", reg_num, data_bool);
                     bitnum_ti = proto_tree_add_uint(bit_tree, hf_modbus_bitnum, next_tvb, data_offset, 1, reg_num);
-                    PROTO_ITEM_SET_GENERATED(bitnum_ti);
+                    proto_item_set_generated(bitnum_ti);
                     proto_tree_add_boolean(bit_tree, hf_modbus_bitval, next_tvb, data_offset, 1, data_bool);
                     reg_num++;
 
@@ -1204,14 +1206,19 @@ dissect_modbus_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *modbus_tr
     proto_item    *mei;
     gint          byte_cnt, group_offset, event_index, object_index, object_len, num_objects, ii;
     guint8        object_type, mei_code, event_code;
-    guint16       diagnostic_code;
+    guint16       diagnostic_code, num_reg = pkt_info->num_reg;
     guint32       group_byte_cnt, group_word_cnt;
 
-    proto_item            *request_frame_item;
+    nstime_t      response_time;
+    proto_item    *request_frame_item, *response_time_item;
 
     if (pkt_info->request_found == TRUE) {
         request_frame_item = proto_tree_add_uint(modbus_tree, hf_modbus_request_frame, tvb, 0, 0, pkt_info->req_frame_num);
-        PROTO_ITEM_SET_GENERATED(request_frame_item);
+        proto_item_set_generated(request_frame_item);
+
+        nstime_delta(&response_time, &pinfo->abs_ts, &pkt_info->req_time);
+        response_time_item = proto_tree_add_time(modbus_tree, hf_modbus_response_time, tvb, 0, 0, &response_time);
+        proto_item_set_generated(response_time_item);
     }
 
     switch (function_code) {
@@ -1220,7 +1227,10 @@ dissect_modbus_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *modbus_tr
         case READ_DISCRETE_INPUTS:
             byte_cnt = (guint32)tvb_get_guint8(tvb, payload_start);
             proto_tree_add_uint(modbus_tree, hf_modbus_bytecnt, tvb, payload_start, 1, byte_cnt);
-            dissect_modbus_data(tvb, pinfo, modbus_tree, function_code, payload_start + 1, byte_cnt, pkt_info->register_format, pkt_info->reg_base, pkt_info->num_reg);
+            //if the request wasn't found set number of coils based on byte count
+            if (!pkt_info->request_found)
+                num_reg = byte_cnt*8;
+            dissect_modbus_data(tvb, pinfo, modbus_tree, function_code, payload_start + 1, byte_cnt, pkt_info->register_format, pkt_info->reg_base, num_reg);
             break;
 
         case READ_HOLDING_REGS:
@@ -1567,6 +1577,7 @@ dissect_modbus(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 if (captured_length >= 5)
                     pkt_info->num_reg = frame_ptr->num_reg = tvb_get_ntohs(tvb, 3);
             }
+            frame_ptr->req_time = pinfo->abs_ts;
 
             wmem_list_prepend(modbus_conv_data->modbus_request_frame_data, frame_ptr);
         }
@@ -1587,6 +1598,7 @@ dissect_modbus(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     pkt_info->num_reg = request_data->num_reg;
                     pkt_info->request_found = TRUE;
                     pkt_info->req_frame_num = req_frame_num;
+                    pkt_info->req_time = request_data->req_time;
                 }
                 frame = wmem_list_frame_next(frame);
             }
@@ -1721,6 +1733,12 @@ proto_register_modbus(void)
             FT_FRAMENUM, BASE_NONE,
             NULL, 0x0,
             NULL, HFILL }
+        },
+        { &hf_modbus_response_time,
+            { "Time from request", "modbus.response_time",
+            FT_RELATIVE_TIME, BASE_NONE,
+            NULL, 0x0,
+            "Time between request and reply", HFILL }
         },
         { &hf_modbus_functioncode,
             { "Function Code", "modbus.func_code",

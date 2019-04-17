@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-its.h                                                               */
-/* asn2wrs.py -o its -c ./its.cnf -s ./packet-its-template -D . -O ../.. ITS-Container.asn ISO_TS_14816.asn ISO_TS_24534-3.asn ISO_TS_17419.asn ISO_TS_14906_Application.asn ISO_TS_19321.asn ISO_TS_19091.asn ETSI_TS_103301.asn CAM.asn DENM.asn TIS_TPG_Transactions_Descriptions.asn EVCSN-PDU-Descriptions.asn EV-RSR-PDU-Descriptions.asn */
+/* asn2wrs.py -o its -c ./its.cnf -s ./packet-its-template -D . -O ../.. ITS-Container.asn ITS-ContainerV1.asn ISO_TS_14816.asn ISO_TS_24534-3.asn ISO_TS_17419.asn ISO_TS_14906_Application.asn ISO_TS_19321.asn ISO_TS_19091.asn ETSI_TS_103301.asn CAMv1.asn CAM.asn DENMv1.asn DENM.asn TIS_TPG_Transactions_Descriptions.asn EVCSN-PDU-Descriptions.asn EV-RSR-PDU-Descriptions.asn */
 
 /* Input file: packet-its-template.h */
 
@@ -26,6 +26,9 @@
 #line 1 "./asn1/its/packet-its-exp.h"
 
 /* --- Module ITS-Container --- --- ---                                       */
+
+
+/* --- Module ITS-ContainerV1 --- --- ---                                     */
 
 
 /* --- Module AVIAEINumberingAndDataStructures --- --- ---                    */
@@ -67,7 +70,16 @@
 /* --- Module SSEM-PDU-Descriptions --- --- ---                               */
 
 
+/* --- Module RTCMEM-PDU-Descriptions --- --- ---                             */
+
+
+/* --- Module CAMv1-PDU-Descriptions --- --- ---                              */
+
+
 /* --- Module CAM-PDU-Descriptions --- --- ---                                */
+
+
+/* --- Module DENMv1-PDU-Descriptions --- --- ---                             */
 
 
 /* --- Module DENM-PDU-Descriptions --- --- ---                               */
@@ -137,6 +149,9 @@ typedef enum _CauseCodeType_enum {
   dangerousSituation =  99
 } CauseCodeType_enum;
 
+/* --- Module ITS-ContainerV1 --- --- ---                                     */
+
+
 /* --- Module AVIAEINumberingAndDataStructures --- --- ---                    */
 
 
@@ -187,8 +202,18 @@ typedef enum _RegionId_enum {
 /* --- Module SSEM-PDU-Descriptions --- --- ---                               */
 
 
+/* --- Module RTCMEM-PDU-Descriptions --- --- ---                             */
+
+
+/* --- Module CAMv1-PDU-Descriptions --- --- ---                              */
+
+
 /* --- Module CAM-PDU-Descriptions --- --- ---                                */
 
+
+/* --- Module DENMv1-PDU-Descriptions --- --- ---                             */
+
+#define defaultValidity                600
 
 /* --- Module DENM-PDU-Descriptions --- --- ---                               */
 

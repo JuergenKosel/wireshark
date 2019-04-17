@@ -150,29 +150,31 @@ cf_read_status_t cf_read(capture_file *cf, gboolean from_save);
  * @param buf a Buffer into which to read the record's raw data
  * @return TRUE if the read succeeded, FALSE if there was an error
  */
-gboolean cf_read_record_r(capture_file *cf, const frame_data *fdata,
+gboolean cf_read_record(capture_file *cf, const frame_data *fdata,
                           wtap_rec *rec, Buffer *buf);
 
 /**
- * Read the metadata and raw data for a record into a
- * capture_file structure's phdr and buf members.
+ * Read the metadata and raw data for the current record into a
+ * capture_file structure's rec and buf for the current record.
  * It will pop up an alert box if there's an error.
  *
  * @param cf the capture file from which to read the record
- * @param fdata the frame_data structure for the record in question
  * @return TRUE if the read succeeded, FALSE if there was an error
  */
-gboolean cf_read_record(capture_file *cf, frame_data *fdata);
+gboolean cf_read_current_record(capture_file *cf);
 
 /**
  * Read packets from the "end" of a capture file.
  *
  * @param cf the capture file to be read from
  * @param to_read the number of packets to read
+ * @param rec pointer to wtap_rec to use when reading
+ * @param buf pointer to Buffer to use when reading
  * @param err the error code, if an error had occurred
  * @return one of cf_read_status_t
  */
-cf_read_status_t cf_continue_tail(capture_file *cf, volatile int to_read, int *err);
+cf_read_status_t cf_continue_tail(capture_file *cf, volatile int to_read,
+                                  wtap_rec *rec, Buffer *buf, int *err);
 
 /**
  * Fake reading packets from the "end" of a capture file.
@@ -185,10 +187,13 @@ void cf_fake_continue_tail(capture_file *cf);
  * Finish reading from "end" of a capture file.
  *
  * @param cf the capture file to be read from
+ * @param rec pointer to wtap_rec to use when reading
+ * @param buf pointer to Buffer to use when reading
  * @param err the error code, if an error had occurred
  * @return one of cf_read_status_t
  */
-cf_read_status_t cf_finish_tail(capture_file *cf, int *err);
+cf_read_status_t cf_finish_tail(capture_file *cf, wtap_rec *rec,
+                                Buffer *buf, int *err);
 
 /**
  * Determine whether this capture file (or a range of it) can be written
@@ -686,6 +691,7 @@ void cf_update_section_comment(capture_file *cf, gchar *comment);
  *
  * @param cf the capture file
  * @param fd the frame_data structure for the frame
+ * @returns A comment (use g_free to free) or NULL if there is none.
  */
 char *cf_get_packet_comment(capture_file *cf, const frame_data *fd);
 

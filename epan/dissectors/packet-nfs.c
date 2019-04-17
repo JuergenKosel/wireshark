@@ -355,6 +355,7 @@ static int hf_nfs4_want_flags = -1;
 static int hf_nfs4_want_notify_flags = -1;
 static int hf_nfs4_want_signal_deleg_when_resrc_avail = -1;
 static int hf_nfs4_want_push_deleg_when_uncontended = -1;
+static int hf_nfs4_want_deleg_timestamps = -1;
 static int hf_nfs4_seqid = -1;
 static int hf_nfs4_lock_seqid = -1;
 static int hf_nfs4_reqd_attr = -1;
@@ -416,6 +417,7 @@ static int hf_nfs4_fattr_security_label_pi = -1;
 static int hf_nfs4_fattr_security_label_context = -1;
 static int hf_nfs4_fattr_umask_mask = -1;
 static int hf_nfs4_fattr_xattr_support = -1;
+static int hf_nfs4_fattr_offline = -1;
 static int hf_nfs4_who = -1;
 static int hf_nfs4_server = -1;
 static int hf_nfs4_fslocation = -1;
@@ -1312,23 +1314,23 @@ nfs_name_snoop_fh(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int fh_of
 		if (hidden) {
 			fh_item = proto_tree_add_string(tree, hf_nfs_name, NULL,
 				0, 0, nns->name);
-			PROTO_ITEM_SET_HIDDEN(fh_item);
+			proto_item_set_hidden(fh_item);
 		} else {
 			fh_item = proto_tree_add_string(tree, hf_nfs_name, tvb,
 				fh_offset, 0, nns->name);
 		}
-		PROTO_ITEM_SET_GENERATED(fh_item);
+		proto_item_set_generated(fh_item);
 
 		if (nns->full_name) {
 			if (hidden) {
 				fh_item = proto_tree_add_string(tree, hf_nfs_full_name, NULL,
 					0, 0, nns->full_name);
-				PROTO_ITEM_SET_HIDDEN(fh_item);
+				proto_item_set_hidden(fh_item);
 			} else {
 				fh_item = proto_tree_add_string_format_value(tree, hf_nfs_full_name, tvb,
 					fh_offset, 0, nns->full_name, "%s", nns->full_name);
 			}
-			PROTO_ITEM_SET_GENERATED(fh_item);
+			proto_item_set_generated(fh_item);
 		}
 	}
 }
@@ -2255,12 +2257,12 @@ dissect_fhandle_data(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
 		if (hidden) {
 			fh_item = proto_tree_add_uint(tree, hf_nfs_fh_hash, NULL, 0,
 				0, fhhash);
-			PROTO_ITEM_SET_HIDDEN(fh_item);
+			proto_item_set_hidden(fh_item);
 		} else {
 			fh_item = proto_tree_add_uint(tree, hf_nfs_fh_hash, tvb, offset,
 				fhlen, fhhash);
 		}
-		PROTO_ITEM_SET_GENERATED(fh_item);
+		proto_item_set_generated(fh_item);
 		if (hash) {
 			*hash = fhhash;
 		}
@@ -2391,7 +2393,7 @@ dissect_nfs2_status(tvbuff_t *tvb, int offset, proto_tree *tree, guint32 *status
 
 	proto_tree_add_item_ret_uint(tree, hf_nfs2_status, tvb, offset+0, 4, ENC_BIG_ENDIAN, &stat);
 	stat_item = proto_tree_add_uint(tree, hf_nfs_status, tvb, offset+0, 4, stat);
-	PROTO_ITEM_SET_HIDDEN(stat_item);
+	proto_item_set_hidden(stat_item);
 
 	offset += 4;
 
@@ -3579,7 +3581,7 @@ dissect_nfs3_status(tvbuff_t *tvb, int offset, proto_tree *tree, guint32 *status
 		proto_item *stat_item;
 		proto_tree_add_uint(tree, hf_nfs3_status, tvb, offset+0, 4, nfsstat3);
 		stat_item = proto_tree_add_uint(tree, hf_nfs_status, tvb, offset+0, 4, nfsstat3);
-		PROTO_ITEM_SET_HIDDEN(stat_item);
+		proto_item_set_hidden(stat_item);
 	}
 
 	offset += 4;
@@ -4741,7 +4743,7 @@ dissect_access_reply(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
 
 	ditem = proto_tree_add_boolean(access_tree, hf_nfs_access_denied, tvb,
 				offset, 4, (mask_denied > 0 ? TRUE : FALSE ));
-	PROTO_ITEM_SET_GENERATED(ditem);
+	proto_item_set_generated(ditem);
 
 	return offset+4;
 }
@@ -6148,6 +6150,12 @@ static const value_string fattr4_names[] = {
 	{	FATTR4_MODE_UMASK,         "Mode_Umask"			},
 #define FATTR4_XATTR_SUPPORT       82
 	{	FATTR4_XATTR_SUPPORT,      "Xattr_Support"		},
+#define FATTR4_OFFLINE             83
+	{	FATTR4_OFFLINE,            "Offline"                    },
+#define FATTR4_TIME_DELEG_ACCESS   84
+	{	FATTR4_TIME_DELEG_ACCESS,  "Time_Deleg_Access"          },
+#define FATTR4_TIME_DELEG_MODIFY   85
+	{	FATTR4_TIME_DELEG_MODIFY,  "Time_Deleg_Modify"          },
 	{	0,	NULL	}
 };
 static value_string_ext fattr4_names_ext = VALUE_STRING_EXT_INIT(fattr4_names);
@@ -6160,7 +6168,7 @@ dissect_nfs4_status(tvbuff_t *tvb, int offset, proto_tree *tree, guint32 *status
 
 	proto_tree_add_item_ret_uint(tree, hf_nfs4_status, tvb, offset+0, 4, ENC_BIG_ENDIAN, &stat);
 	stat_item = proto_tree_add_uint(tree, hf_nfs_status, tvb, offset+0, 4, stat);
-	PROTO_ITEM_SET_HIDDEN(stat_item);
+	proto_item_set_hidden(stat_item);
 
 	if (status)
 		*status = stat;
@@ -6874,8 +6882,8 @@ dissect_nfs4_fattrs(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *t
 					count += (bitmap & 1);
 				bitmap = bitmaps[i];
 				hitem = proto_tree_add_uint_format(bitmap_tree, hf_nfs4_attr_count, tvb, attr_mask_offset, 4, count, "%u attribute%s", count, plurality(count, "", "s"));
-				PROTO_ITEM_SET_HIDDEN(hitem);
-				PROTO_ITEM_SET_GENERATED(hitem);
+				proto_item_set_hidden(hitem);
+				proto_item_set_generated(hitem);
 			}
 		} else {
 			attr_mask_offset += 4;
@@ -7124,6 +7132,8 @@ dissect_nfs4_fattrs(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *t
 					case FATTR4_TIME_MODIFY:
 					case FATTR4_DIR_NOTIF_DELAY:
 					case FATTR4_DIRENT_NOTIF_DELAY:
+					case FATTR4_TIME_DELEG_ACCESS:
+					case FATTR4_TIME_DELEG_MODIFY:
 						if (attr_tree)
 							dissect_nfs4_nfstime(tvb, offset, attr_tree);
 						offset += 12;
@@ -7176,6 +7186,11 @@ dissect_nfs4_fattrs(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *t
 							attr_tree, hf_nfs4_fattr_xattr_support, offset);
 						break;
 
+					case FATTR4_OFFLINE:
+						offset = dissect_rpc_bool(tvb,
+							attr_tree, hf_nfs4_fattr_offline, offset);
+						break;
+
 					default:
 						break;
 					}
@@ -7220,6 +7235,9 @@ static const value_string names_open4_share_access[] = {
 #define OPEN4_SHARE_ACCESS_WANT_PUSH_DELEG_WHEN_UNCONTENDED  0x20000
 	{ OPEN4_SHARE_ACCESS_WANT_PUSH_DELEG_WHEN_UNCONTENDED,
 	 "OPEN4_SHARE_ACCESS_WANT_PUSH_DELEG_WHEN_UNCONTENDED"},
+#define OPEN4_SHARE_ACCESS_WANT_DELEG_TIMESTAMPS 0x100000
+	{OPEN4_SHARE_ACCESS_WANT_DELEG_TIMESTAMPS,
+	 "OPEN4_SHARE_ACCESS_WANT_DELEG_TIMESTAMPS"},
 	{ 0, NULL }
 };
 static value_string_ext names_open4_share_access_ext = VALUE_STRING_EXT_INIT(names_open4_share_access);
@@ -7236,7 +7254,7 @@ dissect_nfs4_open_share_access(tvbuff_t *tvb, int offset, proto_tree *tree)
 	want_notify_flags = tvb_get_ntohl(tvb, offset);
 	share_access = want_notify_flags & 0x3;
 	want_flags = want_notify_flags & 0xff00;
-	want_notify_flags &= ~share_access & ~want_flags;
+	want_notify_flags &= 0x130000;
 	proto_tree_add_uint(tree, hf_nfs4_open_share_access, tvb, offset, 4, share_access);
 	if (want_flags)
 		proto_tree_add_uint(tree, hf_nfs4_want_flags, tvb, offset, 4, want_flags);
@@ -7474,13 +7492,13 @@ dissect_nfs4_clientaddr(tvbuff_t *tvb, int offset, proto_tree *tree)
 			set_address(&addr, AT_IPv4, 4, &ipv4);
 			ti = proto_tree_add_ipv4_format(tree, hf_nfs4_universal_address_ipv4, tvb, addr_offset, offset-addr_offset, ipv4, "IPv4 address %s, protocol=%s, port=%u",
 				address_to_str(wmem_packet_scope(), &addr), protocol, port);
-			PROTO_ITEM_SET_GENERATED(ti);
+			proto_item_set_generated(ti);
 		} else if (universal_ip_address && sscanf(universal_ip_address, "%u.%u",
 						   &b1, &b2) == 2) {
 			/* Some clients (linux) sometimes send only the port. */
 			port = (b1<<8) | b2;
 			ti = proto_tree_add_ipv4_format(tree, hf_nfs4_universal_address_ipv4, tvb, addr_offset, offset-addr_offset, 0, "ip address NOT SPECIFIED, protocol=%s, port=%u", protocol, port);
-			PROTO_ITEM_SET_GENERATED(ti);
+			proto_item_set_generated(ti);
 		} else if (universal_ip_address && sscanf(universal_ip_address,
 						"%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x.%u.%u",
 						&b1, &b2, &b3, &b4, &b5, &b6, &b7, &b8, &b9, &b10) == 10) {
@@ -7491,10 +7509,10 @@ dissect_nfs4_clientaddr(tvbuff_t *tvb, int offset, proto_tree *tree)
 			set_address(&addr, AT_IPv6, 16, &ipv6);
 			ti = proto_tree_add_ipv6_format(tree, hf_nfs4_universal_address_ipv6, tvb, addr_offset, offset-addr_offset, &ipv6, "IPv6 address %s, protocol=%s, port=%u",
 				address_to_str(wmem_packet_scope(), &addr), protocol, port);
-			PROTO_ITEM_SET_GENERATED(ti);
+			proto_item_set_generated(ti);
 		} else {
 			ti = proto_tree_add_ipv4_format(tree, hf_nfs4_universal_address_ipv4, tvb, addr_offset, offset-addr_offset, 0, "Invalid address");
-			PROTO_ITEM_SET_GENERATED(ti);
+			proto_item_set_generated(ti);
 		}
 	}
 	return offset;
@@ -7879,7 +7897,7 @@ dissect_nfs4_stateid(tvbuff_t *tvb, int offset, proto_tree *tree, guint16 *hash)
 
 	stateid_hash = crc16_ccitt_tvb_offset(tvb, offset, 16);
 	hitem = proto_tree_add_uint(stateid_tree, hf_nfs4_stateid_hash, tvb, offset, 16, stateid_hash);
-	PROTO_ITEM_SET_GENERATED(hitem);
+	proto_item_set_generated(hitem);
 
 	offset = dissect_rpc_uint32(tvb, sitem, hf_nfs4_seqid_stateid, offset);
 
@@ -7887,7 +7905,7 @@ dissect_nfs4_stateid(tvbuff_t *tvb, int offset, proto_tree *tree, guint16 *hash)
 
 	other_hash = crc16_ccitt_tvb_offset(tvb, offset, 12);
 	oth_item = proto_tree_add_uint(stateid_tree, hf_nfs4_stateid_other_hash, tvb, offset, 12, other_hash);
-	PROTO_ITEM_SET_GENERATED(oth_item);
+	proto_item_set_generated(oth_item);
 	offset+=12;
 
 	if (hash)
@@ -8117,11 +8135,15 @@ dissect_nfs4_open_write_delegation(tvbuff_t *tvb, int offset,
 #define OPEN_DELEGATE_READ 1
 #define OPEN_DELEGATE_WRITE 2
 #define OPEN_DELEGATE_NONE_EXT 3 /* new to v4.1 */
+#define OPEN_DELEGATE_READ_ATTRS_DELEG 4  /* New to V4.2 */
+#define OPEN_DELEGATE_WRITE_ATTRS_DELEG 5
 static const value_string names_open_delegation_type4[] = {
 	{	OPEN_DELEGATE_NONE,	"OPEN_DELEGATE_NONE" },
 	{	OPEN_DELEGATE_READ,	"OPEN_DELEGATE_READ" },
 	{	OPEN_DELEGATE_WRITE,	"OPEN_DELEGATE_WRITE" },
 	{	OPEN_DELEGATE_NONE_EXT, "OPEN_DELEGATE_NONE_EXT"},
+	{	OPEN_DELEGATE_READ_ATTRS_DELEG, "OPEN_DELEGATE_READ_ATTRS_DELEG"},
+	{	OPEN_DELEGATE_WRITE_ATTRS_DELEG, "OPEN_DELEGATE_WRITE_ATTRS_DELEG"},
 	{	0,	NULL }
 };
 
@@ -8166,10 +8188,12 @@ dissect_nfs4_open_delegation(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			break;
 
 		case OPEN_DELEGATE_READ:
+		case OPEN_DELEGATE_READ_ATTRS_DELEG:
 			offset = dissect_nfs4_open_read_delegation(tvb, offset, pinfo, newftree);
 			break;
 
 		case OPEN_DELEGATE_WRITE:
+		case OPEN_DELEGATE_WRITE_ATTRS_DELEG:
 			offset = dissect_nfs4_open_write_delegation(tvb, offset, pinfo, newftree);
 			break;
 		case OPEN_DELEGATE_NONE_EXT:
@@ -8441,8 +8465,8 @@ dissect_nfs4_io_hints(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
 					count += (bitmap & 1);
 				bitmap = bitmaps[i];
 				hitem = proto_tree_add_uint_format(bitmap_tree, hf_nfs4_io_hint_count, tvb, hints_mask_offset, 4, count, "%u hint%s", count, plurality(count, "", "s"));
-				PROTO_ITEM_SET_HIDDEN(hitem);
-				PROTO_ITEM_SET_GENERATED(hitem);
+				proto_item_set_hidden(hitem);
+				proto_item_set_generated(hitem);
 			}
 		} else {
 			hints_mask_offset += 4;
@@ -8496,7 +8520,7 @@ dissect_nfs4_app_data_block(tvbuff_t *tvb, int offset, proto_tree *tree, guint32
 
 	pattern_hash = crc32_ccitt_tvb_offset(tvb, offset, pattern_len);
 	fitem = proto_tree_add_uint(tree, hf_nfs4_pattern_hash, tvb, offset, pattern_len, pattern_hash);
-	PROTO_ITEM_SET_GENERATED(fitem);
+	proto_item_set_generated(fitem);
 	proto_item_set_len(fitem, pattern_len);
 
 	offset += pattern_len;
@@ -10342,7 +10366,7 @@ dissect_nfs4_request_op(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tre
 				main_opname = val_to_str_ext_const(main_opcode, &names_nfs4_operation_ext, "Unknown");
 				main_op_item = proto_tree_add_uint_format_value(tree, hf_nfs4_main_opcode, tvb, 0, 0,
 							      main_opcode, "%s (%u)", main_opname, main_opcode);
-				PROTO_ITEM_SET_GENERATED(main_op_item);
+				proto_item_set_generated(main_op_item);
 			}
 
 			if (first_operation == 0)
@@ -10873,7 +10897,7 @@ dissect_nfs4_response_op(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tr
 				main_opname = val_to_str_ext_const(main_opcode, &names_nfs4_operation_ext, "Unknown");
 				main_op_item = proto_tree_add_uint_format_value(tree, hf_nfs4_main_opcode, tvb, 0, 0,
 									main_opcode, "%s (%u)", main_opname, main_opcode);
-				PROTO_ITEM_SET_GENERATED(main_op_item);
+				proto_item_set_generated(main_op_item);
 			}
 
 			if (first_operation == 0)
@@ -12280,6 +12304,11 @@ proto_register_nfs(void)
 			"nfs.want_push_deleg_when_uncontended", FT_BOOLEAN, 32,
 			TFS(&tfs_set_notset), OPEN4_SHARE_ACCESS_WANT_PUSH_DELEG_WHEN_UNCONTENDED, NULL, HFILL }},
 
+		{ &hf_nfs4_want_deleg_timestamps, {
+			"want_deleg_timestamps",
+			"nfs.want_deleg_timestamps", FT_BOOLEAN, 32,
+			TFS(&tfs_set_notset), OPEN4_SHARE_ACCESS_WANT_DELEG_TIMESTAMPS, NULL, HFILL }},
+
 		{ &hf_nfs4_seqid, {
 			"seqid", "nfs.seqid", FT_UINT32, BASE_HEX,
 			NULL, 0, "Sequence ID", HFILL }},
@@ -12696,6 +12725,10 @@ proto_register_nfs(void)
 
 		{ &hf_nfs4_fattr_xattr_support, {
 			"fattr4_xattr_support", "nfs.fattr4_xattr_support", FT_BOOLEAN, BASE_NONE,
+			TFS(&tfs_yes_no), 0x0, NULL, HFILL }},
+
+		{ &hf_nfs4_fattr_offline, {
+			"fattr4_offline", "nfs.fattr4_offline", FT_BOOLEAN, BASE_NONE,
 			TFS(&tfs_yes_no), 0x0, NULL, HFILL }},
 
 		{ &hf_nfs4_fattr_security_label_pi, {

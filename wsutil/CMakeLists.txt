@@ -48,6 +48,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	nstime.h
 	os_version_info.h
 	pint.h
+	please_report_bug.h
 	plugins.h
 	pow2.h
 	privileges.h
@@ -102,6 +103,7 @@ set(WSUTIL_COMMON_FILES
 	nstime.c
 	cpu_info.c
 	os_version_info.c
+	please_report_bug.c
 	privileges.c
 	rsa.c
 	sober128.c
@@ -243,6 +245,7 @@ set_target_properties(wsutil PROPERTIES
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	VERSION "0.0.0" SOVERSION 0
 	FOLDER "DLLs"
+	INSTALL_RPATH "${LIBRARY_INSTALL_RPATH}"
 )
 
 ABICHECK(libwsutil)
@@ -288,7 +291,7 @@ install(TARGETS wsutil
 )
 
 install(FILES ${WSUTIL_PUBLIC_HEADERS}
-	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/wsutil"
+	DESTINATION "${PROJECT_INSTALL_INCLUDEDIR}/wsutil"
 )
 
 CHECKAPI(

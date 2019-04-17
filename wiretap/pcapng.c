@@ -38,8 +38,8 @@
 #endif
 
 static gboolean
-pcapng_read(wtap *wth, int *err, gchar **err_info,
-            gint64 *data_offset);
+pcapng_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
+            gchar **err_info, gint64 *data_offset);
 static gboolean
 pcapng_seek_read(wtap *wth, gint64 seek_off,
                  wtap_rec *rec, Buffer *buf, int *err, gchar **err_info);
@@ -1323,6 +1323,7 @@ pcapng_read_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn, wta
     }
 
     /* Option defaults */
+    g_free(wblock->rec->opt_comment);   /* Free memory from an earlier read. */
     wblock->rec->opt_comment = NULL;
     wblock->rec->rec_header.packet_header.drop_count  = -1;
     wblock->rec->rec_header.packet_header.pack_flags  = 0;
@@ -1341,7 +1342,11 @@ pcapng_read_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn, wta
         block_read -    /* fixed and variable part, including padding */
         (int)sizeof(bh->block_total_length);
 
-    /* Allocate enough memory to hold all options */
+    /* Ensure sufficient temporary memory to hold all options. It is not freed
+     * on return to avoid frequent reallocations. When called for sequential
+     * read (wtap_read), "wblock->rec == &wth->rec" (options_buf will be freed
+     * by wtap_sequential_close). For random access, memory is managed by the
+     * caller of wtap_seek_read. */
     opt_cont_buf_len = to_read;
     ws_buffer_assure_space(&wblock->rec->options_buf, opt_cont_buf_len);
     opt_ptr = ws_buffer_start_ptr(&wblock->rec->options_buf);
@@ -1370,6 +1375,7 @@ pcapng_read_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn, wta
             case(OPT_COMMENT):
                 if (oh->option_length > 0 && oh->option_length < opt_cont_buf_len) {
                     wblock->rec->presence_flags |= WTAP_HAS_COMMENTS;
+                    g_free(wblock->rec->opt_comment);
                     wblock->rec->opt_comment = g_strndup((char *)option_content, oh->option_length);
                     pcapng_debug("pcapng_read_packet_block: length %u opt_comment '%s'", oh->option_length, wblock->rec->opt_comment);
                 } else {
@@ -1394,9 +1400,9 @@ pcapng_read_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn, wta
                     wblock->rec->rec_header.packet_header.pack_flags = GUINT32_SWAP_LE_BE(wblock->rec->rec_header.packet_header.pack_flags);
                     memcpy(option_content, &wblock->rec->rec_header.packet_header.pack_flags, sizeof(guint32));
                 }
-                if (wblock->rec->rec_header.packet_header.pack_flags & 0x000001E0) {
+                if (PACK_FLAGS_FCS_LENGTH(wblock->rec->rec_header.packet_header.pack_flags) != 0) {
                     /* The FCS length is present */
-                    fcslen = (wblock->rec->rec_header.packet_header.pack_flags & 0x000001E0) >> 5;
+                    fcslen = PACK_FLAGS_FCS_LENGTH(wblock->rec->rec_header.packet_header.pack_flags);
                 }
                 pcapng_debug("pcapng_read_packet_block: pack_flags %u (ignored)", wblock->rec->rec_header.packet_header.pack_flags);
                 break;
@@ -1567,6 +1573,7 @@ pcapng_read_simple_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *
     wblock->rec->ts.secs = 0;
     wblock->rec->ts.nsecs = 0;
     wblock->rec->rec_header.packet_header.interface_id = 0;
+    g_free(wblock->rec->opt_comment);   /* Free memory from an earlier read. */
     wblock->rec->opt_comment = NULL;
     wblock->rec->rec_header.packet_header.drop_count = 0;
     wblock->rec->rec_header.packet_header.pack_flags = 0;
@@ -2783,7 +2790,8 @@ pcapng_open(wtap *wth, int *err, gchar **err_info)
 
 /* classic wtap: read packet */
 static gboolean
-pcapng_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
+pcapng_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
+            gchar **err_info, gint64 *data_offset)
 {
     pcapng_t *pcapng = (pcapng_t *)wth->priv;
     wtapng_block_t wblock;
@@ -2792,8 +2800,8 @@ pcapng_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
     wtapng_if_stats_mandatory_t *if_stats_mand_block, *if_stats_mand;
     wtapng_if_descr_mandatory_t *wtapng_if_descr_mand;
 
-    wblock.frame_buffer  = wth->rec_data;
-    wblock.rec = &wth->rec;
+    wblock.frame_buffer  = buf;
+    wblock.rec = rec;
 
     pcapng->add_new_ipv4 = wth->add_new_ipv4;
     pcapng->add_new_ipv6 = wth->add_new_ipv6;
@@ -2905,7 +2913,7 @@ pcapng_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
         }
     }
 
-    /*pcapng_debug("Read length: %u Packet length: %u", bytes_read, wth->rec.rec_header.packet_header.caplen);*/
+    /*pcapng_debug("Read length: %u Packet length: %u", bytes_read, rec->rec_header.packet_header.caplen);*/
     pcapng_debug("pcapng_read: data_offset is finally %" G_GINT64_MODIFIER "d", *data_offset);
 
     return TRUE;

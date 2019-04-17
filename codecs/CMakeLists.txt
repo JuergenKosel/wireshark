@@ -60,6 +60,7 @@ set_target_properties(wscodecs PROPERTIES
   LINK_FLAGS "${WS_LINK_FLAGS}"
   VERSION "0.0.0" SOVERSION 0
   FOLDER "DLLs"
+  INSTALL_RPATH "${LIBRARY_INSTALL_RPATH}"
 )
 
 target_link_libraries(wscodecs ${wscodecs_LIBS})
@@ -78,7 +79,7 @@ install(TARGETS wscodecs
 )
 
 install(FILES ${WSCODECS_PUBLIC_HEADERS}
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CPACK_PACKAGE_NAME}/codecs"
+  DESTINATION "${PROJECT_INSTALL_INCLUDEDIR}/codecs"
 )
 
 CHECKAPI(

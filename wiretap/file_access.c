@@ -1128,9 +1128,6 @@ fail:
 	return NULL;
 
 success:
-	wth->rec_data = (struct Buffer *)g_malloc(sizeof(struct Buffer));
-	ws_buffer_init(wth->rec_data, 1500);
-
 	if ((wth->file_type_subtype == WTAP_FILE_TYPE_SUBTYPE_PCAP) ||
 		(wth->file_type_subtype == WTAP_FILE_TYPE_SUBTYPE_PCAP_NSEC)) {
 
@@ -1716,7 +1713,7 @@ wtap_register_file_type_subtypes(const struct file_type_subtype_info* fi, const 
 	if (subtype == WTAP_FILE_TYPE_SUBTYPE_UNKNOWN) {
 		/* register a new one; first verify there isn't one named this already */
 		if (wtap_short_string_to_file_type_subtype(fi->short_name) > -1 ) {
-			g_error("file type short name already exists");
+			g_error("file type short name \"%s\" already exists", fi->short_name);
 			return subtype;
 		}
 
@@ -2714,6 +2711,28 @@ wtap_dump_set_addrinfo_list(wtap_dumper *wdh, addrinfo_lists_t *addrinfo_lists)
 			return FALSE;
 	wdh->addrinfo_lists = addrinfo_lists;
 	return TRUE;
+}
+
+void
+wtap_dump_discard_decryption_secrets(wtap_dumper *wdh)
+{
+	/*
+	 * This doesn't free the data, as it might be pointed to
+	 * from other structures; it merely marks all of them as
+	 * having been written to the file, so that they don't
+	 * get written by wtap_dump().
+	 *
+	 * XXX - our APIs for dealing with some metadata, such as
+	 * resolved names, decryption secrets, and interface
+	 * statistics is not very well oriented towards one-pass
+	 * programs; this needs to be cleaned up.  See bug 15502.
+	 */
+	if (wdh->dsbs_growing) {
+		/*
+		 * Pretend we've written all of them.
+		 */
+		wdh->dsbs_growing_written = wdh->dsbs_growing->len;
+	}
 }
 
 gboolean wtap_dump_get_needs_reload(wtap_dumper *wdh) {

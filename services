@@ -4426,7 +4426,7 @@ bsfserver-zn	5320/tcp	# Webservices-based Zn interface of BSF
 bsfsvr-zn-ssl	5321/tcp	# Webservices-based Zn interface of BSF over SSL
 kfserver	5343/tcp/udp	# Sculptor Database Server
 xkotodrcp	5344/tcp/udp	# xkoto DRCP
-stuns		5349/tcp/udp	# STUN over TLS
+stuns		5349/tcp/udp	# Session Traversal Utilities for NAT (STUN) port
 pcp-multicast	5350/udp	# Port Control Protocol Multicast
 pcp		5351/udp	# Port Control Protocol
 dns-llq		5352/tcp/udp	# DNS Long-Lived Queries
@@ -5147,6 +5147,7 @@ warppipe	8007/tcp/udp	# I/O oriented cluster computing software
 http-alt	8008/tcp/udp	# HTTP Alternate
 nvme-disc	8009/tcp	# NVMe over Fabrics Discovery Service
 cfg-cloud	8015/tcp	# Configuration Cloud Service
+ads-s		8016/tcp	# Beckhoff Automation Device Specification
 qbdb		8019/tcp/udp	# QB DB Dynamic Port
 intu-ec-svcdisc	8020/tcp/udp	# Intuit Entitlement Service and Discovery
 intu-ec-client	8021/tcp/udp	# Intuit Entitlement Client
@@ -5951,6 +5952,7 @@ exoline-udp	26486/udp	# EXOline-UDP
 exoconfig	26487/tcp/udp	# EXOconfig
 exonet		26489/tcp/udp	# EXOnet
 flex-lmadmin	27010/tcp	# A protocol for managing license services
+mongodb		27017/tcp	# Mongo database system
 imagepump	27345/tcp/udp	# ImagePump
 jesmsjc		27442/tcp/udp	# Job controller service
 kopek-httphead	27504/tcp/udp	# Kopek HTTP Head Port
@@ -6143,7 +6145,7 @@ nimhub		48002/tcp/udp	# Nimbus Hub
 nimgtw		48003/tcp/udp	# Nimbus Gateway
 nimbusdb	48004/tcp	# NimbusDB Connector
 nimbusdbctrl	48005/tcp	# NimbusDB Control
-juliar		48048/tcp	# Juliar Programming Language Protocol
+juka		48048/tcp	# Juliar Programming Language Protocol
 3gpp-cbsp	48049/tcp	# 3GPP Cell Broadcast Service Protocol
 weandsf		48050/tcp	# WeFi Access Network Discovery and Selection Function
 isnetserv	48128/tcp/udp	# Image Systems Network Services

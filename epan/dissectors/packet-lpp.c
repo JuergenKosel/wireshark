@@ -8,7 +8,7 @@
 #line 1 "./asn1/lpp/packet-lpp-template.c"
 /* packet-lpp.c
  * Routines for 3GPP LTE Positioning Protocol (LPP) packet dissection
- * Copyright 2011-2019 Pascal Quantin <pascal.quantin@gmail.com>
+ * Copyright 2011-2019 Pascal Quantin <pascal@wireshark.org>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -4207,6 +4207,11 @@ dissect_lpp_Acknowledgement(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 }
 
 
+static const int * T_lpp_message_segmentation_req_r14_bits[] = {
+  &hf_lpp_T_lpp_message_segmentation_req_r14_serverToTarget,
+  &hf_lpp_T_lpp_message_segmentation_req_r14_targetToServer,
+  NULL
+};
 
 static int
 dissect_lpp_T_lpp_message_segmentation_req_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -4214,7 +4219,7 @@ dissect_lpp_T_lpp_message_segmentation_req_r14(tvbuff_t *tvb _U_, int offset _U_
   tvbuff_t *segmentation_req_tvb = NULL;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     NO_BOUND, NO_BOUND, FALSE, &segmentation_req_tvb, NULL);
+                                     NO_BOUND, NO_BOUND, FALSE, T_lpp_message_segmentation_req_r14_bits, 2, &segmentation_req_tvb, NULL);
 
   if(segmentation_req_tvb){
     proto_tree *subtree;
@@ -4583,6 +4588,11 @@ dissect_lpp_SegmentationInfo_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 }
 
 
+static const int * T_lpp_message_segmentation_r14_bits[] = {
+  &hf_lpp_T_lpp_message_segmentation_r14_serverToTarget,
+  &hf_lpp_T_lpp_message_segmentation_r14_targetToServer,
+  NULL
+};
 
 static int
 dissect_lpp_T_lpp_message_segmentation_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -4590,7 +4600,7 @@ dissect_lpp_T_lpp_message_segmentation_r14(tvbuff_t *tvb _U_, int offset _U_, as
   tvbuff_t *segmentation_tvb = NULL;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     NO_BOUND, NO_BOUND, FALSE, &segmentation_tvb, NULL);
+                                     NO_BOUND, NO_BOUND, FALSE, T_lpp_message_segmentation_r14_bits, 2, &segmentation_tvb, NULL);
 
   if(segmentation_tvb){
     proto_tree *subtree;
@@ -4674,6 +4684,13 @@ dissect_lpp_GNSS_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 }
 
 
+static const int * T_sbas_IDs_bits[] = {
+  &hf_lpp_T_sbas_IDs_waas,
+  &hf_lpp_T_sbas_IDs_egnos,
+  &hf_lpp_T_sbas_IDs_msas,
+  &hf_lpp_T_sbas_IDs_gagan,
+  NULL
+};
 
 static int
 dissect_lpp_T_sbas_IDs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -4682,7 +4699,7 @@ dissect_lpp_T_sbas_IDs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &sbas_IDs_tvb, &len);
+                                     1, 8, FALSE, T_sbas_IDs_bits, 4, &sbas_IDs_tvb, &len);
 
   if(sbas_IDs_tvb){
     proto_tree *subtree;
@@ -4722,6 +4739,12 @@ dissect_lpp_SBAS_IDs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 }
 
 
+static const int * T_posModes_bits[] = {
+  &hf_lpp_T_posModes_standalone,
+  &hf_lpp_T_posModes_ue_based,
+  &hf_lpp_T_posModes_ue_assisted,
+  NULL
+};
 
 static int
 dissect_lpp_T_posModes(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -4730,7 +4753,7 @@ dissect_lpp_T_posModes(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &posModes_tvb, &len);
+                                     1, 8, FALSE, T_posModes_bits, 3, &posModes_tvb, &len);
 
   if(posModes_tvb){
     proto_tree *subtree;
@@ -4771,7 +4794,7 @@ dissect_lpp_PositioningModes(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 static int
 dissect_lpp_BIT_STRING_SIZE_8(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     8, 8, FALSE, NULL, NULL);
+                                     8, 8, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -4781,7 +4804,7 @@ dissect_lpp_BIT_STRING_SIZE_8(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static int
 dissect_lpp_BIT_STRING_SIZE_16(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     16, 16, FALSE, NULL, NULL);
+                                     16, 16, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -4815,6 +4838,14 @@ dissect_lpp_GNSS_SignalIDs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 }
 
 
+static const int * T_accessTypes_bits[] = {
+  &hf_lpp_T_accessTypes_eutra,
+  &hf_lpp_T_accessTypes_utra,
+  &hf_lpp_T_accessTypes_gsm,
+  &hf_lpp_T_accessTypes_nb_iot,
+  &hf_lpp_T_accessTypes_nr_v1510,
+  NULL
+};
 
 static int
 dissect_lpp_T_accessTypes(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -4823,7 +4854,7 @@ dissect_lpp_T_accessTypes(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &accessTypes_tvb, &len);
+                                     1, 8, FALSE, T_accessTypes_bits, 5, &accessTypes_tvb, &len);
 
   if(accessTypes_tvb){
     proto_tree *subtree;
@@ -4945,6 +4976,15 @@ dissect_lpp_GNSS_SupportList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 }
 
 
+static const int * T_gnss_ids_bits[] = {
+  &hf_lpp_T_gnss_ids_gps,
+  &hf_lpp_T_gnss_ids_sbas,
+  &hf_lpp_T_gnss_ids_qzss,
+  &hf_lpp_T_gnss_ids_galileo,
+  &hf_lpp_T_gnss_ids_glonass,
+  &hf_lpp_T_gnss_ids_bds,
+  NULL
+};
 
 static int
 dissect_lpp_T_gnss_ids(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -4953,7 +4993,7 @@ dissect_lpp_T_gnss_ids(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 16, FALSE, &gnss_ids_tvb, &len);
+                                     1, 16, FALSE, T_gnss_ids_bits, 6, &gnss_ids_tvb, &len);
 
   if(gnss_ids_tvb){
     proto_tree *subtree;
@@ -5027,6 +5067,11 @@ dissect_lpp_GNSS_ReferenceLocationSupport(tvbuff_t *tvb _U_, int offset _U_, asn
 }
 
 
+static const int * T_ionoModel_bits[] = {
+  &hf_lpp_T_ionoModel_klobuchar,
+  &hf_lpp_T_ionoModel_neQuick,
+  NULL
+};
 
 static int
 dissect_lpp_T_ionoModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -5035,7 +5080,7 @@ dissect_lpp_T_ionoModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_,
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &ionoModel_tvb, &len);
+                                     1, 8, FALSE, T_ionoModel_bits, 2, &ionoModel_tvb, &len);
 
   if(ionoModel_tvb){
     proto_tree *subtree;
@@ -5200,6 +5245,15 @@ dissect_lpp_GNSS_DifferentialCorrectionsSupport(tvbuff_t *tvb _U_, int offset _U
 }
 
 
+static const int * T_clockModel_bits[] = {
+  &hf_lpp_T_clockModel_model_1,
+  &hf_lpp_T_clockModel_model_2,
+  &hf_lpp_T_clockModel_model_3,
+  &hf_lpp_T_clockModel_model_4,
+  &hf_lpp_T_clockModel_model_5,
+  &hf_lpp_T_clockModel_model_6,
+  NULL
+};
 
 static int
 dissect_lpp_T_clockModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -5208,7 +5262,7 @@ dissect_lpp_T_clockModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &clockModel_tvb, &len);
+                                     1, 8, FALSE, T_clockModel_bits, 6, &clockModel_tvb, &len);
 
   if(clockModel_tvb){
     proto_tree *subtree;
@@ -5240,6 +5294,15 @@ dissect_lpp_T_clockModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
 }
 
 
+static const int * T_orbitModel_bits[] = {
+  &hf_lpp_T_orbitModel_model_1,
+  &hf_lpp_T_orbitModel_model_2,
+  &hf_lpp_T_orbitModel_model_3,
+  &hf_lpp_T_orbitModel_model_4,
+  &hf_lpp_T_orbitModel_model_5,
+  &hf_lpp_T_orbitModel_model_6,
+  NULL
+};
 
 static int
 dissect_lpp_T_orbitModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -5248,7 +5311,7 @@ dissect_lpp_T_orbitModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &orbitModel_tvb, &len);
+                                     1, 8, FALSE, T_orbitModel_bits, 6, &orbitModel_tvb, &len);
 
   if(orbitModel_tvb){
     proto_tree *subtree;
@@ -5366,6 +5429,16 @@ dissect_lpp_GNSS_AcquisitionAssistanceSupport(tvbuff_t *tvb _U_, int offset _U_,
 }
 
 
+static const int * T_almanacModel_bits[] = {
+  &hf_lpp_T_almanacModel_model_1,
+  &hf_lpp_T_almanacModel_model_2,
+  &hf_lpp_T_almanacModel_model_3,
+  &hf_lpp_T_almanacModel_model_4,
+  &hf_lpp_T_almanacModel_model_5,
+  &hf_lpp_T_almanacModel_model_6,
+  &hf_lpp_T_almanacModel_model_7,
+  NULL
+};
 
 static int
 dissect_lpp_T_almanacModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -5374,7 +5447,7 @@ dissect_lpp_T_almanacModel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &almanacModel_tvb, &len);
+                                     1, 8, FALSE, T_almanacModel_bits, 7, &almanacModel_tvb, &len);
 
   if(almanacModel_tvb){
     proto_tree *subtree;
@@ -5423,6 +5496,14 @@ dissect_lpp_GNSS_AlmanacSupport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 }
 
 
+static const int * T_utc_Model_bits[] = {
+  &hf_lpp_T_utc_Model_model_1,
+  &hf_lpp_T_utc_Model_model_2,
+  &hf_lpp_T_utc_Model_model_3,
+  &hf_lpp_T_utc_Model_model_4,
+  &hf_lpp_T_utc_Model_model_5,
+  NULL
+};
 
 static int
 dissect_lpp_T_utc_Model(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -5431,7 +5512,7 @@ dissect_lpp_T_utc_Model(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_,
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &utc_Model_tvb, &len);
+                                     1, 8, FALSE, T_utc_Model_bits, 5, &utc_Model_tvb, &len);
 
   if(utc_Model_tvb){
     proto_tree *subtree;
@@ -5846,6 +5927,11 @@ dissect_lpp_A_GNSS_ProvideCapabilities_eag_1(tvbuff_t *tvb _U_, int offset _U_, 
 }
 
 
+static const int * T_periodicAssistanceData_r15_bits[] = {
+  &hf_lpp_T_periodicAssistanceData_r15_solicited,
+  &hf_lpp_T_periodicAssistanceData_r15_unsolicited,
+  NULL
+};
 
 static int
 dissect_lpp_T_periodicAssistanceData_r15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -5854,7 +5940,7 @@ dissect_lpp_T_periodicAssistanceData_r15(tvbuff_t *tvb _U_, int offset _U_, asn1
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &periodicAssistanceData_tvb, &len);
+                                     1, 8, FALSE, T_periodicAssistanceData_r15_bits, 2, &periodicAssistanceData_tvb, &len);
 
   if(periodicAssistanceData_tvb){
     proto_tree *subtree;
@@ -5906,6 +5992,12 @@ dissect_lpp_A_GNSS_ProvideCapabilities(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 }
 
 
+static const int * T_otdoa_Mode_bits[] = {
+  &hf_lpp_T_otdoa_Mode_ue_assisted,
+  &hf_lpp_T_otdoa_Mode_ue_assisted_NB_r14,
+  &hf_lpp_T_otdoa_Mode_ue_assisted_NB_TDD_r15,
+  NULL
+};
 
 static int
 dissect_lpp_T_otdoa_Mode(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -5914,7 +6006,7 @@ dissect_lpp_T_otdoa_Mode(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &otdoa_Mode_tvb, &len);
+                                     1, 8, FALSE, T_otdoa_Mode_bits, 3, &otdoa_Mode_tvb, &len);
 
   if(otdoa_Mode_tvb){
     proto_tree *subtree;
@@ -6323,6 +6415,14 @@ dissect_lpp_OTDOA_ProvideCapabilities(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 }
 
 
+static const int * T_ecid_MeasSupported_bits[] = {
+  &hf_lpp_T_ecid_MeasSupported_rsrpSup,
+  &hf_lpp_T_ecid_MeasSupported_rsrqSup,
+  &hf_lpp_T_ecid_MeasSupported_ueRxTxSup,
+  &hf_lpp_T_ecid_MeasSupported_nrsrpSup_r14,
+  &hf_lpp_T_ecid_MeasSupported_nrsrqSup_r14,
+  NULL
+};
 
 static int
 dissect_lpp_T_ecid_MeasSupported(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6331,7 +6431,7 @@ dissect_lpp_T_ecid_MeasSupported(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &ecid_MeasSupported_tvb, &len);
+                                     1, 8, FALSE, T_ecid_MeasSupported_bits, 5, &ecid_MeasSupported_tvb, &len);
 
   if(ecid_MeasSupported_tvb){
     proto_tree *subtree;
@@ -6464,6 +6564,12 @@ dissect_lpp_ECID_ProvideCapabilities(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 }
 
 
+static const int * T_sensor_Modes_r13_bits[] = {
+  &hf_lpp_T_sensor_Modes_r13_standalone,
+  &hf_lpp_T_sensor_Modes_r13_ue_assisted,
+  &hf_lpp_T_sensor_Modes_r13_ue_based,
+  NULL
+};
 
 static int
 dissect_lpp_T_sensor_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6472,7 +6578,7 @@ dissect_lpp_T_sensor_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &sensor_Modes_tvb, &len);
+                                     1, 8, FALSE, T_sensor_Modes_r13_bits, 3, &sensor_Modes_tvb, &len);
 
   if(sensor_Modes_tvb){
     proto_tree *subtree;
@@ -6627,6 +6733,12 @@ dissect_lpp_Sensor_ProvideCapabilities_r13(tvbuff_t *tvb _U_, int offset _U_, as
 }
 
 
+static const int * T_tbs_Modes_r13_bits[] = {
+  &hf_lpp_T_tbs_Modes_r13_standalone,
+  &hf_lpp_T_tbs_Modes_r13_ue_assisted,
+  &hf_lpp_T_tbs_Modes_r13_ue_based,
+  NULL
+};
 
 static int
 dissect_lpp_T_tbs_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6635,7 +6747,7 @@ dissect_lpp_T_tbs_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &tbs_Modes_tvb, &len);
+                                     1, 8, FALSE, T_tbs_Modes_r13_bits, 3, &tbs_Modes_tvb, &len);
 
   if(tbs_Modes_tvb){
     proto_tree *subtree;
@@ -6673,6 +6785,13 @@ dissect_lpp_MBS_AssistanceDataSupportList_r14(tvbuff_t *tvb _U_, int offset _U_,
 }
 
 
+static const int * T_mbs_ConfigSupport_r14_bits[] = {
+  &hf_lpp_T_mbs_ConfigSupport_r14_tb1,
+  &hf_lpp_T_mbs_ConfigSupport_r14_tb2,
+  &hf_lpp_T_mbs_ConfigSupport_r14_tb3,
+  &hf_lpp_T_mbs_ConfigSupport_r14_tb4,
+  NULL
+};
 
 static int
 dissect_lpp_T_mbs_ConfigSupport_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6681,7 +6800,7 @@ dissect_lpp_T_mbs_ConfigSupport_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &mbs_ConfigSupport_tvb, &len);
+                                     1, 8, FALSE, T_mbs_ConfigSupport_r14_bits, 4, &mbs_ConfigSupport_tvb, &len);
 
   if(mbs_ConfigSupport_tvb){
     proto_tree *subtree;
@@ -6753,6 +6872,12 @@ dissect_lpp_TBS_ProvideCapabilities_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_
 }
 
 
+static const int * T_wlan_Modes_r13_bits[] = {
+  &hf_lpp_T_wlan_Modes_r13_standalone,
+  &hf_lpp_T_wlan_Modes_r13_ue_assisted,
+  &hf_lpp_T_wlan_Modes_r13_ue_based,
+  NULL
+};
 
 static int
 dissect_lpp_T_wlan_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6761,7 +6886,7 @@ dissect_lpp_T_wlan_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &wlan_Modes_tvb, &len);
+                                     1, 8, FALSE, T_wlan_Modes_r13_bits, 3, &wlan_Modes_tvb, &len);
 
   if(wlan_Modes_tvb){
     proto_tree *subtree;
@@ -6784,6 +6909,11 @@ dissect_lpp_T_wlan_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 }
 
 
+static const int * T_wlan_MeasSupported_r13_bits[] = {
+  &hf_lpp_T_wlan_MeasSupported_r13_rssi_r13,
+  &hf_lpp_T_wlan_MeasSupported_r13_rtt_r13,
+  NULL
+};
 
 static int
 dissect_lpp_T_wlan_MeasSupported_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6792,7 +6922,7 @@ dissect_lpp_T_wlan_MeasSupported_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &wlan_MeasSupported_tvb, &len);
+                                     1, 8, FALSE, T_wlan_MeasSupported_r13_bits, 2, &wlan_MeasSupported_tvb, &len);
 
   if(wlan_MeasSupported_tvb){
     proto_tree *subtree;
@@ -6812,6 +6942,11 @@ dissect_lpp_T_wlan_MeasSupported_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 }
 
 
+static const int * T_wlan_AP_AD_Supported_r14_bits[] = {
+  &hf_lpp_T_wlan_AP_AD_Supported_r14_ap_identifier,
+  &hf_lpp_T_wlan_AP_AD_Supported_r14_ap_location,
+  NULL
+};
 
 static int
 dissect_lpp_T_wlan_AP_AD_Supported_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6820,7 +6955,7 @@ dissect_lpp_T_wlan_AP_AD_Supported_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_c
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &wlan_AP_AD_Supported_tvb, &len);
+                                     1, 8, FALSE, T_wlan_AP_AD_Supported_r14_bits, 2, &wlan_AP_AD_Supported_tvb, &len);
 
   if(wlan_AP_AD_Supported_tvb){
     proto_tree *subtree;
@@ -6886,6 +7021,11 @@ dissect_lpp_WLAN_ProvideCapabilities_r13(tvbuff_t *tvb _U_, int offset _U_, asn1
 }
 
 
+static const int * T_bt_Modes_r13_bits[] = {
+  &hf_lpp_T_bt_Modes_r13_standalone,
+  &hf_lpp_T_bt_Modes_r13_ue_assisted,
+  NULL
+};
 
 static int
 dissect_lpp_T_bt_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6894,7 +7034,7 @@ dissect_lpp_T_bt_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &bt_Modes_tvb, &len);
+                                     1, 8, FALSE, T_bt_Modes_r13_bits, 2, &bt_Modes_tvb, &len);
 
   if(bt_Modes_tvb){
     proto_tree *subtree;
@@ -6914,6 +7054,10 @@ dissect_lpp_T_bt_Modes_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 }
 
 
+static const int * T_bt_MeasSupported_r13_bits[] = {
+  &hf_lpp_T_bt_MeasSupported_r13_rssi_r13,
+  NULL
+};
 
 static int
 dissect_lpp_T_bt_MeasSupported_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -6922,7 +7066,7 @@ dissect_lpp_T_bt_MeasSupported_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &bt_MeasSupported_tvb, &len);
+                                     1, 8, FALSE, T_bt_MeasSupported_r13_bits, 1, &bt_MeasSupported_tvb, &len);
 
   if(bt_MeasSupported_tvb){
     proto_tree *subtree;
@@ -7139,7 +7283,7 @@ dissect_lpp_T_mnc_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 static int
 dissect_lpp_BIT_STRING_SIZE_28(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     28, 28, FALSE, NULL, NULL);
+                                     28, 28, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -7261,7 +7405,7 @@ dissect_lpp_T_mnc_r15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 static int
 dissect_lpp_BIT_STRING_SIZE_36(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     36, 36, FALSE, NULL, NULL);
+                                     36, 36, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -7360,7 +7504,7 @@ dissect_lpp_GNSS_ReferenceLocationReq(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 static int
 dissect_lpp_BIT_STRING_SIZE_2(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     2, 2, FALSE, NULL, NULL);
+                                     2, 2, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -7616,7 +7760,7 @@ dissect_lpp_SV_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto
 static int
 dissect_lpp_BIT_STRING_SIZE_11(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     11, 11, FALSE, NULL, NULL);
+                                     11, 11, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -7684,7 +7828,7 @@ dissect_lpp_StoredNavListInfo(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static int
 dissect_lpp_BIT_STRING_SIZE_64(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     64, 64, FALSE, NULL, NULL);
+                                     64, 64, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -8313,6 +8457,11 @@ dissect_lpp_INTEGER_0_503(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 }
 
 
+static const int * T_adType_r14_bits[] = {
+  &hf_lpp_T_adType_r14_prs,
+  &hf_lpp_T_adType_r14_nprs,
+  NULL
+};
 
 static int
 dissect_lpp_T_adType_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -8321,7 +8470,7 @@ dissect_lpp_T_adType_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &adType_tvb, &len);
+                                     1, 8, FALSE, T_adType_r14_bits, 2, &adType_tvb, &len);
 
   if(adType_tvb){
     proto_tree *subtree;
@@ -8422,6 +8571,11 @@ dissect_lpp_TBS_RequestAssistanceData_r14(tvbuff_t *tvb _U_, int offset _U_, asn
 }
 
 
+static const int * T_requestedAD_r14_bits[] = {
+  &hf_lpp_T_requestedAD_r14_ap_identifier,
+  &hf_lpp_T_requestedAD_r14_ap_location,
+  NULL
+};
 
 static int
 dissect_lpp_T_requestedAD_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -8430,7 +8584,7 @@ dissect_lpp_T_requestedAD_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &requestedAD_tvb, &len);
+                                     1, 8, FALSE, T_requestedAD_r14_bits, 2, &requestedAD_tvb, &len);
 
   if(requestedAD_tvb){
     proto_tree *subtree;
@@ -8715,7 +8869,7 @@ dissect_lpp_T_notificationOfLeapSecond(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 #line 480 "./asn1/lpp/lpp.cnf"
   tvbuff_t *notificationOfLeapSecond_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     2, 2, FALSE, &notificationOfLeapSecond_tvb, NULL);
+                                     2, 2, FALSE, NULL, 0, &notificationOfLeapSecond_tvb, NULL);
 
 
 
@@ -8899,7 +9053,7 @@ dissect_lpp_T_plmn_Identity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 static int
 dissect_lpp_BIT_STRING_SIZE_32(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     32, 32, FALSE, NULL, NULL);
+                                     32, 32, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -9488,7 +9642,7 @@ dissect_lpp_T_dataID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 #line 499 "./asn1/lpp/lpp.cnf"
   tvbuff_t *dataID_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     2, 2, FALSE, &dataID_tvb, NULL);
+                                     2, 2, FALSE, NULL, 0, &dataID_tvb, NULL);
 
 
 
@@ -9793,7 +9947,7 @@ dissect_lpp_T_smoothingIndicator_r15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 #line 605 "./asn1/lpp/lpp.cnf"
   tvbuff_t *param_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     1, 1, FALSE, &param_tvb, NULL);
+                                     1, 1, FALSE, NULL, 0, &param_tvb, NULL);
 
 
 
@@ -9815,7 +9969,7 @@ dissect_lpp_T_smoothingInterval_r15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 #line 618 "./asn1/lpp/lpp.cnf"
   tvbuff_t *param_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     3, 3, FALSE, &param_tvb, NULL);
+                                     3, 3, FALSE, NULL, 0, &param_tvb, NULL);
 
 
 
@@ -10598,7 +10752,7 @@ dissect_lpp_T_cnavMo(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 
 #line 918 "./asn1/lpp/lpp.cnf"
-  PROTO_ITEM_SET_HIDDEN(actx->created_item);
+  proto_item_set_hidden(actx->created_item);
   actx->created_item = proto_tree_add_int64_format_value(tree, hf_index, tvb, curr_offset>>3, (offset+7-curr_offset)>>3,
                                                          cnavMo, "%g semi-circles (%"G_GINT64_MODIFIER"d)",
                                                          (double)cnavMo*pow(2, -32), cnavMo);
@@ -10621,7 +10775,7 @@ dissect_lpp_T_cnavE(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 #line 929 "./asn1/lpp/lpp.cnf"
-  PROTO_ITEM_SET_HIDDEN(actx->created_item);
+  proto_item_set_hidden(actx->created_item);
   actx->created_item = proto_tree_add_uint64_format_value(tree, hf_index, tvb, curr_offset>>3, (offset+7-curr_offset)>>3,
                                                           cnavE, "%g (%"G_GINT64_MODIFIER"u)",
                                                           (double)cnavE*pow(2, -34), cnavE);
@@ -10644,7 +10798,7 @@ dissect_lpp_T_cnavOmega(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_,
 
 
 #line 940 "./asn1/lpp/lpp.cnf"
-  PROTO_ITEM_SET_HIDDEN(actx->created_item);
+  proto_item_set_hidden(actx->created_item);
   actx->created_item = proto_tree_add_int64_format_value(tree, hf_index, tvb, curr_offset>>3, (offset+7-curr_offset)>>3,
                                                          cnavOmega, "%g semi-circles (%"G_GINT64_MODIFIER"d)",
                                                          (double)cnavOmega*pow(2, -32), cnavOmega);
@@ -10667,7 +10821,7 @@ dissect_lpp_T_cnavOMEGA0(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
 
 
 #line 951 "./asn1/lpp/lpp.cnf"
-  PROTO_ITEM_SET_HIDDEN(actx->created_item);
+  proto_item_set_hidden(actx->created_item);
   actx->created_item = proto_tree_add_int64_format_value(tree, hf_index, tvb, curr_offset>>3, (offset+7-curr_offset)>>3,
                                                          cnavOMEGA0, "%g semi-circles (%"G_GINT64_MODIFIER"d)",
                                                          (double)cnavOMEGA0*pow(2, -32), cnavOMEGA0);
@@ -10690,7 +10844,7 @@ dissect_lpp_T_cnavIo(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 
 #line 965 "./asn1/lpp/lpp.cnf"
-  PROTO_ITEM_SET_HIDDEN(actx->created_item);
+  proto_item_set_hidden(actx->created_item);
   actx->created_item = proto_tree_add_int64_format_value(tree, hf_index, tvb, curr_offset>>3, (offset+7-curr_offset)>>3,
                                                          cnavIo, "%g semi-circles (%"G_GINT64_MODIFIER"d)",
                                                          (double)cnavIo*pow(2, -32), cnavIo);
@@ -10738,7 +10892,7 @@ dissect_lpp_T_gloP1(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 #line 995 "./asn1/lpp/lpp.cnf"
   tvbuff_t *gloP1_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     2, 2, FALSE, &gloP1_tvb, NULL);
+                                     2, 2, FALSE, NULL, 0, &gloP1_tvb, NULL);
 
 
 
@@ -10784,7 +10938,7 @@ dissect_lpp_NavModel_GLONASS_ECEF(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static int
 dissect_lpp_BIT_STRING_SIZE_4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     4, 4, FALSE, NULL, NULL);
+                                     4, 4, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -10902,7 +11056,7 @@ dissect_lpp_T_svHealthExt_v1240(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
   tvbuff_t *svHealthExt_tvb = NULL;
   proto_tree *subtree;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     4, 4, FALSE, &svHealthExt_tvb, NULL);
+                                     4, 4, FALSE, NULL, 0, &svHealthExt_tvb, NULL);
 
 
 
@@ -11027,7 +11181,7 @@ dissect_lpp_GNSS_RealTimeIntegrity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 static int
 dissect_lpp_BIT_STRING_SIZE_1_1024(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 1024, FALSE, NULL, NULL);
+                                     1, 1024, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -11231,7 +11385,7 @@ dissect_lpp_T_kepSV_StatusINAV(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
   tvbuff_t *statusINAV_tvb = NULL;
   proto_tree *subtree;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     4, 4, FALSE, &statusINAV_tvb, NULL);
+                                     4, 4, FALSE, NULL, 0, &statusINAV_tvb, NULL);
 
 
 
@@ -11255,7 +11409,7 @@ dissect_lpp_T_kepSV_StatusFNAV(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
   tvbuff_t *statusFNAV_tvb = NULL;
   proto_tree *subtree;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     2, 2, FALSE, &statusFNAV_tvb, NULL);
+                                     2, 2, FALSE, NULL, 0, &statusFNAV_tvb, NULL);
 
 
 
@@ -11482,7 +11636,7 @@ dissect_lpp_T_bdsSvHealth_r12(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
   tvbuff_t *bdsSvHealth_tvb = NULL;
   proto_tree *subtree;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     9, 9, FALSE, &bdsSvHealth_tvb, NULL);
+                                     9, 9, FALSE, NULL, 0, &bdsSvHealth_tvb, NULL);
 
 
 
@@ -11676,7 +11830,7 @@ dissect_lpp_T_utcDN(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 #line 1433 "./asn1/lpp/lpp.cnf"
   tvbuff_t *utcDN_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     4, 4, FALSE, &utcDN_tvb, NULL);
+                                     4, 4, FALSE, NULL, 0, &utcDN_tvb, NULL);
 
 
 
@@ -11720,7 +11874,7 @@ dissect_lpp_T_kp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_
 #line 1461 "./asn1/lpp/lpp.cnf"
   tvbuff_t *kp_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     2, 2, FALSE, &kp_tvb, NULL);
+                                     2, 2, FALSE, NULL, 0, &kp_tvb, NULL);
 
 
 
@@ -12072,7 +12226,7 @@ dissect_lpp_INTEGER_0_254(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 static int
 dissect_lpp_BIT_STRING_SIZE_1(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 1, FALSE, NULL, NULL);
+                                     1, 1, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -12844,7 +12998,7 @@ dissect_lpp_T_numDL_Frames(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 static int
 dissect_lpp_BIT_STRING_SIZE_128(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     128, 128, FALSE, NULL, NULL);
+                                     128, 128, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -12854,7 +13008,7 @@ dissect_lpp_BIT_STRING_SIZE_128(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 static int
 dissect_lpp_BIT_STRING_SIZE_256(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     256, 256, FALSE, NULL, NULL);
+                                     256, 256, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -12864,7 +13018,7 @@ dissect_lpp_BIT_STRING_SIZE_256(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 static int
 dissect_lpp_BIT_STRING_SIZE_512(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     512, 512, FALSE, NULL, NULL);
+                                     512, 512, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -12874,7 +13028,7 @@ dissect_lpp_BIT_STRING_SIZE_512(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 static int
 dissect_lpp_BIT_STRING_SIZE_1024(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1024, 1024, FALSE, NULL, NULL);
+                                     1024, 1024, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -13572,7 +13726,7 @@ dissect_lpp_INTEGER_0_174(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 static int
 dissect_lpp_BIT_STRING_SIZE_10(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     10, 10, FALSE, NULL, NULL);
+                                     10, 10, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -13582,7 +13736,7 @@ dissect_lpp_BIT_STRING_SIZE_10(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 static int
 dissect_lpp_BIT_STRING_SIZE_40(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     40, 40, FALSE, NULL, NULL);
+                                     40, 40, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -14389,7 +14543,7 @@ dissect_lpp_T_transmitterLatitude_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
   guint32 val;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     26, 26, FALSE, &transmitterLatitude_tvb, NULL);
+                                     26, 26, FALSE, NULL, 0, &transmitterLatitude_tvb, NULL);
 
   val = tvb_get_bits32(transmitterLatitude_tvb, 0, 26, ENC_BIG_ENDIAN);
   actx->created_item = proto_tree_add_uint(tree, hf_index, transmitterLatitude_tvb, 0, 4, val);
@@ -14408,7 +14562,7 @@ dissect_lpp_T_transmitterLongitude_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_c
   guint32 val;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     27, 27, FALSE, &transmitterLongitude_tvb, NULL);
+                                     27, 27, FALSE, NULL, 0, &transmitterLongitude_tvb, NULL);
 
   val = tvb_get_bits32(transmitterLongitude_tvb, 0, 27, ENC_BIG_ENDIAN);
   actx->created_item = proto_tree_add_uint(tree, hf_index, transmitterLongitude_tvb, 0, 4, val);
@@ -14427,7 +14581,7 @@ dissect_lpp_T_transmitterAltitude_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
   guint32 val;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     15, 15, FALSE, &transmitterAltitude_tvb, NULL);
+                                     15, 15, FALSE, NULL, 0, &transmitterAltitude_tvb, NULL);
 
   val = tvb_get_bits16(transmitterAltitude_tvb, 0, 15, ENC_BIG_ENDIAN);
   actx->created_item = proto_tree_add_uint(tree, hf_index, transmitterAltitude_tvb, 0, 2, val);
@@ -14657,7 +14811,7 @@ dissect_lpp_TBS_ProvideAssistanceData_r14(tvbuff_t *tvb _U_, int offset _U_, asn
 static int
 dissect_lpp_BIT_STRING_SIZE_6(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     6, 6, FALSE, NULL, NULL);
+                                     6, 6, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -14667,7 +14821,7 @@ dissect_lpp_BIT_STRING_SIZE_6(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static int
 dissect_lpp_BIT_STRING_SIZE_34(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     34, 34, FALSE, NULL, NULL);
+                                     34, 34, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -14677,7 +14831,7 @@ dissect_lpp_BIT_STRING_SIZE_34(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 static int
 dissect_lpp_BIT_STRING_SIZE_30(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     30, 30, FALSE, NULL, NULL);
+                                     30, 30, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -15634,6 +15788,14 @@ dissect_lpp_OTDOA_RequestLocationInformation(tvbuff_t *tvb _U_, int offset _U_, 
 }
 
 
+static const int * T_requestedMeasurements_bits[] = {
+  &hf_lpp_T_requestedMeasurements_rsrpReq,
+  &hf_lpp_T_requestedMeasurements_rsrqReq,
+  &hf_lpp_T_requestedMeasurements_ueRxTxReq,
+  &hf_lpp_T_requestedMeasurements_nrsrpReq_r14,
+  &hf_lpp_T_requestedMeasurements_nrsrqReq_r14,
+  NULL
+};
 
 static int
 dissect_lpp_T_requestedMeasurements(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -15642,7 +15804,7 @@ dissect_lpp_T_requestedMeasurements(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &requestedMeasurements_tvb, &len);
+                                     1, 8, FALSE, T_requestedMeasurements_bits, 5, &requestedMeasurements_tvb, &len);
 
   if(requestedMeasurements_tvb){
     proto_tree *subtree;
@@ -15727,6 +15889,10 @@ dissect_lpp_Sensor_RequestLocationInformation_r13(tvbuff_t *tvb _U_, int offset 
 }
 
 
+static const int * T_mbsRequestedMeasurements_r14_bits[] = {
+  &hf_lpp_T_mbsRequestedMeasurements_r14_rssi,
+  NULL
+};
 
 static int
 dissect_lpp_T_mbsRequestedMeasurements_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -15735,7 +15901,7 @@ dissect_lpp_T_mbsRequestedMeasurements_r14(tvbuff_t *tvb _U_, int offset _U_, as
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &mbsRequestedMeasurements_tvb, &len);
+                                     1, 8, FALSE, T_mbsRequestedMeasurements_r14_bits, 1, &mbsRequestedMeasurements_tvb, &len);
 
   if(mbsRequestedMeasurements_tvb){
     proto_tree *subtree;
@@ -15781,6 +15947,11 @@ dissect_lpp_TBS_RequestLocationInformation_r13(tvbuff_t *tvb _U_, int offset _U_
 }
 
 
+static const int * T_requestedMeasurements_r13_bits[] = {
+  &hf_lpp_T_requestedMeasurements_r13_rssi,
+  &hf_lpp_T_requestedMeasurements_r13_rtt,
+  NULL
+};
 
 static int
 dissect_lpp_T_requestedMeasurements_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -15789,7 +15960,7 @@ dissect_lpp_T_requestedMeasurements_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &requestedMeasurements_tvb, &len);
+                                     1, 8, FALSE, T_requestedMeasurements_r13_bits, 2, &requestedMeasurements_tvb, &len);
 
   if(requestedMeasurements_tvb){
     proto_tree *subtree;
@@ -15837,6 +16008,10 @@ dissect_lpp_WLAN_RequestLocationInformation_r13(tvbuff_t *tvb _U_, int offset _U
 }
 
 
+static const int * T_requestedMeasurements_r13_01_bits[] = {
+  &hf_lpp_T_requestedMeasurements_r13_01_rssi,
+  NULL
+};
 
 static int
 dissect_lpp_T_requestedMeasurements_r13_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -15845,7 +16020,7 @@ dissect_lpp_T_requestedMeasurements_r13_01(tvbuff_t *tvb _U_, int offset _U_, as
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 8, FALSE, &requestedMeasurements_tvb, &len);
+                                     1, 8, FALSE, T_requestedMeasurements_r13_01_bits, 1, &requestedMeasurements_tvb, &len);
 
   if(requestedMeasurements_tvb){
     proto_tree *subtree;
@@ -16475,6 +16650,15 @@ dissect_lpp_CommonIEsProvideLocationInformation_eag_1(tvbuff_t *tvb _U_, int off
 }
 
 
+static const int * LocationSource_r13_bits[] = {
+  &hf_lpp_LocationSource_r13_a_gnss,
+  &hf_lpp_LocationSource_r13_wlan,
+  &hf_lpp_LocationSource_r13_bt,
+  &hf_lpp_LocationSource_r13_tbs,
+  &hf_lpp_LocationSource_r13_sensor,
+  &hf_lpp_LocationSource_r13_ha_gnss_v1510,
+  NULL
+};
 
 static int
 dissect_lpp_LocationSource_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -16483,7 +16667,7 @@ dissect_lpp_LocationSource_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
   int len;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     1, 16, FALSE, &locSource_tvb, &len);
+                                     1, 16, FALSE, LocationSource_r13_bits, 6, &locSource_tvb, &len);
 
   if(locSource_tvb){
     proto_tree *subtree;
@@ -16993,7 +17177,7 @@ dissect_lpp_T_error_Resolution(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 #line 412 "./asn1/lpp/lpp.cnf"
   tvbuff_t *error_Resolution_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     2, 2, FALSE, &error_Resolution_tvb, NULL);
+                                     2, 2, FALSE, NULL, 0, &error_Resolution_tvb, NULL);
 
 
 
@@ -17015,7 +17199,7 @@ dissect_lpp_T_error_Value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 #line 425 "./asn1/lpp/lpp.cnf"
   tvbuff_t *error_Value_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     5, 5, FALSE, &error_Value_tvb, NULL);
+                                     5, 5, FALSE, NULL, 0, &error_Value_tvb, NULL);
 
 
 
@@ -17037,7 +17221,7 @@ dissect_lpp_T_error_NumSamples(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 #line 438 "./asn1/lpp/lpp.cnf"
   tvbuff_t *error_NumSamples_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     3, 3, FALSE, &error_NumSamples_tvb, NULL);
+                                     3, 3, FALSE, NULL, 0, &error_NumSamples_tvb, NULL);
 
 
 
@@ -18178,7 +18362,7 @@ dissect_lpp_T_btAddr_r13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
   tvbuff_t *btAddr_tvb = NULL;
 
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
-                                     48, 48, FALSE, &btAddr_tvb, NULL);
+                                     48, 48, FALSE, NULL, 0, &btAddr_tvb, NULL);
 
   actx->created_item = proto_tree_add_item(tree, hf_index, btAddr_tvb, 0, 6, ENC_NA);
 
@@ -24785,391 +24969,391 @@ void proto_register_lpp(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_lpp_T_accessTypes_eutra,
-      { "eutra", "lpp.eutra",
+      { "eutra", "lpp.T.accessTypes.eutra",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_accessTypes_utra,
-      { "utra", "lpp.utra",
+      { "utra", "lpp.T.accessTypes.utra",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_accessTypes_gsm,
-      { "gsm", "lpp.gsm",
+      { "gsm", "lpp.T.accessTypes.gsm",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_accessTypes_nb_iot,
-      { "nb-iot", "lpp.nb-iot",
+      { "nb-iot", "lpp.T.accessTypes.nb.iot",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_accessTypes_nr_v1510,
-      { "nr-v1510", "lpp.nr-v1510",
+      { "nr-v1510", "lpp.T.accessTypes.nr.v1510",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_T_posModes_standalone,
-      { "standalone", "lpp.standalone",
+      { "standalone", "lpp.T.posModes.standalone",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_posModes_ue_based,
-      { "ue-based", "lpp.ue-based",
+      { "ue-based", "lpp.T.posModes.ue.based",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_posModes_ue_assisted,
-      { "ue-assisted", "lpp.ue-assisted",
+      { "ue-assisted", "lpp.T.posModes.ue.assisted",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_lpp_message_segmentation_req_r14_serverToTarget,
-      { "serverToTarget", "lpp.serverToTarget",
+      { "serverToTarget", "lpp.T.lpp.message.segmentation.req.r14.serverToTarget",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_lpp_message_segmentation_req_r14_targetToServer,
-      { "targetToServer", "lpp.targetToServer",
+      { "targetToServer", "lpp.T.lpp.message.segmentation.req.r14.targetToServer",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_lpp_message_segmentation_r14_serverToTarget,
-      { "serverToTarget", "lpp.serverToTarget",
+      { "serverToTarget", "lpp.T.lpp.message.segmentation.r14.serverToTarget",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_lpp_message_segmentation_r14_targetToServer,
-      { "targetToServer", "lpp.targetToServer",
+      { "targetToServer", "lpp.T.lpp.message.segmentation.r14.targetToServer",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_LocationSource_r13_a_gnss,
-      { "a-gnss", "lpp.a-gnss",
+      { "a-gnss", "lpp.LocationSource.r13.a.gnss",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_LocationSource_r13_wlan,
-      { "wlan", "lpp.wlan",
+      { "wlan", "lpp.LocationSource.r13.wlan",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_LocationSource_r13_bt,
-      { "bt", "lpp.bt",
+      { "bt", "lpp.LocationSource.r13.bt",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_LocationSource_r13_tbs,
-      { "tbs", "lpp.tbs",
+      { "tbs", "lpp.LocationSource.r13.tbs",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_LocationSource_r13_sensor,
-      { "sensor", "lpp.sensor",
+      { "sensor", "lpp.LocationSource.r13.sensor",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_LocationSource_r13_ha_gnss_v1510,
-      { "ha-gnss-v1510", "lpp.ha-gnss-v1510",
+      { "ha-gnss-v1510", "lpp.LocationSource.r13.ha.gnss.v1510",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
     { &hf_lpp_T_adType_r14_prs,
-      { "prs", "lpp.prs",
+      { "prs", "lpp.T.adType.r14.prs",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_adType_r14_nprs,
-      { "nprs", "lpp.nprs",
+      { "nprs", "lpp.T.adType.r14.nprs",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_otdoa_Mode_ue_assisted,
-      { "ue-assisted", "lpp.ue-assisted",
+      { "ue-assisted", "lpp.T.otdoa.Mode.ue.assisted",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_otdoa_Mode_ue_assisted_NB_r14,
-      { "ue-assisted-NB-r14", "lpp.ue-assisted-NB-r14",
+      { "ue-assisted-NB-r14", "lpp.T.otdoa.Mode.ue.assisted.NB.r14",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_otdoa_Mode_ue_assisted_NB_TDD_r15,
-      { "ue-assisted-NB-TDD-r15", "lpp.ue-assisted-NB-TDD-r15",
+      { "ue-assisted-NB-TDD-r15", "lpp.T.otdoa.Mode.ue.assisted.NB.TDD.r15",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_periodicAssistanceData_r15_solicited,
-      { "solicited", "lpp.solicited",
+      { "solicited", "lpp.T.periodicAssistanceData.r15.solicited",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_periodicAssistanceData_r15_unsolicited,
-      { "unsolicited", "lpp.unsolicited",
+      { "unsolicited", "lpp.T.periodicAssistanceData.r15.unsolicited",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_ionoModel_klobuchar,
-      { "klobuchar", "lpp.klobuchar",
+      { "klobuchar", "lpp.T.ionoModel.klobuchar",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_ionoModel_neQuick,
-      { "neQuick", "lpp.neQuick",
+      { "neQuick", "lpp.T.ionoModel.neQuick",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_clockModel_model_1,
-      { "model-1", "lpp.model-1",
+      { "model-1", "lpp.T.clockModel.model.1",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_clockModel_model_2,
-      { "model-2", "lpp.model-2",
+      { "model-2", "lpp.T.clockModel.model.2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_clockModel_model_3,
-      { "model-3", "lpp.model-3",
+      { "model-3", "lpp.T.clockModel.model.3",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_clockModel_model_4,
-      { "model-4", "lpp.model-4",
+      { "model-4", "lpp.T.clockModel.model.4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_clockModel_model_5,
-      { "model-5", "lpp.model-5",
+      { "model-5", "lpp.T.clockModel.model.5",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_T_clockModel_model_6,
-      { "model-6", "lpp.model-6",
+      { "model-6", "lpp.T.clockModel.model.6",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
     { &hf_lpp_T_orbitModel_model_1,
-      { "model-1", "lpp.model-1",
+      { "model-1", "lpp.T.orbitModel.model.1",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_orbitModel_model_2,
-      { "model-2", "lpp.model-2",
+      { "model-2", "lpp.T.orbitModel.model.2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_orbitModel_model_3,
-      { "model-3", "lpp.model-3",
+      { "model-3", "lpp.T.orbitModel.model.3",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_orbitModel_model_4,
-      { "model-4", "lpp.model-4",
+      { "model-4", "lpp.T.orbitModel.model.4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_orbitModel_model_5,
-      { "model-5", "lpp.model-5",
+      { "model-5", "lpp.T.orbitModel.model.5",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_T_orbitModel_model_6,
-      { "model-6", "lpp.model-6",
+      { "model-6", "lpp.T.orbitModel.model.6",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
     { &hf_lpp_T_almanacModel_model_1,
-      { "model-1", "lpp.model-1",
+      { "model-1", "lpp.T.almanacModel.model.1",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_almanacModel_model_2,
-      { "model-2", "lpp.model-2",
+      { "model-2", "lpp.T.almanacModel.model.2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_almanacModel_model_3,
-      { "model-3", "lpp.model-3",
+      { "model-3", "lpp.T.almanacModel.model.3",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_almanacModel_model_4,
-      { "model-4", "lpp.model-4",
+      { "model-4", "lpp.T.almanacModel.model.4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_almanacModel_model_5,
-      { "model-5", "lpp.model-5",
+      { "model-5", "lpp.T.almanacModel.model.5",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_T_almanacModel_model_6,
-      { "model-6", "lpp.model-6",
+      { "model-6", "lpp.T.almanacModel.model.6",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
     { &hf_lpp_T_almanacModel_model_7,
-      { "model-7", "lpp.model-7",
+      { "model-7", "lpp.T.almanacModel.model.7",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
     { &hf_lpp_T_utc_Model_model_1,
-      { "model-1", "lpp.model-1",
+      { "model-1", "lpp.T.utc.Model.model.1",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_utc_Model_model_2,
-      { "model-2", "lpp.model-2",
+      { "model-2", "lpp.T.utc.Model.model.2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_utc_Model_model_3,
-      { "model-3", "lpp.model-3",
+      { "model-3", "lpp.T.utc.Model.model.3",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_utc_Model_model_4,
-      { "model-4", "lpp.model-4",
+      { "model-4", "lpp.T.utc.Model.model.4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_utc_Model_model_5,
-      { "model-5", "lpp.model-5",
+      { "model-5", "lpp.T.utc.Model.model.5",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_T_gnss_ids_gps,
-      { "gps", "lpp.gps",
+      { "gps", "lpp.T.gnss.ids.gps",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_gnss_ids_sbas,
-      { "sbas", "lpp.sbas",
+      { "sbas", "lpp.T.gnss.ids.sbas",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_gnss_ids_qzss,
-      { "qzss", "lpp.qzss",
+      { "qzss", "lpp.T.gnss.ids.qzss",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_gnss_ids_galileo,
-      { "galileo", "lpp.galileo",
+      { "galileo", "lpp.T.gnss.ids.galileo",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_gnss_ids_glonass,
-      { "glonass", "lpp.glonass",
+      { "glonass", "lpp.T.gnss.ids.glonass",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_T_gnss_ids_bds,
-      { "bds", "lpp.bds",
+      { "bds", "lpp.T.gnss.ids.bds",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
     { &hf_lpp_T_sbas_IDs_waas,
-      { "waas", "lpp.waas",
+      { "waas", "lpp.T.sbas.IDs.waas",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_sbas_IDs_egnos,
-      { "egnos", "lpp.egnos",
+      { "egnos", "lpp.T.sbas.IDs.egnos",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_sbas_IDs_msas,
-      { "msas", "lpp.msas",
+      { "msas", "lpp.T.sbas.IDs.msas",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_sbas_IDs_gagan,
-      { "gagan", "lpp.gagan",
+      { "gagan", "lpp.T.sbas.IDs.gagan",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_requestedMeasurements_rsrpReq,
-      { "rsrpReq", "lpp.rsrpReq",
+      { "rsrpReq", "lpp.T.requestedMeasurements.rsrpReq",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_requestedMeasurements_rsrqReq,
-      { "rsrqReq", "lpp.rsrqReq",
+      { "rsrqReq", "lpp.T.requestedMeasurements.rsrqReq",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_requestedMeasurements_ueRxTxReq,
-      { "ueRxTxReq", "lpp.ueRxTxReq",
+      { "ueRxTxReq", "lpp.T.requestedMeasurements.ueRxTxReq",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_requestedMeasurements_nrsrpReq_r14,
-      { "nrsrpReq-r14", "lpp.nrsrpReq-r14",
+      { "nrsrpReq-r14", "lpp.T.requestedMeasurements.nrsrpReq.r14",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_requestedMeasurements_nrsrqReq_r14,
-      { "nrsrqReq-r14", "lpp.nrsrqReq-r14",
+      { "nrsrqReq-r14", "lpp.T.requestedMeasurements.nrsrqReq.r14",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_T_ecid_MeasSupported_rsrpSup,
-      { "rsrpSup", "lpp.rsrpSup",
+      { "rsrpSup", "lpp.T.ecid.MeasSupported.rsrpSup",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_ecid_MeasSupported_rsrqSup,
-      { "rsrqSup", "lpp.rsrqSup",
+      { "rsrqSup", "lpp.T.ecid.MeasSupported.rsrqSup",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_ecid_MeasSupported_ueRxTxSup,
-      { "ueRxTxSup", "lpp.ueRxTxSup",
+      { "ueRxTxSup", "lpp.T.ecid.MeasSupported.ueRxTxSup",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_ecid_MeasSupported_nrsrpSup_r14,
-      { "nrsrpSup-r14", "lpp.nrsrpSup-r14",
+      { "nrsrpSup-r14", "lpp.T.ecid.MeasSupported.nrsrpSup.r14",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_ecid_MeasSupported_nrsrqSup_r14,
-      { "nrsrqSup-r14", "lpp.nrsrqSup-r14",
+      { "nrsrqSup-r14", "lpp.T.ecid.MeasSupported.nrsrqSup.r14",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
     { &hf_lpp_T_mbsRequestedMeasurements_r14_rssi,
-      { "rssi", "lpp.rssi",
+      { "rssi", "lpp.T.mbsRequestedMeasurements.r14.rssi",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_tbs_Modes_r13_standalone,
-      { "standalone", "lpp.standalone",
+      { "standalone", "lpp.T.tbs.Modes.r13.standalone",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_tbs_Modes_r13_ue_assisted,
-      { "ue-assisted", "lpp.ue-assisted",
+      { "ue-assisted", "lpp.T.tbs.Modes.r13.ue.assisted",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_tbs_Modes_r13_ue_based,
-      { "ue-based", "lpp.ue-based",
+      { "ue-based", "lpp.T.tbs.Modes.r13.ue.based",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_mbs_ConfigSupport_r14_tb1,
-      { "tb1", "lpp.tb1",
+      { "tb1", "lpp.T.mbs.ConfigSupport.r14.tb1",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_mbs_ConfigSupport_r14_tb2,
-      { "tb2", "lpp.tb2",
+      { "tb2", "lpp.T.mbs.ConfigSupport.r14.tb2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_mbs_ConfigSupport_r14_tb3,
-      { "tb3", "lpp.tb3",
+      { "tb3", "lpp.T.mbs.ConfigSupport.r14.tb3",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_mbs_ConfigSupport_r14_tb4,
-      { "tb4", "lpp.tb4",
+      { "tb4", "lpp.T.mbs.ConfigSupport.r14.tb4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
     { &hf_lpp_T_sensor_Modes_r13_standalone,
-      { "standalone", "lpp.standalone",
+      { "standalone", "lpp.T.sensor.Modes.r13.standalone",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_sensor_Modes_r13_ue_assisted,
-      { "ue-assisted", "lpp.ue-assisted",
+      { "ue-assisted", "lpp.T.sensor.Modes.r13.ue.assisted",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_sensor_Modes_r13_ue_based,
-      { "ue-based", "lpp.ue-based",
+      { "ue-based", "lpp.T.sensor.Modes.r13.ue.based",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_requestedMeasurements_r13_rssi,
-      { "rssi", "lpp.rssi",
+      { "rssi", "lpp.T.requestedMeasurements.r13.rssi",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_requestedMeasurements_r13_rtt,
-      { "rtt", "lpp.rtt",
+      { "rtt", "lpp.T.requestedMeasurements.r13.rtt",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_wlan_Modes_r13_standalone,
-      { "standalone", "lpp.standalone",
+      { "standalone", "lpp.T.wlan.Modes.r13.standalone",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_wlan_Modes_r13_ue_assisted,
-      { "ue-assisted", "lpp.ue-assisted",
+      { "ue-assisted", "lpp.T.wlan.Modes.r13.ue.assisted",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_wlan_Modes_r13_ue_based,
-      { "ue-based", "lpp.ue-based",
+      { "ue-based", "lpp.T.wlan.Modes.r13.ue.based",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
     { &hf_lpp_T_wlan_MeasSupported_r13_rssi_r13,
-      { "rssi-r13", "lpp.rssi-r13",
+      { "rssi-r13", "lpp.T.wlan.MeasSupported.r13.rssi.r13",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_wlan_MeasSupported_r13_rtt_r13,
-      { "rtt-r13", "lpp.rtt-r13",
+      { "rtt-r13", "lpp.T.wlan.MeasSupported.r13.rtt.r13",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_wlan_AP_AD_Supported_r14_ap_identifier,
-      { "ap-identifier", "lpp.ap-identifier",
+      { "ap-identifier", "lpp.T.wlan.AP.AD.Supported.r14.ap.identifier",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_wlan_AP_AD_Supported_r14_ap_location,
-      { "ap-location", "lpp.ap-location",
+      { "ap-location", "lpp.T.wlan.AP.AD.Supported.r14.ap.location",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_requestedAD_r14_ap_identifier,
-      { "ap-identifier", "lpp.ap-identifier",
+      { "ap-identifier", "lpp.T.requestedAD.r14.ap.identifier",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_requestedAD_r14_ap_location,
-      { "ap-location", "lpp.ap-location",
+      { "ap-location", "lpp.T.requestedAD.r14.ap.location",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_requestedMeasurements_r13_01_rssi,
-      { "rssi", "lpp.rssi",
+      { "rssi", "lpp.T.requestedMeasurements.r13.01.rssi",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_bt_Modes_r13_standalone,
-      { "standalone", "lpp.standalone",
+      { "standalone", "lpp.T.bt.Modes.r13.standalone",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
     { &hf_lpp_T_bt_Modes_r13_ue_assisted,
-      { "ue-assisted", "lpp.ue-assisted",
+      { "ue-assisted", "lpp.T.bt.Modes.r13.ue.assisted",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
     { &hf_lpp_T_bt_MeasSupported_r13_rssi_r13,
-      { "rssi-r13", "lpp.rssi-r13",
+      { "rssi-r13", "lpp.T.bt.MeasSupported.r13.rssi.r13",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
 

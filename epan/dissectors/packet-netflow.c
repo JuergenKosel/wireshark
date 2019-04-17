@@ -118,6 +118,10 @@
  * December 2017: uhei
  * Updated IEs from https://www.iana.org/assignments/ipfix/ipfix.xhtml
  * Includes updates for RFC8038, RFC8158
+ *
+ * April 2019: uhei
+ * Updated IEs from https://www.iana.org/assignments/ipfix/ipfix.xhtml
+ * Includes updates for RFC8549
  */
 
 #include "config.h"
@@ -769,6 +773,16 @@ static const value_string v9_v10_template_types[] = {
     { 479, "addressPortMappingLowThreshold" },
     { 480, "addressPortMappingPerUserHighThreshold" },
     { 481, "globalAddressMappingHighThreshold" },
+    { 482, "vpnIdentifier" },
+    { 483, "bgpCommunity" },
+    { 484, "bgpSourceCommunityList" },
+    { 485, "bgpDestinationCommunityList" },
+    { 486, "bgpExtendedCommunity" },
+    { 487, "bgpSourceExtendedCommunityList" },
+    { 488, "bgpDestinationExtendedCommunityList" },
+    { 489, "bgpLargeCommunity" },
+    { 490, "bgpSourceLargeCommunityList" },
+    { 491, "bgpDestinationLargeCommunityList" },
 
     /* Ericsson NAT Logging */
     { 24628, "NAT_LOG_FIELD_IDX_CONTEXT_ID" },
@@ -2494,6 +2508,16 @@ static int      hf_cflow_addressport_mapping_highthreshold          = -1;      /
 static int      hf_cflow_addressport_mapping_lowthreshold           = -1;      /* ID: 479 */
 static int      hf_cflow_addressport_mapping_per_user_highthreshold = -1;      /* ID: 480 */
 static int      hf_cflow_global_addressmapping_highthreshold        = -1;      /* ID: 481 */
+static int      hf_cflow_vpn_identifier                             = -1;      /* ID: 482 */
+static int      hf_cflow_bgp_community                              = -1;      /* ID: 483 */
+static int      hf_cflow_bgp_source_community_list                  = -1;      /* ID: 484 */
+static int      hf_cflow_bgp_destination_community_list             = -1;      /* ID: 485 */
+static int      hf_cflow_bgp_extended_community                     = -1;      /* ID: 486 */
+static int      hf_cflow_bgp_source_extended_community_list         = -1;      /* ID: 487 */
+static int      hf_cflow_bgp_destination_extended_community_list    = -1;      /* ID: 488 */
+static int      hf_cflow_bgp_large_community                        = -1;      /* ID: 489 */
+static int      hf_cflow_bgp_source_large_community_list            = -1;      /* ID: 490 */
+static int      hf_cflow_bgp_destination_large_community_list       = -1;      /* ID: 491 */
 
 static int      hf_cflow_mpls_label                                 = -1;
 static int      hf_cflow_mpls_exp                                   = -1;
@@ -3450,7 +3474,7 @@ static void show_sequence_analysis_info(guint32 domain_id, guint32 seqnum,
         /* Expected sequence number, i.e. what we stored in state when checking previous frame */
         ti = proto_tree_add_uint(tree, hf_cflow_sequence_analysis_expected_sn, tvb,
                                  0, 0, state->current_sequence_number);
-        PROTO_ITEM_SET_GENERATED(ti);
+        proto_item_set_generated(ti);
         expert_add_info_format(pinfo, flow_sequence_ti, &ei_unexpected_sequence_number,
                                "Unexpected flow sequence for domain ID %u (expected %u, got %u)",
                                domain_id, state->current_sequence_number, seqnum);
@@ -3461,7 +3485,7 @@ static void show_sequence_analysis_info(guint32 domain_id, guint32 seqnum,
         /* Previous frame for this observation domain ID */
         ti = proto_tree_add_uint(tree, hf_cflow_sequence_analysis_previous_frame, tvb,
                                  0, 0, state->current_frame_number);
-        PROTO_ITEM_SET_GENERATED(ti);
+        proto_item_set_generated(ti);
     }
 }
 
@@ -3860,7 +3884,7 @@ flow_process_timeperiod(proto_tree *pdutree, tvbuff_t *tvb, int offset)
 
     timeitem = proto_tree_add_time(pdutree, hf_cflow_timedelta, tvb,
                                    offset_s, 8, &ts_delta);
-    PROTO_ITEM_SET_GENERATED(timeitem);
+    proto_item_set_generated(timeitem);
     timetree = proto_item_add_subtree(timeitem, ett_flowtime);
 
     proto_tree_add_time(timetree, hf_cflow_timestart, tvb, offset_s, 4,
@@ -4170,7 +4194,7 @@ dissect_v9_v10_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, int 
         if (tmplt_p->template_frame_number > pinfo->num) {
             proto_item_append_text(ti, " (received after this frame)");
         }
-        PROTO_ITEM_SET_GENERATED(ti);
+        proto_item_set_generated(ti);
 
         /* Note: If the flow contains variable length fields then          */
         /*       tmplt_p->length will be less then actual length of the flow. */
@@ -4436,49 +4460,49 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             case VENDOR_CACE:
                 if (!cace_pie_seen) {
                     proto_item *pie_cace_ti = proto_tree_add_item(pdutree, hf_pie_cace, tvb, 0, 0, ENC_NA);
-                    PROTO_ITEM_SET_HIDDEN(pie_cace_ti);
+                    proto_item_set_hidden(pie_cace_ti);
                     cace_pie_seen = TRUE;
                 }
                 break;
             case VENDOR_PLIXER:
                 if (!plixer_pie_seen) {
                     proto_item *pie_plixer_ti = proto_tree_add_item(pdutree, hf_pie_plixer, tvb, 0, 0, ENC_NA);
-                    PROTO_ITEM_SET_HIDDEN(pie_plixer_ti);
+                    proto_item_set_hidden(pie_plixer_ti);
                     plixer_pie_seen = TRUE;
                 }
                 break;
             case VENDOR_NTOP:
                 if (!ntop_pie_seen) {
                     proto_item *pie_ntop_ti = proto_tree_add_item(pdutree, hf_pie_ntop, tvb, 0, 0, ENC_NA);
-                    PROTO_ITEM_SET_HIDDEN(pie_ntop_ti);
+                    proto_item_set_hidden(pie_ntop_ti);
                     ntop_pie_seen = TRUE;
                 }
                 break;
             case VENDOR_IXIA:
                 if (!ixia_pie_seen) {
                     proto_item *pie_ixia_ti = proto_tree_add_item(pdutree, hf_pie_ixia, tvb, 0, 0, ENC_NA);
-                    PROTO_ITEM_SET_HIDDEN(pie_ixia_ti);
+                    proto_item_set_hidden(pie_ixia_ti);
                     ixia_pie_seen = TRUE;
                 }
                 break;
             case VENDOR_NETSCALER:
                 if (!netscaler_pie_seen) {
                     proto_item *pie_netscaler_ti = proto_tree_add_item(pdutree, hf_pie_netscaler, tvb, 0, 0, ENC_NA);
-                    PROTO_ITEM_SET_HIDDEN(pie_netscaler_ti);
+                    proto_item_set_hidden(pie_netscaler_ti);
                     netscaler_pie_seen = TRUE;
                 }
                 break;
             case VENDOR_BARRACUDA:
                 if (!barracuda_pie_seen) {
                     proto_item *pie_barracuda_ti = proto_tree_add_item(pdutree, hf_pie_barracuda, tvb, 0, 0, ENC_NA);
-                    PROTO_ITEM_SET_HIDDEN(pie_barracuda_ti);
+                    proto_item_set_hidden(pie_barracuda_ti);
                     barracuda_pie_seen = TRUE;
                 }
                 break;
             case VENDOR_GIGAMON:
                 if (!gigamon_pie_seen) {
                     proto_item *pie_gigamon_ti = proto_tree_add_item(pdutree, hf_pie_gigamon, tvb, 0, 0, ENC_NA);
-                    PROTO_ITEM_SET_HIDDEN(pie_gigamon_ti);
+                    proto_item_set_hidden(pie_gigamon_ti);
                     gigamon_pie_seen = TRUE;
                 }
                 break;
@@ -4718,7 +4742,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
                 timeitem =
                     proto_tree_add_time(pdutree, hf_cflow_timedelta, tvb,
                                         offset_s[rev][duration_type], 0, &ts_delta);
-                PROTO_ITEM_SET_GENERATED(timeitem);
+                proto_item_set_generated(timeitem);
                 timetree = proto_item_add_subtree(timeitem, ett_flowtime);
 
                 /* Show the type/units used to calculate the duration */
@@ -6906,6 +6930,56 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
         case 481: /* globalAddressMappingHighThreshold */
             ti = proto_tree_add_item(pdutree, hf_cflow_global_addressmapping_highthreshold,
                                      tvb, offset, length, ENC_BIG_ENDIAN);
+            break;
+
+        case 482: /* vpnIdentifier */
+            ti = proto_tree_add_item(pdutree, hf_cflow_vpn_identifier ,
+                                     tvb, offset, length, ENC_NA);
+            break;
+
+        case 483: /* bgpCommunity */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_community ,
+                                     tvb, offset, length, ENC_BIG_ENDIAN);
+            break;
+
+        case 484: /* bgpSourceCommunityList */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_source_community_list ,
+                                     tvb, offset, length, ENC_NA);
+            break;
+
+        case 485: /* bgpDestinationCommunityList */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_destination_community_list ,
+                                     tvb, offset, length, ENC_NA);
+            break;
+
+        case 486: /* bgpExtendedCommunity */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_extended_community ,
+                                     tvb, offset, length, ENC_NA);
+            break;
+
+        case 487: /* bgpSourceExtendedCommunityList */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_source_extended_community_list ,
+                                     tvb, offset, length, ENC_NA);
+            break;
+
+        case 488: /* bgpDestinationExtendedCommunityList */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_destination_extended_community_list ,
+                                     tvb, offset, length, ENC_NA);
+            break;
+
+        case 489: /* bgpLargeCommunity */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_large_community ,
+                                     tvb, offset, length, ENC_NA);
+            break;
+
+        case 490: /* bgpSourceLargeCommunityList */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_source_large_community_list ,
+                                     tvb, offset, length, ENC_NA);
+            break;
+
+        case 491: /* bgpDestinationLargeCommunityList */
+            ti = proto_tree_add_item(pdutree, hf_cflow_bgp_destination_large_community_list ,
+                                     tvb, offset, length, ENC_NA);
             break;
 
 
@@ -13235,6 +13309,56 @@ proto_register_netflow(void)
         {&hf_cflow_global_addressmapping_highthreshold,
           {"Global Address Mapping High Threshold", "cflow.global_addressmapping_highthreshold",
            FT_UINT32, BASE_DEC, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_vpn_identifier,
+          {"VPN Identifier", "cflow.vpn_identifier",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_community,
+          {"BGP Community", "cflow.bgp_community",
+           FT_UINT32, BASE_DEC, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_source_community_list,
+          {"BGP Source Community", "cflow.bgp_source_community",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_destination_community_list,
+          {"BGP Destination Community", "cflow.bgp_destination_community",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_extended_community,
+          {"BGP Extended Community", "cflow.bgp_extended_community",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_source_extended_community_list,
+          {"BGP Source Extended Community", "cflow.bgp_source_extended_community",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_destination_extended_community_list,
+          {"BGP Destination Extended Community", "cflow.bgp_destination_extended_community",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_large_community,
+          {"BGP Large Community", "cflow.bgp_large_community",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_source_large_community_list,
+          {"BGP Source Large Community", "cflow.bgp_source_large_community",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
+           NULL, HFILL}
+        },
+        {&hf_cflow_bgp_destination_large_community_list,
+          {"BGP Source Destination Community", "cflow.bgp_source_destination_community",
+           FT_BYTES, BASE_NONE, NULL, 0x0,
            NULL, HFILL}
         },
 

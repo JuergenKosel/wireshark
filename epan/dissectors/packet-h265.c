@@ -74,7 +74,7 @@ static int hf_h265_vps_extension_data_flag = -1;
 static int hf_h265_general_profile_space = -1;
 static int hf_h265_general_tier_flag = -1;
 static int hf_h265_general_profile_idc = -1;
-//static int hf_h265_general_profile_compatibility_flag/*[j]*/ = -1;
+static int hf_h265_general_profile_compatibility_flags/*[j]*/ = -1;
 static int hf_h265_general_progressive_source_flag = -1;
 static int hf_h265_general_interlaced_source_flag = -1;
 static int hf_h265_general_non_packed_constraint_flag = -1;
@@ -387,6 +387,7 @@ static int ett_h265_sprop_parameters = -1;
 
 static expert_field ei_h265_undecoded = EI_INIT;
 static expert_field ei_h265_format_specific_parameter = EI_INIT;
+static expert_field ei_h265_value_to_large = EI_INIT;
 
 /* The dynamic payload type range which will be dissected as H.265 */
 
@@ -1125,7 +1126,7 @@ dissect_h265_video_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_in
 	proto_tree_add_bits_item(tree, hf_h265_vps_temporal_id_nesting_flag, tvb, bit_offset, 1, ENC_BIG_ENDIAN);
 	bit_offset = bit_offset + 1;
 
-	proto_tree_add_item(tree, hf_h265_vps_reserved_0xffff_16bits, tvb, bit_offset, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_bits_item(tree, hf_h265_vps_reserved_0xffff_16bits, tvb, bit_offset, 16, ENC_BIG_ENDIAN);
 	bit_offset = bit_offset + 16;
 
 	offset = bit_offset >> 3;
@@ -1201,7 +1202,11 @@ dissect_h265_video_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_in
 	dissect_h265_rbsp_trailing_bits(tree, tvb, pinfo, bit_offset);
 }
 
-/* Ref 7.3.2.2 Sequence parameter set RBSP syntax */
+/* Ref 7.3.2.2 Sequence parameter set RBSP syntax
+ * num_short_term_ref_pic_sets specifies the number of st_ref_pic_set( ) syntax structures included in the SPS. The value
+ * of num_short_term_ref_pic_sets shall be in the range of 0 to 64, inclusive
+ */
+#define H265_MAX_NUM_SHORT_TERM_REF_PIC_SETS 64
 static void
 dissect_h265_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, gint offset)
 {
@@ -1307,6 +1312,10 @@ dissect_h265_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
 	}
 
 	num_short_term_ref_pic_sets = dissect_h265_exp_golomb_code(tree, hf_h265_num_short_term_ref_pic_sets, tvb, &bit_offset, H265_UE_V);
+	if (num_short_term_ref_pic_sets > H265_MAX_NUM_SHORT_TERM_REF_PIC_SETS) {
+		proto_tree_add_expert(tree, pinfo, &ei_h265_value_to_large, tvb, bit_offset>>3, 1);
+		return;
+	}
 	for (i = 0; i < num_short_term_ref_pic_sets; i++)
 		bit_offset = dissect_h265_st_ref_pic_set(tree, tvb, pinfo, bit_offset, i, num_short_term_ref_pic_sets);
 
@@ -1635,11 +1644,12 @@ dissect_h265_profile_tier_level(proto_tree* tree, tvbuff_t* tvb, packet_info* pi
 		proto_tree_add_item_ret_uint(tree, hf_h265_general_profile_idc, tvb, offset, 1, ENC_BIG_ENDIAN, &general_profile_idc);
 		offset++;
 
-		for (int j = 0; j < 32; j++)
-			general_profile_compatibility_flag[j] = tvb_get_bits8(tvb, offset + j, 1);
-		offset = offset + 4;
+		proto_tree_add_item(tree, hf_h265_general_profile_compatibility_flags, tvb, offset, 4, ENC_BIG_ENDIAN);
 
 		guint bit_offset = offset << 3;
+		for (int j = 0; j < 32; j++)
+			general_profile_compatibility_flag[j] = tvb_get_bits8(tvb, bit_offset + j, 1);
+		bit_offset = bit_offset + 32;
 
 		proto_tree_add_bits_item(tree, hf_h265_general_progressive_source_flag, tvb, bit_offset, 1, ENC_BIG_ENDIAN);
 		bit_offset++;
@@ -3073,7 +3083,7 @@ proto_register_h265(void)
 		},
 		{ &hf_h265_vps_reserved_0xffff_16bits,
 		{ "vps_reserved_0xffff_16bits", "h265.vps_reserved_0xffff_16bits",
-		FT_UINT16, BASE_DEC, NULL, 0xFFFF,
+		FT_UINT16, BASE_HEX, NULL, 0x0,
 		NULL, HFILL }
 		},
 		/* profile, level and tier*/
@@ -3090,6 +3100,11 @@ proto_register_h265(void)
 		{ &hf_h265_general_profile_idc,
 		{ "general_profile_idc", "h265.general_profile_idc",
 		FT_UINT8, BASE_DEC, VALS(h265_profile_idc_values), 0x1F,
+		NULL, HFILL }
+		},
+		{ &hf_h265_general_profile_compatibility_flags,
+		{ "general_profile_compatibility_flags", "h265.general_profile_compatibility_flags",
+		FT_UINT32, BASE_HEX, NULL, 0xFFFFFFFF,
 		NULL, HFILL }
 		},
 		{ &hf_h265_general_progressive_source_flag,
@@ -4576,7 +4591,8 @@ proto_register_h265(void)
 
 	static ei_register_info ei[] = {
 		{ &ei_h265_undecoded,{ "h265.undecoded", PI_UNDECODED, PI_WARN, "[Not decoded yet]", EXPFILL } },
-		{ &ei_h265_format_specific_parameter,{ "h265.format_specific_parameter", PI_UNDECODED, PI_WARN, "[Unspecified media format specific parameter]", EXPFILL } },
+                { &ei_h265_value_to_large,{ "h265.value_to_large", PI_PROTOCOL, PI_ERROR, "[Value to large, protocol violation]", EXPFILL } },
+                { &ei_h265_format_specific_parameter,{ "h265.format_specific_parameter", PI_UNDECODED, PI_WARN, "[Unspecified media format specific parameter]", EXPFILL } },
 	};
 
 	/* Register the protocol name and description */
