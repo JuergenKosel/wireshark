@@ -6060,7 +6060,6 @@ s7comm_decode_ud_tis_data(tvbuff_t *tvb,
  *******************************************************************************************************/
 static guint32
 s7comm_decode_ud_tis_subfunc(tvbuff_t *tvb,
-                             packet_info *pinfo,
                              proto_tree *data_tree,
                              guint8 type,                /* Type of data (request/response/push) */
                              guint8 subfunc,             /* Subfunction */
@@ -6220,7 +6219,7 @@ s7comm_decode_ud_data(tvbuff_t *tvb,
             if (last_data_unit == S7COMM_UD_LASTDATAUNIT_YES && length_rem > 0) {
                 switch (funcgroup) {
                     case S7COMM_UD_FUNCGROUP_PROG:
-                        offset = s7comm_decode_ud_tis_subfunc(next_tvb, pinfo, data_tree, type, subfunc, offset);
+                        offset = s7comm_decode_ud_tis_subfunc(next_tvb, data_tree, type, subfunc, offset);
                         break;
                     case S7COMM_UD_FUNCGROUP_CYCLIC:
                         offset = s7comm_decode_ud_cyclic_subfunc(next_tvb, data_tree, type, subfunc, length_rem, offset);
