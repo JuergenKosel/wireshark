@@ -4207,7 +4207,6 @@ s7comm_decode_ud_cpu_alarm_main(tvbuff_t *tvb,
  *******************************************************************************************************/
 static guint32
 s7comm_decode_ud_cpu_alarm_query_response(tvbuff_t *tvb,
-                                          packet_info *pinfo,
                                           proto_tree *data_tree,
                                           guint32 offset)             /* Offset on data part +4 */
 {
@@ -6251,7 +6250,7 @@ s7comm_decode_ud_data(tvbuff_t *tvb,
                                 break;
                             case S7COMM_UD_SUBF_CPU_ALARMQUERY:
                                 if (type == S7COMM_UD_TYPE_RES) {
-                                    offset = s7comm_decode_ud_cpu_alarm_query_response(next_tvb, pinfo, data_tree, offset);
+                                    offset = s7comm_decode_ud_cpu_alarm_query_response(next_tvb, data_tree, offset);
                                 } else {
                                     offset = s7comm_decode_ud_cpu_alarm_main(next_tvb, pinfo, data_tree, type, subfunc, offset);
                                 }
