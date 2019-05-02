@@ -6106,7 +6106,6 @@ s7comm_decode_ud_data(tvbuff_t *tvb,
     guint32 length_rem = 0;
     gboolean save_fragmented;
     guint32 frag_id = 0;
-    guint32 frag_nr = 0;
     gboolean more_frags = FALSE;
     gboolean is_fragmented = FALSE;
     tvbuff_t* new_tvb = NULL;
@@ -6147,18 +6146,15 @@ s7comm_decode_ud_data(tvbuff_t *tvb,
                      */
                     is_fragmented = TRUE;//data_unit_ref > 0 && !(data_unit_ref == 1 && !more_frags);
                     frag_id = seq_num;
-                    frag_nr = data_unit_ref - 1;
                     break;
                 case S7COMM_UD_FUNCGROUP_PBC:
                     offset = s7comm_decode_ud_pbc_pre_reass(tvb, pinfo, data_tree, type, &len, &frag_id, offset);
                     is_fragmented = data_unit_ref > 0 || seq_num > 0;
                     /* The R_ID is used for fragment identification */
-                    frag_nr = 0;
                     break;
                 default:
                     is_fragmented = (data_unit_ref > 0);
                     frag_id = data_unit_ref;
-                    frag_nr = 0;
                     break;
             }
             /* Reassembly of fragmented data part */
@@ -6180,10 +6176,9 @@ s7comm_decode_ud_data(tvbuff_t *tvb,
                 //                                    tvb, offset, pinfo,
                 //                                    frag_id,               /* ID for fragments belonging together */
                 //                                    NULL,                  /* void *data */
-                //                                    frag_nr,               /* fragment number */
                 //                                    len,                   /* fragment length - to the end */
                 //                                    more_frags);           /* More fragments? */
-                //    g_snprintf(str_fragadd, sizeof(str_fragadd), " id=%d num=%d", frag_id, frag_nr);
+                //    g_snprintf(str_fragadd, sizeof(str_fragadd), " id=%d num=%d", frag_id);
                 //} else {
                     fd_head = fragment_add_seq_next(&s7comm_reassembly_table,
                                                     tvb, offset, pinfo,
