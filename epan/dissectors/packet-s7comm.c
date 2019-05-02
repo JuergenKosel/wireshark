@@ -5234,7 +5234,6 @@ s7comm_decode_ud_tis_blockstat(tvbuff_t *tvb,
 static guint32
 s7comm_decode_ud_tis_istack(tvbuff_t *tvb,
                             proto_tree *td_tree,
-                            guint16 td_size,
                             guint8 type,
                             guint32 offset)
 {
@@ -6012,7 +6011,7 @@ s7comm_decode_ud_tis_data(tvbuff_t *tvb,
         switch (subfunc)
         {
             case S7COMM_UD_SUBF_PROG_OUTISTACK:
-                offset = s7comm_decode_ud_tis_istack(tvb, td_tree, td_size, type, offset);
+                offset = s7comm_decode_ud_tis_istack(tvb, td_tree, type, offset);
                 break;
             case S7COMM_UD_SUBF_PROG_OUTBSTACK:
                 offset = s7comm_decode_ud_tis_bstack(tvb, td_tree, td_size, type, offset);
