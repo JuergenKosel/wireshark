@@ -26,19 +26,17 @@ gcc-4:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-4.9 -DCMAKE_CXX_COMPILER=g++-4.9 ..
     - ninja
 gcc-5:
-  except:
-    - s7commwireshark
-    - s7commwireshark-2.4
   <<: *ubuntu
+  only:
+    - master
   script:
     - ../tools/debian-setup.sh --install-optional gcc-5 g++-5 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_CXX_COMPILER=g++-5 ..
     - ninja
 gcc-6:
-  except:
-    - s7commwireshark
-    - s7commwireshark-2.4
   <<: *ubuntu
+  only:
+    - master
   script:
     - ../tools/debian-setup.sh --install-optional gcc-6 g++-6 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 ..
@@ -80,10 +78,9 @@ clang-7:
      - cmake -GNinja -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
      - ninja
 clang-7-nopcap:
-  except:
-    - s7commwireshark
-    - s7commwireshark-2.4
   <<: *ubuntu
+  only:
+    - master
   script:
     - ../tools/debian-setup.sh --install-optional clang-7 -y
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
@@ -91,9 +88,8 @@ clang-7-nopcap:
 rpm-centos-7:
   <<: *rpm
   image: centos:7
-  except:
-    - s7commwireshark
-    - s7commwireshark-2.4
+  only:
+    - master
   script:
     - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
     - tools/rpm-setup.sh --install-optional -y
@@ -103,13 +99,9 @@ rpm-centos-7:
     - ninja-build rpm-package
 rpm-opensuse-42.3:
   <<: *rpm
-  except:
-    - s7commwireshark
-    - s7commwireshark-2.4
+  only:
+    - master
   image: opensuse:42.3
-  except:
-    - s7commwireshark
-    - s7commwireshark-2.4
   script:
     - zypper --non-interactive install update-desktop-files
     - tools/rpm-setup.sh --install-optional ruby
@@ -120,9 +112,8 @@ rpm-opensuse-42.3:
     - ninja rpm-package
 rpm-fedora-28:
   <<: *rpm
-  except:
-    - s7commwireshark
-    - s7commwireshark-2.4
+  only:
+    - master
   image: fedora:28
   script:
     - dnf upgrade -y
