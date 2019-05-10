@@ -136,6 +136,7 @@ build-debian-deb:
   before_script:
     - apt-get update -qq
     - ./tools/debian-setup.sh --install-optional --install-test-deps -y --install-deb-deps
+    - apt-get install -y lsb-release
   script:
     - dpkg-buildpackage -us -uc -J$(nproc)
     - mkdir debian-packages
