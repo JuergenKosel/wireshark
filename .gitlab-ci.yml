@@ -34,6 +34,8 @@ variables:
     expire_in: 3 days
 gcc-5:
   <<: *build-ubuntu
+  only:
+    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_CXX_COMPILER=g++-5 ..
     - ninja
@@ -42,6 +44,8 @@ gcc-5:
     - su user -c pytest
 gcc-6:
   <<: *build-ubuntu
+  only:
+    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 ..
     - ninja
@@ -98,6 +102,8 @@ clang-7:
      - su user -c pytest
 clang-7-nopcap:
   <<: *build-ubuntu
+  only:
+    - master
   script:
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
@@ -107,6 +113,8 @@ clang-7-nopcap:
 build:rpm-centos-7:
   <<: *build-rpm
   image: centos:7
+  only:
+    - master
   script:
     - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
     - tools/rpm-setup.sh --install-optional -y
@@ -127,6 +135,8 @@ test:rpm-centos-7:
     GIT_STRATEGY: none
 .build-rpm-opensuse: &build-rpm-opensuse
   <<: *build-rpm
+  only:
+    - master
   script:
     - zypper --non-interactive install update-desktop-files
     - tools/rpm-setup.sh --install-optional ruby
@@ -160,6 +170,8 @@ test:rpm-opensuse-15.0:
     - build:rpm-opensuse-15.0
 .build-rpm-fedora: &build-rpm-fedora
   <<: *build-rpm
+  only:
+    - master
   script:
     - dnf upgrade -y
     - tools/rpm-setup.sh --install-optional -y
