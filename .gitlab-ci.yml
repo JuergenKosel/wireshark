@@ -172,3 +172,22 @@ test:rpm-fedora-29:
   image: fedora:29
   dependencies:
     - build:rpm-fedora-29
+
+# Job to generate packages for Debian stable
+# Following the description in
+# https://about.gitlab.com/2016/10/12/automated-debian-package-build-with-gitlab-ci/
+build-debian-deb:
+  image: debian:stable
+  stage: build
+  before_script:
+    - apt-get update -qq
+    - ./tools/debian-setup.sh --install-optional --install-test-deps -y --install-deb-deps
+    - apt-get install -y lsb-release libbrotli-dev
+  script:
+    - dpkg-buildpackage -b --no-sign -J$(nproc) > /dev/null 2>&1 || dpkg-buildpackage -b --no-sign -J$(nproc) --no-pre-clean 
+    - mkdir debian-packages
+    - mv ../*.deb debian-packages/
+  artifacts:
+    paths:
+      - debian-packages/*.deb
+    expire_in: 3 days
