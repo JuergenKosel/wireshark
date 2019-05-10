@@ -617,6 +617,12 @@ static gboolean mqtt_message_decode_update_cb(void *record, char **error)
     return FALSE;
   }
 
+  if (u->payload_proto_name == NULL || strlen(u->payload_proto_name) == 0)
+  {
+    *error = g_strdup("Missing payload protocol");
+    return FALSE;
+  }
+
   if (u->match_criteria == MATCH_CRITERIA_REGEX)
   {
     u->topic_regex = g_regex_new(u->topic_pattern, (GRegexCompileFlags) G_REGEX_OPTIMIZE, (GRegexMatchFlags) 0, NULL);
@@ -1421,7 +1427,7 @@ void proto_register_mqtt(void)
         NULL, HFILL }},
     { &hf_mqtt_pubmsg,
       { "Message", "mqtt.msg",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_mqtt_pubmsg_decoded,
       { "Message decoded as", "mqtt.msg_decoded_as",

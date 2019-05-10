@@ -237,12 +237,10 @@ static gboolean http_desegment_body = TRUE;
 static gboolean http_dechunk_body = TRUE;
 
 /*
- * Decompression of zlib encoded entities.
+ * Decompression of zlib or brotli encoded entities.
  */
-#ifdef HAVE_ZLIB
+#if defined(HAVE_ZLIB) || defined(HAVE_BROTLI)
 static gboolean http_decompress_body = TRUE;
-#else
-static gboolean http_decompress_body = FALSE;
 #endif
 
 /* Simple Service Discovery Protocol
@@ -303,6 +301,7 @@ typedef struct {
 	char    *upgrade;
 } headers_t;
 
+static gint parse_http_status_code(const guchar *line, const guchar *lineend);
 static int is_http_request_or_reply(const gchar *data, int linelen,
 				    http_type_t *type, ReqRespDissector
 				    *reqresp_dissector, http_conv_t *conv_data);
@@ -1128,7 +1127,7 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		 * desegmentation if we're told to.
 		 */
 		if (!req_resp_hdrs_do_reassembly(tvb, offset, pinfo,
-		    http_desegment_headers, http_desegment_body)) {
+		    http_desegment_headers, http_desegment_body, FALSE)) {
 			/*
 			 * More data needed for desegmentation.
 			 */
@@ -1160,15 +1159,35 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		/*
 		 * Do header desegmentation if we've been told to,
 		 * and do body desegmentation if we've been told to and
-		 * we find a Content-Length header. Responses to HEAD MUST NOT
-		 * contain a message body, so ignore the Content-Length header
-		 * which is done by disabling body desegmentation.
+		 * we find a Content-Length header in requests.
+		 *
+		 * The following cases (from RFC 7230, Section 3.3) never have a
+		 * response body, so do not attempt to desegment the body for:
+		 * * Responses to HEAD requests.
+		 * * 2xx responses to CONNECT requests.
+		 * * 1xx, 204 No Content, 304 Not Modified responses.
+		 *
+		 * Additionally if we are at the end of stream, no more segments
+		 * will be added so disable body segmentation too in that case.
 		 */
-		try_desegment_body = (http_desegment_body &&
-			!(http_type == HTTP_RESPONSE && conv_data->request_method && g_str_equal(conv_data->request_method, "HEAD")) &&
-			!end_of_stream);
+		try_desegment_body = (http_desegment_body && !end_of_stream);
+		if (try_desegment_body && http_type == HTTP_RESPONSE) {
+			/*
+			 * conv_data->response_code is not yet set, so extract
+			 * the response code from the current line.
+			 */
+			gint response_code = parse_http_status_code(firstline, firstline + first_linelen);
+			if ((g_strcmp0(conv_data->request_method, "HEAD") == 0 ||
+				(response_code / 100 == 2 && g_strcmp0(conv_data->request_method, "CONNECT") == 0) ||
+				response_code / 100 == 1 ||
+				response_code == 204 ||
+				response_code == 304)) {
+				/* No response body is present. */
+				try_desegment_body = FALSE;
+			}
+		}
 		if (!req_resp_hdrs_do_reassembly(tvb, offset, pinfo,
-		    http_desegment_headers, try_desegment_body)) {
+		    http_desegment_headers, try_desegment_body, http_type == HTTP_RESPONSE)) {
 			/*
 			 * More data needed for desegmentation.
 			 */
@@ -1704,6 +1723,7 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			proto_item *e_ti = NULL;
 			proto_tree *e_tree = NULL;
 
+#ifdef HAVE_ZLIB
 			if (http_decompress_body &&
 			    (g_ascii_strcasecmp(headers.content_encoding, "gzip") == 0 ||
 			     g_ascii_strcasecmp(headers.content_encoding, "deflate") == 0 ||
@@ -1713,6 +1733,16 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				uncomp_tvb = tvb_child_uncompress(tvb, next_tvb, 0,
 				    tvb_captured_length(next_tvb));
 			}
+#endif
+
+#ifdef HAVE_BROTLI
+			if (http_decompress_body &&
+			    g_ascii_strcasecmp(headers.content_encoding, "br") == 0)
+			{
+				uncomp_tvb = tvb_child_uncompress_brotli(tvb, next_tvb, 0,
+				    tvb_captured_length(next_tvb));
+			}
+#endif
 
 			/*
 			 * Add the encoded entity to the protocol tree
@@ -1984,6 +2014,37 @@ basic_request_dissector(tvbuff_t *tvb, proto_tree *tree, int offset,
 	tokenlen = (int) (lineend - line);
 	proto_tree_add_item(tree, hf_http_request_version, tvb, offset, tokenlen,
 	    ENC_ASCII|ENC_NA);
+}
+
+static gint
+parse_http_status_code(const guchar *line, const guchar *lineend)
+{
+	const guchar *next_token;
+	int tokenlen;
+	gchar response_code_chars[4];
+	gint32 status_code = 0;
+
+	/*
+	 * The first token is the HTTP Version.
+	 */
+	tokenlen = get_token_len(line, lineend, &next_token);
+	if (tokenlen == 0)
+		return 0;
+	line = next_token;
+
+	/*
+	 * The second token is the Status Code.
+	 */
+	tokenlen = get_token_len(line, lineend, &next_token);
+	if (tokenlen != 3)
+		return 0;
+
+	memcpy(response_code_chars, line, 3);
+	response_code_chars[3] = '\0';
+	if (!ws_strtoi32(response_code_chars, NULL, &status_code))
+		return 0;
+
+	return status_code;
 }
 
 static void
@@ -4017,7 +4078,7 @@ proto_register_http(void)
 	    "Whether to reassemble bodies of entities that are transferred "
 	    "using the \"Transfer-Encoding: chunked\" method",
 	    &http_dechunk_body);
-#ifdef HAVE_ZLIB
+#if defined(HAVE_ZLIB) || defined(HAVE_BROTLI)
 	prefs_register_bool_preference(http_module, "decompress_body",
 	    "Uncompress entity bodies",
 	    "Whether to uncompress entity bodies that are compressed "

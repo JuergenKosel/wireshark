@@ -208,6 +208,120 @@ static const value_string protocol_names[] = {
     { 0, NULL }
 };
 
+#define DRBD_ROLE_UNKNOWN   0
+#define DRBD_ROLE_PRIMARY   1
+#define DRBD_ROLE_SECONDARY 2
+
+static const value_string role_names[] = {
+    { DRBD_ROLE_UNKNOWN, "UNKNOWN" },
+    { DRBD_ROLE_PRIMARY, "PRIMARY" },
+    { DRBD_ROLE_SECONDARY, "SECONDARY" },
+    { 0, NULL }
+};
+
+#define DRBD_CONNECTION_STATE_C_STANDALONE 0
+#define DRBD_CONNECTION_STATE_C_DISCONNECTING 1
+#define DRBD_CONNECTION_STATE_C_UNCONNECTED 2
+#define DRBD_CONNECTION_STATE_C_TIMEOUT 3
+#define DRBD_CONNECTION_STATE_C_BROKEN_PIPE 4
+#define DRBD_CONNECTION_STATE_C_NETWORK_FAILURE 5
+#define DRBD_CONNECTION_STATE_C_PROTOCOL_ERROR 6
+#define DRBD_CONNECTION_STATE_C_TEAR_DOWN 7
+#define DRBD_CONNECTION_STATE_C_CONNECTING 8
+#define DRBD_CONNECTION_STATE_C_CONNECTED 9
+#define DRBD_CONNECTION_STATE_L_ESTABLISHED 10
+#define DRBD_CONNECTION_STATE_L_STARTING_SYNC_S 11
+#define DRBD_CONNECTION_STATE_L_STARTING_SYNC_T 12
+#define DRBD_CONNECTION_STATE_L_WF_BITMAP_S 13
+#define DRBD_CONNECTION_STATE_L_WF_BITMAP_T 14
+#define DRBD_CONNECTION_STATE_L_WF_SYNC_UUID 15
+#define DRBD_CONNECTION_STATE_L_SYNC_SOURCE 16
+#define DRBD_CONNECTION_STATE_L_SYNC_TARGET 17
+#define DRBD_CONNECTION_STATE_L_VERIFY_S 18
+#define DRBD_CONNECTION_STATE_L_VERIFY_T 19
+#define DRBD_CONNECTION_STATE_L_PAUSED_SYNC_S 20
+#define DRBD_CONNECTION_STATE_L_PAUSED_SYNC_T 21
+#define DRBD_CONNECTION_STATE_L_AHEAD 22
+#define DRBD_CONNECTION_STATE_L_BEHIND 23
+
+static const value_string connection_state_names[] = {
+    { DRBD_CONNECTION_STATE_C_STANDALONE, "C_STANDALONE" },
+    { DRBD_CONNECTION_STATE_C_DISCONNECTING, "C_DISCONNECTING" },
+    { DRBD_CONNECTION_STATE_C_UNCONNECTED, "C_UNCONNECTED" },
+    { DRBD_CONNECTION_STATE_C_TIMEOUT, "C_TIMEOUT" },
+    { DRBD_CONNECTION_STATE_C_BROKEN_PIPE, "C_BROKEN_PIPE" },
+    { DRBD_CONNECTION_STATE_C_NETWORK_FAILURE, "C_NETWORK_FAILURE" },
+    { DRBD_CONNECTION_STATE_C_PROTOCOL_ERROR, "C_PROTOCOL_ERROR" },
+    { DRBD_CONNECTION_STATE_C_TEAR_DOWN, "C_TEAR_DOWN" },
+    { DRBD_CONNECTION_STATE_C_CONNECTING, "C_CONNECTING" },
+    { DRBD_CONNECTION_STATE_C_CONNECTED, "C_CONNECTED" },
+    { DRBD_CONNECTION_STATE_L_ESTABLISHED, "L_ESTABLISHED" },
+    { DRBD_CONNECTION_STATE_L_STARTING_SYNC_S, "L_STARTING_SYNC_S" },
+    { DRBD_CONNECTION_STATE_L_STARTING_SYNC_T, "L_STARTING_SYNC_T" },
+    { DRBD_CONNECTION_STATE_L_WF_BITMAP_S, "L_WF_BITMAP_S" },
+    { DRBD_CONNECTION_STATE_L_WF_BITMAP_T, "L_WF_BITMAP_T" },
+    { DRBD_CONNECTION_STATE_L_WF_SYNC_UUID, "L_WF_SYNC_UUID" },
+    { DRBD_CONNECTION_STATE_L_SYNC_SOURCE, "L_SYNC_SOURCE" },
+    { DRBD_CONNECTION_STATE_L_SYNC_TARGET, "L_SYNC_TARGET" },
+    { DRBD_CONNECTION_STATE_L_VERIFY_S, "L_VERIFY_S" },
+    { DRBD_CONNECTION_STATE_L_VERIFY_T, "L_VERIFY_T" },
+    { DRBD_CONNECTION_STATE_L_PAUSED_SYNC_S, "L_PAUSED_SYNC_S" },
+    { DRBD_CONNECTION_STATE_L_PAUSED_SYNC_T, "L_PAUSED_SYNC_T" },
+    { DRBD_CONNECTION_STATE_L_AHEAD, "L_AHEAD" },
+    { DRBD_CONNECTION_STATE_L_BEHIND, "L_BEHIND" },
+    { 0, NULL }
+};
+
+#define DRBD_DISK_STATE_DISKLESS 0
+#define DRBD_DISK_STATE_ATTACHING 1
+#define DRBD_DISK_STATE_DETACHING 2
+#define DRBD_DISK_STATE_FAILED 3
+#define DRBD_DISK_STATE_NEGOTIATING 4
+#define DRBD_DISK_STATE_INCONSISTENT 5
+#define DRBD_DISK_STATE_OUTDATED 6
+#define DRBD_DISK_STATE_UNKNOWN 7
+#define DRBD_DISK_STATE_CONSISTENT 8
+#define DRBD_DISK_STATE_UP_TO_DATE 9
+
+static const value_string disk_state_names[] = {
+    { DRBD_DISK_STATE_DISKLESS, "D_DISKLESS" },
+    { DRBD_DISK_STATE_ATTACHING, "D_ATTACHING" },
+    { DRBD_DISK_STATE_DETACHING, "D_DETACHING" },
+    { DRBD_DISK_STATE_FAILED, "D_FAILED" },
+    { DRBD_DISK_STATE_NEGOTIATING, "D_NEGOTIATING" },
+    { DRBD_DISK_STATE_INCONSISTENT, "D_INCONSISTENT" },
+    { DRBD_DISK_STATE_OUTDATED, "D_OUTDATED" },
+    { DRBD_DISK_STATE_UNKNOWN, "D_UNKNOWN" },
+    { DRBD_DISK_STATE_CONSISTENT, "D_CONSISTENT" },
+    { DRBD_DISK_STATE_UP_TO_DATE, "D_UP_TO_DATE" },
+    { 0, NULL }
+};
+
+#define STATE_ROLE (0x3 << 0)    /* 3/4	 primary/secondary/unknown */
+#define STATE_PEER (0x3 << 2)    /* 3/4	 primary/secondary/unknown */
+#define STATE_CONN (0x1f << 4)    /* 17/32	 cstates */
+#define STATE_DISK (0xf << 9)    /* 8/16	 from D_DISKLESS to D_UP_TO_DATE */
+#define STATE_PDSK (0xf << 13)    /* 8/16	 from D_DISKLESS to D_UP_TO_DATE */
+#define STATE_SUSP (0x1 << 17)    /* 2/2	 IO suspended no/yes (by user) */
+#define STATE_AFTR_ISP (0x1 << 18)  /* isp .. imposed sync pause */
+#define STATE_PEER_ISP (0x1 << 19)
+#define STATE_USER_ISP (0x1 << 20)
+#define STATE_SUSP_NOD (0x1 << 21)  /* IO suspended because no data */
+#define STATE_SUSP_FEN (0x1 << 22)  /* IO suspended because fence peer handler runs*/
+#define STATE_QUORUM (0x1 << 23)
+
+#define UUID_FLAG_DISCARD_MY_DATA 1
+#define UUID_FLAG_CRASHED_PRIMARY 2
+#define UUID_FLAG_INCONSISTENT 4
+#define UUID_FLAG_SKIP_INITIAL_SYNC 8
+#define UUID_FLAG_NEW_DATAGEN 16
+#define UUID_FLAG_STABLE 32
+#define UUID_FLAG_GOT_STABLE 64
+#define UUID_FLAG_RESYNC 128
+#define UUID_FLAG_RECONNECT 256
+#define UUID_FLAG_DISKLESS_PRIMARY 512
+#define UUID_FLAG_PRIMARY_LOST_QUORUM 1024
+
 #define DP_HARDBARRIER        1
 #define DP_RW_SYNC            2
 #define DP_MAY_SET_IN_SYNC    4
@@ -368,7 +482,8 @@ static int hf_drbd_two_primaries = -1;
 static int hf_drbd_integrity_alg = -1;
 static int hf_drbd_current_uuid = -1;
 static int hf_drbd_bitmap_uuid = -1;
-static int hf_drbd_history_uuids = -1;
+static int hf_drbd_history_uuid_list = -1;
+static int hf_drbd_history_uuid = -1;
 static int hf_drbd_dirty_bits = -1;
 static int hf_drbd_uuid_flags = -1;
 static int hf_drbd_node_mask = -1;
@@ -402,6 +517,31 @@ static int hf_drbd_offset = -1;
 static int hf_drbd_dagtag = -1;
 static int hf_drbd_node_id = -1;
 
+static int hf_drbd_state_role = -1;
+static int hf_drbd_state_peer = -1;
+static int hf_drbd_state_conn = -1;
+static int hf_drbd_state_disk = -1;
+static int hf_drbd_state_pdsk = -1;
+static int hf_drbd_state_susp = -1;
+static int hf_drbd_state_aftr_isp = -1;
+static int hf_drbd_state_peer_isp = -1;
+static int hf_drbd_state_user_isp = -1;
+static int hf_drbd_state_susp_nod = -1;
+static int hf_drbd_state_susp_fen = -1;
+static int hf_drbd_state_quorum = -1;
+
+static int hf_drbd_uuid_flag_discard_my_data = -1;
+static int hf_drbd_uuid_flag_crashed_primary = -1;
+static int hf_drbd_uuid_flag_inconsistent = -1;
+static int hf_drbd_uuid_flag_skip_initial_sync = -1;
+static int hf_drbd_uuid_flag_new_datagen = -1;
+static int hf_drbd_uuid_flag_stable = -1;
+static int hf_drbd_uuid_flag_got_stable = -1;
+static int hf_drbd_uuid_flag_resync = -1;
+static int hf_drbd_uuid_flag_reconnect = -1;
+static int hf_drbd_uuid_flag_diskless_primary = -1;
+static int hf_drbd_uuid_flag_primary_lost_quorum = -1;
+
 static int hf_drbd_dp_hardbarrier = -1;
 static int hf_drbd_dp_rw_sync = -1;
 static int hf_drbd_dp_may_set_in_sync = -1;
@@ -415,7 +555,41 @@ static int hf_drbd_dp_wsame = -1;
 static int hf_drbd_dp_zeroes = -1;
 
 static gint ett_drbd = -1;
+static gint ett_drbd_state = -1;
+static gint ett_drbd_uuid_flags = -1;
+static gint ett_drbd_history_uuids = -1;
 static gint ett_drbd_data_flags = -1;
+
+static const int *state_fields[] = {
+    &hf_drbd_state_role,
+    &hf_drbd_state_peer,
+    &hf_drbd_state_conn,
+    &hf_drbd_state_disk,
+    &hf_drbd_state_pdsk,
+    &hf_drbd_state_susp,
+    &hf_drbd_state_aftr_isp,
+    &hf_drbd_state_peer_isp,
+    &hf_drbd_state_user_isp,
+    &hf_drbd_state_susp_nod,
+    &hf_drbd_state_susp_fen,
+    &hf_drbd_state_quorum,
+    NULL
+};
+
+static const int *uuid_flag_fields[] = {
+    &hf_drbd_uuid_flag_discard_my_data,
+    &hf_drbd_uuid_flag_crashed_primary,
+    &hf_drbd_uuid_flag_inconsistent,
+    &hf_drbd_uuid_flag_skip_initial_sync,
+    &hf_drbd_uuid_flag_new_datagen,
+    &hf_drbd_uuid_flag_stable,
+    &hf_drbd_uuid_flag_got_stable,
+    &hf_drbd_uuid_flag_resync,
+    &hf_drbd_uuid_flag_reconnect,
+    &hf_drbd_uuid_flag_diskless_primary,
+    &hf_drbd_uuid_flag_primary_lost_quorum,
+    NULL
+};
 
 static const int *data_flag_fields[] = {
     &hf_drbd_dp_hardbarrier,
@@ -706,10 +880,10 @@ static void decode_payload_uuids(tvbuff_t *tvb, proto_tree *tree)
 {
     proto_tree_add_item(tree, hf_drbd_current_uuid, tvb, 0, 8, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_drbd_bitmap_uuid, tvb, 8, 8, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_drbd_history_uuids, tvb, 16, 8, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_drbd_history_uuids, tvb, 24, 8, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_drbd_history_uuid, tvb, 16, 8, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_drbd_history_uuid, tvb, 24, 8, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_drbd_dirty_bits, tvb, 32, 8, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_drbd_uuid_flags, tvb, 40, 8, ENC_BIG_ENDIAN);
+    proto_tree_add_bitmask(tree, tvb, 40, hf_drbd_uuid_flags, ett_drbd_uuid_flags, uuid_flag_fields, ENC_BIG_ENDIAN);
 }
 
 static void decode_payload_sizes(tvbuff_t *tvb, proto_tree *tree)
@@ -732,7 +906,7 @@ static void decode_payload_sizes(tvbuff_t *tvb, proto_tree *tree)
 
 static void decode_payload_state(tvbuff_t *tvb, proto_tree *tree)
 {
-    proto_tree_add_item(tree, hf_drbd_state, tvb, 0, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_bitmask(tree, tvb, 0, hf_drbd_state, ett_drbd_state, state_fields, ENC_BIG_ENDIAN);
 }
 
 static void decode_payload_req_state(tvbuff_t *tvb, proto_tree *tree)
@@ -776,7 +950,7 @@ static void decode_payload_uuids110(tvbuff_t *tvb, proto_tree *tree)
 {
     proto_tree_add_item(tree, hf_drbd_current_uuid, tvb, 0, 8, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_drbd_dirty_bits, tvb, 8, 8, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_drbd_uuid_flags, tvb, 16, 8, ENC_BIG_ENDIAN);
+    proto_tree_add_bitmask(tree, tvb, 16, hf_drbd_uuid_flags, ett_drbd_uuid_flags, uuid_flag_fields, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_drbd_node_mask, tvb, 24, 8, ENC_BIG_ENDIAN);
 
     guint64 bitmap_uuids_mask;
@@ -785,14 +959,18 @@ static void decode_payload_uuids110(tvbuff_t *tvb, proto_tree *tree)
     guint offset = 40;
     for (int i = 0; i < 64; i++) {
         if (is_bit_set_64(bitmap_uuids_mask, i)) {
-            proto_tree_add_item(tree, hf_drbd_bitmap_uuid, tvb, offset, 8, ENC_BIG_ENDIAN);
+            guint64 bitmap_uuid = tvb_get_ntoh64(tvb, offset);
+            proto_tree_add_uint64_format(tree, hf_drbd_bitmap_uuid, tvb, offset, 8, bitmap_uuid,
+                    "Bitmap UUID for node %d: 0x%016" G_GINT64_MODIFIER "x", i, bitmap_uuid);
             offset += 8;
         }
     }
 
+    proto_item *history_uuids = proto_tree_add_item(tree, hf_drbd_history_uuid_list, tvb, offset, -1, ENC_NA);
+    proto_tree *history_tree = proto_item_add_subtree(history_uuids, ett_drbd_history_uuids);
     guint total_length = tvb_reported_length(tvb);
     while (offset < total_length) {
-        proto_tree_add_item(tree, hf_drbd_history_uuids, tvb, offset, 8, ENC_BIG_ENDIAN);
+        proto_tree_add_item(history_tree, hf_drbd_history_uuid, tvb, offset, 8, ENC_BIG_ENDIAN);
         offset += 8;
     }
 }
@@ -955,13 +1133,14 @@ void proto_register_drbd(void)
         { &hf_drbd_conn_flags, { "conn_flags", "drbd.conn_flags", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL }},
         { &hf_drbd_two_primaries, { "two_primaries", "drbd.two_primaries", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL }},
         { &hf_drbd_integrity_alg, { "integrity_alg", "drbd.integrity_alg", FT_STRINGZ, STR_ASCII, NULL, 0x0, NULL, HFILL }},
-        { &hf_drbd_current_uuid, { "current_uuid", "drbd.current_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-        { &hf_drbd_bitmap_uuid, { "bitmap_uuid", "drbd.bitmap_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-        { &hf_drbd_history_uuids, { "history_uuids", "drbd.history_uuids", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-        { &hf_drbd_dirty_bits, { "dirty_bits", "drbd.dirty_bits", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-        { &hf_drbd_uuid_flags, { "uuid_flags", "drbd.uuid_flags", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-        { &hf_drbd_node_mask, { "node_mask", "drbd.node_mask", FT_UINT64, BASE_CUSTOM, format_node_mask, 0x0, NULL, HFILL }},
-        { &hf_drbd_bitmap_uuids_mask, { "bitmap_uuids_mask", "drbd.bitmap_uuids_mask", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_drbd_current_uuid, { "Current UUID", "drbd.current_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_drbd_bitmap_uuid, { "Bitmap UUID", "drbd.bitmap_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_drbd_history_uuid_list, { "History UUIDs", "drbd.history_uuids", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+        { &hf_drbd_history_uuid, { "History UUID", "drbd.history_uuids", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_drbd_dirty_bits, { "Dirty bits", "drbd.dirty_bits", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_drbd_uuid_flags, { "UUID flags", "drbd.uuid_flags", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_drbd_node_mask, { "Nodes", "drbd.node_mask", FT_UINT64, BASE_CUSTOM, format_node_mask, 0x0, NULL, HFILL }},
+        { &hf_drbd_bitmap_uuids_mask, { "Bitmap UUID nodes", "drbd.bitmap_uuids_mask", FT_UINT64, BASE_CUSTOM, format_node_mask, 0x0, NULL, HFILL }},
         { &hf_drbd_uuid, { "uuid", "drbd.uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL }},
         { &hf_drbd_weak_nodes, { "weak_nodes", "drbd.weak_nodes", FT_UINT64, BASE_CUSTOM, format_node_mask, 0x0, NULL, HFILL }},
         { &hf_drbd_physical_block_size, { "physical_block_size", "drbd.physical_block_size", FT_UINT32, BASE_HEX_DEC, NULL, 0x0, NULL, HFILL }},
@@ -991,6 +1170,31 @@ void proto_register_drbd(void)
         { &hf_drbd_dagtag, { "dagtag", "drbd.dagtag", FT_UINT64, BASE_HEX_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_drbd_node_id, { "node_id", "drbd.node_id", FT_INT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
 
+        { &hf_drbd_state_role, { "role", "drbd.state.role", FT_UINT32, BASE_DEC, VALS(role_names), STATE_ROLE, NULL, HFILL }},
+        { &hf_drbd_state_peer, { "peer", "drbd.state.peer", FT_UINT32, BASE_DEC, VALS(role_names), STATE_PEER, NULL, HFILL }},
+        { &hf_drbd_state_conn, { "conn", "drbd.state.conn", FT_UINT32, BASE_DEC, VALS(connection_state_names), STATE_CONN, NULL, HFILL }},
+        { &hf_drbd_state_disk, { "disk", "drbd.state.disk", FT_UINT32, BASE_DEC, VALS(disk_state_names), STATE_DISK, NULL, HFILL }},
+        { &hf_drbd_state_pdsk, { "pdsk", "drbd.state.pdsk", FT_UINT32, BASE_DEC, VALS(disk_state_names), STATE_PDSK, NULL, HFILL }},
+        { &hf_drbd_state_susp, { "susp", "drbd.state.susp", FT_BOOLEAN, 32, NULL, STATE_SUSP, NULL, HFILL }},
+        { &hf_drbd_state_aftr_isp, { "aftr_isp", "drbd.state.aftr_isp", FT_BOOLEAN, 32, NULL, STATE_AFTR_ISP, NULL, HFILL }},
+        { &hf_drbd_state_peer_isp, { "peer_isp", "drbd.state.peer_isp", FT_BOOLEAN, 32, NULL, STATE_PEER_ISP, NULL, HFILL }},
+        { &hf_drbd_state_user_isp, { "user_isp", "drbd.state.user_isp", FT_BOOLEAN, 32, NULL, STATE_USER_ISP, NULL, HFILL }},
+        { &hf_drbd_state_susp_nod, { "susp_nod", "drbd.state.susp_nod", FT_BOOLEAN, 32, NULL, STATE_SUSP_NOD, NULL, HFILL }},
+        { &hf_drbd_state_susp_fen, { "susp_fen", "drbd.state.susp_fen", FT_BOOLEAN, 32, NULL, STATE_SUSP_FEN, NULL, HFILL }},
+        { &hf_drbd_state_quorum, { "quorum", "drbd.state.quorum", FT_BOOLEAN, 32, NULL, STATE_QUORUM, NULL, HFILL }},
+
+        { &hf_drbd_uuid_flag_discard_my_data, { "discard_my_data", "drbd.uuid_flag.discard_my_data", FT_BOOLEAN, 64, NULL, UUID_FLAG_DISCARD_MY_DATA, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_crashed_primary, { "crashed_primary", "drbd.uuid_flag.crashed_primary", FT_BOOLEAN, 64, NULL, UUID_FLAG_CRASHED_PRIMARY, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_inconsistent, { "inconsistent", "drbd.uuid_flag.inconsistent", FT_BOOLEAN, 64, NULL, UUID_FLAG_INCONSISTENT, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_skip_initial_sync, { "skip_initial_sync", "drbd.uuid_flag.skip_initial_sync", FT_BOOLEAN, 64, NULL, UUID_FLAG_SKIP_INITIAL_SYNC, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_new_datagen, { "new_datagen", "drbd.uuid_flag.new_datagen", FT_BOOLEAN, 64, NULL, UUID_FLAG_NEW_DATAGEN, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_stable, { "stable", "drbd.uuid_flag.stable", FT_BOOLEAN, 64, NULL, UUID_FLAG_STABLE, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_got_stable, { "got_stable", "drbd.uuid_flag.got_stable", FT_BOOLEAN, 64, NULL, UUID_FLAG_GOT_STABLE, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_resync, { "resync", "drbd.uuid_flag.resync", FT_BOOLEAN, 64, NULL, UUID_FLAG_RESYNC, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_reconnect, { "reconnect", "drbd.uuid_flag.reconnect", FT_BOOLEAN, 64, NULL, UUID_FLAG_RECONNECT, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_diskless_primary, { "diskless_primary", "drbd.uuid_flag.diskless_primary", FT_BOOLEAN, 64, NULL, UUID_FLAG_DISKLESS_PRIMARY, NULL, HFILL }},
+        { &hf_drbd_uuid_flag_primary_lost_quorum, { "primary_lost_quorum", "drbd.uuid_flag.primary_lost_quorum", FT_BOOLEAN, 64, NULL, UUID_FLAG_PRIMARY_LOST_QUORUM, NULL, HFILL }},
+
         { &hf_drbd_dp_hardbarrier, { "hardbarrier", "drbd.dp_flag.hardbarrier", FT_BOOLEAN, 32, NULL, DP_HARDBARRIER, NULL, HFILL }},
         { &hf_drbd_dp_rw_sync, { "rw_sync", "drbd.dp_flag.rw_sync", FT_BOOLEAN, 32, NULL, DP_RW_SYNC, NULL, HFILL }},
         { &hf_drbd_dp_may_set_in_sync, { "may_set_in_sync", "drbd.dp_flag.may_set_in_sync", FT_BOOLEAN, 32, NULL, DP_MAY_SET_IN_SYNC, NULL, HFILL }},
@@ -1006,6 +1210,9 @@ void proto_register_drbd(void)
 
     static gint *ett[] = {
         &ett_drbd,
+        &ett_drbd_state,
+        &ett_drbd_uuid_flags,
+        &ett_drbd_history_uuids,
         &ett_drbd_data_flags,
     };
 

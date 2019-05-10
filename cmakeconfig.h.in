@@ -136,6 +136,9 @@
 /* Define to use zlib library */
 #cmakedefine HAVE_ZLIB 1
 
+/* Define to use brotli library */
+#cmakedefine HAVE_BROTLI 1
+
 /* Define to use lz4 library */
 #cmakedefine HAVE_LZ4 1
 
@@ -271,6 +274,9 @@
 
 /* Define to 1 if you have the bcg729 library. */
 #cmakedefine HAVE_BCG729 1
+
+/* Define to 1 if you have the speexdsp library. */
+#cmakedefine HAVE_SPEEXDSP 1
 
 /* Define to 1 if you have the lixbml2 library. */
 #cmakedefine HAVE_LIBXML2 1

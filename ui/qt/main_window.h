@@ -68,6 +68,7 @@
 
 #include "capture_file.h"
 #include "capture_file_dialog.h"
+#include "print_dialog.h"
 #include "capture_file_properties_dialog.h"
 #include <ui/qt/utils/field_information.h>
 #include <ui/qt/widgets/display_filter_combo.h>
@@ -78,6 +79,7 @@
 class AccordionFrame;
 class ByteViewTab;
 class CaptureInterfacesDialog;
+class PrintDialog;
 class FileSetDialog;
 class FilterDialog;
 class FunnelStatistics;
@@ -202,6 +204,7 @@ private:
     CaptureInterfacesDialog *capture_interfaces_dialog_;
     info_data_t info_data_;
 #endif
+    PrintDialog *pdlg_;
     FilterDialog *display_filter_dlg_;
     FilterDialog *capture_filter_dlg_;
 

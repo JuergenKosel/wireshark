@@ -4597,6 +4597,20 @@ ssl_packet_from_server(SslSession *session, dissector_table_t table, packet_info
 
 
 /* Links SSL records with the real packet data. {{{ */
+SslPacketInfo *
+tls_add_packet_info(gint proto, packet_info *pinfo, guint8 curr_layer_num_ssl)
+{
+    SslPacketInfo *pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto, curr_layer_num_ssl);
+    if (!pi) {
+        pi = wmem_new0(wmem_file_scope(), SslPacketInfo);
+        pi->srcport = pinfo->srcport;
+        pi->destport = pinfo->destport;
+        p_add_proto_data(wmem_file_scope(), pinfo, proto, curr_layer_num_ssl, pi);
+    }
+
+    return pi;
+}
+
 /**
  * Remembers the decrypted TLS record fragment (TLSInnerPlaintext in TLS 1.3) to
  * avoid the need for a decoder in the second pass. Additionally, it remembers
@@ -4615,16 +4629,7 @@ void
 ssl_add_record_info(gint proto, packet_info *pinfo, const guchar *data, gint data_len, gint record_id, SslFlow *flow, ContentType type, guint8 curr_layer_num_ssl)
 {
     SslRecordInfo* rec, **prec;
-    SslPacketInfo* pi;
-
-    pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto, curr_layer_num_ssl);
-    if (!pi)
-    {
-        pi = wmem_new0(wmem_file_scope(), SslPacketInfo);
-        pi->srcport = pinfo->srcport;
-        pi->destport = pinfo->destport;
-        p_add_proto_data(wmem_file_scope(), pinfo, proto, curr_layer_num_ssl, pi);
-    }
+    SslPacketInfo *pi = tls_add_packet_info(proto, pinfo, curr_layer_num_ssl);
 
     rec = wmem_new(wmem_file_scope(), SslRecordInfo);
     rec->plain_data = (guchar *)wmem_memdup(wmem_file_scope(), data, data_len);
@@ -4633,9 +4638,6 @@ ssl_add_record_info(gint proto, packet_info *pinfo, const guchar *data, gint dat
     rec->type = type;
     rec->next = NULL;
 
-    /* TODO allow Handshake records also to be reassembled. There needs to be
-     * one "flow" for each record type (appdata, handshake). "seq" for the
-     * record should then be relative within this flow. */
     if (flow && type == SSL_ID_APP_DATA) {
         rec->seq = flow->byte_seq;
         rec->flow = flow;
@@ -6667,8 +6669,11 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
      *  } PreferredAddress;
      */
     // Heuristically detect draft -18 vs draft -19.
-    if (offset_end - offset >= 4 && tvb_get_ntoh24(tvb, offset) == 0xff0000) {
-        // Draft -18 and before start with a (draft) version field.
+    if (offset_end - offset >= 4 && tvb_get_ntohs(tvb, offset) != offset_end - offset - 2) {
+        // Draft -18 and before start with a (draft) version field. For CH, this
+        // can be an arbitrary number that triggers a Version Negotiation
+        // packet. Draft -19 always begins with a vector, so assume that
+        // anything that does not have a vector length is an older draft.
         switch (hnd_type) {
         case SSL_HND_CLIENT_HELLO:
             proto_tree_add_item(tree, hf->hf.hs_ext_quictp_initial_version,

@@ -107,6 +107,7 @@ set(WSUTIL_COMMON_FILES
 	privileges.c
 	rsa.c
 	sober128.c
+	socket.c
 	strnatcmp.c
 	str_util.c
 	strtoi.c
@@ -266,9 +267,8 @@ target_link_libraries(wsutil
 	${APPLE_CORE_FOUNDATION_LIBRARY}
 	${GMODULE2_LIBRARIES}
 	${GLIB2_LIBRARIES}
-	${PCAP_LIBRARIES}
 	${GCRYPT_LIBRARIES}
-	${WIN_WSOCK32_LIBRARY}
+	${WIN_WS2_32_LIBRARY}
 	${GNUTLS_LIBRARIES}
 )
 
@@ -278,7 +278,6 @@ endif(WIN32)
 
 target_include_directories(wsutil SYSTEM
 	PUBLIC
-		${PCAP_INCLUDE_DIRS}
 		${GCRYPT_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
 )

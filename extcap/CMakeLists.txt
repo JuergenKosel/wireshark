@@ -91,7 +91,8 @@ if(BUILD_androiddump)
 			set(androiddump_LIBS
 				ui
 				${GLIB2_LIBRARIES}
-				${PCAP_LIBRARIES}
+				${WIN_WS2_32_LIBRARY}
+				$<$<BOOL:${PCAP_FOUND}>:pcap::pcap>
 			)
 		else()
 			message(FATAL_ERROR "You are trying to build androiddump with libpcap but do not have it")
@@ -103,6 +104,7 @@ if(BUILD_androiddump)
 			${GLIB2_LIBRARIES}
 			${ZLIB_LIBRARIES}
 			${CMAKE_DL_LIBS}
+			${WIN_WS2_32_LIBRARY}
 		)
 	endif()
 	set(androiddump_FILES
@@ -124,6 +126,7 @@ if(BUILD_sshdump AND LIBSSH_FOUND)
 		wsutil
 		${GLIB2_LIBRARIES}
 		${CMAKE_DL_LIBS}
+		${WIN_WS2_32_LIBRARY}
 		${LIBSSH_LIBRARIES}
 	)
 	set(sshdump_FILES
@@ -150,6 +153,7 @@ if(BUILD_ciscodump AND LIBSSH_FOUND)
 		wsutil
 		${GLIB2_LIBRARIES}
 		${CMAKE_DL_LIBS}
+		${WIN_WS2_32_LIBRARY}
 		${LIBSSH_LIBRARIES}
 	)
 	set(ciscodump_FILES
@@ -196,8 +200,10 @@ endif()
 
 if(BUILD_udpdump)
 	set(udpdump_LIBS
+		wsutil
 		${GLIB2_LIBRARIES}
 		${CMAKE_DL_LIBS}
+		${WIN_WS2_32_LIBRARY}
 		wsutil
 		writecap
 	)
@@ -219,9 +225,11 @@ if(BUILD_randpktdump)
 	set(randpktdump_LIBS
 		randpkt_core
 		wiretap
+		wsutil
 		${GLIB2_LIBRARIES}
 		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
+		${WIN_WS2_32_LIBRARY}
 	)
 	set(randpktdump_FILES
 		$<TARGET_OBJECTS:cli_main>

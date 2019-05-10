@@ -185,7 +185,7 @@ set(PROJECT_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}")
 set(LIBRARY_INSTALL_RPATH "")
 set(EXECUTABLE_INSTALL_RPATH "")
 set(EXTCAP_INSTALL_RPATH "")
-if(NOT (WIN32 OR APPLE))
+if(NOT (WIN32 OR APPLE OR USE_STATIC))
 	# Try to set a RPATH for installed binaries if the library directory is
 	# not already included in the default search list.
 	list(FIND CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_FULL_LIBDIR}" IS_SYSTEM_DIR)
@@ -325,6 +325,10 @@ if(OSS_FUZZ)
 		message(FATAL_ERROR "Cannot force libFuzzer when using oss-fuzz")
 	endif()
 	# Must not depend on external dependencies so statically link all libs.
+	set(USE_STATIC ON)
+endif()
+
+if(USE_STATIC)
 	set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 endif()
 
@@ -658,11 +662,6 @@ else() # ! MSVC
 			#
 			-Wredundant-decls
 			#
-			# Some loops are safe, but it's hard to convince the
-			# compiler of that.
-			#
-			-Wunsafe-loop-optimizations
-			#
 			# All the registration functions block these for now.
 			#
 			-Wmissing-prototypes
@@ -695,6 +694,16 @@ else() # ! MSVC
 			#
 			-fno-delete-null-pointer-checks
 		)
+
+		#
+		# Some loops are safe, but it's hard to convince the compiler of
+		# that. Always disable the warning on GCC 7 due to a bug that
+		# cause lots of false positives.
+		# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81408
+		#
+		if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_C_COMPILER_VERSION MATCHES "^7\\.")
+			list(APPEND WIRESHARK_COMMON_FLAGS -Wunsafe-loop-optimizations)
+		endif()
 
 		list(APPEND WIRESHARK_C_ONLY_FLAGS
 			# The following are C only, not C++
@@ -994,9 +1003,8 @@ endmacro()
 
 # The minimum package list
 find_package(Git)
-set(GLIB2_MIN_VERSION 2.32.0)
 reset_find_package(GLIB2 GLIB2_MAIN_INCLUDE_DIR GLIB2_INTERNAL_INCLUDE_DIR)
-find_package(GLIB2 REQUIRED)
+find_package(GLIB2 "2.32.0" REQUIRED)
 include_directories(SYSTEM ${GLIB2_INCLUDE_DIRS})
 reset_find_package(GMODULE2)
 find_package(GMODULE2)
@@ -1100,6 +1108,9 @@ ws_find_package(CARES ENABLE_CARES HAVE_C_ARES "1.5.0")
 # Zlib compression
 ws_find_package(ZLIB ENABLE_ZLIB HAVE_ZLIB)
 
+# Brotli compression
+ws_find_package(BROTLI ENABLE_BROTLI HAVE_BROTLI)
+
 # LZ4 compression
 ws_find_package(LZ4 ENABLE_LZ4 HAVE_LZ4)
 
@@ -1150,6 +1161,18 @@ ws_find_package(WINSPARKLE ENABLE_WINSPARKLE HAVE_SOFTWARE_UPDATE)
 find_package(POD REQUIRED)
 
 find_package(DOXYGEN)
+
+# The SpeexDSP resampler is required iff building wireshark or sharkd.
+if(BUILD_wireshark OR BUILD_sharkd)
+	find_package(SpeexDSP)
+	if(SpeexDSP_FOUND)
+		set(HAVE_SPEEXDSP 1)
+	else()
+		add_subdirectory(speexdsp)
+		set(SPEEXDSP_INCLUDE_DIRS "")
+		set(SPEEXDSP_LIBRARIES "speexresampler")
+	endif()
+endif()
 
 # dist target that prepares source dir
 # XXX Duplicated in the RPM section below.
@@ -1244,7 +1267,7 @@ endif()
 #
 if(WIN32)
 	set(WIN_PSAPI_LIBRARY    psapi.lib)
-	set(WIN_WSOCK32_LIBRARY  wsock32.lib)
+	set(WIN_WS2_32_LIBRARY   ws2_32.lib)
 	set(WIN_COMCTL32_LIBRARY comctl32.lib )
 	set(WIN_VERSION_LIBRARY  version.lib)
 endif()
@@ -1547,6 +1570,11 @@ set_package_properties(MaxMindDB PROPERTIES
 	DESCRIPTION "C library for the MaxMind DB file format"
 	PURPOSE "Support for GeoIP lookup"
 )
+set_package_properties(SpeexDSP PROPERTIES
+	URL "https://www.speex.org/"
+	DESCRIPTION "SpeexDSP is a patent-free, Open Source/Free Software DSP library"
+	PURPOSE "RTP audio resampling"
+)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
 message(STATUS "C-Flags: ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${_build_type}}")
@@ -1805,6 +1833,11 @@ if(WIN32)
 		list (APPEND OPTIONAL_DLLS "${ZLIB_DLL_DIR}/${ZLIB_DLL}")
 		list (APPEND OPTIONAL_PDBS "${ZLIB_DLL_DIR}/${ZLIB_PDB}")
 	endif(ZLIB_FOUND)
+	if (BROTLI_FOUND)
+		foreach( _dll ${BROTLI_DLLS} )
+			list (APPEND OPTIONAL_DLLS "${BROTLI_DLL_DIR}/${_dll}")
+		endforeach(_dll)
+	endif(BROTLI_FOUND)
 
 	# With libs downloaded to c:/wireshark-win64-libs this currently
 	# (early 2018) expands to about 1900 characters.
@@ -2160,9 +2193,11 @@ if(BUILD_wireshark AND QT_FOUND)
 		${APPLE_APPKIT_LIBRARY}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
+		${WIN_WS2_32_LIBRARY}
 		${WIN_VERSION_LIBRARY}
 		${WINSPARKLE_LIBRARIES}
 		$<$<BOOL:${WIN32}>:UxTheme.lib>
+		${SPEEXDSP_LIBRARIES}
 	)
 
 	add_executable(wireshark WIN32 MACOSX_BUNDLE ${wireshark_FILES} ${EXTRA_BUNDLE_FILES})
@@ -2274,6 +2309,7 @@ if(BUILD_tshark)
 		${VERSION_INFO_LIBS}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
+		${WIN_WS2_32_LIBRARY}
 		${M_LIBRARIES}
 	)
 	set(tshark_FILES
@@ -2325,6 +2361,7 @@ if(BUILD_rawshark AND PCAP_FOUND)
 		${VERSION_INFO_LIBS}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
+		${WIN_WS2_32_LIBRARY}
 	)
 	set(rawshark_FILES
 		$<TARGET_OBJECTS:cli_main>
@@ -2348,6 +2385,8 @@ if(BUILD_sharkd)
 		${VERSION_INFO_LIBS}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
+		${WIN_WS2_32_LIBRARY}
+		${SPEEXDSP_LIBRARIES}
 	)
 	set(sharkd_FILES
 		#
@@ -2364,9 +2403,10 @@ if(BUILD_sharkd)
 	add_executable(sharkd ${sharkd_FILES})
 	set_extra_executable_properties(sharkd "Executables")
 	target_link_libraries(sharkd ${sharkd_LIBS})
-	if(WIN32)
-		target_link_libraries(sharkd "ws2_32.lib")
-	endif(WIN32)
+	target_include_directories(sharkd SYSTEM
+		PUBLIC
+			${SPEEXDSP_INCLUDE_DIRS}
+	)
 
 	install(TARGETS sharkd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
@@ -2393,7 +2433,6 @@ if(BUILD_randpkt)
 		wiretap
 		wsutil
 		${M_LIBRARIES}
-		${PCAP_LIBRARIES}
 		${CARES_LIBRARIES}
 		${ZLIB_LIBRARIES}
 	)
@@ -2540,13 +2579,14 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 		wsutil
 		caputils
 		ui
-		${PCAP_LIBRARIES}
+		$<$<BOOL:${PCAP_FOUND}>:pcap::pcap>
 		${CAP_LIBRARIES}
 		${GLIB2_LIBRARIES}
 		${GTHREAD2_LIBRARIES}
 		${ZLIB_LIBRARIES}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
+		${WIN_WS2_32_LIBRARY}
 	)
 	set(dumpcap_FILES
 		$<TARGET_OBJECTS:capture_opts>
@@ -2752,6 +2792,9 @@ if(RPMBUILD_EXECUTABLE)
 	if (SYSTEMD_FOUND)
 		list(APPEND _rpmbuild_with_args --with sdjournal)
 	endif()
+	if (BROTLI_FOUND)
+		list(APPEND _rpmbuild_with_args --with brotli)
+	endif()
 
 	execute_process(
 		COMMAND ${PERL_EXECUTABLE}
@@ -2853,21 +2896,23 @@ set(CLEAN_C_FILES
 	${mmdbresolve_FILES}
 )
 
-# Make sure we don't pass /WX to rc.exe. Rc doesn't have a /WX flag,
-# but it does have /W (warn about invalid code pages) and /X (ignore
-# the INCLUDE environment variable).
-# This should apparently be handled for us via CMAKE_RC_FLAG_REGEX
-# in CMakeRCInformation.cmake but that doesn't appear to work.
-if (WIN32)
-	list(FILTER CLEAN_C_FILES EXCLUDE REGEX ".*\\.rc")
-endif (WIN32)
+if(CLEAN_C_FILES)
+	# Make sure we don't pass /WX to rc.exe. Rc doesn't have a /WX flag,
+	# but it does have /W (warn about invalid code pages) and /X (ignore
+	# the INCLUDE environment variable).
+	# This should apparently be handled for us via CMAKE_RC_FLAG_REGEX
+	# in CMakeRCInformation.cmake but that doesn't appear to work.
+	if(WIN32)
+		list(FILTER CLEAN_C_FILES EXCLUDE REGEX ".*\\.rc")
+	endif()
 
-# XXX This also contains object files ($<TARGET_OBJECTS:...>), is that an issue?
-set_source_files_properties(
-	${CLEAN_C_FILES}
-	PROPERTIES
-	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
-)
+	# XXX This also contains object files ($<TARGET_OBJECTS:...>), is that an issue?
+	set_source_files_properties(
+		${CLEAN_C_FILES}
+		PROPERTIES
+		COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
+	)
+endif()
 
 install(
 	FILES

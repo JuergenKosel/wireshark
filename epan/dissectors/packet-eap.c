@@ -98,6 +98,8 @@ static expert_field ei_eap_md5_value_size_overflow = EI_INIT;
 static expert_field ei_eap_dictionary_attacks = EI_INIT;
 static expert_field ei_eap_identity_invalid = EI_INIT;
 
+static dissector_table_t eap_expanded_type_dissector_table;
+
 static dissector_handle_t eap_handle;
 
 static dissector_handle_t tls_handle;
@@ -395,10 +397,6 @@ static const fragment_items eap_tls_frag_items = {
 static int   hf_eap_ext_vendor_id   = -1;
 static int   hf_eap_ext_vendor_type = -1;
 
-/* Vendor-Type and Vendor-id */
-#define WFA_VENDOR_ID         0x00372A
-#define WFA_SIMPLECONFIG_TYPE 0x1
-
 static const value_string eap_ext_vendor_id_vals[] = {
   { WFA_VENDOR_ID, "WFA" },
   { 0, NULL }
@@ -411,19 +409,32 @@ static const value_string eap_ext_vendor_type_vals[] = {
 
 static void
 dissect_exteap(proto_tree *eap_tree, tvbuff_t *tvb, int offset,
-               gint size, packet_info* pinfo)
+               gint size _U_, packet_info* pinfo, guint8 eap_code, guint8 eap_identifier)
 {
+  tvbuff_t   *next_tvb;
+  guint32    vendor_id;
+  guint32    vendor_type;
+  eap_vendor_context *vendor_context;
 
-  proto_tree_add_item(eap_tree, hf_eap_ext_vendor_id,   tvb, offset, 3, ENC_BIG_ENDIAN);
+  vendor_context = wmem_new(wmem_packet_scope(), eap_vendor_context);
+
+  proto_tree_add_item_ret_uint(eap_tree, hf_eap_ext_vendor_id, tvb, offset, 3, ENC_BIG_ENDIAN, &vendor_id);
   offset += 3;
-  size   -= 3;
 
-  proto_tree_add_item(eap_tree, hf_eap_ext_vendor_type, tvb, offset, 4, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint(eap_tree, hf_eap_ext_vendor_type, tvb, offset, 4, ENC_BIG_ENDIAN, &vendor_type);
   offset += 4;
-  size   -= 4;
 
-  /* Generic method to support multiple vendor-defined extended types goes here :-) */
-  dissect_exteap_wps(eap_tree, tvb, offset, size, pinfo);
+  vendor_context->eap_code = eap_code;
+  vendor_context->eap_identifier = eap_identifier;
+  vendor_context->vendor_id = vendor_id;
+  vendor_context->vendor_type = vendor_type;
+
+  next_tvb = tvb_new_subset_remaining(tvb, offset);
+  if (!dissector_try_uint_new(eap_expanded_type_dissector_table,
+    vendor_id, next_tvb, pinfo, eap_tree,
+    FALSE, vendor_context)) {
+    call_data_dissector(next_tvb, pinfo, eap_tree);
+  }
 }
 /* *********************************************************************
 ********************************************************************* */
@@ -777,6 +788,7 @@ static int
 dissect_eap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
   guint8          eap_code;
+  guint8          eap_identifier;
   guint16         eap_len;
   guint8          eap_type;
   gint            len;
@@ -794,6 +806,7 @@ dissect_eap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
   col_clear(pinfo->cinfo, COL_INFO);
 
   eap_code = tvb_get_guint8(tvb, 0);
+  eap_identifier = tvb_get_guint8(tvb, 1);
 
   col_add_str(pinfo->cinfo, COL_INFO,
                 val_to_str(eap_code, eap_code_vals, "Unknown code (0x%02X)"));
@@ -1307,7 +1320,7 @@ dissect_eap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
         proto_tree *exptree;
 
         exptree   = proto_tree_add_subtree(eap_tree, tvb, offset, size, ett_eap_exp_attr, NULL, "Expanded Type");
-        dissect_exteap(exptree, tvb, offset, size, pinfo);
+        dissect_exteap(exptree, tvb, offset, size, pinfo, eap_code, eap_identifier);
       }
       break;
 
@@ -1712,6 +1725,12 @@ proto_register_eap(void)
 
   reassembly_table_register(&eap_tls_reassembly_table,
                         &addresses_reassembly_table_functions);
+
+  eap_expanded_type_dissector_table = register_dissector_table("eap.ext.vendor_id",
+    "EAP-EXT Vendor Id",
+    proto_eap, FT_UINT24,
+    BASE_HEX);
+
 }
 
 void

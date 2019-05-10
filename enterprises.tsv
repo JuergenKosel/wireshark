@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2019-04-14)
+# (last updated 2019-05-05)
 
 0	Reserved
 1	NxNetworks
@@ -2725,7 +2725,7 @@
 2721	News Internet Services
 2722	Georgia Tech Research Institute
 2723	Guerrilla Mail, Inc.
-2724	EasyStreet Online Services, Inc.
+2724	Atmosera, Inc.
 2725	Art Technology Group, Inc.
 2726	Capital One Financial Corp.
 2727	SFA, Inc.
@@ -22042,7 +22042,7 @@
 22195	NeoTIP SA
 22196	Vistek Electronics Ltd
 22197	SOFTBANK BB Corp.
-22198	University of St. Gallen
+22198	University of St.Gallen
 22199	United Arab Emirates University
 22200	Sistemas Techniclite. C.A.
 22201	Research Center of NetWork Techology Nanjing University Of Posts And Telecommunication Inc.
@@ -47501,7 +47501,7 @@
 47680	Weimann - IT Consulting
 47681	Endeavor Air, Inc.
 47682	Rocket Lab Ltd.
-47683	MSCH
+47683	Michael Schubert GbR
 47684	Babcock Power
 47685	SimuOne ApS
 47686	Switzerland Global Enterprise
@@ -48354,7 +48354,7 @@
 48533	Sony Mobile Communications AB
 48534	FIT Networks
 48535	Blue Ridge Concepts, Inc.
-48536	Hochschule Aschaffenburg
+48536	Technische Hochschule Aschaffenburg
 48537	Defense Information Systems Agency
 48538	ServerCentral
 48539	ED&F Man Capital Markets
@@ -50569,7 +50569,7 @@
 50754	Blyberg Timber AB
 50755	Siljan Energi AB
 50756	D. A. Taylor Consulting LLC
-50757	Singapore Technologies Electronics Ltd
+50757	ST Engineering Electronics Ltd
 50758	All My Papers
 50759	MAVOCO GmbH
 50760	CELPRAM
@@ -52220,7 +52220,6 @@
 52408	Shanghai Di'an Technology Incorporated
 52409	Technologywise
 52410	ONES.AI
-52411	IDM Energiesysteme GmbH
 52412	NN Biztosító Zrt.
 52413	Macon County R-1 School District
 52414	Hestra Åkeri AB
@@ -53589,3 +53588,113 @@
 53777	sodeac.org
 53778	Veea Inc.
 53779	Linsys Ltd
+53780	RA BU ZU
+53781	Rosling King LLP
+53782	CANCOM Managed Services GmbH
+53783	Amplex Corporation
+53784	Shenzhen Rongan Networks Technology Co. Ltd
+53785	Derycks.net
+53786	SRSP group of Industries
+53787	Robinhood Markets, Inc.
+53788	Cumulus Media Stockton
+53789	ACA IT-Solutions
+53790	AnyGaming Ltd.
+53791	Department of Defense
+53792	Technically Alter'd, LLC
+53793	Rimot.io Inc.
+53794	LERCTR Consulting
+53795	Liceo scientifico statale G. Salvemini
+53796	InnovAge
+53797	Edmonton Transit Service
+53798	OpenEGrid Inc
+53799	Zhejiang Hengrui Technology Co., Ltd.
+53800	Aknet ISP
+53801	Utility Connect B.V.
+53802	Rexel UK Ltd
+53803	London Data Engineering Ltd
+53804	NOVO DR
+53805	Atamate Ltd
+53806	Valenta Pharm JSC
+53807	PHYSICIAN ASSOCIATES OF JACKSONVILLE, PA
+53808	VIAVI Solutions Inc.
+53809	RUN Polito
+53810	City of Portland, Oregon
+53811	vestwoods
+53812	Wave-In Communication Inc.
+53813	cinoware - NFN GmbH
+53814	ALP ENERJİ SİSTEMLERİ BİLGİ ve TEKNOLOJİSİ HİZMETLERİ SAN ve TİC. LTD. ŞTİ.
+53815	Engramo Project s.r.o.
+53816	motv.eu
+53817	Concentra Consulting Ltd
+53818	Oxipit
+53819	Virtuologic
+53820	THOMAS SIGNE CHILE SPA
+53821	Exabeam, Inc.
+53822	National Bank of the Kyrgyz Republic
+53823	Bedroq Ltd
+53824	GypsyBud
+53825	Dottikon Exclusive Synthesis AG
+53826	Revera
+53827	Japan Registry Services Co., Ltd.
+53828	Institut Nicolau Copernic
+53829	LGE
+53830	Tadeu Organics
+53831	Partei der Humanisten
+53832	skynetflow.com
+53833	PT. Kreasi Rekayasa Indonesia
+53834	Rockrose Energy plc
+53835	KV2 Audio International spol. s r.o.
+53836	Genesee Cancer & Blood Disease Treatment Center
+53837	Obsługa Kancelarii
+53838	Treality SVS, LLC.
+53839	In Touch Ministries
+53840	Aehoo Networks
+53841	ENA Energi AB
+53842	Holland AI B.V.
+53843	WKO Inhouse GmbH der Wirtschaftsakammern Österreichs
+53844	The Electoral Commission
+53845	DF Software Lab
+53846	BPCE Infogérance et Technologies
+53847	Gizelle Manoah P C , Inc
+53848	Marker Therapeutics Inc.
+53849	PT. Callysta Multi Engineering
+53850	Gaeltex Group
+53851	Bs-Logistic AB
+53852	INNOVATUS TECNOLOGIA
+53853	Saudi Authority for Intellectual Property
+53854	Healtis LLC
+53855	PatientComp LLC
+53856	Automation and Control Limited
+53857	Av-Comm Pty Ltd
+53858	Ariadne Security Foundations
+53859	NTHU CS
+53860	geomer GmbH
+53861	Raytheon CASL
+53862	Enphase Energy, Inc.
+53863	Aisle Systems Sweden AB
+53864	Afiniti
+53865	Next Today
+53866	theflatnet.de
+53867	PS Logistics
+53868	ONCF
+53869	OPNsense
+53870	Framsteg GmbH
+53871	POLYTEC HOLDING AG
+53872	Cibersur Unip Lda
+53873	Alexander Heights Family Practice
+53874	LNK Systems Muntenia
+53875	Infonics Solutions
+53876	Alpha Design Technologies Pvt Ltd
+53877	DP World London Gateway
+53878	OpenEmail IO
+53879	East London NHS Foundation Trust
+53880	EDITH DIGITAL
+53881	Siam University
+53882	ACM Metal Forming Ltd.
+53883	Elkhorn Public Schools
+53884	Thorium Technologies Inc.
+53885	GEOIDE (Crypto&Com)
+53886	Monol International Education Institute
+53887	Web Sensing LLC
+53888	Beijing Changyang Technology Co.,Ltd.
+53889	Richpower New Energy

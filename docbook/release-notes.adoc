@@ -34,7 +34,9 @@ Features” section below for more details.
 The following features are new (or have been significantly updated)
 since version 3.0.0:
 
-* Watch this space.
+* Brotli decompression support in HTTP/HTTP2 (requires the brotli library).
+* The build system now checks for a SpeexDSP system library installation. The
+  bundled Speex resampler code is still provided as a fallback.
 
 // === Removed Features and Support
 
@@ -53,6 +55,7 @@ since version 3.0.0:
 --
 evolved Common Public Radio Interface (eCPRI)
 Distributed Replicated Block Device (DRBD)
+GSM/3GPP CBSP (Cell Broadcast Service Protocol)
 --
 
 === Updated Protocol Support

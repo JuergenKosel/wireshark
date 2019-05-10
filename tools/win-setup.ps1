@@ -69,13 +69,14 @@ Param(
 # trouble instead of trying to catch exceptions everywhere.
 $ErrorActionPreference = "Stop"
 
-$Win64CurrentTag = "2019-04-08"
-$Win32CurrentTag = "2019-04-08"
+$Win64CurrentTag = "2019-05-06"
+$Win32CurrentTag = "2019-05-06"
 
 # Archive file / SHA256
 $Win64Archives = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "09d637f28a79b1d2ecb09f35436271a90c0f69bd0a1ee82b803abaaf63c18a69";
     "bcg729-1.0.4-win64ws.zip" = "9a095fda4c39860d96f0c568830faa6651cd17635f68e27aa6de46c689aa0ee2";
+    "brotli-1.0.2-4-win64ws.zip" = "f60636764f0e2539ad86d37826e90445a346291f8d046bd4f5c998301f200195";
     "c-ares-1.15.0-win64ws.zip" = "ade864fd08e887d353a9c939fa6e68b0bf3e08761b6e81f60ce15e6543256552";
     "gnutls-3.6.3-1-win64ws.zip" = "994ac2578e7b4ca01e589ab2598927d53f7370bc3ff679f3006b0e6bb7a06df4";
     "krb5-1.17-1-win64ws.zip" = "1f4a7ab86ae331ea9e58c9776a60def81ae9fe622882b2e8da2ad6ce6f6fb1d8";
@@ -97,6 +98,7 @@ $Win64Archives = @{
 $Win32Archives = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "09d637f28a79b1d2ecb09f35436271a90c0f69bd0a1ee82b803abaaf63c18a69";
     "bcg729-1.0.4-win32ws.zip" = "b785ec78dec6bca8252130eb884bfa28c1140001dd7369a535579176de9e4271";
+    "brotli-1.0.2-4-win32ws.zip" = "193a9b35e42a73f77dabe2c99c57173d7f2bb215118c1cd027a6cf522cc3dc14";
     "c-ares-1.15.0-win32ws.zip" = "a54151203a631b478470aaa21b3a1fde6178f2fea9f15a1a6da4bfcecc92cfcd";
     "gnutls-3.6.3-1-win32ws.zip" = "42d8313ffb888f525d6c39330c39bcc2182e68ee8433a09dd85e1f1e1474f592";
     "krb5-1.17-1-win32ws.zip" = "f90cac08355ccfe624652d3e05f8e2e077b8830382315d4ea0a6fa52af08260b";
@@ -123,12 +125,12 @@ $ArchivesSubDirectory = @{
 # Plain file downloads
 
 $Win32Files = @{
-    "npcap-0.992.exe" = "a41d6e8296ef55c71fc04c5775e5d0e5d04689fc2aaf7f6f908664db9670a1f9";
+    "npcap-0.993.exe" = "0d6c1ee21e7fd7fc7e1b8848401fcbff6d5674d78d1e25f4279347f98c9f5f09";
     "USBPcapSetup-1.3.0.0.exe" = "859b525bc83cddce2c04513094c50d5b5b9e0b11da685104423303280822cf8b";
 }
 
 $Win64Files = @{
-    "npcap-0.992.exe" = "a41d6e8296ef55c71fc04c5775e5d0e5d04689fc2aaf7f6f908664db9670a1f9";
+    "npcap-0.993.exe" = "0d6c1ee21e7fd7fc7e1b8848401fcbff6d5674d78d1e25f4279347f98c9f5f09";
     "USBPcapSetup-1.3.0.0.exe" = "859b525bc83cddce2c04513094c50d5b5b9e0b11da685104423303280822cf8b";
 }
 
@@ -144,6 +146,7 @@ if ($Platform -eq "win32") {
 
 $CleanupItems = @(
     "bcg729-1.0.4-win??ws"
+    "brotli-1.0.2-4-win??ws"
     "c-ares-1.9.1-1-win??ws"
     "c-ares-1.1*-win??ws"
     "gnutls-3.?.*-*-win??ws"
@@ -173,6 +176,7 @@ $CleanupItems = @(
     "upx301w"
     "upx303w"
     "user-guide"
+    "vcpkg-export-*-win??ws"
     "zlib-1.2.5"
     "zlib-1.2.8"
     "zlib-1.2.*-ws"

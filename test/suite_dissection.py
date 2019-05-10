@@ -16,6 +16,20 @@ import fixtures
 
 @fixtures.mark_usefixtures('test_env')
 @fixtures.uses_fixtures
+class case_dissect_http(subprocesstest.SubprocessTestCase):
+    def test_http_brotli_decompression(self, cmd_tshark, features, dirs, capture_file):
+        '''HTTP brotli decompression'''
+        if not features.have_brotli:
+            self.skipTest('Requires brotli.')
+        self.assertRun((cmd_tshark,
+                '-r', capture_file('http-brotli.pcapng'),
+                '-Y', 'http.response.code==200',
+                '-Tfields', '-etext',
+            ))
+        self.assertTrue(self.grepOutput('This is a test file for testing brotli decompression in Wireshark'))
+
+@fixtures.mark_usefixtures('test_env')
+@fixtures.uses_fixtures
 class case_dissect_http2(subprocesstest.SubprocessTestCase):
     def test_http2_data_reassembly(self, cmd_tshark, features, dirs, capture_file):
         '''HTTP2 data reassembly'''
@@ -27,6 +41,18 @@ class case_dissect_http2(subprocesstest.SubprocessTestCase):
                 '-o', 'tls.keylog_file: {}'.format(key_file),
                 '-d', 'tcp.port==8443,tls',
                 '-Y', 'http2.data.data matches "PNG" && http2.data.data matches "END"',
+            ))
+        self.assertTrue(self.grepOutput('DATA'))
+
+    def test_http2_brotli_decompression(self, cmd_tshark, features, dirs, capture_file):
+        '''HTTP2 brotli decompression'''
+        if not features.have_nghttp2:
+            self.skipTest('Requires nghttp2.')
+        if not features.have_brotli:
+            self.skipTest('Requires brotli.')
+        self.assertRun((cmd_tshark,
+                '-r', capture_file('http2-brotli.pcapng'),
+                '-Y', 'http2.data.data matches "This is a test file for testing brotli decompression in Wireshark"',
             ))
         self.assertTrue(self.grepOutput('DATA'))
 
@@ -146,3 +172,30 @@ class case_dissect_tcp(subprocesstest.SubprocessTestCase):
             '-Ytls', '-Tfields', '-eframe.number', '-etls.record.length', '-2'))
         output = proc.stdout_str.replace('\r', '')
         self.assertEqual(output, '2\t16\n')
+
+@fixtures.mark_usefixtures('test_env')
+@fixtures.uses_fixtures
+class case_dissect_tls(subprocesstest.SubprocessTestCase):
+    def check_tls_handshake_reassembly(self, cmd_tshark, capture_file,
+                                       extraArgs=[]):
+        # Include -zexpert just to be sure that no exception has occurred. It
+        # is not strictly necessary as the extension to be matched is the last
+        # one in the handshake message.
+        proc = self.assertRun([cmd_tshark,
+                               '-r', capture_file('tls-fragmented-handshakes.pcap.gz'),
+                               '-zexpert',
+                               '-Ytls.handshake.extension.data',
+                               '-Tfields', '-etls.handshake.extension.data'] + extraArgs)
+        output = proc.stdout_str.replace('\r', '').replace(',', '\n')
+        # Expected output are lines with 0001, 0002, ..., 03e8
+        expected = ''.join('%04x\n' % i for i in range(1, 1001))
+        self.assertEqual(output, expected)
+
+    def test_tls_handshake_reassembly(self, cmd_tshark, capture_file):
+        '''Verify that TCP and TLS handshake reassembly works.'''
+        self.check_tls_handshake_reassembly(cmd_tshark, capture_file)
+
+    def test_tls_handshake_reassembly_2(self, cmd_tshark, capture_file):
+        '''Verify that TCP and TLS handshake reassembly works (second pass).'''
+        self.check_tls_handshake_reassembly(
+            cmd_tshark, capture_file, extraArgs=['-2'])

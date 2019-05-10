@@ -83,6 +83,9 @@ elseif(MSVC_VERSION GREATER_EQUAL 1900)
 	set (MSVC_CRT_VERSION "VC140")
 endif()
 
+# Starting with Visual Studio 2019 merge modules are deprecated but
+# are available as an individual component.
+# https://docs.microsoft.com/en-us/visualstudio/releases/2019/release-notes#-deprecations
 set(MERGE_MODULE "Microsoft_${MSVC_CRT_VERSION}_CRT_${TARGET_MACHINE}.msm")
 set (PF86_ENV "ProgramFiles(x86)")
 
@@ -115,7 +118,7 @@ foreach(_dll ${GLIB2_DLLS} ${CARES_DLL} ${GCRYPT_DLLS}
 		${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLL} ${LUA_DLL}
 		${LZ4_DLL} ${NGHTTP2_DLL} ${SBC_DLL} ${SMI_DLL} ${SNAPPY_DLL}
 		${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLLS} ${WINSPARKLE_DLL}
-		${ZLIB_DLL}
+		${ZLIB_DLL} ${BROTLI_DLLS}
 		# Required for mmdbresolve
 		${MAXMINDDB_DLL}
 	)
@@ -143,7 +146,7 @@ foreach(_dll ${GLIB2_DLLS} ${CARES_DLL} ${GCRYPT_DLLS}
 		${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLL} ${LUA_DLL}
 		${LZ4_DLL} ${NGHTTP2_DLL} ${SBC_DLL} ${SMI_DLL} ${SNAPPY_DLL}
 		${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLLS} ${WINSPARKLE_DLL}
-		${ZLIB_DLL}
+		${ZLIB_DLL} ${BROTLI_DLLS}
 		# mmdbresolve
 		${MAXMINDDB_DLL}
 	)

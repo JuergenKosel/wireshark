@@ -1,92 +1,116 @@
 variables:
   GIT_SUBMODULE_STRATEGY: normal
-.ubuntu: &ubuntu
-  image: crondaemon/wireshark
+.build: &build
+  stage: build
+  after_script:
+    - for builddir in build/packaging/rpm/BUILD/wireshark-*/build build/packaging/rpm/BUILD/wireshark-* build; do [ ! -d "$builddir" ] || break; done
+    - if [ "$CI_JOB_NAME" = "rpm-opensuse-42.3" ]; then export LD_LIBRARY_PATH=$builddir/run; fi
+    - if [ -f $builddir/run/tshark ]; then $builddir/run/tshark --version; fi
+
+# The custom Ubuntu image pre-installs dependencies and compilers to speed up the build:
+# https://hub.docker.com/r/wireshark/wireshark-ubuntu-dev
+# https://github.com/wireshark/wireshark-ubuntu-dev-docker
+.build-ubuntu: &build-ubuntu
+  <<: *build
+  image: wireshark/wireshark-ubuntu-dev
   retry: 1
   before_script:
-    - rm -rf /etc/apt/sources.list.d/*
-    - echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial main" > /etc/apt/sources.list.d/clang.list
-    - echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main" > /etc/apt/sources.list.d/clang6.list
-    - echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" > /etc/apt/sources.list.d/clang7.list
-    - apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 15CF4D18AF4F7421
-    - echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu xenial main" > /etc/apt/sources.list.d/gcc.list
-    - apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 1E9377A2BA9EF27F
     - apt-get update -qq
+    - apt-get install -y python3-pip locales
+    - pip3 install pytest pytest-xdist
+    - useradd user
+    - locale-gen en_US.UTF-8
+    - export LANG=en_US.UTF-8
+    - export PYTEST_ADDOPTS=--skip-missing-programs=dumpcap,rawshark
+    - ./tools/debian-setup.sh --install-optional --install-test-deps -y
     - mkdir build
     - cd build
-.rpm: &rpm
+.build-rpm: &build-rpm
+  <<: *build
   artifacts:
     paths:
       - build/packaging/rpm/RPMS
     expire_in: 3 days
-gcc-4:
-  <<: *ubuntu
-  script:
-    - ../tools/debian-setup.sh --install-optional gcc-4.9 g++-4.9 -y
-    - cmake -GNinja -DCMAKE_C_COMPILER=gcc-4.9 -DCMAKE_CXX_COMPILER=g++-4.9 ..
-    - ninja
 gcc-5:
-  <<: *ubuntu
+  <<: *build-ubuntu
   only:
     - master
   script:
-    - ../tools/debian-setup.sh --install-optional gcc-5 g++-5 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_CXX_COMPILER=g++-5 ..
     - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 gcc-6:
-  <<: *ubuntu
+  <<: *build-ubuntu
   only:
     - master
   script:
-    - ../tools/debian-setup.sh --install-optional gcc-6 g++-6 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 ..
     - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 gcc-7:
-  <<: *ubuntu
+  <<: *build-ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional gcc-7 g++-7 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 ..
     - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 gcc-8:
-  <<: *ubuntu
+  <<: *build-ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional gcc-8 g++-8 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
     - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 gcc-8-nopcap:
-  <<: *ubuntu
+  <<: *build-ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional gcc-8 g++-8 -y
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
     - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 clang-5:
-  <<: *ubuntu
+  <<: *build-ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional clang-5.0 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=clang-5.0 -DCMAKE_CXX_COMPILER=clang++-5.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 clang-6:
-  <<: *ubuntu
+  <<: *build-ubuntu
   script:
-    - ../tools/debian-setup.sh --install-optional clang-6.0 -y
     - cmake -GNinja -DCMAKE_C_COMPILER=clang-6.0 -DCMAKE_CXX_COMPILER=clang++-6.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 clang-7:
-  <<: *ubuntu
+  <<: *build-ubuntu
   script:
-     - ../tools/debian-setup.sh --install-optional clang-7 -y
      - cmake -GNinja -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
      - ninja
+     - ninja test-programs
+     - chown -R user .
+     - su user -c pytest
 clang-7-nopcap:
-  <<: *ubuntu
+  <<: *build-ubuntu
   only:
     - master
   script:
-    - ../tools/debian-setup.sh --install-optional clang-7 -y
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
-rpm-centos-7:
-  <<: *rpm
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
+build:rpm-centos-7:
+  <<: *build-rpm
   image: centos:7
   only:
     - master
@@ -97,11 +121,21 @@ rpm-centos-7:
     - cd build
     - cmake3 -GNinja ..
     - ninja-build rpm-package
-rpm-opensuse-42.3:
-  <<: *rpm
+test:rpm-centos-7:
+  stage: test
+  image: centos:7
+  script:
+    - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    - yum --nogpgcheck localinstall -y build/packaging/rpm/RPMS/x86_64/*.rpm
+    - tshark --version
+  dependencies:
+    - build:rpm-centos-7
+  variables:
+    GIT_STRATEGY: none
+.build-rpm-opensuse: &build-rpm-opensuse
+  <<: *build-rpm
   only:
     - master
-  image: opensuse:42.3
   script:
     - zypper --non-interactive install update-desktop-files
     - tools/rpm-setup.sh --install-optional ruby
@@ -110,11 +144,33 @@ rpm-opensuse-42.3:
     - cd build
     - cmake -GNinja ..
     - ninja rpm-package
-rpm-fedora-28:
-  <<: *rpm
+.test-rpm-opensuse: &test-rpm-opensuse
+  stage: test
+  script:
+    - zypper --no-gpg-checks install -y build/packaging/rpm/RPMS/x86_64/*.rpm
+    - tshark --version
+  variables:
+    GIT_STRATEGY: none
+build:rpm-opensuse-42.3:
+  <<: *build-rpm-opensuse
+  image: opensuse:42.3
+test:rpm-opensuse-42.3:
+  <<: *test-rpm-opensuse
+  image: opensuse:42.3
+  dependencies:
+    - build:rpm-opensuse-42.3
+build:rpm-opensuse-15.0:
+  <<: *build-rpm-opensuse
+  image: opensuse/leap:15.0
+test:rpm-opensuse-15.0:
+  <<: *test-rpm-opensuse
+  image: opensuse/leap:15.0
+  dependencies:
+    - build:rpm-opensuse-15.0
+.build-rpm-fedora: &build-rpm-fedora
+  <<: *build-rpm
   only:
     - master
-  image: fedora:28
   script:
     - dnf upgrade -y
     - tools/rpm-setup.sh --install-optional -y
@@ -122,7 +178,26 @@ rpm-fedora-28:
     - cd build
     - cmake3 -GNinja ..
     - ninja-build rpm-package
-after_script:
-  - for builddir in build/packaging/rpm/BUILD/wireshark-*/build build/packaging/rpm/BUILD/wireshark-* build; do [ ! -d "$builddir" ] || break; done
-  - if [ "$CI_JOB_NAME" = "rpm-opensuse-42.3" ]; then export LD_LIBRARY_PATH=$builddir/run; fi
-  - if [ -f $builddir/run/tshark ]; then $builddir/run/tshark --version; fi
+.test-rpm-fedora: &test-rpm-fedora
+  stage: test
+  script:
+    - dnf install -y build/packaging/rpm/RPMS/x86_64/*.rpm
+    - tshark --version
+  variables:
+    GIT_STRATEGY: none
+build:rpm-fedora-28:
+  <<: *build-rpm-fedora
+  image: fedora:28
+test:rpm-fedora-28:
+  <<: *test-rpm-fedora
+  image: fedora:28
+  dependencies:
+    - build:rpm-fedora-28
+build:rpm-fedora-29:
+  <<: *build-rpm-fedora
+  image: fedora:29
+test:rpm-fedora-29:
+  <<: *test-rpm-fedora
+  image: fedora:29
+  dependencies:
+    - build:rpm-fedora-29

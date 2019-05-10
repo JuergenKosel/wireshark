@@ -12,9 +12,9 @@
 
 /*
  * See https://quicwg.org
- * https://tools.ietf.org/html/draft-ietf-quic-transport-18
- * https://tools.ietf.org/html/draft-ietf-quic-tls-18
- * https://tools.ietf.org/html/draft-ietf-quic-invariants-03
+ * https://tools.ietf.org/html/draft-ietf-quic-transport-20
+ * https://tools.ietf.org/html/draft-ietf-quic-tls-20
+ * https://tools.ietf.org/html/draft-ietf-quic-invariants-04
  */
 
 #include <config.h>
@@ -307,6 +307,7 @@ const value_string quic_version_vals[] = {
     { 0xff000011, "draft-17" },
     { 0xff000012, "draft-18" },
     { 0xff000013, "draft-19" },
+    { 0xff000014, "draft-20" },
     { 0, NULL }
 };
 
@@ -428,6 +429,7 @@ static const range_string quic_transport_error_code_vals[] = {
     { 0x0009, 0x0009, "VERSION_NEGOTIATION_ERROR" }, // removed in draft -19
     { 0x000A, 0x000A, "PROTOCOL_VIOLATION" },
     { 0x000C, 0x000C, "INVALID_MIGRATION" },
+    { 0x000D, 0x000D, "CRYPTO_BUFFER_EXCEEDED" },
     { 0x0100, 0x01FF, "CRYPTO_ERROR" },
     { 0, 0, NULL }
 };
@@ -1010,7 +1012,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
                  * after capturing the packets due to processing delay.)
                  * These keys will be loaded in the first HS/0-RTT/1-RTT msg.
                  */
-                call_dissector(tls13_handshake_handle, next_tvb, pinfo, ft_tree);
+                call_dissector_with_data(tls13_handshake_handle, next_tvb, pinfo, ft_tree, GUINT_TO_POINTER(crypto_offset));
                 col_set_writable(pinfo->cinfo, -1, TRUE);
             }
             offset += (guint32)crypto_length;
@@ -1819,7 +1821,7 @@ dissect_quic_long_header_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *q
     return offset;
 }
 
-/* Retry Packet dissection for draft -13 and newer. */
+/* Retry Packet dissection */
 static int
 dissect_quic_retry_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree,
                           quic_datagram *dgram_info _U_, quic_packet_info_t *quic_packet)
@@ -1831,16 +1833,15 @@ dissect_quic_retry_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
     guint       retry_token_len;
 
     proto_tree_add_item(quic_tree, hf_quic_long_packet_type, tvb, offset, 1, ENC_NA);
-    offset += 1;
-    col_set_str(pinfo->cinfo, COL_INFO, "Retry");
-
-    offset = dissect_quic_long_header_common(tvb, pinfo, quic_tree, offset, quic_packet, &version, &dcid, &scid);
-
     proto_tree_add_item_ret_uint(quic_tree, hf_quic_odcil, tvb, offset, 1, ENC_NA, &odcil);
     if (odcil) {
         odcil += 3;
     }
     offset += 1;
+    col_set_str(pinfo->cinfo, COL_INFO, "Retry");
+
+    offset = dissect_quic_long_header_common(tvb, pinfo, quic_tree, offset, quic_packet, &version, &dcid, &scid);
+
     proto_tree_add_item(quic_tree, hf_quic_odcid, tvb, offset, odcil, ENC_NA);
     offset += odcil;
     retry_token_len = tvb_reported_length_remaining(tvb, offset);
