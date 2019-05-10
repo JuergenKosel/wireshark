@@ -248,7 +248,7 @@ build-debian-deb:
     - ./tools/debian-setup.sh --install-optional --install-test-deps -y --install-deb-deps
     - apt-get install -y lsb-release libbrotli-dev
   script:
-    - dpkg-buildpackage -us -uc
+    - dpkg-buildpackage -us -uc -J$(nproc)
     - mkdir debian-packages
     - mv ../*.deb debian-packages/
   artifacts:
