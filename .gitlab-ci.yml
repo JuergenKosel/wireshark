@@ -114,6 +114,8 @@ clang-7-nopcap:
     - su user -c pytest-3
 build:rpm-centos-7:
   <<: *build-rpm
+  only:
+    - master
   image: centos:7
   script:
     - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
@@ -127,6 +129,8 @@ test:rpm-centos-7:
     - master
   stage: test
   image: centos:7
+  only:
+    - master
   script:
     - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
     - yum --nogpgcheck localinstall -y build/packaging/rpm/RPMS/x86_64/*.rpm
