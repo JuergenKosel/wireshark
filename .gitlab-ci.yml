@@ -42,6 +42,8 @@ gcc-5:
     - su user -c pytest-3
 gcc-6:
   <<: *build-ubuntu
+  only:
+    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 ..
     - ninja
@@ -50,6 +52,8 @@ gcc-6:
     - su user -c pytest-3
 gcc-7:
   <<: *build-ubuntu
+  only:
+    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 ..
     - ninja
