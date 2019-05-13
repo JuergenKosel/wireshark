@@ -242,4 +242,4 @@ build-debian-deb:
   artifacts:
     paths:
       - debian-packages/*.deb
-    expire_in: 3 days
+    expire_in: 33 days
