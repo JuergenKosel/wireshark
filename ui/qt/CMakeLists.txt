@@ -34,12 +34,15 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/label_stack.h
 	widgets/overlay_scroll_bar.h
 	widgets/pref_module_view.h
+	widgets/packet_list_header.h
 	widgets/qcustomplot.h
 	widgets/range_syntax_lineedit.h
+	widgets/splash_overlay.h
 	widgets/stock_icon_tool_button.h
 	widgets/syntax_line_edit.h
 	widgets/tabnav_tree_view.h
 	widgets/wireshark_file_dialog.h
+	widgets/wireless_timeline.h
 )
 
 set(WIRESHARK_MANAGER_HEADERS
@@ -82,6 +85,7 @@ set(WIRESHARK_MODEL_HEADERS
 	models/packet_list_model.h
 	models/packet_list_record.h
 	models/path_chooser_delegate.h
+	models/credentials_model.h
 	models/percent_bar_delegate.h
 	models/pref_delegate.h
 	models/pref_models.h
@@ -176,6 +180,7 @@ set(WIRESHARK_QT_HEADERS
 	packet_format_group_box.h
 	packet_list.h
 	packet_range_group_box.h
+	credentials_dialog.h
 	preference_editor_frame.h
 	preferences_dialog.h
 	print_dialog.h
@@ -204,7 +209,6 @@ set(WIRESHARK_QT_HEADERS
 	sequence_diagram.h
 	sequence_dialog.h
 	show_packet_bytes_dialog.h
-	splash_overlay.h
 	stats_tree_dialog.h
 	service_response_time_dialog.h
 	simple_statistics_dialog.h
@@ -218,7 +222,6 @@ set(WIRESHARK_QT_HEADERS
 	uat_frame.h
 	voip_calls_dialog.h
 	wireless_frame.h
-	wireless_timeline.h
 	wireshark_application.h
 	wireshark_dialog.h
 	wlan_statistics_dialog.h
@@ -256,12 +259,15 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/interface_toolbar_lineedit.cpp
 	widgets/label_stack.cpp
 	widgets/overlay_scroll_bar.cpp
+	widgets/packet_list_header.cpp
 	widgets/pref_module_view.cpp
 	widgets/qcustomplot.cpp
 	widgets/range_syntax_lineedit.cpp
+	widgets/splash_overlay.cpp
 	widgets/stock_icon_tool_button.cpp
 	widgets/syntax_line_edit.cpp
 	widgets/tabnav_tree_view.cpp
+	widgets/wireless_timeline.cpp
 	widgets/wireshark_file_dialog.cpp
 )
 
@@ -301,6 +307,7 @@ set(WIRESHARK_MODEL_SRCS
 	models/numeric_value_chooser_delegate.cpp
 	models/packet_list_model.cpp
 	models/packet_list_record.cpp
+	models/credentials_model.cpp
 	models/path_chooser_delegate.cpp
 	models/percent_bar_delegate.cpp
 	models/pref_delegate.cpp
@@ -388,6 +395,7 @@ set(WIRESHARK_QT_SRC
 	packet_format_group_box.cpp
 	packet_list.cpp
 	packet_range_group_box.cpp
+	credentials_dialog.cpp
 	preference_editor_frame.cpp
 	preferences_dialog.cpp
 	print_dialog.cpp
@@ -419,7 +427,6 @@ set(WIRESHARK_QT_SRC
 	show_packet_bytes_dialog.cpp
 	simple_dialog.cpp
 	simple_statistics_dialog.cpp
-	splash_overlay.cpp
 	supported_protocols_dialog.cpp
 	tabnav_tree_widget.cpp
 	tap_parameter_dialog.cpp
@@ -430,7 +437,6 @@ set(WIRESHARK_QT_SRC
 	uat_frame.cpp
 	voip_calls_dialog.cpp
 	wireless_frame.cpp
-	wireless_timeline.cpp
 	wireshark_application.cpp
 	wireshark_dialog.cpp
 	${WIRESHARK_CUSTOM_QT_SRCS}
@@ -518,6 +524,7 @@ set(WIRESHARK_QT_UI
 	packet_dialog.ui
 	packet_format_group_box.ui
 	packet_range_group_box.ui
+	credentials_dialog.ui
 	preference_editor_frame.ui
 	preferences_dialog.ui
 	print_dialog.ui
@@ -538,7 +545,7 @@ set(WIRESHARK_QT_UI
 	search_frame.ui
 	sequence_dialog.ui
 	show_packet_bytes_dialog.ui
-	splash_overlay.ui
+	widgets/splash_overlay.ui
 	supported_protocols_dialog.ui
 	tap_parameter_dialog.ui
 	tcp_stream_dialog.ui

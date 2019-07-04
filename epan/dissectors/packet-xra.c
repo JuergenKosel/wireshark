@@ -68,16 +68,22 @@ static gint hf_xra_tlv_grant_size = -1;
 static gint hf_xra_tlv_segment_header_present = -1;
 static gint hf_xra_tlv_ncp_trunc = -1;
 static gint hf_xra_tlv_ncp_symbolid = -1;
+
+/*
+ * Minislot Info
+ */
+static gint hf_xra_tlv_start_minislot_id_abs = -1;
+static gint hf_xra_tlv_start_minislot_id_rel = -1;
+static gint hf_xra_tlv_stop_minislot_id_rel = -1;
+
 /*
  *Ranging TLV
- */
-static gint hf_xra_tlv_ranging_start_minislot_id_abs = -1;
-static gint hf_xra_tlv_ranging_start_minislot_id_rel = -1;
-static gint hf_xra_tlv_ranging_stop_minislot_id_rel = -1;
+*/
 static gint hf_xra_tlv_ranging_number_ofdma_frames = -1;
-static gint hf_xra_tlv_ranging_mer = -1;
 static gint hf_xra_tlv_ranging_timing_adjust = -1;
-static gint hf_xra_tlv_ranging_power_level = -1;
+
+static gint hf_xra_tlv_power_level = -1;
+static gint hf_xra_tlv_mer = -1;
 static gint hf_xra_tlv_subslot_id =-1;
 static gint hf_xra_tlv_control_word = -1;
 
@@ -186,6 +192,7 @@ static int dissect_ofdma_segment(tvbuff_t * tvb, packet_info* pinfo, proto_tree 
 #define XRA_PACKETTYPE_OFDM_DOCSIS 8
 #define XRA_PACKETTYPE_OFDM_NCP 9
 #define XRA_PACKETTYPE_OFDM_PLC 10
+#define XRA_PACKETTYPE_OFDM_PLC_MMM 11
 
 #define XRA_PACKETTYPE_TDMA_BURST 65
 #define XRA_PACKETTYPE_OFDMA_DATA_BURST 72
@@ -266,6 +273,7 @@ static const value_string packettype[] = {
   {XRA_PACKETTYPE_OFDM_DOCSIS, "OFDM DOCSIS"},
   {XRA_PACKETTYPE_OFDM_NCP, "OFDM NCP"},
   {XRA_PACKETTYPE_OFDM_PLC, "OFDM PLC"},
+  {XRA_PACKETTYPE_OFDM_PLC_MMM, "OFDM PLC MMM"},
   {XRA_PACKETTYPE_TDMA_BURST, "TDMA Burst"},
   {XRA_PACKETTYPE_OFDMA_DATA_BURST, "OFDMA Data Burst"},
   {XRA_PACKETTTYPE_OFDMA_INITIAL_RANGING, "OFDMA Initial Ranging"},
@@ -374,18 +382,6 @@ static const value_string control_word_vals[] = {
   { 0, NULL}
 };
 
-static void
-mer_fourth_db(char *buf, guint32 value)
-{
-    g_snprintf(buf, ITEM_LABEL_LENGTH, "%f dB", value/4.0);
-}
-
-static void
-mer_tenth_db_signed(char *buf, guint32 value)
-{
-    g_snprintf(buf, ITEM_LABEL_LENGTH, "%f dB", ((gint32) value)/10.0);
-}
-
 static int
 dissect_xra(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _U_) {
   proto_item *it;
@@ -427,43 +423,44 @@ dissect_xra(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _
   switch(packet_type) {
     case XRA_PACKETTYPE_DS_SCQAM_DOCSIS_MACFRAME:
     case XRA_PACKETTYPE_OFDM_DOCSIS:
+    case XRA_PACKETTYPE_OFDM_PLC_MMM:
       /*Calling docsis dissector*/
-      docsis_tvb = tvb_new_subset_length(tvb, xra_length, tvb_captured_length_remaining(tvb, xra_length));
+      docsis_tvb = tvb_new_subset_remaining(tvb, xra_length);
       if (docsis_handle) {
         call_dissector (docsis_handle, docsis_tvb, pinfo, tree);
       }
       break;
     case XRA_PACKETTYPE_OFDM_PLC:
-      plc_tvb = tvb_new_subset_length(tvb, xra_length, tvb_captured_length_remaining(tvb, xra_length));
+      plc_tvb = tvb_new_subset_remaining(tvb, xra_length);
       return dissect_plc(plc_tvb , pinfo, tree, data);
     case XRA_PACKETTYPE_OFDM_NCP:
-      ncp_tvb = tvb_new_subset_length(tvb, xra_length, tvb_captured_length_remaining(tvb, xra_length));
+      ncp_tvb = tvb_new_subset_remaining(tvb, xra_length);
       return dissect_ncp(ncp_tvb, tree, data);
     case XRA_PACKETTYPE_TDMA_BURST:
     case XRA_PACKETTYPE_OFDMA_DATA_BURST:
       if(segment_header_present) {
         col_append_str(pinfo->cinfo, COL_INFO, ": Segment");
-        segment_tvb = tvb_new_subset_length(tvb, xra_length, tvb_captured_length_remaining(tvb, xra_length));
+        segment_tvb = tvb_new_subset_remaining(tvb, xra_length);
         return dissect_ofdma_segment(segment_tvb, pinfo, tree, data);
       }
       break;
     case XRA_PACKETTYPE_OFDMA_REQ:
     case XRA_PACKETTYPE_US_DOCSIS_MACFRAME:
       /*Calling docsis dissector*/
-      docsis_tvb = tvb_new_subset_length(tvb, xra_length, tvb_captured_length_remaining(tvb, xra_length));
+      docsis_tvb = tvb_new_subset_remaining(tvb, xra_length);
       if (docsis_handle) {
         call_dissector (docsis_handle, docsis_tvb, pinfo, tree);
       }
       break;
     case XRA_PACKETTTYPE_OFDMA_FINE_RANGING:
       /*Calling docsis dissector*/
-      docsis_tvb = tvb_new_subset_length(tvb, xra_length, tvb_captured_length_remaining(tvb, xra_length));
+      docsis_tvb = tvb_new_subset_remaining(tvb, xra_length);
       if (docsis_handle) {
         call_dissector (docsis_handle, docsis_tvb, pinfo, tree);
       }
       break;
     case XRA_PACKETTTYPE_OFDMA_INITIAL_RANGING:
-      init_ranging_tvb = tvb_new_subset_length(tvb, xra_length, tvb_captured_length_remaining(tvb, xra_length));
+      init_ranging_tvb = tvb_new_subset_remaining(tvb, xra_length);
       return dissect_init_ranging(init_ranging_tvb, tree, data);
     default:
       proto_tree_add_item (xra_tree, hf_xra_unknown, tvb, 1, 1, ENC_NA);
@@ -544,13 +541,13 @@ dissect_xra_tlv_ms_info(tvbuff_t * tvb, proto_tree * tree, void* data _U_, guint
     ++tlv_index;
     switch (type) {
       case XRA_TLV_MINISLOT_INFO_START_MINISLOT_ID:
-        proto_tree_add_item (xra_tlv_ms_info_tree, hf_xra_tlv_ranging_start_minislot_id_abs, tvb, tlv_index, length, ENC_BIG_ENDIAN);
+        proto_tree_add_item (xra_tlv_ms_info_tree, hf_xra_tlv_start_minislot_id_abs, tvb, tlv_index, length, ENC_BIG_ENDIAN);
         break;
       case XRA_TLV_MINISLOT_INFO_REL_START_MINISLOT:
-        proto_tree_add_item (xra_tlv_ms_info_tree, hf_xra_tlv_ranging_start_minislot_id_rel, tvb, tlv_index, length, ENC_BIG_ENDIAN);
+        proto_tree_add_item (xra_tlv_ms_info_tree, hf_xra_tlv_start_minislot_id_rel, tvb, tlv_index, length, ENC_BIG_ENDIAN);
         break;
       case XRA_TLV_MINISLOT_INFO_REL_STOP_MINISLOT:
-        proto_tree_add_item (xra_tlv_ms_info_tree, hf_xra_tlv_ranging_stop_minislot_id_rel, tvb, tlv_index, length, ENC_BIG_ENDIAN);
+        proto_tree_add_item (xra_tlv_ms_info_tree, hf_xra_tlv_stop_minislot_id_rel, tvb, tlv_index, length, ENC_BIG_ENDIAN);
         break;
       default:
         proto_tree_add_item (xra_tlv_ms_info_tree, hf_xra_unknown, tvb, tlv_index, length, ENC_NA);
@@ -605,6 +602,7 @@ dissect_xra_tlv(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
   proto_item *it;
   proto_tree *xra_tlv_tree;
   guint symbol_id;
+  double mer, power_level;
 
   it = proto_tree_add_item (tree, hf_xra_tlv, tvb, 0, tlv_length, ENC_NA);
   xra_tlv_tree = proto_item_add_subtree (it, ett_xra_tlv);
@@ -645,7 +643,8 @@ dissect_xra_tlv(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
         col_append_fstr(pinfo->cinfo, COL_INFO, ": (SymbolId: %u):", symbol_id);
         break;
       case XRA_MER:
-        proto_tree_add_item (xra_tlv_tree, hf_xra_tlv_ranging_mer, tvb, tlv_index, length, ENC_BIG_ENDIAN);
+        mer = tvb_get_guint8(tvb, tlv_index)/4.0;
+        proto_tree_add_double_format_value(xra_tlv_tree, hf_xra_tlv_mer, tvb, tlv_index, length, mer, "%.2f dB", mer);
         break;
       case XRA_US_CHANNEL_ID:
         proto_tree_add_item (xra_tlv_tree, hf_xra_tlv_us_channel_id, tvb, tlv_index, length, ENC_BIG_ENDIAN);
@@ -683,7 +682,8 @@ dissect_xra_tlv(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* da
         proto_tree_add_item (xra_tlv_tree, hf_xra_tlv_ranging_timing_adjust, tvb, tlv_index, length, ENC_BIG_ENDIAN);
         break;
       case XRA_ESTIMATED_POWER_LEVEL:
-        proto_tree_add_item (xra_tlv_tree, hf_xra_tlv_ranging_power_level, tvb, tlv_index, length, ENC_BIG_ENDIAN);
+        power_level = ((gint16) (256*tvb_get_guint8(tvb, tlv_index) + tvb_get_guint8(tvb, tlv_index+1)) )/10.0;
+        proto_tree_add_double_format_value(xra_tlv_tree, hf_xra_tlv_power_level, tvb, tlv_index, length, power_level, "%.1f dBmV", power_level);
         break;
       case XRA_SUBSLOT_ID:
         proto_tree_add_item (xra_tlv_tree, hf_xra_tlv_subslot_id, tvb, tlv_index, length, ENC_BIG_ENDIAN);
@@ -746,16 +746,19 @@ dissect_message_channel_mb(tvbuff_t * tvb, packet_info * pinfo, proto_tree* tree
   guint packet_start_pointer_field_present, packet_start_pointer;
 
   proto_tree_add_item_ret_uint (tree, hf_plc_mb_mc_pspf_present, tvb, 0, 1, FALSE, &packet_start_pointer_field_present);
-  proto_tree_add_item_ret_uint (tree, hf_plc_mb_mc_psp, tvb, 1, 2, FALSE, &packet_start_pointer);
 
   /*If not present, this contains stuff from other packet. We can't do much in this case*/
   if(packet_start_pointer_field_present) {
+    proto_tree_add_item_ret_uint (tree, hf_plc_mb_mc_psp, tvb, 1, 2, FALSE, &packet_start_pointer);
+
     guint16 docsis_start = 3 + packet_start_pointer;
-    if(docsis_start +6 < remaining_length) {
+    while (docsis_start + 6 < remaining_length) {
       /*DOCSIS header in packet*/
       guint8 fc = tvb_get_guint8(tvb,docsis_start + 0);
       if (fc == 0xFF) {
-        return;
+        //skip fill bytes
+        docsis_start += 1;
+        continue;
       }
       guint16 docsis_length = 256*tvb_get_guint8(tvb,docsis_start + 2) + tvb_get_guint8(tvb,docsis_start + 3);
       if (docsis_start + 6 + docsis_length <= remaining_length) {
@@ -765,8 +768,11 @@ dissect_message_channel_mb(tvbuff_t * tvb, packet_info * pinfo, proto_tree* tree
         docsis_tvb = tvb_new_subset_length(tvb, docsis_start, docsis_length + 6);
         if (docsis_handle) {
           call_dissector (docsis_handle, docsis_tvb, pinfo, tree);
+          col_append_str(pinfo->cinfo, COL_INFO, "; ");
+          col_set_fence(pinfo->cinfo,COL_INFO);
         }
       }
+      docsis_start += 6 + docsis_length;
     }
   }
 }
@@ -856,7 +862,7 @@ dissect_plc(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _
         break;
       case PLC_MESSAGE_CHANNEL_MB:
         last_mb = 1;
-        mb_length = tvb_captured_length_remaining(tvb, offset);
+        mb_length = tvb_reported_length_remaining(tvb, offset);
         col_append_str(pinfo->cinfo, COL_INFO, "MC-MB");
         break;
       case PLC_TRIGGER_MB:
@@ -869,7 +875,7 @@ dissect_plc(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data _
         col_append_str(pinfo->cinfo, COL_INFO, "FUT-MB, ");
         break;
     }
-    mb_tvb = tvb_new_subset_length(tvb, offset, tvb_captured_length_remaining(tvb, offset));
+    mb_tvb = tvb_new_subset_remaining(tvb, offset);
     dissect_message_block(mb_tvb,pinfo, plc_tree, mb_type, mb_length);
 
     if (last_mb) {
@@ -941,7 +947,7 @@ dissect_ofdma_segment(tvbuff_t * tvb, packet_info* pinfo, proto_tree * tree, voi
   guint16 fcs = g_ntohs(crc16_ccitt_tvb(tvb, 6));
   proto_tree_add_checksum(segment_tree, tvb, 6, hf_docsis_segment_hcs, hf_docsis_segment_hcs_status, &ei_docsis_segment_hcs_bad, pinfo, fcs, ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY);
 
-  proto_tree_add_item (segment_tree, hf_docsis_segment_data, tvb, 8, tvb_captured_length_remaining(tvb, 8), ENC_NA);
+  proto_tree_add_item (segment_tree, hf_docsis_segment_data, tvb, 8, tvb_reported_length_remaining(tvb, 8), ENC_NA);
 
   return tvb_captured_length(tvb);
 }
@@ -1051,30 +1057,25 @@ proto_register_xra (void)
         FT_UINT32, BASE_DEC, NULL, 0x0,
         NULL, HFILL}
     },
-    /*Ranging*/
-    {&hf_xra_tlv_ranging_start_minislot_id_abs,
-      {"Start Minislot ID (absolute)", "xra.tlv.ranging.start_minislot_id_abs",
+    {&hf_xra_tlv_start_minislot_id_abs,
+      {"Start Minislot ID (absolute)", "xra.tlv.ms_info.start_minislot_id_abs",
         FT_UINT32, BASE_DEC, NULL, 0x0,
         NULL, HFILL}
     },
-    {&hf_xra_tlv_ranging_start_minislot_id_rel,
-      {"Start Minislot ID (relative)", "xra.tlv.ranging.start_minislot_id_rel",
+    {&hf_xra_tlv_start_minislot_id_rel,
+      {"Start Minislot ID (relative)", "xra.tlv.ms_info.start_minislot_id_rel",
         FT_UINT8, BASE_DEC, NULL, 0x0,
         NULL, HFILL}
     },
-    {&hf_xra_tlv_ranging_stop_minislot_id_rel,
-      {"Stop Minislot ID (relative)", "xra.tlv.ranging.stop_minislot_id_rel",
+    {&hf_xra_tlv_stop_minislot_id_rel,
+      {"Stop Minislot ID (relative)", "xra.tlv.ms_info.stop_minislot_id_rel",
         FT_UINT8, BASE_DEC, NULL, 0x0,
         NULL, HFILL}
     },
+    /*Ranging*/
     {&hf_xra_tlv_ranging_number_ofdma_frames,
       {"Number of OFDMA frames", "xra.tlv.ranging.number_ofdma_frames",
         FT_UINT16, BASE_DEC, NULL, 0x0,
-        NULL, HFILL}
-    },
-    {&hf_xra_tlv_ranging_mer,
-      {"MER", "xra.tlv.ranging.mer",
-        FT_UINT8, BASE_CUSTOM, CF_FUNC(mer_fourth_db), 0x0,
         NULL, HFILL}
     },
     {&hf_xra_tlv_ranging_timing_adjust,
@@ -1082,9 +1083,14 @@ proto_register_xra (void)
         FT_INT32, BASE_DEC, NULL, 0x0,
         NULL, HFILL}
     },
-    {&hf_xra_tlv_ranging_power_level,
-      {"Estimated Power Level (0.10 dB units, signed)", "xra.tlv.ranging.power_level",
-        FT_INT16, BASE_CUSTOM, CF_FUNC(mer_tenth_db_signed), 0x0,
+    {&hf_xra_tlv_power_level,
+      {"Estimated Power Level", "xra.tlv.power_level",
+        FT_DOUBLE, BASE_NONE, NULL, 0x0,
+        NULL, HFILL}
+    },
+    {&hf_xra_tlv_mer,
+      {"MER", "xra.tlv.mer",
+        FT_DOUBLE, BASE_NONE, NULL, 0x0,
         NULL, HFILL}
     },
     {&hf_xra_tlv_subslot_id,

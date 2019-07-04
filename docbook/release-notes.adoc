@@ -17,8 +17,8 @@ used for troubleshooting, analysis, development and education.
 
 == What’s New
 
-Many user interface improvements have been made. See the “New and Updated
-Features” section below for more details.
+Many improvements have been made. See the “New and Updated Features”
+section below for more details.
 
 // === Bug Fixes
 
@@ -34,9 +34,16 @@ Features” section below for more details.
 The following features are new (or have been significantly updated)
 since version 3.0.0:
 
+* Dark mode support on macOS and dark theme support on other platforms
+  has been improved.
 * Brotli decompression support in HTTP/HTTP2 (requires the brotli library).
 * The build system now checks for a SpeexDSP system library installation. The
   bundled Speex resampler code is still provided as a fallback.
+* WireGuard decryption can now be enabled through keys embedded in a pcapng in
+  addition to the existing key log preference (wsbuglink:15571[]).
+* A new tap for extracting credentials from the capture file has been added.
+  It can be accessed through the "-z credentials" option in tshark or from the
+  "tools" menu in Wireshark.
 
 // === Removed Features and Support
 
@@ -57,6 +64,12 @@ evolved Common Public Radio Interface (eCPRI)
 Distributed Replicated Block Device (DRBD)
 GSM/3GPP CBSP (Cell Broadcast Service Protocol)
 NVM Express over Fabrics for TCP (nvme-tcp)
+Graylog Extended Log Format over UDP (GELF)
+FTDI FT USB Bridging Devices (FTDI FT)
+CableLabs Layer-3 Protocol IEEE EtherType 0xb4e3 (CL3)
+Dual Channel Wi-Fi (CL3DCW)
+NR Positioning Protocol A (NRPPa) TS 38.455
+Network Controller Sideband Interface (NCSI)
 --
 
 === Updated Protocol Support

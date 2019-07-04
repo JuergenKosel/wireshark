@@ -1180,6 +1180,15 @@ const value_string tls_hello_ext_server_name_type_vs[] = {
     { 0, NULL }
 };
 
+/* RFC 6066 Section 4 */
+const value_string tls_hello_ext_max_fragment_length[] = {
+    { 1, "512" },  // 2^9
+    { 2, "1024" }, // 2^10
+    { 3, "2048" }, // 2^11
+    { 4, "4096" }, // 2^12
+    { 0, NULL }
+};
+
 /* RFC 8446 Section 4.2.9 */
 const value_string tls_hello_ext_psk_ke_mode[] = {
     { 0, "PSK-only key establishment (psk_ke)" },
@@ -1358,6 +1367,7 @@ static const ssl_alpn_prefix_match_protocol_t ssl_alpn_prefix_match_protocols[] 
 const value_string compress_certificate_algorithm_vals[] = {
     { 1, "zlib" },
     { 2, "brotli" },
+    { 3, "zstd" },
     { 0, NULL }
 };
 
@@ -4693,13 +4703,6 @@ ssl_common_init(ssl_master_key_map_t *mk_map,
     mk_map->tls13_exporter = g_hash_table_new(ssl_hash, ssl_equal);
     ssl_data_alloc(decrypted_data, 32);
     ssl_data_alloc(compressed_data, 32);
-
-    /* QUIC keys. */
-    mk_map->quic_client_early = g_hash_table_new(ssl_hash, ssl_equal);
-    mk_map->quic_client_handshake = g_hash_table_new(ssl_hash, ssl_equal);
-    mk_map->quic_server_handshake = g_hash_table_new(ssl_hash, ssl_equal);
-    mk_map->quic_client_appdata = g_hash_table_new(ssl_hash, ssl_equal);
-    mk_map->quic_server_appdata = g_hash_table_new(ssl_hash, ssl_equal);
 }
 
 void
@@ -4721,13 +4724,6 @@ ssl_common_cleanup(ssl_master_key_map_t *mk_map, FILE **ssl_keylog_file,
 
     g_free(decrypted_data->data);
     g_free(compressed_data->data);
-
-    /* QUIC keys */
-    g_hash_table_destroy(mk_map->quic_client_early);
-    g_hash_table_destroy(mk_map->quic_client_handshake);
-    g_hash_table_destroy(mk_map->quic_server_handshake);
-    g_hash_table_destroy(mk_map->quic_client_appdata);
-    g_hash_table_destroy(mk_map->quic_server_appdata);
 
     /* close the previous keylog file now that the cache are cleared, this
      * allows the cache to be filled with the full keylog file contents. */
@@ -5147,20 +5143,15 @@ ssl_compile_keyfile_regex(void)
         ")(?<master_secret>" OCTET "{" G_STRINGIFY(SSL_MASTER_SECRET_LENGTH) "})"
         "|(?"
         /* TLS 1.3 Client Random to Derived Secrets mapping. */
-        ":CLIENT_EARLY_TRAFFIC_SECRET (?<client_early>" OCTET "{32})"
-        "|CLIENT_HANDSHAKE_TRAFFIC_SECRET (?<client_handshake>" OCTET "{32})"
-        "|SERVER_HANDSHAKE_TRAFFIC_SECRET (?<server_handshake>" OCTET "{32})"
-        "|CLIENT_TRAFFIC_SECRET_0 (?<client_appdata>" OCTET "{32})"
-        "|SERVER_TRAFFIC_SECRET_0 (?<server_appdata>" OCTET "{32})"
+        /* Since draft-ietf-quic-tls-17 keys are the same as TLS 1.3.
+         * TODO remove this old format. */
+        ":(?:QUIC_)?CLIENT_EARLY_TRAFFIC_SECRET (?<client_early>" OCTET "{32})"
+        "|(?:QUIC_)?CLIENT_HANDSHAKE_TRAFFIC_SECRET (?<client_handshake>" OCTET "{32})"
+        "|(?:QUIC_)?SERVER_HANDSHAKE_TRAFFIC_SECRET (?<server_handshake>" OCTET "{32})"
+        "|(?:QUIC_)?CLIENT_TRAFFIC_SECRET_0 (?<client_appdata>" OCTET "{32})"
+        "|(?:QUIC_)?SERVER_TRAFFIC_SECRET_0 (?<server_appdata>" OCTET "{32})"
         "|EARLY_EXPORTER_SECRET (?<early_exporter>" OCTET "{32})"
         "|EXPORTER_SECRET (?<exporter>" OCTET "{32})"
-        /* QUIC (draft >= -13) Client Random to Derived Secrets mapping.
-         * EXPERIMENTAL, subject to change based on QUIC changes! */
-        "|QUIC_CLIENT_EARLY_TRAFFIC_SECRET (?<quic_client_early>" OCTET "{32})"
-        "|QUIC_CLIENT_HANDSHAKE_TRAFFIC_SECRET (?<quic_client_handshake>" OCTET "{32})"
-        "|QUIC_SERVER_HANDSHAKE_TRAFFIC_SECRET (?<quic_server_handshake>" OCTET "{32})"
-        "|QUIC_CLIENT_TRAFFIC_SECRET_0 (?<quic_client_appdata>" OCTET "{32})"
-        "|QUIC_SERVER_TRAFFIC_SECRET_0 (?<quic_server_appdata>" OCTET "{32})"
         ") (?<derived_secret>" OCTET "+)";
 #undef OCTET
     static GRegex *regex = NULL;
@@ -5222,12 +5213,6 @@ tls_keylog_process_lines(const ssl_master_key_map_t *mk_map, const guint8 *data,
         { "server_appdata",     mk_map->tls13_server_appdata },
         { "early_exporter",     mk_map->tls13_early_exporter },
         { "exporter",           mk_map->tls13_exporter },
-        /* QUIC map from Client Random to derived secret. */
-        { "quic_client_early",      mk_map->quic_client_early },
-        { "quic_client_handshake",  mk_map->quic_client_handshake },
-        { "quic_server_handshake",  mk_map->quic_server_handshake },
-        { "quic_client_appdata",    mk_map->quic_client_appdata },
-        { "quic_server_appdata",    mk_map->quic_server_appdata },
     };
 
     /* The format of the file is a series of records with one of the following formats:
@@ -5376,7 +5361,7 @@ ssl_load_keyfile(const gchar *tls_keylog_filename, FILE **keylog_file,
     }
 
     for (;;) {
-        char buf[512], *line;
+        char buf[1110], *line;
         line = fgets(buf, sizeof(buf), *keylog_file);
         if (!line) {
             if (feof(*keylog_file)) {
@@ -7546,6 +7531,7 @@ ssl_try_set_version(SslSession *session, SslDecryptSession *ssl,
 
 void
 ssl_check_record_length(ssl_common_dissect_t *hf, packet_info *pinfo,
+                        ContentType content_type,
                         guint record_length, proto_item *length_pi,
                         guint16 version, tvbuff_t *decrypted_tvb)
 {
@@ -7556,6 +7542,22 @@ ssl_check_record_length(ssl_common_dissect_t *hf, packet_info *pinfo,
     } else {
         /* RFC 5246, Section 6.2.3: TLSCiphertext.fragment length MUST NOT exceed 2^14 + 2048 */
         max_expansion = 2048;
+    }
+    /*
+     * RFC 5246 (TLS 1.2), Section 6.2.1 forbids zero-length Handshake, Alert
+     * and ChangeCipherSpec.
+     * RFC 6520 (Heartbeats) does not mention zero-length Heartbeat fragments,
+     * so assume it is permitted.
+     * RFC 6347 (DTLS 1.2) does not mention zero-length fragments either, so
+     * assume TLS 1.2 requirements.
+     */
+    if (record_length == 0 &&
+            (content_type == SSL_ID_CHG_CIPHER_SPEC ||
+             content_type == SSL_ID_ALERT ||
+             content_type == SSL_ID_HANDSHAKE)) {
+        expert_add_info_format(pinfo, length_pi, &hf->ei.record_length_invalid,
+                               "Zero-length %s fragments are not allowed",
+                               val_to_str_const(content_type, ssl_31_content_type, "unknown"));
     }
     if (record_length > TLS_MAX_RECORD_LENGTH + max_expansion) {
         expert_add_info_format(pinfo, length_pi, &hf->ei.record_length_invalid,
@@ -8414,6 +8416,10 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
         switch (ext_type) {
         case SSL_HND_HELLO_EXT_SERVER_NAME:
             offset = ssl_dissect_hnd_hello_ext_server_name(hf, tvb, pinfo, ext_tree, offset, next_offset);
+            break;
+        case SSL_HND_HELLO_EXT_MAX_FRAGMENT_LENGTH:
+            proto_tree_add_item(ext_tree, hf->hf.hs_ext_max_fragment_length, tvb, offset, 1, ENC_NA);
+            offset += 1;
             break;
         case SSL_HND_HELLO_EXT_STATUS_REQUEST:
             if (hnd_type == SSL_HND_CLIENT_HELLO) {

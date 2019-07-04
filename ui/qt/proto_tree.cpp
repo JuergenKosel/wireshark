@@ -62,7 +62,7 @@ ProtoTree::ProtoTree(QWidget *parent, epan_dissect_t *edt_fixed) :
         "QTreeView:item:hover {"
         "  background-color: %1;"
         "  color: palette(text);"
-        "}").arg(hover_color.name()));
+        "}").arg(hover_color.name(QColor::HexArgb)));
 #endif
 
     // Shrink down to a small but nonzero size in the main splitter.
@@ -601,6 +601,8 @@ bool ProtoTree::eventFilter(QObject * obj, QEvent * event)
                 {
                     DisplayFilterMimeData * dfmd =
                             new DisplayFilterMimeData(QString(finfo.headerInfo().name), QString(finfo.headerInfo().abbreviation), filter);
+                    dfmd->setText(toString(idx));
+
                     QDrag * drag = new QDrag(this);
                     drag->setMimeData(dfmd);
 

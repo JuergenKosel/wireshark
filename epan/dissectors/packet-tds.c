@@ -1215,6 +1215,7 @@ static int hf_tds_type_varbyte_data_textptr = -1;
 static int hf_tds_type_varbyte_data_text_ts = -1;
 static int hf_tds_type_varbyte_plp_len = -1;
 static int hf_tds_type_varbyte_plp_chunk_len = -1;
+static int hf_tds_type_varbyte_plp_chunk = -1;
 static int hf_tds_type_varbyte_column_name = -1;
 
 /****************************** Top level TDS ******************************/
@@ -1287,6 +1288,7 @@ static gint ett_tds5_curinfo_status = -1;
 /* static expert_field ei_tds_type_info_type_undecoded = EI_INIT; */
 static expert_field ei_tds_invalid_length = EI_INIT;
 static expert_field ei_tds_token_length_invalid = EI_INIT;
+static expert_field ei_tds_invalid_plp_length = EI_INIT;
 static expert_field ei_tds_type_info_type = EI_INIT;
 static expert_field ei_tds_all_headers_header_type = EI_INIT;
 /* static expert_field ei_tds_token_stats = EI_INIT; */
@@ -2103,8 +2105,18 @@ dissect_tds_type_varbyte(tvbuff_t *tvb, guint *offset, packet_info *pinfo, proto
         if(plp_length == TDS_PLP_NULL)
             proto_item_append_text(length_item, " (PLP_NULL)");
         else {
-            if(plp_length == TDS_UNKNOWN_PLP_LEN)
+            tvbuff_t *combined_chunks_tvb;
+            guint combined_length;
+
+            if(plp_length == TDS_UNKNOWN_PLP_LEN) {
                 proto_item_append_text(length_item, " (UNKNOWN_PLP_LEN)");
+            }
+            /*
+             * XXX - composite tvbuffs with no compontents aren't supported,
+             * so we create the tvbuff when the first non-terminator chunk
+             * is found.
+             */
+            combined_chunks_tvb = NULL;
             while(TRUE) {
                 length_item = proto_tree_add_item_ret_uint(sub_tree, hf_tds_type_varbyte_plp_chunk_len, tvb, *offset, 4, ENC_LITTLE_ENDIAN, &length);
                 *offset += 4;
@@ -2112,25 +2124,98 @@ dissect_tds_type_varbyte(tvbuff_t *tvb, guint *offset, packet_info *pinfo, proto
                     proto_item_append_text(length_item, " (PLP_TERMINATOR)");
                     break;
                 }
+
+                proto_tree_add_item(sub_tree, hf_tds_type_varbyte_plp_chunk, tvb, *offset, length, ENC_NA);
+                if (combined_chunks_tvb == NULL)
+                    combined_chunks_tvb = tvb_new_composite();
+		/* Add this chunk to the composite tvbuff */
+		tvbuff_t *chunk_tvb = tvb_new_subset_length(tvb, *offset, length);
+		tvb_composite_append(combined_chunks_tvb, chunk_tvb);
+                *offset += length;
+            }
+            if (combined_chunks_tvb != NULL) {
+                tvb_composite_finalize(combined_chunks_tvb);
+
+                /*
+                 * If a length was specified, report an error if it's not
+                 * the same as the reassembled length.
+                 */
+                combined_length = tvb_reported_length(combined_chunks_tvb);
+                if(plp_length != TDS_UNKNOWN_PLP_LEN) {
+                    if(plp_length != combined_length) {
+                        expert_add_info(pinfo, length_item, &ei_tds_invalid_plp_length);
+                    }
+                }
+
+                /*
+                 * Now dissect the reassembled data.
+                 *
+                 * XXX - can we make this item cover multiple ranges?
+                 * If so, do so.
+                 */
+                const guint8 *strval = NULL;
                 switch(data_type) {
                     case TDS_DATA_TYPE_BIGVARBIN: /* VarBinary */
-                        proto_tree_add_item(sub_tree, hf_tds_type_varbyte_data_bytes, tvb, *offset, length, ENC_NA);
+                        proto_tree_add_item(sub_tree, hf_tds_type_varbyte_data_bytes, combined_chunks_tvb, 0, combined_length, ENC_NA);
                         break;
                     case TDS_DATA_TYPE_BIGVARCHR: /* VarChar */
-                        proto_tree_add_item(sub_tree, hf_tds_type_varbyte_data_string, tvb, *offset, length, ENC_ASCII|ENC_NA);
+                        proto_tree_add_item_ret_string(sub_tree,
+                            hf_tds_type_varbyte_data_string,
+                            combined_chunks_tvb, 0, combined_length, ENC_ASCII|ENC_NA,
+                            wmem_packet_scope(), &strval);
+                        if (strval) {
+                            proto_item_append_text(item, " (%s)", strval);
+                        }
                         break;
                     case TDS_DATA_TYPE_NVARCHAR:  /* NVarChar */
-                        proto_tree_add_item(sub_tree, hf_tds_type_varbyte_data_string, tvb, *offset, length, ENC_UTF_16|ENC_LITTLE_ENDIAN);
+                        proto_tree_add_item_ret_string(sub_tree,
+                            hf_tds_type_varbyte_data_string,
+                            combined_chunks_tvb, 0, combined_length, ENC_UTF_16|ENC_LITTLE_ENDIAN,
+                            wmem_packet_scope(), &strval);
+                        if (strval) {
+                            proto_item_append_text(item, " (%s)", strval);
+                        }
                         break;
                     case TDS_DATA_TYPE_XML:       /* XML (introduced in TDS 7.2) */
                     case TDS_DATA_TYPE_UDT:       /* CLR-UDT (introduced in TDS 7.2) */
-                        proto_tree_add_item(sub_tree, hf_tds_type_varbyte_data_bytes, tvb, *offset, length, ENC_NA);
+                        proto_tree_add_item(sub_tree, hf_tds_type_varbyte_data_bytes, combined_chunks_tvb, 0, combined_length, ENC_NA);
                         break;
                     default:
                         /* no other data type sets plp = TRUE */
                         expert_add_info_format(pinfo, length_item, &ei_tds_invalid_plp_type, "This type should not use PLP");
                 }
-                *offset += length;
+            } else {
+                /*
+                 * If a length was specified, report an error if it's not
+                 * zero.
+                 */
+                if(plp_length != TDS_UNKNOWN_PLP_LEN) {
+                    if(plp_length != 0) {
+                        expert_add_info(pinfo, length_item, &ei_tds_invalid_plp_length);
+                    }
+                }
+
+                /*
+                 * The data is empty.
+                 */
+                switch(data_type) {
+                    case TDS_DATA_TYPE_BIGVARBIN: /* VarBinary */
+                        proto_tree_add_bytes(sub_tree, hf_tds_type_varbyte_data_bytes, NULL, 0, 0, NULL);
+                        break;
+                    case TDS_DATA_TYPE_BIGVARCHR: /* VarChar */
+                        proto_tree_add_string(sub_tree, hf_tds_type_varbyte_data_string, NULL, 0, 0, "");
+                        break;
+                    case TDS_DATA_TYPE_NVARCHAR:  /* NVarChar */
+                        proto_tree_add_string(sub_tree, hf_tds_type_varbyte_data_string, NULL, 0, 0, "");
+                        break;
+                    case TDS_DATA_TYPE_XML:       /* XML (introduced in TDS 7.2) */
+                    case TDS_DATA_TYPE_UDT:       /* CLR-UDT (introduced in TDS 7.2) */
+                        proto_tree_add_bytes(sub_tree, hf_tds_type_varbyte_data_bytes, NULL, 0, 0, NULL);
+                        break;
+                    default:
+                        /* no other data type sets plp = TRUE */
+                        expert_add_info_format(pinfo, length_item, &ei_tds_invalid_plp_type, "This type should not use PLP");
+                }
             }
         }
     }
@@ -2144,17 +2229,17 @@ dissect_tds_type_varbyte(tvbuff_t *tvb, guint *offset, packet_info *pinfo, proto
             break;
         case TDS_DATA_TYPE_INT1:            /* TinyInt (1 byte data representation) */
             proto_tree_add_item_ret_int(sub_tree, hf_tds_type_varbyte_data_int1, tvb, *offset, 1, ENC_NA, &data_value);
-            proto_item_append_text(item, " (%u)", data_value);
+            proto_item_append_text(item, " (%d)", data_value);
             *offset += 1;
             break;
         case TDS_DATA_TYPE_INT2:            /* SmallInt (2 byte data representation) */
             proto_tree_add_item_ret_int(sub_tree, hf_tds_type_varbyte_data_int2, tvb, *offset, 2, tds_get_int2_encoding(tds_info), &data_value);
-            proto_item_append_text(item, " (%u)", data_value);
+            proto_item_append_text(item, " (%d)", data_value);
             *offset += 2;
             break;
         case TDS_DATA_TYPE_INT4:            /* Int (4 byte data representation) */
             proto_tree_add_item_ret_int(sub_tree, hf_tds_type_varbyte_data_int4, tvb, *offset, 4, tds_get_int4_encoding(tds_info), &data_value);
-            proto_item_append_text(item, " (%u)", data_value);
+            proto_item_append_text(item, " (%d)", data_value);
             *offset += 4;
             break;
         case TDS_DATA_TYPE_INT8:            /* BigInt (8 byte data representation) */
@@ -2228,20 +2313,20 @@ dissect_tds_type_varbyte(tvbuff_t *tvb, guint *offset, packet_info *pinfo, proto
                     proto_tree_add_item(sub_tree, hf_tds_type_varbyte_data_null, tvb, *offset, 0, ENC_NA);
                     break;
                 case 1:
-                    proto_tree_add_item_ret_uint(sub_tree, hf_tds_type_varbyte_data_int1, tvb, *offset + 1, 1, ENC_NA, &data_value);
-                    proto_item_append_text(item, " (%u)", data_value);
+                    proto_tree_add_item_ret_int(sub_tree, hf_tds_type_varbyte_data_int1, tvb, *offset + 1, 1, ENC_NA, &data_value);
+                    proto_item_append_text(item, " (%d)", data_value);
                     break;
                 case 2:
                     proto_tree_add_item_ret_int(sub_tree, hf_tds_type_varbyte_data_int2, tvb, *offset + 1, 2, tds_get_int2_encoding(tds_info), &data_value);
-                    proto_item_append_text(item, " (%u)", data_value);
+                    proto_item_append_text(item, " (%d)", data_value);
                     break;
                 case 4:
                     proto_tree_add_item_ret_int(sub_tree, hf_tds_type_varbyte_data_int4, tvb, *offset + 1, 4, tds_get_int4_encoding(tds_info), &data_value);
-                    proto_item_append_text(item, " (%u)", data_value);
+                    proto_item_append_text(item, " (%d)", data_value);
                     break;
                 case 8:
                     proto_tree_add_item(sub_tree, hf_tds_type_varbyte_data_int8, tvb, *offset + 1, 8, ENC_LITTLE_ENDIAN);
-                    proto_item_append_text(item, " (%"G_GINT64_MODIFIER"u)", tvb_get_letoh64(tvb, *offset));
+                    proto_item_append_text(item, " (%"G_GINT64_MODIFIER"d)", tvb_get_letoh64(tvb, *offset));
                     break;
                 default:
                     expert_add_info(pinfo, length_item, &ei_tds_invalid_length);
@@ -6732,7 +6817,26 @@ dissect_netlib_buffer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
             len = tvb_reported_length_remaining(tvb, offset);
             /*
              * XXX - I've seen captures that start with a login
-             * packet with a sequence number of 2.
+             * packet with a sequence number of 2.  In one, there's
+             * a TDS7 pre-login message with a packet number of 0,
+             * to which the response has a packet number of 1, and
+             * then a TDS4/5 login message with a packet number of 2
+             * and "end of message" not set, followed by a TDS4/5 login
+             * message with a packet number of 3 and "end of message",
+             * to which there's a response with a packet number of 1.
+             *
+             * The TCP sequence numbers do *not* indicate that any
+             * data is missing, so the TDS4/5 login was sent with a
+             * packet number of 2, immediately after the TDS7 pre-login
+             * message with a packet number of 0.
+             *
+             * Given that we are running atop a reliable transport,
+             * we could try doing some form of reassembly that just
+             * accumulates packets until we get an EOM, just checking
+             * to make sure that each packet added to the reassembly
+             * process has a sequence number that - modulo 256! - has
+             * is one greater than the sequence number of the previous
+             * packet added to the reassembly.
              */
 
             last_buffer = ((status & STATUS_LAST_BUFFER) == STATUS_LAST_BUFFER);
@@ -9910,6 +10014,11 @@ proto_register_tds(void)
             FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_tds_type_varbyte_plp_chunk,
+          { "PLP chunk", "tds.type_varbyte.plp_chunk",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_tds_type_varbyte_column_name,
           { "Column name", "tds.type_varbyte.column.name",
             FT_STRING, BASE_NONE, NULL, 0x0,
@@ -10104,6 +10213,7 @@ proto_register_tds(void)
 #endif
         { &ei_tds_invalid_length, { "tds.invalid_length", PI_MALFORMED, PI_ERROR, "Invalid length", EXPFILL }},
         { &ei_tds_token_length_invalid, { "tds.token.length.invalid", PI_PROTOCOL, PI_WARN, "Bogus token size", EXPFILL }},
+        { &ei_tds_invalid_plp_length, { "tds.invalid_plp_length", PI_PROTOCOL, PI_NOTE, "PLP length doesn't equal the sum of the lengths of the chunks", EXPFILL }},
 #if 0
         { &ei_tds_token_stats, { "tds.token.stats", PI_PROTOCOL, PI_NOTE, "Token stats", EXPFILL }},
 #endif

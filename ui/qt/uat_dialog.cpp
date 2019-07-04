@@ -40,6 +40,13 @@ UatDialog::UatDialog(QWidget *parent, epan_uat *uat) :
     ok_button_ = ui->buttonBox->button(QDialogButtonBox::Ok);
     help_button_ = ui->buttonBox->button(QDialogButtonBox::Help);
 
+    ui->newToolButton->setStockIcon("list-add");
+    ui->deleteToolButton->setStockIcon("list-remove");
+    ui->copyToolButton->setStockIcon("list-copy");
+    ui->moveUpToolButton->setStockIcon("list-move-up");
+    ui->moveDownToolButton->setStockIcon("list-move-down");
+    ui->clearToolButton->setStockIcon("list-clear");
+
 #ifdef Q_OS_MAC
     ui->newToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->deleteToolButton->setAttribute(Qt::WA_MacSmallSize, true);

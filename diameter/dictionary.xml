@@ -30,6 +30,8 @@
 	<!ENTITY Inovar			SYSTEM "Inovar.xml">
 	<!ENTITY Huawei			SYSTEM "Huawei.xml">
 	<!ENTITY VerizonWireless	SYSTEM "VerizonWireless.xml">
+	<!ENTITY Telefonica		SYSTEM "Telefonica.xml">
+	<!ENTITY Siemens		SYSTEM "Siemens.xml">
 	<!ENTITY Custom			SYSTEM "Custom.xml">
 ]>
 <dictionary>
@@ -7202,11 +7204,11 @@
 		<avp name="Deferred-MT-LR-Data" code="2547" vendor-bit="must" vendor-id="TGPP">
 			<grouped>
 				<gavp name="Deferred-Location-Type"/>
-				<gavp name="Termination-Cause"/>
+				<gavp name="Termination-Cause-3GPP"/>
 				<gavp name="Serving-Node"/>
 			</grouped>
 		</avp>
-		<avp name="Termination-Cause" code="2548" vendor-bit="must" vendor-id="TGPP">
+		<avp name="Termination-Cause-3GPP" code="2548" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Enumerated"/>
 			<enum name="Normal" code="0"/>
 			<enum name="Error Undefined" code="1"/>
@@ -7241,12 +7243,12 @@
 		<avp name="Cell-Portion-ID" code="2553" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="OctetString"/>
 		</avp>
-		<avp name="1xRTT-RCID" code="2554" vendor-bit="must" vendor-id="TGPP">
+		<avp name="OnexRTT-RCID" code="2554" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="OctetString"/>
 		</avp>
 		<avp name="Delayed-Location-Reporting-Data" code="2555" vendor-bit="must" vendor-id="TGPP">
 			<grouped>
-				<gavp name="Termination-Cause"/>
+				<gavp name="Termination-Cause-3GPP"/>
 				<gavp name="Serving-Node"/>
 			</grouped>
 		</avp>
@@ -7489,6 +7491,7 @@
 				<gavp name="Presence-Reporting-Area-Identifier"/>
 				<gavp name="Presence-Reporting-Area-Status"/>
 				<gavp name="Presence-Reporting-Area-Elements-List"/>
+				<gavp name="Presence-Reporting-Area-Node"/>
 			</grouped>
 		</avp>
 		<avp name="Presence-Reporting-Area-Status" code="2823" mandatory="must" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
@@ -7617,7 +7620,20 @@
 		<avp name="Extended-GBR-UL" code="2851" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Unsigned32"/>
 		</avp>
-
+		<avp name="Max-PLR-DL" code="2852" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Float32"/>
+		</avp>
+		<avp name="Max-PLR-UL" code="2853" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Float32"/>
+		</avp>
+		<avp name="UE-Status" code="2854" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="Presence-Reporting-Area-Node" code="2855" mandatory="must" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
+			<type type-name="Enumerated"/>
+			<enum name="OCS" code="0"/>
+			<enum name="PCRF" code="1"/>
+		</avp>
 		<!--
 		Note: The AVP codes from 2829 to 2899 are reserved for TS 29.212
 		-->
@@ -8821,5 +8837,7 @@
 	&Inovar;
 	&Huawei;
 	&VerizonWireless;
+	&Telefonica;
+	&Siemens;
 	&Custom;
 </dictionary>

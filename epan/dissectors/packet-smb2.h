@@ -41,7 +41,7 @@ typedef struct _smb2_eo_file_info_t {
 typedef struct _smb2_fid_info_t {
 	guint64 fid_persistent;
 	guint64 fid_volatile;
-	guint64 sesid;
+	guint64 sesid;		/* *host* byte order - not necessarily little-endian! */
 	guint32 tid;
 	char *name;
 } smb2_fid_info_t;
@@ -78,7 +78,7 @@ typedef struct _smb2_tid_info_t {
 #define SMB2_PREAUTH_HASH_SIZE 64
 
 typedef struct _smb2_sesid_info_t {
-	guint64 sesid;
+	guint64 sesid;		/* *host* byte order - not necessarily little-endian! */
 	guint32 auth_frame;
 	char *acct_name;
 	char *domain_name;
@@ -103,6 +103,7 @@ typedef struct _smb2_conv_info_t {
 	/* table to store some infos for smb export object */
 	GHashTable *files;
 	guint16 dialect;
+	guint16 enc_alg;
 
 	/* preauth hash before session setup */
 	guint8 *preauth_hash_current;
@@ -181,7 +182,7 @@ typedef struct _smb2_info_t {
 	guint32 ioctl_function;
 	guint32 status;
 	guint32 tid;
-	guint64 sesid;
+	guint64 sesid;		/* *host* byte order - not necessarily little-endian! */
 	guint64  msg_id;
 	guint32 flags;
 	smb2_eo_file_info_t	*eo_file_info; /* eo_smb extra info */
@@ -199,7 +200,7 @@ typedef struct _smb2_transform_info_t {
 	guint8  nonce[16];
 	guint32 size;
 	guint16 alg;
-	guint64 sesid;
+	guint64 sesid;		/* *host* byte order - not necessarily little-endian! */
 	smb2_conv_info_t *conv;
 	smb2_sesid_info_t *session;
 } smb2_transform_info_t;

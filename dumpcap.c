@@ -218,7 +218,7 @@ typedef struct _pcap_pipe_info {
 } pcap_pipe_info_t;
 
 typedef struct _pcapng_pipe_info {
-    struct pcapng_block_header_s         bh;  /**< Pcapng general block header when capturing from a pipe */
+    pcapng_block_header_t bh;                  /**< Pcapng general block header when capturing from a pipe */
     GArray *src_iface_to_global;               /**< Int array mapping local IDB numbers to global_ld.interface_data */
 } pcapng_pipe_info_t;
 
@@ -317,7 +317,7 @@ typedef struct _pcap_queue_element {
     capture_src        *pcap_src;
     union {
         struct pcap_pkthdr  phdr;
-        struct pcapng_block_header_s  bh;
+        pcapng_block_header_t  bh;
     } u;
     u_char             *pd;
 } pcap_queue_element;
@@ -377,8 +377,8 @@ static void capture_loop_write_packet_cb(u_char *pcap_src_p, const struct pcap_p
                                          const u_char *pd);
 static void capture_loop_queue_packet_cb(u_char *pcap_src_p, const struct pcap_pkthdr *phdr,
                                          const u_char *pd);
-static void capture_loop_write_pcapng_cb(capture_src *pcap_src, const struct pcapng_block_header_s *bh, u_char *pd);
-static void capture_loop_queue_pcapng_cb(capture_src *pcap_src, const struct pcapng_block_header_s *bh, u_char *pd);
+static void capture_loop_write_pcapng_cb(capture_src *pcap_src, const pcapng_block_header_t *bh, u_char *pd);
+static void capture_loop_queue_pcapng_cb(capture_src *pcap_src, const pcapng_block_header_t *bh, u_char *pd);
 static void capture_loop_get_errmsg(char *errmsg, size_t errmsglen,
                                     char *secondary_errmsg,
                                     size_t secondary_errmsglen,
@@ -1991,22 +1991,22 @@ pcapng_read_shb(capture_src *pcap_src,
                 char *errmsg,
                 size_t errmsgl)
 {
-    struct pcapng_section_header_block_s shb;
+    pcapng_section_header_block_t shb;
 
 #ifdef _WIN32
     if (pcap_src->from_cap_socket)
 #endif
     {
-        pcap_src->cap_pipe_bytes_to_read = sizeof(struct pcapng_block_header_s) + sizeof(struct pcapng_section_header_block_s);
+        pcap_src->cap_pipe_bytes_to_read = sizeof(pcapng_block_header_t) + sizeof(pcapng_section_header_block_t);
         if (cap_pipe_read_data_bytes(pcap_src, errmsg, errmsgl) < 0) {
             return -1;
         }
     }
 #ifdef _WIN32
     else {
-        pcap_src->cap_pipe_buf = pcap_src->cap_pipe_databuf + sizeof(struct pcapng_block_header_s);
+        pcap_src->cap_pipe_buf = pcap_src->cap_pipe_databuf + sizeof(pcapng_block_header_t);
         pcap_src->cap_pipe_bytes_read = 0;
-        pcap_src->cap_pipe_bytes_to_read = sizeof(struct pcapng_section_header_block_s);
+        pcap_src->cap_pipe_bytes_to_read = sizeof(pcapng_section_header_block_t);
         g_async_queue_push(pcap_src->cap_pipe_pending_q, pcap_src->cap_pipe_buf);
         g_async_queue_pop(pcap_src->cap_pipe_done_q);
         if (pcap_src->cap_pipe_bytes_read <= 0) {
@@ -2020,10 +2020,10 @@ pcapng_read_shb(capture_src *pcap_src,
             return -1;
         }
         /* Continuing with STATE_EXPECT_DATA requires reading into cap_pipe_databuf at offset cap_pipe_bytes_read */
-        pcap_src->cap_pipe_bytes_read = sizeof(struct pcapng_block_header_s) + sizeof(struct pcapng_section_header_block_s);
+        pcap_src->cap_pipe_bytes_read = sizeof(pcapng_block_header_t) + sizeof(pcapng_section_header_block_t);
     }
 #endif
-    memcpy(&shb, pcap_src->cap_pipe_databuf + sizeof(struct pcapng_block_header_s), sizeof(struct pcapng_section_header_block_s));
+    memcpy(&shb, pcap_src->cap_pipe_databuf + sizeof(pcapng_block_header_t), sizeof(pcapng_section_header_block_t));
     switch (shb.magic)
     {
     case PCAPNG_MAGIC:
@@ -2032,9 +2032,30 @@ pcapng_read_shb(capture_src *pcap_src,
     case PCAPNG_SWAPPED_MAGIC:
         g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "pcapng SHB SWAPPED MAGIC");
         /*
-         * pcapng sources can contain all sorts of block types. Rather than add a bunch of
-         * complexity to this code (which is often privileged), punt and tell the user to
-         * swap bytes elsewhere.
+         * pcapng sources can contain all sorts of block types.
+         * Rather than add a bunch of complexity to this code (which is
+         * often privileged), punt and tell the user to swap bytes
+         * elsewhere.
+         *
+         * XXX - punting means that the Wireshark test suite must be
+         * modified to:
+         *
+         *  1) have both little-endian and big-endian versions of
+         *     all pcapng files piped to dumpcap;
+         *
+         *  2) pipe the appropriate file to dumpcap, depending on
+         *     the byte order of the host on which the tests are
+         *     being run;
+         *
+         * as per comments in bug 15772 and 15754.
+         *
+         * Are we *really* certain that the complexity added would be
+         * significant enough to make adding it a security risk?  And
+         * why would this code even be running with any elevated
+         * privileges if you're capturing from a pipe?  We should not
+         * only have given up all additional privileges if we're reading
+         * from a pipe, we should give them up in such a fashion that
+         * we can't reclaim them.
          */
 #if G_BYTE_ORDER == G_BIG_ENDIAN
 #define OUR_ENDIAN "big"
@@ -2067,7 +2088,7 @@ pcapng_read_shb(capture_src *pcap_src,
  * Rewrite EPB and ISB interface IDs.
  */
 static gboolean
-pcapng_adjust_block(capture_src *pcap_src, const struct pcapng_block_header_s *bh, u_char *pd)
+pcapng_adjust_block(capture_src *pcap_src, const pcapng_block_header_t *bh, u_char *pd)
 {
     switch(bh->block_type) {
     case BLOCK_TYPE_SHB:
@@ -2136,9 +2157,9 @@ pcapng_adjust_block(capture_src *pcap_src, const struct pcapng_block_header_s *b
         }
         /* The interface ID is the first 32-bit field after the BH for both EPBs and ISBs. */
         guint32 iface_id;
-        memcpy(&iface_id, pd + sizeof(struct pcapng_block_header_s), 4);
+        memcpy(&iface_id, pd + sizeof(pcapng_block_header_t), 4);
         if (iface_id < pcap_src->cap_pipe_info.pcapng.src_iface_to_global->len) {
-            memcpy(pd + sizeof(struct pcapng_block_header_s),
+            memcpy(pd + sizeof(pcapng_block_header_t),
                    &g_array_index(pcap_src->cap_pipe_info.pcapng.src_iface_to_global, guint32, iface_id), 4);
         } else {
             g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "%s: pcapng EPB or ISB interface id %u > max %u", G_STRFUNC, iface_id, pcap_src->cap_pipe_info.pcapng.src_iface_to_global->len);
@@ -2160,7 +2181,7 @@ pcapng_pipe_open_live(int fd,
                       size_t errmsgl)
 {
     guint32 type = BLOCK_TYPE_SHB;
-    struct pcapng_block_header_s *bh = &pcap_src->cap_pipe_info.pcapng.bh;
+    pcapng_block_header_t *bh = &pcap_src->cap_pipe_info.pcapng.bh;
 
     g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "pcapng_pipe_open_live: fd %d", fd);
 #ifdef _WIN32
@@ -2170,12 +2191,12 @@ pcapng_pipe_open_live(int fd,
         memcpy(pcap_src->cap_pipe_databuf, &type, sizeof(guint32));
         /* read the rest of the pcapng general block header */
         pcap_src->cap_pipe_bytes_read = sizeof(guint32);
-        pcap_src->cap_pipe_bytes_to_read = sizeof(struct pcapng_block_header_s);
+        pcap_src->cap_pipe_bytes_to_read = sizeof(pcapng_block_header_t);
         pcap_src->cap_pipe_fd = fd;
         if (cap_pipe_read_data_bytes(pcap_src, errmsg, errmsgl) < 0) {
             goto error;
         }
-        memcpy(bh, pcap_src->cap_pipe_databuf, sizeof(struct pcapng_block_header_s));
+        memcpy(bh, pcap_src->cap_pipe_databuf, sizeof(pcapng_block_header_t));
     }
 #ifdef _WIN32
     else {
@@ -2198,8 +2219,8 @@ pcapng_pipe_open_live(int fd,
                            g_strerror(errno));
             goto error;
         }
-        pcap_src->cap_pipe_bytes_read = sizeof(struct pcapng_block_header_s);
-        memcpy(pcap_src->cap_pipe_databuf, bh, sizeof(struct pcapng_block_header_s));
+        pcap_src->cap_pipe_bytes_read = sizeof(pcapng_block_header_t);
+        memcpy(pcap_src->cap_pipe_databuf, bh, sizeof(pcapng_block_header_t));
         pcap_src->cap_pipe_fd = fd;
     }
 #endif
@@ -2457,7 +2478,7 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t 
     gpointer  q_status;
 #endif
     guint new_bufsize;
-    struct pcapng_block_header_s *bh = &pcap_src->cap_pipe_info.pcapng.bh;
+    pcapng_block_header_t *bh = &pcap_src->cap_pipe_info.pcapng.bh;
 
 #ifdef LOG_CAPTURE_VERBOSE
     g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "pcapng_pipe_dispatch");
@@ -2474,7 +2495,7 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t 
 #endif
 
             pcap_src->cap_pipe_state = STATE_READ_REC_HDR;
-            pcap_src->cap_pipe_bytes_to_read = sizeof(struct pcapng_block_header_s);
+            pcap_src->cap_pipe_bytes_to_read = sizeof(pcapng_block_header_t);
             pcap_src->cap_pipe_bytes_read = 0;
 
 #ifdef _WIN32
@@ -2515,7 +2536,7 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t 
         if (pcap_src->cap_pipe_bytes_read < pcap_src->cap_pipe_bytes_to_read) {
             return 0;
         }
-        memcpy(bh, pcap_src->cap_pipe_databuf, sizeof(struct pcapng_block_header_s));
+        memcpy(bh, pcap_src->cap_pipe_databuf, sizeof(pcapng_block_header_t));
         result = PD_REC_HDR_READ;
         break;
 
@@ -2625,7 +2646,7 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t 
         }
 
         /* The record always has at least the block total length following the header */
-        if (bh->block_total_length < sizeof(struct pcapng_block_header_s)+sizeof(guint32)) {
+        if (bh->block_total_length < sizeof(pcapng_block_header_t)+sizeof(guint32)) {
             g_snprintf(errmsg, (gulong)errmsgl,
                        "malformed pcapng block_total_length < minimum");
             pcap_src->cap_pipe_err = PIPEOF;
@@ -2976,9 +2997,9 @@ capture_loop_init_pcapng_output(capture_options *capture_opts, loop_data *ld)
     if (ld->saved_shb) {
         /* We have a single pcapng capture interface and multiple output files. */
 
-        struct pcapng_block_header_s bh;
+        pcapng_block_header_t bh;
 
-        memcpy(&bh, ld->saved_shb, sizeof(struct pcapng_block_header_s));
+        memcpy(&bh, ld->saved_shb, sizeof(pcapng_block_header_t));
 
         successful = pcapng_write_block(ld->pdh, ld->saved_shb, bh.block_total_length, &ld->bytes_written, &err);
 
@@ -4026,29 +4047,41 @@ capture_loop_start(capture_options *capture_opts, gboolean *stats_known, struct 
         pcap_src = g_array_index(global_ld.pcaps, capture_src *, i);
         if (pcap_src->pcap_err) {
             /* On Linux, if an interface goes down while you're capturing on it,
-               you'll get a "recvfrom: Network is down" or
-               "The interface went down" error (ENETDOWN).
+               you'll get "recvfrom: Network is down".
                (At least you will if g_strerror() doesn't show a local translation
                of the error.)
 
+               Newer versions of libpcap maps that to just
+               "The interface went down".
+
                On FreeBSD, DragonFly BSD, and macOS, if a network adapter
-               disappears while you're capturing on it, you'll get a
+               disappears while you're capturing on it, you'll get
                "read: Device not configured" error (ENXIO).  (See previous
                parenthetical note.)
 
                On OpenBSD, you get "read: I/O error" (EIO) in the same case.
 
+               With WinPcap and Npcap, you'll get
+               "read error: PacketReceivePacket failed".
+
+               Newer versions of libpcap map some or all of those to just
+               "The interface disappeared".
+
                These should *not* be reported to the Wireshark developers. */
             char *cap_err_str;
 
             cap_err_str = pcap_geterr(pcap_src->pcap_h);
-            if (strcmp(cap_err_str, "recvfrom: Network is down") == 0 ||
-                strcmp(cap_err_str, "The interface went down") == 0 ||
-                strcmp(cap_err_str, "read: Device not configured") == 0 ||
-                strcmp(cap_err_str, "read: I/O error") == 0 ||
-                strcmp(cap_err_str, "read error: PacketReceivePacket failed") == 0) {
+            if (strcmp(cap_err_str, "The interface went down") == 0 ||
+                strcmp(cap_err_str, "recvfrom: Network is down") == 0) {
                 report_capture_error("The network adapter on which the capture was being done "
                                      "is no longer running; the capture has stopped.",
+                                     "");
+            } else if (strcmp(cap_err_str, "The interface disappeared") == 0 ||
+                       strcmp(cap_err_str, "read: Device not configured") == 0 ||
+                       strcmp(cap_err_str, "read: I/O error") == 0 ||
+                       strcmp(cap_err_str, "read error: PacketReceivePacket failed") == 0) {
+                report_capture_error("The network adapter on which the capture was being done "
+                                     "is no longer attached; the capture has stopped.",
                                      "");
             } else {
                 g_snprintf(errmsg, sizeof(errmsg), "Error while capturing packets: %s",
@@ -4275,7 +4308,7 @@ capture_loop_wrote_one_packet(capture_src *pcap_src) {
 
 /* one pcapng block was captured, process it */
 static void
-capture_loop_write_pcapng_cb(capture_src *pcap_src, const struct pcapng_block_header_s *bh, u_char *pd)
+capture_loop_write_pcapng_cb(capture_src *pcap_src, const pcapng_block_header_t *bh, u_char *pd)
 {
     int          err;
 
@@ -4455,7 +4488,7 @@ capture_loop_queue_packet_cb(u_char *pcap_src_p, const struct pcap_pkthdr *phdr,
 
 /* one pcapng block was captured, queue it */
 static void
-capture_loop_queue_pcapng_cb(capture_src *pcap_src, const struct pcapng_block_header_s *bh, u_char *pd)
+capture_loop_queue_pcapng_cb(capture_src *pcap_src, const pcapng_block_header_t *bh, u_char *pd)
 {
     pcap_queue_element *queue_element;
     gboolean            limit_reached;

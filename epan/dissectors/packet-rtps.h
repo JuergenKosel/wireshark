@@ -566,12 +566,15 @@ typedef struct _rtps_dissector_data {
 #define TOPIC_INFO_ADD_GUID                      (0x01)
 #define TOPIC_INFO_ADD_TYPE_NAME                 (0x02)
 #define TOPIC_INFO_ADD_TOPIC_NAME                (0x04)
-#define TOPIC_INFO_ADD_RELIABILITY               (0x08)
-#define TOPIC_INFO_ADD_DURABILITY                (0x10)
-#define TOPIC_INFO_ADD_OWNERSHIP                 (0x20)
-#define TOPIC_INFO_ALL_SET                       (0x3f)
+#define TOPIC_INFO_ALL_SET                       (0x07)
 
 #define NOT_A_FRAGMENT                           (-1)
+
+/*  */
+#define RTI_OSAPI_COMPRESSION_CLASS_ID_NONE      (0)
+#define RTI_OSAPI_COMPRESSION_CLASS_ID_ZLIB      (1)
+#define RTI_OSAPI_COMPRESSION_CLASS_ID_BZIP2     (2)
+#define RTI_OSAPI_COMPRESSION_CLASS_ID_AUTO      (G_MAXUINT32)
 
 /* Utilities to add elements to the protocol tree for packet-rtps.h and packet-rtps2.h */
 extern guint16 rtps_util_add_protocol_version(proto_tree *tree, tvbuff_t* tvb, gint offset);

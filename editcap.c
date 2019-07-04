@@ -180,7 +180,8 @@ static const struct {
     const char *str;
     guint32     id;
 } secrets_types[] = {
-    { "tls", SECRETS_TYPE_TLS },
+    { "tls",    SECRETS_TYPE_TLS },
+    { "wg",     SECRETS_TYPE_WIREGUARD },
 };
 
 static int find_dct2000_real_data(guint8 *buf);
@@ -1816,8 +1817,19 @@ main(int argc, char *argv[])
                 }
 
                 /*
+                 * If an encapsulation type was specified, override the
+                 * encapsulation type of the packet.
+                 * Copy and change rather than modify returned rec.
+                 */
+                if (out_frame_type != -2) {
+                    temp_rec = *rec;
+                    temp_rec.rec_header.packet_header.pkt_encap = out_frame_type;
+                    rec = &temp_rec;
+                }
+
+                /*
                  * CHOP
-                 * Copy and change rather than modify returned phdr.
+                 * Copy and change rather than modify returned rec.
                  */
                 temp_rec = *rec;
                 handle_chopping(chop, &temp_rec.rec_header.packet_header,

@@ -48,6 +48,9 @@
 #include <ui/qt/utils/frame_information.h>
 #include <ui/qt/utils/variant_pointer.h>
 #include <ui/qt/models/pref_models.h>
+#include <ui/qt/widgets/packet_list_header.h>
+#include <ui/qt/utils/wireshark_mime_data.h>
+#include <ui/qt/widgets/drag_label.h>
 
 #include <QAction>
 #include <QActionGroup>
@@ -65,6 +68,7 @@
 #include <QTextEdit>
 #include <QTimerEvent>
 #include <QTreeWidget>
+#include <QWindow>
 
 #ifdef Q_OS_WIN
 #include "wsutil/file_util.h"
@@ -86,20 +90,6 @@ const int max_comments_to_fetch_ = 20000000; // Arbitrary
 const int tail_update_interval_ = 100; // Milliseconds.
 const int overlay_update_interval_ = 100; // 250; // Milliseconds.
 
-guint
-packet_list_append(column_info *, frame_data *fdata)
-{
-    if (!gbl_cur_packet_list)
-        return 0;
-
-    /* fdata should be filled with the stuff we need
-     * strings are built at display time.
-     */
-    guint visible_pos;
-
-    visible_pos = gbl_cur_packet_list->packetListModel()->appendPacket(fdata);
-    return visible_pos;
-}
 
 // Copied from ui/gtk/packet_list.c
 void packet_list_resize_column(gint col)
@@ -124,10 +114,18 @@ packet_list_select_first_row(void)
 gboolean
 packet_list_select_row_from_data(frame_data *fdata_needle)
 {
-    gbl_cur_packet_list->packetListModel()->flushVisibleRows();
-    int row = gbl_cur_packet_list->packetListModel()->visibleIndexOf(fdata_needle);
+    if ( ! gbl_cur_packet_list || ! gbl_cur_packet_list->model())
+        return FALSE;
+
+    PacketListModel * model = qobject_cast<PacketListModel *>(gbl_cur_packet_list->model());
+
+    if ( ! model )
+        return FALSE;
+
+    model->flushVisibleRows();
+    int row = model->visibleIndexOf(fdata_needle);
     if (row >= 0) {
-        gbl_cur_packet_list->setCurrentIndex(gbl_cur_packet_list->packetListModel()->index(row,0));
+        gbl_cur_packet_list->setCurrentIndex(model->index(row, 0));
         return TRUE;
     }
 
@@ -168,19 +166,11 @@ packet_list_thaw(void)
     packets_bar_update();
 }
 
-void
-packet_list_recreate_visible_rows(void)
-{
-    if (gbl_cur_packet_list && gbl_cur_packet_list->packetListModel()) {
-        gbl_cur_packet_list->packetListModel()->recreateVisibleRows();
-    }
-}
-
 frame_data *
 packet_list_get_row_data(gint row)
 {
-    if (gbl_cur_packet_list && gbl_cur_packet_list->packetListModel()) {
-        return gbl_cur_packet_list->packetListModel()->getRowFdata(row);
+    if (gbl_cur_packet_list) {
+        return gbl_cur_packet_list->getFDataForRow(row);
     }
     return NULL;
 }
@@ -211,8 +201,6 @@ packet_list_recent_write_all(FILE *rf) {
 
 #define MIN_COL_WIDTH_STR "MMMMMM"
 
-Q_DECLARE_METATYPE(PacketList::ColumnActions)
-
 enum copy_summary_type {
     copy_summary_text_,
     copy_summary_csv_,
@@ -228,6 +216,7 @@ PacketList::PacketList(QWidget *parent) :
     overlay_timer_id_(0),
     create_near_overlay_(true),
     create_far_overlay_(true),
+    mouse_pressed_at_(QModelIndex()),
     capture_in_progress_(false),
     tail_timer_id_(0),
     rows_inserted_(false),
@@ -243,6 +232,14 @@ PacketList::PacketList(QWidget *parent) :
     setUniformRowHeights(true);
     setAccessibleName("Packet list");
 
+    packet_list_header_ = new PacketListHeader(header()->orientation(), cap_file_);
+    connect(packet_list_header_, &PacketListHeader::resetColumnWidth, this, &PacketList::setRecentColumnWidth);
+    connect(packet_list_header_, &PacketListHeader::updatePackets, this, &PacketList::updatePackets);
+    connect(packet_list_header_, &PacketListHeader::showColumnPreferences, this, &PacketList::showProtocolPreferences);
+    connect(packet_list_header_, &PacketListHeader::editColumn, this, &PacketList::editColumn);
+    connect(packet_list_header_, &PacketListHeader::columnsChanged, this, &PacketList::columnsChanged);
+    setHeader(packet_list_header_);
+
     // Shrink down to a small but nonzero size in the main splitter.
     int one_em = fontMetrics().height();
     setMinimumSize(one_em, one_em);
@@ -254,9 +251,7 @@ PacketList::PacketList(QWidget *parent) :
     setModel(packet_list_model_);
     sortByColumn(-1, Qt::AscendingOrder);
 
-    initHeaderContextMenu();
-
-    g_assert(gbl_cur_packet_list == NULL);
+    Q_ASSERT(gbl_cur_packet_list == Q_NULLPTR);
     gbl_cur_packet_list = this;
 
     connect(packet_list_model_, SIGNAL(goToPacket(int)), this, SLOT(goToPacket(int)));
@@ -264,9 +259,6 @@ PacketList::PacketList(QWidget *parent) :
     connect(wsApp, SIGNAL(addressResolutionChanged()), this, SLOT(redrawVisiblePacketsDontSelectCurrent()));
     connect(wsApp, SIGNAL(columnDataChanged()), this, SLOT(redrawVisiblePacketsDontSelectCurrent()));
 
-    header()->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(header(), SIGNAL(customContextMenuRequested(QPoint)),
-            this, SLOT(showHeaderMenu(QPoint)));
     connect(header(), SIGNAL(sectionResized(int,int,int)),
             this, SLOT(sectionResized(int,int,int)));
     connect(header(), SIGNAL(sectionMoved(int,int,int)),
@@ -311,7 +303,7 @@ void PacketList::colorsChanged()
         "QTreeView:item:hover {"
         "  background-color: %1;"
         "  color: palette(text);"
-        "}").arg(hover_color.name());
+        "}").arg(hover_color.name(QColor::HexArgb));
 #endif
 
     QString active_style   = QString();
@@ -388,10 +380,6 @@ void PacketList::setProtoTree (ProtoTree *proto_tree) {
     connect(proto_tree_, SIGNAL(goToPacket(int)), this, SLOT(goToPacket(int)));
     connect(proto_tree_, SIGNAL(relatedFrame(int,ft_framenum_type_t)),
             &related_packet_delegate_, SLOT(addRelatedFrame(int,ft_framenum_type_t)));
-}
-
-PacketListModel *PacketList::packetListModel() const {
-    return packet_list_model_;
 }
 
 void PacketList::selectionChanged (const QItemSelection & selected, const QItemSelection & deselected)
@@ -592,7 +580,6 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     ctx_menu_.addAction(action);
 
     decode_as_->setData(QVariant::fromValue(true));
-    ctx_column_ = columnAt(event->x());
 
     // Set menu sensitivity for the current column and set action data.
     if ( frameData )
@@ -601,7 +588,6 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
         emit frameSelected(-1);
 
     ctx_menu_.exec(event->globalPos());
-    ctx_column_ = -1;
     decode_as_->setData(QVariant());
 }
 
@@ -646,6 +632,72 @@ void PacketList::mousePressEvent (QMouseEvent *event)
     setAutoScroll(false);
     QTreeView::mousePressEvent(event);
     setAutoScroll(true);
+
+    QModelIndex curIndex = indexAt(event->pos());
+    mouse_pressed_at_ = curIndex;
+}
+
+void PacketList::mouseReleaseEvent(QMouseEvent *event) {
+    QTreeView::mouseReleaseEvent(event);
+
+    mouse_pressed_at_ = QModelIndex();
+}
+
+void PacketList::mouseMoveEvent (QMouseEvent *event)
+{
+    QModelIndex curIndex = indexAt(event->pos());
+    if ( event->buttons() & Qt::LeftButton && curIndex == mouse_pressed_at_ )
+    {
+        ctx_column_ = curIndex.column();
+        QMimeData * mimeData = nullptr;
+        QWidget * content = nullptr;
+
+        QString filter = getFilterFromRowAndColumn(curIndex);
+        if ( ! filter.isEmpty() )
+        {
+            QString abbrev;
+            QString name = model()->headerData(curIndex.column(), header()->orientation()).toString();
+
+            if ( ! filter.isEmpty() )
+            {
+                abbrev = filter.left(filter.indexOf(' '));
+            }
+            else
+            {
+                filter = model()->data(curIndex).toString().toLower();
+                abbrev = filter;
+            }
+
+            mimeData = new DisplayFilterMimeData(name, abbrev, filter);
+            ((DisplayFilterMimeData *)mimeData)->allowPlainText();
+            content = new DragLabel(((DisplayFilterMimeData *)mimeData)->labelText(), this);
+        }
+        else
+        {
+            QString text = model()->data(curIndex).toString();
+            if ( ! text.isEmpty() )
+            {
+                mimeData = new QMimeData();
+                mimeData->setText(text);
+            }
+        }
+
+        if ( mimeData )
+        {
+            QDrag * drag = new QDrag(this);
+            drag->setMimeData(mimeData);
+            if ( content )
+            {
+                qreal dpr = window()->windowHandle()->devicePixelRatio();
+                QPixmap pixmap= QPixmap(content->size() * dpr);
+                pixmap.setDevicePixelRatio(dpr);
+                content->render(&pixmap);
+                drag->setPixmap(pixmap);
+            }
+
+            drag->exec(Qt::CopyAction);
+        }
+    }
 }
 
 void PacketList::resizeEvent(QResizeEvent *event)
@@ -688,12 +740,19 @@ void PacketList::setRecentColumnWidth(int col)
         const char *long_str = get_column_width_string(fmt, col);
 
         QFontMetrics fm = QFontMetrics(wsApp->monospaceFont());
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+        if (long_str) {
+            col_width = fm.horizontalAdvance(long_str);
+        } else {
+            col_width = fm.horizontalAdvance(MIN_COL_WIDTH_STR);
+        }
+#else
         if (long_str) {
             col_width = fm.width(long_str);
         } else {
             col_width = fm.width(MIN_COL_WIDTH_STR);
         }
-
+#endif
         // Custom delegate padding
         if (itemDelegateForColumn(col)) {
             col_width += itemDelegateForColumn(col)->sizeHint(viewOptions(), QModelIndex()).width();
@@ -701,42 +760,6 @@ void PacketList::setRecentColumnWidth(int col)
     }
 
     setColumnWidth(col, col_width);
-}
-
-void PacketList::initHeaderContextMenu()
-{
-    header_ctx_menu_.clear();
-    header_actions_.clear();
-
-    // Leave these out for now since Qt doesn't have a "no sort" option
-    // and the user can sort by left-clicking on the header.
-//    header_actions_[] = header_ctx_menu_.addAction(tr("Sort Ascending"));
-//    header_actions_[] = header_ctx_menu_.addAction(tr("Sort Descending"));
-//    header_actions_[] = header_ctx_menu_.addAction(tr("Do Not Sort"));
-//    header_ctx_menu_.addSeparator();
-    header_actions_[caAlignLeft] = header_ctx_menu_.addAction(tr("Align Left"));
-    header_actions_[caAlignCenter] = header_ctx_menu_.addAction(tr("Align Center"));
-    header_actions_[caAlignRight] = header_ctx_menu_.addAction(tr("Align Right"));
-    header_ctx_menu_.addSeparator();
-    header_actions_[caColumnPreferences] = header_ctx_menu_.addAction(tr("Column Preferences" UTF8_HORIZONTAL_ELLIPSIS));
-    header_actions_[caEditColumn] = header_ctx_menu_.addAction(tr("Edit Column")); // XXX Create frame instead of dialog
-    header_actions_[caResizeToContents] = header_ctx_menu_.addAction(tr("Resize To Contents"));
-    header_actions_[caResolveNames] = header_ctx_menu_.addAction(tr("Resolve Names"));
-    header_ctx_menu_.addSeparator();
-//    header_actions_[caDisplayedColumns] = header_ctx_menu_.addAction(tr("Displayed Columns"));
-    show_hide_separator_ = header_ctx_menu_.addSeparator();
-//    header_actions_[caHideColumn] = header_ctx_menu_.addAction(tr("Hide This Column"));
-    header_actions_[caRemoveColumn] = header_ctx_menu_.addAction(tr("Remove This Column"));
-
-    foreach (ColumnActions ca, header_actions_.keys()) {
-        header_actions_[ca]->setData(QVariant::fromValue(ca));
-        connect(header_actions_[ca], SIGNAL(triggered()), this, SLOT(headerMenuTriggered()));
-    }
-
-    checkable_actions_ = QList<ColumnActions>() << caAlignLeft << caAlignCenter << caAlignRight << caResolveNames;
-    foreach (ColumnActions ca, checkable_actions_) {
-        header_actions_[ca]->setCheckable(true);
-    }
 }
 
 void PacketList::drawCurrentPacket()
@@ -801,6 +824,11 @@ bool PacketList::havePreviousHistory(bool update_cur)
         }
     }
     return false;
+}
+
+frame_data *PacketList::getFDataForRow(int row) const
+{
+    return packet_list_model_->getRowFdata(row);
 }
 
 // prefs.col_list has changed.
@@ -946,7 +974,7 @@ void PacketList::freeze()
         frozen_row_ = -1;
     }
     selectionModel()->clear();
-    setModel(NULL);
+    setModel(Q_NULLPTR);
     // It looks like GTK+ sends a cursor-changed signal at this point but Qt doesn't
     // call selectionChanged.
     related_packet_delegate_.clear();
@@ -1017,13 +1045,19 @@ bool PacketList::contextMenuActive()
     return ctx_column_ >= 0 ? true : false;
 }
 
-QString PacketList::getFilterFromRowAndColumn()
+QString PacketList::getFilterFromRowAndColumn(QModelIndex idx)
 {
     frame_data *fdata;
     QString filter;
-    int row = currentIndex().row();
 
-    if (!cap_file_ || !packet_list_model_ || ctx_column_ < 0 || ctx_column_ >= cap_file_->cinfo.num_cols) return filter;
+    if ( ! idx.isValid() )
+        return filter;
+
+    int row = idx.row();
+    int column = idx.column();
+
+    if (!cap_file_ || !packet_list_model_ || column < 0 || column >= cap_file_->cinfo.num_cols)
+        return filter;
 
     fdata = packet_list_model_->getRowFdata(row);
 
@@ -1048,8 +1082,8 @@ QString PacketList::getFilterFromRowAndColumn()
                          fdata, &cap_file_->cinfo);
         epan_dissect_fill_in_columns(&edt, TRUE, TRUE);
 
-        if ((cap_file_->cinfo.columns[ctx_column_].col_custom_occurrence) ||
-            (strchr (cap_file_->cinfo.col_expr.col_expr_val[ctx_column_], ',') == NULL))
+        if ((cap_file_->cinfo.columns[column].col_custom_occurrence) ||
+            (strchr (cap_file_->cinfo.col_expr.col_expr_val[column], ',') == NULL))
         {
             /* Only construct the filter when a single occurrence is displayed
              * otherwise we might end up with a filter like "ip.proto==1,6".
@@ -1058,20 +1092,20 @@ QString PacketList::getFilterFromRowAndColumn()
              * the filter might be calculated as "ip.proto==1 && ip.proto==6"
              * instead?
              */
-            if (strlen(cap_file_->cinfo.col_expr.col_expr[ctx_column_]) != 0 &&
-                strlen(cap_file_->cinfo.col_expr.col_expr_val[ctx_column_]) != 0) {
+            if (strlen(cap_file_->cinfo.col_expr.col_expr[column]) != 0 &&
+                strlen(cap_file_->cinfo.col_expr.col_expr_val[column]) != 0) {
                 gboolean is_string_value = FALSE;
-                if (cap_file_->cinfo.columns[ctx_column_].col_fmt == COL_CUSTOM) {
-                    header_field_info *hfi = proto_registrar_get_byname(cap_file_->cinfo.columns[ctx_column_].col_custom_fields);
+                if (cap_file_->cinfo.columns[column].col_fmt == COL_CUSTOM) {
+                    header_field_info *hfi = proto_registrar_get_byname(cap_file_->cinfo.columns[column].col_custom_fields);
                     if (hfi && hfi->parent == -1) {
                         /* Protocol only */
-                        filter.append(cap_file_->cinfo.col_expr.col_expr[ctx_column_]);
+                        filter.append(cap_file_->cinfo.col_expr.col_expr[column]);
                     } else if (hfi && hfi->type == FT_STRING) {
                         /* Custom string, add quotes */
                         is_string_value = TRUE;
                     }
                 } else {
-                    header_field_info *hfi = proto_registrar_get_byname(cap_file_->cinfo.col_expr.col_expr[ctx_column_]);
+                    header_field_info *hfi = proto_registrar_get_byname(cap_file_->cinfo.col_expr.col_expr[column]);
                     if (hfi && hfi->type == FT_STRING) {
                         /* Could be an address type such as usb.src which must be quoted. */
                         is_string_value = TRUE;
@@ -1081,12 +1115,12 @@ QString PacketList::getFilterFromRowAndColumn()
                 if (filter.isEmpty()) {
                     if (is_string_value) {
                         filter.append(QString("%1 == \"%2\"")
-                                      .arg(cap_file_->cinfo.col_expr.col_expr[ctx_column_])
-                                      .arg(cap_file_->cinfo.col_expr.col_expr_val[ctx_column_]));
+                                      .arg(cap_file_->cinfo.col_expr.col_expr[column])
+                                      .arg(cap_file_->cinfo.col_expr.col_expr_val[column]));
                     } else {
                         filter.append(QString("%1 == %2")
-                                      .arg(cap_file_->cinfo.col_expr.col_expr[ctx_column_])
-                                      .arg(cap_file_->cinfo.col_expr.col_expr_val[ctx_column_]));
+                                      .arg(cap_file_->cinfo.col_expr.col_expr[column])
+                                      .arg(cap_file_->cinfo.col_expr.col_expr_val[column]));
                     }
                 }
             }
@@ -1209,6 +1243,7 @@ void PacketList::setCaptureFile(capture_file *cf)
         }
     }
     packet_list_model_->setCaptureFile(cf);
+    packet_list_header_->setCaptureFile(cf);
     create_near_overlay_ = true;
     sortByColumn(-1, Qt::AscendingOrder);
 }
@@ -1279,20 +1314,18 @@ void PacketList::goLastPacket(void) {
 }
 
 // XXX We can jump to the wrong packet if a display filter is applied
-void PacketList::goToPacket(int packet) {
-    if (!cf_goto_frame(cap_file_, packet)) return;
+void PacketList::goToPacket(int packet, int hf_id)
+{
+    if (!cf_goto_frame(cap_file_, packet))
+        return;
+
     int row = packet_list_model_->packetNumberToRow(packet);
     if (row >= 0) {
         setCurrentIndex(packet_list_model_->index(row, 0));
+        proto_tree_->goToHfid(hf_id);
     }
 
     scrollViewChanged(false);
-}
-
-void PacketList::goToPacket(int packet, int hf_id)
-{
-    goToPacket(packet);
-    proto_tree_->goToHfid(hf_id);
 }
 
 void PacketList::goNextHistoryPacket()
@@ -1374,105 +1407,8 @@ void PacketList::applyTimeShift()
     // XXX emit packetDissectionChanged(); ?
 }
 
-void PacketList::showHeaderMenu(QPoint pos)
+void PacketList::updatePackets(bool redraw)
 {
-    header_ctx_column_ = header()->logicalIndexAt(pos);
-    foreach (ColumnActions ca, checkable_actions_) {
-        header_actions_[ca]->setChecked(false);
-    }
-
-    switch (recent_get_column_xalign(header_ctx_column_)) {
-    case COLUMN_XALIGN_LEFT:
-        header_actions_[caAlignLeft]->setChecked(true);
-        break;
-    case COLUMN_XALIGN_CENTER:
-        header_actions_[caAlignCenter]->setChecked(true);
-        break;
-    case COLUMN_XALIGN_RIGHT:
-        header_actions_[caAlignRight]->setChecked(true);
-        break;
-    default:
-        break;
-    }
-
-    bool can_resolve = resolve_column(header_ctx_column_, cap_file_);
-    header_actions_[caResolveNames]->setChecked(can_resolve && get_column_resolved(header_ctx_column_));
-    header_actions_[caResolveNames]->setEnabled(can_resolve);
-
-    header_actions_[caRemoveColumn]->setEnabled(header_ctx_column_ >= 0 && header()->count() > 2);
-
-    foreach (QAction *action, show_hide_actions_) {
-        header_ctx_menu_.removeAction(action);
-        delete action;
-    }
-    show_hide_actions_.clear();
-    for (int i = 0; i < prefs.num_cols; i++) {
-        QAction *action = new QAction(get_column_title(i), &header_ctx_menu_);
-        action->setCheckable(true);
-        action->setChecked(get_column_visible(i));
-        action->setData(QVariant::fromValue(i));
-        connect(action, SIGNAL(triggered()), this, SLOT(columnVisibilityTriggered()));
-        header_ctx_menu_.insertAction(show_hide_separator_, action);
-        show_hide_actions_ << action;
-    }
-
-    header_ctx_menu_.popup(header()->viewport()->mapToGlobal(pos));
-}
-
-void PacketList::headerMenuTriggered()
-{
-    QAction *ha = qobject_cast<QAction*>(sender());
-    if (!ha) return;
-
-    bool checked = ha->isChecked();
-    bool redraw = false;
-
-    switch(ha->data().value<ColumnActions>()) {
-    case caAlignLeft:
-        recent_set_column_xalign(header_ctx_column_, checked ? COLUMN_XALIGN_LEFT : COLUMN_XALIGN_DEFAULT);
-        break;
-    case caAlignCenter:
-        recent_set_column_xalign(header_ctx_column_, checked ? COLUMN_XALIGN_CENTER : COLUMN_XALIGN_DEFAULT);
-        break;
-    case caAlignRight:
-        recent_set_column_xalign(header_ctx_column_, checked ? COLUMN_XALIGN_RIGHT : COLUMN_XALIGN_DEFAULT);
-        break;
-    case caColumnPreferences:
-        emit showColumnPreferences(PrefsModel::COLUMNS_PREFERENCE_TREE_NAME);
-        break;
-    case caEditColumn:
-        emit editColumn(header_ctx_column_);
-        break;
-    case caResolveNames:
-        set_column_resolved(header_ctx_column_, checked);
-        packet_list_model_->resetColumns();
-        prefs_main_write();
-        redraw = true;
-        break;
-    case caResizeToContents:
-        resizeColumnToContents(header_ctx_column_);
-        break;
-    case caDisplayedColumns:
-        // No-op
-        break;
-    case caHideColumn:
-        set_column_visible(header_ctx_column_, FALSE);
-        hideColumn(header_ctx_column_);
-        prefs_main_write();
-        break;
-    case caRemoveColumn:
-    {
-        if (header()->count() > 2) {
-            column_prefs_remove_nth(header_ctx_column_);
-            columnsChanged();
-            prefs_main_write();
-        }
-        break;
-    }
-    default:
-        break;
-    }
-
     if (redraw) {
         redrawVisiblePackets();
     } else {
@@ -1594,7 +1530,7 @@ void PacketList::updateRowHeights(const QModelIndex &ih_index)
     }
 
     if (max_height > 0) {
-        packet_list_model_->setMaximiumRowHeight(max_height);
+        packet_list_model_->setMaximumRowHeight(max_height);
     }
 }
 

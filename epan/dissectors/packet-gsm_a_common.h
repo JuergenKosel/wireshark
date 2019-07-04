@@ -181,6 +181,11 @@ extern gint ett_nas_5gs_sm_elem[];
 extern elem_fcn nas_5gs_sm_elem_fcn[];
 extern int hf_nas_5gs_sm_elem_id;
 
+extern value_string_ext nas_5gs_updp_elem_strings_ext;
+extern gint ett_nas_5gs_updp_elem[];
+extern elem_fcn nas_5gs_updp_elem_fcn[];
+extern int hf_nas_5gs_updp_elem_id;
+
 extern sccp_assoc_info_t* sccp_assoc;
 
 extern int gsm_a_tap;
@@ -224,6 +229,7 @@ extern int hf_gsm_a_lac;
 #define NAS_5GS_PDU_TYPE_COMMON     16
 #define NAS_5GS_PDU_TYPE_MM         17
 #define NAS_5GS_PDU_TYPE_SM         18
+#define NAS_5GS_PDU_TYPE_UPDP       19
 
 extern const char* get_gsm_a_msg_string(int pdu_type, int idx);
 
@@ -346,6 +352,11 @@ extern const char* get_gsm_a_msg_string(int pdu_type, int idx);
         SEV_elem_names_ext = nas_5gs_sm_elem_strings_ext; \
         SEV_elem_ett = ett_nas_5gs_sm_elem; \
         SEV_elem_funcs = nas_5gs_sm_elem_fcn; \
+        break; \
+    case NAS_5GS_PDU_TYPE_UPDP: \
+        SEV_elem_names_ext = nas_5gs_updp_elem_strings_ext; \
+        SEV_elem_ett = ett_nas_5gs_updp_elem; \
+        SEV_elem_funcs = nas_5gs_updp_elem_fcn; \
         break; \
     default: \
         proto_tree_add_expert_format(tree, pinfo, ei_unknown, \
@@ -1019,13 +1030,104 @@ typedef enum
     BE_LCLS_BSS_STATUS,                 /* LCLS-BSS-Status                     3.2.2.119    */
     BE_LCLS_BREAK_REQ,                  /* LCLS-Break-Request                  3.2.2.120    */
     BE_CSFB_IND,                        /* CSFB Indication                     3.2.2.121    */
-#if 0
     BE_CS_TO_PS_SRVCC,                  /* CS to PS SRVCC                      3.2.2.122    */
     BE_SRC_ENB_2_TGT_ENB_TRANSP_INF,    /* Source eNB to target eNB transparent information (E-UTRAN)" 3.2.2.123    */
     BE_CS_TO_PS_SRVCC_IND,              /* CS to PS SRVCC Indication           3.2.2.124    */
     BE_CN_TO_MS_TRANSP,                 /* CN to MS transparent information    3.2.2.125    */
-#endif
     BE_SELECTED_PLMN_ID,                /* Selected PLMN ID                    3.2.2.126    */
+    BE_UDEF_149,                         /* Undefined */
+    BE_UDEF_150,                         /* Undefined */
+    BE_UDEF_151,                         /* Undefined */
+    BE_UDEF_152,                         /* Undefined */
+    BE_UDEF_153,                         /* Undefined */
+    BE_UDEF_154,                         /* Undefined */
+    BE_UDEF_155,                         /* Undefined */
+    BE_UDEF_156,                         /* Undefined */
+    BE_UDEF_157,                         /* Undefined */
+    BE_UDEF_158,                         /* Undefined */
+    BE_UDEF_159,                         /* Undefined */
+    BE_UDEF_160,                         /* Undefined */
+    BE_UDEF_161,                         /* Undefined */
+    BE_UDEF_162,                         /* Undefined */
+    BE_UDEF_163,                         /* Undefined */
+    BE_UDEF_164,                         /* Undefined */
+    BE_UDEF_165,                         /* Undefined */
+    BE_UDEF_166,                         /* Undefined */
+    BE_UDEF_167,                         /* Undefined */
+    BE_UDEF_168,                         /* Undefined */
+    BE_UDEF_169,                         /* Undefined */
+    BE_UDEF_170,                         /* Undefined */
+    BE_UDEF_171,                         /* Undefined */
+    BE_UDEF_172,                         /* Undefined */
+    BE_UDEF_173,                         /* Undefined */
+    BE_UDEF_174,                         /* Undefined */
+    BE_UDEF_175,                         /* Undefined */
+    BE_UDEF_176,                         /* Undefined */
+    BE_UDEF_177,                         /* Undefined */
+    BE_UDEF_178,                         /* Undefined */
+    BE_UDEF_179,                         /* Undefined */
+    BE_UDEF_180,                         /* Undefined */
+    BE_UDEF_181,                         /* Undefined */
+    BE_UDEF_182,                         /* Undefined */
+    BE_UDEF_183,                         /* Undefined */
+    BE_UDEF_184,                         /* Undefined */
+    BE_UDEF_185,                         /* Undefined */
+    BE_UDEF_186,                         /* Undefined */
+    BE_UDEF_187,                         /* Undefined */
+    BE_UDEF_188,                         /* Undefined */
+    BE_UDEF_189,                         /* Undefined */
+    BE_UDEF_190,                         /* Undefined */
+    BE_UDEF_191,                         /* Undefined */
+    BE_UDEF_192,                         /* Undefined */
+    BE_UDEF_193,                         /* Undefined */
+    BE_UDEF_194,                         /* Undefined */
+    BE_UDEF_195,                         /* Undefined */
+    BE_UDEF_196,                         /* Undefined */
+    BE_UDEF_197,                         /* Undefined */
+    BE_UDEF_198,                         /* Undefined */
+    BE_UDEF_199,                         /* Undefined */
+    BE_UDEF_200,                         /* Undefined */
+    BE_UDEF_201,                         /* Undefined */
+    BE_UDEF_202,                         /* Undefined */
+    BE_UDEF_203,                         /* Undefined */
+    BE_UDEF_204,                         /* Undefined */
+    BE_UDEF_205,                         /* Undefined */
+    BE_UDEF_206,                         /* Undefined */
+    BE_UDEF_207,                         /* Undefined */
+    BE_UDEF_208,                         /* Undefined */
+    BE_UDEF_209,                         /* Undefined */
+    BE_UDEF_210,                         /* Undefined */
+    BE_UDEF_211,                         /* Undefined */
+    BE_UDEF_212,                         /* Undefined */
+    BE_UDEF_213,                         /* Undefined */
+    BE_UDEF_214,                         /* Undefined */
+    BE_UDEF_215,                         /* Undefined */
+    BE_UDEF_216,                         /* Undefined */
+    BE_UDEF_217,                         /* Undefined */
+    BE_UDEF_218,                         /* Undefined */
+    BE_UDEF_219,                         /* Undefined */
+    BE_UDEF_220,                         /* Undefined */
+    BE_UDEF_221,                         /* Undefined */
+    BE_UDEF_222,                         /* Undefined */
+    BE_UDEF_223,                         /* Undefined */
+    BE_UDEF_224,                         /* Undefined */
+    BE_UDEF_225,                         /* Undefined */
+    BE_UDEF_226,                         /* Undefined */
+    BE_UDEF_227,                         /* Undefined */
+    BE_UDEF_228,                         /* Undefined */
+    BE_UDEF_229,                         /* Undefined */
+    BE_UDEF_230,                         /* Undefined */
+    BE_UDEF_231,                         /* Undefined */
+    BE_UDEF_232,                         /* Undefined */
+    BE_UDEF_233,                         /* Undefined */
+    BE_UDEF_234,                         /* Undefined */
+    BE_UDEF_235,                         /* Undefined */
+    BE_UDEF_236,                         /* Undefined */
+    BE_UDEF_237,                         /* Undefined */
+    BE_UDEF_238,                         /* Undefined */
+    BE_UDEF_239,                         /* Undefined */
+    BE_OSMOCOM_OSMUX_SUPPORT = 0xf0,    /* Osmocom extension: Osmux Support */
+    BE_OSMOCOM_OSMUX_CID = 0xf1,        /* Osmocom extension: Osmux CID */
     BE_NONE                             /* NONE */
 }
 bssmap_elem_idx_t;

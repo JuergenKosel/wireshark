@@ -22,6 +22,7 @@
 #include <QTreeView>
 #include <QPainter>
 
+class PacketListHeader;
 class OverlayScrollBar;
 
 class QAction;
@@ -31,20 +32,7 @@ class PacketList : public QTreeView
 {
     Q_OBJECT
 public:
-    enum ColumnActions {
-        caAlignLeft,
-        caAlignCenter,
-        caAlignRight,
-        caColumnPreferences,
-        caEditColumn,
-        caResolveNames,
-        caResizeToContents,
-        caDisplayedColumns,
-        caHideColumn,
-        caRemoveColumn
-    };
     explicit PacketList(QWidget *parent = 0);
-    PacketListModel *packetListModel() const;
     QMenu *conversationMenu() { return &conv_menu_; }
     QMenu *colorizeMenu() { return &colorize_menu_; }
     void setProtoTree(ProtoTree *proto_tree);
@@ -66,7 +54,7 @@ public:
     void clear();
     void writeRecent(FILE *rf);
     bool contextMenuActive();
-    QString getFilterFromRowAndColumn();
+    QString getFilterFromRowAndColumn(QModelIndex idx);
     void resetColorized();
     QString packetComment();
     void setPacketComment(QString new_comment);
@@ -79,12 +67,16 @@ public:
     bool haveNextHistory(bool update_cur = false);
     bool havePreviousHistory(bool update_cur = false);
 
+    frame_data * getFDataForRow(int row) const;
+
 protected:
     void selectionChanged(const QItemSelection & selected, const QItemSelection & deselected);
     void contextMenuEvent(QContextMenuEvent *event);
     void timerEvent(QTimerEvent *event);
     void paintEvent(QPaintEvent *event);
     virtual void mousePressEvent (QMouseEvent *event);
+    virtual void mouseReleaseEvent (QMouseEvent *event);
+    virtual void mouseMoveEvent (QMouseEvent *event);
     virtual void resizeEvent(QResizeEvent *event);
 
 protected slots:
@@ -93,6 +85,7 @@ protected slots:
 
 private:
     PacketListModel *packet_list_model_;
+    PacketListHeader * packet_list_header_;
     ProtoTree *proto_tree_;
     capture_file *cap_file_;
     QMenu ctx_menu_;
@@ -108,11 +101,9 @@ private:
     bool create_far_overlay_;
     QVector<QRgb> overlay_colors_;
 
+    QModelIndex mouse_pressed_at_;
+
     RelatedPacketDelegate related_packet_delegate_;
-    QMenu header_ctx_menu_;
-    QMap<ColumnActions, QAction*> header_actions_;
-    QList<ColumnActions> checkable_actions_;
-    int header_ctx_column_;
     QAction *show_hide_separator_;
     QList<QAction *>show_hide_actions_;
     bool capture_in_progress_;
@@ -130,7 +121,6 @@ private:
     void setColumnVisibility();
     int sizeHintForColumn(int column) const;
     void setRecentColumnWidth(int column);
-    void initHeaderContextMenu();
     void drawCurrentPacket();
     void applyRecentColumnWidths();
     void scrollViewChanged(bool at_end);
@@ -154,8 +144,7 @@ public slots:
     void goPreviousPacket();
     void goFirstPacket(bool user_selected = true);
     void goLastPacket();
-    void goToPacket(int packet);
-    void goToPacket(int packet, int hf_id);
+    void goToPacket(int packet, int hf_id = -1);
     void goNextHistoryPacket();
     void goPreviousHistoryPacket();
     void markFrame();
@@ -173,8 +162,6 @@ public slots:
     void preferencesChanged();
 
 private slots:
-    void showHeaderMenu(QPoint pos);
-    void headerMenuTriggered();
     void columnVisibilityTriggered();
     void sectionResized(int col, int, int new_width);
     void sectionMoved(int, int, int);
@@ -183,6 +170,7 @@ private slots:
     void vScrollBarActionTriggered(int);
     void drawFarOverlay();
     void drawNearOverlay();
+    void updatePackets(bool redraw);
 };
 
 #endif // PACKET_LIST_H

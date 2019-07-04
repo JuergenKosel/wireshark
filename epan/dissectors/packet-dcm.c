@@ -3885,9 +3885,11 @@ dissect_dcm_heuristic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
 Only set a valued with col_set_str() if it does not yet exist.
 (In a multiple PDV scenario, col_set_str() actually appends for the subsequent calls)
 */
-void col_set_str_conditional(column_info *cinfo, const gint el, const gchar* str)
+static void col_set_str_conditional(column_info *cinfo, const gint el, const gchar* str)
 {
-    if (!g_str_has_prefix(col_get_text(cinfo, el), str))
+    const char *col_string = col_get_text(cinfo, el);
+
+    if (col_string == NULL || !g_str_has_prefix(col_string, str))
     {
         col_add_str(cinfo, el, str);
     }
@@ -3896,9 +3898,11 @@ void col_set_str_conditional(column_info *cinfo, const gint el, const gchar* str
 /*
 CSV add a value to a column, if it does not exist yet
 */
-void col_append_str_conditional(column_info *cinfo, const gint el, const gchar* str)
+static void col_append_str_conditional(column_info *cinfo, const gint el, const gchar* str)
 {
-    if (!g_strrstr(col_get_text(cinfo, el), str))
+    const char *col_string = col_get_text(cinfo, el);
+
+    if (col_string == NULL || !g_strrstr(col_string, str))
     {
         col_append_fstr(cinfo, el, ", %s", str);
     }

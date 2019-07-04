@@ -129,6 +129,7 @@ DIAG_ON(frame-larger-than=)
 #include "packet_comment_dialog.h"
 #include "packet_dialog.h"
 #include "packet_list.h"
+#include "credentials_dialog.h"
 #include "preferences_dialog.h"
 #include "print_dialog.h"
 #include "profile_dialog.h"
@@ -153,7 +154,7 @@ DIAG_ON(frame-larger-than=)
 #include "voip_calls_dialog.h"
 #include "wireshark_application.h"
 #include "wlan_statistics_dialog.h"
-#include "wireless_timeline.h"
+#include <ui/qt/widgets/wireless_timeline.h>
 
 #include <QClipboard>
 #include <QFileInfo>
@@ -1177,7 +1178,7 @@ void MainWindow::setMenusForSelectedPacket()
         }
     }
 
-    have_filter_expr = !packet_list_->getFilterFromRowAndColumn().isEmpty();
+    have_filter_expr = !packet_list_->getFilterFromRowAndColumn(packet_list_->currentIndex()).isEmpty();
 
     main_ui_->actionEditMarkPacket->setEnabled(frame_selected);
     main_ui_->actionEditMarkAllDisplayed->setEnabled(have_frames);
@@ -1996,7 +1997,7 @@ void MainWindow::on_actionEditCopyAsFilter_triggered()
 
 void MainWindow::on_actionEditFindPacket_triggered()
 {
-    if (packet_list_->packetListModel()->rowCount() < 1) {
+    if (packet_list_->model()->rowCount() < 1) {
         return;
     }
     previous_focus_ = wsApp->focusWidget();
@@ -2365,7 +2366,7 @@ void MainWindow::on_actionViewNormalSize_triggered()
 void MainWindow::on_actionViewColorizePacketList_triggered(bool checked) {
     recent.packet_list_colorize = checked;
     packet_list_recolor_packets();
-    packet_list_->packetListModel()->resetColorized();
+    packet_list_->resetColorized();
 }
 
 void MainWindow::on_actionViewColoringRules_triggered()
@@ -2482,7 +2483,7 @@ void MainWindow::on_actionViewResetLayout_triggered()
 
 void MainWindow::on_actionViewResizeColumns_triggered()
 {
-    for (int col = 0; col < packet_list_->packetListModel()->columnCount(); col++) {
+    for (int col = 0; col < packet_list_->model()->columnCount(); col++) {
         packet_list_->resizeColumnToContents(col);
         recent_set_column_width(col, packet_list_->columnWidth(col));
     }
@@ -2587,7 +2588,7 @@ void MainWindow::matchFieldFilter(FilterAction::Action action, FilterAction::Act
     QString field_filter;
 
     if (packet_list_->contextMenuActive() || packet_list_->hasFocus()) {
-        field_filter = packet_list_->getFilterFromRowAndColumn();
+        field_filter = packet_list_->getFilterFromRowAndColumn(packet_list_->currentIndex());
     } else if (capture_file_.capFile() && capture_file_.capFile()->finfo_selected) {
         char *tmp_field = proto_construct_match_selected_string(capture_file_.capFile()->finfo_selected,
                                                                 capture_file_.capFile()->edt);
@@ -2631,16 +2632,9 @@ void MainWindow::on_actionAnalyzeDisplayFilterMacros_triggered()
 
 void MainWindow::on_actionAnalyzeCreateAColumn_triggered()
 {
-    gint colnr = 0;
-
     if (capture_file_.capFile() != 0 && capture_file_.capFile()->finfo_selected != 0) {
-        colnr = column_prefs_add_custom(COL_CUSTOM, capture_file_.capFile()->finfo_selected->hfinfo->name,
-                    capture_file_.capFile()->finfo_selected->hfinfo->abbrev, 0);
-
-        packet_list_->columnsChanged();
-        packet_list_->resizeColumnToContents(colnr);
-
-        prefs_main_write();
+        insertColumn(QString(capture_file_.capFile()->finfo_selected->hfinfo->name),
+                     QString(capture_file_.capFile()->finfo_selected->hfinfo->abbrev));
     }
 }
 
@@ -3370,6 +3364,11 @@ void MainWindow::on_actionToolsFirewallAclRules_triggered()
     firewall_rules_dialog->show();
 }
 
+void MainWindow::on_actionToolsCredentials_triggered()
+{
+    CredentialsDialog *credentials_dialog = new CredentialsDialog(*this, capture_file_, packet_list_);
+    credentials_dialog->show();
+}
 
 // Help Menu
 void MainWindow::on_actionHelpContents_triggered() {
@@ -3473,7 +3472,7 @@ void MainWindow::on_actionHelpAbout_triggered()
 }
 
 void MainWindow::on_actionGoGoToPacket_triggered() {
-    if (packet_list_->packetListModel()->rowCount() < 1) {
+    if (packet_list_->model()->rowCount() < 1) {
         return;
     }
     previous_focus_ = wsApp->focusWidget();
@@ -3762,12 +3761,25 @@ void MainWindow::extcap_options_finished(int result)
 void MainWindow::showExtcapOptionsDialog(QString &device_name)
 {
     ExtcapOptionsDialog * extcap_options_dialog = ExtcapOptionsDialog::createForDevice(device_name, this);
-    extcap_options_dialog->setModal(true);
     /* The dialog returns null, if the given device name is not a valid extcap device */
     if (extcap_options_dialog) {
+        extcap_options_dialog->setModal(true);
+        extcap_options_dialog->setAttribute(Qt::WA_DeleteOnClose);
         connect(extcap_options_dialog, SIGNAL(finished(int)),
                 this, SLOT(extcap_options_finished(int)));
         extcap_options_dialog->show();
+    }
+}
+
+void MainWindow::insertColumn(QString name, QString abbrev, gint pos)
+{
+    gint colnr = 0;
+    if ( name.length() > 0 && abbrev.length() > 0 )
+    {
+        colnr = column_prefs_add_custom(COL_CUSTOM, name.toStdString().c_str(), abbrev.toStdString().c_str(), pos);
+        packet_list_->columnsChanged();
+        packet_list_->resizeColumnToContents(colnr);
+        prefs_main_write();
     }
 }
 

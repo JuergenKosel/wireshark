@@ -415,6 +415,16 @@ void proto_report_dissector_bug(const char *format, ...)
 #define ENC_TIME_MSEC_NTP      0x00000022
 
 /*
+ * This is a modifier for FT_UINT_STRING and FT_UINT_BYTES values;
+ * it indicates that the length field should be interpreted as per
+ * sections 2.5.2.11 Octet String through 2.5.2.14 Long Character
+ * String of the ZigBee Cluster Library Specification, where if all
+ * bits are set in the length field, the string has an invalid value,
+ * and the number of octets in the value is 0.
+ */
+#define ENC_ZIGBEE               0x40000000
+
+/*
  * Historically, the only place the representation mattered for strings
  * was with FT_UINT_STRINGs, where we had FALSE for the string length
  * being big-endian and TRUE for it being little-endian.
@@ -440,8 +450,10 @@ void proto_report_dissector_bug(const char *format, ...)
  * For display, perhaps we should also map control characters to the
  * Unicode glyphs showing the name of the control character in small
  * caps, diagonally.  (Unfortunately, those only exist for C0, not C1.)
+ *
+ * *DO NOT* add anything to this set that is not a character encoding!
  */
-#define ENC_CHARENCODING_MASK    0x7FFFFFFE  /* mask out byte-order bits */
+#define ENC_CHARENCODING_MASK    0x3FFFFFFE  /* mask out byte-order bits and Zigbee bits */
 #define ENC_ASCII                0x00000000
 #define ENC_UTF_8                0x00000002
 #define ENC_UTF_16               0x00000004
@@ -471,7 +483,7 @@ void proto_report_dissector_bug(const char *format, ...)
 #define ENC_ASCII_7BITS          0x00000034
 #define ENC_T61                  0x00000036
 #define ENC_EBCDIC_CP037         0x00000038
-#define ENC_ZIGBEE               0x0000003A
+#define ENC_WINDOWS_1252         0x0000003A
 #define ENC_WINDOWS_1251         0x0000003C
 #define ENC_CP855                0x0000003E
 #define ENC_CP866                0x00000040
@@ -603,15 +615,22 @@ typedef enum {
 
 /* Following constants have to be ORed with a field_display_e when dissector
  * want to use specials value-string MACROs for a header_field_info */
-#define BASE_RANGE_STRING     0x0100  /**< Use the supplied range string to convert the field to text */
-#define BASE_EXT_STRING       0x0200
-#define BASE_VAL64_STRING     0x0400
-#define BASE_ALLOW_ZERO       0x0800  /**< Display <none> instead of <MISSING> for zero sized byte array */
-#define BASE_UNIT_STRING      0x1000  /**< Add unit text to the field value */
-#define BASE_NO_DISPLAY_VALUE 0x2000  /**< Just display the field name with no value.  Intended for
-                                           byte arrays or header fields above a subtree */
-#define BASE_PROTOCOL_INFO    0x4000  /**< protocol_t in [FIELDCONVERT].  Internal use only. */
-#define BASE_SPECIAL_VALS     0x8000  /**< field will not display "Unknown" if value_string match is not found */
+#define BASE_RANGE_STRING         0x00000100  /**< Use the supplied range string to convert the field to text */
+#define BASE_EXT_STRING           0x00000200
+#define BASE_VAL64_STRING         0x00000400
+
+#define BASE_ALLOW_ZERO           0x00000800  /**< Display <none> instead of <MISSING> for zero sized byte array */
+
+#define BASE_UNIT_STRING          0x00001000  /**< Add unit text to the field value */
+
+#define BASE_NO_DISPLAY_VALUE     0x00002000  /**< Just display the field name with no value.  Intended for
+                                                   byte arrays or header fields above a subtree */
+
+#define BASE_PROTOCOL_INFO        0x00004000  /**< protocol_t in [FIELDCONVERT].  Internal use only. */
+
+#define BASE_SPECIAL_VALS         0x00008000  /**< field will not display "Unknown" if value_string match is not found */
+
+#define BASE_SHOW_ASCII_PRINTABLE 0x00010000 /**< show byte array as ASCII if it's all printable characters */
 
 /** BASE_ values that cause the field value to be displayed twice */
 #define IS_BASE_DUAL(b) ((b)==BASE_DEC_HEX||(b)==BASE_HEX_DEC)
@@ -1253,6 +1272,55 @@ WS_DLL_PUBLIC proto_item *
 proto_tree_add_item_ret_string(proto_tree *tree, int hfindex, tvbuff_t *tvb,
     const gint start, gint length, const guint encoding,
     wmem_allocator_t *scope, const guint8 **retval);
+
+/** Add an string or byte array item to a proto_tree, using the
+text label registered to that item.
+
+This provides a string that is a display representation of the value,
+and the length of the item, similar to what
+proto_tree_add_item_ret_string_and_length() does.
+
+@param scope the wmem scope to use to allocate the string
+@param tree the tree to append this item to
+@param hfindex field
+@param tvb the tv buffer of the current data
+@param start start of data in tvb (cannot be negative)
+@param length length of data in tvb (for strings can be -1 for remaining)
+@param encoding data encoding (e.g, ENC_ASCII, ENC_UTF_8, etc.)
+@param[out] retval points to a guint8 * that will be set to point to the
+string value
+@param[out] lenretval points to a gint that will be set to the item length
+@return the newly created item, *retval is set to the display string,
+and *lenretval is set to the item length
+*/
+WS_DLL_PUBLIC proto_item *
+proto_tree_add_item_ret_display_string_and_length(proto_tree *tree, int hfindex,
+    tvbuff_t *tvb,
+    const gint start, gint length, const guint encoding,
+    wmem_allocator_t *scope, char **retval, gint *lenretval);
+
+/** Add an string or byte array item to a proto_tree, using the
+text label registered to that item.
+
+This provides a string that is a display representation of the value,
+similar to what proto_tree_add_item_ret_string() does.
+
+@param scope the wmem scope to use to allocate the string
+@param tree the tree to append this item to
+@param hfindex field
+@param tvb the tv buffer of the current data
+@param start start of data in tvb (cannot be negative)
+@param length length of data in tvb (for strings can be -1 for remaining)
+@param encoding data encoding (e.g, ENC_ASCII, ENC_UTF_8, etc.)
+@param[out] retval points to a guint8 * that will be set to point to the
+string value
+@return the newly created item, *retval is set to the display string
+*/
+WS_DLL_PUBLIC proto_item *
+proto_tree_add_item_ret_display_string(proto_tree *tree, int hfindex,
+    tvbuff_t *tvb,
+    const gint start, gint length, const guint encoding,
+    wmem_allocator_t *scope, char **retval);
 
 /** (INTERNAL USE ONLY) Add a text-only node to a proto_tree.
  @param tree the tree to append this item to

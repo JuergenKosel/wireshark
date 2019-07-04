@@ -1768,6 +1768,48 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
 </context>
 <context>
+    <name>CredentialsDialog</name>
+    <message>
+        <source>Wireshark - Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CredentialsModel</name>
+    <message>
+        <source>Click to select the packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click to select the packet with username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Username not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet No.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">Protokoll</translation>
+    </message>
+    <message>
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Additional Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>DataPrinter</name>
     <message>
         <source>Copy Bytes as Hex + ASCII Dump</source>
@@ -1940,6 +1982,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Manage Filter Expressions</source>
         <translation>Filterausdrücke verwalten</translation>
+    </message>
+    <message>
+        <source>Selected</source>
+        <translation type="unfinished">Ausgewählt</translation>
+    </message>
+    <message>
+        <source>Not Selected</source>
+        <translation type="unfinished">nicht das Ausgewählte</translation>
     </message>
 </context>
 <context>
@@ -3009,6 +3059,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Farben:</translation>
     </message>
     <message>
+        <source>System Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Sample ignored packet text</source>
         <translation>Beispieltext für ignorierte Pakete</translation>
     </message>
@@ -3023,14 +3081,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Style:</source>
         <translation>Stil:</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>Standard</translation>
-    </message>
-    <message>
-        <source>Flat</source>
-        <translation>Flach</translation>
     </message>
     <message>
         <source>Gradient</source>
@@ -3549,8 +3599,8 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Zeit (Sek)</translation>
     </message>
     <message>
-        <source>IO Graphs</source>
-        <translation>IO Graphen</translation>
+        <source>I/O Graphs</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Copy</source>
@@ -3569,6 +3619,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>1 ms</translation>
     </message>
     <message>
+        <source>5 ms</source>
+        <translation type="unfinished">100 ms {5 ?}</translation>
+    </message>
+    <message>
         <source>10 ms</source>
         <translation>10 ms</translation>
     </message>
@@ -3577,8 +3631,8 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>100 ms</translation>
     </message>
     <message>
-        <source>Wireshark IO Graphs: %1</source>
-        <translation>Wireshark IO Graphen: %1</translation>
+        <source>Wireshark I/O Graphs: %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>All packets</source>
@@ -6834,10 +6888,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>IEEE 802.11 Wireless LAN Statistik anzeigen.</translation>
     </message>
     <message>
-        <source>Add a filter button</source>
-        <translation>Filterknopf hinzufügen</translation>
-    </message>
-    <message>
         <source>Add a display filter button.</source>
         <translation>Anzeigefilterknopf hinzufügen.</translation>
     </message>
@@ -6852,6 +6902,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>&amp;Full Screen</source>
         <translation>&amp;Vollbild</translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;Options…</source>
@@ -8208,38 +8262,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Zusammenfassung als Text</translation>
     </message>
     <message>
-        <source>Align Left</source>
-        <translation>Links ausrichten</translation>
-    </message>
-    <message>
-        <source>Align Center</source>
-        <translation>Zentriert ausrichten</translation>
-    </message>
-    <message>
-        <source>Align Right</source>
-        <translation>Rechts ausrichten</translation>
-    </message>
-    <message>
-        <source>Column Preferences</source>
-        <translation>Spalteneigenschaft</translation>
-    </message>
-    <message>
-        <source>Edit Column</source>
-        <translation>Spalte editieren</translation>
-    </message>
-    <message>
-        <source>Resize To Contents</source>
-        <translation>Größe an Inhalt anpassen</translation>
-    </message>
-    <message>
-        <source>Resolve Names</source>
-        <translation>Namen auflösen</translation>
-    </message>
-    <message>
-        <source>Remove This Column</source>
-        <translation>Spalte entfernen</translation>
-    </message>
-    <message>
         <source>Frame %1: %2
 
 </source>
@@ -8250,6 +8272,53 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>[ Comment text exceeds %1. Stopping. ]</source>
         <translation>[ Kommentartext überschreitet %1. Anhalten der Verarbeitung. ]</translation>
+    </message>
+</context>
+<context>
+    <name>PacketListHeader</name>
+    <message>
+        <source>Align Left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Align Center</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Align Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Column Preferences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resize to Contents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resize Column to Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resolve Names</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove this Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Column %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Width:</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

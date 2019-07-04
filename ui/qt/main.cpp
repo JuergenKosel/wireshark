@@ -55,7 +55,7 @@
 #include <epan/dissectors/packet-kerberos.h>
 #endif
 
-#include <codecs/codecs.h>
+#include <wsutil/codecs.h>
 
 #include <extcap.h>
 
@@ -90,7 +90,7 @@
 #include "ui/qt/service_response_time_dialog.h"
 #include "ui/qt/simple_dialog.h"
 #include "ui/qt/simple_statistics_dialog.h"
-#include "ui/qt/splash_overlay.h"
+#include <ui/qt/widgets/splash_overlay.h>
 #include "ui/qt/wireshark_application.h"
 
 #include "caputils/capture-pcap-util.h"
@@ -241,7 +241,26 @@ get_gui_compiled_info(GString *str)
     g_string_append(str, ", with SpeexDSP (using bundled resampler)");
 #endif
 
-    codec_get_compiled_version_info(str);
+    /* SBC */
+#ifdef HAVE_SBC
+    g_string_append(str, ", with SBC");
+#else
+    g_string_append(str, ", without SBC");
+#endif
+
+    /* SpanDSP (G.722, G.726) */
+#ifdef HAVE_SPANDSP
+    g_string_append(str, ", with SpanDSP");
+#else
+    g_string_append(str, ", without SpanDSP");
+#endif
+
+    /* BCG729 (G.729) */
+#ifdef HAVE_BCG729
+    g_string_append(str, ", with bcg729");
+#else
+    g_string_append(str, ", without bcg729");
+#endif
 }
 
 // xxx copied from ../gtk/main.c

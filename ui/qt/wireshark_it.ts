@@ -1768,6 +1768,48 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
 </context>
 <context>
+    <name>CredentialsDialog</name>
+    <message>
+        <source>Wireshark - Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CredentialsModel</name>
+    <message>
+        <source>Click to select the packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click to select the packet with username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Username not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet No.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">Protocollo</translation>
+    </message>
+    <message>
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Additional Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>DataPrinter</name>
     <message>
         <source>Copy Bytes as Hex + ASCII Dump</source>
@@ -1940,6 +1982,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Manage Filter Expressions</source>
         <translation>Gestisci espressioni di filtro</translation>
+    </message>
+    <message>
+        <source>Selected</source>
+        <translation>Selezionati</translation>
+    </message>
+    <message>
+        <source>Not Selected</source>
+        <translation>Non selezionati</translation>
     </message>
 </context>
 <context>
@@ -3009,6 +3059,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Colori:</translation>
     </message>
     <message>
+        <source>System Default</source>
+        <translation>Predefinito di sistema</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>Solido</translation>
+    </message>
+    <message>
         <source>Sample ignored packet text</source>
         <translation>Esempio di testo per pacchetto ignorato</translation>
     </message>
@@ -3023,14 +3081,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Style:</source>
         <translation>Stile</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>Predefinito</translation>
-    </message>
-    <message>
-        <source>Flat</source>
-        <translation>Piatto</translation>
     </message>
     <message>
         <source>Gradient</source>
@@ -3549,8 +3599,8 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Tempo (s)</translation>
     </message>
     <message>
-        <source>IO Graphs</source>
-        <translation>Grafici IO</translation>
+        <source>I/O Graphs</source>
+        <translation>Grafici I/O</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -3569,6 +3619,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>1 ms</translation>
     </message>
     <message>
+        <source>5 ms</source>
+        <translation>5 ms</translation>
+    </message>
+    <message>
         <source>10 ms</source>
         <translation>10 ms</translation>
     </message>
@@ -3577,8 +3631,8 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>100 ms</translation>
     </message>
     <message>
-        <source>Wireshark IO Graphs: %1</source>
-        <translation>Grafici di IO di Wireshark: %1</translation>
+        <source>Wireshark I/O Graphs: %1</source>
+        <translation>Grafici di I/O di Wireshark: %1</translation>
     </message>
     <message>
         <source>All packets</source>
@@ -6834,10 +6888,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Mostra le statistiche wireless LAN IEEE 802.11.</translation>
     </message>
     <message>
-        <source>Add a filter button</source>
-        <translation>Aggiungi un pulsante di filtro</translation>
-    </message>
-    <message>
         <source>Add a display filter button.</source>
         <translation>Aggiungi un pulsante del filtro di visualizzazione.</translation>
     </message>
@@ -6852,6 +6902,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>&amp;Full Screen</source>
         <translation>Schermo &amp;intero</translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;Options…</source>
@@ -8208,6 +8262,21 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Riepilogo come testo</translation>
     </message>
     <message>
+        <source>Frame %1: %2
+
+</source>
+        <translation>Frame %1: %2
+
+</translation>
+    </message>
+    <message>
+        <source>[ Comment text exceeds %1. Stopping. ]</source>
+        <translation>[ Il testo del commento supera %1. Interruzione. ]</translation>
+    </message>
+</context>
+<context>
+    <name>PacketListHeader</name>
+    <message>
         <source>Align Left</source>
         <translation>Allinea a sinistra</translation>
     </message>
@@ -8228,28 +8297,28 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Modifica colonna</translation>
     </message>
     <message>
-        <source>Resize To Contents</source>
-        <translation>Ridimensiona come il contenuto</translation>
+        <source>Resize to Contents</source>
+        <translation>Ridimensiona al contenuto</translation>
+    </message>
+    <message>
+        <source>Resize Column to Width</source>
+        <translation>Ridimensiona colonna alla larghezza</translation>
     </message>
     <message>
         <source>Resolve Names</source>
-        <translation>Risolvi i nomi</translation>
+        <translation>Risolvi nomi</translation>
     </message>
     <message>
-        <source>Remove This Column</source>
+        <source>Remove this Column</source>
         <translation>Rimuovi questa colonna</translation>
     </message>
     <message>
-        <source>Frame %1: %2
-
-</source>
-        <translation>Frame %1: %2
-
-</translation>
+        <source>Column %1</source>
+        <translation>Colonna %1</translation>
     </message>
     <message>
-        <source>[ Comment text exceeds %1. Stopping. ]</source>
-        <translation>[ Il testo del commento supera %1. Interruzione. ]</translation>
+        <source>Width:</source>
+        <translation>Larghezza:</translation>
     </message>
 </context>
 <context>

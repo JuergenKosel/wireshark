@@ -85,6 +85,7 @@ static int hf_pn_dcp_suboption_device_oem_ven_id = -1;
 static int hf_pn_dcp_suboption_device_oem_dev_id = -1;
 
 static int hf_pn_dcp_suboption_dhcp = -1;
+static int hf_pn_dcp_suboption_dhcp_option_code = -1;
 static int hf_pn_dcp_suboption_dhcp_parameter_length = -1;
 static int hf_pn_dcp_suboption_dhcp_parameter_data = -1;
 static int hf_pn_dcp_suboption_dhcp_arbitrary_client_id = -1;
@@ -865,6 +866,7 @@ dissect_PNDCP_Suboption_DHCP(tvbuff_t *tvb, int offset, packet_info *pinfo,
                                 guint8 service_id _U_, gboolean is_response _U_)
 {
     guint8   suboption;
+    guint8   option_code = 0;
     guint16  block_length;
     guint16  block_info = 0;
     guint16  block_qualifier = 0;
@@ -906,25 +908,26 @@ dissect_PNDCP_Suboption_DHCP(tvbuff_t *tvb, int offset, packet_info *pinfo,
             proto_item_append_text(block_item, ", BlockInfo: %s",
                                    val_to_str(block_info, pn_dcp_block_info, "Unknown"));
         }
-        offset += 1;//SuboptionDHCP
+        offset = dissect_pn_uint8(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_dhcp_option_code, &option_code);
         offset = dissect_pn_uint8(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_dhcp_parameter_length, &dhcpparameterlength);
-        offset = dissect_pn_uint8(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_dhcp_parameter_data, &dhcpparameterdata);
-
-        if (dhcpparameterlength == 1) {
-            if (dhcpparameterdata == 1) {
-                proto_item_append_text(block_item, ", Client-ID: MAC Address");
+        if (dhcpparameterlength > 0) {
+            offset = dissect_pn_uint8(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_dhcp_parameter_data, &dhcpparameterdata);
+            if (dhcpparameterlength == 1) {
+                if (dhcpparameterdata == 1) {
+                    proto_item_append_text(block_item, ", Client-ID: MAC Address");
+                }
+                else {
+                    proto_item_append_text(block_item, ", Client-ID: Name of Station");
+                }
             }
             else {
-                proto_item_append_text(block_item, ", Client-ID: Name of Station");
+                proto_item_append_text(block_item, ", Client-ID: Arbitrary");
+                arbitraryclientID = (char *)wmem_alloc(wmem_packet_scope(), dhcpparameterlength);
+                tvb_memcpy(tvb, (guint8 *)arbitraryclientID, offset, dhcpparameterlength - 1);
+                arbitraryclientID[dhcpparameterlength - 1] = '\0';
+                proto_tree_add_string(tree, hf_pn_dcp_suboption_dhcp_arbitrary_client_id, tvb, offset, dhcpparameterlength - 1, arbitraryclientID);
+                offset += dhcpparameterlength;
             }
-        }
-        else {
-            proto_item_append_text(block_item, ", Client-ID: Arbitrary");
-            arbitraryclientID = (char *)wmem_alloc(wmem_packet_scope(), dhcpparameterlength);
-            tvb_memcpy(tvb, (guint8 *)arbitraryclientID, offset, 5);
-            arbitraryclientID[dhcpparameterlength - 1] = '\0';
-            proto_tree_add_string(tree, hf_pn_dcp_suboption_dhcp_arbitrary_client_id, tvb, offset, dhcpparameterlength - 1, arbitraryclientID);
-            offset += dhcpparameterlength;
         }
         break;
     case PNDCP_SUBOPTION_DHCP_CONTROL_FOR_ADDRESS_RES:
@@ -938,7 +941,7 @@ dissect_PNDCP_Suboption_DHCP(tvbuff_t *tvb, int offset, packet_info *pinfo,
             proto_item_append_text(block_item, ", BlockInfo: %s",
                 val_to_str(block_info, pn_dcp_block_info, "Unknown"));
         }
-        offset += 1;//SuboptionDHCP
+        offset = dissect_pn_uint8(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_dhcp_option_code, &option_code);
         offset = dissect_pn_uint8(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_dhcp_parameter_length, &dhcpparameterlength);
         offset = dissect_pn_uint8(tvb, offset, pinfo, tree, hf_pn_dcp_suboption_dhcp_control_parameter_data, &dhcpcontrolparameterdata);
         break;
@@ -1473,6 +1476,11 @@ proto_register_pn_dcp (void)
 
         { &hf_pn_dcp_suboption_dhcp,
           { "Suboption", "pn_dcp.suboption_dhcp",
+            FT_UINT8, BASE_DEC, VALS(pn_dcp_suboption_dhcp), 0x0,
+            NULL, HFILL }},
+
+        { &hf_pn_dcp_suboption_dhcp_option_code,
+          { "Option-Code", "pn_dcp.suboption_dhcp_option_code",
             FT_UINT8, BASE_DEC, VALS(pn_dcp_suboption_dhcp), 0x0,
             NULL, HFILL }},
 

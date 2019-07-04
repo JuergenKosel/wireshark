@@ -1869,7 +1869,6 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
       &hf_ip_flags_rf,
       &hf_ip_flags_df,
       &hf_ip_flags_mf,
-      &hf_ip_frag_offset,
       NULL
   };
   /* XXX do we realy want decoding of an april fools joke? */
@@ -1877,7 +1876,6 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
       &hf_ip_flags_sf,
       &hf_ip_flags_df,
       &hf_ip_flags_mf,
-      &hf_ip_frag_offset,
       NULL
   };
 
@@ -2041,6 +2039,9 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     proto_tree_add_bitmask_with_flags(ip_tree, tvb, offset + 6, hf_ip_flags,
         ett_ip_off, ip_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_TFS | BMT_NO_INT);
   }
+
+  proto_tree_add_uint(ip_tree, hf_ip_frag_offset, tvb, offset + 6, 2, (iph->ip_off & IP_OFFSET)*8);
+
 
   iph->ip_ttl = tvb_get_guint8(tvb, offset + 8);
   if (tree) {
@@ -2922,7 +2923,7 @@ proto_register_ip(void)
   /* Decode As handling */
   static build_valid_func ip_da_build_value[1] = {ip_value};
   static decode_as_value_t ip_da_values = {ip_prompt, 1, ip_da_build_value};
-  static decode_as_t ip_da = {"ip", "Network", "ip.proto", 1, 0, &ip_da_values, NULL, NULL,
+  static decode_as_t ip_da = {"ip", "ip.proto", 1, 0, &ip_da_values, NULL, NULL,
                               decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
 
   module_t *ip_module;

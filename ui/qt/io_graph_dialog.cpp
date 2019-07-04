@@ -304,9 +304,21 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
     ui->setupUi(this);
     loadGeometry();
 
-    setWindowSubtitle(tr("IO Graphs"));
+    setWindowSubtitle(tr("I/O Graphs"));
     setAttribute(Qt::WA_DeleteOnClose, true);
     QCustomPlot *iop = ui->ioPlot;
+
+    ui->newToolButton->setStockIcon("list-add");
+    ui->deleteToolButton->setStockIcon("list-remove");
+    ui->copyToolButton->setStockIcon("list-copy");
+    ui->clearToolButton->setStockIcon("list-clear");
+
+#ifdef Q_OS_MAC
+    ui->newToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->deleteToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->copyToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->clearToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+#endif
 
     QPushButton *save_bt = ui->buttonBox->button(QDialogButtonBox::Save);
     save_bt->setText(tr("Save As" UTF8_HORIZONTAL_ELLIPSIS));
@@ -332,13 +344,14 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
 
     // Intervals (ms)
     ui->intervalComboBox->addItem(tr("1 ms"),        1);
+    ui->intervalComboBox->addItem(tr("5 ms"),        5);
     ui->intervalComboBox->addItem(tr("10 ms"),      10);
     ui->intervalComboBox->addItem(tr("100 ms"),    100);
     ui->intervalComboBox->addItem(tr("1 sec"),    1000);
     ui->intervalComboBox->addItem(tr("10 sec"),  10000);
     ui->intervalComboBox->addItem(tr("1 min"),   60000);
     ui->intervalComboBox->addItem(tr("10 min"), 600000);
-    ui->intervalComboBox->setCurrentIndex(3);
+    ui->intervalComboBox->setCurrentIndex(4);
 
     ui->todCheckBox->setChecked(false);
 
@@ -375,7 +388,7 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf) :
     QCPPlotTitle *title = new QCPPlotTitle(iop);
     iop->plotLayout()->insertRow(0);
     iop->plotLayout()->addElement(0, 0, title);
-    title->setText(tr("Wireshark IO Graphs: %1").arg(cap_file_.fileDisplayName()));
+    title->setText(tr("Wireshark I/O Graphs: %1").arg(cap_file_.fileDisplayName()));
 
     tracer_ = new QCPItemTracer(iop);
     iop->addItem(tracer_);

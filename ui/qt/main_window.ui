@@ -679,6 +679,7 @@
      <string>&amp;Tools</string>
     </property>
     <addaction name="actionToolsFirewallAclRules"/>
+    <addaction name="actionToolsCredentials"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -2953,16 +2954,6 @@
    </property>
   </action>
   <action name="actionNewDisplayFilterExpression">
-   <property name="icon">
-    <iconset resource="../../image/stock_icons.qrc">
-     <normaloff>:/stock/plus-8.png</normaloff>:/stock/plus-8.png</iconset>
-   </property>
-   <property name="text">
-    <string>Add a filter button</string>
-   </property>
-   <property name="iconText">
-    <string>Expression…</string>
-   </property>
    <property name="toolTip">
     <string>Add a display filter button.</string>
    </property>
@@ -2981,6 +2972,11 @@
    </property>
    <property name="text">
     <string>&amp;Full Screen</string>
+   </property>
+  </action>
+  <action name="actionToolsCredentials">
+   <property name="text">
+    <string>Credentials</string>
    </property>
   </action>
  </widget>
@@ -3035,7 +3031,7 @@
   <customwidget>
    <class>WirelessTimeline</class>
    <extends>QWidget</extends>
-   <header>wireless_timeline.h</header>
+   <header>widgets/wireless_timeline.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

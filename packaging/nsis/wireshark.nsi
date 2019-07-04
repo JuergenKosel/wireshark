@@ -483,7 +483,6 @@ SetOutPath $INSTDIR
 File "${STAGING_DIR}\${UNINSTALLER_NAME}"
 File "${STAGING_DIR}\libwiretap.dll"
 File "${STAGING_DIR}\libwireshark.dll"
-File "${STAGING_DIR}\libwscodecs.dll"
 File "${STAGING_DIR}\libwsutil.dll"
 
 !include all-manifest.nsh
@@ -582,9 +581,11 @@ File "${STAGING_DIR}\diameter\nasreq.xml"
 File "${STAGING_DIR}\diameter\Nokia.xml"
 File "${STAGING_DIR}\diameter\NokiaSolutionsAndNetworks.xml"
 File "${STAGING_DIR}\diameter\Oracle.xml"
+File "${STAGING_DIR}\diameter\Siemens.xml"
 File "${STAGING_DIR}\diameter\sip.xml"
 File "${STAGING_DIR}\diameter\Starent.xml"
 File "${STAGING_DIR}\diameter\sunping.xml"
+File "${STAGING_DIR}\diameter\Telefonica.xml"
 File "${STAGING_DIR}\diameter\TGPP.xml"
 File "${STAGING_DIR}\diameter\TGPP2.xml"
 File "${STAGING_DIR}\diameter\Vodafone.xml"
@@ -1019,7 +1020,12 @@ SectionEnd
 Section "Codec plugins" SecCodec
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs'
+File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\g711.dll"
+File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\g722.dll"
+File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\g726.dll"
+File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\g729.dll"
 File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\l16mono.dll"
+File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\sbc.dll"
 SectionEnd
 
 Section "Configuration Profiles" SecProfiles

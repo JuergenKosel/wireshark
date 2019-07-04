@@ -68,6 +68,10 @@ main(int argc, char *argv[])
     int mmdb_err;
 
     char *out_buf = (char *) malloc(OUT_BUF_SIZE);
+    if (out_buf == NULL) {
+        fprintf(stdout, "ERROR: malloc failed\n");
+        return 1;
+    }
     setvbuf(stdout, out_buf, _IOFBF, OUT_BUF_SIZE);
 
     fprintf(stdout, "[init]\n");
@@ -110,12 +114,16 @@ main(int argc, char *argv[])
         exit_err();
     }
 
-    while (!feof(stdin)) {
+    int in_items = 0;
+    while (in_items != EOF) {
         int gai_err;
 
-        if (fscanf(stdin, "%" MMDBR_STRINGIFY(MAX_ADDR_LEN) "s", addr_str) < 1) {
+        in_items = fscanf(stdin, "%" MMDBR_STRINGIFY(MAX_ADDR_LEN) "s", addr_str);
+
+        if (in_items < 1) {
             continue;
         }
+
         fprintf(stdout, "[%s]\n", addr_str);
 
 #ifdef MMDB_DEBUG_SLOW

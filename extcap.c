@@ -50,10 +50,6 @@
 
 #include "version_info.h"
 
-#ifdef _WIN32
-static HANDLE pipe_h = INVALID_HANDLE_VALUE;
-#endif
-
 static void extcap_child_watch_cb(GPid pid, gint status, gpointer user_data);
 
 /* internal container, for all the extcap executables that have been found.
@@ -147,9 +143,7 @@ thread_pool_wait(thread_pool_t *pool)
     while (pool->count != 0) {
         g_cond_wait(&pool->cond, &pool->data_mutex);
     }
-    g_cond_clear(&pool->cond);
     g_mutex_unlock(&pool->data_mutex);
-    g_mutex_clear(&pool->data_mutex);
 }
 
 static GHashTable *
@@ -189,7 +183,8 @@ extcap_get_descriptions(plugin_description_callback callback, void *callback_dat
     GPtrArray *tools_array = g_ptr_array_new();
 
     if (tools && g_hash_table_size(tools) > 0) {
-        GList * walker = g_list_first(g_hash_table_get_keys(tools));
+        GList * keys = g_hash_table_get_keys(tools);
+        GList * walker = g_list_first(keys);
         while (walker && walker->data) {
             extcap_info * tool = (extcap_info *)g_hash_table_lookup(tools, walker->data);
             if (tool) {
@@ -197,6 +192,7 @@ extcap_get_descriptions(plugin_description_callback callback, void *callback_dat
             }
             walker = g_list_next(walker);
         }
+        g_list_free(keys);
     }
 
     g_ptr_array_sort(tools_array, compare_tools);
@@ -284,37 +280,6 @@ extcap_find_interface_for_ifname(const gchar *ifname)
     }
 
     return result;
-}
-
-static void
-extcap_free_toolbar_value(iface_toolbar_value *value)
-{
-    if (!value)
-    {
-        return;
-    }
-
-    g_free(value->value);
-    g_free(value->display);
-    g_free(value);
-}
-
-static void
-extcap_free_toolbar_control(iface_toolbar_control *control)
-{
-    if (!control)
-    {
-        return;
-    }
-
-    g_free(control->display);
-    g_free(control->validation);
-    g_free(control->tooltip);
-    if (control->ctrl_type == INTERFACE_TYPE_STRING) {
-        g_free(control->default_value.string);
-    }
-    g_list_free_full(control->values, (GDestroyNotify)extcap_free_toolbar_value);
-    g_free(control);
 }
 
 static void
@@ -511,6 +476,9 @@ extcap_run_all(const char *argv[], extcap_run_cb_t output_cb, gsize data_size, g
 
     /* Wait for all (sub)tasks to complete. */
     thread_pool_wait(&pool);
+
+    g_mutex_clear(&pool.data_mutex);
+    g_cond_clear(&pool.cond);
     g_thread_pool_free(pool.pool, FALSE, TRUE);
 
     g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG, "extcap: completed discovery of %d tools in %.3fms",
@@ -995,13 +963,15 @@ extcap_get_if_configuration_values(const char * ifname, const char * argname, GH
         if ( arguments )
         {
             GList * keys = g_hash_table_get_keys(arguments);
-            while ( keys )
+            GList * walker = g_list_first(keys);
+            while ( walker )
             {
-                const gchar * key_data = (const gchar *)keys->data;
+                const gchar * key_data = (const gchar *)walker->data;
                 args = g_list_append(args, g_strdup(key_data));
                 args = g_list_append(args, g_strdup((const gchar *)g_hash_table_lookup(arguments, key_data)));
-                keys = g_list_next(keys);
+                walker = g_list_next(walker);
             }
+            g_list_free(keys);
         }
 
         extcap_run_one(interface, args, cb_reload_preference, &ret, NULL);
@@ -1149,12 +1119,14 @@ extcap_has_toolbar(const char *ifname)
     for (GList *walker = toolbar_list; walker; walker = walker->next)
     {
         iface_toolbar *toolbar = (iface_toolbar *) walker->data;
-        if (g_list_find_custom(toolbar->ifnames, ifname, (GCompareFunc) strcmp))
+        if (g_list_find_custom(toolbar->ifnames, ifname, (GCompareFunc) g_strcmp0))
         {
+            g_list_free(toolbar_list);
             return TRUE;
         }
     }
 
+    g_list_free(toolbar_list);
     return FALSE;
 }
 
@@ -1499,6 +1471,85 @@ static void ptr_array_free(gpointer data, gpointer user_data _U_)
     g_free(data);
 }
 
+#ifdef _WIN32
+static gboolean extcap_create_pipe(const gchar *ifname, gchar **fifo, HANDLE *handle_out, const gchar *pipe_prefix)
+{
+    gchar timestr[ 14 + 1 ];
+    time_t current_time;
+    gchar *pipename = NULL;
+    SECURITY_ATTRIBUTES security;
+
+    /* create pipename */
+    current_time = time(NULL);
+    /*
+     * XXX - we trust Windows not to return a time before the Epoch here,
+     * so we won't get a null pointer back from localtime().
+     */
+    strftime(timestr, sizeof(timestr), "%Y%m%d%H%M%S", localtime(&current_time));
+    pipename = g_strconcat("\\\\.\\pipe\\", pipe_prefix, "_", ifname, "_", timestr, NULL);
+
+    /* Security struct to enable Inheritable HANDLE */
+    memset(&security, 0, sizeof(SECURITY_ATTRIBUTES));
+    security.nLength = sizeof(SECURITY_ATTRIBUTES);
+    security.bInheritHandle = TRUE;
+    security.lpSecurityDescriptor = NULL;
+
+    /* create a namedPipe */
+    *handle_out = CreateNamedPipe(
+                 utf_8to16(pipename),
+                 PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+                 PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+                 1, 65536, 65536,
+                 300,
+                 &security);
+
+    if (*handle_out == INVALID_HANDLE_VALUE)
+    {
+        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG, "\nError creating pipe => (%d)", GetLastError());
+        g_free (pipename);
+        return FALSE;
+    }
+    else
+    {
+        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG, "\nWireshark Created pipe =>(%s)", pipename);
+        *fifo = g_strdup(pipename);
+    }
+
+    return TRUE;
+}
+#else
+static gboolean extcap_create_pipe(const gchar *ifname, gchar **fifo, const gchar *pipe_prefix)
+{
+    gchar *temp_name = NULL;
+    int fd = 0;
+
+    gchar *pfx = g_strconcat(pipe_prefix, "_", ifname, NULL);
+    if ((fd = create_tempfile(&temp_name, pfx, NULL)) < 0)
+    {
+        g_free(pfx);
+        return FALSE;
+    }
+    g_free(pfx);
+
+    ws_close(fd);
+
+    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG,
+          "Extcap - Creating fifo: %s", temp_name);
+
+    if (file_exists(temp_name))
+    {
+        ws_unlink(temp_name);
+    }
+
+    if (mkfifo(temp_name, 0600) == 0)
+    {
+        *fifo = g_strdup(temp_name);
+    }
+
+    return TRUE;
+}
+#endif
+
 /* call mkfifo for each extcap,
  * returns FALSE if there's an error creating a FIFO */
 gboolean
@@ -1525,26 +1576,27 @@ extcap_init_interfaces(capture_options *capture_opts)
         if (extcap_has_toolbar(interface_opts->name))
         {
             extcap_create_pipe(interface_opts->name, &interface_opts->extcap_control_in,
+#ifdef _WIN32
+                               &interface_opts->extcap_control_in_h,
+#endif
                                EXTCAP_CONTROL_IN_PREFIX);
-#ifdef _WIN32
-            interface_opts->extcap_control_in_h = pipe_h;
-#endif
             extcap_create_pipe(interface_opts->name, &interface_opts->extcap_control_out,
-                               EXTCAP_CONTROL_OUT_PREFIX);
 #ifdef _WIN32
-            interface_opts->extcap_control_out_h = pipe_h;
+                               &interface_opts->extcap_control_out_h,
 #endif
+                               EXTCAP_CONTROL_OUT_PREFIX);
         }
 
         /* create pipe for fifo */
         if (!extcap_create_pipe(interface_opts->name, &interface_opts->extcap_fifo,
+#ifdef _WIN32
+                                &interface_opts->extcap_pipe_h,
+#endif
                                 EXTCAP_PIPE_PREFIX))
         {
             return FALSE;
         }
-#ifdef _WIN32
-        interface_opts->extcap_pipe_h = pipe_h;
-#endif
+
 
         /* Create extcap call */
         args = extcap_prepare_arguments(interface_opts);
@@ -1598,85 +1650,6 @@ extcap_init_interfaces(capture_options *capture_opts)
 
     return TRUE;
 }
-
-#ifdef _WIN32
-gboolean extcap_create_pipe(const gchar *ifname, gchar **fifo, const gchar *pipe_prefix)
-{
-    gchar timestr[ 14 + 1 ];
-    time_t current_time;
-    gchar *pipename = NULL;
-    SECURITY_ATTRIBUTES security;
-
-    /* create pipename */
-    current_time = time(NULL);
-    /*
-     * XXX - we trust Windows not to return a time before the Epoch here,
-     * so we won't get a null pointer back from localtime().
-     */
-    strftime(timestr, sizeof(timestr), "%Y%m%d%H%M%S", localtime(&current_time));
-    pipename = g_strconcat("\\\\.\\pipe\\", pipe_prefix, "_", ifname, "_", timestr, NULL);
-
-    /* Security struct to enable Inheritable HANDLE */
-    memset(&security, 0, sizeof(SECURITY_ATTRIBUTES));
-    security.nLength = sizeof(SECURITY_ATTRIBUTES);
-    security.bInheritHandle = TRUE;
-    security.lpSecurityDescriptor = NULL;
-
-    /* create a namedPipe */
-    pipe_h = CreateNamedPipe(
-                 utf_8to16(pipename),
-                 PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
-                 PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-                 1, 65536, 65536,
-                 300,
-                 &security);
-
-    if (pipe_h == INVALID_HANDLE_VALUE)
-    {
-        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG, "\nError creating pipe => (%d)", GetLastError());
-        g_free (pipename);
-        return FALSE;
-    }
-    else
-    {
-        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG, "\nWireshark Created pipe =>(%s)", pipename);
-        *fifo = g_strdup(pipename);
-    }
-
-    return TRUE;
-}
-#else
-gboolean extcap_create_pipe(const gchar *ifname, gchar **fifo, const gchar *pipe_prefix)
-{
-    gchar *temp_name = NULL;
-    int fd = 0;
-
-    gchar *pfx = g_strconcat(pipe_prefix, "_", ifname, NULL);
-    if ((fd = create_tempfile(&temp_name, pfx, NULL)) < 0)
-    {
-        g_free(pfx);
-        return FALSE;
-    }
-    g_free(pfx);
-
-    ws_close(fd);
-
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG,
-          "Extcap - Creating fifo: %s", temp_name);
-
-    if (file_exists(temp_name))
-    {
-        ws_unlink(temp_name);
-    }
-
-    if (mkfifo(temp_name, 0600) == 0)
-    {
-        *fifo = g_strdup(temp_name);
-    }
-
-    return TRUE;
-}
-#endif
 
 /************* EXTCAP LOAD INTERFACE LIST ***************
  *
@@ -2002,6 +1975,7 @@ extcap_load_interface_list(void)
             iface_toolbar *toolbar = (iface_toolbar *) walker->data;
             iface_toolbar_remove(toolbar->menu_title);
         }
+        g_list_free(toolbar_list);
         g_hash_table_remove_all(_toolbars);
     } else {
         _toolbars = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, extcap_free_toolbar);

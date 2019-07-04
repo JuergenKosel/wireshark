@@ -1758,6 +1758,48 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>CredentialsDialog</name>
+    <message>
+        <source>Wireshark - Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CredentialsModel</name>
+    <message>
+        <source>Click to select the packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click to select the packet with username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Username not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet No.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">协议</translation>
+    </message>
+    <message>
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Additional Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>DataPrinter</name>
     <message>
         <source>Copy Bytes as Hex + ASCII Dump</source>
@@ -1930,6 +1972,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Manage Filter Expressions</source>
         <translation>管理过滤器表达式</translation>
+    </message>
+    <message>
+        <source>Selected</source>
+        <translation type="unfinished">选中</translation>
+    </message>
+    <message>
+        <source>Not Selected</source>
+        <translation type="unfinished">非选中</translation>
     </message>
 </context>
 <context>
@@ -2990,6 +3040,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>颜色:</translation>
     </message>
     <message>
+        <source>System Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Sample ignored packet text</source>
         <translation>忽略的分组</translation>
     </message>
@@ -3004,14 +3062,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Style:</source>
         <translation>样式：</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>默认</translation>
-    </message>
-    <message>
-        <source>Flat</source>
-        <translation>扁平</translation>
     </message>
     <message>
         <source>Gradient</source>
@@ -3530,8 +3580,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>时间 (秒)</translation>
     </message>
     <message>
-        <source>IO Graphs</source>
-        <translation>IO 图表</translation>
+        <source>I/O Graphs</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Copy</source>
@@ -3550,6 +3600,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>1毫秒</translation>
     </message>
     <message>
+        <source>5 ms</source>
+        <translation type="unfinished">100毫秒 {5 ?}</translation>
+    </message>
+    <message>
         <source>10 ms</source>
         <translation>10毫秒</translation>
     </message>
@@ -3558,8 +3612,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>100毫秒</translation>
     </message>
     <message>
-        <source>Wireshark IO Graphs: %1</source>
-        <translation>Wireshark IO 图表: %1</translation>
+        <source>Wireshark I/O Graphs: %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>All packets</source>
@@ -6812,10 +6866,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>显示 IEEE 802.11 无线 LAN 统计。</translation>
     </message>
     <message>
-        <source>Add a filter button</source>
-        <translation>添加一个过滤器按钮</translation>
-    </message>
-    <message>
         <source>Add a display filter button.</source>
         <translation>添加一个显示过滤器按钮。</translation>
     </message>
@@ -6830,6 +6880,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>&amp;Full Screen</source>
         <translation>全屏(&amp;F)</translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;Options…</source>
@@ -8184,38 +8238,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>摘要为文本</translation>
     </message>
     <message>
-        <source>Align Left</source>
-        <translation>左对齐</translation>
-    </message>
-    <message>
-        <source>Align Center</source>
-        <translation>居中对齐</translation>
-    </message>
-    <message>
-        <source>Align Right</source>
-        <translation>右对齐</translation>
-    </message>
-    <message>
-        <source>Column Preferences</source>
-        <translation>列首选项</translation>
-    </message>
-    <message>
-        <source>Edit Column</source>
-        <translation>编辑列</translation>
-    </message>
-    <message>
-        <source>Resize To Contents</source>
-        <translation>适应内容</translation>
-    </message>
-    <message>
-        <source>Resolve Names</source>
-        <translation>名称解析</translation>
-    </message>
-    <message>
-        <source>Remove This Column</source>
-        <translation>删除此列</translation>
-    </message>
-    <message>
         <source>Frame %1: %2
 
 </source>
@@ -8225,6 +8247,53 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>[ Comment text exceeds %1. Stopping. ]</source>
         <translation>[ 注释文本超过 %1。正在停止。 ]</translation>
+    </message>
+</context>
+<context>
+    <name>PacketListHeader</name>
+    <message>
+        <source>Align Left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Align Center</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Align Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Column Preferences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resize to Contents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resize Column to Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resolve Names</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove this Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Column %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Width:</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

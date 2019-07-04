@@ -1,7 +1,7 @@
 [
   {
     "_index": "packets-2004-12-05",
-    "_type": "pcap_file",
+    "_type": "doc",
     "_score": null,
     "_source": {
       "layers": {
@@ -296,15 +296,15 @@
               2,
               8192,
               2
-            ],
-            "ip.frag_offset_raw": [
-              "0",
-              20,
-              2,
-              8191,
-              5
             ]
           },
+          "ip.frag_offset_raw": [
+            "0",
+            20,
+            2,
+            8191,
+            5
+          ],
           "ip.ttl_raw": [
             "fa",
             22,
@@ -784,7 +784,7 @@
   },
   {
     "_index": "packets-2004-12-05",
-    "_type": "pcap_file",
+    "_type": "doc",
     "_score": null,
     "_source": {
       "layers": {
@@ -1079,15 +1079,15 @@
               2,
               8192,
               2
-            ],
-            "ip.frag_offset_raw": [
-              "0",
-              20,
-              2,
-              8191,
-              5
             ]
           },
+          "ip.frag_offset_raw": [
+            "0",
+            20,
+            2,
+            8191,
+            5
+          ],
           "ip.ttl_raw": [
             "80",
             22,
@@ -1599,7 +1599,7 @@
   },
   {
     "_index": "packets-2004-12-05",
-    "_type": "pcap_file",
+    "_type": "doc",
     "_score": null,
     "_source": {
       "layers": {
@@ -1894,15 +1894,15 @@
               2,
               8192,
               2
-            ],
-            "ip.frag_offset_raw": [
-              "0",
-              20,
-              2,
-              8191,
-              5
             ]
           },
+          "ip.frag_offset_raw": [
+            "0",
+            20,
+            2,
+            8191,
+            5
+          ],
           "ip.ttl_raw": [
             "fa",
             22,
@@ -2412,7 +2412,7 @@
   },
   {
     "_index": "packets-2004-12-05",
-    "_type": "pcap_file",
+    "_type": "doc",
     "_score": null,
     "_source": {
       "layers": {
@@ -2707,15 +2707,15 @@
               2,
               8192,
               2
-            ],
-            "ip.frag_offset_raw": [
-              "0",
-              20,
-              2,
-              8191,
-              5
             ]
           },
+          "ip.frag_offset_raw": [
+            "0",
+            20,
+            2,
+            8191,
+            5
+          ],
           "ip.ttl_raw": [
             "80",
             22,

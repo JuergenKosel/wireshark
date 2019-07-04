@@ -48,6 +48,7 @@
 #include "packet-rtps.h"
 #include <epan/addr_resolv.h>
 #include <epan/reassemble.h>
+#include "zlib.h"
 
 void proto_register_rtps(void);
 void proto_reg_handoff_rtps(void);
@@ -570,7 +571,8 @@ static gint ett_rtps_data_tag_seq                               = -1;
 static gint ett_rtps_data_tag_item                              = -1;
 static gint ett_rtps_fragment                                   = -1;
 static gint ett_rtps_fragments                                  = -1;
-static gint ett_rtps_data_representation                         = -1;
+static gint ett_rtps_data_representation                        = -1;
+static gint ett_rtps_decompressed_type_object                   = -1;
 
 static expert_field ei_rtps_sm_octets_to_next_header_error = EI_INIT;
 static expert_field ei_rtps_port_invalid = EI_INIT;
@@ -1211,10 +1213,10 @@ static const value_string ndds_transport_class_id_vals[] = {
 };
 
 const value_string class_id_enum_names[] = {
-  { 0, "RTI_OSAPI_COMPRESSION_CLASS_ID_NONE" },
-  { 1, "RTI_OSAPI_COMPRESSION_CLASS_ID_ZLIB" },
-  { 2, "RTI_OSAPI_COMPRESSION_CLASS_ID_BZIP2" },
-  { G_MAXUINT32, "RTI_OSAPI_COMPRESSION_CLASS_ID_AUTO" },
+  { RTI_OSAPI_COMPRESSION_CLASS_ID_NONE,  "NONE" },
+  { RTI_OSAPI_COMPRESSION_CLASS_ID_ZLIB,  "ZLIB" },
+  { RTI_OSAPI_COMPRESSION_CLASS_ID_BZIP2, "BZIP2" },
+  { RTI_OSAPI_COMPRESSION_CLASS_ID_AUTO,  "AUTO"},
   { 0, NULL}
 };
 
@@ -2602,7 +2604,11 @@ static void rtps_util_add_product_version(proto_tree *tree, tvbuff_t *tvb, gint 
 
   proto_tree *subtree;
   guint8 major, minor, release, revision;
+  gint release_offset;
+  gint revision_offset;
 
+  release_offset = 2;
+  revision_offset = 3;
   major = tvb_get_guint8(tvb, offset);
   minor = tvb_get_guint8(tvb, offset+1);
   release = tvb_get_guint8(tvb, offset+2);
@@ -2620,24 +2626,41 @@ static void rtps_util_add_product_version(proto_tree *tree, tvbuff_t *tvb, gint 
               "Product version: %d.%d.%d.%d", major, minor, release, revision);
     }
   } else if (vendor_id == RTPS_VENDOR_RTI_DDS_MICRO) {
-    subtree = proto_tree_add_subtree_format(tree, tvb, offset, 4, ett_rtps_product_version, NULL,
-        "Product version: %d.%d.%d", major, minor, revision);
+    /* In Micro < 3.0.0 release and revision numbers are switched */
+    if (major < 3) {
+      revision = revision ^ release;
+      release = revision ^ release;
+      revision = revision ^ release;
+
+      revision_offset = revision_offset ^ release_offset;
+      release_offset = revision_offset ^ release_offset;
+      revision_offset = revision_offset ^ release_offset;
+    }
+    if (revision != 0) {
+      subtree = proto_tree_add_subtree_format(tree, tvb, offset, 4, ett_rtps_product_version, NULL,
+        "Product version: %d.%d.%d.%d", major, minor, release, revision);
+    } else {
+      subtree = proto_tree_add_subtree_format(tree, tvb, offset, 4, ett_rtps_product_version, NULL,
+        "Product version: %d.%d.%d", major, minor, release);
+    }
   } else {
       return;
   }
+
   proto_tree_add_item(subtree, hf_rtps_param_product_version_major,
       tvb, offset, 1, ENC_NA);
   proto_tree_add_item(subtree, hf_rtps_param_product_version_minor,
       tvb, offset+1, 1, ENC_NA);
-  if (vendor_id == RTPS_VENDOR_RTI_DDS && major < 5) { /* If major revision is smaller than 5, release interpreted as char */
+  /* If major revision is smaller than 5, release interpreted as char */
+  if (vendor_id == RTPS_VENDOR_RTI_DDS && major < 5) {
     proto_tree_add_item(subtree, hf_rtps_param_product_version_release_as_char,
-        tvb, offset+2, 1, ENC_ASCII|ENC_NA);
+        tvb, offset + release_offset, 1, ENC_ASCII|ENC_NA);
   } else {
     proto_tree_add_item(subtree, hf_rtps_param_product_version_release,
-        tvb, offset+2, 1, ENC_NA);
+        tvb, offset + release_offset, 1, ENC_NA);
   }
   proto_tree_add_item(subtree, hf_rtps_param_product_version_revision,
-      tvb, offset+3, 1, ENC_NA);
+      tvb, offset + revision_offset, 1, ENC_NA);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -3753,6 +3776,30 @@ static void rtps_util_add_typeobject(proto_tree *tree, packet_info * pinfo,
 
 }
 
+
+static void rtps_add_zlib_compressed_typeobject(proto_tree *tree _U_, packet_info * pinfo _U_,
+  tvbuff_t * tvb _U_, gint offset _U_, const guint encoding _U_, guint compressed_size _U_, guint decompressed_size _U_) {
+
+#ifdef HAVE_ZLIB
+  tvbuff_t *decompressed_data_child_tvb;
+  tvbuff_t *compressed_type_object_subset;
+  proto_tree *decompressed_type_object_subtree;
+
+  compressed_type_object_subset = tvb_new_subset_length(tvb, offset, decompressed_size);
+  decompressed_data_child_tvb = tvb_child_uncompress(tvb, compressed_type_object_subset, 0, compressed_size);
+  if (decompressed_data_child_tvb) {
+    decompressed_type_object_subtree = proto_tree_add_subtree(tree, decompressed_data_child_tvb,
+      0, 0, ett_rtps_decompressed_type_object, NULL, "[Uncompressed type object]");
+    rtps_util_add_typeobject(decompressed_type_object_subtree, pinfo,
+      decompressed_data_child_tvb, 0, encoding, decompressed_size);
+  }
+  else {
+    decompressed_type_object_subtree = proto_tree_add_subtree(tree, compressed_type_object_subset,
+      0, 0, ett_rtps_decompressed_type_object, NULL, "[Failed to decompress type object]");
+  }
+#endif
+}
+
 /* ------------------------------------------------------------------------- */
 /* Insert in the protocol tree the next bytes interpreted as Sequence of
  * Octects.
@@ -4050,7 +4097,7 @@ static int rtps_util_add_fragment_number_set(proto_tree *tree, packet_info *pinf
 
 static void rtps_util_store_type_mapping(packet_info *pinfo, tvbuff_t *tvb, gint offset,
         type_mapping * type_mapping_object, const gchar * value,
-        gint topic_info_add_id, const guint encoding) {
+        gint topic_info_add_id) {
 
   if (enable_topic_info && type_mapping_object) {
     switch (topic_info_add_id) {
@@ -4075,27 +4122,7 @@ static void rtps_util_store_type_mapping(packet_info *pinfo, tvbuff_t *tvb, gint
                 type_mapping_object->fields_visited | TOPIC_INFO_ADD_TYPE_NAME;
         break;
       }
-      case TOPIC_INFO_ADD_RELIABILITY: {
-          type_mapping_object->dw_qos.reliability_kind =
-              tvb_get_guint32(tvb, offset, encoding);
-          type_mapping_object->fields_visited =
-              type_mapping_object->fields_visited | TOPIC_INFO_ADD_RELIABILITY;
-          break;
-      }
-      case TOPIC_INFO_ADD_DURABILITY: {
-          type_mapping_object->dw_qos.durability_kind =
-              tvb_get_guint32(tvb, offset, encoding);
-          type_mapping_object->fields_visited =
-              type_mapping_object->fields_visited | TOPIC_INFO_ADD_DURABILITY;
-          break;
-      }
-      case TOPIC_INFO_ADD_OWNERSHIP: {
-          type_mapping_object->dw_qos.ownership_kind =
-              tvb_get_guint32(tvb, offset, encoding);
-          type_mapping_object->fields_visited =
-              type_mapping_object->fields_visited | TOPIC_INFO_ADD_OWNERSHIP;
-          break;
-      }
+
       default:
         break;
     }
@@ -4142,7 +4169,7 @@ static void rtps_util_format_typename(gchar * type_name, gchar ** output) {
 static void rtps_util_topic_info_add_tree(proto_tree *tree, tvbuff_t *tvb,
   gint offset, endpoint_guid * guid) {
   if (enable_topic_info) {
-    proto_tree * topic_info_tree, * dw_qos_tree;
+    proto_tree * topic_info_tree;
     proto_item * ti;
     type_mapping * type_mapping_object = rtps_util_get_topic_info(guid);
     if (type_mapping_object != NULL) {
@@ -4154,12 +4181,6 @@ static void rtps_util_topic_info_add_tree(proto_tree *tree, tvbuff_t *tvb,
       ti = proto_tree_add_string(topic_info_tree, hf_rtps_param_type_name, tvb, offset, 0,
                 type_mapping_object->type_name);
       proto_item_set_generated(ti);
-      dw_qos_tree = proto_tree_add_subtree_format(topic_info_tree, tvb, 0, 0,
-          ett_rtps_topic_info_dw_qos, NULL, "DataWriter QoS: %s, %s, %s",
-          val_to_str(type_mapping_object->dw_qos.reliability_kind, reliability_qos_vals, "%02x"),
-          val_to_str(type_mapping_object->dw_qos.durability_kind, durability_qos_vals, "%02x"),
-          val_to_str(type_mapping_object->dw_qos.ownership_kind, ownership_qos_vals, "%02x"));
-      proto_item_set_generated(dw_qos_tree);
       ti = proto_tree_add_uint(topic_info_tree, hf_rtps_dcps_publication_data_frame_number,
           tvb, 0, 0, type_mapping_object->dcps_publication_frame_number);
       proto_item_set_generated(ti);
@@ -4468,12 +4489,40 @@ static gboolean dissect_parameter_sequence_rti_dds(proto_tree *rtps_parameter_tr
    *  value(-1) RTI_OSAPI_COMPRESSION_CLASS_ID_AUTO
    */
     case PID_TYPE_OBJECT_LB: {
+      guint compressed_size;
+      guint decompressed_size;
+      guint compression_plugin_class;
+      tvbuff_t *compressed_type_object_subset;
+
       ENSURE_LENGTH(8);
       proto_tree_add_item(rtps_parameter_tree, hf_rtps_compression_plugin_class_id, tvb, offset, 4, encoding);
-      offset += 4;
-      proto_tree_add_item(rtps_parameter_tree, hf_rtps_uncompressed_serialized_length, tvb, offset, 4, encoding);
-      offset += 8;
-      proto_tree_add_item(rtps_parameter_tree, hf_rtps_compressed_serialized_type_object, tvb, offset, param_length - 8, encoding);
+      proto_tree_add_item(rtps_parameter_tree, hf_rtps_uncompressed_serialized_length, tvb, offset + 4, 4, encoding);
+
+      compression_plugin_class = tvb_get_guint32(tvb, offset, encoding);
+      decompressed_size = tvb_get_guint32(tvb, offset + 4, encoding);
+      /* Get the numer of bytes (elements) in the sequence */
+      compressed_size = tvb_get_guint32(tvb, offset + 8, encoding);
+
+      switch(compression_plugin_class)  {
+        case RTI_OSAPI_COMPRESSION_CLASS_ID_ZLIB: {
+          /* + 12 Because First 4 bytes of the sequence are the number of elements in the sequence */
+          proto_tree_add_item(rtps_parameter_tree, hf_rtps_compressed_serialized_type_object, tvb, offset + 12, param_length - 8, encoding);
+          compressed_type_object_subset = tvb_new_subset_length(tvb, offset + 12, decompressed_size);
+          rtps_add_zlib_compressed_typeobject(rtps_parameter_tree, pinfo, compressed_type_object_subset,
+            0, encoding, compressed_size, decompressed_size);
+          break;
+        }
+        case RTI_OSAPI_COMPRESSION_CLASS_ID_NONE: {
+          compressed_type_object_subset = tvb_new_subset_length(tvb, offset + 12, decompressed_size);
+          rtps_util_add_typeobject(rtps_parameter_tree, pinfo,
+            compressed_type_object_subset, 0, encoding, decompressed_size);
+          break;
+        }
+        default: {
+          /* + 12 Because First 4 bytes of the sequence are the number of elements in the sequence */
+          proto_tree_add_item(rtps_parameter_tree, hf_rtps_compressed_serialized_type_object, tvb, offset + 12, param_length - 8, encoding);
+        }
+      }
       break;
     }
 
@@ -5159,7 +5208,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
       retVal = (gchar*)tvb_get_string_enc(wmem_packet_scope(), tvb, offset+4, str_size, ENC_ASCII);
 
       rtps_util_store_type_mapping(pinfo, tvb, offset, type_mapping_object,
-          retVal, TOPIC_INFO_ADD_TOPIC_NAME, encoding);
+          retVal, TOPIC_INFO_ADD_TOPIC_NAME);
 
       rtps_util_add_string(rtps_parameter_tree, tvb, offset, hf_rtps_param_topic_name, encoding);
       break;
@@ -5195,7 +5244,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
       retVal = (gchar*) tvb_get_string_enc(wmem_packet_scope(), tvb, offset+4, str_size, ENC_ASCII);
 
       rtps_util_store_type_mapping(pinfo, tvb, offset, type_mapping_object,
-          retVal, TOPIC_INFO_ADD_TYPE_NAME, encoding);
+          retVal, TOPIC_INFO_ADD_TYPE_NAME);
 
       rtps_util_add_string(rtps_parameter_tree, tvb, offset, hf_rtps_param_type_name, encoding);
       break;
@@ -5277,8 +5326,6 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
     case PID_RELIABILITY:
       ENSURE_LENGTH(4);
       proto_tree_add_item(rtps_parameter_tree, hf_rtps_reliability_kind, tvb, offset, 4, encoding);
-      rtps_util_store_type_mapping(pinfo, tvb, offset, type_mapping_object, NULL,
-          TOPIC_INFO_ADD_RELIABILITY, encoding);
       /* Older version of the protocol (and for PID_RELIABILITY_OFFERED)
        * this parameter was carrying also a NtpTime called
        * 'maxBlockingTime'.
@@ -5318,8 +5365,6 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
     case PID_DURABILITY:
       ENSURE_LENGTH(4);
       proto_tree_add_item(rtps_parameter_tree, hf_rtps_durability, tvb, offset, 4, encoding);
-      rtps_util_store_type_mapping(pinfo, tvb, offset, type_mapping_object, NULL,
-          TOPIC_INFO_ADD_DURABILITY, encoding);
       break;
 
     /* 0...2...........7...............15.............23...............31
@@ -5357,8 +5402,6 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
     case PID_OWNERSHIP:
       ENSURE_LENGTH(4);
       proto_tree_add_item(rtps_parameter_tree, hf_rtps_ownership, tvb, offset, 4, encoding);
-      rtps_util_store_type_mapping(pinfo, tvb, offset, type_mapping_object, NULL,
-          TOPIC_INFO_ADD_OWNERSHIP, encoding);
       break;
 
     /* 0...2...........7...............15.............23...............31
@@ -6288,7 +6331,7 @@ static gboolean dissect_parameter_sequence_v2(proto_tree *rtps_parameter_tree, p
     case PID_ENDPOINT_GUID:
       ENSURE_LENGTH(16);
       rtps_util_store_type_mapping(pinfo, tvb, offset, type_mapping_object,
-          NULL, TOPIC_INFO_ADD_GUID, encoding);
+          NULL, TOPIC_INFO_ADD_GUID);
       rtps_util_add_generic_guid_v2(rtps_parameter_tree, tvb, offset,
                     hf_rtps_endpoint_guid, hf_rtps_param_host_id, hf_rtps_param_app_id,
                     hf_rtps_param_instance_id, hf_rtps_param_entity, hf_rtps_param_entity_key,
@@ -12621,7 +12664,8 @@ void proto_register_rtps(void) {
     &ett_rtps_data_tag_item,
     &ett_rtps_fragment,
     &ett_rtps_fragments,
-    &ett_rtps_data_representation
+    &ett_rtps_data_representation,
+    &ett_rtps_decompressed_type_object
   };
 
   static ei_register_info ei[] = {

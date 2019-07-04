@@ -140,7 +140,6 @@ static dissector_handle_t tls13_handshake_handle;
  *
  * Long packet types always use a single cipher depending on packet type.
  * Short packet types always use 1-RTT secrets for packet protection (pp).
- * TODO 0-RTT decryption requires another (client) cipher.
  *
  * Considerations:
  * - QUIC packets might appear out-of-order (short packets before handshake
@@ -169,10 +168,6 @@ static dissector_handle_t tls13_handshake_handle;
  * - 3 packet number spaces: Initial, Handshake, 0/1-RTT (appdata).
  * - 4 header protection ciphers: initial, 0-RTT, HS, 1-RTT.
  * - 5 payload protection ciphers: initial, 0-RTT, HS, 1-RTT (KP0), 1-RTT (KP1).
- *
- * to-do list:
- * DONE key update via KEY_PHASE bit (untested)
- * TODO 0-RTT decryption
  */
 
 typedef struct quic_decrypt_result {
@@ -229,6 +224,7 @@ typedef struct quic_info_data {
     int             cipher_mode;    /**< Cipher mode for packet encryption. */
     quic_cipher     client_initial_cipher;
     quic_cipher     server_initial_cipher;
+    quic_cipher     client_0rtt_cipher;
     quic_cipher     client_handshake_cipher;
     quic_cipher     server_handshake_cipher;
     quic_pp_state_t client_pp;
@@ -711,14 +707,26 @@ quic_connection_find(packet_info *pinfo, guint8 long_packet_type,
     gboolean is_long_packet = long_packet_type != QUIC_SHORT_PACKET;
     quic_info_data_t *conn = NULL;
 
-    if ((long_packet_type == QUIC_LPT_INITIAL || long_packet_type == QUIC_LPT_0RTT) && dcid->len > 0) {
+    if (long_packet_type == QUIC_LPT_0RTT && dcid->len > 0) {
+        // The 0-RTT packet always matches the SCID/DCID of the Client Initial
         conn = (quic_info_data_t *) wmem_map_lookup(quic_initial_connections, dcid);
-        // Both the client and server can send Initial (since draft -13).
-        if (!conn && long_packet_type == QUIC_LPT_INITIAL) {
-            conn = quic_connection_find_dcid(pinfo, dcid, from_server);
-        }
+        *from_server = FALSE;
     } else {
+        // Find a connection for Handshake and Server Initial packets by
+        // matching their DCID against the SCIDs of the original Initial packets
+        // from the peer. For Client Initial packets, match DCID of the first
+        // Client Initial (these may contain ACK frames).
         conn = quic_connection_find_dcid(pinfo, dcid, from_server);
+        if (long_packet_type == QUIC_LPT_INITIAL && conn && !*from_server && dcid->len > 0 &&
+            memcmp(dcid, &conn->client_dcid_initial, sizeof(quic_cid_t)) &&
+            !quic_cids_has_match(&conn->server_cids, dcid)) {
+            // If the Initial Packet is from the client, it must either match
+            // the DCID from the first Client Initial, or the DCID that was
+            // assigned by the server. Otherwise this must be considered a fresh
+            // Client Initial, for example after the Version Negotiation packet,
+            // and the connection must be cleared to avoid decryption failure.
+            conn = NULL;
+        }
     }
 
     if (!is_long_packet && !conn) {
@@ -1238,10 +1246,6 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
 #endif /* HAVE_LIBGCRYPT_AEAD */
 
 #ifdef HAVE_LIBGCRYPT_AEAD
-static gcry_error_t
-qhkdf_expand(int md, const guint8 *secret, guint secret_len,
-             const char *label, guint8 *out, guint out_len);
-
 static gboolean
 quic_cipher_init(quic_cipher *cipher, int hash_algo, guint8 key_length, guint8 *secret);
 
@@ -1472,11 +1476,39 @@ quic_create_initial_decoders(const quic_cid_t *cid, const gchar **error, quic_in
 }
 
 static gboolean
+quic_create_0rtt_decoder(guint i, gchar *early_data_secret, guint early_data_secret_len,
+                         quic_cipher *cipher, int *cipher_algo)
+{
+    static const guint16 tls13_ciphers[] = {
+        0x1301, /* TLS_AES_128_GCM_SHA256 */
+        0x1302, /* TLS_AES_256_GCM_SHA384 */
+        0x1303, /* TLS_CHACHA20_POLY1305_SHA256 */
+        0x1304, /* TLS_AES_128_CCM_SHA256 */
+        0x1305, /* TLS_AES_128_CCM_8_SHA256 */
+    };
+    if (i >= G_N_ELEMENTS(tls13_ciphers)) {
+        // end of list
+        return FALSE;
+    }
+    int cipher_mode = 0, hash_algo = 0;
+    const char *error_ignored = NULL;
+    if (tls_get_cipher_info(NULL, tls13_ciphers[i], cipher_algo, &cipher_mode, &hash_algo)) {
+        guint hash_len = gcry_md_get_algo_dlen(hash_algo);
+        if (hash_len == early_data_secret_len && quic_cipher_prepare(cipher, hash_algo, *cipher_algo, cipher_mode, early_data_secret, &error_ignored)) {
+            return TRUE;
+        }
+    }
+    /* This cipher failed, but there are more to try. */
+    quic_cipher_reset(cipher);
+    return TRUE;
+}
+
+static gboolean
 quic_create_decoders(packet_info *pinfo, quic_info_data_t *quic_info, quic_cipher *cipher,
                      gboolean from_server, TLSRecordType type, const char **error)
 {
     if (!quic_info->hash_algo) {
-        if (!tls_get_cipher_info(pinfo, &quic_info->cipher_algo, &quic_info->cipher_mode, &quic_info->hash_algo)) {
+        if (!tls_get_cipher_info(pinfo, 0, &quic_info->cipher_algo, &quic_info->cipher_mode, &quic_info->hash_algo)) {
             *error = "Unable to retrieve cipher information";
             return FALSE;
         }
@@ -1496,43 +1528,6 @@ quic_create_decoders(packet_info *pinfo, quic_info_data_t *quic_info, quic_ciphe
     }
 
     return TRUE;
-}
-
-/**
- * Computes QHKDF-Expand(Secret, Label, Length).
- * Caller must ensure that "out" is large enough for "out_len".
- */
-static gcry_error_t
-qhkdf_expand(int md, const guint8 *secret, guint secret_len,
-             const char *label, guint8 *out, guint out_len)
-{
-    /* https://tools.ietf.org/html/draft-ietf-quic-tls-10#section-5.2.1
-     *     QHKDF-Expand(Secret, Label, Length) =
-     *          HKDF-Expand(Secret, QhkdfLabel, Length)
-     *     struct {
-     *         uint16 length = Length;
-     *         opaque label<6..255> = "QUIC " + Label;
-     *     } QhkdfLabel;
-     */
-    gcry_error_t err;
-    const guint label_length = (guint) strlen(label);
-
-    /* Some sanity checks */
-    DISSECTOR_ASSERT(label_length > 0 && 5 + label_length <= 255);
-
-    /* info = QhkdfLabel { length, label } */
-    GByteArray *info = g_byte_array_new();
-    const guint16 length = g_htons(out_len);
-    g_byte_array_append(info, (const guint8 *)&length, sizeof(length));
-
-    const guint8 label_vector_length = 5 + label_length;
-    g_byte_array_append(info, &label_vector_length, 1);
-    g_byte_array_append(info, "QUIC ", 5);
-    g_byte_array_append(info, label, label_length);
-
-    err = hkdf_expand(md, secret, secret_len, info->data, info->len, out, out_len);
-    g_byte_array_free(info, TRUE);
-    return err;
 }
 
 /**
@@ -1579,12 +1574,13 @@ quic_cipher_init(quic_cipher *cipher, int hash_algo, guint8 key_length, guint8 *
  * Updates the packet protection secret to the next one.
  */
 static void
-quic_update_key(int hash_algo, quic_pp_state_t *pp_state, gboolean from_client)
+quic_update_key(int hash_algo, quic_pp_state_t *pp_state)
 {
     guint hash_len = gcry_md_get_algo_dlen(hash_algo);
-    qhkdf_expand(hash_algo, pp_state->next_secret, hash_len,
-                 from_client ? "client 1rtt" : "server 1rtt",
-                 pp_state->next_secret, hash_len);
+    gboolean ret = quic_hkdf_expand_label(hash_algo, pp_state->next_secret, hash_len,
+                                          "traffic upd", pp_state->next_secret, hash_len);
+    /* This must always succeed as our hash algorithm was already validated. */
+    DISSECTOR_ASSERT(ret);
 }
 
 /**
@@ -1608,7 +1604,7 @@ quic_get_1rtt_hp_cipher(packet_info *pinfo, quic_info_data_t *quic_info, gboolea
     /* Try to lookup secrets if not available. */
     if (!quic_info->client_pp.next_secret) {
         /* Query TLS for the cipher suite. */
-        if (!tls_get_cipher_info(pinfo, &quic_info->cipher_algo, &quic_info->cipher_mode, &quic_info->hash_algo)) {
+        if (!tls_get_cipher_info(pinfo, 0, &quic_info->cipher_algo, &quic_info->cipher_mode, &quic_info->hash_algo)) {
             /* No previous TLS handshake found or unsupported ciphers, fail. */
             quic_info->skip_decryption = TRUE;
             return NULL;
@@ -1621,7 +1617,7 @@ quic_get_1rtt_hp_cipher(packet_info *pinfo, quic_info_data_t *quic_info, gboolea
             return NULL;
         }
 
-        /* Create initial cipher handles for KEY_PHASE 0 and 1. */
+        // Create initial cipher handles for KEY_PHASE 0 using the 1-RTT keys.
         if (!quic_cipher_prepare(&client_pp->cipher[0], quic_info->hash_algo,
                                  quic_info->cipher_algo, quic_info->cipher_mode, client_pp->next_secret, &error) ||
             !quic_cipher_prepare(&server_pp->cipher[0], quic_info->hash_algo,
@@ -1629,7 +1625,9 @@ quic_get_1rtt_hp_cipher(packet_info *pinfo, quic_info_data_t *quic_info, gboolea
             quic_info->skip_decryption = TRUE;
             return NULL;
         }
-        quic_update_key(quic_info->hash_algo, pp_state, !from_server);
+        // Rotate the 1-RTT key for the client and server for the next key update.
+        quic_update_key(quic_info->hash_algo, client_pp);
+        quic_update_key(quic_info->hash_algo, server_pp);
     }
 
     // Note: Header Protect cipher does not change after Key Update.
@@ -1659,13 +1657,14 @@ quic_get_pp_cipher(gboolean key_phase, quic_info_data_t *quic_info, gboolean fro
      * If the key phase changed, try to decrypt the packet using the new cipher.
      * If that fails, then it is either a malicious packet or out-of-order.
      * In that case, try the previous cipher (unless it is the very first KP1).
+     * '!!' is due to key_phase being a signed bitfield, it forces -1 into 1.
      */
-    if (key_phase != pp_state->key_phase) {
+    if (key_phase != !!pp_state->key_phase) {
         quic_cipher new_cipher;
 
         memset(&new_cipher, 0, sizeof(quic_cipher));
         if (!quic_cipher_prepare(&new_cipher, quic_info->hash_algo,
-                                 quic_info->cipher_algo, quic_info->cipher_mode, server_pp->next_secret, &error)) {
+                                 quic_info->cipher_algo, quic_info->cipher_mode, pp_state->next_secret, &error)) {
             /* This should never be reached, if the parameters were wrong
              * before, then it should have set "skip_decryption". */
             REPORT_DISSECTOR_BUG("quic_cipher_prepare unexpectedly failed: %s", error);
@@ -1679,7 +1678,7 @@ quic_get_pp_cipher(gboolean key_phase, quic_info_data_t *quic_info, gboolean fro
             /* Verified the cipher, use it from now on and rotate the key. */
             quic_cipher_reset(&pp_state->cipher[key_phase]);
             pp_state->cipher[key_phase] = new_cipher;
-            quic_update_key(quic_info->hash_algo, pp_state, !from_server);
+            quic_update_key(quic_info->hash_algo, pp_state);
 
             pp_state->key_phase = key_phase;
             //pp_state->changed_in_pkn = pkn;
@@ -1874,18 +1873,28 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     if (conn) {
         if (long_packet_type == QUIC_LPT_INITIAL) {
             cipher = !from_server ? &conn->client_initial_cipher : &conn->server_initial_cipher;
+        } else if (long_packet_type == QUIC_LPT_0RTT && !from_server) {
+            cipher = &conn->client_0rtt_cipher;
         } else if (long_packet_type == QUIC_LPT_HANDSHAKE) {
             cipher = !from_server ? &conn->client_handshake_cipher : &conn->server_handshake_cipher;
         }
     }
     /* Prepare the Initial/Handshake cipher for header/payload decryption. */
     if (!PINFO_FD_VISITED(pinfo) && conn && cipher) {
+#define DIGEST_MAX_SIZE 48  /* SHA384 */
         const gchar *error = NULL;
+        gchar early_data_secret[DIGEST_MAX_SIZE];
+        guint early_data_secret_len = 0;
         if (long_packet_type == QUIC_LPT_INITIAL && !from_server &&
             !memcmp(&dcid, &conn->client_dcid_initial, sizeof(quic_cid_t))) {
             /* Create new decryption context based on the Client Connection
              * ID from the *very first* Client Initial packet. */
             quic_create_initial_decoders(&dcid, &error, conn);
+        } else if (long_packet_type == QUIC_LPT_0RTT) {
+            early_data_secret_len = tls13_get_quic_secret(pinfo, FALSE, TLS_SECRET_0RTT_APP, DIGEST_MAX_SIZE, early_data_secret);
+            if (early_data_secret_len == 0) {
+                error = "Secrets are not available";
+            }
         } else if (long_packet_type == QUIC_LPT_HANDSHAKE) {
             if (!cipher->hp_cipher) {
                 quic_create_decoders(pinfo, conn, cipher, from_server, TLS_SECRET_HANDSHAKE, &error);
@@ -1900,11 +1909,25 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
                 pn_offset += (guint)token_length;
             }
             pn_offset += tvb_get_varint(tvb, pn_offset, 8, &payload_length, ENC_VARINT_QUIC);
-            if (quic_decrypt_header(tvb, pn_offset, cipher->hp_cipher, hp_cipher_algo, &first_byte, &pkn32)) {
+
+            // Assume failure unless proven otherwise.
+            error = "Header deprotection failed";
+            if (long_packet_type != QUIC_LPT_0RTT) {
+                if (quic_decrypt_header(tvb, pn_offset, cipher->hp_cipher, hp_cipher_algo, &first_byte, &pkn32)) {
+                    error = NULL;
+                }
+            } else {
+                // Cipher is not stored with 0-RTT data or key, perform trial decryption.
+                for (guint i = 0; quic_create_0rtt_decoder(i, early_data_secret, early_data_secret_len, cipher, &hp_cipher_algo); i++) {
+                    if (cipher->hp_cipher && quic_decrypt_header(tvb, pn_offset, cipher->hp_cipher, hp_cipher_algo, &first_byte, &pkn32)) {
+                        error = NULL;
+                        break;
+                    }
+                }
+            }
+            if (!error) {
                 quic_set_full_packet_number(conn, quic_packet, from_server, first_byte, pkn32);
                 quic_packet->first_byte = first_byte;
-            } else {
-                error = "Header deprotection failed";
             }
         }
         if (error) {

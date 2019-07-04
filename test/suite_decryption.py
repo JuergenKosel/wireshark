@@ -723,6 +723,31 @@ class case_decrypt_wireguard(subprocesstest.SubprocessTestCase):
         self.assertIn('17\t\t\t\t\t\t443', lines)
         self.assertIn('18\t\t\t\t\t\t49472', lines)
 
+    def test_decrypt_wg_full_initiator_dsb(self, run_wireguard_test):
+        """
+        Similar to test_decrypt_full_initiator, but using decryption keys
+        embedded in the pcapng file. The embedded secrets do not contain leading
+        spaces nor spaces around the '=' character.
+        """
+        lines = run_wireguard_test(self, [
+            '-Tfields',
+            '-e', 'frame.number',
+            '-e', 'wg.ephemeral.known_privkey',
+            '-e', 'wg.static',
+            '-e', 'wg.timestamp.nanoseconds',
+            '-e', 'wg.handshake_ok',
+            '-e', 'icmp.type',
+            '-e', 'tcp.dstport',
+        ], pcap_file='wireguard-ping-tcp-dsb.pcapng')
+        self.assertIn('1\t1\t%s\t%s\t\t\t' % (self.key_Spub_i, '356537872'), lines)
+        self.assertIn('2\t0\t\t\t1\t\t', lines)
+        self.assertIn('3\t\t\t\t\t8\t', lines)
+        self.assertIn('4\t\t\t\t\t0\t', lines)
+        self.assertIn('13\t1\t%s\t%s\t\t\t' % (self.key_Spub_i, '490514356'), lines)
+        self.assertIn('14\t0\t\t\t1\t\t', lines)
+        self.assertIn('17\t\t\t\t\t\t443', lines)
+        self.assertIn('18\t\t\t\t\t\t49472', lines)
+
     def test_decrypt_full_responder(self, run_wireguard_test):
         """Check for full handshake decryption using responder secrets."""
         lines = run_wireguard_test(self, [
@@ -1076,6 +1101,20 @@ class case_decrypt_smb2(subprocesstest.SubprocessTestCase):
         tree = r'\\dfsroot1.foo.test\IPC$'
         proc = self.assertRun((cmd_tshark,
                 '-r', capture_file('smb311-aes-128-ccm.pcap.gz'),
+                '-o', 'uat:smb2_seskey_list:{},{}'.format(sesid, seskey),
+                '-Tfields',
+                '-e', 'smb2.tree',
+                '-Y', 'smb2.tree == "{}"'.format(tree.replace('\\', '\\\\')),
+        ))
+        self.assertEqual(tree, proc.stdout_str.strip())
+
+    def test_smb311_aes128gcm(self, cmd_tshark, capture_file):
+        '''Check SMB 3.1.1 AES128GCM decryption.'''
+        sesid = '3900000000400000'
+        seskey = 'e79161ded03bda1449b2c8e58f753953'
+        tree = r'\\dfsroot1.foo.test\IPC$'
+        proc = self.assertRun((cmd_tshark,
+                '-r', capture_file('smb311-aes-128-gcm.pcap.gz'),
                 '-o', 'uat:smb2_seskey_list:{},{}'.format(sesid, seskey),
                 '-Tfields',
                 '-e', 'smb2.tree',

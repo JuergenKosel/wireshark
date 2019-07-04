@@ -44,7 +44,6 @@
 
 #include "config.h"
 
-
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/media_params.h>
@@ -614,12 +613,10 @@ process_body_part(proto_tree *tree, tvbuff_t *tvb,
         } else {
             gint hf_index;
 
-            /* Split header name from header value */
-            header_str[colon_offset] = '\0';
             hf_index = is_known_multipart_header(header_str, colon_offset);
 
             if (hf_index == -1) {
-                if(isprint_string(hdr_str)) {
+                if(isprint_string(header_str)) {
                     proto_tree_add_format_text(subtree, tvb, offset, next_offset - offset);
                 } else {
                     /* if the header name is unkown and not printable, break and add complete line to the body */
@@ -690,7 +687,7 @@ process_body_part(proto_tree *tree, tvbuff_t *tvb,
                             }
                         }
                         break;
-                        case POS_CONTENT_TRANSFER_ENCODING:
+                    case POS_CONTENT_TRANSFER_ENCODING:
                         {
                             /* The Content-Transferring starts at colon_offset + 1 */
                             char *crp = strchr(value_str, '\r');
@@ -702,15 +699,15 @@ process_body_part(proto_tree *tree, tvbuff_t *tvb,
                             content_encoding_str = wmem_ascii_strdown(wmem_packet_scope(), value_str, -1);
                         }
                         break;
-                        case POS_CONTENT_DISPOSITION:
+                    case POS_CONTENT_DISPOSITION:
                         {
                             /* find the "filename" parameter */
                             filename = ws_find_media_type_parameter(wmem_packet_scope(), value_str, "filename");
                         }
                         break;
-                        case POS_CONTENT_ID:
-                            message_info.content_id = wmem_strdup(wmem_packet_scope(), value_str);
-                            break;
+                    case POS_CONTENT_ID:
+                        message_info.content_id = wmem_strdup(wmem_packet_scope(), value_str);
+                        break;
                     default:
                         break;
                 }

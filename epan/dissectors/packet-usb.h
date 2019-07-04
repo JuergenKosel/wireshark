@@ -102,6 +102,8 @@ struct _usb_conv_info_t {
 
     guint16 deviceVendor;       /* Device    Descriptor - USB Vendor  ID */
     guint32 deviceProduct;      /* Device    Descriptor - USB Product ID - MSBs only for encoding unknown */
+    guint16 deviceVersion;      /* Device    Descriptor - USB device version number BCD */
+    guint8  iSerialNumber;      /* Device    Descriptor - iSerialNumber (0 if no serial number available) */
     wmem_tree_t *transactions;
     usb_trans_info_t *usb_trans_info; /* pointer to the current transaction */
 
@@ -176,6 +178,7 @@ typedef struct _usb_tap_data_t {
 #define IF_PROTOCOL_UNKNOWN           0xffff
 #define DEV_VENDOR_UNKNOWN            0x0000  /* this id is unassigned */
 #define DEV_PRODUCT_UNKNOWN           0xfffffff /* 0x0000 and 0xffff are used values by vendors, so MSBs encode unknown */
+#define DEV_VERSION_UNKNOWN           0xffff
 
 #define IF_SUBCLASS_MISC_U3V          0x05
 
@@ -202,6 +205,7 @@ typedef struct _usb_tap_data_t {
 #define ENDPOINT_TYPE_ISOCHRONOUS       1
 #define ENDPOINT_TYPE_BULK              2
 #define ENDPOINT_TYPE_INTERRUPT         3
+#define ENDPOINT_TYPE_NOT_SET         255
 
 
 #define USB_SETUP_GET_STATUS             0
@@ -260,7 +264,8 @@ void dissect_usb_endpoint_address(proto_tree *tree, tvbuff_t *tvb, int offset);
 int
 dissect_usb_endpoint_descriptor(packet_info *pinfo, proto_tree *parent_tree,
                                 tvbuff_t *tvb, int offset,
-                                usb_conv_info_t  *usb_conv_info);
+                                usb_conv_info_t  *usb_conv_info,
+                                guint8 *out_ep_type);
 
 int
 dissect_usb_unknown_descriptor(packet_info *pinfo _U_, proto_tree *parent_tree,

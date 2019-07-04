@@ -4986,9 +4986,7 @@ dissect_mbim_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
 
     if (data) {
         usb_trans_info_t *usb_trans_info = ((usb_conv_info_t *)data)->usb_trans_info;
-        if (usb_trans_info && (usb_trans_info->setup.request == 0x00) && (USB_HEADER_IS_LINUX(usb_trans_info->header_type))) {
-            /* Skip Send Encapsulated Command header */
-            offset += 7;
+        if (usb_trans_info && (usb_trans_info->setup.request == 0x00)) {
             tree = proto_tree_get_parent_tree(tree);
         }
     }
@@ -5063,7 +5061,7 @@ dissect_mbim_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
                 offset += 4;
                 if (total_frag > 1) {
                     frag_data = fragment_add_seq_check(&mbim_reassembly_table, tvb, offset, pinfo,
-                                                       trans_id, NULL, current_frag,
+                                                       trans_id, mbim_conv, current_frag,
                                                        tvb_reported_length_remaining(tvb, offset),
                                                        (current_frag != (total_frag-1)));
                     frag_tvb = process_reassembled_data(tvb, offset, pinfo, "Reassembled MBIM control message",
@@ -5923,7 +5921,7 @@ dissect_mbim_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
                 offset += 4;
                 if (total_frag > 1) {
                     frag_data = fragment_add_seq_check(&mbim_reassembly_table, tvb, offset, pinfo,
-                                                       trans_id, NULL, current_frag,
+                                                       trans_id, mbim_conv, current_frag,
                                                        tvb_reported_length_remaining(tvb, offset),
                                                        (current_frag != (total_frag-1)));
                     frag_tvb = process_reassembled_data(tvb, offset, pinfo, "Reassembled MBIM control message",
@@ -7040,10 +7038,11 @@ dissect_mbim_decode_as(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         case URB_CONTROL:
             if (!usb_trans_info) {
                 return dissect_mbim_control(tvb, pinfo, tree, usb_conv_info);
-            }
-            if (((usb_trans_info->setup.request == 0x00) &&
-                 (USB_HEADER_IS_LINUX(usb_trans_info->header_type) || (pinfo->srcport != NO_ENDPOINT))) ||
-                ((usb_trans_info->setup.request == 0x01) && (pinfo->srcport != NO_ENDPOINT))) {
+            } else if ((usb_trans_info->setup.request == 0x00) && (pinfo->srcport == NO_ENDPOINT)) {
+                /* Skip Send Encapsulated Command header */
+                tvbuff_t *mbim_tvb = tvb_new_subset_remaining(tvb, 7);
+                return dissect_mbim_control(mbim_tvb, pinfo, tree, usb_conv_info);
+            } else if ((usb_trans_info->setup.request == 0x01) && (pinfo->srcport != NO_ENDPOINT)) {
                 return dissect_mbim_control(tvb, pinfo, tree, usb_conv_info);
             }
             break;

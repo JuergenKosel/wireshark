@@ -29,7 +29,7 @@
 // http://msdn.microsoft.com/en-us/library/ms246582.aspx
 
 // To do:
-// - 32x32, 48x48, 64x64, and unscaled (.svg) icons
+// - 32x32, 48x48, 64x64, and unscaled (.svg) icons.
 // - Indent find & go actions when those panes are open.
 // - Replace or remove:
 //   WIRESHARK_STOCK_CAPTURE_FILTER x-capture-filter
@@ -45,6 +45,7 @@
 #include <QMap>
 #include <QPainter>
 #include <QStyle>
+#include <QStyleOption>
 
 static const QString path_pfx_ = ":/stock_icons/";
 
@@ -74,8 +75,47 @@ StockIcon::StockIcon(const QString icon_name) :
     }
 
     // Is this one of our locally sourced, cage-free, organic icons?
-    QStringList types = QStringList() << "14x14" << "16x16" << "24x14" << "24x24";
+    QStringList types = QStringList() << "8x8" << "14x14" << "16x16" << "24x14" << "24x24";
+    QList<QIcon::Mode> icon_modes = QList<QIcon::Mode>()
+            << QIcon::Disabled
+            << QIcon::Active
+            << QIcon::Selected;
     foreach (QString type, types) {
+        // First, check for a template (mask) icon
+        // Templates should be monochrome as described at
+        // https://developer.apple.com/design/human-interface-guidelines/macos/icons-and-images/custom-icons/
+        // Transparency is supported.
+        QString icon_path_template = path_pfx_ + QString("%1/%2.template.png").arg(type).arg(icon_name);
+        if (QFile::exists(icon_path_template)) {
+            QIcon mask_icon = QIcon();
+            mask_icon.addFile(icon_path_template);
+
+            foreach(QSize sz, mask_icon.availableSizes()) {
+                QPixmap mask_pm = mask_icon.pixmap(sz);
+                QImage normal_img(sz, QImage::Format_ARGB32);
+                normal_img.setDevicePixelRatio(mask_pm.devicePixelRatio());
+                QPainter painter(&normal_img);
+                QBrush br(wsApp->palette().color(QPalette::Active, QPalette::WindowText));
+                painter.fillRect(0, 0, sz.width(), sz.height(), br);
+                painter.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+                painter.drawPixmap(0, 0, mask_pm);
+
+                QPixmap normal_pm = QPixmap::fromImage(normal_img);
+                addPixmap(normal_pm, QIcon::Normal, QIcon::On);
+                addPixmap(normal_pm, QIcon::Normal, QIcon::Off);
+
+                QStyleOption opt = {};
+                opt.palette = wsApp->palette();
+                foreach (QIcon::Mode icon_mode, icon_modes) {
+                    QPixmap mode_pm = wsApp->style()->generatedIconPixmap(icon_mode, normal_pm, &opt);
+                    addPixmap(mode_pm, icon_mode, QIcon::On);
+                    addPixmap(mode_pm, icon_mode, QIcon::Off);
+                }
+            }
+            continue;
+        }
+
+        // Regular full-color icons
         QString icon_path = path_pfx_ + QString("%1/%2.png").arg(type).arg(icon_name);
         if (QFile::exists(icon_path)) {
             addFile(icon_path);

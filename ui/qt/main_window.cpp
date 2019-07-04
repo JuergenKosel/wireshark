@@ -62,7 +62,7 @@ DIAG_ON(frame-larger-than=)
 #include "simple_dialog.h"
 #include "tap_parameter_dialog.h"
 #include "wireless_frame.h"
-#include "wireless_timeline.h"
+#include <ui/qt/widgets/wireless_timeline.h>
 #include "wireshark_application.h"
 
 #include <ui/qt/widgets/additional_toolbar.h>
@@ -484,8 +484,6 @@ MainWindow::MainWindow(QWidget *parent) :
             this, SIGNAL(frameSelected(int)));
     connect(this, SIGNAL(frameSelected(int)),
             this, SLOT(setMenusForSelectedPacket()));
-    connect(packet_list_->packetListModel(), SIGNAL(bgColorizationProgress(int, int)),
-            main_ui_->wirelessTimelineWidget, SLOT(bgColorizationProgress(int, int)));
 
     proto_tree_ = new ProtoTree(&master_split_);
     proto_tree_->installEventFilter(this);
@@ -635,16 +633,6 @@ MainWindow::MainWindow(QWidget *parent) :
             this, SLOT(openPacketDialog()));
     connect(packet_list_, SIGNAL(packetListScrolled(bool)),
             main_ui_->actionGoAutoScroll, SLOT(setChecked(bool)));
-    connect(packet_list_->packetListModel(), SIGNAL(pushBusyStatus(QString)),
-            main_ui_->statusBar, SLOT(pushBusyStatus(QString)));
-    connect(packet_list_->packetListModel(), SIGNAL(popBusyStatus()),
-            main_ui_->statusBar, SLOT(popBusyStatus()));
-    connect(packet_list_->packetListModel(), SIGNAL(pushProgressStatus(QString, bool, bool, gboolean*)),
-            main_ui_->statusBar, SLOT(pushProgressStatus(QString, bool, bool, gboolean*)));
-    connect(packet_list_->packetListModel(), SIGNAL(updateProgressStatus(int)),
-            main_ui_->statusBar, SLOT(updateProgressStatus(int)));
-    connect(packet_list_->packetListModel(), SIGNAL(popProgressStatus()),
-            main_ui_->statusBar, SLOT(popProgressStatus()));
 
     connect(proto_tree_, SIGNAL(openPacketInNewWindow(bool)),
             this, SLOT(openPacketDialog(bool)));
@@ -875,6 +863,19 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
     }
 
     return QMainWindow::eventFilter(obj, event);
+}
+
+bool MainWindow::event(QEvent *event)
+{
+    switch (event->type()) {
+    case QEvent::ApplicationPaletteChange:
+        initMainToolbarIcons();
+        break;
+    default:
+        break;
+
+    }
+    return QMainWindow::event(event);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *event) {
@@ -1999,6 +2000,8 @@ void MainWindow::initMainToolbarIcons()
     main_ui_->actionViewZoomOut->setIcon(StockIcon("zoom-out"));
     main_ui_->actionViewNormalSize->setIcon(StockIcon("zoom-original"));
     main_ui_->actionViewResizeColumns->setIcon(StockIcon("x-resize-columns"));
+
+    main_ui_->actionNewDisplayFilterExpression->setIcon(StockIcon("list-add"));
 }
 
 void MainWindow::initShowHideMainWidgets()

@@ -2442,7 +2442,7 @@ static const value_string characteristic_presentation_namespace_vals[] = {
     {0x0, NULL}
 };
 
-static const value_string characteristic_presentation_namespace_description_btsig_vals[] = {
+const value_string characteristic_presentation_namespace_description_btsig_vals[] = {
     {0x0000, "unknown"},
     {0x0001, "first"},
     {0x0002, "second"},
@@ -17289,7 +17289,7 @@ proto_register_btatt(void)
 
     static build_valid_func btatt_handle_da_build_value[1] = {btatt_handle_value};
     static decode_as_value_t btatt_handle_da_values = {btatt_handle_prompt, 1, btatt_handle_da_build_value};
-    static decode_as_t btatt_handle_da = {"btatt", "ATT Handle", "btatt.handle",
+    static decode_as_t btatt_handle_da = {"btatt", "btatt.handle",
             1, 0, &btatt_handle_da_values, NULL, NULL,
             decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
 

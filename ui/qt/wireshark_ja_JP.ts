@@ -1109,49 +1109,49 @@
     <message>
         <source>Multiple filters selected. Override them here or leave this blank to preserve them.</source>
         <extracomment>This is a very long concept that needs to fit into a short space.</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>複数のフィルタが選択されています。選択を上書きするか空白のままにしてください</translation>
     </message>
     <message>
         <source>&lt;p&gt;The interfaces you have selected have different capture filters. Typing a filter here will override them. Doing nothing will preserve them.&lt;/p&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;p&gt;選択したインターフェースには異なるキャプチャフィルタがあります。ここにフィルタを入力すれば上書きされます。なにもしなければ保存します&lt;/p&gt;</translation>
     </message>
     <message>
         <source>Enter a capture filter %1</source>
-        <translation type="unfinished"></translation>
+        <translation>キャプチャフィルタ %1 を入力</translation>
     </message>
     <message>
         <source>Save this filter</source>
-        <translation type="unfinished"></translation>
+        <translation>このフィルタを保存</translation>
     </message>
     <message>
         <source>Remove this filter</source>
-        <translation type="unfinished"></translation>
+        <translation>このフィルタを削除</translation>
     </message>
     <message>
         <source>Manage Capture Filters</source>
-        <translation type="unfinished"></translation>
+        <translation>キャプチャフィルタ管理</translation>
     </message>
 </context>
 <context>
     <name>CaptureInfoDialog</name>
     <message>
         <source>Capture Information</source>
-        <translation type="unfinished"></translation>
+        <translation>キャプチャ情報</translation>
     </message>
     <message>
         <source>Stop Capture</source>
-        <translation type="unfinished"></translation>
+        <translation>キャプチャ停止</translation>
     </message>
     <message>
         <source>%1 packets, %2:%3:%4</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 パケット, %2:%3:%4</translation>
     </message>
 </context>
 <context>
     <name>CaptureInfoModel</name>
     <message>
         <source>Other</source>
-        <translation type="unfinished">その他</translation>
+        <translation>その他</translation>
     </message>
 </context>
 <context>
@@ -1186,7 +1186,7 @@
     </message>
     <message>
         <source>pcapng</source>
-        <translation type="unfinished"></translation>
+        <translation>pcap-ng形式</translation>
     </message>
     <message>
         <source>pcap</source>
@@ -1225,7 +1225,7 @@
     </message>
     <message>
         <source>Show capture information during live capture</source>
-        <translation type="unfinished"></translation>
+        <translation>キャプチャ中にキャプチャ情報画面を表示</translation>
     </message>
     <message>
         <source>Stop capturing after the specified number of packets have been captured.</source>
@@ -1301,31 +1301,31 @@
     </message>
     <message>
         <source>Switch to the next file after the specified number of packets have been captured.</source>
-        <translation type="unfinished"></translation>
+        <translation>指定したパケット数がキャプチャされた後に次のファイルに切り替えます</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;p&gt;NOTE: If enabled, at least one of the new-file criteria MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;1つのキャプチャファイルを用いる代わりに複数のファイルが作成されます。&lt;/p&gt;&lt;p&gt;生成されたファイル名は連番とキャプチャ開始時間を含みます&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Create a new file automatically…</source>
-        <translation type="unfinished"></translation>
+        <translation>…後に自動的に新ファイルを作成</translation>
     </message>
     <message>
         <source>after</source>
-        <translation type="unfinished"></translation>
+        <translation>後</translation>
     </message>
     <message>
         <source>Switch to the next file after the file size exceeds the specified file size.</source>
-        <translation type="unfinished"></translation>
+        <translation>ファイルサイズが指定したファイルサイズを超過した後に次のファイルに切り替えます</translation>
     </message>
     <message>
         <source>Switch to the next file when the time capturing to the current file exceeds the specified time.</source>
-        <translation type="unfinished"></translation>
+        <translation>現在のファイルをキャプチャしている時間が指定した時間を超過した際に次のファイルに切り替えます</translation>
     </message>
     <message>
         <source>when time is a multiple of</source>
-        <translation type="unfinished"></translation>
+        <translation>時刻が複数の</translation>
     </message>
     <message>
         <source>Switch to the next file when the (wall clock) time is an even multiple of the specified interval.
@@ -1760,6 +1760,48 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>CredentialsDialog</name>
+    <message>
+        <source>Wireshark - Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CredentialsModel</name>
+    <message>
+        <source>Click to select the packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click to select the packet with username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Username not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet No.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">プロトコル</translation>
+    </message>
+    <message>
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Additional Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>DataPrinter</name>
     <message>
         <source>Copy Bytes as Hex + ASCII Dump</source>
@@ -1919,11 +1961,11 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Save this filter</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">このフィルタを保存</translation>
     </message>
     <message>
         <source>Remove this filter</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">このフィルタを削除</translation>
     </message>
     <message>
         <source>Manage Display Filters</source>
@@ -1932,6 +1974,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Manage Filter Expressions</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selected</source>
+        <translation type="unfinished">選択済み</translation>
+    </message>
+    <message>
+        <source>Not Selected</source>
+        <translation type="unfinished">選択されていません</translation>
     </message>
 </context>
 <context>
@@ -2992,6 +3042,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>色:</translation>
     </message>
     <message>
+        <source>System Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Sample ignored packet text</source>
         <translation>無視されたパケットテキストのサンプル</translation>
     </message>
@@ -3005,14 +3063,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Style:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Flat</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3532,8 +3582,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>時間(秒)</translation>
     </message>
     <message>
-        <source>IO Graphs</source>
-        <translation>入出力グラフ</translation>
+        <source>I/O Graphs</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Copy</source>
@@ -3552,6 +3602,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>1ミリ秒</translation>
     </message>
     <message>
+        <source>5 ms</source>
+        <translation type="unfinished">100ミリ秒 {5 ?}</translation>
+    </message>
+    <message>
         <source>10 ms</source>
         <translation>10ミリ秒</translation>
     </message>
@@ -3560,8 +3614,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>100ミリ秒</translation>
     </message>
     <message>
-        <source>Wireshark IO Graphs: %1</source>
-        <translation>Wireshark入出力グラフ: %1</translation>
+        <source>Wireshark I/O Graphs: %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>All packets</source>
@@ -6818,10 +6872,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>IEEE802.11無線LAN統計を表示します</translation>
     </message>
     <message>
-        <source>Add a filter button</source>
-        <translation>フィルタボタンを追加</translation>
-    </message>
-    <message>
         <source>Add a display filter button.</source>
         <translation>表示フィルタボタンを追加します</translation>
     </message>
@@ -6835,6 +6885,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>&amp;Full Screen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Credentials</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8190,38 +8244,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>テキストとしての概要</translation>
     </message>
     <message>
-        <source>Align Left</source>
-        <translation>左揃え</translation>
-    </message>
-    <message>
-        <source>Align Center</source>
-        <translation>中央揃え</translation>
-    </message>
-    <message>
-        <source>Align Right</source>
-        <translation>右揃え</translation>
-    </message>
-    <message>
-        <source>Column Preferences</source>
-        <translation>列の設定</translation>
-    </message>
-    <message>
-        <source>Edit Column</source>
-        <translation>列の編集</translation>
-    </message>
-    <message>
-        <source>Resize To Contents</source>
-        <translation>内容にあわせて列幅を揃える</translation>
-    </message>
-    <message>
-        <source>Resolve Names</source>
-        <translation>名前を解決</translation>
-    </message>
-    <message>
-        <source>Remove This Column</source>
-        <translation>この列を削除</translation>
-    </message>
-    <message>
         <source>Frame %1: %2
 
 </source>
@@ -8232,6 +8254,53 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>[ Comment text exceeds %1. Stopping. ]</source>
         <translation>[ コメントテキスト超過 %1 停止中 ]</translation>
+    </message>
+</context>
+<context>
+    <name>PacketListHeader</name>
+    <message>
+        <source>Align Left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Align Center</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Align Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Column Preferences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resize to Contents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resize Column to Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resolve Names</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove this Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Column %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Width:</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

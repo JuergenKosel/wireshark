@@ -85,6 +85,11 @@
 #define PROTOCOL_BINARY_RESPONSE_ETMPFAIL           0x86
 #define PROTOCOL_BINARY_RESPONSE_XATTR_EINVAL       0x87
 #define PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION         0x88
+#define PROTOCOL_BINARY_RESPONSE_DURABILITY_INVALID_LEVEL         0xa0
+#define PROTOCOL_BINARY_RESPONSE_DURABILITY_IMPOSSIBLE            0xa1
+#define PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_IN_PROGRESS           0xa2
+#define PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_AMBIGUOUS             0xa3
+#define PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_RECOMMIT_IN_PROGRESS  0xa4
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT         0xc0
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH       0xc1
 #define PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_EINVAL         0xc2
@@ -384,8 +389,6 @@ static int hf_extras_initial = -1;
 static int hf_extras_unknown = -1;
 static int hf_extras_by_seqno = -1;
 static int hf_extras_rev_seqno = -1;
-static int hf_extras_by_seqno_mem = -1;
-static int hf_extras_by_seqno_disk = -1;
 static int hf_extras_prepared_seqno = -1;
 static int hf_extras_commit_seqno = -1;
 static int hf_extras_abort_seqno = -1;
@@ -586,6 +589,16 @@ static const value_string status_vals[] = {
     "There is something wrong with the syntax of the provided XATTR."},
   { PROTOCOL_BINARY_RESPONSE_UNKNOWN_COLLECTION,
     "Operation attempted with an unknown collection."},
+  { PROTOCOL_BINARY_RESPONSE_DURABILITY_INVALID_LEVEL,
+    "The specified durability level is invalid" },
+  { PROTOCOL_BINARY_RESPONSE_DURABILITY_IMPOSSIBLE,
+    "The specified durability requirements are not currently possible" },
+  { PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_IN_PROGRESS,
+    "A SyncWrite is already in progress on the specified key"},
+  { PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_AMBIGUOUS,
+    "The SyncWrite request has not completed in the specified time and has ambiguous result"},
+  { PROTOCOL_BINARY_RESPONSE_SYNC_WRITE_RECOMMIT_IN_PROGRESS,
+    "The SyncWrite is being re-committed after a change in active node"},
   { PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_ENOENT,
     "Subdoc: Path not does not exist"},
   { PROTOCOL_BINARY_RESPONSE_SUBDOC_PATH_MISMATCH,
@@ -1452,9 +1465,7 @@ dissect_extras(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   case PROTOCOL_BINARY_DCP_SEQNO_ACK: {
     if (extlen) {
       if (request) {
-        proto_tree_add_item(extras_tree, hf_extras_by_seqno_mem, tvb, offset, 8, ENC_BIG_ENDIAN);
-        offset += 8;
-        proto_tree_add_item(extras_tree, hf_extras_by_seqno_disk, tvb, offset, 8, ENC_BIG_ENDIAN);
+        proto_tree_add_item(extras_tree, hf_extras_by_seqno, tvb, offset, 8, ENC_BIG_ENDIAN);
         offset += 8;
       } else {
         illegal = TRUE;
@@ -1470,7 +1481,7 @@ dissect_extras(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       if (request) {
         proto_tree_add_item(extras_tree, hf_extras_prepared_seqno, tvb, offset, 8, ENC_BIG_ENDIAN);
         offset += 8;
-        proto_tree_add_item(extras_tree, hf_extras_commit_seqno, tvb, offset, 8, ENC_BIG_ENDIAN);
+        proto_tree_add_item(extras_tree, hf_extras_by_seqno, tvb, offset, 8, ENC_BIG_ENDIAN);
         offset += 8;
       } else {
         illegal = TRUE;
@@ -2842,23 +2853,21 @@ proto_register_couchbase(void)
     { &hf_extras_flags_dcp_no_value, {"No Value", "couchbase.extras.flags.dcp_no_value", FT_BOOLEAN, 16, TFS(&tfs_set_notset), 0x08, "Indicates the server should strip off values", HFILL} },
     { &hf_extras_flags_dcp_collections, {"Enable Collections", "couchbase.extras.flags.dcp_collections", FT_BOOLEAN, 16, TFS(&tfs_set_notset), 0x10, "Indicates the server should stream collections", HFILL} },
     { &hf_extras_flags_dcp_include_delete_times, {"Include Delete Times", "couchbase.extras.flags.dcp_include_delete_times", FT_BOOLEAN, 16, TFS(&tfs_set_notset), 0x20, "Indicates the server should include delete timestamps", HFILL} },
-    { &hf_extras_seqno, { "Sequence number", "couchbase.extras.seqno", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_seqno, { "Sequence number", "couchbase.extras.seqno", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_extras_opaque, { "Opaque (vBucket identifier)", "couchbase.extras.opaque", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL } },
     { &hf_extras_reserved, { "Reserved", "couchbase.extras.reserved", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_start_seqno, { "Start Sequence Number", "couchbase.extras.start_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_end_seqno, { "End Sequence Number", "couchbase.extras.start_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_start_seqno, { "Start Sequence Number", "couchbase.extras.start_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_end_seqno, { "End Sequence Number", "couchbase.extras.start_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_extras_vbucket_uuid, { "VBucket UUID", "couchbase.extras.vbucket_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_snap_start_seqno, { "Snapshot Start Sequence Number", "couchbase.extras.snap_start_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_snap_end_seqno, { "Snapshot End Sequence Number", "couchbase.extras.snap_start_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_by_seqno, { "by_seqno", "couchbase.extras.by_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_by_seqno_mem, { "by_seqno (memory)", "couchbase.extras.by_seqno_mem", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_by_seqno_disk, { "by_seqno (disk)", "couchbase.extras.by_seqno_disk", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_prepared_seqno, { "by_seqno (prepared)", "couchbase.extras.by_seqno_prepared", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_commit_seqno, { "by_seqno (commit)", "couchbase.extras.by_seqno_commit", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_abort_seqno, { "by_seqno (abort)", "couchbase.extras.by_seqno_abort", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_rev_seqno, { "rev_seqno", "couchbase.extras.rev_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_snap_start_seqno, { "Snapshot Start Sequence Number", "couchbase.extras.snap_start_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_snap_end_seqno, { "Snapshot End Sequence Number", "couchbase.extras.snap_start_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_by_seqno, { "by_seqno", "couchbase.extras.by_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_prepared_seqno, { "by_seqno (prepared)", "couchbase.extras.by_seqno_prepared", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_commit_seqno, { "by_seqno (commit)", "couchbase.extras.by_seqno_commit", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_abort_seqno, { "by_seqno (abort)", "couchbase.extras.by_seqno_abort", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_rev_seqno, { "rev_seqno", "couchbase.extras.rev_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_extras_lock_time, { "lock_time", "couchbase.extras.lock_time", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL } },
-    { &hf_extras_nmeta, { "nmeta", "couchbase.extras.nmeta", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+    { &hf_extras_nmeta, { "nmeta", "couchbase.extras.nmeta", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_extras_nru, { "nru", "couchbase.extras.nru", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
     { &hf_extras_deleted, { "deleted", "couchbase.extras.deleted", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_extras_bytes_to_ack, { "bytes_to_ack", "couchbase.extras.bytes_to_ack", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL } },
@@ -2870,7 +2879,7 @@ proto_register_couchbase(void)
     { &hf_failover_log, { "Failover Log", "couchbase.dcp.failover_log", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL } },
     { &hf_failover_log_size, { "Size", "couchbase.dcp.failover_log.size", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_failover_log_vbucket_uuid, { "VBucket UUID", "couchbase.dcp.failover_log.vbucket_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_failover_log_vbucket_seqno, { "Sequence Number", "couchbase.dcp.failover_log.seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+    { &hf_failover_log_vbucket_seqno, { "Sequence Number", "couchbase.dcp.failover_log.seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
 
     { &hf_vbucket_states, { "VBucket States", "couchbase.vbucket_states", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL } },
     { &hf_vbucket_states_state, { "State", "couchbase.vbucket_states.state", FT_UINT32, BASE_HEX, VALS(vbucket_states_vals), 0x0, NULL, HFILL } },
@@ -2893,10 +2902,10 @@ proto_register_couchbase(void)
     { &hf_observe_status, { "Status", "couchbase.observe.status", FT_UINT8, BASE_HEX, NULL, 0x0, "Status of the observable key", HFILL } },
     { &hf_observe_cas, { "CAS", "couchbase.observe.cas", FT_UINT64, BASE_HEX, NULL, 0x0, "CAS value of the observable key", HFILL } },
     { &hf_observe_vbucket_uuid, { "VBucket UUID", "couchbase.observe.vbucket_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_observe_last_persisted_seqno, { "Last persisted sequence number", "couchbase.observe.last_persisted_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_observe_current_seqno, { "Current sequence number", "couchbase.observe.current_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+    { &hf_observe_last_persisted_seqno, { "Last persisted sequence number", "couchbase.observe.last_persisted_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+    { &hf_observe_current_seqno, { "Current sequence number", "couchbase.observe.current_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_observe_old_vbucket_uuid, { "Old VBucket UUID", "couchbase.observe.old_vbucket_uuid", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-    { &hf_observe_last_received_seqno, { "Last received sequence number", "couchbase.observe.last_received_seqno", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+    { &hf_observe_last_received_seqno, { "Last received sequence number", "couchbase.observe.last_received_seqno", FT_UINT64, BASE_DEC, NULL, 0x0, NULL, HFILL } },
     { &hf_observe_failed_over, { "Failed over", "couchbase.observe.failed_over", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
 
     { &hf_get_errmap_version, {"Version", "couchbase.geterrmap.version", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL} },

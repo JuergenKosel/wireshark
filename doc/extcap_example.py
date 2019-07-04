@@ -170,10 +170,10 @@ def extcap_config(interface, option):
 
 
 def extcap_version():
-    print ("extcap {version=1.0}{help=http://www.wireshark.org}{display=Example extcap interface}")
+    print ("extcap {version=1.0}{help=https://www.wireshark.org}{display=Example extcap interface}")
 
 def extcap_interfaces():
-    print ("extcap {version=1.0}{help=http://www.wireshark.org}{display=Example extcap interface}")
+    print ("extcap {version=1.0}{help=https://www.wireshark.org}{display=Example extcap interface}")
     print ("interface {value=example1}{display=Example interface 1 for extcap}")
     print ("interface {value=example2}{display=Example interface 2 for extcap}")
     print ("control {number=%d}{type=string}{display=Message}{tooltip=Package message content. Must start with a capital letter.}{placeholder=Enter package message content here ...}{validation=^[A-Z]+}" % CTRL_ARG_MESSAGE)
@@ -287,7 +287,7 @@ def control_read(fn):
         header = fn.read(6)
         sp, _, length, arg, typ = struct.unpack('>sBHBB', header)
         if length > 2:
-            payload = fn.read(length - 2)
+            payload = fn.read(length - 2).decode('utf-8', 'replace')
         else:
             payload = ''
         return arg, typ, payload

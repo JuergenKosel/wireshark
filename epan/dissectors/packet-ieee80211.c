@@ -20444,7 +20444,7 @@ dissect_he_capabilities(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
   /* Get and isolate the phy channel witdth set */
   phy_channel_width_set = tvb_get_guint8(tvb, offset) >> 1;
-  phy_cap_tree = proto_tree_add_subtree(tree, tvb, offset, 9, ett_he_phy_capabilities,
+  phy_cap_tree = proto_tree_add_subtree(tree, tvb, offset, 11, ett_he_phy_capabilities,
                         NULL,
                         "HE Phy Capabilities Information");
   proto_tree_add_bitmask_with_flags(phy_cap_tree, tvb, offset,
@@ -20475,6 +20475,13 @@ dissect_he_capabilities(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                         he_phy_b72_to_b87_headers, ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
   offset += 2;
 
+  if (tvb_reported_length_remaining(tvb, offset) < 2) {
+    expert_add_info_format(pinfo, phy_cap_tree, &ei_ieee80211_tag_length,
+                           "Insufficient bytes for Phy Capabilities "
+                           "Rx and Tx Maps 80MHz!");
+    return;
+  }
+
   /* Need the length first */
   if (phy_channel_width_set & HE_CHANNEL_WIDTH_SET_B2)
     he_mcs_and_nss_len += 4;
@@ -20493,6 +20500,14 @@ dissect_he_capabilities(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                         ett_he_rx_mcs_map_lte_80, he_mcs_map_80_rx_headers,
                         ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
   offset += 2;
+
+  if (tvb_reported_length_remaining(tvb, offset) < 2) {
+    expert_add_info_format(pinfo, phy_cap_tree, &ei_ieee80211_tag_length,
+                           "Insufficient bytes for Phy Capabilities "
+                           "Tx Maps 80MHz!");
+    return;
+  }
+
   proto_tree_add_bitmask_with_flags(rx_tx_he_mcs_map_80, tvb, offset,
                         hf_he_tx_he_mcs_map_lte_80,
                         ett_he_tx_mcs_map_lte_80, he_mcs_map_80_tx_headers,
@@ -20500,6 +20515,12 @@ dissect_he_capabilities(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
   offset += 2;
 
   if (phy_channel_width_set & HE_CHANNEL_WIDTH_SET_B2) {
+    if (tvb_reported_length_remaining(tvb, offset) < 2) {
+      expert_add_info_format(pinfo, phy_cap_tree, &ei_ieee80211_tag_length,
+                             "Insufficient bytes for Phy Capabilities "
+                             "Rx and Tx MCS Maps 160MHz!");
+      return;
+    }
     rx_tx_he_mcs_map_160 = proto_tree_add_subtree(sup_he_mcs_and_nss_tree,
                         tvb, offset, 4, ett_he_rx_tx_he_mcs_map_160, NULL,
                         "Rx and Tx MCS Maps 160 MHz");
@@ -20508,6 +20529,14 @@ dissect_he_capabilities(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                         ett_he_rx_mcs_map_160, he_mcs_map_160_rx_headers,
                         ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
     offset += 2;
+
+    if (tvb_reported_length_remaining(tvb, offset) < 2) {
+      expert_add_info_format(pinfo, phy_cap_tree, &ei_ieee80211_tag_length,
+                             "Insufficient bytes for Phy Capabilities "
+                             "Tx MCS Maps 160MHz!");
+      return;
+    }
+
     proto_tree_add_bitmask_with_flags(rx_tx_he_mcs_map_160, tvb, offset,
                         hf_he_tx_he_mcs_map_160,
                         ett_he_tx_mcs_map_160, he_mcs_map_160_tx_headers,
@@ -20516,6 +20545,13 @@ dissect_he_capabilities(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
   }
 
   if (phy_channel_width_set & HE_CHANNEL_WIDTH_SET_B3) {
+    if (tvb_reported_length_remaining(tvb, offset) < 2) {
+      expert_add_info_format(pinfo, phy_cap_tree, &ei_ieee80211_tag_length,
+                             "Insufficient bytes for Phy Capabilities "
+                             "Rx and Tx MCS Maps 80+80 MHz!");
+      return;
+    }
+
     rx_tx_he_mcs_map_80_80 = proto_tree_add_subtree(sup_he_mcs_and_nss_tree,
                         tvb, offset, 4, ett_he_rx_tx_he_mcs_map_80_80, NULL,
                         "Rx and Tx MCS Maps 80+80 MHz");
@@ -32419,18 +32455,18 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_measure_report_mode_late,
-     {"Measurement Report Mode Field", "wlan.measure.rep.repmode.late",
-      FT_BOOLEAN, 8, TFS(&tfs_enabled_disabled), 0x01,
+     {"Late", "wlan.measure.rep.repmode.late",
+      FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x01,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_measure_report_mode_incapable,
-     {"Measurement Reports", "wlan.measure.rep.repmode.incapable",
-      FT_BOOLEAN, 8, TFS(&tfs_accepted_not_accepted), 0x02,
+     {"Incapable", "wlan.measure.rep.repmode.incapable",
+      FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x02,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_measure_report_mode_refused,
-     {"Autonomous Measurement Reports", "wlan.measure.rep.repmode.refused",
-      FT_BOOLEAN, 8, TFS(&tfs_accepted_not_accepted), 0x04,
+     {"Refused", "wlan.measure.rep.repmode.refused",
+      FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x04,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_measure_report_mode_reserved,

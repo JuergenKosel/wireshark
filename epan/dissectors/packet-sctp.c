@@ -681,7 +681,14 @@ find_assoc_index(assoc_info_t* tmpinfo, gboolean visited)
             break;
           case BACKWARD_ADD_BACKWARD_VTAG:
             info->verification_tag2 = tmpinfo->verification_tag1;
-            break;
+            info->direction = 1;
+            inf.assoc_index = info->assoc_index;
+            inf.direction = 2;
+            return inf;
+          case BACKWARD_STREAM:
+            inf.assoc_index = info->assoc_index;
+            inf.direction = 2;
+            return inf;
         }
         if (cmp == FORWARD_STREAM || cmp == FORWARD_ADD_FORWARD_VTAG) {
           info->direction = 1;
@@ -4647,7 +4654,8 @@ dissect_sctp_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolea
   sctp_info.checksum_zero = (checksum == 0);
 
   /* Only try to checksum the packet if we have all of it */
-  if (captured_length == reported_length) {
+  if ((captured_length == reported_length) &&
+     (captured_length >= COMMON_HEADER_LENGTH)) {
 
     switch(sctp_checksum) {
     case SCTP_CHECKSUM_NONE:
@@ -5048,13 +5056,13 @@ proto_register_sctp(void)
   static build_valid_func sctp_da_dst_values[1] = {sctp_dst_value};
   static build_valid_func sctp_da_both_values[2] = {sctp_src_value, sctp_dst_value};
   static decode_as_value_t sctp_da_port_values[3] = {{sctp_src_prompt, 1, sctp_da_src_values}, {sctp_dst_prompt, 1, sctp_da_dst_values}, {sctp_both_prompt, 2, sctp_da_both_values}};
-  static decode_as_t sctp_da_port = {"sctp", "Transport", "sctp.port", 3, 2, sctp_da_port_values, "SCTP", "port(s) as",
+  static decode_as_t sctp_da_port = {"sctp", "sctp.port", 3, 2, sctp_da_port_values, "SCTP", "port(s) as",
                                      decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
 
   static build_valid_func sctp_da_ppi_build_value1[1] = {sctp_ppi_value1};
   static build_valid_func sctp_da_ppi_build_value2[1] = {sctp_ppi_value2};
   static decode_as_value_t sctp_da_ppi_values[2] = {{sctp_ppi_prompt1, 1, sctp_da_ppi_build_value1}, {sctp_ppi_prompt2, 1, sctp_da_ppi_build_value2}};
-  static decode_as_t sctp_da_ppi = {"sctp", "SCTP(PPID)", "sctp.ppi", 2, 0, sctp_da_ppi_values, "SCTP", NULL,
+  static decode_as_t sctp_da_ppi = {"sctp", "sctp.ppi", 2, 0, sctp_da_ppi_values, "SCTP", NULL,
                                     decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
 
   /* UAT for header fields */

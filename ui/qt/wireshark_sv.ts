@@ -1312,32 +1312,33 @@
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;p&gt;NOTE: If enabled, at least one of the new-file criteria MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Istället för att använda en enda fångstfil kommer flera filer skapas.&lt;/p&gt;&lt;p&gt;De genererade filnamnen kommer innehålla ett ökande nummer och starttidpunkten för fångsten.&lt;/p&gt;&lt;p&gt;OBS: om aktiverat MÅSTE åtminstone av kriterierna för ny fil väljas.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Create a new file automatically…</source>
-        <translation type="unfinished"></translation>
+        <translation>Skapa en ny fil automatiskt …</translation>
     </message>
     <message>
         <source>after</source>
-        <translation type="unfinished"></translation>
+        <translation>efter</translation>
     </message>
     <message>
         <source>Switch to the next file after the file size exceeds the specified file size.</source>
-        <translation type="unfinished"></translation>
+        <translation>Byt till nästa fil efter att filstorleken överskrider den angivna filstorleken.</translation>
     </message>
     <message>
         <source>Switch to the next file when the time capturing to the current file exceeds the specified time.</source>
-        <translation type="unfinished"></translation>
+        <translation>Byt till nästa fil när tiden under vilken fångsten gjorts till den nuvarande filen överskrider den angivna tiden.</translation>
     </message>
     <message>
         <source>when time is a multiple of</source>
-        <translation type="unfinished"></translation>
+        <translation>när tiden är en multipel av</translation>
     </message>
     <message>
         <source>Switch to the next file when the (wall clock) time is an even multiple of the specified interval.
 For example, use 1 hour to have a new file created every hour on the hour.</source>
-        <translation type="unfinished"></translation>
+        <translation>Byt till nästa fil när (väggklocks)tiden är en jämn multipel av det angivna intervallet
+Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid hel timma.</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;After capturing has switched to the next file and the given number of files has exceeded, the oldest file will be removed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -1767,6 +1768,48 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>CredentialsDialog</name>
+    <message>
+        <source>Wireshark - Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CredentialsModel</name>
+    <message>
+        <source>Click to select the packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click to select the packet with username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Username not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet No.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">Protokoll</translation>
+    </message>
+    <message>
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Additional Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>DataPrinter</name>
     <message>
         <source>Copy Bytes as Hex + ASCII Dump</source>
@@ -1939,6 +1982,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Manage Filter Expressions</source>
         <translation>Hantera filteruttryck</translation>
+    </message>
+    <message>
+        <source>Selected</source>
+        <translation type="unfinished">Vald</translation>
+    </message>
+    <message>
+        <source>Not Selected</source>
+        <translation type="unfinished">Ej vald</translation>
     </message>
 </context>
 <context>
@@ -2116,39 +2167,39 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <name>EndpointDialog</name>
     <message>
         <source>Map</source>
-        <translation type="unfinished"></translation>
+        <translation>Karta</translation>
     </message>
     <message>
         <source>Draw IPv4 or IPv6 endpoints on a map.</source>
-        <translation type="unfinished"></translation>
+        <translation>Rita IPv4- och IPv6-ändpunkter på en karta</translation>
     </message>
     <message>
         <source>Open in browser</source>
-        <translation type="unfinished"></translation>
+        <translation>Öppna i en webbläsare</translation>
     </message>
     <message>
         <source>Save As</source>
-        <translation type="unfinished">Spara som</translation>
+        <translation>Spara som</translation>
     </message>
     <message>
         <source>Map file error</source>
-        <translation type="unfinished"></translation>
+        <translation>Kartfilsfel</translation>
     </message>
     <message>
         <source>No endpoints available to map</source>
-        <translation type="unfinished"></translation>
+        <translation>Inga ändpunkter tillgängliga att kartlägga</translation>
     </message>
     <message>
         <source>Unable to create temporary file</source>
-        <translation type="unfinished"></translation>
+        <translation>Kan inte skapa en temporärfil</translation>
     </message>
     <message>
         <source>Save Endpoints Map</source>
-        <translation type="unfinished"></translation>
+        <translation>Spara ändpunktskarta</translation>
     </message>
     <message>
         <source>Failed to save map file %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>Misslyckades att spara kartfilen %1.</translation>
     </message>
 </context>
 <context>
@@ -3008,6 +3059,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Färger:</translation>
     </message>
     <message>
+        <source>System Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Sample ignored packet text</source>
         <translation>Exempel på text för ignorerat paket</translation>
     </message>
@@ -3022,14 +3081,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Style:</source>
         <translation>Stil:</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>Standard</translation>
-    </message>
-    <message>
-        <source>Flat</source>
-        <translation>Flat</translation>
     </message>
     <message>
         <source>Gradient</source>
@@ -3548,8 +3599,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Tid (s)</translation>
     </message>
     <message>
-        <source>IO Graphs</source>
-        <translation>IO-grafer</translation>
+        <source>I/O Graphs</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Copy</source>
@@ -3568,6 +3619,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>1 ms</translation>
     </message>
     <message>
+        <source>5 ms</source>
+        <translation type="unfinished">100 ms {5 ?}</translation>
+    </message>
+    <message>
         <source>10 ms</source>
         <translation>10 ms</translation>
     </message>
@@ -3576,8 +3631,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>100 ms</translation>
     </message>
     <message>
-        <source>Wireshark IO Graphs: %1</source>
-        <translation>Wireshark IO-grafer: %1</translation>
+        <source>Wireshark I/O Graphs: %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>All packets</source>
@@ -6833,10 +6888,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Visa statistik över IEEE 802.11 trådlöst LAN.</translation>
     </message>
     <message>
-        <source>Add a filter button</source>
-        <translation>Lägg till en filterknapp</translation>
-    </message>
-    <message>
         <source>Add a display filter button.</source>
         <translation>Lägg till en visningsfilterknapp.</translation>
     </message>
@@ -6851,6 +6902,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>&amp;Full Screen</source>
         <translation>&amp;Helskärm</translation>
+    </message>
+    <message>
+        <source>Credentials</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;Options…</source>
@@ -8207,38 +8262,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Sammanfattning som text</translation>
     </message>
     <message>
-        <source>Align Left</source>
-        <translation>Vänsterjustera</translation>
-    </message>
-    <message>
-        <source>Align Center</source>
-        <translation>Centrera</translation>
-    </message>
-    <message>
-        <source>Align Right</source>
-        <translation>Högerjustera</translation>
-    </message>
-    <message>
-        <source>Column Preferences</source>
-        <translation>Kolumninställningar</translation>
-    </message>
-    <message>
-        <source>Edit Column</source>
-        <translation>Redigera kolumnen</translation>
-    </message>
-    <message>
-        <source>Resize To Contents</source>
-        <translation>Ändra storlek till innehåll</translation>
-    </message>
-    <message>
-        <source>Resolve Names</source>
-        <translation>Slå upp namn</translation>
-    </message>
-    <message>
-        <source>Remove This Column</source>
-        <translation>Ta bort denna kolumn</translation>
-    </message>
-    <message>
         <source>Frame %1: %2
 
 </source>
@@ -8249,6 +8272,53 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>[ Comment text exceeds %1. Stopping. ]</source>
         <translation>[ Kommentartext överskrider %1.  Stannar. ]</translation>
+    </message>
+</context>
+<context>
+    <name>PacketListHeader</name>
+    <message>
+        <source>Align Left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Align Center</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Align Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Column Preferences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resize to Contents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resize Column to Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resolve Names</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove this Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Column %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Width:</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -8497,7 +8567,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>(deleted)</source>
-        <translation type="unfinished"></translation>
+        <translation>(borttagen)</translation>
     </message>
     <message>
         <source>Created from default settings</source>
@@ -12824,7 +12894,37 @@ a:hover {
 
 &lt;/tr&gt;&lt;/table&gt;
 &lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head&gt;
+&lt;style&gt;
+a:link {
+  color: palette(text);;
+  text-decoration: none;
+}
+a:hover {
+  color: palette(text);
+  text-decoration: underline;
+}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;table&gt;&lt;tr&gt;
+&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/docs/wsug_html_chunked/&quot;&gt;Användaruide&lt;/a&gt;&lt;/th&gt;
+
+&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
+
+&lt;th&gt;&lt;a href=&quot;https://wiki.wireshark.org/&quot;&gt;Wiki&lt;/a&gt;&lt;/th&gt;
+
+&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
+
+&lt;th&gt;&lt;a href=&quot;https://ask.wireshark.org/&quot;&gt;Frågor och svar&lt;/a&gt;&lt;/th&gt;
+
+&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
+
+&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/lists/&quot;&gt;Sändlistor&lt;/a&gt;&lt;/th&gt;
+
+&lt;/tr&gt;&lt;/table&gt;
+&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Show in Finder</source>

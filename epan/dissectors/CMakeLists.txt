@@ -140,6 +140,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ngap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-nist-csor.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-novell_pkis.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-nrppa.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-nr-rrc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ns_cert_exts.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ocsp.c
@@ -807,6 +808,8 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-sm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-ttag.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-wids.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-cl3.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-cl3dcw.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-classicstun.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-clearcase.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-clip.c
@@ -1047,6 +1050,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fractalgeneratorprotocol.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-frame.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ftdi-ft.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ftp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fw1.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-g723.c
@@ -1058,6 +1062,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gearman.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ged125.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-geneve.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-gelf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-geonw.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gfp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gift.c
@@ -1433,6 +1438,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ncp-sss.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ncp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ncs.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ncsi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ndmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ndp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ndps.c

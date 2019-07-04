@@ -129,8 +129,11 @@ public:
     QString getMwFileName();
     void setMwFileName(QString fileName);
 
+    void insertColumn(QString name, QString abbrev, gint pos = -1);
+
 protected:
     virtual bool eventFilter(QObject *obj, QEvent *event);
+    virtual bool event(QEvent *event);
     virtual void keyPressEvent(QKeyEvent *event);
     virtual void closeEvent(QCloseEvent *event);
     virtual void dragEnterEvent(QDragEnterEvent *event);
@@ -670,6 +673,7 @@ private slots:
     void on_actionBluetoothHCI_Summary_triggered();
 
     void on_actionToolsFirewallAclRules_triggered();
+    void on_actionToolsCredentials_triggered();
 
     void externalMenuItem_triggered();
 

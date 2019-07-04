@@ -1016,7 +1016,10 @@ tls_save_decrypted_record(packet_info *pinfo, gint record_id, SslDecryptSession 
         }
         content_type = data[--datalen];
         if (datalen == 0) {
-            /* XXX should we remember that the decrypted contents was zero-length? */
+            /*
+             * XXX zero-length Handshake fragments are forbidden by RFC 8446,
+             * Section 5.1. Empty Application Data fragments are allowed though.
+             */
             return;
         }
     }
@@ -1916,7 +1919,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
      * handshake records in the same frame).
      * In TLS 1.3, only "Application Data" records are encrypted.
      */
-    if (ssl && (session->version != TLSV1DOT3_VERSION || content_type == SSL_ID_APP_DATA)) {
+    if (ssl && record_length && (session->version != TLSV1DOT3_VERSION || content_type == SSL_ID_APP_DATA)) {
         gboolean    decrypt_ok = FALSE;
 
         /* Try to decrypt TLS 1.3 early data first */
@@ -1954,7 +1957,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
             proto_item_set_generated(ti);
         }
     }
-    ssl_check_record_length(&dissect_ssl3_hf, pinfo, record_length, length_pi, version, decrypted);
+    ssl_check_record_length(&dissect_ssl3_hf, pinfo, (ContentType)content_type, record_length, length_pi, version, decrypted);
 
     switch ((ContentType) content_type) {
     case SSL_ID_CHG_CIPHER_SPEC:
@@ -2227,6 +2230,13 @@ save_tls_handshake_fragment(packet_info *pinfo, guint8 curr_layer_num_tls,
     // 0 is a special value indicating no reassembly in progress.
     DISSECTOR_ASSERT(reassembly_id != 0);
 
+    if (tvb_reported_length(tvb) > tvb_captured_length(tvb)) {
+        // The reassembly API will refuse to add fragments when not all
+        // available data has been captured. Since we were given a tvb with at
+        // least 'frag_len' data, we must always succeed in obtaining a subset.
+        tvb = tvb_new_subset_length(tvb, 0, offset + frag_len);
+    }
+
     SslPacketInfo *pi = tls_add_packet_info(proto_tls, pinfo, curr_layer_num_tls);
     TlsHsFragment *frag_info = wmem_new0(wmem_file_scope(), TlsHsFragment);
     frag_info->record_id = record_id;
@@ -2375,14 +2385,21 @@ dissect_tls_handshake(tvbuff_t *tvb, packet_info *pinfo,
                 }
             }
 
-            // Check if the handshake message is complete.
-            guint8 msg_type = tvb_get_guint8(len_tvb, 0);
-            gboolean is_last = frags_len + subset_len == msg_len;
-            frag_info = save_tls_handshake_fragment(pinfo, curr_layer_num_tls, record_id, *hs_reassembly_id_p,
-                    tvb, offset, subset_len, frags_len, msg_type, is_last);
-            if (is_last) {
-                // Reassembly finished, next message should not continue this message.
+            if (tvb_captured_length(tvb) < offset + subset_len) {
+                // Not all data has been captured. As we are missing data, the
+                // reassembly cannot be completed nor do we know the boundary
+                // where the next handshake message starts. Stop reassembly.
                 *hs_reassembly_id_p = 0;
+            } else {
+                // Check if the handshake message is complete.
+                guint8 msg_type = tvb_get_guint8(len_tvb, 0);
+                gboolean is_last = frags_len + subset_len == msg_len;
+                frag_info = save_tls_handshake_fragment(pinfo, curr_layer_num_tls, record_id, *hs_reassembly_id_p,
+                        tvb, offset, subset_len, frags_len, msg_type, is_last);
+                if (is_last) {
+                    // Reassembly finished, next message should not continue this message.
+                    *hs_reassembly_id_p = 0;
+                }
             }
         }
     } else {
@@ -2406,7 +2423,7 @@ dissect_tls_handshake(tvbuff_t *tvb, packet_info *pinfo,
             // Skip a subset of the bytes of this buffer.
             subset_len = tvb_reported_length_remaining(fh->tvb_data, frag_info->offset);
 
-            // Add a tree item to mark the handshake fragmnet.
+            // Add a tree item to mark the handshake fragment.
             proto_item *ti = proto_tree_add_item(tree,
                     hf_tls_handshake_protocol, tvb, offset, subset_len, ENC_NA);
             offset += subset_len;
@@ -3722,20 +3739,23 @@ ssl_looks_like_valid_v2_handshake(tvbuff_t *tvb, const guint32 offset,
 }
 
 gboolean
-tls_get_cipher_info(packet_info *pinfo, int *cipher_algo, int *cipher_mode, int *hash_algo)
+tls_get_cipher_info(packet_info *pinfo, guint16 cipher_suite, int *cipher_algo, int *cipher_mode, int *hash_algo)
 {
-    conversation_t *conv = find_conversation_pinfo(pinfo, 0);
-    if (!conv) {
-        return FALSE;
-    }
+    if (cipher_suite == 0) {
+        conversation_t *conv = find_conversation_pinfo(pinfo, 0);
+        if (!conv) {
+            return FALSE;
+        }
 
-    void *conv_data = conversation_get_proto_data(conv, proto_tls);
-    if (conv_data == NULL) {
-        return FALSE;
-    }
+        void *conv_data = conversation_get_proto_data(conv, proto_tls);
+        if (conv_data == NULL) {
+            return FALSE;
+        }
 
-    SslDecryptSession *ssl_session = (SslDecryptSession *)conv_data;
-    const SslCipherSuite *suite = ssl_find_cipher(ssl_session->session.cipher);
+        SslDecryptSession *ssl_session = (SslDecryptSession *)conv_data;
+        cipher_suite = ssl_session->session.cipher;
+    }
+    const SslCipherSuite *suite = ssl_find_cipher(cipher_suite);
     if (!suite) {
         return FALSE;
     }
@@ -3788,34 +3808,34 @@ tls_get_cipher_info(packet_info *pinfo, int *cipher_algo, int *cipher_mode, int 
 
 /**
  * Load the QUIC traffic secret from the keylog file.
- * Returns TRUE and the secret into 'secret' if a secret was found of length
- * 'secret_size' and FALSE otherwise.
+ * Returns the secret length (at most 'secret_size') and the secret into
+ * 'secret' if a secret was found, or zero otherwise.
  */
-gboolean
+gint
 tls13_get_quic_secret(packet_info *pinfo, gboolean is_from_server, int type, guint secret_len, guint8 *secret_out)
 {
     GHashTable *key_map;
     const char *label;
     conversation_t *conv = find_conversation_pinfo(pinfo, 0);
     if (!conv) {
-        return FALSE;
+        return 0;
     }
 
     SslDecryptSession *ssl = (SslDecryptSession *)conversation_get_proto_data(conv, proto_tls);
     if (ssl == NULL) {
-        return FALSE;
+        return 0;
     }
 
     gboolean is_quic = !!(ssl->state & SSL_QUIC_RECORD_LAYER);
     ssl_debug_printf("%s frame %d is_quic=%d\n", G_STRFUNC, pinfo->num, is_quic);
     if (!is_quic) {
-        return FALSE;
+        return 0;
     }
 
     if (ssl->client_random.data_len == 0) {
         /* May happen if Hello message is missing and Finished is found. */
         ssl_debug_printf("%s missing Client Random\n", G_STRFUNC);
-        return FALSE;
+        return 0;
     }
 
     // Not strictly necessary as QUIC CRYPTO frames have just been processed
@@ -3826,24 +3846,24 @@ tls13_get_quic_secret(packet_info *pinfo, gboolean is_from_server, int type, gui
     case TLS_SECRET_0RTT_APP:
         DISSECTOR_ASSERT(!is_from_server);
         label = "CLIENT_EARLY_TRAFFIC_SECRET";
-        key_map = ssl_master_key_map.quic_client_early;
+        key_map = ssl_master_key_map.tls13_client_early;
         break;
     case TLS_SECRET_HANDSHAKE:
         if (is_from_server) {
             label = "SERVER_HANDSHAKE_TRAFFIC_SECRET";
-            key_map = ssl_master_key_map.quic_server_handshake;
+            key_map = ssl_master_key_map.tls13_server_handshake;
         } else {
             label = "CLIENT_HANDSHAKE_TRAFFIC_SECRET";
-            key_map = ssl_master_key_map.quic_client_handshake;
+            key_map = ssl_master_key_map.tls13_client_handshake;
         }
         break;
     case TLS_SECRET_APP:
         if (is_from_server) {
             label = "SERVER_TRAFFIC_SECRET_0";
-            key_map = ssl_master_key_map.quic_server_appdata;
+            key_map = ssl_master_key_map.tls13_server_appdata;
         } else {
             label = "CLIENT_TRAFFIC_SECRET_0";
-            key_map = ssl_master_key_map.quic_client_appdata;
+            key_map = ssl_master_key_map.tls13_client_appdata;
         }
         break;
     default:
@@ -3852,16 +3872,20 @@ tls13_get_quic_secret(packet_info *pinfo, gboolean is_from_server, int type, gui
 
     StringInfo *secret = (StringInfo *)g_hash_table_lookup(key_map, &ssl->client_random);
     if (!secret || secret->data_len != secret_len) {
-        ssl_debug_printf("%s Cannot QUIC_%s of size %d, found bad size %d!\n",
+        ssl_debug_printf("%s Cannot find QUIC %s of size %d, found bad size %d!\n",
                          G_STRFUNC, label, secret_len, secret ? secret->data_len : 0);
-        return FALSE;
+        return 0;
     }
 
     ssl_debug_printf("%s Retrieved QUIC traffic secret.\n", G_STRFUNC);
     ssl_print_string("Client Random", &ssl->client_random);
     ssl_print_string(label, secret);
-    memcpy(secret_out, secret->data, secret_len);
-    return TRUE;
+    if (secret->data_len > secret_len) {
+        ssl_debug_printf("%s Output buffer size is too small!\n", G_STRFUNC);
+        return 0;
+    }
+    memcpy(secret_out, secret->data, secret->data_len);
+    return secret->data_len;
 }
 
 /* TLS Exporters {{{ */
@@ -3928,7 +3952,7 @@ tls13_exporter(packet_info *pinfo, gboolean is_early,
     GHashTable *key_map;
     const StringInfo *secret;
 
-    if (!tls_get_cipher_info(pinfo, NULL, NULL, &hash_algo)) {
+    if (!tls_get_cipher_info(pinfo, 0, NULL, NULL, &hash_algo)) {
         return FALSE;
     }
 
@@ -4428,7 +4452,7 @@ proto_register_tls(void)
     static build_valid_func ssl_da_dst_values[1] = {ssl_dst_value};
     static build_valid_func ssl_da_both_values[2] = {ssl_src_value, ssl_dst_value};
     static decode_as_value_t ssl_da_values[3] = {{ssl_src_prompt, 1, ssl_da_src_values}, {ssl_dst_prompt, 1, ssl_da_dst_values}, {ssl_both_prompt, 2, ssl_da_both_values}};
-    static decode_as_t ssl_da = {"tls", "Transport", "tls.port", 3, 2, ssl_da_values, "TCP", "port(s) as",
+    static decode_as_t ssl_da = {"tls", "tls.port", 3, 2, ssl_da_values, "TCP", "port(s) as",
                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
 
     expert_module_t* expert_ssl;
