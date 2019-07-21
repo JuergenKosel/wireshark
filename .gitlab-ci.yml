@@ -17,92 +17,107 @@ variables:
   retry: 1
   before_script:
     - apt-get update -qq
-    - ./tools/debian-setup.sh --install-optional --install-test-deps -y
+    - apt-get install -y python3-pip locales
+    - pip3 install pytest pytest-xdist
     - useradd user
     - locale-gen en_US.UTF-8
     - export LANG=en_US.UTF-8
     - export PYTEST_ADDOPTS=--skip-missing-programs=dumpcap,rawshark
+    - ./tools/debian-setup.sh --install-optional --install-test-deps -y
     - mkdir build
     - cd build
-  script:
-    - cmake -GNinja $CMAKE_ARGS ..
-    - ninja
-    - ninja test-programs
-    - chown -R user .
-    - if [ -f run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
-    - su user -c pytest-3
-
 .build-rpm: &build-rpm
   <<: *build
   artifacts:
     paths:
       - build/packaging/rpm/RPMS
     expire_in: 3 days
-
 gcc-5:
   <<: *build-ubuntu
   only:
     - master
-  variables:
-    CC: gcc-5
-    CXX: g++-5
+  script:
+    - cmake -GNinja -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_CXX_COMPILER=g++-5 ..
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 gcc-6:
   <<: *build-ubuntu
   only:
     - master
-  variables:
-    CC: gcc-6
-    CXX: g++-6
+  script:
+    - cmake -GNinja -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 ..
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 gcc-7:
   <<: *build-ubuntu
   only:
     - master
-  variables:
-    CC: gcc-7
-    CXX: g++-7
+  script:
+    - cmake -GNinja -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 ..
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 gcc-8:
   <<: *build-ubuntu
-  variables:
-    CC: gcc-8
-    CXX: g++-8
+  script:
+    - cmake -GNinja -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 gcc-8-nopcap:
   <<: *build-ubuntu
   only:
     - master
-  variables:
-    CMAKE_ARGS: -DENABLE_PCAP=NO
-    CC: gcc-8
-    CXX: g++-8
+  script:
+    - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 clang-5:
   <<: *build-ubuntu
   only:
     - master
-  variables:
-    CMAKE_ARGS: -DCMAKE_C_FLAGS=-Wframe-larger-than=20000
-    CC: clang-5.0
-    CXX: clang++-5.0
+  script:
+    - cmake -GNinja -DCMAKE_C_COMPILER=clang-5.0 -DCMAKE_CXX_COMPILER=clang++-5.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 clang-6:
   <<: *build-ubuntu
   only:
     - master
-  variables:
-    CMAKE_ARGS: -DCMAKE_C_FLAGS=-Wframe-larger-than=20000
-    CC: clang-6.0
-    CXX: clang++-6.0
+  script:
+    - cmake -GNinja -DCMAKE_C_COMPILER=clang-6.0 -DCMAKE_CXX_COMPILER=clang++-6.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 clang-7:
   <<: *build-ubuntu
-  variables:
-    CMAKE_ARGS: -DCMAKE_C_FLAGS=-Wframe-larger-than=20000
-    CC: clang-7
-    CXX: clang++-7
+  script:
+     - cmake -GNinja -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
+     - ninja
+     - ninja test-programs
+     - chown -R user .
+     - su user -c pytest
 clang-7-nopcap:
   <<: *build-ubuntu
   only:
     - master
-  variables:
-    CMAKE_ARGS: -DENABLE_PCAP=NO -DCMAKE_C_FLAGS=-Wframe-larger-than=20000
-    CC: clang-7
-    CXX: clang++-7
+  script:
+    - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - su user -c pytest
 build:rpm-centos-7:
   <<: *build-rpm
   only:
@@ -151,12 +166,12 @@ test:rpm-centos-7:
     GIT_STRATEGY: none
 build:rpm-opensuse-42.3:
   <<: *build-rpm-opensuse
-  image: opensuse/leap:42.3
+  image: opensuse:42.3
 test:rpm-opensuse-42.3:
   <<: *test-rpm-opensuse
   only:
     - master
-  image: opensuse/leap:42.3
+  image: opensuse:42.3
   dependencies:
     - build:rpm-opensuse-42.3
 build:rpm-opensuse-15.0:
