@@ -63,6 +63,8 @@ gcc-7:
     - chown -R user .
     - su user -c pytest
 gcc-8:
+  only:
+    - master
   <<: *build-ubuntu
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
@@ -71,6 +73,8 @@ gcc-8:
     - chown -R user .
     - su user -c pytest
 gcc-8-nopcap:
+  only:
+    - master
   <<: *build-ubuntu
   script:
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
@@ -99,6 +103,8 @@ clang-6:
     - chown -R user .
     - su user -c pytest
 clang-7:
+  only:
+    - master
   <<: *build-ubuntu
   script:
      - cmake -GNinja -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
@@ -107,6 +113,8 @@ clang-7:
      - chown -R user .
      - su user -c pytest
 clang-7-nopcap:
+  only:
+    - master
   <<: *build-ubuntu
   script:
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
