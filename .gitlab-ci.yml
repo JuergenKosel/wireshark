@@ -33,6 +33,8 @@ variables:
       - build/packaging/rpm/RPMS
     expire_in: 3 days
 gcc-5:
+  only:
+    - master
   <<: *build-ubuntu
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_CXX_COMPILER=g++-5 ..
@@ -41,6 +43,8 @@ gcc-5:
     - chown -R user .
     - su user -c pytest
 gcc-6:
+  only:
+    - master
   <<: *build-ubuntu
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 ..
@@ -49,6 +53,8 @@ gcc-6:
     - chown -R user .
     - su user -c pytest
 gcc-7:
+  only:
+    - master
   <<: *build-ubuntu
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 ..
@@ -73,6 +79,8 @@ gcc-8-nopcap:
     - chown -R user .
     - su user -c pytest
 clang-5:
+  only:
+    - master
   <<: *build-ubuntu
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=clang-5.0 -DCMAKE_CXX_COMPILER=clang++-5.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
@@ -81,6 +89,8 @@ clang-5:
     - chown -R user .
     - su user -c pytest
 clang-6:
+  only:
+    - master
   <<: *build-ubuntu
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=clang-6.0 -DCMAKE_CXX_COMPILER=clang++-6.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
@@ -105,6 +115,8 @@ clang-7-nopcap:
     - chown -R user .
     - su user -c pytest
 build:rpm-centos-7:
+  only:
+    - master
   <<: *build-rpm
   image: centos:7
   script:
@@ -115,6 +127,8 @@ build:rpm-centos-7:
     - cmake3 -GNinja ..
     - ninja-build rpm-package
 test:rpm-centos-7:
+  only:
+    - master
   stage: test
   image: centos:7
   script:
@@ -143,17 +157,25 @@ test:rpm-centos-7:
   variables:
     GIT_STRATEGY: none
 build:rpm-opensuse-42.3:
+  only:
+    - master
   <<: *build-rpm-opensuse
   image: opensuse:42.3
 test:rpm-opensuse-42.3:
+  only:
+    - master
   <<: *test-rpm-opensuse
   image: opensuse:42.3
   dependencies:
     - build:rpm-opensuse-42.3
 build:rpm-opensuse-15.0:
+  only:
+    - master
   <<: *build-rpm-opensuse
   image: opensuse/leap:15.0
 test:rpm-opensuse-15.0:
+  only:
+    - master
   <<: *test-rpm-opensuse
   image: opensuse/leap:15.0
   dependencies:
@@ -175,17 +197,25 @@ test:rpm-opensuse-15.0:
   variables:
     GIT_STRATEGY: none
 build:rpm-fedora-28:
+  only:
+    - master
   <<: *build-rpm-fedora
   image: fedora:28
 test:rpm-fedora-28:
+  only:
+    - master
   <<: *test-rpm-fedora
   image: fedora:28
   dependencies:
     - build:rpm-fedora-28
 build:rpm-fedora-29:
+  only:
+    - master
   <<: *build-rpm-fedora
   image: fedora:29
 test:rpm-fedora-29:
+  only:
+    - master
   <<: *test-rpm-fedora
   image: fedora:29
   dependencies:
