@@ -34,8 +34,6 @@ variables:
     expire_in: 3 days
 gcc-5:
   <<: *build-ubuntu
-  only:
-    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_CXX_COMPILER=g++-5 ..
     - ninja
@@ -44,8 +42,6 @@ gcc-5:
     - su user -c pytest
 gcc-6:
   <<: *build-ubuntu
-  only:
-    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 ..
     - ninja
@@ -54,8 +50,6 @@ gcc-6:
     - su user -c pytest
 gcc-7:
   <<: *build-ubuntu
-  only:
-    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 ..
     - ninja
@@ -72,8 +66,6 @@ gcc-8:
     - su user -c pytest
 gcc-8-nopcap:
   <<: *build-ubuntu
-  only:
-    - master
   script:
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 ..
     - ninja
@@ -82,8 +74,6 @@ gcc-8-nopcap:
     - su user -c pytest
 clang-5:
   <<: *build-ubuntu
-  only:
-    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=clang-5.0 -DCMAKE_CXX_COMPILER=clang++-5.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
@@ -92,8 +82,6 @@ clang-5:
     - su user -c pytest
 clang-6:
   <<: *build-ubuntu
-  only:
-    - master
   script:
     - cmake -GNinja -DCMAKE_C_COMPILER=clang-6.0 -DCMAKE_CXX_COMPILER=clang++-6.0 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
@@ -110,8 +98,6 @@ clang-7:
      - su user -c pytest
 clang-7-nopcap:
   <<: *build-ubuntu
-  only:
-    - master
   script:
     - cmake -GNinja -DENABLE_PCAP=OFF -DCMAKE_C_COMPILER=clang-7 -DCMAKE_CXX_COMPILER=clang++-7 -DCMAKE_C_FLAGS=-Wframe-larger-than=20000 ..
     - ninja
@@ -120,8 +106,6 @@ clang-7-nopcap:
     - su user -c pytest
 build:rpm-centos-7:
   <<: *build-rpm
-  only:
-    - master
   image: centos:7
   script:
     - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
@@ -131,12 +115,8 @@ build:rpm-centos-7:
     - cmake3 -GNinja ..
     - ninja-build rpm-package
 test:rpm-centos-7:
-  only:
-    - master
   stage: test
   image: centos:7
-  only:
-    - master
   script:
     - yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
     - yum --nogpgcheck localinstall -y build/packaging/rpm/RPMS/x86_64/*.rpm
@@ -156,8 +136,6 @@ test:rpm-centos-7:
     - cmake -GNinja ..
     - ninja rpm-package
 .test-rpm-opensuse: &test-rpm-opensuse
-  only:
-    - master
   stage: test
   script:
     - zypper --no-gpg-checks install -y build/packaging/rpm/RPMS/x86_64/*.rpm
@@ -169,20 +147,14 @@ build:rpm-opensuse-42.3:
   image: opensuse:42.3
 test:rpm-opensuse-42.3:
   <<: *test-rpm-opensuse
-  only:
-    - master
   image: opensuse:42.3
   dependencies:
     - build:rpm-opensuse-42.3
 build:rpm-opensuse-15.0:
   <<: *build-rpm-opensuse
-  only:
-    - master
   image: opensuse/leap:15.0
 test:rpm-opensuse-15.0:
   <<: *test-rpm-opensuse
-  only:
-    - master
   image: opensuse/leap:15.0
   dependencies:
     - build:rpm-opensuse-15.0
@@ -196,8 +168,6 @@ test:rpm-opensuse-15.0:
     - cmake3 -GNinja ..
     - ninja-build rpm-package
 .test-rpm-fedora: &test-rpm-fedora
-  only:
-    - master
   stage: test
   script:
     - dnf install -y build/packaging/rpm/RPMS/x86_64/*.rpm
@@ -206,25 +176,17 @@ test:rpm-opensuse-15.0:
     GIT_STRATEGY: none
 build:rpm-fedora-28:
   <<: *build-rpm-fedora
-  only:
-    - master
   image: fedora:28
 test:rpm-fedora-28:
   <<: *test-rpm-fedora
-  only:
-    - master
   image: fedora:28
   dependencies:
     - build:rpm-fedora-28
 build:rpm-fedora-29:
   <<: *build-rpm-fedora
-  only:
-    - master
   image: fedora:29
 test:rpm-fedora-29:
   <<: *test-rpm-fedora
-  only:
-    - master
   image: fedora:29
   dependencies:
     - build:rpm-fedora-29
