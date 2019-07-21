@@ -1771,42 +1771,42 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <name>CredentialsDialog</name>
     <message>
         <source>Wireshark - Credentials</source>
-        <translation type="unfinished"></translation>
+        <translation>Wireshark - Anmeldedaten</translation>
     </message>
     <message>
         <source>Credentials</source>
-        <translation type="unfinished"></translation>
+        <translation>Anmeldedaten</translation>
     </message>
 </context>
 <context>
     <name>CredentialsModel</name>
     <message>
         <source>Click to select the packet</source>
-        <translation type="unfinished"></translation>
+        <translation>Klicken um das Paket auszuwählen</translation>
     </message>
     <message>
         <source>Click to select the packet with username</source>
-        <translation type="unfinished"></translation>
+        <translation>Klicken um das Paket mit dem Benutzernamen auszuwählen</translation>
     </message>
     <message>
         <source>Username not available</source>
-        <translation type="unfinished"></translation>
+        <translation>Benutzernamen ist nicht verfügbar</translation>
     </message>
     <message>
         <source>Packet No.</source>
-        <translation type="unfinished"></translation>
+        <translation>Paket Nummer</translation>
     </message>
     <message>
         <source>Protocol</source>
-        <translation type="unfinished">Protokoll</translation>
+        <translation>Protokoll</translation>
     </message>
     <message>
         <source>Username</source>
-        <translation type="unfinished"></translation>
+        <translation>Benutzername</translation>
     </message>
     <message>
         <source>Additional Info</source>
-        <translation type="unfinished"></translation>
+        <translation>Zusätzliche Information</translation>
     </message>
 </context>
 <context>
@@ -1985,11 +1985,11 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>Selected</source>
-        <translation type="unfinished">Ausgewählt</translation>
+        <translation>Ausgewählt</translation>
     </message>
     <message>
         <source>Not Selected</source>
-        <translation type="unfinished">nicht das Ausgewählte</translation>
+        <translation>Nicht Ausgewählt</translation>
     </message>
 </context>
 <context>
@@ -3060,11 +3060,11 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>System Default</source>
-        <translation type="unfinished"></translation>
+        <translation>Standard</translation>
     </message>
     <message>
         <source>Solid</source>
-        <translation type="unfinished"></translation>
+        <translation>Stabil</translation>
     </message>
     <message>
         <source>Sample ignored packet text</source>
@@ -3600,7 +3600,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>I/O Graphs</source>
-        <translation type="unfinished"></translation>
+        <translation>I/O Graph</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -3620,7 +3620,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>5 ms</source>
-        <translation type="unfinished">100 ms {5 ?}</translation>
+        <translation>5 ms</translation>
     </message>
     <message>
         <source>10 ms</source>
@@ -3632,7 +3632,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>Wireshark I/O Graphs: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Wireshark I/O Graphen: %1</translation>
     </message>
     <message>
         <source>All packets</source>
@@ -5679,6 +5679,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Profile verwalten</translation>
     </message>
     <message>
+        <source>Import</source>
+        <translation type="unfinished">Importieren</translation>
+    </message>
+    <message>
         <source>New</source>
         <oldsource>New...</oldsource>
         <translation>Neu</translation>
@@ -6905,7 +6909,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>Credentials</source>
-        <translation type="unfinished"></translation>
+        <translation>Anmeldedaten</translation>
     </message>
     <message>
         <source>&amp;Options…</source>
@@ -8278,47 +8282,47 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <name>PacketListHeader</name>
     <message>
         <source>Align Left</source>
-        <translation type="unfinished"></translation>
+        <translation>Links ausrichten</translation>
     </message>
     <message>
         <source>Align Center</source>
-        <translation type="unfinished"></translation>
+        <translation>Zentriert ausrichten</translation>
     </message>
     <message>
         <source>Align Right</source>
-        <translation type="unfinished"></translation>
+        <translation>Rechts ausrichten</translation>
     </message>
     <message>
         <source>Column Preferences</source>
-        <translation type="unfinished"></translation>
+        <translation>Spalteneigenschaft</translation>
     </message>
     <message>
         <source>Edit Column</source>
-        <translation type="unfinished"></translation>
+        <translation>Spalte editieren</translation>
     </message>
     <message>
         <source>Resize to Contents</source>
-        <translation type="unfinished"></translation>
+        <translation>Größe an Inhalt anpassen</translation>
     </message>
     <message>
         <source>Resize Column to Width</source>
-        <translation type="unfinished"></translation>
+        <translation>Spaltenbreite an Inhalt anpassen</translation>
     </message>
     <message>
         <source>Resolve Names</source>
-        <translation type="unfinished"></translation>
+        <translation>Namen auflösen</translation>
     </message>
     <message>
         <source>Remove this Column</source>
-        <translation type="unfinished"></translation>
+        <translation>Spalte entfernen</translation>
     </message>
     <message>
         <source>Column %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Spalte %1</translation>
     </message>
     <message>
         <source>Width:</source>
-        <translation type="unfinished"></translation>
+        <translation>Breite:</translation>
     </message>
 </context>
 <context>
@@ -8533,8 +8537,8 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
 <context>
     <name>ProfileDialog</name>
     <message>
-        <source>Name</source>
-        <translation>Name</translation>
+        <source>Search for profile ...</source>
+        <translation>Nach Profil suchen ...</translation>
     </message>
     <message>
         <source>Create a new profile using default settings.</source>
@@ -8550,8 +8554,87 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Dieses Profil kopieren.</translation>
     </message>
     <message>
+        <source>Import</source>
+        <translation type="unfinished">Importieren</translation>
+    </message>
+    <message>
         <source>Configuration Profiles</source>
         <translation>Profile konfigurieren</translation>
+    </message>
+    <message>
+        <source>All Profiles</source>
+        <translation>Alle Profile</translation>
+    </message>
+    <message>
+        <source>Global profiles</source>
+        <translation type="vanished">Globale Profile</translation>
+    </message>
+    <message>
+        <source>User-defined profiles</source>
+        <translation>Benutzerdefinierte Profile</translation>
+    </message>
+    <message>
+        <source>System profiles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New profile</source>
+        <translation>Neues Profil</translation>
+    </message>
+    <message>
+        <source>Profile Error</source>
+        <translation>Profil Fehler</translation>
+    </message>
+    <message>
+        <source>Select zip file for import</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zip File (*.zip)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No profiles found for import in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>, %1 profile(s) skipped</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Importing profiles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>One profile has been imported</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 profiles have been imported</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ProfileModel</name>
+    <message>
+        <source>Global</source>
+        <translation type="vanished">Global</translation>
+    </message>
+    <message>
+        <source>User</source>
+        <translation>Benutzer</translation>
+    </message>
+    <message>
+        <source>Resetting to default</source>
+        <translation>Auf Standard zurücksetzen</translation>
+    </message>
+    <message>
+        <source>Created from default settings</source>
+        <translation>Erstellt aus den Standardeinstellungen</translation>
+    </message>
+    <message>
+        <source>Copied from: </source>
+        <translation>Kopiert von:</translation>
     </message>
     <message>
         <source>Will be reset to default values</source>
@@ -8570,20 +8653,28 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>(gelöscht)</translation>
     </message>
     <message>
-        <source>Created from default settings</source>
-        <translation>Erstellt aus den Standardeinstellungen</translation>
-    </message>
-    <message>
         <source>Renamed from %1</source>
-        <translation>Umbenannt von %1</translation>
+        <translation type="vanished">Umbenannt von %1</translation>
     </message>
     <message>
-        <source>Go to %1</source>
-        <translation>Gehe zu %1</translation>
+        <source>Default</source>
+        <translation type="unfinished">Standard</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation type="unfinished">System</translation>
+    </message>
+    <message>
+        <source>Renamed from: </source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>This is a system provided profile.</source>
         <translation>Dies ist ein vorgegebenes Profil.</translation>
+    </message>
+    <message>
+        <source>The profile will be reset to default values.</source>
+        <translation>Das Profil wird auf den Ausgangswert zurückgesetzt.</translation>
     </message>
     <message>
         <source>A profile already exists with this name.</source>
@@ -8591,15 +8682,31 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>A profile already exists with this name</source>
-        <translation>Ein Profil mit diesem Namen existiert bereits.</translation>
+        <translation>Ein Profil mit diesem Namen existiert bereits</translation>
     </message>
     <message>
-        <source>The profile will be reset to default values.</source>
-        <translation>Das Profil wird auf den Ausgangswert zurückgesetzt.</translation>
+        <source>Profile</source>
+        <translation>Profile</translation>
     </message>
     <message>
-        <source>Profile Error</source>
-        <translation>Profil Fehler</translation>
+        <source>Type</source>
+        <translation>Typ</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Pfad</translation>
+    </message>
+    <message>
+        <source>copy</source>
+        <translation>Kopieren</translation>
+    </message>
+    <message>
+        <source>A profile must not contain any of the following characters: %1</source>
+        <translation>Ein Profil darf keines der folgenden Zeichen enthalten: %1</translation>
+    </message>
+    <message>
+        <source>A profile must not start or end with a period (.)</source>
+        <translation>Ein Profil darf nicht mit einem Punkt (.) beginnen oder enden</translation>
     </message>
 </context>
 <context>

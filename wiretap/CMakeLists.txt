@@ -27,6 +27,7 @@ set(WIRETAP_NONGENERATED_FILES
 	ber.c
 	btsnoop.c
 	camins.c
+	candump.c
 	capsa.c
 	catapult_dct2000.c
 	commview.c
@@ -49,6 +50,7 @@ set(WIRETAP_NONGENERATED_FILES
 	k12.c
 	lanalyzer.c
 	libpcap.c
+	log3gpp.c
 	logcat.c
 	logcat_text.c
 	merge.c
@@ -89,11 +91,16 @@ set(WIRETAP_FILES ${WIRETAP_NONGENERATED_FILES})
 
 add_lex_files(LEX_FILES WIRETAP_FILES
 	ascend_scanner.l
+	candump_scanner.l
 	k12text.l
 )
 
 add_yacc_files(YACC_FILES WIRETAP_FILES
 	ascend.y
+)
+
+add_lemon_files(LEMON_FILES WIRETAP_FILES
+	candump_parser.lemon
 )
 
 #

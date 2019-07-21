@@ -151,14 +151,12 @@ test:rpm-centos-7:
     GIT_STRATEGY: none
 build:rpm-opensuse-42.3:
   <<: *build-rpm-opensuse
-  only:
-    - master
-  image: opensuse:42.3
+  image: opensuse/leap:42.3
 test:rpm-opensuse-42.3:
   <<: *test-rpm-opensuse
   only:
     - master
-  image: opensuse:42.3
+  image: opensuse/leap:42.3
   dependencies:
     - build:rpm-opensuse-42.3
 build:rpm-opensuse-15.0:

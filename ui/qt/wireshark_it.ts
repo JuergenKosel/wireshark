@@ -1771,42 +1771,42 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <name>CredentialsDialog</name>
     <message>
         <source>Wireshark - Credentials</source>
-        <translation type="unfinished"></translation>
+        <translation>Wireshark - Credenziali</translation>
     </message>
     <message>
         <source>Credentials</source>
-        <translation type="unfinished"></translation>
+        <translation>Credenziali</translation>
     </message>
 </context>
 <context>
     <name>CredentialsModel</name>
     <message>
         <source>Click to select the packet</source>
-        <translation type="unfinished"></translation>
+        <translation>Fai clic per selezionare il pacchetto</translation>
     </message>
     <message>
         <source>Click to select the packet with username</source>
-        <translation type="unfinished"></translation>
+        <translation>Fai clic per selezionare il pacchetto con il nome utente</translation>
     </message>
     <message>
         <source>Username not available</source>
-        <translation type="unfinished"></translation>
+        <translation>Nome utente non disponibile</translation>
     </message>
     <message>
         <source>Packet No.</source>
-        <translation type="unfinished"></translation>
+        <translation>Pacchetto n.</translation>
     </message>
     <message>
         <source>Protocol</source>
-        <translation type="unfinished">Protocollo</translation>
+        <translation>Protocollo</translation>
     </message>
     <message>
         <source>Username</source>
-        <translation type="unfinished"></translation>
+        <translation>Nome utente</translation>
     </message>
     <message>
         <source>Additional Info</source>
-        <translation type="unfinished"></translation>
+        <translation>Informazioni aggiuntive</translation>
     </message>
 </context>
 <context>
@@ -5679,6 +5679,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Gestisci i profili</translation>
     </message>
     <message>
+        <source>Import</source>
+        <translation type="unfinished">Importa</translation>
+    </message>
+    <message>
         <source>New</source>
         <oldsource>New...</oldsource>
         <translation>Nuovo</translation>
@@ -6905,7 +6909,7 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
     <message>
         <source>Credentials</source>
-        <translation type="unfinished"></translation>
+        <translation>Credenziali</translation>
     </message>
     <message>
         <source>&amp;Options…</source>
@@ -8533,8 +8537,8 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
 <context>
     <name>ProfileDialog</name>
     <message>
-        <source>Name</source>
-        <translation>Nome</translation>
+        <source>Search for profile ...</source>
+        <translation>Cerca profilo...</translation>
     </message>
     <message>
         <source>Create a new profile using default settings.</source>
@@ -8550,8 +8554,87 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Copia questo profilo.</translation>
     </message>
     <message>
+        <source>Import</source>
+        <translation type="unfinished">Importa</translation>
+    </message>
+    <message>
         <source>Configuration Profiles</source>
         <translation>Profili di configurazione</translation>
+    </message>
+    <message>
+        <source>All Profiles</source>
+        <translation>Tutti i profili</translation>
+    </message>
+    <message>
+        <source>Global profiles</source>
+        <translation type="vanished">Profili globali</translation>
+    </message>
+    <message>
+        <source>User-defined profiles</source>
+        <translation>Profili definiti dall&apos;utente</translation>
+    </message>
+    <message>
+        <source>System profiles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New profile</source>
+        <translation>Nuon profilo</translation>
+    </message>
+    <message>
+        <source>Profile Error</source>
+        <translation>Errore di profilo</translation>
+    </message>
+    <message>
+        <source>Select zip file for import</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zip File (*.zip)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No profiles found for import in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>, %1 profile(s) skipped</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Importing profiles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>One profile has been imported</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 profiles have been imported</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ProfileModel</name>
+    <message>
+        <source>Global</source>
+        <translation type="vanished">Globale</translation>
+    </message>
+    <message>
+        <source>User</source>
+        <translation>Utente</translation>
+    </message>
+    <message>
+        <source>Resetting to default</source>
+        <translation>Ripristino dei valori predefiniti</translation>
+    </message>
+    <message>
+        <source>Created from default settings</source>
+        <translation>Creato dalle impostazioni predefinite</translation>
+    </message>
+    <message>
+        <source>Copied from: </source>
+        <translation>Copiato da:</translation>
     </message>
     <message>
         <source>Will be reset to default values</source>
@@ -8570,20 +8653,28 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>(eliminato)</translation>
     </message>
     <message>
-        <source>Created from default settings</source>
-        <translation>Creato dalle impostazioni predefinite</translation>
-    </message>
-    <message>
         <source>Renamed from %1</source>
-        <translation>Rinominato da %1</translation>
+        <translation type="vanished">Rinominato da %1</translation>
     </message>
     <message>
-        <source>Go to %1</source>
-        <translation>Vai a %1</translation>
+        <source>Default</source>
+        <translation type="unfinished">Predefinito</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation type="unfinished">Sistema</translation>
+    </message>
+    <message>
+        <source>Renamed from: </source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>This is a system provided profile.</source>
         <translation>Questo è un profilo fornito dal sistema.</translation>
+    </message>
+    <message>
+        <source>The profile will be reset to default values.</source>
+        <translation>Il profilo sarà ripristinato ai valori predefiniti.</translation>
     </message>
     <message>
         <source>A profile already exists with this name.</source>
@@ -8594,12 +8685,28 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Un profilo con questo nome esiste già</translation>
     </message>
     <message>
-        <source>The profile will be reset to default values.</source>
-        <translation>Il profilo sarà ripristinato ai valori predefiniti.</translation>
+        <source>Profile</source>
+        <translation>Profilo</translation>
     </message>
     <message>
-        <source>Profile Error</source>
-        <translation>Errore di profilo</translation>
+        <source>Type</source>
+        <translation>Tipo</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Percorso</translation>
+    </message>
+    <message>
+        <source>copy</source>
+        <translation>copia</translation>
+    </message>
+    <message>
+        <source>A profile must not contain any of the following characters: %1</source>
+        <translation>Un profilo non deve contenere uno dei seguenti caratteri: %1</translation>
+    </message>
+    <message>
+        <source>A profile must not start or end with a period (.)</source>
+        <translation>Un profilo non deve iniziare o finire con un punto (.)</translation>
     </message>
 </context>
 <context>

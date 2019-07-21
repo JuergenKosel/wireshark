@@ -9,6 +9,10 @@
  * Changes for draft-ietf-core-coap-17.txt
  * Hauke Mehrtens <hauke@hauke-m.de>
  *
+ * Support for CoAP over TCP, TLS and WebSockets
+ * https://tools.ietf.org/html/rfc8323
+ * Peter Wu <peter@lekensteyn.nl>
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
@@ -28,6 +32,8 @@
 #include "packet-dtls.h"
 #include "packet-coap.h"
 #include "packet-http.h"
+#include "packet-tcp.h"
+#include "packet-tls.h"
 
 void proto_register_coap(void);
 
@@ -35,6 +41,7 @@ static dissector_table_t media_type_dissector_table;
 
 static int proto_coap						= -1;
 
+static int hf_coap_length					= -1;
 static int hf_coap_version					= -1;
 static int hf_coap_ttype					= -1;
 static int hf_coap_token_len					= -1;
@@ -59,7 +66,7 @@ static COAP_COMMON_LIST_T(dissect_coap_hf);
 static dissector_handle_t coap_handle;
 static dissector_handle_t oscore_handle;
 
-/* CoAP's IANA-assigned port (UDP only) number */
+/* CoAP's IANA-assigned TCP/UDP port numbers */
 #define DEFAULT_COAP_PORT					5683
 #define DEFAULT_COAPS_PORT					5684
 
@@ -88,20 +95,21 @@ static const value_string vals_ttype_short[] = {
 /*
  * Method Code
  * Response Code
+ * "c.dd" denotes (c << 5) | dd
  */
 static const value_string vals_code[] = {
 	{ 0, "Empty Message" },
 
-	/* method code */
+	/* Method Codes */
 	{ 1, "GET" },
 	{ 2, "POST" },
 	{ 3, "PUT" },
 	{ 4, "DELETE" },
-	{ 5, "FETCH" },		/* RFC8132 */
-	{ 6, "PATCH" },		/* RFC8132 */
-	{ 7, "iPATCH" },	/* RFC8132 */
+	{ 5, "FETCH" },		/* RFC 8132 */
+	{ 6, "PATCH" },		/* RFC 8132 */
+	{ 7, "iPATCH" },	/* RFC 8132 */
 
-	/* response code */
+	/* Response Codes */
 	{  65, "2.01 Created" },
 	{  66, "2.02 Deleted" },
 	{  67, "2.03 Valid" },
@@ -115,19 +123,26 @@ static const value_string vals_code[] = {
 	{ 132, "4.04 Not Found" },
 	{ 133, "4.05 Method Not Allowed" },
 	{ 134, "4.06 Not Acceptable" },
-	{ 136, "4.08 Request Entity Incomplete" },	/* core-block-10 */
-	{ 137, "4.09 Conflict" },			/* RFC8132 */
+	{ 136, "4.08 Request Entity Incomplete" },	/* RFC 7959 */
+	{ 137, "4.09 Conflict" },			/* RFC 8132 */
 	{ 140, "4.12 Precondition Failed" },
 	{ 141, "4.13 Request Entity Too Large" },
 	{ 143, "4.15 Unsupported Content-Format" },
-	{ 150, "4.22 Unprocessable Entity" },		/* RFC8132 */
-	{ 157, "4.29 Too Many Requests" },		/* RFC8516 */
+	{ 150, "4.22 Unprocessable Entity" },		/* RFC 8132 */
+	{ 157, "4.29 Too Many Requests" },		/* RFC 8516 */
 	{ 160, "5.00 Internal Server Error" },
 	{ 161, "5.01 Not Implemented" },
 	{ 162, "5.02 Bad Gateway" },
 	{ 163, "5.03 Service Unavailable" },
 	{ 164, "5.04 Gateway Timeout" },
 	{ 165, "5.05 Proxying Not Supported" },
+
+	/* Signalling Codes */
+	{ 225, "7.01 CSM" },				/* RFC 8323 */
+	{ 226, "7.02 Ping" },				/* RFC 8323 */
+	{ 227, "7.03 Pong" },				/* RFC 8323 */
+	{ 228, "7.04 Release" },			/* RFC 8323 */
+	{ 229, "7.05 Abort" },				/* RFC 8323 */
 
 	{ 0, NULL },
 };
@@ -158,9 +173,9 @@ const value_string coap_vals_observe_options[] = {
 #define COAP_OPT_ACCEPT			17
 #define COAP_OPT_LOCATION_QUERY		20
 #define COAP_OPT_OBJECT_SECURITY	21	/* value used in OSCORE plugtests */
-#define COAP_OPT_BLOCK2			23	/* core-block-10 */
-#define COAP_OPT_BLOCK_SIZE		28	/* core-block-10 */
-#define COAP_OPT_BLOCK1			27	/* core-block-10 */
+#define COAP_OPT_BLOCK2			23	/* RFC 7959 / RFC 8323 */
+#define COAP_OPT_BLOCK1			27	/* RFC 7959 / RFC 8323 */
+#define COAP_OPT_SIZE2			28	/* RFC 7959 */
 #define COAP_OPT_PROXY_URI		35
 #define COAP_OPT_PROXY_SCHEME		39
 #define COAP_OPT_SIZE1			60
@@ -185,7 +200,7 @@ static const value_string vals_opt_type[] = {
 	{ COAP_OPT_OBSERVE,        "Observe" },
 	{ COAP_OPT_BLOCK2,         "Block2" },
 	{ COAP_OPT_BLOCK1,         "Block1" },
-	{ COAP_OPT_BLOCK_SIZE,     "Block Size" },
+	{ COAP_OPT_SIZE2,          "Size2" },
 	{ 0, NULL },
 };
 
@@ -213,7 +228,7 @@ struct coap_option_range_t {
 	{ COAP_OPT_OBSERVE,         0,   3 },
 	{ COAP_OPT_BLOCK2,          0,   3 },
 	{ COAP_OPT_BLOCK1,          0,   3 },
-	{ COAP_OPT_BLOCK_SIZE,      0,   4 },
+	{ COAP_OPT_SIZE2,           0,   4 },
 };
 
 static const value_string vals_ctype[] = {
@@ -860,7 +875,7 @@ dissect_coap_options_main(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tr
 		break;
 	case COAP_OPT_IF_NONE_MATCH:
 		break;
-	case COAP_OPT_BLOCK_SIZE:
+	case COAP_OPT_SIZE2:
 		dissect_coap_opt_uint(tvb, item, subtree, offset,
 		    opt_length, dissect_hf->hf.opt_block_size);
 		break;
@@ -986,24 +1001,52 @@ dissect_coap_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, p
 	}
 }
 
+static guint32
+coap_frame_length(tvbuff_t *tvb, guint offset, gint *size)
+{
+	/*
+	 * Decode Len and Extended Length according to
+	 * https://tools.ietf.org/html/rfc8323#page-10
+	 */
+	guint8 len = tvb_get_guint8(tvb, offset) >> 4;
+	switch (len) {
+	default:
+		*size = 1;
+		return len;
+	case 13:
+		*size = 2;
+		return tvb_get_guint8(tvb, offset + 1) + 13;
+	case 14:
+		*size = 3;
+		return tvb_get_ntohs(tvb, offset + 1) + 269;
+	case 15:
+		*size = 4;
+		return tvb_get_ntohl(tvb, offset + 1) + 65805;
+	}
+}
+
 static int
-dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* data _U_)
+dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolean is_tcp, gboolean is_websocket)
 {
 	gint              offset = 0;
 	proto_item       *coap_root;
 	proto_item       *pi;
 	proto_tree       *coap_tree;
+	gint              length_size = 0;
 	guint8            ttype;
-	guint8            token_len;
+	guint32           token_len;
 	guint8            code;
 	guint8            code_class;
-	guint16           mid;
+	guint32           mid;
 	gint              coap_length;
 	gchar            *coap_token_str;
 	coap_info        *coinfo;
 	conversation_t   *conversation;
 	coap_conv_info   *ccinfo;
 	coap_transaction *coap_trans = NULL;
+
+	// TODO support TCP/WebSocket/TCP with more than one PDU per packet.
+	// These probably require a unique coinfo for each.
 
 	/* Allocate information for upper layers */
 	coinfo = (coap_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_coap, 0);
@@ -1016,11 +1059,14 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 
 	/* initialize the CoAP length and the content-Format */
 	/*
-	 * the length of CoAP message is not specified in the CoAP header.
-	 * It has to be from the lower layer.
-	 * Currently, the length is just copied from the reported length of the tvbuffer.
+	 * The length of CoAP message is not specified in the CoAP header using
+	 * UDP or WebSockets. The lower layers provide it. For TCP/TLS, an
+	 * explicit length is present.
 	 */
 	coap_length = tvb_reported_length(tvb);
+	if (is_tcp && !is_websocket) {
+		coap_length = coap_frame_length(tvb, offset, &length_size);
+	}
 	coinfo->ctype_str = "";
 	coinfo->ctype_value = DEFAULT_COAP_CTYPE_VALUE;
 
@@ -1030,35 +1076,54 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	coap_root = proto_tree_add_item(parent_tree, proto_coap, tvb, offset, -1, ENC_NA);
 	coap_tree = proto_item_add_subtree(coap_root, ett_coap);
 
-	proto_tree_add_item(coap_tree, hf_coap_version, tvb, offset, 1, ENC_BIG_ENDIAN);
+	if (!is_tcp) {
+		proto_tree_add_item(coap_tree, hf_coap_version, tvb, offset, 1, ENC_BIG_ENDIAN);
 
-	proto_tree_add_item(coap_tree, hf_coap_ttype, tvb, offset, 1, ENC_BIG_ENDIAN);
-	ttype = (tvb_get_guint8(tvb, offset) & COAP_TYPE_MASK) >> 4;
+		proto_tree_add_item(coap_tree, hf_coap_ttype, tvb, offset, 1, ENC_BIG_ENDIAN);
+		ttype = (tvb_get_guint8(tvb, offset) & COAP_TYPE_MASK) >> 4;
 
-	proto_tree_add_item(coap_tree, hf_coap_token_len, tvb, offset, 1, ENC_BIG_ENDIAN);
-	token_len = tvb_get_guint8(tvb, offset) & COAP_TOKEN_LEN_MASK;
+		proto_tree_add_item_ret_uint(coap_tree, hf_coap_token_len, tvb, offset, 1, ENC_BIG_ENDIAN, &token_len);
+		offset += 1;
 
-	offset += 1;
+		code = dissect_coap_code(tvb, coap_tree, &offset, &dissect_coap_hf, &code_class);
 
-	code = dissect_coap_code(tvb, coap_tree, &offset, &dissect_coap_hf, &code_class);
+		proto_tree_add_item(coap_tree, hf_coap_mid, tvb, offset, 2, ENC_BIG_ENDIAN);
+		mid = tvb_get_ntohs(tvb, offset);
+		offset += 2;
 
-	proto_tree_add_item(coap_tree, hf_coap_mid, tvb, offset, 2, ENC_BIG_ENDIAN);
-	mid = tvb_get_ntohs(tvb, offset);
+		col_add_fstr(pinfo->cinfo, COL_INFO,
+			     "%s, MID:%u, %s",
+			     val_to_str(ttype, vals_ttype_short, "Unknown %u"),
+			     mid,
+			     val_to_str_ext(code, &coap_vals_code_ext, "Unknown %u"));
 
-	col_add_fstr(pinfo->cinfo, COL_INFO,
-		     "%s, MID:%u, %s",
-		     val_to_str(ttype, vals_ttype_short, "Unknown %u"),
-		     mid,
-		     val_to_str_ext(code, &coap_vals_code_ext, "Unknown %u"));
+		/* append the header information */
+		proto_item_append_text(coap_root,
+				       ", %s, %s, MID:%u",
+				       val_to_str(ttype, vals_ttype, "Unknown %u"),
+				       val_to_str_ext(code, &coap_vals_code_ext, "Unknown %u"),
+				       mid);
+	} else {
+		guint len = coap_length;
+		if (is_websocket) {
+			len = tvb_get_guint8(tvb, offset) >> 4;
+			length_size = 1;
+		}
+		proto_tree_add_uint(coap_tree, hf_coap_length, tvb, offset, length_size, len);
 
-	/* append the header information */
-	proto_item_append_text(coap_root,
-			       ", %s, %s, MID:%u",
-			       val_to_str(ttype, vals_ttype, "Unknown %u"),
-			       val_to_str_ext(code, &coap_vals_code_ext, "Unknown %u"),
-			       mid);
+		proto_tree_add_item_ret_uint(coap_tree, hf_coap_token_len, tvb, offset, 1, ENC_BIG_ENDIAN, &token_len);
+		offset += length_size;
 
-	offset += 2;
+		code = dissect_coap_code(tvb, coap_tree, &offset, &dissect_coap_hf, &code_class);
+
+		col_add_str(pinfo->cinfo, COL_INFO,
+			    val_to_str_ext(code, &coap_vals_code_ext, "Unknown %u"));
+
+		/* append the header information */
+		proto_item_append_text(coap_root,
+				       ", %s",
+				       val_to_str_ext(code, &coap_vals_code_ext, "Unknown %u"));
+	}
 
 	/* initialize the external value */
 	coinfo->block_number = DEFAULT_COAP_BLOCK_NUMBER;
@@ -1251,6 +1316,44 @@ dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	return tvb_captured_length(tvb);
 }
 
+static guint
+get_coap_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
+{
+	guint32 token_len = tvb_get_guint8(tvb, offset) & 0xf;
+	gint length_size;
+	guint32 length = coap_frame_length(tvb, offset, &length_size);
+
+	/*
+	 * Length of the whole CoAP frame includes the (Extended) Length fields
+	 * (1 to 4 bytes), the Code (1 byte) and token length (normally 0 to 8
+	 * bytes), plus everything afterwards.
+	 */
+	return length_size + 1 + token_len + length;
+}
+
+static int
+dissect_coap_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+	return dissect_coap_message(tvb, pinfo, tree, TRUE, FALSE);
+}
+
+static int
+dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+	if (pinfo->ptype != PT_TCP) {
+		/* Assume UDP */
+		return dissect_coap_message(tvb, pinfo, tree, FALSE, FALSE);
+	} else if (proto_is_frame_protocol(pinfo->layers, "websocket")) {
+		/* WebSockets */
+		return dissect_coap_message(tvb, pinfo, tree, TRUE, TRUE);
+	} else {
+		/* TCP or TLS - support fragmentation. */
+		tcp_dissect_pdus(tvb, pinfo, tree, TRUE, 3, get_coap_pdu_len,
+				dissect_coap_tcp, data);
+		return tvb_reported_length(tvb);
+	}
+}
+
 /*
  * Protocol initialization
  */
@@ -1258,6 +1361,11 @@ void
 proto_register_coap(void)
 {
 	static hf_register_info hf[] = {
+		{ &hf_coap_length,
+		  { "Length", "coap.length",
+		    FT_UINT32, BASE_DEC, NULL, 0,
+		    "Length of the CoAP frame, combining Len and Extended Length (if any) fields", HFILL }
+		},
 		{ &hf_coap_version,
 		  { "Version", "coap.version",
 		    FT_UINT8, BASE_DEC, NULL, COAP_VERSION_MASK,
@@ -1353,11 +1461,18 @@ proto_reg_handoff_coap(void)
 	media_type_dissector_table = find_dissector_table("media_type");
 	dissector_add_uint_with_preference("udp.port", DEFAULT_COAP_PORT, coap_handle);
 	dtls_dissector_add(DEFAULT_COAPS_PORT, coap_handle);
+
+	/* TCP, TLS, WebSockets (RFC 8323) */
+	dissector_add_uint_with_preference("tcp.port", DEFAULT_COAP_PORT, coap_handle);
+	ssl_dissector_add(DEFAULT_COAPS_PORT, coap_handle);
+	dissector_add_string("tls.alpn", "coap", coap_handle);
+	dissector_add_string("ws.protocol", "coap", coap_handle);
+
 	oscore_handle = find_dissector("oscore");
 }
 
 /*
- * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
  * Local variables:
  * c-basic-offset: 8

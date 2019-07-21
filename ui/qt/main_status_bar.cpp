@@ -20,7 +20,6 @@
 #include <wsutil/utf8_entities.h>
 
 #include "ui/main_statusbar.h"
-#include "ui/profile.h"
 #include <ui/qt/utils/qt_ui_utils.h>
 
 #include "capture_file.h"
@@ -32,6 +31,7 @@
 #include <ui/qt/widgets/clickable_label.h>
 
 #include <QAction>
+#include <QActionGroup>
 #include <QHBoxLayout>
 #include <QSplitter>
 #include <QToolButton>
@@ -535,53 +535,68 @@ void MainStatusBar::updateCaptureFixedStatistics(capture_session *cap_session)
 
 void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton button)
 {
-    const gchar *profile_name = get_profile_name();
-    bool separator_added = false;
-    GList *fl_entry;
-    profile_def *profile;
-    QAction *pa;
-
-    init_profile_list();
-    fl_entry = current_profile_list();
+    ProfileModel model;
 
     QMenu profile_menu_;
+    QActionGroup global(this);
+    QActionGroup user(this);
 
-    while (fl_entry && fl_entry->data) {
-        profile = (profile_def *) fl_entry->data;
-        if (!profile->is_global || !profile_exists(profile->name, false)) {
-            if (profile->is_global && !separator_added) {
-                profile_menu_.addSeparator();
-                separator_added = true;
-            }
-            pa = profile_menu_.addAction(profile->name);
-            if (strcmp(profile->name, profile_name) == 0) {
-                /* Current profile */
-                pa->setCheckable(true);
-                pa->setChecked(true);
-            }
-            if (profile->is_global) {
-                QFont ti_font = pa->font();
-                ti_font.setItalic(true);
-                pa->setFont(ti_font);
-            }
-            connect(pa, SIGNAL(triggered()), this, SLOT(switchToProfile()));
+    for(int cnt = 0; cnt < model.rowCount(); cnt++)
+    {
+        QModelIndex idx = model.index(cnt, ProfileModel::COL_NAME);
+        if ( ! idx.isValid() )
+            continue;
+
+        QAction * pa = Q_NULLPTR;
+        QString name = idx.data().toString();
+        if ( idx.data(ProfileModel::DATA_IS_DEFAULT).toBool() )
+        {
+            pa = profile_menu_.addAction(name);
         }
-        fl_entry = g_list_next(fl_entry);
+        else if ( idx.data(ProfileModel::DATA_IS_GLOBAL).toBool() )
+        {
+            /* Check if this profile does not exist as user */
+            if ( cnt == model.findByName(name) )
+                pa = global.addAction(name);
+        }
+        else
+            pa = user.addAction(name);
+
+        if ( ! pa )
+            continue;
+
+        pa->setCheckable(true);
+        if ( idx.data(ProfileModel::DATA_IS_SELECTED).toBool() )
+            pa->setChecked(true);
+
+        pa->setFont(idx.data(Qt::FontRole).value<QFont>());
+        pa->setProperty("profile_name", idx.data());
+        pa->setProperty("profile_is_global", idx.data(ProfileModel::DATA_IS_GLOBAL));
+
+        connect(pa, &QAction::triggered, this, &MainStatusBar::switchToProfile);
     }
+
+    profile_menu_.addActions(user.actions());
+    profile_menu_.addSeparator();
+    profile_menu_.addActions(global.actions());
 
     if (button == Qt::LeftButton) {
         profile_menu_.exec(global_pos);
     } else {
 
         bool enable_edit = false;
-        const char * cur_profile = get_profile_name();
-        if (profile_exists(cur_profile, FALSE) && strcmp (cur_profile, DEFAULT_PROFILE) != 0)
+
+        QModelIndex idx = model.activeProfile();
+        if ( ! idx.data(ProfileModel::DATA_IS_DEFAULT).toBool() && ! idx.data(ProfileModel::DATA_IS_GLOBAL).toBool() )
             enable_edit = true;
 
         profile_menu_.setTitle(tr("Switch to"));
         QMenu ctx_menu_;
         QAction * action = ctx_menu_.addAction(tr("Manage Profiles" UTF8_HORIZONTAL_ELLIPSIS));
         action->setProperty("dialog_action_", (int)ProfileDialog::ShowProfiles);
+        connect(action, SIGNAL(triggered()), this, SLOT(manageProfile()));
+        action = ctx_menu_.addAction(tr("Import" UTF8_HORIZONTAL_ELLIPSIS));
+        action->setProperty("dialog_action_", (int)ProfileDialog::ImportProfile);
         connect(action, SIGNAL(triggered()), this, SLOT(manageProfile()));
         ctx_menu_.addSeparator();
         action = ctx_menu_.addAction(tr("New" UTF8_HORIZONTAL_ELLIPSIS));
@@ -622,8 +637,9 @@ void MainStatusBar::switchToProfile()
 {
     QAction *pa = qobject_cast<QAction*>(sender());
 
-    if (pa) {
-        wsApp->setConfigurationProfile(pa->text().toUtf8().constData());
+    if (pa && pa->property("profile_name").isValid()) {
+        QString profile = pa->property("profile_name").toString();
+        wsApp->setConfigurationProfile(profile.toUtf8().constData());
     }
 }
 

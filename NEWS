@@ -36,14 +36,17 @@ Wireshark 3.1.0 Release Notes
        been added. It can be accessed through the "-z credentials"
        option in tshark or from the "tools" menu in Wireshark.
 
+     • Editcap can now split files on floating point intervals.
+
   New Protocol Support
 
    CableLabs Layer-3 Protocol IEEE EtherType 0xb4e3 (CL3), Distributed
    Replicated Block Device (DRBD), Dual Channel Wi-Fi (CL3DCW), evolved
    Common Public Radio Interface (eCPRI), FTDI FT USB Bridging Devices
    (FTDI FT), Graylog Extended Log Format over UDP (GELF), GSM/3GPP CBSP
-   (Cell Broadcast Service Protocol), NR Positioning Protocol A (NRPPa)
-   TS 38.455, and NVM Express over Fabrics for TCP (nvme-tcp)
+   (Cell Broadcast Service Protocol), Network Controller Sideband
+   Interface (NCSI), NR Positioning Protocol A (NRPPa) TS 38.455, and
+   NVM Express over Fabrics for TCP (nvme-tcp)
 
   Updated Protocol Support
 
@@ -88,7 +91,7 @@ Wireshark 3.1.0 Release Notes
 
   A complete FAQ is available on the Wireshark web site[9].
 
-  Last updated 2019-06-30 08:08:36 UTC
+  Last updated 2019-07-21 08:08:38 UTC
 
  References
 
@@ -99,5 +102,5 @@ Wireshark 3.1.0 Release Notes
    5. https://ask.wireshark.org/
    6. https://www.wireshark.org/lists/
    7. https://bugs.wireshark.org/
-   8. http://www.wiresharktraining.com/
+   8. https://www.wiresharktraining.com/
    9. https://www.wireshark.org/faq.html

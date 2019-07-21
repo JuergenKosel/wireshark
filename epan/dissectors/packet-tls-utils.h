@@ -164,6 +164,7 @@ typedef enum {
 #define SSL_HND_QUIC_TP_MAX_ACK_DELAY                       11
 #define SSL_HND_QUIC_TP_DISABLE_MIGRATION                   12
 #define SSL_HND_QUIC_TP_PREFERRED_ADDRESS                   13
+#define SSL_HND_QUIC_TP_ACTIVE_CONNECTION_ID_LIMIT          14
 
 /*
  * Lookup tables
@@ -877,10 +878,6 @@ typedef struct ssl_common_dissect {
         gint hs_ext_record_size_limit;
 
         /* QUIC Transport Parameters */
-        gint hs_ext_quictp_negotiated_version;
-        gint hs_ext_quictp_initial_version;
-        gint hs_ext_quictp_supported_versions_len;
-        gint hs_ext_quictp_supported_versions;
         gint hs_ext_quictp_len;
         gint hs_ext_quictp_parameter;
         gint hs_ext_quictp_parameter_type;
@@ -907,6 +904,7 @@ typedef struct ssl_common_dissect {
         gint hs_ext_quictp_parameter_pa_connectionid_length;
         gint hs_ext_quictp_parameter_pa_connectionid;
         gint hs_ext_quictp_parameter_pa_statelessresettoken;
+        gint hs_ext_quictp_parameter_active_connection_id_limit;
 
         gint esni_suite;
         gint esni_record_digest_length;
@@ -1135,7 +1133,7 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1,                                 \
+        -1, -1, -1, -1, -1,                                             \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
@@ -1891,26 +1889,6 @@ ssl_common_dissect_t name = {   \
         FT_UINT16, BASE_DEC, NULL, 0x00,                                \
         "Maximum record size that an endpoint is willing to receive", HFILL } \
     },                                                                  \
-    { & name .hf.hs_ext_quictp_negotiated_version,                      \
-      { "Negotiated Version", prefix ".quic.negotiated_version",        \
-        FT_UINT32, BASE_HEX, VALS(quic_version_vals), 0x00,             \
-        NULL, HFILL }                                                   \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_initial_version,                         \
-      { "Initial Version", prefix ".quic.initial_version",              \
-        FT_UINT32, BASE_HEX, VALS(quic_version_vals), 0x00,             \
-        NULL, HFILL }                                                   \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_supported_versions_len,                  \
-      { "Supported Versions Length", prefix ".quic.supported_versions.len", \
-        FT_UINT16, BASE_DEC, NULL, 0x00,                                \
-        NULL, HFILL }                                                   \
-    },                                                                  \
-    { & name .hf.hs_ext_quictp_supported_versions,                      \
-      { "Supported Versions", prefix ".quic.supported_versions",        \
-        FT_UINT32, BASE_HEX, VALS(quic_version_vals), 0x00,             \
-        NULL, HFILL }                                                   \
-    },                                                                  \
     { & name .hf.hs_ext_quictp_len,                                     \
       { "Parameters Length", prefix ".quic.len",                        \
         FT_UINT16, BASE_DEC, NULL, 0x00,                                \
@@ -2039,6 +2017,11 @@ ssl_common_dissect_t name = {   \
     { & name .hf.hs_ext_quictp_parameter_pa_statelessresettoken,        \
       { "statelessResetToken", prefix ".quic.parameter.preferred_address.statelessresettoken",  \
         FT_BYTES, BASE_NONE, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_active_connection_id_limit,    \
+      { "Active Connection ID Limit", prefix ".quic.parameter.active_connection_id_limit", \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.esni_suite,                                            \
