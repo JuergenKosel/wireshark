@@ -185,6 +185,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  crc16_plain_tvb_offset@Base 1.9.1
  crc16_plain_tvb_offset_seed@Base 1.9.1
  crc16_r3_ccitt_tvb@Base 1.99.3
+ crc16_usb_tvb_offset@Base 3.1.0
  crc16_x25_ccitt_tvb@Base 1.9.1
  crc32_0x0AA725CF_tvb_offset_seed@Base 1.12.0~rc1
  crc32_802_tvb@Base 1.9.1
@@ -287,7 +288,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  dissect_ber_object_identifier@Base 1.9.1
  dissect_ber_object_identifier_str@Base 1.9.1
  dissect_ber_octet_string@Base 1.9.1
- dissect_ber_octet_string_with_encoding@Base 3.1.0
+ dissect_ber_octet_string_with_encoding@Base 3.0.3
  dissect_ber_real@Base 1.99.2
  dissect_ber_relative_oid@Base 1.12.0~rc1
  dissect_ber_relative_oid_str@Base 1.12.0~rc1
@@ -477,6 +478,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  dissector_get_default_string_handle@Base 1.12.0~rc1
  dissector_get_default_uint_handle@Base 1.12.0~rc1
  dissector_get_guid_handle@Base 2.1.0
+ dissector_get_payload_handle@Base 3.1.0
  dissector_get_string_handle@Base 1.9.1
  dissector_get_uint_handle@Base 1.9.1
  dissector_handle_get_dissector_name@Base 1.12.0~rc1
@@ -850,7 +852,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  get_utf_16_string@Base 1.12.0~rc1
  get_vlan_hash_table@Base 2.1.0
  get_wka_hashtable@Base 1.12.0~rc1
- giop_add_CDR_string@Base 3.1.0
+ giop_add_CDR_string@Base 3.0.1
  golay_decode@Base 1.9.1
  golay_encode@Base 1.9.1
  golay_errors@Base 1.9.1
@@ -1138,17 +1140,10 @@ libwireshark.so.0 libwireshark0 #MINVER#
  proto_item_get_parent@Base 1.9.1
  proto_item_get_parent_nth@Base 1.9.1
  proto_item_get_subtree@Base 1.9.1
- proto_item_is_hidden@Base 3.1.0
- proto_item_is_generated@Base 3.1.0
- proto_item_is_url@Base 3.1.0
  proto_item_prepend_text@Base 1.9.1
  proto_item_set_end@Base 1.9.1
- proto_item_set_hidden@Base 3.1.0
- proto_item_set_generated@Base 3.1.0
  proto_item_set_len@Base 1.9.1
  proto_item_set_text@Base 1.9.1
- proto_item_set_url@Base 3.1.0
- proto_item_set_visible@Base 3.1.0
  proto_name_already_registered@Base 2.0.1
  proto_node_group_children_by_json_key@Base 2.5.0
  proto_node_group_children_by_unique@Base 2.5.0
@@ -1776,6 +1771,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  tvb_get_ntohl@Base 1.9.1
  tvb_get_ntohs@Base 1.9.1
  tvb_get_ptr@Base 1.9.1
+ tvb_get_raw_bytes_as_string@Base 3.1.0
  tvb_get_string_bytes@Base 1.12.0~rc1
  tvb_get_string_enc@Base 1.12.0~rc1
  tvb_get_string_time@Base 1.12.0~rc1
@@ -1924,6 +1920,8 @@ libwireshark.so.0 libwireshark0 #MINVER#
  units_newton_metre@Base 2.3.0
  units_octet_octets@Base 2.3.0
  units_percent@Base 2.3.0
+ units_pkts@Base 3.1.0
+ units_pkts_per_sec@Base 3.1.0
  units_revolutions_per_minute@Base 2.3.0
  units_second_seconds@Base 2.3.0
  units_seconds@Base 2.3.0

@@ -32,7 +32,11 @@
  * This plugin dissects infrared data transmissions as defined by the IrDA
  * specification (www.irda.org).  See
  *
- *      http://www.irda.org/standards/specifications.asp
+ *      http://www.irdajp.info/specifications.php
+ *
+ * or
+ *
+ *      https://web.archive.org/web/20040405053146/http://www.irda.org/standards/specifications.asp
  *
  * for various IrDA specifications.
  *
@@ -579,6 +583,12 @@ static void dissect_iap_request(tvbuff_t* tvb, packet_info* pinfo, proto_tree* r
                 iap_conv = wmem_new(wmem_file_scope(), iap_conversation_t);
                 conversation_add_proto_data(conv, proto_iap, (void*)iap_conv);
             }
+            if (iap_conv)
+            {
+                iap_conv->pnext           = NULL;
+                iap_conv->iap_query_frame = pinfo->num;
+                iap_conv->pattr_dissector = NULL;
+            }
 
             char   *class_name = (char *) tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 1 + 1, clen, ENC_ASCII|ENC_NA);
             char   *attr_name = (char *) tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 1 + 1 + clen + 1, alen, ENC_ASCII|ENC_NA);
@@ -591,10 +601,6 @@ static void dissect_iap_request(tvbuff_t* tvb, packet_info* pinfo, proto_tree* r
             if (iap_conv)
             {
                 int     i, j;
-
-                iap_conv->pnext           = NULL;
-                iap_conv->iap_query_frame = pinfo->num;
-                iap_conv->pattr_dissector = NULL;
 
                 /* Find the attribute dissector */
                 for (i = 0; class_dissector[i].class_name != NULL; i++)
@@ -2308,7 +2314,7 @@ void proto_reg_handoff_irda(void)
 }
 
 /*
- * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
  * Local variables:
  * c-basic-offset: 4

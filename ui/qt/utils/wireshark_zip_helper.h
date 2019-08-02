@@ -18,10 +18,17 @@
 
 #ifdef HAVE_MINIZIP
 
+#include "minizip/zip.h"
+
 class WireSharkZipHelper
 {
 public:
+    static bool zip(QString zipFile, QStringList files, QString relativeTo = QString());
     static bool unzip(QString zipFile, QString directory, bool (*fileCheck)(QString fileName, int fileSize) );
+
+protected:
+    static void addFileToZip(zipFile zf, QString filepath, QString fileInZip);
+
 };
 
 #endif
@@ -29,7 +36,7 @@ public:
 #endif // WS_ZIP_HELPER_H
 
 /*
- * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
  * Local variables:
  * c-basic-offset: 4

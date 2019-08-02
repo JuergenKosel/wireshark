@@ -26,6 +26,7 @@
 #ifdef _WIN32
 #include <wsutil/unicode-utils.h>
 #include <wsutil/filesystem.h>
+#include <wsutil/win32-utils.h>
 #endif
 
 #include <wsutil/socket.h>
@@ -38,7 +39,6 @@
 #endif
 
 #include <wsutil/strtoi.h>
-#include <wsutil/win32-utils.h>
 
 #include "sharkd.h"
 
@@ -291,7 +291,7 @@ sharkd_loop(void)
 }
 
 /*
- * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
  * Local variables:
  * c-basic-offset: 8

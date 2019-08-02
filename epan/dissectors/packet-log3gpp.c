@@ -690,7 +690,7 @@ dissect_log3gpp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data 
 /******************************************************************************/
 void proto_reg_handoff_log3gpp(void)
 {
-    gboolean init = FALSE;
+    static gboolean init = FALSE;
 
     if (init == FALSE)
     {
@@ -820,7 +820,7 @@ void proto_register_log3gpp(void)
 }
 
 /*
- * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
  * Local variables:
  * c-basic-offset: 4

@@ -3,7 +3,7 @@
  * Copyright 2003, Rich Coe <richcoe2@gmail.com>
  * Copyright 2008-2019, David Aggeler <david_aggeler@hispeed.ch>
  *
- * DICOM communication protocol: http://www.dicomstandard.org/current/
+ * DICOM communication protocol: https://www.dicomstandard.org/current/
  *
  * Part  5: Data Structures and Encoding
  * Part  6: Data Dictionary
@@ -4499,7 +4499,7 @@ From 3.7 Annex D Association Negotiation
  */
 
 /*
- * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
  * Local variables:
  * c-basic-offset: 4

@@ -1965,6 +1965,15 @@ void dissector_reset_payload(const char *name)
 	dissector_reset_uint(name, 0);
 }
 
+/* Given a payload dissector table (type FT_NONE), return the handle of
+   the dissector that is currently active, i.e. that was selected via
+   Decode As. */
+dissector_handle_t
+dissector_get_payload_handle(dissector_table_t const dissector_table)
+{
+	return dissector_get_uint_handle(dissector_table, 0);
+}
+
 dissector_handle_t
 dtbl_entry_get_handle (dtbl_entry_t *dtbl_entry)
 {
@@ -3584,7 +3593,7 @@ prime_epan_dissect_with_postdissector_wanted_hfids(epan_dissect_t *edt)
 }
 
 /*
- * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
  * Local variables:
  * c-basic-offset: 8

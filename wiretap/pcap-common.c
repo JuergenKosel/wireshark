@@ -48,7 +48,7 @@
  * values to be used in capture files, and have libpcap map between
  * those values in capture file headers and the DLT_ values that the
  * pcap_datalink() and pcap_open_dead() APIs use.  See
- * http://www.tcpdump.org/linktypes.html for a list of LINKTYPE_ values.
+ * https://www.tcpdump.org/linktypes.html for a list of LINKTYPE_ values.
  *
  * In most cases, the corresponding LINKTYPE_ and DLT_ values are the
  * same.  In the cases where the same link-layer header type was given
@@ -472,6 +472,9 @@ static const struct {
 
 	/* IEEE 802.15.4 TAP */
 	{ 283,		WTAP_ENCAP_IEEE802_15_4_TAP },
+
+	/* USB 2.0/1.1/1.0 packets as transmitted over the cable */
+	{ 288,		WTAP_ENCAP_USB_2_0 },
 	/*
 	 * To repeat:
 	 *
@@ -1827,7 +1830,7 @@ struct linux_usb_isodesc {
 /*
  * USB setup header as defined in USB specification
  * See usb_20.pdf, Chapter 9.3 'USB Device Requests' for details.
- * http://www.usb.org/developers/docs/usb_20_122909-2.zip
+ * https://www.usb.org/document-library/usb-20-specification
  *
  * This structure is 8 bytes long.
  */
@@ -2514,7 +2517,7 @@ pcap_write_phdr(wtap_dumper *wdh, int encap, const union wtap_pseudo_header *pse
 }
 
 /*
- * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *
  * Local variables:
  * c-basic-offset: 8
