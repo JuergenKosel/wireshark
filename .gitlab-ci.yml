@@ -17,7 +17,7 @@ variables:
   retry: 1
   before_script:
     - apt-get update -qq
-    - apt-get install -y python3-pip locales
+    - apt-get install -y python3-pip python3-pytest locales
     - pip3 install pytest pytest-xdist
     - useradd user
     - locale-gen en_US.UTF-8
@@ -69,7 +69,7 @@ gcc-8:
     - ninja
     - ninja test-programs
     - chown -R user .
-    - su user -c pytest
+    - su user -c pytest-3
 gcc-8-nopcap:
   only:
     - master
@@ -107,7 +107,7 @@ clang-7:
      - ninja
      - ninja test-programs
      - chown -R user .
-     - su user -c pytest
+     - su user -c pytest-3
 clang-7-nopcap:
   only:
     - master
