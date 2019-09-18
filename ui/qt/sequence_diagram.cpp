@@ -58,9 +58,8 @@ SequenceDiagram::SequenceDiagram(QCPAxis *keyAxis, QCPAxis *valueAxis, QCPAxis *
     axes << value_axis_ << key_axis_ << comment_axis_;
     QPen no_pen(Qt::NoPen);
     foreach (QCPAxis *axis, axes) {
-        axis->setAutoTicks(false);
-        axis->setTickStep(1.0);
-        axis->setAutoTickLabels(false);
+        QSharedPointer<QCPAxisTicker> ticker(new QCPAxisTickerText);
+        axis->setTicker(ticker);
         axis->setSubTickPen(no_pen);
         axis->setTickPen(no_pen);
         axis->setBasePen(no_pen);
@@ -150,8 +149,8 @@ void SequenceDiagram::setData(_seq_analysis_info *sainfo)
     int elide_w = com_fm.height() * max_comment_em_width_;
     char* addr_str;
 
-    for (GList *cur = g_queue_peek_nth_link(sainfo->items, 0); cur; cur = g_list_next(cur)) {
-        seq_analysis_item_t *sai = (seq_analysis_item_t *) cur->data;
+    for (GList *cur = g_queue_peek_nth_link(sainfo->items, 0); cur; cur = gxx_list_next(cur)) {
+        seq_analysis_item_t *sai = gxx_list_data(seq_analysis_item_t *, cur);
         if (sai->display) {
             WSCPSeqData new_data;
 
@@ -170,20 +169,21 @@ void SequenceDiagram::setData(_seq_analysis_info *sainfo)
 
     for (unsigned int i = 0; i < sainfo_->num_nodes; i++) {
         val_ticks.append(i);
-        addr_str = address_to_display(NULL, &(sainfo_->nodes[i]));
+        addr_str = address_to_display(Q_NULLPTR, &(sainfo_->nodes[i]));
         val_labels.append(addr_str);
         if (i % 2 == 0) {
             val_labels.last().append("\n");
         }
 
-        wmem_free(NULL, addr_str);
+        wmem_free(Q_NULLPTR, addr_str);
     }
-    keyAxis()->setTickVector(key_ticks);
-    keyAxis()->setTickVectorLabels(key_labels);
-    valueAxis()->setTickVector(val_ticks);
-    valueAxis()->setTickVectorLabels(val_labels);
-    comment_axis_->setTickVector(key_ticks);
-    comment_axis_->setTickVectorLabels(com_labels);
+
+    QSharedPointer<QCPAxisTickerText> key_ticker = qSharedPointerCast<QCPAxisTickerText>(keyAxis()->ticker());
+    key_ticker->setTicks(key_ticks, key_labels);
+    QSharedPointer<QCPAxisTickerText> value_ticker = qSharedPointerCast<QCPAxisTickerText>(valueAxis()->ticker());
+    value_ticker->setTicks(val_ticks, val_labels);
+    QSharedPointer<QCPAxisTickerText> comment_ticker = qSharedPointerCast<QCPAxisTickerText>(comment_axis_->ticker());
+    comment_ticker->setTicks(key_ticks, com_labels);
 }
 
 void SequenceDiagram::setSelectedPacket(int selected_packet)
@@ -226,7 +226,7 @@ void SequenceDiagram::draw(QCPPainter *painter)
     // Lifelines (node lines). Will likely be overdrawn below.
     painter->save();
     painter->setOpacity(alpha);
-    fg_pen = mainPen();
+    fg_pen = pen();
     fg_pen.setStyle(Qt::DashLine);
     painter->setPen(fg_pen);
     for (int ll_x = value_axis_->range().lower; ll_x < value_axis_->range().upper; ll_x++) {
@@ -237,7 +237,7 @@ void SequenceDiagram::draw(QCPPainter *painter)
         painter->drawLine(ll_start, ll_end);
     }
     painter->restore();
-    fg_pen = mainPen();
+    fg_pen = pen();
 
     WSCPSeqDataMap::const_iterator it;
     for (it = data_->constBegin(); it != data_->constEnd(); ++it) {
@@ -295,7 +295,7 @@ void SequenceDiagram::draw(QCPPainter *painter)
         }
 
         // Message
-        if (mainPen().style() != Qt::NoPen && mainPen().color().alpha() != 0) {
+        if (pen().style() != Qt::NoPen && pen().color().alpha() != 0) {
             painter->save();
 
             QFontMetrics cfm(comment_axis_->tickLabelFont());
@@ -360,7 +360,7 @@ void SequenceDiagram::drawLegendIcon(QCPPainter *, const QRectF &) const
 {
 }
 
-QCPRange SequenceDiagram::getKeyRange(bool &validRange, QCPAbstractPlottable::SignDomain) const
+QCPRange SequenceDiagram::getKeyRange(bool &validRange, QCP::SignDomain) const
 {
     QCPRange range;
     bool valid = false;
@@ -382,7 +382,7 @@ QCPRange SequenceDiagram::getKeyRange(bool &validRange, QCPAbstractPlottable::Si
     return range;
 }
 
-QCPRange SequenceDiagram::getValueRange(bool &validRange, QCPAbstractPlottable::SignDomain) const
+QCPRange SequenceDiagram::getValueRange(bool &validRange, QCP::SignDomain, const QCPRange &) const
 {
     QCPRange range;
     bool valid = false;

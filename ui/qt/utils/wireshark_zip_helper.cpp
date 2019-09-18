@@ -29,8 +29,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDateTime>
+#include <QMap>
 
-bool WireSharkZipHelper::unzip(QString zipFile, QString directory, bool (*fileCheck)(QString, int))
+bool WireSharkZipHelper::unzip(QString zipFile, QString directory, bool (*fileCheck)(QString, int), QString (*cleanName)(QString))
 {
     unzFile uf = Q_NULLPTR;
     QFileInfo fi(zipFile);
@@ -44,10 +45,13 @@ bool WireSharkZipHelper::unzip(QString zipFile, QString directory, bool (*fileCh
         return false;
 
     unz_global_info64 gi;
-    int err = unzGetGlobalInfo64(uf,&gi);
+    int err;
+    unzGetGlobalInfo64(uf,&gi);
     unsigned int nmbr = static_cast<unsigned int>(gi.number_entry);
     if (nmbr <= 0)
         return false;
+
+    QMap<QString, QString> cleanPaths;
 
     for ( unsigned int cnt = 0; cnt < nmbr; cnt++ )
     {
@@ -59,10 +63,42 @@ bool WireSharkZipHelper::unzip(QString zipFile, QString directory, bool (*fileCh
         {
             QString fileInZip(filename_inzip);
             int fileSize = static_cast<int>(file_info.uncompressed_size);
-            /* Sanity check for the filenames as well as the file size (max 512kb) */
-            if ( fileCheck && fileCheck(fileInZip, fileSize) && di.exists() )
+
+            /* Sanity check for the filen */
+            if ( fileInZip.length() == 0 || ( fileCheck && ! fileCheck(fileInZip, fileSize) ) )
+                continue;
+
+            if ( di.exists() )
             {
-                QFileInfo fi(di.path() + QDir::separator() + fileInZip);
+                QString fullPath = di.path() + QDir::separator() + fileInZip;
+                QFileInfo fi(fullPath);
+                QString dirPath = fi.absolutePath();
+
+                /* clean up name from import. e.g. illegal characters in name */
+                if ( cleanName )
+                {
+                    if ( ! cleanPaths.keys().contains(dirPath) )
+                    {
+                        QString tempPath = cleanName(dirPath);
+                        int cnt = 1;
+                        while ( QFile::exists(tempPath) )
+                        {
+                            tempPath = cleanName(dirPath) + QString::number(cnt);
+                            cnt++;
+                        }
+                        cleanPaths.insert(dirPath, tempPath);
+                    }
+
+                    dirPath = cleanPaths[dirPath];
+                    if ( dirPath.length() == 0 )
+                        continue;
+
+                    fi = QFileInfo(dirPath + QDir::separator() + fi.fileName());
+                    fullPath = fi.absoluteFilePath();
+                }
+                if ( fullPath.length() == 0 )
+                    continue;
+
                 QDir tP(fi.absolutePath());
                 if ( ! tP.exists() )
                     di.mkpath(fi.absolutePath());
@@ -70,23 +106,25 @@ bool WireSharkZipHelper::unzip(QString zipFile, QString directory, bool (*fileCh
                 if ( fileInZip.contains("/") )
                 {
                     QString filePath = fi.absoluteFilePath();
-
-                    err = unzOpenCurrentFile(uf);
-                    if ( err == UNZ_OK )
+                    QFile file(filePath);
+                    if ( ! file.exists() )
                     {
-                        char * buf = static_cast<char *>(malloc(IO_BUF_SIZE));
-                        QFile file(filePath);
-                        if ( file.open(QIODevice::WriteOnly) )
+                        err = unzOpenCurrentFile(uf);
+                        if ( err == UNZ_OK )
                         {
-                            while ( ( err = unzReadCurrentFile(uf, buf, IO_BUF_SIZE) ) != UNZ_EOF )
-                                file.write(buf, err);
+                            char * buf = static_cast<char *>(malloc(IO_BUF_SIZE));
+                            if ( file.open(QIODevice::WriteOnly) )
+                            {
+                                while ( ( err = unzReadCurrentFile(uf, buf, IO_BUF_SIZE) ) != UNZ_EOF )
+                                    file.write(buf, err);
 
-                            file.close();
+                                file.close();
+                            }
+                            unzCloseCurrentFile(uf);
+                            free(buf);
+
+                            files++;
                         }
-                        unzCloseCurrentFile(uf);
-                        free(buf);
-
-                        files++;
                     }
                 }
             }
@@ -111,58 +149,30 @@ bool WireSharkZipHelper::unzip(QString zipFile, QString directory, bool (*fileCh
 #define UINT32_MAX  (0xffffffff)
 #endif
 
-/* The following methods are being taken from https://github.com/nmoinvaz/minizip/blob/1.2/minishared.c */
-int invalid_date(const struct tm *ptm)
-{
-#define datevalue_in_range(min, max, value) ((min) <= (value) && (value) <= (max))
-    return (!datevalue_in_range(0, 207, ptm->tm_year) ||
-            !datevalue_in_range(0, 11, ptm->tm_mon) ||
-            !datevalue_in_range(1, 31, ptm->tm_mday) ||
-            !datevalue_in_range(0, 23, ptm->tm_hour) ||
-            !datevalue_in_range(0, 59, ptm->tm_min) ||
-            !datevalue_in_range(0, 59, ptm->tm_sec));
-#undef datevalue_in_range
-}
-
-uint32_t tm_to_dosdate(const struct tm *ptm)
-{
-    struct tm fixed_tm;
-
-    /* Years supported:
-    * [00, 79]      (assumed to be between 2000 and 2079)
-    * [80, 207]     (assumed to be between 1980 and 2107, typical output of old
-                     software that does 'year-1900' to get a double digit year)
-    * [1980, 2107]  (due to the date format limitations, only years between 1980 and 2107 can be stored.)
-    */
-
-    memcpy(&fixed_tm, ptm, sizeof(struct tm));
-    if (fixed_tm.tm_year >= 1980) /* range [1980, 2107] */
-        fixed_tm.tm_year -= 1980;
-    else if (fixed_tm.tm_year >= 80) /* range [80, 99] */
-        fixed_tm.tm_year -= 80;
-    else /* range [00, 79] */
-        fixed_tm.tm_year += 20;
-
-    if (invalid_date(ptm))
-        return 0;
-
-    return (uint32_t)(((fixed_tm.tm_mday) + (32 * (fixed_tm.tm_mon + 1)) + (512 * fixed_tm.tm_year)) << 16) |
-        ((fixed_tm.tm_sec / 2) + (32 * fixed_tm.tm_min) + (2048 * (uint32_t)fixed_tm.tm_hour));
-}
-
 unsigned long qDateToDosDate(QDateTime time)
 {
-    time_t rawtime = time.toTime_t();
-    struct tm * timeinfo;
+    QDate ld = time.toLocalTime().date();
 
-    timeinfo = localtime(&rawtime);
-    timeinfo->tm_year = time.date().year() - 1900;
-    timeinfo->tm_mon = time.date().month() - 1;
-    timeinfo->tm_mday = time.date().day();
+    int year = ld.year() - 1900;
+    if ( year >= 1980 )
+        year -= 1980;
+    else if ( year >= 80 )
+        year -= 80;
+    else
+        year += 20;
 
-    mktime(timeinfo);
+    int month = ld.month() - 1;
+    int day = ld.day();
 
-    return tm_to_dosdate(timeinfo);
+    if ( year < 0 || year > 207 || month < 1 || month > 31 )
+        return 0;
+
+    QTime lt = time.toLocalTime().time();
+
+    unsigned int dosDate = static_cast<unsigned int>((day + (32 * (month + 1)) + (512 * year)));
+    unsigned int dosTime = static_cast<unsigned int>((lt.second() / 2) + (32 * lt.minute()) + (2048 * lt.hour()));
+
+    return dosDate << 16 | dosTime;
 }
 
 void WireSharkZipHelper::addFileToZip(zipFile zf, QString filepath, QString fileInZip)

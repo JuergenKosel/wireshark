@@ -662,7 +662,7 @@ dissect_coap_opt_uri_port(tvbuff_t *tvb, proto_item *head_item, proto_tree *subt
  * return the total length of the option including the header (e.g. delta and length).
  */
 static int
-dissect_coap_options_main(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, gint offset, guint8 opt_count, guint *opt_num, gint offset_end, coap_info *coinfo, coap_common_dissect_t *dissect_hf)
+dissect_coap_options_main(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, gint offset, guint8 opt_count, guint *opt_num, gint offset_end, guint8 code_class, coap_info *coinfo, coap_common_dissect_t *dissect_hf)
 {
 	guint8      opt_jump;
 	gint        opt_length, opt_length_ext, opt_delta, opt_delta_ext;
@@ -850,8 +850,15 @@ dissect_coap_options_main(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tr
 		    opt_length, coinfo, dissect_hf->hf.opt_uri_path);
 		break;
 	case COAP_OPT_OBSERVE:
-		dissect_coap_opt_uint(tvb, item, subtree, offset,
-		    opt_length, dissect_hf->hf.opt_observe);
+		if (code_class == 0) {
+			/* Request */
+			dissect_coap_opt_uint(tvb, item, subtree, offset,
+			    opt_length, dissect_hf->hf.opt_observe_req);
+		} else {
+			/* Response */
+			dissect_coap_opt_uint(tvb, item, subtree, offset,
+			    opt_length, dissect_hf->hf.opt_observe_rsp);
+		}
 		break;
 	case COAP_OPT_ACCEPT:
 		dissect_coap_opt_ctype(tvb, item, subtree, offset,
@@ -894,7 +901,7 @@ dissect_coap_options_main(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tr
  * or the end of the data.
  */
 int
-dissect_coap_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, gint offset, gint offset_end, coap_info *coinfo, coap_common_dissect_t *dissect_hf)
+dissect_coap_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, gint offset, gint offset_end, guint8 code_class, coap_info *coinfo, coap_common_dissect_t *dissect_hf)
 {
 	guint  opt_num = 0;
 	int    i;
@@ -903,7 +910,7 @@ dissect_coap_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, g
 	/* loop for dissecting options */
 	for (i = 1; offset < offset_end; i++) {
 		offset = dissect_coap_options_main(tvb, pinfo, coap_tree,
-		    offset, i, &opt_num, offset_end, coinfo, dissect_hf);
+		    offset, i, &opt_num, offset_end, code_class, coinfo, dissect_hf);
 		if (offset == -1)
 			return -1;
 		if (offset >= offset_end)
@@ -1037,13 +1044,14 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 	guint32           token_len;
 	guint8            code;
 	guint8            code_class;
-	guint32           mid;
+	guint32           mid = 0;
 	gint              coap_length;
 	gchar            *coap_token_str;
 	coap_info        *coinfo;
 	conversation_t   *conversation;
 	coap_conv_info   *ccinfo;
 	coap_transaction *coap_trans = NULL;
+	coap_request_response *coap_req_rsp = NULL;
 
 	// TODO support TCP/WebSocket/TCP with more than one PDU per packet.
 	// These probably require a unique coinfo for each.
@@ -1146,7 +1154,7 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 	}
 
 	/* process options */
-	offset = dissect_coap_options(tvb, pinfo, coap_tree, offset, coap_length, coinfo, &dissect_coap_hf);
+	offset = dissect_coap_options(tvb, pinfo, coap_tree, offset, coap_length, code_class, coinfo, &dissect_coap_hf);
 	if (offset == -1)
 		return tvb_captured_length(tvb);
 
@@ -1173,9 +1181,7 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 				if ((!PINFO_FD_VISITED(pinfo)) && (code_class == 0)) {
 					/* New request - log it */
 					coap_trans = wmem_new0(wmem_file_scope(), coap_transaction);
-					coap_trans->req_frame = pinfo->num;
-					coap_trans->rsp_frame = 0;
-					coap_trans->req_time = pinfo->abs_ts;
+					coap_trans->req_rsp = wmem_map_new(wmem_file_scope(), g_direct_hash, g_direct_equal);
 					if (coinfo->uri_str_strbuf) {
 						/* Store the URI into CoAP transaction info */
 						coap_trans->uri_str_strbuf = wmem_strbuf_new(wmem_file_scope(), wmem_strbuf_get_str(coinfo->uri_str_strbuf));
@@ -1196,12 +1202,6 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 				}
 			} else {
 				if ((code_class >= 2) && (code_class <= 5)) {
-					if (!PINFO_FD_VISITED(pinfo)) {
-						if (coap_trans->rsp_frame == 0) {
-							/* Log the first matching response frame */
-							coap_trans->rsp_frame = pinfo->num;
-						}
-					}
 					if (coap_trans->uri_str_strbuf) {
 						/* Copy the URI stored in matching transaction info into CoAP packet info */
 						coinfo->uri_str_strbuf = wmem_strbuf_new(wmem_packet_scope(), wmem_strbuf_get_str(coap_trans->uri_str_strbuf));
@@ -1232,6 +1232,30 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 					}
 				}
 			}
+
+			if (coap_trans) {
+				coap_req_rsp = (coap_request_response *)wmem_map_lookup(coap_trans->req_rsp, GINT_TO_POINTER(mid));
+				if (!PINFO_FD_VISITED(pinfo)) {
+					if (!coap_req_rsp) {
+						coap_req_rsp = wmem_new0(wmem_file_scope(), coap_request_response);
+						wmem_map_insert(coap_trans->req_rsp, GINT_TO_POINTER(mid), (void *)coap_req_rsp);
+					}
+					if (code_class == 0) {
+						/* This is a request */
+						if (coap_req_rsp->req_frame == 0) {
+							/* Log the first request frame */
+							coap_req_rsp->req_frame = pinfo->num;
+							coap_req_rsp->req_time = pinfo->abs_ts;
+						}
+					} else if ((code_class >= 2) && (code_class <= 5)) {
+						/* This is a reply */
+						if (coap_req_rsp->rsp_frame == 0) {
+							/* Log the first matching response frame */
+							coap_req_rsp->rsp_frame = pinfo->num;
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -1250,45 +1274,51 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 	if (wmem_strbuf_get_len(coinfo->uri_query_strbuf) > 0)
 		col_append_str(pinfo->cinfo, COL_INFO, wmem_strbuf_get_str(coinfo->uri_query_strbuf));
 
-	if (coap_trans != NULL) {
+	if (coap_req_rsp != NULL) {
 		/* Print state tracking in the tree */
 		if (code_class == 0) {
 			/* This is a request */
-			if (coap_trans->rsp_frame) {
+			if (coap_req_rsp->rsp_frame) {
 				proto_item *it;
 
 				it = proto_tree_add_uint(coap_tree, hf_coap_response_in,
-						tvb, 0, 0, coap_trans->rsp_frame);
+						tvb, 0, 0, coap_req_rsp->rsp_frame);
 				proto_item_set_generated(it);
 			}
-			if (coap_trans->req_frame != pinfo->num) {
+			if (coap_req_rsp->req_frame != pinfo->num) {
 				col_append_str(pinfo->cinfo, COL_INFO, " [Retransmission]");
 				proto_item *it = proto_tree_add_uint(coap_tree, hf_coap_request_resend_in,
-				                                     tvb, 0, 0, coap_trans->req_frame);
+				                                     tvb, 0, 0, coap_req_rsp->req_frame);
 				proto_item_set_generated(it);
 				expert_add_info(pinfo, it, &ei_retransmitted);
 			}
 		} else if ((code_class >= 2) && (code_class <= 5)) {
 			/* This is a reply */
-			if (coap_trans->req_frame) {
+			if (coap_req_rsp->req_frame) {
 				proto_item *it;
 				nstime_t ns;
 
 				it = proto_tree_add_uint(coap_tree, hf_coap_response_to,
-						tvb, 0, 0, coap_trans->req_frame);
+						tvb, 0, 0, coap_req_rsp->req_frame);
 				proto_item_set_generated(it);
 
-				nstime_delta(&ns, &pinfo->abs_ts, &coap_trans->req_time);
+				nstime_delta(&ns, &pinfo->abs_ts, &coap_req_rsp->req_time);
 				it = proto_tree_add_time(coap_tree, hf_coap_response_time, tvb, 0, 0, &ns);
 				proto_item_set_generated(it);
 			}
-			if (coap_trans->rsp_frame != pinfo->num) {
+			if (coap_req_rsp->rsp_frame != pinfo->num) {
 				col_append_str(pinfo->cinfo, COL_INFO, " [Retransmission]");
 				proto_item *it = proto_tree_add_uint(coap_tree, hf_coap_response_resend_in,
-				                                     tvb, 0, 0, coap_trans->rsp_frame);
+				                                     tvb, 0, 0, coap_req_rsp->rsp_frame);
 				proto_item_set_generated(it);
 				expert_add_info(pinfo, it, &ei_retransmitted);
 			}
+		}
+	}
+
+	if (coap_trans != NULL) {
+		if ((code_class >= 2) && (code_class <= 5)) {
+			/* This is a reply */
 			if (coinfo->object_security && coap_trans->oscore_info) {
 				proto_item *it;
 

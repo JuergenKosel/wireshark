@@ -996,7 +996,13 @@ WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_lznt1(tvbuff_t *parent,
 /* From tvbuff_base64.c */
 
 /** Return a tvb that contains the binary representation of a base64
- *  string
+ *  string as a child of the indicated tvb.
+ *
+ * @param parent The parent tvbuff.
+ * @param base64 The base64 encoded string which binary representation will be
+ *               returned in the child tvb.
+ *
+ * @return   A tvb with the binary representation of the base64 decoded string.
  */
 extern tvbuff_t* base64_to_tvb(tvbuff_t *parent, const char *base64);
 
@@ -1010,7 +1016,7 @@ extern tvbuff_t* base64_to_tvb(tvbuff_t *parent, const char *base64);
  * @param offset The offset in tvb from which we begin trying to extract integer.
  * @param maxlen The maximum distance from offset that we may try to extract integer
  * @param value  if parsing succeeds, parsed varint will store here.
- * @param encoding The ENC_* that defines the format (e.g., ENC_VARINT_PROTOBUF, ENC_VARINT_QUIC)
+ * @param encoding The ENC_* that defines the format (e.g., ENC_VARINT_PROTOBUF, ENC_VARINT_QUIC, ENC_VARINT_ZIGZAG)
  * @return   the length of this varint in tvb. 0 means parsing failed.
  */
 WS_DLL_PUBLIC guint tvb_get_varint(tvbuff_t *tvb, guint offset, guint maxlen, guint64 *value, const guint encoding);

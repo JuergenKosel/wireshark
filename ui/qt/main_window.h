@@ -307,6 +307,7 @@ public slots:
     bool openCaptureFile(QString cf_path, QString display_filter, unsigned int type, gboolean is_tempfile = FALSE);
     bool openCaptureFile(QString cf_path = QString(), QString display_filter = QString()) { return openCaptureFile(cf_path, display_filter, WTAP_TYPE_AUTO); }
     void filterPackets(QString new_filter = QString(), bool force = false);
+    void setDisplayFilter(QString filter, FilterAction::Action action, FilterAction::ActionType filterType);
     void updateForUnsavedChanges();
     void layoutPanes();
     void applyRecentPaneGeometry();
@@ -532,18 +533,8 @@ private slots:
     void on_actionAnalyzeDisplayFilterMacros_triggered();
     void matchFieldFilter(FilterAction::Action action, FilterAction::ActionType filter_type);
     void on_actionAnalyzeCreateAColumn_triggered();
-    void on_actionAnalyzeAAFSelected_triggered();
-    void on_actionAnalyzeAAFNotSelected_triggered();
-    void on_actionAnalyzeAAFAndSelected_triggered();
-    void on_actionAnalyzeAAFOrSelected_triggered();
-    void on_actionAnalyzeAAFAndNotSelected_triggered();
-    void on_actionAnalyzeAAFOrNotSelected_triggered();
-    void on_actionAnalyzePAFSelected_triggered();
-    void on_actionAnalyzePAFNotSelected_triggered();
-    void on_actionAnalyzePAFAndSelected_triggered();
-    void on_actionAnalyzePAFOrSelected_triggered();
-    void on_actionAnalyzePAFAndNotSelected_triggered();
-    void on_actionAnalyzePAFOrNotSelected_triggered();
+
+    void filterMenuAboutToShow();
 
     void applyConversationFilter();
     void applyExportObject();

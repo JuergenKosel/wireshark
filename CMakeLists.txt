@@ -947,14 +947,14 @@ if(NOT CMAKE_C_COMPILER_ID MATCHES "MSVC" AND NOT OSS_FUZZ)
 	# independent may fail, the user can set CMAKE_EXE_LINKER_FLAGS=-no-pie
 	# as a workaround.
 	#
-	if(CMAKE_VERSION VERSION_GREATER "3.13.999")
-		include(CheckPIESupported)
-		check_pie_supported()
-	else()
+	if(CMAKE_VERSION VERSION_LESS "3.14")
 		check_c_linker_flag(-pie LINK_pie_VALID)
 		if(LINK_pie_VALID)
 			set(CMAKE_EXE_LINKER_FLAGS "-pie ${CMAKE_EXE_LINKER_FLAGS}")
 		endif()
+	else()
+		include(CheckPIESupported)
+		check_pie_supported()
 	endif()
 endif()
 
@@ -1137,6 +1137,9 @@ ws_find_package(LZ4 ENABLE_LZ4 HAVE_LZ4)
 
 # Snappy compression
 ws_find_package(SNAPPY ENABLE_SNAPPY HAVE_SNAPPY)
+
+# zstd compression
+ws_find_package(ZSTD ENABLE_ZSTD HAVE_ZSTD "1.0.0")
 
 # Enhanced HTTP/2 dissection
 ws_find_package(NGHTTP2 ENABLE_NGHTTP2 HAVE_NGHTTP2)
@@ -1505,13 +1508,21 @@ include(gmxTestLargeFiles)
 gmx_test_large_files(GMX_LARGEFILES)
 
 set( VERSION ${PROJECT_VERSION} )
-add_custom_target(version
-	BYPRODUCTS version.h
-	COMMAND ${PERL_EXECUTABLE}
-		${CMAKE_SOURCE_DIR}/tools/make-version.pl
-		${CMAKE_SOURCE_DIR}
-)
-set_target_properties(version PROPERTIES FOLDER "Auxiliary")
+if(VCSVERSION_OVERRIDE)
+	# Allow distributors to override detection of the Git tag and version.
+	string(CONFIGURE "#define VCSVERSION \"@VCSVERSION_OVERRIDE@\"\n"
+		_version_h_contents ESCAPE_QUOTES)
+	file(WRITE "${CMAKE_BINARY_DIR}/version.h" "${_version_h_contents}")
+	message(STATUS "VCSVERSION_OVERRIDE: ${VCSVERSION_OVERRIDE}")
+else()
+	add_custom_target(version
+		BYPRODUCTS version.h
+		COMMAND ${PERL_EXECUTABLE}
+			${CMAKE_SOURCE_DIR}/tools/make-version.pl
+			${CMAKE_SOURCE_DIR}
+	)
+	set_target_properties(version PROPERTIES FOLDER "Auxiliary")
+endif()
 
 set( configure_input "Built with CMake ${CMAKE_VERSION}" )
 configure_file(${CMAKE_SOURCE_DIR}/cmakeconfig.h.in ${CMAKE_BINARY_DIR}/config.h)
@@ -1585,6 +1596,11 @@ set_package_properties(SNAPPY PROPERTIES
 	DESCRIPTION "A fast compressor/decompressor from Google"
 	URL "https://google.github.io/snappy/"
 	PURPOSE "Snappy decompression in CQL and Kafka dissectors"
+)
+set_package_properties(ZSTD PROPERTIES
+	DESCRIPTION "A compressor/decompressor from Facebook providing better compression than Snappy at a cost of speed"
+	URL "https://facebook.github.io/zstd/"
+	PURPOSE "Zstd decompression in Kafka dissector"
 )
 set_package_properties(NGHTTP2 PROPERTIES
 	DESCRIPTION "HTTP/2 C library and tools"
@@ -1810,8 +1826,12 @@ if(WIN32)
 		list (APPEND OPTIONAL_DLLS "${LZ4_DLL_DIR}/${LZ4_DLL}")
 		list (APPEND OPTIONAL_PDBS "${LZ4_DLL_DIR}/${LZ4_PDB}")
 	endif(LZ4_FOUND)
+	if (ZSTD_FOUND)
+		list (APPEND OPTIONAL_DLLS "${ZSTD_DLL_DIR}/${ZSTD_DLL}")
+	endif(ZSTD_FOUND)
 	if (NGHTTP2_FOUND)
 		list (APPEND OPTIONAL_DLLS "${NGHTTP2_DLL_DIR}/${NGHTTP2_DLL}")
+		list (APPEND OPTIONAL_PDBS "${NGHTTP2_DLL_DIR}/${NGHTTP2_PDB}")
 	endif(NGHTTP2_FOUND)
 	if (SBC_FOUND)
 		list (APPEND OPTIONAL_DLLS "${SBC_DLL_DIR}/${SBC_DLL}")
@@ -2119,7 +2139,9 @@ set_target_properties(copy_data_files PROPERTIES FOLDER "Copy Tasks")
 # Shared code, build object files once for all users.
 add_library(version_info OBJECT version_info.c)
 target_include_directories(version_info SYSTEM PRIVATE ${VERSION_INFO_INCLUDE_DIRS})
-add_dependencies(version_info version)
+if(NOT VCSVERSION_OVERRIDE)
+	add_dependencies(version_info version)
+endif()
 # sources common for wireshark, tshark, rawshark and sharkd
 add_library(shark_common OBJECT
 	cfile.c
@@ -2140,7 +2162,6 @@ set_target_properties(version_info shark_common cli_main capture_opts
 
 if(BUILD_wireshark AND QT_FOUND)
 	set(WIRESHARK_SRC
-		capture_info.c
 		file.c
 		fileset.c
 		${PLATFORM_UI_SRC}

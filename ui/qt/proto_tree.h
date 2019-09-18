@@ -36,7 +36,6 @@ public:
     void autoScrollTo(const QModelIndex &index);
     void goToHfid(int hfid);
     void clear();
-    void closeContextMenu();
     void restoreSelectedField();
     QString toString(const QModelIndex &start_idx = QModelIndex()) const;
 
@@ -49,7 +48,6 @@ protected:
     } CopyInfos;
 
     virtual void contextMenuEvent(QContextMenuEvent *event);
-    void protoTreeContextMenu(QContextMenuEvent * event);
     virtual void timerEvent(QTimerEvent *event);
     virtual void keyReleaseEvent(QKeyEvent *event);
     virtual bool eventFilter(QObject * obj, QEvent * ev);
@@ -59,7 +57,6 @@ protected:
 
 private:
     ProtoTreeModel *proto_tree_model_;
-    QMenu ctx_menu_;
     QMenu conv_menu_;
     QMenu colorize_menu_;
     ProtocolPreferencesMenu proto_prefs_menu_;

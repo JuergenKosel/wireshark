@@ -12,9 +12,18 @@
 
 /*
  * See https://quicwg.org
- * https://tools.ietf.org/html/draft-ietf-quic-transport-22
- * https://tools.ietf.org/html/draft-ietf-quic-tls-22
- * https://tools.ietf.org/html/draft-ietf-quic-invariants-06
+ * https://tools.ietf.org/html/draft-ietf-quic-transport-23
+ * https://tools.ietf.org/html/draft-ietf-quic-tls-23
+ * https://tools.ietf.org/html/draft-ietf-quic-invariants-07
+ *
+ * Currently supported QUIC version(s): draft -21, draft -22, draft -23.
+ * For a table of supported QUIC versions per Wireshark version, see
+ * https://github.com/quicwg/base-drafts/wiki/Tools#wireshark
+ *
+ * Decryption is supported via TLS 1.3 secrets in the "TLS Key Log File",
+ * configured either at the TLS Protocol preferences, or embedded in a pcapng
+ * file. Sample captures and secrets can be found at:
+ * https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=13881
  */
 
 #include <config.h>
@@ -285,12 +294,10 @@ static inline guint8 quic_draft_version(guint32 version) {
     return 0;
 }
 
-#if 0
 static inline gboolean is_quic_draft_max(guint32 version, guint8 max_version) {
     guint8 draft_version = quic_draft_version(version);
     return draft_version && draft_version <= max_version;
 }
-#endif
 
 const value_string quic_version_vals[] = {
     { 0x00000000, "Version Negotiation" },
@@ -314,6 +321,7 @@ const value_string quic_version_vals[] = {
     { 0xff000014, "draft-20" },
     { 0xff000015, "draft-21" },
     { 0xff000016, "draft-22" },
+    { 0xff000017, "draft-23" },
     { 0, NULL }
 };
 
@@ -414,7 +422,6 @@ static const range_string quic_transport_error_code_vals[] = {
     { 0x0007, 0x0007, "FRAME_ENCODING_ERROR" },
     { 0x0008, 0x0008, "TRANSPORT_PARAMETER_ERROR" },
     { 0x000A, 0x000A, "PROTOCOL_VIOLATION" },
-    { 0x000C, 0x000C, "INVALID_MIGRATION" },
     { 0x000D, 0x000D, "CRYPTO_BUFFER_EXCEEDED" },
     { 0x0100, 0x01FF, "CRYPTO_ERROR" },
     /* 0x40 - 0x3fff Assigned via Specification Required policy. */
@@ -746,7 +753,7 @@ quic_connection_find(packet_info *pinfo, guint8 long_packet_type,
 
 /** Create a new QUIC Connection based on a Client Initial packet. */
 static quic_info_data_t *
-quic_connection_create(packet_info *pinfo, guint32 version, const quic_cid_t *scid, const quic_cid_t *dcid)
+quic_connection_create(packet_info *pinfo, guint32 version)
 {
     quic_info_data_t *conn = NULL;
 
@@ -757,6 +764,18 @@ quic_connection_create(packet_info *pinfo, guint32 version, const quic_cid_t *sc
     copy_address_wmem(wmem_file_scope(), &conn->server_address, &pinfo->dst);
     conn->server_port = pinfo->destport;
 
+    // For faster lookups without having to check DCID
+    conversation_t *conv = find_or_create_conversation(pinfo);
+    conversation_add_proto_data(conv, proto_quic, conn);
+
+    return conn;
+}
+
+/** Update client/server connection identifiers, assuming the information is
+ * from the Client Initial. */
+static void
+quic_connection_update_initial(quic_info_data_t *conn, const quic_cid_t *scid, const quic_cid_t *dcid)
+{
     // Key connection by Client CID (if provided).
     if (scid->len) {
         memcpy(&conn->client_cids.data, scid, sizeof(quic_cid_t));
@@ -768,12 +787,6 @@ quic_connection_create(packet_info *pinfo, guint32 version, const quic_cid_t *sc
         memcpy(&conn->client_dcid_initial, dcid, sizeof(quic_cid_t));
         wmem_map_insert(quic_initial_connections, &conn->client_dcid_initial, conn);
     }
-
-    // For faster lookups without having to check DCID
-    conversation_t *conv = find_or_create_conversation(pinfo);
-    conversation_add_proto_data(conv, proto_quic, conn);
-
-    return conn;
 }
 
 #ifdef HAVE_LIBGCRYPT_AEAD
@@ -817,15 +830,15 @@ quic_connection_create_or_update(quic_info_data_t **conn_p,
         if (!from_server) {
             if (!conn) {
                 // The first Initial Packet from the client creates a new connection.
-                *conn_p = quic_connection_create(pinfo, version, scid, dcid);
-            } else if (conn->client_dcid_initial.len == 0 && dcid->len &&
-                       scid->len && !quic_cids_has_match(&conn->server_cids, scid)) {
+                *conn_p = quic_connection_create(pinfo, version);
+                quic_connection_update_initial(*conn_p, scid, dcid);
+            } else if (conn->client_dcid_initial.len == 0 && dcid->len) {
                 // If this client Initial Packet responds to a Retry Packet,
-                // then remember the new DCID for the new Initial cipher and
-                // clear the first server CID such that the next server Initial
-                // Packet can link the connection with that new SCID.
-                memcpy(&conn->client_dcid_initial, dcid, sizeof(quic_cid_t));
-                wmem_map_insert(quic_initial_connections, &conn->client_dcid_initial, conn);
+                // then remember the new client SCID and initial DCID for the
+                // new Initial cipher and clear the first server CID such that
+                // the next server Initial Packet can link the connection with
+                // that new SCID.
+                quic_connection_update_initial(conn, scid, dcid);
                 wmem_map_remove(quic_server_connections, &conn->server_cids.data);
                 memset(&conn->server_cids, 0, sizeof(quic_cid_t));
             }
@@ -838,7 +851,7 @@ quic_connection_create_or_update(quic_info_data_t **conn_p,
         // (or from the first server Initial packet, since draft -13).
         if (from_server && conn) {
             if (long_packet_type == QUIC_LPT_RETRY) {
-                // Stateless Retry Packet: the next Initial Packet from the
+                // Retry Packet: the next Initial Packet from the
                 // client should start a new cryptographic handshake. Erase the
                 // current "Initial DCID" such that the next client Initial
                 // packet populates the new value.
@@ -1349,12 +1362,13 @@ static gboolean
 quic_derive_initial_secrets(const quic_cid_t *cid,
                             guint8 client_initial_secret[HASH_SHA2_256_LENGTH],
                             guint8 server_initial_secret[HASH_SHA2_256_LENGTH],
+                            guint32 version,
                             const gchar **error)
 {
     /*
-     * https://tools.ietf.org/html/draft-ietf-quic-tls-22#section-5.2
+     * https://tools.ietf.org/html/draft-ietf-quic-tls-23#section-5.2
      *
-     * initial_salt = 0x7fbcdb0e7c66bbe9193a96cd21519ebd7a02644a
+     * initial_salt = 0xc3eef712c72ebb5a11a7d2432bb46365bef9f502
      * initial_secret = HKDF-Extract(initial_salt, client_dst_connection_id)
      *
      * client_initial_secret = HKDF-Expand-Label(initial_secret,
@@ -1364,15 +1378,25 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
      *
      * Hash for handshake packets is SHA-256 (output size 32).
      */
-    static const guint8 handshake_salt[20] = {
+    static const guint8 handshake_salt_draft_22[20] = {
         0x7f, 0xbc, 0xdb, 0x0e, 0x7c, 0x66, 0xbb, 0xe9, 0x19, 0x3a,
         0x96, 0xcd, 0x21, 0x51, 0x9e, 0xbd, 0x7a, 0x02, 0x64, 0x4a
     };
+    static const guint8 handshake_salt_draft_23[20] = {
+        0xc3, 0xee, 0xf7, 0x12, 0xc7, 0x2e, 0xbb, 0x5a, 0x11, 0xa7,
+        0xd2, 0x43, 0x2b, 0xb4, 0x63, 0x65, 0xbe, 0xf9, 0xf5, 0x02,
+    };
+
     gcry_error_t    err;
     guint8          secret[HASH_SHA2_256_LENGTH];
 
-    err = hkdf_extract(GCRY_MD_SHA256, handshake_salt, sizeof(handshake_salt),
-                       cid->cid, cid->len, secret);
+    if (is_quic_draft_max(version, 22)) {
+        err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_22, sizeof(handshake_salt_draft_22),
+                           cid->cid, cid->len, secret);
+    } else {
+        err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_23, sizeof(handshake_salt_draft_23),
+                           cid->cid, cid->len, secret);
+    }
     if (err) {
         *error = wmem_strdup_printf(wmem_packet_scope(), "Failed to extract secrets: %s", gcry_strerror(err));
         return FALSE;
@@ -1458,7 +1482,7 @@ quic_create_initial_decoders(const quic_cid_t *cid, const gchar **error, quic_in
     guint8          client_secret[HASH_SHA2_256_LENGTH];
     guint8          server_secret[HASH_SHA2_256_LENGTH];
 
-    if (!quic_derive_initial_secrets(cid, client_secret, server_secret, error)) {
+    if (!quic_derive_initial_secrets(cid, client_secret, server_secret, quic_info->version, error)) {
         return FALSE;
     }
 

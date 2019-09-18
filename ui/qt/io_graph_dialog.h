@@ -34,6 +34,8 @@ class QCPBars;
 class QCPGraph;
 class QCPItemTracer;
 class QCustomPlot;
+class QCPAxisTicker;
+class QCPAxisTickerDateTime;
 
 // GTK+ sets this to 100000 (NUM_IO_ITEMS)
 const int max_io_items_ = 250000;
@@ -182,6 +184,9 @@ private:
     bool need_retap_; // Heavy weight: re-read packet data
     bool auto_axes_;
 
+    QSharedPointer<QCPAxisTicker> number_ticker_;
+    QSharedPointer<QCPAxisTickerDateTime> datetime_ticker_;
+
 
 //    void fillGraph();
     void zoomAxes(bool in);
@@ -200,7 +205,7 @@ private:
     bool graphIsEnabled(int row) const;
 
 private slots:
-    void copyFromProfile(QAction *action);
+    void copyFromProfile(QString filename);
     void updateWidgets();
     void graphClicked(QMouseEvent *event);
     void mouseMoved(QMouseEvent *event);

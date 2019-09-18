@@ -327,6 +327,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-dtls.h
 	packet-dtn.h
 	packet-dvbci.h
+	packet-e1ap.h
 	packet-enip.h
 	packet-erf.h
 	packet-e164.h
@@ -951,6 +952,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dtn.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dtp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dtpt.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-dlt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dua.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-ait.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-bat.c
@@ -1451,6 +1453,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netflow.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-generic.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-netfilter.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-net_dm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-nl80211.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-route.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-sock_diag.c
@@ -1520,6 +1523,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-osi-options.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-osi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ositp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-osmo_trx.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ospf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ossp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ouch.c

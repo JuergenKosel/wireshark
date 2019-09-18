@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * Ref 3GPP TS 29.244 V15.6.0 (2019-06-13)
+ * Ref 3GPP TS 29.244 V16.0.0 (2019-06-13)
  */
 #include "config.h"
 
@@ -22,7 +22,6 @@
 #include <epan/addr_resolv.h> /* Needed for BASE_ENTERPRISES */
 #include "packet-e164.h"
 #include "packet-e212.h"
-#include "packet-ntp.h"
 
 void proto_register_pfcp(void);
 void proto_reg_handoff_pfcp(void);
@@ -253,6 +252,11 @@ static int hf_pfcp_report_type_b0_dldr = -1;
 
 static int hf_pfcp_offending_ie = -1;
 
+static int hf_pfcp_up_function_features_o7_b3_sset = -1;
+static int hf_pfcp_up_function_features_o7_b2_ueip = -1;
+static int hf_pfcp_up_function_features_o7_b1_adpdp = -1;
+static int hf_pfcp_up_function_features_o7_b0_dpdra = -1;
+static int hf_pfcp_up_function_features_o6_b7_epfar = -1;
 static int hf_pfcp_up_function_features_o6_b6_pfde = -1;
 static int hf_pfcp_up_function_features_o6_b5_frrt = -1;
 static int hf_pfcp_up_function_features_o6_b4_trace = -1;
@@ -1921,15 +1925,14 @@ dissect_pfcp_time_threshold(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static void
 dissect_pfcp_monitoring_time(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
-    const gchar *time_str;
+    char *time_str;
     int offset = 0;
 
     /* The Monitoring Time field shall indicate the monitoring time in UTC time.
     * Octets 5 to 8 shall be encoded in the same format as the first four octets
     * of the 64-bit timestamp format as defined in section 6 of IETF RFC 5905.
     */
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_monitoring_time, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_monitoring_time, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -2253,7 +2256,7 @@ dissect_pfcp_up_function_features(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     }
 
     static const int * pfcp_up_function_features_o6_flags[] = {
-        &hf_pfcp_spare_b7,
+        &hf_pfcp_up_function_features_o6_b7_epfar,
         &hf_pfcp_up_function_features_o6_b6_pfde,
         &hf_pfcp_up_function_features_o6_b5_frrt,
         &hf_pfcp_up_function_features_o6_b4_trace,
@@ -2263,9 +2266,29 @@ dissect_pfcp_up_function_features(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
         &hf_pfcp_up_function_features_o6_b0_empu,
         NULL
     };
-    /* Octet 6  Spare   PFDE   FRRT    TRACE   QUOAC   UDBC    PDIU    EMPU */
+    /* Octet 6  EPFAR   PFDE   FRRT    TRACE   QUOAC   UDBC    PDIU    EMPU */
     proto_tree_add_bitmask_list(tree, tvb, offset, 1, pfcp_up_function_features_o6_flags, ENC_BIG_ENDIAN);
     offset++;
+
+    if (offset == length) {
+        return;
+    }
+
+    static const int * pfcp_up_function_features_o7_flags[] = {
+        &hf_pfcp_spare_b7_b4,
+        &hf_pfcp_up_function_features_o7_b3_sset,
+        &hf_pfcp_up_function_features_o7_b2_ueip,
+        &hf_pfcp_up_function_features_o7_b1_adpdp,
+        &hf_pfcp_up_function_features_o7_b0_dpdra,
+        NULL
+    };
+    /* Octet 7  Spare   Spare   Spare    Spare   SSET   UEIP    ADPDP    DPDRA */
+    proto_tree_add_bitmask_list(tree, tvb, offset, 1, pfcp_up_function_features_o7_flags, ENC_BIG_ENDIAN);
+    offset++;
+
+    /* Octet 8  Spare */
+    proto_tree_add_item(tree, hf_pfcp_spare, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
 
     if (offset < length) {
         proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
@@ -3171,14 +3194,13 @@ static void
 dissect_pfcp_time_of_first_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
     int offset = 0;
-    const gchar *time_str;
+    char *time_str;
 
     /* Octets 5 to 8 shall be encoded in the same format as the first four octets of the 64-bit timestamp
      * format as defined in section 6 of IETF RFC 5905
      */
 
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_time_of_first_packet, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_time_of_first_packet, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -3193,14 +3215,13 @@ static void
 dissect_pfcp_time_of_last_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
     int offset = 0;
-    const gchar *time_str;
+    char *time_str;
 
     /* Octets 5 to 8 shall be encoded in the same format as the first four octets of the 64-bit timestamp
     * format as defined in section 6 of IETF RFC 5905
     */
 
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_time_of_last_packet, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_time_of_last_packet, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -3346,14 +3367,13 @@ dissect_pfcp_time_quota(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, pro
 static void
 dissect_pfcp_start_time(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
-    const gchar *time_str;
+    char *time_str;
     int offset = 0;
 
     /* The Start Time field shall contain a UTC time. Octets 5 to 8 are encoded in the same format as
     * the first four octets of the 64-bit timestamp format as defined in section 6 of IETF RFC 5905 [26].
     */
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_start_time, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_start_time, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -3368,14 +3388,13 @@ dissect_pfcp_start_time(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, pro
 static void
 dissect_pfcp_end_time(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
-    const gchar *time_str;
+    char *time_str;
     int offset = 0;
 
     /* The End Time field shall contain a UTC time. Octets 5 to 8 are encoded in the same format as
     * the first four octets of the 64-bit timestamp format as defined in section 6 of IETF RFC 5905 [26].
     */
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_end_time, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_end_time, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -3825,14 +3844,13 @@ dissect_pfcp_outer_hdr_rem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 static void
 dissect_pfcp_recovery_time_stamp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
-    const gchar *time_str;
+    char *time_str;
     int offset = 0;
 
     /* indicates the UTC time when the node started. Octets 5 to 8 are encoded in the same format as
     * the first four octets of the 64-bit timestamp format as defined in section 6 of IETF RFC 5905 [26].
     */
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_recovery_time_stamp, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_recovery_time_stamp, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -5240,15 +5258,14 @@ dissect_pfcp_event_threshold(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 static void
 dissect_pfcp_event_time_stamp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
-    const gchar *time_str;
+    char *time_str;
     int offset = 0;
 
     /* The Event Time Stamp field shall contain a UTC time.
     * Octets 5 to 8 shall be encoded in the same format as the first four octets
     * of the 64-bit timestamp format as defined in section 6 of IETF RFC 5905.
     */
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_event_time_stamp, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_event_time_stamp, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -5420,14 +5437,13 @@ static void
 dissect_pfcp_activation_time(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
     int offset = 0;
-    const gchar *time_str;
+    char *time_str;
 
     /* Octets 5 to 8 shall be encoded in the same format as the first four octets of the 64-bit timestamp
      * format as defined in section 6 of IETF RFC 5905
      */
 
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_activation_time, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_activation_time, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -5443,14 +5459,13 @@ static void
 dissect_pfcp_deactivation_time(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
     int offset = 0;
-    const gchar *time_str;
+    char *time_str;
 
     /* Octets 5 to 8 shall be encoded in the same format as the first four octets of the 64-bit timestamp
      * format as defined in section 6 of IETF RFC 5905
      */
 
-    time_str = tvb_ntp_fmt_ts_sec(tvb, 0);
-    proto_tree_add_string(tree, hf_pfcp_deactivation_time, tvb, offset, 4, time_str);
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_deactivation_time, tvb, offset, 4, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
     proto_item_append_text(item, "%s", time_str);
     offset += 4;
 
@@ -6784,7 +6799,7 @@ proto_register_pfcp(void)
         },
         { &hf_pfcp_recovery_time_stamp,
         { "Recovery Time Stamp", "pfcp.recovery_time_stamp",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
         NULL, HFILL }
         },
         { &hf_pfcp2_cause,
@@ -7190,12 +7205,12 @@ proto_register_pfcp(void)
         },
         { &hf_pfcp_time_of_first_packet,
         { "Time of First Packet", "pfcp.time_of_first_packet",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_pfcp_time_of_last_packet,
         { "Time of Last Packet", "pfcp.time_of_last_packet",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_pfcp_dst_interface,
@@ -7305,7 +7320,7 @@ proto_register_pfcp(void)
         },
         { &hf_pfcp_monitoring_time,
         { "Monitoring Time", "pfcp.monitoring_time",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_pfcp_reporting_triggers_o5_b0_perio,
@@ -7577,12 +7592,12 @@ proto_register_pfcp(void)
         },
         { &hf_pfcp_start_time,
         { "Start Time", "pfcp.start_time",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_pfcp_end_time,
         { "End Time", "pfcp.start_time",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_pfcp_quota_holding_time,
@@ -7760,6 +7775,31 @@ proto_register_pfcp(void)
         { "PFDE", "pfcp.up_function_features.pfde",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x40,
             "The UP function supports a PFD Contents including a property with multiple values", HFILL }
+        },
+        { &hf_pfcp_up_function_features_o6_b7_epfar,
+        { "EPFAR", "pfcp.up_function_features.epfar",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x80,
+            "The UP function supports the Enhanced PFCP Association Release feature", HFILL }
+        },
+        { &hf_pfcp_up_function_features_o7_b0_dpdra,
+        { "DPDRA", "pfcp.up_function_features.dpdra",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x01,
+            "The UP function supports Deferred PDR Activation or Deactivation", HFILL }
+        },
+        { &hf_pfcp_up_function_features_o7_b1_adpdp,
+        { "ADPDP", "pfcp.up_function_features.adpdp",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x02,
+            "The UP function supports the Activation and Deactivation of Pre-defined PDRs", HFILL }
+        },
+        { &hf_pfcp_up_function_features_o7_b2_ueip,
+        { "UEIP", "pfcp.up_function_features.ueip",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x04,
+            "The UP function supports allocating UE IP addresses or prefixes", HFILL }
+        },
+        { &hf_pfcp_up_function_features_o7_b3_sset,
+        { "SSET", "pfcp.up_function_features.sset",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x08,
+            "UP function support of PFCP sessions successively controlled by different SMFs of a same SMF", HFILL }
         },
         { &hf_pfcp_sequence_number,
         { "Sequence Number", "pfcp.sequence_number",
@@ -8713,7 +8753,7 @@ proto_register_pfcp(void)
 
         { &hf_pfcp_event_time_stamp,
         { "Event Time Stamp", "pfcp.event_time_stamp",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
 
@@ -8763,12 +8803,12 @@ proto_register_pfcp(void)
 
         { &hf_pfcp_activation_time,
         { "Activation Time", "pfcp.activation_time",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_pfcp_deactivation_time,
         { "Dectivation Time", "pfcp.deactivation_time",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
 

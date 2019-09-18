@@ -109,7 +109,7 @@
 #endif /* _WIN32 */
 #include <capchild/capture_session.h>
 #include <capchild/capture_sync.h>
-#include <capture_info.h>
+#include <ui/capture_info.h>
 #endif /* HAVE_LIBPCAP */
 #include "log.h"
 #include <epan/funnel.h>
@@ -1162,9 +1162,15 @@ main(int argc, char *argv[])
       }
       break;
     case 'j':
+      if (protocolfilter) {
+        cmdarg_err("-j or -J was already specified! Overwriting previous protocol filter");
+      }
       protocolfilter = wmem_strsplit(wmem_epan_scope(), optarg, " ", -1);
       break;
     case 'J':
+      if (protocolfilter) {
+        cmdarg_err("-j or -J was already specified! Overwriting previous protocol filter");
+      }
       protocolfilter_flags = PF_INCLUDE_CHILDREN;
       protocolfilter = wmem_strsplit(wmem_epan_scope(), optarg, " ", -1);
       break;
