@@ -218,8 +218,8 @@
         <translation>标记/取消标记行</translation>
     </message>
     <message>
-        <source>CtrlM</source>
-        <translation>CtrlM</translation>
+        <source>Ctrl-M</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mark/Unmark Cell</source>
@@ -261,8 +261,8 @@
         <translation>LMP 版本</translation>
     </message>
     <message>
-        <source>LMP Subverion</source>
-        <translation>LMP 子版本</translation>
+        <source>LMP Subversion</source>
+        <translation type="unfinished">LMP 子版本</translation>
     </message>
     <message>
         <source>Manufacturer</source>
@@ -361,8 +361,8 @@
         <translation>标记/取消标记行</translation>
     </message>
     <message>
-        <source>CtrlM</source>
-        <translation>CtrlM</translation>
+        <source>Ctrl-M</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mark/Unmark Cell</source>
@@ -472,8 +472,8 @@
         <translation>标记/取消标记行</translation>
     </message>
     <message>
-        <source>CtrlM</source>
-        <translation>CtrlM</translation>
+        <source>Ctrl-M</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mark/Unmark Cell</source>
@@ -2928,6 +2928,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>SMI MIB/PIB 搜索路径</translation>
     </message>
     <message>
+        <source>macOS Extras</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extra macOS packages</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Name</source>
         <translation>名称</translation>
     </message>
@@ -3058,6 +3066,12 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Please make sure you have a %1 packet selected.</source>
         <translation>请确保您已选中一个 %1 分组。</translation>
     </message>
+    <message numerus="yes">
+        <source>%Ln total sub stream(s).</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
     <message>
         <source>Entire conversation (%1)</source>
         <translation>整个对话（%1）</translation>
@@ -3104,6 +3118,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Stream</source>
         <translation>流</translation>
+    </message>
+    <message>
+        <source>Substream</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Find:</source>
@@ -4080,10 +4098,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>十进制</translation>
     </message>
     <message>
-        <source>The format in which to parse timestamps in the text file (eg. %H:%M:%S.). Format specifiers are based on strptime(3)</source>
-        <translation>解析文本文件中时间戳所用的格式 (如 %H:%M:%S)。格式指定符号根据 strptime(3) 确定</translation>
-    </message>
-    <message>
         <source>Timestamp format:</source>
         <translation>时间戳格式:</translation>
     </message>
@@ -4118,6 +4132,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>None</source>
         <translation>无</translation>
+    </message>
+    <message>
+        <source>The format in which to parse timestamps in the text file (e.g. %H:%M:%S.). Format specifiers are based on strptime(3)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Encapsulation Type:</source>
@@ -4321,6 +4339,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>External capture interfaces disabled.</source>
         <translation>已禁用外部捕获接口。</translation>
+    </message>
+    <message>
+        <source>Interfaces not loaded (due to preference). Go to Capture </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You don&apos;t have permission to capture. You can &lt;a href=&quot;file://%1&quot;&gt;install ChmodBPF to fix this&lt;/a&gt;.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Start capture</source>
@@ -6587,10 +6613,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>吞吐量</translation>
     </message>
     <message>
-        <source>TCP througput</source>
-        <translation>TCP 吞吐量</translation>
-    </message>
-    <message>
         <source>Round Trip Time</source>
         <translation>往返时间</translation>
     </message>
@@ -6613,6 +6635,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>HTTP Stream</source>
         <translation>HTTP 流</translation>
+    </message>
+    <message>
+        <source>HTTP/2 Stream</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Time Sequence (tcptrace)</source>
@@ -7041,6 +7067,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>&amp;Preferences…</source>
         <translation>首选项(&amp;P)…</translation>
+    </message>
+    <message>
+        <source>TCP throughput</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>TCP Stream</source>
@@ -8627,7 +8657,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>用默认设置创建新的配置文件。</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Remove this profile. System provided profiles cannot be removed. The default profile will be resetted upon deletion.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Remove this profile. System provided profiles cannot be removed. The default profile will be reset upon deletion.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8920,8 +8950,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished">选中树的所有可见项目</translation>
     </message>
     <message>
-        <source>Desription</source>
-        <translation type="unfinished"></translation>
+        <source>Description</source>
+        <translation type="unfinished">描述</translation>
     </message>
     <message>
         <source>Field Name</source>

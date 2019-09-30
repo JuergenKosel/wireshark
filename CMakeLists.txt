@@ -8,10 +8,13 @@
 #
 
 if(WIN32)
-	# Needed for GREATER_EQUAL operator
-	cmake_minimum_required(VERSION 3.7)
+	# Needed for add_custom_command() WORKING_DIRECTORY generator expressions
+	cmake_minimum_required(VERSION 3.13)
 else()
 	cmake_minimum_required(VERSION 3.5)
+endif()
+if(POLICY CMP0074)
+	cmake_policy(SET CMP0074 NEW)
 endif()
 if(POLICY CMP0083)
 	cmake_policy(SET CMP0083 NEW)
@@ -40,6 +43,8 @@ endif()
 set(PROJECT_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}${PROJECT_VERSION_EXTENSION}")
 
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+
+include( CMakeOptions.txt )
 
 # We require minimum C++11
 set(CMAKE_CXX_STANDARD 11)
@@ -199,11 +204,8 @@ if(NOT (WIN32 OR APPLE OR USE_STATIC))
 		# binaries. In other cases, only absolute paths can be used.
 		# https://www.lekensteyn.nl/rpath.html
 		if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|SunOS|FreeBSD)$")
-			# Provide a knob to optionally force absolute rpaths,
-			# to support old/buggy systems and as a user preference
-			# for hardening.
 			set(_enable_rpath_origin TRUE)
-			if(BUILD_dumpcap AND PCAP_FOUND)
+			if(BUILD_dumpcap AND ENABLE_PCAP)
 				# dumpcap will most likely be installed with
 				# capabilities or setuid. Relative RPATHs that
 				# resolve to non-standard library directories
@@ -212,6 +214,9 @@ if(NOT (WIN32 OR APPLE OR USE_STATIC))
 				# disable it by default.
 				set(_enable_rpath_origin FALSE)
 			endif()
+			# Provide a knob to optionally force absolute rpaths,
+			# to support old/buggy systems and as a user preference
+			# for hardening.
 			set(ENABLE_RPATH_ORIGIN ${_enable_rpath_origin} CACHE BOOL
 				"Use $ORIGIN with INSTALL_RPATH")
 			mark_as_advanced(ENABLE_RPATH_ORIGIN)
@@ -310,7 +315,6 @@ include_directories(
 	${CMAKE_SOURCE_DIR}
 )
 
-include( CMakeOptions.txt )
 if( DUMPCAP_INSTALL_OPTION STREQUAL "suid" )
 	set( DUMPCAP_SETUID "SETUID" )
 else()
@@ -426,10 +430,11 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 	# Additional compiler warnings to be treated as "Level 3"
 	# when compiling Wireshark sources. (Selected from "level 4" warnings).
 	## 4295: array is too small to include a terminating null character
+	## 4100: unreferenced formal parameter
 	## 4189: local variable is initialized but not referenced
 	# Disable warnings about about use of flexible array members:
 	## 4200: nonstandard extension used : zero-sized array in struct/union
-	list(APPEND LOCAL_CFLAGS /w34295 /w34189 /wd4200)
+	list(APPEND LOCAL_CFLAGS /w34295 /w34100 /w34189 /wd4200)
 
 	# We've matched these to specific compiler versions using the
 	# checks above. There's no need to pass them to check_c_compiler_flag
@@ -1191,6 +1196,8 @@ endif()
 # Windows version updates
 ws_find_package(WINSPARKLE ENABLE_WINSPARKLE HAVE_SOFTWARE_UPDATE)
 
+find_package( Asciidoctor 1.5 )
+
 find_package(POD REQUIRED)
 
 find_package(DOXYGEN)
@@ -1270,6 +1277,9 @@ if (QT_FOUND)
 		find_program(QT_MACDEPLOYQT_EXECUTABLE macdeployqt
 			HINTS "${QT_BIN_PATH}"
 			DOC "Path to the macdeployqt utility."
+		)
+		find_program(DMGBUILD_EXECUTABLE dmgbuild
+			DOC "Path to the dmgbuild utility"
 		)
 		# https://doc.qt.io/qt-5.11/supported-platforms-and-configurations.html
 		# CMake < 3.7 doesn't support VERSION_GREATER_EQUAL.
@@ -1550,10 +1560,9 @@ set(CFG_OUT_FILES
 	image/wiretap.rc
 	image/wireshark.exe.manifest
 	packaging/macosx/Info.plist
+	packaging/macosx/dmgbuild-settings.py
 	packaging/macosx/osx-app.sh
 	packaging/macosx/osx-dmg.sh
-	packaging/macosx/Read_me_first.rtf
-	packaging/macosx/Wireshark_package.pmdoc/index.xml
 	packaging/source/git-export-release.sh
 	wireshark.pc
 )
@@ -1788,10 +1797,11 @@ if(WIN32)
 	# Required DLLs and their corresponding PDBs.
 	add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			${GLIB2_DLLS}
-			${GLIB2_PDBS}
+			"$<IF:$<CONFIG:Debug>,${GLIB2_DLLS_DEBUG},${GLIB2_DLLS_RELEASE}>"
+			"$<IF:$<CONFIG:Debug>,${GLIB2_PDBS_DEBUG},${GLIB2_PDBS_RELEASE}>"
 			"${_dll_output_dir}"
-		WORKING_DIRECTORY "${GLIB2_DLL_DIR}"
+		WORKING_DIRECTORY $<IF:$<CONFIG:Debug>,${GLIB2_DLL_DIR_DEBUG},${GLIB2_DLL_DIR_RELEASE}>
+		COMMAND_EXPAND_LISTS
 	)
 
 	# Optional DLLs and PDBs.
@@ -2654,7 +2664,7 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 		wsutil
 		caputils
 		ui
-		$<$<BOOL:${PCAP_FOUND}>:pcap::pcap>
+		pcap::pcap
 		${CAP_LIBRARIES}
 		${GLIB2_LIBRARIES}
 		${GTHREAD2_LIBRARIES}
@@ -2699,6 +2709,9 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 			endif()"
 		)
 	endif()
+elseif(BUILD_dumpcap AND ENABLE_PCAP)
+	message(WARNING "Dumpcap was requested but libpcap dependency is not available. "
+		"Wireshark will be built without packet capture capability.")
 endif()
 
 # We have two idl2wrs utilities: this and the CORBA version in tools.
@@ -2762,6 +2775,109 @@ if (MAXMINDDB_FOUND)
 endif()
 
 if(ENABLE_APPLICATION_BUNDLE)
+	set (install_chmodbpf_component_pkg "${CMAKE_BINARY_DIR}/install.ChmodBPF.pkg")
+	add_custom_command(OUTPUT "${install_chmodbpf_component_pkg}"
+		COMMAND pkgbuild
+			--identifier org.wireshark.ChmodBPF.pkg
+			--version 1.1
+			--root "${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/root"
+			--scripts "${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/install-scripts"
+			${install_chmodbpf_component_pkg}
+		DEPENDS
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/root/Library/Application Support/Wireshark/ChmodBPF/ChmodBPF"
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/root/Library/LaunchDaemons/org.wireshark.ChmodBPF.plist"
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/install-scripts/postinstall"
+	)
+	set (install_chmodbpf_pkg "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Resources/Extras/Install ChmodBPF.pkg")
+	add_custom_command(OUTPUT "${install_chmodbpf_pkg}"
+		COMMAND productbuild
+			--identifier org.wireshark.install.ChmodBPF.product
+			--version 1.1
+			--distribution "${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/install-distribution.xml"
+			--package-path "${CMAKE_BINARY_DIR}"
+			${install_chmodbpf_pkg}
+		DEPENDS
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/install-distribution.xml"
+			${install_chmodbpf_component_pkg}
+	)
+
+	set (uninstall_chmodbpf_component_pkg "${CMAKE_BINARY_DIR}/uninstall.ChmodBPF.pkg")
+	add_custom_command(OUTPUT "${uninstall_chmodbpf_component_pkg}"
+		COMMAND pkgbuild
+			--identifier org.wireshark.uninstall.ChmodBPF.pkg
+			--version 1.1
+			--nopayload
+			--scripts "${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/uninstall-scripts"
+			${uninstall_chmodbpf_component_pkg}
+		DEPENDS
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/uninstall-scripts/postinstall"
+	)
+	set (uninstall_chmodbpf_pkg "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Resources/Extras/Uninstall ChmodBPF.pkg")
+	add_custom_command(OUTPUT "${uninstall_chmodbpf_pkg}"
+		COMMAND productbuild
+			--identifier org.wireshark.uninstall.ChmodBPF.product
+			--version 1.1
+			--distribution "${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/uninstall-distribution.xml"
+			--package-path "${CMAKE_BINARY_DIR}"
+			${uninstall_chmodbpf_pkg}
+		DEPENDS
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF/uninstall-distribution.xml"
+			${uninstall_chmodbpf_component_pkg}
+	)
+
+	add_custom_target(chmodbpf DEPENDS ${install_chmodbpf_pkg} ${uninstall_chmodbpf_pkg})
+
+	set (install_path_helper_component_pkg "${CMAKE_BINARY_DIR}/install.path_helper.pkg")
+	add_custom_command(OUTPUT "${install_path_helper_component_pkg}"
+		COMMAND pkgbuild
+			--identifier org.wireshark.path_helper.pkg
+			--version 1.0
+			--root "${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/root/etc"
+			--install-location /private/etc
+			${install_path_helper_component_pkg}
+		DEPENDS
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/root/etc/paths.d/Wireshark"
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/root/etc/manpaths.d/Wireshark"
+	)
+	set (install_path_helper_pkg "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Resources/Extras/Add Wireshark to the system path.pkg")
+	add_custom_command(OUTPUT "${install_path_helper_pkg}"
+		COMMAND productbuild
+			--identifier org.wireshark.install.path_helper.product
+			--version 1.0
+			--distribution "${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/install-distribution.xml"
+			--package-path "${CMAKE_BINARY_DIR}"
+			${install_path_helper_pkg}
+		DEPENDS
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/install-distribution.xml"
+			${install_path_helper_component_pkg}
+	)
+
+	set (uninstall_path_helper_component_pkg "${CMAKE_BINARY_DIR}/uninstall.path_helper.pkg")
+	add_custom_command(OUTPUT "${uninstall_path_helper_component_pkg}"
+		COMMAND pkgbuild
+			--identifier org.wireshark.uninstall.path_helper.pkg
+			--version 1.0
+			--nopayload
+			--scripts "${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/uninstall-scripts"
+			${uninstall_path_helper_component_pkg}
+		DEPENDS
+			"${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/uninstall-scripts/postinstall"
+	)
+	set (uninstall_path_helper_pkg "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/Resources/Extras/Remove Wireshark from the system path.pkg")
+	add_custom_command(OUTPUT "${uninstall_path_helper_pkg}"
+		COMMAND productbuild
+			--identifier org.wireshark.uninstall.path_helper.product
+			--version 1.0
+			--distribution "${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/uninstall-distribution.xml"
+			--package-path "${CMAKE_BINARY_DIR}"
+			${uninstall_path_helper_pkg}
+		DEPENDS
+			${CMAKE_SOURCE_DIR}/packaging/macosx/path_helper/uninstall-distribution.xml
+			${uninstall_path_helper_component_pkg}
+	)
+
+	add_custom_target(path_helper DEPENDS ${install_path_helper_pkg} ${uninstall_path_helper_pkg})
+
 	add_custom_target(app_bundle)
 	set_target_properties(app_bundle PROPERTIES FOLDER "Copy Tasks")
 	add_custom_command(TARGET app_bundle
@@ -2769,45 +2885,36 @@ if(ENABLE_APPLICATION_BUNDLE)
 		COMMAND "${CMAKE_BINARY_DIR}/packaging/macosx/osx-app.sh"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/run"
 	)
-	add_dependencies(app_bundle ${PROGLIST})
+	add_dependencies(app_bundle ${PROGLIST} chmodbpf path_helper)
 
-	add_custom_target(dmg_package_prep DEPENDS app_bundle)
+	if( DMGBUILD_EXECUTABLE AND ASCIIDOCTOR_FOUND)
+		add_custom_target(dmg_package_prep DEPENDS app_bundle)
 
-	ADD_CUSTOM_COMMAND(
-		OUTPUT ${CMAKE_BINARY_DIR}/packaging/macosx/PkgInfo
-		COMMAND ${CMAKE_COMMAND} -E echo APPLWshk > ${CMAKE_BINARY_DIR}/packaging/macosx/PkgInfo
-	)
+		set(_read_me_first "packaging/macosx/Read me first.html")
+		ADD_CUSTOM_COMMAND(
+		OUTPUT
+			${_read_me_first}
+		COMMAND ${ASCIIDOCTOR_EXECUTABLE}
+			--backend html
+			--out-file ${_read_me_first}
+			--attribute include-dir=${CMAKE_SOURCE_DIR}/docbook
+			--attribute min-macos-version=${MIN_MACOS_VERSION}
+			${CMAKE_CURRENT_SOURCE_DIR}/packaging/macosx/Read_me_first.adoc
+		DEPENDS
+			${CMAKE_CURRENT_SOURCE_DIR}/packaging/macosx/Read_me_first.adoc
+		)
+		add_custom_target(read_me_first_html DEPENDS ${_read_me_first} )
+		add_dependencies(dmg_package_prep read_me_first_html)
 
-	ADD_CUSTOM_TARGET( dmg_package
-		COMMAND ${CMAKE_COMMAND} -E copy_directory
-					${CMAKE_SOURCE_DIR}/packaging/macosx/ChmodBPF
-					${CMAKE_BINARY_DIR}/run/ChmodBPF
-		COMMAND ${CMAKE_COMMAND} -E copy_directory
-					${CMAKE_SOURCE_DIR}/packaging/macosx/Scripts
-					${CMAKE_BINARY_DIR}/run/Scripts
-		COMMAND ${CMAKE_COMMAND} -E copy_directory
-					${CMAKE_SOURCE_DIR}/packaging/macosx/utility-launcher
-					${CMAKE_BINARY_DIR}/run/utility-launcher
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					${CMAKE_SOURCE_DIR}/COPYING
-					${CMAKE_BINARY_DIR}/run/COPYING.txt
-		COMMAND ${CMAKE_COMMAND} -E copy_directory
-					${CMAKE_SOURCE_DIR}/packaging/macosx/Wireshark_package.pmdoc
-					${CMAKE_BINARY_DIR}/run/Wireshark_package.pmdoc
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					${CMAKE_BINARY_DIR}/packaging/macosx/Wireshark_package.pmdoc/index.xml
-					${CMAKE_BINARY_DIR}/run/Wireshark_package.pmdoc/index.xml
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					${CMAKE_SOURCE_DIR}/packaging/macosx/dmg_background.png
-					${CMAKE_BINARY_DIR}/run/dmg_background.png
-		COMMAND bash -x ${CMAKE_BINARY_DIR}/packaging/macosx/osx-dmg.sh
-			--source-directory ${CMAKE_SOURCE_DIR}/packaging/macosx
-		# Unlike nsis_package_prep + nsis_package, we can add a direct
-		# dependency here.
-		DEPENDS dmg_package_prep
-		# We create Wireshark.app in "run". Do our work there.
-		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/run
-	)
+		ADD_CUSTOM_TARGET( dmg_package
+			COMMAND bash -x ${CMAKE_BINARY_DIR}/packaging/macosx/osx-dmg.sh
+			# Unlike nsis_package_prep + nsis_package, we can add a direct
+			# dependency here.
+			DEPENDS dmg_package_prep
+			# We create Wireshark.app in "run". Do our work there.
+			WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/run
+		)
+	endif()
 
 endif()
 

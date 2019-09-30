@@ -69,6 +69,7 @@ static int hf_quic_packet_number = -1;
 static int hf_quic_version = -1;
 static int hf_quic_supported_version = -1;
 static int hf_quic_vn_unused = -1;
+static int hf_quic_short = -1;
 static int hf_quic_fixed_bit = -1;
 static int hf_quic_spin_bit = -1;
 static int hf_quic_short_reserved = -1;
@@ -139,6 +140,7 @@ static expert_field ei_quic_decryption_failed = EI_INIT;
 static expert_field ei_quic_protocol_violation = EI_INIT;
 
 static gint ett_quic = -1;
+static gint ett_quic_short_header = -1;
 static gint ett_quic_connection_info = -1;
 static gint ett_quic_ft = -1;
 static gint ett_quic_ftflags = -1;
@@ -1049,7 +1051,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         case FT_STREAM_D:
         case FT_STREAM_E:
         case FT_STREAM_F: {
-            guint64 stream_id, length;
+            guint64 stream_id, stream_offset = 0, length;
             guint32 lenvar;
 
             offset -= 1;
@@ -1065,20 +1067,24 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_stream_stream_id, tvb, offset, -1, ENC_VARINT_QUIC, &stream_id, &lenvar);
             offset += lenvar;
 
-            proto_item_append_text(ti_ft, " Stream ID: %" G_GINT64_MODIFIER "u", stream_id);
+            proto_item_append_text(ti_ft, " id=%" G_GINT64_MODIFIER "u", stream_id);
             col_append_fstr(pinfo->cinfo, COL_INFO, "(%" G_GINT64_MODIFIER "u)", stream_id);
 
+            proto_item_append_text(ti_ft, " fin=%d", !!(frame_type & FTFLAGS_STREAM_FIN));
+
             if (frame_type & FTFLAGS_STREAM_OFF) {
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_stream_offset, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+                proto_tree_add_item_ret_varint(ft_tree, hf_quic_stream_offset, tvb, offset, -1, ENC_VARINT_QUIC, &stream_offset, &lenvar);
                 offset += lenvar;
             }
+            proto_item_append_text(ti_ft, " off=%" G_GINT64_MODIFIER "u", stream_offset);
 
             if (frame_type & FTFLAGS_STREAM_LEN) {
                 proto_tree_add_item_ret_varint(ft_tree, hf_quic_stream_length, tvb, offset, -1, ENC_VARINT_QUIC, &length, &lenvar);
                 offset += lenvar;
             } else {
-               length = tvb_reported_length_remaining(tvb, offset);
+                length = tvb_reported_length_remaining(tvb, offset);
             }
+            proto_item_append_text(ti_ft, " len=%" G_GINT64_MODIFIER "u uni=%d", length, !!(stream_id & 2U));
 
             proto_tree_add_item(ft_tree, hf_quic_stream_data, tvb, offset, (int)length, ENC_NA);
             offset += (int)length;
@@ -2032,6 +2038,10 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
     quic_info_data_t *conn = dgram_info->conn;
     const gboolean from_server = dgram_info->from_server;
 
+    proto_item *pi = proto_tree_add_item(quic_tree, hf_quic_short, tvb, 0, -1, ENC_NA);
+    proto_tree *hdr_tree = proto_item_add_subtree(pi, ett_quic_short_header);
+    proto_tree_add_item(hdr_tree, hf_quic_header_form, tvb, 0, 1, ENC_NA);
+
     if (conn) {
        dcid.len = from_server ? conn->client_cids.data.len : conn->server_cids.data.len;
     }
@@ -2047,13 +2057,13 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
         first_byte = quic_packet->first_byte;
     }
 #endif /* !HAVE_LIBGCRYPT_AEAD */
-    proto_tree_add_item(quic_tree, hf_quic_fixed_bit, tvb, offset, 1, ENC_NA);
-    proto_tree_add_item(quic_tree, hf_quic_spin_bit, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item(hdr_tree, hf_quic_fixed_bit, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item(hdr_tree, hf_quic_spin_bit, tvb, offset, 1, ENC_NA);
     if (quic_packet->pkn_len) {
         key_phase = (first_byte & SH_KP) != 0;
-        proto_tree_add_uint(quic_tree, hf_quic_short_reserved, tvb, offset, 1, first_byte);
-        proto_tree_add_boolean(quic_tree, hf_quic_key_phase, tvb, offset, 1, key_phase);
-        proto_tree_add_uint(quic_tree, hf_quic_packet_number_length, tvb, offset, 1, first_byte);
+        proto_tree_add_uint(hdr_tree, hf_quic_short_reserved, tvb, offset, 1, first_byte);
+        proto_tree_add_boolean(hdr_tree, hf_quic_key_phase, tvb, offset, 1, key_phase);
+        proto_tree_add_uint(hdr_tree, hf_quic_packet_number_length, tvb, offset, 1, first_byte);
     }
     offset += 1;
 
@@ -2062,10 +2072,12 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 
     /* Connection ID */
     if (dcid.len > 0) {
-        proto_tree_add_item(quic_tree, hf_quic_dcid, tvb, offset, dcid.len, ENC_NA);
+        proto_tree_add_item(hdr_tree, hf_quic_dcid, tvb, offset, dcid.len, ENC_NA);
         tvb_memcpy(tvb, dcid.cid, offset, dcid.len);
         offset += dcid.len;
-        col_append_fstr(pinfo->cinfo, COL_INFO, ", DCID=%s", cid_to_string(&dcid));
+        const char *dcid_str = cid_to_string(&dcid);
+        col_append_fstr(pinfo->cinfo, COL_INFO, ", DCID=%s", dcid_str);
+        proto_item_append_text(pi, " DCID=%s", dcid_str);
     }
 
 #ifdef HAVE_LIBGCRYPT_AEAD
@@ -2078,12 +2090,13 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
     }
 
     /* Packet Number */
-    proto_tree_add_uint64(quic_tree, hf_quic_packet_number, tvb, offset, quic_packet->pkn_len, quic_packet->packet_number);
+    proto_tree_add_uint64(hdr_tree, hf_quic_packet_number, tvb, offset, quic_packet->pkn_len, quic_packet->packet_number);
     offset += quic_packet->pkn_len;
     col_append_fstr(pinfo->cinfo, COL_INFO, ", PKN: %" G_GINT64_MODIFIER "u", quic_packet->packet_number);
+    proto_item_append_text(pi, " PKN=%" G_GINT64_MODIFIER "u", quic_packet->packet_number);
 
     /* Protected Payload */
-    ti = proto_tree_add_item(quic_tree, hf_quic_protected_payload, tvb, offset, -1, ENC_NA);
+    ti = proto_tree_add_item(hdr_tree, hf_quic_protected_payload, tvb, offset, -1, ENC_NA);
 
     if (conn) {
         quic_process_payload(tvb, pinfo, quic_tree, ti, offset,
@@ -2223,7 +2236,6 @@ dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     proto_item *quic_ti, *ti;
     proto_tree *quic_tree;
     guint       offset = 0;
-    guint32     header_form;
     quic_datagram *dgram_info = NULL;
     quic_packet_info_t *quic_packet = NULL;
 
@@ -2282,10 +2294,11 @@ dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         proto_item_set_len(quic_ti, tvb_reported_length(next_tvb));
         ti = proto_tree_add_uint(quic_tree, hf_quic_packet_length, next_tvb, 0, 0, tvb_reported_length(next_tvb));
         proto_item_set_generated(ti);
-        proto_tree_add_item_ret_uint(quic_tree, hf_quic_header_form, next_tvb, 0, 1, ENC_NA, &header_form);
         guint new_offset = 0;
-        if (header_form) {
-            guint8 long_packet_type = (tvb_get_guint8(next_tvb, 0) & 0x30) >> 4;
+        guint8 first_byte = tvb_get_guint8(next_tvb, 0);
+        if (first_byte & 0x80) {
+            guint8 long_packet_type = (first_byte & 0x30) >> 4;
+            proto_tree_add_item(quic_tree, hf_quic_header_form, next_tvb, 0, 1, ENC_NA);
             guint32 version = tvb_get_ntohl(next_tvb, 1);
             if (version == 0) {
                 offset += dissect_quic_version_negotiation(next_tvb, pinfo, quic_tree, quic_packet);
@@ -2499,15 +2512,20 @@ proto_register_quic(void)
             FT_UINT8, BASE_HEX, NULL, 0x7F,
             NULL, HFILL }
         },
-        { &hf_quic_spin_bit,
-          { "Spin Bit", "quic.spin_bit",
-            FT_BOOLEAN, 8, NULL, 0x20,
-            "Latency Spin Bit", HFILL }
+        { &hf_quic_short,
+          { "QUIC Short Header", "quic.short",
+            FT_NONE, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
         },
         { &hf_quic_fixed_bit,
           { "Fixed Bit", "quic.fixed_bit",
             FT_BOOLEAN, 8, NULL, 0x40,
             "Must be 1", HFILL }
+        },
+        { &hf_quic_spin_bit,
+          { "Spin Bit", "quic.spin_bit",
+            FT_BOOLEAN, 8, NULL, 0x20,
+            "Latency Spin Bit", HFILL }
         },
         { &hf_quic_short_reserved,
           { "Reserved", "quic.short.reserved",
@@ -2830,6 +2848,7 @@ proto_register_quic(void)
 
     static gint *ett[] = {
         &ett_quic,
+        &ett_quic_short_header,
         &ett_quic_connection_info,
         &ett_quic_ft,
         &ett_quic_ftflags

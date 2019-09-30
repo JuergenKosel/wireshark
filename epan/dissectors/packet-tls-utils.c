@@ -5189,26 +5189,6 @@ ssl_compile_keyfile_regex(void)
     return regex;
 }
 
-static gboolean
-file_needs_reopen(FILE *fp, const char *filename)
-{
-    ws_statb64 open_stat, current_stat;
-
-    /* consider a file deleted when stat fails for either file,
-     * or when the residing device / inode has changed. */
-    if (0 != ws_fstat64(ws_fileno(fp), &open_stat))
-        return TRUE;
-    if (0 != ws_stat64(filename, &current_stat))
-        return TRUE;
-
-    /* Note: on Windows, ino may be 0. Existing files cannot be deleted on
-     * Windows, but hopefully the size is a good indicator when a file got
-     * removed and recreated */
-    return  open_stat.st_dev != current_stat.st_dev ||
-            open_stat.st_ino != current_stat.st_ino ||
-            open_stat.st_size > current_stat.st_size;
-}
-
 typedef struct ssl_master_key_match_group {
     const char *re_group_name;
     GHashTable *master_key_ht;
@@ -5362,8 +5342,8 @@ ssl_load_keyfile(const gchar *tls_keylog_filename, FILE **keylog_file,
 
     ssl_debug_printf("trying to use TLS keylog in %s\n", tls_keylog_filename);
 
-    /* if the keylog file was deleted, re-open it */
-    if (*keylog_file && file_needs_reopen(*keylog_file, tls_keylog_filename)) {
+    /* if the keylog file was deleted/overwritten, re-open it */
+    if (*keylog_file && file_needs_reopen(ws_fileno(*keylog_file), tls_keylog_filename)) {
         ssl_debug_printf("%s file got deleted, trying to re-open\n", G_STRFUNC);
         fclose(*keylog_file);
         *keylog_file = NULL;
@@ -5946,6 +5926,8 @@ ssl_dissect_hnd_hello_ext_alpn(ssl_common_dissect_t *hf, tvbuff_t *tvb,
      * exactly one "ProtocolName". */
     if (proto_name) {
         dissector_handle_t handle;
+
+        session->alpn_name = wmem_strdup(wmem_file_scope(), proto_name);
 
         if (is_dtls) {
             handle = dissector_get_string_handle(dtls_alpn_dissector_table,

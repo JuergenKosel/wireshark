@@ -1114,7 +1114,7 @@ void MainWindow::recentActionTriggered() {
 
 void MainWindow::setMenusForSelectedPacket()
 {
-    gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_sctp = FALSE, is_tls = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE, is_http = FALSE;
+    gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_sctp = FALSE, is_tls = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE, is_http = FALSE, is_http2 = FALSE;
 
     /* Making the menu context-sensitive allows for easier selection of the
        desired item and has the added benefit, with large captures, of
@@ -1173,6 +1173,7 @@ void MainWindow::setMenusForSelectedPacket()
                                       &is_ip, &is_tcp, &is_udp, &is_sctp,
                                       &is_tls, &is_rtp, &is_lte_rlc);
             is_http = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http");
+            is_http2 = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http2");
         }
     }
 
@@ -1205,6 +1206,7 @@ void MainWindow::setMenusForSelectedPacket()
     main_ui_->actionAnalyzeFollowUDPStream->setEnabled(is_udp);
     main_ui_->actionAnalyzeFollowTLSStream->setEnabled(is_tls);
     main_ui_->actionAnalyzeFollowHTTPStream->setEnabled(is_http);
+    main_ui_->actionAnalyzeFollowHTTP2Stream->setEnabled(is_http2);
 
     foreach(QAction *cc_action, cc_actions) {
         cc_action->setEnabled(frame_selected);
@@ -1965,7 +1967,7 @@ void MainWindow::on_actionEditCopyAsFilter_triggered()
 
 void MainWindow::on_actionEditFindPacket_triggered()
 {
-    if (packet_list_->model()->rowCount() < 1) {
+    if (! packet_list_->model() || packet_list_->model()->rowCount() < 1) {
         return;
     }
     previous_focus_ = wsApp->focusWidget();
@@ -2451,6 +2453,8 @@ void MainWindow::on_actionViewResetLayout_triggered()
 
 void MainWindow::on_actionViewResizeColumns_triggered()
 {
+    if ( ! packet_list_->model() )
+        return;
     for (int col = 0; col < packet_list_->model()->columnCount(); col++) {
         packet_list_->resizeColumnToContents(col);
         recent_set_column_width(col, packet_list_->columnWidth(col));
@@ -2697,7 +2701,7 @@ void MainWindow::on_actionAnalyzeReloadLuaPlugins_triggered()
     reloadLuaPlugins();
 }
 
-void MainWindow::openFollowStreamDialog(follow_type_t type, guint stream_num, bool use_stream_index) {
+void MainWindow::openFollowStreamDialog(follow_type_t type, guint stream_num, guint sub_stream_num, bool use_stream_index) {
     FollowStreamDialog *fsd = new FollowStreamDialog(*this, capture_file_, type);
     connect(fsd, SIGNAL(updateFilter(QString, bool)), this, SLOT(filterPackets(QString, bool)));
     connect(fsd, SIGNAL(goToPacket(int)), packet_list_, SLOT(goToPacket(int)));
@@ -2706,14 +2710,14 @@ void MainWindow::openFollowStreamDialog(follow_type_t type, guint stream_num, bo
     if (use_stream_index) {
         // If a specific conversation was requested, then ignore any previous
         // display filters and display all related packets.
-        fsd->follow("", true, stream_num);
+        fsd->follow("", true, stream_num, sub_stream_num);
     } else {
         fsd->follow(getFilter());
     }
 }
 
 void MainWindow::openFollowStreamDialogForType(follow_type_t type) {
-    openFollowStreamDialog(type, 0, false);
+    openFollowStreamDialog(type, 0, 0, false);
 }
 
 void MainWindow::on_actionAnalyzeFollowTCPStream_triggered()
@@ -2734,6 +2738,11 @@ void MainWindow::on_actionAnalyzeFollowTLSStream_triggered()
 void MainWindow::on_actionAnalyzeFollowHTTPStream_triggered()
 {
     openFollowStreamDialogForType(FOLLOW_HTTP);
+}
+
+void MainWindow::on_actionAnalyzeFollowHTTP2Stream_triggered()
+{
+    openFollowStreamDialogForType(FOLLOW_HTTP2);
 }
 
 void MainWindow::openSCTPAllAssocsDialog()
@@ -3021,8 +3030,8 @@ void MainWindow::statCommandConversations(const char *arg, void *userdata)
     ConversationDialog *conv_dialog = new ConversationDialog(*this, capture_file_, GPOINTER_TO_INT(userdata), arg);
     connect(conv_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
         this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
-    connect(conv_dialog, SIGNAL(openFollowStreamDialog(follow_type_t, guint)),
-        this, SLOT(openFollowStreamDialog(follow_type_t, guint)));
+    connect(conv_dialog, SIGNAL(openFollowStreamDialog(follow_type_t, guint, guint)),
+        this, SLOT(openFollowStreamDialog(follow_type_t, guint, guint)));
     connect(conv_dialog, SIGNAL(openTcpStreamGraph(int)),
         this, SLOT(openTcpStreamDialog(int)));
     conv_dialog->show();
@@ -3406,7 +3415,7 @@ void MainWindow::on_actionHelpAbout_triggered()
 }
 
 void MainWindow::on_actionGoGoToPacket_triggered() {
-    if (packet_list_->model()->rowCount() < 1) {
+    if (! packet_list_->model() || packet_list_->model()->rowCount() < 1) {
         return;
     }
     previous_focus_ = wsApp->focusWidget();

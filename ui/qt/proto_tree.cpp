@@ -285,6 +285,7 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowUDPStream"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTLSStream"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowHTTPStream"));
+        submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowHTTP2Stream"));
         ctx_menu.addSeparator();
     }
 
@@ -292,7 +293,7 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
     submenu->addAction(tr("All Visible Items"), this, SLOT(ctxCopyVisibleItems()));
     action = submenu->addAction(tr("All Visible Selected Tree Items"), this, SLOT(ctxCopyVisibleItems()));
     action->setProperty("selected_tree", qVariantFromValue(true));
-    action = submenu->addAction(tr("Desription"), this, SLOT(ctxCopySelectedInfo()));
+    action = submenu->addAction(tr("Description"), this, SLOT(ctxCopySelectedInfo()));
     action->setProperty("field_type", ProtoTree::Description);
     action = submenu->addAction(tr("Field Name"), this, SLOT(ctxCopySelectedInfo()));
     action->setProperty("field_type", ProtoTree::Name);

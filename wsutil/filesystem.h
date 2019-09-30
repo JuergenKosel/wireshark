@@ -303,6 +303,11 @@ WS_DLL_PUBLIC gboolean config_file_exists_with_entries(const char *fname, char c
 WS_DLL_PUBLIC gboolean files_identical(const char *fname1, const char *fname2);
 
 /*
+ * Check if file has been recreated since it was opened.
+ */
+WS_DLL_PUBLIC gboolean file_needs_reopen(int fd, const char* filename);
+
+/*
  * Copy a file in binary mode, for those operating systems that care about
  * such things.  This should be OK for all files, even text files, as
  * we'll copy the raw bytes, and we don't look at the bytes as we copy

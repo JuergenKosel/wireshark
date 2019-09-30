@@ -99,9 +99,28 @@ static const value_string erspan_encap_vals[] = {
 	{0, NULL}
 };
 
+static const value_string erspan_bso_vals[] = {
+	{0, "Good or unknown integrity"},
+	{1, "Short frame"},
+	{2, "Oversized frame"},
+	{3, "CRC or alignment error"},
+
+	{0, NULL},
+};
+
 static const value_string erspan_truncated_vals[] = {
 	{0, "Not truncated"},
 	{1, "Truncated"},
+
+	{0, NULL},
+};
+
+#define ERSPAN_FT_ETHERNET	0
+#define ERSPAN_FT_IP		2
+
+static const value_string erspan_ft_vals[] = {
+	{ERSPAN_FT_ETHERNET, "Ethernet"},
+	{ERSPAN_FT_IP, "IP"},
 
 	{0, NULL},
 };
@@ -130,9 +149,10 @@ dissect_erspan(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
 	proto_item *ti;
 	proto_tree *erspan_tree = NULL;
-	tvbuff_t *eth_tvb;
+	tvbuff_t *frame_tvb;
 	guint32 offset = 0;
 	guint16 version;
+	guint32 frame_type = ERSPAN_FT_ETHERNET;
 
 	if (data == NULL) {
 		/*
@@ -225,8 +245,8 @@ dissect_erspan(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 		proto_tree_add_item(erspan_tree, hf_erspan_p, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
 
-		proto_tree_add_item(erspan_tree, hf_erspan_ft, tvb,
-			offset, 2, ENC_BIG_ENDIAN);
+		proto_tree_add_item_ret_uint(erspan_tree, hf_erspan_ft, tvb,
+			offset, 2, ENC_BIG_ENDIAN, &frame_type);
 
 		proto_tree_add_item(erspan_tree, hf_erspan_hw, tvb,
 			offset, 2, ENC_BIG_ENDIAN);
@@ -331,8 +351,17 @@ dissect_erspan(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 		}
 	}
 
-	eth_tvb = tvb_new_subset_remaining(tvb, offset);
-	call_dissector(ethnofcs_handle, eth_tvb, pinfo, tree);
+	frame_tvb = tvb_new_subset_remaining(tvb, offset);
+	switch (frame_type) {
+
+	case ERSPAN_FT_ETHERNET:
+		call_dissector(ethnofcs_handle, frame_tvb, pinfo, tree);
+		break;
+
+	default:
+		call_data_dissector(frame_tvb, pinfo, tree);
+		break;
+	}
 	return tvb_captured_length(tvb);
 }
 
@@ -360,7 +389,7 @@ proto_register_erspan(void)
 			0x1800, NULL, HFILL }},
 
 		{ &hf_erspan_bso,
-		{ "Bad/Short/Oversized",	"erspan.bso", FT_UINT16, BASE_DEC, VALS(erspan_truncated_vals),
+		{ "Bad/Short/Oversized",	"erspan.bso", FT_UINT16, BASE_DEC, VALS(erspan_bso_vals),
 			0x1800, NULL, HFILL }},
 
 
@@ -395,7 +424,7 @@ proto_register_erspan(void)
 
 
 		{ &hf_erspan_ft,
-		{ "Frame Type",	"erspan.ft", FT_UINT16, BASE_DEC, NULL,
+		{ "Frame Type",	"erspan.ft", FT_UINT16, BASE_DEC, VALS(erspan_ft_vals),
 			0x7C00, NULL, HFILL }},
 
 		{ &hf_erspan_hw,

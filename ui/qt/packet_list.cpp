@@ -543,6 +543,7 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowUDPStream"));
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTLSStream"));
     submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowHTTPStream"));
+    submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowHTTP2Stream"));
 
     ctx_menu->addSeparator();
 
@@ -665,7 +666,7 @@ void PacketList::mouseReleaseEvent(QMouseEvent *event) {
 void PacketList::mouseMoveEvent (QMouseEvent *event)
 {
     QModelIndex curIndex = indexAt(event->pos());
-    if ( event->buttons() & Qt::LeftButton && curIndex == mouse_pressed_at_ )
+    if ( event->buttons() & Qt::LeftButton && curIndex.isValid() && curIndex == mouse_pressed_at_ )
     {
         ctx_column_ = curIndex.column();
         QMimeData * mimeData = nullptr;

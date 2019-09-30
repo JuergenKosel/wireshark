@@ -36,6 +36,7 @@ since version 3.1.0:
 
 * You can once again mark and unmark packets using the middle mouse button. This feature
   went missing around 2009 or so.
+* On macOS, Wireshark can now be installed by dropping it onto the Applications folder.
 
 The following features are new (or have been significantly updated)
 since version 3.0.0:
@@ -101,6 +102,7 @@ Network Controller Sideband Interface (NCSI)
 NR Positioning Protocol A (NRPPa) TS 38.455
 NVM Express over Fabrics for TCP (nvme-tcp)
 OsmoTRX Protocol (GSM Transceiver control and data)
+Scalable service-Oriented MiddlewarE over IP (SOME/IP)
 Linux net_dm (network drop monitor) protocol
 --
 

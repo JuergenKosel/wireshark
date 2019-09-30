@@ -3898,6 +3898,9 @@
 			<enum name="3GPP2" 		code="4"/>
 			<enum name="3GPP-EPS" 		code="5"/>
 			<enum name="Non-3GPP-EPS" 	code="6"/>
+			<enum name="FBA" 	code="7"/>
+			<enum name="3GPP-5GS" 	code="8"/>
+			<enum name="Non-3GPP-5GS" 	code="9"/>
 		</avp>
 		<avp name="QoS-Class-Identifier" code="1028" mandatory="must" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="Enumerated"/>
@@ -3964,6 +3967,7 @@
 			<enum name="HSPA_EVOLUTION"	code="1003"/>
 			<enum name="EUTRAN"		code="1004"/>
 			<enum name="EUTRAN-NB-IoT"	code="1005"/>
+			<enum name="NG-RAN"	code="1006"/>
 			<enum name="CDMA2000_1X"	code="2000"/>
 			<enum name="HRPD"		code="2001"/>
 			<enum name="UMB"		code="2002"/>
@@ -4724,6 +4728,7 @@
 			<enum name="INITIAL_LOCATION" code="2"/>
 			<enum name="ACTIVATE_DEFERRED_LOCATION" code="3"/>
 			<enum name="CANCEL_DEFERRED_LOCATION" code="4"/>
+			<enum name="NOTIFICATION_VERIFICATION_ONLY" code="5"/>
 		</avp>
 		<avp name="Location-Type" code="1244" mandatory="may" may-encrypt="no" protected="mustnot" vendor-bit="must" vendor-id="TGPP">
 			<grouped>
@@ -8627,6 +8632,27 @@
 			<type type-name="Enumerated"/>
 			<enum name="Active" code="0"/>
 			<enum name="Inactive" code="1"/>
+		</avp>
+		<avp name="Unused-Quota-Timer" code="4407" mandatory="must" vendor-bit="must" protected="may" may-encrypt="yes" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="Announcing-PLMN-ID" code="4408" mandatory="must" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+			<type type-name="UTF8String"/>
+		</avp>
+		<avp name="ProSe-UE-to-Network-Relay-UE-ID" code="4409" mandatory="must" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+			<type type-name="OctetString"/>
+		</avp>
+		<avp name="ProSe-Target-Layer-2-ID" code="4410" mandatory="must" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+			<type type-name="OctetString"/>
+		</avp>
+		<avp name="Relay-IP-address" code="4411" mandatory="must" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+			<type type-name="IPAddress"/>
+		</avp>
+		<avp name="Target-IP-Address" code="4412" mandatory="must" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+			<type type-name="IPAddress"/>
+		</avp>
+		<avp name="FE-Identifier-List" code="4413" mandatory="must" vendor-bit="must" may-encrypt="no" protected="may" vendor-id="TGPP">
+			<type type-name="UTF8String"/>
 		</avp>
 		<!--
 		Note: The AVP codes from 4400 to 4499 are reserved for TS 32.299
