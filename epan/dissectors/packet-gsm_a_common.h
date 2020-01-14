@@ -1035,12 +1035,12 @@ typedef enum
     BE_CS_TO_PS_SRVCC_IND,              /* CS to PS SRVCC Indication           3.2.2.124    */
     BE_CN_TO_MS_TRANSP,                 /* CN to MS transparent information    3.2.2.125    */
     BE_SELECTED_PLMN_ID,                /* Selected PLMN ID                    3.2.2.126    */
-    BE_UDEF_149,                         /* Undefined */
-    BE_UDEF_150,                         /* Undefined */
-    BE_UDEF_151,                         /* Undefined */
-    BE_UDEF_152,                         /* Undefined */
-    BE_UDEF_153,                         /* Undefined */
-    BE_UDEF_154,                         /* Undefined */
+    BE_LAST_USED_E_UTRAN_PLMN_ID,       /* Last used E-UTRAN PLMN ID           3.2.2.127    */
+    BE_UDEF_150,                         /* Undefined Old Location Area Identification    3.2.2.128 */
+    BE_UDEF_151,                         /* Undefined Attach Indicator    3.2.2.129 */
+    BE_UDEF_152,                         /* Undefined Selected Operator    3.2.2.130 */
+    BE_UDEF_153,                         /* Undefined PS Registered Operator    3.2.2.131 */
+    BE_UDEF_154,                         /* Undefined CS Registered Operator    3.2.2.132*/
     BE_UDEF_155,                         /* Undefined */
     BE_UDEF_156,                         /* Undefined */
     BE_UDEF_157,                         /* Undefined */
@@ -1747,6 +1747,7 @@ typedef enum
     DE_NAS_5GS_MM_LADN_INF,                  /* 9.11.3.30    LADN information */
     DE_NAS_5GS_MM_MICO_IND,                  /* 9.11.3.31    MICO indication*/
     DE_NAS_5GS_MM_NAS_KEY_SET_ID,            /* 9.11.3.32    NAS key set identifier*/
+    DE_NAS_5GS_MM_NAS_KEY_SET_ID_H1,         /* 9.11.3.32    NAS key set identifier*/
     DE_NAS_5GS_MM_NAS_MSG_CONT,              /* 9.11.3.33    NAS message container*/
     DE_NAS_5GS_MM_NAS_SEC_ALGO,              /* 9.11.3.34    NAS security algorithms*/
     DE_NAS_5GS_MM_NW_NAME,                   /* 9.11.3.35    Network name*/
@@ -1776,6 +1777,7 @@ typedef enum
     DE_NAS_5GS_MM_UE_USAGE_SET,              /* 9.11.3.55    UE's usage setting */
     DE_NAS_5GS_MM_UE_STATUS,                 /* 9.11.3.56    UE status */
     DE_NAS_5GS_MM_UL_DATA_STATUS,            /* 9.11.3.57    Uplink data status */
+    DE_NAS_5GS_MM_CP_SERVICE_TYPE,           /* 9.11.3.65    Control plane service type*/
     DE_NAS_5GS_MM_NONE        /* NONE */}
 nas_5gs_mm_elem_idx_t;
 

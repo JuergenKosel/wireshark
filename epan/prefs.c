@@ -1964,6 +1964,15 @@ prefs_register_obsolete_preference(module_t *module, const char *name)
     register_preference(module, name, NULL, NULL, PREF_OBSOLETE);
 }
 
+void
+prefs_set_preference_effect_fields(module_t *module, const char *name)
+{
+    pref_t * pref = prefs_find_preference(module, name);
+    if (pref) {
+        prefs_set_effect_flags(pref, prefs_get_effect_flags(pref) | PREF_EFFECT_FIELDS);
+    }
+}
+
 /*
  * Check to see if a preference is obsolete.
  */
@@ -3327,6 +3336,13 @@ prefs_register_modules(void)
     prefs_register_obsolete_preference(gui_module, "auto_scroll_on_expand");
     prefs_register_obsolete_preference(gui_module, "auto_scroll_percentage");
 
+    prefs_register_uint_preference(gui_module, "max_export_objects",
+                                   "Maximum number of exported objects",
+                                   "The maximum number of objects that can be exported",
+                                   10,
+                                   &prefs.gui_max_export_objects);
+
+
     /* User Interface : Layout */
     gui_layout_module = prefs_register_subtree(gui_module, "Layout", "Layout", gui_layout_callback);
     /* Adjust the preference effects of layout GUI for better handling of preferences at Wireshark (GUI) level */
@@ -3363,6 +3379,11 @@ prefs_register_modules(void)
                                    "Enable Packet List Separator",
                                    "Enable Packet List Separator",
                                    &prefs.gui_qt_packet_list_separator);
+
+    prefs_register_bool_preference(gui_layout_module, "packet_header_column_definition.enabled",
+                                    "Show column definition in packet list header",
+                                    "Show column definition in packet list header",
+                                    &prefs.gui_qt_packet_header_column_definition);
 
     prefs_register_bool_preference(gui_layout_module, "show_selected_packet.enabled",
                                    "Show selected packet in the Status Bar",
@@ -4112,8 +4133,10 @@ pre_init_prefs(void)
     prefs.gui_interfaces_show_hidden = FALSE;
     prefs.gui_interfaces_remote_display = TRUE;
     prefs.gui_qt_packet_list_separator = FALSE;
+    prefs.gui_qt_packet_header_column_definition = TRUE;
     prefs.gui_qt_show_selected_packet = FALSE;
     prefs.gui_qt_show_file_load_time = FALSE;
+    prefs.gui_max_export_objects     = 1000;
 
     if (prefs.col_list) {
         free_col_info(prefs.col_list);
@@ -5143,6 +5166,7 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
         {"vnc.alternate_port", "VNC", "tcp.port", 10},
         {"scop.port", "SCoP", "tcp.port", 10},
         {"scop.port_secure", "SCoP", "tcp.port", 10},
+        {"tpncp.tcp.trunkpack_port", "TPNCP", "tcp.port", 10},
         /* UDP */
         {"h248.udp_port", "H248", "udp.port", 10},
         {"actrace.udp_port", "ACtrace", "udp.port", 10},
@@ -5174,6 +5198,7 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
         {"uaudp.port4", "UAUDP", "udp.port", 10},
         {"uhd.dissector_port", "UHD", "udp.port", 10},
         {"vrt.dissector_port", "vrt", "udp.port", 10},
+        {"tpncp.udp.trunkpack_port", "TPNCP", "udp.port", 10},
     };
 
     struct port_pref_name port_range_prefs[] = {

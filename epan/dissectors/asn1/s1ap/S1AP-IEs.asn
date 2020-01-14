@@ -1,4 +1,4 @@
--- 3GPP TS 36.413 V15.6.0 (2019-06)
+-- 3GPP TS 36.413 V15.8.0 (2019-12)
 -- 9.3.4	Information Element Definitions
 -- **************************************************************
 --
@@ -69,6 +69,8 @@ IMPORTS
 	id-WLANMeasurementConfiguration,
 	id-LastNG-RANPLMNIdentity,
 	id-PSCellInformation,
+	id-IMSvoiceEPSfallbackfrom5G,
+	id-RequestTypeAdditionalInfo,
 	maxnoofCSGs,
 	maxnoofE-RABs,
 	maxnoofErrors,
@@ -1273,6 +1275,10 @@ IntendedNumberOfPagingAttempts ::= INTEGER (1..16, ...)
 
 InterfacesToTrace ::= BIT STRING (SIZE (8))
 
+IMSvoiceEPSfallbackfrom5G ::= ENUMERATED {
+	true,
+	...
+}
 
 
 -- J
@@ -1908,6 +1914,12 @@ RequestType	::= SEQUENCE {
 
 
 RequestType-ExtIEs S1AP-PROTOCOL-EXTENSION ::= {
+	{ ID id-RequestTypeAdditionalInfo	CRITICALITY ignore	EXTENSION RequestTypeAdditionalInfo		PRESENCE optional },
+	...
+}
+
+RequestTypeAdditionalInfo ::= ENUMERATED {
+	includePSCell,
 	...
 }
 
@@ -2141,8 +2153,9 @@ SourceeNB-ToTargeteNB-TransparentContainer		::= SEQUENCE {
 }
 
 SourceeNB-ToTargeteNB-TransparentContainer-ExtIEs S1AP-PROTOCOL-EXTENSION ::= {
-	{ID id-MobilityInformation				CRITICALITY ignore	EXTENSION MobilityInformation				PRESENCE optional}|
-	{ID id-uE-HistoryInformationFromTheUE	CRITICALITY ignore	EXTENSION UE-HistoryInformationFromTheUE		PRESENCE optional},
+	{ID id-MobilityInformation				CRITICALITY ignore	EXTENSION MobilityInformation					PRESENCE optional}|
+	{ID id-uE-HistoryInformationFromTheUE	CRITICALITY ignore	EXTENSION UE-HistoryInformationFromTheUE		PRESENCE optional}|
+	{ID id-IMSvoiceEPSfallbackfrom5G			CRITICALITY ignore	EXTENSION IMSvoiceEPSfallbackfrom5G			PRESENCE optional},
 	...
 }
 
@@ -2479,6 +2492,8 @@ TimeToWait ::= ENUMERATED {v1s, v2s, v5s, v10s, v20s, v60s, ...}
 Time-UE-StayedInCell ::= INTEGER (0..4095)
 
 Time-UE-StayedInCell-EnhancedGranularity ::= INTEGER (0..40950)
+
+TimeSinceSecondaryNodeRelease ::= OCTET STRING (SIZE(4))
 
 TransportInformation ::= SEQUENCE {
 	transportLayerAddress				TransportLayerAddress,

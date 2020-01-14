@@ -71,8 +71,10 @@ BrandingText "Wireshark${U+00ae} Installer"
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\NEWS.txt"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "Show News"
 !define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
-!define MUI_FINISHPAGE_RUN "$INSTDIR\${PROGRAM_NAME_PATH}"
-!define MUI_FINISHPAGE_RUN_NOTCHECKED
+; NSIS runs as Administrator and will run Wireshark as Administrator
+; if these are enabled.
+;!define MUI_FINISHPAGE_RUN "$INSTDIR\${PROGRAM_NAME_PATH}"
+;!define MUI_FINISHPAGE_RUN_NOTCHECKED
 
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW myShowCallback
 
@@ -81,7 +83,12 @@ BrandingText "Wireshark${U+00ae} Installer"
 ; ============================================================================
 
 !insertmacro MUI_PAGE_WELCOME
+
+!define MUI_LICENSEPAGE_TEXT_TOP "Wireshark is distributed under the GNU General Public License."
+!define MUI_LICENSEPAGE_TEXT_BOTTOM "This is not an end user license agreement (EULA). It is provided here for informational purposes only."
+!define MUI_LICENSEPAGE_BUTTON "Noted"
 !insertmacro MUI_PAGE_LICENSE "${STAGING_DIR}\COPYING.txt"
+
 !insertmacro MUI_PAGE_COMPONENTS
 !ifdef QT_DIR
 Page custom DisplayAdditionalTasksPage LeaveAdditionalTasksPage
@@ -156,12 +163,6 @@ Page custom DisplayUSBPcapPage
 
 !insertmacro GetParameters
 !insertmacro GetOptions
-
-; ============================================================================
-; License page configuration
-; ============================================================================
-LicenseText "Wireshark is distributed under the GNU General Public License."
-LicenseData "${STAGING_DIR}\COPYING.txt"
 
 ; ============================================================================
 ; Component page configuration
@@ -893,7 +894,7 @@ ReadINIStr $0 "$PLUGINSDIR\NpcapPage.ini" "Field 4" "State"
 StrCmp $0 "0" SecRequired_skip_Npcap
 SetOutPath $INSTDIR
 File "${EXTRA_INSTALLER_DIR}\npcap-${NPCAP_PACKAGE_VERSION}.exe"
-ExecWait '"$INSTDIR\npcap-${NPCAP_PACKAGE_VERSION}.exe" /winpcap_mode=no' $0
+ExecWait '"$INSTDIR\npcap-${NPCAP_PACKAGE_VERSION}.exe" /winpcap_mode=no /loopback_support=no' $0
 DetailPrint "Npcap installer returned $0"
 SecRequired_skip_Npcap:
 
@@ -945,7 +946,9 @@ File "${QT_DIR}\${PROGRAM_NAME_PATH}"
 WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\App Paths\${PROGRAM_NAME_PATH}" "" '$INSTDIR\${PROGRAM_NAME_PATH}'
 WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\App Paths\${PROGRAM_NAME_PATH}" "Path" '$INSTDIR'
 !include qt-dll-manifest.nsh
+
 ${!defineifexist} TRANSLATIONS_FOLDER "${QT_DIR}\translations"
+SetOutPath $INSTDIR
 !ifdef TRANSLATIONS_FOLDER
   ; Starting from Qt 5.5, *.qm files are put in a translations subfolder
   File /r "${QT_DIR}\translations"
@@ -1134,7 +1137,7 @@ SetOutPath $INSTDIR\extcap
 File "${STAGING_DIR}\extcap\androiddump.exe"
 SectionEnd
 
-Section /o "SSHdump" SecSSHdumpinfos
+Section /o "Sshdump and Ciscodump" SecSshdumpinfos
 ;-------------------------------------------
 SetOutPath $INSTDIR
 File "${STAGING_DIR}\sshdump.html"
@@ -1206,7 +1209,7 @@ SectionEnd
 
   !insertmacro MUI_DESCRIPTION_TEXT ${SecToolsGroup} "Additional command line based tools."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecAndroiddumpinfos} "Provide capture interfaces from Android devices"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecSSHdumpinfos} "Provide remote capture through SSH"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecSshdumpinfos} "Provide remote capture through SSH"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecUDPdumpinfos} "Provide capture interface that gets UDP packets from network devices"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecRandpktdumpinfos} "Provide random packet generator"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecEditCap} "Copy packets to a new file, optionally trimmming packets, omitting them, or saving to a different format."
@@ -1269,7 +1272,7 @@ FunctionEnd
 
 Var NPCAP_NAME ; DisplayName from Npcap installation
 Var WINPCAP_NAME ; DisplayName from WinPcap installation
-Var REG_NPCAP_DISPLAY_VERSION ; DisplayVersion from WinPcap installation
+Var NPCAP_DISPLAY_VERSION ; DisplayVersion from Npcap installation
 Var USBPCAP_NAME ; DisplayName from USBPcap installation
 
 Function myShowCallback
@@ -1288,14 +1291,16 @@ Function myShowCallback
     Goto lbl_npcap_done
 
 lbl_npcap_installed:
-    ReadRegDWORD $0 HKEY_LOCAL_MACHINE "SOFTWARE\Npcap" "WinPcapCompatible"
+    ReadRegStr $NPCAP_DISPLAY_VERSION HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\NpcapInst" "DisplayVersion"
     WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 1" "Text" "Currently installed Npcap version"
+    StrCmp $NPCAP_NAME "Npcap" 0 +3
+    WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 2" "Text" "Npcap $NPCAP_DISPLAY_VERSION"
+    Goto +2
     WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 2" "Text" "$NPCAP_NAME"
 
     ; Compare the installed build against the one we have.
-    ReadRegStr $REG_NPCAP_DISPLAY_VERSION HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\NpcapInst" "DisplayVersion"
-    StrCmp $REG_NPCAP_DISPLAY_VERSION "" lbl_npcap_do_install ; Npcap wasn't installed improperly?
-    ${VersionConvert} $REG_NPCAP_DISPLAY_VERSION "" $R0 ; 0.99-r7 -> 0.99.114.7
+    StrCmp $NPCAP_DISPLAY_VERSION "" lbl_npcap_do_install ; Npcap wasn't installed improperly?
+    ${VersionConvert} $NPCAP_DISPLAY_VERSION "" $R0 ; 0.99-r7 -> 0.99.114.7
     ${VersionConvert} "${NPCAP_PACKAGE_VERSION}" "" $R1
     ${VersionCompare} $R0 $R1 $1
     StrCmp $1 "2" lbl_npcap_do_install
@@ -1315,6 +1320,9 @@ lbl_winpcap_installed:
 lbl_npcap_do_install:
     ; seems to be an old version, install newer one
     WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 4" "State" "1"
+    StrCmp $NPCAP_NAME "Npcap" 0 +3
+    WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 5" "Text" "The currently installed Npcap $NPCAP_DISPLAY_VERSION will be uninstalled first."
+    Goto +2
     WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 5" "Text" "The currently installed $NPCAP_NAME will be uninstalled first."
 
 lbl_npcap_done:

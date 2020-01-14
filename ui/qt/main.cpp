@@ -240,27 +240,6 @@ get_gui_compiled_info(GString *str)
 #else
     g_string_append(str, ", with SpeexDSP (using bundled resampler)");
 #endif
-
-    /* SBC */
-#ifdef HAVE_SBC
-    g_string_append(str, ", with SBC");
-#else
-    g_string_append(str, ", without SBC");
-#endif
-
-    /* SpanDSP (G.722, G.726) */
-#ifdef HAVE_SPANDSP
-    g_string_append(str, ", with SpanDSP");
-#else
-    g_string_append(str, ", without SpanDSP");
-#endif
-
-    /* BCG729 (G.729) */
-#ifdef HAVE_BCG729
-    g_string_append(str, ", with bcg729");
-#else
-    g_string_append(str, ", without bcg729");
-#endif
 }
 
 // xxx copied from ../gtk/main.c
@@ -308,14 +287,13 @@ g_log_message_handler(QtMsgType type, const QMessageLogContext &, const QString 
     GLogLevelFlags log_level = G_LOG_LEVEL_DEBUG;
 
     switch (type) {
-    case QtDebugMsg:
-    default:
-        break;
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
     case QtInfoMsg:
         log_level = G_LOG_LEVEL_INFO;
         break;
 #endif
+    // We want qDebug() messages to show up at our default log level.
+    case QtDebugMsg:
     case QtWarningMsg:
         log_level = G_LOG_LEVEL_WARNING;
         break;
@@ -324,6 +302,8 @@ g_log_message_handler(QtMsgType type, const QMessageLogContext &, const QString 
         break;
     case QtFatalMsg:
         log_level = G_LOG_FLAG_FATAL;
+        break;
+    default:
         break;
     }
     g_log(LOG_DOMAIN_MAIN, log_level, "%s", qUtf8Printable(msg));
@@ -503,7 +483,7 @@ int main(int argc, char *qt_argv[])
         /* load the airpcap interfaces */
         g_airpcap_if_list = get_airpcap_interface_list(&err, &err_str);
 
-        if (g_airpcap_if_list == NULL || g_list_length(g_airpcap_if_list) == 0){
+        if (g_airpcap_if_list == NULL || g_list_length(g_airpcap_if_list) == 0) {
             if (err == CANT_GET_AIRPCAP_INTERFACE_LIST && err_str != NULL) {
                 simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", "Failed to open Airpcap Adapters.");
                 g_free(err_str);
@@ -542,8 +522,8 @@ int main(int argc, char *qt_argv[])
     /* Create the user profiles directory */
     if (create_profiles_dir(&rf_path) == -1) {
         simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
-                      "Could not create profiles directory\n\"%s\"",
-                      rf_path);
+                      "Could not create profiles directory\n\"%s\": %s.",
+                      rf_path, strerror(errno));
         g_free (rf_path);
     }
 
@@ -885,7 +865,7 @@ int main(int argc, char *qt_argv[])
                filter. */
             start_requested_stats();
 
-            if(global_commandline_info.go_to_packet != 0) {
+            if (global_commandline_info.go_to_packet != 0) {
                 /* Jump to the specified frame number, kept for backward
                    compatibility. */
                 cf_goto_frame(CaptureFile::globalCapFile(), global_commandline_info.go_to_packet);

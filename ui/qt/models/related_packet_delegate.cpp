@@ -12,6 +12,9 @@
 
 #include <ui/qt/utils/color_utils.h>
 
+#include <ui/qt/main_window.h>
+#include <ui/qt/wireshark_application.h>
+
 #include <QApplication>
 #include <QPainter>
 
@@ -37,6 +40,18 @@ RelatedPacketDelegate::RelatedPacketDelegate(QWidget *parent) :
 void RelatedPacketDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
                               const QModelIndex &index) const
 {
+
+    /* This prevents the drawing of related objects, if multiple lines are being selected */
+    if (wsApp && wsApp->mainWindow())
+    {
+        MainWindow * mw = qobject_cast<MainWindow *>(wsApp->mainWindow());
+        if (mw && mw->hasSelection())
+        {
+            QStyledItemDelegate::paint(painter, option, index);
+            return;
+        }
+    }
+
     QStyleOptionViewItem option_vi = option;
     QStyledItemDelegate::initStyleOption(&option_vi, index);
     int em_w = option_vi.fontMetrics.height();
@@ -202,7 +217,16 @@ void RelatedPacketDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 }
 
 QSize RelatedPacketDelegate::sizeHint(const QStyleOptionViewItem &option,
-                                  const QModelIndex &index) const {
+                                  const QModelIndex &index) const
+{
+    /* This prevents the sizeHint for the delegate, if multiple lines are being selected */
+    if (wsApp && wsApp->mainWindow())
+    {
+        MainWindow * mw = qobject_cast<MainWindow *>(wsApp->mainWindow());
+        if (mw && mw->selectedRows().count() > 1)
+            return QStyledItemDelegate::sizeHint(option, index);
+    }
+
     return QSize(option.fontMetrics.height() + QStyledItemDelegate::sizeHint(option, index).width(),
                  QStyledItemDelegate::sizeHint(option, index).height());
 }
@@ -256,9 +280,19 @@ void RelatedPacketDelegate::clear()
     conv_ = NULL;
 }
 
+void RelatedPacketDelegate::setCurrentFrame(guint32 current_frame)
+ {
+    current_frame_ = current_frame;
+    foreach (int frame_num, related_frames_.keys()) {
+        addRelatedFrame(frame_num, related_frames_[frame_num]);
+    }
+ }
+
 void RelatedPacketDelegate::addRelatedFrame(int frame_num, ft_framenum_type_t framenum_type)
 {
-    related_frames_[frame_num] = framenum_type;
+    if (!related_frames_.keys().contains(frame_num))
+        related_frames_[frame_num] = framenum_type;
+
     // Last match wins. Last match might not make sense, however.
     if (current_frame_ > 0) {
         switch (framenum_type) {

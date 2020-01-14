@@ -1,8 +1,8 @@
 /* packet-nr-rrc-template.c
  * NR;
  * Radio Resource Control (RRC) protocol specification
- * (3GPP TS 38.331 V15.6.0 Release 15) packet dissection
- * Copyright 2018-2019, Pascal Quantin
+ * (3GPP TS 38.331 V15.8.0 Release 15) packet dissection
+ * Copyright 2018-2020, Pascal Quantin
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -32,6 +32,7 @@
 #include "packet-rlc-nr.h"
 #include "packet-lte-rrc.h"
 #include "packet-nr-rrc.h"
+#include "packet-gsm_a_common.h"
 
 #define PNAME  "NR Radio Resource Control (RRC) protocol"
 #define PSNAME "NR RRC"
@@ -367,6 +368,12 @@ nr_rrc_SINR_Range_fmt(gchar *s, guint32 v)
   } else {
     g_snprintf(s, ITEM_LABEL_LENGTH, "40dB <= SS-SINR (127)");
   }
+}
+
+static void
+nr_rrc_dl_1024QAM_TotalWeightedLayers_fmt(gchar *s, guint32 v)
+{
+  g_snprintf(s, ITEM_LABEL_LENGTH, "%u (%u)", 10+(2*v), v);
 }
 
 #include "packet-nr-rrc-fn.c"

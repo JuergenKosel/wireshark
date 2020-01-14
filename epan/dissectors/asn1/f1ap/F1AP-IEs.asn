@@ -1,4 +1,4 @@
--- 3GPP TS 38.473 V15.6.0 (2019-06)
+-- 3GPP TS 38.473 V15.8.0 (2019-12)
 -- 9.4.5	Information Element Definitions
 -- **************************************************************
 --
@@ -49,12 +49,19 @@ IMPORTS
 	id-RequestedP-MaxFR2,
 	id-DRX-Config,
 	id-UEAssistanceInformation,
+	id-PDCCH-BlindDetectionSCG,
+	id-Requested-PDCCH-BlindDetectionSCG,
 	id-BPLMN-ID-Info-List,
 	id-NotificationInformation,
 	id-TNLAssociationTransportLayerAddressgNBDU,
 	id-portNumber,
 	id-AdditionalSIBMessageList,
 	id-IgnorePRACHConfiguration,
+	id-CG-Config,
+	id-Ph-InfoMCG,
+	id-MeasGapSharingConfig,
+	id-systemInformationAreaID,
+	id-areaScope,
 	maxNRARFCN,
 	maxnoofErrors,
 	maxnoofBPLMNs,
@@ -135,6 +142,8 @@ AvailablePLMNList-Item-ExtIEs F1AP-PROTOCOL-EXTENSION ::= {
 }
 
 AveragingWindow  ::= INTEGER (0..4095, ...) 
+
+AreaScope ::= ENUMERATED {true, ...}
 
 -- B
 
@@ -237,7 +246,9 @@ CauseRadioNetwork ::= ENUMERATED {
 	resources-not-available-for-the-slice,
 	amf-initiated-abnormal-release,
 	release-due-to-pre-emption,
-	plmn-not-served-by-the-gNB-CU
+	plmn-not-served-by-the-gNB-CU,
+	multiple-drb-id-instances,
+	unknown-drb-id
 }
 
 CauseTransport ::= ENUMERATED {
@@ -426,7 +437,8 @@ CUtoDURRCInformation-ExtIEs F1AP-PROTOCOL-EXTENSION ::= {
 	{ ID id-HandoverPreparationInformation	CRITICALITY ignore	EXTENSION HandoverPreparationInformation		PRESENCE optional }|
 	{ ID id-CellGroupConfig					CRITICALITY ignore	EXTENSION CellGroupConfig							PRESENCE optional }|
 	{ ID id-MeasurementTimingConfiguration	CRITICALITY ignore	EXTENSION MeasurementTimingConfiguration		PRESENCE optional }|
-	{ ID id-UEAssistanceInformation			CRITICALITY ignore	EXTENSION UEAssistanceInformation					PRESENCE optional },
+	{ ID id-UEAssistanceInformation			CRITICALITY ignore	EXTENSION UEAssistanceInformation					PRESENCE optional }|
+	{ ID id-CG-Config						CRITICALITY ignore	EXTENSION CG-Config									PRESENCE optional },
 	...
 }
 
@@ -698,14 +710,18 @@ DUtoCURRCInformation ::= SEQUENCE {
 }
 
 DUtoCURRCInformation-ExtIEs F1AP-PROTOCOL-EXTENSION ::= {
-	{ ID id-DRX-LongCycleStartOffset			CRITICALITY ignore	EXTENSION DRX-LongCycleStartOffset			PRESENCE optional }|
-	{ ID id-SelectedBandCombinationIndex		CRITICALITY ignore	EXTENSION SelectedBandCombinationIndex		PRESENCE optional }|
-	{ ID id-SelectedFeatureSetEntryIndex		CRITICALITY ignore	EXTENSION SelectedFeatureSetEntryIndex		PRESENCE optional }|
-	{ ID id-Ph-InfoSCG							CRITICALITY ignore	EXTENSION Ph-InfoSCG							PRESENCE optional }|
-	{ ID id-RequestedBandCombinationIndex		CRITICALITY ignore	EXTENSION RequestedBandCombinationIndex	PRESENCE optional }|
-	{ ID id-RequestedFeatureSetEntryIndex		CRITICALITY ignore	EXTENSION RequestedFeatureSetEntryIndex	PRESENCE optional }|
-	{ ID id-RequestedP-MaxFR2					CRITICALITY ignore	EXTENSION RequestedP-MaxFR2						PRESENCE optional }|
-	{ ID id-DRX-Config							CRITICALITY ignore	EXTENSION DRX-Config							PRESENCE optional },
+	{ ID id-DRX-LongCycleStartOffset			CRITICALITY ignore	EXTENSION DRX-LongCycleStartOffset				PRESENCE optional }|
+	{ ID id-SelectedBandCombinationIndex		CRITICALITY ignore	EXTENSION SelectedBandCombinationIndex			PRESENCE optional }|
+	{ ID id-SelectedFeatureSetEntryIndex		CRITICALITY ignore	EXTENSION SelectedFeatureSetEntryIndex			PRESENCE optional }|
+	{ ID id-Ph-InfoSCG							CRITICALITY ignore	EXTENSION Ph-InfoSCG								PRESENCE optional }|
+	{ ID id-RequestedBandCombinationIndex		CRITICALITY ignore	EXTENSION RequestedBandCombinationIndex		PRESENCE optional }|
+	{ ID id-RequestedFeatureSetEntryIndex		CRITICALITY ignore	EXTENSION RequestedFeatureSetEntryIndex		PRESENCE optional }|
+	{ ID id-RequestedP-MaxFR2					CRITICALITY ignore	EXTENSION RequestedP-MaxFR2							PRESENCE optional }|
+	{ ID id-DRX-Config							CRITICALITY ignore	EXTENSION DRX-Config								PRESENCE optional }|
+	{ ID id-PDCCH-BlindDetectionSCG				CRITICALITY ignore	EXTENSION PDCCH-BlindDetectionSCG				PRESENCE optional }|
+	{ ID id-Requested-PDCCH-BlindDetectionSCG	CRITICALITY ignore	EXTENSION Requested-PDCCH-BlindDetectionSCG	PRESENCE optional }|
+	{ ID id-Ph-InfoMCG							CRITICALITY ignore	EXTENSION Ph-InfoMCG								PRESENCE optional }|
+	{ ID id-MeasGapSharingConfig				CRITICALITY ignore	EXTENSION MeasGapSharingConfig					PRESENCE optional },
 	...
 }
 
@@ -828,7 +844,8 @@ EUTRA-PRACH-Configuration ::= SEQUENCE {
 	zeroCorrelationIndex					INTEGER (0..15),
 	highSpeedFlag							BOOLEAN,
 	prach-FreqOffset						INTEGER (0..94),
-	prach-ConfigIndex						INTEGER (0..63)		OPTIONAL,  -- present for TDD --
+	prach-ConfigIndex						INTEGER (0..63)		OPTIONAL,
+	-- C-ifTDD: This IE shall be present if the EUTRA-Mode-Info IE in the Resource Coordination E-UTRA Cell Information IE is set to the value "TDD"
 	iE-Extensions							ProtocolExtensionContainer { {EUTRA-PRACH-Configuration-ExtIEs} }	OPTIONAL,
 	...
 }
@@ -1010,6 +1027,7 @@ GBR-QosFlowInformation-ExtIEs F1AP-PROTOCOL-EXTENSION ::= {
 	...
 }
 
+CG-Config ::= OCTET STRING
 
 GNB-CUSystemInformation::= SEQUENCE {
 	sibtypetobeupdatedlist	SEQUENCE (SIZE(1.. maxnoofSIBTypes)) OF SibtypetobeupdatedListItem,
@@ -1018,6 +1036,7 @@ GNB-CUSystemInformation::= SEQUENCE {
 }
 
 GNB-CUSystemInformation-ExtIEs F1AP-PROTOCOL-EXTENSION ::= {
+	{ID id-systemInformationAreaID  CRITICALITY ignore	EXTENSION SystemInformationAreaID PRESENCE optional},
 	...
 }
 
@@ -1167,6 +1186,8 @@ MIB-message ::= OCTET STRING
 MeasConfig ::= OCTET STRING
 
 MeasGapConfig ::= OCTET STRING
+
+MeasGapSharingConfig ::= OCTET STRING
 
 MeasurementTimingConfiguration ::= OCTET STRING
 
@@ -1324,11 +1345,15 @@ PagingOrigin ::= ENUMERATED { non-3gpp,	...}
 
 PagingPriority ::= ENUMERATED { priolevel1, priolevel2, priolevel3, priolevel4, priolevel5, priolevel6, priolevel7, priolevel8,...} 
 
+PDCCH-BlindDetectionSCG ::= OCTET STRING
+
 PDCP-SN ::= INTEGER (0..4095)
 
 PDCPSNLength	::= ENUMERATED { twelve-bits,eighteen-bits,...}
 
 PDUSessionID ::= INTEGER (0..255)
+
+Ph-InfoMCG  ::= OCTET STRING
 
 Ph-InfoSCG  ::= OCTET STRING
 
@@ -1472,6 +1497,8 @@ RequestedBandCombinationIndex ::= OCTET STRING
 
 RequestedFeatureSetEntryIndex ::= OCTET STRING
 
+Requested-PDCCH-BlindDetectionSCG ::= OCTET STRING
+
 RequestedP-MaxFR2 ::= OCTET STRING
 
 RequestType	::= ENUMERATED {offer, execution, ...}
@@ -1531,6 +1558,8 @@ RLC-Status-ExtIEs F1AP-PROTOCOL-EXTENSION ::= {
 }
 
 RRCContainer ::= OCTET STRING
+
+RRCContainer-RRCSetupComplete ::= OCTET STRING
 
 RRCDeliveryStatus ::= SEQUENCE	{
 	delivery-status 			PDCP-SN,
@@ -1750,6 +1779,7 @@ SibtypetobeupdatedListItem ::= SEQUENCE {
 }
 
 SibtypetobeupdatedListItem-ExtIEs 	F1AP-PROTOCOL-EXTENSION ::= {
+	{ID	id-areaScope	CRITICALITY ignore	EXTENSION	AreaScope	PRESENCE optional},
 	...
 }
 
@@ -1900,6 +1930,8 @@ SupportedSULFreqBandItem ::= SEQUENCE {
 SupportedSULFreqBandItem-ExtIEs F1AP-PROTOCOL-EXTENSION ::= {
 	...
 }
+
+SystemInformationAreaID ::=BIT STRING (SIZE (24))
 
 -- T
 

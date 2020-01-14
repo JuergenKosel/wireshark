@@ -3548,7 +3548,7 @@ class Constraint (Node):
                 if self.subtype[0].IsValue() and self.subtype[1].IsValue():
                     v0 = self.subtype[0].GetValue(ectx)
                     v1 = self.subtype[1].GetValue(ectx)
-                    (minv, maxv, ext) = (ectx.value_min(v0[0],v1[0]), ectx.value_max(v0[1],v1[1]), v0[2] or v1[2])
+                    (minv, maxv, ext) = (ectx.value_min(v0[0],v1[0]), ectx.value_max(v0[1],v1[1]), hasattr(self, 'ext') and self.ext)
         return (minv, maxv, ext)
 
     def IsAlphabet(self):
@@ -5246,7 +5246,7 @@ class UTCTime (RestrictedCharacterStringType):
     def eth_type_default_body(self, ectx, tname):
         if (ectx.Ber()):
             body = ectx.eth_fn_call('dissect_%(ER)s_%(STRING_TYPE)s', ret='offset',
-                                    par=(('%(IMPLICIT_TAG)s', '%(ACTX)s', '%(TREE)s', '%(TVB)s', '%(OFFSET)s', '%(HF_INDEX)s'),))
+                                    par=(('%(IMPLICIT_TAG)s', '%(ACTX)s', '%(TREE)s', '%(TVB)s', '%(OFFSET)s', '%(HF_INDEX)s', 'NULL', 'NULL'),))
             return body
         else:
             return RestrictedCharacterStringType.eth_type_default_body(self, ectx, tname)

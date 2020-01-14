@@ -67,6 +67,7 @@ set(PIDL_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-rfr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-srvsvc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-winreg.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-winspool.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-witness.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-wkssvc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-wzcsvc.c
@@ -431,6 +432,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-lnet.h
 	packet-logotypecertextn.h
 	packet-lpp.h
+	packet-lppa.h
 	packet-lte-rrc.h
 	packet-mac-lte.h
 	packet-mausb.h
@@ -501,6 +503,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-q931.h
 	packet-q932.h
 	packet-qsig.h
+	packet-quic.h
 	packet-radius.h
 	packet-raknet.h
 	packet-ranap.h
@@ -664,6 +667,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ajp13.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-alcap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-alljoyn.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-amp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-amqp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-amr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-amt.c
@@ -805,6 +809,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-erspan.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-fp-mim.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-marker.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-mcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-metadata.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-oui.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cisco-sm.c
@@ -1054,6 +1059,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fractalgeneratorprotocol.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-frame.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ftdi-ft.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ftdi-mpsse.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ftp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fw1.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-g723.c
@@ -1528,6 +1534,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ossp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ouch.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-p_mul.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-pa-hbbackup.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pathport.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-packetbb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-packetlogger.c
@@ -1878,6 +1885,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-whois.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wifi-dpp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wifi-display.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-wifi-nan.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wifi-p2p.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-windows-common.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-winsrepl.c
@@ -1947,8 +1955,8 @@ set(DISSECTOR_SRC
 set(DISSECTOR_SUPPORT_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/errno.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-nt.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-snort-config.c
 	${CMAKE_CURRENT_SOURCE_DIR}/usb.c
-	${CMAKE_CURRENT_SOURCE_DIR}/snort-config.c
 	${CMAKE_CURRENT_BINARY_DIR}/dissectors.c
 )
 source_group(dissector-support FILES ${DISSECTOR_SUPPORT_SRC})

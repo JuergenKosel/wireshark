@@ -21,10 +21,6 @@ void proto_reg_handoff_netlink_netfilter(void);
 
 typedef struct {
 	packet_info *pinfo;
-	struct packet_netlink_data *data;
-
-	int encoding; /* copy of data->encoding */
-
 	guint16 hw_protocol; /* protocol for NFQUEUE packet payloads. */
 } netlink_netfilter_info_t;
 
@@ -37,7 +33,7 @@ static header_field_info *hfi_netlink_netfilter = NULL;
 
 #define NETLINK_NETFILTER_HFI_INIT HFI_INIT(proto_netlink_netfilter)
 
-/* nfnetlink subsystems from <linux/netfilter/nfnetlink.h> */
+/* nfnetlink subsystems from <include/uapi/linux/netfilter/nfnetlink.h> */
 enum {
 	WS_NFNL_SUBSYS_NONE              =  0,
 	WS_NFNL_SUBSYS_CTNETLINK         =  1,
@@ -51,15 +47,16 @@ enum {
 	WS_NFNL_SUBSYS_CTHELPER          =  9,
 	WS_NFNL_SUBSYS_NFTABLES          = 10,
 	WS_NFNL_SUBSYS_NFT_COMPAT        = 11,
+	WS_NFNL_SUBSYS_COUNT             = 12,
 };
 
-/* nfnetlink ULOG subsystem types from <linux/netfilter/nfnetlink_log.h> */
+/* nfnetlink ULOG subsystem types from <include/uapi/linux/netfilter/nfnetlink_log.h> */
 enum ws_nfulnl_msg_types {
 	WS_NFULNL_MSG_PACKET = 0,
 	WS_NFULNL_MSG_CONFIG = 1
 };
 
-/* Macros for "hook function responses" from <linux/netfilter.h> */
+/* Macros for "hook function responses" from <include/uapi/linux/netfilter.h> */
 enum ws_verdict_types {
 	WS_NF_DROP      = 0,
 	WS_NF_ACCEPT    = 1,
@@ -77,7 +74,7 @@ enum ws_nf_inet_hooks {
 	WS_NF_INET_POST_ROUTING = 4,
 };
 
-/* from <linux/netfilter/nf_conntrack_common.h> */
+/* from <include/uapi/linux/netfilter/nf_conntrack_common.h> */
 enum ws_ip_conntrack_info {
 	WS_IP_CT_ESTABLISHED,
 	WS_IP_CT_RELATED,
@@ -117,6 +114,8 @@ enum ws_ip_conntrack_status {
 	WS_IPS_UNTRACKED = (1 << WS_IPS_UNTRACKED_BIT),
 	WS_IPS_HELPER_BIT = 13,
 	WS_IPS_HELPER = (1 << WS_IPS_HELPER_BIT),
+	WS_IPS_OFFLOAD_BIT = 14,
+	WS_IPS_OFFLOAD = (1 << WS_IPS_OFFLOAD_BIT),
 };
 
 enum nfexp_flags {
@@ -125,13 +124,13 @@ enum nfexp_flags {
 	WS_NF_CT_EXPECT_USERSPACE   = (1 << 2),
 };
 
-/* from <linux/netfilter/nf_conntrack_tuple_common.h> */
+/* from <include/uapi/linux/netfilter/nf_conntrack_tuple_common.h> */
 enum ws_ip_conntrack_dir {
 	WS_IP_CT_DIR_ORIGINAL       = 0,
 	WS_IP_CT_DIR_REPLY          = 1,
 };
 
-/* nfnetlink QUEUE subsystem types from <linux/netfilter/nfnetlink_queue.h> */
+/* nfnetlink QUEUE subsystem types from <include/uapi/linux/netfilter/nfnetlink_queue.h> */
 enum ws_nfqnl_msg_types {
 	WS_NFQNL_MSG_PACKET         = 0,
 	WS_NFQNL_MSG_VERDICT        = 1,
@@ -186,7 +185,7 @@ enum ws_nfqnl_attr_config {
 	WS_NFQA_CFG_FLAGS           = 5,
 };
 
-/* from <linux/netfilter/nfnetlink_conntrack.h> */
+/* from <include/uapi/linux/netfilter/nfnetlink_conntrack.h> */
 enum ws_ctattr_tuple {
 	WS_CTA_TUPLE_UNSPEC         = 0,
 	WS_CTA_TUPLE_IP             = 1,
@@ -238,6 +237,7 @@ enum ws_ctattr_expect {
 };
 
 enum ws_ctattr_expect_nat {
+	WS_CTA_EXPECT_NAT_UNSPEC    = 0,
 	WS_CTA_EXPECT_NAT_DIR       = 1,
 	WS_CTA_EXPECT_NAT_TUPLE     = 2,
 };
@@ -267,6 +267,7 @@ enum ws_ctattr_type {
 	WS_CTA_MARK_MASK            = 21,
 	WS_CTA_LABELS               = 22,
 	WS_CTA_LABELS_MASK          = 23,
+	WS_CTA_SYNPROXY             = 24,
 };
 
 enum ws_ctattr_help {
@@ -276,12 +277,13 @@ enum ws_ctattr_help {
 };
 
 enum ws_ctattr_seqadj {
+	WS_CTA_SEQADJ_UNSPEC           = 0,
 	WS_CTA_SEQADJ_CORRECTION_POS   = 1,
 	WS_CTA_SEQADJ_OFFSET_BEFORE    = 2,
 	WS_CTA_SEQADJ_OFFSET_AFTER     = 3,
 };
 
-/* from <linux/netfilter/ipset/ip_set.h> */
+/* from <include/uapi/linux/netfilter/ipset/ip_set.h> */
 enum ws_ipset_cmd {
 	WS_IPSET_CMD_NONE           = 0,
 	WS_IPSET_CMD_PROTOCOL       = 1,
@@ -297,6 +299,8 @@ enum ws_ipset_cmd {
 	WS_IPSET_CMD_TEST           = 11,
 	WS_IPSET_CMD_HEADER         = 12,
 	WS_IPSET_CMD_TYPE           = 13,
+	WS_IPSET_CMD_GET_BYNAME     = 14,
+	WS_IPSET_CMD_GET_BYINDEX    = 15,
 };
 
 /* Attributes at command level */
@@ -311,6 +315,7 @@ enum ws_ipset_attr {
 	WS_IPSET_ATTR_ADT           = 8,
 	WS_IPSET_ATTR_LINENO        = 9,
 	WS_IPSET_ATTR_PROTOCOL_MIN  = 10,
+	WS_IPSET_ATTR_INDEX         = 11,
 };
 
 /* CADT-specific attributes (Create/Abstract Data Type) */
@@ -460,7 +465,7 @@ static header_field_info hfi_nfct_tuple_proto_attr NETLINK_NETFILTER_HFI_INIT =
 	  VALS(nfct_tuple_l4proto_attr_vals), NLA_TYPE_MASK, NULL, HFILL };
 
 static int
-dissect_nfct_tuple_proto_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfct_tuple_proto_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_data *nl_data _U_, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ctattr_ip type = (enum ws_ctattr_ip) nla_type & NLA_TYPE_MASK;
 
@@ -495,7 +500,7 @@ static header_field_info hfi_nfct_tuple_ip_attr NETLINK_NETFILTER_HFI_INIT =
 	  VALS(nfct_tuple_ip_attr_vals), NLA_TYPE_MASK, NULL, HFILL };
 
 static int
-dissect_nfct_tuple_ip_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfct_tuple_ip_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_data *nl_data _U_, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ctattr_ip type = (enum ws_ctattr_ip) nla_type & NLA_TYPE_MASK;
 
@@ -507,7 +512,7 @@ dissect_nfct_tuple_ip_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int
 
 		case WS_CTA_IP_V6_SRC:
 		case WS_CTA_IP_V6_DST:
-			proto_tree_add_item(tree, &hfi_nfct_tuple_ip_attr_ipv6, tvb, offset, len, ENC_BIG_ENDIAN);
+			proto_tree_add_item(tree, &hfi_nfct_tuple_ip_attr_ipv6, tvb, offset, len, ENC_NA);
 			return 1;
 
 		default:
@@ -524,7 +529,7 @@ static header_field_info hfi_nfct_tuple_attr NETLINK_NETFILTER_HFI_INIT =
 	  VALS(nfct_tuple_attr_vals), NLA_TYPE_MASK, NULL, HFILL };
 
 static int
-dissect_nfct_tuple_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfct_tuple_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ctattr_tuple type = (enum ws_ctattr_tuple) nla_type & NLA_TYPE_MASK;
 	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
@@ -532,13 +537,13 @@ dissect_nfct_tuple_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_ty
 	switch (type) {
 		case WS_CTA_TUPLE_IP:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_ip_attr, ett_nfct_tuple_ip_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_ip_attr, ett_nfct_tuple_ip_attr, info, nl_data,
 								  tree, offset, len, dissect_nfct_tuple_ip_attrs);
 			return 0;
 
 		case WS_CTA_TUPLE_PROTO:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_proto_attr, ett_nfct_tuple_proto_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_proto_attr, ett_nfct_tuple_proto_attr, info, nl_data,
 								  tree, offset, len, dissect_nfct_tuple_proto_attrs);
 			return 0;
 
@@ -577,6 +582,7 @@ static const value_string nfct_attr_vals[] = {
 	{ WS_CTA_MARK_MASK,             "Mark mask" },
 	{ WS_CTA_LABELS,                "LABELS" },
 	{ WS_CTA_LABELS_MASK,           "LABELS_MASK" },
+	{ WS_CTA_SYNPROXY,              "SYNPROXY" },
 	{ 0, NULL }
 };
 
@@ -587,6 +593,7 @@ static const value_string nfct_help_attr_vals[] = {
 };
 
 static const value_string nfct_seqadj_attr_vals[] = {
+	{ WS_CTA_SEQADJ_UNSPEC,         "Unspecified" },
 	{ WS_CTA_SEQADJ_CORRECTION_POS, "Correction position" },
 	{ WS_CTA_SEQADJ_OFFSET_BEFORE,  "Offset before" },
 	{ WS_CTA_SEQADJ_OFFSET_AFTER,   "Offset after" },
@@ -672,7 +679,13 @@ static header_field_info hfi_nfct_attr_status_flag_helper NETLINK_NETFILTER_HFI_
 		FT_UINT32, BASE_DEC, NULL, WS_IPS_HELPER,
 		"Conntrack got a helper explicitly attached via CT target", HFILL };
 
+static header_field_info hfi_nfct_attr_status_flag_offload NETLINK_NETFILTER_HFI_INIT =
+	{ "Offload", "netlink-netfilter.ct_attr.status.offload",
+		FT_UINT32, BASE_DEC, NULL, WS_IPS_OFFLOAD,
+		NULL, HFILL };
+
 static const int *hfi_nfct_attr_status_flags[] = {
+	&hfi_nfct_attr_status_flag_offload.id,
 	&hfi_nfct_attr_status_flag_helper.id,
 	&hfi_nfct_attr_status_flag_untracked.id,
 	&hfi_nfct_attr_status_flag_template.id,
@@ -703,7 +716,7 @@ static header_field_info hfi_nfct_help_attr NETLINK_NETFILTER_HFI_INIT =
 	  VALS(nfct_help_attr_vals), NLA_TYPE_MASK, NULL, HFILL };
 
 static int
-dissect_nfct_help_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfct_help_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_data *nl_data _U_, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ctattr_help type = (enum ws_ctattr_help) nla_type & NLA_TYPE_MASK;
 
@@ -736,7 +749,7 @@ static header_field_info hfi_nfct_seqadj_attr NETLINK_NETFILTER_HFI_INIT =
 	  VALS(nfct_seqadj_attr_vals), NLA_TYPE_MASK, NULL, HFILL };
 
 static int
-dissect_nfct_seqadj_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfct_seqadj_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_data *nl_data _U_, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ctattr_seqadj type = (enum ws_ctattr_seqadj) nla_type & NLA_TYPE_MASK;
 
@@ -761,7 +774,7 @@ dissect_nfct_seqadj_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int n
 }
 
 static int
-dissect_nfct_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfct_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ctattr_type type = (enum ws_ctattr_type) nla_type & NLA_TYPE_MASK;
 	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
@@ -782,14 +795,14 @@ dissect_nfct_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, in
 
 		case WS_CTA_HELP:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfct_help_attr, ett_nfct_help_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfct_help_attr, ett_nfct_help_attr, info, nl_data,
 								  tree, offset, len, dissect_nfct_help_attrs);
 			return 0;
 
 		case WS_CTA_SEQ_ADJ_ORIG:
 		case WS_CTA_SEQ_ADJ_REPLY:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfct_seqadj_attr, ett_nfct_seqadj_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfct_seqadj_attr, ett_nfct_seqadj_attr, info, nl_data,
 								  tree, offset, len, dissect_nfct_seqadj_attrs);
 			return 0;
 
@@ -797,7 +810,7 @@ dissect_nfct_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, in
 		case WS_CTA_TUPLE_REPLY:
 		case WS_CTA_TUPLE_MASTER:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_attr, ett_nfct_tuple_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_attr, ett_nfct_tuple_attr, info, nl_data,
 								  tree, offset, len, dissect_nfct_tuple_attrs);
 			return 0;
 
@@ -813,10 +826,10 @@ static header_field_info hfi_nfct_attr NETLINK_NETFILTER_HFI_INIT =
 	  VALS(nfct_attr_vals), NLA_TYPE_MASK, NULL, HFILL };
 
 static int
-dissect_netfilter_ct(tvbuff_t *tvb, netlink_netfilter_info_t *info, proto_tree *tree, int offset)
+dissect_netfilter_ct(tvbuff_t *tvb, netlink_netfilter_info_t *info, struct packet_netlink_data *nl_data, proto_tree *tree, int offset)
 {
 	offset = dissect_netlink_netfilter_header(tvb, tree, offset);
-	return dissect_netlink_attributes(tvb, &hfi_nfct_attr, ett_nfct_attr, info, info->data,
+	return dissect_netlink_attributes(tvb, &hfi_nfct_attr, ett_nfct_attr, info, nl_data,
 					  tree, offset, -1, dissect_nfct_attrs);
 }
 
@@ -866,7 +879,7 @@ static header_field_info hfi_nfexp_nat_attr NETLINK_NETFILTER_HFI_INIT =
 	  VALS(nfexp_nat_attr_vals), NLA_TYPE_MASK, NULL, HFILL };
 
 static int
-dissect_nfexp_nat_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfexp_nat_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ctattr_expect type = (enum ws_ctattr_expect) nla_type & NLA_TYPE_MASK;
 	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
@@ -878,7 +891,7 @@ dissect_nfexp_nat_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_typ
 
 		case WS_CTA_EXPECT_NAT_TUPLE:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_attr, ett_nfct_tuple_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_attr, ett_nfct_tuple_attr, info, nl_data,
 								  tree, offset, len, dissect_nfct_tuple_attrs);
 			return 0;
 
@@ -935,7 +948,7 @@ static header_field_info hfi_nfexp_attr_flags NETLINK_NETFILTER_HFI_INIT =
 	  NULL, 0x00, NULL, HFILL };
 
 static int
-dissect_nfexp_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfexp_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ctattr_expect type = (enum ws_ctattr_expect) nla_type & NLA_TYPE_MASK;
 	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
@@ -945,13 +958,13 @@ dissect_nfexp_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, i
 		case WS_CTA_EXPECT_MASK:
 		case WS_CTA_EXPECT_MASTER:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_attr, ett_nfct_tuple_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfct_tuple_attr, ett_nfct_tuple_attr, info, nl_data,
 								  tree, offset, len, dissect_nfct_tuple_attrs);
 			return 0;
 
 		case WS_CTA_EXPECT_NAT:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfexp_nat_attr, ett_nfexp_nat_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfexp_nat_attr, ett_nfexp_nat_attr, info, nl_data,
 								  tree, offset, len, dissect_nfexp_nat_attrs);
 			return 0;
 
@@ -992,12 +1005,12 @@ static header_field_info hfi_nfexp_attr NETLINK_NETFILTER_HFI_INIT =
 /* EXP - main */
 
 static int
-dissect_netfilter_exp(tvbuff_t *tvb, netlink_netfilter_info_t *info, proto_tree *tree, int offset)
+dissect_netfilter_exp(tvbuff_t *tvb, netlink_netfilter_info_t *info, struct packet_netlink_data *nl_data, proto_tree *tree, int offset)
 {
 	//enum ws_ctnl_exp_msg_types type = (enum ws_ctnl_exp_msg_types) (info->data->type & 0xff);
 
 	offset = dissect_netlink_netfilter_header(tvb, tree, offset);
-	return dissect_netlink_attributes(tvb, &hfi_nfexp_attr, ett_nfexp_attr, info, info->data,
+	return dissect_netlink_attributes(tvb, &hfi_nfexp_attr, ett_nfexp_attr, info, nl_data,
 					  tree, offset, -1, dissect_nfexp_attrs);
 }
 
@@ -1068,10 +1081,9 @@ static header_field_info hfi_nfq_config_flags NETLINK_NETFILTER_HFI_INIT =
 	  NULL, 0x00, NULL, HFILL };
 
 static int
-dissect_nfq_config_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfq_config_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_nfqnl_attr_config type = (enum ws_nfqnl_attr_config) nla_type;
-	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
 
 	switch (type) {
 		case WS_NFQA_CFG_UNSPEC:
@@ -1099,21 +1111,21 @@ dissect_nfq_config_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_ty
 
 		case WS_NFQA_CFG_QUEUE_MAXLEN:
 			if (len == 4) {
-				proto_tree_add_item(tree, &hfi_nfq_config_queue_maxlen, tvb, offset, 4, info->encoding);
+				proto_tree_add_item(tree, &hfi_nfq_config_queue_maxlen, tvb, offset, 4, nl_data->encoding);
 				offset += 4;
 			}
 			break;
 
 		case WS_NFQA_CFG_MASK:
 			if (len == 4) {
-				proto_tree_add_item(tree, &hfi_nfq_config_mask, tvb, offset, 4, info->encoding);
+				proto_tree_add_item(tree, &hfi_nfq_config_mask, tvb, offset, 4, nl_data->encoding);
 				offset += 4;
 			}
 			break;
 
 		case WS_NFQA_CFG_FLAGS:
 			if (len == 4) {
-				proto_tree_add_item(tree, &hfi_nfq_config_flags, tvb, offset, 4, info->encoding);
+				proto_tree_add_item(tree, &hfi_nfq_config_flags, tvb, offset, 4, nl_data->encoding);
 				offset += 4;
 			}
 			break;
@@ -1265,7 +1277,7 @@ static header_field_info hfi_nfq_gid NETLINK_NETFILTER_HFI_INIT =
 
 
 static int
-dissect_nfq_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_nfq_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_nfqnl_attr_type type = (enum ws_nfqnl_attr_type) nla_type & NLA_TYPE_MASK;
 	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
@@ -1368,7 +1380,7 @@ dissect_nfq_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int
 
 		case WS_NFQA_CT:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_nfct_attr, ett_nfct_attr, info, info->data,
+				return dissect_netlink_attributes(tvb, &hfi_nfct_attr, ett_nfct_attr, info, nl_data,
 								  tree, offset, len, dissect_nfct_attrs);
 			break;
 
@@ -1422,19 +1434,19 @@ static header_field_info hfi_nfq_attr NETLINK_NETFILTER_HFI_INIT =
 /* QUEUE - main */
 
 static int
-dissect_netfilter_queue(tvbuff_t *tvb, netlink_netfilter_info_t *info, proto_tree *tree, int offset)
+dissect_netfilter_queue(tvbuff_t *tvb, netlink_netfilter_info_t *info, struct packet_netlink_data *nl_data, proto_tree *tree, int offset)
 {
-	enum ws_nfqnl_msg_types type = (enum ws_nfqnl_msg_types) (info->data->type & 0xff);
+	enum ws_nfqnl_msg_types type = (enum ws_nfqnl_msg_types) (nl_data->type & 0xff);
 
 	offset = dissect_netlink_netfilter_header(tvb, tree, offset);
 
 	switch (type) {
 		case WS_NFQNL_MSG_CONFIG:
-			return dissect_netlink_attributes(tvb, &hfi_nfq_config_attr, ett_nfq_config_attr, info, info->data, tree, offset, -1, dissect_nfq_config_attrs);
+			return dissect_netlink_attributes(tvb, &hfi_nfq_config_attr, ett_nfq_config_attr, info, nl_data, tree, offset, -1, dissect_nfq_config_attrs);
 
 		case WS_NFQNL_MSG_PACKET:
 		case WS_NFQNL_MSG_VERDICT:
-			return dissect_netlink_attributes(tvb, &hfi_nfq_attr, ett_nfq_attr, info, info->data, tree, offset, -1, dissect_nfq_attrs);
+			return dissect_netlink_attributes(tvb, &hfi_nfq_attr, ett_nfq_attr, info, nl_data, tree, offset, -1, dissect_nfq_attrs);
 
 		case WS_NFQNL_MSG_VERDICT_BATCH:
 			/* TODO */
@@ -1457,9 +1469,9 @@ static header_field_info hfi_netlink_netfilter_ulog_type NETLINK_NETFILTER_HFI_I
 	  VALS(netlink_netfilter_ulog_type_vals), 0x00FF, NULL, HFILL };
 
 static int
-dissect_netfilter_ulog(tvbuff_t *tvb, netlink_netfilter_info_t *info, proto_tree *tree, int offset)
+dissect_netfilter_ulog(tvbuff_t *tvb, netlink_netfilter_info_t *info, struct packet_netlink_data *nl_data, proto_tree *tree, int offset)
 {
-	enum ws_nfulnl_msg_types type = (enum ws_nfulnl_msg_types) (info->data->type & 0xff);
+	enum ws_nfulnl_msg_types type = (enum ws_nfulnl_msg_types) (nl_data->type & 0xff);
 	tvbuff_t *next_tvb;
 
 	switch (type) {
@@ -1494,6 +1506,8 @@ static const value_string ipset_command_vals[] = {
 	{ WS_IPSET_CMD_TEST,        "Test an element in a set" },
 	{ WS_IPSET_CMD_HEADER,      "Get set header data only" },
 	{ WS_IPSET_CMD_TYPE,        "Get set type" },
+	{ WS_IPSET_CMD_GET_BYNAME,  "Get set by name" },
+	{ WS_IPSET_CMD_GET_BYINDEX, "Get set by index" },
 	{ 0, NULL }
 };
 
@@ -1508,6 +1522,7 @@ static const value_string ipset_attr_vals[] = {
 	{ WS_IPSET_ATTR_ADT,            "Multiple data containers" },
 	{ WS_IPSET_ATTR_LINENO,         "Restore lineno" },
 	{ WS_IPSET_ATTR_PROTOCOL_MIN,   "Minimal supported version number" },
+	{ WS_IPSET_ATTR_INDEX,          "Index" },
 	{ 0, NULL }
 };
 
@@ -1631,7 +1646,7 @@ static header_field_info hfi_ipset_ip_attr_ipv6 NETLINK_NETFILTER_HFI_INIT =
 	  NULL, 0x00, NULL, HFILL };
 
 static int
-dissect_ipset_ip_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int nla_type, int offset, int len)
+dissect_ipset_ip_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_data *nl_data _U_, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ipset_ip_attr type = (enum ws_ipset_ip_attr) nla_type & NLA_TYPE_MASK;
 
@@ -1641,7 +1656,7 @@ dissect_ipset_ip_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int nla_
 			return 1;
 
 		case WS_IPSET_ATTR_IPADDR_IPV6:
-			proto_tree_add_item(tree, &hfi_ipset_ip_attr_ipv6, tvb, offset, len, ENC_BIG_ENDIAN);
+			proto_tree_add_item(tree, &hfi_ipset_ip_attr_ipv6, tvb, offset, len, ENC_NA);
 			return 1;
 	}
 
@@ -1649,7 +1664,7 @@ dissect_ipset_ip_attrs(tvbuff_t *tvb, void *data _U_, proto_tree *tree, int nla_
 }
 
 static int
-dissect_ipset_cadt_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_ipset_cadt_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ipset_cadt_attr type = (enum ws_ipset_cadt_attr) nla_type & NLA_TYPE_MASK;
 	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
@@ -1658,7 +1673,7 @@ dissect_ipset_cadt_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_ty
 		case WS_IPSET_ATTR_IP_FROM:
 		case WS_IPSET_ATTR_IP_TO:
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_ipset_ip_attr, ett_ipset_ip_attr, info, info->data, tree, offset, len, dissect_ipset_ip_attrs);
+				return dissect_netlink_attributes(tvb, &hfi_ipset_ip_attr, ett_ipset_ip_attr, info, nl_data, tree, offset, len, dissect_ipset_ip_attrs);
 			return 0;
 
 		case WS_IPSET_ATTR_CIDR:
@@ -1713,12 +1728,12 @@ dissect_ipset_cadt_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_ty
 }
 
 static int
-dissect_ipset_adt_data_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_ipset_adt_data_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ipset_adt_attr type = (enum ws_ipset_adt_attr) nla_type & NLA_TYPE_MASK;
 
 	if ((nla_type & NLA_TYPE_MASK) <= WS_IPSET_ATTR_CADT_MAX)
-		return dissect_ipset_cadt_attrs(tvb, data, tree, nla_type, offset, len);
+		return dissect_ipset_cadt_attrs(tvb, data, nl_data, tree, nla_type, offset, len);
 
 	switch (type) {
 		case WS_IPSET_ATTR_COMMENT:
@@ -1733,17 +1748,17 @@ dissect_ipset_adt_data_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nl
 }
 
 static int
-dissect_ipset_adt_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_ipset_adt_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
 
 	if (nla_type & NLA_F_NESTED)
-		return dissect_netlink_attributes(tvb, &hfi_ipset_adt_attr, ett_ipset_adt_attr, info, info->data, tree, offset, len, dissect_ipset_adt_data_attrs);
+		return dissect_netlink_attributes(tvb, &hfi_ipset_adt_attr, ett_ipset_adt_attr, info, nl_data, tree, offset, len, dissect_ipset_adt_data_attrs);
 	return 0;
 }
 
 static int
-dissect_ipset_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, int offset, int len)
+dissect_ipset_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data, proto_tree *tree, int nla_type, int offset, int len)
 {
 	enum ws_ipset_attr type = (enum ws_ipset_attr) nla_type & NLA_TYPE_MASK;
 	netlink_netfilter_info_t *info = (netlink_netfilter_info_t *) data;
@@ -1780,25 +1795,26 @@ dissect_ipset_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, i
 		case WS_IPSET_ATTR_DATA:
 			/* See ipset lib/PROTOCOL, CADT attributes only follow for some commands */
 			if (nla_type & NLA_F_NESTED) {
-				guint16 command = info->data->type & 0xffff;
+				guint16 command = nl_data->type & 0xffff;
 
 				if (command == WS_IPSET_CMD_CREATE ||
 				    command == WS_IPSET_CMD_LIST ||
 				    command == WS_IPSET_CMD_SAVE)
-					return dissect_netlink_attributes(tvb, &hfi_ipset_cadt_attr, ett_ipset_cadt_attr, info, info->data, tree, offset, len, dissect_ipset_cadt_attrs);
+					return dissect_netlink_attributes(tvb, &hfi_ipset_cadt_attr, ett_ipset_cadt_attr, info, nl_data, tree, offset, len, dissect_ipset_cadt_attrs);
 				else
-					return dissect_netlink_attributes(tvb, &hfi_ipset_adt_attr, ett_ipset_adt_attr, info, info->data, tree, offset, len, dissect_ipset_adt_data_attrs);
+					return dissect_netlink_attributes(tvb, &hfi_ipset_adt_attr, ett_ipset_adt_attr, info, nl_data, tree, offset, len, dissect_ipset_adt_data_attrs);
 			}
 			return 0;
 
 		case WS_IPSET_ATTR_ADT:
 			/* Following this, there will be an IPSET_ATTR_DATA with regular ADT attributes, not CADT */
 			if (nla_type & NLA_F_NESTED)
-				return dissect_netlink_attributes(tvb, &hfi_ipset_attr, ett_ipset_attr, info, info->data, tree, offset, len, dissect_ipset_adt_attrs);
+				return dissect_netlink_attributes(tvb, &hfi_ipset_attr, ett_ipset_attr, info, nl_data, tree, offset, len, dissect_ipset_adt_attrs);
 			return 0;
 
 		case WS_IPSET_ATTR_LINENO:
 		case WS_IPSET_ATTR_PROTOCOL_MIN:
+		case WS_IPSET_ATTR_INDEX:
 			/* TODO */
 			return 0;
 	}
@@ -1807,10 +1823,10 @@ dissect_ipset_attrs(tvbuff_t *tvb, void *data, proto_tree *tree, int nla_type, i
 }
 
 static int
-dissect_netfilter_ipset(tvbuff_t *tvb, netlink_netfilter_info_t *info, proto_tree *tree, int offset)
+dissect_netfilter_ipset(tvbuff_t *tvb, netlink_netfilter_info_t *info, struct packet_netlink_data *nl_data, proto_tree *tree, int offset)
 {
 	offset = dissect_netlink_netfilter_header(tvb, tree, offset);
-	return dissect_netlink_attributes(tvb, &hfi_ipset_attr, ett_ipset_attr, info, info->data, tree, offset, -1, dissect_ipset_attrs);
+	return dissect_netlink_attributes(tvb, &hfi_ipset_attr, ett_ipset_attr, info, nl_data, tree, offset, -1, dissect_ipset_attrs);
 }
 
 
@@ -1827,6 +1843,7 @@ static const value_string netlink_netfilter_subsystem_vals[] = {
 	{ WS_NFNL_SUBSYS_CTHELPER,          "Connection Tracking Helpers" },
 	{ WS_NFNL_SUBSYS_NFTABLES,          "Netfilter tables" },
 	{ WS_NFNL_SUBSYS_NFT_COMPAT,        "x_tables compatibility layer for nf_tables" },
+	{ WS_NFNL_SUBSYS_COUNT,             "Count" },
 	{ 0, NULL }
 };
 
@@ -1847,15 +1864,15 @@ static header_field_info hfi_netlink_netfilter_subsys NETLINK_NETFILTER_HFI_INIT
 	  VALS(netlink_netfilter_subsystem_vals), 0xFF00, NULL, HFILL };
 
 static int
-dissect_netlink_netfilter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *_data)
+dissect_netlink_netfilter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-	struct packet_netlink_data *data = (struct packet_netlink_data *)_data;
+	struct packet_netlink_data *nl_data = (struct packet_netlink_data *)data;
 	netlink_netfilter_info_t info;
 	proto_tree *nlmsg_tree;
 	proto_item *pi;
 	int offset = 0;
 
-	DISSECTOR_ASSERT(data && data->magic == PACKET_NETLINK_MAGIC);
+	DISSECTOR_ASSERT(nl_data && nl_data->magic == PACKET_NETLINK_MAGIC);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "Netlink netfilter");
 	col_clear(pinfo->cinfo, COL_INFO);
@@ -1864,50 +1881,48 @@ dissect_netlink_netfilter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
 	nlmsg_tree = proto_item_add_subtree(pi, ett_netlink_netfilter);
 
 	/* Netlink message header (nlmsghdr) */
-	offset = dissect_netlink_header(tvb, nlmsg_tree, offset, data->encoding, NULL, NULL);
-	proto_tree_add_item(nlmsg_tree, &hfi_netlink_netfilter_subsys, tvb, 4, 2, data->encoding);
-	switch (data->type >> 8) {
+	offset = dissect_netlink_header(tvb, nlmsg_tree, offset, nl_data->encoding, NULL, NULL);
+	proto_tree_add_item(nlmsg_tree, &hfi_netlink_netfilter_subsys, tvb, 4, 2, nl_data->encoding);
+	switch (nl_data->type >> 8) {
 		case WS_NFNL_SUBSYS_CTNETLINK_EXP:
-			proto_tree_add_item(nlmsg_tree, &hfi_nfexp_type, tvb, 4, 2, data->encoding);
+			proto_tree_add_item(nlmsg_tree, &hfi_nfexp_type, tvb, 4, 2, nl_data->encoding);
 			break;
 
 		case WS_NFNL_SUBSYS_QUEUE:
-			proto_tree_add_item(nlmsg_tree, &hfi_nfq_type, tvb, 4, 2, data->encoding);
+			proto_tree_add_item(nlmsg_tree, &hfi_nfq_type, tvb, 4, 2, nl_data->encoding);
 			break;
 
 		case WS_NFNL_SUBSYS_ULOG:
-			proto_tree_add_item(nlmsg_tree, &hfi_netlink_netfilter_ulog_type, tvb, 4, 2, data->encoding);
+			proto_tree_add_item(nlmsg_tree, &hfi_netlink_netfilter_ulog_type, tvb, 4, 2, nl_data->encoding);
 			break;
 
 		case WS_NFNL_SUBSYS_IPSET:
-			proto_tree_add_item(nlmsg_tree, &hfi_ipset_command, tvb, 4, 2, data->encoding);
+			proto_tree_add_item(nlmsg_tree, &hfi_ipset_command, tvb, 4, 2, nl_data->encoding);
 			break;
 	}
 
-	info.encoding = data->encoding;
 	info.pinfo = pinfo;
-	info.data = data;
 	info.hw_protocol = 0;
 
-	switch (data->type >> 8) {
+	switch (nl_data->type >> 8) {
 		case WS_NFNL_SUBSYS_CTNETLINK:
-			offset = dissect_netfilter_ct(tvb, &info, nlmsg_tree, offset);
+			offset = dissect_netfilter_ct(tvb, &info, nl_data, nlmsg_tree, offset);
 			break;
 
 		case WS_NFNL_SUBSYS_CTNETLINK_EXP:
-			offset = dissect_netfilter_exp(tvb, &info, nlmsg_tree, offset);
+			offset = dissect_netfilter_exp(tvb, &info, nl_data, nlmsg_tree, offset);
 			break;
 
 		case WS_NFNL_SUBSYS_QUEUE:
-			offset = dissect_netfilter_queue(tvb, &info, nlmsg_tree, offset);
+			offset = dissect_netfilter_queue(tvb, &info, nl_data, nlmsg_tree, offset);
 			break;
 
 		case WS_NFNL_SUBSYS_ULOG:
-			offset = dissect_netfilter_ulog(tvb, &info, nlmsg_tree, offset);
+			offset = dissect_netfilter_ulog(tvb, &info, nl_data, nlmsg_tree, offset);
 			break;
 
 		case WS_NFNL_SUBSYS_IPSET:
-			offset = dissect_netfilter_ipset(tvb, &info, nlmsg_tree, offset);
+			offset = dissect_netfilter_ipset(tvb, &info, nl_data, nlmsg_tree, offset);
 			break;
 
 		default:
@@ -1944,6 +1959,7 @@ proto_register_netlink_netfilter(void)
 		&hfi_nfct_attr_status_flag_template,
 		&hfi_nfct_attr_status_flag_untracked,
 		&hfi_nfct_attr_status_flag_helper,
+		&hfi_nfct_attr_status_flag_offload,
 		&hfi_nfct_attr_timeout,
 		&hfi_nfct_attr_id,
 		&hfi_nfct_help_attr,

@@ -44,7 +44,8 @@ enum { voip_calls_type_ = 1000 };
 VoipCallsDialog::VoipCallsDialog(QWidget &parent, CaptureFile &cf, bool all_flows) :
     WiresharkDialog(parent, cf),
     ui(new Ui::VoipCallsDialog),
-    parent_(parent)
+    parent_(parent),
+    voip_calls_tap_listeners_removed_(false)
 {
     ui->setupUi(this);
     loadGeometry(parent.width() * 4 / 5, parent.height() * 2 / 3);
@@ -67,7 +68,7 @@ VoipCallsDialog::VoipCallsDialog(QWidget &parent, CaptureFile &cf, bool all_flow
     sequence_button_ = ui->buttonBox->addButton(tr("Flow Sequence"), QDialogButtonBox::ApplyRole);
     player_button_ = RtpPlayerDialog::addPlayerButton(ui->buttonBox);
 
-    connect ( ui->todCheckBox, &QAbstractButton::toggled, this, &VoipCallsDialog::switchTimeOfDay);
+    connect (ui->todCheckBox, &QAbstractButton::toggled, this, &VoipCallsDialog::switchTimeOfDay);
 
     copy_button_ = ui->buttonBox->addButton(tr("Copy"), QDialogButtonBox::ApplyRole);
     QMenu *copy_menu = new QMenu(copy_button_);
@@ -104,14 +105,20 @@ VoipCallsDialog::~VoipCallsDialog()
     delete ui;
 
     voip_calls_reset_all_taps(&tapinfo_);
-    voip_calls_remove_all_tap_listeners(&tapinfo_);
+    if (!voip_calls_tap_listeners_removed_) {
+        voip_calls_remove_all_tap_listeners(&tapinfo_);
+        voip_calls_tap_listeners_removed_ = true;
+    }
     sequence_info_->unref();
     g_queue_free(tapinfo_.callsinfos);
 }
 
 void VoipCallsDialog::removeTapListeners()
 {
-    voip_calls_remove_all_tap_listeners(&tapinfo_);
+    if (!voip_calls_tap_listeners_removed_) {
+        voip_calls_remove_all_tap_listeners(&tapinfo_);
+        voip_calls_tap_listeners_removed_ = true;
+    }
     WiresharkDialog::removeTapListeners();
 }
 
@@ -121,7 +128,10 @@ void VoipCallsDialog::captureFileClosing()
     // the cache is active, the ToD cannot be modified.
     ui->todCheckBox->setEnabled(false);
     cache_model_->setSourceModel(NULL);
-    voip_calls_remove_all_tap_listeners(&tapinfo_);
+    if (!voip_calls_tap_listeners_removed_) {
+        voip_calls_remove_all_tap_listeners(&tapinfo_);
+        voip_calls_tap_listeners_removed_ = true;
+    }
     tapinfo_.session = NULL;
     WiresharkDialog::captureFileClosing();
 }
@@ -130,7 +140,7 @@ void VoipCallsDialog::contextMenuEvent(QContextMenuEvent *event)
 {
     bool selected = ui->callTreeView->selectionModel()->hasSelection();
 
-    if ( ! selected )
+    if (! selected)
         return;
 
     QMenu popupMenu;
@@ -253,14 +263,20 @@ void VoipCallsDialog::prepareFilter()
     QString filter_str;
     QSet<guint16> selected_calls;
     QString frame_numbers;
+    QList<int> rows;
 
     /* Build a new filter based on frame numbers */
     foreach (QModelIndex index, ui->callTreeView->selectionModel()->selectedIndexes()) {
-        voip_calls_info_t *call_info = VoipCallsInfoModel::indexToCallInfo(index);
-        if (!call_info) {
-            return;
+        if (index.isValid() && ! rows.contains(index.row()))
+        {
+            voip_calls_info_t *call_info = VoipCallsInfoModel::indexToCallInfo(index);
+            if (!call_info) {
+                return;
+            }
+
+            selected_calls << call_info->call_num;
+            rows << index.row();
         }
-        selected_calls << call_info->call_num;
     }
 
     GList *cur_ga_item = g_queue_peek_nth_link(tapinfo_.graph_analysis->items, 0);
@@ -390,13 +406,14 @@ void VoipCallsDialog::showSequence()
     }
 
     SequenceDialog *sequence_dialog = new SequenceDialog(parent_, cap_file_, sequence_info_);
+    sequence_dialog->setAttribute(Qt::WA_DeleteOnClose);
     sequence_dialog->show();
 }
 
 void VoipCallsDialog::showPlayer()
 {
 #ifdef QT_MULTIMEDIA_LIB
-    RtpPlayerDialog rtp_player_dialog(*this, cap_file_);
+    RtpPlayerDialog *rtp_player_dialog = new RtpPlayerDialog(*this, cap_file_);
 
     foreach (QModelIndex index, ui->callTreeView->selectionModel()->selectedIndexes()) {
         voip_calls_info_t *vci = VoipCallsInfoModel::indexToCallInfo(index);
@@ -411,14 +428,17 @@ void VoipCallsDialog::showPlayer()
             //                rsi->call_num, rsi->start_fd->num, rsi->setup_frame_number);
             if (vci->call_num == static_cast<guint>(rsi->call_num)) {
                 //VOIP_CALLS_DEBUG("adding call number %u", vci->call_num);
-                rtp_player_dialog.addRtpStream(rsi);
+                rtp_player_dialog->addRtpStream(rsi);
             }
         }
     }
 
-    connect(&rtp_player_dialog, SIGNAL(goToPacket(int)), this, SIGNAL(goToPacket(int)));
+    connect(rtp_player_dialog, SIGNAL(goToPacket(int)), this, SIGNAL(goToPacket(int)));
 
-    rtp_player_dialog.exec();
+    rtp_player_dialog->setWindowModality(Qt::ApplicationModal);
+    rtp_player_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    rtp_player_dialog->setMarkers();
+    rtp_player_dialog->show();
 #endif // QT_MULTIMEDIA_LIB
 }
 

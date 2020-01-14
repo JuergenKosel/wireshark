@@ -594,7 +594,23 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
     SslDecryptSession *ssl_session;
     SslSession        *session;
     gint               is_from_server;
-    guint8             curr_layer_num_ssl = pinfo->curr_layer_num;
+    /*
+     * A single packet may contain multiple TLS records. Two possible scenarios:
+     *
+     * - Multiple TLS records belonging to the same TLS session.
+     * - TLS within a different encrypted TLS tunnel.
+     *
+     * To support the second case, 'curr_layer_num_ssl' is used as identifier
+     * for the current TLS layer. It is however not a stable identifier for the
+     * second pass (Bug 16109). If the first decrypted record requests
+     * reassembly for HTTP, then the second pass will skip calling the dissector
+     * for the first record. That means that 'pinfo->curr_layer_num' will
+     * actually be lower the second time.
+     *
+     * Since this cannot be easily fixed, we will just break the (hopefully less
+     * common) case of TLS tunneled within TLS.
+     */
+    guint8             curr_layer_num_ssl = 0; // pinfo->curr_layer_num;
 
     ti = NULL;
     ssl_tree   = NULL;
@@ -867,10 +883,13 @@ is_sslv3_or_tls(tvbuff_t *tvb)
     guint16             protocol_version, record_length;
 
     /*
-     * Heuristics should match a non-empty TLS record:
-     * ContentType (1), ProtocolVersion (2), Length (2), fragment (...)
+     * Heuristics should match the TLS record header.
+     * ContentType (1), ProtocolVersion (2), Length (2)
+     *
+     * We do not check for an actual payload, IBM WebSphere is known
+     * to separate the record header and payload over two separate packets.
      */
-    if (tvb_captured_length(tvb) < 6) {
+    if (tvb_captured_length(tvb) < 5) {
         return FALSE;
     }
 
@@ -2076,17 +2095,30 @@ dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
      *     } Alert;
      */
     proto_tree  *ti;
-    proto_tree  *ssl_alert_tree;
+    proto_tree  *alert_tree = NULL;
     const gchar *level;
     const gchar *desc;
     guint8       level_byte, desc_byte;
 
-    ssl_alert_tree = NULL;
     if (tree)
     {
         ti = proto_tree_add_item(tree, hf_tls_alert_message, tvb,
                                  offset, record_length, ENC_NA);
-        ssl_alert_tree = proto_item_add_subtree(ti, ett_tls_alert);
+        alert_tree = proto_item_add_subtree(ti, ett_tls_alert);
+    }
+
+    /*
+     * Assume that TLS alert records are not fragmented. Any larger message is
+     * assumed to be encrypted.
+     */
+    if (record_length != 2) {
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Encrypted Alert");
+        proto_item_set_text(tree,
+                            "%s Record Layer: Encrypted Alert",
+                            val_to_str_const(session->version, ssl_version_short_names, "TLS"));
+        proto_item_set_text(alert_tree,
+                            "Alert Message: Encrypted Alert");
+        return;
     }
 
     /*
@@ -2095,45 +2127,27 @@ dissect_ssl3_alert(tvbuff_t *tvb, packet_info *pinfo,
 
     /* first lookup the names for the alert level and description */
     level_byte = tvb_get_guint8(tvb, offset); /* grab the level byte */
-    level = try_val_to_str(level_byte, ssl_31_alert_level);
+    level = val_to_str_const(level_byte, ssl_31_alert_level, "Unknown");
 
     desc_byte = tvb_get_guint8(tvb, offset+1); /* grab the desc byte */
-    desc = try_val_to_str(desc_byte, ssl_31_alert_description);
+    desc = val_to_str_const(desc_byte, ssl_31_alert_description, "Unknown");
 
     /* now set the text in the record layer line */
-    if (level && desc)
-    {
-        col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL,
-                            "Alert (Level: %s, Description: %s)",
-                            level, desc);
-    }
-    else
-    {
-        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Encrypted Alert");
-    }
+    col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL,
+                        "Alert (Level: %s, Description: %s)",
+                        level, desc);
 
     if (tree)
     {
-        if (level && desc)
-        {
-            proto_item_set_text(tree, "%s Record Layer: Alert "
-                                "(Level: %s, Description: %s)",
-                                val_to_str_const(session->version, ssl_version_short_names, "SSL"),
-                                level, desc);
-            proto_tree_add_item(ssl_alert_tree, hf_tls_alert_message_level,
-                                tvb, offset++, 1, ENC_BIG_ENDIAN);
+        proto_item_set_text(tree, "%s Record Layer: Alert "
+                            "(Level: %s, Description: %s)",
+                            val_to_str_const(session->version, ssl_version_short_names, "TLS"),
+                            level, desc);
+        proto_tree_add_item(alert_tree, hf_tls_alert_message_level,
+                            tvb, offset++, 1, ENC_BIG_ENDIAN);
 
-            proto_tree_add_item(ssl_alert_tree, hf_tls_alert_message_description,
-                                tvb, offset++, 1, ENC_BIG_ENDIAN);
-        }
-        else
-        {
-            proto_item_set_text(tree,
-                                "%s Record Layer: Encrypted Alert",
-                                val_to_str_const(session->version, ssl_version_short_names, "SSL"));
-            proto_item_set_text(ssl_alert_tree,
-                                "Alert Message: Encrypted Alert");
-        }
+        proto_tree_add_item(alert_tree, hf_tls_alert_message_description,
+                            tvb, offset++, 1, ENC_BIG_ENDIAN);
     }
 }
 
@@ -3792,11 +3806,11 @@ tls_get_cipher_info(packet_info *pinfo, guint16 cipher_suite, int *cipher_algo, 
 
 /**
  * Load the QUIC traffic secret from the keylog file.
- * Returns the secret length (at most 'secret_size') and the secret into
+ * Returns the secret length (at most 'secret_max_len') and the secret into
  * 'secret' if a secret was found, or zero otherwise.
  */
 gint
-tls13_get_quic_secret(packet_info *pinfo, gboolean is_from_server, int type, guint secret_len, guint8 *secret_out)
+tls13_get_quic_secret(packet_info *pinfo, gboolean is_from_server, int type, guint secret_min_len, guint secret_max_len, guint8 *secret_out)
 {
     GHashTable *key_map;
     const char *label;
@@ -3855,19 +3869,15 @@ tls13_get_quic_secret(packet_info *pinfo, gboolean is_from_server, int type, gui
     }
 
     StringInfo *secret = (StringInfo *)g_hash_table_lookup(key_map, &ssl->client_random);
-    if (!secret || secret->data_len != secret_len) {
-        ssl_debug_printf("%s Cannot find QUIC %s of size %d, found bad size %d!\n",
-                         G_STRFUNC, label, secret_len, secret ? secret->data_len : 0);
+    if (!secret || secret->data_len < secret_min_len || secret->data_len > secret_max_len) {
+        ssl_debug_printf("%s Cannot find QUIC %s of size %d..%d, found bad size %d!\n",
+                         G_STRFUNC, label, secret_min_len, secret_max_len, secret ? secret->data_len : 0);
         return 0;
     }
 
     ssl_debug_printf("%s Retrieved QUIC traffic secret.\n", G_STRFUNC);
     ssl_print_string("Client Random", &ssl->client_random);
     ssl_print_string(label, secret);
-    if (secret->data_len > secret_len) {
-        ssl_debug_printf("%s Output buffer size is too small!\n", G_STRFUNC);
-        return 0;
-    }
     memcpy(secret_out, secret->data, secret->data_len);
     return secret->data_len;
 }

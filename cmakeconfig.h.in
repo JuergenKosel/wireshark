@@ -43,9 +43,6 @@
 /* Define to 1 if you have the `bpf_image' function. */
 #cmakedefine HAVE_BPF_IMAGE 1
 
-/* Define to use c-ares library */
-#cmakedefine HAVE_C_ARES 1
-
 /* Define to 1 if you have the <fcntl.h> header file. */
 #cmakedefine HAVE_FCNTL_H 1
 
@@ -79,9 +76,6 @@
 /* Define if you have the 'floorl' function. */
 #cmakedefine HAVE_FLOORL 1
 
-/* Define if you have the 'lrint' function. */
-#cmakedefine HAVE_LRINT 1
-
 /* Define to 1 if you have the getopt_long function. */
 #cmakedefine HAVE_GETOPT_LONG 1
 
@@ -93,6 +87,9 @@
 
 /* Define to use heimdal kerberos */
 #cmakedefine HAVE_HEIMDAL_KERBEROS 1
+
+/* Define to 1 if you have the `krb5_pac_verify' function. */
+#cmakedefine HAVE_KRB5_PAC_VERIFY 1
 
 /* Define to 1 if you have the `inflatePrime' function. */
 #cmakedefine HAVE_INFLATEPRIME 1
@@ -293,7 +290,7 @@
 /* Define to 1 if you have the `setresuid' function. */
 #cmakedefine HAVE_SETRESUID 1
 
-/* Define to 1 if you have the WinSparkle library */
+/* Define to 1 if you have the Sparkle or WinSparkle library */
 #cmakedefine HAVE_SOFTWARE_UPDATE 1
 
 /* Define if you have the 'strptime' function. */

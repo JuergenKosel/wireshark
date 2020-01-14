@@ -46,7 +46,7 @@ DIAG_ON(frame-larger-than=)
 #include "epan/addr_resolv.h"
 #include "epan/column.h"
 #include "epan/dfilter/dfilter-macro.h"
-#include "epan/dissector_filters.h"
+#include "epan/conversation_filter.h"
 #include "epan/epan_dissect.h"
 #include "epan/filter_expressions.h"
 #include "epan/prefs.h"
@@ -90,7 +90,7 @@ DIAG_ON(frame-larger-than=)
 #include "capture_file_dialog.h"
 #include "capture_file_properties_dialog.h"
 #ifdef HAVE_LIBPCAP
-#include "capture_interfaces_dialog.h"
+#include "capture_options_dialog.h"
 #endif
 #include <ui/qt/utils/color_utils.h>
 #include "coloring_rules_dialog.h"
@@ -156,6 +156,7 @@ DIAG_ON(frame-larger-than=)
 #include "wlan_statistics_dialog.h"
 #include <ui/qt/widgets/wireless_timeline.h>
 
+#include <functional>
 #include <QClipboard>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -500,7 +501,8 @@ void MainWindow::captureCapturePrepared(capture_session *session) {
 
     /* Disable menu items that make no sense if you're currently running
        a capture. */
-    setForCaptureInProgress(true, session->capture_opts->ifaces);
+    bool handle_toolbars = (session->session_will_restart ? false : true);
+    setForCaptureInProgress(true, handle_toolbars, session->capture_opts->ifaces);
 //    set_capture_if_dialog_for_capture_in_progress(TRUE);
 
 //    /* Don't set up main window for a capture file. */
@@ -514,12 +516,13 @@ void MainWindow::captureCaptureUpdateStarted(capture_session *session) {
        switching to the next multiple file. */
     setTitlebarForCaptureInProgress();
 
-    setForCaptureInProgress(true, session->capture_opts->ifaces);
+    bool handle_toolbars = (session->session_will_restart ? false : true);
+    setForCaptureInProgress(true, handle_toolbars, session->capture_opts->ifaces);
 
     setForCapturedPackets(true);
 }
 
-void MainWindow::captureCaptureUpdateFinished(capture_session *) {
+void MainWindow::captureCaptureUpdateFinished(capture_session *session) {
 
     /* The capture isn't stopping any more - it's stopped. */
     capture_stopping_ = false;
@@ -529,7 +532,8 @@ void MainWindow::captureCaptureUpdateFinished(capture_session *) {
 
     /* Enable menu items that make sense if you're not currently running
      a capture. */
-    setForCaptureInProgress(false);
+    bool handle_toolbars = (session->session_will_restart ? false : true);
+    setForCaptureInProgress(false, handle_toolbars);
     setMenusForCaptureFile();
 
     setWindowIcon(wsApp->normalIcon());
@@ -572,7 +576,7 @@ void MainWindow::captureCaptureFailed(capture_session *) {
 
     // Reset expert information indicator
     main_ui_->statusBar->captureFileClosing();
-    main_ui_->statusBar->popFileStatus();
+    wsApp->popStatus(WiresharkApplication::FileStatus);
 
     setWindowIcon(wsApp->normalIcon());
 
@@ -658,11 +662,11 @@ void MainWindow::captureEventHandler(CaptureEvent ev)
     case CaptureEvent::Merge:
         switch (ev.eventType()) {
         case CaptureEvent::Started:
-            main_ui_->statusBar->popFileStatus();
-            main_ui_->statusBar->pushFileStatus(tr("Merging files"), QString());
+            wsApp->popStatus(WiresharkApplication::FileStatus);
+            wsApp->pushStatus(WiresharkApplication::FileStatus, tr("Merging files"), QString());
             break;
         case CaptureEvent::Finished:
-            main_ui_->statusBar->popFileStatus();
+            wsApp->popStatus(WiresharkApplication::FileStatus);
             break;
         default:
             break;
@@ -674,8 +678,8 @@ void MainWindow::captureEventHandler(CaptureEvent ev)
         case CaptureEvent::Started:
         {
             QFileInfo file_info(ev.filePath());
-            main_ui_->statusBar->popFileStatus();
-            main_ui_->statusBar->pushFileStatus(tr("Saving %1" UTF8_HORIZONTAL_ELLIPSIS).arg(file_info.fileName()));
+            wsApp->popStatus(WiresharkApplication::FileStatus);
+            wsApp->pushStatus(WiresharkApplication::FileStatus, tr("Saving %1" UTF8_HORIZONTAL_ELLIPSIS).arg(file_info.fileName()));
             break;
         }
         default:
@@ -740,10 +744,10 @@ void MainWindow::captureFileReadStarted(const QString &action) {
     /* Set up main window for a capture file. */
 //    main_set_for_capture_file(TRUE);
 
-    main_ui_->statusBar->popFileStatus();
+    wsApp->popStatus(WiresharkApplication::FileStatus);
     QString msg = QString(tr("%1: %2")).arg(action).arg(capture_file_.fileName());
     QString msgtip = QString();
-    main_ui_->statusBar->pushFileStatus(msg, msgtip);
+    wsApp->pushStatus(WiresharkApplication::FileStatus, msg, msgtip);
     showCapture();
     main_ui_->actionAnalyzeReloadLuaPlugins->setEnabled(false);
     main_ui_->wirelessTimelineWidget->captureFileReadStarted(capture_file_.capFile());
@@ -804,7 +808,7 @@ void MainWindow::captureFileClosed() {
 
     // Reset expert information indicator
     main_ui_->statusBar->captureFileClosing();
-    main_ui_->statusBar->popFileStatus();
+    wsApp->popStatus(WiresharkApplication::FileStatus);
 
     setWSWindowTitle();
     setWindowIcon(wsApp->normalIcon());
@@ -831,7 +835,7 @@ void MainWindow::startCapture() {
     /* did the user ever select a capture interface before? */
     if (global_capture_opts.num_selected == 0) {
         QString msg = QString(tr("No interface selected"));
-        main_ui_->statusBar->pushTemporaryStatus(msg);
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
     }
@@ -841,7 +845,7 @@ void MainWindow::startCapture() {
     // case, e.g. with QtMacExtras.
     if (!capture_filter_valid_) {
         QString msg = QString(tr("Invalid capture filter"));
-        main_ui_->statusBar->pushTemporaryStatus(msg);
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
     }
@@ -874,10 +878,12 @@ void MainWindow::startCapture() {
         }
         g_string_append(interface_names, " ");
 
-        main_ui_->statusBar->popFileStatus();
-        QString msg = QString().sprintf("%s<live capture in progress>", interface_names->str);
-        QString msgtip = QString().sprintf("to file: %s", (capture_opts->save_file) ? capture_opts->save_file : "");
-        main_ui_->statusBar->pushFileStatus(msg, msgtip);
+        wsApp->popStatus(WiresharkApplication::FileStatus);
+        QString msg = QString("%1<live capture in progress>").arg(interface_names->str);
+        QString msgtip = QString("to file: ");
+        if (capture_opts->save_file)
+            msgtip += capture_opts->save_file;
+        wsApp->pushStatus(WiresharkApplication::FileStatus, msg, msgtip);
         g_string_free(interface_names, TRUE);
 
         /* The capture succeeded, which means the capture filter syntax is
@@ -1114,7 +1120,8 @@ void MainWindow::recentActionTriggered() {
 
 void MainWindow::setMenusForSelectedPacket()
 {
-    gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_sctp = FALSE, is_tls = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE, is_http = FALSE, is_http2 = FALSE;
+    gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_sctp = FALSE, is_tls = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE,
+             is_http = FALSE, is_http2 = FALSE, is_quic = FALSE;
 
     /* Making the menu context-sensitive allows for easier selection of the
        desired item and has the added benefit, with large captures, of
@@ -1125,6 +1132,7 @@ void MainWindow::setMenusForSelectedPacket()
     bool have_frames = false;
     /* A frame is selected */
     bool frame_selected = false;
+    bool multi_selection = false;
     /* A visible packet comes after this one in the selection history */
     bool next_selection_history = false;
     /* A visible packet comes before this one in the selection history */
@@ -1154,40 +1162,62 @@ void MainWindow::setMenusForSelectedPacket()
             << main_ui_->actionViewColorizeConversation9 << main_ui_->actionViewColorizeConversation10;
 
     if (capture_file_.capFile()) {
-        frame_selected = capture_file_.capFile()->current_frame != NULL;
+        QList<int> rows = selectedRows();
+        frame_data * current_frame = 0;
+        if (rows.count() > 0)
+            current_frame = frameDataForRow(rows.at(0));
+
+        frame_selected = rows.count() == 1;
+        if (packet_list_->multiSelectActive())
+        {
+            frame_selected = false;
+            multi_selection = true;
+        }
         next_selection_history = packet_list_->haveNextHistory();
         previous_selection_history = packet_list_->havePreviousHistory();
         have_frames = capture_file_.capFile()->count > 0;
         have_marked = capture_file_.capFile()->marked_count > 0;
-        another_is_marked = have_marked &&
-                !(capture_file_.capFile()->marked_count == 1 && frame_selected && capture_file_.capFile()->current_frame->marked);
+        another_is_marked = have_marked && rows.count() <= 1 &&
+                !(capture_file_.capFile()->marked_count == 1 && frame_selected && current_frame->marked);
         have_filtered = capture_file_.capFile()->displayed_count > 0 && capture_file_.capFile()->displayed_count != capture_file_.capFile()->count;
         have_ignored = capture_file_.capFile()->ignored_count > 0;
         have_time_ref = capture_file_.capFile()->ref_time_count > 0;
-        another_is_time_ref = have_time_ref &&
-                !(capture_file_.capFile()->ref_time_count == 1 && frame_selected && capture_file_.capFile()->current_frame->ref_time);
+        another_is_time_ref = have_time_ref && rows.count() <= 1 &&
+                !(capture_file_.capFile()->ref_time_count == 1 && frame_selected && current_frame->ref_time);
 
-        if (capture_file_.capFile()->edt)
+        if (capture_file_.capFile()->edt && ! multi_selection)
         {
             proto_get_frame_protocols(capture_file_.capFile()->edt->pi.layers,
                                       &is_ip, &is_tcp, &is_udp, &is_sctp,
                                       &is_tls, &is_rtp, &is_lte_rlc);
             is_http = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http");
             is_http2 = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http2");
+            is_quic = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "quic");
         }
     }
 
-    main_ui_->actionEditMarkPacket->setEnabled(frame_selected);
+    main_ui_->actionEditMarkPacket->setText(tr("&Mark/Unmark Packet(s)", "", selectedRows().count()));
+    main_ui_->actionEditIgnorePacket->setText(tr("&Ignore/Unignore Packet(s)", "", selectedRows().count()));
+
+    main_ui_->actionCopyListAsText->setEnabled(selectedRows().count() > 0);
+    main_ui_->actionCopyListAsCSV->setEnabled(selectedRows().count() > 0);
+    main_ui_->actionCopyListAsYAML->setEnabled(selectedRows().count() > 0);
+
+    main_ui_->actionEditMarkPacket->setEnabled(frame_selected || multi_selection);
     main_ui_->actionEditMarkAllDisplayed->setEnabled(have_frames);
     /* Unlike un-ignore, do not allow unmark of all frames when no frames are displayed  */
     main_ui_->actionEditUnmarkAllDisplayed->setEnabled(have_marked);
     main_ui_->actionEditNextMark->setEnabled(another_is_marked);
     main_ui_->actionEditPreviousMark->setEnabled(another_is_marked);
 
-    main_ui_->actionEditPacketComment->setEnabled(frame_selected && wtap_dump_can_write(capture_file_.capFile()->linktypes, WTAP_COMMENT_PER_PACKET));
-    main_ui_->actionDeleteAllPacketComments->setEnabled((capture_file_.capFile() != NULL) && wtap_dump_can_write(capture_file_.capFile()->linktypes, WTAP_COMMENT_PER_PACKET));
+    GArray * linkTypes = Q_NULLPTR;
+    if (capture_file_.capFile() && capture_file_.capFile()->linktypes)
+        linkTypes = capture_file_.capFile()->linktypes;
 
-    main_ui_->actionEditIgnorePacket->setEnabled(frame_selected);
+    main_ui_->actionEditPacketComment->setEnabled(frame_selected && linkTypes && wtap_dump_can_write(capture_file_.capFile()->linktypes, WTAP_COMMENT_PER_PACKET));
+    main_ui_->actionDeleteAllPacketComments->setEnabled(linkTypes && wtap_dump_can_write(capture_file_.capFile()->linktypes, WTAP_COMMENT_PER_PACKET));
+
+    main_ui_->actionEditIgnorePacket->setEnabled(frame_selected || multi_selection);
     main_ui_->actionEditIgnoreAllDisplayed->setEnabled(have_filtered);
     /* Allow un-ignore of all frames even with no frames currently displayed */
     main_ui_->actionEditUnignoreAllDisplayed->setEnabled(have_ignored);
@@ -1207,6 +1237,7 @@ void MainWindow::setMenusForSelectedPacket()
     main_ui_->actionAnalyzeFollowTLSStream->setEnabled(is_tls);
     main_ui_->actionAnalyzeFollowHTTPStream->setEnabled(is_http);
     main_ui_->actionAnalyzeFollowHTTP2Stream->setEnabled(is_http2);
+    main_ui_->actionAnalyzeFollowQUICStream->setEnabled(is_quic);
 
     foreach(QAction *cc_action, cc_actions) {
         cc_action->setEnabled(frame_selected);
@@ -1306,7 +1337,7 @@ void MainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
     // Always enable / disable the following items.
     main_ui_->actionFileExportPacketBytes->setEnabled(have_field_info);
 
-    main_ui_->actionCopyAllVisibleItems->setEnabled(capture_file_.capFile() != NULL);
+    main_ui_->actionCopyAllVisibleItems->setEnabled(capture_file_.capFile() != NULL && ! packet_list_->multiSelectActive());
     main_ui_->actionCopyAllVisibleSelectedTreeItems->setEnabled(can_match_selected);
     main_ui_->actionEditCopyDescription->setEnabled(can_match_selected);
     main_ui_->actionEditCopyFieldName->setEnabled(can_match_selected);
@@ -1635,7 +1666,7 @@ void MainWindow::openTapParameterDialog()
     openTapParameterDialog(cfg_str, NULL, NULL);
 }
 
-#ifdef HAVE_SOFTWARE_UPDATE
+#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
 void MainWindow::softwareUpdateRequested() {
     // We could call testCaptureFileClose here, but that would give us yet
     // another dialog. Just try again later.
@@ -1644,7 +1675,6 @@ void MainWindow::softwareUpdateRequested() {
     }
 }
 #endif
-
 
 // File Menu
 
@@ -1868,16 +1898,16 @@ void MainWindow::on_actionFilePrint_triggered()
     capture_file *cf = capture_file_.capFile();
     g_return_if_fail(cf);
 
-    if (!pdlg_)
-    {
-        pdlg_ = new PrintDialog(this, cf);
-    }
-    else
-    {
-        pdlg_->cap_file_ = cf;
-    }
+    QList<int> rows = packet_list_->selectedRows(true);
 
-    pdlg_->exec();
+    QStringList entries;
+    foreach (int row, rows)
+        entries << QString::number(row);
+    QString selRange = entries.join(",");
+
+    PrintDialog * pdlg_ = new PrintDialog(this, cf, selRange);
+    pdlg_->setWindowModality(Qt::ApplicationModal);
+    pdlg_->show();
 }
 
 // Edit Menu
@@ -1919,6 +1949,51 @@ void MainWindow::actionEditCopyTriggered(MainWindow::CopySelected selection_type
             clip = proto_tree_->toString(proto_tree_->selectionModel()->selectedIndexes().first());
         }
         break;
+    case CopyListAsText:
+    case CopyListAsCSV:
+    case CopyListAsYAML:
+        if (packet_list_->selectedRows().count() > 0)
+        {
+            QList<int> rows = packet_list_->selectedRows();
+            QStringList content;
+
+            PacketList::SummaryCopyType copyType = PacketList::CopyAsText;
+            if (selection_type == CopyListAsCSV)
+                copyType = PacketList::CopyAsCSV;
+            else if (selection_type == CopyListAsYAML)
+                copyType = PacketList::CopyAsYAML;
+
+            if ((copyType == PacketList::CopyAsText) ||
+                (copyType == PacketList::CopyAsCSV)) {
+                QString headerEntry = packet_list_->createHeaderSummaryText(copyType);
+                content << headerEntry;
+            }
+            foreach (int row, rows)
+            {
+                QModelIndex idx = packet_list_->model()->index(row, 0);
+                if (! idx.isValid())
+                    continue;
+
+                QString entry = packet_list_->createSummaryText(idx, copyType);
+                content << entry;
+            }
+
+            if (content.count() > 0) {
+                clip = content.join("\n");
+                //
+                // Each YAML item ends with a newline, so the string
+                // ends with a newline already if it's CopyListAsYAML.
+                // If we add a newline, there'd be an extra blank
+                // line.
+                //
+                // Otherwise, we've used newlines as separators, not
+                // terminators, so there's no final newline.  Add it.
+                //
+                if (selection_type != CopyListAsYAML)
+                    clip += "\n";
+            }
+        }
+        break;
     }
 
     if (clip.length() == 0) {
@@ -1931,13 +2006,28 @@ void MainWindow::actionEditCopyTriggered(MainWindow::CopySelected selection_type
         wsApp->clipboard()->setText(clip);
     } else {
         QString err = tr("Couldn't copy text. Try another item.");
-        main_ui_->statusBar->pushTemporaryStatus(err);
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, err);
     }
 }
 
 void MainWindow::on_actionCopyAllVisibleItems_triggered()
 {
     actionEditCopyTriggered(CopyAllVisibleItems);
+}
+
+void MainWindow::on_actionCopyListAsText_triggered()
+{
+    actionEditCopyTriggered(CopyListAsText);
+}
+
+void MainWindow::on_actionCopyListAsCSV_triggered()
+{
+    actionEditCopyTriggered(CopyListAsCSV);
+}
+
+void MainWindow::on_actionCopyListAsYAML_triggered()
+{
+    actionEditCopyTriggered(CopyListAsYAML);
 }
 
 void MainWindow::on_actionCopyAllVisibleSelectedTreeItems_triggered()
@@ -1974,6 +2064,8 @@ void MainWindow::on_actionEditFindPacket_triggered()
     connect(previous_focus_, SIGNAL(destroyed()), this, SLOT(resetPreviousFocus()));
     if (!main_ui_->searchFrame->isVisible()) {
         showAccordionFrame(main_ui_->searchFrame, true);
+    } else {
+        main_ui_->searchFrame->animatedHide();
     }
     main_ui_->searchFrame->setFocus();
 }
@@ -2074,11 +2166,20 @@ void MainWindow::on_actionEditPreviousTimeReference_triggered()
 
 void MainWindow::on_actionEditTimeShift_triggered()
 {
-    TimeShiftDialog ts_dialog(this, capture_file_.capFile());
+    TimeShiftDialog *ts_dialog = new TimeShiftDialog(this, capture_file_.capFile());
+    connect(ts_dialog, SIGNAL(finished(int)), this, SLOT(editTimeShiftFinished(int)));
+
     connect(this, SIGNAL(setCaptureFile(capture_file*)),
-            &ts_dialog, SLOT(setCaptureFile(capture_file*)));
-    connect(&ts_dialog, SIGNAL(timeShifted()), packet_list_, SLOT(applyTimeShift()));
-            ts_dialog.exec();
+            ts_dialog, SLOT(setCaptureFile(capture_file*)));
+    connect(ts_dialog, SIGNAL(timeShifted()), packet_list_, SLOT(applyTimeShift()));
+
+    ts_dialog->setWindowModality(Qt::ApplicationModal);
+    ts_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    ts_dialog->show();
+}
+
+void MainWindow::editTimeShiftFinished(int)
+{
     if (capture_file_.capFile()->unsaved_changes) {
         updateForUnsavedChanges();
     }
@@ -2086,25 +2187,49 @@ void MainWindow::on_actionEditTimeShift_triggered()
 
 void MainWindow::on_actionEditPacketComment_triggered()
 {
-    PacketCommentDialog pc_dialog(capture_file_.capFile()->current_frame->num, this, packet_list_->packetComment());
-    if (pc_dialog.exec() == QDialog::Accepted) {
-        packet_list_->setPacketComment(pc_dialog.text());
+    QList<int> rows = selectedRows();
+    if (rows.count() != 1)
+        return;
+
+    frame_data * fdata = frameDataForRow(rows.at(0));
+    if (! fdata)
+        return;
+
+    PacketCommentDialog* pc_dialog;
+    pc_dialog = new PacketCommentDialog(fdata->num, this, packet_list_->packetComment());
+    connect(pc_dialog, &QDialog::finished, std::bind(&MainWindow::editPacketCommentFinished, this, pc_dialog, std::placeholders::_1));
+    pc_dialog->setWindowModality(Qt::ApplicationModal);
+    pc_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    pc_dialog->show();
+}
+
+void MainWindow::editPacketCommentFinished(PacketCommentDialog* pc_dialog, int result)
+{
+    if (result == QDialog::Accepted) {
+        packet_list_->setPacketComment(pc_dialog->text());
         updateForUnsavedChanges();
     }
 }
 
 void MainWindow::on_actionDeleteAllPacketComments_triggered()
 {
-    QMessageBox msg_dialog;
+    QMessageBox *msg_dialog = new QMessageBox();
+    connect(msg_dialog, SIGNAL(finished(int)), this, SLOT(deleteAllPacketCommentsFinished(int)));
 
-    msg_dialog.setIcon(QMessageBox::Question);
-    msg_dialog.setText(tr("Are you sure you want to remove all packet comments?"));
+    msg_dialog->setIcon(QMessageBox::Question);
+    msg_dialog->setText(tr("Are you sure you want to remove all packet comments?"));
 
-    msg_dialog.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
-    msg_dialog.setDefaultButton(QMessageBox::Ok);
+    msg_dialog->setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+    msg_dialog->setDefaultButton(QMessageBox::Ok);
 
-    if (msg_dialog.exec() == QMessageBox::Ok)
-    {
+    msg_dialog->setWindowModality(Qt::ApplicationModal);
+    msg_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    msg_dialog->show();
+}
+
+void MainWindow::deleteAllPacketCommentsFinished(int result)
+{
+    if (result == QMessageBox::Ok) {
         /* XXX Do we need a wait/hourglass for large files? */
         packet_list_->deleteAllPacketComments();
         updateForUnsavedChanges();
@@ -2113,23 +2238,22 @@ void MainWindow::on_actionDeleteAllPacketComments_triggered()
 
 void MainWindow::on_actionEditConfigurationProfiles_triggered()
 {
-    ProfileDialog cp_dialog;
-
-    cp_dialog.exec();
+    ProfileDialog *cp_dialog = new ProfileDialog();
+    cp_dialog->setWindowModality(Qt::ApplicationModal);
+    cp_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    cp_dialog->show();
 }
 
-void MainWindow::showPreferencesDialog(QString pane_name)
+void MainWindow::showPreferencesDialog(QString module_name)
 {
-    PreferencesDialog pref_dialog(this);
-
+    PreferencesDialog *pref_dialog = new PreferencesDialog(this);
+    connect(pref_dialog, SIGNAL(destroyed(QObject*)), wsApp, SLOT(flushAppSignals()));
     saveWindowGeometry();  // Save in case the layout panes are rearranged
 
-    pref_dialog.setPane(pane_name);
-    pref_dialog.exec();
-
-    // Emitting PacketDissectionChanged directly from a QDialog can cause
-    // problems on macOS.
-    wsApp->flushAppSignals();
+    pref_dialog->setPane(module_name);
+    pref_dialog->setWindowModality(Qt::ApplicationModal);
+    pref_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    pref_dialog->show();
 }
 
 void MainWindow::on_actionEditPreferences_triggered()
@@ -2341,12 +2465,15 @@ void MainWindow::on_actionViewColorizePacketList_triggered(bool checked) {
 
 void MainWindow::on_actionViewColoringRules_triggered()
 {
-    ColoringRulesDialog coloring_rules_dialog(this);
-    connect(&coloring_rules_dialog, SIGNAL(accepted()),
+    ColoringRulesDialog *coloring_rules_dialog = new ColoringRulesDialog(this);
+    connect(coloring_rules_dialog, SIGNAL(accepted()),
             packet_list_, SLOT(recolorPackets()));
-    connect(&coloring_rules_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
+    connect(coloring_rules_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
             this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
-    coloring_rules_dialog.exec();
+
+    coloring_rules_dialog->setWindowModality(Qt::ApplicationModal);
+    coloring_rules_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    coloring_rules_dialog->show();
 }
 
 // actionViewColorizeConversation1 - 10
@@ -2355,12 +2482,12 @@ void MainWindow::colorizeConversation(bool create_rule)
     QAction *colorize_action = qobject_cast<QAction *>(sender());
     if (!colorize_action) return;
 
-    if (capture_file_.capFile() && capture_file_.capFile()->current_frame) {
+    if (capture_file_.capFile() && selectedRows().count() > 0) {
         packet_info *pi = capture_file_.packetInfo();
         guint8 cc_num = colorize_action->data().toUInt();
         gchar *filter = conversation_filter_from_packet(pi);
         if (filter == NULL) {
-            main_ui_->statusBar->pushTemporaryStatus(tr("Unable to build conversation filter."));
+            wsApp->pushStatus(WiresharkApplication::TemporaryStatus, tr("Unable to build conversation filter."));
             return;
         }
 
@@ -2453,7 +2580,7 @@ void MainWindow::on_actionViewResetLayout_triggered()
 
 void MainWindow::on_actionViewResizeColumns_triggered()
 {
-    if ( ! packet_list_->model() )
+    if (! packet_list_->model())
         return;
     for (int col = 0; col < packet_list_->model()->columnCount(); col++) {
         packet_list_->resizeColumnToContents(col);
@@ -2463,7 +2590,7 @@ void MainWindow::on_actionViewResizeColumns_triggered()
 
 void MainWindow::openPacketDialog(bool from_reference)
 {
-    frame_data * fdata;
+    frame_data * fdata = Q_NULLPTR;
 
     /* Find the frame for which we're popping up a dialog */
     if (from_reference) {
@@ -2472,9 +2599,10 @@ void MainWindow::openPacketDialog(bool from_reference)
             return;
 
         fdata = frame_data_sequence_find(capture_file_.capFile()->provider.frames, framenum);
-    } else {
-        fdata = capture_file_.capFile()->current_frame;
-    }
+    } else if (selectedRows().count() == 1) {
+        fdata = frameDataForRow(selectedRows().at(0));
+    } else if (selectedRows().count() > 1)
+        return;
 
     /* If we have a frame, pop up the dialog */
     if (fdata) {
@@ -2596,7 +2724,7 @@ void MainWindow::matchFieldFilter(FilterAction::Action action, FilterAction::Act
         QString err = tr("No filter available. Try another ");
         err.append(packet_list_->contextMenuActive() ? "column" : "item");
         err.append(".");
-        main_ui_->statusBar->pushTemporaryStatus(err);
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, err);
         return;
     }
 
@@ -2623,12 +2751,12 @@ void MainWindow::on_actionAnalyzeDisplayFilterMacros_triggered()
 {
     struct epan_uat* dfm_uat;
     dfilter_macro_get_uat(&dfm_uat);
-    UatDialog uat_dlg(parentWidget(), dfm_uat);
+    UatDialog *uat_dlg = new UatDialog(parentWidget(), dfm_uat);
+    connect(uat_dlg, SIGNAL(destroyed(QObject*)), wsApp, SLOT(flushAppSignals()));
 
-    uat_dlg.exec();
-    // Emitting PacketDissectionChanged directly from a QDialog can cause
-    // problems on macOS.
-    wsApp->flushAppSignals();
+    uat_dlg->setWindowModality(Qt::ApplicationModal);
+    uat_dlg->setAttribute(Qt::WA_DeleteOnClose);
+    uat_dlg->show();
 }
 
 void MainWindow::on_actionAnalyzeCreateAColumn_triggered()
@@ -2664,20 +2792,19 @@ void MainWindow::applyExportObject()
         return;
 
     ExportObjectDialog* export_dialog = new ExportObjectDialog(*this, capture_file_, export_action->exportObject());
-
-    connect(export_dialog->getExportObjectView(), SIGNAL(goToPacket(int)),
-            packet_list_, SLOT(goToPacket(int)));
-
+    export_dialog->setWindowModality(Qt::ApplicationModal);
+    export_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    export_dialog->show();
 }
 
 void MainWindow::on_actionAnalyzeEnabledProtocols_triggered()
 {
-    EnabledProtocolsDialog enable_proto_dialog(this);
-    enable_proto_dialog.exec();
+    EnabledProtocolsDialog *enable_proto_dialog = new EnabledProtocolsDialog(this);
+    connect(enable_proto_dialog, SIGNAL(destroyed(QObject*)), wsApp, SLOT(flushAppSignals()));
 
-    // Emitting PacketDissectionChanged directly from a QDialog can cause
-    // problems on macOS.
-    wsApp->flushAppSignals();
+    enable_proto_dialog->setWindowModality(Qt::ApplicationModal);
+    enable_proto_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    enable_proto_dialog->show();
 }
 
 void MainWindow::on_actionAnalyzeDecodeAs_triggered()
@@ -2688,12 +2815,12 @@ void MainWindow::on_actionAnalyzeDecodeAs_triggered()
         create_new = true;
     }
 
-    DecodeAsDialog da_dialog(this, capture_file_.capFile(), create_new);
-    da_dialog.exec();
+    DecodeAsDialog *da_dialog = new DecodeAsDialog(this, capture_file_.capFile(), create_new);
+    connect(da_dialog, SIGNAL(destroyed(QObject*)), wsApp, SLOT(flushAppSignals()));
 
-    // Emitting PacketDissectionChanged directly from a QDialog can cause
-    // problems on macOS.
-    wsApp->flushAppSignals();
+    da_dialog->setWindowModality(Qt::ApplicationModal);
+    da_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    da_dialog->show();
 }
 
 void MainWindow::on_actionAnalyzeReloadLuaPlugins_triggered()
@@ -2743,6 +2870,11 @@ void MainWindow::on_actionAnalyzeFollowHTTPStream_triggered()
 void MainWindow::on_actionAnalyzeFollowHTTP2Stream_triggered()
 {
     openFollowStreamDialogForType(FOLLOW_HTTP2);
+}
+
+void MainWindow::on_actionAnalyzeFollowQUICStream_triggered()
+{
+    openFollowStreamDialogForType(FOLLOW_QUIC);
 }
 
 void MainWindow::openSCTPAllAssocsDialog()
@@ -3093,7 +3225,12 @@ void MainWindow::on_actionStatisticsPacketLengths_triggered()
 // -z io,stat
 void MainWindow::statCommandIOGraph(const char *, void *)
 {
-    IOGraphDialog *iog_dialog = new IOGraphDialog(*this, capture_file_);
+    const DisplayFilterEdit *df_edit = qobject_cast<DisplayFilterEdit *>(df_combo_box_->lineEdit());
+    QString displayFilter;
+    if (df_edit)
+        displayFilter = df_edit->text();
+
+    IOGraphDialog *iog_dialog = new IOGraphDialog(*this, capture_file_, displayFilter);
     connect(iog_dialog, SIGNAL(goToPacket(int)), packet_list_, SLOT(goToPacket(int)));
     connect(this, SIGNAL(reloadFields()), iog_dialog, SLOT(reloadFields()));
     iog_dialog->show();
@@ -3445,21 +3582,26 @@ void MainWindow::goToConversationFrame(bool go_next) {
     gchar     *filter       = NULL;
     dfilter_t *dfcode       = NULL;
     gboolean   found_packet = FALSE;
-    packet_info *pi = &(capture_file_.capFile()->edt->pi);
+    packet_info *pi = capture_file_.packetInfo();
+
+    if (!pi) {
+        // No packet was selected, or multiple packets were selected.
+        return;
+    }
 
     /* Try to build a conversation
      * filter in the order TCP, UDP, IP, Ethernet and apply the
      * coloring */
     filter = conversation_filter_from_packet(pi);
     if (filter == NULL) {
-        main_ui_->statusBar->pushTemporaryStatus(tr("Unable to build conversation filter."));
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, tr("Unable to build conversation filter."));
         g_free(filter);
         return;
     }
 
     if (!dfilter_compile(filter, &dfcode, NULL)) {
         /* The attempt failed; report an error. */
-        main_ui_->statusBar->pushTemporaryStatus(tr("Error compiling filter for this conversation."));
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, tr("Error compiling filter for this conversation."));
         g_free(filter);
         return;
     }
@@ -3468,7 +3610,7 @@ void MainWindow::goToConversationFrame(bool go_next) {
 
     if (!found_packet) {
         /* We didn't find a packet */
-        main_ui_->statusBar->pushTemporaryStatus(tr("No previous/next packet in conversation."));
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, tr("No previous/next packet in conversation."));
     }
 
     dfilter_free(dfcode);
@@ -3546,7 +3688,7 @@ void MainWindow::on_actionCaptureStart_triggered()
 #ifdef HAVE_LIBPCAP
     if (global_capture_opts.num_selected == 0) {
         QString err_msg = tr("No Interface Selected");
-        main_ui_->statusBar->pushTemporaryStatus(err_msg);
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, err_msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
     }
@@ -3600,7 +3742,15 @@ void MainWindow::on_actionStatisticsCaptureFileProperties_triggered()
 
 void MainWindow::on_actionStatisticsResolvedAddresses_triggered()
 {
-    ResolvedAddressesDialog *resolved_addresses_dialog = new ResolvedAddressesDialog(this, &capture_file_);
+    QString capFileName;
+    wtap* wth = Q_NULLPTR;
+    if (capture_file_.isValid())
+    {
+        capFileName = capture_file_.capFile()->filename;
+        wth = capture_file_.capFile()->provider.wth;
+    }
+    ResolvedAddressesDialog *resolved_addresses_dialog =
+            new ResolvedAddressesDialog(this, capFileName, wth);
     resolved_addresses_dialog->show();
 }
 
@@ -3615,40 +3765,40 @@ void MainWindow::on_actionStatisticsProtocolHierarchy_triggered()
 void MainWindow::on_actionCaptureOptions_triggered()
 {
 #ifdef HAVE_LIBPCAP
-    if (!capture_interfaces_dialog_) {
-        capture_interfaces_dialog_ = new CaptureInterfacesDialog(this);
+    if (!capture_options_dialog_) {
+        capture_options_dialog_ = new CaptureOptionsDialog(this);
 
-        connect(capture_interfaces_dialog_, SIGNAL(startCapture()), this, SLOT(startCapture()));
-        connect(capture_interfaces_dialog_, SIGNAL(stopCapture()), this, SLOT(stopCapture()));
+        connect(capture_options_dialog_, SIGNAL(startCapture()), this, SLOT(startCapture()));
+        connect(capture_options_dialog_, SIGNAL(stopCapture()), this, SLOT(stopCapture()));
 
-        connect(capture_interfaces_dialog_, SIGNAL(getPoints(int, PointList*)),
+        connect(capture_options_dialog_, SIGNAL(getPoints(int, PointList*)),
                 this->welcome_page_->getInterfaceFrame(), SLOT(getPoints(int, PointList*)));
-        connect(capture_interfaces_dialog_, SIGNAL(interfacesChanged()),
+        connect(capture_options_dialog_, SIGNAL(interfacesChanged()),
                 this->welcome_page_, SLOT(interfaceSelected()));
-        connect(capture_interfaces_dialog_, SIGNAL(interfacesChanged()),
+        connect(capture_options_dialog_, SIGNAL(interfacesChanged()),
                 this->welcome_page_->getInterfaceFrame(), SLOT(updateSelectedInterfaces()));
-        connect(capture_interfaces_dialog_, SIGNAL(interfaceListChanged()),
+        connect(capture_options_dialog_, SIGNAL(interfaceListChanged()),
                 this->welcome_page_->getInterfaceFrame(), SLOT(interfaceListChanged()));
-        connect(capture_interfaces_dialog_, SIGNAL(captureFilterTextEdited(QString)),
+        connect(capture_options_dialog_, SIGNAL(captureFilterTextEdited(QString)),
                 this->welcome_page_, SLOT(setCaptureFilterText(QString)));
         // Propagate selection changes from main UI to dialog.
         connect(this->welcome_page_, SIGNAL(interfacesChanged()),
-                capture_interfaces_dialog_, SLOT(interfaceSelected()));
+                capture_options_dialog_, SLOT(interfaceSelected()));
 
-        connect(capture_interfaces_dialog_, SIGNAL(setFilterValid(bool, const QString)),
+        connect(capture_options_dialog_, SIGNAL(setFilterValid(bool, const QString)),
                 this, SLOT(startInterfaceCapture(bool, const QString)));
     }
-    capture_interfaces_dialog_->setTab(0);
-    capture_interfaces_dialog_->updateInterfaces();
+    capture_options_dialog_->setTab(0);
+    capture_options_dialog_->updateInterfaces();
 
-    if (capture_interfaces_dialog_->isMinimized()) {
-        capture_interfaces_dialog_->showNormal();
+    if (capture_options_dialog_->isMinimized()) {
+        capture_options_dialog_->showNormal();
     } else {
-        capture_interfaces_dialog_->show();
+        capture_options_dialog_->show();
     }
 
-    capture_interfaces_dialog_->raise();
-    capture_interfaces_dialog_->activateWindow();
+    capture_options_dialog_->raise();
+    capture_options_dialog_->activateWindow();
 #endif
 }
 
@@ -3717,7 +3867,7 @@ void MainWindow::showExtcapOptionsDialog(QString &device_name)
 void MainWindow::insertColumn(QString name, QString abbrev, gint pos)
 {
     gint colnr = 0;
-    if ( name.length() > 0 && abbrev.length() > 0 )
+    if (name.length() > 0 && abbrev.length() > 0)
     {
         colnr = column_prefs_add_custom(COL_CUSTOM, name.toStdString().c_str(), abbrev.toStdString().c_str(), pos);
         packet_list_->columnsChanged();

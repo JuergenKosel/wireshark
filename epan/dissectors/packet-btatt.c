@@ -2173,16 +2173,22 @@ static const value_string opcode_vals[] = {
     {0x0, NULL}
 };
 
+#define ATT_OPCODE_ERROR_RESPONSE               0x01
+#define ATT_OPCODE_EXCHANGE_MTU_REQUEST         0x02
+#define ATT_OPCODE_EXCHANGE_MTU_RESPONSE        0x03
+#define ATT_OPCODE_FIND_INFORMATION_REQUEST     0x04
+#define ATT_OPCODE_FIND_INFORMATION_RESPONSE    0x05
+#define ATT_OPCODE_FIND_BY_TYPE_VALUE_REQUEST   0x06
+#define ATT_OPCODE_FIND_BY_TYPE_VALUE_RESPONSE  0x07
+
 #define ATT_OPCODE_READ_BY_TYPE_REQUEST         0x08
 #define ATT_OPCODE_READ_BY_TYPE_RESPONSE        0x09
-
 #define ATT_OPCODE_READ_REQUEST                 0x0A
 #define ATT_OPCODE_READ_RESPONSE                0x0B
 #define ATT_OPCODE_READ_BLOB_REQUEST            0x0C
 #define ATT_OPCODE_READ_BLOB_RESPONSE           0x0D
 #define ATT_OPCODE_READ_MULTIPLE_REQUEST        0x0E
 #define ATT_OPCODE_READ_MULTIPLE_RESPONSE       0x0F
-
 #define ATT_OPCODE_READ_BY_GROUP_TYPE_REQUEST   0x10
 #define ATT_OPCODE_READ_BY_GROUP_TYPE_RESPONSE  0x11
 
@@ -2190,6 +2196,8 @@ static const value_string opcode_vals[] = {
 #define ATT_OPCODE_WRITE_RESPONSE               0x13
 #define ATT_OPCODE_WRITE_PREPARE_REQUEST        0x16
 #define ATT_OPCODE_WRITE_PREPARE_RESPONSE       0x17
+#define ATT_OPCODE_WRITE_EXECUTE_REQUEST        0x18
+#define ATT_OPCODE_WRITE_EXECUTE_RESPONSE       0x19
 #define ATT_OPCODE_WRITE_COMMAND                0x52
 #define ATT_OPCODE_WRITE_SIGNED_COMMAND         0xD2
 
@@ -4170,6 +4178,9 @@ get_request(tvbuff_t *tvb, gint offset, packet_info *pinfo, guint8 opcode,
     wmem_tree_t     *sub_wmemtree;
     guint32          frame_number, curr_layer_num;
 
+    if (!bluetooth_data)
+        return NULL;
+
     curr_layer_num = pinfo->curr_layer_num;
 
     key[0].length = 1;
@@ -4296,7 +4307,7 @@ save_request(packet_info *pinfo, guint8 opcode, union request_parameters_union p
     key[4].length = 0;
     key[4].key    = NULL;
 
-    request_data = wmem_new(wmem_file_scope(), request_data_t);
+    request_data = wmem_new0(wmem_file_scope(), request_data_t);
     request_data->opcode = opcode;
     request_data->request_in_frame = frame_number;
     request_data->response_in_frame = 0;
@@ -4360,22 +4371,24 @@ get_uuid_from_handle(packet_info *pinfo, guint32 handle,
 
     memset(&uuid, 0, sizeof uuid);
 
-    frame_number = pinfo->num;
+    if (bluetooth_data) {
+        frame_number = pinfo->num;
 
-    key[0].length = 1;
-    key[0].key    = &bluetooth_data->interface_id;
-    key[1].length = 1;
-    key[1].key    = &bluetooth_data->adapter_id;
-    key[2].length = 1;
-    key[2].key    = &handle;
-    key[3].length = 0;
-    key[3].key    = NULL;
+        key[0].length = 1;
+        key[0].key    = &bluetooth_data->interface_id;
+        key[1].length = 1;
+        key[1].key    = &bluetooth_data->adapter_id;
+        key[2].length = 1;
+        key[2].key    = &handle;
+        key[3].length = 0;
+        key[3].key    = NULL;
 
-    sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(handle_to_uuid, key);
-    handle_data = (sub_wmemtree) ? (handle_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
+        sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(handle_to_uuid, key);
+        handle_data = (sub_wmemtree) ? (handle_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
 
-    if (handle_data)
-        uuid = handle_data->uuid;
+        if (handle_data)
+            uuid = handle_data->uuid;
+    }
 
     return uuid;
 }
@@ -4392,27 +4405,29 @@ get_service_uuid_from_handle(packet_info *pinfo, guint32 handle,
 
     memset(&uuid, 0, sizeof uuid);
 
-    frame_number = pinfo->num;
+    if (bluetooth_data) {
+        frame_number = pinfo->num;
 
-    key[0].length = 1;
-    key[0].key    = &bluetooth_data->interface_id;
-    key[1].length = 1;
-    key[1].key    = &bluetooth_data->adapter_id;
-    key[2].length = 1;
-    key[2].key    = &handle;
-    key[3].length = 0;
-    key[3].key    = NULL;
+        key[0].length = 1;
+        key[0].key    = &bluetooth_data->interface_id;
+        key[1].length = 1;
+        key[1].key    = &bluetooth_data->adapter_id;
+        key[2].length = 1;
+        key[2].key    = &handle;
+        key[3].length = 0;
+        key[3].key    = NULL;
 
-    while (handle > 0) {
-        sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(handle_to_uuid, key);
-        handle_data = (sub_wmemtree) ? (handle_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
+        while (handle > 0) {
+            sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(handle_to_uuid, key);
+            handle_data = (sub_wmemtree) ? (handle_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
 
-        if (handle_data && handle_data->type == ATTRIBUTE_TYPE_SERVICE) {
-            uuid = handle_data->uuid;
-            return uuid;
+            if (handle_data && handle_data->type == ATTRIBUTE_TYPE_SERVICE) {
+                uuid = handle_data->uuid;
+                return uuid;
+            }
+
+            handle -= 1;
         }
-
-        handle -= 1;
     }
 
     return uuid;
@@ -4430,30 +4445,32 @@ get_characteristic_uuid_from_handle(packet_info *pinfo, guint32 handle,
 
     memset(&uuid, 0, sizeof uuid);
 
-    frame_number = pinfo->num;
+    if (bluetooth_data) {
+        frame_number = pinfo->num;
 
-    key[0].length = 1;
-    key[0].key    = &bluetooth_data->interface_id;
-    key[1].length = 1;
-    key[1].key    = &bluetooth_data->adapter_id;
-    key[2].length = 1;
-    key[2].key    = &handle;
-    key[3].length = 0;
-    key[3].key    = NULL;
+        key[0].length = 1;
+        key[0].key    = &bluetooth_data->interface_id;
+        key[1].length = 1;
+        key[1].key    = &bluetooth_data->adapter_id;
+        key[2].length = 1;
+        key[2].key    = &handle;
+        key[3].length = 0;
+        key[3].key    = NULL;
 
-    while (handle > 0) {
-        sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(handle_to_uuid, key);
-        handle_data = (sub_wmemtree) ? (handle_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
+        while (handle > 0) {
+            sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(handle_to_uuid, key);
+            handle_data = (sub_wmemtree) ? (handle_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
 
-        if (handle_data && handle_data->type == ATTRIBUTE_TYPE_SERVICE)
-            return uuid;
+            if (handle_data && handle_data->type == ATTRIBUTE_TYPE_SERVICE)
+                return uuid;
 
-        if (handle_data && handle_data->type == ATTRIBUTE_TYPE_CHARACTERISTIC) {
-            uuid = handle_data->uuid;
-            return uuid;
+            if (handle_data && handle_data->type == ATTRIBUTE_TYPE_CHARACTERISTIC) {
+                uuid = handle_data->uuid;
+                return uuid;
+            }
+
+            handle -= 1;
         }
-
-        handle -= 1;
     }
 
     return uuid;
@@ -4464,6 +4481,9 @@ static void col_append_info_by_handle(packet_info *pinfo, guint16 handle, blueto
     bluetooth_uuid_t   service_uuid;
     bluetooth_uuid_t   characteristic_uuid;
     bluetooth_uuid_t   uuid;
+
+    if (!bluetooth_data)
+        return;
 
     service_uuid = get_service_uuid_from_handle(pinfo, handle, bluetooth_data);
     characteristic_uuid = get_characteristic_uuid_from_handle(pinfo, handle, bluetooth_data);
@@ -4609,6 +4629,8 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
     guint32      operator_value;
     guint32      opcode;
     guint32      operand_offset;
+    guint32      interface_id;
+    guint32      adapter_id;
     const gint  **hfs;
     bluetooth_data_t *bluetooth_data = NULL;
 
@@ -5316,7 +5338,13 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
             break;
 
-        offset = dissect_bd_addr(hf_btatt_reconnection_address, pinfo, tree, tvb, offset, FALSE, bluetooth_data->interface_id, bluetooth_data->adapter_id, NULL);
+        if (bluetooth_data) {
+            interface_id = bluetooth_data->interface_id;
+            adapter_id = bluetooth_data->adapter_id;
+        } else {
+            interface_id = adapter_id = 0;
+        }
+        offset = dissect_bd_addr(hf_btatt_reconnection_address, pinfo, tree, tvb, offset, FALSE, interface_id, adapter_id, NULL);
 
         break;
     case 0x2A04: /* Peripheral Preferred Connection Parameters */
@@ -9990,7 +10018,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
             break;
 
-/* TODO */
+        /* TODO */
         sub_item = proto_tree_add_item(tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
         expert_add_info(pinfo, sub_item, &ei_btatt_undecoded);
         offset = tvb_captured_length(tvb);
@@ -10005,7 +10033,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
             break;
 
-/* TODO */
+        /* TODO */
         sub_item = proto_tree_add_item(tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
         expert_add_info(pinfo, sub_item, &ei_btatt_undecoded);
         offset = tvb_captured_length(tvb);
@@ -10020,7 +10048,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
             break;
 
-/* TODO */
+        /* TODO */
         sub_item = proto_tree_add_item(tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
         expert_add_info(pinfo, sub_item, &ei_btatt_undecoded);
         offset = tvb_captured_length(tvb);
@@ -10035,7 +10063,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
             break;
 
-/* TODO */
+        /* TODO */
         sub_item = proto_tree_add_item(tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
         expert_add_info(pinfo, sub_item, &ei_btatt_undecoded);
         offset = tvb_captured_length(tvb);
@@ -10050,7 +10078,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
             break;
 
-/* TODO */
+        /* TODO */
         sub_item = proto_tree_add_item(tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
         expert_add_info(pinfo, sub_item, &ei_btatt_undecoded);
         offset = tvb_captured_length(tvb);
@@ -10065,7 +10093,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
             break;
 
-/* TODO */
+        /* TODO */
         sub_item = proto_tree_add_item(tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
         expert_add_info(pinfo, sub_item, &ei_btatt_undecoded);
         offset = tvb_captured_length(tvb);
@@ -10199,7 +10227,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
             break;
 
-/* TODO */
+        /* TODO */
         sub_item = proto_tree_add_item(tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
         expert_add_info(pinfo, sub_item, &ei_btatt_undecoded);
         offset = tvb_captured_length(tvb);
@@ -10360,8 +10388,12 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
             btle_mesh_proxy_ctx_t *proxy_ctx;
             proxy_ctx = wmem_new0(wmem_packet_scope(), btle_mesh_proxy_ctx_t);
 
-            proxy_ctx->interface_id = bluetooth_data->interface_id;
-            proxy_ctx->adapter_id = bluetooth_data->adapter_id;
+            if (bluetooth_data) {
+                proxy_ctx->interface_id = bluetooth_data->interface_id;
+                proxy_ctx->adapter_id = bluetooth_data->adapter_id;
+            } else {
+                proxy_ctx->interface_id = proxy_ctx->adapter_id = 0;
+            }
             proxy_ctx->chandle = 0; //TODO
             proxy_ctx->bt_uuid = uuid.bt_uuid;
             proxy_ctx->access_address = 0; //TODO
@@ -10565,20 +10597,22 @@ get_mtu(packet_info *pinfo, bluetooth_data_t *bluetooth_data)
     wmem_tree_t     *sub_wmemtree;
     guint            mtu = 23;
 
-    frame_number = pinfo->num;
+    if (bluetooth_data) {
+        frame_number = pinfo->num;
 
-    key[0].length = 1;
-    key[0].key    = &bluetooth_data->interface_id;
-    key[1].length = 1;
-    key[1].key    = &bluetooth_data->adapter_id;
-    key[2].length = 0;
-    key[2].key    = NULL;
+        key[0].length = 1;
+        key[0].key    = &bluetooth_data->interface_id;
+        key[1].length = 1;
+        key[1].key    = &bluetooth_data->adapter_id;
+        key[2].length = 0;
+        key[2].key    = NULL;
 
-    sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(mtus, key);
-    mtu_data = (sub_wmemtree) ? (mtu_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
+        sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(mtus, key);
+        mtu_data = (sub_wmemtree) ? (mtu_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
 
-    if (mtu_data)
-        mtu = mtu_data->mtu;
+        if (mtu_data)
+            mtu = mtu_data->mtu;
+    }
 
     return mtu;
 }
@@ -10649,42 +10683,43 @@ get_value(packet_info *pinfo, guint32 handle, bluetooth_data_t *bluetooth_data, 
     gboolean          first = TRUE;
     guint8           *data = NULL;
 
+    if (bluetooth_data) {
+        frame_number = pinfo->num;
 
-    frame_number = pinfo->num;
+        key[0].length = 1;
+        key[0].key    = &bluetooth_data->interface_id;
+        key[1].length = 1;
+        key[1].key    = &bluetooth_data->adapter_id;
+        key[2].length = 1;
+        key[2].key    = &handle;
+        key[3].length = 0;
+        key[3].key    = NULL;
 
-    key[0].length = 1;
-    key[0].key    = &bluetooth_data->interface_id;
-    key[1].length = 1;
-    key[1].key    = &bluetooth_data->adapter_id;
-    key[2].length = 1;
-    key[2].key    = &handle;
-    key[3].length = 0;
-    key[3].key    = NULL;
+        sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(fragments, key);
+        while (1) {
+            fragment_data = (sub_wmemtree) ? (fragment_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
+            if (!fragment_data || (fragment_data && fragment_data->offset >= last_offset))
+                break;
 
-    sub_wmemtree = (wmem_tree_t *) wmem_tree_lookup32_array(fragments, key);
-    while (1) {
-        fragment_data = (sub_wmemtree) ? (fragment_data_t *) wmem_tree_lookup32_le(sub_wmemtree, frame_number) : NULL;
-        if (!fragment_data || (fragment_data && fragment_data->offset >= last_offset))
-            break;
+            if (first) {
+                size = fragment_data->offset + fragment_data->length;
+                data = (guint8 *) wmem_alloc(pinfo->pool, size);
 
-        if (first) {
-            size = fragment_data->offset + fragment_data->length;
-            data = (guint8 *) wmem_alloc(pinfo->pool, size);
+                if (length)
+                    *length = size;
 
-            if (length)
-                *length = size;
+                first = FALSE;
+            } else if (fragment_data->offset + fragment_data->length != last_offset) {
+                break;
+            }
 
-            first = FALSE;
-        } else if (fragment_data->offset + fragment_data->length != last_offset) {
-            break;
+            memcpy(data + fragment_data->offset, fragment_data->data, fragment_data->length);
+
+            if (fragment_data->offset == 0)
+                return data;
+            frame_number = fragment_data->data_in_frame - 1;
+            last_offset = fragment_data->offset;
         }
-
-        memcpy(data + fragment_data->offset, fragment_data->data, fragment_data->length);
-
-        if (fragment_data->offset == 0)
-            return data;
-        frame_number = fragment_data->data_in_frame - 1;
-        last_offset = fragment_data->offset;
     }
 
     if (length)
@@ -10927,7 +10962,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
             offset += 1;
 
             if (format == 1) {
-                while( tvb_reported_length_remaining(tvb, offset) > 0) {
+                while (tvb_reported_length_remaining(tvb, offset) > 0) {
                     sub_item = proto_tree_add_item(main_tree, hf_btatt_information_data, tvb, offset, 4, ENC_NA);
                     sub_tree = proto_item_add_subtree(sub_item, ett_btatt_list);
 
@@ -10947,7 +10982,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 }
             }
             else if (format == 2) {
-                while( tvb_reported_length_remaining(tvb, offset) > 0) {
+                while (tvb_reported_length_remaining(tvb, offset) > 0) {
                     sub_item = proto_tree_add_item(main_tree, hf_btatt_information_data, tvb, offset, 4, ENC_NA);
                     sub_tree = proto_item_add_subtree(sub_item, ett_btatt_list);
 
@@ -11004,7 +11039,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         break;
 
     case 0x07: /* Find By Type Value Response */
-        while( tvb_reported_length_remaining(tvb, offset) > 0 ) {
+        while (tvb_reported_length_remaining(tvb, offset) > 0) {
             sub_item = proto_tree_add_none_format(main_tree, hf_btatt_handles_info, tvb, offset, 4,
                                             "Handles Info, Handle: 0x%04x, Group End Handle: 0x%04x",
                                             tvb_get_letohs(tvb, offset), tvb_get_letohs(tvb, offset+2));
@@ -11078,7 +11113,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
             proto_tree_add_item(main_tree, hf_btatt_length, tvb, offset, 1, ENC_LITTLE_ENDIAN);
             offset++;
 
-            if(length > 0) {
+            if (length > 0) {
                 col_append_fstr(pinfo->cinfo, COL_INFO, ", Attribute List Length: %u",
                                         tvb_reported_length_remaining(tvb, offset)/length);
 
@@ -11181,7 +11216,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         break;
 
     case 0x0d: /* Read Blob Response */
-        if (request_data) {
+        if (request_data && request_data->opcode == (opcode - 1)) {
             dissect_handle(main_tree, pinfo, hf_btatt_handle, tvb, offset, bluetooth_data, &uuid, request_data->parameters.read_write.handle);
 
             col_append_info_by_handle(pinfo, request_data->parameters.read_write.handle, bluetooth_data);
@@ -11248,7 +11283,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         break;
 
     case 0x0f: /* Multiple Read Response */
-        if (request_data) {
+        if (request_data && request_data->opcode == (opcode - 1)) {
             guint  i_handle;
 
             for (i_handle = 0; i_handle < request_data->parameters.read_multiple.number_of_handles; i_handle += 1) {
@@ -11293,7 +11328,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 }
             }
 
-            if (request_data) {
+            if (request_data && request_data->opcode == (opcode - 1)) {
                 sub_item = proto_tree_add_uint(main_tree, hf_btatt_uuid16, tvb, 0, 0, request_data->parameters.read_by_type.uuid.bt_uuid);
                 proto_item_set_generated(sub_item);
             }
@@ -11324,7 +11359,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
     case 0x13: /* Write Response */
         /* No parameters */
 
-        if (request_data) {
+        if (request_data && request_data->opcode == (opcode - 1)) {
             dissect_handle(main_tree, pinfo, hf_btatt_handle, tvb, offset, bluetooth_data, &uuid, request_data->parameters.read_write.handle);
 
             dissect_attribute_value(main_tree, NULL, pinfo, tvb, offset, 0, request_data->parameters.read_write.handle, uuid, &att_data);
@@ -11358,9 +11393,9 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     tvb_get_guint16(tvb, offset - 2, ENC_LITTLE_ENDIAN),
                     bluetooth_data);
 
-/* XXX: How to detect there is max data in frame and it is last fragment?
+        /* XXX: How to detect there is max data in frame and it is last fragment?
         (Execute Write Request/Response is good candidate, but there is no one handle) */
-        if (request_data && tvb_captured_length(tvb) < mtu) {
+        if (request_data && request_data->opcode == (opcode - 1) && tvb_captured_length(tvb) < mtu) {
             tvbuff_t  *next_tvb;
             guint      reassembled_length;
             guint8    *reassembled_data;
@@ -11403,7 +11438,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         break;
 
     case 0x1E: /* Handle Value Confirmation */
-        if (request_data) {
+        if (request_data && request_data->opcode == (opcode - 1)) {
             dissect_handle(main_tree, pinfo, hf_btatt_handle, tvb, offset, bluetooth_data, &uuid, request_data->parameters.read_write.handle);
 
             col_append_info_by_handle(pinfo, request_data->parameters.read_write.handle, bluetooth_data);
@@ -11437,7 +11472,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         break;
     }
 
-    if (request_data) {
+    if (request_data && request_data->opcode == (opcode - 1)) {
         if (request_data->request_in_frame > 0  && request_data->request_in_frame != pinfo->num) {
             sub_item = proto_tree_add_uint(main_tree, hf_request_in_frame, tvb, 0, 0, request_data->request_in_frame);
             proto_item_set_generated(sub_item);

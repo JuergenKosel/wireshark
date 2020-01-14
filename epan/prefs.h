@@ -171,6 +171,7 @@ typedef struct _e_prefs {
   gchar       *gui_prepend_window_title;
   gchar       *gui_start_title;
   version_info_e gui_version_placement;
+  guint        gui_max_export_objects;
   layout_type_e gui_layout_type;
   layout_pane_content_e gui_layout_content_1;
   layout_pane_content_e gui_layout_content_2;
@@ -210,6 +211,7 @@ typedef struct _e_prefs {
   gboolean     unknown_prefs; /* unknown or obsolete pref(s) */
   gboolean     unknown_colorfilters; /* Warn when saving unknown or obsolete color filters. */
   gboolean     gui_qt_packet_list_separator;
+  gboolean     gui_qt_packet_header_column_definition;
   gboolean     gui_qt_show_selected_packet;
   gboolean     gui_qt_show_file_load_time;
   gboolean     gui_packet_editor; /* Enable Packet Editor */
@@ -510,6 +512,14 @@ void prefs_register_decode_as_preference(module_t *module, const char *name,
  * Register a preference that used to be supported but no longer is.
  */
 WS_DLL_PUBLIC void prefs_register_obsolete_preference(module_t *module,
+    const char *name);
+
+/*
+ * Mark a preference that affects fields change. This works for bool, enum,
+ * int, string (containing filename), range preferences. UAT is not included,
+ * because you can specified UAT_AFFECTS_FIELDS at uat_new().
+ */
+WS_DLL_PUBLIC void prefs_set_preference_effect_fields(module_t *module,
     const char *name);
 
 

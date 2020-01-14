@@ -72,15 +72,21 @@ public:
         CaptureOptionsDialog
     };
 
+    enum StatusInfo {
+        FilterSyntax,
+        FieldStatus,
+        FileStatus,
+        BusyStatus,
+        ByteStatus,
+        TemporaryStatus
+    };
+
     void registerUpdate(register_action_e action, const char *message);
     void emitAppSignal(AppSignal signal);
     // Emitting app signals (PacketDissectionChanged in particular) from
     // dialogs on macOS can be problematic. Dialogs should call queueAppSignal
     // instead.
     void queueAppSignal(AppSignal signal) { app_signals_ << signal; }
-    // Flush queued app signals. Should be called from the main window after
-    // each dialog that calls queueAppSignal closes.
-    void flushAppSignals();
     void emitStatCommandSignal(const QString &menu_path, const char *arg, void *userdata);
     void emitTapParameterSignal(const QString cfg_abbr, const QString arg, void *userdata);
     void addDynamicMenuGroupItem(int group, QAction *sg_action);
@@ -106,7 +112,7 @@ public:
     const QFont monospaceFont(bool zoomed = false) const;
     void setMonospaceFont(const char *font_string);
     int monospaceTextSize(const char *str);
-    void setConfigurationProfile(const gchar *profile_name, bool write_recent = true);
+    void setConfigurationProfile(const gchar *profile_name, bool write_recent_file = true);
     void reloadLuaPluginsDelayed();
     bool isInitialized() { return initialized_; }
     void setReloadingLua(bool is_reloading) { is_reloading_lua_ = is_reloading; }
@@ -117,7 +123,7 @@ public:
     const QString windowTitleString(QStringList title_parts);
     const QString windowTitleString(QString title_part) { return windowTitleString(QStringList() << title_part); }
     void applyCustomColorsFromRecent();
-#ifdef HAVE_SOFTWARE_UPDATE
+#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
     void rejectSoftwareUpdate() { software_update_ok_ = false; }
     bool softwareUpdateCanShutdown();
     void softwareUpdateShutdownRequest();
@@ -131,6 +137,11 @@ public:
     void doTriggerMenuItem(MainMenuItem menuItem);
 
     void zoomTextFont(int zoomLevel);
+
+    void pushStatus(StatusInfo sinfo, const QString &message, const QString &messagetip = QString());
+    void popStatus(StatusInfo sinfo);
+
+    void gotoFrame(int frameNum);
 
 private:
     bool initialized_;
@@ -147,7 +158,7 @@ private:
     static QString window_title_separator_;
     QList<AppSignal> app_signals_;
     int active_captures_;
-#ifdef HAVE_SOFTWARE_UPDATE
+#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
     bool software_update_ok_;
 #endif
 
@@ -185,7 +196,7 @@ signals:
     void checkDisplayFilter();
     void fieldsChanged();
     void reloadLuaPlugins();
-#ifdef HAVE_SOFTWARE_UPDATE
+#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
     // Each of these are called from a separate thread.
     void softwareUpdateRequested();
     void softwareUpdateClose();
@@ -205,6 +216,10 @@ public slots:
     void refreshRecentCaptures();
 
     void captureEventHandler(CaptureEvent);
+
+    // Flush queued app signals. Should be called from the main window after
+    // each dialog that calls queueAppSignal closes.
+    void flushAppSignals();
 
 private slots:
     void updateTaps();

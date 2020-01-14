@@ -50,7 +50,7 @@
 #include "follow.h"
 #include "disabled_protos.h"
 #include "decode_as.h"
-#include "dissector_filters.h"
+#include "conversation_filter.h"
 #include "conversation_table.h"
 #include "reassemble.h"
 #include "srt_table.h"
@@ -72,9 +72,7 @@
 #include <smi.h>
 #endif
 
-#ifdef HAVE_C_ARES
 #include <ares_version.h>
-#endif
 
 #ifdef HAVE_NGHTTP2
 #include <nghttp2/nghttp2ver.h>
@@ -745,11 +743,7 @@ epan_get_compiled_version_info(GString *str)
 
 	/* c-ares */
 	g_string_append(str, ", ");
-#ifdef HAVE_C_ARES
 	g_string_append(str, "with c-ares " ARES_VERSION_STR);
-#else
-	g_string_append(str, "without c-ares");
-#endif /* HAVE_C_ARES */
 
 	/* LUA */
 	g_string_append(str, ", ");

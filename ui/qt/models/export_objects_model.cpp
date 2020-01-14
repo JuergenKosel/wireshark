@@ -13,6 +13,7 @@
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/utils/variant_pointer.h>
 #include <ui/export_object_ui.h>
+#include <epan/prefs.h>
 
 #include <QDir>
 
@@ -168,7 +169,7 @@ void ExportObjectModel::saveAllEntries(QString path)
         if (entry == NULL)
             continue;
 
-        int count = 0;
+        guint count = 0;
         QString filename;
 
         do {
@@ -189,7 +190,8 @@ void ExportObjectModel::saveAllEntries(QString path)
             }
             filename = QString::fromUtf8(safe_filename->str);
             g_string_free(safe_filename, TRUE);
-        } while (save_dir.exists(filename) && ++count < 1000);
+            count++;
+        } while (save_dir.exists(filename) && ++count < prefs.gui_max_export_objects);
         eo_save_entry(save_dir.filePath(filename).toUtf8().constData(), entry);
     }
 }
@@ -265,6 +267,46 @@ bool ExportObjectProxyModel::lessThan(const QModelIndex &source_left, const QMod
     return QSortFilterProxyModel::lessThan(source_left, source_right);
 }
 
+void ExportObjectProxyModel::setContentFilterString(QString filter_)
+{
+    contentFilter_ = filter_;
+    invalidateFilter();
+}
+
+void ExportObjectProxyModel::setTextFilterString(QString filter_)
+{
+    textFilter_ = filter_;
+    invalidateFilter();
+}
+
+bool ExportObjectProxyModel::filterAcceptsRow(int source_row, const QModelIndex &/*source_parent*/) const
+{
+    if (contentFilter_.length() > 0)
+    {
+        QModelIndex idx = sourceModel()->index(source_row, ExportObjectModel::colContent);
+        if (!idx.isValid())
+            return false;
+
+        if (contentFilter_.compare(idx.data().toString()) != 0)
+            return false;
+    }
+
+    if (textFilter_.length() > 0)
+    {
+        QModelIndex hostIdx = sourceModel()->index(source_row, ExportObjectModel::colHostname);
+        QModelIndex fileIdx = sourceModel()->index(source_row, ExportObjectModel::colFilename);
+        if (!hostIdx.isValid() || !fileIdx.isValid())
+            return false;
+
+        QString host = hostIdx.data().toString();
+        QString file = fileIdx.data().toString();
+
+        if (!host.contains(textFilter_) && !file.contains(textFilter_))
+            return false;
+    }
+
+    return true;
+}
 
 
 /* * Editor modelines

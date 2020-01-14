@@ -45,7 +45,7 @@ class IOGraph : public QObject {
 Q_OBJECT
 public:
     // COUNT_TYPE_* in gtk/io_graph.c
-    enum PlotStyles { psLine, psImpulse, psBar, psStackedBar, psDot, psSquare, psDiamond };
+    enum PlotStyles { psLine, psImpulse, psBar, psStackedBar, psDot, psSquare, psDiamond, psCross, psPlus, psCircle };
 
     explicit IOGraph(QCustomPlot *parent);
     ~IOGraph();
@@ -130,12 +130,12 @@ class IOGraphDialog : public WiresharkDialog
     Q_OBJECT
 
 public:
-    explicit IOGraphDialog(QWidget &parent, CaptureFile &cf);
+    explicit IOGraphDialog(QWidget &parent, CaptureFile &cf, QString displayFilter = QString());
     ~IOGraphDialog();
 
     enum UatColumns { colEnabled = 0, colName, colDFilter, colColor, colStyle, colYAxis, colYField, colSMAPeriod, colMaxNum};
 
-    void addGraph(bool checked, QString name, QString dfilter, int color_idx, IOGraph::PlotStyles style,
+    void addGraph(bool checked, QString name, QString dfilter, QRgb color_idx, IOGraph::PlotStyles style,
                   io_graph_item_unit_t value_units, QString yfield, int moving_average);
     void addGraph(bool copy_from_current = false);
     void addDefaultGraph(bool enabled, int idx = 0);

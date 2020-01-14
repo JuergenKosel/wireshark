@@ -131,10 +131,20 @@ static int hf_smb2_flags = -1;
 static int hf_smb2_required_buffer_size = -1;
 static int hf_smb2_getinfo_input_size = -1;
 static int hf_smb2_getinfo_input_offset = -1;
-static int hf_smb2_getinfo_additional = -1;
+static int hf_smb2_getsetinfo_additional = -1;
+static int hf_smb2_getsetinfo_additionals = -1;
+static int hf_smb2_getsetinfo_additional_owner = -1;
+static int hf_smb2_getsetinfo_additional_group = -1;
+static int hf_smb2_getsetinfo_additional_dacl = -1;
+static int hf_smb2_getsetinfo_additional_sacl = -1;
+static int hf_smb2_getsetinfo_additional_label = -1;
+static int hf_smb2_getsetinfo_additional_attribute = -1;
+static int hf_smb2_getsetinfo_additional_scope = -1;
+static int hf_smb2_getsetinfo_additional_backup = -1;
 static int hf_smb2_getinfo_flags = -1;
 static int hf_smb2_setinfo_size = -1;
 static int hf_smb2_setinfo_offset = -1;
+static int hf_smb2_setinfo_reserved = -1;
 static int hf_smb2_file_basic_info = -1;
 static int hf_smb2_file_standard_info = -1;
 static int hf_smb2_file_internal_info = -1;
@@ -155,6 +165,7 @@ static int hf_smb2_file_pipe_info = -1;
 static int hf_smb2_file_compression_info = -1;
 static int hf_smb2_file_network_open_info = -1;
 static int hf_smb2_file_attribute_tag_info = -1;
+static int hf_smb2_file_normalized_name_info = -1;
 static int hf_smb2_fs_info_01 = -1;
 static int hf_smb2_fs_info_03 = -1;
 static int hf_smb2_fs_info_04 = -1;
@@ -565,6 +576,7 @@ static gint ett_smb2_file_attribute_tag_info = -1;
 static gint ett_smb2_file_rename_info = -1;
 static gint ett_smb2_file_disposition_info = -1;
 static gint ett_smb2_file_full_ea_info = -1;
+static gint ett_smb2_file_normalized_name_info = -1;
 static gint ett_smb2_fs_info_01 = -1;
 static gint ett_smb2_fs_info_03 = -1;
 static gint ett_smb2_fs_info_04 = -1;
@@ -573,6 +585,7 @@ static gint ett_smb2_fs_info_06 = -1;
 static gint ett_smb2_fs_info_07 = -1;
 static gint ett_smb2_fs_objectid_info = -1;
 static gint ett_smb2_sec_info_00 = -1;
+static gint ett_smb2_additional_information_sec_mask = -1;
 static gint ett_smb2_quota_info = -1;
 static gint ett_smb2_query_quota_info = -1;
 static gint ett_smb2_tid_tree = -1;
@@ -741,6 +754,7 @@ static const value_string smb2_share_type_vals[] = {
 #define SMB2_FILE_COMPRESSION_INFO    0x1c
 #define SMB2_FILE_NETWORK_OPEN_INFO   0x22
 #define SMB2_FILE_ATTRIBUTE_TAG_INFO  0x23
+#define SMB2_FILE_NORMALIZED_NAME_INFO 0x30
 
 static const value_string smb2_file_info_levels[] = {
 	{SMB2_FILE_BASIC_INFO,		"SMB2_FILE_BASIC_INFO" },
@@ -763,6 +777,7 @@ static const value_string smb2_file_info_levels[] = {
 	{SMB2_FILE_COMPRESSION_INFO,	"SMB2_FILE_COMPRESSION_INFO" },
 	{SMB2_FILE_NETWORK_OPEN_INFO,	"SMB2_FILE_NETWORK_OPEN_INFO" },
 	{SMB2_FILE_ATTRIBUTE_TAG_INFO,	"SMB2_FILE_ATTRIBUTE_TAG_INFO" },
+	{SMB2_FILE_NORMALIZED_NAME_INFO,"SMB2_FILE_NORMALIZED_NAME_INFO" },
 	{ 0, NULL }
 };
 static value_string_ext smb2_file_info_levels_ext = VALUE_STRING_EXT_INIT(smb2_file_info_levels);
@@ -871,6 +886,11 @@ static const value_string smb2_comp_alg_types[] = {
 	{ 0, NULL }
 };
 
+#define OPLOCK_BREAK_OPLOCK_STRUCTURE_SIZE 24               /* [MS-SMB2] 2.2.23.1, 2.2.24.1 and 2.2.25.1 */
+#define OPLOCK_BREAK_LEASE_NOTIFICATION_STRUCTURE_SIZE 44   /* [MS-SMB2] 2.2.23.2 Lease Break Notification */
+#define OPLOCK_BREAK_LEASE_ACKNOWLEDGMENT_STRUCTURE_SIZE 36 /* [MS-SMB2] 2.2.24.2 Lease Break Acknowledgment */
+#define OPLOCK_BREAK_LEASE_RESPONSE_STRUCTURE_SIZE 36       /* [MS-SMB2] 2.2.25.2 Lease Break Response */
+
 static const val64_string unique_unsolicited_response[] = {
 	{ 0xffffffffffffffff, "unsolicited response" },
 	{ 0, NULL }
@@ -928,6 +948,25 @@ static const val64_string nfs_type_vals[] = {
 
 #define SMB2_NUM_PROCEDURES     256
 #define MAX_UNCOMPRESSED_SIZE (1<<24) /* 16MB */
+
+#define SMB2_DIALECT_202  0x0202
+#define SMB2_DIALECT_210  0x0210
+#define SMB2_DIALECT_2FF  0x02FF
+#define SMB2_DIALECT_300  0x0300
+#define SMB2_DIALECT_302  0x0302
+#define SMB2_DIALECT_310  0x0310
+#define SMB2_DIALECT_311  0x0311
+
+static const value_string smb2_dialect_vals[] = {
+	{ SMB2_DIALECT_202, "SMB 2.0.2" },
+	{ SMB2_DIALECT_210, "SMB 2.1" },
+	{ SMB2_DIALECT_2FF, "SMB2 wildcard" },
+	{ SMB2_DIALECT_300, "SMB 3.0" },
+	{ SMB2_DIALECT_302, "SMB 3.0.2" },
+	{ SMB2_DIALECT_310, "SMB 3.1.0 (deprecated; should be 3.1.1)" },
+	{ SMB2_DIALECT_311, "SMB 3.1.1" },
+	{ 0, NULL }
+};
 
 static int dissect_windows_sockaddr_storage(tvbuff_t *, packet_info *, proto_tree *, int, int);
 static void dissect_smb2_error_data(tvbuff_t *, packet_info *, proto_tree *, int, int, smb2_info_t *);
@@ -2401,6 +2440,24 @@ dissect_smb2_file_alternate_name_info(tvbuff_t *tvb, packet_info *pinfo _U_, pro
 	return offset;
 }
 
+static int
+dissect_smb2_file_normalized_name_info(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int offset, smb2_info_t *si _U_)
+{
+	proto_item *item = NULL;
+	proto_tree *tree = NULL;
+	guint16     bc;
+	gboolean    trunc;
+
+	if (parent_tree) {
+		item = proto_tree_add_item(parent_tree, hf_smb2_file_normalized_name_info, tvb, offset, -1, ENC_NA);
+		tree = proto_item_add_subtree(item, ett_smb2_file_normalized_name_info);
+	}
+
+	bc = tvb_captured_length_remaining(tvb, offset);
+	offset = dissect_qfi_SMB_FILE_NAME_INFO(tvb, pinfo, tree, offset, &bc, &trunc, /* XXX assumption hack */ TRUE);
+
+	return offset;
+}
 
 static int
 dissect_smb2_file_basic_info(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, int offset, smb2_info_t *si _U_)
@@ -3194,7 +3251,7 @@ static void smb2_generate_decryption_keys(smb2_conv_info_t *conv, smb2_sesid_inf
 	if (memcmp(ses->session_key, zeros, NTLMSSP_KEY_LEN) == 0)
 		return;
 
-	if (conv->dialect == 0x300) {
+	if (conv->dialect == SMB2_DIALECT_300) {
 		smb2_key_derivation(ses->session_key,
 				    NTLMSSP_KEY_LEN,
 				    "SMB2AESCCM", 11,
@@ -3205,7 +3262,7 @@ static void smb2_generate_decryption_keys(smb2_conv_info_t *conv, smb2_sesid_inf
 				    "SMB2AESCCM", 11,
 				    "ServerOut", 10,
 				    ses->client_decryption_key);
-	} else if (conv->dialect >= 0x311) {
+	} else if (conv->dialect >= SMB2_DIALECT_311) {
 		smb2_key_derivation(ses->session_key,
 				    NTLMSSP_KEY_LEN,
 				    "SMBC2SCipherKey", 16,
@@ -4754,7 +4811,7 @@ dissect_smb2_negotiate_protocol_request(tvbuff_t *tvb, packet_info *pinfo, proto
 		proto_tree_add_item(tree, hf_smb2_dialect, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
-		if (d >= 0x310) {
+		if (d >= SMB2_DIALECT_310) {
 			supports_smb_3_10 = TRUE;
 		}
 	}
@@ -4876,7 +4933,7 @@ dissect_smb2_negotiate_protocol_response(tvbuff_t *tvb, packet_info *pinfo, prot
 
 	offset = dissect_smb2_olb_tvb_max_offset(offset, &s_olb);
 
-	if (si->conv->dialect < 0x310) {
+	if (si->conv->dialect < SMB2_DIALECT_310) {
 		ncc = 0;
 	}
 
@@ -4898,16 +4955,92 @@ dissect_smb2_negotiate_protocol_response(tvbuff_t *tvb, packet_info *pinfo, prot
 	return offset;
 }
 
+static const true_false_string tfs_additional_owner = {
+	"Requesting OWNER security information",
+	"NOT requesting owner security information",
+};
+
+static const true_false_string tfs_additional_group = {
+	"Requesting GROUP security information",
+	"NOT requesting group security information",
+};
+
+static const true_false_string tfs_additional_dacl = {
+	"Requesting DACL security information",
+	"NOT requesting DACL security information",
+};
+
+static const true_false_string tfs_additional_sacl = {
+	"Requesting SACL security information",
+	"NOT requesting SACL security information",
+};
+
+static const true_false_string tfs_additional_label = {
+	"Requesting integrity label security information",
+	"NOT requesting integrity label security information",
+};
+
+static const true_false_string tfs_additional_attribute = {
+	"Requesting resource attribute security information",
+	"NOT requesting resource attribute security information",
+};
+
+static const true_false_string tfs_additional_scope = {
+	"Requesting central access policy security information",
+	"NOT requesting central access policy security information",
+};
+
+static const true_false_string tfs_additional_backup = {
+	"Requesting backup operation security information",
+	"NOT requesting backup operation security information",
+};
+
+#ifndef _MSC_VER
+/*  Those macros are already defined by winnt.h for Windows build */
+#define OWNER_SECURITY_INFORMATION 0x00000001
+#define GROUP_SECURITY_INFORMATION 0x00000002
+#define DACL_SECURITY_INFORMATION 0x00000004
+#define SACL_SECURITY_INFORMATION 0x00000008
+#define LABEL_SECURITY_INFORMATION 0x00000010
+#define ATTRIBUTE_SECURITY_INFORMATION 0x00000020
+#define SCOPE_SECURITY_INFORMATION 0x00000040
+#define BACKUP_SECURITY_INFORMATION 0x00010000
+#endif
+
+static int
+dissect_additional_information_sec_mask(tvbuff_t *tvb, proto_tree *parent_tree, int offset)
+{
+	/*	Note that in SMB1 protocol some security flags were not defined yet - see dissect_security_information_mask()
+		So for SMB2 we have to use own dissector */
+	static const int * flags[] = {
+		&hf_smb2_getsetinfo_additional_owner,
+		&hf_smb2_getsetinfo_additional_group,
+		&hf_smb2_getsetinfo_additional_dacl,
+		&hf_smb2_getsetinfo_additional_sacl,
+		&hf_smb2_getsetinfo_additional_label,
+		&hf_smb2_getsetinfo_additional_attribute,
+		&hf_smb2_getsetinfo_additional_scope,
+		&hf_smb2_getsetinfo_additional_backup,
+		NULL
+	};
+
+	proto_tree_add_bitmask(parent_tree, tvb, offset, hf_smb2_getsetinfo_additionals,
+		ett_smb2_additional_information_sec_mask, flags, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	return offset;
+}
+
 static int
 dissect_smb2_getinfo_parameters(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, smb2_info_t *si)
 {
 	/* Additional Info */
 	switch (si->saved->smb2_class) {
 	case SMB2_CLASS_SEC_INFO:
-		dissect_security_information_mask(tvb, tree, offset);
+		dissect_additional_information_sec_mask(tvb, tree, offset);
 		break;
 	default:
-		proto_tree_add_item(tree, hf_smb2_getinfo_additional, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		proto_tree_add_item(tree, hf_smb2_getsetinfo_additional, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 	}
 	offset += 4;
 
@@ -5238,6 +5371,9 @@ dissect_smb2_infolevel(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
 			break;
 		case SMB2_FILE_ATTRIBUTE_TAG_INFO:
 			offset = dissect_smb2_file_attribute_tag_info(tvb, pinfo, tree, offset, si);
+			break;
+		case SMB2_FILE_NORMALIZED_NAME_INFO:
+			offset = dissect_smb2_file_normalized_name_info(tvb, pinfo, tree, offset, si);
 			break;
 		default:
 			/* we don't handle this infolevel yet */
@@ -7243,14 +7379,15 @@ dissect_smb2_ioctl_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	switch (si->status) {
 	/* buffer code */
+	/* if we get BUFFER_OVERFLOW there will be truncated data */
+	case 0x80000005:
 	case 0x00000000: offset = dissect_smb2_buffercode(tree, tvb, offset, NULL); break;
-	case 0x80000005: break;
 	default: offset = dissect_smb2_error_response(tvb, pinfo, tree, offset, si, &continue_dissection);
 		if (!continue_dissection) return offset;
 	}
 
-	/* some unknown bytes */
-	proto_tree_add_item(tree, hf_smb2_unknown, tvb, offset, 2, ENC_NA);
+	/* reserved */
+	proto_tree_add_item(tree, hf_smb2_reserved, tvb, offset, 2, ENC_NA);
 	offset += 2;
 
 	/* ioctl function */
@@ -7267,7 +7404,7 @@ dissect_smb2_ioctl_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 
 	/* flags: reserved: must be zero */
-	proto_tree_add_item(tree, hf_smb2_reserved, tvb, offset, 4, ENC_NA);
+	proto_tree_add_item(tree, hf_smb2_flags, tvb, offset, 4, ENC_NA);
 	offset += 4;
 
 	/* reserved */
@@ -7370,6 +7507,7 @@ dissect_smb2_read_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 	/* the read channel info blob itself */
 	switch (channel) {
 	case SMB2_CHANNEL_RDMA_V1:
+	case SMB2_CHANNEL_RDMA_V1_INVALIDATE:
 		dissect_smb2_olb_buffer(pinfo, tree, tvb, &c_olb, si, dissect_smb2_rdma_v1_blob);
 		break;
 	case SMB2_CHANNEL_NONE:
@@ -7491,6 +7629,46 @@ dissect_smb2_SecD_buffer_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 	report_create_context_malformed_buffer(tvb, pinfo, tree, "SecD Response");
 }
 
+/*
+ * Add the timestamp to the info column and to the name of the file if
+ * we have not visited this packet before.
+ */
+static void
+add_timestamp_to_info_col(tvbuff_t *tvb, packet_info *pinfo, smb2_info_t *si,
+			  int offset)
+{
+	guint32 filetime_high, filetime_low;
+	guint64 ft;
+	nstime_t ts;
+
+	filetime_low = tvb_get_letohl(tvb, offset);
+	filetime_high = tvb_get_letohl(tvb, offset + 4);
+
+	ft = ((guint64)filetime_high << 32) | filetime_low;
+	if (!filetime_to_nstime(&ts, ft)) {
+		return;
+	}
+
+	col_append_fstr(pinfo->cinfo, COL_INFO, "@%s",
+            abs_time_to_str(wmem_packet_scope(), &ts, ABSOLUTE_TIME_UTC,
+		            FALSE));
+
+	/* Append the timestamp */
+	if (!pinfo->fd->visited) {
+		if (si->saved && si->saved->extra_info_type == SMB2_EI_FILENAME) {
+			gchar *saved_name = (gchar *)si->saved->extra_info;
+			gulong len = (gulong)strlen(saved_name);
+
+			si->saved->extra_info = (gchar *)wmem_alloc(wmem_file_scope(), len + 32 + 1);
+			g_snprintf((gchar *)si->saved->extra_info,
+				   len + 32 + 1 , "%s@%s", (char *)saved_name,
+				   abs_time_to_str(wmem_packet_scope(), &ts,
+					           ABSOLUTE_TIME_UTC, FALSE));
+			wmem_free(wmem_file_scope(), saved_name);
+		}
+	}
+}
+
 static void
 dissect_smb2_TWrp_buffer_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, smb2_info_t *si _U_)
 {
@@ -7499,6 +7677,7 @@ dissect_smb2_TWrp_buffer_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
 		item = proto_tree_get_parent(tree);
 		proto_item_append_text(item, ": Timestamp");
 	}
+	add_timestamp_to_info_col(tvb, pinfo, si, 0);
 	dissect_nt_64bit_time(tvb, tree, 0, hf_smb2_twrp_timestamp);
 }
 
@@ -8536,16 +8715,27 @@ dissect_smb2_setinfo_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 	proto_tree_add_item(tree, hf_smb2_setinfo_offset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	offset += 2;
 
-	/* some unknown bytes */
-	proto_tree_add_item(tree, hf_smb2_unknown, tvb, offset, 6, ENC_NA);
-	offset += 6;
+	/* reserved */
+	proto_tree_add_item(tree, hf_smb2_setinfo_reserved, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	offset += 2;
+
+	if (si->saved && si->saved->smb2_class == SMB2_CLASS_SEC_INFO) {
+		/* AdditionalInformation (4 bytes): Provides additional information to the server.
+			If security information is being set, this value MUST contain a 4-byte bit field
+			of flags indicating what security attributes MUST be applied.  */
+		offset = dissect_additional_information_sec_mask(tvb, tree, offset);
+	} else {
+		/* For all other set requests, this field MUST be 0. */
+		proto_tree_add_item(tree, hf_smb2_getsetinfo_additional, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+	}
 
 	/* fid */
 	dissect_smb2_fid(tvb, pinfo, tree, offset, si, FID_MODE_USE);
 
 	/* data */
 	if (si->saved)
-	  dissect_smb2_infolevel(tvb, pinfo, tree, setinfo_offset, si, si->saved->smb2_class, si->saved->infolevel);
+		dissect_smb2_infolevel(tvb, pinfo, tree, setinfo_offset, si, si->saved->smb2_class, si->saved->infolevel);
 	offset = setinfo_offset + setinfo_size;
 
 	return offset;
@@ -8577,7 +8767,7 @@ dissect_smb2_break_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	buffer_code = tvb_get_letohs(tvb, offset);
 	offset = dissect_smb2_buffercode(tree, tvb, offset, NULL);
 
-	if (buffer_code == 24) {
+	if (buffer_code == OPLOCK_BREAK_OPLOCK_STRUCTURE_SIZE) {
 		/* OPLOCK Break */
 
 		/* oplock */
@@ -8597,7 +8787,7 @@ dissect_smb2_break_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 		return offset;
 	}
 
-	if (buffer_code == 36) {
+	if (buffer_code == OPLOCK_BREAK_LEASE_ACKNOWLEDGMENT_STRUCTURE_SIZE) {
 		/* Lease Break Acknowledgment */
 
 		/* reserved */
@@ -8641,7 +8831,7 @@ dissect_smb2_break_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		if (!continue_dissection) return offset;
 	}
 
-	if (buffer_code == 24) {
+	if (buffer_code == OPLOCK_BREAK_OPLOCK_STRUCTURE_SIZE) {
 		/* OPLOCK Break Notification */
 
 		/* oplock */
@@ -8665,7 +8855,7 @@ dissect_smb2_break_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		return offset;
 	}
 
-	if (buffer_code == 44) {
+	if (buffer_code == OPLOCK_BREAK_LEASE_NOTIFICATION_STRUCTURE_SIZE) {
 		proto_item *item;
 
 		/* Lease Break Notification */
@@ -8714,7 +8904,7 @@ dissect_smb2_break_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		return offset;
 	}
 
-	if (buffer_code == 36) {
+	if (buffer_code == OPLOCK_BREAK_LEASE_RESPONSE_STRUCTURE_SIZE) {
 		/* Lease Break Response */
 
 		/* reserved */
@@ -9365,7 +9555,7 @@ decrypt_smb_payload(packet_info *pinfo,
 
 	/* g_warning("dialect 0x%x alg 0x%x conv alg 0x%x", sti->conv->dialect, sti->alg, sti->conv->enc_alg); */
 
-	if (sti->conv->dialect == 0x300) {
+	if (sti->conv->dialect == SMB2_DIALECT_300) {
 		/* If we are decrypting in SMB3.0, it must be CCM */
 		sti->conv->enc_alg = SMB2_CIPHER_AES_128_CCM;
 	}
@@ -9588,6 +9778,46 @@ dissect_smb2_transform_header(packet_info *pinfo, proto_tree *tree,
 	return offset;
 }
 
+static const char *
+get_special_packet_title(guint16 cmd, guint32 flags, guint64 msg_id, tvbuff_t *tvb, int offset)
+{
+	/*  for some types of packets we don't have request/response packets but something else
+	 *  to show more correct names while displaying them we use this logic to override standard naming convention
+	 */
+
+	guint16 buffer_code;
+	/* detect oplock/lease break packets */
+	if (cmd != SMB2_COM_BREAK) {
+		return NULL;
+	}
+
+	buffer_code = tvb_get_letohs(tvb, offset);
+	if (flags & SMB2_FLAGS_RESPONSE) {
+		switch (buffer_code) {
+		case OPLOCK_BREAK_OPLOCK_STRUCTURE_SIZE:
+			/* note - Notification and Response packets for Oplock Break are equivalent,
+			 * we can distinguish them only via msg_id value */
+			if (msg_id == 0xFFFFFFFFFFFFFFFF)	/* see [MS-SMB2] 3.3.4.6 Object Store Indicates an Oplock Break */
+				return "Oplock Break Notification";
+			else
+				return "Oplock Break Response";
+		case OPLOCK_BREAK_LEASE_NOTIFICATION_STRUCTURE_SIZE:
+			return "Lease Break Notification";
+		case OPLOCK_BREAK_LEASE_RESPONSE_STRUCTURE_SIZE:
+			return "Lease Break Response";
+		}
+	} else {
+		switch (buffer_code) {
+		case OPLOCK_BREAK_OPLOCK_STRUCTURE_SIZE:
+			return "Oplock Break Acknowledgment";
+		case OPLOCK_BREAK_LEASE_ACKNOWLEDGMENT_STRUCTURE_SIZE:
+			return "Lease Break Acknowledgment";
+		}
+	}
+	/* return back to standard notation if we can't detect packet type of break packet */
+	return NULL;
+}
+
 static int
 dissect_smb2_command(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, smb2_info_t *si)
 {
@@ -9595,12 +9825,20 @@ dissect_smb2_command(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int of
 	proto_item *cmd_item;
 	proto_tree *cmd_tree;
 	int         old_offset = offset;
+	const char *packet_title = get_special_packet_title(si->opcode, si->flags, si->msg_id, tvb, offset);
 
-	cmd_tree = proto_tree_add_subtree_format(tree, tvb, offset, -1,
-			ett_smb2_command, &cmd_item, "%s %s (0x%02x)",
-			decode_smb2_name(si->opcode),
-			(si->flags & SMB2_FLAGS_RESPONSE)?"Response":"Request",
-			si->opcode);
+	if (packet_title) {
+		cmd_tree = proto_tree_add_subtree_format(tree, tvb, offset, -1,
+				ett_smb2_command, &cmd_item, "%s (0x%02x)",
+				packet_title,
+				si->opcode);
+	} else {
+		cmd_tree = proto_tree_add_subtree_format(tree, tvb, offset, -1,
+				ett_smb2_command, &cmd_item, "%s %s (0x%02x)",
+				decode_smb2_name(si->opcode),
+				(si->flags & SMB2_FLAGS_RESPONSE)?"Response":"Request",
+				si->opcode);
+	}
 
 	cmd_dissector = (si->flags & SMB2_FLAGS_RESPONSE)?
 		smb2_dissector[si->opcode&0xff].response:
@@ -9711,6 +9949,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 	guint32		     open_frame,close_frame;
 	smb2_eo_file_info_t *eo_file_info;
 	e_ctx_hnd	    *policy_hnd_hashtablekey;
+	const char	    *packet_title;
 
 	sti = wmem_new(wmem_packet_scope(), smb2_transform_info_t);
 	scti = wmem_new(wmem_packet_scope(), smb2_comp_transform_info_t);
@@ -9865,10 +10104,16 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 
 		proto_item_set_len(header_item, offset);
 
-
-		col_append_fstr(pinfo->cinfo, COL_INFO, "%s %s",
-				decode_smb2_name(si->opcode),
-				(si->flags & SMB2_FLAGS_RESPONSE)?"Response":"Request");
+		/* Check if this is a special packet type and it has non-regular title */
+		packet_title = get_special_packet_title(si->opcode, si->flags, si->msg_id, tvb, offset);
+		if (packet_title) {
+			col_append_fstr(pinfo->cinfo, COL_INFO, "%s", packet_title);
+		} else {
+			/* Regular packets have standard title */
+			col_append_fstr(pinfo->cinfo, COL_INFO, "%s %s",
+					decode_smb2_name(si->opcode),
+					(si->flags & SMB2_FLAGS_RESPONSE)?"Response":"Request");
+		}
 		if (si->status) {
 			col_append_fstr(
 					pinfo->cinfo, COL_INFO, ", Error: %s",
@@ -10176,10 +10421,47 @@ proto_register_smb2(void)
 			NULL, 0, NULL, HFILL }
 		},
 
-		{ &hf_smb2_getinfo_additional,
-			{ "Additional Info", "smb2.getinfo_additional", FT_UINT32, BASE_HEX,
+		{ &hf_smb2_getsetinfo_additional,
+			{ "Additional Info", "smb2.getsetinfo_additional", FT_UINT32, BASE_HEX,
 			NULL, 0, NULL, HFILL }
 		},
+
+		{ &hf_smb2_getsetinfo_additionals,
+			{ "Additional Info", "smb2.getsetinfo_additionals", FT_UINT32, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_getsetinfo_additional_owner,
+			{ "Owner", "smb2.getsetinfo_additional_secinfo.owner", FT_BOOLEAN, 32,
+			TFS(&tfs_additional_owner), OWNER_SECURITY_INFORMATION, "Is owner security information being queried?", HFILL }},
+
+		{ &hf_smb2_getsetinfo_additional_group,
+			{ "Group", "smb2.getsetinfo_additional_secinfo.group", FT_BOOLEAN, 32,
+			TFS(&tfs_additional_group), GROUP_SECURITY_INFORMATION, "Is group security information being queried?", HFILL }},
+
+		{ &hf_smb2_getsetinfo_additional_dacl,
+			{ "DACL", "smb2.getsetinfo_additional_secinfo.dacl", FT_BOOLEAN, 32,
+			TFS(&tfs_additional_dacl), DACL_SECURITY_INFORMATION, "Is DACL security information being queried?", HFILL }},
+
+		{ &hf_smb2_getsetinfo_additional_sacl,
+			{ "SACL", "smb2.getsetinfo_additional_secinfo.sacl", FT_BOOLEAN, 32,
+			TFS(&tfs_additional_sacl), SACL_SECURITY_INFORMATION, "Is SACL security information being queried?", HFILL }},
+
+		{ &hf_smb2_getsetinfo_additional_label,
+			{ "Integrity label", "smb2.getsetinfo_additional_secinfo.label", FT_BOOLEAN, 32,
+			TFS(&tfs_additional_label), LABEL_SECURITY_INFORMATION, "Is integrity label security information being queried?", HFILL }},
+
+		{ &hf_smb2_getsetinfo_additional_attribute,
+			{ "Resource attribute", "smb2.getsetinfo_additional_secinfo.attribute", FT_BOOLEAN, 32,
+			TFS(&tfs_additional_attribute), ATTRIBUTE_SECURITY_INFORMATION, "Is resource attribute security information being queried?", HFILL }},
+
+		{ &hf_smb2_getsetinfo_additional_scope,
+			{ "Central access policy", "smb2.getsetinfo_additional_secinfo.scope", FT_BOOLEAN, 32,
+			TFS(&tfs_additional_scope), SCOPE_SECURITY_INFORMATION, "Is central access policy security information being queried?", HFILL }},
+
+		{ &hf_smb2_getsetinfo_additional_backup,
+			{ "Backup operation", "smb2.getsetinfo_additional_secinfo.backup", FT_BOOLEAN, 32,
+			TFS(&tfs_additional_backup), BACKUP_SECURITY_INFORMATION, "Is backup operation security information being queried?", HFILL }},
 
 		{ &hf_smb2_getinfo_flags,
 			{ "Flags", "smb2.getinfo_flags", FT_UINT32, BASE_HEX,
@@ -10193,6 +10475,11 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_setinfo_offset,
 			{ "Setinfo Offset", "smb2.setinfo_offset", FT_UINT16, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_setinfo_reserved,
+			{ "Reserved", "smb2.setinfo_reserved", FT_UINT16, BASE_DEC,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -10578,6 +10865,11 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_file_alternate_name_info,
 			{ "SMB2_FILE_ALTERNATE_NAME_INFO", "smb2.file_alternate_name_info", FT_NONE, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_file_normalized_name_info,
+			{ "SMB2_FILE_NORMALIZED_NAME_INFO", "smb2.file_normalized_name_info", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -11407,7 +11699,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_dialect,
 			{ "Dialect", "smb2.dialect", FT_UINT16, BASE_HEX,
-			NULL, 0, NULL, HFILL }
+			VALS(smb2_dialect_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_security_mode,
@@ -11620,7 +11912,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_share_flags_allow_namespace_caching,
-			{ "Allow namepsace caching", "smb2.share_flags.allow_namespace_caching", FT_BOOLEAN, 32,
+			{ "Allow namespace caching", "smb2.share_flags.allow_namespace_caching", FT_BOOLEAN, 32,
 			NULL, SHARE_FLAGS_allow_namespace_caching, "Clients are allowed to cache the namespace of the specified share", HFILL }
 		},
 
@@ -12449,6 +12741,7 @@ proto_register_smb2(void)
 		&ett_smb2_file_compression_info,
 		&ett_smb2_file_network_open_info,
 		&ett_smb2_file_attribute_tag_info,
+		&ett_smb2_file_normalized_name_info,
 		&ett_smb2_fs_info_01,
 		&ett_smb2_fs_info_03,
 		&ett_smb2_fs_info_04,
@@ -12457,6 +12750,7 @@ proto_register_smb2(void)
 		&ett_smb2_fs_info_07,
 		&ett_smb2_fs_objectid_info,
 		&ett_smb2_sec_info_00,
+		&ett_smb2_additional_information_sec_mask,
 		&ett_smb2_quota_info,
 		&ett_smb2_query_quota_info,
 		&ett_smb2_tid_tree,

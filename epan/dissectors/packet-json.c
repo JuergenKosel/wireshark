@@ -163,14 +163,16 @@ dissect_json(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 	int offset;
 
 	/* JSON dissector can be called in a JSON native file or when transported
-	 * by another protocol. We set the column values only if they've not been
-	 * already set by someone else.
+	 * by another protocol, will make entry in the Protocol column on summary display accordingly
 	 */
 	wmem_list_frame_t *proto = wmem_list_frame_prev(wmem_list_tail(pinfo->layers));
 	if (proto) {
 		const char *name = proto_get_protocol_filter_name(GPOINTER_TO_INT(wmem_list_frame_data(proto)));
 
-		if (!strcmp(name, "frame")) {
+		if (strcmp(name, "frame")) {
+			col_append_sep_str(pinfo->cinfo, COL_PROTOCOL, "/", "JSON");
+			col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "JavaScript Object Notation");
+		} else {
 			col_set_str(pinfo->cinfo, COL_PROTOCOL, "JSON");
 			col_set_str(pinfo->cinfo, COL_INFO, "JavaScript Object Notation");
 		}
@@ -832,6 +834,7 @@ proto_reg_handoff_json(void)
 	dissector_add_string("media_type", "application/dds-web+json", json_handle); /* DDS Web Integration Service over HTTP */
 	dissector_add_string("media_type", "application/vnd.oma.lwm2m+json", json_handle); /* LWM2M JSON over CoAP */
 	dissector_add_string("media_type", "application/problem+json", json_handle); /* RFC 7807 Problem Details for HTTP APIs*/
+	dissector_add_string("media_type", "application/merge-patch+json", json_handle); /* RFC 7386 HTTP PATCH methods (RFC 5789) */
 	dissector_add_string("grpc_message_type", "application/grpc+json", json_handle);
 	dissector_add_uint_range_with_preference("tcp.port", "", json_file_handle); /* JSON-RPC over TCP */
 	dissector_add_uint_range_with_preference("udp.port", "", json_file_handle); /* JSON-RPC over UDP */

@@ -83,11 +83,11 @@ public:
     }
 
     void showUatDialog() {
-        UatDialog uat_dlg(parentWidget(), prefs_get_uat_value(pref_));
-        uat_dlg.exec();
-        // Emitting PacketDissectionChanged directly from a QDialog can cause
-        // problems on macOS.
-        wsApp->flushAppSignals();
+        UatDialog *uat_dlg = new UatDialog(parentWidget(), prefs_get_uat_value(pref_));
+        connect(uat_dlg, SIGNAL(destroyed(QObject*)), wsApp, SLOT(flushAppSignals()));
+        uat_dlg->setWindowModality(Qt::ApplicationModal);
+        uat_dlg->setAttribute(Qt::WA_DeleteOnClose);
+        uat_dlg->show();
     }
 
 private:
@@ -274,10 +274,14 @@ void ProtocolPreferencesMenu::boolPreferenceTriggered()
     if (!bpa) return;
 
     module_->prefs_changed_flags |= bpa->setBoolValue();
+    unsigned int changed_flags = module_->prefs_changed_flags;
 
     prefs_apply(module_);
     prefs_main_write();
 
+    if (changed_flags & PREF_EFFECT_FIELDS) {
+        wsApp->emitAppSignal(WiresharkApplication::FieldsChanged);
+    }
     /* Protocol preference changes almost always affect dissection,
        so don't bother checking flags */
     wsApp->emitAppSignal(WiresharkApplication::PacketDissectionChanged);
@@ -294,6 +298,9 @@ void ProtocolPreferencesMenu::enumPreferenceTriggered()
         prefs_apply(module_);
         prefs_main_write();
 
+        if (changed_flags & PREF_EFFECT_FIELDS) {
+            wsApp->emitAppSignal(WiresharkApplication::FieldsChanged);
+        }
         /* Protocol preference changes almost always affect dissection,
            so don't bother checking flags */
         wsApp->emitAppSignal(WiresharkApplication::PacketDissectionChanged);

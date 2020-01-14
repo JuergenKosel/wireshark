@@ -71,6 +71,7 @@ set(WIRESHARK_MODEL_HEADERS
 	models/cache_proxy_model.h
 	models/coloring_rules_delegate.h
 	models/coloring_rules_model.h
+	models/column_list_model.h
 	models/decode_as_delegate.h
 	models/decode_as_model.h
 	models/dissector_tables_model.h
@@ -79,6 +80,7 @@ set(WIRESHARK_MODEL_HEADERS
 	models/expert_info_proxy_model.h
 	models/export_objects_model.h
 	models/fileset_entry_model.h
+	models/filter_list_model.h
 	models/info_proxy_model.h
 	models/interface_sort_filter_model.h
 	models/interface_tree_cache_model.h
@@ -122,7 +124,7 @@ set(WIRESHARK_QT_HEADERS
 	capture_file_properties_dialog.h
 	capture_filter_syntax_worker.h
 	capture_info_dialog.h
-	capture_interfaces_dialog.h
+	capture_options_dialog.h
 	capture_preferences_frame.h
 	coloring_rules_dialog.h
 	column_preferences_frame.h
@@ -298,6 +300,7 @@ set(WIRESHARK_MODEL_SRCS
 	models/cache_proxy_model.cpp
 	models/coloring_rules_delegate.cpp
 	models/coloring_rules_model.cpp
+	models/column_list_model.cpp
 	models/decode_as_delegate.cpp
 	models/decode_as_model.cpp
 	models/dissector_tables_model.cpp
@@ -306,6 +309,7 @@ set(WIRESHARK_MODEL_SRCS
 	models/expert_info_proxy_model.cpp
 	models/export_objects_model.cpp
 	models/fileset_entry_model.cpp
+	models/filter_list_model.cpp
 	models/info_proxy_model.cpp
 	models/interface_sort_filter_model.cpp
 	models/interface_tree_cache_model.cpp
@@ -345,7 +349,7 @@ set(WIRESHARK_QT_SRC
 	capture_file_properties_dialog.cpp
 	capture_filter_syntax_worker.cpp
 	capture_info_dialog.cpp
-	capture_interfaces_dialog.cpp
+	capture_options_dialog.cpp
 	capture_preferences_frame.cpp
 	coloring_rules_dialog.cpp
 	column_preferences_frame.cpp
@@ -488,7 +492,7 @@ set(WIRESHARK_QT_UI
 	bluetooth_hci_summary_dialog.ui
 	capture_file_properties_dialog.ui
 	capture_info_dialog.ui
-	capture_interfaces_dialog.ui
+	capture_options_dialog.ui
 	capture_preferences_frame.ui
 	coloring_rules_dialog.ui
 	column_preferences_frame.ui
@@ -575,6 +579,7 @@ endif()
 set(WIRESHARK_QT_TS
 	wireshark_de.ts
 	wireshark_en.ts # lupdate -pluralonly
+	wireshark_es.ts
 	wireshark_fr.ts
 	wireshark_it.ts
 	wireshark_ja_JP.ts
@@ -632,6 +637,12 @@ set_source_files_properties(
 	${WIRESHARK_QT_FILES}
 	PROPERTIES
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
+)
+
+set_source_files_properties(
+	wireshark-tap-register.c
+	PROPERTIES
+	SKIP_AUTOGEN ON
 )
 
 add_definitions(${QT_DEFINITIONS})

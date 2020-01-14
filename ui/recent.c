@@ -48,6 +48,7 @@
 #define RECENT_GUI_GEOMETRY_MAIN_WIDTH        "gui.geometry_main_width"
 #define RECENT_GUI_GEOMETRY_MAIN_HEIGHT       "gui.geometry_main_height"
 #define RECENT_GUI_GEOMETRY_MAIN_MAXIMIZED    "gui.geometry_main_maximized"
+#define RECENT_GUI_GEOMETRY_LEFTALIGN_ACTIONS "gui.geometry_leftalign_actions"
 #define RECENT_GUI_GEOMETRY_MAIN_UPPER_PANE   "gui.geometry_main_upper_pane"
 #define RECENT_GUI_GEOMETRY_MAIN_LOWER_PANE   "gui.geometry_main_lower_pane"
 #define RECENT_GUI_GEOMETRY_STATUS_PANE_LEFT  "gui.geometry_status_pane"
@@ -633,7 +634,7 @@ write_recent_enum(FILE *rf, const char *description, const char *name,
         fprintf(rf, "%s: %s\n", name, if_invalid != NULL ? if_invalid : "Unknown");
 }
 
-/* Attempt to write out "recent common" to the user's recent common file.
+/* Attempt to write out "recent common" to the user's recent_common file.
    If we got an error report it with a dialog box and return FALSE,
    otherwise return TRUE. */
 gboolean
@@ -670,9 +671,10 @@ write_recent(void)
     }
     g_free(rf_path);
 
-    fputs("# Recent settings file for Wireshark " VERSION ".\n"
+    fputs("# Common recent settings file for Wireshark " VERSION ".\n"
             "#\n"
-            "# This file is regenerated each time Wireshark is quit.\n"
+            "# This file is regenerated each time Wireshark is quit\n"
+            "# and when changing configuration profile.\n"
             "# So be careful, if you want to make manual changes here.\n"
             "\n"
             "######## Recent capture files (latest last), cannot be altered through command line ########\n"
@@ -712,6 +714,10 @@ write_recent(void)
     write_recent_boolean(rf, "Main window maximized",
             RECENT_GUI_GEOMETRY_MAIN_MAXIMIZED,
             recent.gui_geometry_main_maximized);
+
+    write_recent_boolean(rf, "Leftalign Action Buttons",
+            RECENT_GUI_GEOMETRY_LEFTALIGN_ACTIONS,
+            recent.gui_geometry_leftalign_actions);
 
     fprintf(rf, "\n# Statusbar left pane size.\n");
     fprintf(rf, "# Decimal number.\n");
@@ -941,6 +947,8 @@ read_set_recent_common_pair_static(gchar *key, const gchar *value,
 
     if (strcmp(key, RECENT_GUI_GEOMETRY_MAIN_MAXIMIZED) == 0) {
         parse_recent_boolean(value, &recent.gui_geometry_main_maximized);
+    } else if (strcmp(key, RECENT_GUI_GEOMETRY_LEFTALIGN_ACTIONS) == 0) {
+        parse_recent_boolean(value, &recent.gui_geometry_leftalign_actions);
     } else if (strcmp(key, RECENT_GUI_GEOMETRY_MAIN_X) == 0) {
         num = strtol(value, &p, 0);
         if (p == value || *p != '\0')
@@ -1263,6 +1271,8 @@ recent_read_static(char **rf_path_return, int *rf_errno_return)
     recent.gui_geometry_main_height   = DEF_HEIGHT;
     recent.gui_geometry_main_maximized=     FALSE;
 
+    recent.gui_geometry_leftalign_actions = FALSE;
+
     recent.gui_geometry_status_pane_left  = (DEF_WIDTH/3);
     recent.gui_geometry_status_pane_right = (DEF_WIDTH/3);
     recent.gui_geometry_wlan_stats_pane   = 200;
@@ -1446,7 +1456,9 @@ recent_get_column_width(gint col)
     while (col_l) {
         col_w = (col_width_data *) col_l->data;
         if (col_w->cfmt == cfmt) {
-            if (cfmt != COL_CUSTOM || strcmp (cfield, col_w->cfield) == 0) {
+            if (cfmt != COL_CUSTOM) {
+                return col_w->width;
+            } else if (cfield && strcmp (cfield, col_w->cfield) == 0) {
                 return col_w->width;
             }
         }
@@ -1510,7 +1522,9 @@ recent_get_column_xalign(gint col)
     while (col_l) {
         col_w = (col_width_data *) col_l->data;
         if (col_w->cfmt == cfmt) {
-            if (cfmt != COL_CUSTOM || strcmp (cfield, col_w->cfield) == 0) {
+            if (cfmt != COL_CUSTOM) {
+                return col_w->xalign;
+            } else if (cfield && strcmp (cfield, col_w->cfield) == 0) {
                 return col_w->xalign;
             }
         }

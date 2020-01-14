@@ -54,6 +54,7 @@
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/file_util.h>
 #include <wsutil/str_util.h>
+#include <wsutil/pint.h>
 #include "packet-kerberos.h"
 #include "packet-netbios.h"
 #include "packet-tcp.h"
@@ -86,6 +87,8 @@ typedef struct kerberos_key {
 
 typedef struct {
 	guint32 msg_type;
+	guint32 errorcode;
+	gboolean try_nt_status;
 	guint32 etype;
 	guint32 padata_type;
 	guint32 is_enc_padata;
@@ -121,8 +124,10 @@ static gint proto_kerberos = -1;
 static gint hf_krb_rm_reserved = -1;
 static gint hf_krb_rm_reclen = -1;
 static gint hf_krb_provsrv_location = -1;
-static gint hf_krb_smb_nt_status = -1;
-static gint hf_krb_smb_unknown = -1;
+static gint hf_krb_pw_salt = -1;
+static gint hf_krb_ext_error_nt_status = -1;
+static gint hf_krb_ext_error_reserved = -1;
+static gint hf_krb_ext_error_flags = -1;
 static gint hf_krb_address_ip = -1;
 static gint hf_krb_address_netbios = -1;
 static gint hf_krb_address_ipv6 = -1;
@@ -188,7 +193,6 @@ static expert_field ei_krb_gssapi_dlglen = EI_INIT;
 static dissector_handle_t krb4_handle=NULL;
 
 /* Global variables */
-static guint32 krb5_errorcode;
 static guint32 gbl_keytype;
 static gboolean gbl_do_col_info;
 
@@ -279,9 +283,38 @@ add_encryption_key(packet_info *pinfo, int keytype, int keylength, const char *k
 	/*XXX this needs to be freed later */
 	new_key->keyvalue=(char *)g_memdup(keyvalue, keylength);
 }
+
+static void used_encryption_key(proto_tree *tree, packet_info *pinfo,
+				enc_key_t *ek, int usage, tvbuff_t *cryptotvb)
+{
+	proto_tree_add_expert_format(tree, pinfo, &ei_kerberos_decrypted_keytype,
+				     cryptotvb, 0, 0,
+				     "Decrypted keytype %d usage %d in frame %u "
+				     "using %s (%02x%02x%02x%02x...)",
+				     ek->keytype, usage, pinfo->fd->num, ek->key_origin,
+				     ek->keyvalue[0] & 0xFF, ek->keyvalue[1] & 0xFF,
+				     ek->keyvalue[2] & 0xFF, ek->keyvalue[3] & 0xFF);
+}
+
 #endif /* HAVE_HEIMDAL_KERBEROS || HAVE_MIT_KERBEROS */
 
 #if defined(HAVE_MIT_KERBEROS)
+
+#ifdef HAVE_KRB5_PAC_VERIFY
+static void used_signing_key(proto_tree *tree, packet_info *pinfo,
+			     enc_key_t *ek, tvbuff_t *tvb,
+			     krb5_cksumtype checksum,
+			     const char *reason)
+{
+	proto_tree_add_expert_format(tree, pinfo, &ei_kerberos_decrypted_keytype,
+				     tvb, 0, 0,
+				     "%s checksum %d keytype %d in frame %u "
+				     "using %s (%02x%02x%02x%02x...)",
+				     reason, checksum, ek->keytype, pinfo->fd->num, ek->key_origin,
+				     ek->keyvalue[0] & 0xFF, ek->keyvalue[1] & 0xFF,
+				     ek->keyvalue[2] & 0xFF, ek->keyvalue[3] & 0xFF);
+}
+#endif /* HAVE_KRB5_PAC_VERIFY */
 
 static krb5_context krb5_ctx;
 
@@ -413,9 +446,7 @@ decrypt_krb5_data(proto_tree *tree _U_, packet_info *pinfo,
 		if(ret == 0){
 			char *user_data;
 
-			expert_add_info_format(pinfo, NULL, &ei_kerberos_decrypted_keytype,
-								   "Decrypted keytype %d in frame %u using %s",
-								   ek->keytype, pinfo->num, ek->key_origin);
+			used_encryption_key(tree, pinfo, ek, usage, cryptotvb);
 
 			user_data=data.data;
 			if (datalen) {
@@ -428,6 +459,112 @@ decrypt_krb5_data(proto_tree *tree _U_, packet_info *pinfo,
 	return NULL;
 }
 USES_APPLE_RST
+
+#ifdef HAVE_KRB5_PAC_VERIFY
+/*
+ * macOS up to 10.14.5 only has a MIT shim layer on top
+ * of heimdal. It means that krb5_pac_verify() is not available
+ * in /usr/lib/libkrb5.dylib
+ *
+ * https://opensource.apple.com/tarballs/Heimdal/Heimdal-520.260.1.tar.gz
+ * https://opensource.apple.com/tarballs/MITKerberosShim/MITKerberosShim-71.200.1.tar.gz
+ */
+
+extern krb5_error_code
+krb5int_c_mandatory_cksumtype(krb5_context, krb5_enctype, krb5_cksumtype *);
+
+static void
+verify_krb5_pac(proto_tree *tree _U_, asn1_ctx_t *actx, tvbuff_t *pactvb)
+{
+	krb5_error_code ret;
+	enc_key_t *ek = NULL;;
+	krb5_data checksum_data = {0,0,NULL};
+	krb5_cksumtype server_checksum = 0;
+	krb5_cksumtype kdc_checksum = 0;
+	int length = tvb_captured_length(pactvb);
+	const guint8 *pacbuffer = NULL;
+	krb5_pac pac;
+
+	/* don't do anything if we are not attempting to decrypt data */
+	if(!krb_decrypt || length < 1){
+		return;
+	}
+
+	/* make sure we have all the data we need */
+	if (tvb_captured_length(pactvb) < tvb_reported_length(pactvb)) {
+		return;
+	}
+
+	pacbuffer = tvb_get_ptr(pactvb, 0, length);
+
+	ret = krb5_pac_parse(krb5_ctx, pacbuffer, length, &pac);
+	if (ret != 0) {
+		proto_tree_add_expert_format(tree, actx->pinfo, &ei_kerberos_decrypted_keytype,
+					     pactvb, 0, 0,
+					     "Failed to parse PAC buffer %d in frame %u",
+					     ret, actx->pinfo->fd->num);
+		return;
+	}
+
+	ret = krb5_pac_get_buffer(krb5_ctx, pac, KRB5_PAC_SERVER_CHECKSUM,
+				  &checksum_data);
+	if (ret == 0) {
+		server_checksum = pletoh32(checksum_data.data);
+		krb5_free_data_contents(krb5_ctx, &checksum_data);
+	};
+	ret = krb5_pac_get_buffer(krb5_ctx, pac, KRB5_PAC_PRIVSVR_CHECKSUM,
+				  &checksum_data);
+	if (ret == 0) {
+		kdc_checksum = pletoh32(checksum_data.data);
+		krb5_free_data_contents(krb5_ctx, &checksum_data);
+	};
+
+	read_keytab_file_from_preferences();
+
+	for(ek=enc_key_list;ek;ek=ek->next){
+		krb5_keyblock keyblock;
+		krb5_cksumtype checksumtype = 0;
+
+		if (server_checksum == 0 && kdc_checksum == 0) {
+			break;
+		}
+
+		ret = krb5int_c_mandatory_cksumtype(krb5_ctx, ek->keytype,
+						    &checksumtype);
+		if (ret != 0) {
+			continue;
+		}
+
+		keyblock.magic = KV5M_KEYBLOCK;
+		keyblock.enctype = ek->keytype;
+		keyblock.length = ek->keylength;
+		keyblock.contents = (guint8 *)ek->keyvalue;
+
+		if (checksumtype == server_checksum) {
+			ret = krb5_pac_verify(krb5_ctx, pac, 0, NULL,
+					      &keyblock, NULL);
+			if (ret == 0) {
+				used_signing_key(tree, actx->pinfo, ek, pactvb,
+						 server_checksum, "Verified Server");
+				server_checksum = 0;
+			}
+		}
+
+		if (checksumtype == kdc_checksum) {
+			ret = krb5_pac_verify(krb5_ctx, pac, 0, NULL,
+					      NULL, &keyblock);
+			if (ret == 0) {
+				used_signing_key(tree, actx->pinfo, ek, pactvb,
+						 kdc_checksum, "Verified KDC");
+				kdc_checksum = 0;
+			}
+		}
+
+	}
+
+	krb5_pac_free(krb5_ctx, pac);
+}
+#endif /* HAVE_KRB5_PAC_VERIFY */
 
 #elif defined(HAVE_HEIMDAL_KERBEROS)
 static krb5_context krb5_ctx;
@@ -572,9 +709,7 @@ decrypt_krb5_data(proto_tree *tree _U_, packet_info *pinfo,
 		if((ret == 0) && (length>0)){
 			char *user_data;
 
-			expert_add_info_format(pinfo, NULL, &ei_kerberos_decrypted_keytype,
-								   "Decrypted keytype %d in frame %u using %s",
-								   ek->keytype, pinfo->num, ek->key_origin);
+			used_encryption_key(tree, pinfo, ek, usage, cryptotvb);
 
 			krb5_crypto_destroy(krb5_ctx, crypto);
 			/* return a private wmem_alloced blob to the caller */
@@ -1534,34 +1669,64 @@ dissect_krb5_PA_PROV_SRV_LOCATION(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, 
 static int
 dissect_krb5_PW_SALT(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_)
 {
-	guint32 nt_status;
+	kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+	gint length;
+	guint32 nt_status = 0;
+	guint32 reserved = 0;
+	guint32 flags = 0;
 
-	/* Microsoft stores a special 12 byte blob here
+	/*
+	 * Microsoft stores a special 12 byte blob here
+	 * [MS-KILE] 2.2.1 KERB-EXT-ERROR
 	 * guint32 NT_status
-	 * guint32 unknown
-	 * guint32 unknown
-	 * decode everything as this blob for now until we see if anyone
-	 * else ever uses it   or we learn how to tell whether this
-	 * is such an MS blob or not.
+	 * guint32 reserved (== 0)
+	 * guint32 flags (at least 0x00000001 is set)
 	 */
-	proto_tree_add_item(tree, hf_krb_smb_nt_status, tvb, offset, 4,
+	length = tvb_reported_length_remaining(tvb, offset);
+	if (length <= 0) {
+		return offset;
+	}
+	if (length != 12) {
+		goto no_error;
+	}
+
+	if (private_data->errorcode == 0) {
+		goto no_error;
+	}
+
+	if (!private_data->try_nt_status) {
+		goto no_error;
+	}
+
+	nt_status = tvb_get_letohl(tvb, offset);
+	reserved = tvb_get_letohl(tvb, offset + 4);
+	flags = tvb_get_letohl(tvb, offset + 8);
+
+	if (nt_status == 0 || reserved != 0 || flags == 0) {
+		goto no_error;
+	}
+
+	proto_tree_add_item(tree, hf_krb_ext_error_nt_status, tvb, offset, 4,
 			ENC_LITTLE_ENDIAN);
-	nt_status=tvb_get_letohl(tvb, offset);
-	if(nt_status) {
-		col_append_fstr(actx->pinfo->cinfo, COL_INFO,
+	col_append_fstr(actx->pinfo->cinfo, COL_INFO,
 			" NT Status: %s",
 			val_to_str(nt_status, NT_errors,
 			"Unknown error code %#x"));
-	}
 	offset += 4;
 
-	proto_tree_add_item(tree, hf_krb_smb_unknown, tvb, offset, 4,
+	proto_tree_add_item(tree, hf_krb_ext_error_reserved, tvb, offset, 4,
 			ENC_LITTLE_ENDIAN);
 	offset += 4;
 
-	proto_tree_add_item(tree, hf_krb_smb_unknown, tvb, offset, 4,
+	proto_tree_add_item(tree, hf_krb_ext_error_flags, tvb, offset, 4,
 			ENC_LITTLE_ENDIAN);
 	offset += 4;
+
+	return offset;
+
+ no_error:
+	proto_tree_add_item(tree, hf_krb_pw_salt, tvb, offset, length, ENC_NA);
+	offset += length;
 
 	return offset;
 }
@@ -1855,6 +2020,10 @@ dissect_krb5_AD_WIN2K_PAC(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset, 
 	guint32 version;
 	guint32 i;
 
+#if defined(HAVE_MIT_KERBEROS) && defined(HAVE_KRB5_PAC_VERIFY)
+	verify_krb5_pac(tree, actx, tvb);
+#endif
+
 	/* first in the PAC structure comes the number of entries */
 	entries=tvb_get_letohl(tvb, offset);
 	proto_tree_add_uint(tree, hf_krb_w2k_pac_entries, tvb, offset, 4, entries);
@@ -2120,11 +2289,17 @@ void proto_register_kerberos(void) {
 	{ &hf_krb_provsrv_location, {
 		"PROVSRV Location", "kerberos.provsrv_location", FT_STRING, BASE_NONE,
 		NULL, 0, "PacketCable PROV SRV Location", HFILL }},
-	{ &hf_krb_smb_nt_status,
+	{ &hf_krb_pw_salt,
+		{ "pw-salt", "kerberos.pw_salt", FT_BYTES, BASE_NONE,
+		NULL, 0, NULL, HFILL }},
+	{ &hf_krb_ext_error_nt_status, /* we keep kerberos.smb.nt_status for compat reasons */
 		{ "NT Status", "kerberos.smb.nt_status", FT_UINT32, BASE_HEX,
 		VALS(NT_errors), 0, "NT Status code", HFILL }},
-	{ &hf_krb_smb_unknown,
-		{ "Unknown", "kerberos.smb.unknown", FT_UINT32, BASE_HEX,
+	{ &hf_krb_ext_error_reserved,
+		{ "Reserved", "kerberos.ext_error.reserved", FT_UINT32, BASE_HEX,
+		NULL, 0, NULL, HFILL }},
+	{ &hf_krb_ext_error_flags,
+		{ "Flags", "kerberos.ext_error.flags", FT_UINT32, BASE_HEX,
 		NULL, 0, NULL, HFILL }},
 	{ &hf_krb_address_ip, {
 		"IP Address", "kerberos.addr_ip", FT_IPv4, BASE_NONE,

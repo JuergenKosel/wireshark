@@ -413,7 +413,7 @@ extern "C" {
  *
  *    https://www.elektrobit.com/ebhscr
  *
- * For WTAP_ENCAP_USBPCAP, the maximum is 1MiB, as per
+ * For WTAP_ENCAP_USBPCAP, the maximum is 128MiB, as per
  *
  *    https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=15985
  *
@@ -422,7 +422,7 @@ extern "C" {
  * files might allocate a buffer much larger than necessary, wasting memory.
  */
 #define WTAP_MAX_PACKET_SIZE_STANDARD    262144
-#define WTAP_MAX_PACKET_SIZE_USBPCAP     (1024*1024)
+#define WTAP_MAX_PACKET_SIZE_USBPCAP     (128*1024*1024)
 #define WTAP_MAX_PACKET_SIZE_EBHSCR      (8*1024*1024)
 #define WTAP_MAX_PACKET_SIZE_DBUS        (128*1024*1024)
 
@@ -791,7 +791,7 @@ struct ieee_802_11ac {
  */
 
 #define PHDR_802_11AD_MIN_FREQUENCY    57000
-#define PHDR_802_11AD_MAX_FREQUENCY    66000
+#define PHDR_802_11AD_MAX_FREQUENCY    71000
 
 #define IS_80211AD(frequency) (((frequency) >= PHDR_802_11AD_MIN_FREQUENCY) &&\
                                ((frequency) <= PHDR_802_11AD_MAX_FREQUENCY))

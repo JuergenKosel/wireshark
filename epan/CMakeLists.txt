@@ -77,6 +77,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	capture_dissectors.h
 	charsets.h
 	chdlctypes.h
+	cisco_pid.h
 	color_filters.h
 	column.h
 	column-info.h
@@ -93,7 +94,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	decode_as.h
 	diam_dict.h
 	disabled_protos.h
-	dissector_filters.h
+	conversation_filter.h
 	dtd.h
 	dtd_parse.h
 	dvb_chartbl.h
@@ -210,7 +211,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	crc8-tvb.c
 	decode_as.c
 	disabled_protos.c
-	dissector_filters.c
+	conversation_filter.c
 	dvb_chartbl.c
 	epan.c
 	ex-opt.c
@@ -276,6 +277,8 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	value_string.c
 	unit_strings.c
 	xdlc.c
+	protobuf-helper.c
+	protobuf_lang_tree.c
 	${CMAKE_CURRENT_BINARY_DIR}/ps.c
 )
 
@@ -287,10 +290,15 @@ add_lex_files(LEX_FILES LIBWIRESHARK_FILES
 	dtd_preparse.l
 	radius_dict.l
 	uat_load.l
+	protobuf_lang_scanner.l
 )
 
 add_lemon_files(LEMON_FILES LIBWIRESHARK_FILES
 	dtd_grammar.lemon
+)
+
+add_yacc_files(YACC_FILES LIBWIRESHARK_FILES
+	protobuf_lang.y
 )
 
 set_source_files_properties(

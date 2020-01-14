@@ -102,6 +102,7 @@ struct _wslua_tvbrange {
 struct _wslua_tw {
     funnel_text_window_t* ws_tw;
     gboolean expired;
+    void* close_cb_data;
 };
 
 typedef struct _wslua_field_t {
@@ -344,7 +345,6 @@ typedef tvbparse_t* Parser;
 typedef tvbparse_wanted_t* Rule;
 typedef tvbparse_elem_t* Node;
 typedef tvbparse_action_t* Shortcut;
-typedef struct _wslua_main* WireShark;
 typedef struct _wslua_dir* Dir;
 typedef struct _wslua_private_table* PrivateTable;
 typedef gchar* Struct;

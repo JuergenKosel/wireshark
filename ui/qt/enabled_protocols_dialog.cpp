@@ -35,15 +35,17 @@ EnabledProtocolsDialog::EnabledProtocolsDialog(QWidget *parent) :
     int one_em = ui->protocol_tree_->fontMetrics().height();
     ui->protocol_tree_->setColumnWidth(EnabledProtocolsModel::colProtocol, one_em * 18);
 
-    ui->cmbSearchType->addItem(tr("Everywhere"), qVariantFromValue(EnabledProtocolsProxyModel::EveryWhere));
-    ui->cmbSearchType->addItem(tr("Only Protocols"), qVariantFromValue(EnabledProtocolsProxyModel::OnlyProtocol));
-    ui->cmbSearchType->addItem(tr("Only Description"), qVariantFromValue(EnabledProtocolsProxyModel::OnlyDescription));
+    ui->cmbSearchType->addItem(tr("Everywhere"), QVariant::fromValue(EnabledProtocolsProxyModel::EveryWhere));
+    ui->cmbSearchType->addItem(tr("Only Protocols"), QVariant::fromValue(EnabledProtocolsProxyModel::OnlyProtocol));
+    ui->cmbSearchType->addItem(tr("Only Description"), QVariant::fromValue(EnabledProtocolsProxyModel::OnlyDescription));
+    ui->cmbSearchType->addItem(tr("Only enabled protocols"), QVariant::fromValue(EnabledProtocolsProxyModel::EnabledItems));
+    ui->cmbSearchType->addItem(tr("Only disabled protocols"), QVariant::fromValue(EnabledProtocolsProxyModel::DisabledItems));
 
-    ui->cmbProtocolType->addItem(tr("any protocol"), qVariantFromValue(EnabledProtocolItem::Any));
-    ui->cmbProtocolType->addItem(tr("non-heuristic protocols"), qVariantFromValue(EnabledProtocolItem::Standard));
-    ui->cmbProtocolType->addItem(tr("heuristic protocols"), qVariantFromValue(EnabledProtocolItem::Heuristic));
+    ui->cmbProtocolType->addItem(tr("any protocol"), QVariant::fromValue(EnabledProtocolItem::Any));
+    ui->cmbProtocolType->addItem(tr("non-heuristic protocols"), QVariant::fromValue(EnabledProtocolItem::Standard));
+    ui->cmbProtocolType->addItem(tr("heuristic protocols"), QVariant::fromValue(EnabledProtocolItem::Heuristic));
 
-    QTimer::singleShot(0, this, SLOT(fillTree()));
+    fillTree();
 }
 
 EnabledProtocolsDialog::~EnabledProtocolsDialog()
@@ -85,10 +87,10 @@ void EnabledProtocolsDialog::searchFilterChange()
     EnabledProtocolItem::EnableProtocolType protocol = EnabledProtocolItem::Any;
     QString search_re = ui->search_line_edit_->text();
 
-    if ( ui->cmbSearchType->currentData().canConvert<EnabledProtocolsProxyModel::SearchType>() )
+    if (ui->cmbSearchType->currentData().canConvert<EnabledProtocolsProxyModel::SearchType>())
         type = ui->cmbSearchType->currentData().value<EnabledProtocolsProxyModel::SearchType>();
 
-    if ( ui->cmbProtocolType->currentData().canConvert<EnabledProtocolItem::EnableProtocolType>() )
+    if (ui->cmbProtocolType->currentData().canConvert<EnabledProtocolItem::EnableProtocolType>())
         protocol = ui->cmbProtocolType->currentData().value<EnabledProtocolItem::EnableProtocolType>();
 
     proxyModel_->setFilter(search_re, type, protocol);
@@ -116,18 +118,6 @@ void EnabledProtocolsDialog::on_buttonBox_accepted()
 {
     enabled_protocols_model_->applyChanges();
 }
-
-#if 0
-// If we ever find and fix the bug behind queueAppSignal we can re-enable
-// this.
-void EnabledProtocolsDialog::on_buttonBox_clicked(QAbstractButton *button)
-{
-    if (button == ui->buttonBox->button(QDialogButtonBox::Apply))
-    {
-        applyChanges(TRUE);
-    }
-}
-#endif
 
 void EnabledProtocolsDialog::on_buttonBox_helpRequested()
 {

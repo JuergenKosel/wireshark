@@ -109,6 +109,7 @@ typedef struct recent_settings_tag {
     gint        gui_geometry_main_height;
 
     gboolean    gui_geometry_main_maximized;
+    gboolean    gui_geometry_leftalign_actions;
 
     gboolean    has_gui_geometry_main_upper_pane;   /* gui_geometry_main_upper_pane is valid */
     gint        gui_geometry_main_upper_pane;
@@ -139,7 +140,7 @@ extern void recent_init(void);
 /** Cleanup/Frees recent settings (done at shutdown) */
 extern void recent_cleanup(void);
 
-/** Write recent settings file.
+/** Write recent_common settings file.
  *
  * @return TRUE if succeeded, FALSE if failed
  */

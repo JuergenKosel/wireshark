@@ -96,6 +96,8 @@ const value_string ssl_versions[] = {
     { 0x7F1A,               "TLS 1.3 (draft 26)" },
     { 0x7F1B,               "TLS 1.3 (draft 27)" },
     { 0x7F1C,               "TLS 1.3 (draft 28)" },
+    { 0xFB17,               "TLS 1.3 (Facebook draft 23)" },
+    { 0xFB1A,               "TLS 1.3 (Facebook draft 26)" },
     { DTLSV1DOT0_OPENSSL_VERSION, "DTLS 1.0 (OpenSSL pre 0.9.8f)" },
     { DTLSV1DOT0_VERSION,   "DTLS 1.0" },
     { DTLSV1DOT2_VERSION,   "DTLS 1.2" },
@@ -1388,17 +1390,23 @@ const value_string quic_transport_parameter_id[] = {
     { SSL_HND_QUIC_TP_DISABLE_ACTIVE_MIGRATION, "disable_active_migration" },
     { SSL_HND_QUIC_TP_PREFERRED_ADDRESS, "preferred_address" },
     { SSL_HND_QUIC_TP_ACTIVE_CONNECTION_ID_LIMIT, "active_connection_id_limit" },
-    { 0, NULL }
-};
-
-// Removed in QUIC draft -18
-const value_string quic_tp_preferred_address_vals[] = {
-    { 4, "IPv4" },
-    { 6, "IPv6" },
+    { SSL_HND_QUIC_TP_MAX_DATAGRAM_FRAME_SIZE, "max_datagram_frame_size" },
     { 0, NULL }
 };
 
 /* Lookup tables }}} */
+
+void
+quic_transport_parameter_id_base_custom(gchar *result, guint32 parameter_id)
+{
+
+    /* GREASE ? https://tools.ietf.org/html/draft-ietf-quic-transport-23#section-18.1 */
+    if ( ( (parameter_id - 27) % 31) == 0 ) {
+        g_snprintf(result, ITEM_LABEL_LENGTH, "GREASE (0x%04x)", parameter_id);
+    } else {
+        g_snprintf(result, ITEM_LABEL_LENGTH, "%s (0x%04x)", val_to_str_const(parameter_id, quic_transport_parameter_id, "Unknown"), parameter_id);
+    }
+}
 
 /* we keep this internal to packet-tls-utils, as there should be
    no need to access it any other way.
@@ -6651,7 +6659,13 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
         proto_tree_add_item_ret_uint(parameter_tree, hf->hf.hs_ext_quictp_parameter_type,
                                      tvb, offset, 2, ENC_BIG_ENDIAN, &parameter_type);
         offset += 2;
-        proto_item_append_text(parameter_tree, ": %s", val_to_str(parameter_type, quic_transport_parameter_id, "Unknown"));
+
+        /* GREASE ? https://tools.ietf.org/html/draft-ietf-quic-transport-23#section-18.1 */
+        if ( ( (parameter_type - 27) % 31) == 0 ) {
+            proto_item_append_text(parameter_tree, ": GREASE");
+        } else {
+            proto_item_append_text(parameter_tree, ": %s", val_to_str(parameter_type, quic_transport_parameter_id, "Unknown"));
+        }
 
         /* opaque value<0..2^16-1> */
         if (!ssl_add_vector(hf, tvb, pinfo, parameter_tree, offset, next_offset, &parameter_length,
@@ -6744,7 +6758,6 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
             case SSL_HND_QUIC_TP_PREFERRED_ADDRESS: {
                 guint32 connectionid_length;
 
-                // Since draft -18
                 proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_pa_ipv4address,
                                     tvb, offset, 4, ENC_BIG_ENDIAN);
                 offset += 4;
@@ -6775,6 +6788,12 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
             break;
             case SSL_HND_QUIC_TP_ACTIVE_CONNECTION_ID_LIMIT:
                 proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_active_connection_id_limit,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_MAX_DATAGRAM_FRAME_SIZE:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_max_datagram_frame_size,
                                                tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
                 proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
                 offset += len;
@@ -7411,6 +7430,11 @@ ssl_try_set_version(SslSession *session, SslDecryptSession *ssl,
         tls13_draft = extract_tls13_draft_version(version);
         if (tls13_draft != 0) {
             /* This is TLS 1.3 (a draft version). */
+            version = TLSV1DOT3_VERSION;
+        }
+        if (version == 0xfb17 || version == 0xfb1a) {
+            /* Unofficial TLS 1.3 draft version for Facebook fizz. */
+            tls13_draft = (guint8)version;
             version = TLSV1DOT3_VERSION;
         }
     }

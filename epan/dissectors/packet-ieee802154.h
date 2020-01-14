@@ -123,6 +123,19 @@
 #define IEEE802154_FCF_VERSION              0x3000
 #define IEEE802154_FCF_SADDR_MASK           0xC000  /* source addressing mask */
 
+/* Bit-masks for the Multipurpose FCF */
+#define IEEE802154_MPF_FCF_TYPE_MASK           0x0007
+#define IEEE802154_MPF_FCF_LONG_FC             0x0008
+#define IEEE802154_MPF_FCF_DADDR_MASK          0x0030
+#define IEEE802154_MPF_FCF_SADDR_MASK          0x00C0
+#define IEEE802154_MPF_FCF_PAN_ID_PRESENT      0x0100
+#define IEEE802154_MPF_FCF_SEC_EN              0x0200
+#define IEEE802154_MPF_FCF_SEQNO_SUPPRESSION   0x0400
+#define IEEE802154_MPF_FCF_FRAME_PND           0x0800
+#define IEEE802154_MPF_FCF_VERSION             0x3000
+#define IEEE802154_MPF_FCF_ACK_REQ             0x4000
+#define IEEE802154_MPF_FCF_IE_PRESENT          0x8000
+
 /* Frame Type Definitions */
 #define IEEE802154_FCF_BEACON                  0x0  /* Beacon Frame */
 #define IEEE802154_FCF_DATA                    0x1  /* Data Frame */
@@ -196,6 +209,9 @@
 #define IEEE802154_THR_WELL_KNOWN_KEY_INDEX 0xff
 #define IEEE802154_THR_WELL_KNOWN_KEY_SRC   0xffffffff
 #define IEEE802154_THR_WELL_KNOWN_EXT_ADDR  0x3506feb823d48712ULL
+
+/* 802.15.4e LE-multipurpose Wake-up frame length */
+#define IEEE802154E_LE_WUF_LEN              12
 
 typedef enum {
     SECURITY_LEVEL_NONE = 0x00,
@@ -385,10 +401,17 @@ typedef struct {
     gboolean    pan_id_compression;
     gboolean    seqno_suppression;
     gboolean    ie_present;
+
+    /* Fields exclusive to the 802.15.4-2015 multipurpose frame control field */
+    gboolean    long_frame_control;
+    gboolean    pan_id_present;
+
     guint8      seqno;
     /* Determined during processing of Header IE*/
     gboolean    payload_ie_present;
     /* Addressing Info. */
+    gboolean    dst_pan_present;
+    gboolean    src_pan_present;
     guint16     dst_pan;
     guint16     src_pan;
     guint16     dst16;

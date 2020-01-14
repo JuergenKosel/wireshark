@@ -24,6 +24,14 @@
         <translation>&lt;span size=\&quot;x-large\&quot; weight=\&quot;bold\&quot;&gt;ネットワークプロトコルアナライザ&lt;/span&gt;</translation>
     </message>
     <message>
+        <source>Copy the version information to the clipboard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy To Clipboard</source>
+        <translation type="unfinished">クリップボードにコピー</translation>
+    </message>
+    <message>
         <source>Authors</source>
         <translation>作者</translation>
     </message>
@@ -84,8 +92,8 @@
         <translation>ディレクトリを作成できませんでした</translation>
     </message>
     <message>
-        <source>The directory %1 could not be created!</source>
-        <translation>ディレクトリ %1 を作成出来ませんでした</translation>
+        <source>The directory %1 could not be created.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Show in Finder</source>
@@ -219,7 +227,7 @@
     </message>
     <message>
         <source>Ctrl-M</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+M</translation>
     </message>
     <message>
         <source>Mark/Unmark Cell</source>
@@ -362,7 +370,7 @@
     </message>
     <message>
         <source>Ctrl-M</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+M</translation>
     </message>
     <message>
         <source>Mark/Unmark Cell</source>
@@ -473,7 +481,7 @@
     </message>
     <message>
         <source>Ctrl-M</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+M</translation>
     </message>
     <message>
         <source>Mark/Unmark Cell</source>
@@ -1155,317 +1163,307 @@
     </message>
 </context>
 <context>
-    <name>CaptureInterfacesDialog</name>
+    <name>CaptureOptionsDialog</name>
     <message>
         <source>Input</source>
-        <translation>入力</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Interface</source>
-        <translation>インターフェース</translation>
+        <translation type="unfinished">インターフェース</translation>
     </message>
     <message>
         <source>Traffic</source>
-        <translation>トラフィック</translation>
-    </message>
-    <message>
-        <source>Capture Filter</source>
-        <translation>キャプチャフィルタ</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;You probably want to enable this. Usually a network card will only capture the traffic sent to its own network address. If you want to capture all traffic that the network card can &amp;quot;see&amp;quot;, mark this option. See the FAQ for some more details of capturing packets from a switched network.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>これを有効にした方がよいでしょう。通常ネットワークカードは自身のアドレスに送られたトラフィックのみキャプチャします。もし、ネットワークカードのすべてのトラフィックをキャプチャしたいのでしたら、このオプションをマークしてください。FAQにスイッチングハブのネットワークからパケットをキャプチャする詳細があります。</translation>
-    </message>
-    <message>
-        <source>Output</source>
-        <translation>出力</translation>
-    </message>
-    <message>
-        <source>Output format:</source>
-        <translation>出力形式:</translation>
-    </message>
-    <message>
-        <source>pcapng</source>
-        <translation>pcap-ng形式</translation>
-    </message>
-    <message>
-        <source>pcap</source>
-        <translation>pcap形式</translation>
-    </message>
-    <message>
-        <source>Browse…</source>
-        <oldsource>Browse...</oldsource>
-        <translation>参照…</translation>
-    </message>
-    <message>
-        <source>File:</source>
-        <translation>ファイル:</translation>
-    </message>
-    <message>
-        <source>megabytes</source>
-        <oldsource>Megabytes</oldsource>
-        <translation>メガバイト</translation>
-    </message>
-    <message>
-        <source>kilobytes</source>
-        <oldsource>Kilobytes</oldsource>
-        <translation>キロバイト</translation>
-    </message>
-    <message>
-        <source>seconds</source>
-        <translation>秒</translation>
-    </message>
-    <message>
-        <source>minutes</source>
-        <translation>分</translation>
-    </message>
-    <message>
-        <source>hours</source>
-        <translation>時</translation>
-    </message>
-    <message>
-        <source>Show capture information during live capture</source>
-        <translation>キャプチャ中にキャプチャ情報画面を表示</translation>
-    </message>
-    <message>
-        <source>Stop capturing after the specified number of packets have been captured.</source>
-        <translation>指定したパケット数がキャプチャされた後にキャプチャを停止します</translation>
-    </message>
-    <message>
-        <source>Stop capturing after the specified amount of data has been captured.</source>
-        <translation>指定したデータ量がキャプチャされたらキャプチャを停止</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop capturing after the specified amount of data has been captured.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;指定したデータ量がキャプチャされたらキャプチャを停止&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>packets</source>
-        <translation>パケット</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Link-layer Header</source>
-        <translation>リンク層ヘッダ</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Promiscuous</source>
-        <translation>プロミスキャス</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Snaplen (B)</source>
-        <translation>キャプチャ長(バイト)</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Buffer (MB)</source>
-        <translation>バッファ(メガバイト)</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Monitor Mode</source>
-        <translation>モニタモード</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capture Filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;You probably want to enable this. Usually a network card will only capture the traffic sent to its own network address. If you want to capture all traffic that the network card can &amp;quot;see&amp;quot;, mark this option. See the FAQ for some more details of capturing packets from a switched network.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished">これを有効にした方がよいでしょう。通常ネットワークカードは自身のアドレスに送られたトラフィックのみキャプチャします。もし、ネットワークカードが&quot;見る&quot;ことのできるすべてのトラフィックをキャプチャしたいのでしたら、このオプションをマークしてください。FAQにスイッチングハブのネットワークからパケットをキャプチャする詳細があります。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Enable promiscuous mode on all interfaces</source>
-        <oldsource>Capture in promiscuous mode on all interfaces</oldsource>
-        <translation>すべてのインターフェースにおいてプロミスキャスモードを有効化します</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Show and hide interfaces, add comments, and manage pipes and remote interfaces.</source>
-        <translation>インターフェースを表示/非表示、コメントの追加、およびパイプとリモートインターフェースを管理します</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Manage Interfaces…</source>
-        <oldsource>Manage Interfaces...</oldsource>
-        <translation>インターフェース管理…</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Capture filter for selected interfaces:</source>
-        <oldsource>Capture Filter for selected Interfaces:</oldsource>
-        <translation>選択したインタフェースのキャプチャフィルタ:</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Compile BPFs</source>
-        <translation>BPF形式をコンパイル</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the file name to which captured data will be written. By default, a temporary file will be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;キャプチャしたデータを記録するファイル名を入力してください。デフォルトでは一時ファイルが利用されます&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Capture to a permanent file</source>
-        <translation>保存ファイルにキャプチャ</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>gigabytes</source>
-        <oldsource>Gigabytes</oldsource>
-        <translation>ギガバイト</translation>
+        <source>File:</source>
+        <translation type="unfinished">ファイル:</translation>
     </message>
     <message>
-        <source>Switch to the next file after the specified number of packets have been captured.</source>
-        <translation>指定したパケット数がキャプチャされた後に次のファイルに切り替えます</translation>
+        <source>Browse…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Output format:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>pcapng</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>pcap</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;p&gt;NOTE: If enabled, at least one of the new-file criteria MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;1つのキャプチャファイルを用いる代わりに複数のファイルが作成されます。&lt;/p&gt;&lt;p&gt;生成されたファイル名は連番とキャプチャ開始時間を含みます&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Create a new file automatically…</source>
-        <translation>…後に自動的に新ファイルを作成</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>after</source>
-        <translation>後</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch to the next file after the specified number of packets have been captured.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>packets</source>
+        <translation type="unfinished">パケット</translation>
     </message>
     <message>
         <source>Switch to the next file after the file size exceeds the specified file size.</source>
-        <translation>ファイルサイズが指定したファイルサイズを超過した後に次のファイルに切り替えます</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>kilobytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>megabytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>gigabytes</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Switch to the next file when the time capturing to the current file exceeds the specified time.</source>
-        <translation>現在のファイルをキャプチャしている時間が指定した時間を超過した際に次のファイルに切り替えます</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>seconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>minutes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>hours</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>when time is a multiple of</source>
-        <translation>時刻が複数の</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Switch to the next file when the (wall clock) time is an even multiple of the specified interval.
 For example, use 1 hour to have a new file created every hour on the hour.</source>
-        <translation>(時計の)時刻が特定の間隔になったら次のファイルに切り替えます。例えば、1時間に設定すると毎時１時間ごとに新しいファイルが作成されます</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;After capturing has switched to the next file and the given number of files has exceeded, the oldest file will be removed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;キャプチャが次のファイルに切り替えられた後、与えられたファイル数を超過したら、最も古いファイルが消されます&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Use a ring buffer with </source>
-        <translation>リングバッファを用いる</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>files</source>
-        <translation>ファイル</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Options</source>
-        <translation>オプション</translation>
+        <translation type="unfinished">オプション</translation>
     </message>
     <message>
         <source>Display Options</source>
-        <translation>表示オプション</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Using this option will show the captured packets immediately on the main screen. Please note: this will slow down capturing, so increased packet drops might appear.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;このオプションを用いるとメイン画面ですぐにパケットキャプチャを表示します。注意:この操作はキャプチャを遅くするので、よりパケットをドロップするかもしれません。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Update list of packets in real-time</source>
-        <translation>実時間でパケット一覧を更新</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;This will scroll the &amp;quot;Packet List&amp;quot; automatically to the latest captured packet, when the &amp;quot;Update list of packets in real-time&amp;quot; option is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;実際の時間でパケット一覧を更新オプションを用いるとパケット一覧画面はスクロールして最新のパケットを表示します&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Automatically scroll during live capture</source>
-        <translation>キャプチャ中に自動スクロール</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show the capture info dialog while capturing.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;キャプチャ中にキャプチャ情報画面を表示&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show capture information during live capture</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Name Resolution</source>
-        <translation>名前解決</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Perform MAC layer name resolution while capturing.</source>
-        <translation>キャプチャ中にMAC層の名前解決を行います</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Resolve MAC Addresses</source>
-        <translation>MACアドレス解決</translation>
+        <source>Resolve MAC addresses</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Perform network layer name resolution while capturing.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;キャプチャ中にネットワーク層の名前解決を実施&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Resolve network names</source>
-        <translation>ネットワーク名を解決</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Perform transport layer name resolution while capturing.</source>
-        <translation>キャプチャ中にトランスポート層の名前解決を行います</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Resolve transport names</source>
-        <translation>トランスポート層の名前を解決</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Stop capture automatically after…</source>
-        <oldsource>Stop capture automatically after...</oldsource>
-        <translation>…後に自動的にキャプチャを停止</translation>
-    </message>
-    <message>
-        <source>Stop capturing after the specified amount of time has passed.</source>
-        <translation>指定時間が経過した後キャプチャを停止します</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop capturing after the specified number of packets have been captured.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;指定した数のパケットがキャプチャされた後キャプチャを停止します&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stop capturing after the specified number of packets have been captured.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop capturing after the specified number of files have been created.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;指定した数のファイルを作成した後キャプチャを停止します&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Capture Interfaces</source>
-        <translation>キャプチャインターフェース</translation>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop capturing after the specified amount of data has been captured.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stop capturing after the specified amount of data has been captured.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stop capturing after the specified amount of time has passed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capture Options</source>
+        <translation type="unfinished">キャプチャオプション</translation>
     </message>
     <message>
         <source>Start</source>
-        <translation>開始</translation>
+        <translation type="unfinished">開始</translation>
     </message>
     <message>
         <source>Leave blank to use a temporary file</source>
-        <translation>一時ファイルを使うため空白にしておきます</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Specify a Capture File</source>
-        <translation>キャプチャファイルを指定してください</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1: %2</source>
-        <translation>%1: %2</translation>
+        <translation type="unfinished">%1: %2</translation>
     </message>
     <message>
         <source>Addresses</source>
-        <translation>アドレス</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Address</source>
-        <translation>アドレス</translation>
+        <translation type="unfinished">アドレス</translation>
     </message>
     <message>
         <source>no addresses</source>
-        <translation>アドレスがありません</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Error</source>
-        <translation>エラー</translation>
+        <translation type="unfinished">エラー</translation>
     </message>
     <message>
         <source>Multiple files: Requested filesize too large. The filesize cannot be greater than 2 GiB.</source>
-        <oldsource>Multiple files: Requested filesize too large! The filesize cannot be greater than 2 GiB.</oldsource>
-        <translation>複数ファイル:要求されたファイルサイズが大きすぎます。ファイルサイズは2GBより大きくできません</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Multiple files: No capture file name given. You must specify a filename if you want to use multiple files.</source>
-        <oldsource>Multiple files: No capture file name given! You must specify a filename if you want to use multiple files.</oldsource>
-        <translation>複数ファイル:キャプチャファイル名がありません。服すファイルを用いたいのならファイル名を指定しなければなりません</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Multiple files: No file limit given. You must specify a file size, interval, or number of packets for each file.</source>
-        <translation>複数ファイル:ファイル制限がありません。各ファイルのファイルサイズ、間隔、またはパケット数を指定しなければなりません。</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1628,6 +1626,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>ColoringRulesModel</name>
     <message>
+        <source>New coloring rule</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Unable to save coloring rules: %1</source>
         <translation>色付けルール %1 を保存できません</translation>
     </message>
@@ -1680,32 +1682,53 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>ColumnListModel</name>
+    <message>
+        <source>Displayed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation type="unfinished">種別</translation>
+    </message>
+    <message>
+        <source>Fields</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Field Occurence</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ColumnPreferencesFrame</name>
     <message>
         <source>Frame</source>
         <translation>フレーム</translation>
     </message>
     <message>
-        <source>Displayed</source>
-        <translation>表示</translation>
+        <source>Add a new column</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Title</source>
-        <translation>題名</translation>
+        <source>Delete selected column</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Type</source>
-        <translation>種別</translation>
+        <source>Show displayed columns only</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Fields</source>
-        <oldsource>Field Name</oldsource>
-        <translation>フィールド名</translation>
-    </message>
-    <message>
-        <source>Field Occurrence</source>
-        <oldsource>Field occurrence</oldsource>
-        <translation>フィールド出現位置</translation>
+        <source>Reset all changes</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1967,8 +1990,20 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Left align buttons</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display Filter Expression</source>
+        <translation type="unfinished">表示フィルタ式</translation>
+    </message>
+    <message>
         <source>Apply a read filter %1</source>
         <translation>読込フィルタ %1 を適用</translation>
+    </message>
+    <message>
+        <source>Current filter: %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Invalid filter: </source>
@@ -1987,8 +2022,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>表示フィルタを管理</translation>
     </message>
     <message>
-        <source>Manage Filter Expressions</source>
-        <translation>フィルタ書式を管理</translation>
+        <source>Filter Button Preferences...</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -2164,6 +2199,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Only Description</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Only enabled protocols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Only disabled protocols</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2451,6 +2494,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>ダイアログ</translation>
     </message>
     <message>
+        <source>Content Type:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Searching for objects</source>
         <translation>オブジェクトを探索中</translation>
     </message>
@@ -2460,6 +2507,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Only display entries containing this string</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All Content-Types</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2641,14 +2696,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>ダイアログ</translation>
     </message>
     <message>
-        <source>Name</source>
-        <translation>名前</translation>
-    </message>
-    <message>
-        <source>Filter</source>
-        <translation>フィルタ</translation>
-    </message>
-    <message>
         <source>Create a new filter.</source>
         <translation>新規フィルタを作成します</translation>
     </message>
@@ -2673,10 +2720,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Open </source>
         <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>New filter</source>
-        <translation>新規フィルタ</translation>
     </message>
     <message>
         <source>New capture filter</source>
@@ -2752,6 +2795,17 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>FilterListModel</name>
+    <message>
+        <source>Filter Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter Expression</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2908,11 +2962,15 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Extcap path</source>
+        <source>Extcap Plugins search path</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Extcap Plugins search path</source>
+        <source>Personal Extcap path</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Global Extcap path</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3727,12 +3785,24 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Filtered packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>All packets</source>
-        <translation>すべてのパケット</translation>
+        <translation type="vanished">すべてのパケット</translation>
     </message>
     <message>
         <source>TCP errors</source>
-        <translation>TCPエラー</translation>
+        <translation type="vanished">TCPエラー</translation>
+    </message>
+    <message>
+        <source>All Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TCP Errors</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Hover over the graph for details.</source>
@@ -4345,11 +4415,15 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Interfaces not loaded (due to preference). Go to Capture </source>
+        <source>&lt;p&gt;Local interfaces are unavailable because no capture driver is installed.&lt;/p&gt;&lt;p&gt;You can fix this by installing &lt;a href=&quot;https://nmap.org/npcap/&quot;&gt;Npcap&lt;/a&gt; or &lt;a href=&quot;https://www.winpcap.org/install/default.htm&quot;&gt;WinPcap&lt;/a&gt;.&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>You don&apos;t have permission to capture. You can &lt;a href=&quot;file://%1&quot;&gt;install ChmodBPF to fix this&lt;/a&gt;.</source>
+        <source>&lt;p&gt;Local interfaces are unavailable due to insufficient permissions.&lt;/p&gt;&lt;p&gt;You can fix this by &lt;a href=&quot;file://%1&quot;&gt;installing ChmodBPF&lt;/a&gt;.&lt;/p&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Interfaces not loaded (due to preference). Go to Capture </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4418,27 +4492,27 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Promiscuous</source>
-        <translation type="unfinished">プロミスキャス</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Snaplen (B)</source>
-        <translation type="unfinished">キャプチャ長(バイト)</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Buffer (MB)</source>
-        <translation type="unfinished">バッファ(メガバイト)</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Monitor Mode</source>
-        <translation type="unfinished">モニタモード</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Capture Filter</source>
-        <translation type="unfinished">キャプチャフィルタ</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Addresses</source>
-        <translation type="unfinished">アドレス</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Address</source>
@@ -5318,6 +5392,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Show column definition in column context menu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Status Bar settings:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5852,6 +5930,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Packets: %1 %4 Displayed: %2 (%3%)</source>
         <oldsource>Packets: %1 %4 Displayed: %2 %4 Marked: %3</oldsource>
         <translation>パケット数: %1 %4 表示: %2 (%3%)</translation>
+    </message>
+    <message>
+        <source> %1 Selected: %2 (%3%)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source> %1 Marked: %2 (%3%)</source>
@@ -6465,12 +6547,9 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>前のパケットを検索します</translation>
     </message>
     <message>
-        <source>&amp;Mark/Unmark Packet</source>
-        <translation>パケットをマーク/マーク解除(&amp;M)</translation>
-    </message>
-    <message>
-        <source>Mark or unmark this packet</source>
-        <translation>このパケットをマーク/マーク解除します</translation>
+        <source>&amp;Mark/Unmark Packet(s)</source>
+        <oldsource>&amp;Mark/Unmark Packet</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mark All Displayed</source>
@@ -6501,12 +6580,9 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>前にマークされたパケットに移動します</translation>
     </message>
     <message>
-        <source>&amp;Ignore/Unignore Packet</source>
-        <translation>パケットを無視/無視を解除(&amp;I)</translation>
-    </message>
-    <message>
-        <source>Ignore or unignore this packet</source>
-        <translation>このパケットを無視するか無視しないようにします</translation>
+        <source>&amp;Ignore/Unignore Packet(s)</source>
+        <oldsource>&amp;Ignore/Unignore Packet</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Ignore All Displayed</source>
@@ -6646,6 +6722,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>HTTP/2 Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>QUIC Stream</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6961,6 +7041,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Bluetooth HCI概要</translation>
     </message>
     <message>
+        <source>Display Filter &amp;Expression…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display Filter Expression…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>No GSM statistics registered</source>
         <translation>GSM統計が登録されていません</translation>
     </message>
@@ -7041,6 +7129,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>プレインテキストとして…(&amp;T)</translation>
     </message>
     <message>
+        <source>As Plain &amp;Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As &amp;CSV</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>As &amp;YAML</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>All Visible Items</source>
         <translation>すべての見えている項目</translation>
     </message>
@@ -7063,6 +7163,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Find Pre&amp;vious</source>
         <translation>前を検索(&amp;v)</translation>
+    </message>
+    <message>
+        <source>Mark or unmark each selected packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ignore or unignore each selected packet</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Time Shift…</source>
@@ -7375,14 +7483,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Show Linked Packet in New Window</source>
         <translation>新規ウインドウでリンクされたパケットを表示</translation>
-    </message>
-    <message>
-        <source>&amp;Expression…</source>
-        <translation>書式…(&amp;E)</translation>
-    </message>
-    <message>
-        <source>Expression…</source>
-        <translation>書式…</translation>
     </message>
     <message>
         <source>New Coloring Rule…</source>
@@ -8415,10 +8515,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>PacketListModel</name>
     <message>
-        <source>Dissecting</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Sorting &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9134,10 +9230,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>[no capture file]</source>
         <translation>[キャプチャファイルなし]</translation>
-    </message>
-    <message>
-        <source>New coloring rule</source>
-        <translation>新規色付けルール</translation>
     </message>
     <message>
         <source>Conversation</source>
@@ -10143,11 +10235,39 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>None of channels was selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Save forward and reverse stream audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Raw (*.raw)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Information</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save was interrupted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save or read of file was failed during saving</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Codec is not supported, file is incomplete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Codec rate is not supported, file is incomplete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown error occured</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10235,12 +10355,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>%1 保存中</translation>
     </message>
     <message>
-        <source>Can save audio with 8000 Hz clock rate only</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Can save audio with PCM u-law or A-law encoding only</source>
-        <translation type="unfinished"></translation>
+        <source>Error</source>
+        <translation type="unfinished">エラー</translation>
     </message>
     <message>
         <source>Save forward stream CSV</source>
@@ -10283,6 +10399,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>RTP Player</source>
         <translation>RTPプレイヤー</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Source Address</source>
@@ -10560,8 +10680,20 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>無音が挿入されている</translation>
     </message>
     <message>
+        <source>Double click to change audio routing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start: %1. Double click to set start of playback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start: %1, cursor: %2. Press &quot;G&quot; to go to packet %3. Double click to set start of playback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>%1. Press &quot;G&quot; to go to packet %2</source>
-        <translation>%1. &quot;G&quot; を押してパケット %2 へ移動</translation>
+        <translation type="vanished">%1. &quot;G&quot; を押してパケット %2 へ移動</translation>
     </message>
     <message>
         <source>Unknown</source>

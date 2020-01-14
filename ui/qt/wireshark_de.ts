@@ -24,6 +24,14 @@
         <translation>&lt;span size=\&quot;x-large\&quot; weight=\&quot;bold\&quot;&gt;Programm zur Netzwerkprotokollanalyse&lt;/span&gt;</translation>
     </message>
     <message>
+        <source>Copy the version information to the clipboard</source>
+        <translation>Versionsinformationen in die Zwischenablage kopieren</translation>
+    </message>
+    <message>
+        <source>Copy To Clipboard</source>
+        <translation>In die Zwischenablage kopieren</translation>
+    </message>
+    <message>
         <source>Authors</source>
         <translation>Autoren</translation>
     </message>
@@ -84,7 +92,7 @@
         <translation>Das Verzeichnis konnte nicht erstellt werden</translation>
     </message>
     <message>
-        <source>The directory %1 could not be created!</source>
+        <source>The directory %1 could not be created.</source>
         <translation>Das Verzeichnis %1 konnte nicht erstellt werden!</translation>
     </message>
     <message>
@@ -1162,7 +1170,7 @@
     </message>
 </context>
 <context>
-    <name>CaptureInterfacesDialog</name>
+    <name>CaptureOptionsDialog</name>
     <message>
         <source>Input</source>
         <translation>Eingabe</translation>
@@ -1174,81 +1182,6 @@
     <message>
         <source>Traffic</source>
         <translation>Datenverkehr</translation>
-    </message>
-    <message>
-        <source>Capture Filter</source>
-        <translation>Mitschnittfilter</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;You probably want to enable this. Usually a network card will only capture the traffic sent to its own network address. If you want to capture all traffic that the network card can &amp;quot;see&amp;quot;, mark this option. See the FAQ for some more details of capturing packets from a switched network.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Vermutlich sollten Sie diese Option aktivieren. Normalerweise nimmt eine Netzwerkkarte nur Pakete auf, die an die eigene Adresse adressiert sind. Wenn Sie alle Pakete &amp;quot;sehen&amp;quot; wollen, sollten Sie diese Option aktivieren. In den FAQ stehen weitere Informationen zum Aufzeichnen von Paketen in einer Switch-Netzwerkumgebung.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>Output</source>
-        <translation>Ausgabe</translation>
-    </message>
-    <message>
-        <source>Output format:</source>
-        <translation>Ausgabeformat:</translation>
-    </message>
-    <message>
-        <source>pcapng</source>
-        <translation>pcapng</translation>
-    </message>
-    <message>
-        <source>pcap</source>
-        <translation>pcap</translation>
-    </message>
-    <message>
-        <source>Browse…</source>
-        <oldsource>Browse...</oldsource>
-        <translation>Öffnen...</translation>
-    </message>
-    <message>
-        <source>File:</source>
-        <translation>Datei:</translation>
-    </message>
-    <message>
-        <source>megabytes</source>
-        <oldsource>Megabytes</oldsource>
-        <translation>Megabyte</translation>
-    </message>
-    <message>
-        <source>kilobytes</source>
-        <oldsource>Kilobytes</oldsource>
-        <translation>Kilobyte</translation>
-    </message>
-    <message>
-        <source>seconds</source>
-        <translation>Sekunden</translation>
-    </message>
-    <message>
-        <source>minutes</source>
-        <translation>Minuten</translation>
-    </message>
-    <message>
-        <source>hours</source>
-        <translation>Stunden</translation>
-    </message>
-    <message>
-        <source>Show capture information during live capture</source>
-        <translation>Mitschnittinformationen während der Aufzeichnung anzeigen</translation>
-    </message>
-    <message>
-        <source>Stop capturing after the specified number of packets have been captured.</source>
-        <translation>Mitschneiden beenden, nachdem die angegebene Anzahl an Paketen mitgeschnitten wurde.</translation>
-    </message>
-    <message>
-        <source>Stop capturing after the specified amount of data has been captured.</source>
-        <translation>Mitschneiden beenden, nachdem die angegebene Datenmenge mitgeschnitten wurde.</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop capturing after the specified amount of data has been captured.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mitschneiden beenden, nachdem die angegebene Datenmenge mitgeschnitten wurde.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>packets</source>
-        <translation>Pakete</translation>
     </message>
     <message>
         <source>Link-layer Header</source>
@@ -1271,8 +1204,15 @@
         <translation>Überwachungsmodus</translation>
     </message>
     <message>
+        <source>Capture Filter</source>
+        <translation>Mitschnittfilter</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;You probably want to enable this. Usually a network card will only capture the traffic sent to its own network address. If you want to capture all traffic that the network card can &amp;quot;see&amp;quot;, mark this option. See the FAQ for some more details of capturing packets from a switched network.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Vermutlich sollten Sie diese Option aktivieren. Normalerweise nimmt eine Netzwerkkarte nur Pakete auf, die an die eigene Adresse adressiert sind. Wenn Sie alle Pakete &amp;quot;sehen&amp;quot; wollen, sollten Sie diese Option aktivieren. In den FAQ stehen weitere Informationen zum Aufzeichnen von Paketen in einer Switch-Netzwerkumgebung.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
         <source>Enable promiscuous mode on all interfaces</source>
-        <oldsource>Capture in promiscuous mode on all interfaces</oldsource>
         <translation>Promiskuitiven Modus für alle Schnittstellen aktivieren</translation>
     </message>
     <message>
@@ -1281,17 +1221,19 @@
     </message>
     <message>
         <source>Manage Interfaces…</source>
-        <oldsource>Manage Interfaces...</oldsource>
         <translation>Schnittstellen verwalten...</translation>
     </message>
     <message>
         <source>Capture filter for selected interfaces:</source>
-        <oldsource>Capture Filter for selected Interfaces:</oldsource>
         <translation>Mitschnittfilter für die ausgewählte Schnittstelle:</translation>
     </message>
     <message>
         <source>Compile BPFs</source>
         <translation>BPF kompilieren</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>Ausgabe</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the file name to which captured data will be written. By default, a temporary file will be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -1302,13 +1244,24 @@
         <translation>In eine bleibende Datei aufzeichnen</translation>
     </message>
     <message>
-        <source>gigabytes</source>
-        <oldsource>Gigabytes</oldsource>
-        <translation>Gigabyte</translation>
+        <source>File:</source>
+        <translation>Datei:</translation>
     </message>
     <message>
-        <source>Switch to the next file after the specified number of packets have been captured.</source>
-        <translation>Zur nächsten Datei wechseln wenn die angegebene Anzahl an Paketen aufgezeichnet wurden.</translation>
+        <source>Browse…</source>
+        <translation>Öffnen...</translation>
+    </message>
+    <message>
+        <source>Output format:</source>
+        <translation>Ausgabeformat:</translation>
+    </message>
+    <message>
+        <source>pcapng</source>
+        <translation>pcapng</translation>
+    </message>
+    <message>
+        <source>pcap</source>
+        <translation>pcap</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;p&gt;NOTE: If enabled, at least one of the new-file criteria MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -1323,12 +1276,44 @@
         <translation>nach</translation>
     </message>
     <message>
+        <source>Switch to the next file after the specified number of packets have been captured.</source>
+        <translation>Zur nächsten Datei wechseln wenn die angegebene Anzahl an Paketen aufgezeichnet wurden.</translation>
+    </message>
+    <message>
+        <source>packets</source>
+        <translation>Pakete</translation>
+    </message>
+    <message>
         <source>Switch to the next file after the file size exceeds the specified file size.</source>
         <translation>Zur nächsten Datein wechseln wenn die angegebene Dateigröße erreicht wurde.</translation>
     </message>
     <message>
+        <source>kilobytes</source>
+        <translation>Kilobyte</translation>
+    </message>
+    <message>
+        <source>megabytes</source>
+        <translation>Megabyte</translation>
+    </message>
+    <message>
+        <source>gigabytes</source>
+        <translation>Gigabyte</translation>
+    </message>
+    <message>
         <source>Switch to the next file when the time capturing to the current file exceeds the specified time.</source>
         <translation>Zur nächsten Datei wechseln wenn die angegebene Zeit vergangen ist.</translation>
+    </message>
+    <message>
+        <source>seconds</source>
+        <translation>Sekunden</translation>
+    </message>
+    <message>
+        <source>minutes</source>
+        <translation>Minuten</translation>
+    </message>
+    <message>
+        <source>hours</source>
+        <translation>Stunden</translation>
     </message>
     <message>
         <source>when time is a multiple of</source>
@@ -1381,6 +1366,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mitschnittinformationen während der Aufzeichnung anzeigen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+        <source>Show capture information during live capture</source>
+        <translation>Mitschnittinformationen während der Aufzeichnung anzeigen</translation>
+    </message>
+    <message>
         <source>Name Resolution</source>
         <translation>Namensauflösung</translation>
     </message>
@@ -1389,7 +1378,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Während des mitschneidens MAC Namensauflösung durchführen.</translation>
     </message>
     <message>
-        <source>Resolve MAC Addresses</source>
+        <source>Resolve MAC addresses</source>
         <translation>MAC-Adressen auflösen</translation>
     </message>
     <message>
@@ -1410,24 +1399,35 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>Stop capture automatically after…</source>
-        <oldsource>Stop capture automatically after...</oldsource>
         <translation>Mitschnitt automatisch stoppen nach...</translation>
-    </message>
-    <message>
-        <source>Stop capturing after the specified amount of time has passed.</source>
-        <translation>Mitschneiden beenden, nachdem die angegebene Zeit verstrichen ist.</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop capturing after the specified number of packets have been captured.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mitschneiden beenden, nachdem die angegebene Anzahl an Paketen mitgeschnitten wurde.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+        <source>Stop capturing after the specified number of packets have been captured.</source>
+        <translation>Mitschneiden beenden, nachdem die angegebene Anzahl an Paketen mitgeschnitten wurde.</translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop capturing after the specified number of files have been created.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mitschneiden beenden, nachdem die angegebene Anzahl an Paketen mitgeschnitten wurde.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <source>Capture Interfaces</source>
-        <translation>Mitschnittschnittstellen</translation>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop capturing after the specified amount of data has been captured.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mitschneiden beenden, nachdem die angegebene Datenmenge mitgeschnitten wurde.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Stop capturing after the specified amount of data has been captured.</source>
+        <translation>Mitschneiden beenden, nachdem die angegebene Datenmenge mitgeschnitten wurde.</translation>
+    </message>
+    <message>
+        <source>Stop capturing after the specified amount of time has passed.</source>
+        <translation>Mitschneiden beenden, nachdem die angegebene Zeit verstrichen ist.</translation>
+    </message>
+    <message>
+        <source>Capture Options</source>
+        <translation>Aufzeichnungsoptionen</translation>
     </message>
     <message>
         <source>Start</source>
@@ -1463,12 +1463,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>Multiple files: Requested filesize too large. The filesize cannot be greater than 2 GiB.</source>
-        <oldsource>Multiple files: Requested filesize too large! The filesize cannot be greater than 2 GiB.</oldsource>
         <translation>Dateisatz: Angeforderte Dateigröße zu groß. Die Dateigröße kann nicht größer als 2 GiB sein.</translation>
     </message>
     <message>
         <source>Multiple files: No capture file name given. You must specify a filename if you want to use multiple files.</source>
-        <oldsource>Multiple files: No capture file name given! You must specify a filename if you want to use multiple files.</oldsource>
         <translation>Dateisatz: Keinen Dateinamen angeben. Wenn ein Dateisatz genutzt werden soll, muss ein Dateiname angegeben werden.</translation>
     </message>
     <message>
@@ -1636,6 +1634,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
 <context>
     <name>ColoringRulesModel</name>
     <message>
+        <source>New coloring rule</source>
+        <translation>Neue Einfärbungsregel</translation>
+    </message>
+    <message>
         <source>Unable to save coloring rules: %1</source>
         <translation>Einfärbungsregeln können nicht gespeichert werden: %1</translation>
     </message>
@@ -1688,11 +1690,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
 </context>
 <context>
-    <name>ColumnPreferencesFrame</name>
-    <message>
-        <source>Frame</source>
-        <translation>Frame</translation>
-    </message>
+    <name>ColumnListModel</name>
     <message>
         <source>Displayed</source>
         <translation>Angezeigt</translation>
@@ -1707,13 +1705,38 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>Fields</source>
-        <oldsource>Field Name</oldsource>
         <translation>Feldname</translation>
     </message>
     <message>
-        <source>Field Occurrence</source>
-        <oldsource>Field occurrence</oldsource>
+        <source>Field Occurence</source>
         <translation>Feldhäufigkeit</translation>
+    </message>
+    <message>
+        <source>New Column</source>
+        <translation>Neue Spalte</translation>
+    </message>
+</context>
+<context>
+    <name>ColumnPreferencesFrame</name>
+    <message>
+        <source>Frame</source>
+        <translation>Frame</translation>
+    </message>
+    <message>
+        <source>Add a new column</source>
+        <translation>Neue Spalte hinzufügen</translation>
+    </message>
+    <message>
+        <source>Delete selected column</source>
+        <translation>Ausgewählte Spalte löschen</translation>
+    </message>
+    <message>
+        <source>Show displayed columns only</source>
+        <translation>Nur aufgelistete Spalten anzeigen</translation>
+    </message>
+    <message>
+        <source>Reset all changes</source>
+        <translation>Alle Änderungen zurücksetzen</translation>
     </message>
 </context>
 <context>
@@ -1975,8 +1998,20 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Anzeigenfilter anwenden</translation>
     </message>
     <message>
+        <source>Left align buttons</source>
+        <translation>Links ausgerichtete Knöpfe</translation>
+    </message>
+    <message>
+        <source>Display Filter Expression</source>
+        <translation>Anzeigefilterausdruck</translation>
+    </message>
+    <message>
         <source>Apply a read filter %1</source>
         <translation>Lesefilter anwenden %1</translation>
+    </message>
+    <message>
+        <source>Current filter: %1</source>
+        <translation>Aktueller Filter: %1</translation>
     </message>
     <message>
         <source>Invalid filter: </source>
@@ -1995,8 +2030,8 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Anzeigefilter verwalten</translation>
     </message>
     <message>
-        <source>Manage Filter Expressions</source>
-        <translation>Filterausdrücke verwalten</translation>
+        <source>Filter Button Preferences...</source>
+        <translation>Einstellungen Filterknöpfe...</translation>
     </message>
 </context>
 <context>
@@ -2173,6 +2208,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Only Description</source>
         <translation>Nur Beschreibungen</translation>
+    </message>
+    <message>
+        <source>Only enabled protocols</source>
+        <translation>Nur aktivierte Protokolle</translation>
+    </message>
+    <message>
+        <source>Only disabled protocols</source>
+        <translation>Nur deaktivierte Protokolle</translation>
     </message>
     <message>
         <source>any protocol</source>
@@ -2459,6 +2502,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Dialog</translation>
     </message>
     <message>
+        <source>Content Type:</source>
+        <translation>Content-Typ:</translation>
+    </message>
+    <message>
         <source>Searching for objects</source>
         <translation>Nach Objekt suchen</translation>
     </message>
@@ -2469,6 +2516,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Only display entries containing this string</source>
         <translation>Nur Einträge anzeigen, die diese Zeichenkette enthalten</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>Vorschau</translation>
+    </message>
+    <message>
+        <source>All Content-Types</source>
+        <translation>Alle Conten-Typen</translation>
     </message>
     <message>
         <source>Export</source>
@@ -2650,14 +2705,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Dialog</translation>
     </message>
     <message>
-        <source>Name</source>
-        <translation>Name</translation>
-    </message>
-    <message>
-        <source>Filter</source>
-        <translation>Filter</translation>
-    </message>
-    <message>
         <source>Create a new filter.</source>
         <translation>Neuen Filter erstellen.</translation>
     </message>
@@ -2682,10 +2729,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Open </source>
         <translation>Öffnen</translation>
-    </message>
-    <message>
-        <source>New filter</source>
-        <translation>Neuer Filter</translation>
     </message>
     <message>
         <source>New capture filter</source>
@@ -2762,6 +2805,17 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Remove</source>
         <translation>Entfernen</translation>
+    </message>
+</context>
+<context>
+    <name>FilterListModel</name>
+    <message>
+        <source>Filter Name</source>
+        <translation>Filtername</translation>
+    </message>
+    <message>
+        <source>Filter Expression</source>
+        <translation>Filterausdruck</translation>
     </message>
 </context>
 <context>
@@ -2917,12 +2971,16 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Globale Lua Plugins</translation>
     </message>
     <message>
-        <source>Extcap path</source>
-        <translation>Extcap Pfad</translation>
-    </message>
-    <message>
         <source>Extcap Plugins search path</source>
         <translation>Suchpfad für Extcap Plugins</translation>
+    </message>
+    <message>
+        <source>Personal Extcap path</source>
+        <translation>Benutzerspezifischer Extcap Pfad</translation>
+    </message>
+    <message>
+        <source>Global Extcap path</source>
+        <translation>Globaler Extcap Pfad</translation>
     </message>
     <message>
         <source>MaxMind DB path</source>
@@ -2942,11 +3000,11 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>macOS Extras</source>
-        <translation type="unfinished"></translation>
+        <translation>macOS Extras</translation>
     </message>
     <message>
         <source>Extra macOS packages</source>
-        <translation type="unfinished"></translation>
+        <translation>Extra macOS Pakete</translation>
     </message>
     <message>
         <source>Name</source>
@@ -3743,12 +3801,24 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Wireshark I/O Graphen: %1</translation>
     </message>
     <message>
+        <source>Filtered packets</source>
+        <translation>Gefilterte Pakete</translation>
+    </message>
+    <message>
         <source>All packets</source>
-        <translation>Alle Pakete</translation>
+        <translation type="vanished">Alle Pakete</translation>
     </message>
     <message>
         <source>TCP errors</source>
-        <translation>TCP Fehler</translation>
+        <translation type="vanished">TCP Fehler</translation>
+    </message>
+    <message>
+        <source>All Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TCP Errors</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Hover over the graph for details.</source>
@@ -4361,12 +4431,20 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Externe Mitschnittschnittstellen deaktiviert.</translation>
     </message>
     <message>
-        <source>Interfaces not loaded (due to preference). Go to Capture </source>
+        <source>&lt;p&gt;Local interfaces are unavailable because no capture driver is installed.&lt;/p&gt;&lt;p&gt;You can fix this by installing &lt;a href=&quot;https://nmap.org/npcap/&quot;&gt;Npcap&lt;/a&gt; or &lt;a href=&quot;https://www.winpcap.org/install/default.htm&quot;&gt;WinPcap&lt;/a&gt;.&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>You don&apos;t have permission to capture. You can &lt;a href=&quot;file://%1&quot;&gt;install ChmodBPF to fix this&lt;/a&gt;.</source>
+        <source>&lt;p&gt;Local interfaces are unavailable due to insufficient permissions.&lt;/p&gt;&lt;p&gt;You can fix this by &lt;a href=&quot;file://%1&quot;&gt;installing ChmodBPF&lt;/a&gt;.&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Interfaces not loaded (due to preference). Go to Capture </source>
+        <translation>Schnittstellen (aufgrund der Einstellungen) nicht geladen. Gehe zu Mitschnitt</translation>
+    </message>
+    <message>
+        <source>You don&apos;t have permission to capture. You can &lt;a href=&quot;file://%1&quot;&gt;install ChmodBPF to fix this&lt;/a&gt;.</source>
+        <translation type="vanished">Sie haben keine Berechtigung zum mitschneiden. Sie können &lt;a href=&quot;file://%1&quot;&gt;ChmodBPF installieren&lt;/a&gt; um dies zu beheben.</translation>
     </message>
     <message>
         <source>Start capture</source>
@@ -5336,6 +5414,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Zeige Pakettrenner</translation>
     </message>
     <message>
+        <source>Show column definition in column context menu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Status Bar settings:</source>
         <translation>Einstellungen Statusleiste:</translation>
     </message>
@@ -5867,6 +5949,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <source>Packets: %1 %4 Displayed: %2 (%3%)</source>
         <oldsource>Packets: %1 %4 Displayed: %2 %4 Marked: %3</oldsource>
         <translation>Pakete: %1 %4 Angezeigt: %2 (%3%)</translation>
+    </message>
+    <message>
+        <source> %1 Selected: %2 (%3%)</source>
+        <translation>%1 Ausgewählt: %2 (%3%)</translation>
     </message>
     <message>
         <source> %1 Marked: %2 (%3%)</source>
@@ -6481,12 +6567,9 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Vorheriges Paket finden</translation>
     </message>
     <message>
-        <source>&amp;Mark/Unmark Packet</source>
+        <source>&amp;Mark/Unmark Packet(s)</source>
+        <oldsource>&amp;Mark/Unmark Packet</oldsource>
         <translation>Paket &amp;markieren</translation>
-    </message>
-    <message>
-        <source>Mark or unmark this packet</source>
-        <translation>Paket markieren</translation>
     </message>
     <message>
         <source>Mark All Displayed</source>
@@ -6517,12 +6600,9 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Zum vorherigen markierten Paket gehen</translation>
     </message>
     <message>
-        <source>&amp;Ignore/Unignore Packet</source>
+        <source>&amp;Ignore/Unignore Packet(s)</source>
+        <oldsource>&amp;Ignore/Unignore Packet</oldsource>
         <translation>Paket &amp;ignorieren bzw. zurücksetzen</translation>
-    </message>
-    <message>
-        <source>Ignore or unignore this packet</source>
-        <translation>Dieses Paket ignorieren bzw. zurücksetzen</translation>
     </message>
     <message>
         <source>Ignore All Displayed</source>
@@ -6663,6 +6743,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>HTTP/2 Stream</source>
         <translation>HTTP/2 Stream</translation>
+    </message>
+    <message>
+        <source>QUIC Stream</source>
+        <translation>QUIC Stream</translation>
     </message>
     <message>
         <source>Time Sequence (tcptrace)</source>
@@ -6977,6 +7061,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Bluetooth HCI Zusammenfassung</translation>
     </message>
     <message>
+        <source>Display Filter &amp;Expression…</source>
+        <translation>Anzeigefilt&amp;erausdruck</translation>
+    </message>
+    <message>
+        <source>Display Filter Expression…</source>
+        <translation>Anzeigefilterausdruck</translation>
+    </message>
+    <message>
         <source>No GSM statistics registered</source>
         <translation>Keine GSM Statistik registriert</translation>
     </message>
@@ -7057,6 +7149,18 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Als reiner &amp;Text...</translation>
     </message>
     <message>
+        <source>As Plain &amp;Text</source>
+        <translation>Als reiner &amp;Text...</translation>
+    </message>
+    <message>
+        <source>As &amp;CSV</source>
+        <translation>Als &amp;CSV</translation>
+    </message>
+    <message>
+        <source>As &amp;YAML</source>
+        <translation>Als &amp;YAML</translation>
+    </message>
+    <message>
         <source>All Visible Items</source>
         <translation>Alle sichtbaren Elemente</translation>
     </message>
@@ -7079,6 +7183,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Find Pre&amp;vious</source>
         <translation>Vorheriges finden</translation>
+    </message>
+    <message>
+        <source>Mark or unmark each selected packet</source>
+        <translation>Jedes ausgewählte Paket markieren bzw. Markierung rückgängig machen</translation>
+    </message>
+    <message>
+        <source>Ignore or unignore each selected packet</source>
+        <translation>Jedes ausgewählte Paket ignorieren bzw. Ignorieren zurücksetzen</translation>
     </message>
     <message>
         <source>Time Shift…</source>
@@ -7391,14 +7503,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Show Linked Packet in New Window</source>
         <translation>Verknüpftes Paket in einem neuen Fenster anzeigen</translation>
-    </message>
-    <message>
-        <source>&amp;Expression…</source>
-        <translation>Ausdruck...</translation>
-    </message>
-    <message>
-        <source>Expression…</source>
-        <translation>Ausdruck...</translation>
     </message>
     <message>
         <source>New Coloring Rule…</source>
@@ -8433,10 +8537,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
 <context>
     <name>PacketListModel</name>
     <message>
-        <source>Dissecting</source>
-        <translation>Analysiere</translation>
-    </message>
-    <message>
         <source>Sorting &quot;%1&quot;</source>
         <translation>&quot;%1&quot; wird sortiert</translation>
     </message>
@@ -9164,10 +9264,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>[no capture file]</source>
         <translation>[keine Mitschnittdatei]</translation>
-    </message>
-    <message>
-        <source>New coloring rule</source>
-        <translation>Neue Einfärbungsregel</translation>
     </message>
     <message>
         <source>Conversation</source>
@@ -10173,12 +10269,40 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Wenn nur ein Kanal ausgewählt ist, kann nicht synchronisiert werden</translation>
     </message>
     <message>
+        <source>None of channels was selected</source>
+        <translation>Es wurde kein Kanal ausgewählt</translation>
+    </message>
+    <message>
         <source>Save forward and reverse stream audio</source>
         <translation>Audiostream des Hin- und Rückweges speichern</translation>
     </message>
     <message>
         <source>Raw (*.raw)</source>
         <translation>Raw (*.raw)</translation>
+    </message>
+    <message>
+        <source>Information</source>
+        <translation>Information</translation>
+    </message>
+    <message>
+        <source>Save was interrupted</source>
+        <translation>Speichern wurde unterbrochen</translation>
+    </message>
+    <message>
+        <source>Save or read of file was failed during saving</source>
+        <translation>Speichern oder Lesen der Datei war fehlerhaft</translation>
+    </message>
+    <message>
+        <source>Codec is not supported, file is incomplete</source>
+        <translation>Codec wird nicht unterstützt. Datei ist unvollständig</translation>
+    </message>
+    <message>
+        <source>Codec rate is not supported, file is incomplete</source>
+        <translation>Codecrate wird nicht unterstützt. Datei ist unvollständig</translation>
+    </message>
+    <message>
+        <source>Unknown error occured</source>
+        <translation>Unbekannter Fehler</translation>
     </message>
     <message>
         <source>SSRC value not found.</source>
@@ -10265,12 +10389,8 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Speichere %1</translation>
     </message>
     <message>
-        <source>Can save audio with 8000 Hz clock rate only</source>
-        <translation>Audio kann nur mit 8000 Hz gespeichert werden</translation>
-    </message>
-    <message>
-        <source>Can save audio with PCM u-law or A-law encoding only</source>
-        <translation>Audio kann nur mit PCM u-law oder A-law Codierung gespeichert werden</translation>
+        <source>Error</source>
+        <translation>Fehler</translation>
     </message>
     <message>
         <source>Save forward stream CSV</source>
@@ -10313,6 +10433,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>RTP Player</source>
         <translation>RTP Player</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Source Address</source>
@@ -10590,8 +10714,20 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Eingefügte Stille</translation>
     </message>
     <message>
+        <source>Double click to change audio routing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start: %1. Double click to set start of playback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start: %1, cursor: %2. Press &quot;G&quot; to go to packet %3. Double click to set start of playback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>%1. Press &quot;G&quot; to go to packet %2</source>
-        <translation>%1. &quot;G&quot; um zu Paket %2 zu gehen</translation>
+        <translation type="vanished">%1. &quot;G&quot; um zu Paket %2 zu gehen</translation>
     </message>
     <message>
         <source>Unknown</source>

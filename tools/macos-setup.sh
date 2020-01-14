@@ -113,7 +113,7 @@ LIBGCRYPT_VERSION=1.7.7
 # packet data pane; see, for example, Qt bugs QTBUG-31937, QTBUG-41017,
 # and QTBUG-43464, all of which seem to be the same bug.
 #
-QT_VERSION=${QT_VERSION-5.12.1}
+QT_VERSION=${QT_VERSION-5.12.4}
 
 if [ "$QT_VERSION" ]; then
     QT_MAJOR_VERSION="`expr $QT_VERSION : '\([0-9][0-9]*\).*'`"
@@ -172,12 +172,14 @@ PYTHON3_VERSION=3.7.1
 BROTLI_VERSION=1.0.7
 # minizip
 ZLIB_VERSION=1.2.11
+# Uncomment to enable automatic updates using Sparkle
+#SPARKLE_VERSION=1.22.0
 
 #
 # Asciidoctor is required to build the documentation.
 #
-ASCIIDOCTOR_VERSION=${ASCIIDOCTOR_VERSION-1.5.7.1}
-ASCIIDOCTORPDF_VERSION=${ASCIIDOCTORPDF_VERSION-1.5.0.alpha.16}
+ASCIIDOCTOR_VERSION=${ASCIIDOCTOR_VERSION-2.0.10}
+ASCIIDOCTORPDF_VERSION=${ASCIIDOCTORPDF_VERSION-1.5.0.beta.5}
 
 #
 # GNU autotools; they're provided with releases up to Snow Leopard, but
@@ -774,7 +776,7 @@ uninstall_glib() {
 
 install_qt() {
     if [ "$QT_VERSION" -a ! -f qt-$QT_VERSION-done ]; then
-        echo "Downloading, building, and installing Qt:"
+        echo "Downloading and installing Qt:"
         #
         # What you get for this URL might just be a 302 Found reply, so use
         # -L so we get redirected.
@@ -783,7 +785,7 @@ install_qt() {
         # 5.2.0:      qt-mac-opensource-{version}.dmg
         # 5.2.1:      qt-opensource-mac-x64-clang-{version}.dmg
         # 5.3 - 5.8:  qt-opensource-mac-x64-clang-{version}.dmg
-        # 5.9 - 5.10: qt-opensource-mac-x64-{version}.dmg
+        # 5.9 - 5.13: qt-opensource-mac-x64-{version}.dmg
         #
         case $QT_MAJOR_VERSION in
 
@@ -848,7 +850,7 @@ uninstall_qt() {
             # 5.2.0:      qt-mac-opensource-{version}.dmg
             # 5.2.1:      qt-opensource-mac-x64-clang-{version}.dmg
             # 5.3 - 5.8:  qt-opensource-mac-x64-clang-{version}.dmg
-            # 5.9 - 5.10: qt-opensource-mac-x64-{version}.dmg
+            # 5.9 - 5.13: qt-opensource-mac-x64-{version}.dmg
             #
             installed_qt_major_version="`expr $installed_qt_version : '\([0-9][0-9]*\).*'`"
             installed_qt_minor_version="`expr $installed_qt_version : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
@@ -1836,6 +1838,32 @@ uninstall_minizip() {
     fi
 }
 
+install_sparkle() {
+    if [ "$SPARKLE_VERSION" ] && [ ! -f sparkle-$SPARKLE_VERSION-done ] ; then
+        echo "Downloading and installing Sparkle:"
+        #
+        # Download the tarball and unpack it in /usr/local/Sparkle-x.y.z
+        #
+        [ -f Sparkle-$SPARKLE_VERSION.tar.bz2 ] || curl -L -o Sparkle-$SPARKLE_VERSION.tar.bz2 https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.bz2 || exit 1
+        $no_build && echo "Skipping installation" && return
+        test -d "/usr/local/Sparkle-$SPARKLE_VERSION" || sudo mkdir "/usr/local/Sparkle-$SPARKLE_VERSION"
+        sudo tar -C "/usr/local/Sparkle-$SPARKLE_VERSION" -xpof Sparkle-$SPARKLE_VERSION.tar.bz2
+        touch sparkle-$SPARKLE_VERSION-done
+    fi
+}
+
+uninstall_sparkle() {
+    if [ -n "$installed_sparkle_version" ]; then
+        echo "Uninstalling Sparkle:"
+        sudo rm -rf "/usr/local/Sparkle-$installed_sparkle_version"
+        if [ "$#" -eq 1 ] && [ "$1" = "-r" ] ; then
+            rm -f "Sparkle-$installed_sparkle_version.tar.bz2"
+        fi
+
+        installed_sparkle_version=""
+    fi
+}
+
 install_all() {
     #
     # Check whether the versions we have installed are the versions
@@ -2234,6 +2262,17 @@ install_all() {
         uninstall_minizip -r
     fi
 
+    if [ ! -z "$installed_sparkle_version" -a \
+              "$installed_sparkle_version" != "$SPARKLE_VERSION" ] ; then
+        echo "Installed Sparkle version is $installed_sparkle_version"
+        if [ -z "$SPARKLE_VERSION" ] ; then
+            echo "Sparkle is not requested"
+        else
+            echo "Requested Sparkle version is $SPARKLE_VERSION"
+        fi
+        uninstall_sparkle -r
+    fi
+
     #
     # Start with curl: we may need it to download and install xz.
     #
@@ -2341,6 +2380,8 @@ install_all() {
     install_brotli
 
     install_minizip
+
+    install_sparkle
 }
 
 uninstall_all() {
@@ -2357,6 +2398,8 @@ uninstall_all() {
         # We also do a "make distclean", so that we don't have leftovers from
         # old configurations.
         #
+        uninstall_sparkle
+
         uninstall_minizip
 
         uninstall_brotli
@@ -2568,6 +2611,7 @@ then
     installed_python3_version=`ls python3-*-done 2>/dev/null | sed 's/python3-\(.*\)-done/\1/'`
     installed_brotli_version=`ls brotli-*-done 2>/dev/null | sed 's/brotli-\(.*\)-done/\1/'`
     installed_minizip_version=`ls minizip-*-done 2>/dev/null | sed 's/minizip-\(.*\)-done/\1/'`
+    installed_sparkle_version=`ls sparkle-*-done 2>/dev/null | sed 's/sparkle-\(.*\)-done/\1/'`
 
     cd $topdir
 fi

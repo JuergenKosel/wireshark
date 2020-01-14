@@ -78,18 +78,20 @@
 
 class AccordionFrame;
 class ByteViewTab;
-class CaptureInterfacesDialog;
+class CaptureOptionsDialog;
 class PrintDialog;
 class FileSetDialog;
 class FilterDialog;
 class FunnelStatistics;
 class WelcomePage;
+class PacketCommentDialog;
 class PacketList;
 class ProtoTree;
 #if defined(HAVE_LIBNL) && defined(HAVE_NL80211)
 class WirelessFrame;
 #endif
 class FilterExpressionToolBar;
+class WiresharkApplication;
 
 class QAction;
 class QActionGroup;
@@ -131,6 +133,10 @@ public:
 
     void insertColumn(QString name, QString abbrev, gint pos = -1);
 
+    bool hasSelection();
+    QList<int> selectedRows(bool useFrameNum = false);
+    frame_data * frameDataForRow(int row) const;
+
 protected:
     virtual bool eventFilter(QObject *obj, QEvent *event);
     virtual bool event(QEvent *event);
@@ -156,7 +162,10 @@ private:
         CopyAllVisibleSelectedTreeItems,
         CopySelectedDescription,
         CopySelectedFieldName,
-        CopySelectedValue
+        CopySelectedValue,
+        CopyListAsText,
+        CopyListAsCSV,
+        CopyListAsYAML
     };
 
     enum FileCloseContext {
@@ -204,10 +213,9 @@ private:
     bool capture_filter_valid_;
 #ifdef HAVE_LIBPCAP
     capture_session cap_session_;
-    CaptureInterfacesDialog *capture_interfaces_dialog_;
+    CaptureOptionsDialog *capture_options_dialog_;
     info_data_t info_data_;
 #endif
-    PrintDialog *pdlg_;
     FilterDialog *display_filter_dlg_;
     FilterDialog *capture_filter_dlg_;
 
@@ -267,7 +275,7 @@ private:
 
     void externalMenuHelper(ext_menu_t * menu, QMenu  * subMenu, gint depth);
 
-    void setForCaptureInProgress(bool capture_in_progress = false, GArray *ifaces = NULL);
+    void setForCaptureInProgress(bool capture_in_progress = false, bool handle_toolbars = false, GArray *ifaces = NULL);
     QMenu* findOrAddMenu(QMenu *parent_menu, QString& menu_text);
 
     void captureFileReadStarted(const QString &action);
@@ -290,7 +298,8 @@ signals:
     void fieldSelected(FieldInformation *);
     void fieldHighlight(FieldInformation *);
 
-    void frameSelected(int);
+    void framesSelected(QList<int>);
+
     void captureActive(int);
 
 public slots:
@@ -414,7 +423,7 @@ private slots:
     void openTapParameterDialog(const QString cfg_str, const QString arg, void *userdata);
     void openTapParameterDialog();
 
-#ifdef HAVE_SOFTWARE_UPDATE
+#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
     void softwareUpdateRequested();
 #endif
 
@@ -457,6 +466,9 @@ private slots:
     void actionEditCopyTriggered(MainWindow::CopySelected selection_type);
     void on_actionCopyAllVisibleItems_triggered();
     void on_actionCopyAllVisibleSelectedTreeItems_triggered();
+    void on_actionCopyListAsText_triggered();
+    void on_actionCopyListAsCSV_triggered();
+    void on_actionCopyListAsYAML_triggered();
     void on_actionEditCopyDescription_triggered();
     void on_actionEditCopyFieldName_triggered();
     void on_actionEditCopyValue_triggered();
@@ -477,10 +489,13 @@ private slots:
     void on_actionEditNextTimeReference_triggered();
     void on_actionEditPreviousTimeReference_triggered();
     void on_actionEditTimeShift_triggered();
+    void editTimeShiftFinished(int);
     void on_actionEditPacketComment_triggered();
+    void editPacketCommentFinished(PacketCommentDialog* pc_dialog, int result);
     void on_actionDeleteAllPacketComments_triggered();
+    void deleteAllPacketCommentsFinished(int result);
     void on_actionEditConfigurationProfiles_triggered();
-    void showPreferencesDialog(QString pane_name);
+    void showPreferencesDialog(QString module_name);
     void on_actionEditPreferences_triggered();
 
     void showHideMainWidgets(QAction *action);
@@ -550,6 +565,7 @@ private slots:
     void on_actionAnalyzeFollowTLSStream_triggered();
     void on_actionAnalyzeFollowHTTPStream_triggered();
     void on_actionAnalyzeFollowHTTP2Stream_triggered();
+    void on_actionAnalyzeFollowQUICStream_triggered();
 
     void statCommandExpertInfo(const char *, void *);
     void on_actionAnalyzeExpertInfo_triggered();
@@ -678,6 +694,8 @@ private slots:
 
     void extcap_options_finished(int result);
     void showExtcapOptionsDialog(QString & device_name);
+
+    friend WiresharkApplication;
 };
 
 #endif // MAINWINDOW_H

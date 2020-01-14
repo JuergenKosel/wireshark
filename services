@@ -996,8 +996,6 @@ sdproxy		1297/tcp/udp
 lpcp		1298/tcp/udp
 hp-sci		1299/tcp/udp
 h323hostcallsc	1300/tcp/udp	# H.323 Secure Call Control Signalling
-ci3-software-1	1301/tcp/udp	# CI3-Software-1
-ci3-software-2	1302/tcp/udp	# CI3-Software-2
 sftsrv		1303/tcp/udp
 boomerang	1304/tcp/udp	# Boomerang
 pe-mike		1305/tcp/udp
@@ -3139,7 +3137,7 @@ connect-client	3441/tcp/udp	# OC Connect Client
 connect-server	3442/tcp/udp	# OC Connect Server
 ov-nnm-websrv	3443/tcp/udp	# OpenView Network Node Manager WEB Server
 denali-server	3444/tcp/udp	# Denali Server
-monp		3445/tcp/udp	# Media Object Network
+monp		3445/tcp/udp	# Media Object Network Protocol
 3comfaxrpc	3446/tcp/udp	# 3Com FAX RPC port
 directnet	3447/tcp/udp	# DirectNet IM System
 dnc-port	3448/tcp/udp	# Discovery and Net Config
@@ -3308,7 +3306,7 @@ trendchip-dcp	3608/tcp/udp	# Trendchip control protocol
 cpdi-pidas-cm	3609/tcp/udp	# CPDI PIDAS Connection Mon
 echonet		3610/tcp/udp	# ECHONET
 six-degrees	3611/tcp/udp	# Six Degrees Port
-hp-dataprotect	3612/tcp/udp	# HP Data Protector
+dataprotector	3612/tcp/udp	# Micro Focus Data Protector
 alaris-disc	3613/tcp/udp	# Alaris Device Discovery
 sigma-port	3614/tcp/udp	# Satchwell Sigma
 start-network	3615/tcp/udp	# Start Messaging Network
@@ -4516,7 +4514,7 @@ sgi-esphttp	5554/tcp/udp	# SGI ESP HTTP
 personal-agent	5555/tcp/udp	# Personal Agent
 freeciv		5556/tcp/udp	# Freeciv gameplay
 farenet		5557/tcp	# Sandlab FARENET
-hpe-dp-bura	5565/tcp	# HPE Advanced BURA
+dp-bura		5565/tcp	# Data Protector BURA
 westec-connect	5566/tcp	# Westec Connect
 dof-dps-mc-sec	5567/tcp/udp	# DOF Protocol Stack Multicast/Secure Transport
 sdt		5568/tcp/udp	# Session Data Transport Multicast
@@ -5039,7 +5037,7 @@ atul		7543/tcp/udp	# atul server
 nta-ds		7544/tcp/udp	# FlowAnalyzer DisplayServer
 nta-us		7545/tcp/udp	# FlowAnalyzer UtilityServer
 cfs		7546/tcp/udp	# Cisco Fabric service
-cwmp		7547/tcp/udp	# DSL Forum CWMP
+cwmp		7547/tcp/udp	# Broadband Forum CWMP
 tidp		7548/tcp/udp	# Threat Information Distribution Protocol
 nls-tl		7549/tcp/udp	# Network Layer Signaling Transport Layer
 cloudsignaling	7550/udp	# Cloud Signaling Service
@@ -5302,6 +5300,7 @@ msi-cps-rm-disc	8675/udp	# Motorola Solutions Customer Programming Software for 
 sun-as-jmxrmi	8686/tcp/udp	# Sun App Server - JMX/RMI
 openremote-ctrl	8688/tcp	# OpenRemote Controller HTTP/REST
 vnyx		8699/tcp	# VNYX Primary Port
+semi-grpc	8710/tcp	# gRPC for SEMI Standards implementations
 nvc		8711/tcp	# Nuance Voice Control
 dtp-net		8732/udp	# DASGIP Net Services
 ibus		8733/tcp/udp	# iBus
@@ -5311,6 +5310,8 @@ openqueue	8764/tcp/udp	# OPENQUEUE
 ultraseek-http	8765/tcp/udp	# Ultraseek HTTP
 amcs		8766/tcp/udp	# Agilent Connectivity Service
 core-of-source	8767/tcp	# Online mobile multiplayer game
+sandpolis	8768/tcp	# Sandpolis Server
+oktaauthenticat	8769/tcp	# Okta MultiPlatform Access Mgmt for Cloud Svcs
 dpap		8770/tcp/udp	# Digital Photo Access Protocol (iPhoto)
 uec		8778/tcp	# Stonebranch Universal Enterprise Controller
 msgclnt		8786/tcp/udp	# Message Client
@@ -5513,6 +5514,7 @@ sstp-2		9801/tcp/udp	# Sakura Script Transfer Protocol-2
 davsrcs		9802/tcp/udp	# WebDAV Source TLS/SSL
 sapv1		9875/tcp/udp	# Session Announcement v1
 sd		9876/tcp	# Session Director
+x510		9877/tcp	# The X.510 wrapper protocol
 kca-service	9878/udp	# The KX509 Kerberized Certificate Issuance Protocol in Use in 2012
 cyborg-systems	9888/tcp/udp	# CYBORG Systems
 gt-proxy	9889/tcp/udp	# Port for Cable network related data proxy or repeater
@@ -5968,6 +5970,7 @@ astrolink	27876/tcp	# Astrolink Protocol
 tw-auth-key	27999/tcp/udp	# TW Authentication/Key Distribution and
 nxlmd		28000/tcp/udp	# NX License Manager
 pqsp		28001/tcp	# PQ Service
+gruber-cashreg	28010/tcp	# Gruber cash registry protocol
 a27-ran-ran	28119/udp	# A27 cdma2000 RAN Management
 voxelstorm	28200/tcp/udp	# VoxelStorm game server
 siemensgsm	28240/tcp/udp	# Siemens GSM
@@ -6117,6 +6120,7 @@ pmcd		44321/tcp/udp	# PCP server (pmcd)
 pmcdproxy	44322/tcp/udp	# PCP server (pmcd) proxy
 pmwebapi	44323/tcp	# HTTP binding for Performance Co-Pilot client API
 cognex-dataman	44444/tcp	# Cognex DataMan Management Protocol
+acronis-backup	44445/tcp	# Acronis Backup Gateway service port
 domiq		44544/udp	# DOMIQ Building Automation
 rbr-debug	44553/tcp/udp	# REALbasic Remote Debug
 asihpi		44600/udp	# AudioScience HPI

@@ -1834,6 +1834,7 @@ static const value_string v10_template_types_niagara_networks[] = {
     { 119, "SslCertificateSubjectPublicAlgorithmText" },
     { 120, "SslCertificateSubjectAlgorithmText" },
     { 121, "SslCertificateSubjectAlternativeName" },
+    { 122, "SslCertificateSha1" },
     { 200, "DnsIdentifier" },
     { 201, "DnsOpCode" },
     { 202, "DnsResponseCode" },
@@ -3441,6 +3442,7 @@ static int      hf_pie_niagara_networks_sslcertificatesubjectpublicalgorithm    
 static int      hf_pie_niagara_networks_sslcertificatesubjectpublicalgorithmtext    = -1;
 static int      hf_pie_niagara_networks_sslcertificatesubjectalgorithmtext          = -1;
 static int      hf_pie_niagara_networks_sslcertificatesubjectalternativename        = -1;
+static int      hf_pie_niagara_networks_sslcertificatesha1                          = -1;
 static int      hf_pie_niagara_networks_dnsidentifier                               = -1;
 static int      hf_pie_niagara_networks_dnsopcode                                   = -1;
 static int      hf_pie_niagara_networks_dnsresponsecode                             = -1;
@@ -10898,6 +10900,11 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
         case ((VENDOR_NIAGARA_NETWORKS << 16) | 121):
             ti = proto_tree_add_item(pdutree, hf_pie_niagara_networks_sslcertificatesubjectalternativename,
                                      tvb, offset, length, ENC_UTF_8|ENC_NA);
+            break;
+
+        case ((VENDOR_NIAGARA_NETWORKS << 16) | 122):
+            ti = proto_tree_add_item(pdutree, hf_pie_niagara_networks_sslcertificatesha1,
+                                     tvb, offset, length, ENC_NA);
             break;
 
         case ((VENDOR_NIAGARA_NETWORKS << 16) | 200):
@@ -18363,6 +18370,12 @@ proto_register_netflow(void)
           FT_STRING, STR_UNICODE, NULL, 0x0,
           NULL, HFILL}
         },
+        /* Niagara Networks, 47729 / 122 */
+        {&hf_pie_niagara_networks_sslcertificatesha1,
+         {"SslCertificateSha1", "cflow.pie.niagaranetworks.sslcertificatesha1",
+          FT_BYTES, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
         /* Niagara Networks, 47729 / 200 */
         {&hf_pie_niagara_networks_dnsidentifier,
          {"DnsIdentifier", "cflow.pie.niagaranetworks.dnsidentifier",
@@ -19080,6 +19093,8 @@ proto_register_netflow(void)
     expert_module_t* expert_netflow;
 
     proto_netflow = proto_register_protocol("Cisco NetFlow/IPFIX", "CFLOW", "cflow");
+
+    register_dissector("cflow", dissect_netflow, proto_netflow);
 
     proto_register_field_array(proto_netflow, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));

@@ -24,7 +24,7 @@
 #include <epan/ip_opts.h>
 #include <epan/prefs.h>
 #include <epan/conversation_table.h>
-#include <epan/dissector_filters.h>
+#include <epan/conversation_filter.h>
 #include <epan/reassemble.h>
 #include <epan/etypes.h>
 #include <epan/ppptypes.h>
@@ -1863,7 +1863,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
   guint32    src32, dst32;
   proto_tree *tree;
   proto_item *item = NULL, *ttl_item;
-  guint16 ttl;
+  guint16 ttl_valid;
 
   static const int * ip_flags[] = {
       &hf_ip_flags_rf,
@@ -2147,15 +2147,17 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
    * (see http://tools.ietf.org/html/rfc3973#section-4.7).
    */
   if (in4_addr_is_local_network_control_block(dst32)) {
-    ttl = local_network_control_block_addr_valid_ttl(dst32);
-    if (ttl != iph->ip_ttl && ttl != IPLOCAL_NETWRK_CTRL_BLK_ANY_TTL) {
+    if (iph->ip_proto == IP_PROTO_IGMP)
+      ttl_valid = IPLOCAL_NETWRK_CTRL_BLK_DEFAULT_TTL;
+    else
+      ttl_valid = local_network_control_block_addr_valid_ttl(dst32);
+    if (iph->ip_ttl != ttl_valid && ttl_valid != IPLOCAL_NETWRK_CTRL_BLK_ANY_TTL) {
       expert_add_info_format(pinfo, ttl_item, &ei_ip_ttl_lncb, "\"Time To Live\" != %d for a packet sent to the "
                              "Local Network Control Block (see RFC 3171)",
-                             ttl);
+                             ttl_valid);
     }
-  } else if (!in4_addr_is_multicast(dst32) &&
-	/* At least BGP should appear here as well */
-	iph->ip_ttl < 5 &&
+  } else if (iph->ip_ttl < 5 && !in4_addr_is_multicast(dst32) &&
+        /* At least BGP should appear here as well */
         iph->ip_proto != IP_PROTO_PIM &&
         iph->ip_proto != IP_PROTO_OSPF) {
     expert_add_info_format(pinfo, ttl_item, &ei_ip_ttl_too_small, "\"Time To Live\" only %u", iph->ip_ttl);
@@ -2314,12 +2316,10 @@ dissect_ip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
   version = tvb_get_guint8(tvb, 0) >> 4;
 
   if(version == 4){
-    dissect_ip_v4(tvb, pinfo, tree, data);
-    return tvb_captured_length(tvb);
+    return dissect_ip_v4(tvb, pinfo, tree, data);
   }
   if(version == 6){
-    call_dissector(ipv6_handle, tvb, pinfo, tree);
-    return tvb_captured_length(tvb);
+    return call_dissector(ipv6_handle, tvb, pinfo, tree);
   }
 
   /* Bogus IP version */
