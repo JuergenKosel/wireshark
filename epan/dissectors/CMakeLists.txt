@@ -247,6 +247,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	file-rbm.h
 	packet-6lowpan.h
 	packet-a21.h
+	packet-acdr.h
 	packet-acp133.h
 	packet-acse.h
 	packet-actrace.h
@@ -651,6 +652,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-aarp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-aastra-aasp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-acap.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-acdr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-acn.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-acr122.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-actrace.c
@@ -1824,6 +1826,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ucp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-udld.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-udp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-udpcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-uds.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-udt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-uftp.c

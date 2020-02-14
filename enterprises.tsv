@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2020-01-11)
+# (last updated 2020-02-07)
 
 0	Reserved
 1	NxNetworks
@@ -7481,7 +7481,7 @@
 7498	Gorski.net
 7499	Pacific Century CyberWorks - Hongkong Telecom
 7500	IICS
-7501	BKtel communications GmbH (Systems)
+7501	HUBER+SUHNER BKtel GmbH (HFC)
 7502	African Medical Imaging
 7503	Henkels and McCoy
 7504	AerSoft Ltd
@@ -11382,7 +11382,7 @@
 11409	adequate systems GmbH
 11410	Advanced Communication Devices Corp.
 11411	AOL Australia
-11412	BKtel communications GmbH
+11412	HUBER+SUHNER BKtel GmbH (FTTH)
 11413	Cape Clear Software Ltd.
 11414	Carnation Technology Ltd.
 11415	CLCsoft
@@ -13172,7 +13172,7 @@
 13302	The Advantage Media Group
 13303	The Gillette Company
 13304	T-Systems Solutions for Research GmbH
-13305	BFH Berne University of Applied Sciences	# formerly 'Berne University of Applied Sciences'
+13305	BFH Berne University of Applied Sciences (previous was 'Berne University of Applied Sciences')
 13306	University of Montana
 13307	V.R.A.M. Rt.
 13308	Városmajori Gimnázium
@@ -21783,7 +21783,7 @@
 21936	Senforce Technologies, Inc.
 21937	Ezrez Software, Inc.
 21938	Radio Muzyka Fakty, Sp. z o.o.
-21939	ABB - Power Grids - Grid Automation	# formerly 'HYTEC GmbH'
+21939	ABB Power Grids Germany AG – Grid Automation
 21940	Enatel Ltd
 21941	Data Return, LLC
 21942	Rubicon Software Ltd
@@ -21850,7 +21850,7 @@
 22003	mst
 22004	X-MD
 22005	GE Healthcare -  IT
-22006	AREVA T&D
+22006	GE DIGITAL - SWS - UCOM
 22007	WinWholesale Inc.
 22008	pld-sparc64
 22009	IP-LABEL
@@ -27710,7 +27710,7 @@
 27865	Tellvox S.A.
 27866	Logictec
 27867	Entic Services
-27868	GuardTime AS
+27868	Guardtime OÜ
 27869	Microprocessador - Sistemas Digitais, SA
 27870	Hooghuis lyceum
 27871	shee consultants
@@ -41045,7 +41045,7 @@
 41220	PS-IT-Consulting
 41221	IMDIT GmbH
 41222	Jnsys
-41223	ASC-TEC AG
+41223	DCT DELTA AG	# formerly 'ASC-TEC AG'
 41224	MobileVaults, Inc.	# formerly 'CloudVaults, LLC'
 41225	JSC Volga
 41226	Ennetix
@@ -45254,7 +45254,7 @@
 45433	Finivation Software
 45434	Accel Frontline Ltd
 45435	Cyprus University of Technology
-45436	THALES Services Lab DT
+45436	THALES Services MsLabs	# formerly 'THALES Services Lab DT'
 45437	TEOCO Corporation
 45438	AI2M srl
 45439	Esterline Belgium bvba
@@ -52955,7 +52955,7 @@
 53145	Ethos Infotech
 53146	Frachtwerk GmbH
 53147	fortop projects BV
-53148	O-RAN Alliance e.V.	# formerly 'xRAN Forum'
+53148	O-RAN Alliance e.V.
 53149	Wessanen N.V.
 53150	FAR-EASTERN GRIDS COMPANY
 53151	Beijing Zhongchuangwei Nanjing Quantum Communication Technology Co., Ltd.
@@ -54917,3 +54917,136 @@
 55109	Nusura, Inc
 55110	Union College
 55111	Steinbeis-Zentren Unternehmensentwicklung an der Hochschule Pforzheim
+55112	Certes Networks Inc.
+55113	Covéa
+55114	KORE Wireless
+55115	South Eastern H&SC Trust
+55116	Chunghua Intelligent Network Equipment Inc.
+55117	Beijing bravo technology Co.,Ltd
+55118	Alkit Communications AB
+55119	Docler Solutions Kft.
+55120	Encom wireless Data solutions
+55121	Nanjing Huastart Network Technology
+55122	abiliware GmbH
+55123	Statewide FCU
+55124	JOSEPH F. ROBERTS, MD PA
+55125	SALES PERITIAS Group
+55126	Prolixium Enterprises, LLC
+55127	IsUnreal
+55128	Mate Consulting srl
+55129	Voxx International Corporation
+55130	Deutsche Telekom AG (GHS)
+55131	Advanced Cancer Care of New Jersey PC
+55132	Thales Netherlands BV
+55133	x007007007
+55134	GERAP
+55135	Cyberdyne Systems, Inc.
+55136	Mako Networks
+55137	Qubit Solutions Limited
+55138	Transtrands Besparingsskog
+55139	AlsoEnergy, Inc.
+55140	Internal Medicine LLC
+55141	CS SOFT a.s.
+55142	Kath. Marienkrankenhaus gGmbH
+55143	iXblue
+55144	RKU
+55145	is-jo.org Online Services
+55146	Uniti Fiber
+55147	SSL-CERTS Limited
+55148	Die Mompfdies - IT Consult
+55149	IoT Advanced Control
+55150	SecureG, Inc
+55151	Kronnika
+55152	CODE100 SA
+55153	Thomas Wild
+55154	Octabase
+55155	Novel-SuperTV Tech. Co.
+55156	Christian County Library
+55157	MetroMail Ltd
+55158	ift Rosenheim GmbH
+55159	Caritasverband für die Diözese Osnabrück e.V.
+55160	dentaltrade GmbH
+55161	Expobank CZ a.s.
+55162	Cello Communications Ltd
+55163	Disk Archive Corporation
+55164	Saltant Solutions LLC
+55165	Nova Measuring Instruments
+55166	1NAR BILISIM DANISMANLIK EGT. SAN. VE TIC.LTD.STI.
+55167	Aonta Technologies Ltd
+55168	AS/point GmbH
+55169	RxRevu Inc
+55170	P&W Netzwerk GmbH &  Co. KG
+55171	IP Kulikov V.I.
+55172	PRISTALICA
+55173	Timbatec Holzbauingenieure Schweiz AG
+55174	LPS France
+55175	Hans Sasserath GmbH & Co. KG
+55176	Hitachi Industrial Equipment Systems Co.,Ltd.
+55177	MOS Corporate Service GmbH
+55178	OECHSLER AG
+55179	OECHSLER Motion GmbH
+55180	Säters Kommun
+55181	GCHQ
+55182	Sunberry Systems Ltd
+55183	New Telecommunication Technologies LLC
+55184	NetSpider GmbH
+55185	Prophecy International
+55186	Flightkeys GmbH
+55187	Regional Cancer Care Associates LLC
+55188	Bourne Leisure Ltd
+55189	neuw
+55190	IoT Open One AB
+55191	PT. E-T-A Indonesia
+55192	COMMERCIAL BANK VRB (LLC)
+55193	ELECTRONIC IDENTIFICATION, S.L.
+55194	AmjadPlastics Ibrahim Amjad MD
+55195	Base Telco
+55196	Direção Regional da Saúde do Governo Regional dos Açores
+55197	Wilhelm Geiger GmbH & Co.KG
+55198	Folino Enterprises
+55199	Modern Teaching Aids
+55200	Pioneer Long Distance, Inc.
+55201	PROTAHUB Uluslararasi Bil. ve Ilet. Tek. Arge Dan. Des. Paz A.S.
+55202	Haikou Xiaoye Technology Co., Ltd
+55203	NetX Networks a.s.
+55204	Blackpool Council
+55205	Stura University Leipzig
+55206	PROMETEON TYRE GROUP S.r.l.
+55207	Uralenergotel, LLC
+55208	Lviv municipal academic theatre arts research and educational centre Word and Voice
+55209	Town of Groton
+55210	Alohanet
+55211	dpco
+55212	IT Gesellschaft für Informationstechnik mbH
+55213	KAMPO
+55214	Smile America Partners
+55215	Stadt Kempten
+55216	Rotom Nederland
+55217	Zyston LLC
+55218	Drive and Shine
+55219	Sirona Medical
+55220	Franklin Fastener Co
+55221	Debarry Correa Ltda
+55222	Actindo AG
+55223	TAHOE
+55224	Capgemini CSD
+55225	T24 Competence Centre sp. z o.o. sp. k.
+55226	SAP Ariba
+55227	PLINTRON Mobility Solutions Private Limited
+55228	China Telecom Global Limited
+55229	Information Center, Shanghai Municipal Education Commission
+55230	RIXCAT SIA
+55231	Zwilling J.A.Henckels AG
+55232	BIOCEV
+55233	Stichting De Opbouw
+55234	Payukotayno James and Hudson Bay Family Services
+55235	Jeff Wyler Automotive Family, Inc.
+55236	NETFLOWBROADBAND PVT LTD
+55237	conpal GmbH
+55238	Connecta Sp. z o.o.
+55239	Cryptable BVBA
+55240	Encode
+55241	Alta Rail Technology
+55242	Rick Stroobosscher
+55243	COMPESO GmbH
+55244	Fast Object LLC

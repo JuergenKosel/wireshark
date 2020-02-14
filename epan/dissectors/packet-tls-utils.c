@@ -460,22 +460,22 @@ const value_string ssl_extension_curves[] = {
     { 258, "ffdhe4096" }, /* RFC 7919 */
     { 259, "ffdhe6144" }, /* RFC 7919 */
     { 260, "ffdhe8192" }, /* RFC 7919 */
-    { 2570, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 6682, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 10794, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 14906, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 19018, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 23130, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 27242, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 31354, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 35466, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 39578, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 43690, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 47802, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 51914, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 56026, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 60138, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
-    { 64250, "Reserved (GREASE)" }, /* draft-ietf-tls-grease */
+    { 2570, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 6682, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 10794, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 14906, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 19018, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 23130, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 27242, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 31354, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 35466, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 39578, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 43690, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 47802, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 51914, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 56026, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 60138, "Reserved (GREASE)" }, /* RFC 8701 */
+    { 64250, "Reserved (GREASE)" }, /* RFC 8701 */
     { 0xFF01, "arbitrary_explicit_prime_curves" },
     { 0xFF02, "arbitrary_explicit_char2_curves" },
     { 0x00, NULL }
@@ -831,10 +831,13 @@ static const value_string ssl_31_ciphersuite[] = {
     { 0x00C3, "TLS_DHE_DSS_WITH_CAMELLIA_256_CBC_SHA256" },
     { 0x00C4, "TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA256" },
     { 0x00C5, "TLS_DH_anon_WITH_CAMELLIA_256_CBC_SHA256" },
-    /* 0x00,0xC6-FE Unassigned  */
+    /* draft-yang-tls-tls13-sm-suites */
+    { 0x00C6, "TLS_SM4_GCM_SM3" },
+    { 0x00C7, "TLS_SM4_CCM_SM3" },
+    /* 0x00,0xC8-FE Unassigned */
     /* From RFC 5746 */
     { 0x00FF, "TLS_EMPTY_RENEGOTIATION_INFO_SCSV" },
-    /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    /* RFC 8701 */
     { 0x0A0A, "Reserved (GREASE)" },
     /* RFC 8446 */
     { 0x1301, "TLS_AES_128_GCM_SHA256" },
@@ -842,14 +845,14 @@ static const value_string ssl_31_ciphersuite[] = {
     { 0x1303, "TLS_CHACHA20_POLY1305_SHA256" },
     { 0x1304, "TLS_AES_128_CCM_SHA256" },
     { 0x1305, "TLS_AES_128_CCM_8_SHA256" },
-    /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    /* RFC 8701 */
     { 0x1A1A, "Reserved (GREASE)" },
     { 0x2A2A, "Reserved (GREASE)" },
     { 0x3A3A, "Reserved (GREASE)" },
     { 0x4A4A, "Reserved (GREASE)" },
     /* From RFC 7507 */
     { 0x5600, "TLS_FALLBACK_SCSV" },
-    /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    /* RFC 8701 */
     { 0x5A5A, "Reserved (GREASE)" },
     { 0x6A6A, "Reserved (GREASE)" },
     { 0x7A7A, "Reserved (GREASE)" },
@@ -1040,13 +1043,26 @@ static const value_string ssl_31_ciphersuite[] = {
     { 0xC0AD, "TLS_ECDHE_ECDSA_WITH_AES_256_CCM" },
     { 0xC0AE, "TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8" },
     { 0xC0AF, "TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8" },
+    /* RFC 8492 */
+    { 0xC0B0, "TLS_ECCPWD_WITH_AES_128_GCM_SHA256" },
+    { 0xC0B1, "TLS_ECCPWD_WITH_AES_256_GCM_SHA384" },
+    { 0xC0B2, "TLS_ECCPWD_WITH_AES_128_CCM_SHA256" },
+    { 0xC0B3, "TLS_ECCPWD_WITH_AES_256_CCM_SHA384" },
+    /* draft-camwinget-tls-ts13-macciphersuites */
+    { 0xC0B4, "TLS_SHA256_SHA256" },
+    { 0xC0B5, "TLS_SHA384_SHA384" },
     /* https://www.ietf.org/archive/id/draft-cragie-tls-ecjpake-01.txt */
     { 0xC0FF, "TLS_ECJPAKE_WITH_AES_128_CCM_8" },
     /* draft-smyshlyaev-tls12-gost-suites */
     { 0xC100, "TLS_GOSTR341112_256_WITH_KUZNYECHIK_CTR_OMAC" },
     { 0xC101, "TLS_GOSTR341112_256_WITH_MAGMA_CTR_OMAC" },
     { 0xC102, "TLS_GOSTR341112_256_WITH_28147_CNT_IMIT" },
-    /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    /* draft-smyshlyaev-tls13-gost-suites */
+    { 0xC103, "TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_L" },
+    { 0xC104, "TLS_GOSTR341112_256_WITH_MAGMA_MGM_L" },
+    { 0xC105, "TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_S" },
+    { 0xC106, "TLS_GOSTR341112_256_WITH_MAGMA_MGM_S" },
+    /* RFC 8701 */
     { 0xCACA, "Reserved (GREASE)" },
 /*
 0xC0,0xAB-FF Unassigned
@@ -1073,7 +1089,7 @@ static const value_string ssl_31_ciphersuite[] = {
     { 0xD002, "TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384" },
     { 0xD003, "TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256" },
     { 0xD005, "TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256" },
-    /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    /* RFC 8701 */
     { 0xDADA, "Reserved (GREASE)" },
     /* http://tools.ietf.org/html/draft-josefsson-salsa20-tls */
     { 0xE410, "TLS_RSA_WITH_ESTREAM_SALSA20_SHA1" },
@@ -1092,7 +1108,7 @@ static const value_string ssl_31_ciphersuite[] = {
     { 0xE41D, "TLS_DHE_PSK_WITH_SALSA20_SHA1" },
     { 0xE41E, "TLS_DHE_RSA_WITH_ESTREAM_SALSA20_SHA1" },
     { 0xE41F, "TLS_DHE_RSA_WITH_SALSA20_SHA1" },
-    /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    /* RFC 8701 */
     { 0xEAEA, "Reserved (GREASE)" },
     { 0xFAFA, "Reserved (GREASE)" },
     /* these from http://www.mozilla.org/projects/
@@ -1100,7 +1116,7 @@ static const value_string ssl_31_ciphersuite[] = {
     { 0xfefe, "SSL_RSA_FIPS_WITH_DES_CBC_SHA"},
     { 0xfeff, "SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA" },
     { 0xffe0, "SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA" },
-    { 0xffe1, "SSL_RSA_FIPS_WITH_DES_CBC_SHA"},
+    { 0xffe1, "SSL_RSA_FIPS_WITH_DES_CBC_SHA" },
     /* note that ciphersuites 0xff00 - 0xffff are private */
     { 0x00, NULL }
 };
@@ -1150,28 +1166,28 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_POST_HANDSHAKE_AUTH, "post_handshake_auth" }, /* RFC 8446 */
     { SSL_HND_HELLO_EXT_SIGNATURE_ALGORITHMS_CERT, "signature_algorithms_cert" }, /* RFC 8446 */
     { SSL_HND_HELLO_EXT_KEY_SHARE, "key_share" }, /* RFC 8446 */
-    { SSL_HND_HELLO_EXT_GREASE_0A0A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_1A1A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_2A2A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    { SSL_HND_HELLO_EXT_GREASE_0A0A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_1A1A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_2A2A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_NPN, "next_protocol_negotiation"}, /* https://tools.ietf.org/id/draft-agl-tls-nextprotoneg-03.html */
-    { SSL_HND_HELLO_EXT_GREASE_3A3A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_4A4A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_5A5A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_6A6A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    { SSL_HND_HELLO_EXT_GREASE_3A3A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_4A4A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_5A5A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_6A6A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_CHANNEL_ID_OLD, "channel_id_old" }, /* http://tools.ietf.org/html/draft-balfanz-tls-channelid-00
        https://twitter.com/ericlaw/status/274237352531083264 */
     { SSL_HND_HELLO_EXT_CHANNEL_ID, "channel_id" }, /* http://tools.ietf.org/html/draft-balfanz-tls-channelid-01
        https://code.google.com/p/chromium/codesearch#chromium/src/net/third_party/nss/ssl/sslt.h&l=209 */
     { SSL_HND_HELLO_EXT_RENEGOTIATION_INFO, "renegotiation_info" }, /* RFC 5746 */
-    { SSL_HND_HELLO_EXT_GREASE_7A7A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_8A8A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_9A9A, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_AAAA, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_BABA, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_CACA, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_DADA, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_EAEA, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
-    { SSL_HND_HELLO_EXT_GREASE_FAFA, "Reserved (GREASE)" }, /* https://tools.ietf.org/html/draft-ietf-tls-grease */
+    { SSL_HND_HELLO_EXT_GREASE_7A7A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_8A8A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_9A9A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_AAAA, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_BABA, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_CACA, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_DADA, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_EAEA, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_GREASE_FAFA, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_QUIC_TRANSPORT_PARAMETERS, "quic_transports_parameters" }, /* https://tools.ietf.org/html/draft-ietf-quic-tls */
     { SSL_HND_HELLO_EXT_ENCRYPTED_SERVER_NAME, "encrypted_server_name" }, /* https://tools.ietf.org/html/draft-ietf-tls-esni-01 */
     { 0, NULL }
@@ -1266,80 +1282,257 @@ const value_string tls_cert_status_type[] = {
 };
 
 /* Generated by tools/make-tls-ct-logids.py
- * Last-Modified Mon, 06 Mar 2017 15:27:22 GMT, 24 entries. */
+ * Last-Modified Mon, 23 Dec 2019 15:15:00 GMT, 83 entries. */
 static const bytes_string ct_logids[] = {
-    { "\xa4\xb9\x09\x90\xb4\x18\x58\x14\x87\xbb\x13\xa2\xcc\x67\x70\x0a"
-      "\x3c\x35\x98\x04\xf9\x1b\xdf\xb8\xe3\x77\xcd\x0e\xc8\x0d\xdc\x10", 32,
-      "Google 'Pilot' log" },
+    { "\xfa\xd4\xc9\x7c\xc4\x9e\xe2\xf8\xac\x85\xc5\xea\x5c\xea\x09\xd0"
+      "\x22\x0d\xbb\xf4\xe4\x9c\x6b\x50\x66\x2f\xf8\x68\xf8\x6b\x8c\x28", 32,
+      "Google 'Argon2017' log" },
+    { "\xa4\x50\x12\x69\x05\x5a\x15\x54\x5e\x62\x11\xab\x37\xbc\x10\x3f"
+      "\x62\xae\x55\x76\xa4\x5e\x4b\x17\x14\x45\x3e\x1b\x22\x10\x6a\x25", 32,
+      "Google 'Argon2018' log" },
+    { "\x63\xf2\xdb\xcd\xe8\x3b\xcc\x2c\xcf\x0b\x72\x84\x27\x57\x6b\x33"
+      "\xa4\x8d\x61\x77\x8f\xbd\x75\xa6\x38\xb1\xc7\x68\x54\x4b\xd8\x8d", 32,
+      "Google 'Argon2019' log" },
+    { "\xb2\x1e\x05\xcc\x8b\xa2\xcd\x8a\x20\x4e\x87\x66\xf9\x2b\xb9\x8a"
+      "\x25\x20\x67\x6b\xda\xfa\x70\xe7\xb2\x49\x53\x2d\xef\x8b\x90\x5e", 32,
+      "Google 'Argon2020' log" },
+    { "\xf6\x5c\x94\x2f\xd1\x77\x30\x22\x14\x54\x18\x08\x30\x94\x56\x8e"
+      "\xe3\x4d\x13\x19\x33\xbf\xdf\x0c\x2f\x20\x0b\xcc\x4e\xf1\x64\xe3", 32,
+      "Google 'Argon2021' log" },
+    { "\x29\x79\xbe\xf0\x9e\x39\x39\x21\xf0\x56\x73\x9f\x63\xa5\x77\xe5"
+      "\xbe\x57\x7d\x9c\x60\x0a\xf8\xf9\x4d\x5d\x26\x5c\x25\x5d\xc7\x84", 32,
+      "Google 'Argon2022' log" },
+    { "\xe8\x3e\xd0\xda\x3e\xf5\x06\x35\x32\xe7\x57\x28\xbc\x89\x6b\xc9"
+      "\x03\xd3\xcb\xd1\x11\x6b\xec\xeb\x69\xe1\x77\x7d\x6d\x06\xbd\x6e", 32,
+      "Google 'Argon2023' log" },
+    { "\xb1\x0c\xd5\x59\xa6\xd6\x78\x46\x81\x1f\x7d\xf9\xa5\x15\x32\x73"
+      "\x9a\xc4\x8d\x70\x3b\xea\x03\x23\xda\x5d\x38\x75\x5b\xc0\xad\x4e", 32,
+      "Google 'Xenon2018' log" },
+    { "\x08\x41\x14\x98\x00\x71\x53\x2c\x16\x19\x04\x60\xbc\xfc\x47\xfd"
+      "\xc2\x65\x3a\xfa\x29\x2c\x72\xb3\x7f\xf8\x63\xae\x29\xcc\xc9\xf0", 32,
+      "Google 'Xenon2019' log" },
+    { "\x07\xb7\x5c\x1b\xe5\x7d\x68\xff\xf1\xb0\xc6\x1d\x23\x15\xc7\xba"
+      "\xe6\x57\x7c\x57\x94\xb7\x6a\xee\xbc\x61\x3a\x1a\x69\xd3\xa2\x1c", 32,
+      "Google 'Xenon2020' log" },
+    { "\x7d\x3e\xf2\xf8\x8f\xff\x88\x55\x68\x24\xc2\xc0\xca\x9e\x52\x89"
+      "\x79\x2b\xc5\x0e\x78\x09\x7f\x2e\x6a\x97\x68\x99\x7e\x22\xf0\xd7", 32,
+      "Google 'Xenon2021' log" },
+    { "\x46\xa5\x55\xeb\x75\xfa\x91\x20\x30\xb5\xa2\x89\x69\xf4\xf3\x7d"
+      "\x11\x2c\x41\x74\xbe\xfd\x49\xb8\x85\xab\xf2\xfc\x70\xfe\x6d\x47", 32,
+      "Google 'Xenon2022' log" },
+    { "\xad\xf7\xbe\xfa\x7c\xff\x10\xc8\x8b\x9d\x3d\x9c\x1e\x3e\x18\x6a"
+      "\xb4\x67\x29\x5d\xcf\xb1\x0c\x24\xca\x85\x86\x34\xeb\xdc\x82\x8a", 32,
+      "Google 'Xenon2023' log" },
     { "\x68\xf6\x98\xf8\x1f\x64\x82\xbe\x3a\x8c\xee\xb9\x28\x1d\x4c\xfc"
       "\x71\x51\x5d\x67\x93\xd4\x44\xd1\x0a\x67\xac\xbb\x4f\x4f\xfb\xc4", 32,
       "Google 'Aviator' log" },
-    { "\x56\x14\x06\x9a\x2f\xd7\xc2\xec\xd3\xf5\xe1\xbd\x44\xb2\x3e\xc7"
-      "\x46\x76\xb9\xbc\x99\x11\x5c\xc0\xef\x94\x98\x55\xd6\x89\xd0\xdd", 32,
-      "DigiCert Log Server" },
+    { "\x29\x3c\x51\x96\x54\xc8\x39\x65\xba\xaa\x50\xfc\x58\x07\xd4\xb7"
+      "\x6f\xbf\x58\x7a\x29\x72\xdc\xa4\xc3\x0c\xf4\xe5\x45\x47\xf4\x78", 32,
+      "Google 'Icarus' log" },
+    { "\xa4\xb9\x09\x90\xb4\x18\x58\x14\x87\xbb\x13\xa2\xcc\x67\x70\x0a"
+      "\x3c\x35\x98\x04\xf9\x1b\xdf\xb8\xe3\x77\xcd\x0e\xc8\x0d\xdc\x10", 32,
+      "Google 'Pilot' log" },
     { "\xee\x4b\xbd\xb7\x75\xce\x60\xba\xe1\x42\x69\x1f\xab\xe1\x9e\x66"
       "\xa3\x0f\x7e\x5f\xb0\x72\xd8\x83\x00\xc4\x7b\x89\x7a\xa8\xfd\xcb", 32,
       "Google 'Rocketeer' log" },
+    { "\xbb\xd9\xdf\xbc\x1f\x8a\x71\xb5\x93\x94\x23\x97\xaa\x92\x7b\x47"
+      "\x38\x57\x95\x0a\xab\x52\xe8\x1a\x90\x96\x64\x36\x8e\x1e\xd1\x85", 32,
+      "Google 'Skydiver' log" },
+    { "\xa8\x99\xd8\x78\x0c\x92\x90\xaa\xf4\x62\xf3\x18\x80\xcc\xfb\xd5"
+      "\x24\x51\xe9\x70\xd0\xfb\xf5\x91\xef\x75\xb0\xd9\x9b\x64\x56\x81", 32,
+      "Google 'Submariner' log" },
+    { "\x1d\x02\x4b\x8e\xb1\x49\x8b\x34\x4d\xfd\x87\xea\x3e\xfc\x09\x96"
+      "\xf7\x50\x6f\x23\x5d\x1d\x49\x70\x61\xa4\x77\x3c\x43\x9c\x25\xfb", 32,
+      "Google 'Daedalus' log" },
+    { "\xb0\xcc\x83\xe5\xa5\xf9\x7d\x6b\xaf\x7c\x09\xcc\x28\x49\x04\x87"
+      "\x2a\xc7\xe8\x8b\x13\x2c\x63\x50\xb7\xc6\xfd\x26\xe1\x6c\x6c\x77", 32,
+      "Google 'Testtube' log" },
+    { "\xc3\xbf\x03\xa7\xe1\xca\x88\x41\xc6\x07\xba\xe3\xff\x42\x70\xfc"
+      "\xa5\xec\x45\xb1\x86\xeb\xbe\x4e\x2c\xf3\xfc\x77\x86\x30\xf5\xf6", 32,
+      "Google 'Crucible' log" },
+    { "\x52\xeb\x4b\x22\x5e\xc8\x96\x97\x48\x50\x67\x5f\x23\xe4\x3b\xc1"
+      "\xd0\x21\xe3\x21\x4c\xe5\x2e\xcd\x5f\xa8\x7c\x20\x3c\xdf\xca\x03", 32,
+      "Google 'Solera2018' log" },
+    { "\x0b\x76\x0e\x9a\x8b\x9a\x68\x2f\x88\x98\x5b\x15\xe9\x47\x50\x1a"
+      "\x56\x44\x6b\xba\x88\x30\x78\x5c\x38\x42\x99\x43\x86\x45\x0c\x00", 32,
+      "Google 'Solera2019' log" },
+    { "\x1f\xc7\x2c\xe5\xa1\xb7\x99\xf4\x00\xc3\x59\xbf\xf9\x6c\xa3\x91"
+      "\x35\x48\xe8\x64\x42\x20\x61\x09\x52\xe9\xba\x17\x74\xf7\xba\xc7", 32,
+      "Google 'Solera2020' log" },
+    { "\xa3\xc9\x98\x45\xe8\x0a\xb7\xce\x00\x15\x7b\x37\x42\xdf\x02\x07"
+      "\xdd\x27\x2b\x2b\x60\x2e\xcf\x98\xee\x2c\x12\xdb\x9c\x5a\xe7\xe7", 32,
+      "Google 'Solera2021' log" },
+    { "\x69\x7a\xaf\xca\x1a\x6b\x53\x6f\xae\x21\x20\x50\x46\xde\xba\xd7"
+      "\xe0\xea\xea\x13\xd2\x43\x2e\x6e\x9d\x8f\xb3\x79\xf2\xb9\xaa\xf3", 32,
+      "Google 'Solera2022' log" },
+    { "\xf9\x7e\x97\xb8\xd3\x3e\xf7\xa1\x59\x02\xa5\x3a\x19\xe1\x79\x90"
+      "\xe5\xdc\x40\x6a\x03\x18\x25\xba\xad\x93\xe9\x8f\x9b\x9c\x69\xcb", 32,
+      "Google 'Solera2023' log" },
+    { "\x1f\xbc\x36\xe0\x02\xed\xe9\x7f\x40\x19\x9e\x86\xb3\x57\x3b\x8a"
+      "\x42\x17\xd8\x01\x87\x74\x6a\xd0\xda\x03\xa0\x60\x54\xd2\x0d\xf4", 32,
+      "Cloudflare 'Nimbus2017' Log" },
+    { "\xdb\x74\xaf\xee\xcb\x29\xec\xb1\xfe\xca\x3e\x71\x6d\x2c\xe5\xb9"
+      "\xaa\xbb\x36\xf7\x84\x71\x83\xc7\x5d\x9d\x4f\x37\xb6\x1f\xbf\x64", 32,
+      "Cloudflare 'Nimbus2018' Log" },
+    { "\x74\x7e\xda\x83\x31\xad\x33\x10\x91\x21\x9c\xce\x25\x4f\x42\x70"
+      "\xc2\xbf\xfd\x5e\x42\x20\x08\xc6\x37\x35\x79\xe6\x10\x7b\xcc\x56", 32,
+      "Cloudflare 'Nimbus2019' Log" },
+    { "\x5e\xa7\x73\xf9\xdf\x56\xc0\xe7\xb5\x36\x48\x7d\xd0\x49\xe0\x32"
+      "\x7a\x91\x9a\x0c\x84\xa1\x12\x12\x84\x18\x75\x96\x81\x71\x45\x58", 32,
+      "Cloudflare 'Nimbus2020' Log" },
+    { "\x44\x94\x65\x2e\xb0\xee\xce\xaf\xc4\x40\x07\xd8\xa8\xfe\x28\xc0"
+      "\xda\xe6\x82\xbe\xd8\xcb\x31\xb5\x3f\xd3\x33\x96\xb5\xb6\x81\xa8", 32,
+      "Cloudflare 'Nimbus2021' Log" },
+    { "\x41\xc8\xca\xb1\xdf\x22\x46\x4a\x10\xc6\xa1\x3a\x09\x42\x87\x5e"
+      "\x4e\x31\x8b\x1b\x03\xeb\xeb\x4b\xc7\x68\xf0\x90\x62\x96\x06\xf6", 32,
+      "Cloudflare 'Nimbus2022' Log" },
+    { "\x7a\x32\x8c\x54\xd8\xb7\x2d\xb6\x20\xea\x38\xe0\x52\x1e\xe9\x84"
+      "\x16\x70\x32\x13\x85\x4d\x3b\xd2\x2b\xc1\x3a\x57\xa3\x52\xeb\x52", 32,
+      "Cloudflare 'Nimbus2023' Log" },
+    { "\x56\x14\x06\x9a\x2f\xd7\xc2\xec\xd3\xf5\xe1\xbd\x44\xb2\x3e\xc7"
+      "\x46\x76\xb9\xbc\x99\x11\x5c\xc0\xef\x94\x98\x55\xd6\x89\xd0\xdd", 32,
+      "DigiCert Log Server" },
+    { "\x87\x75\xbf\xe7\x59\x7c\xf8\x8c\x43\x99\x5f\xbd\xf3\x6e\xff\x56"
+      "\x8d\x47\x56\x36\xff\x4a\xb5\x60\xc1\xb4\xea\xff\x5e\xa0\x83\x0f", 32,
+      "DigiCert Log Server 2" },
+    { "\xc1\x16\x4a\xe0\xa7\x72\xd2\xd4\x39\x2d\xc8\x0a\xc1\x07\x70\xd4"
+      "\xf0\xc4\x9b\xde\x99\x1a\x48\x40\xc1\xfa\x07\x51\x64\xf6\x33\x60", 32,
+      "DigiCert Yeti2018 Log" },
+    { "\xe2\x69\x4b\xae\x26\xe8\xe9\x40\x09\xe8\x86\x1b\xb6\x3b\x83\xd4"
+      "\x3e\xe7\xfe\x74\x88\xfb\xa4\x8f\x28\x93\x01\x9d\xdd\xf1\xdb\xfe", 32,
+      "DigiCert Yeti2019 Log" },
+    { "\xf0\x95\xa4\x59\xf2\x00\xd1\x82\x40\x10\x2d\x2f\x93\x88\x8e\xad"
+      "\x4b\xfe\x1d\x47\xe3\x99\xe1\xd0\x34\xa6\xb0\xa8\xaa\x8e\xb2\x73", 32,
+      "DigiCert Yeti2020 Log" },
+    { "\x5c\xdc\x43\x92\xfe\xe6\xab\x45\x44\xb1\x5e\x9a\xd4\x56\xe6\x10"
+      "\x37\xfb\xd5\xfa\x47\xdc\xa1\x73\x94\xb2\x5e\xe6\xf6\xc7\x0e\xca", 32,
+      "DigiCert Yeti2021 Log" },
+    { "\x22\x45\x45\x07\x59\x55\x24\x56\x96\x3f\xa1\x2f\xf1\xf7\x6d\x86"
+      "\xe0\x23\x26\x63\xad\xc0\x4b\x7f\x5d\xc6\x83\x5c\x6e\xe2\x0f\x02", 32,
+      "DigiCert Yeti2022 Log" },
+    { "\x35\xcf\x19\x1b\xbf\xb1\x6c\x57\xbf\x0f\xad\x4c\x6d\x42\xcb\xbb"
+      "\xb6\x27\x20\x26\x51\xea\x3f\xe1\x2a\xef\xa8\x03\xc3\x3b\xd6\x4c", 32,
+      "DigiCert Yeti2023 Log" },
+    { "\x6f\xf1\x41\xb5\x64\x7e\x42\x22\xf7\xef\x05\x2c\xef\xae\x7c\x21"
+      "\xfd\x60\x8e\x27\xd2\xaf\x5a\x6e\x9f\x4b\x8a\x37\xd6\x63\x3e\xe5", 32,
+      "DigiCert Nessie2018 Log" },
+    { "\xfe\x44\x61\x08\xb1\xd0\x1a\xb7\x8a\x62\xcc\xfe\xab\x6a\xb2\xb2"
+      "\xba\xbf\xf3\xab\xda\xd8\x0a\x4d\x8b\x30\xdf\x2d\x00\x08\x83\x0c", 32,
+      "DigiCert Nessie2019 Log" },
+    { "\xc6\x52\xa0\xec\x48\xce\xb3\xfc\xab\x17\x09\x92\xc4\x3a\x87\x41"
+      "\x33\x09\xe8\x00\x65\xa2\x62\x52\x40\x1b\xa3\x36\x2a\x17\xc5\x65", 32,
+      "DigiCert Nessie2020 Log" },
+    { "\xee\xc0\x95\xee\x8d\x72\x64\x0f\x92\xe3\xc3\xb9\x1b\xc7\x12\xa3"
+      "\x69\x6a\x09\x7b\x4b\x6a\x1a\x14\x38\xe6\x47\xb2\xcb\xed\xc5\xf9", 32,
+      "DigiCert Nessie2021 Log" },
+    { "\x51\xa3\xb0\xf5\xfd\x01\x79\x9c\x56\x6d\xb8\x37\x78\x8f\x0c\xa4"
+      "\x7a\xcc\x1b\x27\xcb\xf7\x9e\x88\x42\x9a\x0d\xfe\xd4\x8b\x05\xe5", 32,
+      "DigiCert Nessie2022 Log" },
+    { "\xb3\x73\x77\x07\xe1\x84\x50\xf8\x63\x86\xd6\x05\xa9\xdc\x11\x09"
+      "\x4a\x79\x2d\xb1\x67\x0c\x0b\x87\xdc\xf0\x03\x0e\x79\x36\xa5\x9a", 32,
+      "DigiCert Nessie2023 Log" },
+    { "\xdd\xeb\x1d\x2b\x7a\x0d\x4f\xa6\x20\x8b\x81\xad\x81\x68\x70\x7e"
+      "\x2e\x8e\x9d\x01\xd5\x5c\x88\x8d\x3d\x11\xc4\xcd\xb6\xec\xbe\xcc", 32,
+      "Symantec log" },
+    { "\xbc\x78\xe1\xdf\xc5\xf6\x3c\x68\x46\x49\x33\x4d\xa1\x0f\xa1\x5f"
+      "\x09\x79\x69\x20\x09\xc0\x81\xb4\xf3\xf6\x91\x7f\x3e\xd9\xb8\xa5", 32,
+      "Symantec 'Vega' log" },
+    { "\xa7\xce\x4a\x4e\x62\x07\xe0\xad\xde\xe5\xfd\xaa\x4b\x1f\x86\x76"
+      "\x87\x67\xb5\xd0\x02\xa5\x5d\x47\x31\x0e\x7e\x67\x0a\x95\xea\xb2", 32,
+      "Symantec Deneb" },
+    { "\x15\x97\x04\x88\xd7\xb9\x97\xa0\x5b\xeb\x52\x51\x2a\xde\xe8\xd2"
+      "\xe8\xb4\xa3\x16\x52\x64\x12\x1a\x9f\xab\xfb\xd5\xf8\x5a\xd9\x3f", 32,
+      "Symantec 'Sirius' log" },
     { "\xcd\xb5\x17\x9b\x7f\xc1\xc0\x46\xfe\xea\x31\x13\x6a\x3f\x8f\x00"
       "\x2e\x61\x82\xfa\xf8\x89\x6f\xec\xc8\xb2\xf5\xb5\xab\x60\x49\x00", 32,
       "Certly.IO log" },
     { "\x74\x61\xb4\xa0\x9c\xfb\x3d\x41\xd7\x51\x59\x57\x5b\x2e\x76\x49"
       "\xa4\x45\xa8\xd2\x77\x09\xb0\xcc\x56\x4a\x64\x82\xb7\xeb\x41\xa3", 32,
       "Izenpe log" },
-    { "\xdd\xeb\x1d\x2b\x7a\x0d\x4f\xa6\x20\x8b\x81\xad\x81\x68\x70\x7e"
-      "\x2e\x8e\x9d\x01\xd5\x5c\x88\x8d\x3d\x11\xc4\xcd\xb6\xec\xbe\xcc", 32,
-      "Symantec log" },
+    { "\x89\x41\x44\x9c\x70\x74\x2e\x06\xb9\xfc\x9c\xe7\xb1\x16\xba\x00"
+      "\x24\xaa\x36\xd5\x9a\xf4\x4f\x02\x04\x40\x4f\x00\xf7\xea\x85\x66", 32,
+      "Izenpe 'Argi' log" },
+    { "\x9e\x4f\xf7\x3d\xc3\xce\x22\x0b\x69\x21\x7c\x89\x9e\x46\x80\x76"
+      "\xab\xf8\xd7\x86\x36\xd5\xcc\xfc\x85\xa3\x1a\x75\x62\x8b\xa8\x8b", 32,
+      "WoSign CT log #1" },
+    { "\x41\xb2\xdc\x2e\x89\xe6\x3c\xe4\xaf\x1b\xa7\xbb\x29\xbf\x68\xc6"
+      "\xde\xe6\xf9\xf1\xcc\x04\x7e\x30\xdf\xfa\xe3\xb3\xba\x25\x92\x63", 32,
+      "WoSign log" },
+    { "\x63\xd0\x00\x60\x26\xdd\xe1\x0b\xb0\x60\x1f\x45\x24\x46\x96\x5e"
+      "\xe2\xb6\xea\x2c\xd4\xfb\xc9\x5a\xc8\x66\xa5\x50\xaf\x90\x75\xb7", 32,
+      "WoSign log 2" },
+    { "\xc9\xcf\x89\x0a\x21\x10\x9c\x66\x6c\xc1\x7a\x3e\xd0\x65\xc9\x30"
+      "\xd0\xe0\x13\x5a\x9f\xeb\xa8\x5a\xf1\x42\x10\xb8\x07\x24\x21\xaa", 32,
+      "GDCA CT log #1" },
+    { "\x92\x4a\x30\xf9\x09\x33\x6f\xf4\x35\xd6\x99\x3a\x10\xac\x75\xa2"
+      "\xc6\x41\x72\x8e\x7f\xc2\xd6\x59\xae\x61\x88\xff\xad\x40\xce\x01", 32,
+      "GDCA CT log #2" },
+    { "\x71\x7e\xa7\x42\x09\x75\xbe\x84\xa2\x72\x35\x53\xf1\x77\x7c\x26"
+      "\xdd\x51\xaf\x4e\x10\x21\x44\x09\x4d\x90\x19\xb4\x62\xfb\x66\x68", 32,
+      "GDCA Log 1" },
+    { "\x14\x30\x8d\x90\xcc\xd0\x30\x13\x50\x05\xc0\x1c\xa5\x26\xd8\x1e"
+      "\x84\xe8\x76\x24\xe3\x9b\x62\x48\xe0\x8f\x72\x4a\xea\x3b\xb4\x2a", 32,
+      "GDCA Log 2" },
+    { "\xdb\x76\xfd\xad\xac\x65\xe7\xd0\x95\x08\x88\x6e\x21\x59\xbd\x8b"
+      "\x90\x35\x2f\x5f\xea\xd3\xe3\xdc\x5e\x22\xeb\x35\x0a\xcc\x7b\x98", 32,
+      "Sectigo 'Dodo' CT log" },
+    { "\x55\x81\xd4\xc2\x16\x90\x36\x01\x4a\xea\x0b\x9b\x57\x3c\x53\xf0"
+      "\xc0\xe4\x38\x78\x70\x25\x08\x17\x2f\xa3\xaa\x1d\x07\x13\xd3\x0c", 32,
+      "Sectigo 'Sabre' CT log" },
+    { "\x6f\x53\x76\xac\x31\xf0\x31\x19\xd8\x99\x00\xa4\x51\x15\xff\x77"
+      "\x15\x1c\x11\xd9\x02\xc1\x00\x29\x06\x8d\xb2\x08\x9a\x37\xd9\x13", 32,
+      "Sectigo 'Mammoth' CT log" },
     { "\xac\x3b\x9a\xed\x7f\xa9\x67\x47\x57\x15\x9e\x6d\x7d\x57\x56\x72"
       "\xf9\xd9\x81\x00\x94\x1e\x9b\xde\xff\xec\xa1\x31\x3b\x75\x78\x2d", 32,
       "Venafi log" },
-    { "\x9e\x4f\xf7\x3d\xc3\xce\x22\x0b\x69\x21\x7c\x89\x9e\x46\x80\x76"
-      "\xab\xf8\xd7\x86\x36\xd5\xcc\xfc\x85\xa3\x1a\x75\x62\x8b\xa8\x8b", 32,
-      "WoSign log" },
-    { "\x41\xb2\xdc\x2e\x89\xe6\x3c\xe4\xaf\x1b\xa7\xbb\x29\xbf\x68\xc6"
-      "\xde\xe6\xf9\xf1\xcc\x04\x7e\x30\xdf\xfa\xe3\xb3\xba\x25\x92\x63", 32,
-      "WoSign ctlog" },
-    { "\xbc\x78\xe1\xdf\xc5\xf6\x3c\x68\x46\x49\x33\x4d\xa1\x0f\xa1\x5f"
-      "\x09\x79\x69\x20\x09\xc0\x81\xb4\xf3\xf6\x91\x7f\x3e\xd9\xb8\xa5", 32,
-      "Symantec VEGA log" },
-    { "\xa5\x77\xac\x9c\xed\x75\x48\xdd\x8f\x02\x5b\x67\xa2\x41\x08\x9d"
-      "\xf8\x6e\x0f\x47\x6e\xc2\x03\xc2\xec\xbe\xdb\x18\x5f\x28\x26\x38", 32,
-      "CNNIC CT log" },
-    { "\xc9\xcf\x89\x0a\x21\x10\x9c\x66\x6c\xc1\x7a\x3e\xd0\x65\xc9\x30"
-      "\xd0\xe0\x13\x5a\x9f\xeb\xa8\x5a\xf1\x42\x10\xb8\x07\x24\x21\xaa", 32,
-      "Wang Shengnan GDCA log" },
-    { "\xa8\x99\xd8\x78\x0c\x92\x90\xaa\xf4\x62\xf3\x18\x80\xcc\xfb\xd5"
-      "\x24\x51\xe9\x70\xd0\xfb\xf5\x91\xef\x75\xb0\xd9\x9b\x64\x56\x81", 32,
-      "Google 'Submariner' log" },
-    { "\x89\x41\x44\x9c\x70\x74\x2e\x06\xb9\xfc\x9c\xe7\xb1\x16\xba\x00"
-      "\x24\xaa\x36\xd5\x9a\xf4\x4f\x02\x04\x40\x4f\x00\xf7\xea\x85\x66", 32,
-      "Izenpe 2nd log" },
-    { "\x34\xbb\x6a\xd6\xc3\xdf\x9c\x03\xee\xa8\xa4\x99\xff\x78\x91\x48"
-      "\x6c\x9d\x5e\x5c\xac\x92\xd0\x1f\x7b\xfd\x1b\xce\x19\xdb\x48\xef", 32,
-      "StartCom CT log" },
-    { "\xbb\xd9\xdf\xbc\x1f\x8a\x71\xb5\x93\x94\x23\x97\xaa\x92\x7b\x47"
-      "\x38\x57\x95\x0a\xab\x52\xe8\x1a\x90\x96\x64\x36\x8e\x1e\xd1\x85", 32,
-      "Google 'Skydiver' log" },
-    { "\x29\x3c\x51\x96\x54\xc8\x39\x65\xba\xaa\x50\xfc\x58\x07\xd4\xb7"
-      "\x6f\xbf\x58\x7a\x29\x72\xdc\xa4\xc3\x0c\xf4\xe5\x45\x47\xf4\x78", 32,
-      "Google 'Icarus' log" },
-    { "\x92\x4a\x30\xf9\x09\x33\x6f\xf4\x35\xd6\x99\x3a\x10\xac\x75\xa2"
-      "\xc6\x41\x72\x8e\x7f\xc2\xd6\x59\xae\x61\x88\xff\xad\x40\xce\x01", 32,
-      "GDCA log" },
-    { "\x1d\x02\x4b\x8e\xb1\x49\x8b\x34\x4d\xfd\x87\xea\x3e\xfc\x09\x96"
-      "\xf7\x50\x6f\x23\x5d\x1d\x49\x70\x61\xa4\x77\x3c\x43\x9c\x25\xfb", 32,
-      "Google 'Daedalus' log" },
-    { "\xe0\x12\x76\x29\xe9\x04\x96\x56\x4e\x3d\x01\x47\x98\x44\x98\xaa"
-      "\x48\xf8\xad\xb1\x66\x00\xeb\x79\x02\xa1\xef\x99\x09\x90\x62\x73", 32,
-      "PuChuangSiDa log" },
     { "\x03\x01\x9d\xf3\xfd\x85\xa6\x9a\x8e\xbd\x1f\xac\xc6\xda\x9b\xa7"
       "\x3e\x46\x97\x74\xfe\x77\xf5\x79\xfc\x5a\x08\xb8\x32\x8c\x1d\x6b", 32,
       "Venafi Gen2 CT log" },
-    { "\x15\x97\x04\x88\xd7\xb9\x97\xa0\x5b\xeb\x52\x51\x2a\xde\xe8\xd2"
-      "\xe8\xb4\xa3\x16\x52\x64\x12\x1a\x9f\xab\xfb\xd5\xf8\x5a\xd9\x3f", 32,
-      "Symantec SIRIUS log" },
-    { "\x87\x75\xbf\xe7\x59\x7c\xf8\x8c\x43\x99\x5f\xbd\xf3\x6e\xff\x56"
-      "\x8d\x47\x56\x36\xff\x4a\xb5\x60\xc1\xb4\xea\xff\x5e\xa0\x83\x0f", 32,
-      "DigiCert CT2 log" },
+    { "\xa5\x77\xac\x9c\xed\x75\x48\xdd\x8f\x02\x5b\x67\xa2\x41\x08\x9d"
+      "\xf8\x6e\x0f\x47\x6e\xc2\x03\xc2\xec\xbe\xdb\x18\x5f\x28\x26\x38", 32,
+      "CNNIC CT log" },
+    { "\x34\xbb\x6a\xd6\xc3\xdf\x9c\x03\xee\xa8\xa4\x99\xff\x78\x91\x48"
+      "\x6c\x9d\x5e\x5c\xac\x92\xd0\x1f\x7b\xfd\x1b\xce\x19\xdb\x48\xef", 32,
+      "StartCom log" },
+    { "\xe0\x12\x76\x29\xe9\x04\x96\x56\x4e\x3d\x01\x47\x98\x44\x98\xaa"
+      "\x48\xf8\xad\xb1\x66\x00\xeb\x79\x02\xa1\xef\x99\x09\x90\x62\x73", 32,
+      "PuChuangSiDa CT log" },
+    { "\x53\x7b\x69\xa3\x56\x43\x35\xa9\xc0\x49\x04\xe3\x95\x93\xb2\xc2"
+      "\x98\xeb\x8d\x7a\x6e\x83\x02\x36\x35\xc6\x27\x24\x8c\xd6\xb4\x40", 32,
+      "Nordu 'flimsy' log" },
+    { "\xaa\xe7\x0b\x7f\x3c\xb8\xd5\x66\xc8\x6c\x2f\x16\x97\x9c\x9f\x44"
+      "\x5f\x69\xab\x0e\xb4\x53\x55\x89\xb2\xf7\x7a\x03\x01\x04\xf3\xcd", 32,
+      "Nordu 'plausible' log" },
+    { "\xcf\x55\xe2\x89\x23\x49\x7c\x34\x0d\x52\x06\xd0\x53\x53\xae\xb2"
+      "\x58\x34\xb5\x2f\x1f\x8d\xc9\x52\x68\x09\xf2\x12\xef\xdd\x7c\xa6", 32,
+      "SHECA CT log 1" },
+    { "\x32\xdc\x59\xc2\xd4\xc4\x19\x68\xd5\x6e\x14\xbc\x61\xac\x8f\x0e"
+      "\x45\xdb\x39\xfa\xf3\xc1\x55\xaa\x42\x52\xf5\x00\x1f\xa0\xc6\x23", 32,
+      "SHECA CT log 2" },
+    { "\x96\x06\xc0\x2c\x69\x00\x33\xaa\x1d\x14\x5f\x59\xc6\xe2\x64\x8d"
+      "\x05\x49\xf0\xdf\x96\xaa\xb8\xdb\x91\x5a\x70\xd8\xec\xf3\x90\xa5", 32,
+      "Akamai CT Log" },
+    { "\x39\x37\x6f\x54\x5f\x7b\x46\x07\xf5\x97\x42\xd7\x68\xcd\x5d\x24"
+      "\x37\xbf\x34\x73\xb6\x53\x4a\x48\x34\xbc\xf7\x2e\x68\x1c\x83\xc9", 32,
+      "Alpha CT Log" },
+    { "\x65\x9b\x33\x50\xf4\x3b\x12\xcc\x5e\xa5\xab\x4e\xc7\x65\xd3\xfd"
+      "\xe6\xc8\x82\x43\x77\x77\x78\xe7\x20\x03\xf9\xeb\x2b\x8c\x31\x29", 32,
+      "Let's Encrypt 'Oak2019' log" },
+    { "\xe7\x12\xf2\xb0\x37\x7e\x1a\x62\xfb\x8e\xc9\x0c\x61\x84\xf1\xea"
+      "\x7b\x37\xcb\x56\x1d\x11\x26\x5b\xf3\xe0\xf3\x4b\xf2\x41\x54\x6e", 32,
+      "Let's Encrypt 'Oak2020' log" },
+    { "\x94\x20\xbc\x1e\x8e\xd5\x8d\x6c\x88\x73\x1f\x82\x8b\x22\x2c\x0d"
+      "\xd1\xda\x4d\x5e\x6c\x4f\x94\x3d\x61\xdb\x4e\x2f\x58\x4d\xa2\xc2", 32,
+      "Let's Encrypt 'Oak2021' log" },
+    { "\xdf\xa5\x5e\xab\x68\x82\x4f\x1f\x6c\xad\xee\xb8\x5f\x4e\x3e\x5a"
+      "\xea\xcd\xa2\x12\xa4\x6a\x5e\x8e\x3b\x12\xc0\x20\x44\x5c\x2a\x73", 32,
+      "Let's Encrypt 'Oak2022' log" },
+    { "\x29\x6a\xfa\x2d\x56\x8b\xca\x0d\x2e\xa8\x44\x95\x6a\xe9\x72\x1f"
+      "\xc3\x5f\xa3\x55\xec\xda\x99\x69\x3a\xaf\xd4\x58\xa7\x1a\xef\xdd", 32,
+      "Let's Encrypt 'Clicky' log" },
+    { "\xb0\xb7\x84\xbc\x81\xc0\xdd\xc4\x75\x44\xe8\x83\xf0\x59\x85\xbb"
+      "\x90\x77\xd1\x34\xd8\xab\x88\xb2\xb2\xe5\x33\x98\x0b\x8e\x50\x8b", 32,
+      "Up In The Air 'Behind the Sofa' log" },
     { NULL, 0, NULL }
 };
 
@@ -1376,7 +1569,7 @@ const value_string compress_certificate_algorithm_vals[] = {
 
 const value_string quic_transport_parameter_id[] = {
     { SSL_HND_QUIC_TP_ORIGINAL_CONNECTION_ID, "original_connection_id" },
-    { SSL_HND_QUIC_TP_IDLE_TIMEOUT, "idle_timeout" },
+    { SSL_HND_QUIC_TP_MAX_IDLE_TIMEOUT, "max_idle_timeout" },
     { SSL_HND_QUIC_TP_STATELESS_RESET_TOKEN, "stateless_reset_token" },
     { SSL_HND_QUIC_TP_MAX_PACKET_SIZE, "max_packet_size" },
     { SSL_HND_QUIC_TP_INITIAL_MAX_DATA, "initial_max_data" },
@@ -1391,6 +1584,8 @@ const value_string quic_transport_parameter_id[] = {
     { SSL_HND_QUIC_TP_PREFERRED_ADDRESS, "preferred_address" },
     { SSL_HND_QUIC_TP_ACTIVE_CONNECTION_ID_LIMIT, "active_connection_id_limit" },
     { SSL_HND_QUIC_TP_MAX_DATAGRAM_FRAME_SIZE, "max_datagram_frame_size" },
+    { SSL_HND_QUIC_TP_LOSS_BITS, "loss_bits" },
+    { SSL_HND_QUIC_TP_MIN_ACK_DELAY, "min_ack_delay" },
     { 0, NULL }
 };
 
@@ -6600,29 +6795,13 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
 {
     guint32 quic_length, parameter_length, next_offset;
 
-    /* https://tools.ietf.org/html/draft-ietf-quic-transport-22#section-18
-    *  uint32 QuicVersion;
-     *  enum {
-     *     original_connection_id(0),
-     *     idle_timeout(1),
-     *     stateless_reset_token(2),
-     *     max_packet_size(3),
-     *     initial_max_data(4),
-     *     initial_max_stream_data_bidi_local(5),
-     *     initial_max_stream_data_bidi_remote(6),
-     *     initial_max_stream_data_uni(7),
-     *     initial_max_streams_bidi(8),
-     *     initial_max_streams_uni(9),
-     *     ack_delay_exponent(10),
-     *     max_ack_delay(11),
-     *     disable_migration(12),
-     *     preferred_address(13),
-     *     active_connection_id_limit(14),
-     *     (65535)
-     *  } TransportParameterId;
+    /* https://tools.ietf.org/html/draft-ietf-quic-transport-25#section-18
+     *
+     * Note: the following structures are not literally defined in the spec,
+     * they instead use an ASCII diagram.
      *
      *   struct {
-     *     TransportParameterId parameter;
+     *     uint16 id;
      *     opaque value<0..2^16-1>;
      *  } TransportParameter;
      *
@@ -6655,7 +6834,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
 
         parameter_tree = proto_tree_add_subtree(tree, tvb, offset, 4, hf->ett.hs_ext_quictp_parameter,
                                                 NULL, "Parameter");
-        /* TransportParameterId parameter */
+        /* TransportParameter ID */
         proto_tree_add_item_ret_uint(parameter_tree, hf->hf.hs_ext_quictp_parameter_type,
                                      tvb, offset, 2, ENC_BIG_ENDIAN, &parameter_type);
         offset += 2;
@@ -6686,8 +6865,8 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                                     tvb, offset, parameter_length, ENC_NA);
                 offset += parameter_length;
             break;
-            case SSL_HND_QUIC_TP_IDLE_TIMEOUT:
-                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_idle_timeout,
+            case SSL_HND_QUIC_TP_MAX_IDLE_TIMEOUT:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_max_idle_timeout,
                                                tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
                 proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u ms", value);
                 offset += len;
@@ -6794,6 +6973,17 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
             break;
             case SSL_HND_QUIC_TP_MAX_DATAGRAM_FRAME_SIZE:
                 proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_max_datagram_frame_size,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_LOSS_BITS:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_loss_bits,
+                                    tvb, offset, 1, ENC_BIG_ENDIAN);
+                offset += 1;
+            break;
+            case SSL_HND_QUIC_TP_MIN_ACK_DELAY:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_min_ack_delay,
                                                tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
                 proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
                 offset += len;
@@ -7020,8 +7210,10 @@ tls_dissect_ocsp_response(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *
                                     response_length, ENC_BIG_ENDIAN);
     proto_item_set_text(ocsp_resp, "OCSP Response");
     ocsp_resp_tree = proto_item_add_subtree(ocsp_resp, hf->ett.ocsp_response);
-    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-    dissect_ocsp_OCSPResponse(FALSE, tvb, offset, &asn1_ctx, ocsp_resp_tree, -1);
+    if (proto_is_protocol_enabled(find_protocol_by_id(proto_ocsp))) {
+        asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+        dissect_ocsp_OCSPResponse(FALSE, tvb, offset, &asn1_ctx, ocsp_resp_tree, -1);
+    }
     offset += response_length;;
 
     return offset;

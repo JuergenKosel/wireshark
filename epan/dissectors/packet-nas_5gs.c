@@ -2111,6 +2111,7 @@ static const value_string nas_5gs_mm_serv_type_vals[] = {
     { 0x03, "Emergency services" },
     { 0x04, "Emergency services fallback" },
     { 0x05, "High priority access" },
+    { 0x06, "Elevated signalling" },
     {    0, NULL } };
 
 
@@ -4299,9 +4300,16 @@ nas_5gs_mm_registration_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
     /* 71    NAS message container    NAS message container 9.11.3.33    O    TLV-E    4-n */
     ELEM_OPT_TLV_E(0x71, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_NAS_MSG_CONT, NULL);
 
+    /* 60    EPS bearer context status    EPS bearer context status 9.11.3.23A    O    TLV    4 */
+    ELEM_OPT_TLV(0x60, NAS_PDU_TYPE_COMMON, DE_EPS_CMN_EPS_BE_CTX_STATUS, NULL);
+
     /* 6E    Requested extended DRX parameters    Extended DRX parameters 9.11.3.60    O    TLV    3 */
+    ELEM_OPT_TLV(0x6E, GSM_A_PDU_TYPE_GM, DE_EXT_DRX_PARAMS, NULL);
+
     /* 6A    T3324 value    GPRS timer 3 9.11.2.5    O    TLV    3 */
     /* 67    UE radio capability ID    UE radio capability ID 9.11.3.68    O    TLV    3-n */
+    /* 35    Requested mapped NSSAI    Mapped NSSAI 9.11.3.31B    O    TLV    3-42 */
+    /* 48    Additional information requested    Additional information requested 9.11.3.12A    O    TLV    3 */
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_5gs_extraneous_data);
 
@@ -4373,10 +4381,15 @@ nas_5gs_mm_registration_accept(tvbuff_t *tvb, proto_tree *tree, packet_info *pin
     ELEM_OPT_TLV(0x51, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_DRX_PARAM, " -  Negotiated DRX parameters");
     /* D-    Non-3GPP NW policies    Non-3GPP NW provided policies 9.11.3.58    O    TV    1 */
     /* 60    EPS bearer context status    EPS bearer context status 9.11.3.59    O    TLV    4 */
+    ELEM_OPT_TLV(0x60, NAS_PDU_TYPE_COMMON, DE_EPS_CMN_EPS_BE_CTX_STATUS, NULL);
     /* 6E    Negotiated extended DRX parameters    Extended DRX parameters 9.11.3.60    O    TLV    3 */
+    ELEM_OPT_TLV(0x6E, GSM_A_PDU_TYPE_GM, DE_EXT_DRX_PARAMS, NULL);
     /* 6C    T3447 value    GPRS timer 3 9.11.2.5    O    TLV    3 */
+    ELEM_OPT_TLV(0x6C, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_3, " - T3447 value");
     /* 6B    T3448 value    GPRS timer 3 9.11.2.4    O    TLV    3 */
+    ELEM_OPT_TLV(0x6B, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_2, " - T3448 value");
     /* 6A    T3324 value    GPRS timer 3 9.11.2.5    O    TLV    3 */
+    ELEM_OPT_TLV(0x6A, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_2, " - T3324 value");
     /* 67    UE radio capability ID    UE radio capability ID 9.11.3.yy    O    TLV    3-n */
     /* 68    UE radio capability ID deletion indication    UE radio capability ID deletion indication 9.11.3.69    O    TV    1 */
 
@@ -4504,7 +4517,7 @@ nas_5gs_mm_dl_nas_transp(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gu
     ELEM_OPT_TLV(0x24, NAS_5GS_PDU_TYPE_COMMON, DE_NAS_5GS_CMN_ADD_INF, NULL);
     /*58    5GMM cause    5GMM cause 9.11.3.2    O    TV    2 */
     ELEM_OPT_TV(0x58, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GMM_CAUSE, NULL);
-    /*37    Back-off timer value    GPRS timer 3 9.10.2.5    O    TLV    3 */
+    /*37    Back-off timer value    GPRS timer 3 9.11.2.5    O    TLV    3 */
     ELEM_OPT_TLV(0x37, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_3, " - Back-off timer value");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_5gs_extraneous_data);
@@ -5093,7 +5106,7 @@ nas_5gs_sm_pdu_ses_est_rej(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _
     /* 5GSM cause    5GSM cause 9.11.4.2    M    V    1 */
     ELEM_MAND_V(NAS_5GS_PDU_TYPE_SM, DE_NAS_5GS_SM_5GSM_CAUSE, " - ESM cause", ei_nas_5gs_missing_mandatory_elemen);
 
-    /*37    Back-off timer value    GPRS timer 3 9.10.2.5    O    TLV    3 */
+    /*37    Back-off timer value    GPRS timer 3 9.11.2.5    O    TLV    3 */
     ELEM_OPT_TLV(0x37, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_3, " - Back-off timer value");
 
     /*F-    Allowed SSC mode    Allowed SSC mode 9.11.4.3    O    TV    1*/
@@ -6807,7 +6820,7 @@ de_nas_5gs_s1_mode_to_n1_mode_nas_transparent_cont(tvbuff_t *tvb, proto_tree *tr
     }
 }
 
-/* 3GPP TS 29.518 chapter 6.1.6.4.2 */
+/* 3GPP TS 29.502 chapter 6.1.6.4.2 and 29.518 chapter 6.1.6.4.2 */
 static int
 dissect_nas_5gs_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
@@ -6830,15 +6843,23 @@ dissect_nas_5gs_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     if (json_parse(json_data, tokens, ret) < 0)
         return 0;
     cur_tok = json_get_object(json_data, tokens, "n1MessageContainer");
-    if (!cur_tok)
-        return 0;
-    n1_msg_class = json_get_string(json_data, cur_tok, "n1MessageClass");
-    if (!n1_msg_class)
-        return 0;
-    cur_tok = json_get_object(json_data, cur_tok, "n1MessageContent");
-    if (!cur_tok)
-        return 0;
-    str = json_get_string(json_data, cur_tok, "contentId");
+    if (cur_tok) {
+        n1_msg_class = json_get_string(json_data, cur_tok, "n1MessageClass");
+        if (!n1_msg_class)
+            return 0;
+        cur_tok = json_get_object(json_data, cur_tok, "n1MessageContent");
+        if (!cur_tok)
+            return 0;
+        str = json_get_string(json_data, cur_tok, "contentId");
+    } else {
+        cur_tok = json_get_object(json_data, tokens, "n1SmMsg");
+        if (cur_tok) {
+            n1_msg_class = "SM";
+            str = json_get_string(json_data, cur_tok, "contentId");
+        } else {
+            return 0;
+        }
+    }
     if (!str || strcmp(str, message_info->content_id))
         return 0;
     if (!strcmp(n1_msg_class, "5GMM") ||

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>405</width>
-    <height>416</height>
+    <height>445</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -201,6 +201,42 @@
         </size>
        </property>
       </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_4">
+     <item>
+      <widget class="QLabel" name="label_6">
+       <property name="text">
+        <string>Window title</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="windowTitle">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Custom window title to be appended to the existing title&lt;br/&gt;%F = file path of the capture file&lt;br/&gt;%P = profile name&lt;br/&gt;%S = a conditional separator (&amp;quot; - &amp;quot;) that only shows when surrounded by variables with values or static text&lt;br/&gt;%V = version info&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_5">
+     <item>
+      <widget class="QLabel" name="label_8">
+       <property name="text">
+        <string>Prepend window title</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="prependWindowTitle">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Custom window title to be prepended to the existing title&lt;br/&gt;%F = file path of the capture file&lt;br/&gt;%P = profile name&lt;br/&gt;%S = a conditional separator (&amp;quot; - &amp;quot;) that only shows when surrounded by variables with values or static text&lt;br/&gt;%V = version info&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>

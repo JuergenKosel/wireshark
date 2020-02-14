@@ -225,7 +225,7 @@ static int hf_geoip_dst_longitude = -1;
 static gint ett_ip = -1;
 static gint ett_ip_dsfield = -1;
 static gint ett_ip_tos = -1;
-static gint ett_ip_off = -1;
+static gint ett_ip_flags = -1;
 static gint ett_ip_options = -1;
 static gint ett_ip_option_eool = -1;
 static gint ett_ip_option_nop = -1;
@@ -320,12 +320,6 @@ const value_string ip_version_vals[] = {
 
 /* Minimum IP header length. */
 #define IPH_MIN_LEN             20
-
-/* Width (in bits) of the fragment offset IP header field */
-#define IP_OFFSET_WIDTH         13
-
-/* Width (in bits) of the flags IP header field */
-#define IP_FLAGS_WIDTH          3
 
 /* IP flags. */
 #define IP_RF                   0x8000      /* Flag: "Reserved bit"     */
@@ -1865,20 +1859,6 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
   proto_item *item = NULL, *ttl_item;
   guint16 ttl_valid;
 
-  static const int * ip_flags[] = {
-      &hf_ip_flags_rf,
-      &hf_ip_flags_df,
-      &hf_ip_flags_mf,
-      NULL
-  };
-  /* XXX do we realy want decoding of an april fools joke? */
-  static const int * ip_flags_evil[] = {
-      &hf_ip_flags_sf,
-      &hf_ip_flags_df,
-      &hf_ip_flags_mf,
-      NULL
-  };
-
   tree = parent_tree;
   iph = wmem_new0(wmem_packet_scope(), ws_ip4);
 
@@ -2028,16 +2008,29 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
   iph->ip_off = tvb_get_ntohs(tvb, offset + 6);
 
   if (ip_security_flag) {
+    /* RFC 3514 - The Security Flag in the IPv4 Header (April Fool's joke) */
     proto_item *sf;
+    const int *ip_flags_evil[] = {
+        &hf_ip_flags_sf,
+        &hf_ip_flags_df,
+        &hf_ip_flags_mf,
+        NULL
+    };
 
     sf = proto_tree_add_bitmask_with_flags(ip_tree, tvb, offset + 6, hf_ip_flags,
-        ett_ip_off, ip_flags_evil, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_TFS | BMT_NO_INT);
+        ett_ip_flags, ip_flags_evil, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_TFS | BMT_NO_INT);
     if (iph->ip_off & IP_RF) {
         expert_add_info(pinfo, sf, &ei_ip_evil_packet);
     }
   } else {
+    const int *ip_flags[] = {
+        &hf_ip_flags_rf,
+        &hf_ip_flags_df,
+        &hf_ip_flags_mf,
+        NULL
+    };
     proto_tree_add_bitmask_with_flags(ip_tree, tvb, offset + 6, hf_ip_flags,
-        ett_ip_off, ip_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_TFS | BMT_NO_INT);
+        ett_ip_flags, ip_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_TFS | BMT_NO_INT);
   }
 
   proto_tree_add_uint(ip_tree, hf_ip_frag_offset, tvb, offset + 6, 2, (iph->ip_off & IP_OFFSET)*8);
@@ -2429,12 +2422,6 @@ dissect_ip_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
 void
 proto_register_ip(void)
 {
-#define ARG_TO_STR(ARG) #ARG
-#define FLAGS_OFFSET_WIDTH_MSG(WIDTH) \
-  "Flags (" ARG_TO_STR(WIDTH) " bits)"
-#define FRAG_OFFSET_WIDTH_MSG(WIDTH) \
-  "Fragment offset (" ARG_TO_STR(WIDTH) " bits)"
-
   static hf_register_info hf[] = {
     { &hf_ip_version,
       { "Version", "ip.version", FT_UINT8, BASE_DEC,
@@ -2583,28 +2570,28 @@ proto_register_ip(void)
         FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
     { &hf_ip_flags,
-      { "Flags", "ip.flags", FT_UINT16, BASE_HEX,
-        NULL, 0x0, FLAGS_OFFSET_WIDTH_MSG(IP_FLAGS_WIDTH), HFILL }},
+      { "Flags", "ip.flags", FT_UINT8, BASE_HEX,
+        NULL, 0x0, "Flags (3 bits)", HFILL }},
 
     { &hf_ip_flags_sf,
-      { "Security flag", "ip.flags.sf", FT_BOOLEAN, 16,
-        TFS(&flags_sf_set_evil), 0x8000, "Security flag (RFC 3514)", HFILL }},
+      { "Security flag", "ip.flags.sf", FT_BOOLEAN, 8,
+        TFS(&flags_sf_set_evil), 0x80, "Security flag (RFC 3514)", HFILL }},
 
     { &hf_ip_flags_rf,
-      { "Reserved bit", "ip.flags.rb", FT_BOOLEAN, 16,
-        TFS(&tfs_set_notset), 0x8000, NULL, HFILL }},
+      { "Reserved bit", "ip.flags.rb", FT_BOOLEAN, 8,
+        TFS(&tfs_set_notset), 0x80, NULL, HFILL }},
 
     { &hf_ip_flags_df,
-      { "Don't fragment", "ip.flags.df", FT_BOOLEAN, 16,
-        TFS(&tfs_set_notset), 0x4000, NULL, HFILL }},
+      { "Don't fragment", "ip.flags.df", FT_BOOLEAN, 8,
+        TFS(&tfs_set_notset), 0x40, NULL, HFILL }},
 
     { &hf_ip_flags_mf,
-      { "More fragments", "ip.flags.mf", FT_BOOLEAN, 16,
-        TFS(&tfs_set_notset), 0x2000, NULL, HFILL }},
+      { "More fragments", "ip.flags.mf", FT_BOOLEAN, 8,
+        TFS(&tfs_set_notset), 0x20, NULL, HFILL }},
 
     { &hf_ip_frag_offset,
       { "Fragment offset", "ip.frag_offset", FT_UINT16, BASE_DEC,
-        NULL, 0x1fff, FRAG_OFFSET_WIDTH_MSG(IP_OFFSET_WIDTH), HFILL }},
+        NULL, 0x0, "Fragment offset (13 bits)", HFILL }},
 
     { &hf_ip_ttl,
       { "Time to live", "ip.ttl", FT_UINT8, BASE_DEC,
@@ -2879,7 +2866,7 @@ proto_register_ip(void)
     &ett_ip,
     &ett_ip_dsfield,
     &ett_ip_tos,
-    &ett_ip_off,
+    &ett_ip_flags,
     &ett_ip_options,
     &ett_ip_option_eool,
     &ett_ip_option_nop,

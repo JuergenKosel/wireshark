@@ -321,6 +321,14 @@
         <translation>LE ACL 全パケット</translation>
     </message>
     <message>
+        <source>LE ISO MTU</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>LE ISO Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Inquiry Mode</source>
         <translation>問い合わせモード</translation>
     </message>
@@ -2279,32 +2287,20 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished">種別</translation>
     </message>
     <message>
-        <source>Mac Address</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Name</source>
         <translation type="unfinished">名前</translation>
+    </message>
+    <message>
+        <source>Address</source>
+        <translation type="unfinished">アドレス</translation>
     </message>
     <message>
         <source>All entries</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>IPv4 Hosts</source>
+        <source>Hosts</source>
         <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>IPv4 Hash Table</source>
-        <translation type="unfinished">IPv4ハッシュ表</translation>
-    </message>
-    <message>
-        <source>IPv6 Hosts</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>IPv6 Hash Table</source>
-        <translation type="unfinished">IPv6ハッシュ表</translation>
     </message>
     <message>
         <source>Ethernet Addresses</source>
@@ -3789,14 +3785,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>All packets</source>
-        <translation type="vanished">すべてのパケット</translation>
-    </message>
-    <message>
-        <source>TCP errors</source>
-        <translation type="vanished">TCPエラー</translation>
-    </message>
-    <message>
         <source>All Packets</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4359,10 +4347,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished">フレーム</translation>
     </message>
     <message>
-        <source>No interfaces found</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Wired</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4415,11 +4399,23 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&lt;p&gt;Local interfaces are unavailable because no capture driver is installed.&lt;/p&gt;&lt;p&gt;You can fix this by installing &lt;a href=&quot;https://nmap.org/npcap/&quot;&gt;Npcap&lt;/a&gt; or &lt;a href=&quot;https://www.winpcap.org/install/default.htm&quot;&gt;WinPcap&lt;/a&gt;.&lt;/p&gt;</source>
+        <source>&lt;p&gt;Local interfaces are unavailable because no packet capture driver is installed.&lt;/p&gt;&lt;p&gt;You can fix this by installing &lt;a href=&quot;https://nmap.org/npcap/&quot;&gt;Npcap&lt;/a&gt; or &lt;a href=&quot;https://www.winpcap.org/install/default.htm&quot;&gt;WinPcap&lt;/a&gt;.&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&lt;p&gt;Local interfaces are unavailable due to insufficient permissions.&lt;/p&gt;&lt;p&gt;You can fix this by &lt;a href=&quot;file://%1&quot;&gt;installing ChmodBPF&lt;/a&gt;.&lt;/p&gt;</source>
+        <source>&lt;p&gt;Local interfaces are unavailable because the packet capture driver isn&apos;t loaded.&lt;/p&gt;&lt;p&gt;You can fix this by running &lt;pre&gt;net start npcap&lt;/pre&gt; if you have Npcap installed or &lt;pre&gt;net start npf&lt;/pre&gt; if you have WinPcap installed. Both commands must be run as Administrator.&lt;/p&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;p&gt;You don&apos;t have permission to capture on local interfaces.&lt;/p&gt;&lt;p&gt;You can fix this by &lt;a href=&quot;file://%1&quot;&gt;installing ChmodBPF&lt;/a&gt;.&lt;/p&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You don&apos;t have permission to capture on local interfaces.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No interfaces found.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10692,10 +10688,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%1. Press &quot;G&quot; to go to packet %2</source>
-        <translation type="vanished">%1. &quot;G&quot; を押してパケット %2 へ移動</translation>
-    </message>
-    <message>
         <source>Unknown</source>
         <translation>不明</translation>
     </message>
@@ -13440,25 +13432,6 @@ a:hover {
     <message>
         <source>Unable to set FCS validation behavior.</source>
         <translation>FCSの確認動作を設定できません</translation>
-    </message>
-</context>
-<context>
-    <name>WiresharkApplication</name>
-    <message>
-        <source>Dell Backup and Recovery Found</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>You appear to be running Dell Backup and Recovery 1.8.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>DBAR can make many applications crash &lt;a href=&quot;https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12036&quot;&gt;including Wireshark&lt;/a&gt;.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Offending DLL: %1</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

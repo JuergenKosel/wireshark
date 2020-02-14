@@ -20,6 +20,7 @@
 %bcond_with	guides
 %bcond_with	brotli
 %bcond_with	zstd
+%bcond_with	ilbc
 
 # Set at most one of these two:
 # Note that setcap requires rpmbuild 4.7.0 or later.
@@ -241,6 +242,8 @@ BuildRequires:	libQt5PrintSupport-devel
 Requires:	libQt5PrintSupport5
 BuildRequires:	libqt5-qtmultimedia-devel
 Requires:	libQt5Multimedia5
+BuildRequires:	libqt5-linguist-devel
+Requires:	libQt5Svg5
 # Need this for SUSE's suse_update_desktop_file macro
 BuildRequires:	update-desktop-files
 %else
@@ -249,6 +252,8 @@ Requires:	qt5-qtbase
 Requires:	qt5-qtbase-gui
 BuildRequires:	qt5-qtmultimedia-devel
 Requires:	qt5-qtmultimedia
+BuildRequires:	qt5-linguist
+Requires:	qt5-qtsvg
 %endif
 Requires:	xdg-utils
 Requires:	hicolor-icon-theme
@@ -339,6 +344,11 @@ cmake3 \
   -DDISABLE_WERROR=ON \
 %if %{with ninja}
   -G Ninja \
+%endif
+%if %{with ilbc}
+  -DENABLE_ILBC=ON \
+%else
+  -DENABLE_ILBC=OFF \
 %endif
 
 %if %{with ninja}
@@ -497,6 +507,9 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %{_libdir}/pkgconfig/wireshark.pc
 
 %changelog
+* Sun Jan 19 2020 Jiri Novak
+- Added ilbc codec as an option
+
 * Fri Nov 22 2019 Gerald Combs
 - c-ares is a required package
 

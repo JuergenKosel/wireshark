@@ -225,6 +225,7 @@ PacketList::PacketList(QWidget *parent) :
     mouse_pressed_at_(QModelIndex()),
     capture_in_progress_(false),
     tail_timer_id_(0),
+    tail_at_end_(0),
     rows_inserted_(false),
     columns_changed_(false),
     set_column_visibility_(false),
@@ -706,6 +707,7 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     ctx_menu->addSeparator();
     ctx_menu->addMenu(&proto_prefs_menu_);
     action = ctx_menu->addAction(tr("Decode As" UTF8_HORIZONTAL_ELLIPSIS));
+    action->setProperty("create_new", QVariant(true));
     connect(action, &QAction::triggered, this, &PacketList::ctxDecodeAsDialog);
     // "Print" not ported intentionally
     action = window()->findChild<QAction *>("actionViewShowPacketInNewWindow");

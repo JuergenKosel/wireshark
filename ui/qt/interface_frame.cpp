@@ -18,6 +18,7 @@
 #endif
 
 #include "ui/qt/interface_frame.h"
+#include <ui/qt/simple_dialog.h>
 #include <ui/qt/wireshark_application.h>
 
 #include <ui/qt/models/interface_tree_model.h>
@@ -28,13 +29,16 @@
 
 #include "extcap.h"
 
+#include <ui/recent.h>
 #include <wsutil/utf8_entities.h>
 
+#include <QDesktopServices>
 #include <QFrame>
-#include <QPushButton>
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QItemSelection>
+#include <QLabel>
+#include <QPushButton>
+#include <QUrl>
 
 #include <epan/prefs.h>
 
@@ -43,6 +47,7 @@
 #ifdef HAVE_LIBPCAP
 const int stat_update_interval_ = 1000; // ms
 #endif
+const char *no_capture_link = "#no_capture";
 
 InterfaceFrame::InterfaceFrame(QWidget * parent)
 : QFrame(parent),
@@ -320,8 +325,15 @@ void InterfaceFrame::resetInterfaceTreeDisplay()
         }
     }
 
-    if (!ui->warningLabel->text().isEmpty())
+    // XXX Should we have a separate recent pref for each message?
+    if (!ui->warningLabel->text().isEmpty() && recent.sys_warn_if_no_capture)
     {
+        QString warning_text = ui->warningLabel->text();
+        warning_text.append(QString("<p><a href=\"%1\">%2</a></p>")
+                            .arg(no_capture_link)
+                            .arg(SimpleDialog::dontShowThisAgain()));
+        ui->warningLabel->setText(warning_text);
+
         ui->warningLabel->show();
     }
 #endif // HAVE_LIBPCAP
@@ -472,6 +484,16 @@ void InterfaceFrame::showContextMenu(QPoint pos)
 
     ctx_menu.addAction(tr("Start capture"), this, SIGNAL(startCapture()));
     ctx_menu.exec(ui->interfaceTree->mapToGlobal(pos));
+}
+
+void InterfaceFrame::on_warningLabel_linkActivated(const QString &link)
+{
+    if (link.compare(no_capture_link) == 0) {
+        recent.sys_warn_if_no_capture = FALSE;
+        resetInterfaceTreeDisplay();
+    } else {
+        QDesktopServices::openUrl(QUrl(link));
+    }
 }
 
 /*

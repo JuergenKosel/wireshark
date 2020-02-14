@@ -36,6 +36,9 @@
 #include <epan/tap.h>
 #include <epan/export_object.h>
 #include <epan/proto_data.h>
+#include <epan/reassemble.h>
+
+#include "packet-tftp.h"
 
 void proto_register_tftp(void);
 
@@ -49,11 +52,19 @@ typedef struct _tftp_conv_info_t {
   /* Sequence analysis */
   guint32      next_block_num;
   gboolean     blocks_missing;
-
-  /* When exporting file object, build up list of data blocks here */
-  guint32      next_tap_block_num;
-  GSList       *block_list;
   guint        file_length;
+  gboolean     last_package_available;
+
+  /* When exporting file object, build data here */
+  guint32      next_tap_block_num;
+  guint8       *payload_data;
+
+  /* Assembly of fragments */
+  guint32      reassembly_id;
+  guint32      last_reassembly_package;
+
+  /* Is the TFTP payload a regular file, or a frame of a higher protocol */
+  gboolean     is_simple_file;
 } tftp_conv_info_t;
 
 
@@ -70,8 +81,23 @@ static int hf_tftp_option_name = -1;
 static int hf_tftp_option_value = -1;
 static int hf_tftp_data = -1;
 
+static int hf_tftp_fragments = -1;
+static int hf_tftp_fragment = -1;
+static int hf_tftp_fragment_overlap = -1;
+static int hf_tftp_fragment_overlap_conflicts = -1;
+static int hf_tftp_fragment_multiple_tails = -1;
+static int hf_tftp_fragment_too_long_fragment = -1;
+static int hf_tftp_fragment_error = -1;
+static int hf_tftp_fragment_count = -1;
+static int hf_tftp_reassembled_in = -1;
+static int hf_tftp_reassembled_length = -1;
+static int hf_tftp_reassembled_data = -1;
+
 static gint ett_tftp = -1;
 static gint ett_tftp_option = -1;
+
+static gint ett_tftp_fragment = -1;
+static gint ett_tftp_fragments = -1;
 
 static expert_field ei_tftp_error = EI_INIT;
 static expert_field ei_tftp_likely_tsize_probe = EI_INIT;
@@ -80,8 +106,29 @@ static expert_field ei_tftp_blocknum_will_wrap = EI_INIT;
 
 #define LIKELY_TSIZE_PROBE_KEY 0
 #define FULL_BLOCKNUM_KEY 1
+#define CONVERSATION_KEY 2
 
 static dissector_handle_t tftp_handle;
+
+static heur_dissector_list_t heur_subdissector_list;
+static reassembly_table tftp_reassembly_table;
+
+static const fragment_items tftp_frag_items = {
+  &ett_tftp_fragment,
+  &ett_tftp_fragments,
+  &hf_tftp_fragments,
+  &hf_tftp_fragment,
+  &hf_tftp_fragment_overlap,
+  &hf_tftp_fragment_overlap_conflicts,
+  &hf_tftp_fragment_multiple_tails,
+  &hf_tftp_fragment_too_long_fragment,
+  &hf_tftp_fragment_error,
+  &hf_tftp_fragment_count,
+  &hf_tftp_reassembled_in,
+  &hf_tftp_reassembled_length,
+  &hf_tftp_reassembled_data,
+  "TFTP fragments"
+};
 
 #define UDP_PORT_TFTP_RANGE    "69"
 
@@ -141,19 +188,14 @@ static const value_string tftp_error_code_vals[] = {
 
 static int tftp_eo_tap = -1;
 
-/* A list of block list entries to delete from cleanup callback when window is closed. */
-typedef struct eo_info_dynamic_t {
-    gchar  *filename;
-    GSList *block_list;
-} eo_info_dynamic_t;
-static GSList *s_dynamic_info_list = NULL;
+/* Preference setting - defragment fragmented TFTP files */
+static gboolean tftp_defragment = FALSE;
 
 /* Used for TFTP Export Object feature */
 typedef struct _tftp_eo_t {
-	guint32  pkt_num;
-	gchar    *filename;
-	guint32  payload_len;
-	GSList   *block_list;
+  gchar    *filename;
+  guint32  payload_len;
+  guint8   *payload_data;
 } tftp_eo_t;
 
 /* Tap function */
@@ -164,10 +206,6 @@ tftp_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const
   const tftp_eo_t *eo_info = (const tftp_eo_t *)data;
   export_object_entry_t *entry;
 
-  GSList *block_iterator;
-  guint  payload_data_offset = 0;
-  eo_info_dynamic_t *dynamic_info;
-
   /* These values will be freed when the Export Object window is closed. */
   entry = g_new(export_object_entry_t, 1);
 
@@ -177,61 +215,21 @@ tftp_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const
   /* Copy filename */
   entry->filename = g_path_get_basename(eo_info->filename);
 
-  /* Iterate over list of blocks and concatenate into contiguous memory */
+  /* Free up unnecessary memory */
+  g_free(eo_info->filename);
+
+  /* Pass out the contigous data and length already accumulated. */
   entry->payload_len = eo_info->payload_len;
-  entry->payload_data = (guint8 *)g_try_malloc((gsize)entry->payload_len);
-  for (block_iterator = eo_info->block_list; block_iterator; block_iterator = block_iterator->next) {
-    GByteArray *block = (GByteArray*)block_iterator->data;
-    memcpy(entry->payload_data + payload_data_offset,
-               block->data,
-               block->len);
-    payload_data_offset += block->len;
-  }
+  entry->payload_data = eo_info->payload_data;
 
   /* These 2 fields not used */
   entry->hostname = NULL;
   entry->content_type = NULL;
 
-  /* Add to list of entries to be cleaned up.  eo_info is only packet scope, so
-     need to make list only of block list now */
-  dynamic_info = g_new(eo_info_dynamic_t, 1);
-  dynamic_info->filename = eo_info->filename;
-  dynamic_info->block_list = eo_info->block_list;
-  s_dynamic_info_list = g_slist_append(s_dynamic_info_list, (eo_info_dynamic_t*)dynamic_info);
-
   /* Pass out entry to the GUI */
   object_list->add_entry(object_list->gui_data, entry);
 
   return TAP_PACKET_REDRAW; /* State changed - window should be redrawn */
-}
-
-/* Clean up the stored parts of a single tapped entry */
-static void cleanup_tftp_eo(eo_info_dynamic_t *dynamic_info)
-{
-  GSList *block_iterator;
-  /* Free the filename */
-  g_free(dynamic_info->filename);
-
-  /* Walk list of block items */
-  for (block_iterator = dynamic_info->block_list; block_iterator; block_iterator = block_iterator->next) {
-    GByteArray *block = (GByteArray*)(block_iterator->data);
-    /* Free block data and the block itself */
-    g_byte_array_free(block, TRUE);
-  }
-}
-
-/* Callback for freeing up data supplied with taps.  The taps themselves only have
-   packet scope, so only store/free dynamic memory pointers */
-static void tftp_eo_cleanup(void)
-{
-  /* Cleanup each entry in the global list */
-  GSList *dynamic_iterator;
-  for (dynamic_iterator = s_dynamic_info_list; dynamic_iterator; dynamic_iterator = dynamic_iterator->next) {
-    eo_info_dynamic_t *dynamic_info = (eo_info_dynamic_t*)dynamic_iterator->data;
-    cleanup_tftp_eo(dynamic_info);
-  }
-  /* List is empty again */
-  s_dynamic_info_list = NULL;
 }
 
 static void
@@ -281,20 +279,6 @@ tftp_dissect_options(tvbuff_t *tvb, packet_info *pinfo, int offset,
       tftp_info->tsize_requested = TRUE;
     }
   }
-}
-
-static void cleanup_tftp_blocks(tftp_conv_info_t *conv)
-{
-    GSList *block_iterator;
-
-    /* Walk list of block items */
-    for (block_iterator = conv->block_list; block_iterator; block_iterator = block_iterator->next) {
-        GByteArray *block = (GByteArray*)block_iterator->data;
-        /* Free block data and the block itself */
-        g_byte_array_free(block, TRUE);
-    }
-    conv->block_list = NULL;
-    conv->file_length = 0;
 }
 
 static gboolean
@@ -357,12 +341,19 @@ static void dissect_tftp_message(tftp_conv_info_t *tftp_info,
   proto_item *blocknum_item;
   gint        offset    = 0;
   guint16     opcode;
+  const char  *filename = NULL;
   guint16     bytes;
   guint32     blocknum;
   guint       i1;
   guint16     error;
-  tvbuff_t    *data_tvb = NULL;
   gboolean    likely_tsize_probe;
+  gboolean    is_last_package;
+  gboolean    is_fragmented;
+  tvbuff_t    *next_tvb;
+  fragment_head *tftpfd_head = NULL;
+  heur_dtbl_entry_t *hdtbl_entry;
+  struct tftpinfo tftpinfo;
+  guint32     payload_data_offset;
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "TFTP");
 
@@ -381,16 +372,13 @@ static void dissect_tftp_message(tftp_conv_info_t *tftp_info,
      for other messages, we add the filenames from the conversation */
   if (opcode!=TFTP_RRQ && opcode!=TFTP_WRQ) {
     if (tftp_info->source_file) {
-      ti = proto_tree_add_string(tftp_tree, hf_tftp_source_file, tvb,
-          0, 0, tftp_info->source_file);
-      proto_item_set_generated(ti);
+      filename = tftp_info->source_file;
+    } else if (tftp_info->destination_file) {
+      filename = tftp_info->destination_file;
     }
 
-    if (tftp_info->destination_file) {
-      ti = proto_tree_add_string(tftp_tree, hf_tftp_destination_file, tvb,
-          0, 0, tftp_info->destination_file);
-      proto_item_set_generated(ti);
-    }
+    ti = proto_tree_add_string(tftp_tree, hf_tftp_destination_file, tvb, 0, 0, filename);
+    proto_item_set_generated(ti);
   }
 
   switch (opcode) {
@@ -457,6 +445,7 @@ static void dissect_tftp_message(tftp_conv_info_t *tftp_info,
     proto_item_set_len(root_ti, 4);
     blocknum_item = proto_tree_add_item_ret_uint(tftp_tree, hf_tftp_blocknum, tvb, offset, 2,
                                                  ENC_BIG_ENDIAN, &blocknum);
+    offset += 2;
 
     if (!PINFO_FD_VISITED(pinfo)) {
       blocknum = determine_full_blocknum(blocknum, tftp_info);
@@ -470,8 +459,12 @@ static void dissect_tftp_message(tftp_conv_info_t *tftp_info,
                              blocknum);
     proto_item_set_generated(ti);
 
+    bytes = tvb_reported_length_remaining(tvb, offset);
+    is_last_package = (bytes < tftp_info->blocksize);
+
     /* Sequence analysis on blocknums (first pass only) */
     if (!PINFO_FD_VISITED(pinfo)) {
+      tftp_info->last_package_available |= is_last_package;
       if (blocknum > tftp_info->next_block_num) {
         /* There is a gap.  Don't try to recover from this. */
         tftp_info->next_block_num = blocknum + 1;
@@ -481,88 +474,108 @@ static void dissect_tftp_message(tftp_conv_info_t *tftp_info,
       else if (blocknum == tftp_info->next_block_num) {
         /* OK, inc what we expect next */
         tftp_info->next_block_num++;
+        tftp_info->file_length += bytes;
       }
     }
-    offset += 2;
 
     /* Show number of bytes in this block, and whether it is the end of the file */
-    bytes = tvb_reported_length_remaining(tvb, offset);
     col_append_fstr(pinfo->cinfo, COL_INFO, ", Block: %u%s",
                     blocknum,
-                    (bytes < tftp_info->blocksize)?" (last)":"" );
+                    is_last_package ?" (last)":"" );
 
-    /* Show data in tree */
-    if (bytes > 0) {
-      data_tvb = tvb_new_subset_length_caplen(tvb, offset, -1, bytes);
-      call_data_dissector(data_tvb, pinfo, tree);
+    is_fragmented = !(is_last_package && blocknum == 1);
+    if (is_fragmented) {
+      /* If tftp_defragment is on, this is a fragment,
+       * then just add the fragment to the hashtable.
+       */
+      if (tftp_defragment && (pinfo->num <= tftp_info->last_reassembly_package)) {
+        tftpfd_head = fragment_add_seq_check(&tftp_reassembly_table, tvb, offset, pinfo,
+                                             tftp_info->reassembly_id, /* id */
+                                             NULL,                     /* data */
+                                             blocknum - 1,
+                                             bytes, !is_last_package);
+
+        next_tvb = process_reassembled_data(tvb, offset, pinfo,
+                                            "Reassembled TFTP", tftpfd_head,
+                                            &tftp_frag_items, NULL, tftp_tree);
+      } else {
+        next_tvb = NULL;
+      }
+    } else {
+      next_tvb = tvb_new_subset_remaining(tvb, offset);
     }
+
+    if (next_tvb == NULL) {
+      /* Reassembly continues */
+      call_data_dissector(tvb_new_subset_remaining(tvb, offset), pinfo, tree);
+    } else {
+      /* Reassembly completed successfully */
+      tftp_info->last_reassembly_package = pinfo->num;
+      if (tvb_reported_length(next_tvb) > 0) {
+        tftpinfo.filename = filename;
+        /* Is the payload recognised by another dissector? */
+        if (!dissector_try_heuristic(heur_subdissector_list, next_tvb, pinfo,
+                                     tree, &hdtbl_entry, &tftpinfo)) {
+          call_data_dissector(next_tvb, pinfo, tree);
+        } else {
+          tftp_info->is_simple_file = FALSE;
+        }
+      }
+    }
+
     if (blocknum == 0xFFFF && bytes == tftp_info->blocksize) {
        /* There will be a block 0x10000. */
        expert_add_info(pinfo, blocknum_item, &ei_tftp_blocknum_will_wrap);
     }
 
     /* If Export Object tap is listening, need to accumulate blocks info list
-       to send to tap. But if already know there are blocks missing, there is no
-       point in trying. */
-    if (have_tap_listener(tftp_eo_tap) && !tftp_info->blocks_missing) {
-      if (blocknum == 1) {
-        /* Reset data for this conversation, freeing any accumulated blocks! */
-        cleanup_tftp_blocks(tftp_info);
-        tftp_info->next_tap_block_num = 1;
+       to send to tap. But we have a number of conditions for this.
+       */
+    if (have_tap_listener(tftp_eo_tap) &&
+        tftp_info->is_simple_file            /* This is a simple file */
+        && filename != NULL                  /* There is a file name */
+        && !tftp_info->blocks_missing        /* No missing blocks */
+        && tftp_info->last_package_available /* Last package known */
+    ) {
+
+      if (blocknum == 1 && !tftp_info->payload_data) {
+          tftp_info->payload_data = (guint8 *)g_try_malloc((gsize)tftp_info->file_length);
       }
 
-      if (blocknum != tftp_info->next_tap_block_num) {
-        /* Ignore.  Could be missing frames, or just clicking previous frame */
+      if (tftp_info->payload_data == NULL ||
+          (blocknum != tftp_info->next_tap_block_num)) {
+        /* Ignore. Not enough memory or just clicking previous frame */
         break;
       }
+      payload_data_offset =
+          (tftp_info->next_tap_block_num - 1) * tftp_info->blocksize;
 
-      if (bytes > 0) {
-        /* Create a block for this block */
-        GByteArray *block = g_byte_array_sized_new(bytes);
-        block->len = bytes;
-        tvb_memcpy(data_tvb, block->data, 0, bytes);
-
-        /* Add to the end of the list (does involve traversing whole list..) */
-        tftp_info->block_list = g_slist_append(tftp_info->block_list, block);
-        tftp_info->file_length += bytes;
-
-        /* Look for next blocknum next time */
-        tftp_info->next_tap_block_num++;
-      }
+      /* Copy data to its place in the payload_data */
+      tvb_memcpy(tvb, tftp_info->payload_data + payload_data_offset, offset,
+                 bytes);
+      tftp_info->next_tap_block_num++;
 
       /* Tap export object only when reach end of file */
-      if (bytes < tftp_info->blocksize) {
+      if (is_last_package) {
         tftp_eo_t        *eo_info;
-
-        /* If don't have a filename, won't tap file info */
-        if ((tftp_info->source_file == NULL) && (tftp_info->destination_file == NULL)) {
-            cleanup_tftp_blocks(tftp_info);
-            break;
-        }
 
         /* Create the eo_info to pass to the listener */
         eo_info = wmem_new(wmem_packet_scope(), tftp_eo_t);
 
         /* Set filename */
-        if (tftp_info->source_file) {
-          eo_info->filename = g_strdup(tftp_info->source_file);
-        }
-        else if (tftp_info->destination_file) {
-          eo_info->filename = g_strdup(tftp_info->destination_file);
-        }
+        eo_info->filename = g_strdup(filename);
 
-        /* Send block list, which will be combined and freed at tap. */
+        /* Set payload */
         eo_info->payload_len = tftp_info->file_length;
-        eo_info->pkt_num = blocknum;
-        eo_info->block_list = tftp_info->block_list;
+        eo_info->payload_data = tftp_info->payload_data;
 
         /* Send to tap */
         tap_queue_packet(tftp_eo_tap, pinfo, eo_info);
 
-        /* Have sent, so forget list of blocks, and only pay attention if we
+        /* Have sent, so forget payload_data, and only pay attention if we
            get back to the first block again. */
-        tftp_info->block_list = NULL;
         tftp_info->next_tap_block_num = 1;
+        tftp_info->payload_data = NULL;
       }
     }
     break;
@@ -651,9 +664,12 @@ tftp_info_for_conversation(conversation_t *conversation)
     tftp_info->next_block_num = 1;
     tftp_info->blocks_missing = FALSE;
     tftp_info->next_tap_block_num = 1;
-    tftp_info->block_list = NULL;
     tftp_info->file_length = 0;
-
+    tftp_info->reassembly_id = conversation->conv_index;
+    tftp_info->last_reassembly_package = G_MAXUINT32;
+    tftp_info->is_simple_file = TRUE;
+    tftp_info->payload_data = NULL;
+    tftp_info->last_package_available = FALSE;
     conversation_add_proto_data(conversation, proto_tftp, tftp_info);
   }
   return tftp_info;
@@ -732,7 +748,7 @@ dissect_embeddedtftp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
 static int
 dissect_tftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-  conversation_t   *conversation;
+  conversation_t   *conversation = NULL;
 
   /*
    * The first TFTP packet goes to the TFTP port; the second one
@@ -755,26 +771,40 @@ dissect_tftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
    */
   if (value_is_in_range(global_tftp_port_range, pinfo->destport) ||
       (pinfo->match_uint == pinfo->destport)) {
-    conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_UDP,
-                                     pinfo->srcport, 0, NO_PORT_B);
-    if( (conversation == NULL) || (conversation_get_dissector(conversation, pinfo->num) != tftp_handle) ){
+    if (!PINFO_FD_VISITED(pinfo)) {
+      /* New read or write request on first pass, so create conversation with client port only */
       conversation = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_UDP,
                                       pinfo->srcport, 0, NO_PORT2);
       conversation_set_dissector(conversation, tftp_handle);
+      /* Store conversation in this frame */
+      p_add_proto_data(wmem_file_scope(), pinfo, proto_tftp, CONVERSATION_KEY,
+                       (void *)conversation);
+    } else {
+      /* Read or write request, but not first pass, so look up existing conversation */
+      conversation = (conversation_t *)p_get_proto_data(wmem_file_scope(), pinfo,
+                                                        proto_tftp, CONVERSATION_KEY);
     }
   } else {
-    conversation = find_conversation_pinfo(pinfo, 0);
-    if( (conversation == NULL) || (conversation_get_dissector(conversation, pinfo->num) != tftp_handle) ){
-      conversation = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_UDP,
-                                      pinfo->destport, pinfo->srcport, 0);
-      conversation_set_dissector(conversation, tftp_handle);
-    } else if (conversation->options & NO_PORT_B) {
-      if (pinfo->destport == conversation_key_port1(conversation->key_ptr))
-        conversation_set_port2(conversation, pinfo->srcport);
-      else
-        return 0;
+    /* Not the initial read or write request */
+    if (!PINFO_FD_VISITED(pinfo)) {
+      /* During first pass, look for conversation based upon client port */
+      conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_UDP,
+                                       pinfo->destport, 0, NO_PORT2);
+      if (conversation != NULL) {
+        /* Set other side of conversation (server port) */
+        if (pinfo->destport == conversation_key_port1(conversation->key_ptr))
+          conversation_set_port2(conversation, pinfo->srcport);
+        else
+          /* Direction of conv match must have been wrong - ignore! */
+          return 0;
+      }
+    }
+    if (conversation == NULL) {
+      conversation = find_conversation_pinfo(pinfo, 0);
     }
   }
+  DISSECTOR_ASSERT(conversation);
+
   dissect_tftp_message(tftp_info_for_conversation(conversation), tvb, pinfo, tree);
   return tvb_captured_length(tvb);
 }
@@ -843,10 +873,68 @@ proto_register_tftp(void)
       { "Data",       "tftp.data",
         FT_BYTES, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
+
+    { &hf_tftp_fragments,
+      { "TFTP Fragments",        "tftp.fragments",
+        FT_NONE, BASE_NONE, NULL, 0x00,
+        NULL, HFILL }},
+
+    { &hf_tftp_fragment,
+      { "TFTP Fragment",        "tftp.fragment",
+        FT_FRAMENUM, BASE_NONE, NULL, 0x00,
+        NULL, HFILL }},
+
+    { &hf_tftp_fragment_overlap,
+      { "Fragment overlap",        "tftp.fragment.overlap",
+        FT_BOOLEAN, 0, NULL, 0x00,
+        "Fragment overlaps with other fragments", HFILL }},
+
+    { &hf_tftp_fragment_overlap_conflicts,
+      { "Conflicting data in fragment overlap",
+        "tftp.fragment.overlap.conflicts",
+        FT_BOOLEAN, 0, NULL, 0x00,
+        "Overlapping fragments contained conflicting data", HFILL }},
+
+    { &hf_tftp_fragment_multiple_tails,
+      { "Multiple tail fragments found",        "tftp.fragment.multipletails",
+        FT_BOOLEAN, 0, NULL, 0x00,
+        "Several tails were found when defragmenting the packet", HFILL }},
+
+    { &hf_tftp_fragment_too_long_fragment,
+      { "Fragment too long",        "tftp.fragment.toolongfragment",
+        FT_BOOLEAN, 0, NULL, 0x00,
+        "Fragment contained data past end of packet", HFILL }},
+
+    { &hf_tftp_fragment_error,
+      { "Defragmentation error",        "tftp.fragment.error",
+        FT_FRAMENUM, BASE_NONE, NULL, 0x00,
+        "Defragmentation error due to illegal fragments", HFILL }},
+
+    { &hf_tftp_fragment_count,
+      { "Fragment count",        "tftp.fragment.count",
+        FT_UINT32, BASE_DEC, NULL, 0x00,
+        NULL, HFILL }},
+
+    { &hf_tftp_reassembled_in,
+      { "Reassembled TFTP in frame",        "tftp.reassembled_in",
+        FT_FRAMENUM, BASE_NONE, NULL, 0x00,
+        "This TFTP packet is reassembled in this frame", HFILL }},
+
+    { &hf_tftp_reassembled_length,
+      { "Reassembled TFTP length",        "tftp.reassembled.length",
+        FT_UINT32, BASE_DEC, NULL, 0x00,
+        "The total length of the reassembled payload", HFILL }},
+
+    { &hf_tftp_reassembled_data,
+      { "Reassembled TFTP data",        "tftp.reassembled.data",
+        FT_BYTES, BASE_NONE, NULL, 0x0,
+        "The reassembled payload", HFILL }},
   };
   static gint *ett[] = {
     &ett_tftp,
     &ett_tftp_option,
+    &ett_tftp_fragment,
+    &ett_tftp_fragments,
   };
 
   static ei_register_info ei[] = {
@@ -856,6 +944,7 @@ proto_register_tftp(void)
      { &ei_tftp_blocknum_will_wrap, { "tftp.block.wrap", PI_SEQUENCE, PI_NOTE, "TFTP block number is about to wrap", EXPFILL }},
   };
 
+  module_t *tftp_module;
   expert_module_t* expert_tftp;
 
   proto_tftp = proto_register_protocol("Trivial File Transfer Protocol", "TFTP", "tftp");
@@ -864,12 +953,18 @@ proto_register_tftp(void)
   expert_tftp = expert_register_protocol(proto_tftp);
   expert_register_field_array(expert_tftp, ei, array_length(ei));
 
+  heur_subdissector_list = register_heur_dissector_list("tftp", proto_tftp);
+  reassembly_table_register(&tftp_reassembly_table, &addresses_ports_reassembly_table_functions);
+
   tftp_handle = register_dissector("tftp", dissect_tftp, proto_tftp);
 
-  prefs_register_protocol(proto_tftp, apply_tftp_prefs);
+  tftp_module = prefs_register_protocol(proto_tftp, apply_tftp_prefs);
+  prefs_register_bool_preference(tftp_module, "defragment",
+    "Reassemble fragmented TFTP files",
+    "Whether fragmented TFTP files should be reassembled", &tftp_defragment);
 
   /* Register the tap for the "Export Object" function */
-  tftp_eo_tap = register_export_object(proto_tftp, tftp_eo_packet, tftp_eo_cleanup);
+  tftp_eo_tap = register_export_object(proto_tftp, tftp_eo_packet, NULL);
 }
 
 void
