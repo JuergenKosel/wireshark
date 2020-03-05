@@ -43,6 +43,12 @@ typedef struct _smb2_fid_info_t {
 	guint64 fid_volatile;
 	guint64 sesid;		/* *host* byte order - not necessarily little-endian! */
 	guint32 tid;
+	/* only used for key lookup in equal func, must be zero when inserting */
+	guint32 frame_key;
+	/* first and last frame nums this FID is valid */
+	guint32 frame_beg;
+	guint32 frame_end;
+	/* file name used to open this FID */
 	char *name;
 } smb2_fid_info_t;
 
@@ -76,6 +82,7 @@ typedef struct _smb2_tid_info_t {
 } smb2_tid_info_t;
 
 #define SMB2_PREAUTH_HASH_SIZE 64
+#define AES_KEY_SIZE 16
 
 typedef struct _smb2_sesid_info_t {
 	guint64 sesid;		/* *host* byte order - not necessarily little-endian! */
@@ -85,9 +92,14 @@ typedef struct _smb2_sesid_info_t {
 	char *host_name;
 	guint16 server_port;
 	guint8 session_key[NTLMSSP_KEY_LEN];
-	guint8 client_decryption_key[16];
-	guint8 server_decryption_key[16];
+	guint8 client_decryption_key[AES_KEY_SIZE];
+	guint8 server_decryption_key[AES_KEY_SIZE];
+
 	wmem_map_t *tids;
+	GHashTable *fids;
+	/* table to store some infos for smb export object */
+	GHashTable *files;
+
 	guint8 preauth_hash[SMB2_PREAUTH_HASH_SIZE];
 } smb2_sesid_info_t;
 
@@ -98,10 +110,6 @@ typedef struct _smb2_conv_info_t {
 	/* these two tables are used to match requests with responses */
 	GHashTable *unmatched;
 	GHashTable *matched;
-	GHashTable *sesids;
-	GHashTable *fids;
-	/* table to store some infos for smb export object */
-	GHashTable *files;
 	guint16 dialect;
 	guint16 enc_alg;
 
@@ -219,3 +227,16 @@ int dissect_smb2_ioctl_function(tvbuff_t *tvb, packet_info *pinfo, proto_tree *p
 void dissect_smb2_ioctl_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *top_tree, guint32 ioctl_function, gboolean data_in, void *private_data);
 
 #endif
+
+/*
+ * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
+ *
+ * Local variables:
+ * c-basic-offset: 8
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * End:
+ *
+ * vi: set shiftwidth=8 tabstop=8 noexpandtab:
+ * :indentSize=8:tabSize=8:noTabs=false:
+ */

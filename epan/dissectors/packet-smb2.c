@@ -43,6 +43,40 @@
 
 #include <wsutil/wsgcrypt.h>
 
+//#define DEBUG_SMB2
+#ifdef DEBUG_SMB2
+#define DEBUG(...) g_ ## warning(__VA_ARGS__)
+#define HEXDUMP(p, sz) do_hexdump((const guint8 *)(p), sz)
+static void
+do_hexdump (const guint8 *data, gsize len)
+{
+	guint n, m;
+
+	for (n = 0; n < len; n += 16) {
+		g_printerr ("%04x: ", n);
+
+		for (m = n; m < n + 16; m++) {
+			if (m > n && (m%4) == 0)
+				g_printerr (" ");
+			if (m < len)
+				g_printerr ("%02x ", data[m]);
+			else
+				g_printerr ("   ");
+		}
+
+		g_printerr ("   ");
+
+		for (m = n; m < len && m < n + 16; m++)
+			g_printerr ("%c", g_ascii_isprint (data[m]) ? data[m] : '.');
+
+		g_printerr ("\n");
+	}
+}
+#else
+#define DEBUG(...)
+#define HEXDUMP(...)
+#endif
+
 #define NT_STATUS_PENDING		0x00000103
 #define NT_STATUS_BUFFER_TOO_SMALL	0xC0000023
 #define NT_STATUS_STOPPED_ON_SYMLINK	0x8000002D
@@ -54,6 +88,9 @@ void proto_reg_handoff_smb2(void);
 #define SMB2_NORM_HEADER 0xFE
 #define SMB2_ENCR_HEADER 0xFD
 #define SMB2_COMP_HEADER 0xFC
+
+static wmem_map_t *smb2_sessions = NULL;
+
 static const char smb_header_label[] = "SMB2 Header";
 static const char smb_transform_header_label[] = "SMB2 Transform Header";
 static const char smb_comp_transform_header_label[] = "SMB2 Compression Transform Header";
@@ -970,6 +1007,8 @@ static const value_string smb2_dialect_vals[] = {
 
 static int dissect_windows_sockaddr_storage(tvbuff_t *, packet_info *, proto_tree *, int, int);
 static void dissect_smb2_error_data(tvbuff_t *, packet_info *, proto_tree *, int, int, smb2_info_t *);
+static guint smb2_eo_files_hash(gconstpointer k);
+static gint smb2_eo_files_equal(gconstpointer k1, gconstpointer k2);
 
 static void update_preauth_hash(void *buf, tvbuff_t *tvb)
 {
@@ -1041,10 +1080,18 @@ smb2stat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const vo
 
 /* Structure for SessionID <=> SessionKey mapping for decryption. */
 typedef struct _smb2_seskey_field_t {
+	/* session id */
 	guchar *id;		/* *little-endian* - not necessarily host-endian! */
 	guint id_len;
-	guchar *key;
-	guint key_len;
+	/* session key */
+	guchar *seskey;
+	guint seskey_len;
+	/* server to client key */
+	guchar *s2ckey;
+	guint s2ckey_len;
+	/* client to server key */
+	guchar *c2skey;
+	guint c2skey_len;
 } smb2_seskey_field_t;
 
 static smb2_seskey_field_t *seskey_list = NULL;
@@ -1054,13 +1101,18 @@ static const gint8 zeros[NTLMSSP_KEY_LEN] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 /* Callbacks for SessionID <=> SessionKey mapping. */
 UAT_BUFFER_CB_DEF(seskey_list, id, smb2_seskey_field_t, id, id_len)
-UAT_BUFFER_CB_DEF(seskey_list, key, smb2_seskey_field_t, key, key_len)
+UAT_BUFFER_CB_DEF(seskey_list, seskey, smb2_seskey_field_t, seskey, seskey_len)
+UAT_BUFFER_CB_DEF(seskey_list, s2ckey, smb2_seskey_field_t, s2ckey, s2ckey_len)
+UAT_BUFFER_CB_DEF(seskey_list, c2skey, smb2_seskey_field_t, c2skey, c2skey_len)
 
 #define SMB_SESSION_ID_SIZE 8
 
 static gboolean seskey_list_update_cb(void *r, char **err)
 {
 	smb2_seskey_field_t *rec = (smb2_seskey_field_t *)r;
+	gboolean has_seskey = rec->seskey_len != 0;
+	gboolean has_s2ckey = rec->s2ckey_len != 0;
+	gboolean has_c2skey = rec->c2skey_len != 0;
 
 	*err = NULL;
 
@@ -1069,8 +1121,24 @@ static gboolean seskey_list_update_cb(void *r, char **err)
 		return FALSE;
 	}
 
-	if (rec->key_len == 0 || rec->key_len > NTLMSSP_KEY_LEN) {
-		*err = g_strdup("Session Key must be a non-empty hexadecimal string representing at most " G_STRINGIFY(NTLMSSP_KEY_LEN) " bytes");
+	if (!has_seskey && !(has_c2skey || has_s2ckey)) {
+		*err = g_strdup("Decryption requires either the Session Key or at least one of the client-server AES keys");
+		return FALSE;
+	}
+
+
+	if (rec->seskey_len > NTLMSSP_KEY_LEN) {
+		*err = g_strdup("Session Key must be a hexadecimal string representing at most " G_STRINGIFY(NTLMSSP_KEY_LEN) " bytes");
+		return FALSE;
+	}
+
+	if (has_s2ckey && rec->s2ckey_len != AES_KEY_SIZE) {
+		*err = g_strdup("Server-to-Client key must be a hexadecimal string representing " G_STRINGIFY(AES_KEY_SIZE));
+		return FALSE;
+	}
+
+	if (has_c2skey && rec->c2skey_len != AES_KEY_SIZE) {
+		*err = g_strdup("Client-to-Server key must be a hexadecimal string representing " G_STRINGIFY(AES_KEY_SIZE));
 		return FALSE;
 	}
 
@@ -1084,8 +1152,12 @@ static void* seskey_list_copy_cb(void *n, const void *o, size_t siz _U_)
 
 	new_rec->id_len = old_rec->id_len;
 	new_rec->id = old_rec->id ? (guchar *)g_memdup(old_rec->id, old_rec->id_len) : NULL;
-	new_rec->key_len = old_rec->key_len;
-	new_rec->key = old_rec->key ? (guchar *)g_memdup(old_rec->key, old_rec->key_len) : NULL;
+	new_rec->seskey_len = old_rec->seskey_len;
+	new_rec->seskey = old_rec->seskey ? (guchar *)g_memdup(old_rec->seskey, old_rec->seskey_len) : NULL;
+	new_rec->s2ckey_len = old_rec->s2ckey_len;
+	new_rec->s2ckey = old_rec->s2ckey ? (guchar *)g_memdup(old_rec->s2ckey, old_rec->s2ckey_len) : NULL;
+	new_rec->c2skey_len = old_rec->c2skey_len;
+	new_rec->c2skey = old_rec->c2skey ? (guchar *)g_memdup(old_rec->c2skey, old_rec->c2skey_len) : NULL;
 
 	return new_rec;
 }
@@ -1095,10 +1167,12 @@ static void seskey_list_free_cb(void *r)
 	smb2_seskey_field_t *rec = (smb2_seskey_field_t *)r;
 
 	g_free(rec->id);
-	g_free(rec->key);
+	g_free(rec->seskey);
+	g_free(rec->s2ckey);
+	g_free(rec->c2skey);
 }
 
-static gboolean seskey_find_sid_key(guint64 sesid, guint8 *out_key)
+static gboolean seskey_find_sid_key(guint64 sesid, guint8 *out_seskey, guint8 *out_s2ckey, guint8 *out_c2skey)
 {
 	guint i;
 	guint64 sesid_le;
@@ -1122,8 +1196,17 @@ static gboolean seskey_find_sid_key(guint64 sesid, guint8 *out_key)
 	for (i = 0; i < num_seskey_list; i++) {
 		const smb2_seskey_field_t *p = &seskey_list[i];
 		if (memcmp(&sesid_le, p->id, SMB_SESSION_ID_SIZE) == 0) {
-			memset(out_key, 0, NTLMSSP_KEY_LEN);
-			memcpy(out_key, p->key, p->key_len);
+			memset(out_seskey, 0, NTLMSSP_KEY_LEN);
+			memset(out_s2ckey, 0, AES_KEY_SIZE);
+			memset(out_c2skey, 0, AES_KEY_SIZE);
+
+			if (p->seskey_len != 0)
+				memcpy(out_seskey, p->seskey, p->seskey_len);
+			if (p->s2ckey_len != 0)
+				memcpy(out_s2ckey, p->s2ckey, p->s2ckey_len);
+			if (p->c2skey_len != 0)
+				memcpy(out_c2skey, p->c2skey, p->c2skey_len);
+
 			return TRUE;
 		}
 	}
@@ -1235,24 +1318,33 @@ smb2_sesid_info_hash(gconstpointer k)
 static gint
 smb2_fid_info_equal(gconstpointer k1, gconstpointer k2)
 {
-	const smb2_fid_info_t *key1 = (const smb2_fid_info_t *)k1;
-	const smb2_fid_info_t *key2 = (const smb2_fid_info_t *)k2;
+	const smb2_fid_info_t *key = (const smb2_fid_info_t *)k1;
+	const smb2_fid_info_t *val = (const smb2_fid_info_t *)k2;
 
-	if (key1->fid_persistent != key2->fid_persistent) {
-		return 0;
-	};
+	if (!key->frame_key) {
+		key = (const smb2_fid_info_t *)k2;
+		val = (const smb2_fid_info_t *)k1;
+	}
 
-	if (key1->fid_volatile != key2->fid_volatile) {
+	if (key->fid_persistent != val->fid_persistent) {
 		return 0;
-	};
+	}
 
-	if (key1->sesid != key2->sesid) {
+	if (key->fid_volatile != val->fid_volatile) {
 		return 0;
-	};
+	}
 
-	if (key1->tid != key2->tid) {
+	if (key->sesid != val->sesid) {
 		return 0;
-	};
+	}
+
+	if (key->tid != val->tid) {
+		return 0;
+	}
+
+	if (!(val->frame_beg <= key->frame_key && key->frame_key <= val->frame_end)) {
+		return 0;
+	}
 
 	return 1;
 }
@@ -1282,9 +1374,6 @@ smb2_conv_destroy(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _U_,
 
 	g_hash_table_destroy(conv->matched);
 	g_hash_table_destroy(conv->unmatched);
-	g_hash_table_destroy(conv->fids);
-	g_hash_table_destroy(conv->sesids);
-	g_hash_table_destroy(conv->files);
 
 	/* This conversation is gone, return FALSE to indicate we don't
 	 * want to be called again for this conversation. */
@@ -1292,17 +1381,20 @@ smb2_conv_destroy(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _U_,
 }
 
 static smb2_sesid_info_t *
-smb2_get_session(smb2_conv_info_t *conv, guint64 id, packet_info *pinfo, smb2_info_t *si)
+smb2_get_session(smb2_conv_info_t *conv _U_, guint64 id, packet_info *pinfo, smb2_info_t *si)
 {
 	smb2_sesid_info_t key = {.sesid = id};
-	smb2_sesid_info_t *ses = (smb2_sesid_info_t *)g_hash_table_lookup(conv->sesids, &key);
+	smb2_sesid_info_t *ses = (smb2_sesid_info_t *)wmem_map_lookup(smb2_sessions, &key);
 
 	if (!ses) {
 		ses = wmem_new0(wmem_file_scope(), smb2_sesid_info_t);
 		ses->sesid = id;
 		ses->auth_frame = (guint32)-1;
 		ses->tids = wmem_map_new(wmem_file_scope(), smb2_tid_info_hash, smb2_tid_info_equal);
-		seskey_find_sid_key(id, ses->session_key);
+		ses->fids = g_hash_table_new(smb2_fid_info_hash, smb2_fid_info_equal);
+		ses->files = g_hash_table_new(smb2_eo_files_hash, smb2_eo_files_equal);
+
+		seskey_find_sid_key(id, ses->session_key, ses->client_decryption_key, ses->server_decryption_key);
 		if (pinfo && si) {
 			if (si->flags & SMB2_FLAGS_RESPONSE) {
 				ses->server_port = pinfo->srcport;
@@ -1310,40 +1402,40 @@ smb2_get_session(smb2_conv_info_t *conv, guint64 id, packet_info *pinfo, smb2_in
 				ses->server_port = pinfo->destport;
 			}
 		}
-		g_hash_table_insert(conv->sesids, ses, ses);
+		wmem_map_insert(smb2_sessions, ses, ses);
 	}
 
 	return ses;
 }
 
 static void
-smb2_add_session_info(proto_tree *tree, tvbuff_t *tvb, gint start, smb2_sesid_info_t *ses)
+smb2_add_session_info(proto_tree *ses_tree, proto_item *ses_item, tvbuff_t *tvb, gint start, smb2_sesid_info_t *ses)
 {
-	proto_item  *item;
+	proto_item  *new_item;
 	if (!ses)
 		return;
 
 	if (ses->acct_name) {
-		item = proto_tree_add_string(tree, hf_smb2_acct_name, tvb, start, 0, ses->acct_name);
-		proto_item_set_generated(item);
-		proto_item_append_text(item, " Acct:%s", ses->acct_name);
+		new_item = proto_tree_add_string(ses_tree, hf_smb2_acct_name, tvb, start, 0, ses->acct_name);
+		proto_item_set_generated(new_item);
+		proto_item_append_text(ses_item, " Acct:%s", ses->acct_name);
 	}
 
 	if (ses->domain_name) {
-		item = proto_tree_add_string(tree, hf_smb2_domain_name, tvb, start, 0, ses->domain_name);
-		proto_item_set_generated(item);
-		proto_item_append_text(item, " Domain:%s", ses->domain_name);
+		new_item = proto_tree_add_string(ses_tree, hf_smb2_domain_name, tvb, start, 0, ses->domain_name);
+		proto_item_set_generated(new_item);
+		proto_item_append_text(ses_item, " Domain:%s", ses->domain_name);
 	}
 
 	if (ses->host_name) {
-		item = proto_tree_add_string(tree, hf_smb2_host_name, tvb, start, 0, ses->host_name);
-		proto_item_set_generated(item);
-		proto_item_append_text(item, " Host:%s", ses->host_name);
+		new_item = proto_tree_add_string(ses_tree, hf_smb2_host_name, tvb, start, 0, ses->host_name);
+		proto_item_set_generated(new_item);
+		proto_item_append_text(ses_item, " Host:%s", ses->host_name);
 	}
 
 	if (ses->auth_frame != (guint32)-1) {
-		item = proto_tree_add_uint(tree, hf_smb2_auth_frame, tvb, start, 0, ses->auth_frame);
-		proto_item_set_generated(item);
+		new_item = proto_tree_add_uint(ses_tree, hf_smb2_auth_frame, tvb, start, 0, ses->auth_frame);
+		proto_item_set_generated(new_item);
 	}
 }
 
@@ -2179,10 +2271,12 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 	smb2_fid_info_t sfi_key;
 	smb2_fid_info_t *sfi = NULL;
 
+	memset(&sfi_key, 0, sizeof(sfi_key));
 	sfi_key.fid_persistent = tvb_get_letoh64(tvb, offset);
 	sfi_key.fid_volatile = tvb_get_letoh64(tvb, offset+8);
 	sfi_key.sesid = si->sesid;
 	sfi_key.tid = si->tid;
+	sfi_key.frame_key = pinfo->num;
 	sfi_key.name = NULL;
 
 	di.conformant_run = 0;
@@ -2195,6 +2289,10 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 		if (!pinfo->fd->visited) {
 			sfi = wmem_new(wmem_file_scope(), smb2_fid_info_t);
 			*sfi = sfi_key;
+			sfi->frame_key = 0;
+			sfi->frame_beg = si->saved ? si->saved->frame_req : pinfo->num;
+			sfi->frame_end = G_MAXUINT32;
+
 			if (si->saved && si->saved->extra_info_type == SMB2_EI_FILENAME) {
 				sfi->name = wmem_strdup(wmem_file_scope(), (char *)si->saved->extra_info);
 			} else {
@@ -2209,7 +2307,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 			dcerpc_store_polhnd_name(&policy_hnd, pinfo,
 						  fid_name);
 
-			g_hash_table_insert(si->conv->fids, sfi, sfi);
+			g_hash_table_insert(si->session->fids, sfi, sfi);
 			si->file = sfi;
 
 			/* If needed, create the file entry and save the policy hnd */
@@ -2219,19 +2317,26 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 			}
 
 			if (si->conv) {
-				eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->conv->files,&policy_hnd);
+				eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->session->files,&policy_hnd);
 				if (!eo_file_info) {
 					eo_file_info = wmem_new(wmem_file_scope(), smb2_eo_file_info_t);
 					policy_hnd_hashtablekey = wmem_new(wmem_file_scope(), e_ctx_hnd);
 					memcpy(policy_hnd_hashtablekey, &policy_hnd, sizeof(e_ctx_hnd));
 					eo_file_info->end_of_file=0;
-					g_hash_table_insert(si->conv->files,policy_hnd_hashtablekey,eo_file_info);
+					g_hash_table_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
 				}
 				si->eo_file_info=eo_file_info;
 			}
 		}
 		break;
 	case FID_MODE_CLOSE:
+		if (!pinfo->fd->visited) {
+			smb2_fid_info_t *fid = (smb2_fid_info_t *)g_hash_table_lookup(si->session->fids, &sfi_key);
+			if (fid) {
+				/* set last frame */
+				fid->frame_end = pinfo->num;
+			}
+		}
 		offset = dissect_nt_guid_hnd(tvb, offset, pinfo, tree, &di, drep, hf_smb2_fid, &policy_hnd, &hnd_item, FALSE, TRUE);
 		break;
 	case FID_MODE_USE:
@@ -2241,7 +2346,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 		break;
 	}
 
-	si->file = (smb2_fid_info_t *)g_hash_table_lookup(si->conv->fids, &sfi_key);
+	si->file = (smb2_fid_info_t *)g_hash_table_lookup(si->session->fids, &sfi_key);
 	if (si->file) {
 		if (si->saved) {
 			si->saved->file = si->file;
@@ -2259,7 +2364,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 		if (!si->eo_file_info) {
 			if (si->saved) { si->saved->policy_hnd = policy_hnd; }
 			if (si->conv) {
-				eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->conv->files,&policy_hnd);
+				eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->session->files,&policy_hnd);
 				if (eo_file_info) {
 					si->eo_file_info=eo_file_info;
 				} else { /* XXX This should never happen */
@@ -2267,7 +2372,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 					policy_hnd_hashtablekey = wmem_new(wmem_file_scope(), e_ctx_hnd);
 					memcpy(policy_hnd_hashtablekey, &policy_hnd, sizeof(e_ctx_hnd));
 					eo_file_info->end_of_file=0;
-					g_hash_table_insert(si->conv->files,policy_hnd_hashtablekey,eo_file_info);
+					g_hash_table_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
 				}
 			}
 
@@ -3248,32 +3353,51 @@ dissect_smb2_secblob(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, smb2_i
  */
 static void smb2_generate_decryption_keys(smb2_conv_info_t *conv, smb2_sesid_info_t *ses)
 {
-	if (memcmp(ses->session_key, zeros, NTLMSSP_KEY_LEN) == 0)
+	gboolean has_seskey = memcmp(ses->session_key, zeros, NTLMSSP_KEY_LEN) != 0;
+	gboolean has_client_key = memcmp(ses->client_decryption_key, zeros, AES_KEY_SIZE) != 0;
+	gboolean has_server_key = memcmp(ses->server_decryption_key, zeros, AES_KEY_SIZE) != 0;
+
+	/* if all decryption keys are provided, nothing to do */
+	if (has_client_key && has_server_key)
+		return;
+
+	/* otherwise, generate them from session key, if it's there */
+	if (!has_seskey)
 		return;
 
 	if (conv->dialect == SMB2_DIALECT_300) {
-		smb2_key_derivation(ses->session_key,
-				    NTLMSSP_KEY_LEN,
-				    "SMB2AESCCM", 11,
-				    "ServerIn ", 10,
-				    ses->server_decryption_key);
-		smb2_key_derivation(ses->session_key,
-				    NTLMSSP_KEY_LEN,
-				    "SMB2AESCCM", 11,
-				    "ServerOut", 10,
-				    ses->client_decryption_key);
+		if (!has_server_key)
+			smb2_key_derivation(ses->session_key,
+					    NTLMSSP_KEY_LEN,
+					    "SMB2AESCCM", 11,
+					    "ServerIn ", 10,
+					    ses->server_decryption_key);
+		if (!has_client_key)
+			smb2_key_derivation(ses->session_key,
+					    NTLMSSP_KEY_LEN,
+					    "SMB2AESCCM", 11,
+					    "ServerOut", 10,
+					    ses->client_decryption_key);
 	} else if (conv->dialect >= SMB2_DIALECT_311) {
-		smb2_key_derivation(ses->session_key,
-				    NTLMSSP_KEY_LEN,
-				    "SMBC2SCipherKey", 16,
-				    ses->preauth_hash, SMB2_PREAUTH_HASH_SIZE,
-				    ses->server_decryption_key);
-		smb2_key_derivation(ses->session_key,
-				    NTLMSSP_KEY_LEN,
-				    "SMBS2CCipherKey", 16,
-				    ses->preauth_hash, SMB2_PREAUTH_HASH_SIZE,
-				    ses->client_decryption_key);
+		if (!has_server_key)
+			smb2_key_derivation(ses->session_key,
+					    NTLMSSP_KEY_LEN,
+					    "SMBC2SCipherKey", 16,
+					    ses->preauth_hash, SMB2_PREAUTH_HASH_SIZE,
+					    ses->server_decryption_key);
+		if (!has_client_key)
+			smb2_key_derivation(ses->session_key,
+					    NTLMSSP_KEY_LEN,
+					    "SMBS2CCipherKey", 16,
+					    ses->preauth_hash, SMB2_PREAUTH_HASH_SIZE,
+					    ses->client_decryption_key);
 	}
+
+
+	DEBUG("Generated S2C key");
+	HEXDUMP(ses->client_decryption_key, AES_KEY_SIZE);
+	DEBUG("Generated C2S key");
+	HEXDUMP(ses->server_decryption_key, AES_KEY_SIZE);
 }
 
 static int
@@ -6562,7 +6686,7 @@ dissect_windows_sockaddr_in(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *p
 	offset += 2;
 
 	/* IPv4 address */
-	proto_tree_add_item(sub_tree, hf_windows_sockaddr_in_addr, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	proto_tree_add_item(sub_tree, hf_windows_sockaddr_in_addr, tvb, offset, 4, ENC_BIG_ENDIAN);
 	proto_item_append_text(sub_item, ", IPv4: %s", tvb_ip_to_str(tvb, offset));
 	proto_item_append_text(parent_item, ", IPv4: %s", tvb_ip_to_str(tvb, offset));
 	offset += 4;
@@ -9504,21 +9628,109 @@ static smb2_function smb2_dissector[256] = {
 #define SMB3_AES128GCM_NONCE	12
 
 #if GCRYPT_VERSION_NUMBER >= 0x010600 /* 1.6.0 */
+static gboolean is_decrypted_header_ok(guint8 *p, size_t size)
+{
+	if (size < 4)
+		return FALSE;
+
+	if ((p[0] == SMB2_COMP_HEADER || p[0] == SMB2_NORM_HEADER)
+	    && (p[1] == 'S' || p[2] == 'M' || p[3] == 'B')) {
+		return TRUE;
+	}
+
+	DEBUG("decrypt: bad SMB header");
+	return FALSE;
+}
+
+static gboolean
+do_decrypt(guint8 *data,
+	   size_t data_size,
+	   const guint8 *key,
+	   const guint8 *aad,
+	   int aad_size,
+	   const guint8 *nonce,
+	   int alg)
+{
+	gcry_error_t err;
+	gcry_cipher_hd_t cipher_hd = NULL;
+	int mode;
+	int iv_size;
+	guint64 lengths[3];
+
+	switch (alg) {
+	case SMB2_CIPHER_AES_128_CCM:
+		mode = GCRY_CIPHER_MODE_CCM;
+		iv_size = SMB3_AES128CCM_NONCE;
+		break;
+	case SMB2_CIPHER_AES_128_GCM:
+		mode = GCRY_CIPHER_MODE_GCM;
+		iv_size = SMB3_AES128GCM_NONCE;
+		break;
+	default:
+		return FALSE;
+	}
+
+	/* Open the cipher */
+	if ((err = gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, mode, 0))) {
+		DEBUG("GCRY: open %s/%s", gcry_strsource(err), gcry_strerror(err));
+		return FALSE;
+	}
+
+	/* Set the key */
+	if ((err = gcry_cipher_setkey(cipher_hd, key, AES_KEY_SIZE))) {
+		DEBUG("GCRY: setkey %s/%s", gcry_strsource(err), gcry_strerror(err));
+		gcry_cipher_close(cipher_hd);
+		return FALSE;
+	}
+
+	/* Set the initial value */
+	if ((err = gcry_cipher_setiv(cipher_hd, nonce, iv_size))) {
+		DEBUG("GCRY: setiv %s/%s", gcry_strsource(err), gcry_strerror(err));
+		gcry_cipher_close(cipher_hd);
+		return FALSE;
+	}
+
+	lengths[0] = data_size; /* encrypted length */
+	lengths[1] = aad_size; /* AAD length */
+	lengths[2] = 16; /* tag length (signature size) */
+
+	if (mode == GCRY_CIPHER_MODE_CCM) {
+		if ((err = gcry_cipher_ctl(cipher_hd, GCRYCTL_SET_CCM_LENGTHS, lengths, sizeof(lengths)))) {
+			DEBUG("GCRY: ctl %s/%s", gcry_strsource(err), gcry_strerror(err));
+			gcry_cipher_close(cipher_hd);
+			return FALSE;
+		}
+	}
+
+	if ((err = gcry_cipher_authenticate(cipher_hd, aad, aad_size))) {
+		DEBUG("GCRY: auth %s/%s", gcry_strsource(err), gcry_strerror(err));
+		gcry_cipher_close(cipher_hd);
+		return FALSE;
+	}
+
+	if ((err = gcry_cipher_decrypt(cipher_hd, data, data_size, NULL, 0))) {
+		DEBUG("GCRY: decrypt %s/%s", gcry_strsource(err), gcry_strerror(err));
+		gcry_cipher_close(cipher_hd);
+		return FALSE;
+	}
+
+	/* Done with the cipher */
+	gcry_cipher_close(cipher_hd);
+	return is_decrypted_header_ok(data, data_size);
+}
+
 static guint8*
 decrypt_smb_payload(packet_info *pinfo,
 		    tvbuff_t *tvb, int offset,
 		    int offset_aad,
 		    smb2_transform_info_t *sti)
 {
-	gcry_error_t err;
-	gcry_cipher_hd_t cipher_hd = NULL;
 	const guint8 *aad = NULL;
 	guint8 *data = NULL;
-	guint8 *key = NULL;
-	int mode;
-	int iv_size;
+	guint8 *keys[2], *key;
+	gboolean ok;
 	int aad_size;
-	guint64 lengths[3];
+	int alg;
 
 	/* AAD is the rest of transform header after the ProtocolID and Signature */
 	aad_size = 32;
@@ -9529,16 +9741,16 @@ decrypt_smb_payload(packet_info *pinfo,
 	if (tvb_captured_length_remaining(tvb, offset_aad) < aad_size)
 		return NULL;
 
-	if (pinfo->destport == sti->session->server_port)
-		key = sti->session->server_decryption_key;
-	else
-		key = sti->session->client_decryption_key;
+	if (pinfo->destport == sti->session->server_port) {
+		keys[0] = sti->session->server_decryption_key;
+		keys[1] = sti->session->client_decryption_key;
+	} else {
+		keys[1] = sti->session->server_decryption_key;
+		keys[0] = sti->session->client_decryption_key;
+	}
 
-	if (memcmp(key, zeros, NTLMSSP_KEY_LEN) == 0)
-		key = NULL;
-
-	if (!key)
-		return NULL;
+	aad = tvb_get_ptr(tvb, offset_aad, aad_size);
+	data = (guint8 *)tvb_memdup(pinfo->pool, tvb, offset, sti->size);
 
 	/*
 	 * In SMB3.0 the transform header had a Algorithm field to
@@ -9551,78 +9763,70 @@ decrypt_smb_payload(packet_info *pinfo,
 	 * within the Encryption Capability context which should only
 	 * have one element. That element is saved in the conversation
 	 * struct (si->conv) and checked here.
+	 *
+	 * If the trace didn't contain NegProt packets, we have to
+	 * guess the encryption type by trying them all.
+	 *
+	 * Similarly, if we don't have unencrypted packets telling us
+	 * which host is the server and which host is the client, we
+	 * have to guess by trying both keys.
 	 */
 
-	/* g_warning("dialect 0x%x alg 0x%x conv alg 0x%x", sti->conv->dialect, sti->alg, sti->conv->enc_alg); */
+	DEBUG("dialect 0x%x alg 0x%x conv alg 0x%x", sti->conv->dialect, sti->alg, sti->conv->enc_alg);
 
 	if (sti->conv->dialect == SMB2_DIALECT_300) {
-		/* If we are decrypting in SMB3.0, it must be CCM */
+		/* If we know we are decrypting SMB3.0, it must be CCM */
 		sti->conv->enc_alg = SMB2_CIPHER_AES_128_CCM;
 	}
 
-	switch (sti->conv->enc_alg) {
-	case SMB2_CIPHER_AES_128_CCM:
-		mode = GCRY_CIPHER_MODE_CCM;
-		iv_size = SMB3_AES128CCM_NONCE;
-		break;
-	case SMB2_CIPHER_AES_128_GCM:
-		mode = GCRY_CIPHER_MODE_GCM;
-		iv_size = SMB3_AES128GCM_NONCE;
-		break;
-	default:
-		return NULL;
-	}
+	for (guint i = 0; i < G_N_ELEMENTS(keys); i++) {
+		gboolean try_ccm, try_gcm;
+		key = keys[i];
+		ok = try_ccm = try_gcm = FALSE;
 
-	/* Open the cipher */
-	if ((err = gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, mode, 0))) {
-		/* g_warning("GCRY: open %s/%s\n", gcry_strsource(err), gcry_strerror(err)); */
-		return NULL;
-	}
-
-	/* Set the key */
-	if ((err = gcry_cipher_setkey(cipher_hd, key, NTLMSSP_KEY_LEN))) {
-		/* g_warning("GCRY: setkey %s/%s\n", gcry_strsource(err), gcry_strerror(err)); */
-		gcry_cipher_close(cipher_hd);
-		return NULL;
-	}
-
-	/* Set the initial value */
-	if ((err = gcry_cipher_setiv(cipher_hd, sti->nonce, iv_size))) {
-		/* g_warning("GCRY: setiv %s/%s\n", gcry_strsource(err), gcry_strerror(err)); */
-		gcry_cipher_close(cipher_hd);
-		return NULL;
-	}
-
-	aad = tvb_get_ptr(tvb, offset_aad, aad_size);
-
-	lengths[0] = sti->size; /* encrypted length */
-	lengths[1] = aad_size; /* AAD length */
-	lengths[2] = 16; /* tag length (signature size) */
-
-	if (mode == GCRY_CIPHER_MODE_CCM) {
-		if ((err = gcry_cipher_ctl(cipher_hd, GCRYCTL_SET_CCM_LENGTHS, lengths, sizeof(lengths)))) {
-			/* g_warning("GCRY: ctl %s/%s\n", gcry_strsource(err), gcry_strerror(err)); */
-			gcry_cipher_close(cipher_hd);
-			return NULL;
+		switch (sti->conv->enc_alg) {
+		case SMB2_CIPHER_AES_128_CCM:
+			try_ccm = TRUE;
+			break;
+		case SMB2_CIPHER_AES_128_GCM:
+			try_gcm = TRUE;
+			break;
+		default:
+			/* we don't know, try both */
+			try_ccm = TRUE;
+			try_gcm = TRUE;
 		}
+
+		if (try_ccm) {
+			DEBUG("trying CCM decryption");
+			alg = SMB2_CIPHER_AES_128_CCM;
+			ok = do_decrypt(data, sti->size, key, aad, aad_size, sti->nonce, alg);
+			if (ok)
+				break;
+			DEBUG("bad decrypted buffer with CCM");
+		}
+		if (try_gcm) {
+			DEBUG("trying GCM decryption");
+			alg = SMB2_CIPHER_AES_128_GCM;
+			tvb_memcpy(tvb, data, offset, sti->size);
+			ok = do_decrypt(data, sti->size, key, aad, aad_size, sti->nonce, alg);
+			if (ok)
+				break;
+			DEBUG("bad decrypted buffer with GCM");
+		}
+		DEBUG("trying to decrypt with swapped client/server keys");
+		tvb_memcpy(tvb, data, offset, sti->size);
 	}
 
-	if ((err = gcry_cipher_authenticate(cipher_hd, aad, aad_size))) {
-		/* g_warning("GCRY: auth %s/%s\n", gcry_strsource(err), gcry_strerror(err)); */
-		gcry_cipher_close(cipher_hd);
+	if (!ok)
 		return NULL;
-	}
 
-	data = (guint8 *)tvb_memdup(pinfo->pool, tvb, offset, sti->size);
-
-	if ((err = gcry_cipher_decrypt(cipher_hd, data, sti->size, NULL, 0))) {
-		/* g_warning("GCRY: decrypt %s/%s\n", gcry_strsource(err), gcry_strerror(err)); */
-		gcry_cipher_close(cipher_hd);
-		return NULL;
-	}
-
-	/* Done with the cipher */
-	gcry_cipher_close(cipher_hd);
+	/* Remember what worked */
+	sti->conv->enc_alg = alg;
+	if (key == sti->session->server_decryption_key)
+		sti->session->server_port = pinfo->destport;
+	else
+		sti->session->server_port = pinfo->srcport;
 	return data;
 }
 #endif
@@ -9760,7 +9964,7 @@ dissect_smb2_transform_header(packet_info *pinfo, proto_tree *tree,
 
 	/* now we need to first lookup the uid session */
 	sti->session = smb2_get_session(sti->conv, sti->sesid, NULL, NULL);
-	smb2_add_session_info(sesid_tree, tvb, sesid_offset, sti->session);
+	smb2_add_session_info(sesid_tree, sesid_item, tvb, sesid_offset, sti->session);
 
 #if GCRYPT_VERSION_NUMBER >= 0x010600 /* 1.6.0 */
 	plain_data = decrypt_smb_payload(pinfo, tvb, offset, offset_aad, sti);
@@ -9894,20 +10098,13 @@ dissect_smb2_tid_sesid(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, 
 
 	/* now we need to first lookup the uid session */
 	sesid_key.sesid = si->sesid;
-	si->session = (smb2_sesid_info_t *)g_hash_table_lookup(si->conv->sesids, &sesid_key);
+	si->session = (smb2_sesid_info_t *)wmem_map_lookup(smb2_sessions, &sesid_key);
 	if (!si->session) {
-		if (si->opcode != SMB2_COM_TREE_CONNECT)
-			return offset;
-
-		/* if we come to a session that is unknown, and the operation is
-		 * a tree connect, we create a dummy session, so we can hang the
-		 * tree data on it
-		 */
 		si->session = smb2_get_session(si->conv, si->sesid, pinfo, si);
 		return offset;
 	}
 
-	smb2_add_session_info(sesid_tree, tvb, sesid_offset, si->session);
+	smb2_add_session_info(sesid_tree, sesid_item, tvb, sesid_offset, si->session);
 
 	if (!(si->flags&SMB2_FLAGS_ASYNC_CMD)) {
 		/* see if we can find the name for this tid */
@@ -9989,11 +10186,6 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 			smb2_saved_info_equal_matched);
 		si->conv->unmatched = g_hash_table_new(smb2_saved_info_hash_unmatched,
 			smb2_saved_info_equal_unmatched);
-		si->conv->sesids = g_hash_table_new(smb2_sesid_info_hash,
-			smb2_sesid_info_equal);
-		si->conv->fids = g_hash_table_new(smb2_fid_info_hash,
-			smb2_fid_info_equal);
-		si->conv->files = g_hash_table_new(smb2_eo_files_hash,smb2_eo_files_equal);
 		si->conv->preauth_hash_current = si->conv->preauth_hash_con;
 
 		/* Bit of a hack to avoid leaking the hash tables - register a
@@ -10175,14 +10367,14 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 				/* If needed, create the file entry and save the policy hnd */
 				if (!si->eo_file_info) {
 					if (si->conv) {
-						eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->conv->files,&ssi->policy_hnd);
+						eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->session->files,&ssi->policy_hnd);
 						if (!eo_file_info) { /* XXX This should never happen */
 							/* assert(1==0); */
 							eo_file_info = wmem_new(wmem_file_scope(), smb2_eo_file_info_t);
 							policy_hnd_hashtablekey = wmem_new(wmem_file_scope(), e_ctx_hnd);
 							memcpy(policy_hnd_hashtablekey, &ssi->policy_hnd, sizeof(e_ctx_hnd));
 							eo_file_info->end_of_file=0;
-							g_hash_table_insert(si->conv->files,policy_hnd_hashtablekey,eo_file_info);
+							g_hash_table_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
 						}
 						si->eo_file_info=eo_file_info;
 					}
@@ -12834,7 +13026,9 @@ proto_register_smb2(void)
 
 	static uat_field_t seskey_uat_fields[] = {
 		UAT_FLD_BUFFER(seskey_list, id, "Session ID", "The session ID buffer, coded as hex string, as it appears on the wire (LE)."),
-		UAT_FLD_BUFFER(seskey_list, key, "Session Key", "The secret session key buffer, coded as 16-byte hex string as it appears on the wire (LE)."),
+		UAT_FLD_BUFFER(seskey_list, seskey, "Session Key", "The secret session key buffer, coded as 16-byte hex string."),
+		UAT_FLD_BUFFER(seskey_list, s2ckey, "Server-to-Client", "The AES-128 key used by the client to decrypt server messages, coded as 16-byte hex string."),
+		UAT_FLD_BUFFER(seskey_list, c2skey, "Client-to-Server", "The AES-128 key used by the server to decrypt client messages, coded as 16-byte hex string."),
 		UAT_END_FIELDS
 	};
 
@@ -12874,7 +13068,7 @@ proto_register_smb2(void)
 	prefs_register_uat_preference(smb2_module,
 				      "seskey_list",
 				      "Secret session keys for decryption",
-				      "A table of Session ID to Session key mappings used to derive decryption keys.",
+				      "A table of Session ID to Session keys mappings used to decrypt traffic.",
 				      seskey_uat);
 
 	smb2_pipe_subdissector_list = register_heur_dissector_list("smb2_pipe_subdissectors", proto_smb2);
@@ -12892,6 +13086,7 @@ proto_register_smb2(void)
 	smb2_eo_tap = register_tap("smb_eo"); /* SMB Export Object tap */
 
 	register_srt_table(proto_smb2, NULL, 1, smb2stat_packet, smb2stat_init, NULL);
+	smb2_sessions = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), smb2_sesid_info_hash, smb2_sesid_info_equal);
 }
 
 void

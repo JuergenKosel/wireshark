@@ -15,6 +15,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <wsutil/str_util.h>
+#include "packet-ftdi-ft.h"
 
 static int proto_ftdi_mpsse = -1;
 
@@ -28,6 +29,7 @@ static gint hf_mpsse_command_b4 = -1;
 static gint hf_mpsse_command_b5 = -1;
 static gint hf_mpsse_command_b6 = -1;
 static gint hf_mpsse_command_b7 = -1;
+static gint hf_mpsse_command_with_parameters = -1;
 static gint hf_mpsse_length_uint8 = -1;
 static gint hf_mpsse_length_uint16 = -1;
 static gint hf_mpsse_bytes_out = -1;
@@ -53,9 +55,11 @@ static gint hf_mpsse_direction_b7 = -1;
 static gint hf_mpsse_cpumode_address_short = -1;
 static gint hf_mpsse_cpumode_address_extended = -1;
 static gint hf_mpsse_cpumode_data = -1;
+static gint hf_mpsse_clk_divisor = -1;
 
 static gint ett_ftdi_mpsse = -1;
 static gint ett_mpsse_command = -1;
+static gint ett_mpsse_command_with_parameters = -1;
 static gint ett_mpsse_value = -1;
 static gint ett_mpsse_direction = -1;
 
@@ -67,6 +71,7 @@ void proto_register_ftdi_mpsse(void);
 
 #define CMD_SET_DATA_BITS_LOW_BYTE    0x80
 #define CMD_SET_DATA_BITS_HIGH_BYTE   0x82
+#define CMD_CLOCK_SET_DIVISOR         0x86
 #define CMD_CPUMODE_READ_SHORT_ADDR   0x90
 #define CMD_CPUMODE_READ_EXT_ADDR     0x91
 #define CMD_CPUMODE_WRITE_SHORT_ADDR  0x92
@@ -109,30 +114,46 @@ static const value_string command_vals[] = {
     {0x83, "Read Data bits HighByte"},
     {0x84, "Connect TDI to TDO for Loopback"},
     {0x85, "Disconnect TDI to TDO for Loopback"},
-    {0x86, "Set TCK/SK Divisor (FT2232D) / Set clk divisor (FT232H/FT2232H/FT4232H)"},
     {0x87, "Send Immediate (flush buffer back to the PC)"},
     {0x88, "Wait On I/O High (wait until GPIOL1 (JTAG) or I/O1 (CPU) is high)"},
     {0x89, "Wait On I/O Low (wait until GPIOL1 (JTAG) or I/O1 (CPU) is low)"},
-    {0x8A, "Disable Clk Divide by 5 (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x8B, "Enable Clk Divide by 5 (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x8C, "Enable 3 Phase Data Clocking (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x8D, "Disable 3 Phase Data Clocking (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x8E, "Clock For n bits with no data transfer (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x8F, "Clock For n x 8 bits with no data transfer (FT232H, FT2232H & FT4232H ONLY)"},
     {CMD_CPUMODE_READ_SHORT_ADDR, "CPUMode Read Short Address"},
     {CMD_CPUMODE_READ_EXT_ADDR, "CPUMode Read Extended Address"},
     {CMD_CPUMODE_WRITE_SHORT_ADDR, "CPUMode Write Short Address"},
     {CMD_CPUMODE_WRITE_EXT_ADDR, "CPUMode Write Extended Address"},
-    {0x94, "Clk continuously and Wait On I/O High (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x95, "Clk continuously and Wait On I/O Low (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x96, "Turn On Adaptive clocking (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x97, "Turn Off Adaptive clocking (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x9C, "Clock For n x 8 bits with no data transfer or Until GPIOL1 is High (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x9D, "Clock For n x 8 bits with no data transfer or Until GPIOL1 is Low (FT232H, FT2232H & FT4232H ONLY)"},
-    {0x9E, "Set I/O to only drive on a '0' and tristate on a '1' (FT232H ONLY)"},
     {0, NULL}
 };
 static value_string_ext command_vals_ext = VALUE_STRING_EXT_INIT(command_vals);
+
+static const value_string ft2232d_only_command_vals[] = {
+    {CMD_CLOCK_SET_DIVISOR, "Set TCK/SK Divisor"},
+    {0, NULL}
+};
+
+/* FT232H, FT2232H and FT4232H only commands */
+static const value_string h_only_command_vals[] = {
+    {CMD_CLOCK_SET_DIVISOR, "Set clk divisor"},
+    {0x8A, "Disable Clk Divide by 5"},
+    {0x8B, "Enable Clk Divide by 5"},
+    {0x8C, "Enable 3 Phase Data Clocking"},
+    {0x8D, "Disable 3 Phase Data Clocking"},
+    {0x8E, "Clock For n bits with no data transfer"},
+    {0x8F, "Clock For n x 8 bits with no data transfer"},
+    {0x94, "Clk continuously and Wait On I/O High"},
+    {0x95, "Clk continuously and Wait On I/O Low"},
+    {0x96, "Turn On Adaptive clocking"},
+    {0x97, "Turn Off Adaptive clocking"},
+    {0x9C, "Clock For n x 8 bits with no data transfer or Until GPIOL1 is High"},
+    {0x9D, "Clock For n x 8 bits with no data transfer or Until GPIOL1 is Low"},
+    {0x9E, "Set I/O to only drive on a '0' and tristate on a '1' (FT232H ONLY)"},
+    {0, NULL}
+};
+static value_string_ext h_only_command_vals_ext = VALUE_STRING_EXT_INIT(h_only_command_vals);
+
+static const value_string ft232h_only_command_vals[] = {
+    {0x9E, "Set I/O to only drive on a '0' and tristate on a '1'"},
+    {0, NULL}
+};
 
 static const value_string data_shifting_command_b1_vals[] = {
     {0, "Byte mode"},
@@ -152,15 +173,101 @@ static const value_string command_b7_vals[] = {
     {0, NULL}
 };
 
-static gboolean is_valid_command(guint8 cmd)
+#define IS_DATA_SHIFTING_COMMAND_BIT_ACTIVE(cmd) ((cmd & (1u << 7)) == 0)
+#define IS_DATA_SHIFTING_BYTE_MODE(cmd)          ((cmd & (1u << 1)) == 0)
+#define IS_DATA_SHIFTING_WRITING_TDI(cmd)        (cmd & (1u << 4))
+#define IS_DATA_SHIFTING_WRITING_TMS(cmd)        (cmd & (1u << 6))
+
+static gboolean is_data_shifting_command(guint8 cmd)
 {
-    return try_val_to_str_ext(cmd, &command_vals_ext) != NULL;
+    switch (cmd)
+    {
+    /* Not all data shifting commands (with bit 7 clear) are explicitly listed in MPSSE documentation
+     * Some undocumented data shifting commands trigger BadCommmand response, but some seem to be handled by the device.
+     *
+     * Commands listed below (with bit 7 clear) trigger BadCommand response on FT2232L, FT232H and FT2232H
+     */
+    case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07: case 0x08: case 0x09: case 0x0A: case 0x0B: case 0x0C: case 0x0D: case 0x0E: case 0x0F:
+    case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x46: case 0x47: case 0x48: case 0x49:
+    case 0x4C: case 0x4D:
+    case 0x50: case 0x51: case 0x52: case 0x53: case 0x54: case 0x55: case 0x56: case 0x57: case 0x58: case 0x59:
+    case 0x5C: case 0x5D:
+    case 0x60: case 0x61:
+    case 0x64: case 0x65:
+    case 0x68: case 0x69:
+    case 0x6C: case 0x6D:
+    case 0x70: case 0x71:
+    case 0x74: case 0x75:
+    case 0x78: case 0x79:
+    case 0x7C: case 0x7D:
+        return FALSE;
+    default:
+        return IS_DATA_SHIFTING_COMMAND_BIT_ACTIVE(cmd);
+    }
 }
 
-#define IS_DATA_SHIFTING_COMMAND(cmd)     ((cmd & (1u << 7)) == 0)
-#define IS_DATA_SHIFTING_BYTE_MODE(cmd)   ((cmd & (1u << 1)) == 0)
-#define IS_DATA_SHIFTING_WRITING_TDI(cmd) (cmd & (1u << 4))
-#define IS_DATA_SHIFTING_WRITING_TMS(cmd) (cmd & (1u << 6))
+/* Returns human-readable command description string or NULL on BadCommand */
+static const char *
+get_command_string(guint8 cmd, ftdi_mpsse_info_t *mpsse_info)
+{
+    const char *str;
+
+    /* First, try commands that are common on all chips */
+    str = try_val_to_str_ext(cmd, &command_vals_ext);
+    if (str)
+    {
+        return str;
+    }
+
+    if (is_data_shifting_command(cmd))
+    {
+        return "Undocumented Data Shifting Command";
+    }
+
+    /* Check chip specific commands */
+    switch (mpsse_info->chip)
+    {
+    case FTDI_CHIP_FT2232D:
+        str = try_val_to_str(cmd, ft2232d_only_command_vals);
+        break;
+    case FTDI_CHIP_FT232H:
+        str = try_val_to_str(cmd, ft232h_only_command_vals);
+        if (str)
+        {
+            break;
+        }
+        /* Fallthrough */
+    case FTDI_CHIP_FT2232H:
+    case FTDI_CHIP_FT4232H:
+        str = try_val_to_str_ext(cmd, &h_only_command_vals_ext);
+        break;
+    default:
+        break;
+    }
+
+    return str;
+}
+
+static gboolean is_valid_command(guint8 cmd, ftdi_mpsse_info_t *mpsse_info)
+{
+    return get_command_string(cmd, mpsse_info) != NULL;
+}
+
+static gchar* freq_to_str(gfloat freq)
+{
+    if (freq < 1e3)
+    {
+        return g_strdup_printf("%.12g Hz", freq);
+    }
+    else if (freq < 1e6)
+    {
+        return g_strdup_printf("%.12g KHz", freq / 1e3);
+    }
+    else
+    {
+        return g_strdup_printf("%.12g MHz", freq / 1e6);
+    }
+}
 
 static gint
 dissect_data_shifting_command_parameters(guint8 cmd, tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, gint offset)
@@ -168,7 +275,7 @@ dissect_data_shifting_command_parameters(guint8 cmd, tvbuff_t *tvb, packet_info 
     gint         offset_start = offset;
     guint32      length;
 
-    DISSECTOR_ASSERT(IS_DATA_SHIFTING_COMMAND(cmd) && is_valid_command(cmd));
+    DISSECTOR_ASSERT(is_data_shifting_command(cmd));
 
     if (IS_DATA_SHIFTING_BYTE_MODE(cmd))
     {
@@ -199,7 +306,8 @@ dissect_data_shifting_command_parameters(guint8 cmd, tvbuff_t *tvb, packet_info 
 }
 
 static gint
-dissect_set_data_bits_parameters(guint8 cmd _U_, tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, gint offset, const char *signal_names[8])
+dissect_set_data_bits_parameters(guint8 cmd _U_, tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, gint offset,
+                                 const char *signal_names[8], const char *pin_prefix, guint num_pins)
 {
     static const gint *value_bits_hf[] = {
         &hf_mpsse_value_b0,
@@ -222,6 +330,7 @@ dissect_set_data_bits_parameters(guint8 cmd _U_, tvbuff_t *tvb, packet_info *pin
         &hf_mpsse_direction_b7,
     };
     guint32 value, direction;
+    proto_item *item;
     proto_item *value_item, *direction_item;
     proto_tree *value_tree, *direction_tree;
     guint bit;
@@ -241,14 +350,24 @@ dissect_set_data_bits_parameters(guint8 cmd _U_, tvbuff_t *tvb, packet_info *pin
         {
             state = "N/A (Input)";
         }
-        proto_tree_add_uint_format_value(value_tree, *value_bits_hf[bit], tvb, offset, 1, value, "%s %s", signal_names[bit], state);
+        item = proto_tree_add_uint_format_value(value_tree, *value_bits_hf[bit], tvb, offset, 1, value, "%s", signal_names[bit]);
+        if (pin_prefix && (bit < num_pins))
+        {
+            proto_item_append_text(item, " [%s%d]", pin_prefix, bit);
+        }
+        proto_item_append_text(item, " %s", state);
     }
 
     direction_tree = proto_item_add_subtree(direction_item, ett_mpsse_direction);
     for (bit = 0; bit < 8; bit++)
     {
         const char *type = ((1 << bit) & direction) ? "Output" : "Input";
-        proto_tree_add_uint_format_value(direction_tree, *direction_bits_hf[bit], tvb, offset + 1, 1, direction, "%s %s", signal_names[bit], type);
+        item = proto_tree_add_uint_format_value(direction_tree, *direction_bits_hf[bit], tvb, offset + 1, 1, direction, "%s", signal_names[bit]);
+        if (pin_prefix && (bit < num_pins))
+        {
+            proto_item_append_text(item, " [%s%d]", pin_prefix, bit);
+        }
+        proto_item_append_text(item, " %s", type);
     }
 
     return 2;
@@ -282,7 +401,86 @@ dissect_cpumode_parameters(guint8 cmd, tvbuff_t *tvb, packet_info *pinfo _U_, pr
 }
 
 static gint
-dissect_non_data_shifting_command_parameters(guint8 cmd, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset)
+dissect_clock_parameters(guint8 cmd _U_, tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, gint offset, ftdi_mpsse_info_t *mpsse_info)
+{
+    gint         offset_start = offset;
+    guint32      value;
+    proto_item   *item;
+    gchar        *str_old, *str;
+
+    item = proto_tree_add_item_ret_uint(tree, hf_mpsse_clk_divisor, tvb, offset, 2, ENC_LITTLE_ENDIAN, &value);
+    offset += 2;
+
+    str_old = freq_to_str((gfloat) 12e6 / ((1 + value) * 2));
+    str = freq_to_str((gfloat) 60e6 / ((1 + value) * 2));
+
+    if (mpsse_info->chip == FTDI_CHIP_FT2232D)
+    {
+        proto_item_append_text(item, ", TCK/SK Max: %s", str_old);
+    }
+    else
+    {
+        proto_item_append_text(item, ", TCK Max: %s (60 MHz master clock) or %s (12 MHz master clock)", str, str_old);
+    }
+
+    g_free(str_old);
+    g_free(str);
+
+    return offset - offset_start;
+}
+
+static const char *get_data_bit_pin_prefix(gboolean is_high_byte, ftdi_mpsse_info_t *mpsse_info, guint *out_num_pins)
+{
+    /* Based on table from FTDI AN_108 chapter 2.1 Data bit Definition */
+    switch (mpsse_info->chip)
+    {
+    case FTDI_CHIP_FT2232D:
+        if (mpsse_info->iface == FTDI_INTERFACE_A)
+        {
+            *out_num_pins = (is_high_byte) ? 4 : 8;
+            return (is_high_byte) ? "ACBUS" : "ADBUS";
+        }
+        break;
+    case FTDI_CHIP_FT232H:
+        *out_num_pins = 8;
+        return (is_high_byte) ? "ACBUS" : "ADBUS";
+    case FTDI_CHIP_FT2232H:
+        if (mpsse_info->iface == FTDI_INTERFACE_A)
+        {
+            *out_num_pins = 8;
+            return (is_high_byte) ? "ACBUS" : "ADBUS";
+        }
+        else if (mpsse_info->iface == FTDI_INTERFACE_B)
+        {
+            *out_num_pins = 8;
+            return (is_high_byte) ? "BCBUS" : "BDBUS";
+        }
+        break;
+    case FTDI_CHIP_FT4232H:
+        if (!is_high_byte)
+        {
+            if (mpsse_info->iface == FTDI_INTERFACE_A)
+            {
+                *out_num_pins = 8;
+                return "ADBUS";
+            }
+            else if (mpsse_info->iface == FTDI_INTERFACE_B)
+            {
+                *out_num_pins = 8;
+                return "BDBUS";
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    *out_num_pins = 0;
+    return NULL;
+}
+
+static gint
+dissect_non_data_shifting_command_parameters(guint8 cmd, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, ftdi_mpsse_info_t *mpsse_info)
 {
     static const char *low_byte_signal_names[8] = {
         "TCK/SK",
@@ -305,31 +503,41 @@ dissect_non_data_shifting_command_parameters(guint8 cmd, tvbuff_t *tvb, packet_i
         "GPIOH7",
     };
 
-    DISSECTOR_ASSERT(!IS_DATA_SHIFTING_COMMAND(cmd) && is_valid_command(cmd));
+    const char *pin_prefix = NULL;
+    guint       num_pins   = 0;
+
+    DISSECTOR_ASSERT(!is_data_shifting_command(cmd) && is_valid_command(cmd, mpsse_info));
 
     switch (cmd)
     {
     case CMD_SET_DATA_BITS_LOW_BYTE:
-        return dissect_set_data_bits_parameters(cmd, tvb, pinfo, tree, offset, low_byte_signal_names);
+        pin_prefix = get_data_bit_pin_prefix(FALSE, mpsse_info, &num_pins);
+        return dissect_set_data_bits_parameters(cmd, tvb, pinfo, tree, offset, low_byte_signal_names, pin_prefix, num_pins);
     case CMD_SET_DATA_BITS_HIGH_BYTE:
-        return dissect_set_data_bits_parameters(cmd, tvb, pinfo, tree, offset, high_byte_signal_names);
+        pin_prefix = get_data_bit_pin_prefix(TRUE, mpsse_info, &num_pins);
+        return dissect_set_data_bits_parameters(cmd, tvb, pinfo, tree, offset, high_byte_signal_names, pin_prefix, num_pins);
     case CMD_CPUMODE_READ_SHORT_ADDR:
     case CMD_CPUMODE_READ_EXT_ADDR:
     case CMD_CPUMODE_WRITE_SHORT_ADDR:
     case CMD_CPUMODE_WRITE_EXT_ADDR:
         return dissect_cpumode_parameters(cmd, tvb, pinfo, tree, offset);
+    case CMD_CLOCK_SET_DIVISOR:
+        return dissect_clock_parameters(cmd, tvb, pinfo, tree, offset, mpsse_info);
     default:
         return 0;
     }
 }
 
-static gint estimated_command_parameters_length(guint8 cmd, tvbuff_t *tvb, gint offset)
+static gint estimated_command_parameters_length(guint8 cmd, tvbuff_t *tvb, gint offset, ftdi_mpsse_info_t *mpsse_info)
 {
     gint parameters_length = 0;
 
-    DISSECTOR_ASSERT(is_valid_command(cmd));
+    if (!is_valid_command(cmd, mpsse_info))
+    {
+        return 0;
+    }
 
-    if (IS_DATA_SHIFTING_COMMAND(cmd))
+    if (is_data_shifting_command(cmd))
     {
         if (IS_DATA_SHIFTING_BYTE_MODE(cmd))
         {
@@ -359,7 +567,8 @@ static gint estimated_command_parameters_length(guint8 cmd, tvbuff_t *tvb, gint 
         case CMD_SET_DATA_BITS_HIGH_BYTE:
         case CMD_CPUMODE_READ_EXT_ADDR:
         case CMD_CPUMODE_WRITE_SHORT_ADDR:
-        case 0x86: case 0x8F: case 0x9C: case 0x9D: case 0x9E:
+        case CMD_CLOCK_SET_DIVISOR:
+        case 0x8F: case 0x9C: case 0x9D: case 0x9E:
             parameters_length = 2;
             break;
         case CMD_CPUMODE_READ_SHORT_ADDR:
@@ -377,13 +586,13 @@ static gint estimated_command_parameters_length(guint8 cmd, tvbuff_t *tvb, gint 
     return parameters_length;
 }
 
-static gint
-dissect_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, gboolean *need_reassembly)
+static guint8
+dissect_command_code(guint8 cmd, const char *cmd_str, tvbuff_t *tvb, proto_tree *tree, gint offset, ftdi_mpsse_info_t *mpsse_info _U_)
 {
-    guint8       cmd;
-    gint         offset_start = offset;
-
-    static const int *data_shifting_cmd_bits[] = {
+    proto_item        *cmd_item;
+    proto_tree        *cmd_tree;
+    const int        **cmd_bits;
+    static const int  *data_shifting_cmd_bits[] = {
         &hf_mpsse_command_b7,
         &hf_mpsse_command_b6,
         &hf_mpsse_command_b5,
@@ -400,38 +609,63 @@ dissect_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset
         NULL
     };
 
+    cmd_item = proto_tree_add_uint_format(tree, hf_mpsse_command, tvb, offset, 1, cmd, "Command: %s (0x%02x)", cmd_str, cmd);
+    cmd_tree = proto_item_add_subtree(cmd_item, ett_mpsse_command);
+    cmd_bits = IS_DATA_SHIFTING_COMMAND_BIT_ACTIVE(cmd) ? data_shifting_cmd_bits : non_data_shifting_cmd_bits;
+
+    proto_tree_add_bitmask_list_value(cmd_tree, tvb, offset, 1, cmd_bits, cmd);
+
+    return cmd;
+}
+
+static gint
+dissect_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, gboolean *need_reassembly, ftdi_mpsse_info_t *mpsse_info)
+{
+    guint8       cmd;
+    const char  *cmd_str;
+    gint         offset_start = offset;
+    gint         parameters_length;
+    gint         dissected;
+    proto_item  *cmd_with_parameters;
+    proto_tree  *cmd_tree;
+
     cmd = tvb_get_guint8(tvb, offset);
-    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_mpsse_command, ett_mpsse_command,
-                                      IS_DATA_SHIFTING_COMMAND(cmd) ? data_shifting_cmd_bits : non_data_shifting_cmd_bits,
-                                      ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+    cmd_str = get_command_string(cmd, mpsse_info);
+    parameters_length = estimated_command_parameters_length(cmd, tvb, offset + 1, mpsse_info);
+    if (tvb_reported_length_remaining(tvb, offset + 1) < parameters_length)
+    {
+        *need_reassembly = TRUE;
+        return 0;
+    }
+
+    if (!cmd_str)
+    {
+        cmd_str = "Bad Command";
+    }
+
+    cmd_with_parameters = proto_tree_add_bytes_format(tree, hf_mpsse_command_with_parameters, tvb, offset, 1 + parameters_length, NULL, "%s", cmd_str);
+    cmd_tree = proto_item_add_subtree(cmd_with_parameters, ett_mpsse_command_with_parameters);
+
+    cmd = dissect_command_code(cmd, cmd_str, tvb, cmd_tree, offset, mpsse_info);
     offset += 1;
 
-    if (is_valid_command(cmd))
+    *need_reassembly = FALSE;
+    if (parameters_length > 0)
     {
-        gint parameters_length = estimated_command_parameters_length(cmd, tvb, offset);
-        if (tvb_reported_length_remaining(tvb, offset) >= parameters_length)
+        if (IS_DATA_SHIFTING_COMMAND_BIT_ACTIVE(cmd))
         {
-            gint dissected;
-            *need_reassembly = FALSE;
-            if (IS_DATA_SHIFTING_COMMAND(cmd))
-            {
-                dissected = dissect_data_shifting_command_parameters(cmd, tvb, pinfo, tree, offset);
-                DISSECTOR_ASSERT(dissected == parameters_length);
-                offset += dissected;
-            }
-            else if (parameters_length > 0)
-            {
-                dissected = dissect_non_data_shifting_command_parameters(cmd, tvb, pinfo, tree, offset);
-                if (parameters_length > dissected)
-                {
-                    proto_tree_add_expert(tree, pinfo, &ei_undecoded, tvb, offset + dissected, parameters_length - dissected);
-                }
-                offset += parameters_length;
-            }
+            dissected = dissect_data_shifting_command_parameters(cmd, tvb, pinfo, cmd_tree, offset);
+            DISSECTOR_ASSERT(dissected == parameters_length);
+            offset += dissected;
         }
         else
         {
-            *need_reassembly = TRUE;
+            dissected = dissect_non_data_shifting_command_parameters(cmd, tvb, pinfo, cmd_tree, offset, mpsse_info);
+            if (parameters_length > dissected)
+            {
+                proto_tree_add_expert(cmd_tree, pinfo, &ei_undecoded, tvb, offset + dissected, parameters_length - dissected);
+            }
+            offset += parameters_length;
         }
     }
 
@@ -439,11 +673,17 @@ dissect_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset
 }
 
 static gint
-dissect_ftdi_mpsse(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+dissect_ftdi_mpsse(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-    gint         offset = 0;
-    proto_item  *main_item;
-    proto_tree  *main_tree;
+    ftdi_mpsse_info_t *mpsse_info = (ftdi_mpsse_info_t *)data;
+    gint               offset = 0;
+    proto_item        *main_item;
+    proto_tree        *main_tree;
+
+    if (!mpsse_info)
+    {
+        return offset;
+    }
 
     main_item = proto_tree_add_item(tree, proto_ftdi_mpsse, tvb, offset, -1, ENC_NA);
     main_tree = proto_item_add_subtree(main_item, ett_ftdi_mpsse);
@@ -455,7 +695,7 @@ dissect_ftdi_mpsse(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
         gboolean need_reassembly = FALSE;
         while ((tvb_reported_length_remaining(tvb, offset) > 0) && (!need_reassembly))
         {
-            offset += dissect_command(tvb, pinfo, main_tree, offset, &need_reassembly);
+            offset += dissect_command(tvb, pinfo, main_tree, offset, &need_reassembly, mpsse_info);
         }
 
         if (need_reassembly)
@@ -481,8 +721,13 @@ proto_register_ftdi_mpsse(void)
     static hf_register_info hf[] = {
         { &hf_mpsse_command,
           { "Command", "ftdi-mpsse.command",
-            FT_UINT8, BASE_HEX | BASE_EXT_STRING, &command_vals_ext, 0x0,
+            FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
+        },
+        { &hf_mpsse_command_with_parameters,
+          { "Command with parameters", "ftdi-mpsse.command_with_parameters",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            "Command including optional parameter bytes", HFILL }
         },
         { &hf_mpsse_command_b0,
           { "-ve CLK on write", "ftdi-mpsse.command.b0",
@@ -649,6 +894,11 @@ proto_register_ftdi_mpsse(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_mpsse_clk_divisor,
+          { "Divisor", "ftdi-mpsse.clk_divisor",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
     };
 
     static ei_register_info ei[] = {
@@ -658,6 +908,7 @@ proto_register_ftdi_mpsse(void)
     static gint *ett[] = {
         &ett_ftdi_mpsse,
         &ett_mpsse_command,
+        &ett_mpsse_command_with_parameters,
         &ett_mpsse_value,
         &ett_mpsse_direction,
     };

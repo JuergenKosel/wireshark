@@ -2295,16 +2295,12 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Tipo</translation>
     </message>
     <message>
-        <source>Mac Address</source>
-        <translation type="vanished">Indirizzo MAC</translation>
-    </message>
-    <message>
         <source>Name</source>
         <translation>Nome</translation>
     </message>
     <message>
         <source>Address</source>
-        <translation type="unfinished">Indirizzo</translation>
+        <translation>Indirizzo</translation>
     </message>
     <message>
         <source>All entries</source>
@@ -2312,23 +2308,7 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
     <message>
         <source>Hosts</source>
-        <translation type="unfinished">Host:</translation>
-    </message>
-    <message>
-        <source>IPv4 Hosts</source>
-        <translation type="vanished">Host IPv4</translation>
-    </message>
-    <message>
-        <source>IPv4 Hash Table</source>
-        <translation type="vanished">Tabella hash IPv4</translation>
-    </message>
-    <message>
-        <source>IPv6 Hosts</source>
-        <translation type="vanished">Host IPv6</translation>
-    </message>
-    <message>
-        <source>IPv6 Hash Table</source>
-        <translation type="vanished">Tabella hash IPv6</translation>
+        <translation>Host</translation>
     </message>
     <message>
         <source>Ethernet Addresses</source>
@@ -2602,12 +2582,20 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
 <context>
     <name>ExtcapArgumentFileSelection</name>
     <message>
+        <source>Clear</source>
+        <translation>Pulisci</translation>
+    </message>
+    <message>
         <source>All Files (</source>
         <translation>Tutti i file (</translation>
     </message>
     <message>
         <source>Open File</source>
         <translation>Apri file</translation>
+    </message>
+    <message>
+        <source>Select File</source>
+        <translation>Seleziona file</translation>
     </message>
 </context>
 <context>
@@ -8083,6 +8071,22 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Icons &amp; Text</source>
         <translation>Icone e testo</translation>
+    </message>
+    <message>
+        <source>Window title</source>
+        <translation>Titolo della finestra</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Custom window title to be appended to the existing title&lt;br/&gt;%F = file path of the capture file&lt;br/&gt;%P = profile name&lt;br/&gt;%S = a conditional separator (&amp;quot; - &amp;quot;) that only shows when surrounded by variables with values or static text&lt;br/&gt;%V = version info&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Titolo della finestra personalizzato da aggiungere al titolo esistente&lt;br/&gt;%F = percorso del file di cattura&lt;br/&gt;%P = nome del profilo&lt;br/&gt;%S = un separatore condizionale (&amp;quot; - &amp;quot;) che è mostrato solo quando è circondato da variabili con valori o testo statico&lt;br/&gt;%V = informaziini di versione&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Prepend window title</source>
+        <translation>Anteponi il titolo della finestra</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Custom window title to be prepended to the existing title&lt;br/&gt;%F = file path of the capture file&lt;br/&gt;%P = profile name&lt;br/&gt;%S = a conditional separator (&amp;quot; - &amp;quot;) that only shows when surrounded by variables with values or static text&lt;br/&gt;%V = version info&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Titolo della finestra personalizzato da anteporre al titolo esistente&lt;br/&gt;%F = percorso del file di cattura&lt;br/&gt;%P = nome del profilo&lt;br/&gt;%S = un separatore condizionale (&amp;quot; - &amp;quot;) che è mostrato solo quando è circondato da variabili con valori o testo statico&lt;br/&gt;%V = informaziini di versione&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Language: </source>

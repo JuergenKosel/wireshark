@@ -90,6 +90,8 @@ void AddressEditorFrame::editAddresses(CaptureFile &cf, int column)
 
     epan_dissect_cleanup(&edt);
 
+    displayPreviousUserDefinedHostname();
+
     ui->addressComboBox->addItems(addresses);
     ui->nameLineEdit->setFocus();
     updateWidgets();
@@ -118,10 +120,24 @@ void AddressEditorFrame::keyPressEvent(QKeyEvent *event)
     AccordionFrame::keyPressEvent(event);
 }
 
+void AddressEditorFrame::displayPreviousUserDefinedHostname()
+{
+    QString addr = ui->addressComboBox->currentText();
+    resolved_name_t* previous_entry = get_edited_resolved_name(addr.toUtf8().constData());
+    if (previous_entry)
+    {
+        ui->nameLineEdit->setText(previous_entry->name);
+    }
+    else
+    {
+        ui->nameLineEdit->setText("");
+    }
+}
+
 void AddressEditorFrame::updateWidgets()
 {
     bool ok_enable = false;
-    if (ui->addressComboBox->count() > 0 && !ui->nameLineEdit->text().isEmpty()) {
+    if (ui->addressComboBox->count() > 0) {
         ok_enable = true;
     }
 
@@ -136,6 +152,7 @@ void AddressEditorFrame::on_nameResolutionPreferencesToolButton_clicked()
 
 void AddressEditorFrame::on_addressComboBox_currentIndexChanged(const QString &)
 {
+    displayPreviousUserDefinedHostname();
     updateWidgets();
 }
 
@@ -146,7 +163,7 @@ void AddressEditorFrame::on_nameLineEdit_textEdited(const QString &)
 
 void AddressEditorFrame::on_buttonBox_accepted()
 {
-    if (ui->addressComboBox->count() < 1 || ui->nameLineEdit->text().isEmpty()) {
+    if (ui->addressComboBox->count() < 1) {
         return;
     }
     QString addr = ui->addressComboBox->currentText();

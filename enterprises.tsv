@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2020-02-07)
+# (last updated 2020-03-01)
 
 0	Reserved
 1	NxNetworks
@@ -6690,7 +6690,6 @@
 6704	Vancouver Language Institute Ltd.
 6705	Zygox, Inc.
 6706	NOAA/PMEL/EPIC
-6707	Rolf Buurke
 6708	Handuru Telecom
 6709	Scarlet Telecom BV
 6710	South Birmingham College
@@ -13172,7 +13171,7 @@
 13302	The Advantage Media Group
 13303	The Gillette Company
 13304	T-Systems Solutions for Research GmbH
-13305	BFH Berne University of Applied Sciences (previous was 'Berne University of Applied Sciences')
+13305	BFH Bern University of Applied Sciences
 13306	University of Montana
 13307	V.R.A.M. Rt.
 13308	Városmajori Gimnázium
@@ -15931,7 +15930,7 @@
 16068	Repeatit AB
 16069	MINEFI/SP
 16070	Bundesamt für Finanzen
-16071	Pictet & Cie, Banquiers
+16071	Banque Pictet et Cie SA
 16072	Linkeo.com
 16073	Edith Cowan University
 16074	VBL Karlsruhe
@@ -23545,7 +23544,7 @@
 23699	Zyden Software
 23700	Internews 98 Ltd.
 23701	Cannon Technologies Ltd
-23702	SHD Holding GmbH
+23702	SHD AG
 23703	Agile Software (NZ) Ltd
 23704	Calypso Capital Management
 23705	Salient Corporation, Inc
@@ -32909,7 +32908,7 @@
 33073	System Analysis and Information Technologies Conference
 33074	Oryx Mail Systems GmbH
 33075	linux systeme thomas
-33076	SCORE42 SAS 	# formerly 'Virtual Internet Service Provider'
+33076	SHAROPS SASU	# formerly 'SCORE42 SAS'
 33077	InformSvyazStroi, Ltd.
 33078	Ganymeade Systems
 33079	EmblaCom Oy
@@ -35731,7 +35730,7 @@
 35899	Prism Clinical Imaging, Inc.
 35900	DuMont Net GmbH & Co. KG
 35901	Al-Quds University
-35902	OpenHeadend
+35902	EasyTools	# formerly 'OpenHeadend'
 35903	Bartonia Domain and Enterprises
 35904	MacroSAN
 35905	ACME-Cebul inc.
@@ -36843,7 +36842,7 @@
 37012	Bestgo.pl Sp. Z O.O.
 37013	eoswan
 37014	Hanming Technology Co., Ltd
-37015	Harms Consulting Pty Ltd
+37015	Harms Consulting Partners Pty Ltd
 37016	Unicredit S.P.A.
 37017	NATION Technologies Group, Inc
 37018	Phabrix
@@ -42813,7 +42812,7 @@
 42990	VTSL Ltd
 42991	Marylhurst University
 42992	Vektron Energy (Pty) Ltd
-42993	Cornerstone Health Care, P.A.
+42993	Wake Forest Baptist Health	# formerly 'Cornerstone Health Care, P.A.'
 42994	Institut de Physique de Rennes
 42995	AvertIT
 42996	NOMASYSTEMS, S.L.
@@ -53236,7 +53235,7 @@
 53426	Vacus Tech Pvt Ltd
 53427	GB Logging AB
 53428	Invigo Offshore SAL
-53429	DarkMatter L.L.C
+53429	Digital 14 L.L.C
 53430	AUTAJON Group
 53431	Lookman Electroplast Industries Limited
 53432	Fondation des Apprentis d'Auteuil
@@ -55050,3 +55049,124 @@
 55242	Rick Stroobosscher
 55243	COMPESO GmbH
 55244	Fast Object LLC
+55245	Capital Region Orthopaedics Associates
+55246	DIAXE
+55247	Working Group Two
+55248	Treetop Innovation AB
+55249	S.E.D. - A GPL Smart Embedded Devices
+55250	MOBIWEB
+55251	Guangzhou Navigateworx Technologies Co., Ltd
+55252	Notesco Financial Services Limited
+55253	brunner & gasser ceTec
+55254	Broadvine
+55255	RELOPS LTD
+55256	Veon Georgia LLC
+55257	Lightcyphers
+55258	Harper Creek Community Schools
+55259	Opus Holding, L.L.C.
+55260	TROPHY ELECTRONICS LLC
+55261	Rosenberger Technologies Co., Ltd.
+55262	Rosenberger Asia Pacific Electronic Co., Ltd.
+55263	Haier Uplus Intelligent Technology (Beijing) Co., Ltd.
+55264	The Gnou Community
+55265	RKU
+55266	SydIT
+55267	Zeel Infotech Pvt. Ltd.
+55268	BEDIA Motorentechnik GmbH & Co.KG
+55269	Datareon
+55270	Fuel Business Intelligence SA
+55271	GOODWE POWER SUPPLY TECHNOLOGY CO.,LTD.
+55272	Glory Technology Service Inc.
+55273	AROY System Pvt. Ltd.
+55274	FlexSCADA
+55275	AVAG Holding SE
+55276	EUROSIGN
+55277	Liberty HR Recruitment Ltd
+55278	MartTrend
+55279	Cygna Labs Corp.
+55280	BFG Supply Co
+55281	EyeConsultantsPC.com eyeoptics.net ECEO.us
+55282	Dr. Pfau Fernwirktechnik GmbH
+55283	OPER8 Global lImited
+55284	kganyaoscar
+55285	Hessel Ventures, LLC
+55286	dsb it services GmbH
+55287	Banking Circle
+55288	allRadio
+55289	Beijing Yutian Technology Co., Ltd.
+55290	Smart Skog AB
+55291	Arrival Limited
+55292	SC ADI COM SOFT SRL
+55293	Candisa Systems
+55294	Blair Foot and Ankle LLC
+55295	IDS Airnav s.r.l.
+55296	Hillsboro Orthopedic Group, Inc.
+55297	XueHao Science And Technology Company Limited
+55298	Redslareds Skogstransporter HB
+55299	NTM Oy Ab
+55300	Abies Technology Inc.
+55301	PROMIS JSC
+55302	Neovox
+55303	Varnamo kommun
+55304	The Wey Valley Academy
+55305	NGMEDIA
+55306	SafeKiddo Sp. z o.o. Sp.k.
+55307	Czech Pirate Party
+55308	ixecloud
+55309	Sony Interactive Entertainment, LLC
+55310	Infocare Healthcare Services (Irl.) Ltd.
+55311	Facultad de Ciencias Médicas - UBA
+55312	Kerr, Russell and Weber, PLC
+55313	Compelling Technologies, LLC
+55314	LLC NPO "Svyazkomplektservis"
+55315	Auerswald GmbH & Co. KG
+55316	ROBERT DANIEL BUONOCORE
+55317	Lely Holding BV
+55318	X2
+55319	Niagara Falls Memorial Medical Center
+55320	pingdash AB
+55321	Loralab
+55322	Núcleo de Comunicaciones y Control, S.L.
+55323	Y20 Works
+55324	Anapaya Systems
+55325	Komprise
+55326	State University of New York College of Technology at Delhi
+55327	SOS International LLC
+55328	Tatweer
+55329	MIC Global Services
+55330	adKor GmbH
+55331	Noroutine
+55332	PKI Solutions Inc
+55333	Nanjing Buruike Electronics Technology Co., Ltd.
+55334	Digivalet
+55335	yantaijiandianziCo.,Ltd.
+55336	Real Time Data Pty Ltd
+55337	RadioLab Srl
+55338	SMOK spółka z ograniczoną odpowiedzialnością
+55339	OptimERA Inc
+55340	Xware innovations
+55341	LA SAI
+55342	My Kidney Care L.L.C.
+55343	EZY-IO INC
+55344	Basein Networks, Inc.
+55345	CMSS
+55346	orzTech
+55347	HENRIETTA Piotr Maślanka
+55348	Back Alley Labs
+55349	Sipartech
+55350	Siemens Healthcare GmbH (SHS CS SLM SRS RSO)
+55351	Core Security, A HelpSystems Company
+55352	Monty UK Global Ltd.
+55353	Ackerman Oil Co., Inc
+55354	Allmon Technologies LLC
+55355	VPM Media Corp
+55356	Huskey Truss & Building Supply
+55357	Lakeside Robotics Corporation
+55358	Macali
+55359	Huan's Software
+55360	Brain Updaters
+55361	Alphageek Systems
+55362	Softronics Ltd.
+55363	TSGT.coop
+55364	Groupement Belge des Graphothérapeutes asbl - GBGT asbl
+55365	Shanghai Mission Information Technologies (Group) Co., Ltd

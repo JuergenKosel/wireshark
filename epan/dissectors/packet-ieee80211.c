@@ -614,6 +614,7 @@ static value_string_ext tag_num_vals_ext = VALUE_STRING_EXT_INIT(ie_tag_num_vals
 #define ETAG_QUIET_TIME_PERIOD_SETUP           43
 #define ETAG_ESS_REPORT                        44
 #define ETAG_REJECTED_GROUPS                   92
+#define ETAG_ANTI_CLOGGING_TOKEN               93
 
 static const value_string tag_num_vals_eid_ext[] = {
   { ETAG_ASSOC_DELAY_INFO,                    "Association Delay Info" },
@@ -642,6 +643,7 @@ static const value_string tag_num_vals_eid_ext[] = {
   { ETAG_QUIET_TIME_PERIOD_SETUP,             "Quiet Time Period Setup" },
   { ETAG_ESS_REPORT,                          "ESS Report" },
   { ETAG_REJECTED_GROUPS,                     "Rejected Groups" },
+  { ETAG_ANTI_CLOGGING_TOKEN,                 "Anti-Clogging Token Container" },
   { 0, NULL }
 };
 static value_string_ext tag_num_vals_eid_ext_ext = VALUE_STRING_EXT_INIT(tag_num_vals_eid_ext);
@@ -658,6 +660,7 @@ static const value_string wfa_subtype_vals[] = {
   { WFA_SUBTYPE_DPP, "Device Provisioning Protocol" },
   { WFA_SUBTYPE_IEEE1905_MULTI_AP, "IEEE1905 Multi-AP" },
   { WFA_SUBTYPE_OWE_TRANSITION_MODE, "OWE Transition Mode" },
+  { WFA_SUBTYPE_WIFI_60G, "60GHz Information Element" },
   { 0, NULL }
 };
 
@@ -3445,12 +3448,13 @@ static int hf_ieee80211_ff_sa_query_action_code = -1;
 static int hf_ieee80211_ff_transaction_id = -1;
 
 static int hf_ieee80211_ff_send_confirm = -1;
-static int hf_ieee80211_ff_anti_clogging_token = -1;
 static int hf_ieee80211_ff_scalar = -1;
 static int hf_ieee80211_ff_finite_field_element = -1;
 static int hf_ieee80211_ff_confirm = -1;
 static int hf_ieee80211_ff_finite_cyclic_group = -1;
 static int hf_ieee80211_ff_sae_message_type = -1;
+static int hf_ieee80211_ff_sae_anti_clogging_token = -1;
+
 
 /* Vendor specific */
 static int hf_ieee80211_ff_marvell_action_type = -1;
@@ -5205,6 +5209,8 @@ static int hf_ieee80211_ff_dmg_params_cbap_only = -1;
 static int hf_ieee80211_ff_dmg_params_cbap_src = -1;
 static int hf_ieee80211_ff_dmg_params_privacy = -1;
 static int hf_ieee80211_ff_dmg_params_policy = -1;
+static int hf_ieee80211_ff_dmg_params_spec_mgmt = -1;
+static int hf_ieee80211_ff_dmg_params_radio_measure = -1;
 static int hf_ieee80211_ff_cc = -1;
 static int hf_ieee80211_ff_cc_abft_resp_addr = -1;
 static int hf_ieee80211_ff_cc_sp_duration = -1;
@@ -5428,6 +5434,9 @@ static int hf_ieee80211_estimated_service_params = -1;
 
 static int hf_ieee80211_fcg_new_channel_number = -1;
 static int hf_ieee80211_fcg_extra_info = -1;
+static int hf_ieee80211_sae_password_identifier = -1;
+
+static int hf_ieee80211_sae_anti_clogging_token = -1;
 
 static int hf_ieee80211_tag_fils_indication_info_nr_pk = -1;
 static int hf_ieee80211_tag_fils_indication_info_nr_realm = -1;
@@ -5454,6 +5463,15 @@ static int hf_ieee80211_fils_session = -1;
 static int hf_ieee80211_fils_encrypted_data = -1;
 static int hf_ieee80211_fils_wrapped_data = -1;
 static int hf_ieee80211_fils_nonce = -1;
+
+/* wfa 60g ie tree */
+static int hf_ieee80211_wfa_60g_attr = -1;
+static int hf_ieee80211_wfa_60g_attr_id = -1;
+static int hf_ieee80211_wfa_60g_attr_len = -1;
+
+static int hf_ieee80211_wfa_60g_attr_cap_sta_mac_addr = -1;
+static int hf_ieee80211_wfa_60g_attr_cap_recv_amsdu_frames = -1;
+static int hf_ieee80211_wfa_60g_attr_cap_reserved = -1;
 
 /* ************************************************************************* */
 /*                              802.11AX fields                              */
@@ -6003,6 +6021,8 @@ static expert_field ei_ieee80211_twt_setup_not_supported_neg_type = EI_INIT;
 static expert_field ei_ieee80211_twt_setup_bad_command = EI_INIT;
 static expert_field ei_ieee80211_invalid_control_word = EI_INIT;
 static expert_field ei_ieee80211_invalid_control_id = EI_INIT;
+static expert_field ei_ieee80211_wfa_60g_attr_len_invalid = EI_INIT;
+static expert_field ei_ieee80211_wfa_60g_unknown_attribute = EI_INIT;
 
 /* 802.11ad trees */
 static gint ett_dynamic_alloc_tree = -1;
@@ -6020,6 +6040,8 @@ static gint ett_allocation_tree = -1;
 static gint ett_sta_info = -1;
 
 static gint ett_ieee80211_esp = -1;
+
+static gint ett_ieee80211_wfa_60g_attr = -1;
 
 /* 802.11ah trees */
 static gint ett_twt_tear_down_tree = -1;
@@ -8730,6 +8752,9 @@ add_ff_beacon_interval(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int 
 }
 
 static guint
+add_ff_dmg_params(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset);
+
+static guint
 add_ff_cap_info(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
 {
   static const int *ieee80211_ap_fields[] = {
@@ -8768,19 +8793,32 @@ add_ff_cap_info(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int off
     NULL
   };
 
-  if ((tvb_get_letohs(tvb, offset) & 0x0001) != 0) {
-    /* This is an AP */
-    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_ieee80211_ff_capture,
-                                    ett_cap_tree, ieee80211_ap_fields,
-                                    ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
-    p_add_proto_data(wmem_file_scope(), pinfo, proto_wlan, IS_AP_KEY, GINT_TO_POINTER(TRUE));
-  } else {
-    /* This is a STA */
-    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_ieee80211_ff_capture,
-                                    ett_cap_tree, ieee80211_sta_fields,
-                                    ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
-  }
+  /* The capability information includes DMG parameters whenever it is transmitted by
+     a DMG STA/AP (802.11ad-2012, 8.4.1.4) */
 
+  gboolean isDMG = GPOINTER_TO_INT(p_get_proto_data(wmem_file_scope(), pinfo, proto_wlan, IS_DMG_KEY));
+
+  if (isDMG) {
+    proto_item *cap_item;
+    proto_tree *cap_tree;
+    cap_item = proto_tree_add_item(tree, hf_ieee80211_ff_capture, tvb, offset, 2,
+                                   ENC_LITTLE_ENDIAN);
+    cap_tree = proto_item_add_subtree(cap_item, ett_cap_tree);
+    add_ff_dmg_params(cap_tree, tvb, pinfo, offset);
+   } else {
+      if ((tvb_get_letohs(tvb, offset) & 0x0001) != 0) {
+      /* This is an AP */
+      proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_ieee80211_ff_capture,
+                                        ett_cap_tree, ieee80211_ap_fields,
+                                        ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+      p_add_proto_data(wmem_file_scope(), pinfo, proto_wlan, IS_AP_KEY, GINT_TO_POINTER(TRUE));
+      } else {
+        /* This is a STA */
+        proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_ieee80211_ff_capture,
+                                          ett_cap_tree, ieee80211_sta_fields,
+                                          ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+      }
+   }
   return 2;
 }
 
@@ -10249,7 +10287,7 @@ static guint get_scalar_len(guint group) {
 }
 
 static guint
-find_anti_clogging_len(tvbuff_t *tvb, guint offset)
+find_fixed_field_len(tvbuff_t *tvb, guint offset)
 {
   guint start_offset = offset;
   guint len = tvb_reported_length(tvb);
@@ -10262,11 +10300,13 @@ find_anti_clogging_len(tvbuff_t *tvb, guint offset)
     if (tvb_get_guint8(tvb, offset) == 0xFF) {
       /*
        * Check if we have a len followed by either ETAG_REJECTED_GROUPS
-       * or ETAG_PASSWORD_IDENTIFIER
+       * or ETAG_PASSWORD_IDENTIFIER or ETAG_ANTI_CLOGGING_TOKEN
        */
       if (offset < len - 3) {
-        if (tvb_get_guint8(tvb, offset + 2) == ETAG_REJECTED_GROUPS ||
-            tvb_get_guint8(tvb, offset + 2) == ETAG_PASSWORD_IDENTIFIER) {
+        guint8 check_byte = tvb_get_guint8(tvb, offset + 2);
+        if (check_byte == ETAG_REJECTED_GROUPS ||
+            check_byte == ETAG_PASSWORD_IDENTIFIER ||
+            check_byte == ETAG_ANTI_CLOGGING_TOKEN) {
               break;
         }
       }
@@ -10307,6 +10347,20 @@ add_ff_auth_sae(proto_tree *tree, tvbuff_t *tvb,
     guint16 group;
     guint sc_len, elt_len;
 
+    /*
+     * Order is: Status code,
+     *           Finite Cyclic Group,
+     *           Anti-Clogging Token in some cases
+     *           Send-Confirm in some cases
+     *           Scalar in some cases
+     *           FFE in some cases
+     *           Confirm in some cases
+     *           Challenge Text in some cases
+     *           RSNE in some cases.
+     *           MDE in some cases.
+     *           Fast BSS TRansition ... in some cases.
+     */
+
     /* 76: Authentication is rejected because an Anti-Clogging Token is required (cf ieee80211_status_code) */
       /* These are present if status code is 0, 76, 77 or 126 */
     if (status_code == 0 || status_code == 76 || status_code == 77 ||
@@ -10316,10 +10370,42 @@ add_ff_auth_sae(proto_tree *tree, tvbuff_t *tvb,
       proto_tree_add_item(tree, hf_ieee80211_ff_finite_cyclic_group, tvb,
                           offset, 2, ENC_LITTLE_ENDIAN);
       offset += 2;
-      len = tvb_reported_length_remaining(tvb, offset);
 
+
+      /*
+       * Now, get the fixed field length remaining. It will be divided up into
+       * Anti-Clogging token, Scalar, FFE and some IEs.
+       */
+      len = find_fixed_field_len(tvb, offset);
       sc_len = get_scalar_len(group);
       elt_len = get_group_element_len(group);
+
+      /*
+       * The first conditional captures the case where we have an error and
+       * an anti-clogging token with Scalar Field and FFE.
+       * The second handles the case where we have an error with only an
+       * anti-clogging token.
+       * The third conditional below is a way to avoid keeping state about
+       * what was in a previous response!
+       */
+      if (((status_code == 76 || status_code == 126) &&
+           ((len > (sc_len + elt_len)))) ||
+           ((status_code == 76) && (len > 0) && (len < (sc_len + elt_len))) ||
+          ((status_code == 0) && (len > (sc_len + elt_len)))) {
+        guint anti_clogging_len;
+        /*
+         * Handle the anti-clogging field. There is an anti-clogging token
+         * before the other two.
+         */
+        if (len > (sc_len + elt_len))
+          anti_clogging_len = len - (sc_len + elt_len);
+        else
+          anti_clogging_len = len;
+
+        proto_tree_add_item(tree, hf_ieee80211_ff_sae_anti_clogging_token, tvb,
+                            offset, anti_clogging_len, ENC_NA);
+        offset += anti_clogging_len;
+      }
 
       if (sc_len == 0) {
         /* assume no anti-clogging token */
@@ -10343,26 +10429,6 @@ add_ff_auth_sae(proto_tree *tree, tvbuff_t *tvb,
         proto_tree_add_item(tree, hf_ieee80211_ff_finite_field_element, tvb,
                             offset, elt_len, ENC_NA);
         offset += elt_len;
-      }
-
-      /*
-       * Do we have an anti-clogging token? To find out we have to scan the
-       * rest of the buffer looking for IEs with 0xFF NUM 0x5C or
-       * 0xFF NUM 0x21 since these can occur after the anti-clogging token.
-       * However, it is only present if the status code is 76 or 126.
-       */
-      if (status_code == 76 || status_code == 126) {
-        guint anti_clogging_len;
-
-        if (offset >= len) { /* Nothing left, add an Expert Info */
-
-        }
-        anti_clogging_len = find_anti_clogging_len(tvb, offset);
-        if (anti_clogging_len > 0) {
-          proto_tree_add_item(tree, hf_ieee80211_ff_anti_clogging_token, tvb,
-                              offset, anti_clogging_len, ENC_NA);
-          offset += anti_clogging_len;
-        }
       }
     }
   }
@@ -11064,6 +11130,8 @@ add_ff_dmg_params(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int o
     &hf_ieee80211_ff_dmg_params_cbap_src,
     &hf_ieee80211_ff_dmg_params_privacy,
     &hf_ieee80211_ff_dmg_params_policy,
+    &hf_ieee80211_ff_dmg_params_spec_mgmt,
+    &hf_ieee80211_ff_dmg_params_radio_measure,
     NULL
   };
 
@@ -13785,6 +13853,68 @@ dissect_hs20_indication(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
      offset += 2;
   }
 
+  return offset;
+}
+
+enum ieee80211_wfa_60g_attr {
+  /* 0 Reserved */
+  WIFI_60G_ATTR_CAPABILITY = 1,
+  /* 2 - 225 Reserved */
+};
+
+static const value_string ieee80211_wfa_60g_attr_ids[] = {
+  { WIFI_60G_ATTR_CAPABILITY, "60GHz Capability" },
+  { 0, NULL }
+};
+
+static int
+dissect_wfa_60g_ie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+  gint end = tvb_reported_length(tvb);
+  int offset = 0;
+  guint8 id;
+  guint16 len;
+  proto_tree *wf60g_tree;
+  proto_item *attrs;
+
+  while (offset < end) {
+    if (end - offset < 2) {
+      expert_add_info_format(pinfo, tree, &ei_ieee80211_wfa_60g_attr_len_invalid, "Packet too short for Wi-Fi 60G attribute");
+      break;
+    }
+
+    id = tvb_get_guint8(tvb, offset);
+    len = tvb_get_ntohs(tvb, offset + 1);
+    attrs = proto_tree_add_item(tree, hf_ieee80211_wfa_60g_attr, tvb, offset, 0, ENC_NA);
+    proto_item_append_text(attrs, ": %s", val_to_str(id, ieee80211_wfa_60g_attr_ids,
+                                             "Unknown attribute ID (%u)"));
+    wf60g_tree = proto_item_add_subtree(attrs, ett_ieee80211_wfa_60g_attr);
+    proto_tree_add_item(wf60g_tree, hf_ieee80211_wfa_60g_attr_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+    proto_tree_add_item(wf60g_tree, hf_ieee80211_wfa_60g_attr_len, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+
+
+    switch (id) {
+    case WIFI_60G_ATTR_CAPABILITY:
+      if (len - offset < 7) {
+        expert_add_info_format(pinfo, tree, &ei_ieee80211_wfa_60g_attr_len_invalid, "Packet too short for 60G capability attribute");
+        break;
+      }
+
+      proto_tree_add_item(wf60g_tree, hf_ieee80211_wfa_60g_attr_cap_sta_mac_addr, tvb, offset, 6, ENC_NA);
+      offset += 6;
+      proto_tree_add_item(wf60g_tree, hf_ieee80211_wfa_60g_attr_cap_recv_amsdu_frames, tvb, offset, 1, ENC_BIG_ENDIAN);
+      proto_tree_add_item(wf60g_tree, hf_ieee80211_wfa_60g_attr_cap_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
+      offset += 1;
+      break;
+    default:
+      proto_tree_add_expert_format(tree, pinfo, &ei_ieee80211_wfa_60g_unknown_attribute, tvb,
+                                         offset, len+2, "Unknown attribute ID (%u)", id);
+    }
+
+    offset += len;
+  }
   return offset;
 }
 
@@ -20996,6 +21126,17 @@ dissect_ess_report(tvbuff_t *tvb, packet_info *pinfo _U_,
                         bss_trans_thresh, -100 + bss_trans_thresh);
 }
 
+static int
+dissect_password_identifier(tvbuff_t *tvb, packet_info *pinfo _U_,
+  proto_tree *tree, int offset, int len _U_)
+{
+  proto_tree_add_item(tree, hf_ieee80211_sae_password_identifier, tvb, offset,
+                      len, ENC_NA|ENC_ASCII);
+  offset += len;
+
+  return offset;
+}
+
 /*
  * Just a list of finite cyclic group numbers as 16-bit uints.
  */
@@ -21008,6 +21149,17 @@ dissect_rejected_groups(tvbuff_t *tvb, packet_info *pinfo _U_,
                         2, ENC_LITTLE_ENDIAN);
     offset += 2;
   }
+}
+
+/*
+ * Just a string of bytes
+ */
+static void
+dissect_anti_clogging_token(tvbuff_t *tvb, packet_info *pinfo _U_,
+                            proto_tree *tree, int offset, int len)
+{
+  proto_tree_add_item(tree, hf_ieee80211_sae_anti_clogging_token, tvb, offset,
+                      len, ENC_NA);
 }
 
 /*
@@ -21384,6 +21536,9 @@ ieee80211_tag_element_id_extension(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     case ETAG_OWE_DH_PARAMETER:
       dissect_owe_dh_parameter(tvb, pinfo, tree, offset, ext_tag_len, field_data->sanity_check);
       break;
+    case ETAG_PASSWORD_IDENTIFIER:
+      dissect_password_identifier(tvb, pinfo, tree, offset, ext_tag_len);
+      break;
     case ETAG_HE_CAPABILITIES:
       dissect_he_capabilities(tvb, pinfo, tree, offset, ext_tag_len);
       break;
@@ -21413,6 +21568,9 @@ ieee80211_tag_element_id_extension(tvbuff_t *tvb, packet_info *pinfo, proto_tree
       break;
     case ETAG_REJECTED_GROUPS:
         dissect_rejected_groups(tvb, pinfo, tree, offset, ext_tag_len);
+      break;
+    case ETAG_ANTI_CLOGGING_TOKEN:
+      dissect_anti_clogging_token(tvb, pinfo, tree, offset, ext_tag_len);
       break;
     default:
       break;
@@ -27585,6 +27743,16 @@ proto_register_ieee80211(void)
       FT_BOOLEAN, 8, NULL, 0x20,
       NULL, HFILL }},
 
+    {&hf_ieee80211_ff_dmg_params_spec_mgmt,
+     {"Spectrum Management", "wlan.dmg_params.spec_mgmt",
+      FT_BOOLEAN, 8, TFS(&tfs_implemented_not_implemented), 0x40,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_ff_dmg_params_radio_measure,
+     {"Radio Measurement", "wlan.dmg_params.radio_measure",
+      FT_BOOLEAN, 8, TFS(&tfs_implemented_not_implemented), 0x80,
+      NULL, HFILL }},
+
     {&hf_ieee80211_ff_cc,
      {"Clustering Control", "wlan.cc",
       FT_UINT64, BASE_HEX , NULL, 0,
@@ -30290,11 +30458,6 @@ proto_register_ieee80211(void)
       FT_UINT16, BASE_DEC, NULL, 0,
       NULL, HFILL }},
 
-    {&hf_ieee80211_ff_anti_clogging_token,
-     {"Anti-Clogging Token", "wlan.fixed.anti_clogging_token",
-      FT_BYTES, BASE_NONE, NULL, 0,
-      NULL, HFILL }},
-
     {&hf_ieee80211_ff_scalar,
      {"Scalar", "wlan.fixed.scalar",
       FT_BYTES, BASE_NONE, NULL, 0,
@@ -30319,6 +30482,10 @@ proto_register_ieee80211(void)
      {"SAE Message Type", "wlan.fixed.sae_message_type",
       FT_UINT16, BASE_DEC, VALS(ff_sae_message_type_vals), 0,
       NULL, HFILL }},
+
+    {&hf_ieee80211_ff_sae_anti_clogging_token,
+     {"Anti-Clogging Token", "wlan.fixed.anti_clogging_token",
+      FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_anqp_wfa_subtype,
      {"WFA Subtype", "wlan.anqp.wfa.subtype",
@@ -36237,6 +36404,37 @@ proto_register_ieee80211(void)
       FT_UINT8, BASE_DEC, NULL, 0x08,
       NULL, HFILL }},
 
+    /* 60g ie  */
+    {&hf_ieee80211_wfa_60g_attr,
+     {"Attribute", "wlan.60g.attr",
+      FT_NONE, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_wfa_60g_attr_id,
+     {"Attribute ID", "wlan.60g.attr.id",
+      FT_UINT8, BASE_DEC, VALS(ieee80211_wfa_60g_attr_ids), 0x0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_wfa_60g_attr_len,
+     {"Attribute Length", "wlan.60g.attr.length",
+      FT_UINT16, BASE_DEC, NULL, 0x0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_wfa_60g_attr_cap_sta_mac_addr,
+     {"STA Address", "wlan.60g.attr.60g_cap.sta_mac_addr",
+      FT_ETHER, BASE_NONE, NULL, 0x0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_wfa_60g_attr_cap_recv_amsdu_frames,
+     {"Receive Capability AMSDU", "wlan.60g.attr.60g_cap.recv_amsdu",
+      FT_UINT8, BASE_DEC, NULL, 0x01,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_wfa_60g_attr_cap_reserved,
+     {"Reserved", "wlan.60g.attr.60g_cap.reserved",
+      FT_UINT8, BASE_DEC, NULL, 0xfe,
+      NULL, HFILL }},
+
     {&hf_ieee80211_mysterious_olpc_stuff,
      {"Mysterious OLPC stuff", "wlan.mysterious_olpc_stuff",
       FT_NONE, BASE_NONE, NULL, 0x0,
@@ -36280,6 +36478,15 @@ proto_register_ieee80211(void)
     {&hf_ieee80211_fcg_extra_info,
      {"Extra bytes", "wlan.ext_tag.future_channel_guidance.extra_bytes",
       FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+
+    {&hf_ieee80211_sae_password_identifier,
+     {"Password Identifier", "wlan.ext_tag.sae.password_identifier",
+      FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+
+    {&hf_ieee80211_sae_anti_clogging_token,
+     {"Anti-Clogging Token", "wlan.ext_tag.sae.anti_clogging_token",
+      FT_BYTES, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
 
     {&hf_ieee80211_tag_fils_indication_info_nr_pk,
      {"Number of Public Key Identifiers", "wlan.fils_indication.info.nr_pk",
@@ -37727,7 +37934,7 @@ proto_register_ieee80211(void)
     &ett_sta_info,
 
     &ett_ieee80211_esp,
-
+    &ett_ieee80211_wfa_60g_attr,
     &ett_gas_resp_fragment,
     &ett_gas_resp_fragments,
 
@@ -37921,6 +38128,10 @@ proto_register_ieee80211(void)
       { "wlan.dmg_subtype.bad", PI_MALFORMED, PI_ERROR,
         "Bad DMG type/subtype", EXPFILL }},
 
+    { &ei_ieee80211_wfa_60g_attr_len_invalid,
+      { "wlan.60g.attr.length.invalid", PI_MALFORMED, PI_ERROR,
+        "Attribute length invalid", EXPFILL }},
+
     { &ei_ieee80211_vht_action,
       { "wlan.vht.action.undecoded", PI_UNDECODED, PI_NOTE,
         "All subtype of VHT Action is not yet supported by Wireshark", EXPFILL }},
@@ -37928,6 +38139,10 @@ proto_register_ieee80211(void)
     { &ei_ieee80211_mesh_peering_unexpected,
       { "wlan.peering.unexpected", PI_MALFORMED, PI_ERROR,
         "Unexpected Self-protected action", EXPFILL }},
+
+    { &ei_ieee80211_wfa_60g_unknown_attribute,
+      { "wlan.attr.unknown", PI_MALFORMED, PI_ERROR,
+        "Attribute unknown", EXPFILL }},
 
     { &ei_ieee80211_fcs,
       { "wlan.fcs.bad_checksum", PI_MALFORMED, PI_ERROR,
@@ -38441,6 +38656,7 @@ proto_reg_handoff_ieee80211(void)
   dissector_add_uint("wlan.ie.wifi_alliance.subtype", WFA_SUBTYPE_HS20_INDICATION, create_dissector_handle(dissect_hs20_indication, -1));
   dissector_add_uint("wlan.ie.wifi_alliance.subtype", WFA_SUBTYPE_OSEN, create_dissector_handle(dissect_hs20_osen, -1));
   dissector_add_uint("wlan.ie.wifi_alliance.subtype", WFA_SUBTYPE_OWE_TRANSITION_MODE, create_dissector_handle(dissect_owe_transition_mode, -1));
+  dissector_add_uint("wlan.ie.wifi_alliance.subtype", WFA_SUBTYPE_WIFI_60G, create_dissector_handle(dissect_wfa_60g_ie, -1));
 }
 
 /*

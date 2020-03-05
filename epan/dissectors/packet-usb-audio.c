@@ -129,6 +129,11 @@ static int hf_ac_if_fu_controls_d8 = -1;
 static int hf_ac_if_fu_controls_d9 = -1;
 static int hf_ac_if_fu_controls_rsv = -1;
 static int hf_ac_if_fu_ifeature = -1;
+static int hf_ac_if_su_unitid = -1;
+static int hf_ac_if_su_nrinpins = -1;
+static int hf_ac_if_su_sourceids = -1;
+static int hf_ac_if_su_sourceid = -1;
+static int hf_ac_if_su_iselector = -1;
 static int hf_ac_if_mu_unitid = -1;
 static int hf_ac_if_mu_nrinpins = -1;
 static int hf_ac_if_mu_sourceid = -1;
@@ -309,6 +314,7 @@ static gint ett_ac_if_hdr_controls = -1;
 static gint ett_ac_if_fu_controls = -1;
 static gint ett_ac_if_fu_controls0 = -1;
 static gint ett_ac_if_fu_controls1 = -1;
+static gint ett_ac_if_su_sourceids = -1;
 static gint ett_ac_if_input_wchannelconfig = -1;
 static gint ett_ac_if_input_bmchannelconfig = -1;
 static gint ett_ac_if_input_controls = -1;
@@ -639,6 +645,9 @@ static gint ett_sysex_msg_fragments = -1;
 
 static expert_field ei_usb_audio_undecoded = EI_INIT;
 static expert_field ei_usb_audio_invalid_feature_unit_length = EI_INIT;
+static expert_field ei_usb_audio_invalid_type_3_ft_nrchannels = EI_INIT;
+static expert_field ei_usb_audio_invalid_type_3_ft_subframesize = EI_INIT;
+static expert_field ei_usb_audio_invalid_type_3_ft_bitresolution = EI_INIT;
 
 static const fragment_items sysex_msg_frag_items = {
     /* Fragment subtrees */
@@ -1143,6 +1152,37 @@ dissect_ac_if_feature_unit(tvbuff_t *tvb, gint offset, packet_info *pinfo _U_,
     return offset-offset_start;
 }
 
+static gint dissect_ac_if_selector_unit(tvbuff_t *tvb, gint offset, packet_info *pinfo _U_, proto_tree *tree, usb_conv_info_t *usb_conv_info _U_)
+{
+    gint offset_start;
+    guint32 nrinpins,i;
+    guint32 source_id;
+    proto_item *ti;
+    proto_tree *subtree;
+
+    offset_start = offset;
+
+    proto_tree_add_item(tree, hf_ac_if_su_unitid, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    offset += 1;
+
+    proto_tree_add_item_ret_uint(tree, hf_ac_if_su_nrinpins, tvb, offset, 1, ENC_LITTLE_ENDIAN, &nrinpins);
+    offset += 1;
+
+    ti = proto_tree_add_bytes_format_value(tree, hf_ac_if_su_sourceids, tvb, offset, nrinpins, NULL, "%s", "");
+    subtree = proto_item_add_subtree(ti, ett_ac_if_su_sourceids);
+
+    for (i = 0; i < nrinpins; ++i) {
+        proto_tree_add_item_ret_uint(subtree, hf_ac_if_su_sourceid, tvb, offset, 1, ENC_LITTLE_ENDIAN, &source_id);
+        offset += 1;
+        proto_item_append_text(ti, "%s%d", (i > 0) ? ", " : "", source_id);
+    }
+
+    proto_tree_add_item(tree, hf_ac_if_su_iselector, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    offset += 1;
+
+    return offset - offset_start;
+}
+
 static gint
 dissect_ac_if_mixed_unit(tvbuff_t *tvb, gint offset, packet_info *pinfo _U_,
         proto_tree *tree, usb_conv_info_t *usb_conv_info _U_)
@@ -1452,6 +1492,10 @@ dissect_as_if_format_type_ver1_body(tvbuff_t *tvb, gint offset, packet_info *pin
     gint   offset_start;
     guint8 SamFreqType;
     guint8 format_type;
+    guint32 nrchannels;
+    guint32 subframesize;
+    guint32 bitresolution;
+    proto_item *desc_tree_item;
 
     offset_start = offset;
 
@@ -1494,6 +1538,45 @@ dissect_as_if_format_type_ver1_body(tvbuff_t *tvb, gint offset, packet_info *pin
 
             proto_tree_add_item(tree, hf_as_if_ft_samplesperframe, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset += 2;
+
+            proto_tree_add_item(tree, hf_as_if_ft_samfreqtype, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            SamFreqType = tvb_get_guint8(tvb, offset);
+            offset++;
+
+            if(SamFreqType == 0){
+                proto_tree_add_item(tree, hf_as_if_ft_lowersamfreq, tvb, offset, 3, ENC_LITTLE_ENDIAN);
+                offset += 3;
+                proto_tree_add_item(tree, hf_as_if_ft_uppersamfreq, tvb, offset, 3, ENC_LITTLE_ENDIAN);
+                offset += 3;
+            }else {
+                while(SamFreqType){
+                    proto_tree_add_item(tree, hf_as_if_ft_samfreq, tvb, offset, 3, ENC_LITTLE_ENDIAN);
+                    offset += 3;
+                    SamFreqType--;
+                }
+            }
+        break;
+        case 3:
+            desc_tree_item = proto_tree_add_item_ret_uint(tree, hf_as_if_ft_nrchannels, tvb, offset, 1, ENC_LITTLE_ENDIAN, &nrchannels);
+            offset += 1;
+
+            if(nrchannels != 2){
+                expert_add_info(pinfo, desc_tree_item, &ei_usb_audio_invalid_type_3_ft_nrchannels);
+            }
+
+            desc_tree_item = proto_tree_add_item_ret_uint(tree, hf_as_if_ft_subframesize, tvb, offset, 1, ENC_LITTLE_ENDIAN, &subframesize);
+            offset += 1;
+
+            if(subframesize != 2){
+                expert_add_info(pinfo, desc_tree_item, &ei_usb_audio_invalid_type_3_ft_subframesize);
+            }
+
+            desc_tree_item = proto_tree_add_item_ret_uint(tree, hf_as_if_ft_bitresolution, tvb, offset, 1, ENC_LITTLE_ENDIAN, &bitresolution);
+            offset += 1;
+
+            if(bitresolution != 16){
+                expert_add_info(pinfo, desc_tree_item, &ei_usb_audio_invalid_type_3_ft_bitresolution);
+            }
 
             proto_tree_add_item(tree, hf_as_if_ft_samfreqtype, tvb, offset, 1, ENC_LITTLE_ENDIAN);
             SamFreqType = tvb_get_guint8(tvb, offset);
@@ -1776,6 +1859,9 @@ dissect_usb_audio_descriptor(tvbuff_t *tvb, packet_info *pinfo,
                 break;
             case AC_SUBTYPE_MIXER_UNIT:
                 bytes_dissected += dissect_ac_if_mixed_unit(tvb, offset, pinfo, desc_tree, usb_conv_info);
+                break;
+            case AC_SUBTYPE_SELECTOR_UNIT:
+                bytes_dissected += dissect_ac_if_selector_unit(tvb, offset, pinfo, desc_tree, usb_conv_info);
                 break;
             case AC_SUBTYPE_FEATURE_UNIT:
                 bytes_dissected += dissect_ac_if_feature_unit(tvb, offset, pinfo, desc_tree, usb_conv_info, desc_len);
@@ -2268,6 +2354,21 @@ proto_register_usb_audio(void)
         { &hf_ac_if_fu_ifeature,
             { "Feature", "usbaudio.ac_if_fu.iFeature",
               FT_UINT8, BASE_DEC, NULL, 0x00, "iFeature", HFILL }},
+        { &hf_ac_if_su_unitid,
+            { "Unit ID", "usbaudio.ac_if_su.bUnitID",
+              FT_UINT8, BASE_DEC, NULL, 0x00, "bUnitID", HFILL }},
+        { &hf_ac_if_su_nrinpins,
+            { "Input Pins", "usbaudio.ac_if_su.bNrInPins",
+              FT_UINT8, BASE_DEC, NULL, 0x00, "bNrInPins", HFILL }},
+        { &hf_ac_if_su_sourceids,
+            { "Source IDs", "usbaudio.ac_if_su.baSourceIDs",
+              FT_BYTES, BASE_NONE, NULL, 0x00, "baSourceIDs", HFILL }},
+        { &hf_ac_if_su_sourceid,
+            { "Source ID", "usbaudio.ac_if_su.baSourceID",
+              FT_UINT8, BASE_DEC, NULL, 0x00, "baSourceID", HFILL}},
+        { &hf_ac_if_su_iselector,
+            { "Selector Index", "usbaudio.ac_if_su.iSelector",
+              FT_UINT8, BASE_DEC, NULL, 0x00, "iSelector", HFILL }},
         { &hf_ac_if_mu_unitid,
             { "Unit ID", "usbaudio.ac_if_mu.bUnitID",
               FT_UINT8, BASE_DEC, NULL, 0x00, "bUnitID", HFILL }},
@@ -2833,6 +2934,7 @@ proto_register_usb_audio(void)
         &ett_ac_if_fu_controls,
         &ett_ac_if_fu_controls0,
         &ett_ac_if_fu_controls1,
+        &ett_ac_if_su_sourceids,
         &ett_ac_if_input_wchannelconfig,
         &ett_ac_if_input_bmchannelconfig,
         &ett_ac_if_input_controls,
@@ -2851,6 +2953,9 @@ proto_register_usb_audio(void)
     static ei_register_info ei[] = {
         { &ei_usb_audio_undecoded, { "usbaudio.undecoded", PI_UNDECODED, PI_WARN, "Not dissected yet (report to wireshark.org)", EXPFILL }},
         { &ei_usb_audio_invalid_feature_unit_length, { "usbaudio.ac_if_fu.invalid_length", PI_MALFORMED, PI_ERROR, "Descriptor size is not 7+(ch+1)*n where n=bControlSize", EXPFILL }},
+        { &ei_usb_audio_invalid_type_3_ft_nrchannels, { "usbaudio.as_if_ft.bNrChannels.invalid_value", PI_MALFORMED, PI_ERROR, "bNrChannels must be 2 for Type III Format Type descriptors", EXPFILL }},
+        { &ei_usb_audio_invalid_type_3_ft_subframesize, { "usbaudio.as_if_ft.subframesize.invalid_value", PI_MALFORMED, PI_ERROR, "bSubFrameSize must be 2 for Type III Format Type descriptors", EXPFILL }},
+        { &ei_usb_audio_invalid_type_3_ft_bitresolution, { "usbaudio.hf_as_if_ft_bitresolution.invalid_value", PI_MALFORMED, PI_ERROR, "bBitResolution must be 16 for Type III Format Type descriptors", EXPFILL }},
     };
 
     expert_module_t *expert_usb_audio;

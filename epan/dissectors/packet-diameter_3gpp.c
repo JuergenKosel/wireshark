@@ -320,6 +320,8 @@ static int hf_diameter_3gpp_charging_rule_name = -1;
 static int hf_diameter_3gpp_monitoring_key = -1;
 static int hf_diameter_3gpp_mbms_bearer_event = -1;
 static int hf_diameter_3gpp_mbms_bearer_event_bit0 = -1;
+static int hf_diameter_3gpp_mbms_bearer_event_bit1 = -1;
+static int hf_diameter_3gpp_mbms_bearer_event_bit2 = -1;
 static int hf_diameter_3gpp_mbms_bearer_result = -1;
 static int hf_diameter_3gpp_mbms_bearer_result_bit0 = -1;
 static int hf_diameter_3gpp_mbms_bearer_result_bit1 = -1;
@@ -750,18 +752,24 @@ dissect_diameter_3gpp_af_application_identifier(tvbuff_t *tvb, packet_info *pinf
     proto_item *item;
     int offset = 0;
     int length = tvb_reported_length(tvb);
+    int new_len, start_len = length;
     diam_sub_dis_t *diam_sub_dis = (diam_sub_dis_t*)data;
+    guint8 tempchar;
 
-    if (tree){
-        if (!tvb_ascii_isprint(tvb, 0, length))
-            return length;
+    /* Skipp NULL trermination and/or padding at the end */
+    for (new_len = length; new_len > start_len - 4 &&
+        ((tempchar = tvb_get_guint8(tvb, new_len - 1)) == 0); new_len--);
 
-        item = proto_tree_add_item_ret_string(tree, hf_diameter_3gpp_af_application_identifier, tvb, offset, length,
-                                                ENC_UTF_8 | ENC_NA, wmem_packet_scope(), (const guint8**)&diam_sub_dis->avp_str);
-        proto_item_set_generated(item);
-    }
+    length = new_len;
 
-    return length;
+    if (!tvb_ascii_isprint(tvb, 0, length))
+        return start_len;
+
+    item = proto_tree_add_item_ret_string(tree, hf_diameter_3gpp_af_application_identifier, tvb, offset, length,
+                                            ENC_UTF_8 | ENC_NA, wmem_packet_scope(), (const guint8**)&diam_sub_dis->avp_str);
+    proto_item_set_generated(item);
+
+    return start_len;
 }
 
 /*
@@ -2822,6 +2830,8 @@ dissect_diameter_3gpp_mbms_bearer_event(tvbuff_t *tvb, packet_info *pinfo _U_, p
 {
     static const int *flags[] = {
         &hf_diameter_3gpp_mbms_bearer_event_spare_bits,
+        &hf_diameter_3gpp_mbms_bearer_event_bit2,
+        &hf_diameter_3gpp_mbms_bearer_event_bit1,
         &hf_diameter_3gpp_mbms_bearer_event_bit0,
         NULL
     };
@@ -4830,9 +4840,19 @@ proto_register_diameter_3gpp(void)
             FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001,
             NULL, HFILL }
         },
+        { &hf_diameter_3gpp_mbms_bearer_event_bit1,
+            { "Bearer Activated", "diameter.3gpp.mbms_bearer_event_bit1",
+            FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000002,
+            NULL, HFILL }
+        },
+        { &hf_diameter_3gpp_mbms_bearer_event_bit2,
+            { "Userplane Event", "diameter.3gpp.mbms_bearer_event_bit2",
+            FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000004,
+            NULL, HFILL }
+        },
         { &hf_diameter_3gpp_mbms_bearer_event_spare_bits,
             { "Spare", "diameter.3gpp.mbms_bearer_event_spare",
-            FT_UINT32, BASE_HEX, NULL, 0x0,
+            FT_UINT32, BASE_HEX, NULL, 0xfffffff8,
             NULL, HFILL }
         },
         { &hf_diameter_3gpp_mbms_bearer_result,
@@ -5468,8 +5488,8 @@ proto_register_diameter_3gpp(void)
           NULL, HFILL }
         },
         { &hf_diameter_3gpp_core_network_restrictions_bit0,
-        { "EPS", "diameter.3gpp.core_network_restrictions_bit0",
-          FT_BOOLEAN, 32, TFS(&tfs_not_allowed_allowed), 0x00000001,
+        { "Reserved", "diameter.3gpp.core_network_restrictions_bit0",
+          FT_UINT32, BASE_HEX, NULL, 0x00000001,
           NULL, HFILL }
         },
         { &hf_diameter_3gpp_plr_flags,

@@ -20,9 +20,9 @@
  * - The schema version (fixed, 0)
  * - The application name (fixed, "Wireshark")
  * - The application version ("<major>.<minor>.<micro>")
- * - The operating system (varable, one of "Windows" or "macOS")
+ * - The operating system (variable, one of "Windows" or "macOS")
  * - The architecture name (variable, one of "x86", "x86-64")
- * - The locale (fixed, "en-US)
+ * - The locale (fixed, "en-US")
  * - The update channel (variable, one of "development" or "stable") + .xml
  *
  * Based on https://wiki.mozilla.org/Software_Update:Checking_For_Updates
@@ -123,6 +123,10 @@ extern void software_update_cleanup(void) {
     win_sparkle_cleanup();
 }
 
+const char *software_update_info(void) {
+    return "WinSparkle " WIN_SPARKLE_VERSION_STRING;
+}
+
 #elif defined (__APPLE__)
 /** Initialize software updates.
  */
@@ -145,6 +149,11 @@ software_update_check(void) {
 /** Clean up software update checking.
  */
 void software_update_cleanup(void) {
+    sparkle_software_update_cleanup();
+}
+
+const char *software_update_info(void) {
+    return "Sparkle";
 }
 #endif
 
@@ -167,6 +176,10 @@ software_update_check(void) {
 void software_update_cleanup(void) {
 }
 
+const char *software_update_info(void) {
+    return NULL;
+}
+
 #endif /* defined(HAVE_SOFTWARE_UPDATE) && defined (_WIN32) */
 
 /*
@@ -181,4 +194,3 @@ void software_update_cleanup(void) {
  * ex: set shiftwidth=4 tabstop=8 expandtab:
  * :indentSize=4:tabSize=8:noTabs=true:
  */
-
