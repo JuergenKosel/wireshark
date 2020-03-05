@@ -87,6 +87,8 @@ test:rpm-centos-7:
   variables:
     GIT_STRATEGY: none
 build:rpm-opensuse-15.1:
+  only:
+    - master
   image: opensuse/leap:15.1
   <<: *build-rpm
   script:
@@ -108,6 +110,8 @@ test:rpm-opensuse-15.1:
   dependencies:
     - build:rpm-opensuse-15.1
 build:rpm-fedora:
+  only:
+    - master
   <<: *build-rpm
   image: fedora
   script:
