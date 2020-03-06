@@ -13,7 +13,9 @@ variables:
 .build-ubuntu: &build-ubuntu
   <<: *build
   image: wireshark/wireshark-ubuntu-dev
-  retry: 1
+  retry:
+    max: 1
+    when: runner_system_failure
   before_script:
     - apt-get update -qq
     - ./tools/debian-setup.sh --install-optional --install-test-deps -y
