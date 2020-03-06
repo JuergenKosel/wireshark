@@ -100,6 +100,8 @@ build:rpm-opensuse-15.1:
     - cmake -GNinja ..
     - ninja rpm-package
 test:rpm-opensuse-15.1:
+  only:
+    - master
   image: opensuse/leap:15.1
   stage: test
   script:
@@ -122,6 +124,8 @@ build:rpm-fedora:
     - cmake3 -GNinja ..
     - ninja-build rpm-package
 test:rpm-fedora:
+  only:
+    - master
   image: fedora
   stage: test
   script:
