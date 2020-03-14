@@ -84,6 +84,8 @@ ProtoTree::ProtoTree(QWidget *parent, epan_dissect_t *edt_fixed) :
 
     connect(this, SIGNAL(expanded(QModelIndex)), this, SLOT(syncExpanded(QModelIndex)));
     connect(this, SIGNAL(collapsed(QModelIndex)), this, SLOT(syncCollapsed(QModelIndex)));
+    connect(this, SIGNAL(clicked(QModelIndex)),
+            this, SLOT(itemClicked(QModelIndex)));
     connect(this, SIGNAL(doubleClicked(QModelIndex)),
             this, SLOT(itemDoubleClicked(QModelIndex)));
 
@@ -126,9 +128,11 @@ void ProtoTree::ctxCopyVisibleItems()
     if (send && send->property("selected_tree").isValid())
         selected_tree = true;
 
-    QString clip = toString();
+    QString clip;
     if (selected_tree && selectionModel()->hasSelection())
         clip = toString(selectionModel()->selectedIndexes().first());
+    else
+        clip = toString();
 
     if (clip.length() > 0)
         wsApp->clipboard()->setText(clip);
@@ -170,8 +174,7 @@ void ProtoTree::ctxCopySelectedInfo()
         break;
 
     case ProtoTree::Description:
-        if (finfo.fieldInfo()->rep && strlen(finfo.fieldInfo()->rep->representation) > 0)
-            clip.append(finfo.fieldInfo()->rep->representation);
+        clip = idx.data(Qt::DisplayRole).toString();
         break;
 
     case ProtoTree::Value:
@@ -581,6 +584,16 @@ void ProtoTree::collapseAll()
     }
     QTreeView::collapseAll();
     updateContentWidth();
+}
+
+void ProtoTree::itemClicked(const QModelIndex &index) {
+    if (index == selectionModel()->selectedIndexes().first()) {
+        FieldInformation finfo(proto_tree_model_->protoNodeFromIndex(index).protoNode());
+
+        if (finfo.isValid()) {
+            emit fieldSelected(&finfo);
+        }
+    }
 }
 
 void ProtoTree::itemDoubleClicked(const QModelIndex &index) {
