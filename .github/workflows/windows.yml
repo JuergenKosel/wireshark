@@ -23,6 +23,8 @@ jobs:
           vs-version: 16.4
       - name: Set MSVC command prompt
         uses: ilammy/msvc-dev-cmd@v1
+      - name: get-submodule
+        run: git submodule update --init
       - name: Mkdir
         run: mkdir build
       - name: Cmake

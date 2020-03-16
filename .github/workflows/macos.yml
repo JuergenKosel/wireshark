@@ -9,6 +9,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: get-submodule
+        run: git submodule update --init
       - name: Set up Python 3.8
         uses: actions/setup-python@v1
         with:
