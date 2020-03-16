@@ -3,6 +3,8 @@ Build Status of Branch s7commwireshark
 
 Debian installer packages: [![pipeline status](https://gitlab.com/juergen.kosel.jk/wireshark/badges/s7commwireshark/pipeline.svg)](https://gitlab.com/juergen.kosel.jk/wireshark/-/jobs/artifacts/s7commwireshark/download?job=build%3Adebian-stable)
 
+![Build Windows](https://github.com/JuergenKosel/wireshark/workflows/Build%20Windows/badge.svg)
+
 General Information
 -------------------
 
