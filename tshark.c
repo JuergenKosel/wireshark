@@ -715,6 +715,7 @@ main(int argc, char *argv[])
   gboolean             start_capture = FALSE;
   GList               *if_list;
   gchar               *err_str;
+  struct bpf_program   fcode;
 #else
   gboolean             capture_option_specified = FALSE;
   volatile int         max_packet_count = 0;
@@ -730,9 +731,6 @@ main(int argc, char *argv[])
   gchar               *volatile cf_name = NULL;
   gchar               *rfilter = NULL;
   gchar               *dfilter = NULL;
-#ifdef HAVE_PCAP_OPEN_DEAD
-  struct bpf_program   fcode;
-#endif
   dfilter_t           *rfcode = NULL;
   dfilter_t           *dfcode = NULL;
   e_prefs             *prefs_p;
@@ -1884,21 +1882,20 @@ main(int argc, char *argv[])
       g_free(err_msg);
       epan_cleanup();
       extcap_cleanup();
-#ifdef HAVE_PCAP_OPEN_DEAD
-      {
-        pcap_t *pc;
 
-        pc = pcap_open_dead(DLT_EN10MB, MIN_PACKET_SIZE);
-        if (pc != NULL) {
-          if (pcap_compile(pc, &fcode, rfilter, 0, 0) != -1) {
-            cmdarg_err_cont(
-              "  Note: That read filter code looks like a valid capture filter;\n"
-              "        maybe you mixed them up?");
-          }
-          pcap_close(pc);
+#ifdef HAVE_LIBPCAP
+      pcap_t *pc;
+      pc = pcap_open_dead(DLT_EN10MB, MIN_PACKET_SIZE);
+      if (pc != NULL) {
+        if (pcap_compile(pc, &fcode, rfilter, 0, 0) != -1) {
+          cmdarg_err_cont(
+            "  Note: That read filter code looks like a valid capture filter;\n"
+            "        maybe you mixed them up?");
         }
+        pcap_close(pc);
       }
 #endif
+
       exit_status = INVALID_INTERFACE;
       goto clean_exit;
     }
@@ -1912,21 +1909,20 @@ main(int argc, char *argv[])
       g_free(err_msg);
       epan_cleanup();
       extcap_cleanup();
-#ifdef HAVE_PCAP_OPEN_DEAD
-      {
-        pcap_t *pc;
 
-        pc = pcap_open_dead(DLT_EN10MB, MIN_PACKET_SIZE);
-        if (pc != NULL) {
-          if (pcap_compile(pc, &fcode, dfilter, 0, 0) != -1) {
-            cmdarg_err_cont(
-              "  Note: That display filter code looks like a valid capture filter;\n"
-              "        maybe you mixed them up?");
-          }
-          pcap_close(pc);
+#ifdef HAVE_LIBPCAP
+      pcap_t *pc;
+      pc = pcap_open_dead(DLT_EN10MB, MIN_PACKET_SIZE);
+      if (pc != NULL) {
+        if (pcap_compile(pc, &fcode, dfilter, 0, 0) != -1) {
+          cmdarg_err_cont(
+            "  Note: That display filter code looks like a valid capture filter;\n"
+            "        maybe you mixed them up?");
         }
+        pcap_close(pc);
       }
 #endif
+
       exit_status = INVALID_FILTER;
       goto clean_exit;
     }

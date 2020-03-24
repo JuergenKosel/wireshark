@@ -21,6 +21,16 @@
 
 #define NTLMSSP_KEY_LEN 16
 
+#define NTLMSSP_MAX_ORIG_LEN 256
+
+typedef struct _md4_pass {
+  guint8 md4[NTLMSSP_KEY_LEN];
+  char key_origin[NTLMSSP_MAX_ORIG_LEN+1];
+} md4_pass;
+
+guint32
+get_md4pass_list(md4_pass** p_pass_list);
+
 /* Dissect a ntlmv2 response */
 
 int
@@ -34,5 +44,21 @@ typedef struct _ntlmssp_header_t {
 	const guint8	*host_name;
 	guint8		session_key[NTLMSSP_KEY_LEN];
 } ntlmssp_header_t;
+
+#define NTLMSSP_BLOB_MAX_SIZE 10240
+typedef struct _ntlmssp_blob {
+  guint16 length;
+  guint8* contents;
+} ntlmssp_blob;
+
+void
+ntlmssp_create_session_key(packet_info *pinfo,
+                           proto_tree *tree,
+                           ntlmssp_header_t *ntlmssph,
+                           int flags,
+                           const guint8 *server_challenge,
+                           const guint8 *encryptedsessionkey,
+                           const ntlmssp_blob *ntlm_response,
+                           const ntlmssp_blob *lm_response);
 
 #endif

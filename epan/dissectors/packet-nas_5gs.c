@@ -314,14 +314,18 @@ static int ett_nas_5gs_ursp_traff_desc = -1;
 static int ett_nas_5gs_ursp_r_sel_desc_cont = -1;
 static int ett_nas_5gs_updp_upsi_list = -1;
 static int ett_nas_5gs_mm_rej_nssai = -1;
+static int ett_nas_5gs_mm_scheme_output = -1;
 
 static int hf_nas_5gs_mm_abba = -1;
 static int hf_nas_5gs_mm_supi_fmt = -1;
 static int hf_nas_5gs_mm_routing_indicator = -1;
 static int hf_nas_5gs_mm_prot_scheme_id = -1;
 static int hf_nas_5gs_mm_pki = -1;
-static int hf_nas_5gs_mm_supi_null_scheme = -1;
+static int hf_nas_5gs_mm_suci_msin = -1;
 static int hf_nas_5gs_mm_scheme_output = -1;
+static int hf_nas_5gs_mm_scheme_output_ecc_public_key = -1;
+static int hf_nas_5gs_mm_scheme_output_ciphertext = -1;
+static int hf_nas_5gs_mm_scheme_output_mac_tag = -1;
 static int hf_nas_5gs_mm_suci_nai = -1;
 static int hf_nas_5gs_mm_imei = -1;
 static int hf_nas_5gs_mm_imeisv = -1;
@@ -719,7 +723,7 @@ de_nas_5gs_mm_5gs_mobile_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
         proto_tree_add_bitmask_list(tree, tvb, offset, 1, flags_supi_fmt_tid, ENC_BIG_ENDIAN);
         offset++;
 
-        supi_fmt = oct & 0x70;
+        supi_fmt = (oct & 0x70) >> 4;
         if (supi_fmt == 0) {
             /* IMSI */
 
@@ -741,11 +745,25 @@ de_nas_5gs_mm_5gs_mobile_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
             offset += 1;
             /* Scheme output octet 12-x */
             if (scheme_id == 0) {
-              new_tvb = tvb_new_subset_length(tvb, offset, len - 8);
-              digit_str = tvb_bcd_dig_to_wmem_packet_str(new_tvb, 0, -1, NULL, FALSE);
-              proto_tree_add_string(tree, hf_nas_5gs_mm_supi_null_scheme, new_tvb, 0, -1, digit_str);
+                new_tvb = tvb_new_subset_length(tvb, offset, len - 8);
+                digit_str = tvb_bcd_dig_to_wmem_packet_str(new_tvb, 0, -1, NULL, FALSE);
+                proto_tree_add_string(tree, hf_nas_5gs_mm_suci_msin, new_tvb, 0, -1, digit_str);
             } else {
-              proto_tree_add_item(tree, hf_nas_5gs_mm_scheme_output, tvb, offset, len - 8, ENC_NA);
+                proto_item *pi = proto_tree_add_item(tree, hf_nas_5gs_mm_scheme_output, tvb, offset, len - 8, ENC_NA);
+                if ((scheme_id == 1 && len >= 49) || (scheme_id == 2 && len >= 50)) {
+                    guint32 public_key_len;
+                    proto_tree *subtree = proto_item_add_subtree(pi, ett_nas_5gs_mm_scheme_output);
+                    if (scheme_id == 1) {
+                        public_key_len = 32;
+                    } else {
+                        public_key_len = 33;
+                    }
+                    proto_tree_add_item(subtree, hf_nas_5gs_mm_scheme_output_ecc_public_key, tvb, offset, public_key_len, ENC_NA);
+                    offset += public_key_len;
+                    proto_tree_add_item(subtree, hf_nas_5gs_mm_scheme_output_ciphertext, tvb, offset, len - public_key_len - 16, ENC_NA);
+                    offset += len - public_key_len - 16;
+                    proto_tree_add_item(subtree, hf_nas_5gs_mm_scheme_output_mac_tag, tvb, offset, 8, ENC_BIG_ENDIAN);
+                }
             }
         } else if (supi_fmt == 1) {
             /* NAI */
@@ -3154,7 +3172,6 @@ de_nas_5gs_sm_qos_flow_des(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _
                     val, "%u %s (%u)", val * mult, unit_str, val);
                 curr_offset += (param_len - 1);
                 break;
-                break;
             case 0x06:
                 proto_tree_add_item(sub_tree2, hf_nas_5gs_sm_averaging_window, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
                 curr_offset += param_len;
@@ -4647,7 +4664,7 @@ nas_5gs_mm_service_acc(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, 
     /*26    PDU session reactivation result    PDU session reactivation result 9.11.3.42    O    TLV    4-32*/
     ELEM_OPT_TLV(0x26, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PDU_SES_REACT_RES, NULL);
     /*72    PDU session reactivation result error cause    PDU session reactivation result error cause 9.11.3.43    O    TLV-E    5-515 */
-    ELEM_OPT_TLV_E(0x72, NAS_5GS_PDU_TYPE_COMMON, DE_NAS_5GS_MM_PDU_SES_REACT_RES_ERR_C, NULL);
+    ELEM_OPT_TLV_E(0x72, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PDU_SES_REACT_RES_ERR_C, NULL);
     /*78    EAP message    EAP message     9.11.2.2    O    TLV-E    7-1503*/
     ELEM_OPT_TLV_E(0x78, NAS_5GS_PDU_TYPE_COMMON, DE_NAS_5GS_CMN_EAP_MESSAGE, NULL);
     /* 6B    T3448 value    GPRS timer 3 9.11.2.4    O    TLV    3 */
@@ -8022,14 +8039,29 @@ proto_register_nas_5gs(void)
             FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_nas_5gs_mm_supi_null_scheme,
-        { "Scheme output", "nas_5gs.mm.suci.supi_null_scheme",
+        { &hf_nas_5gs_mm_suci_msin,
+        { "MSIN", "nas_5gs.mm.suci.msin",
             FT_STRING, BASE_NONE, NULL, 0,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_scheme_output,
         { "Scheme output", "nas_5gs.mm.suci.scheme_output",
             FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_nas_5gs_mm_scheme_output_ecc_public_key,
+        { "ECC ephemeral public key", "nas_5gs.mm.suci.scheme_output.ecc_public_key",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_nas_5gs_mm_scheme_output_ciphertext,
+        { "Ciphertext", "nas_5gs.mm.suci.scheme_output.ciphertext",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_nas_5gs_mm_scheme_output_mac_tag,
+        { "MAC tag", "nas_5gs.mm.suci.scheme_output.mac_tag",
+            FT_UINT64, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_suci_nai,
@@ -8527,7 +8559,7 @@ proto_register_nas_5gs(void)
     guint     last_offset;
 
     /* Setup protocol subtree array */
-#define NUM_INDIVIDUAL_ELEMS    22
+#define NUM_INDIVIDUAL_ELEMS    23
     gint *ett[NUM_INDIVIDUAL_ELEMS +
         NUM_NAS_5GS_COMMON_ELEM +
         NUM_NAS_5GS_MM_MSG + NUM_NAS_5GS_MM_ELEM +
@@ -8557,6 +8589,7 @@ proto_register_nas_5gs(void)
     ett[19] = &ett_nas_5gs_ursp_r_sel_desc_cont;
     ett[20] = &ett_nas_5gs_updp_upsi_list;
     ett[21] = &ett_nas_5gs_mm_rej_nssai;
+    ett[22] = &ett_nas_5gs_mm_scheme_output;
 
     last_offset = NUM_INDIVIDUAL_ELEMS;
 

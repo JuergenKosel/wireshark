@@ -15,6 +15,9 @@
 #include "dot11decrypt_interop.h"
 #include "dot11decrypt_system.h"
 
+#include "ws_attributes.h"
+#include <wsutil/wsgcrypt.h>
+
 /****************************************************************************/
 
 /****************************************************************************/
@@ -82,6 +85,24 @@
 #define	DOT11DECRYPT_EAP_MIC(KeyInfo_0)		(KeyInfo_0 & 0x1)
 #define	DOT11DECRYPT_EAP_SEC(KeyInfo_0)		((KeyInfo_0 >> 1) & 0x1)
 
+/* Note: copied from net80211/ieee80211.h					*/
+#define DOT11DECRYPT_FC1_DIR_MASK                  0x03
+#define DOT11DECRYPT_FC1_DIR_DSTODS                0x03    /* AP ->AP  */
+#define DOT11DECRYPT_FC0_SUBTYPE_QOS               0x80
+#define DOT11DECRYPT_FC0_TYPE_DATA                 0x08
+#define DOT11DECRYPT_FC0_TYPE_MASK                 0x0c
+#define DOT11DECRYPT_SEQ_FRAG_MASK                 0x000f
+#define DOT11DECRYPT_QOS_HAS_SEQ(wh) \
+	(((wh)->fc[0] & \
+	(DOT11DECRYPT_FC0_TYPE_MASK | DOT11DECRYPT_FC0_SUBTYPE_QOS)) == \
+	(DOT11DECRYPT_FC0_TYPE_DATA | DOT11DECRYPT_FC0_SUBTYPE_QOS))
+
+#define DOT11DECRYPT_ADDR_COPY(dst,src) memcpy(dst, src, DOT11DECRYPT_MAC_LEN)
+
+#define DOT11DECRYPT_IS_4ADDRESS(wh) \
+	((wh->fc[1] & DOT11DECRYPT_FC1_DIR_MASK) == DOT11DECRYPT_FC1_DIR_DSTODS)
+#define DOT11DECRYPT_IS_QOS_DATA(wh) DOT11DECRYPT_QOS_HAS_SEQ(wh)
+
 /****************************************************************************/
 
 /****************************************************************************/
@@ -147,5 +168,39 @@ typedef struct _DOT11DECRYPT_MAC_FRAME_ADDR4_QOS {
 #endif
 
 /******************************************************************************/
+
+int Dot11DecryptCcmpDecrypt(
+	guint8 *m,
+	int mac_header_len,
+	int len,
+	guint8 *TK1,
+	int tk_len,
+	int mic_len);
+
+#if GCRYPT_VERSION_NUMBER >= 0x010600 /* 1.6.0 */
+int Dot11DecryptGcmpDecrypt(
+	guint8 *m,
+	int mac_header_len,
+	int len,
+	guint8 *TK1,
+	int tk_len);
+#else
+static inline int Dot11DecryptGcmpDecrypt(
+	guint8 *m _U_,
+	int mac_header_len _U_,
+	int len _U_,
+	guint8 *TK1 _U_,
+	int tk_len _U_)
+{
+	return 1;
+}
+#endif
+
+INT Dot11DecryptTkipDecrypt(
+	UCHAR *tkip_mpdu,
+	size_t mpdu_len,
+	UCHAR TA[DOT11DECRYPT_MAC_LEN],
+	UCHAR TK[DOT11DECRYPT_TK_LEN])
+	;
 
 #endif

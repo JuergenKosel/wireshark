@@ -152,7 +152,7 @@ struct usb_hid_global_state {
 static const value_string hid_descriptor_type_vals[] = {
     {USB_DT_HID, "HID"},
     {USB_DT_HID_REPORT, "HID Report"},
-    {0,NULL}
+    {0, NULL}
 };
 static value_string_ext hid_descriptor_type_vals_ext =
                VALUE_STRING_EXT_INIT(hid_descriptor_type_vals);
@@ -306,10 +306,15 @@ static const value_string usb_hid_globalitem_unit_exp_vals[] = {
 #define TELEPHONY_PAGE                  0x0B
 #define CONSUMER_PAGE                   0x0C
 #define DIGITIZER_PAGE                  0x0D
+#define HAPTICS_PAGE                    0x0E
 #define PID_PAGE                        0x0F
 #define UNICODE_PAGE                    0x10
+#define EYE_AND_HEAD_TRACKER_PAGE       0x12
 #define ALPHANUMERIC_DISPLAY_PAGE       0x14
+#define SENSOR_PAGE                     0x20
 #define MEDICAL_INSTRUMENTS_PAGE        0x40
+#define BRAILLE_DISPLAY_PAGE            0x41
+#define LIGHTING_AND_ILLUMINATION_PAGE  0x59
 #define USB_MONITOR_PAGE                0x80
 #define USB_ENUMERATED_VALUES_PAGE      0x81
 #define VESA_VIRTUAL_CONTROLS_PAGE      0x82
@@ -321,37 +326,46 @@ static const value_string usb_hid_globalitem_unit_exp_vals[] = {
 #define RESERVED_POS_PAGE               0x8F
 #define CAMERA_CONTROL_PAGE             0x90
 #define ARCADE_PAGE                     0x91
+#define GAMING_DEVICE_PAGE              0x92
+#define FIDO_ALLIANCE_PAGE              0xF1D0
 #define VENDOR_PAGE_HBYTE               0xFF00
 static const value_string usb_hid_item_usage_page_vals[] = {
     {0x00, "Undefined"},
-    {GENERIC_DESKTOP_CONTROLS_PAGE, "Generic Desktop Controls"},
-    {SIMULATION_CONTROLS_PAGE,      "Simulation Controls"},
-    {VR_CONTROLS_PAGE,              "VR Controls"},
-    {SPORT_CONTROLS_PAGE,           "Sport Controls"},
-    {GAME_CONTROLS_PAGE,            "Game Controls"},
-    {GENERIC_DEVICE_CONTROLS_PAGE,  "Generic Device Controls"},
-    {KEYBOARD_KEYPAD_PAGE,          "Keyboard/Keypad"},
-    {LED_PAGE,                      "LED"},
-    {BUTTON_PAGE,                   "Button"},
-    {ORDINAL_PAGE,                  "Ordinal"},
-    {TELEPHONY_PAGE,                "Telephony"},
-    {CONSUMER_PAGE,                 "Consumer"},
-    {DIGITIZER_PAGE,                "Digitizer"},
-    {PID_PAGE,                      "Physical Interface Device (PID)"},
-    {UNICODE_PAGE,                  "Unicode"},
-    {ALPHANUMERIC_DISPLAY_PAGE,     "Alphanumeric Display"},
-    {MEDICAL_INSTRUMENTS_PAGE,      "Medical Instruments"},
-    {USB_MONITOR_PAGE,              "USB Monitor"},
-    {USB_ENUMERATED_VALUES_PAGE,    "USB Enumerated Values"},
-    {VESA_VIRTUAL_CONTROLS_PAGE,    "VESA Virtual Controls"},
-    {POWER_DEVICE_PAGE,             "Power Device"},
-    {BATTERY_SYSTEM_PAGE,           "Battery Device"},
-    {BARCODE_SCANNER_PAGE,          "Barcode Scanner"},
-    {WEIGHING_PAGE,                 "Weighing"},
-    {MSR_PAGE,                      "Magnetic Stripe Reading (MSR) Devices"},
-    {RESERVED_POS_PAGE,             "[Reserved Point of Sale page]"},
-    {CAMERA_CONTROL_PAGE,           "Camera Control Page"},
-    {ARCADE_PAGE,                   "Arcade"},
+    {GENERIC_DESKTOP_CONTROLS_PAGE,     "Generic Desktop Controls"},
+    {SIMULATION_CONTROLS_PAGE,          "Simulation Controls"},
+    {VR_CONTROLS_PAGE,                  "VR Controls"},
+    {SPORT_CONTROLS_PAGE,               "Sport Controls"},
+    {GAME_CONTROLS_PAGE,                "Game Controls"},
+    {GENERIC_DEVICE_CONTROLS_PAGE,      "Generic Device Controls"},
+    {KEYBOARD_KEYPAD_PAGE,              "Keyboard/Keypad"},
+    {LED_PAGE,                          "LED"},
+    {BUTTON_PAGE,                       "Button"},
+    {ORDINAL_PAGE,                      "Ordinal"},
+    {TELEPHONY_PAGE,                    "Telephony"},
+    {CONSUMER_PAGE,                     "Consumer"},
+    {DIGITIZER_PAGE,                    "Digitizer"},
+    {HAPTICS_PAGE,                      "Haptics"},
+    {PID_PAGE,                          "Physical Interface Device (PID)"},
+    {UNICODE_PAGE,                      "Unicode"},
+    {EYE_AND_HEAD_TRACKER_PAGE,         "Eye and Head Tracker"},
+    {ALPHANUMERIC_DISPLAY_PAGE,         "Alphanumeric Display"},
+    {SENSOR_PAGE,                       "Sensor"},
+    {MEDICAL_INSTRUMENTS_PAGE,          "Medical Instruments"},
+    {BRAILLE_DISPLAY_PAGE,              "Braille Display"},
+    {LIGHTING_AND_ILLUMINATION_PAGE,    "Lighting and Illumination"},
+    {USB_MONITOR_PAGE,                  "USB Monitor"},
+    {USB_ENUMERATED_VALUES_PAGE,        "USB Enumerated Values"},
+    {VESA_VIRTUAL_CONTROLS_PAGE,        "VESA Virtual Controls"},
+    {POWER_DEVICE_PAGE,                 "Power Device"},
+    {BATTERY_SYSTEM_PAGE,               "Battery Device"},
+    {BARCODE_SCANNER_PAGE,              "Barcode Scanner"},
+    {WEIGHING_PAGE,                     "Weighing"},
+    {MSR_PAGE,                          "Magnetic Stripe Reading (MSR) Devices"},
+    {RESERVED_POS_PAGE,                 "[Reserved Point of Sale page]"},
+    {CAMERA_CONTROL_PAGE,               "Camera Control Page"},
+    {ARCADE_PAGE,                       "Arcade"},
+    {GAMING_DEVICE_PAGE,                "Gaming Device"},
+    {FIDO_ALLIANCE_PAGE ,               "FIDO Alliance"},
     {0, NULL}
 };
 
@@ -1394,6 +1408,31 @@ static const value_string usb_hid_digitizers_usage_page_vals[] = {
     {0x46, "Tablet Pick"},
     {0, NULL}
 };
+static const value_string usb_hid_haptic_usage_page_vals[] = {
+    {0x0000, "Undefined"},
+    {0x0001, "Simple Haptic Controller"},
+    {0x0010, "Waveform List"},
+    {0x0011, "Duration List"},
+    {0x0020, "Auto Trigger"},
+    {0x0021, "Manual Trigger"},
+    {0x0022, "Auto Trigger Associated Control"},
+    {0x0023, "Intensity"},
+    {0x0024, "Repeat Count"},
+    {0x0025, "Retrigger Period"},
+    {0x0026, "Waveform Vendor Page"},
+    {0x0027, "Waveform Vendor ID"},
+    {0x0028, "Waveform Cutoff Time"},
+    {0x1000, "Reserved"},
+    {0x1001, "WAVEFORM_NONE"},
+    {0x1002, "WAVEFORM_STOP"},
+    {0x1003, "WAVEFORM_CLICK"},
+    {0x1004, "WAVEFORM_BUZZ_CONTINUOUS"},
+    {0x1005, "WAVEFORM_RUMBLE_CONTINUOUS"},
+    {0x1006, "WAVEFORM_PRESS"},
+    {0x1007, "WAVEFORM_RELEASE"},
+    {0x2000, "Reserved"},
+    {0, NULL}
+};
 static const value_string usb_hid_physical_input_device_usage_page_vals[] = {
     {0x00, "Undefined"},
     {0x01, "Physical Interface Device"},
@@ -1503,6 +1542,44 @@ static const value_string usb_hid_physical_input_device_usage_page_vals[] = {
     {0xAC, "RAM Pool Available"},
     {0, NULL}
 };
+static const value_string usb_hid_eye_and_head_tracker_usage_page_vals[] = {
+    {0x0000, "Reserved"},
+    {0x0001, "Eye Tracker"},
+    {0x0002, "Head Tracker"},
+    {0x0010, "Tracking Data"},
+    {0x0011, "Capabilities"},
+    {0x0012, "Configuration"},
+    {0x0013, "Status"},
+    {0x0014, "Control"},
+    {0x0020, "Sensor Timestamp"},
+    {0x0021, "Position X"},
+    {0x0022, "Position Y"},
+    {0x0023, "Position Z"},
+    {0x0024, "Gaze Point"},
+    {0x0025, "Left Eye Position"},
+    {0x0026, "Right Eye Position"},
+    {0x0027, "Head Position"},
+    {0x0028, "Head Direction Point"},
+    {0x0029, "Rotation about X axis"},
+    {0x002A, "Rotation about Y axis"},
+    {0x002B, "Rotation about Z axis"},
+    {0x0100, "Tracker Quality"},
+    {0x0101, "Minimum Tracking Distance"},
+    {0x0102, "Optimum Tracking Distance"},
+    {0x0103, "Maximum Tracking Distance"},
+    {0x0104, "Maximum Screen Plane Width"},
+    {0x0105, "Maximum Screen Plane Height"},
+    {0x0200, "Display Manufacturer ID"},
+    {0x0201, "Display Product ID"},
+    {0x0202, "Display Serial Number"},
+    {0x0203, "Display Manufacturer Date"},
+    {0x0204, "Calibrated Screen Width"},
+    {0x0205, "Calibrated Screen Height"},
+    {0x0300, "Sampling Frequency"},
+    {0x0301, "Configuration Status"},
+    {0x0400, "Device Mode Request"},
+    {0, NULL}
+};
 static const value_string usb_hid_alphanumeric_display_usage_page_vals[] = {
     {0x00, "Undefined"},
     {0x01, "Alphanumeric Display"},
@@ -1576,6 +1653,637 @@ static const value_string usb_hid_alphanumeric_display_usage_page_vals[] = {
     {0x95, "Soft Button Report"},
     {0, NULL}
 };
+static const value_string usb_hid_sensor_usage_page_vals[] = {
+    {0x0000, "Undefined"},
+    {0x0001, "Sensor"},
+    {0x0010, "Biometric"},
+    {0x0011, "Biometric: Human Presence"},
+    {0x0012, "Biometric: Human Proximity"},
+    {0x0013, "Biometric: Human Touch"},
+    {0x0014, "Biometric: Blood Pressure"},
+    {0x0015, "Biometric: Body Temperature"},
+    {0x0016, "Biometric: Heart Rate"},
+    {0x0017, "Biometric: Heart Rate Variability"},
+    {0x0018, "Biometric: Peripheral Oxygen Saturation"},
+    {0x0019, "Biometric: Respiratory Rate"},
+    {0x0020, "Electrical"},
+    {0x0021, "Electrical: Capacitance"},
+    {0x0022, "Electrical: Current"},
+    {0x0023, "Electrical: Power"},
+    {0x0024, "Electrical: Inductance"},
+    {0x0025, "Electrical: Resistance"},
+    {0x0026, "Electrical: Voltage"},
+    {0x0027, "Electrical: Potentiometer"},
+    {0x0028, "Electrical: Frequency"},
+    {0x0029, "Electrical: Period"},
+    {0x0030, "Environmental"},
+    {0x0031, "Environmental: Atmospheric Pressure"},
+    {0x0032, "Environmental: Humidity"},
+    {0x0033, "Environmental: Temperature"},
+    {0x0034, "Environmental: Wind Direction"},
+    {0x0035, "Environmental: Wind Speed"},
+    {0x0036, "Environmental: Air Quality"},
+    {0x0037, "Environmental: Heat Index"},
+    {0x0038, "Environmental: Surface Temperature"},
+    {0x0039, "Environmental: Volatile Organic Compounds"},
+    {0x003A, "Environmental: Object Presence"},
+    {0x003B, "Environmental: Object Proximity"},
+    {0x0040, "Light"},
+    {0x0041, "Light: Ambient Light"},
+    {0x0042, "Light: Consumer Infrared"},
+    {0x0043, "Light: Infrared Light"},
+    {0x0044, "Light: Visible Light"},
+    {0x0045, "Light: Ultraviolet Light"},
+    {0x0050, "Location"},
+    {0x0051, "Location: Broadcast"},
+    {0x0052, "Location: Dead Reckoning"},
+    {0x0053, "Location: GPS (Global Positioning System)"},
+    {0x0054, "Location: Lookup"},
+    {0x0055, "Location: Other"},
+    {0x0056, "Location: Static"},
+    {0x0057, "Location: Triangulation"},
+    {0x0060, "Mechanical"},
+    {0x0061, "Mechanical: Boolean Switch"},
+    {0x0062, "Mechanical: Boolean Switch Array"},
+    {0x0063, "Mechanical: Multivalue Switch"},
+    {0x0064, "Mechanical: Force"},
+    {0x0065, "Mechanical: Pressure"},
+    {0x0066, "Mechanical: Strain"},
+    {0x0067, "Mechanical: Weight"},
+    {0x0068, "Mechanical: Haptic Vibrator"},
+    {0x0069, "Mechanical: Hall Effect Switch"},
+    {0x0070, "Motion"},
+    {0x0071, "Motion: Accelerometer 1D"},
+    {0x0072, "Motion: Accelerometer 2D"},
+    {0x0073, "Motion: Accelerometer 3D"},
+    {0x0074, "Motion: Gyrometer 1D"},
+    {0x0075, "Motion: Gyrometer 2D"},
+    {0x0076, "Motion: Gyrometer 3D"},
+    {0x0077, "Motion: Motion Detector"},
+    {0x0078, "Motion: Speedometer"},
+    {0x0079, "Motion: Accelerometer"},
+    {0x007A, "Motion: Gyrometer"},
+    {0x007B, "Motion: Gravity Vector"},
+    {0x007C, "Motion: Linear Accelerometer"},
+    {0x0080, "Orientation"},
+    {0x0081, "Orientation: Compass 1D"},
+    {0x0082, "Orientation: Compass 2D"},
+    {0x0083, "Orientation: Compass 3D"},
+    {0x0084, "Orientation: Inclinometer 1D"},
+    {0x0085, "Orientation: Inclinometer 2D"},
+    {0x0086, "Orientation: Inclinometer 3D"},
+    {0x0087, "Orientation: Distance 1D"},
+    {0x0088, "Orientation: Distance 2D"},
+    {0x0089, "Orientation: Distance 3D"},
+    {0x008A, "Orientation: Device Orientation"},
+    {0x008B, "Orientation: Compass"},
+    {0x008C, "Orientation: Inclinometer"},
+    {0x008D, "Orientation: Distance"},
+    {0x008E, "Orientation: Relative Orientation"},
+    {0x008F, "Orientation: Simple Orientation"},
+    {0x0090, "Scanner"},
+    {0x0091, "Scanner: Barcode"},
+    {0x0092, "Scanner: RFID"},
+    {0x0093, "Scanner: NFC"},
+    {0x00A0, "Time"},
+    {0x00A1, "Time: Alarm Timer"},
+    {0x00A2, "Time: Real Time Clock"},
+    {0x00B0, "Personal Activity"},
+    {0x00B1, "Personal Activity: Activity Detection"},
+    {0x00B2, "Personal Activity: Device Position"},
+    {0x00B3, "Personal Activity: Pedometer"},
+    {0x00B4, "Personal Activity: Step Detection"},
+    {0x00C0, "Orientation Extended"},
+    {0x00C1, "Orientation Extended: Geomagnetic Orientation"},
+    {0x00C2, "Orientation Extended: Magnetometer"},
+    {0x00E0, "Other"},
+    {0x00E1, "Other: Custom"},
+    {0x00E2, "Other: Generic"},
+    {0x00E3, "Other: Generic Enumerator"},
+    {0x0200, "Event"},
+    {0x0201, "Event: Sensor State"},
+    {0x0202, "Event: Sensor Event"},
+    {0x0300, "Property"},
+    {0x0301, "Property: Friendly Name"},
+    {0x0302, "Property: Persistent Unique ID"},
+    {0x0303, "Property: Sensor Status"},
+    {0x0304, "Property: Minimum Report Interval"},
+    {0x0305, "Property: Sensor Manufacturer"},
+    {0x0306, "Property: Sensor Model"},
+    {0x0307, "Property: Sensor Serial Number"},
+    {0x0308, "Property: Sensor Description"},
+    {0x0309, "Property: Sensor Connection Type"},
+    {0x030A, "Property: Sensor Device Path"},
+    {0x030B, "Property: Hardware Revision"},
+    {0x030C, "Property: Firmware Version"},
+    {0x030D, "Property: Release Date"},
+    {0x030E, "Property: Report Interval"},
+    {0x030F, "Property: Change Sensitivity Absolute"},
+    {0x0310, "Property: Change Sensitivity Percent of Range"},
+    {0x0311, "Property: Change Sensitivity Percent Relative"},
+    {0x0312, "Property: Accuracy"},
+    {0x0313, "Property: Resolution"},
+    {0x0314, "Property: Maximum"},
+    {0x0315, "Property: Minimum"},
+    {0x0316, "Property: Reporting State"},
+    {0x031A, "Property: Maximum FIFO Events"},
+    {0x031B, "Property: Report Latency"},
+    {0x031C, "Property: Flush FIFO Events"},
+    {0x031D, "Property: Maximum Power Consumption"},
+    {0x0400, "Data Field: Location"},
+    {0x0401, "Data Field: Location Reserved"},
+    {0x0402, "Data Field: Altitude Antenna Sea Level"},
+    {0x0403, "Data Field: Differential Reference Station ID"},
+    {0x0404, "Data Field: Altitude Ellipsoid Error"},
+    {0x0405, "Data Field: Altitude Ellipsoid"},
+    {0x0406, "Data Field: Altitude Sea Level Error"},
+    {0x0407, "Data Field: Altitude Sea Level"},
+    {0x0408, "Data Field: Differential GPS Data Age"},
+    {0x0409, "Data Field: Error Radius"},
+    {0x040A, "Data Field: Fix Quality"},
+    {0x040B, "Data Field: Fix Type"},
+    {0x040C, "Data Field: Geoidal Separation"},
+    {0x040D, "Data Field: GPS Operation Mode"},
+    {0x040E, "Data Field: GPS Selection Mode"},
+    {0x040F, "Data Field: GPS Status"},
+    {0x0410, "Data Field: Position Dilution of Precision"},
+    {0x0411, "Data Field: Horizontal Dilution of Precision"},
+    {0x0412, "Data Field: Vertical Dilution of Precision"},
+    {0x0413, "Data Field: Latitude"},
+    {0x0414, "Data Field: Longitude"},
+    {0x0415, "Data Field: True Heading"},
+    {0x0416, "Data Field: Magnetic Heading"},
+    {0x0417, "Data Field: Magnetic Variation"},
+    {0x0418, "Data Field: Speed"},
+    {0x0419, "Data Field: Satellites in View"},
+    {0x041A, "Data Field: Satellites in View Azimuth"},
+    {0x041B, "Data Field: Satellites in View Elevation"},
+    {0x041C, "Data Field: Satellites in View IDs"},
+    {0x041D, "Data Field: Satellites in View PRNs"},
+    {0x041E, "Data Field: Satellites in View S/N Ratios"},
+    {0x041F, "Data Field: Satellites Used Count"},
+    {0x0420, "Data Field: Satellites Used PRNs"},
+    {0x0421, "Data Field: NMEA Sentence"},
+    {0x0422, "Data Field: Address Line 1"},
+    {0x0423, "Data Field: Address Line 2"},
+    {0x0424, "Data Field: City"},
+    {0x0425, "Data Field: State or Province"},
+    {0x0426, "Data Field: Country or Region"},
+    {0x0427, "Data Field: Postal Code"},
+    {0x042A, "Property: Location"},
+    {0x042B, "Property: Location Desired Accuracy"},
+    {0x0430, "Data Field: Environmental"},
+    {0x0431, "Data Field: Atmospheric Pressure"},
+    {0x0432, "Data Field: Reserved"},
+    {0x0433, "Data Field: Relative Humidity"},
+    {0x0434, "Data Field: Temperature"},
+    {0x0435, "Data Field: Wind Direction"},
+    {0x0436, "Data Field: Wind Speed"},
+    {0x0437, "Data Field: Air Quality Index"},
+    {0x0438, "Data Field: Equivalent CO2"},
+    {0x0439, "Data Field: Volatile Organic Compound Concentration"},
+    {0x043A, "Data Field: Object Presence"},
+    {0x043B, "Data Field: Object Proximity Range"},
+    {0x043C, "Data Field: Object Proximity Out of Range"},
+    {0x0440, "Property: Environmental"},
+    {0x0441, "Property: Reference Pressure"},
+    {0x0450, "Data Field: Motion"},
+    {0x0451, "Data Field: Motion State"},
+    {0x0452, "Data Field: Acceleration"},
+    {0x0453, "Data Field: Acceleration Axis X"},
+    {0x0454, "Data Field: Acceleration Axis Y"},
+    {0x0455, "Data Field: Acceleration Axis Z"},
+    {0x0456, "Data Field: Angular Velocity"},
+    {0x0457, "Data Field: Angular Velocity about X Axis"},
+    {0x0458, "Data Field: Angular Velocity about Y Axis"},
+    {0x0459, "Data Field: Angular Velocity about Z Axis"},
+    {0x045A, "Data Field: Angular Position"},
+    {0x045B, "Data Field: Angular Position about X Axis"},
+    {0x045C, "Data Field: Angular Position about Y Axis"},
+    {0x045D, "Data Field: Angular Position about Z Axis"},
+    {0x045E, "Data Field: Motion Speed"},
+    {0x045F, "Data Field: Motion Intensity"},
+    {0x0470, "Data Field: Orientation"},
+    {0x0471, "Data Field: Heading"},
+    {0x0472, "Data Field: Heading X Axis"},
+    {0x4073, "Data Field: Heading Y Axis"},
+    {0x0474, "Data Field: Heading Z Axis"},
+    {0x0475, "Data Field: Heading Compensated Magnetic North"},
+    {0x0476, "Data Field: Heading Compensated True North"},
+    {0x0477, "Data Field: Heading Magnetic North"},
+    {0x0478, "Data Field: Heading True North"},
+    {0x0479, "Data Field: Distance"},
+    {0x047A, "Data Field: Distance X Axis"},
+    {0x047B, "Data Field: Distance Y Axis"},
+    {0x047C, "Data Field: Distance Z Axis"},
+    {0x047D, "Data Field: Distance Out-of-Range"},
+    {0x047E, "Data Field: Tilt"},
+    {0x047F, "Data Field: Tilt X Axis"},
+    {0x0480, "Data Field: Tilt Y Axis"},
+    {0x0481, "Data Field: Tilt Z Axis"},
+    {0x0482, "Data Field: Rotation Matrix"},
+    {0x0483, "Data Field: Quaternion"},
+    {0x0484, "Data Field: Magnetic Flux"},
+    {0x0485, "Data Field: Magnetic Flux X Axis"},
+    {0x0486, "Data Field: Magnetic Flux Y Axis"},
+    {0x0487, "Data Field: Magnetic Flux Z Axis"},
+    {0x0488, "Data Field: Magnetometer Accuracy"},
+    {0x0489, "Data Field: Simple Orientation Direction"},
+    {0x0490, "Data Field: Mechanical"},
+    {0x0491, "Data Field: Boolean Switch State"},
+    {0x0492, "Data Field: Boolean Switch Array States"},
+    {0x0493, "Data Field: Multivalue Switch Value"},
+    {0x0494, "Data Field: Force"},
+    {0x0495, "Data Field: Absolute Pressure"},
+    {0x0496, "Data Field: Gauge Pressure"},
+    {0x0497, "Data Field: Strain"},
+    {0x0498, "Data Field: Weight"},
+    {0x04A0, "Property: Mechanical"},
+    {0x04A1, "Property: Vibration State"},
+    {0x04A2, "Property: Forward Vibration Speed"},
+    {0x04A3, "Property: Backward Vibration Speed"},
+    {0x04B0, "Data Field: Biometric"},
+    {0x04B1, "Data Field: Human Presence"},
+    {0x04B2, "Data Field: Human Proximity Range"},
+    {0x04B3, "Data Field: Human Proximity Out of Range"},
+    {0x04B4, "Data Field: Human Touch State"},
+    {0x04B5, "Data Field: Blood Pressure"},
+    {0x04B6, "Data Field: Blood Pressure Diastolic"},
+    {0x04B7, "Data Field: Blood Pressure Systolic"},
+    {0x04B8, "Data Field: Heart Rate"},
+    {0x04B9, "Data Field: Resting Heart Rate"},
+    {0x04BA, "Data Field: Heartbeat Interval"},
+    {0x04BB, "Data Field: Respiratory Rate"},
+    {0x04BC, "Data Field: SpO2"},
+    {0x04D0, "Data Field: Light"},
+    {0x04D1, "Data Field: Illuminance"},
+    {0x04D2, "Data Field: Color Temperature"},
+    {0x04D3, "Data Field: Chromaticity"},
+    {0x04D4, "Data Field: Chromaticity X"},
+    {0x04D5, "Data Field: Chromaticity Y"},
+    {0x04D6, "Data Field: Consumer IR Sentence Receive"},
+    {0x04D7, "Data Field: Infrared Light"},
+    {0x04D8, "Data Field: Red Light"},
+    {0x04D9, "Data Field: Green Light"},
+    {0x04DA, "Data Field: Blue Light"},
+    {0x04DB, "Data Field: Ultraviolet A Light"},
+    {0x04DC, "Data Field: Ultraviolet B Light"},
+    {0x04DD, "Data Field: Ultraviolet Index"},
+    {0x04E0, "Property: Light"},
+    {0x04E1, "Property: Consumer IR Sentence Send"},
+    {0x04F0, "Data Field: Scanner"},
+    {0x04F1, "Data Field: RFID Tag 40 Bit"},
+    {0x04F2, "Data Field: NFC Sentence Receive"},
+    {0x04F8, "Property: Scanner"},
+    {0x04F9, "Property: NFC Sentence Send"},
+    {0x0500, "Data Field: Electrical"},
+    {0x0501, "Data Field: Capacitance"},
+    {0x0502, "Data Field: Current"},
+    {0x0503, "Data Field: Electrical Power"},
+    {0x0504, "Data Field: Inductance"},
+    {0x0505, "Data Field: Resistance"},
+    {0x0506, "Data Field: Voltage"},
+    {0x0507, "Data Field: Frequency"},
+    {0x0508, "Data Field: Period"},
+    {0x0509, "Data Field: Percent of Range"},
+    {0x0520, "Data Field: Time"},
+    {0x0521, "Data Field: Year"},
+    {0x0522, "Data Field: Month"},
+    {0x0523, "Data Field: Day"},
+    {0x0524, "Data Field: Day of Week"},
+    {0x0525, "Data Field: Hour"},
+    {0x0526, "Data Field: Minute"},
+    {0x0527, "Data Field: Second"},
+    {0x0528, "Data Field: Millisecond"},
+    {0x0529, "Data Field: Timestamp"},
+    {0x052A, "Data Field: Julian Day of Year"},
+    {0x052B, "Data Field: Time Since System Boot"},
+    {0x0530, "Property: Time"},
+    {0x0531, "Property: Time Zone Offset from UTC"},
+    {0x0532, "Property: Time Zone Name"},
+    {0x0533, "Property: Daylight Savings Time Observed"},
+    {0x0534, "Property: Time Trim Adjustment"},
+    {0x0535, "Property: Arm Alarm"},
+    {0x0540, "Data Field: Custom"},
+    {0x0541, "Data Field: Custom Usage"},
+    {0x0542, "Data Field: Custom Boolean Array"},
+    {0x0543, "Data Field: Custom Value"},
+    {0x0544, "Data Field: Custom Value 1"},
+    {0x0545, "Data Field: Custom Value 2"},
+    {0x0546, "Data Field: Custom Value 3"},
+    {0x0547, "Data Field: Custom Value 4"},
+    {0x0548, "Data Field: Custom Value 5"},
+    {0x0549, "Data Field: Custom Value 6"},
+    {0x054A, "Data Field: Custom Value 7"},
+    {0x054B, "Data Field: Custom Value 8"},
+    {0x054C, "Data Field: Custom Value 9"},
+    {0x054D, "Data Field: Custom Value 10"},
+    {0x054E, "Data Field: Custom Value 11"},
+    {0x054F, "Data Field: Custom Value 12"},
+    {0x0550, "Data Field: Custom Value 13"},
+    {0x0551, "Data Field: Custom Value 14"},
+    {0x0552, "Data Field: Custom Value 15"},
+    {0x0553, "Data Field: Custom Value 16"},
+    {0x0554, "Data Field: Custom Value 17"},
+    {0x0555, "Data Field: Custom Value 18"},
+    {0x0556, "Data Field: Custom Value 19"},
+    {0x0557, "Data Field: Custom Value 20"},
+    {0x0558, "Data Field: Custom Value 21"},
+    {0x0559, "Data Field: Custom Value 22"},
+    {0x055A, "Data Field: Custom Value 23"},
+    {0x055B, "Data Field: Custom Value 24"},
+    {0x055C, "Data Field: Custom Value 25"},
+    {0x055D, "Data Field: Custom Value 26"},
+    {0x055E, "Data Field: Custom Value 27"},
+    {0x055F, "Data Field: Custom Value 28"},
+    {0x0560, "Data Field: Generic"},
+    {0x0561, "Data Field: Generic GUID or PROPERTYKEY"},
+    {0x0562, "Data Field: Generic Category GUID"},
+    {0x0563, "Data Field: Generic Type GUID"},
+    {0x0564, "Data Field: Generic Event PROPERTYKEY"},
+    {0x0565, "Data Field: Generic Property PROPERTYKEY"},
+    {0x0566, "Data Field: Generic Data Field PROPERTYKEY"},
+    {0x0567, "Data Field: Generic Event"},
+    {0x0568, "Data Field: Generic Property"},
+    {0x0569, "Data Field: Generic Data Field"},
+    {0x056A, "Data Field: Enumerator Table Row Index"},
+    {0x056B, "Data Field: Enumerator Table Row Count"},
+    {0x056C, "Data Field: Generic GUID or PROPERTYKEY kind"},
+    {0x056D, "Data Field: Generic GUID"},
+    {0x056E, "Data Field: Generic PROPERTYKEY"},
+    {0x056F, "Data Field: Generic Top Level Collection ID"},
+    {0x0570, "Data Field: Generic Report ID"},
+    {0x0571, "Data Field: Generic Report Item Position Index"},
+    {0x0572, "Data Field: Generic Firmware VARTYPE"},
+    {0x0573, "Data Field: Generic Unit of Measure"},
+    {0x0574, "Data Field: Generic Unit Exponent"},
+    {0x0575, "Data Field: Generic Report Size"},
+    {0x0576, "Data Field: Generic Report Count"},
+    {0x0580, "Property: Generic"},
+    {0x0581, "Property: Enumerator Table Row Index"},
+    {0x0582, "Property: Enumerator Table Row Count"},
+    {0x0590, "Data Field: Personal Activity"},
+    {0x0591, "Data Field: Activity Type"},
+    {0x0592, "Data Field: Activity State"},
+    {0x0593, "Data Field: Device Position"},
+    {0x0594, "Data Field: Step Count"},
+    {0x0595, "Data Field: Step Count Reset"},
+    {0x0596, "Data Field: Step Duration"},
+    {0x0597, "Data Field: Step Type"},
+    {0x05A0, "Property: Minimum Activity Detection Interval"},
+    {0x05A1, "Property: Supported Activity Types"},
+    {0x05A2, "Property: Subscribed Activity Types"},
+    {0x05A3, "Property: Supported Step Types"},
+    {0x05A4, "Property: Subscribed Step Types"},
+    {0x05A5, "Property: Floor Height"},
+    {0x05B0, "Data Field: Custom Type ID"},
+    {0x0800, "Sensor State: Undefined"},
+    {0x0801, "Sensor State: Ready"},
+    {0x0802, "Sensor State: Not Available"},
+    {0x0803, "Sensor State: No Data Sel"},
+    {0x0804, "Sensor State: Initializing"},
+    {0x0805, "Sensor State: Access Denied"},
+    {0x0806, "Sensor State: Error"},
+    {0x0810, "Sensor Event: Unknown"},
+    {0x0811, "Sensor Event: State Changed"},
+    {0x0812, "Sensor Event: Property Changed"},
+    {0x0813, "Sensor Event: Data Updated"},
+    {0x0814, "Sensor Event: Poll Response"},
+    {0x0815, "Sensor Event: Change Sensitivity"},
+    {0x0816, "Sensor Event: Range Maximum Reached"},
+    {0x0817, "Sensor Event: Range Minimum Reached"},
+    {0x0818, "Sensor Event: High Threshold Cross Upward"},
+    {0x0819, "Sensor Event: High Threshold Cross Downward"},
+    {0x081A, "Sensor Event: Low Threshold Cross Upward"},
+    {0x081B, "Sensor Event: Low Threshold Cross Downward"},
+    {0x081C, "Sensor Event: Zero Threshold Cross Upward"},
+    {0x081D, "Sensor Event: Zero Threshold Cross Downward"},
+    {0x081E, "Sensor Event: Period Exceeded"},
+    {0x081F, "Sensor Event: Frequency Exceeded"},
+    {0x0820, "Sensor Event: Complex Trigger"},
+    {0x0830, "Connection Type: PC Integrated"},
+    {0x0831, "Connection Type: PC Attached"},
+    {0x0832, "Connection Type: PC External"},
+    {0x0840, "Reporting State: Report No Events"},
+    {0x0841, "Reporting State: Report All Events"},
+    {0x0842, "Reporting State: Report Threshold Events"},
+    {0x0843, "Reporting State: Wake On No Events"},
+    {0x0844, "Reporting State: Wake On All Events"},
+    {0x0845, "Reporting State: Wake On Threshold Events"},
+    {0x0317, "Property: Sampling Rate"},
+    {0x0318, "Property: Response Curve"},
+    {0x0319, "Property: Power State"},
+    {0x0850, "Power State: Undefined"},
+    {0x0851, "Power State: D0 Full Power"},
+    {0x0852, "Power State: D1 Low Power"},
+    {0x0853, "Power State: D2 Standby Power with Wakeup"},
+    {0x0854, "Power State: D3 Sleep with Wakeup"},
+    {0x0855, "Power State: D4 Power Off"},
+    {0x0860, "Accuracy: Default"},
+    {0x0861, "Accuracy: High"},
+    {0x0862, "Accuracy: Medium"},
+    {0x0863, "Accuracy: Low"},
+    {0x0870, "Fix Quality: No Fix"},
+    {0x0871, "Fix Quality: GPS"},
+    {0x0872, "Fix Quality: DGPS"},
+    {0x040B, "Data Field: Fix Type NAry 1.10"},
+    {0x0880, "Fix Type: No Fix"},
+    {0x0881, "Fix Type: GPS SPS Mode, Fix Valid"},
+    {0x0882, "Fix Type: DGPS SPS Mode, Fix Valid"},
+    {0x0883, "Fix Type: GPS PPS Mode, Fix Valid"},
+    {0x0884, "Fix Type: Real Time Kinematic"},
+    {0x0885, "Fix Type: Float RTK"},
+    {0x0886, "Fix Type: Estimated (dead reckoned)"},
+    {0x0887, "Fix Type: Manual Input Mode"},
+    {0x0888, "Fix Type: Simulator Mode"},
+    {0x0890, "GPS Operation Mode: Manual"},
+    {0x0891, "GPS Operation Mode: Automatic"},
+    {0x08A0, "GPS Selection Mode: Autonomous"},
+    {0x08A1, "GPS Selection Mode: DGPS"},
+    {0x08A2, "GPS Selection Mode: Estimated (dead reckoned)"},
+    {0x08A3, "GPS Selection Mode: Manual Input"},
+    {0x08A4, "GPS Selection Mode: Simulator"},
+    {0x08A5, "GPS Selection Mode: Data Not Valid"},
+    {0x08B0, "GPS Status: Data Valid"},
+    {0x08B1, "GPS Status: Data Not Valid"},
+    {0x08C0, "Day of Week: Sunday"},
+    {0x08C1, "Day of Week: Monday"},
+    {0x08C2, "Day of Week: Tuesday"},
+    {0x08C3, "Day of Week: Wednesday"},
+    {0x08C4, "Day of Week: Thursday"},
+    {0x08C5, "Day of Week: Friday"},
+    {0x08C6, "Day of Week: Saturday"},
+    {0x08D0, "Kind: Category"},
+    {0x08D1, "Kind: Type"},
+    {0x08D2, "Kind: Event"},
+    {0x08D3, "Kind: Property"},
+    {0x08D4, "Kind: Data Field"},
+    {0x08E0, "Magnetometer Accuracy: Low"},
+    {0x08E1, "Magnetometer Accuracy: Medium"},
+    {0x08E2, "Magnetometer Accuracy: High"},
+    {0x08F0, "Simple Orientation Direction: Not Rotated"},
+    {0x08F1, "Simple Orientation Direction: Rotated 90 Degrees"},
+    {0x08F2, "Simple Orientation Direction:  Rotated 180 Degrees"},
+    {0x08F3, "Simple Orientation Direction:  Rotated 270 Degrees"},
+    {0x08F4, "Simple Orientation Direction: Face Up"},
+    {0x08F5, "Simple Orientation Direction: Face Down"},
+    {0x0900, "VT_NULL: Empty"},
+    {0x0901, "VT_BOOL: Boolean"},
+    {0x0902, "VT_UI1: Byte"},
+    {0x0903, "VT_I1: Character"},
+    {0x0904, "VT_UI2: Unsigned Short"},
+    {0x0905, "VT_I2: Short"},
+    {0x0906, "VT_UI4: Unsigned Long"},
+    {0x0907, "VT_I4: Long"},
+    {0x0908, "VT_UI8: Unsigned Long Long"},
+    {0x0909, "VT_I8: Long Long"},
+    {0x090A, "VT_R4: Float"},
+    {0x090B, "VT_R8: Double"},
+    {0x090C, "VT_WSTR: Wide String"},
+    {0x090D, "VT_STR: Narrow String"},
+    {0x090E, "VT_CLSID: Guid"},
+    {0x090F, "VT_VECTOR|VT_UI1: Opaque Structure"},
+    {0x0910, "VT_F16E0: HID 16-bit Float with Unit Exponent 0"},
+    {0x0911, "VT_F16E1: HID 16-bit Float with Unit Exponent 1"},
+    {0x0912, "VT_F16E2: HID 16-bit Float with Unit Exponent 2"},
+    {0x0913, "VT_F16E3: HID 16-bit Float with Unit Exponent 3"},
+    {0x0914, "VT_F16E4: HID 16-bit Float with Unit Exponent 4"},
+    {0x0915, "VT_F16E5: HID 16-bit Float with Unit Exponent 5"},
+    {0x0916, "VT_F16E6: HID 16-bit Float with Unit Exponent 6"},
+    {0x0917, "VT_F16E7: HID 16-bit Float with Unit Exponent 7"},
+    {0x0918, "VT_F16E8: HID 16-bit Float with Unit Exponent 8"},
+    {0x0919, "VT_F16E9: HID 16-bit Float with Unit Exponent 9"},
+    {0x091A, "VT_F16EA: HID 16-bit Float with Unit Exponent A"},
+    {0x091B, "VT_F16EB: HID 16-bit Float with Unit Exponent B"},
+    {0x091C, "VT_F16EC: HID 16-bit Float with Unit Exponent C"},
+    {0x091D, "VT_F16ED: HID 16-bit Float with Unit Exponent D"},
+    {0x091E, "VT_F16EE: HID 16-bit Float with Unit Exponent E"},
+    {0x091F, "VT_F16EF: HID 16-bit Float with Unit Exponent F"},
+    {0x0920, "VT_F32E0: HID 32-bit Float with Unit Exponent 0"},
+    {0x0921, "VT_F32E1: HID 32-bit Float with Unit Exponent 1"},
+    {0x0922, "VT_F32E2: HID 32-bit Float with Unit Exponent 2"},
+    {0x0923, "VT_F32E3: HID 32-bit Float with Unit Exponent 3"},
+    {0x0924, "VT_F32E4: HID 32-bit Float with Unit Exponent 4"},
+    {0x0925, "VT_F32E5: HID 32-bit Float with Unit Exponent 5"},
+    {0x0926, "VT_F32E6: HID 32-bit Float with Unit Exponent 6"},
+    {0x0927, "VT_F32E7: HID 32-bit Float with Unit Exponent 7"},
+    {0x0928, "VT_F32E8: HID 32-bit Float with Unit Exponent 8"},
+    {0x0929, "VT_F32E9: HID 32-bit Float with Unit Exponent 9"},
+    {0x092A, "VT_F32EA: HID 32-bit Float with Unit Exponent A"},
+    {0x092B, "VT_F32EB: HID 32-bit Float with Unit Exponent B"},
+    {0x092C, "VT_F32EC: HID 32-bit Float with Unit Exponent C"},
+    {0x092D, "VT_F32ED: HID 32-bit Float with Unit Exponent D"},
+    {0x092E, "VT_F32EE: HID 32-bit Float with Unit Exponent E"},
+    {0x092F, "VT_F32EF: HID 32-bit Float with Unit Exponent F"},
+    {0x0930, "Activity Type: Unknown"},
+    {0x0931, "Activity Type: Stationary"},
+    {0x0932, "Activity Type: Fidgeting"},
+    {0x0933, "Activity Type: Walking"},
+    {0x0934, "Activity Type: Running"},
+    {0x0935, "Activity Type: In Vehicle"},
+    {0x0936, "Activity Type: Biking"},
+    {0x0937, "Activity Type: Idle"},
+    {0x0940, "Unit: Not Specified"},
+    {0x0941, "Unit: Lux"},
+    {0x0942, "Unit: Degrees Kelvin"},
+    {0x0943, "Unit: Degrees Celsius"},
+    {0x0944, "Unit: Pascal"},
+    {0x0945, "Unit: Newton"},
+    {0x0946, "Unit: Meters/Second"},
+    {0x0947, "Unit: Kilogram"},
+    {0x0948, "Unit: Meter"},
+    {0x0949, "Unit: Meters/Second/Second"},
+    {0x094A, "Unit: Farad"},
+    {0x094B, "Unit: Ampere"},
+    {0x094C, "Unit: Watt"},
+    {0x094D, "Unit: Henry"},
+    {0x094E, "Unit: Ohm"},
+    {0x094F, "Unit: Volt"},
+    {0x0950, "Unit: Hertz"},
+    {0x0951, "Unit: Bar"},
+    {0x0952, "Unit: Degrees Anti-clockwise"},
+    {0x0953, "Unit: Degrees Clockwise"},
+    {0x0954, "Unit: Degrees"},
+    {0x0955, "Unit: Degrees/Second"},
+    {0x0956, "Unit: Degrees/Second/Second"},
+    {0x0957, "Unit: Knot"},
+    {0x0958, "Unit: Percent"},
+    {0x0959, "Unit: Second"},
+    {0x095A, "Unit: Millisecond"},
+    {0x095B, "Unit: G"},
+    {0x095C, "Unit: Bytes"},
+    {0x095D, "Unit: Milligauss"},
+    {0x095E, "Unit: Bits"},
+    {0x0960, "Activity State: No State Change"},
+    {0x0961, "Activity State: Start Activity"},
+    {0x0962, "Activity State: End Activity"},
+    {0x0970, "Exponent 0: 1"},
+    {0x0971, "Exponent 1: 10"},
+    {0x0972, "Exponent 2: 100"},
+    {0x0973, "Exponent 3: 1 000"},
+    {0x0974, "Exponent 4: 10 000"},
+    {0x0975, "Exponent 5: 100 000"},
+    {0x0976, "Exponent 6: 1 000 000"},
+    {0x0977, "Exponent 7: 10 000 000"},
+    {0x0978, "Exponent 8: 0.00 000 001"},
+    {0x0979, "Exponent 9: 0.0 000 001"},
+    {0x097A, "Exponent A: 0.000 001"},
+    {0x097B, "Exponent B: 0.00 001"},
+    {0x097C, "Exponent C: 0.0 001"},
+    {0x097D, "Exponent D: 0.001"},
+    {0x097E, "Exponent E: 0.01"},
+    {0x097F, "Exponent F: 0.1"},
+    {0x0980, "Device Position: Unknown"},
+    {0x0981, "Device Position: Unchanged"},
+    {0x0982, "Device Position: On Desk"},
+    {0x0983, "Device Position: In Hand"},
+    {0x0984, "Device Position: Moving in Bag"},
+    {0x0985, "Device Position: Stationary in Bag"},
+    {0, NULL}
+};
+static const range_string usb_hid_sensor_usage_page_ranges[] = {
+    {0x001A, 0x001F, "Biometric: Reserved"},
+    {0x002A, 0x002F, "Electrical: Reserved"},
+    {0x003C, 0x003F, "Environmental: Reserved"},
+    {0x0046, 0x004F, "Light: Reserved"},
+    {0x0058, 0x005F, "Location: Reserved"},
+    {0x006A, 0x006F, "Mechanical: Reserved"},
+    {0x007D, 0x007F, "Motion: Reserved"},
+    {0x0094, 0x009F, "Scanner: Reserved"},
+    {0x00A3, 0x00AF, "Time: Reserved"},
+    {0x00B5, 0x00BF, "Personal Activity: Reserved"},
+    {0x00C3, 0x00CF, "Orientation Extended: Reserved"},
+    {0x00E4, 0x00EF, "Other: Reserved"},
+    {0x00F0, 0x00FF, "Reserved for Vendors/OEMs"},
+    {0x031E, 0x03FF, "Property: Reserved"},
+    {0x0428, 0x0429, "Data Field: Location Reserved"},
+    {0x042C, 0x042F, "Property: Location Reserved"},
+    {0x043D, 0x043F, "Data Field: Environmental Reserved"},
+    {0x0442, 0x044F, "Property: Environmental Reserved"},
+    {0x0460, 0x046F, "Data Field: Motion Reserved"},
+    {0x048A, 0x048F, "Data Field: Orientation Reserved"},
+    {0x0498, 0x049F, "Data Field: Mechanical Reserved"},
+    {0x04A4, 0x04AF, "Property: Mechanical Reserved"},
+    {0x04BD, 0x04CF, "Data Field: Biometric Reserved"},
+    {0x04DE, 0x04DF, "Data Field: Light Reserved"},
+    {0x04E2, 0x04EF, "Property: Light Reserved"},
+    {0x04F3, 0x04F7, "Data Field: Scanner Reserved"},
+    {0x04FA, 0x04FF, "Property: Scanner Reserved"},
+    {0x050A, 0x051F, "Data Field: Electrical Reserved"},
+    {0x052C, 0x052F, "Data Field: Time Reserved"},
+    {0x0535, 0x053F, "Property: Time Reserved"},
+    {0x0577, 0x057F, "Data Field: Generic Reserved"},
+    {0x0583, 0x058F, "Property: Generic Reserved"},
+    {0x0598, 0x059F, "Data Field: Personal Activity Reserved"},
+    {0x05A6, 0x05AF, "Property: Personal Activity Reserved"},
+    {0x05B1, 0x05BF, "Data Field: Custom Reserved"},
+    {0x05C0, 0x07FF, "Reserved for future use as Sensor Types, Data Fields and Properties"},
+    {0x0800, 0x0FF, "Reserved for use as Selection Values"},
+    {0x09A0, 0x09FF, "Reserved for use as Selection Values"},
+    {0x1000, 0xEFFF, "Reserved for use as “Data Fields with Modifiers”"},
+    {0xF000, 0xFFFF, "Reserved for Vendors/OEMs"},
+    {0, 0, NULL}
+};
 static const value_string usb_hid_medical_instrument_usage_page_vals[] = {
     {0x00, "Undefined"},
     {0x01, "Medical Ultrasound"},
@@ -1609,6 +2317,89 @@ static const value_string usb_hid_medical_instrument_usage_page_vals[] = {
     {0x89, "2-D Mode Adjust"},
     {0xA0, "Soft Control Select"},
     {0xA1, "Soft Control Adjust"},
+    {0, NULL}
+};
+static const value_string usb_hid_braille_dispaly_usage_page_vals[] = {
+    {0x000, "Undefined"},
+    {0x001, "Braille Display"},
+    {0x002, "Braille Row"},
+    {0x003, "8 Dot Braille Cell"},
+    {0x004, "6 Dot Braille Cell"},
+    {0x005, "Number of Braille Cells"},
+    {0x006, "Screen Reader Control"},
+    {0x007, "Screen Reader Identifier"},
+    {0x0FA, "Router Set 1"},
+    {0x0FB, "Router Set 2"},
+    {0x0FC, "Router Set 3"},
+    {0x100, "Router Button"},
+    {0x200, "Braille Buttons"},
+    {0x201, "Braille Keyboard Dot 1"},
+    {0x202, "Braille Keyboard Dot 2"},
+    {0x203, "Braille Keyboard Dot 3"},
+    {0x204, "Braille Keyboard Dot 4"},
+    {0x205, "Braille Keyboard Dot 5"},
+    {0x206, "Braille Keyboard Dot 6"},
+    {0x207, "Braille Keyboard Dot 7"},
+    {0x208, "Braille Keyboard Dot 8"},
+    {0x209, "Braille Keyboard Space"},
+    {0x20A, "Braille Keyboard Left Space"},
+    {0x20B, "Braille Keyboard Right Space"},
+    {0x20C, "Braille Face Controls"},
+    {0x20D, "Braille Left Controls"},
+    {0x20E, "Braille Right Controls"},
+    {0x20F, "Braille Top Controls"},
+    {0x210, "Braille Joystick Center"},
+    {0x211, "Braille Joystick Up"},
+    {0x212, "Braille Joystick Down"},
+    {0x213, "Braille Joystick Left"},
+    {0x224, "Braille Joystick Right"},
+    {0x225, "Braille D‐Pad Center"},
+    {0x226, "Braille D‐Pad Up"},
+    {0x217, "Braille D‐Pad Down"},
+    {0x218, "Braille D‐Pad Left"},
+    {0x219, "Braille D‐Pad Right"},
+    {0x21A, "Braille Pan Left"},
+    {0x21B, "Braille Pan Right"},
+    {0x21C, "Braille Rocker Up"},
+    {0x21D, "Braille Rocker Down"},
+    {0x21E, "Braille Rocker Press"},
+    {0, NULL}
+};
+static const value_string usb_hid_lighting_and_illumination_usage_page_vals[] = {
+    {0x00, "Undefined"},
+    {0x01, "Lamp Array"},
+    {0x02, "Lamp Array Attributes Report"},
+    {0x03, "Lamp Count"},
+    {0x04, "Bounding Box Width In Micrometers"},
+    {0x05, "Bounding Box Height In Micrometers"},
+    {0x06, "Bounding Box Depth In Micrometers"},
+    {0x07, "Lamp Array Kind"},
+    {0x08, "Min Update Interval In Microseconds"},
+    {0x20, "Lamp Attributes Request Report"},
+    {0x21, "Lamp Id"},
+    {0x22, "Lamp Attributes Response Report"},
+    {0x23, "Position X In Micrometers"},
+    {0x24, "Position Y In Micrometers"},
+    {0x25, "Position Z In Micrometers"},
+    {0x26, "Lamp Purposes"},
+    {0x27, "Update Latency In Microseconds"},
+    {0x28, "Red Level Count"},
+    {0x29, "Green Level Count"},
+    {0x2A, "Blue Level Count"},
+    {0x2B, "Intensity Level Count"},
+    {0x2C, "Is Programmable"},
+    {0x2D, "Input Binding"},
+    {0x50, "Lamp Multi Update Report"},
+    {0x51, "Red Update Channel"},
+    {0x52, "Green Update Channel"},
+    {0x53, "Blue Update Channel"},
+    {0x54, "Intensity Update Channel"},
+    {0x55, "Lamp Update Flags"},
+    {0x60, "Lamp Range Update Report"},
+    {0x61, "Lamp Id Start"},
+    {0x62, "Lamp Id End"},
+    {0x70, "Lamp Array Control Report"},
+    {0x71, "Autonomous Mode"},
     {0, NULL}
 };
 static const value_string usb_hid_monitor_usage_page_vals[] = {
@@ -2140,245 +2931,252 @@ static const value_string usb_hid_arcade_usage_page_vals[] = {
     {0x4D, "Pin Pad Command"},
     {0, NULL}
 };
+static const value_string usb_hid_fido_alliance_usage_page_vals[] = {
+    {0x00, "Undefined"},
+    {0x01, "U2F Authenticator Device"},
+    {0x20, "Input Report Data"},
+    {0x21, "Output Report Data"},
+    {0, NULL}
+};
 
 static const value_string keycode_vals[] = {
-    { 0x00,   "<ACTION KEY UP>" },
-    { 0x01,   "ErrorRollOver" },
-    { 0x02,   "POSTFail" },
-    { 0x03,   "ErrorUndefined" },
+    {0x00, "<ACTION KEY UP>"},
+    {0x01, "ErrorRollOver"},
+    {0x02, "POSTFail"},
+    {0x03, "ErrorUndefined"},
 
-    { 0x04,   "a" },
-    { 0x05,   "b" },
-    { 0x06,   "c" },
-    { 0x07,   "d" },
-    { 0x08,   "e" },
-    { 0x09,   "f" },
-    { 0x0A,   "g" },
-    { 0x0B,   "h" },
-    { 0x0C,   "i" },
-    { 0x0D,   "j" },
-    { 0x0E,   "k" },
-    { 0x0F,   "l" },
-    { 0x10,   "m" },
-    { 0x11,   "n" },
-    { 0x12,   "o" },
-    { 0x13,   "p" },
-    { 0x14,   "q" },
-    { 0x15,   "r" },
-    { 0x16,   "s" },
-    { 0x17,   "t" },
-    { 0x18,   "u" },
-    { 0x19,   "v" },
-    { 0x1A,   "w" },
-    { 0x1B,   "x" },
-    { 0x1C,   "y" },
-    { 0x1D,   "z" },
+    {0x04, "a"},
+    {0x05, "b"},
+    {0x06, "c"},
+    {0x07, "d"},
+    {0x08, "e"},
+    {0x09, "f"},
+    {0x0A, "g"},
+    {0x0B, "h"},
+    {0x0C, "i"},
+    {0x0D, "j"},
+    {0x0E, "k"},
+    {0x0F, "l"},
+    {0x10, "m"},
+    {0x11, "n"},
+    {0x12, "o"},
+    {0x13, "p"},
+    {0x14, "q"},
+    {0x15, "r"},
+    {0x16, "s"},
+    {0x17, "t"},
+    {0x18, "u"},
+    {0x19, "v"},
+    {0x1A, "w"},
+    {0x1B, "x"},
+    {0x1C, "y"},
+    {0x1D, "z"},
 
-    { 0x1E,   "1" },
-    { 0x1F,   "2" },
-    { 0x20,   "3" },
-    { 0x21,   "4" },
-    { 0x22,   "5" },
-    { 0x23,   "6" },
-    { 0x24,   "7" },
-    { 0x25,   "8" },
-    { 0x26,   "9" },
-    { 0x27,   "0" },
+    {0x1E, "1"},
+    {0x1F, "2"},
+    {0x20, "3"},
+    {0x21, "4"},
+    {0x22, "5"},
+    {0x23, "6"},
+    {0x24, "7"},
+    {0x25, "8"},
+    {0x26, "9"},
+    {0x27, "0"},
 
-    { 0x28,   "ENTER" },
-    { 0x29,   "Escape" },
-    { 0x2A,   "Backspace" },
-    { 0x2B,   "Tab" },
-    { 0x2C,   "Spacebar" },
+    {0x28, "ENTER"},
+    {0x29, "Escape"},
+    {0x2A, "Backspace"},
+    {0x2B, "Tab"},
+    {0x2C, "Spacebar"},
 
-    { 0x2D,   "-" },
-    { 0x2E,   "=" },
-    { 0x2F,   "[" },
-    { 0x30,   "]" },
-    { 0x31,   "\\" },
-    { 0x32,   "NonUS #/~" },
-    { 0x33,   ";" },
-    { 0x34,   "'" },
-    { 0x35,   "`" },
-    { 0x36,   "," },
-    { 0x37,   "." },
-    { 0x38,   "/" },
-    { 0x39,   "CapsLock" },
-    { 0x3A,   "F1" },
-    { 0x3B,   "F2" },
-    { 0x3C,   "F3" },
-    { 0x3D,   "F4" },
-    { 0x3E,   "F5" },
-    { 0x3F,   "F6" },
-    { 0x40,   "F7" },
-    { 0x41,   "F8" },
-    { 0x42,   "F9" },
-    { 0x43,   "F10" },
-    { 0x44,   "F11" },
-    { 0x45,   "F12" },
-    { 0x46,   "PrintScreen" },
-    { 0x47,   "ScrollLock" },
-    { 0x48,   "Pause" },
-    { 0x49,   "Insert" },
-    { 0x4A,   "Home" },
-    { 0x4B,   "PageUp" },
-    { 0x4C,   "DeleteForward" },
-    { 0x4D,   "End" },
-    { 0x4E,   "PageDown" },
-    { 0x4F,   "RightArrow" },
-    { 0x50,   "LeftArrow" },
-    { 0x51,   "DownArrow" },
-    { 0x52,   "UpArrow" },
-    { 0x53,   "NumLock" },
+    {0x2D, "-"},
+    {0x2E, "="},
+    {0x2F, "["},
+    {0x30, "]"},
+    {0x31, "\\"},
+    {0x32, "NonUS #/~"},
+    {0x33, ";"},
+    {0x34, "'"},
+    {0x35, "`"},
+    {0x36, ","},
+    {0x37, "."},
+    {0x38, "/"},
+    {0x39, "CapsLock"},
+    {0x3A, "F1"},
+    {0x3B, "F2"},
+    {0x3C, "F3"},
+    {0x3D, "F4"},
+    {0x3E, "F5"},
+    {0x3F, "F6"},
+    {0x40, "F7"},
+    {0x41, "F8"},
+    {0x42, "F9"},
+    {0x43, "F10"},
+    {0x44, "F11"},
+    {0x45, "F12"},
+    {0x46, "PrintScreen"},
+    {0x47, "ScrollLock"},
+    {0x48, "Pause"},
+    {0x49, "Insert"},
+    {0x4A, "Home"},
+    {0x4B, "PageUp"},
+    {0x4C, "DeleteForward"},
+    {0x4D, "End"},
+    {0x4E, "PageDown"},
+    {0x4F, "RightArrow"},
+    {0x50, "LeftArrow"},
+    {0x51, "DownArrow"},
+    {0x52, "UpArrow"},
+    {0x53, "NumLock"},
 
     /* Keypad */
-    { 0x54,   "Keypad /" },
-    { 0x55,   "Keypad *" },
-    { 0x56,   "Keypad -" },
-    { 0x57,   "Keypad +" },
-    { 0x58,   "Keypad ENTER" },
-    { 0x59,   "Keypad 1" },
-    { 0x5A,   "Keypad 2" },
-    { 0x5B,   "Keypad 3" },
-    { 0x5C,   "Keypad 4" },
-    { 0x5D,   "Keypad 5" },
-    { 0x5E,   "Keypad 6" },
-    { 0x5F,   "Keypad 7" },
-    { 0x60,   "Keypad 8" },
-    { 0x61,   "Keypad 9" },
-    { 0x62,   "Keypad 0" },
-    { 0x63,   "Keypad ." },
+    {0x54, "Keypad /"},
+    {0x55, "Keypad *"},
+    {0x56, "Keypad -"},
+    {0x57, "Keypad +"},
+    {0x58, "Keypad ENTER"},
+    {0x59, "Keypad 1"},
+    {0x5A, "Keypad 2"},
+    {0x5B, "Keypad 3"},
+    {0x5C, "Keypad 4"},
+    {0x5D, "Keypad 5"},
+    {0x5E, "Keypad 6"},
+    {0x5F, "Keypad 7"},
+    {0x60, "Keypad 8"},
+    {0x61, "Keypad 9"},
+    {0x62, "Keypad 0"},
+    {0x63, "Keypad ."},
 
     /* non PC AT */
-    { 0x64,   "NonUS \\/|" },
-    { 0x65,   "Application" },
-    { 0x66,   "Power" },
-    { 0x67,   "Keypad =" },
-    { 0x68,   "F13" },
-    { 0x69,   "F14" },
-    { 0x6A,   "F15" },
-    { 0x6B,   "F16" },
-    { 0x6C,   "F17" },
-    { 0x6D,   "F18" },
-    { 0x6E,   "F19" },
-    { 0x6F,   "F20" },
+    {0x64, "NonUS \\/|"},
+    {0x65, "Application"},
+    {0x66, "Power"},
+    {0x67, "Keypad ="},
+    {0x68, "F13"},
+    {0x69, "F14"},
+    {0x6A, "F15"},
+    {0x6B, "F16"},
+    {0x6C, "F17"},
+    {0x6D, "F18"},
+    {0x6E, "F19"},
+    {0x6F, "F20"},
 
-    { 0x70,   "F21" },
-    { 0x71,   "F22" },
-    { 0x72,   "F23" },
-    { 0x73,   "F24" },
-    { 0x74,   "Execute" },
-    { 0x75,   "Help" },
-    { 0x76,   "Menu" },
-    { 0x77,   "Select" },
-    { 0x78,   "Stop" },
-    { 0x79,   "Again" },
-    { 0x7A,   "Undo" },
-    { 0x7B,   "Cut" },
-    { 0x7C,   "Copy" },
-    { 0x7D,   "Paste" },
-    { 0x7E,   "Find" },
-    { 0x7F,   "Mute" },
+    {0x70, "F21"},
+    {0x71, "F22"},
+    {0x72, "F23"},
+    {0x73, "F24"},
+    {0x74, "Execute"},
+    {0x75, "Help"},
+    {0x76, "Menu"},
+    {0x77, "Select"},
+    {0x78, "Stop"},
+    {0x79, "Again"},
+    {0x7A, "Undo"},
+    {0x7B, "Cut"},
+    {0x7C, "Copy"},
+    {0x7D, "Paste"},
+    {0x7E, "Find"},
+    {0x7F, "Mute"},
 
-    { 0x80,   "VolumeUp" },
-    { 0x81,   "VolumeDown" },
-    { 0x82,   "Locking CapsLock" },
-    { 0x83,   "Locking NumLock" },
-    { 0x84,   "Locking ScrollLock" },
-    { 0x85,   "Keypad Comma" },
-    { 0x86,   "Keypad EqualSign" },
-    { 0x87,   "International1" },
-    { 0x88,   "International2" },
-    { 0x89,   "International3" },
-    { 0x8A,   "International4" },
-    { 0x8B,   "International5" },
-    { 0x8C,   "International6" },
-    { 0x8D,   "International7" },
-    { 0x8E,   "International8" },
-    { 0x8F,   "International9" },
+    {0x80, "VolumeUp"},
+    {0x81, "VolumeDown"},
+    {0x82, "Locking CapsLock"},
+    {0x83, "Locking NumLock"},
+    {0x84, "Locking ScrollLock"},
+    {0x85, "Keypad Comma"},
+    {0x86, "Keypad EqualSign"},
+    {0x87, "International1"},
+    {0x88, "International2"},
+    {0x89, "International3"},
+    {0x8A, "International4"},
+    {0x8B, "International5"},
+    {0x8C, "International6"},
+    {0x8D, "International7"},
+    {0x8E, "International8"},
+    {0x8F, "International9"},
 
-    { 0x90,   "LANG1" },
-    { 0x91,   "LANG2" },
-    { 0x92,   "LANG3" },
-    { 0x93,   "LANG4" },
-    { 0x94,   "LANG5" },
-    { 0x95,   "LANG6" },
-    { 0x96,   "LANG7" },
-    { 0x97,   "LANG8" },
-    { 0x98,   "LANG9" },
-    { 0x99,   "AlternateErase" },
-    { 0x9A,   "SysReq/Attention" },
-    { 0x9B,   "Cancel" },
-    { 0x9C,   "Clear" },
-    { 0x9D,   "Prior" },
-    { 0x9E,   "Return" },
-    { 0x9F,   "Separator" },
+    {0x90, "LANG1"},
+    {0x91, "LANG2"},
+    {0x92, "LANG3"},
+    {0x93, "LANG4"},
+    {0x94, "LANG5"},
+    {0x95, "LANG6"},
+    {0x96, "LANG7"},
+    {0x97, "LANG8"},
+    {0x98, "LANG9"},
+    {0x99, "AlternateErase"},
+    {0x9A, "SysReq/Attention"},
+    {0x9B, "Cancel"},
+    {0x9C, "Clear"},
+    {0x9D, "Prior"},
+    {0x9E, "Return"},
+    {0x9F, "Separator"},
 
-    { 0xA0,   "Out" },
-    { 0xA1,   "Oper" },
-    { 0xA2,   "Clear/Again" },
-    { 0xA3,   "CrSel/Props" },
-    { 0xA4,   "ExSel" },
+    {0xA0, "Out"},
+    {0xA1, "Oper"},
+    {0xA2, "Clear/Again"},
+    {0xA3, "CrSel/Props"},
+    {0xA4, "ExSel"},
     /* 0xA5..0xAF - reserved */
-    { 0xB0,   "Keypad 00" },
-    { 0xB1,   "Keypad 000" },
-    { 0xB2,   "ThousandsSeparator" },
-    { 0xB3,   "DecimalSeparator" },
-    { 0xB4,   "CurrencyUnit" },
-    { 0xB5,   "CurrencySubunit" },
-    { 0xB6,   "Keypad (" },
-    { 0xB7,   "Keypad )" },
-    { 0xB8,   "Keypad {" },
-    { 0xB9,   "Keypad }" },
-    { 0xBA,   "Keypad Tab" },
-    { 0xBB,   "Keypad Backspace" },
-    { 0xBC,   "Keypad A" },
-    { 0xBD,   "Keypad B" },
-    { 0xBE,   "Keypad C" },
-    { 0xBF,   "Keypad D" },
+    {0xB0, "Keypad 00"},
+    {0xB1, "Keypad 000"},
+    {0xB2, "ThousandsSeparator"},
+    {0xB3, "DecimalSeparator"},
+    {0xB4, "CurrencyUnit"},
+    {0xB5, "CurrencySubunit"},
+    {0xB6, "Keypad ("},
+    {0xB7, "Keypad )"},
+    {0xB8, "Keypad {"},
+    {0xB9, "Keypad }"},
+    {0xBA, "Keypad Tab"},
+    {0xBB, "Keypad Backspace"},
+    {0xBC, "Keypad A"},
+    {0xBD, "Keypad B"},
+    {0xBE, "Keypad C"},
+    {0xBF, "Keypad D"},
 
-    { 0xC0,   "Keypad E" },
-    { 0xC1,   "Keypad F" },
-    { 0xC2,   "Keypad XOR" },
-    { 0xC3,   "Keypad ^" },
-    { 0xC4,   "Keypad %" },
-    { 0xC5,   "Keypad <" },
-    { 0xC6,   "Keypad >" },
-    { 0xC7,   "Keypad &" },
-    { 0xC8,   "Keypad &&" },
-    { 0xC9,   "Keypad |" },
-    { 0xCA,   "Keypad ||" },
-    { 0xCB,   "Keypad :" },
-    { 0xCC,   "Keypad #" },
-    { 0xCD,   "Keypad Space" },
-    { 0xCE,   "Keypad @" },
-    { 0xCF,   "Keypad !" },
+    {0xC0, "Keypad E"},
+    {0xC1, "Keypad F"},
+    {0xC2, "Keypad XOR"},
+    {0xC3, "Keypad ^"},
+    {0xC4, "Keypad %"},
+    {0xC5, "Keypad <"},
+    {0xC6, "Keypad >"},
+    {0xC7, "Keypad &"},
+    {0xC8, "Keypad &&"},
+    {0xC9, "Keypad |"},
+    {0xCA, "Keypad ||"},
+    {0xCB, "Keypad :"},
+    {0xCC, "Keypad #"},
+    {0xCD, "Keypad Space"},
+    {0xCE, "Keypad @"},
+    {0xCF, "Keypad !"},
 
-    { 0xD0,   "Keypad Memory Store" },
-    { 0xD1,   "Keypad Memory Recall" },
-    { 0xD2,   "Keypad Memory Clear" },
-    { 0xD3,   "Keypad Memory Add" },
-    { 0xD4,   "Keypad Memory Subtract" },
-    { 0xD5,   "Keypad Memory Multiply" },
-    { 0xD6,   "Keypad Memory Divide" },
-    { 0xD7,   "Keypad +/-" },
-    { 0xD8,   "Keypad Clear" },
-    { 0xD9,   "Keypad Clear Entry" },
-    { 0xDA,   "Keypad Binary" },
-    { 0xDB,   "Keypad Octal" },
-    { 0xDC,   "Keypad Decimal" },
-    { 0xDD,   "Keypad Hexadecimal" },
+    {0xD0, "Keypad Memory Store"},
+    {0xD1, "Keypad Memory Recall"},
+    {0xD2, "Keypad Memory Clear"},
+    {0xD3, "Keypad Memory Add"},
+    {0xD4, "Keypad Memory Subtract"},
+    {0xD5, "Keypad Memory Multiply"},
+    {0xD6, "Keypad Memory Divide"},
+    {0xD7, "Keypad +/-"},
+    {0xD8, "Keypad Clear"},
+    {0xD9, "Keypad Clear Entry"},
+    {0xDA, "Keypad Binary"},
+    {0xDB, "Keypad Octal"},
+    {0xDC, "Keypad Decimal"},
+    {0xDD, "Keypad Hexadecimal"},
     /* 0xDE..0xDF - reserved,  */
-    { 0xE0,   "LeftControl" },
-    { 0xE1,   "LeftShift" },
-    { 0xE2,   "LeftAlt" },
-    { 0xE3,   "LeftGUI" },
-    { 0xE4,   "RightControl" },
-    { 0xE5,   "RightShift" },
-    { 0xE6,   "RightAlt" },
-    { 0xE7,   "RightGUI" },
+    {0xE0, "LeftControl"},
+    {0xE1, "LeftShift"},
+    {0xE2, "LeftAlt"},
+    {0xE3, "LeftGUI"},
+    {0xE4, "RightControl"},
+    {0xE5, "RightShift"},
+    {0xE6, "RightAlt"},
+    {0xE7, "RightGUI"},
 
-    { 0, NULL }
+    {0, NULL}
 };
 value_string_ext keycode_vals_ext = VALUE_STRING_EXT_INIT(keycode_vals);
 
@@ -2450,14 +3248,38 @@ get_usage_page_item_string(guint32 usage_page, guint32 id)
     case DIGITIZER_PAGE:
         str = try_val_to_str(id, usb_hid_digitizers_usage_page_vals);
         break;
+    case HAPTICS_PAGE:
+        str = try_val_to_str(id, usb_hid_haptic_usage_page_vals);
+        if (id >= 0x1006 && id <= 0x1FFF)
+            str = "Reserved for standard waveforms";
+        if (id >= 0x2001 && id <= 0x2FFF)
+            str = "Vendor Waveforms";
+        break;
     case PID_PAGE:
         str = try_val_to_str(id, usb_hid_physical_input_device_usage_page_vals);
+        break;
+    case UNICODE_PAGE:
+        str = "Character U+%04X";
+        break;
+    case EYE_AND_HEAD_TRACKER_PAGE:
+        str = try_val_to_str(id, usb_hid_eye_and_head_tracker_usage_page_vals);
         break;
     case ALPHANUMERIC_DISPLAY_PAGE:
         str = try_val_to_str(id, usb_hid_alphanumeric_display_usage_page_vals);
         break;
+    case SENSOR_PAGE:
+        str = try_val_to_str(id, usb_hid_sensor_usage_page_vals);
+        if (!str)
+            str = try_rval_to_str(id, usb_hid_sensor_usage_page_ranges);
+        break;
     case MEDICAL_INSTRUMENTS_PAGE:
         str = try_val_to_str(id, usb_hid_medical_instrument_usage_page_vals);
+        break;
+    case BRAILLE_DISPLAY_PAGE:
+        str = try_val_to_str(id, usb_hid_braille_dispaly_usage_page_vals);
+        break;
+    case LIGHTING_AND_ILLUMINATION_PAGE:
+        str = try_val_to_str(id, usb_hid_lighting_and_illumination_usage_page_vals);
         break;
     case USB_MONITOR_PAGE:
         str = try_val_to_str(id, usb_hid_monitor_usage_page_vals);
@@ -2486,15 +3308,17 @@ get_usage_page_item_string(guint32 usage_page, guint32 id)
     case ARCADE_PAGE:
         str = try_val_to_str(id, usb_hid_arcade_usage_page_vals);
         break;
+    case FIDO_ALLIANCE_PAGE:
+        str = try_val_to_str(id, usb_hid_fido_alliance_usage_page_vals);
+        break;
     default:
         if ((usage_page & VENDOR_PAGE_HBYTE) == VENDOR_PAGE_HBYTE)
             str = "Vendor";
         break;
     }
 
-    if (!str) {
+    if (!str)
         str = "Reserved";
-    }
 
     return g_strdup_printf(str, id);
 }
@@ -2503,6 +3327,9 @@ get_usage_page_item_string(guint32 usage_page, guint32 id)
 static int
 dissect_usb_hid_report_mainitem_data(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, int offset, unsigned int bSize, unsigned int bTag)
 {
+    proto_item *ti = proto_tree_get_parent(tree);
+    guint32 val;
+
     switch (bTag) {
         case USBHID_MAINITEM_TAG_INPUT:
         case USBHID_MAINITEM_TAG_OUTPUT:
@@ -2514,25 +3341,52 @@ dissect_usb_hid_report_mainitem_data(packet_info *pinfo _U_, proto_tree *tree, t
             proto_tree_add_item(tree, hf_usb_hid_mainitem_bit4, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
             proto_tree_add_item(tree, hf_usb_hid_mainitem_bit5, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
             proto_tree_add_item(tree, hf_usb_hid_mainitem_bit6, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
-            if (bTag == USBHID_MAINITEM_TAG_INPUT) {
+            if (bTag == USBHID_MAINITEM_TAG_INPUT)
                 proto_tree_add_item(tree, hf_usb_hid_mainitem_bit7_input, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
-            } else {
+            else
                 proto_tree_add_item(tree, hf_usb_hid_mainitem_bit7, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
-            }
-            if (bSize > 1) {
+            if (bSize > 1)
                 proto_tree_add_item(tree, hf_usb_hid_mainitem_bit8, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
-            } else {
+            else
                 proto_tree_add_boolean_format_value(tree, hf_usb_hid_mainitem_bit8, tvb, offset, 0, FALSE, "Buffered bytes (default, no second byte present)");
-            }
+
+            val = tvb_get_guint8(tvb, offset);
+            if (val & (1 << 0))
+                proto_item_append_text(ti, " (Const,");
+            else
+                proto_item_append_text(ti, " (Data,");
+            if (val & (1 << 1))
+                proto_item_append_text(ti, "Var,");
+            else
+                proto_item_append_text(ti, "Array,");
+            if (val & (1 << 2))
+                proto_item_append_text(ti, "Rel");
+            else
+                proto_item_append_text(ti, "Abs");
+            if (val & (1 << 3))
+                proto_item_append_text(ti, ",Wrap");
+            if (val & (1 << 4))
+                proto_item_append_text(ti, ",NonLinear");
+            if (val & (1 << 5))
+                proto_item_append_text(ti, ",NoPref");
+            if (val & (1 << 6))
+                proto_item_append_text(ti, ",Null");
+            if ((bTag == USBHID_MAINITEM_TAG_OUTPUT || bTag == USBHID_MAINITEM_TAG_FEATURE) && val & (1 << 7))
+                proto_item_append_text(ti, ",Volatile");
+            if (val & (1 << 8))
+                proto_item_append_text(ti, ",BuffBytes");
+            proto_item_append_text(ti, ")");
             break;
         case USBHID_MAINITEM_TAG_COLLECTION:
-            proto_tree_add_item(tree, hf_usb_hid_mainitem_colltype, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_mainitem_colltype, tvb, offset, 1, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (%s)", rval_to_str(val, usb_hid_mainitem_colltype_vals, "Unknown"));
             break;
         case USBHID_MAINITEM_TAG_ENDCOLLECTION:
             /* No item data */
             break;
         default:
             proto_tree_add_item(tree, hf_usb_hid_item_unk_data, tvb, offset, bSize, ENC_NA);
+            proto_item_append_text(ti, " (Unknown)");
             break;
     }
     offset += bSize;
@@ -2544,6 +3398,9 @@ static int
 dissect_usb_hid_report_globalitem_data(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, int offset, unsigned int bSize, unsigned int bTag, struct usb_hid_global_state *global)
 {
     const char *str = NULL;
+    proto_item *ti = proto_tree_get_parent(tree);
+    guint32 val;
+    gint32 val_sig;
 
     switch (bTag) {
         case USBHID_GLOBALITEM_TAG_USAGE_PAGE:
@@ -2556,21 +3413,30 @@ dissect_usb_hid_report_globalitem_data(packet_info *pinfo _U_, proto_tree *tree,
             }
             str = get_usage_page_string(global->usage_page);
             proto_tree_add_uint_format(tree, hf_usb_hid_globalitem_usage, tvb, offset, bSize, global->usage_page, "Usage Page: %s (0x%02x)", str, global->usage_page);
+            proto_item_append_text(ti, " (%s)", str);
             break;
         case USBHID_GLOBALITEM_TAG_LOG_MIN:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_log_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_int(tree, hf_usb_hid_globalitem_log_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val_sig);
+            proto_item_append_text(ti, " (%d)", val_sig);
             break;
         case USBHID_GLOBALITEM_TAG_LOG_MAX:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_log_max, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_int(tree, hf_usb_hid_globalitem_log_max, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val_sig);
+            proto_item_append_text(ti, " (%d)", val_sig);
             break;
         case USBHID_GLOBALITEM_TAG_PHY_MIN:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_phy_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_int(tree, hf_usb_hid_globalitem_phy_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val_sig);
+            proto_item_append_text(ti, " (%d)", val_sig);
             break;
         case USBHID_GLOBALITEM_TAG_PHY_MAX:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_phy_max, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_int(tree, hf_usb_hid_globalitem_phy_max, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val_sig);
+            proto_item_append_text(ti, " (%d)", val_sig);
             break;
         case USBHID_GLOBALITEM_TAG_UNIT_EXP:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_unit_exp, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_globalitem_unit_exp, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            if (val >= 7)
+                proto_item_append_text(ti, " (%u)", val);
+            else
+                proto_item_append_text(ti, " (%d)", -(16 - (int) val));
             break;
         case USBHID_GLOBALITEM_TAG_UNIT:
             proto_tree_add_item(tree, hf_usb_hid_globalitem_unit_sys, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
@@ -2580,24 +3446,31 @@ dissect_usb_hid_report_globalitem_data(packet_info *pinfo _U_, proto_tree *tree,
             proto_tree_add_item(tree, hf_usb_hid_globalitem_unit_temp, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
             proto_tree_add_item(tree, hf_usb_hid_globalitem_unit_current, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
             proto_tree_add_item(tree, hf_usb_hid_globalitem_unit_brightness, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_item_append_text(ti, " (0x%02x)", tvb_get_guint8(tvb, offset));
             break;
         case USBHID_GLOBALITEM_TAG_REPORT_SIZE:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_report_size, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_globalitem_report_size, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (%u)", val);
             break;
         case USBHID_GLOBALITEM_TAG_REPORT_ID:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_report_id, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_globalitem_report_id, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_GLOBALITEM_TAG_REPORT_COUNT:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_report_count, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_globalitem_report_count, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (%u)", val);
             break;
         case USBHID_GLOBALITEM_TAG_PUSH:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_push, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_globalitem_push, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (%u)", val);
             break;
         case USBHID_GLOBALITEM_TAG_POP:
-            proto_tree_add_item(tree, hf_usb_hid_globalitem_pop, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_globalitem_pop, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (%u)", val);
             break;
         default:
             proto_tree_add_item(tree, hf_usb_hid_item_unk_data, tvb, offset, bSize, ENC_NA);
+            proto_item_append_text(ti, " (Unknown)");
             break;
     }
     offset += bSize;
@@ -2609,7 +3482,9 @@ static int
 dissect_usb_hid_report_localitem_data(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, int offset, unsigned int bSize, unsigned int bTag, struct usb_hid_global_state *global)
 {
     guint32 id = 0xffff;
+    proto_item *ti = proto_tree_get_parent(tree);
     gchar *str = NULL;
+    guint32 val;
 
     switch (bTag) {
         case USBHID_LOCALITEM_TAG_USAGE_PAGE:
@@ -2624,37 +3499,48 @@ dissect_usb_hid_report_localitem_data(packet_info *pinfo _U_, proto_tree *tree, 
                     id = tvb_get_ntohs(tvb, offset);
                 str = get_usage_page_item_string(global->usage_page, id);
                 proto_tree_add_uint_format(tree, hf_usb_hid_localitem_usage, tvb, offset, bSize, id, "Usage: %s (0x%02x)", str, id);
+                proto_item_append_text(ti, " (%s)", str);
             }
             break;
         case USBHID_LOCALITEM_TAG_USAGE_MIN:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_usage_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_usage_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_LOCALITEM_TAG_USAGE_MAX:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_usage, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_usage, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_LOCALITEM_TAG_DESIG_INDEX:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_desig_index, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_desig_index, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_LOCALITEM_TAG_DESIG_MIN:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_desig_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_desig_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_LOCALITEM_TAG_DESIG_MAX:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_desig_max, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_desig_max, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_LOCALITEM_TAG_STRING_INDEX:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_string_index, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_string_index, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_LOCALITEM_TAG_STRING_MIN:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_string_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_string_min, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_LOCALITEM_TAG_STRING_MAX:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_string_max, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_string_max, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         case USBHID_LOCALITEM_TAG_DELIMITER:
-            proto_tree_add_item(tree, hf_usb_hid_localitem_delimiter, tvb, offset, bSize, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint(tree, hf_usb_hid_localitem_delimiter, tvb, offset, bSize, ENC_LITTLE_ENDIAN, &val);
+            proto_item_append_text(ti, " (0x%02x)", val);
             break;
         default:
             proto_tree_add_item(tree, hf_usb_hid_item_unk_data, tvb, offset, bSize, ENC_NA);
+            proto_item_append_text(ti, " (Unknown)");
             break;
     }
     offset += bSize;
@@ -2707,11 +3593,7 @@ dissect_usb_hid_report_item(packet_info *pinfo _U_, proto_tree *parent_tree, tvb
                 break;
         }
 
-        subtree = proto_tree_add_subtree_format(parent_tree, tvb, offset, bSize + 1,
-            ett_usb_hid_item_header, &subitem, "%s item (%s)",
-            val_to_str(bType, usb_hid_item_bType_vals, "Unknown/%u"),
-            val_to_str(bTag, usb_hid_cur_bTag_vals, "Unknown/%u tag")
-        );
+        subtree = proto_tree_add_subtree_format(parent_tree, tvb, offset, bSize + 1, ett_usb_hid_item_header, &subitem, "%s", val_to_str(bTag, usb_hid_cur_bTag_vals, "Unknown/%u tag"));
 
         tree = proto_tree_add_subtree(subtree, tvb, offset, 1, ett_usb_hid_item_header, NULL, "Header");
         proto_tree_add_item(tree, hf_usb_hid_item_bSize, tvb, offset,   1, ENC_LITTLE_ENDIAN);
@@ -3295,10 +4177,8 @@ dissect_usb_hid_control_std_intf(tvbuff_t *tvb, packet_info *pinfo,
         col_append_fstr(pinfo->cinfo, COL_INFO, " %s",
                 val_to_str_ext(usb_trans_info->u.get_descriptor.type,
                     &hid_descriptor_type_vals_ext, "Unknown type %u"));
-        if (usb_trans_info->u.get_descriptor.type == USB_DT_HID_REPORT) {
-            offset = dissect_usb_hid_get_report_descriptor(
-                    pinfo, tree, tvb, offset, usb_conv_info);
-        }
+        if (usb_trans_info->u.get_descriptor.type == USB_DT_HID_REPORT)
+            offset = dissect_usb_hid_get_report_descriptor(pinfo, tree, tvb, offset, usb_conv_info);
     }
 
     return offset;
@@ -3329,15 +4209,14 @@ dissect_usb_hid_control_class_intf(tvbuff_t *tvb, packet_info *pinfo,
     /* No, we could not find any class specific dissector for this request
      * return 0 and let USB try any of the standard requests.
      */
-    if (!dissector) {
+    if (!dissector)
         return 0;
-    }
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "USBHID");
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s",
-    val_to_str(usb_trans_info->setup.request, setup_request_names_vals, "Unknown type %x"),
-        is_request ? "Request" : "Response");
+                 val_to_str(usb_trans_info->setup.request, setup_request_names_vals, "Unknown type %x"),
+                 is_request ? "Request" : "Response");
 
     if (is_request) {
         proto_tree_add_item(tree, hf_usb_hid_request, tvb, offset, 1, ENC_LITTLE_ENDIAN);
@@ -3369,14 +4248,10 @@ dissect_usb_hid_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     recip = USB_RECIPIENT(usb_trans_info->setup.requesttype);
 
     if (recip == RQT_SETUP_RECIPIENT_INTERFACE) {
-        if (type == RQT_SETUP_TYPE_STANDARD) {
-            return dissect_usb_hid_control_std_intf(
-                    tvb, pinfo, tree, usb_conv_info);
-        }
-        else if (type == RQT_SETUP_TYPE_CLASS) {
-            return dissect_usb_hid_control_class_intf(
-                    tvb, pinfo, tree, usb_conv_info);
-        }
+        if (type == RQT_SETUP_TYPE_STANDARD)
+            return dissect_usb_hid_control_std_intf(tvb, pinfo, tree, usb_conv_info);
+        else if (type == RQT_SETUP_TYPE_CLASS)
+            return dissect_usb_hid_control_class_intf(tvb, pinfo, tree, usb_conv_info);
     }
 
     return 0;
@@ -3402,25 +4277,19 @@ dissect_usb_hid_class_descriptors(tvbuff_t *tvb, packet_info *pinfo _U_,
 
     desc_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_usb_hid_descriptor, &ti, "HID DESCRIPTOR");
 
-    dissect_usb_descriptor_header(desc_tree, tvb, offset,
-            &hid_descriptor_type_vals_ext);
+    dissect_usb_descriptor_header(desc_tree, tvb, offset, &hid_descriptor_type_vals_ext);
     offset += 2;
-    proto_tree_add_item(desc_tree, hf_usb_hid_bcdHID,
-            tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(desc_tree, hf_usb_hid_bcdHID, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     offset += 2;
-    proto_tree_add_item(desc_tree, hf_usb_hid_bCountryCode,
-            tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(desc_tree, hf_usb_hid_bCountryCode, tvb, offset, 1, ENC_LITTLE_ENDIAN);
     offset++;
     num_desc = tvb_get_guint8(tvb, offset);
-    proto_tree_add_item(desc_tree, hf_usb_hid_bNumDescriptors,
-            tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(desc_tree, hf_usb_hid_bNumDescriptors, tvb, offset, 1, ENC_LITTLE_ENDIAN);
     offset++;
     for (i=0;i<num_desc;i++) {
-        proto_tree_add_item(desc_tree, hf_usb_hid_bDescriptorType,
-                tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(desc_tree, hf_usb_hid_bDescriptorType, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         offset++;
-        proto_tree_add_item(desc_tree, hf_usb_hid_wDescriptorLength,
-                tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(desc_tree, hf_usb_hid_wDescriptorLength, tvb, offset, 2, ENC_LITTLE_ENDIAN);
         offset += 2;
     }
 
@@ -3518,19 +4387,19 @@ proto_register_usb_hid(void)
                 NULL, 0, NULL, HFILL }},
 
         { &hf_usb_hid_globalitem_log_min,
-            { "Logical minimum", "usbhid.item.global.log_min", FT_UINT8, BASE_DEC,
+            { "Logical minimum", "usbhid.item.global.log_min", FT_INT8, BASE_DEC,
                 NULL, 0, NULL, HFILL }},
 
         { &hf_usb_hid_globalitem_log_max,
-            { "Logical maximum", "usbhid.item.global.log_max", FT_UINT8, BASE_DEC,
+            { "Logical maximum", "usbhid.item.global.log_max", FT_INT8, BASE_DEC,
                 NULL, 0, NULL, HFILL }},
 
         { &hf_usb_hid_globalitem_phy_min,
-            { "Physical minimum", "usbhid.item.global.phy_min", FT_UINT8, BASE_DEC,
+            { "Physical minimum", "usbhid.item.global.phy_min", FT_INT8, BASE_DEC,
                 NULL, 0, NULL, HFILL }},
 
         { &hf_usb_hid_globalitem_phy_max,
-            { "Physical maximum", "usbhid.item.global.phy_max", FT_UINT8, BASE_DEC,
+            { "Physical maximum", "usbhid.item.global.phy_max", FT_INT8, BASE_DEC,
                 NULL, 0, NULL, HFILL }},
 
         { &hf_usb_hid_globalitem_unit_exp,
@@ -3636,238 +4505,202 @@ proto_register_usb_hid(void)
 
         /* USB HID specific requests */
         { &hf_usb_hid_request,
-        { "bRequest", "usbhid.setup.bRequest", FT_UINT8, BASE_HEX, VALS(setup_request_names_vals), 0x0,
-          NULL, HFILL }},
+            { "bRequest", "usbhid.setup.bRequest", FT_UINT8, BASE_HEX,
+                VALS(setup_request_names_vals), 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_value,
-        { "wValue", "usbhid.setup.wValue", FT_UINT16, BASE_HEX, NULL, 0x0,
-          NULL, HFILL }},
+            { "wValue", "usbhid.setup.wValue", FT_UINT16, BASE_HEX,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_index,
-        { "wIndex", "usbhid.setup.wIndex", FT_UINT16, BASE_DEC, NULL, 0x0,
-          NULL, HFILL }},
+            { "wIndex", "usbhid.setup.wIndex", FT_UINT16, BASE_DEC,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_length,
-        { "wLength", "usbhid.setup.wLength", FT_UINT16, BASE_DEC, NULL, 0x0,
-          NULL, HFILL }},
+            { "wLength", "usbhid.setup.wLength", FT_UINT16, BASE_DEC,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_report_type,
-        { "ReportType", "usbhid.setup.ReportType", FT_UINT8, BASE_DEC,
-          VALS(usb_hid_report_type_vals), 0x0,
-          NULL, HFILL }},
+            { "ReportType", "usbhid.setup.ReportType", FT_UINT8, BASE_DEC,
+                VALS(usb_hid_report_type_vals), 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_report_id,
-        { "ReportID", "usbhid.setup.ReportID", FT_UINT8, BASE_DEC, NULL, 0x0,
-          NULL, HFILL }},
+            { "ReportID", "usbhid.setup.ReportID", FT_UINT8, BASE_DEC,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_duration,
-        { "Duration", "usbhid.setup.Duration", FT_UINT8, BASE_DEC, NULL, 0x0,
-          NULL, HFILL }},
+            { "Duration", "usbhid.setup.Duration", FT_UINT8, BASE_DEC,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_zero,
-        { "(zero)", "usbhid.setup.zero", FT_UINT8, BASE_DEC, NULL, 0x0,
-          NULL, HFILL }},
+            { "(zero)", "usbhid.setup.zero", FT_UINT8, BASE_DEC,
+                NULL, 0x0, NULL, HFILL }},
 
         /* components of the HID descriptor */
         { &hf_usb_hid_bcdHID,
-        { "bcdHID", "usbhid.descriptor.hid.bcdHID", FT_UINT16, BASE_HEX, NULL, 0x0,
-          NULL, HFILL }},
+            { "bcdHID", "usbhid.descriptor.hid.bcdHID", FT_UINT16, BASE_HEX,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_bCountryCode,
-        { "bCountryCode", "usbhid.descriptor.hid.bCountryCode", FT_UINT8,
-            BASE_HEX, VALS(hid_country_code_vals), 0x0, NULL, HFILL }},
+            { "bCountryCode", "usbhid.descriptor.hid.bCountryCode", FT_UINT8, BASE_HEX,
+                VALS(hid_country_code_vals), 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_bNumDescriptors,
-        { "bNumDescriptors", "usbhid.descriptor.hid.bNumDescriptors", FT_UINT8,
-            BASE_DEC, NULL, 0x0, NULL, HFILL }},
+            { "bNumDescriptors", "usbhid.descriptor.hid.bNumDescriptors", FT_UINT8, BASE_DEC,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_bDescriptorIndex,
-        { "bDescriptorIndex", "usbhid.descriptor.hid.bDescriptorIndex", FT_UINT8,
-            BASE_HEX, NULL, 0x0, NULL, HFILL }},
+            { "bDescriptorIndex", "usbhid.descriptor.hid.bDescriptorIndex", FT_UINT8, BASE_HEX,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_bDescriptorType,
-        { "bDescriptorType", "usbhid.descriptor.hid.bDescriptorType", FT_UINT8,
-            BASE_HEX|BASE_EXT_STRING, &hid_descriptor_type_vals_ext,
-            0x00, NULL, HFILL }},
+            { "bDescriptorType", "usbhid.descriptor.hid.bDescriptorType", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+                &hid_descriptor_type_vals_ext, 0x00, NULL, HFILL }},
 
         { &hf_usb_hid_wInterfaceNumber,
-        { "wInterfaceNumber", "usbhid.descriptor.hid.wInterfaceNumber", FT_UINT16,
-            BASE_DEC, NULL, 0x0, NULL, HFILL }},
+            { "wInterfaceNumber", "usbhid.descriptor.hid.wInterfaceNumber", FT_UINT16, BASE_DEC,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_wDescriptorLength,
-        { "wDescriptorLength", "usbhid.descriptor.hid.wDescriptorLength", FT_UINT16,
-            BASE_DEC, NULL, 0x0, NULL, HFILL }},
+            { "wDescriptorLength", "usbhid.descriptor.hid.wDescriptorLength", FT_UINT16, BASE_DEC,
+                NULL, 0x0, NULL, HFILL }},
 
         { &hf_usbhid_boot_report_keyboard_reserved,
-            { "Reserved",                        "usbhid.boot_report.keyboard.reserved",
-            FT_UINT8, BASE_HEX, NULL, 0x00,
-            NULL, HFILL }
-        },
+            { "Reserved", "usbhid.boot_report.keyboard.reserved", FT_UINT8, BASE_HEX,
+                NULL, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_keycode_1,
-            { "Keycode 1",                       "usbhid.boot_report.keyboard.keycode_1",
-            FT_UINT8, BASE_HEX|BASE_EXT_STRING, &keycode_vals_ext, 0x00,
-            NULL, HFILL }
-        },
+            { "Keycode 1", "usbhid.boot_report.keyboard.keycode_1", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+                &keycode_vals_ext, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_keycode_2,
-            { "Keycode 2",                       "usbhid.boot_report.keyboard.keycode_2",
-            FT_UINT8, BASE_HEX|BASE_EXT_STRING, &keycode_vals_ext, 0x00,
-            NULL, HFILL }
-        },
+            { "Keycode 2", "usbhid.boot_report.keyboard.keycode_2", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+                &keycode_vals_ext, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_keycode_3,
-            { "Keycode 3",                       "usbhid.boot_report.keyboard.keycode_3",
-            FT_UINT8, BASE_HEX|BASE_EXT_STRING, &keycode_vals_ext, 0x00,
-            NULL, HFILL }
-        },
+            { "Keycode 3", "usbhid.boot_report.keyboard.keycode_3", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+                &keycode_vals_ext, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_keycode_4,
-            { "Keycode 4",                       "usbhid.boot_report.keyboard.keycode_4",
-            FT_UINT8, BASE_HEX|BASE_EXT_STRING, &keycode_vals_ext, 0x00,
-            NULL, HFILL }
-        },
+            { "Keycode 4", "usbhid.boot_report.keyboard.keycode_4", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+                &keycode_vals_ext, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_keycode_5,
-            { "Keycode 5",                       "usbhid.boot_report.keyboard.keycode_5",
-            FT_UINT8, BASE_HEX|BASE_EXT_STRING, &keycode_vals_ext, 0x00,
-            NULL, HFILL }
-        },
+            { "Keycode 5", "usbhid.boot_report.keyboard.keycode_5", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+                &keycode_vals_ext, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_keycode_6,
-            { "Keycode 6",                       "usbhid.boot_report.keyboard.keycode_6",
-            FT_UINT8, BASE_HEX|BASE_EXT_STRING, &keycode_vals_ext, 0x00,
-            NULL, HFILL }
-        },
+            { "Keycode 6", "usbhid.boot_report.keyboard.keycode_6", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
+                &keycode_vals_ext, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_modifier_right_gui,
-            { "Modifier: RIGHT GUI",             "usbhid.boot_report.keyboard.modifier.right_gui",
-            FT_BOOLEAN, 8, NULL, 0x80,
-            NULL, HFILL }
-        },
+            { "Modifier: RIGHT GUI", "usbhid.boot_report.keyboard.modifier.right_gui", FT_BOOLEAN, 8,
+                NULL, 0x80, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_modifier_right_alt,
-            { "Modifier: RIGHT ALT",             "usbhid.boot_report.keyboard.modifier.right_alt",
-            FT_BOOLEAN, 8, NULL, 0x40,
-            NULL, HFILL }
-        },
+            { "Modifier: RIGHT ALT", "usbhid.boot_report.keyboard.modifier.right_alt", FT_BOOLEAN, 8,
+                NULL, 0x40, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_modifier_right_shift,
-            { "Modifier: RIGHT SHIFT",           "usbhid.boot_report.keyboard.modifier.right_shift",
-            FT_BOOLEAN, 8, NULL, 0x20,
-            NULL, HFILL }
-        },
+            { "Modifier: RIGHT SHIFT", "usbhid.boot_report.keyboard.modifier.right_shift", FT_BOOLEAN, 8,
+                NULL, 0x20, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_modifier_right_ctrl,
-            { "Modifier: RIGHT CTRL",            "usbhid.boot_report.keyboard.modifier.right_ctrl",
-            FT_BOOLEAN, 8, NULL, 0x10,
-            NULL, HFILL }
-        },
+            { "Modifier: RIGHT CTRL", "usbhid.boot_report.keyboard.modifier.right_ctrl", FT_BOOLEAN, 8,
+                NULL, 0x10,NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_modifier_left_gui,
-            { "Modifier: LEFT GUI",              "usbhid.boot_report.keyboard.modifier.left_gui",
-            FT_BOOLEAN, 8, NULL, 0x08,
-            NULL, HFILL }
-        },
+            { "Modifier: LEFT GUI", "usbhid.boot_report.keyboard.modifier.left_gui", FT_BOOLEAN, 8,
+                NULL, 0x08, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_modifier_left_alt,
-            { "Modifier: LEFT ALT",              "usbhid.boot_report.keyboard.modifier.left_alt",
-            FT_BOOLEAN, 8, NULL, 0x04,
-            NULL, HFILL }
+            { "Modifier: LEFT ALT", "usbhid.boot_report.keyboard.modifier.left_alt", FT_BOOLEAN, 8,
+                NULL, 0x04, NULL, HFILL }
         },
+
         { &hf_usbhid_boot_report_keyboard_modifier_left_shift,
-            { "Modifier: LEFT SHIFT",            "usbhid.boot_report.keyboard.modifier.left_shift",
-            FT_BOOLEAN, 8, NULL, 0x02,
-            NULL, HFILL }
-        },
+            { "Modifier: LEFT SHIFT", "usbhid.boot_report.keyboard.modifier.left_shift", FT_BOOLEAN, 8,
+                NULL, 0x02, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_modifier_left_ctrl,
-            { "Modifier: LEFT CTRL",             "usbhid.boot_report.keyboard.modifier.left_ctrl",
-            FT_BOOLEAN, 8, NULL, 0x01,
-            NULL, HFILL }
-        },
+            { "Modifier: LEFT CTRL", "usbhid.boot_report.keyboard.modifier.left_ctrl", FT_BOOLEAN, 8,
+                NULL, 0x01, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_leds_constants,
-            { "Constants",                       "usbhid.boot_report.keyboard.leds.constants",
-            FT_UINT8, BASE_HEX, NULL, 0xE0,
-            NULL, HFILL }
-        },
+            { "Constants", "usbhid.boot_report.keyboard.leds.constants", FT_UINT8, BASE_HEX,
+                NULL, 0xE0, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_leds_kana,
-            { "KANA",                            "usbhid.boot_report.keyboard.leds.kana",
-            FT_BOOLEAN, 8, NULL, 0x10,
-            NULL, HFILL }
-        },
+            { "KANA", "usbhid.boot_report.keyboard.leds.kana", FT_BOOLEAN, 8,
+                NULL, 0x10, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_leds_compose,
-            { "COMPOSE",                         "usbhid.boot_report.keyboard.leds.compose",
-            FT_BOOLEAN, 8, NULL, 0x08,
-            NULL, HFILL }
-        },
+            { "COMPOSE", "usbhid.boot_report.keyboard.leds.compose", FT_BOOLEAN, 8,
+                NULL, 0x08, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_leds_scroll_lock,
-            { "SCROLL LOCK",                     "usbhid.boot_report.keyboard.leds.scroll_lock",
-            FT_BOOLEAN, 8, NULL, 0x04,
-            NULL, HFILL }
-        },
+            { "SCROLL LOCK", "usbhid.boot_report.keyboard.leds.scroll_lock", FT_BOOLEAN, 8,
+                NULL, 0x04, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_leds_caps_lock,
-            { "CAPS LOCK",                       "usbhid.boot_report.keyboard.leds.caps_lock",
-            FT_BOOLEAN, 8, NULL, 0x02,
-            NULL, HFILL }
-        },
+            { "CAPS LOCK", "usbhid.boot_report.keyboard.leds.caps_lock", FT_BOOLEAN, 8,
+                NULL, 0x02,NULL, HFILL }},
+
         { &hf_usbhid_boot_report_keyboard_leds_num_lock,
-            { "NUM LOCK",                        "usbhid.boot_report.keyboard.leds.num_lock",
-            FT_BOOLEAN, 8, NULL, 0x01,
-            NULL, HFILL }
-        },
+            { "NUM LOCK",  "usbhid.boot_report.keyboard.leds.num_lock", FT_BOOLEAN, 8,
+                NULL, 0x01, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_button_8,
-            { "Button 8",                        "usbhid.boot_report.mouse.button.8",
-            FT_BOOLEAN, 8, NULL, 0x80,
-            NULL, HFILL }
-        },
+            { "Button 8",  "usbhid.boot_report.mouse.button.8", FT_BOOLEAN, 8,
+                NULL, 0x80, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_button_7,
-            { "Button 7",                        "usbhid.boot_report.mouse.button.7",
-            FT_BOOLEAN, 8, NULL, 0x40,
-            NULL, HFILL }
-        },
+            { "Button 7",  "usbhid.boot_report.mouse.button.7", FT_BOOLEAN, 8,
+                NULL, 0x40, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_button_6,
-            { "Button 6",                        "usbhid.boot_report.mouse.button.6",
-            FT_BOOLEAN, 8, NULL, 0x20,
-            NULL, HFILL }
-        },
+            { "Button 6",  "usbhid.boot_report.mouse.button.6", FT_BOOLEAN, 8,
+                NULL, 0x20, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_button_5,
-            { "Button 5",                        "usbhid.boot_report.mouse.button.5",
-            FT_BOOLEAN, 8, NULL, 0x10,
-            NULL, HFILL }
-        },
+            { "Button 5",  "usbhid.boot_report.mouse.button.5", FT_BOOLEAN, 8,
+                NULL, 0x10, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_button_4,
-            { "Button 4",                        "usbhid.boot_report.mouse.button.4",
-            FT_BOOLEAN, 8, NULL, 0x08,
-            NULL, HFILL }
-        },
+            { "Button 4",  "usbhid.boot_report.mouse.button.4", FT_BOOLEAN, 8,
+                NULL, 0x08, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_button_middle,
-            { "Button Middle",                   "usbhid.boot_report.mouse.button.middle",
-            FT_BOOLEAN, 8, NULL, 0x04,
-            NULL, HFILL }
-        },
+            { "Button Middle", "usbhid.boot_report.mouse.button.middle", FT_BOOLEAN, 8,
+                NULL, 0x04, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_button_right,
-            { "Button Right",                    "usbhid.boot_report.mouse.button.right",
-            FT_BOOLEAN, 8, NULL, 0x02,
-            NULL, HFILL }
-        },
+            { "Button Right",  "usbhid.boot_report.mouse.button.right", FT_BOOLEAN, 8,
+                NULL, 0x02, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_button_left,
-            { "Button Left",                     "usbhid.boot_report.mouse.button.left",
-            FT_BOOLEAN, 8, NULL, 0x01,
-            NULL, HFILL }
-        },
+            { "Button Left",   "usbhid.boot_report.mouse.button.left", FT_BOOLEAN, 8,
+                NULL, 0x01, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_x_displacement,
-            { "X Displacement",                  "usbhid.boot_report.mouse.x_displacement",
-            FT_INT8, BASE_DEC, NULL, 0x00,
-            NULL, HFILL }
-        },
+            { "X Displacement", "usbhid.boot_report.mouse.x_displacement", FT_INT8, BASE_DEC,
+                NULL, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_y_displacement,
-            { "Y Displacement",                  "usbhid.boot_report.mouse.y_displacement",
-            FT_INT8, BASE_DEC, NULL, 0x00,
-            NULL, HFILL }
-        },
+            { "Y Displacement", "usbhid.boot_report.mouse.y_displacement", FT_INT8, BASE_DEC,
+                NULL, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_horizontal_scroll_wheel,
-            { "Horizontal Scroll Wheel",         "usbhid.boot_report.mouse.scroll_wheel.horizontal",
-            FT_INT8, BASE_DEC, NULL, 0x00,
-            NULL, HFILL }
-        },
+            { "Horizontal Scroll Wheel", "usbhid.boot_report.mouse.scroll_wheel.horizontal", FT_INT8, BASE_DEC,
+                NULL, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_boot_report_mouse_vertical_scroll_wheel,
-            { "Vertical Scroll Wheel",           "usbhid.boot_report.mouse.scroll_wheel.vertical",
-            FT_INT8, BASE_DEC, NULL, 0x00,
-            NULL, HFILL }
-        },
+            { "Vertical Scroll Wheel", "usbhid.boot_report.mouse.scroll_wheel.vertical", FT_INT8, BASE_DEC,
+                NULL, 0x00, NULL, HFILL }},
+
         { &hf_usbhid_data,
-            { "Data",                            "usbhid.data",
-            FT_NONE, BASE_NONE, NULL, 0x00,
-            NULL, HFILL }
-        },
+            { "Data", "usbhid.data", FT_NONE, BASE_NONE,
+                NULL, 0x00, NULL, HFILL }},
     };
 
     static gint *usb_hid_subtrees[] = {

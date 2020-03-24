@@ -1190,7 +1190,7 @@ dissect_rtcp_psfb_remb( tvbuff_t *tvb, int offset, proto_tree *rtcp_tree, proto_
 {
     guint       exp, indexSsrcs;
     guint8      numberSsrcs;
-    guint32     mantissa, bitrate;
+    guint64     mantissa, bitrate;
     proto_tree *fci_tree;
 
     fci_tree = proto_tree_add_subtree_format( rtcp_tree, tvb, offset, 8, ett_ssrc, NULL, "REMB %d", num_fci );
@@ -1213,7 +1213,7 @@ dissect_rtcp_psfb_remb( tvbuff_t *tvb, int offset, proto_tree *rtcp_tree, proto_
     proto_tree_add_item( fci_tree, hf_rtcp_psfb_remb_fci_mantissa, tvb, offset, 3, ENC_BIG_ENDIAN );
     mantissa = (tvb_get_ntohl( tvb, offset - 1) & 0x0003ffff);
     bitrate = mantissa << exp;
-    proto_tree_add_string_format_value( fci_tree, hf_rtcp_psfb_remb_fci_bitrate, tvb, offset, 3, "", "%u", bitrate);
+    proto_tree_add_string_format_value( fci_tree, hf_rtcp_psfb_remb_fci_bitrate, tvb, offset, 3, "", "%" G_GINT64_MODIFIER "u", bitrate);
     offset += 3;
 
     for  (indexSsrcs = 0; indexSsrcs < numberSsrcs; indexSsrcs++)
@@ -1224,7 +1224,7 @@ dissect_rtcp_psfb_remb( tvbuff_t *tvb, int offset, proto_tree *rtcp_tree, proto_
     }
 
     if (top_item != NULL) {
-        proto_item_append_text(top_item, ": REMB: max bitrate=%u", bitrate);
+        proto_item_append_text(top_item, ": REMB: max bitrate=%" G_GINT64_MODIFIER "u", bitrate);
     }
     *read_fci = 2 + (numberSsrcs);
 
@@ -2825,7 +2825,7 @@ dissect_rtcp_app( tvbuff_t *tvb,packet_info *pinfo, int offset, proto_tree *tree
 
 static int
 dissect_rtcp_bye( tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree,
-    unsigned int count )
+    unsigned int count, unsigned int packet_length )
 {
     unsigned int chunk;
     unsigned int reason_length = 0;
@@ -2839,7 +2839,7 @@ dissect_rtcp_bye( tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tre
         chunk++;
     }
 
-    if ( tvb_reported_length_remaining( tvb, offset ) > 0 ) {
+    if (count * 4 < packet_length) {
         /* Bye reason consists of an 8 bit length l and a string with length l */
         reason_length = tvb_get_guint8( tvb, offset );
         proto_tree_add_item( tree, hf_rtcp_sdes_length, tvb, offset, 1, ENC_BIG_ENDIAN );
@@ -4279,7 +4279,7 @@ dissect_rtcp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
                 offset++;
                 /* Packet length in 32 bit words MINUS one, 16 bits */
                 offset = dissect_rtcp_length_field(rtcp_tree, tvb, offset);
-                offset = dissect_rtcp_bye( tvb, pinfo, offset, rtcp_tree, elem_count );
+                offset = dissect_rtcp_bye( tvb, pinfo, offset, rtcp_tree, elem_count, packet_length-4 );
                 break;
             case RTCP_APP: {
                 /* Subtype, 5 bits */

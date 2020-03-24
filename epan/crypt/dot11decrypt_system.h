@@ -67,15 +67,19 @@
  */
 #define	DOT11DECRYPT_RSNA_EXTIV	0x20
 #define	DOT11DECRYPT_RSNA_EXTIVLEN	4       /* extended IV length */
-#define	DOT11DECRYPT_RSNA_MICLEN	8       /* trailing MIC */
+#define	DOT11DECRYPT_TKIP_MICLEN	8       /* trailing MIC */
 
 #define	DOT11DECRYPT_RSNA_HEADER	DOT11DECRYPT_WEP_HEADER + DOT11DECRYPT_RSNA_EXTIVLEN
 
-#define	DOT11DECRYPT_CCMP_HEADER	DOT11DECRYPT_RSNA_HEADER
-#define	DOT11DECRYPT_CCMP_TRAILER	DOT11DECRYPT_RSNA_MICLEN
+#define	DOT11DECRYPT_CCMP_HEADER		DOT11DECRYPT_RSNA_HEADER
+#define	DOT11DECRYPT_CCMP_TRAILER		8   /* IEEE 802.11-2016 12.5.3.2 CCMP MPDU format */
+#define	DOT11DECRYPT_CCMP_256_TRAILER	16  /* IEEE 802.11-2016 12.5.3.2 CCMP MPDU format */
+
+#define	DOT11DECRYPT_GCMP_HEADER		8   /* IEEE 802.11-206 12.5.5.2 GCMP MPDU format */
+#define	DOT11DECRYPT_GCMP_TRAILER		16
 
 #define	DOT11DECRYPT_TKIP_HEADER	DOT11DECRYPT_RSNA_HEADER
-#define	DOT11DECRYPT_TKIP_TRAILER	DOT11DECRYPT_RSNA_MICLEN + DOT11DECRYPT_WEP_ICV
+#define	DOT11DECRYPT_TKIP_TRAILER	DOT11DECRYPT_TKIP_MICLEN + DOT11DECRYPT_WEP_ICV
 
 #define	DOT11DECRYPT_CRC_LEN	4
 
@@ -267,14 +271,6 @@ Dot11DecryptDecryptKeyData(PDOT11DECRYPT_CONTEXT ctx,
  * @param tot_len [IN] Total length of the EAPOL frame
  * @param bssid [IN] bssid of AP
  * @param sta [IN] sta MAC address
- * @param decrypt_data [OUT] Pointer to a buffer that will contain
- *   the decrypted EAPOL keydata if it was encrypted. Must have room for at
- *   least DOT11DECRYPT_EAPOL_MAX_LEN bytes.
- * @param decrypt_len [OUT] Length of decrypted EAPOL key data. 0 if keydata
- *   was not encrypted.
- * @param key [OUT] Pointer to a preallocated key structure containing
- *   the key used during the decryption process (if done). If this parameter
- *   is set to NULL, the key will be not returned.
  * @return
  * - DOT11DECRYPT_RET_REQ_DATA: Required data is not available and the
  *   processing must be interrupted
@@ -434,19 +430,6 @@ INT Dot11DecryptInitContext(
 WS_DLL_PUBLIC
 INT Dot11DecryptDestroyContext(
 	PDOT11DECRYPT_CONTEXT ctx)
-	;
-
-extern INT Dot11DecryptCcmpDecrypt(
-	UINT8 *m,
-        gint mac_header_len,
-	INT len,
-	UCHAR TK1[16])
-	;
-extern INT Dot11DecryptTkipDecrypt(
-	UCHAR *tkip_mpdu,
-	size_t mpdu_len,
-	UCHAR TA[DOT11DECRYPT_MAC_LEN],
-	UCHAR TK[DOT11DECRYPT_TK_LEN])
 	;
 
 #ifdef	__cplusplus

@@ -9,6 +9,7 @@
 
 ADD_CUSTOM_CMAKE_INCLUDE()
 
+
 include_directories(
 	${CMAKE_CURRENT_BINARY_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}
@@ -18,9 +19,9 @@ set(CRYPT_HEADER_FILES
 	dot11decrypt_debug.h
 	dot11decrypt_int.h
 	dot11decrypt_interop.h
-	dot11decrypt_rijndael.h
 	dot11decrypt_system.h
 	dot11decrypt_user.h
+	dot11decrypt_util.h
 	dot11decrypt_ws.h
 	kasumi.h
 	wep-wpadefs.h
@@ -28,11 +29,22 @@ set(CRYPT_HEADER_FILES
 
 set(CRYPT_FILES
 	dot11decrypt.c
-	dot11decrypt_ccmp.c
-	dot11decrypt_rijndael.c
 	dot11decrypt_tkip.c
 	${CUSTOM_CRYPT_SRC}
 )
+
+if (GCRYPT_VERSION VERSION_LESS 1.6.0)
+	list(APPEND CRYPT_FILES
+		dot11decrypt_ccmp_compat.c
+	)
+else()
+	list(APPEND CRYPT_FILES
+		dot11decrypt_ccmp.c
+		dot11decrypt_util.c
+		dot11decrypt_gcmp.c
+	)
+endif()
+
 source_group(crypt FILES ${CRYPT_FILES})
 
 set_source_files_properties(

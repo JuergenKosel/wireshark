@@ -65,6 +65,19 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
                 ))
         self.assertEqual(self.countOutput('802.11.*SN=.*FN=.*Flags='), 3)
 
+    def test_80211_wpa2_psk_mfp(self, cmd_tshark, capture_file, features):
+        '''IEEE 802.11 decode WPA2 PSK with MFP enabled (802.11w)'''
+        # Included in git sources test/captures/wpa2-psk-mfp.pcapng.gz
+        if not features.have_libgcrypt16:
+            self.skipTest('Requires GCrypt 1.6 or later.')
+        self.assertRun((cmd_tshark,
+                '-o', 'wlan.enable_decryption: TRUE',
+                '-r', capture_file('wpa2-psk-mfp.pcapng.gz'),
+                '-Y', 'wlan.analysis.tk == 4e30e8c019bea43ea5262b10853b818d || wlan.analysis.gtk == 70cdbf2e5bc0ca22e53930818a5d80e4',
+                ))
+        self.assertTrue(self.grepOutput('Who has 192.168.5.5'))   # Verifies GTK is correct
+        self.assertTrue(self.grepOutput('DHCP Request'))          # Verifies TK is correct
+        self.assertTrue(self.grepOutput('Echo \(ping\) request')) # Verifies TK is correct
 
     def test_80211_wpa_tdls(self, cmd_tshark, capture_file, features):
         '''WPA decode traffic in a TDLS (Tunneled Direct-Link Setup) session (802.11z)'''
@@ -158,6 +171,48 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
         self.assertEqual(self.countOutput('^40\t02:00:00:00:00:00\t\t\t1$'), 1)
         self.assertEqual(self.countOutput('^40\t02:00:00:00:00:00\tf31ecff5452f4c286cf66ef50d10dabe\t\t0$'), 1)
         self.assertEqual(self.countOutput('^40\t02:00:00:00:00:00\t28dd851decf3f1c2a35df8bcc22fa1d2\t\t1$'), 1)
+
+    def test_80211_wpa_ccmp_256(self, cmd_tshark, capture_file, features):
+        '''IEEE 802.11 decode CCMP-256'''
+        # Included in git sources test/captures/wpa-ccmp-256.pcapng.gz
+        if not features.have_libgcrypt16:
+            self.skipTest('Requires GCrypt 1.6 or later.')
+        self.assertRun((cmd_tshark,
+                '-o', 'wlan.enable_decryption: TRUE',
+                '-r', capture_file('wpa-ccmp-256.pcapng.gz'),
+                '-Y', 'wlan.analysis.tk == 4e6abbcf9dc0943936700b6825952218f58a47dfdf51dbb8ce9b02fd7d2d9e40 || wlan.analysis.gtk == 502085ca205e668f7e7c61cdf4f731336bb31e4f5b28ec91860174192e9b2190',
+                ))
+        self.assertTrue(self.grepOutput('Who has 192.168.5.5')) # Verifies GTK is correct
+        self.assertTrue(self.grepOutput('DHCP Request'))        # Verifies TK is correct
+        self.assertTrue(self.grepOutput('Echo \(ping\) request')) # Verifies TK is correct
+
+    def test_80211_wpa_gcmp(self, cmd_tshark, capture_file, features):
+        '''IEEE 802.11 decode GCMP'''
+        # Included in git sources test/captures/wpa-gcmp.pcapng.gz
+        if not features.have_libgcrypt16:
+            self.skipTest('Requires GCrypt 1.6 or later.')
+        self.assertRun((cmd_tshark,
+                '-o', 'wlan.enable_decryption: TRUE',
+                '-r', capture_file('wpa-gcmp.pcapng.gz'),
+                '-Y', 'wlan.analysis.tk == 755a9c1c9e605d5ff62849e4a17a935c || wlan.analysis.gtk == 7ff30f7a8dd67950eaaf2f20a869a62d',
+                ))
+        self.assertTrue(self.grepOutput('Who has 192.168.5.5')) # Verifies GTK is correct
+        self.assertTrue(self.grepOutput('DHCP Request'))        # Verifies TK is correct
+        self.assertTrue(self.grepOutput('Echo \(ping\) request')) # Verifies TK is correct
+
+    def test_80211_wpa_gcmp_256(self, cmd_tshark, capture_file, features):
+        '''IEEE 802.11 decode GCMP-256'''
+        # Included in git sources test/captures/wpa-gcmp-256.pcapng.gz
+        if not features.have_libgcrypt16:
+            self.skipTest('Requires GCrypt 1.6 or later.')
+        self.assertRun((cmd_tshark,
+                '-o', 'wlan.enable_decryption: TRUE',
+                '-r', capture_file('wpa-gcmp-256.pcapng.gz'),
+                '-Y', 'wlan.analysis.tk == b3dc2ff2d88d0d34c1ddc421cea17f304af3c46acbbe7b6d808b6ebf1b98ec38 || wlan.analysis.gtk == a745ee2313f86515a155c4cb044bc148ae234b9c72707f772b69c2fede3e4016',
+                ))
+        self.assertTrue(self.grepOutput('Who has 192.168.5.5')) # Verifies GTK is correct
+        self.assertTrue(self.grepOutput('DHCP Request'))        # Verifies TK is correct
+        self.assertTrue(self.grepOutput('Echo \(ping\) request')) # Verifies TK is correct
 
 @fixtures.mark_usefixtures('test_env')
 @fixtures.uses_fixtures
