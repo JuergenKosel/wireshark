@@ -777,6 +777,7 @@ static int hf_gtpv2_spare_b7_b2 = -1;
 static int hf_gtpv2_spare_b7_b5 = -1;
 static int hf_gtpv2_mm_context_iov_updates_counter = -1;
 static int hf_gtpv2_mm_context_ear_len = -1;
+static int hf_gtpv2_node_number_len = -1;
 
 static gint ett_gtpv2 = -1;
 static gint ett_gtpv2_flags = -1;
@@ -2272,15 +2273,13 @@ static void
 dissect_gtpv2_mei(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, guint8 instance _U_, session_args_t * args _U_)
 {
     int          offset = 0;
-    const gchar *mei_str;
+    gchar        *mei_str;
 
     /* Fetch the BCD encoded digits from tvb low half byte, formating the digits according to
      * a default digit set of 0-9 returning "?" for overdecadic digits a pointer to the EP
      * allocated string will be returned.
      */
-    mei_str = tvb_bcd_dig_to_wmem_packet_str( tvb, 0, length, NULL, FALSE);
-
-    proto_tree_add_string(tree, hf_gtpv2_mei, tvb, offset, length, mei_str);
+    proto_tree_add_item_ret_display_string(tree, hf_gtpv2_mei, tvb, offset, length, ENC_BCD_DIGITS_0_9, wmem_packet_scope(), &mei_str);
     proto_item_append_text(item, "%s", mei_str);
 }
 
@@ -4064,10 +4063,7 @@ dissect_gtpv2_mm_context_common_data(tvbuff_t *tvb, packet_info *pinfo, proto_tr
     offset += 1;
     /* (m+2) to r Mobile Equipment Identity (MEI) */
     if (mei_len) {
-        const gchar *mei_str;
-
-        mei_str = tvb_bcd_dig_to_wmem_packet_str( tvb, offset, mei_len, NULL, FALSE);
-        proto_tree_add_string(tree, hf_gtpv2_mei, tvb, offset, mei_len, mei_str);
+        proto_tree_add_item(tree, hf_gtpv2_mei, tvb, offset, mei_len, ENC_BCD_DIGITS_0_9);
         offset += mei_len;
     }
     return offset;
@@ -6843,7 +6839,20 @@ dissect_gtpv2_trust_wlan_mode_ind(tvbuff_t *tvb, packet_info *pinfo _U_, proto_t
 static void
 dissect_gtpv2_node_number(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length _U_, guint8 message_type _U_, guint8 instance _U_, session_args_t * args _U_)
 {
-    proto_tree_add_expert(tree, pinfo, &ei_gtpv2_ie_data_not_dissected, tvb, 0, length);
+    int offset = 0;
+    guint32 len;
+    tvbuff_t* new_tvb;
+
+    /* Octet 5 Length of Node Number*/
+    proto_tree_add_item_ret_uint(tree, hf_gtpv2_node_number_len, tvb, offset, 1, ENC_BIG_ENDIAN, &len);
+    offset += 1;
+
+    /* The Node number shall carry an ISDN number...
+     * shall be coded according to the contents of ISDN-AddressString data type
+     * defined in 3GPP TS 29.002
+     */
+    new_tvb = tvb_new_subset_length(tvb, offset, len);
+    dissect_gsm_map_msisdn(new_tvb, pinfo, tree);
 }
 /*
  * 8.107        Node Identifier
@@ -11776,6 +11785,11 @@ void proto_register_gtpv2(void)
       },
       { &hf_gtpv2_mm_context_ear_len,
       { "Length of Extended Access Restriction Data", "gtpv2.mm_context.ear_len",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+      },
+      { &hf_gtpv2_node_number_len,
+      { "Length", "gtpv2.node_number.len",
           FT_UINT8, BASE_DEC, NULL, 0x0,
           NULL, HFILL }
       },

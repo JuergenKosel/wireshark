@@ -1169,8 +1169,8 @@ void PacketList::captureFileReadFinished()
 
 void PacketList::freeze()
 {
-    setUpdatesEnabled(false);
     column_state_ = header()->saveState();
+    setHeaderHidden(true);
     if (currentIndex().isValid()) {
         frozen_row_ = currentIndex().row();
     } else {
@@ -1188,7 +1188,7 @@ void PacketList::freeze()
 
 void PacketList::thaw(bool restore_selection)
 {
-    setUpdatesEnabled(true);
+    setHeaderHidden(false);
     setModel(packet_list_model_);
 
     // Resetting the model resets our column widths so we restore them here.
@@ -1561,14 +1561,12 @@ void PacketList::markFrame()
 
     if (selectionModel() && selectionModel()->hasSelection())
     {
-        QList<int> rows;
         QModelIndexList selRows = selectionModel()->selectedRows(0);
         foreach (QModelIndex idx, selRows)
         {
             if (idx.isValid())
             {
                 frames << idx;
-                rows << idx.row();
             }
         }
     }
@@ -1597,13 +1595,11 @@ void PacketList::ignoreFrame()
 
     if (selectionModel() && selectionModel()->hasSelection())
     {
-        QList<int> rows;
         foreach (QModelIndex idx, selectionModel()->selectedRows(0))
         {
             if (idx.isValid())
             {
                 frames << idx;
-                rows << idx.row();
             }
         }
     }

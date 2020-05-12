@@ -969,6 +969,10 @@
         <translation>Temps écoulé</translation>
     </message>
     <message>
+        <source>Section %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Capture</source>
         <translation>Capture</translation>
     </message>
@@ -1065,8 +1069,8 @@
         <translation>Débit moyen (bits/s)</translation>
     </message>
     <message>
-        <source>File Comment</source>
-        <translation>Commentaire du Fichier</translation>
+        <source>Section Comment</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Packet Comments</source>
@@ -4092,6 +4096,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Sauvegarde en cours %1</translation>
     </message>
     <message>
+        <source>Analyzing IAX2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Save forward stream CSV</source>
         <translation>Sauvegarder CSV flux aller</translation>
     </message>
@@ -6593,10 +6601,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Ignorer tous les paquets affichés</translation>
     </message>
     <message>
-        <source>Unignore All Displayed</source>
-        <translation>Ne plus ignorer tous les affichés</translation>
-    </message>
-    <message>
         <source>Set/Unset Time Reference</source>
         <translation>Fixer/Defixer le Temps de Réference</translation>
     </message>
@@ -7177,6 +7181,14 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>U&amp;nignore All Displayed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unignore all displayed packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Time Shift…</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7576,10 +7588,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>&amp;Unmark All Displayed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>U&amp;nignore all displayed packets</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -9036,6 +9044,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <source>Frame</source>
         <translation>Trame</translation>
     </message>
+    <message>
+        <source>TextLabel</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ProtoTree</name>
@@ -10263,6 +10275,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>Raw (*.raw)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Analyzing RTP</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11690,6 +11706,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>No valid search area selected. Please report this to the development team.</source>
         <translation>Aucune zone de recherche valide sélectionné. Merci de le reporter à l&apos;équipe de développement.</translation>
+    </message>
+    <message>
+        <source>Searching for %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>No packet contained those bytes.</source>

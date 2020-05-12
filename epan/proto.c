@@ -171,6 +171,34 @@ struct ptvcursor {
 		return pi; \
 	}
 
+#ifdef ENABLE_CHECK_FILTER
+#define CHECK_HF_VALUE(type, modifier, start_values) \
+{ \
+	const type *current; \
+	int n, m; \
+	current = start_values; \
+	for (n=0; current; n++, current++) { \
+		/* Drop out if we reached the end. */ \
+		if ((current->value == 0) && (current->strptr == NULL)) { \
+			break; \
+		} \
+		/* Check value against all previous */ \
+		for (m=0; m < n; m++) { \
+			/* There are lots of duplicates with the same string, \
+			   so only report if different... */ \
+			if ((start_values[m].value == current->value) && \
+			    (strcmp(start_values[m].strptr, current->strptr) != 0)) { \
+				g_warning("Field '%s' (%s) has a conflicting entry in its" \
+					  " value_string: %" modifier "u is at indices %u (%s) and %u (%s)\n", \
+					  hfinfo->name, hfinfo->abbrev, \
+					  current->value, m, start_values[m].strptr, n, current->strptr); \
+			} \
+		} \
+	} \
+}
+#endif
+
+
 static const char *hf_try_val_to_str(guint32 value, const header_field_info *hfinfo);
 static const char *hf_try_val64_to_str(guint64 value, const header_field_info *hfinfo);
 static int hfinfo_container_bitwidth(const header_field_info *hfinfo);
@@ -3682,7 +3710,6 @@ proto_tree_add_item_ret_time_string(proto_tree *tree, int hfindex,
 	const gint start, gint length, const guint encoding,
 	wmem_allocator_t *scope, char **retval)
 {
-	proto_item *pi;
 	header_field_info *hfinfo = proto_registrar_get_nth(hfindex);
 	field_info	  *new_fi;
 	nstime_t    time_stamp;
@@ -3721,9 +3748,7 @@ proto_tree_add_item_ret_time_string(proto_tree *tree, int hfindex,
 
 	new_fi->flags |= (encoding & ENC_LITTLE_ENDIAN) ? FI_LITTLE_ENDIAN : FI_BIG_ENDIAN;
 
-	pi = proto_tree_add_node(tree, new_fi);
-
-	return pi;
+	return proto_tree_add_node(tree, new_fi);
 }
 
 /* Gets data from tvbuff, adds it to proto_tree, increments offset,
@@ -6313,9 +6338,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 							tfstring = (const struct true_false_string*) hfinfo->strings;
 						}
 						offset_r += protoo_strlcpy(result+offset_r,
-								number64 ?
-								tfstring->true_string :
-								tfstring->false_string, size-offset_r);
+								tfs_get_string(!!number64, tfstring), size-offset_r);
 
 						offset_e += protoo_strlcpy(expr+offset_e,
 								number64 ? "1" : "0", size-offset_e);
@@ -6798,6 +6821,16 @@ proto_item_get_len(const proto_item *pi)
 		return -1;
 	fi = PITEM_FINFO(pi);
 	return fi ? fi->length : -1;
+}
+
+char *
+proto_item_get_display_repr(wmem_allocator_t *scope, proto_item *pi)
+{
+	field_info *fi;
+
+	fi = PITEM_FINFO(pi);
+	DISSECTOR_ASSERT(fi->hfinfo != NULL);
+	return fvalue_to_string_repr(scope, &fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
 }
 
 proto_tree *
@@ -7985,7 +8018,7 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 	/* TODO: This check may slow down startup, and output quite a few warnings.
 	   It would be good to be able to enable this (and possibly other checks?)
 	   in non-release builds.   */
-#if ENABLE_CHECK_FILTER
+#ifdef ENABLE_CHECK_FILTER
 	/* Check for duplicate value_string values.
 	   There are lots that have the same value *and* string, so for now only
 	   report those that have same value but different string. */
@@ -8004,42 +8037,64 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 		    (hfinfo->type == FT_INT24)  ||
 		    (hfinfo->type == FT_INT32)  )) {
 
-		int n, m;
-		const value_string *start_values;
-		const value_string *current;
-
 		if (hfinfo->display & BASE_EXT_STRING) {
-			if (hfinfo->display & BASE_VAL64_STRING)
-				start_values = VAL64_STRING_EXT_VS_P(((const val64_string_ext*)hfinfo->strings));
-			else
-				start_values = VALUE_STRING_EXT_VS_P(((const value_string_ext*)hfinfo->strings));
-		} else {
-			start_values = (const value_string*)hfinfo->strings;
-		}
-		current = start_values;
-
-		for (n=0; current; n++, current++) {
-			/* Drop out if we reached the end. */
-			if ((current->value == 0) && (current->strptr == NULL)) {
-				break;
+			if (hfinfo->display & BASE_VAL64_STRING) {
+				const val64_string *start_values = VAL64_STRING_EXT_VS_P((const val64_string_ext*)hfinfo->strings);
+				CHECK_HF_VALUE(val64_string, G_GINT64_MODIFIER, start_values);
+			} else {
+				const value_string *start_values = VALUE_STRING_EXT_VS_P((const value_string_ext*)hfinfo->strings);
+				CHECK_HF_VALUE(value_string, "", start_values);
 			}
+		} else {
+			const value_string *start_values = (const value_string*)hfinfo->strings;
+			CHECK_HF_VALUE(value_string, "", start_values);
+		}
+	}
 
-			/* Check value against all previous */
-			for (m=0; m < n; m++) {
-				/* There are lots of duplicates with the same string,
-				   so only report if different... */
-				if ((start_values[m].value == current->value) &&
-				    (strcmp(start_values[m].strptr, current->strptr) != 0)) {
-					g_warning("Field '%s' (%s) has a conflicting entry in its"
-						  " value_string: %u is at indices %u (%s) and %u (%s)\n",
-						  hfinfo->name, hfinfo->abbrev,
-						  current->value, m, start_values[m].strptr, n, current->strptr);
-				}
+	if (hfinfo->type == FT_BOOLEAN) {
+		const true_false_string *tfs = (const true_false_string*)hfinfo->strings;
+		if (tfs) {
+			if (strcmp(tfs->false_string, tfs->true_string) == 0) {
+				g_warning("Field '%s' (%s) has identical true and false strings (\"%s\", \"%s\")\n",
+						   hfinfo->name, hfinfo->abbrev,
+						   tfs->false_string, tfs->true_string);
 			}
 		}
 	}
-#endif
 
+	if (hfinfo->display & BASE_RANGE_STRING) {
+		const range_string *rs = (const range_string*)(hfinfo->strings);
+		if (rs) {
+			const range_string *this_it = rs;
+
+			do {
+				if (this_it->value_max < this_it->value_min) {
+					g_warning("value_range_string error:  %s (%s) entry for \"%s\" - max(%u 0x%x) is less than min(%u 0x%x)\n",
+							  hfinfo->name, hfinfo->abbrev,
+							  this_it->strptr,
+							  this_it->value_max, this_it->value_max,
+							  this_it->value_min, this_it->value_min);
+					++this_it;
+					continue;
+				}
+
+				for (const range_string *prev_it=rs; prev_it < this_it; ++prev_it) {
+					/* Not OK if this one is completely hidden by an earlier one! */
+					if ((prev_it->value_min <= this_it->value_min) && (prev_it->value_max >= this_it->value_max)) {
+						g_warning("value_range_string error:  %s (%s) hidden by earlier entry "
+								  "(prev=\"%s\":  %u 0x%x -> %u 0x%x)  (this=\"%s\":  %u 0x%x -> %u 0x%x)\n",
+								  hfinfo->name, hfinfo->abbrev,
+								  prev_it->strptr, prev_it->value_min, prev_it->value_min,
+								  prev_it->value_max, prev_it->value_max,
+								  this_it->strptr, this_it->value_min, this_it->value_min,
+								  this_it->value_max, this_it->value_max);
+					}
+				}
+				++this_it;
+			} while (this_it->strptr);
+		}
+	}
+#endif
 
 	switch (hfinfo->type) {
 
@@ -9051,7 +9106,7 @@ fill_label_boolean(field_info *fi, gchar *label_str)
 	}
 
 	/* Fill in the textual info */
-	label_fill(label_str, bitfield_byte_length, hfinfo, value ? tfstring->true_string : tfstring->false_string);
+	label_fill(label_str, bitfield_byte_length, hfinfo, tfs_get_string(!!value, tfstring));
 }
 
 static const char *
@@ -11906,8 +11961,7 @@ _proto_tree_add_bits_ret_val(proto_tree *tree, const int hfindex, tvbuff_t *tvb,
 			tfstring = (const true_false_string *)hf_field->strings;
 		return proto_tree_add_boolean_format(tree, hfindex, tvb, offset, length, (guint32)value,
 			"%s = %s: %s",
-			bf_str, hf_field->name,
-			value ? tfstring->true_string : tfstring->false_string);
+			bf_str, hf_field->name, tfs_get_string(!!value, tfstring));
 		break;
 
 	case FT_CHAR:
@@ -12088,8 +12142,7 @@ proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hfindex, tvbu
 		return proto_tree_add_boolean_format(tree, hfindex,
 						     tvb, octet_offset, octet_length, (guint32)value,
 						     "%s = %s: %s",
-						     bf_str, hf_field->name,
-						     value ? tfstring->true_string : tfstring->false_string);
+						     bf_str, hf_field->name, tfs_get_string(!!value, tfstring));
 		break;
 
 	case FT_CHAR:

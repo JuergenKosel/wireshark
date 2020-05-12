@@ -95,13 +95,19 @@ wtap_file_tsprec(wtap *wth)
 	return wth->file_tsprec;
 }
 
-wtap_block_t
-wtap_file_get_shb(wtap *wth)
+guint
+wtap_file_get_num_shbs(wtap *wth)
 {
-	if ((wth == NULL) || (wth->shb_hdrs == NULL) || (wth->shb_hdrs->len == 0))
+	return wth->shb_hdrs->len;
+}
+
+wtap_block_t
+wtap_file_get_shb(wtap *wth, guint shb_num)
+{
+	if ((wth == NULL) || (wth->shb_hdrs == NULL) || (shb_num >= wth->shb_hdrs->len))
 		return NULL;
 
-	return g_array_index(wth->shb_hdrs, wtap_block_t, 0);
+	return g_array_index(wth->shb_hdrs, wtap_block_t, shb_num);
 }
 
 GArray*
@@ -149,6 +155,11 @@ wtap_file_get_idb_info(wtap *wth)
 	return idb_info;
 }
 
+void
+wtap_add_idb(wtap *wth, wtap_block_t idb)
+{
+	g_array_append_val(wth->interface_data, idb);
+}
 
 void
 wtap_free_idb_info(wtapng_iface_descriptions_t *idb_info)
@@ -427,7 +438,7 @@ static struct encap_type_info encap_table_base[] = {
 	{ "ieee-802-11-avs", "IEEE 802.11 plus AVS radio header" },
 
 	/* WTAP_ENCAP_SLL */
-	{ "linux-sll", "Linux cooked-mode capture" },
+	{ "linux-sll", "Linux cooked-mode capture v1" },
 
 	/* WTAP_ENCAP_FRELAY */
 	{ "frelay", "Frame Relay" },
@@ -977,6 +988,12 @@ static struct encap_type_info encap_table_base[] = {
 
 	/* WTAP_ENCAP_USB_2_0 */
 	{ "usb-20", "USB 2.0/1.1/1.0 packets" },
+
+	/* WTAP_ENCAP_MP4 */
+	{ "mp4", "MP4 files" },
+
+	/* WTAP_ENCAP_SLL2 */
+	{ "linux-sll2", "Linux cooked-mode capture v2" },
 };
 
 WS_DLL_LOCAL
@@ -1301,9 +1318,8 @@ wtapng_process_dsb(wtap *wth, wtap_block_t dsb)
 		wth->add_new_secrets(dsb_mand->secrets_type, dsb_mand->secrets_data, dsb_mand->secrets_len);
 }
 
-gboolean
-wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
-	gchar **err_info, gint64 *offset)
+static void
+wtap_init_rec(wtap *wth, wtap_rec *rec)
 {
 	/*
 	 * Set the packet encapsulation to the file's encapsulation
@@ -1317,6 +1333,16 @@ wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
 	 */
 	rec->rec_header.packet_header.pkt_encap = wth->file_encap;
 	rec->tsprec = wth->file_tsprec;
+}
+
+gboolean
+wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
+	gchar **err_info, gint64 *offset)
+{
+	/*
+	 * Initialize the record to default values.
+	 */
+	wtap_init_rec(wth, rec);
 
 	*err = 0;
 	*err_info = NULL;
@@ -1467,17 +1493,9 @@ wtap_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
     int *err, gchar **err_info)
 {
 	/*
-	 * Set the packet encapsulation to the file's encapsulation
-	 * value; if that's not WTAP_ENCAP_PER_PACKET, it's the
-	 * right answer (and means that the read routine for this
-	 * capture file type doesn't have to set it), and if it
-	 * *is* WTAP_ENCAP_PER_PACKET, the caller needs to set it
-	 * anyway.
-	 *
-	 * Do the same for the packet time stamp resolution.
+	 * Initialize the record to default values.
 	 */
-	rec->rec_header.packet_header.pkt_encap = wth->file_encap;
-	rec->tsprec = wth->file_tsprec;
+	wtap_init_rec(wth, rec);
 
 	*err = 0;
 	*err_info = NULL;

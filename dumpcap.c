@@ -2948,6 +2948,7 @@ capture_loop_init_pcapng_output(capture_options *capture_opts, loop_data *ld)
                                                                   "Dumpcap dummy interface",        /* IDB_DESCRIPTION   3 */
                                                                   NULL,                             /* IDB_FILTER       11 */
                                                                   os_info_str->str,                 /* IDB_OS           12 */
+                                                                  NULL,                             /* IDB_HARDWARE     15 */
                                                                   -1,
                                                                   0,
                                                                   &(global_ld.bytes_written),
@@ -2973,6 +2974,7 @@ capture_loop_init_pcapng_output(capture_options *capture_opts, loop_data *ld)
                                                                   interface_opts->descr,      /* IDB_DESCRIPTION   3 */
                                                                   interface_opts->cfilter,    /* IDB_FILTER       11 */
                                                                   os_info_str->str,           /* IDB_OS           12 */
+                                                                  interface_opts->hardware,   /* IDB_HARDWARE     15 */
                                                                   pcap_src->linktype,
                                                                   pcap_src->snaplen,
                                                                   &(global_ld.bytes_written),
@@ -4462,7 +4464,18 @@ set_80211_channel(const char *iface, const char *opt)
     gchar **options = NULL;
 
     options = g_strsplit_set(opt, ",", 4);
-    for (args = 0; options[args]; args++);
+    for (args = 0; options[args]; args++)
+        ;
+
+    ret = ws80211_init();
+    if (ret != WS80211_INIT_OK) {
+        if (ret == WS80211_INIT_NOT_SUPPORTED)
+            cmdarg_err("Setting 802.11 channels is not supported on this platform");
+        else
+            cmdarg_err("Failed to init ws80211: %s", g_strerror(abs(ret)));
+        ret = 2;
+        goto out;
+    }
 
     if (options[0])
         freq = get_nonzero_guint32(options[0], "802.11 channel frequency");
@@ -4482,12 +4495,6 @@ set_80211_channel(const char *iface, const char *opt)
     if (args >= 3 && options[3])
         center_freq2 = get_nonzero_guint32(options[3], "VHT center frequency 2");
 
-    ret = ws80211_init();
-    if (ret) {
-        cmdarg_err("%d: Failed to init ws80211: %s\n", abs(ret), g_strerror(abs(ret)));
-        ret = 2;
-        goto out;
-    }
     ret = ws80211_set_freq(iface, freq, type, center_freq1, center_freq2);
 
     if (ret) {

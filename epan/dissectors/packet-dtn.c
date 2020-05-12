@@ -17,7 +17,7 @@
  *
  * Specification reference:
  * RFC 5050
- * http://tools.ietf.org/html/rfc5050
+ * https://tools.ietf.org/html/rfc5050
  */
 
 /*
@@ -46,9 +46,6 @@
 
 static int dissect_admin_record(proto_tree *primary_tree, tvbuff_t *tvb, packet_info *pinfo,
                                 int offset, int payload_length, gboolean* success);
-
-extern void
-dissect_cfdp_as_subtree(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset);
 
 extern void
 dissect_amp_as_subtree(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset);
@@ -350,10 +347,10 @@ static const value_string packet_type_vals[] = {
 
 /* Refuse-Bundle Reason-Code Flags as per RFC-7242: Section-5.4 */
 static const value_string refuse_bundle_reason_code[] = {
-    {((TCP_REFUSE_BUNDLE_REASON_UNKNOWN>>4)         & 0x0F), "Reason for refusal is unknown"},
-    {((TCP_REFUSE_BUNDLE_REASON_RX_COMPLETE>>4)     & 0x0F), "Complete Bundle Received"},
-    {((TCP_REFUSE_BUNDLE_REASON_RX_EXHAUSTED>>4)    & 0x0F), "Receiver's resources exhausted"},
-    {((TCP_REFUSE_BUNDLE_REASON_RX_RETRANSMIT>>4)   & 0x0F), "Receiver expects re-transmission of bundle"},
+    {TCP_REFUSE_BUNDLE_REASON_UNKNOWN,       "Reason for refusal is unknown"},
+    {TCP_REFUSE_BUNDLE_REASON_RX_COMPLETE,   "Complete Bundle Received"},
+    {TCP_REFUSE_BUNDLE_REASON_RX_EXHAUSTED,  "Receiver's resources exhausted"},
+    {TCP_REFUSE_BUNDLE_REASON_RX_RETRANSMIT, "Receiver expects re-transmission of bundle"},
     {0, NULL}
 };
 
@@ -3202,7 +3199,7 @@ proto_register_bundle(void)
         },
         {&hf_dtn_refuse_bundle_reason_code,
          {"Reason-Code", "tcpcl.refuse.reason_code",
-          FT_UINT8, BASE_DEC, VALS(refuse_bundle_reason_code), 0xF0, NULL, HFILL}
+          FT_UINT8, BASE_DEC, VALS(refuse_bundle_reason_code), 0x0F, NULL, HFILL}
         },
         {&hf_tcp_convergence_data_procflags,
          {"TCP Convergence Data Flags", "tcpcl.data.proc.flag",

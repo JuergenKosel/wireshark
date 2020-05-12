@@ -59,7 +59,6 @@
 #include <wsutil/strtoi.h>
 #include <wsutil/file_util.h>
 #include <wsutil/report_message.h>
-#include <glib.h>
 #include <string.h>
 
 #ifdef HAVE_LIBXML2
@@ -2355,7 +2354,7 @@ epl_duplication_insert(GHashTable* table, gpointer ptr, guint32 frame)
 	{
 		key = (duplication_key *)wmem_memdup(wmem_file_scope(), ptr,sizeof(duplication_key));
 		/* create memory */
-		data = (duplication_data *)wmem_alloc0(wmem_file_scope(), sizeof(duplication_data));
+		data = wmem_new0(wmem_file_scope(), duplication_data);
 		data->frame = frame;
 		g_hash_table_insert(table,(gpointer)key, data);
 	}

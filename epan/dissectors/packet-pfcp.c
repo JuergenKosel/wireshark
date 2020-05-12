@@ -29,6 +29,7 @@ void proto_reg_handoff_pfcp(void);
 
 static dissector_handle_t pfcp_handle;
 static dissector_handle_t pfcp_3gpp_ies_handle;
+static dissector_handle_t pfcp_travelping_ies_handle;
 
 #define UDP_PORT_PFCP  8805
 static guint g_pfcp_port = UDP_PORT_PFCP;
@@ -765,6 +766,9 @@ static int hf_pfcp_qos_monitoring_measurement_downlink = -1;
 static int hf_pfcp_qos_monitoring_measurement_uplink = -1;
 static int hf_pfcp_qos_monitoring_measurement_roundtrip = -1;
 
+static int hf_pfcp_travelping_build_id = -1;
+static int hf_pfcp_travelping_build_id_str = -1;
+static int hf_pfcp_travelping_now = -1;
 
 static int ett_pfcp = -1;
 static int ett_pfcp_flags = -1;
@@ -2497,13 +2501,18 @@ dissect_pfcp_redirect_information(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
      * an IPv6 address in the Redirect Server Address IE and Other Redirect Server Address.
      */
 
-    /* p-(p+1)  Other Redirect Server Address Length=b */
-    proto_tree_add_item_ret_uint(tree, hf_pfcp_other_redirect_server_addr_len, tvb, offset, 2, ENC_BIG_ENDIAN, &addr_len);
-    offset+=2;
+    /* Redirect Information is an extensible IE. It was extended with the Other Redirect Server Address
+     * in version 15.6.0, before that version not including the Other Redirect Server Address was fine
+     */
+    if (offset < length) {
+        /* p-(p+1)  Other Redirect Server Address Length=b */
+        proto_tree_add_item_ret_uint(tree, hf_pfcp_other_redirect_server_addr_len, tvb, offset, 2, ENC_BIG_ENDIAN, &addr_len);
+        offset+=2;
 
-    /* (p+2)-(p+2+b-1)  Other Redirect Server Address */
-    proto_tree_add_item(tree, hf_pfcp_other_redirect_server_address, tvb, offset, addr_len, ENC_UTF_8 | ENC_NA);
-    offset += addr_len;
+        /* (p+2)-(p+2+b-1)  Other Redirect Server Address */
+        proto_tree_add_item(tree, hf_pfcp_other_redirect_server_address, tvb, offset, addr_len, ENC_UTF_8 | ENC_NA);
+        offset += addr_len;
+    }
 
     if (offset < length) {
         proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
@@ -3205,9 +3214,9 @@ static void
 dissect_pfcp_pfd_contents(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
     int offset = 0;
-    int offset_addition = 0;
+    int dissected_len = 0;
     guint64 flags;
-    guint32 len, len_addition;
+    guint32 len;
     proto_tree *afd_tree, *aurl_tree, *adnp_tree;
 
     static const int * pfcp_pfd_contents_flags[] = {
@@ -3224,6 +3233,10 @@ dissect_pfcp_pfd_contents(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
     /* Octet 5  ADNP   AURL   AFD   DNP   CP   DN   URL   FD */
     proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_pfd_contents_flags,
         ett_pfcp_measurement_method_flags, pfcp_pfd_contents_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT, &flags);
+    offset += 1;
+
+    // Octet 6 Spare Octet
+    proto_tree_add_item(tree, hf_pfcp_spare_oct, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
     /* Bit 1 - FD (Flow Description): If this bit is set to "1", then the Length of Flow Description
@@ -3310,18 +3323,20 @@ dissect_pfcp_pfd_contents(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
         offset += 2;
 
         /* (y+2) to z   Additional Flow Description */
-        offset_addition = 0;
+        dissected_len = 0;
         afd_tree = proto_item_add_subtree(item, ett_pfcp_adf);
-        while (offset_addition < (int)len) {
+        while (dissected_len < (int)len) {
+            guint32 flow_desc_len;
             /* (y+2) to (y+3)   Length of Flow Description */
-            proto_tree_add_item_ret_uint(afd_tree, hf_pfcp_flow_desc_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len_addition);
-            offset_addition += 2;
+            proto_tree_add_item_ret_uint(afd_tree, hf_pfcp_flow_desc_len, tvb, offset, 2, ENC_BIG_ENDIAN, &flow_desc_len);
+            offset += 2;
+            dissected_len += 2;
 
             /* (y+4) to i   Flow Description */
-            proto_tree_add_item(afd_tree, hf_pfcp_flow_desc, tvb, offset, len_addition, ENC_ASCII|ENC_NA);
-            offset_addition += len_addition;
+            proto_tree_add_item(afd_tree, hf_pfcp_flow_desc, tvb, offset+2, flow_desc_len, ENC_ASCII|ENC_NA);
+            offset += flow_desc_len;
+            dissected_len += flow_desc_len;
         }
-        offset += offset_addition;
     }
 
     /* Bit 7 - AURL (Additional URL): If this bit is set to "1",
@@ -3334,18 +3349,20 @@ dissect_pfcp_pfd_contents(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
         offset += 2;
 
         /* (a+2) to b   Additional URL */
-        offset_addition = 0;
+        dissected_len = 0;
         aurl_tree = proto_item_add_subtree(item, ett_pfcp_aurl);
-        while (offset_addition < (int)len) {
+        while (dissected_len < (int)len) {
+            guint32 url_len;
             /* (a+2) to (a+3)   Length of URL */
-            proto_tree_add_item_ret_uint(aurl_tree, hf_pfcp_url_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len_addition);
-            offset_addition += 2;
+            proto_tree_add_item_ret_uint(aurl_tree, hf_pfcp_url_len, tvb, offset, 2, ENC_BIG_ENDIAN, &url_len);
+            dissected_len += 2;
+            offset += 2;
 
             /* (a+4) to o   URL */
-            proto_tree_add_item(aurl_tree, hf_pfcp_url, tvb, offset, len_addition, ENC_ASCII|ENC_NA);
-            offset_addition += len_addition;
+            proto_tree_add_item(aurl_tree, hf_pfcp_url, tvb, offset, url_len, ENC_ASCII|ENC_NA);
+            dissected_len += url_len;
+            offset += url_len;
         }
-        offset += offset_addition;
     }
 
     /* Bit 8 - ADNP (Additional Domain Name and Domain Name Protocol): If this bit is set to "1",
@@ -3358,27 +3375,30 @@ dissect_pfcp_pfd_contents(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
         offset += 2;
 
         /* (c+2) to d   Additional Domain Name and Domain Name Protocol */
-        offset_addition = 0;
+        dissected_len = 0;
         adnp_tree = proto_item_add_subtree(item, ett_pfcp_adnp);
-        while (offset_addition < (int)len) {
-
+        while (dissected_len < (int)len) {
+            guint32 domain_name_len, domain_name_prot_len;
             /* (c+2) to (c+3)   Length of Domain Name */
-            proto_tree_add_item_ret_uint(adnp_tree, hf_pfcp_dn_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len_addition);
-            offset_addition += 2;
+            proto_tree_add_item_ret_uint(adnp_tree, hf_pfcp_dn_len, tvb, offset, 2, ENC_BIG_ENDIAN, &domain_name_len);
+            dissected_len += 2;
+            offset += 2;
 
             /* (c+4) to pd   Domain Name */
-            proto_tree_add_item(adnp_tree, hf_pfcp_dn, tvb, offset, len_addition, ENC_ASCII|ENC_NA);
-            offset_addition += len_addition;
+            proto_tree_add_item(adnp_tree, hf_pfcp_dn, tvb, offset, domain_name_len, ENC_ASCII|ENC_NA);
+            dissected_len += domain_name_len;
+            offset += domain_name_len;
 
             /* (pe) to (pe+1)   Length of Domain Name Protocol */
-            proto_tree_add_item_ret_uint(adnp_tree, hf_pfcp_dnp_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len_addition);
-            offset_addition += 2;
+            proto_tree_add_item_ret_uint(adnp_tree, hf_pfcp_dnp_len, tvb, offset, 2, ENC_BIG_ENDIAN, &domain_name_prot_len);
+            dissected_len += 2;
+            offset += 2;
 
             /* (pe+2) to ph   Domain Name Protocol */
-            proto_tree_add_item(adnp_tree, hf_pfcp_dnp, tvb, offset, len_addition, ENC_ASCII|ENC_NA);
-            offset_addition += len_addition;
+            proto_tree_add_item(adnp_tree, hf_pfcp_dnp, tvb, offset, domain_name_prot_len, ENC_ASCII|ENC_NA);
+            dissected_len += domain_name_prot_len;
+            offset += domain_name_prot_len;
         }
-        offset += offset_addition;
     }
 
     if (offset < length) {
@@ -3877,7 +3897,7 @@ decode_pfcp_urr_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, prot
     offset += 4;
 
     proto_item_append_text(item, "%s %u",
-        ((urr_id_flag)? pfcp_id_predef_dynamic_tfs.true_string : pfcp_id_predef_dynamic_tfs.false_string),
+        tfs_get_string(urr_id_flag, &pfcp_id_predef_dynamic_tfs),
         (urr_id & 0x7fffffff));
 
     return offset;
@@ -4546,8 +4566,8 @@ dissect_pfcp_remote_gtp_u_peer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     /* DI (if present)*/
     if (flags & 0x4) {
         /* Length of Destination Interface field */
-        proto_tree_add_item_ret_uint(tree, hf_pfcp_remote_gtp_u_peer_length_di, tvb, offset, 1, ENC_BIG_ENDIAN, &length_di);
-        offset += 1;
+        proto_tree_add_item_ret_uint(tree, hf_pfcp_remote_gtp_u_peer_length_di, tvb, offset, 2, ENC_BIG_ENDIAN, &length_di);
+        offset += 2;
 
         /* Destination Interface */
         offset += decode_pfcp_destination_interface(tvb, pinfo, tree, item, offset, length_di);
@@ -4555,8 +4575,8 @@ dissect_pfcp_remote_gtp_u_peer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     /* NI (if present)*/
     if (flags & 0x8) {
         /* Length of Network Instance field */
-        proto_tree_add_item_ret_uint(tree, hf_pfcp_remote_gtp_u_peer_length_ni, tvb, offset, 1, ENC_BIG_ENDIAN, &length_ni);
-        offset += 1;
+        proto_tree_add_item_ret_uint(tree, hf_pfcp_remote_gtp_u_peer_length_ni, tvb, offset, 2, ENC_BIG_ENDIAN, &length_ni);
+        offset += 2;
 
         /* Network Instance */
         offset += decode_pfcp_network_instance(tvb, pinfo, tree, item, offset, length_ni);
@@ -4637,7 +4657,7 @@ decode_pfcp_far_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, prot
     offset += 4;
 
     proto_item_append_text(item, "%s %u",
-        ((far_id_flag)? pfcp_id_predef_dynamic_tfs.true_string : pfcp_id_predef_dynamic_tfs.false_string),
+        tfs_get_string(far_id_flag, &pfcp_id_predef_dynamic_tfs),
         (far_id & 0x7fffffff));
 
     return offset;
@@ -4675,7 +4695,7 @@ decode_pfcp_qer_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, prot
     offset += 4;
 
     proto_item_append_text(item, "%s %u",
-        ((qer_id_flag)? pfcp_id_predef_dynamic_tfs.true_string : pfcp_id_predef_dynamic_tfs.false_string),
+        tfs_get_string(qer_id_flag, &pfcp_id_predef_dynamic_tfs),
         (qer_id & 0x7fffffff));
 
     return offset;
@@ -5420,7 +5440,6 @@ static void dissect_pfcp_user_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
     int offset = 0;
     guint64 flags_val;
     guint32 length_imsi, length_imei, length_msisdn, length_nai;
-    const gchar *mei_str;
 
     static const int * pfcp_user_id_flags[] = {
         &hf_pfcp_spare_b7_b3,
@@ -5456,8 +5475,7 @@ static void dissect_pfcp_user_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
         * a default digit set of 0-9 returning "?" for overdecadic digits a pointer to the EP
         * allocated string will be returned.
         */
-        mei_str = tvb_bcd_dig_to_wmem_packet_str( tvb, offset, length_imei, NULL, FALSE);
-        proto_tree_add_string(tree, hf_pfcp_user_id_imei, tvb, offset, length_imei, mei_str);
+        proto_tree_add_item(tree, hf_pfcp_user_id_imei, tvb, offset, length_imei, ENC_BCD_DIGITS_0_9);
         offset += length_imei;
     }
 
@@ -8486,6 +8504,79 @@ dissect_pfcp_3gpp_enterprise_ies(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
     return tvb_reported_length(tvb);
 }
 
+/* Enterprise IE decoding Travelping */
+
+static const value_string pfcp_enterpise_travelping_type_vals[] = {
+    { 2, "Build Id"},
+    { 3, "Now"},
+    { 4, "Start"},
+    { 5, "Stop"},
+    { 0, NULL }
+};
+
+static int
+dissect_pfcp_enterprise_travelping_ies(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data)
+{
+    proto_item *item = (proto_item *)data;
+    gint offset = 0;
+    guint16 type, length;
+
+   /* Octet 1 -2 */
+    type = tvb_get_ntohs(tvb, offset) & ~0x8000;
+    length = tvb_get_ntohs(tvb, offset + 2);
+
+    /* skip vendor IE header */
+    offset += 6;
+    /* adjust length for Enterprise Id */
+    length -= 2;
+
+    proto_item_append_text(tree, ": %s", val_to_str_const(type, pfcp_enterpise_travelping_type_vals, "Unknown"));
+
+    switch (type) {
+    case 2:
+        /* Octet 7 to (n+4) Travelping Build Id */
+        if (tvb_ascii_isprint(tvb, offset, length))
+        {
+            const guint8* string_value;
+            proto_tree_add_item_ret_string(tree, hf_pfcp_travelping_build_id_str, tvb, offset, length, ENC_ASCII | ENC_NA, wmem_packet_scope(), &string_value);
+            proto_item_append_text(item, "%s", string_value);
+        }
+        else
+        {
+            proto_tree_add_item(tree, hf_pfcp_travelping_build_id, tvb, offset, length, ENC_NA);
+        }
+        break;
+
+    case 3: {
+        char *time_str;
+
+        proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, offset, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
+        proto_item_append_text(item, " %s", time_str);
+        break;
+    }
+    case 4: {
+        char *time_str;
+
+        proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, offset, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
+        proto_item_append_text(item, " %s", time_str);
+        break;
+    }
+    case 5: {
+        char *time_str;
+
+        proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, offset, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
+        proto_item_append_text(item, " %s", time_str);
+        break;
+    }
+
+    default:
+        /* unknown IE */
+        proto_tree_add_item(tree, hf_pfcp_enterprise_data, tvb, 6, -1, ENC_NA);
+    }
+
+    return tvb_reported_length(tvb);
+}
+
 static void
 pfcp_init(void)
 {
@@ -9555,7 +9646,7 @@ proto_register_pfcp(void)
             NULL, HFILL }
         },
         { &hf_pfcp_end_time,
-        { "End Time", "pfcp.start_time",
+        { "End Time", "pfcp.end_time",
             FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0,
             NULL, HFILL }
         },
@@ -10382,12 +10473,12 @@ proto_register_pfcp(void)
         },
         { &hf_pfcp_remote_gtp_u_peer_length_di,
         { "Length of Destination Interface field", "pfcp.node_id_length_di",
-            FT_UINT8, BASE_DEC, NULL, 0,
+            FT_UINT16, BASE_DEC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_pfcp_remote_gtp_u_peer_length_ni,
         { "Length of Network Instance field", "pfcp.node_id_length_ni",
-            FT_UINT8, BASE_DEC, NULL, 0,
+            FT_UINT16, BASE_DEC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_pfcp_ur_seqn,
@@ -11673,6 +11764,22 @@ proto_register_pfcp(void)
             FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
+
+        { &hf_pfcp_travelping_build_id,
+        { "Travelping Build Identifier", "pfcp.travelping_build_id",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_travelping_build_id_str,
+        { "Travelping Build Identifier", "pfcp.travelping_build_id_str",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_travelping_now,
+        { "Travelping Now", "pfcp.travelping_now",
+            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0x0,
+            NULL, HFILL }
+        },
     };
 
     /* Setup protocol subtree array */
@@ -11795,6 +11902,7 @@ proto_register_pfcp(void)
         proto_pfcp, FT_UINT32, BASE_DEC);
 
     pfcp_3gpp_ies_handle = register_dissector("pfcp_3gpp_ies", dissect_pfcp_3gpp_enterprise_ies, proto_pfcp);
+    pfcp_travelping_ies_handle = register_dissector("pfcp_travelping_ies", dissect_pfcp_enterprise_travelping_ies, proto_pfcp);
 
     prefs_register_uint_preference(module_pfcp, "port_pfcp", "PFCP port", "PFCP port (default 8805)", 10, &g_pfcp_port);
     prefs_register_bool_preference(module_pfcp, "track_pfcp_session", "Track PFCP session", "Track PFCP session", &g_pfcp_session);
@@ -11809,6 +11917,8 @@ proto_reg_handoff_pfcp(void)
     dissector_add_uint("udp.port", g_pfcp_port, pfcp_handle);
     /* Register 3GPP in the table to give expert info and serve as an example how to add decoding of enterprise IEs*/
     dissector_add_uint("pfcp.enterprise_ies", VENDOR_THE3GPP, pfcp_3gpp_ies_handle);
+    /* Register Travelping IEs */
+    dissector_add_uint("pfcp.enterprise_ies", VENDOR_TRAVELPING, pfcp_travelping_ies_handle);
 
 
 }

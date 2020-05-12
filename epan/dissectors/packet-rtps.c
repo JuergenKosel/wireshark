@@ -627,8 +627,8 @@ static const value_string entity_id_vals[] = {
   { ENTITYID_BUILTIN_PUBLICATIONS_READER,                       "ENTITYID_BUILTIN_PUBLICATIONS_READER" },
   { ENTITYID_BUILTIN_SUBSCRIPTIONS_WRITER,                      "ENTITYID_BUILTIN_SUBSCRIPTIONS_WRITER" },
   { ENTITYID_BUILTIN_SUBSCRIPTIONS_READER,                      "ENTITYID_BUILTIN_SUBSCRIPTIONS_READER" },
-  { ENTITYID_BUILTIN_SDP_PARTICIPANT_WRITER,                    "ENTITYID_BUILTIN_SDP_PARTICIPANT_WRITER" },
-  { ENTITYID_BUILTIN_SDP_PARTICIPANT_READER,                    "ENTITYID_BUILTIN_SDP_PARTICIPANT_READER" },
+  { ENTITYID_BUILTIN_PARTICIPANT_WRITER,                        "ENTITYID_BUILTIN_PARTICIPANT_WRITER" },
+  { ENTITYID_BUILTIN_PARTICIPANT_READER,                        "ENTITYID_BUILTIN_PARTICIPANT_READER" },
   { ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,            "ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER" },
   { ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,            "ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_READER" },
   { ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_WRITER,           "ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_WRITER" },
@@ -959,7 +959,6 @@ static const value_string parameter_id_v2_vals[] = {
   { PID_TYPE_CHECKSUM,                  "PID_TYPE_CHECKSUM [deprecated]" },
   { PID_TYPE2_NAME,                     "PID_TYPE2_NAME [deprecated]" },
   { PID_TYPE2_CHECKSUM,                 "PID_TYPE2_CHECKSUM [deprecated]" },
-  { PID_IS_RELIABLE,                    "PID_IS_RELIABLE [deprecated]" },
   { PID_EXPECTS_ACK,                    "PID_EXPECTS_ACK [deprecated]" },
   { PID_MANAGER_KEY,                    "PID_MANAGER_KEY [deprecated]" },
   { PID_SEND_QUEUE_SIZE,                "PID_SEND_QUEUE_SIZE [deprecated]" },
@@ -1812,7 +1811,7 @@ static void append_status_info(packet_info *pinfo,
     case ENTITYID_BUILTIN_SUBSCRIPTIONS_WRITER:
       writerId = "r";
       break;
-    case ENTITYID_BUILTIN_SDP_PARTICIPANT_WRITER:
+    case ENTITYID_BUILTIN_PARTICIPANT_WRITER:
       writerId = "p";
       break;
     case ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER:
@@ -1875,7 +1874,7 @@ static void append_status_info(packet_info *pinfo,
  * -A DATA packet sent with the consecutive writerSeqNumber of the last coherent set packet.
  * Empty Data condition is not handled here. rtps_util_detect_coherent_set_end_empty_data_case called at the end of dissect_RTPS_DATA and dissect_RTPS_DATA_FRAG
  */
-void rtps_util_add_coherent_set_general_cases_case(
+static void rtps_util_add_coherent_set_general_cases_case(
   proto_tree *tree,
   tvbuff_t *tvb,
   guint64 coherent_seq_number,
@@ -1902,7 +1901,7 @@ void rtps_util_add_coherent_set_general_cases_case(
   coherent_set_info_entry = (coherent_set_info*)wmem_map_lookup(coherent_set_tracking.coherent_set_registry_map,
     &coherent_set_info_key);
   if (!coherent_set_info_entry) {
-    coherent_set_info_entry = (coherent_set_info*)wmem_alloc0(wmem_file_scope(), sizeof(coherent_set_info));
+    coherent_set_info_entry = wmem_new0(wmem_file_scope(), coherent_set_info);
     coherent_set_info_entry->key = (coherent_set_key*)wmem_memdup(wmem_file_scope(), &coherent_set_info_key, sizeof(coherent_set_key));
     coherent_set_info_entry->is_set = FALSE;
     wmem_map_insert(
@@ -1966,7 +1965,7 @@ void rtps_util_add_coherent_set_general_cases_case(
  * For the other cases, check rtps_util_add_coherent_set_general_cases_case.
  * this function must be called at the end of dissect_RTPS_DATA and dissect_RTPS_DATA_FRAG
  */
-void rtps_util_detect_coherent_set_end_empty_data_case(
+static void rtps_util_detect_coherent_set_end_empty_data_case(
 
   coherent_set_entity_info *coherent_set_entity_info_object) {
   coherent_set_entity_info *coherent_set_entry = NULL;
@@ -6258,7 +6257,6 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
      * | <pid_id>                      |            0x0000             |
      * +---------------+---------------+---------------+---------------+
     */
-    case PID_IS_RELIABLE:
     case PID_TYPE2_NAME:
     case PID_TYPE2_CHECKSUM:
     case PID_RELIABILITY_ENABLED:
@@ -7325,8 +7323,8 @@ static void dissect_DATA_v1(tvbuff_t *tvb, packet_info *pinfo, gint offset, guin
    * ENTITYID_BUILTIN_SUBSCRIPTIONS_WRITER      |    0   | r-
    * ENTITYID_BUILTIN_PUBLICATIONS_WRITER       |    1   | w+
    * ENTITYID_BUILTIN_PUBLICATIONS_WRITER       |    0   | w-
-   * ENTITYID_BUILTIN_SDP_PARTICIPANT_WRITER    |    1   | p+
-   * ENTITYID_BUILTIN_SDP_PARTICIPANT_WRITER    |    0   | p-   (*)
+   * ENTITYID_BUILTIN_PARTICIPANT_WRITER        |    1   | p+
+   * ENTITYID_BUILTIN_PARTICIPANT_WRITER        |    0   | p-   (*)
    * ENTITYID_BUILTIN_TOPIC_WRITER              |    1   | t+   (*)
    * ENTITYID_BUILTIN_TOPIC_WRITER              |    0   | t-   (*)
    *
@@ -7340,9 +7338,9 @@ static void dissect_DATA_v1(tvbuff_t *tvb, packet_info *pinfo, gint offset, guin
       col_append_str(pinfo->cinfo, COL_INFO, SM_EXTRA_RPLUS);
   } else if (wid == ENTITYID_BUILTIN_SUBSCRIPTIONS_WRITER && (flags & FLAG_DATA_A) == 0) {
       col_append_str(pinfo->cinfo, COL_INFO, SM_EXTRA_RMINUS);
-  } else if (wid == ENTITYID_BUILTIN_SDP_PARTICIPANT_WRITER && (flags & FLAG_DATA_A) != 0) {
+  } else if (wid == ENTITYID_BUILTIN_PARTICIPANT_WRITER && (flags & FLAG_DATA_A) != 0) {
       col_append_str(pinfo->cinfo, COL_INFO, SM_EXTRA_PPLUS);
-  } else if (wid == ENTITYID_BUILTIN_SDP_PARTICIPANT_WRITER && (flags & FLAG_DATA_A) == 0) {
+  } else if (wid == ENTITYID_BUILTIN_PARTICIPANT_WRITER && (flags & FLAG_DATA_A) == 0) {
       col_append_str(pinfo->cinfo, COL_INFO, SM_EXTRA_PMINUS);
   } else if (wid == ENTITYID_BUILTIN_TOPIC_WRITER && (flags & FLAG_DATA_A) != 0) {
       col_append_str(pinfo->cinfo, COL_INFO, SM_EXTRA_TPLUS);

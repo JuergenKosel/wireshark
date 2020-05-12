@@ -310,7 +310,7 @@ MainWindow::MainWindow(QWidget *parent) :
     }
     gbl_cur_main_window_ = this;
 #ifdef HAVE_LIBPCAP
-    capture_session_init(&cap_session_, CaptureFile::globalCapFile());
+    capture_input_init(&cap_session_, CaptureFile::globalCapFile());
 #endif
 
     // setpUi calls QMetaObject::connectSlotsByName(this). connectSlotsByName
@@ -394,7 +394,7 @@ MainWindow::MainWindow(QWidget *parent) :
     // Make sure filter expressions overflow into a menu instead of a
     // larger toolbar. We do this by adding them to a child toolbar.
     // https://bugreports.qt.io/browse/QTBUG-2472
-    filter_expression_toolbar_ = new FilterExpressionToolBar(this);
+    FilterExpressionToolBar *filter_expression_toolbar_ = new FilterExpressionToolBar(this);
     connect(filter_expression_toolbar_, &FilterExpressionToolBar::filterPreferences, this, &MainWindow::onFilterPreferences);
     connect(filter_expression_toolbar_, &FilterExpressionToolBar::filterSelected, this, &MainWindow::onFilterSelected);
     connect(filter_expression_toolbar_, &FilterExpressionToolBar::filterEdit, this, &MainWindow::onFilterEdit);

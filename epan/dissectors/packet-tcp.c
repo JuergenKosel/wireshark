@@ -383,6 +383,7 @@ static expert_field ei_tcp_analysis_zero_window_probe = EI_INIT;
 static expert_field ei_tcp_analysis_zero_window = EI_INIT;
 static expert_field ei_tcp_analysis_zero_window_probe_ack = EI_INIT;
 static expert_field ei_tcp_analysis_tfo_syn = EI_INIT;
+static expert_field ei_tcp_analysis_tfo_ack = EI_INIT;
 static expert_field ei_tcp_scps_capable = EI_INIT;
 static expert_field ei_tcp_option_snack_sequence = EI_INIT;
 static expert_field ei_tcp_option_wscale_shift_invalid = EI_INIT;
@@ -3991,10 +3992,8 @@ dissect_tcpopt_tfo_payload(tvbuff_t *tvb, int offset, guint optlen,
         ti = proto_tree_add_item(exp_tree, hf_tcp_option_fast_open_cookie,
                             tvb, offset + 2, optlen - 2, ENC_NA);
         col_append_str(pinfo->cinfo, COL_INFO, " TFO=C");
-        if(tcph->th_flags & TH_SYN) {
-            if((tcph->th_flags & TH_ACK) == 0) {
-                expert_add_info(pinfo, ti, &ei_tcp_analysis_tfo_syn);
-            }
+        if ((tcph->th_flags & (TH_SYN|TH_ACK)) == TH_SYN) {
+            expert_add_info(pinfo, ti, &ei_tcp_analysis_tfo_syn);
         }
     }
 }
@@ -6319,8 +6318,8 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 if (tcpd && (tcpd->fwd->win_scale>=0)) {
                     (tcph->th_win)<<=tcpd->fwd->win_scale;
                 }
-                else {
-                    /* Don't have it stored, so use preference setting instead! */
+                else if (tcpd && (tcpd->fwd->win_scale == -1)) {
+                    /* i.e. Unknown, but wasn't signalled with no scaling, so use preference setting instead! */
                     if (tcp_default_window_scaling>=0) {
                         (tcph->th_win)<<=tcp_default_window_scaling;
                     }
@@ -6409,6 +6408,12 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         } else {
             proto_item_set_hidden(hide_seqack_abs_item);
         }
+        if (tcph->th_flags & TH_SYN) {
+            if ((tcp_relative_seq && tcph->th_ack > 1) ||
+               (!tcp_relative_seq && tcpd && (tcph->th_ack - tcpd->rev->base_seq) > 1)) {
+                expert_add_info(pinfo, tf, &ei_tcp_analysis_tfo_ack);
+            }
+        }
     } else {
         /* Note if the ACK field is non-zero */
         if (tvb_get_ntohl(tvb, offset+8) != 0) {
@@ -6447,13 +6452,14 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             switch (tcpd->fwd->win_scale) {
 
             case -1:
+                /* Unknown */
                 {
                     gint16 win_scale = tcpd->fwd->win_scale;
                     gboolean override_with_pref = FALSE;
 
                     /* Use preference setting (if set) */
                     if (tcp_default_window_scaling != WindowScaling_NotKnown) {
-                        win_scale = tcp_default_window_scaling;
+                        win_scale = (1 << tcp_default_window_scaling);
                         override_with_pref = TRUE;
                     }
 
@@ -6466,11 +6472,13 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 break;
 
             case -2:
+                /* No window scaling used */
                 scaled_pi = proto_tree_add_int_format_value(tcp_tree, hf_tcp_window_size_scalefactor, tvb, offset + 14, 2, tcpd->fwd->win_scale, "%d (no window scaling used)", tcpd->fwd->win_scale);
                 proto_item_set_generated(scaled_pi);
                 break;
 
             default:
+                /* Scaling from signalled value */
                 scaled_pi = proto_tree_add_int_format_value(tcp_tree, hf_tcp_window_size_scalefactor, tvb, offset + 14, 2, 1<<tcpd->fwd->win_scale, "%d", 1<<tcpd->fwd->win_scale);
                 proto_item_set_generated(scaled_pi);
             }
@@ -7711,6 +7719,7 @@ proto_register_tcp(void)
         { &ei_tcp_analysis_zero_window, { "tcp.analysis.zero_window", PI_SEQUENCE, PI_WARN, "TCP Zero Window segment", EXPFILL }},
         { &ei_tcp_analysis_zero_window_probe_ack, { "tcp.analysis.zero_window_probe_ack", PI_SEQUENCE, PI_NOTE, "ACK to a TCP Zero Window Probe", EXPFILL }},
         { &ei_tcp_analysis_tfo_syn, { "tcp.analysis.tfo_syn", PI_SEQUENCE, PI_NOTE, "TCP SYN with TFO Cookie", EXPFILL }},
+        { &ei_tcp_analysis_tfo_ack, { "tcp.analysis.tfo_ack", PI_SEQUENCE, PI_NOTE, "TCP SYN-ACK accepting data", EXPFILL }},
         { &ei_tcp_scps_capable, { "tcp.analysis.zero_window_probe_ack", PI_SEQUENCE, PI_NOTE, "Connection establish request (SYN-ACK): SCPS Capabilities Negotiated", EXPFILL }},
         { &ei_tcp_option_snack_sequence, { "tcp.options.snack.sequence", PI_SEQUENCE, PI_NOTE, "SNACK Sequence", EXPFILL }},
         { &ei_tcp_option_wscale_shift_invalid, { "tcp.options.wscale.shift.invalid", PI_PROTOCOL, PI_WARN, "Window scale shift exceeds 14", EXPFILL }},

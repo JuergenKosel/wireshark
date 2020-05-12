@@ -12,7 +12,6 @@
 
 #include <epan/packet.h>
 #include <epan/expert.h>
-#include <glib.h>
 #include "packet-tcp.h"
 #include "packet-tls-utils.h"
 
@@ -1859,7 +1858,7 @@ static int dissect_pcp_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     pcp_conv_info = (pcp_conv_info_t*)conversation_get_proto_data(conversation, proto_pcp);
 
     if(pcp_conv_info == NULL) {
-        pcp_conv_info = (pcp_conv_info_t*)wmem_alloc(wmem_file_scope(), sizeof(pcp_conv_info_t));
+        pcp_conv_info = wmem_new(wmem_file_scope(), pcp_conv_info_t);
         conversation_add_proto_data(conversation, proto_pcp, pcp_conv_info);
 
         pcp_conv_info->pmid_name_candidates = wmem_array_new(wmem_file_scope(), sizeof(guint8 *));

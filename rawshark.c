@@ -1164,8 +1164,8 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
                         switch(hfinfo->type) {
                             case FT_BOOLEAN:
                                 uvalue64 = fvalue_get_uinteger64(&finfo->value);
-                                tfstring = (const struct true_false_string*) hfinfo->strings;
-                                g_string_append(label_s, uvalue64 ? tfstring->true_string : tfstring->false_string);
+                                tfstring = (const true_false_string*) hfinfo->strings;
+                                g_string_append(label_s, tfs_get_string(!!uvalue64, tfstring));
                                 break;
                             case FT_INT8:
                             case FT_INT16:
@@ -1330,13 +1330,14 @@ add_string_fmt(string_fmt_e format, gchar *plain) {
 
 static gboolean
 parse_field_string_format(gchar *format) {
-    GString *plain_s = g_string_new("");
     size_t len;
     size_t pos = 0;
 
     if (!format) {
         return FALSE;
     }
+
+    GString *plain_s = g_string_new("");
 
     len = strlen(format);
     g_ptr_array_set_size(string_fmts, 0);

@@ -362,12 +362,12 @@ static const value_string ssl_20_cipher_suites[] = {
             */
 
     /* old numbers used in the beginning
-     * http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305 */
+     * https://tools.ietf.org/html/draft-agl-tls-chacha20poly1305 */
     { 0x00CC13, "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256" },
     { 0x00CC14, "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256" },
     { 0x00CC15, "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256" },
 
-    /* http://tools.ietf.org/html/draft-ietf-tls-chacha20-poly1305 */
+    /* https://tools.ietf.org/html/rfc7905 */
     { 0x00CCA8, "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256" },
     { 0x00CCA9, "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256" },
     { 0x00CCAA, "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256" },
@@ -376,7 +376,7 @@ static const value_string ssl_20_cipher_suites[] = {
     { 0x00CCAD, "TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256" },
     { 0x00CCAE, "TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256" },
 
-    /* http://tools.ietf.org/html/draft-josefsson-salsa20-tls */
+    /* https://tools.ietf.org/html/draft-josefsson-salsa20-tls */
     { 0x00E410, "TLS_RSA_WITH_ESTREAM_SALSA20_SHA1" },
     { 0x00E411, "TLS_RSA_WITH_SALSA20_SHA1" },
     { 0x00E412, "TLS_ECDHE_RSA_WITH_ESTREAM_SALSA20_SHA1" },
@@ -1072,7 +1072,7 @@ static const value_string ssl_31_ciphersuite[] = {
 0xFF,0x00-FF Reserved for Private Use [RFC5246]
 */
     /* old numbers used in the beginning
-     * http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305 */
+     * https://tools.ietf.org/html/draft-agl-tls-chacha20poly1305 */
     { 0xCC13, "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256" },
     { 0xCC14, "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256" },
     { 0xCC15, "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256" },
@@ -1091,7 +1091,7 @@ static const value_string ssl_31_ciphersuite[] = {
     { 0xD005, "TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256" },
     /* RFC 8701 */
     { 0xDADA, "Reserved (GREASE)" },
-    /* http://tools.ietf.org/html/draft-josefsson-salsa20-tls */
+    /* https://tools.ietf.org/html/draft-josefsson-salsa20-tls */
     { 0xE410, "TLS_RSA_WITH_ESTREAM_SALSA20_SHA1" },
     { 0xE411, "TLS_RSA_WITH_SALSA20_SHA1" },
     { 0xE412, "TLS_ECDHE_RSA_WITH_ESTREAM_SALSA20_SHA1" },
@@ -1174,9 +1174,9 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_GREASE_4A4A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_GREASE_5A5A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_GREASE_6A6A, "Reserved (GREASE)" }, /* RFC 8701 */
-    { SSL_HND_HELLO_EXT_CHANNEL_ID_OLD, "channel_id_old" }, /* http://tools.ietf.org/html/draft-balfanz-tls-channelid-00
+    { SSL_HND_HELLO_EXT_CHANNEL_ID_OLD, "channel_id_old" }, /* https://tools.ietf.org/html/draft-balfanz-tls-channelid-00
        https://twitter.com/ericlaw/status/274237352531083264 */
-    { SSL_HND_HELLO_EXT_CHANNEL_ID, "channel_id" }, /* http://tools.ietf.org/html/draft-balfanz-tls-channelid-01
+    { SSL_HND_HELLO_EXT_CHANNEL_ID, "channel_id" }, /* https://tools.ietf.org/html/draft-balfanz-tls-channelid-01
        https://code.google.com/p/chromium/codesearch#chromium/src/net/third_party/nss/ssl/sslt.h&l=209 */
     { SSL_HND_HELLO_EXT_RENEGOTIATION_INFO, "renegotiation_info" }, /* RFC 5746 */
     { SSL_HND_HELLO_EXT_GREASE_7A7A, "Reserved (GREASE)" }, /* RFC 8701 */
@@ -3034,7 +3034,7 @@ ssl_create_decompressor(gint compression)
 
     if (compression == 0) return NULL;
     ssl_debug_printf("ssl_create_decompressor: compression method %d\n", compression);
-    decomp = (SslDecompress *)wmem_alloc(wmem_file_scope(), sizeof(SslDecompress));
+    decomp = wmem_new(wmem_file_scope(), SslDecompress);
     decomp->compression = compression;
     switch (decomp->compression) {
 #ifdef HAVE_ZLIB
@@ -3112,7 +3112,7 @@ ssl_create_flow(void)
 {
   SslFlow *flow;
 
-  flow = (SslFlow *)wmem_alloc(wmem_file_scope(), sizeof(SslFlow));
+  flow = wmem_new(wmem_file_scope(), SslFlow);
   flow->byte_seq = 0;
   flow->flags = 0;
   flow->multisegment_pdus = wmem_tree_new(wmem_file_scope());
@@ -3124,13 +3124,13 @@ ssl_create_flow(void)
 void
 ssl_change_cipher(SslDecryptSession *ssl_session, gboolean server)
 {
-    ssl_debug_printf("ssl_change_cipher %s\n", (server)?"SERVER":"CLIENT");
-    if (server) {
-        ssl_session->server = ssl_session->server_new;
-        ssl_session->server_new = NULL;
-    } else {
-        ssl_session->client = ssl_session->client_new;
-        ssl_session->client_new = NULL;
+    SslDecoder **new_decoder = server ? &ssl_session->server_new : &ssl_session->client_new;
+    SslDecoder **dest = server ? &ssl_session->server : &ssl_session->client;
+    ssl_debug_printf("ssl_change_cipher %s%s\n", server ? "SERVER" : "CLIENT",
+            *new_decoder ? "" : " (No decoder found - retransmission?)");
+    if (*new_decoder) {
+        *dest = *new_decoder;
+        *new_decoder = NULL;
     }
 }
 /* }}} */
@@ -3146,7 +3146,7 @@ ssl_create_decoder(const SslCipherSuite *cipher_suite, gint cipher_algo,
     SslDecoder *dec;
     ssl_cipher_mode_t mode = cipher_suite->mode;
 
-    dec = (SslDecoder *)wmem_alloc0(wmem_file_scope(), sizeof(SslDecoder));
+    dec = wmem_new0(wmem_file_scope(), SslDecoder);
     /* init mac buffer: mac storage is embedded into decoder struct to save a
      memory allocation and waste samo more memory*/
     dec->cipher_suite=cipher_suite;
@@ -8886,6 +8886,64 @@ dissect_ssl3_hnd_cli_keyex_rsa_psk(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     proto_tree_add_item(ssl_psk_tree, hf->hf.hs_client_keyex_epms, tvb,
                         offset + 2, epms_len, ENC_NA);
 }
+
+/* Used in EC J-PAKE cipher suites */
+static void
+dissect_ssl3_hnd_cli_keyex_ecjpake(ssl_common_dissect_t *hf, tvbuff_t *tvb,
+                                   proto_tree *tree, guint32 offset,
+                                   guint32 length)
+{
+    /*
+     *  struct {
+     *      ECPoint V;
+     *      opaque r<1..2^8-1>;
+     *  } ECSchnorrZKP;
+     *
+     *  struct {
+     *      ECPoint X;
+     *      ECSchnorrZKP zkp;
+     *  } ECJPAKEKeyKP;
+     *
+     *  struct {
+     *      ECJPAKEKeyKP ecjpake_key_kp;
+     *  } ClientECJPAKEParams;
+     *
+     *  select (KeyExchangeAlgorithm) {
+     *      case ecjpake:
+     *          ClientECJPAKEParams params;
+     *  } ClientKeyExchange;
+     */
+
+    gint        point_len;
+    proto_tree *ssl_ecjpake_tree;
+
+    ssl_ecjpake_tree = proto_tree_add_subtree(tree, tvb, offset, length,
+                                              hf->ett.keyex_params, NULL,
+                                              "EC J-PAKE Client Params");
+
+    /* ECJPAKEKeyKP.X */
+    point_len = tvb_get_guint8(tvb, offset);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_client_keyex_xc_len, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_client_keyex_xc, tvb,
+                        offset + 1, point_len, ENC_NA);
+    offset += 1 + point_len;
+
+    /* ECJPAKEKeyKP.zkp.V */
+    point_len = tvb_get_guint8(tvb, offset);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_client_keyex_vc_len, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_client_keyex_vc, tvb,
+                        offset + 1, point_len, ENC_NA);
+    offset += 1 + point_len;
+
+    /* ECJPAKEKeyKP.zkp.r */
+    point_len = tvb_get_guint8(tvb, offset);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_client_keyex_rc_len, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_client_keyex_rc, tvb,
+                        offset + 1, point_len, ENC_NA);
+}
 /* ClientKeyExchange algo-specific dissectors. }}} */
 
 
@@ -8947,10 +9005,8 @@ dissect_ssl3_hnd_srv_keyex_sig(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_i
                                  hf->hf.hs_server_keyex_sig);
 }
 
-static void
-dissect_ssl3_hnd_srv_keyex_ecdh(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
-                                proto_tree *tree, guint32 offset, guint32 offset_end,
-                                guint16 version, gboolean anon)
+static guint32
+dissect_tls_ecparameters(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tree, guint32 offset, guint32 offset_end)
 {
     /*
      * RFC 4492 ECC cipher suites for TLS
@@ -8966,6 +9022,34 @@ dissect_ssl3_hnd_srv_keyex_ecdh(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_
      *              NamedCurve namedcurve;
      *      };
      *  } ECParameters;
+     */
+
+    gint        curve_type;
+
+    /* ECParameters.curve_type */
+    curve_type = tvb_get_guint8(tvb, offset);
+    proto_tree_add_item(tree, hf->hf.hs_server_keyex_curve_type, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    offset++;
+
+    if (curve_type != 3)
+        return offset_end; /* only named_curves are supported */
+
+    /* case curve_type == named_curve; ECParameters.namedcurve */
+    proto_tree_add_item(tree, hf->hf.hs_server_keyex_named_curve, tvb,
+                        offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    return offset;
+}
+
+static void
+dissect_ssl3_hnd_srv_keyex_ecdh(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *pinfo,
+                                proto_tree *tree, guint32 offset, guint32 offset_end,
+                                guint16 version, gboolean anon)
+{
+    /*
+     * RFC 4492 ECC cipher suites for TLS
      *
      *  struct {
      *      opaque point <1..2^8-1>;
@@ -8983,25 +9067,15 @@ dissect_ssl3_hnd_srv_keyex_ecdh(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_
      *  } ServerKeyExchange;
      */
 
-    gint        curve_type;
     gint        point_len;
     proto_tree *ssl_ecdh_tree;
 
     ssl_ecdh_tree = proto_tree_add_subtree(tree, tvb, offset, offset_end - offset,
                                   hf->ett.keyex_params, NULL, "EC Diffie-Hellman Server Params");
 
-    /* ECParameters.curve_type */
-    curve_type = tvb_get_guint8(tvb, offset);
-    proto_tree_add_item(ssl_ecdh_tree, hf->hf.hs_server_keyex_curve_type, tvb,
-                        offset, 1, ENC_BIG_ENDIAN);
-    offset++;
-    if (curve_type != 3)
+    offset = dissect_tls_ecparameters(hf, tvb, ssl_ecdh_tree, offset, offset_end);
+    if (offset >= offset_end)
         return; /* only named_curves are supported */
-
-    /* case curve_type == named_curve; ECParameters.namedcurve */
-    proto_tree_add_item(ssl_ecdh_tree, hf->hf.hs_server_keyex_named_curve, tvb,
-                        offset, 2, ENC_BIG_ENDIAN);
-    offset += 2;
 
     /* ECPoint.point */
     point_len = tvb_get_guint8(tvb, offset);
@@ -9113,6 +9187,68 @@ dissect_ssl3_hnd_srv_keyex_psk(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     proto_tree_add_item(ssl_psk_tree, hf->hf.hs_server_keyex_hint, tvb,
                         offset + 2, hint_len, ENC_NA);
 }
+
+/* Used in EC J-PAKE cipher suites */
+static void
+dissect_ssl3_hnd_srv_keyex_ecjpake(ssl_common_dissect_t *hf, tvbuff_t *tvb,
+                                   proto_tree *tree, guint32 offset, guint32 offset_end)
+{
+    /*
+     *  struct {
+     *      ECPoint V;
+     *      opaque r<1..2^8-1>;
+     *  } ECSchnorrZKP;
+     *
+     *  struct {
+     *      ECPoint X;
+     *      ECSchnorrZKP zkp;
+     *  } ECJPAKEKeyKP;
+     *
+     *  struct {
+     *      ECParameters curve_params;
+     *      ECJPAKEKeyKP ecjpake_key_kp;
+     *  } ServerECJPAKEParams;
+     *
+     *  select (KeyExchangeAlgorithm) {
+     *      case ecjpake:
+     *          ServerECJPAKEParams params;
+     *  } ServerKeyExchange;
+     */
+
+    gint        point_len;
+    proto_tree *ssl_ecjpake_tree;
+
+    ssl_ecjpake_tree = proto_tree_add_subtree(tree, tvb, offset, offset_end - offset,
+                                              hf->ett.keyex_params, NULL,
+                                              "EC J-PAKE Server Params");
+
+    offset = dissect_tls_ecparameters(hf, tvb, ssl_ecjpake_tree, offset, offset_end);
+    if (offset >= offset_end)
+        return; /* only named_curves are supported */
+
+    /* ECJPAKEKeyKP.X */
+    point_len = tvb_get_guint8(tvb, offset);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_server_keyex_xs_len, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_server_keyex_xs, tvb,
+                        offset + 1, point_len, ENC_NA);
+    offset += 1 + point_len;
+
+    /* ECJPAKEKeyKP.zkp.V */
+    point_len = tvb_get_guint8(tvb, offset);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_server_keyex_vs_len, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_server_keyex_vs, tvb,
+                        offset + 1, point_len, ENC_NA);
+    offset += 1 + point_len;
+
+    /* ECJPAKEKeyKP.zkp.r */
+    point_len = tvb_get_guint8(tvb, offset);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_server_keyex_rs_len, tvb,
+                        offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(ssl_ecjpake_tree, hf->hf.hs_server_keyex_rs, tvb,
+                        offset + 1, point_len, ENC_NA);
+}
 /* ServerKeyExchange algo-specific dissectors. }}} */
 
 /* Client Key Exchange and Server Key Exchange handshake dissections. {{{ */
@@ -9159,8 +9295,8 @@ ssl_dissect_hnd_cli_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     case KEX_SRP_SHA_RSA:
         /* XXX: implement support for SRP_SHA* */
         break;
-    case KEX_ECJPAKE: /* https://datatracker.ietf.org/doc/draft-cragie-tls-ecjpake/ used in Thread Commissioning */
-        /* XXX: implement support for ECJPAKE */
+    case KEX_ECJPAKE: /* https://tools.ietf.org/html/draft-cragie-tls-ecjpake-01 used in Thread Commissioning */
+        dissect_ssl3_hnd_cli_keyex_ecjpake(hf, tvb, tree, offset, length);
         break;
     default:
         /* XXX: add info message for not supported KEX algo */
@@ -9215,8 +9351,8 @@ ssl_dissect_hnd_srv_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *
     case KEX_SRP_SHA_RSA:
         /* XXX: implement support for SRP_SHA* */
         break;
-    case KEX_ECJPAKE: /* https://datatracker.ietf.org/doc/draft-cragie-tls-ecjpake/ used in Thread Commissioning */
-        /* XXX: implement support for ECJPAKE */
+    case KEX_ECJPAKE: /* https://tools.ietf.org/html/draft-cragie-tls-ecjpake-01 used in Thread Commissioning */
+        dissect_ssl3_hnd_srv_keyex_ecjpake(hf, tvb, tree, offset, offset_end);
         break;
     default:
         /* XXX: add info message for not supported KEX algo */

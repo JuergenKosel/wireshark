@@ -11,15 +11,14 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * References:
- * RTSP is defined in RFC 2326, http://www.ietf.org/rfc/rfc2326.txt?number=2326
- * http://www.iana.org/assignments/rsvp-parameters
+ * RTSP is defined in RFC 2326, https://tools.ietf.org/html/rfc2326
+ * https://www.iana.org/assignments/rsvp-parameters
  */
 
 #include "config.h"
 
 #include <stdio.h>	/* for sscanf() */
 
-#include <glib.h>
 #include <epan/packet.h>
 #include <epan/req_resp_hdrs.h>
 #include <epan/prefs.h>

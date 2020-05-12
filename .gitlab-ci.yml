@@ -42,21 +42,11 @@ variables:
     expire_in: 3 days
 
 # Rely on fedora:latest and debian-stable jobs for testing a recent GCC version.
-# Since this broke sporadically in the past, test lack of capture support.
-gcc-7-nopcap:
+clang-10:
   <<: *build-ubuntu
   variables:
-    CMAKE_ARGS: -DENABLE_PCAP=NO
-    CC: gcc-7
-    CXX: g++-7
-
-clang-8:
-  when: manual
-  <<: *build-ubuntu
-  variables:
-    CMAKE_ARGS: -DCMAKE_C_FLAGS=-Wframe-larger-than=20000
-    CC: clang-8
-    CXX: clang++-8
+    CC: clang-10
+    CXX: clang++-10
 
 build:rpm-centos-7:
   only:

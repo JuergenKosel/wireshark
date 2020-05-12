@@ -95,6 +95,7 @@ static dissector_handle_t gtp_handle, gtp_prime_handle;
 #define GTP_TPDU_AS_PDCP_LTE 1
 #define GTP_TPDU_AS_PDCP_NR 2
 #define GTP_TPDU_AS_SYNC 3
+#define GTP_TPDU_AS_ETHERNET 4
 
 static gboolean g_gtp_over_tcp = TRUE;
 gboolean g_gtp_session = FALSE;
@@ -839,6 +840,7 @@ static const enum_val_t gtp_decode_tpdu_as[] = {
     {"pdcp-lte", "PDCP-LTE",   GTP_TPDU_AS_PDCP_LTE },
     {"pdcp-nr", "PDCP-NR",   GTP_TPDU_AS_PDCP_NR },
     {"sync", "SYNC",   GTP_TPDU_AS_SYNC},
+    {"eth", "ETHERNET",   GTP_TPDU_AS_ETHERNET},
     {NULL, NULL, 0}
 };
 
@@ -2305,6 +2307,7 @@ gtpstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const voi
 }
 
 
+static dissector_handle_t eth_handle;
 static dissector_handle_t ip_handle;
 static dissector_handle_t ipv6_handle;
 static dissector_handle_t ppp_handle;
@@ -6806,7 +6809,7 @@ decode_gtp_imeisv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tre
     proto_tree *ext_imeisv;
     proto_item *te;
     tvbuff_t   *next_tvb;
-    const char *digit_str;
+    char       *digit_str;
 
     length = tvb_get_ntohs(tvb, offset + 1);
     ext_imeisv = proto_tree_add_subtree(tree, tvb, offset, 3 + length, ett_gtp_ies[GTP_EXT_IMEISV], &te,
@@ -6823,8 +6826,7 @@ decode_gtp_imeisv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tre
      * set to '1111'. Both IMEI and IMEISV are BCD encoded.
      */
     next_tvb = tvb_new_subset_length(tvb, offset, length);
-    digit_str = tvb_bcd_dig_to_wmem_packet_str(next_tvb, 0, -1, NULL, FALSE);
-    proto_tree_add_string(ext_imeisv, hf_gtp_ext_imeisv, next_tvb, 0, -1, digit_str);
+    proto_tree_add_item_ret_display_string(ext_imeisv, hf_gtp_ext_imeisv, next_tvb, 0, -1, ENC_BCD_DIGITS_0_9, wmem_packet_scope(), &digit_str);
     proto_item_append_text(te, ": %s", digit_str);
 
     return 3 + length;
@@ -9209,7 +9211,7 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
         /* No.  Attach that information to the conversation, and add
         * it to the list of information structures.
         */
-        gtp_info = (gtp_conv_info_t *)wmem_alloc(wmem_file_scope(), sizeof(gtp_conv_info_t));
+        gtp_info = wmem_new(wmem_file_scope(), gtp_conv_info_t);
         /*Request/response matching tables*/
         gtp_info->matched = g_hash_table_new(gtp_sn_hash, gtp_sn_equal_matched);
         gtp_info->unmatched = g_hash_table_new(gtp_sn_hash, gtp_sn_equal_unmatched);
@@ -9857,6 +9859,12 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
         case GTP_TPDU_AS_SYNC:
             next_tvb = tvb_new_subset_remaining(tvb, offset + acfield_len);
             call_dissector(sync_handle, next_tvb, pinfo, tree);
+            col_prepend_fstr(pinfo->cinfo, COL_PROTOCOL, "GTP <");
+            col_append_str(pinfo->cinfo, COL_PROTOCOL, ">");
+            break;
+        case GTP_TPDU_AS_ETHERNET:
+            next_tvb = tvb_new_subset_remaining(tvb, offset);
+            call_dissector(eth_handle, next_tvb, pinfo, tree);
             col_prepend_fstr(pinfo->cinfo, COL_PROTOCOL, "GTP <");
             col_append_str(pinfo->cinfo, COL_PROTOCOL, ">");
             break;
@@ -11508,6 +11516,7 @@ proto_reg_handoff_gtp(void)
 
 
 
+        eth_handle           = find_dissector_add_dependency("eth_withoutfcs", proto_gtp);
         ip_handle            = find_dissector_add_dependency("ip", proto_gtp);
         ipv6_handle          = find_dissector_add_dependency("ipv6", proto_gtp);
         ppp_handle           = find_dissector_add_dependency("ppp", proto_gtp);

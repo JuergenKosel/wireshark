@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2020-03-22)
+# (last updated 2020-05-09)
 
 0	Reserved
 1	NxNetworks
@@ -7992,7 +7992,7 @@
 8011	McKee Foods Corporation
 8012	Hyperdrive Sistemas Ltda
 8013	Nextlevel.com Internet Productions Inc.
-8014	Stonefly Networks, Inc.
+8014	Stonefly, Inc
 8015	Airocon
 8016	Ravensbourne College of Design & Communication
 8017	Primus Canada
@@ -13519,7 +13519,7 @@
 13654	SHENZHEN XIFENG NETWORK TECHNOLOGIES CO.,LTD
 13655	SpaceMonster Gaming Network
 13656	SUNNYbell Technology
-13657	Tango SA
+13657	Proximus Luxembourg SA
 13658	Teddy's Network
 13659	The Worley Companies
 13660	U.S. Army CECOM
@@ -22472,7 +22472,7 @@
 22626	COMET SYSTEM, s.r.o.
 22627	MIKRO-KOD Ltd.
 22628	Deutsche Angestellten-Krankenkasse
-22629	Alpermann+Velte electronic engineering GmbH
+22629	Plura Europe GmbH
 22630	Istituto Nazionale per la Ricerca sul Cancro
 22631	Fachhochschule Osnabrueck
 22632	TOKYO BUSINESS SOLUTION CO.,LTD.
@@ -45661,7 +45661,7 @@
 45841	System One Noc & Development Solutions S.A
 45842	Andrew Stemen
 45843	WebNet Broadband
-45844	Uwe Stoppel
+45844	Uwe Gradenegger
 45845	EchoPixel, Inc.
 45846	StorPool Storage AD
 45847	ComputerTel LTD
@@ -46635,7 +46635,7 @@
 46815	Third Point LLC
 46816	HELM AG
 46817	Atam Holdings
-46818	Systemhaus Scheuschner GmbH
+46818	VIVASECUR GmbH	# formerly 'Systemhaus Scheuschner GmbH'
 46819	Attenda Ltd.
 46820	Telekom Malaysia Berhad
 46821	Commandus
@@ -47703,7 +47703,7 @@
 47884	ISIMA
 47885	SWDC RTSoft, OOO
 47886	Intelligent Automation, Inc.
-47887	Keramik Bruckner e.U.
+47887	Keramikmanufaktur Bruckner eG
 47888	Freifunk - Verein zur Förderung des freien Internets
 47889	Traffic and Parking Control Co., Inc.
 47890	QSight Ltd
@@ -47734,7 +47734,7 @@
 47915	CAAGIS
 47916	ioTRAN Corp.
 47917	Urban Search & Rescue Austria (U.S.A.R. Austria)
-47918	Lucien Pullen
+47918	Lauren Pullen
 47919	dsi
 47920	PropertyGuru Pte. Ltd.
 47921	One Nine One Computer
@@ -53395,7 +53395,7 @@
 53586	Specto Paineis Eletronicos Ltda
 53587	FIRESI s.r.o.
 53588	MIT_ACNT_MIB
-53589	LLEIDA S.A.S.
+53589	LleidaNetworks Serveis Telemàtics S.A.
 53590	Eastone Century Technology Co，.Ltd.
 53591	TERAPRO
 53592	K M B systems, s.r.o.
@@ -55227,7 +55227,7 @@
 55420	WellSky
 55421	BartzHouse.com
 55422	Bartz.io
-55423	CGL CONSOLIDATED VENTURES LLC
+55423	CGL Consolidated Ventures, LLC
 55424	«Laboratoriya Infocommunikatsionnykh Setey» LLC
 55425	NPK STG LLC
 55426	Moelven SvT
@@ -55292,3 +55292,270 @@
 55485	Sierra Automated Systems & Engineering Corp
 55486	JSC "GIS"
 55487	CookieDen Online
+55488	Kirisun Communication Co.,Ltd.
+55489	Winnet Information
+55490	Vox Technologies
+55491	Gradient Technologies
+55492	Pawprint Prototyping
+55493	Authlogics
+55494	Streamworx
+55495	Elma Electronic AG
+55496	Kantara Initiative, Inc.
+55497	Centris AG
+55498	Dr. Hahn GmbH & Co. KG
+55499	Pilot Corporation Of Europe
+55500	Guangdong OPPO Mobile Telecommunications Corp.,Ltd.
+55501	Digital Sense Hosting Pty Ltd
+55502	Xaptum, Inc
+55503	GREYCORTEX s.r.o.
+55504	UT Southwestern Medical Center
+55505	domotof
+55506	Radial, Inc.
+55507	Graylog, Inc
+55508	Shenzhen Qunfang Technology Co., Ltd
+55509	Wetron Logistics B.V.
+55510	Brighton & Hove City Council
+55511	Hochschule für Wirtschaft und Gesellschaft Ludwigshafen
+55512	Rock West Composites
+55513	Varner It Solutions
+55514	Sheehans
+55515	TL Industries
+55516	Interexport d.o.o.
+55517	Struppkärrs Skog AB
+55518	DwarfHack
+55519	Dirección General de Registro Civil Identificación y Cedulación
+55520	Alpha Software Development Zrt.
+55521	Brun Telecomunicazioni
+55522	Hana Inc.
+55523	Wobben Research and Development GmbH
+55524	Nane OON GlobalCom Corporation
+55525	Nane
+55526	OON
+55527	ecert.ca
+55528	FileMeta Initiative
+55529	IEEE Learning Technology Standards Committee
+55530	VAS GmbH
+55531	Cambridge Pixel Ltd
+55532	Katze Laboratories
+55533	FORT Robotics, Inc.
+55534	Allgemeine Deutsche Burschenschaft
+55535	Hoymiles Converter Technology Co., Ltd.
+55536	Nexion Data Systems Pty Ltd
+55537	Shenzhen ledc Technology Development Co., Ltd.
+55538	ZyWaK
+55539	911 Secure, LLC
+55540	Chaotic Logic
+55541	Tvv Sound Project BV
+55542	Skan Holding AG
+55543	Din Bil Sverige AB
+55544	EZ5 Systems Ltd.
+55545	suawek
+55546	IDCUBE Identification Systems Pvt. Ltd.
+55547	NFQES, s. r. o.
+55548	Hydrasun Limited
+55549	South Central Ambulance Service NHS Foundation Trust
+55550	Kitsap Mental Health Services
+55551	SI-nerGIE
+55552	Barrett Communications Pty. Ltd.
+55553	OLAF
+55554	East Lindsey District Council
+55555	Rendeer Systems LLC
+55556	Danderyds Kommun
+55557	GBGT asbl - Groupement Belge des GraphoThérapeutes asbl
+55558	CORESLAB STRUCTURES MIAMI, INC
+55559	NJFVision
+55560	layline.io GmbH
+55561	ATMD Ltd.
+55562	Confinity Solutions GmbH
+55563	KTNF
+55564	Shanghai Bean Tech Co.,Ltd
+55565	Elektrizitätswerke Reutte AG
+55566	Beijing tongtech co., LTD
+55567	Cadwork
+55568	Groupe Morneau
+55569	Poney Express
+55570	McFarlin Tech Consulting
+55571	Felton B.V.
+55572	Chris Whitfield IT
+55573	北京元支点信息安全技术有限公司 (Beijing Yuanfu Information Security Technology Co., Ltd.)
+55574	frey-raum e.k.
+55575	Austin Regional Clinic, P.A.
+55576	AuriStor, Inc.
+55577	4bergamot.net
+55578	Invitech ICT Services Kft.
+55579	Ashley Leach & Associates Pty Ltd
+55580	staiger.it
+55581	Bronics Infocom Inc.
+55582	Balzano Informatik AG
+55583	Pridnestrovskiy respublikanskiy bank
+55584	Felix Koop
+55585	Thales LAS France
+55586	Simservice A/S
+55587	Milan Reznicek
+55588	EA Technology Ltd
+55589	Roche Diagnostics International Ltd
+55590	Fourie Boerdery
+55591	LLC IT-KRYM
+55592	XFrost Labs OÜ
+55593	Bouwonderneming Goevaers & Znn. B.V.
+55594	Cynthia Maja Revstrom
+55595	Measures for Justice
+55596	5G Property Solutions
+55597	Florida Atlantic University
+55598	Confluence Technologies, Inc
+55599	Originpath
+55600	Thales - Secure Communications & Information Systems
+55601	INDEPENDENCE BANK
+55602	Eatontown Public Schools
+55603	Rummelsberger Diakonie
+55604	SYSTEM ENGINEERING & INFORMATION TECHNOLOGY SRL
+55605	Bayerisches Staatsministerium für Digitales
+55606	Ositech Communications Inc
+55607	Cantada Inc
+55608	Net Neural Ltd.
+55609	NADEKS LLC
+55610	Xaru AB
+55611	Cosner-Neipp Corporation
+55612	American Century Investments
+55613	PRETTL Electronics
+55614	MobileMS
+55615	EtherMatic
+55616	RosettaHealth
+55617	Pacific Petroleum Pty Ltd
+55618	VertisPro Pte Ltd
+55619	宜春宜联打印设备有限公司 (Yichun Yilian Printing Equipment Co., Ltd.)
+55620	Alpla Staging
+55621	Cnuth Network UTH
+55622	2CRSI
+55623	University of Birmingham School of Computer Science
+55624	Eutelsat - MENA
+55625	Absolunet inc.
+55626	ANYROAM LLC
+55627	ANYROAM LLC
+55628	PacsLogic LLC
+55629	Department of Health Tasmania
+55630	Advanced Medical Footcare, LLC
+55631	Dymond Consulting
+55632	Bolton Clarke
+55633	Xtended Specialists Inc,
+55634	cbrain A/S
+55635	EyePro System S.r.l.
+55636	Watchtower Consulting (Pty) Ltd
+55637	gesagt.getan. GmbH
+55638	Fountainhead Technologies, Inc.
+55639	Star Group LLC
+55640	NU-CIVILISATION – Gemeinschaft zur Förderung einer organischen gemeinwohl- und werteorientierten Zivilisation
+55641	Trust The Press
+55642	Ruuvi Innovations Ltd
+55643	https://www.mrfixitit.org
+55644	Graphcore Ltd
+55645	Stadt Herne
+55646	Beacon Federal Credit Union
+55647	ExodusPoint Capital Management, LP
+55648	Segmed
+55649	Mike van Zyl Incorporated
+55650	Netha
+55651	Betanium, Inc.
+55652	Bass Pro Shops
+55653	Leonardo MW Ltd
+55654	net.Media SR
+55655	Mobilinkd LLC
+55656	LAS Enterprises
+55657	TN2 Solutions EESV
+55658	ZD Technology(Beijing) Co., Ltd
+55659	Zaji Consultant
+55660	GCT Global Container Terminals Inc.
+55661	Revocent Inc
+55662	KopterMax
+55663	GK Rubezh, LLC
+55664	Markie Enterprises
+55665	London Square Developments Ltd
+55666	Best bath Systems Inc
+55667	SKYELP
+55668	City of Bristol, Tennessee
+55669	South Dakota Board of Regents
+55670	NG9-1-1 Interoperability Oversight Commission
+55671	Simple Solutions Learning, INC.
+55672	RateEngine
+55673	Telefonbau Behnke GmbH
+55674	eskhome.net
+55675	mitgedanken
+55676	Hampton Roads Orthopaedics Spine & Sports Medicine
+55677	AnyElectron LLC
+55678	Custom Control Concepts
+55679	Sunmark Credit Union
+55680	American Library Association
+55681	Zeplay LLC
+55682	Julian Jacobi
+55683	Swissomation Inc.
+55684	RBZ am Schuetzenpark
+55685	Albert Neef Consulting
+55686	Smawave
+55687	chinamobile soc platform
+55688	LLC HUBTRUST
+55689	Testin Ltd.
+55690	Musgrave  maintenance
+55691	Nolmë Informatique
+55692	Veyseloglu LLC
+55693	Bewor Tech S.L.
+55694	ITPassion Ltd
+55695	MICROSET
+55696	RTV Technologies s.r.o.
+55697	Groupama Biztosító Zrt.
+55698	Touro University Medical Group
+55699	VTNS
+55700	AppLine
+55701	Signers Technology LLC
+55702	Adam Maxwell Investment
+55703	OAG INDUSTRIES srl
+55704	OpenetME
+55705	Smith Consulting LLC
+55706	CUBOSOFT
+55707	Arilou Technologies Ltd.
+55708	BonaSoft sp. z o.o. sp. k.
+55709	TECNED B.V.
+55710	Talent4Transition
+55711	Proius
+55712	Joint-stock Company "Accent-Bank"
+55713	KNS Inc
+55714	VRBANK
+55715	Ikle
+55716	北京蓝拓扑科技股份有限公司 (Beijing Blue Topology Technology Co., Ltd.)
+55717	Fiat Uno Solutions
+55718	Zentry Security, Inc.
+55719	Doing It 4 U
+55720	Horns & Hoofs
+55721	Peter Mertes KG
+55722	Aviti
+55723	Knorr-Bremse AG
+55724	NATIONAL INFORMATION TECHNOLOGY DEVELOPMENT AGENCY,
+55725	Ovio Smart World
+55726	MaxiTech
+55727	AO "RACIM"
+55728	CER Groupe
+55729	Identification International, Inc.
+55730	BISDN GmbH
+55731	Celera, S.A.
+55732	Warpcom Services, SA
+55733	Advanced Design Technology Pty Ltd
+55734	iTarge Technology
+55735	北京椰子树信息技术有限公司 (Beijing Coconut Tree Information Technology Co., Ltd.)
+55736	OctoInsight Inc.
+55737	Data Handler LLC
+55738	William Woodruff
+55739	Yethfr certification authority
+55740	Huang Houfeng
+55741	S.M. Acton t/a Stelin Motors
+55742	Landratsamt Calw
+55743	Reliance Energy Inc
+55744	Tampa Microwave
+55745	Geo TV Network
+55746	Jang Group of Companies
+55747	Facebook Connectivity - Terragraph
+55748	TriHealth
+55749	TXOne Networks Inc.
+55750	Kadfire Limited
+55751	Azienda Universitaria Policlinico P. Giaccone
+55752	HYTEC INTER Co., Ltd.
+55753	Comtron
+55754	Datil Technologies, Inc

@@ -6,6 +6,7 @@
  *  Release 3.0 Document Number SC30-3533-04
  *  Chapters 12, 15, 16
  *  http://publibfp.dhe.ibm.com/cgi-bin/bookmgr/BOOKS/co2e2001/CCONTENTS
+ *  [Found in 2020 in https://archive.org/details/5494RemoteControlUnitFunctionsReferenceSC30353304]
  *
  * Copyright 2009, Robert Hogan <robert@roberthogan.net>
  *
@@ -1277,7 +1278,8 @@ static const range_string vals_tn5250_vac_data[] = {
   { 0x14000000, 0x14000000, "Turn Audio On"},
   { 0x14000001, 0x14000001, "Turn Audio Off"},
   { 0x0C000000, 0x0C000064, "Set PC/TV Volume"},
-  { 0x00000000, 0xFFFFFFFF, "Set PIP Location and Size"},
+  /* N.B. Set PIP Location and Size was moved to last, to stop it
+   * from hiding everything that follows it */
   { 0x1F000001, 0x1F000001, "Set PIP See Through On"},
   { 0x1F000000, 0x1F000000, "Set PIP SeeThrough Off"},
   { 0x20000001, 0x20000001, "Freeze PIP"},
@@ -1293,6 +1295,7 @@ static const range_string vals_tn5250_vac_data[] = {
   { 0x0F000000, 0x0F000064, "Set PC/TV Color"},
   { 0x0E000000, 0x0E000064, "Set PC/TV Contrast"},
   { 0x10000000, 0x10006464, "Set PC/TV Tint"},
+  { 0x01010101, 0x1b841b84, "Set PIP Location and Size"}, /* Bytes are RRCCrrcc */
   { 0,  0,      NULL}
 };
 
@@ -1419,7 +1422,7 @@ static const struct true_false_string tn5250_field_dpo_flag1_6 = {
 };
 
 static const struct true_false_string tn5250_field_dpo_flag1_7 = {
-  "Insert mode is toggled by the Insert key",
+  "Insert mode is reset by Error Reset key",
   "Insert mode is toggled by the Insert key"
 };
 
@@ -1737,7 +1740,7 @@ static const range_string vals_tn5250_dpt_id[] = {
 #define CORE_AREA_COMMAND_KEYS  0x80
 
 static const range_string vals_tn5250_dfdpck_data_field[] = {
-  { 0x00,  0x40, "Invalid Data Field Type"},
+  { 0x00,  0x3f, "Invalid Data Field Type"},
   { 0x40,  0x40, "Top Row Command Key Functions"},
   { 0x41,  0x79, "Invalid Data Field Type"},
   { 0x80,  0x80, "Core Area Key Command Functions"},

@@ -60,6 +60,11 @@ Cisco MisCabling Protocol (MCP)
 OBSAI UDP-based Communication Protocol (UDPCP)
 AudioCodes Debug Recording (ACDR)
 Tunnel Extensible Authentication Protocol (TEAP)
+USB Printer (USBPRINTER)
+Java Debug Wire Protocol (JDWP)
+ScyllaDB RPC
+Dynamic Link Exchange Protocol (DLEP)
+LBM Stateful Resolution Service (LBMSRS)
 --
 
 === Updated Protocol Support

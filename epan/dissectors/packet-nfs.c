@@ -15,11 +15,13 @@
 #include "config.h"
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/exceptions.h>
 #include <epan/expert.h>
+#include <epan/proto_data.h>
 #include <epan/to_str.h>
 #include <epan/decode_as.h>
 #include <epan/crc16-tvb.h>
@@ -685,9 +687,8 @@ static int hf_nfs4_io_hints_mask = -1;
 static int hf_nfs4_io_hint_count = -1;
 static int hf_nfs4_io_advise_hint = -1;
 static int hf_nfs4_bytes_copied = -1;
+static int hf_nfs4_read_plus_contents = -1;
 static int hf_nfs4_read_plus_content_type = -1;
-static int hf_nfs4_read_plus_content_count = -1;
-static int hf_nfs4_read_plus_content_index = -1;
 static int hf_nfs4_block_size = -1;
 static int hf_nfs4_block_count = -1;
 static int hf_nfs4_reloff_blocknum = -1;
@@ -924,6 +925,7 @@ static expert_field ei_nfs_bitmap_no_dissector = EI_INIT;
 static expert_field ei_nfs_bitmap_skip_value = EI_INIT;
 static expert_field ei_nfs_bitmap_undissected_data = EI_INIT;
 static expert_field ei_nfs4_stateid_deprecated = EI_INIT;
+static expert_field ei_nfs_file_system_cycle = EI_INIT;
 
 static const true_false_string tfs_read_write = { "Read", "Write" };
 
@@ -1005,6 +1007,7 @@ typedef struct nfs_name_snoop {
 	unsigned char *parent;
 	int	       full_name_len;
 	char	      *full_name;
+	bool	       fs_cycle;
 } nfs_name_snoop_t;
 
 typedef struct nfs_name_snoop_key {
@@ -1229,6 +1232,7 @@ nfs_name_snoop_add_name(int xid, tvbuff_t *tvb, int name_offset, int name_len, i
 
 	nns->full_name_len = 0;
 	nns->full_name = NULL;
+	nns->fs_cycle = false;
 
 	/* any old entry will be deallocated and removed */
 	g_hash_table_insert(nfs_name_snoop_unmatched, GINT_TO_POINTER(xid), nns);
@@ -1268,9 +1272,10 @@ nfs_name_snoop_add_fh(int xid, tvbuff_t *tvb, int fh_offset, int fh_length)
 	g_hash_table_replace(nfs_name_snoop_matched, key, nns);
 }
 
+#define NFS_MAX_FS_DEPTH 100
 
 static void
-nfs_full_name_snoop(nfs_name_snoop_t *nns, int *len, char **name, char **pos)
+nfs_full_name_snoop(packet_info *pinfo, nfs_name_snoop_t *nns, int *len, char **name, char **pos)
 {
 	nfs_name_snoop_t     *parent_nns = NULL;
 	nfs_name_snoop_key_t  key;
@@ -1299,13 +1304,21 @@ nfs_full_name_snoop(nfs_name_snoop_t *nns, int *len, char **name, char **pos)
 	parent_nns = (nfs_name_snoop_t *)g_hash_table_lookup(nfs_name_snoop_matched, &key);
 
 	if (parent_nns) {
-		nfs_full_name_snoop(parent_nns, len, name, pos);
+		unsigned fs_depth = p_get_proto_depth(pinfo, proto_nfs);
+		if (++fs_depth >= NFS_MAX_FS_DEPTH) {
+			nns->fs_cycle = true;
+			return;
+		}
+		p_set_proto_depth(pinfo, proto_nfs, fs_depth);
+
+		nfs_full_name_snoop(pinfo, parent_nns, len, name, pos);
 		if (*name) {
 			/* make sure components are '/' separated */
 			*pos += g_snprintf(*pos, (*len+1) - (gulong)(*pos-*name), "%s%s",
 					   ((*pos)[-1] != '/')?"/":"", nns->name);
 			DISSECTOR_ASSERT((*pos-*name) <= *len);
 		}
+		p_set_proto_depth(pinfo, proto_nfs, fs_depth - 1);
 		return;
 	}
 
@@ -1347,7 +1360,7 @@ nfs_name_snoop_fh(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int fh_of
 				char *name = NULL, *pos = NULL;
 				int len = 0;
 
-				nfs_full_name_snoop(nns, &len, &name, &pos);
+				nfs_full_name_snoop(pinfo, nns, &len, &name, &pos);
 				if (name) {
 					nns->full_name = name;
 					nns->full_name_len = len;
@@ -1398,6 +1411,10 @@ nfs_name_snoop_fh(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int fh_of
 					fh_offset, 0, nns->full_name, "%s", nns->full_name);
 			}
 			proto_item_set_generated(fh_item);
+		}
+
+		if (nns->fs_cycle) {
+			proto_tree_add_expert(tree, pinfo, &ei_nfs_file_system_cycle, tvb, 0, 0);
 		}
 	}
 }
@@ -8521,34 +8538,18 @@ static const value_string read_plus_content_names[] = {
 static value_string_ext read_plus_content_names_ext = VALUE_STRING_EXT_INIT(read_plus_content_names);
 
 static int
-dissect_nfs4_read_plus_content(tvbuff_t *tvb, int offset, proto_tree *tree)
+dissect_nfs4_read_plus_content(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
 {
-	proto_item *sub_fitem;
 	proto_tree *ss_tree;
-	proto_tree *subtree;
 	proto_item *ss_fitem;
-	guint       i;
-	guint       count;
 	guint       type;
 
-	count = tvb_get_ntohl(tvb, offset);
-	sub_fitem = proto_tree_add_item(tree, hf_nfs4_read_plus_content_count,
-					tvb, offset, 4, ENC_BIG_ENDIAN);
+	ss_fitem = proto_tree_add_item_ret_uint(tree, hf_nfs4_read_plus_content_type,
+						tvb, offset, 4, ENC_BIG_ENDIAN, &type);
+	ss_tree = proto_item_add_subtree(ss_fitem, ett_nfs4_read_plus_content_sub);
 	offset += 4;
 
-	subtree = proto_item_add_subtree(sub_fitem, ett_nfs4_read_plus_content_sub);
-	for (i = 0; i < count; i++) {
-		ss_fitem = proto_tree_add_uint_format(subtree, hf_nfs4_read_plus_content_index,
-							tvb, offset+0, 4, i, "Content [%u]", i);
-		ss_tree = proto_item_add_subtree(ss_fitem,
-						 ett_nfs4_read_plus_content_sub);
-		offset += 4;
-
-		type = tvb_get_ntohl(tvb, offset);
-		proto_tree_add_uint(ss_tree, hf_nfs4_read_plus_content_type, tvb, offset, 0, type);
-		offset += 4;
-
-		switch (type) {
+	switch (type) {
 		case NFS4_CONTENT_DATA:
 			offset = dissect_rpc_uint64(tvb, ss_tree, hf_nfs4_offset, offset);
 			dissect_rpc_uint32(tvb, ss_tree, hf_nfs4_read_data_length, offset); /* don't change offset */
@@ -8556,11 +8557,10 @@ dissect_nfs4_read_plus_content(tvbuff_t *tvb, int offset, proto_tree *tree)
 			break;
 		case NFS4_CONTENT_HOLE:
 			offset = dissect_rpc_uint64(tvb, ss_tree, hf_nfs4_offset, offset);
-			offset = dissect_rpc_uint32(tvb, ss_tree, hf_nfs4_count, offset);
+			offset = dissect_rpc_uint64(tvb, ss_tree, hf_nfs4_length, offset);
 			break;
 		default:
 			break;
-		}
 	}
 
 	return offset;
@@ -10980,7 +10980,7 @@ dissect_nfs4_response_op(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tr
 		case NFS4_OP_READ_PLUS:
 			if (status == NFS4_OK) {
 				offset = dissect_rpc_uint32(tvb, newftree, hf_nfs4_eof, offset);
-				offset = dissect_nfs4_read_plus_content(tvb, offset, newftree);
+				offset = dissect_rpc_array(tvb, pinfo, newftree, offset, dissect_nfs4_read_plus_content, hf_nfs4_read_plus_contents);
 			}
 			break;
 
@@ -14133,17 +14133,13 @@ proto_register_nfs(void)
 			"bytes copied", "nfs.bytes_copied", FT_UINT64, BASE_DEC,
 			NULL, 0, NULL, HFILL }},
 
+		{ &hf_nfs4_read_plus_contents, {
+			"Contents", "nfs.contents",
+			FT_NONE, BASE_NONE, NULL, 0, NULL, HFILL }},
+
 		{ &hf_nfs4_read_plus_content_type, {
 			"Content Type", "nfs.content.type", FT_UINT32, BASE_DEC | BASE_EXT_STRING,
 			&read_plus_content_names_ext, 0, NULL, HFILL }},
-
-		{ &hf_nfs4_read_plus_content_count, {
-			"Content count", "nfs.content.count", FT_UINT32, BASE_DEC,
-			NULL, 0, NULL, HFILL }},
-
-		{ &hf_nfs4_read_plus_content_index, {
-			"Content index", "nfs.content.index", FT_UINT32, BASE_DEC,
-			NULL, 0, NULL, HFILL }},
 
 		{ &hf_nfs4_block_size, {
 			"Content index", "nfs.content.index", FT_UINT32, BASE_DEC,
@@ -14519,6 +14515,7 @@ proto_register_nfs(void)
 		{ &ei_nfs_bitmap_undissected_data, { "nfs.bitmap_undissected_data", PI_PROTOCOL, PI_WARN,
 			"There is some bitmap data left undissected", EXPFILL }},
 		{ &ei_nfs4_stateid_deprecated, { "nfs.stateid.deprecated", PI_PROTOCOL, PI_WARN, "State ID deprecated in CLOSE responses [RFC7530 16.2.5]", EXPFILL }},
+		{ &ei_nfs_file_system_cycle, { "nfs.file_system_cycle", PI_PROTOCOL, PI_WARN, "Possible file system cycle detected", EXPFILL }},
 	};
 
 	module_t *nfs_module;

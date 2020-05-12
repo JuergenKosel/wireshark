@@ -26,20 +26,20 @@
  ** Cisco ASA5500 Series
  ** http://www.cisco.com/en/US/docs/security/asa/asa83/netflow/netflow.html
  **
- ** ( http://www.ietf.org/rfc/rfc3954.txt ? for NetFlow v9 information)
+ ** ( https://tools.ietf.org/html/rfc3954 ? for NetFlow v9 information)
  **
  ** IPFIX
- ** http://tools/ietf.org/html/rfc5103 Bidirectional Flow Export Using IP Flow Information Export (IPFIX)
- ** http://tools.ietf.org/html/rfc5610 Exporting Type Information for
+ ** https://tools.ietf.org/html/rfc5103 Bidirectional Flow Export Using IP Flow Information Export (IPFIX)
+ ** https://tools.ietf.org/html/rfc5610 Exporting Type Information for
  **                                     IP Flow Information Export (IPFIX) Information Elements
- ** http://tools.ietf.org/html/rfc7011 Specification of the IP Flow Information Export (IPFIX) Protocol
+ ** https://tools.ietf.org/html/rfc7011 Specification of the IP Flow Information Export (IPFIX) Protocol
  **                                     for the Exchange of Flow Information
- ** http://tools.ietf.org/html/rfc7012 Information Model for IP Flow Information Export (IPFIX)
- ** http://tools.ietf.org/html/rfc7013 Guidelines for Authors and Reviewers of
+ ** https://tools.ietf.org/html/rfc7012 Information Model for IP Flow Information Export (IPFIX)
+ ** https://tools.ietf.org/html/rfc7013 Guidelines for Authors and Reviewers of
  **                                     IP Flow Information Export (IPFIX) Information Elements
  **
- ** http://www.iana.org/assignments/ipfix/ipfix.xml     [version dated: 2014-08-13]
- ** http://www.iana.org/assignments/psamp-parameters/psamp-parameters.xml
+ ** https://www.iana.org/assignments/ipfix/ipfix.xml     [version dated: 2014-08-13]
+ ** https://www.iana.org/assignments/psamp-parameters/psamp-parameters.xml
  ** for IPFIX
  **
  *****************************************************************************
@@ -55,7 +55,7 @@
  **
  ** See also
  **
- ** http://www.cisco.com/en/US/docs/ios/solutions_docs/netflow/nfwhite.html
+ ** https://www.cisco.com/en/US/docs/ios/solutions_docs/netflow/nfwhite.html
  **
  *****************************************************************************
  ** NetFlow forwarding status and template fixes
@@ -302,6 +302,7 @@ typedef enum {
     TF_GIGAMON,
     TF_CISCO,
     TF_NIAGARA_NETWORKS,
+    TF_FASTIP,
     TF_NO_VENDOR_INFO
 } v9_v10_tmplt_fields_type_t;
 #define TF_NUM 2
@@ -799,6 +800,27 @@ static const value_string v9_v10_template_types[] = {
     { 33000, "INGRESS_ACL_ID" },
     { 33001, "EGRESS_ACL_ID" },
     { 33002, "FW_EXT_EVENT" },
+    /* Boundary bprobe */
+    { 33610, "METER_VERSION"},
+    { 33611, "METER_OS_SYSNAME"},
+    { 33612, "METER_OS_NODENAME"},
+    { 33613, "METER_OS_RELEASE"},
+    { 33614, "METER_OS_VERSION"},
+    { 33615, "METER_OS_MACHINE"},
+    { 33623, "EPOCH_SECOND"},
+    { 33624, "NIC_NAME"},
+    { 33625, "NIC_ID"},
+    { 33626, "NIC_MAC"},
+    { 33627, "NIC_IP"},
+    { 33628, "COLLISIONS"},
+    { 33629, "ERRORS"},
+    { 33630, "NIC_DRIVER_NAME"},
+    { 33631, "NIC_DRIVER_VERSION"},
+    { 33632, "NIC_FIRMWARE_VERSION"},
+    { 33633, "METER_OS_DISTRIBUTION_NAME"},
+    { 33634, "BOND_INTERFACE_MODE"},
+    { 33635, "BOND_INTERFACE_PHYSICAL_NIC_COUNT"},
+    { 33636, "BOND_INTERFACE_ID"},
     /* Cisco TrustSec */
     { 34000, "SGT_SOURCE_TAG" },
     { 34001, "SGT_DESTINATION_TAG" },
@@ -1991,6 +2013,34 @@ static const value_string v10_cisco_waas_passthrough_reason[] = {
     {  0, NULL }
 };
 
+static const value_string v10_template_types_fastip[] = {
+    { 0, "METER_VERSION"},
+    { 1, "METER_OS_SYSNAME"},
+    { 2, "METER_OS_NODENAME"},
+    { 3, "METER_OS_RELEASE"},
+    { 4, "METER_OS_VERSION"},
+    { 5, "METER_OS_MACHINE"},
+    { 6, "TCP_FLAGS"},
+    { 13, "EPOCH_SECOND"},
+    { 14, "NIC_NAME"},
+    { 15, "NIC_ID"},
+    { 16, "NIC_MAC"},
+    { 17, "NIC_IP"},
+    { 18, "COLLISIONS"},
+    { 19, "ERRORS"},
+    { 20, "NIC_DRIVER_NAME"},
+    { 21, "NIC_DRIVER_VERSION"},
+    { 22, "NIC_FIRMWARE_VERSION"},
+    { 23, "METER_OS_DISTRIBUTION_NAME"},
+    { 24, "BOND_INTERFACE_MODE"},
+    { 25, "BOND_INTERFACE_PHYSICAL_NIC_COUNT"},
+    { 26, "BOND_INTERFACE_ID"},
+    { 200, "TCP_HANDSHAKE_RTT_USEC"},
+    { 201, "APP_RTT_USEC"},
+    { 0, NULL }
+};
+static value_string_ext v10_template_types_fastip_ext = VALUE_STRING_EXT_INIT(v10_template_types_fastip);
+
 static const value_string v9_scope_field_types[] = {
     { 1, "System" },
     { 2, "Interface" },
@@ -2174,6 +2224,7 @@ static int      ett_dataflowset         = -1;
 static int      ett_fwdstat             = -1;
 static int      ett_mpls_label          = -1;
 static int      ett_tcpflags            = -1;
+static int      ett_subtemplate_list    = -1;
 /*
  * cflow header
  */
@@ -2230,6 +2281,8 @@ static int      hf_cflow_template_ipfix_pen_provided                = -1;
 static int      hf_cflow_template_ipfix_field_type                  = -1;
 static int      hf_cflow_template_ipfix_field_type_enterprise       = -1;
 static int      hf_cflow_template_ipfix_field_pen                   = -1;
+static int      hf_cflow_subtemplate_id                             = -1;
+static int      hf_cflow_subtemplate_semantic                       = -1;
 
 /* IPFIX / vendor */
 static int      hf_cflow_template_plixer_field_type                 = -1;
@@ -2240,6 +2293,7 @@ static int      hf_cflow_template_barracuda_field_type              = -1;
 static int      hf_cflow_template_gigamon_field_type                = -1;
 static int      hf_cflow_template_cisco_field_type                  = -1;
 static int      hf_cflow_template_niagara_networks_field_type       = -1;
+static int      hf_cflow_template_fastip_field_type                 = -1;
 
 
 /*
@@ -2503,6 +2557,7 @@ static int      hf_cflow_information_element_index                  = -1;      /
 static int      hf_cflow_p2p_technology                             = -1;      /* ID: 288 */
 static int      hf_cflow_tunnel_technology                          = -1;      /* ID: 289 */
 static int      hf_cflow_encrypted_technology                       = -1;      /* ID: 290 */
+static int      hf_cflow_subtemplate_list                           = -1;      /* ID: 292 */
 static int      hf_cflow_bgp_validity_state                         = -1;      /* ID: 294 */
 static int      hf_cflow_ipsec_spi                                  = -1;      /* ID: 295 */
 static int      hf_cflow_gre_key                                    = -1;      /* ID: 296 */
@@ -2709,6 +2764,9 @@ static int      hf_cflow_mpls_label                                 = -1;
 static int      hf_cflow_mpls_exp                                   = -1;
 static int      hf_cflow_mpls_bos                                   = -1;
 
+#if 0
+static int      hf_cflow_nic_id                                     = -1;      /* ID: 33625 */
+#endif
 static int      hf_cflow_cts_sgt_source_tag                         = -1;      /* ID: 34000 */
 static int      hf_cflow_cts_sgt_destination_tag                    = -1;      /* ID: 34001 */
 static int      hf_cflow_cts_sgt_source_name                        = -1;      /* ID: 34002 */
@@ -3507,6 +3565,34 @@ static int      hf_pie_niagara_networks_radiusvsaname                           
 static int      hf_pie_niagara_networks_radiusvsaid                                 = -1;
 static int      hf_pie_niagara_networks_radiusvsavalue                              = -1;
 
+static int      hf_pie_fastip_meter_version                      = -1;
+static int      hf_pie_fastip_meter_os_sysname                   = -1;
+static int      hf_pie_fastip_meter_os_nodename                  = -1;
+static int      hf_pie_fastip_meter_os_release                   = -1;
+static int      hf_pie_fastip_meter_os_version                   = -1;
+static int      hf_pie_fastip_meter_os_machine                   = -1;
+static int      hf_pie_fastip_epoch_second                       = -1;
+static int      hf_pie_fastip_nic_name                           = -1;
+static int      hf_pie_fastip_nic_id                             = -1;
+static int      hf_pie_fastip_nic_mac                            = -1;
+static int      hf_pie_fastip_nic_ip                             = -1;
+/*
+static int      hf_pie_fastip_collisions                         = -1;
+static int      hf_pie_fastip_errors                             = -1;
+*/
+static int      hf_pie_fastip_nic_driver_name                    = -1;
+static int      hf_pie_fastip_nic_driver_version                 = -1;
+static int      hf_pie_fastip_nic_firmware_version               = -1;
+static int      hf_pie_fastip_meter_os_distribution              = -1;
+/*
+static int      hf_pie_fastip_bond_interface_mode                = -1;
+static int      hf_pie_fastip_bond_interface_physical_nic_count  = -1;
+static int      hf_pie_fastip_bond_interface_id                  = -1;
+*/
+static int      hf_pie_fastip_tcp_flags                          = -1;
+static int      hf_pie_fastip_tcp_handshake_rtt_usec             = -1;
+static int      hf_pie_fastip_app_rtt_usec                       = -1;
+
 static int      hf_string_len_short = -1;
 static int      hf_string_len_long  = -1;
 
@@ -3524,6 +3610,7 @@ static expert_field ei_cflow_flowsets_impossible                       = EI_INIT
 static expert_field ei_cflow_no_template_found                         = EI_INIT;
 static expert_field ei_transport_bytes_out_of_order                    = EI_INIT;
 static expert_field ei_unexpected_sequence_number                      = EI_INIT;
+static expert_field ei_cflow_subtemplate_bad_length                    = EI_INIT;
 
 static const value_string special_mpls_top_label_type[] = {
     {0, "Unknown"},
@@ -3721,6 +3808,8 @@ pen_to_type_hf_list(guint32 pen) {
         return TF_CISCO;
     case VENDOR_NIAGARA_NETWORKS:
         return TF_NIAGARA_NETWORKS;
+    case VENDOR_FASTIP:
+        return TF_FASTIP;
     default:
         return TF_NO_VENDOR_INFO;
     }
@@ -4646,6 +4735,68 @@ enum duration_type_e {
     duration_type_delta_milliseconds,
     duration_type_max    /* not used - for sizing only */
 };
+
+/* SubTemplateList reference https://tools.ietf.org/html/rfc6313#section-4.5.2 */
+static void
+dissect_v10_pdu_subtemplate_list(tvbuff_t* tvb, packet_info* pinfo, proto_item* pduitem, int offset,
+                                 guint16 length, hdrinfo_t* hdrinfo_p)
+{
+    int            start_offset = offset;
+    int            end_offset   = offset + length;
+    guint32        semantic, subtemplate_id;
+    v9_v10_tmplt_t *subtmplt_p;
+    v9_v10_tmplt_t  tmplt_key;
+    proto_tree     *pdutree = proto_item_add_subtree(pduitem, ett_subtemplate_list);
+
+    proto_tree_add_item_ret_uint(pdutree, hf_cflow_subtemplate_semantic, tvb, offset, 1, ENC_BIG_ENDIAN, &semantic);
+    proto_tree_add_item_ret_uint(pdutree, hf_cflow_subtemplate_id, tvb, offset+1, 2, ENC_BIG_ENDIAN, &subtemplate_id);
+    proto_item_append_text(pdutree, " (semantic = %u, subtemplate-id = %u)", semantic, subtemplate_id);
+    offset += 3;
+
+    /* Look up template */
+    v9_v10_tmplt_build_key(&tmplt_key, pinfo, hdrinfo_p->src_id, subtemplate_id);
+    subtmplt_p = (v9_v10_tmplt_t *)wmem_map_lookup(v9_v10_tmplt_table, &tmplt_key);
+
+    if (subtmplt_p != NULL) {
+        proto_item *ti;
+        int        count = 1;
+        proto_tree *sub_tree;
+        guint      consumed;
+
+        /* Provide a link back to template frame */
+        ti = proto_tree_add_uint(pdutree, hf_template_frame, tvb,
+                                 0, 0, subtmplt_p->template_frame_number);
+        if (subtmplt_p->template_frame_number > pinfo->num) {
+            proto_item_append_text(ti, " (received after this frame)");
+        }
+        proto_item_set_generated(ti);
+
+        while (offset < end_offset) {
+            sub_tree = proto_tree_add_subtree_format(pdutree, tvb, offset, subtmplt_p->length,
+                                                     ett_subtemplate_list, NULL, "List Item %d", count++);
+            consumed = dissect_v9_v10_pdu_data(tvb, pinfo, sub_tree, offset, subtmplt_p, hdrinfo_p, TF_ENTRIES);
+            if (0 == consumed) {
+                /* To protect against infinite loop in case of malformed records with
+                   0 length template or tmplt_p->fields_p[1] == NULL or tmplt_p->field_count == 0
+                */
+                break;
+            }
+            offset += consumed;
+        }
+        if (offset != end_offset) {
+            int data_bytes = offset - start_offset;
+            proto_tree_add_expert_format(pdutree, NULL, &ei_cflow_subtemplate_bad_length,
+                                         tvb, offset, length,
+                                         "Field Length (%u bytes), Data Found (%u byte%s)",
+                                         length, data_bytes, plurality(data_bytes, "", "s"));
+        }
+    } else {
+        proto_tree_add_expert_format(pdutree, NULL, &ei_cflow_no_template_found,
+                                     tvb, offset, length,
+                                     "Subtemplate Data (%u byte%s), template %u not found",
+                                     length, plurality(length, "", "s"), subtemplate_id);
+    }
+}
 
 static guint
 dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, int offset,
@@ -6293,6 +6444,12 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
                                      tvb, offset, length, ENC_UTF_8|ENC_NA);
             break;
 
+        case 292:
+            ti = proto_tree_add_item(pdutree, hf_cflow_subtemplate_list,
+                                     tvb, offset, length, ENC_NA);
+            dissect_v10_pdu_subtemplate_list(tvb, pinfo, ti, offset, length, hdrinfo_p);
+            break;
+
         case 294:
             ti = proto_tree_add_item(pdutree, hf_cflow_bgp_validity_state,
                                      tvb, offset, length, ENC_BIG_ENDIAN);
@@ -7319,6 +7476,13 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             break;
 
 
+#if 0
+        case 33625: /* nic_id */
+            ti = proto_tree_add_item(pdutree, hf_cflow_nic_id,
+                                     tvb, offset, length, ENC_BIG_ENDIAN);
+            break;
+#endif
+
         case 34000: /* cts_sgt_source_tag */
             ti = proto_tree_add_item(pdutree, hf_cflow_cts_sgt_source_tag,
                                      tvb, offset, length, ENC_BIG_ENDIAN);
@@ -7674,6 +7838,83 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
                                        tvb, offset+1, cmd_len, cmd_str);
             length = cmd_len + 1;
             got_flags |= GOT_COMMAND;
+            break;
+
+        case ((VENDOR_FASTIP << 16) | 0) : /* METER_VERSION */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_meter_version,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 1) : /* METER_OS_SYSNAME */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_meter_os_sysname,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 2) : /* METER_OS_NODENAME */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_meter_os_nodename,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 3) : /* METER_OS_RELASE */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_meter_os_release,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 4) : /* METER_OS_VERSION */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_meter_os_version,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 5) : /* METER_OS_MACHINE */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_meter_os_machine,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 6) : /* TCP_FLAGS */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_tcp_flags,
+                                     tvb, offset, length, ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 23) : /* METER_OS_DISTRIBUTION */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_meter_os_distribution,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 13) : /* EPOCH_SECOND */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_epoch_second,
+                                     tvb, offset, length, ENC_BIG_ENDIAN);
+            break;
+        case ((VENDOR_FASTIP << 16) | 14) : /* NIC_NAME */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_nic_name,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 15) : /* NIC_ID */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_nic_id,
+                                     tvb, offset, length, ENC_BIG_ENDIAN);
+            break;
+        case ((VENDOR_FASTIP << 16) | 16) : /* NIC_MAC */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_nic_mac,
+                                     tvb, offset, length, ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 17) : /* NIC_IP */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_nic_ip,
+                                     tvb, offset, length, ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 200) : /* TCP_HANDSHAKE_RTT_USEC */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_tcp_handshake_rtt_usec,
+                                     tvb, offset, length, ENC_BIG_ENDIAN);
+            break;
+        case ((VENDOR_FASTIP << 16) | 201) : /* APP_RTT_USEC */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_app_rtt_usec,
+                                     tvb, offset, length, ENC_BIG_ENDIAN);
+            break;
+    /*
+    { 18, "COLLISIONS"},
+    { 19, "ERRORS"},
+    */
+        case ((VENDOR_FASTIP << 16) | 20) : /* NIC_DRIVER_NAME */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_nic_driver_name,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 21) : /* NIC_DRIVER_VERSION */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_nic_driver_version,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
+            break;
+        case ((VENDOR_FASTIP << 16) | 22) : /* NIC_FIRMWARE_VERSION */
+            ti = proto_tree_add_item(pdutree, hf_pie_fastip_nic_firmware_version,
+                                     tvb, offset, length, ENC_ASCII|ENC_NA);
             break;
 
             /* START NTOP */
@@ -11317,6 +11558,7 @@ static const int *v10_template_type_hf_list[TF_NUM_EXT] = {
     &hf_cflow_template_gigamon_field_type,
     &hf_cflow_template_cisco_field_type,
     &hf_cflow_template_niagara_networks_field_type,
+    &hf_cflow_template_fastip_field_type,
     NULL};
 
 static value_string_ext *v9_template_type_vse_list[TF_NUM] = {
@@ -11333,6 +11575,7 @@ static value_string_ext *v10_template_type_vse_list[TF_NUM_EXT] = {
     &v10_template_types_gigamon_ext,
     &v10_template_types_cisco_ext,
     &v10_template_types_niagara_networks_ext,
+    &v10_template_types_fastip_ext,
     NULL};
 
 static int
@@ -11986,6 +12229,18 @@ proto_register_netflow(void)
          {"Length", "cflow.template_field_length",
           FT_UINT16, BASE_DEC, NULL, 0x0,
           "Template field length", HFILL}
+        },
+        {&hf_cflow_subtemplate_id,
+         {"SubTemplateList Id", "cflow.subtemplate_id",
+          FT_UINT16, BASE_DEC, NULL, 0x0,
+          "ID of the Template used to encode and decode"
+          " the subTemplateList Content", HFILL}
+        },
+        {&hf_cflow_subtemplate_semantic,
+         {"SubTemplateList Semantic", "cflow.subtemplate_semantic",
+          FT_UINT8, BASE_DEC, NULL, 0x0,
+          "Indicates the relationship among the different Data Records"
+          " within this Structured Data Information Element", HFILL}
         },
 
         /* options */
@@ -13295,6 +13550,11 @@ proto_register_netflow(void)
           FT_STRING, STR_UNICODE, NULL, 0x0,
           NULL, HFILL}
         },
+        {&hf_cflow_subtemplate_list,
+         {"SubTemplate List", "cflow.subtemplate_list",
+          FT_NONE, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
         {&hf_cflow_bgp_validity_state,
          {"Bgp Validity State", "cflow.bgp_validity_state",
           FT_UINT8, BASE_DEC, NULL, 0x0,
@@ -14411,6 +14671,11 @@ proto_register_netflow(void)
           FT_UINT16, BASE_DEC|BASE_EXT_STRING, &v10_template_types_niagara_networks_ext, 0x7FFF,
           "Template field type", HFILL}
         },
+        {&hf_cflow_template_fastip_field_type,
+         {"Type", "cflow.template_fastip_field_type",
+          FT_UINT16, BASE_DEC|BASE_EXT_STRING, &v10_template_types_fastip_ext, 0x7FFF,
+          "Template field type", HFILL}
+        },
         {&hf_cflow_template_ipfix_field_type_enterprise,
          {"Type", "cflow.template_ipfix_field_type_enterprise",
           FT_UINT16, BASE_DEC, NULL, 0x7FFF,
@@ -14850,6 +15115,105 @@ proto_register_netflow(void)
         {&hf_pie_ntop,
          {"Ntop", "cflow.pie.ntop",
           FT_NONE, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_meter_version,
+         {"Meter Version", "cflow.pie.fastip.meter_version",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_meter_os_sysname,
+         {"Meter OS System Name", "cflow.pie.fastip.meter_os_sysname",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_meter_os_nodename,
+         {"Meter OS Node Name", "cflow.pie.fastip.meter_os_nodename",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_meter_os_release,
+         {"Meter OS Release", "cflow.pie.fastip.meter_os_release",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_meter_os_version,
+         {"Meter OS Version", "cflow.pie.fastip.meter_os_version",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_meter_os_machine,
+         {"Meter OS Machine", "cflow.pie.fastip.meter_os_machine",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_epoch_second,
+         {"Epoch Second", "cflow.pie.fastip.epoch_second",
+          FT_UINT32, BASE_DEC, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_nic_name,
+         {"NIC Name", "cflow.pie.fastip.nic_name",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_nic_id,
+         {"NIC ID", "cflow.pie.fastip.nic_id",
+          FT_UINT16, BASE_DEC, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_nic_mac,
+         {"NIC MAC", "cflow.pie.fastip.nic_mac",
+          FT_ETHER, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_nic_ip,
+         {"NIC IP", "cflow.pie.fastip.nic_ip",
+          FT_IPv4, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        /*
+        {&hf_pie_fastip_collisions
+        {&hf_pie_fastip_errors
+        */
+        {&hf_pie_fastip_nic_driver_name,
+         {"NIC Driver Name", "cflow.pie.fastip.nic_driver_name",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_nic_driver_version,
+         {"NIC Driver Version", "cflow.pie.fastip.nic_driver_version",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_nic_firmware_version,
+         {"NIC Firmware Version", "cflow.pie.fastip.nic_firmware_version",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_meter_os_distribution,
+         {"Meter OS Distribution", "cflow.pie.fastip.meter_os_distribution",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          NULL, HFILL}
+        },
+        /*
+        {&hf_pie_fastip_bond_interface_mode
+        {&hf_pie_fastip_bond_interface_physical_nic_count
+        {&hf_pie_fastip_bond_interface_id
+        */
+        {&hf_pie_fastip_tcp_handshake_rtt_usec,
+         {"TCP Handshake RTT uSec", "cflow.pie.fastip.tcp_handshake_rtt_usec",
+          FT_UINT32, BASE_DEC, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_app_rtt_usec,
+         {"App RTT uSec", "cflow.pie.fastip.app_rtt_usec",
+          FT_UINT32, BASE_DEC, NULL, 0x0,
+          NULL, HFILL}
+        },
+        {&hf_pie_fastip_tcp_flags,
+         {"TCP Flags", "cflow.pie.fastip.tcp_flags",
+          FT_UINT8, BASE_HEX, NULL, 0x0,
           NULL, HFILL}
         },
         /* ntop, 35632 / 80 */
@@ -19046,7 +19410,8 @@ proto_register_netflow(void)
         &ett_dataflowset,
         &ett_fwdstat,
         &ett_mpls_label,
-        &ett_tcpflags
+        &ett_tcpflags,
+        &ett_subtemplate_list
     };
 
     static ei_register_info ei[] = {
@@ -19086,6 +19451,9 @@ proto_register_netflow(void)
         { &ei_unexpected_sequence_number,
           { "cflow.unexpected_sequence_number", PI_SEQUENCE, PI_WARN,
             "Unexpected flow sequence for domain ID", EXPFILL}},
+        { &ei_cflow_subtemplate_bad_length,
+          { "cflow.subtemplate_bad_length", PI_UNDECODED, PI_WARN,
+            "SubTemplateList bad length", EXPFILL}},
     };
 
     module_t *netflow_module;

@@ -992,6 +992,10 @@
         <translation>Zeitspanne</translation>
     </message>
     <message>
+        <source>Section %1</source>
+        <translation>Bereich %1</translation>
+    </message>
+    <message>
         <source>Capture</source>
         <translation>Mitschnitt</translation>
     </message>
@@ -1088,8 +1092,8 @@
         <translation>Durschnittliche Bit/s</translation>
     </message>
     <message>
-        <source>File Comment</source>
-        <translation>Dateikommentar</translation>
+        <source>Section Comment</source>
+        <translation>Kommentar Bereich</translation>
     </message>
     <message>
         <source>Packet Comments</source>
@@ -4116,6 +4120,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Speichere %1</translation>
     </message>
     <message>
+        <source>Analyzing IAX2</source>
+        <translation>Analysiere IAX2</translation>
+    </message>
+    <message>
         <source>Save forward stream CSV</source>
         <translation>Hinweg Stream als CSV speichern</translation>
     </message>
@@ -4483,10 +4491,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
 <context>
     <name>InterfaceTreeModel</name>
     <message>
-        <source>No Interfaces found.</source>
-        <translation type="vanished">Keine Schnittstellen gefunden.</translation>
-    </message>
-    <message>
         <source>Show</source>
         <translation>Zeige</translation>
     </message>
@@ -4500,11 +4504,11 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>No interfaces found.</source>
-        <translation type="unfinished">Keine Schnittstellen gefunden.</translation>
+        <translation>Keine Schnittstellen gefunden.</translation>
     </message>
     <message>
         <source>This version of Wireshark was built without packet capture support.</source>
-        <translation type="unfinished"></translation>
+        <translation>Diese Version von Wireshark wurde ohne Unterstützung von Paketaufzeichnung kompiliert.</translation>
     </message>
     <message>
         <source>Local Pipe Path</source>
@@ -6621,10 +6625,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Alle angezeigten Pakete ignorieren</translation>
     </message>
     <message>
-        <source>Unignore All Displayed</source>
-        <translation>Alle angezeigte Pakete nicht mehr ignorieren</translation>
-    </message>
-    <message>
         <source>Set/Unset Time Reference</source>
         <translation>Zeitreferenz setzen/zurücksetzen</translation>
     </message>
@@ -7205,6 +7205,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Jedes ausgewählte Paket ignorieren bzw. Ignorieren zurücksetzen</translation>
     </message>
     <message>
+        <source>U&amp;nignore All Displayed</source>
+        <translation>Alle angezeigte Pakete nicht mehr ig&amp;norieren</translation>
+    </message>
+    <message>
+        <source>Unignore all displayed packets</source>
+        <translation>Alle angezeigte Pakete nicht mehr ignorieren</translation>
+    </message>
+    <message>
         <source>Time Shift…</source>
         <translation>Zeitverschieben...</translation>
     </message>
@@ -7605,10 +7613,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>&amp;Unmark All Displayed</source>
         <translation>Markier&amp;ung bei allen angezeigten Paketen entfernen</translation>
-    </message>
-    <message>
-        <source>U&amp;nignore all displayed packets</source>
-        <translation>Alle angezeigte Pakete nicht mehr ig&amp;norieren</translation>
     </message>
     <message>
         <source>All VoIP Calls</source>
@@ -8086,7 +8090,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Custom window title to be appended to the existing title&lt;br/&gt;%F = file path of the capture file&lt;br/&gt;%P = profile name&lt;br/&gt;%S = a conditional separator (&amp;quot; - &amp;quot;) that only shows when surrounded by variables with values or static text&lt;br/&gt;%V = version info&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Angepasster Fenstertitel der dem bestehenden Titel angehängt wird&lt;br/&gt;%F = Dateipfad der Mitschnittdatei&lt;br/&gt;%P = Profilname&lt;br/&gt;%S = ein bedingtes Trennzeichen (&amp;quot; - &amp;quot;) dass nur angezeigt wird wenn es von Variablen mit Werten oder statische Text umgeben ist&lt;br/&gt;%V = Versionsinformation&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Prepend window title</source>
@@ -8094,7 +8098,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Custom window title to be prepended to the existing title&lt;br/&gt;%F = file path of the capture file&lt;br/&gt;%P = profile name&lt;br/&gt;%S = a conditional separator (&amp;quot; - &amp;quot;) that only shows when surrounded by variables with values or static text&lt;br/&gt;%V = version info&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Angepasster Fenstertitel der dem bestehenden Titel angehängt wird&lt;br/&gt;%F = Dateipfad der Mitschnittdatei&lt;br/&gt;%P = Profilname&lt;br/&gt;%S = ein bedingtes Trennzeichen (&amp;quot; - &amp;quot;) dass nur angezeigt wird wenn es von Variablen mit Werten oder statische Text umgeben ist&lt;br/&gt;%V = Versionsinformation&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Language: </source>
@@ -9076,6 +9080,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Frame</source>
         <translation>Frame</translation>
+    </message>
+    <message>
+        <source>TextLabel</source>
+        <translation>Textbeschriftung</translation>
     </message>
 </context>
 <context>
@@ -10303,6 +10311,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Raw (*.raw)</source>
         <translation>Raw (*.raw)</translation>
+    </message>
+    <message>
+        <source>Analyzing RTP</source>
+        <translation>Analysiere RTP</translation>
     </message>
     <message>
         <source>Information</source>
@@ -11733,6 +11745,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>No valid search area selected. Please report this to the development team.</source>
         <translation>Keinen gültigen Suchbereich ausgewählt. Bitte melden Sie dies dem Entwickler-Team.</translation>
+    </message>
+    <message>
+        <source>Searching for %1</source>
+        <translation>Suche nach %1</translation>
     </message>
     <message>
         <source>No packet contained those bytes.</source>

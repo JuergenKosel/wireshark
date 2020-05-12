@@ -992,6 +992,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Section %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Capture</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1088,7 +1092,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>File Comment</source>
+        <source>Section Comment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4082,6 +4086,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Analyzing IAX2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Save forward stream CSV</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6558,10 +6566,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Unignore All Displayed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Set/Unset Time Reference</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7142,6 +7146,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>U&amp;nignore All Displayed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unignore all displayed packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Time Shift…</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7541,10 +7553,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>&amp;Unmark All Displayed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>U&amp;nignore all displayed packets</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -9012,6 +9020,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Frame</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>TextLabel</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ProtoTree</name>
@@ -10235,6 +10247,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Raw (*.raw)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Analyzing RTP</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11640,6 +11656,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>No valid search area selected. Please report this to the development team.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Searching for %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
