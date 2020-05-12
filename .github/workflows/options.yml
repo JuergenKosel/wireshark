@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: get-submodule
+        run: git submodule update --init
       - name: Install deps
         run: sudo tools/debian-setup.sh ninja-build -y
       - run: mkdir build
