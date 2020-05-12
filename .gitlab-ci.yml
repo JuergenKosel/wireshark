@@ -17,6 +17,9 @@ variables:
   retry:
     max: 1
     when: runner_system_failure
+  rules:
+    - if: '$CI_SERVER_HOST == "gitlab.com"'
+      when: always
   before_script:
     - apt-get update -qq
     - ./tools/debian-setup.sh --install-optional --install-test-deps -y
