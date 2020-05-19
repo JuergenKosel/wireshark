@@ -51,7 +51,7 @@ PROJECT_BRIEF          = "The Wireshark network protocol analyzer"
 # pixels and the maximum width should not exceed 200 pixels. Doxygen will copy
 # the logo to the output directory.
 
-PROJECT_LOGO           =
+PROJECT_LOGO           = @DOXYGEN_INPUT_DIRECTORY@/image/wsicon48.png
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute) path
 # into which the generated documentation will be written. If a relative path is
@@ -797,7 +797,6 @@ INPUT                  = \
         @DOXYGEN_TOP_LEVEL_SOURCES@ \
         @DOXYGEN_INPUT_DIRECTORY@/capchild \
         @DOXYGEN_INPUT_DIRECTORY@/caputils \
-        @DOXYGEN_INPUT_DIRECTORY@/cmbuild \
         @DOXYGEN_INPUT_DIRECTORY@/epan \
         @DOXYGEN_INPUT_DIRECTORY@/extcap \
         @DOXYGEN_INPUT_DIRECTORY@/plugins \
