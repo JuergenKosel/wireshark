@@ -4,7 +4,7 @@
  * Controllers, possibly other Cisco access points, and possibly
  * other devices such as Aruba access points.  See
  *
- *    http://www.wildpackets.com/elements/omnipeek/OmniPeek_UserGuide.pdf
+ *    https://web.archive.org/web/20130117041444/http://www.wildpackets.com/elements/omnipeek/OmniPeek_UserGuide.pdf
  *
  * which speaks of Aruba access points supporting remote capture and
  * defaulting to port 5000 for this, and also speaks of Cisco access
@@ -14,6 +14,12 @@
  * streaming packets but perhaps other protocols for, for example,
  * discovery and setup, or whether they use different protocols
  * for streaming packets.
+ *
+ * A later manual at
+ *
+ *    https://community.liveaction.com/wp-content/uploads/2020/02/Omnipeek-UserGuide-2-20.pdf
+ *
+ * speaks of Aruba and Cisco access points together, mentioning port 5000.
  *
  * Apparently Aruba supports several protocols, including Peek remote.
  * See the packet-aruba-erm dissector.

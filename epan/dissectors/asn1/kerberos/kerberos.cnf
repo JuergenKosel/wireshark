@@ -7,6 +7,7 @@ ChangePasswdData
 Applications ONLY_ENUM
 
 #.FIELD_RENAME
+Authenticator/_untag/subkey authenticator_subkey
 KDC-REQ-BODY/etype kDC-REQ-BODY_etype
 KRB-SAFE-BODY/user-data kRB-SAFE-BODY_user_data
 EncKrbPrivPart/user-data encKrbPrivPart_user_data
@@ -18,14 +19,23 @@ PA-ENC-TIMESTAMP/cipher pA-ENC-TIMESTAMP_cipher
 EncryptedAPREPData/cipher encryptedAPREPData_cipher
 EncryptedKrbPrivData/cipher encryptedKrbPrivData_cipher
 EncryptedKrbCredData/cipher encryptedKrbCredData_cipher
+EncryptedKrbFastReq/cipher encryptedKrbFastReq_cipher
+EncryptedKrbFastResponse/cipher encryptedKrbFastResponse_cipher
+EncryptedChallenge/cipher encryptedChallenge_cipher
+EncAPRepPart/_untag/subkey encAPRepPart_subkey
+EncTicketPart/_untag/key encTicketPart_key
+EncKDCRepPart/key encKDCRepPart_key
 KRB-CRED/_untag/enc-part kRB_CRED_enc_part
 KRB-PRIV/_untag/enc-part kRB_PRIV_enc_part
+KrbCredInfo/key krbCredInfo_key
 AP-REP/_untag/enc-part aP_REP_enc_part
 KDC-REP/enc-part kDC_REP_enc_part
 Ticket/_untag/enc-part ticket_enc_part
 ETYPE-INFO-ENTRY/salt info_salt
 ETYPE-INFO2-ENTRY/salt info2_salt
 AP-REQ/_untag/authenticator authenticator_enc_part
+PA-FX-FAST-REQUEST/armored-data armored_data_request
+PA-FX-FAST-REPLY/armored-data armored_data_reply
 
 #.OMIT_ASSIGNMENT
 AD-AND-OR
@@ -33,12 +43,19 @@ AD-KDCIssued
 AD-LoginAlias
 AD-MANDATORY-FOR-KDC
 ChangePasswdDataMS
+EncryptedData
 EtypeList
+FastOptions
+KerberosFlags
+KrbFastFinished
+KrbFastResponse
+KrbFastReq
 KRB5SignedPath
 KRB5SignedPathData
 KRB5SignedPathPrincipals
 Krb5int32
 Krb5uint32
+PA-AUTHENTICATION-SET
 PA-ClientCanonicalized
 PA-ClientCanonicalizedNames
 PA-ENC-TS-ENC
@@ -55,11 +72,6 @@ Principal
 PROV-SRV-LOCATION
 SAMFlags
 TYPED-DATA
-KrbFastReq
-KrbFastResponse
-KrbFastFinished
-FastOptions
-KerberosFlags
 
 #.NO_EMIT ONLY_VALS
 Applications
@@ -73,6 +85,7 @@ Applications TYPE_PREFIX
 #.MAKE_ENUM
 PADATA-TYPE PROT_PREFIX UPPER_CASE
 AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
+KrbFastArmorTypes PROT_PREFIX UPPER_CASE
 
 #.FN_BODY MESSAGE-TYPE VAL_PTR = &msgtype
   kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
@@ -132,10 +145,10 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
   case KRB5_ET_KDC_ERR_PREAUTH_BAD_AUTHENTICATION_SET:
   case KRB5_ET_KDC_ERR_UNKNOWN_CRITICAL_FAST_OPTIONS:
     offset=dissect_ber_octet_string_wcb(FALSE, actx, tree, tvb, offset, hf_kerberos_e_data, dissect_kerberos_SEQUENCE_OF_PA_DATA);
-
     break;
   default:
     offset=dissect_ber_octet_string(FALSE, actx, tree, tvb, offset, hf_kerberos_e_data, NULL);
+    break;
   }
 
 
@@ -159,7 +172,9 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
 
   switch(private_data->padata_type){
   case KERBEROS_PA_TGS_REQ:
+    private_data->within_PA_TGS_REQ++;
     offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, dissect_kerberos_Applications);
+    private_data->within_PA_TGS_REQ--;
     break;
   case KERBEROS_PA_PK_AS_REP_19:
     private_data->is_win2k_pkinit = TRUE;
@@ -205,15 +220,18 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
   case KERBEROS_PA_PW_SALT:
     offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, dissect_krb5_PW_SALT);
     break;
-  case KERBEROS_PA_AUTHENTICATION_SET:
-    offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, dissect_kerberos_PA_AUTHENTICATION_SET);
+  case KERBEROS_PA_AUTH_SET_SELECTED:
+    offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, dissect_kerberos_PA_AUTHENTICATION_SET_ELEM);
     break;
   case KERBEROS_PA_FX_FAST:
-    if(private_data->msg_type == KRB5_MSG_AS_REQ || private_data->msg_type == KRB5_MSG_TGS_REQ){
+    if (kerberos_private_is_kdc_req(private_data)) {
       offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, dissect_kerberos_PA_FX_FAST_REQUEST);
     }else{
       offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, dissect_kerberos_PA_FX_FAST_REPLY);
     }
+    break;
+  case KERBEROS_PA_FX_ERROR:
+    offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, dissect_kerberos_Applications);
     break;
   case KERBEROS_PA_ENCRYPTED_CHALLENGE:
     offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, dissect_kerberos_EncryptedChallenge);
@@ -229,6 +247,7 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
     break;
   default:
     offset=dissect_ber_octet_string_wcb(FALSE, actx, sub_tree, tvb, offset,hf_index, NULL);
+    break;
   }
 
 #.FN_BODY HostAddress/address
@@ -267,6 +286,7 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
   default:
     proto_tree_add_expert(tree, actx->pinfo, &ei_kerberos_address, tvb, offset, len);
     address_str = NULL;
+    break;
   }
 
   /* push it up two levels in the decode pane */
@@ -356,10 +376,17 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
     break;
   default:
     offset=dissect_ber_octet_string(FALSE, actx, tree, tvb, offset, hf_index, NULL);
+    break;
   }
 
 #.FN_BODY EncryptionKey/keytype VAL_PTR=&gbl_keytype
   kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+
+  private_data->key_hidden_item = proto_tree_add_item(tree, hf_krb_key_hidden_item,
+                                                      tvb, 0, 0, ENC_NA);
+  if (private_data->key_hidden_item != NULL) {
+    proto_item_set_hidden(private_data->key_hidden_item);
+  }
 
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                   &gbl_keytype);
@@ -373,17 +400,96 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
 
   private_data->key.keylength = tvb_reported_length(out_tvb);
   private_data->key.keyvalue = tvb_get_ptr(out_tvb, 0, private_data->key.keylength);
+  private_data->key_tree = tree;
+  private_data->key_tvb = out_tvb;
 
 #.FN_BODY EncryptionKey
   kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+##ifdef HAVE_KERBEROS
+  int start_offset = offset;
+##endif
 
   %(DEFAULT_BODY)s
 
   if (private_data->key.keytype != 0 && private_data->key.keylength > 0) {
 ##ifdef HAVE_KERBEROS
-    add_encryption_key(actx->pinfo, private_data->key.keytype, private_data->key.keylength, private_data->key.keyvalue, "key");
+    int length = offset - start_offset;
+    private_data->last_added_key = NULL;
+    private_data->save_encryption_key_fn(tvb, start_offset, length, actx, tree,
+                                         private_data->save_encryption_key_parent_hf_index,
+                                         hf_index);
+    private_data->last_added_key = NULL;
 ##endif
   }
+
+#.FN_BODY Authenticator/_untag/subkey
+  kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+  gint save_encryption_key_parent_hf_index = private_data->save_encryption_key_parent_hf_index;
+  kerberos_key_save_fn saved_encryption_key_fn = private_data->save_encryption_key_fn;
+  private_data->save_encryption_key_parent_hf_index = hf_kerberos_authenticator;
+##ifdef HAVE_KERBEROS
+  private_data->save_encryption_key_fn = save_Authenticator_subkey;
+##endif
+%(DEFAULT_BODY)s
+  private_data->save_encryption_key_parent_hf_index = save_encryption_key_parent_hf_index;
+  private_data->save_encryption_key_fn = saved_encryption_key_fn;
+
+#.FN_BODY EncAPRepPart/_untag/subkey
+  kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+  gint save_encryption_key_parent_hf_index = private_data->save_encryption_key_parent_hf_index;
+  kerberos_key_save_fn saved_encryption_key_fn = private_data->save_encryption_key_fn;
+  private_data->save_encryption_key_parent_hf_index = hf_kerberos_encAPRepPart;
+##ifdef HAVE_KERBEROS
+  private_data->save_encryption_key_fn = save_EncAPRepPart_subkey;
+##endif
+%(DEFAULT_BODY)s
+  private_data->save_encryption_key_parent_hf_index = save_encryption_key_parent_hf_index;
+  private_data->save_encryption_key_fn = saved_encryption_key_fn;
+
+#.FN_BODY EncKDCRepPart/key
+  kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+  gint save_encryption_key_parent_hf_index = private_data->save_encryption_key_parent_hf_index;
+  kerberos_key_save_fn saved_encryption_key_fn = private_data->save_encryption_key_fn;
+  switch (private_data->msg_type) {
+  case KERBEROS_APPLICATIONS_AS_REP:
+    private_data->save_encryption_key_parent_hf_index = hf_kerberos_encASRepPart;
+    break;
+  case KERBEROS_APPLICATIONS_TGS_REP:
+    private_data->save_encryption_key_parent_hf_index = hf_kerberos_encTGSRepPart;
+    break;
+  default:
+    private_data->save_encryption_key_parent_hf_index = -1;
+  }
+##ifdef HAVE_KERBEROS
+  private_data->save_encryption_key_fn = save_EncKDCRepPart_key;
+##endif
+%(DEFAULT_BODY)s
+  private_data->save_encryption_key_parent_hf_index = save_encryption_key_parent_hf_index;
+  private_data->save_encryption_key_fn = saved_encryption_key_fn;
+
+#.FN_BODY EncTicketPart/_untag/key
+  kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+  gint save_encryption_key_parent_hf_index = private_data->save_encryption_key_parent_hf_index;
+  kerberos_key_save_fn saved_encryption_key_fn = private_data->save_encryption_key_fn;
+  private_data->save_encryption_key_parent_hf_index = hf_kerberos_encTicketPart;
+##ifdef HAVE_KERBEROS
+  private_data->save_encryption_key_fn = save_EncTicketPart_key;
+##endif
+%(DEFAULT_BODY)s
+  private_data->save_encryption_key_parent_hf_index = save_encryption_key_parent_hf_index;
+  private_data->save_encryption_key_fn = saved_encryption_key_fn;
+
+#.FN_BODY KrbCredInfo/key
+  kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+  gint save_encryption_key_parent_hf_index = private_data->save_encryption_key_parent_hf_index;
+  kerberos_key_save_fn saved_encryption_key_fn = private_data->save_encryption_key_fn;
+  private_data->save_encryption_key_parent_hf_index = hf_kerberos_ticket_info_item;
+##ifdef HAVE_KERBEROS
+  private_data->save_encryption_key_fn = save_KrbCredInfo_key;
+##endif
+%(DEFAULT_BODY)s
+  private_data->save_encryption_key_parent_hf_index = save_encryption_key_parent_hf_index;
+  private_data->save_encryption_key_fn = saved_encryption_key_fn;
 
 #.FN_BODY AUTHDATA-TYPE VAL_PTR=&(private_data->ad_type)
   kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
@@ -399,6 +505,9 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
   case KERBEROS_AD_IF_RELEVANT:
     offset=dissect_ber_octet_string_wcb(implicit_tag, actx, tree, tvb, offset, hf_index, dissect_kerberos_AD_IF_RELEVANT);
     break;
+  case KERBEROS_AD_AUTHENTICATION_STRENGTH:
+    offset=dissect_ber_octet_string_wcb(implicit_tag, actx, tree, tvb, offset, hf_index, dissect_kerberos_PA_AUTHENTICATION_SET_ELEM);
+    break;
   case KERBEROS_AD_GSS_API_ETYPE_NEGOTIATION:
     offset=dissect_ber_octet_string_wcb(implicit_tag, actx, tree, tvb, offset, hf_index, dissect_kerberos_SEQUENCE_OF_ENCTYPE);
     break;
@@ -413,6 +522,7 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
     break;
   default:
     offset=dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
+    break;
   }
 
 #.FN_BODY S4UUserID/subject-certificate
@@ -468,3 +578,44 @@ AUTHDATA-TYPE PROT_PREFIX UPPER_CASE
 #.FN_FTR EncKDCRepPart/encrypted-pa-data
   private_data->is_enc_padata = FALSE;
 
+#.FN_BODY EncryptedKrbFastReq/cipher
+##ifdef HAVE_KERBEROS
+  offset=dissect_ber_octet_string_wcb(FALSE, actx, tree, tvb, offset, hf_index, dissect_krb5_decrypt_KrbFastReq);
+##else
+%(DEFAULT_BODY)s
+##endif
+  return offset;
+
+#.FN_BODY EncryptedKrbFastResponse/cipher
+##ifdef HAVE_KERBEROS
+  offset=dissect_ber_octet_string_wcb(FALSE, actx, tree, tvb, offset, hf_index, dissect_krb5_decrypt_KrbFastResponse);
+##else
+%(DEFAULT_BODY)s
+##endif
+  return offset;
+
+#.FN_BODY EncryptedChallenge/cipher
+##ifdef HAVE_KERBEROS
+  offset=dissect_ber_octet_string_wcb(FALSE, actx, tree, tvb, offset, hf_index, dissect_krb5_decrypt_EncryptedChallenge);
+##else
+%(DEFAULT_BODY)s
+##endif
+  return offset;
+
+#.FN_BODY KrbFastArmorTypes VAL_PTR=&(private_data->fast_type)
+  kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+%(DEFAULT_BODY)s
+
+#.FN_BODY KrbFastArmor/armor-value
+  kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
+
+  switch(private_data->fast_type){
+  case KERBEROS_FX_FAST_ARMOR_AP_REQUEST:
+    private_data->fast_armor_within_armor_value++;
+    offset=dissect_ber_octet_string_wcb(implicit_tag, actx, tree, tvb, offset, hf_index, dissect_kerberos_Applications);
+    private_data->fast_armor_within_armor_value--;
+    break;
+  default:
+    offset=dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
+    break;
+  }
