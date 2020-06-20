@@ -482,6 +482,7 @@ static const value_string ccwa_class_vals[] = {
 
 static const value_string biev_assigned_number_vals[] = {
     { 1,   "Enhanced Safety" },
+    { 2,   "Battery Level" },
     { 0, NULL }
 };
 
@@ -779,7 +780,7 @@ dissect_brsf_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     value = get_uint_parameter(parameter_stream, parameter_length);
 
     if (role == ROLE_HS) {
-        static const int * hs[] = {
+        static int * const hs[] = {
             &hf_brsf_hs_ec_nr_function,
             &hf_brsf_hs_call_waiting_or_tree_way,
             &hf_brsf_hs_cli_presentation,
@@ -799,7 +800,7 @@ dissect_brsf_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             expert_add_info(pinfo, pitem, &ei_brfs_hs_reserved_bits);
         }
     } else {
-        static const int * ag[] = {
+        static int * const ag[] = {
             &hf_brsf_ag_three_way_calling,
             &hf_brsf_ag_ec_nr_function,
             &hf_brsf_ag_voice_recognition_function,
@@ -1110,7 +1111,7 @@ dissect_xapl_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             proto_tree_add_item(tree, hf_xapl_host_info, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
         }
     } else if (parameter_number == 1) {
-        static const int * hfx[] = {
+        static int * const hfx[] = {
             &hf_xapl_features_reserved_x,
             &hf_xapl_features_noise_reduction_status_reporting,
             &hf_xapl_features_siri_status_reporting,
@@ -1149,7 +1150,7 @@ dissect_biev_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
         if (value > 65535) {
             expert_add_info(pinfo, pitem, &ei_biev_assigned_number);
-        } else if (value > 1) {
+        } else if (value > 2) {
             expert_add_info(pinfo, pitem, &ei_biev_assigned_number_no);
         }
     } else if (parameter_number == 1) {

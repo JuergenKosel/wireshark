@@ -501,7 +501,7 @@ dissect_mip_extensions(tvbuff_t * tvb, int offset, proto_tree * tree)
 	proto_tree *mip_tree = NULL;
 	gint numCOAs;
 	gint i;
-	static const int * flags[] = {
+	static int * const flags[] = {
 		&hf_icmp_mip_r,
 		&hf_icmp_mip_b,
 		&hf_icmp_mip_h,
@@ -792,7 +792,7 @@ dissect_interface_information_object(tvbuff_t * tvb, gint offset,
 	name_flag = (c_type & INT_INFO_NAME) >> 1;
 
 	{
-		static const gint *c_type_fields[] = {
+		static int * const c_type_fields[] = {
 			&hf_icmp_int_info_role,
 			&hf_icmp_int_info_reserved,
 			&hf_icmp_int_info_ifindex,
@@ -985,7 +985,7 @@ dissect_icmp_extension(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, v
 							pinfo, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NOT_PRESENT);
 
 	} else {
-	proto_tree_add_checksum(ext_tree, tvb, offset + 2, hf_icmp_ext_checksum, hf_icmp_ext_checksum_status, &ei_icmp_ext_checksum,
+		proto_tree_add_checksum(ext_tree, tvb, offset + 2, hf_icmp_ext_checksum, hf_icmp_ext_checksum_status, &ei_icmp_ext_checksum,
 							pinfo, ip_checksum_tvb(tvb, offset, reported_length), ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY|PROTO_CHECKSUM_IN_CKSUM);
 	}
 

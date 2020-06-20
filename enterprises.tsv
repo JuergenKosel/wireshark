@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2020-05-23)
+# (last updated 2020-06-13)
 
 0	Reserved
 1	NxNetworks
@@ -814,7 +814,7 @@
 805	Applications Management Corp
 806	Travelers Insurance Company
 807	Taiwan International Standard Electronics Ltd.
-808	US Patent and Trademark Office Rick
+808	US Patent and Trademark Office
 809	Hynet, Ltd.
 810	Aydin, Corp.
 811	ADDTRON Technology Co., Ltd.
@@ -3445,7 +3445,7 @@
 3441	South Carolina State Ports Authority (SCSPA)
 3442	Advantech Inc.
 3443	United Healthcare
-3444	egnite Software GmbH
+3444	egnite GmbH
 3445	Radiant Communications Corp.
 3446	Ridge Technologies Dave
 3447	JGI, Inc.
@@ -6511,7 +6511,7 @@
 6524	Greenbytes GmbH
 6525	Jasmine Networks, Inc.
 6526	Windward Consulting Group
-6527	Alcatel-Lucent	# formerly 'Panthera Networks, Inc.'
+6527	Nokia	# formerly 'Alcatel-Lucent'
 6528	Source One
 6529	Bundesamt für Sicherheit in der Informationstechnik
 6530	2N spol. s r.o.
@@ -18432,7 +18432,7 @@
 18580	Whetstone Software
 18581	SPD-Bundestagsfraktion
 18582	Slack Ltd.
-18583	Bit 9 Inc.
+18583	Vmware Carbon Black	# formerly 'Bit 9 Inc.'
 18584	Avanex  Co.
 18585	GuangDong Poson Company.Ltd
 18586	bbassett.net
@@ -26610,7 +26610,7 @@
 26766	.vantronix secure systems
 26767	Alcatel-Lucent TMC	# formerly 'Alcatel SOC'
 26768	Comune di Rimini
-26769	United Technologies Corporation
+26769	Raytheon Technologies Corporation
 26770	Virtutility Ltd
 26771	Versaterm Inc.
 26772	The Royal Conservatoire
@@ -27258,7 +27258,7 @@
 27414	Stadt Chemnitz
 27415	SiRF Technology, Inc.
 27416	Elvaco AB
-27417	FAST TV-SERVER AG
+27417	FAST LTA GmbH
 27418	FiSEC GmbH
 27419	University of New England
 27420	Southside Community Hospital
@@ -53309,7 +53309,6 @@
 53500	IVES-SYSTEM Sp. z o. o.
 53501	DC IT-Consulting
 53502	RealexPayments
-53503	Sprint Federal Operations
 53504	Stephens College
 53505	TELERYS COMMUNICATION
 53506	Kaman Inc.
@@ -55506,7 +55505,7 @@
 55699	VTNS
 55700	AppLine
 55701	Signers Technology LLC
-55702	Adam Maxwell Investment
+55702	Adam Maxwell Investment Company AMI
 55703	OAG INDUSTRIES srl
 55704	OpenetME
 55705	Smith Consulting LLC
@@ -55634,3 +55633,115 @@
 55827	Uplevel Systems, Inc
 55828	Marshall Community Credit Union
 55829	Arthur18
+55830	Gazprom Remont
+55831	Speedway LLC
+55832	Fidelity National Information Services
+55833	Shenzhen boruide technology co. LTD
+55834	NorthHinkle
+55835	Sutra Tech Labs Inc
+55836	MFA Informatik AG
+55837	Schäckermann
+55838	DLinuxguy INC.
+55839	Lynxgistics Inter Freight Co., Ltd.
+55840	JieYue technical service studio
+55841	Tibasamaneh
+55842	Lagoni Engineering
+55843	AXXICON Moulds Eindhoven BV
+55844	Nebig Verpakkingen B.V.
+55845	Mevi Beheer
+55846	Smits Groep
+55847	Libéma Exploitatie B.V.
+55848	Swifthosting ApS
+55849	Mizar Magic and Research Network
+55850	Veea Systems Ltd
+55851	Jordan Klein
+55852	Saṃvásana Holdings
+55853	BaaSid International Lab Co.,LTD. (Taiwan)
+55854	Pagebe.fr
+55855	UkrTrade ltd
+55856	EMCO Chemical Distributors, Inc.
+55857	DD Cloud
+55858	ALL D.S. SECURITY SOLUTIONS LTD
+55859	Mini-Circuits
+55860	Advantech Wireless Technologies Inc.
+55861	Miranham -CreatorGroups-
+55862	Gold Corporation
+55863	COMNET INC.
+55864	AMMG
+55865	The University of Alabama
+55866	Mathima Technologies
+55867	eSKamation
+55868	Useful Bytes LLC
+55869	Leertouwer
+55870	Zaman 01 LTD
+55871	Crédit Mutuel ARKEA
+55872	ProLabs
+55873	Xona Systems, Inc.
+55874	Østfold Interkommunale Arkivselskap IKS
+55875	Agentilo GmbH
+55876	VitalThings AS
+55877	AppEx Networks Corporation
+55878	ABSU Limited
+55879	AddSecure Acquisitions Holdings AB
+55880	StealthPath Inc.
+55881	toolman.org
+55882	GREEN CITY STI.,JSC
+55883	Micro-Design Inc
+55884	fremetih solutions
+55885	Successful Endeavours Pty Ltd
+55886	Imperani Alarm Services T/A JA Security
+55887	Nanjing Huastart Network Technology Co.Ltd
+55888	TradeWith
+55889	TycheTools, SL
+55890	Technocon
+55891	Artemis Tosini
+55892	Guang Zhou Aoshi Internet Information & Technology Co., Ltd.
+55893	Hyve Solutions
+55894	e-Smart Systems Europe SL.
+55895	Katariya Infra Projects Private Limited
+55896	DAAD - Deutscher Akademischer Austauschdienst
+55897	ARKRAY USA, Inc.
+55898	MEDICON
+55899	IPG Information Process Group GmbH Deutschland
+55900	National Academy of Forensic Engineers
+55901	Sven Anders
+55902	3FONT
+55903	hagebau IT GmbH
+55904	National Petroleum Construction Company
+55905	J.H.C. de Rooy Holding B.V.
+55906	SecretNest.info
+55907	Shenzhen New Trend International Logistics Technology Co.,LTD
+55908	Dinnissen B.V.
+55909	Coolsure Limited
+55910	Heka Werkzeuge GmbH
+55911	Proper Code
+55912	Associação Nacional dos Registradores de Pessoas Naturais
+55913	Pinnacle Oncology
+55914	Tomasz Szkutkowski IT Consulting
+55915	NEMZETI MOBILFIZETESI ZRT.
+55916	Junge Sprachwissenschaft e. V.
+55917	Tel
+55918	SecureLogic LTD
+55919	Martin Loehnertz IT Beratung
+55920	PCItek
+55921	iSAtech water GmbH
+55922	Kismet Wireless
+55923	Lauterbach GmbH
+55924	yfn Beteiligungsgesellschaft UG
+55925	Buy Whole Foods Online Ltd
+55926	Cumtenn Intelligent information science and technology（Zhejiang） Co., Ltd.
+55927	seot
+55928	JSC Profotech
+55929	University of Lausanne
+55930	Kwikbit
+55931	Safe Host S.A.
+55932	GXM Consulting
+55933	Powersoft S.p.A.
+55934	Cryptnox SA
+55935	Kutai Electronics Industry Co., LDTD.
+55936	Grentech
+55937	Delta Electronics, Inc.
+55938	Kero Kero Information Technology Center
+55939	Garantir Technologies Private Limited
+55940	Temas LLC
+55941	Wisdom Technologies Pvt Ltd

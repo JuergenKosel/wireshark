@@ -1601,7 +1601,7 @@ populate_http_header_tracking(tvbuff_t *tvb, packet_info *pinfo, http2_session_t
     if (strcmp(header_name, HTTP2_HEADER_STATUS) == 0 ||
                 strcmp(header_name, HTTP2_HEADER_METHOD) == 0 ||
                 /* If we are in the middle of a stream assume there might be data transfer */
-                strcmp(header_name, HTTP2_HEADER_UNKNOWN)){
+                strcmp(header_name, HTTP2_HEADER_UNKNOWN) == 0){
         http2_data_stream_reassembly_info_t *reassembly_info = get_data_reassembly_info(pinfo, h2session);
         if (reassembly_info->data_initiated_in == 0) {
             reassembly_info->data_initiated_in = get_http2_frame_num(tvb, pinfo);
@@ -1679,6 +1679,21 @@ try_add_named_header_field(proto_tree *tree, tvbuff_t *tvb, int offset, guint32 
         proto_tree_add_item(tree, hf_id, tvb, offset, length, ENC_BIG_ENDIAN);
     }
 }
+
+#if NGHTTP2_VERSION_NUM < 0x010B00  /* 1.11.0 */
+static inline ssize_t nghttp2_hd_inflate_hd2(nghttp2_hd_inflater *inflater,
+                                             nghttp2_nv *nv_out,
+                                             int *inflate_flags,
+                                             const uint8_t *in, size_t inlen,
+                                             int in_final)
+{
+DIAG_OFF(cast-qual)
+    uint8_t *in_buf = (uint8_t *)in;
+DIAG_ON(cast-qual)
+    return nghttp2_hd_inflate_hd(inflater, nv_out, inflate_flags, in_buf, inlen,
+                                 in_final);
+}
+#endif
 
 static void
 fix_partial_header_dissection_support(nghttp2_hd_inflater *hd_inflater, gboolean *fix_it)
@@ -1804,13 +1819,9 @@ inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset, prot
                 break;
             }
 
-#if (NGHTTP2_VERSION_NUM >= 0x010B00)
             rv = (int)nghttp2_hd_inflate_hd2(hd_inflater, &nv,
-                &inflate_flags, headbuf, headlen, final);
-#else
-            rv = (int)nghttp2_hd_inflate_hd(hd_inflater, &nv,
-                &inflate_flags, headbuf, headlen, final);
-#endif
+                                             &inflate_flags, headbuf, headlen, final);
+
             if(rv < 0) {
                 break;
             }
@@ -2154,9 +2165,9 @@ dissect_http2_header_flags(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ht
 {
 
     guint64 flags_val;
-    const int** fields;
+    int* const * fields;
 
-    static const int* http2_hdr_flags[] = {
+    static int* const http2_hdr_flags[] = {
         &hf_http2_flags_unused_headers,
         &hf_http2_flags_priority,
         &hf_http2_flags_padded,
@@ -2165,40 +2176,40 @@ dissect_http2_header_flags(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ht
         NULL
     };
 
-    static const int* http2_data_flags[] = {
+    static int* const http2_data_flags[] = {
         &hf_http2_flags_unused_data,
         &hf_http2_flags_padded,
         &hf_http2_flags_end_stream,
         NULL
     };
 
-    static const int* http2_settings_flags[] = {
+    static int* const http2_settings_flags[] = {
         &hf_http2_flags_unused_settings,
         &hf_http2_flags_settings_ack,
         NULL
     };
 
-    static const int* http2_push_promise_flags[] = {
+    static int* const http2_push_promise_flags[] = {
         &hf_http2_flags_unused_push_promise,
         &hf_http2_flags_padded,
         &hf_http2_flags_end_headers,
         NULL
     };
 
-    static const int* http2_continuation_flags[] = {
+    static int* const http2_continuation_flags[] = {
         &hf_http2_flags_unused_continuation,
         &hf_http2_flags_padded,
         &hf_http2_flags_end_headers,
         NULL
     };
 
-    static const int* http2_ping_flags[] = {
+    static int* const http2_ping_flags[] = {
         &hf_http2_flags_unused_ping,
         &hf_http2_flags_ping_ack,
         NULL
     };
 
-    static const int* http2_unused_flags[] = {
+    static int* const http2_unused_flags[] = {
         &hf_http2_flags_unused,
         NULL
     };

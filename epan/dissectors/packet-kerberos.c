@@ -52,6 +52,15 @@
 
 #include <stdio.h>
 
+// krb5.h needs to be included before the defines in packet-kerberos.h
+#if defined(HAVE_HEIMDAL_KERBEROS) || defined(HAVE_MIT_KERBEROS)
+#ifdef _WIN32
+/* prevent redefinition warnings in krb5's win-mac.h */
+#define SSIZE_T_DEFINED
+#endif /* _WIN32 */
+#include <krb5.h>
+#endif
+
 #include <epan/packet.h>
 #include <epan/exceptions.h>
 #include <epan/strutil.h>
@@ -494,7 +503,7 @@ static int hf_kerberos_PAC_OPTIONS_FLAGS_forward_to_full_dc = -1;
 static int hf_kerberos_PAC_OPTIONS_FLAGS_resource_based_constrained_delegation = -1;
 
 /*--- End of included file: packet-kerberos-hf.c ---*/
-#line 273 "./asn1/kerberos/packet-kerberos-template.c"
+#line 282 "./asn1/kerberos/packet-kerberos-template.c"
 
 /* Initialize the subtree pointers */
 static gint ett_kerberos = -1;
@@ -596,7 +605,7 @@ static gint ett_kerberos_KrbFastArmoredRep = -1;
 static gint ett_kerberos_EncryptedChallenge = -1;
 
 /*--- End of included file: packet-kerberos-ett.c ---*/
-#line 298 "./asn1/kerberos/packet-kerberos-template.c"
+#line 307 "./asn1/kerberos/packet-kerberos-template.c"
 
 static expert_field ei_kerberos_missing_keytype = EI_INIT;
 static expert_field ei_kerberos_decrypted_keytype = EI_INIT;
@@ -724,7 +733,7 @@ typedef enum _KERBEROS_KRBFASTARMORTYPES_enum {
 } KERBEROS_KRBFASTARMORTYPES_enum;
 
 /*--- End of included file: packet-kerberos-val.h ---*/
-#line 312 "./asn1/kerberos/packet-kerberos-template.c"
+#line 321 "./asn1/kerberos/packet-kerberos-template.c"
 
 static void
 call_kerberos_callbacks(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int tag, kerberos_callbacks *cb)
@@ -822,11 +831,6 @@ read_keytab_file_from_preferences(void)
 #endif /* HAVE_KERBEROS */
 
 #if defined(HAVE_HEIMDAL_KERBEROS) || defined(HAVE_MIT_KERBEROS)
-#ifdef _WIN32
-/* prevent redefinition warnings in krb5's win-mac.h */
-#define SSIZE_T_DEFINED
-#endif /* _WIN32 */
-#include <krb5.h>
 enc_key_t *enc_key_list=NULL;
 static guint kerberos_longterm_ids = 0;
 wmem_map_t *kerberos_longterm_keys = NULL;
@@ -1307,6 +1311,9 @@ static void used_encryption_key(proto_tree *tree, packet_info *pinfo,
 	kerberos_key_list_append(private_data->decryption_keys, ek);
 	private_data->last_decryption_key = ek;
 }
+#endif /* HAVE_HEIMDAL_KERBEROS || HAVE_MIT_KERBEROS */
+
+#ifdef HAVE_MIT_KERBEROS
 
 static void missing_encryption_key(proto_tree *tree, packet_info *pinfo,
 				   kerberos_private_data_t *private_data,
@@ -1340,10 +1347,6 @@ static void missing_encryption_key(proto_tree *tree, packet_info *pinfo,
 
 	kerberos_key_list_append(private_data->missing_keys, mek);
 }
-
-#endif /* HAVE_HEIMDAL_KERBEROS || HAVE_MIT_KERBEROS */
-
-#if defined(HAVE_MIT_KERBEROS)
 
 #ifdef HAVE_KRB5_PAC_VERIFY
 static void used_signing_key(proto_tree *tree, packet_info *pinfo,
@@ -1475,7 +1478,7 @@ krb5_fast_key(asn1_ctx_t *actx, proto_tree *tree, tvbuff_t *tvb,
 
 	krb5_free_keyblock(krb5_ctx, k);
 }
-#else
+#else /* HAVE_KRB5_C_FX_CF2_SIMPLE */
 static void
 krb5_fast_key(asn1_ctx_t *actx _U_, proto_tree *tree _U_, tvbuff_t *tvb _U_,
 	      enc_key_t *ek1 _U_, const char *p1 _U_,
@@ -1483,7 +1486,7 @@ krb5_fast_key(asn1_ctx_t *actx _U_, proto_tree *tree _U_, tvbuff_t *tvb _U_,
 	      const char *origin _U_)
 {
 }
-#endif
+#endif /* HAVE_KRB5_C_FX_CF2_SIMPLE */
 
 USES_APPLE_DEPRECATED_API
 void
@@ -1776,7 +1779,7 @@ decrypt_krb5_with_cb_try_key(gpointer __key _U_, gpointer value, gpointer userda
 		 */
 		return;
 	}
-#endif
+#endif /* HAVE_KRB5_C_FX_CF2_SIMPLE */
 
 	/* shortcircuit and bail out if enctypes are not matching */
 	if ((state->keytype != -1) && (ek->keytype != state->keytype)) {
@@ -2381,7 +2384,7 @@ static krb5_context krb5_ctx;
 USES_APPLE_DEPRECATED_API
 
 static void
-krb5_fast_key(asn1_ctx_t *actx, proto_tree *tree, tvbuff_t *tvb,
+krb5_fast_key(asn1_ctx_t *actx _U_, proto_tree *tree _U_, tvbuff_t *tvb _U_,
 	      enc_key_t *ek1 _U_, const char *p1 _U_,
 	      enc_key_t *ek2 _U_, const char *p2 _U_,
 	      const char *origin _U_)
@@ -3594,9 +3597,9 @@ dissect_krb5_decrypt_EncryptedChallenge(gboolean imp_tag _U_, tvbuff_t *tvb, int
 	}
 	return offset;
 }
-#endif
+#endif /* HAVE_KERBEROS */
 
-static const int *hf_krb_pa_supported_enctypes_fields[] = {
+static int * const hf_krb_pa_supported_enctypes_fields[] = {
 	&hf_krb_pa_supported_enctypes_des_cbc_crc,
 	&hf_krb_pa_supported_enctypes_des_cbc_md5,
 	&hf_krb_pa_supported_enctypes_rc4_hmac,
@@ -3628,7 +3631,7 @@ dissect_kerberos_PA_SUPPORTED_ENCTYPES(gboolean implicit_tag _U_, tvbuff_t *tvb 
 	return offset;
 }
 
-static const int *hf_krb_ad_ap_options_fields[] = {
+static int * const hf_krb_ad_ap_options_fields[] = {
 	&hf_krb_ad_ap_options_cbt,
 	NULL,
 };
@@ -4850,7 +4853,7 @@ dissect_kerberos_Authenticator(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
 }
 
 
-static const int * TicketFlags_bits[] = {
+static int * const TicketFlags_bits[] = {
   &hf_kerberos_TicketFlags_reserved,
   &hf_kerberos_TicketFlags_forwardable,
   &hf_kerberos_TicketFlags_forwarded,
@@ -5337,7 +5340,7 @@ dissect_kerberos_SEQUENCE_OF_PA_DATA(gboolean implicit_tag _U_, tvbuff_t *tvb _U
 }
 
 
-static const int * KDCOptions_bits[] = {
+static int * const KDCOptions_bits[] = {
   &hf_kerberos_KDCOptions_reserved,
   &hf_kerberos_KDCOptions_forwardable,
   &hf_kerberos_KDCOptions_forwarded,
@@ -5603,7 +5606,7 @@ dissect_kerberos_TGS_REP(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 }
 
 
-static const int * APOptions_bits[] = {
+static int * const APOptions_bits[] = {
   &hf_kerberos_APOptions_reserved,
   &hf_kerberos_APOptions_use_session_key,
   &hf_kerberos_APOptions_mutual_required,
@@ -6707,7 +6710,7 @@ dissect_kerberos_PA_S4U_X509_USER(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, 
 }
 
 
-static const int * PAC_OPTIONS_FLAGS_bits[] = {
+static int * const PAC_OPTIONS_FLAGS_bits[] = {
   &hf_kerberos_PAC_OPTIONS_FLAGS_claims,
   &hf_kerberos_PAC_OPTIONS_FLAGS_branch_aware,
   &hf_kerberos_PAC_OPTIONS_FLAGS_forward_to_full_dc,
@@ -7020,7 +7023,7 @@ dissect_kerberos_EncryptedChallenge(gboolean implicit_tag _U_, tvbuff_t *tvb _U_
 
 
 /*--- End of included file: packet-kerberos-fn.c ---*/
-#line 3819 "./asn1/kerberos/packet-kerberos-template.c"
+#line 3822 "./asn1/kerberos/packet-kerberos-template.c"
 
 #ifdef HAVE_KERBEROS
 static const ber_sequence_t PA_ENC_TS_ENC_sequence[] = {
@@ -7101,7 +7104,7 @@ dissect_kerberos_KrbFastReq(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
   return offset;
 }
 
-static const int * FastOptions_bits[] = {
+static int * const FastOptions_bits[] = {
   &hf_kerberos_FastOptions_reserved,
   &hf_kerberos_FastOptions_hide_client_names,
   &hf_kerberos_FastOptions_spare_bit2,
@@ -7131,7 +7134,7 @@ dissect_kerberos_FastOptions(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
   return offset;
 }
 
-#endif
+#endif /* HAVE_KERBEROS */
 
 /* Make wrappers around exported functions for now */
 int
@@ -7230,7 +7233,7 @@ kerberos_display_key(gpointer data _U_, gpointer userdata _U_)
 				       sek->keyvalue[2] & 0xFF, sek->keyvalue[3] & 0xFF);
 		sek = sek->same_list;
 	}
-#endif
+#endif /* HAVE_KERBEROS */
 }
 
 static gint
@@ -7789,7 +7792,7 @@ void proto_register_kerberos(void) {
     { &hf_krb_pausec,
       { "pausec", "kerberos.pausec",
         FT_UINT32, BASE_DEC, NULL, 0, "Microseconds", HFILL }},
-#endif
+#endif /* HAVE_KERBEROS */
 
 
 /*--- Included file: packet-kerberos-hfarr.c ---*/
@@ -8640,7 +8643,7 @@ void proto_register_kerberos(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-kerberos-hfarr.c ---*/
-#line 4590 "./asn1/kerberos/packet-kerberos-template.c"
+#line 4593 "./asn1/kerberos/packet-kerberos-template.c"
 	};
 
 	/* List of subtrees */
@@ -8744,7 +8747,7 @@ void proto_register_kerberos(void) {
     &ett_kerberos_EncryptedChallenge,
 
 /*--- End of included file: packet-kerberos-ettarr.c ---*/
-#line 4617 "./asn1/kerberos/packet-kerberos-template.c"
+#line 4620 "./asn1/kerberos/packet-kerberos-template.c"
 	};
 
 	static ei_register_info ei[] = {
@@ -8797,7 +8800,7 @@ void proto_register_kerberos(void) {
 							   enc_key_content_hash,
 							   enc_key_content_equal);
 #endif /* defined(HAVE_HEIMDAL_KERBEROS) || defined(HAVE_MIT_KERBEROS) */
-#endif
+#endif /* HAVE_KERBEROS */
 
 }
 static int wrap_dissect_gss_kerb(tvbuff_t *tvb, int offset, packet_info *pinfo,

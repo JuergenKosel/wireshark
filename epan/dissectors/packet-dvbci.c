@@ -1095,7 +1095,7 @@ static int hf_dvbci_sas_sess_state = -1;
 static int hf_dvbci_sas_msg_nb = -1;
 static int hf_dvbci_sas_msg_len = -1;
 
-static const int *dvb_ci_res_id_fields[] = {
+static int * const dvb_ci_res_id_fields[] = {
   &hf_dvbci_res_id_type,
   &hf_dvbci_res_class,
   &hf_dvbci_res_type,
@@ -1103,7 +1103,7 @@ static const int *dvb_ci_res_id_fields[] = {
   NULL
 };
 
-static const int *dvbci_opp_dlv_sys_hint_fields[] = {
+static int * const dvbci_opp_dlv_sys_hint_fields[] = {
     &hf_dvbci_dlv_sys_hint_t,
     &hf_dvbci_dlv_sys_hint_s,
     &hf_dvbci_dlv_sys_hint_c,
@@ -3493,7 +3493,7 @@ dissect_dvbci_payload_cc(guint32 tag, gint len_field _U_,
             proto_tree_add_item(tree, hf_dvbci_capability_field,
                     tvb, offset, 1 , ENC_BIG_ENDIAN);
             offset++;
-            /* we can't packet_mpeg_sect_mjd_to_utc_time()
+            /* we can't call packet_mpeg_sect_mjd_to_utc_time()
                and check with nstime_is_zero() */
             if (tvb_get_ntoh40(tvb, offset) == 0) {
                 proto_tree_add_expert(tree, pinfo, &ei_dvbci_cc_pin_nvr_chg,
@@ -3506,7 +3506,6 @@ dissect_dvbci_payload_cc(guint32 tag, gint len_field _U_,
                     break;
                 }
                 else {
-                    /* abs_time_to_ep_str() never returns NULL */
                     proto_tree_add_time(tree, hf_dvbci_pin_chg_time,
                             tvb, offset, UTC_TIME_LEN, &utc_time);
                 }

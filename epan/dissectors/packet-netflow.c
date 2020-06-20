@@ -1212,6 +1212,7 @@ static const value_string v10_template_types_plixer[] = {
     { 120, "source_context" },
     { 121, "connector_id" },
     { 122, "source_component" },
+    /* TODO: missing value? */
     { 124, "related_recipient_address" },
     { 125, "reference" },
     { 126, "return_path" },
@@ -3674,7 +3675,7 @@ static const value_string special_nat_event_type[] = {
     {0, NULL }
 };
 
-static const int * tcp_flags[] = {
+static int * const tcp_flags[] = {
     &hf_cflow_tcpflags_reserved,
     &hf_cflow_tcpflags_urg,
     &hf_cflow_tcpflags_ack,
@@ -3685,7 +3686,7 @@ static const int * tcp_flags[] = {
     NULL
 };
 
-static const int * tcp_flags16[] = {
+static int * const tcp_flags16[] = {
     &hf_cflow_tcpflags16_zero,
     &hf_cflow_tcpflags16_reserved,
     &hf_cflow_tcpflags16_ns,
@@ -11544,10 +11545,10 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
 
 /* --- Dissect Template ---*/
 /* Template Fields Dissection */
-static const int *v9_template_type_hf_list[TF_NUM] = {
+static int * const v9_template_type_hf_list[TF_NUM] = {
     &hf_cflow_template_scope_field_type,            /* scope */
     &hf_cflow_template_field_type};                 /* entry */
-static const int *v10_template_type_hf_list[TF_NUM_EXT] = {
+static int * const v10_template_type_hf_list[TF_NUM_EXT] = {
     &hf_cflow_template_ipfix_field_type,            /* scope */
     &hf_cflow_template_ipfix_field_type,
     &hf_cflow_template_plixer_field_type,

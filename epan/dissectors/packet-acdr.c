@@ -347,9 +347,6 @@ static int hf_ac45x_packet = -1;
 static int hf_ac48x_packet = -1;
 static int hf_ac49x_packet = -1;
 static int hf_ac5x_packet = -1;
-static int hf_cas_packet = -1;
-static int hf_ha_packet = -1;
-static int hf_netbricks_packet = -1;
 
 static int hf_signaling_packet = -1;
 static int hf_acdr_signaling_opcode = -1;
@@ -366,7 +363,6 @@ static int ett_ac5x_packet = -1;
 static int ett_ac5x_mii_packet = -1;
 static int ett_mii_header = -1;
 static int ett_signaling_packet = -1;
-static int ett_netbricks_packet = -1;
 static int ett_extra_data = -1;
 static int ett_c5_cntrl_flags = -1;
 static int ett_5x_analysis_packet_header = -1;
@@ -374,6 +370,8 @@ static int ett_5x_hpi_packet_header = -1;
 static int ett_session_id = -1;
 
 static expert_field ei_acdr_version_not_supported = EI_INIT;
+
+static int proto_rtp;
 
 static dissector_table_t media_type_table;
 static dissector_table_t tls_application_table;
@@ -407,7 +405,6 @@ static void dissect_rtp_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 static int  dissect_signaling_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree);
 static void create_5x_analysis_packet_header_subtree(proto_tree *tree, tvbuff_t *tvb);
 static void create_5x_hpi_packet_header_subtree(proto_tree *tree, tvbuff_t *tvb);
-
 
 static int
 create_full_session_id_subtree(proto_tree *tree, tvbuff_t *tvb, int offset, guint8 ver)
@@ -582,7 +579,7 @@ create_header_extension_subtree(proto_tree *tree, tvbuff_t *tvb, gint offset, gu
                 // Gen3 only: we should add one byte of C5 Control Flags
                 // C5 Control Flags
 
-                static const int *c5_cntrl_flags[] = {
+                static int * const c5_cntrl_flags[] = {
                     &hf_acdr_ext_c5_control_favorite,
                     NULL
                 };
@@ -779,8 +776,14 @@ static void
 acdr_payload_handler(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb,
                      acdr_dissector_data_t *data, const char *proto_name)
 {
-    if (data->header_added && ip_dissector_handle && data->media_type != ACDR_DTLS) {
-        call_dissector(ip_dissector_handle, tvb, pinfo, tree);
+    if (data->header_added) {
+        dissector_handle_t dissector = ip_dissector_handle;
+        if (data->media_type == ACDR_DTLS || data->media_type == ACDR_T38)
+            dissector = udp_dissector_handle;
+        if (dissector)
+            call_dissector(dissector, tvb, pinfo, tree);
+        else
+            call_data_dissector(tvb, pinfo, tree);
         if (proto_name)
             col_set_str(pinfo->cinfo, COL_PROTOCOL, proto_name);
         return;
@@ -860,8 +863,8 @@ dissect_rtp_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint8 m
     call_dissector(rtp_dissector_handle, tvb, pinfo, tree);
 
     // see that the bottom protocol is indeed RTP and not some other protocol on top RTP
-    if (tree) {
-        if (!strncmp(tree->last_child->finfo->hfinfo->name, "Real-Time Transport Protocol", 28)) {
+    if (tree && tree->last_child) {
+        if (tree->last_child->finfo->hfinfo->id == proto_rtp) {
             // add the length & offset fields to the RTP payload
             rtp_data_tree = tree->last_child->last_child; // the rtp subtree->the payload field
 
@@ -1052,7 +1055,7 @@ create_acdr_tree(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb)
         ((extra_data == 0xAA) && ((version & 0xF) <= 3))) {
         proto_tree_add_item(acdr_tree, hf_acdr_data, tvb, offset, 1, ENC_BIG_ENDIAN);
     } else {
-        static const int *extra_data_bits[] = {
+        static int * const extra_data_bits[] = {
             &hf_acdr_data_li,
             &hf_acdr_data_mtce,
             &hf_acdr_data_encrypted,
@@ -1116,10 +1119,10 @@ create_acdr_tree(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb)
     proto_item_set_len(header_ti, acdr_header_length);
     if (header_added) {
         p_add_proto_data(pinfo->pool, pinfo, proto_acdr, 0, GUINT_TO_POINTER(media_type));
-        switch (media_type) {
-            case ACDR_VoiceAI: proto_name = "VoiceAI"; break;
-            case ACDR_T38: proto_name = "T38"; break;
-        }
+        if (media_type == ACDR_VoiceAI)
+            proto_name = "VoiceAI";
+        else if (media_type == ACDR_DTLS)
+            proto_name = "DTLS data";
     }
 
     // Header extension
@@ -1191,6 +1194,22 @@ dissect_acdr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     create_acdr_tree(tree, pinfo, tvb);
 
     return tvb_captured_length(tvb);
+}
+
+static int
+dissect_acdr_voiceai(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+	/*
+	 * I guess this is just a blob of JSON.
+	 *
+	 * Do *NOT* pass data to the JSON dissector; it's expecting
+	 * an http_message_info_t *, and that's *NOT* what we hand
+	 * subdissectors.  Hilarity ensures; see
+	 *
+	 *    https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=16622
+	 */
+	call_dissector(json_dissector_handle, tvb, pinfo, tree);
+	return tvb_captured_length(tvb);
 }
 
 static int
@@ -1701,26 +1720,8 @@ proto_register_acdr(void)
                 NULL, 0x3F,
                 "Protocol Proprietary", HFILL }
         },
-        { &hf_cas_packet,
-            { "CAS Trace", "acdr.cas_trace",
-                FT_NONE, BASE_NONE,
-                NULL, 0x0,
-                NULL, HFILL }
-        },
         { &hf_signaling_packet,
             { "Signaling Packet", "acdr.signaling_packet",
-                FT_NONE, BASE_NONE,
-                NULL, 0x0,
-                NULL, HFILL }
-        },
-        { &hf_ha_packet,
-            { "HA Trace", "acdr.ha_trace",
-                FT_NONE, BASE_NONE,
-                NULL, 0x0,
-                NULL, HFILL }
-        },
-        { &hf_netbricks_packet,
-            { "NetBricks Trace", "acdr.netbricks_trace",
                 FT_NONE, BASE_NONE,
                 NULL, 0x0,
                 NULL, HFILL }
@@ -1773,7 +1774,6 @@ proto_register_acdr(void)
         &ett_ac5x_mii_packet,
         &ett_mii_header,
         &ett_signaling_packet,
-        &ett_netbricks_packet,
         &ett_extra_data,
         &ett_c5_cntrl_flags,
         &ett_5x_analysis_packet_header,
@@ -1904,17 +1904,6 @@ dissect_acdr_mii(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
 }
 
 static int
-dissect_acdr_dtls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
-{
-    acdr_dissector_data_t *acdr_data = (acdr_dissector_data_t *) data;
-
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "DTLS data");
-    if (acdr_data->header_added && udp_dissector_handle)
-        return call_dissector(udp_dissector_handle, tvb, pinfo, tree);
-    return call_data_dissector(tvb, pinfo, tree);
-}
-
-static int
 dissect_acdr_v1501(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "V150.1");
@@ -2001,6 +1990,8 @@ proto_reg_handoff_acdr(void)
     dsp_5x_MII_dissector_handle = find_dissector("ac5xmii");
     proto_ac5xmii = proto_get_id_by_filter_name("ac5xmii");
 
+    proto_rtp = proto_get_id_by_filter_name("rtp");
+
     udp_stun_dissector_handle = find_dissector("stun-udp");
     xml_dissector_handle = find_dissector("xml");
 
@@ -2014,7 +2005,7 @@ proto_reg_handoff_acdr(void)
     dissector_add_uint_with_preference("tcp.port", PORT_AC_DR, acdr_dissector_handle);
 
     // Register "local" media types
-    dissector_add_uint("acdr.media_type", ACDR_VoiceAI, json_dissector_handle);
+    dissector_add_uint("acdr.media_type", ACDR_VoiceAI, create_dissector_handle(dissect_acdr_voiceai, -1));
     dissector_add_uint("acdr.media_type", ACDR_TLS, create_dissector_handle(dissect_acdr_tls, -1));
     dissector_add_uint("acdr.media_type", ACDR_TLSPeek, create_dissector_handle(dissect_acdr_tls, -1));
     dissector_add_uint("acdr.media_type", ACDR_SIP, create_dissector_handle(dissect_acdr_sip, -1));
@@ -2044,7 +2035,6 @@ proto_reg_handoff_acdr(void)
     dissector_add_uint("acdr.media_type", ACDR_DSP_AC5X_MII, acdr_mii_dissector_handle);
     dissector_add_uint("acdr.media_type", ACDR_DSP_TDM_PLAYBACK, acdr_mii_dissector_handle);
     dissector_add_uint("acdr.media_type", ACDR_DSP_NET_PLAYBACK, acdr_mii_dissector_handle);
-    dissector_add_uint("acdr.media_type", ACDR_DTLS, create_dissector_handle(dissect_acdr_dtls, -1));
     dissector_add_uint("acdr.media_type", ACDR_V1501, create_dissector_handle(dissect_acdr_v1501, -1));
     dissector_add_uint("acdr.media_type", ACDR_SIGNALING, create_dissector_handle(dissect_acdr_signaling, -1));
     dissector_add_uint("acdr.media_type", ACDR_FRAGMENTED, create_dissector_handle(dissect_acdr_fragmented, -1));

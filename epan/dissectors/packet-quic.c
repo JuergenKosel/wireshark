@@ -12,9 +12,9 @@
 
 /*
  * See https://quicwg.org
- * https://tools.ietf.org/html/draft-ietf-quic-transport-28
- * https://tools.ietf.org/html/draft-ietf-quic-tls-28
- * https://tools.ietf.org/html/draft-ietf-quic-invariants-08
+ * https://tools.ietf.org/html/draft-ietf-quic-transport-29
+ * https://tools.ietf.org/html/draft-ietf-quic-tls-29
+ * https://tools.ietf.org/html/draft-ietf-quic-invariants-09
  *
  * Extension:
  * https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03
@@ -22,8 +22,8 @@
  * https://tools.ietf.org/html/draft-huitema-quic-ts-02
  * https://tools.ietf.org/html/draft-iyengar-quic-delayed-ack-00
  *
- * Currently supported QUIC version(s): draft -21, draft -22, draft -23,
- * draft-24, draft-25, draft-26, draft-27, draft-28.
+ * Currently supported QUIC version(s): draft-21, draft-22, draft-23, draft-24,
+ * draft-25, draft-26, draft-27, draft-28, draft-29.
  * For a table of supported QUIC versions per Wireshark version, see
  * https://github.com/quicwg/base-drafts/wiki/Tools#wireshark
  *
@@ -335,6 +335,10 @@ static inline guint8 quic_draft_version(guint32 version) {
     if (version == 0xfaceb001) {
         return 22;
     }
+    /* Facebook mvfst, based on draft -27. */
+    if (version == 0xfaceb002) {
+        return 27;
+    }
     return 0;
 }
 
@@ -347,6 +351,7 @@ const value_string quic_version_vals[] = {
     { 0x00000000, "Version Negotiation" },
     { 0x51303434, "Google Q044" },
     { 0xfaceb001, "Facebook mvfst (draft-22)" },
+    { 0xfaceb002, "Facebook mvfst (draft-27)" },
     { 0xff000004, "draft-04" },
     { 0xff000005, "draft-05" },
     { 0xff000006, "draft-06" },
@@ -372,6 +377,7 @@ const value_string quic_version_vals[] = {
     { 0xff00001a, "draft-26" },
     { 0xff00001b, "draft-27" },
     { 0xff00001c, "draft-28" },
+    { 0xff00001d, "draft-29" },
     { 0, NULL }
 };
 
@@ -474,7 +480,7 @@ static const range_string quic_transport_error_code_vals[] = {
     /* 0x00 - 0x3f Assigned via Standards Action or IESG Review policies. */
     { 0x0000, 0x0000, "NO_ERROR" },
     { 0x0001, 0x0001, "INTERNAL_ERROR" },
-    { 0x0002, 0x0002, "SERVER_BUSY" },
+    { 0x0002, 0x0002, "CONNECTION_REFUSED" },
     { 0x0003, 0x0003, "FLOW_CONTROL_ERROR" },
     { 0x0004, 0x0004, "STREAM_ID_ERROR" },
     { 0x0005, 0x0005, "STREAM_STATE_ERROR" },
@@ -1508,9 +1514,9 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
                             const gchar **error)
 {
     /*
-     * https://tools.ietf.org/html/draft-ietf-quic-tls-23#section-5.2
+     * https://tools.ietf.org/html/draft-ietf-quic-tls-29#section-5.2
      *
-     * initial_salt = 0xc3eef712c72ebb5a11a7d2432bb46365bef9f502
+     * initial_salt = 0xafbfec289993d24c9e9786f19c6111e04390a899
      * initial_secret = HKDF-Extract(initial_salt, client_dst_connection_id)
      *
      * client_initial_secret = HKDF-Expand-Label(initial_secret,
@@ -1528,15 +1534,21 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
         0xc3, 0xee, 0xf7, 0x12, 0xc7, 0x2e, 0xbb, 0x5a, 0x11, 0xa7,
         0xd2, 0x43, 0x2b, 0xb4, 0x63, 0x65, 0xbe, 0xf9, 0xf5, 0x02,
     };
-
+    static const guint8 handshake_salt_draft_29[20] = {
+        0xaf, 0xbf, 0xec, 0x28, 0x99, 0x93, 0xd2, 0x4c, 0x9e, 0x97,
+        0x86, 0xf1, 0x9c, 0x61, 0x11, 0xe0, 0x43, 0x90, 0xa8, 0x99
+    };
     gcry_error_t    err;
     guint8          secret[HASH_SHA2_256_LENGTH];
 
     if (is_quic_draft_max(version, 22)) {
         err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_22, sizeof(handshake_salt_draft_22),
                            cid->cid, cid->len, secret);
-    } else {
+    } else if (is_quic_draft_max(version, 28)) {
         err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_23, sizeof(handshake_salt_draft_23),
+                           cid->cid, cid->len, secret);
+    } else {
+        err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_29, sizeof(handshake_salt_draft_29),
                            cid->cid, cid->len, secret);
     }
     if (err) {
@@ -1921,17 +1933,24 @@ quic_process_payload(tvbuff_t *tvb _U_, packet_info *pinfo, proto_tree *tree _U_
 
 #ifdef HAVE_LIBGCRYPT_AEAD
 static void
-quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const quic_cid_t *odcid)
+quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const quic_cid_t *odcid, guint32 version)
 {
     /*
      * Verify the Retry Integrity Tag using the fixed key from
-     * https://tools.ietf.org/html/draft-ietf-quic-tls-25#section-5.8
+     * https://tools.ietf.org/html/draft-ietf-quic-tls-29#section-5.8
      */
-    static const guint8 key[] = {
+    static const guint8 key_draft_29[] = {
+        0xcc, 0xce, 0x18, 0x7e, 0xd0, 0x9a, 0x09, 0xd0,
+        0x57, 0x28, 0x15, 0x5a, 0x6c, 0xb9, 0x6b, 0xe1
+    };
+    static const guint8 nonce_draft_29[] = {
+        0xe5, 0x49, 0x30, 0xf9, 0x7f, 0x21, 0x36, 0xf0, 0x53, 0x0a, 0x8c, 0x1c
+    };
+    static const guint8 key_draft_25[] = {
         0x4d, 0x32, 0xec, 0xdb, 0x2a, 0x21, 0x33, 0xc8,
         0x41, 0xe4, 0x04, 0x3d, 0xf2, 0x7d, 0x44, 0x30,
     };
-    static const guint8 nonce[] = {
+    static const guint8 nonce_draft_25[] = {
         0x4d, 0x16, 0x11, 0xd0, 0x55, 0x13, 0xa5, 0x52, 0xc5, 0x87, 0xd5, 0x75,
     };
     gcry_cipher_hd_t    h = NULL;
@@ -1942,9 +1961,17 @@ quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const qu
 
     err = gcry_cipher_open(&h, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, 0);
     DISSECTOR_ASSERT_HINT(err == 0, "create cipher");
-    err = gcry_cipher_setkey(h, key, sizeof(key));
+    if (is_quic_draft_max(version, 28)) {
+       err = gcry_cipher_setkey(h, key_draft_25, sizeof(key_draft_25));
+    } else {
+       err = gcry_cipher_setkey(h, key_draft_29, sizeof(key_draft_29));
+    }
     DISSECTOR_ASSERT_HINT(err == 0, "set key");
-    err = gcry_cipher_setiv(h, nonce, sizeof(nonce));
+    if (is_quic_draft_max(version, 28)) {
+        err = gcry_cipher_setiv(h, nonce_draft_25, sizeof(nonce_draft_25));
+    } else {
+        err = gcry_cipher_setiv(h, nonce_draft_29, sizeof(nonce_draft_29));
+    }
     DISSECTOR_ASSERT_HINT(err == 0, "set nonce");
     G_STATIC_ASSERT(sizeof(odcid->len) == 1);
     err = gcry_cipher_authenticate(h, odcid, 1 + odcid->len);
@@ -2080,7 +2107,7 @@ dissect_quic_retry_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
         if (!PINFO_FD_VISITED(pinfo) && odcid) {
             // Skip validation if the Initial Packet is unknown, for example due
             // to packet loss in the capture file.
-            quic_verify_retry_token(tvb, quic_packet, odcid);
+            quic_verify_retry_token(tvb, quic_packet, odcid, version);
         }
 #else
         (void)odcid;

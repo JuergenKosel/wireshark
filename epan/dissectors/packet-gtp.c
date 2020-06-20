@@ -216,6 +216,7 @@ static int hf_gtp_rai_rac = -1;
 static int hf_gtp_lac = -1;
 static int hf_gtp_tac = -1;
 static int hf_gtp_eci = -1;
+static int hf_gtp_ncgi_nrci = -1;
 static int hf_gtp_ranap_cause = -1;
 static int hf_gtp_recovery = -1;
 static int hf_gtp_reorder = -1;
@@ -2225,10 +2226,20 @@ static const value_string geographic_location_type[] = {
     {1, "Service Area Identity (SAI)"},
     {2, "Routing Area Identification (RAI)"},
 /* reserved for future used (3-->127) */
-    {128, "Tracking Area identity (TAI)"},                                              /* Radius */
-    {129, "E-UTRAN Cell Global Identification (ECGI)"},                                 /* Radius */
-    {130, "Tracking Area identity & E-UTRAN Cell Global Identification (TAI & ECGI)"},  /* Radius */
-/* reserved for future used (131-->255) */
+/* values below used by Radius */
+    {128, "TAI"},
+    {129, "ECGI"},
+    {130, "TAI & ECGI"},
+    {131, "eNodeB ID"},
+    {132, "TAI and eNodeB ID"},
+    {133, "extended eNodeB ID"},
+    {134, "TAI and extended eNodeB ID"},
+    {135, "NCGI"},
+    {136, "5GS TAI"},
+    {137, "5GS TAI and NCGI"},
+    {138, "NG-RAN Node ID"},
+    {139, "5GS TAI and NG-RAN Node ID"},
+/* reserved for future used (140-->255) */
     {0, NULL}
 };
 
@@ -5189,7 +5200,7 @@ decode_qos_umts(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tr
 
     if ((type == 3) && (rel_ind == 8)) {
         /* Release 8 or higher P-GW QoS profile */
-        static const int * arp_flags[] = {
+        static int * const arp_flags[] = {
             &hf_gtp_qos_arp_pci,
             &hf_gtp_qos_arp_pl,
             &hf_gtp_qos_arp_pvi,
@@ -6651,6 +6662,26 @@ gchar *dissect_radius_user_loc(proto_tree * tree, tvbuff_t * tvb, packet_info* p
             dissect_e212_mcc_mnc(tvb, pinfo, tree, offset, E212_ECGI, TRUE);
             offset+=3;
             proto_tree_add_item(tree, hf_gtp_eci, tvb, offset, 4, ENC_BIG_ENDIAN);
+            break;
+        case 135:
+            /* NCGI */
+            {
+                proto_tree_add_item(tree, hf_gtp_ncgi_nrci, tvb, offset, 5, ENC_BIG_ENDIAN);
+            }
+            break;
+        case 136:
+            /* 5GS TAI */
+            {
+                dissect_e212_mcc_mnc(tvb, pinfo, tree, offset, E212_TAI, TRUE);
+            }
+            break;
+        case 137:
+            /* 5GS TAI and NCGI */
+            {
+                dissect_e212_mcc_mnc(tvb, pinfo, tree, offset, E212_TAI, TRUE);
+                offset += 3;
+                proto_tree_add_item(tree, hf_gtp_ncgi_nrci, tvb, offset, 5, ENC_BIG_ENDIAN);
+            }
             break;
         default:
             expert_add_info(pinfo, ti, &ei_gtp_ext_geo_loc_type);
@@ -9243,13 +9274,13 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
     }
     if (tree) {
         if (gtp_prime) {
-            const int * gtp_prime_flags[] = {
+            static int * const gtp_prime_flags[] = {
                 &hf_gtp_prime_flags_ver,
                 &hf_gtp_flags_pt,
                 &hf_gtp_flags_spare1,
                 NULL
             };
-            const int * gtp_prime_v0_flags[] = {
+            static int * const gtp_prime_v0_flags[] = {
                 &hf_gtp_prime_flags_ver,
                 &hf_gtp_flags_pt,
                 &hf_gtp_flags_spare1,
@@ -9279,7 +9310,7 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
                     ett_gtp_flags, gtp_prime_flags, gtp_hdr->flags, BMT_NO_APPEND);
             }
         } else {
-            const int * gtp_flags[] = {
+            static int * const gtp_flags[] = {
                 &hf_gtp_flags_ver,
                 &hf_gtp_flags_pt,
                 &hf_gtp_flags_spare2,
@@ -9288,7 +9319,7 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
                 &hf_gtp_flags_pn,
                 NULL
             };
-            const int * gtp_v0_flags[] = {
+            static int * const gtp_v0_flags[] = {
                 &hf_gtp_flags_ver,
                 &hf_gtp_flags_pt,
                 &hf_gtp_flags_spare1,
@@ -9521,18 +9552,18 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
                              * Container has a variable length and its content is
                              * specified in 3GPP TS 38.415 [31].
                              */
-                            static const int * flags1[] = {
+                            static int * const flags1[] = {
                                 &hf_gtp_ext_hdr_pdu_ses_cont_ppp,
                                 &hf_gtp_ext_hdr_pdu_ses_cont_rqi,
                                 &hf_gtp_ext_hdr_pdu_ses_cont_qos_flow_id,
                                 NULL
                             };
-                            static const int * flags2[] = {
+                            static int * const flags2[] = {
                                 &hf_gtp_ext_hdr_pdu_ses_cont_ppi,
                                 &hf_gtp_spare_b4b0,
                                 NULL
                             };
-                            static const int * flags3[] = {
+                            static int * const flags3[] = {
                                 &hf_gtp_spare_b7b6,
                                 &hf_gtp_ext_hdr_pdu_ses_cont_qos_flow_id,
                                 NULL
@@ -10681,6 +10712,11 @@ proto_register_gtp(void)
           {"ECI", "gtp.eci",
            FT_UINT32, BASE_DEC, NULL, 0x0FFFFFFF,
            "E-UTRAN Cell Identifier", HFILL}
+        },
+        {&hf_gtp_ncgi_nrci,
+         {"NR Cell Identifier", "gtp.ncgi_nrci",
+          FT_UINT40, BASE_HEX, NULL, 0xfffffffff0,
+          NULL, HFILL}
         },
         {&hf_gtp_ranap_cause,
          { "RANAP cause", "gtp.ranap_cause",
