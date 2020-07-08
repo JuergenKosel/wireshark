@@ -832,85 +832,87 @@ static const value_string ieee80211_status_code[] = {
   { 15, "Authentication rejected because of challenge failure" },
   { 16, "Authentication rejected due to timeout waiting for next frame in sequence" },
   { 17, "Association denied because AP is unable to handle additional associated STAs" },
-  { 18, "Association denied due to requesting STA not supporting all of the data rates in the BSSBasicRateSet parameter" },
+  { 18, "Association denied due to requesting STA not supporting all of the data rates in the BSSBasicRateSet parameter, the Basic HT-MCS Set field of the HT Operation parameter, or the Basic VHT-MCS and NSS Set field in the VHT Operation parameter" },
   { 19, "Association denied due to requesting STA not supporting the short preamble option" },
-  { 20, "Association denied due to requesting STA not supporting the PBCC modulation option" },
-  { 21, "Association denied due to requesting STA not supporting the Channel Agility option" },
-  { 22, "Association request rejected because Spectrum Management capability is required" },
+  { 20, "Reserved" },
+  { 21, "Reserved" },
+  { 22, "Association request rejected because spectrum management capability is required" },
   { 23, "Association request rejected because the information in the Power Capability element is unacceptable" },
   { 24, "Association request rejected because the information in the Supported Channels element is unacceptable" },
-  { 25, "Association denied due to requesting STA not supporting the Short Slot Time option" },
-  { 26, "Association denied due to requesting STA not supporting the DSSS-OFDM option" },
-  { 27, "Reserved Association denied because the requesting STA does not support HT features" },
+  { 25, "Association denied due to requesting STA not supporting short slot time" },
+  { 26, "Reserved" },
+  { 27, "Association denied because the requesting STA does not support HT features" },
   { 28, "R0KH unreachable" },
-  { 29, "Association denied because the requesting STA does not support the phased coexistence operation (PCO) transition time required by the AP" },
+  { 29, "Reserved"},
   { 30, "Association request rejected temporarily; try again later" },
-  { 31, "Robust Management frame policy violation" },
+  { 31, "Robust management frame policy violation" },
   { 32, "Unspecified, QoS-related failure" },
   { 33, "Association denied because QoS AP or PCP has insufficient bandwidth to handle another QoS STA" },
-  { 34, "Association denied due to excessive frame loss rates and/or poor conditions on current operating channel" },
+  { 34, "Association denied due to excessive frame loss rates and/ or poor conditions on current operating channel" },
   { 35, "Association (with QoS BSS) denied because the requesting STA does not support the QoS facility" },
   { 36, "Reserved" },
   { 37, "The request has been declined" },
   { 38, "The request has not been successful as one or more parameters have invalid values" },
-  { 39, "The allocation or TS has not been created because the request cannot be honored; however, a suggested TSPEC/DMG TSPEC is provided so that the initiating STA may attempt to set another allocation or TS with the suggested changes to the TSPEC/DMG TSPEC" },
-  { 40, "Invalid information element, i.e., an information element defined in this standard for which the content does not meet the specifications in Clause 7" },
+  { 39, "The allocation or TS has not been created because the request cannot be honored; however, a suggested TSPEC/DMG TSPEC is provided so that the initiating STA can attempt to set another allocation or TS with the suggested changes to the TSPEC/DMG TSPEC" },
+  { 40, "Invalid element, i.e., an element defined in this standard for which the content does not meet the specifications in Clause 9 (Frame formats)" },
   { 41, "Invalid group cipher" },
   { 42, "Invalid pairwise cipher" },
   { 43, "Invalid AKMP" },
-  { 44, "Unsupported RSN information element version" },
-  { 45, "Invalid RSN information element capabilities" },
+  { 44, "Unsupported RSNE version" },
+  { 45, "Invalid RSNE capabilities" },
   { 46, "Cipher suite rejected because of security policy" },
-  { 47, "The TS per allocation has not been created; however, the PCP/HC may be capable of creating a TS or allocation, in response to a request, after the time indicated in the TS Delay element" },
-  { 48, "Direct link is not allowed in the BSS by policy" },
+  { 47, "The TS or allocation has not been created; however, the HC or PCP might be capable of creating a TS or allocation, in response to a request, after the time indicated in the TS Delay element" },
+  { 48, "Reserved" },
   { 49, "The Destination STA is not present within this BSS" },
   { 50, "The Destination STA is not a QoS STA" },
-  { 51, "Association denied because the ListenInterval is too large" },
+  { 51, "Association denied because the listen interval is too large" },
   { 52, "Invalid FT Action frame count" },
   { 53, "Invalid pairwise master key identifier (PMKID)" },
-  { 54, "Invalid MDIE" },
-  { 55, "Invalid FTIE" },
-  { 56, "Requested TCLAS processing is not supported by the PCP/AP" },
-  { 57, "The PCP/AP has insufficient TCLAS processing resources to satisfy the request" },
-  { 58, "The TS has not been created because the request cannot be honored; however, the PCP/HC suggests the STA to transition to other BSSs to setup the TS" },
-  { 59, "GAS Advertisement Protocol not supported" },
+  { 54, "Invalid MDE" },
+  { 55, "Invalid FTE" },
+  { 56, "Requested TCLAS processing is not supported by the AP or PCP" },
+  { 57, "The AP or PCP has insufficient TCLAS processing resources to satisfy the request" },
+  { 58, "The TS has not been created because the request cannot be honored; however, the HC or PCP suggests that the STA transition to a different BSS to set up the TS" },
+  { 59, "GAS advertisement protocol not supported" },
   { 60, "No outstanding GAS request" },
-  { 61, "GAS Response not received from the Advertisement Server" },
-  { 62, "STA timed out waiting for GAS Query Response" },
-  { 63, "GAS Response is larger than query response length limit" },
+  { 61, "GAS response not received from the advertisement server" },
+  { 62, "STA timed out waiting for GAS query response" },
+  { 63, "GAS response is larger than query response length limit" },
   { 64, "Request refused because home network does not support request" },
-  { 65, "Advertisement Server in the network is not currently reachable" },
+  { 65, "Advertisement server in the network is not currently reachable" },
   { 66, "Reserved" },
   { 67, "Request refused due to permissions received via SSPN interface" },
-  { 68, "Request refused because PCP/AP does not support unauthenticated access" },
+  { 68, "Request refused because the AP or PCP does not support unauthenticated access" },
   { 69, "Reserved" },
   { 70, "Reserved" },
   { 71, "Reserved" },
-  { 72, "Invalid contents of RSNIE" },
-  { 73, "U-APSD Coexistence is not supported" },
-  { 74, "Requested U-APSD Coexistence mode is not supported" },
-  { 75, "Requested Interval/Duration value cannot be supported with U-APSD Coexistence" },
-  { 76, "Authentication is rejected because an Anti-Clogging Token is required" },
+  { 72, "Invalid contents of RSNE, other than unsupported RSNE version or invalid RSNE capabilities, AKMP or pairwise cipher" },
+  { 73, "U-APSD coexistence is not supported" },
+  { 74, "Requested U-APSD coexistence mode is not supported" },
+  { 75, "Requested interval/duration value cannot be supported with U-APSD coexistence" },
+  { 76, "Authentication is rejected because an anti-clogging token is required" },
   { 77, "Authentication is rejected because the offered finite cyclic group is not supported" },
   { 78, "The TBTT adjustment request has not been successful because the STA could not find an alternative TBTT" },
   { 79, "Transmission failure" },
-  { 80, "Requested TCLAS Not Supported" },
-  { 81, "TCLAS Resources Exhausted" },
-  { 82, "Rejected with Suggested BSS Transition" },
+  { 80, "Requested TCLAS not supported" },
+  { 81, "TCLAS resources exhausted" },
+  { 82, "Rejected with suggested BSS transition" },
   { 83, "Reject with recommended schedule" },
   { 84, "Reject because no wakeup schedule specified" },
   { 85, "Success, the destination STA is in power save mode" },
   { 86, "FST pending, in process of admitting FST session" },
-  { 87, "performing FST now" },
-  { 88, "FST pending, gap(s) in Block Ack window" },
+  { 87, "Performing FST now" },
+  { 88, "FST pending, gap(s) in block ack window" },
   { 89, "Reject because of U-PID setting" },
-  { 92, "(Re)association refused for some external reason" },
-  { 93, "(Re)association refused because of memory limits at the AP" },
-  { 94, "(Re)association refused because emergency services are not supported at the AP" },
+  { 90, "Reserved" },
+  { 91, "Reserved" },
+  { 92, "(Re)Association refused for some external reason" },
+  { 93, "(Re)Association refused because of memory limits at the AP" },
+  { 94, "(Re)Association refused because emergency services are not supported at the AP" },
   { 95, "GAS query response not yet received" },
-  { 96, "Reject since the request is for transition to a frequency band subject to DSE procedures and FST initiator is a dependent STA" },
-  { 97, "Reserved" },
-  { 98, "Reserved" },
+  { 96, "Reject since the request is for transition to a frequency band subject to DSE procedures and FST Initiator is a dependent STA" },
+  { 97, "Requested TCLAS processing has been terminated by the AP" },
+  { 98, "The TS schedule conflicts with an existing schedule; an alternative schedule is provided" },
   { 99, "The association has been denied; however, one or more Multi-band elements are included that can be used by the receiving STA to join the BSS" },
   { 100, "The request failed due to a reservation conflict" },
   { 101, "The request failed due to exceeded MAF limit" },
@@ -920,9 +922,28 @@ static const value_string ieee80211_status_code[] = {
   { 105, "Enablement denied" },
   { 106, "Enablement denied due to restriction from an authorized GDB" },
   { 107, "Authorization deenabled" },
+  { 108, "Re(association) refused or disassociated because energy limited operation is not supported at the AP" },
+  { 109, "BlockAck negotiation refused because, due to buffer constraints and other unspecified reasons, the recipient prefers to generate only NDP BlockAck frames" },
+  { 110, "Association denied/disassociated because the suggested value for max away duration is unacceptable" },
+  { 111, "Re(association) refused or disassociated because flow control operation is not supported by the non-AP STA" },
   { 112, "Authentication rejected due to FILS authentication failure" },
   { 113, "Authentication rejected due to unknown Authentication Server" },
-  { 0,    NULL}
+  { 114, "Reserved" },
+  { 115, "Reserved" },
+  { 116, "Request denied because the allocation of notification period is failed" },
+  { 117, "Request denied because the request of channel splitting is failed" },
+  { 118, "Request denied because the allocation request is failed" },
+  { 119, "Association denied because the requesting STA does not support CMMG features" },
+  { 120, "The requested GAS fragment is not available" },
+  { 121, "Success, the CAG Version provided by the requesting STA is the same as the latest CAG Version provided by the relevant server" },
+  { 122, "The STA is not authorized to use GLK per local policy" },
+  { 123, "Authentication rejected because the password identifier is unknown" },
+  { 124, "Requested TCLAS processing has been terminated by the AP due to insufficient QoS capacity" },
+  { 125, "Requested TCLAS processing has been terminated by the AP due to conflict with higher layer QoS policies" },
+  /*{ 125, "Request denied because source address of request is inconsistent with local MAC address policy" },*/
+  { 126, "SAE authentication uses direct hashing, instead of looping, to obtain the PWE" },
+  { 127, "Reserved"},
+  {   0, NULL}
 };
 value_string_ext ieee80211_status_code_ext = VALUE_STRING_EXT_INIT(ieee80211_status_code);
 
@@ -4984,6 +5005,18 @@ static int hf_ieee80211_aironet_ie_qos_paramset = -1;
 static int hf_ieee80211_aironet_ie_qos_val = -1;
 static int hf_ieee80211_aironet_ie_clientmfp = -1;
 
+static int hf_ieee80211_vs_sgdsn_tag = -1;
+static int hf_ieee80211_vs_sgdsn_type = -1;
+static int hf_ieee80211_vs_sgdsn_length = -1;
+static int hf_ieee80211_vs_sgdsn_version = -1;
+static int hf_ieee80211_vs_sgdsn_manufacturer = -1;
+static int hf_ieee80211_vs_sgdsn_model = -1;
+static int hf_ieee80211_vs_sgdsn_serialnumber = -1;
+static int hf_ieee80211_vs_sgdsn_gpscoord = -1;
+static int hf_ieee80211_vs_sgdsn_altitude = -1;
+static int hf_ieee80211_vs_sgdsn_speed = -1;
+static int hf_ieee80211_vs_sgdsn_heading = -1;
+
 static int hf_ieee80211_vs_nintendo_type = -1;
 static int hf_ieee80211_vs_nintendo_length = -1;
 static int hf_ieee80211_vs_nintendo_servicelist = -1;
@@ -6161,6 +6194,7 @@ static gint ett_hs20_cc_proto_port_tuple = -1;
 
 static gint ett_ssid_list = -1;
 
+static gint ett_sgdsn = -1;
 static gint ett_nintendo = -1;
 
 static gint ett_routerboard = -1;
@@ -15176,6 +15210,148 @@ dissect_vendor_ie_mist(proto_item *item _U_, proto_tree *ietree,
     }
 }
 
+
+enum vs_sgdsn_type {
+  SGDSN_VERSION = 0x01,
+  SGDSN_IDFR = 0x02,
+  SGDSN_IDANSI = 0x03,
+  SGDSN_LATITUDE = 0x04,
+  SGDSN_LONGITUDE = 0x05,
+  SGDSN_ALTITUDE_ABS = 0x06,
+  SGDSN_ALTITUDE_REL = 0x07,
+  SGDSN_LATITUDE_TAKEOFF = 0x08,
+  SGDSN_LONGITUDE_TAKEOFF = 0x09,
+  SGDSN_H_SPEED = 0x0a,
+  SGDSN_HEADING = 0x0b,
+};
+
+static const value_string ieee80211_vs_sgdsn_type_vals[] = {
+  { SGDSN_VERSION,  "Version"},
+  { SGDSN_IDFR, "ID FR"},
+  { SGDSN_IDANSI, "ID ANSI"},
+  { SGDSN_LATITUDE, "Latitude"},
+  { SGDSN_LONGITUDE, "Longitude"},
+  { SGDSN_ALTITUDE_ABS, "Altitude AMSL"},
+  { SGDSN_ALTITUDE_REL, "Altitude AGL"},
+  { SGDSN_LATITUDE_TAKEOFF, "Latitude Takeoff"},
+  { SGDSN_LONGITUDE_TAKEOFF, "Longitude Takeoff"},
+  { SGDSN_H_SPEED, "Horizontal Speed"},
+  { SGDSN_HEADING, "Heading"},
+  { 0, NULL }
+};
+
+static void
+dissect_vendor_ie_sgdsn(proto_item *item _U_, proto_tree *ietree,
+                       tvbuff_t *tvb, int offset, guint32 tag_len,
+                       packet_info *pinfo)
+{
+  // Technical specification defined in French law "NOR: ECOI1934044A"
+  // https://www.legifrance.gouv.fr/eli/arrete/2019/12/27/ECOI1934044A/jo/texte
+
+  guint8 type = tvb_get_guint8(tvb, offset);
+  offset += 1;
+  tag_len -= 1;
+
+  if (type == 1) {
+
+    while (tag_len > 2) {
+
+      guint8 tlv_type = tvb_get_guint8(tvb, offset);
+      guint8 tlv_len = tvb_get_guint8(tvb, offset+1);
+
+      if (tag_len < tlv_len) {
+        break;
+      }
+
+      proto_item *item_tlv = proto_tree_add_item(ietree, hf_ieee80211_vs_sgdsn_tag, tvb, offset, tlv_len + 2, ENC_NA);
+      proto_item *tree = proto_item_add_subtree(item_tlv, ett_sgdsn);
+
+      proto_tree_add_item(tree, hf_ieee80211_vs_sgdsn_type, tvb, offset, 1, ENC_NA);
+      proto_tree_add_item(tree, hf_ieee80211_vs_sgdsn_length, tvb, offset + 1,  1, ENC_NA);
+
+      offset += 2;
+      tag_len -= 2;
+
+      proto_item_append_text(tree, ": %s", val_to_str_const(tlv_type, ieee80211_vs_sgdsn_type_vals, "Unknown"));
+
+      switch(tlv_type) {
+      case SGDSN_VERSION:
+        if (tlv_len == 1) {
+          guint32 value;
+          proto_tree_add_item_ret_uint(tree, hf_ieee80211_vs_sgdsn_version, tvb, offset, 1, ENC_NA, &value);
+          proto_item_append_text(tree, ": %d", value);
+        } else {
+          expert_add_info_format(pinfo, tree, &ei_ieee80211_tag_length, "Value length must be 1");
+        }
+        break;
+      case SGDSN_IDFR:
+        if (tlv_len == 30) {
+          const guint8* string1;
+          const guint8* string2;
+          const guint8* string3;
+          proto_tree_add_item_ret_string(tree, hf_ieee80211_vs_sgdsn_manufacturer, tvb, offset, 3, ENC_ASCII|ENC_NA, wmem_packet_scope(), &string1);
+          proto_tree_add_item_ret_string(tree, hf_ieee80211_vs_sgdsn_model, tvb, offset+3, 3, ENC_ASCII|ENC_NA, wmem_packet_scope(), &string2);
+          proto_tree_add_item_ret_string(tree, hf_ieee80211_vs_sgdsn_serialnumber, tvb, offset+6, tlv_len-6, ENC_ASCII|ENC_NA, wmem_packet_scope(), &string3);
+          proto_item_append_text(tree, ": %s %s %s", string1, string2, string3);
+        } else {
+          expert_add_info_format(pinfo, tree, &ei_ieee80211_tag_length, "Value length must be 30");
+        }
+        break;
+      case SGDSN_LATITUDE_TAKEOFF:
+      case SGDSN_LATITUDE:
+      case SGDSN_LONGITUDE_TAKEOFF:
+      case SGDSN_LONGITUDE:
+        if (tlv_len == 4) {
+          gint32 value;
+          proto_tree_add_item_ret_int(tree, hf_ieee80211_vs_sgdsn_gpscoord, tvb, offset, 4, ENC_NA, &value);
+          proto_item_append_text(tree, ": %.5f", value / 100000.0);
+        } else {
+          expert_add_info_format(pinfo, tree, &ei_ieee80211_tag_length, "Value length must be 4");
+        }
+        break;
+      case SGDSN_ALTITUDE_ABS:
+      case SGDSN_ALTITUDE_REL:
+        if (tlv_len == 2) {
+          guint32 value;
+          proto_tree_add_item_ret_uint(tree, hf_ieee80211_vs_sgdsn_altitude, tvb, offset, 2, ENC_NA, &value);
+          proto_item_append_text(tree, ": %d m", value);
+        } else {
+          expert_add_info_format(pinfo, tree, &ei_ieee80211_tag_length, "Value length must be 4");
+        }
+        break;
+      case SGDSN_H_SPEED:
+        if (tlv_len == 1) {
+          guint32 value;
+          proto_tree_add_item_ret_uint(tree, hf_ieee80211_vs_sgdsn_speed, tvb, offset, 1, ENC_NA, &value);
+          proto_item_append_text(tree, ": %d m/s", value);
+        } else {
+          expert_add_info_format(pinfo, tree, &ei_ieee80211_tag_length, "Value length must be 1");
+        }
+        break;
+      case SGDSN_HEADING:
+        if (tlv_len == 2) {
+          guint32 value;
+          proto_tree_add_item_ret_uint(tree, hf_ieee80211_vs_sgdsn_heading, tvb, offset, 2, ENC_NA, &value);
+          proto_item_append_text(tree, ": %d deg", value);
+        } else {
+          expert_add_info_format(pinfo, tree, &ei_ieee80211_tag_length, "Value length must be 2");
+        }
+        break;
+      default:
+        expert_add_info_format(pinfo, tree, &ei_ieee80211_extra_data, "Unknown type");
+        break;
+      }
+
+      offset += tlv_len;
+      tag_len -= tlv_len;
+    }
+
+    if (tag_len) {
+      expert_add_info_format(pinfo, item, &ei_ieee80211_tag_length, "Remaining bytes, TLV structure error");
+    }
+  }
+}
+
 enum vs_nintendo_type {
   NINTENDO_SERVICES = 0x11,
   NINTENDO_CONSOLEID = 0xF0
@@ -21045,6 +21221,10 @@ ieee80211_tag_vendor_specific_ie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
     case OUI_MIST:
       dissect_vendor_ie_mist(field_data->item_tag, tree, tvb, offset, tag_vs_len);
       break;
+    case OUI_SGDSN:
+      dissect_vendor_ie_sgdsn(field_data->item_tag, tree, tvb, offset, tag_vs_len, pinfo);
+      break;
+
     default:
       proto_tree_add_item(tree, hf_ieee80211_tag_vendor_data, tvb, offset, tag_vs_len, ENC_NA);
       break;
@@ -35710,6 +35890,62 @@ proto_register_ieee80211(void)
       FT_BOOLEAN, 8, TFS(&tfs_enabled_disabled), 0x01,
       NULL, HFILL }},
 
+    /* Vendor Specific : SGDSN */
+    {&hf_ieee80211_vs_sgdsn_tag,
+     {"Tag", "wlan.vs.sgdsn.tag",
+      FT_NONE, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_type,
+     {"Type", "wlan.vs.sgdsn.type",
+      FT_UINT8, BASE_DEC, VALS(ieee80211_vs_sgdsn_type_vals), 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_length,
+     {"Length", "wlan.vs.sgdsn.length",
+      FT_UINT8, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_version,
+     {"Version", "wlan.vs.sgdsn.tag.version",
+      FT_UINT8, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_manufacturer,
+     {"Manufacturer", "wlan.vs.sgdsn.tag.manufacturer",
+      FT_STRING, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_model,
+     {"Model", "wlan.vs.sgdsn.tag.model",
+      FT_STRING, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_serialnumber,
+     {"Serial number", "wlan.vs.sgdsn.tag.serialnumber",
+      FT_STRING, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_gpscoord,
+     {"GPS Coord", "wlan.vs.sgdsn.tag.gpscoord",
+      FT_INT32, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_altitude,
+     {"Altitude", "wlan.vs.sgdsn.tag.altitude",
+      FT_UINT16, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_speed,
+     {"Speed", "wlan.vs.sgdsn.tag.speed",
+      FT_UINT8, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_sgdsn_heading,
+     {"Altitude", "wlan.vs.sgdsn.tag.heading",
+      FT_UINT16, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
     /* Vendor Specific : Nintendo */
     {&hf_ieee80211_vs_nintendo_type,
      {"Type", "wlan.vs.nintendo.type",
@@ -38755,19 +38991,19 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_tag_rsnx_length,
       {"RSNX Length", "wlan.rsnx.length",
-       FT_UINT8, BASE_DEC, NULL, 0xF0, NULL, HFILL }},
+       FT_UINT8, BASE_DEC, NULL, 0x0F, NULL, HFILL }},
 
     {&hf_ieee80211_tag_rsnx_protected_twt_operations_support,
       {"Protected TWT Operations Support", "wlan.rsnx.protected_twt_operations_support",
-       FT_UINT8, BASE_DEC, NULL, 0x08, NULL, HFILL }},
+       FT_UINT8, BASE_DEC, NULL, 0x10, NULL, HFILL }},
 
     {&hf_ieee80211_tag_rsnx_sae_hash_to_element,
       {"SAE Hash to element", "wlan.rsnx.sae_hash_to_element",
-       FT_UINT8, BASE_DEC, NULL, 0x04, NULL, HFILL }},
+       FT_UINT8, BASE_DEC, NULL, 0x20, NULL, HFILL }},
 
     {&hf_ieee80211_tag_rsnx_reserved_b6b7,
       {"Reserved", "wlan.rsnx.reserved",
-       FT_UINT8, BASE_HEX, NULL, 0x03, NULL, HFILL }},
+       FT_UINT8, BASE_HEX, NULL, 0xC0, NULL, HFILL }},
 
     {&hf_ieee80211_tag_rsnx_reserved,
       {"Reserved", "wlan.rsnx.reserved",
@@ -39032,6 +39268,7 @@ proto_register_ieee80211(void)
 
     &ett_ssid_list,
 
+    &ett_sgdsn,
     &ett_nintendo,
 
     &ett_routerboard,

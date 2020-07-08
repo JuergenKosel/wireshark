@@ -381,6 +381,7 @@ static int hf_subdoc_doc_flags = -1;
 static int hf_subdoc_doc_flags_mkdoc = -1;
 static int hf_subdoc_doc_flags_add = -1;
 static int hf_subdoc_doc_flags_accessdeleted = -1;
+static int hf_subdoc_doc_flags_createasdeleted = -1;
 static int hf_subdoc_doc_flags_reserved = -1;
 static int hf_subdoc_flags = -1;
 static int hf_subdoc_flags_mkdirp = -1;
@@ -891,6 +892,7 @@ static int * const subdoc_doc_flags[] = {
   &hf_subdoc_doc_flags_mkdoc,
   &hf_subdoc_doc_flags_add,
   &hf_subdoc_doc_flags_accessdeleted,
+  &hf_subdoc_doc_flags_createasdeleted,
   &hf_subdoc_doc_flags_reserved,
   NULL
 };
@@ -933,6 +935,9 @@ static const value_string feature_vals[] = {
   {0x12, "Collections"},
   {0x13, "OpenTracing"},
   {0x14, "PreserveTtl"},
+  {0x15, "VAttr"},
+  {0x16, "Point in Time Recovery"},
+  {0x17, "SubdocCreateAsDeleted"},
   {0, NULL}
 };
 
@@ -2316,6 +2321,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       }
     } else if ((datatype & DT_XATTR) && (opcode == PROTOCOL_BINARY_CMD_SET_WITH_META ||
       opcode == PROTOCOL_BINARY_DCP_MUTATION || opcode == PROTOCOL_BINARY_DCP_DELETION ||
+      opcode == PROTOCOL_BINARY_DCP_EXPIRATION || opcode == PROTOCOL_BINARY_DCP_PREPARE ||
       opcode == PROTOCOL_BINARY_CMD_DEL_WITH_META || opcode == PROTOCOL_BINARY_CMD_ADD_WITH_META ||
       opcode == PROTOCOL_BINARY_CMD_SETQ_WITH_META || opcode == PROTOCOL_BINARY_CMD_DELQ_WITH_META ||
       opcode == PROTOCOL_BINARY_CMD_ADDQ_WITH_META )) {
@@ -2847,12 +2853,12 @@ dissect_couchbase(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 
     dissect_value(tvb, pinfo, couchbase_tree, offset, value_len, path_len,
                   opcode, request, datatype);
-  } else if (bodylen) {
-    proto_tree_add_item(couchbase_tree, hf_value, tvb, offset, bodylen,
+  } else if (value_len) {
+    proto_tree_add_item(couchbase_tree, hf_value, tvb, offset, value_len,
                         ENC_ASCII | ENC_NA);
     if (status == PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET || is_xerror(datatype, status)) {
       tvbuff_t *json_tvb;
-      json_tvb = tvb_new_subset_length_caplen(tvb, offset, bodylen, bodylen);
+      json_tvb = tvb_new_subset_length_caplen(tvb, offset, value_len, value_len);
       call_dissector(json_handle, json_tvb, pinfo, couchbase_tree);
 
     } else if (opcode == PROTOCOL_BINARY_CMD_SUBDOC_MULTI_LOOKUP) {
@@ -2983,7 +2989,8 @@ proto_register_couchbase(void)
     { &hf_subdoc_doc_flags_mkdoc, { "MKDOC", "couchbase.extras.subdoc.doc_flags.mkdoc", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x01, "Create document if it does not exist, implies mkdir_p", HFILL} },
     { &hf_subdoc_doc_flags_add, { "ADD", "couchbase.extras.subdoc.doc_flags.add", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x02, "Fail if doc already exists", HFILL} },
     { &hf_subdoc_doc_flags_accessdeleted, { "ACCESS_DELETED", "couchbase.extras.subdoc.doc_flags.access_deleted", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x04, "Allow access to XATTRs for deleted documents", HFILL} },
-    { &hf_subdoc_doc_flags_reserved, {"Reserved fields", "couchbase.extras.subdoc.doc_flags.reserved", FT_UINT8, BASE_HEX, NULL, 0xF8, "A reserved field", HFILL} },
+    { &hf_subdoc_doc_flags_createasdeleted, { "CREATE_AS_DELETED", "couchbase.extras.subdoc.doc_flags.create_as_deleted", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x08, "If the document does not exist then create it in the Deleted state, instead of the normal Alive state", HFILL} },
+    { &hf_subdoc_doc_flags_reserved, {"Reserved fields", "couchbase.extras.subdoc.doc_flags.reserved", FT_UINT8, BASE_HEX, NULL, 0xF0, "A reserved field", HFILL} },
     { &hf_extras_pathlen, { "Path Length", "couchbase.extras.pathlen", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
 
     /* DCP flags */

@@ -3726,6 +3726,10 @@ Huang Qiangxiong        <qiangxiong.huang[AT]qq.com> {
 	HTTP2 dissector: add streaming mode reassembly and dissecting DATA according to content-type features.
 }
 
+Jeffrey Nichols		<jsnichols[AT]suprocktech.com> {
+	Asphodel dissector
+}
+
 and by:
 
 Georgi Guninski		<guninski[AT]guninski.com>
@@ -3996,6 +4000,8 @@ Adrian Granados		<adrian[AT]adriangranados.com>
 Adrian Simionov		<daniel.simionov[AT]gmail.com>
 Adrian-Ken Rueegsegger	<ken[AT]codelabs.ch>
 Adrien Aubry		<adraub[AT]gmail.com>
+Adrien Destugues	<adestugues[AT]toulouse.viveris.com>
+Adrien Destugues	<adrien.destugues[AT]opensource.viveris.fr>
 Ahmad Fatoum		<ahmad[AT]a3f.at>
 Ajay Panicker		<apanicke[AT]google.com>
 Alan Birtles		<alan.birtles[AT]eu.sony.com>
@@ -4062,6 +4068,7 @@ Arvind Dalvi		<ardalvi[AT]outlook.in>
 Asaf Kave		<kaveasaf[AT]gmail.com>
 Ashish Shukla		<shukla.a[AT]gmail.com>
 Atli Guðmundsson	<atli[AT]tern.is>
+Audric Schiltknecht	<audric.schiltknecht[AT]external.thalesaleniaspace.com>
 Aurelien Aptel		<aaptel[AT]suse.com>
 Aymeric Moizard		<amoizard[AT]gmail.com>
 Babak Farrokhi		<babak[AT]farrokhi.net>
@@ -4182,6 +4189,7 @@ Dhananjay Patki		<dhpatki[AT]cisco.com>
 Dhiru Kholia		<kholia[AT]kth.se>
 DiablosOffens		<DiablosOffens[AT]gmx.de>
 Didier Arenzana		<darenzana[AT]yahoo.fr>
+Didier Barvaux		<didier.barvaux[AT]toulouse.viveris.com>
 Diederik de Groot	<ddegroot[AT]talon.nl>
 Dirk Eibach		<dirk.eibach[AT]gdsys.cc>
 Dirk Römmen		<dirk.roemmen[AT]cslab.de>
@@ -4208,10 +4216,12 @@ Ederson de Souza	<ederson.desouza[AT]intel.com>
 Edward Dao		<edmailbox[AT]gmail.com>
 Edward Smith		<edward.smith[AT]nowlegent.com>
 Edwin Groothuis		<edwin[AT]mavetju.org>
+Eelco Chaudron		<echaudro[AT]redhat.com>
 Eldon Stegall		<wireshark-gerrit[AT]eldondev.com>
 Eliot Lear		<lear[AT]cisco.com>
 Emery Hemingway		<emery[AT]vfemail.net>
 Emmanuel Grumbach	<emmanuel.grumbach[AT]intel.com>
+Enrique Giraldo		<enrique.giraldo[AT]wslw.es>
 Eric Anderson		<andersoe[AT]cs.cmu.edu>
 Eric Wang		<terminal_0[AT]aol.com>
 Eric Wetzel		<thewetzel[AT]gmail.com>
@@ -4373,6 +4383,7 @@ Jose Rubio		<joserubiovidales[AT]gmail.com>
 Josef Baumgartner	<josef.baumgartner[AT]br-automation.com>
 Joseph Huffman		<jhuffman[AT]codeaurora.org>
 Josip Medved		<jmedved[AT]jmedved.com>
+Josselin VALLET		<josselin.vallet[AT]toulouse.viveris.com>
 Juan Jose Martin Carrascosa <juanjo[AT]rti.com>
 Juan Matias		<jmrepetti[AT]gmail.com>
 Juan Pablo Mendoza	<jpablo[AT]gmail.com>
@@ -4423,6 +4434,7 @@ Lorenzo Vannucci	<vannucci[AT]ntop.org>
 Lotte Steenbrink	<lotte[AT]zombietetris.de>
 Luca Melette		<luca[AT]srlabs.de>
 Lucas Simopoulos	<lsimopoulos[AT]gmail.com>
+Ludovic Cintrat		<l.cintrat[AT]traxens.com>
 Luis Rosa		<lmrosa[AT]dei.uc.pt>
 Lukas Emersberger	<lukas.emersberger[AT]gmail.com>
 Luke Chou		<luke.chou[AT]gmail.com>
@@ -4482,6 +4494,7 @@ Mehmet Oguz Sakaoglu	<mehmet.oguz.mnz[AT]gmail.com>
 Merlin Chlosta		<merlin.chlosta+gnuradio[AT]ruhr-uni-bochum.de>
 Micha Reiser		<michafamreiser.ch>
 Michael Adam		<obnox[AT]samba.org>
+Michael Bouchaud (yoz)	<michael.bouchaud[AT]toulouse.viveris.com>
 Michael Cistera		<michael.cistera[AT]netscout.com>
 Michael Honsel		<lesnoh[AT]gmx.de>
 Michael McConville	<mmcco[AT]mykolab.com>
@@ -4498,6 +4511,8 @@ Michal Prívozník	<mprivozn[AT]redhat.com>
 Michal Ruprich		<michalruprich[AT]gmail.com>
 Michal Slavka		<slavka.michal[AT]gmail.com>
 Michalis Kapsalakis	<kapsalis1989[AT]gmail.com>
+Michaël Bouchaud	<michael.bouchaud[AT]external.thalesaleniaspace.com>
+Michaël Bouchaud	<michael.bouchaud[AT]gmail.com>
 Michał Skalski		<mskalski13[AT]gmail.com>
 Michele Baldessari	<michele[AT]acksyn.org>
 Miguel Company		<MiguelCompany[AT]eprosima.com>
@@ -4570,6 +4585,7 @@ Patrik Moško		<patrikmosko95[AT]gmail.com>
 Patryk Nowak		<patryk.nowak[AT]tieto.com>
 Pau Espin Pedrol	<pespin[AT]sysmocom.de>
 Paul Aurich		<paul[AT]darkrain42.org>
+Paul Chambon		<pchambon[AT]toulouse.viveris.com>
 Paul Emge		<paul.emge[AT]digidescorp.com>
 Paul Offord		<paul.offord[AT]advance7.com>
 Paul Thomas		<pthomas8589[AT]gmail.com>
@@ -4746,6 +4762,7 @@ Uri Simchoni		<urisimchoni[AT]gmail.com>
 Uwe Kleine-König	<uwe[AT]kleine-koenig.org>
 Vadim Fedorenko		<vadimjunk[AT]gmail.com>
 Vadim Yanitskiy		<axilirator[AT]gmail.com>
+Vadim Yanitskiy		<vyanitskiy[AT]sysmocom.de>
 ValdikSS		<iam[AT]valdikss.org.ru>
 Valentin Vidic		<Valentin.Vidic[AT]CARNet.hr>
 Vanson Lim		<vlim[AT]cisco.com>
@@ -4763,6 +4780,7 @@ Vincenzo Reale		<smart2128[AT]baslug.org>
 Vivek Pandey		<vivek_pandey[AT]comcast.com>
 Vladimir Kondratiev	<qca_vkondrat[AT]qca.qualcomm.com>
 Vladimir Rutsky		<rutsky[AT]google.com>
+Vladislav Grishenko	<themiron[AT]mail.ru>
 Vladlen Popov		<vladlen.popov[AT]yahoo.com>
 Volker Lendecke		<vl[AT]samba.org>
 Volodymyr Khomenko	<Khomenko.Volodymyr[AT]gmail.com>
@@ -4794,6 +4812,7 @@ Yury Gargay		<yury.gargay[AT]gmail.com>
 Zachary Holcomb		<zholcomb2017[AT]my.fit.edu>
 Zdeněk Žamberský	<zzdevel[AT]seznam.cz>
 Zhao Lin		<zlbinghamton[AT]gmail.com>
+Zhenhua Hu		<fattiger1102[AT]gmail.com>
 akuchekar		<akuchekar[AT]empirix.com>
 anonsvn			<anonsvn[AT]localhost>
 cff339			<cff339[AT]gmail.com>
@@ -4804,6 +4823,7 @@ kardam			<netkardam[AT]gmail.com>
 kkoizumi		<kkoizumi46[AT]gmail.com>
 mkg20001		<mkg20001[AT]gmail.com>
 pegah hajiani		<pegah_haj[AT]yahoo.com>
+rbroker			<rstbroker[AT]gmail.com>
 shqking			<shqking[AT]gmail.com>
 subhav8			<subhadevi88[AT]gmail.com>
 zhongweisitu		<zsitu[AT]extremenetworks.com>

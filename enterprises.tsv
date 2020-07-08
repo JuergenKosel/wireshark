@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2020-06-13)
+# (last updated 2020-07-03)
 
 0	Reserved
 1	NxNetworks
@@ -21730,7 +21730,7 @@
 21884	W. Schneider+Co AG
 21885	Ericsson Mobile Platforms AB
 21886	Newel Informatique
-21887	Funkwerk AG, Traffic & Control Communication, Kiel	# formerly 'Funkwerk Information Technologies Kiel GmbH'
+21887	Scheidt & Bachmann System Technik GmbH
 21888	Content Management License Administrator
 21889	Acsis, Inc.
 21890	GRIB
@@ -21930,7 +21930,7 @@
 22084	Industec Industria Metalurgica Ltda.
 22085	CIDE Consorcio para la Interoperabilidad de Documentos Electrónicos
 22086	Paul Poeltner
-22087	Invelica GmbH	# formerly 'Bodo Rueskamp'
+22087	Invelica GmbH
 22088	Alpine-Energie Holding AG
 22089	Paedagogische Hochschule Zentralschweiz
 22090	GCommerce Inc.
@@ -36886,7 +36886,7 @@
 37056	ATM Japan, Ltd.
 37057	Quickpay Ltd.	# formerly 'MPS Quickpay'
 37058	thockar IT consulting
-37059	Command and Control Systems
+37059	Ultra Communication & Integrated Systems	# formerly 'Command and Control Systems'
 37060	Silicon & Software Systems Ltd.
 37061	Sargento Foods Inc.
 37062	RigNet, Inc.
@@ -44182,7 +44182,7 @@
 44360	EAST SIDE ONCOLOGY ASSOCIATES, PLLC
 44361	Dabas Cancer Institute, P.A.
 44362	Universidade Federal de Uberlandia
-44363	CloudFlare
+44363	Cloudflare
 44364	AVEA
 44365	DR. CHRISTOPHER T. SOPRENUK, M.D. P.A.
 44366	Essex Oncology of North Jersey PA
@@ -45067,7 +45067,7 @@
 45247	Triple Domain Vision Co., Ltd.
 45248	NetOcean
 45249	Banco Macro S.A.
-45250	Habr LLC
+45250	Habr Europe OÜ
 45251	axelIT Üzletfejlesztési Kft.
 45252	mDAKS GmbH
 45253	RMB Capital Management, LLC
@@ -49452,7 +49452,6 @@
 49635	Schwan-STABILO Cosmetics GmbH & Co. KG
 49636	SUNY-ESF
 49637	Kostiantyn Osypenko
-49638	Kekesed Asmasta
 49639	Stampa Sistem
 49640	AIRTAG
 49641	VPS Holdings Ltd
@@ -50662,7 +50661,7 @@
 50849	VSV Frakt AB
 50850	SnowOncard
 50851	Gnome Rock
-50852	LECIP SLP CORPORATION
+50852	LECIP CORPORATION	# formerly 'LECIP SLP CORPORATION'
 50853	BERTIN IT
 50854	Communics Systemhaus GmbH
 50855	Block Center for Integrative Cancer Treatment
@@ -52819,7 +52818,7 @@
 53010	KECCEO AB
 53011	JH skogsentreprenad AB
 53012	Pine Rest
-53013	Dirección Adjunta de Rentas Aduaneras
+53013	Administración de Aduanera de Honduras	# formerly 'Dirección Adjunta de Rentas Aduaneras'
 53014	SIGMA SYSTEM CO.,LTD.
 53015	Murakami Business Consulting, Inc.
 53016	AXYS Technologies Inc
@@ -54205,7 +54204,7 @@
 54399	The ORP Project
 54400	Beijing Microvision Technology CO.,Ltd.
 54401	Canterbury District Health Board (CDHB)
-54402	Opensource ICT Solutions b.V.
+54402	Opensource ICT Solutions B.V.
 54403	Virgin Mobile UK SIT2
 54404	Virgin Mobile UK SIT1
 54405	Virgin Mobile UK PROD
@@ -55745,3 +55744,93 @@
 55939	Garantir Technologies Private Limited
 55940	Temas LLC
 55941	Wisdom Technologies Pvt Ltd
+55942	LightEdge Solutions
+55943	Opennetworks Kft.
+55944	Netlock Gmbh
+55945	MC-Technologies GmbH
+55946	Arra Networks
+55947	SkizNet
+55948	Rayn0r Ltd.
+55949	ALVO Spółka z ograniczoną odpowiedzialnością, Sp. k.
+55950	Keydok LLC
+55951	AmLight/AMPATH
+55952	Laboratorio de Modelos y Datos de la UNAM
+55953	FRAMATOME
+55954	Episource LLC
+55955	Suzhou China Asterfusion Co.,LTD
+55956	iret Gesellschaft zur Entwicklung elektronischer Steuerungen mbH
+55957	ICS Technologies
+55958	reply
+55959	NeoVolta Inc.
+55960	Charles Russell Speechlys
+55961	Intenta GmbH
+55962	PD Inc
+55963	Bendigo and Adelaide Bank Limited
+55964	Carman Systems
+55965	Ministry of Foreign Affairs of the Republic of Uzbekistan
+55966	KeySwing
+55967	County of Lackawanna
+55968	Ammega Group B.V.
+55969	Gulf International Development LLC
+55970	BHDev Desenvolvimento e Consultoria em Informatica LTDA
+55971	DAUPHIN TELECOM
+55972	NARMI
+55973	Lathrop GPM LLP
+55974	Secure Computing Laboratory, NMT
+55975	Process Fusion Inc.
+55976	viralstrings technologies pvt ltd
+55977	DNSmonitor Sverige AB
+55978	Ekebu srl
+55979	Shenzhen Kstar New Energy Company Limited
+55980	Hoyos Integrity Corp.
+55981	IIB Education Private Limited
+55982	Wenzhou Yeeka Lock Technology Co.,Ltd.
+55983	MARCUUS
+55984	NETLOCK GmbH
+55985	ACCA
+55986	novalink GmbH
+55987	Tiffany Care Centers, Inc.
+55988	eBay Inc
+55989	Lithnet
+55990	Morrison & Foerster
+55991	EMERGY Führungs- und Servicegesellschaft mbH
+55992	Conradis Teknik AB
+55993	Carmot Pursuits
+55994	GiftCard, Inc
+55995	Scolino Nachhilfe & Schülerbetreuung
+55996	calac GmbH
+55997	CompuTecNetworks
+55998	HAOHAN Data Technology Co.,LTD.
+55999	accel-ppp
+56000	Bambú Tecnologías Aplicadas SRL
+56001	Seashell Trust
+56002	PT Aksara Digital Indonesia
+56003	Atende Software Sp. z o.o.
+56004	Peter Raabye
+56005	Stichting Ziekenhuis Gelderse Vallei
+56006	Wrble
+56007	Festival D'été de Québec
+56008	AKRA Kotschenreuther GmbH
+56009	ELSA Advanced Systems Pte Ltd
+56010	Alpha-Safety LLP
+56011	RTK
+56012	JItendra Singh
+56013	Aqua Broadcast Ltd.
+56014	Los Angeles Jewish Home for the Aging
+56015	Empire Die Casting Company
+56016	Cayman Medical Ltd
+56017	T1ED
+56018	SKAPF
+56019	Otter video
+56020	BSB DATA AND INFORMATION PROCESSING SERVICES PRIVATE LIMITED
+56021	Geo-Com
+56022	Elukerio
+56023	Nanjing Aotong Intelligent Technology Co., Ltd.
+56024	KPT Holding AG
+56025	nicos AG
+56026	AIFusion.net
+56027	Active Shadow LLC
+56028	Beijing Changkun Technology Co., Ltd
+56029	ALS Automated Lab Solutions GmbH
+56030	Skylite AB
+56031	CL SKOG AB

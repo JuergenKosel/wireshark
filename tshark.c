@@ -764,10 +764,17 @@ main(int argc, char *argv[])
 
   static const char    optstring[] = OPTSTRING;
 
-  tshark_debug("tshark started with %d args", argc);
-
-  /* Set the C-language locale to the native environment. */
+  /*
+   * Set the C-language locale to the native environment and set the
+   * code page to UTF-8 on Windows.
+   */
+#ifdef _WIN32
+  setlocale(LC_ALL, ".UTF-8");
+#else
   setlocale(LC_ALL, "");
+#endif
+
+  tshark_debug("tshark started with %d args", argc);
 
   cmdarg_err_init(failure_warning_message, failure_message_cont);
 
@@ -933,7 +940,6 @@ main(int argc, char *argv[])
 #ifdef HAVE_PLUGINS
   register_all_plugin_tap_listeners();
 #endif
-  extcap_register_preferences();
   /* Register all tap listeners. */
   for (tap_reg_t *t = tap_reg_listener; t->cb_func != NULL; t++) {
     t->cb_func();
@@ -961,6 +967,7 @@ main(int argc, char *argv[])
       if (strcmp(argv[2], "column-formats") == 0)
         column_dump_column_formats();
       else if (strcmp(argv[2], "currentprefs") == 0) {
+        extcap_register_preferences();
         epan_load_settings();
         write_prefs(NULL);
       }

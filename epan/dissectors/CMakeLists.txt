@@ -971,6 +971,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-ipdc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-nit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-s2-bb.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-s2-table.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-sdt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-tdt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dvb-tot.c
@@ -1788,6 +1789,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-tds.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-teap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-teamspeak2.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-tecmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-teimanagement.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-teklink.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-telkonet.c

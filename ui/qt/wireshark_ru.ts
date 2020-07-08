@@ -8516,6 +8516,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>PacketList</name>
     <message>
+        <source>Protocol Preferences</source>
+        <translation type="unfinished">Параметры Протокола</translation>
+    </message>
+    <message>
         <source>Summary as Text</source>
         <translation>Итоги как Текст</translation>
     </message>
@@ -8715,6 +8719,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>a preference</source>
         <translation>параметр</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation type="unfinished">Открыть...</translation>
     </message>
     <message>
         <source>Open %1 preferences</source>
@@ -9582,31 +9590,31 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>LCID 32</source>
-        <translation type="unfinished">LCID 32</translation>
+        <translation>LCID 32</translation>
     </message>
     <message>
         <source>LCID 33</source>
-        <translation type="unfinished">LCID 33</translation>
+        <translation>LCID 33</translation>
     </message>
     <message>
         <source>LCID 34</source>
-        <translation type="unfinished">LCID 34</translation>
+        <translation>LCID 34</translation>
     </message>
     <message>
         <source>LCID 35</source>
-        <translation type="unfinished">LCID 35</translation>
+        <translation>LCID 35</translation>
     </message>
     <message>
         <source>LCID 36</source>
-        <translation type="unfinished">LCID 36</translation>
+        <translation>LCID 36</translation>
     </message>
     <message>
         <source>LCID 37</source>
-        <translation type="unfinished">LCID 37</translation>
+        <translation>LCID 37</translation>
     </message>
     <message>
         <source>LCID 38</source>
-        <translation type="unfinished">LCID 38</translation>
+        <translation>LCID 38</translation>
     </message>
     <message>
         <source>TM</source>

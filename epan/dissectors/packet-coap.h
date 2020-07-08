@@ -27,6 +27,7 @@
 typedef struct {
 	const gchar *ctype_str;
 	guint ctype_value;
+	guint block_option;                     /* Indicates Block1 or Block2 option */
 	guint block_number;
 	guint block_mflag;
 	wmem_strbuf_t *uri_str_strbuf;		/* the maximum is 1024 > 510 = Uri-Host:255 + Uri-Path:255 x 2 */
@@ -85,6 +86,7 @@ typedef struct coap_common_dissect {
 		int opt_uri_path_recon;
 		int opt_observe_req;
 		int opt_observe_rsp;
+		int opt_hop_limit;
 		int opt_accept;
 		int opt_if_match;
 		int opt_block_number;
@@ -113,6 +115,7 @@ typedef struct coap_common_dissect {
 
 	struct {
 		/* Generic expert info for malformed packets. */
+		expert_field opt_unknown_number;
 		expert_field opt_invalid_number;
 		expert_field opt_invalid_range;
 		expert_field opt_length_bad;
@@ -137,12 +140,13 @@ coap_common_dissect_t name = {							\
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,				\
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,				\
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,				\
+		-1, 								\
 		},								\
 	/* ett */ {								\
 		-1, -1,								\
 		},								\
 	/* ei */ {								\
-		EI_INIT, EI_INIT, EI_INIT, EI_INIT,				\
+		EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT,			\
 		},								\
 }
 /* }}} */
@@ -285,7 +289,7 @@ coap_common_dissect_t name = {							\
 	    NULL, HFILL }							\
 	},									\
 	{ & name .hf.opt_object_security_kid_context,				\
-	  { "Partial IV",  prefix ".opt.object_security_kid_context",		\
+	  { "Key ID Context",  prefix ".opt.object_security_kid_context",	\
 	    FT_BYTES, BASE_NONE, NULL, 0x00,					\
 	    NULL, HFILL }							\
 	},									\
@@ -312,6 +316,11 @@ coap_common_dissect_t name = {							\
 	{ & name .hf.opt_observe_rsp,						\
 	  { "Observe sequence number",  prefix ".opt.observe",			\
 	    FT_UINT32, BASE_DEC, NULL, 0x0,					\
+	    NULL, HFILL }							\
+	},									\
+	{ & name .hf.opt_hop_limit,						\
+	  { "Hop Limit",  prefix ".opt.hop_limit",				\
+	    FT_UINT8, BASE_DEC, NULL, 0x0,					\
 	    NULL, HFILL }							\
 	},									\
 	{ & name .hf.opt_accept,						\
@@ -360,6 +369,10 @@ coap_common_dissect_t name = {							\
 
 /* {{{ */
 #define COAP_COMMON_EI_LIST(name, prefix)					\
+	{ & name .ei.opt_unknown_number,					\
+	  { prefix ".unknown_option_number", PI_UNDECODED, PI_WARN,		\
+	    "Unknown Option Number", EXPFILL }					\
+	},									\
 	{ & name .ei.opt_invalid_number,					\
 	  { prefix ".invalid_option_number", PI_MALFORMED, PI_WARN,		\
 	    "Invalid Option Number", EXPFILL }					\

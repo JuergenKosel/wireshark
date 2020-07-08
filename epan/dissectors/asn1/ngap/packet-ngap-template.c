@@ -476,6 +476,10 @@ dissect_ngap_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   if (json_parse(json_data, tokens, ret) < 0)
     return 0;
   cur_tok = json_get_object(json_data, tokens, "n2InfoContainer");
+  if (!cur_tok) {
+      /* look for n2Information too*/
+      cur_tok = json_get_object(json_data, tokens, "n2Information");
+  }
   if (cur_tok) {
     n2_info_class = json_get_string(json_data, cur_tok, "n2InformationClass");
     if (!n2_info_class)
@@ -516,19 +520,13 @@ dissect_ngap_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     } else if (!strcmp(n2_info_class, "PWS") ||
                !strcmp(n2_info_class, "PWS-BCAL") ||
                !strcmp(n2_info_class, "PWS-RF")) {
-      gdouble msg_type;
       cur_tok = json_get_object(json_data, cur_tok, "pwsInfo");
       if (!cur_tok)
         return 0;
       n2_info_content_tok = json_get_object(json_data, cur_tok, "pwsContainer");
       if (!n2_info_content_tok)
         return 0;
-      if (!json_get_double(json_data, n2_info_content_tok, "ngapMessageType", &msg_type))
-        return 0;
-      if (!strcmp(n2_info_class, "PWS-BCAL"))
-        subdissector = dissector_get_uint_handle(ngap_proc_sout_dissector_table, (guint32)msg_type);
-      else
-        subdissector = dissector_get_uint_handle(ngap_proc_imsg_dissector_table, (guint32)msg_type);
+      subdissector = ngap_handle;
     } else {
       return 0;
     }
@@ -558,7 +556,10 @@ dissect_ngap_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     col_append_sep_str(pinfo->cinfo, COL_PROTOCOL, "/", "NGAP");
     ngap_item = proto_tree_add_item(tree, proto_ngap, tvb, 0, -1, ENC_NA);
     ngap_tree = proto_item_add_subtree(ngap_item, ett_ngap);
+    gboolean save_writable = col_get_writable(pinfo->cinfo, COL_PROTOCOL);
+    col_set_writable(pinfo->cinfo, COL_PROTOCOL, FALSE);
     call_dissector_with_data(subdissector, tvb, pinfo, ngap_tree, NULL);
+    col_set_writable(pinfo->cinfo, COL_PROTOCOL, save_writable);
     return tvb_captured_length(tvb);
   } else {
     return 0;

@@ -13,6 +13,7 @@
 #       -x      xml output (default is gcc)
 #       -j n    threads (default: 4)
 #       -l n    check files from the last [n] commits
+#       -o      check modified files
 #       -v      quiet mode
 # If argument file is omitted then checking all files in the current directory.
 #
@@ -39,6 +40,7 @@ SUPPRESSIONS="--suppressions-list=$CPPCHECK_DIR/suppressions"
 INCLUDES="--includes-file=$CPPCHECK_DIR/includes"
 MODE="gcc"
 COLORIZE_HTML_MODE="no"
+OPEN_FILES="no"
 XML_ARG=""
 
 colorize_worker()
@@ -56,7 +58,16 @@ colorize()
     [ -z "$1" ] && colorize_worker || colorize_worker <<< "$1"
 }
 
-while getopts "achxj:l:v" OPTCHAR ; do
+exit_cleanup() {
+    if [ "$MODE" = "html" ]; then
+        echo "</table></body></html>"
+    fi
+    if [ -n "$1" ] ; then
+        exit "$1"
+    fi
+}
+
+while getopts "achxj:l:ov" OPTCHAR ; do
     case $OPTCHAR in
         a) SUPPRESSIONS=" " ;;
         c) COLORIZE_HTML_MODE="yes" ;;
@@ -64,6 +75,7 @@ while getopts "achxj:l:v" OPTCHAR ; do
         x) MODE="xml" ;;
         j) THREADS="$OPTARG" ;;
         l) LAST_COMMITS="$OPTARG" ;;
+        o) OPEN_FILES="yes" ;;
         v) QUIET=" " ;;
         *) printf "Unknown option %s" "$OPTCHAR"
     esac
@@ -84,6 +96,19 @@ fi
 
 if [ "$LAST_COMMITS" -gt 0 ] ; then
     TARGET=$( git diff --name-only HEAD~"$LAST_COMMITS".. | grep -E '\.(c|cpp)$' )
+    if [ -z "${TARGET//[[:space:]]/}" ] ; then
+        echo "No C or C++ files found in the last $LAST_COMMITS commit(s)."
+        exit_cleanup 0
+    fi
+fi
+
+if [ "$OPEN_FILES" = "yes" ] ; then
+    TARGET=$(git diff --name-only  | grep -E '\.(c|cpp)$' )
+    TARGET="$TARGET $(git diff --staged --name-only  | grep -E '\.(c|cpp)$' )"
+    if [ -z "${TARGET//[[:space:]]/}" ] ; then
+        echo "No C or C++ files are currently opened (modified or added for next commit)."
+        exit_cleanup 0
+    fi
 fi
 
 if [ $# -gt 0 ]; then
@@ -111,9 +136,7 @@ $CPPCHECK --force --enable=style $QUIET    \
     --std=c99 --template=$TEMPLATE   \
     -j $THREADS $TARGET $XML_ARG 2>&1 | colorize
 
-if [ "$MODE" = "html" ]; then
-    echo "</table></body></html>"
-fi
+exit_cleanup
 
 #
 # Editor modelines  -  https://www.wireshark.org/tools/modelines.html

@@ -350,6 +350,7 @@ static inline gboolean is_quic_draft_max(guint32 version, guint8 max_version) {
 const value_string quic_version_vals[] = {
     { 0x00000000, "Version Negotiation" },
     { 0x51303434, "Google Q044" },
+    { 0x51303530, "Google Q050 (draft-27)" },
     { 0xfaceb001, "Facebook mvfst (draft-22)" },
     { 0xfaceb002, "Facebook mvfst (draft-27)" },
     { 0xff000004, "draft-04" },
@@ -977,7 +978,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
     proto_item *ti_ft, *ti_ftflags, *ti;
     proto_tree *ft_tree, *ftflags_tree;
     guint64 frame_type;
-    guint32 lenft;
+    gint32 lenft;
     guint   orig_offset = offset;
 
     ti_ft = proto_tree_add_item(quic_tree, hf_quic_frame, tvb, offset, 1, ENC_NA);
@@ -1009,7 +1010,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         case FT_ACK:
         case FT_ACK_ECN:{
             guint64 ack_range_count;
-            guint32 lenvar;
+            gint32 lenvar;
 
             if (frame_type == FT_ACK) {
                 col_append_fstr(pinfo->cinfo, COL_INFO, ", ACK");
@@ -1057,7 +1058,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         break;
         case FT_RESET_STREAM:{
             guint64 stream_id, error_code;
-            guint32 len_streamid = 0, len_finalsize = 0, len_error_code = 0;
+            gint32 len_streamid = 0, len_finalsize = 0, len_error_code = 0;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", RS");
 
@@ -1077,9 +1078,9 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_STOP_SENDING:{
-            guint32 len_streamid;
+            gint32 len_streamid;
             guint64 stream_id, error_code;
-            guint32 len_error_code = 0;
+            gint32 len_error_code = 0;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", SS");
 
@@ -1097,7 +1098,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         break;
         case FT_CRYPTO: {
             guint64 crypto_offset, crypto_length;
-            guint32 lenvar;
+            gint32 lenvar;
             col_append_fstr(pinfo->cinfo, COL_INFO, ", CRYPTO");
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_crypto_offset, tvb, offset, -1, ENC_VARINT_QUIC, &crypto_offset, &lenvar);
             offset += lenvar;
@@ -1123,7 +1124,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         break;
         case FT_NEW_TOKEN: {
             guint64 token_length;
-            guint32 lenvar;
+            gint32 lenvar;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", NT");
 
@@ -1143,7 +1144,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         case FT_STREAM_E:
         case FT_STREAM_F: {
             guint64 stream_id, stream_offset = 0, length;
-            guint32 lenvar;
+            gint32 lenvar;
 
             offset -= 1;
 
@@ -1185,7 +1186,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_MAX_DATA:{
-            guint32 len_maximumdata;
+            gint32 len_maximumdata;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", MD");
 
@@ -1194,7 +1195,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_MAX_STREAM_DATA:{
-            guint32 len_streamid, len_maximumstreamdata;
+            gint32 len_streamid, len_maximumstreamdata;
             guint64 stream_id;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", MSD");
@@ -1211,7 +1212,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         break;
         case FT_MAX_STREAMS_BIDI:
         case FT_MAX_STREAMS_UNI:{
-            guint32 len_streamid;
+            gint32 len_streamid;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", MS");
 
@@ -1220,7 +1221,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_DATA_BLOCKED:{
-            guint32 len_offset;
+            gint32 len_offset;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", DB");
 
@@ -1229,7 +1230,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_STREAM_DATA_BLOCKED:{
-            guint32 len_streamid, len_offset;
+            gint32 len_streamid, len_offset;
             guint64 stream_id;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", SDB");
@@ -1246,7 +1247,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         break;
         case FT_STREAMS_BLOCKED_BIDI:
         case FT_STREAMS_BLOCKED_UNI:{
-            guint32 len_streamid;
+            gint32 len_streamid;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", SB");
 
@@ -1255,9 +1256,9 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_NEW_CONNECTION_ID:{
-            guint32 len_sequence;
-            guint32 len_retire_prior_to;
-            guint32 nci_length;
+            gint32 len_sequence;
+            gint32 len_retire_prior_to;
+            gint32 nci_length;
             gboolean valid_cid = FALSE;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", NCI");
@@ -1291,7 +1292,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_RETIRE_CONNECTION_ID:{
-            guint32 len_sequence;
+            gint32 len_sequence;
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_rci_sequence, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &len_sequence);
             offset += len_sequence;
         }
@@ -1312,7 +1313,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         break;
         case FT_CONNECTION_CLOSE_TPT:
         case FT_CONNECTION_CLOSE_APP:{
-            guint32 len_reasonphrase, len_frametype, len_error_code;
+            gint32 len_reasonphrase, len_frametype, len_error_code;
             guint64 len_reason = 0;
             guint64 error_code;
             const char *tls_alert = NULL;
@@ -1359,7 +1360,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         break;
         case FT_DATAGRAM:
         case FT_DATAGRAM_LENGTH:{
-            guint32 dg_length;
+            gint32 dg_length;
             guint64 length;
             col_append_fstr(pinfo->cinfo, COL_INFO, ", DG");
             if (frame_type == FT_DATAGRAM_LENGTH) {
@@ -1374,7 +1375,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_ACK_FREQUENCY:{
-            guint32 length;
+            gint32 length;
 
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_af_sequence_number, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &length);
             offset += (guint32)length;
@@ -1387,7 +1388,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_TIME_STAMP:{
-            guint32 length;
+            gint32 length;
 
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_ts, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &length);
             offset += (guint32)length;
@@ -1538,10 +1539,18 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
         0xaf, 0xbf, 0xec, 0x28, 0x99, 0x93, 0xd2, 0x4c, 0x9e, 0x97,
         0x86, 0xf1, 0x9c, 0x61, 0x11, 0xe0, 0x43, 0x90, 0xa8, 0x99
     };
+    static const guint8 hanshake_salt_draft_q50[20] = {
+        0x50, 0x45, 0x74, 0xEF, 0xD0, 0x66, 0xFE, 0x2F, 0x9D, 0x94,
+        0x5C, 0xFC, 0xDB, 0xD3, 0xA7, 0xF0, 0xD3, 0xB5, 0x6B, 0x45
+    };
+
     gcry_error_t    err;
     guint8          secret[HASH_SHA2_256_LENGTH];
 
-    if (is_quic_draft_max(version, 22)) {
+    if (version == 0x51303530) {
+        err = hkdf_extract(GCRY_MD_SHA256, hanshake_salt_draft_q50, sizeof(hanshake_salt_draft_q50),
+                           cid->cid, cid->len, secret);
+    } else if (is_quic_draft_max(version, 22)) {
         err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_22, sizeof(handshake_salt_draft_22),
                            cid->cid, cid->len, secret);
     } else if (is_quic_draft_max(version, 28)) {
@@ -1686,7 +1695,13 @@ quic_create_decoders(packet_info *pinfo, quic_info_data_t *quic_info, quic_ciphe
 {
     if (!quic_info->hash_algo) {
         if (!tls_get_cipher_info(pinfo, 0, &quic_info->cipher_algo, &quic_info->cipher_mode, &quic_info->hash_algo)) {
+#ifndef HAVE_LIBGCRYPT_CHACHA20
+            /* If this stream uses the ChaCha20-Poly1305 cipher, Libgcrypt 1.7.0
+             * or newer is required. */
+            *error = "Unable to retrieve cipher information; try upgrading Libgcrypt >= 1.7.0";
+#else
             *error = "Unable to retrieve cipher information";
+#endif
             return FALSE;
         }
     }
@@ -1921,17 +1936,7 @@ quic_process_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_
                                "Decryption skipped because keys are not available.");
     }
 }
-#else /* !HAVE_LIBGCRYPT_AEAD */
-static void
-quic_process_payload(tvbuff_t *tvb _U_, packet_info *pinfo, proto_tree *tree _U_, proto_item *ti, guint offset _U_,
-                     quic_info_data_t *quic_info _U_, quic_packet_info_t *quic_packet _U_, gboolean from_server _U_,
-                     quic_cipher *cipher _U_, guint8 first_byte _U_, guint pkn_len _U_)
-{
-    expert_add_info_format(pinfo, ti, &ei_quic_decryption_failed, "Libgcrypt >= 1.6.0 is required for QUIC decryption");
-}
-#endif /* !HAVE_LIBGCRYPT_AEAD */
 
-#ifdef HAVE_LIBGCRYPT_AEAD
 static void
 quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const quic_cid_t *odcid, guint32 version)
 {
@@ -2109,9 +2114,6 @@ dissect_quic_retry_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
             // to packet loss in the capture file.
             quic_verify_retry_token(tvb, quic_packet, odcid, version);
         }
-#else
-        (void)odcid;
-#endif
         if (quic_packet->retry_integrity_failure) {
             expert_add_info(pinfo, ti, &ei_quic_bad_retry);
         } else if (!quic_packet->retry_integrity_success) {
@@ -2120,6 +2122,11 @@ dissect_quic_retry_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
         } else {
             proto_item_append_text(ti, " [verified]");
         }
+#else
+        (void)odcid;
+        expert_add_info_format(pinfo, ti, &ei_quic_bad_retry,
+                "Libgcrypt >= 1.6.0 is required for Retry Packet verification");
+#endif
         offset += 16;
     }
 
@@ -2134,14 +2141,16 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     guint8 long_packet_type;
     guint32 version;
     quic_cid_t  dcid = {.len=0}, scid = {.len=0};
-    guint32 len_token_length;
+    gint32 len_token_length;
     guint64 token_length;
-    guint32 len_payload_length;
+    gint32 len_payload_length;
     guint64 payload_length;
     guint8  first_byte = 0;
     quic_info_data_t *conn = dgram_info->conn;
+#ifdef HAVE_LIBGCRYPT_AEAD
     const gboolean from_server = dgram_info->from_server;
     quic_cipher *cipher = NULL;
+#endif
     proto_item *ti;
 
     quic_extract_header(tvb, &long_packet_type, &version, &dcid, &scid);
@@ -2246,8 +2255,12 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
         return offset;
     }
     if (!conn || quic_packet->pkn_len == 0) {
+#ifndef HAVE_LIBGCRYPT_AEAD
+        expert_add_info_format(pinfo, quic_tree, &ei_quic_decryption_failed, "Libgcrypt >= 1.6.0 is required for QUIC decryption");
+#else
         // if not part of a connection, the full PKN cannot be reconstructed.
         expert_add_info_format(pinfo, quic_tree, &ei_quic_decryption_failed, "Failed to decrypt packet number");
+#endif
         return offset;
     }
 
@@ -2258,11 +2271,11 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     /* Payload */
     ti = proto_tree_add_item(quic_tree, hf_quic_payload, tvb, offset, -1, ENC_NA);
 
+#ifdef HAVE_LIBGCRYPT_AEAD
     if (conn) {
         quic_process_payload(tvb, pinfo, quic_tree, ti, offset,
                              conn, quic_packet, from_server, cipher, first_byte, quic_packet->pkn_len);
     }
-#ifdef HAVE_LIBGCRYPT_AEAD
     if (!PINFO_FD_VISITED(pinfo) && !quic_packet->decryption.error) {
         // Packet number is verified to be valid, remember it.
         *quic_max_packet_number(conn, from_server, first_byte) = quic_packet->packet_number;
@@ -2282,7 +2295,9 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
     guint8  first_byte = 0;
     proto_item *ti;
     gboolean    key_phase = FALSE;
+#ifdef HAVE_LIBGCRYPT_AEAD
     quic_cipher *cipher = NULL;
+#endif
     quic_info_data_t *conn = dgram_info->conn;
     const gboolean from_server = dgram_info->from_server;
 
@@ -2346,16 +2361,16 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
     /* Protected Payload */
     ti = proto_tree_add_item(hdr_tree, hf_quic_protected_payload, tvb, offset, -1, ENC_NA);
 
+#ifdef HAVE_LIBGCRYPT_AEAD
     if (conn) {
         quic_process_payload(tvb, pinfo, quic_tree, ti, offset,
                              conn, quic_packet, from_server, cipher, first_byte, quic_packet->pkn_len);
-#ifdef HAVE_LIBGCRYPT_AEAD
         if (!PINFO_FD_VISITED(pinfo) && !quic_packet->decryption.error) {
             // Packet number is verified to be valid, remember it.
             *quic_max_packet_number(conn, from_server, first_byte) = quic_packet->packet_number;
         }
-#endif /* !HAVE_LIBGCRYPT_AEAD */
     }
+#endif /* !HAVE_LIBGCRYPT_AEAD */
     offset += tvb_reported_length_remaining(tvb, offset);
 
     return offset;
