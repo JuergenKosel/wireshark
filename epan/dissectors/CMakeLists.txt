@@ -277,6 +277,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-bthci_acl.h
 	packet-bthci_cmd.h
 	packet-bthci_evt.h
+	packet-bthci_iso.h
 	packet-bthci_sco.h
 	packet-btl2cap.h
 	packet-btle.h
@@ -688,6 +689,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-applemidi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-aprs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-arcnet.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-arinc615a.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-armagetronad.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-arp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-artemis.c
@@ -761,6 +763,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bthci_acl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bthci_cmd.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bthci_evt.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-bthci_iso.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bthci_sco.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bthci_vendor.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bthcrp.c
@@ -1057,6 +1060,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fmtp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-force10-oui.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-forces.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-fortinet-sso.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-foundry.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fp_hint.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fp_mux.c
@@ -1181,6 +1185,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hsrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-http.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-http2.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-http3.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-http-urlencoded.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hyperscsi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-i2c.c
@@ -1333,6 +1338,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lisp-data.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lisp-tcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lisp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-lithionics.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-llc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lldp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-llrp.c

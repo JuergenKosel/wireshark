@@ -54,9 +54,6 @@
 #include <epan/proto_data.h>
 #include <epan/strutil.h>
 #include <epan/uat.h>
-#if GCRYPT_VERSION_NUMBER >= 0x010600
-#define HAVE_LIBGCRYPT_AEAD 1
-#endif
 
 void proto_register_isakmp(void);
 void proto_reg_handoff_isakmp(void);
@@ -1733,10 +1730,7 @@ static const true_false_string flag_v = {
   "A higher version enabled",
   "No higher version"
 };
-static const true_false_string flag_r = {
-  "Response",
-  "Request"
-};
+
 
 /* ROHC Attribute Type RFC5857 */
 
@@ -3399,7 +3393,7 @@ dissect_isakmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
         proto_item_append_text(fti, " (%s, %s, %s)",
                                tfs_get_string(flags & I_FLAG, &flag_i),
                                tfs_get_string(flags & V_FLAG, &flag_v),
-                               tfs_get_string(flags & R_FLAG, &flag_r));
+                               tfs_get_string(flags & R_FLAG, &tfs_response_request));
       }
       offset += 1;
     }
@@ -3413,7 +3407,7 @@ dissect_isakmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
       col_append_fstr(pinfo->cinfo, COL_INFO, " MID=%02u %s %s",
                       hdr.message_id,
                       tfs_get_string(flags & I_FLAG, &flag_i),
-                      tfs_get_string(flags & R_FLAG, &flag_r));
+                      tfs_get_string(flags & R_FLAG, &tfs_response_request));
     }
 
     if (hdr.length < ISAKMP_HDR_SIZE) {
@@ -6536,7 +6530,7 @@ proto_register_isakmp(void)
         "Version Bit", HFILL }},
     { &hf_isakmp_flag_r,
       { "Response", "isakmp.flag_r",
-        FT_BOOLEAN, 8, TFS(&flag_r), R_FLAG,
+        FT_BOOLEAN, 8, TFS(&tfs_response_request), R_FLAG,
         "Response Bit", HFILL }},
     { &hf_isakmp_messageid,
       { "Message ID", "isakmp.messageid",

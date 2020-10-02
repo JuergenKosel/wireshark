@@ -7479,7 +7479,8 @@ dissect_pfcp_nf_instance_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     offset += 2;
 
     /* Octet 5 to 20    NF Instance ID */
-    proto_tree_add_item_ret_uint(tree, hf_pfcp_nf_instance_id, tvb, offset, 1, ENC_BIG_ENDIAN, &id_length);
+    proto_tree_add_item(tree, hf_pfcp_nf_instance_id, tvb, offset, id_length, ENC_NA);
+    offset += id_length;
 
     if (offset < length) {
         proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, length);
@@ -11966,17 +11967,17 @@ proto_register_pfcp(void)
             NULL, HFILL }
         },
         { &hf_pfcp_packet_delay_thresholds_downlink,
-        { "Downlink packet delay treshold (milliseconds)", "pfcp.packet_delay_thresholds.downlink",
+        { "Downlink packet delay threshold (milliseconds)", "pfcp.packet_delay_thresholds.downlink",
             FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_pfcp_packet_delay_thresholds_uplink,
-        { "Downlink packet delay treshold (milliseconds)", "pfcp.packet_delay_thresholds.uplink",
+        { "Downlink packet delay threshold (milliseconds)", "pfcp.packet_delay_thresholds.uplink",
             FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_pfcp_packet_delay_thresholds_roundtrip,
-        { "Round trip packet delay treshold (milliseconds)", "pfcp.packet_delay_thresholds.roundtrip",
+        { "Round trip packet delay threshold (milliseconds)", "pfcp.packet_delay_thresholds.roundtrip",
             FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },

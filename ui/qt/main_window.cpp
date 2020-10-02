@@ -57,6 +57,7 @@ DIAG_ON(frame-larger-than=)
 #include "funnel_statistics.h"
 #include "import_text_dialog.h"
 #include "interface_toolbar.h"
+#include "packet_diagram.h"
 #include "packet_list.h"
 #include "proto_tree.h"
 #include "simple_dialog.h"
@@ -87,11 +88,6 @@ DIAG_ON(frame-larger-than=)
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QUrl>
-
-#if defined(QT_MACEXTRAS_LIB) && QT_VERSION < QT_VERSION_CHECK(5, 2, 1)
-#include <QtMacExtras/QMacNativeToolBar>
-#endif
-
 
 //menu_recent_file_write_all
 
@@ -231,6 +227,50 @@ static void plugin_if_mainwindow_get_ws_info(GHashTable * data_set)
 }
 
 #endif /* HAVE_LIBPCAP */
+
+static void plugin_if_mainwindow_get_frame_data(GHashTable* data_set)
+{
+    if (!gbl_cur_main_window_ || !data_set)
+        return;
+
+    plugin_if_frame_data_cb extract_cb;
+    void* user_data;
+    void** ret_value_ptr;
+
+    if (g_hash_table_lookup_extended(data_set, "extract_cb", NULL, (void**)&extract_cb) &&
+        g_hash_table_lookup_extended(data_set, "user_data", NULL, (void**)&user_data) &&
+        g_hash_table_lookup_extended(data_set, "ret_value_ptr", NULL, (void**)&ret_value_ptr))
+    {
+        QList<int> rows = gbl_cur_main_window_->selectedRows();
+        if (rows.count() > 0) {
+            frame_data* fdata = gbl_cur_main_window_->frameDataForRow(rows.at(0));
+            if (fdata) {
+                *ret_value_ptr = extract_cb(fdata, user_data);
+            }
+        }
+    }
+}
+
+static void plugin_if_mainwindow_get_capture_file(GHashTable* data_set)
+{
+    if (!gbl_cur_main_window_ || !data_set)
+        return;
+
+    plugin_if_capture_file_cb extract_cb;
+    void* user_data;
+    void** ret_value_ptr;
+
+    if (g_hash_table_lookup_extended(data_set, "extract_cb", NULL, (void**)&extract_cb) &&
+        g_hash_table_lookup_extended(data_set, "user_data", NULL, (void**)&user_data) &&
+        g_hash_table_lookup_extended(data_set, "ret_value_ptr", NULL, (void**)&ret_value_ptr))
+    {
+        CaptureFile* cfWrap = gbl_cur_main_window_->captureFile();
+        capture_file* cf = cfWrap->capFile();
+        if (cf) {
+            *ret_value_ptr = extract_cb(cf, user_data);
+        }
+    }
+}
 
 static void plugin_if_mainwindow_update_toolbars(GHashTable * data_set)
 {
@@ -436,10 +476,6 @@ MainWindow::MainWindow(QWidget *parent) :
 #endif
 
 #if defined(Q_OS_MAC)
-#if defined(QT_MACEXTRAS_LIB) && QT_VERSION < QT_VERSION_CHECK(5, 2, 1)
-    QMacNativeToolBar *ntb = QtMacExtras::setNativeToolBar(main_ui_->mainToolBar);
-    ntb->setIconSize(QSize(24, 24));
-#endif // QT_MACEXTRAS_LIB
 
     main_ui_->goToPacketLabel->setAttribute(Qt::WA_MacSmallSize, true);
     main_ui_->goToLineEdit->setAttribute(Qt::WA_MacSmallSize, true);
@@ -475,20 +511,23 @@ MainWindow::MainWindow(QWidget *parent) :
     packet_list_->setProtoTree(proto_tree_);
     packet_list_->installEventFilter(this);
 
+    packet_diagram_ = new PacketDiagram(&master_split_);
+
     welcome_page_ = main_ui_->welcomePage;
 
-    connect(proto_tree_, SIGNAL(fieldSelected(FieldInformation *)),
-            this, SIGNAL(fieldSelected(FieldInformation *)));
-    connect(packet_list_, SIGNAL(fieldSelected(FieldInformation *)),
-            this, SIGNAL(fieldSelected(FieldInformation *)));
-    connect(this, SIGNAL(fieldSelected(FieldInformation *)),
-            this, SLOT(setMenusForSelectedTreeRow(FieldInformation *)));
-    connect(this, SIGNAL(fieldSelected(FieldInformation *)),
-            main_ui_->statusBar, SLOT(selectedFieldChanged(FieldInformation *)));
+    connect(proto_tree_, &ProtoTree::fieldSelected,
+            this, &MainWindow::fieldSelected);
+    connect(packet_list_, &PacketList::fieldSelected,
+            this, &MainWindow::fieldSelected);
+    connect(this, &MainWindow::fieldSelected,
+            this, &MainWindow::setMenusForSelectedTreeRow);
+    connect(this, &MainWindow::fieldSelected,
+            main_ui_->statusBar, &MainStatusBar::selectedFieldChanged);
 
-    connect(this, SIGNAL(fieldHighlight(FieldInformation *)),
-            main_ui_->statusBar, SLOT(highlightedFieldChanged(FieldInformation *)));
-    connect(wsApp, SIGNAL(captureActive(int)), this, SIGNAL(captureActive(int)));
+    connect(this, &MainWindow::fieldHighlight,
+            main_ui_->statusBar, &MainStatusBar::highlightedFieldChanged);
+    connect(wsApp, &WiresharkApplication::captureActive,
+            this, &MainWindow::captureActive);
 
     byte_view_tab_ = new ByteViewTab(&master_split_);
 
@@ -552,14 +591,14 @@ MainWindow::MainWindow(QWidget *parent) :
             filter_expression_toolbar_, &FilterExpressionToolBar::filterExpressionsChanged);
 
     /* Connect change of capture file */
-    connect(this, SIGNAL(setCaptureFile(capture_file*)),
-            main_ui_->searchFrame, SLOT(setCaptureFile(capture_file*)));
-    connect(this, SIGNAL(setCaptureFile(capture_file*)),
-            main_ui_->statusBar, SLOT(setCaptureFile(capture_file*)));
-    connect(this, SIGNAL(setCaptureFile(capture_file*)),
-            packet_list_, SLOT(setCaptureFile(capture_file*)));
-    connect(this, SIGNAL(setCaptureFile(capture_file*)),
-            proto_tree_, SLOT(setCaptureFile(capture_file*)));
+    connect(this, &MainWindow::setCaptureFile,
+            main_ui_->searchFrame, &SearchFrame::setCaptureFile);
+    connect(this, &MainWindow::setCaptureFile,
+            main_ui_->statusBar, &MainStatusBar::setCaptureFile);
+    connect(this, &MainWindow::setCaptureFile,
+            packet_list_, &PacketList::setCaptureFile);
+    connect(this, &MainWindow::setCaptureFile,
+            proto_tree_, &ProtoTree::setCaptureFile);
 
     connect(wsApp, SIGNAL(zoomMonospaceFont(QFont)),
             packet_list_, SLOT(setMonospaceFont(QFont)));
@@ -647,6 +686,8 @@ MainWindow::MainWindow(QWidget *parent) :
 #ifdef HAVE_LIBPCAP
     plugin_if_register_gui_cb(PLUGIN_IF_GET_WS_INFO, plugin_if_mainwindow_get_ws_info);
 #endif
+    plugin_if_register_gui_cb(PLUGIN_IF_GET_FRAME_DATA, plugin_if_mainwindow_get_frame_data);
+    plugin_if_register_gui_cb(PLUGIN_IF_GET_CAPTURE_FILE, plugin_if_mainwindow_get_capture_file);
     plugin_if_register_gui_cb(PLUGIN_IF_REMOVE_TOOLBAR, plugin_if_mainwindow_update_toolbars);
 
     /* Register Interface Toolbar callbacks */
@@ -710,6 +751,7 @@ QMenu *MainWindow::createPopupMenu()
     menu->addAction(main_ui_->actionViewPacketList);
     menu->addAction(main_ui_->actionViewPacketDetails);
     menu->addAction(main_ui_->actionViewPacketBytes);
+    menu->addAction(main_ui_->actionViewPacketDiagram);
     return menu;
 }
 
@@ -2067,6 +2109,7 @@ void MainWindow::initShowHideMainWidgets()
     shmw_actions[main_ui_->actionViewPacketList] = packet_list_;
     shmw_actions[main_ui_->actionViewPacketDetails] = proto_tree_;
     shmw_actions[main_ui_->actionViewPacketBytes] = byte_view_tab_;
+    shmw_actions[main_ui_->actionViewPacketDiagram] = packet_diagram_;
 
     foreach(QAction *shmwa, shmw_actions.keys()) {
         shmwa->setData(QVariant::fromValue(shmw_actions[shmwa]));

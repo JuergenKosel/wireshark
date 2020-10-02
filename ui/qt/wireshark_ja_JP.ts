@@ -134,7 +134,7 @@
         <translation>名前:</translation>
     </message>
     <message>
-        <source>Can&apos;t assign %1 to %2</source>
+        <source>Can&apos;t assign %1 to %2.</source>
         <translation>%1 を %2 に割り当てることができません</translation>
     </message>
 </context>
@@ -3067,10 +3067,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>UTF-8形式</translation>
     </message>
     <message>
-        <source>UTF-16</source>
-        <translation>UTF-16形式</translation>
-    </message>
-    <message>
         <source>YAML</source>
         <translation>YAML形式</translation>
     </message>
@@ -3181,9 +3177,9 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>ヒント</translation>
     </message>
     <message>
-        <source>Show and save data as</source>
-        <oldsource>Show data as</oldsource>
-        <translation>としてデータを表示して保存する</translation>
+        <source>Show data as</source>
+        <oldsource>Show and save data as</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Stream</source>
@@ -5388,6 +5384,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>パケットバイト列</translation>
     </message>
     <message>
+        <source>Packet Diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>None</source>
         <translation>なし</translation>
     </message>
@@ -7009,6 +7009,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>外観のレイアウトをデフォルトのサイズにリセットします</translation>
     </message>
     <message>
+        <source>Packet &amp;Diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show or hide the packet diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Show each conversation hash table</source>
         <translation>各々の会話ハッシュ表を表示します</translation>
     </message>
@@ -7874,20 +7882,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>別のファイルを開く前に</translation>
     </message>
     <message>
+        <source>Merging files.</source>
+        <translation>ファイルを結合</translation>
+    </message>
+    <message>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
     <message>
         <source>Saving %1</source>
         <translation>保存中 %1</translation>
-    </message>
-    <message>
-        <source>No interface selected</source>
-        <translation>インターフェースが選択されていません</translation>
-    </message>
-    <message>
-        <source>Invalid capture filter</source>
-        <translation>無効なキャプチャフィルタ</translation>
     </message>
     <message>
         <source>Clear Menu</source>
@@ -7921,10 +7925,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Raw(無加工)データ形式 (*.bin *.dat *.raw);;すべてのファイル(</translation>
     </message>
     <message>
-        <source>Merging files</source>
-        <translation>ファイルを結合</translation>
-    </message>
-    <message>
         <source>Couldn&apos;t copy text. Try another item.</source>
         <translation>テキストをコピーできません 別の項目を試してみてください</translation>
     </message>
@@ -7941,10 +7941,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>ファイルを再読み込みする前に</translation>
     </message>
     <message>
-        <source>No filter available. Try another </source>
-        <translation>フィルタが利用できません 別のものを試してください</translation>
-    </message>
-    <message>
         <source>Error compiling filter for this conversation.</source>
         <translation>この対話の間のフィルタ翻訳エラー</translation>
     </message>
@@ -7953,8 +7949,12 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>対話の前/次のパケットがありません</translation>
     </message>
     <message>
-        <source>No Interface Selected</source>
+        <source>No interface selected.</source>
         <translation>インターフェースが選択されていません</translation>
+    </message>
+    <message>
+        <source>Invalid capture filter.</source>
+        <translation>無効なキャプチャフィルタ</translation>
     </message>
     <message>
         <source> before starting a new capture</source>
@@ -7973,6 +7973,30 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>TLS Session Keys (*.keys *.txt);;All Files (</source>
         <translation>TLSセッション鍵 (*.keys *.txt);;すべてのファイル (</translation>
+    </message>
+    <message>
+        <source>No filter available. Try another %1.</source>
+        <translation>フィルタが利用できません 別の %1 を利用してください</translation>
+    </message>
+    <message>
+        <source>column</source>
+        <translation>列</translation>
+    </message>
+    <message>
+        <source>item</source>
+        <translation>項目</translation>
+    </message>
+    <message>
+        <source>The &quot;%1&quot; column already exists.</source>
+        <translation>&quot;%1&quot; 列は既に存在します</translation>
+    </message>
+    <message>
+        <source>The &quot;%1&quot; column already exists as &quot;%2&quot;.</source>
+        <translation>&quot;%1&quot; 列は &quot;%2&quot; として既に存在します</translation>
+    </message>
+    <message>
+        <source>No Interface Selected.</source>
+        <translation>インターフェースが選択されていません</translation>
     </message>
     <message>
         <source> before restarting the capture</source>
@@ -8385,6 +8409,45 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>PacketDiagram</name>
+    <message>
+        <source>Packet diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Field Values</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Diagram As</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy as Raster Image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Portable Network Graphics (*.png)</source>
+        <translation type="unfinished">PNG形式 (*.png)</translation>
+    </message>
+    <message>
+        <source>Windows Bitmap (*.bmp)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
+        <translation type="unfinished">JPEG形式 (*.jpeg *.jpg)</translation>
+    </message>
+    <message>
+        <source>Scalable Vector Graphics (*.svg)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Graph As</source>
+        <translation type="unfinished">としてグラフを保存</translation>
+    </message>
+</context>
+<context>
     <name>PacketDialog</name>
     <message>
         <source>Dialog</source>
@@ -8478,7 +8541,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <name>PacketList</name>
     <message>
         <source>Protocol Preferences</source>
-        <translation type="unfinished">プロトコル設定</translation>
+        <translation>プロトコル設定</translation>
     </message>
     <message>
         <source>Summary as Text</source>
@@ -8683,7 +8746,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Browse…</source>
-        <translation type="unfinished"></translation>
+        <translation>参照…</translation>
     </message>
     <message>
         <source>Open %1 preferences</source>
@@ -9539,31 +9602,31 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>LCID 32</source>
-        <translation type="unfinished">LCID 32</translation>
+        <translation>LCID 32</translation>
     </message>
     <message>
         <source>LCID 33</source>
-        <translation type="unfinished">LCID 33</translation>
+        <translation>LCID 33</translation>
     </message>
     <message>
         <source>LCID 34</source>
-        <translation type="unfinished">LCID 34</translation>
+        <translation>LCID 34</translation>
     </message>
     <message>
         <source>LCID 35</source>
-        <translation type="unfinished">LCID 35</translation>
+        <translation>LCID 35</translation>
     </message>
     <message>
         <source>LCID 36</source>
-        <translation type="unfinished">LCID 36</translation>
+        <translation>LCID 36</translation>
     </message>
     <message>
         <source>LCID 37</source>
-        <translation type="unfinished">LCID 37</translation>
+        <translation>LCID 37</translation>
     </message>
     <message>
         <source>LCID 38</source>
-        <translation type="unfinished">LCID 38</translation>
+        <translation>LCID 38</translation>
     </message>
     <message>
         <source>TM</source>
@@ -9664,6 +9727,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Default value is empty</source>
         <translation>デフォルト値は空です</translation>
+    </message>
+    <message>
+        <source>Gap in dissection</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12200,20 +12267,12 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>画像形式</translation>
     </message>
     <message>
-        <source>ISO 8859-1</source>
-        <translation>ISO 8859-1形式</translation>
-    </message>
-    <message>
         <source>Raw</source>
         <translation>Raw(無加工)形式</translation>
     </message>
     <message>
         <source>UTF-8</source>
         <translation>UTF-8形式</translation>
-    </message>
-    <message>
-        <source>UTF-16</source>
-        <translation>UTF-16形式</translation>
     </message>
     <message>
         <source>YAML</source>
@@ -13579,6 +13638,17 @@ a:hover {
     <message>
         <source>Unable to set FCS validation behavior.</source>
         <translation>FCSの確認動作を設定できません</translation>
+    </message>
+</context>
+<context>
+    <name>WirelessTimeline</name>
+    <message>
+        <source>Packet number %1 does not include TSF timestamp, not showing timeline.</source>
+        <translation>パケット番号 %1 にはTSF タイムスタンプが含まれないため、タイムラインを表示しません</translation>
+    </message>
+    <message>
+        <source>Packet number %u has large negative jump in TSF, not showing timeline. Perhaps TSF reference point is set wrong?</source>
+        <translation>パケット番号 %u のTSFには大きな負数ジャンプがあり、タイムラインに表示できません。おそらく、TSF参照点の設定が誤っているかもしれません。</translation>
     </message>
 </context>
 <context>

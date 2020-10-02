@@ -353,6 +353,15 @@ wtap_open_return_val libpcap_open(wtap *wth, int *err, gchar **err_info)
 		 */
 		wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_PCAP_AIX;
 		wth->file_tsprec = WTAP_TSPREC_NSEC;
+
+		/*
+		 * Add an IDB; we don't know how many interfaces were
+		 * involved, so we just say one interface, about which
+		 * we only know the link-layer type, snapshot length,
+		 * and time stamp resolution.
+		 */
+		wtap_add_generated_idb(wth);
+
 		return WTAP_OPEN_MINE;
 	}
 
@@ -528,9 +537,6 @@ done:
 	 * the link-layer type, snapshot length, and time stamp
 	 * resolution.
 	 *
-	 * This allows nanosecond pcap files to be correctly
-	 * converted to pcapng files.
-	 *
 	 * XXX - this will be a bit weird if you're trying to convert
 	 * a LINKTYPE_ERF pcap file to a pcapng file; it'll have a
 	 * placeholder interface added here, *plus* interfaces
@@ -539,28 +545,8 @@ done:
 	 * for capturing, and the DAG capture code will use it, so that
 	 * if you're capturing on more than one interface, they'll all
 	 * get regular IDBs, with no need for the placeholder.
-	 *
-	 * XXX - yes, adding at least one IDB should be done for *all*
-	 * file types.
 	 */
-	wtap_block_t descr = wtap_block_create(WTAP_BLOCK_IF_DESCR);
-	wtapng_if_descr_mandatory_t* descr_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(descr);
-
-	descr_mand->wtap_encap = wth->file_encap;
-	if (wth->file_type_subtype == WTAP_FILE_TYPE_SUBTYPE_PCAP_NSEC) {
-		descr_mand->time_units_per_second = 1000000000; /* nanosecond resolution */
-		wtap_block_add_uint8_option(descr, OPT_IDB_TSRESOL, 9);
-		descr_mand->tsprecision = WTAP_TSPREC_NSEC;
-	} else {
-		descr_mand->time_units_per_second = 1000000; /* default microsecond resolution */
-		/* No need to add an option, this is the default */
-		descr_mand->tsprecision = WTAP_TSPREC_USEC;
-	}
-	descr_mand->snap_len = wth->snapshot_length;
-
-	descr_mand->num_stat_entries = 0;          /* Number of ISB:s */
-	descr_mand->interface_statistics = NULL;
-	wtap_add_idb(wth, descr);
+	wtap_add_generated_idb(wth);
 
 	return WTAP_OPEN_MINE;
 }

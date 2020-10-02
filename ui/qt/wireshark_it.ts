@@ -135,8 +135,8 @@
         <translation>Nome:</translation>
     </message>
     <message>
-        <source>Can&apos;t assign %1 to %2</source>
-        <translation>Impossibile assegnare %1 a %2</translation>
+        <source>Can&apos;t assign %1 to %2.</source>
+        <translation>Impossibile assegnare %1 a %2.</translation>
     </message>
 </context>
 <context>
@@ -3078,10 +3078,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>UTF-8</translation>
     </message>
     <message>
-        <source>UTF-16</source>
-        <translation>UTF-16</translation>
-    </message>
-    <message>
         <source>YAML</source>
         <translation>YAML</translation>
     </message>
@@ -3197,9 +3193,9 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Suggerimento.</translation>
     </message>
     <message>
-        <source>Show and save data as</source>
-        <oldsource>Show data as</oldsource>
-        <translation>Mostra e salva i dati come</translation>
+        <source>Show data as</source>
+        <oldsource>Show and save data as</oldsource>
+        <translation>Mostra dati come</translation>
     </message>
     <message>
         <source>Stream</source>
@@ -5399,11 +5395,15 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
     <message>
         <source>Packet Details</source>
-        <translation>Dettagli pacchetto</translation>
+        <translation>Dettagli del pacchetto</translation>
     </message>
     <message>
         <source>Packet Bytes</source>
         <translation>Byte pacchetto</translation>
+    </message>
+    <message>
+        <source>Packet Diagram</source>
+        <translation>Diagramma del pacchetto</translation>
     </message>
     <message>
         <source>None</source>
@@ -7025,6 +7025,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Ripristina la disposizione dell&apos;aspetto alla dimensione predefinita</translation>
     </message>
     <message>
+        <source>Packet &amp;Diagram</source>
+        <translation>&amp;Diagramma del pacchetto</translation>
+    </message>
+    <message>
+        <source>Show or hide the packet diagram</source>
+        <translation>Mostra o nascondi il diagramma del pacchetto</translation>
+    </message>
+    <message>
         <source>Show each conversation hash table</source>
         <translation>Mostri ogni tabella degli hash di conversazione</translation>
     </message>
@@ -7474,7 +7482,7 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
     <message>
         <source>Packet &amp;Details</source>
-        <translation>&amp;Dettagli pacchetto</translation>
+        <translation>&amp;Dettagli del pacchetto</translation>
     </message>
     <message>
         <source>Show or hide the packet details</source>
@@ -7890,20 +7898,16 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>errore durante l&apos;apertura di un altro file</translation>
     </message>
     <message>
+        <source>Merging files.</source>
+        <translation>Unisci i file.</translation>
+    </message>
+    <message>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
     <message>
         <source>Saving %1</source>
         <translation>Salvataggio di %1</translation>
-    </message>
-    <message>
-        <source>No interface selected</source>
-        <translation>Nessuna interfaccia selezionata</translation>
-    </message>
-    <message>
-        <source>Invalid capture filter</source>
-        <translation>Filtro di cattura invalido</translation>
     </message>
     <message>
         <source>Clear Menu</source>
@@ -7938,10 +7942,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Dati grezzi (*.bin *.dat *.raw);;Tutti i file (</translation>
     </message>
     <message>
-        <source>Merging files</source>
-        <translation>Unisci i file</translation>
-    </message>
-    <message>
         <source>Couldn&apos;t copy text. Try another item.</source>
         <translation>Non riesco a copiare il testo. Prova un&apos;altra voce.</translation>
     </message>
@@ -7958,10 +7958,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation> prima di ricaricare il file</translation>
     </message>
     <message>
-        <source>No filter available. Try another </source>
-        <translation>Nessun filtro disponibile. Provane un altro </translation>
-    </message>
-    <message>
         <source>Error compiling filter for this conversation.</source>
         <translation>Errore durante la compilazione del filtro per questa conversazione.</translation>
     </message>
@@ -7970,8 +7966,12 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Nessun pacchetto precedente/successivo in conversazione.</translation>
     </message>
     <message>
-        <source>No Interface Selected</source>
-        <translation>Nessuna interfaccia selezionata</translation>
+        <source>No interface selected.</source>
+        <translation>Nessuna interfaccia selezionata.</translation>
+    </message>
+    <message>
+        <source>Invalid capture filter.</source>
+        <translation>Filtro di cattura invalido.</translation>
     </message>
     <message>
         <source> before starting a new capture</source>
@@ -7991,6 +7991,30 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>TLS Session Keys (*.keys *.txt);;All Files (</source>
         <translation>Chiavi di sessione SSL (*.keys *.txt);;Tutti i file (</translation>
+    </message>
+    <message>
+        <source>No filter available. Try another %1.</source>
+        <translation>Nessun filtro disponibile. Prova un altro %1.</translation>
+    </message>
+    <message>
+        <source>column</source>
+        <translation>colonna</translation>
+    </message>
+    <message>
+        <source>item</source>
+        <translation>elemento</translation>
+    </message>
+    <message>
+        <source>The &quot;%1&quot; column already exists.</source>
+        <translation>La colonna &quot;%1&quot; esiste già.</translation>
+    </message>
+    <message>
+        <source>The &quot;%1&quot; column already exists as &quot;%2&quot;.</source>
+        <translation>La colonna &quot;%1&quot; esiste già come &quot;%2&quot;.</translation>
+    </message>
+    <message>
+        <source>No Interface Selected.</source>
+        <translation>Nessuna interfaccia selezionata.</translation>
     </message>
     <message>
         <source> before restarting the capture</source>
@@ -8403,6 +8427,45 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
 </context>
 <context>
+    <name>PacketDiagram</name>
+    <message>
+        <source>Packet diagram</source>
+        <translation>Diagramma del pacchetto</translation>
+    </message>
+    <message>
+        <source>Show Field Values</source>
+        <translation>Mostra i valori dei campi</translation>
+    </message>
+    <message>
+        <source>Save Diagram As</source>
+        <translation>Salva diagramma come</translation>
+    </message>
+    <message>
+        <source>Copy as Raster Image</source>
+        <translation>Copia come immagine raster</translation>
+    </message>
+    <message>
+        <source>Portable Network Graphics (*.png)</source>
+        <translation>Portable Network Graphics (*.png)</translation>
+    </message>
+    <message>
+        <source>Windows Bitmap (*.bmp)</source>
+        <translation>Windows Bitmap (*.bmp)</translation>
+    </message>
+    <message>
+        <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
+        <translation>JPEG File Interchange Format (*.jpeg *.jpg)</translation>
+    </message>
+    <message>
+        <source>Scalable Vector Graphics (*.svg)</source>
+        <translation>Scalable Vector Graphics (*.svg)</translation>
+    </message>
+    <message>
+        <source>Save Graph As</source>
+        <translation>Salva grafico come</translation>
+    </message>
+</context>
+<context>
     <name>PacketDialog</name>
     <message>
         <source>Dialog</source>
@@ -8496,7 +8559,7 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <name>PacketList</name>
     <message>
         <source>Protocol Preferences</source>
-        <translation type="unfinished">Preferenze di protocollo</translation>
+        <translation>Preferenze di protocollo</translation>
     </message>
     <message>
         <source>Summary as Text</source>
@@ -8701,7 +8764,7 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
     <message>
         <source>Browse…</source>
-        <translation type="unfinished">Sfoglia...</translation>
+        <translation>Sfoglia...</translation>
     </message>
     <message>
         <source>Open %1 preferences</source>
@@ -9688,6 +9751,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Default value is empty</source>
         <translation>Il valore predefinito è vuoto</translation>
+    </message>
+    <message>
+        <source>Gap in dissection</source>
+        <translation>Divario nella decodifica</translation>
     </message>
 </context>
 <context>
@@ -11699,7 +11766,7 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
     <message>
         <source>Packet details</source>
-        <translation>Dettagli pacchetto</translation>
+        <translation>Dettagli del pacchetto</translation>
     </message>
     <message>
         <source>Packet bytes</source>
@@ -12227,20 +12294,12 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Immagine</translation>
     </message>
     <message>
-        <source>ISO 8859-1</source>
-        <translation>ISO 8859-1</translation>
-    </message>
-    <message>
         <source>Raw</source>
         <translation>Grezzo</translation>
     </message>
     <message>
         <source>UTF-8</source>
         <translation>UTF-8</translation>
-    </message>
-    <message>
-        <source>UTF-16</source>
-        <translation>UTF-16</translation>
     </message>
     <message>
         <source>YAML</source>
@@ -13603,6 +13662,17 @@ a:hover {
     <message>
         <source>Unable to set FCS validation behavior.</source>
         <translation>Impossibile impostare il comportamento di convalida FCS.</translation>
+    </message>
+</context>
+<context>
+    <name>WirelessTimeline</name>
+    <message>
+        <source>Packet number %1 does not include TSF timestamp, not showing timeline.</source>
+        <translation>Il pacchetto numero %1 non include la marca temporale TSF, non sarà mostrata la linea temporale.</translation>
+    </message>
+    <message>
+        <source>Packet number %u has large negative jump in TSF, not showing timeline. Perhaps TSF reference point is set wrong?</source>
+        <translation>Il pacchetto numero %u presenta un grande salto negativo in TSF, che non mostra la sequenza temporale. Forse il punto di riferimento TSF è impostato in modo errato?</translation>
     </message>
 </context>
 <context>

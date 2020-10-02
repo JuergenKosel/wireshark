@@ -135,7 +135,7 @@
         <translation>Name:</translation>
     </message>
     <message>
-        <source>Can&apos;t assign %1 to %2</source>
+        <source>Can&apos;t assign %1 to %2.</source>
         <translation>Kann %1 nicht an %2 zuweisen</translation>
     </message>
 </context>
@@ -3078,10 +3078,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>UTF-8</translation>
     </message>
     <message>
-        <source>UTF-16</source>
-        <translation>UTF-16</translation>
-    </message>
-    <message>
         <source>YAML</source>
         <translation>YAML</translation>
     </message>
@@ -3197,9 +3193,9 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Hinweis.</translation>
     </message>
     <message>
-        <source>Show and save data as</source>
-        <oldsource>Show data as</oldsource>
-        <translation>Daten anzeigen und speichern als</translation>
+        <source>Show data as</source>
+        <oldsource>Show and save data as</oldsource>
+        <translation>Daten anzeigen als</translation>
     </message>
     <message>
         <source>Stream</source>
@@ -5406,6 +5402,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Paket Bytes</translation>
     </message>
     <message>
+        <source>Packet Diagram</source>
+        <translation>Paketdiagramm</translation>
+    </message>
+    <message>
         <source>None</source>
         <translation>Kein</translation>
     </message>
@@ -7025,6 +7025,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Anzeige auf Ausgangsgröße zurücksetzen</translation>
     </message>
     <message>
+        <source>Packet &amp;Diagram</source>
+        <translation>Paket&amp;diagramm</translation>
+    </message>
+    <message>
+        <source>Show or hide the packet diagram</source>
+        <translation>Paketdiagramm anzeigen oder verstecken</translation>
+    </message>
+    <message>
         <source>Show each conversation hash table</source>
         <translation>Jede Verbindungshashtabelle zeigen</translation>
     </message>
@@ -7890,20 +7898,16 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation> vor dem Öffnen einer anderen Datei</translation>
     </message>
     <message>
+        <source>Merging files.</source>
+        <translation>Dateien zusammenfügen</translation>
+    </message>
+    <message>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
     <message>
         <source>Saving %1</source>
         <translation>Speichere %1</translation>
-    </message>
-    <message>
-        <source>No interface selected</source>
-        <translation>Keine Schnittstelle ausgewählt</translation>
-    </message>
-    <message>
-        <source>Invalid capture filter</source>
-        <translation>Ungültiger Mitschnittfilter</translation>
     </message>
     <message>
         <source>Clear Menu</source>
@@ -7938,10 +7942,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Rohdaten (*.bin *.dat *.raw);; Alle Dateien (</translation>
     </message>
     <message>
-        <source>Merging files</source>
-        <translation>Dateien zusammenfügen</translation>
-    </message>
-    <message>
         <source>Couldn&apos;t copy text. Try another item.</source>
         <translation>Text konnte nicht kopiert werden. Probieren sie einen anderen Eintrag.</translation>
     </message>
@@ -7958,10 +7958,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation> vor dem Neuladen der Datei</translation>
     </message>
     <message>
-        <source>No filter available. Try another </source>
-        <translation>Kein Filter verfügbar. Probieren Sie einen anderen.</translation>
-    </message>
-    <message>
         <source>Error compiling filter for this conversation.</source>
         <translation>Fehler beim Erstellen eines Filters für diese Verbindung.</translation>
     </message>
@@ -7970,8 +7966,12 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Kein vorheriges/nächstes Paket in dieser Verbindung.</translation>
     </message>
     <message>
-        <source>No Interface Selected</source>
+        <source>No interface selected.</source>
         <translation>Keine Schnittstelle ausgewählt</translation>
+    </message>
+    <message>
+        <source>Invalid capture filter.</source>
+        <translation>Ungültiger Mitschnittfilter</translation>
     </message>
     <message>
         <source> before starting a new capture</source>
@@ -7991,6 +7991,30 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>TLS Session Keys (*.keys *.txt);;All Files (</source>
         <translation>TLS Sitzungsschlüssel (*.keys *.txt);; Alle Dateien (</translation>
+    </message>
+    <message>
+        <source>No filter available. Try another %1.</source>
+        <translation>Kein Filter verfügbar. Probieren Sie einen anderen %1.</translation>
+    </message>
+    <message>
+        <source>column</source>
+        <translation>Spalte</translation>
+    </message>
+    <message>
+        <source>item</source>
+        <translation>Element</translation>
+    </message>
+    <message>
+        <source>The &quot;%1&quot; column already exists.</source>
+        <translation>Die Spalte &quot;%1&quot; existiert bereits.</translation>
+    </message>
+    <message>
+        <source>The &quot;%1&quot; column already exists as &quot;%2&quot;.</source>
+        <translation>Die Spalte &quot;%1&quot; existiert bereits als &quot;%2&quot;.</translation>
+    </message>
+    <message>
+        <source>No Interface Selected.</source>
+        <translation>Keine Schnittstelle ausgewählt.</translation>
     </message>
     <message>
         <source> before restarting the capture</source>
@@ -8403,6 +8427,45 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
 </context>
 <context>
+    <name>PacketDiagram</name>
+    <message>
+        <source>Packet diagram</source>
+        <translation>Paketdiagramm</translation>
+    </message>
+    <message>
+        <source>Show Field Values</source>
+        <translation>Zeige Feldwerte</translation>
+    </message>
+    <message>
+        <source>Save Diagram As</source>
+        <translation>Diagramm speichern als</translation>
+    </message>
+    <message>
+        <source>Copy as Raster Image</source>
+        <translation>Als Rasterbild kopieren</translation>
+    </message>
+    <message>
+        <source>Portable Network Graphics (*.png)</source>
+        <translation>Portable Network Graphics (*.png)</translation>
+    </message>
+    <message>
+        <source>Windows Bitmap (*.bmp)</source>
+        <translation>Windows Bitmap (*.bmp)</translation>
+    </message>
+    <message>
+        <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
+        <translation>JPEG File Interchange Format (*.jpeg *.jpg)</translation>
+    </message>
+    <message>
+        <source>Scalable Vector Graphics (*.svg)</source>
+        <translation>Scalable Vector Graphics (*.svg)</translation>
+    </message>
+    <message>
+        <source>Save Graph As</source>
+        <translation>Graph speichern als</translation>
+    </message>
+</context>
+<context>
     <name>PacketDialog</name>
     <message>
         <source>Dialog</source>
@@ -8496,7 +8559,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <name>PacketList</name>
     <message>
         <source>Protocol Preferences</source>
-        <translation type="unfinished">Protokolleinstellungen</translation>
+        <translation>Protokolleinstellungen</translation>
     </message>
     <message>
         <source>Summary as Text</source>
@@ -8701,7 +8764,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>Browse…</source>
-        <translation type="unfinished">Öffnen...</translation>
+        <translation>Öffnen...</translation>
     </message>
     <message>
         <source>Open %1 preferences</source>
@@ -9688,6 +9751,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Default value is empty</source>
         <translation>Standardwert ist leer</translation>
+    </message>
+    <message>
+        <source>Gap in dissection</source>
+        <translation>Lücke bei der Dissection</translation>
     </message>
 </context>
 <context>
@@ -12227,20 +12294,12 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Abbild</translation>
     </message>
     <message>
-        <source>ISO 8859-1</source>
-        <translation>ISO 8859-1</translation>
-    </message>
-    <message>
         <source>Raw</source>
         <translation>Roh</translation>
     </message>
     <message>
         <source>UTF-8</source>
         <translation>UTF-8</translation>
-    </message>
-    <message>
-        <source>UTF-16</source>
-        <translation>UTF-16</translation>
     </message>
     <message>
         <source>YAML</source>
@@ -13608,6 +13667,17 @@ text-decoration: underline;
     <message>
         <source>Unable to set FCS validation behavior.</source>
         <translation>FCS Überprüfungsverhalten kann nicht gesetzt werden.</translation>
+    </message>
+</context>
+<context>
+    <name>WirelessTimeline</name>
+    <message>
+        <source>Packet number %1 does not include TSF timestamp, not showing timeline.</source>
+        <translation>Paketnummer %1 enthält keinen TSF Zeitstempel. Zeitschiene wird nicht angezeigt.</translation>
+    </message>
+    <message>
+        <source>Packet number %u has large negative jump in TSF, not showing timeline. Perhaps TSF reference point is set wrong?</source>
+        <translation>Paketnummer %u hat einen großen, negativen Sprung bei TSF. Zeitschiene wird nicht angezeigt. Eventuell wurde der TSF Referenzpunkt falsch gesetzt.</translation>
     </message>
 </context>
 <context>

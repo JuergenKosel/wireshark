@@ -2692,7 +2692,6 @@ static void cf_opa_mad_computed_pct10(gchar *buf, guint16 value)
 
 /* Dissector Declarations */
 static dissector_handle_t opa_mad_handle;
-static dissector_handle_t eth_handle;
 static dissector_table_t ethertype_dissector_table;
 
 static reassembly_table opa_mad_rmpp_reassembly_table;
@@ -7545,7 +7544,6 @@ static gint parse_GetImageInfo(proto_tree *parentTree, tvbuff_t *tvb, gint *offs
     proto_item *GetImageInfo_header_item;
     proto_tree *GetImageInfo_SM_tree;
     guint32 numSMs;
-    nstime_t ts;
 
     gint local_offset = *offset;
 
@@ -7557,9 +7555,8 @@ static gint parse_GetImageInfo(proto_tree *parentTree, tvbuff_t *tvb, gint *offs
 
     local_offset = parse_Image(GetImageInfo_header_tree, tvb, &local_offset);
 
-    ts.secs = (time_t)tvb_get_guint64(tvb, local_offset, ENC_BIG_ENDIAN);
-    ts.nsecs = 0;
-    proto_tree_add_time(GetImageInfo_header_tree, hf_opa_GetImageInfo_sweepStart, tvb, local_offset, 8, &ts);
+    proto_tree_add_item(GetImageInfo_header_tree, hf_opa_GetImageInfo_sweepStart,
+            tvb, local_offset, 8, ENC_TIME_SECS|ENC_BIG_ENDIAN);
     local_offset += 8;
     proto_tree_add_item(GetImageInfo_header_tree, hf_opa_GetImageInfo_sweepDuration, tvb, local_offset, 4, ENC_BIG_ENDIAN);
     local_offset += 4;
@@ -13681,7 +13678,6 @@ void proto_register_opa_mad(void)
 
 void proto_reg_handoff_opa_mad(void)
 {
-    eth_handle                      = find_dissector("eth");
     ethertype_dissector_table       = find_dissector_table("ethertype");
 }
 

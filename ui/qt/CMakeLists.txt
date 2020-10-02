@@ -9,6 +9,10 @@
 
 ADD_CUSTOM_CMAKE_INCLUDE()
 
+include_directories(
+		${GCRYPT_INCLUDE_DIRS}
+)
+
 set(WIRESHARK_WIDGET_HEADERS
 	widgets/additional_toolbar.h
 	widgets/apply_line_edit.h
@@ -181,6 +185,7 @@ set(WIRESHARK_QT_HEADERS
 	mtp3_summary_dialog.h
 	multicast_statistics_dialog.h
 	packet_comment_dialog.h
+	packet_diagram.h
 	packet_dialog.h
 	packet_format_group_box.h
 	packet_list.h
@@ -406,6 +411,7 @@ set(WIRESHARK_QT_SRC
 	manage_interfaces_dialog.cpp
 	module_preferences_scroll_area.cpp
 	packet_comment_dialog.cpp
+	packet_diagram.cpp
 	packet_dialog.cpp
 	packet_format_group_box.cpp
 	packet_list.cpp

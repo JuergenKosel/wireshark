@@ -2610,22 +2610,22 @@ typedef struct _path_attr_data {
 static void
 save_path_attr_encaps_tunnel_type(packet_info *pinfo, guint32 encaps_tunnel_type) {
     path_attr_data *data =
-        (path_attr_data*)p_get_proto_data(pinfo->pool, pinfo, proto_bgp, PATH_ATTR_DATA_KEY);
+        (path_attr_data*)p_get_proto_data(wmem_file_scope(), pinfo, proto_bgp, PATH_ATTR_DATA_KEY);
     if (!data) {
-        data = wmem_new0(pinfo->pool, path_attr_data);
+        data = wmem_new0(wmem_file_scope(), path_attr_data);
         data->encaps_tunnel_type = 0;
         data->encaps_community_present = FALSE;
     }
     data->encaps_community_present = TRUE;
     data->encaps_tunnel_type = encaps_tunnel_type;
-    p_add_proto_data(pinfo->pool, pinfo, proto_bgp, PATH_ATTR_DATA_KEY, data);
+    p_add_proto_data(wmem_file_scope(), pinfo, proto_bgp, PATH_ATTR_DATA_KEY, data);
     return;
 }
 
 static path_attr_data*
 load_path_attr_data(packet_info *pinfo) {
     path_attr_data *data =
-        (path_attr_data*)p_get_proto_data(pinfo->pool, pinfo, proto_bgp, PATH_ATTR_DATA_KEY);
+        (path_attr_data*)p_get_proto_data(wmem_file_scope(), pinfo, proto_bgp, PATH_ATTR_DATA_KEY);
     return data;
 }
 
@@ -7701,7 +7701,7 @@ dissect_bgp_update_pmsi_attr(packet_info *pinfo, proto_tree *parent_tree, tvbuff
  * Dissect BGP path attributes
  *
  */
-static void
+void
 dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, guint16 path_attr_len, guint tvb_off, packet_info *pinfo)
 {
     guint8        bgpa_flags;                 /* path attributes          */

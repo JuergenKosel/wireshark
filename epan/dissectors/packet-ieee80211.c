@@ -655,7 +655,7 @@ static const value_string tag_num_vals_eid_ext[] = {
 };
 static value_string_ext tag_num_vals_eid_ext_ext = VALUE_STRING_EXT_INIT(tag_num_vals_eid_ext);
 
-static const value_string wfa_subtype_vals[] = {
+const value_string wfa_subtype_vals[] = {
   { WFA_SUBTYPE_SUBSCRIPTION_REMEDIATION, "Subscription Remediation" },
   { WFA_SUBTYPE_DEAUTHENTICATION_IMMINENT, "Deauthentication Imminent" },
   { WFA_SUBTYPE_P2P, "P2P" },
@@ -2020,7 +2020,7 @@ static const value_string ff_pa_action_codes[] = {
   {PA_FTM_RESPONSE,                    "FTM Response"},
   {0x00, NULL}
 };
-static value_string_ext ff_pa_action_codes_ext = VALUE_STRING_EXT_INIT(ff_pa_action_codes);
+value_string_ext ff_pa_action_codes_ext = VALUE_STRING_EXT_INIT(ff_pa_action_codes);
 
 static const value_string category_codes[] = {
   {CAT_SPECTRUM_MGMT,                    "Spectrum Management (SM)"},
@@ -8073,6 +8073,9 @@ dissect_hs20_anqp_wan_metrics(proto_tree *tree, tvbuff_t *tvb, int offset, gbool
   if (request)
     return;
 
+  if(tvb_reported_length_remaining(tvb, offset) < 13)
+    return;
+
   proto_tree_add_item(tree, hf_ieee80211_hs20_anqp_wan_metrics_link_status,
                       tvb, offset, 1, ENC_LITTLE_ENDIAN);
   proto_tree_add_item(tree, hf_ieee80211_hs20_anqp_wan_metrics_symmetric_link,
@@ -10302,7 +10305,7 @@ add_ff_action_block_ack(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int
   return offset - start;  /* Size of fixed fields */
 }
 
-static guint
+guint
 add_ff_action_public_fields(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset, guint8 code)
 {
   guint32  oui;
@@ -25723,7 +25726,7 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
       guint32 src_offset, dst_offset, da_offset, sa_offset, ta_offset = 10, bssid_offset;
       addr_type = FCF_ADDR_SELECTOR(fcf);
       if ((option_flags & IEEE80211_COMMON_OPT_NORMAL_QOS) && DATA_FRAME_IS_QOS(frame_type_subtype)) {
-        if (!DATA_FRAME_IS_NULL(frame_type_subtype)) {
+        if (!phdr->no_a_msdus && !DATA_FRAME_IS_NULL(frame_type_subtype)) {
           is_amsdu = QOS_AMSDU_PRESENT(qos_control);
         }
       }
@@ -26045,7 +26048,8 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
 
         if (!DATA_FRAME_IS_NULL(frame_type_subtype)) {
           proto_tree_add_item(qos_tree, hf_ieee80211_qos_amsdu_present, tvb, qosoff, 2, ENC_LITTLE_ENDIAN);
-          is_amsdu = QOS_AMSDU_PRESENT(qos_control);
+          if (!phdr->no_a_msdus)
+            is_amsdu = QOS_AMSDU_PRESENT(qos_control);
         }
 
         if (meshctl_len) {

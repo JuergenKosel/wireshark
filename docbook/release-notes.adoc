@@ -41,6 +41,8 @@ since version 3.2.0:
   which is keyed with the full names of fields, for further parsing fields of BYETS or STRING type.
 * Wireshark is able to decode, play and save iLBC payload on platforms where iLBC library (https://github.com/TimothyGu/libilbc) is available.
 * Decode As entries can now be copied from other profiles using a button in the dialog.
+* sshdump can now be copied in multiple instances. Each instance will show up a different interface and will have its own profile.
+* The main window now supports a packet diagram view, which shows each packet as a textbook-style diagram.
 
 // === Removed Features and Support
 
@@ -68,6 +70,11 @@ Dynamic Link Exchange Protocol (DLEP)
 LBM Stateful Resolution Service (LBMSRS)
 Asphodel Protocol
 Technically Enhanced Capture Module Protocol (TECMP)
+Fortinet Single Sign-on (FSSO)
+Lithionics Battery Management
+FTDI Multi-Protocol Synchronous Serial Engine (FTDI MPSSE)
+Arinc 615A (A615A)
+=======
 --
 
 === Updated Protocol Support

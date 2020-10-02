@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2020-07-03)
+# (last updated 2020-08-21)
 
 0	Reserved
 1	NxNetworks
@@ -3703,7 +3703,7 @@
 3701	TurboNet Communications
 3702	Printrak International Inc.
 3703	CyberFax Inc.
-3704	AMD
+3704	Advanced Micro Devices, Inc
 3705	ICET SpA
 3706	ADiTel Telekommunikation Network GmbH
 3707	ADiT Holding GmbH
@@ -8562,7 +8562,7 @@
 8582	Netgene Tech. Inc.
 8583	Kabelfoon BV
 8584	Sorbonne
-8585	MEDAV Digitale Signalverarbeitung GmbH
+8585	Saab Sensor Systems Germany GmbH
 8586	MODCOMP GmbH
 8587	WiredMinds Informationssysteme GmbH
 8588	Munich Re Insurance AG
@@ -13265,7 +13265,7 @@
 13397	DemandTec Inc.
 13398	SicherByte GmbH Dr. Ralf Schwedler
 13399	Dune Semiconductor
-13400	Emerson Network Power Co.,Ltd.
+13400	Vertiv Tech Co.,Ltd.	# formerly 'Emerson Network Power Co.,Ltd.'
 13401	ETE Software
 13402	Exent Technologies Ltd.
 13403	Foton-2000 Kft.
@@ -14685,7 +14685,7 @@
 14820	net outremer caledonie
 14821	Stibo
 14822	FaJo.de
-14823	Aruba Networks Inc
+14823	Aruba, a Hewlett Packard Enterprise company
 14824	Centaur Technology Inc
 14825	Aldata Solutions S.A.
 14826	Adage Networks
@@ -21782,7 +21782,7 @@
 21936	Senforce Technologies, Inc.
 21937	Ezrez Software, Inc.
 21938	Radio Muzyka Fakty, Sp. z o.o.
-21939	ABB Power Grids Germany AG – Grid Automation
+21939	Hitachi ABB Power Grids – Grid Automation
 21940	Enatel Ltd
 21941	Data Return, LLC
 21942	Rubicon Software Ltd
@@ -24849,7 +24849,7 @@
 25005	sevecek
 25006	NVision Czech Republic a.s.	# formerly 'SITRONICS Telecom Solutions, Czech Republic a.s.'
 25007	Precesamiento Digital y Sistemas S.L.
-25008	I.T.E.N.O.S. GmbH - Mobile Solutions
+25008	I.T.E.N.O.S. GmbH
 25009	Sysworksoft
 25010	Bedag Informatique SA
 25011	Cranite Systems Inc.
@@ -26839,7 +26839,7 @@
 26995	Public Joint-Stock Company  "Baltiyskiy Bank"
 26996	Qmax Communications
 26997	Studer Professional Audio GmbH
-26998	AudioSoft Ltd.
+26998	Ultra Electronics	# formerly 'AudioSoft Ltd.'
 26999	Grace Community Church of Howard County, Inc.
 27000	Magistrat Linz, AT
 27001	optionsXpress, Inc.
@@ -28866,7 +28866,7 @@
 29024	OSERYS Systèmes
 29025	RECRO-net d.o.o.
 29026	GUZMAN
-29027	Netfinity Ltd.
+29027	NETFINITY EAD
 29028	Jerry Chapman
 29029	Altierre Corporation
 29030	Ringier Slovakia, a.s.
@@ -29150,7 +29150,7 @@
 29309	IBM Mittelstand Systeme
 29310	William Petersen Elektronik A/S
 29311	Itay Be'erli
-29312	Bernecker+Rainer Industrie-Elektronik Ges.m.b.H.
+29312	B&R Industrial Automation GmbH
 29313	GloboTech GmbH
 29314	WDV GmbH
 29315	VAUDE Sport GmbH & Co. KG
@@ -31216,7 +31216,7 @@
 31378	Vervis COMINT Services GmbH
 31379	inform solutions GmbH
 31380	Citec
-31381	TI-WMC
+31381	FIGO	# formerly 'TI-WMC'
 31382	EDEKA Handelsgesellschaft Suedwest mbH
 31383	east taiya wireless telecommunication Inc.
 31384	Port25 Solutions, Inc.
@@ -34657,7 +34657,7 @@
 34825	Pareto Networks Inc.
 34826	Tayana Software Solutions Pvt Ltd
 34827	RT-RK
-34828	Pannon GSM Távközlési Zrt.
+34828	Telenor Magyarország Zrt.	# formerly 'Pannon GSM Távközlési Zrt.'
 34829	GraphLogic Inc
 34830	Forers, s. r. o.
 34831	The Freecycle Network
@@ -40583,7 +40583,7 @@
 40756	K.W.Doggett Fine Paper
 40757	MOSCOW COMMERCIAL BANK MOSCOMPRIVATBANK ZAO
 40758	Eltek Polska
-40759	EGRIMA BuisnessCenter
+40759	DKV MOBILITY SERVICES BUSINESS CENTER GmbH + Co. KG	# formerly 'EGRIMA BuisnessCenter'
 40760	TOMRA Systems ASA
 40761	Mideye AB
 40762	Hitec Electric b.v.
@@ -41126,7 +41126,7 @@
 41302	Unified Technology Ltd
 41303	Six Degrees Managed Data Ltd
 41304	QiNet SRL
-41305	Schoch-IT UG
+41305	Gehirn-Mag.Net	# formerly 'Schoch-IT UG'
 41306	Columbus College of Art & Design
 41307	LDS Technology Group
 41308	ALCO  Aircraft
@@ -55834,3 +55834,226 @@
 56029	ALS Automated Lab Solutions GmbH
 56030	Skylite AB
 56031	CL SKOG AB
+56032	ZAE Bayern
+56033	Die Autobahn GmbH des Bundes
+56034	ALS Laboratory Group
+56035	GALDERMA S.A.
+56036	Gentlent, Inc.
+56037	Argo AI
+56038	Nroad
+56039	Bold City Tech
+56040	Sosaley technologies private limited
+56041	CALINDA SOFTWARE
+56042	PAJURO
+56043	Argo AI
+56044	Sansay Corporation
+56045	Postee
+56046	Zbensoft Software
+56047	Lucid Motors
+56048	ElastiFlow Inc.
+56049	HED2
+56050	KASLAB
+56051	Skyservice Business Aviation Inc.
+56052	Growatt New Energy Technology Co.,LTD
+56053	slowpoke.cloud
+56054	East Alabama Womens Clinic
+56055	PLEXSYS Interface Products
+56056	Grid Protection Alliance
+56057	Grid Protection Alliance
+56058	The Farmers State Bank
+56059	Remmers Gruppe AG
+56060	Chengdu Yinou Technology Co. LTD
+56061	Rune Landbergs Åkeri AB
+56062	Chakat Space
+56063	Tri-State Communications, Inc.
+56064	Coca-Cola Amatil (N.Z.) Limited
+56065	Architector Inc.
+56066	Centre Orcet-Mangini
+56067	Knox Horticulture LLC
+56068	Aggressive Tooling Inc.
+56069	Net NV LLC
+56070	Eni S.p.A.
+56071	MediasiteK.K.
+56072	MOIN MIYAN
+56073	Beijing VRV Software Corporation Limited
+56074	Knightfall Systems LLC
+56075	Fuchshuber Architekten GmbH
+56076	EDC HOFFMEISTER GmbH
+56077	codecentric AG
+56078	SorensenLab
+56079	ServiceNow, Inc.
+56080	flaviofrancardi
+56081	Smartsky Networks
+56082	Data Connect Enterprise
+56083	Facebook Connectivity - Joule
+56084	Liphatech INC
+56085	Highmark Health
+56086	BlackSphere
+56087	Medis Holding
+56088	Diggers
+56089	IMSONIC MEDICAL, INC.
+56090	CJCHT GROUPS LIMITED
+56091	lern.link GmbH
+56092	Bitza IT  Consulting
+56093	PPC Africa
+56094	INNORS
+56095	PhilCo Consulting Inc.
+56096	fiskaly GmbH
+56097	Norden Communication UK Ltd
+56098	Docuten Tech S.L.
+56099	Example Limited
+56100	VMLabblog.com
+56101	odehnal.org
+56102	Venjakob Maschinenbau GmbH & Co. KG
+56103	LKVS CONSTRUCTION PVT LTD
+56104	M-P-S
+56105	Alpha Technologies CIA. LDTA.
+56106	Cambridge University Hospitals NHS Foundation Trust
+56107	Convention Center Authority of the Metropolitan Government of Nashville & Davidson County
+56108	Intelligent Waves LLC
+56109	ДП "Одеський порт" (State Enterprise "Odesa Sea Trade Port")
+56110	FSV Analytics
+56111	EKTA-Prom
+56112	Unisyue Technologies Co., Ltd.
+56113	Universidad Nacional de San Agustín de Arequipa
+56114	B/D OPS, LLC
+56115	JZ Lab
+56116	nigelmann
+56117	MAXIO Co.,Ltd.
+56118	Dissonance
+56119	City of Hollywood, FL
+56120	PLASP Child Care Services
+56121	Busch's INc.
+56122	LORIOT AG
+56123	Vodafone India Services
+56124	ANEO "Ust-Labinsky Lyceum"
+56125	Mars Bioimaging Limited
+56126	uni software plus GmbH
+56127	WAREHOUSE SPECIALISTS LLC
+56128	SI Media
+56129	L3Harris (Chesapeake Sciences)
+56130	Landmarken AG
+56131	AG Klima, FB8, Uni Bremen
+56132	Chaos Computer Club Veranstaltungsgesellschaft mbH
+56133	Excision Mail
+56134	Convexis GmbH
+56135	MAIDAMESS LIMITED
+56136	Berci Engenharia
+56137	TekSea
+56138	AIS spol. s r.o.
+56139	Three Star Group AS
+56140	Metartec
+56141	Fleetwood High School
+56142	Telecom26 AG
+56143	NETCOM GROUP
+56144	J. Knipper and Company
+56145	hezhong
+56146	FireStone
+56147	Foxtons Ltd
+56148	Chengdu Spaceon Electronics Co.,Ltd.
+56149	Arcturus Technologies
+56150	Bekomold GmbH
+56151	TES s.r.o.
+56152	UTIMCO
+56153	Powertec Solutions International
+56154	KEYXENTIC INC.
+56155	Quantum Labs
+56156	Banma Network Technology Co,Ltd
+56157	Axion Biosystems, Inc
+56158	ComPsych Corporation
+56159	Mibes IT
+56160	Lorier Internet
+56161	UST Technologies
+56162	Sinelec
+56163	Star Kay White, Inc.
+56164	Arctic Paper Grycksbo AB
+56165	Access Health Services, LLC
+56166	深圳凌特华盛科技有限公司(Shenzhen Smartbyte Technology Co., Ltd.)
+56167	Calibre UK Ltd.
+56168	dotup IT solutions
+56169	Open Products, Networks & Software (OPNS)
+56170	Secure Nordic Payments
+56171	Samm Technology Communications Industry and Trade Inc.
+56172	Stadt Lauf
+56173	A.J. Steenkist
+56174	Geminare Inc.
+56175	AirPro Technology India Pvt Ltd
+56176	Safeweb Seguranca da Informacao Ltda
+56177	ThinkAnalytics
+56178	It-Management
+56179	COMKOM
+56180	Quantum Prime
+56181	Wavesight Limited
+56182	The Coetzer Group
+56183	Digital Advantage Corp.
+56184	Deutsches Rotes Kreuz in Hessen Volunta gGmbH
+56185	Otis Elevator Company
+56186	Sinus Nachrichtentechnik GmbH
+56187	Riker Wohnbau + Immobilien GmbH
+56188	VE3BUX
+56189	Instituto Costarricense de Electricidad
+56190	Telindus-ISIT B.V.
+56191	Dawgshouse Lab
+56192	Wiseif
+56193	Storopack Deutschland GmbH & Co.KG
+56194	High-Availability
+56195	Telmo a.s.
+56196	SOL Industries Pty Ltd
+56197	Xiamen Evada Electronics Co., Ltd
+56198	darkfate.net
+56199	NetCom Sicherheitstechnik GmbH
+56200	Speech-Soft Solutions
+56201	Lekha Wireless Solutions Pvt Ltd
+56202	Alexander Reinert
+56203	Aalborg Lufthavn a.m.b.a.
+56204	IVSEC
+56205	South-West jiaotong unversity richsun coorperation .inc
+56206	Transdev
+56207	YAAL COOP
+56208	Vitality Corporate Services Limited
+56209	Povodi Vltavy, statni podnik (Vltava river basin, state enterprise)
+56210	Urzad Marszalkowski Wojewodztwa Slaskiego
+56211	Crown Castle
+56212	Eugster Informatik
+56213	Xuzhou Minghuan Energy Co. LTD
+56214	Rainside s.r.o.
+56215	TapIt Inc.
+56216	ALECOM AB
+56217	Perspecta
+56218	NSW Health
+56219	Neuralink Corporation
+56220	BAOXING CO.,LTD.
+56221	Roche Diabetes Care
+56222	Instytut Informatyki i Zarzadzania
+56223	Canadian Secure Token Governance Authority
+56224	Stein Telecom Ltda
+56225	DHK Storage, LLC
+56226	Wise Industria de Telecomumicacoes
+56227	Matthias Wübbeling
+56228	Kiela
+56229	embeddedmcu
+56230	Arctic Paper Munkedals AB
+56231	Encedo Limited
+56232	Société Électrique des Forces de l'Aubonne
+56233	inray Industriesoftware GmbH
+56234	EdRixon
+56235	Atos Systems Business Services GmbH
+56236	KPN Internet of Things
+56237	SCADACID
+56238	wtm-solutions
+56239	Behr Technologies Inc
+56240	JSC ‘NPP ‘Radiosviaz’
+56241	Data Design System AS
+56242	AMV Sistemas de Alimentacion Electronica SL
+56243	Brunswick Group
+56244	SPOe ITZ
+56245	Johannes Fortmann
+56246	Central GA Cancer Care
+56247	Rublon
+56248	Westek Technology Ltd.
+56249	Alec GmbH
+56250	CM.com
+56251	ETC Solutions
+56252	Vimexx B.V.
+56253	Corellium LLC
+56254	Forte-CT

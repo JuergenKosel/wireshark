@@ -1325,6 +1325,7 @@ dissect_sec_publickey(tvbuff_t *tvb, gint *offset, packet_info *pinfo, proto_tre
         case ecies_nistp256:
             // SymAlgo + EccPoint
             proto_tree_add_item(part_tree, hf_sgeonw_symmetric_algorithm, tvb, *offset, 1, ENC_BIG_ENDIAN);
+            *offset += 1;
             dissect_sec_eccpoint(tvb, offset, pinfo, part_tree, (PublicKeyAlgorithm) tmp_val);
             break;
         default:
@@ -2012,7 +2013,7 @@ dissect_secured_message(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tr
                 param_len = dissect_sec_var_len(tvb, &offset, pinfo, field_tree);
                 proto_item_set_len(ti, (offset-start) + param_len);
                 while (param_len) {
-                    proto_tree_add_item(field_tree, hf_sgeonw_hashedid3, tvb, offset, param_len, ENC_NA);
+                    proto_tree_add_item(field_tree, hf_sgeonw_hashedid3, tvb, offset, 3, ENC_NA);
                     offset += 3;
                     param_len -= 3;
                 }

@@ -96,6 +96,14 @@ static const value_string mqtt_protocol_version_vals[] = {
   { 0,                     NULL }
 };
 
+static const enum_val_t mqtt_protocol_version_enumvals[] = {
+    { "none",  "None",         0 },
+    { "v31",   "MQTT v3.1",    MQTT_PROTO_V31 },
+    { "v311",  "MQTT v3.1.1",  MQTT_PROTO_V311 },
+    { "v50",   "MQTT v5.0",    MQTT_PROTO_V50 },
+    { NULL,    NULL,           0 }
+};
+
 static const value_string mqtt_msgtype_vals[] = {
   { MQTT_RESERVED,          "Reserved" },
   { MQTT_CONNECT,           "Connect Command" },
@@ -494,6 +502,7 @@ static const value_string mqtt_reason_code_auth_vals[] = {
 
 static mqtt_message_decode_t *mqtt_message_decodes;
 static guint num_mqtt_message_decodes;
+static gint default_protocol_version;
 
 static dissector_handle_t mqtt_handle;
 
@@ -593,6 +602,7 @@ static gint ett_mqtt_subscription_flags = -1;
 
 /* Initialize the expert fields */
 static expert_field ei_illegal_length = EI_INIT;
+static expert_field ei_unknown_version = EI_INIT;
 static expert_field ei_unknown_topic_alias = EI_INIT;
 
 /* Reassemble SMPP TCP segments */
@@ -901,6 +911,7 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   guint8  mqtt_msg_type;
   proto_item *ti;
   const guint8 *topic_str = "";
+  proto_item *mqtt_ti;
   proto_tree *mqtt_tree;
   guint64     mqtt_con_flags;
   guint64     msg_len      = 0;
@@ -971,14 +982,15 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   col_append_sep_str(pinfo->cinfo, COL_INFO, ", ", val_to_str_ext(mqtt_msg_type, &mqtt_msgtype_vals_ext, "Unknown (0x%02x)"));
 
   /* Add the MQTT branch to the main tree */
-  ti = proto_tree_add_item(tree, proto_mqtt, tvb, 0, -1, ENC_NA);
-  mqtt_tree = proto_item_add_subtree(ti, ett_mqtt_hdr);
+  mqtt_ti = proto_tree_add_item(tree, proto_mqtt, tvb, 0, -1, ENC_NA);
+  mqtt_tree = proto_item_add_subtree(mqtt_ti, ett_mqtt_hdr);
 
   conv = find_or_create_conversation(pinfo);
   mqtt = (mqtt_conv_t *)conversation_get_proto_data(conv, proto_mqtt);
   if (mqtt == NULL)
   {
     mqtt = wmem_new0(wmem_file_scope(), mqtt_conv_t);
+    mqtt->runtime_proto_version = default_protocol_version;
     conversation_add_proto_data(conv, proto_mqtt, mqtt);
     mqtt->topic_alias_map = wmem_map_new(wmem_file_scope(), g_direct_hash, g_direct_equal);
   }
@@ -990,6 +1002,11 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
   /* Add the type to the MQTT tree item */
   proto_item_append_text(mqtt_tree, ", %s", val_to_str_ext(mqtt_msg_type, &mqtt_msgtype_vals_ext, "Unknown (0x%02x)"));
+
+  if ((mqtt_msg_type != MQTT_CONNECT) && (mqtt->runtime_proto_version == 0))
+  {
+    expert_add_info(pinfo, mqtt_ti, &ei_unknown_version);
+  }
 
   if (mqtt_msg_type == MQTT_PUBLISH)
   {
@@ -1747,6 +1764,8 @@ void proto_register_mqtt(void)
   static ei_register_info ei[] = {
     { &ei_illegal_length,
       { "mqtt.illegal_topic_length", PI_PROTOCOL, PI_WARN, "Length cannot be 0", EXPFILL } },
+    { &ei_unknown_version,
+      { "mqtt.unknown_version", PI_PROTOCOL, PI_NOTE, "Unknown version (missing the CONNECT packet?)", EXPFILL } },
     { &ei_unknown_topic_alias,
       { "mqtt.unknown_topic_alias", PI_PROTOCOL, PI_NOTE, "Unknown topic alias", EXPFILL } }
   };
@@ -1796,6 +1815,11 @@ void proto_register_mqtt(void)
                                 "Message Decoding",
                                 "A table that enumerates custom message decodes to be used for a certain topic",
                                 message_uat);
+
+  prefs_register_enum_preference(mqtt_module, "default_version",
+                                 "Default Version",
+                                 "Select the MQTT version to use as protocol version if the CONNECT packet is not captured",
+                                 &default_protocol_version, mqtt_protocol_version_enumvals, FALSE);
 
   prefs_register_bool_preference(mqtt_module, "show_msg_as_text",
                                  "Show Message as text",

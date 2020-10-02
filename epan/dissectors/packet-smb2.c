@@ -423,12 +423,15 @@ static int hf_smb2_share_flags_force_levelii_oplock = -1;
 static int hf_smb2_share_flags_enable_hash_v1 = -1;
 static int hf_smb2_share_flags_enable_hash_v2 = -1;
 static int hf_smb2_share_flags_encrypt_data = -1;
+static int hf_smb2_share_flags_identity_remoting = -1;
 static int hf_smb2_share_caching = -1;
 static int hf_smb2_share_caps = -1;
 static int hf_smb2_share_caps_dfs = -1;
 static int hf_smb2_share_caps_continuous_availability = -1;
 static int hf_smb2_share_caps_scaleout = -1;
 static int hf_smb2_share_caps_cluster = -1;
+static int hf_smb2_share_caps_assymetric = -1;
+static int hf_smb2_share_caps_redirect_to_owner = -1;
 static int hf_smb2_create_flags = -1;
 static int hf_smb2_lock_count = -1;
 static int hf_smb2_min_count = -1;
@@ -590,6 +593,27 @@ static int hf_smb2_symlink_print_name = -1;
 static int hf_smb2_symlink_flags = -1;
 static int hf_smb2_bad_signature = -1;
 static int hf_smb2_good_signature = -1;
+static int hf_smb2_fscc_file_attr = -1;
+static int hf_smb2_fscc_file_attr_archive = -1;
+static int hf_smb2_fscc_file_attr_compressed = -1;
+static int hf_smb2_fscc_file_attr_directory = -1;
+static int hf_smb2_fscc_file_attr_encrypted = -1;
+static int hf_smb2_fscc_file_attr_hidden = -1;
+static int hf_smb2_fscc_file_attr_normal = -1;
+static int hf_smb2_fscc_file_attr_not_content_indexed = -1;
+static int hf_smb2_fscc_file_attr_offline = -1;
+static int hf_smb2_fscc_file_attr_read_only = -1;
+static int hf_smb2_fscc_file_attr_reparse_point = -1;
+static int hf_smb2_fscc_file_attr_sparse_file = -1;
+static int hf_smb2_fscc_file_attr_system = -1;
+static int hf_smb2_fscc_file_attr_temporary = -1;
+static int hf_smb2_fscc_file_attr_integrity_stream = -1;
+static int hf_smb2_fscc_file_attr_no_scrub_data = -1;
+static int hf_smb2_tree_connect_flags = -1;
+static int hf_smb2_tc_cluster_reconnect = -1;
+static int hf_smb2_tc_redirect_to_owner = -1;
+static int hf_smb2_tc_extension_present = -1;
+static int hf_smb2_tc_reserved = -1;
 
 static gint ett_smb2 = -1;
 static gint ett_smb2_olb = -1;
@@ -686,6 +710,7 @@ static gint ett_smb2_lock_info = -1;
 static gint ett_smb2_lock_flags = -1;
 static gint ett_smb2_buffercode = -1;
 static gint ett_smb2_ioctl_network_interface_capabilities = -1;
+static gint ett_smb2_tree_connect_flags = -1;
 static gint ett_qfr_entry = -1;
 static gint ett_smb2_pipe_fragment = -1;
 static gint ett_smb2_pipe_fragments = -1;
@@ -700,6 +725,7 @@ static gint ett_smb2_error_redir_ip_list = -1;
 static gint ett_smb2_read_flags = -1;
 static gint ett_smb2_signature = -1;
 static gint ett_smb2_transform_flags = -1;
+static gint ett_smb2_fscc_file_attributes = -1;
 
 static expert_field ei_smb2_invalid_length = EI_INIT;
 static expert_field ei_smb2_bad_response = EI_INIT;
@@ -2400,6 +2426,80 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 	return offset;
 }
 
+#define SMB2_FSCC_FILE_ATTRIBUTE_READ_ONLY			0x00000001
+#define SMB2_FSCC_FILE_ATTRIBUTE_HIDDEN				0x00000002
+#define SMB2_FSCC_FILE_ATTRIBUTE_SYSTEM				0x00000004
+#define SMB2_FSCC_FILE_ATTRIBUTE_DIRECTORY			0x00000010
+#define SMB2_FSCC_FILE_ATTRIBUTE_ARCHIVE			0x00000020
+#define SMB2_FSCC_FILE_ATTRIBUTE_NORMAL				0x00000080
+#define SMB2_FSCC_FILE_ATTRIBUTE_TEMPORARY			0x00000100
+#define SMB2_FSCC_FILE_ATTRIBUTE_SPARSE_FILE			0x00000200
+#define SMB2_FSCC_FILE_ATTRIBUTE_REPARSE_POINT			0x00000400
+#define SMB2_FSCC_FILE_ATTRIBUTE_COMPRESSED			0x00000800
+#define SMB2_FSCC_FILE_ATTRIBUTE_OFFLINE			0x00001000
+#define SMB2_FSCC_FILE_ATTRIBUTE_NOT_CONTENT_INDEXED		0x00002000
+#define SMB2_FSCC_FILE_ATTRIBUTE_ENCRYPTED			0x00004000
+#define SMB2_FSCC_FILE_ATTRIBUTE_INTEGRITY_STREAM		0x00008000
+#define SMB2_FSCC_FILE_ATTRIBUTE_NO_SCRUB_DATA			0x00020000
+
+
+static const true_false_string tfs_fscc_file_attribute_reparse = {
+	"Has an associated REPARSE POINT",
+	"Does NOT have an associated reparse point"
+};
+static const true_false_string tfs_fscc_file_attribute_compressed = {
+	"COMPRESSED",
+	"Uncompressed"
+};
+static const true_false_string tfs_fscc_file_attribute_offline = {
+	"OFFLINE",
+	"Online"
+};
+static const true_false_string tfs_fscc_file_attribute_not_content_indexed = {
+	"Is not indexed by the content indexing service",
+	"Is indexed by the content indexing service"
+};
+static const true_false_string tfs_fscc_file_attribute_integrity_stream = {
+	"Has Integrity Support",
+	"Does NOT have Integrity Support"
+};
+static const true_false_string tfs_fscc_file_attribute_no_scrub_data = {
+	"Is excluded from the data integrity scan",
+	"Is not excluded from the data integrity scan"
+};
+
+/*
+ * File Attributes, section 2.6 in the [MS-FSCC] spec
+ */
+static int
+dissect_fscc_file_attr(tvbuff_t* tvb, proto_tree* parent_tree, int offset)
+{
+	guint32 mask = tvb_get_letohl(tvb, offset);
+	static int* const mask_fields[] = {
+		&hf_smb2_fscc_file_attr_read_only,
+		&hf_smb2_fscc_file_attr_hidden,
+		&hf_smb2_fscc_file_attr_system,
+		&hf_smb2_fscc_file_attr_directory,
+		&hf_smb2_fscc_file_attr_archive,
+		&hf_smb2_fscc_file_attr_normal,
+		&hf_smb2_fscc_file_attr_temporary,
+		&hf_smb2_fscc_file_attr_sparse_file,
+		&hf_smb2_fscc_file_attr_reparse_point,
+		&hf_smb2_fscc_file_attr_compressed,
+		&hf_smb2_fscc_file_attr_offline,
+		&hf_smb2_fscc_file_attr_not_content_indexed,
+		&hf_smb2_fscc_file_attr_encrypted,
+		&hf_smb2_fscc_file_attr_integrity_stream,
+		&hf_smb2_fscc_file_attr_no_scrub_data,
+		NULL
+	};
+
+	proto_tree_add_bitmask_value_with_flags(parent_tree, tvb, offset, hf_smb2_fscc_file_attr, ett_smb2_fscc_file_attributes, mask_fields, mask, BMT_NO_APPEND);
+
+	offset += 4;
+
+	return offset;
+}
 
 /* this info level is unique to SMB2 and differst from the corresponding
  * SMB_FILE_ALL_INFO in SMB
@@ -2438,7 +2538,7 @@ dissect_smb2_file_all_info(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *pa
 	offset = dissect_nt_64bit_time(tvb, tree, offset, hf_smb2_last_change_timestamp);
 
 	/* File Attributes */
-	offset = dissect_file_ext_attr(tvb, tree, offset);
+	offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 	/* some unknown bytes */
 	proto_tree_add_item(tree, hf_smb2_unknown, tvb, offset, 4, ENC_NA);
@@ -2606,7 +2706,7 @@ dissect_smb2_file_basic_info(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 	offset = dissect_nt_64bit_time(tvb, tree, offset, hf_smb2_last_change_timestamp);
 
 	/* File Attributes */
-	offset = dissect_file_ext_attr(tvb, tree, offset);
+	offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 	/* some unknown bytes */
 	proto_tree_add_item(tree, hf_smb2_unknown, tvb, offset, 4, ENC_NA);
@@ -3299,6 +3399,7 @@ static const value_string share_cache_vals[] = {
 #define SHARE_FLAGS_enable_hash_v1		0x00002000
 #define SHARE_FLAGS_enable_hash_v2		0x00004000
 #define SHARE_FLAGS_encryption_required		0x00008000
+#define SHARE_FLAGS_identity_remoting		0x00040000
 
 static int
 dissect_smb2_share_flags(proto_tree *tree, tvbuff_t *tvb, int offset)
@@ -3314,6 +3415,7 @@ dissect_smb2_share_flags(proto_tree *tree, tvbuff_t *tvb, int offset)
 		&hf_smb2_share_flags_enable_hash_v1,
 		&hf_smb2_share_flags_enable_hash_v2,
 		&hf_smb2_share_flags_encrypt_data,
+		&hf_smb2_share_flags_identity_remoting,
 		NULL
 	};
 	proto_item *item;
@@ -3335,6 +3437,8 @@ dissect_smb2_share_flags(proto_tree *tree, tvbuff_t *tvb, int offset)
 #define SHARE_CAPS_CONTINUOUS_AVAILABILITY	0x00000010
 #define SHARE_CAPS_SCALEOUT			0x00000020
 #define SHARE_CAPS_CLUSTER			0x00000040
+#define SHARE_CAPS_ASSYMETRIC			0x00000080
+#define SHARE_CAPS_REDIRECT_TO_OWNER		0x00000100
 
 static int
 dissect_smb2_share_caps(proto_tree *tree, tvbuff_t *tvb, int offset)
@@ -3344,6 +3448,8 @@ dissect_smb2_share_caps(proto_tree *tree, tvbuff_t *tvb, int offset)
 		&hf_smb2_share_caps_continuous_availability,
 		&hf_smb2_share_caps_scaleout,
 		&hf_smb2_share_caps_cluster,
+		&hf_smb2_share_caps_assymetric,
+		&hf_smb2_share_caps_redirect_to_owner,
 		NULL
 	};
 
@@ -3851,12 +3957,30 @@ dissect_smb2_tree_connect_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 {
 	offset_length_buffer_t olb;
 	const guint8 *buf;
+	guint16       flags;
+	proto_item *item;
+	static int * const connect_flags[] = {
+		&hf_smb2_tc_cluster_reconnect,
+		&hf_smb2_tc_redirect_to_owner,
+		&hf_smb2_tc_extension_present,
+		&hf_smb2_tc_reserved,
+		NULL
+	};
 
 	/* buffer code */
 	offset = dissect_smb2_buffercode(tree, tvb, offset, NULL);
 
-	/* reserved */
-	proto_tree_add_item(tree, hf_smb2_reserved, tvb, offset, 2, ENC_NA);
+	/* flags */
+	item = proto_tree_get_parent(tree);
+	flags = tvb_get_letohs(tvb, offset);
+	proto_tree_add_bitmask(tree, tvb, offset, hf_smb2_tree_connect_flags, ett_smb2_tree_connect_flags, connect_flags, ENC_LITTLE_ENDIAN);
+
+	if (flags != 0) {
+		proto_item_append_text(item, "%s%s%s",
+			       (flags & 0x0001)?", CLUSTER_RECONNECT":"",
+			       (flags & 0x0002)?", REDIRECT_TO_OWNER":"",
+			       (flags & 0x0004)?", EXTENSION_PRESENT":"");
+	}
 	offset += 2;
 
 	/* tree  offset/length */
@@ -4259,7 +4383,7 @@ static void dissect_smb2_file_directory_info(tvbuff_t *tvb, packet_info *pinfo _
 		offset += 8;
 
 		/* File Attributes */
-		offset = dissect_file_ext_attr(tvb, tree, offset);
+		offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 		/* file name length */
 		file_name_len = tvb_get_letohl(tvb, offset);
@@ -4338,7 +4462,7 @@ static void dissect_smb2_full_directory_info(tvbuff_t *tvb, packet_info *pinfo _
 		offset += 8;
 
 		/* File Attributes */
-		offset = dissect_file_ext_attr(tvb, tree, offset);
+		offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 		/* file name length */
 		file_name_len = tvb_get_letohl(tvb, offset);
@@ -4422,7 +4546,7 @@ static void dissect_smb2_both_directory_info(tvbuff_t *tvb, packet_info *pinfo _
 		offset += 8;
 
 		/* File Attributes */
-		offset = dissect_file_ext_attr(tvb, tree, offset);
+		offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 		/* file name length */
 		file_name_len = tvb_get_letohl(tvb, offset);
@@ -4578,7 +4702,7 @@ static void dissect_smb2_id_both_directory_info(tvbuff_t *tvb, packet_info *pinf
 		offset += 8;
 
 		/* File Attributes */
-		offset = dissect_file_ext_attr(tvb, tree, offset);
+		offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 		/* file name length */
 		file_name_len = tvb_get_letohl(tvb, offset);
@@ -4686,7 +4810,7 @@ static void dissect_smb2_id_full_directory_info(tvbuff_t *tvb, packet_info *pinf
 		offset += 8;
 
 		/* File Attributes */
-		offset = dissect_file_ext_attr(tvb, tree, offset);
+		offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 		/* file name length */
 		file_name_len = tvb_get_letohl(tvb, offset);
@@ -5726,7 +5850,7 @@ dissect_smb2_close_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *t
 	offset += 8;
 
 	/* File Attributes */
-	offset = dissect_file_ext_attr(tvb, tree, offset);
+	offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 	return offset;
 }
@@ -8771,7 +8895,7 @@ dissect_smb2_create_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	offset = dissect_smb_access_mask(tvb, tree, offset);
 
 	/* File Attributes */
-	offset = dissect_file_ext_attr(tvb, tree, offset);
+	offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 	/* share access */
 	offset = dissect_nt_share_access(tvb, tree, offset);
@@ -8878,7 +9002,7 @@ dissect_smb2_create_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 
 	/* File Attributes */
 	attr_mask=tvb_get_letohl(tvb, offset);
-	offset = dissect_file_ext_attr(tvb, tree, offset);
+	offset = dissect_fscc_file_attr(tvb, tree, offset);
 
 	/* reserved */
 	proto_tree_add_item(tree, hf_smb2_reserved, tvb, offset, 4, ENC_NA);
@@ -12015,6 +12139,31 @@ proto_register_smb2(void)
 			NULL, 0, "Time stamp of previous version", HFILL }
 		},
 
+		{ &hf_smb2_tree_connect_flags,
+			{ "Flags", "smb2.tc.flags", FT_UINT16, BASE_HEX,
+			NULL, 0, "Tree Connect flags", HFILL }
+		},
+
+		{ &hf_smb2_tc_cluster_reconnect,
+			{ "Cluster Reconnect", "smb2.tc.cluster_reconnect", FT_BOOLEAN, 16,
+			TFS(&tfs_set_notset), 0x0001, "If this is a Cluster Reconnect", HFILL }
+		},
+
+		{ &hf_smb2_tc_redirect_to_owner,
+			{ "Redirect To Owner", "smb2.tc.redirect_to_owner", FT_BOOLEAN, 16,
+			TFS(&tfs_set_notset), 0x0002, "Set if the client can handle Share Redirects", HFILL }
+		},
+
+		{ &hf_smb2_tc_extension_present,
+			{ "Extension Present", "smb2.tc.extension_present", FT_BOOLEAN, 16,
+			TFS(&tfs_set_notset), 0x0004, "Set if an extension structure is present", HFILL }
+		},
+
+		{ &hf_smb2_tc_reserved,
+			{ "Reserved", "smb2.tc.reserved", FT_UINT16, BASE_HEX,
+			NULL, 0xFFF8, "Must be zero", HFILL }
+		},
+
 		{ &hf_smb2_compression_format,
 			{ "Compression Format", "smb2.compression_format", FT_UINT16, BASE_DEC,
 			VALS(compression_format_vals), 0, NULL, HFILL }
@@ -12314,6 +12463,11 @@ proto_register_smb2(void)
 			NULL, SHARE_FLAGS_encryption_required, "The share require data encryption", HFILL }
 		},
 
+		{ &hf_smb2_share_flags_identity_remoting,
+			{ "Identity Remoting", "smb2.share_flags.identity_remoting", FT_BOOLEAN, 32,
+			NULL, SHARE_FLAGS_identity_remoting, "The specified share supports Identity Remoting", HFILL }
+		},
+
 		{ &hf_smb2_share_caching,
 			{ "Caching policy", "smb2.share.caching", FT_UINT32, BASE_HEX,
 			VALS(share_cache_vals), 0, NULL, HFILL }
@@ -12342,6 +12496,16 @@ proto_register_smb2(void)
 		{ &hf_smb2_share_caps_cluster,
 			{ "CLUSTER", "smb2.share_caps.cluster", FT_BOOLEAN, 32,
 			NULL, SHARE_CAPS_CLUSTER, "The specified share is a cluster share", HFILL }
+		},
+
+		{ &hf_smb2_share_caps_assymetric,
+			{ "ASSYMETRIC", "smb2.share_caps.assymetric", FT_BOOLEAN, 32,
+			NULL, SHARE_CAPS_ASSYMETRIC, "The specified share allows dynamic changes in ownership of the share", HFILL }
+		},
+
+		{ &hf_smb2_share_caps_redirect_to_owner,
+			{ "REDIRECT_TO_OWNER", "smb2.share_caps.redirect_to_owner", FT_BOOLEAN, 32,
+			NULL, SHARE_CAPS_REDIRECT_TO_OWNER, "The specified share supports synchronous share level redirection", HFILL }
 		},
 
 		{ &hf_smb2_ioctl_flags,
@@ -13114,6 +13278,69 @@ proto_register_smb2(void)
 			{ "Flags", "smb2.symlink.flags", FT_UINT32, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }
 		},
+		{ &hf_smb2_fscc_file_attr,
+			{ "File Attributes", "smb2.file_attribute", FT_UINT32, BASE_HEX,
+			NULL, 0x0, NULL, HFILL }
+		},
+		{ &hf_smb2_fscc_file_attr_read_only,
+			{ "Read Only", "smb2.file_attribute.read_only", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_READ_ONLY, "READ ONLY file attribute", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_hidden,
+			{ "Hidden", "smb2.file_attribute.hidden", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_HIDDEN, "HIDDEN file attribute", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_system,
+			{ "System", "smb2.file_attribute.system", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_SYSTEM, "SYSTEM file attribute", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_directory,
+			{ "Directory", "smb2.file_attribute.directory", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_DIRECTORY, "DIRECTORY file attribute", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_archive,
+			{ "Requires archived", "smb2.file_attribute.archive", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_ARCHIVE, "ARCHIVE file attribute", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_normal,
+			{ "Normal", "smb2.file_attribute.normal", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_NORMAL, "Is this a normal file?", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_temporary,
+			{ "Temporary", "smb2.file_attribute.temporary", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_TEMPORARY, "Is this a temporary file?", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_sparse_file,
+			{ "Sparse", "smb2.file_attribute.sparse", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_SPARSE_FILE, "Is this a sparse file?", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_reparse_point,
+			{ "Reparse Point", "smb2.file_attribute.reparse", FT_BOOLEAN, 32,
+			TFS(&tfs_fscc_file_attribute_reparse), SMB2_FSCC_FILE_ATTRIBUTE_REPARSE_POINT, "Does this file have an associated reparse point?", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_compressed,
+			{ "Compressed", "smb2.file_attribute.compressed", FT_BOOLEAN, 32,
+			TFS(&tfs_fscc_file_attribute_compressed), SMB2_FSCC_FILE_ATTRIBUTE_COMPRESSED, "Is this file compressed?", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_offline,
+			{ "Offline", "smb2.file_attribute.offline", FT_BOOLEAN, 32,
+			TFS(&tfs_fscc_file_attribute_offline), SMB2_FSCC_FILE_ATTRIBUTE_OFFLINE, "Is this file offline?", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_not_content_indexed,
+			{ "Not Content Indexed", "smb2.file_attribute.not_content_indexed", FT_BOOLEAN, 32,
+			TFS(&tfs_fscc_file_attribute_not_content_indexed), SMB2_FSCC_FILE_ATTRIBUTE_NOT_CONTENT_INDEXED, "May this file be indexed by the content indexing service", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_encrypted,
+			{ "Encrypted", "smb2.file_attribute.encrypted", FT_BOOLEAN, 32,
+			TFS(&tfs_yes_no), SMB2_FSCC_FILE_ATTRIBUTE_ENCRYPTED, "Is this file encrypted?", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_integrity_stream,
+			{ "Integrity Stream", "smb2.file_attribute.integrity_stream", FT_BOOLEAN, 32,
+			TFS(&tfs_fscc_file_attribute_integrity_stream), SMB2_FSCC_FILE_ATTRIBUTE_INTEGRITY_STREAM, "Is this file configured with inegrity support?", HFILL } },
+
+		{ &hf_smb2_fscc_file_attr_no_scrub_data,
+			{ "No Scrub Data", "smb2.file_attribute.no_scrub_data", FT_BOOLEAN, 32,
+			TFS(&tfs_fscc_file_attribute_no_scrub_data), SMB2_FSCC_FILE_ATTRIBUTE_NO_SCRUB_DATA, "Is this file configured to be excluded from the data integrity scan?", HFILL } },
 	};
 
 	static gint *ett[] = {
@@ -13212,6 +13439,7 @@ proto_register_smb2(void)
 		&ett_smb2_integrity_flags,
 		&ett_smb2_buffercode,
 		&ett_smb2_ioctl_network_interface_capabilities,
+		&ett_smb2_tree_connect_flags,
 		&ett_qfr_entry,
 		&ett_smb2_pipe_fragment,
 		&ett_smb2_pipe_fragments,
@@ -13226,6 +13454,7 @@ proto_register_smb2(void)
 		&ett_smb2_read_flags,
 		&ett_smb2_signature,
 		&ett_smb2_transform_flags,
+		&ett_smb2_fscc_file_attributes,
 	};
 
 	static ei_register_info ei[] = {

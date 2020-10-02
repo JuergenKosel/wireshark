@@ -127,6 +127,7 @@ DIAG_ON(frame-larger-than=)
 #include "mtp3_summary_dialog.h"
 #include "multicast_statistics_dialog.h"
 #include "packet_comment_dialog.h"
+#include "packet_diagram.h"
 #include "packet_dialog.h"
 #include "packet_list.h"
 #include "credentials_dialog.h"
@@ -360,6 +361,7 @@ void MainWindow::updatePreferenceActions()
     main_ui_->actionViewPacketList->setEnabled(prefs_has_layout_pane_content(layout_pane_content_plist));
     main_ui_->actionViewPacketDetails->setEnabled(prefs_has_layout_pane_content(layout_pane_content_pdetails));
     main_ui_->actionViewPacketBytes->setEnabled(prefs_has_layout_pane_content(layout_pane_content_pbytes));
+    main_ui_->actionViewPacketDiagram->setEnabled(prefs_has_layout_pane_content(layout_pane_content_pdiagram));
 
     main_ui_->actionViewNameResolutionPhysical->setChecked(gbl_resolv_flags.mac_name);
     main_ui_->actionViewNameResolutionNetwork->setChecked(gbl_resolv_flags.network_name);
@@ -378,6 +380,7 @@ void MainWindow::updateRecentActions()
     main_ui_->actionViewPacketList->setChecked(recent.packet_list_show && prefs_has_layout_pane_content(layout_pane_content_plist));
     main_ui_->actionViewPacketDetails->setChecked(recent.tree_view_show && prefs_has_layout_pane_content(layout_pane_content_pdetails));
     main_ui_->actionViewPacketBytes->setChecked(recent.byte_view_show && prefs_has_layout_pane_content(layout_pane_content_pbytes));
+    main_ui_->actionViewPacketDiagram->setChecked(recent.packet_diagram_show && prefs_has_layout_pane_content(layout_pane_content_pdiagram));
 
     foreach(QAction *action, main_ui_->menuInterfaceToolbars->actions()) {
         if (g_list_find_custom(recent.interface_toolbars, action->text().toUtf8(), (GCompareFunc)strcmp)) {
@@ -663,7 +666,7 @@ void MainWindow::captureEventHandler(CaptureEvent ev)
         switch (ev.eventType()) {
         case CaptureEvent::Started:
             wsApp->popStatus(WiresharkApplication::FileStatus);
-            wsApp->pushStatus(WiresharkApplication::FileStatus, tr("Merging files"), QString());
+            wsApp->pushStatus(WiresharkApplication::FileStatus, tr("Merging files."), QString());
             break;
         case CaptureEvent::Finished:
             wsApp->popStatus(WiresharkApplication::FileStatus);
@@ -832,7 +835,7 @@ void MainWindow::startCapture() {
 
     /* did the user ever select a capture interface before? */
     if (global_capture_opts.num_selected == 0) {
-        QString msg = QString(tr("No interface selected"));
+        QString msg = QString(tr("No interface selected."));
         wsApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
@@ -842,7 +845,7 @@ void MainWindow::startCapture() {
     // toolbar buttons and menu items. This may not be the
     // case, e.g. with QtMacExtras.
     if (!capture_filter_valid_) {
-        QString msg = QString(tr("Invalid capture filter"));
+        QString msg = QString(tr("Invalid capture filter."));
         wsApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
@@ -2299,6 +2302,9 @@ void MainWindow::showHideMainWidgets(QAction *action)
     } else if (widget == byte_view_tab_) {
         recent.byte_view_show = show;
         main_ui_->actionViewPacketBytes->setChecked(show);
+    } else if (widget == packet_diagram_) {
+        recent.packet_diagram_show = show;
+        main_ui_->actionViewPacketDiagram->setChecked(show);
     } else {
         foreach(QAction *action, main_ui_->menuInterfaceToolbars->actions()) {
             QToolBar *toolbar = action->data().value<QToolBar *>();
@@ -2724,9 +2730,7 @@ void MainWindow::matchFieldFilter(FilterAction::Action action, FilterAction::Act
     }
 
     if (field_filter.isEmpty()) {
-        QString err = tr("No filter available. Try another ");
-        err.append(packet_list_->contextMenuActive() ? "column" : "item");
-        err.append(".");
+        QString err = tr("No filter available. Try another %1.").arg(packet_list_->contextMenuActive() ? tr("column") : tr("item"));
         wsApp->pushStatus(WiresharkApplication::TemporaryStatus, err);
         return;
     }
@@ -2765,8 +2769,25 @@ void MainWindow::on_actionAnalyzeDisplayFilterMacros_triggered()
 void MainWindow::on_actionAnalyzeCreateAColumn_triggered()
 {
     if (capture_file_.capFile() != 0 && capture_file_.capFile()->finfo_selected != 0) {
-        insertColumn(QString(capture_file_.capFile()->finfo_selected->hfinfo->name),
-                     QString(capture_file_.capFile()->finfo_selected->hfinfo->abbrev));
+        header_field_info *hfinfo = capture_file_.capFile()->finfo_selected->hfinfo;
+        int col = column_prefs_has_custom(hfinfo->abbrev);
+        if (col == -1) {
+            insertColumn(hfinfo->name, hfinfo->abbrev);
+        } else {
+            QString status;
+            if (QString(hfinfo->name) == get_column_title(col)) {
+                status = tr("The \"%1\" column already exists.").arg(hfinfo->name);
+            } else {
+                status = tr("The \"%1\" column already exists as \"%2\".").arg(hfinfo->name).arg(get_column_title(col));
+            }
+            wsApp->pushStatus(WiresharkApplication::TemporaryStatus, status);
+
+            if (!get_column_visible(col)) {
+                packet_list_->setColumnHidden(col, false);
+                set_column_visible(col, TRUE);
+                prefs_main_write();
+            }
+        }
     }
 }
 
@@ -3687,7 +3708,7 @@ void MainWindow::on_actionCaptureStart_triggered()
 
 #ifdef HAVE_LIBPCAP
     if (global_capture_opts.num_selected == 0) {
-        QString err_msg = tr("No Interface Selected");
+        QString err_msg = tr("No Interface Selected.");
         wsApp->pushStatus(WiresharkApplication::TemporaryStatus, err_msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;

@@ -834,8 +834,9 @@ union ieee_802_11_phy_info {
 
 struct ieee_802_11_phdr {
     gint     fcs_len;          /* Number of bytes of FCS - -1 means "unknown" */
-    gboolean decrypted;        /* TRUE if frame is decrypted even if "protected" bit is set */
-    gboolean datapad;          /* TRUE if frame has padding between 802.11 header and payload */
+    guint    decrypted:1;      /* TRUE if frame is decrypted even if "protected" bit is set */
+    guint    datapad:1;        /* TRUE if frame has padding between 802.11 header and payload */
+    guint    no_a_msdus:1;     /* TRUE if we should ignore the A-MSDU bit */
     guint    phy;              /* PHY type */
     union ieee_802_11_phy_info phy_info;
 
@@ -941,7 +942,7 @@ struct nettl_phdr {
     guint32 devid;
     guint32 kind;
     gint32  pid;
-    guint16 uid;
+    guint32 uid;
 };
 
 /* Packet "pseudo-header" for MTP2 files. */
@@ -1113,6 +1114,7 @@ struct bthci_phdr {
 #define BTHCI_CHANNEL_ACL      2
 #define BTHCI_CHANNEL_SCO      3
 #define BTHCI_CHANNEL_EVENT    4
+#define BTHCI_CHANNEL_ISO      5
 
 /* pseudo header for WTAP_ENCAP_BLUETOOTH_LINUX_MONITOR */
 struct btmon_phdr {
@@ -1565,6 +1567,7 @@ typedef struct addrinfo_lists {
 typedef struct wtap_dump_params {
     int         encap;                      /**< Per-file packet encapsulation, or WTAP_ENCAP_PER_PACKET */
     int         snaplen;                    /**< Per-file snapshot length (what if it's per-interface?) */
+    int         tsprec;                     /**< Per-file time stamp precision */
     GArray     *shb_hdrs;                   /**< The section header block(s) information, or NULL. */
     wtapng_iface_descriptions_t *idb_inf;   /**< The interface description information, or NULL. */
     GArray     *nrb_hdrs;                   /**< The name resolution blocks(s) comment/custom_opts information, or NULL. */
@@ -1941,6 +1944,20 @@ WS_DLL_PUBLIC
 void wtap_write_shb_comment(wtap *wth, gchar *comment);
 
 /**
+ * @brief Generate an IDB, given a wiretap handle for the file,
+ *      using the file's encapsulation type, snapshot length,
+ *      and time stamp resolution, and add it to the interface
+ *      data for a file.
+ * @note This requires that the encapsulation type and time stamp
+ *      resolution not be per-packet; it will terminate the process
+ *      if either of them are.
+ *
+ * @param wth The wiretap handle for the file.
+ */
+WS_DLL_PUBLIC
+void wtap_add_generated_idb(wtap *wth);
+
+/**
  * @brief Gets existing interface descriptions.
  * @details Returns a new struct containing a pointer to the existing
  *          description, without creating new descriptions internally.
@@ -2156,7 +2173,7 @@ WS_DLL_PUBLIC
 gboolean wtap_dump(wtap_dumper *, const wtap_rec *, const guint8 *,
      int *err, gchar **err_info);
 WS_DLL_PUBLIC
-void wtap_dump_flush(wtap_dumper *);
+gboolean wtap_dump_flush(wtap_dumper *, int *);
 WS_DLL_PUBLIC
 gint64 wtap_get_bytes_dumped(wtap_dumper *);
 WS_DLL_PUBLIC

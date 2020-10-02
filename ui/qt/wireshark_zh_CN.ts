@@ -134,8 +134,8 @@
         <translation>名称:</translation>
     </message>
     <message>
-        <source>Can&apos;t assign %1 to %2</source>
-        <translation>不能分配 %1 到 %2</translation>
+        <source>Can&apos;t assign %1 to %2.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -3063,10 +3063,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>UTF-8</translation>
     </message>
     <message>
-        <source>UTF-16</source>
-        <translation>UTF-16</translation>
-    </message>
-    <message>
         <source>YAML</source>
         <translation>YAML</translation>
     </message>
@@ -3177,9 +3173,9 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>提示。</translation>
     </message>
     <message>
-        <source>Show and save data as</source>
-        <oldsource>Show data as</oldsource>
-        <translation>显示和保存数据为</translation>
+        <source>Show data as</source>
+        <oldsource>Show and save data as</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Stream</source>
@@ -5384,6 +5380,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>分组字节流</translation>
     </message>
     <message>
+        <source>Packet Diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>None</source>
         <translation>无</translation>
     </message>
@@ -7001,6 +7001,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>重置外观布局为默认尺寸</translation>
     </message>
     <message>
+        <source>Packet &amp;Diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show or hide the packet diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Show each conversation hash table</source>
         <translation>显示每个对话哈希表</translation>
     </message>
@@ -7866,20 +7874,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>打开另一个文件前</translation>
     </message>
     <message>
+        <source>Merging files.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
     <message>
         <source>Saving %1</source>
         <translation>正在保存 %1</translation>
-    </message>
-    <message>
-        <source>No interface selected</source>
-        <translation>未选中接口</translation>
-    </message>
-    <message>
-        <source>Invalid capture filter</source>
-        <translation>无效捕获过滤器</translation>
     </message>
     <message>
         <source>Clear Menu</source>
@@ -7913,10 +7917,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>原始数据 (*.bin *.dat *.raw);;所有文件 (</translation>
     </message>
     <message>
-        <source>Merging files</source>
-        <translation>合并文件</translation>
-    </message>
-    <message>
         <source>Couldn&apos;t copy text. Try another item.</source>
         <translation>无法复制文本。请尝试其他对象。</translation>
     </message>
@@ -7933,10 +7933,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>重新载入文件前</translation>
     </message>
     <message>
-        <source>No filter available. Try another </source>
-        <translation>无过滤器可用。请尝试其他 </translation>
-    </message>
-    <message>
         <source>Error compiling filter for this conversation.</source>
         <translation>为此对话编译过滤器时出错。</translation>
     </message>
@@ -7945,8 +7941,12 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>此对话中没有上一个/下一个分组。</translation>
     </message>
     <message>
-        <source>No Interface Selected</source>
-        <translation>未选中接口</translation>
+        <source>No interface selected.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invalid capture filter.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source> before starting a new capture</source>
@@ -7965,6 +7965,30 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>TLS Session Keys (*.keys *.txt);;All Files (</source>
         <translation>TLS 会话密钥 (*.keys *.txt);;所有文件(</translation>
+    </message>
+    <message>
+        <source>No filter available. Try another %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>item</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The &quot;%1&quot; column already exists.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The &quot;%1&quot; column already exists as &quot;%2&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No Interface Selected.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source> before restarting the capture</source>
@@ -8374,6 +8398,45 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Packet %1 Comment</source>
         <translation>分组 %1 注释</translation>
+    </message>
+</context>
+<context>
+    <name>PacketDiagram</name>
+    <message>
+        <source>Packet diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Field Values</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Diagram As</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy as Raster Image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Portable Network Graphics (*.png)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Windows Bitmap (*.bmp)</source>
+        <translation type="unfinished">Windows 位图 (*.bmp)</translation>
+    </message>
+    <message>
+        <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scalable Vector Graphics (*.svg)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Graph As</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -9649,6 +9712,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Default value is empty</source>
         <translation>默认值为空</translation>
+    </message>
+    <message>
+        <source>Gap in dissection</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12185,20 +12252,12 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>图像</translation>
     </message>
     <message>
-        <source>ISO 8859-1</source>
-        <translation>ISO 8859-1</translation>
-    </message>
-    <message>
         <source>Raw</source>
         <translation>原始数据</translation>
     </message>
     <message>
         <source>UTF-8</source>
         <translation>UTF-8</translation>
-    </message>
-    <message>
-        <source>UTF-16</source>
-        <translation>UTF-16</translation>
     </message>
     <message>
         <source>YAML</source>
@@ -13530,6 +13589,17 @@ a:hover {
     <message>
         <source>Unable to set FCS validation behavior.</source>
         <translation>无法设置 FCS 验证行为。</translation>
+    </message>
+</context>
+<context>
+    <name>WirelessTimeline</name>
+    <message>
+        <source>Packet number %1 does not include TSF timestamp, not showing timeline.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet number %u has large negative jump in TSF, not showing timeline. Perhaps TSF reference point is set wrong?</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
