@@ -1068,7 +1068,7 @@ static const value_string operational_mau_type_values[] = {
 #define HYTEC_MD__LINELOSS					4
 
 #define HYTEC_MD__TX_CURRENT_OUTPUT_POWER_STR	"Tx current output power"
-#define HYTEC_MD__RX_CURRENT_INPUT_POWER_STR	"Rx current intput power"
+#define HYTEC_MD__RX_CURRENT_INPUT_POWER_STR	"Rx current input power"
 #define HYTEC_MD__RX_INPUT_SNR_STR				"Rx input SNR"
 #define HYTEC_MD__LINELOSS_STR					"Lineloss"
 
@@ -1191,7 +1191,7 @@ static const value_string hytec_mc[] = {
 
 /* Some vendors interpreted the standard to invert the bitorder:
  * according to a IEEE ruling, this is now officially wrong.
- * See https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=1455
+ * See https://gitlab.com/wireshark/wireshark/-/issues/1455
  * for all the gory details
  */
 
@@ -4782,7 +4782,7 @@ proto_register_lldp(void)
 			VALS(dcbx_protocol_types), 0x0, "Unknown", HFILL }
 		},
 		{ &hf_dcbx_control_sequence,
-			{ "Sequence No", "lldp.dcbx.contol.seq", FT_UINT32, BASE_DEC,
+			{ "Sequence No", "lldp.dcbx.control.seq", FT_UINT32, BASE_DEC,
 			NULL, 0, NULL, HFILL }
 		},
 		{ &hf_dcbx_control_ack,
@@ -5638,7 +5638,7 @@ proto_register_lldp(void)
 			NULL, 0x0, NULL, HFILL }
 		},
 		{ &hf_media_civic_lci_length,
-			{ "LCI Length", "lldp.media.civic.lenth", FT_UINT8, BASE_DEC,
+			{ "LCI Length", "lldp.media.civic.length", FT_UINT8, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }
 		},
 		{ &hf_media_civic_what,

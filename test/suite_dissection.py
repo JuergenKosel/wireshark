@@ -157,7 +157,7 @@ class case_dissect_tcp(subprocesstest.SubprocessTestCase):
             '-eframe.number', '-etcp.reassembled_in', '-e_ws.col.Info',
             '-2',
             ))
-        lines = proc.stdout_str.replace('\r', '').split('\n')
+        lines = proc.stdout_str.split('\n')
         # 2 - start of OoO MSP
         self.assertIn('2\t6\t[TCP Previous segment not captured]', lines[1])
         self.assertIn('[TCP segment of a reassembled PDU]', lines[1])
@@ -186,10 +186,9 @@ class case_dissect_tcp(subprocesstest.SubprocessTestCase):
         proc = self.assertRun((cmd_tshark,
             '-r', capture_file('retrans-tls.pcap'),
             '-Ytls', '-Tfields', '-eframe.number', '-etls.record.length',))
-        output = proc.stdout_str.replace('\r', '')
         # First pass dissection actually accepted the first frame as TLS, but
         # subsequently requested reassembly.
-        self.assertEqual(output, '1\t\n2\t16\n')
+        self.assertEqual(proc.stdout_str, '1\t\n2\t16\n')
 
     def test_tcp_reassembly_more_data_2(self, cmd_tshark, capture_file):
         '''
@@ -198,8 +197,7 @@ class case_dissect_tcp(subprocesstest.SubprocessTestCase):
         proc = self.assertRun((cmd_tshark,
             '-r', capture_file('retrans-tls.pcap'),
             '-Ytls', '-Tfields', '-eframe.number', '-etls.record.length', '-2'))
-        output = proc.stdout_str.replace('\r', '')
-        self.assertEqual(output, '2\t16\n')
+        self.assertEqual(proc.stdout_str, '2\t16\n')
 
 @fixtures.mark_usefixtures('test_env')
 @fixtures.uses_fixtures
@@ -214,7 +212,7 @@ class case_dissect_tls(subprocesstest.SubprocessTestCase):
                                '-zexpert',
                                '-Ytls.handshake.extension.data',
                                '-Tfields', '-etls.handshake.extension.data'] + extraArgs)
-        output = proc.stdout_str.replace('\r', '').replace(',', '\n')
+        output = proc.stdout_str.replace(',', '\n')
         # Expected output are lines with 0001, 0002, ..., 03e8
         expected = ''.join('%04x\n' % i for i in range(1, 1001))
         self.assertEqual(output, expected)
@@ -249,3 +247,59 @@ class case_decompress_smb2(subprocesstest.SubprocessTestCase):
         if sys.byteorder == 'big':
             fixtures.skip('this test is supported on little endian only')
         self.extract_compressed_payload(cmd_tshark, capture_file, 3)
+
+    def extract_chained_compressed_payload(self, cmd_tshark, capture_file, frame_num):
+        proc = self.assertRun((cmd_tshark,
+            '-r', capture_file('smb311-chained-patternv1-lznt1.pcapng.gz'),
+            '-Tfields', '-edata.data',
+            '-Y', 'frame.number == %d'%frame_num,
+        ))
+        self.assertEqual(b'\xaa'*256, bytes.fromhex(proc.stdout_str.strip()))
+
+    def test_smb311_chained_lznt1_patternv1(self, cmd_tshark, capture_file):
+        if sys.byteorder == 'big':
+            fixtures.skip('this test is supported on little endian only')
+        self.extract_chained_compressed_payload(cmd_tshark, capture_file, 1)
+
+    def test_smb311_chained_none_patternv1(self, cmd_tshark, capture_file):
+        self.extract_chained_compressed_payload(cmd_tshark, capture_file, 2)
+
+@fixtures.mark_usefixtures('test_env')
+@fixtures.uses_fixtures
+class case_communityid(subprocesstest.SubprocessTestCase):
+    # Show full diffs in case of divergence
+    maxDiff = None
+
+    def assertBaseline(self, dirs, output, baseline):
+        baseline_file = os.path.join(dirs.baseline_dir, baseline)
+        with open(baseline_file) as f:
+            baseline_data = f.read()
+
+        self.assertEqual(output, baseline_data)
+
+    def test_communityid(self, cmd_tshark, features, dirs, capture_file):
+        # Run tshark on our Community ID test pcap, enabling the
+        # postdissector (it is disabled by default), and asking for
+        # the Community ID value as field output. Verify that this
+        # exits successfully:
+        proc = self.assertRun(
+            (cmd_tshark,
+             '--enable-protocol', 'communityid',
+             '-r', capture_file('communityid.pcap.gz'),
+             '-Tfields', '-ecommunityid',
+             ))
+
+        self.assertBaseline(dirs, proc.stdout_str, 'communityid.txt')
+
+    def test_communityid_filter(self, cmd_tshark, features, dirs, capture_file):
+        # Run tshark on our Community ID test pcap, enabling the
+        # postdissector and filtering the result.
+        proc = self.assertRun(
+            (cmd_tshark,
+             '--enable-protocol', 'communityid',
+             '-r', capture_file('communityid.pcap.gz'),
+             '-Tfields', '-ecommunityid',
+             'communityid=="1:d/FP5EW3wiY1vCndhwleRRKHowQ="'
+             ))
+
+        self.assertBaseline(dirs, proc.stdout_str, 'communityid-filtered.txt')

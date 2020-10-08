@@ -2613,8 +2613,6 @@ save_path_attr_encaps_tunnel_type(packet_info *pinfo, guint32 encaps_tunnel_type
         (path_attr_data*)p_get_proto_data(wmem_file_scope(), pinfo, proto_bgp, PATH_ATTR_DATA_KEY);
     if (!data) {
         data = wmem_new0(wmem_file_scope(), path_attr_data);
-        data->encaps_tunnel_type = 0;
-        data->encaps_community_present = FALSE;
     }
     data->encaps_community_present = TRUE;
     data->encaps_tunnel_type = encaps_tunnel_type;
@@ -10276,7 +10274,7 @@ proto_register_bgp(void)
         { "MPLS Label", "bgp.update.encaps_tunnel_tlv_subtlv.segment_list_subtlv.mpls_label", FT_UINT24,
           BASE_HEX, NULL, BGP_MPLS_LABEL, NULL, HFILL}},
       { &hf_bgp_update_encaps_tunnel_subtlv_segment_list_subtlv_traffic_class,
-        { "Traffic Class", "bgp.update.encaps_tunnel_tlv_subtlv.segment_list_subtlv.mpls_label", FT_UINT8,
+        { "Traffic Class", "bgp.update.encaps_tunnel_tlv_subtlv.segment_list_subtlv.traffic_class", FT_UINT8,
           BASE_HEX, NULL, BGP_MPLS_TRAFFIC_CLASS, NULL, HFILL}},
       { &hf_bgp_update_encaps_tunnel_subtlv_segment_list_subtlv_bottom_stack,
         { "Bottom-of-Stack", "bgp.update.encaps_tunnel_tlv_subtlv.segment_list_subtlv.bottom_stack", FT_BOOLEAN,
@@ -11617,9 +11615,9 @@ proto_register_bgp(void)
         { &ei_bgp_evpn_nlri_esi_type_err, { "bgp.evpn.esi_type", PI_MALFORMED, PI_ERROR, "EVPN ESI Type is invalid", EXPFILL }},
         { &ei_bgp_evpn_nlri_rt4_no_ip, { "bgp.evpn.no_ip", PI_PROTOCOL, PI_NOTE, "IP Address: NOT INCLUDED", EXPFILL }},
         { &ei_bgp_attr_pmsi_tunnel_type, { "bgp.attr.pmsi.tunnel_type", PI_PROTOCOL, PI_ERROR, "Unknown Tunnel type", EXPFILL }},
-        { &ei_bgp_attr_pmsi_opaque_type, { "bgp.attr.pmsi.opaque_type", PI_PROTOCOL, PI_ERROR, "Unvalid pmsi opaque type", EXPFILL }},
+        { &ei_bgp_attr_pmsi_opaque_type, { "bgp.attr.pmsi.opaque_type", PI_PROTOCOL, PI_ERROR, "Invalid pmsi opaque type", EXPFILL }},
         { &ei_bgp_attr_aigp_type, { "bgp.attr.aigp.type", PI_MALFORMED, PI_NOTE, "Unknown AIGP attribute type", EXPFILL}},
-        { &ei_bgp_prefix_length_err, { "bgp.prefix.length", PI_MALFORMED, PI_ERROR, "Unvalid IPv6 prefix length", EXPFILL}},
+        { &ei_bgp_prefix_length_err, { "bgp.prefix.length", PI_MALFORMED, PI_ERROR, "Invalid IPv6 prefix length", EXPFILL}},
         { &ei_bgp_attr_as_path_as_len_err, { "bgp.attr.as_path.as_len", PI_UNDECODED, PI_ERROR, "unable to determine 4 or 2 bytes ASN", EXPFILL}},
         { &ei_bgp_prefix_sid_type_err, { "bgp.prefix_sid.type_err", PI_PROTOCOL, PI_ERROR, "BGP Prefix-SID unknown TLV type", EXPFILL }}
     };

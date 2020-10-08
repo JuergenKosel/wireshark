@@ -3821,7 +3821,7 @@ be_app_data_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32
   * 3.2.2.102   AoIP Transport Layer Address
   */
 static guint16
-be_aoip_trans_lay_add(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+be_aoip_trans_lay_add(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
 {
     guint32 curr_offset;
     guint8  addr_type;
@@ -3848,7 +3848,7 @@ be_aoip_trans_lay_add(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint
             /* IPv6 */
             addr_type = 2;
             proto_tree_add_item(tree, hf_gsm_a_bssmap_aoip_trans_ipv6, tvb, curr_offset, 16, ENC_NA);
-            tvb_get_ipv6(tvb, offset + 5, &rtp_addr_ipv6);
+            tvb_get_ipv6(tvb, curr_offset, &rtp_addr_ipv6);
             curr_offset+=16;
             break;
         default:
@@ -8310,7 +8310,7 @@ proto_register_gsm_a_bssmap(void)
             NULL, HFILL }
     },
     { &hf_gsm_a_bssmap_channel_rate_and_type,
-        { "Channel Rate and Type", "gsm_a.bssmap.perm_speech_v_ind",
+        { "Channel Rate and Type", "gsm_a.bssmap.rate_and_type",
             FT_UINT8, BASE_DEC, VALS(gsm_a_bssap_channel_rate_and_type_vals), 0x0,
             NULL, HFILL }
     },
@@ -8325,7 +8325,7 @@ proto_register_gsm_a_bssmap(void)
             NULL, HFILL }
     },
     { &hf_gsm_a_bssmap_send_seqn,
-        { "Send Sequence Number", "gsm_a.bssmap.reroute_rej_cause",
+        { "Send Sequence Number", "gsm_a.bssmap.send_seqn",
             FT_UINT8, BASE_HEX, NULL, 0xc0,
             NULL, HFILL }
     },

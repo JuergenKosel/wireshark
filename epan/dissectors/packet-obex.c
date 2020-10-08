@@ -2969,7 +2969,7 @@ proto_register_obex(void)
             NULL, HFILL}
         },
         { &hf_pbap_application_parameter_vcard_selector,
-          { "vCard Selector", "obex.parameter.value.filter",
+          { "vCard Selector", "obex.parameter.value.vcard_selector",
             FT_UINT32, BASE_HEX, NULL, 0x0,
             NULL, HFILL}
         },
@@ -3704,7 +3704,7 @@ proto_register_obex(void)
         },
         { &hf_profile,
           { "Profile", "obex.profile", FT_UINT32, BASE_DEC | BASE_EXT_STRING, &profile_vals_ext, 0x0,
-            "Blutooth Profile used in this OBEX session", HFILL }
+            "Bluetooth Profile used in this OBEX session", HFILL }
         },
         { &hf_type,
           { "Type", "obex.type", FT_STRINGZ, STR_ASCII, NULL, 0x0,

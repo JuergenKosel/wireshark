@@ -6827,7 +6827,7 @@ proto_reg_handoff_lustre(void)
 
 /* Register the protocol with Wireshark.
  *
- * This format is require because a script is used to build the C function that
+ * This format is required because a script is used to build the C function that
  * calls all the protocol registration.
  */
 void
@@ -7799,7 +7799,7 @@ proto_register_lustre(void)
         { &hf_lustre_lmv_mds_md_hash_type,
           { "Lmv Hash Type", "lustre.lmv_mds_md.hash_type", FT_UINT32, BASE_DEC, VALS(lmv_hash_type_vals), LMV_HASH_TYPE_MASK, NULL, HFILL }},
         { &hf_lustre_lmv_mds_md_status,
-          { "Lmv Status", "lustre.lmv_mds_md.hash_type", FT_UINT32, BASE_HEX, NULL, ~LMV_HASH_TYPE_MASK, NULL, HFILL }},
+          { "Lmv Status", "lustre.lmv_mds_md.status", FT_UINT32, BASE_HEX, NULL, ~LMV_HASH_TYPE_MASK, NULL, HFILL }},
         { &hf_lustre_lmv_mds_md_layout_version,
           { "Lmv Layout Ver", "lustre.lmv_mds_md.layout_version", FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }},
         { &hf_lustre_lmv_mds_md_padding,
@@ -8017,7 +8017,7 @@ proto_register_lustre(void)
         { &hf_lustre_ldlm_intent_opc_open,
           { "open", "lustre.ldlm_intent.opc_open", FT_BOOLEAN, 32, TFS(&lnet_flags_set_truth), IT_OPEN,  NULL, HFILL } },
         { &hf_lustre_ldlm_intent_opc_creat,
-          { "creat", "lustre.ldlm_intent.opc_creat", FT_BOOLEAN, 32, TFS(&lnet_flags_set_truth), IT_CREAT  ,  NULL, HFILL } },
+          { "create", "lustre.ldlm_intent.opc_create", FT_BOOLEAN, 32, TFS(&lnet_flags_set_truth), IT_CREAT  ,  NULL, HFILL } },
         { &hf_lustre_ldlm_intent_opc_readdir,
           { "readdir", "lustre.ldlm_intent.opc_readdir", FT_BOOLEAN, 32, TFS(&lnet_flags_set_truth), IT_READDIR  ,  NULL, HFILL } },
         { &hf_lustre_ldlm_intent_opc_getattr,

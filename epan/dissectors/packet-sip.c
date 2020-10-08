@@ -10,6 +10,7 @@
  * Copyright 2004, Anders Broman <anders.broman@ericsson.com>
  * Copyright 2011, Anders Broman <anders.broman@ericsson.com>, Johan Wahl <johan.wahl@ericsson.com>
  * Copyright 2018, Anders Broman <anders.broman@ericsson.com>
+ * Copyright 2020, Atul Sharma <asharm37@ncsu.edu>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -228,6 +229,7 @@ static gint hf_sip_session_id_sess_id     = -1;
 static gint hf_sip_session_id_param       = -1;
 static gint hf_sip_session_id_local_uuid  = -1;
 static gint hf_sip_session_id_remote_uuid = -1;
+static gint hf_sip_session_id_logme       = -1;
 static gint hf_sip_continuation           = -1;
 static gint hf_sip_feature_cap            = -1;
 
@@ -519,7 +521,7 @@ static const sip_header_t sip_headers[] = {
     { "Refer-To",                       "r"  },  /*  82 RFC3515  */
 #define POS_REFER_TO                    82
     { "Referred-By",                    "b"  },  /*  83 RFC3892  */
-#define POS_REFERED_BY                  83
+#define POS_REFERRED_BY                 83
     { "Reject-Contact",                 "j"  },  /*  84 RFC3841  */
 #define POS_REJECT_CONTACT              84
     { "Replaces",                       NULL },  /*  85 RFC3891  */
@@ -2110,7 +2112,7 @@ dissect_sip_contact_item(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gi
                 /* it is actually unusual - arguably invalid - for a SIP REGISTER
                  * 200 OK _response_ to contain Contacts with expires=0.
                  *
-                 * See Bug https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=10364
+                 * See Bug https://gitlab.com/wireshark/wireshark/-/issues/10364
                  * Why this warning was removed (3GPP usage, 3GPP TS24.229 )
                  */
 #if 0
@@ -2901,7 +2903,7 @@ static void dissect_sip_via_header(tvbuff_t *tvb, proto_tree *tree, gint start_o
  */
 static void dissect_sip_session_id_header(tvbuff_t *tvb, proto_tree *tree, gint start_offset, gint line_end_offset, packet_info *pinfo)
 {
-    gint current_offset, semi_colon_offset, equals_offset, length;
+    gint current_offset, semi_colon_offset, equals_offset, length, logme_end_offset;
     GByteArray *bytes;
     proto_item *pi;
 
@@ -2970,7 +2972,28 @@ static void dissect_sip_session_id_header(tvbuff_t *tvb, proto_tree *tree, gint 
                 memcpy(guid.data4, &uuid->data[8], 8);
                 proto_tree_add_guid(tree, hf_sip_session_id_remote_uuid, tvb,
                                     equals_offset + 1, line_end_offset - equals_offset - 1, &guid);
-            } else {
+     	       /* Decode logme parameter as per https://tools.ietf.org/html/rfc8497
+                *
+                * sess-id-param       =/ logme-param
+                * logme-param         = "logme"
+                */
+                semi_colon_offset = tvb_find_guint8(tvb, current_offset, line_end_offset - current_offset, ';');
+                while(semi_colon_offset != -1){
+                    current_offset = semi_colon_offset + 1;
+                    if(current_offset != line_end_offset){
+                        logme_end_offset = current_offset + 5;
+                        current_offset = tvb_skip_wsp_return(tvb,semi_colon_offset);
+                        /* Extract logme parameter name */
+                        gchar *name = tvb_get_string_enc(wmem_packet_scope(), tvb, current_offset,logme_end_offset - current_offset, ENC_UTF_8|ENC_NA);
+                        if(g_ascii_strcasecmp(name, "logme") == 0){
+                             proto_tree_add_boolean(tree, hf_sip_session_id_logme, tvb, current_offset, logme_end_offset - current_offset, 1);
+                        } else if(current_offset != line_end_offset){
+                             proto_tree_add_item(tree, hf_sip_session_id_param, tvb, current_offset,line_end_offset - current_offset, ENC_UTF_8|ENC_NA);
+                        }
+                    }
+                    semi_colon_offset = tvb_find_guint8(tvb, current_offset, line_end_offset - current_offset, ';');
+                }
+     	    } else {
                 /* Display generic parameter */
                 proto_tree_add_item(tree, hf_sip_session_id_param, tvb, current_offset,
                                     line_end_offset - current_offset, ENC_UTF_8|ENC_NA);
@@ -6484,7 +6507,7 @@ void proto_register_sip(void)
             "RFC 3261: Expires Header", HFILL }
         },
         { &hf_header_array[POS_FEATURE_CAPS],
-          { "Feature-Caps",        "sip.feature_caps",
+          { "Feature-Caps",        "sip.Feature-Caps",
             FT_STRING, BASE_NONE,NULL,0x0,
             "RFC 6809: Feature-Caps", HFILL }
         },
@@ -6504,12 +6527,12 @@ void proto_register_sip(void)
             NULL, HFILL }
         },
         { &hf_header_array[POS_GEOLOCATION_ERROR],
-          { "Geolocation-Error",       "sip.Geolocation",
+          { "Geolocation-Error",       "sip.Geolocation-Error",
             FT_STRING, BASE_NONE,NULL,0x0,
             NULL, HFILL }
         },
         { &hf_header_array[POS_GEOLOCATION_ROUTING],
-          { "Geolocation-Routing",         "sip.Geolocation_Routing",
+          { "Geolocation-Routing",         "sip.Geolocation-Routing",
             FT_STRING, BASE_NONE,NULL,0x0,
             NULL, HFILL }
         },
@@ -6789,10 +6812,10 @@ void proto_register_sip(void)
             FT_STRING, BASE_NONE,NULL,0x0,
             "RFC 3515: Refer-To Header", HFILL }
         },
-        { &hf_header_array[POS_REFERED_BY],
-          { "Refered By",      "sip.Refered-by",
+        { &hf_header_array[POS_REFERRED_BY],
+          { "Referred By",      "sip.Referred-by",
             FT_STRING, BASE_NONE,NULL,0x0,
-            "RFC 3892: Refered-by Header", HFILL }
+            "RFC 3892: Referred-by Header", HFILL }
         },
         { &hf_header_array[POS_REJECT_CONTACT],
           { "Reject-Contact",         "sip.Reject-Contact",
@@ -7298,6 +7321,11 @@ void proto_register_sip(void)
             FT_GUID, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
+	{ &hf_sip_session_id_logme,
+           { "logme",  "sip.Session-ID.logme",
+             FT_BOOLEAN, BASE_NONE, TFS(&tfs_set_notset), 0x0,
+             NULL, HFILL}
+        },
         { &hf_sip_continuation,
           { "Continuation data",  "sip.continuation",
             FT_BYTES, BASE_NONE, NULL, 0x0,
@@ -7512,7 +7540,7 @@ void proto_register_sip(void)
 
     prefs_register_bool_preference(sip_module, "hide_generatd_call_id",
         "Hide the generated Call Id",
-        "Whether the generated call id should be hiddden(not displayed) in the tree or not.",
+        "Whether the generated call id should be hidden(not displayed) in the tree or not.",
         &sip_hide_generatd_call_ids);
 
     /* UAT */

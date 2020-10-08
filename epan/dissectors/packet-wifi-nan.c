@@ -595,7 +595,7 @@ static const range_string status_type2_values[] = {
 
 static const range_string reason_code_values[] = {
     { 0, 0, "Reserved" },
-    { 1, 1, "UNSPECIFIED_REASIN" },
+    { 1, 1, "UNSPECIFIED_REASON" },
     { 2, 2, "RESOURCE_LIMITATION" },
     { 3, 3, "INVALID_PARAMETERS" },
     { 4, 4, "FTM_PARAMETERS_INCAPABLE" },
@@ -620,7 +620,7 @@ static const range_string action_frame_type_values[] = {
     { 5, 5, "Data Path Request " },
     { 6, 6, "Data Path Response " },
     { 7, 7, "Data Path Confirm " },
-    { 8, 8, "Data Path Key Installement " },
+    { 8, 8, "Data Path Key Installment " },
     { 9, 9, "Data Path Termination " },
     { 10, 10, "Schedule Request " },
     { 11, 11, "Schedule Response " },
@@ -3429,7 +3429,7 @@ proto_register_nan(void)
         { &hf_nan_attr_ndp_ctrl_sepcific_info_pres,
              {
              "NDP Specific Info Present",
-             "nan.ndp.ctrl.specfic_info_pres",
+             "nan.ndp.ctrl.specific_info_pres",
              FT_BOOLEAN, 8, NULL, 0x20, NULL, HFILL
              }
         },
@@ -3492,7 +3492,7 @@ proto_register_nan(void)
         { &hf_nan_attr_availability_map_id,
             {
             "Map ID",
-            "nan.availability.ctr",
+            "nan.availability.map_id",
             FT_UINT16, BASE_HEX_DEC, NULL, 0x00F, NULL, HFILL
             }
         },
@@ -4024,14 +4024,14 @@ proto_register_nan(void)
         { &hf_nan_attr_security_context_identifier_len,
             {
             "Security Context Identifier Length",
-            "nan.security_context.identifer_len",
+            "nan.security_context.identifier_len",
             FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL
             }
         },
         { &hf_nan_attr_security_context_identifier_type,
             {
             "Security Context Identifier Type",
-            "nan.security_context.identifer_type",
+            "nan.security_context.identifier_type",
             FT_UINT8, BASE_DEC | BASE_RANGE_STRING, RVALS(security_context_iden_type), 0x0, NULL, HFILL
             }
         },

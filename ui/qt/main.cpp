@@ -30,6 +30,7 @@
 
 #include <ui/clopts_common.h>
 #include <ui/cmdarg_err.h>
+#include <ui/urls.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
 #include <wsutil/socket.h>
@@ -336,7 +337,7 @@ check_and_warn_user_startup()
         "This could be dangerous.\n\n"
         "If you're running Wireshark this way in order to perform live capture, "
         "you may want to be aware that there is a better way documented at\n"
-        "https://wiki.wireshark.org/CaptureSetup/CapturePrivileges", cur_user, cur_group);
+        WS_WIKI_URL("CaptureSetup/CapturePrivileges"), cur_user, cur_group);
         g_free(cur_user);
         g_free(cur_group);
     }
@@ -522,7 +523,7 @@ int main(int argc, char *qt_argv[])
     if (create_profiles_dir(&rf_path) == -1) {
         simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
                       "Could not create profiles directory\n\"%s\": %s.",
-                      rf_path, strerror(errno));
+                      rf_path, g_strerror(errno));
         g_free (rf_path);
     }
 
@@ -534,7 +535,7 @@ int main(int argc, char *qt_argv[])
     if (!recent_read_static(&rf_path, &rf_open_errno)) {
         simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
                       "Could not open common recent file\n\"%s\": %s.",
-                      rf_path, strerror(rf_open_errno));
+                      rf_path, g_strerror(rf_open_errno));
         g_free(rf_path);
     }
 

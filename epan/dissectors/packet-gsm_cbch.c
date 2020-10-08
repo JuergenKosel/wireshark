@@ -208,7 +208,7 @@ dissect_schedule_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *top_tree
                     if (octet1 == 0)
                     {
                         proto_tree_add_uint_format_value(sched_subtree, hf_gsm_cbch_slot, tvb, offset++, 1, new_slots[i],
-                                            "%d, Repeat of non-existant slot %d",
+                                            "%d, Repeat of non-existent slot %d",
                                             new_slots[i], octet1);
                     }
                     else if (octet1 < new_slots[i])
@@ -257,7 +257,7 @@ dissect_schedule_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *top_tree
                 /* XXX I don't know if a message can validly contain more than
                  * 48 slots, but that's the size of the array we create so cap
                  * it there to avoid uninitialized memory errors (see bug
-                 * https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=9270) */
+                 * https://gitlab.com/wireshark/wireshark/-/issues/9270) */
                 if (sched_end > 48)
                     sched_end = 48;
                 while ((k<sched_end) && (other_slots[k]!=0xFFFF))
@@ -291,7 +291,7 @@ dissect_schedule_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *top_tree
                          * case. Perhaps just an expert info is appropriate?
                          * Regardless, we need to increment k to prevent an
                          * infinite loop, see
-                         * https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=8730
+                         * https://gitlab.com/wireshark/wireshark/-/issues/8730
                          */
                         ++k;
                     }

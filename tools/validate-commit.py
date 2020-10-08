@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Verifies whether commit messages adhere to the standards.
 # Checks the author name and email and invokes the tools/commit-msg script.
 # Copy this into .git/hooks/post-commit
@@ -15,10 +15,12 @@ from __future__ import print_function
 
 import argparse
 import difflib
+import json
 import os
 import subprocess
 import sys
 import tempfile
+import urllib.request
 
 
 parser = argparse.ArgumentParser()
@@ -130,27 +132,21 @@ Please rewrite your commit message to our standards, matching this format:
     Use paragraphs to improve readability. Limit each line to 80 characters.
 
 ''')
-    fd, filename = tempfile.mkstemp()
-    try:
-        os.close(fd)
-        with open(filename, 'w') as f:
-            f.write(body)
-
-        hook_script = os.path.join(tools_dir(), 'commit-msg')
-        cmd = ['sh', hook_script, filename]
-        subprocess.check_output(cmd, universal_newlines=True)
-
-        with open(filename, 'r') as f:
-            newbody = f.read()
-    except OSError as ex:
-        print('Warning: unable to invoke commit-msg hook: %s' % (ex,))
-        return is_good
-    except subprocess.CalledProcessError as ex:
-        print('Bad commit message (reported by tools/commit-msg):')
-        print(ex.output.strip())
+    if any(line.startswith('Bug:') or line.startswith('Ping-Bug:') for line in old_lines):
+        sys.stderr.write('''
+To close an issue, use "Closes #1234" or "Fixes #1234" instead of "Bug: 1234".
+To reference an issue, use "related to #1234" instead of "Ping-Bug: 1234". See
+https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically
+for details.
+''')
         return False
-    finally:
-        os.unlink(filename)
+
+    try:
+        cmd = ['git', 'stripspace']
+        newbody = subprocess.check_output(cmd, input=body, universal_newlines=True)
+    except OSError as ex:
+        print('Warning: unable to invoke git stripspace: %s' % (ex,))
+        return is_good
     if newbody != body:
         new_lines = newbody.splitlines(True)
         diff = difflib.unified_diff(old_lines, new_lines,
@@ -168,6 +164,42 @@ Please rewrite your commit message to our standards, matching this format:
         print(''.join(diff))
         return False
     return is_good
+
+
+def verify_merge_request():
+    # Not needed if/when https://gitlab.com/gitlab-org/gitlab/-/issues/23308 is fixed.
+    gitlab_api_pfx = "https://gitlab.com/api/v4"
+    # gitlab.com/wireshark/wireshark = 7898047
+    project_id = os.getenv('CI_MERGE_REQUEST_PROJECT_ID')
+    ansi_csi = '\x1b['
+    ansi_codes = {
+        'black_white': ansi_csi + '30;47m',
+        'bold_red': ansi_csi + '31;1m', # gitlab-runner errors
+        'reset': ansi_csi + '0m'
+    }
+    m_r_iid = os.getenv('CI_MERGE_REQUEST_IID')
+    if project_id is None or m_r_iid is None:
+        print("This doesn't appear to be a merge request. CI_MERGE_REQUEST_PROJECT_ID={}, CI_MERGE_REQUEST_IID={}".format(project_id, m_r_iid))
+        return True
+
+    m_r_url = '{}/projects/{}/merge_requests/{}'.format(gitlab_api_pfx, project_id, m_r_iid)
+    req = urllib.request.Request(m_r_url)
+    # print('req', repr(req))
+    with urllib.request.urlopen(req) as resp:
+        resp_json = resp.read().decode('utf-8')
+        # print('resp', resp_json)
+        m_r_attrs = json.loads(resp_json)
+        try:
+            if not m_r_attrs['allow_collaboration']:
+                print('''\
+{bold_red}ERROR:{reset} Please edit your merge request and make sure the setting
+    {black_white}✅ Allow commits from members who can merge to the target branch{reset}
+is checked so that maintainers can rebase your change and make minor edits.\
+'''.format(**ansi_codes))
+                return False
+        except KeyError:
+            sys.stderr.write('This appears to be a merge request, but we were not able to fetch the "Allow commits" status\n')
+    return True
 
 
 def main():
@@ -201,6 +233,9 @@ def main():
         print_git_user_instructions()
 
     if not verify_body(body):
+        exit_code = 1
+
+    if not verify_merge_request():
         exit_code = 1
 
     return exit_code

@@ -4194,7 +4194,7 @@ static void rtps_add_zlib_compressed_typeobject(proto_tree *tree _U_, packet_inf
 
 /* ------------------------------------------------------------------------- */
 /* Insert in the protocol tree the next bytes interpreted as Sequence of
- * Octects.
+ * Octets.
  * The formatted buffer is: [ 0x01, 0x02, 0x03, 0x04, ...]
  * The maximum number of elements displayed is 10, after that a '...' is
  * inserted.
@@ -4510,7 +4510,7 @@ static void rtps_util_store_type_mapping(packet_info *pinfo _U_, tvbuff_t *tvb, 
           type_mapping_object->guid.instance_id = tvb_get_ntohl(tvb, offset+8);
           type_mapping_object->guid.entity_id = tvb_get_ntohl(tvb, offset+12);
           type_mapping_object->guid.fields_present |=
-                  GUID_HAS_HOST_ID|GUID_HAS_HOST_ID|GUID_HAS_INSTANCE_ID|GUID_HAS_ENTITY_ID;
+                  GUID_HAS_HOST_ID|GUID_HAS_APP_ID|GUID_HAS_INSTANCE_ID|GUID_HAS_ENTITY_ID;
           type_mapping_object->fields_visited =
                   type_mapping_object->fields_visited | TOPIC_INFO_ADD_GUID;
           break;
@@ -4546,7 +4546,7 @@ static gboolean compare_by_guid(gconstpointer a, gconstpointer b) {
   return memcmp(guid_a, guid_b, sizeof(endpoint_guid)) == 0;
 }
 
-guint get_domain_id_from_tcp_discovered_participants(wmem_map_t *map, endpoint_guid* key) {
+static guint get_domain_id_from_tcp_discovered_participants(wmem_map_t *map, endpoint_guid* key) {
   participant_info *p_info = (participant_info*)wmem_map_lookup(map, (void*)key);
   return (p_info != NULL) ? p_info->domainId: RTPS_UNKNOWN_DOMAIN_ID_VAL;
 }
@@ -4826,7 +4826,7 @@ static gint rtps_util_add_rti_service_request(proto_tree * tree, packet_info *pi
  */
 #define ENSURE_LENGTH(size)                                                          \
         if (param_length < size) {                                                   \
-          expert_add_info_format(pinfo, param_len_item, &ei_rtps_parameter_value_invalid, "ERROR: parameter value too small (must be at least %d octects)", size); \
+          expert_add_info_format(pinfo, param_len_item, &ei_rtps_parameter_value_invalid, "ERROR: parameter value too small (must be at least %d octets)", size); \
           break;                                                                     \
         }
 
@@ -5983,7 +5983,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
      * +---------------+---------------+---------------+---------------+
      * |    unsigned long     sequence_size                            |
      * +---------------+---------------+---------------+---------------+
-     * |   octect[0]   |   octet[1]    |   octect[2]   |   octet[3]    |
+     * |   octet[0]    |   octet[1]    |   octet[2]    |   octet[3]    |
      * +---------------+---------------+---------------+---------------+
      * |                              ...                              |
      * +---------------+---------------+---------------+---------------+
@@ -6000,7 +6000,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
      * +---------------+---------------+---------------+---------------+
      * |    unsigned long     sequence_size                            |
      * +---------------+---------------+---------------+---------------+
-     * |   octect[0]   |   octet[1]    |   octect[2]   |   octet[3]    |
+     * |   octet[0]    |   octet[1]    |   octet[2 ]   |   octet[3]    |
      * +---------------+---------------+---------------+---------------+
      * |                              ...                              |
      * +---------------+---------------+---------------+---------------+
@@ -6017,7 +6017,7 @@ static gboolean dissect_parameter_sequence_v1(proto_tree *rtps_parameter_tree, p
      * +---------------+---------------+---------------+---------------+
      * |    unsigned long     sequence_size                            |
      * +---------------+---------------+---------------+---------------+
-     * |   octect[0]   |   octet[1]    |   octect[2]   |   octet[3]    |
+     * |   octet[0]    |   octet[1]    |   octet[2]    |   octet[3]    |
      * +---------------+---------------+---------------+---------------+
      * |                              ...                              |
      * +---------------+---------------+---------------+---------------+
@@ -9507,7 +9507,7 @@ static void dissect_RTPS_DATA_BATCH(tvbuff_t *tvb, packet_info *pinfo, gint offs
   gint old_offset = offset;
   guint32 wid;                  /* Writer EntityID */
   guint32 status_info = 0xffffffff;
-  gint32 octectsToSLEncapsulationId;
+  gint32 octetsToSLEncapsulationId;
   gint32 sampleListOffset;
   guint32 encapsulation_id;
   gboolean try_dissection_from_type_object = FALSE;
@@ -9585,11 +9585,11 @@ static void dissect_RTPS_DATA_BATCH(tvbuff_t *tvb, packet_info *pinfo, gint offs
   }
 
   /* octetsToSLEncapsulationId */
-  octectsToSLEncapsulationId = tvb_get_guint32(tvb, offset, encoding);
+  octetsToSLEncapsulationId = tvb_get_guint32(tvb, offset, encoding);
   proto_tree_add_item(tree, hf_rtps_data_batch_octets_to_sl_encap_id, tvb,
-                        offset, 4, octectsToSLEncapsulationId);
+                        offset, 4, octetsToSLEncapsulationId);
   offset += 4;
-  sampleListOffset = offset + octectsToSLEncapsulationId;
+  sampleListOffset = offset + octetsToSLEncapsulationId;
 
 
   /* Sample info list */
@@ -9598,7 +9598,7 @@ static void dissect_RTPS_DATA_BATCH(tvbuff_t *tvb, packet_info *pinfo, gint offs
     proto_tree *sil_tree;
     sample_info_count = 0;
 
-    sil_tree = proto_tree_add_subtree(tree, tvb, offset, octectsToSLEncapsulationId,
+    sil_tree = proto_tree_add_subtree(tree, tvb, offset, octetsToSLEncapsulationId,
             ett_rtps_sample_info_list, &list_item, "Sample Info List");
 
     /* Allocate sample_info_flags and sample_info_length
@@ -10992,7 +10992,7 @@ void proto_register_rtps(void) {
         HFILL }
     },
 
-    /* Octects to next header ---------------------------------------------- */
+    /* octets to next header ---------------------------------------------- */
     { &hf_rtps_sm_octets_to_next_header, {
         "octetsToNextHeader",
         "rtps.sm.octetsToNextHeader",
@@ -11629,7 +11629,7 @@ void proto_register_rtps(void) {
     },
 
     { &hf_rtps_param_app_ack_octets_to_next_virtual_writer,
-      { "octetsToNextVirtualWriter", "rtps.app_ack.octects_to_next_virtual_writer",
+      { "octetsToNextVirtualWriter", "rtps.app_ack.octets_to_next_virtual_writer",
         FT_INT16, BASE_DEC, NULL, 0,
         NULL, HFILL }
     },
@@ -12011,7 +12011,7 @@ void proto_register_rtps(void) {
     },
 
     { &hf_rtps_virtual_heartbeat_num_writers,
-      { "numWriters", "rtps.virtual_heartbeat.num_virtual_guids",
+      { "numWriters", "rtps.virtual_heartbeat.num_writers",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }
     },
@@ -12762,15 +12762,15 @@ void proto_register_rtps(void) {
         FT_BOOLEAN, 16, TFS(&tfs_set_notset), 0x0001, NULL, HFILL }
     },
     { &hf_rtps_flag_memberflag_optional, {
-        "Optional", "rtps.flag.typeflags.key",
+        "Optional", "rtps.flag.typeflags.optional",
         FT_BOOLEAN, 16, TFS(&tfs_set_notset), 0x0002, NULL, HFILL }
     },
     { &hf_rtps_flag_memberflag_shareable, {
-        "Shareable", "rtps.flag.typeflags.key",
+        "Shareable", "rtps.flag.typeflags.shareable",
         FT_BOOLEAN, 16, TFS(&tfs_set_notset), 0x0004, NULL, HFILL }
     },
     { &hf_rtps_flag_memberflag_union_default, {
-        "Union default", "rtps.flag.typeflags.key",
+        "Union default", "rtps.flag.typeflags.union_default",
         FT_BOOLEAN, 16, TFS(&tfs_set_notset), 0x0008, NULL, HFILL }
     },
     { &hf_rtps_type_object_element_module_name,

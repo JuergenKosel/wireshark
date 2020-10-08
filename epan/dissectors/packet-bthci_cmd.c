@@ -1959,17 +1959,17 @@ const value_string bthci_cmd_oob_data_present_vals[] = {
 
 static const value_string bthci_cmd_auth_req_vals[] = {
     {0x00, "MITM Protection Not Required - No Bonding. Numeric Comparison, Automatic Accept Allowed, No Secure Connection" },
-    {0x01, "MITM Protection Required - No Bonding. Use IO Capabilty To Determine Procedure, No Secure Connection" },
+    {0x01, "MITM Protection Required - No Bonding. Use IO Capability To Determine Procedure, No Secure Connection" },
     {0x02, "MITM Protection Not Required - Dedicated Bonding. Numeric Comparison, Automatic Accept Allowed, No Secure Connection" },
-    {0x03, "MITM Protection Required - Dedicated Bonding. Use IO Capabilty To Determine Procedure, No Secure Connection" },
+    {0x03, "MITM Protection Required - Dedicated Bonding. Use IO Capability To Determine Procedure, No Secure Connection" },
     {0x04, "MITM Protection Not Required - General Bonding. Numeric Comparison, Automatic Accept Allowed, No Secure Connection" },
-    {0x05, "MITM Protection Required - General Bonding. Use IO Capabilty To Determine Procedure, No Secure Connection" },
+    {0x05, "MITM Protection Required - General Bonding. Use IO Capability To Determine Procedure, No Secure Connection" },
     {0x08, "MITM Protection Not Required - No Bonding. Numeric Comparison, Automatic Accept Allowed, Secure Connection" },
-    {0x09, "MITM Protection Required - No Bonding. Use IO Capabilty To Determine Procedure, Secure Connection" },
+    {0x09, "MITM Protection Required - No Bonding. Use IO Capability To Determine Procedure, Secure Connection" },
     {0x0A, "MITM Protection Not Required - Dedicated Bonding. Numeric Comparison, Automatic Accept Allowed,  Secure Connection" },
-    {0x0B, "MITM Protection Required - Dedicated Bonding. Use IO Capabilty To Determine Procedure, Secure Connection " },
+    {0x0B, "MITM Protection Required - Dedicated Bonding. Use IO Capability To Determine Procedure, Secure Connection " },
     {0x0C, "MITM Protection Not Required - General Bonding. Numeric Comparison, Automatic Accept Allowed, Secure Connection" },
-    {0x0D, "MITM Protection Required - General Bonding. Use IO Capabilty To Determine Procedure, Secure Connection" },
+    {0x0D, "MITM Protection Required - General Bonding. Use IO Capability To Determine Procedure, Secure Connection" },
     {   0, NULL }
 };
 value_string_ext bthci_cmd_auth_req_vals_ext = VALUE_STRING_EXT_INIT(bthci_cmd_auth_req_vals);
@@ -6351,7 +6351,7 @@ proto_register_bthci_cmd(void)
             "Number of IACs which are currently in use", HFILL }
         },
         { &hf_bthci_cmd_iac_lap,
-          { "IAC LAP", "bthci_cmd.num_curr_iac",
+          { "IAC LAP", "bthci_cmd.num_iac_lap",
             FT_UINT24, BASE_HEX, NULL, 0x0,
             "LAP(s)used to create IAC", HFILL }
         },
@@ -6672,7 +6672,7 @@ proto_register_bthci_cmd(void)
            NULL, HFILL}
         },
         { &hf_bthci_cmd_inq_mode,
-          {"Inquiry Mode", "bthci_cmd.inq_scan_type",
+          {"Inquiry Mode", "bthci_cmd.inq_mode",
            FT_UINT8, BASE_DEC, VALS(bthci_cmd_inq_modes), 0x0,
            NULL, HFILL}
         },
@@ -7028,7 +7028,7 @@ proto_register_bthci_cmd(void)
             NULL, HFILL }
         },
         { &hf_bthci_cmd_le_simultaneous_host,
-          { "Simultaneous LE Host", "bthci_cmd.le_simlutaneous_host",
+          { "Simultaneous LE Host", "bthci_cmd.le_simultaneous_host",
             FT_UINT8, BASE_HEX, VALS(cmd_boolean), 0x0,
             "Support for both LE and BR/EDR to same device", HFILL }
         },
@@ -7393,7 +7393,7 @@ proto_register_bthci_cmd(void)
             NULL, HFILL }
         },
         { &hf_bthci_cmd_test_packet_payload,
-          { "Packet Payload", "bthci_cmd.le_test_data_length",
+          { "Packet Payload", "bthci_cmd.le_test_payload",
             FT_UINT8, BASE_HEX, VALS(cmd_le_test_pkt_payload), 0x0,
             NULL, HFILL }
         },

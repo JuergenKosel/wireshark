@@ -95,6 +95,7 @@ public:
     FieldInformationGraphicsItem(field_info *fi, int start_bit, int fi_length, const DiagramLayout *layout, QGraphicsItem *parent = nullptr) :
         QGraphicsPolygonItem(QPolygonF(), parent),
         finfo_(new FieldInformation(fi)),
+        representation_("Unknown"),
         start_bit_(start_bit),
         layout_(layout),
         collapsed_len_(fi_length),
@@ -115,7 +116,7 @@ public:
         if (bits_remain + row1_start > bits_per_row) {
             row1_bits = bits_per_row - row1_start;
             bits_remain -= row1_bits;
-            if (row1_start == 0 && bits_remain > bits_per_row) {
+            if (row1_start == 0 && bits_remain >= bits_per_row) {
                 // Collapse first row
                 bits_remain %= bits_per_row;
                 collapsed_row_ = 0;
@@ -172,9 +173,15 @@ public:
                        .arg(finfo_->headerInfo().abbreviation)
                        .arg(finfo_->toString()));
             setData(Qt::UserRole, VariantPointer<field_info>::asQVariant(finfo_->fieldInfo()));
+            representation_ = fi->rep->representation;
         } else {
             setToolTip(QObject::tr("Gap in dissection"));
         }
+    }
+
+    ~FieldInformationGraphicsItem()
+    {
+        delete finfo_;
     }
 
     int collapsedLength() { return collapsed_len_; }
@@ -235,7 +242,12 @@ public:
         }
 
         // Field label(s)
-        QString label = finfo_->headerInfo().name;
+        QString label;
+        if (finfo_->headerInfo().type == FT_NONE) {
+            label = representation_;
+        } else {
+            label = finfo_->headerInfo().name;
+        }
         paintLabel(painter, label, scaled_tr_);
 
         if (layout_->showFields()) {
@@ -253,6 +265,7 @@ private:
         NumSpanMarks
     };
     FieldInformation *finfo_;
+    QString representation_;
     int start_bit_;
     const DiagramLayout *layout_;
     int collapsed_len_;
@@ -331,7 +344,7 @@ private:
 };
 
 PacketDiagram::PacketDiagram(QWidget *parent) :
-    QGraphicsView(new QGraphicsScene(), parent),
+    QGraphicsView(parent),
     layout_(new DiagramLayout),
     cap_file_(nullptr),
     root_node_(nullptr),
@@ -346,10 +359,9 @@ PacketDiagram::PacketDiagram(QWidget *parent) :
     layout_->setFont(font());
 
     connect(wsApp, &WiresharkApplication::appInitialized, this, &PacketDiagram::connectToMainWindow);
-    QGraphicsScene *this_scene = scene();
-    connect(this_scene, &QGraphicsScene::selectionChanged, this, &PacketDiagram::sceneSelectionChanged);
-
     connect(wsApp, &WiresharkApplication::zoomRegularFont, this, &PacketDiagram::setFont);
+
+    resetScene();
 }
 
 PacketDiagram::~PacketDiagram()
@@ -359,10 +371,20 @@ PacketDiagram::~PacketDiagram()
 
 void PacketDiagram::setRootNode(proto_node *root_node)
 {
+    // As https://doc.qt.io/qt-5/qgraphicsscene.html#clear says, this
+    // "Removes and deletes all items from the scene, but otherwise leaves
+    // the state of the scene unchanged."
+    // This means that the scene rect grows but doesn't shrink, which is
+    // useful in our case because it gives us a cheap way to retain our
+    // scroll position between packets.
     scene()->clear();
-    root_node_ = root_node;
     selected_field_ = nullptr;
     y_pos_ = 0;
+
+    root_node_ = root_node;
+    if (!isVisible() || !root_node) {
+        return;
+    }
 
     ProtoNode parent_node(root_node_);
     if (!parent_node.isValid()) {
@@ -397,12 +419,16 @@ void PacketDiagram::setCaptureFile(capture_file *cf)
     // dissection (EDT) ready.
     // The packet dialog sets a fixed EDT context and MUST NOT use this.
     cap_file_ = cf;
+
+    if (!cf) {
+        resetScene();
+    }
 }
 
 void PacketDiagram::setFont(const QFont &font)
 {
     layout_->setFont(font);
-    setRootNode(root_node_);
+    resetScene(false);
 }
 
 void PacketDiagram::selectedFieldChanged(FieldInformation *finfo)
@@ -418,6 +444,19 @@ void PacketDiagram::selectedFrameChanged(QList<int> frames)
         // Clear the proto tree contents as they have become invalid.
         setRootNode(nullptr);
     }
+}
+
+bool PacketDiagram::event(QEvent *event)
+{
+    switch (event->type()) {
+    case QEvent::ApplicationPaletteChange:
+        resetScene(false);
+        break;
+    default:
+        break;
+
+    }
+    return QGraphicsView::event(event);
 }
 
 void PacketDiagram::contextMenuEvent(QContextMenuEvent *event)
@@ -436,14 +475,14 @@ void PacketDiagram::contextMenuEvent(QContextMenuEvent *event)
 
     ctx_menu.addSeparator();
 
-    action = ctx_menu.addAction(tr("Save Diagram As" UTF8_HORIZONTAL_ELLIPSIS));
+    action = ctx_menu.addAction(tr("Save Diagram As…"));
     connect(action, &QAction::triggered, this, &PacketDiagram::saveAsTriggered);
 
     action = ctx_menu.addAction(tr("Copy as Raster Image"));
     connect(action, &QAction::triggered, this, &PacketDiagram::copyAsRasterTriggered);
 
 #if defined(QT_SVG_LIB) && !defined(Q_OS_MAC)
-    action = ctx_menu.addAction(tr(UTF8_HORIZONTAL_ELLIPSIS "as SVG"));
+    action = ctx_menu.addAction(tr("…as SVG"));
     connect(action, &QAction::triggered, this, &PacketDiagram::copyAsSvgTriggered);
 #endif
 
@@ -478,8 +517,21 @@ void PacketDiagram::sceneSelectionChanged()
     }
 }
 
-struct WireItem {
-    proto_item *item;
+void PacketDiagram::resetScene(bool reset_root)
+{
+    // As noted in setRootNode, scene()->clear() doesn't clear everything.
+    // Do a "hard" clear, which resets our various rects and scroll position.
+    if (scene()) {
+        delete scene();
+    }
+    QGraphicsScene *new_scene = new QGraphicsScene();
+    setScene(new_scene);
+    connect(new_scene, &QGraphicsScene::selectionChanged, this, &PacketDiagram::sceneSelectionChanged);
+    setRootNode(reset_root ? nullptr : root_node_);
+}
+
+struct DiagramItemSpan {
+    field_info *finfo;
     int start_bit;
     int length;
 };
@@ -508,6 +560,20 @@ void PacketDiagram::addDiagram(proto_node *tl_node)
     }
     qreal y_bottom = y_pos_ + bit_width;
     QGraphicsItem *tl_item = scene()->addLine(x, y_bottom, x + diag_w, y_bottom);
+    QFontMetrics sfm = QFontMetrics(layout_->smallFont());
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+    int space_w = sfm.horizontalAdvance(' ');
+#else
+    int space_w = sfm.width(' ');
+#endif
+#ifdef Q_OS_WIN
+    // t_item->boundingRect() has a pixel of space on the left on my (gcc)
+    // Windows VM.
+    int tl_adjust = 1;
+#else
+    int tl_adjust = 0;
+#endif
+
     for (int tick_n = 0; tick_n < bits_per_row; tick_n++) {
         x = layout_->hPadding() + (tick_n * bit_width);
         qreal y_top = y_pos_ + (tick_n % 8 == 0 ? 0 : bit_width / 2);
@@ -518,16 +584,24 @@ void PacketDiagram::addDiagram(proto_node *tl_node)
         if (tick_nums.contains(tick_n)) {
             t_item = scene()->addSimpleText(QString::number(tick_n));
             t_item->setFont(layout_->smallFont());
-            t_item->setPos(x + ((bit_width - t_item->boundingRect().width()) / 2.0) + 2, y_pos_);
+            if (tick_n % 2 == 0) {
+                t_item->setPos(x + space_w - tl_adjust, y_pos_);
+            } else {
+                t_item->setPos(x + bit_width - space_w - t_item->boundingRect().width() - tl_adjust, y_pos_);
+            }
+            // Does the placement above look funny on your system? Try
+            // uncommenting the lines below.
+            // QGraphicsRectItem *br_item = scene()->addRect(t_item->boundingRect(), QPen(palette().highlight().color()));
+            // br_item->setPos(t_item->pos());
         }
     }
     y_pos_ = y_bottom;
     x = layout_->hPadding();
 
-    // Top-level fields
+    // Collect our top-level fields
     int last_start_bit = -1;
     int max_l_y = y_bottom;
-    QList<WireItem>wire_items;
+    QList<DiagramItemSpan>item_spans;
     for (proto_item *cur_item = tl_node->first_child; cur_item; cur_item = cur_item->next) {
         if (proto_item_is_generated(cur_item) || proto_item_is_hidden(cur_item)) {
             continue;
@@ -539,52 +613,56 @@ void PacketDiagram::addDiagram(proto_node *tl_node)
 
         if (start_bit <= last_start_bit || length <= 0) {
 #ifdef DEBUG_PACKET_DIAGRAM
-            qDebug() << "Skipping pass 1" << fi->hfinfo->abbrev << start_bit << last_start_bit << length;
+            qDebug() << "Skipping item" << fi->hfinfo->abbrev << start_bit << last_start_bit << length;
 #endif
             continue;
         }
         last_start_bit = start_bit;
 
-        WireItem wire_item = { cur_item, start_bit, length };
-        wire_items << wire_item;
-    }
-    qreal z_value = tl_item->zValue();
-    for (int idx = 0; idx < wire_items.size(); idx++) {
-        WireItem *wire_item = &wire_items[idx];
-        field_info *fi = wire_item->item->finfo;
-
-        if (idx < wire_items.size() - 1) {
-            WireItem *next_item = &wire_items[idx + 1];
-            if (wire_item->start_bit + wire_item->length > next_item->start_bit) {
-                wire_item->length = next_item->start_bit - wire_item->start_bit;
+        if (item_spans.size() > 0) {
+            DiagramItemSpan prev_span = item_spans.last();
+            // Get rid of overlaps.
+            if (prev_span.start_bit + prev_span.length > start_bit) {
 #ifdef DEBUG_PACKET_DIAGRAM
-                qDebug() << "Resized pass 2" << fi->hfinfo->abbrev << wire_item->start_bit << wire_item->length << next_item->start_bit;
+                qDebug() << "Resized prev" << prev_span.finfo->hfinfo->abbrev << prev_span.start_bit << prev_span.length << "->" << start_bit - prev_span.start_bit;
 #endif
-                if (wire_item->length <= 0) {
+                prev_span.length = start_bit - prev_span.start_bit;
+            }
+            if (prev_span.length < 1) {
 #ifdef DEBUG_PACKET_DIAGRAM
-                    qDebug() << "Skipping pass 2" << fi->hfinfo->abbrev << wire_item->start_bit << wire_item->length;
-#endif
+                qDebug() << "Removed prev" << prev_span.finfo->hfinfo->abbrev << prev_span.start_bit << prev_span.length;
+                item_spans.removeLast();
+                if (item_spans.size() < 1) {
                     continue;
                 }
+                prev_span = item_spans.last();
+#endif
             }
-
-            if (next_item->start_bit > wire_item->start_bit + wire_item->length) {
-                int gap_start_bit = wire_item->start_bit + wire_item->length;
-                int gap_len = next_item->start_bit - gap_start_bit;
-                int y_off = (gap_start_bit / bits_per_row) * layout_->rowHeight();
-                // Stack each item behind the previous one.
-                z_value -= .01;
-                FieldInformationGraphicsItem *gap_item = new FieldInformationGraphicsItem(nullptr, gap_start_bit, gap_len, layout_);
-                gap_item->setPos(x, y_bottom + y_off);
-                gap_item->setZValue(z_value);
-                scene()->addItem(gap_item);
+            // Fill in gaps.
+            if (prev_span.start_bit + prev_span.length < start_bit) {
+#ifdef DEBUG_PACKET_DIAGRAM
+                qDebug() << "Adding gap" << prev_span.finfo->hfinfo->abbrev << prev_span.start_bit << prev_span.length << start_bit;
+#endif
+                int gap_start = prev_span.start_bit + prev_span.length;
+                DiagramItemSpan gap_span = { nullptr, gap_start, start_bit - gap_start };
+                item_spans << gap_span;
             }
         }
 
-        int y_off = (wire_item->start_bit / bits_per_row) * layout_->rowHeight();
+        DiagramItemSpan item_span = { cur_item->finfo, start_bit, length };
+        item_spans << item_span;
+    }
+
+    qreal z_value = tl_item->zValue();
+    int start_bit = 0;
+    for (int idx = 0; idx < item_spans.size(); idx++) {
+        DiagramItemSpan *item_span = &item_spans[idx];
+
+        int y_off = (start_bit / bits_per_row) * layout_->rowHeight();
         // Stack each item behind the previous one.
         z_value -= .01;
-        FieldInformationGraphicsItem *fi_item = new FieldInformationGraphicsItem(fi, wire_item->start_bit, wire_item->length, layout_);
+        FieldInformationGraphicsItem *fi_item = new FieldInformationGraphicsItem(item_span->finfo, start_bit, item_span->length, layout_);
+        start_bit += fi_item->collapsedLength();
         fi_item->setPos(x, y_bottom + y_off);
         fi_item->setFlag(QGraphicsItem::ItemIsSelectable);
         fi_item->setAcceptedMouseButtons(Qt::LeftButton);
@@ -623,7 +701,6 @@ void PacketDiagram::setSelectedField(field_info *fi)
     foreach (QGraphicsItem *item, scene()->items()) {
         if (item->isSelected()) {
             item->setSelected(false);
-            fi_item = qgraphicsitem_cast<FieldInformationGraphicsItem *>(item);
         }
         if (fi && VariantPointer<field_info>::asPtr(item->data(Qt::UserRole)) == fi) {
             fi_item = qgraphicsitem_cast<FieldInformationGraphicsItem *>(item);
@@ -693,7 +770,7 @@ void PacketDiagram::saveAsTriggered()
 #endif
     QString filter = fl.join(";;");
 
-    file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As" UTF8_HORIZONTAL_ELLIPSIS)),
+    file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Graph As…")),
                                              path.canonicalPath(), filter, &extension);
 
     if (file_name.length() > 0) {

@@ -682,7 +682,7 @@ static const value_string ue_tx_antenna_selection_vals[] = {
 	{ 0, NULL }
 };
 
-static const value_string size_of_cqi_csi_feild_vals[] = {
+static const value_string size_of_cqi_csi_field_vals[] = {
 	{ 0, "1 bit" },
 	{ 1, "2 bits" },
 	{ 2, "3 bits" },
@@ -1315,7 +1315,7 @@ static int hf_nfapi_ul_index = -1;
 static int hf_nfapi_dl_assignment_index = -1;
 static int hf_nfapi_tpc_bitmap = -1;
 static int hf_nfapi_new_data_indication_two = -1;
-static int hf_nfapi_size_of_cqi_csi_feild = -1;
+static int hf_nfapi_size_of_cqi_csi_field = -1;
 static int hf_nfapi_resource_allocation_flag = -1;
 static int hf_nfapi_number_of_antenna_ports = -1;
 static int hf_nfapi_n_ul_rb = -1;
@@ -1599,7 +1599,7 @@ static void dissect_pnf_phy_instance_value(ptvcursor_t * ptvc, packet_info* pinf
 	dissect_array_value(ptvc, pinfo, "RF Config List", ett_nfapi_pnf_phy, array_size, dissect_pnf_rf_config_instance_value);
 
 	ptvcursor_add_ret_uint(ptvc, hf_nfapi_number_of_rf_exclusions, 2, ENC_BIG_ENDIAN, &array_size);
-	dissect_array_value(ptvc, pinfo, "RF Exclustion List", ett_nfapi_pnf_phy, array_size, dissect_pnf_rf_config_instance_value);
+	dissect_array_value(ptvc, pinfo, "RF Exclusion List", ett_nfapi_pnf_phy, array_size, dissect_pnf_rf_config_instance_value);
 
 	// Downlink Channel Bandwidth Supported
 	item = proto_tree_add_bitmask_ret_uint64(ptvcursor_tree(ptvc), ptvcursor_tvbuff(ptvc), ptvcursor_current_offset(ptvc),
@@ -1864,7 +1864,7 @@ static void dissect_pnf_phy_rel12_instance_value(ptvcursor_t * ptvc, packet_info
 	item = ptvcursor_add_ret_uint(ptvc, hi_nfapi_alternative_tbs_indices, 2, ENC_BIG_ENDIAN, &test_value);
 	if (test_value > 1)
 	{
-		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid alternative tbs indicies supported value [0..1]");
+		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid alternative tbs indices supported value [0..1]");
 	}
 }
 
@@ -2372,7 +2372,7 @@ static void dissect_cyclic_shift_1_for_drms_value(ptvcursor_t * ptvc, packet_inf
 		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid cyclic shift 1 for drms value [0..7]");
 	}
 }
-static void dissect_tdd_subframe_assignement_value(ptvcursor_t * ptvc, packet_info* pinfo)
+static void dissect_tdd_subframe_assignment_value(ptvcursor_t * ptvc, packet_info* pinfo)
 {
 	guint32 test_value;
 	proto_item* item = ptvcursor_add_ret_uint(ptvc, hf_nfapi_subframe_assignment, 2, ENC_BIG_ENDIAN, &test_value);
@@ -3069,7 +3069,7 @@ static void dissect_maximum_transmit_power_value(ptvcursor_t * ptvc, packet_info
 
 	if (test_value > 700)
 	{
-		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid maxiumum transmit power [0..700]");
+		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid maximum transmit power [0..700]");
 	}
 }
 static void dissect_earfcn_value(ptvcursor_t * ptvc, packet_info* pinfo _U_)
@@ -4704,7 +4704,7 @@ static void dissect_ul_config_ulsch_pdu_rel13_value(ptvcursor_t * ptvc, packet_i
 		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid repetition number value [0..10239, 0xFFFF]");
 	}
 
-	// Empy symbols due to re-tunning
+	// Empty symbols due to re-tunning
 	// todo : decode as a bitmap
 	ptvcursor_add(ptvc, hf_nfapi_empty_symbols_due_to_retunning, 1, ENC_BIG_ENDIAN);
 }
@@ -5658,7 +5658,7 @@ static void dissect_hi_dci0_dci_ul_rel10_value(ptvcursor_t * ptvc, packet_info* 
 	}
 
 	// Size of CQI/CSI field
-	item = ptvcursor_add_ret_uint(ptvc, hf_nfapi_size_of_cqi_csi_feild, 1, ENC_BIG_ENDIAN, &test_value);
+	item = ptvcursor_add_ret_uint(ptvc, hf_nfapi_size_of_cqi_csi_field, 1, ENC_BIG_ENDIAN, &test_value);
 	if (test_value > 2)
 	{
 		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid size of cqi/csi field value [0..2]");
@@ -7616,7 +7616,7 @@ static const tlv_t configuration_tags[] =
 	{ 0x0057, NULL, NULL },
 	{ 0x0058, NULL, NULL },
 	{ 0x0059, NULL, NULL },
-	{ 0x005A, "TDD frame structure config - Subframe assignment", dissect_tdd_subframe_assignement_value },
+	{ 0x005A, "TDD frame structure config - Subframe assignment", dissect_tdd_subframe_assignment_value },
 	{ 0x005B, "TDD frame structure config - Special sub-frame patterns", dissect_tdd_subframe_patterns_value },
 	{ 0x005C, NULL, NULL },
 	{ 0x005D, NULL, NULL },
@@ -7888,8 +7888,8 @@ static const tlv_t p7_tags[] =
 	{ 0x202F, "CQI PDU Release 8", dissect_rx_cqi_indication_rel8_value },
 	{ 0x2030, "CQI PDU Release 9", dissect_rx_cqi_indication_rel9_value },
 	{ 0x2031, "RACH Indication Body", dissect_rach_indication_body_value },
-	{ 0x2032, "Preamable PDU Release 8", dissect_rach_indication_rel8_value },
-	{ 0x2033, "Preamable PDU Release 9", dissect_rach_indication_rel9_value },
+	{ 0x2032, "Preamble PDU Release 8", dissect_rach_indication_rel8_value },
+	{ 0x2033, "Preamble PDU Release 9", dissect_rach_indication_rel9_value },
 	{ 0x2034, "SRS Indication Body", dissect_srs_indication_body_value },
 	{ 0x2035, "SRS PDU Release 8", dissect_srs_indication_rel8_value },
 	{ 0x2036, "SRS PDU Release 9", dissect_srs_indication_rel9_value },
@@ -7919,7 +7919,7 @@ static const tlv_t p7_tags[] =
 	{ 0x204E, "MDPCCH DCI UL PDU Release 13", dissect_hi_dci0_mdpcch_dci_ul_rel13_value },
 	{ 0x204F, "HARQ PDU Release 13 or later TDD", dissect_harq_indication_rel13_later_tdd_value },
 	{ 0x2050, "HARQ PDU Release 13 or later FDD", dissect_harq_indication_rel13_later_fdd_value },
-	{ 0x2051, "Preamable PDU Release 13", dissect_rach_indication_rel13_value },
+	{ 0x2051, "Preamble PDU Release 13", dissect_rach_indication_rel13_value },
 	{ 0x2052, "UL CQI Information", dissect_ul_cqi_information_value },
 	{ 0x2053, "SRS PDU Release 11", dissect_srs_indication_rel11_value },
 	{ 0x2054, "TDD Channel Measurement", dissect_tdd_channel_measurement_value },
@@ -9130,7 +9130,7 @@ void proto_register_nfapi(void)
 			"Enable / Disable PBCH repetitions", HFILL }
 		},
 		{ &hf_nfapi_prach_cat_m_root_sequence_index,
-			{ "PRACH CAT-M Root sequence Index", "nfapi.prach.cat_m.root.squence.index",
+			{ "PRACH CAT-M Root sequence Index", "nfapi.prach.cat_m.root.sequence.index",
 			FT_UINT16, BASE_DEC, NULL, 0x0,
 			"PRACH Root sequence Index", HFILL }
 		},
@@ -9544,7 +9544,7 @@ void proto_register_nfapi(void)
 		{ &hf_nfapi_nmm_uplink_rssi_supported,
 			{ "NMM Uplink RSSI supported", "nfapi.nmm.uplink.rssi.supported",
 			FT_UINT8, BASE_DEC, VALS(ul_rssi_supported_vals), 0x0,
-			"Indicates if the uplink RSSI meausremnts are supported by NMM.", HFILL }
+			"Indicates if the uplink RSSI measurements are supported by NMM.", HFILL }
 		},
 		{ &hf_nfapi_minimum_transmit_power,
 			{ "Minimum transmit power", "nfapi.minimum_transmit_power",
@@ -9637,7 +9637,7 @@ void proto_register_nfapi(void)
 			"Equivalent to csi-SubframeSet-r12 in TS36.306", HFILL }
 		},
 		{ &hi_nfapi_enhanced_4tx_codebook,
-			{ "Enhanced 4TX codebook", "nfapi.pnf.phy_rel12.exhanced_t4x_codebook",
+			{ "Enhanced 4TX codebook", "nfapi.pnf.phy_rel12.enhanced_t4x_codebook",
 			FT_UINT16, BASE_DEC, NULL, 0x0,
 			"Indicates if PHY supports the enhanced 4TX codebook. Equivalent to enhanced-4TxCodebook-r12 in TS36.306", HFILL }
 		},
@@ -9692,12 +9692,12 @@ void proto_register_nfapi(void)
 			"Indicates if PHY supports DL LAA starting in the second slot in a subframe. Equivalent to secondSlotStartingPosition-r13 in TS36.306", HFILL }
 		},
 		{ &hf_nfapi_beamforming_supported,
-			{ "Beamforming Supported", "nfapi.pnf.phy_rel13.beamingforming_supported",
+			{ "Beamforming Supported", "nfapi.pnf.phy_rel13.beamforming_supported",
 			FT_UINT16, BASE_DEC, NULL, 0x0,
 			"Indicates if PHY supports beamforming (FD-MIMO Class B). Equivalent to beamformed-r13 in TS36.306", HFILL }
 		},
 		{ &hf_nfapi_csi_rs_enhancements_supported,
-			{ "CSI-RS enhancements supported", "nfapi.pnf.phy_rel13.csi_rs_enchancements_supported",
+			{ "CSI-RS enhancements supported", "nfapi.pnf.phy_rel13.csi_rs_enhancements_supported",
 			FT_UINT16, BASE_DEC, NULL, 0x0,
 			"Indicates if PHY supports CSI-RS enhancements (FD-MIMO Class A). Equivalent to csi-RS-EnhancementsTDD-r13 in TS36.306", HFILL }
 		},
@@ -9762,12 +9762,12 @@ void proto_register_nfapi(void)
 			"Number of UEs contributing to the uplink SRS", HFILL }
 		},
 		{ &hf_nfapi_lbt_dl_req_pdu_type,
-			{ "LBT DL Request PDU Type", "nfapi.number_srss",
+			{ "LBT DL Request PDU Type", "nfapi.lbt_dl_req_pdu_type",
 			FT_UINT16, BASE_DEC, VALS(nfapi_lbt_dl_req_pdu_type), 0x0,
 			NULL, HFILL }
 		},
 		{ &hf_nfapi_lbt_dl_ind_pdu_type,
-			{ "LBT DL Indication PDU Type", "nfapi.number_srss",
+			{ "LBT DL Indication PDU Type", "nfapi.lbt_dl_ind_pdu_type",
 			FT_UINT16, BASE_DEC, VALS(nfapi_lbt_dl_ind_pdu_type), 0x0,
 			NULL, HFILL }
 		},
@@ -10129,7 +10129,7 @@ void proto_register_nfapi(void)
 			"Number of PRB-pairs constituting the MPDCCH-PRB-pair set", HFILL }
 		},
 		{ &hf_nfapi_resource_block_assignment,
-			{ "Resource Block Assignment", "nfapi.resource.block.assignement",
+			{ "Resource Block Assignment", "nfapi.resource.block.assignment",
 			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"Combinational Index r", HFILL }
 		},
@@ -10184,7 +10184,7 @@ void proto_register_nfapi(void)
 			"Indicates the number of MPDCCH repetitions", HFILL }
 		},
 		{ &hf_nfapi_downlink_assignment_index_length,
-			{ "Downlink assignment Index Length", "nfapi.dl.assignement.index.length",
+			{ "Downlink assignment Index Length", "nfapi.dl.assignment.index.length",
 			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"Length of Downlink assignment Index field in units of bits.", HFILL }
 		},
@@ -10204,7 +10204,7 @@ void proto_register_nfapi(void)
 			"Indicates the Antenna port and, scrambling identity value", HFILL }
 		},
 		{ &hf_nfapi_paging_direct_indication_differentiation_flag,
-			{ "Paging/Direct indication differentiation flag", "nfapi.paging.direct.indictation.differentiation.flag",
+			{ "Paging/Direct indication differentiation flag", "nfapi.paging.direct.indication.differentiation.flag",
 			FT_UINT8, BASE_DEC, VALS(paging_direct_indication_differtiation_flag_vals), 0x0,
 			"Valid for DCI format 6-2", HFILL }
 		},
@@ -10338,7 +10338,7 @@ void proto_register_nfapi(void)
 			"Indicates that PRACH procedure is initiated", HFILL }
 		},
 		{ &hf_nfapi_preamble_index,
-			{ "Preamble Index", "nfapi.preamable.index",
+			{ "Preamble Index", "nfapi.preamble.index",
 			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"The preamble Index to be used on the PRACH", HFILL }
 		},
@@ -10569,7 +10569,7 @@ void proto_register_nfapi(void)
 			NULL, HFILL }
 		},
 		{ &hf_nfapi_new_data_indication,
-			{ "New Data inidication", "nfapi.new.data.indication",
+			{ "New Data indication", "nfapi.new.data.indication",
 			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"Specify whether this received transport block is a new transmission from UE", HFILL }
 		},
@@ -10594,7 +10594,7 @@ void proto_register_nfapi(void)
 			"Indicates if the resource blocks allocated for this grant overlap with the SRS configuration.", HFILL }
 		},
 		{ &hf_nfapi_disable_sequence_hopping_flag,
-			{ "Disable seqeunce hopping flag", "nfapi.disable.sequence.hopping.flag",
+			{ "Disable sequence hopping flag", "nfapi.disable.sequence.hopping.flag",
 			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"Indicates if any configured group hopping should be disabled for this UE.", HFILL }
 		},
@@ -10629,7 +10629,7 @@ void proto_register_nfapi(void)
 			"Absolute Sub-Frame of the initial transmission", HFILL }
 		},
 		{ &hf_nfapi_empty_symbols_due_to_retunning,
-			{ "Empy symbols due to re-tunning", "nfapi.empty.symbols.due.to.retunning",
+			{ "Empty symbols due to re-tunning", "nfapi.empty.symbols.due.to.retunning",
 			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"Indicates the symbols that are left empty due to eMTC retuning.", HFILL }
 		},
@@ -10938,9 +10938,9 @@ void proto_register_nfapi(void)
 			FT_UINT8, BASE_DEC, VALS(number_of_antenna_port_vals), 0x0,
 			"Defines number of antenna ports for this ULSCH allocation", HFILL }
 		},
-		{ &hf_nfapi_size_of_cqi_csi_feild,
-			{ "Size of cqi csi feild", "nfapi.size.of.cqi.csi.feild",
-			FT_UINT8, BASE_DEC, VALS(size_of_cqi_csi_feild_vals), 0x0,
+		{ &hf_nfapi_size_of_cqi_csi_field,
+			{ "Size of cqi csi field", "nfapi.size.of.cqi.csi.field",
+			FT_UINT8, BASE_DEC, VALS(size_of_cqi_csi_field_vals), 0x0,
 			"Indicates the size of the CQI/CSI request field", HFILL }
 		},
 		{ &hf_nfapi_new_data_indication_two,

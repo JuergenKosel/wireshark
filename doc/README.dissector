@@ -262,7 +262,7 @@ gint16 tvb_get_ntohis(tvbuff_t *tvb, const gint offset);
 guint32 tvb_get_ntoh24(tvbuff_t *tvb, const gint offset);
 gint32 tvb_get_ntohi24(tvbuff_t *tvb, const gint offset);
 
-32-bit unsgined (guint32) and signed (gint32) integers:
+32-bit unsigned (guint32) and signed (gint32) integers:
 
 guint32 tvb_get_ntohl(tvbuff_t *tvb, const gint offset);
 gint32 tvb_get_ntohil(tvbuff_t *tvb, const gint offset);
@@ -916,6 +916,15 @@ The type of value this field holds. The current field types are:
                 This is typically used for fixed-length fields
                 that contain a string value that might be shorter
                 than the fixed length.
+    FT_STRINGZTRUNC  A NULL-truncated string of characters.
+                The length is given in the proto_tree_add_item()
+                call, but may be larger than the length of
+                the string, with a NULL character after the last
+                character of the string, and the remaining bytes
+                being padding with unspecified contents.  This is
+                typically used for fixed-length fields that contain
+                a string value that might be shorter than the fixed
+                length.
     FT_UINT_STRING  A counted string of characters, consisting
                 of a count (represented as an integral value,
                 of width given in the proto_tree_add_item()
@@ -1327,7 +1336,7 @@ Note that the formats used must all belong to the same group as defined below:
 - FT_INT40, FT_INT48, FT_INT56 and FT_INT64
 - FT_UINT40, FT_UINT48, FT_UINT56, FT_UINT64 and FT_EUI64
 - FT_ABSOLUTE_TIME and FT_RELATIVE_TIME
-- FT_STRING, FT_STRINGZ, FT_UINT_STRING and FT_STRINGZPAD
+- FT_STRING, FT_STRINGZ, FT_UINT_STRING, FT_STRINGZPAD, and FT_STRINGZTRUNC
 - FT_FLOAT and FT_DOUBLE
 - FT_BYTES, FT_UINT_BYTES, FT_ETHER, FT_AX25, FT_VINES and FT_FCWWN
 - FT_OID, FT_REL_OID and FT_SYSTEM_ID
@@ -2567,6 +2576,9 @@ section of epan/dissectors/CMakeLists.txt
 
 1.10 Submitting code for your new dissector.
 
+  See <https://www.wireshark.org/docs/wsdg_html_chunked/ChSrcContribute.html>
+  and <https://gitlab.com/wireshark/wireshark/-/wikis/Development/SubmittingPatches>.
+
   - VERIFY that your dissector code does not use prohibited or deprecated APIs
     as follows:
     perl <wireshark_root>/tools/checkAPIs.pl <source-filename(s)>
@@ -2586,7 +2598,7 @@ section of epan/dissectors/CMakeLists.txt
 
   - TEST YOUR DISSECTOR BEFORE SUBMITTING IT.
     Use fuzz-test.sh and/or randpkt against your dissector. These are
-    described at <https://wiki.wireshark.org/FuzzTesting>.
+    described at <https://gitlab.com/wireshark/wireshark/-/wikis/FuzzTesting>.
 
   - Subscribe to <mailto:wireshark-dev[AT]wireshark.org> by sending an email to
     <mailto:wireshark-dev-request[AT]wireshark.org?body="help"> or visiting
@@ -2600,25 +2612,26 @@ section of epan/dissectors/CMakeLists.txt
     should be a summary of the changes followed by an empty line and a more
     verbose description.
 
-  - 'git push origin HEAD:refs/for/master' to push the changes to Gerrit. (If
-    you previously ran 'git config --add remote.origin.push HEAD:refs/for/master'
-    then only 'git push' is needed.)
+  - 'git push downstream HEAD' to push the changes to GitLab. (This assumes
+    that you have a remote named "downstream" that points to a fork of
+    https://gitlab.com/wireshark/wireshark.)
 
-  - Create a Wiki page on the protocol at <https://wiki.wireshark.org>.
+  - Create a Wiki page on the protocol at <https://gitlab.com/wireshark/editor-wiki>.
+    (You'll need to request access to https://gitlab.com/wireshark/wiki-editors.)
     A template is provided so it is easy to setup in a consistent style.
-      See: <https://wiki.wireshark.org/HowToEdit>
-      and  <https://wiki.wireshark.org/ProtocolReference>
+      See: <https://gitlab.com/wireshark/wireshark/-/wikis/HowToEdit>
+      and  <https://gitlab.com/wireshark/wireshark/-/wikis/ProtocolReference>
 
   - If possible, add sample capture files to the sample captures page at
-    <https://wiki.wireshark.org/SampleCaptures>. These files are used by
-    the automated build system for fuzz testing.
+    <https://gitlab.com/wireshark/wireshark/-/wikis/SampleCaptures>. These
+    files are used by the automated build system for fuzz testing.
 
   - If you don't think the wiki is the right place for your sample capture,
-    submit a bug report to the Wireshark bug database, found at
-    <https://bugs.wireshark.org>, qualified as an enhancement and attach your
-    sample capture there. Normally a new dissector won't be accepted without
-    a sample capture!  If you open a bug be sure to cross-link your Gerrit
-    change and bug.
+    submit a bug report to the Wireshark issue database, found at
+    <https://gitlab.com/wireshark/wireshark/-/issues>, qualified as an
+    enhancement and attach your sample capture there. Normally a new
+    dissector won't be accepted without a sample capture! If you open a
+    bug be sure to cross-link your GitLab merge request.
 
 2. Advanced dissector topics.
 
@@ -3611,7 +3624,7 @@ The arguments to udp_dissect_pdus are:
 For the typical dissector there is a 1-1 relationship between it and it's
 protocol. However, there are times when a protocol needs multiple "names"
 because it has multiple dissection functions going into the same dissector
-table. The muliple names removes confusion when picking dissection through
+table. The multiple names removes confusion when picking dissection through
 Decode As functionality.
 
 Once the "main" protocol name has been created through proto_register_protocol,
@@ -3662,7 +3675,7 @@ be passed to the dissector table to change the dissection output.
 
 ip_da pulls everything together including the dissector (protocol) name, the
 "layer type" of the dissector, the dissector table name, the function pointer
-values as well as handlers for populating, applying and reseting the changes
+values as well as handlers for populating, applying and resetting the changes
 to the dissector table through Decode As GUI functionality. For dissector
 tables that are an integer or string type, the provided "default" handling
 functions shown in the example should suffice.
@@ -3723,19 +3736,19 @@ certain type of fields (See above under proto_tree_add_item()).
 
 proto_item*
 ptvcursor_add_ret_uint(ptvcursor_t* ptvc, int hf, gint length, const guint encoding, guint32 *retval);
-    Like ptvcursor_add, but returns uint value retreived
+    Like ptvcursor_add, but returns uint value retrieved
 
 proto_item*
 ptvcursor_add_ret_int(ptvcursor_t* ptvc, int hf, gint length, const guint encoding, gint32 *retval);
-    Like ptvcursor_add, but returns int value retreived
+    Like ptvcursor_add, but returns int value retrieved
 
 proto_item*
 ptvcursor_add_ret_string(ptvcursor_t* ptvc, int hf, gint length, const guint encoding, wmem_allocator_t *scope, const guint8 **retval);
-    Like ptvcursor_add, but returns string retreived
+    Like ptvcursor_add, but returns string retrieved
 
 proto_item*
 ptvcursor_add_ret_boolean(ptvcursor_t* ptvc, int hf, gint length, const guint encoding, gboolean *retval);
-    Like ptvcursor_add, but returns boolean value retreived
+    Like ptvcursor_add, but returns boolean value retrieved
 
 proto_item*
 ptvcursor_add_no_advance(ptvcursor_t* ptvc, int hf, gint length, const guint encoding)

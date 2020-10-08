@@ -6597,7 +6597,7 @@ static const value_string valstr_021_210_LTT[] = {
 };
 static const value_string valstr_021_210_DTI[] = {
     { 0, "Unknown" },
-    { 1, "Aircraft equiped with CDTI" },
+    { 1, "Aircraft equipped with CDTI" },
     { 0, NULL }
 };
 static const value_string valstr_021_210_MDS[] = {
@@ -12622,7 +12622,7 @@ void proto_register_asterix (void)
         { &hf_011_290_02_SSR, { "SSR [s]", "asterix.011_290_02_SSR", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_011_290_03, { "#3: Mode 3/A Age", "asterix.011_290_03", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_011_290_03_MDA, { "MDA [s]", "asterix.011_290_03_MDA", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
-        { &hf_011_290_04, { "#4: Meausered Flight Level Age", "asterix.011_290_04", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+        { &hf_011_290_04, { "#4: Measured Flight Level Age", "asterix.011_290_04", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_011_290_04_MFL, { "MFL [s]", "asterix.011_290_04_MFL", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_011_290_05, { "#5: Mode S Age", "asterix.011_290_05", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_011_290_05_MDS, { "MDS [s]", "asterix.011_290_05_MDS", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
@@ -13654,7 +13654,7 @@ void proto_register_asterix (void)
         { &hf_048_210_H, { "Sigma (H)[deg]", "asterix.048_210_H", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_048_220, { "220, Aircraft Address", "asterix.048_220", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_048_230, { "230, Communications/ACAS Capability and Flight Status", "asterix.048_230", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
-        { &hf_048_230_COM, { "COM", "asterix.048_230_COM", FT_UINT16, BASE_DEC, VALS (valstr_048_230_COM), 0xe000, "Communications capabiltiy of the transponder", HFILL } },
+        { &hf_048_230_COM, { "COM", "asterix.048_230_COM", FT_UINT16, BASE_DEC, VALS (valstr_048_230_COM), 0xe000, "Communications capability of the transponder", HFILL } },
         { &hf_048_230_STAT, { "STAT", "asterix.048_230_STAT", FT_UINT16, BASE_DEC, VALS (valstr_048_230_STAT), 0x1c00, "Flight status", HFILL } },
         { &hf_048_230_SI, { "SI", "asterix.048_230_SI", FT_UINT16, BASE_DEC, VALS (valstr_048_230_SI), 0x0200, "SI/II Transponder Capability", HFILL } },
         { &hf_048_230_MSSC, { "MSSC", "asterix.048_230_MSSC", FT_UINT16, BASE_DEC, VALS (valstr_048_230_MSSC), 0x0080, "Mode-S Specific Service Capability", HFILL } },
@@ -13907,7 +13907,7 @@ void proto_register_asterix (void)
         { &hf_062_290_02_SSR, { "SSR[s]", "asterix.062_290_02_SSR", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_062_290_03_v0_17, { "#3: Mode 3/A Age", "asterix.062_290_03_v0_17", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_062_290_03_MDA, { "MDA[s]", "asterix.062_290_03_MDA", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
-        { &hf_062_290_04_v0_17, { "#4: Meausered Flight Level Age", "asterix.062_290_04_v0_17", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+        { &hf_062_290_04_v0_17, { "#4: Measured Flight Level Age", "asterix.062_290_04_v0_17", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_062_290_04_MFL, { "MFL[s]", "asterix.062_290_04_MFL", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_062_290_05_v0_17, { "#5: Mode S Age", "asterix.062_290_05_v0_17", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_062_290_05_MDS, { "MDS[s]", "asterix.062_290_05_MDS", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },

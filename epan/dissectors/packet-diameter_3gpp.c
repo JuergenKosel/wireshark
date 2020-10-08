@@ -41,14 +41,12 @@ static int proto_diameter_3gpp          = -1;
 static int hf_diameter_3gpp_timezone = -1;
 static int hf_diameter_3gpp_timezone_adjustment = -1;
 static int hf_diameter_3gpp_rat_type = -1;
-static int hf_diameter_3gpp_visited_nw_id = -1;
 static int hf_diameter_3gpp_path = -1;
 static int hf_diameter_3gpp_contact = -1;
 /* static int hf_diameter_3gpp_user_data = -1; */
 static int hf_diameter_3gpp_ipaddr = -1;
 static int hf_diameter_3gpp_mbms_required_qos_prio = -1;
 static int hf_diameter_3gpp_tmgi = -1;
-static int hf_diameter_3gpp_service_ind = -1;
 static int hf_diameter_3gpp_req_nodes = -1;
 static int hf_diameter_3gpp_req_nodes_bit0 = -1;
 static int hf_diameter_3gpp_req_nodes_bit1 = -1;
@@ -313,12 +311,8 @@ static int hf_diameter_3gpp_der_s6b_flags_bit0 = -1;
 static int hf_diameter_3gpp_ipv6addr = -1;
 static int hf_diameter_3gpp_mbms_abs_time_ofmbms_data_tfer = -1;
 static int hf_diameter_3gpp_udp_port = -1;
-static int hf_diameter_3gpp_imeisv = -1;
-static int hf_diameter_3gpp_af_charging_identifier = -1;
-static int hf_diameter_3gpp_service_urn = -1;
-static int hf_diameter_3gpp_af_application_identifier = -1;
-static int hf_diameter_3gpp_charging_rule_name = -1;
-static int hf_diameter_3gpp_monitoring_key = -1;
+static int hf_diameter_3gpp_codec_data_dir = -1;
+static int hf_diameter_3gpp_codec_sdp_type = -1;
 static int hf_diameter_3gpp_mbms_bearer_event = -1;
 static int hf_diameter_3gpp_mbms_bearer_event_bit0 = -1;
 static int hf_diameter_3gpp_mbms_bearer_event_bit1 = -1;
@@ -586,6 +580,7 @@ static int hf_diameter_3gpp_ikev2_cause = -1;
 /* Dissector handles */
 static dissector_handle_t xml_handle;
 static dissector_handle_t gsm_sms_handle;
+static dissector_handle_t sdp_handle;
 
 /* Forward declarations */
 static int dissect_diameter_3gpp_ipv6addr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_);
@@ -633,30 +628,6 @@ dissect_diameter_3gpp_sgsn_mnc_mcc(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     dissect_e212_mcc_mnc_in_utf8_address(tvb, pinfo, tree, 0);
 
     return str_len;
-}
-
-/* AVP Code: 20 3GPP-IMEISV
-* 3GPP TS 29.061
-*/
-
-static int
-dissect_diameter_3gpp_imeisv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data)
-{
-    proto_item *item;
-    int offset = 0;
-    int length = tvb_reported_length(tvb);
-    diam_sub_dis_t *diam_sub_dis = (diam_sub_dis_t*)data;
-
-    if (tree){
-        if (!tvb_ascii_isprint(tvb, 0, length))
-            return length;
-
-        item = proto_tree_add_item_ret_string(tree, hf_diameter_3gpp_imeisv, tvb, offset, length,
-                                              ENC_UTF_8 | ENC_NA, wmem_packet_scope(), (const guint8**)&diam_sub_dis->avp_str);
-        proto_item_set_generated(item);
-    }
-
-    return length;
 }
 
 /* AVP Code: 21 3GPP-RAT-Type
@@ -757,102 +728,55 @@ dissect_diameter_3gpp_twan_identifier(tvbuff_t *tvb, packet_info *pinfo, proto_t
 }
 
 /*
-* AVP Code: 504 AF-Application-Identifier
-*/
-
+ * AVP Code: 524 Codec-Data
+ */
 static int
-dissect_diameter_3gpp_af_application_identifier(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data)
+dissect_diameter_3gpp_codec_data(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree, void* data _U_)
 {
-    proto_item *item;
-    int offset = 0;
+    int offset = 0, linelen, next_offset;
     int length = tvb_reported_length(tvb);
-    int new_len, start_len = length;
-    diam_sub_dis_t *diam_sub_dis = (diam_sub_dis_t*)data;
-    guint8 tempchar;
+    const char* str;
 
-    /* Skipp NULL trermination and/or padding at the end */
-    for (new_len = length; new_len > start_len - 4 &&
-        ((tempchar = tvb_get_guint8(tvb, new_len - 1)) == 0); new_len--);
-
-    length = new_len;
-
-    if (!tvb_ascii_isprint(tvb, 0, length))
-        return start_len;
-
-    item = proto_tree_add_item_ret_string(tree, hf_diameter_3gpp_af_application_identifier, tvb, offset, length,
-                                            ENC_UTF_8 | ENC_NA, wmem_packet_scope(), (const guint8**)&diam_sub_dis->avp_str);
-    proto_item_set_generated(item);
-
-    return start_len;
-}
-
-/*
-* AVP Code: 505 AF-Charging-Identifier
-*/
-
-static int
-dissect_diameter_3gpp_af_charging_identifier(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data)
-{
-    proto_item *item;
-    int offset = 0;
-    int length = tvb_reported_length(tvb);
-    diam_sub_dis_t *diam_sub_dis = (diam_sub_dis_t*)data;
-
-    if (tree){
-        if (!tvb_ascii_isprint(tvb, 0, length))
-            return length;
-
-        item = proto_tree_add_item_ret_string(tree, hf_diameter_3gpp_af_charging_identifier, tvb, offset, length,
-                                              ENC_UTF_8 | ENC_NA, wmem_packet_scope(), (const guint8**)&diam_sub_dis->avp_str);
-        proto_item_set_generated(item);
+    /* The first line of the value of the Codec-Data AVP shall consist of either the word "uplink"
+     * or the word "downlink" (in ASCII, without quotes) followed by a new-line character
+     */
+    linelen = tvb_find_line_end(tvb, offset, -1, &next_offset, FALSE);
+    if (linelen < 1) {
+        return tvb_reported_length(tvb);
+    }
+    str = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, linelen, ENC_ASCII | ENC_NA);
+    proto_tree_add_string_format(tree, hf_diameter_3gpp_codec_data_dir, tvb, offset, linelen, str, "%s", str);
+    if (next_offset > length) {
+        return tvb_reported_length(tvb);
+    }
+    offset = next_offset;
+    /* The second line of the value of the Codec-Data AVP shall consist of either the word "offer"
+     * or the word "answer", or the word "description" (in ASCII, without quotes)
+     * followed by a new-line character
+     */
+    linelen = tvb_find_line_end(tvb, offset, -1, &next_offset, FALSE);
+    if (linelen < 1) {
+        return tvb_reported_length(tvb);
+    }
+    str = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, linelen, ENC_ASCII | ENC_NA);
+    proto_tree_add_string_format(tree, hf_diameter_3gpp_codec_sdp_type, tvb, offset, linelen, str, "%s", str);
+    if (next_offset >= length) {
+        return tvb_reported_length(tvb);
     }
 
-    return length;
-}
-
-/*
- * AVP Code: 525 Service-URN
- */
-static int
-dissect_diameter_3gpp_service_urn(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree, void* data)
-{
-    proto_item* item;
-    int offset = 0;
-    int length = tvb_reported_length(tvb);
-    diam_sub_dis_t* diam_sub_dis = (diam_sub_dis_t*)data;
-
-    if (!tvb_ascii_isprint(tvb, 0, length))
-        return length;
-
-    item = proto_tree_add_item_ret_string(tree, hf_diameter_3gpp_service_urn, tvb, offset, length,
-        ENC_UTF_8 | ENC_NA, wmem_packet_scope(), (const guint8**)&diam_sub_dis->avp_str);
-    proto_item_set_generated(item);
-
-
-    return length;
-}
-
-/* AVP Code: 600 Visited-Network-Identifier
- * imscxdx.xml
- * 6.3.1 Visited-Network-Identifier AVP
- * The Visited-Network-Identifier AVP is of type OctetString. This AVP contains an identifier that helps the home
- * network to identify the visited network (e.g. the visited network domain name).
- */
-
-static int
-dissect_diameter_3gpp_visited_nw_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
-{
-    proto_item *item;
-    int offset = 0;
-    int length = tvb_reported_length(tvb);
-
-    if (!tvb_ascii_isprint(tvb, 0, length))
-        return length;
-
-    item = proto_tree_add_item(tree, hf_diameter_3gpp_visited_nw_id, tvb, offset, length, ENC_ASCII|ENC_NA);
-    proto_item_set_generated(item);
-
-    return length;
+    /* The rest of the value shall consist of SDP line(s) in ASCII encoding
+     * separated by new-line characters, as specified in IETF RFC 4566
+     */
+    if (sdp_handle) {
+        /* Lets see if we have null padding*/
+        while (tvb_get_guint8(tvb, length - 1) == 0) {
+            length--;
+        }
+        length -= next_offset;
+        tvbuff_t* new_tvb = tvb_new_subset_length(tvb, next_offset, length);
+        call_dissector(sdp_handle, new_tvb, pinfo, tree);
+    }
+    return tvb_reported_length(tvb);
 }
 
 /* AVP Code: 601 Public-Identity
@@ -1316,25 +1240,6 @@ dissect_diameter_3gpp_user_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 }
 
 /*
- * AVP Code: 704 Service-Indication
- */
-static int
-dissect_diameter_3gpp_service_ind(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
-{
-    proto_item *item;
-    int offset = 0;
-    int length = tvb_reported_length(tvb);
-
-    if (!tvb_ascii_isprint(tvb, 0, length))
-        return length;
-
-    item = proto_tree_add_item(tree, hf_diameter_3gpp_service_ind, tvb, offset, length, ENC_ASCII|ENC_NA);
-    proto_item_set_generated(item);
-
-    return length;
-}
-
-/*
  * AVP Code: 713 Requested-Nodes
  */
 
@@ -1511,52 +1416,6 @@ dissect_diameter_3gpp_mbms_abs_time_ofmbms_data_tfer(tvbuff_t *tvb, packet_info 
     offset+=8;
 
     return offset;
-}
-
-/*
- * AVP Code: 1005 Charging-Rule-Name
- */
-static int
-dissect_diameter_3gpp_charging_rule_name(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data)
-{
-    proto_item *item;
-    int offset = 0;
-    int length = tvb_reported_length(tvb);
-    diam_sub_dis_t *diam_sub_dis = (diam_sub_dis_t*)data;
-
-    if (tree){
-        if (!tvb_ascii_isprint(tvb, 0, length))
-            return length;
-
-        item = proto_tree_add_item_ret_string(tree, hf_diameter_3gpp_charging_rule_name, tvb, offset, length,
-                                              ENC_UTF_8 | ENC_NA, wmem_packet_scope(), (const guint8**)&diam_sub_dis->avp_str);
-        proto_item_set_generated(item);
-    }
-
-    return length;
-}
-
-/*
- * AVP Code: 1066 Monitoring-key
- */
-static int
-dissect_diameter_3gpp_monitoring_key(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data)
-{
-    proto_item *item;
-    int offset = 0;
-    int length = tvb_reported_length(tvb);
-    diam_sub_dis_t *diam_sub_dis = (diam_sub_dis_t*)data;
-
-    if (tree){
-        if (!tvb_ascii_isprint(tvb, 0, length))
-            return length;
-
-        item = proto_tree_add_item_ret_string(tree, hf_diameter_3gpp_monitoring_key, tvb, offset, length,
-                                              ENC_UTF_8 | ENC_NA, wmem_packet_scope(), (const guint8**)&diam_sub_dis->avp_str);
-        proto_item_set_generated(item);
-    }
-
-    return length;
 }
 
 /* AVP Code: 1082 Credit-Management-Status */
@@ -3005,9 +2864,6 @@ proto_reg_handoff_diameter_3gpp(void)
     /* AVP Code: 18 3GPP-SGSN-MNC-MCC */
     dissector_add_uint("diameter.3gpp", 18, create_dissector_handle(dissect_diameter_3gpp_sgsn_mnc_mcc, proto_diameter_3gpp));
 
-    /* AVP Code: 20 3GPP-IMEISV */
-    dissector_add_uint("diameter.3gpp", 20, create_dissector_handle(dissect_diameter_3gpp_imeisv, proto_diameter_3gpp));
-
     /* AVP Code: 21 3GPP-RAT-Access-Type */
     dissector_add_uint("diameter.3gpp", 21, create_dissector_handle(dissect_diameter_3gpp_rat_type, proto_diameter_3gpp));
 
@@ -3022,17 +2878,8 @@ proto_reg_handoff_diameter_3gpp(void)
     /* AVP Code: 29 3GPP-TWAN-Identifier */
     dissector_add_uint("diameter.3gpp", 29, create_dissector_handle(dissect_diameter_3gpp_twan_identifier, proto_diameter_3gpp));
 
-    /* AVP Code: 504 AF-Application-Identifier */
-    dissector_add_uint("diameter.3gpp", 504, create_dissector_handle(dissect_diameter_3gpp_af_application_identifier, proto_diameter_3gpp));
-
-    /* AVP Code: 505 AF-Charging-Identifier */
-    dissector_add_uint("diameter.3gpp", 505, create_dissector_handle(dissect_diameter_3gpp_af_charging_identifier, proto_diameter_3gpp));
-
-    /* AVP Code: 525 Service-URN */
-    dissector_add_uint("diameter.3gpp", 525, create_dissector_handle(dissect_diameter_3gpp_service_urn, proto_diameter_3gpp));
-
-    /* AVP Code: 600 Visited-Network-Identifier */
-    dissector_add_uint("diameter.3gpp", 600, create_dissector_handle(dissect_diameter_3gpp_visited_nw_id, proto_diameter_3gpp));
+    /* AVP Code: 524 Codec-Data */
+    dissector_add_uint("diameter.3gpp", 524, create_dissector_handle(dissect_diameter_3gpp_codec_data, proto_diameter_3gpp));
 
     /* AVP Code: 601 Public-Identity */
     dissector_add_uint("diameter.3gpp", 601, create_dissector_handle(dissect_diameter_3gpp_public_identity, proto_diameter_3gpp));
@@ -3063,9 +2910,6 @@ proto_reg_handoff_diameter_3gpp(void)
 
     /* AVP Code: 702 User-Data */
     dissector_add_uint("diameter.3gpp", 702, create_dissector_handle(dissect_diameter_3gpp_user_data, proto_diameter_3gpp));
-
-    /* AVP Code: 704 Service-Indication  */
-    dissector_add_uint("diameter.3gpp", 704, create_dissector_handle(dissect_diameter_3gpp_service_ind, proto_diameter_3gpp));
 
     /* AVP Code: 713 Requested-Nodes */
     dissector_add_uint("diameter.3gpp", 713, create_dissector_handle(dissect_diameter_3gpp_req_nodes, proto_diameter_3gpp));
@@ -3101,12 +2945,6 @@ proto_reg_handoff_diameter_3gpp(void)
 
     /* AVP Code: 930 MBMS-Data-Transfer-Stop */
     dissector_add_uint("diameter.3gpp", 930, create_dissector_handle(dissect_diameter_3gpp_mbms_abs_time_ofmbms_data_tfer, proto_diameter_3gpp));
-
-    /* AVP Code: 1005 Charging-Rule-Name */
-    dissector_add_uint("diameter.3gpp", 1005, create_dissector_handle(dissect_diameter_3gpp_charging_rule_name, proto_diameter_3gpp));
-
-    /* AVP Code: 1066 Monitoring-Key */
-    dissector_add_uint("diameter.3gpp", 1066, create_dissector_handle(dissect_diameter_3gpp_monitoring_key, proto_diameter_3gpp));
 
     /* AVP Code: 1082 Credit-Management-Status */
     dissector_add_uint("diameter.3gpp", 1082, create_dissector_handle(dissect_diameter_3gpp_credit_management_status, proto_diameter_3gpp));
@@ -3251,6 +3089,7 @@ proto_reg_handoff_diameter_3gpp(void)
 
     xml_handle = find_dissector_add_dependency("xml", proto_diameter_3gpp);
     gsm_sms_handle = find_dissector_add_dependency("gsm_sms", proto_diameter_3gpp);
+    sdp_handle = find_dissector_add_dependency("sdp", proto_diameter_3gpp);
 }
 
 /*
@@ -3430,11 +3269,6 @@ proto_register_diameter_3gpp(void)
             FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_diameter_3gpp_visited_nw_id,
-            { "Visited-Network-Identifier",           "diameter.3gpp.visited_nw_id",
-            FT_STRING, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
 #if 0
         { &hf_diameter_3gpp_user_data,
             { "User data",           "diameter.3gpp.user_data",
@@ -3457,11 +3291,7 @@ proto_register_diameter_3gpp(void)
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_diameter_3gpp_service_ind,
-            { "Service-Indication",           "diameter.3gpp.service_ind",
-            FT_STRING, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
+
         { &hf_diameter_3gpp_req_nodes,
         { "Requested-Nodes", "diameter.3gpp.req_nodes",
             FT_UINT32, BASE_HEX, NULL, 0x0,
@@ -4880,33 +4710,13 @@ proto_register_diameter_3gpp(void)
             FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_diameter_3gpp_imeisv,
-            { "IMEISV", "diameter.3gpp.imeisv",
+        { &hf_diameter_3gpp_codec_data_dir,
+            { "Direction", "diameter.3gpp.codec_data.direction",
             FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_diameter_3gpp_af_charging_identifier,
-            { "AF-Charging-Identifier", "diameter.3gpp.af_charging_identifier",
-            FT_STRING, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
-        { &hf_diameter_3gpp_service_urn,
-            { "Service-URN", "diameter.3gpp.service_urn",
-            FT_STRING, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
-        { &hf_diameter_3gpp_af_application_identifier,
-            { "AF-Application-Identifier", "diameter.3gpp.af_application_identifier",
-            FT_STRING, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
-        { &hf_diameter_3gpp_charging_rule_name,
-            { "Charging-Rule-Name", "diameter.3gpp.charging_rule_name",
-            FT_STRING, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
-        { &hf_diameter_3gpp_monitoring_key,
-            { "Monitoring-Key", "diameter.3gpp.monitoring_key",
+        { &hf_diameter_3gpp_codec_sdp_type,
+            { "SDP Type", "diameter.3gpp.codec_data.sdp_type",
             FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },

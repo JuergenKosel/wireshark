@@ -60,8 +60,8 @@ class TFS:
 
 
 def removeComments(code_string):
-    code_string = re.sub(re.compile("/\*.*?\*/",re.DOTALL ) ,"" ,code_string) # C-style comment
-    code_string = re.sub(re.compile("//.*?\n" ) ,"" ,code_string)             # C++-style comment
+    code_string = re.sub(re.compile(r"/\*.*?\*/",re.DOTALL ) ,"" ,code_string) # C-style comment
+    code_string = re.sub(re.compile(r"//.*?\n" ) ,"" ,code_string)             # C++-style comment
     return code_string
 
 
@@ -88,8 +88,8 @@ def findItems(filename):
 
 
 
-def isDissectorFile(filename):
-    p = re.compile('.*packet-.*\.c')
+def is_dissector_file(filename):
+    p = re.compile(r'.*packet-.*\.c')
     return p.match(filename)
 
 def findDissectorFilesInFolder(folder):
@@ -99,7 +99,7 @@ def findDissectorFilesInFolder(folder):
     for f in sorted(os.listdir(folder)):
         if should_exit:
             return
-        if isDissectorFile(f):
+        if is_dissector_file(f):
             filename = os.path.join(folder, f)
             files.append(filename)
     return files
@@ -160,20 +160,20 @@ elif args.commits:
     files = [f.decode('utf-8')
              for f in subprocess.check_output(command).splitlines()]
     # Will examine dissector files only
-    files = list(filter(lambda f : isDissectorFile(f), files))
+    files = list(filter(lambda f : is_dissector_file(f), files))
 elif args.open:
     # Unstaged changes.
     command = ['git', 'diff', '--name-only']
     files = [f.decode('utf-8')
              for f in subprocess.check_output(command).splitlines()]
     # Only interested in dissector files.
-    files = list(filter(lambda f : isDissectorFile(f), files))
+    files = list(filter(lambda f : is_dissector_file(f), files))
     # Staged changes.
     command = ['git', 'diff', '--staged', '--name-only']
     files_staged = [f.decode('utf-8')
                     for f in subprocess.check_output(command).splitlines()]
     # Only interested in dissector files.
-    files_staged = list(filter(lambda f : isDissectorFile(f), files_staged))
+    files_staged = list(filter(lambda f : is_dissector_file(f), files_staged))
     for f in files:
         files.append(f)
     for f in files_staged:

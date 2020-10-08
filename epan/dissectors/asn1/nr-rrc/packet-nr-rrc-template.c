@@ -1,7 +1,7 @@
 /* packet-nr-rrc-template.c
  * NR;
  * Radio Resource Control (RRC) protocol specification
- * (3GPP TS 38.331 V15.9.0 Release 15) packet dissection
+ * (3GPP TS 38.331 V16.2.0 Release 16) packet dissection
  * Copyright 2018-2020, Pascal Quantin
  *
  * Wireshark - Network traffic analyzer
@@ -140,8 +140,6 @@ static gint ett_nr_rrc_locationSource_r16 = -1;
 static gint ett_nr_rrc_velocityEstimate_r16 = -1;
 static gint ett_nr_rrc_sensor_MeasurementInformation_r16 = -1;
 static gint ett_nr_rrc_sensor_MotionInformation_r16 = -1;
-static gint ett_nr_rrc_bandCombinationListEUTRA1_r16 = -1;
-static gint ett_nr_rrc_bandCombinationListEUTRA2_r16 = -1;
 static gint ett_nr_rrc_bandParametersSidelinkEUTRA1_r16 = -1;
 static gint ett_nr_rrc_bandParametersSidelinkEUTRA2_r16 = -1;
 static gint ett_nr_rrc_sl_ParametersEUTRA1_r16 = -1;
@@ -418,14 +416,14 @@ nr_rrc_timeConnFailure_r16_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_CLI_RSSI_Range_r16_fmt(gchar *s, guint32 v)
+nr_rrc_RSSI_Range_r16_fmt(gchar *s, guint32 v)
 {
   if (v == 0) {
-    g_snprintf(s, ITEM_LABEL_LENGTH, "CLI-RSSI < -100dBm (0)");
+    g_snprintf(s, ITEM_LABEL_LENGTH, "RSSI < -100dBm (0)");
   } else if (v < 76) {
-    g_snprintf(s, ITEM_LABEL_LENGTH, "%ddBm <= CLI-RSSI < %ddBm (%u)", v-101, v-100, v);
+    g_snprintf(s, ITEM_LABEL_LENGTH, "%ddBm <= RSSI < %ddBm (%u)", v-101, v-100, v);
   } else {
-    g_snprintf(s, ITEM_LABEL_LENGTH, "-25dBm <= CLI-RSSI (76)");
+    g_snprintf(s, ITEM_LABEL_LENGTH, "-25dBm <= RSSI (76)");
   }
 }
 
@@ -512,6 +510,30 @@ nr_rrc_SRS_RSRP_r16_fmt(gchar *s, guint32 v)
 }
 
 #include "packet-nr-rrc-fn.c"
+
+int
+dissect_nr_rrc_nr_RLF_Report_r16_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  proto_item *prot_ti = proto_tree_add_item(tree, proto_nr_rrc, tvb, 0, -1, ENC_NA);
+  proto_item_set_hidden(prot_ti);
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, FALSE, pinfo);
+  offset = dissect_nr_rrc_T_nr_RLF_Report_r16(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_BCCH_DL_SCH_Message_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
+
+int
+dissect_nr_rrc_subCarrierSpacingCommon_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  proto_item *prot_ti = proto_tree_add_item(tree, proto_nr_rrc, tvb, 0, -1, ENC_NA);
+  proto_item_set_hidden(prot_ti);
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, FALSE, pinfo);
+  offset = dissect_nr_rrc_T_subCarrierSpacingCommon(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_BCCH_DL_SCH_Message_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
 
 void
 proto_register_nr_rrc(void) {
@@ -698,8 +720,6 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_velocityEstimate_r16,
     &ett_nr_rrc_sensor_MeasurementInformation_r16,
     &ett_nr_rrc_sensor_MotionInformation_r16,
-    &ett_nr_rrc_bandCombinationListEUTRA1_r16,
-    &ett_nr_rrc_bandCombinationListEUTRA2_r16,
     &ett_nr_rrc_bandParametersSidelinkEUTRA1_r16,
     &ett_nr_rrc_bandParametersSidelinkEUTRA2_r16,
     &ett_nr_rrc_sl_ParametersEUTRA1_r16,

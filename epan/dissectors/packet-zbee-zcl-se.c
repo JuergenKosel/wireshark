@@ -12793,7 +12793,7 @@ VALUE_STRING_ARRAY(zbee_zcl_device_management_attr_server_names);
     XXX(ZBEE_ZCL_ATTR_ID_DEVICE_MANAGEMENT_CLNT_FLOW_SENSOR_AIR_DETECT,                 0x0236, "Flow Sensor Air Detect" ) \
     XXX(ZBEE_ZCL_ATTR_ID_DEVICE_MANAGEMENT_CLNT_PIPE_EMPTY,                             0x0237, "Pipe Empty" ) \
     XXX(ZBEE_ZCL_ATTR_ID_DEVICE_MANAGEMENT_CLNT_INLET_TEMPERATURE_SENSOR_FAULT,         0x0250, "Inlet Temperature Sensor Fault" ) \
-    XXX(ZBEE_ZCL_ATTR_ID_DEVICE_MANAGEMENT_CLNT_OUTLET_TEMPERATURE_SENDOR_FAULT,        0x0251, "Outlet Temperature Sendor Fault" ) \
+    XXX(ZBEE_ZCL_ATTR_ID_DEVICE_MANAGEMENT_CLNT_OUTLET_TEMPERATURE_SENSOR_FAULT,        0x0251, "Outlet Temperature Sensor Fault" ) \
     XXX(ZBEE_ZCL_ATTR_ID_DEVICE_MANAGEMENT_CLNT_REVERSE_FLOW,                           0x0260, "Reverse Flow" ) \
     XXX(ZBEE_ZCL_ATTR_ID_DEVICE_MANAGEMENT_CLNT_TILT_TAMPER,                            0x0261, "Tilt Tamper" ) \
     XXX(ZBEE_ZCL_ATTR_ID_DEVICE_MANAGEMENT_CLNT_BATTERY_COVER_REMOVED,                  0x0262, "Battery Cover Removed" ) \
@@ -14035,7 +14035,7 @@ proto_register_zbee_zcl_device_management(void)
             0x0, NULL, HFILL } },
 
         { &hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_id,
-            { "Event ID", "zbee_zcl_se.device_management.set_event_configuration.event_configuration.number_of_events", FT_UINT16, BASE_DEC, NULL,
+            { "Event ID", "zbee_zcl_se.device_management.set_event_configuration.event_configuration.event_id", FT_UINT16, BASE_DEC, NULL,
             0x0, NULL, HFILL } },
 
         { &hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_group_id,
@@ -14468,7 +14468,7 @@ proto_register_zbee_zcl_events(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_events_get_event_log_event_offset,
-            { "Event Offset", "zbee_zcl_se.events.get_event_log.number_of_events", FT_UINT16, BASE_DEC, NULL,
+            { "Event Offset", "zbee_zcl_se.events.get_event_log.event_offset", FT_UINT16, BASE_DEC, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_events_clear_event_log_request_log_id,

@@ -1886,6 +1886,7 @@ dissect_kafka_message_old(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
     tvbuff_t    *decompressed_tvb;
     int         decompressed_offset;
     int         start_offset = offset;
+    int         bytes_offset;
     gint8       magic_byte;
     guint8      codec;
     guint32     message_size;
@@ -1913,7 +1914,13 @@ dissect_kafka_message_old(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
         offset += 8;
     }
 
-    offset = dissect_kafka_regular_bytes(subtree, hf_kafka_message_key, tvb, pinfo, offset, NULL, NULL);
+    bytes_offset = dissect_kafka_regular_bytes(subtree, hf_kafka_message_key, tvb, pinfo, offset, NULL, NULL);
+    if (bytes_offset > offset) {
+        offset = bytes_offset;
+    } else {
+        expert_add_info(pinfo, message_ti, &ei_kafka_bad_bytes_length);
+        return -1;
+    }
 
     /*
      * depending on the compression codec, the payload is the actual message payload (codes=none)
@@ -1921,7 +1928,13 @@ dissect_kafka_message_old(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
      * is no such duality.
      */
     if (codec == 0) {
-        offset = dissect_kafka_regular_bytes(subtree, hf_kafka_message_value, tvb, pinfo, offset, NULL, &length);
+        bytes_offset = dissect_kafka_regular_bytes(subtree, hf_kafka_message_value, tvb, pinfo, offset, NULL, &length);
+        if (bytes_offset > offset) {
+            offset = bytes_offset;
+        } else {
+            expert_add_info(pinfo, message_ti, &ei_kafka_bad_bytes_length);
+            return -1;
+        }
     } else {
         length = tvb_get_ntohl(tvb, offset);
         offset += 4;
@@ -9306,7 +9319,7 @@ compute_kafka_api_names(void)
     kafka_api_names[len].strptr = NULL;
 }
 
-void
+static void
 proto_register_kafka_protocol_fields(int protocol)
 {
     static hf_register_info hf[] = {
@@ -10109,7 +10122,7 @@ proto_register_kafka_protocol_fields(int protocol)
 
 }
 
-void
+static void
 proto_register_kafka_protocol_subtrees(const int proto _U_)
 {
     static int *ett[] = {
@@ -10178,7 +10191,7 @@ proto_register_kafka_protocol_subtrees(const int proto _U_)
     proto_register_subtree_array(ett, array_length(ett));
 }
 
-void
+static void
 proto_register_kafka_expert_module(const int proto) {
     expert_module_t* expert_kafka;
     static ei_register_info ei[] = {
@@ -10209,7 +10222,7 @@ proto_register_kafka_expert_module(const int proto) {
     expert_register_field_array(expert_kafka, ei, array_length(ei));
 }
 
-void
+static void
 proto_register_kafka_preferences(const int proto)
 {
     module_t *kafka_module;

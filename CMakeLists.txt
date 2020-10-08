@@ -35,7 +35,7 @@ project(${_project_name} C CXX)
 set(GIT_REVISION 0)
 set(PROJECT_MAJOR_VERSION 3)
 set(PROJECT_MINOR_VERSION 3)
-set(PROJECT_PATCH_VERSION 0)
+set(PROJECT_PATCH_VERSION 2)
 set(PROJECT_BUILD_VERSION ${GIT_REVISION})
 set(PROJECT_VERSION_EXTENSION "")
 
@@ -1173,6 +1173,8 @@ ws_find_package(BCG729 ENABLE_BCG729 HAVE_BCG729)
 
 ws_find_package(ILBC ENABLE_ILBC HAVE_ILBC)
 
+ws_find_package(OPUS ENABLE_OPUS HAVE_OPUS)
+
 # CMake 3.9 and below used 'LIBXML2_LIBRARIES' as the name of the cache entry
 # storing the find_library result. Transfer it to the new cache variable such
 # that reset_find_package can detect and clear outdated cache variables.
@@ -1494,6 +1496,11 @@ if(ENABLE_PLUGINS)
 			plugins/codecs/iLBC
 		)
 	endif()
+	if(OPUS_FOUND)
+		list(APPEND PLUGIN_SRC_DIRS
+			plugins/codecs/opus_dec
+		)
+	endif()
 	if(SBC_FOUND)
 		list(APPEND PLUGIN_SRC_DIRS
 			plugins/codecs/sbc
@@ -1612,6 +1619,11 @@ set_package_properties(ILBC PROPERTIES
 	DESCRIPTION "iLBC decoder"
 	URL "https://github.com/TimothyGu/libilbc"
 	PURPOSE "Support for iLBC codec in RTP player"
+)
+set_package_properties(OPUS PROPERTIES
+	DESCRIPTION "opus decoder"
+	URL "https://opus-codec.org/"
+	PURPOSE "Support for opus codec in RTP player"
 )
 set_package_properties(LIBXML2 PROPERTIES
 	DESCRIPTION "XML parsing library"
@@ -1907,6 +1919,9 @@ if(WIN32)
 	if (ILBC_FOUND)
 		list (APPEND OPTIONAL_DLLS "${ILBC_DLL_DIR}/${ILBC_DLL}")
 	endif(ILBC_FOUND)
+	if (OPUS_FOUND)
+		list (APPEND OPTIONAL_DLLS "${OPUS_DLL_DIR}/${OPUS_DLL}")
+	endif(OPUS_FOUND)
 	if (LIBXML2_FOUND)
 		foreach( _dll ${LIBXML2_DLLS} )
 			list (APPEND OPTIONAL_DLLS "${LIBXML2_DLL_DIR}/${_dll}")
@@ -3037,6 +3052,9 @@ if(RPMBUILD_EXECUTABLE)
 	if (ILBC_FOUND)
 		list(APPEND _rpmbuild_with_args --with ilbc)
 	endif()
+	if (OPUS_FOUND)
+		list(APPEND _rpmbuild_with_args --with opus)
+	endif()
 	if (LIBXML2_FOUND)
 		list(APPEND _rpmbuild_with_args --with libxml2)
 	endif()
@@ -3458,7 +3476,6 @@ CHECKAPI(
 	NAME
 	  main
 	SWITCHES
-	  -build
 	SOURCES
 	  ${WIRESHARK_SRC}
 	  ${TSHARK_TAP_SRC}
@@ -3471,10 +3488,13 @@ if(SHELLCHECK_EXECUTABLE)
 	add_custom_target(shellcheck)
 	set_target_properties(shellcheck PROPERTIES FOLDER "Tests")
 	# --external-sources requires 0.4.0 or later.
+	# ChmodBPF uses "shellcheck shell=bash". Not sure which version
+	# added support for that.
 	add_custom_command(TARGET shellcheck POST_BUILD
 		COMMAND shellcheck --external-sources
 			image/stock_icons/svg-to-png.sh
 			packaging/appimage/AppRun
+			"packaging/macosx/ChmodBPF/root/Library/Application Support/Wireshark/ChmodBPF/ChmodBPF"
 			packaging/macosx/osx-app.sh.in
 			packaging/macosx/osx-dmg.sh.in
 			packaging/source/git-export-release.sh.in

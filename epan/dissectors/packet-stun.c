@@ -42,7 +42,6 @@
  */
 
 /* TODO
- * Add protocol version auto detection
  * Add information about different versions to table as we find it
  * Add/Implement missing attributes
  * Add/Implement missing message classes/methods
@@ -91,20 +90,29 @@ void proto_reg_handoff_stun(void);
  */
 
 enum {
-        /* NET_VER_AUTO, */
+        NET_VER_AUTO,
         NET_VER_MS_TURN,
         NET_VER_3489,
         NET_VER_5389
 };
 
+/* Auto-tuning. Default: NET_VER_5389; NET_VER_MS_TURN if MAGIC_COOKIE is found */
+
 static gint stun_network_version = NET_VER_5389;
 
 static const enum_val_t stun_network_version_vals[] = {
-        /* { "Auto", "Auto",     NET_VER_AUTO}, */
+        { "Auto", "Auto",     NET_VER_AUTO},
         { "MS-TURN",  "MS-TURN", NET_VER_MS_TURN },
         { "RFC3489 and earlier", "RFC3489 and earlier",     NET_VER_3489},
         { "RFC5389 and later",  "RFC5389 and later", NET_VER_5389 },
         { NULL, NULL, 0 }
+};
+
+static const value_string network_versions_vals[] = {
+        {NET_VER_MS_TURN,  "MS-TURN"},
+        {NET_VER_3489,     "RFC-3489 and ealier"},
+        {NET_VER_5389,     "RFC-5389/8489"},
+        {0,   NULL}
 };
 
 /* heuristic subdissectors */
@@ -202,6 +210,9 @@ static int hf_stun_att_sip_call_id = -1;
 static int hf_stun_att_lp_peer_location = -1;
 static int hf_stun_att_lp_self_location = -1;
 static int hf_stun_att_lp_federation = -1;
+static int hf_stun_att_google_network_id = -1;
+static int hf_stun_att_google_network_cost = -1;
+static int hf_stun_network_version = -1;
 
 /* Expert items */
 static expert_field ei_stun_short_packet = EI_INIT;
@@ -269,7 +280,7 @@ typedef struct _stun_conv_info_t {
 #define REFLECTED_FROM          0x000b /* Deprecated, RFC3489 */
 #define CHANNEL_NUMBER          0x000c /* RFC8656 */
 #define LIFETIME                0x000d /* RFC8656, MS-TURN */
-/* 0x000e reserved */
+#define MS_ALTERNATE_SERVER     0x000e /* MS-TURN */
 /* 0x000f reserved collision */
 #define MAGIC_COOKIE            0x000f /* MS-TURN */
 /* 0x0010 fix reference */
@@ -366,10 +377,17 @@ typedef struct _stun_conv_info_t {
 #define CISCO_STUN_FLOWDATA     0xc000 /* Cisco undocumented */
 #define ENF_FLOW_DESCRIPTION    0xc001 /* Cisco undocumented */
 #define ENF_NETWORK_STATUS      0xc002 /* Cisco undocumented */
-/* 0xc003-0xc058 Unassigned */
-#define GOOG_MISC_INFO          0xc059 /* Google undocumented */
-#define GOOG_MESSAGE_INTEGRITY_32 0xc05a /* Google undocumented */
-/* 0xc05b-0xffff Unassigned */
+/* 0xc003-0xc056 Unassigned */
+/* https://webrtc.googlesource.com/src/+/refs/heads/master/api/transport/stun.h */
+#define GOOG_NETWORK_INFO       0xc057
+#define GOOG_LAST_ICE_CHECK_RECEIVED 0xc058
+#define GOOG_MISC_INFO          0xc059
+#define GOOG_MESSAGE_INTEGRITY_32 0xc060
+/* 0xc061-0xff03 Unassigned */
+/* https://webrtc.googlesource.com/src/+/refs/heads/master/p2p/base/turn_port.cc */
+#define GOOG_MULTI_MAPPING      0xff04
+#define GOOG_LOGGING_ID         0xff05
+/* 0xff06-0xffff Unassigned */
 
 /* Initialize the subtree pointers */
 static gint ett_stun = -1;
@@ -433,6 +451,7 @@ static const value_string attributes[] = {
     {REFLECTED_FROM        , "REFLECTED-FROM"},
     {CHANNEL_NUMBER        , "CHANNEL-NUMBER"},
     {LIFETIME              , "LIFETIME"},
+    {MS_ALTERNATE_SERVER   , "MS-ALTERNATE-SERVER"},
     {MAGIC_COOKIE          , "MAGIC-COOKIE"},
     {BANDWIDTH             , "BANDWIDTH"},
     {DESTINATION_ADDRESS   , "DESTINATION-ADDRESS"},
@@ -509,8 +528,12 @@ static const value_string attributes[] = {
     {CISCO_STUN_FLOWDATA   , "CISCO-STUN-FLOWDATA"},
     {ENF_FLOW_DESCRIPTION   , "ENF-FLOW-DESCRIPTION"},
     {ENF_NETWORK_STATUS    , "ENF-NETWORK-STATUS"},
+    {GOOG_NETWORK_INFO     , "GOOG-NETWORK-INFO"},
+    {GOOG_LAST_ICE_CHECK_RECEIVED, "GOOG-LAST-ICE-CHECK-RECEIVED"},
     {GOOG_MISC_INFO        , "GOOG-MISC-INFO"},
     {GOOG_MESSAGE_INTEGRITY_32, "GOOG-MESSAGE_INTEGRITY-32"},
+    {GOOG_MULTI_MAPPING    , "GOOG-MULTI-MAPPING"},
+    {GOOG_LOGGING_ID       , "GOOG-LOGGING-ID"},
 
     {0x00                  , NULL}
 };
@@ -630,6 +653,21 @@ static const value_string password_algorithm_vals[] = {
     {0x0000, NULL}
 };
 
+/* https://webrtc.googlesource.com/src/+/refs/heads/master/rtc_base/network_constants.h */
+static const value_string google_network_cost_vals[] = {
+    {0,   "Min"},
+    {10,  "Low"},
+    {50,  "Unknown"},
+    {250, "Cellular5G"},
+    {500, "Cellular4G"},
+    {900, "Cellular"},
+    {910, "Cellular3G"},
+    {980, "Cellular2G"},
+    {999, "Max"},
+    {0,   NULL}
+};
+
+
 static guint
 get_stun_message_len(packet_info *pinfo _U_, tvbuff_t *tvb,
                      int offset, void *data _U_)
@@ -733,6 +771,8 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
     heur_dtbl_entry_t  *hdtbl_entry;
     guint               reported_length;
     gboolean            is_turn = FALSE;
+    gboolean            found_turn_attributes = FALSE;
+    int                 network_version; /* STUN flavour of the current message */
 
     /*
      * Check if the frame is really meant for us.
@@ -979,23 +1019,35 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
     /* Remember this (in host order) so we can show clear xor'd addresses */
     magic_cookie_first_word = tvb_get_ntohl(tvb, tcp_framing_offset + 4);
 
+    network_version = stun_network_version != NET_VER_AUTO ? stun_network_version : NET_VER_5389;
+
     if (msg_length != 0) {
         const gchar       *attribute_name_str;
 
         ti = proto_tree_add_item(stun_tree, hf_stun_attributes, tvb, offset, msg_length, ENC_NA);
         att_all_tree = proto_item_add_subtree(ti, ett_stun_att_all);
 
+        /* According to [MS-TURN] section 2.2.2.8: "This attribute MUST be the
+           first attribute following the TURN message header in all TURN messages  */
+        if (stun_network_version == NET_VER_AUTO &&
+            offset < (STUN_HDR_LEN + msg_length) &&
+            tvb_get_ntohs(tvb, offset) == MAGIC_COOKIE) {
+          network_version = NET_VER_MS_TURN;
+        }
+
         while (offset < (STUN_HDR_LEN + msg_length)) {
             att_type = tvb_get_ntohs(tvb, offset);     /* Attribute type field in attribute header */
             att_length = tvb_get_ntohs(tvb, offset+2); /* Attribute length field in attribute header */
-            if (stun_network_version >= NET_VER_5389)
+            if (network_version >= NET_VER_5389)
                 att_length_pad = (att_length + 3) & ~3; /* Attribute length including padding */
             else
                 att_length_pad = att_length;
             att_type_display = att_type;
             /* Early drafts and MS-TURN use swapped numbers to later versions */
-            if ((stun_network_version < NET_VER_3489) && (att_type == 0x0014 || att_type == 0x0015))
+            if ((network_version < NET_VER_3489) && (att_type == 0x0014 || att_type == 0x0015)) {
                 att_type_display ^= 1;
+                att_type ^= 1;
+            }
             attribute_name_str = val_to_str_ext_const(att_type_display, &attributes_ext, "Unknown");
             if(att_all_tree){
                 ti = proto_tree_add_uint_format(att_all_tree, hf_stun_attr,
@@ -1070,6 +1122,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
             case RESPONSE_ORIGIN:
             case OTHER_ADDRESS:
             case MS_ALT_MAPPED_ADDRESS:
+            case MS_ALTERNATE_SERVER:
             {
                 const gchar       *addr_str;
                 guint16            att_port;
@@ -1127,7 +1180,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
 
             case USERNAME:
             {
-                if (stun_network_version >  NET_VER_3489) {
+                if (network_version >  NET_VER_3489) {
                     const guint8 *user_name_str;
 
                     proto_tree_add_item_ret_string(att_tree, hf_stun_att_username, tvb, offset, att_length, ENC_UTF_8|ENC_NA, wmem_packet_scope(), &user_name_str);
@@ -1239,9 +1292,11 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                 }
                 break;
             }
-            case XOR_MAPPED_ADDRESS:
             case XOR_PEER_ADDRESS:
             case XOR_RELAYED_ADDRESS:
+                found_turn_attributes = TRUE;
+                /* Fallthrough */
+            case XOR_MAPPED_ADDRESS:
             case XOR_RESPONSE_TARGET:
             case XOR_REFLECTED_FROM:
             case MS_XOR_MAPPED_ADDRESS:
@@ -1346,12 +1401,14 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                 if (att_length < 1)
                     break;
                 proto_tree_add_item(att_tree, hf_stun_att_reserve_next, tvb, offset, 1, ENC_BIG_ENDIAN);
+                found_turn_attributes = TRUE;
                 break;
 
             case RESERVATION_TOKEN:
                 if (att_length < 8)
                     break;
                 proto_tree_add_item(att_tree, hf_stun_att_token, tvb, offset, 8, ENC_NA);
+                found_turn_attributes = TRUE;
                 break;
 
             case PRIORITY:
@@ -1407,6 +1464,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                     }
 
                 }
+                found_turn_attributes = TRUE;
                 break;
 
             case REQUESTED_TRANSPORT:
@@ -1428,6 +1486,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                         );
                 }
                 proto_tree_add_item(att_tree, hf_stun_att_reserved, tvb, offset+1, 3, ENC_NA);
+                found_turn_attributes = TRUE;
                 break;
 
             case CHANNEL_NUMBER:
@@ -1444,6 +1503,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                         );
                 }
                 proto_tree_add_item(att_tree, hf_stun_att_reserved, tvb, offset+2, 2, ENC_NA);
+                found_turn_attributes = TRUE;
                 break;
 
             case MAGIC_COOKIE:
@@ -1462,6 +1522,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                     " bandwidth: %d",
                     tvb_get_ntohl(tvb, offset)
                     );
+                found_turn_attributes = TRUE;
                 break;
             case LIFETIME:
                 if (att_length < 4)
@@ -1473,6 +1534,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                     " lifetime: %d",
                     tvb_get_ntohl(tvb, offset)
                     );
+                found_turn_attributes = TRUE;
                 break;
 
             case MS_VERSION:
@@ -1532,18 +1594,35 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                 proto_tree_add_item(att_tree, hf_stun_att_ms_foundation, tvb, offset, 4, ENC_ASCII|ENC_NA);
                 break;
 
+            case GOOG_NETWORK_INFO:
+                proto_tree_add_item(att_tree, hf_stun_att_google_network_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+                proto_tree_add_item(att_tree, hf_stun_att_google_network_cost, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
+                break;
+
             default:
                 if (att_length > 0)
                     proto_tree_add_item(att_tree, hf_stun_att_value, tvb, offset, att_length, ENC_NA);
                 break;
             }
 
-            if ((stun_network_version >= NET_VER_5389) && (att_length < att_length_pad))
+            if ((network_version >= NET_VER_5389) && (att_length < att_length_pad))
                 proto_tree_add_uint(att_tree, hf_stun_att_padding, tvb, offset+att_length, att_length_pad-att_length, att_length_pad-att_length);
             offset += att_length_pad;
         }
     }
 
+    ti = proto_tree_add_uint(stun_tree, hf_stun_network_version,
+                             tvb, offset, 0,
+                             network_version);
+    proto_item_set_generated(ti);
+
+    if (found_turn_attributes) {
+        /* At least one STUN/TURN implementation (Facetime) uses unknown/custom
+         * TURN methods to setup a Channel Data, so the previous check to set
+         * "is_turn" variable fails. Fortunately, standard TURN attributes are still
+         * used in the replies */
+        is_turn = TRUE;
+    }
     if (heur_check && is_turn && conversation) {
         /*
          * When in heuristic dissector mode, if this is a TURN message, set
@@ -1899,7 +1978,7 @@ proto_register_stun(void)
             32, TFS(&tfs_yes_no), 0x80000000, NULL, HFILL}
          },
         { &hf_stun_att_address_rp_b,
-          { "PSTN", "stun.att.address_rp.valid", FT_BOOLEAN,
+          { "PSTN", "stun.att.address_rp.pstn", FT_BOOLEAN,
             32, TFS(&tfs_yes_no), 0x40000000, NULL, HFILL}
          },
         { &hf_stun_att_address_rp_rsv1,
@@ -1938,6 +2017,18 @@ proto_register_stun(void)
           { "Federation", "stun.att.lp.federation", FT_UINT8,
             BASE_DEC, VALS(federation_vals), 0x0, NULL, HFILL}
          },
+        { &hf_stun_att_google_network_id,
+          { "Google Network ID", "stun.att.google.network_id", FT_UINT16,
+            BASE_DEC, NULL, 0x0, NULL, HFILL}
+         },
+        { &hf_stun_att_google_network_cost,
+          { "Google Network Cost", "stun.att.google.network_cost", FT_UINT16,
+            BASE_DEC, VALS(google_network_cost_vals), 0x0, NULL, HFILL}
+         },
+        { &hf_stun_network_version,
+          { "STUN Network Version", "stun.network_version", FT_UINT8,
+            BASE_DEC, VALS(network_versions_vals), 0x0, NULL, HFILL }
+        },
     };
 
     /* Setup protocol subtree array */

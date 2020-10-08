@@ -973,7 +973,7 @@ static const value_string DocPropSetGuid_IDS[] = {
 static const value_string ShellDetails_IDS[] = {
 	{ 5, "System.ComputerName"},
 	{ 8, "System.ItemPathDisplayNarrow"},
-	{ 9, "PercivedType"},
+	{ 9, "PerceivedType"},
 	{11, "System.ItemType"},
 	{12, "FileCount"},
 	{14, "TotalFileSize"},
@@ -4609,7 +4609,14 @@ int parse_CCategSpec(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *
 
 	offset = parse_CSort(tvb, offset, tree, pad_tree, "CSort");
 
-	offset = parse_CRangeCategSpec(tvb, pinfo, offset, tree, pad_tree, "CRangeCategSpec");
+	/*
+	 * A CRangeCategSpec structure specifying the range values.
+	 * This field MUST be omitted if _ulCategType is set to
+	 * CATEGORIZE_UNIQUE e.g. '0' otherwise it MUST be present.
+	 */
+	if (type != 0) {
+		offset = parse_CRangeCategSpec(tvb, pinfo, offset, tree, pad_tree, "CRangeCategSpec");
+	}
 
 	proto_item_set_end(item, tvb, offset);
 	return offset;
@@ -6444,14 +6451,14 @@ proto_register_mswsp(void)
 		{
 			&hf_mswsp_bool_options_cursor,
 			{
-				"Cursor", "mswsp.CPMCreateQuery.RowSetProperties.uBooleanOptions", FT_UINT32,
+				"Cursor", "mswsp.CPMCreateQuery.RowSetProperties.uBooleanOptions.cursor", FT_UINT32,
 				BASE_HEX, VALS(cursor_vals), 0x0000000007, "Cursor Type", HFILL
 			}
 		},
 		{
 			&hf_mswsp_bool_options_async,
 			{
-				"eAsynchronous", "mswsp.CPMCreateQuery.RowSetProperties.uBooleanOptions.eAsyncronous",
+				"eAsynchronous", "mswsp.CPMCreateQuery.RowSetProperties.uBooleanOptions.eAsynchronous",
 				FT_BOOLEAN, 32, NULL, eAsynchronous, "The client will not wait for execution completion", HFILL
 			}
 		},
@@ -6584,7 +6591,7 @@ proto_register_mswsp(void)
 		{
 			&hf_mswsp_cscort_individual,
 			{
-				"inidvidual", "mswsp.csort.individual",
+				"individual", "mswsp.csort.individual",
 				FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL
 			}
 		},
@@ -6605,14 +6612,14 @@ proto_register_mswsp(void)
 		{
 			&hf_mswsp_ctablecolumn_aggused,
 			{
-				"AggreagateUsed", "mswsp.ctablecolumn.aggused",
+				"AggregateUsed", "mswsp.ctablecolumn.aggused",
 				FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL
 			}
 		},
 		{
 			&hf_mswsp_ctablecolumn_aggtype,
 			{
-				"AggreagateType", "mswsp.ctablecolumn.aggtype",
+				"AggregateType", "mswsp.ctablecolumn.aggtype",
 				FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
 			}
 		},
@@ -6626,7 +6633,7 @@ proto_register_mswsp(void)
 		{
 			&hf_mswsp_ctablecolumn_valoffset,
 			{
-				"ValueOffset", "mswsp.ctablecolumn.valused",
+				"ValueOffset", "mswsp.ctablecolumn.valoffset",
 				FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL
 			}
 		},
@@ -7279,7 +7286,7 @@ proto_register_mswsp(void)
 		{
 			&hf_mswsp_msg_cpmcreatequery_workid,
 			{
-				"WorkId", "mswsp.cpmcreatequery.trueseq",
+				"WorkId", "mswsp.cpmcreatequery.workid",
 				FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL
 			}
 		},
@@ -7734,7 +7741,7 @@ proto_register_mswsp(void)
 		{
 			&hf_mswsp_msg_cpmquerystatusex_dwratiodenom,
 			{
-				"dwRatioFinishedDenomenator", "mswsp.msg.cpmquerystatusex.dwratiodenom",
+				"dwRatioFinishedDenominator", "mswsp.msg.cpmquerystatusex.dwratiodenom",
 				FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL
 			}
 		},

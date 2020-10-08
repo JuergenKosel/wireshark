@@ -73,12 +73,18 @@ MeasGapSharingConfig_PDU
 MeasResultSCG-Failure_PDU
 MeasurementTimingConfiguration_PDU
 MIB_PDU
+NZP-CSI-RS-Resource_PDU
 P-Max_PDU
+PDCCH-ConfigSIB1_PDU
 PH-TypeListMCG_PDU
 PH-TypeListSCG_PDU
+RA-ReportList-r16_PDU
+RACH-ConfigCommon_PDU
 RadioBearerConfig_PDU
+ReferenceTime-r16_PDU
 RRCReconfiguration_PDU
 RRCReconfigurationComplete_PDU
+SchedulingRequestResourceConfig_PDU
 SIB1_PDU
 SIB2_PDU
 SIB3_PDU
@@ -88,10 +94,14 @@ SIB6_PDU
 SIB7_PDU
 SIB8_PDU
 SIB9_PDU
+SIB10-r16_PDU
+SIB11-r16_PDU
+SIB12-r16_PDU
+SIB13-r16_PDU
+SIB14-r16_PDU
 SidelinkParametersNR-r16_PDU
 SidelinkUEInformationNR-r16_PDU
-SL-CBR-r16_PDU
-SupportedBandCombinationListSidelink-r16_PDU
+SL-PHY-MAC-RLC-Config-r16_PDU
 TDD-UL-DL-ConfigCommon_PDU
 UE-CapabilityRAT-ContainerList_PDU
 UE-CapabilityRequestFilterCommon_PDU
@@ -102,6 +112,7 @@ UEAssistanceInformation_PDU
 UERadioPagingInformation_PDU
 UL-DCCH-Message_PDU
 UplinkTxDirectCurrentList_PDU
+VisitedCellInfoList-r16_PDU
 
 #.PDU
 BandCombinationIndex
@@ -126,19 +137,24 @@ MeasGapSharingConfig
 MeasResultSCG-Failure
 MeasurementTimingConfiguration
 MIB
+NZP-CSI-RS-Resource
 P-Max
 PCCH-Message                       @pcch
+PDCCH-ConfigSIB1
 PH-TypeListMCG
 PH-TypeListSCG
+RA-ReportList-r16
+RACH-ConfigCommon
 RadioBearerConfig
+ReferenceTime-r16
 RRCReconfiguration                 @rrc_reconf
 RRCReconfigurationComplete
 SBCCH-SL-BCH-Message               @sbcch.sl.bch
 SCCH-Message                       @scch
+SchedulingRequestResourceConfig
 SidelinkParametersNR-r16
 SidelinkUEInformationNR-r16
-SL-CBR-r16
-SupportedBandCombinationListSidelink-r16
+SL-PHY-MAC-RLC-Config-r16
 SIB1
 SIB2
 SIB3
@@ -148,6 +164,11 @@ SIB6
 SIB7
 SIB8
 SIB9
+SIB10-r16
+SIB11-r16
+SIB12-r16
+SIB13-r16
+SIB14-r16
 TDD-UL-DL-ConfigCommon
 UE-CapabilityRAT-ContainerList
 UE-CapabilityRequestFilterCommon
@@ -162,13 +183,13 @@ UL-CCCH-Message                    @ul.ccch
 UL-CCCH1-Message                   @ul.ccch1
 UL-DCCH-Message                    @ul.dcch
 UplinkTxDirectCurrentList
+VisitedCellInfoList-r16
 #.END
 
 #.OMIT_ASSIGNMENT
 CellsTriggeredList
 CLI-RSSI-TriggeredList-r16
 CLI-TriggeredList-r16
-MeasResultLogging2NR-r16
 PLMN-IdentityList-r16
 SIB12-IEs-r16
 SidelinkPreconfigNR-r16
@@ -960,7 +981,10 @@ SIB9/timeInfo/leapSeconds DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_secon
 SIB9/timeInfo/localTimeOffset DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_localTimeOffset_fmt)
 
 #.TYPE_ATTR
-CLI-RSSI-Range-r16 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_CLI_RSSI_Range_r16_fmt)
+CLI-RSSI-Range-r16 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_RSSI_Range_r16_fmt)
+
+#.TYPE_ATTR
+RSSI-Range-r16 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_RSSI_Range_r16_fmt)
 
 #.FN_BODY CommonLocationInfo-r16/locationTimestamp-r16 VAL_PTR = &location_timestamp_tvb
   tvbuff_t *location_timestamp_tvb = NULL;
@@ -1168,24 +1192,6 @@ SRS-RSRP-Range-r16 DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_SRS_RSRP_r16_fmt)
 
 #.TYPE_ATTR
 T-Reselection DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_seconds
-
-#.FN_BODY SupportedBandCombinationListSidelinkEUTRA-r16/bandCombinationListEUTRA1-r16 VAL_PTR = &band_comb_list_tvb
-  tvbuff_t *band_comb_list_tvb = NULL;
-%(DEFAULT_BODY)s
-  if (band_comb_list_tvb) {
-    proto_tree *subtree;
-    subtree = proto_item_add_subtree(actx->created_item, ett_nr_rrc_bandCombinationListEUTRA1_r16);
-    dissect_lte_rrc_V2X_SupportedBandCombination_r14_PDU(band_comb_list_tvb, actx->pinfo, subtree, NULL);
-  }
-
-#.FN_BODY SupportedBandCombinationListSidelinkEUTRA-r16/bandCombinationListEUTRA2-r16 VAL_PTR = &band_comb_list_tvb
-  tvbuff_t *band_comb_list_tvb = NULL;
-%(DEFAULT_BODY)s
-  if (band_comb_list_tvb) {
-    proto_tree *subtree;
-    subtree = proto_item_add_subtree(actx->created_item, ett_nr_rrc_bandCombinationListEUTRA2_r16);
-    dissect_lte_rrc_V2X_SupportedBandCombination_v1530_PDU(band_comb_list_tvb, actx->pinfo, subtree, NULL);
-  }
 
 #.FN_BODY BandParametersSidelinkEUTRA-NR-r16/eutra/bandParametersSidelinkEUTRA1-r16 VAL_PTR = &band_params_sl_tvb
   tvbuff_t *band_params_sl_tvb = NULL;

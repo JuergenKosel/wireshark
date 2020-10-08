@@ -10,7 +10,7 @@
  *
  * Based on the RANAP dissector
  *
- * References: 3GPP TS 36.413 V16.2.0 (2020-07)
+ * References: 3GPP TS 36.413 V16.3.0 (2020-09)
  */
 
 #include "config.h"
@@ -158,6 +158,8 @@ static int ett_s1ap_sSRSSIMeasurement = -1;
 static int ett_s1ap_quantityConfigNR_R15 = -1;
 static int ett_s1ap_blackCellsToAddModList = -1;
 static int ett_s1ap_NB_IoT_RLF_Report_Container = -1;
+static int ett_s1ap_MDT_ConfigurationNR = -1;
+static int ett_s1ap_IntersystemSONConfigurationTransfer = -1;
 #include "packet-s1ap-ett.c"
 
 static expert_field ei_s1ap_number_pages_le15 = EI_INIT;
@@ -561,7 +563,7 @@ void proto_register_s1ap(void) {
         NULL, HFILL }},
     { &hf_s1ap_interfacesToTrace_Reserved,
       { "Reserved", "s1ap.interfacesToTrace.Reserved",
-        FT_UINT8, BASE_HEX, NULL, 0x1f,
+        FT_UINT8, BASE_HEX, NULL, 0x07,
         NULL, HFILL }},
     { &hf_s1ap_encryptionAlgorithms_EEA1,
       { "128-EEA1", "s1ap.encryptionAlgorithms.EEA1",
@@ -760,6 +762,8 @@ void proto_register_s1ap(void) {
     &ett_s1ap_quantityConfigNR_R15,
     &ett_s1ap_blackCellsToAddModList,
     &ett_s1ap_NB_IoT_RLF_Report_Container,
+    &ett_s1ap_MDT_ConfigurationNR,
+    &ett_s1ap_IntersystemSONConfigurationTransfer,
 #include "packet-s1ap-ettarr.c"
   };
 

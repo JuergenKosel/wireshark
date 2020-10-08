@@ -39,11 +39,11 @@ Official installation packages are available for Microsoft Windows and
 macOS.
 
 It is available as either a standard or add-on package for many popular
-operating sytems and Linux distributions including Debian, Ubuntu, Fedora,
+operating systems and Linux distributions including Debian, Ubuntu, Fedora,
 CentOS, RHEL, Arch, Gentoo, openSUSE, FreeBSD, DragonFly BSD, NetBSD, and
 OpenBSD.
 
-Additionaly it is available through many third-party packaging systems
+Additionally it is available through many third-party packaging systems
 such as pkgsrc, OpenCSW, Homebrew, and MacPorts.
 
 It should run on other Unix-ish systems without too much trouble.
@@ -177,7 +177,7 @@ How to Report a Bug
 -------------------
 
 Wireshark is under constant development, so it is possible that you will
-encounter a bug while using it. Please report bugs at https://bugs.wireshark.org.
+encounter a bug while using it. Please report bugs at https://gitlab.com/wireshark/wireshark/-/issues.
 Be sure you enter into the bug:
 
 1. The complete build information from the "About Wireshark"
@@ -228,4 +228,4 @@ Gerald Combs <gerald@wireshark.org>
 
 Gilbert Ramirez <gram@alumni.rice.edu>
 
-Guy Harris <guy@alum.mit.edu>
+Guy Harris <gharris@sonic.net>

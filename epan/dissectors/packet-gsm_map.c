@@ -23864,7 +23864,7 @@ static const value_string Teleservice_vals[] = {
   { 0x63, "facsimileGroup4" },
 
   { 0x70, "allDataTeleservices" },
-  { 0x80, "allTeleservices-ExeptSMS" },
+  { 0x80, "allTeleservices-ExceptSMS" },
 
   { 0x90, "allVoiceGroupCallServices" },
   { 0x91, "voiceGroupCall" },
@@ -23969,7 +23969,7 @@ static const true_false_string notification_value  = {
 */
 static const true_false_string redirecting_presentation_value  = {
   "Presentation",
-  "No presentationn"
+  "No presentation"
 };
 /*
 -- bit 6: notification to calling party
@@ -24401,7 +24401,7 @@ void proto_register_gsm_map(void) {
           FT_BOOLEAN, 8, TFS(&redirecting_presentation_value), 0x40,
           NULL, HFILL }},
       { &hf_gsm_map_notification_to_calling_party,
-        { "Notification to calling party", "gsm_map.notification_to_clling_party",
+        { "Notification to calling party", "gsm_map.notification_to_calling_party",
           FT_BOOLEAN, 8, TFS(&notification_value), 0x20,
           NULL, HFILL }},
       { &hf_gsm_map_forwarding_reason,

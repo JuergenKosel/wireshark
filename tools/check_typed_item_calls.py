@@ -88,7 +88,8 @@ known_non_contiguous_fields = { 'wlan.fixed.capabilities.cfpoll.sta',
                                 'wlan.fixed.capabilities.cfpoll.ap',   # These are 3 separate bits...
                                 'wlan.wfa.ie.wme.tspec.ts_info.reserved', # matches other fields in same sequence
                                 'zbee_zcl_se.pp.attr.payment_control_configuration.reserved', # matches other fields in same sequence
-                                'zbee_zcl_se.pp.snapshot_payload_cause.reserved'  # matches other fields in same sequence
+                                'zbee_zcl_se.pp.snapshot_payload_cause.reserved',  # matches other fields in same sequence
+                                'ebhscr.eth.rsv'  # matches other fields in same sequence
                               }
 ##################################################################################################
 
@@ -112,10 +113,21 @@ field_widths = {
 
 # The relevant parts of an hf item.  Used as value in dict where hf variable name is key.
 class Item:
-    def __init__(self, filename, filter, label, item_type, mask=None, check_mask=False, check_label=False):
+
+    previousItem = None
+
+    def __init__(self, filename, filter, label, item_type, mask=None, check_mask=False, check_label=False, check_consecutive=False):
         self.filename = filename
         self.filter = filter
         self.label = label
+
+        if check_consecutive:
+            if Item.previousItem and Item.previousItem.filter == filter:
+                if label != Item.previousItem.label:
+                    print('Warn: ' + filename + ': - filter "' + filter +
+                          '" appears consecutively - labels are "' + Item.previousItem.label + '" and "' + label + '"')
+            Item.previousItem = self
+
 
         # Optionally check label.
         if check_label:
@@ -191,7 +203,7 @@ class Item:
                     return
                 n += 1
 
-        except:
+        except Exception:
             # Sometimes, macro is used for item type so catch and keep going.
             pass
 
@@ -203,14 +215,14 @@ apiChecks.append(APICheck('proto_tree_add_item_ret_uint', { 'FT_CHAR', 'FT_UINT8
 apiChecks.append(APICheck('proto_tree_add_item_ret_int', { 'FT_INT8', 'FT_INT16', 'FT_INT24', 'FT_INT32'}))
 apiChecks.append(APICheck('ptvcursor_add_ret_uint', { 'FT_CHAR', 'FT_UINT8', 'FT_UINT16', 'FT_UINT24', 'FT_UINT32'}))
 apiChecks.append(APICheck('ptvcursor_add_ret_int', { 'FT_INT8', 'FT_INT16', 'FT_INT24', 'FT_INT32'}))
-apiChecks.append(APICheck('ptvcursor_add_ret_string', { 'FT_STRING', 'FT_STRINGZ', 'FT_UINT_STRING', 'FT_STRINGZPAD'}))
+apiChecks.append(APICheck('ptvcursor_add_ret_string', { 'FT_STRING', 'FT_STRINGZ', 'FT_UINT_STRING', 'FT_STRINGZPAD', 'FT_STRINGZTRUNC'}))
 apiChecks.append(APICheck('ptvcursor_add_ret_boolean', { 'FT_BOOLEAN'}))
 apiChecks.append(APICheck('proto_tree_add_item_ret_uint64', { 'FT_UINT40', 'FT_UINT48', 'FT_UINT56', 'FT_UINT64'}))
 apiChecks.append(APICheck('proto_tree_add_item_ret_int64', { 'FT_INT40', 'FT_INT48', 'FT_INT56', 'FT_INT64'}))
 apiChecks.append(APICheck('proto_tree_add_item_ret_boolean', { 'FT_BOOLEAN'}))
-apiChecks.append(APICheck('proto_tree_add_item_ret_string_and_length', { 'FT_STRING', 'FT_STRINGZ', 'FT_UINT_STRING', 'FT_STRINGZPAD'}))
+apiChecks.append(APICheck('proto_tree_add_item_ret_string_and_length', { 'FT_STRING', 'FT_STRINGZ', 'FT_UINT_STRING', 'FT_STRINGZPAD', 'FT_STRINGZTRUNC'}))
 apiChecks.append(APICheck('proto_tree_add_item_ret_display_string_and_length', { 'FT_STRING', 'FT_STRINGZ', 'FT_UINT_STRING',
-                                                                                 'FT_STRINGZPAD', 'FT_BYTES', 'FT_UINT_BYTES'}))
+                                                                                 'FT_STRINGZPAD', 'FT_STRINGZTRUNC', 'FT_BYTES', 'FT_UINT_BYTES'}))
 apiChecks.append(APICheck('proto_tree_add_item_ret_time_string', { 'FT_ABSOLUTE_TIME', 'FT_RELATIVE_TIME'}))
 apiChecks.append(APICheck('proto_tree_add_uint', {  'FT_CHAR', 'FT_UINT8', 'FT_UINT16', 'FT_UINT24', 'FT_UINT32', 'FT_FRAMENUM'}))
 apiChecks.append(APICheck('proto_tree_add_uint_format_value', {  'FT_CHAR', 'FT_UINT8', 'FT_UINT16', 'FT_UINT24', 'FT_UINT32', 'FT_FRAMENUM'}))
@@ -230,9 +242,9 @@ apiChecks.append(APICheck('proto_tree_add_float_format_value', { 'FT_FLOAT'}))
 apiChecks.append(APICheck('proto_tree_add_double', { 'FT_DOUBLE'}))
 apiChecks.append(APICheck('proto_tree_add_double_format', { 'FT_DOUBLE'}))
 apiChecks.append(APICheck('proto_tree_add_double_format_value', { 'FT_DOUBLE'}))
-apiChecks.append(APICheck('proto_tree_add_string', { 'FT_STRING', 'FT_STRINGZ', 'FT_STRINGZPAD'}))
-apiChecks.append(APICheck('proto_tree_add_string_format', { 'FT_STRING', 'FT_STRINGZ', 'FT_STRINGZPAD'}))
-apiChecks.append(APICheck('proto_tree_add_string_format_value', { 'FT_STRING', 'FT_STRINGZ', 'FT_STRINGZPAD'}))
+apiChecks.append(APICheck('proto_tree_add_string', { 'FT_STRING', 'FT_STRINGZ', 'FT_STRINGZPAD', 'FT_STRINGZTRUNC'}))
+apiChecks.append(APICheck('proto_tree_add_string_format', { 'FT_STRING', 'FT_STRINGZ', 'FT_STRINGZPAD', 'FT_STRINGZTRUNC'}))
+apiChecks.append(APICheck('proto_tree_add_string_format_value', { 'FT_STRING', 'FT_STRINGZ', 'FT_STRINGZPAD', 'FT_STRINGZTRUNC'}))
 apiChecks.append(APICheck('proto_tree_add_guid', { 'FT_GUID'}))
 apiChecks.append(APICheck('proto_tree_add_oid', { 'FT_OID'}))
 apiChecks.append(APICheck('proto_tree_add_none_format', { 'FT_NONE'}))
@@ -240,12 +252,39 @@ apiChecks.append(APICheck('proto_tree_add_none_format', { 'FT_NONE'}))
 
 
 def removeComments(code_string):
-    code_string = re.sub(re.compile("/\*.*?\*/",re.DOTALL ) ,"" ,code_string) # C-style comment
-    code_string = re.sub(re.compile("//.*?\n" ) ,"" ,code_string)             # C++-style comment
+    code_string = re.sub(re.compile(r"/\*.*?\*/",re.DOTALL ) ,"" , code_string) # C-style comment
+    code_string = re.sub(re.compile(r"//.*?\n" ) ,"" , code_string)             # C++-style comment
     return code_string
 
+# Test for whether the given file was automatically generated.
+def isGeneratedFile(filename):
+    # Open file
+    f_read = open(os.path.join(filename), 'r')
+    lines_tested = 0
+    for line in f_read:
+        # The comment to say that its generated is near the top, so give up once
+        # get a few lines down.
+        if lines_tested > 10:
+            f_read.close()
+            return False
+        if (line.find('Generated automatically') != -1 or
+            line.find('Autogenerated from') != -1 or
+            line.find('is autogenerated') != -1 or
+            line.find('automatically generated by Pidl') != -1 or
+            line.find('Created by: The Qt Meta Object Compiler') != -1 or
+            line.find('This file was generated') != -1):
+
+            f_read.close()
+            return True
+        lines_tested = lines_tested + 1
+
+    # OK, looks like a hand-written file!
+    f_read.close()
+    return False
+
 # Look for hf items in a dissector file.
-def find_items(filename, check_mask=False, check_label=False):
+def find_items(filename, check_mask=False, check_label=False, check_consecutive=False):
+    is_generated = isGeneratedFile(filename)
     items = {}
     with open(filename, 'r') as f:
         contents = f.read()
@@ -256,32 +295,41 @@ def find_items(filename, check_mask=False, check_label=False):
             # Store this item.
             hf = m.group(1)
             items[hf] = Item(filename, filter=m.group(3), label=m.group(2), item_type=m.group(4), mask=m.group(5),
-                             check_mask=check_mask, check_label=check_label)
+                             check_mask=check_mask,
+                             check_label=check_label,
+                             check_consecutive=(not is_generated and check_consecutive))
     return items
 
 
 
-def isDissectorFile(filename):
-    p = re.compile('.*packet-.*\.c')
+def is_dissector_file(filename):
+    p = re.compile(r'.*packet-.*\.c')
     return p.match(filename)
 
-def findDissectorFilesInFolder(folder):
-    # Look at files in sorted order, to give some idea of how far through is.
-    files = []
+def findDissectorFilesInFolder(folder, dissector_files=[], recursive=False):
 
-    for f in sorted(os.listdir(folder)):
-        if should_exit:
-            return
-        if isDissectorFile(f):
+    if recursive:
+        for root, subfolders, files in os.walk(folder):
+            for f in files:
+                if should_exit:
+                    return
+                f = os.path.join(root, f)
+                dissector_files.append(f)
+    else:
+        for f in sorted(os.listdir(folder)):
+            if should_exit:
+                return
             filename = os.path.join(folder, f)
-            files.append(filename)
-    return files
+            dissector_files.append(filename)
+
+    return [x for x in filter(is_dissector_file, dissector_files)]
+
 
 
 # Check the given dissector file.
-def checkFile(filename, check_mask=False, check_label=False):
+def checkFile(filename, check_mask=False, check_label=False, check_consecutive=False):
     # Find important parts of items.
-    items = find_items(filename, check_mask, check_label)
+    items = find_items(filename, check_mask, check_label, check_consecutive)
 
     # Check each API
     for c in apiChecks:
@@ -305,6 +353,9 @@ parser.add_argument('--mask', action='store_true',
                    help='when set, check mask field too')
 parser.add_argument('--label', action='store_true',
                    help='when set, check label field too')
+parser.add_argument('--consecutive', action='store_true',
+                    help='when set, copy copy/paste errors between consecutive items')
+
 
 
 args = parser.parse_args()
@@ -324,28 +375,29 @@ elif args.commits:
     files = [f.decode('utf-8')
              for f in subprocess.check_output(command).splitlines()]
     # Will examine dissector files only
-    files = list(filter(lambda f : isDissectorFile(f), files))
+    files = list(filter(lambda f : is_dissector_file(f), files))
 elif args.open:
     # Unstaged changes.
     command = ['git', 'diff', '--name-only']
     files = [f.decode('utf-8')
              for f in subprocess.check_output(command).splitlines()]
     # Only interested in dissector files.
-    files = list(filter(lambda f : isDissectorFile(f), files))
+    files = list(filter(lambda f : is_dissector_file(f), files))
     # Staged changes.
     command = ['git', 'diff', '--staged', '--name-only']
     files_staged = [f.decode('utf-8')
                     for f in subprocess.check_output(command).splitlines()]
     # Only interested in dissector files.
-    files_staged = list(filter(lambda f : isDissectorFile(f), files_staged))
+    files_staged = list(filter(lambda f : is_dissector_file(f), files_staged))
     for f in files:
         files.append(f)
     for f in files_staged:
         if not f in files:
             files.append(f)
 else:
-    # Find all dissector files from folder.
+    # Find all dissector files.
     files = findDissectorFilesInFolder(os.path.join('epan', 'dissectors'))
+    files = findDissectorFilesInFolder(os.path.join('plugins', 'epan'), recursive=True, dissector_files=files)
 
 
 # If scanning a subset of files, list them here.
@@ -363,7 +415,7 @@ else:
 for f in files:
     if should_exit:
         exit(1)
-    checkFile(f, check_mask=args.mask, check_label=args.label)
+    checkFile(f, check_mask=args.mask, check_label=args.label, check_consecutive=args.consecutive)
 
 # Show summary.
 print(issues_found, 'issues found')

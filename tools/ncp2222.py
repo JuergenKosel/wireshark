@@ -24,9 +24,30 @@ or
 http://developer.novell.com/ndk/doc/ncp/
 for a badly-formatted HTML version of the same PDF.
 
-Currently, a list of NCPs by number can be found at
+Currently, NCP documentation can be found at:
+
+https://www.microfocus.com/documentation/open-enterprise-server-developer-documentation/ncp/
+
+with a list of NCPs by number at
 
 https://www.microfocus.com/documentation/open-enterprise-server-developer-documentation/ncp/ncpdocs/main.htm
+
+and some additional NCPs to support volumes > 16TB at
+
+https://www.microfocus.com/documentation/open-enterprise-server-developer-documentation/ncp/ncpdocs/16tb+.htm
+
+NDS information can be found at:
+
+https://www.microfocus.com/documentation/edirectory-developer-documentation/edirectory-libraries-for-c/
+
+and PDFs linked from there, and from
+
+https://www.novell.com/documentation/developer/ndslib/
+
+and HTML versions linked from there.
+
+The Novell eDirectory Schema Reference gives a "Transfer Format" for
+some types, which may be the way they're sent over the wire.
 
 Portions Copyright (c) 2000-2002 by Gilbert Ramirez <gram@alumni.rice.edu>.
 Portions Copyright (c) Novell, Inc. 2000-2003.
@@ -152,7 +173,7 @@ class NamedList:
 
     def Name(self, new_name = None):
         "Get/Set name of list"
-        if new_name != None:
+        if new_name is not None:
             self.name = new_name
         return self.name
 
@@ -162,7 +183,7 @@ class NamedList:
 
     def Null(self):
         "Is there no list (different from an empty list)?"
-        return self.list == None
+        return self.list is None
 
     def Empty(self):
         "It the list empty (different from a null list)?"
@@ -232,7 +253,7 @@ class PTVC(NamedList):
 
             ptvc_rec = PTVCRecord(field, length, endianness, var, repeat, req_cond, info_str, code)
 
-            if expected_offset == None:
+            if expected_offset is None:
                 expected_offset = offset
 
             elif expected_offset == -1:
@@ -360,7 +381,7 @@ class PTVCRecord:
             req_cond = "NO_REQ_COND"
         else:
             req_cond = global_req_cond[self.req_cond]
-            assert req_cond != None
+            assert req_cond is not None
 
         if isinstance(self.field, struct):
             return self.field.ReferenceString(var, repeat, req_cond)
@@ -468,7 +489,7 @@ class NCP:
 
     def FunctionCode(self, part=None):
         "Returns the function code for this NCP packet."
-        if part == None:
+        if part is None:
             return self.__code__
         elif part == 'high':
             if self.HasSubFunction():
@@ -664,7 +685,7 @@ class NCP:
         realizes that because Python lists are the input and
         output."""
 
-        if codes == None:
+        if codes is None:
             return self.codes
 
         # Sanity check
@@ -708,7 +729,7 @@ def srec(field, endianness=None, **kw):
 def _rec(start, length, field, endianness, kw):
     # If endianness not explicitly given, use the field's
     # default endiannes.
-    if endianness == None:
+    if endianness is None:
         endianness = field.Endianness()
 
     # Setting a var?
@@ -783,7 +804,7 @@ class Type:
         return self.ftype
 
     def Display(self, newval=None):
-        if newval != None:
+        if newval is not None:
             self.disp = newval
         return self.disp
 
@@ -3351,6 +3372,13 @@ PathCookieFlags                 = val_string16("path_cookie_flags", "Path Cookie
         [ 0x0001, "Last component is a File Name" ],
 ])
 PathCount                       = uint8("path_count", "Path Count")
+#
+# XXX - in at least some File Search Continue requests, the string
+# length value is longer than the string, and there's a NUL, followed
+# by other non-zero cruft, in the string.  Should this be an
+# "nstringz8", with FT_UINT_STRINGZPAD added to support it?  And
+# does that apply to any other values?
+#
 Path                            = nstring8("path", "Path")
 Path16              = nstring16("path16", "Path")
 PathAndName                     = stringz("path_and_name", "Path and Name")
@@ -6465,6 +6493,9 @@ static int hf_hardware_name = -1;
 static int hf_no_request_record_found = -1;
 static int hf_search_modifier = -1;
 static int hf_search_pattern = -1;
+static int hf_nds_acl_protected_attribute = -1;
+static int hf_nds_acl_subject = -1;
+static int hf_nds_acl_privileges = -1;
 
 static expert_field ei_ncp_file_rights_change = EI_INIT;
 static expert_field ei_ncp_completion_code = EI_INIT;
@@ -6755,7 +6786,7 @@ static expert_field ei_ncp_address_type = EI_INIT;
             req_cond_size = "NO_REQ_COND_SIZE"
         else:
             req_cond_size = pkt.ReqCondSize()
-            if req_cond_size == None:
+            if req_cond_size is None:
                 msg.write("NCP packet %s needs a ReqCondSize*() call\n" \
                         % (pkt.CName(),))
                 sys.exit(1)
@@ -8465,6 +8496,15 @@ proto_register_ncp2222(void)
     { &hf_search_pattern,
     { "Search Pattern", "ncp.search_pattern", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
+    { &hf_nds_acl_protected_attribute,
+    { "Protected Attribute", "ncp.nds_acl_protected_attribute", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+
+    { &hf_nds_acl_subject,
+    { "Subject", "ncp.nds_acl_subject", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+
+    { &hf_nds_acl_privileges,
+    { "Subject", "ncp.nds_acl_subject", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+
 """)
     # Print the registration code for the hf variables
     for var in sorted_vars:
@@ -8586,7 +8626,7 @@ def main():
 
         msg.write("Defined %d NCP types.\n" % (len(packets),))
         produce_code()
-    except:
+    except Exception:
         traceback.print_exc(20, msg)
         try:
             out_file.close()

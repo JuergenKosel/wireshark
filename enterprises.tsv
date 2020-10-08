@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2020-08-21)
+# (last updated 2020-09-29)
 
 0	Reserved
 1	NxNetworks
@@ -12595,7 +12595,7 @@
 12726	Sudoeste Serviços de Telemática Ltda
 12727	Supervise Network
 12728	SYSWILL
-12729	Be Think, Solve, Execute GmbH	# formerly 'targit GmbH'
+12729	Be Shaping the Future GmbH
 12730	TECSys Development, LP
 12731	UTI Systems S.A.
 12732	VoIP Group Inc.
@@ -13782,7 +13782,7 @@
 13917	Hostcentric
 13918	Inkasbank
 13919	Instinct Internet Solutions
-13920	Magic Hosting
+13920	Net6	# formerly 'Magic Hosting'
 13921	NEBS
 13922	nologin
 13923	Peter Verhas
@@ -16224,7 +16224,7 @@
 16362	Waters Network Systems
 16363	SCHOLZ & VOLKMER Intermediales Design, GmbH
 16364	SMARTDATA
-16365	Dion Transaction Solutions GmbH
+16365	valantic Transaction Solutions GmbH	# formerly 'Dion Transaction Solutions GmbH'
 16366	INFORMA DEL PERU, INFORMACION ECONOMICA SA
 16367	saarstahl
 16368	Sysapex Communications Inc.
@@ -20090,7 +20090,7 @@
 20243	SNR S.A.
 20244	Police IT Management Agency
 20245	Deverto Systems Ltd.
-20246	Delta Energy Systems (Sweden) AB
+20246	Delta Electronics (Switzerland) AG	# formerly 'Delta Energy Systems (Sweden) AB'
 20247	Bladiant Technologies, Inc.
 20248	Sony Computer Entertainment America, Inc.
 20249	Touchstone Systems, Inc.
@@ -20115,7 +20115,7 @@
 20268	Chelsea Technologies Inc.
 20269	University of Yamanashi
 20270	xtendo technologies Kurt Schwedes
-20271	NetEnrich, Inc.
+20271	OpsRamp, Inc.
 20272	Creative Media GmbH
 20273	Kunsthistorisches Museum
 20274	Cyber Ware Ltd
@@ -20150,7 +20150,7 @@
 20303	Banco Industrial e Comercial S.A.
 20304	Matrix Bancorp
 20305	DIR A/S
-20306	Kapsch CarrierCom AG
+20306	Kontron Transportation Austria AG	# formerly 'Kapsch CarrierCom AG'
 20307	Lie-Comtel
 20308	Regent Group of Companies
 20309	CIRIL - Centre Interuniversitaire de Ressources Informatiques de Lorraine, Nancy - FRANCE
@@ -21221,7 +21221,7 @@
 21375	Interactive Vision Mind Beacon sp. z o.o.
 21376	Gruppenkasper
 21377	Zhongyuan Institute of Technology
-21378	Honda of America Mfg., Inc.
+21378	American Honda Motor Co., Inc.
 21379	Shenzhen aike Co.,Ltd.
 21380	Guangzhou aike Co.,Ltd.
 21381	Viessmann Werke GmbH & Co KG
@@ -23200,7 +23200,7 @@
 23354	Niska AB
 23355	Gosh Enterprises, Inc.
 23356	TRYSKEL
-23357	TwentyFourNine	# formerly 'oogyNetworks'
+23357	Seaglass
 23358	Typhon SARL
 23359	Hexod
 23360	Pacific Union College
@@ -34202,7 +34202,7 @@
 34368	General Dynamics Mediaware
 34369	NanoSoft AG
 34370	Papier- und Kartonfabrik Varel GmbH & Co KG
-34371	A1 Systems Ltd.
+34371	A1 Systems, LLC
 34372	Tubedale Limited
 34373	ESCAUX
 34374	Paki Shells Internet Services
@@ -49044,7 +49044,7 @@
 49226	Patriot's, LLC
 49227	GGR Bryansk
 49228	The unbelievable Machine Company GmbH
-49229	Siljan Skog AB
+49229	Bergkvist Siljan Skog AB	# formerly 'Siljan Skog AB'
 49230	Enginuity Communications, Inc.
 49231	Guest-tek Interactive Entertainment Ltd
 49232	ChemAxon Kft
@@ -52432,7 +52432,6 @@
 52624	Mail.Ru, LLC
 52625	Shearwater Geoservices Norway AS
 52626	Semicyber, LLC
-52627	Apple Inc
 52628	Express Retail LLC
 52629	Nook Industries, Inc.
 52630	TechCertain Limited
@@ -55504,7 +55503,7 @@
 55699	VTNS
 55700	AppLine
 55701	Signers Technology LLC
-55702	Adam Maxwell Investment Company AMI
+55702	Adam Investments	# formerly 'Adam Maxwell Investment Company AMI'
 55703	OAG INDUSTRIES srl
 55704	OpenetME
 55705	Smith Consulting LLC
@@ -56057,3 +56056,144 @@
 56252	Vimexx B.V.
 56253	Corellium LLC
 56254	Forte-CT
+56255	Changsha LANLI Technology Co., Ltd.
+56256	Max Planck Computing and Data Facility
+56257	LOGICALIS SPAIN
+56258	ASRC Federal Holding Company, LLC
+56259	E-Gear, LLC
+56260	MUFG Bank (Europe) N.V.
+56261	UCLA Center for Computer Vision and Imaging Biomarkers
+56262	Santa Lucía S.A.
+56263	Sonic Healthcare Germany GmbH & Co. KG
+56264	Shenzhen Acorid Communication Technology Co., Ltd（www.acorid.com）
+56265	Woven Solutions Ltd
+56266	Ogjos
+56267	AMC World Technologies GmbH
+56268	publica.re
+56269	SRK Electronics Pty Ltd
+56270	NSGUARD TECHNOLOGY INC.
+56271	Sanoma Manu Oy
+56272	ROYAL MOSLEM IMPERIAL
+56273	Machines talk
+56274	PR Oncology, LLC
+56275	RA-MICRO Hamburg GmbH
+56276	Thales SIX Nederland
+56277	Denbighshire County Council
+56278	China Mobile IoT Company Limited
+56279	SereneIT, Inc.
+56280	Cloud2 Software Inc.
+56281	Arvato Supply Chain Solutions
+56282	Kapsch BusinessCom AG
+56283	EA Systems Dresden GmbH
+56284	Atlas Cloud Services
+56285	S&S Activewear
+56286	Steico Industries Inc
+56287	Hacksoft
+56288	Cloudready.dk
+56289	LEAPBYTE TECHNOLOGY
+56290	Community Brands
+56291	Solmax Inc.
+56292	AS207960 Cyfyngedig
+56293	UI-ICON
+56294	Magnetic Inspection Laboratory, Inc.
+56295	MORSON JAPAN Co., Ltd.
+56296	East West Bank
+56297	17bit.org
+56298	Infotech Solutions (UK) Ltd
+56299	SUBnet192 Inc.
+56300	STAUFEN.AG
+56301	IOIT
+56302	Narodni agentura pro komunikacni a informacni technologie, s. p.
+56303	marcusfolkesson
+56304	Infrastructures Technologiques Quebec
+56305	ParaFlare Pty Ltd
+56306	Centro Oncológico Figueroa-Cabrera
+56307	Cancer Research And Biostatistics
+56308	SunForce Technology Co.,LTD.
+56309	Codapayments
+56310	Aardsoft Oy
+56311	Hatay Mustafa Kemal Universitesi
+56312	İlteriş Yağıztegin Eroğlu (linuxgemini)
+56313	HoCoSto B.V.
+56314	Signify Holding BV
+56315	Stadt Georgsmarienhütte
+56316	Objectivity Sp. z o.o.
+56317	Boys and Girls Clubs of America
+56318	Rec10 Organization
+56319	Rauf Born Divine Bey TR.
+56320	Silvus Technologies
+56321	Telemetrics, Inc.
+56322	Optus Digital Networks Automation
+56323	New Age Consulting Service Inc.
+56324	Horten Folkeverksted
+56325	1NCE GmbH
+56326	EFKO Management Company
+56327	CL International
+56328	OBSTA
+56329	Digital Communications Company
+56330	Inovetech
+56331	Balasys Ltd.
+56332	Transferant
+56333	Optus Digital Networks CaaS
+56334	Middleman Software, Inc.
+56335	Analytic Designs, Incorporated
+56336	Skeeter Health
+56337	Hack@UCF
+56338	Carolina Glaucoma And Vision Center
+56339	Garantiqa Hitelgarancia Zrt.
+56340	Cytocheck Laboratory
+56341	Fraunhofer Institute for Production Technology IPT
+56342	Bits 'n' Bytes IT-Consulting
+56343	RiskForge
+56344	Sherpa 6, Inc.
+56345	National Tsing Hua University
+56346	nanjing zhiyutiancheng Technology Co.Ltd
+56347	EdgerOS
+56348	Unisinsight
+56349	Gävle Kraftvärme AB
+56350	VEBO
+56351	vaf co.
+56352	SCCT Medical Group
+56353	OXD Consulting Ltd.
+56354	ThoughtFarmer Inc.
+56355	Baelim
+56356	Inkwire Tech (Hangzhou) Co.,Ltd.
+56357	ITK » CONSULTING & SOLUTIONS
+56358	WEFA Inotec GmbH
+56359	Karlborgs Elkontroll AB
+56360	City of Lafayette
+56361	Beyond LED Inc
+56362	e-scopics
+56363	Nexeria AB
+56364	Leuchter IT Infrastructure Solutions AG
+56365	K-Soft
+56366	Bombardier Transportation Sverige AB - RCS
+56367	dSoft-Bulgaria Ltd.
+56368	Singularity LLC
+56369	Mission Embedded
+56370	Kantonspolizei St. Gallen
+56371	DOTSCREEN
+56372	CONEXTOP Technologies Co., Ltd.
+56373	CSSF
+56374	Media-Tel
+56375	Elektro Celje d.d.
+56376	New Technologies
+56377	Penzagrazhdanproekt
+56378	SMSTraffic
+56379	Singularis development, s.r.o.
+56380	Frank Czepat
+56381	Ingenieria de Sistemas Avanzados del Centro S.A. de C.V.
+56382	BHP Hardware and Software
+56383	Morsoe kommune
+56384	Landkreis Teltow-Fläming
+56385	LLC Lotsiya
+56386	Praxispunkt GmbH
+56387	DFINITY USA, LLC
+56388	Thales Austria GmbH
+56389	The Munshi Group
+56390	Wuhan Yangtze Computing Technologies Co.,LTD
+56391	Digital Devices GmbH
+56392	OOO "Gagar.IN" (LLC)
+56393	Crnogorski Telekom A.D.
+56394	American Lebanese Syrian Associated Charities
+56395	ENT Specialists of Metairie

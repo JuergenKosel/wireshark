@@ -174,7 +174,18 @@ typedef enum {
 #define SSL_HND_QUIC_TP_LOSS_BITS                           0x1057 /* https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03 */
 #define SSL_HND_QUIC_TP_GREASE_QUIC_BIT                     0x2ab2 /* https://tools.ietf.org/html/draft-thomson-quic-bit-grease-00 */
 #define SSL_HND_QUIC_TP_ENABLE_TIME_STAMP                   0x7157 /* https://tools.ietf.org/html/draft-huitema-quic-ts-02 */
+#define SSL_HND_QUIC_TP_ENABLE_TIME_STAMP_V2                0x7158 /* https://tools.ietf.org/html/draft-huitema-quic-ts-03 */
 #define SSL_HND_QUIC_TP_MIN_ACK_DELAY                       0xde1a /* https://tools.ietf.org/html/draft-iyengar-quic-delayed-ack-00 */
+/* https://quiche.googlesource.com/quiche/+/refs/heads/master/quic/core/crypto/transport_parameters.cc */
+#define SSL_HND_QUIC_TP_GOOGLE_USER_AGENT                   0x3129
+#define SSL_HND_QUIC_TP_GOOGLE_KEY_UPDATE_NOT_YET_SUPPORTED 0x312B
+#define SSL_HND_QUIC_TP_GOOGLE_QUIC_VERSION                 0x4752
+#define SSL_HND_QUIC_TP_GOOGLE_INITIAL_RTT                  0x3127
+#define SSL_HND_QUIC_TP_GOOGLE_SUPPORT_HANDSHAKE_DONE       0x312A
+#define SSL_HND_QUIC_TP_GOOGLE_QUIC_PARAMS                  0x4751
+#define SSL_HND_QUIC_TP_GOOGLE_CONNECTION_OPTIONS           0x3128
+/* https://github.com/facebookincubator/mvfst/blob/master/quic/QuicConstants.h */
+#define SSL_HND_QUIC_TP_FACEBOOK_PARTIAL_RELIABILITY        0xFF00
 /*
  * Lookup tables
  */
@@ -213,6 +224,7 @@ extern const value_string tls13_key_update_request[];
 extern const value_string compress_certificate_algorithm_vals[];
 extern const value_string quic_transport_parameter_id[];
 extern const value_string quic_version_vals[];
+extern const val64_string quic_enable_time_stamp_v2_vals[];
 
 /* XXX Should we use GByteArray instead? */
 typedef struct _StringInfo {
@@ -977,7 +989,17 @@ typedef struct ssl_common_dissect {
         gint hs_ext_quictp_parameter_retry_source_connection_id;
         gint hs_ext_quictp_parameter_max_datagram_frame_size;
         gint hs_ext_quictp_parameter_loss_bits;
+        gint hs_ext_quictp_parameter_enable_time_stamp_v2;
         gint hs_ext_quictp_parameter_min_ack_delay;
+        gint hs_ext_quictp_parameter_google_user_agent_id;
+        gint hs_ext_quictp_parameter_google_key_update_not_yet_supported;
+        gint hs_ext_quictp_parameter_google_quic_version;
+        gint hs_ext_quictp_parameter_google_initial_rtt;
+        gint hs_ext_quictp_parameter_google_support_handshake_done;
+        gint hs_ext_quictp_parameter_google_quic_params;
+        gint hs_ext_quictp_parameter_google_quic_params_unknown_field;
+        gint hs_ext_quictp_parameter_google_connection_options;
+        gint hs_ext_quictp_parameter_facebook_partial_reliability;
 
         gint esni_suite;
         gint esni_record_digest_length;
@@ -1207,7 +1229,8 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1,                                 \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
+        -1, -1,                                                         \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
@@ -2178,8 +2201,58 @@ ssl_common_dissect_t name = {   \
         FT_UINT8, BASE_DEC, NULL, 0x00,                                 \
         NULL, HFILL }                                                   \
     },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_enable_time_stamp_v2,          \
+      { "Enable TimestampV2", prefix ".quic.parameter.enable_time_stamp_v2", \
+        FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(quic_enable_time_stamp_v2_vals), 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_min_ack_delay,                 \
       { "min_ack_delay", prefix ".quic.parameter.min_ack_delay",        \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_google_user_agent_id,          \
+      { "Google UserAgent", prefix ".quic.parameter.google.user_agent", \
+        FT_STRING, BASE_NONE, NULL, 0x00,                               \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_google_key_update_not_yet_supported, \
+      { "Google Key Update not yet supported", prefix ".quic.parameter.google.key_update_not_yet_supported", \
+        FT_NONE, BASE_NONE, NULL, 0x00,                                 \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_google_quic_version,           \
+      { "Google QUIC version", prefix ".quic.parameter.google.quic_version", \
+        FT_STRING, BASE_NONE, NULL, 0x00,                               \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_google_initial_rtt,            \
+      { "Google Initial RTT", prefix ".quic.parameter.google.initial_rtt", \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_google_support_handshake_done, \
+      { "Google Support Handshake Done", prefix ".quic.parameter.google.support_handshake_done", \
+        FT_NONE, BASE_NONE, NULL, 0x00,                                 \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_google_quic_params,            \
+      { "Google QUIC parameters", prefix ".quic.parameter.google.quic_params", \
+        FT_BYTES, BASE_NONE, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_google_quic_params_unknown_field, \
+      { "Google Unknown Field", prefix ".quic.parameter.google.quic_params_unknown_field", \
+        FT_BYTES, BASE_NONE, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_google_connection_options,     \
+      { "Google Connection options", prefix ".quic.parameter.google.connection_options", \
+        FT_BYTES, BASE_NONE, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_facebook_partial_reliability,     \
+      { "Facebook Partial Reliability", prefix ".quic.parameter.facebook.partial_reliability", \
         FT_UINT64, BASE_DEC, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
     },                                                                  \

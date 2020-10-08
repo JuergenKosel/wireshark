@@ -291,6 +291,7 @@ extern "C" {
 #define WTAP_ENCAP_USB_2_0                      208
 #define WTAP_ENCAP_MP4                          209
 #define WTAP_ENCAP_SLL2                         210
+#define WTAP_ENCAP_ZWAVE_SERIAL                 211
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -418,7 +419,7 @@ extern "C" {
  *
  * For WTAP_ENCAP_USBPCAP, the maximum is 128MiB, as per
  *
- *    https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=15985
+ *    https://gitlab.com/wireshark/wireshark/-/issues/15985
  *
  * We don't want to write out files that specify a maximum packet size
  * greater than 262144 if we don't have to, as software reading those
@@ -1652,7 +1653,7 @@ struct file_extension_info {
  *
  * Note that the routine does not have to free the private data pointer on
  * error. The caller takes care of that by calling wtap_close on error.
- * (See https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=8518)
+ * (See https://gitlab.com/wireshark/wireshark/-/issues/8518)
  *
  * However, the caller does have to free the private data pointer when
  * returning WTAP_OPEN_NOT_MINE, since the next file type will be called

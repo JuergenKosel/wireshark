@@ -11512,7 +11512,7 @@ proto_register_amqp(void)
             "Fragment contains the start of the message", HFILL}},
         {&hf_amqp_0_10_struct_fragment_properties_last, {
             "Last", "amqp.message.fragment-properties.last",
-            FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x02,
             "Fragment contains the end of the message", HFILL}},
         {&hf_amqp_0_10_struct_fragment_properties_size, {
             "Fragment-size", "amqp.message.fragment-properties.fragment-size",
@@ -11617,7 +11617,7 @@ proto_register_amqp(void)
             FT_BOOLEAN, 8, TFS(&tfs_yes_no), 0x10,
             "Queue created auto-delete", HFILL}},
         {&hf_amqp_0_10_struct_queue_query_result_message_count, {
-            "Message-count", "amqp.queue.queue-query-result.message-countt",
+            "Message-count", "amqp.queue.queue-query-result.message-count",
             FT_UINT32, BASE_DEC, NULL, 0x0,
             "Number of messages in the queue", HFILL}},
         {&hf_amqp_0_10_struct_queue_query_result_subscriber_count, {
@@ -13252,7 +13252,7 @@ proto_register_amqp(void)
             FT_UINT8, BASE_DEC, NULL, 0,
             NULL, HFILL}},
         {&hf_amqp_0_10_dtx_xa_status, {
-            "dtx.xa-status", "amqp.method.properties.broadcast",
+            "DTX  xa-status", "amqp.dtx.xa-status",
             FT_UINT16, BASE_DEC, VALS(amqp_0_10_xa_status), 0,
             NULL, HFILL}},
         {&hf_amqp_payload, {

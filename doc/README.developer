@@ -277,10 +277,10 @@ Don't use "index()" or "rindex()"; instead, use the ANSI C equivalents,
 "index()" or "rindex()", and those that do might not declare them in the
 header file on which they're declared on your platform.
 
-Don't use "tvb_get_ptr().  If you must use it, keep in mind that the pointer
+Don't use "tvb_get_ptr()".  If you must use it, keep in mind that the pointer
 returned by a call to "tvb_get_ptr()" is not guaranteed to be aligned on any
 particular byte boundary; this means that you cannot safely cast it to any
-data type other than a pointer to "char", unsigned char", "guint8", or other
+data type other than a pointer to "char", "unsigned char", "guint8", or other
 one-byte data types.  Casting a pointer returned by tvb_get_ptr() into any
 multi-byte data type or structure may cause crashes on some platforms (even
 if it does not crash on x86-based PCs).  Even if such mis-aligned accesses
@@ -501,16 +501,18 @@ automatically free()d when the dissection of the current packet ends so you
 don't have to worry about free()ing them explicitly in order to not leak memory.
 Please read README.wmem.
 
-Don't use non-ASCII characters in source files; not all compiler
-environments will be using the same encoding for non-ASCII characters,
-and at least one compiler (Microsoft's Visual C) will, in environments
-with double-byte character encodings, such as many Asian environments,
-fail if it sees a byte sequence in a source file that doesn't correspond
-to a valid character.  This causes source files using either an ISO
-8859/n single-byte character encoding or UTF-8 to fail to compile.  Even
-if the compiler doesn't fail, there is no guarantee that the compiler,
-or a developer's text editor, will interpret the characters the way you
-intend them to be interpreted.
+Source files can use UTF-8 encoding, but characters outside the ASCII
+range should be used sparingly. It should be safe to use non-ASCII
+characters in comments and strings, but some compilers (such as GCC
+versions prior to 10) may not support extended identifiers very well.
+There is also no guarantee that a developer's text editor will interpret
+the characters the way you intend them to be interpreted.
+
+The majority of Wireshark encodes strings as UTF-8. The main exception
+is the code that uses the Qt API, which uses UTF-16. Console output is
+UTF-8, but as with the source code extended characters should be used
+sparingly since some consoles (most notably Windows' cmd.exe) have
+limited support for UTF-8.
 
 3. Robustness.
 

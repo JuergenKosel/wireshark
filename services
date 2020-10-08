@@ -292,7 +292,7 @@ ulistproc	372/tcp/udp	# ListProcessor
 legent-1	373/tcp/udp	# Legent Corporation
 legent-2	374/tcp/udp	# Legent Corporation
 hassle		375/tcp/udp	# Hassle
-nip		376/tcp/udp	# Amiga Envoy Network Inquiry Proto
+nip		376/tcp/udp	# Amiga Envoy Network Inquiry Protocol
 tnETOS		377/tcp/udp	# NEC Corporation
 dsETOS		378/tcp/udp	# NEC Corporation
 is99c		379/tcp/udp	# TIA/EIA/IS-99 modem client
@@ -4865,6 +4865,7 @@ tsa		6689/tcp/udp	# Tofino Security Appliance
 cleverdetect	6690/tcp	# CLEVERDetect Message Service
 babel		6696/udp	# Babel Routing Protocol
 ircs-u		6697/tcp	# Internet Relay Chat via TLS/SSL
+babel-dtls	6699/udp	# Babel Routing Protocol over DTLS
 kti-icad-srvr	6701/tcp/udp	# KTI/ICAD Nameserver
 e-design-net	6702/tcp/udp	# e-Design network
 e-design-web	6703/tcp/udp	# e-Design web
@@ -5161,6 +5162,7 @@ oa-system	8022/tcp/udp
 arca-api	8023/tcp/udp	# ARCATrust vault API
 ca-audit-da	8025/tcp/udp	# CA Audit Distribution Agent
 ca-audit-ds	8026/tcp/udp	# CA Audit Distribution Server
+papachi-p2p-srv	8027/tcp/udp	# peer tracker and data relay service
 pro-ed		8032/tcp/udp	# ProEd
 mindprint	8033/tcp/udp	# MindPrint
 vantronix-mgmt	8034/tcp/udp	# .vantronix Management
@@ -5488,6 +5490,7 @@ sma-spw		9522/udp	# SMA Speedwire
 mngsuite	9535/tcp/udp	# Management Suite Remote Control
 laes-bf		9536/tcp/udp	# Surveillance buffering function
 trispen-sra	9555/tcp/udp	# Trispen Secure Remote Access
+p4runtime	9559/tcp	# P4Runtime gRPC Service
 ldgateway	9592/tcp/udp	# LANDesk Gateway
 cba8		9593/tcp/udp	# LANDesk Management Agent (cba8)
 msgsys		9594/tcp/udp	# Message System

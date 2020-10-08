@@ -25,7 +25,7 @@ import fixtures
 class case_decrypt_80211(subprocesstest.SubprocessTestCase):
     def test_80211_wpa_psk(self, cmd_tshark, capture_file):
         '''IEEE 802.11 WPA PSK'''
-        # https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=view&target=wpa-Induction.pcap
+        # https://gitlab.com/wireshark/wireshark/-/wikis/SampleCaptures?action=AttachFile&do=view&target=wpa-Induction.pcap
         self.assertRun((cmd_tshark,
                 '-o', 'wlan.enable_decryption: TRUE',
                 '-Tfields',
@@ -289,7 +289,7 @@ class case_decrypt_dtls(subprocesstest.SubprocessTestCase):
         '''DTLS'''
         if not features.have_gnutls:
             self.skipTest('Requires GnuTLS.')
-        # https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=view&target=snakeoil.tgz
+        # https://gitlab.com/wireshark/wireshark/-/wikis/SampleCaptures?action=AttachFile&do=view&target=snakeoil.tgz
         self.assertRun((cmd_tshark,
                 '-r', capture_file('snakeoil-dtls.pcap'),
                 '-Tfields',
@@ -339,7 +339,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
         '''TLS using the server's private RSA key.'''
         if not features.have_gnutls:
             self.skipTest('Requires GnuTLS.')
-        # https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=view&target=snakeoil2_070531.tgz
+        # https://gitlab.com/wireshark/wireshark/-/wikis/SampleCaptures?action=AttachFile&do=view&target=snakeoil2_070531.tgz
         self.assertRun((cmd_tshark,
                 '-r', capture_file('rsasnakeoil2.pcap'),
                 '-Tfields',
@@ -536,7 +536,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
                 '-e', 'http.host',
                 '-e', 'http.response.code',
                 '-Y', 'http',
-            )).stdout_str.replace('\r\n', '\n')
+            )).stdout_str
         self.assertEqual('example.com\t\n\t200\nexample.net\t\n\t200\n', output)
 
 
@@ -545,7 +545,7 @@ class case_decrypt_tls(subprocesstest.SubprocessTestCase):
 class case_decrypt_zigbee(subprocesstest.SubprocessTestCase):
     def test_zigbee(self, cmd_tshark, capture_file):
         '''ZigBee'''
-        # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=7022
+        # https://gitlab.com/wireshark/wireshark/-/issues/7022
         self.assertRun((cmd_tshark,
                 '-r', capture_file('sample_control4_2012-03-24.pcap'),
                 '-Tfields',
@@ -560,7 +560,7 @@ class case_decrypt_zigbee(subprocesstest.SubprocessTestCase):
 class case_decrypt_ansi_c1222(subprocesstest.SubprocessTestCase):
     def test_ansi_c1222(self, cmd_tshark, capture_file):
         '''ANSI C12.22'''
-        # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=9196
+        # https://gitlab.com/wireshark/wireshark/-/issues/9196
         self.assertRun((cmd_tshark,
                 '-r', capture_file('c1222_std_example8.pcap'),
                 '-o', 'c1222.decrypt: TRUE',
@@ -577,7 +577,7 @@ class case_decrypt_dvb_ci(subprocesstest.SubprocessTestCase):
     def test_dvb_ci(self, cmd_tshark, capture_file):
         '''DVB-CI'''
         # simplified version of the sample capture in
-        # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=6700
+        # https://gitlab.com/wireshark/wireshark/-/issues/6700
         self.assertRun((cmd_tshark,
                 '-r', capture_file('dvb-ci_UV1_0000.pcap'),
                 '-o', 'dvb-ci.sek: 00000000000000000000000000000000',
@@ -593,7 +593,7 @@ class case_decrypt_dvb_ci(subprocesstest.SubprocessTestCase):
 class case_decrypt_ipsec(subprocesstest.SubprocessTestCase):
     def test_ipsec_esp(self, cmd_tshark, capture_file):
         '''IPsec ESP'''
-        # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12671
+        # https://gitlab.com/wireshark/wireshark/-/issues/12671
         self.assertRun((cmd_tshark,
                 '-r', capture_file('esp-bug-12671.pcapng.gz'),
                 '-o', 'esp.enable_encryption_decode: TRUE',
@@ -608,7 +608,7 @@ class case_decrypt_ipsec(subprocesstest.SubprocessTestCase):
 class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
     def test_ikev1_certs(self, cmd_tshark, capture_file):
         '''IKEv1 (ISAKMP) with certificates'''
-        # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=7951
+        # https://gitlab.com/wireshark/wireshark/-/issues/7951
         self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev1-certs.pcap'),
                 '-Tfields',
@@ -618,7 +618,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev1_simultaneous(self, cmd_tshark, capture_file):
         '''IKEv1 (ISAKMP) simultaneous exchanges'''
-        # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12610
+        # https://gitlab.com/wireshark/wireshark/-/issues/12610
         self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev1-bug-12610.pcapng.gz'),
                 '-Tfields',
@@ -628,7 +628,7 @@ class case_decrypt_ike_isakmp(subprocesstest.SubprocessTestCase):
 
     def test_ikev1_unencrypted(self, cmd_tshark, capture_file):
         '''IKEv1 (ISAKMP) unencrypted phase 1'''
-        # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12620
+        # https://gitlab.com/wireshark/wireshark/-/issues/12620
         self.assertRun((cmd_tshark,
                 '-r', capture_file('ikev1-bug-12620.pcapng.gz'),
                 '-Tfields',
@@ -1009,7 +1009,7 @@ class case_decrypt_wireguard(subprocesstest.SubprocessTestCase):
 class case_decrypt_knxip(subprocesstest.SubprocessTestCase):
     # Capture files for these tests contain single telegrams.
     # For realistic (live captured) KNX/IP telegram sequences, see:
-    # https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=14825
+    # https://gitlab.com/wireshark/wireshark/-/issues/14825
 
     def test_knxip_data_security_decryption_ok(self, cmd_tshark, capture_file):
         '''KNX/IP: Data Security decryption OK'''

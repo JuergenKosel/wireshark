@@ -27,7 +27,7 @@
  * National variants
  * French ISUP Specification: SPIROU 1998 - 002-005 edition 1 ( Info found here http://www.icg-corp.com/docs/ISUP.pdf ).
  *   See also http://www.fftelecoms.org/sites/default/files/contenus_lies/fft_interco_ip_-_sip-i_interface_specification_v1_0.pdf
- * Israeli ISUP Specification: excertp (for BCM message) found in https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=4231 .
+ * Israeli ISUP Specification: excertp (for BCM message) found in https://gitlab.com/wireshark/wireshark/-/issues/4231 .
  * Russian national ISUP-R 2000: RD 45.217-2001 book 4
  * Japan ISUP http://www.ttc.or.jp/jp/document_list/sum/sum_JT-Q763v21.1.pdf
  */
@@ -3050,7 +3050,7 @@ static int hf_japan_isup_dcr = -1;
 static int hf_japan_isup_ecr = -1;
 static int hf_japan_isup_ncr = -1;
 static int hf_japan_isup_scr = -1;
-static int hf_japan_isup_collecting_metod = -1;
+static int hf_japan_isup_collecting_method = -1;
 static int hf_japan_isup_tariff_rate_pres = -1;
 
 static int hf_japan_isup_charge_area_nat_of_info_value = -1;
@@ -3159,7 +3159,7 @@ static expert_field ei_isup_message_type_no_optional_parameters = EI_INIT;
 static expert_field ei_isup_status_subfield_not_present = EI_INIT;
 static expert_field ei_isup_empty_number = EI_INIT;
 static expert_field ei_isup_too_many_digits = EI_INIT;
-static expert_field ei_isup_opt_par_lengt_err = EI_INIT;
+static expert_field ei_isup_opt_par_length_err = EI_INIT;
 
 static dissector_handle_t bicc_handle;
 
@@ -7741,7 +7741,7 @@ static const value_string japan_isup_charging_party_type_values[] = {
   { 0,   NULL}
 };
 
-static const value_string japan_isup_collecting_metod_values[] = {
+static const value_string japan_isup_collecting_method_values[] = {
   { 0,   "Subscriber will be claimed" },
   { 0,   NULL}
 };
@@ -7779,7 +7779,7 @@ dissect_japan_chg_inf_type_acr(tvbuff_t *parameter_tvb, proto_tree *parameter_tr
         /* Tariff collecting method and charging party type */
         proto_tree_add_item(parameter_tree, hf_isup_extension_ind, parameter_tvb, offset, 1, ENC_BIG_ENDIAN);
         proto_tree_add_item(parameter_tree, hf_japan_isup_charging_party_type, parameter_tvb, offset, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(parameter_tree, hf_japan_isup_collecting_metod, parameter_tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(parameter_tree, hf_japan_isup_collecting_method, parameter_tvb, offset, 1, ENC_BIG_ENDIAN);
         offset += 1;
       }
     }
@@ -7934,7 +7934,7 @@ dissect_isup_optional_parameter(tvbuff_t *optional_parameters_tvb, packet_info *
     if (parameter_type != PARAM_TYPE_END_OF_OPT_PARAMS) {
       parameter_length = tvb_get_guint8(optional_parameters_tvb, offset + PARAMETER_TYPE_LENGTH);
       if (parameter_length + PARAMETER_TYPE_LENGTH + PARAMETER_LENGTH_IND_LENGTH > (guint)(tvb_reported_length_remaining(optional_parameters_tvb, offset))) {
-        proto_tree_add_expert_format(isup_tree, pinfo, &ei_isup_opt_par_lengt_err, optional_parameters_tvb, offset, -1,
+        proto_tree_add_expert_format(isup_tree, pinfo, &ei_isup_opt_par_length_err, optional_parameters_tvb, offset, -1,
           "Wrong parameter length %u, should be %u",
           parameter_length,
           tvb_reported_length_remaining(optional_parameters_tvb, offset)- (PARAMETER_TYPE_LENGTH + PARAMETER_LENGTH_IND_LENGTH));
@@ -11510,7 +11510,7 @@ proto_register_isup(void)
         NULL, HFILL }},
 
     { &hf_bat_ase_duration,
-      { "Duration in ms",  "bat_ase.signal_type",
+      { "Duration in ms",  "bat_ase.duration",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }},
 
@@ -11981,9 +11981,9 @@ proto_register_isup(void)
         FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
 
-    { &hf_japan_isup_collecting_metod,
-      { "Charging party type", "isup.japan.collecting_metod",
-        FT_UINT8, BASE_DEC, VALS(japan_isup_collecting_metod_values), 0x0f,
+    { &hf_japan_isup_collecting_method,
+      { "Charging party type", "isup.japan.collecting_method",
+        FT_UINT8, BASE_DEC, VALS(japan_isup_collecting_method_values), 0x0f,
         NULL, HFILL }},
 
     { &hf_japan_isup_tariff_rate_pres,
@@ -12092,7 +12092,7 @@ proto_register_isup(void)
     { &ei_isup_message_type_no_optional_parameters, { "isup.message_type.no_optional_parameters", PI_PROTOCOL, PI_NOTE, "No optional parameters are possible with this message type", EXPFILL }},
     { &ei_isup_empty_number, { "isup.empty_number", PI_PROTOCOL, PI_NOTE, "(empty) number", EXPFILL }},
     { &ei_isup_too_many_digits, { "isup.too_many_digits", PI_MALFORMED, PI_ERROR, "Too many digits", EXPFILL }},
-    { &ei_isup_opt_par_lengt_err, { "isup.opt_par_lengt_err", PI_MALFORMED, PI_ERROR, "Optional parameter length is wrong", EXPFILL }}
+    { &ei_isup_opt_par_length_err, { "isup.opt_par_length_err", PI_MALFORMED, PI_ERROR, "Optional parameter length is wrong", EXPFILL }}
   };
 
   static const enum_val_t isup_variants[] = {

@@ -296,8 +296,8 @@ static const value_string ch_header_type_names[] = {
     { HTST_GBC_CIRCLE, "Geo-scoped Broadcast Circular area" },
     { HTST_GBC_RECT, "Geo-scoped Broadcast Rectangular area" },
     { HTST_GBC_ELLIPSE, "Geo-scoped Broadcast Ellipsoidal area" },
-    { HTST_TSB_SINGLE, "Topologucally-scoped broadcast Single-hop broadcast (SHB)" },
-    { HTST_TSB_MULT, "Topologucally-scoped broadcast Multi-hop broadcast (TSB)" },
+    { HTST_TSB_SINGLE, "Topologically-scoped broadcast Single-hop broadcast (SHB)" },
+    { HTST_TSB_MULT, "Topologically-scoped broadcast Multi-hop broadcast (TSB)" },
     { HTST_LS_REQUEST, "Location Service Request" },
     { HTST_LS_REPLY, "Location Service Reply" },
     { 0x00, NULL}
@@ -3343,7 +3343,7 @@ proto_register_geonw(void)
            BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
         { &hf_geonw_tsb,
-         { "Topologically-Scoped Broadcast Packet", "geonw.gbc", FT_NONE,
+         { "Topologically-Scoped Broadcast Packet", "geonw.tsb", FT_NONE,
            BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
         { &hf_geonw_ls,
@@ -3530,7 +3530,7 @@ proto_register_geonw(void)
         { &hf_sgeonw_conf, { "Confidence", "geonw.sec.confidence", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_sgeonw_time32, { "Time32", "geonw.sec.time32", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_sgeonw_lat, { "Latitude", "geonw.sec.lat", FT_INT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-        { &hf_sgeonw_lon, { "Longiture", "geonw.sec.lon", FT_INT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_sgeonw_lon, { "Longitude", "geonw.sec.lon", FT_INT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_sgeonw_elev, { "Elevation", "geonw.sec.elev", FT_INT16, BASE_CUSTOM, CF_FUNC(display_elevation), 0x0, NULL, HFILL }},
         { &hf_sgeonw_hashedid3, { "Hashed ID 3", "geonw.sec.hashedid3", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_sgeonw_duration_unit, { "Unit", "geonw.sec.duration.unit", FT_UINT16, BASE_DEC, VALS(sgeonw_duration_unit_names), 0xe000, NULL, HFILL }},

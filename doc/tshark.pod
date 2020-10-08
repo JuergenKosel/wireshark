@@ -1565,7 +1565,7 @@ MGCP packets exchanged by the host at IP address 1.2.3.4 .
 
 Collect credentials (username/passwords) from packets. The report includes
 the packet number, the protocol that had that credential, the username and
-the password. For protocols just using one sigle field as authentication,
+the password. For protocols just using one single field as authentication,
 this is provided as a password and a placeholder in place of the user.
 
 =item B<-z> proto,colinfo,I<filter>,I<field>
@@ -1736,7 +1736,7 @@ Enable coloring of packets according to standard Wireshark color
 filters. On Windows colors are limited to the standard console
 character attribute colors. Other platforms require a terminal that
 handles 24-bit "true color" terminal escape sequences. See
-L<https://wiki.wireshark.org/ColoringRules> for more information on
+L<https://gitlab.com/wireshark/wireshark/-/wikis/ColoringRules> for more information on
 configuring color filters.
 
 =item --no-duplicate-keys
@@ -1786,7 +1786,7 @@ Disable dissection of heuristic protocol.
 =head1 CAPTURE FILTER SYNTAX
 
 See the manual page of pcap-filter(7) or, if that doesn't exist, tcpdump(8),
-or, if that doesn't exist, L<https://wiki.wireshark.org/CaptureFilters>.
+or, if that doesn't exist, L<https://gitlab.com/wireshark/wireshark/-/wikis/CaptureFilters>.
 
 =head1 READ FILTER SYNTAX
 

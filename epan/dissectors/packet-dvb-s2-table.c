@@ -183,7 +183,7 @@ static int hf_dvb_s2_table_tx_type_branch = -1;
 static int hf_dvb_s2_table_tx_type = -1;
 static int hf_dvb_s2_table_tx_type_tx_content_type = -1;
 static int hf_dvb_s2_table_tx_type_tx_format_class = -1;
-static int hf_dvb_s2_table_tx_type_tx_format_data_lenght = -1;
+static int hf_dvb_s2_table_tx_type_tx_format_data_length = -1;
 static int hf_dvb_s2_table_tx_type_tx_format_data = -1;
 /* BCT Common Tx */
 static int hf_dvb_s2_table_tx_type_tx_block_size = -1;
@@ -807,8 +807,8 @@ static const value_string table_uplinkPolarization[] = {
 static const value_string table_frameType_txFormatClass[] = {
     {0, "Reserved"},
     {DVB_S2_TABLE_TXFORMAT_LMBT, "Linear Modulation Burst Transmission"},
-    {DVB_S2_TABLE_TXFORMAT_CPMBT, "Continous Phase Modulation Burst Transmission"},
-    {DVB_S2_TABLE_TXFORMAT_CT, "Continous Transmission"},
+    {DVB_S2_TABLE_TXFORMAT_CPMBT, "Continuous Phase Modulation Burst Transmission"},
+    {DVB_S2_TABLE_TXFORMAT_CT, "Continuous Transmission"},
     {DVB_S2_TABLE_TXFORMAT_SSLMBT, "Spread-Spectrum Linear Modulation Burst Transmission"},
     {0, NULL}
 };
@@ -818,7 +818,7 @@ static const value_string table_assignContext[] = {
     {1, "Transparent star traffic"},
     {2, "Logon"},
     {3, "Transparent mesh traffic"},
-    {4, "Continous carrier"},
+    {4, "Continuous carrier"},
     {0, NULL}
 };
 
@@ -937,8 +937,8 @@ static int dissect_dvb_s2_table_desc(tvbuff_t *tvb, int cur_off, proto_tree *dvb
     int cur_desc, lls_size, rc_size, raac_size, new_off = 0;
     int start_off = 0;
     int linkage_type = 0;
-    int hand_over_type = 0;
-    int origin_type = 0;
+    guint32 hand_over_type = 0;
+    guint32 origin_type = 0;
     int remaning_data = 0;
     int capacity_type_flag = 0;
     int traffic_burst_type = 0;
@@ -1172,11 +1172,9 @@ static int dissect_dvb_s2_table_desc(tvbuff_t *tvb, int cur_off, proto_tree *dvb
                 proto_tree_add_item(dvb_s2_hdr_table_desc_tree, hf_dvb_s2_table_ld_linkage_type, tvb, cur_off + new_off, 1, ENC_NA);
                 new_off += 1;
                 if (linkage_type == 0x08) {
-                    hand_over_type = tvb_get_guint8(tvb, cur_off + new_off) & DVB_S2_TABLE_DESC_HAND_OVER_TYPE_MASK;
-                    origin_type = tvb_get_guint8(tvb, cur_off + new_off) && DVB_S2_TABLE_DESC_ORIGIN_TYPE_MASK;
-                    proto_tree_add_item(dvb_s2_hdr_table_desc_tree, hf_dvb_s2_table_ld_ho_type, tvb, cur_off + new_off, 1, ENC_NA);
+                    proto_tree_add_item_ret_uint(dvb_s2_hdr_table_desc_tree, hf_dvb_s2_table_ld_ho_type, tvb, cur_off + new_off, 1, ENC_NA, &hand_over_type);
                     proto_tree_add_item(dvb_s2_hdr_table_desc_tree, hf_dvb_s2_table_ld_reserved_future_use, tvb, cur_off + new_off, 1, ENC_NA);
-                    proto_tree_add_item(dvb_s2_hdr_table_desc_tree, hf_dvb_s2_table_ld_origin_type, tvb, cur_off + new_off, 1, ENC_NA);
+                    proto_tree_add_item_ret_uint(dvb_s2_hdr_table_desc_tree, hf_dvb_s2_table_ld_origin_type, tvb, cur_off + new_off, 1, ENC_NA, &origin_type);
                     new_off += 1;
                     if ((hand_over_type == 0x01) || (hand_over_type == 0x02) || (hand_over_type == 0x03)) {
                         proto_tree_add_item(dvb_s2_hdr_table_desc_tree, hf_dvb_s2_table_ld_network_id, tvb, cur_off + new_off, 2, ENC_NA);
@@ -1832,7 +1830,7 @@ static int dissect_dvb_s2_table_bct(tvbuff_t *tvb, int cur_off, proto_tree *dvb_
         tx_format = tvb_get_guint8(tvb, cur_off + new_off);
         proto_tree_add_item(dvb_s2_hdr_table_txtype_tree, hf_dvb_s2_table_tx_type_tx_format_class, tvb, cur_off + new_off, 1, ENC_NA);
         new_off += 1;
-        proto_tree_add_item(dvb_s2_hdr_table_txtype_tree, hf_dvb_s2_table_tx_type_tx_format_data_lenght, tvb, cur_off + new_off, 1, ENC_NA);
+        proto_tree_add_item(dvb_s2_hdr_table_txtype_tree, hf_dvb_s2_table_tx_type_tx_format_data_length, tvb, cur_off + new_off, 1, ENC_NA);
         new_off += 1;
         switch(tx_format)
         {
@@ -2516,7 +2514,7 @@ void proto_register_dvb_s2_table(void)
                 NULL, HFILL}
         },
         {&hf_dvb_s2_table_private, {
-                "Table private indicator", "dvb-s2_table.section",
+                "Table private indicator", "dvb-s2_table.private_indicator",
                 FT_UINT8, BASE_HEX, NULL, DVB_S2_TABLE_PRIVATE_MASK,
                 NULL, HFILL}
         },
@@ -2623,32 +2621,32 @@ void proto_register_dvb_s2_table(void)
                 NULL, HFILL}
         },
         {&hf_dvb_s2_mac_addres_6, {
-                "Table mac adress 6", "dvb-s2_table.mac_address_6",
+                "Table MAC address 6", "dvb-s2_table.mac_address_6",
                 FT_UINT8, BASE_HEX, NULL, 0x0,
                 NULL, HFILL}
         },
         {&hf_dvb_s2_mac_addres_5, {
-                "Table mac adress 5", "dvb-s2_table.mac_address_5",
+                "Table MAC address 5", "dvb-s2_table.mac_address_5",
                 FT_UINT8, BASE_HEX, NULL, 0x0,
                 NULL, HFILL}
         },
         {&hf_dvb_s2_mac_addres_4, {
-                "Table mac adress 4", "dvb-s2_table.mac_address_4",
+                "Table MAC address 4", "dvb-s2_table.mac_address_4",
                 FT_UINT8, BASE_HEX, NULL, 0x0,
                 NULL, HFILL}
         },
         {&hf_dvb_s2_mac_addres_3, {
-                "Table mac adress 3", "dvb-s2_table.mac_address_3",
+                "Table MAC address 3", "dvb-s2_table.mac_address_3",
                 FT_UINT8, BASE_HEX, NULL, 0x0,
                 NULL, HFILL}
         },
         {&hf_dvb_s2_mac_addres_2, {
-                "Table mac adress 2", "dvb-s2_table.mac_address_2",
+                "Table MAC address 2", "dvb-s2_table.mac_address_2",
                 FT_UINT8, BASE_HEX, NULL, 0x0,
                 NULL, HFILL}
         },
         {&hf_dvb_s2_mac_addres_1, {
-                "Table mac adress 1", "dvb-s2_table.mac_address_1",
+                "Table MAC address 1", "dvb-s2_table.mac_address_1",
                 FT_UINT8, BASE_HEX, NULL, 0x0,
                 NULL, HFILL}
         },
@@ -3152,8 +3150,8 @@ void proto_register_dvb_s2_table(void)
                 FT_UINT8, BASE_HEX, VALS(table_frameType_txFormatClass), 0x0,
                 NULL, HFILL}
         },
-        {&hf_dvb_s2_table_tx_type_tx_format_data_lenght, {
-                "Tx type tx format data length", "dvb-s2_table.tx_type.tx_format_data_lenght",
+        {&hf_dvb_s2_table_tx_type_tx_format_data_length, {
+                "Tx type tx format data length", "dvb-s2_table.tx_type.tx_format_data_length",
                 FT_UINT8, BASE_HEX, NULL, 0x0,
                 NULL, HFILL}
         },
@@ -3545,7 +3543,7 @@ void proto_register_dvb_s2_table(void)
                 NULL, HFILL}
         },
         {&hf_dvb_s2_table_pt_mapping_section, {
-                "Mapping section", "dvb-s2_table.pt.mapping_sections",
+                "Mapping section", "dvb-s2_table.pt.mapping_section",
                 FT_BYTES, BASE_NONE, NULL, 0x0,
                 NULL, HFILL}
         },
@@ -3555,7 +3553,7 @@ void proto_register_dvb_s2_table(void)
                 NULL, HFILL}
         },
         {&hf_dvb_s2_table_pt_ms_inclusion_end, {
-                "Mapping section inclusion end", "dvb-s2_table.pt.ms.inclusion_start",
+                "Mapping section inclusion end", "dvb-s2_table.pt.ms.inclusion_end",
                 FT_BYTES, BASE_NONE, NULL, 0x0,
                 NULL, HFILL}
         },
@@ -4258,7 +4256,7 @@ void proto_register_dvb_s2_table(void)
                 NULL, HFILL}
         },
         {&hf_dvb_s2_table_desc_lowest_assign_id, {
-                "Descriptor lowest_assignmant_id", "dvb-s2_table.desc.lowest_assign_id",
+                "Descriptor lowest_assignment_id", "dvb-s2_table.desc.lowest_assign_id",
                 FT_UINT24, BASE_HEX, NULL, 0x0,
                 NULL, HFILL}
         },
@@ -4386,7 +4384,7 @@ void proto_register_dvb_s2_table(void)
                 NULL, HFILL}
         },
         {&hf_dvb_s2_table_lls, {
-                "lower layer service", "dvb-s2_table.lls.index",
+                "lower layer service", "dvb-s2_table.lls",
                 FT_BYTES, BASE_NONE, NULL, 0x0,
                 NULL, HFILL}
         },

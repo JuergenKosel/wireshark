@@ -861,7 +861,7 @@ static const value_string nas_5gs_nw_feat_sup_emf_values[] = {
     { 0x0, "Emergency services fallback not supported" },
     { 0x1, "Emergency services fallback supported in NR connected to 5GCN only" },
     { 0x2, "Emergency services fallback supported in E-UTRA connected to 5GCN only" },
-    { 0x3, "mergency services fallback supported in NR connected to 5GCN and E-UTRA connected to 5GCN" },
+    { 0x3, "Emergency services fallback supported in NR connected to 5GCN and E-UTRA connected to 5GCN" },
     { 0, NULL }
 };
 
@@ -7353,7 +7353,7 @@ proto_register_nas_5gs(void)
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_5g_128_ia3,
-        { "128-5G-IA3","nas_5gs.mm.5g_128_ia4",
+        { "128-5G-IA3","nas_5gs.mm.5g_128_ia3",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x10,
             NULL, HFILL }
         },

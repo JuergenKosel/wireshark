@@ -426,7 +426,7 @@ static int hf_bap_call_status = -1;
 static int hf_bap_unknown_option_data = -1;
 static int hf_bap_sub_option_type = -1;
 static int hf_bap_reason = -1;
-static int hf_bap_link_descriminator = -1;
+static int hf_bap_link_discriminator = -1;
 static int hf_bap_unique_digit = -1;
 static int hf_bap_type = -1;
 static int hf_bap_identifier = -1;
@@ -4214,7 +4214,7 @@ dissect_bap_link_disc_opt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
                                   &field_tree, &tf))
         return tvb_captured_length(tvb);
 
-    proto_tree_add_item(field_tree, hf_bap_link_descriminator, tvb, offset+2, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item(field_tree, hf_bap_link_discriminator, tvb, offset+2, 2, ENC_BIG_ENDIAN);
     return tvb_captured_length(tvb);
 }
 
@@ -6014,7 +6014,7 @@ dissect_ppp_raw_hdlc( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
  * matching first before calling dissect_ppp_raw_hdlc().  Otherwise, if we call
  * it directly for USB captures, some captures like the following will not be
  * dissected correctly:
- * https://wiki.wireshark.org/SampleCaptures#head-886e340c31ca977f321c921f81cbec4c21bb7738
+ * https://gitlab.com/wireshark/wireshark/-/wikis/SampleCaptures#head-886e340c31ca977f321c921f81cbec4c21bb7738
  */
 static gboolean
 dissect_ppp_usb( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_ )
@@ -6578,7 +6578,7 @@ proto_register_mp(void)
         10, &mp_max_fragments);
     prefs_register_uint_preference(mp_module, "fragment_aging",
         "Max unreassembled fragment age",
-        "Age off unreassmbled fragments after this many packets",
+        "Age off unreassembled fragments after this many packets",
         10, &mp_fragment_aging);
 }
 
@@ -7758,7 +7758,7 @@ proto_register_bap(void)
       { &hf_bap_phone_number_sub_address, { "Phone Number Sub Address", "bap.phone_number_sub_address", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_bap_unknown_option_data, { "Unknown", "bap.unknown_option_data", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_bap_reason, { "Reason", "bap.reason", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-      { &hf_bap_link_descriminator, { "Link Discriminator", "bap.link_descriminator", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+      { &hf_bap_link_discriminator, { "Link Discriminator", "bap.link_discriminator", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
       { &hf_bap_call_status, { "Status", "bap.call_status", FT_UINT8, BASE_HEX|BASE_EXT_STRING, &q931_cause_code_vals_ext, 0x0, NULL, HFILL }},
       { &hf_bap_call_action, { "Action", "bap.call_action", FT_UINT8, BASE_HEX, VALS(bap_call_status_opt_action_vals), 0x0, NULL, HFILL }},
       { &hf_bap_type, { "Type", "bap.type", FT_UINT8, BASE_HEX, VALS(bap_vals), 0x0, NULL, HFILL }},

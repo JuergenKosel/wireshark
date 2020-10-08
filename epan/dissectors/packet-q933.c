@@ -1118,9 +1118,10 @@ dissect_q933_link_integrity_verf_ie(tvbuff_t *tvb, int offset, int len,
  */
 static const value_string q933_pvc_status_vals[] = {
 	{0x00, "Inactive"},
-	{0x02, "Active"},
-	{0x08, "New"},
-	{0x0a, "New, Active"},
+	{0x01, "Active"},
+	{0x02, "Deleted"},
+	{0x04, "New"},
+	{0x05, "New, Active"},
 	{0, NULL}
 };
 
@@ -2162,7 +2163,7 @@ proto_register_q933(void)
       { &hf_q933_timer, { "Timer", "q933.timer", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_q933_call_state, { "Call state", "q933.call_state", FT_UINT8, BASE_HEX, VALS(q933_call_state_vals), 0x3F, NULL, HFILL }},
       { &hf_q933_dlci, { "DLCI", "q933.dlci", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-      { &hf_q933_status, { "Status", "q933.status", FT_UINT8, BASE_DEC, VALS(q933_pvc_status_vals), 0x0A, NULL, HFILL }},
+      { &hf_q933_status, { "Status", "q933.status", FT_UINT8, BASE_DEC, VALS(q933_pvc_status_vals), 0x0E, NULL, HFILL }},
       { &hf_q933_interface_identified, { "Interface", "q933.interface_identified", FT_BOOLEAN, 8, TFS(&tfs_explicitly_implicitly_identified), Q933_INTERFACE_IDENTIFIED, NULL, HFILL }},
       { &hf_q933_interface_basic, { "Interface", "q933.interface_basic", FT_BOOLEAN, 8, TFS(&tfs_not_basic_basic), Q933_NOT_BASIC_CHANNEL, NULL, HFILL }},
       { &hf_q933_indicated_channel_required, { "Indicated channel", "q933.indicated_channel_required", FT_BOOLEAN, 8, TFS(&tfs_required_preferred), 0x08, NULL, HFILL }},

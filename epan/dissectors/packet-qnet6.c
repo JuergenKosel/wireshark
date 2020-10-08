@@ -656,12 +656,12 @@ static const value_string qnet6_layer_vals[] = {
 };
 
 #define QNET_L4_QOS_TYPE_LOADBALANCE  0
-#define QNET_L4_QOS_TYPE_REDUDANT     1
+#define QNET_L4_QOS_TYPE_REDUNDANT    1
 #define QNET_L4_QOS_TYPE_EXCLUSIVE    2
 #define QNET_L4_QOS_TYPE_PREFERRED    3
 static const value_string qnet6_qos_type_vals[] = {
   {QNET_L4_QOS_TYPE_LOADBALANCE, "Load balance"},
-  {QNET_L4_QOS_TYPE_REDUDANT,    "Redudant"},
+  {QNET_L4_QOS_TYPE_REDUNDANT,   "Redundant"},
   {QNET_L4_QOS_TYPE_EXCLUSIVE,   "Exclusive or Sequential"},
   {QNET_L4_QOS_TYPE_PREFERRED,   "Preferred link"},
   {0, NULL}
@@ -4702,7 +4702,7 @@ proto_register_qnet6(void)
     {&hf_qnet6_kif_vtid_info_tid,
      {"Vtid", "qnet6.kif.msgsend.vtid_info.tid",
       FT_INT32, BASE_DEC, NULL, 0,
-      "essage virtual thread information thread id", HFILL}
+      "Virtual thread information thread id", HFILL}
     },
     {&hf_qnet6_kif_vtid_info_coid,
      {"Coid", "qnet6.kif.msgsend.vtid_info.coid",

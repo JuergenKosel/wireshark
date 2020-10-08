@@ -1047,8 +1047,8 @@ static const value_string nck_module_names[] = {
     { 0x3c,                                 "VSYN - Channel-specific user variables for synchronous actions" },
     { 0x3d,                                 "TUS - Tool data: user monitoring data" },
     { 0x3e,                                 "TUM - Tool data: user magazine data" },
-    { 0x3f,                                 "TUP - Tool data: user magatine place data" },
-    { 0x40,                                 "TF - Parametrizing, return parameters of _N_TMGETT, _N_TSEARC" },
+    { 0x3f,                                 "TUP - Tool data: user magazine place data" },
+    { 0x40,                                 "TF - Parameterizing, return parameters of _N_TMGETT, _N_TSEARC" },
     { 0x41,                                 "FB - Channel-specific base frames" },
     { 0x42,                                 "SSP2 - State data: Spindle" },
     { 0x43,                                 "PUD - programmglobale Benutzerdaten" },
@@ -1063,7 +1063,7 @@ static const value_string nck_module_names[] = {
     { 0x4c,                                 "FS - System-Frame" },
     { 0x4d,                                 "SD - Servo data" },
     { 0x4e,                                 "TAD - Application-specific data" },
-    { 0x4f,                                 "TAO - Aplication-specific cutting edge data" },
+    { 0x4f,                                 "TAO - Application-specific cutting edge data" },
     { 0x50,                                 "TAS - Application-specific monitoring data" },
     { 0x51,                                 "TAM - Application-specific magazine data" },
     { 0x52,                                 "TAP - Application-specific magazine location data" },
@@ -1623,7 +1623,7 @@ static gint hf_s7comm_pi_n_x_newfilename = -1;
 static gint hf_s7comm_pi_n_x_findmode = -1;
 static gint hf_s7comm_pi_n_x_switch = -1;
 static gint hf_s7comm_pi_n_x_functionnumber = -1;
-static gint hf_s7comm_pi_n_x_semaphorvalue = -1;
+static gint hf_s7comm_pi_n_x_semaphorevalue = -1;
 static gint hf_s7comm_pi_n_x_onoff = -1;
 static gint hf_s7comm_pi_n_x_mode = -1;
 static gint hf_s7comm_pi_n_x_factor = -1;
@@ -3445,7 +3445,7 @@ s7comm_decode_pi_service(tvbuff_t *tvb,
         case S7COMM_PI_N_MMCSEM:
             hf[0] = hf_s7comm_pi_n_x_addressident;
             hf[1] = hf_s7comm_pi_n_x_functionnumber;
-            hf[2] = hf_s7comm_pi_n_x_semaphorvalue;
+            hf[2] = hf_s7comm_pi_n_x_semaphorevalue;
             s7comm_decode_pistart_parameters(tvb, pinfo, tree, param_tree, servicename, 3, hf, paramoffset);
             break;
         case S7COMM_PI_N_NCKMOD:
@@ -7351,7 +7351,7 @@ proto_register_s7comm (void)
         { "OB Start info", "s7comm.ob.strt_info", FT_UINT8, BASE_HEX, NULL, 0x0,
           "OB Start info (OB n has started)", HFILL }},
         { &hf_s7comm_ob_flt_id,
-        { "OB Fault identifcation code", "s7comm.ob.flt_id", FT_UINT8, BASE_HEX, NULL, 0x0,
+        { "OB Fault identification code", "s7comm.ob.flt_id", FT_UINT8, BASE_HEX, NULL, 0x0,
           NULL, HFILL }},
         { &hf_s7comm_ob_priority,
         { "OB Priority", "s7comm.ob.priority", FT_UINT8, BASE_DEC, NULL, 0x0,
@@ -7679,8 +7679,8 @@ proto_register_s7comm (void)
         { &hf_s7comm_pi_n_x_functionnumber,
         { "Function Number", "s7comm.param.pi.n_x.functionnumber", FT_STRING, BASE_NONE, NULL, 0x0,
           NULL , HFILL }},
-        { &hf_s7comm_pi_n_x_semaphorvalue,
-        { "Semaphor Value", "s7comm.param.pi.n_x.semaphorvalue", FT_STRING, BASE_NONE, NULL, 0x0,
+        { &hf_s7comm_pi_n_x_semaphorevalue,
+        { "Semaphore Value", "s7comm.param.pi.n_x.semaphorevalue", FT_STRING, BASE_NONE, NULL, 0x0,
           NULL , HFILL }},
         { &hf_s7comm_pi_n_x_onoff,
         { "OnOff", "s7comm.param.pi.n_x.onoff", FT_STRING, BASE_NONE, NULL, 0x0,
@@ -7704,7 +7704,7 @@ proto_register_s7comm (void)
         { "Tool Status", "s7comm.param.pi.n_x.toolstatus", FT_STRING, BASE_NONE, NULL, 0x0,
           NULL , HFILL }},
         { &hf_s7comm_pi_n_x_wearsearchstrat,
-        { "Search Strategie", "s7comm.param.pi.n_x.wearsearchstrat", FT_STRING, BASE_NONE, NULL, 0x0,
+        { "Search Strategy", "s7comm.param.pi.n_x.wearsearchstrat", FT_STRING, BASE_NONE, NULL, 0x0,
           NULL , HFILL }},
         { &hf_s7comm_pi_n_x_toolid,
         { "Tool ID", "s7comm.param.pi.n_x.toolid", FT_STRING, BASE_NONE, NULL, 0x0,

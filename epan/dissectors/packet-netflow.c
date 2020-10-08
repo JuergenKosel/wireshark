@@ -1728,7 +1728,7 @@ static const value_string v10_template_types_gigamon[] = {
     { 104, "SslCertificateSubject" },
     { 105, "SslCertificateValidNotBefore" },
     { 106, "SslCertificateValidNotAfter" },
-    { 107, "SslCetificateSerialNumber" },
+    { 107, "SslCertificateSerialNumber" },
     { 108, "SslCertificateSignatureAlgorithm" },
     { 109, "SslCertificateSubjectPubAlgorithm" },
     { 110, "SslCertificateSubjectPubKeySize" },
@@ -1840,7 +1840,7 @@ static const value_string v10_template_types_niagara_networks[] = {
     { 102, "SslServerVersionText" },
     { 103, "SslServerCipher" },
     { 104, "SslServerCipherText" },
-    { 105, "SslConnectionEncriptionType" },
+    { 105, "SslConnectionEncryptionType" },
     { 106, "SslServerCompressionMethod" },
     { 107, "SslServerSessionId" },
     { 108, "SslCertificateIssuer" },
@@ -3394,7 +3394,7 @@ static int      hf_pie_gigamon_sslcertificateissuer              = -1;
 static int      hf_pie_gigamon_sslcertificatesubject             = -1;
 static int      hf_pie_gigamon_sslcertificatevalidnotbefore      = -1;
 static int      hf_pie_gigamon_sslcertificatevalidnotafter       = -1;
-static int      hf_pie_gigamon_sslcetificateserialnumber         = -1;
+static int      hf_pie_gigamon_sslcertificateserialnumber         = -1;
 static int      hf_pie_gigamon_sslcertificatesignaturealgorithm  = -1;
 static int      hf_pie_gigamon_sslcertificatesubjectpubalgorithm = -1;
 static int      hf_pie_gigamon_sslcertificatesubjectpubkeysize   = -1;
@@ -3484,7 +3484,7 @@ static int      hf_pie_niagara_networks_sslserverversion                        
 static int      hf_pie_niagara_networks_sslserverversiontext                        = -1;
 static int      hf_pie_niagara_networks_sslservercipher                             = -1;
 static int      hf_pie_niagara_networks_sslserverciphertext                         = -1;
-static int      hf_pie_niagara_networks_sslconnectionencriptiontype                 = -1;
+static int      hf_pie_niagara_networks_sslconnectionencryptiontype                 = -1;
 static int      hf_pie_niagara_networks_sslservercompressionmethod                  = -1;
 static int      hf_pie_niagara_networks_sslserversessionid                          = -1;
 static int      hf_pie_niagara_networks_sslcertificateissuer                        = -1;
@@ -4887,7 +4887,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             /* have the same template with the same ID. */
             /* XXX: One capture has been seen wherein the "length" field in the template is 0 even though
                     the field is actually present in the dataflow.
-                    See: https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=10432#c1
+                    See: https://gitlab.com/wireshark/wireshark/-/issues/10432#c1
             */
             continue;
         }
@@ -10663,7 +10663,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             break;
 
         case ((VENDOR_GIGAMON << 16) | 107):
-            ti = proto_tree_add_item(pdutree, hf_pie_gigamon_sslcetificateserialnumber,
+            ti = proto_tree_add_item(pdutree, hf_pie_gigamon_sslcertificateserialnumber,
                                      tvb, offset, length, ENC_NA);
             break;
 
@@ -11059,7 +11059,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             break;
 
         case ((VENDOR_NIAGARA_NETWORKS << 16) | 105):
-            ti = proto_tree_add_item(pdutree, hf_pie_niagara_networks_sslconnectionencriptiontype,
+            ti = proto_tree_add_item(pdutree, hf_pie_niagara_networks_sslconnectionencryptiontype,
                                      tvb, offset, length, ENC_UTF_8|ENC_NA);
             break;
 
@@ -17207,7 +17207,7 @@ proto_register_netflow(void)
         },
         /* plixer, 13745 / 112 */
         {&hf_pie_plixer_encryption,
-         {"Cncryption", "cflow.pie.plixer.encryption",
+         {"Encryption", "cflow.pie.plixer.encryption",
           FT_UINT32, BASE_DEC, NULL, 0x0,
           NULL, HFILL}
         },
@@ -17252,7 +17252,7 @@ proto_register_netflow(void)
         {&hf_pie_ixia_l7_application_id,
          {"L7 Application ID", "cflow.pie.ixia.l7-application-id",
           FT_UINT32, BASE_DEC, NULL, 0x0,
-          "Application Identication number. Dynamically detected, so unique to each exporter", HFILL}
+          "Application Identification number. Dynamically detected, so unique to each exporter", HFILL}
         },
         /* ixia, 3054 / 111 */
         {&hf_pie_ixia_l7_application_name,
@@ -18350,8 +18350,8 @@ proto_register_netflow(void)
           NULL, HFILL}
         },
         /* gigamon, 26866 / 107 */
-        {&hf_pie_gigamon_sslcetificateserialnumber,
-         {"SslCetificateSerialNumber", "cflow.pie.gigamon.sslcetificateserialnumber",
+        {&hf_pie_gigamon_sslcertificateserialnumber,
+         {"SslCertificateSerialNumber", "cflow.pie.gigamon.sslcertificateserialnumber",
           FT_BYTES, BASE_NONE, NULL, 0x0,
           NULL, HFILL}
         },
@@ -18633,8 +18633,8 @@ proto_register_netflow(void)
           NULL, HFILL}
         },
         /* Niagara Networks, 47729 / 105 */
-        {&hf_pie_niagara_networks_sslconnectionencriptiontype,
-         {"SslConnectionEncriptionType", "cflow.pie.niagaranetworks.sslconnectionencriptiontype",
+        {&hf_pie_niagara_networks_sslconnectionencryptiontype,
+         {"SslConnectionEncryptionType", "cflow.pie.niagaranetworks.sslconnectionencryptiontype",
           FT_STRING, STR_UNICODE, NULL, 0X0,
           NULL, HFILL}
         },

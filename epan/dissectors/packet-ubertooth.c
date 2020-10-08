@@ -709,7 +709,7 @@ static const value_string cc2400_agctst1_agc_var_gain_sat_vals[] = {
 static value_string_ext(cc2400_agctst1_agc_var_gain_sat_vals_ext) = VALUE_STRING_EXT_INIT(cc2400_agctst1_agc_var_gain_sat_vals);
 
 static const value_string cc2400_dactst_dac_src_vals[] = {
-    { 0x00,  "Normal Operation (from Mudulator)" },
+    { 0x00,  "Normal Operation (from Modulator)" },
     { 0x01,  "The DAC_I_O and DAC_Q_O override values below" },
     { 0x02,  "From ADC" },
     { 0x03,  "I/Q after digital down-mixing and channel filtering" },
@@ -2127,7 +2127,7 @@ proto_register_ubertooth(void)
             NULL, HFILL }
         },
         { &hf_chip_status_reserved,
-            { "Reserved",                        "ubertooth.status.resered",
+            { "Reserved",                        "ubertooth.status.reserved",
             FT_BOOLEAN, 8, NULL, 0xE0,
             NULL, HFILL }
         },
@@ -2668,7 +2668,7 @@ proto_register_ubertooth(void)
             NULL, HFILL }
         },
         { &hf_cc2400_freqest_rx_freq_offset,
-            { "Rx Frequence Offset",                       "ubertooth.register.value.freqest.rx_freq_offset",
+            { "Rx Frequency Offset",                       "ubertooth.register.value.freqest.rx_freq_offset",
             FT_INT16, BASE_DEC, NULL, 0xFF00,
             NULL, HFILL }
         },

@@ -1,7 +1,7 @@
 /* packet-lte-rrc-template.c
  * Routines for Evolved Universal Terrestrial Radio Access (E-UTRA);
  * Radio Resource Control (RRC) protocol specification
- * (3GPP TS 36.331 V16.1.1 Release 16) packet dissection
+ * (3GPP TS 36.331 V16.2.0 Release 16) packet dissection
  * Copyright 2008, Vincent Helfre
  * Copyright 2009-2020, Pascal Quantin
  *
@@ -298,7 +298,7 @@ static gint ett_lte_rrc_sib12_fragments = -1;
 static gint ett_lte_rrc_nr_SecondaryCellGroupConfig_r15 = -1;
 static gint ett_lte_rrc_nr_RadioBearerConfig_r15 = -1;
 static gint ett_lte_rrc_nr_RadioBearerConfigS_r15 = -1;
-static gint ett_lte_rrc_sl_ConfigDedicatedNR_r16 = -1;
+static gint ett_lte_rrc_sl_ConfigDedicatedForNR_r16 = -1;
 static gint ett_lte_rrc_nr_SecondaryCellGroupConfig = -1;
 static gint ett_lte_rrc_scg_ConfigResponseNR_r15 = -1;
 static gint ett_lte_rrc_scg_ConfigResponseNR_r16 = -1;
@@ -318,10 +318,9 @@ static gint ett_lte_rrc_selectedbandCombinationInfoEN_DC_v1540 = -1;
 static gint ett_lte_rrc_requestedCapabilityCommon_r15 = -1;
 static gint ett_lte_rrc_sidelinkUEInformationNR_r16 = -1;
 static gint ett_lte_rrc_ueAssistanceInformationNR_r16 = -1;
-static gint ett_lte_rrc_cbr_ResultsNR_r16 = -1;
 static gint ett_lte_rrc_sl_ParameterNR_r16 = -1;
-static gint ett_lte_rrc_v2x_SupportedBandCombinationListNR_r16 = -1;
 static gint ett_lte_rrc_v2x_BandParametersNR_r16 = -1;
+static gint ett_lte_rrc_ueAssistanceInformationNR_SCG_r16 = -1;
 
 static expert_field ei_lte_rrc_number_pages_le15 = EI_INIT;
 static expert_field ei_lte_rrc_si_info_value_changed = EI_INIT;
@@ -2359,6 +2358,10 @@ static const value_string lte_rrc_neighCellConfig_vals[] = {
 };
 
 static const value_string lte_rrc_messageIdentifier_vals[] = {
+  { 0x03e8, "LCS CBS Message Identifier for E-OTD Assistance Data message"},
+  { 0x03e9, "LCS CBS Message Identifier for DGPS Correction Data message"},
+  { 0x03ea, "LCS CBS Message Identifier for GPS Ephemeris and Clock Correction Data message"},
+  { 0x03eb, "LCS CBS Message Identifier for GPS Almanac and Other Data message"},
   { 0x1100, "ETWS Identifier for earthquake warning message"},
   { 0x1101, "ETWS Identifier for tsunami warning message"},
   { 0x1102, "ETWS Identifier for earthquake and tsunami combined warning message"},
@@ -2393,6 +2396,34 @@ static const value_string lte_rrc_messageIdentifier_vals[] = {
   { 0x1129, "CMAS Identifier for the Required Monthly Test for additional languages"},
   { 0x112a, "CMAS Identifier for CMAS Exercise for additional languages"},
   { 0x112b, "CMAS Identifier for operator defined use for additional languages"},
+  { 0x112c, "CMAS CBS Message Identifier for CMAS Public Safety Alerts"},
+  { 0x112d, "CMAS CBS Message Identifier for CMAS Public Safety Alerts for additional languages"},
+  { 0x112e, "CMAS CBS Message Identifier for CMAS State/Local WEA Test"},
+  { 0x112f, "CMAS CBS Message Identifier for CMAS State/Local WEA Test for additional languages"},
+  { 0x1130, "CMAS CBS Message Identifier for geo-fencing trigger messages"},
+  { 0x1131, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality"},
+  { 0x1132, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when an earthquake occurs"},
+  { 0x1133, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a volcanic eruption occurs"},
+  { 0x1134, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is water (e.g. flood, typhoon, hurricane or tsunami) occurs"},
+  { 0x1135, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is fire (e.g. forest fire or building fire) occurs"},
+  { 0x1136, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is pressure (e.g. landslide or avalanche) occurs"},
+  { 0x1137, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is wind (e.g. tornado or gale) occurs"},
+  { 0x1138, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is dust (e.g. yellow dust or sandstorm) occurs"},
+  { 0x1139, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is chemical hazard (e.g. radiation leak or toxic substance leak) occurs"},
+  { 0x113a, "Non-ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when an epidemic occurs"},
+  { 0x113b, "Non-ETWS CBS Message Identifier for test message dedicated to UEs with no user interface and with ePWS functionality"},
+  { 0x113c, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality"},
+  { 0x113d, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when an earthquake occurs"},
+  { 0x113e, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a volcanic eruption occurs"},
+  { 0x113f, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is water (e.g. flood, typhoon, hurricane or tsunami) occurs"},
+  { 0x1140, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is fire (e.g. forest fire or building fire) occurs"},
+  { 0x1141, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is pressure (e.g. landslide or avalanche) occurs"},
+  { 0x1142, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is wind (e.g. tornado or gale) occurs"},
+  { 0x1143, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is dust (e.g. yellow dust or sandstorm) occurs"},
+  { 0x1144, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when a disaster whose characteristic is chemical hazard (e.g. radiation leak or toxic substance leak) occurs"},
+  { 0x1145, "ETWS CBS Message Identifier for warning message dedicated to UEs with no user interface and with ePWS functionality when an epidemic occurs"},
+  { 0x1146, "ETWS CBS Message Identifier for test message dedicated to UEs with no user interface and with ePWS functionality"},
+  { 0x1900, "EU-Info Message Identifier for the local language"},
   {      0, NULL},
 };
 value_string_ext lte_rrc_messageIdentifier_vals_ext = VALUE_STRING_EXT_INIT(lte_rrc_messageIdentifier_vals);
@@ -4359,7 +4390,7 @@ void proto_register_lte_rrc(void) {
     &ett_lte_rrc_nr_SecondaryCellGroupConfig_r15,
     &ett_lte_rrc_nr_RadioBearerConfig_r15,
     &ett_lte_rrc_nr_RadioBearerConfigS_r15,
-    &ett_lte_rrc_sl_ConfigDedicatedNR_r16,
+    &ett_lte_rrc_sl_ConfigDedicatedForNR_r16,
     &ett_lte_rrc_nr_SecondaryCellGroupConfig,
     &ett_lte_rrc_scg_ConfigResponseNR_r15,
     &ett_lte_rrc_scg_ConfigResponseNR_r16,
@@ -4379,10 +4410,9 @@ void proto_register_lte_rrc(void) {
     &ett_lte_rrc_requestedCapabilityCommon_r15,
     &ett_lte_rrc_sidelinkUEInformationNR_r16,
     &ett_lte_rrc_ueAssistanceInformationNR_r16,
-    &ett_lte_rrc_cbr_ResultsNR_r16,
     &ett_lte_rrc_sl_ParameterNR_r16,
-    &ett_lte_rrc_v2x_SupportedBandCombinationListNR_r16,
-    &ett_lte_rrc_v2x_BandParametersNR_r16
+    &ett_lte_rrc_v2x_BandParametersNR_r16,
+    &ett_lte_rrc_ueAssistanceInformationNR_SCG_r16
   };
 
   static ei_register_info ei[] = {

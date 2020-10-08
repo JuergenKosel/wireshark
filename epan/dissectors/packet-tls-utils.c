@@ -48,6 +48,7 @@
 #include "packet-ocsp.h"
 #include "packet-tls.h"
 #include "packet-dtls.h"
+#include "packet-quic.h"
 #if defined(HAVE_LIBGNUTLS)
 #include <gnutls/abstract.h>
 #endif
@@ -1946,7 +1947,24 @@ const value_string quic_transport_parameter_id[] = {
     { SSL_HND_QUIC_TP_LOSS_BITS, "loss_bits" },
     { SSL_HND_QUIC_TP_GREASE_QUIC_BIT, "grease_quic_bit" },
     { SSL_HND_QUIC_TP_ENABLE_TIME_STAMP, "enable_time_stamp" },
+    { SSL_HND_QUIC_TP_ENABLE_TIME_STAMP_V2, "enable_time_stamp_v2" },
     { SSL_HND_QUIC_TP_MIN_ACK_DELAY, "min_ack_delay" },
+    { SSL_HND_QUIC_TP_GOOGLE_USER_AGENT, "google_user_agent" },
+    { SSL_HND_QUIC_TP_GOOGLE_KEY_UPDATE_NOT_YET_SUPPORTED, "google_key_update_not_yet_supported" },
+    { SSL_HND_QUIC_TP_GOOGLE_QUIC_VERSION, "google_quic_version" },
+    { SSL_HND_QUIC_TP_GOOGLE_INITIAL_RTT, "google_initial_rtt" },
+    { SSL_HND_QUIC_TP_GOOGLE_SUPPORT_HANDSHAKE_DONE, "google_support_handshake_done" },
+    { SSL_HND_QUIC_TP_GOOGLE_QUIC_PARAMS, "google_quic_params" },
+    { SSL_HND_QUIC_TP_GOOGLE_CONNECTION_OPTIONS, "google_connection_options" },
+    { SSL_HND_QUIC_TP_FACEBOOK_PARTIAL_RELIABILITY, "facebook_partial_reliability" },
+    { 0, NULL }
+};
+
+/* https://tools.ietf.org/html/draft-huitema-quic-ts-03 */
+const val64_string quic_enable_time_stamp_v2_vals[] = {
+    { 1, "I would like to receive TIME_STAMP frames" },
+    { 2, "I am able to generate TIME_STAMP frames" },
+    { 3, "I am able to generate TIME_STAMP frames and I would like to receive them" },
     { 0, NULL }
 };
 
@@ -5801,13 +5819,11 @@ ssl_compile_keyfile_regex(void)
         ")(?<master_secret>" OCTET "{" G_STRINGIFY(SSL_MASTER_SECRET_LENGTH) "})"
         "|(?"
         /* TLS 1.3 Client Random to Derived Secrets mapping. */
-        /* Since draft-ietf-quic-tls-17 keys are the same as TLS 1.3.
-         * TODO remove this old format. */
-        ":(?:QUIC_)?CLIENT_EARLY_TRAFFIC_SECRET (?<client_early>" OCTET "{32})"
-        "|(?:QUIC_)?CLIENT_HANDSHAKE_TRAFFIC_SECRET (?<client_handshake>" OCTET "{32})"
-        "|(?:QUIC_)?SERVER_HANDSHAKE_TRAFFIC_SECRET (?<server_handshake>" OCTET "{32})"
-        "|(?:QUIC_)?CLIENT_TRAFFIC_SECRET_0 (?<client_appdata>" OCTET "{32})"
-        "|(?:QUIC_)?SERVER_TRAFFIC_SECRET_0 (?<server_appdata>" OCTET "{32})"
+        ":CLIENT_EARLY_TRAFFIC_SECRET (?<client_early>" OCTET "{32})"
+        "|CLIENT_HANDSHAKE_TRAFFIC_SECRET (?<client_handshake>" OCTET "{32})"
+        "|SERVER_HANDSHAKE_TRAFFIC_SECRET (?<server_handshake>" OCTET "{32})"
+        "|CLIENT_TRAFFIC_SECRET_0 (?<client_appdata>" OCTET "{32})"
+        "|SERVER_TRAFFIC_SECRET_0 (?<server_appdata>" OCTET "{32})"
         "|EARLY_EXPORTER_SECRET (?<early_exporter>" OCTET "{32})"
         "|EXPORTER_SECRET (?<exporter>" OCTET "{32})"
         ") (?<derived_secret>" OCTET "+)";
@@ -6489,7 +6505,7 @@ tls_dissect_certificate_authorities(ssl_common_dissect_t *hf, tvbuff_t *tvb, pac
 
             if (dnames_count-- == 0) {
                 /* stop adding to tree when the list is considered too large
-                 * https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=16202
+                 * https://gitlab.com/wireshark/wireshark/-/issues/16202
                    Note: dnames_count must be set low enough not to hit the
                    limit set by PINFO_LAYER_MAX_RECURSION_DEPTH in packet.c
                  */
@@ -7296,7 +7312,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
         proto_tree *parameter_tree;
         guint32 parameter_end_offset;
         guint64 value;
-        guint32 len = 0;
+        guint32 len = 0, i;
 
         parameter_tree = proto_tree_add_subtree(tree, tvb, offset, 2, hf->ett.hs_ext_quictp_parameter,
                                                 NULL, "Parameter");
@@ -7489,8 +7505,63 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                 proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u", value);
                 offset += len;
             break;
+            case SSL_HND_QUIC_TP_GOOGLE_USER_AGENT:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_user_agent_id,
+                                    tvb, offset, parameter_length, ENC_ASCII|ENC_NA);
+                offset += parameter_length;
+            break;
+            case SSL_HND_QUIC_TP_GOOGLE_KEY_UPDATE_NOT_YET_SUPPORTED:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_key_update_not_yet_supported,
+                                    tvb, offset, parameter_length, ENC_NA);
+                offset += parameter_length;
+            break;
+            case SSL_HND_QUIC_TP_GOOGLE_QUIC_VERSION:
+                for (i = 0; i < parameter_length; i += 4) {
+                    proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_quic_version,
+                                        tvb, offset + i, 4, ENC_ASCII|ENC_NA);
+		}
+                offset += parameter_length;
+            break;
+            case SSL_HND_QUIC_TP_GOOGLE_INITIAL_RTT:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_initial_rtt,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " %" G_GINT64_MODIFIER "u us", value);
+                offset += len;
+            break;
+            case SSL_HND_QUIC_TP_GOOGLE_SUPPORT_HANDSHAKE_DONE:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_support_handshake_done,
+                                    tvb, offset, parameter_length, ENC_NA);
+                offset += parameter_length;
+            break;
+            case SSL_HND_QUIC_TP_GOOGLE_QUIC_PARAMS:
+                /* This field was used for non-standard Google-specific parameters encoded as a
+                 * Google QUIC_CRYPTO CHLO and it has been replaced (version >= T051) by individual
+                 * parameters. Report it as a bytes blob... */
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_quic_params,
+                                    tvb, offset, parameter_length, ENC_NA);
+                /* ... and try decoding it: not sure what the first 4 bytes are (but they seems to be always 0) */
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_quic_params_unknown_field,
+                                    tvb, offset, 4, ENC_NA);
+                dissect_gquic_tags(tvb, pinfo, parameter_tree, offset + 4);
+                offset += parameter_length;
+            break;
+            case SSL_HND_QUIC_TP_GOOGLE_CONNECTION_OPTIONS:
+                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_connection_options,
+                                    tvb, offset, parameter_length, ENC_NA);
+                offset += parameter_length;
+            break;
             case SSL_HND_QUIC_TP_ENABLE_TIME_STAMP:
                 /* No Payload */
+            break;
+            case SSL_HND_QUIC_TP_ENABLE_TIME_STAMP_V2:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_enable_time_stamp_v2,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                offset += parameter_length;
+            break;
+            case SSL_HND_QUIC_TP_FACEBOOK_PARTIAL_RELIABILITY:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_facebook_partial_reliability,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                offset += parameter_length;
             break;
             default:
                 offset += parameter_length;
@@ -9324,7 +9395,7 @@ dissect_ssl3_hnd_cli_keyex_rsa(ssl_common_dissect_t *hf, tvbuff_t *tvb,
     case DTLSV1DOT0_OPENSSL_VERSION:
         /* OpenSSL pre-0.9.8f DTLS and pre-TLS quirk: 2-octet length vector is
          * not present. The handshake contents represents the EPMS, see:
-         * https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=10222 */
+         * https://gitlab.com/wireshark/wireshark/-/issues/10222 */
         epms_len = length;
         break;
 

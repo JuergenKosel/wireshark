@@ -6377,7 +6377,7 @@ proto_register_tn3270(void)
     },
     { &hf_tn3270_checkpoint,
       {  "Byte offset from Set Checkpoint Interval structured field to the first"
-         " character afterhe code point or character that caused an eject to the"
+         " character after the code point or character that caused an eject to the"
          " checkpointed page",
          "tn3270.checkpoint",
          FT_UINT32, BASE_DEC, NULL, 0x0,
@@ -7448,7 +7448,7 @@ proto_register_tn3270(void)
     },
     { &hf_tn3270_ua_yr,
       {  "Distance between points in Y direction as a fraction",
-         "tn3270.ua_xr",
+         "tn3270.ua_yr",
          FT_UINT32, BASE_HEX, NULL, 0x0,
          "measured in UNITS, with 2-byte numerator and 2-byte denominator", HFILL }
     },

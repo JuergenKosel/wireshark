@@ -6519,7 +6519,7 @@ proto_register_zbee_zcl_analog_output_basic(void)
             ZBEE_ZCL_STATUS_IN_ALARM, NULL, HFILL } },
 
         { &hf_zbee_zcl_analog_output_basic_status_fault,
-            { "Fault Status", "zbee_zcl_general.analog_output_basic.attr.status.falut", FT_UINT8, BASE_DEC, VALS(zbee_zcl_status_values),
+            { "Fault Status", "zbee_zcl_general.analog_output_basic.attr.status.fault", FT_UINT8, BASE_DEC, VALS(zbee_zcl_status_values),
             ZBEE_ZCL_STATUS_FAULT, NULL, HFILL } },
 
         { &hf_zbee_zcl_analog_output_basic_status_overridden,
@@ -11995,7 +11995,7 @@ proto_register_zbee_zcl_pwr_prof(void)
             "Identifier of the specific energy phase.", HFILL } },
 
         { &hf_zbee_zcl_pwr_prof_expect_duration,
-            { "Expected Duration", "zbee_zcl_general.pwrprof.expecduration", FT_UINT16, BASE_CUSTOM, CF_FUNC(decode_zcl_time_in_minutes), 0x0,
+            { "Expected Duration", "zbee_zcl_general.pwrprof.expectduration", FT_UINT16, BASE_CUSTOM, CF_FUNC(decode_zcl_time_in_minutes), 0x0,
             "The estimated duration of the specific phase.", HFILL } },
 
         { &hf_zbee_zcl_pwr_prof_num_of_trans_phases,
@@ -15084,7 +15084,7 @@ proto_register_zbee_zcl_gp(void)
           { "Commissioning window", "zbee_zcl_general.gp.proxy_comm_mode.comm_window", FT_UINT16, BASE_DEC,
             NULL, 0x0, "Commissioning window in seconds", HFILL }},
         { &hf_zbee_zcl_gp_channel,
-          { "Channel", "zbee_zcl_general.gp.proxy_comm_mode.cnannel", FT_UINT8, BASE_DEC,
+          { "Channel", "zbee_zcl_general.gp.proxy_comm_mode.channel", FT_UINT8, BASE_DEC,
             NULL, 0x0, "Identifier of the channel the devices SHOULD switch to on reception", HFILL }},
         { &hf_zbee_gp_cmd_pcm_opt_action,
           { "Action", "zbee_zcl_general.gp.proxy_comm_mode.opt.action", FT_UINT8, BASE_DEC,
@@ -15232,7 +15232,7 @@ proto_register_zbee_zcl_gp(void)
           { "SecurityKeyType", "zbee_zcl_general.gp.pairing.opt.secur_key_type", FT_UINT24, BASE_HEX,
             VALS(zbee_zcl_gp_secur_key_types), ZBEE_ZCL_GP_PAIRING_OPTION_SECUR_KEY_TYPE, NULL, HFILL }},
         { &hf_zbee_gp_cmd_pairing_opt_gpd_frame_cnt_present,
-          { "Frame Counter present", "zbee_zcl_general.gp.pairing.opt.seq_num_cap", FT_BOOLEAN, 24,
+          { "Frame Counter present", "zbee_zcl_general.gp.pairing.opt.frame_counter_present", FT_BOOLEAN, 24,
             NULL, ZBEE_ZCL_GP_PAIRING_OPTION_GPD_FRAME_CNT_PRESENT, "GPD security Frame Counter present", HFILL }},
         { &hf_zbee_gp_cmd_pairing_opt_gpd_secur_key_present,
           { "Key present", "zbee_zcl_general.gp.pairing.opt.key_present", FT_BOOLEAN, 24,
@@ -15383,7 +15383,7 @@ proto_register_zbee_zcl_gp(void)
           { "Number of Server clusters", "zbee_zcl_general.gp.pc.n_srv_clusters", FT_UINT8, BASE_DEC,
             NULL, ZBEE_ZCL_GP_CLUSTER_LIST_LEN_SRV, NULL, HFILL }},
         { &hf_zbee_gp_n_cli_clusters,
-          { "Number of Client clusters", "zbee_zcl_general.gp.pc.n_srv_clusters", FT_UINT8, BASE_DEC,
+          { "Number of Client clusters", "zbee_zcl_general.gp.pc.n_clnt_clusters", FT_UINT8, BASE_DEC,
             NULL, ZBEE_ZCL_GP_CLUSTER_LIST_LEN_CLI, NULL, HFILL }},
         { &hf_zbee_gp_gpd_cluster_id,
           { "Cluster ID", "zbee_zcl_general.gp.pc.cluster", FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(zbee_aps_cid_names),
@@ -15460,7 +15460,7 @@ proto_register_zbee_zcl_gp(void)
           { "ApplicationID", "zbee_zcl_general.gp.sink_tbl.entry.opt.app_id", FT_UINT16, BASE_HEX,
             NULL, ZBEE_ZCL_GP_SINK_TBL_OPT_APP_ID, NULL, HFILL }},
         { &hf_zbee_gp_sink_tbl_entry_options_comm_mode,
-          { "Communicaton Mode", "zbee_zcl_general.gp.sink_tbl.entry.opt.comm_mode", FT_UINT16, BASE_HEX,
+          { "Communication Mode", "zbee_zcl_general.gp.sink_tbl.entry.opt.comm_mode", FT_UINT16, BASE_HEX,
             VALS(zbee_zcl_gp_communication_modes), ZBEE_ZCL_GP_SINK_TBL_OPT_COMMUNICATION_MODE, NULL, HFILL }},
         { &hf_zbee_gp_sink_tbl_entry_options_seq_num_cap,
           { "Sequence number capabilities", "zbee_zcl_general.gp.sink_tbl.entry.opt.seq_num_cap", FT_BOOLEAN, 16,

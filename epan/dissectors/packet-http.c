@@ -321,6 +321,7 @@ static gboolean check_auth_ntlmssp(proto_item *hdr_item, tvbuff_t *tvb,
 				   packet_info *pinfo, gchar *value);
 static gboolean check_auth_basic(proto_item *hdr_item, tvbuff_t *tvb,
 				 packet_info *pinfo, gchar *value);
+static gboolean check_auth_digest(proto_item* hdr_item, tvbuff_t* tvb, packet_info* pinfo _U_, gchar* value, int offset, int len);
 static gboolean check_auth_citrixbasic(proto_item *hdr_item, tvbuff_t *tvb,
 				 gchar *value, int offset);
 static gboolean check_auth_kerberos(proto_item *hdr_item, tvbuff_t *tvb,
@@ -1811,6 +1812,9 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		proto_tree_add_string_format_value(http_tree, hf_http_file_data,
 			next_tvb, 0, tvb_captured_length(next_tvb), file_data, "%u bytes", tvb_captured_length(next_tvb));
 
+		if (tvb_captured_length(next_tvb) == 0)
+			goto body_dissected;
+
 		/*
 		 * Do subdissector checks.
 		 *
@@ -3168,6 +3172,8 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 				break; /* dissected citrix basic auth */
 			if (check_auth_kerberos(hdr_item, tvb, pinfo, value))
 				break;
+			if (check_auth_digest(hdr_item, tvb, pinfo, value, offset, value_len))
+				break;/* dissected digest basic auth */
 			auth = wmem_new0(wmem_packet_scope(), tap_credential_t);
 			auth->num = pinfo->num;
 			auth->password_hf_id = *headers[hf_index].hf;
@@ -3449,6 +3455,39 @@ check_auth_basic(proto_item *hdr_item, tvbuff_t *tvb, packet_info *pinfo, gchar 
 	return FALSE;
 }
 
+/*
+ * Dissect HTTP Digest authorization.
+ */
+static gboolean
+check_auth_digest(proto_item* hdr_item, tvbuff_t* tvb, packet_info* pinfo _U_, gchar* value, int offset, int len)
+{
+	proto_tree* hdr_tree;
+	int queried_offset;
+
+	if (strncmp(value, "Digest", 6) == 0) {
+		if (hdr_item != NULL) {
+			hdr_tree = proto_item_add_subtree(hdr_item, ett_http_ntlmssp);
+		} else {
+			hdr_tree = NULL;
+		}
+		offset += 21;
+		len -= 21;
+		while (len > 0) {
+			/* Find comma/end of line */
+			queried_offset = tvb_find_guint8(tvb, offset, len, ',');
+			if (queried_offset > 0) {
+				proto_tree_add_format_text(hdr_tree, tvb, offset, queried_offset - offset);
+				len -= (queried_offset - offset);
+				offset = queried_offset + 1;
+			} else {
+				len = 0;
+			}
+		}
+		return TRUE;
+	} else {
+		return FALSE;
+	}
+}
 /*
  * Dissect HTTP CitrixAGBasic authorization.
  */

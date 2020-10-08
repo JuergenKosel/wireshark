@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Ref:
- * 3GPP TS 36.423 V16.2.0 (2020-07)
+ * 3GPP TS 36.423 V16.3.0 (2020-09)
  */
 
 #include "config.h"
@@ -33,6 +33,8 @@
 #include "packet-ranap.h"
 #include "packet-ntp.h"
 #include "packet-s1ap.h"
+#include "packet-f1ap.h"
+#include "packet-xnap.h"
 
 #ifdef _MSC_VER
 /* disable: "warning C4146: unary minus operator applied to unsigned type, result still unsigned" */
@@ -170,6 +172,10 @@ static int ett_x2ap_Non_anchorCarrierFrequency = -1;
 static int ett_x2ap_ReportCharacteristics_ENDC = -1;
 static int ett_x2ap_TargetCellInNGRAN = -1;
 static int ett_x2ap_TDDULDLConfigurationCommonNR = -1;
+static int ett_x2ap_MDT_ConfigurationNR = -1;
+static int ett_x2ap_NRCellPRACHConfig = -1;
+static int ett_x2ap_IntendedTDD_DL_ULConfiguration_NR = -1;
+static int ett_x2ap_UERadioCapability = -1;
 #include "packet-x2ap-ett.c"
 
 /* Forward declarations */
@@ -453,7 +459,7 @@ void proto_register_x2ap(void) {
         NULL, HFILL }},
     { &hf_x2ap_interfacesToTrace_Reserved,
       { "Reserved", "x2ap.interfacesToTrace.Reserved",
-        FT_UINT8, BASE_HEX, NULL, 0x1f,
+        FT_UINT8, BASE_HEX, NULL, 0x07,
         NULL, HFILL }},
     { &hf_x2ap_traceCollectionEntityIPAddress_IPv4,
       { "IPv4", "x2ap.traceCollectionEntityIPAddress.IPv4",
@@ -684,6 +690,10 @@ void proto_register_x2ap(void) {
     &ett_x2ap_ReportCharacteristics_ENDC,
     &ett_x2ap_TargetCellInNGRAN,
     &ett_x2ap_TDDULDLConfigurationCommonNR,
+    &ett_x2ap_MDT_ConfigurationNR,
+    &ett_x2ap_NRCellPRACHConfig,
+    &ett_x2ap_IntendedTDD_DL_ULConfiguration_NR,
+    &ett_x2ap_UERadioCapability,
 #include "packet-x2ap-ettarr.c"
   };
 

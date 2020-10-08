@@ -951,7 +951,7 @@ typedef enum
     DIS_EMISSION_FUNCTION_IMAGING                       = 11,
     DIS_EMISSION_FUNCTION_MOTION_DETECTION              = 12,
     DIS_EMISSION_FUNCTION_NAVIGATION                    = 13,
-    DIS_EMISSION_FUNCTION_WEATHER_METEROLOGICAL         = 14,
+    DIS_EMISSION_FUNCTION_WEATHER_METEOROLOGICAL        = 14,
     DIS_EMISSION_FUNCTION_INSTRUMENTATION               = 15,
     DIS_EMISSION_FUNCTION_IDENTIFICATION_CLASSIFICATION_INCLUDING_IFF = 16,
     DIS_EMISSION_FUNCTION_AAA_FIRE_CONTROL              = 17,
@@ -1042,7 +1042,7 @@ static const value_string DIS_PDU_EmissionFunction_Strings[] =
     {DIS_EMISSION_FUNCTION_IMAGING,                  "Imaging" },
     {DIS_EMISSION_FUNCTION_MOTION_DETECTION,         "Motion Detection" },
     {DIS_EMISSION_FUNCTION_NAVIGATION,               "Navigation" },
-    {DIS_EMISSION_FUNCTION_WEATHER_METEROLOGICAL,    "Weather / Meterological"},
+    {DIS_EMISSION_FUNCTION_WEATHER_METEOROLOGICAL,   "Weather / Meteorological"},
     {DIS_EMISSION_FUNCTION_INSTRUMENTATION,          "Instrumentation" },
     {DIS_EMISSION_FUNCTION_IDENTIFICATION_CLASSIFICATION_INCLUDING_IFF,
                             "Identification/Classification (including IFF)" },
@@ -4448,9 +4448,9 @@ static int hf_dis_entity_orientation_phi = -1;
 static int hf_dis_entity_linear_velocity_x = -1;
 static int hf_dis_entity_linear_velocity_y = -1;
 static int hf_dis_entity_linear_velocity_z = -1;
-static int hf_dis_entity_linear_aceleration_x = -1;
-static int hf_dis_entity_linear_aceleration_y = -1;
-static int hf_dis_entity_linear_aceleration_z = -1;
+static int hf_dis_entity_linear_acceleration_x = -1;
+static int hf_dis_entity_linear_acceleration_y = -1;
+static int hf_dis_entity_linear_acceleration_z = -1;
 static int hf_dis_entity_entity_angular_velocity_x = -1;
 static int hf_dis_entity_entity_angular_velocity_y = -1;
 static int hf_dis_entity_entity_angular_velocity_z = -1;
@@ -4525,7 +4525,7 @@ static int hf_dis_em_beam_parameter_index = -1;
 static int hf_dis_em_fund_frequency = -1;
 static int hf_dis_em_fund_frequency_range = -1;
 static int hf_dis_em_fund_effective_radiated_power = -1;
-static int hf_dis_em_fund_pulse_repition_freq = -1;
+static int hf_dis_em_fund_pulse_repetition_freq = -1;
 static int hf_dis_em_fund_pulse_width = -1;
 static int hf_dis_em_fund_beam_azimuth_center = -1;
 static int hf_dis_em_fund_beam_azimuth_sweep = -1;
@@ -4681,7 +4681,7 @@ static gint ett_entity_orientation = -1;
 static gint ett_entity_marking_text = -1;
 static gint ett_aggregate_marking_text = -1;
 static gint ett_entity_dead_reckoning_parameters = -1;
-static gint ett_entity_linear_aceleration = -1;
+static gint ett_entity_linear_acceleration = -1;
 static gint ett_entity_angular_velocity = -1;
 static gint ett_environmental_environment_status = -1;
 static gint ett_environmental_environment_type = -1;
@@ -4689,7 +4689,7 @@ static gint ett_aggregate_type = -1;
 static gint ett_aggregate_center_of_mass = -1;
 static gint ett_designator_spot_location = -1;
 static gint ett_designator_spot_with_respect_to_designated_entity = -1;
-static gint ett_designator_entity_linear_aceleration = -1;
+static gint ett_designator_entity_linear_acceleration = -1;
 
 
 
@@ -6024,12 +6024,12 @@ static int dissect_DIS_PARSER_ENTITY_STATE_PDU(tvbuff_t *tvb, packet_info *pinfo
     proto_tree_add_item(sub_tree, hf_dis_dead_reckoning_other_parameters, tvb, offset, 15, ENC_NA);
     offset += 15;
 
-    sub_tree2 = proto_tree_add_subtree(sub_tree, tvb, offset, 12, ett_entity_linear_aceleration, NULL, "Entity Linear Acceleration");
-    proto_tree_add_item(sub_tree2, hf_dis_entity_linear_aceleration_x, tvb, offset, 4, ENC_BIG_ENDIAN);
+    sub_tree2 = proto_tree_add_subtree(sub_tree, tvb, offset, 12, ett_entity_linear_acceleration, NULL, "Entity Linear Acceleration");
+    proto_tree_add_item(sub_tree2, hf_dis_entity_linear_acceleration_x, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
-    proto_tree_add_item(sub_tree2, hf_dis_entity_linear_aceleration_y, tvb, offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item(sub_tree2, hf_dis_entity_linear_acceleration_y, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
-    proto_tree_add_item(sub_tree2, hf_dis_entity_linear_aceleration_z, tvb, offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item(sub_tree2, hf_dis_entity_linear_acceleration_z, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
 
     sub_tree2 = proto_tree_add_subtree(sub_tree, tvb, offset, 12, ett_entity_angular_velocity, NULL, "Entity Angular Velocity");
@@ -6326,7 +6326,7 @@ static int dissect_DIS_PARSER_ELECTROMAGNETIC_EMISSION_PDU(tvbuff_t *tvb, packet
             offset += 4;
             proto_tree_add_item(fundamental_tree, hf_dis_em_fund_effective_radiated_power, tvb, offset, 4, ENC_BIG_ENDIAN);
             offset += 4;
-            proto_tree_add_item(fundamental_tree, hf_dis_em_fund_pulse_repition_freq, tvb, offset, 4, ENC_BIG_ENDIAN);
+            proto_tree_add_item(fundamental_tree, hf_dis_em_fund_pulse_repetition_freq, tvb, offset, 4, ENC_BIG_ENDIAN);
             offset += 4;
             proto_tree_add_item(fundamental_tree, hf_dis_em_fund_pulse_width, tvb, offset, 4, ENC_BIG_ENDIAN);
             offset += 4;
@@ -6791,12 +6791,12 @@ static int dissect_DIS_PARSER_DESIGNATOR_PDU(tvbuff_t *tvb, packet_info *pinfo, 
     proto_tree_add_item(tree, hf_dis_padding, tvb, offset, 3, ENC_NA);
     offset += 3;
 
-    sub_tree = proto_tree_add_subtree(tree, tvb, offset, 12, ett_designator_entity_linear_aceleration, NULL, "Entity Linear Acceleration");
-    proto_tree_add_item(sub_tree, hf_dis_entity_linear_aceleration_x, tvb, offset, 4, ENC_BIG_ENDIAN);
+    sub_tree = proto_tree_add_subtree(tree, tvb, offset, 12, ett_designator_entity_linear_acceleration, NULL, "Entity Linear Acceleration");
+    proto_tree_add_item(sub_tree, hf_dis_entity_linear_acceleration_x, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
-    proto_tree_add_item(sub_tree, hf_dis_entity_linear_aceleration_y, tvb, offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item(sub_tree, hf_dis_entity_linear_acceleration_y, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
-    proto_tree_add_item(sub_tree, hf_dis_entity_linear_aceleration_z, tvb, offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item(sub_tree, hf_dis_entity_linear_acceleration_z, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
 
     /* need to finish decoding this PDU */
@@ -8668,7 +8668,7 @@ void proto_register_dis(void)
                 NULL, HFILL }
             },
             { &hf_dis_current_part,
-              { "Current Part",       "dis.num_parts",
+              { "Current Part",       "dis.current_part",
                 FT_UINT8, BASE_DEC, NULL, 0x0,
                 NULL, HFILL }
             },
@@ -9498,7 +9498,7 @@ void proto_register_dis(void)
                NULL, HFILL}
             },
             { &hf_appearance_concealed_movement,
-              {"Concealed Movement", "dis.appearance.lifeform.concealed_stationary",
+              {"Concealed Movement", "dis.appearance.lifeform.concealed_movement",
                FT_UINT32, BASE_DEC, VALS(appearance_concealed_movement_vals), 0x80000000,
                NULL, HFILL}
             },
@@ -9512,18 +9512,18 @@ void proto_register_dis(void)
                FT_BYTES, BASE_NONE, NULL, 0x0,
                NULL, HFILL}
             },
-             { &hf_dis_entity_linear_aceleration_x,
-              {"Entity Linear Aceleration X", "dis.entity_linear_aceleration.x",
+             { &hf_dis_entity_linear_acceleration_x,
+              {"Entity Linear acceleration X", "dis.entity_linear_acceleration.x",
                FT_FLOAT, BASE_NONE, NULL, 0x0,
                NULL, HFILL}
             },
-            { &hf_dis_entity_linear_aceleration_y,
-              {"Entity Linear Aceleration Y", "dis.entity_linear_aceleration.y",
+            { &hf_dis_entity_linear_acceleration_y,
+              {"Entity Linear acceleration Y", "dis.entity_linear_acceleration.y",
                FT_FLOAT, BASE_NONE, NULL, 0x0,
                NULL, HFILL}
             },
-            { &hf_dis_entity_linear_aceleration_z,
-              {"Entity Linear Aceleration Z", "dis.entity_linear_aceleration.z",
+            { &hf_dis_entity_linear_acceleration_z,
+              {"Entity Linear acceleration Z", "dis.entity_linear_acceleration.z",
                FT_FLOAT, BASE_NONE, NULL, 0x0,
                NULL, HFILL}
             },
@@ -9888,8 +9888,8 @@ void proto_register_dis(void)
                 FT_FLOAT, BASE_NONE, NULL, 0x0,
                 NULL, HFILL}
             },
-            { &hf_dis_em_fund_pulse_repition_freq,
-              { "Pulse Repetition Frequency", "dis.em.fund.pulse_repition_freq",
+            { &hf_dis_em_fund_pulse_repetition_freq,
+              { "Pulse Repetition Frequency", "dis.em.fund.pulse_repetition_freq",
                 FT_FLOAT, BASE_NONE, NULL, 0x0,
                 NULL, HFILL}
             },
@@ -10439,7 +10439,7 @@ void proto_register_dis(void)
                 NULL, HFILL }
             },
             { &hf_dis_iff_mode_4,
-              { "IFF Mode 4 Pseude Crypto",  "dis.iff.mode_4",
+              { "IFF Mode 4 Pseudo Crypto",  "dis.iff.mode_4",
                 FT_UINT16, BASE_DEC, VALS(DIS_PDU_IffMode4_Strings), 0x0,
                 NULL, HFILL }
             },
@@ -10503,7 +10503,7 @@ void proto_register_dis(void)
         &ett_entity_marking_text,
         &ett_aggregate_marking_text,
         &ett_entity_dead_reckoning_parameters,
-        &ett_entity_linear_aceleration,
+        &ett_entity_linear_acceleration,
         &ett_entity_angular_velocity,
         &ett_environmental_environment_status,
         &ett_environmental_environment_type,
@@ -10511,7 +10511,7 @@ void proto_register_dis(void)
         &ett_aggregate_center_of_mass,
         &ett_designator_spot_location,
         &ett_designator_spot_with_respect_to_designated_entity,
-        &ett_designator_entity_linear_aceleration,
+        &ett_designator_entity_linear_acceleration,
         &ett_entity_location,
         &ett_entity_orientation,
         &ett_entity_appearance,

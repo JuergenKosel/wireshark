@@ -504,7 +504,7 @@ const value_string ie_tag_num_vals[] = {
   { TAG_CISCO_CCX2,                           "Cisco CCX2" },
   { TAG_PXU,                                  "Proxy Update" },
   { TAG_PXUC,                                 "Proxy Update Confirmation"},
-  { TAG_AUTH_MESH_PEERING_EXCH,               "Auhenticated Mesh Perring Exchange" },
+  { TAG_AUTH_MESH_PEERING_EXCH,               "Authenticated Mesh Peering Exchange" },
   { TAG_MIC,                                  "MIC (Message Integrity Code)" },
   { TAG_DESTINATION_URI,                      "Destination URI" },
   { TAG_U_APSD_COEX,                          "U-APSD Coexistence" },
@@ -3916,6 +3916,15 @@ static int hf_ieee80211_mesh_awake_window = -1;
 static int hf_ieee80211_mesh_mic = -1;
 static int hf_ieee80211_mesh_ampe_encrypted_data = -1;
 
+static int hf_ieee80211_bcn_timing_rctrl = -1;
+static int hf_ieee80211_bcn_timing_rctrl_more = -1;
+static int hf_ieee80211_bcn_timing_rctrl_element_num = -1;
+static int hf_ieee80211_bcn_timing_rctrl_status_num = -1;
+static int hf_ieee80211_bcn_timing_info = -1;
+static int hf_ieee80211_bcn_timing_info_nsta_id = -1;
+static int hf_ieee80211_bcn_timing_info_nsta_tbtt = -1;
+static int hf_ieee80211_bcn_timing_info_nsta_bi = -1;
+
 static int hf_ieee80211_ff_public_action = -1;
 static int hf_ieee80211_ff_protected_public_action = -1;
 static int hf_ieee80211_ff_tod = -1;
@@ -4259,7 +4268,7 @@ static int hf_ieee80211_tag_multiple_bssid_subelem_nontrans_profile = -1;
 static int hf_ieee80211_tag_20_40_bc = -1;
 static int hf_ieee80211_tag_20_40_bc_information_request = -1;
 static int hf_ieee80211_tag_20_40_bc_forty_mhz_intolerant = -1;
-static int hf_ieee80211_tag_20_40_bc_20_mhz_bss_witdh_request = -1;
+static int hf_ieee80211_tag_20_40_bc_20_mhz_bss_width_request = -1;
 static int hf_ieee80211_tag_20_40_bc_obss_scanning_exemption_request = -1;
 static int hf_ieee80211_tag_20_40_bc_obss_scanning_exemption_grant = -1;
 static int hf_ieee80211_tag_20_40_bc_reserved = -1;
@@ -5445,7 +5454,7 @@ static int hf_ieee80211_ff_handover_result = -1;
 static int hf_ieee80211_ff_handover_reject_reason = -1;
 static int hf_ieee80211_ff_destination_reds_aid = -1;
 static int hf_ieee80211_ff_destination_aid = -1;
-static int hf_ieee80211_ff_realy_aid = -1;
+static int hf_ieee80211_ff_relay_aid = -1;
 static int hf_ieee80211_ff_source_aid = -1;
 static int hf_ieee80211_ff_timing_offset = -1;
 static int hf_ieee80211_ff_sampling_frequency_offset = -1;
@@ -5606,8 +5615,8 @@ static int hf_ieee80211_tag_tspec_tsconst_start_time = -1;
 static int hf_ieee80211_tag_tspec_tsconst_duration = -1;
 static int hf_ieee80211_tag_tspec_tsconst_period = -1;
 static int hf_ieee80211_tag_tspec_tsconst_interferer_mac = -1;
-static int hf_ieee80211_tag_channel_measurement_feedback_realtive_I = -1;
-static int hf_ieee80211_tag_channel_measurement_feedback_realtive_Q = -1;
+static int hf_ieee80211_tag_channel_measurement_feedback_relative_I = -1;
+static int hf_ieee80211_tag_channel_measurement_feedback_relative_Q = -1;
 static int hf_ieee80211_tag_channel_measurement_feedback_tap_delay = -1;
 static int hf_ieee80211_tag_channel_measurement_feedback_sector_id = -1;
 static int hf_ieee80211_tag_channel_measurement_feedback_antenna_id = -1;
@@ -6000,6 +6009,8 @@ static gint ett_hwmp_targ_flags_tree = -1;
 static gint ett_mesh_chswitch_flag_tree = -1;
 static gint ett_mesh_config_cap_tree = -1;
 static gint ett_mesh_formation_info_tree = -1;
+static gint ett_bcn_timing_rctrl_tree = -1;
+static gint ett_bcn_timing_info_tree = -1;
 
 static gint ett_rsn_gcs_tree = -1;
 static gint ett_rsn_pcs_tree = -1;
@@ -8421,7 +8432,7 @@ dissect_hs20_osu_provider(proto_tree *tree, tvbuff_t *tvb,
     proto_item_set_len(pi, offset - start_offset);
   }
 
-  return end;
+  return offset;
 }
 
 static void
@@ -11674,9 +11685,9 @@ add_ff_destination_aid(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, 
 }
 
 static guint
-add_ff_realy_aid(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+add_ff_relay_aid(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
 {
-  proto_tree_add_item(tree, hf_ieee80211_ff_realy_aid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+  proto_tree_add_item(tree, hf_ieee80211_ff_relay_aid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
   return 2;
 }
 
@@ -13303,7 +13314,7 @@ add_ff_action_dmg(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offse
     case DMG_ACTION_RLS_REQ:
       offset += add_ff_dialog_token(tree, tvb, pinfo, offset);
       offset += add_ff_destination_aid(tree, tvb, pinfo, offset);
-      offset += add_ff_realy_aid(tree, tvb, pinfo, offset);
+      offset += add_ff_relay_aid(tree, tvb, pinfo, offset);
       offset += add_ff_source_aid(tree, tvb, pinfo, offset);
       break;
     case DMG_ACTION_RLS_RES:
@@ -13313,12 +13324,12 @@ add_ff_action_dmg(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offse
       offset += add_ff_dialog_token(tree, tvb, pinfo, offset);
       offset += add_ff_status_code(tree, tvb, pinfo, offset);
       offset += add_ff_destination_aid(tree, tvb, pinfo, offset);
-      offset += add_ff_realy_aid(tree, tvb, pinfo, offset);
+      offset += add_ff_relay_aid(tree, tvb, pinfo, offset);
       offset += add_ff_source_aid(tree, tvb, pinfo, offset);
       break;
     case DMG_ACTION_RLS_TEARDOWN:
       offset += add_ff_destination_aid(tree, tvb, pinfo, offset);
-      offset += add_ff_realy_aid(tree, tvb, pinfo, offset);
+      offset += add_ff_relay_aid(tree, tvb, pinfo, offset);
       offset += add_ff_source_aid(tree, tvb, pinfo, offset);
       break;
     case DMG_ACTION_RELAY_ACK_REQ:
@@ -13347,7 +13358,7 @@ add_ff_action_dmg(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offse
   return offset - start;
 }
 
-static guint
+guint
 add_ff_action(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset,
               association_sanity_check_t *association_sanity_check)
 {
@@ -18059,7 +18070,7 @@ dissect_20_40_bss_coexistence(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
   static int * const ieee80211_20_40_bss_coexistence_fields[] = {
     &hf_ieee80211_tag_20_40_bc_information_request,
     &hf_ieee80211_tag_20_40_bc_forty_mhz_intolerant,
-    &hf_ieee80211_tag_20_40_bc_20_mhz_bss_witdh_request,
+    &hf_ieee80211_tag_20_40_bc_20_mhz_bss_width_request,
     &hf_ieee80211_tag_20_40_bc_obss_scanning_exemption_request,
     &hf_ieee80211_tag_20_40_bc_obss_scanning_exemption_grant,
     &hf_ieee80211_tag_20_40_bc_reserved,
@@ -22729,6 +22740,58 @@ ieee80211_tag_mesh_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
 }
 
 static int
+ieee80211_tag_beacon_timing(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
+{
+  int tag_len = tvb_reported_length(tvb);
+  ieee80211_tagged_field_data_t* field_data = (ieee80211_tagged_field_data_t*)data;
+  int offset = 0;
+  guint32 value;
+  proto_item *item;
+  proto_tree *subtree;
+
+  static int * const ieee80211_beacon_timing_rctrl_byte[] = {
+    &hf_ieee80211_bcn_timing_rctrl_more,
+    &hf_ieee80211_bcn_timing_rctrl_element_num,
+    &hf_ieee80211_bcn_timing_rctrl_status_num,
+    NULL,
+  };
+
+  /* Beacon timing element (120) */
+  if (tag_len < 2) {
+    expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length,
+                           "Tag length %u too short, must be greater than 1", tag_len);
+    return tvb_captured_length(tvb);
+  }
+
+  proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_ieee80211_bcn_timing_rctrl,
+                      ett_bcn_timing_rctrl_tree, ieee80211_beacon_timing_rctrl_byte,
+                      ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+  offset += 1;
+
+  while (offset < tag_len) {
+    item = proto_tree_add_item(tree, hf_ieee80211_bcn_timing_info, tvb, offset, 6, ENC_NA);
+    subtree = proto_item_add_subtree(item, ett_bcn_timing_info_tree);
+    proto_item_append_text(item, " %u", ((offset / 6) + 1));
+
+    proto_tree_add_item_ret_uint(subtree, hf_ieee80211_bcn_timing_info_nsta_id, tvb, offset, 1, ENC_LITTLE_ENDIAN, &value);
+    proto_item_append_text(item, ": STA ID: %u", value);
+    offset += 1;
+
+    proto_tree_add_item_ret_uint(subtree, hf_ieee80211_bcn_timing_info_nsta_tbtt, tvb, offset, 3, ENC_LITTLE_ENDIAN, &value);
+    proto_item_append_text(item, ", STA TBTT: %u", value);
+    offset += 3;
+
+    proto_tree_add_item_ret_uint(subtree, hf_ieee80211_bcn_timing_info_nsta_bi, tvb, offset, 2, ENC_LITTLE_ENDIAN, &value);
+    proto_item_append_text(item, ", STA BI: %u", value);
+    offset += 2;
+  }
+
+  proto_item_append_text(field_data->item_tag, " (%d entr%s)", offset / 6, plurality(offset / 6, "y", "ies"));
+
+  return tvb_captured_length(tvb);
+}
+
+static int
 ieee80211_tag_mesh_preq(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void* data _U_)
 {
   int offset = 0;
@@ -23492,9 +23555,9 @@ ieee80211_tag_channel_measurement_fb(tvbuff_t *tvb, packet_info *pinfo, proto_tr
   while(num_measurement > 0) {
     proto_tree_add_item(tree, hf_ieee80211_ff_snr, tvb, offset, 1, ENC_NA);
     offset += 1;
-    proto_tree_add_item(tree, hf_ieee80211_tag_channel_measurement_feedback_realtive_I, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item(tree, hf_ieee80211_tag_channel_measurement_feedback_relative_I, tvb, offset, 1, ENC_NA);
     offset += 1;
-    proto_tree_add_item(tree, hf_ieee80211_tag_channel_measurement_feedback_realtive_Q, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item(tree, hf_ieee80211_tag_channel_measurement_feedback_relative_Q, tvb, offset, 1, ENC_NA);
     offset += 1;
     proto_tree_add_item(tree, hf_ieee80211_tag_channel_measurement_feedback_tap_delay, tvb, offset, 1, ENC_NA);
     offset += 1;
@@ -28194,7 +28257,7 @@ proto_register_ieee80211(void)
       FT_ETHER, BASE_NONE, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_beamform_feedback_seg_retrans_bitmap,
-     {"Feedback segment Retansmission Bitmap", "wlan.beamform.feedback_seg_retrans_bitmap",
+     {"Feedback segment Retransmission Bitmap", "wlan.beamform.feedback_seg_retrans_bitmap",
       FT_UINT8, BASE_HEX, NULL, 0,
       NULL, HFILL }},
 
@@ -28281,7 +28344,7 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_ff_rm_action_code,
-     {"Action code", "wlan.rm.action_code",
+     {"Action code", "wlan.fixed.action_code",
       FT_UINT8, BASE_DEC|BASE_EXT_STRING, &rm_action_codes_ext, 0,
       "Radio Measurement Action", HFILL }},
 
@@ -28293,7 +28356,7 @@ proto_register_ieee80211(void)
     {&hf_ieee80211_ff_rm_repetitions,
      {"Repetitions", "wlan.rm.repetitions",
       FT_UINT16, BASE_DEC, NULL, 0,
-      "Numer of Repetitions, 65535 indicates repeat until cancellation", HFILL }},
+      "Number of Repetitions, 65535 indicates repeat until cancellation", HFILL }},
 
     {&hf_ieee80211_ff_rm_tx_power,
      {"Transmit Power Used", "wlan.rm.tx_power",
@@ -28997,7 +29060,7 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_low_power_supported, /* DMG STA capa, bits [48] */
-     {"Low Power SC PHY Supported", "wlan.dmg_capa.low_power_suuported",
+     {"Low Power SC PHY Supported", "wlan.dmg_capa.low_power_supported",
       FT_BOOLEAN, 16, NULL, GENMASK(48-48, 48-48),
       NULL, HFILL }},
 
@@ -29202,7 +29265,7 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_extendable,
-     {"Extenedable", "wlan.ext_sched.extendable",
+     {"Extendable", "wlan.ext_sched.extendable",
       FT_BOOLEAN, 16, NULL, 0x0200,
       NULL, HFILL }},
 
@@ -29297,27 +29360,27 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_tx_mode,
-     {"TX-Mode", "wlan.realy_trans_param.tx_mode",
+     {"TX-Mode", "wlan.relay_trans_param.tx_mode",
       FT_BOOLEAN, 8, NULL, 0x04,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_link_change_interval,
-     {"Link Change Interval", "wlan.realy_trans_param.link_change_interval",
+     {"Link Change Interval", "wlan.relay_trans_param.link_change_interval",
       FT_UINT8, BASE_CUSTOM, CF_FUNC(allocation_duration_base_custom), 0xff,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_data_sensing_time,
-     {"Data Sensing Time", "wlan.realy_trans_param.data_sensing_time",
+     {"Data Sensing Time", "wlan.relay_trans_param.data_sensing_time",
       FT_UINT8, BASE_DEC, NULL, 0xff,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_first_period,
-     {"First Period", "wlan.realy_trans_param.first_period",
+     {"First Period", "wlan.relay_trans_param.first_period",
       FT_UINT16, BASE_DEC, NULL, 0xffff,
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_second_period,
-     {"Second Period", "wlan.realy_trans_param.second_period",
+     {"Second Period", "wlan.relay_trans_param.second_period",
       FT_UINT16, BASE_DEC, NULL, 0xffff,
       NULL, HFILL }},
 
@@ -29352,7 +29415,7 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_bs_fbck_antenna_id,
-     {"BS-FBCK Anetenna ID", "wlan.beam_refine.bs_fbck_antenna_id",
+     {"BS-FBCK Antenna ID", "wlan.beam_refine.bs_fbck_antenna_id",
       FT_UINT40, BASE_DEC, NULL, 0x0000001800,
       NULL, HFILL }},
 
@@ -29511,8 +29574,8 @@ proto_register_ieee80211(void)
        FT_UINT16, BASE_DEC, NULL, 0,
        NULL, HFILL }},
 
-    {&hf_ieee80211_ff_realy_aid,
-      {"Relay AID", "wlan.dmg.realy_aid",
+    {&hf_ieee80211_ff_relay_aid,
+      {"Relay AID", "wlan.dmg.relay_aid",
        FT_UINT16, BASE_DEC, NULL, 0,
        NULL, HFILL }},
 
@@ -29879,13 +29942,13 @@ proto_register_ieee80211(void)
        FT_ETHER, BASE_NONE, NULL, 0,
        NULL, HFILL }},
 
-    {&hf_ieee80211_tag_channel_measurement_feedback_realtive_I,
-      {"Channel Measurement Feedback Relative I", "wlan.ch_meas_fb.realtive_I",
+    {&hf_ieee80211_tag_channel_measurement_feedback_relative_I,
+      {"Channel Measurement Feedback Relative I", "wlan.ch_meas_fb.relative_I",
        FT_UINT8, BASE_DEC, NULL, 0,
        NULL, HFILL }},
 
-    {&hf_ieee80211_tag_channel_measurement_feedback_realtive_Q,
-      {"Channel Measurement Feedback Relative Q", "wlan.ch_meas_fb.realtive_Q",
+    {&hf_ieee80211_tag_channel_measurement_feedback_relative_Q,
+      {"Channel Measurement Feedback Relative Q", "wlan.ch_meas_fb.relative_Q",
        FT_UINT8, BASE_DEC, NULL, 0,
        NULL, HFILL }},
 
@@ -29895,7 +29958,7 @@ proto_register_ieee80211(void)
        NULL, HFILL }},
 
     {&hf_ieee80211_tag_channel_measurement_feedback_sector_id,
-      {"Channel Measurement Feedback Secotr ID", "wlan.ch_meas_fb.sector_id",
+      {"Channel Measurement Feedback Sector ID", "wlan.ch_meas_fb.sector_id",
        FT_UINT8, BASE_DEC, NULL, 0xfc,
        NULL, HFILL }},
 
@@ -31108,6 +31171,46 @@ proto_register_ieee80211(void)
       FT_STRING, BASE_NONE, NULL, 0,
       NULL, HFILL }},
 
+    {&hf_ieee80211_bcn_timing_rctrl,
+     {"Report Control", "wlan.bcntime.rctrl",
+      FT_UINT8, BASE_HEX, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_bcn_timing_rctrl_more,
+     {"More Beacon Timing Elements", "wlan.bcntime.rctrl.more",
+      FT_BOOLEAN, 8, TFS(&tfs_more_nomore), 0x01,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_bcn_timing_rctrl_element_num,
+     {"Beacon Timing Element Number", "wlan.bcntime.rctrl.elem_num",
+      FT_UINT8, BASE_HEX, NULL, 0x0E,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_bcn_timing_rctrl_status_num,
+     {"Status Number", "wlan.bcntime.rctrl.status_num",
+      FT_UINT8, BASE_HEX, NULL, 0xF0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_bcn_timing_info,
+     {"Beacon Timing Info", "wlan.bcntime.info",
+      FT_NONE, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_bcn_timing_info_nsta_id,
+     {"Neighbor STA ID", "wlan.bcntime.info.nstaid",
+      FT_UINT8, BASE_HEX, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_bcn_timing_info_nsta_tbtt,
+     {"Neighbor STA TBTT", "wlan.bcntime.info.nstatbtt",
+      FT_UINT24, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_bcn_timing_info_nsta_bi,
+     {"Neighbor STA Beacon Interval", "wlan.bcntime.info.nstabi",
+       FT_UINT16, BASE_CUSTOM, CF_FUNC(beacon_interval_base_custom), 0,
+      NULL, HFILL }},
+
     {&hf_ieee80211_mesh_mic,
      {"Mesh Peering Management MIC", "wlan.mesh.mic",
       FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
@@ -31836,7 +31939,7 @@ proto_register_ieee80211(void)
       FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_hs20_osu_service_desc_len,
-     {"OSU Service Desctription Length", "wlan.hs20.osu_service_desc_len",
+     {"OSU Service Description Length", "wlan.hs20.osu_service_desc_len",
       FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_hs20_osu_service_desc_duple_len,
@@ -32038,7 +32141,7 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_symbol_proprietary_oui,
-     {"Symbol Propritary OUI", "wlan.tag.symbol_proprietary.oui",
+     {"Symbol Proprietary OUI", "wlan.tag.symbol_proprietary.oui",
       FT_UINT24, BASE_OUI, NULL, 0,
       NULL, HFILL }},
 
@@ -33851,8 +33954,8 @@ proto_register_ieee80211(void)
       FT_BOOLEAN, 8, NULL, 0x02,
       NULL, HFILL }},
 
-    {&hf_ieee80211_tag_20_40_bc_20_mhz_bss_witdh_request,
-     {"20 MHz BSS Witdh Request", "wlan.20_40_bc.20_mhz_bss_witdh_request",
+    {&hf_ieee80211_tag_20_40_bc_20_mhz_bss_width_request,
+     {"20 MHz BSS Width Request", "wlan.20_40_bc.20_mhz_bss_width_request",
       FT_BOOLEAN, 8, NULL, 0x04,
       NULL, HFILL }},
 
@@ -36719,7 +36822,7 @@ proto_register_ieee80211(void)
     {&hf_ieee80211_he_qtp_request_dialog_token,
      {"Dialog Token", "wlan.ext_tag.quiet_time_period.request.dialog_token",
       FT_UINT16, BASE_DEC, NULL, 0,
-      "Quite Time Periords Response suptype to which request subtype corresponds",
+      "Quiet Time Periods Response suptype to which request subtype corresponds",
       HFILL } },
 
     {&hf_ieee80211_he_qtp_request_quiet_period_offset,
@@ -37251,7 +37354,7 @@ proto_register_ieee80211(void)
       FT_BOOLEAN, 16, TFS(&tfs_enabled_disabled), 0x200, NULL, HFILL }},
 
     {&hf_ieee80211_osen_rsn_cap_flags,
-     {"RSN Capability Flags", "wlan.osen.rsn.cabailities.flags",
+     {"RSN Capability Flags", "wlan.osen.rsn.capabilities.flags",
       FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_osen_rsn_spp_a_msdu_capable,
@@ -38102,7 +38205,7 @@ proto_register_ieee80211(void)
       0x80000000000, NULL, HFILL }},
 
     {&hf_ieee80211_he_om_control_ul_mu_data_disable_rx_support,
-     {"OM Control UL MU Data Disable RX Support", "wlan.ext_tag.he_mac_cap.om_cntl_ul_mu_data_disble_rx_support",
+     {"OM Control UL MU Data Disable RX Support", "wlan.ext_tag.he_mac_cap.om_cntl_ul_mu_data_disable_rx_support",
       FT_BOOLEAN, 48, TFS(&tfs_supported_not_supported),
       0x100000000000, NULL, HFILL }},
 
@@ -38749,11 +38852,11 @@ proto_register_ieee80211(void)
       FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_he_operation_channel_center_freq_0,
-     {"Channel Center Frequency Segment 0", "wlan.ext_tag.he_operatoon.vht_op_info.chan_center_freq_seg_0",
+     {"Channel Center Frequency Segment 0", "wlan.ext_tag.he_operation.vht_op_info.chan_center_freq_seg_0",
       FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_he_operation_channel_center_freq_1,
-     {"Channel Center Frequency Segment 1", "wlan.ext_tag.he_operatoon.vht_op_info.chan_center_freq_seg_1",
+     {"Channel Center Frequency Segment 1", "wlan.ext_tag.he_operation.vht_op_info.chan_center_freq_seg_1",
       FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_he_operation_max_colocated_bssid_indicator,
@@ -39077,6 +39180,8 @@ proto_register_ieee80211(void)
     &ett_mesh_chswitch_flag_tree,
     &ett_mesh_config_cap_tree,
     &ett_mesh_formation_info_tree,
+    &ett_bcn_timing_rctrl_tree,
+    &ett_bcn_timing_info_tree,
 
     &ett_rsn_gcs_tree,
     &ett_rsn_pcs_tree,
@@ -39978,6 +40083,7 @@ proto_reg_handoff_ieee80211(void)
   dissector_add_uint("wlan.tag.number", TAG_MESH_PEERING_MGMT, create_dissector_handle(ieee80211_tag_mesh_peering_mgmt, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_CONFIGURATION, create_dissector_handle(ieee80211_tag_mesh_configuration, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_ID, create_dissector_handle(ieee80211_tag_mesh_id, -1));
+  dissector_add_uint("wlan.tag.number", TAG_BEACON_TIMING, create_dissector_handle(ieee80211_tag_beacon_timing, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_PREQ, create_dissector_handle(ieee80211_tag_mesh_preq, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_PREP, create_dissector_handle(ieee80211_tag_mesh_prep, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_PERR, create_dissector_handle(ieee80211_tag_mesh_perr, -1));

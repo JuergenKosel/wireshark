@@ -599,6 +599,7 @@ File "${STAGING_DIR}\diameter\HP.xml"
 File "${STAGING_DIR}\diameter\Huawei.xml"
 File "${STAGING_DIR}\diameter\Inovar.xml"
 File "${STAGING_DIR}\diameter\Juniper.xml"
+File "${STAGING_DIR}\diameter\Metaswitch.xml"
 File "${STAGING_DIR}\diameter\Microsoft.xml"
 File "${STAGING_DIR}\diameter\mobileipv4.xml"
 File "${STAGING_DIR}\diameter\mobileipv6.xml"
@@ -1057,6 +1058,7 @@ File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\g729.dll"
 File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\l16mono.dll"
 File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\sbc.dll"
 File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\ilbc.dll"
+File "${STAGING_DIR}\plugins\${VERSION_MAJOR}.${VERSION_MINOR}\codecs\opus_dec.dll"
 SectionEnd
 
 Section "Configuration Profiles" SecProfiles

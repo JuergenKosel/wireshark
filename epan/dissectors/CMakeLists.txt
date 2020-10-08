@@ -117,6 +117,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-h501.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hnbap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-idmp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-idn.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ilp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-inap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-isdn-sup.c
@@ -342,6 +343,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-epmd.h
 	packet-ess.h
 	packet-eth.h
+	packet-f1ap.h
 	packet-f5ethtrailer.h
 	packet-fc.h
 	packet-fcbls.h
@@ -615,6 +617,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-xmpp-jingle.h
 	packet-xmpp-other.h
 	packet-xmpp-utils.h
+	packet-xnap.h
 	packet-ypbind.h
 	packet-yppasswd.h
 	packet-ypserv.h
@@ -834,6 +837,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-coap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-collectd.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-componentstatus.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-communityid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cops.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-corosync-totemnet.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-corosync-totemsrp.c
@@ -1378,6 +1382,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mausb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mbim.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mbtcp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-mc-nmf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mcpe.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mdp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mdshdr.c
@@ -1432,6 +1437,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mrp-msrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mrp-mvrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ms-mms.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ms-nns.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-msdp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-msn-messenger.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-msnip.c
@@ -2054,7 +2060,7 @@ CHECKAPI(
 	SWITCHES
 	  --group abort
 	  --group termoutput:5 --summary-group termoutput
-	  --build --file ${CHECKAPI_FILE_LIST}
+	  --file ${CHECKAPI_FILE_LIST}
 	SOURCES
 	  ${DISSECTOR_SUPPORT_SRC}
 	  ${DISSECTOR_HEADERS}

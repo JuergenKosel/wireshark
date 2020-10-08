@@ -87,13 +87,14 @@ ADDITIONAL_LIST="libnl-3-dev \
 
 DEBDEPS_LIST="debhelper \
 	dh-python \
+	docbook-xml \
+	docbook-xsl \
+	libxml2-utils \
+	lintian \
+	lsb-release \
 	po-debconf \
 	python3-ply \
-	docbook-xsl \
-	docbook-xml \
-	libxml2-utils \
-	quilt \
-	lsb-release"
+	quilt"
 
 TESTDEPS_LIST=
 
@@ -157,6 +158,10 @@ echo "libsystemd-dev is unavailable"
 # ilbc library from http://www.deb-multimedia.org
 add_package ADDITIONAL_LIST libilbc-dev ||
 echo "libilbc-dev is unavailable"
+
+# opus library libopus-dev
+add_package ADDITIONAL_LIST libopus-dev ||
+    echo "libopus-dev is unavailable"
 
 # softhsm2 2.0.0: Ubuntu 16.04
 # softhsm2 2.2.0: Debian >= jessie-backports, Ubuntu 18.04

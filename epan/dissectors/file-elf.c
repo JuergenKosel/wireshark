@@ -430,7 +430,7 @@ static const value_string os_abi_vals[] = {
     { 0x00,  "No extensions or unspecified" },
     { 0x01,  "Hewlett-Packard HP-UX" },
     { 0x02,  "NetBSD" },
-    { 0x03,  "GNU (historial alias: Linux)" },
+    { 0x03,  "GNU (historical alias: Linux)" },
     { 0x06,  "Sun Solaris" },
     { 0x07,  "AIX" },
     { 0x08,  "IRIX" },
@@ -2008,7 +2008,7 @@ proto_register_elf(void)
             NULL, HFILL }
         },
         { &hf_elf_p_flags_reserved,
-            { "Reserrved Flags",                           "elf.p_flags.reserved",
+            { "Reserved Flags",                            "elf.p_flags.reserved",
             FT_BOOLEAN, 32, NULL, 0x000FFFF8,
             NULL, HFILL }
         },
@@ -2054,7 +2054,7 @@ proto_register_elf(void)
             "This member categorizes the section's contents and semantics.", HFILL }
         },
         { &hf_elf_sh_type_processor_specific,
-            { "Type: Procesor Specific",                   "elf.sh_type",
+            { "Type: Processor Specific",                  "elf.sh_type",
             FT_UINT32, BASE_HEX_DEC, NULL, 0x00,
             "This member categorizes the section's contents and semantics.", HFILL }
         },

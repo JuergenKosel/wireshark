@@ -6,7 +6,7 @@
  *
  * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/
  * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/
- * https://wiki.wireshark.org/SMB2
+ * https://gitlab.com/wireshark/wireshark/-/wikis/SMB2
  *
  * If you edit this file, keep the wiki updated as well.
  *
@@ -159,7 +159,6 @@ static int hf_smb2_infolevel = -1;
 static int hf_smb2_infolevel_file_info = -1;
 static int hf_smb2_infolevel_fs_info = -1;
 static int hf_smb2_infolevel_sec_info = -1;
-static int hf_smb2_infolevel_posix_info = -1;
 static int hf_smb2_max_response_size = -1;
 static int hf_smb2_max_ioctl_in_size = -1;
 static int hf_smb2_max_ioctl_out_size = -1;
@@ -257,9 +256,21 @@ static int hf_smb2_salt_length = -1;
 static int hf_smb2_salt = -1;
 static int hf_smb2_cipher_count = -1;
 static int hf_smb2_cipher_id = -1;
+static int hf_smb2_signing_alg_count = -1;
+static int hf_smb2_signing_alg_id = -1;
 static int hf_smb2_comp_alg_count = -1;
 static int hf_smb2_comp_alg_id = -1;
+static int hf_smb2_comp_alg_flags = -1;
+static int hf_smb2_comp_alg_flags_chained = -1;
+static int hf_smb2_comp_alg_flags_reserved = -1;
 static int hf_smb2_netname_neg_id = -1;
+static int hf_smb2_transport_reserved = -1;
+static int hf_smb2_rdma_transform_count = -1;
+static int hf_smb2_rdma_transform_reserved1 = -1;
+static int hf_smb2_rdma_transform_reserved2 = -1;
+static int hf_smb2_rdma_transform_id = -1;
+static int hf_smb2_posix_reserved = -1;
+static int hf_smb2_inode = -1;
 static int hf_smb2_ea_size = -1;
 static int hf_smb2_ea_flags = -1;
 static int hf_smb2_ea_name_len = -1;
@@ -456,6 +467,7 @@ static int hf_smb2_find_flags_reopen = -1;
 static int hf_smb2_file_index = -1;
 static int hf_smb2_file_directory_info = -1;
 static int hf_smb2_both_directory_info = -1;
+static int hf_smb2_posix_info = -1;
 static int hf_smb2_short_name_len = -1;
 static int hf_smb2_short_name = -1;
 static int hf_smb2_id_both_directory_info = -1;
@@ -495,17 +507,7 @@ static int hf_smb2_app_instance_version_reserved = -1;
 static int hf_smb2_app_instance_version_padding = -1;
 static int hf_smb2_app_instance_version_high = -1;
 static int hf_smb2_app_instance_version_low = -1;
-static int hf_smb2_posix_v1_version = -1;
-static int hf_smb2_posix_v1_request = -1;
-static int hf_smb2_posix_v1_supported_features = -1;
-static int hf_smb2_posix_v1_posix_lock = -1;
-static int hf_smb2_posix_v1_posix_file_semantics = -1;
-static int hf_smb2_posix_v1_posix_utf8_paths = -1;
-static int hf_smb2_posix_v1_case_sensitive = -1;
-static int hf_smb2_posix_v1_posix_will_convert_nt_acls = -1;
-static int hf_smb2_posix_v1_posix_fileinfo = -1;
-static int hf_smb2_posix_v1_posix_acls = -1;
-static int hf_smb2_posix_v1_rich_acls = -1;
+static int hf_smb2_posix_perms = -1;
 static int hf_smb2_aapl_command_code = -1;
 static int hf_smb2_aapl_reserved = -1;
 static int hf_smb2_aapl_server_query_bitmask = -1;
@@ -551,9 +553,15 @@ static int hf_smb2_transform_encrypted_data = -1;
 static int hf_smb2_protocol_id = -1;
 static int hf_smb2_comp_transform_orig_size = -1;
 static int hf_smb2_comp_transform_comp_alg = -1;
-static int hf_smb2_comp_transform_reserved = -1;
+static int hf_smb2_comp_transform_flags = -1;
 static int hf_smb2_comp_transform_offset = -1;
+static int hf_smb2_comp_transform_length = -1;
 static int hf_smb2_comp_transform_data = -1;
+static int hf_smb2_comp_transform_orig_payload_size = -1;
+static int hf_smb2_comp_pattern_v1_pattern = -1;
+static int hf_smb2_comp_pattern_v1_reserved1 = -1;
+static int hf_smb2_comp_pattern_v1_reserved2 = -1;
+static int hf_smb2_comp_pattern_v1_repetitions = -1;
 static int hf_smb2_truncated = -1;
 static int hf_smb2_pipe_fragments = -1;
 static int hf_smb2_pipe_fragment = -1;
@@ -621,6 +629,7 @@ static gint ett_smb2_ea = -1;
 static gint ett_smb2_header = -1;
 static gint ett_smb2_encrypted = -1;
 static gint ett_smb2_compressed = -1;
+static gint ett_smb2_decompressed = -1;
 static gint ett_smb2_command = -1;
 static gint ett_smb2_secblob = -1;
 static gint ett_smb2_negotiate_context_element = -1;
@@ -674,6 +683,7 @@ static gint ett_smb2_lease_flags = -1;
 static gint ett_smb2_share_flags = -1;
 static gint ett_smb2_create_rep_flags = -1;
 static gint ett_smb2_share_caps = -1;
+static gint ett_smb2_comp_alg_flags = -1;
 static gint ett_smb2_ioctl_flags = -1;
 static gint ett_smb2_ioctl_network_interface = -1;
 static gint ett_smb2_ioctl_sqos_opeations = -1;
@@ -691,9 +701,6 @@ static gint ett_smb2_APP_INSTANCE_buffer = -1;
 static gint ett_smb2_svhdx_open_device_context = -1;
 static gint ett_smb2_app_instance_version_buffer = -1;
 static gint ett_smb2_app_instance_version_buffer_version = -1;
-static gint ett_smb2_posix_v1_request = -1;
-static gint ett_smb2_posix_v1_response = -1;
-static gint ett_smb2_posix_v1_supported_features = -1;
 static gint ett_smb2_aapl_create_context_request = -1;
 static gint ett_smb2_aapl_server_query_bitmask = -1;
 static gint ett_smb2_aapl_server_query_caps = -1;
@@ -705,6 +712,7 @@ static gint ett_smb2_file_directory_info = -1;
 static gint ett_smb2_both_directory_info = -1;
 static gint ett_smb2_id_both_directory_info = -1;
 static gint ett_smb2_full_directory_info = -1;
+static gint ett_smb2_posix_info = -1;
 static gint ett_smb2_file_name_info = -1;
 static gint ett_smb2_lock_info = -1;
 static gint ett_smb2_lock_flags = -1;
@@ -726,6 +734,8 @@ static gint ett_smb2_read_flags = -1;
 static gint ett_smb2_signature = -1;
 static gint ett_smb2_transform_flags = -1;
 static gint ett_smb2_fscc_file_attributes = -1;
+static gint ett_smb2_comp_payload = -1;
+static gint ett_smb2_comp_pattern_v1 = -1;
 
 static expert_field ei_smb2_invalid_length = EI_INIT;
 static expert_field ei_smb2_bad_response = EI_INIT;
@@ -788,13 +798,11 @@ static const value_string smb2_alignment_vals[] = {
 #define SMB2_CLASS_FS_INFO	0x02
 #define SMB2_CLASS_SEC_INFO	0x03
 #define SMB2_CLASS_QUOTA_INFO	0x04
-#define SMB2_CLASS_POSIX_INFO	0x80
 static const value_string smb2_class_vals[] = {
 	{ SMB2_CLASS_FILE_INFO,	"FILE_INFO"},
 	{ SMB2_CLASS_FS_INFO,	"FS_INFO"},
 	{ SMB2_CLASS_SEC_INFO,	"SEC_INFO"},
 	{ SMB2_CLASS_QUOTA_INFO, "QUOTA_INFO"},
-	{ SMB2_CLASS_POSIX_INFO, "POSIX_INFO"},
 	{ 0, NULL }
 };
 
@@ -830,6 +838,7 @@ static const value_string smb2_share_type_vals[] = {
 #define SMB2_FILE_NETWORK_OPEN_INFO   0x22
 #define SMB2_FILE_ATTRIBUTE_TAG_INFO  0x23
 #define SMB2_FILE_NORMALIZED_NAME_INFO 0x30
+#define SMB2_FILE_POSIX_INFO          0x64
 
 static const value_string smb2_file_info_levels[] = {
 	{SMB2_FILE_BASIC_INFO,		"SMB2_FILE_BASIC_INFO" },
@@ -853,6 +862,7 @@ static const value_string smb2_file_info_levels[] = {
 	{SMB2_FILE_NETWORK_OPEN_INFO,	"SMB2_FILE_NETWORK_OPEN_INFO" },
 	{SMB2_FILE_ATTRIBUTE_TAG_INFO,	"SMB2_FILE_ATTRIBUTE_TAG_INFO" },
 	{SMB2_FILE_NORMALIZED_NAME_INFO,"SMB2_FILE_NORMALIZED_NAME_INFO" },
+	{SMB2_FILE_POSIX_INFO,		"SMB2_FILE_POSIX_INFO" },
 	{ 0, NULL }
 };
 static value_string_ext smb2_file_info_levels_ext = VALUE_STRING_EXT_INIT(smb2_file_info_levels);
@@ -894,17 +904,6 @@ static const value_string smb2_sec_info_levels[] = {
 };
 static value_string_ext smb2_sec_info_levels_ext = VALUE_STRING_EXT_INIT(smb2_sec_info_levels);
 
-static const value_string smb2_posix_info_levels[] = {
-	{ 0,    "QueryFileUnixBasic" },
-	{ 1,    "QueryFileUnixLink" },
-	{ 3,    "QueryFileUnixHLink" },
-	{ 5,    "QueryFileUnixXAttr" },
-	{ 0x0B, "QueryFileUnixInfo2" },
-	{ 0, NULL }
-};
-
-static value_string_ext smb2_posix_info_levels_ext = VALUE_STRING_EXT_INIT(smb2_posix_info_levels);
-
 #define SMB2_FIND_DIRECTORY_INFO         0x01
 #define SMB2_FIND_FULL_DIRECTORY_INFO    0x02
 #define SMB2_FIND_BOTH_DIRECTORY_INFO    0x03
@@ -912,6 +911,7 @@ static value_string_ext smb2_posix_info_levels_ext = VALUE_STRING_EXT_INIT(smb2_
 #define SMB2_FIND_NAME_INFO              0x0C
 #define SMB2_FIND_ID_BOTH_DIRECTORY_INFO 0x25
 #define SMB2_FIND_ID_FULL_DIRECTORY_INFO 0x26
+#define SMB2_FIND_POSIX_INFO             0x64
 static const value_string smb2_find_info_levels[] = {
 	{ SMB2_FIND_DIRECTORY_INFO,		"SMB2_FIND_DIRECTORY_INFO" },
 	{ SMB2_FIND_FULL_DIRECTORY_INFO,	"SMB2_FIND_FULL_DIRECTORY_INFO" },
@@ -920,6 +920,7 @@ static const value_string smb2_find_info_levels[] = {
 	{ SMB2_FIND_NAME_INFO,			"SMB2_FIND_NAME_INFO" },
 	{ SMB2_FIND_ID_BOTH_DIRECTORY_INFO,	"SMB2_FIND_ID_BOTH_DIRECTORY_INFO" },
 	{ SMB2_FIND_ID_FULL_DIRECTORY_INFO,	"SMB2_FIND_ID_FULL_DIRECTORY_INFO" },
+	{ SMB2_FIND_POSIX_INFO,			"SMB2_FIND_POSIX_INFO" },
 	{ 0, NULL }
 };
 
@@ -927,11 +928,19 @@ static const value_string smb2_find_info_levels[] = {
 #define SMB2_ENCRYPTION_CAPABILITIES        0x0002
 #define SMB2_COMPRESSION_CAPABILITIES       0x0003
 #define SMB2_NETNAME_NEGOTIATE_CONTEXT_ID   0x0005
+#define SMB2_TRANSPORT_CAPABILITIES         0x0006
+#define SMB2_RDMA_TRANSFORM_CAPABILITIES    0x0007
+#define SMB2_SIGNING_CAPABILITIES           0x0008
+#define SMB2_POSIX_EXTENSIONS_CAPABILITIES  0x0100
 static const value_string smb2_negotiate_context_types[] = {
 	{ SMB2_PREAUTH_INTEGRITY_CAPABILITIES,  "SMB2_PREAUTH_INTEGRITY_CAPABILITIES" },
 	{ SMB2_ENCRYPTION_CAPABILITIES,	"SMB2_ENCRYPTION_CAPABILITIES" },
 	{ SMB2_COMPRESSION_CAPABILITIES, "SMB2_COMPRESSION_CAPABILITIES" },
 	{ SMB2_NETNAME_NEGOTIATE_CONTEXT_ID, "SMB2_NETNAME_NEGOTIATE_CONTEXT_ID" },
+	{ SMB2_TRANSPORT_CAPABILITIES, "SMB2_TRANSPORT_CAPABILITIES" },
+	{ SMB2_RDMA_TRANSFORM_CAPABILITIES, "SMB2_RDMA_TRANSFORM_CAPABILITIES" },
+	{ SMB2_SIGNING_CAPABILITIES, "SMB2_SIGNING_CAPABILITIES" },
+	{ SMB2_POSIX_EXTENSIONS_CAPABILITIES, "SMB2_POSIX_EXTENSIONS_CAPABILITIES" },
 	{ 0, NULL }
 };
 
@@ -941,11 +950,25 @@ static const value_string smb2_hash_algorithm_types[] = {
 	{ 0, NULL }
 };
 
+#define SMB2_SIGNING_ALG_HMAC_SHA256 0x0000
+#define SMB2_SIGNING_ALG_AES_CMAC    0x0001
+#define SMB2_SIGNING_ALG_AES_GMAC    0x0002
+static const value_string smb2_signing_alg_types[] = {
+	{ SMB2_SIGNING_ALG_HMAC_SHA256, "HMAC-SHA256" },
+	{ SMB2_SIGNING_ALG_AES_CMAC,    "AES-CMAC" },
+	{ SMB2_SIGNING_ALG_AES_GMAC,    "AES-GMAC" },
+	{ 0, NULL },
+};
+
 #define SMB2_CIPHER_AES_128_CCM        0x0001
 #define SMB2_CIPHER_AES_128_GCM        0x0002
+#define SMB2_CIPHER_AES_256_CCM        0x0003
+#define SMB2_CIPHER_AES_256_GCM        0x0004
 static const value_string smb2_cipher_types[] = {
 	{ SMB2_CIPHER_AES_128_CCM, "AES-128-CCM" },
 	{ SMB2_CIPHER_AES_128_GCM, "AES-128-GCM" },
+	{ SMB2_CIPHER_AES_256_CCM, "AES-256-CCM" },
+	{ SMB2_CIPHER_AES_256_GCM, "AES-256-GCM" },
 	{ 0, NULL }
 };
 
@@ -955,15 +978,35 @@ static int * const smb2_transform_flags[] = {
 	NULL,
 };
 
+#define SMB2_COMP_ALG_FLAGS_CHAINED  0x00000001
+
 #define SMB2_COMP_ALG_NONE        0x0000
 #define SMB2_COMP_ALG_LZNT1       0x0001
 #define SMB2_COMP_ALG_LZ77        0x0002
 #define SMB2_COMP_ALG_LZ77HUFF    0x0003
+#define SMB2_COMP_ALG_PATTERN_V1  0x0004
 static const value_string smb2_comp_alg_types[] = {
 	{ SMB2_COMP_ALG_NONE, "None" },
 	{ SMB2_COMP_ALG_LZNT1, "LZNT1" },
 	{ SMB2_COMP_ALG_LZ77, "LZ77" },
 	{ SMB2_COMP_ALG_LZ77HUFF, "LZ77+Huffman" },
+	{ SMB2_COMP_ALG_PATTERN_V1, "Pattern_V1" },
+	{ 0, NULL }
+};
+
+#define SMB2_COMP_FLAG_NONE    0x0000
+#define SMB2_COMP_FLAG_CHAINED 0x0001
+static const value_string smb2_comp_transform_flags_vals[] = {
+	{ SMB2_COMP_FLAG_NONE, "None" },
+	{ SMB2_COMP_FLAG_CHAINED, "Chained" },
+	{ 0, NULL }
+};
+
+#define SMB2_RDMA_TRANSFORM_NONE       0x0000
+#define SMB2_RDMA_TRANSFORM_ENCRYPTION 0x0001
+static const value_string smb2_rdma_transform_types[] = {
+	{ SMB2_RDMA_TRANSFORM_NONE, "None" },
+	{ SMB2_RDMA_TRANSFORM_ENCRYPTION, "Encryption" },
 	{ 0, NULL }
 };
 
@@ -1983,46 +2026,6 @@ static const value_string file_region_usage_vals[] = {
 static const value_string originator_flags_vals[] = {
 	{ 1, "SVHDX_ORIGINATOR_PVHDPARSER" },
 	{ 4, "SVHDX_ORIGINATOR_VHDMP" },
-	{ 0, NULL }
-};
-
-static const value_string posix_locks_vals[] = {
-	{ 1, "POSIX_V1_POSIX_LOCK" },
-	{ 0, NULL }
-};
-
-static const value_string posix_utf8_paths_vals[] = {
-	{ 1, "POSIX_V1_UTF8_PATHS" },
-	{ 0, NULL }
-};
-
-static const value_string posix_file_semantics_vals[] = {
-	{ 1, "POSIX_V1_POSIX_FILE_SEMANTICS" },
-	{ 0, NULL }
-};
-
-static const value_string posix_case_sensitive_vals[] = {
-	{ 1, "POSIX_V1_CASE_SENSITIVE" },
-	{ 0, NULL }
-};
-
-static const value_string posix_will_convert_ntacls_vals[] = {
-	{ 1, "POSIX_V1_WILL_CONVERT_NT_ACLS" },
-	{ 0, NULL }
-};
-
-static const value_string posix_fileinfo_vals[] = {
-	{ 1, "POSIX_V1_POSIX_FILEINFO" },
-	{ 0, NULL }
-};
-
-static const value_string posix_acls_vals[] = {
-	{ 1, "POSIX_V1_POSIX_ACLS" },
-	{ 0, NULL }
-};
-
-static const value_string posix_rich_acls_vals[] = {
-	{ 1, "POSIX_V1_RICH_ACLS" },
 	{ 0, NULL }
 };
 
@@ -4855,6 +4858,111 @@ static void dissect_smb2_id_full_directory_info(tvbuff_t *tvb, packet_info *pinf
 	}
 }
 
+static int dissect_smb2_posix_info(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, smb2_info_t *si _U_)
+{
+	/* create time */
+	offset = dissect_nt_64bit_time(tvb, tree, offset, hf_smb2_create_timestamp);
+
+	/* last access */
+	offset = dissect_nt_64bit_time(tvb, tree, offset, hf_smb2_last_access_timestamp);
+
+	/* last write */
+	offset = dissect_nt_64bit_time(tvb, tree, offset, hf_smb2_last_write_timestamp);
+
+	/* last change */
+	offset = dissect_nt_64bit_time(tvb, tree, offset, hf_smb2_last_change_timestamp);
+
+	/* allocation size */
+	proto_tree_add_item(tree, hf_smb2_allocation_size, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+	offset += 8;
+
+	/* end of file */
+	proto_tree_add_item(tree, hf_smb2_end_of_file, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+	offset += 8;
+
+	/* File Attributes */
+	offset = dissect_fscc_file_attr(tvb, tree, offset);
+
+	/* file index */
+	proto_tree_add_item(tree, hf_smb2_inode, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+	offset += 8;
+
+	/* dev id */
+	proto_tree_add_item(tree, hf_smb2_file_id, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	/* zero */
+	proto_tree_add_item(tree, hf_smb2_reserved, tvb, offset, 4, ENC_NA);
+	offset += 4;
+
+	/* Hardlinks */
+	proto_tree_add_item(tree, hf_smb2_nlinks, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	/* Reparse tag */
+	proto_tree_add_item(tree, hf_smb2_reparse_tag, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	/* POSIX mode bits */
+	proto_tree_add_item(tree, hf_smb2_posix_perms, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	/* Owner and Group SID */
+	offset = dissect_nt_sid(tvb, offset, tree, "Owner SID", NULL, -1);
+	offset = dissect_nt_sid(tvb, offset, tree, "Group SID", NULL, -1);
+
+	return offset;
+}
+
+static void dissect_smb2_posix_directory_info(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *parent_tree, smb2_info_t *si _U_)
+{
+	int offset = 0;
+	proto_item *item = NULL;
+	proto_tree *tree = NULL;
+
+	while (tvb_reported_length_remaining(tvb, offset) > 4) {
+		int old_offset = offset;
+		int next_offset;
+		int file_name_len;
+
+		if (parent_tree) {
+			item = proto_tree_add_item(parent_tree, hf_smb2_posix_info, tvb, offset, -1, ENC_NA);
+			tree = proto_item_add_subtree(item, ett_smb2_posix_info);
+		}
+
+		/* next offset */
+		next_offset = tvb_get_letohl(tvb, offset);
+		proto_tree_add_item(tree, hf_smb2_next_offset, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+		offset += 4;
+
+		offset = dissect_smb2_posix_info(tvb, pinfo, tree, offset, si);
+
+		/* file name length */
+		proto_tree_add_item_ret_uint(tree, hf_smb2_filename_len, tvb, offset, 4, ENC_LITTLE_ENDIAN, &file_name_len);
+		offset += 4;
+
+		/* file name */
+		if (file_name_len) {
+			proto_tree_add_item(tree, hf_smb2_filename, tvb, offset, file_name_len, ENC_UTF_16|ENC_LITTLE_ENDIAN);
+			offset += file_name_len;
+		}
+
+		proto_item_set_len(item, offset-old_offset);
+
+		if (next_offset == 0) {
+			return;
+		}
+
+		offset = old_offset+next_offset;
+		if (offset < old_offset) {
+			proto_tree_add_expert_format(tree, pinfo, &ei_smb2_invalid_length, tvb, offset, -1,
+				    "Invalid offset/length. Malformed packet");
+			return;
+		}
+	}
+}
+
 
 typedef struct _smb2_find_dissector_t {
 	guint32	level;
@@ -4868,6 +4976,7 @@ smb2_find_dissector_t smb2_find_dissectors[] = {
 	{SMB2_FIND_NAME_INFO,		dissect_smb2_file_name_info},
 	{SMB2_FIND_ID_BOTH_DIRECTORY_INFO,dissect_smb2_id_both_directory_info},
 	{SMB2_FIND_ID_FULL_DIRECTORY_INFO,dissect_smb2_id_full_directory_info},
+	{SMB2_FIND_POSIX_INFO,		dissect_smb2_posix_directory_info},
 	{0, NULL}
 };
 
@@ -4935,9 +5044,15 @@ dissect_smb2_negotiate_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 {
 	guint16 type;
 	const gchar *type_str;
-	guint32 i, data_length, salt_length, hash_count, cipher_count, comp_count;
+	guint32 i, data_length, salt_length, hash_count, cipher_count, comp_count, transform_count;
+	guint32 signing_count;
 	proto_item *sub_item;
 	proto_tree *sub_tree;
+	static int * const comp_alg_flags_fields[] = {
+		&hf_smb2_comp_alg_flags_chained,
+		&hf_smb2_comp_alg_flags_reserved,
+		NULL
+	};
 
 	sub_tree = proto_tree_add_subtree(parent_tree, tvb, offset, -1, ett_smb2_negotiate_context_element, &sub_item, "Negotiate Context");
 
@@ -5000,7 +5115,8 @@ dissect_smb2_negotiate_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 			/* padding */
 			offset += 2;
 
-			/* reserved */
+			/* flags */
+			proto_tree_add_bitmask(sub_tree, tvb, offset, hf_smb2_comp_alg_flags, ett_smb2_comp_alg_flags, comp_alg_flags_fields, ENC_LITTLE_ENDIAN);
 			offset += 4;
 
 			for (i = 0; i < comp_count; i ++) {
@@ -5012,6 +5128,41 @@ dissect_smb2_negotiate_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 		case SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:
 			proto_tree_add_item(sub_tree, hf_smb2_netname_neg_id, tvb, offset,
 					    data_length, ENC_UTF_16|ENC_LITTLE_ENDIAN);
+			offset += data_length;
+			break;
+
+		case SMB2_TRANSPORT_CAPABILITIES:
+			proto_tree_add_item(sub_tree, hf_smb2_transport_reserved, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+			offset += 4;
+			break;
+
+		case SMB2_RDMA_TRANSFORM_CAPABILITIES:
+			proto_tree_add_item_ret_uint(sub_tree, hf_smb2_rdma_transform_count, tvb, offset, 2, ENC_LITTLE_ENDIAN, &transform_count);
+			offset += 2;
+
+			proto_tree_add_item(sub_tree, hf_smb2_rdma_transform_reserved1, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+			offset += 2;
+			proto_tree_add_item(sub_tree, hf_smb2_rdma_transform_reserved2, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+			offset += 4;
+
+			for (i = 0; i < transform_count; i++) {
+				proto_tree_add_item(sub_tree, hf_smb2_rdma_transform_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+				offset += 2;
+			}
+			break;
+
+		case SMB2_SIGNING_CAPABILITIES:
+			proto_tree_add_item_ret_uint(sub_tree, hf_smb2_signing_alg_count, tvb, offset, 2, ENC_LITTLE_ENDIAN, &signing_count);
+			offset += 2;
+
+			for (i = 0; i < signing_count; i++) {
+				proto_tree_add_item(sub_tree, hf_smb2_signing_alg_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+				offset += 2;
+			}
+			break;
+
+		case SMB2_POSIX_EXTENSIONS_CAPABILITIES:
+			proto_tree_add_item(sub_tree, hf_smb2_posix_reserved, tvb, offset, data_length, ENC_NA);
 			offset += data_length;
 			break;
 
@@ -5422,10 +5573,6 @@ dissect_smb2_class_infolevel(packet_info *pinfo, tvbuff_t *tvb, int offset, prot
 		hfindex = hf_smb2_infolevel;
 		vsx = NULL;
 		break;
-	case SMB2_CLASS_POSIX_INFO:
-		hfindex = hf_smb2_infolevel_posix_info;
-		vsx = &smb2_posix_info_levels_ext;
-		break;
 	default:
 		hfindex = hf_smb2_infolevel;
 		vsx = NULL;  /* allowed arg to val_to_str_ext() */
@@ -5659,6 +5806,9 @@ dissect_smb2_infolevel(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
 			break;
 		case SMB2_FILE_NORMALIZED_NAME_INFO:
 			offset = dissect_smb2_file_normalized_name_info(tvb, pinfo, tree, offset, si);
+			break;
+		case SMB2_FILE_POSIX_INFO:
+			offset = dissect_smb2_posix_info(tvb, pinfo, tree, offset, si);
 			break;
 		default:
 			/* we don't handle this infolevel yet */
@@ -8482,63 +8632,43 @@ dissect_smb2_app_instance_version_buffer_response(tvbuff_t *tvb, packet_info *pi
 	report_create_context_malformed_buffer(tvb, pinfo, tree, "APP INSTANCE Version Response");
 }
 
-static int * const posix_flags_fields[] = {
-	&hf_smb2_posix_v1_case_sensitive,
-	&hf_smb2_posix_v1_posix_lock,
-	&hf_smb2_posix_v1_posix_file_semantics,
-	&hf_smb2_posix_v1_posix_utf8_paths,
-	&hf_smb2_posix_v1_posix_will_convert_nt_acls,
-	&hf_smb2_posix_v1_posix_fileinfo,
-	&hf_smb2_posix_v1_posix_acls,
-	&hf_smb2_posix_v1_rich_acls,
-	NULL
-};
-
 static void
-dissect_smb2_posix_v1_caps_request(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree, smb2_info_t *si _U_)
+dissect_smb2_posix_buffer_request(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, smb2_info_t *si _U_)
 {
-	int         offset   = 0;
+	int offset = 0;
 	proto_item *item;
-	proto_item *sub_tree;
 
 	item = proto_tree_get_parent(tree);
+	proto_item_append_text(item, ": POSIX Create Context request");
 
-	proto_item_append_text(item, ": POSIX V1 CAPS request");
-	sub_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_smb2_posix_v1_request, NULL, "POSIX_V1_REQUEST");
-
-	/* Version */
-	proto_tree_add_item(sub_tree, hf_smb2_posix_v1_version,
-			    tvb, offset, 4, ENC_LITTLE_ENDIAN);
-	offset += 4;
-
-	/* Request */
-	proto_tree_add_item(sub_tree, hf_smb2_posix_v1_request,
-			    tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	/* POSIX mode bits */
+	proto_tree_add_item(tree, hf_smb2_posix_perms, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 }
 
 static void
-dissect_smb2_posix_v1_caps_response(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree, smb2_info_t *si _U_)
+dissect_smb2_posix_buffer_response(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, smb2_info_t *si _U_)
 {
-	int         offset   = 0;
+	int offset = 0;
 	proto_item *item;
-	proto_item *sub_tree;
 
 	item = proto_tree_get_parent(tree);
+	proto_item_append_text(item, ": POSIX Create Context response");
 
-	proto_item_append_text(item, ": POSIX V1 CAPS response");
-	sub_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_smb2_posix_v1_response, NULL, "POSIX_V1_RESPONSE");
-
-	/* Version */
-	proto_tree_add_item(sub_tree, hf_smb2_posix_v1_version,
-			    tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	/* Hardlinks */
+	proto_tree_add_item(tree, hf_smb2_nlinks, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 	offset += 4;
 
-	/* Supported Features */
-	proto_tree_add_bitmask(sub_tree, tvb, offset,
-			       hf_smb2_posix_v1_supported_features,
-			       ett_smb2_posix_v1_supported_features,
-			       posix_flags_fields, ENC_LITTLE_ENDIAN);
+	/* Reparse tag */
+	proto_tree_add_item(tree, hf_smb2_reparse_tag, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
 
+	/* POSIX mode bits */
+	proto_tree_add_item(tree, hf_smb2_posix_perms, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	/* Owner and Group SID */
+	offset = dissect_nt_sid(tvb, offset, tree, "Owner SID", NULL, -1);
+	dissect_nt_sid(tvb, offset, tree, "Group SID", NULL, -1);
 }
 
 #define SMB2_AAPL_SERVER_QUERY	1
@@ -8762,8 +8892,8 @@ struct create_context_data_tag_dissectors create_context_dissectors_array[] = {
 	  { dissect_smb2_svhdx_open_device_context, dissect_smb2_svhdx_open_device_context} },
 	{ "b7d082b9-563b-4f07-a07b-524a8116a010", "SMB2_CREATE_APP_INSTANCE_VERSION",
 	   { dissect_smb2_app_instance_version_buffer_request, dissect_smb2_app_instance_version_buffer_response } },
-	{ "34263501-2921-4912-2586-447794114531", "SMB2_POSIX_V1_CAPS",
-	  { dissect_smb2_posix_v1_caps_request, dissect_smb2_posix_v1_caps_response } },
+	{ "5025ad93-b49c-e711-b423-83de968bcd7c", "SMB2_POSIX_CREATE_CONTEXT",
+	  { dissect_smb2_posix_buffer_request, dissect_smb2_posix_buffer_response } },
 	{ "AAPL", "SMB2_AAPL_CREATE_CONTEXT",
 	  { dissect_smb2_AAPL_buffer_request, dissect_smb2_AAPL_buffer_response } },
 };
@@ -10055,6 +10185,132 @@ decrypt_smb_payload(packet_info *pinfo,
 }
 #endif
 
+/*
+  Append tvb[offset:offset+length] to out
+*/
+static void
+append_uncompress_data(wmem_array_t *out, tvbuff_t *tvb, int offset, guint length)
+{
+	wmem_array_append(out, tvb_get_ptr(tvb, offset, length), length);
+}
+
+static int
+dissect_smb2_compression_pattern_v1(proto_tree *tree,
+				    tvbuff_t *tvb, int offset, int length,
+				    wmem_array_t *out)
+{
+	proto_item *pat_item;
+	proto_tree *pat_tree;
+	guint pattern, times;
+
+	pat_tree = proto_tree_add_subtree_format(tree, tvb, offset, length,
+						 ett_smb2_comp_pattern_v1, &pat_item,
+						 "Pattern");
+
+	proto_tree_add_item_ret_uint(pat_tree, hf_smb2_comp_pattern_v1_pattern, tvb, offset, 1, ENC_LITTLE_ENDIAN, &pattern);
+	offset += 1;
+
+	proto_tree_add_item(pat_tree, hf_smb2_comp_pattern_v1_reserved1, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+	offset += 1;
+
+	proto_tree_add_item(pat_tree, hf_smb2_comp_pattern_v1_reserved2, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	offset += 2;
+
+	proto_tree_add_item_ret_uint(pat_tree, hf_smb2_comp_pattern_v1_repetitions, tvb, offset, 4, ENC_LITTLE_ENDIAN, &times);
+	offset += 4;
+
+	proto_item_append_text(pat_item, " 0x%02x repeated %u times", pattern, times);
+
+	if (out && times < MAX_UNCOMPRESSED_SIZE) {
+		guint8 v = (guint8)pattern;
+
+		for (guint i = 0; i < times; i++)
+			wmem_array_append(out, &v, 1);
+	}
+
+	return offset;
+}
+
+static int
+dissect_smb2_chained_comp_payload(packet_info *pinfo, proto_tree *tree,
+				  tvbuff_t *tvb, int offset,
+				  wmem_array_t *out,
+				  gboolean *ok)
+{
+	proto_tree *subtree;
+	proto_item *subitem;
+	guint alg, length, flags, orig_size = 0;
+	tvbuff_t *uncomp_tvb = NULL;
+	gboolean lz_based = FALSE;
+
+	*ok = TRUE;
+
+	subtree = proto_tree_add_subtree_format(tree, tvb, offset, 0, ett_smb2_comp_payload, &subitem, "COMPRESSION_PAYLOAD_HEADER");
+	proto_tree_add_item_ret_uint(subtree, hf_smb2_comp_transform_comp_alg, tvb, offset, 2, ENC_LITTLE_ENDIAN, &alg);
+	offset += 2;
+
+	proto_tree_add_item_ret_uint(subtree, hf_smb2_comp_transform_flags, tvb, offset, 2, ENC_LITTLE_ENDIAN, &flags);
+	offset += 2;
+
+	proto_tree_add_item_ret_uint(subtree, hf_smb2_comp_transform_length, tvb, offset, 4, ENC_LITTLE_ENDIAN, &length);
+	offset += 4;
+
+	proto_item_set_len(subitem, length);
+
+	lz_based = (SMB2_COMP_ALG_LZNT1 <= alg && alg <= SMB2_COMP_ALG_LZ77HUFF);
+	if (lz_based) {
+		proto_tree_add_item_ret_uint(subtree, hf_smb2_comp_transform_orig_payload_size,
+					     tvb, offset, 4, ENC_LITTLE_ENDIAN, &orig_size);
+		offset += 4;
+		length -= 4;
+	}
+
+	if (length > MAX_UNCOMPRESSED_SIZE) {
+		/* decompression error */
+		col_append_str(pinfo->cinfo, COL_INFO, "Comp. SMB3 (invalid)");
+		*ok = FALSE;
+		goto out;
+	}
+
+	switch (alg) {
+	case SMB2_COMP_ALG_NONE:
+		append_uncompress_data(out, tvb, offset, length);
+		break;
+	case SMB2_COMP_ALG_LZ77:
+		uncomp_tvb = tvb_uncompress_lz77(tvb, offset, length);
+		break;
+	case SMB2_COMP_ALG_LZ77HUFF:
+		uncomp_tvb = tvb_uncompress_lz77huff(tvb, offset, length);
+		break;
+	case SMB2_COMP_ALG_LZNT1:
+		uncomp_tvb = tvb_uncompress_lznt1(tvb, offset, length);
+		break;
+	case SMB2_COMP_ALG_PATTERN_V1:
+		dissect_smb2_compression_pattern_v1(subtree, tvb, offset, length, out);
+		break;
+	default:
+		col_append_str(pinfo->cinfo, COL_INFO, "Comp. SMB3 (unknown)");
+		uncomp_tvb = NULL;
+		break;
+	}
+
+	if (lz_based) {
+		if (!uncomp_tvb || tvb_reported_length(uncomp_tvb) != orig_size) {
+			/* decompression error */
+			col_append_str(pinfo->cinfo, COL_INFO, "Comp. SMB3 (invalid)");
+			*ok = FALSE;
+			goto out;
+		}
+		append_uncompress_data(out, uncomp_tvb, 0, tvb_reported_length(uncomp_tvb));
+	}
+
+ out:
+	proto_tree_add_item(subtree, hf_smb2_comp_transform_data, tvb, offset, length, ENC_NA);
+	offset += length;
+
+	return offset;
+}
+
 static int
 dissect_smb2_comp_transform_header(packet_info *pinfo, proto_tree *tree,
 				   tvbuff_t *tvb, int offset,
@@ -10062,13 +10318,29 @@ dissect_smb2_comp_transform_header(packet_info *pinfo, proto_tree *tree,
 				   tvbuff_t **comp_tvb,
 				   tvbuff_t **plain_tvb)
 {
-	guint final_size;
-	guint8 *orig_data;
 	gint in_size;
 	tvbuff_t *uncomp_tvb = NULL;
+	guint flags;
+	wmem_array_t *uncomp_data;
 
 	*comp_tvb = NULL;
 	*plain_tvb = NULL;
+
+	/*
+	  "old" compressed method:
+
+	  [COMPRESS_TRANSFORM_HEADER with Flags=0]
+	    [OPTIONAL UNCOMPRESSED DATA]
+	    [COMPRESSED DATA]
+
+	  new "chained" compressed method:
+
+	  [fist 8 bytes of COMPRESS_TRANSFORM_HEADER with Flags=CHAINED]
+	    [ sequence of
+               [ COMPRESSION_PAYLOAD_HEADER ]
+               [ COMPRESSED PAYLOAD ]
+	    ]
+	 */
 
 	/* SMB2_COMPRESSION_TRANSFORM marker */
 	proto_tree_add_item(tree, hf_smb2_protocol_id, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -10077,10 +10349,31 @@ dissect_smb2_comp_transform_header(packet_info *pinfo, proto_tree *tree,
 	proto_tree_add_item_ret_uint(tree, hf_smb2_comp_transform_orig_size, tvb, offset, 4, ENC_LITTLE_ENDIAN, &scti->orig_size);
 	offset += 4;
 
+	uncomp_data = wmem_array_sized_new(pinfo->pool, 1, 1024);
+
+	flags = tvb_get_letohs(tvb, offset+2);
+	if (flags & SMB2_COMP_FLAG_CHAINED) {
+		gboolean all_ok = TRUE;
+
+		*comp_tvb = tvb_new_subset_length(tvb, offset, tvb_reported_length_remaining(tvb, offset));
+		do {
+			gboolean ok = FALSE;
+
+			offset = dissect_smb2_chained_comp_payload(pinfo, tree, tvb, offset, uncomp_data, &ok);
+			if (!ok)
+				all_ok = FALSE;
+		} while (tvb_reported_length_remaining(tvb, offset) > 8);
+		if (all_ok)
+			goto decompression_ok;
+		else
+			goto out;
+
+	}
+
 	proto_tree_add_item_ret_uint(tree, hf_smb2_comp_transform_comp_alg, tvb, offset, 2, ENC_LITTLE_ENDIAN, &scti->alg);
 	offset += 2;
 
-	proto_tree_add_item(tree, hf_smb2_comp_transform_reserved, tvb, offset, 2, ENC_NA);
+	proto_tree_add_item_ret_uint(tree, hf_smb2_comp_transform_flags, tvb, offset, 2, ENC_LITTLE_ENDIAN, &flags);
 	offset += 2;
 
 	proto_tree_add_item_ret_uint(tree, hf_smb2_comp_transform_offset, tvb, offset, 4, ENC_LITTLE_ENDIAN, &scti->comp_offset);
@@ -10093,13 +10386,12 @@ dissect_smb2_comp_transform_header(packet_info *pinfo, proto_tree *tree,
 		goto out;
 	}
 
-	/* alloc enough space for partial normal packet + uncompressed segment */
-	final_size = scti->orig_size + scti->comp_offset;
-	orig_data = (guint8*)wmem_alloc0(pinfo->pool, final_size);
+	/*
+	 *  final uncompressed size is the partial normal packet + uncompressed segment
+         *  final_size = scti->orig_size + scti->comp_offset
+	 */
 
-	/* copy start of partial packet */
-	tvb_memcpy(tvb, orig_data, offset, scti->comp_offset);
-
+	append_uncompress_data(uncomp_data, tvb, offset, scti->comp_offset);
 	in_size = tvb_reported_length_remaining(tvb, offset + scti->comp_offset);
 
 	/* decompress compressed segment */
@@ -10113,7 +10405,6 @@ dissect_smb2_comp_transform_header(packet_info *pinfo, proto_tree *tree,
 	case SMB2_COMP_ALG_LZNT1:
 		uncomp_tvb = tvb_uncompress_lznt1(tvb, offset + scti->comp_offset, in_size);
 		break;
-	case SMB2_COMP_ALG_NONE:
 	default:
 		col_append_str(pinfo->cinfo, COL_INFO, "Comp. SMB3 (unknown)");
 		uncomp_tvb = NULL;
@@ -10127,10 +10418,14 @@ dissect_smb2_comp_transform_header(packet_info *pinfo, proto_tree *tree,
 	}
 
 	/* write decompressed segment at the end of partial packet */
+	append_uncompress_data(uncomp_data, uncomp_tvb, 0, scti->orig_size);
 
-	tvb_memcpy(uncomp_tvb, orig_data + scti->comp_offset, 0, scti->orig_size);
+ decompression_ok:
 	col_append_str(pinfo->cinfo, COL_INFO, "Decomp. SMB3");
-	*plain_tvb = tvb_new_child_real_data(tvb, orig_data, final_size, final_size);
+	*plain_tvb = tvb_new_child_real_data(tvb,
+					     (guint8 *)wmem_array_get_raw(uncomp_data),
+					     wmem_array_get_count(uncomp_data),
+					     wmem_array_get_count(uncomp_data));
 	add_new_data_source(pinfo, *plain_tvb, "Decomp. SMB3");
 
  out:
@@ -10737,20 +11032,22 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		}
 	} else if (msg_type == SMB2_COMP_HEADER) {
 		proto_tree *comp_tree;
+		proto_item *decomp_item;
 		tvbuff_t   *plain_tvb = NULL;
 		tvbuff_t   *comp_tvb = NULL;
 
-		offset = dissect_smb2_comp_transform_header(pinfo, tree, tvb, offset,
+		offset = dissect_smb2_comp_transform_header(pinfo, header_tree, tvb, offset,
 							    scti, &comp_tvb, &plain_tvb);
 
 		if (plain_tvb) {
-			comp_tree = proto_tree_add_subtree(tree, plain_tvb, 0,
+			comp_tree = proto_tree_add_subtree(header_tree, plain_tvb, 0,
 							   tvb_reported_length_remaining(plain_tvb, 0),
-							   ett_smb2_compressed, NULL,
-							   "Compressed SMB3 data");
+							   ett_smb2_decompressed, &decomp_item,
+							   "Decompressed SMB3 data");
+			proto_item_set_generated(decomp_item);
 			dissect_smb2(plain_tvb, pinfo, comp_tree, FALSE);
 		} else {
-			comp_tree = proto_tree_add_subtree(tree, tvb, offset,
+			comp_tree = proto_tree_add_subtree(header_tree, tvb, offset,
 							   tvb_reported_length_remaining(tvb, offset),
 							   ett_smb2_compressed, NULL,
 							   "Compressed SMB3 data");
@@ -11087,7 +11384,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_mode_information,
 			{ "Mode Information", "smb2.mode_info", FT_UINT32, BASE_HEX,
-			NULL, 0, "File mode informatino", HFILL }
+			NULL, 0, "File mode information", HFILL }
 		},
 
 		{ &hf_smb2_mode_file_write_through,
@@ -11148,11 +11445,6 @@ proto_register_smb2(void)
 		{ &hf_smb2_infolevel_sec_info,
 			{ "InfoLevel", "smb2.sec_info.infolevel", FT_UINT8, BASE_HEX | BASE_EXT_STRING,
 			&smb2_sec_info_levels_ext, 0, "Sec_Info Infolevel", HFILL }
-		},
-
-		{ &hf_smb2_infolevel_posix_info,
-			{ "InfoLevel", "smb2.posix_info.infolevel", FT_UINT8, BASE_HEX | BASE_EXT_STRING,
-			&smb2_posix_info_levels_ext, 0, "Posix_Info Infolevel", HFILL }
 		},
 
 		{ &hf_smb2_write_length,
@@ -11692,6 +11984,14 @@ proto_register_smb2(void)
 			{ "Salt", "smb2.negotiate_context.salt", FT_BYTES, BASE_NONE,
 			NULL, 0, NULL, HFILL }},
 
+		{ &hf_smb2_signing_alg_count,
+			{ "SigningAlgorithmCount", "smb2.negotiate_context.signing_alg_count", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }},
+
+		{ &hf_smb2_signing_alg_id,
+			{ "SigningAlgorithmId", "smb2.negotiate_context.signing_id", FT_UINT16, BASE_HEX,
+			VALS(smb2_signing_alg_types), 0, NULL, HFILL }},
+
 		{ &hf_smb2_cipher_count,
 			{ "CipherCount", "smb2.negotiate_context.cipher_count", FT_UINT16, BASE_DEC,
 			NULL, 0, NULL, HFILL }},
@@ -11699,6 +11999,16 @@ proto_register_smb2(void)
 		{ &hf_smb2_cipher_id,
 			{ "CipherId", "smb2.negotiate_context.cipher_id", FT_UINT16, BASE_HEX,
 			VALS(smb2_cipher_types), 0, NULL, HFILL }},
+
+		{ &hf_smb2_posix_reserved,
+			{ "POSIX Reserved", "smb2.negotiate_context.posix_reserved", FT_BYTES, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_inode,
+			{ "Inode", "smb2.inode", FT_UINT64, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
 
 		{ &hf_smb2_comp_alg_count,
 			{ "CompressionAlgorithmCount", "smb2.negotiate_context.comp_alg_count", FT_UINT16, BASE_DEC,
@@ -11708,9 +12018,49 @@ proto_register_smb2(void)
 			{ "CompressionAlgorithmId", "smb2.negotiate_context.comp_alg_id", FT_UINT16, BASE_HEX,
 			VALS(smb2_comp_alg_types), 0, NULL, HFILL }},
 
+		{ &hf_smb2_comp_alg_flags,
+			{ "Flags", "smb2.negotiate_context.comp_alg_flags", FT_UINT32, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_comp_alg_flags_chained,
+			{ "Chained", "smb2.negotiate_context.comp_alg_flags.chained", FT_BOOLEAN, 32,
+			NULL, SMB2_COMP_ALG_FLAGS_CHAINED, "Chained compression is supported on this connection", HFILL }
+		},
+
+		{ &hf_smb2_comp_alg_flags_reserved,
+			{ "Reserved", "smb2.negotiate_context.comp_alg_flags.reserved", FT_UINT32, BASE_HEX,
+			NULL, 0xFFFFFFFE, "Must be zero", HFILL }
+		},
+
 		{ &hf_smb2_netname_neg_id,
 			{ "Netname", "smb2.negotiate_context.netname", FT_STRING,
 			STR_UNICODE, NULL, 0x0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_transport_reserved,
+			{ "Reserved", "smb2.negotiate_context.transport_reserved", FT_UINT32, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_rdma_transform_count,
+			{ "TransformCount", "smb2.negotiate_context.rdma_transform_count", FT_UINT16, BASE_DEC,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_rdma_transform_reserved1,
+			{ "Reserved1", "smb2.negotiate_context.rdma_transform_reserved1", FT_UINT16, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_rdma_transform_reserved2,
+			{ "Reserved2", "smb2.negotiate_context.rdma_transform_reserved2", FT_UINT32, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_rdma_transform_id,
+			{ "RDMATransformId", "smb2.negotiate_context.rdma_transform_id", FT_UINT16, BASE_HEX,
+			VALS(smb2_rdma_transform_types), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_current_time,
@@ -12624,6 +12974,11 @@ proto_register_smb2(void)
 			NULL, 0, NULL, HFILL }
 		},
 
+		{ &hf_smb2_posix_info,
+			{ "FilePosixInfo", "smb2.find.posix_info", FT_NONE, BASE_NONE,
+			NULL, 0, NULL, HFILL }
+		},
+
 		{ &hf_smb2_short_name_len,
 			{ "Short Name Length", "smb2.short_name_len", FT_UINT8, BASE_DEC,
 			NULL, 0, NULL, HFILL }
@@ -12745,7 +13100,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_error_redir_res_name,
-			{ "Resourse Name", "smb2.error.share_redirect.res_name", FT_STRING, STR_UNICODE,
+			{ "Resource Name", "smb2.error.share_redirect.res_name", FT_STRING, STR_UNICODE,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -12816,7 +13171,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_svhdx_open_device_context_has_initiator_id,
 			{ "HasInitiatorId", "smb2.svhdx_open_device_context.initiator_has_id", FT_BOOLEAN, 8,
-			TFS(&tfs_smb2_svhdx_has_initiator_id), 0, "Whether the host has an intiator", HFILL }
+			TFS(&tfs_smb2_svhdx_has_initiator_id), 0, "Whether the host has an initiator", HFILL }
 		},
 
 		{ &hf_smb2_svhdx_open_device_context_reserved,
@@ -12904,58 +13259,8 @@ proto_register_smb2(void)
 			NULL, 0, NULL, HFILL }
 		},
 
-		{ &hf_smb2_posix_v1_version,
-			{ "Version", "smb2.posix_v1_version", FT_UINT32, BASE_DEC,
-			NULL, 0, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_request,
-			{ "Request", "smb2.posix_request", FT_UINT32, BASE_HEX,
-			NULL, 0, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_case_sensitive,
-			{ "Posix Case Sensitive File Names", "smb2.posix_case_sensitive", FT_UINT32, BASE_HEX,
-			VALS(posix_case_sensitive_vals), 0x01, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_posix_lock,
-			{ "Posix Byte-Range Locks", "smb2.posix_locks", FT_UINT32, BASE_HEX,
-			VALS(posix_locks_vals), 0x02, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_posix_file_semantics,
-			{ "Posix File Semantics", "smb2.posix_file_semantics", FT_UINT32, BASE_HEX,
-			VALS(posix_file_semantics_vals), 0x04, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_posix_utf8_paths,
-			{ "Posix UTF8 Paths", "smb2.posix_utf8_paths", FT_UINT32, BASE_HEX,
-			VALS(posix_utf8_paths_vals), 0x08, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_posix_will_convert_nt_acls,
-			{ "Posix Will Convert NT ACLs", "smb2.will_convert_NTACLs", FT_UINT32, BASE_HEX,
-			VALS(posix_will_convert_ntacls_vals), 0x10, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_posix_fileinfo,
-			{ "Posix Fileinfo", "smb2.posix_fileinfo", FT_UINT32, BASE_HEX,
-			VALS(posix_fileinfo_vals), 0x20, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_posix_acls,
-			{ "Posix ACLs", "smb2.posix_acls", FT_UINT32, BASE_HEX,
-			VALS(posix_acls_vals), 0x40, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_rich_acls,
-			{ "Rich ACLs", "smb2.rich_acls", FT_UINT32, BASE_HEX,
-			VALS(posix_rich_acls_vals), 0x80, NULL, HFILL }
-		},
-
-		{ &hf_smb2_posix_v1_supported_features,
-			{ "Supported Features", "smb2.posix_supported_features", FT_UINT32, BASE_HEX,
+		{ &hf_smb2_posix_perms,
+			{ "POSIX perms", "smb2.posix_perms", FT_UINT32, BASE_OCT,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -13091,9 +13396,9 @@ proto_register_smb2(void)
 			VALS(smb2_comp_alg_types), 0, NULL, HFILL }
 		},
 
-		{ &hf_smb2_comp_transform_reserved,
-			{ "Reserved", "smb2.header.comp_transform.reserved", FT_BYTES, BASE_NONE,
-			NULL, 0, NULL, HFILL }
+		{ &hf_smb2_comp_transform_flags,
+			{ "Flags", "smb2.header.comp_transform.flags", FT_UINT16, BASE_HEX,
+			  VALS(smb2_comp_transform_flags_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_comp_transform_offset,
@@ -13101,8 +13406,38 @@ proto_register_smb2(void)
 			NULL, 0, NULL, HFILL }
 		},
 
+		{ &hf_smb2_comp_transform_length,
+			{ "Length", "smb2.header.comp_transform.length", FT_UINT32, BASE_HEX,
+			NULL, 0, NULL, HFILL }
+		},
+
 		{ &hf_smb2_comp_transform_data,
 		  { "CompressedData", "smb2.header.comp_transform.data", FT_BYTES, BASE_NONE,
+		    NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_comp_transform_orig_payload_size,
+		  { "OriginalPayloadSize", "smb2.header.comp_transform.orig_payload_size", FT_UINT32, BASE_DEC,
+		    NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_comp_pattern_v1_pattern,
+		  { "Pattern", "smb2.pattern_v1.pattern", FT_UINT8, BASE_HEX,
+		    NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_comp_pattern_v1_reserved1,
+		  { "Reserved1", "smb2.pattern_v1.reserved1", FT_UINT8, BASE_HEX,
+		    NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_comp_pattern_v1_reserved2,
+		  { "Reserved2", "smb2.pattern_v1.reserved2", FT_UINT8, BASE_HEX,
+		    NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_comp_pattern_v1_repetitions,
+		  { "Repetitions", "smb2.pattern_v1.repetitions", FT_UINT32, BASE_DEC,
 		    NULL, 0, NULL, HFILL }
 		},
 
@@ -13336,7 +13671,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_fscc_file_attr_integrity_stream,
 			{ "Integrity Stream", "smb2.file_attribute.integrity_stream", FT_BOOLEAN, 32,
-			TFS(&tfs_fscc_file_attribute_integrity_stream), SMB2_FSCC_FILE_ATTRIBUTE_INTEGRITY_STREAM, "Is this file configured with inegrity support?", HFILL } },
+			TFS(&tfs_fscc_file_attribute_integrity_stream), SMB2_FSCC_FILE_ATTRIBUTE_INTEGRITY_STREAM, "Is this file configured with integrity support?", HFILL } },
 
 		{ &hf_smb2_fscc_file_attr_no_scrub_data,
 			{ "No Scrub Data", "smb2.file_attribute.no_scrub_data", FT_BOOLEAN, 32,
@@ -13350,6 +13685,7 @@ proto_register_smb2(void)
 		&ett_smb2_header,
 		&ett_smb2_encrypted,
 		&ett_smb2_compressed,
+		&ett_smb2_decompressed,
 		&ett_smb2_command,
 		&ett_smb2_secblob,
 		&ett_smb2_negotiate_context_element,
@@ -13403,6 +13739,7 @@ proto_register_smb2(void)
 		&ett_smb2_lease_flags,
 		&ett_smb2_share_flags,
 		&ett_smb2_share_caps,
+		&ett_smb2_comp_alg_flags,
 		&ett_smb2_ioctl_flags,
 		&ett_smb2_ioctl_network_interface,
 		&ett_smb2_ioctl_sqos_opeations,
@@ -13418,6 +13755,7 @@ proto_register_smb2(void)
 		&ett_smb2_both_directory_info,
 		&ett_smb2_id_both_directory_info,
 		&ett_smb2_full_directory_info,
+		&ett_smb2_posix_info,
 		&ett_smb2_file_name_info,
 		&ett_smb2_lock_info,
 		&ett_smb2_lock_flags,
@@ -13428,9 +13766,6 @@ proto_register_smb2(void)
 		&ett_smb2_svhdx_open_device_context,
 		&ett_smb2_app_instance_version_buffer,
 		&ett_smb2_app_instance_version_buffer_version,
-		&ett_smb2_posix_v1_request,
-		&ett_smb2_posix_v1_response,
-		&ett_smb2_posix_v1_supported_features,
 		&ett_smb2_aapl_create_context_request,
 		&ett_smb2_aapl_server_query_bitmask,
 		&ett_smb2_aapl_server_query_caps,
@@ -13455,6 +13790,8 @@ proto_register_smb2(void)
 		&ett_smb2_signature,
 		&ett_smb2_transform_flags,
 		&ett_smb2_fscc_file_attributes,
+		&ett_smb2_comp_pattern_v1,
+		&ett_smb2_comp_payload,
 	};
 
 	static ei_register_info ei[] = {

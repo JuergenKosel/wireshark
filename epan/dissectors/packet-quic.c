@@ -12,9 +12,9 @@
 
 /*
  * See https://quicwg.org
- * https://tools.ietf.org/html/draft-ietf-quic-transport-29
- * https://tools.ietf.org/html/draft-ietf-quic-tls-29
- * https://tools.ietf.org/html/draft-ietf-quic-invariants-09
+ * https://tools.ietf.org/html/draft-ietf-quic-transport-31
+ * https://tools.ietf.org/html/draft-ietf-quic-tls-31
+ * https://tools.ietf.org/html/draft-ietf-quic-invariants-11
  *
  * Extension:
  * https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03
@@ -23,14 +23,14 @@
  * https://tools.ietf.org/html/draft-iyengar-quic-delayed-ack-00
  *
  * Currently supported QUIC version(s): draft-21, draft-22, draft-23, draft-24,
- * draft-25, draft-26, draft-27, draft-28, draft-29.
+ * draft-25, draft-26, draft-27, draft-28, draft-29, draft-30, draft-31.
  * For a table of supported QUIC versions per Wireshark version, see
  * https://github.com/quicwg/base-drafts/wiki/Tools#wireshark
  *
  * Decryption is supported via TLS 1.3 secrets in the "TLS Key Log File",
  * configured either at the TLS Protocol preferences, or embedded in a pcapng
  * file. Sample captures and secrets can be found at:
- * https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=13881
+ * https://gitlab.com/wireshark/wireshark/-/issues/13881
  *
  * Limitations:
  * - STREAM offsets larger than 32-bit are unsupported.
@@ -184,6 +184,7 @@ static dissector_handle_t tls13_handshake_handle;
 
 static dissector_table_t quic_proto_dissector_table;
 
+#ifdef HAVE_LIBGCRYPT_AEAD
 /* Fields for showing reassembly results for fragments of QUIC stream data. */
 static const fragment_items quic_stream_fragment_items = {
     &ett_quic_fragment,
@@ -201,6 +202,7 @@ static const fragment_items quic_stream_fragment_items = {
     &hf_quic_reassembled_data,
     "Fragments"
 };
+#endif /* HAVE_LIBGCRYPT_AEAD */
 
 /*
  * PROTECTED PAYLOAD DECRYPTION (done in first pass)
@@ -324,6 +326,7 @@ typedef struct quic_info_data {
     dissector_handle_t app_handle;  /**< Application protocol handle (NULL if unknown). */
     wmem_map_t     *client_streams; /**< Map from Stream ID -> STREAM info (guint64 -> quic_stream_state), sent by the client. */
     wmem_map_t     *server_streams; /**< Map from Stream ID -> STREAM info (guint64 -> quic_stream_state), sent by the server. */
+    gquic_info_data_t *gquic_info; /**< GQUIC info for >Q050 flows. */
 } quic_info_data_t;
 
 /** Per-packet information about QUIC, populated on the first pass. */
@@ -371,7 +374,14 @@ static inline guint8 quic_draft_version(guint32 version) {
         return 22;
     }
     /* Facebook mvfst, based on draft -27. */
-    if (version == 0xfaceb002) {
+    if (version == 0xfaceb002 || version == 0xfaceb00e) {
+        return 27;
+    }
+    /* GQUIC Q050, T050 and T051: they are not really based on any drafts,
+     * but we must return a sensible value */
+    if (version == 0x51303530 ||
+        version == 0x54303530 ||
+        version == 0x54303531) {
         return 27;
     }
     return 0;
@@ -385,9 +395,12 @@ static inline gboolean is_quic_draft_max(guint32 version, guint8 max_version) {
 const value_string quic_version_vals[] = {
     { 0x00000000, "Version Negotiation" },
     { 0x51303434, "Google Q044" },
-    { 0x51303530, "Google Q050 (draft-27)" },
+    { 0x51303530, "Google Q050" },
+    { 0x54303530, "Google T050" },
+    { 0x54303531, "Google T051" },
     { 0xfaceb001, "Facebook mvfst (draft-22)" },
     { 0xfaceb002, "Facebook mvfst (draft-27)" },
+    { 0xfaceb00e, "Facebook mvfst (Experimental)" },
     { 0xff000004, "draft-04" },
     { 0xff000005, "draft-05" },
     { 0xff000006, "draft-06" },
@@ -414,6 +427,8 @@ const value_string quic_version_vals[] = {
     { 0xff00001b, "draft-27" },
     { 0xff00001c, "draft-28" },
     { 0xff00001d, "draft-29" },
+    { 0xff00001e, "draft-30" },
+    { 0xff00001f, "draft-31" },
     { 0, NULL }
 };
 
@@ -501,8 +516,8 @@ static const range_string quic_frame_type_vals[] = {
     { 0x1d, 0x1d,   "CONNECTION_CLOSE (Application)" },
     { 0x1e, 0x1e,   "HANDSHAKE_DONE" },
     { 0x30, 0x31,   "DATAGRAM" },
-    { 0xAF, 0xAF,   "ACK_FREQUENCY" },
-    { 0x02F5, 0x02F5, "TIME_STAMP" },
+    { 0xaf, 0xaf,   "ACK_FREQUENCY" },
+    { 0x02f5, 0x02f5, "TIME_STAMP" },
     { 0,    0,        NULL },
 };
 
@@ -524,12 +539,13 @@ static const range_string quic_transport_error_code_vals[] = {
     { 0x0007, 0x0007, "FRAME_ENCODING_ERROR" },
     { 0x0008, 0x0008, "TRANSPORT_PARAMETER_ERROR" },
     { 0x0009, 0x0009, "CONNECTION_ID_LIMIT_ERROR" },
-    { 0x000A, 0x000A, "PROTOCOL_VIOLATION" },
-    { 0x000B, 0x000B, "INVALID_TOKEN" },
-    { 0x000C, 0x000C, "APPLICATION_ERROR" },
-    { 0x000D, 0x000D, "CRYPTO_BUFFER_EXCEEDED" },
-    { 0x000E, 0x000E, "KEY_UPDATE_ERROR" },
-    { 0x0100, 0x01FF, "CRYPTO_ERROR" },
+    { 0x000a, 0x000a, "PROTOCOL_VIOLATION" },
+    { 0x000b, 0x000b, "INVALID_TOKEN" },
+    { 0x000c, 0x000c, "APPLICATION_ERROR" },
+    { 0x000d, 0x000d, "CRYPTO_BUFFER_EXCEEDED" },
+    { 0x000e, 0x000e, "KEY_UPDATE_ERROR" },
+    { 0x000f, 0x000f, "AEAD_LIMIT_REACHED" },
+    { 0x0100, 0x01ff, "CRYPTO_ERROR" },
     /* 0x40 - 0x3fff Assigned via Specification Required policy. */
     { 0, 0, NULL }
 };
@@ -892,6 +908,22 @@ quic_connection_create(packet_info *pinfo, guint32 version)
     conversation_t *conv = find_or_create_conversation(pinfo);
     conversation_add_proto_data(conv, proto_quic, conn);
 
+    if (version == 0x51303530 || version == 0x54303530 || version == 0x54303531) {
+        gquic_info_data_t  *gquic_info;
+
+        gquic_info = wmem_new(wmem_file_scope(), gquic_info_data_t);
+        if (version == 0x51303530)
+            gquic_info->version = 50;
+        else if (version == 0x54303530)
+            gquic_info->version = 150;
+        else
+            gquic_info->version = 151;
+        gquic_info->encoding = ENC_BIG_ENDIAN;
+        gquic_info->version_valid = TRUE;
+        gquic_info->server_port = pinfo->destport;
+        conn->gquic_info = gquic_info;
+    }
+
     return conn;
 }
 
@@ -1052,7 +1084,7 @@ process_quic_stream(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *t
         tvbuff_t *next_tvb = tvb_new_subset_remaining(tvb, offset);
         // Traverse the STREAM frame tree.
         proto_tree *top_tree = proto_tree_get_parent_tree(tree);
-        //top_tree = proto_tree_get_parent_tree(top_tree);
+        top_tree = proto_tree_get_parent_tree(top_tree);
         call_dissector_with_data(quic_info->app_handle, next_tvb, pinfo, top_tree, stream_info);
     }
 }
@@ -1121,6 +1153,14 @@ again:
     /* Else, find the most previous PDU starting before this sequence number */
     if (!msp && seq > 0) {
         msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32_le(stream->multisegment_pdus, seq-1);
+        /* Unless if we already fully reassembled the msp that covers seq-1
+         * and seq is beyond the end of that msp. In that case this segment
+         * will be the start of a new msp.
+         */
+        if (msp && (msp->flags & MSP_FLAGS_GOT_ALL_SEGMENTS) &&
+            seq >= msp->nxtpdu) {
+            msp = NULL;
+        }
     }
 
     {
@@ -1164,7 +1204,9 @@ again:
                           pinfo, reassembly_id, NULL,
                           seq - msp->seq, len,
                           nxtseq < msp->nxtpdu);
-
+        if (fh) {
+            msp->flags |= MSP_FLAGS_GOT_ALL_SEGMENTS;
+        }
         if (!PINFO_FD_VISITED(pinfo)
         && msp->flags & MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT) {
             msp->flags &= (~MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT);
@@ -1202,8 +1244,11 @@ again:
          * packet.
          */
         if (pinfo->desegment_len) {
-            if (!PINFO_FD_VISITED(pinfo))
+            if (!PINFO_FD_VISITED(pinfo)) {
                 must_desegment = TRUE;
+                if (msp)
+                    msp->flags &= ~MSP_FLAGS_GOT_ALL_SEGMENTS;
+            }
 
             /*
              * Set "deseg_offset" to the offset in "tvb"
@@ -1308,8 +1353,11 @@ again:
                 // TODO move tree item if needed.
 
                 if(pinfo->desegment_len) {
-                    if (!PINFO_FD_VISITED(pinfo))
+                    if (!PINFO_FD_VISITED(pinfo)) {
                         must_desegment = TRUE;
+                        if (msp)
+                            msp->flags &= ~MSP_FLAGS_GOT_ALL_SEGMENTS;
+                    }
                     /* See packet-tcp.h for details about this. */
                     deseg_offset = fh->datalen - pinfo->desegment_offset;
                     deseg_offset = tvb_reported_length(tvb) - deseg_offset;
@@ -1983,12 +2031,26 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
         0x50, 0x45, 0x74, 0xEF, 0xD0, 0x66, 0xFE, 0x2F, 0x9D, 0x94,
         0x5C, 0xFC, 0xDB, 0xD3, 0xA7, 0xF0, 0xD3, 0xB5, 0x6B, 0x45
     };
+    static const guint8 hanshake_salt_draft_t50[20] = {
+        0x7f, 0xf5, 0x79, 0xe5, 0xac, 0xd0, 0x72, 0x91, 0x55, 0x80,
+        0x30, 0x4c, 0x43, 0xa2, 0x36, 0x7c, 0x60, 0x48, 0x83, 0x10
+    };
+    static const gint8 hanshake_salt_draft_t51[20] = {
+        0x7a, 0x4e, 0xde, 0xf4, 0xe7, 0xcc, 0xee, 0x5f, 0xa4, 0x50,
+        0x6c, 0x19, 0x12, 0x4f, 0xc8, 0xcc, 0xda, 0x6e, 0x03, 0x3d
+    };
 
     gcry_error_t    err;
     guint8          secret[HASH_SHA2_256_LENGTH];
 
     if (version == 0x51303530) {
         err = hkdf_extract(GCRY_MD_SHA256, hanshake_salt_draft_q50, sizeof(hanshake_salt_draft_q50),
+                           cid->cid, cid->len, secret);
+    } else if (version == 0x54303530) {
+        err = hkdf_extract(GCRY_MD_SHA256, hanshake_salt_draft_t50, sizeof(hanshake_salt_draft_t50),
+                           cid->cid, cid->len, secret);
+    } else if (version == 0x54303531) {
+        err = hkdf_extract(GCRY_MD_SHA256, hanshake_salt_draft_t51, sizeof(hanshake_salt_draft_t51),
                            cid->cid, cid->len, secret);
     } else if (is_quic_draft_max(version, 22)) {
         err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_22, sizeof(handshake_salt_draft_22),
@@ -2380,7 +2442,11 @@ quic_process_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_
 
         guint decrypted_offset = 0;
         while (tvb_reported_length_remaining(decrypted_tvb, decrypted_offset) > 0) {
-            decrypted_offset = dissect_quic_frame_type(decrypted_tvb, pinfo, tree, decrypted_offset, quic_info, from_server);
+            if (quic_info->version == 0x51303530 || quic_info->version == 0x54303530 || quic_info->version == 0x54303531) {
+                decrypted_offset = dissect_gquic_frame_type(decrypted_tvb, pinfo, tree, decrypted_offset, pkn_len, quic_info->gquic_info);
+            } else {
+                decrypted_offset = dissect_quic_frame_type(decrypted_tvb, pinfo, tree, decrypted_offset, quic_info, from_server);
+            }
         }
     } else if (quic_info->skip_decryption) {
         expert_add_info_format(pinfo, ti, &ei_quic_decryption_failed,
@@ -2548,7 +2614,7 @@ dissect_quic_retry_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
     }
 
     retry_token_len = tvb_reported_length_remaining(tvb, offset);
-    // Remove length of Retry Integrity Tag"
+    // Remove length of Retry Integrity Tag
     if (!is_quic_draft_max(version, 24) && retry_token_len >= 16) {
         retry_token_len -= 16;
     }
@@ -2780,7 +2846,7 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
     if (quic_packet->pkn_len) {
         key_phase = (first_byte & SH_KP) != 0;
         proto_tree_add_uint(hdr_tree, hf_quic_short_reserved, tvb, offset, 1, first_byte);
-        proto_tree_add_boolean(hdr_tree, hf_quic_key_phase, tvb, offset, 1, key_phase);
+        proto_tree_add_boolean(hdr_tree, hf_quic_key_phase, tvb, offset, 1, key_phase<<2);
         proto_tree_add_uint(hdr_tree, hf_quic_packet_number_length, tvb, offset, 1, first_byte);
     }
     offset += 1;
@@ -3037,7 +3103,7 @@ dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             } else {
                 new_offset = dissect_quic_long_header(next_tvb, pinfo, quic_tree, dgram_info, quic_packet);
             }
-        } else if (first_byte != 0) {
+        } else if (!(first_byte == 0 && offset > 0)) {
             // Firefox neqo adds unencrypted padding consisting of all zeroes
             // after an Initial Packet. Whether that is valid or not is
             // discussed at https://github.com/quicwg/base-drafts/issues/3333
@@ -3191,7 +3257,7 @@ static tap_packet_status
 follow_quic_tap_listener(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *data)
 {
     // TODO fix filtering for multiple streams, see
-    // https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=16093
+    // https://gitlab.com/wireshark/wireshark/-/issues/16093
     follow_tvb_tap_listener(tapdata, pinfo, NULL, data);
     return TAP_PACKET_DONT_REDRAW;
 }
