@@ -4968,9 +4968,12 @@ static void
 dissect_gtpv2_p_tmsi(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, guint16 length _U_, guint8 message_type _U_, guint8 instance _U_, session_args_t * args _U_)
 {
     int offset = 0;
+    proto_item* ti;
 
     /* The TMSI consists of 4 octets. It can be coded using a full hexadecimal representation. */
     proto_tree_add_item(tree, hf_gtpv2_p_tmsi, tvb, offset, 4, ENC_BIG_ENDIAN);
+    ti = proto_tree_add_item(tree, hf_3gpp_tmsi, tvb, offset, 4, ENC_BIG_ENDIAN);
+    proto_item_set_hidden(ti);
     proto_item_append_text(item, "%s", tvb_bytes_to_str(wmem_packet_scope(), tvb, offset, 4));
 }
 
@@ -9041,7 +9044,7 @@ void proto_register_gtpv2(void)
         },
         { &hf_gtpv2_p_tmsi,
           {"Packet TMSI (P-TMSI)", "gtpv2.p_tmsi",
-           FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+           FT_UINT32, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_gtpv2_p_tmsi_sig,
           {"P-TMSI Signature", "gtpv2.p_tmsi_sig",
@@ -11017,7 +11020,7 @@ void proto_register_gtpv2(void)
       { &hf_gtpv2_eps_bearer_id_number, { "EPS Bearer ID Number", "gtpv2.eps_bearer_id_number", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_gtpv2_serving_gw_address_length, { "Serving GW Address Length", "gtpv2.serving_gw_address_length", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_gtpv2_charging_characteristic_remaining_octets, { "Remaining octets", "gtpv2.charging_characteristic.remaining_octets", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-      { &hf_gtpv2_trace_id, { "Trace ID", "gtpv2.trace_id", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+      { &hf_gtpv2_trace_id, { "Trace ID", "gtpv2.trace_id", FT_UINT24, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_gtpv2_drx_parameter, { "DRX parameter", "gtpv2.drx_parameter", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_gtpv2_mm_context_sres, { "SRES'", "gtpv2.mm_context_sres", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_gtpv2_mm_context_kc, { "Kc'", "gtpv2.mm_context_kc", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},

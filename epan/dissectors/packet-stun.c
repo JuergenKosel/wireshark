@@ -22,7 +22,8 @@
  * - RFC 5780, formerly draft-ietf-behave-nat-behavior-discovery-08
  *             NAT Behavior Discovery Using Session Traversal Utilities for NAT (STUN)
  * - RFC 5766, formerly draft-ietf-behave-turn-16
- *             Traversal Using Relays around NAT (TURN)
+ *             Traversal Using Relays around NAT (TURN) (superseeded by RFC 8656)
+ * - RFC 8656  Traversal Using Relays around NAT (TURN)
  * - RFC 6062  Traversal Using Relays around NAT (TURN) Extensions for TCP Allocations
  * - RFC 6156, formerly draft-ietf-behave-turn-ipv6-11
  *             Traversal Using Relays around NAT (TURN) Extension for IPv6
@@ -169,6 +170,7 @@ static int hf_stun_att_xor_ipv6 = -1;
 static int hf_stun_att_xor_port = -1;
 static int hf_stun_att_icmp_type = -1;
 static int hf_stun_att_icmp_code = -1;
+static int hf_stun_att_ms_turn_unknown_8006 = -1;
 static int hf_stun_att_software = -1;
 static int hf_stun_att_priority = -1;
 static int hf_stun_att_tie_breaker = -1;
@@ -193,6 +195,8 @@ static int hf_stun_att_ms_sequence_number = -1;
 static int hf_stun_att_ms_stream_type = -1;
 static int hf_stun_att_ms_service_quality = -1;
 static int hf_stun_att_ms_foundation = -1;
+static int hf_stun_att_ms_multiplexed_turn_session_id = -1;
+static int hf_stun_att_ms_turn_session_id = -1;
 static int hf_stun_att_bandwidth_acm_type = -1;
 static int hf_stun_att_bandwidth_rsv_id = -1;
 static int hf_stun_att_bandwidth_rsv_amount_misb = -1;
@@ -216,7 +220,9 @@ static int hf_stun_network_version = -1;
 
 /* Expert items */
 static expert_field ei_stun_short_packet = EI_INIT;
+static expert_field ei_stun_wrong_msglen = EI_INIT;
 static expert_field ei_stun_long_attribute = EI_INIT;
+static expert_field ei_stun_unknown_attribute = EI_INIT;
 
 /* Structure containing transaction specific information */
 typedef struct _stun_transaction_t {
@@ -240,11 +246,11 @@ typedef struct _stun_conv_info_t {
 #define MESSAGE_COOKIE 0x2112A442
 #define TURN_MAGIC_COOKIE 0x72C64BC6
 
-/* Message classes */
-#define REQUEST         0x0000
-#define INDICATION      0x0001
-#define RESPONSE        0x0002
-#define ERROR_RESPONSE  0x0003
+/* Message classes (2 bit) */
+#define REQUEST          0
+#define INDICATION       1
+#define SUCCESS_RESPONSE 2
+#define ERROR_RESPONSE   3
 
 
 /* Methods */
@@ -290,8 +296,8 @@ typedef struct _stun_conv_info_t {
 #define XOR_PEER_ADDRESS        0x0012 /* RFC8656, MS-TURN */
 #define DATA                    0x0013 /* RFC8656, MS-TURN */
 /* Note: REALM and NONCE have swapped attribute numbers in MS-TURN */
-#define REALM                   0x0014 /* RFC8489, MS-TURN */
-#define NONCE                   0x0015 /* RFC8489, MS-TURN */
+#define REALM                   0x0014 /* RFC8489, MS-TURN uses 0x0015 */
+#define NONCE                   0x0015 /* RFC8489, MS-TURN uses 0x0014 */
 #define XOR_RELAYED_ADDRESS     0x0016 /* RFC8656 */
 #define REQUESTED_ADDRESS_FAMILY 0x0017 /* RFC8656, MS-TURN */
 #define EVEN_PORT               0x0018 /* RFC8656 */
@@ -329,6 +335,8 @@ typedef struct _stun_conv_info_t {
 #define PASSWORD_ALGORITHMS     0x8002 /* RFC8489 */
 #define ALTERNATE_DOMAIN        0x8003 /* RFC8489 */
 #define ICMP                    0x8004 /* RFC8656 */
+/* Unknown attribute in MS-TURN packets */
+#define MS_TURN_UNKNOWN_8006	0x8006
 /* 0x8005-0x8021 Unassigned collision */
 #define MS_VERSION              0x8008 /* MS-TURN */
 /* collision */
@@ -412,11 +420,11 @@ static const value_string transportnames[] = {
 };
 
 static const value_string classes[] = {
-    {REQUEST       , "Request"},
-    {INDICATION    , "Indication"},
-    {RESPONSE      , "Success Response"},
-    {ERROR_RESPONSE, "Error Response"},
-    {0x00          , NULL}
+    {REQUEST         , "Request"},
+    {INDICATION      , "Indication"},
+    {SUCCESS_RESPONSE, "Success Response"},
+    {ERROR_RESPONSE  , "Error Response"},
+    {0x00            , NULL}
 };
 
 static const value_string methods[] = {
@@ -486,6 +494,7 @@ static const value_string attributes[] = {
     {PASSWORD_ALGORITHMS   , "PASSWORD-ALGORITHMS"},
     {ALTERNATE_DOMAIN      , "ALTERNATE-DOMAIN"},
     {ICMP                  , "ICMP"},
+    {MS_TURN_UNKNOWN_8006  , "MS-TURN UNKNOWN 8006"},
     {MS_VERSION            , "MS-VERSION"},
     {MS_XOR_MAPPED_ADDRESS , "XOR-MAPPED-ADDRESS"},
     {SOFTWARE              , "SOFTWARE"},
@@ -708,10 +717,11 @@ get_stun_message_len(packet_info *pinfo _U_, tvbuff_t *tvb,
  * re-use the packet-turnchannel.c's dissect_turnchannel_message() function?
  */
 static int
-dissect_stun_message_channel_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint16 msg_type _U_, guint msg_length)
+dissect_stun_message_channel_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint16 msg_type, guint msg_length)
 {
     tvbuff_t *next_tvb;
     heur_dtbl_entry_t *hdtbl_entry;
+    gint offset = CHANNEL_DATA_HDR_LEN;
 
     /* XXX: a TURN ChannelData message is not actually a STUN message. */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "STUN");
@@ -728,9 +738,17 @@ dissect_stun_message_channel_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
         stun_tree = proto_item_add_subtree(ti, ett_stun);
         proto_tree_add_item(stun_tree, hf_stun_channel, tvb, 0, 2, ENC_BIG_ENDIAN);
         proto_tree_add_item(stun_tree, hf_stun_length,  tvb, 2, 2, ENC_BIG_ENDIAN);
+        /* MS-TURN Multiplexed TURN Channel */
+        if (msg_type == 0xFF10 && msg_length >= 8) {
+            proto_tree_add_item(stun_tree, hf_stun_att_ms_turn_session_id, tvb, 4, 8, ENC_NA);
+        }
+    }
+    if (msg_type == 0xFF10 && msg_length >= 8) {
+        msg_length -= 8;
+        offset += 8;
     }
 
-    next_tvb = tvb_new_subset_length(tvb, CHANNEL_DATA_HDR_LEN, msg_length);
+    next_tvb = tvb_new_subset_length(tvb, offset, msg_length);
 
     if (!dissector_try_heuristic(heur_subdissector_list, next_tvb, pinfo, tree, &hdtbl_entry, NULL)) {
         call_dissector_only(data_handle, next_tvb, pinfo, tree, NULL);
@@ -975,7 +993,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                                    stun_trans->rep_frame);
             proto_item_set_generated(it);
         }
-        if (msg_type_class == RESPONSE || msg_type_class == ERROR_RESPONSE) {
+        if (msg_type_class == SUCCESS_RESPONSE || msg_type_class == ERROR_RESPONSE) {
             /* This is a response */
             if (stun_trans->req_frame) {
                 proto_item *it;
@@ -1024,9 +1042,6 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
     if (msg_length != 0) {
         const gchar       *attribute_name_str;
 
-        ti = proto_tree_add_item(stun_tree, hf_stun_attributes, tvb, offset, msg_length, ENC_NA);
-        att_all_tree = proto_item_add_subtree(ti, ett_stun_att_all);
-
         /* According to [MS-TURN] section 2.2.2.8: "This attribute MUST be the
            first attribute following the TURN message header in all TURN messages  */
         if (stun_network_version == NET_VER_AUTO &&
@@ -1034,6 +1049,16 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
             tvb_get_ntohs(tvb, offset) == MAGIC_COOKIE) {
           network_version = NET_VER_MS_TURN;
         }
+
+        ti = proto_tree_add_uint(stun_tree, hf_stun_network_version, tvb, offset, 0, network_version);
+        proto_item_set_generated(ti);
+
+        /* Starting with RFC 5389 msg_length MUST be multiple of 4 bytes */
+        if ((network_version >= NET_VER_5389 && msg_length & 3) != 0)
+            stun_tree = proto_tree_add_expert(stun_tree, pinfo, &ei_stun_wrong_msglen, tvb, offset-18, 2);
+
+        ti = proto_tree_add_item(stun_tree, hf_stun_attributes, tvb, offset, msg_length, ENC_NA);
+        att_all_tree = proto_item_add_subtree(ti, ett_stun_att_all);
 
         while (offset < (STUN_HDR_LEN + msg_length)) {
             att_type = tvb_get_ntohs(tvb, offset);     /* Attribute type field in attribute header */
@@ -1046,16 +1071,15 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
             /* Early drafts and MS-TURN use swapped numbers to later versions */
             if ((network_version < NET_VER_3489) && (att_type == 0x0014 || att_type == 0x0015)) {
                 att_type_display ^= 1;
-                att_type ^= 1;
             }
-            attribute_name_str = val_to_str_ext_const(att_type_display, &attributes_ext, "Unknown");
-            if(att_all_tree){
+            attribute_name_str = try_val_to_str_ext(att_type_display, &attributes_ext);
+            if (attribute_name_str){
                 ti = proto_tree_add_uint_format(att_all_tree, hf_stun_attr,
                                                 tvb, offset, ATTR_HDR_LEN+att_length_pad,
                                                 att_type, "%s", attribute_name_str);
                 att_tree = proto_item_add_subtree(ti, ett_stun_att);
-                ti = proto_tree_add_uint(att_tree, hf_stun_att_type, tvb,
-                                         offset, 2, att_type);
+                ti = proto_tree_add_uint_format_value(att_tree, hf_stun_att_type, tvb,
+                                         offset, 2, att_type, "%s", attribute_name_str);
                 att_type_tree = proto_item_add_subtree(ti, ett_stun_att_type);
                 proto_tree_add_uint(att_type_tree, hf_stun_att_type_comprehension, tvb, offset, 2, att_type);
                 proto_tree_add_uint(att_type_tree, hf_stun_att_type_assignment, tvb, offset, 2, att_type);
@@ -1068,6 +1092,9 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                                                      att_length_pad);
                     break;
                 }
+            } else {
+                att_tree = proto_tree_add_expert_format(att_all_tree, pinfo, &ei_stun_unknown_attribute, tvb,
+                                                        offset, 2, "Unknown attribute 0x%04x", att_type);
             }
             offset += 2;
 
@@ -1429,6 +1456,10 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                 proto_tree_add_item(att_tree, hf_stun_att_icmp_code, tvb, offset+1, 1, ENC_BIG_ENDIAN);
                 break;
 
+            case MS_TURN_UNKNOWN_8006:
+                proto_tree_add_item(att_tree, hf_stun_att_ms_turn_unknown_8006, tvb, offset, att_length, ENC_NA);
+                break;
+
             case SOFTWARE:
                 proto_tree_add_item(att_tree, hf_stun_att_software, tvb, offset, att_length, ENC_UTF_8|ENC_NA);
                 break;
@@ -1593,6 +1624,11 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
             case MS_CANDIDATE_IDENTIFIER:
                 proto_tree_add_item(att_tree, hf_stun_att_ms_foundation, tvb, offset, 4, ENC_ASCII|ENC_NA);
                 break;
+            case MS_MULTIPLEXED_TURN_SESSION_ID:
+                proto_tree_add_item(att_tree, hf_stun_att_ms_multiplexed_turn_session_id, tvb, offset, 8, ENC_NA);
+                /* Trick to force decoding of MS-TURN Multiplexed TURN channels */
+                found_turn_attributes = TRUE;
+                break;
 
             case GOOG_NETWORK_INFO:
                 proto_tree_add_item(att_tree, hf_stun_att_google_network_id, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -1610,11 +1646,6 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
             offset += att_length_pad;
         }
     }
-
-    ti = proto_tree_add_uint(stun_tree, hf_stun_network_version,
-                             tvb, offset, 0,
-                             network_version);
-    proto_item_set_generated(ti);
 
     if (found_turn_attributes) {
         /* At least one STUN/TURN implementation (Facetime) uses unknown/custom
@@ -1640,7 +1671,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
     }
 
     if (!PINFO_FD_VISITED(pinfo) && is_turn && (pinfo->ptype == PT_TCP)
-        && (msg_type_method == CONNECTION_BIND) && (msg_type_class == RESPONSE)) {
+        && (msg_type_method == CONNECTION_BIND) && (msg_type_class == SUCCESS_RESPONSE)) {
         /* RFC 6062: after the ConnectionBind exchange, the connection is no longer framed as TURN;
            instead, it is an unframed pass-through.
            Starting from next frame set conversation dissector to data */
@@ -1754,7 +1785,7 @@ proto_register_stun(void)
         /* ////////////////////////////////////// */
         { &hf_stun_att_type,
           { "Attribute Type", "stun.att.type", FT_UINT16,
-            BASE_HEX | BASE_EXT_STRING, &attributes_ext, 0x0, NULL, HFILL }
+            BASE_HEX, NULL, 0x0, NULL, HFILL }
         },
         { &hf_stun_att_type_comprehension,
           { "Attribute Type Comprehension", "stun.att.type.comprehension", FT_UINT16,
@@ -1852,6 +1883,10 @@ proto_register_stun(void)
           { "ICMP code", "stun.att.icmp.code", FT_UINT8,
             BASE_DEC, NULL, 0x0, NULL, HFILL}
          },
+        { &hf_stun_att_ms_turn_unknown_8006,
+          { "Unknown8006", "stun.att.unknown8006", FT_BYTES,
+            BASE_NONE, NULL, 0x0, "MS-TURN Unknown Attribute 0x8006", HFILL }
+        },
         { &hf_stun_att_software,
           { "Software","stun.att.software", FT_STRING,
             BASE_NONE, NULL, 0x0, NULL, HFILL}
@@ -1949,6 +1984,14 @@ proto_register_stun(void)
            { "Foundation", "stun.att.ms.foundation", FT_STRING,
              BASE_NONE, NULL, 0x0, NULL, HFILL}
           },
+        { &hf_stun_att_ms_multiplexed_turn_session_id,
+          { "MS Multiplexed TURN Session Id", "stun.att.ms.multiplexed_turn_session_id", FT_UINT64,
+            BASE_HEX, NULL, 0x0, NULL, HFILL}
+         },
+        { &hf_stun_att_ms_turn_session_id,
+          { "MS TURN Session Id", "stun.att.ms.turn_session_id", FT_UINT64,
+            BASE_HEX, NULL, 0x0, NULL, HFILL}
+         },
         { &hf_stun_att_bandwidth_acm_type,
           { "Message Type", "stun.att.bandwidth_acm.type", FT_UINT16,
             BASE_DEC, VALS(bandwidth_acm_type_vals), 0x0, NULL, HFILL}
@@ -2044,8 +2087,14 @@ proto_register_stun(void)
         { &ei_stun_short_packet,
         { "stun.short_packet", PI_MALFORMED, PI_ERROR, "Packet is too short", EXPFILL }},
 
+        { &ei_stun_wrong_msglen,
+        { "stun.wrong_msglen", PI_MALFORMED, PI_ERROR, "Packet length is not multiple of 4 bytes", EXPFILL }},
+
         { &ei_stun_long_attribute,
         { "stun.long_attribute", PI_MALFORMED, PI_WARN, "Attribute has trailing data", EXPFILL }},
+
+        { &ei_stun_unknown_attribute,
+        { "stun.unknown_attribute", PI_UNDECODED, PI_WARN, "Attribute unknown", EXPFILL }},
     };
 
     module_t *stun_module;

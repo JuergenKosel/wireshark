@@ -1597,6 +1597,22 @@ tvb_get_letohieee_double(tvbuff_t *tvb, const int offset)
 #endif
 }
 
+/* This function is a slight misnomer. It accepts all encodings that are
+ * ASCII "enough", which means encodings that are the same as US-ASCII
+ * for textual representations of dates and hex bytes; i.e., the same
+ * for the hex digits and Z (in practice, all alphanumerics), and the
+ * four separators ':' '-' '.' and ' '
+ * That means that any encoding that keeps the ISO/IEC 646 invariant
+ * characters the same (including the T.61 8 bit encoding and multibyte
+ * encodings like EUC-KR and GB18030) are OK, even if they replace characters
+ * like '$' '#' and '\' with national variants, but not encodings like UTF-16
+ * that include extra null bytes.
+ * For our current purposes, the unpacked GSM 7-bit default alphabet (but not
+ * all National Language Shift Tables) also satisfies this requirement, but
+ * note that it does *not* keep all ISO/IEC 646 invariant characters the same.
+ * If this internal function gets used for additional purposes than currently,
+ * the set of encodings that it accepts could change.
+ * */
 static inline void
 validate_single_byte_ascii_encoding(const guint encoding)
 {
@@ -1609,6 +1625,11 @@ validate_single_byte_ascii_encoding(const guint encoding)
 	    case ENC_3GPP_TS_23_038_7BITS_PACKED:
 	    case ENC_ASCII_7BITS:
 	    case ENC_EBCDIC:
+	    case ENC_EBCDIC_CP037:
+	    case ENC_BCD_DIGITS_0_9:
+	    case ENC_KEYPAD_ABC_TBCD:
+	    case ENC_KEYPAD_BC_TBCD:
+	    case ENC_ETSI_TS_102_221_ANNEX_A:
 		REPORT_DISSECTOR_BUG("Invalid string encoding type passed to tvb_get_string_XXX");
 		break;
 	    default:
@@ -2541,20 +2562,25 @@ tvb_get_iso_646_string(wmem_allocator_t *scope, tvbuff_t *tvb, gint offset, gint
 /*
  * Given a wmem scope, a tvbuff, an offset, and a length, treat the string
  * of bytes referred to by the tvbuff, the offset. and the length as a UTF-8
- * string, and return a pointer to that string, allocated using the wmem scope.
+ * string, and return a pointer to a UTF-8 string, allocated using the wmem
+ * scope, with all ill-formed sequences replaced with the Unicode REPLACEMENT
+ * CHARACTER according to the recommended "best practices" given in the Unicode
+ * Standard and specified by W3C/WHATWG.
  *
- * XXX - should map invalid UTF-8 sequences to UNREPL.
+ * Note that in conformance with the Unicode Standard, this treats three
+ * byte sequences corresponding to UTF-16 surrogate halves (paired or unpaired)
+ * and two byte overlong encodings of 7-bit ASCII characters as invalid and
+ * substitutes REPLACEMENT CHARACTER for them. Explicit support for nonstandard
+ * derivative encoding formats (e.g. CESU-8, Java Modified UTF-8, WTF-8) could
+ * be added later.
  */
 static guint8 *
 tvb_get_utf_8_string(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint length)
 {
-	guint8 *strbuf;
+	const guint8  *ptr;
 
-	tvb_ensure_bytes_exist(tvb, offset, length); /* make sure length = -1 fails */
-	strbuf = (guint8 *)wmem_alloc(scope, length + 1);
-	tvb_memcpy(tvb, strbuf, offset, length);
-	strbuf[length] = '\0';
-	return strbuf;
+	ptr = ensure_contiguous(tvb, offset, length);
+	return get_utf_8_string(scope, ptr, length);
 }
 
 /*
@@ -2562,8 +2588,7 @@ tvb_get_utf_8_string(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, 
  * of bytes referred to by the tvbuff, the offset, and the length as a
  * raw string, and return a pointer to that string, allocated using the
  * wmem scope. This means a null is appended at the end, but no replacement
- * checking is done otherwise. Currently tvb_get_utf_8_string() does not
- * replace either, but it might in the future.
+ * checking is done otherwise, unlike tvb_get_utf_8_string().
  *
  * Also, this one allows a length of -1 to mean get all, but does not
  * allow a negative offset.
@@ -2767,6 +2792,42 @@ tvb_get_nonascii_unichar2_string(wmem_allocator_t *scope, tvbuff_t *tvb, gint of
 	return get_nonascii_unichar2_string(scope, ptr, length, table);
 }
 
+/*
+ * Given a wmem scope, a tvbuff, an offset, and a length, treat the bytes
+ * referred to by the tvbuff, offset, and length as a GB18030 encoded string,
+ * and return a pointer to a UTF-8 string, allocated with the wmem scope,
+ * converted having substituted REPLACEMENT CHARACTER according to the
+ * Unicode Standard 5.22 U+FFFD Substitution for Conversion.
+ * ( https://www.unicode.org/versions/Unicode13.0.0/ch05.pdf )
+ *
+ * As expected, this will also decode GBK and GB2312 strings.
+ */
+static guint8 *
+tvb_get_gb18030_string(wmem_allocator_t *scope, tvbuff_t *tvb, gint offset, gint length)
+{
+	const guint8  *ptr;
+
+	ptr = ensure_contiguous(tvb, offset, length);
+	return get_gb18030_string(scope, ptr, length);
+}
+
+/*
+ * Given a wmem scope, a tvbuff, an offset, and a length, treat the bytes
+ * referred to by the tvbuff, offset, and length as a EUC-KR encoded string,
+ * and return a pointer to a UTF-8 string, allocated with the wmem scope,
+ * converted having substituted REPLACEMENT CHARACTER according to the
+ * Unicode Standard 5.22 U+FFFD Substitution for Conversion.
+ * ( https://www.unicode.org/versions/Unicode13.0.0/ch05.pdf )
+ */
+static guint8 *
+tvb_get_euc_kr_string(wmem_allocator_t *scope, tvbuff_t *tvb, gint offset, gint length)
+{
+	const guint8  *ptr;
+
+	ptr = ensure_contiguous(tvb, offset, length);
+	return get_euc_kr_string(scope, ptr, length);
+}
+
 static guint8 *
 tvb_get_t61_string(wmem_allocator_t *scope, tvbuff_t *tvb, gint offset, gint length)
 {
@@ -2837,12 +2898,6 @@ tvb_get_string_enc(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset,
 		break;
 
 	case ENC_UTF_8:
-		/*
-		 * XXX - should map lead and trail surrogate value code
-		 * points to a "substitute" UTF-8 character?
-		 * XXX - should map code points > 10FFFF to REPLACEMENT
-		 * CHARACTERs.
-		 */
 		strptr = tvb_get_utf_8_string(scope, tvb, offset, length);
 		break;
 
@@ -3024,6 +3079,12 @@ tvb_get_string_enc(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset,
 	case ENC_ETSI_TS_102_221_ANNEX_A:
 		strptr = tvb_get_etsi_ts_102_221_annex_a_string(scope, tvb, offset, length);
 		break;
+	case ENC_GB18030:
+		strptr = tvb_get_gb18030_string(scope, tvb, offset, length);
+		break;
+	case ENC_EUC_KR:
+		strptr = tvb_get_euc_kr_string(scope, tvb, offset, length);
+		break;
 	}
 	return strptr;
 }
@@ -3087,14 +3148,14 @@ static guint8 *
 tvb_get_utf_8_stringz(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, gint *lengthp)
 {
 	guint   size;
-	guint8 *strptr;
+	const guint8  *ptr;
 
 	size   = tvb_strsize(tvb, offset);
-	strptr = (guint8 *)wmem_alloc(scope, size);
-	tvb_memcpy(tvb, strptr, offset, size);
+	ptr = ensure_contiguous(tvb, offset, size);
+	/* XXX, conversion between signed/unsigned integer */
 	if (lengthp)
 		*lengthp = size;
-	return strptr;
+	return get_utf_8_string(scope, ptr, size);
 }
 
 static guint8 *

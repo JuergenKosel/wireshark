@@ -1218,6 +1218,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ieee80211.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ieee802154.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ieee8021ah.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ieee8021cb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ieee8023.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ieee802a.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ifcp.c
@@ -1254,6 +1255,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ipoib.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ipos.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ipp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ippusb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ipsec-tcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ipsec-udp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ipsec.c

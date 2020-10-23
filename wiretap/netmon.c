@@ -224,7 +224,8 @@ static gboolean netmon_read_atm_pseudoheader(FILE_T fh,
 static void netmon_close(wtap *wth);
 static gboolean netmon_dump(wtap_dumper *wdh, const wtap_rec *rec,
     const guint8 *pd, int *err, gchar **err_info);
-static gboolean netmon_dump_finish(wtap_dumper *wdh, int *err);
+static gboolean netmon_dump_finish(wtap_dumper *wdh, int *err,
+    gchar **err_info);
 
 /*
  * Convert a counted UTF-16 string, which is probably also null-terminated
@@ -470,7 +471,7 @@ wtap_open_return_val netmon_open(wtap *wth, int *err, gchar **err_info)
 	wth->subtype_close = netmon_close;
 
 	/* NetMon capture file formats v2.1+ use per-packet encapsulation types.  NetMon 3 sets the value in
-	 * the header to 1 (Ethernet) for backwards compability. */
+	 * the header to 1 (Ethernet) for backwards compatibility. */
 	if((hdr.ver_major == 2 && hdr.ver_minor >= 1) || hdr.ver_major > 2)
 		wth->file_encap = WTAP_ENCAP_PER_PACKET;
 	else
@@ -1209,7 +1210,7 @@ netmon_process_record(wtap *wth, FILE_T fh, wtap_rec *rec,
 	    netmon->version_major > 2) {
 		if (netmon->version_major > 2) {
 			/*
-			 * Asssume 2.3 format, for now.
+			 * Assume 2.3 format, for now.
 			 */
 			trlr_size = (int)sizeof (struct netmonrec_2_3_trlr);
 		} else {
@@ -1618,7 +1619,7 @@ int netmon_dump_can_write_encap_2_x(int encap)
 
 /* Returns TRUE on success, FALSE on failure; sets "*err" to an error code on
    failure */
-gboolean netmon_dump_open(wtap_dumper *wdh, int *err)
+gboolean netmon_dump_open(wtap_dumper *wdh, int *err, gchar **err_info _U_)
 {
 	netmon_dump_t *netmon;
 
@@ -1893,7 +1894,8 @@ static gboolean netmon_dump(wtap_dumper *wdh, const wtap_rec *rec,
 
 /* Finish writing to a dump file.
    Returns TRUE on success, FALSE on failure. */
-static gboolean netmon_dump_finish(wtap_dumper *wdh, int *err)
+static gboolean netmon_dump_finish(wtap_dumper *wdh, int *err,
+    gchar **err_info _U_)
 {
 	netmon_dump_t *netmon = (netmon_dump_t *)wdh->priv;
 	size_t n_to_write;

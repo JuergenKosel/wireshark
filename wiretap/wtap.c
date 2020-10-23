@@ -124,8 +124,7 @@ wtap_file_get_shb_for_new_file(wtap *wth)
 
 	for (shb_count = 0; shb_count < wth->shb_hdrs->len; shb_count++) {
 		shb_hdr_src = g_array_index(wth->shb_hdrs, wtap_block_t, shb_count);
-		shb_hdr_dest = wtap_block_create(WTAP_BLOCK_NG_SECTION);
-		wtap_block_copy(shb_hdr_dest, shb_hdr_src);
+		shb_hdr_dest = wtap_block_make_copy(shb_hdr_src);
 		g_array_append_val(shb_hdrs, shb_hdr_dest);
 	}
 
@@ -153,6 +152,29 @@ wtap_file_get_idb_info(wtap *wth)
 	idb_info->interface_data	= wth->interface_data;
 
 	return idb_info;
+}
+
+wtap_block_t
+wtap_get_next_interface_description(wtap *wth)
+{
+	if (wth->next_interface_data < wth->interface_data->len) {
+		/*
+		 * We have an IDB to return.  Advance to the next
+		 * IDB, and return this one.
+		 */
+		wtap_block_t idb;
+
+		idb = g_array_index(wth->interface_data, wtap_block_t,
+		    wth->next_interface_data);
+		wth->next_interface_data++;
+		return idb;
+	}
+
+	/*
+	 * We've returned all the interface descriptions we currently
+	 * have.  (There may be more in the future, if we read more.)
+	 */
+	return NULL;
 }
 
 void
@@ -403,8 +425,7 @@ wtap_file_get_nrb_for_new_file(wtap *wth)
 
 	for (nrb_count = 0; nrb_count < wth->nrb_hdrs->len; nrb_count++) {
 		nrb_hdr_src = g_array_index(wth->nrb_hdrs, wtap_block_t, nrb_count);
-		nrb_hdr_dest = wtap_block_create(WTAP_BLOCK_NG_NRB);
-		wtap_block_copy(nrb_hdr_dest, nrb_hdr_src);
+		nrb_hdr_dest = wtap_block_make_copy(nrb_hdr_src);
 		g_array_append_val(nrb_hdrs, nrb_hdr_dest);
 	}
 
@@ -428,6 +449,31 @@ wtap_dump_params_init(wtap_dump_params *params, wtap *wth)
 	 * Refer to the DSBs from the input file, wtap_dump will then copy DSBs
 	 * as they become available. */
 	params->dsbs_growing = wth->dsbs;
+	params->dont_copy_idbs = FALSE;
+}
+
+/*
+ * XXX - eventually, we should make this wtap_dump_params_init(),
+ * and have everything copy IDBs as they're read.
+ */
+void
+wtap_dump_params_init_no_idbs(wtap_dump_params *params, wtap *wth)
+{
+	memset(params, 0, sizeof(*params));
+	if (wth == NULL)
+		return;
+
+	params->encap = wtap_file_encap(wth);
+	params->snaplen = wtap_snapshot_length(wth);
+	params->tsprec = wtap_file_tsprec(wth);
+	params->shb_hdrs = wtap_file_get_shb_for_new_file(wth);
+	params->idb_inf = wtap_file_get_idb_info(wth);
+	params->nrb_hdrs = wtap_file_get_nrb_for_new_file(wth);
+	/* Assume that the input handle remains open until the dumper is closed.
+	 * Refer to the DSBs from the input file, wtap_dump will then copy DSBs
+	 * as they become available. */
+	params->dsbs_growing = wth->dsbs;
+	params->dont_copy_idbs = TRUE;
 }
 
 void

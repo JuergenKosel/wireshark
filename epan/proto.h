@@ -427,16 +427,29 @@ void proto_report_dissector_bug(const char *format, ...)
 #define ENC_KEYPAD_BC_TBCD                0x00000048 /* Keypad-with-B/C "telephony BCD" = 0-9, B, C, *, # */
 #define ENC_3GPP_TS_23_038_7BITS_UNPACKED 0x0000004C
 #define ENC_ETSI_TS_102_221_ANNEX_A       0x0000004E /* ETSI TS 102 221 Annex A */
+#define ENC_GB18030                       0x00000050
+#define ENC_EUC_KR                        0x00000052
 /*
  * TODO:
  *
- * These could probably be used by existing code:
+ * packet-bacapp.c refers to two currently unsupported character sets (where
+ * we just use ASCII currently):
  *
- *  "IBM MS DBCS"
- *  JIS C 6226
+ *  "IBM MS DBCS" - At the very least could be any IBM/MS Double Byte
+ *      Character Set for CJK (4 major ones), but also could just be any non
+ *      Unicode and non ISO-8859-1 code page. This would be supported via the
+ *      various code pages.
+ *  JIS C 6226 / JIS X 0206 - Does this refer to ISO-2022-JP, SHIFT-JIS, or
+ *      EUC-JP, which are all encoding schemes that support the JIS X 0206
+ *      character set?
  *
  * As those are added, change code such as the code in packet-bacapp.c
  * to use them.
+ *
+ * There's also some other code (e.g., packet-smpp.c) that just ignores
+ * strings if it determines that they are in an unsupported encoding, such
+ * as various encodings of Japanese mentioned above, for example.
+ *
  */
 
 /*
@@ -832,7 +845,7 @@ typedef struct {
     GHashTable          *interesting_hfids;
     gboolean             visible;
     gboolean             fake_protocols;
-    gint                 count;
+    guint                count;
     struct _packet_info *pinfo;
 } tree_data_t;
 
@@ -1279,6 +1292,10 @@ proto_tree_add_item_ret_varint(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 WS_DLL_PUBLIC proto_item *
 proto_tree_add_item_ret_boolean(proto_tree *tree, int hfindex, tvbuff_t *tvb,
     const gint start, gint length, const guint encoding, gboolean *retval);
+
+WS_DLL_PUBLIC proto_item *
+proto_tree_add_item_ret_ipv4(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+    const gint start, gint length, const guint encoding, ws_in4_addr *retval);
 
 /** Add an string item to a proto_tree, using the text label registered to
 that item.
@@ -1732,7 +1749,7 @@ proto_tree_add_ipxnet_format(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint 
  @return the newly created item */
 WS_DLL_PUBLIC proto_item *
 proto_tree_add_ipv4(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
-    gint length, guint32 value);
+    gint length, ws_in4_addr value);
 
 /** Add a formatted FT_IPv4 to a proto_tree, with the format generating
     the string for the value and with the field name being included
@@ -1748,7 +1765,7 @@ proto_tree_add_ipv4(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
  @return the newly created item */
 WS_DLL_PUBLIC proto_item *
 proto_tree_add_ipv4_format_value(proto_tree *tree, int hfindex, tvbuff_t *tvb,
-    gint start, gint length, guint32 value, const char *format, ...)
+    gint start, gint length, ws_in4_addr value, const char *format, ...)
     G_GNUC_PRINTF(7,8);
 
 /** Add a formatted FT_IPv4 to a proto_tree, with the format generating
@@ -1764,7 +1781,7 @@ proto_tree_add_ipv4_format_value(proto_tree *tree, int hfindex, tvbuff_t *tvb,
  @return the newly created item */
 WS_DLL_PUBLIC proto_item *
 proto_tree_add_ipv4_format(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
-    gint length, guint32 value, const char *format, ...) G_GNUC_PRINTF(7,8);
+    gint length, ws_in4_addr value, const char *format, ...) G_GNUC_PRINTF(7,8);
 
 /** Add a FT_IPv6 to a proto_tree.
  @param tree the tree to append this item to

@@ -798,6 +798,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  get_eth_hashtable@Base 1.12.0~rc1
  get_ether_name@Base 1.9.1
  get_etsi_ts_102_221_annex_a_string@Base 3.3.1
+ get_euc_kr_string@Base 3.3.2
  get_follow_address_func@Base 2.1.0
  get_follow_by_name@Base 2.1.0
  get_follow_conv_func@Base 2.1.0
@@ -807,6 +808,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  get_follow_tap_handler@Base 2.1.0
  get_follow_tap_string@Base 2.1.0
  get_export_pdu_tap_list@Base 1.99.0
+ get_gb18030_string@Base 3.3.2
  get_hash_ether_status@Base 1.99.3
  get_hash_ether_hexaddr@Base 1.99.3
  get_hash_ether_resolved_name@Base 1.99.3
@@ -856,6 +858,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  get_udp_stream_count@Base 1.12.0~rc1
  get_unichar2_string@Base 1.12.0~rc1
  get_utf_16_string@Base 1.12.0~rc1
+ get_utf_8_string@Base 3.3.1
  get_vlan_hash_table@Base 2.1.0
  get_wka_hashtable@Base 1.12.0~rc1
  get_quic_connections_count@Base 3.1.1
@@ -1255,6 +1258,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  proto_tree_add_item_ret_display_string_and_length@Base 3.1.0
  proto_tree_add_item_ret_int64@Base 3.1.1
  proto_tree_add_item_ret_int@Base 1.99.6
+ proto_tree_add_item_ret_ipv4@Base 3.3.2
  proto_tree_add_item_ret_length@Base 2.1.0
  proto_tree_add_item_ret_time_string@Base 3.1.1
  proto_tree_add_item_ret_string@Base 2.1.0
@@ -2050,6 +2054,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  wmem_str_hash@Base 1.12.0~rc1
  wmem_strbuf_append@Base 1.9.1
  wmem_strbuf_append_c@Base 1.12.0~rc1
+ wmem_strbuf_append_len@Base 3.3.1
  wmem_strbuf_append_printf@Base 1.9.1
  wmem_strbuf_append_unichar@Base 1.12.0~rc1
  wmem_strbuf_append_vprintf@Base 3.1.1

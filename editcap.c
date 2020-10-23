@@ -997,19 +997,37 @@ failure_message_cont(const char *msg_format, va_list ap)
 
 static wtap_dumper *
 editcap_dump_open(const char *filename, const wtap_dump_params *params,
-                  int *write_err)
+                  int *write_err, gchar **write_err_info)
 {
     wtap_dumper *pdh;
 
     if (strcmp(filename, "-") == 0) {
         /* Write to the standard output. */
         pdh = wtap_dump_open_stdout(out_file_type_subtype, WTAP_UNCOMPRESSED,
-                                    params, write_err);
+                                    params, write_err, write_err_info);
     } else {
         pdh = wtap_dump_open(filename, out_file_type_subtype, WTAP_UNCOMPRESSED,
-                             params, write_err);
+                             params, write_err, write_err_info);
     }
     return pdh;
+}
+
+static gboolean
+process_new_idbs(wtap *wth, wtap_dumper *pdh, int *err, gchar **err_info)
+{
+    wtap_block_t if_data;
+
+    while ((if_data = wtap_get_next_interface_description(wth)) != NULL) {
+        /*
+         * Only add IDBs if the output file requires interface IDs;
+         * otherwise, it doesn't support writing IDBs.
+         */
+        if (wtap_uses_interface_ids(wtap_dump_file_type_subtype(pdh))) {
+            if (!wtap_dump_add_idb(pdh, if_data, err, err_info))
+                return FALSE;
+        }
+    }
+    return TRUE;
 }
 
 int
@@ -1532,23 +1550,30 @@ invalid_time:
                 wtap_file_type_subtype_string(wtap_file_type_subtype(wth)));
     }
 
-    if (ignored_bytes != 0 && skip_radiotap == TRUE) {
-        fprintf(stderr, "editcap: can't skip radiotap headers and %d byte(s)\n", ignored_bytes);
-        fprintf(stderr, "editcap: at the start of packet at the same time\n");
-        ret = INVALID_OPTION;
-        goto clean_exit;
+    if (skip_radiotap) {
+        if (ignored_bytes != 0) {
+            fprintf(stderr, "editcap: can't skip radiotap headers and %d byte(s)\n", ignored_bytes);
+            fprintf(stderr, "editcap: at the start of packet at the same time\n");
+            ret = INVALID_OPTION;
+            goto clean_exit;
+        }
+
+        if (wtap_file_encap(wth) != WTAP_ENCAP_IEEE_802_11_RADIOTAP) {
+            fprintf(stderr, "editcap: can't skip radiotap header because input file has non-radiotap packets\n");
+            if (wtap_file_encap(wth) == WTAP_ENCAP_PER_PACKET) {
+                fprintf(stderr, "editcap: expected '%s', not all packets are necessarily that type\n",
+                        wtap_encap_description(WTAP_ENCAP_IEEE_802_11_RADIOTAP));
+            } else {
+                fprintf(stderr, "editcap: expected '%s', packets are '%s'\n",
+                        wtap_encap_description(WTAP_ENCAP_IEEE_802_11_RADIOTAP),
+                        wtap_encap_description(wtap_file_encap(wth)));
+            }
+            ret = INVALID_OPTION;
+            goto clean_exit;
+        }
     }
 
-    if (skip_radiotap == TRUE && wtap_file_encap(wth) != WTAP_ENCAP_IEEE_802_11_RADIOTAP) {
-        fprintf(stderr, "editcap: can't skip radiotap header because input file is incorrect\n");
-        fprintf(stderr, "editcap: expected '%s', input is '%s'\n",
-                wtap_encap_description(WTAP_ENCAP_IEEE_802_11_RADIOTAP),
-                wtap_encap_description(wtap_file_type_subtype(wth)));
-        ret = INVALID_OPTION;
-        goto clean_exit;
-    }
-
-    wtap_dump_params_init(&params, wth);
+    wtap_dump_params_init_no_idbs(&params, wth);
 
     /*
      * Discard any secrets we read in while opening the file.
@@ -1662,6 +1687,12 @@ invalid_time:
     wtap_rec_init(&read_rec);
     ws_buffer_init(&read_buf, 1514);
     while (wtap_read(wth, &read_rec, &read_buf, &read_err, &read_err_info, &data_offset)) {
+        /*
+         * XXX - what about non-packet records in the file after this?
+         * We can *probably* ignore IDBs after this point, as they
+         * presumably indicate that we weren't capturing on that
+         * interface at this point, but what about, for example, NRBs?
+         */
         if (max_packet_number <= read_count)
             break;
 
@@ -1688,17 +1719,30 @@ invalid_time:
                 wtap_block_add_string_option_format(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, "%s", get_appname_and_version());
             }
 
-            pdh = editcap_dump_open(filename, &params, &write_err);
+            pdh = editcap_dump_open(filename, &params, &write_err,
+                                    &write_err_info);
 
             if (pdh == NULL) {
                 cfile_dump_open_failure_message("editcap", filename,
-                                                write_err,
+                                                write_err, write_err_info,
                                                 out_file_type_subtype);
                 ret = INVALID_FILE;
                 goto clean_exit;
             }
         } /* first packet only handling */
 
+        /*
+         * Process whatever IDBs we haven't seen yet.
+         */
+        if (!process_new_idbs(wth, pdh, &write_err, &write_err_info)) {
+            cfile_write_failure_message("editcap", argv[optind],
+                                        filename,
+                                        write_err, write_err_info,
+                                        read_count,
+                                        out_file_type_subtype);
+            ret = DUMP_ERROR;
+            goto clean_exit;
+        }
 
         buf = ws_buffer_start_ptr(&read_buf);
 
@@ -1714,8 +1758,9 @@ invalid_time:
                 }
                 while (nstime_cmp(&rec->ts, &block_next) > 0) { /* time for the next file */
 
-                    if (!wtap_dump_close(pdh, &write_err)) {
-                        cfile_close_failure_message(filename, write_err);
+                    if (!wtap_dump_close(pdh, &write_err, &write_err_info)) {
+                        cfile_close_failure_message(filename, write_err,
+                                                    write_err_info);
                         ret = WRITE_ERROR;
                         goto clean_exit;
                     }
@@ -1727,11 +1772,13 @@ invalid_time:
                     if (verbose)
                         fprintf(stderr, "Continuing writing in file %s\n", filename);
 
-                    pdh = editcap_dump_open(filename, &params, &write_err);
+                    pdh = editcap_dump_open(filename, &params, &write_err,
+                                            &write_err_info);
 
                     if (pdh == NULL) {
                         cfile_dump_open_failure_message("editcap", filename,
                                                         write_err,
+                                                        write_err_info,
                                                         out_file_type_subtype);
                         ret = INVALID_FILE;
                         goto clean_exit;
@@ -1743,8 +1790,9 @@ invalid_time:
         if (split_packet_count != 0) {
             /* time for the next file? */
             if (written_count > 0 && (written_count % split_packet_count) == 0) {
-                if (!wtap_dump_close(pdh, &write_err)) {
-                    cfile_close_failure_message(filename, write_err);
+                if (!wtap_dump_close(pdh, &write_err, &write_err_info)) {
+                    cfile_close_failure_message(filename, write_err,
+                                                write_err_info);
                     ret = WRITE_ERROR;
                     goto clean_exit;
                 }
@@ -1756,10 +1804,11 @@ invalid_time:
                 if (verbose)
                     fprintf(stderr, "Continuing writing in file %s\n", filename);
 
-                pdh = editcap_dump_open(filename, &params, &write_err);
+                pdh = editcap_dump_open(filename, &params, &write_err,
+                                        &write_err_info);
                 if (pdh == NULL) {
                     cfile_dump_open_failure_message("editcap", filename,
-                                                    write_err,
+                                                    write_err, write_err_info,
                                                     out_file_type_subtype);
                     ret = INVALID_FILE;
                     goto clean_exit;
@@ -2045,7 +2094,10 @@ invalid_time:
                 switch (rec->rec_type) {
 
                 case REC_TYPE_PACKET:
-                    if (wtap_file_type_subtype(wth) == WTAP_FILE_TYPE_SUBTYPE_CATAPULT_DCT2000)
+                    /*
+                     * XXX - any reason not to fuzz this part?
+                     */
+                    if (rec->rec_header.packet_header.pkt_encap == WTAP_ENCAP_CATAPULT_DCT2000)
                         real_data_start = find_dct2000_real_data(buf);
                     break;
                 }
@@ -2155,18 +2207,18 @@ invalid_time:
         g_free (filename);
         filename = g_strdup(argv[optind+1]);
 
-        pdh = editcap_dump_open(filename, &params, &write_err);
+        pdh = editcap_dump_open(filename, &params, &write_err, &write_err_info);
         if (pdh == NULL) {
             cfile_dump_open_failure_message("editcap", filename,
-                                            write_err,
+                                            write_err, write_err_info,
                                             out_file_type_subtype);
             ret = INVALID_FILE;
             goto clean_exit;
         }
     }
 
-    if (!wtap_dump_close(pdh, &write_err)) {
-        cfile_close_failure_message(filename, write_err);
+    if (!wtap_dump_close(pdh, &write_err, &write_err_info)) {
+        cfile_close_failure_message(filename, write_err, write_err_info);
         ret = WRITE_ERROR;
         goto clean_exit;
     }

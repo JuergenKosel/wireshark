@@ -682,7 +682,7 @@ struct ieee_802_11a {
  *    http://wifi-insider.com/atheros/turbo.htm
  */
 #define PHDR_802_11A_TURBO_TYPE_NORMAL           0
-#define PHDR_802_11A_TURBO_TYPE_TURBO            1  /* If we don't know wehther it's static or dynamic */
+#define PHDR_802_11A_TURBO_TYPE_TURBO            1  /* If we don't know whether it's static or dynamic */
 #define PHDR_802_11A_TURBO_TYPE_DYNAMIC_TURBO    2
 #define PHDR_802_11A_TURBO_TYPE_STATIC_TURBO     3
 
@@ -1264,7 +1264,7 @@ union wtap_pseudo_header {
  * They may have a time stamp, and should be dissected and displayed
  * just as packets are.
  *
- * We distingiush between "events" and "reports" so that, for example,
+ * We distinguish between "events" and "reports" so that, for example,
  * the packet display can show the delta between a packet and an event
  * but not show the delta between a packet and a report, as the time
  * stamp of a report may not correspond to anything interesting on
@@ -1544,7 +1544,7 @@ typedef struct hashipv6 {
 } hashipv6_t;
 
 /** A struct with lists of resolved addresses.
- *  Used when writing name resoultion blocks (NRB)
+ *  Used when writing name resolutions blocks (NRB)
  */
 typedef struct addrinfo_lists {
     GList      *ipv4_addr_list; /**< A list of resolved hashipv4_t*/
@@ -1576,6 +1576,7 @@ typedef struct wtap_dump_params {
     const GArray *dsbs_growing;             /**< DSBs that will be written while writing packets, or NULL.
                                                  This array may grow since the dumper was opened and will subsequently
                                                  be written before newer packets are written in wtap_dump. */
+    gboolean    dont_copy_idbs;             /**< XXX - don't copy IDBs; this should eventually always be the case. */
 } wtap_dump_params;
 
 /* Zero-initializer for wtap_dump_params. */
@@ -1748,7 +1749,7 @@ struct file_type_subtype_info {
 
     /* the function to open the capture file for writing */
     /* should be NULL is this file type don't have write support */
-    int (*dump_open)(wtap_dumper *, int *);
+    int (*dump_open)(wtap_dumper *, int *, gchar **);
 
     /* if can_write_encap returned WTAP_ERR_CHECK_WSLUA, then this is used instead */
     /* this should be NULL for everyone except Lua-based file writers */
@@ -1770,9 +1771,9 @@ void wtap_init(gboolean load_wiretap_plugins);
  *
  * @param filename Name of the file to open
  * @param type WTAP_TYPE_AUTO for automatic recognize file format or explicit choose format type
- * @param err a positive "errno" value if the capture file can't be opened;
+ * @param[out] err a positive "errno" value if the capture file can't be opened;
  * a negative number, indicating the type of error, on other failures.
- * @param err_info for some errors, a string giving more details of
+ * @param[out] err_info for some errors, a string giving more details of
  * the error
  * @param do_random TRUE if random access to the file will be done,
  * FALSE if not
@@ -1972,6 +1973,18 @@ WS_DLL_PUBLIC
 wtapng_iface_descriptions_t *wtap_file_get_idb_info(wtap *wth);
 
 /**
+ * @brief Gets next interface description.
+ *
+ * @details This returns the first unfetched wtap_block_t from the set
+ * of interface descriptions.  Returns NULL if there are no more
+ * unfetched interface descriptions; a subsequent call after
+ * wtap_read() returns, either with a new record or an EOF, may return
+ * another interface description.
+ */
+WS_DLL_PUBLIC
+wtap_block_t wtap_get_next_interface_description(wtap *wth);
+
+/**
  * @brief Free's a interface description block and all of its members.
  *
  * @details This free's all of the interface descriptions inside the passed-in
@@ -2091,6 +2104,23 @@ WS_DLL_PUBLIC
 void wtap_dump_params_init(wtap_dump_params *params, wtap *wth);
 
 /**
+ * Initialize the per-file information based on an existing file, but
+ * don't copy over the interface information. Its contents must be freed
+ * according to the requirements of wtap_dump_params.
+ * If wth does not remain valid for the duration of the session, dsbs_growing
+ * MUST be cleared after this function.
+ *
+ * XXX - this should eventually become wtap_dump_params_init(), with all
+ * programs writing capture files copying IDBs over by hand, so that they
+ * handle IDBs in the middle of the file.
+ *
+ * @param params The parameters for wtap_dump_* to initialize.
+ * @param wth The wiretap session.
+ */
+WS_DLL_PUBLIC
+void wtap_dump_params_init_no_idbs(wtap_dump_params *params, wtap *wth);
+
+/**
  * Remove any decryption secret information from the per-file information;
  * used if we're stripping decryption secrets as we write the file.
  *
@@ -2117,12 +2147,14 @@ void wtap_dump_params_cleanup(wtap_dump_params *params);
  * @param compression_type Type of compression to use when writing, if any
  * @param params The per-file information for this file.
  * @param[out] err Will be set to an error code on failure.
+ * @param[out] err_info for some errors, a string giving more details of
+ * the error
  * @return The newly created dumper object, or NULL on failure.
  */
 WS_DLL_PUBLIC
 wtap_dumper* wtap_dump_open(const char *filename, int file_type_subtype,
     wtap_compression_type compression_type, const wtap_dump_params *params,
-    int *err);
+    int *err, gchar **err_info);
 
 /**
  * @brief Creates a dumper for a temporary file.
@@ -2134,12 +2166,14 @@ wtap_dumper* wtap_dump_open(const char *filename, int file_type_subtype,
  * @param compression_type Type of compression to use when writing, if any
  * @param params The per-file information for this file.
  * @param[out] err Will be set to an error code on failure.
+ * @param[out] err_info for some errors, a string giving more details of
+ * the error
  * @return The newly created dumper object, or NULL on failure.
  */
 WS_DLL_PUBLIC
 wtap_dumper* wtap_dump_open_tempfile(char **filenamep, const char *pfx,
     int file_type_subtype, wtap_compression_type compression_type,
-    const wtap_dump_params *params, int *err);
+    const wtap_dump_params *params, int *err, gchar **err_info);
 
 /**
  * @brief Creates a dumper for an existing file descriptor.
@@ -2149,12 +2183,14 @@ wtap_dumper* wtap_dump_open_tempfile(char **filenamep, const char *pfx,
  * @param compression_type Type of compression to use when writing, if any
  * @param params The per-file information for this file.
  * @param[out] err Will be set to an error code on failure.
+ * @param[out] err_info for some errors, a string giving more details of
+ * the error
  * @return The newly created dumper object, or NULL on failure.
  */
 WS_DLL_PUBLIC
 wtap_dumper* wtap_dump_fdopen(int fd, int file_type_subtype,
     wtap_compression_type compression_type, const wtap_dump_params *params,
-    int *err);
+    int *err, gchar **err_info);
 
 /**
  * @brief Creates a dumper for the standard output.
@@ -2163,18 +2199,25 @@ wtap_dumper* wtap_dump_fdopen(int fd, int file_type_subtype,
  * @param compression_type Type of compression to use when writing, if any
  * @param params The per-file information for this file.
  * @param[out] err Will be set to an error code on failure.
+ * @param[out] err_info for some errors, a string giving more details of
+ * the error
  * @return The newly created dumper object, or NULL on failure.
  */
 WS_DLL_PUBLIC
 wtap_dumper* wtap_dump_open_stdout(int file_type_subtype,
     wtap_compression_type compression_type, const wtap_dump_params *params,
-    int *err);
+    int *err, gchar **err_info);
 
+WS_DLL_PUBLIC
+gboolean wtap_dump_add_idb(wtap_dumper *wdh, wtap_block_t idb, int *err,
+     gchar **err_info);
 WS_DLL_PUBLIC
 gboolean wtap_dump(wtap_dumper *, const wtap_rec *, const guint8 *,
      int *err, gchar **err_info);
 WS_DLL_PUBLIC
 gboolean wtap_dump_flush(wtap_dumper *, int *);
+WS_DLL_PUBLIC
+int wtap_dump_file_type_subtype(wtap_dumper *wdh);
 WS_DLL_PUBLIC
 gint64 wtap_get_bytes_dumped(wtap_dumper *);
 WS_DLL_PUBLIC
@@ -2194,7 +2237,7 @@ void wtap_dump_discard_decryption_secrets(wtap_dumper *wdh);
  * shb_hdr, idb_inf and nrb_hdr are not freed by this routine.
  */
 WS_DLL_PUBLIC
-gboolean wtap_dump_close(wtap_dumper *wdh, int *err);
+gboolean wtap_dump_close(wtap_dumper *wdh, int *err, gchar **err_info);
 
 /**
  * Return TRUE if we can write a file out with the given GArray of file
@@ -2211,6 +2254,13 @@ gboolean wtap_dump_can_write(const GArray *file_encaps, guint32 required_comment
 WS_DLL_PUBLIC
 GArray *wtap_get_savable_file_types_subtypes(int file_type,
     const GArray *file_encaps, guint32 required_comment_types);
+
+/**
+ * Return TRUE if files of this file type/subtype use interface IDs
+ * to associate records with an interface.
+ */
+WS_DLL_PUBLIC
+gboolean wtap_uses_interface_ids(int file_type);
 
 /*** various string converter functions ***/
 WS_DLL_PUBLIC
@@ -2289,7 +2339,7 @@ void wtap_deregister_file_type_subtype(const int file_type_subtype);
 WS_DLL_PUBLIC
 int wtap_register_encap_type(const char *description, const char *name);
 
-/*** Cleanup the interal library structures */
+/*** Cleanup the internal library structures */
 WS_DLL_PUBLIC
 void wtap_cleanup(void);
 

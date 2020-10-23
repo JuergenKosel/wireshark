@@ -12,8 +12,8 @@
 
 /*
  * See https://quicwg.org
- * https://tools.ietf.org/html/draft-ietf-quic-transport-31
- * https://tools.ietf.org/html/draft-ietf-quic-tls-31
+ * https://tools.ietf.org/html/draft-ietf-quic-transport-32
+ * https://tools.ietf.org/html/draft-ietf-quic-tls-32
  * https://tools.ietf.org/html/draft-ietf-quic-invariants-11
  *
  * Extension:
@@ -23,7 +23,7 @@
  * https://tools.ietf.org/html/draft-iyengar-quic-delayed-ack-00
  *
  * Currently supported QUIC version(s): draft-21, draft-22, draft-23, draft-24,
- * draft-25, draft-26, draft-27, draft-28, draft-29, draft-30, draft-31.
+ * draft-25, draft-26, draft-27, draft-28, draft-29, draft-30, draft-31, draft-32.
  * For a table of supported QUIC versions per Wireshark version, see
  * https://github.com/quicwg/base-drafts/wiki/Tools#wireshark
  *
@@ -429,6 +429,7 @@ const value_string quic_version_vals[] = {
     { 0xff00001d, "draft-29" },
     { 0xff00001e, "draft-30" },
     { 0xff00001f, "draft-31" },
+    { 0xff000020, "draft-32" },
     { 0, NULL }
 };
 
@@ -3136,8 +3137,8 @@ dissect_quic_short_header_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     }
 
     // DCID length is unknown, so extract the maximum and look for a match.
-    quic_cid_t dcid = {.len=QUIC_MAX_CID_LENGTH};
-    tvb_memcpy(tvb, dcid.cid, 1, QUIC_MAX_CID_LENGTH);
+    quic_cid_t dcid = {.len = MIN(QUIC_MAX_CID_LENGTH, tvb_captured_length(tvb) - 1 - 1 - 16)};
+    tvb_memcpy(tvb, dcid.cid, 1, dcid.len);
     gboolean from_server;
     if (!quic_connection_find(pinfo, QUIC_SHORT_PACKET, &dcid, &from_server)) {
         return FALSE;

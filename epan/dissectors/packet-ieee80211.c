@@ -22757,7 +22757,7 @@ ieee80211_tag_beacon_timing(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   };
 
   /* Beacon timing element (120) */
-  if (tag_len < 2) {
+  if (tag_len < 1) {
     expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length,
                            "Tag length %u too short, must be greater than 1", tag_len);
     return tvb_captured_length(tvb);
@@ -32370,7 +32370,7 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_tclas_ether_type,
      {"Ethernet Type", "wlan.tclas.ether_type",
-      FT_UINT8, BASE_DEC, NULL, 0,
+      FT_UINT16, BASE_DEC, NULL, 0,
       NULL, HFILL }},
 
     {&hf_ieee80211_tclas_version,
@@ -37301,7 +37301,7 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_osen_akm_count,
      {"OSEN AKM Cipher Suite Count", "wlan.osen.akms.count",
-      FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
+      FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_osen_akm_cipher_suite_oui,
      {"OSEN AKM Cipher Suite OUI", "wlan.osen.akms.oui",

@@ -3445,7 +3445,7 @@ pcapng_write_section_header_block(wtap_dumper *wdh, int *err)
 
 static gboolean
 pcapng_write_enhanced_packet_block(wtap_dumper *wdh, const wtap_rec *rec,
-                                   const guint8 *pd, int *err)
+                                   const guint8 *pd, int *err, gchar **err_info)
 {
     const union wtap_pseudo_header *pseudo_header = &rec->rec_header.packet_header.pseudo_header;
     pcapng_block_header_t bh;
@@ -3545,6 +3545,8 @@ pcapng_write_enhanced_packet_block(wtap_dumper *wdh, const wtap_rec *rec,
          * Our caller is doing something bad.
          */
         *err = WTAP_ERR_INTERNAL;
+        *err_info = g_strdup_printf("pcapng: epb.interface_id (%u) >= wdh->interface_data->len (%u)",
+                                    epb.interface_id, wdh->interface_data->len);
         return FALSE;
     }
     int_data = g_array_index(wdh->interface_data, wtap_block_t,
@@ -4761,9 +4763,27 @@ pcapng_write_if_descr_block(wtap_dumper *wdh, wtap_block_t int_data, int *err)
     return TRUE;
 }
 
+static gboolean pcapng_add_idb(wtap_dumper *wdh, wtap_block_t idb,
+                               int *err, gchar **err_info _U_)
+{
+	wtap_block_t idb_copy;
+
+	/*
+	 * Add a copy of this IDB to our array of IDBs.
+	 */
+	idb_copy = wtap_block_create(WTAP_BLOCK_IF_DESCR);
+	wtap_block_copy(idb_copy, idb);
+	g_array_append_val(wdh->interface_data, idb_copy);
+
+	/*
+	 * And write it to the output file.
+	 */
+	return pcapng_write_if_descr_block(wdh, idb_copy, err);
+}
+
 static gboolean pcapng_dump(wtap_dumper *wdh,
                             const wtap_rec *rec,
-                            const guint8 *pd, int *err, gchar **err_info _U_)
+                            const guint8 *pd, int *err, gchar **err_info)
 {
 #ifdef HAVE_PLUGINS
     block_handler *handler;
@@ -4796,7 +4816,8 @@ static gboolean pcapng_dump(wtap_dumper *wdh,
              * stamp or other information that doesn't appear in an
              * SPB?
              */
-            if (!pcapng_write_enhanced_packet_block(wdh, rec, pd, err)) {
+            if (!pcapng_write_enhanced_packet_block(wdh, rec, pd, err,
+                                                    err_info)) {
                 return FALSE;
             }
             break;
@@ -4846,7 +4867,8 @@ static gboolean pcapng_dump(wtap_dumper *wdh,
 
 /* Finish writing to a dump file.
    Returns TRUE on success, FALSE on failure. */
-static gboolean pcapng_dump_finish(wtap_dumper *wdh, int *err)
+static gboolean pcapng_dump_finish(wtap_dumper *wdh, int *err,
+                                   gchar **err_info _U_)
 {
     guint i, j;
 
@@ -4881,21 +4903,15 @@ static gboolean pcapng_dump_finish(wtap_dumper *wdh, int *err)
 /* Returns TRUE on success, FALSE on failure; sets "*err" to an error code on
    failure */
 gboolean
-pcapng_dump_open(wtap_dumper *wdh, int *err)
+pcapng_dump_open(wtap_dumper *wdh, int *err, gchar **err_info _U_)
 {
     guint i;
 
     pcapng_debug("pcapng_dump_open");
     /* This is a pcapng file */
+    wdh->subtype_add_idb = pcapng_add_idb;
     wdh->subtype_write = pcapng_dump;
     wdh->subtype_finish = pcapng_dump_finish;
-
-    // XXX IDBs should be optional.
-    if (wdh->interface_data->len == 0) {
-        pcapng_debug("There are no interfaces. Can't handle that...");
-        *err = WTAP_ERR_INTERNAL;
-        return FALSE;
-    }
 
     /* write the section header block */
     if (!pcapng_write_section_header_block(wdh, err)) {

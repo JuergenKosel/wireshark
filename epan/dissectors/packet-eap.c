@@ -1202,7 +1202,8 @@ dissect_eap_psk_pchannel(proto_tree *eap_tree, tvbuff_t *tvb, int offset, gint s
   /* The protected channel (PCHANNEL) content is encrypted so for now just present
    * it as a binary blob */
   proto_tree_add_item(eap_tree, hf_eap_psk_pchannel, tvb, offset, size, ENC_NA);
-  return size;
+  offset += size;
+  return offset;
 }
 
 static int
@@ -1244,13 +1245,13 @@ dissect_eap_psk(proto_tree *eap_tree, tvbuff_t *tvb, packet_info *pinfo, int off
       offset += 16;
       proto_tree_add_item(eap_tree, hf_eap_psk_mac_s, tvb, offset, 16, ENC_NA);
       offset += 16;
-      offset += dissect_eap_psk_pchannel(eap_tree, tvb, offset, size + 5 - offset);
+      offset = dissect_eap_psk_pchannel(eap_tree, tvb, offset, size + 5 - offset);
       break;
     case 0xC0: /* T == 3 - EAP-PSK Fourth Message */
       col_append_str(pinfo->cinfo, COL_INFO, " Fourth Message");
       proto_tree_add_item(eap_tree, hf_eap_psk_rand_s, tvb, offset, 16, ENC_NA);
       offset += 16;
-      offset += dissect_eap_psk_pchannel(eap_tree, tvb, offset, size + 5 - offset);
+      offset = dissect_eap_psk_pchannel(eap_tree, tvb, offset, size + 5 - offset);
       break;
     default:
       break;
@@ -1293,7 +1294,7 @@ dissect_eap_gpsk_csuite_list(proto_tree *eap_tree, tvbuff_t *tvb, int offset)
     proto_tree_add_item(csuite_tree, hf_eap_gpsk_csuite_specifier, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
   }
-  return len;
+  return offset;
 }
 
 static gint
@@ -1413,7 +1414,7 @@ dissect_eap_gpsk(proto_tree *eap_tree, tvbuff_t *tvb, packet_info *pinfo, int of
       offset += len;
       proto_tree_add_item(eap_tree, hf_eap_gpsk_rand_server, tvb, offset, 32, ENC_NA);
       offset += 32;
-      offset += dissect_eap_gpsk_csuite_list(eap_tree, tvb, offset);
+      offset = dissect_eap_gpsk_csuite_list(eap_tree, tvb, offset);
       break;
     case GPSK_GPSK_2:
       proto_tree_add_item_ret_uint(eap_tree, hf_eap_gpsk_id_peer_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
@@ -1428,8 +1429,8 @@ dissect_eap_gpsk(proto_tree *eap_tree, tvbuff_t *tvb, packet_info *pinfo, int of
       offset += 32;
       proto_tree_add_item(eap_tree, hf_eap_gpsk_rand_server, tvb, offset, 32, ENC_NA);
       offset += 32;
-      offset += dissect_eap_gpsk_csuite_list(eap_tree, tvb, offset);
-      offset += dissect_eap_gpsk_csuite_sel(eap_tree, tvb, offset);
+      offset = dissect_eap_gpsk_csuite_list(eap_tree, tvb, offset);
+      offset = dissect_eap_gpsk_csuite_sel(eap_tree, tvb, offset);
       proto_tree_add_item_ret_uint(eap_tree, hf_eap_gpsk_pd_payload_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
       offset += 2;
       if (len > 0) {
@@ -1449,7 +1450,7 @@ dissect_eap_gpsk(proto_tree *eap_tree, tvbuff_t *tvb, packet_info *pinfo, int of
       offset += 2;
       proto_tree_add_item(eap_tree, hf_eap_gpsk_id_server, tvb, offset, len, ENC_ASCII | ENC_NA);
       offset += len;
-      offset += dissect_eap_gpsk_csuite_sel(eap_tree, tvb, offset);
+      offset = dissect_eap_gpsk_csuite_sel(eap_tree, tvb, offset);
       proto_tree_add_item_ret_uint(eap_tree, hf_eap_gpsk_pd_payload_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
       offset += 2;
       if (len > 0) {
@@ -1523,7 +1524,7 @@ dissect_eap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
    * retransmitted messages, try TLS reassembly and so on.
    *
    * EAP runs over RADIUS (which runs over UDP), EAPOL (802.1X Authentication)
-   * or other transports. In case of RADIUS, a single "session" can have consist
+   * or other transports. In case of RADIUS, a single "session" may consist
    * of two UDP associations (one for authorization, one for accounting) which
    * results in two separate conversations. This wastes memory, but won't affect
    * the use cases below. In case of EAPOL, there are no ports. In any case,
@@ -2733,7 +2734,7 @@ proto_register_eap(void)
 
      { &hf_eap_gpsk_failure_code, {
       "EAP-GPSK Failure code", "eap.gpsk.failure_code",
-      FT_UINT16, BASE_HEX, VALS(eap_gpsk_failure_code_vals), 0x0,
+      FT_UINT32, BASE_HEX, VALS(eap_gpsk_failure_code_vals), 0x0,
       NULL, HFILL }},
 
     { &hf_eap_data, {

@@ -66,7 +66,7 @@
 
 
 /* The high resolution relative time format.
-** The MS 2 bits of the high resoltion time is defined as follows:
+** The MS 2 bits of the high resolution time is defined as follows:
 ** 00 : time value is in seconds
 ** 01 : time value is in milliseconds
 ** 10 : time value is in microseconds
@@ -2039,7 +2039,7 @@ int nstrace_35_dump_can_write_encap(int encap)
 
 /* Returns TRUE on success, FALSE on failure; sets "*err" to an error code on
 ** failure */
-gboolean nstrace_dump_open(wtap_dumper *wdh, int *err _U_)
+gboolean nstrace_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_)
 {
     nstrace_dump_t *nstrace;
 

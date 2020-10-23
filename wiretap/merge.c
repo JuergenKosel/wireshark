@@ -798,7 +798,7 @@ generate_merged_idbs(merge_in_file_t *in_files, const guint in_file_count, const
                     merge_debug("merge::generate_merged_idbs: mode NONE set or did not find a duplicate");
                     /*
                      * This IDB does not match a previous (or we want to save all IDBs),
-                     * so add the IDB to the merge file, and add a map of the indeces.
+                     * so add the IDB to the merge file, and add a map of the indices.
                      */
                     merged_index = add_idb_to_merged_file(merged_idb_list, input_file_idb);
                     add_idb_index_map(&in_files[i], itf_count, merged_index);
@@ -908,7 +908,7 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
             break;
         }
 
-        if (file_type == WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
+        if (wtap_uses_interface_ids(file_type)) {
             /*
              * XXX - We should do this only for record types
              * that pertain to a particular interface; for
@@ -946,7 +946,7 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
         cb->callback_func(MERGE_EVENT_DONE, count, in_files, in_file_count, cb->data);
 
     if (status == MERGE_OK || status == MERGE_USER_ABORTED) {
-        if (!wtap_dump_close(pdh, err))
+        if (!wtap_dump_close(pdh, err, err_info))
             status = MERGE_ERR_CANT_CLOSE_OUTFILE;
     } else {
         /*
@@ -956,7 +956,9 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
          * Don't overwrite the earlier error.
          */
         int close_err = 0;
-        (void)wtap_dump_close(pdh, &close_err);
+        gchar *close_err_info = NULL;
+        (void)wtap_dump_close(pdh, &close_err, &close_err_info);
+        g_free(close_err_info);
     }
 
     /* Close the input files after the output file in case the latter still
@@ -1036,7 +1038,7 @@ merge_files_common(const gchar* out_filename, /* normal output mode */
     wtap_dump_params params = WTAP_DUMP_PARAMS_INIT;
     params.encap = frame_type;
     params.snaplen = snaplen;
-    if (file_type == WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
+    if (wtap_uses_interface_ids(file_type)) {
         shb_hdrs = create_shb_header(in_files, in_file_count, app_name);
         merge_debug("merge_files: SHB created");
 
@@ -1050,12 +1052,15 @@ merge_files_common(const gchar* out_filename, /* normal output mode */
         params.dsbs_growing = dsb_combined;
     }
     if (out_filename) {
-        pdh = wtap_dump_open(out_filename, file_type, WTAP_UNCOMPRESSED, &params, err);
+        pdh = wtap_dump_open(out_filename, file_type, WTAP_UNCOMPRESSED,
+                             &params, err, err_info);
     } else if (out_filenamep) {
         pdh = wtap_dump_open_tempfile(out_filenamep, pfx, file_type,
-                                      WTAP_UNCOMPRESSED, &params, err);
+                                      WTAP_UNCOMPRESSED, &params, err,
+                                      err_info);
     } else {
-        pdh = wtap_dump_open_stdout(file_type, WTAP_UNCOMPRESSED, &params, err);
+        pdh = wtap_dump_open_stdout(file_type, WTAP_UNCOMPRESSED, &params, err,
+                                    err_info);
     }
     if (pdh == NULL) {
         merge_close_in_files(in_file_count, in_files);

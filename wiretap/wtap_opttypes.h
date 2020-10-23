@@ -98,7 +98,7 @@ extern "C" {
                                      *     the timestamps stored in the packet must be considered absolute
                                      *     timestamps. The time zone of the offset can be specified with the
                                      *     option if_tzone. TODO: won't a if_tsoffset_low for fractional
-                                     *     second offsets be useful for highly syncronized capture systems?
+                                     *     second offsets be useful for highly synchronized capture systems?
                                      */
 #define OPT_IDB_HARDWARE     15     /**< A UTF-8 string containing the description
                                      *     of the hardware of the device used
@@ -374,7 +374,7 @@ wtap_block_get_ipv6_option_value(wtap_block_t block, guint option_id, ws_in6_add
 WS_DLL_PUBLIC wtap_opttype_return_val
 wtap_block_add_string_option(wtap_block_t block, guint option_id, const char *value, gsize value_length);
 
-/** Add a string option to a block witha printf-formatted string as its value
+/** Add a string option to a block with a printf-formatted string as its value
  *
  * @param[in] block Block to which to add the option
  * @param[in] option_id Identifier value for option
@@ -512,6 +512,12 @@ wtap_block_remove_nth_option_instance(wtap_block_t block, guint option_id,
  */
 WS_DLL_PUBLIC void wtap_block_copy(wtap_block_t dest_block, wtap_block_t src_block);
 
+/** Make a copy of a block.
+ *
+ * @param[in] block Block to be copied from
+ * @return Newly allocated copy of that block
+ */
+WS_DLL_PUBLIC wtap_block_t wtap_block_make_copy(wtap_block_t block);
 
 typedef void (*wtap_block_foreach_func)(wtap_block_t block, guint option_id, wtap_opttype_e option_type, wtap_optval_t *option, void *user_data);
 WS_DLL_PUBLIC void wtap_block_foreach_option(wtap_block_t block, wtap_block_foreach_func func, void* user_data);

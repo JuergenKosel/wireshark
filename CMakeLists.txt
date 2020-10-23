@@ -34,8 +34,8 @@ project(${_project_name} C CXX)
 # Updated by tools/make-version.pl
 set(GIT_REVISION 0)
 set(PROJECT_MAJOR_VERSION 3)
-set(PROJECT_MINOR_VERSION 3)
-set(PROJECT_PATCH_VERSION 2)
+set(PROJECT_MINOR_VERSION 5)
+set(PROJECT_PATCH_VERSION 0)
 set(PROJECT_BUILD_VERSION ${GIT_REVISION})
 set(PROJECT_VERSION_EXTENSION "")
 
@@ -2841,6 +2841,8 @@ if (MAXMINDDB_FOUND)
 endif()
 
 if(ENABLE_APPLICATION_BUNDLE)
+	file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/run/${CMAKE_CFG_INTDIR}/Wireshark.app/Contents/Resources/Extras")
+
 	# --preserve-xattr is undocumented but ensures that we install
 	# a signed ChmodBPF script.
 	set (install_chmodbpf_component_pkg "${CMAKE_BINARY_DIR}/install.ChmodBPF.pkg")
