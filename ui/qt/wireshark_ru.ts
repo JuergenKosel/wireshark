@@ -1357,6 +1357,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 Например, используйте 1 час, чтобы получить новый файл, который создаётся на 1 час каждый час работы.</translation>
     </message>
     <message>
+        <source>compression</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation type="unfinished">Никакой</translation>
+    </message>
+    <message>
+        <source>gzip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;After capturing has switched to the next file and the given number of files has exceeded, the oldest file will be removed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Если после переключения записи данных на следующий файл указанное число файлов будет превышено, самый старый файл будет удалён.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -6138,8 +6150,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Prepare as Filter</source>
-        <oldsource>Prepare a Filter</oldsource>
-        <translation type="unfinished">Подготовить Фильтр</translation>
+        <translation>Подготовить в Виде Фильтра</translation>
     </message>
     <message>
         <source>SCTP</source>
@@ -9469,8 +9480,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Prepare as Filter</source>
-        <oldsource>Prepare a Filter</oldsource>
-        <translation type="unfinished">Подготовить Фильтр</translation>
+        <translation>Подготовить в Виде Фильтра</translation>
     </message>
     <message>
         <source>Find</source>

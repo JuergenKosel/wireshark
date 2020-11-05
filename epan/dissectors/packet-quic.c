@@ -384,6 +384,16 @@ static inline guint8 quic_draft_version(guint32 version) {
         version == 0x54303531) {
         return 27;
     }
+    /* https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-15
+       "Versions that follow the pattern 0x?a?a?a?a are reserved for use in
+       forcing version negotiation to be exercised"
+       It is tricky to return a correct draft version: such number is primarly
+       used to select a proper salt (which depends on the version itself), but
+       we don't have a real version here! Let's hope that we need to handle
+       only latest drafts... */
+    if ((version & 0x0F0F0F0F) == 0x0a0a0a0a) {
+        return 29;
+    }
     return 0;
 }
 
@@ -445,6 +455,7 @@ static const value_string quic_short_long_header_vals[] = {
 #define QUIC_LPT_0RTT       0x1
 #define QUIC_LPT_HANDSHAKE  0x2
 #define QUIC_LPT_RETRY      0x3
+#define QUIC_LPT_VER_NEG    0xfe    /* Version Negotiation packets don't have any real packet type */
 #define QUIC_SHORT_PACKET   0xff    /* dummy value that is definitely not LPT */
 
 static const value_string quic_long_packet_type_vals[] = {
@@ -452,6 +463,7 @@ static const value_string quic_long_packet_type_vals[] = {
     { QUIC_LPT_RETRY, "Retry" },
     { QUIC_LPT_HANDSHAKE, "Handshake" },
     { QUIC_LPT_0RTT, "0-RTT" },
+    /* Version Negotiation packets never use this mapping, so no need to add QUIC_LPT_VER_NEG */
     { 0, NULL }
 };
 
@@ -847,7 +859,7 @@ quic_connection_find(packet_info *pinfo, guint8 long_packet_type,
         conn = (quic_info_data_t *) wmem_map_lookup(quic_initial_connections, dcid);
         *from_server = FALSE;
     } else {
-        // Find a connection for Handshake and Server Initial packets by
+        // Find a connection for Handshake, Version Negotiation and Server Initial packets by
         // matching their DCID against the SCIDs of the original Initial packets
         // from the peer. For Client Initial packets, match DCID of the first
         // Client Initial (these may contain ACK frames).
@@ -2545,6 +2557,7 @@ dissect_quic_long_header_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *q
 {
     guint32     version;
     guint32     dcil, scil;
+    proto_item  *ti;
 
     version = tvb_get_ntohl(tvb, offset);
 
@@ -2552,7 +2565,10 @@ dissect_quic_long_header_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *q
         *version_out = version;
     }
 
-    proto_tree_add_item(quic_tree, hf_quic_version, tvb, offset, 4, ENC_BIG_ENDIAN);
+    ti = proto_tree_add_item(quic_tree, hf_quic_version, tvb, offset, 4, ENC_BIG_ENDIAN);
+    if ((version & 0x0F0F0F0F) == 0x0a0a0a0a) {
+        proto_item_append_text(ti, " (Forcing Version Negotiation)");
+    }
     offset += 4;
 
     proto_tree_add_item_ret_uint(quic_tree, hf_quic_dcil, tvb, offset, 1, ENC_BIG_ENDIAN, &dcil);
@@ -2964,7 +2980,9 @@ quic_get_message_tvb(tvbuff_t *tvb, const guint offset)
 
 /**
  * Extracts necessary information from header to find any existing connection.
- * "long_packet_type" is set to QUIC_SHORT_PACKET for short header packets.
+ * There are two special values for "long_packet_type":
+ *  * QUIC_SHORT_PACKET for short header packets;
+ *  * QUIC_LPT_VER_NEG for Version Negotiation packets.
  * DCID and SCID are not modified unless available. For short header packets,
  * DCID length is unknown, so the caller should truncate it as needed.
  */
@@ -2988,6 +3006,11 @@ quic_extract_header(tvbuff_t *tvb, guint8 *long_packet_type, guint32 *version,
     *version = tvb_get_ntohl(tvb, offset);
 
     if (is_long_header) {
+        /* VN packets don't have any real packet type field, even if they have
+           a long header: use a dummy value */
+        if (*version == 0x00000000)
+            *long_packet_type = QUIC_LPT_VER_NEG;
+
         // skip version
         offset += 4;
 

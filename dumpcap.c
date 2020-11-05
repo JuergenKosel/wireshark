@@ -547,9 +547,10 @@ relinquish_all_capabilities(void)
 #elif defined(__APPLE__)
   #define PLATFORM_PERMISSIONS_SUGGESTION \
     "\n\n" \
-    "If you installed Wireshark using the package from wireshark.org, "\
-    "Try re-installing it and checking the box for the \"Set capture " \
-    "permissions on startup\" item."
+    "If you installed Wireshark using the package from wireshark.org, " \
+    "close this dialog and click on the \"installing ChmodBPF\" link in " \
+    "\"You can fix this by installing ChmodBPF.\" on the main screen, " \
+    "and then complete the installation procedure."
 #else
   #define PLATFORM_PERMISSIONS_SUGGESTION
 #endif
@@ -3395,7 +3396,8 @@ capture_loop_open_output(capture_options *capture_opts, int *save_file_fd,
                 /* ringbuffer is enabled */
                 *save_file_fd = ringbuf_init(capfile_name,
                                              (capture_opts->has_ring_num_files) ? capture_opts->ring_num_files : 0,
-                                             capture_opts->group_read_access);
+                                             capture_opts->group_read_access,
+                                             capture_opts->compress_type);
 
                 /* capfile_name is unused as the ringbuffer provides its own filename. */
                 if (*save_file_fd != -1) {
@@ -4902,6 +4904,7 @@ main(int argc, char *argv[])
 #ifdef HAVE_PCAP_CREATE
         case 'I':        /* Monitor mode */
 #endif
+        case LONGOPT_COMPRESS_TYPE:        /* compress type */
             status = capture_opts_add_opt(&global_capture_opts, opt, optarg, &start_capture);
             if (status != 0) {
                 exit_main(status);

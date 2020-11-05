@@ -68,6 +68,7 @@ static int hf_frame_verdict_hardware = -1;
 static int hf_frame_verdict_tc = -1;
 static int hf_frame_verdict_xdp = -1;
 static int hf_frame_verdict_unknown = -1;
+static int hf_frame_drop_count = -1;
 static int hf_frame_protocols = -1;
 static int hf_frame_color_filter_name = -1;
 static int hf_frame_color_filter_text = -1;
@@ -105,6 +106,7 @@ static int frame_tap = -1;
 
 static dissector_handle_t docsis_handle;
 static dissector_handle_t sysdig_handle;
+static dissector_handle_t systemd_journal_handle;
 
 /* Preferences */
 static gboolean show_file_off       = FALSE;
@@ -379,6 +381,10 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 		pinfo->current_proto = "System Call";
 		break;
 
+	case REC_TYPE_SYSTEMD_JOURNAL:
+		pinfo->current_proto = "Systemd Journal";
+		break;
+
 	default:
 		g_assert_not_reached();
 		break;
@@ -491,6 +497,19 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			 */
 			ti = proto_tree_add_protocol_format(tree, proto_syscall, tvb, 0, tvb_captured_length(tvb),
 			    "System Call %u: %u byte%s",
+			    pinfo->num, frame_len, frame_plurality);
+			break;
+
+		case REC_TYPE_SYSTEMD_JOURNAL:
+			/*
+			 * XXX - we need to rethink what's handled by
+			 * packet-record.c, what's handled by packet-frame.c.
+			 * and what's handled by the syscall and systemd
+			 * journal dissectors (and maybe even the packet
+			 * dissector).
+			 */
+			ti = proto_tree_add_protocol_format(tree, proto_frame, tvb, 0, tvb_captured_length(tvb),
+			    "Systemd Journal Entry %u: %u byte%s",
 			    pinfo->num, frame_len, frame_plurality);
 			break;
 		}
@@ -666,6 +685,10 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 					   0, 0, cap_len, "Capture Length: %u byte%s (%u bits)",
 					   cap_len, cap_plurality, cap_len * 8);
 
+		if (pinfo->rec->presence_flags & WTAP_HAS_DROP_COUNT)
+			proto_tree_add_uint64(fh_tree, hf_frame_drop_count, tvb, 0, 0,
+					    pinfo->rec->rec_header.packet_header.drop_count);
+
 		if (generate_md5_hash) {
 			const guint8 *cp;
 			guint8        digest[HASH_MD5_LENGTH];
@@ -795,6 +818,14 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 				/* Sysdig is the only type we currently handle. */
 				if (sysdig_handle) {
 					call_dissector_with_data(sysdig_handle,
+					    tvb, pinfo, parent_tree,
+					    (void *)pinfo->pseudo_header);
+				}
+				break;
+
+			case REC_TYPE_SYSTEMD_JOURNAL:
+				if (systemd_journal_handle) {
+					call_dissector_with_data(systemd_journal_handle,
 					    tvb, pinfo, parent_tree,
 					    (void *)pinfo->pseudo_header);
 				}
@@ -1072,7 +1103,7 @@ proto_register_frame(void)
 		{ &hf_frame_interface_description,
 		  { "Interface description", "frame.interface_description",
 		    FT_STRING, BASE_NONE, NULL, 0x0,
-		    "The descriptionfor this interface", HFILL }},
+		    "The description for this interface", HFILL }},
 
 		{ &hf_frame_interface_queue,
 		  { "Interface queue", "frame.interface_queue",
@@ -1180,6 +1211,11 @@ proto_register_frame(void)
 		  { "Unknown", "frame.verdict.unknown",
 		    FT_BYTES, SEP_SPACE, NULL, 0x0,
 		    NULL, HFILL }},
+
+		{ &hf_frame_drop_count,
+		  { "Drop Count", "frame.drop_count",
+		    FT_UINT64, BASE_DEC, NULL, 0x0,
+		    "Number of frames lost between this frame and the preceding one on the same interface", HFILL }},
 	};
 
 	static hf_register_info hf_encap =
@@ -1274,6 +1310,7 @@ proto_reg_handoff_frame(void)
 {
 	docsis_handle = find_dissector_add_dependency("docsis", proto_frame);
 	sysdig_handle = find_dissector_add_dependency("sysdig", proto_frame);
+	systemd_journal_handle = find_dissector_add_dependency("systemd_journal", proto_frame);
 }
 
 /*

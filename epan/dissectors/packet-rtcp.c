@@ -835,6 +835,7 @@ static gint ett_rtcp_mcptt_participant_ref = -1;
 static gint ett_rtcp_mcptt_eci = -1;
 static gint ett_rtcp_mccp_tmgi = -1;
 
+static expert_field ei_rtcp_not_final_padding = EI_INIT;
 static expert_field ei_rtcp_bye_reason_not_padded = EI_INIT;
 static expert_field ei_rtcp_xr_block_length_bad = EI_INIT;
 static expert_field ei_rtcp_roundtrip_delay = EI_INIT;
@@ -3161,6 +3162,7 @@ static gboolean validate_xr_block_length(tvbuff_t *tvb, packet_info *pinfo, int 
     proto_item *ti;
 
     ti = proto_tree_add_uint(tree, hf_rtcp_xr_block_length, tvb, offset, 2, block_len);
+    proto_item_append_text(ti, " (%u bytes)", (block_len)*4);
     switch (block_type) {
         case RTCP_XR_REF_TIME:
             if (block_len != 2)
@@ -3190,7 +3192,7 @@ static gboolean validate_xr_block_length(tvbuff_t *tvb, packet_info *pinfo, int 
 }
 
 static int
-dissect_rtcp_xr(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree, gint packet_len)
+dissect_rtcp_xr(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree, unsigned int padding, gint packet_len)
 {
     guint       block_num;
 
@@ -3198,6 +3200,13 @@ dissect_rtcp_xr(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree,
     if (packet_len < 4) {
         proto_tree_add_expert(tree, pinfo, &ei_rtcp_missing_sender_ssrc, tvb, offset, packet_len);
         return offset + packet_len;
+    }
+
+    if (padding) {
+        /* If there's padding present, we have to remove that from the data part
+        * The last octet of the packet contains the length of the padding
+        */
+        packet_len -= tvb_get_guint8(tvb, offset + packet_len - 1);
     }
 
     /* SSRC */
@@ -4335,6 +4344,7 @@ dissect_rtcp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
      */
     while ( !srtcp_now_encrypted && tvb_bytes_exist( tvb, offset, 4) ) {
         guint temp_byte;
+        proto_item *padding_item;
         gint elem_count;
         guint packet_type;
         gint packet_length;
@@ -4372,6 +4382,11 @@ dissect_rtcp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
             show_setup_info(tvb, pinfo, rtcp_tree);
         }
 
+        if (padding_set)
+        {
+            /* Padding can't yet be set, since there is another packet */
+            expert_add_info(pinfo, padding_item, &ei_rtcp_not_final_padding);
+        }
 
         temp_byte = tvb_get_guint8( tvb, offset );
 
@@ -4380,8 +4395,8 @@ dissect_rtcp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
         padding_set = RTCP_PADDING( temp_byte );
         padding_offset = offset + packet_length - 1;
 
-        proto_tree_add_boolean( rtcp_tree, hf_rtcp_padding, tvb,
-                                offset, 1, temp_byte );
+        padding_item = proto_tree_add_boolean( rtcp_tree, hf_rtcp_padding, tvb,
+                                               offset, 1, temp_byte );
         elem_count = RTCP_COUNT( temp_byte );
 
         switch ( packet_type ) {
@@ -4456,7 +4471,7 @@ dissect_rtcp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
                 offset++;
                 /* Packet length in 32 bit words MINUS one, 16 bits */
                 offset = dissect_rtcp_length_field(rtcp_tree, tvb, offset);
-                offset = dissect_rtcp_xr( tvb, pinfo, offset, rtcp_tree, packet_length - 4 );
+                offset = dissect_rtcp_xr( tvb, pinfo, offset, rtcp_tree, padding_set, packet_length - 4 );
                 break;
             case RTCP_AVB:
                 /* Subtype, 5 bits */
@@ -7885,6 +7900,7 @@ proto_register_rtcp(void)
     };
 
     static ei_register_info ei[] = {
+        { &ei_rtcp_not_final_padding, { "rtcp.not_final_padding", PI_PROTOCOL, PI_WARN, "Padding flag set on not final packet (see RFC3550, section 6.4.1)", EXPFILL }},
         { &ei_rtcp_bye_reason_not_padded, { "rtcp.bye_reason_not_padded", PI_MALFORMED, PI_WARN, "Reason string is not NULL padded (see RFC3550, section 6.6)", EXPFILL }},
         { &ei_rtcp_xr_block_length_bad, { "rtcp.invalid_block_length", PI_PROTOCOL, PI_WARN, "Invalid block length, should be 2", EXPFILL }},
         { &ei_rtcp_roundtrip_delay, { "rtcp.roundtrip-delay.expert", PI_SEQUENCE, PI_NOTE, "RTCP round-trip delay detected (%d ms)", EXPFILL }},
