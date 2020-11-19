@@ -46,6 +46,8 @@ variables:
     - su user -c pytest-3
 
 .build-rpm: &build-rpm
+  only:
+    - master
   <<: *build
   artifacts:
     paths:
@@ -71,6 +73,8 @@ build:rpm-centos-7:
     - cmake3 -GNinja ..
     - ninja-build rpm-package
 test:rpm-centos-7:
+  only:
+    - master
   stage: test
   image: wireshark/wireshark-centos-7-dev
   script:
@@ -93,6 +97,8 @@ build:rpm-centos-8:
     - cmake -GNinja ..
     - ninja-build rpm-package
 test:rpm-centos-8:
+  only:
+    - master
   stage: test
   image: wireshark/wireshark-centos-8-dev
   script:
@@ -115,6 +121,8 @@ build:rpm-opensuse-15.1:
     - cmake -GNinja ..
     - ninja rpm-package
 test:rpm-opensuse-15.1:
+  only:
+    - master
   image: wireshark/wireshark-opensuse-15.1-dev
   stage: test
   script:
@@ -137,6 +145,8 @@ build:rpm-opensuse-15.2:
     - cmake -GNinja ..
     - ninja rpm-package
 test:rpm-opensuse-15.2:
+  only:
+    - master
   image: wireshark/wireshark-opensuse-15.2-dev
   stage: test
   script:
@@ -160,6 +170,8 @@ build:rpm-fedora:
     - cmake3 -GNinja ..
     - ninja rpm-package
 test:rpm-fedora:
+  only:
+    - master
   image: fedora
   stage: test
   script:
