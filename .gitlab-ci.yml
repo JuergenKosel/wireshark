@@ -43,9 +43,8 @@ variables:
     - mkdir build
     - cd build
   script:
-    - cmake -GNinja $CMAKE_ARGS ..
-    - ninja
-    - ninja test-programs
+    - cmake $CMAKE_ARGS ..
+    - cmake --build
     - chown -R user .
     - if [ -f run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
     - su user -c pytest-3
@@ -94,6 +93,8 @@ test:rpm-centos-7:
 # https://hub.docker.com/r/wireshark/wireshark-centos-8-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/centos-8
 build:rpm-centos-8:
+  only:
+    - master
   <<: *build-rpm
   image: wireshark/wireshark-centos-8-dev
   script:
@@ -142,6 +143,8 @@ test:rpm-opensuse-15.1:
 # https://hub.docker.com/r/wireshark/wireshark-opensuse-15.2-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/opensuse-15.2
 build:rpm-opensuse-15.2:
+  only:
+    - master
   image: wireshark/wireshark-opensuse-15.2-dev
   <<: *build-rpm
   script:
@@ -164,6 +167,8 @@ test:rpm-opensuse-15.2:
 # https://hub.docker.com/repository/docker/wireshark/wireshark-fedora-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/fedora
 build:rpm-fedora:
+  only:
+    - master
   <<: *build-rpm
   image: wireshark/wireshark-fedora-dev
   script:
