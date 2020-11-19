@@ -19,8 +19,6 @@ include_directories(
 	${CMAKE_SOURCE_DIR}/epan
 )
 
-add_subdirectory( s7commwireshark/src/s7comm_plus )
-
 add_custom_command(
 	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/packet-ncp2222.c
 	COMMAND ${PYTHON_EXECUTABLE}
@@ -1697,6 +1695,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-s5066dts.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-s7comm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-s7comm_szl_ids.c
+	${CMAKE_CURRENT_SOURCE_DIR}/s7commwireshark/src/s7comm_plus/packet-s7comm_plus.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sadmind.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sametime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sap.c
