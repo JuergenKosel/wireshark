@@ -21,6 +21,7 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdarg.h>
+#include "ws_attributes.h"
 
 #define PBL_DEFAULT_PACKAGE_NAME ""
 
@@ -57,6 +58,7 @@ typedef struct {
     const char* filename;
     int syntax_version;
     const char* package_name;
+    int package_name_lineno;
     pbl_descriptor_pool_t* pool;
 } pbl_file_descriptor_t;
 
@@ -88,6 +90,12 @@ typedef struct {
     GHashTable* fields_by_number;
 } pbl_message_descriptor_t;
 
+/* like google::protobuf::EnumValueDescriptor of protobuf cpp library */
+typedef struct {
+    pbl_node_t basic_info;
+    int number;
+} pbl_enum_value_descriptor_t;
+
 /* like google::protobuf::FieldDescriptor of protobuf cpp library */
 typedef struct {
     pbl_node_t basic_info;
@@ -96,6 +104,21 @@ typedef struct {
     gchar* type_name;
     pbl_node_t* options_node;
     gboolean is_repeated;
+    gboolean is_required;
+    gboolean has_default_value; /* Does this field have an explicitly-declared default value? */
+    gchar* orig_default_value;
+    int string_or_bytes_default_value_length;
+    union {
+        gint32 i32;
+        gint64 i64;
+        guint32 u32;
+        guint64 u64;
+        gfloat f;
+        gdouble d;
+        gboolean b;
+        gchar* s;
+        const pbl_enum_value_descriptor_t* e;
+    } default_value;
 } pbl_field_descriptor_t;
 
 /* like google::protobuf::EnumDescriptor of protobuf cpp library */
@@ -105,12 +128,6 @@ typedef struct {
     GHashTable* values_by_number;
 } pbl_enum_descriptor_t;
 
-/* like google::protobuf::EnumValueDescriptor of protobuf cpp library */
-typedef struct {
-    pbl_node_t basic_info;
-    int number;
-} pbl_enum_value_descriptor_t;
-
 /* Option node. The name of basic_info is optionName.
    Now, we only care about fieldOption. */
 typedef struct {
@@ -118,12 +135,22 @@ typedef struct {
     char* value;
 } pbl_option_descriptor_t;
 
+/* the struct of token used by the parser */
+typedef struct _protobuf_lang_token_t {
+    gchar* v; /* token string value */
+    int ln; /* line number of this token in the .proto file */
+} protobuf_lang_token_t;
+
 /* parser state */
 typedef struct _protobuf_lang_state_t {
     pbl_descriptor_pool_t* pool; /* pool will keep the parsing result */
     pbl_file_descriptor_t* file; /* info of current parsing file */
     GSList* lex_string_tokens;
+    GSList* lex_struct_tokens;
     void* scanner;
+    void* pParser;
+    gboolean grammar_error;
+    protobuf_lang_token_t* tmp_token; /* just for passing token value from protobuf_lang_lex() to ProtobufLangParser() */
 } protobuf_lang_state_t;
 
 /* Store chars created by strdup or g_strconcat into protobuf_lang_state_t temporarily,
@@ -134,6 +161,15 @@ pbl_store_string_token(protobuf_lang_state_t* parser_state, char* dupstr)
 {
     parser_state->lex_string_tokens = g_slist_append(parser_state->lex_string_tokens, dupstr);
     return dupstr;
+}
+
+/* Store a protobuf_lang_token_t in protobuf_lang_state_t temporarily, and return back
+   the input pointer. It will be freed when protobuf_lang_state_t is released */
+static inline protobuf_lang_token_t*
+pbl_store_struct_token(protobuf_lang_state_t* parser_state, protobuf_lang_token_t* newtoken)
+{
+    parser_state->lex_struct_tokens = g_slist_append(parser_state->lex_struct_tokens, newtoken);
+    return newtoken;
 }
 
 /* default error_cb */
@@ -249,6 +285,51 @@ pbl_field_descriptor_message_type(const pbl_field_descriptor_t* field);
 const pbl_enum_descriptor_t*
 pbl_field_descriptor_enum_type(const pbl_field_descriptor_t* field);
 
+/* like FieldDescriptor::is_required() */
+gboolean
+pbl_field_descriptor_is_required(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::has_default_value().
+ * Does this field have an explicitly-declared default value? */
+gboolean
+pbl_field_descriptor_has_default_value(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::default_value_int32() */
+gint32
+pbl_field_descriptor_default_value_int32(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::default_value_int64() */
+gint64
+pbl_field_descriptor_default_value_int64(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::default_value_uint32() */
+guint32
+pbl_field_descriptor_default_value_uint32(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::default_value_uint64() */
+guint64
+pbl_field_descriptor_default_value_uint64(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::default_value_float() */
+gfloat
+pbl_field_descriptor_default_value_float(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::default_value_double() */
+gdouble
+pbl_field_descriptor_default_value_double(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::default_value_bool() */
+gboolean
+pbl_field_descriptor_default_value_bool(const pbl_field_descriptor_t* field);
+
+/* like FieldDescriptor::default_value_string() */
+const gchar*
+pbl_field_descriptor_default_value_string(const pbl_field_descriptor_t* field, int* size);
+
+/* like FieldDescriptor::default_value_enum() */
+const pbl_enum_value_descriptor_t*
+pbl_field_descriptor_default_value_enum(const pbl_field_descriptor_t* field);
+
 /* like EnumDescriptor::name() */
 const char*
 pbl_enum_descriptor_name(const pbl_enum_descriptor_t* anEnum);
@@ -268,6 +349,10 @@ pbl_enum_descriptor_value(const pbl_enum_descriptor_t* anEnum, int value_index);
 /* like EnumDescriptor::FindValueByNumber() */
 const pbl_enum_value_descriptor_t*
 pbl_enum_descriptor_FindValueByNumber(const pbl_enum_descriptor_t* anEnum, int number);
+
+/* like EnumDescriptor::FindValueByName() */
+const pbl_enum_value_descriptor_t*
+pbl_enum_descriptor_FindValueByName(const pbl_enum_descriptor_t* anEnum, const gchar* name);
 
 /* like EnumValueDescriptor::name() */
 const char*
@@ -291,11 +376,11 @@ pbl_foreach_message(const pbl_descriptor_pool_t* pool, void (*cb)(const pbl_mess
 
 /* create a normal node */
 pbl_node_t*
-pbl_create_node(pbl_file_descriptor_t* file, pbl_node_type_t nodetype, const char* name);
+pbl_create_node(pbl_file_descriptor_t* file, int lineno, pbl_node_type_t nodetype, const char* name);
 
 /* change the name of node */
 pbl_node_t*
-pbl_set_node_name(pbl_node_t* node, const char* newname);
+pbl_set_node_name(pbl_node_t* node, int lineno, const char* newname);
 
 /* get the name of node */
 static inline const char*
@@ -314,7 +399,7 @@ pbl_add_child(pbl_node_t* parent, pbl_node_t* child);
 
 /* create an enumeration field node */
 pbl_node_t*
-pbl_create_enum_value_node(pbl_file_descriptor_t* file, const char* name, int number);
+pbl_create_enum_value_node(pbl_file_descriptor_t* file, int lineno, const char* name, int number);
 
 /* merge one('from') node's children to another('to') node, and return the 'to' pointer */
 pbl_node_t*
@@ -322,19 +407,19 @@ pbl_merge_children(pbl_node_t* to, pbl_node_t* from);
 
 /* create a field node */
 pbl_node_t*
-pbl_create_field_node(pbl_file_descriptor_t* file, const char* label, const char* type_name, const char* name, int number, pbl_node_t* options);
+pbl_create_field_node(pbl_file_descriptor_t* file, int lineno, const char* label, const char* type_name, const char* name, int number, pbl_node_t* options);
 
 /* create a map field node */
 pbl_node_t*
-pbl_create_map_field_node(pbl_file_descriptor_t* file, const char* name, int number, pbl_node_t* options);
+pbl_create_map_field_node(pbl_file_descriptor_t* file, int lineno, const char* name, int number, pbl_node_t* options);
 
 /* create a method (rpc or stream of service) node */
 pbl_node_t*
-pbl_create_method_node(pbl_file_descriptor_t* file, const char* name, const char* in_msg_type, gboolean in_is_stream, const char* out_msg_type, gboolean out_is_stream);
+pbl_create_method_node(pbl_file_descriptor_t* file, int lineno, const char* name, const char* in_msg_type, gboolean in_is_stream, const char* out_msg_type, gboolean out_is_stream);
 
 /* create an option node */
 pbl_node_t*
-pbl_create_option_node(pbl_file_descriptor_t* file, const char* name, const char* value);
+pbl_create_option_node(pbl_file_descriptor_t* file, int lineno, const char* name, const char* value);
 
 /* free a pbl_node_t and its children. */
 void

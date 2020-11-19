@@ -1127,10 +1127,10 @@ static int dissect_routing6_crh(tvbuff_t* tvb, packet_info* pinfo, proto_tree* t
     int offset, minimum_crh_length;
     gint sid;
 
-    unsigned sid_count = 0;
-    unsigned octets_per_sid = 0;
-    unsigned sids_beyond_first_word = 0;
-    unsigned sids_per_word = 0;
+    unsigned sid_count;
+    unsigned octets_per_sid;
+    unsigned sids_beyond_first_word;
+    unsigned sids_per_word;
     struct ws_rthdr* rt = (struct ws_rthdr*)data;
     gboolean is_crh16 = rt->hdr.ip6r_type == IPv6_RT_HEADER_COMPACT_16;
     guint8 segments_left = rt->hdr.ip6r_segleft;
@@ -1155,6 +1155,8 @@ static int dissect_routing6_crh(tvbuff_t* tvb, packet_info* pinfo, proto_tree* t
             minimum_crh_length = 0;
         sids_beyond_first_word = segments_left - 1;
         break;
+    default:
+        DISSECTOR_ASSERT_NOT_REACHED();
     }
     if (minimum_crh_length) {
         minimum_crh_length = sids_beyond_first_word / sids_per_word;
@@ -2375,7 +2377,6 @@ dissect_ipv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
     /* !!! warning: (4-bit) version, (6-bit) DSCP, (2-bit) ECN and (20-bit) Flow */
     ti = proto_tree_add_item(ipv6_tree, hf_ipv6_tclass, tvb,
                         offset + IP6H_CTL_VFC, 4, ENC_BIG_ENDIAN);
-    proto_item_set_bits_offset_len(ti, 4, 8);
     ip6_tcls = tvb_get_bits8(tvb, (offset + IP6H_CTL_VFC) * 8 + 4, 8);
     proto_item_append_text(ti, " (DSCP: %s, ECN: %s)",
                         val_to_str_ext_const(IPDSFIELD_DSCP(ip6_tcls), &dscp_short_vals_ext, "Unknown"),
@@ -2393,7 +2394,6 @@ dissect_ipv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 
     ti = proto_tree_add_item_ret_uint(ipv6_tree, hf_ipv6_flow, tvb,
                         offset + IP6H_CTL_FLOW + 1, 3, ENC_BIG_ENDIAN, &ip6_flow);
-    proto_item_set_bits_offset_len(ti, 4, 20);
 
     ip6_plen = tvb_get_guint16(tvb, offset + IP6H_CTL_PLEN, ENC_BIG_ENDIAN);
 
@@ -2610,7 +2610,7 @@ proto_register_ipv6(void)
         },
         { &hf_ipv6_flow,
             { "Flow Label", "ipv6.flow",
-                FT_UINT32, BASE_HEX, NULL, 0x000FFFFF,
+                FT_UINT24, BASE_HEX, NULL, 0x0FFFFF,
                 NULL, HFILL }
         },
         { &hf_ipv6_plen,

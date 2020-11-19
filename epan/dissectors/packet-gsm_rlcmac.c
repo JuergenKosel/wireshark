@@ -9012,6 +9012,7 @@ dissect_dl_gprs_block(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, RlcMa
   guint16      bit_length  = tvb_reported_length(tvb) * 8;
 
   guint8 payload_type = tvb_get_bits8(tvb, 0, 2);
+  guint8 s_p  = tvb_get_bits8(tvb, 4, 1);
   guint8 rbsn = tvb_get_bits8(tvb, 8, 1);
   guint8 fs   = tvb_get_bits8(tvb, 14, 1);
   guint8 ac   = tvb_get_bits8(tvb, 15, 1);
@@ -9098,6 +9099,8 @@ dissect_dl_gprs_block(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, RlcMa
     }
     data->u.MESSAGE_TYPE = tvb_get_bits8(tvb, message_type_offset, 6);
     col_append_sep_fstr(pinfo->cinfo, COL_INFO, " CTRL: ", "%s", val_to_str_ext(data->u.MESSAGE_TYPE, &dl_rlc_message_type_vals_ext, "Unknown Message Type"));
+    if (s_p)
+        col_append_str(pinfo->cinfo, COL_INFO, " [RRBP]");
     ti = proto_tree_add_protocol_format(tree, proto_gsm_rlcmac, tvb, bit_offset >> 3, -1,
                                         "GSM RLC/MAC: %s (%d) (Downlink)",
                                         val_to_str_ext(data->u.MESSAGE_TYPE, &dl_rlc_message_type_vals_ext, "Unknown Message Type"),
@@ -9200,7 +9203,8 @@ dissect_egprs_dl_header_block(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "MCS%d", rlc_mac->mcs);
     col_append_str_uint(pinfo->cinfo, COL_INFO, "TFI", data->u.DL_Data_Block_EGPRS_Header.TFI, " ");
     col_append_str_uint(pinfo->cinfo, COL_INFO, "BSN1", rlc_mac->u.egprs_dl_header_info.bsn1, " ");
-    col_append_str_uint(pinfo->cinfo, COL_INFO, "BSN2", rlc_mac->u.egprs_dl_header_info.bsn2, " ");
+    if (data->block_format == RLCMAC_HDR_TYPE_1)
+      col_append_str_uint(pinfo->cinfo, COL_INFO, "BSN2", rlc_mac->u.egprs_dl_header_info.bsn2, " ");
     col_append_str_uint(pinfo->cinfo, COL_INFO, "USF", data->u.DL_Data_Block_EGPRS_Header.USF, " ");
     if (data->u.DL_Data_Block_EGPRS_Header.ES_P)
         col_append_str(pinfo->cinfo, COL_INFO, " [RRBP]");
@@ -9575,7 +9579,8 @@ dissect_egprs_ul_header_block(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "MCS%d", rlc_mac->mcs);
     col_append_str_uint(pinfo->cinfo, COL_INFO, "TFI", data->u.UL_Data_Block_EGPRS_Header.TFI, " ");
     col_append_str_uint(pinfo->cinfo, COL_INFO, "BSN1", rlc_mac->u.egprs_ul_header_info.bsn1, " ");
-    col_append_str_uint(pinfo->cinfo, COL_INFO, "BSN2", rlc_mac->u.egprs_ul_header_info.bsn2, " ");
+    if (data->block_format == RLCMAC_HDR_TYPE_1)
+      col_append_str_uint(pinfo->cinfo, COL_INFO, "BSN2", rlc_mac->u.egprs_ul_header_info.bsn2, " ");
     col_append_str_uint(pinfo->cinfo, COL_INFO, "CV", data->u.UL_Data_Block_EGPRS_Header.Countdown_Value, " ");
   }
 }
@@ -9660,7 +9665,7 @@ dissect_egprs_ul_data_block(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   /* the next fields are present according to earlier flags */
   if (tlli_i)
   {
-    proto_tree_add_bits_item(data_tree, hf_tlli, tvb, offset * 8, 32, ENC_BIG_ENDIAN);
+    proto_tree_add_item(data_tree, hf_tlli, tvb, offset, 4, ENC_LITTLE_ENDIAN);
     offset += 4;
   }
   if (egprs_ul_header_info->pi)
@@ -18227,7 +18232,7 @@ proto_register_gsm_rlcmac(void)
     },
 
     { &hf_packet_access_reject_reject_exist,
-      { "Reject[1] Exist", "gsm_rlcmac.acket_access_reject.reject_exist",
+      { "Reject[1] Exist", "gsm_rlcmac.packet_access_reject.reject_exist",
         FT_UINT8, BASE_DEC, NULL, 0x0,
         NULL, HFILL
       }

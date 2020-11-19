@@ -4296,6 +4296,7 @@ dissect_rtcp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
     proto_item       *ti;
     proto_tree       *rtcp_tree           = NULL;
     guint             padding_set         = 0;
+    proto_item       *padding_item        = NULL;
     gint              offset              = 0;
     gint              total_packet_length = 0;
     guint             padding_offset      = 0;
@@ -4322,7 +4323,7 @@ dissect_rtcp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
             srtcp_offset = tvb_reported_length_remaining(tvb, offset) - srtcp_info->auth_tag_len - srtcp_info->mki_len - 4;
             /* It has been setup as SRTCP, but skip to the SRTCP E field at the end
                to see if this particular packet is encrypted or not. The E bit is the MSB. */
-            srtcp_index = tvb_get_ntohl(tvb,srtcp_offset);
+            srtcp_index = tvb_bytes_exist(tvb, srtcp_offset, 4) ? tvb_get_ntohl(tvb, srtcp_offset) : 0;
             e_bit = (srtcp_index & 0x80000000) ? TRUE : FALSE;
             srtcp_index &= 0x7fffffff;
 
@@ -4344,7 +4345,6 @@ dissect_rtcp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
      */
     while ( !srtcp_now_encrypted && tvb_bytes_exist( tvb, offset, 4) ) {
         guint temp_byte;
-        proto_item *padding_item;
         gint elem_count;
         guint packet_type;
         gint packet_length;
