@@ -14,12 +14,7 @@ variables:
 .build-ubuntu: &build-ubuntu
   <<: *build
   image: wireshark/wireshark-ubuntu-dev
-  retry:
-    max: 1
-    when: runner_system_failure
-  rules:
-    - if: '$CI_SERVER_HOST == "gitlab.com"'
-      when: always
+  retry: 1
   # https://gould.cx/ted/blog/2017/06/10/ccache-for-Gitlab-CI/
   cache:
     # XXX Use ${CI_JOB_NAME}-${CI_MERGE_REQUEST_TARGET_BRANCH_NAME} instead?
@@ -43,8 +38,9 @@ variables:
     - mkdir build
     - cd build
   script:
-    - cmake $CMAKE_ARGS ..
-    - cmake --build
+    - cmake -GNinja $CMAKE_ARGS ..
+    - ninja
+    - ninja test-programs
     - chown -R user .
     - if [ -f run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
     - su user -c pytest-3
@@ -67,8 +63,6 @@ clang-10: &clang-10
 # https://hub.docker.com/r/wireshark/wireshark-centos-7-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/centos-7
 build:rpm-centos-7:
-  only:
-    - master
   <<: *build-rpm
   image: wireshark/wireshark-centos-7-dev
   script:
@@ -77,8 +71,6 @@ build:rpm-centos-7:
     - cmake3 -GNinja ..
     - ninja-build rpm-package
 test:rpm-centos-7:
-  only:
-    - master
   stage: test
   image: wireshark/wireshark-centos-7-dev
   script:
@@ -93,8 +85,6 @@ test:rpm-centos-7:
 # https://hub.docker.com/r/wireshark/wireshark-centos-8-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/centos-8
 build:rpm-centos-8:
-  only:
-    - master
   <<: *build-rpm
   image: wireshark/wireshark-centos-8-dev
   script:
@@ -117,8 +107,6 @@ test:rpm-centos-8:
 # https://hub.docker.com/r/wireshark/wireshark-opensuse-15.1-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/opensuse-15.1
 build:rpm-opensuse-15.1:
-  only:
-    - master
   image: wireshark/wireshark-opensuse-15.1-dev
   <<: *build-rpm
   script:
@@ -127,8 +115,6 @@ build:rpm-opensuse-15.1:
     - cmake -GNinja ..
     - ninja rpm-package
 test:rpm-opensuse-15.1:
-  only:
-    - master
   image: wireshark/wireshark-opensuse-15.1-dev
   stage: test
   script:
@@ -143,8 +129,6 @@ test:rpm-opensuse-15.1:
 # https://hub.docker.com/r/wireshark/wireshark-opensuse-15.2-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/opensuse-15.2
 build:rpm-opensuse-15.2:
-  only:
-    - master
   image: wireshark/wireshark-opensuse-15.2-dev
   <<: *build-rpm
   script:
@@ -167,8 +151,6 @@ test:rpm-opensuse-15.2:
 # https://hub.docker.com/repository/docker/wireshark/wireshark-fedora-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/fedora
 build:rpm-fedora:
-  only:
-    - master
   <<: *build-rpm
   image: wireshark/wireshark-fedora-dev
   script:
@@ -204,7 +186,7 @@ build:debian-stable:
   artifacts:
     paths:
       - debian-packages/*.deb
-    expire_in: 33 days
+    expire_in: 3 days
 test:debian-stable:
   image: wireshark/wireshark-debian-stable-dev
   stage: test
