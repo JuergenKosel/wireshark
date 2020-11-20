@@ -1695,7 +1695,6 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-s5066dts.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-s7comm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-s7comm_szl_ids.c
-	${CMAKE_CURRENT_SOURCE_DIR}/s7commwireshark/src/s7comm_plus/packet-s7comm_plus.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sadmind.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sametime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sap.c
@@ -1980,6 +1979,10 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zrtp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zvt.c
 )
+
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/s7commwireshark/src/s7comm_plus/packet-s7comm_plus.c)
+  set(DISSECTOR_SRC ${DISSECTOR_SRC} ${CMAKE_CURRENT_SOURCE_DIR}/s7commwireshark/src/s7comm_plus/packet-s7comm_plus.c)
+endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/s7commwireshark/src/s7comm_plus/packet-s7comm_plus.c)
 
 set(DISSECTOR_SUPPORT_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/errno.c
