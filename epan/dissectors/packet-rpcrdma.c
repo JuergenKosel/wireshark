@@ -203,6 +203,7 @@ typedef struct {
     guint32       msgno;    /* Message number base so fragments are
                                sequential between segment requests */
     chunk_type_t  type;     /* Chunk type for segment */
+    guint32       xdrpos;   /* Position in XDR stream -- RDMA read only */
     guint32       length;   /* Length of segment in bytes */
     wmem_array_t *requests; /* List of requests for segment */
 } segment_info_t;
@@ -485,7 +486,7 @@ static tvbuff_t *add_fragment(tvbuff_t *tvb, gint offset, guint32 msgid,
         gint32 msg_num, gboolean more_frags, rdma_conv_info_t *p_rdma_conv_info,
         packet_info *pinfo, proto_tree *tree)
 {
-    guint32 nbytes;
+    guint32 nbytes, frag_size;
     tvbuff_t *new_tvb = NULL;
     fragment_head *fd_head = NULL;
 
@@ -495,6 +496,18 @@ static tvbuff_t *add_fragment(tvbuff_t *tvb, gint offset, guint32 msgid,
             nbytes = tvb_captured_length_remaining(tvb, offset);
             if (nbytes > 0 || more_frags) {
                 /* Add message fragment to reassembly table */
+                if (gp_infiniband_info->pad_count > 0 && p_rdma_conv_info != NULL && \
+                    p_rdma_conv_info->segment_info != NULL && \
+                    p_rdma_conv_info->segment_info->type == RDMA_READ_CHUNK && \
+                    p_rdma_conv_info->segment_info->xdrpos == 0) {
+                    /* Do not include any padding bytes inserted by Infiniband
+                     * layer if this is a PZRC (Position-Zero Read Chunk) since
+                     * payload stream already has any necessary padding bytes */
+                    frag_size = tvb_reported_length_remaining(tvb, offset) - gp_infiniband_info->pad_count;
+                    if (frag_size < nbytes) {
+                        nbytes = frag_size;
+                    }
+                }
                 fd_head = fragment_add_seq_check(&rpcordma_reassembly_table,
                                                  tvb, offset, pinfo,
                                                  msgid, NULL, (guint32)msg_num,
@@ -998,6 +1011,7 @@ process_rdma_list(tvbuff_t *tvb, guint offset, wmem_array_t *p_list,
                     p_segment_info->msgid = msgid;
                     p_segment_info->msgno = msg_num + 1;
                     p_segment_info->type = p_rdma_chunk->type;
+                    p_segment_info->xdrpos = xdrpos;
                     p_segment_info->length = p_rdma_segment->length;
                     p_segment_info->requests = wmem_array_new(wmem_file_scope(), sizeof(request_t));
                     /* Add segment to the list of segments */
@@ -1325,7 +1339,7 @@ dissect_rpcrdma(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
     proto_item *ti;
     proto_tree *rpcordma_tree;
     guint offset;
-    guint32 msg_type = 0;
+    guint32 msg_type;
     guint32 xid;
     guint32 val;
     guint write_size;
@@ -1336,13 +1350,14 @@ dissect_rpcrdma(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
 
     /* tvb_get_ntohl() should not throw an exception while checking if
        this is an rpcrdma packet */
-    if (tvb_captured_length(tvb) < 8)
+    if (tvb_captured_length(tvb) < MIN_RPCRDMA_HDR_SZ)
         return 0;
 
     if (tvb_get_ntohl(tvb, 4) != 1)  /* vers */
         return 0;
 
     xid = tvb_get_ntohl(tvb, 0);
+    msg_type = tvb_get_ntohl(tvb, 12);
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "RPCoRDMA");
     col_add_fstr(pinfo->cinfo, COL_INFO, "%s XID 0x%x",
@@ -1362,8 +1377,8 @@ dissect_rpcrdma(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
     proto_tree_add_item(rpcordma_tree, hf_rpcordma_flow_control, tvb,
                 offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
-    proto_tree_add_item_ret_uint(rpcordma_tree, hf_rpcordma_message_type, tvb,
-                offset, 4, ENC_BIG_ENDIAN, &msg_type);
+    proto_tree_add_item(rpcordma_tree, hf_rpcordma_message_type, tvb,
+                offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
 
     switch (msg_type) {

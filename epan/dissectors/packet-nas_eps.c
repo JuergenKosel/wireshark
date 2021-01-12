@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 24.301 V16.6.0 (2020-09)
+ * References: 3GPP TS 24.301 V16.7.0 (2020-12)
  */
 
 #include "config.h"
@@ -296,7 +296,7 @@ static int hf_nas_eps_emm_5g_hc_cp_ciot = -1;
 static int hf_nas_eps_emm_n3_data = -1;
 static int hf_nas_eps_emm_5g_cp_ciot = -1;
 static int hf_nas_eps_emm_ue_radio_cap_id_available = -1;
-static int hf_nas_eps_emm_ue_radio_cap_id_availability = -1;
+static int hf_nas_eps_emm_ue_radio_cap_id_request = -1;
 static int hf_nas_eps_emm_wus_assist_info_type = -1;
 static int hf_nas_eps_emm_wus_assist_info_ue_paging_prob = -1;
 static int hf_nas_eps_emm_nb_s1_drx_param = -1;
@@ -899,7 +899,7 @@ static const value_string nas_emm_elem_strings[] = {
     { DE_EMM_UE_RADIO_CAP_ID_REQ, "UE radio capability ID request" },          /* 9.9.3.59 UE radio capability ID request */
     { DE_EMM_UE_RADIO_CAP_ID, "UE radio capability ID"  },                     /* 9.9.3.60 UE radio capability ID */
     { DE_EMM_UE_RADIO_CAP_ID_DEL_IND, "UE radio capability ID deletion indication" }, /* 9.9.3.61 UE radio capability ID deletion indication */
-    { DE_EMM_WUS_ASSIT_INFO, "WUS assistance information" },                   /* 9.9.3.62 WUS assistance information */
+    { DE_EMM_WUS_ASSIST_INFO, "WUS assistance information" },                  /* 9.9.3.62 WUS assistance information */
     { DE_EMM_NB_S1_DRX_PARAM, "NB-S1 DRX parameter" },                         /* 9.9.3.63 NB-S1 DRX parameter */
 
     { 0, NULL }
@@ -992,7 +992,7 @@ typedef enum
     DE_EMM_UE_RADIO_CAP_ID_REQ, /* 9.9.3.59 UE radio capability ID request */
     DE_EMM_UE_RADIO_CAP_ID,     /* 9.9.3.60 UE radio capability ID */
     DE_EMM_UE_RADIO_CAP_ID_DEL_IND, /* 9.9.3.61 UE radio capability ID deletion indication */
-    DE_EMM_WUS_ASSIT_INFO,      /* 9.9.3.62 WUS assistance information */
+    DE_EMM_WUS_ASSIST_INFO,     /* 9.9.3.62 WUS assistance information */
     DE_EMM_NB_S1_DRX_PARAM,     /* 9.9.3.63 NB-S1 DRX parameter */
     DE_EMM_NONE                 /* NONE */
 }
@@ -1343,8 +1343,6 @@ de_emm_eps_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
 {
     guint32   curr_offset;
     guint8    octet;
-    const char     *digit_str;
-    tvbuff_t *new_tvb;
     proto_item* ti;
 
     curr_offset = offset;
@@ -1356,14 +1354,11 @@ de_emm_eps_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
     switch (octet&0x7) {
         case 1:
             /* IMSI */
-            new_tvb = tvb_new_subset_length(tvb, curr_offset, len);
-            dissect_e212_imsi(new_tvb, pinfo, tree,  0, len, TRUE);
+            dissect_e212_imsi(tvb, pinfo, tree, curr_offset, len, TRUE);
             break;
         case 3:
             /* IMEI */
-            new_tvb = tvb_new_subset_length(tvb, curr_offset, len);
-            digit_str = tvb_bcd_dig_to_wmem_packet_str(new_tvb, 0, len, NULL, TRUE);
-            proto_tree_add_string(tree, hf_nas_eps_emm_imei, new_tvb, 0, -1, digit_str);
+            proto_tree_add_item(tree, hf_nas_eps_emm_imei, tvb, curr_offset, len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
             break;
         case 6:
             /* GUTI */
@@ -2745,10 +2740,6 @@ de_emm_add_info_req(tvbuff_t *tvb , proto_tree *tree, packet_info *pinfo _U_,
 /*
  * 9.9.3.56 Ciphering key data
  */
-static const true_false_string emm_applicable_not_applicable = {
-    "Applicable",
-    "Not applicable"
-};
 
 static guint16
 de_emm_ciph_key_data(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset,
@@ -2897,12 +2888,12 @@ static const value_string nas_eps_emm_ue_radio_cap_id_avail_vals[] = {
 
 static guint16
 de_emm_ue_radio_cap_id_avail(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo _U_,
-    guint32 offset, guint len _U_, gchar* add_string _U_, int string_len _U_)
+    guint32 offset, guint len, gchar* add_string _U_, int string_len _U_)
 {
-    proto_tree_add_bits_item(tree, hf_nas_eps_spare_bits, tvb, (offset<<3)+4, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(tree, hf_nas_eps_spare_bits, tvb, (offset<<3), 5, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_nas_eps_emm_ue_radio_cap_id_available, tvb, offset, 1, ENC_BIG_ENDIAN);
 
-    return 1;
+    return len;
 }
 
 /*
@@ -2910,20 +2901,20 @@ de_emm_ue_radio_cap_id_avail(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo
  */
 static guint16
 de_emm_ue_radio_cap_id_req(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo _U_,
-    guint32 offset, guint len _U_, gchar* add_string _U_, int string_len _U_)
+    guint32 offset, guint len, gchar* add_string _U_, int string_len _U_)
 {
     proto_tree_add_bits_item(tree, hf_nas_eps_spare_bits, tvb, (offset<<3), 7, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_nas_eps_emm_ue_radio_cap_id_availability, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_nas_eps_emm_ue_radio_cap_id_request, tvb, offset, 1, ENC_BIG_ENDIAN);
 
-    return 1;
+    return len;
 }
 
 /* 9.9.3.60    UE radio capability ID
- * See subclause 9.11.3.65 in 3GPP TS 24.501
+ * See subclause 9.11.3.68 in 3GPP TS 24.501
  */
 
 /* 9.9.3.61    UE radio capability ID deletion indication
- * See subclause 9.11.3.zz in 3GPP TS 24.501
+ * See subclause 9.11.3.69 in 3GPP TS 24.501
  */
 
 /*
@@ -2969,7 +2960,7 @@ de_emm_wus_assist_info(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo _U_,
 }
 
 /*
- * 9.9.3.62    NB-S1 DRX parameter
+ * 9.9.3.63    NB-S1 DRX parameter
  */
 static const value_string nas_eps_emm_nb_s1_drx_params_vals[] = {
     { 0x0, "DRX value not specified and use cell specific DRX value"},
@@ -2984,11 +2975,12 @@ static const value_string nas_eps_emm_nb_s1_drx_params_vals[] = {
 
 static guint16
 de_emm_nb_s1_drx_param(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo _U_,
-    guint32 offset, guint len _U_, gchar* add_string _U_, int string_len _U_)
+    guint32 offset, guint len, gchar* add_string _U_, int string_len _U_)
 {
+    proto_tree_add_bits_item(tree, hf_nas_eps_spare_bits, tvb, (offset<<3), 4, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_nas_eps_emm_nb_s1_drx_param, tvb, offset, 1, ENC_BIG_ENDIAN);
 
-    return 1;
+    return len;
 }
 
 /*
@@ -3701,22 +3693,19 @@ de_esm_remote_ue_context_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinf
                     break;
                 case 3:
                     {
-                        const gchar *msisdn_str = tvb_bcd_dig_to_wmem_packet_str(tvb, curr_offset, user_id_len, NULL, TRUE);
-                        proto_tree_add_string(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_msisdn, tvb, curr_offset, user_id_len, msisdn_str);
+                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_msisdn, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
                         curr_offset += user_id_len;
                     }
                     break;
                 case 4:
                     {
-                        const gchar *imei_str = tvb_bcd_dig_to_wmem_packet_str(tvb, curr_offset, user_id_len, NULL, TRUE);
-                        proto_tree_add_string(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_imei, tvb, curr_offset, user_id_len, imei_str);
+                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_imei, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
                         curr_offset += user_id_len;
                     }
                     break;
                 case 5:
                     {
-                        const gchar *imeisv_str = tvb_bcd_dig_to_wmem_packet_str(tvb, curr_offset, user_id_len, NULL, TRUE);
-                        proto_tree_add_string(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_imeisv, tvb, curr_offset, user_id_len, imeisv_str);
+                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_imeisv, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
                         curr_offset += user_id_len;
                     }
                     break;
@@ -3908,7 +3897,8 @@ static const value_string nas_eps_esm_rel_assist_ind_ddx_vals[] = {
     { 0x03, "Reserved" },
     { 0, NULL}
 };
-static guint16
+
+guint16
 de_esm_rel_assist_ind(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
                       guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
@@ -4432,10 +4422,10 @@ nas_emm_attach_acc(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 
     ELEM_OPT_TLV(0x66, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_UE_RADIO_CAP_ID, NULL);
     /* B-   UE radio capability ID deletion indication UE radio capability ID deletion indication O   TV  1 */
     ELEM_OPT_TV_SHORT(0xB0, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_UE_RADIO_CAP_ID_DEL_IND, NULL);
-    /* XX   Negotiated WUS assistance information WUS assistance information 9.9.3.62 O TLV 3-n */
-    //ELEM_OPT_TLV(0xXX, NAS_PDU_TYPE_EMM, DE_EMM_WUS_ASSIT_INFO, " - Negotiated WUS assistance information");
-    /* K-   Negotiated DRX parameter in NB-S1 mode NB-S1 DRX parameter 9.9.3.63 O TC 1 */
-    //ELEM_OPT_TV_SHORT(0xK0, NAS_PDU_TYPE_EMM, DE_EMM_NB_S1_DRX_PARAM, " - Negotiated DRX parameter in NB-S1 mode");
+    /* 35   Negotiated WUS assistance information WUS assistance information 9.9.3.62 O TLV 3-n */
+    ELEM_OPT_TLV(0x35, NAS_PDU_TYPE_EMM, DE_EMM_WUS_ASSIST_INFO, " - Negotiated");
+    /* 36   Negotiated DRX parameter in NB-S1 mode NB-S1 DRX parameter 9.9.3.63 O TLV 3 */
+    ELEM_OPT_TLV(0x36, NAS_PDU_TYPE_EMM, DE_EMM_NB_S1_DRX_PARAM, " - Negotiated");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_eps_extraneous_data);
 }
@@ -4574,15 +4564,16 @@ nas_emm_attach_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 
     ELEM_OPT_TV(0x17, NAS_PDU_TYPE_EMM, DE_EMM_ADD_INFO_REQ, NULL);
     /* 32   N1 UE network capability    N1 UE network capability 9.9.3.57    O    TLV    3-15 */
     ELEM_OPT_TLV(0x32, NAS_PDU_TYPE_EMM, DE_EMM_N1_UE_NETWORK_CAP, NULL);
-    /* TBC  UE radio capability ID availability UE radio capability ID availability O TLV 3 */
-    //ELEM_OPT_TLV(TBC, NAS_PDU_TYPE_EMM, DE_EMM_UE_RADIO_CAP_ID_AVAIL, NULL);
-    /* XX   Requested WUS assistance WUS assistance information O TLV 3-n */
-    //ELEM_OPT_TLV(0xXX, NAS_PDU_TYPE_EMM, DE_EMM_WUS_ASSIT_INFO, " - Requested WUS assistance");
-    /* K-   DRX parameter in NB-S1 mode NB-S1 DRX parameter 9.9.3.63 O TC 1 */
-    //ELEM_OPT_TV_SHORT(0xK0, NAS_PDU_TYPE_EMM, DE_EMM_NB_S1_DRX_PARAM, NULL);
+    /* 34   UE radio capability ID availability UE radio capability ID availability O TLV 3 */
+    ELEM_OPT_TLV(0x34, NAS_PDU_TYPE_EMM, DE_EMM_UE_RADIO_CAP_ID_AVAIL, NULL);
+    /* 35   Requested WUS assistance WUS assistance information O TLV 3-n */
+    ELEM_OPT_TLV(0x35, NAS_PDU_TYPE_EMM, DE_EMM_WUS_ASSIST_INFO, " - Requested");
+    /* 36   DRX parameter in NB-S1 mode NB-S1 DRX parameter 9.9.3.63 O TLV 3 */
+    ELEM_OPT_TLV(0x36, NAS_PDU_TYPE_EMM, DE_EMM_NB_S1_DRX_PARAM, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_eps_extraneous_data);
 }
+
 /*
  * 8.2.5    Authentication failure
  */
@@ -5046,8 +5037,8 @@ nas_emm_sec_mode_cmd(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint3
     ELEM_OPT_TLV(0x4F, NAS_PDU_TYPE_EMM, DE_EMM_HASH_MME, NULL);
     /* 6F   Replayed UE additional security capability UE additional security capability 9.9.3.53 O TLV 6 */
     ELEM_OPT_TLV(0x6F, NAS_PDU_TYPE_EMM, DE_EMM_UE_ADD_SEC_CAP, " - Replayed UE additional security capability");
-    /* D-   UE radio capability ID request UE radio capability ID request 9.9.3.59 O TV 1 */
-    ELEM_OPT_TV_SHORT(0xD0, NAS_PDU_TYPE_EMM, DE_EMM_UE_RADIO_CAP_ID_REQ, NULL);
+    /* 37   UE radio capability ID request UE radio capability ID request 9.9.3.59 O TLV 3 */
+    ELEM_OPT_TLV(0x37, NAS_PDU_TYPE_EMM, DE_EMM_UE_RADIO_CAP_ID_REQ, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_eps_extraneous_data);
 }
@@ -5236,10 +5227,10 @@ nas_emm_trac_area_upd_acc(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, g
     ELEM_OPT_TLV(0x66, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_UE_RADIO_CAP_ID, NULL);
     /* B-   UE radio capability ID deletion indication UE radio capability ID deletion indication O   TV  1 */
     ELEM_OPT_TV_SHORT(0xB0, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_UE_RADIO_CAP_ID_DEL_IND, NULL);
-    /* XX   Negotiated WUS assistance information WUS assistance information 9.9.3.62 O TLV 3-n */
-    //ELEM_OPT_TLV(0xXX, NAS_PDU_TYPE_EMM, DE_EMM_WUS_ASSIT_INFO, " - Negotiated WUS assistance information");
-    /* K-   Negotiated DRX parameter in NB-S1 mode NB-S1 DRX parameter 9.9.3.63 O TC 1 */
-    //ELEM_OPT_TV_SHORT(0xK0, NAS_PDU_TYPE_EMM, DE_EMM_NB_S1_DRX_PARAM, " - Negotiated DRX parameter in NB-S1 mode");
+    /* 35   Negotiated WUS assistance information WUS assistance information 9.9.3.62 O TLV 3-n */
+    ELEM_OPT_TLV(0x35, NAS_PDU_TYPE_EMM, DE_EMM_WUS_ASSIST_INFO, " - Negotiated");
+    /* 36   Negotiated DRX parameter in NB-S1 mode NB-S1 DRX parameter 9.9.3.63 O TLV 3 */
+    ELEM_OPT_TLV(0x36, NAS_PDU_TYPE_EMM, DE_EMM_NB_S1_DRX_PARAM, " - Negotiated");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_eps_extraneous_data);
 }
@@ -5364,12 +5355,12 @@ nas_emm_trac_area_upd_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, g
     ELEM_OPT_TV(0x17, NAS_PDU_TYPE_EMM, DE_EMM_ADD_INFO_REQ, NULL);
     /* 32   N1 UE network capability    N1 UE network capability 9.9.3.57    O    TLV    3-15 */
     ELEM_OPT_TLV(0x32, NAS_PDU_TYPE_EMM, DE_EMM_N1_UE_NETWORK_CAP, NULL);
-    /* TBC  UE radio capability ID availability UE radio capability ID availability O TLV 3 */
-    //ELEM_OPT_TLV(TBC, NAS_PDU_TYPE_EMM, DE_EMM_UE_RADIO_CAP_ID_AVAIL, NULL);
-    /* XX   Requested WUS assistance WUS assistance information O TLV 3-n */
-    //ELEM_OPT_TLV(0xXX, NAS_PDU_TYPE_EMM, DE_EMM_WUS_ASSIT_INFO, " - Requested WUS assistance");
-    /* K-   DRX parameter in NB-S1 mode NB-S1 DRX parameter 9.9.3.63 O TC 1 */
-    //ELEM_OPT_TV_SHORT(0xK0, NAS_PDU_TYPE_EMM, DE_EMM_NB_S1_DRX_PARAM, NULL);
+    /* 34   UE radio capability ID availability UE radio capability ID availability O TLV 3 */
+    ELEM_OPT_TLV(0x34, NAS_PDU_TYPE_EMM, DE_EMM_UE_RADIO_CAP_ID_AVAIL, NULL);
+    /* 35   Requested WUS assistance WUS assistance information O TLV 3-n */
+    ELEM_OPT_TLV(0x35, NAS_PDU_TYPE_EMM, DE_EMM_WUS_ASSIST_INFO, " - Requested");
+    /* 36   DRX parameter in NB-S1 mode NB-S1 DRX parameter 9.9.3.63 O TLV 3 */
+    ELEM_OPT_TLV(0x36, NAS_PDU_TYPE_EMM, DE_EMM_NB_S1_DRX_PARAM, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_eps_extraneous_data);
 }
@@ -7856,137 +7847,137 @@ proto_register_nas_eps(void)
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_1_1,
         { "Ciphering data set for positioning SIB type 1-1","nas_eps.emm.ciph_key_data.pos_sib_type_1_1",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x80,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_1_2,
         { "Ciphering data set for positioning SIB type 1-2","nas_eps.emm.ciph_key_data.pos_sib_type_1_2",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x40,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_1_3,
         { "Ciphering data set for positioning SIB type 1-3","nas_eps.emm.ciph_key_data.pos_sib_type_1_3",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x20,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_1_4,
         { "Ciphering data set for positioning SIB type 1-4","nas_eps.emm.ciph_key_data.pos_sib_type_1_4",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x10,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_1_5,
         { "Ciphering data set for positioning SIB type 1-5","nas_eps.emm.ciph_key_data.pos_sib_type_1_5",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x08,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_1_6,
         { "Ciphering data set for positioning SIB type 1-6","nas_eps.emm.ciph_key_data.pos_sib_type_1_6",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x04,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_1_7,
         { "Ciphering data set for positioning SIB type 1-7","nas_eps.emm.ciph_key_data.pos_sib_type_1_7",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x02,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_1,
         { "Ciphering data set for positioning SIB type 2-1","nas_eps.emm.ciph_key_data.pos_sib_type_2_1",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x01,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_2,
         { "Ciphering data set for positioning SIB type 2-2","nas_eps.emm.ciph_key_data.pos_sib_type_2_2",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x80,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_3,
         { "Ciphering data set for positioning SIB type 2-3","nas_eps.emm.ciph_key_data.pos_sib_type_2_3",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x40,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_4,
         { "Ciphering data set for positioning SIB type 2-4","nas_eps.emm.ciph_key_data.pos_sib_type_2_4",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x20,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_5,
         { "Ciphering data set for positioning SIB type 2-5","nas_eps.emm.ciph_key_data.pos_sib_type_2_5",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x10,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_6,
         { "Ciphering data set for positioning SIB type 2-6","nas_eps.emm.ciph_key_data.pos_sib_type_2_6",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x08,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_7,
         { "Ciphering data set for positioning SIB type 2-7","nas_eps.emm.ciph_key_data.pos_sib_type_2_7",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x04,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_8,
         { "Ciphering data set for positioning SIB type 2-8","nas_eps.emm.ciph_key_data.pos_sib_type_2_8",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x02,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_9,
         { "Ciphering data set for positioning SIB type 2-9","nas_eps.emm.ciph_key_data.pos_sib_type_2_9",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x01,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_10,
         { "Ciphering data set for positioning SIB type 2-10","nas_eps.emm.ciph_key_data.pos_sib_type_2_10",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x80,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_11,
         { "Ciphering data set for positioning SIB type 2-11","nas_eps.emm.ciph_key_data.pos_sib_type_2_11",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x40,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_12,
         { "Ciphering data set for positioning SIB type 2-12","nas_eps.emm.ciph_key_data.pos_sib_type_2_12",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x20,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_13,
         { "Ciphering data set for positioning SIB type 2-13","nas_eps.emm.ciph_key_data.pos_sib_type_2_13",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x10,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_14,
         { "Ciphering data set for positioning SIB type 2-14","nas_eps.emm.ciph_key_data.pos_sib_type_2_14",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x08,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_15,
         { "Ciphering data set for positioning SIB type 2-15","nas_eps.emm.ciph_key_data.pos_sib_type_2_15",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x04,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_16,
         { "Ciphering data set for positioning SIB type 2-16","nas_eps.emm.ciph_key_data.pos_sib_type_2_16",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x02,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_17,
         { "Ciphering data set for positioning SIB type 2-17","nas_eps.emm.ciph_key_data.pos_sib_type_2_17",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x01,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_18,
         { "Ciphering data set for positioning SIB type 2-18","nas_eps.emm.ciph_key_data.pos_sib_type_2_18",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x80,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_2_19,
         { "Ciphering data set for positioning SIB type 2-19","nas_eps.emm.ciph_key_data.pos_sib_type_2_19",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x40,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_pos_sib_type_3_1,
         { "Ciphering data set for positioning SIB type 3-1","nas_eps.emm.ciph_key_data.pos_sib_type_3_1",
-        FT_BOOLEAN, 8, TFS(&emm_applicable_not_applicable), 0x20,
+        FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_ciph_key_data_validity_start_time,
@@ -8500,9 +8491,9 @@ proto_register_nas_eps(void)
         FT_UINT8, BASE_DEC, VALS(nas_eps_emm_ue_radio_cap_id_avail_vals), 0x07,
         NULL, HFILL }
     },
-    { &hf_nas_eps_emm_ue_radio_cap_id_availability,
-        { "UE radio capability ID availability", "nas_eps.emm.ue_radio_cap_id.availability",
-        FT_BOOLEAN, 8, TFS(&tfs_available_not_available), 0x01,
+    { &hf_nas_eps_emm_ue_radio_cap_id_request,
+        { "UE radio capability ID request", "nas_eps.emm.ue_radio_cap_id_request",
+        FT_BOOLEAN, 8, TFS(&tfs_requested_not_requested), 0x01,
         NULL, HFILL }
     },
     { &hf_nas_eps_emm_wus_assist_info_type,

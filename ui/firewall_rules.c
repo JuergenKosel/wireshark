@@ -44,14 +44,16 @@ static void sf_ipfilter_port(GString *rtxt, gchar *addr, guint32 port, port_type
 static void sf_ipfw_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
 static void sf_netfilter_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
 static void sf_pf_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
-static void sf_netsh_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
+static void sf_netsh_port_old(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
+static void sf_netsh_port_new(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
 
 static void sf_ios_ext_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
 static void sf_ipfilter_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
 static void sf_ipfw_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
 static void sf_netfilter_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
 static void sf_pf_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
-static void sf_netsh_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
+static void sf_netsh_ipv4_port_old(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
+static void sf_netsh_ipv4_port_new(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny);
 
 typedef struct _fw_product_t {
     const char *name;
@@ -78,8 +80,10 @@ static fw_product products[] = {
         sf_netfilter_ipv4_port, TRUE },
     { "Packet Filter (pf)", "$ext_if should be set to a valid interface.", "#",
         NULL, sf_pf_ipv4, sf_pf_port, sf_pf_ipv4_port, TRUE },
-    { "Windows Firewall (netsh)", "", "#",
-        NULL, NULL, sf_netsh_port, sf_netsh_ipv4_port, FALSE }
+    { "Windows Firewall (netsh old syntax)", "", "#",
+        NULL, NULL, sf_netsh_port_old, sf_netsh_ipv4_port_old, FALSE },
+    { "Windows Firewall (netsh new syntax)", "", "#",
+        NULL, NULL, sf_netsh_port_new, sf_netsh_ipv4_port_new, FALSE }
 };
 #define NUM_PRODS (sizeof(products) / sizeof(fw_product))
 
@@ -223,23 +227,29 @@ static void sf_pf_port(GString *rtxt, gchar *addr _U_, guint32 port, port_type p
         PF_RULE(deny), PF_DIR(inbound), RT_TCP_UDP(ptype), port);
 }
 
-#define NETSH_RULE(deny) ((deny) ? "DISABLE" : "ENABLE")
-static void sf_netsh_port(GString *rtxt, gchar *addr _U_, guint32 port, port_type ptype, gboolean inbound _U_, gboolean deny) {
+#define NETSH_RULE_OLD(deny) ((deny) ? "DISABLE" : "ENABLE")
+static void sf_netsh_port_old(GString *rtxt, gchar *addr _U_, guint32 port, port_type ptype, gboolean inbound _U_, gboolean deny) {
     g_string_append_printf(rtxt, "add portopening %s %u Wireshark %s",
-        RT_TCP_UDP(ptype), port, NETSH_RULE(deny));
+        RT_TCP_UDP(ptype), port, NETSH_RULE_OLD(deny));
+}
+
+#define NETSH_RULE_NEW(deny) ((deny) ? "block" : "allow")
+static void sf_netsh_port_new(GString *rtxt, gchar *addr _U_, guint32 port, port_type ptype, gboolean inbound _U_, gboolean deny) {
+    g_string_append_printf(rtxt, "add rule name=\"Wireshark\" dir=in action=%s protocol=%s localport=%u",
+        NETSH_RULE_NEW(deny), RT_TCP_UDP(ptype), port);
 }
 
 /* IPv4 + port */
 static void sf_ios_ext_ipv4_port(GString *rtxt, gchar *addr, guint32 port _U_, port_type ptype, gboolean inbound, gboolean deny) {
     if (inbound)
-        g_string_append_printf(rtxt, "access-list NUMBER %s %s host %s any eq %u", IOS_RULE(deny), RT_TCP_UDP(ptype), addr, port);
+        g_string_append_printf(rtxt, "access-list NUMBER %s %s host %s eq %u any", IOS_RULE(deny), RT_TCP_UDP(ptype), addr, port);
     else
         g_string_append_printf(rtxt, "access-list NUMBER %s %s any host %s eq %u", IOS_RULE(deny), RT_TCP_UDP(ptype), addr, port);
 }
 
 static void sf_ipfilter_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny) {
     if (inbound)
-        g_string_append_printf(rtxt, "%s %s on le0 proto %s from %s to any port = %u",
+        g_string_append_printf(rtxt, "%s %s on le0 proto %s from %s port = %u to any",
             IPFILTER_RULE(deny), IPFILTER_DIR(inbound), RT_TCP_UDP(ptype), addr, port);
     else
         g_string_append_printf(rtxt, "%s %s on le0 proto %s from any to %s port = %u",
@@ -247,7 +257,7 @@ static void sf_ipfilter_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port
 }
 
 static void sf_ipfw_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound, gboolean deny) {
-    g_string_append_printf(rtxt, "add %s %s from %s to any %u %s",
+    g_string_append_printf(rtxt, "add %s %s from %s %u to any %s",
         IPFW_RULE(deny), RT_TCP_UDP(ptype), addr, port, IPFW_DIR(inbound));
 }
 
@@ -261,11 +271,15 @@ static void sf_netfilter_ipv4_port(GString *rtxt, gchar *addr, guint32 port, por
         NF_DIR(inbound), RT_TCP_UDP(ptype), NF_ADDR_DIR(inbound), addr, NF_PORT_DIR(inbound), port, NF_RULE(deny));
 }
 
-static void sf_netsh_ipv4_port(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound _U_, gboolean deny) {
+static void sf_netsh_ipv4_port_old(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound _U_, gboolean deny) {
     g_string_append_printf(rtxt, "add portopening %s %u Wireshark %s %s",
-        RT_TCP_UDP(ptype), port, NETSH_RULE(deny), addr);
+        RT_TCP_UDP(ptype), port, NETSH_RULE_OLD(deny), addr);
 }
 
+static void sf_netsh_ipv4_port_new(GString *rtxt, gchar *addr, guint32 port, port_type ptype, gboolean inbound _U_, gboolean deny) {
+    g_string_append_printf(rtxt, "add rule name=\"Wireshark\" dir=in action=%s protocol=%s localport=%u remoteip=%s",
+        NETSH_RULE_NEW(deny), RT_TCP_UDP(ptype), port, addr);
+}
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html

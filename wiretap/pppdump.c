@@ -269,7 +269,7 @@ pppdump_open(wtap *wth, int *err, gchar **err_info)
 	if (file_seek(wth->fh, 5, SEEK_SET, err) == -1)
 		return WTAP_OPEN_ERROR;
 
-	state = (pppdump_t *)g_malloc(sizeof(pppdump_t));
+	state = g_new(pppdump_t, 1);
 	wth->priv = (void *)state;
 	state->timestamp = pntoh32(&buffer[1]);
 	state->tenths = 0;
@@ -308,7 +308,7 @@ pppdump_open(wtap *wth, int *err, gchar **err_info)
 	return WTAP_OPEN_MINE;
 }
 
-/* Set part of the struct wtap_pkthdr. */
+/* Set part of the struct wtap_rec. */
 static void
 pppdump_set_phdr(wtap_rec *rec, int num_bytes,
     direction_enum direction)

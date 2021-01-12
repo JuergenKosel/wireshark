@@ -1147,6 +1147,7 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_CACHED_INFO, "cached_info" }, /* RFC 7924 */
     { SSL_HND_HELLO_EXT_COMPRESS_CERTIFICATE, "compress_certificate" }, /* https://tools.ietf.org/html/draft-ietf-tls-certificate-compression-03 */
     { SSL_HND_HELLO_EXT_RECORD_SIZE_LIMIT, "record_size_limit" }, /* RFC 8449 */
+    { SSL_HND_HELLO_EXT_DELEGATED_CREDENTIALS, "delegated_credentials" }, /* draft-ietf-tls-subcerts-09.txt */
     { SSL_HND_HELLO_EXT_SESSION_TICKET_TLS, "session_ticket" }, /* RFC 5077 / RFC 8447 */
     { SSL_HND_HELLO_EXT_KEY_SHARE_OLD, "Reserved (key_share)" }, /* https://tools.ietf.org/html/draft-ietf-tls-tls13-22 (removed in -23) */
     { SSL_HND_HELLO_EXT_PRE_SHARED_KEY, "pre_shared_key" }, /* RFC 8446 */
@@ -1161,6 +1162,7 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_SIGNATURE_ALGORITHMS_CERT, "signature_algorithms_cert" }, /* RFC 8446 */
     { SSL_HND_HELLO_EXT_KEY_SHARE, "key_share" }, /* RFC 8446 */
     { SSL_HND_HELLO_EXT_CONNECTION_ID, "connection_id" }, /* draft-ietf-tls-dtls-connection-id-07 */
+    { SSL_HND_HELLO_EXT_QUIC_TRANSPORT_PARAMETERS_V1, "quic_transport_parameters" }, /* draft-ietf-quic-tls-33 */
     { SSL_HND_HELLO_EXT_GREASE_0A0A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_GREASE_1A1A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_GREASE_2A2A, "Reserved (GREASE)" }, /* RFC 8701 */
@@ -1183,7 +1185,7 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_GREASE_DADA, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_GREASE_EAEA, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_GREASE_FAFA, "Reserved (GREASE)" }, /* RFC 8701 */
-    { SSL_HND_HELLO_EXT_QUIC_TRANSPORT_PARAMETERS, "quic_transport_parameters" }, /* https://tools.ietf.org/html/draft-ietf-quic-tls */
+    { SSL_HND_HELLO_EXT_QUIC_TRANSPORT_PARAMETERS, "quic_transport_parameters (drafts version)" }, /* https://tools.ietf.org/html/draft-ietf-quic-tls */
     { SSL_HND_HELLO_EXT_ENCRYPTED_SERVER_NAME, "encrypted_server_name" }, /* https://tools.ietf.org/html/draft-ietf-tls-esni-01 */
     { 0, NULL }
 };
@@ -2461,7 +2463,7 @@ static gboolean from_hex(StringInfo* out, const char* in, gsize hex_len) {
 #define SSL_HMAC gcry_md_hd_t
 
 static inline gint
-ssl_hmac_init(SSL_HMAC* md, const void * key, gint len, gint algo)
+ssl_hmac_init(SSL_HMAC* md, gint algo)
 {
     gcry_error_t  err;
     const char   *err_str, *err_src;
@@ -2473,9 +2475,32 @@ ssl_hmac_init(SSL_HMAC* md, const void * key, gint len, gint algo)
         ssl_debug_printf("ssl_hmac_init(): gcry_md_open failed %s/%s", err_str, err_src);
         return -1;
     }
-    gcry_md_setkey (*(md), key, len);
     return 0;
 }
+
+static inline gint
+ssl_hmac_setkey(SSL_HMAC* md, const void * key, gint len)
+{
+    gcry_error_t  err;
+    const char   *err_str, *err_src;
+
+    err = gcry_md_setkey (*(md), key, len);
+    if (err != 0) {
+        err_str = gcry_strerror(err);
+        err_src = gcry_strsource(err);
+        ssl_debug_printf("ssl_hmac_setkey(): gcry_md_setkey failed %s/%s", err_str, err_src);
+        return -1;
+    }
+    return 0;
+}
+
+static inline gint
+ssl_hmac_reset(SSL_HMAC* md)
+{
+    gcry_md_reset(*md);
+    return 0;
+}
+
 static inline void
 ssl_hmac_update(SSL_HMAC* md, const void* data, gint len)
 {
@@ -2537,6 +2562,12 @@ ssl_md_cleanup(SSL_MD* md)
     gcry_md_close(*(md));
 }
 
+static inline void
+ssl_md_reset(SSL_MD* md)
+{
+    gcry_md_reset(*md);
+}
+
 /* md5 /sha abstraction layer */
 #define SSL_SHA_CTX gcry_md_hd_t
 #define SSL_MD5_CTX gcry_md_hd_t
@@ -2557,6 +2588,13 @@ ssl_sha_final(guchar* buf, SSL_SHA_CTX* md)
     memcpy(buf, gcry_md_read(*(md),  GCRY_MD_SHA1),
            gcry_md_get_algo_dlen(GCRY_MD_SHA1));
 }
+
+static inline void
+ssl_sha_reset(SSL_SHA_CTX* md)
+{
+    gcry_md_reset(*md);
+}
+
 static inline void
 ssl_sha_cleanup(SSL_SHA_CTX* md)
 {
@@ -2579,6 +2617,13 @@ ssl_md5_final(guchar* buf, SSL_MD5_CTX* md)
     memcpy(buf, gcry_md_read(*(md),  GCRY_MD_MD5),
            gcry_md_get_algo_dlen(GCRY_MD_MD5));
 }
+
+static inline void
+ssl_md5_reset(SSL_MD5_CTX* md)
+{
+    gcry_md_reset(*md);
+}
+
 static inline void
 ssl_md5_cleanup(SSL_MD5_CTX* md)
 {
@@ -3088,22 +3133,23 @@ tls_hash(StringInfo *secret, StringInfo *seed, gint md,
     A = seed->data;
     A_l = seed->data_len;
 
+    ssl_hmac_init(&hm, md);
     while (left) {
         /* A(i) = HMAC_hash(secret, A(i-1)) */
-        ssl_hmac_init(&hm, secret->data, secret->data_len, md);
+        ssl_hmac_setkey(&hm, secret->data, secret->data_len);
         ssl_hmac_update(&hm, A, A_l);
         A_l = sizeof(_A); /* upper bound len for hash output */
         ssl_hmac_final(&hm, _A, &A_l);
-        ssl_hmac_cleanup(&hm);
         A = _A;
 
         /* HMAC_hash(secret, A(i) + seed) */
-        ssl_hmac_init(&hm, secret->data, secret->data_len, md);
+        ssl_hmac_reset(&hm);
+        ssl_hmac_setkey(&hm, secret->data, secret->data_len);
         ssl_hmac_update(&hm, A, A_l);
         ssl_hmac_update(&hm, seed->data, seed->data_len);
         tmp_l = sizeof(tmp); /* upper bound len for hash output */
         ssl_hmac_final(&hm, tmp, &tmp_l);
-        ssl_hmac_cleanup(&hm);
+        ssl_hmac_reset(&hm);
 
         /* ssl_hmac_final puts the actual digest output size in tmp_l */
         tocpy = MIN(left, tmp_l);
@@ -3111,6 +3157,7 @@ tls_hash(StringInfo *secret, StringInfo *seed, gint md,
         ptr += tocpy;
         left -= tocpy;
     }
+    ssl_hmac_cleanup(&hm);
     out->data_len = out_len;
 
     ssl_print_string("hash out", out);
@@ -3245,6 +3292,8 @@ ssl3_prf(StringInfo* secret, const gchar* usage,
     gint         i = 0,j;
     guint8       buf[20];
 
+    ssl_sha_init(&sha);
+    ssl_md5_init(&md5);
     for (off = 0; off < out_len; off += 16) {
         guchar outbuf[16];
         i++;
@@ -3255,7 +3304,6 @@ ssl3_prf(StringInfo* secret, const gchar* usage,
             buf[j]=64+i;
         }
 
-        ssl_sha_init(&sha);
         ssl_sha_update(&sha,buf,i);
         ssl_sha_update(&sha,secret->data,secret->data_len);
 
@@ -3271,18 +3319,19 @@ ssl3_prf(StringInfo* secret, const gchar* usage,
         }
 
         ssl_sha_final(buf,&sha);
-        ssl_sha_cleanup(&sha);
+        ssl_sha_reset(&sha);
 
         ssl_debug_printf("ssl3_prf: md5_hash(%d) datalen %d\n",i,
             secret->data_len);
-        ssl_md5_init(&md5);
         ssl_md5_update(&md5,secret->data,secret->data_len);
         ssl_md5_update(&md5,buf,20);
         ssl_md5_final(outbuf,&md5);
-        ssl_md5_cleanup(&md5);
+        ssl_md5_reset(&md5);
 
         memcpy(out->data + off, outbuf, MIN(out_len - off, 16));
     }
+    ssl_sha_cleanup(&sha);
+    ssl_md5_cleanup(&md5);
     out->data_len = out_len;
 
     return TRUE;
@@ -4328,7 +4377,9 @@ tls_check_mac(SslDecoder*decoder, gint ct, gint ver, guint8* data,
     ssl_debug_printf("tls_check_mac mac type:%s md %d\n",
         ssl_cipher_suite_dig(decoder->cipher_suite)->name, md);
 
-    if (ssl_hmac_init(&hm,decoder->mac_key.data,decoder->mac_key.data_len,md) != 0)
+    if (ssl_hmac_init(&hm,md) != 0)
+        return -1;
+    if (ssl_hmac_setkey(&hm,decoder->mac_key.data,decoder->mac_key.data_len) != 0)
         return -1;
 
     /* hash sequence number */
@@ -4408,9 +4459,7 @@ ssl3_check_mac(SslDecoder*decoder,int ct,guint8* data,
 
     /* get partial digest */
     ssl_md_final(&mc,dgst,&len);
-    ssl_md_cleanup(&mc);
-
-    ssl_md_init(&mc,md);
+    ssl_md_reset(&mc);
 
     /* hash mac key */
     ssl_md_update(&mc,decoder->mac_key.data,decoder->mac_key.data_len);
@@ -4443,8 +4492,11 @@ dtls_check_mac(SslDecoder*decoder, gint ct,int ver, guint8* data,
     ssl_debug_printf("dtls_check_mac mac type:%s md %d\n",
         ssl_cipher_suite_dig(decoder->cipher_suite)->name, md);
 
-    if (ssl_hmac_init(&hm,decoder->mac_key.data,decoder->mac_key.data_len,md) != 0)
+    if (ssl_hmac_init(&hm,md) != 0)
         return -1;
+    if (ssl_hmac_setkey(&hm,decoder->mac_key.data,decoder->mac_key.data_len) != 0)
+        return -1;
+
     ssl_debug_printf("dtls_check_mac seq: %" G_GUINT64_FORMAT " epoch: %d\n",decoder->seq,decoder->epoch);
     /* hash sequence number */
     phton64(buf, decoder->seq);
@@ -5973,7 +6025,7 @@ tls_keylog_process_lines(const ssl_master_key_map_t *mk_map, const guint8 *data,
 
             g_hash_table_insert(ht, key, pre_ms_or_ms);
 
-        } else {
+        } else if (linelen > 0 && line[0] != '#') {
             ssl_debug_printf("    unrecognized line\n");
         }
         /* always free match info even if there is no match. */
@@ -6535,6 +6587,13 @@ tls_dissect_certificate_authorities(ssl_common_dissect_t *hf, tvbuff_t *tvb, pac
 static gint
 ssl_dissect_hnd_hello_ext_sig_hash_algs(ssl_common_dissect_t *hf, tvbuff_t *tvb,
                                         proto_tree *tree, packet_info* pinfo, guint32 offset, guint32 offset_end)
+{
+    return ssl_dissect_hash_alg_list(hf, tvb, tree, pinfo, offset, offset_end);
+}
+
+static gint
+ssl_dissect_hnd_ext_delegated_credentials(ssl_common_dissect_t *hf, tvbuff_t *tvb,
+                                          proto_tree *tree, packet_info* pinfo, guint32 offset, guint32 offset_end)
 {
     return ssl_dissect_hash_alg_list(hf, tvb, tree, pinfo, offset, offset_end);
 }
@@ -7501,8 +7560,11 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                 offset += len;
             break;
             case SSL_HND_QUIC_TP_LOSS_BITS:
-                proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_loss_bits,
-                                    tvb, offset, 1, ENC_BIG_ENDIAN);
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_loss_bits,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                if (len > 0) {
+                    quic_add_loss_bits(pinfo, value);
+                }
                 offset += 1;
             break;
             case SSL_HND_QUIC_TP_MIN_ACK_DELAY:
@@ -7524,7 +7586,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
             case SSL_HND_QUIC_TP_GOOGLE_QUIC_VERSION:
                 for (i = 0; i < parameter_length; i += 4) {
                     proto_tree_add_item(parameter_tree, hf->hf.hs_ext_quictp_parameter_google_quic_version,
-                                        tvb, offset + i, 4, ENC_ASCII|ENC_NA);
+                                        tvb, offset + i, 4, ENC_BIG_ENDIAN);
 		}
                 offset += parameter_length;
             break;
@@ -9204,6 +9266,9 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
         case SSL_HND_HELLO_EXT_SIGNATURE_ALGORITHMS_CERT: /* since TLS 1.3 draft -23 */
             offset = ssl_dissect_hnd_hello_ext_sig_hash_algs(hf, tvb, ext_tree, pinfo, offset, next_offset);
             break;
+        case SSL_HND_HELLO_EXT_DELEGATED_CREDENTIALS:
+            offset = ssl_dissect_hnd_ext_delegated_credentials(hf, tvb, ext_tree, pinfo, offset, next_offset);
+            break;
         case SSL_HND_HELLO_EXT_USE_SRTP:
             if (is_dtls) {
                 offset = dtls_dissect_hnd_hello_ext_use_srtp(tvb, ext_tree, offset, next_offset);
@@ -9268,6 +9333,7 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             offset += 2;
             break;
         case SSL_HND_HELLO_EXT_QUIC_TRANSPORT_PARAMETERS:
+        case SSL_HND_HELLO_EXT_QUIC_TRANSPORT_PARAMETERS_V1:
             offset = ssl_dissect_hnd_hello_ext_quic_transport_parameters(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type, ssl);
             break;
         case SSL_HND_HELLO_EXT_SESSION_TICKET_TLS:

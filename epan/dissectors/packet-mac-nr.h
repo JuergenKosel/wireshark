@@ -114,10 +114,12 @@ void set_mac_nr_proto_data(packet_info *pinfo, mac_nr_info *p_mac_nr_info);
 
 /* Type to store parameters for configuring LCID->RLC channel settings for DRB */
 /* Some are optional, and may not be seen (e.g. on reestablishment) */
-typedef struct nr_drb_mapping_t
+typedef struct nr_drb_mac_rlc_mapping_t
 {
+    gboolean   active;
     guint16    ueid;                /* Mandatory */
     guint8     drbid;               /* Mandatory */
+
     gboolean   lcid_present;
     guint8     lcid;                /* Part of LogicalChannelConfig - optional */
     gboolean   rlcMode_present;
@@ -129,18 +131,12 @@ typedef struct nr_drb_mapping_t
     guint8     rlcUlSnLength;        /* Part of RLC config - optional */
     gboolean   rlcDlSnLength_present;
     guint8     rlcDlSnLength;        /* Part of RLC config - optional */
-
-    gboolean   pdcpUlSnLength_present;
-    guint8     pdcpUlSnLength;        /* Part of PDCP config - optional */
-    gboolean   pdcpDlSnLength_present;
-    guint8     pdcpDlSnLength;        /* Part of PDCP config - optional */
-
-} nr_drb_mapping_t;
+} nr_drb_mac_rlc_mapping_t;
 
 
 /* Set details of an LCID -> drb channel mapping.  To be called from
    configuration protocol (i.e. RRC) */
-void set_mac_nr_bearer_mapping(nr_drb_mapping_t *drb_mapping);
+void set_mac_nr_bearer_mapping(nr_drb_mac_rlc_mapping_t *drb_mapping);
 
 
 /*

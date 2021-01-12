@@ -1751,7 +1751,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Поля</translation>
     </message>
     <message>
-        <source>Field Occurence</source>
+        <source>Field Occurrence</source>
         <translation>Вхождение Поля</translation>
     </message>
     <message>
@@ -3860,6 +3860,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>1 мс</translation>
     </message>
     <message>
+        <source>2 ms</source>
+        <translation>2 мс</translation>
+    </message>
+    <message>
         <source>5 ms</source>
         <translation>5 мс</translation>
     </message>
@@ -3869,27 +3873,31 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>20 ms</source>
-        <translation type="unfinished">100 мс {20 ?}</translation>
+        <translation>20 мс</translation>
     </message>
     <message>
         <source>50 ms</source>
-        <translation type="unfinished">100 мс {50 ?}</translation>
+        <translation>50 мс</translation>
     </message>
     <message>
         <source>100 ms</source>
         <translation>100 мс</translation>
     </message>
     <message>
+        <source>200 ms</source>
+        <translation>200 мс</translation>
+    </message>
+    <message>
         <source>500 ms</source>
-        <translation type="unfinished">100 мс {500 ?}</translation>
+        <translation>500 мс</translation>
     </message>
     <message>
         <source>2 sec</source>
-        <translation type="unfinished">10 с {2 ?}</translation>
+        <translation>2 с</translation>
     </message>
     <message>
         <source>5 sec</source>
-        <translation type="unfinished">10 с {5 ?}</translation>
+        <translation>5 с</translation>
     </message>
     <message>
         <source>Wireshark I/O Graphs: %1</source>
@@ -3962,14 +3970,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Save Graph As…</source>
         <translation>Сохранить График Как…</translation>
-    </message>
-    <message>
-        <source>2 ms</source>
-        <translation type="unfinished">100 мс {2 ?}</translation>
-    </message>
-    <message>
-        <source>200 ms</source>
-        <translation type="unfinished">100 мс {200 ?}</translation>
     </message>
 </context>
 <context>
@@ -6333,10 +6333,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Веб-сайт</translation>
     </message>
     <message>
-        <source>FAQ&apos;s</source>
-        <translation>ЧАВО</translation>
-    </message>
-    <message>
         <source>Downloads</source>
         <translation>Загрузки</translation>
     </message>
@@ -6564,6 +6560,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Help contents</source>
         <translation>Содержание системы помощи</translation>
+    </message>
+    <message>
+        <source>FAQs</source>
+        <translation>ЧАВО</translation>
     </message>
     <message>
         <source>Next Packet in Conversation</source>
@@ -10582,10 +10582,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Битрейт кодека не поддерживается, файл не полон</translation>
     </message>
     <message>
-        <source>Unknown error occured</source>
-        <translation>Произошла неизвестная ошибка</translation>
-    </message>
-    <message>
         <source>SSRC value not found.</source>
         <translation>Значение SSRC не найдено.</translation>
     </message>
@@ -10664,6 +10660,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Error</source>
         <translation>Ошибка</translation>
+    </message>
+    <message>
+        <source>Unknown error occurred</source>
+        <translation>Произошла неизвестная ошибка</translation>
     </message>
     <message>
         <source>Save forward stream CSV</source>
@@ -11030,6 +11030,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>SSRC</translation>
     </message>
     <message>
+        <source>Start Time</source>
+        <translation>Время Старта</translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation>Длительность</translation>
+    </message>
+    <message>
         <source>Payload</source>
         <translation>Полезная Нагрузка</translation>
     </message>
@@ -11060,6 +11068,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
         <translation>&lt;small&gt;&lt;i&gt;Совет.&lt;/i&gt;&lt;/small&gt;</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Показывать только диалоги, соответствующие текущему дисплейному фильтру&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation>Ограничить соответственно дисплейному фильтру</translation>
+    </message>
+    <message>
+        <source>Time of Day</source>
+        <translation>Время Дня</translation>
     </message>
     <message>
         <source>Find Reverse</source>
@@ -11180,6 +11200,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>, %1 selected, %2 total packets</source>
         <translation>, %1 выбрано, %2 всего пакетов</translation>
+    </message>
+    <message>
+        <source>No Audio</source>
+        <translation>Нет Аудио</translation>
     </message>
     <message>
         <source>Save RTPDump As…</source>
@@ -12321,6 +12345,30 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>P</source>
         <translation>P</translation>
     </message>
+    <message>
+        <source>Select RTP Stream</source>
+        <translation>Выбрать поток RTP</translation>
+    </message>
+    <message>
+        <source>Select RTP stream in RTP Streams dialog</source>
+        <translation>Выбрать поток RTP в диалоге RTP пакеты</translation>
+    </message>
+    <message>
+        <source>S</source>
+        <translation>S</translation>
+    </message>
+    <message>
+        <source>Deselect RTP Stream</source>
+        <translation>Отменить выбор потока RTP</translation>
+    </message>
+    <message>
+        <source>Deselect RTP stream in RTP Streams dialog</source>
+        <translation>Отменить выбор потока RTP в диалоге RTP пакеты</translation>
+    </message>
+    <message>
+        <source>D</source>
+        <translation>D</translation>
+    </message>
 </context>
 <context>
     <name>ShortcutListModel</name>
@@ -13447,6 +13495,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>&lt;small&gt;&lt;/small&gt;</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Показывать только диалоги, соответствующие текущему дисплейному фильтру&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation>Ограничить соответственно дисплейному фильтру </translation>
+    </message>
+    <message>
         <source>Time of Day</source>
         <translation>Время Дня</translation>
     </message>
@@ -13457,6 +13513,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Select all calls</source>
         <translation>Выбрать все звонки</translation>
+    </message>
+    <message>
+        <source>Select &amp;None</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear selection</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Display time as time of day</source>

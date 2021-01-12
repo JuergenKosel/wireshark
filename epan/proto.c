@@ -3784,6 +3784,7 @@ proto_tree_add_item_ret_display_string_and_length(proto_tree *tree, int hfindex,
 	case FT_UINT_BYTES:
 		proto_tree_set_bytes(new_fi, value, n);
 		break;
+
 	default:
 		g_assert_not_reached();
 	}
@@ -6365,9 +6366,7 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 
 		case FT_NONE:
 		case FT_PROTOCOL:
-			/* prevent multiple check marks by setting result directly */
 			return protoo_strlcpy(display_label_str, UTF8_CHECK_MARK, label_str_size);
-			break;
 
 		case FT_UINT_BYTES:
 		case FT_BYTES:
@@ -6719,6 +6718,16 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 					expr[offset_e++] = ',';
 
 				switch (hfinfo->type) {
+
+					case FT_NONE:
+					case FT_PROTOCOL:
+						/* Prevent multiple check marks */
+						if (strstr(result, UTF8_CHECK_MARK ",") == NULL) {
+							offset_r += proto_item_fill_display_label(finfo, result+offset_r, size-offset_r);
+						} else {
+							result[--offset_r] = '\0'; /* Remove the added trailing ',' again */
+						}
+						break;
 
 					case FT_BOOLEAN:
 						offset_r += proto_item_fill_display_label(finfo, result+offset_r, size-offset_r);
@@ -10030,7 +10039,7 @@ hfinfo_char_value_format_display(int display, char buf[7], guint32 value)
 				break;
 
 			default:
-				g_assert_not_reached();
+				REPORT_DISSECTOR_BUG("Invalid base: %d", FIELD_DISPLAY(display));
 			}
 		}
 		*(--ptr) = '\\';
@@ -10103,7 +10112,7 @@ hfinfo_number_value_format_display(const header_field_info *hfinfo, int display,
 			}
 
 		default:
-			g_assert_not_reached();
+			REPORT_DISSECTOR_BUG("Invalid base: %d", FIELD_DISPLAY(display));
 	}
 	return ptr;
 }
@@ -10143,7 +10152,7 @@ hfinfo_number_value_format_display64(const header_field_info *hfinfo, int displa
 			return ptr;
 
 		default:
-			g_assert_not_reached();
+			REPORT_DISSECTOR_BUG("Invalid base: %d", FIELD_DISPLAY(display));
 	}
 
 	return ptr;
@@ -11574,8 +11583,11 @@ proto_item_add_bitmask_tree(proto_item *item, tvbuff_t *tvb, const int offset,
 	gint               bit_offset;
 	gint               no_of_bits;
 
+	if (!*fields)
+		REPORT_DISSECTOR_BUG("Illegal call of proto_item_add_bitmask_tree without fields");
+
 	if (len < 0 || len > 8)
-		g_assert_not_reached();
+		REPORT_DISSECTOR_BUG("Invalid len: %d", len);
 	/**
 	 * packet-frame.c uses len=0 since the value is taken from the packet
 	 * metadata, not the packet bytes. In that case, assume that all bits
@@ -12299,7 +12311,7 @@ _proto_tree_add_bits_ret_val(proto_tree *tree, const int hfindex, tvbuff_t *tvb,
 		break;
 
 	case FT_BYTES:
-		bytes = tvb_get_bits_array(NULL, tvb, bit_offset, no_of_bits, &bytes_length);
+		bytes = tvb_get_bits_array(wmem_packet_scope(), tvb, bit_offset, no_of_bits, &bytes_length);
 		pi = proto_tree_add_bytes_with_length(tree, hfindex, tvb, offset, length, bytes, (gint) bytes_length);
 		proto_item_fill_label(PITEM_FINFO(pi), lbl_str);
 		proto_item_set_text(pi, "%s", lbl_str);

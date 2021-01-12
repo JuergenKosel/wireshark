@@ -12,9 +12,9 @@
 
 /*
  * See https://quicwg.org
- * https://tools.ietf.org/html/draft-ietf-quic-transport-32
- * https://tools.ietf.org/html/draft-ietf-quic-tls-32
- * https://tools.ietf.org/html/draft-ietf-quic-invariants-11
+ * https://tools.ietf.org/html/draft-ietf-quic-transport-33
+ * https://tools.ietf.org/html/draft-ietf-quic-tls-33
+ * https://tools.ietf.org/html/draft-ietf-quic-invariants-12
  *
  * Extension:
  * https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03
@@ -23,7 +23,8 @@
  * https://tools.ietf.org/html/draft-iyengar-quic-delayed-ack-00
  *
  * Currently supported QUIC version(s): draft-21, draft-22, draft-23, draft-24,
- * draft-25, draft-26, draft-27, draft-28, draft-29, draft-30, draft-31, draft-32.
+ * draft-25, draft-26, draft-27, draft-28, draft-29, draft-30, draft-31, draft-32,
+ * draft-33
  * For a table of supported QUIC versions per Wireshark version, see
  * https://github.com/quicwg/base-drafts/wiki/Tools#wireshark
  *
@@ -86,6 +87,8 @@ static int hf_quic_short = -1;
 static int hf_quic_fixed_bit = -1;
 static int hf_quic_spin_bit = -1;
 static int hf_quic_short_reserved = -1;
+static int hf_quic_q_bit = -1;
+static int hf_quic_l_bit = -1;
 static int hf_quic_key_phase = -1;
 static int hf_quic_payload = -1;
 static int hf_quic_protected_payload = -1;
@@ -170,6 +173,7 @@ static expert_field ei_quic_ft_unknown = EI_INIT;
 static expert_field ei_quic_decryption_failed = EI_INIT;
 static expert_field ei_quic_protocol_violation = EI_INIT;
 static expert_field ei_quic_bad_retry = EI_INIT;
+static expert_field ei_quic_coalesced_padding_data = EI_INIT;
 
 static gint ett_quic = -1;
 static gint ett_quic_short_header = -1;
@@ -239,6 +243,22 @@ static const fragment_items quic_stream_fragment_items = {
  * - 5 payload protection ciphers: initial, 0-RTT, HS, 1-RTT (KP0), 1-RTT (KP1).
  */
 
+/* Loss bits feature: https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03
+   "The use of the loss bits is negotiated using a transport parameter.
+    [..]
+    When loss_bits parameter is present, the peer is allowed to use
+    reserved bits in the short packet header as loss bits if the peer
+    sends loss_bits=1.
+    When loss_bits is set to 1, the sender will use reserved bits as loss
+    bits if the peer includes the loss_bits transport parameter.
+    [..]
+    Unlike the reserved (R) bits, the loss (Q and L) bits are not
+    protected.  When sending loss bits has been negotiated, the first
+    byte of the header protection mask used to protect short packet
+    headers has its five most significant bits masked out instead of
+    three.
+*/
+
 typedef struct quic_decrypt_result {
     const guchar   *error;      /**< Error message or NULL for success. */
     const guint8   *data;       /**< Decrypted result on success (file-scoped). */
@@ -302,6 +322,10 @@ typedef struct quic_info_data {
     guint16         server_port;
     gboolean        skip_decryption : 1; /**< Set to 1 if no keys are available. */
     gboolean        client_dcid_set : 1; /**< Set to 1 if client_dcid_initial is set. */
+    gboolean        client_loss_bits_recv : 1; /**< The client is able to read loss bits info */
+    gboolean        client_loss_bits_send : 1; /**< The client wants to send loss bits info */
+    gboolean        server_loss_bits_recv : 1; /**< The server is able to read loss bits info */
+    gboolean        server_loss_bits_send : 1; /**< The server wants to send loss bits info */
     int             hash_algo;      /**< Libgcrypt hash algorithm for key derivation. */
     int             cipher_algo;    /**< Cipher algorithm for packet number and packet encryption. */
     int             cipher_mode;    /**< Cipher mode for packet encryption. */
@@ -360,6 +384,7 @@ static guint quic_connections_count;
 
 /* Returns the QUIC draft version or 0 if not applicable. */
 static inline guint8 quic_draft_version(guint32 version) {
+    /* IETF Draft versions */
     if ((version >> 8) == 0xff0000) {
        return (guint8) version;
     }
@@ -388,6 +413,10 @@ static inline guint8 quic_draft_version(guint32 version) {
     if ((version & 0x0F0F0F0F) == 0x0a0a0a0a) {
         return 29;
     }
+    /* QUIC (final?) constants for v1 are defined in draft-33 */
+    if (version == 0x00000001) {
+        return 33;
+    }
     return 0;
 }
 
@@ -398,7 +427,13 @@ static inline gboolean is_quic_draft_max(guint32 version, guint8 max_version) {
 
 const value_string quic_version_vals[] = {
     { 0x00000000, "Version Negotiation" },
+    { 0x00000001, "1" },
+    /* Versions QXXX < Q050 are dissected by Wireshark as GQUIC and not as QUIC.
+       Nonetheless, some implementations report these values in "Version Negotiation"
+       packets, so decode these fields */
+    { 0x51303433, "Google Q043" },
     { 0x51303434, "Google Q044" },
+    { 0x51303436, "Google Q046" },
     { 0x51303530, "Google Q050" },
     { 0x54303530, "Google T050" },
     { 0x54303531, "Google T051" },
@@ -552,6 +587,7 @@ static const range_string quic_transport_error_code_vals[] = {
     { 0x000d, 0x000d, "CRYPTO_BUFFER_EXCEEDED" },
     { 0x000e, 0x000e, "KEY_UPDATE_ERROR" },
     { 0x000f, 0x000f, "AEAD_LIMIT_REACHED" },
+    { 0x0010, 0x0010, "NO_VIABLE_PATH" },
     { 0x0100, 0x01ff, "CRYPTO_ERROR" },
     /* 0x40 - 0x3fff Assigned via Specification Required policy. */
     { 0, 0, NULL }
@@ -627,10 +663,12 @@ static guint64 quic_pkt_adjust_pkt_num(guint64 max_pkt_num, guint64 pkt_num,
 /**
  * Given a header protection cipher, a buffer and the packet number offset,
  * return the unmasked first byte and packet number.
+ * If the loss bits feature is enabled, the protected bits in the first byte
+ * are fewer than usual: 3 instead of 5 (on short headers only)
  */
 static gboolean
 quic_decrypt_header(tvbuff_t *tvb, guint pn_offset, quic_hp_cipher *hp_cipher, int hp_cipher_algo,
-                    guint8 *first_byte, guint32 *pn)
+                    guint8 *first_byte, guint32 *pn, gboolean loss_bits_negotiated)
 {
     if (!hp_cipher->hp_cipher) {
         // need to know the cipher.
@@ -676,8 +714,14 @@ quic_decrypt_header(tvbuff_t *tvb, guint pn_offset, quic_hp_cipher *hp_cipher, i
         // Long header: 4 bits masked
         packet0 ^= mask[0] & 0x0f;
     } else {
-        // Short header: 5 bits masked
-        packet0 ^= mask[0] & 0x1f;
+        // Short header
+        if (loss_bits_negotiated == FALSE) {
+            // Standard mask: 5 bits masked
+            packet0 ^= mask[0] & 0x1F;
+        } else {
+            // https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03#section-5.3
+            packet0 ^= mask[0] & 0x07;
+        }
     }
     guint pkn_len = (packet0 & 0x03) + 1;
 
@@ -1068,6 +1112,8 @@ quic_connection_destroy(gpointer data, gpointer user_data _U_)
     quic_ciphers_reset(&conn->server_initial_ciphers);
     quic_ciphers_reset(&conn->client_handshake_ciphers);
     quic_ciphers_reset(&conn->server_handshake_ciphers);
+
+    quic_ciphers_reset(&conn->client_0rtt_ciphers);
 
     quic_hp_cipher_reset(&conn->client_pp.hp_cipher);
     quic_pp_cipher_reset(&conn->client_pp.pp_ciphers[0]);
@@ -2065,6 +2111,10 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
         0xaf, 0xbf, 0xec, 0x28, 0x99, 0x93, 0xd2, 0x4c, 0x9e, 0x97,
         0x86, 0xf1, 0x9c, 0x61, 0x11, 0xe0, 0x43, 0x90, 0xa8, 0x99
     };
+    static const guint8 handshake_salt_v1[20] = {
+        0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17,
+        0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a
+    };
     static const guint8 hanshake_salt_draft_q50[20] = {
         0x50, 0x45, 0x74, 0xEF, 0xD0, 0x66, 0xFE, 0x2F, 0x9D, 0x94,
         0x5C, 0xFC, 0xDB, 0xD3, 0xA7, 0xF0, 0xD3, 0xB5, 0x6B, 0x45
@@ -2096,8 +2146,11 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
     } else if (is_quic_draft_max(version, 28)) {
         err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_23, sizeof(handshake_salt_draft_23),
                            cid->cid, cid->len, secret);
-    } else {
+    } else if (is_quic_draft_max(version, 32)) {
         err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_draft_29, sizeof(handshake_salt_draft_29),
+                           cid->cid, cid->len, secret);
+    } else {
+        err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_v1, sizeof(handshake_salt_v1),
                            cid->cid, cid->len, secret);
     }
     if (err) {
@@ -2422,9 +2475,13 @@ quic_get_1rtt_hp_cipher(packet_info *pinfo, quic_info_data_t *quic_info, gboolea
         const char *proto_name = tls_get_alpn(pinfo);
         if (proto_name) {
             quic_info->app_handle = dissector_get_string_handle(quic_proto_dissector_table, proto_name);
-            // If no specific handle is found, alias "h3-*" to "h3".
-            if (!quic_info->app_handle && g_str_has_prefix(proto_name, "h3-")) {
-                quic_info->app_handle = dissector_get_string_handle(quic_proto_dissector_table, "h3");
+            // If no specific handle is found, alias "h3-*" to "h3" and "doq-*" to "doq"
+            if (!quic_info->app_handle) {
+                if (g_str_has_prefix(proto_name, "h3-")) {
+                    quic_info->app_handle = dissector_get_string_handle(quic_proto_dissector_table, "h3");
+                } else if (g_str_has_prefix(proto_name, "doq-")) {
+                    quic_info->app_handle = dissector_get_string_handle(quic_proto_dissector_table, "doq");
+                }
             }
         }
     }
@@ -2550,6 +2607,13 @@ quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const qu
      * Verify the Retry Integrity Tag using the fixed key from
      * https://tools.ietf.org/html/draft-ietf-quic-tls-29#section-5.8
      */
+    static const guint8 key_v1[] = {
+        0xbe, 0x0c, 0x69, 0x0b, 0x9f, 0x66, 0x57, 0x5a,
+        0x1d, 0x76, 0x6b, 0x54, 0xe3, 0x68, 0xc8, 0x4e
+    };
+    static const guint8 nonce_v1[] = {
+        0x46, 0x15, 0x99, 0xd3, 0x5d, 0x63, 0x2b, 0xf2, 0x23, 0x98, 0x25, 0xbb
+    };
     static const guint8 key_draft_29[] = {
         0xcc, 0xce, 0x18, 0x7e, 0xd0, 0x9a, 0x09, 0xd0,
         0x57, 0x28, 0x15, 0x5a, 0x6c, 0xb9, 0x6b, 0xe1
@@ -2574,14 +2638,18 @@ quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const qu
     DISSECTOR_ASSERT_HINT(err == 0, "create cipher");
     if (is_quic_draft_max(version, 28)) {
        err = gcry_cipher_setkey(h, key_draft_25, sizeof(key_draft_25));
-    } else {
+    } else if (is_quic_draft_max(version, 32)) {
        err = gcry_cipher_setkey(h, key_draft_29, sizeof(key_draft_29));
+    } else {
+       err = gcry_cipher_setkey(h, key_v1, sizeof(key_v1));
     }
     DISSECTOR_ASSERT_HINT(err == 0, "set key");
     if (is_quic_draft_max(version, 28)) {
         err = gcry_cipher_setiv(h, nonce_draft_25, sizeof(nonce_draft_25));
-    } else {
+    } else if (is_quic_draft_max(version, 32)) {
         err = gcry_cipher_setiv(h, nonce_draft_29, sizeof(nonce_draft_29));
+    } else {
+        err = gcry_cipher_setiv(h, nonce_v1, sizeof(nonce_v1));
     }
     DISSECTOR_ASSERT_HINT(err == 0, "set nonce");
     G_STATIC_ASSERT(sizeof(odcid->len) == 1);
@@ -2608,12 +2676,35 @@ quic_add_connection(packet_info *pinfo, const quic_cid_t *cid)
 
     dgram_info = (quic_datagram *)p_get_proto_data(wmem_file_scope(), pinfo, proto_quic, 0);
     if (dgram_info && dgram_info->conn) {
-      quic_connection_add_cid(dgram_info->conn, cid, dgram_info->from_server);
+        quic_connection_add_cid(dgram_info->conn, cid, dgram_info->from_server);
     }
 #else
     (void)pinfo;
     (void)cid;
 #endif /* HAVE_LIBGCRYPT_AEAD */
+}
+
+void
+quic_add_loss_bits(packet_info *pinfo, guint64 value)
+{
+    quic_datagram *dgram_info;
+    quic_info_data_t *conn;
+
+    dgram_info = (quic_datagram *)p_get_proto_data(wmem_file_scope(), pinfo, proto_quic, 0);
+    if (dgram_info && dgram_info->conn) {
+        conn = dgram_info->conn;
+        if (dgram_info->from_server) {
+            conn->server_loss_bits_recv = TRUE;
+            if (value == 1) {
+                conn->server_loss_bits_send = TRUE;
+            }
+        } else {
+            conn->client_loss_bits_recv = TRUE;
+            if (value == 1) {
+                conn->client_loss_bits_send = TRUE;
+            }
+        }
+    }
 }
 
 static void
@@ -2826,13 +2917,13 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
             // Assume failure unless proven otherwise.
             error = "Header deprotection failed";
             if (long_packet_type != QUIC_LPT_0RTT) {
-                if (quic_decrypt_header(tvb, pn_offset, &ciphers->hp_cipher, hp_cipher_algo, &first_byte, &pkn32)) {
+                if (quic_decrypt_header(tvb, pn_offset, &ciphers->hp_cipher, hp_cipher_algo, &first_byte, &pkn32, FALSE)) {
                     error = NULL;
                 }
             } else {
                 // Cipher is not stored with 0-RTT data or key, perform trial decryption.
                 for (guint i = 0; quic_create_0rtt_decoder(i, early_data_secret, early_data_secret_len, ciphers, &hp_cipher_algo); i++) {
-                    if (quic_is_hp_cipher_initialized(&ciphers->hp_cipher) && quic_decrypt_header(tvb, pn_offset, &ciphers->hp_cipher, hp_cipher_algo, &first_byte, &pkn32)) {
+                    if (quic_is_hp_cipher_initialized(&ciphers->hp_cipher) && quic_decrypt_header(tvb, pn_offset, &ciphers->hp_cipher, hp_cipher_algo, &first_byte, &pkn32, FALSE)) {
                         error = NULL;
                         break;
                     }
@@ -2916,6 +3007,17 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     return offset;
 }
 
+/* Check if "loss bits" feature has been negotiated */
+static gboolean
+quic_loss_bits_negotiated(quic_info_data_t *conn, gboolean from_server)
+{
+    if (from_server) {
+        return conn->client_loss_bits_recv && conn->server_loss_bits_send;
+    } else {
+        return conn->server_loss_bits_recv && conn->client_loss_bits_send;
+    }
+}
+
 static int
 dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree,
                           quic_datagram *dgram_info, quic_packet_info_t *quic_packet)
@@ -2930,6 +3032,7 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 #endif /* HAVE_LIBGCRYPT_AEAD */
     quic_info_data_t *conn = dgram_info->conn;
     const gboolean from_server = dgram_info->from_server;
+    gboolean loss_bits_negotiated = FALSE;
 
     proto_item *pi = proto_tree_add_item(quic_tree, hf_quic_short, tvb, 0, -1, ENC_NA);
     proto_tree *hdr_tree = proto_item_add_subtree(pi, ett_quic_short_header);
@@ -2937,12 +3040,13 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 
     if (conn) {
        dcid.len = from_server ? conn->client_cids.data.len : conn->server_cids.data.len;
+       loss_bits_negotiated = quic_loss_bits_negotiated(conn, from_server);
     }
 #ifdef HAVE_LIBGCRYPT_AEAD
     if (!PINFO_FD_VISITED(pinfo) && conn) {
         guint32 pkn32 = 0;
         quic_hp_cipher *hp_cipher = quic_get_1rtt_hp_cipher(pinfo, conn, from_server);
-        if (quic_is_hp_cipher_initialized(hp_cipher) && quic_decrypt_header(tvb, 1 + dcid.len, hp_cipher, conn->cipher_algo, &first_byte, &pkn32)) {
+        if (quic_is_hp_cipher_initialized(hp_cipher) && quic_decrypt_header(tvb, 1 + dcid.len, hp_cipher, conn->cipher_algo, &first_byte, &pkn32, loss_bits_negotiated)) {
             quic_set_full_packet_number(conn, quic_packet, from_server, first_byte, pkn32);
             quic_packet->first_byte = first_byte;
         }
@@ -2952,9 +3056,17 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
 #endif /* HAVE_LIBGCRYPT_AEAD */
     proto_tree_add_item(hdr_tree, hf_quic_fixed_bit, tvb, offset, 1, ENC_NA);
     proto_tree_add_item(hdr_tree, hf_quic_spin_bit, tvb, offset, 1, ENC_NA);
+    /* Q and L bits are not protected by HP cipher */
+    if (loss_bits_negotiated) {
+        proto_tree_add_item(hdr_tree, hf_quic_q_bit, tvb, offset, 1, ENC_NA);
+        proto_tree_add_item(hdr_tree, hf_quic_l_bit, tvb, offset, 1, ENC_NA);
+    }
     if (quic_packet->pkn_len) {
         key_phase = (first_byte & SH_KP) != 0;
-        proto_tree_add_uint(hdr_tree, hf_quic_short_reserved, tvb, offset, 1, first_byte);
+        /* No room for reserved bits with "loss bits" feature is enable */
+        if (!loss_bits_negotiated) {
+            proto_tree_add_uint(hdr_tree, hf_quic_short_reserved, tvb, offset, 1, first_byte);
+        }
         proto_tree_add_boolean(hdr_tree, hf_quic_key_phase, tvb, offset, 1, key_phase<<2);
         proto_tree_add_uint(hdr_tree, hf_quic_packet_number_length, tvb, offset, 1, first_byte);
     }
@@ -3133,6 +3245,55 @@ quic_extract_header(tvbuff_t *tvb, guint8 *long_packet_type, guint32 *version,
     }
 }
 
+/**
+ * Sanity check on (coalasced) packet.
+ * https://tools.ietf.org/html/draft-ietf-quic-transport-32#section-12.2
+ * "Senders MUST NOT coalesce QUIC packets with different connection IDs
+ *  into a single UDP datagram"
+ * For the first packet of the datagram, we simply save the DCID for later usage (no real check).
+ * For any subsequent packets, we control if DCID is valid.
+ */
+static gboolean
+check_dcid_on_coalesced_packet(tvbuff_t *tvb, const quic_datagram *dgram_info,
+                               gboolean is_first_packet, quic_cid_t *first_packet_dcid)
+{
+    guint offset = 0;
+    guint8 first_byte, dcid_len;
+    quic_cid_t dcid = {.len=0};
+
+    first_byte = tvb_get_guint8(tvb, offset);
+    offset++;
+    if (first_byte & 0x80) {
+        offset += 4; /* Skip version */
+        dcid_len = tvb_get_guint8(tvb, offset);
+        offset++;
+        if (dcid_len && dcid_len <= QUIC_MAX_CID_LENGTH) {
+            dcid.len = dcid_len;
+            tvb_memcpy(tvb, dcid.cid, offset, dcid.len);
+        }
+    } else {
+        quic_info_data_t *conn = dgram_info->conn;
+        gboolean from_server = dgram_info->from_server;
+        if (conn) {
+            dcid.len = from_server ? conn->client_cids.data.len : conn->server_cids.data.len;
+            if (dcid.len) {
+                tvb_memcpy(tvb, dcid.cid, offset, dcid.len);
+            }
+        } else {
+            /* If we don't have a valid quic_info_data_t structure for this flow,
+               we can't really validate the CID. */
+            return TRUE;
+        }
+    }
+
+    if (is_first_packet) {
+        *first_packet_dcid = dcid;
+        return TRUE; /* Nothing to check */
+    }
+
+    return quic_connection_equal(&dcid, first_packet_dcid);
+}
+
 static int
 dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         void *data _U_)
@@ -3143,6 +3304,7 @@ dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     quic_datagram *dgram_info = NULL;
     quic_packet_info_t *quic_packet = NULL;
     quic_cid_t  real_retry_odcid = {.len=0}, *retry_odcid = NULL;
+    quic_cid_t  first_packet_dcid = {.len=0}; /* DCID of the first packet of the datagram */
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "QUIC");
 
@@ -3201,6 +3363,15 @@ dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         }
 
         tvbuff_t *next_tvb = quic_get_message_tvb(tvb, offset);
+
+        if (!check_dcid_on_coalesced_packet(next_tvb, dgram_info, offset == 0, &first_packet_dcid)) {
+            /* Coalesced packet with unexpected CID; it probably is some kind
+               of unencrypted padding data added after the valid QUIC payload */
+            expert_add_info_format(pinfo, quic_tree, &ei_quic_coalesced_padding_data,
+                                   "(Random) padding data appended to the datagram");
+            break;
+        }
+
         proto_item_set_len(quic_ti, tvb_reported_length(next_tvb));
         ti = proto_tree_add_uint(quic_tree, hf_quic_packet_length, next_tvb, 0, 0, tvb_reported_length(next_tvb));
         proto_item_set_generated(ti);
@@ -3219,12 +3390,8 @@ dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             } else {
                 new_offset = dissect_quic_long_header(next_tvb, pinfo, quic_tree, dgram_info, quic_packet);
             }
-        } else if (!(first_byte == 0 && offset > 0)) {
-            // Firefox neqo adds unencrypted padding consisting of all zeroes
-            // after an Initial Packet. Whether that is valid or not is
-            // discussed at https://github.com/quicwg/base-drafts/issues/3333
-            // As it happens, at least draft -25 requires the "Fixed" bit to be
-            // set, so any zero first byte is definitely invalid.
+        } else { /* Note that the "Fixed" bit might have been greased,
+                    so 0x00 is a perfectly valid value as first_byte */
             new_offset = dissect_quic_short_header(next_tvb, pinfo, quic_tree, dgram_info, quic_packet);
         }
         if (tvb_reported_length_remaining(next_tvb, new_offset)) {
@@ -3279,7 +3446,7 @@ static gboolean dissect_quic_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
      */
     conversation_t *conversation = NULL;
     int offset = 0;
-    guint8 flags;
+    guint8 flags, dcid, scid;
     guint32 version;
     gboolean is_quic = FALSE;
 
@@ -3300,13 +3467,38 @@ static gboolean dissect_quic_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     // check for draft QUIC version (for draft -11 and newer)
     version = tvb_get_ntohl(tvb, offset);
     is_quic = (quic_draft_version(version) >= 11);
-
-    if (is_quic) {
-        conversation = find_or_create_conversation(pinfo);
-        conversation_set_dissector(conversation, quic_handle);
-        dissect_quic(tvb, pinfo, tree, data);
+    if (!is_quic) {
+        return FALSE;
     }
-    return is_quic;
+
+    /* Version check on packet forcing version negotiation is quite weak:
+       try hardenig it checking packets type, too */
+    if ((version & 0x0F0F0F0F) == 0x0a0a0a0a &&
+        (flags & 0x30) != 0x00) { /* Initial Packet */
+            return FALSE;
+    }
+
+    /* Check that CIDs lengths are valid */
+    offset += 4;
+    dcid = tvb_get_guint8(tvb, offset);
+    if (dcid > QUIC_MAX_CID_LENGTH) {
+        return FALSE;
+    }
+    offset += 1 + dcid;
+    if (offset >= (int)tvb_captured_length(tvb)) {
+        return FALSE;
+    }
+    scid = tvb_get_guint8(tvb, offset);
+    if (scid > QUIC_MAX_CID_LENGTH) {
+        return FALSE;
+    }
+
+    /* Ok! */
+    conversation = find_or_create_conversation(pinfo);
+    conversation_set_dissector(conversation, quic_handle);
+    dissect_quic(tvb, pinfo, tree, data);
+
+    return TRUE;
 }
 
 
@@ -3498,6 +3690,16 @@ proto_register_quic(void)
           { "Reserved", "quic.short.reserved",
             FT_UINT8, BASE_DEC, NULL, 0x18,
             "Reserved bits (protected using header protection)", HFILL }
+        },
+        { &hf_quic_q_bit,
+          { "Square Signal Bit (Q)", "quic.q_bit",
+            FT_BOOLEAN, 8, NULL, 0x10,
+            "Square Signal Bit (used to measure and locate the source of packet loss)", HFILL }
+        },
+        { &hf_quic_l_bit,
+          { "Loss Event Bit (L)", "quic.l_bit",
+            FT_BOOLEAN, 8, NULL, 0x08,
+            "Loss Event Bit (used to measure and locate the source of packet loss)",  HFILL }
         },
         { &hf_quic_key_phase,
           { "Key Phase Bit", "quic.key_phase",
@@ -3938,6 +4140,10 @@ proto_register_quic(void)
         { &ei_quic_bad_retry,
           { "quic.bad_retry", PI_PROTOCOL, PI_WARN,
             "Retry Integrity Tag verification failure", EXPFILL }
+        },
+        { &ei_quic_coalesced_padding_data,
+          { "quic.coalesced_padding_data", PI_PROTOCOL, PI_NOTE,
+            "Coalesced Padding Data", EXPFILL }
         },
     };
 

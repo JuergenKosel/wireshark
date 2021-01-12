@@ -1,8 +1,8 @@
 /* packet-nr-rrc-template.c
  * NR;
  * Radio Resource Control (RRC) protocol specification
- * (3GPP TS 38.331 V16.2.0 Release 16) packet dissection
- * Copyright 2018-2020, Pascal Quantin
+ * (3GPP TS 38.331 V16.3.0 Release 16) packet dissection
+ * Copyright 2018-2021, Pascal Quantin
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -31,6 +31,7 @@
 #include "packet-cell_broadcast.h"
 #include "packet-mac-nr.h"
 #include "packet-rlc-nr.h"
+#include "packet-pdcp-nr.h"
 #include "packet-rrc.h"
 #include "packet-lte-rrc.h"
 #include "packet-nr-rrc.h"
@@ -56,6 +57,7 @@ static reassembly_table nr_rrc_sib7_reassembly_table;
 static reassembly_table nr_rrc_sib8_reassembly_table;
 
 extern int proto_mac_nr;
+extern int proto_pdcp_nr;
 
 /* Include constants */
 #include "packet-nr-rrc-val.h"
@@ -146,6 +148,9 @@ static gint ett_nr_rrc_sl_ParametersEUTRA1_r16 = -1;
 static gint ett_nr_rrc_sl_ParametersEUTRA2_r16 = -1;
 static gint ett_nr_rrc_sl_ParametersEUTRA3_r16 = -1;
 static gint ett_nr_rrc_absTimeInfo = -1;
+static gint ett_nr_rrc_assistanceDataSIB_Element_r16 = -1;
+static gint ett_nr_sl_V2X_ConfigCommon_r16 = -1;
+static gint ett_nr_tdd_Config_r16 = -1;
 
 static expert_field ei_nr_rrc_number_pages_le15 = EI_INIT;
 
@@ -163,7 +168,10 @@ typedef struct {
   guint16 message_identifier;
   guint8 warning_message_segment_type;
   guint8 warning_message_segment_number;
-  nr_drb_mapping_t drb_mapping;
+  nr_drb_mac_rlc_mapping_t drb_rlc_mapping;
+  nr_drb_rlc_pdcp_mapping_t drb_pdcp_mapping;
+  lpp_pos_sib_type_t pos_sib_type;
+  pdcp_nr_security_info_t pdcp_security;
 } nr_rrc_private_data_t;
 
 /* Helper function to get or create a struct that will be actx->private_data */
@@ -725,7 +733,10 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_sl_ParametersEUTRA1_r16,
     &ett_nr_rrc_sl_ParametersEUTRA2_r16,
     &ett_nr_rrc_sl_ParametersEUTRA3_r16,
-    &ett_nr_rrc_absTimeInfo
+    &ett_nr_rrc_absTimeInfo,
+    &ett_nr_rrc_assistanceDataSIB_Element_r16,
+    &ett_nr_sl_V2X_ConfigCommon_r16,
+    &ett_nr_tdd_Config_r16
   };
 
   static ei_register_info ei[] = {

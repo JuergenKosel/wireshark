@@ -20,6 +20,7 @@
 
 #include <ui/qt/models/voip_calls_info_model.h>
 #include <ui/qt/models/cache_proxy_model.h>
+#include "ui/rtp_stream_id.h"
 #include "wireshark_dialog.h"
 
 #include <QMenu>
@@ -44,10 +45,18 @@ signals:
     void updateFilter(QString filter, bool force = false);
     void captureFileChanged(capture_file *cf);
     void goToPacket(int packet_num);
+    void selectRtpStreamPassOut(rtpstream_id_t *id);
+    void deselectRtpStreamPassOut(rtpstream_id_t *id);
+    void openRtpStreamDialogPassOut();
+
+public slots:
+    void displayFilterSuccess(bool success);
 
 protected:
     void contextMenuEvent(QContextMenuEvent *event);
     virtual void removeTapListeners();
+    void captureFileClosing();
+    void captureFileClosed();
 
 protected slots:
     void changeEvent(QEvent* event);
@@ -66,22 +75,25 @@ private:
     QPushButton *player_button_;
     QPushButton *copy_button_;
     bool voip_calls_tap_listeners_removed_;
+    GQueue* shown_callsinfos_; /* queue with all shown calls (voip_calls_info_t) */
 
     // Tap callbacks
-//    static void tapReset(void *tapinfo_ptr);
+    static void tapReset(void *tapinfo_ptr);
     static tap_packet_status tapPacket(void *tapinfo_ptr, packet_info *pinfo, epan_dissect_t *, const void *data);
     static void tapDraw(void *tapinfo_ptr);
+    static gint compareCallNums(gconstpointer a, gconstpointer b);
 
     void updateCalls();
     void prepareFilter();
     void showSequence();
     void showPlayer();
+    void removeAllCalls();
 
     QList<QVariant> streamRowData(int row) const;
 
 private slots:
-    void captureFileClosing();
     void selectAll();
+    void selectNone();
     void copyAsCSV();
     void copyAsYAML();
     void switchTimeOfDay();
@@ -89,6 +101,11 @@ private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_buttonBox_helpRequested();
     void updateWidgets();
+    void selectRtpStreamPassIn(rtpstream_id_t *id);
+    void deselectRtpStreamPassIn(rtpstream_id_t *id);
+    void openRtpStreamDialogPassIn();
+    void captureEvent(CaptureEvent e);
+    void on_displayFilterCheckBox_toggled(bool checked);
 };
 
 #endif // VOIP_CALLS_DIALOG_H

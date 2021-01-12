@@ -49,29 +49,44 @@ fi
 
 #
 # Some packages need xz to unpack their current source.
-# While tar, in newer versions of macOS, can uncompress xz'ed tarballs,
+# While tar, since macOS 10.9, can uncompress xz'ed tarballs,
 # it can't do so in older versions, and xz isn't provided with macOS.
 #
-XZ_VERSION=5.2.3
+XZ_VERSION=5.2.5
 
 #
 # Some packages need lzip to unpack their current source.
 #
-LZIP_VERSION=1.19
+LZIP_VERSION=1.21
 
 #
-# CMake is required to do the build.
+# The version of libPCRE on Catalina is insufficient to build glib due to
+# missing UTF-8 support.
+#
+PCRE_VERSION=8.44
+
+#
+# CMake is required to do the build - and to build some of the
+# dependencies.
 #
 # Sigh.  CMake versions 3.7 and later fail on Lion due to issues with
 # Lion's libc++, and CMake 3.5 and 3.6 have an annoying "Make sure the
 # combination of SDK and Deployment Target are allowed" check that fails
 # in some cases.
 #
-# So if you're on Lion, we choose version 3.5.2, otherwise we choose
-# the latest stable version (currently 3.12.4).
+# 3.19.2 is the first version to support Apple Silicon, but the precompiled
+# binary on cmake.org is only a universal binary that requires macOS 10.0
+# (Yosemite) or newer.
 #
-if [[ $DARWIN_MAJOR_VERSION -gt 11 ]]; then
-    CMAKE_VERSION=${CMAKE_VERSION-3.12.4}
+# So if you're on Lion, we choose version 3.5.2, otherwise on Mountain
+# Lion and Mavericks we choose the last stable release that works on
+# them (3.18.5), and on Yosemite and later we choose the latest stable
+# version (currently 3.19.2).
+#
+if [[ $DARWIN_MAJOR_VERSION -gt 13 ]]; then
+    CMAKE_VERSION=${CMAKE_VERSION-3.19.2}
+elif [[ $DARWIN_MAJOR_VERSION -gt 11 ]]; then
+    CMAKE_VERSION=${CMAKE_VERSION-3.18.5}
 else
     CMAKE_VERSION=${CMAKE_VERSION-3.5.2}
 fi
@@ -86,17 +101,17 @@ NINJA_VERSION=${NINJA_VERSION-1.8.2}
 #
 # The following libraries and tools are required even to build only TShark.
 #
-GETTEXT_VERSION=0.19.8.1
-GLIB_VERSION=2.37.6
+GETTEXT_VERSION=0.21
+GLIB_VERSION=2.58.3
 PKG_CONFIG_VERSION=0.29.2
 #
 # libgpg-error is required for libgcrypt.
 #
-LIBGPG_ERROR_VERSION=1.37
+LIBGPG_ERROR_VERSION=1.39
 #
 # libgcrypt is required.
 #
-LIBGCRYPT_VERSION=1.8.5
+LIBGCRYPT_VERSION=1.8.7
 
 #
 # One or more of the following libraries are required to build Wireshark.
@@ -113,7 +128,7 @@ LIBGCRYPT_VERSION=1.8.5
 # packet data pane; see, for example, Qt bugs QTBUG-31937, QTBUG-41017,
 # and QTBUG-43464, all of which seem to be the same bug.
 #
-QT_VERSION=${QT_VERSION-5.12.4}
+QT_VERSION=${QT_VERSION-5.12.6}
 
 if [ "$QT_VERSION" ]; then
     QT_MAJOR_VERSION="`expr $QT_VERSION : '\([0-9][0-9]*\).*'`"
@@ -129,7 +144,7 @@ fi
 # the optional libraries are required by other optional libraries.
 #
 LIBSMI_VERSION=0.4.8
-GNUTLS_VERSION=3.6.14
+GNUTLS_VERSION=3.6.15
 if [ "$GNUTLS_VERSION" ]; then
     #
     # We'll be building GnuTLS, so we may need some additional libraries.
@@ -143,22 +158,29 @@ if [ "$GNUTLS_VERSION" ]; then
     #
     # And, in turn, Nettle requires GMP.
     #
-    GMP_VERSION=6.2.0
+    GMP_VERSION=6.2.1
+
+    #
+    # And p11-kit
+    P11KIT_VERSION=0.23.21
+
+    # Which requires libtasn1
+    LIBTASN1_VERSION=4.16.0
 fi
 # Use 5.2.4, not 5.3, for now; lua_bitop.c hasn't been ported to 5.3
 # yet, and we need to check for compatibility issues (we'd want Lua
 # scripts to work with 5.1, 5.2, and 5.3, as long as they only use Lua
 # features present in all three versions)
 LUA_VERSION=5.2.4
-SNAPPY_VERSION=1.1.4
+SNAPPY_VERSION=1.1.8
 ZSTD_VERSION=1.4.2
 LIBXML2_VERSION=2.9.9
-LZ4_VERSION=1.7.5
+LZ4_VERSION=1.9.2
 SBC_VERSION=1.3
 CARES_VERSION=1.15.0
 LIBSSH_VERSION=0.9.0
 # mmdbresolve
-MAXMINDDB_VERSION=1.3.2
+MAXMINDDB_VERSION=1.4.3
 NGHTTP2_VERSION=1.39.2
 SPANDSP_VERSION=0.0.6
 SPEEXDSP_VERSION=1.2.0
@@ -171,8 +193,20 @@ fi
 BCG729_VERSION=1.0.2
 ILBC_VERSION=2.0.2
 OPUS_VERSION=1.3.1
-PYTHON3_VERSION=3.7.1
-BROTLI_VERSION=1.0.7
+
+# 3.7.6 is the final version of Python to have official packages for the
+# 64-bit/32-bit variant that supports 10.6 (Snow Leopard) through 10.8
+# (Mountain Lion), and 3.9.1 is the first version of Python to support
+# macOS 11 Big Sur and Apple Silicon (arm-based Macs).
+
+# So on Snow Leopard through Mountain Lion, choose 3.7.6, otherwise
+# get the latest stable version (3.9.1).
+if [[ $DARWIN_MAJOR_VERSION -gt 12 ]]; then
+    PYTHON3_VERSION=3.9.1
+else
+    PYTHON3_VERSION=3.7.6
+fi
+BROTLI_VERSION=1.0.9
 # minizip
 ZLIB_VERSION=1.2.11
 # Uncomment to enable automatic updates using Sparkle
@@ -306,6 +340,42 @@ uninstall_lzip() {
     fi
 }
 
+install_pcre() {
+    if [ "$PCRE_VERSION" -a ! -f pcre-$PCRE_VERSION-done ] ; then
+        echo "Downloading, building, and installing pcre:"
+        [ -f pcre-$PCRE_VERSION.tar.bz2 ] || curl -L -O https://ftp.pcre.org/pub/pcre/pcre-$PCRE_VERSION.tar.bz2 || exit 1
+        $no_build && echo "Skipping installation" && return
+        bzcat pcre-$PCRE_VERSION.tar.bz2 | tar xf - || exit 1
+        cd pcre-$PCRE_VERSION
+        ./configure --enable-unicode-properties || exit 1
+        make $MAKE_BUILD_OPTS || exit 1
+        $DO_MAKE_INSTALL || exit 1
+        cd ..
+        touch pcre-$PCRE_VERSION-done
+    fi
+}
+
+uninstall_pcre() {
+    if [ ! -z "$installed_pcre_version" ] ; then
+        echo "Uninstalling pcre:"
+        cd pcre-$installed_pcre_version
+        $DO_MAKE_UNINSTALL || exit 1
+        make distclean || exit 1
+        cd ..
+        rm pcre-$installed_pcre_version-done
+
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version.
+            #
+            rm -rf pcre-$installed_pcre_version
+            rm -rf pcre-$installed_pcre_version.tar.bz2
+        fi
+
+        installed_pcre_version=""
+    fi
+}
+
 install_autoconf() {
     if [ "$AUTOCONF_VERSION" -a ! -f autoconf-$AUTOCONF_VERSION-done ] ; then
         echo "Downloading, building and installing GNU autoconf..."
@@ -326,8 +396,8 @@ uninstall_autoconf() {
         #
         # automake and libtool depend on this, so uninstall them.
         #
-        uninstall_libtool
-        uninstall_automake
+        uninstall_libtool "$@"
+        uninstall_automake "$@"
 
         echo "Uninstalling GNU autoconf:"
         cd autoconf-$installed_autoconf_version
@@ -446,6 +516,7 @@ uninstall_ninja() {
     if [ ! -z "$installed_ninja_version" ]; then
         echo "Uninstalling Ninja:"
         sudo rm /usr/local/bin/ninja
+        rm ninja-$installed_ninja_version-done
         if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
             rm -f ninja-mac-v$installed_ninja_version.zip
         fi
@@ -521,19 +592,8 @@ install_cmake() {
         #
         case "$CMAKE_MAJOR_VERSION" in
 
-        0|1)
+        0|1|2)
             echo "CMake $CMAKE_VERSION" is too old 1>&2
-            ;;
-
-        2)
-            #
-            # Download the DMG, run the installer.
-            #
-            [ -f cmake-$CMAKE_VERSION-Darwin64-universal.dmg ] || curl -L -O https://cmake.org/files/v$CMAKE_MAJOR_MINOR_VERSION/cmake-$CMAKE_VERSION-Darwin64-universal.dmg || exit 1
-            $no_build && echo "Skipping installation" && return
-            sudo hdiutil attach cmake-$CMAKE_VERSION-Darwin64-universal.dmg || exit 1
-            sudo installer -target / -pkg /Volumes/cmake-$CMAKE_VERSION-Darwin64-universal/cmake-$CMAKE_VERSION-Darwin64-universal.pkg || exit 1
-            sudo hdiutil detach /Volumes/cmake-$CMAKE_VERSION-Darwin64-universal
             ;;
 
         3)
@@ -543,14 +603,19 @@ install_cmake() {
             #
             # 3.0.* and 3.1.0 have a Darwin64-universal DMG.
             # 3.1.1 and later have a Darwin-x86_64 DMG.
+	    # 3.19.2 and later have a macos-universal DMG.
             # Probably not many people are still developing on 32-bit
             # Macs, so we don't worry about them.
             #
             if [ "$CMAKE_MINOR_VERSION" = 0 -o \
                  "$CMAKE_VERSION" = 3.1.0 ]; then
                 type="Darwin64-universal"
-            else
+	    elif [ "$CMAKE_MINOR_VERSION" -lt 19 -o \
+		 "$CMAKE_VERSION" = 3.19.0 -o \
+		 "$CMAKE_VERSION" = 3.19.1 ]; then
                 type="Darwin-x86_64"
+	    else
+		type="macos-universal"
             fi
             [ -f cmake-$CMAKE_VERSION-$type.dmg ] || curl -L -O https://cmake.org/files/v$CMAKE_MAJOR_MINOR_VERSION/cmake-$CMAKE_VERSION-$type.dmg || exit 1
             $no_build && echo "Skipping installation" && return
@@ -588,18 +653,8 @@ uninstall_cmake() {
         installed_cmake_major_version="`expr $installed_cmake_version : '\([0-9][0-9]*\).*'`"
         case "$installed_cmake_major_version" in
 
-        0|1)
+        0|1|2)
             echo "CMake $installed_cmake_version" is too old 1>&2
-            ;;
-
-        2)
-            sudo rm -rf "/Applications/CMake "`echo "$installed_cmake_version" | sed 's/\([0-9][0-9]*\)\.\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1.\2-\3/'`.app
-            for i in ccmake cmake cmake-gui cmakexbuild cpack ctest
-            do
-                sudo rm -f /usr/bin/$i /usr/local/bin/$i
-            done
-            sudo pkgutil --forget com.Kitware.CMake
-            rm cmake-$installed_cmake_version-done
             ;;
 
         3)
@@ -619,6 +674,7 @@ uninstall_cmake() {
             #
             rm -f cmake-$installed_cmake_version-Darwin64-universal.dmg
             rm -f cmake-$installed_cmake_version-Darwin-x86_64.dmg
+            rm -f cmake-$installed_cmake_version-macos-universal.dmg
         fi
 
         installed_cmake_version=""
@@ -740,7 +796,10 @@ install_glib() {
         # will be set to /usr/include (in those older versions of the
         # developer tools, there is a /usr/include directory).
         #
-        includedir=`xcrun --show-sdk-path 2>/dev/null`/usr/include
+        includedir=`SDKROOT="$SDKPATH" xcrun --show-sdk-path 2>/dev/null`/usr/include
+        if [ ! -f ./configure ]; then
+            LIBTOOLIZE=glibtoolize ./autogen.sh
+        fi
         if grep -qs '#define.*MACOSX' $includedir/ffi/fficonfig.h
         then
             # It's defined, nothing to do
@@ -761,7 +820,14 @@ uninstall_glib() {
         echo "Uninstalling GLib:"
         cd glib-$installed_glib_version
         $DO_MAKE_UNINSTALL || exit 1
-        make distclean || exit 1
+        #
+        # This appears to delete dependencies out from under other
+        # Makefiles in the tree, causing it to fail.  At least until
+        # that gets fixed, if it ever gets fixed, we just ignore the
+        # exit status of "make distclean"
+        #
+        # make distclean || exit 1
+        make distclean || echo "Ignoring make distclean failure" 1>&2
         cd ..
         rm glib-$installed_glib_version-done
 
@@ -788,7 +854,7 @@ install_qt() {
         # 5.2.0:      qt-mac-opensource-{version}.dmg
         # 5.2.1:      qt-opensource-mac-x64-clang-{version}.dmg
         # 5.3 - 5.8:  qt-opensource-mac-x64-clang-{version}.dmg
-        # 5.9 - 5.13: qt-opensource-mac-x64-{version}.dmg
+        # 5.9 - 5.14: qt-opensource-mac-x64-{version}.dmg
         #
         case $QT_MAJOR_VERSION in
 
@@ -799,28 +865,15 @@ install_qt() {
         5*)
             case $QT_MINOR_VERSION in
 
-            0|1)
+            0|1|2)
                 echo "Qt $QT_VERSION" is too old 1>&2
-                ;;
-
-            2)
-                case $QT_DOTDOT_VERSION in
-
-                0)
-                    QT_VOLUME=qt-mac-opensource-$QT_VERSION
-                    ;;
-
-                1)
-                    QT_VOLUME=qt-opensource-mac-x64-clang-$QT_VERSION
-                    ;;
-                esac
                 ;;
 
             3|4|5|6|7|8)
                 QT_VOLUME=qt-opensource-mac-x64-clang-$QT_VERSION
                 ;;
 
-            9|10|11|12|13)
+            9|10|11|12|13|14)
                 QT_VOLUME=qt-opensource-mac-x64-$QT_VERSION
                 ;;
             esac
@@ -853,7 +906,7 @@ uninstall_qt() {
             # 5.2.0:      qt-mac-opensource-{version}.dmg
             # 5.2.1:      qt-opensource-mac-x64-clang-{version}.dmg
             # 5.3 - 5.8:  qt-opensource-mac-x64-clang-{version}.dmg
-            # 5.9 - 5.13: qt-opensource-mac-x64-{version}.dmg
+            # 5.9 - 5.14: qt-opensource-mac-x64-{version}.dmg
             #
             installed_qt_major_version="`expr $installed_qt_version : '\([0-9][0-9]*\).*'`"
             installed_qt_minor_version="`expr $installed_qt_version : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
@@ -868,7 +921,7 @@ uninstall_qt() {
                 case $installed_qt_minor_version in
 
                 0|1)
-                    installed_qt_volume=qt-mac-opensource-$installed_qt_version-clang-offline.dmg
+                    echo "Qt $installed_qt_version" is too old 1>&2
                     ;;
 
                 2)
@@ -1073,6 +1126,103 @@ uninstall_gmp() {
     fi
 }
 
+install_libtasn1() {
+    if [ "$LIBTASN1_VERSION" -a ! -f libtasn1-$LIBTASN1_VERSION-done ] ; then
+        echo "Downloading, building, and installing libtasn1:"
+        [ -f libtasn1-$LIBTASN1_VERSION.tar.gz ] || curl -L -O https://ftpmirror.gnu.org/libtasn1/libtasn1-$LIBTASN1_VERSION.tar.gz || exit 1
+        $no_build && echo "Skipping installation" && return
+        gzcat libtasn1-$LIBTASN1_VERSION.tar.gz | tar xf - || exit 1
+        cd libtasn1-$LIBTASN1_VERSION
+        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+        make $MAKE_BUILD_OPTS || exit 1
+        $DO_MAKE_INSTALL || exit 1
+        cd ..
+        touch libtasn1-$LIBTASN1_VERSION-done
+    fi
+}
+
+uninstall_libtasn1() {
+    if [ ! -z "$installed_libtasn1_version" ] ; then
+        #
+        # p11-kit depends on this, so uninstall it.
+        #
+        uninstall_p11_kit "$@"
+
+        echo "Uninstalling libtasn1:"
+        cd libtasn1-$installed_libtasn1_version
+        $DO_MAKE_UNINSTALL || exit 1
+        make distclean || exit 1
+        cd ..
+        rm libtasn1-$installed_libtasn1_version-done
+
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version.
+            #
+            rm -rf libtasn1-$installed_libtasn1_version
+            rm -rf libtasn1-$installed_libtasn1_version.tar.gz
+        fi
+
+        installed_libtasn1_version=""
+    fi
+}
+
+install_p11_kit() {
+    if [ "$P11KIT_VERSION" -a ! -f p11-kit-$P11KIT_VERSION-done ] ; then
+        echo "Downloading, building, and installing p11-kit:"
+        [ -f p11-kit-$P11KIT_VERSION.tar.xz ] || curl -L -O https://github.com/p11-glue/p11-kit/releases/download/$P11KIT_VERSION/p11-kit-$P11KIT_VERSION.tar.xz || exit 1
+        $no_build && echo "Skipping installation" && return
+        xzcat p11-kit-$P11KIT_VERSION.tar.xz | tar xf - || exit 1
+        cd p11-kit-$P11KIT_VERSION
+        #
+        # Prior to Catalina, the libffi that's supplied with macOS
+        # doesn't support ffi_closure_alloc() or ffi_prep_closure_loc(),
+        # both of which are required by p11-kit if built with libffi.
+        #
+        # According to
+        #
+        #    https://p11-glue.github.io/p11-glue/p11-kit/manual/devel-building.html
+        #
+        # libffi is used "for sharing of PKCS#11 modules between
+        # multiple callers in the same process. It is highly recommended
+        # that this dependency be treated as a required dependency.",
+        # but it's not clear that this matters to us, so we just
+        # configure p11-kit not to use libffi.
+        #
+        CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --without-libffi --without-trust-paths || exit 1
+        make $MAKE_BUILD_OPTS || exit 1
+        $DO_MAKE_INSTALL || exit 1
+        cd ..
+        touch p11-kit-$P11KIT_VERSION-done
+    fi
+}
+
+uninstall_p11_kit() {
+    if [ ! -z "$installed_p11_kit_version" ] ; then
+        #
+        # Nettle depends on this, so uninstall it.
+        #
+        uninstall_nettle "$@"
+
+        echo "Uninstalling p11-kit:"
+        cd p11-kit-$installed_p11_kit_version
+        $DO_MAKE_UNINSTALL || exit 1
+        make distclean || exit 1
+        cd ..
+        rm p11-kit-$installed_p11_kit_version-done
+
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version.
+            #
+            rm -rf p11-kit-$installed_p11_kit_version
+            rm -rf p11-kit-$installed_p11_kit_version.tar.xz
+        fi
+
+        installed_p11_kit_version=""
+    fi
+}
+
 install_nettle() {
     if [ "$NETTLE_VERSION" -a ! -f nettle-$NETTLE_VERSION-done ] ; then
         echo "Downloading, building, and installing Nettle:"
@@ -1080,7 +1230,7 @@ install_nettle() {
         $no_build && echo "Skipping installation" && return
         gzcat nettle-$NETTLE_VERSION.tar.gz | tar xf - || exit 1
         cd nettle-$NETTLE_VERSION
-        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --with-libgcrypt --without-p11-kit || exit 1
+        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
@@ -1141,7 +1291,7 @@ install_gnutls() {
             bzcat gnutls-$GNUTLS_VERSION.tar.bz2 | tar xf - || exit 1
         fi
         cd gnutls-$GNUTLS_VERSION
-        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --with-included-libtasn1 --with-included-unistring --without-p11-kit --disable-guile || exit 1
+        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --with-included-unistring --disable-guile || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
@@ -1216,14 +1366,23 @@ uninstall_lua() {
 install_snappy() {
     if [ "$SNAPPY_VERSION" -a ! -f snappy-$SNAPPY_VERSION-done ] ; then
         echo "Downloading, building, and installing snappy:"
-        [ -f snappy-$SNAPPY_VERSION.tar.gz ] || curl -L -O https://github.com/google/snappy/releases/download/$SNAPPY_VERSION/snappy-$SNAPPY_VERSION.tar.gz || exit 1
+        [ -f snappy-$SNAPPY_VERSION.tar.gz ] || curl -L -o snappy-$SNAPPY_VERSION.tar.gz https://github.com/google/snappy/archive/$SNAPPY_VERSION.tar.gz || exit 1
         $no_build && echo "Skipping installation" && return
         gzcat snappy-$SNAPPY_VERSION.tar.gz | tar xf - || exit 1
         cd snappy-$SNAPPY_VERSION
-        CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+        mkdir build_dir
+        cd build_dir
+        #
+        # Build a shared library, because we'll be linking libwireshark,
+        # which is a C library, with libsnappy, and libsnappy is a C++
+        # library and requires the C++ run time; the shared library
+        # will carry that dependency with it, so linking with it should
+        # Just Work.
+        #
+        MACOSX_DEPLOYMENT_TARGET=$min_osx_target SDKROOT="$SDKPATH" cmake -DBUILD_SHARED_LIBS=YES ../ || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
-        cd ..
+        cd ../..
         touch snappy-$SNAPPY_VERSION-done
     fi
 }
@@ -1232,8 +1391,28 @@ uninstall_snappy() {
     if [ ! -z "$installed_snappy_version" ] ; then
         echo "Uninstalling snappy:"
         cd snappy-$installed_snappy_version
-        $DO_MAKE_UNINSTALL || exit 1
-        make distclean || exit 1
+        #
+        # snappy uses cmake and doesn't support "make uninstall";
+        # just remove what we know it installs.
+        #
+        # $DO_MAKE_UNINSTALL || exit 1
+        $DO_RM -f /usr/local/lib/libsnappy.1.1.8.dylib \
+                  /usr/local/lib/libsnappy.1.dylib \
+                  /usr/local/lib/libsnappy.dylib \
+                  /usr/local/include/snappy-c.h \
+                  /usr/local/include/snappy-sinksource.h \
+                  /usr/local/include/snappy-stubs-public.h \
+                  /usr/local/include/snappy.h \
+                  /usr/local/lib/cmake/Snappy/SnappyConfig.cmake \
+                  /usr/local/lib/cmake/Snappy/SnappyConfigVersion.cmake \
+                  /usr/local/lib/cmake/Snappy/SnappyTargets-noconfig.cmake \
+                  /usr/local/lib/cmake/Snappy/SnappyTargets.cmake || exit 1
+        #
+        # snappy uses cmake and doesn't support "make distclean";
+        #.just remove the entire build directory.
+        #
+        # make distclean || exit 1
+        rm -rf build_dir || exit 1
         cd ..
         rm snappy-$installed_snappy_version-done
 
@@ -1268,7 +1447,12 @@ uninstall_zstd() {
         echo "Uninstalling zstd:"
         cd zstd-$installed_zstd_version
         $DO_MAKE_UNINSTALL || exit 1
-        make distclean || exit 1
+        #
+        # zstd has no configure script, so there's no need for
+        # "make distclean", and the Makefile supplied with it
+        # has no "make distclean" rule; just do "make clean".
+        #
+        make clean || exit 1
         cd ..
         rm zstd-$installed_zstd_version-done
 
@@ -1372,9 +1556,12 @@ uninstall_lz4() {
         cd lz4-$installed_lz4_version
         $DO_MAKE_UNINSTALL || exit 1
         #
-        # lz4 uses cmake and doesn't support "make distclean"
+        # lz4's Makefile doesn't support "make distclean"; just do
+        # "make clean".  Perhaps not using autotools means that
+        # there's no need for "make distclean".
         #
         # make distclean || exit 1
+        make clean || exit 1
         cd ..
         rm lz4-$installed_lz4_version-done
 
@@ -1529,17 +1716,20 @@ uninstall_libssh() {
         echo "Uninstalling libssh:"
         cd libssh-$installed_libssh_version
         #
-        # libssh uses cmake and doesn't support "make uninstall"
+        # libssh uses cmake and doesn't support "make uninstall";
+        # just remove what we know it installs.
         #
         # $DO_MAKE_UNINSTALL || exit 1
-        sudo rm -rf /usr/local/lib/libssh*
-        sudo rm -rf /usr/local/include/libssh
-        sudo rm -rf /usr/local/lib/pkgconfig/libssh*
-        sudo rm -rf /usr/local/lib/cmake/libssh
+        $DO_RM -rf /usr/local/lib/libssh* \
+                   /usr/local/include/libssh \
+                   /usr/local/lib/pkgconfig/libssh* \
+                   /usr/local/lib/cmake/libssh || exit 1
         #
-        # libssh uses cmake and doesn't support "make distclean"
+        # libssh uses cmake and doesn't support "make distclean";
+        # just remove the entire build directory.
         #
         # make distclean || exit 1
+        rm -rf build || exit 1
         cd ..
         rm libssh-$installed_libssh_version-done
 
@@ -1814,17 +2004,24 @@ uninstall_opus() {
 }
 
 install_python3() {
-    local macver=10.9
-    if [[ $DARWIN_MAJOR_VERSION -lt 13 ]]; then
+    # The macos11.0 installer can be deployed to older versions, down to
+    # 10.9 (Mavericks), but is still considered experimental so continue
+    # to use the 64-bit installer (10.9) on earlier releases for now.
+    local macver=x10.9
+    if [[ $DARWIN_MAJOR_VERSION -gt 19 ]]; then
+        # The macos11.0 installer is required for arm-based macs, which require
+        # macOS 11 Big Sur. Note that the 'x' was removed from the package name.
+        macver=11.0
+    elif [[ $DARWIN_MAJOR_VERSION -lt 13 ]]; then
         # The 64-bit installer requires 10.9 (Mavericks), use the 64-bit/32-bit
-        # variant for 10.6 (Snow Leopard) and newer.
-        macver=10.6
+        # variant for 10.6 (Snow Leopard) through 10.8 (Mountain Lion).
+        macver=x10.6
     fi
     if [ "$PYTHON3_VERSION" -a ! -f python3-$PYTHON3_VERSION-done ] ; then
         echo "Downloading and installing python3:"
-        [ -f python-$PYTHON3_VERSION-macosx$macver.pkg ] || curl -L -O https://www.python.org/ftp/python/$PYTHON3_VERSION/python-$PYTHON3_VERSION-macosx$macver.pkg || exit 1
+        [ -f python-$PYTHON3_VERSION-macos$macver.pkg ] || curl -L -O https://www.python.org/ftp/python/$PYTHON3_VERSION/python-$PYTHON3_VERSION-macos$macver.pkg || exit 1
         $no_build && echo "Skipping installation" && return
-        sudo installer -target / -pkg python-$PYTHON3_VERSION-macosx$macver.pkg || exit 1
+        sudo installer -target / -pkg python-$PYTHON3_VERSION-macos$macver.pkg || exit 1
         touch python3-$PYTHON3_VERSION-done
     fi
 }
@@ -1855,6 +2052,7 @@ uninstall_python3() {
             #
             # Get rid of the previously downloaded and unpacked version.
             #
+            rm -f python-$installed_python3_version-macos11.0.pkg
             rm -f python-$installed_python3_version-macosx10.9.pkg
             rm -f python-$installed_python3_version-macosx10.6.pkg
         fi
@@ -1885,17 +2083,20 @@ uninstall_brotli() {
         echo "Uninstalling brotli:"
         cd brotli-$installed_brotli_version
         #
-        # brotli uses cmake on macOS and doesn't support "make uninstall"
+        # brotli uses cmake on macOS and doesn't support "make uninstall";
+        # just remove what we know it installs.
         #
         # $DO_MAKE_UNINSTALL || exit 1
-        sudo rm -rf /usr/local/bin/brotli
-        sudo rm -rf /usr/local/lib/libbrotli*
-        sudo rm -rf /usr/local/include/brotli
-        sudo rm -rf /usr/local/lib/pkgconfig/libbrotli*
+        $DO_RM -rf /usr/local/bin/brotli \
+                   /usr/local/lib/libbrotli* \
+                   /usr/local/include/brotli \
+                   /usr/local/lib/pkgconfig/libbrotli* || exit 1
         #
-        # brotli uses cmake on macOS and doesn't support "make distclean"
+        # brotli uses cmake on macOS and doesn't support "make distclean";
+        # just remove the enire build directory.
         #
         # make distclean || exit 1
+        rm -rf build_dir || exit 1
         cd ..
         rm brotli-$installed_brotli_version-done
 
@@ -1917,6 +2118,17 @@ install_minizip() {
         [ -f zlib-$ZLIB_VERSION.tar.gz ] || curl -L -o zlib-$ZLIB_VERSION.tar.gz https://zlib.net/zlib-$ZLIB_VERSION.tar.gz || exit 1
         $no_build && echo "Skipping installation" && return
         gzcat zlib-$ZLIB_VERSION.tar.gz | tar xf - || exit 1
+        #
+        # minizip ships both with a minimal Makefile that doesn't
+        # support "make install", "make uninstall", or "make distclean",
+        # and with a Makefile.am file that, if we do an autoreconf,
+        # gives us a configure script, and a Makefile.in that, if we run
+        # the configure script, gives us a Makefile that supports ll of
+        # those targets, and that installs a pkg-config .pc file for
+        # minizip.
+        #
+        # So that's what we do.
+        #
         cd zlib-$ZLIB_VERSION/contrib/minizip || exit 1
         LIBTOOLIZE=glibtoolize autoreconf --force --install
         CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
@@ -1935,7 +2147,7 @@ uninstall_minizip() {
         make distclean || exit 1
         cd ../../..
 
-        rm zlib-$installed_minizip_version-done
+        rm minizip-$installed_minizip_version-done
 
         if [ "$#" -eq 1 ] && [ "$1" = "-r" ] ; then
             #
@@ -2200,6 +2412,28 @@ install_all() {
         uninstall_gmp -r
     fi
 
+    if [ ! -z "$installed_p11_kit_version" -a \
+              "$installed_p11_kit_version" != "$P11KIT_VERSION" ] ; then
+        echo "Installed p11-kit version is $installed_p11_kit_version"
+        if [ -z "$P11KIT_VERSION" ] ; then
+            echo "p11-kit is not requested"
+        else
+            echo "Requested p11-kit version is $P11KIT_VERSION"
+        fi
+        uninstall_p11_kit -r
+    fi
+
+    if [ ! -z "$installed_libtasn1_version" -a \
+              "$installed_libtasn1_version" != "$LIBTASN1_VERSION" ] ; then
+        echo "Installed libtasn1 version is $installed_libtasn1_version"
+        if [ -z "$LIBTASN1_VERSION" ] ; then
+            echo "libtasn1 is not requested"
+        else
+            echo "Requested libtasn1 version is $LIBTASN1_VERSION"
+        fi
+        uninstall_libtasn1 -r
+    fi
+
     if [ ! -z "$installed_libgcrypt_version" -a \
               "$installed_libgcrypt_version" != "$LIBGCRYPT_VERSION" ] ; then
         echo "Installed libgcrypt version is $installed_libgcrypt_version"
@@ -2362,6 +2596,17 @@ install_all() {
         uninstall_autoconf -r
     fi
 
+    if [ ! -z "$installed_pcre_version" -a \
+              "$installed_pcre_version" != "$PCRE_VERSION" ] ; then
+        echo "Installed pcre version is $installed_pcre_version"
+        if [ -z "$PCRE_VERSION" ] ; then
+            echo "pcre is not requested"
+        else
+            echo "Requested pcre version is $PCRE_VERSION"
+        fi
+        uninstall_pcre -r
+    fi
+
     if [ ! -z "$installed_lzip_version" -a \
               "$installed_lzip_version" != "$LZIP_VERSION" ] ; then
         echo "Installed lzip version is $installed_lzip_version"
@@ -2429,6 +2674,8 @@ install_all() {
 
     install_lzip
 
+    install_pcre
+
     install_autoconf
 
     install_automake
@@ -2488,6 +2735,10 @@ install_all() {
     install_libgcrypt
 
     install_gmp
+
+    install_libtasn1
+
+    install_p11_kit
 
     install_nettle
 
@@ -2592,6 +2843,10 @@ uninstall_all() {
 
         uninstall_nettle
 
+        uninstall_p11_kit
+
+        uninstall_libtasn1
+
         uninstall_gmp
 
         uninstall_libgcrypt
@@ -2627,6 +2882,8 @@ uninstall_all() {
 
         uninstall_autoconf
 
+        uninstall_pcre
+
         uninstall_lzip
 
         uninstall_xz
@@ -2642,8 +2899,9 @@ uninstall_all() {
 # (If that's not the case, this test needs to check the subdirectories
 # as well.)
 #
-# If not, do "make install", "make uninstall", the removes for Lua,
-# and the renames of [g]libtool* with sudo.
+# If not, do "make install", "make uninstall", the removes for
+# dependencies that don't support "make uninstall", and the renames
+# of [g]libtool* with sudo.
 #
 if [ -w /usr/local ]
 then
@@ -2734,6 +2992,7 @@ then
 
     installed_xz_version=`ls xz-*-done 2>/dev/null | sed 's/xz-\(.*\)-done/\1/'`
     installed_lzip_version=`ls lzip-*-done 2>/dev/null | sed 's/lzip-\(.*\)-done/\1/'`
+    installed_pcre_version=`ls pcre-*-done 2>/dev/null | sed 's/pcre-\(.*\)-done/\1/'`
     installed_autoconf_version=`ls autoconf-*-done 2>/dev/null | sed 's/autoconf-\(.*\)-done/\1/'`
     installed_automake_version=`ls automake-*-done 2>/dev/null | sed 's/automake-\(.*\)-done/\1/'`
     installed_libtool_version=`ls libtool-*-done 2>/dev/null | sed 's/libtool-\(.*\)-done/\1/'`
@@ -2749,6 +3008,8 @@ then
     installed_libgpg_error_version=`ls libgpg-error-*-done 2>/dev/null | sed 's/libgpg-error-\(.*\)-done/\1/'`
     installed_libgcrypt_version=`ls libgcrypt-*-done 2>/dev/null | sed 's/libgcrypt-\(.*\)-done/\1/'`
     installed_gmp_version=`ls gmp-*-done 2>/dev/null | sed 's/gmp-\(.*\)-done/\1/'`
+    installed_libtasn1_version=`ls libtasn1-*-done 2>/dev/null | sed 's/libtasn1-\(.*\)-done/\1/'`
+    installed_p11_kit_version=`ls p11-kit-*-done 2>/dev/null | sed 's/p11-kit-\(.*\)-done/\1/'`
     installed_nettle_version=`ls nettle-*-done 2>/dev/null | sed 's/nettle-\(.*\)-done/\1/'`
     installed_gnutls_version=`ls gnutls-*-done 2>/dev/null | sed 's/gnutls-\(.*\)-done/\1/'`
     installed_lua_version=`ls lua-*-done 2>/dev/null | sed 's/lua-\(.*\)-done/\1/'`
@@ -2809,9 +3070,33 @@ fi
 if [ ! -z "$min_osx_target" ]
 then
     #
-    # Get the real version - strip off the "10.".
+    # Get the major and minor version of the target release.
+    # We assume it'll be a while before there's a macOS 100. :-)
     #
-    deploy_real_version=`echo "$min_osx_target" | sed -n 's/10\.\(.*\)/\1/p'`
+    case "$min_osx_target" in
+
+    [1-9][0-9].*)
+        #
+        # major.minor.
+        #
+        min_osx_target_major=`echo "$min_osx_target" | sed -n 's/\([1-9][0-9]*\)\..*/\1/p'`
+        min_osx_target_minor=`echo "$min_osx_target" | sed -n 's/[1-9][0-9]*\.\(.*\)/\1/p'`
+        ;;
+
+    [1-9][0-9])
+        #
+        # Just a major version number was specified; make the minor
+        # version 0.
+        #
+        min_osx_target_major="$min_osx_target"
+        min_osx_target_minor=0
+        ;;
+
+    *)
+        echo "macosx-setup.sh: Invalid target release $min_osx_target" 1>&2
+        exit 1
+        ;;
+    esac
 
     #
     # Search each directory that might contain SDKs.
@@ -2835,20 +3120,24 @@ then
 
         #
         # Get a list of all the SDKs in that directory, if any.
+        # We assume it'll be a while before there's a macOS 100. :-)
         #
-        sdklist=`(cd "$sdksdir"; ls -d MacOSX10.[0-9]*.sdk 2>/dev/null)`
+        sdklist=`(cd "$sdksdir"; ls -d MacOSX[1-9][0-9].[0-9]*.sdk 2>/dev/null)`
 
         for sdk in $sdklist
         do
             #
-            # Get the real version for this SDK.
+            # Get the major and minor version for this SDK.
             #
-            sdk_real_version=`echo "$sdk" | sed -n 's/MacOSX10\.\(.*\)\.sdk/\1/p'`
+            sdk_major=`echo "$sdk" | sed -n 's/MacOSX\([1-9][0-9]*\)\..*\.sdk/\1/p'`
+            sdk_minor=`echo "$sdk" | sed -n 's/MacOSX[1-9][0-9]*\.\(.*\)\.sdk/\1/p'`
 
             #
             # Is it for the deployment target or some later release?
             #
-            if test "$sdk_real_version" -ge "$deploy_real_version"
+            if test "$sdk_major" -gt "$min_osx_target_major" -o \
+                \( "$sdk_major" -eq "$min_osx_target_major" -a \
+                   "$sdk_minor" -ge "$min_osx_target_minor" \)
             then
                 #
                 # Yes, use it.
@@ -2866,7 +3155,7 @@ then
     fi
 
     SDKPATH="$sdkpath"
-    echo "Using the 10.$sdk_real_version SDK"
+    echo "Using the $sdk_major.$sdk_minor SDK"
 
     #
     # Make sure there are links to /usr/local/include and /usr/local/lib

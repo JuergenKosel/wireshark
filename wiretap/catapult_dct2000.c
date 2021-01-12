@@ -623,7 +623,7 @@ catapult_dct2000_dump(wtap_dumper *wdh, const wtap_rec *rec,
         }
 
         /* Allocate the dct2000-specific dump structure */
-        dct2000 = (dct2000_dump_t *)g_malloc(sizeof(dct2000_dump_t));
+        dct2000 = g_new(dct2000_dump_t, 1);
         wdh->priv = (void *)dct2000;
 
         /* Copy time of beginning of file */
@@ -908,7 +908,7 @@ parse_line(gchar *linebuff, gint line_length,
              (linebuff[n] != '/') && (protocol_chars < MAX_PROTOCOL_NAME) && (n < line_length);
              n++, protocol_chars++) {
 
-            if (!g_ascii_isalnum(linebuff[n]) && linebuff[n] != '_') {
+            if (!g_ascii_isalnum(linebuff[n]) && (linebuff[n] != '_') && (linebuff[n] != '.')) {
                 return FALSE;
             }
             protocol_name[protocol_chars] = linebuff[n];

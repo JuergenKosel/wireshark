@@ -2197,7 +2197,7 @@ static void dissect_prach_root_sequence_index_value(ptvcursor_t * ptvc, packet_i
 
 	if (test_value > 837)
 	{
-		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid prach root sequency Index [0..837]");
+		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid prach root sequence Index [0..837]");
 	}
 }
 static void dissect_prach_zero_correlation_zone_configuration_value(ptvcursor_t * ptvc, packet_info* pinfo)
@@ -8767,12 +8767,12 @@ void proto_register_nfapi(void)
 		},
 		{ &hf_nfapi_error_code,
 			{ "Error Code", "nfapi.error.code",
-			FT_UINT8, BASE_DEC, VALS(nfapi_error_vals), 0x0,
+			FT_UINT32, BASE_DEC, VALS(nfapi_error_vals), 0x0,
 			NULL, HFILL }
 		},
 		{ &hf_nfapi_p4_error_code,
 			{ "Error Code", "nfapi.p4_error.code",
-			FT_UINT8, BASE_DEC, VALS(nfapi_p4_error_vals), 0x0,
+			FT_UINT32, BASE_DEC, VALS(nfapi_p4_error_vals), 0x0,
 			NULL, HFILL }
 		},
 		{ &hf_nfapi_rat_type,

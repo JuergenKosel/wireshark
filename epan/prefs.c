@@ -65,6 +65,7 @@ static gboolean parse_column_format(fmt_data *cfmt, const char *fmt);
 static void try_convert_to_custom_column(gpointer *el_data);
 static guint prefs_module_list_foreach(wmem_tree_t *module_list, module_cb callback,
                           gpointer user_data, gboolean skip_obsolete);
+static gint find_val_for_string(const char *needle, const enum_val_t *haystack, gint default_value);
 
 #define IS_PREF_OBSOLETE(p) ((p) & PREF_OBSOLETE)
 #define SET_PREF_OBSOLETE(p) ((p) |= PREF_OBSOLETE)
@@ -1349,6 +1350,13 @@ unsigned int prefs_set_enum_value(pref_t *pref, gint value, pref_source_t source
     return changed;
 }
 
+unsigned int prefs_set_enum_string_value(pref_t *pref, const gchar *value, pref_source_t source)
+{
+    gint enum_val = find_val_for_string(value, pref->info.enum_info.enumvals, *pref->varp.enump);
+
+    return prefs_set_enum_value(pref, enum_val, source);
+}
+
 gint prefs_get_enum_value(pref_t *pref, pref_source_t source)
 {
     switch (source)
@@ -2376,6 +2384,25 @@ gui_callback(void)
     /* Ensure there is at least one display filter entry */
     if (prefs.gui_recent_df_entries_max == 0)
       prefs.gui_recent_df_entries_max = 10;
+
+    /* number of decimal places should be between 2 and 10 */
+    if (prefs.gui_decimal_places1 < 2) {
+        prefs.gui_decimal_places1 = 2;
+    } else if (prefs.gui_decimal_places1 > 10) {
+        prefs.gui_decimal_places1 = 10;
+    }
+    /* number of decimal places should be between 2 and 10 */
+    if (prefs.gui_decimal_places2 < 2) {
+        prefs.gui_decimal_places2 = 2;
+    } else if (prefs.gui_decimal_places2 > 10) {
+        prefs.gui_decimal_places2 = 10;
+    }
+    /* number of decimal places should be between 2 and 10 */
+    if (prefs.gui_decimal_places3 < 2) {
+        prefs.gui_decimal_places3 = 2;
+    } else if (prefs.gui_decimal_places3 > 10) {
+        prefs.gui_decimal_places3 = 10;
+    }
 }
 
 static void
@@ -3416,6 +3443,27 @@ prefs_register_modules(void)
                        "Elide mode",
                        "The position of \"...\" in packet list text.",
                        (gint*)(void*)(&prefs.gui_packet_list_elide_mode), gui_packet_list_elide_mode, FALSE);
+    prefs_register_uint_preference(gui_module, "decimal_places1",
+            "Count of decimal places for values of type 1",
+            "Sets the count of decimal places for values of type 1."
+            "Type 1 values are defined by authors."
+            "Value can be in range 2 to 10.",
+            10,&prefs.gui_decimal_places1);
+
+    prefs_register_uint_preference(gui_module, "decimal_places2",
+            "Count of decimal places for values of type 2",
+            "Sets the count of decimal places for values of type 2."
+            "Type 2 values are defined by authors."
+            "Value can be in range 2 to 10.",
+            10,&prefs.gui_decimal_places2);
+
+    prefs_register_uint_preference(gui_module, "decimal_places3",
+            "Count of decimal places for values of type 3",
+            "Sets the count of decimal places for values of type 3."
+            "Type 3 values are defined by authors."
+            "Value can be in range 2 to 10.",
+            10,&prefs.gui_decimal_places3);
+
 
     prefs_register_bool_preference(gui_layout_module, "packet_list_show_related",
                                    "Show Related Packets",
@@ -3720,7 +3768,7 @@ prefs_get_string_list(const gchar *str)
     GList    *sl = NULL;
 
     /* Allocate a buffer for the first string.   */
-    slstr = (gchar *) g_malloc(sizeof(gchar) * COL_MAX_LEN);
+    slstr = g_new(gchar, COL_MAX_LEN);
     j = 0;
 
     for (;;) {
@@ -3777,7 +3825,7 @@ prefs_get_string_list(const gchar *str)
             slstr[j] = '\0';
             if (j > 0) {
                 sl = g_list_append(sl, slstr);
-                slstr = (gchar *) g_malloc(sizeof(gchar) * COL_MAX_LEN);
+                slstr = g_new(gchar, COL_MAX_LEN);
             }
 
             /* ...and the beginning of a new string.  */
@@ -4151,6 +4199,9 @@ pre_init_prefs(void)
     prefs.gui_max_export_objects     = 1000;
     prefs.gui_max_tree_items = 1 * 1000 * 1000;
     prefs.gui_max_tree_depth = 5 * 100;
+    prefs.gui_decimal_places1 = DEF_GUI_DECIMAL_PLACES1;
+    prefs.gui_decimal_places2 = DEF_GUI_DECIMAL_PLACES2;
+    prefs.gui_decimal_places3 = DEF_GUI_DECIMAL_PLACES3;
 
     if (prefs.col_list) {
         free_col_info(prefs.col_list);

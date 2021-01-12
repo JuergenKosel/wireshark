@@ -10,8 +10,22 @@
 #.NO_EMIT ONLY_VALS
 GOOSEpdu
 
-#.TYPE_RENAME
-
+#.FN_BODY IECGoosePdu/simulation VAL_PTR = &value
+	gboolean value;
+	guint32 len = tvb_reported_length_remaining(tvb, offset);
+	int origin_offset = offset;
+%(DEFAULT_BODY)s
+	if((actx->private_data) && (actx->created_item)){
+		goose_chk_data_t *data_chk = (goose_chk_data_t *)actx->private_data;
+		proto_tree *expert_inf_tree = NULL;
+		/* S bit set and Simulation attribute clear: reject as invalid GOOSE */
+		if((data_chk->s_bit == TRUE) && (value == FALSE)){
+			/* It really looks better showed as a new subtree */
+			expert_inf_tree = proto_item_add_subtree(actx->created_item, ett_expert_inf_sim);
+			proto_tree_add_expert(expert_inf_tree, actx->pinfo, &ei_goose_invalid_sim, tvb, origin_offset, len);
+		}
+	}
+#.END
 
 #.FN_BODY UtcTime
 
@@ -57,7 +71,7 @@ UtcTime	TYPE = FT_STRING DISPLAY = BASE_NONE
 
 
 #.FIELD_RENAME
-GetReferenceRequestPdu/offset getReferenceRequestPDU_offset
+GetReferenceRequestPdu/offset getReferenceRequest_offset
 GSEMngtResponses/getGsReference gseMngtResponses_GetGSReference
 GSEMngtResponses/getGoReference gseMngtResponses_GetGOReference
 GSEMngtResponses/getGSSEDataOffset gseMngtResponses_GetGSSEDataOffset
@@ -66,5 +80,6 @@ GSEMngtResponses/getGOOSEElementNumber gseMngtResponses_GetGOOSEElementNumber
 #.FIELD_ATTR
 IECGoosePdu/stNum  TYPE = FT_UINT32  DISPLAY = BASE_DEC
 IECGoosePdu/sqNum  TYPE = FT_UINT32  DISPLAY = BASE_DEC
+GetReferenceRequestPdu/offset ABBREV=getReferenceRequest.offset
 
 #.END

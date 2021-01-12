@@ -6,6 +6,10 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+/* See specification at
+ * https://www.usb.org/sites/default/files/documents/hid1_11.pdf
+ * https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf
+ */
 
 #include "config.h"
 
@@ -3488,13 +3492,15 @@ parse_report_descriptor(report_descriptor_t *rdesc)
                             return FALSE;
 
                         usage_max = hid_unpack_value(data, i, size);
-                        if (usage_min >= usage_max) {
+                        if (usage_min > usage_max) {
                             goto err;
                         }
 
-                        wmem_array_grow(field.usages, usage_max - usage_min);
-                        for (guint32 j = usage_min; j < usage_max; j++)
+                        /* min and max are inclusive */
+                        wmem_array_grow(field.usages, usage_max - usage_min + 1);
+                        for (guint32 j = usage_min; j <= usage_max; j++) {
                             wmem_array_append_one(field.usages, j);
+                        }
 
                         defined ^= HID_USAGE_MIN;
                         break;
@@ -4871,7 +4877,7 @@ dissect_usb_hid_button_page(tvbuff_t *tvb, packet_info _U_ *pinfo,
             proto_item_append_text(ti, " (primary/trigger)");
         else if (usage == 2)
             proto_item_append_text(ti, " (secondary)");
-        else if (usage == 2)
+        else if (usage == 3)
             proto_item_append_text(ti, " (tertiary)");
 
         proto_item_append_text(ti, " = %s", val ? "DOWN" : "UP");

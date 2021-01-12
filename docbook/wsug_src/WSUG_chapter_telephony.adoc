@@ -35,13 +35,21 @@ More details can be found on the {wireshark-wiki-url}VoIP_calls page.
 
 === ANSI
 
-{missing}
+This menu shows groups of statistic data for mobile communication protocols according to ETSI GSM standards.
+
+==== A-I/F BSMAP Statistics
+
+The A-Interface Base Station Management Application Part (BSMAP) Statistics window shows the messages list and the number of the captured messages. There is a possibility to filter the messages, copy or save the date into a file.
+
+==== A-I/F DTAP Statistics
+
+The A-Interface Direct Transfer Application Part (DTAP) Statistics widow shows the messages list and the number of the captured messages. There is a possibility to filter the messages, copy or save the date into a file. 
 
 [[ChTelGSM]]
 
 === GSM
 
-{missing}
+The Global System for Mobile Communications (GSM) is a standard for mibile network. This menu shows a group of statistic data for mobile communication protocols according to ETSI GSM standard.
 
 [[ChTelIAX2Analysis]]
 
@@ -54,7 +62,7 @@ streams of a selected IAX2 call along with a graph.
 
 === ISUP Messages
 
-{missing}
+Integrated Service User Part (ISUP) protocol provides voice and non-voice signalling for telephone communications. ISUP Messages menu opens the window which shows the related statistics. The user can filter, copy or save the data into a file.
 
 [[ChTelLTE]]
 
@@ -79,7 +87,14 @@ individual channel.
 
 ==== LTE RLC Graph
 
-{missing}
+The LTE RLC Graph menu launches a graph which shows LTE Radio Link Control protocol sequence numbers changing over time along with acknowledgements which are received in the opposite direction.
+
+NOTE: That graph shows data of a single bearer and direction. The user can also launch it from the `RLC Statistics` window.
+
+.The RLC Graph window
+image::wsug_graphics/ws-rlc-graph.png[{screenshot-attrs}]
+
+[.small]#_The image of the RLC Graph is borrowed from link:https://gitlab.com/wireshark/wireshark/-/wikis/RLC-LTE[Wireshark wiki]._#
 
 [[ChTelLTERLCTraffic]]
 
@@ -107,13 +122,15 @@ direction and control PDUs in the opposite direction.
 
 === MTP3
 
-{missing}
+The Message Transfer Part level 3 (MTP3) protocol is a part of the Signaling System 7 (SS7). The Public Switched Telephone Networks use it for reliable, unduplicated and in-sequence transport of SS7 messaging between communication partners.
+
+This menu shows MTP3 Statistics and MTP3 Summary windows.
 
 [[ChTelOsmux]]
 
 === Osmux
 
-{missing}
+OSmux is a multiplex protocol which benefits satellite based GSM back-haul systems by reducing the bandwidth consumption of the voice proxying (RTP-AMR) and signalling traffic. The OSmux menu opens the packet counter window with the related statistic data. The user can filter, copy or save the data into a file.
 
 [[ChTelRTPAnalysis]]
 
@@ -149,9 +166,7 @@ More details can be found on the
 
 === RTSP
 
-In the Real Time Streaming Protocol (RTSP) menu the user can check the Paket Counter window. It shows Total RTCP Packets and divided into RTSP Response Packets, RTSP Request Packets and Other RTSP packets. The user can filter, copy or save the data into a file. 
-
-{missing}
+In the Real Time Streaming Protocol (RTSP) menu the user can check the Packet Counter window. It shows Total RTCP Packets and divided into RTSP Response Packets, RTSP Request Packets and Other RTSP packets. The user can filter, copy or save the data into a file.
 
 [[ChTelSCTP]]
 
@@ -169,13 +184,13 @@ In the Real Time Streaming Protocol (RTSP) menu the user can check the Paket Cou
 
 === UCP Messages
 
-{missing}
+The Universal Computer Protocol (UCP) plays role in transferring Short Messages between a Short Message Service Centre (SMSC) and an application, which is using transport protocol, such as TCP or X.25. The UCP Messages window displays the related statistical data. The user can filter, copy or save the data into a file.
 
 [[ChTelH225]]
 
 === H.225
 
-{missing}
+H.225 telecommunication protocol which is responsible for messages in call signalling and media stream packetization for packet-based multimedia communication systems. The H.225 window shows the counted messages by types and reasons. The user can filter, copy or save the data into a file.
 
 [[ChTelSIPFlows]]
 
@@ -202,7 +217,6 @@ SIP Statistics window shows captured SIP transactions. It is divided into SIP Re
 
 === WAP-WSP Packet Counter
 
-{missing}
-
+The WAP-WSP Packet Counter menu displays the number of packets for each Status Code and PDU Type in Wireless Session Protocol traffic. The user can filter, copy or save the data into a file.
 
 // End of WSUG Chapter Telephony

@@ -1085,6 +1085,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  prefs_set_effect_flags@Base 2.5.0
  prefs_set_effect_flags_by_name@Base 2.5.0
  prefs_set_enum_value@Base 2.3.0
+ prefs_set_enum_string_value@Base 3.5.0
  prefs_set_gui_theme_is_dark@Base 2.5.0
  prefs_set_module_effect_flags@Base 2.5.0
  prefs_set_pref@Base 1.9.1
@@ -1594,6 +1595,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  tfs_allocated_by_receiver_sender@Base 1.99.1
  tfs_allow_block@Base 1.9.1
  tfs_allowed_not_allowed@Base 1.9.1
+ tfs_applicable_not_applicable@Base 3.5.0
  tfs_asynchronous_synchronous@Base 1.99.1
  tfs_available_not_available@Base 1.9.1
  tfs_c2s_s2c@Base 2.5.0
@@ -1876,8 +1878,11 @@ libwireshark.so.0 libwireshark0 #MINVER#
  uat_fld_chk_bool@Base 2.5.0
  uat_fld_chk_color@Base 2.5.0
  uat_fld_chk_enum@Base 1.9.1
+ uat_fld_chk_num_dec64@Base 3.5.0
  uat_fld_chk_num_dec@Base 1.9.1
+ uat_fld_chk_num_hex64@Base 3.5.0
  uat_fld_chk_num_hex@Base 1.9.1
+ uat_fld_chk_num_signed_dec64@Base 3.5.0
  uat_fld_chk_num_signed_dec@Base 2.9.0
  uat_fld_chk_proto@Base 1.9.1
  uat_fld_chk_range@Base 1.9.1

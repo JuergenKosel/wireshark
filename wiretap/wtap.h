@@ -292,6 +292,7 @@ extern "C" {
 #define WTAP_ENCAP_MP4                          209
 #define WTAP_ENCAP_SLL2                         210
 #define WTAP_ENCAP_ZWAVE_SERIAL                 211
+#define WTAP_ENCAP_ETL                          212
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -1842,7 +1843,7 @@ gboolean wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
  * reading.
  * @seek_off a gint64 giving an offset value returned by a previous
  * wtap_read() call.
- * @phdr a pointer to a struct wtap_pkthdr, filled in with information
+ * @rec a pointer to a struct wtap_rec, filled in with information
  * about the record.
  * @buf a pointer to a Buffer, filled in with data from the record.
  * @param err a positive "errno" value, or a negative number indicating
@@ -2214,6 +2215,17 @@ wtap_dumper* wtap_dump_open_stdout(int file_type_subtype,
     wtap_compression_type compression_type, const wtap_dump_params *params,
     int *err, gchar **err_info);
 
+/*
+ * Add an IDB to the list of IDBs for a file we're writing.
+ * Makes a copy of the IDB, so it can be freed after this call is made.
+ *
+ * @param wdh handle for the file we're writing.
+ * @param idb the IDB to add
+ * @param[out] err Will be set to an error code on failure.
+ * @param[out] err_info for some errors, a string giving more details of
+ * the error.
+ * @return TRUE on success, FALSE on failure.
+ */
 WS_DLL_PUBLIC
 gboolean wtap_dump_add_idb(wtap_dumper *wdh, wtap_block_t idb, int *err,
      gchar **err_info);

@@ -1744,8 +1744,8 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Fält</translation>
     </message>
     <message>
-        <source>Field Occurence</source>
-        <translation>Fältförekomst</translation>
+        <source>Field Occurrence</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>New Column</source>
@@ -3845,6 +3845,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>1 ms</translation>
     </message>
     <message>
+        <source>2 ms</source>
+        <translation type="unfinished">100 ms {2 ?}</translation>
+    </message>
+    <message>
         <source>5 ms</source>
         <translation>5 ms</translation>
     </message>
@@ -3863,6 +3867,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>100 ms</source>
         <translation>100 ms</translation>
+    </message>
+    <message>
+        <source>200 ms</source>
+        <translation type="unfinished">100 ms {200 ?}</translation>
     </message>
     <message>
         <source>500 ms</source>
@@ -3947,14 +3955,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Save Graph As…</source>
         <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>2 ms</source>
-        <translation type="unfinished">100 ms {2 ?}</translation>
-    </message>
-    <message>
-        <source>200 ms</source>
-        <translation type="unfinished">100 ms {200 ?}</translation>
     </message>
 </context>
 <context>
@@ -6314,10 +6314,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Webbsida</translation>
     </message>
     <message>
-        <source>FAQ&apos;s</source>
-        <translation>Frågor och svar</translation>
-    </message>
-    <message>
         <source>Downloads</source>
         <translation>Hämtningar</translation>
     </message>
@@ -6545,6 +6541,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Help contents</source>
         <translation>Hjälpinnehåll</translation>
+    </message>
+    <message>
+        <source>FAQs</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Next Packet in Conversation</source>
@@ -10555,10 +10555,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Omkodarhastigheten stödjs inte, filen är ofullständig</translation>
     </message>
     <message>
-        <source>Unknown error occured</source>
-        <translation>Okänt fel inträffade</translation>
-    </message>
-    <message>
         <source>SSRC value not found.</source>
         <translation>SSRC-värdet finns inte.</translation>
     </message>
@@ -10637,6 +10633,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Error</source>
         <translation>Fel</translation>
+    </message>
+    <message>
+        <source>Unknown error occurred</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Save forward stream CSV</source>
@@ -11003,6 +11003,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>SSRC</translation>
     </message>
     <message>
+        <source>Start Time</source>
+        <translation type="unfinished">Starttid</translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation type="unfinished">Varaktighet</translation>
+    </message>
+    <message>
         <source>Payload</source>
         <translation>Last</translation>
     </message>
@@ -11033,6 +11041,18 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
         <translation>&lt;small&gt;&lt;i&gt;Ett tips.&lt;/i&gt;&lt;/small&gt;</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Visa endast konversationer som matchar det aktuella visningsfiltret&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation type="unfinished">Begränsa till visningsfilter</translation>
+    </message>
+    <message>
+        <source>Time of Day</source>
+        <translation type="unfinished">Tid på dagen</translation>
     </message>
     <message>
         <source>Find Reverse</source>
@@ -11153,6 +11173,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>, %1 selected, %2 total packets</source>
         <translation>, %1 valda, %2 paket totalt</translation>
+    </message>
+    <message>
+        <source>No Audio</source>
+        <translation type="unfinished">Inget ljud</translation>
     </message>
     <message>
         <source>Save RTPDump As…</source>
@@ -12292,6 +12316,30 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <source>P</source>
         <translation>P</translation>
     </message>
+    <message>
+        <source>Select RTP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select RTP stream in RTP Streams dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>S</source>
+        <translation type="unfinished">S</translation>
+    </message>
+    <message>
+        <source>Deselect RTP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deselect RTP stream in RTP Streams dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>D</source>
+        <translation type="unfinished">D</translation>
+    </message>
 </context>
 <context>
     <name>ShortcutListModel</name>
@@ -13416,6 +13464,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>&lt;small&gt;&lt;/small&gt;</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Visa endast konversationer som matchar det aktuella visningsfiltret&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation type="unfinished">Begränsa till visningsfilter</translation>
+    </message>
+    <message>
         <source>Time of Day</source>
         <translation>Tid på dagen</translation>
     </message>
@@ -13426,6 +13482,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Select all calls</source>
         <translation>Välj alla anrop</translation>
+    </message>
+    <message>
+        <source>Select &amp;None</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear selection</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Display time as time of day</source>

@@ -469,6 +469,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-nisplus.h
 	packet-nlm.h
 	packet-nr-rrc.h
+	packet-nrppa.h
 	packet-nsh.h
 	packet-ntlmssp.h
 	packet-ntp.h
@@ -487,6 +488,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-pcnfsd.h
 	packet-pdcp-lte.h
 	packet-pdcp-nr.h
+	packet-pdu-transport.h
 	packet-per.h
 	packet-pkcs1.h
 	packet-pkcs12.h
@@ -528,7 +530,6 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-rsvp.h
 	packet-rtcp.h
 	packet-rtp.h
-	packet-rtps.h
 	packet-rtp-events.h
 	packet-rtse.h
 	packet-rtsp.h
@@ -1027,6 +1028,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ethertype.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-etsi_card_app_toolkit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-etv.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-etw.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-evrc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-evs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-exablaze.c
@@ -1547,6 +1549,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-openwire.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-opsi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-optommp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-oran.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-osc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-oscore.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-osi-options.c
@@ -1574,6 +1577,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdcp-lte.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdcp-nr.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdu-transport.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-peekremote.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-per.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pfcp.c
@@ -1745,7 +1749,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smb-direct.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smb2.c
-	${CMAKE_CURRENT_SOURCE_DIR}/packet-smcr.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-smc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sml.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smpp.c
@@ -1773,6 +1777,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sscop.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ssh.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sstp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ssyncp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-stanag4607.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-starteam.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-stat-notify.c

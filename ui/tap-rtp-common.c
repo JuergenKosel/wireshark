@@ -57,7 +57,7 @@ rtpstream_info_t *rtpstream_info_malloc_and_init(void)
 {
     rtpstream_info_t *dest;
 
-    dest = (rtpstream_info_t *)g_malloc(sizeof(rtpstream_info_t));
+    dest = g_new(rtpstream_info_t, 1);
     rtpstream_info_init(dest);
 
     return dest;
@@ -80,7 +80,7 @@ rtpstream_info_t *rtpstream_info_malloc_and_copy_deep(const rtpstream_info_t *sr
 {
     rtpstream_info_t *dest;
 
-    dest = (rtpstream_info_t *)g_malloc(sizeof(rtpstream_info_t));
+    dest = g_new(rtpstream_info_t, 1);
     rtpstream_info_copy_deep(dest, src);
 
     return dest;
@@ -380,6 +380,11 @@ tap_packet_status rtpstream_packet_cb(void *arg, packet_info *pinfo, epan_dissec
     new_stream_info.first_payload_type_name = rtpinfo->info_payload_type_str;
 
     if (tapinfo->mode == TAP_ANALYSE) {
+        /* if display filtering activated and packet do not match, ignore it */
+        if (tapinfo->apply_display_filter && (pinfo->fd->passed_dfilter == 0)) {
+            return TAP_PACKET_DONT_REDRAW;
+        }
+
         /* check whether we already have a stream with these parameters in the list */
         list = g_list_first(tapinfo->strinfo_list);
         while (list)
@@ -482,7 +487,7 @@ void rtpstream_info_calculate(const rtpstream_info_t *strinfo, rtpstream_info_ca
 
         calc->packet_count = strinfo->packet_count;
         /* packet count, lost packets */
-        calc->packet_expected = (strinfo->rtp_stats.stop_seq_nr + strinfo->rtp_stats.cycles*65536)
+        calc->packet_expected = (strinfo->rtp_stats.stop_seq_nr + strinfo->rtp_stats.seq_cycles*0x10000)
             - strinfo->rtp_stats.start_seq_nr + 1;
         calc->total_nr = strinfo->rtp_stats.total_nr;
         calc->lost_num = calc->packet_expected - strinfo->rtp_stats.total_nr;

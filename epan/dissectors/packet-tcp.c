@@ -41,6 +41,7 @@
 
 void proto_register_tcp(void);
 void proto_reg_handoff_tcp(void);
+void conversation_completeness_fill(gchar*, guint32);
 
 static int tcp_tap = -1;
 static int tcp_follow_tap = -1;
@@ -140,6 +141,7 @@ static int hf_tcp_srcport = -1;
 static int hf_tcp_dstport = -1;
 static int hf_tcp_port = -1;
 static int hf_tcp_stream = -1;
+static int hf_tcp_completeness = -1;
 static int hf_tcp_seq = -1;
 static int hf_tcp_seq_abs = -1;
 static int hf_tcp_nxtseq = -1;
@@ -404,6 +406,8 @@ static expert_field ei_tcp_connection_synack = EI_INIT;
 static expert_field ei_tcp_connection_syn = EI_INIT;
 static expert_field ei_tcp_connection_fin = EI_INIT;
 static expert_field ei_tcp_connection_rst = EI_INIT;
+static expert_field ei_tcp_connection_fin_active = EI_INIT;
+static expert_field ei_tcp_connection_fin_passive = EI_INIT;
 static expert_field ei_tcp_checksum_ffff = EI_INIT;
 static expert_field ei_tcp_checksum_bad = EI_INIT;
 static expert_field ei_tcp_urgent_pointer_non_zero = EI_INIT;
@@ -509,6 +513,16 @@ static gboolean tcp_display_process_info = FALSE;
 #define TCPOPT_MPTCP_MP_PRIO       0x5    /* Multipath TCP Change Subflow Priority */
 #define TCPOPT_MPTCP_MP_FAIL       0x6    /* Multipath TCP Fallback */
 #define TCPOPT_MPTCP_MP_FASTCLOSE  0x7    /* Multipath TCP Fast Close */
+
+/*
+ *     Conversation Completeness values
+ */
+#define TCP_COMPLETENESS_SYNSENT    0x01  /* TCP SYN SENT */
+#define TCP_COMPLETENESS_SYNACK     0x02  /* TCP SYN ACK  */
+#define TCP_COMPLETENESS_ACK        0x04  /* TCP ACK      */
+#define TCP_COMPLETENESS_DATA       0x08  /* TCP data     */
+#define TCP_COMPLETENESS_FIN        0x10  /* TCP FIN      */
+#define TCP_COMPLETENESS_RST        0x20  /* TCP RST      */
 
 static const true_false_string tcp_option_user_to_granularity = {
   "Minutes", "Seconds"
@@ -639,14 +653,14 @@ static int * const tcp_option_mptcp_dss_flags[] = {
 static const unit_name_string units_64bit_version = { " (64bits version)", NULL };
 
 
-static const char *
+static char *
 tcp_flags_to_str(wmem_allocator_t *scope, const struct tcpheader *tcph)
 {
     static const char flags[][4] = { "FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECN", "CWR", "NS" };
     const int maxlength = 64; /* upper bounds, max 53B: 8 * 3 + 2 + strlen("Reserved") + 9 * 2 + 1 */
 
     char *pbuf;
-    const char *buf;
+    char *buf;
 
     int i;
 
@@ -672,7 +686,7 @@ tcp_flags_to_str(wmem_allocator_t *scope, const struct tcpheader *tcph)
 
     return buf;
 }
-static const char *
+static char *
 tcp_flags_to_str_first_letter(const struct tcpheader *tcph)
 {
     wmem_strbuf_t *buf = wmem_strbuf_new(wmem_packet_scope(), "");
@@ -888,7 +902,7 @@ tcp_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_,
 {
     seq_analysis_info_t *sainfo = (seq_analysis_info_t *) ptr;
     const struct tcpheader *tcph = (const struct tcpheader *)tcp_info;
-    const char* flags;
+    char* flags;
     seq_analysis_item_t *sai = sequence_analysis_create_sai_with_addresses(pinfo, sainfo);
 
     if (!sai)
@@ -908,7 +922,7 @@ tcp_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_,
         sai->frame_label = g_strdup(flags);
     }
 
-    wmem_free(NULL, (void*)flags);
+    wmem_free(NULL, flags);
 
     if (tcph->th_flags & TH_ACK)
         sai->comment = g_strdup_printf("Seq = %u Ack = %u",tcph->th_seq, tcph->th_ack);
@@ -1081,7 +1095,7 @@ check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 a
         follow_record = g_new0(follow_record_t,1);
 
         follow_record->data = g_byte_array_append(g_byte_array_new(),
-                                                  dummy_str,
+                                                  (guchar*)dummy_str,
                                                   (guint)strlen(dummy_str)+1);
         g_free(dummy_str);
         follow_record->is_server = is_server;
@@ -1334,6 +1348,71 @@ handle_export_pdu_conversation(packet_info *pinfo, tvbuff_t *tvb, int src_port, 
     }
 }
 
+/*
+ * display the TCP Conversation Completeness
+ * we of course pay much attention on complete conversations but also incomplete ones which
+ * have a regular start, as in practice we are often looking for such thing
+ */
+void conversation_completeness_fill(gchar *buf, guint32 value)
+{
+    switch(value) {
+        case TCP_COMPLETENESS_SYNSENT:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, SYN_SENT (%u)", value);
+            break;
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK):
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, CLIENT_ESTABLISHED (%u)", value);
+            break;
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK|
+              TCP_COMPLETENESS_ACK):
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, ESTABLISHED (%u)", value);
+            break;
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK|
+              TCP_COMPLETENESS_ACK|
+              TCP_COMPLETENESS_DATA):
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, DATA (%u)", value);
+            break;
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK|
+              TCP_COMPLETENESS_ACK|
+              TCP_COMPLETENESS_DATA|
+              TCP_COMPLETENESS_FIN):
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK|
+              TCP_COMPLETENESS_ACK|
+              TCP_COMPLETENESS_DATA|
+              TCP_COMPLETENESS_RST):
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK|
+              TCP_COMPLETENESS_ACK|
+              TCP_COMPLETENESS_DATA|
+              TCP_COMPLETENESS_FIN|
+              TCP_COMPLETENESS_RST):
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Complete, WITH_DATA (%u)", value);
+            break;
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK|
+              TCP_COMPLETENESS_ACK|
+              TCP_COMPLETENESS_FIN):
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK|
+              TCP_COMPLETENESS_ACK|
+              TCP_COMPLETENESS_RST):
+        case (TCP_COMPLETENESS_SYNSENT|
+              TCP_COMPLETENESS_SYNACK|
+              TCP_COMPLETENESS_ACK|
+              TCP_COMPLETENESS_FIN|
+              TCP_COMPLETENESS_RST):
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Complete, NO_DATA (%u)", value);
+            break;
+        default:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete (%u)", value);
+            break;
+    }
+}
+
 /* TCP structs and definitions */
 
 /* **************************************************************************
@@ -1469,6 +1548,8 @@ init_tcp_conversation_data(packet_info *pinfo)
     tcpd->flow2.push_bytes_sent = 0;
     tcpd->flow1.push_set_last = FALSE;
     tcpd->flow2.push_set_last = FALSE;
+    tcpd->flow1.closing_initiator = FALSE;
+    tcpd->flow2.closing_initiator = FALSE;
     tcpd->stream = tcp_stream_count++;
     tcpd->server_port = 0;
 
@@ -2018,7 +2099,7 @@ tcp_analyze_sequence_number(packet_info *pinfo, guint32 seq, guint32 ack, guint3
      */
     if( seglen>0
     &&  tcpd->rev->win_scale!=-1
-    &&  (seq+seglen)==(tcpd->rev->tcp_analyze_seq_info->lastack+(tcpd->rev->window<<(tcpd->rev->win_scale==-2?0:tcpd->rev->win_scale)))
+    &&  (seq+seglen)==(tcpd->rev->tcp_analyze_seq_info->lastack+(tcpd->rev->window<<(tcpd->rev->is_first_ack?0:(tcpd->rev->win_scale==-2?0:tcpd->rev->win_scale))))
     &&  (flags&(TH_SYN|TH_FIN|TH_RST))==0 ) {
         if(!tcpd->ta) {
             tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
@@ -2076,13 +2157,19 @@ tcp_analyze_sequence_number(packet_info *pinfo, guint32 seq, guint32 ack, guint3
     &&  seq==tcpd->fwd->tcp_analyze_seq_info->nextseq
     &&  ack==tcpd->fwd->tcp_analyze_seq_info->lastack
     &&  (flags&(TH_SYN|TH_FIN|TH_RST))==0 ) {
-        tcpd->fwd->tcp_analyze_seq_info->dupacknum++;
-        if(!tcpd->ta) {
-            tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
-        }
-        tcpd->ta->flags|=TCP_A_DUPLICATE_ACK;
-        tcpd->ta->dupack_num=tcpd->fwd->tcp_analyze_seq_info->dupacknum;
-        tcpd->ta->dupack_frame=tcpd->fwd->tcp_analyze_seq_info->lastnondupack;
+
+        /* MPTCP tolerates duplicate acks in some circumstances, see RFC 8684 4. */
+        if(tcpd->mptcp_analysis && (tcpd->mptcp_analysis->mp_operations!=tcpd->fwd->mp_operations)) {
+            /* just ignore this DUPLICATE ACK */
+        } else {
+            tcpd->fwd->tcp_analyze_seq_info->dupacknum++;
+            if(!tcpd->ta) {
+                tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
+            }
+            tcpd->ta->flags|=TCP_A_DUPLICATE_ACK;
+            tcpd->ta->dupack_num=tcpd->fwd->tcp_analyze_seq_info->dupacknum;
+            tcpd->ta->dupack_frame=tcpd->fwd->tcp_analyze_seq_info->lastnondupack;
+       }
     }
 
 
@@ -2267,6 +2354,10 @@ finished_checking_retransmission_type:
     tcpd->fwd->tcp_analyze_seq_info->lastacktime.secs=pinfo->abs_ts.secs;
     tcpd->fwd->tcp_analyze_seq_info->lastacktime.nsecs=pinfo->abs_ts.nsecs;
 
+    /* remember the MPTCP operations if any */
+    if( tcpd->mptcp_analysis ) {
+        tcpd->fwd->mp_operations=tcpd->mptcp_analysis->mp_operations;
+    }
 
     /* if there were any flags set for this segment we need to remember them
      * we only remember the flags for the very last segment though.
@@ -2626,24 +2717,17 @@ mptcp_analysis_add_subflows(packet_info *pinfo _U_,  tvbuff_t *tvb,
     proto_tree *parent_tree, struct mptcp_analysis* mptcpd)
 {
     wmem_list_frame_t *it;
-    proto_tree *tree;
     proto_item *item;
 
-    item=proto_tree_add_item(parent_tree, hf_mptcp_analysis_subflows, tvb, 0, 0, ENC_NA);
-    proto_item_set_generated(item);
-
-    tree=proto_item_add_subtree(item, ett_mptcp_analysis_subflows);
+    wmem_strbuf_t *val = wmem_strbuf_new(wmem_packet_scope(), "");
 
     /* for the analysis, we set each subflow tcp stream id */
     for(it = wmem_list_head(mptcpd->subflows); it != NULL; it = wmem_list_frame_next(it)) {
         struct tcp_analysis *sf = (struct tcp_analysis *)wmem_list_frame_data(it);
-        proto_item *subflow_item;
-        subflow_item=proto_tree_add_uint(tree, hf_mptcp_analysis_subflows_stream_id, tvb, 0, 0, sf->stream);
-        proto_item_set_hidden(subflow_item);
-
-        proto_item_append_text(item, " %d", sf->stream);
+        wmem_strbuf_append_printf(val, "%u ", sf->stream);
     }
 
+    item = proto_tree_add_string(parent_tree, hf_mptcp_analysis_subflows, tvb, 0, 0, wmem_strbuf_get_str(val));
     proto_item_set_generated(item);
 }
 
@@ -2885,6 +2969,42 @@ mptcp_add_analysis_subtree(packet_info *pinfo, tvbuff_t *tvb, proto_tree *parent
     }
 
     proto_item_set_generated(item);
+
+    /* store the TCP Options related to MPTCP then we will avoid false DUP ACKs later */
+    guint8 nbOptionsChanged = 0;
+    if((tcpd->mptcp_analysis->mp_operations&(0x01))!=tcph->th_mptcp->mh_mpc) {
+        tcpd->mptcp_analysis->mp_operations |= 0x01;
+        nbOptionsChanged++;
+    }
+    if((tcpd->mptcp_analysis->mp_operations&(0x02))!=tcph->th_mptcp->mh_join) {
+        tcpd->mptcp_analysis->mp_operations |= 0x02;
+        nbOptionsChanged++;
+    }
+    if((tcpd->mptcp_analysis->mp_operations&(0x04))!=tcph->th_mptcp->mh_dss) {
+        tcpd->mptcp_analysis->mp_operations |= 0x04;
+        nbOptionsChanged++;
+    }
+    if((tcpd->mptcp_analysis->mp_operations&(0x08))!=tcph->th_mptcp->mh_add) {
+        tcpd->mptcp_analysis->mp_operations |= 0x08;
+        nbOptionsChanged++;
+    }
+    if((tcpd->mptcp_analysis->mp_operations&(0x10))!=tcph->th_mptcp->mh_remove) {
+        tcpd->mptcp_analysis->mp_operations |= 0x10;
+        nbOptionsChanged++;
+    }
+    if((tcpd->mptcp_analysis->mp_operations&(0x20))!=tcph->th_mptcp->mh_prio) {
+        tcpd->mptcp_analysis->mp_operations |= 0x20;
+        nbOptionsChanged++;
+    }
+    if((tcpd->mptcp_analysis->mp_operations&(0x40))!=tcph->th_mptcp->mh_fail) {
+        tcpd->mptcp_analysis->mp_operations |= 0x40;
+        nbOptionsChanged++;
+    }
+    if((tcpd->mptcp_analysis->mp_operations&(0x80))!=tcph->th_mptcp->mh_fastclose) {
+        tcpd->mptcp_analysis->mp_operations |= 0x80;
+        nbOptionsChanged++;
+    }
+    /* we could track MPTCP option changes here, with nbOptionsChanged */
 
     item = proto_tree_add_uint(tree, hf_mptcp_stream, tvb, 0, 0, mptcpd->stream);
     proto_item_set_generated(item);
@@ -4039,7 +4159,7 @@ dissect_tcpopt_exp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
     proto_item *item;
     proto_tree *exp_tree;
     guint16 magic;
-    int offset = 0, optlen = tvb_reported_length(tvb);
+    gint offset = 0, optlen = tvb_reported_length(tvb);
 
     item = proto_tree_add_item(tree, proto_tcp_option_exp, tvb, offset, -1, ENC_NA);
     exp_tree = proto_item_add_subtree(item, ett_tcp_option_exp);
@@ -4461,6 +4581,7 @@ get_or_create_mptcpd_from_key(struct tcp_analysis* tcpd, tcp_flow_t *fwd, guint8
 
     DISSECTOR_ASSERT(fwd->mptcp_subflow->meta);
 
+    fwd->mptcp_subflow->meta->version = version;
     fwd->mptcp_subflow->meta->key = key;
     fwd->mptcp_subflow->meta->static_flags |= MPTCP_META_HAS_KEY;
     fwd->mptcp_subflow->meta->base_dsn = expected_idsn;
@@ -4671,6 +4792,13 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                     offset += 4;
 
                     mptcpd = mptcp_get_meta_from_token(tcpd, tcpd->rev, mph->mh_token);
+                    if (tcpd->fwd->mptcp_subflow->meta->version == 1) {
+                        mptcp_meta_flow_t *tmp = tcpd->fwd->mptcp_subflow->meta;
+
+                        /* if the negotiated version is v1 the first key was exchanged on SYN/ACK packet: we must swap the meta */
+                        tcpd->fwd->mptcp_subflow->meta = tcpd->rev->mptcp_subflow->meta;
+                        tcpd->rev->mptcp_subflow->meta = tmp;
+                    }
 
                     proto_tree_add_item_ret_uint(mptcp_tree, hf_tcp_option_mptcp_sender_rand, tvb, offset,
                             4, ENC_BIG_ENDIAN, &tcpd->fwd->mptcp_subflow->nonce);
@@ -4821,6 +4949,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
             break;
 
         case TCPOPT_MPTCP_ADD_ADDR:
+            mph->mh_add = TRUE;
             ipver = tvb_get_guint8(tvb, offset) & 0x0F;
             if (ipver == 4 || ipver == 6)
                 proto_tree_add_item(mptcp_tree,
@@ -4859,6 +4988,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
             break;
 
         case TCPOPT_MPTCP_REMOVE_ADDR:
+            mph->mh_remove = TRUE;
             item = proto_tree_add_uint(mptcp_tree, hf_mptcp_number_of_removed_addresses, tvb, start_offset+2,
                 1, optlen - 3);
             proto_item_set_generated(item);
@@ -4871,6 +5001,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
             break;
 
         case TCPOPT_MPTCP_MP_PRIO:
+            mph->mh_prio = TRUE;
             proto_tree_add_bitmask(mptcp_tree, tvb, offset, hf_tcp_option_mptcp_flags,
                          ett_tcp_option_mptcp, tcp_option_mptcp_join_flags,
                          ENC_BIG_ENDIAN);
@@ -6165,7 +6296,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     proto_item *options_item, *hide_seqack_abs_item;
     proto_tree *options_tree;
     int        offset = 0;
-    const char *flags_str, *flags_str_first_letter;
+    char       *flags_str, *flags_str_first_letter;
     guint      optlen;
     guint32    nxtseq = 0;
     guint      reported_len;
@@ -6185,6 +6316,8 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     proto_item *item;
     proto_tree *checksum_tree;
     gboolean    icmp_ip = FALSE;
+    guint8     conversation_completeness = 0;
+    gboolean   conversation_is_new = FALSE;
 
     tcph = wmem_new0(wmem_packet_scope(), struct tcpheader);
     tcph->th_sport = tvb_get_ntohs(tvb, offset);
@@ -6271,6 +6404,8 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         conv = conversation_new(pinfo->num, &pinfo->src,
                      &pinfo->dst, ENDPOINT_TCP,
                      pinfo->srcport, pinfo->destport, 0);
+        /* we need to know when a conversation is new then we initialize the completeness correctly */
+        conversation_is_new = TRUE;
     }
     tcpd=get_tcp_conversation_data(conv,pinfo);
 
@@ -6292,6 +6427,9 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
             conv=conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_TCP, pinfo->srcport, pinfo->destport, 0);
             tcpd=get_tcp_conversation_data(conv,pinfo);
+
+            /* As above, a new conversation starting with a SYN implies conversation completeness value 1 */
+            tcpd->conversation_completeness = 1;
         }
         if(!tcpd->ta)
             tcp_analyze_get_acked_struct(pinfo->num, tcph->th_seq, tcph->th_ack, TRUE, tcpd);
@@ -6319,6 +6457,9 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         {
             conv = other_conv;
             tcpd=get_tcp_conversation_data(conv,pinfo);
+
+            /* the retrieved conversation might have a different base_seq (issue 16944) */
+            tcpd->fwd->base_seq = tcph->th_seq;
         }
 
         if(!tcpd->ta)
@@ -6328,6 +6469,10 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
     if (tcpd) {
         item = proto_tree_add_uint(tcp_tree, hf_tcp_stream, tvb, offset, 0, tcpd->stream);
+        proto_item_set_generated(item);
+
+        /* Display the completeness of this TCP conversation */
+        item = proto_tree_add_uint(tcp_tree, hf_tcp_completeness, NULL, 0, 0, tcpd->conversation_completeness);
         proto_item_set_generated(item);
 
         /* Copy the stream index into the header as well to make it available
@@ -6455,6 +6600,47 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         }
         return offset+12;
     }
+
+    /* initialize or move forward the conversation completeness */
+    if(tcpd) {
+      if(conversation_is_new) { /* pure SYN must be sought in new conversations only */
+        if((tcph->th_flags&(TH_SYN|TH_ACK))==TH_SYN) {
+          conversation_completeness |= TCP_COMPLETENESS_SYNSENT;
+          if(tcph->th_seglen > 0) { /* TCP Fast Open */
+            conversation_completeness |= TCP_COMPLETENESS_DATA;
+          }
+        }
+      }
+      else {
+          conversation_completeness  = tcpd->conversation_completeness ;
+
+          /* SYN-ACK */
+          if((tcph->th_flags&(TH_SYN|TH_ACK))==(TH_SYN|TH_ACK)) {
+              conversation_completeness |= TCP_COMPLETENESS_SYNACK;
+          }
+
+          /* ACKs */
+          if((tcph->th_flags&(TH_SYN|TH_ACK))==(TH_ACK)) {
+              if(tcph->th_seglen>0) { /* transporting some data */
+                  conversation_completeness |= TCP_COMPLETENESS_DATA;
+              }
+              else { /* pure ACK */
+                  conversation_completeness |= TCP_COMPLETENESS_ACK;
+              }
+          }
+
+          /* FIN-ACK */
+          if((tcph->th_flags&(TH_FIN|TH_ACK))==(TH_FIN|TH_ACK)) {
+              conversation_completeness |= TCP_COMPLETENESS_FIN;
+          }
+
+          /* RST */
+          if(tcph->th_flags&(TH_RST)) {
+              conversation_completeness |= TCP_COMPLETENESS_RST;
+          }
+      }
+    }
+    tcpd->conversation_completeness = conversation_completeness;
 
     if (tcp_summary_in_tree) {
         if(tcph->th_flags&TH_ACK) {
@@ -6588,10 +6774,21 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 tcpd->fwd->maxnextseq = tcph->th_seq + 1;
             }
         }
+        /* Initiliaze the is_first_ack */
+        tcpd->fwd->is_first_ack = TRUE;
     }
     if(tcph->th_flags & TH_FIN) {
         /* XXX - find a way to know the server port and output only that one */
         expert_add_info(pinfo, tf_fin, &ei_tcp_connection_fin);
+
+        /* Track closing initiator.
+           If it was not already closed by the reverse flow, it means we are the first */
+        if(!tcpd->rev->closing_initiator) {
+            tcpd->fwd->closing_initiator = TRUE;
+            expert_add_info(pinfo, tf, &ei_tcp_connection_fin_active);
+        } else {
+            expert_add_info(pinfo, tf, &ei_tcp_connection_fin_passive);
+        }
     }
     if(tcph->th_flags & TH_RST)
         /* XXX - find a way to know the server port and output only that one */
@@ -6610,6 +6807,17 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
          * RTT time
          */
         nstime_delta(&(tcpd->ts_first_rtt), &(pinfo->abs_ts), &(tcpd->ts_mru_syn));
+    }
+
+    /*
+     * Remember if we have already seen at least one ACK,
+     * then we can neutralize the Window Scale side-effect at the beginning (issue 14690)
+     */
+    if(tcp_analyze_seq
+            && (tcph->th_flags & (TH_SYN|TH_ACK)) == TH_ACK) {
+        if(tcpd->fwd->is_first_ack) {
+            tcpd->fwd->is_first_ack = FALSE;
+        }
     }
 
     /* Supply the sequence number of the first byte and of the first byte
@@ -7016,6 +7224,11 @@ proto_register_tcp(void)
         { &hf_tcp_stream,
         { "Stream index",       "tcp.stream", FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }},
+
+        { &hf_tcp_completeness,
+        { "Conversation completeness",       "tcp.completeness", FT_UINT8,
+            BASE_CUSTOM, CF_FUNC(conversation_completeness_fill), 0x0,
+            "The completeness of the conversation capture", HFILL }},
 
         { &hf_tcp_seq,
         { "Sequence Number",        "tcp.seq", FT_UINT32, BASE_DEC, NULL, 0x0,
@@ -7827,6 +8040,8 @@ proto_register_tcp(void)
         { &ei_tcp_analysis_tfo_syn, { "tcp.analysis.tfo_syn", PI_SEQUENCE, PI_NOTE, "TCP SYN with TFO Cookie", EXPFILL }},
         { &ei_tcp_analysis_tfo_ack, { "tcp.analysis.tfo_ack", PI_SEQUENCE, PI_NOTE, "TCP SYN-ACK accepting TFO data", EXPFILL }},
         { &ei_tcp_analysis_tfo_ignored, { "tcp.analysis.tfo_ignored", PI_SEQUENCE, PI_NOTE, "TCP SYN-ACK ignoring TFO data", EXPFILL }},
+        { &ei_tcp_connection_fin_active, { "tcp.connection.fin_active", PI_SEQUENCE, PI_NOTE, "This frame initiates the connection closing", EXPFILL }},
+        { &ei_tcp_connection_fin_passive, { "tcp.connection.fin_passive", PI_SEQUENCE, PI_NOTE, "This frame undergoes the connection closing", EXPFILL }},
         { &ei_tcp_scps_capable, { "tcp.analysis.zero_window_probe_ack", PI_SEQUENCE, PI_NOTE, "Connection establish request (SYN-ACK): SCPS Capabilities Negotiated", EXPFILL }},
         { &ei_tcp_option_sack_dsack, { "tcp.options.sack.dsack", PI_SEQUENCE, PI_WARN, "D-SACK Sequence", EXPFILL }},
         { &ei_tcp_option_snack_sequence, { "tcp.options.snack.sequence", PI_SEQUENCE, PI_NOTE, "SNACK Sequence", EXPFILL }},
@@ -7907,7 +8122,7 @@ proto_register_tcp(void)
             "This was retransmitted on another subflow", HFILL }},
 
         { &hf_mptcp_analysis_subflows,
-          { "TCP subflow stream id(s):", "mptcp.analysis.subflows", FT_NONE, BASE_NONE, NULL, 0x0,
+          { "TCP subflow stream id(s)", "mptcp.analysis.subflows", FT_STRING, BASE_NONE, NULL, 0x0,
             "List all TCP connections mapped to this MPTCP connection", HFILL }},
 
         { &hf_mptcp_stream,

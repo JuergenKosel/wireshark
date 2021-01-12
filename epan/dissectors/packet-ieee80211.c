@@ -326,7 +326,7 @@ typedef struct mimo_control
 
 /*
  * Bits from the HT Control field.
- * 802.11-2012 and 802.11ac-2013 8.2.4.6, 32 bits.
+ * 802.11-2016 9.2.4.6, and 802.11ax draft, 32 bits.
  */
 #define HTC_VHT              0x00000001
 #define HTC_HE               0x00000002
@@ -620,6 +620,7 @@ static value_string_ext tag_num_vals_ext = VALUE_STRING_EXT_INIT(ie_tag_num_vals
 #define ETAG_BSS_COLOR_CHANGE_ANNOUNCEMENT     42
 #define ETAG_QUIET_TIME_PERIOD_SETUP           43
 #define ETAG_ESS_REPORT                        44
+#define ETAG_HE_6GHZ_BAND_CAPABILITIES         59
 #define ETAG_REJECTED_GROUPS                   92
 #define ETAG_ANTI_CLOGGING_TOKEN               93
 
@@ -649,6 +650,7 @@ static const value_string tag_num_vals_eid_ext[] = {
   { ETAG_BSS_COLOR_CHANGE_ANNOUNCEMENT,       "BSS Color Change Announcement" },
   { ETAG_QUIET_TIME_PERIOD_SETUP,             "Quiet Time Period Setup" },
   { ETAG_ESS_REPORT,                          "ESS Report" },
+  { ETAG_HE_6GHZ_BAND_CAPABILITIES,           "HE 6Ghz Band Capabilities" },
   { ETAG_REJECTED_GROUPS,                     "Rejected Groups" },
   { ETAG_ANTI_CLOGGING_TOKEN,                 "Anti-Clogging Token Container" },
   { 0, NULL }
@@ -3933,6 +3935,23 @@ static int hf_ieee80211_gann_mesh_gate_addr = -1;
 static int hf_ieee80211_gann_seq_num = -1;
 static int hf_ieee80211_gann_interval = -1;
 
+static int hf_ieee80211_pxu_pxu_id = -1;
+static int hf_ieee80211_pxu_pxu_origin_mac = -1;
+static int hf_ieee80211_pxu_no_proxy_info = -1;
+static int hf_ieee80211_pxu_proxy_info = -1;
+static int hf_ieee80211_pxu_proxy_info_flags = -1;
+static int hf_ieee80211_pxu_proxy_info_flags_delete = -1;
+static int hf_ieee80211_pxu_proxy_info_flags_orig_is_proxy = -1;
+static int hf_ieee80211_pxu_proxy_info_flags_lifetime = -1;
+static int hf_ieee80211_pxu_proxy_info_flags_reserved = -1;
+static int hf_ieee80211_pxu_proxy_info_ext_mac = -1;
+static int hf_ieee80211_pxu_proxy_info_seq_num = -1;
+static int hf_ieee80211_pxu_proxy_info_proxy_mac = -1;
+static int hf_ieee80211_pxu_proxy_info_lifetime = -1;
+
+static int hf_ieee80211_pxuc_pxu_id = -1;
+static int hf_ieee80211_pxuc_pxu_recip_mac = -1;
+
 static int hf_ieee80211_ff_public_action = -1;
 static int hf_ieee80211_ff_protected_public_action = -1;
 static int hf_ieee80211_ff_tod = -1;
@@ -4017,6 +4036,31 @@ static int hf_ieee80211_tag_request = -1;
 static int hf_ieee80211_tag_extended_request_id = -1;
 static int hf_ieee80211_tag_extended_request_extension = -1;
 static int hf_ieee80211_tag_challenge_text = -1;
+
+static int hf_ieee80211_tag_he_6ghz_cap_inf = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b0_b2 = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b3_b5 = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b6_b7 = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b8 = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b9_b10 = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b11 = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b12 = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b13 = -1;
+static int hf_ieee80211_tag_he_6ghz_cap_inf_b14_b15 = -1;
+
+static int * const ieee80211_tag_he_6ghz_cap_inf[] = {
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b0_b2,
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b3_b5,
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b6_b7,
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b8,
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b9_b10,
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b11,
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b12,
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b13,
+  &hf_ieee80211_tag_he_6ghz_cap_inf_b14_b15,
+  NULL
+};
+
 
 static int hf_ieee80211_wep_iv = -1;
 static int hf_ieee80211_wep_iv_weak = -1;
@@ -5658,7 +5702,7 @@ static int hf_ieee80211_tag_switching_stream_new_direction = -1;
 static int hf_ieee80211_tag_switching_stream_new_valid_id = -1;
 static int hf_ieee80211_tag_switching_stream_llt_type = -1;
 
-static int hf_ieee80211_mysterious_olpc_stuff = -1;
+static int hf_ieee80211_mysterious_extra_stuff = -1;
 
 static int hf_ieee80211_esp_access_category = -1;
 static int hf_ieee80211_esp_reserved = -1;
@@ -6020,6 +6064,8 @@ static gint ett_mesh_formation_info_tree = -1;
 static gint ett_bcn_timing_rctrl_tree = -1;
 static gint ett_bcn_timing_info_tree = -1;
 static gint ett_gann_flags_tree = -1;
+static gint ett_pxu_proxy_info_tree = -1;
+static gint ett_pxu_proxy_info_flags_tree = -1;
 
 static gint ett_rsn_gcs_tree = -1;
 static gint ett_rsn_pcs_tree = -1;
@@ -6152,6 +6198,8 @@ static gint ett_tag_wapi_param_set_preauth_tree = -1;
 
 static gint ett_tag_time_adv_tree = -1;
 
+static gint ett_tag_he_6ghz_cap_inf_tree = -1;
+
 static gint ett_ff_ba_param_tree = -1;
 static gint ett_ff_ba_ssc_tree = -1;
 static gint ett_ff_delba_param_tree = -1;
@@ -6279,6 +6327,7 @@ static expert_field ei_ieee80211_invalid_control_word = EI_INIT;
 static expert_field ei_ieee80211_invalid_control_id = EI_INIT;
 static expert_field ei_ieee80211_wfa_60g_attr_len_invalid = EI_INIT;
 static expert_field ei_ieee80211_wfa_60g_unknown_attribute = EI_INIT;
+static expert_field ei_ieee80211_htc_in_dmg_packet = EI_INIT;
 
 /* 802.11ad trees */
 static gint ett_dynamic_alloc_tree = -1;
@@ -6394,12 +6443,14 @@ static heur_dissector_list_t heur_subdissector_list;
 static dissector_handle_t ieee80211_handle;
 static dissector_handle_t wlan_withoutfcs_handle;
 static dissector_handle_t llc_handle;
+static dissector_handle_t epd_llc_handle;
 static dissector_handle_t ipx_handle;
 static dissector_handle_t eth_withoutfcs_handle;
 
 static capture_dissector_handle_t llc_cap_handle;
 static capture_dissector_handle_t ipx_cap_handle;
 
+static dissector_table_t ethertype_subdissector_table;
 static dissector_table_t tagged_field_table;
 static dissector_table_t vendor_specific_action_table;
 static dissector_table_t wifi_alliance_action_subtype_table;
@@ -7051,6 +7102,18 @@ capture_ieee80211_common(const guchar * pd, int offset, int len,
           hdr_length += 4;
         }
 
+        if (datapad) {
+          /*
+           * Include the padding between the 802.11 header and the body,
+           * as "helpfully" provided by some Atheros adapters.
+           *
+           * In the Atheros mesh capture sample we have, the padding
+           * is before the mesh header, possibly because it doesn't
+           * recognize the mesh header.
+           */
+          hdr_length = roundup2(hdr_length, 4);
+        }
+
         /*
          * Does it look as if we have a mesh header?
          * Look at the Mesh Control subfield of the QoS field and at the
@@ -7063,18 +7126,6 @@ capture_ieee80211_common(const guchar * pd, int offset, int len,
         if (has_mesh_control(fcf, pletoh16(&pd[qosoff]), mesh_flags)) {
           /* Yes, add the length of that in as well. */
           hdr_length += find_mesh_control_length(mesh_flags);
-        }
-
-        if (datapad) {
-          /*
-           * Include the padding between the 802.11 header and the body,
-           * as "helpfully" provided by some Atheros adapters.
-           *
-           * XXX - would the mesh header be part of the header or the body
-           * from the point of view of the Atheros adapters that insert
-           * the padding, assuming they even recognize a mesh header?
-           */
-          hdr_length = roundup2(hdr_length, 4);
         }
       }
       /* I guess some bridges take Netware Ethernet_802_3 frames,
@@ -18336,46 +18387,20 @@ dissect_ht_info_ie_1_0(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int 
 /* 802.11n-D1.10 and 802.11n-D2.0, 7.1.3.5a */
 
 /*
- * 8.2.4.1.10 "Order field" says:
+ * IEEE 802.11-2016 section 9.2.4.6 "HT Control field" says that B0 of
+ * the field is 0 for HT and 1 for VHT, bits B1 through B29 are the
+ * "HT Control Middle" subfield, the format of which differs between
+ * HT and VHT, bit B30 is the "AC Constraint" subfield, and bit B31
+ * is the "RDG/More PPDU" subfield.
  *
- *  The Order field is 1 bit in length. It is used for two purposes:
- *
- *    -- It is set to 1 in a non-QoS data frame transmitted by a non-QoS
- *       STA to indicate that the frame contains an MSDU, or fragment
- *       thereof, that is being transferred using the StrictlyOrdered
- *       service class.
- *
- *    -- It is set to 1 in a QoS data or management frame transmitted
- *       with a value of HT_GF or HT_MF for the FORMAT parameter of the
- *       TXVECTOR to indicate that the frame contains an HT Control field.
- *
- * 802.11ac changes the second of those clauses to say "HT_GF, HT_MF,
- * or VHT", indicates that bit B0 of the field is 0 for HT and 1 for
- * VHT (stealing a reserved bit from the Link Adaptation Control field),
- * and that everything except for "AC Constraint" and "RDG/More Cowbell^W
- * PPDU" is different for the VHT version.
- *
- *  802.11ax changes the meaning of the first two bits:
+ * 802.11ax changes the meaning of the first two bits:
  *
  *     B0 = 0         means High Throughput
  *     B0 = 1, B1 = 0 means Very High Throughput
  *     B0 = 1, B1 = 1 means High Efficiency
  *
- * I read the second clause of 8.2.4.1.10 "Order field", as modified by
- * 802.11ac, as meaning that, for QoS data and management frames, the
- * Order field will *only* be set to 1 for HT or VHT frames, and therefore
- * that we do *not* have to determine, from radio metadata, whether the
- * frame was transmitted as an HT or VHT frame.
- *
- * (See bug 11351, in which a frame with an HT Control field, with a
- * radiotap header, lacks the MCS or VHT fields in the radiotap header,
- * so Wireshark has no clue that it's an HT or VHT field, and misdissected
- * the packet.  Omnipeek, which also appeared to have no clue that it was
- * an HT or VHT field - it called it an 802.11b frame - *did* dissect the
- * HT Control field.)
- *
- * 802.11ax changes the reserved bit to differentiate between the HE version
- * and the VHT version, and adds different types of Aggregate Control info.
+ * taking a reserved bit from the VHT version of the "HT Control Middle"
+ * field.
  */
 #define A_CONTROL_TRS 0
 #define A_CONTROL_OM   1
@@ -18793,7 +18818,7 @@ dissect_ht_control(packet_info* pinfo, proto_tree *tree, tvbuff_t *tvb, int offs
 
 static void
 dissect_frame_control(proto_tree *tree, tvbuff_t *tvb, guint32 option_flags,
-                      guint32 offset, packet_info *pinfo)
+                      guint32 offset, packet_info *pinfo, gboolean isDMG)
 {
   guint16 fcf, flags, frame_type_subtype;
   proto_tree *fc_tree, *flag_tree;
@@ -18856,7 +18881,55 @@ dissect_frame_control(proto_tree *tree, tvbuff_t *tvb, guint32 option_flags,
   if(IS_FRAME_EXTENSION(fcf) == 0) {
     proto_tree_add_item(flag_tree, hf_ieee80211_fc_protected, tvb, offset, 1, ENC_NA);
   }
-  proto_tree_add_item(flag_tree, hf_ieee80211_fc_order, tvb, offset, 1, ENC_NA);
+  ti = proto_tree_add_item(flag_tree, hf_ieee80211_fc_order, tvb, offset, 1, ENC_NA);
+  if (option_flags & IEEE80211_COMMON_OPT_NORMAL_QOS) {
+    if (DATA_FRAME_IS_QOS(frame_type_subtype)) {
+      if (HAS_HT_CONTROL(FCF_FLAGS(fcf))) {
+        /*
+         * IEEE 802.11-2016 section 9.2.4.1.10 "+HTC/Order subfield" says:
+         *
+         *  The +HTC/Order subfield is 1 bit in length. It is used for two
+         *  purposes:
+         *
+         *    -- It is set to 1 in a non-QoS Data frame transmitted by a
+         *       non-QoS STA to indicate that the frame contains an MSDU,
+         *       or fragment thereof, that is being transferred using the
+         *       StrictlyOrdered service class.
+         *
+         *    -- It is set to 1 in a QoS Data or Management frame transmitted
+         *       with a value of HT_GF, HT_MF, or VHT for the FORMAT parameter
+         *       of the TXVECTOR to indicate that the frame contains an
+         *       HT Control field.
+         *
+         *  Otherwise, the +HTC/Order subfield is set to 0.
+         *
+         *  NOTE -- The +HTC/Order subfield is always set to 0 for frames
+         *  transmitted by a DMG STA.
+         *
+         * and 802.11ax drafts appear to say that the +HTC/Order flag, for
+         * QoS frames, also indicates that there's an HT Control field.
+         *
+         * For DMG frames, we flag this as an error.
+         *
+         * XXX - as I read the above, this shouldn't be set except for
+         * HT, VHT, or HE PHYs; however, some QoS frames appear to have
+         * it set, and have an HT Control field, even though they don't
+         * have HT/VHT/HE radiotap fields.  That might be because the
+         * code that provided the header didn't provide those radiotap
+         * fields, or because there is no radiotap header, meaning that
+         * they might still be HT/VHT/HE frames, so we don't report it
+         * as an error.
+         */
+        if (isDMG) {
+          /*
+           * DMG, so flag this as having +HTC/Order set, as it's not supposed
+           * to be set.
+           */
+          expert_add_info(pinfo, ti, &ei_ieee80211_htc_in_dmg_packet);
+        }
+      }
+    }
+  }
 }
 
 static void
@@ -19105,6 +19178,22 @@ dissect_extended_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, in
     proto_tree_add_item(tree, hf_ieee80211_tag_extended_request_extension, tvb, offset, 1, ENC_NA);
     offset += 1;
   }
+}
+
+static void
+dissect_he_6ghz_band_capabilities(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, int len)
+{
+  if (len != 2) {
+    expert_add_info_format(pinfo, tree, &ei_ieee80211_tag_length,
+                           "HE 6Ghz Band Capabilities must be at 2 octets long");
+    return;
+  }
+
+  proto_tree_add_bitmask(tree, tvb, offset, hf_ieee80211_tag_he_6ghz_cap_inf,
+                         ett_tag_he_6ghz_cap_inf_tree,
+                         ieee80211_tag_he_6ghz_cap_inf,
+                         ENC_LITTLE_ENDIAN);
+
 }
 
 /* ************************************************************************* */
@@ -22618,6 +22707,9 @@ ieee80211_tag_element_id_extension(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     case ETAG_EXTENDED_REQUEST:
       dissect_extended_request(tvb, pinfo, tree, offset, ext_tag_len);
       break;
+    case ETAG_HE_6GHZ_BAND_CAPABILITIES:
+      dissect_he_6ghz_band_capabilities(tvb, pinfo, tree, offset, ext_tag_len);
+      break;
     default:
       break;
   }
@@ -22945,6 +23037,94 @@ ieee80211_tag_mesh_perr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     }
     offset += add_ff_reason_code(tree, tvb, pinfo, offset);
   }
+  return tvb_captured_length(tvb);
+}
+
+static int
+ieee80211_tag_pxu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+{
+  int tag_len = tvb_reported_length(tvb);
+  ieee80211_tagged_field_data_t* field_data = (ieee80211_tagged_field_data_t*)data;
+  int offset = 0;
+  guint32 pxu_count = 0, i, proxy_info_len;
+  guint8 pxu_flag;
+  proto_item *item;
+  proto_tree *subtree;
+
+  static int * const ieee80211_pxu_proxy_info_flags_byte[] = {
+    &hf_ieee80211_pxu_proxy_info_flags_delete,
+    &hf_ieee80211_pxu_proxy_info_flags_orig_is_proxy,
+    &hf_ieee80211_pxu_proxy_info_flags_lifetime,
+    &hf_ieee80211_pxu_proxy_info_flags_reserved,
+    NULL,
+  };
+
+  /* PXU element (137) */
+  if (tag_len < 8) {
+    expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length,
+                           "Tag length %u wrong, must be at least 8", tag_len);
+    return tvb_captured_length(tvb);
+  }
+
+  proto_tree_add_item(tree, hf_ieee80211_pxu_pxu_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+  offset += 1;
+  proto_tree_add_item(tree, hf_ieee80211_pxu_pxu_origin_mac, tvb, offset, 6, ENC_NA);
+  offset += 6;
+  proto_tree_add_item_ret_uint(tree, hf_ieee80211_pxu_no_proxy_info, tvb, offset, 1, ENC_LITTLE_ENDIAN, &pxu_count);
+  offset += 1;
+
+  for (i = 0; i < pxu_count; i++) {
+    pxu_flag = tvb_get_guint8(tvb, offset);
+    proxy_info_len = 1 + 6 + 4 + ((pxu_flag & 0x2) ? 0 : 6) + ((pxu_flag & 0x4) ? 4 : 0);
+
+    item = proto_tree_add_item(tree, hf_ieee80211_pxu_proxy_info, tvb, offset, proxy_info_len, ENC_NA);
+    subtree = proto_item_add_subtree(item, ett_pxu_proxy_info_tree);
+    proto_item_append_text(item, " #%u", (i + 1));
+
+    proto_tree_add_bitmask_with_flags(subtree, tvb, offset, hf_ieee80211_pxu_proxy_info_flags,
+        ett_pxu_proxy_info_flags_tree, ieee80211_pxu_proxy_info_flags_byte,
+        ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+    offset += 1;
+
+    proto_tree_add_item(subtree, hf_ieee80211_pxu_proxy_info_ext_mac, tvb, offset, 6, ENC_NA);
+    offset += 6;
+
+    proto_tree_add_item(subtree, hf_ieee80211_pxu_proxy_info_seq_num, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+    offset += 4;
+
+    if (!(pxu_flag & 0x2)) {
+      proto_tree_add_item(subtree, hf_ieee80211_pxu_proxy_info_proxy_mac, tvb, offset, 6, ENC_NA);
+      offset += 6;
+    }
+
+    if (pxu_flag & 0x4) {
+      proto_tree_add_item(subtree, hf_ieee80211_pxu_proxy_info_lifetime, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+      offset += 4;
+    }
+  }
+
+  proto_item_append_text(field_data->item_tag, " (%d entr%s)", pxu_count, plurality(pxu_count, "y", "ies"));
+  return tvb_captured_length(tvb);
+}
+
+static int
+ieee80211_tag_pxuc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+{
+  int tag_len = tvb_reported_length(tvb);
+  ieee80211_tagged_field_data_t* field_data = (ieee80211_tagged_field_data_t*)data;
+  int offset = 0;
+
+  /* PXUC element (138) */
+  if (tag_len != 7) {
+    expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length,
+                           "Tag length %u wrong, must be = 7", tag_len);
+    return tvb_captured_length(tvb);
+  }
+
+  proto_tree_add_item(tree, hf_ieee80211_pxuc_pxu_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+  offset += 1;
+  proto_tree_add_item(tree, hf_ieee80211_pxuc_pxu_recip_mac, tvb, offset, 6, ENC_NA);
+
   return tvb_captured_length(tvb);
 }
 
@@ -25154,7 +25334,8 @@ crc32_802_tvb_padded(tvbuff_t *tvb, guint hdr_len, guint hdr_size, guint len)
 typedef enum {
     ENCAP_802_2,
     ENCAP_IPX,
-    ENCAP_ETHERNET
+    ENCAP_ETHERNET,
+    ENCAP_EPD
 } encap_t;
 
 /* ************************************************************************* */
@@ -25191,6 +25372,7 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
   gboolean         save_fragmented;
   guint32          addr_type;
   guint8           octet1, octet2;
+  guint16          etype;
   char             out_buff[SHORT_STR];
   gint             is_iv_bad;
   guchar           iv_buff[4];
@@ -25266,14 +25448,61 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
 
   case MGT_FRAME:
     hdr_len = MGT_FRAME_HDR_LEN;
+
+    /*
+     * IEEE 802.11-2016 section 9.2.4.1.10 "+HTC/Order subfield" says:
+     *
+     *  The +HTC/Order subfield is 1 bit in length. It is used for two
+     *  purposes:
+     *
+     *    -- It is set to 1 in a non-QoS Data frame transmitted by a
+     *       non-QoS STA to indicate that the frame contains an MSDU,
+     *       or fragment thereof, that is being transferred using the
+     *       StrictlyOrdered service class.
+     *
+     *    -- It is set to 1 in a QoS Data or Management frame transmitted
+     *       with a value of HT_GF, HT_MF, or VHT for the FORMAT parameter
+     *       of the TXVECTOR to indicate that the frame contains an
+     *       HT Control field.
+     *
+     *  Otherwise, the +HTC/Order subfield is set to 0.
+     *
+     *  NOTE -- The +HTC/Order subfield is always set to 0 for frames
+     *  transmitted by a DMG STA.
+     *
+     * and 802.11ax drafts appear to say that the +HTC/Order flag, for
+     * QoS frames, also indicates that there's an HT Control field.
+     */
     if (HAS_HT_CONTROL(FCF_FLAGS(fcf))) {
       /*
-       * Management frames with the Order bit set have an HT Control field;
-       * see 8.2.4.1.10 "Order field".  If they're not HT frames, they should
-       * never have the Order bit set.
+       * For the DMG PHY, do *not* treat the +HTC field as an indication
+       * that there's an HT Control field, because, in the ns-3 capture
+       * in issue 11277, it's set in packets with a channel frequency
+       * in the 60 GHz band, meaning DMG (802.11ad), but it's not
+       * supposed to be set, and those packets lack an HT Control
+       * field, so they would be dissected incorrectly if we treated
+       * them as if they had an HT Control field.
        */
-      hdr_len += 4;
-      htc_len = 4;
+      if (!isDMG) {
+        /*
+         * Non-DMG PHY; treat this field as hving an HT Control field.
+         *
+         * XXX - as I read the above, this shouldn't be set except for
+         * HT, VHT, or HE PHYs; however, in the capture in issue 11351,
+         * a frame with an HT Control field, with a radiotap header,
+         * has no MCS, VHT, or HE field in that header, so Wireshark
+         * has no clue that it's an HT, VHT, or HE field. assumed that
+         * this meant that it wouldn't have an HT Control field even
+         * if it's a QoS field with +HTC/Order set, and misdissected
+         * it.  Omnipeek, which also appeared to have no clue that it
+         * was an HT or VHT field - it called it an 802.11b frame - *did*
+         * dissect the HT Control field.  Therefore, we must not require
+         * an indication that a QoS frame is an HT, VHT, or HE frame
+         * in order to dissect it a having an HT Control field.
+         */
+        hdr_len += 4;
+        htc_len = 4;
+      }
     }
     break;
 
@@ -25354,77 +25583,69 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
   case DATA_FRAME:
     hdr_len = (FCF_ADDR_SELECTOR(fcf) == DATA_ADDR_T4) ? DATA_LONG_HDR_LEN : DATA_SHORT_HDR_LEN;
 
-    if ((option_flags & IEEE80211_COMMON_OPT_NORMAL_QOS) && DATA_FRAME_IS_QOS(frame_type_subtype)) {
-      /* QoS frame */
-      qosoff = hdr_len;
-      hdr_len += 2; /* Include the QoS field in the header length */
-
-      if (HAS_HT_CONTROL(FCF_FLAGS(fcf))) {
-        /*
-         * QoS data frames with the Order bit set have an HT Control field;
-         * see 8.2.4.1.10 "Order field".  If they're not HT frames, they
-         * should never have the Order bit set.
-         */
-        hdr_len += 4;
-        htc_len = 4;
-      }
-
+    if (option_flags & IEEE80211_COMMON_OPT_NORMAL_QOS) {
       /*
-       * Does it look as if we have a mesh header?
-       * Look at the Mesh Control subfield of the QoS field and at the
-       * purported mesh flag fields.
-       */
-      qos_control = tvb_get_letohs(tvb, qosoff);
-      if (tvb_bytes_exist(tvb, hdr_len, 1)) {
-        meshoff = hdr_len;
-        mesh_flags = tvb_get_guint8(tvb, meshoff);
-        if (has_mesh_control(fcf, qos_control, mesh_flags)) {
-          /* Yes, add the length of that in as well. */
-          meshctl_len = find_mesh_control_length(mesh_flags);
-          hdr_len += meshctl_len;
-        }
-      }
-    } else if ((option_flags & IEEE80211_COMMON_OPT_NORMAL_QOS) && !DATA_FRAME_IS_QOS(frame_type_subtype)) {
-
-      if (HAS_HT_CONTROL(FCF_FLAGS(fcf))) {
-        /*
-         * QoS data frames with the Order bit set have an HT Control field;
-         * see 8.2.4.1.10 "Order field".  If they're not HT frames, they
-         * should never have the Order bit set.
-         */
-        hdr_len += 4;
-        htc_len = 4;
-      }
-
-      /*
-       * For locally originated mesh frames, the QoS header may be added by the
-       * hardware, and no present in wireshark captures.  This poses a problem
-       * as the QoS header indicates the presence of the mesh control header.
+       * IEEE 802.11-2016 section 9.2.4.1.10 "+HTC/Order subfield" says:
        *
-       * Instead of QoS, we use a few heuristics to determine the presence of
-       * the mesh control header, which is tricky because it can have a
-       * variable length.
+       *  The +HTC/Order subfield is 1 bit in length. It is used for two
+       *  purposes:
        *
-       * Assume minimal length, and then correct if wrong.
+       *    -- It is set to 1 in a non-QoS Data frame transmitted by a
+       *       non-QoS STA to indicate that the frame contains an MSDU,
+       *       or fragment thereof, that is being transferred using the
+       *       StrictlyOrdered service class.
+       *
+       *    -- It is set to 1 in a QoS Data or Management frame transmitted
+       *       with a value of HT_GF, HT_MF, or VHT for the FORMAT parameter
+       *       of the TXVECTOR to indicate that the frame contains an
+       *       HT Control field.
+       *
+       *  Otherwise, the +HTC/Order subfield is set to 0.
+       *
+       *  NOTE -- The +HTC/Order subfield is always set to 0 for frames
+       *  transmitted by a DMG STA.
+       *
+       * and 802.11ax drafts appear to say that the +HTC/Order flag, for
+       * QoS frames, also indicates that there's an HT Control field.
        */
-      meshctl_len = find_mesh_control_length(0);
-      if (tvb_bytes_exist(tvb, hdr_len, meshctl_len)) {
-        meshoff = hdr_len;
-        mesh_flags = tvb_get_guint8(tvb, meshoff);
-        /* now find correct length */
-        meshctl_len = find_mesh_control_length(mesh_flags);
-        /* ... and try to read two bytes of next header */
-        if (tvb_bytes_exist(tvb, hdr_len, meshctl_len + 2)) {
-          guint16 next_header = tvb_get_letohs(tvb, meshoff + meshctl_len);
-          if (has_mesh_control_local(fcf, mesh_flags, next_header)) {
-            /* Yes, add the length of that in as well. */
-            hdr_len += meshctl_len;
-            break;
+      if (DATA_FRAME_IS_QOS(frame_type_subtype)) {
+        /* QoS frame */
+        qosoff = hdr_len;
+        qos_control = tvb_get_letohs(tvb, qosoff);
+        hdr_len += 2; /* Include the QoS field in the header length */
+
+        if (HAS_HT_CONTROL(FCF_FLAGS(fcf))) {
+          /*
+           * For the DMG PHY, do *not* treat the +HTC field as an indication
+           * that there's an HT Control field, because, in the ns-3 capture
+           * in issue 11277, it's set in packets with a channel frequency
+           * in the 60 GHz band, meaning DMG (802.11ad), but it's not
+           * supposed to be set, and those packets lack an HT Control
+           * field, so they would be dissected incorrectly if we treated
+           * them as if they had an HT Control field.
+           */
+          if (!isDMG) {
+            /*
+             * Non-DMG PHY; treat this field as hving an HT Control field.
+             *
+             * XXX - as I read the above, this shouldn't be set except for
+             * HT, VHT, or HE PHYs; however, in the capture in issue 11351,
+             * a frame with an HT Control field, with a radiotap header,
+             * has no MCS, VHT, or HE field in that header, so Wireshark
+             * has no clue that it's an HT, VHT, or HE field. assumed that
+             * this meant that it wouldn't have an HT Control field even
+             * if it's a QoS field with +HTC/Order set, and misdissected
+             * it.  Omnipeek, which also appeared to have no clue that it
+             * was an HT or VHT field - it called it an 802.11b frame - *did*
+             * dissect the HT Control field.  Therefore, we must not require
+             * an indication that a QoS frame is an HT, VHT, or HE frame
+             * in order to dissect it a having an HT Control field.
+             */
+            hdr_len += 4;
+            htc_len = 4;
           }
         }
       }
-      /* failed to find a mesh header */
-      meshctl_len = 0;
     }
     break;
 
@@ -25449,11 +25670,61 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
     /*
      * Add in Atheros padding between the 802.11 header and body.
      *
-     * XXX - would the mesh header be part of the header or the body
-     * from the point of view of the Atheros adapters that insert
-     * the padding, assuming they even recognize a mesh header?
+     * In the Atheros mesh capture sample we have, the padding
+     * is before the mesh header, possibly because it doesn't
+     * recognize the mesh header.
      */
     hdr_len = roundup2(hdr_len, 4);
+  }
+
+  if (FCF_FRAME_TYPE (fcf) == DATA_FRAME) {
+    /*
+     * Does it look as if we have a mesh header?
+     *
+     * For locally originated mesh frames, the QoS header may be added
+     * by the hardware, and no present in wireshark captures.  This
+     * poses a problem as the QoS header indicates the presence of the
+     * mesh control header.
+     *
+     * In addition, we have examples of mesh captures where the QoS
+     * field indicates that there is no mesh control header, yet there
+     * is one.
+     *
+     * Instead of QoS, we use a few heuristics to determine the presence
+     * of the mesh control header, which is tricky because it can have a
+     * variable length. We fall back to using the QoS field if it exists
+     * and the packet isn't long enough (due to truncation or something
+     * malformed that should be flagged.)
+     *
+     * Assume minimal length, and then correct if wrong.
+     */
+    if (tvb_bytes_exist(tvb, hdr_len, 1)) {
+      meshoff = hdr_len;
+      mesh_flags = tvb_get_guint8(tvb, meshoff);
+      meshctl_len = find_mesh_control_length(mesh_flags);
+      /* ... and try to read two bytes of next header */
+      if (tvb_bytes_exist(tvb, hdr_len, meshctl_len + 2)) {
+        guint16 next_header = tvb_get_letohs(tvb, meshoff + meshctl_len);
+        if (!has_mesh_control_local(fcf, mesh_flags, next_header)) {
+          meshctl_len = 0;
+        }
+      } else {
+        if (DATA_FRAME_IS_QOS(frame_type_subtype)) {
+          /* QoS frame */
+          /*
+           * Look at the Mesh Control subfield of the QoS field and at the
+           * purported mesh flag fields.
+           */
+          if (!has_mesh_control(fcf, qos_control, mesh_flags)) {
+            meshctl_len = 0;
+          }
+        } else {
+          /* Not QoS frame, can't do the other heuristic, so assume no mesh */
+          meshctl_len = 0;
+        }
+      }
+    }
+    hdr_len += meshctl_len;
   }
 
   /* Add the FC and duration/id to the current tree */
@@ -25461,7 +25732,7 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
                                            "IEEE 802.11 %s", fts_str);
   hdr_tree = proto_item_add_subtree(ti, ett_80211);
 
-  dissect_frame_control(hdr_tree, tvb, option_flags, 0, pinfo);
+  dissect_frame_control(hdr_tree, tvb, option_flags, 0, pinfo, isDMG);
   dissect_durid(hdr_tree, tvb, frame_type_subtype, 2);
 
   switch (phdr->fcs_len)
@@ -25631,7 +25902,7 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
         {
           cw_tree = proto_tree_add_subtree(hdr_tree, tvb, offset, 2,
                       ett_cntrl_wrapper_fc, NULL, "Contained Frame Control");
-          dissect_frame_control(cw_tree, tvb, 0, offset, pinfo);
+          dissect_frame_control(cw_tree, tvb, 0, offset, pinfo, isDMG);
           dissect_ht_control(pinfo, hdr_tree, tvb, offset + 2);
           offset += 6;
           hdr_tree = proto_tree_add_subtree(hdr_tree, tvb, offset, 2,
@@ -26658,9 +26929,6 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
     next_tvb = process_reassembled_data(tvb, hdr_len, pinfo,
         "Reassembled 802.11", fd_head,
         &frag_items, NULL, hdr_tree);
-   /* If we got a next_tvb, but it has an FCS, strip the FCS */
-   if (next_tvb && has_fcs)
-     next_tvb = tvb_new_subset_length_caplen(next_tvb, 0, len, reported_len);
   } else {
     /*
      * If this is the first fragment, dissect its contents, otherwise
@@ -26754,79 +27022,161 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
           call_dissector(llc_handle, msdu_tvb, pinfo, subframe_tree);
           msdu_offset = roundup2(msdu_offset+msdu_length, 4);
         } while (tvb_reported_length_remaining(next_tvb, msdu_offset) > 14);
+      } else {
+        /* I guess some bridges take Netware Ethernet_802_3 frames,
+           which are 802.3 frames (with a length field rather than
+           a type field, but with no 802.2 header in the payload),
+           and just stick the payload into an 802.11 frame.  I've seen
+           captures that show frames of that sort.
 
-        break;
-      }
-      /* I guess some bridges take Netware Ethernet_802_3 frames,
-         which are 802.3 frames (with a length field rather than
-         a type field, but with no 802.2 header in the payload),
-         and just stick the payload into an 802.11 frame.  I've seen
-         captures that show frames of that sort.
+           We also handle some odd form of encapsulation in which a
+           complete Ethernet frame is encapsulated within an 802.11
+           data frame, with no 802.2 header.  This has been seen
+           from some hardware.
 
-         We also handle some odd form of encapsulation in which a
-         complete Ethernet frame is encapsulated within an 802.11
-         data frame, with no 802.2 header.  This has been seen
-         from some hardware.
+           On top of that, at least at some point it appeared that
+           the OLPC XO sent out frames with two bytes of 0 between
+           the "end" of the 802.11 header and the beginning of
+           the payload. Something similar has also been observed
+           with Atheros chipsets. There the sequence control field
+           seems repeated.
 
-         On top of that, at least at some point it appeared that
-         the OLPC XO sent out frames with two bytes of 0 between
-         the "end" of the 802.11 header and the beginning of
-         the payload. Something similar has also been observed
-         with Atheros chipsets. There the sequence control field
-         seems repeated.
+           And, on top of *that*, IEEE Std 802.11-2018 section
+           5.1.4 "MSDU format" says:
 
-         So, if the packet doesn't start with 0xaa 0xaa:
+             Logical Link Control (LLC) sublayer entities use the MAC
+             sublayer service to exchange PDUs with peer LLC sublayer
+             entities. These PDUs are termed MAC sublayer SDUs (MSDUs)
+             when sent to the MAC sublayer. There are two LLC sublayer
+             protocols used (see IEEE Std 802-2014); LLC Protocol
+             Discrimination (LPD) (see ISO/IEC 8802-2:1998) and EtherType
+             Protocol Discrimination (EPD) (see IEEE Std 802.3-2012).
+             LPD is used for transmission of all IEEE 802.11 MSDUs with
+             the exception of the 5.9 GHz bands where EPD is used
+             (see E.2.3 and E.2.4).
 
-           we first use the same scheme that linux-wlan-ng does to detect
-           those encapsulated Ethernet frames, namely looking to see whether
-           the frame either starts with 6 octets that match the destination
-           address from the 802.11 header or has 6 octets that match the
-           source address from the 802.11 header following the first 6 octets,
-           and, if so, treat it as an encapsulated Ethernet frame;
+           and IEEE Std 1609.3-2016, section 5.2 "Logical link control",
+           subsection 5.2.1 "General", says:
 
-           otherwise, we use the same scheme that we use in the Ethernet
-           dissector to recognize Netware 802.3 frames, namely checking
-           whether the packet starts with 0xff 0xff and, if so, treat it
-           as an encapsulated IPX frame, and then check whether the
-           packet starts with 0x00 0x00 and, if so, treat it as an OLPC
-           frame, or check the packet starts with the repetition of the
-           sequence control field and, if so, treat it as an Atheros frame. */
-      heur_dtbl_entry_t  *hdtbl_entry;
-      if (dissector_try_heuristic(heur_subdissector_list, next_tvb, pinfo, tree, &hdtbl_entry, NULL)) {
-        pinfo->fragmented = save_fragmented;
-        goto end_of_wlan; /* heuristics dissector handled it. */
-      }
-      encap_type = ENCAP_802_2;
-      if (tvb_bytes_exist(next_tvb, 0, 2)) {
-        octet1 = tvb_get_guint8(next_tvb, 0);
-        octet2 = tvb_get_guint8(next_tvb, 1);
-        if ((octet1 != 0xaa) || (octet2 != 0xaa)) {
-          if ((tvb_memeql(next_tvb, 6, (const guint8 *)pinfo->dl_src.data, 6) == 0) ||
-              (tvb_memeql(next_tvb, 0, (const guint8 *)pinfo->dl_dst.data, 6) == 0))
-            encap_type = ENCAP_ETHERNET;
-          else if ((octet1 == 0xff) && (octet2 == 0xff))
-            encap_type = ENCAP_IPX;
-          else if (((octet1 == 0x00) && (octet2 == 0x00)) ||
-                   (((octet2 << 8) | octet1) == seq_control)) {
-            proto_tree_add_item(tree, hf_ieee80211_mysterious_olpc_stuff, next_tvb, 0, 2, ENC_NA);
-            next_tvb = tvb_new_subset_remaining(next_tvb, 2);
+             A Networking Services implementation shall use EPD in the
+             LLC sublayer as described in IEEE Std 802, using an EtherType
+             in the LLC sublayer header Type9 field (see Figure 5 and
+             Figure 28). The LLC sublayer header consists solely of a
+             2-octet field that contains an EtherType that identifies
+             the higher layer protocol.
+
+           and ISO 21215, second edition, 2018-06, "Intelligent transport
+           systems -- Localized communications -- ITS-M5", section 6.3
+           "Logical link control sub-layer" says:
+
+             IEEE Std 802.11TM-2016 does not specify a logical link control
+             sub-layer protocol. Related functionality is part of the
+             communication adaptation sub-layer specified in 6.4.
+
+             The Length/Type field specified in IEEE 802.3-2015 contains
+             a 2-octet unsigned Integer number. Dependent on the value,
+             the field provides either length information or EtherType
+             information. If the value contained in this field is equal
+             to or larger than 1 536 = 0x06.00, the field contains an
+             EtherType address. Ethertype addresses are assigned by the
+             IEEE Registration Authority, and are used to identify the
+             protocol employed directly above the ITS-S access layer.
+             This method of addressing is named "EtherType Protocol
+             Discrimination" (EPD). An ITS-M5 CI shall support EPD
+             specified in IEEE Std 802.
+
+                 ...
+
+             NOTE 2    EPD replaces LLC Protocol Discrimination (LPD).
+             ETSI ITS-G5 is the only known ITS access technology still
+             using LPD.
+
+             Different to the information in IEEE Std 802.11-2016, 5.1.4,
+             EPD is applicable in all frequency bands as long as
+             dot11OCBActivated is set to true, i.e. activating the operation
+             mode "outside the context of a BSS" (OCB).
+
+           meaning that a packet might just begin with an Ethertype.
+
+           So, if the packet doesn't start with 0xaa 0xaa:
+
+             we first use the same scheme that linux-wlan-ng does to detect
+             those encapsulated Ethernet frames, namely looking to see whether
+             the frame either starts with 6 octets that match the destination
+             address from the 802.11 header or has 6 octets that match the
+             source address from the 802.11 header following the first 6 octets,
+             and, if so, treat it as an encapsulated Ethernet frame;
+
+             otherwise, we use the same scheme that we use in the Ethernet
+             dissector to recognize Netware 802.3 frames, namely checking
+             whether the packet starts with 0xff 0xff and, if so, treat it
+             as an encapsulated IPX frame;
+
+             otherwise, we check whether the packet starts with 0x00 0x00
+             or with a copy of the sequence control field and, if so, treat
+             those two octets as mysterious extra stuff preceding the
+             payload (possibly OLPC stuff, possibly Ruckus Wireless stuff,
+             possibly Atheros stuff), and treat what follows as a frame
+             using LPD;
+
+             otherwise, we check whether the first two octets, treated
+             as an Ethertype, has a dissector and, if so, treat this as
+             a frame using EPD;
+
+             otherwise, we treat this as a frame using LPD. */
+        heur_dtbl_entry_t  *hdtbl_entry;
+        if (dissector_try_heuristic(heur_subdissector_list, next_tvb, pinfo, tree, &hdtbl_entry, NULL)) {
+          pinfo->fragmented = save_fragmented;
+          goto end_of_wlan; /* heuristics dissector handled it. */
+        }
+        encap_type = ENCAP_802_2;
+        if (tvb_bytes_exist(next_tvb, 0, 2)) {
+          octet1 = tvb_get_guint8(next_tvb, 0);
+          octet2 = tvb_get_guint8(next_tvb, 1);
+          if ((octet1 != 0xaa) || (octet2 != 0xaa)) {
+            if ((tvb_memeql(next_tvb, 6, (const guint8 *)pinfo->dl_src.data, 6) == 0) ||
+                (tvb_memeql(next_tvb, 0, (const guint8 *)pinfo->dl_dst.data, 6) == 0))
+              encap_type = ENCAP_ETHERNET;
+            else if ((octet1 == 0xff) && (octet2 == 0xff))
+              encap_type = ENCAP_IPX;
+            else if (((octet1 == 0x00) && (octet2 == 0x00)) ||
+                     (((octet2 << 8) | octet1) == seq_control)) {
+              proto_tree_add_item(tree, hf_ieee80211_mysterious_extra_stuff, next_tvb, 0, 2, ENC_NA);
+              next_tvb = tvb_new_subset_remaining(next_tvb, 2);
+            } else if ((etype = ((octet1 << 8) | octet2)) > ETHERNET_II_MIN_LEN) {
+              /*
+               * This might be an Ethertype, so maybe this is 802.11
+               * using EPD rather than LPD.  Is this a *known* Ethertype?
+               */
+              if (dissector_get_uint_handle(ethertype_subdissector_table,
+                                            etype) != NULL) {
+                /* Yes. */
+                encap_type = ENCAP_EPD;
+              }
+            }
           }
         }
-      }
 
-      switch (encap_type) {
+        switch (encap_type) {
 
-      case ENCAP_802_2:
-        call_dissector(llc_handle, next_tvb, pinfo, tree);
-        break;
+        case ENCAP_802_2:
+          /* 802.2 LPD */
+          call_dissector(llc_handle, next_tvb, pinfo, tree);
+          break;
 
-      case ENCAP_ETHERNET:
-        call_dissector(eth_withoutfcs_handle, next_tvb, pinfo, tree);
-        break;
+        case ENCAP_ETHERNET:
+          call_dissector(eth_withoutfcs_handle, next_tvb, pinfo, tree);
+          break;
 
-      case ENCAP_IPX:
-        call_dissector(ipx_handle, next_tvb, pinfo, tree);
-        break;
+        case ENCAP_IPX:
+          call_dissector(ipx_handle, next_tvb, pinfo, tree);
+          break;
+
+        case ENCAP_EPD:
+          /* EPD */
+          call_dissector(epd_llc_handle, next_tvb, pinfo, tree);
+          break;
+        }
       }
       break;
 
@@ -27913,9 +28263,9 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_fc_order,
-     {"Order flag", "wlan.fc.order",
+     {"+HTC/Order flag", "wlan.fc.order",
       FT_BOOLEAN, 8, TFS(&order_flags), FLAG_ORDER,
-      "Strictly ordered flag", HFILL }},
+      "HT Control present/strictly ordered flag", HFILL }},
 
     {&hf_ieee80211_assoc_id,
      {"Association ID", "wlan.aid",
@@ -31319,6 +31669,81 @@ proto_register_ieee80211(void)
       FT_UINT32, BASE_DEC, NULL, 0,
       "Root Announcement Interval", HFILL }},
 
+    {&hf_ieee80211_pxu_pxu_id,
+     {"PXU ID", "wlan.pxu.pxu_id",
+      FT_UINT8, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_pxu_origin_mac,
+     {"PXU Originator MAC Address", "wlan.pxu.origin_mac",
+      FT_ETHER, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_no_proxy_info,
+     {"Number of Proxy Information", "wlan.pxu.no_proxy_info",
+      FT_UINT8, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info,
+     {"Proxy Information", "wlan.pxu.proxy_info",
+      FT_NONE, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_flags,
+     {"Flags", "wlan.pxu.pxu_info.flags",
+      FT_UINT8, BASE_HEX, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_flags_delete,
+     {"Delete", "wlan.pxu.pxu_info.flags.delete",
+      FT_BOOLEAN, 8, NULL, 0x01,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_flags_orig_is_proxy,
+     {"Originator is Proxy", "wlan.pxu.pxu_info.flags.orig_is_proxy",
+      FT_BOOLEAN, 8, NULL, 0x02,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_flags_lifetime,
+     {"Lifetime", "wlan.pxu.pxu_info.flags.lifetime",
+      FT_BOOLEAN, 8, NULL, 0x04,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_flags_reserved,
+     {"Reserved", "wlan.pxu.pxu_info.flags.reserved",
+      FT_UINT8, BASE_HEX, NULL, 0xF8,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_ext_mac,
+     {"External MAC Address", "wlan.pxu.pxu_info.ext_mac",
+      FT_ETHER, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_seq_num,
+     {"Proxy Information Sequence Number", "wlan.pxu.pxu_info.seq_num",
+      FT_UINT32, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_proxy_mac,
+     {"Proxy MAC Address", "wlan.pxu.pxu_info.proxy_mac",
+      FT_ETHER, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxu_proxy_info_lifetime,
+     {"Proxy Information Lifetime", "wlan.pxu.pxu_info.lifetime",
+      FT_UINT32, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxuc_pxu_id,
+     {"PXU ID", "wlan.pxuc.pxu_id",
+      FT_UINT8, BASE_DEC, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_pxuc_pxu_recip_mac,
+     {"PXU Recipient MAC Address", "wlan.pxuc.recip_mac",
+      FT_BYTES, SEP_COLON, NULL, 0,
+      NULL, HFILL }},
+
     {&hf_ieee80211_ff_qos_action_code,
      {"Action code", "wlan.fixed.action_code",
       FT_UINT16, BASE_HEX, VALS(qos_action_codes), 0,
@@ -32512,6 +32937,56 @@ proto_register_ieee80211(void)
     {&hf_ieee80211_tag_challenge_text,
      {"Challenge Text", "wlan.tag.challenge_text",
       FT_BYTES, BASE_NONE, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf,
+     {"Capabilities Information", "wlan.tag.he_6ghz.cap_inf",
+      FT_UINT16, BASE_HEX, NULL, 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b0_b2,
+     {"Minimum MPDU Start Spacing", "wlan.tag.he_6ghz.cap_inf.b0_b2",
+      FT_UINT16, BASE_HEX, NULL, 0x0007,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b3_b5,
+     {"Maximum A-MPDU Start Spacing", "wlan.tag.he_6ghz.cap_inf.b3_b5",
+      FT_UINT16, BASE_HEX, NULL, 0x0038,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b6_b7,
+     {"Maximum MPDU Length", "wlan.tag.he_6ghz.cap_inf.b6_b7",
+      FT_UINT16, BASE_HEX, NULL, 0x00C0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b8,
+     {"Reserved", "wlan.tag.he_6ghz.cap_inf.b8",
+      FT_UINT16, BASE_HEX, NULL, 0x0100,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b9_b10,
+     {"SM Power Save", "wlan.tag.he_6ghz.cap_inf.b9b_b10",
+      FT_UINT16, BASE_HEX, NULL, 0x0600,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b11,
+     {"RD Responder", "wlan.tag.he_6ghz.cap_inf.b11",
+      FT_UINT16, BASE_HEX, NULL, 0x0800,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b12,
+     {"Rx Antenna Pattern Consistency", "wlan.tag.he_6ghz.cap_inf.b12",
+      FT_UINT16, BASE_HEX, NULL, 0x1000,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b13,
+     {"Tx Antenna Pattern Consistency", "wlan.tag.he_6ghz.cap_inf.b13",
+      FT_UINT16, BASE_HEX, NULL, 0x2000,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_tag_he_6ghz_cap_inf_b14_b15,
+     {"Reserved", "wlan.tag.he_6ghz.cap_inf.b14_b15",
+      FT_UINT16, BASE_HEX, NULL, 0xC000,
       NULL, HFILL }},
 
     {&hf_ieee80211_rsn_version,
@@ -37960,8 +38435,8 @@ proto_register_ieee80211(void)
       FT_UINT8, BASE_DEC, NULL, 0xfe,
       NULL, HFILL }},
 
-    {&hf_ieee80211_mysterious_olpc_stuff,
-     {"Mysterious OLPC stuff", "wlan.mysterious_olpc_stuff",
+    {&hf_ieee80211_mysterious_extra_stuff,
+     {"Mysterious extra OLPC/Ruckus/Atheros/??? stuff", "wlan.mysterious_extra_stuff",
       FT_NONE, BASE_NONE, NULL, 0x0,
       NULL, HFILL }},
 
@@ -39264,6 +39739,8 @@ proto_register_ieee80211(void)
     &ett_bcn_timing_rctrl_tree,
     &ett_bcn_timing_info_tree,
     &ett_gann_flags_tree,
+    &ett_pxu_proxy_info_tree,
+    &ett_pxu_proxy_info_flags_tree,
 
     &ett_rsn_gcs_tree,
     &ett_rsn_pcs_tree,
@@ -39396,6 +39873,8 @@ proto_register_ieee80211(void)
     &ett_tag_wapi_param_set_preauth_tree,
 
     &ett_tag_time_adv_tree,
+
+    &ett_tag_he_6ghz_cap_inf_tree,
 
     &ett_ff_ba_param_tree,
     &ett_ff_ba_ssc_tree,
@@ -39731,12 +40210,16 @@ proto_register_ieee80211(void)
         "This TWT Setup Command is not allowed, check the TWT Request field", EXPFILL }},
 
     { &ei_ieee80211_invalid_control_word,
-      { "wlan.htc.he.a_control.invalid", PI_PROTOCOL, PI_MALFORMED,
+      { "wlan.htc.he.a_control.invalid", PI_PROTOCOL, PI_ERROR,
         "Invalid control word", EXPFILL }},
 
     { &ei_ieee80211_invalid_control_id,
-      { "wlan.htc.he.a_control.ctrl_id.invalid", PI_PROTOCOL, PI_MALFORMED,
+      { "wlan.htc.he.a_control.ctrl_id.invalid", PI_PROTOCOL, PI_ERROR,
         "Invalid control word", EXPFILL }},
+
+    { &ei_ieee80211_htc_in_dmg_packet,
+      { "wlan.htc_in_dmg_packet", PI_PROTOCOL, PI_ERROR,
+        "DMG frame has the +HTC/Order bit set", EXPFILL }},
   };
 
   expert_module_t *expert_ieee80211;
@@ -40018,11 +40501,18 @@ proto_reg_handoff_ieee80211(void)
   capture_dissector_handle_t ieee80211_cap_handle;
 
   /*
-   * Get handles for the LLC, IPX and Ethernet  dissectors.
+   * Get handles for the 802.2 (LPD) LLC, EPD LLC, IPX and Ethernet
+   * dissectors.
    */
   llc_handle            = find_dissector_add_dependency("llc", proto_wlan);
+  epd_llc_handle        = find_dissector_add_dependency("epd_llc", proto_wlan);
   ipx_handle            = find_dissector_add_dependency("ipx", proto_wlan);
   eth_withoutfcs_handle = find_dissector_add_dependency("eth_withoutfcs", proto_wlan);
+
+  /*
+   * Get the Ethertype dissector table.
+   */
+  ethertype_subdissector_table = find_dissector_table("ethertype");
 
   llc_cap_handle = find_capture_dissector("llc");
   ipx_cap_handle = find_capture_dissector("ipx");
@@ -40170,6 +40660,8 @@ proto_reg_handoff_ieee80211(void)
   dissector_add_uint("wlan.tag.number", TAG_MESH_PREQ, create_dissector_handle(ieee80211_tag_mesh_preq, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_PREP, create_dissector_handle(ieee80211_tag_mesh_prep, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_PERR, create_dissector_handle(ieee80211_tag_mesh_perr, -1));
+  dissector_add_uint("wlan.tag.number", TAG_PXU, create_dissector_handle(ieee80211_tag_pxu, -1));
+  dissector_add_uint("wlan.tag.number", TAG_PXUC, create_dissector_handle(ieee80211_tag_pxuc, -1));
   dissector_add_uint("wlan.tag.number", TAG_MIC, create_dissector_handle(ieee80211_tag_mic, -1));
   dissector_add_uint("wlan.tag.number", TAG_RANN, create_dissector_handle(ieee80211_tag_rann, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_CHANNEL_SWITCH, create_dissector_handle(ieee80211_tag_mesh_channel_switch, -1));

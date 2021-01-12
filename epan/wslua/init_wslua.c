@@ -344,7 +344,7 @@ static void iter_table_and_call(lua_State* LS, const gchar* table_name, lua_CFun
 
 static int init_error_handler(lua_State* LS) {
     const gchar* error =  lua_tostring(LS,1);
-    report_failure("Lua: Error During execution of Initialization:\n %s",error);
+    report_failure("Lua: Error during execution of initialization:\n %s",error);
     return 0;
 }
 
@@ -381,7 +381,7 @@ static void wslua_cleanup_routine(void) {
 
 static int prefs_changed_error_handler(lua_State* LS) {
     const gchar* error =  lua_tostring(LS,1);
-    report_failure("Lua: Error During execution of prefs apply callback:\n %s",error);
+    report_failure("Lua: Error during execution of prefs apply callback:\n %s",error);
     return 0;
 }
 
@@ -417,7 +417,7 @@ static void wslua_add_plugin(const gchar *name, const gchar *version, const gcha
     wslua_plugin *new_plug, *lua_plug;
 
     lua_plug = wslua_plugin_list;
-    new_plug = (wslua_plugin *)g_malloc(sizeof(wslua_plugin));
+    new_plug = g_new(wslua_plugin, 1);
 
     if (!lua_plug) { /* the list is empty */
         wslua_plugin_list = new_plug;

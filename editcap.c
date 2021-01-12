@@ -155,10 +155,10 @@ GPtrArray *capture_comments = NULL;
 #define MAX_SELECTIONS 512
 static struct select_item     selectfrm[MAX_SELECTIONS];
 static guint                  max_selected              = 0;
-static int                    keep_em                   = 0;
+static gboolean               keep_em                   = FALSE;
 static int                    out_file_type_subtype     = WTAP_FILE_TYPE_SUBTYPE_PCAPNG; /* default to pcapng   */
 static int                    out_frame_type            = -2; /* Leave frame type alone */
-static int                    verbose                   = 0;  /* Not so verbose         */
+static gboolean               verbose                   = FALSE; /* Not so verbose         */
 static struct time_adjustment time_adj                  = {NSTIME_INIT_ZERO, 0}; /* no adjustment */
 static nstime_t               relative_time_window      = NSTIME_INIT_ZERO; /* de-dup time window */
 static double                 err_prob                  = -1.0;
@@ -328,7 +328,7 @@ add_selection(char *sel, guint* max_selection)
 
 /* Was the packet selected? */
 
-static int
+static gboolean
 selected(guint recno)
 {
     guint i;
@@ -336,14 +336,14 @@ selected(guint recno)
     for (i = 0; i < max_selected; i++) {
         if (selectfrm[i].inclusive) {
             if (selectfrm[i].first <= recno && selectfrm[i].second >= recno)
-                return 1;
+                return TRUE;
         } else {
             if (recno == selectfrm[i].first)
-                return 1;
+                return TRUE;
         }
     }
 
-    return 0;
+    return FALSE;
 }
 
 static gboolean
@@ -758,10 +758,13 @@ print_usage(FILE *output)
     fprintf(output, "\n");
     fprintf(output, "Packet selection:\n");
     fprintf(output, "  -r                     keep the selected packets; default is to delete them.\n");
-    fprintf(output, "  -A <start time>        only output packets whose timestamp is after (or equal\n");
-    fprintf(output, "                         to) the given time (format as YYYY-MM-DD hh:mm:ss[.nnnnnnnnn]).\n");
-    fprintf(output, "  -B <stop time>         only output packets whose timestamp is before the\n");
-    fprintf(output, "                         given time (format as YYYY-MM-DD hh:mm:ss[.nnnnnnnnn]).\n");
+    fprintf(output, "  -A <start time>        only read packets whose timestamp is after (or equal\n");
+    fprintf(output, "                         to) the given time.\n");
+    fprintf(output, "  -B <stop time>         only read packets whose timestamp is before the\n");
+    fprintf(output, "                         given time.\n");
+    fprintf(output, "                         Time format for -A/-B options is\n");
+    fprintf(output, "                         YYYY-MM-DDThh:mm:ss[.nnnnnnnnn][Z|+-hh:mm]\n");
+    fprintf(output, "                         Unix epoch timestamps are also supported.\n");
     fprintf(output, "\n");
     fprintf(output, "Duplicate packet removal:\n");
     fprintf(output, "  --novlan               remove vlan info from packets before checking for duplicates.\n");
@@ -855,6 +858,7 @@ print_usage(FILE *output)
     fprintf(output, "                         If -v is used with any of the 'Duplicate Packet\n");
     fprintf(output, "                         Removal' options (-d, -D or -w) then Packet lengths\n");
     fprintf(output, "                         and MD5 hashes are printed to standard-error.\n");
+    fprintf(output, "  -V, --version          print version information and exit.\n");
 }
 
 struct string_elem {
@@ -910,7 +914,7 @@ list_encap_types(FILE *stream) {
     struct string_elem *encaps;
     GSList *list = NULL;
 
-    encaps = (struct string_elem *)g_malloc(sizeof(struct string_elem) * WTAP_NUM_ENCAP_TYPES);
+    encaps = g_new(struct string_elem, WTAP_NUM_ENCAP_TYPES);
     fprintf(stream, "editcap: The available encapsulation types for the \"-T\" flag are:\n");
     for (i = 0; i < WTAP_NUM_ENCAP_TYPES; i++) {
         encaps[i].sstr = wtap_encap_name(i);
@@ -997,23 +1001,49 @@ failure_message_cont(const char *msg_format, va_list ap)
 
 static wtap_dumper *
 editcap_dump_open(const char *filename, const wtap_dump_params *params,
-                  int *write_err, gchar **write_err_info)
+                  GArray *idbs_seen, int *err, gchar **err_info)
 {
     wtap_dumper *pdh;
 
     if (strcmp(filename, "-") == 0) {
         /* Write to the standard output. */
         pdh = wtap_dump_open_stdout(out_file_type_subtype, WTAP_UNCOMPRESSED,
-                                    params, write_err, write_err_info);
+                                    params, err, err_info);
     } else {
         pdh = wtap_dump_open(filename, out_file_type_subtype, WTAP_UNCOMPRESSED,
-                             params, write_err, write_err_info);
+                             params, err, err_info);
     }
+    if (pdh == NULL)
+        return NULL;
+
+    /*
+     * If the output file requires interface IDs, add all the IDBs we've
+     * seen so far.
+     */
+    if (wtap_uses_interface_ids(wtap_dump_file_type_subtype(pdh))) {
+        for (guint i = 0; i < idbs_seen->len; i++) {
+            wtap_block_t if_data = g_array_index(idbs_seen, wtap_block_t, i);
+
+            /*
+             * Add this IDB to the file to which we're currently writing.
+             */
+            if (!wtap_dump_add_idb(pdh, if_data, err, err_info)) {
+                int close_err;
+                gchar *close_err_info;
+
+                wtap_dump_close(pdh, &close_err, &close_err_info);
+                g_free(close_err_info);
+                return NULL;
+            }
+        }
+    }
+
     return pdh;
 }
 
 static gboolean
-process_new_idbs(wtap *wth, wtap_dumper *pdh, int *err, gchar **err_info)
+process_new_idbs(wtap *wth, wtap_dumper *pdh, GArray *idbs_seen,
+                 int *err, gchar **err_info)
 {
     wtap_block_t if_data;
 
@@ -1023,8 +1053,22 @@ process_new_idbs(wtap *wth, wtap_dumper *pdh, int *err, gchar **err_info)
          * otherwise, it doesn't support writing IDBs.
          */
         if (wtap_uses_interface_ids(wtap_dump_file_type_subtype(pdh))) {
+            wtap_block_t if_data_copy;
+
+            /*
+             * Add this IDB to the file to which we're currently writing.
+             */
             if (!wtap_dump_add_idb(pdh, if_data, err, err_info))
                 return FALSE;
+
+            /*
+             * Also add it to the set of IDBs we've seen, in case we
+             * start writing to another file (which would be of the
+             * same type as the current file, and thus will also require
+             * interface IDs).
+             */
+            if_data_copy = wtap_block_make_copy(if_data);
+            g_array_append_val(idbs_seen, if_data_copy);
         }
     }
     return TRUE;
@@ -1065,6 +1109,7 @@ main(int argc, char *argv[])
     chop_t        chop               = {0, 0, 0, 0, 0, 0}; /* No chop */
     gboolean      adjlen             = FALSE;
     wtap_dumper  *pdh                = NULL;
+    GArray       *idbs_seen          = NULL;
     unsigned int  count              = 1;
     unsigned int  duplicate_count    = 0;
     gint64        data_offset;
@@ -1237,77 +1282,25 @@ main(int argc, char *argv[])
         case 'A':
         case 'B':
         {
-#define NSEC_MAXLEN 9
-            struct tm st_tm;
-            guint32 nsec = 0;
-            char *och;
-
-            memset(&st_tm,0,sizeof(struct tm));
-
-            if (!(och=strptime(optarg,"%Y-%m-%d %T", &st_tm))) {
-                goto invalid_time;
-            }
-
-            /* Sub-second support: see if the time is followed by a '.' */
-            if (och != NULL && *och != '\0') {
-                char *c;
-                char subsec[NSEC_MAXLEN+1] = "";
-                int nchars;
-
-                if (*och != '.') {
-                    goto invalid_time;
-                }
-                och++;
-                c = subsec;
-
-                /* Ensure that only 1-9 digits follow the '.' */
-                for (nchars = 0; *och != '\0' && nchars < NSEC_MAXLEN; nchars++) {
-                    if (!g_ascii_isdigit(*och)) {
-                        goto invalid_time;
-                    }
-                    *c++ = *och++;
-                }
-                if (*och != '\0') {
-                    goto invalid_time;
-                }
-                /* Right-pad what we do have, so eg. 5 = 500,000,000 ns */
-                for (; nchars < NSEC_MAXLEN; nchars++) {
-                    *c++ = '0';
-                }
-                *c = '\0';
-                if (!ws_strtou32(subsec, NULL, &nsec) || nsec >= NANOSECS_PER_SEC) {
-                    goto invalid_time;
-                }
-            }
+            nstime_t in_time;
 
             check_startstop = TRUE;
-            st_tm.tm_isdst = -1;
-
-            /*
-             * XXX - this will normalize invalid dates rather than
-             * returning an error, so you could specify, for example,
-             * 2020-10-40 (to quote the macOS and probably *BSD manual
-             * page for ctime()/localtime()/mktime()/etc., "October 40
-             * is changed into November 9").
-             *
-             * Is that a bug or a feature?
-             */
-            if (opt == 'A') {
-                starttime.secs = mktime(&st_tm);
-                starttime.nsecs = nsec;
-                have_starttime = TRUE;
-            } else {
-                stoptime.secs = mktime(&st_tm);
-                stoptime.nsecs = nsec;
-                have_stoptime = TRUE;
+            if ((0 < iso8601_to_nstime(&in_time, optarg)) || (0 < unix_epoch_to_nstime(&in_time, optarg))) {
+                if (opt == 'A') {
+                    nstime_copy(&starttime, &in_time);
+                    have_starttime = TRUE;
+                } else {
+                    nstime_copy(&stoptime, &in_time);
+                    have_stoptime = TRUE;
+                }
+                break;
             }
-            break;
-
-invalid_time:
-            fprintf(stderr, "editcap: \"%s\" isn't a valid date and time\n\n",
-                    optarg);
-            ret = INVALID_OPTION;
-            goto clean_exit;
+            else {
+                fprintf(stderr, "editcap: \"%s\" isn't a valid date and time\n\n",
+                        optarg);
+                ret = INVALID_OPTION;
+                goto clean_exit;
+            }
         }
 
         case 'c':
@@ -1425,7 +1418,12 @@ invalid_time:
             break;
 
         case 'r':
-            keep_em = !keep_em;  /* Just invert */
+            if (keep_em) {
+                cmdarg_err("-r was specified twice");
+                ret = INVALID_OPTION;
+                goto clean_exit;
+            }
+            keep_em = TRUE;
             break;
 
         case 's':
@@ -1459,7 +1457,12 @@ invalid_time:
             break;
 
         case 'v':
-            verbose = !verbose;  /* Just invert */
+            if (verbose) {
+                cmdarg_err("-v was specified twice");
+                ret = INVALID_OPTION;
+                goto clean_exit;
+            }
+            verbose = TRUE;
             break;
 
         case 'V':
@@ -1672,7 +1675,7 @@ invalid_time:
         if (add_selection(argv[i], &max_packet_number) == FALSE)
             break;
 
-    if (keep_em == FALSE)
+    if (!keep_em)
         max_packet_number = G_MAXUINT;
 
     if (dup_detect || dup_detect_by_time) {
@@ -1682,6 +1685,9 @@ invalid_time:
             nstime_set_unset(&fd_hash[i].frame_time);
         }
     }
+
+    /* Set up an array of all IDBs seen */
+    idbs_seen = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
 
     /* Read all of the packets in turn */
     wtap_rec_init(&read_rec);
@@ -1719,7 +1725,7 @@ invalid_time:
                 wtap_block_add_string_option_format(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, "%s", get_appname_and_version());
             }
 
-            pdh = editcap_dump_open(filename, &params, &write_err,
+            pdh = editcap_dump_open(filename, &params, idbs_seen, &write_err,
                                     &write_err_info);
 
             if (pdh == NULL) {
@@ -1734,7 +1740,7 @@ invalid_time:
         /*
          * Process whatever IDBs we haven't seen yet.
          */
-        if (!process_new_idbs(wth, pdh, &write_err, &write_err_info)) {
+        if (!process_new_idbs(wth, pdh, idbs_seen, &write_err, &write_err_info)) {
             cfile_write_failure_message("editcap", argv[optind],
                                         filename,
                                         write_err, write_err_info,
@@ -1772,8 +1778,8 @@ invalid_time:
                     if (verbose)
                         fprintf(stderr, "Continuing writing in file %s\n", filename);
 
-                    pdh = editcap_dump_open(filename, &params, &write_err,
-                                            &write_err_info);
+                    pdh = editcap_dump_open(filename, &params, idbs_seen,
+                                            &write_err, &write_err_info);
 
                     if (pdh == NULL) {
                         cfile_dump_open_failure_message("editcap", filename,
@@ -1804,8 +1810,8 @@ invalid_time:
                 if (verbose)
                     fprintf(stderr, "Continuing writing in file %s\n", filename);
 
-                pdh = editcap_dump_open(filename, &params, &write_err,
-                                        &write_err_info);
+                pdh = editcap_dump_open(filename, &params, idbs_seen,
+                                        &write_err, &write_err_info);
                 if (pdh == NULL) {
                     cfile_dump_open_failure_message("editcap", filename,
                                                     write_err, write_err_info,
@@ -2212,7 +2218,8 @@ invalid_time:
         g_free (filename);
         filename = g_strdup(argv[optind+1]);
 
-        pdh = editcap_dump_open(filename, &params, &write_err, &write_err_info);
+        pdh = editcap_dump_open(filename, &params, idbs_seen, &write_err,
+                                &write_err_info);
         if (pdh == NULL) {
             cfile_dump_open_failure_message("editcap", filename,
                                             write_err, write_err_info,
@@ -2249,6 +2256,13 @@ clean_exit:
     if (dsb_filenames) {
         g_array_free(dsb_types, TRUE);
         g_ptr_array_free(dsb_filenames, TRUE);
+    }
+    if (idbs_seen != NULL) {
+        for (guint b = 0; b < idbs_seen->len; b++) {
+            wtap_block_t if_data = g_array_index(idbs_seen, wtap_block_t, b);
+            wtap_block_free(if_data);
+        }
+        g_array_free(idbs_seen, TRUE);
     }
     g_free(params.idb_inf);
     wtap_dump_params_cleanup(&params);

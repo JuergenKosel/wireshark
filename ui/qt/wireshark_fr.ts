@@ -1156,7 +1156,7 @@
     </message>
     <message>
         <source>Stop Capture</source>
-        <translation type="unfinished"></translation>
+        <translation>Arrêter la Capture</translation>
     </message>
     <message>
         <source>%1 packets, %2:%3:%4</source>
@@ -1720,7 +1720,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Field Occurence</source>
+        <source>Field Occurrence</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3821,6 +3821,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>2 ms</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>5 ms</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3838,6 +3842,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>100 ms</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>200 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3922,14 +3930,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Save Graph As…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>2 ms</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>200 ms</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -6243,7 +6243,7 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>S&amp;top</source>
-        <translation>Arre&amp;ter</translation>
+        <translation>Arrê&amp;ter</translation>
     </message>
     <message>
         <source>Stop capturing packets</source>
@@ -6288,10 +6288,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>Website</source>
         <translation>Site Web</translation>
-    </message>
-    <message>
-        <source>FAQ&apos;s</source>
-        <translation>FAQ&apos;s</translation>
     </message>
     <message>
         <source>Downloads</source>
@@ -6435,7 +6431,7 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>&amp;Restart</source>
-        <translation>&amp;Redémarrager</translation>
+        <translation>&amp;Redémarrer</translation>
     </message>
     <message>
         <source>Restart current capture</source>
@@ -6521,6 +6517,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>Help contents</source>
         <translation>Contenu de l&apos;aide</translation>
+    </message>
+    <message>
+        <source>FAQs</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Next Packet in Conversation</source>
@@ -7222,7 +7222,7 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>Capture &amp;Filters…</source>
-        <translation>Capture &amp;Filtres...</translation>
+        <translation>&amp;Filtres de Capture...</translation>
     </message>
     <message>
         <source>As Plain &amp;Text…</source>
@@ -7918,12 +7918,12 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>Stop and Save</source>
-        <translation>Arreter et Sauvegarder</translation>
+        <translation>Arrêter et Sauvegarder</translation>
     </message>
     <message>
         <source>Stop and Quit &amp;without Saving</source>
         <oldsource>Stop and Quit without Saving</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>Arrêter et Quitter sans Sauvegarder</translation>
     </message>
     <message>
         <source>Quit &amp;without Saving</source>
@@ -10520,10 +10520,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Unknown error occured</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>SSRC value not found.</source>
         <translation>Valeur SSRC non trouvée.</translation>
     </message>
@@ -10602,6 +10598,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>Error</source>
         <translation type="unfinished">Erreur</translation>
+    </message>
+    <message>
+        <source>Unknown error occurred</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Save forward stream CSV</source>
@@ -10964,6 +10964,14 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>SSRC</translation>
     </message>
     <message>
+        <source>Start Time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Payload</source>
         <translation>Payload</translation>
     </message>
@@ -10994,6 +11002,18 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
         <translation>&lt;small&gt;&lt;i&gt;Un indice.&lt;/i&gt;&lt;/small&gt;</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ne montre que les conversations correspondantes au filtre d&apos;affichage courant&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation type="unfinished">Limiter au Filtre d&apos;Affichage</translation>
+    </message>
+    <message>
+        <source>Time of Day</source>
+        <translation type="unfinished">Heure du Jour</translation>
     </message>
     <message>
         <source>Find Reverse</source>
@@ -11114,6 +11134,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>, %1 selected, %2 total packets</source>
         <translation>,%1 sélectionné, %2 paquets au total</translation>
+    </message>
+    <message>
+        <source>No Audio</source>
+        <translation type="unfinished">Pas d&apos;Audio</translation>
     </message>
     <message>
         <source>Save RTPDump As…</source>
@@ -12229,6 +12253,30 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>P</source>
         <translation type="unfinished">P</translation>
+    </message>
+    <message>
+        <source>Select RTP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select RTP stream in RTP Streams dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>S</source>
+        <translation type="unfinished">S</translation>
+    </message>
+    <message>
+        <source>Deselect RTP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deselect RTP stream in RTP Streams dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>D</source>
+        <translation type="unfinished">D</translation>
     </message>
 </context>
 <context>
@@ -13355,6 +13403,14 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>&lt;small&gt;&lt;/small&gt;</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ne montre que les conversations correspondantes au filtre d&apos;affichage courant&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation type="unfinished">Limiter au Filtre d&apos;Affichage</translation>
+    </message>
+    <message>
         <source>Time of Day</source>
         <translation type="unfinished">Heure du Jour</translation>
     </message>
@@ -13365,6 +13421,14 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>Select all calls</source>
         <translation>Sélectionner tous les appels</translation>
+    </message>
+    <message>
+        <source>Select &amp;None</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear selection</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Display time as time of day</source>

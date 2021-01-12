@@ -1,17 +1,22 @@
 
 0x%02x
 0x%08x
+16bit
 1xrtt
+32bit
 3gpp2
 80211n
 accelerometer
+accessor
 accessors
 acked
+acknack
 acknowledgement
 acp133
 activations
 actuator
 additionsr
+administrable
 adwin
 aes128
 aes256
@@ -31,9 +36,13 @@ amperes
 analyzers
 analyzes
 annexc
+anonsvn
 appdata
 appid
+arbitrated
+arduino
 arfcn
+asciidoc
 asn1cnf
 asn2wrs
 assymetric
@@ -49,6 +58,7 @@ authenticator
 authenticators
 authn
 authntransitioning
+authorizer
 authtoken
 authtype
 autoconfiguration
@@ -88,6 +98,8 @@ btmesh
 btsdp
 btsnoop
 bugzilla
+buildbot
+builtin
 byte
 byteorder
 cablelabs
@@ -104,6 +116,7 @@ canonicalize
 canonicalized
 capinfos
 capsa
+captioning
 capwap
 carrierfreq
 carrierid
@@ -116,14 +129,17 @@ celcius
 cellid
 cellidentity
 centiseconds
+centrino
 chan1
 chan2
+changelog
 channelisation
 channelized
 charset
 charsets
 checkbox
 checkout
+choco
 chocolatey
 chunked
 ciphered
@@ -137,6 +153,7 @@ cmake
 cmdcontrol
 cmstatus
 codebook
+codecs
 codepoint
 codeset
 codingrate
@@ -150,6 +167,7 @@ colorizing
 combiner
 combiners
 communication
+computable
 concatenate
 concatenated
 concatenates
@@ -212,12 +230,18 @@ defragmented
 defragmenting
 dehumidification
 deinterleaved
+delimited
 delimiters
 demodulator
 demultiplexer
 demultiplexers
 deobfuscated
 deprecated
+dequeued
+dereference
+dereferenced
+dereferencing
+dereg
 deregister
 deregistered
 deregistering
@@ -258,6 +282,7 @@ dsmcc
 dstport
 dumpcap
 duple
+eapol
 earfcn
 ebcdic
 ecdhe
@@ -274,9 +299,11 @@ encapsulator
 enciphered
 encrypt
 encrypting
+endace
 endian
 endianness
 enrollee
+entityid
 entryid
 enumerations
 epasv
@@ -291,9 +318,11 @@ ettarr
 etype
 eutra
 eutran
+eventlog
 extattr
 extcap
 extensibility
+exthdr
 extrainformation
 failover
 fiber
@@ -310,6 +339,7 @@ format0
 fortigate
 fortinet
 fpiur
+fraghdr
 framenum
 framenumber
 framenun
@@ -325,11 +355,13 @@ gboolean
 gchar
 gcrypt
 gendc
+gentoo
 geoip
 geonw
 geran
 getattr
 getnext
+getter
 gigabit
 gigamon
 github
@@ -352,6 +384,7 @@ hashed
 hazelcast
 heuristic
 hfarr
+hfill,
 HI2Operations
 hnbap
 homeplug
@@ -388,6 +421,7 @@ infos
 initialise
 initialising
 initialization
+initializations
 initialize
 initialized
 initializer
@@ -419,6 +453,8 @@ jetds
 kademlia
 keepalive
 kerberos
+keydes
+keygen
 keylen
 keylog
 keypress
@@ -434,6 +470,7 @@ libgcrypt
 libpcap
 linkaddr
 linkinfo
+linksys
 linux
 list1
 lithionics
@@ -453,8 +490,10 @@ mailto
 malloc
 manuf
 mappable
+maybefcs
 mcast
 measurements
+megabit
 megaco
 mellanox
 memcache
@@ -484,6 +523,8 @@ modulo
 mpeg4
 mpsse
 mrcpv
+msbuild
+msgid
 msgsend
 mtftp
 mtrace
@@ -526,6 +567,7 @@ nettl
 newpw
 nexthop
 nfs4err
+nghttp
 ngsniffer
 niagra
 noauth
@@ -541,6 +583,7 @@ notused
 npcap
 nprach
 nsapi
+nssai
 nstime
 nstrace
 ntlmssp
@@ -562,7 +605,10 @@ onoff
 ontime
 opcode
 opcodes
+openssl
+openstreetmap
 openvpn
+oplock
 opnum
 optimizations
 optimizer
@@ -571,6 +617,7 @@ outhdr
 packetcable
 packetization
 packetized
+parallelization
 param
 parameterization
 parameterized
@@ -647,6 +694,7 @@ randpkt
 reachability
 readme
 realloc
+realtek
 realtime
 reassembles
 reassigning
@@ -665,7 +713,9 @@ rebooted
 reboots
 recalculate
 recalculating
+recalibrate
 recognizer
+recompiling
 recomputed
 reconf
 reconfig
@@ -746,6 +796,7 @@ roamer
 routable
 rpcap
 rtpmidi
+rtpmux
 sanitize
 satisfiable
 scaler
@@ -792,6 +843,7 @@ spare7
 spare8
 spare9
 spcell
+spectrograph
 speex
 spnego
 spoofing
@@ -844,6 +896,7 @@ subtrees
 switchinfo
 synchronizing
 synphasor
+syntaxes
 sysdig
 sysex
 sysframe
@@ -868,9 +921,11 @@ toggling
 toolongfragment
 tooltip
 touchlink
+touchpad
 traceroute
 transcoder
 transitioning
+traveler
 truncatable
 truncate
 truncates
@@ -923,6 +978,7 @@ underrun
 undissected
 unencrypted
 unescaped
+unexported
 unformatted
 unfragmented
 unhandled
@@ -932,17 +988,22 @@ unignore
 unimplemented
 uninitialized
 uninstall
+uninstallation
 uninstalled
 uninstaller
+uninterruptable
 unjoin
 unjoined
 unjoining
 unknown1
 unlink
 unlinked
+unmappable
 unmarshal
+unmerged
 unoptimized
 unparsable
+unparseable
 unparsed
 unprocessable
 unpunctuated
@@ -999,6 +1060,7 @@ version7
 versioned
 versioning
 virtualization
+vlans
 vocoder
 volerr
 wakeup
@@ -1006,6 +1068,7 @@ webcam
 websocket
 wideband
 wikipedia
+wikis
 wimax
 winpcap
 winspool

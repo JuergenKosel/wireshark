@@ -13,6 +13,7 @@
 #include "wireshark_dialog.h"
 
 #include "ui/rtp_stream.h"
+#include "rtp_player_dialog.h"
 
 #include <QAbstractButton>
 #include <QMenu>
@@ -37,8 +38,15 @@ signals:
     void updateFilter(QString filter, bool force = false);
     void goToPacket(int packet_num);
 
+public slots:
+    void selectRtpStream(rtpstream_id_t *id);
+    void deselectRtpStream(rtpstream_id_t *id);
+    void displayFilterSuccess(bool success);
+
 protected:
     bool eventFilter(QObject *obj, QEvent *event);
+    void captureFileClosing();
+    void captureFileClosed();
 
 private:
     Ui::RtpStreamDialog *ui;
@@ -48,6 +56,7 @@ private:
     QPushButton *export_button_;
     QPushButton *copy_button_;
     QPushButton *analyze_button_;
+    QPushButton *player_button_;
     QMenu ctx_menu_;
     bool need_redraw_;
 
@@ -57,12 +66,14 @@ private:
 
     void updateStreams();
     void updateWidgets();
+    void showPlayer();
+
+    void setRtpStreamSelection(rtpstream_id_t *id, bool state);
 
     QList<QVariant> streamRowData(int row) const;
 
 
 private slots:
-    void captureFileClosing();
     void showStreamMenu(QPoint pos);
     void on_actionCopyAsCsv_triggered();
     void on_actionCopyAsYaml_triggered();
@@ -76,6 +87,9 @@ private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_actionExportAsRtpDump_triggered();
     void on_actionAnalyze_triggered();
+    void captureEvent(CaptureEvent e);
+    void on_displayFilterCheckBox_toggled(bool checked);
+    void on_todCheckBox_toggled(bool checked);
 };
 
 #endif // RTP_STREAM_DIALOG_H

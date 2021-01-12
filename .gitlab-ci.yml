@@ -1,18 +1,30 @@
+# In the interest of reliability and performance, please avoid installing
+# external dependencies here, e.g. via tools/*-setup.sh, apt, dnf, or yum.
+# Do so in the appropriate Dockerfile at
+# https://gitlab.com/wireshark/wireshark-containers/ instead.
+# The resulting images can be found at
+# https://hub.docker.com/r/wireshark/wireshark-centos-7-dev
+# https://hub.docker.com/r/wireshark/wireshark-centos-8-dev
+# https://hub.docker.com/r/wireshark/wireshark-debian-stable-dev
+# https://hub.docker.com/r/wireshark/wireshark-fedora-dev
+# https://hub.docker.com/r/wireshark/wireshark-opensuse-15.1-dev
+# https://hub.docker.com/r/wireshark/wireshark-opensuse-15.2-dev
+# https://hub.docker.com/r/wireshark/wireshark-ubuntu-dev
+
 variables:
+  CCACHE_DIR: "${CI_PROJECT_DIR}/ccache"
   GIT_SUBMODULE_STRATEGY: normal
 
-.build: &build
+.build:
   stage: build
   after_script:
     - for builddir in build/packaging/rpm/BUILD/wireshark-*/build build/packaging/rpm/BUILD/wireshark-* build obj-*; do [ ! -d "$builddir/run" ] || break; done
     - if [[ "$CI_JOB_NAME" == "build:rpm-opensuse-"* ]]; then export LD_LIBRARY_PATH=$builddir/run; fi
     - if [ -f $builddir/run/tshark ]; then $builddir/run/tshark --version; fi
+  needs: []
 
-# The custom Ubuntu image pre-installs dependencies and compilers to speed up the build:
-# https://hub.docker.com/r/wireshark/wireshark-ubuntu-dev
-# https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/ubuntu
-.build-ubuntu: &build-ubuntu
-  <<: *build
+.build-ubuntu:
+  extends: .build
   image: wireshark/wireshark-ubuntu-dev
   retry:
     max: 1
@@ -27,56 +39,85 @@ variables:
     paths:
       - ccache/
   before_script:
-    #- apt-get update -qq
-    - ./tools/debian-setup.sh --install-optional --install-test-deps -y
     - useradd user
-    - locale-gen en_US.UTF-8
     - export LANG=en_US.UTF-8
     - export PYTEST_ADDOPTS=--skip-missing-programs=dumpcap,rawshark
     - mkdir -p ccache
-    - export CCACHE_BASEDIR=${PWD}
-    - export CCACHE_DIR=${PWD}/ccache
     - ccache --show-stats
-    - export DEB_BUILD_OPTIONS=nocheck
+    - export DEB_BUILD_OPTIONS=nocheck,parallel=$(( $(getconf _NPROCESSORS_ONLN) + 2 ))
     - export DH_QUIET=1
     - export MAKEFLAGS=--silent
     - mkdir build
     - cd build
+  after_script:
+    # The cache should be large enough to be useful but it shouldn't take
+    # too long to restore+save each run.
+    - ccache --max-size $( du --summarize --block-size=1M "$CI_PROJECT_DIR/build" | awk '{printf ("%dM", $1 * 1.5)}' )
   script:
-    - cmake -GNinja $CMAKE_ARGS ..
+    # setcap restricts our library paths
+    - CFLAGS=-Wl,-rpath=$(pwd)/run CXXFLAGS=-Wl,-rpath=$(pwd)/run cmake -GNinja $CMAKE_ARGS ..
     - ninja
+    - ninja install
+    - ninja shellcheck
     - ninja test-programs
     - chown -R user .
     - if [ -f run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
+    - if [ -f run/dumpcap ]; then su user -c "run/dumpcap -D" ; fi
     - su user -c pytest-3
 
-.build-rpm: &build-rpm
+.build-rpm:
   only:
     - master
-  <<: *build
+  extends: .build
+  before_script:
+    # It might make sense to set "GIT_STRATEGY: none" and build from
+    # the tarball.
+    - git config --global user.email "you@example.com"
+    - git config --global user.name "Your Name"
+    - mkdir build
+    - cd build
+    - perl ../tools/make-version.pl --set-release
+    - mv -v ../wireshark-*.tar.* .
   artifacts:
     paths:
       - build/packaging/rpm/RPMS
     expire_in: 3 days
 
 # Rely on fedora:latest and debian-stable jobs for testing a recent GCC version.
-clang-10: &clang-10
-  <<: *build-ubuntu
+clang-11:
+  extends: .build-ubuntu
   variables:
-    CC: clang-10
-    CXX: clang++-10
+    CC: clang-11
+    CXX: clang++-11
+
+build:ubuntu-dist:
+  stage: .pre
+  extends: .build-ubuntu
+  script:
+    - perl ../tools/make-version.pl --set-release || ../perl make-version.pl --set-release
+    - cmake -G Ninja $CMAKE_ARGS -DENABLE_CCACHE=ON ..
+    - cd $CI_PROJECT_DIR
+    - build/packaging/source/git-export-release.sh -d .
+  after_script:
+    # - ccache --max-size $( du --summarize --block-size=1M "$CI_PROJECT_DIR/build" | awk '{printf ("%dM", $1 * 1.5)}' )
+    - for digest in sha256 rmd160 sha1 ; do openssl $digest wireshark-*.tar.* ; done
+    # This will break if we produce multiple tarballs, which is arguably a good thing.
+    - if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && [ -n "$S3_DESTINATION_DIST" ] ; then aws s3 cp wireshark-*.tar.* "$S3_DESTINATION_DIST/" ; fi
+  artifacts:
+    paths:
+      - wireshark-*.tar.*
 
 # The custom CentOS 7 image pre-installs dependencies and compilers to speed up the build:
 # https://hub.docker.com/r/wireshark/wireshark-centos-7-dev
 # https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/centos-7
 build:rpm-centos-7:
-  <<: *build-rpm
+  extends: .build-rpm
   image: wireshark/wireshark-centos-7-dev
   script:
-    - mkdir build
-    - cd build
     - cmake3 -GNinja ..
     - ninja-build rpm-package
+  needs:
+    - build:ubuntu-dist
 test:rpm-centos-7:
   only:
     - master
@@ -85,22 +126,19 @@ test:rpm-centos-7:
   script:
     - yum --nogpgcheck localinstall -y build/packaging/rpm/RPMS/x86_64/*.rpm
     - tshark --version
-  dependencies:
+  needs:
     - build:rpm-centos-7
   variables:
     GIT_STRATEGY: none
 
-# The custom CentOS 8 image pre-installs dependencies and compilers to speed up the build:
-# https://hub.docker.com/r/wireshark/wireshark-centos-8-dev
-# https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/centos-8
 build:rpm-centos-8:
-  <<: *build-rpm
+  extends: .build-rpm
   image: wireshark/wireshark-centos-8-dev
   script:
-    - mkdir build
-    - cd build
     - cmake -GNinja ..
     - ninja-build rpm-package
+  needs:
+    - build:ubuntu-dist
 test:rpm-centos-8:
   only:
     - master
@@ -109,22 +147,19 @@ test:rpm-centos-8:
   script:
     - dnf --nogpgcheck localinstall -y build/packaging/rpm/RPMS/x86_64/*.rpm
     - tshark --version
-  dependencies:
+  needs:
     - build:rpm-centos-8
   variables:
     GIT_STRATEGY: none
 
-# The custom openSUSE 15.1 image pre-installs dependencies and compilers to speed up the build:
-# https://hub.docker.com/r/wireshark/wireshark-opensuse-15.1-dev
-# https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/opensuse-15.1
 build:rpm-opensuse-15.1:
   image: wireshark/wireshark-opensuse-15.1-dev
-  <<: *build-rpm
+  extends: .build-rpm
   script:
-    - mkdir build
-    - cd build
     - cmake -GNinja ..
     - ninja rpm-package
+  needs:
+    - build:ubuntu-dist
 test:rpm-opensuse-15.1:
   only:
     - master
@@ -135,20 +170,17 @@ test:rpm-opensuse-15.1:
     - tshark --version
   variables:
     GIT_STRATEGY: none
-  dependencies:
+  needs:
     - build:rpm-opensuse-15.1
 
-# The custom openSUSE 15.2 image pre-installs dependencies and compilers to speed up the build:
-# https://hub.docker.com/r/wireshark/wireshark-opensuse-15.2-dev
-# https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/opensuse-15.2
 build:rpm-opensuse-15.2:
   image: wireshark/wireshark-opensuse-15.2-dev
-  <<: *build-rpm
+  extends: .build-rpm
   script:
-    - mkdir build
-    - cd build
     - cmake -GNinja ..
     - ninja rpm-package
+  needs:
+    - build:ubuntu-dist
 test:rpm-opensuse-15.2:
   only:
     - master
@@ -159,21 +191,17 @@ test:rpm-opensuse-15.2:
     - tshark --version
   variables:
     GIT_STRATEGY: none
-  dependencies:
+  needs:
     - build:rpm-opensuse-15.2
 
-# The custom Fedora image pre-installs dependencies and compilers to speed up the build:
-# https://hub.docker.com/repository/docker/wireshark/wireshark-fedora-dev
-# https://gitlab.com/wireshark/wireshark-containers/-/tree/master/dev/fedora
 build:rpm-fedora:
-  <<: *build-rpm
+  extends: .build-rpm
   image: wireshark/wireshark-fedora-dev
   script:
-    #- dnf upgrade -y
-    - mkdir build
-    - cd build
     - cmake3 -GNinja ..
     - ninja rpm-package
+  needs:
+    - build:ubuntu-dist
 test:rpm-fedora:
   only:
     - master
@@ -184,15 +212,12 @@ test:rpm-fedora:
     - tshark --version
   variables:
     GIT_STRATEGY: none
-  dependencies:
+  needs:
     - build:rpm-fedora
 
 # Job to generate packages for Debian stable
-# The custom Debian image pre-installs dependencies and compilers to speed up the build:
-# https://hub.docker.com/r/wireshark/wireshark-debian-stable-dev
-# https://github.com/wireshark/wireshark-debian-stable-dev-docker
 build:debian-stable:
-  <<: *build
+  extends: .build
   image: wireshark/wireshark-debian-stable-dev
   script:
     # Shared GitLab runners limit the log size to 4M, so reduce verbosity. See
@@ -212,7 +237,7 @@ test:debian-stable:
     - tshark --version
   variables:
     GIT_STRATEGY: none
-  dependencies:
+  needs:
     - build:debian-stable
 
 # Build Wireshark manuals
@@ -224,8 +249,6 @@ docbook:
     - changes:
       - "docbook/**"
       - "epan/wslua/**"
-  before_script:
-    - DEBIAN_FRONTEND="noninteractive" ./tools/debian-setup.sh --install-optional -y g++
   script:
     - mkdir build
     - cd build
@@ -242,14 +265,13 @@ docbook:
       - wsug_html_chunked/
       - wsdg_html/
       - wsdg_html_chunked/
+  needs: []
 
 
 # Build all doxygen docs
 doxygen_all:
   stage: build
   image: wireshark/wireshark-ubuntu-dev
-  before_script:
-    - ./tools/debian-setup.sh -y doxygen graphviz
   script:
     - mkdir build
     - cd build
@@ -265,15 +287,18 @@ doxygen_all:
     - doxygen_errors.txt
     - doxygen_output.txt
     - wsar_html
+  needs: []
 
 # https://docs.gitlab.com/ee/user/gitlab_com/index.html#linux-shared-runners
 
 merge-req:commit-checks:
-  <<: *build-ubuntu
+  extends: .build-ubuntu
   tags:
     - docker
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GIT_DEPTH: 10
   script:
     # build-ubuntu puts us in `build`.
     - cd ..
@@ -281,43 +306,54 @@ merge-req:commit-checks:
     - tools/validate-commit.py
 
 merge-req:ubuntu-dpkg:
-  <<: *build-ubuntu
+  extends: .build-ubuntu
   tags:
     - docker
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GIT_DEPTH: 10
   script:
     # build-ubuntu puts us in `build`.
     - cd ..
-    - CC=/usr/lib/ccache/gcc CXX=/usr/lib/ccache/g++ dpkg-buildpackage -us -uc -rfakeroot -jauto -Zgzip -zfast
-    - lintian --suppress-tags library-not-linked-against-libc --display-experimental --display-info --pedantic --profile debian
+    - CC=/usr/lib/ccache/gcc CXX=/usr/lib/ccache/g++ MAKE=ninja dpkg-buildpackage -us -uc -rfakeroot -jauto -Zgzip -zfast
+    - lintian --suppress-tags library-not-linked-against-libc,copyright-excludes-files-in-native-package --display-experimental --display-info --pedantic --profile debian
+  after_script:
+    # dpkg-buildpackage builds in obj-<triplet>, so we need to override
+    # .build-ubuntu. We also build more stuff, so decrease our multiplier.
+    - ccache --max-size $( du --summarize --block-size=1M --total "$CI_PROJECT_DIR"/obj-* | awk '/total$/ {printf ("%dM", $1 * 1.25)}' )
 
 merge-req:ubuntu-gcc-ctest:
-  <<: *build-ubuntu
+  extends: .build-ubuntu
   tags:
     - docker
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GIT_DEPTH: 10
   script:
     # build-ubuntu puts us in `build`.
-    - perl ../tools/make-version.pl --set-release || ../perl make-version.pl --set-release
     - CC=gcc CXX=g++ cmake -DENABLE_EXTRA_COMPILER_WARNINGS=on -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DENABLE_CCACHE=ON -G Ninja ..
     - ninja
     - ninja test-programs
     - chown -R user .
-    - su user -c "ctest --parallel 3 --force-new-ctest-process --verbose"
+    - su user -c "ctest --parallel $(getconf _NPROCESSORS_ONLN) --force-new-ctest-process --verbose"
 
 merge-req:ubuntu-clang-other-tests:
-  extends: clang-10
+  extends: clang-11
   tags:
     - docker
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GIT_DEPTH: 10
   script:
     # build-ubuntu puts us in `build`.
     - cd ..
     - python3 tools/checklicenses.py
     - ./tools/cppcheck/cppcheck.sh -l 1 -x | tee cppcheck_report.xml
+    - ./tools/check_typed_item_calls.py --commits 1 | tee item_calls_check.txt
+    - ./tools/check_tfs.py --commits 1 | tee tfs_check.txt
     - if [[ -s "cppcheck_report.xml" ]]; then cppcheck-htmlreport --file cppcheck_report.xml  --report-dir . ; fi
     - cd build
     - cmake -DENABLE_EXTRA_COMPILER_WARNINGS=on -DENABLE_CHECKHF_CONFLICT=on -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DENABLE_CCACHE=ON -G Ninja ..
@@ -329,6 +365,8 @@ merge-req:ubuntu-clang-other-tests:
     paths:
       - cppcheck_report.xml
       - cppcheck_report.html
+      - item_calls_check.txt
+      - tfs_check.txt
 
 # XXX This is still beta:
 # https://docs.gitlab.com/ee/user/gitlab_com/index.html#windows-shared-runners-beta
@@ -340,10 +378,15 @@ merge-req:windows:
     - wireshark-windows-dev
   stage: build
   rules:
-    # The Windows Docker image is currently only available via a dedicated runner.
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_PROJECT_URL == "https://gitlab.com/wireshark/wireshark"'
+    # The wireshark-windows-dev image is only available via a dedicated runner.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_PROJECT_URL =~ /.*gitlab.com\/wireshark\/wireshark/'
+      when: always
+  variables:
+    GIT_DEPTH: 10
   before_script:
     # XXX Find a better location.
+    - cmd.exe /c "set CI_PIPELINE_SOURCE"
+    - cmd.exe /c "set CI_PROJECT_URL"
     - mkdir c:\Development
     - $env:WIRESHARK_BASE_DIR = "C:\Development"
     - $env:Configuration = "RelWithDebInfo"
@@ -360,10 +403,9 @@ merge-req:windows:
     #- cmd.exe /c "set"
     #- Get-Location
   script:
-    - perl tools/make-version.pl --set-release
     - mkdir build
     - cd build
-    - cmake -G "Visual Studio 16 2019" -A x64 ..
+    - cmake -G "Visual Studio 16 2019" -A x64 -DENABLE_LTO=off ..
     - msbuild "/consoleloggerparameters:PerformanceSummary;NoSummary" /maxcpucount Wireshark.sln
     - msbuild "/consoleloggerparameters:PerformanceSummary;NoSummary" test-programs.vcxproj
     - ctest -C RelWithDebInfo --parallel 3 --force-new-ctest-process --verbose

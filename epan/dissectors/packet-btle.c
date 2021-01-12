@@ -302,6 +302,7 @@ static expert_field ei_crc_cannot_be_determined = EI_INIT;
 static expert_field ei_crc_incorrect = EI_INIT;
 static expert_field ei_missing_fragment_start = EI_INIT;
 static expert_field ei_retransmit = EI_INIT;
+static expert_field ei_nack = EI_INIT;
 
 static dissector_handle_t btle_handle;
 static dissector_handle_t btcommon_ad_handle;
@@ -395,6 +396,7 @@ typedef struct _connection_info_t {
 /* */
 typedef struct _btle_frame_info_t {
     guint    retransmit : 1;      /* 0 = No, 1 = Retransmitted frame */
+    guint    ack : 1;             /* 0 = Nack, 1 = Ack */
     guint    more_fragments : 1;  /* 0 = Last fragment, 1 = More fragments */
     guint    missing_start : 1;   /* 0 = No, 1 = Missing fragment start */
     guint32  l2cap_index;         /* Unique identifier for each L2CAP message */
@@ -480,7 +482,7 @@ static const value_string control_opcode_vals[] = {
     { 0x0E, "LL_SLAVE_FEATURE_REQ" },
     { 0x0F, "LL_CONNECTION_PARAM_REQ" },
     { 0x10, "LL_CONNECTION_PARAM_RSP" },
-    { 0x11, "LL_REJECT_IND_EXT" },
+    { 0x11, "LL_REJECT_EXT_IND" },
     { 0x12, "LL_PING_REQ" },
     { 0x13, "LL_PING_RSP" },
     { 0x14, "LL_LENGTH_REQ" },
@@ -679,6 +681,113 @@ reverse_bits_per_byte(const guint32 val)
         retval |= (nibble_rev[((val >> shiftB) & 0xf)] << shiftA);
     }
     return retval;
+}
+
+static gint
+dissect_feature_set(tvbuff_t *tvb, proto_tree *btle_tree, gint offset)
+{
+    proto_item           *sub_item;
+    proto_tree           *sub_tree;
+
+    sub_item = proto_tree_add_item(btle_tree, hf_control_feature_set, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+    sub_tree = proto_item_add_subtree(sub_item, ett_features);
+
+    proto_tree_add_bitmask_list(sub_tree, tvb, offset, 1, hfx_control_feature_set_1, ENC_NA);
+    offset += 1;
+
+    proto_tree_add_bitmask_list(sub_tree, tvb, offset, 1, hfx_control_feature_set_2, ENC_NA);
+    offset += 1;
+
+    proto_tree_add_bitmask_list(sub_tree, tvb, offset, 1, hfx_control_feature_set_3, ENC_NA);
+    offset += 1;
+
+    proto_tree_add_item(sub_tree, hf_control_feature_set_reserved, tvb, offset, 5, ENC_NA);
+    offset += 5;
+
+    return offset;
+}
+
+static gint
+dissect_conn_param_req_rsp(tvbuff_t *tvb, proto_tree *btle_tree, gint offset)
+{
+    proto_tree_add_item(btle_tree, hf_control_interval_min, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_interval_max, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_latency, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_timeout, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_preferred_periodicity, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    offset += 1;
+
+    proto_tree_add_item(btle_tree, hf_control_reference_connection_event_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_offset_0, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_offset_1, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_offset_2, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_offset_3, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_offset_4, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_offset_5, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    return offset;
+}
+
+static gint
+dissect_length_req_rsp(tvbuff_t *tvb, proto_tree *btle_tree, gint offset)
+{
+    proto_tree_add_item(btle_tree, hf_control_max_rx_octets, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_max_rx_time, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_max_tx_octets, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(btle_tree, hf_control_max_tx_time, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    return offset;
+}
+
+static gint
+dissect_phy_req_rsp(tvbuff_t *tvb, proto_tree *btle_tree, gint offset)
+{
+    proto_tree_add_bitmask(btle_tree, tvb, offset, hf_control_tx_phys, ett_tx_phys, hfx_control_phys_sender, ENC_NA);
+    offset += 1;
+
+    proto_tree_add_bitmask(btle_tree, tvb, offset, hf_control_rx_phys, ett_rx_phys, hfx_control_phys_sender, ENC_NA);
+    offset += 1;
+
+    return offset;
+}
+
+static gint
+dissect_ctrl_pdu_without_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *btle_tree, gint offset)
+{
+    if (tvb_reported_length_remaining(tvb, offset) > 3) {
+        proto_tree_add_expert(btle_tree, pinfo, &ei_unknown_data, tvb, offset, tvb_reported_length_remaining(tvb, offset) - 3);
+        offset += tvb_reported_length_remaining(tvb, offset) - 3;
+    }
+
+    return offset;
 }
 
 static gint
@@ -1431,7 +1540,7 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
         btle_frame_info_t *btle_frame_info = NULL;
         fragment_head *frag_btl2cap_msg = NULL;
-        btle_frame_info_t empty_btle_frame_info = {0, 0, 0, 0};
+        btle_frame_info_t empty_btle_frame_info = {0, 0, 0, 0, 0};
 
         key[0].length = 1;
         key[0].key = &interface_id;
@@ -1505,20 +1614,28 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     if (!connection_info->first_data_frame_seen) {
                         connection_info->first_data_frame_seen = 1;
                         btle_frame_info->retransmit = 0;
+                        btle_frame_info->ack = 1;
                         connection_info->direction_info[BTLE_DIR_MASTER_SLAVE].prev_seq_num = 0;
                         connection_info->direction_info[BTLE_DIR_SLAVE_MASTER].prev_seq_num = 1;
                     }
                     else {
-                        guint8 seq_num = !!(oct & 0x8);
+                        guint8 seq_num = !!(oct & 0x8), next_expected_seq_num = !!(oct & 0x4);
+                        guint8 other_direction = direction == BTLE_DIR_SLAVE_MASTER ? BTLE_DIR_MASTER_SLAVE : BTLE_DIR_SLAVE_MASTER;
 
                         if (seq_num != connection_info->direction_info[direction].prev_seq_num) {
                             /* SN is not equal to previous packet (in same direction) SN */
                             btle_frame_info->retransmit = 0;
-                        }
-                        else {
+                        } else {
                             btle_frame_info->retransmit = 1;
                         }
                         connection_info->direction_info[direction].prev_seq_num = seq_num;
+
+                        if (next_expected_seq_num != connection_info->direction_info[other_direction].prev_seq_num) {
+                            /* NESN is not equal to previous packet (in other direction) SN */
+                            btle_frame_info->ack = 1;
+                        } else {
+                            btle_frame_info->ack = 0;
+                        }
                     }
                     p_add_proto_data(wmem_file_scope(), pinfo, proto_btle, pinfo->curr_layer_num, btle_frame_info);
                 }
@@ -1536,7 +1653,18 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         data_header_tree = proto_item_add_subtree(data_header_item, ett_data_header);
 
         proto_tree_add_item(data_header_tree, hf_data_header_llid, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(data_header_tree, hf_data_header_next_expected_sequence_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        seq_item = proto_tree_add_item(data_header_tree, hf_data_header_next_expected_sequence_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+
+        if (direction != BTLE_DIR_UNKNOWN) {
+            /* Unable to check valid NESN without direction */
+            if (btle_frame_info->ack == 1) {
+                proto_item_append_text(seq_item, " [ACK]");
+            } else {
+                proto_item_append_text(seq_item, " [Request retransmit]");
+                expert_add_info(pinfo, seq_item, &ei_nack);
+            }
+        }
+
         seq_item = proto_tree_add_item(data_header_tree, hf_data_header_sequence_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
         if (direction != BTLE_DIR_UNKNOWN) {
@@ -1545,7 +1673,7 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 proto_item_append_text(seq_item, " [OK]");
             }
             else {
-                proto_item_append_text(seq_item, " [Wrong]");
+                proto_item_append_text(seq_item, " [Retransmit]");
                 if (btle_detect_retransmit) {
                     expert_add_info(pinfo, seq_item, &ei_retransmit);
                     retransmit = TRUE;
@@ -1577,10 +1705,13 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                             } else {
                                 /*
                                  * Missing fragment for previous L2CAP and fragment start for this.
-                                 * Increase l2cap_index.
+                                 * Set more_fragments and increase l2cap_index to avoid reassembly.
                                  */
+                                btle_frame_info->more_fragments = 1;
                                 btle_frame_info->missing_start = 1;
                                 btle_frame_info->l2cap_index = l2cap_index;
+                                connection_info->direction_info[direction].l2cap_index = l2cap_index;
+                                connection_info->direction_info[direction].segmentation_started = 0;
                                 l2cap_index++;
                             }
                             if (connection_info->direction_info[direction].segment_len_rem > 0) {
@@ -1599,6 +1730,8 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                             btle_frame_info->more_fragments = 1;
                             btle_frame_info->missing_start = 1;
                             btle_frame_info->l2cap_index = l2cap_index;
+                            connection_info->direction_info[direction].l2cap_index = l2cap_index;
+                            connection_info->direction_info[direction].segmentation_started = 0;
                             l2cap_index++;
                         }
                     }
@@ -1735,18 +1868,6 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     val_to_str_ext_const(control_opcode, &control_opcode_vals_ext, "Unknown"));
 
             switch (control_opcode) {
-            case 0x05: /* LL_START_ENC_REQ */
-            case 0x06: /* LL_START_ENC_RSP */
-            case 0x0A: /* LL_PAUSE_ENC_REQ */
-            case 0x0B: /* LL_PAUSE_ENC_RSP */
-            case 0x12: /* LL_PING_REQ */
-            case 0x13: /* LL_PING_RSP */
-                if (tvb_reported_length_remaining(tvb, offset) > 3) {
-                    proto_tree_add_expert(btle_tree, pinfo, &ei_unknown_data, tvb, offset, tvb_reported_length_remaining(tvb, offset) - 3);
-                    offset += tvb_reported_length_remaining(tvb, offset) - 3;
-                }
-
-                break;
             case 0x00: /* LL_CONNECTION_UPDATE_REQ */
                 proto_tree_add_item(btle_tree, hf_control_window_size, tvb, offset, 1, ENC_LITTLE_ENDIAN);
                 offset += 1;
@@ -1779,7 +1900,6 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
                 break;
             case 0x02: /* LL_TERMINATE_IND */
-            case 0x0D: /* LL_REJECT_IND */
                 proto_tree_add_item(btle_tree, hf_control_error_code, tvb, offset, 1, ENC_LITTLE_ENDIAN);
                 offset += 1;
 
@@ -1806,28 +1926,38 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 offset += 4;
 
                 break;
+            case 0x05: /* LL_START_ENC_REQ */
+                offset = dissect_ctrl_pdu_without_data(tvb, pinfo, btle_tree, offset);
+
+                break;
+
+            case 0x06: /* LL_START_ENC_RSP */
+                offset = dissect_ctrl_pdu_without_data(tvb, pinfo, btle_tree, offset);
+
+                break;
+
             case 0x07: /* LL_UNKNOWN_RSP */
                 proto_tree_add_item(btle_tree, hf_control_unknown_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);
                 offset += 1;
 
                 break;
             case 0x08: /* LL_FEATURE_REQ */
+                offset = dissect_feature_set(tvb, btle_tree, offset);
+
+                break;
             case 0x09: /* LL_FEATURE_RSP */
-            case 0x0E: /* LL_SLAVE_FEATURE_REQ */
-                sub_item = proto_tree_add_item(btle_tree, hf_control_feature_set, tvb, offset, 8, ENC_LITTLE_ENDIAN);
-                sub_tree = proto_item_add_subtree(sub_item, ett_features);
+                offset = dissect_feature_set(tvb, btle_tree, offset);
 
-                proto_tree_add_bitmask_list(sub_tree, tvb, offset, 1, hfx_control_feature_set_1, ENC_NA);
-                offset += 1;
+                break;
+            case 0x0A: /* LL_PAUSE_ENC_REQ */
+                if (tvb_reported_length_remaining(tvb, offset) > 3) {
+                    proto_tree_add_expert(btle_tree, pinfo, &ei_unknown_data, tvb, offset, tvb_reported_length_remaining(tvb, offset) - 3);
+                    offset += tvb_reported_length_remaining(tvb, offset) - 3;
+                }
 
-                proto_tree_add_bitmask_list(sub_tree, tvb, offset, 1, hfx_control_feature_set_2, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_bitmask_list(sub_tree, tvb, offset, 1, hfx_control_feature_set_3, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(sub_tree, hf_control_feature_set_reserved, tvb, offset, 5, ENC_NA);
-                offset += 5;
+                break;
+            case 0x0B: /* LL_PAUSE_ENC_RSP */
+                offset = dissect_ctrl_pdu_without_data(tvb, pinfo, btle_tree, offset);
 
                 break;
             case 0x0C: /* LL_VERSION_IND */
@@ -1841,46 +1971,25 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 offset += 2;
 
                 break;
-            case 0x0F: /* LL_CONNECTION_PARAM_REQ */
-            case 0x10: /* LL_CONNECTION_PARAM_RSP */
-                proto_tree_add_item(btle_tree, hf_control_interval_min, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_interval_max, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_latency, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_timeout, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_preferred_periodicity, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            case 0x0D: /* LL_REJECT_IND */
+                proto_tree_add_item(btle_tree, hf_control_error_code, tvb, offset, 1, ENC_LITTLE_ENDIAN);
                 offset += 1;
 
-                proto_tree_add_item(btle_tree, hf_control_reference_connection_event_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_offset_0, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_offset_1, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_offset_2, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_offset_3, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_offset_4, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_offset_5, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
+                break;
+            case 0x0E: /* LL_SLAVE_FEATURE_REQ */
+                offset = dissect_feature_set(tvb, btle_tree, offset);
 
                 break;
-            case 0x11: /* LL_REJECT_IND_EXT */
+
+            case 0x0F: /* LL_CONNECTION_PARAM_REQ */
+                offset = dissect_conn_param_req_rsp(tvb, btle_tree, offset);
+
+                break;
+            case 0x10: /* LL_CONNECTION_PARAM_RSP */
+                offset = dissect_conn_param_req_rsp(tvb, btle_tree, offset);
+
+                break;
+            case 0x11: /* LL_REJECT_EXT_IND */
                 proto_tree_add_item(btle_tree, hf_control_reject_opcode, tvb, offset, 1, ENC_LITTLE_ENDIAN);
                 offset += 1;
 
@@ -1888,28 +1997,29 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 offset += 1;
 
                 break;
+            case 0x12: /* LL_PING_REQ */
+                offset = dissect_ctrl_pdu_without_data(tvb, pinfo, btle_tree, offset);
+
+                break;
+            case 0x13: /* LL_PING_RSP */
+                offset = dissect_ctrl_pdu_without_data(tvb, pinfo, btle_tree, offset);
+
+                break;
+
             case 0x14: /* LL_LENGTH_REQ */
+                dissect_length_req_rsp(tvb, btle_tree, offset);
+
+                break;
             case 0x15: /* LL_LENGTH_RSP */
-                proto_tree_add_item(btle_tree, hf_control_max_rx_octets, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_max_rx_time, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_max_tx_octets, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(btle_tree, hf_control_max_tx_time, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
+                dissect_length_req_rsp(tvb, btle_tree, offset);
 
                 break;
             case 0x16: /* LL_PHY_REQ */
-            case 0x17: /* LL_PHY_RSP */
-                proto_tree_add_bitmask(btle_tree, tvb, offset, hf_control_tx_phys, ett_tx_phys, hfx_control_phys_sender, ENC_NA);
-                offset += 1;
+                dissect_phy_req_rsp(tvb, btle_tree, offset);
 
-                proto_tree_add_bitmask(btle_tree, tvb, offset, hf_control_rx_phys, ett_rx_phys, hfx_control_phys_sender, ENC_NA);
-                offset += 1;
+                break;
+            case 0x17: /* LL_PHY_RSP */
+                dissect_phy_req_rsp(tvb, btle_tree, offset);
 
                 break;
             case 0x18: /* LL_PHY_UPDATE_IND */
@@ -1932,10 +2042,8 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
                 break;
             default:
-                if (tvb_reported_length_remaining(tvb, offset) > 3) {
-                    proto_tree_add_expert(btle_tree, pinfo, &ei_unknown_data, tvb, offset, tvb_reported_length_remaining(tvb, offset) - 3);
-                    offset += tvb_reported_length_remaining(tvb, offset) - 3;
-                }
+                offset = dissect_ctrl_pdu_without_data(tvb, pinfo, btle_tree, offset);
+                break;
             }
 
             break;
@@ -2864,6 +2972,8 @@ proto_register_btle(void)
             { "btle.missing_fragment_start",    PI_SEQUENCE, PI_WARN,  "Missing Fragment Start", EXPFILL }},
         { &ei_retransmit,
             { "btle.retransmit",                PI_SEQUENCE, PI_NOTE,  "Retransmission", EXPFILL }},
+        { &ei_nack,
+            { "btle.nack",                      PI_SEQUENCE, PI_NOTE,  "Not acknowledged", EXPFILL }},
     };
 
     static gint *ett[] = {

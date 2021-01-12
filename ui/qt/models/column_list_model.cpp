@@ -33,7 +33,6 @@ struct ListElement
     int originalType;
     int occurrence;
     bool displayed;
-    bool changed;
 };
 
 static QList<ListElement> store_;
@@ -247,7 +246,7 @@ QString ColumnListModel::headerTitle(int section) const
         case ColumnListModel::COL_FIELDS:
             return tr("Fields");
         case ColumnListModel::COL_OCCURRENCE:
-            return tr("Field Occurence");
+            return tr("Field Occurrence");
     }
 
     return QString();

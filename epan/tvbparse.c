@@ -843,7 +843,7 @@ static int cond_handle(tvbparse_t* tt, const int offset, const tvbparse_wanted_t
 }
 
 tvbparse_wanted_t* tvbparse_handle(tvbparse_wanted_t** handle) {
-    tvbparse_wanted_t* w = (tvbparse_wanted_t *)g_malloc0(sizeof(tvbparse_wanted_t));
+    tvbparse_wanted_t* w = g_new0(tvbparse_wanted_t, 1);
 
     w->condition = cond_handle;
     w->control.handle = handle;
@@ -864,7 +864,7 @@ tvbparse_wanted_t* tvbparse_end_of_buffer(const int id,
                                           const void* data,
                                           tvbparse_action_t before_cb,
                                           tvbparse_action_t after_cb) {
-    tvbparse_wanted_t* w = (tvbparse_wanted_t *)g_malloc0(sizeof(tvbparse_wanted_t));
+    tvbparse_wanted_t* w = g_new0(tvbparse_wanted_t, 1);
 
     w->id = id;
     w->condition = cond_end;
@@ -908,7 +908,7 @@ tvbparse_wanted_t* tvbparse_ft(int id,
     gint len = ft_lens[ftenum];
 
     if (len >= 0) {
-        tvbparse_wanted_t* w = g_malloc0(sizeof(tvbparse_wanted_t));
+        tvbparse_wanted_t* w = g_new0(tvbparse_wanted_t, 1);
 
         w->id = id;
         w->condition = cond_ft;
@@ -1119,7 +1119,7 @@ tvbparse_wanted_t* tvbparse_ft_numcmp(int id,
                                       int little_endian,
                                       enum ft_cmp_op ft_cmp_op,
                                       ... ) {
-    tvbparse_wanted_t* w = g_malloc0(sizeof(tvbparse_wanted_t));
+    tvbparse_wanted_t* w = g_new0(tvbparse_wanted_t, 1);
     va_list ap;
 
     va_start(ap,ft_cmp_op);

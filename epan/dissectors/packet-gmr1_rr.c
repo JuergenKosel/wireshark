@@ -644,6 +644,8 @@ GMR1_IE_FUNC(gmr1_ie_rr_pos_display)
 	                    tvb, offset, 1, ENC_BIG_ENDIAN);
 
 	/* Get text in an aligned tvbuff */
+	/* Do not use tvb_new_octet_aligned(), GSM 7bit packing bit parsing
+	   goes from LSB to MSB so a trick is applied here for the last byte */
 	txt_raw = tvb_get_ptr(tvb, offset, 11);
 	txt_packed = (gchar*)wmem_alloc(wmem_packet_scope(), 11);
 	for (i=0; i<10; i++)

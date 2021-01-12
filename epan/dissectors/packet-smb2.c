@@ -1974,7 +1974,7 @@ static const true_false_string tfs_flags_signature = {
 };
 
 static const true_false_string tfs_flags_replay_operation = {
-	"This is a REPLAY OPEARATION",
+	"This is a REPLAY OPERATION",
 	"This is NOT a replay operation"
 };
 
@@ -3154,7 +3154,7 @@ dissect_smb2_fs_info_05(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *paren
 	}
 
 	bc = tvb_captured_length_remaining(tvb, offset);
-	offset = dissect_qfsi_FS_ATTRIBUTE_INFO(tvb, pinfo, tree, offset, &bc, TRUE);
+	offset = dissect_qfsi_FS_ATTRIBUTE_INFO(tvb, pinfo, tree, offset, &bc);
 
 	return offset;
 }
@@ -5094,6 +5094,7 @@ dissect_smb2_negotiate_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 
 	/* data length */
 	proto_tree_add_item_ret_uint(sub_tree, hf_smb2_negotiate_context_data_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &data_length);
+	proto_item_set_len(sub_item, data_length + 8);
 	offset += 2;
 
 	/* reserved */

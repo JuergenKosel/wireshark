@@ -242,8 +242,7 @@ enum abis_nm_obj_class {
 
 	NM_OC_GPRS_NSE			= 0xf0,
 	NM_OC_GPRS_CELL			= 0xf1,
-	NM_OC_GPRS_NSVC0		= 0xf2,
-	NM_OC_GPRS_NSVC1		= 0xf3,
+	NM_OC_GPRS_NSVC			= 0xf2,
 
 	NM_OC_NULL			= 0xff
 };
@@ -676,6 +675,9 @@ static int hf_attr_gsm_time = -1;
 static int hf_attr_chan_comb = -1;
 static int hf_attr_hsn = -1;
 static int hf_attr_maio = -1;
+static int hf_attr_list_req_attr = -1;
+static int hf_attr_ari_not_reported_cnt = -1;
+static int hf_attr_ari_not_reported_attr = -1;
 /* Ipaccess */
 static int hf_oml_ipa_tres_attr_tag = -1;
 static int hf_oml_ipa_tres_attr_len = -1;
@@ -945,8 +947,7 @@ static const value_string oml_fom_objclass_vals[] = {
 
 	{ NM_OC_GPRS_NSE,		"GPRS NSE" },
 	{ NM_OC_GPRS_CELL,		"GPRS Cell" },
-	{ NM_OC_GPRS_NSVC0,		"GPRS NSVC0" },
-	{ NM_OC_GPRS_NSVC1,		"GPRS NSVC1" },
+	{ NM_OC_GPRS_NSVC,		"GPRS NSVC" },
 
 	{ NM_OC_NULL,			"NULL" },
 	{ 0, NULL }
@@ -1507,12 +1508,12 @@ dissect_ipacc_test_rep(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb)
 
 /* Dissect OML FOM Attributes after OML + FOM header */
 static gint
-dissect_oml_attrs(tvbuff_t *tvb, int base_offs, packet_info *pinfo,
-		  proto_tree *tree)
+dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
+		  packet_info *pinfo, proto_tree *tree)
 {
 	int offset = base_offs;
 
-	while (tvb_reported_length_remaining(tvb, offset) > 0) {
+	while (offset - base_offs < length) {
 		guint i;
 		guint8 tag, val8;
 		unsigned int len, len_len, hlen;
@@ -1569,6 +1570,10 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, packet_info *pinfo,
 		proto_tree_add_uint(att_tree, hf_oml_fom_attr_len, tvb,
 				    offset+1, len_len, len);
 		offset += hlen;
+
+		/* Empty IE => nothing to dissect */
+		if (len == 0)
+			continue;
 
 		sub_tvb = tvb_new_subset_length(tvb, offset, len);
 
@@ -1668,6 +1673,34 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, packet_info *pinfo,
 		case NM_ATT_MAIO:
 			proto_tree_add_item(att_tree, hf_attr_maio, tvb,
 					    offset, len, ENC_LITTLE_ENDIAN);
+			break;
+		case NM_ATT_LIST_REQ_ATTR:
+			for (i = 0; i < len; i++) {
+				proto_tree_add_item(att_tree, hf_attr_list_req_attr,
+						    tvb, offset + i, 1,
+						    ENC_LITTLE_ENDIAN);
+			}
+			break;
+		case NM_ATT_GET_ARI:
+			{
+				guint not_counted, loffset;
+				if (!len)
+					break;
+
+				loffset = offset;
+
+				not_counted = tvb_get_guint8(tvb, offset);
+				proto_tree_add_item(att_tree, hf_attr_ari_not_reported_cnt,
+						    tvb, loffset, 1,
+						    ENC_LITTLE_ENDIAN);
+				loffset++;
+				for (i = 0; i < not_counted; i++) {
+					proto_tree_add_item(att_tree, hf_attr_ari_not_reported_attr,
+							    tvb, loffset++, 1,
+							    ENC_LITTLE_ENDIAN);
+				}
+				loffset = dissect_oml_attrs(tvb, loffset, len - 1 - not_counted, pinfo, att_tree);
+			}
 			break;
 		default:
 			proto_tree_add_item(att_tree, hf_oml_fom_attr_val, tvb,
@@ -1775,7 +1808,7 @@ dissect_oml_fom(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 
 	/* dissect the TLV objects in the message body */
-	offset = dissect_oml_attrs(tvb, offset, pinfo, fom_tree);
+	offset = dissect_oml_attrs(tvb, offset, tvb_reported_length_remaining(tvb, offset), pinfo, fom_tree);
 
 	return offset;
 }
@@ -2017,6 +2050,21 @@ proto_register_abis_oml(void)
 			{ "MAIO", "gsm_abis_oml.fom.attr.maio",
 			  FT_UINT8, BASE_DEC, NULL, 0,
 			  "Mobile Allocation Index Offset", HFILL }
+		},
+		{ &hf_attr_list_req_attr,
+			{ "List of required Attributes", "gsm_abis_oml.fom.attr.list_req_attr",
+			  FT_UINT8, BASE_DEC, VALS(oml_fom_attr_vals), 0,
+			  NULL, HFILL }
+		},
+		{ &hf_attr_ari_not_reported_cnt,
+			{ "Count of not-reported attributes", "gsm_abis_oml.fom.attr.ari.not_reported_cnt",
+			  FT_UINT8, BASE_DEC, NULL, 0,
+			  NULL, HFILL }
+		},
+		{ &hf_attr_ari_not_reported_attr,
+			{ "Not-reported attribute", "gsm_abis_oml.fom.attr.ari.not_reported",
+			  FT_UINT8, BASE_DEC, VALS(oml_fom_attr_vals), 0,
+			  NULL, HFILL }
 		},
 
 		/* IP Access */

@@ -791,7 +791,11 @@ void PacketList::mousePressEvent (QMouseEvent *event)
     QModelIndex curIndex = indexAt(event->pos());
     mouse_pressed_at_ = curIndex;
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
+    bool midButton = (event->buttons() & Qt::MiddleButton) == Qt::MiddleButton;
+#else
     bool midButton = (event->buttons() & Qt::MidButton) == Qt::MidButton;
+#endif
     if (midButton && cap_file_ && packet_list_model_)
     {
         packet_list_model_->toggleFrameMark(QModelIndexList() << curIndex);
@@ -1830,7 +1834,7 @@ void PacketList::vScrollBarActionTriggered(int)
 {
     // If we're scrolling with a mouse wheel or trackpad sliderPosition can end up
     // past the end.
-    tail_at_end_ = (verticalScrollBar()->sliderPosition() >= verticalScrollBar()->maximum());
+    tail_at_end_ = (overlay_sb_->sliderPosition() >= overlay_sb_->maximum());
 
     scrollViewChanged(tail_at_end_);
 }

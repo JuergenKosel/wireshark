@@ -1744,8 +1744,8 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Campi</translation>
     </message>
     <message>
-        <source>Field Occurence</source>
-        <translation>Occorrenza del campo</translation>
+        <source>Field Occurrence</source>
+        <translation>Occorrenze del campo</translation>
     </message>
     <message>
         <source>New Column</source>
@@ -3845,6 +3845,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>1 ms</translation>
     </message>
     <message>
+        <source>2 ms</source>
+        <translation>2 ms</translation>
+    </message>
+    <message>
         <source>5 ms</source>
         <translation>5 ms</translation>
     </message>
@@ -3854,27 +3858,31 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     </message>
     <message>
         <source>20 ms</source>
-        <translation type="unfinished">100 ms {20 ?}</translation>
+        <translation>20 ms</translation>
     </message>
     <message>
         <source>50 ms</source>
-        <translation type="unfinished">100 ms {50 ?}</translation>
+        <translation>50 ms</translation>
     </message>
     <message>
         <source>100 ms</source>
         <translation>100 ms</translation>
     </message>
     <message>
+        <source>200 ms</source>
+        <translation>200 ms</translation>
+    </message>
+    <message>
         <source>500 ms</source>
-        <translation type="unfinished">100 ms {500 ?}</translation>
+        <translation>500 ms</translation>
     </message>
     <message>
         <source>2 sec</source>
-        <translation type="unfinished">10 sec {2 ?}</translation>
+        <translation>2 sec</translation>
     </message>
     <message>
         <source>5 sec</source>
-        <translation type="unfinished">10 sec {5 ?}</translation>
+        <translation>5 sec</translation>
     </message>
     <message>
         <source>Wireshark I/O Graphs: %1</source>
@@ -3947,14 +3955,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Save Graph As…</source>
         <translation>Salva il grafico come...</translation>
-    </message>
-    <message>
-        <source>2 ms</source>
-        <translation type="unfinished">100 ms {2 ?}</translation>
-    </message>
-    <message>
-        <source>200 ms</source>
-        <translation type="unfinished">100 ms {200 ?}</translation>
     </message>
 </context>
 <context>
@@ -6314,10 +6314,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Sito web</translation>
     </message>
     <message>
-        <source>FAQ&apos;s</source>
-        <translation>FAQ</translation>
-    </message>
-    <message>
         <source>Downloads</source>
         <translation>Download</translation>
     </message>
@@ -6545,6 +6541,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Help contents</source>
         <translation>Contenuti della guida</translation>
+    </message>
+    <message>
+        <source>FAQs</source>
+        <translation>FAQ</translation>
     </message>
     <message>
         <source>Next Packet in Conversation</source>
@@ -10555,10 +10555,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>La velocità di codifica non è supportata, il file è incompleto</translation>
     </message>
     <message>
-        <source>Unknown error occured</source>
-        <translation>Si è verificato un errore sconosciuto</translation>
-    </message>
-    <message>
         <source>SSRC value not found.</source>
         <translation>Valore SSRC non trovato.</translation>
     </message>
@@ -10637,6 +10633,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Error</source>
         <translation>Errore</translation>
+    </message>
+    <message>
+        <source>Unknown error occurred</source>
+        <translation>Si è verificato un errore sconosciuto</translation>
     </message>
     <message>
         <source>Save forward stream CSV</source>
@@ -11003,6 +11003,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>SSRC</translation>
     </message>
     <message>
+        <source>Start Time</source>
+        <translation>Ora di inizio</translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation>Durata</translation>
+    </message>
+    <message>
         <source>Payload</source>
         <translation>Payload</translation>
     </message>
@@ -11033,6 +11041,18 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
         <translation>&lt;small&gt;&lt;i&gt;Un suggerimento.&lt;/i&gt;&lt;/small&gt;</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mostra solo le conversazioni che corrispondono al filtro di visualizzazione attuale&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation>Limita al filtro di visualizzazione</translation>
+    </message>
+    <message>
+        <source>Time of Day</source>
+        <translation>Ora del giorno</translation>
     </message>
     <message>
         <source>Find Reverse</source>
@@ -11153,6 +11173,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>, %1 selected, %2 total packets</source>
         <translation>, selezionati %1, pacchetti totali %2</translation>
+    </message>
+    <message>
+        <source>No Audio</source>
+        <translation>Nessun audio</translation>
     </message>
     <message>
         <source>Save RTPDump As…</source>
@@ -12292,6 +12316,30 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <source>P</source>
         <translation>P</translation>
     </message>
+    <message>
+        <source>Select RTP Stream</source>
+        <translation>Seleziona flusso RTP</translation>
+    </message>
+    <message>
+        <source>Select RTP stream in RTP Streams dialog</source>
+        <translation>Seleziona flusso RTP nella finestra Flussi RTP</translation>
+    </message>
+    <message>
+        <source>S</source>
+        <translation>S</translation>
+    </message>
+    <message>
+        <source>Deselect RTP Stream</source>
+        <translation>Deseleziona flusso RTP</translation>
+    </message>
+    <message>
+        <source>Deselect RTP stream in RTP Streams dialog</source>
+        <translation>Deseleziona flusso RTP nella finestra Flussi RTP</translation>
+    </message>
+    <message>
+        <source>D</source>
+        <translation>D</translation>
+    </message>
 </context>
 <context>
     <name>ShortcutListModel</name>
@@ -13411,6 +13459,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>&lt;small&gt;&lt;/small&gt;</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mostra solo le conversazioni che corrispondono al filtro di visualizzazione attuale&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation>Limita al filtro di visualizzazione</translation>
+    </message>
+    <message>
         <source>Time of Day</source>
         <translation>Ora del giorno</translation>
     </message>
@@ -13421,6 +13477,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Select all calls</source>
         <translation>Seleziona tutte le chiamate</translation>
+    </message>
+    <message>
+        <source>Select &amp;None</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear selection</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Display time as time of day</source>

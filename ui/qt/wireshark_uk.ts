@@ -1724,7 +1724,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Field Occurence</source>
+        <source>Field Occurrence</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3802,6 +3802,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>2 ms</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>5 ms</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3819,6 +3823,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>100 ms</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>200 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3903,14 +3911,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Save Graph As…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>2 ms</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>200 ms</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -6250,10 +6250,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Веб-сайт</translation>
     </message>
     <message>
-        <source>FAQ&apos;s</source>
-        <translation>ЧаПи</translation>
-    </message>
-    <message>
         <source>Downloads</source>
         <translation>Завантаження</translation>
     </message>
@@ -6480,6 +6476,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Help contents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>FAQs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10478,10 +10478,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Unknown error occured</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>SSRC value not found.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10560,6 +10556,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Error</source>
         <translation type="unfinished">Помилка</translation>
+    </message>
+    <message>
+        <source>Unknown error occurred</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Save forward stream CSV</source>
@@ -10901,6 +10901,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>SSRC</translation>
     </message>
     <message>
+        <source>Start Time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Payload</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10930,6 +10938,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Time of Day</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11050,6 +11070,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>, %1 selected, %2 total packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No Audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12169,6 +12193,30 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>P</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Select RTP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select RTP stream in RTP Streams dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>S</source>
+        <translation type="unfinished">S</translation>
+    </message>
+    <message>
+        <source>Deselect RTP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deselect RTP stream in RTP Streams dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>D</source>
+        <translation type="unfinished">D</translation>
+    </message>
 </context>
 <context>
     <name>ShortcutListModel</name>
@@ -13256,6 +13304,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Limit to display filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Time of Day</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13265,6 +13321,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Select all calls</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select &amp;None</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

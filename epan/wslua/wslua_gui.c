@@ -27,7 +27,7 @@ struct _lua_menu_data {
 
 static int menu_cb_error_handler(lua_State* L) {
     const gchar* error =  lua_tostring(L,1);
-    report_failure("Lua: Error During execution of Menu Callback:\n %s",error);
+    report_failure("Lua: Error during execution of Menu callback:\n %s",error);
     return 0;
 }
 
@@ -52,6 +52,9 @@ static void lua_menu_callback(gpointer data) {
             break;
         case LUA_ERRMEM:
             g_warning("Memory alloc error while calling menu callback");
+            break;
+        case LUA_ERRERR:
+            g_warning("Error while running the error handler function for menu callback");
             break;
         default:
             g_assert_not_reached();
@@ -95,7 +98,7 @@ WSLUA_FUNCTION wslua_register_menu(lua_State* L) { /*  Register a menu item in o
         return 0;
     }
 
-    md = (struct _lua_menu_data *)g_malloc(sizeof(struct _lua_menu_data));
+    md = g_new(struct _lua_menu_data, 1);
     md->L = L;
 
     lua_pushvalue(L, 2);
@@ -123,7 +126,7 @@ struct _dlg_cb_data {
 
 static int dlg_cb_error_handler(lua_State* L) {
     const gchar* error =  lua_tostring(L,1);
-    report_failure("Lua: Error During execution of dialog callback:\n %s",error);
+    report_failure("Lua: Error during execution of Dialog callback:\n %s",error);
     return 0;
 }
 
@@ -153,6 +156,9 @@ static void lua_dialog_cb(gchar** user_input, void* data) {
         case LUA_ERRMEM:
             g_warning("Memory alloc error while calling dialog callback");
             break;
+        case LUA_ERRERR:
+            g_warning("Error while running the error handler function for dialog callback");
+            break;
         default:
             g_assert_not_reached();
             break;
@@ -169,7 +175,7 @@ struct _close_cb_data {
 
 static int text_win_close_cb_error_handler(lua_State* L) {
     const gchar* error =  lua_tostring(L,1);
-    report_failure("Lua: Error During execution of TextWindow close callback:\n %s",error);
+    report_failure("Lua: Error during execution of TextWindow close callback:\n %s",error);
     return 0;
 }
 
@@ -191,6 +197,9 @@ static void text_win_close_cb(void* data) {
                 break;
             case LUA_ERRMEM:
                 g_warning("Memory alloc error during execution of TextWindow close callback");
+                break;
+            case LUA_ERRERR:
+                g_warning("Error while running the error handler function for TextWindow close callback");
                 break;
             default:
                 break;
@@ -268,7 +277,7 @@ WSLUA_FUNCTION wslua_new_dialog(lua_State* L) { /*
     }
 
 
-    dcbd = (struct _dlg_cb_data *)g_malloc(sizeof(struct _dlg_cb_data));
+    dcbd = g_new(struct _dlg_cb_data, 1);
     dcbd->L = L;
 
     lua_remove(L,1);
@@ -556,11 +565,11 @@ WSLUA_CONSTRUCTOR TextWindow_new(lua_State* L) { /*
     }
 
     title = luaL_optstring(L,WSLUA_OPTARG_TextWindow_new_TITLE, "Untitled Window");
-    tw = (struct _wslua_tw *)g_malloc(sizeof(struct _wslua_tw));
+    tw = g_new(struct _wslua_tw, 1);
     tw->expired = FALSE;
     tw->ws_tw = ops->new_text_window(title);
 
-    default_cbd = (struct _close_cb_data *)g_malloc(sizeof(struct _close_cb_data));
+    default_cbd = g_new(struct _close_cb_data, 1);
 
     default_cbd->L = NULL;
     default_cbd->func_ref = 0;
@@ -593,7 +602,7 @@ WSLUA_METHOD TextWindow_set_atclose(lua_State* L) { /* Set the function that wil
         return 0;
     }
 
-    cbd = (struct _close_cb_data *)g_malloc(sizeof(struct _close_cb_data));
+    cbd = g_new(struct _close_cb_data, 1);
 
     cbd->L = L;
     cbd->func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -761,6 +770,9 @@ static gboolean wslua_button_callback(funnel_text_window_t* ws_tw, void* data) {
         case LUA_ERRMEM:
             g_warning("Memory alloc error while calling button callback");
             break;
+        case LUA_ERRERR:
+            g_warning("Error while running the error handler function for button callback");
+            break;
         default:
             g_assert_not_reached();
             break;
@@ -792,8 +804,8 @@ WSLUA_METHOD TextWindow_add_button(lua_State* L) {
     lua_settop(L,3);
 
     if (ops->add_button) {
-        fbt = (funnel_bt_t *)g_malloc(sizeof(funnel_bt_t));
-        cbd = (wslua_bt_cb_t *)g_malloc(sizeof(wslua_bt_cb_t));
+        fbt = g_new(funnel_bt_t, 1);
+        cbd = g_new(wslua_bt_cb_t, 1);
 
         fbt->tw = tw->ws_tw;
         fbt->func = wslua_button_callback;

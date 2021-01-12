@@ -914,7 +914,7 @@ dissect_rfc4675_egress_vlan_name(proto_tree *tree, tvbuff_t *tvb, packet_info *p
 static void
 radius_decrypt_avp(gchar *dest, int dest_len, tvbuff_t *tvb, int offset, int length)
 {
-	gcry_md_hd_t md5_handle, old_md5_handle;
+	gcry_md_hd_t md5_handle;
 	guint8 digest[HASH_MD5_LENGTH];
 	int i, j;
 	gint totlen = 0, returned_length, padded_length;
@@ -938,13 +938,8 @@ radius_decrypt_avp(gchar *dest, int dest_len, tvbuff_t *tvb, int offset, int len
 		return;
 	}
 	gcry_md_write(md5_handle, (const guint8 *)shared_secret, (int)strlen(shared_secret));
-	if (gcry_md_copy(&old_md5_handle, md5_handle)) {
-		gcry_md_close(md5_handle);
-		return;
-	}
 	gcry_md_write(md5_handle, authenticator, AUTHENTICATOR_LENGTH);
 	memcpy(digest, gcry_md_read(md5_handle, 0), HASH_MD5_LENGTH);
-	gcry_md_close(md5_handle);
 
 	padded_length = length + ((length % AUTHENTICATOR_LENGTH) ?
 		(AUTHENTICATOR_LENGTH - (length % AUTHENTICATOR_LENGTH)) : 0);
@@ -966,16 +961,13 @@ radius_decrypt_avp(gchar *dest, int dest_len, tvbuff_t *tvb, int offset, int len
 			}
 		}
 
-		if (gcry_md_copy(&md5_handle, old_md5_handle)) {
-			gcry_md_close(old_md5_handle);
-			return;
-		}
+		gcry_md_reset(md5_handle);
+		gcry_md_write(md5_handle, (const guint8 *)shared_secret, (int)strlen(shared_secret));
 		gcry_md_write(md5_handle, &pd[i], AUTHENTICATOR_LENGTH);
 		memcpy(digest, gcry_md_read(md5_handle, 0), HASH_MD5_LENGTH);
-		gcry_md_close(md5_handle);
 	}
 
-	gcry_md_close(old_md5_handle);
+	gcry_md_close(md5_handle);
 }
 
 static void
@@ -1685,7 +1677,7 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 
 					if (avp_vsa_flags & 0x80) {
 						if (!vsa_buffer) {
-							vsa_buffer = (radius_vsa_buffer *)g_malloc(sizeof(radius_vsa_buffer));
+							vsa_buffer = g_new(radius_vsa_buffer, 1);
 							vsa_buffer->key.vendor_id = vendor_id;
 							vsa_buffer->key.vsa_type = avp_vsa_type;
 							vsa_buffer->len = avp_vsa_len;
@@ -2490,7 +2482,7 @@ radius_register_avp_dissector(guint32 vendor_id, guint32 _attribute_id, radius_a
 		vendor = (radius_vendor_info_t *)g_hash_table_lookup(dict->vendors_by_id, GUINT_TO_POINTER(vendor_id));
 
 		if (!vendor) {
-			vendor = (radius_vendor_info_t *)g_malloc(sizeof(radius_vendor_info_t));
+			vendor = g_new(radius_vendor_info_t, 1);
 
 			vendor->name = g_strdup_printf("%s-%u",
 						       enterprises_lookup(vendor_id, "Unknown"),
@@ -2516,7 +2508,7 @@ radius_register_avp_dissector(guint32 vendor_id, guint32 _attribute_id, radius_a
 	}
 
 	if (!dictionary_entry) {
-		dictionary_entry = (radius_attr_info_t *)g_malloc(sizeof(radius_attr_info_t));
+		dictionary_entry = g_new(radius_attr_info_t, 1);
 
 		dictionary_entry->name = g_strdup_printf("Unknown-Attribute-%u", attribute_id.value);
 		dictionary_entry->code = attribute_id;
@@ -2857,7 +2849,7 @@ proto_register_radius(void)
 	radius_tap = register_tap("radius");
 	proto_register_prefix("radius", register_radius_fields);
 
-	dict = (radius_dictionary_t *)g_malloc(sizeof(radius_dictionary_t));
+	dict = g_new(radius_dictionary_t, 1);
 	/*
 	 * IDs map to names and vice versa. The attribute and vendor is stored
 	 * only once, but referenced by both name and ID mappings.

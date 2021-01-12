@@ -384,6 +384,24 @@ Port-Number TYPE = FT_UINT16 DISPLAY = BASE_DEC
   struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
   s1ap_data->handover_type_value = 0xff;
 
+#.FN_BODY SourceeNB-ToTargeteNB-TransparentContainer
+  struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
+  volatile guint32 _offset;
+
+  s1ap_data->transparent_container_type = SOURCE_TO_TARGET_TRANSPARENT_CONTAINER;
+  _offset = offset;
+   TRY {
+
+  offset = dissect_per_sequence(tvb, _offset, actx, tree, hf_index,
+                                   ett_s1ap_SourceeNB_ToTargeteNB_TransparentContainer, SourceeNB_ToTargeteNB_TransparentContainer_sequence);
+  } CATCH_ALL {
+    show_exception(tvb, actx->pinfo, tree, EXCEPT_CODE, GET_MESSAGE);
+  }
+  ENDTRY;
+    offset = _offset;
+
+
+
 #.FN_BODY Source-ToTarget-TransparentContainer VAL_PTR = &parameter_tvb
 # I think the message is "directly encoded" into the octet string(no "double encoding")
 # (Compare RANAP)
@@ -395,7 +413,7 @@ Port-Number TYPE = FT_UINT16 DISPLAY = BASE_DEC
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
 
-%(DEFAULT_BODY)s
+  %(DEFAULT_BODY)s
 
   if ((g_s1ap_dissect_container)&&(parameter_tvb) && (tvb_reported_length(parameter_tvb) > 0)) {
     struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
@@ -458,6 +476,23 @@ Port-Number TYPE = FT_UINT16 DISPLAY = BASE_DEC
     /* Enable writing of the column again */
     col_set_writable(actx->pinfo->cinfo, COL_INFO, TRUE);
   }
+
+#.FN_BODY TargeteNB-ToSourceeNB-TransparentContainer
+    struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
+    volatile guint32 _offset;
+
+  s1ap_data->transparent_container_type = TARGET_TO_SOURCE_TRANSPARENT_CONTAINER;
+  _offset = offset;
+     TRY {
+
+  _offset = dissect_per_sequence(tvb, _offset, actx, tree, hf_index,
+                                   ett_s1ap_TargeteNB_ToSourceeNB_TransparentContainer, TargeteNB_ToSourceeNB_TransparentContainer_sequence);
+  } CATCH_ALL {
+    show_exception(tvb, actx->pinfo, tree, EXCEPT_CODE, GET_MESSAGE);
+  }
+  ENDTRY;
+    offset = _offset;
+
 #.FN_BODY Target-ToSource-TransparentContainer VAL_PTR = &parameter_tvb
 # I think the message is "directly encoded" into the octet string(no "double encoding")
 # See Target-ToSource-TransparentContainer in RANAP
@@ -567,8 +602,8 @@ Port-Number TYPE = FT_UINT16 DISPLAY = BASE_DEC
     struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
     subtree = proto_item_add_subtree(actx->created_item, ett_s1ap_RRCContainer);
 
-    switch(s1ap_data->message_type){
-      case INITIATING_MESSAGE:
+    switch(s1ap_data->transparent_container_type){
+      case SOURCE_TO_TARGET_TRANSPARENT_CONTAINER:
         /* 9.2.1.7 Source eNB to Target eNB Transparent Container */
         if ((s1ap_is_nbiot_ue(actx->pinfo) && (g_s1ap_dissect_lte_container_as == S1AP_LTE_CONTAINER_AUTOMATIC)) ||
             (g_s1ap_dissect_lte_container_as == S1AP_LTE_CONTAINER_NBIOT)) {
@@ -589,7 +624,7 @@ Port-Number TYPE = FT_UINT16 DISPLAY = BASE_DEC
           ENDTRY;
         }
         break;
-      case SUCCESSFUL_OUTCOME:
+      case TARGET_TO_SOURCE_TRANSPARENT_CONTAINER:
         /* 9.2.1.8 Target eNB to Source eNB Transparent Container */
           TRY {
             dissect_lte_rrc_HandoverCommand_PDU(parameter_tvb, actx->pinfo, subtree, NULL);
@@ -1830,6 +1865,7 @@ id-eNB-EarlyStatusTransfer-TransparentContainer     ProtocolIE-ID
 id-Bearers-SubjectToEarlyStatusTransfer-Item        ProtocolIE-ID
 id-WUS-Assistance-Information                       ProtocolIE-ID
 id-NB-IoT-PagingDRX                                 ProtocolIE-ID
+id-TraceCollectionEntityURI                         ProtocolIE-ID
 
 #.END
 
@@ -2147,6 +2183,7 @@ NB-IoT-RLF-Report-Container             N s1ap.extension id-NB-IoT-RLF-Report-Co
 MDT-ConfigurationNR                     N s1ap.extension id-MDTConfigurationNR
 DAPSRequestInfo                         N s1ap.extension id-DAPSRequestInfo
 DAPSResponseInfoList                    N s1ap.extension id-DAPSResponseInfoList
+URI-Address                             N s1ap.extension id-TraceCollectionEntityURI
 
 #S1AP-ELEMENTARY-PROCEDURE
 HandoverRequired                        N s1ap.proc.imsg id-HandoverPreparation

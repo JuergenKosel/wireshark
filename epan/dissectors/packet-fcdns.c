@@ -446,7 +446,7 @@ static header_field_info hfi_fcdns_num_fc4desc FCDNS_HFI_INIT =
            FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL};
 
 static header_field_info hfi_fcdns_rply_ownerid FCDNS_HFI_INIT =
-          {"Owner Id", "fcdns.rply.ownerid", FT_STRING, BASE_NONE, NULL, 0x0, NULL,
+          {"Owner Id", "fcdns.rply.ownerid", FT_BYTES, SEP_DOT, NULL, 0x0, NULL,
            HFILL};
 
 static header_field_info hfi_fcdns_maxres_size FCDNS_HFI_INIT =
@@ -623,7 +623,7 @@ dissect_fc4features (proto_tree *parent_tree, tvbuff_t *tvb, int offset)
         NULL
     };
 
-    proto_tree_add_bitmask(parent_tree, tvb, offset, &hfi_fcdns_fc4features_i,
+    proto_tree_add_bitmask(parent_tree, tvb, offset, &hfi_fcdns_fc4features,
                            ett_fc4features, flags, ENC_NA);
 }
 

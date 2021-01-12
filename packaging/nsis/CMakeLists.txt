@@ -46,7 +46,7 @@ endif()
 set (MMDBRESOLVE_EXE ${MAXMINDDB_FOUND})
 
 # Must match ${EXTRA_INSTALLER_DIR}/Npcap-X.Y.Z.exe
-set(NPCAP_PACKAGE_VERSION "1.00")
+set(NPCAP_PACKAGE_VERSION "1.10")
 
 set(USBPCAP_PACKAGE_VERSION "1.5.4.0")
 
@@ -147,7 +147,7 @@ foreach(_dll ${GLIB2_DLLS_RELEASE})
 endforeach()
 set(_all_manifest_contents "${_all_manifest_contents}!endif\n")
 foreach(_dll ${CARES_DLL} ${GCRYPT_DLLS}
-		${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLL} ${LUA_DLL}
+		${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLLS} ${LUA_DLL}
 		${LZ4_DLL} ${NGHTTP2_DLL} ${SBC_DLL} ${SMI_DLL} ${SNAPPY_DLL}
 		${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLLS} ${WINSPARKLE_DLL}
 		${ZLIB_DLL} ${BROTLI_DLLS} ${ZSTD_DLL} ${ILBC_DLL} ${OPUS_DLL}

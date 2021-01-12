@@ -79,6 +79,7 @@ OverlayScrollBar::OverlayScrollBar(Qt::Orientation orientation, QWidget *parent)
     connect(this, &OverlayScrollBar::valueChanged, &child_sb_, &QScrollBar::setValue);
 
     connect(&child_sb_, &QScrollBar::valueChanged, this, &OverlayScrollBar::setValue);
+    connect(&child_sb_, &QScrollBar::actionTriggered, this, &OverlayScrollBar::actionTriggered);
 }
 
 OverlayScrollBar::~OverlayScrollBar()
@@ -91,6 +92,11 @@ QSize OverlayScrollBar::sizeHint() const
 {
     return QSize(packet_map_width_ + child_sb_.sizeHint().width(),
                  QScrollBar::sizeHint().height());
+}
+
+int OverlayScrollBar::sliderPosition()
+{
+    return child_sb_.sliderPosition();
 }
 
 void OverlayScrollBar::setNearOverlayImage(QImage &overlay_image, int packet_count, int start_pos, int end_pos, QList<int> positions)
@@ -138,6 +144,7 @@ void OverlayScrollBar::resizeEvent(QResizeEvent *event)
 
     child_sb_.move(packet_map_width_, 0);
     child_sb_.resize(child_sb_.sizeHint().width(), height());
+    child_sb_.setPageStep(height());
 }
 
 void OverlayScrollBar::paintEvent(QPaintEvent *event)

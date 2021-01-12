@@ -341,7 +341,7 @@ wtap_get_all_capture_file_extensions_list(void)
  * NOTE: when adding file formats to this list you may also want to add them
  * to the following files so that the various desktop environments will
  * know that Wireshark can open the file:
- *	1) wireshark-mime-package.xml (for freedesktop.org environments)
+ *	1) org.wireshark.Wireshark-mime.xml (for freedesktop.org environments)
  *	2) packaging/macosx/Info.plist.in (for macOS)
  *	3) packaging/nsis/AdditionalTasksPage.ini, packaging/nsis/common.nsh,
  *	   and packaging/wix/ComponentGroups.wxi (for Windows)
@@ -820,7 +820,7 @@ wtap_open_offline(const char *filename, unsigned int type, int *err, char **err_
 	}
 
 	errno = ENOMEM;
-	wth = (wtap *)g_malloc0(sizeof(wtap));
+	wth = g_new0(wtap, 1);
 
 	/* Open the file */
 	errno = WTAP_ERR_CANT_OPEN;
@@ -2636,7 +2636,7 @@ wtap_dump_alloc_wdh(int file_type_subtype, int encap, int snaplen,
 {
 	wtap_dumper *wdh;
 
-	wdh = (wtap_dumper *)g_malloc0(sizeof (wtap_dumper));
+	wdh = g_new0(wtap_dumper, 1);
 	if (wdh == NULL) {
 		*err = errno;
 		return NULL;

@@ -71,7 +71,7 @@ endif()
 if (CMAKE_INTERPROCEDURAL_OPTIMIZATION)
 	message(STATUS "LTO/IPO is enabled")
 else()
-	message(STATUS "LTO/LPO is not enabled")
+	message(STATUS "LTO/IPO is not enabled")
 endif()
 
 # If our target platform is enforced by our generator, set
@@ -456,16 +456,15 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 
 else() # ! MSVC
 	if(APPLE)
-		set(MIN_MACOS_VERSION 10.6) # Arbitrary.
+		# MIN_MACOS_VERSION is used to set LSMinimumSystemVersion
+		# in Info.plist, so start with something low.
+		set(MIN_MACOS_VERSION 10.6)
 		if(CMAKE_OSX_DEPLOYMENT_TARGET)
 			if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS MIN_MACOS_VERSION)
 				message(FATAL_ERROR "We don't support building for macOS < ${MIN_MACOS_VERSION}")
 			endif()
 			set(MIN_MACOS_VERSION ${CMAKE_OSX_DEPLOYMENT_TARGET})
-			message(STATUS "Building for Mac OS X/OS X/macOS ${CMAKE_OSX_DEPLOYMENT_TARGET}")
 		endif()
-	elseif(CMAKE_OSX_DEPLOYMENT_TARGET)
-		message(FATAL_ERROR "CMAKE_OSX_DEPLOYMENT_TARGET only applies when building for macOS")
 	endif()
 
 	#
@@ -1038,19 +1037,18 @@ endmacro()
 # The minimum package list
 find_package(Git)
 reset_find_package(GLIB2 GLIB2_MAIN_INCLUDE_DIR GLIB2_INTERNAL_INCLUDE_DIR)
-find_package(GLIB2 "2.32.0" REQUIRED)
+find_package(GLIB2 "2.36.0" REQUIRED)
 include_directories(SYSTEM ${GLIB2_INCLUDE_DIRS})
 reset_find_package(GMODULE2)
 find_package(GMODULE2)
 reset_find_package(GTHREAD2)
 find_package(GTHREAD2 REQUIRED)
 reset_find_package(GCRYPT GCRYPT_ERROR_LIBRARY)
-find_package(GCRYPT "1.4.2" REQUIRED)
+find_package(GCRYPT "1.5.0" REQUIRED)
 # C Asynchronous resolver
 reset_find_package(CARES)
 find_package(CARES "1.5.0" REQUIRED)
 find_package(LEX REQUIRED)
-find_package(YACC REQUIRED)
 find_package(Perl REQUIRED)
 
 if(CMAKE_VERSION VERSION_LESS "3.12")
@@ -1134,7 +1132,7 @@ reset_find_package(SMI SMI_SHARE_DIR)
 ws_find_package(SMI ENABLE_SMI HAVE_LIBSMI)
 
 # Support for TLS decryption using RSA private keys.
-ws_find_package(GNUTLS ENABLE_GNUTLS HAVE_LIBGNUTLS "3.2.0")
+ws_find_package(GNUTLS ENABLE_GNUTLS HAVE_LIBGNUTLS "3.3.0")
 
 # Kerberos
 ws_find_package(KERBEROS ENABLE_KERBEROS HAVE_KERBEROS)
@@ -1229,19 +1227,18 @@ if(BUILD_wireshark OR BUILD_sharkd)
 	endif()
 endif()
 
-# dist target that prepares source dir
-# XXX Duplicated in the RPM section below.
+# Generate the distribution tarball.
 add_custom_target(dist
 	COMMAND ${CMAKE_BINARY_DIR}/packaging/source/git-export-release.sh -d "${CMAKE_BINARY_DIR}"
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
 if(GNUTLS_FOUND AND NOT GNUTLS_VERSION VERSION_LESS "3.4.0")
-	# While all Linux and Windows builds have PKCS #11 support enabled,
-	# macos-setup.sh explicitly disables it using --without-p11-kit.
+	# Calculating public keys from PKCS #11 private keys requires GnuTLS
+	# 3.4.0 or greater.
 	#
-	# Require at least GnuTLS 3.4.0 such that public keys can be calculated
-	# from PKCS #11 private keys.
+	# Check that the support is present in case GnuTLS was compiled
+	# --without-p11-kit as macos-setup.sh did until December 2020.
 	include(CheckSymbolExists)
 	cmake_push_check_state()
 	if(WIN32)
@@ -1298,8 +1295,12 @@ if (QT_FOUND)
 		)
 		# https://doc.qt.io/qt-5/supported-platforms.html
 		# https://doc.qt.io/qt-5.11/supported-platforms-and-configurations.html
+		# https://doc.qt.io/qt-5.15/supported-platforms.html
+		# https://doc-snapshots.qt.io/qt6-dev/supported-platforms.html
 		# CMake < 3.7 doesn't support VERSION_GREATER_EQUAL.
-		if(Qt5Widgets_VERSION VERSION_GREATER "5.14.999")
+		if(Qt5Widgets_VERSION VERSION_GREATER "5.999.999")
+			set(MIN_MACOS_VERSION 10.14)
+		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.14.999")
 			set(MIN_MACOS_VERSION 10.13)
 		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.11.999")
 			set(MIN_MACOS_VERSION 10.12)
@@ -1343,6 +1344,8 @@ if(APPLE)
 	FIND_LIBRARY (APPLE_APPKIT_LIBRARY AppKit)
 	FIND_LIBRARY (APPLE_CORE_FOUNDATION_LIBRARY CoreFoundation)
 	FIND_LIBRARY (APPLE_SYSTEM_CONFIGURATION_LIBRARY SystemConfiguration)
+
+	message(STATUS "Building for Mac OS X/OS X/macOS ${MIN_MACOS_VERSION} using SDK ${CMAKE_OSX_SYSROOT}")
 endif()
 
 include(ConfigureChecks.cmake)
@@ -1817,6 +1820,7 @@ set(INSTALL_FILES
 	${CMAKE_BINARY_DIR}/doc/mergecap.html
 	${CMAKE_BINARY_DIR}/doc/randpkt.html
 	${CMAKE_BINARY_DIR}/doc/randpktdump.html
+	${CMAKE_BINARY_DIR}/doc/etwdump.html
 	${CMAKE_BINARY_DIR}/doc/rawshark.html
 	${CMAKE_BINARY_DIR}/doc/reordercap.html
 	${CMAKE_BINARY_DIR}/doc/sshdump.html
@@ -1883,11 +1887,16 @@ if(WIN32)
 		list (APPEND OPTIONAL_DLLS "${CARES_DLL_DIR}/${CARES_DLL}")
 		list (APPEND OPTIONAL_PDBS "${CARES_DLL_DIR}/${CARES_PDB}")
 	endif(CARES_FOUND)
-	if (MAXMINDDB_FOUND)
-		list (APPEND OPTIONAL_DLLS "${MAXMINDDB_DLL_DIR}/${MAXMINDDB_DLL}")
-	endif(MAXMINDDB_FOUND)
+	# vcpkg's libmaxminddb is static-only for now. This can be uncommented when
+	# https://github.com/maxmind/libmaxminddb/commit/3998f42bdb6678cbaa1a543057e5c81ba1668ac2
+	# percolates up to vcpkg.
+	# if (MAXMINDDB_FOUND)
+	# 	list (APPEND OPTIONAL_DLLS "${MAXMINDDB_DLL_DIR}/${MAXMINDDB_DLL}")
+	# endif(MAXMINDDB_FOUND)
 	if (LIBSSH_FOUND)
-		list (APPEND OPTIONAL_DLLS "${LIBSSH_DLL_DIR}/${LIBSSH_DLL}")
+		foreach( _dll ${LIBSSH_DLLS} )
+			list (APPEND OPTIONAL_DLLS "${LIBSSH_DLL_DIR}/${_dll}")
+		endforeach(_dll)
 	endif(LIBSSH_FOUND)
 	foreach( _dll ${GCRYPT_DLLS} )
 		list (APPEND OPTIONAL_DLLS "${GCRYPT_DLL_DIR}/${_dll}")
@@ -2833,6 +2842,8 @@ if (MAXMINDDB_FOUND)
 	set(mmdbresolve_LIBS
 		# Note: libmaxminddb is not GPL-2 compatible.
 		${MAXMINDDB_LIBRARY}
+		# Needed for CMake-built libmaxminddb.lib <= 1.43.
+		${WIN_WS2_32_LIBRARY}
 	)
 	set(mmdbresolve_FILES
 		mmdbresolve.c
@@ -3029,6 +3040,9 @@ if(RPMBUILD_EXECUTABLE)
 	endforeach()
 
 	set(_rpmbuild_with_args)
+	if(NOT CMAKE_VERBOSE_MAKEFILE)
+		list(APPEND _rpmbuild_with_args --quiet)
+	endif()
 	if(CMAKE_GENERATOR STREQUAL "Ninja")
 		list(APPEND _rpmbuild_with_args --with ninja)
 	endif()
@@ -3081,14 +3095,9 @@ if(RPMBUILD_EXECUTABLE)
 			${CMAKE_SOURCE_DIR}
 	)
 
-	# XXX Replace with the "dist" target?
-	set(_export_tarball "${PROJECT_NAME}-${VERSION}.tar.xz")
-	add_custom_command(
-		OUTPUT "${CMAKE_BINARY_DIR}/packaging/rpm/SOURCES/${_export_tarball}"
-		COMMAND ${CMAKE_BINARY_DIR}/packaging/source/git-export-release.sh
-			-d "${CMAKE_BINARY_DIR}/packaging/rpm/SOURCES"
-			"${VERSION}"
-		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	add_custom_target(copy-dist
+		COMMAND cp ${CMAKE_BINARY_DIR}/wireshark*tar* ${CMAKE_BINARY_DIR}/packaging/rpm/SOURCES/
+		DEPENDS dist
 	)
 	add_custom_target(rpm-package
 		COMMAND ${RPMBUILD_EXECUTABLE}
@@ -3097,9 +3106,9 @@ if(RPMBUILD_EXECUTABLE)
 			${_rpmbuild_with_args}
 			-v
 			-ba SPECS/wireshark.spec
-		DEPENDS "${CMAKE_BINARY_DIR}/packaging/rpm/SOURCES/${_export_tarball}"
+		DEPENDS copy-dist
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/packaging/rpm"
-		COMMENT "Create a tarball from the current git commit."
+		COMMENT "Create a rpm from the current git commit."
 	)
 endif()
 
@@ -3143,7 +3152,7 @@ if(LINUXDEPLOYQT_EXECUTABLE AND APPIMAGETOOL_EXECUTABLE)
 	# https://github.com/probonopd/linuxdeployqt/wiki/Custom-wrapper-script-instead-of-AppRun
 	add_custom_target(appimage-prep
 		COMMAND ${LINUXDEPLOYQT_EXECUTABLE}
-			"${_ai_appdir}/usr/share/applications/wireshark.desktop"
+			"${_ai_appdir}/usr/share/applications/org.wireshark.Wireshark.desktop"
 			${_exe_args}
 		COMMAND rm -f "${_ai_appdir}/AppRun"
 		COMMAND install
@@ -3166,6 +3175,7 @@ set(CLEAN_C_FILES
 	${dftest_FILES}
 	${randpkt_FILES}
 	${randpktdump_FILES}
+	${etwdump_FILES}
 	${udpdump_FILES}
 	${text2pcap_FILES}
 	${mergecap_FILES}
@@ -3225,28 +3235,28 @@ install(FILES ${SHARK_PUBLIC_HEADERS}
 
 # Install icons and other desktop files for Freedesktop.org-compliant desktops.
 if((BUILD_wireshark AND QT_FOUND) AND NOT (WIN32 OR APPLE))
-	install(FILES wireshark-mime-package.xml
+	install(FILES org.wireshark.Wireshark-mime.xml
 		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/mime/packages"
-		RENAME wireshark.xml
+		RENAME org.wireshark.Wireshark.xml
 	)
-	install(FILES wireshark.appdata.xml
-		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/appdata"
+	install(FILES org.wireshark.Wireshark.metainfo.xml
+		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo"
 	)
 	if(BUILD_wireshark AND QT_FOUND)
-		install(FILES wireshark.desktop
+		install(FILES org.wireshark.Wireshark.desktop
 			DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 	endif()
 	foreach(size 16 24 32 48 64 128 256)
 		install(FILES image/wsicon${size}.png
 			DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${size}x${size}/apps"
-			RENAME wireshark.png)
+			RENAME org.wireshark.Wireshark.png)
 		install(FILES image/WiresharkDoc-${size}.png
 			DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${size}x${size}/mimetypes"
-			RENAME application-wireshark-doc.png)
+			RENAME org.wireshark.Wireshark-mimetype.png)
 	endforeach()
 	install(FILES image/wsicon.svg
 		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
-		RENAME wireshark.svg)
+		RENAME org.wireshark.Wireshark.svg)
 endif()
 
 install(

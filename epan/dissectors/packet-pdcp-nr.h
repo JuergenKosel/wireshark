@@ -37,6 +37,23 @@ typedef enum NRBearerType
 #define PDCP_NR_UL_SDAP_HEADER_PRESENT 0x01
 #define PDCP_NR_DL_SDAP_HEADER_PRESENT 0x02
 
+enum nr_security_integrity_algorithm_e { nia0, nia1, nia2, nia3 };
+enum nr_security_ciphering_algorithm_e { nea0, nea1, nea2, nea3, nea_disabled=999};
+
+typedef struct pdcp_nr_security_info_t
+{
+    guint32                                configuration_frame;
+    gboolean                               seen_next_ul_pdu;  /* i.e. have we seen SecurityModeResponse */
+    enum nr_security_integrity_algorithm_e integrity;
+    enum nr_security_ciphering_algorithm_e ciphering;
+
+    /* Store previous settings so can revert if get SecurityModeFailure */
+    guint32                                previous_configuration_frame;
+    enum nr_security_integrity_algorithm_e previous_integrity;
+    enum nr_security_ciphering_algorithm_e previous_ciphering;
+} pdcp_nr_security_info_t;
+
+
 /* Info attached to each nr PDCP/RoHC packet */
 typedef struct pdcp_nr_info
 {
@@ -50,6 +67,7 @@ typedef struct pdcp_nr_info
     enum pdcp_nr_plane plane;
     guint8             seqnum_length;
     gboolean           maci_present;
+    gboolean           ciphering_disabled;
     /* PDCP_NR_(U|D)L_SDAP_HEADER_PRESENT bitmask */
     guint8             sdap_header;
 
@@ -78,7 +96,7 @@ void set_pdcp_nr_proto_data(packet_info *pinfo, pdcp_nr_info *p_pdcp_nr_info);
 /* and implemented by this dissector, using the definitions      */
 /* below.                                                        */
 /*                                                               */
-/* A heuristic dissecter (enabled by a preference) will          */
+/* A heuristic dissector (enabled by a preference) will          */
 /* recognise a signature at the beginning of these frames.       */
 /* Until someone is using this format, suggestions for changes   */
 /* are welcome.                                                  */
@@ -149,10 +167,28 @@ void set_pdcp_nr_proto_data(packet_info *pinfo, pdcp_nr_info *p_pdcp_nr_info);
 #define PDCP_NR_SDAP_HEADER_TAG            0x10
 /* 1 byte, bitmask with PDCP_NR_UL_SDAP_HEADER_PRESENT and/or PDCP_NR_DL_SDAP_HEADER_PRESENT */
 
+#define PDCP_NR_CIPHER_DISABLED_TAG        0x11
+/* 0 byte */
+
 /* PDCP PDU. Following this tag comes the actual PDCP PDU (there is no length, the PDU
    continues until the end of the frame) */
 #define PDCP_NR_PAYLOAD_TAG                0x01
 
+
+/* Called by RRC, or other configuration protocols */
+
+/* Function to configure ciphering & integrity algorithms */
+void set_pdcp_nr_security_algorithms(guint16 ueid, pdcp_nr_security_info_t *security_info);
+
+/* Function to indicate securityModeCommand did not complete */
+void set_pdcp_nr_security_algorithms_failed(guint16 ueid);
+
+
+/* Called by external dissectors */
+void set_pdcp_nr_rrc_ciphering_key(guint16 ueid, const char *key);
+void set_pdcp_nr_rrc_integrity_key(guint16 ueid, const char *key);
+void set_pdcp_nr_up_ciphering_key(guint16 ueid, const char *key);
+void set_pdcp_nr_up_integrity_key(guint16 ueid, const char *key);
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html

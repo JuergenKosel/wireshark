@@ -117,9 +117,14 @@ void EndpointDialog::captureFileClosing()
         disconnect(cur_tree, SIGNAL(filterAction(QString,FilterAction::Action,FilterAction::ActionType)),
                    this, SIGNAL(filterAction(QString,FilterAction::Action,FilterAction::ActionType)));
     }
+    TrafficTableDialog::captureFileClosing();
+}
+
+void EndpointDialog::captureFileClosed()
+{
     displayFilterCheckBox()->setEnabled(false);
     enabledTypesPushButton()->setEnabled(false);
-    TrafficTableDialog::captureFileClosing();
+    TrafficTableDialog::captureFileClosed();
 }
 
 bool EndpointDialog::addTrafficTable(register_ct_t *table)
@@ -200,7 +205,8 @@ QUrl EndpointDialog::createMap(bool json_only)
     g_ptr_array_add(hosts_arr, NULL);
     hostlist_talker_t **hosts = (hostlist_talker_t **)g_ptr_array_free(hosts_arr, FALSE);
 
-    QTemporaryFile tf("ipmapXXXXXX.html");
+    QString tempname = QString("%1/ipmapXXXXXX.html").arg(QDir::tempPath());
+    QTemporaryFile tf(tempname);
     if (!tf.open()) {
         QMessageBox::warning(this, tr("Map file error"), tr("Unable to create temporary file"));
         g_free(hosts);
@@ -222,7 +228,8 @@ QUrl EndpointDialog::createMap(bool json_only)
         g_free(hosts);
         return QUrl();
     }
-    FILE* fp = ws_fdopen(fd, "wb");
+    // duplicate file descriptor as it is not allowed to perform a fclose before closing QFile
+    FILE* fp = ws_fdopen(ws_dup(fd), "wb");
     if (fp == NULL) {
         QMessageBox::warning(this, tr("Map file error"), tr("Unable to create temporary file"));
         g_free(hosts);

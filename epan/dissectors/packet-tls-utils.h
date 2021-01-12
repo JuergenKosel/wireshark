@@ -107,7 +107,8 @@ typedef enum {
 #define SSL_HND_HELLO_EXT_CACHED_INFO                   25
 #define SSL_HND_HELLO_EXT_COMPRESS_CERTIFICATE          27
 #define SSL_HND_HELLO_EXT_RECORD_SIZE_LIMIT             28
-/* 26-34  Unassigned*/
+/* 26-33  Unassigned*/
+#define SSL_HND_HELLO_EXT_DELEGATED_CREDENTIALS         34 /* draft-ietf-tls-subcerts-09.txt */
 #define SSL_HND_HELLO_EXT_SESSION_TICKET_TLS            35
 /* RFC 8446 (TLS 1.3) */
 #define SSL_HND_HELLO_EXT_KEY_SHARE_OLD                 40 /* draft-ietf-tls-tls13-22 (removed in -23) */
@@ -123,6 +124,7 @@ typedef enum {
 #define SSL_HND_HELLO_EXT_SIGNATURE_ALGORITHMS_CERT     50
 #define SSL_HND_HELLO_EXT_KEY_SHARE                     51
 #define SSL_HND_HELLO_EXT_CONNECTION_ID                 53
+#define SSL_HND_HELLO_EXT_QUIC_TRANSPORT_PARAMETERS_V1  57 /* draft-ietf-quic-tls-33 */
 #define SSL_HND_HELLO_EXT_GREASE_0A0A                   2570
 #define SSL_HND_HELLO_EXT_GREASE_1A1A                   6682
 #define SSL_HND_HELLO_EXT_GREASE_2A2A                   10794
@@ -2198,7 +2200,7 @@ ssl_common_dissect_t name = {   \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_loss_bits,                     \
       { "loss_bits", prefix ".quic.parameter.loss_bits",                \
-        FT_UINT8, BASE_DEC, NULL, 0x00,                                 \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_enable_time_stamp_v2,          \
@@ -2223,7 +2225,7 @@ ssl_common_dissect_t name = {   \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_google_quic_version,           \
       { "Google QUIC version", prefix ".quic.parameter.google.quic_version", \
-        FT_STRING, BASE_NONE, NULL, 0x00,                               \
+        FT_UINT32, BASE_HEX, VALS(quic_version_vals), 0x00,             \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_google_initial_rtt,            \

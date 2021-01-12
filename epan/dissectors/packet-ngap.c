@@ -16,7 +16,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.413 v16.3.0 (2020-09)
+ * References: 3GPP TS 38.413 v16.4.0 (2021-01)
  */
 
 #include "config.h"
@@ -47,7 +47,6 @@
 #include "packet-ntp.h"
 #include "packet-gsm_a_common.h"
 #include "packet-http.h"
-#include "packet-ngap.h"
 
 #define PNAME  "NG Application Protocol"
 #define PSNAME "NGAP"
@@ -480,7 +479,10 @@ typedef enum _ProtocolIE_ID_enum {
   id_ExtendedTAISliceSupportList = 271,
   id_ConfiguredTACIndication = 272,
   id_Extended_RANNodeName = 273,
-  id_Extended_AMFName = 274
+  id_Extended_AMFName = 274,
+  id_GlobalCable_ID = 275,
+  id_QosMonitoringReportingFrequency = 276,
+  id_QosFlowParametersList = 277
 } ProtocolIE_ID_enum;
 
 typedef enum _GlobalRANNodeID_enum {
@@ -503,7 +505,7 @@ typedef enum _RAT_Information_enum {
 } RAT_Information_enum;
 
 /*--- End of included file: packet-ngap-val.h ---*/
-#line 67 "./asn1/ngap/packet-ngap-template.c"
+#line 66 "./asn1/ngap/packet-ngap-template.c"
 
 /* Initialize the protocol and registered fields */
 static int proto_ngap = -1;
@@ -555,6 +557,7 @@ static int hf_ngap_MeasurementsToActivate_M1_from_event = -1;
 static int hf_ngap_MeasurementsToActivate_reserved = -1;
 static int hf_ngap_MDT_Location_Information_GNSS = -1;
 static int hf_ngap_MDT_Location_Information_reserved = -1;
+static int hf_ngap_GlobalCable_ID_str = -1;
 
 /*--- Included file: packet-ngap-hf.c ---*/
 #line 1 "./asn1/ngap/packet-ngap-hf.c"
@@ -612,6 +615,7 @@ static int hf_ngap_Extended_RANNodeName_PDU = -1;  /* Extended_RANNodeName */
 static int hf_ngap_ExtendedRATRestrictionInformation_PDU = -1;  /* ExtendedRATRestrictionInformation */
 static int hf_ngap_ExtendedSliceSupportList_PDU = -1;  /* ExtendedSliceSupportList */
 static int hf_ngap_FiveG_S_TMSI_PDU = -1;         /* FiveG_S_TMSI */
+static int hf_ngap_GlobalCable_ID_PDU = -1;       /* GlobalCable_ID */
 static int hf_ngap_GlobalRANNodeID_PDU = -1;      /* GlobalRANNodeID */
 static int hf_ngap_GlobalTNGF_ID_PDU = -1;        /* GlobalTNGF_ID */
 static int hf_ngap_GlobalTWIF_ID_PDU = -1;        /* GlobalTWIF_ID */
@@ -735,7 +739,9 @@ static int hf_ngap_PLMNSupportList_PDU = -1;      /* PLMNSupportList */
 static int hf_ngap_PWSFailedCellIDList_PDU = -1;  /* PWSFailedCellIDList */
 static int hf_ngap_QosFlowAddOrModifyRequestList_PDU = -1;  /* QosFlowAddOrModifyRequestList */
 static int hf_ngap_QosMonitoringRequest_PDU = -1;  /* QosMonitoringRequest */
+static int hf_ngap_QosMonitoringReportingFrequency_PDU = -1;  /* QosMonitoringReportingFrequency */
 static int hf_ngap_QosFlowListWithCause_PDU = -1;  /* QosFlowListWithCause */
+static int hf_ngap_QosFlowParametersList_PDU = -1;  /* QosFlowParametersList */
 static int hf_ngap_QosFlowPerTNLInformation_PDU = -1;  /* QosFlowPerTNLInformation */
 static int hf_ngap_QosFlowPerTNLInformationList_PDU = -1;  /* QosFlowPerTNLInformationList */
 static int hf_ngap_QosFlowSetupRequestList_PDU = -1;  /* QosFlowSetupRequestList */
@@ -1180,18 +1186,18 @@ static int hf_ngap_maximumPacketLossRateDL = -1;  /* PacketLossRate */
 static int hf_ngap_maximumPacketLossRateUL = -1;  /* PacketLossRate */
 static int hf_ngap_pLMNidentity = -1;             /* PLMNIdentity */
 static int hf_ngap_eNB_ID = -1;                   /* ENB_ID */
-static int hf_ngap_gNB_ID = -1;                   /* GNB_ID */
-static int hf_ngap_n3IWF_ID = -1;                 /* N3IWF_ID */
+static int hf_ngap_globalGNB_ID_gNB_ID = -1;      /* GNB_ID */
+static int hf_ngap_globalN3IWF_ID_n3IWF_ID = -1;  /* N3IWF_ID */
 static int hf_ngap_globalLineIdentity = -1;       /* GlobalLineIdentity */
 static int hf_ngap_lineType = -1;                 /* LineType */
 static int hf_ngap_ngENB_ID = -1;                 /* NgENB_ID */
 static int hf_ngap_globalGNB_ID = -1;             /* GlobalGNB_ID */
 static int hf_ngap_globalNgENB_ID = -1;           /* GlobalNgENB_ID */
 static int hf_ngap_globalN3IWF_ID = -1;           /* GlobalN3IWF_ID */
-static int hf_ngap_tNGF_ID = -1;                  /* TNGF_ID */
-static int hf_ngap_tWIF_ID = -1;                  /* TWIF_ID */
-static int hf_ngap_w_AGF_ID = -1;                 /* W_AGF_ID */
-static int hf_ngap_gNB_ID_01 = -1;                /* BIT_STRING_SIZE_22_32 */
+static int hf_ngap_globalTNGF_ID_tNGF_ID = -1;    /* TNGF_ID */
+static int hf_ngap_globalTWIF_ID_tWIF_ID = -1;    /* TWIF_ID */
+static int hf_ngap_globalW_AGF_ID_w_AGF_ID = -1;  /* W_AGF_ID */
+static int hf_ngap_gNB_ID = -1;                   /* BIT_STRING_SIZE_22_32 */
 static int hf_ngap_transportLayerAddress = -1;    /* TransportLayerAddress */
 static int hf_ngap_gTP_TEID = -1;                 /* GTP_TEID */
 static int hf_ngap_aMFRegionID = -1;              /* AMFRegionID */
@@ -1296,7 +1302,7 @@ static int hf_ngap_m6_links_to_log = -1;          /* Links_to_log */
 static int hf_ngap_m7period = -1;                 /* M7period */
 static int hf_ngap_m7_links_to_log = -1;          /* Links_to_log */
 static int hf_ngap_mDT_Location_Information = -1;  /* MDT_Location_Information */
-static int hf_ngap_n3IWF_ID_01 = -1;              /* BIT_STRING_SIZE_16 */
+static int hf_ngap_n3IWF_ID = -1;                 /* BIT_STRING_SIZE_16 */
 static int hf_ngap_nB_IoT_Paging_eDRXCycle = -1;  /* NB_IoT_Paging_eDRXCycle */
 static int hf_ngap_nB_IoT_Paging_TimeWindow = -1;  /* NB_IoT_Paging_TimeWindow */
 static int hf_ngap_macroNgENB_ID = -1;            /* BIT_STRING_SIZE_20 */
@@ -1455,6 +1461,8 @@ static int hf_ngap_QosFlowListWithCause_item = -1;  /* QosFlowWithCauseItem */
 static int hf_ngap_QosFlowModifyConfirmList_item = -1;  /* QosFlowModifyConfirmItem */
 static int hf_ngap_QosFlowNotifyList_item = -1;   /* QosFlowNotifyItem */
 static int hf_ngap_notificationCause = -1;        /* NotificationCause */
+static int hf_ngap_QosFlowParametersList_item = -1;  /* QosFlowParametersItem */
+static int hf_ngap_alternativeQoSParaSetList = -1;  /* AlternativeQoSParaSetList */
 static int hf_ngap_uPTransportLayerInformation = -1;  /* UPTransportLayerInformation */
 static int hf_ngap_QosFlowPerTNLInformationList_item = -1;  /* QosFlowPerTNLInformationItem */
 static int hf_ngap_qosFlowPerTNLInformation = -1;  /* QosFlowPerTNLInformation */
@@ -1550,7 +1558,7 @@ static int hf_ngap_cell_CAGInformation = -1;      /* Cell_CAGInformation */
 static int hf_ngap_lAI = -1;                      /* LAI */
 static int hf_ngap_rNC_ID = -1;                   /* RNC_ID */
 static int hf_ngap_extendedRNC_ID = -1;           /* ExtendedRNC_ID */
-static int hf_ngap_tNGF_ID_01 = -1;               /* BIT_STRING_SIZE_32_ */
+static int hf_ngap_tNGF_ID = -1;                  /* BIT_STRING_SIZE_32_ */
 static int hf_ngap_TNLAssociationList_item = -1;  /* TNLAssociationItem */
 static int hf_ngap_tNLAssociationAddress = -1;    /* CPTransportLayerInformation */
 static int hf_ngap_sourcecellID_01 = -1;          /* EUTRA_CGI */
@@ -1563,7 +1571,7 @@ static int hf_ngap_tAIListforMDT = -1;            /* TAIListforMDT */
 static int hf_ngap_TAIListforMDT_item = -1;       /* TAI */
 static int hf_ngap_tAListforMDT = -1;             /* TAListforMDT */
 static int hf_ngap_TAListforMDT_item = -1;        /* TAC */
-static int hf_ngap_tWIF_ID_01 = -1;               /* BIT_STRING_SIZE_32_ */
+static int hf_ngap_tWIF_ID = -1;                  /* BIT_STRING_SIZE_32_ */
 static int hf_ngap_periodicity = -1;              /* Periodicity */
 static int hf_ngap_burstArrivalTime = -1;         /* BurstArrivalTime */
 static int hf_ngap_tSCAssistanceInformationDL = -1;  /* TSCAssistanceInformation */
@@ -1619,7 +1627,7 @@ static int hf_ngap_startTimeStamp = -1;           /* T_startTimeStamp */
 static int hf_ngap_endTimeStamp = -1;             /* T_endTimeStamp */
 static int hf_ngap_usageCountUL = -1;             /* INTEGER_0_18446744073709551615 */
 static int hf_ngap_usageCountDL = -1;             /* INTEGER_0_18446744073709551615 */
-static int hf_ngap_w_AGF_ID_01 = -1;              /* BIT_STRING_SIZE_16_ */
+static int hf_ngap_w_AGF_ID = -1;                 /* BIT_STRING_SIZE_16_ */
 static int hf_ngap_eUTRA_CGIListForWarning = -1;  /* EUTRA_CGIListForWarning */
 static int hf_ngap_nR_CGIListForWarning = -1;     /* NR_CGIListForWarning */
 static int hf_ngap_tAIListForWarning = -1;        /* TAIListForWarning */
@@ -1688,6 +1696,7 @@ static gint ett_ngap_LTEUERLFReportContainer = -1;
 static gint ett_ngap_NRUERLFReportContainer = -1;
 static gint ett_ngap_TargettoSource_Failure_TransparentContainer = -1;
 static gint ett_ngap_UERadioCapabilityForPagingOfNB_IoT = -1;
+static gint ett_ngap_GlobalCable_ID = -1;
 
 /*--- Included file: packet-ngap-ett.c ---*/
 #line 1 "./asn1/ngap/packet-ngap-ett.c"
@@ -2053,6 +2062,8 @@ static gint ett_ngap_QosFlowModifyConfirmList = -1;
 static gint ett_ngap_QosFlowModifyConfirmItem = -1;
 static gint ett_ngap_QosFlowNotifyList = -1;
 static gint ett_ngap_QosFlowNotifyItem = -1;
+static gint ett_ngap_QosFlowParametersList = -1;
+static gint ett_ngap_QosFlowParametersItem = -1;
 static gint ett_ngap_QosFlowPerTNLInformation = -1;
 static gint ett_ngap_QosFlowPerTNLInformationList = -1;
 static gint ett_ngap_QosFlowPerTNLInformationItem = -1;
@@ -2292,7 +2303,7 @@ static gint ett_ngap_SuccessfulOutcome = -1;
 static gint ett_ngap_UnsuccessfulOutcome = -1;
 
 /*--- End of included file: packet-ngap-ett.c ---*/
-#line 160 "./asn1/ngap/packet-ngap-template.c"
+#line 161 "./asn1/ngap/packet-ngap-template.c"
 
 static expert_field ei_ngap_number_pages_le15 = EI_INIT;
 
@@ -2739,7 +2750,7 @@ static value_string_ext ngap_ProcedureCode_vals_ext = VALUE_STRING_EXT_INIT(ngap
 
 static int
 dissect_ngap_ProcedureCode(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 111 "./asn1/ngap/ngap.cnf"
+#line 124 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 255U, &ngap_data->procedure_code, FALSE);
@@ -2753,7 +2764,7 @@ dissect_ngap_ProcedureCode(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
 static int
 dissect_ngap_ProtocolExtensionID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 105 "./asn1/ngap/ngap.cnf"
+#line 118 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 65535U, &ngap_data->protocol_extension_id, FALSE);
@@ -3041,6 +3052,9 @@ static const value_string ngap_ProtocolIE_ID_vals[] = {
   { id_ConfiguredTACIndication, "id-ConfiguredTACIndication" },
   { id_Extended_RANNodeName, "id-Extended-RANNodeName" },
   { id_Extended_AMFName, "id-Extended-AMFName" },
+  { id_GlobalCable_ID, "id-GlobalCable-ID" },
+  { id_QosMonitoringReportingFrequency, "id-QosMonitoringReportingFrequency" },
+  { id_QosFlowParametersList, "id-QosFlowParametersList" },
   { 0, NULL }
 };
 
@@ -3049,7 +3063,7 @@ static value_string_ext ngap_ProtocolIE_ID_vals_ext = VALUE_STRING_EXT_INIT(ngap
 
 static int
 dissect_ngap_ProtocolIE_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 87 "./asn1/ngap/ngap.cnf"
+#line 100 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 65535U, &ngap_data->protocol_ie_id, FALSE);
@@ -3057,7 +3071,7 @@ dissect_ngap_ProtocolIE_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
 
 
-#line 91 "./asn1/ngap/ngap.cnf"
+#line 104 "./asn1/ngap/ngap.cnf"
   if (tree) {
     proto_item_append_text(proto_item_get_parent_nth(actx->created_item, 2), ": %s",
                            val_to_str_ext(ngap_data->protocol_ie_id, &ngap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
@@ -3213,7 +3227,7 @@ dissect_ngap_PrivateIE_Container(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 static int
 dissect_ngap_TransportLayerAddress(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 506 "./asn1/ngap/ngap.cnf"
+#line 519 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   proto_tree *subtree;
   int len;
@@ -3544,7 +3558,7 @@ dissect_ngap_AllowedNSSAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 static int
 dissect_ngap_PLMNIdentity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 461 "./asn1/ngap/ngap.cnf"
+#line 474 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   proto_tree *subtree;
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
@@ -3618,7 +3632,7 @@ dissect_ngap_Allowed_PNI_NPN_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 static int
 dissect_ngap_TAC(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 448 "./asn1/ngap/ngap.cnf"
+#line 461 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
@@ -3789,7 +3803,7 @@ static const value_string ngap_GNB_ID_vals[] = {
 };
 
 static const per_choice_t GNB_ID_choice[] = {
-  {   0, &hf_ngap_gNB_ID_01      , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_22_32 },
+  {   0, &hf_ngap_gNB_ID         , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_22_32 },
   {   1, &hf_ngap_choice_Extensions, ASN1_NO_EXTENSIONS     , dissect_ngap_ProtocolIE_SingleContainer },
   { 0, NULL, 0, NULL }
 };
@@ -3806,7 +3820,7 @@ dissect_ngap_GNB_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 static const per_sequence_t GlobalGNB_ID_sequence[] = {
   { &hf_ngap_pLMNIdentity   , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_PLMNIdentity },
-  { &hf_ngap_gNB_ID         , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_GNB_ID },
+  { &hf_ngap_globalGNB_ID_gNB_ID, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_GNB_ID },
   { &hf_ngap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_ProtocolExtensionContainer },
   { NULL, 0, 0, NULL }
 };
@@ -3909,7 +3923,7 @@ static const value_string ngap_N3IWF_ID_vals[] = {
 };
 
 static const per_choice_t N3IWF_ID_choice[] = {
-  {   0, &hf_ngap_n3IWF_ID_01    , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_16 },
+  {   0, &hf_ngap_n3IWF_ID       , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_16 },
   {   1, &hf_ngap_choice_Extensions, ASN1_NO_EXTENSIONS     , dissect_ngap_ProtocolIE_SingleContainer },
   { 0, NULL, 0, NULL }
 };
@@ -3926,7 +3940,7 @@ dissect_ngap_N3IWF_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 
 static const per_sequence_t GlobalN3IWF_ID_sequence[] = {
   { &hf_ngap_pLMNIdentity   , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_PLMNIdentity },
-  { &hf_ngap_n3IWF_ID       , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_N3IWF_ID },
+  { &hf_ngap_globalN3IWF_ID_n3IWF_ID, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_N3IWF_ID },
   { &hf_ngap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_ProtocolExtensionContainer },
   { NULL, 0, 0, NULL }
 };
@@ -3958,7 +3972,7 @@ static const per_choice_t GlobalRANNodeID_choice[] = {
 
 static int
 dissect_ngap_GlobalRANNodeID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 612 "./asn1/ngap/ngap.cnf"
+#line 625 "./asn1/ngap/ngap.cnf"
   gint value;
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
 
@@ -3991,7 +4005,7 @@ static const per_sequence_t TAI_sequence[] = {
 
 static int
 dissect_ngap_TAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 421 "./asn1/ngap/ngap.cnf"
+#line 434 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
 
   ngap_data->tai = wmem_new0(wmem_packet_scope(), struct ngap_tai);
@@ -4289,7 +4303,7 @@ dissect_ngap_AreaOfInterestTAIList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 static int
 dissect_ngap_NRCellIdentity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 554 "./asn1/ngap/ngap.cnf"
+#line 567 "./asn1/ngap/ngap.cnf"
   tvbuff_t *cell_id_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
                                      36, 36, FALSE, NULL, 0, &cell_id_tvb, NULL);
@@ -4324,7 +4338,7 @@ dissect_ngap_NR_CGI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 static int
 dissect_ngap_EUTRACellIdentity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 565 "./asn1/ngap/ngap.cnf"
+#line 578 "./asn1/ngap/ngap.cnf"
   tvbuff_t *cell_id_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
                                      28, 28, FALSE, NULL, 0, &cell_id_tvb, NULL);
@@ -5760,7 +5774,7 @@ dissect_ngap_BluetoothMeasConfig(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 static int
 dissect_ngap_BluetoothName(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 926 "./asn1/ngap/ngap.cnf"
+#line 939 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
                                        1, 248, FALSE, &parameter_tvb);
@@ -5836,7 +5850,7 @@ dissect_ngap_BluetoothMeasurementConfiguration(tvbuff_t *tvb _U_, int offset _U_
 
 static int
 dissect_ngap_BurstArrivalTime(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 932 "./asn1/ngap/ngap.cnf"
+#line 945 "./asn1/ngap/ngap.cnf"
   tvbuff_t *burst_arrival_time_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        NO_BOUND, NO_BOUND, FALSE, &burst_arrival_time_tvb);
@@ -6629,7 +6643,7 @@ dissect_ngap_PagingDRX(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 static int
 dissect_ngap_PeriodicRegistrationUpdateTimer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 860 "./asn1/ngap/ngap.cnf"
+#line 873 "./asn1/ngap/ngap.cnf"
   tvbuff_t *val_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
                                      8, 8, FALSE, NULL, 0, &val_tvb, NULL);
@@ -6774,7 +6788,7 @@ dissect_ngap_COUNTValueForPDCP_SN18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 static int
 dissect_ngap_CoverageEnhancementLevel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 940 "./asn1/ngap/ngap.cnf"
+#line 953 "./asn1/ngap/ngap.cnf"
   tvbuff_t *cov_enh_level_tvb;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -6876,7 +6890,7 @@ dissect_ngap_CriticalityDiagnostics(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 static int
 dissect_ngap_DataCodingScheme(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 391 "./asn1/ngap/ngap.cnf"
+#line 404 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      8, 8, FALSE, NULL, 0, &parameter_tvb, NULL);
@@ -7648,7 +7662,7 @@ dissect_ngap_Extended_ConnectedTime(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 static int
 dissect_ngap_EN_DCSONConfigurationTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 882 "./asn1/ngap/ngap.cnf"
+#line 895 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -7668,7 +7682,7 @@ dissect_ngap_EN_DCSONConfigurationTransfer(tvbuff_t *tvb _U_, int offset _U_, as
 
 static int
 dissect_ngap_PortNumber(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 605 "./asn1/ngap/ngap.cnf"
+#line 618 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
                                        2, 2, FALSE, &parameter_tvb);
@@ -7732,7 +7746,7 @@ dissect_ngap_EquivalentPLMNs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 static int
 dissect_ngap_EPS_TAC(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 414 "./asn1/ngap/ngap.cnf"
+#line 427 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
                                        2, 2, FALSE, &parameter_tvb);
@@ -7810,7 +7824,7 @@ dissect_ngap_EUTRA_CGIListForWarning(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 static int
 dissect_ngap_EUTRAencryptionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 785 "./asn1/ngap/ngap.cnf"
+#line 798 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      16, 16, TRUE, NULL, 0, &parameter_tvb, NULL);
@@ -7836,7 +7850,7 @@ dissect_ngap_EUTRAencryptionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 static int
 dissect_ngap_EUTRAintegrityProtectionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 800 "./asn1/ngap/ngap.cnf"
+#line 813 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      16, 16, TRUE, NULL, 0, &parameter_tvb, NULL);
@@ -7944,7 +7958,7 @@ dissect_ngap_Extended_RANNodeName(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 static int
 dissect_ngap_T_primaryRATRestriction(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 972 "./asn1/ngap/ngap.cnf"
+#line 985 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      8, 8, TRUE, NULL, 0, &parameter_tvb, NULL);
@@ -7970,7 +7984,7 @@ dissect_ngap_T_primaryRATRestriction(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 static int
 dissect_ngap_T_secondaryRATRestriction(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 987 "./asn1/ngap/ngap.cnf"
+#line 1000 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      8, 8, TRUE, NULL, 0, &parameter_tvb, NULL);
@@ -8176,7 +8190,7 @@ dissect_ngap_EventTrigger(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 static int
 dissect_ngap_NRUERLFReportContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1067 "./asn1/ngap/ngap.cnf"
+#line 1080 "./asn1/ngap/ngap.cnf"
   tvbuff_t *nr_ue_rlc_report_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        NO_BOUND, NO_BOUND, FALSE, &nr_ue_rlc_report_tvb);
@@ -8195,7 +8209,7 @@ dissect_ngap_NRUERLFReportContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 static int
 dissect_ngap_LTEUERLFReportContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1059 "./asn1/ngap/ngap.cnf"
+#line 1072 "./asn1/ngap/ngap.cnf"
   tvbuff_t *lte_ue_rlf_report_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        NO_BOUND, NO_BOUND, FALSE, &lte_ue_rlf_report_tvb);
@@ -8253,7 +8267,7 @@ dissect_ngap_FailureIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 static int
 dissect_ngap_FiveG_TMSI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1097 "./asn1/ngap/ngap.cnf"
+#line 1110 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   proto_item *ti;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
@@ -8460,6 +8474,25 @@ dissect_ngap_GBR_QosInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 
 
 static int
+dissect_ngap_GlobalCable_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+#line 1120 "./asn1/ngap/ngap.cnf"
+  tvbuff_t *parameter_tvb = NULL;
+  offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
+                                       NO_BOUND, NO_BOUND, FALSE, &parameter_tvb);
+
+  if (parameter_tvb) {
+    proto_tree *subtree = proto_item_add_subtree(actx->created_item, ett_ngap_GlobalCable_ID);
+    proto_tree_add_item(subtree, hf_ngap_GlobalCable_ID_str, parameter_tvb, 0, -1, ENC_UTF_8 | ENC_NA);
+  }
+
+
+
+  return offset;
+}
+
+
+
+static int
 dissect_ngap_GlobalLineIdentity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        NO_BOUND, NO_BOUND, FALSE, NULL);
@@ -8517,7 +8550,7 @@ static const value_string ngap_TNGF_ID_vals[] = {
 };
 
 static const per_choice_t TNGF_ID_choice[] = {
-  {   0, &hf_ngap_tNGF_ID_01     , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_32_ },
+  {   0, &hf_ngap_tNGF_ID        , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_32_ },
   {   1, &hf_ngap_choice_Extensions, ASN1_NO_EXTENSIONS     , dissect_ngap_ProtocolIE_SingleContainer },
   { 0, NULL, 0, NULL }
 };
@@ -8534,7 +8567,7 @@ dissect_ngap_TNGF_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 static const per_sequence_t GlobalTNGF_ID_sequence[] = {
   { &hf_ngap_pLMNIdentity   , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_PLMNIdentity },
-  { &hf_ngap_tNGF_ID        , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_TNGF_ID },
+  { &hf_ngap_globalTNGF_ID_tNGF_ID, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_TNGF_ID },
   { &hf_ngap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_ProtocolExtensionContainer },
   { NULL, 0, 0, NULL }
 };
@@ -8555,7 +8588,7 @@ static const value_string ngap_TWIF_ID_vals[] = {
 };
 
 static const per_choice_t TWIF_ID_choice[] = {
-  {   0, &hf_ngap_tWIF_ID_01     , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_32_ },
+  {   0, &hf_ngap_tWIF_ID        , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_32_ },
   {   1, &hf_ngap_choice_Extensions, ASN1_NO_EXTENSIONS     , dissect_ngap_ProtocolIE_SingleContainer },
   { 0, NULL, 0, NULL }
 };
@@ -8572,7 +8605,7 @@ dissect_ngap_TWIF_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 static const per_sequence_t GlobalTWIF_ID_sequence[] = {
   { &hf_ngap_pLMNIdentity   , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_PLMNIdentity },
-  { &hf_ngap_tWIF_ID        , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_TWIF_ID },
+  { &hf_ngap_globalTWIF_ID_tWIF_ID, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_TWIF_ID },
   { &hf_ngap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_ProtocolExtensionContainer },
   { NULL, 0, 0, NULL }
 };
@@ -8603,7 +8636,7 @@ static const value_string ngap_W_AGF_ID_vals[] = {
 };
 
 static const per_choice_t W_AGF_ID_choice[] = {
-  {   0, &hf_ngap_w_AGF_ID_01    , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_16_ },
+  {   0, &hf_ngap_w_AGF_ID       , ASN1_NO_EXTENSIONS     , dissect_ngap_BIT_STRING_SIZE_16_ },
   {   1, &hf_ngap_choice_Extensions, ASN1_NO_EXTENSIONS     , dissect_ngap_ProtocolIE_SingleContainer },
   { 0, NULL, 0, NULL }
 };
@@ -8620,7 +8653,7 @@ dissect_ngap_W_AGF_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 
 static const per_sequence_t GlobalW_AGF_ID_sequence[] = {
   { &hf_ngap_pLMNIdentity   , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_PLMNIdentity },
-  { &hf_ngap_w_AGF_ID       , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_W_AGF_ID },
+  { &hf_ngap_globalW_AGF_ID_w_AGF_ID, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_W_AGF_ID },
   { &hf_ngap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_ProtocolExtensionContainer },
   { NULL, 0, 0, NULL }
 };
@@ -8868,7 +8901,7 @@ static const value_string ngap_HandoverType_vals[] = {
 
 static int
 dissect_ngap_HandoverType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 263 "./asn1/ngap/ngap.cnf"
+#line 276 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      3, &ngap_data->handover_type_value, TRUE, 1, NULL);
@@ -9092,7 +9125,7 @@ dissect_ngap_IntegrityProtectionIndication(tvbuff_t *tvb _U_, int offset _U_, as
 
 static int
 dissect_ngap_InterfacesToTrace(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 585 "./asn1/ngap/ngap.cnf"
+#line 598 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      8, 8, FALSE, NULL, 0, &parameter_tvb, NULL);
@@ -9120,7 +9153,7 @@ dissect_ngap_InterfacesToTrace(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 static int
 dissect_ngap_MeasurementsToActivate(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1019 "./asn1/ngap/ngap.cnf"
+#line 1032 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      8, 8, FALSE, NULL, 0, &parameter_tvb, NULL);
@@ -9472,7 +9505,7 @@ dissect_ngap_WLANMeasConfig(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 static int
 dissect_ngap_WLANName(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1089 "./asn1/ngap/ngap.cnf"
+#line 1102 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
                                        1, 32, FALSE, &parameter_tvb);
@@ -9564,7 +9597,7 @@ dissect_ngap_WLANMeasurementConfiguration(tvbuff_t *tvb _U_, int offset _U_, asn
 
 static int
 dissect_ngap_MDT_Location_Information(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1038 "./asn1/ngap/ngap.cnf"
+#line 1051 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      8, 8, FALSE, NULL, 0, &parameter_tvb, NULL);
@@ -9949,7 +9982,7 @@ dissect_ngap_IntersystemSONConfigurationTransfer(tvbuff_t *tvb _U_, int offset _
 
 static int
 dissect_ngap_LAC(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1004 "./asn1/ngap/ngap.cnf"
+#line 1017 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
                                        2, 2, FALSE, &parameter_tvb);
@@ -10022,7 +10055,7 @@ dissect_ngap_LastVisitedNGRANCellInformation(tvbuff_t *tvb _U_, int offset _U_, 
 
 static int
 dissect_ngap_LastVisitedEUTRANCellInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 818 "./asn1/ngap/ngap.cnf"
+#line 831 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -10042,7 +10075,7 @@ dissect_ngap_LastVisitedEUTRANCellInformation(tvbuff_t *tvb _U_, int offset _U_,
 
 static int
 dissect_ngap_LastVisitedUTRANCellInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 827 "./asn1/ngap/ngap.cnf"
+#line 840 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -10062,7 +10095,7 @@ dissect_ngap_LastVisitedUTRANCellInformation(tvbuff_t *tvb _U_, int offset _U_, 
 
 static int
 dissect_ngap_LastVisitedGERANCellInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 836 "./asn1/ngap/ngap.cnf"
+#line 849 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -10351,7 +10384,7 @@ dissect_ngap_MaskedIMEISV(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 static int
 dissect_ngap_MessageIdentifier(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 361 "./asn1/ngap/ngap.cnf"
+#line 374 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
                                      16, 16, FALSE, NULL, 0, &parameter_tvb, NULL);
@@ -10385,7 +10418,7 @@ dissect_ngap_MaximumIntegrityProtectedDataRate(tvbuff_t *tvb _U_, int offset _U_
 
 static int
 dissect_ngap_RATRestrictionInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 740 "./asn1/ngap/ngap.cnf"
+#line 753 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      8, 8, TRUE, NULL, 0, &parameter_tvb, NULL);
@@ -10578,7 +10611,7 @@ dissect_ngap_MDT_Configuration_NR(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 static int
 dissect_ngap_MDTModeEutra(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1011 "./asn1/ngap/ngap.cnf"
+#line 1024 "./asn1/ngap/ngap.cnf"
   tvbuff_t *mdt_mode_eutra_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        NO_BOUND, NO_BOUND, FALSE, &mdt_mode_eutra_tvb);
@@ -10631,7 +10664,7 @@ dissect_ngap_MDT_Configuration(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 static int
 dissect_ngap_NAS_PDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 215 "./asn1/ngap/ngap.cnf"
+#line 228 "./asn1/ngap/ngap.cnf"
 
   tvbuff_t *parameter_tvb=NULL;
   guint tvb_len;
@@ -10674,7 +10707,7 @@ dissect_ngap_NAS_PDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 static int
 dissect_ngap_NASSecurityParametersFromNGRAN(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 871 "./asn1/ngap/ngap.cnf"
+#line 884 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
 
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -10898,7 +10931,7 @@ dissect_ngap_NGRAN_TNLAssociationToRemoveList(tvbuff_t *tvb _U_, int offset _U_,
 
 static int
 dissect_ngap_NGRANTraceID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 540 "./asn1/ngap/ngap.cnf"
+#line 553 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb;
   proto_tree *subtree = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -11098,7 +11131,7 @@ dissect_ngap_NR_CGIListForWarning(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 static int
 dissect_ngap_NRencryptionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 755 "./asn1/ngap/ngap.cnf"
+#line 768 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      16, 16, TRUE, NULL, 0, &parameter_tvb, NULL);
@@ -11124,7 +11157,7 @@ dissect_ngap_NRencryptionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 static int
 dissect_ngap_NRintegrityProtectionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 770 "./asn1/ngap/ngap.cnf"
+#line 783 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      16, 16, TRUE, NULL, 0, &parameter_tvb, NULL);
@@ -11150,7 +11183,7 @@ dissect_ngap_NRintegrityProtectionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, 
 
 static int
 dissect_ngap_NRMobilityHistoryReport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1051 "./asn1/ngap/ngap.cnf"
+#line 1064 "./asn1/ngap/ngap.cnf"
   tvbuff_t *nr_mob_hist_report_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        NO_BOUND, NO_BOUND, FALSE, &nr_mob_hist_report_tvb);
@@ -11169,7 +11202,7 @@ dissect_ngap_NRMobilityHistoryReport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 static int
 dissect_ngap_NRPPa_PDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 909 "./asn1/ngap/ngap.cnf"
+#line 922 "./asn1/ngap/ngap.cnf"
 
   tvbuff_t *parameter_tvb=NULL;
 
@@ -13637,7 +13670,7 @@ dissect_ngap_T_rATType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 static int
 dissect_ngap_T_startTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 891 "./asn1/ngap/ngap.cnf"
+#line 904 "./asn1/ngap/ngap.cnf"
   tvbuff_t *timestamp_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        4, 4, FALSE, &timestamp_tvb);
@@ -13645,7 +13678,7 @@ dissect_ngap_T_startTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 
 
-#line 895 "./asn1/ngap/ngap.cnf"
+#line 908 "./asn1/ngap/ngap.cnf"
   if (timestamp_tvb) {
     proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
   }
@@ -13658,7 +13691,7 @@ dissect_ngap_T_startTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 static int
 dissect_ngap_T_endTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 900 "./asn1/ngap/ngap.cnf"
+#line 913 "./asn1/ngap/ngap.cnf"
   tvbuff_t *timestamp_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        4, 4, FALSE, &timestamp_tvb);
@@ -13666,7 +13699,7 @@ dissect_ngap_T_endTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 
 
-#line 904 "./asn1/ngap/ngap.cnf"
+#line 917 "./asn1/ngap/ngap.cnf"
   if (timestamp_tvb) {
     proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
   }
@@ -13904,6 +13937,46 @@ dissect_ngap_QosMonitoringRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 }
 
 
+
+static int
+dissect_ngap_QosMonitoringReportingFrequency(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
+                                                            1U, 1800U, NULL, TRUE);
+
+  return offset;
+}
+
+
+static const per_sequence_t QosFlowParametersItem_sequence[] = {
+  { &hf_ngap_qosFlowIdentifier, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_QosFlowIdentifier },
+  { &hf_ngap_alternativeQoSParaSetList, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_AlternativeQoSParaSetList },
+  { &hf_ngap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_ProtocolExtensionContainer },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_ngap_QosFlowParametersItem(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
+                                   ett_ngap_QosFlowParametersItem, QosFlowParametersItem_sequence);
+
+  return offset;
+}
+
+
+static const per_sequence_t QosFlowParametersList_sequence_of[1] = {
+  { &hf_ngap_QosFlowParametersList_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ngap_QosFlowParametersItem },
+};
+
+static int
+dissect_ngap_QosFlowParametersList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
+                                                  ett_ngap_QosFlowParametersList, QosFlowParametersList_sequence_of,
+                                                  1, maxnoofQosFlows, FALSE);
+
+  return offset;
+}
+
+
 static const per_sequence_t QosFlowSetupRequestItem_sequence[] = {
   { &hf_ngap_qosFlowIdentifier, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_QosFlowIdentifier },
   { &hf_ngap_qosFlowLevelQosParameters, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_QosFlowLevelQosParameters },
@@ -14022,7 +14095,7 @@ dissect_ngap_RANStatusTransfer_TransparentContainer(tvbuff_t *tvb _U_, int offse
 
 static int
 dissect_ngap_RAN_UE_NGAP_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 209 "./asn1/ngap/ngap.cnf"
+#line 222 "./asn1/ngap/ngap.cnf"
   guint32 ran_ue_ngap_id;
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
@@ -14045,7 +14118,7 @@ static const value_string ngap_RAT_Information_vals[] = {
 
 static int
 dissect_ngap_RAT_Information(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 491 "./asn1/ngap/ngap.cnf"
+#line 504 "./asn1/ngap/ngap.cnf"
   guint32 rat_info = 0xffffffff;
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
@@ -14253,7 +14326,7 @@ dissect_ngap_RoutingID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 static int
 dissect_ngap_RRCContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 638 "./asn1/ngap/ngap.cnf"
+#line 651 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
 
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -14558,7 +14631,7 @@ dissect_ngap_SecurityContext(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 static int
 dissect_ngap_SerialNumber(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 368 "./asn1/ngap/ngap.cnf"
+#line 381 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      16, 16, FALSE, NULL, 0, &parameter_tvb, NULL);
@@ -14813,7 +14886,7 @@ static const per_sequence_t SourceNGRANNode_ToTargetNGRANNode_TransparentContain
 
 static int
 dissect_ngap_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 627 "./asn1/ngap/ngap.cnf"
+#line 640 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
 
   ngap_data->transparent_container_type = SOURCE_TO_TARGET_TRANSPARENT_CONTAINER;
@@ -14830,7 +14903,7 @@ dissect_ngap_SourceNGRANNode_ToTargetNGRANNode_TransparentContainer(tvbuff_t *tv
 
 static int
 dissect_ngap_SourceToTarget_TransparentContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 267 "./asn1/ngap/ngap.cnf"
+#line 280 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -14938,7 +15011,7 @@ static const per_sequence_t SupportedTAItem_sequence[] = {
 
 static int
 dissect_ngap_SupportedTAItem(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 477 "./asn1/ngap/ngap.cnf"
+#line 490 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
 
   if (!PINFO_FD_VISITED(actx->pinfo) &&
@@ -14953,7 +15026,7 @@ dissect_ngap_SupportedTAItem(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_ngap_SupportedTAItem, SupportedTAItem_sequence);
 
-#line 488 "./asn1/ngap/ngap.cnf"
+#line 501 "./asn1/ngap/ngap.cnf"
   ngap_data->supported_ta = NULL;
 
 
@@ -15125,7 +15198,7 @@ static const per_sequence_t TargetNGRANNode_ToSourceNGRANNode_TransparentContain
 
 static int
 dissect_ngap_TargetNGRANNode_ToSourceNGRANNode_TransparentContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 633 "./asn1/ngap/ngap.cnf"
+#line 646 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
 
   ngap_data->transparent_container_type = TARGET_TO_SOURCE_TRANSPARENT_CONTAINER;
@@ -15173,7 +15246,7 @@ dissect_ngap_TargetRNC_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 static int
 dissect_ngap_TargetToSource_TransparentContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 295 "./asn1/ngap/ngap.cnf"
+#line 308 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -15220,7 +15293,7 @@ dissect_ngap_TargetToSource_TransparentContainer(tvbuff_t *tvb _U_, int offset _
 
 static int
 dissect_ngap_TargettoSource_Failure_TransparentContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 331 "./asn1/ngap/ngap.cnf"
+#line 344 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -15267,7 +15340,7 @@ dissect_ngap_TimerApproachForGUAMIRemoval(tvbuff_t *tvb _U_, int offset _U_, asn
 
 static int
 dissect_ngap_TimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 731 "./asn1/ngap/ngap.cnf"
+#line 744 "./asn1/ngap/ngap.cnf"
   tvbuff_t *timestamp_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        4, 4, FALSE, &timestamp_tvb);
@@ -15275,7 +15348,7 @@ dissect_ngap_TimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 
-#line 735 "./asn1/ngap/ngap.cnf"
+#line 748 "./asn1/ngap/ngap.cnf"
   if (timestamp_tvb) {
     proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
   }
@@ -15746,7 +15819,7 @@ dissect_ngap_UEPresenceInAreaOfInterestList(tvbuff_t *tvb _U_, int offset _U_, a
 
 static int
 dissect_ngap_UERadioCapability(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 710 "./asn1/ngap/ngap.cnf"
+#line 723 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
 
@@ -15778,7 +15851,7 @@ dissect_ngap_UERadioCapability(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 static int
 dissect_ngap_UERadioCapabilityForPagingOfNR(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 685 "./asn1/ngap/ngap.cnf"
+#line 698 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
 
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -15800,7 +15873,7 @@ dissect_ngap_UERadioCapabilityForPagingOfNR(tvbuff_t *tvb _U_, int offset _U_, a
 
 static int
 dissect_ngap_UERadioCapabilityForPagingOfEUTRA(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 696 "./asn1/ngap/ngap.cnf"
+#line 709 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
 
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -15838,7 +15911,7 @@ dissect_ngap_UERadioCapabilityForPaging(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static int
 dissect_ngap_UERadioCapabilityForPagingOfNB_IoT(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 674 "./asn1/ngap/ngap.cnf"
+#line 687 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
 
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -16241,7 +16314,7 @@ dissect_ngap_WarningAreaList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 static int
 dissect_ngap_WarningMessageContents(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 402 "./asn1/ngap/ngap.cnf"
+#line 415 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        1, 9600, FALSE, &parameter_tvb);
@@ -16272,7 +16345,7 @@ dissect_ngap_WarningSecurityInfo(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 static int
 dissect_ngap_WarningType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 381 "./asn1/ngap/ngap.cnf"
+#line 394 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        2, 2, FALSE, &parameter_tvb);
@@ -16312,7 +16385,7 @@ static const per_sequence_t PDUSessionResourceSetupRequest_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceSetupRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2086 "./asn1/ngap/ngap.cnf"
+#line 2116 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceSetupRequest");
 
 
@@ -16330,7 +16403,7 @@ static const per_sequence_t PDUSessionResourceSetupResponse_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceSetupResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2089 "./asn1/ngap/ngap.cnf"
+#line 2119 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceSetupResponse");
 
 
@@ -16348,7 +16421,7 @@ static const per_sequence_t PDUSessionResourceReleaseCommand_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceReleaseCommand(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2080 "./asn1/ngap/ngap.cnf"
+#line 2110 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceReleaseCommand");
 
 
@@ -16366,7 +16439,7 @@ static const per_sequence_t PDUSessionResourceReleaseResponse_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceReleaseResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2083 "./asn1/ngap/ngap.cnf"
+#line 2113 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceReleaseResponse");
 
 
@@ -16384,7 +16457,7 @@ static const per_sequence_t PDUSessionResourceModifyRequest_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceModifyRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2065 "./asn1/ngap/ngap.cnf"
+#line 2095 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceModifyRequest");
 
 
@@ -16402,7 +16475,7 @@ static const per_sequence_t PDUSessionResourceModifyResponse_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceModifyResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2068 "./asn1/ngap/ngap.cnf"
+#line 2098 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceModifyResponse");
 
 
@@ -16420,7 +16493,7 @@ static const per_sequence_t PDUSessionResourceNotify_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceNotify(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2077 "./asn1/ngap/ngap.cnf"
+#line 2107 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceNotify");
 
 
@@ -16438,7 +16511,7 @@ static const per_sequence_t PDUSessionResourceModifyIndication_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceModifyIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2071 "./asn1/ngap/ngap.cnf"
+#line 2101 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceModifyIndication");
 
 
@@ -16456,7 +16529,7 @@ static const per_sequence_t PDUSessionResourceModifyConfirm_sequence[] = {
 
 static int
 dissect_ngap_PDUSessionResourceModifyConfirm(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2074 "./asn1/ngap/ngap.cnf"
+#line 2104 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PDUSessionResourceModifyConfirm");
 
 
@@ -16474,7 +16547,7 @@ static const per_sequence_t InitialContextSetupRequest_sequence[] = {
 
 static int
 dissect_ngap_InitialContextSetupRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2008 "./asn1/ngap/ngap.cnf"
+#line 2038 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "InitialContextSetupRequest");
 
 
@@ -16492,7 +16565,7 @@ static const per_sequence_t InitialContextSetupResponse_sequence[] = {
 
 static int
 dissect_ngap_InitialContextSetupResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2011 "./asn1/ngap/ngap.cnf"
+#line 2041 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "InitialContextSetupResponse");
 
 
@@ -16510,7 +16583,7 @@ static const per_sequence_t InitialContextSetupFailure_sequence[] = {
 
 static int
 dissect_ngap_InitialContextSetupFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2014 "./asn1/ngap/ngap.cnf"
+#line 2044 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "InitialContextSetupFailure");
 
 
@@ -16528,7 +16601,7 @@ static const per_sequence_t UEContextReleaseRequest_sequence[] = {
 
 static int
 dissect_ngap_UEContextReleaseRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2152 "./asn1/ngap/ngap.cnf"
+#line 2182 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextReleaseRequest");
 
 
@@ -16546,7 +16619,7 @@ static const per_sequence_t UEContextReleaseCommand_sequence[] = {
 
 static int
 dissect_ngap_UEContextReleaseCommand(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2146 "./asn1/ngap/ngap.cnf"
+#line 2176 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextReleaseCommand");
 
 
@@ -16564,7 +16637,7 @@ static const per_sequence_t UEContextReleaseComplete_sequence[] = {
 
 static int
 dissect_ngap_UEContextReleaseComplete(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2149 "./asn1/ngap/ngap.cnf"
+#line 2179 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextReleaseComplete");
 
 
@@ -16582,7 +16655,7 @@ static const per_sequence_t UEContextResumeRequest_sequence[] = {
 
 static int
 dissect_ngap_UEContextResumeRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2155 "./asn1/ngap/ngap.cnf"
+#line 2185 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextResumeRequest");
 
 
@@ -16600,7 +16673,7 @@ static const per_sequence_t UEContextResumeResponse_sequence[] = {
 
 static int
 dissect_ngap_UEContextResumeResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2158 "./asn1/ngap/ngap.cnf"
+#line 2188 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextResumeResponse");
 
 
@@ -16618,7 +16691,7 @@ static const per_sequence_t UEContextResumeFailure_sequence[] = {
 
 static int
 dissect_ngap_UEContextResumeFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2161 "./asn1/ngap/ngap.cnf"
+#line 2191 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextResumeFailure");
 
 
@@ -16636,7 +16709,7 @@ static const per_sequence_t UEContextSuspendRequest_sequence[] = {
 
 static int
 dissect_ngap_UEContextSuspendRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2164 "./asn1/ngap/ngap.cnf"
+#line 2194 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextSuspendRequest");
 
 
@@ -16654,7 +16727,7 @@ static const per_sequence_t UEContextSuspendResponse_sequence[] = {
 
 static int
 dissect_ngap_UEContextSuspendResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2167 "./asn1/ngap/ngap.cnf"
+#line 2197 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextSuspendResponse");
 
 
@@ -16672,7 +16745,7 @@ static const per_sequence_t UEContextSuspendFailure_sequence[] = {
 
 static int
 dissect_ngap_UEContextSuspendFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2170 "./asn1/ngap/ngap.cnf"
+#line 2200 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextSuspendFailure");
 
 
@@ -16690,7 +16763,7 @@ static const per_sequence_t UEContextModificationRequest_sequence[] = {
 
 static int
 dissect_ngap_UEContextModificationRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2137 "./asn1/ngap/ngap.cnf"
+#line 2167 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextModificationRequest");
 
 
@@ -16708,7 +16781,7 @@ static const per_sequence_t UEContextModificationResponse_sequence[] = {
 
 static int
 dissect_ngap_UEContextModificationResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2140 "./asn1/ngap/ngap.cnf"
+#line 2170 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextModificationResponse");
 
 
@@ -16726,7 +16799,7 @@ static const per_sequence_t UEContextModificationFailure_sequence[] = {
 
 static int
 dissect_ngap_UEContextModificationFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2143 "./asn1/ngap/ngap.cnf"
+#line 2173 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEContextModificationFailure");
 
 
@@ -16744,7 +16817,7 @@ static const per_sequence_t RRCInactiveTransitionReport_sequence[] = {
 
 static int
 dissect_ngap_RRCInactiveTransitionReport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2125 "./asn1/ngap/ngap.cnf"
+#line 2155 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "RRCInactiveTransitionReport");
 
 
@@ -16762,7 +16835,7 @@ static const per_sequence_t RetrieveUEInformation_sequence[] = {
 
 static int
 dissect_ngap_RetrieveUEInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2122 "./asn1/ngap/ngap.cnf"
+#line 2152 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "RetrieveUEInformation");
 
 
@@ -16780,7 +16853,7 @@ static const per_sequence_t UEInformationTransfer_sequence[] = {
 
 static int
 dissect_ngap_UEInformationTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2173 "./asn1/ngap/ngap.cnf"
+#line 2203 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UEInformationTransfer");
 
 
@@ -16798,7 +16871,7 @@ static const per_sequence_t RANCPRelocationIndication_sequence[] = {
 
 static int
 dissect_ngap_RANCPRelocationIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2116 "./asn1/ngap/ngap.cnf"
+#line 2146 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "RANCPRelocationIndication");
 
 
@@ -16816,7 +16889,7 @@ static const per_sequence_t HandoverRequired_sequence[] = {
 
 static int
 dissect_ngap_HandoverRequired(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1987 "./asn1/ngap/ngap.cnf"
+#line 2017 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverRequired");
 
 
@@ -16834,7 +16907,7 @@ static const per_sequence_t HandoverCommand_sequence[] = {
 
 static int
 dissect_ngap_HandoverCommand(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1990 "./asn1/ngap/ngap.cnf"
+#line 2020 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverCommand");
 
 
@@ -16852,7 +16925,7 @@ static const per_sequence_t HandoverPreparationFailure_sequence[] = {
 
 static int
 dissect_ngap_HandoverPreparationFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1993 "./asn1/ngap/ngap.cnf"
+#line 2023 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverPreparationFailure");
 
 
@@ -16870,7 +16943,7 @@ static const per_sequence_t HandoverRequest_sequence[] = {
 
 static int
 dissect_ngap_HandoverRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 259 "./asn1/ngap/ngap.cnf"
+#line 272 "./asn1/ngap/ngap.cnf"
   /* Set the direction of the message */
   actx->pinfo->link_dir=P2P_DIR_DL;
 
@@ -16891,7 +16964,7 @@ static const per_sequence_t HandoverRequestAcknowledge_sequence[] = {
 
 static int
 dissect_ngap_HandoverRequestAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1999 "./asn1/ngap/ngap.cnf"
+#line 2029 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverRequestAcknowledge");
 
 
@@ -16909,7 +16982,7 @@ static const per_sequence_t HandoverFailure_sequence[] = {
 
 static int
 dissect_ngap_HandoverFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2002 "./asn1/ngap/ngap.cnf"
+#line 2032 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverFailure");
 
 
@@ -16927,7 +17000,7 @@ static const per_sequence_t HandoverNotify_sequence[] = {
 
 static int
 dissect_ngap_HandoverNotify(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1984 "./asn1/ngap/ngap.cnf"
+#line 2014 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverNotify");
 
 
@@ -16945,7 +17018,7 @@ static const per_sequence_t PathSwitchRequest_sequence[] = {
 
 static int
 dissect_ngap_PathSwitchRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2056 "./asn1/ngap/ngap.cnf"
+#line 2086 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PathSwitchRequest");
 
 
@@ -16963,7 +17036,7 @@ static const per_sequence_t PathSwitchRequestAcknowledge_sequence[] = {
 
 static int
 dissect_ngap_PathSwitchRequestAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2059 "./asn1/ngap/ngap.cnf"
+#line 2089 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PathSwitchRequestAcknowledge");
 
 
@@ -16981,7 +17054,7 @@ static const per_sequence_t PathSwitchRequestFailure_sequence[] = {
 
 static int
 dissect_ngap_PathSwitchRequestFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2062 "./asn1/ngap/ngap.cnf"
+#line 2092 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PathSwitchRequestFailure");
 
 
@@ -16999,7 +17072,7 @@ static const per_sequence_t HandoverCancel_sequence[] = {
 
 static int
 dissect_ngap_HandoverCancel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1978 "./asn1/ngap/ngap.cnf"
+#line 2008 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverCancel");
 
 
@@ -17017,7 +17090,7 @@ static const per_sequence_t HandoverCancelAcknowledge_sequence[] = {
 
 static int
 dissect_ngap_HandoverCancelAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1981 "./asn1/ngap/ngap.cnf"
+#line 2011 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverCancelAcknowledge");
 
 
@@ -17035,7 +17108,7 @@ static const per_sequence_t HandoverSuccess_sequence[] = {
 
 static int
 dissect_ngap_HandoverSuccess(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2005 "./asn1/ngap/ngap.cnf"
+#line 2035 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "HandoverSuccess");
 
 
@@ -17053,7 +17126,7 @@ static const per_sequence_t UplinkRANEarlyStatusTransfer_sequence[] = {
 
 static int
 dissect_ngap_UplinkRANEarlyStatusTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2203 "./asn1/ngap/ngap.cnf"
+#line 2233 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UplinkRANEarlyStatusTransfer");
 
 
@@ -17071,7 +17144,7 @@ static const per_sequence_t DownlinkRANEarlyStatusTransfer_sequence[] = {
 
 static int
 dissect_ngap_DownlinkRANEarlyStatusTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1966 "./asn1/ngap/ngap.cnf"
+#line 1996 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "DownlinkRANEarlyStatusTransfer");
 
 
@@ -17089,7 +17162,7 @@ static const per_sequence_t UplinkRANStatusTransfer_sequence[] = {
 
 static int
 dissect_ngap_UplinkRANStatusTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2206 "./asn1/ngap/ngap.cnf"
+#line 2236 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UplinkRANStatusTransfer");
 
 
@@ -17107,7 +17180,7 @@ static const per_sequence_t DownlinkRANStatusTransfer_sequence[] = {
 
 static int
 dissect_ngap_DownlinkRANStatusTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1969 "./asn1/ngap/ngap.cnf"
+#line 1999 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "DownlinkRANStatusTransfer");
 
 
@@ -17125,7 +17198,7 @@ static const per_sequence_t Paging_sequence[] = {
 
 static int
 dissect_ngap_Paging(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2053 "./asn1/ngap/ngap.cnf"
+#line 2083 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "Paging");
 
 
@@ -17143,7 +17216,7 @@ static const per_sequence_t InitialUEMessage_sequence[] = {
 
 static int
 dissect_ngap_InitialUEMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 247 "./asn1/ngap/ngap.cnf"
+#line 260 "./asn1/ngap/ngap.cnf"
   /* Set the direction of the message */
   actx->pinfo->link_dir=P2P_DIR_UL;
 
@@ -17164,7 +17237,7 @@ static const per_sequence_t DownlinkNASTransport_sequence[] = {
 
 static int
 dissect_ngap_DownlinkNASTransport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 251 "./asn1/ngap/ngap.cnf"
+#line 264 "./asn1/ngap/ngap.cnf"
   /* Set the direction of the message */
   actx->pinfo->link_dir=P2P_DIR_DL;
 
@@ -17185,7 +17258,7 @@ static const per_sequence_t UplinkNASTransport_sequence[] = {
 
 static int
 dissect_ngap_UplinkNASTransport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 255 "./asn1/ngap/ngap.cnf"
+#line 268 "./asn1/ngap/ngap.cnf"
   /* Set the direction of the message */
   actx->pinfo->link_dir=P2P_DIR_UL;
 
@@ -17236,7 +17309,7 @@ static const per_sequence_t NASNonDeliveryIndication_sequence[] = {
 
 static int
 dissect_ngap_NASNonDeliveryIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2029 "./asn1/ngap/ngap.cnf"
+#line 2059 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "NASNonDeliveryIndication");
 
 
@@ -17254,7 +17327,7 @@ static const per_sequence_t RerouteNASRequest_sequence[] = {
 
 static int
 dissect_ngap_RerouteNASRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2119 "./asn1/ngap/ngap.cnf"
+#line 2149 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "RerouteNASRequest");
 
 
@@ -17268,7 +17341,7 @@ dissect_ngap_RerouteNASRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 static int
 dissect_ngap_NGAP_Message(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 529 "./asn1/ngap/ngap.cnf"
+#line 542 "./asn1/ngap/ngap.cnf"
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
@@ -17294,7 +17367,7 @@ static const per_sequence_t NGSetupRequest_sequence[] = {
 
 static int
 dissect_ngap_NGSetupRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2038 "./asn1/ngap/ngap.cnf"
+#line 2068 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "NGSetupRequest");
 
 
@@ -17312,7 +17385,7 @@ static const per_sequence_t NGSetupResponse_sequence[] = {
 
 static int
 dissect_ngap_NGSetupResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2041 "./asn1/ngap/ngap.cnf"
+#line 2071 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "NGSetupResponse");
 
 
@@ -17330,7 +17403,7 @@ static const per_sequence_t NGSetupFailure_sequence[] = {
 
 static int
 dissect_ngap_NGSetupFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2044 "./asn1/ngap/ngap.cnf"
+#line 2074 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "NGSetupFailure");
 
 
@@ -17348,7 +17421,7 @@ static const per_sequence_t RANConfigurationUpdate_sequence[] = {
 
 static int
 dissect_ngap_RANConfigurationUpdate(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2107 "./asn1/ngap/ngap.cnf"
+#line 2137 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "RANConfigurationUpdate");
 
 
@@ -17366,7 +17439,7 @@ static const per_sequence_t RANConfigurationUpdateAcknowledge_sequence[] = {
 
 static int
 dissect_ngap_RANConfigurationUpdateAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2110 "./asn1/ngap/ngap.cnf"
+#line 2140 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "RANConfigurationUpdateAcknowledge");
 
 
@@ -17384,7 +17457,7 @@ static const per_sequence_t RANConfigurationUpdateFailure_sequence[] = {
 
 static int
 dissect_ngap_RANConfigurationUpdateFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2113 "./asn1/ngap/ngap.cnf"
+#line 2143 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "RANConfigurationUpdateFailure");
 
 
@@ -17402,7 +17475,7 @@ static const per_sequence_t AMFConfigurationUpdate_sequence[] = {
 
 static int
 dissect_ngap_AMFConfigurationUpdate(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1933 "./asn1/ngap/ngap.cnf"
+#line 1963 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "AMFConfigurationUpdate");
 
 
@@ -17420,7 +17493,7 @@ static const per_sequence_t AMFConfigurationUpdateAcknowledge_sequence[] = {
 
 static int
 dissect_ngap_AMFConfigurationUpdateAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1936 "./asn1/ngap/ngap.cnf"
+#line 1966 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "AMFConfigurationUpdateAcknowledge");
 
 
@@ -17438,7 +17511,7 @@ static const per_sequence_t AMFConfigurationUpdateFailure_sequence[] = {
 
 static int
 dissect_ngap_AMFConfigurationUpdateFailure(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1939 "./asn1/ngap/ngap.cnf"
+#line 1969 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "AMFConfigurationUpdateFailure");
 
 
@@ -17456,7 +17529,7 @@ static const per_sequence_t AMFStatusIndication_sequence[] = {
 
 static int
 dissect_ngap_AMFStatusIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1945 "./asn1/ngap/ngap.cnf"
+#line 1975 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "AMFStatusIndication");
 
 
@@ -17474,7 +17547,7 @@ static const per_sequence_t NGReset_sequence[] = {
 
 static int
 dissect_ngap_NGReset(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2032 "./asn1/ngap/ngap.cnf"
+#line 2062 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "NGReset");
 
 
@@ -17492,7 +17565,7 @@ static const per_sequence_t NGResetAcknowledge_sequence[] = {
 
 static int
 dissect_ngap_NGResetAcknowledge(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2035 "./asn1/ngap/ngap.cnf"
+#line 2065 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "NGResetAcknowledge");
 
 
@@ -17510,7 +17583,7 @@ static const per_sequence_t ErrorIndication_sequence[] = {
 
 static int
 dissect_ngap_ErrorIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1975 "./asn1/ngap/ngap.cnf"
+#line 2005 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "ErrorIndication");
 
 
@@ -17528,7 +17601,7 @@ static const per_sequence_t OverloadStart_sequence[] = {
 
 static int
 dissect_ngap_OverloadStart(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2047 "./asn1/ngap/ngap.cnf"
+#line 2077 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "OverloadStart");
 
 
@@ -17546,7 +17619,7 @@ static const per_sequence_t OverloadStop_sequence[] = {
 
 static int
 dissect_ngap_OverloadStop(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2050 "./asn1/ngap/ngap.cnf"
+#line 2080 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "OverloadStop");
 
 
@@ -17564,7 +17637,7 @@ static const per_sequence_t UplinkRANConfigurationTransfer_sequence[] = {
 
 static int
 dissect_ngap_UplinkRANConfigurationTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2200 "./asn1/ngap/ngap.cnf"
+#line 2230 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UplinkRANConfigurationTransfer");
 
 
@@ -17582,7 +17655,7 @@ static const per_sequence_t DownlinkRANConfigurationTransfer_sequence[] = {
 
 static int
 dissect_ngap_DownlinkRANConfigurationTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1963 "./asn1/ngap/ngap.cnf"
+#line 1993 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "DownlinkRANConfigurationTransfer");
 
 
@@ -17600,7 +17673,7 @@ static const per_sequence_t WriteReplaceWarningRequest_sequence[] = {
 
 static int
 dissect_ngap_WriteReplaceWarningRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2212 "./asn1/ngap/ngap.cnf"
+#line 2242 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "WriteReplaceWarningRequest");
 
 
@@ -17618,7 +17691,7 @@ static const per_sequence_t WriteReplaceWarningResponse_sequence[] = {
 
 static int
 dissect_ngap_WriteReplaceWarningResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2215 "./asn1/ngap/ngap.cnf"
+#line 2245 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "WriteReplaceWarningResponse");
 
 
@@ -17636,7 +17709,7 @@ static const per_sequence_t PWSCancelRequest_sequence[] = {
 
 static int
 dissect_ngap_PWSCancelRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2095 "./asn1/ngap/ngap.cnf"
+#line 2125 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PWSCancelRequest");
 
 
@@ -17654,7 +17727,7 @@ static const per_sequence_t PWSCancelResponse_sequence[] = {
 
 static int
 dissect_ngap_PWSCancelResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2098 "./asn1/ngap/ngap.cnf"
+#line 2128 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PWSCancelResponse");
 
 
@@ -17672,7 +17745,7 @@ static const per_sequence_t PWSRestartIndication_sequence[] = {
 
 static int
 dissect_ngap_PWSRestartIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2104 "./asn1/ngap/ngap.cnf"
+#line 2134 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PWSRestartIndication");
 
 
@@ -17690,7 +17763,7 @@ static const per_sequence_t PWSFailureIndication_sequence[] = {
 
 static int
 dissect_ngap_PWSFailureIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2101 "./asn1/ngap/ngap.cnf"
+#line 2131 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PWSFailureIndication");
 
 
@@ -17708,7 +17781,7 @@ static const per_sequence_t DownlinkUEAssociatedNRPPaTransport_sequence[] = {
 
 static int
 dissect_ngap_DownlinkUEAssociatedNRPPaTransport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1972 "./asn1/ngap/ngap.cnf"
+#line 2002 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "DownlinkUEAssociatedNRPPaTransport");
 
 
@@ -17726,7 +17799,7 @@ static const per_sequence_t UplinkUEAssociatedNRPPaTransport_sequence[] = {
 
 static int
 dissect_ngap_UplinkUEAssociatedNRPPaTransport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2209 "./asn1/ngap/ngap.cnf"
+#line 2239 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UplinkUEAssociatedNRPPaTransport");
 
 
@@ -17744,7 +17817,7 @@ static const per_sequence_t DownlinkNonUEAssociatedNRPPaTransport_sequence[] = {
 
 static int
 dissect_ngap_DownlinkNonUEAssociatedNRPPaTransport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1960 "./asn1/ngap/ngap.cnf"
+#line 1990 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "DownlinkNonUEAssociatedNRPPaTransport");
 
 
@@ -17762,7 +17835,7 @@ static const per_sequence_t UplinkNonUEAssociatedNRPPaTransport_sequence[] = {
 
 static int
 dissect_ngap_UplinkNonUEAssociatedNRPPaTransport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2197 "./asn1/ngap/ngap.cnf"
+#line 2227 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UplinkNonUEAssociatedNRPPaTransport");
 
 
@@ -17780,7 +17853,7 @@ static const per_sequence_t TraceStart_sequence[] = {
 
 static int
 dissect_ngap_TraceStart(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2134 "./asn1/ngap/ngap.cnf"
+#line 2164 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "TraceStart");
 
 
@@ -17798,7 +17871,7 @@ static const per_sequence_t TraceFailureIndication_sequence[] = {
 
 static int
 dissect_ngap_TraceFailureIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2131 "./asn1/ngap/ngap.cnf"
+#line 2161 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "TraceFailureIndication");
 
 
@@ -17816,7 +17889,7 @@ static const per_sequence_t DeactivateTrace_sequence[] = {
 
 static int
 dissect_ngap_DeactivateTrace(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1954 "./asn1/ngap/ngap.cnf"
+#line 1984 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "DeactivateTrace");
 
 
@@ -17834,7 +17907,7 @@ static const per_sequence_t CellTrafficTrace_sequence[] = {
 
 static int
 dissect_ngap_CellTrafficTrace(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1948 "./asn1/ngap/ngap.cnf"
+#line 1978 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "CellTrafficTrace");
 
 
@@ -17852,7 +17925,7 @@ static const per_sequence_t LocationReportingControl_sequence[] = {
 
 static int
 dissect_ngap_LocationReportingControl(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2023 "./asn1/ngap/ngap.cnf"
+#line 2053 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "LocationReportingControl");
 
 
@@ -17870,7 +17943,7 @@ static const per_sequence_t LocationReportingFailureIndication_sequence[] = {
 
 static int
 dissect_ngap_LocationReportingFailureIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2026 "./asn1/ngap/ngap.cnf"
+#line 2056 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "LocationReportingFailureIndication");
 
 
@@ -17888,7 +17961,7 @@ static const per_sequence_t LocationReport_sequence[] = {
 
 static int
 dissect_ngap_LocationReport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2020 "./asn1/ngap/ngap.cnf"
+#line 2050 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "LocationReport");
 
 
@@ -17906,7 +17979,7 @@ static const per_sequence_t UETNLABindingReleaseRequest_sequence[] = {
 
 static int
 dissect_ngap_UETNLABindingReleaseRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2191 "./asn1/ngap/ngap.cnf"
+#line 2221 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UETNLABindingReleaseRequest");
 
 
@@ -17924,7 +17997,7 @@ static const per_sequence_t UERadioCapabilityInfoIndication_sequence[] = {
 
 static int
 dissect_ngap_UERadioCapabilityInfoIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2188 "./asn1/ngap/ngap.cnf"
+#line 2218 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UERadioCapabilityInfoIndication");
 
 
@@ -17942,7 +18015,7 @@ static const per_sequence_t UERadioCapabilityCheckRequest_sequence[] = {
 
 static int
 dissect_ngap_UERadioCapabilityCheckRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2176 "./asn1/ngap/ngap.cnf"
+#line 2206 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UERadioCapabilityCheckRequest");
 
 
@@ -17960,7 +18033,7 @@ static const per_sequence_t UERadioCapabilityCheckResponse_sequence[] = {
 
 static int
 dissect_ngap_UERadioCapabilityCheckResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2179 "./asn1/ngap/ngap.cnf"
+#line 2209 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UERadioCapabilityCheckResponse");
 
 
@@ -17978,7 +18051,7 @@ static const per_sequence_t PrivateMessage_sequence[] = {
 
 static int
 dissect_ngap_PrivateMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2092 "./asn1/ngap/ngap.cnf"
+#line 2122 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PrivateMessage");
 
 
@@ -17996,7 +18069,7 @@ static const per_sequence_t SecondaryRATDataUsageReport_sequence[] = {
 
 static int
 dissect_ngap_SecondaryRATDataUsageReport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2128 "./asn1/ngap/ngap.cnf"
+#line 2158 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "SecondaryRATDataUsageReport");
 
 
@@ -18014,7 +18087,7 @@ static const per_sequence_t UplinkRIMInformationTransfer_sequence[] = {
 
 static int
 dissect_ngap_UplinkRIMInformationTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2218 "./asn1/ngap/ngap.cnf"
+#line 2248 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UplinkRIMInformationTransfer");
 
 
@@ -18032,7 +18105,7 @@ static const per_sequence_t DownlinkRIMInformationTransfer_sequence[] = {
 
 static int
 dissect_ngap_DownlinkRIMInformationTransfer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2221 "./asn1/ngap/ngap.cnf"
+#line 2251 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "DownlinkRIMInformationTransfer");
 
 
@@ -18050,7 +18123,7 @@ static const per_sequence_t ConnectionEstablishmentIndication_sequence[] = {
 
 static int
 dissect_ngap_ConnectionEstablishmentIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1951 "./asn1/ngap/ngap.cnf"
+#line 1981 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "ConnectionEstablishmentIndication");
 
 
@@ -18068,7 +18141,7 @@ static const per_sequence_t UERadioCapabilityIDMappingRequest_sequence[] = {
 
 static int
 dissect_ngap_UERadioCapabilityIDMappingRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2182 "./asn1/ngap/ngap.cnf"
+#line 2212 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UERadioCapabilityIDMappingRequest");
 
 
@@ -18086,7 +18159,7 @@ static const per_sequence_t UERadioCapabilityIDMappingResponse_sequence[] = {
 
 static int
 dissect_ngap_UERadioCapabilityIDMappingResponse(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 2185 "./asn1/ngap/ngap.cnf"
+#line 2215 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "UERadioCapabilityIDMappingResponse");
 
 
@@ -18104,7 +18177,7 @@ static const per_sequence_t AMFCPRelocationIndication_sequence[] = {
 
 static int
 dissect_ngap_AMFCPRelocationIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 1942 "./asn1/ngap/ngap.cnf"
+#line 1972 "./asn1/ngap/ngap.cnf"
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "AMFCPRelocationIndication");
 
 
@@ -18118,7 +18191,7 @@ dissect_ngap_AMFCPRelocationIndication(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 static int
 dissect_ngap_InitiatingMessage_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 117 "./asn1/ngap/ngap.cnf"
+#line 130 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   ngap_data->message_type = INITIATING_MESSAGE;
 
@@ -18147,7 +18220,7 @@ dissect_ngap_InitiatingMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 static int
 dissect_ngap_SuccessfulOutcome_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 121 "./asn1/ngap/ngap.cnf"
+#line 134 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   ngap_data->message_type = SUCCESSFUL_OUTCOME;
 
@@ -18176,7 +18249,7 @@ dissect_ngap_SuccessfulOutcome(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 static int
 dissect_ngap_UnsuccessfulOutcome_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 125 "./asn1/ngap/ngap.cnf"
+#line 138 "./asn1/ngap/ngap.cnf"
   struct ngap_private_data *ngap_data = ngap_get_private_data(actx->pinfo);
   ngap_data->message_type = UNSUCCESSFUL_OUTCOME;
 
@@ -18668,6 +18741,14 @@ static int dissect_FiveG_S_TMSI_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, p
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
   offset = dissect_ngap_FiveG_S_TMSI(tvb, offset, &asn1_ctx, tree, hf_ngap_FiveG_S_TMSI_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
+static int dissect_GlobalCable_ID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  offset = dissect_ngap_GlobalCable_ID(tvb, offset, &asn1_ctx, tree, hf_ngap_GlobalCable_ID_PDU);
   offset += 7; offset >>= 3;
   return offset;
 }
@@ -19655,11 +19736,27 @@ static int dissect_QosMonitoringRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinf
   offset += 7; offset >>= 3;
   return offset;
 }
+static int dissect_QosMonitoringReportingFrequency_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  offset = dissect_ngap_QosMonitoringReportingFrequency(tvb, offset, &asn1_ctx, tree, hf_ngap_QosMonitoringReportingFrequency_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
 static int dissect_QosFlowListWithCause_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
   offset = dissect_ngap_QosFlowListWithCause(tvb, offset, &asn1_ctx, tree, hf_ngap_QosFlowListWithCause_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
+static int dissect_QosFlowParametersList_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  offset = dissect_ngap_QosFlowParametersList(tvb, offset, &asn1_ctx, tree, hf_ngap_QosFlowParametersList_PDU);
   offset += 7; offset >>= 3;
   return offset;
 }
@@ -21234,7 +21331,7 @@ static int dissect_UEContextSuspendRequestTransfer_PDU(tvbuff_t *tvb _U_, packet
 
 
 /*--- End of included file: packet-ngap-fn.c ---*/
-#line 463 "./asn1/ngap/packet-ngap-template.c"
+#line 464 "./asn1/ngap/packet-ngap-template.c"
 
 static int dissect_ProtocolIEFieldValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
@@ -21694,6 +21791,7 @@ proto_reg_handoff_ngap(void)
   dissector_add_uint("ngap.ies", id_NotifySourceNGRANNode, create_dissector_handle(dissect_NotifySourceNGRANNode_PDU, proto_ngap));
   dissector_add_uint("ngap.ies", id_Extended_RANNodeName, create_dissector_handle(dissect_Extended_RANNodeName_PDU, proto_ngap));
   dissector_add_uint("ngap.ies", id_Extended_AMFName, create_dissector_handle(dissect_Extended_AMFName_PDU, proto_ngap));
+  dissector_add_uint("ngap.ies", id_GlobalCable_ID, create_dissector_handle(dissect_GlobalCable_ID_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_SecondaryRATUsageInformation, create_dissector_handle(dissect_SecondaryRATUsageInformation_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_PDUSessionResourceReleaseResponseTransfer, create_dissector_handle(dissect_PDUSessionResourceReleaseResponseTransfer_OCTET_STRING_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_S_NSSAI, create_dissector_handle(dissect_S_NSSAI_PDU, proto_ngap));
@@ -21749,6 +21847,8 @@ proto_reg_handoff_ngap(void)
   dissector_add_uint("ngap.extension", id_ExtendedSliceSupportList, create_dissector_handle(dissect_ExtendedSliceSupportList_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_ExtendedTAISliceSupportList, create_dissector_handle(dissect_ExtendedSliceSupportList_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_ConfiguredTACIndication, create_dissector_handle(dissect_ConfiguredTACIndication_PDU, proto_ngap));
+  dissector_add_uint("ngap.extension", id_QosMonitoringReportingFrequency, create_dissector_handle(dissect_QosMonitoringReportingFrequency_PDU, proto_ngap));
+  dissector_add_uint("ngap.extension", id_QosFlowParametersList, create_dissector_handle(dissect_QosFlowParametersList_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.imsg", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdate_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.sout", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdateAcknowledge_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.uout", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdateFailure_PDU, proto_ngap));
@@ -21876,7 +21976,7 @@ proto_reg_handoff_ngap(void)
 
 
 /*--- End of included file: packet-ngap-dis-tab.c ---*/
-#line 698 "./asn1/ngap/packet-ngap-template.c"
+#line 699 "./asn1/ngap/packet-ngap-template.c"
 
     dissector_add_string("media_type", "application/vnd.3gpp.ngap", ngap_media_type_handle);
   } else {
@@ -22091,6 +22191,10 @@ void proto_register_ngap(void) {
     { &hf_ngap_MDT_Location_Information_reserved,
       { "Reserved", "ngap.MDT_Location_Information.reserved",
         FT_UINT8, BASE_HEX, NULL, 0x7f,
+        NULL, HFILL }},
+    { &hf_ngap_GlobalCable_ID_str,
+      { "GlobalCable-ID", "ngap.GlobalCable_ID.str",
+        FT_STRING, BASE_NONE, NULL, 0,
         NULL, HFILL }},
 
 /*--- Included file: packet-ngap-hfarr.c ---*/
@@ -22310,6 +22414,10 @@ void proto_register_ngap(void) {
     { &hf_ngap_FiveG_S_TMSI_PDU,
       { "FiveG-S-TMSI", "ngap.FiveG_S_TMSI_element",
         FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ngap_GlobalCable_ID_PDU,
+      { "GlobalCable-ID", "ngap.GlobalCable_ID",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_GlobalRANNodeID_PDU,
       { "GlobalRANNodeID", "ngap.GlobalRANNodeID",
@@ -22803,8 +22911,16 @@ void proto_register_ngap(void) {
       { "QosMonitoringRequest", "ngap.QosMonitoringRequest",
         FT_UINT32, BASE_DEC, VALS(ngap_QosMonitoringRequest_vals), 0,
         NULL, HFILL }},
+    { &hf_ngap_QosMonitoringReportingFrequency_PDU,
+      { "QosMonitoringReportingFrequency", "ngap.QosMonitoringReportingFrequency",
+        FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_seconds, 0,
+        NULL, HFILL }},
     { &hf_ngap_QosFlowListWithCause_PDU,
       { "QosFlowListWithCause", "ngap.QosFlowListWithCause",
+        FT_UINT32, BASE_DEC, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ngap_QosFlowParametersList_PDU,
+      { "QosFlowParametersList", "ngap.QosFlowParametersList",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_QosFlowPerTNLInformation_PDU,
@@ -24583,12 +24699,12 @@ void proto_register_ngap(void) {
       { "eNB-ID", "ngap.eNB_ID",
         FT_UINT32, BASE_DEC, VALS(ngap_ENB_ID_vals), 0,
         NULL, HFILL }},
-    { &hf_ngap_gNB_ID,
-      { "gNB-ID", "ngap.gNB_ID",
+    { &hf_ngap_globalGNB_ID_gNB_ID,
+      { "gNB-ID", "ngap.globalGNB-ID.gNB-ID",
         FT_UINT32, BASE_DEC, VALS(ngap_GNB_ID_vals), 0,
         NULL, HFILL }},
-    { &hf_ngap_n3IWF_ID,
-      { "n3IWF-ID", "ngap.n3IWF_ID",
+    { &hf_ngap_globalN3IWF_ID_n3IWF_ID,
+      { "n3IWF-ID", "ngap.globalN3IWF-ID_n3IWF-ID",
         FT_UINT32, BASE_DEC, VALS(ngap_N3IWF_ID_vals), 0,
         NULL, HFILL }},
     { &hf_ngap_globalLineIdentity,
@@ -24615,19 +24731,19 @@ void proto_register_ngap(void) {
       { "globalN3IWF-ID", "ngap.globalN3IWF_ID_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_ngap_tNGF_ID,
-      { "tNGF-ID", "ngap.tNGF_ID",
+    { &hf_ngap_globalTNGF_ID_tNGF_ID,
+      { "tNGF-ID", "ngap.globalTNGF-ID.tNGF-ID",
         FT_UINT32, BASE_DEC, VALS(ngap_TNGF_ID_vals), 0,
         NULL, HFILL }},
-    { &hf_ngap_tWIF_ID,
-      { "tWIF-ID", "ngap.tWIF_ID",
+    { &hf_ngap_globalTWIF_ID_tWIF_ID,
+      { "tWIF-ID", "ngap.globalTWIF-ID.tWIF-ID",
         FT_UINT32, BASE_DEC, VALS(ngap_TWIF_ID_vals), 0,
         NULL, HFILL }},
-    { &hf_ngap_w_AGF_ID,
-      { "w-AGF-ID", "ngap.w_AGF_ID",
+    { &hf_ngap_globalW_AGF_ID_w_AGF_ID,
+      { "w-AGF-ID", "ngap.globalW-AGF-ID.w-AGF-ID",
         FT_UINT32, BASE_DEC, VALS(ngap_W_AGF_ID_vals), 0,
         NULL, HFILL }},
-    { &hf_ngap_gNB_ID_01,
+    { &hf_ngap_gNB_ID,
       { "gNB-ID", "ngap.gNB_ID",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_22_32", HFILL }},
@@ -25047,7 +25163,7 @@ void proto_register_ngap(void) {
       { "mDT-Location-Information", "ngap.mDT_Location_Information",
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_ngap_n3IWF_ID_01,
+    { &hf_ngap_n3IWF_ID,
       { "n3IWF-ID", "ngap.n3IWF_ID",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_16", HFILL }},
@@ -25683,6 +25799,14 @@ void proto_register_ngap(void) {
       { "notificationCause", "ngap.notificationCause",
         FT_UINT32, BASE_DEC, VALS(ngap_NotificationCause_vals), 0,
         NULL, HFILL }},
+    { &hf_ngap_QosFlowParametersList_item,
+      { "QosFlowParametersItem", "ngap.QosFlowParametersItem_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ngap_alternativeQoSParaSetList,
+      { "alternativeQoSParaSetList", "ngap.alternativeQoSParaSetList",
+        FT_UINT32, BASE_DEC, NULL, 0,
+        NULL, HFILL }},
     { &hf_ngap_uPTransportLayerInformation,
       { "uPTransportLayerInformation", "ngap.uPTransportLayerInformation",
         FT_UINT32, BASE_DEC, VALS(ngap_UPTransportLayerInformation_vals), 0,
@@ -26063,7 +26187,7 @@ void proto_register_ngap(void) {
       { "extendedRNC-ID", "ngap.extendedRNC_ID",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_ngap_tNGF_ID_01,
+    { &hf_ngap_tNGF_ID,
       { "tNGF-ID", "ngap.tNGF_ID",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_32_", HFILL }},
@@ -26115,7 +26239,7 @@ void proto_register_ngap(void) {
       { "TAC", "ngap.TAC",
         FT_UINT24, BASE_DEC_HEX, NULL, 0,
         NULL, HFILL }},
-    { &hf_ngap_tWIF_ID_01,
+    { &hf_ngap_tWIF_ID,
       { "tWIF-ID", "ngap.tWIF_ID",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_32_", HFILL }},
@@ -26339,7 +26463,7 @@ void proto_register_ngap(void) {
       { "usageCountDL", "ngap.usageCountDL",
         FT_UINT64, BASE_DEC|BASE_UNIT_STRING, &units_octet_octets, 0,
         "INTEGER_0_18446744073709551615", HFILL }},
-    { &hf_ngap_w_AGF_ID_01,
+    { &hf_ngap_w_AGF_ID,
       { "w-AGF-ID", "ngap.w_AGF_ID",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_16_", HFILL }},
@@ -26445,7 +26569,7 @@ void proto_register_ngap(void) {
         "UnsuccessfulOutcome_value", HFILL }},
 
 /*--- End of included file: packet-ngap-hfarr.c ---*/
-#line 914 "./asn1/ngap/packet-ngap-template.c"
+#line 919 "./asn1/ngap/packet-ngap-template.c"
   };
 
   /* List of subtrees */
@@ -26488,6 +26612,7 @@ void proto_register_ngap(void) {
     &ett_ngap_NRUERLFReportContainer,
     &ett_ngap_TargettoSource_Failure_TransparentContainer,
     &ett_ngap_UERadioCapabilityForPagingOfNB_IoT,
+    &ett_ngap_GlobalCable_ID,
 
 /*--- Included file: packet-ngap-ettarr.c ---*/
 #line 1 "./asn1/ngap/packet-ngap-ettarr.c"
@@ -26853,6 +26978,8 @@ void proto_register_ngap(void) {
     &ett_ngap_QosFlowModifyConfirmItem,
     &ett_ngap_QosFlowNotifyList,
     &ett_ngap_QosFlowNotifyItem,
+    &ett_ngap_QosFlowParametersList,
+    &ett_ngap_QosFlowParametersItem,
     &ett_ngap_QosFlowPerTNLInformation,
     &ett_ngap_QosFlowPerTNLInformationList,
     &ett_ngap_QosFlowPerTNLInformationItem,
@@ -27092,7 +27219,7 @@ void proto_register_ngap(void) {
     &ett_ngap_UnsuccessfulOutcome,
 
 /*--- End of included file: packet-ngap-ettarr.c ---*/
-#line 957 "./asn1/ngap/packet-ngap-template.c"
+#line 963 "./asn1/ngap/packet-ngap-template.c"
   };
 
   static ei_register_info ei[] = {

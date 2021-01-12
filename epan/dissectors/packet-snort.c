@@ -133,6 +133,10 @@ static gboolean snort_show_alert_expert_info = FALSE;
 /* Should we try to attach the alert to the tcp.reassembled_in frame instead of current one? */
 static gboolean snort_alert_in_reassembled_frame = FALSE;
 
+/* Should Snort ignore checksum errors (as will likely be seen because of check offloading or
+ * possibly if trying to capture live in a container)? */
+static gboolean snort_ignore_checksum_errors = TRUE;
+
 
 /********************************************************/
 /* Global variable with single parsed snort config      */
@@ -207,7 +211,7 @@ static void add_alert_to_session_tree(guint frame_number, Alert_t *alert)
     Alerts_t *alerts = (Alerts_t*)wmem_tree_lookup32(current_session.alerts_tree, frame_number);
     if (alerts == NULL) {
         /* Create a new entry for the table */
-        alerts = (Alerts_t*)g_malloc(sizeof(Alerts_t));
+        alerts = g_new(Alerts_t, 1);
         /* Deep copy of alert */
         alerts->alerts[0] = *alert;
         alerts->num_alerts = 1;
@@ -1243,8 +1247,15 @@ static void snort_start(void)
         "-A", "console", "-q",
         /* normalize time */
         "-y", /* -U", */
+        /* Optionally ignore checksum errors */
+        "-k", "none",
         NULL
     };
+
+    /* Truncate command to before -k if this pref off */
+    if (!snort_ignore_checksum_errors) {
+        argv[10] = NULL;
+    }
 
     /* Enable field priming if required. */
     if (snort_alert_in_reassembled_frame) {
@@ -1313,6 +1324,12 @@ static void snort_start(void)
         report_failure("Snort dissector: Snort binary '%s' is not executable\n", pref_snort_binary_filename);
         return;
     }
+#endif
+
+#ifdef _WIN32
+    report_failure("Snort dissector: not yet able to launch Snort process under Windows");
+    current_session.working = FALSE;
+    return;
 #endif
 
     /* Create snort process and set up pipes */
@@ -1506,9 +1523,9 @@ proto_register_snort(void)
     };
 
     static const enum_val_t alerts_source_vals[] = {
-        {"from-nowhere",            "Not looking for Snort alerts", FromNowhere},
-        {"from-running-snort",      "From running Snort",           FromRunningSnort},
-        {"from-user-comments",      "From user comments",           FromUserComments},
+        {"from-nowhere",            "Not looking for Snort alerts",        FromNowhere},
+        {"from-running-snort",      "From running Snort",                  FromRunningSnort},
+        {"from-user-comments",      "From user packet comments",           FromUserComments},
         {NULL, NULL, -1}
     };
 
@@ -1536,7 +1553,7 @@ proto_register_snort(void)
 
     prefs_register_enum_preference(snort_module, "alerts_source",
         "Source of Snort alerts",
-        "Set whether dissector should run Snort itself or use user packet comments",
+        "Set whether dissector should run Snort and pass frames into it, or read alerts from user packet comments",
         &pref_snort_alerts_source, alerts_source_vals, FALSE);
 
     prefs_register_filename_preference(snort_module, "binary",
@@ -1559,8 +1576,13 @@ proto_register_snort(void)
                                    &snort_show_alert_expert_info);
     prefs_register_bool_preference(snort_module, "show_alert_in_reassembled_frame",
                                    "Try to show alerts in reassembled frame",
-                                   "Attempt to show alert in reassembled frame where possible",
+                                   "Attempt to show alert in reassembled frame where possible.  Note that this won't work during live capture",
                                    &snort_alert_in_reassembled_frame);
+    prefs_register_bool_preference(snort_module, "ignore_checksum_errors",
+                                   "Tell Snort to ignore checksum errors",
+                                   "When enabled, will run Snort with '-k none'",
+                                   &snort_ignore_checksum_errors);
+
 
     snort_handle = create_dissector_handle(snort_dissector, proto_snort);
 

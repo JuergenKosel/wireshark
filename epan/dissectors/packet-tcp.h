@@ -49,8 +49,11 @@ struct mptcpheader {
 	gboolean mh_mpc;         /* true if seen an mp_capable option */
 	gboolean mh_join;        /* true if seen an mp_join option */
 	gboolean mh_dss;         /* true if seen a dss */
-	gboolean mh_fastclose;   /* true if seen a fastclose */
+	gboolean mh_add;         /* true if seen an MP_ADD */
+	gboolean mh_remove;      /* true if seen an MP_REMOVE */
+	gboolean mh_prio;        /* true if seen an MP_PRIO */
 	gboolean mh_fail;        /* true if seen an MP_FAIL */
+	gboolean mh_fastclose;   /* true if seen a fastclose */
 
 	guint8  mh_capable_flags; /* to get hmac version for instance */
 	guint8  mh_dss_flags; /* data sequence signal flag */
@@ -323,7 +326,7 @@ typedef struct tcp_process_info_t {
 typedef struct _tcp_flow_t {
 	guint8 static_flags; /* true if base seq set */
 	guint32 base_seq;	/* base seq number (used by relative sequence numbers)*/
-#define TCP_MAX_UNACKED_SEGMENTS 1000 /* The most unacked segments we'll store */
+#define TCP_MAX_UNACKED_SEGMENTS 10000 /* The most unacked segments we'll store */
 	guint32 fin;		/* frame number of the final FIN */
 	guint32 window;		/* last seen window */
 	gint16	win_scale;	/* -1 is we don't know, -2 is window scaling is not used */
@@ -332,6 +335,9 @@ typedef struct _tcp_flow_t {
 	gboolean valid_bif;     /* if lost pkts, disable BiF until ACK is recvd */
 	guint32 push_bytes_sent; /* bytes since the last PSH flag */
 	gboolean push_set_last; /* tracking last time PSH flag was set */
+	guint8 mp_operations; /* tracking of the MPTCP operations */
+	gboolean is_first_ack;  /* indicates if this is the first ACK */
+	gboolean closing_initiator; /* tracking who is responsible of the connection end */
 
 	tcp_analyze_seq_flow_info_t* tcp_analyze_seq_info;
 
@@ -378,6 +384,9 @@ struct mptcp_analysis {
 
 	/* identifier of the tcp stream that saw the initial 3WHS with MP_CAPABLE option */
 	struct tcp_analysis *master;
+
+	/* Keep track of the last TCP operations seen in order to avoid false DUP ACKs */
+	guint8 mp_operations;
 };
 
 struct tcp_analysis {
@@ -456,6 +465,13 @@ struct tcp_analysis {
 	 * can exist without any meta
 	 */
 	struct mptcp_analysis* mptcp_analysis;
+
+	/* Track the TCP conversation completeness, as the capture might
+	 * contain all parts of a TCP flow (establishment, data, clearing) or
+	 * just some parts if we jumped on the bandwagon of an already established
+	 * connection or left before it was terminated explicitly
+	 */
+	guint8          conversation_completeness;
 };
 
 /* Structure that keeps per packet data. First used to be able
