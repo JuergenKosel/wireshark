@@ -2746,7 +2746,7 @@ static const value_string gsm_a_rr_cbq3_vals[] = {
     { 0, "Iu mode not supported"},
     { 1, "Iu mode capable MSs barred"},
     { 2, "Iu mode supported, cell not barred"},
-    { 3, "Iu mode supported, cell not barred"},
+    { 3, "Iu mode supported, cell not barred. The network shall not use this value"},
     { 0, NULL }
 };
 
@@ -5072,7 +5072,7 @@ static const true_false_string gsm_a_rr_pow_cmd_epc_value  = {
  */
 static const true_false_string gsm_a_rr_pow_cmd_fpcepc_value  = {
     "FPC in use/EPC in use for uplink power control",
-    "FPC not in use/C not in use for uplink power control"
+    "FPC not in use/EPC not in use for uplink power control"
 };
 
 /*

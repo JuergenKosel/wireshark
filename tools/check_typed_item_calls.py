@@ -403,7 +403,9 @@ def is_dissector_file(filename):
     return p.match(filename)
 
 
-def findDissectorFilesInFolder(folder, dissector_files=[], recursive=False):
+def findDissectorFilesInFolder(folder, dissector_files=None, recursive=False):
+    if dissector_files is None:
+        dissector_files = []
     if recursive:
         for root, subfolders, files in os.walk(folder):
             for f in files:
@@ -490,8 +492,6 @@ elif args.open:
                     for f in subprocess.check_output(command).splitlines()]
     # Only interested in dissector files.
     files_staged = list(filter(lambda f : is_dissector_file(f), files_staged))
-    for f in files:
-        files.append(f)
     for f in files_staged:
         if not f in files:
             files.append(f)

@@ -24,6 +24,7 @@
 #include <epan/to_str.h>
 
 #include <wsutil/pow2.h>
+#include <wsutil/pint.h>
 #include <wsutil/wsjson.h>
 
 #include "packet-gsm_a_common.h"
@@ -2249,6 +2250,14 @@ de_nas_5gs_mm_ma_pdu_ses_inf(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo
 /*
  * 9.11.3.31B   Mapped NSSAI
  */
+static const value_string nas_5gs_mm_sst_vals[] = {
+    { 0x1, "eMBB"},
+    { 0x2, "URLLC"},
+    { 0x3, "MIoT"},
+    { 0x4, "V2X"},
+    {   0, NULL }
+};
+
 static guint16
 de_nas_5gs_mm_mapped_nssai(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo _U_,
     guint32 offset, guint len,
@@ -2928,7 +2937,7 @@ static const value_string nas_5gs_mm_sal_num_e_vals[] = {
     { 0x01, "2" },
     { 0x02, "3" },
     { 0x03, "4" },
-    { 0x04, "4" },
+    { 0x04, "5" },
     { 0x05, "6" },
     { 0x06, "7" },
     { 0x07, "8" },
@@ -4043,9 +4052,7 @@ de_nas_5gs_sm_pdu_address(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
     proto_item *ti;
     gboolean si6lla;
     guint32 pdu_addr;
-    ws_in6_addr interface_id;
-
-    memset(&interface_id, 0, sizeof(interface_id));
+    guint8 interface_id[8];
 
     /* 0 Spare    0 Spare    0 Spare    0 Spare    SI6LLA    PDU session type value */
     proto_tree_add_item_ret_boolean(tree, hf_nas_5gs_sm_si6lla, tvb, offset, 1, ENC_BIG_ENDIAN, &si6lla);
@@ -4063,8 +4070,10 @@ de_nas_5gs_sm_pdu_address(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
         /* If the PDU session type value indicates IPv6, the PDU address information in octet 4 to octet 11
          * contains an interface identifier for the IPv6 link local address.
          */
-        tvb_memcpy(tvb, (guint8*)&interface_id.bytes[8], offset, 8);
-        proto_tree_add_ipv6(tree, hf_nas_5gs_sm_pdu_addr_inf_ipv6, tvb, offset, 8, &interface_id);
+        tvb_memcpy(tvb, interface_id, offset, 8);
+        proto_tree_add_bytes_format_value(tree, hf_nas_5gs_sm_pdu_addr_inf_ipv6, tvb, offset, 8, NULL,
+                                          "::%x:%x:%x:%x", pntoh16(&interface_id[0]), pntoh16(&interface_id[2]),
+                                          pntoh16(&interface_id[4]), pntoh16(&interface_id[6]));
         offset += 8;
         break;
     case 3:
@@ -4072,8 +4081,10 @@ de_nas_5gs_sm_pdu_address(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
          * contains an interface identifier for the IPv6 link local address and in octet 12 to octet 15
          * contains an IPv4 address.
          */
-        tvb_memcpy(tvb, (guint8*)&interface_id.bytes[8], offset, 8);
-        proto_tree_add_ipv6(tree, hf_nas_5gs_sm_pdu_addr_inf_ipv6, tvb, offset, 8, &interface_id);
+        tvb_memcpy(tvb, interface_id, offset, 8);
+        proto_tree_add_bytes_format_value(tree, hf_nas_5gs_sm_pdu_addr_inf_ipv6, tvb, offset, 8, NULL,
+                                          "::%x:%x:%x:%x", pntoh16(&interface_id[0]), pntoh16(&interface_id[2]),
+                                          pntoh16(&interface_id[4]), pntoh16(&interface_id[6]));
         offset += 8;
         proto_tree_add_item(tree, hf_nas_5gs_sm_pdu_addr_inf_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
@@ -8782,7 +8793,7 @@ proto_register_nas_5gs(void)
         },
         { &hf_nas_5gs_mm_sst,
         { "Slice/service type (SST)",   "nas_5gs.mm.sst",
-            FT_UINT8, BASE_DEC, NULL, 0x0,
+            FT_UINT8, BASE_DEC, VALS(nas_5gs_mm_sst_vals), 0x0,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_sd,
@@ -10172,7 +10183,7 @@ proto_register_nas_5gs(void)
         },
         { &hf_nas_5gs_sm_pdu_addr_inf_ipv6,
         { "PDU address information", "nas_5gs.sm.pdu_addr_inf_ipv6",
-            FT_IPv6, BASE_NONE, NULL, 0x0,
+            FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_nas_5gs_sm_smf_ipv6_lla,

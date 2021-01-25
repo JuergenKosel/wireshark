@@ -3317,6 +3317,15 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Example GIF query packets have jumbo window sizes</source>
+        <extracomment>These are pangrams. Feel free to replace with nonsense text that spans your alphabet. https://en.wikipedia.org/wiki/Pangram</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Lazy badgers move unique waxy jellyfish packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Font</source>
         <translation>Police d&apos;écriture</translation>
     </message>
@@ -5516,6 +5525,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Include RACH frames in filter</source>
         <translation>Inclure les trames RACH dans le filtre</translation>
     </message>
+    <message>
+        <source>MAC Statistics</source>
+        <translation type="unfinished">Statistiques MAC</translation>
+    </message>
 </context>
 <context>
     <name>LteRlcGraphDialog</name>
@@ -5927,6 +5940,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>DL Missing</source>
         <translation>DL Manquants</translation>
+    </message>
+    <message>
+        <source>RLC Statistics</source>
+        <translation type="unfinished">Statistiques RLC</translation>
     </message>
 </context>
 <context>
@@ -11881,7 +11898,7 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>Case sensitive</source>
-        <translation>Sensible à la case</translation>
+        <translation>Sensible à la casse</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search for data using display filter syntax (e.g. ip.addr==10.1.1.1), a hexadecimal string (e.g. fffffda5), a plain string (e.g. My String) or a regular expression (e.g. colou?r).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>

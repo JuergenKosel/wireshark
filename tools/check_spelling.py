@@ -272,6 +272,9 @@ def findStrings(filename):
 
 # Test for whether the given file was automatically generated.
 def isGeneratedFile(filename):
+    if not filename.endswith('.c'):
+        return False
+
     # Open file
     f_read = open(os.path.join(filename), 'r')
     lines_tested = 0
@@ -318,7 +321,7 @@ def findFilesInFolder(folder):
     return files_to_check
 
 
-# Check the given dissector file.
+# Check the given file.
 def checkFile(filename):
     # Check file exists - e.g. may have been deleted in a recent commit.
     if not os.path.exists(filename):
@@ -335,9 +338,9 @@ def checkFile(filename):
 
 # command-line args.  Controls which files should be checked.
 # If no args given, will just scan epan/dissectors folder.
-parser = argparse.ArgumentParser(description='Check calls in dissectors')
+parser = argparse.ArgumentParser(description='Check spellings in specified files')
 parser.add_argument('--file', action='store', default='',
-                    help='specify individual dissector file to test')
+                    help='specify individual file to test')
 parser.add_argument('--folder', action='store', default='',
                     help='specify folder to test')
 parser.add_argument('--commits', action='store',
@@ -362,28 +365,26 @@ elif args.commits:
     command = ['git', 'diff', '--name-only', 'HEAD~' + args.commits]
     files = [f.decode('utf-8')
              for f in subprocess.check_output(command).splitlines()]
-    # Will examine dissector files only
-    files = list(filter(lambda f : isAppropriateFile(f), files))
+    # Filter files
+    files = list(filter(lambda f : isAppropriateFile(f) and not isGeneratedFile(f), files))
 elif args.open:
     # Unstaged changes.
     command = ['git', 'diff', '--name-only']
     files = [f.decode('utf-8')
              for f in subprocess.check_output(command).splitlines()]
-    # Only interested in dissector files.
-    files = list(filter(lambda f : is_dissector_file(f), files))
+    # Filter files.
+    files = list(filter(lambda f : isAppropriateFile(f) and not isGeneratedFile(f), files))
     # Staged changes.
     command = ['git', 'diff', '--staged', '--name-only']
     files_staged = [f.decode('utf-8')
                     for f in subprocess.check_output(command).splitlines()]
-    # Only interested in dissector files.
-    files_staged = list(filter(lambda f : is_dissector_file(f), files_staged))
-    for f in files:
-        files.append(f)
+    # Filter files.
+    files_staged = list(filter(lambda f : isAppropriateFile(f) and not isGeneratedFile(f), files_staged))
     for f in files_staged:
         if not f in files:
             files.append(f)
 else:
-    # By default, scan dissectors
+    # By default, scan dissectors directory
     folder = os.path.join('epan', 'dissectors')
     # But overwrite with any folder entry.
     if args.folder:

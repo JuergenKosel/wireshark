@@ -160,12 +160,13 @@ static gboolean epan_auto_reset = FALSE;
  * The way the packet decode is to be written.
  */
 typedef enum {
-  WRITE_TEXT,   /* summary or detail text */
-  WRITE_XML,    /* PDML or PSML */
-  WRITE_FIELDS, /* User defined list of fields */
-  WRITE_JSON,   /* JSON */
-  WRITE_JSON_RAW,   /* JSON only raw hex */
-  WRITE_EK      /* JSON bulk insert to Elasticsearch */
+  WRITE_NONE,     /* dummy initial state */
+  WRITE_TEXT,     /* summary or detail text */
+  WRITE_XML,      /* PDML or PSML */
+  WRITE_FIELDS,   /* User defined list of fields */
+  WRITE_JSON,     /* JSON */
+  WRITE_JSON_RAW, /* JSON only raw hex */
+  WRITE_EK        /* JSON bulk insert to Elasticsearch */
   /* Add CSV and the like here */
 } output_action_e;
 
@@ -174,7 +175,7 @@ static gboolean do_dissection;     /* TRUE if we have to dissect each packet */
 static gboolean print_packet_info; /* TRUE if we're to print packet information */
 static gboolean print_summary;     /* TRUE if we're to print packet summary information */
 static gboolean print_details;     /* TRUE if we're to print packet details information */
-static gboolean print_hex;         /* TRUE if we're to print hex/ascci information */
+static gboolean print_hex;         /* TRUE if we're to print hex/ascii information */
 static gboolean line_buffered;
 static gboolean quiet = FALSE;
 static gboolean really_quiet = FALSE;
@@ -943,6 +944,7 @@ main(int argc, char *argv[])
 #ifdef HAVE_PLUGINS
   register_all_plugin_tap_listeners();
 #endif
+  extcap_register_preferences();
   /* Register all tap listeners. */
   for (tap_reg_t *t = tap_reg_listener; t->cb_func != NULL; t++) {
     t->cb_func();
@@ -970,7 +972,6 @@ main(int argc, char *argv[])
       if (strcmp(argv[2], "column-formats") == 0)
         column_dump_column_formats();
       else if (strcmp(argv[2], "currentprefs") == 0) {
-        extcap_register_preferences();
         epan_load_settings();
         write_prefs(NULL);
       }
@@ -1309,6 +1310,12 @@ main(int argc, char *argv[])
       separator = optarg;
       break;
     case 'T':        /* printing Type */
+      /* output_action has been already set. It means multiple -T. */
+      if (output_action > WRITE_NONE) {
+        cmdarg_err("Multiple -T parameters are unsupported");
+        exit_status = INVALID_OPTION;
+        goto clean_exit;
+      }
       print_packet_info = TRUE;
       if (strcmp(optarg, "text") == 0) {
         output_action = WRITE_TEXT;
@@ -1487,6 +1494,10 @@ main(int argc, char *argv[])
       break;
     }
   }
+
+  /* set the default output action to TEXT */
+  if (output_action == WRITE_NONE)
+    output_action = WRITE_TEXT;
 
   /*
    * Print packet summary information is the default if neither -V or -x
@@ -4247,6 +4258,9 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
     write_ek_proto_tree(output_fields, print_summary, print_hex, protocolfilter,
                         protocolfilter_flags, edt, &cf->cinfo, stdout);
     return !ferror(stdout);
+
+  default:
+    g_assert_not_reached();
   }
 
   if (print_hex) {
