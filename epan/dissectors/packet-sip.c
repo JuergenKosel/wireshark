@@ -450,10 +450,10 @@ static const sip_header_t sip_headers[] = {
 #define POS_P_ASSERTED_SERV             46
     { "P-Associated-URI",               NULL },  /*  47 RFC3455  */
 #define POS_P_ASSOCIATED_URI            47
-    { "P-Called-Party-ID",              NULL },  /*  49 RFC3455  */
-#define POS_P_CHARGE_INFO               48
-    { "P-Charge-Info",                  NULL },  /*  48 RFC8496  */
-#define POS_P_CALLED_PARTY_ID           49
+    { "P-Called-Party-ID",              NULL },  /*  48 RFC3455  */
+#define POS_P_CALLED_PARTY_ID           48
+    { "P-Charge-Info",                  NULL },  /*  49 RFC8496  */
+#define POS_P_CHARGE_INFO               49
     { "P-Charging-Function-Addresses",  NULL },  /*  50 RFC3455  */
 #define POS_P_CHARGING_FUNC_ADDRESSES   50
     { "P-Charging-Vector",              NULL },  /*  51 RFC3455  */
@@ -5810,15 +5810,24 @@ static stat_tap_table_item sip_stat_fields[] = {
 static void sip_stat_init(stat_tap_table_ui* new_stat)
 {
     /* XXX Should we have a single request + response table instead? */
+    const char *req_table_name = "SIP Requests";
+    const char *resp_table_name = "SIP Responses";
     int num_fields = sizeof(sip_stat_fields)/sizeof(stat_tap_table_item);
-    stat_tap_table *req_table = stat_tap_init_table("SIP Requests", num_fields, 0, NULL);
-    stat_tap_table *resp_table = stat_tap_init_table("SIP Responses", num_fields, 0, NULL);
+    stat_tap_table *req_table;
+    stat_tap_table *resp_table;
     stat_tap_table_item_type items[sizeof(sip_stat_fields)/sizeof(stat_tap_table_item)];
     guint i;
 
-    stat_tap_add_table(new_stat, resp_table);
-    stat_tap_add_table(new_stat, req_table);
-
+    req_table = stat_tap_find_table(new_stat, req_table_name);
+    if (!req_table) {
+        req_table = stat_tap_init_table(req_table_name, num_fields, 0, NULL);
+        stat_tap_add_table(new_stat, req_table);
+    }
+    resp_table = stat_tap_find_table(new_stat, resp_table_name);
+    if (!resp_table) {
+        resp_table = stat_tap_init_table(resp_table_name, num_fields, 0, NULL);
+        stat_tap_add_table(new_stat, resp_table);
+    }
 
     // These values are fixed for all entries.
     items[REQ_RESP_METHOD_COLUMN].type = TABLE_ITEM_STRING;

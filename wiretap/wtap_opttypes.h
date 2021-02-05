@@ -144,7 +144,7 @@ typedef enum {
     WTAP_OPTTYPE_STRING,
     WTAP_OPTTYPE_IPv4,
     WTAP_OPTTYPE_IPv6,
-    WTAP_OPTTYPE_CUSTOM
+    WTAP_OPTTYPE_IF_FILTER
 } wtap_opttype_e;
 
 typedef enum {
@@ -156,11 +156,34 @@ typedef enum {
     WTAP_OPTTYPE_ALREADY_EXISTS = -5
 } wtap_opttype_return_val;
 
-struct wtap_opttype_custom
-{
-    void* data;
-    guint size;
-};
+/* Interface description data - if_filter option structure */
+
+/* BPF instruction */
+typedef struct wtap_bpf_insn_s {
+    guint16                code;
+    guint8                 jt;
+    guint8                 jf;
+    guint32                k;
+} wtap_bpf_insn_t;
+
+/*
+ * Type of filter.
+ */
+typedef enum {
+    if_filter_pcap = 0, /* pcap filter string */
+    if_filter_bpf  = 1  /* BPF program */
+} if_filter_type_e;
+
+typedef struct if_filter_opt_s {
+    if_filter_type_e type;
+    union {
+        gchar             *filter_str;   /**< pcap filter string */
+        struct wtap_bpf_insns {
+            guint          bpf_prog_len; /**< number of BPF instructions */
+            wtap_bpf_insn_t *bpf_prog;   /**< BPF instructions */
+        }                  bpf_prog;     /**< BPF program */
+    }                      data;
+} if_filter_opt_t;
 
 /*
  * Structure describing a value of an option.
@@ -171,7 +194,7 @@ typedef union {
     guint32 ipv4val;    /* network byte order */
     ws_in6_addr ipv6val;
     char *stringval;
-    struct wtap_opttype_custom customval;
+    if_filter_opt_t if_filterval;
 } wtap_optval_t;
 
 /*
@@ -423,6 +446,20 @@ WS_DLL_PUBLIC wtap_opttype_return_val
 wtap_block_set_string_option_value_format(wtap_block_t block, guint option_id, const char *format, ...)
                                           G_GNUC_PRINTF(3,4);
 
+/** Set string option value for nth instance of a particular option in a block
+ * to a printf-formatted string
+ *
+ * @param[in] block Block in which to set the option value
+ * @param[in] option_id Identifier value for option
+ * @param[in] idx Instance number of option with that ID
+ * @param[in] format printf-like format string
+ * @return wtap_opttype_return_val - WTAP_OPTTYPE_SUCCESS if successful,
+ * error code otherwise
+ */
+WS_DLL_PUBLIC wtap_opttype_return_val
+wtap_block_set_nth_string_option_value_format(wtap_block_t block, guint option_id, guint idx, const char *format, ...)
+                                              G_GNUC_PRINTF(4,5);
+
 /** Get string option value from a block
  *
  * @param[in] block Block from which to get the option value
@@ -446,19 +483,18 @@ wtap_block_get_string_option_value(wtap_block_t block, guint option_id, char** v
 WS_DLL_PUBLIC wtap_opttype_return_val
 wtap_block_get_nth_string_option_value(wtap_block_t block, guint option_id, guint idx, char** value) G_GNUC_WARN_UNUSED_RESULT;
 
-/** Add a "custom" option value to a block
+/** Add an if_filter option value to a block
  *
  * @param[in] block Block to which to add the option
  * @param[in] option_id Identifier value for option
  * @param[in] value Value of option
- * @param[in] value_size Size of value
  * @return wtap_opttype_return_val - WTAP_OPTTYPE_SUCCESS if successful,
  * error code otherwise
  */
 WS_DLL_PUBLIC wtap_opttype_return_val
-wtap_block_add_custom_option(wtap_block_t block, guint option_id, void* value, size_t value_size);
+wtap_block_add_if_filter_option(wtap_block_t block, guint option_id, if_filter_opt_t* value);
 
-/** Set a "custom" option value in a block
+/** Set an if_filter option value in a block
  *
  * @param[in] block Block in which to set the option value
  * @param[in] option_id Identifier value for option
@@ -467,18 +503,18 @@ wtap_block_add_custom_option(wtap_block_t block, guint option_id, void* value, s
  * error code otherwise
  */
 WS_DLL_PUBLIC wtap_opttype_return_val
-wtap_block_set_custom_option_value(wtap_block_t block, guint option_id, void* value);
+wtap_block_set_if_filter_option_value(wtap_block_t block, guint option_id, if_filter_opt_t* value);
 
-/** Get a "custom" option value from a block
+/** Get an if_filter option value from a block
  *
  * @param[in] block Block from which to get the option value
  * @param[in] option_id Identifier value for option
- * @param[out] value Returned value of option
+ * @param[out] value Returned value of option value
  * @return wtap_opttype_return_val - WTAP_OPTTYPE_SUCCESS if successful,
  * error code otherwise
  */
 WS_DLL_PUBLIC wtap_opttype_return_val
-wtap_block_get_custom_option_value(wtap_block_t block, guint option_id, void** value) G_GNUC_WARN_UNUSED_RESULT;
+wtap_block_get_if_filter_option_value(wtap_block_t block, guint option_id, if_filter_opt_t* value) G_GNUC_WARN_UNUSED_RESULT;
 
 /** Remove an option from a block
  *
@@ -534,4 +570,3 @@ WS_DLL_PUBLIC void wtap_opttypes_cleanup(void);
 #endif /* __cplusplus */
 
 #endif /* WTAP_OPT_TYPES_H */
-

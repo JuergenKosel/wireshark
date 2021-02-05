@@ -292,7 +292,7 @@ extern "C" {
 #define WTAP_ENCAP_MP4                          209
 #define WTAP_ENCAP_SLL2                         210
 #define WTAP_ENCAP_ZWAVE_SERIAL                 211
-#define WTAP_ENCAP_ETL                          212
+#define WTAP_ENCAP_ETW                          212
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -882,6 +882,7 @@ struct ieee_802_11_phdr {
  */
 #define PHDR_802_11_SOUNDING_PSDU                 0 /* sounding PPDU */
 #define PHDR_802_11_DATA_NOT_CAPTURED             1 /* data not captured, (e.g. multi-user PPDU) */
+#define PHDR_802_11_0_LENGTH_PSDU_S1G_NDP         2 /* S1G NDP CMAC */
 #define PHDR_802_11_0_LENGTH_PSDU_VENDOR_SPECIFIC 0xff
 
 /* Packet "pseudo-header" for the output from CoSine L2 debug output. */
@@ -1513,15 +1514,6 @@ typedef struct wtapng_dsb_mandatory_s {
     guint32                secrets_len;             /** Length of the secrets data in bytes */
     guint8                *secrets_data;            /** Buffer of secrets (not NUL-terminated) */
 } wtapng_dsb_mandatory_t;
-
-/* Interface description data - Option 11 structure */
-typedef struct wtapng_if_descr_filter_s {
-    gchar                 *if_filter_str;         /**< NULL if not available
-                                                   *  libpcap string.
-                                                   */
-    guint16                bpf_filter_len;        /** variant II BPF filter len 0 if not used*/
-    guint8                *if_filter_bpf_bytes;   /** BPF filter or NULL */
-} wtapng_if_descr_filter_t;
 
 /**
  * Holds the required data for pcapng Interface Statistics Block (ISB).

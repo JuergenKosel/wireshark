@@ -41,7 +41,7 @@
 
 void proto_register_tcp(void);
 void proto_reg_handoff_tcp(void);
-void conversation_completeness_fill(gchar*, guint32);
+static void conversation_completeness_fill(gchar*, guint32);
 
 static int tcp_tap = -1;
 static int tcp_follow_tap = -1;
@@ -1353,7 +1353,7 @@ handle_export_pdu_conversation(packet_info *pinfo, tvbuff_t *tvb, int src_port, 
  * we of course pay much attention on complete conversations but also incomplete ones which
  * have a regular start, as in practice we are often looking for such thing
  */
-void conversation_completeness_fill(gchar *buf, guint32 value)
+static void conversation_completeness_fill(gchar *buf, guint32 value)
 {
     switch(value) {
         case TCP_COMPLETENESS_SYNSENT:
@@ -4332,7 +4332,7 @@ dissect_tcpopt_sack(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
              * initialize the number of SACK blocks to 0, it will be
              * updated some lines later
              */
-            if (tcp_track_bytes_in_flight) {
+            if (tcp_track_bytes_in_flight && tcpd->fwd->tcp_analyze_seq_info) {
                 tcpd->fwd->tcp_analyze_seq_info->num_sack_ranges = 0;
             }
         }
@@ -4377,7 +4377,7 @@ dissect_tcpopt_sack(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         num_sack_ranges++;
 
         /* Store blocks for BiF analysis */
-        if (tcpd && tcp_track_bytes_in_flight) {
+        if (tcp_analyze_seq && tcpd->fwd->tcp_analyze_seq_info && tcp_track_bytes_in_flight) {
             tcpd->fwd->tcp_analyze_seq_info->num_sack_ranges = num_sack_ranges;
             tcpd->fwd->tcp_analyze_seq_info->sack_left_edge[num_sack_ranges] = leftedge;
             tcpd->fwd->tcp_analyze_seq_info->sack_right_edge[num_sack_ranges] = rightedge;
@@ -6514,7 +6514,9 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         tcph->th_stream = tcpd->stream;
 
         /* initialize the SACK blocks seen to 0 */
-        tcpd->fwd->tcp_analyze_seq_info->num_sack_ranges = 0;
+        if(tcp_analyze_seq && tcpd->fwd->tcp_analyze_seq_info) {
+            tcpd->fwd->tcp_analyze_seq_info->num_sack_ranges = 0;
+        }
     }
 
     /* Do we need to calculate timestamps relative to the tcp-stream? */

@@ -4998,7 +4998,7 @@ typedef struct _smb2_find_dissector_t {
 	void (*dissector)(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, smb2_info_t *si);
 } smb2_find_dissector_t;
 
-smb2_find_dissector_t smb2_find_dissectors[] = {
+static smb2_find_dissector_t smb2_find_dissectors[] = {
 	{SMB2_FIND_DIRECTORY_INFO,	dissect_smb2_file_directory_info},
 	{SMB2_FIND_FULL_DIRECTORY_INFO, dissect_smb2_full_directory_info},
 	{SMB2_FIND_BOTH_DIRECTORY_INFO,	dissect_smb2_both_directory_info},
@@ -8891,7 +8891,7 @@ struct create_context_data_tag_dissectors {
 	create_context_data_dissectors_t dissectors;
 };
 
-struct create_context_data_tag_dissectors create_context_dissectors_array[] = {
+static struct create_context_data_tag_dissectors create_context_dissectors_array[] = {
 	{ "ExtA", "SMB2_CREATE_EA_BUFFER",
 	  { dissect_smb2_ExtA_buffer_request, dissect_smb2_ExtA_buffer_response } },
 	{ "SecD", "SMB2_CREATE_SD_BUFFER",

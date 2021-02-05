@@ -12,7 +12,7 @@
 /* ZVT is a manufacturer-independent protocol between payment terminals and
  * electronic cash-register systems / vending machines
  *
- * the specifications are available from http://www.zvt-kassenschnittstelle.de
+ * the specifications are available from https://www.terminalhersteller.de
  *
  * ZVT defines a "serial transport protocol" and a "TCP/IP transport
  * protocol"
@@ -34,6 +34,7 @@
 #include <epan/packet.h>
 #include <epan/addr_resolv.h>
 #include <epan/expert.h>
+#include "packet-tcp.h"
 
 /* special characters of the serial transport protocol */
 #define STX 0x02
@@ -93,6 +94,7 @@ typedef struct _apdu_info_t {
 #define CTRL_DIAG          0x0670
 #define CTRL_INIT          0x0693
 #define CTRL_PRINT_LINE    0x06D1
+#define CTRL_PRINT_TEXT    0x06D3
 
 static void dissect_zvt_int_status(tvbuff_t *tvb, gint offset, guint16 len,
         packet_info *pinfo, proto_tree *tree, zvt_transaction_t *zvt_trans);
@@ -112,9 +114,10 @@ static const apdu_info_t apdu_info[] = {
     { CTRL_COMPLETION,    0, DIRECTION_PT_TO_ECR, dissect_zvt_bitmap_seq },
     { CTRL_ABORT,         0, DIRECTION_PT_TO_ECR, NULL },
     { CTRL_END_OF_DAY,    0, DIRECTION_ECR_TO_PT, NULL },
-    { CTRL_DIAG,          0,  DIRECTION_ECR_TO_PT, NULL },
+    { CTRL_DIAG,          0, DIRECTION_ECR_TO_PT, NULL },
     { CTRL_INIT,          0, DIRECTION_ECR_TO_PT, dissect_zvt_init },
-    { CTRL_PRINT_LINE,    0, DIRECTION_PT_TO_ECR, NULL }
+    { CTRL_PRINT_LINE,    0, DIRECTION_PT_TO_ECR, NULL },
+    { CTRL_PRINT_TEXT,    0, DIRECTION_PT_TO_ECR, NULL }
 };
 
 
@@ -246,11 +249,12 @@ static const value_string ctrl_field[] = {
     { CTRL_DIAG, "Diagnosis" },
     { CTRL_INIT, "Initialisation" },
     { CTRL_PRINT_LINE, "Print Line" },
-    { 0x06D3, "Print Text Block" },
+    { CTRL_PRINT_TEXT, "Print Text Block" },
     { 0, NULL }
 };
 static value_string_ext ctrl_field_ext = VALUE_STRING_EXT_INIT(ctrl_field);
 
+/* ISO 4217 currency codes */
 static const value_string zvt_cc[] = {
     { 0x0978, "EUR" },
     { 0, NULL }
@@ -947,59 +951,26 @@ dissect_zvt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
     return zvt_len;
 }
 
+static guint get_zvt_message_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
+{
+    guint len = tvb_get_guint8(tvb, offset+2);
+    if (len == 0xFF)
+        if (tvb_captured_length_remaining(tvb, offset) >= 5)
+            len = tvb_get_letohs(tvb, offset+3) + 5;
+        else
+            len = 0;
+    else
+        len += 3;
+
+    return len;
+}
 
 static int
 dissect_zvt_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-    gint        offset = 0, zvt_len = 0, ret;
-    proto_item *zvt_ti;
-    proto_tree *zvt_tree;
-
-    if (tvb_captured_length(tvb) < ZVT_APDU_MIN_LEN) {
-        if (pinfo->can_desegment) {
-            pinfo->desegment_offset = offset;
-            pinfo->desegment_len = DESEGMENT_ONE_MORE_SEGMENT;
-            return -1;
-        }
-        return zvt_len;
-    }
-
-    if (!valid_ctrl_field(tvb, 0))
-        return 0; /* reject the packet */
-
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "ZVT");
-    col_clear(pinfo->cinfo, COL_INFO);
-    zvt_ti = proto_tree_add_protocol_format(tree, proto_zvt,
-            tvb, 0, -1,
-            "ZVT Kassenschnittstelle: Transport Protocol TCP/IP");
-    zvt_tree = proto_item_add_subtree(zvt_ti, ett_zvt);
-
-    while (tvb_captured_length_remaining(tvb, offset) > 0) {
-        ret = dissect_zvt_apdu(tvb, offset, pinfo, zvt_tree);
-        if (ret == 0) {
-            /* not a valid APDU
-               mark the bytes that we consumed and exit, give
-               other dissectors a chance to try the remaining
-               bytes */
-            break;
-        }
-        else if (ret < 0) {
-            /* not enough data - ask the TCP layer for more */
-
-            if (pinfo->can_desegment) {
-                pinfo->desegment_offset = offset;
-                pinfo->desegment_len = DESEGMENT_ONE_MORE_SEGMENT;
-            }
-            break;
-        }
-        else {
-            offset += ret;
-            zvt_len += ret;
-        }
-    }
-
-    proto_item_set_len(zvt_ti, zvt_len);
-    return zvt_len;
+    tcp_dissect_pdus(tvb, pinfo, tree, TRUE, ZVT_APDU_MIN_LEN,
+                     get_zvt_message_len, dissect_zvt, data);
+    return tvb_captured_length(tvb);
 }
 
 static void

@@ -382,10 +382,60 @@ is_basic_type(char sig_code) {
 	}
 }
 
+static const char *
+skip_enclosed_container(const char *signature, char open_bracket, char closed_bracket) {
+	int nested = 0;
+	for (char sig_code = *signature++; sig_code != '\0'; sig_code = *signature++) {
+		if (sig_code == closed_bracket) {
+			if (nested == 0) {
+				return signature;
+			}
+			nested--;
+		} else if (sig_code == open_bracket) {
+			nested++;
+		}
+	}
+	return NULL;
+}
+
+static const char *
+skip_single_complete_type(const char *signature) {
+	char sig_code;
+	while (1) {
+		sig_code = *signature++;
+		switch (sig_code) {
+		case SIG_CODE_BYTE:
+		case SIG_CODE_BOOLEAN:
+		case SIG_CODE_INT16:
+		case SIG_CODE_UINT16:
+		case SIG_CODE_INT32:
+		case SIG_CODE_UINT32:
+		case SIG_CODE_INT64:
+		case SIG_CODE_UINT64:
+		case SIG_CODE_DOUBLE:
+		case SIG_CODE_STRING:
+		case SIG_CODE_OBJECT_PATH:
+		case SIG_CODE_SIGNATURE:
+		case SIG_CODE_VARIANT:
+		case SIG_CODE_UNIX_FD:
+			return signature;
+		case SIG_CODE_ARRAY:
+			continue;
+		case SIG_CODE_STRUCT_OPEN:
+			return skip_enclosed_container(signature, SIG_CODE_STRUCT_OPEN, SIG_CODE_STRUCT_CLOSE);
+		case SIG_CODE_DICT_ENTRY_OPEN:
+			return skip_enclosed_container(signature, SIG_CODE_DICT_ENTRY_OPEN, SIG_CODE_DICT_ENTRY_CLOSE);
+		default:
+			return NULL;
+		}
+	}
+}
+
 static gboolean
 is_dbus_signature_valid(const char *signature) {
 	char sig_code;
 	size_t length = 0;
+	char prev_sig_code = '\0';
 	wmem_stack_t *expected_chars = wmem_stack_new(wmem_packet_scope());
 
 	while ((sig_code = *signature++) != '\0') {
@@ -410,21 +460,38 @@ is_dbus_signature_valid(const char *signature) {
 		case SIG_CODE_DOUBLE:
 			break;
 		case SIG_CODE_ARRAY:
-			if (*signature == '\0') {
+			switch (*signature) {
+			case '\0':
+			case SIG_CODE_STRUCT_CLOSE:
+			case SIG_CODE_DICT_ENTRY_CLOSE:
 				// arrays must be followed by a single complete type
 				return FALSE;
 			}
+			// invalid signature codes are detected in the next iteration
 			break;
 		case SIG_CODE_STRUCT_OPEN:
+			if (*signature == SIG_CODE_STRUCT_CLOSE) {
+				// empty structures are not allowed
+				return FALSE;
+			}
 			wmem_stack_push(expected_chars, (void *)SIG_CODE_STRUCT_CLOSE);
 			break;
-		case SIG_CODE_DICT_ENTRY_OPEN:
-			if (!is_basic_type(*signature)) {
-				// key of dict entry must be a basic type
+		case SIG_CODE_DICT_ENTRY_OPEN: {
+			// dict entries must be an array element type
+			// the first single complete type (the "key") must be a basic type
+			if (prev_sig_code != SIG_CODE_ARRAY || !is_basic_type(*signature)) {
+				return FALSE;
+			}
+
+			// dict entries must contain exactly two single complete types
+			// + 1 can be used here, since the key is a basic type
+			const char *sig_code_close = skip_single_complete_type(signature + 1);
+			if (!sig_code_close || *sig_code_close != SIG_CODE_DICT_ENTRY_CLOSE) {
 				return FALSE;
 			}
 			wmem_stack_push(expected_chars, (void *)SIG_CODE_DICT_ENTRY_CLOSE);
 			break;
+		}
 		case SIG_CODE_STRUCT_CLOSE:
 		case SIG_CODE_DICT_ENTRY_CLOSE:
 			if (wmem_stack_count(expected_chars) == 0 ||
@@ -435,6 +502,8 @@ is_dbus_signature_valid(const char *signature) {
 		default:
 			return FALSE;
 		}
+
+		prev_sig_code = sig_code;
 	}
 	return wmem_stack_count(expected_chars) == 0;
 }
@@ -476,7 +545,6 @@ add_dbus_string(dbus_packet_t *packet, int hf, gint uint_length) {
 	packet->current_pi = pi;
 
 	if ((strlen(string) != (size_t)(item_length - uint_length)) || (term_byte != '\0')) {
-		col_add_fstr(packet->pinfo->cinfo, COL_INFO, "%zu %zu %s", strlen(string), (size_t)(item_length - uint_length), string);
 		return NULL;
 	}
 	return string;
@@ -537,52 +605,10 @@ add_padding(dbus_packet_t *packet, char sig) {
 	return 0;
 }
 
-static const char *
-skip_enclosed_container(const char *signature, char open_bracket, char closed_bracket) {
-	int nested = 0;
-	for (char sig_code = *signature++; sig_code != '\0'; sig_code = *signature++) {
-		if (sig_code == closed_bracket) {
-			if (nested == 0) {
-				return signature;
-			}
-			nested--;
-		} else if (sig_code == open_bracket) {
-			nested++;
-		}
-	}
-	return NULL;
-}
-
-static const char *
-skip_single_complete_type(const char *signature) {
-	char sig_code;
-	while (1) {
-		sig_code = *signature++;
-		switch (sig_code) {
-		case SIG_CODE_BYTE:
-		case SIG_CODE_BOOLEAN:
-		case SIG_CODE_INT16:
-		case SIG_CODE_UINT16:
-		case SIG_CODE_INT32:
-		case SIG_CODE_UINT32:
-		case SIG_CODE_INT64:
-		case SIG_CODE_UINT64:
-		case SIG_CODE_DOUBLE:
-		case SIG_CODE_STRING:
-		case SIG_CODE_OBJECT_PATH:
-		case SIG_CODE_SIGNATURE:
-		case SIG_CODE_VARIANT:
-		case SIG_CODE_UNIX_FD:
-			return signature;
-		case SIG_CODE_ARRAY:
-			continue;
-		case SIG_CODE_STRUCT_OPEN:
-			return skip_enclosed_container(signature, SIG_CODE_STRUCT_OPEN, SIG_CODE_STRUCT_CLOSE);
-		case SIG_CODE_DICT_ENTRY_OPEN:
-			return skip_enclosed_container(signature, SIG_CODE_DICT_ENTRY_OPEN, SIG_CODE_DICT_ENTRY_CLOSE);
-		default:
-			return NULL;
-		}
+static void
+reader_cleanup(dbus_type_reader_t *reader) {
+	for (dbus_type_reader_t *r = reader; r->parent; r = r->parent) {
+		ptvcursor_pop_subtree(r->packet->cursor);
 	}
 }
 
@@ -691,9 +717,8 @@ reader_next(dbus_type_reader_t *reader, int hf, int ett, dbus_val_t *value) {
 		add_padding(packet, *reader->signature);
 		if (array_len == 0) {
 			reader->signature = skip_single_complete_type(reader->signature);
-			if (reader->signature == NULL) {
-				err = 1;
-			}
+			// all signatures are validated
+			DISSECTOR_ASSERT(reader->signature);
 			ptvcursor_pop_subtree(packet->cursor);
 			is_single_complete_type = TRUE;
 		} else if (array_len <= DBUS_MAX_ARRAY_LEN) {
@@ -740,21 +765,25 @@ reader_next(dbus_type_reader_t *reader, int hf, int ett, dbus_val_t *value) {
 		const char *variant_signature = add_dbus_string(packet, hf_dbus_type_variant_signature, 1);
 		value->string = variant_signature;
 		if (variant_signature && is_dbus_signature_valid(variant_signature)) {
-			dbus_type_reader_t *child = wmem_new(wmem_packet_scope(), dbus_type_reader_t);
-			*child = (dbus_type_reader_t){
-				.packet = reader->packet,
-				.signature = variant_signature,
-				.level = reader->level + 1,
-				.is_in_variant = TRUE,
-				.is_basic_variant = is_basic_type(*variant_signature)
-					&& *(variant_signature + 1) == '\0',
-				.container = variant,
-				.parent = reader,
-			};
-			if (reader->is_in_dict_entry && child->is_basic_variant) {
-				reader->is_basic_dict_entry = TRUE;
+			if (variant_signature[0] != '\0') {
+				dbus_type_reader_t *child = wmem_new(wmem_packet_scope(), dbus_type_reader_t);
+				*child = (dbus_type_reader_t){
+					.packet = reader->packet,
+					.signature = variant_signature,
+					.level = reader->level + 1,
+					.is_in_variant = TRUE,
+					.is_basic_variant = is_basic_type(*variant_signature)
+						&& *(variant_signature + 1) == '\0',
+					.container = variant,
+					.parent = reader,
+				};
+				if (reader->is_in_dict_entry && child->is_basic_variant) {
+					reader->is_basic_dict_entry = TRUE;
+				}
+				reader = child;
+			} else {
+				ptvcursor_pop_subtree(packet->cursor);
 			}
-			reader = child;
 		} else {
 			add_expert(packet, &ei_dbus_type_variant_signature_invalid);
 			err = 1;
@@ -850,14 +879,14 @@ reader_next(dbus_type_reader_t *reader, int hf, int ett, dbus_val_t *value) {
 	}
 
 	if (err) {
-		for (dbus_type_reader_t *r = reader; r->parent; r = r->parent) {
-			ptvcursor_pop_subtree(packet->cursor);
-		}
+		reader_cleanup(reader);
+		return NULL;
 	}
-	return !err ? reader : NULL;
+	return reader;
 }
 
-static gboolean reader_is_finished(dbus_type_reader_t *reader) {
+static gboolean
+reader_is_finished(dbus_type_reader_t *reader) {
 	return *reader->signature == '\0' && reader->parent == NULL;
 }
 
@@ -914,6 +943,7 @@ dissect_dbus_header_fields(dbus_packet_t *packet) {
 		proto_item_append_text(reader->container, ", %s", field_code_str);
 		if (field_code == DBUS_HEADER_FIELD_INVALID) {
 			add_expert(packet, &ei_dbus_field_code_invalid);
+			reader_cleanup(reader);
 			return 1;
 		}
 
@@ -948,6 +978,7 @@ dissect_dbus_header_fields(dbus_packet_t *packet) {
 
 		if (expected_signature && strcmp(header_field_signature, expected_signature) != 0) {
 			add_expert(packet, &ei_dbus_field_signature_wrong);
+			reader_cleanup(reader);
 			return 1;
 		}
 
@@ -962,6 +993,7 @@ dissect_dbus_header_fields(dbus_packet_t *packet) {
 			packet->interface = value.string;
 			if (!is_dbus_interface_valid(packet->interface)) {
 				add_expert(packet, &ei_dbus_interface_invalid);
+				reader_cleanup(reader);
 				return 1;
 			}
 			break;
@@ -970,6 +1002,7 @@ dissect_dbus_header_fields(dbus_packet_t *packet) {
 			packet->member = value.string;
 			if (!is_dbus_member_name_valid(packet->member)) {
 				add_expert(packet, &ei_dbus_member_invalid);
+				reader_cleanup(reader);
 				return 1;
 			}
 			break;
@@ -978,6 +1011,7 @@ dissect_dbus_header_fields(dbus_packet_t *packet) {
 			packet->error_name = value.string;
 			if (!is_dbus_interface_valid(packet->error_name)) {
 				add_expert(packet, &ei_dbus_error_name_invalid);
+				reader_cleanup(reader);
 				return 1;
 			}
 			break;
@@ -986,6 +1020,7 @@ dissect_dbus_header_fields(dbus_packet_t *packet) {
 			packet->destination = value.string;
 			if (!is_dbus_bus_name_valid(packet->destination)) {
 				add_expert(packet, &ei_dbus_bus_name_invalid);
+				reader_cleanup(reader);
 				return 1;
 			}
 			set_address(&packet->pinfo->dst, AT_STRINGZ, (int)strlen(packet->destination)+1,
@@ -996,6 +1031,7 @@ dissect_dbus_header_fields(dbus_packet_t *packet) {
 			packet->sender = value.string;
 			if (!is_dbus_bus_name_valid(packet->sender)) {
 				add_expert(packet, &ei_dbus_bus_name_invalid);
+				reader_cleanup(reader);
 				return 1;
 			}
 			set_address(&packet->pinfo->src, AT_STRINGZ, (int)strlen(packet->sender)+1,
@@ -1010,6 +1046,7 @@ dissect_dbus_header_fields(dbus_packet_t *packet) {
 			packet->reply_serial = value.uint;
 			if (packet->reply_serial == 0) {
 				add_expert(packet, &ei_dbus_serial_invalid);
+				reader_cleanup(reader);
 				return 1;
 			}
 			break;
