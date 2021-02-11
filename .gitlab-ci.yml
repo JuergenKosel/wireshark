@@ -58,8 +58,8 @@ variables:
     - ninja shellcheck
     - ninja test-programs
     - chown -R user .
-    - if [ -f run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
-    - if [ -f run/dumpcap ]; then su user -c "run/dumpcap -D" ; fi
+    - if [ -x run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
+    - if [ -x run/dumpcap ]; then su user -c "run/dumpcap -D" ; fi
     - su user -c pytest-3
 
 .build-rpm:
