@@ -29,9 +29,6 @@ variables:
   retry:
     max: 1
     when: runner_system_failure
-  rules:
-    - if: '$CI_SERVER_HOST == "gitlab.com"'
-      when: always
   # https://gould.cx/ted/blog/2017/06/10/ccache-for-Gitlab-CI/
   cache:
     # XXX Use ${CI_JOB_NAME}-${CI_MERGE_REQUEST_TARGET_BRANCH_NAME} instead?
@@ -87,6 +84,9 @@ clang-11:
   variables:
     CC: clang-11
     CXX: clang++-11
+  rules:
+    - if: '$CI_SERVER_HOST == "gitlab.com"'
+      when: always
 
 build:ubuntu-dist:
   stage: .pre
