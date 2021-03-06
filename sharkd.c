@@ -148,6 +148,11 @@ main(int argc, char *argv[])
   timestamp_set_precision(TS_PREC_AUTO);
   timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
+  /*
+   * Libwiretap must be initialized before libwireshark is, so that
+   * dissection-time handlers for file-type-dependent blocks can
+   * register using the file type/subtype value for the file type.
+   */
   wtap_init(TRUE);
 
   /* Register all dissectors; we must do this before checking for the
@@ -187,7 +192,7 @@ main(int argc, char *argv[])
   uat_clear(uat_get_table_by_name("MaxMind Database Paths"));
 #endif
 
-  ret = sharkd_loop();
+  ret = sharkd_loop(argc, argv);
 clean_exit:
   col_cleanup(&cfile.cinfo);
   free_filter_lists();

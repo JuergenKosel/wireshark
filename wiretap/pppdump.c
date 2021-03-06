@@ -88,6 +88,10 @@ static gboolean pppdump_read(wtap *wth, wtap_rec *rec, Buffer *buf,
 static gboolean pppdump_seek_read(wtap *wth, gint64 seek_off,
 	wtap_rec *rec, Buffer *buf, int *err, gchar **err_info);
 
+static int pppdump_file_type_subtype = -1;
+
+void register_pppdump(void);
+
 /*
  * Information saved about a packet, during the initial sequential pass
  * through the file, to allow us to later re-read it when randomly
@@ -278,7 +282,7 @@ pppdump_open(wtap *wth, int *err, gchar **err_info)
 
 	state->offset = 5;
 	wth->file_encap = WTAP_ENCAP_PPP_WITH_PHDR;
-	wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_PPPDUMP;
+	wth->file_type_subtype = pppdump_file_type_subtype;
 
 	wth->snapshot_length = PPPD_BUF_SIZE; /* just guessing */
 	wth->subtype_read = pppdump_read;
@@ -790,6 +794,31 @@ pppdump_close(wtap *wth)
 		}
 		g_ptr_array_free(state->pids, TRUE);
 	}
+}
+
+static const struct supported_block_type pppdump_blocks_supported[] = {
+	/*
+	 * We support packet blocks, with no comments or other options.
+	 */
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info pppdump_info = {
+	"pppd log (pppdump format)", "pppd", NULL, NULL,
+	FALSE, BLOCKS_SUPPORTED(pppdump_blocks_supported),
+	NULL, NULL, NULL
+};
+
+void register_pppdump(void)
+{
+	pppdump_file_type_subtype = wtap_register_file_type_subtype(&pppdump_info);
+
+	/*
+	 * Register name for backwards compatibility with the
+	 * wtap_filetypes table in Lua.
+	 */
+	wtap_register_backwards_compatibility_lua_name("PPPDUMP",
+	    pppdump_file_type_subtype);
 }
 
 /*

@@ -25,7 +25,7 @@
 #include "wtap-int.h"
 #include "file_wrappers.h"
 #include "peektagged.h"
-#include <wsutil/frequency-utils.h>
+#include <wsutil/802_11-utils.h>
 
 /* CREDITS
  *
@@ -157,6 +157,10 @@ static gboolean peektagged_read(wtap *wth, wtap_rec *rec, Buffer *buf,
     int *err, gchar **err_info, gint64 *data_offset);
 static gboolean peektagged_seek_read(wtap *wth, gint64 seek_off,
     wtap_rec *rec, Buffer *buf, int *err, gchar **err_info);
+
+static int peektagged_file_type_subtype = -1;
+
+void register_peektagged(void);
 
 static int wtap_file_read_pattern (wtap *wth, const char *pattern, int *err,
                                 gchar **err_info)
@@ -371,7 +375,7 @@ wtap_open_return_val peektagged_open(wtap *wth, int *err, gchar **err_info)
      */
     file_encap = peektagged_encap[mediaSubType];
 
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_PEEKTAGGED;
+    wth->file_type_subtype = peektagged_file_type_subtype;
     wth->file_encap = file_encap;
     wth->subtype_read = peektagged_read;
     wth->subtype_seek_read = peektagged_seek_read;
@@ -763,6 +767,60 @@ peektagged_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec,
                 /* It's a data rate. */
                 ieee_802_11.has_data_rate = TRUE;
                 ieee_802_11.data_rate = data_rate_or_mcs_index;
+                if (ieee_802_11.phy == PHDR_802_11_PHY_UNKNOWN) {
+                  /*
+                   * We don't know they PHY; try to guess it based
+                   * on the data rate and channel/center frequency.
+                   */
+                  if (RATE_IS_DSSS(ieee_802_11.data_rate)) {
+                    /* 11b */
+                    ieee_802_11.phy = PHDR_802_11_PHY_11B;
+                    if (saw_flags_and_status) {
+                      ieee_802_11.phy_info.info_11b.has_short_preamble = TRUE;
+                      ieee_802_11.phy_info.info_11b.short_preamble =
+                          (flags_and_status & STATUS_SHORT_PREAMBLE) ? TRUE : FALSE;;
+                    } else
+                      ieee_802_11.phy_info.info_11b.has_short_preamble = FALSE;
+                  } else if (RATE_IS_OFDM(ieee_802_11.data_rate)) {
+                    /* 11a or 11g, depending on the band. */
+                    if (ieee_802_11.has_channel) {
+                      if (CHAN_IS_BG(ieee_802_11.channel)) {
+                        /* 11g */
+                        ieee_802_11.phy = PHDR_802_11_PHY_11G;
+                      } else {
+                        /* 11a */
+                        ieee_802_11.phy = PHDR_802_11_PHY_11A;
+                      }
+                    } else if (ieee_802_11.has_frequency) {
+                      if (FREQ_IS_BG(ieee_802_11.frequency)) {
+                        /* 11g */
+                        ieee_802_11.phy = PHDR_802_11_PHY_11G;
+                      } else {
+                        /* 11a */
+                        ieee_802_11.phy = PHDR_802_11_PHY_11A;
+                      }
+                    }
+                    if (ieee_802_11.phy == PHDR_802_11_PHY_11G) {
+                      /* Set 11g metadata */
+                      if (saw_flags_and_status) {
+                        /*
+                         * XXX - is the short preamble only a
+                         * "DSSS part of 11g" thing?  If so, we
+                         * should never get here.
+                         */
+                        ieee_802_11.phy_info.info_11g.has_short_preamble = TRUE;
+                        ieee_802_11.phy_info.info_11g.short_preamble =
+                          (flags_and_status & STATUS_SHORT_PREAMBLE) ? TRUE : FALSE;;
+                      } else
+                        ieee_802_11.phy_info.info_11g.has_short_preamble = FALSE;
+                    } else if (ieee_802_11.phy == PHDR_802_11_PHY_11G) {
+                      /* 11a - set 11a metadata */
+                      ieee_802_11.phy_info.info_11a.has_channel_type = FALSE;
+                      ieee_802_11.phy_info.info_11a.has_turbo_type = FALSE;
+                    }
+                    /* Otherwise we don't know the PHY */
+                  }
+                }
             }
         }
         if (ieee_802_11.has_frequency && !ieee_802_11.has_channel) {
@@ -879,6 +937,31 @@ peektagged_seek_read(wtap *wth, gint64 seek_off,
         return FALSE;
     }
     return TRUE;
+}
+
+static const struct supported_block_type peektagged_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info peektagged_info = {
+    "Savvius tagged", "peektagged", "pkt", "tpc;apc;wpz",
+    FALSE, BLOCKS_SUPPORTED(peektagged_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_peektagged(void)
+{
+    peektagged_file_type_subtype = wtap_register_file_type_subtype(&peektagged_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("PEEKTAGGED",
+                                                   peektagged_file_type_subtype);
 }
 
 /*

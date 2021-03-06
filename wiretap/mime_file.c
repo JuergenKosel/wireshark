@@ -90,6 +90,10 @@ static const mime_files_t magic_files[] = {
 
 #define	N_MAGIC_TYPES	(sizeof(magic_files) / sizeof(magic_files[0]))
 
+static int mime_file_type_subtype = -1;
+
+void register_mime(void);
+
 wtap_open_return_val
 mime_file_open(wtap *wth, int *err, gchar **err_info)
 {
@@ -135,7 +139,7 @@ mime_file_open(wtap *wth, int *err, gchar **err_info)
 	if (file_seek(wth->fh, 0, SEEK_SET, err) == -1)
 		return WTAP_OPEN_ERROR;
 
-	wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_MIME;
+	wth->file_type_subtype = mime_file_type_subtype;
 	wth->file_encap = WTAP_ENCAP_MIME;
 	wth->file_tsprec = WTAP_TSPREC_SEC;
 	wth->subtype_read = wtap_full_file_read;
@@ -143,6 +147,63 @@ mime_file_open(wtap *wth, int *err, gchar **err_info)
 	wth->snapshot_length = 0;
 
 	return WTAP_OPEN_MINE;
+}
+
+static const struct supported_block_type mime_blocks_supported[] = {
+	/*
+	 * This is a file format that we dissect, so we provide
+	 * only one "packet" with the file's contents, and don't
+	 * support any options.
+	 */
+	{ WTAP_BLOCK_PACKET, ONE_BLOCK_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info mime_info = {
+	"MIME File Format", "mime", NULL, NULL,
+	FALSE, BLOCKS_SUPPORTED(mime_blocks_supported),
+	NULL, NULL, NULL
+};
+
+/*
+ * XXX - registered solely for the benefit of Lua scripts that
+ * look for the file type "JPEG_JFIF"; it may be removed once
+ * we get rid of wtap_filetypes.
+ */
+static const struct supported_block_type jpeg_jfif_blocks_supported[] = {
+	/*
+	 * This is a file format that we dissect, so we provide
+	 * only one "packet" with the file's contents, and don't
+	 * support any options.
+	 */
+	{ WTAP_BLOCK_PACKET, ONE_BLOCK_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info jpeg_jfif_info = {
+	"JPEG/JFIF", "jpeg", "jpg", "jpeg;jfif",
+	FALSE, BLOCKS_SUPPORTED(jpeg_jfif_blocks_supported),
+	NULL, NULL, NULL
+};
+
+void register_mime(void)
+{
+	int jpeg_jfif_file_type_subtype;
+
+	mime_file_type_subtype = wtap_register_file_type_subtype(&mime_info);
+
+	/*
+	 * Obsoleted by "mime", but we want it for the backwards-
+	 * compatibility table for Lua.
+	 */
+	jpeg_jfif_file_type_subtype = wtap_register_file_type_subtype(&jpeg_jfif_info);
+
+	/*
+	 * Register names for backwards compatibility with the
+	 * wtap_filetypes table in Lua.
+	 */
+	wtap_register_backwards_compatibility_lua_name("MIME",
+	    mime_file_type_subtype);
+	wtap_register_backwards_compatibility_lua_name("JPEG_JFIF",
+	    jpeg_jfif_file_type_subtype);
 }
 
 /*

@@ -54,6 +54,7 @@
 
 #include <config.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <epan/packet.h>
 #include <epan/expert.h>
@@ -68,7 +69,6 @@
 #include <epan/etypes.h>
 
 #include <wsutil/utf8_entities.h>
-#include <wsutil/ws_printf.h>
 
 #include "packet-e164.h"
 #include "packet-ieee1609dot2.h"
@@ -404,9 +404,7 @@ dissect_btpb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 
     pinfo->destport = dst_port;
 
-    char buf_dst[32];
-    ws_snprintf(buf_dst, 32, "%"G_GUINT16_FORMAT, dst_port);
-    col_append_lstr(pinfo->cinfo, COL_INFO, " " UTF8_RIGHTWARDS_ARROW " ", buf_dst, COL_ADD_LSTR_TERMINATOR);
+    col_append_fstr(pinfo->cinfo, COL_INFO, " " UTF8_RIGHTWARDS_ARROW " %u", dst_port);
 
     btpbh->btp_pdst = dst_port;
     btpbh->btp_idst = dst_info;
@@ -448,9 +446,9 @@ typedef struct _geonw_conv_info_t {
     wmem_tree_t  *matched_pdus;
 } geonw_conv_info_t;
 
-const gchar * get_geonw_name(const guint8 *addr);
-const gchar* geonw_name_resolution_str(const address* addr);
-int geonw_name_resolution_len(void);
+static const gchar * get_geonw_name(const guint8 *addr);
+static const gchar* geonw_name_resolution_str(const address* addr);
+static int geonw_name_resolution_len(void);
 
 static geonw_transaction_t *transaction_start(packet_info * pinfo, proto_tree * tree);
 static geonw_transaction_t *transaction_end(packet_info * pinfo, proto_tree * tree);

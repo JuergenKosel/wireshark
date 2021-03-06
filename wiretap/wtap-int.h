@@ -21,6 +21,10 @@
 #include "wtap.h"
 #include "wtap_opttypes.h"
 
+#define wtap_warn(...) g_warning(__VA_ARGS__)
+
+void wtap_init_file_type_subtypes(void);
+
 WS_DLL_PUBLIC
 int wtap_fstat(wtap *wth, ws_statb64 *statb, int *err);
 
@@ -43,6 +47,8 @@ struct wtap {
     guint                       next_interface_data;    /**< Next interface data that wtap_get_next_interface_description() will show */
     GArray                      *nrb_hdrs;              /**< holds the Name Res Block's comment/custom_opts, or NULL */
     GArray                      *dsbs;                  /**< An array of DSBs (of type wtap_block_t), or NULL if not supported. */
+
+    char                        *pathname;              /**< File pathname; might just be "-" */
 
     void                        *priv;          /* this one holds per-file state and is free'd automatically by wtap_close() */
     void                        *wslua_data;    /* this one holds wslua state info and is not free'd */
@@ -343,6 +349,18 @@ wtap_add_idb(wtap *wth, wtap_block_t idb);
  */
 void
 wtapng_process_dsb(wtap *wth, wtap_block_t dsb);
+
+void
+wtap_register_backwards_compatibility_lua_name(const char *name, int ft);
+
+struct backwards_compatibiliity_lua_name {
+	const char *name;
+	int ft;
+};
+
+WS_DLL_PUBLIC
+const GArray *get_backwards_compatibility_lua_table(void);
+
 #endif /* __WTAP_INT_H__ */
 
 /*

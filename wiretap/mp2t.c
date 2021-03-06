@@ -46,6 +46,10 @@ typedef struct {
     guint8  trailer_len;
 } mp2t_filetype_t;
 
+static int mp2t_file_type_subtype = -1;
+
+void register_mp2t(void);
+
 static gboolean
 mp2t_read_packet(mp2t_filetype_t *mp2t, FILE_T fh, gint64 offset,
                  wtap_rec *rec, Buffer *buf, int *err,
@@ -374,7 +378,7 @@ found:
         return WTAP_OPEN_ERROR;
     }
 
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_MPEG_2_TS;
+    wth->file_type_subtype = mp2t_file_type_subtype;
     wth->file_encap = WTAP_ENCAP_MPEG_2_TS;
     wth->file_tsprec = WTAP_TSPREC_NSEC;
     wth->subtype_read = mp2t_read;
@@ -389,6 +393,31 @@ found:
     mp2t->bitrate = bitrate;
 
     return WTAP_OPEN_MINE;
+}
+
+static const struct supported_block_type mp2t_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info mp2t_info = {
+    "MPEG2 transport stream", "mp2t", "mp2t", "ts;mpg",
+    FALSE, BLOCKS_SUPPORTED(mp2t_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_mp2t(void)
+{
+    mp2t_file_type_subtype = wtap_register_file_type_subtype(&mp2t_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("MPEG_2_TS",
+                                                   mp2t_file_type_subtype);
 }
 
 /*

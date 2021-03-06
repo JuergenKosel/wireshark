@@ -304,6 +304,7 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
         ctx_menu.addMenu(submenu);
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTCPStream"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowUDPStream"));
+        submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowDCCPStream"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowTLSStream"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowHTTPStream"));
         submenu->addAction(window()->findChild<QAction *>("actionAnalyzeFollowHTTP2Stream"));
@@ -614,7 +615,9 @@ void ProtoTree::itemDoubleClicked(const QModelIndex &index)
     } else {
         QString url = finfo.url();
         if (!url.isEmpty()) {
-            QDesktopServices::openUrl(QUrl(url));
+            QApplication::clipboard()->setText(url);
+            QString push_msg = tr("Copied ") + url;
+            wsApp->pushStatus(WiresharkApplication::TemporaryStatus, push_msg);
         }
     }
 }

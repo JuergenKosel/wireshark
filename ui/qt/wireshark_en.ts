@@ -883,6 +883,14 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Unknown file type returned by save as dialog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Please report this as a Wireshark issue at https://gitlab.com/wireshark/wireshark/-/issues.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>directory</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6783,6 +6791,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>DCCP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>TLS Stream</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7884,6 +7896,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Unable to drop files during capture.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown file type returned by merge dialog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Please report this as a Wireshark issue at https://gitlab.com/wireshark/wireshark/-/issues.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown file type returned by export dialog.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -9264,6 +9288,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Filter Field Reference</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copied </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10865,11 +10893,71 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Mute/Unmute</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mute or unmute the stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Play the stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>To Left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Route audio to left channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Left + Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Route audio to left and right channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>To Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Route audio to right channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invert Muting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invert muting of all channels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove stream from the list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>No devices available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Audio Routing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Play Streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Decoding streams...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10898,6 +10986,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Start: %1, cursor: %2. Press &quot;G&quot; to go to packet %3. Double click to set start of playback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preparing to play...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

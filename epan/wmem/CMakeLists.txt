@@ -7,11 +7,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 
-include_directories(
-	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 set(WMEM_PUBLIC_HEADERS
 	wmem.h
 	wmem_array.h
@@ -75,6 +70,12 @@ add_library(wmem OBJECT
 	${WMEM_FILES}
 )
 
+target_include_directories(wmem
+	PRIVATE
+		${CMAKE_CURRENT_BINARY_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 set_target_properties(wmem PROPERTIES
 	FOLDER "Libs/epan/wmem"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
@@ -98,7 +99,6 @@ CHECKAPI(
 	NAME
 	  wmem
 	SWITCHES
-	  --group termoutput:1 --summary-group termoutput
 	SOURCES
 	  ${WMEM_FILES}
 )

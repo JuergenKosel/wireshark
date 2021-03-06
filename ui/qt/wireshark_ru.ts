@@ -887,6 +887,14 @@
         <translation>Объединить Файл Захвата</translation>
     </message>
     <message>
+        <source>Unknown file type returned by save as dialog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Please report this as a Wireshark issue at https://gitlab.com/wireshark/wireshark/-/issues.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>directory</source>
         <translation>каталог</translation>
     </message>
@@ -6861,6 +6869,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Масштабирование Окна TCP</translation>
     </message>
     <message>
+        <source>DCCP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>TLS Stream</source>
         <translation>Поток TLS</translation>
     </message>
@@ -7963,6 +7975,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Unable to drop files during capture.</source>
         <translation>Невозможно перебросить файлы во время захвата.</translation>
+    </message>
+    <message>
+        <source>Unknown file type returned by merge dialog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Please report this as a Wireshark issue at https://gitlab.com/wireshark/wireshark/-/issues.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown file type returned by export dialog.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Do you want to stop the capture and save the captured packets%1?</source>
@@ -9353,6 +9377,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Filter Field Reference</source>
         <translation>Справка по Полю Фильтра</translation>
+    </message>
+    <message>
+        <source>Copied </source>
+        <translation>Скопировано</translation>
     </message>
     <message>
         <source>Wiki Page for %1</source>
@@ -10980,12 +11008,72 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Пробел</translation>
     </message>
     <message>
+        <source>Mute/Unmute</source>
+        <translation>Включить/отключить звук</translation>
+    </message>
+    <message>
+        <source>Mute or unmute the stream</source>
+        <translation>Включить/отключить звук потока</translation>
+    </message>
+    <message>
+        <source>Play the stream</source>
+        <translation>Проиграть Поток</translation>
+    </message>
+    <message>
+        <source>To Left</source>
+        <translation>Левый канал</translation>
+    </message>
+    <message>
+        <source>Route audio to left channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Left + Right</source>
+        <translation>Левый + Правый </translation>
+    </message>
+    <message>
+        <source>Route audio to left and right channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>To Right</source>
+        <translation>Правый канал</translation>
+    </message>
+    <message>
+        <source>Route audio to right channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invert Muting</source>
+        <translation>Инвертировать выключение звука</translation>
+    </message>
+    <message>
+        <source>Invert muting of all channels</source>
+        <translation>Инвертировать выключение звука всех каналов</translation>
+    </message>
+    <message>
+        <source>Remove Stream</source>
+        <translation>Убрать поток</translation>
+    </message>
+    <message>
+        <source>Remove stream from the list</source>
+        <translation>Убрать стрим из списка</translation>
+    </message>
+    <message>
         <source>No devices available</source>
         <translation>Нет доступных устройств</translation>
     </message>
     <message>
+        <source>Audio Routing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Play Streams</source>
         <translation>Проиграть Потоки</translation>
+    </message>
+    <message>
+        <source>Decoding streams...</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Out of Sequence</source>
@@ -11014,6 +11102,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Start: %1, cursor: %2. Press &quot;G&quot; to go to packet %3. Double click to set start of playback.</source>
         <translation>Начало: %1, курсор: %2. Нажмите &quot;G&quot;, чтобы перейти к пакету %3. Двойной клик, чтобы установить начало воспроизведения.</translation>
+    </message>
+    <message>
+        <source>Preparing to play...</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Unknown</source>

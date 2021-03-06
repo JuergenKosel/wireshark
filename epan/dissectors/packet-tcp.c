@@ -293,7 +293,6 @@ static int hf_mptcp_stream = -1;
 static int hf_mptcp_expected_token = -1;
 static int hf_mptcp_analysis = -1;
 static int hf_mptcp_analysis_master = -1;
-static int hf_mptcp_analysis_subflows_stream_id = -1;
 static int hf_mptcp_analysis_subflows = -1;
 static int hf_mptcp_number_of_removed_addresses = -1;
 static int hf_mptcp_related_mapping = -1;
@@ -2269,7 +2268,7 @@ finished_fwd:
 
         if( seq_not_advanced // XXX is this neccessary?
         && t < ooo_thres
-        && tcpd->fwd->tcp_analyze_seq_info->nextseq != seq + seglen ) {
+        && tcpd->fwd->tcp_analyze_seq_info->nextseq >= seq + seglen ) {
             if(!tcpd->ta) {
                 tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
             }
@@ -4377,7 +4376,7 @@ dissect_tcpopt_sack(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         num_sack_ranges++;
 
         /* Store blocks for BiF analysis */
-        if (tcp_analyze_seq && tcpd->fwd->tcp_analyze_seq_info && tcp_track_bytes_in_flight) {
+        if (tcp_analyze_seq && tcpd->fwd->tcp_analyze_seq_info && tcp_track_bytes_in_flight && num_sack_ranges < MAX_TCP_SACK_RANGES) {
             tcpd->fwd->tcp_analyze_seq_info->num_sack_ranges = num_sack_ranges;
             tcpd->fwd->tcp_analyze_seq_info->sack_left_edge[num_sack_ranges] = leftedge;
             tcpd->fwd->tcp_analyze_seq_info->sack_right_edge[num_sack_ranges] = rightedge;
@@ -8138,10 +8137,6 @@ proto_register_tcp(void)
         { &hf_mptcp_expected_idsn,
           { "Subflow expected IDSN", "mptcp.expected_idsn", FT_UINT64,
             BASE_DEC|BASE_UNIT_STRING, &units_64bit_version, 0x0, NULL, HFILL}},
-
-        { &hf_mptcp_analysis_subflows_stream_id,
-          { "List subflow Stream IDs", "mptcp.analysis.subflows.streamid", FT_UINT16,
-            BASE_DEC, NULL, 0x0, NULL, HFILL}},
 
         { &hf_mptcp_analysis,
           { "MPTCP analysis",   "mptcp.analysis", FT_NONE, BASE_NONE, NULL, 0x0,

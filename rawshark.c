@@ -33,14 +33,19 @@
 #include <sys/resource.h>
 #endif
 
-#ifdef HAVE_GETOPT_H
-#include <getopt.h>
-#endif
-
 #include <errno.h>
 
-#ifndef HAVE_GETOPT_LONG
-#include "wsutil/wsgetopt.h"
+/*
+ * If we have getopt_long() in the system library, include <getopt.h>.
+ * Otherwise, we're using our own getopt_long() (either because the
+ * system has getopt() but not getopt_long(), as with some UN*Xes,
+ * or because it doesn't even have getopt(), as with Windows), so
+ * include our getopt_long()'s header.
+ */
+#ifdef HAVE_GETOPT_LONG
+#include <getopt.h>
+#else
+#include <wsutil/wsgetopt.h>
 #endif
 
 #include <glib.h>
@@ -504,6 +509,16 @@ main(int argc, char *argv[])
     timestamp_set_precision(TS_PREC_AUTO);
     timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
+    /*
+     * XXX - is this necessary, given that we're not reading a
+     * regular capture file, we're reading rawshark's packet
+     * stream format?
+     *
+     * If it is, note that libwiretap must be initialized before
+     * libwireshark is, so that dissection-time handlers for
+     * file-type-dependent blocks can register using the file
+     * type/subtype value for the file type.
+     */
     wtap_init(FALSE);
 
     /* Register all dissectors; we must do this before checking for the

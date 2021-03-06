@@ -17,9 +17,6 @@
 #include "wtap_opttypes.h"
 #include "ws_symbol_export.h"
 #include "ws_attributes.h"
-#ifdef HAVE_PLUGINS
-#include "wsutil/plugins.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -298,100 +295,8 @@ extern "C" {
 
 #define WTAP_NUM_ENCAP_TYPES                    wtap_get_num_encap_types()
 
-/* File types/subtypes that can be read by wiretap.
-   We support writing many of these file types, too, so we
-   distinguish between different subtypes of them, as
-   different subtypes need to be written in a different
-   fashion. */
-#define WTAP_FILE_TYPE_SUBTYPE_UNKNOWN                        0
-#define WTAP_FILE_TYPE_SUBTYPE_PCAP                           1
-#define WTAP_FILE_TYPE_SUBTYPE_PCAPNG                         2
-#define WTAP_FILE_TYPE_SUBTYPE_PCAP_NSEC                      3
-#define WTAP_FILE_TYPE_SUBTYPE_PCAP_AIX                       4
-#define WTAP_FILE_TYPE_SUBTYPE_PCAP_SS991029                  5
-#define WTAP_FILE_TYPE_SUBTYPE_PCAP_NOKIA                     6
-#define WTAP_FILE_TYPE_SUBTYPE_PCAP_SS990417                  7
-#define WTAP_FILE_TYPE_SUBTYPE_PCAP_SS990915                  8
-#define WTAP_FILE_TYPE_SUBTYPE_5VIEWS                         9
-#define WTAP_FILE_TYPE_SUBTYPE_IPTRACE_1_0                   10
-#define WTAP_FILE_TYPE_SUBTYPE_IPTRACE_2_0                   11
-#define WTAP_FILE_TYPE_SUBTYPE_BER                           12
-#define WTAP_FILE_TYPE_SUBTYPE_HCIDUMP                       13
-#define WTAP_FILE_TYPE_SUBTYPE_CATAPULT_DCT2000              14
-#define WTAP_FILE_TYPE_SUBTYPE_NETXRAY_OLD                   15
-#define WTAP_FILE_TYPE_SUBTYPE_NETXRAY_1_0                   16
-#define WTAP_FILE_TYPE_SUBTYPE_COSINE                        17
-#define WTAP_FILE_TYPE_SUBTYPE_CSIDS                         18
-#define WTAP_FILE_TYPE_SUBTYPE_DBS_ETHERWATCH                19
-#define WTAP_FILE_TYPE_SUBTYPE_ERF                           20
-#define WTAP_FILE_TYPE_SUBTYPE_EYESDN                        21
-#define WTAP_FILE_TYPE_SUBTYPE_NETTL                         22
-#define WTAP_FILE_TYPE_SUBTYPE_ISERIES                       23
-#define WTAP_FILE_TYPE_SUBTYPE_ISERIES_UNICODE               24
-#define WTAP_FILE_TYPE_SUBTYPE_I4BTRACE                      25
-#define WTAP_FILE_TYPE_SUBTYPE_ASCEND                        26
-#define WTAP_FILE_TYPE_SUBTYPE_NETMON_1_x                    27
-#define WTAP_FILE_TYPE_SUBTYPE_NETMON_2_x                    28
-#define WTAP_FILE_TYPE_SUBTYPE_NGSNIFFER_UNCOMPRESSED        29
-#define WTAP_FILE_TYPE_SUBTYPE_NGSNIFFER_COMPRESSED          30
-#define WTAP_FILE_TYPE_SUBTYPE_NETXRAY_1_1                   31
-#define WTAP_FILE_TYPE_SUBTYPE_NETXRAY_2_00x                 32
-#define WTAP_FILE_TYPE_SUBTYPE_NETWORK_INSTRUMENTS           33
-#define WTAP_FILE_TYPE_SUBTYPE_LANALYZER                     34
-#define WTAP_FILE_TYPE_SUBTYPE_PPPDUMP                       35
-#define WTAP_FILE_TYPE_SUBTYPE_RADCOM                        36
-#define WTAP_FILE_TYPE_SUBTYPE_SNOOP                         37
-#define WTAP_FILE_TYPE_SUBTYPE_SHOMITI                       38
-#define WTAP_FILE_TYPE_SUBTYPE_VMS                           39
-#define WTAP_FILE_TYPE_SUBTYPE_K12                           40
-#define WTAP_FILE_TYPE_SUBTYPE_TOSHIBA                       41
-#define WTAP_FILE_TYPE_SUBTYPE_VISUAL_NETWORKS               42
-#define WTAP_FILE_TYPE_SUBTYPE_PEEKCLASSIC_V56               43
-#define WTAP_FILE_TYPE_SUBTYPE_PEEKCLASSIC_V7                44
-#define WTAP_FILE_TYPE_SUBTYPE_PEEKTAGGED                    45
-#define WTAP_FILE_TYPE_SUBTYPE_MPEG                          46
-#define WTAP_FILE_TYPE_SUBTYPE_K12TEXT                       47
-#define WTAP_FILE_TYPE_SUBTYPE_NETSCREEN                     48
-#define WTAP_FILE_TYPE_SUBTYPE_COMMVIEW                      49
-#define WTAP_FILE_TYPE_SUBTYPE_BTSNOOP                       50
-#define WTAP_FILE_TYPE_SUBTYPE_TNEF                          51
-#define WTAP_FILE_TYPE_SUBTYPE_DCT3TRACE                     52
-#define WTAP_FILE_TYPE_SUBTYPE_PACKETLOGGER                  53
-#define WTAP_FILE_TYPE_SUBTYPE_DAINTREE_SNA                  54
-#define WTAP_FILE_TYPE_SUBTYPE_NETSCALER_1_0                 55
-#define WTAP_FILE_TYPE_SUBTYPE_NETSCALER_2_0                 56
-#define WTAP_FILE_TYPE_SUBTYPE_JPEG_JFIF                     57 /* obsoleted by WTAP_FILE_TYPE_SUBTYPE_MIME */
-#define WTAP_FILE_TYPE_SUBTYPE_IPFIX                         58
-#define WTAP_FILE_TYPE_SUBTYPE_MIME                          59
-#define WTAP_FILE_TYPE_SUBTYPE_AETHRA                        60
-#define WTAP_FILE_TYPE_SUBTYPE_MPEG_2_TS                     61
-#define WTAP_FILE_TYPE_SUBTYPE_VWR_80211                     62
-#define WTAP_FILE_TYPE_SUBTYPE_VWR_ETH                       63
-#define WTAP_FILE_TYPE_SUBTYPE_CAMINS                        64
-#define WTAP_FILE_TYPE_SUBTYPE_STANAG_4607                   65
-#define WTAP_FILE_TYPE_SUBTYPE_NETSCALER_3_0                 66
-#define WTAP_FILE_TYPE_SUBTYPE_LOGCAT                        67
-#define WTAP_FILE_TYPE_SUBTYPE_LOGCAT_BRIEF                  68
-#define WTAP_FILE_TYPE_SUBTYPE_LOGCAT_PROCESS                69
-#define WTAP_FILE_TYPE_SUBTYPE_LOGCAT_TAG                    70
-#define WTAP_FILE_TYPE_SUBTYPE_LOGCAT_THREAD                 71
-#define WTAP_FILE_TYPE_SUBTYPE_LOGCAT_TIME                   72
-#define WTAP_FILE_TYPE_SUBTYPE_LOGCAT_THREADTIME             73
-#define WTAP_FILE_TYPE_SUBTYPE_LOGCAT_LONG                   74
-#define WTAP_FILE_TYPE_SUBTYPE_COLASOFT_CAPSA                75
-#define WTAP_FILE_TYPE_SUBTYPE_COLASOFT_PACKET_BUILDER       76
-#define WTAP_FILE_TYPE_SUBTYPE_JSON                          77
-#define WTAP_FILE_TYPE_SUBTYPE_NETSCALER_3_5                 78
-#define WTAP_FILE_TYPE_SUBTYPE_NETTRACE_3GPP_32_423          79
-#define WTAP_FILE_TYPE_SUBTYPE_MPLOG                         80
-#define WTAP_FILE_TYPE_SUBTYPE_DPA400                        81
-#define WTAP_FILE_TYPE_SUBTYPE_RFC7468                       82
-#define WTAP_FILE_TYPE_SUBTYPE_RUBY_MARSHAL                  83
-#define WTAP_FILE_TYPE_SUBTYPE_SYSTEMD_JOURNAL               84
-#define WTAP_FILE_TYPE_SUBTYPE_LOG_3GPP                      85
-#define WTAP_FILE_TYPE_SUBTYPE_MP4                           86
-
-#define WTAP_NUM_FILE_TYPES_SUBTYPES  wtap_get_num_file_types_subtypes()
+/* Value to be used as a file type/subtype value if the type is unknown */
+#define WTAP_FILE_TYPE_SUBTYPE_UNKNOWN                        -1
 
 /* timestamp precision (currently only these values are supported) */
 #define WTAP_TSPREC_UNKNOWN    -2
@@ -1213,6 +1118,11 @@ struct netmon_phdr {
     } subheader;
 };
 
+/* File "pseudo-header" for BER data files. */
+struct ber_phdr {
+    const char *pathname;   /* Path name of file. */
+};
+
 union wtap_pseudo_header {
     struct eth_phdr     eth;
     struct dte_dce_phdr dte_dce;
@@ -1240,6 +1150,7 @@ union wtap_pseudo_header {
     struct llcp_phdr    llcp;
     struct logcat_phdr  logcat;
     struct netmon_phdr  netmon;
+    struct ber_phdr     ber;
 };
 
 /*
@@ -1469,61 +1380,6 @@ typedef struct {
 #define WTAP_HAS_INT_QUEUE     0x00000080  /**< interface queue */
 #define WTAP_HAS_VERDICT       0x00000100  /**< packet verdict */
 
-/**
- * Holds the required data from pcapng:s Section Header block(SHB).
- */
-typedef struct wtapng_section_mandatory_s {
-    guint64             section_length; /**< 64-bit value specifying the length in bytes of the
-                                         *     following section.
-                                         *     Section Length equal -1 (0xFFFFFFFFFFFFFFFF) means
-                                         *     that the size of the section is not specified
-                                         *   Note: if writing to a new file, this length will
-                                         *     be invalid if anything changes, such as the other
-                                         *     members of this struct, or the packets written.
-                                         */
-} wtapng_mandatory_section_t;
-
-/** struct holding the information to build IDB:s
- *  the interface_data array holds an array of wtap_block_t
- *  represending IDB of one per interface.
- */
-typedef struct wtapng_iface_descriptions_s {
-    GArray *interface_data;
-} wtapng_iface_descriptions_t;
-
-/**
- * Interface description data
- */
-typedef struct wtapng_if_descr_mandatory_s {
-    int                    wtap_encap;            /**< link_type translated to wtap_encap */
-    guint64                time_units_per_second;
-    int                    tsprecision;           /**< WTAP_TSPREC_ value for this interface */
-
-    guint32                snap_len;
-
-    guint8                 num_stat_entries;
-    GArray                *interface_statistics;  /**< An array holding the interface statistics from
-                                                   *     pcapng ISB:s or equivalent(?)*/
-} wtapng_if_descr_mandatory_t;
-
-/**
- * Decryption Secrets Block data.
- */
-typedef struct wtapng_dsb_mandatory_s {
-    guint32                secrets_type;            /** Type of secrets stored in data (see secrets-types.h) */
-    guint32                secrets_len;             /** Length of the secrets data in bytes */
-    guint8                *secrets_data;            /** Buffer of secrets (not NUL-terminated) */
-} wtapng_dsb_mandatory_t;
-
-/**
- * Holds the required data for pcapng Interface Statistics Block (ISB).
- */
-typedef struct wtapng_if_stats_mandatory_s {
-    guint32  interface_id;
-    guint32  ts_high;
-    guint32  ts_low;
-} wtapng_if_stats_mandatory_t;
-
 #ifndef MAXNAMELEN
 #define MAXNAMELEN  	64	/* max name length (hostname and port name) */
 #endif
@@ -1713,14 +1569,65 @@ WS_DLL_PUBLIC struct open_info *open_routines;
 #define WTAP_COMMENT_PER_INTERFACE      0x00000002      /* per-interface */
 #define WTAP_COMMENT_PER_PACKET         0x00000004      /* per-packet */
 
-struct file_type_subtype_info {
-    /* the file type name */
-    /* should be NULL for all "pseudo" types that are only internally used and not read/writeable */
-    const char *name;
+/*
+ * For a given option type in a certain block type, does a file format
+ * not support it, support only one such option, or support multiple
+ * such options?
+ */
+typedef enum {
+    OPTION_NOT_SUPPORTED,
+    ONE_OPTION_SUPPORTED,
+    MULTIPLE_OPTIONS_SUPPORTED
+} option_support_t;
 
-    /* the file type short name, used as a shortcut for the command line tools */
-    /* should be NULL for all "pseudo" types that are only internally used and not read/writeable */
-    const char *short_name;
+/*
+ * Entry in a table of supported option types.
+ */
+struct supported_option_type {
+    guint opt;
+    option_support_t support; /* OPTION_NOT_SUPPORTED allowed, equivalent to absence */
+};
+
+#define OPTION_TYPES_SUPPORTED(option_type_array) \
+    sizeof option_type_array / sizeof option_type_array[0], option_type_array
+
+#define NO_OPTIONS_SUPPORTED \
+    0, NULL
+
+/*
+ * For a given block type, does a file format not support it, support
+ * only one such block, or support multiple such blocks?
+ */
+typedef enum {
+    BLOCK_NOT_SUPPORTED,
+    ONE_BLOCK_SUPPORTED,
+    MULTIPLE_BLOCKS_SUPPORTED
+} block_support_t;
+
+/*
+ * Entry in a table of supported block types.
+ */
+struct supported_block_type {
+    wtap_block_type_t type;
+    block_support_t support; /* BLOCK_NOT_SUPPORTED allowed, equivalent to absence */
+    size_t num_supported_options;
+    const struct supported_option_type *supported_options;
+};
+
+#define BLOCKS_SUPPORTED(block_type_array) \
+    sizeof block_type_array / sizeof block_type_array[0], block_type_array
+
+struct file_type_subtype_info {
+    /*
+     * The file type description.
+     */
+    const char *description;
+
+    /*
+     * The file type name, used to look up file types by name, e.g.
+     * looking up a file type specified as a command-line argument.
+     */
+    const char *name;
 
     /* the default file extension, used to save this type */
     /* should be NULL if no default extension is known */
@@ -1735,12 +1642,11 @@ struct file_type_subtype_info {
     /* when writing this file format, is seeking required? */
     gboolean writing_must_seek;
 
-    /* does this type support name resolution records? */
-    /* should be FALSE is this file type doesn't support name resolution records */
-    gboolean has_name_resolution;
+    /* Number of block types supported. */
+    size_t num_supported_blocks;
 
-    /* what types of comment does this file support? */
-    guint32 supported_comment_types;
+    /* Table of block types supported. */
+    const struct supported_block_type *supported_blocks;
 
     /* can this type write this encapsulation format? */
     /* should be NULL is this file type doesn't have write support */
@@ -2077,20 +1983,6 @@ WS_DLL_PUBLIC
 gboolean wtap_dump_can_compress(int filetype);
 
 /**
- * Return TRUE if this capture file format supports storing name
- * resolution information in it, FALSE if not.
- */
-WS_DLL_PUBLIC
-gboolean wtap_dump_has_name_resolution(int filetype);
-
-/**
- * Return TRUE if this capture file format supports all the comment
- * types specified, FALSE if not.
- */
-WS_DLL_PUBLIC
-gboolean wtap_dump_supports_comment_types(int filetype, guint32 comment_types);
-
-/**
  * Initialize the per-file information based on an existing file. Its
  * contents must be freed according to the requirements of wtap_dump_params.
  * If wth does not remain valid for the duration of the session, dsbs_growing
@@ -2256,29 +2148,59 @@ gboolean wtap_dump_close(wtap_dumper *wdh, int *err, gchar **err_info);
 WS_DLL_PUBLIC
 gboolean wtap_dump_can_write(const GArray *file_encaps, guint32 required_comment_types);
 
+/*
+ * Sort the file types by name or by description?
+ */
+typedef enum {
+	FT_SORT_BY_NAME,
+	FT_SORT_BY_DESCRIPTION
+} ft_sort_order;
+
 /**
- * Get a GArray of WTAP_FILE_TYPE_SUBTYPE_ values for file types/subtypes
+ * Get a GArray of file type/subtype values for file types/subtypes
  * that can be used to save a file of a given type with a given GArray of
  * WTAP_ENCAP_ types and the given bitmask of comment types.
  */
 WS_DLL_PUBLIC
-GArray *wtap_get_savable_file_types_subtypes(int file_type,
-    const GArray *file_encaps, guint32 required_comment_types);
+GArray *wtap_get_savable_file_types_subtypes_for_file(int file_type,
+    const GArray *file_encaps, guint32 required_comment_types,
+    ft_sort_order sort_order);
 
 /**
- * Return TRUE if files of this file type/subtype use interface IDs
- * to associate records with an interface.
+ * Get a GArray of all writable file type/subtype values.
  */
 WS_DLL_PUBLIC
-gboolean wtap_uses_interface_ids(int file_type);
+GArray *wtap_get_writable_file_types_subtypes(ft_sort_order sort_order);
 
-/*** various string converter functions ***/
+/*** various file type/subtype functions ***/
 WS_DLL_PUBLIC
-const char *wtap_file_type_subtype_string(int file_type_subtype);
+const char *wtap_file_type_subtype_description(int file_type_subtype);
 WS_DLL_PUBLIC
-const char *wtap_file_type_subtype_short_string(int file_type_subtype);
+const char *wtap_file_type_subtype_name(int file_type_subtype);
 WS_DLL_PUBLIC
-int wtap_short_string_to_file_type_subtype(const char *short_name);
+int wtap_name_to_file_type_subtype(const char *name);
+WS_DLL_PUBLIC
+int wtap_pcap_file_type_subtype(void);
+WS_DLL_PUBLIC
+int wtap_pcap_nsec_file_type_subtype(void);
+WS_DLL_PUBLIC
+int wtap_pcapng_file_type_subtype(void);
+
+/**
+ * Return an indication of whether this capture file format supports
+ * the block in question.
+ */
+WS_DLL_PUBLIC
+block_support_t wtap_file_type_subtype_supports_block(int filetype,
+    wtap_block_type_t type);
+
+/**
+ * Return an indication of whether this capture file format supports
+ * the option in queston for the block in question.
+ */
+WS_DLL_PUBLIC
+option_support_t wtap_file_type_subtype_supports_option(int filetype,
+    wtap_block_type_t type, guint opttype);
 
 /*** various file extension functions ***/
 WS_DLL_PUBLIC
@@ -2310,8 +2232,6 @@ WS_DLL_PUBLIC
 int wtap_get_num_file_type_extensions(void);
 WS_DLL_PUBLIC
 int wtap_get_num_encap_types(void);
-WS_DLL_PUBLIC
-int wtap_get_num_file_types_subtypes(void);
 
 /*** get information for file type extension ***/
 WS_DLL_PUBLIC
@@ -2323,14 +2243,20 @@ GSList *wtap_get_file_extension_type_extensions(guint extension_type);
 WS_DLL_PUBLIC
 void wtap_register_file_type_extension(const struct file_extension_info *ei);
 
-#ifdef HAVE_PLUGINS
 typedef struct {
 	void (*register_wtap_module)(void);  /* routine to call to register a wiretap module */
 } wtap_plugin;
 
 WS_DLL_PUBLIC
 void wtap_register_plugin(const wtap_plugin *plug);
-#endif
+
+/** Returns_
+ *     0 if plugins can be loaded for libwiretap (file type).
+ *     1 if plugins are not supported by the platform.
+ *    -1 if plugins were disabled in the build configuration.
+ */
+WS_DLL_PUBLIC
+int wtap_plugins_supported(void);
 
 WS_DLL_PUBLIC
 void wtap_register_open_info(struct open_info *oi, const gboolean first_routine);
@@ -2342,7 +2268,7 @@ void wtap_deregister_open_info(const gchar *name);
 WS_DLL_PUBLIC
 unsigned int open_info_name_to_type(const char *name);
 WS_DLL_PUBLIC
-int wtap_register_file_type_subtypes(const struct file_type_subtype_info* fi, const int subtype);
+int wtap_register_file_type_subtype(const struct file_type_subtype_info* fi);
 WS_DLL_PUBLIC
 void wtap_deregister_file_type_subtype(const int file_type_subtype);
 

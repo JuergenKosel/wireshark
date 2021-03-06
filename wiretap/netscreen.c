@@ -61,6 +61,10 @@ static gboolean parse_netscreen_packet(FILE_T fh, wtap_rec *rec,
 static int parse_single_hex_dump_line(char* rec, guint8 *buf,
 	guint byte_offset);
 
+static int netscreen_file_type_subtype = -1;
+
+void register_netscreen(void);
+
 /* Returns TRUE if the line appears to be a line with protocol info.
    Otherwise it returns FALSE. */
 static gboolean info_line(const gchar *line)
@@ -159,7 +163,7 @@ wtap_open_return_val netscreen_open(wtap *wth, int *err, gchar **err_info)
 		return WTAP_OPEN_ERROR;
 
 	wth->file_encap = WTAP_ENCAP_UNKNOWN;
-	wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_NETSCREEN;
+	wth->file_type_subtype = netscreen_file_type_subtype;
 	wth->snapshot_length = 0; /* not known */
 	wth->subtype_read = netscreen_read;
 	wth->subtype_seek_read = netscreen_seek_read;
@@ -444,6 +448,31 @@ parse_single_hex_dump_line(char* rec, guint8 *buf, guint byte_offset)
 		return -1;
 
 	return num_items_scanned;
+}
+
+static const struct supported_block_type netscreen_blocks_supported[] = {
+	/*
+	 * We support packet blocks, with no comments or other options.
+	 */
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info netscreen_info = {
+	"NetScreen snoop text file", "netscreen", "txt", NULL,
+	FALSE, BLOCKS_SUPPORTED(netscreen_blocks_supported),
+	NULL, NULL, NULL
+};
+
+void register_netscreen(void)
+{
+	netscreen_file_type_subtype = wtap_register_file_type_subtype(&netscreen_info);
+
+	/*
+	 * Register name for backwards compatibility with the
+	 * wtap_filetypes table in Lua.
+	 */
+	wtap_register_backwards_compatibility_lua_name("NETSCREEN",
+	    netscreen_file_type_subtype);
 }
 
 /*

@@ -7,11 +7,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 
-include_directories(
-	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 set(WSLUA_MODULES
 	${CMAKE_CURRENT_SOURCE_DIR}/lrexlib.c
 	${CMAKE_CURRENT_SOURCE_DIR}/lrexlib_glib.c
@@ -43,6 +38,7 @@ set(WSLUA_MODULES
 	${CMAKE_CURRENT_SOURCE_DIR}/wslua_tree.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wslua_tvb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wslua_util.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wslua_wtap.c
 )
 
 set(WSLUA_FILES
@@ -145,6 +141,14 @@ add_library(wslua OBJECT
 	${WSLUA_FILES}
 )
 
+target_include_directories(wslua
+	SYSTEM PRIVATE
+		${LUA_INCLUDE_DIRS}
+	PRIVATE
+		${CMAKE_CURRENT_BINARY_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 set_target_properties(wslua PROPERTIES
 	FOLDER "Libs/epan/wslua"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
@@ -154,7 +158,6 @@ CHECKAPI(
 	NAME
 	  wslua
 	SWITCHES
-	  --group termoutput:6 --summary-group termoutput
 	SOURCES
 	  ${WSLUA_FILES}
 )

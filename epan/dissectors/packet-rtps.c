@@ -364,7 +364,7 @@ static dissector_table_t rtps_type_name_table;
 #define PID_TYPE_CONSISTENCY                    (0x0074)
 #define PID_EQUIVALENT_TYPE_NAME                (0x0075)
 #define PID_BASE_TYPE_NAME                      (0x0076)
-#define PID_ENABLE_ENCRYPTION                   (0x0077)
+#define PID_BUILTIN_ENDPOINT_QOS                (0x0077)
 #define PID_ENABLE_AUTHENTICATION               (0x0078)
 #define PID_DOMAIN_ID                           (0x000f)
 #define PID_DOMAIN_TAG                          (0x4014)
@@ -909,7 +909,7 @@ static int hf_rtps_param_sample_signature_signature         = -1;
 static int hf_rtps_secure_secure_data_length                = -1;
 static int hf_rtps_secure_secure_data                       = -1;
 static int hf_rtps_param_enable_authentication              = -1;
-static int hf_rtps_param_enable_encryption                  = -1;
+static int hf_rtps_param_builtin_endpoint_qos               = -1;
 static int hf_rtps_secure_dataheader_transformation_kind    = -1;
 static int hf_rtps_secure_dataheader_transformation_key_id  = -1;
 static int hf_rtps_secure_dataheader_plugin_sec_header      = -1;
@@ -1601,7 +1601,7 @@ static const value_string parameter_id_v2_vals[] = {
   { PID_STATUS_INFO,                    "PID_STATUS_INFO" },
   { PID_DATA_REPRESENTATION,            "PID_DATA_REPRESENTATION" },
   { PID_TYPE_CONSISTENCY,               "PID_TYPE_CONSISTENCY" },
-  { PID_ENABLE_ENCRYPTION,              "PID_ENABLE_ENCRYPTION" },
+  { PID_BUILTIN_ENDPOINT_QOS,           "PID_BUILTIN_ENDPOINT_QOS" },
   { PID_ENABLE_AUTHENTICATION,          "PID_ENABLE_AUTHENTICATION" },
   { PID_IDENTITY_TOKEN,                 "PID_IDENTITY_TOKEN" },
   { PID_PERMISSIONS_TOKEN,              "PID_PERMISSIONS_TOKEN" },
@@ -1760,7 +1760,7 @@ static const value_string encapsulation_id_vals[] = {
 static const value_string data_representation_kind_vals[] = {
   { 0, "XCDR_DATA_REPRESENTATION" },
   { 1, "XML_DATA_REPRESENTATION" },
-  { 2, "XCDR2_DATA_REPRESENTATION " },
+  { 2, "XCDR2_DATA_REPRESENTATION" },
   { 0, NULL }
 };
 
@@ -5865,9 +5865,9 @@ static gboolean dissect_parameter_sequence_rti_dds(proto_tree *rtps_parameter_tr
             offset, 4, ENC_NA);
       break;
 
-    case PID_ENABLE_ENCRYPTION:
+    case PID_BUILTIN_ENDPOINT_QOS:
       ENSURE_LENGTH(1);
-      proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_enable_encryption, tvb,
+      proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_builtin_endpoint_qos, tvb,
               offset, 1, ENC_NA);
       break;
 
@@ -6155,40 +6155,6 @@ static gboolean dissect_parameter_sequence_rti_dds(proto_tree *rtps_parameter_tr
             tvb, offset + 4, 1, encoding);
           proto_tree_add_item(rtps_parameter_tree, hf_rtps_param_ignore_enum_literal_names,
             tvb, offset + 5, 1, encoding);
-      }
-      break;
-    }
-
-   /* 0...2...........7...............15.............23...............31
-    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    * | PID_DATA_REPRESENTATION       |             length            |
-    * +---------------+---------------+---------------+---------------+
-    * | uint32 SequenceSize                                           |
-    * +---------------+---------------+---------------+---------------+
-    * | uint16 DataRepresentationId[0]| uint16 DataRepresentationId[1]|
-    * +---------------+-------------------------------+---------------+
-    * | ...                           | uint16 DataRepresentationId[N]|
-    * +---------------+---------------+---------------+---------------+
-    */
-    case PID_DATA_REPRESENTATION: {
-      proto_tree *data_representation_seq_subtree;
-      proto_item *item;
-      guint value;
-      guint item_offset;
-      guint seq_size;
-      guint counter = 0;
-
-      seq_size = tvb_get_guint32(tvb, offset, encoding);
-      data_representation_seq_subtree = proto_tree_add_subtree_format(rtps_parameter_tree, tvb, offset,
-        param_length, ett_rtps_data_representation, &item, "Data Representation Sequence[%d]", seq_size);
-      item_offset = offset + 4;
-      for (; counter < seq_size; ++counter) {
-        value = tvb_get_guint16(tvb, item_offset, encoding);
-        proto_tree_add_uint_format(data_representation_seq_subtree, hf_rtps_param_data_representation,
-          tvb, item_offset, 2, value, "[%d]: %s (0x%X)", counter,
-          val_to_str(value, data_representation_kind_vals, "Unknown data representation value: %u"),
-          value);
-        item_offset += 2;
       }
       break;
     }
@@ -7823,6 +7789,41 @@ static gboolean dissect_parameter_sequence_v2(proto_tree *rtps_parameter_tree, p
                     hf_rtps_param_instance_id, hf_rtps_param_entity, hf_rtps_param_entity_key,
                     hf_rtps_param_hf_entity_kind, NULL);
       break;
+
+
+   /* 0...2...........7...............15.............23...............31
+    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    * | PID_DATA_REPRESENTATION       |             length            |
+    * +---------------+---------------+---------------+---------------+
+    * | uint32 SequenceSize                                           |
+    * +---------------+---------------+---------------+---------------+
+    * | int16 DataRepresentationId[0] | int16 DataRepresentationId[1] |
+    * +---------------+-------------------------------+---------------+
+    * | ...                           | int16 DataRepresentationId[N] |
+    * +---------------+---------------+---------------+---------------+
+    */
+    case PID_DATA_REPRESENTATION: {
+      proto_tree *data_representation_seq_subtree;
+      proto_item *item;
+      guint value;
+      guint item_offset;
+      guint seq_size;
+      guint counter = 0;
+
+      seq_size = tvb_get_guint32(tvb, offset, encoding);
+      data_representation_seq_subtree = proto_tree_add_subtree_format(rtps_parameter_tree, tvb, offset,
+        param_length, ett_rtps_data_representation, &item, "Data Representation Sequence[%d]", seq_size);
+      item_offset = offset + 4;
+      for (; counter < seq_size; ++counter) {
+        value = tvb_get_guint16(tvb, item_offset, encoding);
+        proto_tree_add_uint_format(data_representation_seq_subtree, hf_rtps_param_data_representation,
+          tvb, item_offset, 2, value, "[%d]: %s (0x%X)", counter,
+          val_to_str(value, data_representation_kind_vals, "Unknown data representation value: %u"),
+          value);
+        item_offset += 2;
+      }
+      break;
+    }
 
     default:
         return FALSE;
@@ -13943,9 +13944,9 @@ void proto_register_rtps(void) {
       { "Authentication enabled", "rtps.secure.enable_authentication",
         FT_BOOLEAN, 32, TFS(&tfs_true_false), 0, NULL, HFILL }
     },
-    { &hf_rtps_param_enable_encryption,
-      { "Encryption enabled", "rtps.secure.enable_encryption",
-        FT_BOOLEAN, 8, TFS(&tfs_true_false), 0, NULL, HFILL }
+    { &hf_rtps_param_builtin_endpoint_qos,
+      { "Built-in Endpoint QoS", "rtps.param.builtin_endpoint_qos",
+        FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }
     },
     { &hf_rtps_param_sample_signature_epoch,
       { "Epoch", "rtps.sample_signature.epoch",

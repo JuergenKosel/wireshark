@@ -9,10 +9,6 @@
 
 ADD_CUSTOM_CMAKE_INCLUDE()
 
-include_directories(
-		${GCRYPT_INCLUDE_DIRS}
-)
-
 set(WIRESHARK_WIDGET_HEADERS
 	widgets/additional_toolbar.h
 	widgets/apply_line_edit.h
@@ -66,6 +62,9 @@ set(WIRESHARK_UTILS_HEADERS
 	utils/idata_printable.h
 	utils/proto_node.h
 	utils/qt_ui_utils.h
+	utils/rtp_audio_routing.h
+	utils/rtp_audio_routing_filter.h
+	utils/rtp_audio_silence_generator.h
 	utils/stock_icon.h
 	utils/tango_colors.h
 	utils/variant_pointer.h
@@ -305,6 +304,9 @@ set(WIRESHARK_UTILS_SRCS
 	utils/frame_information.cpp
 	utils/proto_node.cpp
 	utils/qt_ui_utils.cpp
+	utils/rtp_audio_routing.cpp
+	utils/rtp_audio_routing_filter.cpp
+	utils/rtp_audio_silence_generator.cpp
 	utils/stock_icon.cpp
 	utils/wireshark_mime_data.cpp
 	utils/wireshark_zip_helper.cpp
@@ -626,11 +628,6 @@ set(WIRESHARK_QT_QRC
 	${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc
 )
 
-include_directories(
-	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 set(CMAKE_AUTOMOC TRUE)
 set(CMAKE_AUTOUIC TRUE)
 set(CMAKE_AUTORCC TRUE)
@@ -707,15 +704,22 @@ add_library(qtui OBJECT
 	wireshark-tap-register.c
 )
 
-target_include_directories(qtui SYSTEM
-	PUBLIC
+target_include_directories(qtui
+	SYSTEM PUBLIC
 		${QT_INCLUDE_DIRS}
 		${WINSPARKLE_INCLUDE_DIRS}
 		${SPEEXDSP_INCLUDE_DIRS}
-	PRIVATE
+)
+
+target_include_directories(qtui
+	SYSTEM PRIVATE
 		# Can't use imported target, linking object libraries for usage requirements
 		# requires CMake 3.12
 		${PCAP_INCLUDE_DIRS}
+		${GCRYPT_INCLUDE_DIRS}
+	PRIVATE
+		${CMAKE_CURRENT_BINARY_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_compile_definitions(qtui

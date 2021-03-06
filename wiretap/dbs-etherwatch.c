@@ -80,6 +80,10 @@ static guint parse_single_hex_dump_line(char* rec, guint8 *buf,
     int byte_offset);
 static guint parse_hex_dump(char* dump, guint8 *buf, char separator, char end);
 
+static int dbs_etherwatch_file_type_subtype = -1;
+
+void register_dbs_etherwatch(void);
+
 /* Seeks to the beginning of the next packet, and returns the
    byte offset.  Returns -1 on failure, and sets "*err" to the error
    and "*err_info" to null or an additional error string. */
@@ -172,7 +176,7 @@ wtap_open_return_val dbs_etherwatch_open(wtap *wth, int *err, gchar **err_info)
     }
 
     wth->file_encap = WTAP_ENCAP_ETHERNET;
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_DBS_ETHERWATCH;
+    wth->file_type_subtype = dbs_etherwatch_file_type_subtype;
     wth->snapshot_length = 0;   /* not known */
     wth->subtype_read = dbs_etherwatch_read;
     wth->subtype_seek_read = dbs_etherwatch_seek_read;
@@ -624,6 +628,31 @@ parse_hex_dump(char* dump, guint8 *buf, char separator, char end) {
         }
     }
     return count;
+}
+
+static const struct supported_block_type dbs_etherwatch_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info dbs_etherwatch_info = {
+    "DBS Etherwatch (VMS)", "etherwatch", "txt", NULL,
+    FALSE, BLOCKS_SUPPORTED(dbs_etherwatch_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_dbs_etherwatch(void)
+{
+    dbs_etherwatch_file_type_subtype = wtap_register_file_type_subtype(&dbs_etherwatch_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("DBS_ETHERWATCH",
+                                                   dbs_etherwatch_file_type_subtype);
 }
 
 /*

@@ -883,6 +883,14 @@
         <translation>Unisci file di cattura</translation>
     </message>
     <message>
+        <source>Unknown file type returned by save as dialog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Please report this as a Wireshark issue at https://gitlab.com/wireshark/wireshark/-/issues.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>directory</source>
         <translation>cartella</translation>
     </message>
@@ -6842,6 +6850,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Ridimensionamento della finestra TCP</translation>
     </message>
     <message>
+        <source>DCCP Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>TLS Stream</source>
         <translation>Flusso TLS</translation>
     </message>
@@ -7944,6 +7956,18 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Unable to drop files during capture.</source>
         <translation>Impossibile scartare file durante la cattura.</translation>
+    </message>
+    <message>
+        <source>Unknown file type returned by merge dialog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Please report this as a Wireshark issue at https://gitlab.com/wireshark/wireshark/-/issues.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown file type returned by export dialog.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Do you want to stop the capture and save the captured packets%1?</source>
@@ -9326,6 +9350,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Filter Field Reference</source>
         <translation>Riferimento campo di filtro</translation>
+    </message>
+    <message>
+        <source>Copied </source>
+        <translation>Copiato</translation>
     </message>
     <message>
         <source>Wiki Page for %1</source>
@@ -10953,12 +10981,72 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Spazio</translation>
     </message>
     <message>
+        <source>Mute/Unmute</source>
+        <translation>Silenzia/Rimuovi silenzio</translation>
+    </message>
+    <message>
+        <source>Mute or unmute the stream</source>
+        <translation>Silenzia o riprendi il flusso</translation>
+    </message>
+    <message>
+        <source>Play the stream</source>
+        <translation>Riproduci il flusso</translation>
+    </message>
+    <message>
+        <source>To Left</source>
+        <translation>A sinistra</translation>
+    </message>
+    <message>
+        <source>Route audio to left channel</source>
+        <translation>Instrada l&apos;audio al canale sinistro</translation>
+    </message>
+    <message>
+        <source>Left + Right</source>
+        <translation>Sinistra + destra</translation>
+    </message>
+    <message>
+        <source>Route audio to left and right channel</source>
+        <translation>Instrada l&apos;audio al canale sinistro e destro</translation>
+    </message>
+    <message>
+        <source>To Right</source>
+        <translation>A destra</translation>
+    </message>
+    <message>
+        <source>Route audio to right channel</source>
+        <translation>Instrada l&apos;audio al canale destro</translation>
+    </message>
+    <message>
+        <source>Invert Muting</source>
+        <translation>Inverti il silenziamento</translation>
+    </message>
+    <message>
+        <source>Invert muting of all channels</source>
+        <translation>Inverti il silenziamento di tutti i canali</translation>
+    </message>
+    <message>
+        <source>Remove Stream</source>
+        <translation>Rimuovi flusso</translation>
+    </message>
+    <message>
+        <source>Remove stream from the list</source>
+        <translation>Rimuovi il flusso dall&apos;elenco</translation>
+    </message>
+    <message>
         <source>No devices available</source>
         <translation>Nessun dispositivo disponibile</translation>
     </message>
     <message>
+        <source>Audio Routing</source>
+        <translation>Instradamento audio</translation>
+    </message>
+    <message>
         <source>Play Streams</source>
         <translation>Riproduci flussi</translation>
+    </message>
+    <message>
+        <source>Decoding streams...</source>
+        <translation>Decodifica dei flussi...</translation>
     </message>
     <message>
         <source>Out of Sequence</source>
@@ -10987,6 +11075,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Start: %1, cursor: %2. Press &quot;G&quot; to go to packet %3. Double click to set start of playback.</source>
         <translation>Avvio: %1, cursore: %2. Premi &quot;G&quot; per portarti sul pacchetti %3. Doppio clic per impostare l&apos;avvio della riproduzione.</translation>
+    </message>
+    <message>
+        <source>Preparing to play...</source>
+        <translation>Preparazione della riproduzione…</translation>
     </message>
     <message>
         <source>Unknown</source>

@@ -31,7 +31,7 @@
 #include "file_wrappers.h"
 #include "commview.h"
 
-#include <wsutil/frequency-utils.h>
+#include <wsutil/802_11-utils.h>
 
 typedef struct commview_header {
 	guint16		data_len;
@@ -89,6 +89,10 @@ static gboolean commview_read_header(commview_header_t *cv_hdr, FILE_T fh,
 static gboolean commview_dump(wtap_dumper *wdh,	const wtap_rec *rec,
 			      const guint8 *pd, int *err, gchar **err_info);
 
+static int commview_file_type_subtype = -1;
+
+void register_commview(void);
+
 wtap_open_return_val commview_open(wtap *wth, int *err, gchar **err_info)
 {
 	commview_header_t cv_hdr;
@@ -122,7 +126,7 @@ wtap_open_return_val commview_open(wtap *wth, int *err, gchar **err_info)
 	wth->subtype_read = commview_read;
 	wth->subtype_seek_read = commview_seek_read;
 
-	wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_COMMVIEW;
+	wth->file_type_subtype = commview_file_type_subtype;
 	wth->file_encap = WTAP_ENCAP_PER_PACKET;
 	wth->file_tsprec = WTAP_TSPREC_USEC;
 
@@ -594,6 +598,31 @@ static gboolean commview_dump(wtap_dumper *wdh,
 	wdh->bytes_dumped += rec->rec_header.packet_header.caplen;
 
 	return TRUE;
+}
+
+static const struct supported_block_type commview_blocks_supported[] = {
+	/*
+	 * We support packet blocks, with no comments or other options.
+	 */
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info commview_info = {
+	"TamoSoft CommView", "commview", "ncf", NULL,
+	FALSE, BLOCKS_SUPPORTED(commview_blocks_supported),
+	commview_dump_can_write_encap, commview_dump_open, NULL
+};
+
+void register_commview(void)
+{
+	commview_file_type_subtype = wtap_register_file_type_subtype(&commview_info);
+
+	/*
+	 * Register name for backwards compatibility with the
+	 * wtap_filetypes table in Lua.
+	 */
+	wtap_register_backwards_compatibility_lua_name("COMMVIEW",
+	    commview_file_type_subtype);
 }
 
 /*

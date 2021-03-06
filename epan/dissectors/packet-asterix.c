@@ -4707,8 +4707,8 @@ static const FieldPart I010_040_THETA = { 16, 360.0/65536.0, FIELD_PART_UFLOAT, 
 static const FieldPart *I010_040_PARTS[] = { &I010_040_RHO, &I010_040_THETA, NULL };
 
 /* Position in WGS-84 Coordinates */
-static const FieldPart I010_041_LAT = { 32, 180.0/33554432.0, FIELD_PART_FLOAT, &hf_010_041_LAT, NULL };
-static const FieldPart I010_041_LON = { 32, 180.0/33554432.0, FIELD_PART_FLOAT, &hf_010_041_LON, NULL };
+static const FieldPart I010_041_LAT = { 32, 180.0/2147483648.0, FIELD_PART_FLOAT, &hf_010_041_LAT, NULL };
+static const FieldPart I010_041_LON = { 32, 180.0/2147483648.0, FIELD_PART_FLOAT, &hf_010_041_LON, NULL };
 static const FieldPart *I010_041_PARTS[] = { &I010_041_LAT, &I010_041_LON, NULL };
 
 /* Position in Cartesian Coordinates */
@@ -4986,7 +4986,7 @@ static const AsterixField I010_010 = { FIXED, 2, 0, 0, &hf_010_010, IXXX_SAC_SIC
 static const AsterixField I010_020 = { FX_UAP, 1, 0, 0, &hf_010_020, I010_020_PARTS, { NULL } };
 static const AsterixField I010_040 = { FIXED, 4, 0, 0, &hf_010_040, I010_040_PARTS, { NULL } };
 static const AsterixField I010_041 = { FIXED, 8, 0, 0, &hf_010_041, I010_041_PARTS, { NULL } };
-static const AsterixField I010_042 = { FIXED, 6, 0, 0, &hf_010_042, I010_042_PARTS, { NULL } };
+static const AsterixField I010_042 = { FIXED, 4, 0, 0, &hf_010_042, I010_042_PARTS, { NULL } };
 static const AsterixField I010_060 = { FIXED, 2, 0, 0, &hf_010_060, I010_060_PARTS, { NULL } };
 static const AsterixField I010_090 = { FIXED, 2, 0, 0, &hf_010_090, I010_090_PARTS, { NULL } };
 static const AsterixField I010_091 = { FIXED, 2, 0, 0, &hf_010_091, I010_091_PARTS, { NULL } };
@@ -15259,7 +15259,7 @@ void proto_register_asterix (void)
         { &hf_062_380_20_TRB, { "TRB", "asterix.062_380_20_TRB", FT_UINT8, BASE_DEC, VALS (valstr_062_380_20_TRB), 0x10, NULL, HFILL } },
         { &hf_062_380_20_WS_VAL, { "WS[knot]", "asterix.062_380_20_WS_VAL", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_062_380_20_WD_VAL, { "WD[deg]", "asterix.062_380_20_WD_VAL", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
-        { &hf_062_380_20_TMP_VAL, { "TMP[deg Celcius]", "asterix.062_380_20_TMP_VAL", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+        { &hf_062_380_20_TMP_VAL, { "TMP[deg Celsius]", "asterix.062_380_20_TMP_VAL", FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_062_380_20_TRB_VAL, { "TRB", "asterix.062_380_20_TRB_VAL", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
         { &hf_062_380_21, { "#21: Emitter Category", "asterix.062_380_21", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_062_380_21_ECAT, { "ECAT", "asterix.062_380_21_ECAT", FT_UINT8, BASE_DEC, VALS (valstr_062_380_21_ECAT), 0x0, NULL, HFILL } },

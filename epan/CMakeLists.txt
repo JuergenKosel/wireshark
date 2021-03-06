@@ -13,24 +13,6 @@ if (HAVE_HFI_SECTION_INIT)
 	)
 endif()
 
-include_directories(
-		${BROTLI_INCLUDE_DIRS}
-		${GLIB2_INCLUDE_DIRS}
-		${CARES_INCLUDE_DIRS}
-		${GCRYPT_INCLUDE_DIRS}
-		${GTHREAD2_INCLUDE_DIRS}
-		${GNUTLS_INCLUDE_DIRS}
-		${KERBEROS_INCLUDE_DIRS}
-		${LUA_INCLUDE_DIRS}
-		${LZ4_INCLUDE_DIRS}
-		${NGHTTP2_INCLUDE_DIRS}
-		${SMI_INCLUDE_DIRS}
-		${SNAPPY_INCLUDE_DIRS}
-		${ZLIB_INCLUDE_DIRS}
-		${ZSTD_INCLUDE_DIRS}
-		${LIBXML2_INCLUDE_DIRS}
-)
-
 add_definitions(
 		${LIBXML2_DEFINITIONS}
 		${KERBEROS_DEFINITIONS}
@@ -41,14 +23,10 @@ add_subdirectory(dfilter)
 add_subdirectory(dissectors)
 add_subdirectory(ftypes)
 add_subdirectory(wmem)
+
 if(LUA_FOUND)
 	add_subdirectory(wslua)
 endif()
-
-include_directories(
-	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}
-)
 
 add_custom_command(
 	OUTPUT ps.c
@@ -95,6 +73,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	diam_dict.h
 	disabled_protos.h
 	conversation_filter.h
+	dccpservicecodes.h
 	dtd.h
 	dtd_parse.h
 	dvb_chartbl.h
@@ -137,6 +116,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	packet.h
 	packet_info.h
 	params.h
+	pci-ids.h
 	plugin_if.h
 	ppptypes.h
 	print.h
@@ -236,6 +216,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	oids.c
 	osi-utils.c
 	packet.c
+	pci-ids.c
 	plugin_if.c
 	print.c
 	print_stream.c
@@ -248,6 +229,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	register.c
 	req_resp_hdrs.c
 	rtd_table.c
+	sctpppids.c
 	secrets.c
 	sequence_analysis.c
 	show_exception.c
@@ -320,10 +302,6 @@ add_library(epan
 	${CMAKE_BINARY_DIR}/image/libwireshark.rc
 )
 
-if(ENABLE_PLUGINS)
-	target_compile_definitions(epan PUBLIC HAVE_PLUGINS)
-endif()
-
 set_target_properties(epan PROPERTIES
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
 	LINK_FLAGS "${WS_LINK_FLAGS}"
@@ -363,11 +341,31 @@ target_link_libraries(epan
 
 target_include_directories(epan
 	INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
-	$<INSTALL_INTERFACE:include/wireshark>
+		$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+		$<INSTALL_INTERFACE:include/wireshark>
 )
 
-target_include_directories(epan SYSTEM PUBLIC ${GLIB2_INCLUDE_DIRS})
+target_include_directories(epan
+	SYSTEM PUBLIC
+		${GLIB2_INCLUDE_DIRS}
+)
+
+target_include_directories(epan
+	SYSTEM PRIVATE
+		${BROTLI_INCLUDE_DIRS}
+		${CARES_INCLUDE_DIRS}
+		${GLIB2_INCLUDE_DIRS}
+		${GNUTLS_INCLUDE_DIRS}
+		${GTHREAD2_INCLUDE_DIRS}
+		${LIBXML2_INCLUDE_DIRS}
+		${LUA_INCLUDE_DIRS}
+		${NGHTTP2_INCLUDE_DIRS}
+		${SMI_INCLUDE_DIRS}
+		${ZLIB_INCLUDE_DIRS}
+	PRIVATE
+		${CMAKE_CURRENT_BINARY_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 add_dependencies(epan lemon)
 
@@ -417,7 +415,6 @@ CHECKAPI(
 	NAME
 	  epan
 	SWITCHES
-	  --group termoutput:10 --summary-group termoutput
 	SOURCES
 	  ${LIBWIRESHARK_NONGENERATED_FILES}
 )

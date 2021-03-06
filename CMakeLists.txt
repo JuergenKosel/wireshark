@@ -6,6 +6,14 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
+if(DEFINED ENV{FORCE_CMAKE_NINJA_NON_VERBOSE})
+	#
+	# Forcibly unset CMAKE_VERBOSE_MAKEFILE,
+	# to make *CERTAIN* that we don't do
+	# anything verbose here!
+	#
+	unset(CMAKE_VERBOSE_MAKEFILE CACHE)
+endif()
 
 if(WIN32)
 	# Needed for add_custom_command() WORKING_DIRECTORY generator expressions
@@ -435,6 +443,12 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 	set(WIRESHARK_COMMON_FLAGS /Qspectre)
 
 	if(ENABLE_CODE_ANALYSIS)
+		# We should probably add a code_analysis.props file and use it to set
+		# CAExcludePath, otherwise we trigger on Qt's headers:
+		# https://stackoverflow.com/questions/59669026/how-to-add-property-to-affect-code-analysis-in-cmake
+		# https://gitlab.kitware.com/cmake/cmake/-/issues/19682
+		# For now, we set CAExcludePath=C:\Qt;%include% in the Visual Studio
+		# Code Analys builder's environment.
 		list(APPEND LOCAL_CFLAGS /analyze:WX-)
 	endif()
 
@@ -458,7 +472,7 @@ else() # ! MSVC
 	if(APPLE)
 		# MIN_MACOS_VERSION is used to set LSMinimumSystemVersion
 		# in Info.plist, so start with something low.
-		set(MIN_MACOS_VERSION 10.6)
+		set(MIN_MACOS_VERSION 10.8)
 		if(CMAKE_OSX_DEPLOYMENT_TARGET)
 			if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS MIN_MACOS_VERSION)
 				message(FATAL_ERROR "We don't support building for macOS < ${MIN_MACOS_VERSION}")
@@ -582,6 +596,7 @@ else() # ! MSVC
 		-Wheader-guard
 		-Wcomma
 		-Wshorten-64-to-32
+		-Wredundant-decls
 	)
 
 	#
@@ -674,12 +689,6 @@ else() # ! MSVC
 			# never enable this one with -Werror.
 			#
 			-Wcast-qual
-			#
-			# Some generated ASN.1 dissectors block this one;
-			# multiple function declarations for the same
-			# function are being generated.
-			#
-			-Wredundant-decls
 			#
 			# All the registration functions block these for now.
 			#
@@ -985,7 +994,7 @@ message(STATUS "Linker flags: ${WS_LINK_FLAGS}")
 if(APPLE AND EXISTS /usr/local/opt/gettext)
 	# GLib on macOS requires libintl. Homebrew installs gettext (and
 	# libintl) in /usr/local/opt/gettext
-	include_directories(/usr/local/opt/gettext/include)
+	include_directories(SYSTEM /usr/local/opt/gettext/include)
 	link_directories(/usr/local/opt/gettext/lib)
 endif()
 
@@ -1037,7 +1046,7 @@ endmacro()
 # The minimum package list
 find_package(Git)
 reset_find_package(GLIB2 GLIB2_MAIN_INCLUDE_DIR GLIB2_INTERNAL_INCLUDE_DIR)
-find_package(GLIB2 "2.36.0" REQUIRED)
+find_package(GLIB2 "2.38.0" REQUIRED)
 include_directories(SYSTEM ${GLIB2_INCLUDE_DIRS})
 reset_find_package(GMODULE2)
 find_package(GMODULE2)
@@ -1199,9 +1208,7 @@ endif()
 
 # Include minizip include directories
 if(MINIZIP_FOUND)
-	include_directories(
-		${MINIZIP_INCLUDE_DIRS}
-	)
+	include_directories(SYSTEM ${MINIZIP_INCLUDE_DIRS})
 else()
 	set(MINIZIP_LIBRARY "")
 endif()
@@ -1251,8 +1258,8 @@ if(GNUTLS_FOUND AND NOT GNUTLS_VERSION VERSION_LESS "3.4.0")
 endif()
 
 if (QT_FOUND)
-	if (Qt5Widgets_VERSION VERSION_LESS 5.3)
-		message(FATAL_ERROR "Qt 5.3 or later is required.")
+	if (Qt5Widgets_VERSION VERSION_LESS 5.6)
+		message(FATAL_ERROR "Qt 5.6 or later is required.")
 	endif()
 	if (Qt5Widgets_VERSION VERSION_GREATER 5.6
 	    AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang"))
@@ -1281,10 +1288,6 @@ if (QT_FOUND)
 			HINTS "${QT_BIN_PATH}"
 			DOC "Path to the windeployqt utility."
 		)
-		if(Qt5Widgets_VERSION VERSION_GREATER "5.5.999")
-			set(QT_WINDEPLOYQT_EXTRA_OPTS --pdb)
-		endif()
-
 	elseif(APPLE)
 		find_program(QT_MACDEPLOYQT_EXECUTABLE macdeployqt
 			HINTS "${QT_BIN_PATH}"
@@ -1310,8 +1313,6 @@ if (QT_FOUND)
 			set(MIN_MACOS_VERSION 10.10)
 		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.7.999")
 			set(MIN_MACOS_VERSION 10.9)
-		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.4.999")
-			set(MIN_MACOS_VERSION 10.8)
 		endif()
 		if(CMAKE_OSX_DEPLOYMENT_TARGET AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS MIN_MACOS_VERSION)
 			message(FATAL_ERROR "Qt version ${Qt5Widgets_VERSION} requires CMAKE_OSX_DEPLOYMENT_TARGET (${CMAKE_OSX_DEPLOYMENT_TARGET}) >= ${MIN_MACOS_VERSION}")
@@ -2413,7 +2414,7 @@ if(BUILD_wireshark AND QT_FOUND)
 				$<$<NOT:$<CONFIG:Debug>>:--release>
 				--no-compiler-runtime
 				--verbose 10
-				${QT_WINDEPLOYQT_EXTRA_OPTS}
+				--pdb
 				"$<TARGET_FILE:wireshark>"
 		)
 		add_dependencies(copy_qt_dlls wireshark)
@@ -2568,10 +2569,7 @@ if(BUILD_sharkd)
 	add_executable(sharkd ${sharkd_FILES})
 	set_extra_executable_properties(sharkd "Executables")
 	target_link_libraries(sharkd ${sharkd_LIBS})
-	target_include_directories(sharkd SYSTEM
-		PUBLIC
-			${SPEEXDSP_INCLUDE_DIRS}
-	)
+	target_include_directories(sharkd SYSTEM PUBLIC ${SPEEXDSP_INCLUDE_DIRS})
 
 	install(TARGETS sharkd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
@@ -3040,8 +3038,63 @@ if(RPMBUILD_EXECUTABLE)
 	endforeach()
 
 	set(_rpmbuild_with_args)
-	if(CMAKE_VERBOSE_MAKEFILE)
-		list(APPEND _rpmbuild_with_args -v)
+	#
+	# This is ugly.
+	#
+	# At least some versions of rpmbuild define the cmake_build
+	# macro to run "cmake --build" with the "--verbose" option,
+	# with no obvious way to easily override that, so, if you
+	# are doing a build with lots of source files, and with
+	# lots of compiler options (for example, a log of -W flags),
+	# you can get a lot of output from rpmbuild.
+	#
+	# Wireshark is a program with lots of source files and
+	# lots of compiler options.
+	#
+	# GitLab's shared builders have a limit of 4MB on logs
+	# from build jobs.
+	#
+	# Wireshark uses the shared builders, and can produce
+	# more than 4MB with the Fedora RPM build; this causes
+	# the builds to fail.
+	#
+	# Forcibly overriding the cmake_build macro with a
+	# version that lacks the --version file should
+	# prevent ninja from being run with the -v flag,
+	# so that it prints the compact output rather
+	# than the raw command.
+	#
+	# We don't do that by default; if the build has the
+	# FORCE_CMAKE_NINJA_QUIET environment variable set,
+	# it will add it.
+	#
+	if(DEFINED ENV{FORCE_CMAKE_NINJA_NON_VERBOSE})
+		#
+		# Get the output of a pipeline running
+		# "rpmbuild --showrc", to find the settings
+		# of all macros, piped to an awk script
+		# to extract the value of the cmake_build
+		# macro.
+		#
+		execute_process(
+			COMMAND rpmbuild --showrc
+			COMMAND awk "/: cmake_build/ { getline; print \$0; exit }"
+			OUTPUT_VARIABLE CMAKE_BUILD_VALUE
+			OUTPUT_STRIP_TRAILING_WHITESPACE)
+		if (CMAKE_BUILD_VALUE MATCHES ".*--verbose.*")
+			#
+			# OK, the setting contains "--verbose".
+			# Rip it out.
+			#
+			string(REPLACE "--verbose" ""
+				NON_VERBOSE_CMAKE_BUILD_VALUE
+				${CMAKE_BUILD_VALUE})
+			list(APPEND _rpmbuild_with_args --define "cmake_build ${NON_VERBOSE_CMAKE_BUILD_VALUE}")
+		endif()
+	else()
+		if(CMAKE_VERBOSE_MAKEFILE)
+			list(APPEND _rpmbuild_with_args -v)
+		endif()
 	endif()
 	if(CMAKE_GENERATOR STREQUAL "Ninja")
 		list(APPEND _rpmbuild_with_args --with ninja)
@@ -3409,8 +3462,10 @@ set(_test_group_list
 	suite_extcaps
 	suite_fileformats
 	suite_follow
+	suite_follow_dccp
 	suite_io
 	suite_mergecap
+	suite_netperfmeter
 	suite_nameres
 	suite_outputformats
 	suite_release

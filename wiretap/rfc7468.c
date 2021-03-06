@@ -24,6 +24,10 @@
    terminator. */
 #define MAX_LINE_LENGTH (128 + 2)
 
+static int rfc7468_file_type_subtype = -1;
+
+void register_rfc7468(void);
+
 static char *read_complete_text_line(char line[MAX_LINE_LENGTH], FILE_T fh, int *err, gchar **err_info)
 {
     char *line_end;
@@ -83,7 +87,7 @@ wtap_open_return_val rfc7468_open(wtap *wth, int *err, gchar **err_info)
     if (file_seek(wth->fh, 0, SEEK_SET, err) == -1)
         return WTAP_OPEN_ERROR;
 
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_RFC7468;
+    wth->file_type_subtype = rfc7468_file_type_subtype;
     wth->file_encap = WTAP_ENCAP_RFC7468;
 
     wth->snapshot_length = 0;
@@ -93,6 +97,33 @@ wtap_open_return_val rfc7468_open(wtap *wth, int *err, gchar **err_info)
     wth->subtype_seek_read = wtap_full_file_seek_read;
 
     return WTAP_OPEN_MINE;
+}
+
+static const struct supported_block_type rfc7468_blocks_supported[] = {
+    /*
+     * This is a file format that we dissect, so we provide only one
+     * "packet" with the file's contents, and don't support any
+     * options.
+     */
+    { WTAP_BLOCK_PACKET, ONE_BLOCK_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info rfc7468_info = {
+    "RFC 7468 files", "rfc7468", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(rfc7468_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_rfc7468(void)
+{
+    rfc7468_file_type_subtype = wtap_register_file_type_subtype(&rfc7468_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("RFC7468",
+                                                   rfc7468_file_type_subtype);
 }
 
 /*

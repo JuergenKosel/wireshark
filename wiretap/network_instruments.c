@@ -116,6 +116,10 @@ static gboolean observer_dump(wtap_dumper *wdh, const wtap_rec *rec,
 static gint observer_to_wtap_encap(int observer_encap);
 static gint wtap_to_observer_encap(int wtap_encap);
 
+static int network_instruments_file_type_subtype = -1;
+
+void register_network_instruments(void);
+
 wtap_open_return_val network_instruments_open(wtap *wth, int *err, gchar **err_info)
 {
     guint offset;
@@ -189,8 +193,8 @@ wtap_open_return_val network_instruments_open(wtap *wth, int *err, gchar **err_i
 
         if (tlvh.length < sizeof tlvh) {
             *err = WTAP_ERR_BAD_FILE;
-            *err_info = g_strdup_printf("Observer: bad record (TLV length %u < %lu)",
-                tlvh.length, (unsigned long)sizeof tlvh);
+            *err_info = g_strdup_printf("Observer: bad record (TLV length %u < %zu)",
+                tlvh.length, sizeof tlvh);
             return WTAP_OPEN_ERROR;
         }
 
@@ -213,11 +217,11 @@ wtap_open_return_val network_instruments_open(wtap *wth, int *err, gchar **err_i
         /* process (or skip over) the current TLV */
         switch (tlvh.type) {
         case INFORMATION_TYPE_TIME_INFO:
-            if (tlvh.length != sizeof tlvh + sizeof private_state->time_format) {
+            if (tlv_data_length != sizeof private_state->time_format) {
                 *err = WTAP_ERR_BAD_FILE;
-                *err_info = g_strdup_printf("Observer: bad record (time information TLV length %u != %lu)",
+                *err_info = g_strdup_printf("Observer: bad record (time information TLV length %u != %zu)",
                     tlvh.length,
-                    (unsigned long)(sizeof tlvh + sizeof private_state->time_format));
+                    sizeof tlvh + sizeof private_state->time_format);
                 return WTAP_OPEN_ERROR;
             }
             if (!wtap_read_bytes(wth->fh, &private_state->time_format,
@@ -228,8 +232,7 @@ wtap_open_return_val network_instruments_open(wtap *wth, int *err, gchar **err_i
             offset += (guint)sizeof private_state->time_format;
             break;
         default:
-            tlv_data_length = tlvh.length - (guint)sizeof tlvh;
-            if (tlv_data_length > 0) {
+            if (tlv_data_length != 0) {
                 if (!wtap_read_bytes(wth->fh, NULL, tlv_data_length, err, err_info))
                     return WTAP_OPEN_ERROR;
             }
@@ -294,7 +297,7 @@ wtap_open_return_val network_instruments_open(wtap *wth, int *err, gchar **err_i
     wth->subtype_sequential_close = NULL;
     wth->snapshot_length = 0;    /* not available in header */
     wth->file_tsprec = WTAP_TSPREC_NSEC;
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_NETWORK_INSTRUMENTS;
+    wth->file_type_subtype = network_instruments_file_type_subtype;
 
     /* reset the pointer to the first packet */
     if (file_seek(wth->fh, header_offset, SEEK_SET, err) == -1)
@@ -404,7 +407,6 @@ read_packet_header(wtap *wth, FILE_T fh, union wtap_pseudo_header *pseudo_header
     int offset;
     guint i;
     tlv_header tlvh;
-    int seek_increment;
     tlv_wireless_info wireless_header;
 
     offset = 0;
@@ -462,6 +464,8 @@ read_packet_header(wtap *wth, FILE_T fh, union wtap_pseudo_header *pseudo_header
 
     /* process extra information */
     for (i = 0; i < packet_header->number_of_information_elements; i++) {
+        guint tlv_data_length;
+
         /* read the TLV header */
         if (!wtap_read_bytes(fh, &tlvh, sizeof tlvh, err, err_info))
             return -1;
@@ -470,15 +474,21 @@ read_packet_header(wtap *wth, FILE_T fh, union wtap_pseudo_header *pseudo_header
 
         if (tlvh.length < sizeof tlvh) {
             *err = WTAP_ERR_BAD_FILE;
-            *err_info = g_strdup_printf("Observer: bad record (TLV length %u < %lu)",
-                tlvh.length, (unsigned long)sizeof tlvh);
+            *err_info = g_strdup_printf("Observer: bad record (TLV length %u < %zu)",
+                tlvh.length, sizeof tlvh);
             return -1;
         }
+        tlv_data_length = tlvh.length - (guint)sizeof tlvh;
 
         /* process (or skip over) the current TLV */
         switch (tlvh.type) {
         case INFORMATION_TYPE_WIRELESS:
-            /* XXX - what if tlvh.length != sizeof wireless_header? */
+            if (tlv_data_length != sizeof wireless_header) {
+                *err = WTAP_ERR_BAD_FILE;
+                *err_info = g_strdup_printf("Observer: bad record (wireless TLV length %u != %zu)",
+                    tlvh.length, sizeof tlvh + sizeof wireless_header);
+                return -1;
+            }
             if (!wtap_read_bytes(fh, &wireless_header, sizeof wireless_header,
                                  err, err_info))
                 return -1;
@@ -495,12 +505,11 @@ read_packet_header(wtap *wth, FILE_T fh, union wtap_pseudo_header *pseudo_header
             break;
         default:
             /* skip the TLV data */
-            seek_increment = tlvh.length - (int)sizeof tlvh;
-            if (seek_increment > 0) {
-                if (!wtap_read_bytes(fh, NULL, seek_increment, err, err_info))
+            if (tlv_data_length != 0) {
+                if (!wtap_read_bytes(fh, NULL, tlv_data_length, err, err_info))
                     return -1;
             }
-            offset += seek_increment;
+            offset += tlv_data_length;
         }
     }
 
@@ -646,7 +655,7 @@ skip_to_next_packet(wtap *wth, int offset_to_next_packet, int current_offset_fro
 
 /* Returns 0 if we could write the specified encapsulation type,
    an error indication otherwise. */
-int network_instruments_dump_can_write_encap(int encap)
+static int network_instruments_dump_can_write_encap(int encap)
 {
     /* per-packet encapsulations aren't supported */
     if (encap == WTAP_ENCAP_PER_PACKET)
@@ -660,7 +669,7 @@ int network_instruments_dump_can_write_encap(int encap)
 
 /* Returns TRUE on success, FALSE on failure; sets "*err" to an error code on
    failure. */
-gboolean network_instruments_dump_open(wtap_dumper *wdh, int *err,
+static gboolean network_instruments_dump_open(wtap_dumper *wdh, int *err,
     gchar **err_info)
 {
     observer_dump_private_state * private_state = NULL;
@@ -668,9 +677,10 @@ gboolean network_instruments_dump_open(wtap_dumper *wdh, int *err,
     guint header_offset;
     const gchar *err_str;
     tlv_header comment_header;
-    tlv_time_info time_header;
     char comment[64];
     size_t comment_length;
+    tlv_header time_info_header;
+    tlv_time_info time_info;
     struct tm * current_time;
     time_t system_time;
 
@@ -710,13 +720,13 @@ gboolean network_instruments_dump_open(wtap_dumper *wdh, int *err,
 
     /* create the timestamp encoding TLV */
     {
-        time_header.type = INFORMATION_TYPE_TIME_INFO;
-        time_header.length = (guint16) (sizeof(time_header));
-        time_header.time_format = TIME_INFO_GMT;
+        time_info_header.type = INFORMATION_TYPE_TIME_INFO;
+        time_info_header.length = (guint16) (sizeof(time_info_header) + sizeof(time_info));
+        time_info.time_format = TIME_INFO_GMT;
 
         /* update the file header to account for the timestamp encoding TLV */
         file_header.number_of_information_elements++;
-        header_offset += time_header.length;
+        header_offset += time_info_header.length;
     }
 
     /* Store the offset to the first packet */
@@ -746,11 +756,17 @@ gboolean network_instruments_dump_open(wtap_dumper *wdh, int *err,
 
     /* write the time info TLV */
     {
-        TLV_TIME_INFO_TO_LE_IN_PLACE(time_header);
-        if (!wtap_dump_file_write(wdh, &time_header, sizeof(time_header), err)) {
+        TLV_HEADER_TO_LE_IN_PLACE(time_info_header);
+        if (!wtap_dump_file_write(wdh, &time_info_header, sizeof(time_info_header), err)) {
             return FALSE;
         }
-        wdh->bytes_dumped += sizeof(time_header);
+        wdh->bytes_dumped += sizeof(time_info_header);
+
+        TLV_TIME_INFO_TO_LE_IN_PLACE(time_info);
+        if (!wtap_dump_file_write(wdh, &time_info, sizeof(time_info), err)) {
+            return FALSE;
+        }
+        wdh->bytes_dumped += sizeof(time_info);
     }
 
     err_str = init_gmt_to_localtime_offset();
@@ -874,6 +890,31 @@ static gint wtap_to_observer_encap(int wtap_encap)
         return OBSERVER_UNDEFINED;
     }
     return OBSERVER_UNDEFINED;
+}
+
+static const struct supported_block_type network_instruments_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info network_instruments_info = {
+    "Network Instruments Observer", "niobserver", "bfr", NULL,
+    FALSE, BLOCKS_SUPPORTED(network_instruments_blocks_supported),
+    network_instruments_dump_can_write_encap, network_instruments_dump_open, NULL
+};
+
+void register_network_instruments(void)
+{
+    network_instruments_file_type_subtype = wtap_register_file_type_subtype(&network_instruments_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("NETWORK_INSTRUMENTS",
+                                                   network_instruments_file_type_subtype);
 }
 
 /*

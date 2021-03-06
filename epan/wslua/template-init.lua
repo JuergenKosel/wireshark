@@ -78,7 +78,17 @@ end
 
 %WTAP_ENCAPS%
 
-%WTAP_FILETYPES%
+--
+-- Generate the wtap_filetypes items for file types, for backwards
+-- compatibility.
+-- We no longer have WTAP_FILE_TYPE_SUBTYPE_ #defines;
+-- built-in file types are registered the same way that
+-- plugin file types are registered.
+--
+-- New code should use wtap_name_to_file_type_subtype to
+-- look up file types by name.
+--
+wtap_filetypes = get_wtap_filetypes()
 
 %WTAP_TSPRECS%
 

@@ -69,6 +69,9 @@ static int hf_nvme_cmd_rsvd3 = -1;
 static int hf_nvme_identify_cntid = -1;
 static int hf_nvme_identify_rsvd = -1;
 static int hf_nvme_identify_cns = -1;
+static int hf_nvme_identify_nvmesetid = -1;
+static int hf_nvme_identify_rsvd1 = -1;
+static int hf_nvme_identify_uuid_index = -1;
 static int hf_nvme_identify_ns_nsze = -1;
 static int hf_nvme_identify_ns_ncap = -1;
 static int hf_nvme_identify_ns_nuse = -1;
@@ -115,6 +118,7 @@ static int hf_nvme_cqe_status_rsvd = -1;
 
 /* tracking Cmd and its respective CQE */
 static int hf_nvme_cmd_pkt = -1;
+static int hf_nvme_data_req = -1;
 static int hf_nvme_cqe_pkt = -1;
 static int hf_nvme_cmd_latency = -1;
 
@@ -253,6 +257,23 @@ static const value_string sgl_sub_type_tbl[] = {
 };
 
 
+static const value_string cns_table[] = {
+    { 0, "Identify Namespace"},
+    { 1, "Identify Controller"},
+    { 2, "Active Namespace List"},
+    { 3, "Namespace Identification Descriptor"},
+    {4, "NVM Set List"},
+    {0x10, "Allocated Namespace ID List"},
+    {0x11, "Identify Namespace Data Structure"},
+    {0x12, "Controller List Attached to NSID"},
+    {0x13, "Existing Controllers List"},
+    {0x14, "Primary Controller Capabilities"},
+    {0x15, "Secondary Controller List"},
+    {0x16, "Namespace Granularity List"},
+    {0x17, "UUID List"},
+    {0, NULL}
+};
+
 static const value_string dsm_acc_freq_tbl[] = {
     { 0, "No frequency"},
     { 1, "Typical"},
@@ -300,7 +321,7 @@ nvme_build_done_cmd_key(wmem_tree_key_t *cmd_key, guint32 *key, guint32 *frame_n
 {
     cmd_key[0].length = 1;
     cmd_key[0].key = key;
-    cmd_key[1].length = 1;
+    cmd_key[1].length = frame_num ? 1 : 0;
     cmd_key[1].key = frame_num;
     cmd_key[2].length = 0;
     cmd_key[2].key = NULL;
@@ -318,7 +339,6 @@ nvme_add_cmd_to_pending_list(packet_info *pinfo, struct nvme_q_ctx *q_ctx,
     cmd_ctx->cqe_pkt_num = 0;
     cmd_ctx->cmd_start_time = pinfo->abs_ts;
     nstime_set_zero(&cmd_ctx->cmd_end_time);
-    cmd_ctx->remote_key = 0;
 
     /* this is a new cmd, create a new command context and map it to the
        unmatched table
@@ -336,57 +356,60 @@ void* nvme_lookup_cmd_in_pending_list(struct nvme_q_ctx *q_ctx, guint16 cmd_id)
     return wmem_tree_lookup32_array(q_ctx->pending_cmds, cmd_key);
 }
 
-void nvme_add_data_request(packet_info *pinfo, struct nvme_q_ctx *q_ctx,
-                           struct nvme_cmd_ctx *cmd_ctx, void *ctx)
-{
-    wmem_tree_key_t cmd_key[3];
-    guint32 key = cmd_ctx->remote_key;
 
-    cmd_ctx->data_req_pkt_num = pinfo->num;
-    cmd_ctx->data_resp_pkt_num = 0;
-    nvme_build_pending_cmd_key(cmd_key, &key);
-    wmem_tree_insert32_array(q_ctx->data_requests, cmd_key, (void *)ctx);
+static void nvme_build_pending_transfer_key(wmem_tree_key_t *key, struct keyed_data_req *req)
+{
+    key[0].length = 2;
+    key[0].key = (guint32 *)&req->addr;
+    key[1].length = 1;
+    key[1].key = &req->key;
+    key[2].length = 1;
+    key[2].key = &req->size;
+    key[2].length = 0;
+    key[2].key = NULL;
 }
 
-void* nvme_lookup_data_request(struct nvme_q_ctx *q_ctx, guint32 key)
+void nvme_add_data_request(struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd_ctx,
+                                        struct keyed_data_req *req)
 {
-    wmem_tree_key_t cmd_key[3];
+    wmem_tree_key_t tr_key[4];
 
-    nvme_build_pending_cmd_key(cmd_key, &key);
-    return wmem_tree_lookup32_array(q_ctx->data_requests, cmd_key);
+    cmd_ctx->data_resp_pkt_num = 0;
+    nvme_build_pending_transfer_key(tr_key, req);
+    wmem_tree_insert32_array(q_ctx->data_requests, tr_key, (void *)cmd_ctx);
+}
+
+struct nvme_cmd_ctx* nvme_lookup_data_request(struct nvme_q_ctx *q_ctx,
+                                        struct keyed_data_req *req)
+{
+    wmem_tree_key_t tr_key[4];
+
+    nvme_build_pending_transfer_key(tr_key, req);
+    return (struct nvme_cmd_ctx*)wmem_tree_lookup32_array(q_ctx->data_requests, tr_key);
 }
 
 void
 nvme_add_data_response(struct nvme_q_ctx *q_ctx,
-                       struct nvme_cmd_ctx *cmd_ctx, guint32 rkey)
+                       struct nvme_cmd_ctx *cmd_ctx, guint32 rkey, guint32 frame_num)
 {
     wmem_tree_key_t cmd_key[3];
     guint32 key = rkey;
-    guint32 frame_num;
-
-    nvme_build_done_cmd_key(cmd_key, &key, &frame_num);
-
-    /* Found matching data response packet. Add entries to the matched table
-     * for cmd and response packets
-     */
-    frame_num = cmd_ctx->data_req_pkt_num;
-    wmem_tree_insert32_array(q_ctx->data_responses, cmd_key, (void*)cmd_ctx);
 
     frame_num = cmd_ctx->data_resp_pkt_num;
+    nvme_build_done_cmd_key(cmd_key, &key, frame_num ? &frame_num : NULL);
     wmem_tree_insert32_array(q_ctx->data_responses, cmd_key, (void*)cmd_ctx);
 }
 
-void*
-nvme_lookup_data_response(packet_info *pinfo, struct nvme_q_ctx *q_ctx,
-                          guint32 rkey)
+struct nvme_cmd_ctx*
+nvme_lookup_data_response(struct nvme_q_ctx *q_ctx,
+                          guint32 rkey, guint32 frame_num)
 {
     wmem_tree_key_t cmd_key[3];
     guint32 key = rkey;
-    guint32 frame_num = pinfo->num;
 
-    nvme_build_done_cmd_key(cmd_key, &key, &frame_num);
+    nvme_build_done_cmd_key(cmd_key, &key, frame_num ? &frame_num : NULL);
 
-    return wmem_tree_lookup32_array(q_ctx->data_responses, cmd_key);
+    return (struct nvme_cmd_ctx*)wmem_tree_lookup32_array(q_ctx->data_responses, cmd_key);
 }
 
 void
@@ -443,41 +466,48 @@ void nvme_update_cmd_end_info(packet_info *pinfo, struct nvme_cmd_ctx *cmd_ctx)
     cmd_ctx->cqe_pkt_num = pinfo->num;
 }
 
-void
-nvme_publish_cqe_to_cmd_link(proto_tree *cqe_tree, tvbuff_t *nvme_tvb,
-                          int hf_index, struct nvme_cmd_ctx *cmd_ctx)
+static void
+nvme_publish_link(proto_tree *tree, tvbuff_t *tvb, int hf_index,
+                                       guint32 pkt_no, gboolean zero_ok)
 {
-    proto_item *cqe_ref_item;
-    cqe_ref_item = proto_tree_add_uint(cqe_tree, hf_index,
-                             nvme_tvb, 0, 0, cmd_ctx->cmd_pkt_num);
-    proto_item_set_generated(cqe_ref_item);
-}
+    proto_item *ref_item;
 
-void
-nvme_publish_data_pdu_to_cmd_link(proto_tree *pdu_tree, tvbuff_t *nvme_tvb,
-                           int hf_index, struct nvme_cmd_ctx *cmd_ctx)
-{
-    proto_item *cmd_ref_item;
-    cmd_ref_item = proto_tree_add_uint(pdu_tree, hf_index,
-                             nvme_tvb, 0, 0, cmd_ctx->cmd_pkt_num);
-    proto_item_set_generated(cmd_ref_item);
-}
-
-void
-nvme_publish_cmd_to_cqe_link(proto_tree *cmd_tree, tvbuff_t *cmd_tvb,
-                             int hf_index, struct nvme_cmd_ctx *cmd_ctx)
-{
-    proto_item *cmd_ref_item;
-
-    if (cmd_ctx->cqe_pkt_num) {
-        cmd_ref_item = proto_tree_add_uint(cmd_tree, hf_index,
-                                 cmd_tvb, 0, 0, cmd_ctx->cqe_pkt_num);
-        proto_item_set_generated(cmd_ref_item);
+    if (pkt_no || zero_ok) {
+        ref_item = proto_tree_add_uint(tree, hf_index,
+                                 tvb, 0, 0, pkt_no);
+        proto_item_set_generated(ref_item);
     }
 }
 
+void
+nvme_publish_to_cmd_link(proto_tree *tree, tvbuff_t *tvb,
+                          int hf_index, struct nvme_cmd_ctx *cmd_ctx)
+{
+    nvme_publish_link(tree, tvb, hf_index, cmd_ctx->cmd_pkt_num, TRUE);
+}
+
+void
+nvme_publish_to_cqe_link(proto_tree *tree, tvbuff_t *tvb,
+                             int hf_index, struct nvme_cmd_ctx *cmd_ctx)
+{
+    nvme_publish_link(tree, tvb, hf_index, cmd_ctx->cqe_pkt_num, FALSE);
+}
+
+void
+nvme_publish_to_data_req_link(proto_tree *tree, tvbuff_t *tvb,
+                             int hf_index, struct nvme_cmd_ctx *cmd_ctx)
+{
+    nvme_publish_link(tree, tvb, hf_index, cmd_ctx->data_req_pkt_num, FALSE);
+}
+
+void nvme_publish_to_data_resp_link(proto_tree *tree, tvbuff_t *tvb,
+                             int hf_index, struct nvme_cmd_ctx *cmd_ctx)
+{
+    nvme_publish_link(tree, tvb, hf_index, cmd_ctx->data_resp_pkt_num, FALSE);
+}
+
 void dissect_nvme_cmd_sgl(tvbuff_t *cmd_tvb, proto_tree *cmd_tree,
-                          int field_index, struct nvme_cmd_ctx *cmd_ctx)
+                          int field_index, struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd_ctx, gboolean visited)
 {
     proto_item *ti, *sgl_tree, *type_item, *sub_type_item;
     guint8 sgl_identifier, desc_type, desc_sub_type;
@@ -522,16 +552,18 @@ void dissect_nvme_cmd_sgl(tvbuff_t *cmd_tvb, proto_tree *cmd_tree,
                             offset + 12, 3, ENC_NA);
         break;
     case NVME_CMD_SGL_KEYED_DATA_DESC:
-        if (cmd_ctx)
-            cmd_ctx->remote_key = tvb_get_guint32(cmd_tvb, offset + 11,
-                                                  ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(sgl_tree, hf_nvme_cmd_sgl_desc_addr, cmd_tvb,
-                            offset, 8, ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(sgl_tree, hf_nvme_cmd_sgl_desc_len, cmd_tvb,
-                            offset + 8, 3, ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(sgl_tree, hf_nvme_cmd_sgl_desc_key, cmd_tvb,
-                            offset + 11, 4, ENC_LITTLE_ENDIAN);
+    {
+        struct keyed_data_req req;
+        proto_tree_add_item_ret_uint64(sgl_tree, hf_nvme_cmd_sgl_desc_addr, cmd_tvb,
+                            offset, 8, ENC_LITTLE_ENDIAN, &req.addr);
+        proto_tree_add_item_ret_uint(sgl_tree, hf_nvme_cmd_sgl_desc_len, cmd_tvb,
+                            offset + 8, 3, ENC_LITTLE_ENDIAN, &req.size);
+        proto_tree_add_item_ret_uint(sgl_tree, hf_nvme_cmd_sgl_desc_key, cmd_tvb,
+                            offset + 11, 4, ENC_LITTLE_ENDIAN, &req.key);
+        if (!visited && cmd_ctx && q_ctx && q_ctx->data_requests)
+            nvme_add_data_request(q_ctx, cmd_ctx, &req);
         break;
+    }
     case NVME_CMD_SGL_VENDOR_DESC:
     default:
         break;
@@ -735,13 +767,23 @@ static void dissect_nvme_identify_resp(tvbuff_t *cmd_tvb, proto_tree *cmd_tree,
 static void dissect_nvme_identify_cmd(tvbuff_t *cmd_tvb, proto_tree *cmd_tree,
                                       struct nvme_cmd_ctx *cmd_ctx)
 {
+    guint32 val;
+    proto_item *item;
+
     cmd_ctx->resp_type = tvb_get_guint16(cmd_tvb, 40, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(cmd_tree, hf_nvme_identify_cns, cmd_tvb,
-                        40, 2, ENC_LITTLE_ENDIAN);
+    item = proto_tree_add_item_ret_uint(cmd_tree, hf_nvme_identify_cns, cmd_tvb,
+                        40, 1, ENC_LITTLE_ENDIAN, &val);
+    proto_item_append_text(item, " %s", val_to_str(val, cns_table, "Reserved"));
     proto_tree_add_item(cmd_tree, hf_nvme_identify_rsvd, cmd_tvb,
-                        42, 2, ENC_NA);
+                        41, 1, ENC_NA);
     proto_tree_add_item(cmd_tree, hf_nvme_identify_cntid, cmd_tvb,
-                        44, 4, ENC_NA);
+                        42, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvme_identify_nvmesetid, cmd_tvb,
+                        44, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvme_identify_rsvd1, cmd_tvb,
+                        46, 2, ENC_NA);
+    proto_tree_add_item(cmd_tree, hf_nvme_identify_uuid_index, cmd_tvb,
+                        56, 1, ENC_LITTLE_ENDIAN);
 }
 
 static void dissect_nvme_rw_cmd(tvbuff_t *cmd_tvb, proto_tree *cmd_tree)
@@ -840,7 +882,8 @@ dissect_nvme_cmd(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree,
         proto_item_append_text(opc_item, " %s",
                                val_to_str(cmd_ctx->opcode, aq_opc_tbl, "Reserved"));
 
-    nvme_publish_cmd_to_cqe_link(cmd_tree, nvme_tvb, hf_nvme_cqe_pkt, cmd_ctx);
+    nvme_publish_to_data_req_link(cmd_tree, nvme_tvb, hf_nvme_data_req, cmd_ctx);
+    nvme_publish_to_cqe_link(cmd_tree, nvme_tvb, hf_nvme_cqe_pkt, cmd_ctx);
 
     proto_tree_add_item(cmd_tree, hf_nvme_cmd_fuse_op, nvme_tvb,
                         1, 1, ENC_NA);
@@ -857,7 +900,7 @@ dissect_nvme_cmd(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree,
     proto_tree_add_item(cmd_tree, hf_nvme_cmd_mptr, nvme_tvb,
                         16, 8, ENC_LITTLE_ENDIAN);
 
-    dissect_nvme_cmd_sgl(nvme_tvb, cmd_tree, hf_nvme_cmd_sgl, cmd_ctx);
+    dissect_nvme_cmd_sgl(nvme_tvb, cmd_tree, hf_nvme_cmd_sgl, q_ctx, cmd_ctx, PINFO_FD_VISITED(pinfo));
 
     if (q_ctx->qid) { //IOQ
         switch (cmd_ctx->opcode) {
@@ -916,7 +959,7 @@ dissect_nvme_cqe(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree,
     proto_item_append_text(ti, " (Cqe)");
     cqe_tree = proto_item_add_subtree(ti, ett_data);
 
-    nvme_publish_cqe_to_cmd_link(cqe_tree, nvme_tvb, hf_nvme_cmd_pkt, cmd_ctx);
+    nvme_publish_to_cmd_link(cqe_tree, nvme_tvb, hf_nvme_cmd_pkt, cmd_ctx);
     nvme_publish_cmd_latency(cqe_tree, cmd_ctx, hf_nvme_cmd_latency);
 
     proto_tree_add_item(cqe_tree, hf_nvme_cqe_sts, nvme_tvb,
@@ -1008,7 +1051,7 @@ proto_register_nvme(void)
         },
         { &hf_nvme_cmd_nlb,
             { "Absolute Number of Logical Blocks", "nvme.cmd.nlb",
-               FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL}
+               FT_UINT16, BASE_DEC_HEX, NULL, 0, NULL, HFILL}
         },
         { &hf_nvme_cmd_rsvd2,
             { "Reserved", "nvme.cmd.rsvd2",
@@ -1085,7 +1128,7 @@ proto_register_nvme(void)
         },
         { &hf_nvme_identify_cntid,
             { "Controller Identifier (CNTID)", "nvme.cmd.identify.cntid",
-               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+               FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_rsvd,
             { "Reserved", "nvme.cmd.identify.rsvd",
@@ -1093,13 +1136,25 @@ proto_register_nvme(void)
         },
         { &hf_nvme_identify_cns,
             { "Controller or Namespace Structure (CNS)", "nvme.cmd.identify.cns",
+               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvme_identify_nvmesetid,
+            { "NVM Set Identifier (NVMSETID)", "nvme.cmd.identify.nvmesetid",
                FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvme_identify_rsvd1,
+            { "Reserved", "nvme.cmd.identify.rsvd1",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvme_identify_uuid_index,
+            { "UUID Index", "nvme.cmd.identify.uuid_index",
+               FT_UINT8, BASE_HEX, NULL, 0x7f, NULL, HFILL}
         },
 
         /* Identify NS response */
         { &hf_nvme_identify_ns_nsze,
             { "Namespace Size (NSZE)", "nvme.cmd.identify.ns.nsze",
-               FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT64, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ns_ncap,
             { "Namespace Capacity (NCAP)", "nvme.cmd.identify.ns.ncap",
@@ -1115,11 +1170,11 @@ proto_register_nvme(void)
         },
         { &hf_nvme_identify_ns_nlbaf,
             { "Number of LBA Formats (NLBAF)", "nvme.cmd.identify.ns.nlbaf",
-               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT8, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ns_flbas,
             { "Formatted LBA Size (FLBAS)", "nvme.cmd.identify.ns.flbas",
-               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT8, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ns_mc,
             { "Metadata Capabilities (MC)", "nvme.cmd.identify.ns.mc",
@@ -1201,19 +1256,19 @@ proto_register_nvme(void)
         },
         { &hf_nvme_identify_ctrl_sqes,
             { "Submission Queue Entry Size (SQES)", "nvme.cmd.identify.ctrl.sqes",
-               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT8, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ctrl_cqes,
             { "Completion Queue Entry Size (CQES)", "nvme.cmd.identify.ctrl.cqes",
-               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT8, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ctrl_maxcmd,
             { "Maximum Outstanding Commands (MAXCMD)", "nvme.cmd.identify.ctrl.maxcmd",
-               FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT16, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ctrl_nn,
             { "Number of Namespaces (NN)", "nvme.cmd.identify.ctrl.nn",
-               FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT32, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ctrl_oncs,
             { "Optional NVM Command Support (ONCS)", "nvme.cmd.identify.ctrl.oncs",
@@ -1229,11 +1284,11 @@ proto_register_nvme(void)
         },
         { &hf_nvme_identify_ctrl_ioccsz,
             { "I/O Queue Command Capsule Supported Size (IOCCSZ)", "nvme.cmd.identify.ctrl.ioccsz",
-               FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT32, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ctrl_iorcsz,
             { "I/O Queue Response Capsule Supported Size (IORCSZ)", "nvme.cmd.identify.ctrl.iorcsz",
-               FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+               FT_UINT32, BASE_DEC_HEX, NULL, 0x0, NULL, HFILL}
         },
 
         /* Identify nslist response */
@@ -1271,6 +1326,11 @@ proto_register_nvme(void)
             { "Cmd in", "nvme.cmd_pkt",
               FT_FRAMENUM, BASE_NONE, NULL, 0,
               "The Cmd for this transaction is in this frame", HFILL }
+        },
+        { &hf_nvme_data_req,
+            { "DATA Transfer Request", "nvme.data_req",
+              FT_FRAMENUM, BASE_NONE, NULL, 0,
+              "DATA transfer request for this transaction is in this frame", HFILL }
         },
         { &hf_nvme_cqe_pkt,
             { "Cqe in", "nvme.cqe_pkt",

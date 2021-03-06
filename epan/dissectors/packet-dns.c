@@ -246,6 +246,10 @@ static int hf_dns_csync_flags = -1;
 static int hf_dns_csync_flags_immediate = -1;
 static int hf_dns_csync_flags_soaminimum = -1;
 static int hf_dns_csync_type_bitmap = -1;
+static int hf_dns_zonemd_serial = -1;
+static int hf_dns_zonemd_scheme = -1;
+static int hf_dns_zonemd_hash_algo = -1;
+static int hf_dns_zonemd_digest = -1;
 static int hf_dns_svcb_priority = -1;
 static int hf_dns_svcb_target = -1;
 static int hf_dns_svcb_param_key = -1;
@@ -624,6 +628,7 @@ typedef struct _dns_conv_info_t {
 #define T_CDNSKEY       60              /* DNSKEY(s) the Child wants reflected in DS ( [RFC7344])*/
 #define T_OPENPGPKEY    61              /* OPENPGPKEY draft-ietf-dane-openpgpkey-00 */
 #define T_CSYNC         62              /* Child To Parent Synchronization (RFC7477) */
+#define T_ZONEMD        63              /* Message Digest for DNS Zones (RFC8976) */
 #define T_SVCB          64              /* draft-ietf-dnsop-svcb-https-01 */
 #define T_HTTPS         65              /* draft-ietf-dnsop-svcb-https-01 */
 #define T_SPF           99              /* SPF RR (RFC 4408) section 3 */
@@ -993,7 +998,8 @@ static const value_string dns_types_vals[] = {
   { T_CDS,        "CDS"        }, /* RFC 7344 */
   { T_CDNSKEY,    "CDNSKEY"    }, /* RFC 7344*/
   { T_OPENPGPKEY, "OPENPGPKEY" }, /* draft-ietf-dane-openpgpkey */
-  { T_CSYNC,      "CSYNC "     }, /* RFC 7477 */
+  { T_CSYNC,      "CSYNC"      }, /* RFC 7477 */
+  { T_ZONEMD,     "ZONEMD"     }, /* RFC 8976 */
   { T_SVCB,       "SVCB"       }, /* draft-ietf-dnsop-svcb-https-01 */
   { T_HTTPS,      "HTTPS"      }, /* draft-ietf-dnsop-svcb-https-01 */
   { T_SPF,        "SPF"        }, /* RFC 4408 */
@@ -1090,6 +1096,7 @@ static const value_string dns_types_description_vals[] = {
   { T_CDNSKEY,    "CDNSKEY (DNSKEY(s) the Child wants reflected in DS)" }, /* RFC 7344 */
   { T_OPENPGPKEY, "OPENPGPKEY (OpenPGP Key)" }, /* draft-ietf-dane-openpgpkey */
   { T_CSYNC,      "CSYNC (Child-to-Parent Synchronization)" }, /* RFC 7477 */
+  { T_ZONEMD,     "ZONEMD" }, /* RFC 8976 */
   { T_SVCB,       "SVCB (General Purpose Service Endpoints)" }, /*  draft-ietf-dnsop-svcb-https*/
   { T_HTTPS,      "HTTPS (HTTPS Specific Service Endpoints)" }, /*  draft-ietf-dnsop-svcb-https*/
   { T_SPF,        "SPF" }, /* RFC 4408 */
@@ -1266,6 +1273,28 @@ static int * const dns_csync_flags[] = {
     &hf_dns_csync_flags_soaminimum,
     NULL
 };
+
+#define DNS_ZONEMD_SCHEME_SIMPLE  1
+
+static const range_string dns_zonemd_scheme[] = {
+  {                        0,                         0, "Reserved"     },
+  { DNS_ZONEMD_SCHEME_SIMPLE,  DNS_ZONEMD_SCHEME_SIMPLE, "SIMPLE"       },
+  {                        2,                       239, "Unassigned"   },
+  {                      240,                       254, "Private Use"  },
+  {                      255,                       255, "Reserved"     },
+  {                        0,                         0, NULL           } };
+
+#define DNS_ZONEMD_HASH_SHA384  1
+#define DNS_ZONEMD_HASH_SHA512  2
+
+static const range_string dns_zonemd_hash_algo[] = {
+  {                      0,                       0, "Reserved"     },
+  { DNS_ZONEMD_HASH_SHA384,  DNS_ZONEMD_HASH_SHA384, "SHA-384"      },
+  { DNS_ZONEMD_HASH_SHA512,  DNS_ZONEMD_HASH_SHA512, "SHA-512"      },
+  {                      3,                     239, "Unassigned"   },
+  {                    240,                     254, "Private Use"  },
+  {                    255,                     255, "Reserved"     },
+  {                      0,                       0, NULL           } };
 
 static const range_string dns_ext_err_info_code[] = {
   {     0,     0, "Other Error"        },
@@ -3450,6 +3479,18 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
     }
     break;
 
+    case T_ZONEMD: /* Message Digest for DNS Zones (63) */
+    {
+      proto_tree_add_item(rr_tree, hf_dns_zonemd_serial, tvb, cur_offset, 4, ENC_BIG_ENDIAN);
+      cur_offset += 4;
+      proto_tree_add_item(rr_tree, hf_dns_zonemd_scheme, tvb, cur_offset, 1, ENC_NA);
+      cur_offset += 1;
+      proto_tree_add_item(rr_tree, hf_dns_zonemd_hash_algo, tvb, cur_offset, 1, ENC_NA);
+      cur_offset += 1;
+      proto_tree_add_item(rr_tree, hf_dns_zonemd_digest, tvb, cur_offset, data_len - 6 , ENC_NA);
+    }
+    break;
+
     case T_SVCB: /* Service binding and parameter specification (64) */
     case T_HTTPS: /* Service binding and parameter specification (65) */
     {
@@ -4037,7 +4078,7 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   gboolean           isupdate;
   conversation_t    *conversation;
   dns_conv_info_t   *dns_info;
-  dns_transaction_t *dns_trans;
+  dns_transaction_t *dns_trans = NULL;
   wmem_tree_key_t    key[3];
   struct DnsTap     *dns_stats;
   guint16            qtype = 0;
@@ -4125,63 +4166,65 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   key[2].length = 0;
   key[2].key = NULL;
 
-  if (!pinfo->fd->visited) {
-    if (!(flags&F_RESPONSE)) {
-      /* This is a request */
-      gboolean new_transaction = FALSE;
+  if (!pinfo->flags.in_error_pkt) {
+    if (!pinfo->fd->visited) {
+      if (!(flags&F_RESPONSE)) {
+        /* This is a request */
+        gboolean new_transaction = FALSE;
 
-      /* Check if we've seen this transaction before */
-      dns_trans=(dns_transaction_t *)wmem_tree_lookup32_array_le(dns_info->pdus, key);
-      if ((dns_trans == NULL) || (dns_trans->id != reqresp_id) || (dns_trans->rep_frame > 0)) {
-        new_transaction = TRUE;
-      } else {
-        nstime_t request_delta;
-
-        /* Has not enough time elapsed that we consider this request a retransmission? */
-        nstime_delta(&request_delta, &pinfo->abs_ts, &dns_trans->req_time);
-        if (nstime_to_sec(&request_delta) < (double)retransmission_timer) {
-          retransmission = TRUE;
-        } else {
+        /* Check if we've seen this transaction before */
+        dns_trans=(dns_transaction_t *)wmem_tree_lookup32_array_le(dns_info->pdus, key);
+        if ((dns_trans == NULL) || (dns_trans->id != reqresp_id) || (dns_trans->rep_frame > 0)) {
           new_transaction = TRUE;
-        }
-      }
+        } else {
+          nstime_t request_delta;
 
-      if (new_transaction) {
-        dns_trans=wmem_new(wmem_file_scope(), dns_transaction_t);
-        dns_trans->req_frame=pinfo->num;
-        dns_trans->rep_frame=0;
-        dns_trans->req_time=pinfo->abs_ts;
-        dns_trans->id = reqresp_id;
-        wmem_tree_insert32_array(dns_info->pdus, key, (void *)dns_trans);
+          /* Has not enough time elapsed that we consider this request a retransmission? */
+          nstime_delta(&request_delta, &pinfo->abs_ts, &dns_trans->req_time);
+          if (nstime_to_sec(&request_delta) < (double)retransmission_timer) {
+            retransmission = TRUE;
+          } else {
+            new_transaction = TRUE;
+          }
+        }
+
+        if (new_transaction) {
+          dns_trans=wmem_new(wmem_file_scope(), dns_transaction_t);
+          dns_trans->req_frame=pinfo->num;
+          dns_trans->rep_frame=0;
+          dns_trans->req_time=pinfo->abs_ts;
+          dns_trans->id = reqresp_id;
+          wmem_tree_insert32_array(dns_info->pdus, key, (void *)dns_trans);
+        }
+      } else {
+        dns_trans=(dns_transaction_t *)wmem_tree_lookup32_array_le(dns_info->pdus, key);
+        if (dns_trans) {
+          if (dns_trans->id != reqresp_id) {
+            dns_trans = NULL;
+          } else if (dns_trans->rep_frame == 0) {
+            dns_trans->rep_frame=pinfo->num;
+          } else {
+            retransmission = TRUE;
+          }
+        }
       }
     } else {
       dns_trans=(dns_transaction_t *)wmem_tree_lookup32_array_le(dns_info->pdus, key);
       if (dns_trans) {
         if (dns_trans->id != reqresp_id) {
           dns_trans = NULL;
-        } else if (dns_trans->rep_frame == 0) {
-          dns_trans->rep_frame=pinfo->num;
-        } else {
+        } else if ((!(flags & F_RESPONSE)) && (dns_trans->req_frame != pinfo->num)) {
+          /* This is a request retransmission, create a "fake" dns_trans structure*/
+          dns_transaction_t *retrans_dns = wmem_new(wmem_packet_scope(), dns_transaction_t);
+          retrans_dns->req_frame=dns_trans->req_frame;
+          retrans_dns->rep_frame=0;
+          retrans_dns->req_time=pinfo->abs_ts;
+          dns_trans = retrans_dns;
+
+          retransmission = TRUE;
+        } else if ((flags & F_RESPONSE) && (dns_trans->rep_frame != pinfo->num)) {
           retransmission = TRUE;
         }
-      }
-    }
-  } else {
-    dns_trans=(dns_transaction_t *)wmem_tree_lookup32_array_le(dns_info->pdus, key);
-    if (dns_trans) {
-      if (dns_trans->id != reqresp_id) {
-        dns_trans = NULL;
-      } else if ((!(flags & F_RESPONSE)) && (dns_trans->req_frame != pinfo->num)) {
-        /* This is a request retransmission, create a "fake" dns_trans structure*/
-        dns_transaction_t *retrans_dns = wmem_new(wmem_packet_scope(), dns_transaction_t);
-        retrans_dns->req_frame=dns_trans->req_frame;
-        retrans_dns->rep_frame=0;
-        retrans_dns->req_time=pinfo->abs_ts;
-        dns_trans = retrans_dns;
-
-        retransmission = TRUE;
-      } else if ((flags & F_RESPONSE) && (dns_trans->rep_frame != pinfo->num)) {
-        retransmission = TRUE;
       }
     }
   }
@@ -4330,16 +4373,14 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   if (!(flags&F_RESPONSE)) {
     proto_item *it;
     /* This is a request */
-    if ((retransmission) && (dns_trans->req_frame)) {
+    if ((retransmission) && (dns_trans->req_frame) && (!pinfo->flags.in_error_pkt)) {
       expert_add_info_format(pinfo, transaction_item, &ei_dns_retransmit_request, "DNS query retransmission. Original request in frame %d", dns_trans->req_frame);
 
       it=proto_tree_add_uint(dns_tree, hf_dns_retransmit_request_in, tvb, 0, 0, dns_trans->req_frame);
       proto_item_set_generated(it);
 
-      if (!pinfo->flags.in_error_pkt) {
-        it=proto_tree_add_boolean(dns_tree, hf_dns_retransmission, tvb, 0, 0, TRUE);
-        proto_item_set_generated(it);
-      }
+      it=proto_tree_add_boolean(dns_tree, hf_dns_retransmission, tvb, 0, 0, TRUE);
+      proto_item_set_generated(it);
     } else if (dns_trans->rep_frame) {
 
       it=proto_tree_add_uint(dns_tree, hf_dns_response_in, tvb, 0, 0, dns_trans->rep_frame);
@@ -4349,16 +4390,14 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* This is a reply */
     proto_item *it;
     if (dns_trans->req_frame) {
-      if ((retransmission) && (dns_trans->rep_frame)) {
+      if ((retransmission) && (dns_trans->rep_frame) && (!pinfo->flags.in_error_pkt)) {
         expert_add_info_format(pinfo, transaction_item, &ei_dns_retransmit_response, "DNS response retransmission. Original response in frame %d", dns_trans->rep_frame);
 
         it=proto_tree_add_uint(dns_tree, hf_dns_retransmit_response_in, tvb, 0, 0, dns_trans->rep_frame);
         proto_item_set_generated(it);
 
-        if (!pinfo->flags.in_error_pkt) {
-          it=proto_tree_add_boolean(dns_tree, hf_dns_retransmission, tvb, 0, 0, TRUE);
-          proto_item_set_generated(it);
-        }
+        it=proto_tree_add_boolean(dns_tree, hf_dns_retransmission, tvb, 0, 0, TRUE);
+        proto_item_set_generated(it);
       } else {
         it=proto_tree_add_uint(dns_tree, hf_dns_response_to, tvb, 0, 0, dns_trans->req_frame);
         proto_item_set_generated(it);
@@ -5135,6 +5174,26 @@ proto_register_dns(void)
 
     { &hf_dns_csync_type_bitmap,
       { "Type Bitmap", "dns.csync.type_bitmap",
+        FT_BYTES, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }},
+
+    { &hf_dns_zonemd_serial,
+      { "Serial", "dns.zonemd.serial",
+        FT_UINT32, BASE_DEC, NULL, 0x0,
+        NULL, HFILL }},
+
+    { &hf_dns_zonemd_scheme,
+      { "Scheme", "dns.zonemd.scheme",
+        FT_UINT8, BASE_DEC | BASE_RANGE_STRING, RVALS(dns_zonemd_scheme), 0x0,
+        NULL, HFILL }},
+
+    { &hf_dns_zonemd_hash_algo,
+      { "Hash Algorithm", "dns.zonemd.hash_algo",
+        FT_UINT8, BASE_DEC | BASE_RANGE_STRING, RVALS(dns_zonemd_hash_algo), 0x0,
+        NULL, HFILL }},
+
+    { &hf_dns_zonemd_digest,
+      { "Digest", "dns.zonemd.digest",
         FT_BYTES, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
 

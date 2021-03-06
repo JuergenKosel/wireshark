@@ -18,17 +18,22 @@
 #include <errno.h>
 #include <glib.h>
 
-#ifdef HAVE_GETOPT_H
+/*
+ * If we have getopt_long() in the system library, include <getopt.h>.
+ * Otherwise, we're using our own getopt_long() (either because the
+ * system has getopt() but not getopt_long(), as with some UN*Xes,
+ * or because it doesn't even have getopt(), as with Windows), so
+ * include our getopt_long()'s header.
+ */
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
+#else
+#include <wsutil/wsgetopt.h>
 #endif
 
 #include <string.h>
 
 #include <wiretap/wtap.h>
-
-#ifndef HAVE_GETOPT_LONG
-#include <wsutil/wsgetopt.h>
-#endif
 
 #include <ui/clopts_common.h>
 #include <ui/cmdarg_err.h>
@@ -96,25 +101,6 @@ mergecap_cmdarg_err_cont(const char *fmt, va_list ap)
   fprintf(stderr, "\n");
 }
 
-struct string_elem {
-  const char *sstr;     /* The short string */
-  const char *lstr;     /* The long string */
-};
-
-static gint
-string_compare(gconstpointer a, gconstpointer b)
-{
-  return strcmp(((const struct string_elem *)a)->sstr,
-                ((const struct string_elem *)b)->sstr);
-}
-
-static void
-string_elem_print(gpointer data, gpointer not_used _U_)
-{
-  fprintf(stderr, "    %s - %s\n", ((struct string_elem *)data)->sstr,
-          ((struct string_elem *)data)->lstr);
-}
-
 /*
  * General errors and warnings are reported with an console message
  * in mergecap.
@@ -129,23 +115,16 @@ failure_warning_message(const char *msg_format, va_list ap)
 
 static void
 list_capture_types(void) {
-  int i;
-  struct string_elem *captypes;
-  GSList *list = NULL;
-
-  captypes = g_new(struct string_elem,WTAP_NUM_FILE_TYPES_SUBTYPES);
+  GArray *writable_type_subtypes;
 
   fprintf(stderr, "mergecap: The available capture file types for the \"-F\" flag are:\n");
-  for (i = 0; i < WTAP_NUM_FILE_TYPES_SUBTYPES; i++) {
-    if (wtap_dump_can_open(i)) {
-      captypes[i].sstr = wtap_file_type_subtype_short_string(i);
-      captypes[i].lstr = wtap_file_type_subtype_string(i);
-      list = g_slist_insert_sorted(list, &captypes[i], string_compare);
-    }
+  writable_type_subtypes = wtap_get_writable_file_types_subtypes(FT_SORT_BY_NAME);
+  for (guint i = 0; i < writable_type_subtypes->len; i++) {
+    int ft = g_array_index(writable_type_subtypes, int, i);
+    fprintf(stderr, "    %s - %s\n", wtap_file_type_subtype_name(ft),
+            wtap_file_type_subtype_description(ft));
   }
-  g_slist_foreach(list, string_elem_print, NULL);
-  g_slist_free(list);
-  g_free(captypes);
+  g_array_free(writable_type_subtypes, TRUE);
 }
 
 static void
@@ -170,7 +149,7 @@ merge_callback(merge_event event, int num,
     case MERGE_EVENT_INPUT_FILES_OPENED:
       for (i = 0; i < in_file_count; i++) {
         fprintf(stderr, "mergecap: %s is type %s.\n", in_files[i].filename,
-                wtap_file_type_subtype_string(wtap_file_type_subtype(in_files[i].wth)));
+                wtap_file_type_subtype_description(wtap_file_type_subtype(in_files[i].wth)));
       }
       break;
 
@@ -237,7 +216,7 @@ main(int argc, char *argv[])
   gboolean            verbose            = FALSE;
   int                 in_file_count      = 0;
   guint32             snaplen            = 0;
-  int                 file_type          = WTAP_FILE_TYPE_SUBTYPE_PCAPNG; /* default to pcapng format */
+  int                 file_type          = WTAP_FILE_TYPE_SUBTYPE_UNKNOWN;
   int                 err                = 0;
   gchar              *err_info           = NULL;
   int                 err_fileno;
@@ -287,7 +266,7 @@ main(int argc, char *argv[])
       break;
 
     case 'F':
-      file_type = wtap_short_string_to_file_type_subtype(optarg);
+      file_type = wtap_name_to_file_type_subtype(optarg);
       if (file_type < 0) {
         fprintf(stderr, "mergecap: \"%s\" isn't a valid capture file type\n",
                 optarg);
@@ -348,6 +327,10 @@ main(int argc, char *argv[])
     }
   }
 
+  /* Default to pcapng when writing. */
+  if (file_type == WTAP_FILE_TYPE_SUBTYPE_UNKNOWN)
+    file_type = wtap_pcapng_file_type_subtype();
+
   cb.callback_func = merge_callback;
   cb.data = NULL;
 
@@ -366,9 +349,13 @@ main(int argc, char *argv[])
     return 1;
   }
 
-  /* setting IDB merge mode must use PCAPNG output */
-  if (mode != IDB_MERGE_MODE_MAX && file_type != WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
-    fprintf(stderr, "The IDB merge mode can only be used with PCAPNG output format\n");
+  /*
+   * Setting IDB merge mode must use a file format that supports
+   * (and thus requires) interface ID and information blocks.
+   */
+  if (mode != IDB_MERGE_MODE_MAX &&
+      wtap_file_type_subtype_supports_block(file_type, WTAP_BLOCK_IF_ID_AND_INFO) == BLOCK_NOT_SUPPORTED) {
+    fprintf(stderr, "The IDB merge mode can only be used with an output format that identifies interfaces\n");
     status = MERGE_ERR_INVALID_OPTION;
     goto clean_exit;
   }

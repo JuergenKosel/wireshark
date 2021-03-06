@@ -11,6 +11,10 @@
 #include "file_wrappers.h"
 #include "hcidump.h"
 
+static int hcidump_file_type_subtype = -1;
+
+void register_hcidump(void);
+
 struct dump_hdr {
 	guint16 len;
 	guint8  in;
@@ -98,7 +102,7 @@ wtap_open_return_val hcidump_open(wtap *wth, int *err, gchar **err_info)
 	if (file_seek(wth->fh, 0, SEEK_SET, err) == -1)
 		return WTAP_OPEN_ERROR;
 
-	wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_HCIDUMP;
+	wth->file_type_subtype = hcidump_file_type_subtype;
 	wth->file_encap = WTAP_ENCAP_BLUETOOTH_H4_WITH_PHDR;
 	wth->snapshot_length = 0;
 
@@ -115,6 +119,31 @@ wtap_open_return_val hcidump_open(wtap *wth, int *err, gchar **err_info)
 	wtap_add_generated_idb(wth);
 
 	return WTAP_OPEN_MINE;
+}
+
+static const struct supported_block_type hcidummp_blocks_supported[] = {
+	/*
+	 * We support packet blocks, with no comments or other options.
+	 */
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info hcidump_info = {
+	"Bluetooth HCI dump", "hcidump", NULL, NULL,
+	FALSE, BLOCKS_SUPPORTED(hcidummp_blocks_supported),
+	NULL, NULL, NULL
+};
+
+void register_hcidump(void)
+{
+	hcidump_file_type_subtype = wtap_register_file_type_subtype(&hcidump_info);
+
+	/*
+	 * Register name for backwards compatibility with the
+	 * wtap_filetypes table in Lua.
+	 */
+	wtap_register_backwards_compatibility_lua_name("HCIDUMP",
+	    hcidump_file_type_subtype);
 }
 
 /*

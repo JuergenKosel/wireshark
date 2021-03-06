@@ -59,16 +59,12 @@ struct wtap_block
     GArray* options;
 };
 
-#define MAX_WTAP_BLOCK_CUSTOM    10
-#define MAX_WTAP_BLOCK_TYPE_VALUE (WTAP_BLOCK_END_OF_LIST+MAX_WTAP_BLOCK_CUSTOM)
-
 /* Keep track of wtap_blocktype_t's via their id number */
 static wtap_blocktype_t* blocktype_list[MAX_WTAP_BLOCK_TYPE_VALUE];
-static guint num_custom_blocks;
-static wtap_blocktype_t custom_blocktype_list[MAX_WTAP_BLOCK_CUSTOM];
 
-static void wtap_opttype_block_register(wtap_block_type_t block_type, wtap_blocktype_t *blocktype)
+static void wtap_opttype_block_register(wtap_blocktype_t *blocktype)
 {
+    wtap_block_type_t block_type;
     static const wtap_opttype_t opt_comment = {
         "opt_comment",
         "Comment",
@@ -76,8 +72,12 @@ static void wtap_opttype_block_register(wtap_block_type_t block_type, wtap_block
         WTAP_OPTTYPE_FLAG_MULTIPLE_ALLOWED
     };
 
+    block_type = blocktype->block_type;
+
+    block_type = blocktype->block_type;
+
     /* Check input */
-    g_assert(block_type < WTAP_BLOCK_END_OF_LIST);
+    g_assert(block_type < MAX_WTAP_BLOCK_TYPE_VALUE);
 
     /* Don't re-register. */
     g_assert(blocktype_list[block_type] == NULL);
@@ -86,8 +86,6 @@ static void wtap_opttype_block_register(wtap_block_type_t block_type, wtap_block
     g_assert(blocktype->name);
     g_assert(blocktype->description);
     g_assert(blocktype->create);
-
-    blocktype->block_type = block_type;
 
     /*
      * Initialize the set of supported options.
@@ -103,36 +101,15 @@ static void wtap_opttype_block_register(wtap_block_type_t block_type, wtap_block
     blocktype_list[block_type] = blocktype;
 }
 
-int wtap_opttype_register_custom_block_type(const char* name, const char* description, wtap_block_create_func create,
-                                            wtap_mand_free_func free_mand, wtap_mand_copy_func copy_mand)
-{
-    int block_type;
-
-    /* Ensure valid data/functions for required fields */
-    g_assert(name);
-    g_assert(description);
-    g_assert(create);
-
-    /* This shouldn't happen, so flag it for fixing */
-    g_assert(num_custom_blocks < MAX_WTAP_BLOCK_CUSTOM);
-
-    block_type = (wtap_block_type_t)(WTAP_BLOCK_END_OF_LIST+num_custom_blocks);
-
-    custom_blocktype_list[num_custom_blocks].name = name;
-    custom_blocktype_list[num_custom_blocks].description = description;
-    custom_blocktype_list[num_custom_blocks].create = create;
-    custom_blocktype_list[num_custom_blocks].free_mand = free_mand;
-    custom_blocktype_list[num_custom_blocks].copy_mand = copy_mand;
-    blocktype_list[block_type] = &custom_blocktype_list[num_custom_blocks];
-
-    num_custom_blocks++;
-    return block_type;
-}
-
 static void wtap_opttype_option_register(wtap_blocktype_t *blocktype, guint opttype, const wtap_opttype_t *option)
 {
     g_hash_table_insert(blocktype->options, GUINT_TO_POINTER(opttype),
                         (gpointer) option);
+}
+
+wtap_block_type_t wtap_block_get_type(wtap_block_t block)
+{
+    return block->info->block_type;
 }
 
 void* wtap_block_get_mandatory_data(wtap_block_t block)
@@ -179,7 +156,7 @@ wtap_block_t wtap_block_create(wtap_block_type_t block_type)
 {
     wtap_block_t block;
 
-    if (block_type >= (wtap_block_type_t)(WTAP_BLOCK_END_OF_LIST+num_custom_blocks))
+    if (block_type >= MAX_WTAP_BLOCK_TYPE_VALUE)
         return NULL;
 
     block = g_new(struct wtap_block, 1);
@@ -780,6 +757,8 @@ static if_filter_opt_t if_filter_dup(if_filter_opt_t* filter_src)
 {
     if_filter_opt_t filter_dest;
 
+    memset(&filter_dest, 0, sizeof(filter_dest));
+
     /* Deep copy. */
     filter_dest.type = filter_src->type;
     switch (filter_src->type) {
@@ -1047,7 +1026,7 @@ static void dsb_copy_mand(wtap_block_t dest_block, wtap_block_t src_block)
 void wtap_opttypes_initialize(void)
 {
     static wtap_blocktype_t shb_block = {
-        WTAP_BLOCK_NG_SECTION,  /* block_type */
+        WTAP_BLOCK_SECTION,     /* block_type */
         "SHB",                  /* name */
         "Section Header Block", /* description */
         shb_create,             /* create */
@@ -1075,7 +1054,7 @@ void wtap_opttypes_initialize(void)
     };
 
     static wtap_blocktype_t idb_block = {
-        WTAP_BLOCK_IF_DESCR,           /* block_type */
+        WTAP_BLOCK_IF_ID_AND_INFO,     /* block_type */
         "IDB",                         /* name */
         "Interface Description Block", /* description */
         idb_create,                    /* create */
@@ -1133,7 +1112,7 @@ void wtap_opttypes_initialize(void)
     };
 
     static wtap_blocktype_t dsb_block = {
-        WTAP_BLOCK_DSB,
+        WTAP_BLOCK_DECRYPTION_SECRETS,
         "DSB",
         "Decryption Secrets Block",
         dsb_create,
@@ -1143,13 +1122,13 @@ void wtap_opttypes_initialize(void)
     };
 
     static wtap_blocktype_t nrb_block = {
-        WTAP_BLOCK_NG_NRB,       /* block_type */
-        "NRB",                   /* name */
-        "Name Resolution Block", /* description */
-        nrb_create,              /* create */
-        NULL,                    /* free_mand */
-        NULL,                    /* copy_mand */
-        NULL                     /* options */
+        WTAP_BLOCK_NAME_RESOLUTION, /* block_type */
+        "NRB",                      /* name */
+        "Name Resolution Block",    /* description */
+        nrb_create,                 /* create */
+        NULL,                       /* free_mand */
+        NULL,                       /* copy_mand */
+        NULL                        /* options */
     };
     static const wtap_opttype_t ns_dnsname = {
         "dnsname",
@@ -1171,7 +1150,7 @@ void wtap_opttypes_initialize(void)
     };
 
     static wtap_blocktype_t isb_block = {
-        WTAP_BLOCK_IF_STATS,          /* block_type */
+        WTAP_BLOCK_IF_STATISTICS,     /* block_type */
         "ISB",                        /* name */
         "Interface Statistics Block", /* description */
         isb_create,                   /* create */
@@ -1222,15 +1201,10 @@ void wtap_opttypes_initialize(void)
         0
     };
 
-    /* Initialize the custom block array.  This is for future proofing
-       "outside registered" block types (for NULL checking) */
-    memset(blocktype_list, 0, MAX_WTAP_BLOCK_TYPE_VALUE*sizeof(wtap_blocktype_t*));
-    num_custom_blocks = 0;
-
     /*
      * Register the SHB and the options that can appear in it.
      */
-    wtap_opttype_block_register(WTAP_BLOCK_NG_SECTION, &shb_block);
+    wtap_opttype_block_register(&shb_block);
     wtap_opttype_option_register(&shb_block, OPT_SHB_HARDWARE, &shb_hardware);
     wtap_opttype_option_register(&shb_block, OPT_SHB_OS, &shb_os);
     wtap_opttype_option_register(&shb_block, OPT_SHB_USERAPPL, &shb_userappl);
@@ -1238,7 +1212,7 @@ void wtap_opttypes_initialize(void)
     /*
      * Register the IDB and the options that can appear in it.
      */
-    wtap_opttype_block_register(WTAP_BLOCK_IF_DESCR, &idb_block);
+    wtap_opttype_block_register(&idb_block);
     wtap_opttype_option_register(&idb_block, OPT_IDB_NAME, &if_name);
     wtap_opttype_option_register(&idb_block, OPT_IDB_DESCR, &if_description);
     wtap_opttype_option_register(&idb_block, OPT_IDB_SPEED, &if_speed);
@@ -1251,7 +1225,7 @@ void wtap_opttypes_initialize(void)
     /*
      * Register the NRB and the options that can appear in it.
      */
-    wtap_opttype_block_register(WTAP_BLOCK_NG_NRB, &nrb_block);
+    wtap_opttype_block_register(&nrb_block);
     wtap_opttype_option_register(&nrb_block, OPT_NS_DNSNAME, &ns_dnsname);
     wtap_opttype_option_register(&nrb_block, OPT_NS_DNSIP4ADDR, &ns_dnsIP4addr);
     wtap_opttype_option_register(&nrb_block, OPT_NS_DNSIP6ADDR, &ns_dnsIP6addr);
@@ -1259,7 +1233,7 @@ void wtap_opttypes_initialize(void)
     /*
      * Register the ISB and the options that can appear in it.
      */
-    wtap_opttype_block_register(WTAP_BLOCK_IF_STATS, &isb_block);
+    wtap_opttype_block_register(&isb_block);
     wtap_opttype_option_register(&isb_block, OPT_ISB_STARTTIME, &isb_starttime);
     wtap_opttype_option_register(&isb_block, OPT_ISB_ENDTIME, &isb_endtime);
     wtap_opttype_option_register(&isb_block, OPT_ISB_IFRECV, &isb_ifrecv);
@@ -1271,14 +1245,15 @@ void wtap_opttypes_initialize(void)
     /*
      * Register the DSB, currently no options are defined.
      */
-    wtap_opttype_block_register(WTAP_BLOCK_DSB, &dsb_block);
+    wtap_opttype_block_register(&dsb_block);
 }
 
 void wtap_opttypes_cleanup(void)
 {
     guint block_type;
 
-    for (block_type = 0; block_type < (WTAP_BLOCK_END_OF_LIST+num_custom_blocks); block_type++) {
+    for (block_type = (guint)WTAP_BLOCK_SECTION;
+         block_type < (guint)MAX_WTAP_BLOCK_TYPE_VALUE; block_type++) {
         if (blocktype_list[block_type]) {
             if (blocktype_list[block_type]->options)
                 g_hash_table_destroy(blocktype_list[block_type]->options);

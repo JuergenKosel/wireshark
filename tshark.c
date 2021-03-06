@@ -18,8 +18,17 @@
 #include <locale.h>
 #include <limits.h>
 
-#ifdef HAVE_GETOPT_H
+/*
+ * If we have getopt_long() in the system library, include <getopt.h>.
+ * Otherwise, we're using our own getopt_long() (either because the
+ * system has getopt() but not getopt_long(), as with some UN*Xes,
+ * or because it doesn't even have getopt(), as with Windows), so
+ * include our getopt_long()'s header.
+ */
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
+#else
+#include <wsutil/wsgetopt.h>
 #endif
 
 #include <errno.h>
@@ -30,10 +39,6 @@
 
 #ifndef _WIN32
 #include <signal.h>
-#endif
-
-#ifndef HAVE_GETOPT_LONG
-#include "wsutil/wsgetopt.h"
 #endif
 
 #include <glib.h>
@@ -267,6 +272,20 @@ static void failure_message_cont(const char *msg_format, va_list ap);
 
 static GHashTable *output_only_tables = NULL;
 
+static void
+list_capture_types(void) {
+  GArray *writable_type_subtypes;
+
+  fprintf(stderr, "tshark: The available capture file types for the \"-F\" flag are:\n");
+  writable_type_subtypes = wtap_get_writable_file_types_subtypes(FT_SORT_BY_NAME);
+  for (guint i = 0; i < writable_type_subtypes->len; i++) {
+    int ft = g_array_index(writable_type_subtypes, int, i);
+    fprintf(stderr, "    %s - %s\n", wtap_file_type_subtype_name(ft),
+            wtap_file_type_subtype_description(ft));
+  }
+  g_array_free(writable_type_subtypes, TRUE);
+}
+
 struct string_elem {
   const char *sstr;   /* The short string */
   const char *lstr;   /* The long string */
@@ -288,38 +307,22 @@ string_elem_print(gpointer data)
 }
 
 static void
-list_capture_types(void) {
-  int                 i;
-  struct string_elem *captypes;
-  GSList             *list = NULL;
-
-  captypes = g_new(struct string_elem, WTAP_NUM_FILE_TYPES_SUBTYPES);
-
-  fprintf(stderr, "tshark: The available capture file types for the \"-F\" flag are:\n");
-  for (i = 0; i < WTAP_NUM_FILE_TYPES_SUBTYPES; i++) {
-    if (wtap_dump_can_open(i)) {
-      captypes[i].sstr = wtap_file_type_subtype_short_string(i);
-      captypes[i].lstr = wtap_file_type_subtype_string(i);
-      list = g_slist_insert_sorted(list, &captypes[i], string_compare);
-    }
-  }
-  g_slist_free_full(list, string_elem_print);
-  g_free(captypes);
-}
-
-static void
 list_read_capture_types(void) {
-  int                 i;
+  guint               i;
+  size_t              num_file_types;
   struct string_elem *captypes;
   GSList             *list = NULL;
   const char *magic = "Magic-value-based";
   const char *heuristic = "Heuristics-based";
 
-  /* this is a hack, but WTAP_NUM_FILE_TYPES_SUBTYPES is always >= number of open routines so we're safe */
-  captypes = g_new(struct string_elem, WTAP_NUM_FILE_TYPES_SUBTYPES);
+  /* How many readable file types are there? */
+  num_file_types = 0;
+  for (i = 0; open_routines[i].name != NULL; i++)
+    num_file_types++;
+  captypes = g_new(struct string_elem, num_file_types);
 
   fprintf(stderr, "tshark: The available read file types for the \"-X read_format:\" option are:\n");
-  for (i = 0; open_routines[i].name != NULL; i++) {
+  for (i = 0; i < num_file_types && open_routines[i].name != NULL; i++) {
     captypes[i].sstr = open_routines[i].name;
     captypes[i].lstr = (open_routines[i].type == OPEN_INFO_MAGIC) ? magic : heuristic;
     list = g_slist_insert_sorted(list, &captypes[i], string_compare);
@@ -712,6 +715,7 @@ main(int argc, char *argv[])
     {0, 0, 0, 0 }
   };
   gboolean             arg_error = FALSE;
+  gboolean             has_extcap_options = FALSE;
 
   int                  err;
   gchar               *err_info;
@@ -729,7 +733,7 @@ main(int argc, char *argv[])
   gboolean             capture_option_specified = FALSE;
   volatile int         max_packet_count = 0;
 #endif
-  volatile int         out_file_type = WTAP_FILE_TYPE_SUBTYPE_PCAPNG;
+  volatile int         out_file_type = WTAP_FILE_TYPE_SUBTYPE_UNKNOWN;
   volatile gboolean    out_file_name_res = FALSE;
   volatile int         in_file_type = WTAP_TYPE_AUTO;
   gchar               *volatile cf_name = NULL;
@@ -742,6 +746,7 @@ main(int argc, char *argv[])
   gchar               *output_only = NULL;
   gchar               *volatile pdu_export_arg = NULL;
   char                *volatile exp_pdu_filename = NULL;
+  int                  exp_pdu_file_type_subtype;
   exp_pdu_t            exp_pdu_tap_data;
   const gchar*         elastic_mapping_filter = NULL;
 
@@ -835,6 +840,11 @@ main(int argc, char *argv[])
    * *after* epan_init() gets called, so that the dissectors have had a
    * chance to register their preferences.
    *
+   * Spawning a bunch of extcap processes can delay program startup,
+   * particularly on Windows. Check to see if we have any options that
+   * might require extcap and set has_extcap_options = TRUE if that's
+   * the case.
+   *
    * XXX - can we do this all with one getopt_long() call, saving the
    * arguments we can't handle until after initializing libwireshark,
    * and then process them after initializing libwireshark?
@@ -852,9 +862,25 @@ main(int argc, char *argv[])
         goto clean_exit;
       }
       break;
+    case 'G':
+      if (g_str_has_suffix(optarg, "prefs") || strcmp(optarg, "folders") == 0) {
+        has_extcap_options = TRUE;
+      }
+      break;
+    case 'i':
+      has_extcap_options = TRUE;
+      break;
+    case 'o':
+      if (g_str_has_prefix(optarg, "extcap.")) {
+        has_extcap_options = TRUE;
+      }
+      break;
     case 'P':        /* Print packet summary info even when writing to a file */
       print_packet_info = TRUE;
       print_summary = TRUE;
+      break;
+    case 'r':        /* Read capture file x */
+      cf_name = g_strdup(optarg);
       break;
     case 'O':        /* Only output these protocols */
       output_only = g_strdup(optarg);
@@ -924,6 +950,11 @@ main(int argc, char *argv[])
   timestamp_set_precision(TS_PREC_AUTO);
   timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
+  /*
+   * Libwiretap must be initialized before libwireshark is, so that
+   * dissection-time handlers for file-type-dependent blocks can
+   * register using the file type/subtype value for the file type.
+   */
   wtap_init(TRUE);
 
   /* Register all dissectors; we must do this before checking for the
@@ -940,7 +971,13 @@ main(int argc, char *argv[])
 
   register_all_tap_listeners(tap_reg_listener);
 
-  extcap_register_preferences();
+  /*
+   * An empty cf_name indicates that we're capturing, and we might
+   * be doing so on an extcap interface.
+   */
+  if (has_extcap_options || !cf_name) {
+    extcap_register_preferences();
+  }
 
   conversation_table_set_gui_info(init_iousers);
   hostlist_table_set_gui_info(init_hostlists);
@@ -1167,7 +1204,7 @@ main(int argc, char *argv[])
       }
       break;
     case 'F':
-      out_file_type = wtap_short_string_to_file_type_subtype(optarg);
+      out_file_type = wtap_name_to_file_type_subtype(optarg);
       if (out_file_type < 0) {
         cmdarg_err("\"%s\" isn't a valid capture file type", optarg);
         list_capture_types();
@@ -1290,8 +1327,8 @@ main(int argc, char *argv[])
       quiet = TRUE;
       really_quiet = TRUE;
       break;
-    case 'r':        /* Read capture file x */
-      cf_name = g_strdup(optarg);
+    case 'r':
+      /* already processed; just ignore it now */
       break;
     case 'R':        /* Read file filter */
       rfilter = optarg;
@@ -1491,6 +1528,10 @@ main(int argc, char *argv[])
   /* set the default output action to TEXT */
   if (output_action == WRITE_NONE)
     output_action = WRITE_TEXT;
+
+  /* set the default file type to pcapng */
+  if (out_file_type == WTAP_FILE_TYPE_SUBTYPE_UNKNOWN)
+    out_file_type = wtap_pcapng_file_type_subtype();
 
   /*
    * Print packet summary information is the default if neither -V or -x
@@ -1730,16 +1771,19 @@ main(int argc, char *argv[])
 
       if (global_capture_opts.saving_to_file) {
         /* They specified a "-w" flag, so we'll be saving to a capture file. */
+        gboolean use_pcapng;
 
         /* When capturing, we only support writing pcap or pcapng format. */
-        if (out_file_type != WTAP_FILE_TYPE_SUBTYPE_PCAP &&
-            out_file_type != WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
+        if (out_file_type == wtap_pcapng_file_type_subtype()) {
+          use_pcapng = TRUE;
+        } else if (out_file_type == wtap_pcap_file_type_subtype()) {
+          use_pcapng = FALSE;
+        } else {
           cmdarg_err("Live captures can only be saved in pcap or pcapng format.");
           exit_status = INVALID_OPTION;
           goto clean_exit;
         }
-        if (global_capture_opts.capture_comment &&
-            out_file_type != WTAP_FILE_TYPE_SUBTYPE_PCAPNG) {
+        if (global_capture_opts.capture_comment && !use_pcapng) {
           cmdarg_err("A capture comment can only be written to a pcapng file.");
           exit_status = INVALID_OPTION;
           goto clean_exit;
@@ -1782,7 +1826,7 @@ main(int argc, char *argv[])
           exit_status = INVALID_OPTION;
           goto clean_exit;
         }
-        global_capture_opts.use_pcapng = (out_file_type == WTAP_FILE_TYPE_SUBTYPE_PCAPNG) ? TRUE : FALSE;
+        global_capture_opts.use_pcapng = use_pcapng;
       } else {
         /* They didn't specify a "-w" flag, so we won't be saving to a
            capture file.  Check for options that only make sense if
@@ -2015,14 +2059,18 @@ main(int argc, char *argv[])
       }
 
       /* Activate the export PDU tap */
+      /* Write a pcapng file... */
+      exp_pdu_file_type_subtype = wtap_pcapng_file_type_subtype();
+      /* ...with this comment */
       comment = g_strdup_printf("Dump of PDUs from %s", cf_name);
-      exp_pdu_status = exp_pdu_open(&exp_pdu_tap_data, exp_fd, comment,
+      exp_pdu_status = exp_pdu_open(&exp_pdu_tap_data,
+                                    exp_pdu_file_type_subtype, exp_fd, comment,
                                     &err, &err_info);
       g_free(comment);
       if (!exp_pdu_status) {
           cfile_dump_open_failure_message("TShark", exp_pdu_filename,
                                           err, err_info,
-                                          WTAP_FILE_TYPE_SUBTYPE_PCAPNG);
+                                          exp_pdu_file_type_subtype);
           exit_status = INVALID_EXPORT;
           goto clean_exit;
       }
@@ -3251,11 +3299,14 @@ process_new_idbs(wtap *wth, wtap_dumper *pdh, int *err, gchar **err_info)
 
   while ((if_data = wtap_get_next_interface_description(wth)) != NULL) {
     /*
-     * Only add IDBs if we're writing to a file and the output file
-     * requires interface IDs; otherwise, it doesn't support writing IDBs.
+     * Only add interface blocks if the output file supports (meaning
+     * *requires*) them.
+     *
+     * That mean that the abstract interface provided by libwiretap
+     * involves WTAP_BLOCK_IF_ID_AND_INFO blocks.
      */
     if (pdh != NULL) {
-      if (wtap_uses_interface_ids(wtap_dump_file_type_subtype(pdh))) {
+      if (wtap_file_type_subtype_supports_block(wtap_dump_file_type_subtype(pdh), WTAP_BLOCK_IF_ID_AND_INFO) != BLOCK_NOT_SUPPORTED) {
         if (!wtap_dump_add_idb(pdh, if_data, err, err_info))
           return FALSE;
       }
@@ -3715,7 +3766,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
       if (pdh && out_file_name_res) {
         if (!wtap_dump_set_addrinfo_list(pdh, get_addrinfo_list())) {
           cmdarg_err("The file format \"%s\" doesn't support name resolution information.",
-                     wtap_file_type_subtype_short_string(out_file_type));
+                     wtap_file_type_subtype_name(out_file_type));
         }
       }
       /* Now close the capture file. */

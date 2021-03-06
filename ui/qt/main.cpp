@@ -21,12 +21,17 @@
 #include "ui/win32/console_win32.h"
 #endif
 
-#ifdef HAVE_GETOPT_H
+/*
+ * If we have getopt_long() in the system library, include <getopt.h>.
+ * Otherwise, we're using our own getopt_long() (either because the
+ * system has getopt() but not getopt_long(), as with some UN*Xes,
+ * or because it doesn't even have getopt(), as with Windows), so
+ * include our getopt_long()'s header.
+ */
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
-#endif
-
-#ifndef HAVE_GETOPT_LONG
-#include "wsutil/wsgetopt.h"
+#else
+#include <wsutil/wsgetopt.h>
 #endif
 
 #include <ui/clopts_common.h>
@@ -303,11 +308,9 @@ g_log_message_handler(QtMsgType type, const QMessageLogContext &, const QString 
     GLogLevelFlags log_level = G_LOG_LEVEL_DEBUG;
 
     switch (type) {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
     case QtInfoMsg:
         log_level = G_LOG_LEVEL_INFO;
         break;
-#endif
     // We want qDebug() messages to show up at our default log level.
     case QtDebugMsg:
     case QtWarningMsg:
@@ -652,7 +655,7 @@ int main(int argc, char *qt_argv[])
     // https://doc.qt.io/qt-5/highdpi.html
     // https://bugreports.qt.io/browse/QTBUG-53022 - The device pixel ratio is pretty much bogus on Windows.
     // https://bugreports.qt.io/browse/QTBUG-55510 - Windows have wrong size
-#if defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
+#if defined(Q_OS_WIN)
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
 
@@ -729,6 +732,11 @@ int main(int argc, char *qt_argv[])
                         open_failure_alert_box, read_failure_alert_box,
                         write_failure_alert_box);
 
+    /*
+     * Libwiretap must be initialized before libwireshark is, so that
+     * dissection-time handlers for file-type-dependent blocks can
+     * register using the file type/subtype value for the file type.
+     */
     wtap_init(TRUE);
 
     splash_update(RA_DISSECTORS, NULL, NULL);

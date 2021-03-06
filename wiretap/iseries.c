@@ -194,6 +194,11 @@ static int iseries_UNICODE_to_ASCII (guint8 * buf, guint bytes);
 static gboolean iseries_parse_hex_string (const char * ascii, guint8 * buf,
                                           size_t len);
 
+static int iseries_file_type_subtype = -1;
+static int iseries_unicode_file_type_subtype = -1;
+
+void register_iseries(void);
+
 /*
  * XXX - it would probably be cleaner to use a UCS-2 flavor of file_gets(),
  * rather than file_gets(), if we're reading a UCS-2 file.
@@ -240,7 +245,7 @@ iseries_open (wtap * wth, int *err, gchar ** err_info)
           }
 
         wth->file_encap        = WTAP_ENCAP_ETHERNET;
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_ISERIES;
+        wth->file_type_subtype = iseries_unicode_file_type_subtype;
         wth->snapshot_length   = 0;
         wth->subtype_read      = iseries_read;
         wth->subtype_seek_read = iseries_seek_read;
@@ -289,7 +294,7 @@ iseries_open (wtap * wth, int *err, gchar ** err_info)
               }
 
             wth->file_encap        = WTAP_ENCAP_ETHERNET;
-            wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_ISERIES;
+            wth->file_type_subtype = iseries_file_type_subtype;
             wth->snapshot_length   = 0;
             wth->subtype_read      = iseries_read;
             wth->subtype_seek_read = iseries_seek_read;
@@ -1045,6 +1050,47 @@ iseries_parse_hex_string (const char * ascii, guint8 * buf, size_t len)
       byte++;
     }
   return TRUE;
+}
+
+static const struct supported_block_type iseries_blocks_supported[] = {
+  /*
+   * We support packet blocks, with no comments or other options.
+   */
+  { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info iseries_info = {
+  "IBM iSeries comm. trace (ASCII)", "iseries_ascii", "txt", NULL,
+  FALSE, BLOCKS_SUPPORTED(iseries_blocks_supported),
+  NULL, NULL, NULL
+};
+
+static const struct supported_block_type iseries_unicode_blocks_supported[] = {
+  /*
+   * We support packet blocks, with no comments or other options.
+   */
+  { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info iseries_unicode_info = {
+  "IBM iSeries comm. trace (Unicode)", "iseries_unicode", "txt", NULL,
+  FALSE, BLOCKS_SUPPORTED(iseries_unicode_blocks_supported),
+  NULL, NULL, NULL
+};
+
+void register_iseries(void)
+{
+  iseries_file_type_subtype = wtap_register_file_type_subtype(&iseries_info);
+  iseries_unicode_file_type_subtype = wtap_register_file_type_subtype(&iseries_unicode_info);
+
+  /*
+   * Register names for backwards compatibility with the
+   * wtap_filetypes table in Lua.
+   */
+  wtap_register_backwards_compatibility_lua_name("ISERIES",
+                                                 iseries_file_type_subtype);
+  wtap_register_backwards_compatibility_lua_name("ISERIES_UNICODE",
+                                                 iseries_unicode_file_type_subtype);
 }
 
 /*

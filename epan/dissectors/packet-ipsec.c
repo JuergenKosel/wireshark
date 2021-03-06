@@ -188,14 +188,14 @@ typedef struct {
   gchar *dstIP;
   gchar *spi;
 
-  guint8 encryption_algo;
+  guint8 encryption_algo;         /* see values in esp_encryption_type_vals */
   gchar *encryption_key_string;
   gchar *encryption_key;
   gint encryption_key_length;
   gboolean         cipher_hd_created;
   gcry_cipher_hd_t cipher_hd;     /* Key is stored here and closed with the SA */
 
-  guint8 authentication_algo;
+  guint8 authentication_algo;     /* see values in esp_authentication_type_vals */
   gchar *authentication_key_string;
   gchar *authentication_key;
   gint authentication_key_length;
@@ -222,9 +222,10 @@ static guint num_sa_uat = 0;
    Params:
       - gchar **ascii_key : the resulting ascii key allocated here
       - gchar *key : the key to compute
+      - char **err : an error string to report if the input is found to be invalid
 */
 static gint
-compute_ascii_key(gchar **ascii_key, const gchar *key)
+compute_ascii_key(gchar **ascii_key, const gchar *key, char **err)
 {
   guint key_len = 0, raw_key_len;
   gint hex_digit;
@@ -252,15 +253,16 @@ compute_ascii_key(gchar **ascii_key, const gchar *key)
         key_len = (raw_key_len - 2) / 2 + 1;
         *ascii_key = (gchar *) g_malloc ((key_len + 1)* sizeof(gchar));
         hex_digit = g_ascii_xdigit_value(key[i]);
-        i++;
         if (hex_digit == -1)
         {
           g_free(*ascii_key);
           *ascii_key = NULL;
+          *err = g_strdup_printf("Key %s begins with an invalid hex char (%c)", key, key[i]);
           return -1;    /* not a valid hex digit */
         }
         (*ascii_key)[j] = (guchar)hex_digit;
         j++;
+        i++;
       }
       else
       {
@@ -280,6 +282,8 @@ compute_ascii_key(gchar **ascii_key, const gchar *key)
         {
           g_free(*ascii_key);
           *ascii_key = NULL;
+          *err = g_strdup_printf("Key %s has an invalid hex char (%c)",
+                     key, key[i-1]);
           return -1;    /* not a valid hex digit */
         }
         key_byte = ((guchar)hex_digit) << 4;
@@ -289,6 +293,7 @@ compute_ascii_key(gchar **ascii_key, const gchar *key)
         {
           g_free(*ascii_key);
           *ascii_key = NULL;
+          *err = g_strdup_printf("Key %s has an invalid hex char (%c)", key, key[i-1]);
           return -1;    /* not a valid hex digit */
         }
         key_byte |= (guchar)hex_digit;
@@ -300,11 +305,13 @@ compute_ascii_key(gchar **ascii_key, const gchar *key)
 
     else if((raw_key_len == 2) && (key[0] == '0') && ((key[1] == 'x') || (key[1] == 'X')))
     {
+      /* A valid null key */
       *ascii_key = NULL;
       return 0;
     }
     else
     {
+      /* Doesn't begin with 0X or 0x... */
       key_len = raw_key_len;
       *ascii_key = g_strdup(key);
     }
@@ -314,7 +321,7 @@ compute_ascii_key(gchar **ascii_key, const gchar *key)
 }
 
 
-static gboolean uat_esp_sa_record_update_cb(void* r, char** err _U_) {
+static gboolean uat_esp_sa_record_update_cb(void* r, char** err) {
   uat_esp_sa_record_t* rec = (uat_esp_sa_record_t *)r;
 
   /* Compute keys & lengths once and for all */
@@ -324,7 +331,7 @@ static gboolean uat_esp_sa_record_update_cb(void* r, char** err _U_) {
     rec->cipher_hd_created = FALSE;
   }
   if (rec->encryption_key_string) {
-    rec->encryption_key_length = compute_ascii_key(&rec->encryption_key, rec->encryption_key_string);
+    rec->encryption_key_length = compute_ascii_key(&rec->encryption_key, rec->encryption_key_string, err);
   }
   else {
     rec->encryption_key_length = 0;
@@ -333,13 +340,21 @@ static gboolean uat_esp_sa_record_update_cb(void* r, char** err _U_) {
 
   g_free(rec->authentication_key);
   if (rec->authentication_key_string) {
-    rec->authentication_key_length = compute_ascii_key(&rec->authentication_key, rec->authentication_key_string);
+    rec->authentication_key_length = compute_ascii_key(&rec->authentication_key, rec->authentication_key_string, err);
   }
   else {
     rec->authentication_key_length = 0;
     rec->authentication_key = NULL;
   }
-  return TRUE;
+
+  /* TODO: Make sure IP addresses have a valid conversion */
+  /* Unfortunately, return value of get_full_ipv4_addr() or get_full_ipv6_addr() (depending upon rec->protocol)
+     is not sufficient */
+
+  /* TODO: check format of spi */
+
+  /* Return TRUE only if *err has not been set by checking code. */
+  return *err == NULL;
 }
 
 static void* uat_esp_sa_record_copy_cb(void* n, const void* o, size_t siz _U_) {
@@ -360,7 +375,8 @@ static void* uat_esp_sa_record_copy_cb(void* n, const void* o, size_t siz _U_) {
   new_rec->authentication_key = NULL;
 
   /* Parse keys as in an update */
-  uat_esp_sa_record_update_cb(new_rec, NULL);
+  char *err = NULL;
+  uat_esp_sa_record_update_cb(new_rec, &err);
 
   return new_rec;
 }
@@ -399,13 +415,16 @@ UAT_CSTRING_CB_DEF(uat_esp_sa_records, authentication_key_string, uat_esp_sa_rec
    added through the UAT entry interface/file. */
 void esp_sa_record_add_from_dissector(guint8 protocol, const gchar *srcIP, const char *dstIP,
                                       gchar *spi,
-                                      guint8 encryption_algo, const gchar *encryption_key,
-                                      guint8 authentication_algo, const gchar *authentication_key)
+                                      guint8 encryption_algo,           /* values from esp_encryption_type_vals */
+                                      const gchar *encryption_key,
+                                      guint8 authentication_algo,       /* values from esp_authentication_type_vals */
+                                      const gchar *authentication_key)
 {
    uat_esp_sa_record_t* record = NULL;
    if (extra_esp_sa_records.num_records == 0) {
       extra_esp_sa_records.records = g_new(uat_esp_sa_record_t, MAX_EXTRA_SA_RECORDS);
    }
+   /* Add new entry */
    if (extra_esp_sa_records.num_records < MAX_EXTRA_SA_RECORDS) {
       record = &extra_esp_sa_records.records[extra_esp_sa_records.num_records++];
    }

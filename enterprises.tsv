@@ -5,7 +5,7 @@
 # The format used here is: <NUMERICAL_ID><SPACE><NAME>
 # Where SPACE can be any sequence of spaces and tabs.
 #
-# (last updated 2021-01-31)
+# (last updated 2021-02-26)
 
 0	Reserved
 1	NxNetworks
@@ -15612,7 +15612,7 @@
 15750	University of Tromsø
 15751	TRC Fiord, JSC
 15752	slamb.org
-15753	APPServer
+15753	MuTIC S.A.S
 15754	Vancouver Community Network
 15755	PIVoD Technologies
 15756	Wistron NeWeb Corporation
@@ -16222,7 +16222,7 @@
 16360	Contraloría General de la República
 16361	Progressive Linux Consultants LLC
 16362	Waters Network Systems
-16363	SCHOLZ & VOLKMER Intermediales Design, GmbH
+16363	Scholz & Volkmer GmbH
 16364	SMARTDATA
 16365	valantic Transaction Solutions GmbH	# formerly 'Dion Transaction Solutions GmbH'
 16366	INFORMA DEL PERU, INFORMACION ECONOMICA SA
@@ -23250,7 +23250,7 @@
 23404	DAVANTEL
 23405	JSC Sahalinmorsvjaz
 23406	LDAPtive Pty Ltd
-23407	Bryant Unlimited
+23407	eyePower Limited
 23408	Rhombus Systems Ltd.
 23409	Torque.net inc.
 23410	Hackstrike Ltd.
@@ -24662,7 +24662,7 @@
 24818	Micro Industries Inc.
 24819	CARDIONICS SA
 24820	Oskarshamns Konverterings AB
-24821	TELEFUNKEN Radio Communication Systems GmbH & Co. KG
+24821	Elbit Systems Deutschland GmbH & Co. KG
 24822	Instituto Nacional de Estadistica
 24823	Amey Datel
 24824	NightStorm Software Systems, Inc.
@@ -33095,7 +33095,7 @@
 33260	Triescom Co., Ltd.
 33261	Resilans AB
 33262	Jäger Computergesteuerte Messtechnik GmbH
-33263	Raiffeisenverband Suedtirol Gen.
+33263	Raiffeisen Information Service KonsGmbH
 33264	EPI Service Ltd
 33265	Robert Rhea Photography
 33266	ISOMEDIA, Inc.
@@ -49291,7 +49291,7 @@
 49473	Weydstone LLC
 49474	CKUA Radio Network
 49475	suckleast.org Hosting Collective
-49476	Session Control LLC
+49476	Session Control Oregon LLC
 49477	Vault Investing
 49478	funatic b.v.
 49479	Damian Murphy Private LDAP Development
@@ -50566,7 +50566,7 @@
 50754	Blyberg Timber AB
 50755	Siljan Energi AB
 50756	D. A. Taylor Consulting LLC
-50757	ST Engineering Electronics Ltd
+50757	ST Engineering Ltd
 50758	All My Papers
 50759	MAVOCO GmbH
 50760	CELPRAM
@@ -53871,7 +53871,7 @@
 54065	Cybershark Systems
 54066	Gwirio (Pty) Ltd
 54067	SitioDistinto
-54068	HealthSoft
+54068	AdvaHealth Solutions
 54069	SPECINFOSYSTEMS
 54070	Lars Hegenberg
 54071	Beijing College of Politics and Law
@@ -55634,7 +55634,7 @@
 55830	Gazprom Remont
 55831	Speedway LLC
 55832	Fidelity National Information Services
-55833	Shenzhen boruide technology co. LTD
+55833	Broadtech technology co. LTD
 55834	NorthHinkle
 55835	Sutra Tech Labs Inc
 55836	MFA Informatik AG
@@ -56599,7 +56599,7 @@
 56802	Impôt 2000
 56803	S.D.S. Inc.
 56804	Norfolk and Norwich University Hospitals NHS Foundation Trust
-56805	网思科技股份有限公司 (Netsys Technology Co., Ltd.)
+56805	网思科技股份有限公司 (NetThink Technology Co., Ltd.)
 56806	Fusion Technology Nepal Pvt. Ltd.
 56807	Brauns Control GmbH
 56808	TurnKey Services AG
@@ -56663,7 +56663,7 @@
 56866	Trelabra
 56867	Group of industrial technologies,  Ltd.
 56868	WESTPRESS GmbH & Co. KG
-56869	ITC-Israel-Internet
+56869	ITC - Israel Internet
 56870	GAU RD "CIT"
 56871	First Quantum Minerals Limited
 56872	Sidekicks House
@@ -56686,3 +56686,161 @@
 56889	Autentia S.A.
 56890	Tubbo Network
 56891	Electro Design Engineering, Inc.
+56892	深圳市旭东数字医学影像技术有限公司 (Shenzhen Yorktal Digital Medical Imaging Tech. Cglted)
+56893	DEMETRA srl
+56894	The Palace Group LLC
+56895	Izaz Solutions LLC
+56896	Citybook Services Ltd.
+56897	CSFCloud
+56898	ehubcap.com
+56899	Erste Banka A.D. Podgorica
+56900	Elektra-Elektronik GmbH & Co. Störcontroller KG
+56901	SALTO Systems
+56902	European AIR Spares AB
+56903	Fuzzy Systems
+56904	Techbrain Consultancy Ltd
+56905	BhaiFi Networks Private Limited
+56906	Southern Virginia University
+56907	IDnow GmbH
+56908	FIRSTSERVICE RESIDENTIAL, INC.
+56909	Dymensione
+56910	Avec
+56911	ehubcaps.com
+56912	ehubcap.net
+56913	custom-hubcaps.com
+56914	custom-hubcaps.com
+56915	Bell Canada NG9-1-1
+56916	Goonhilly Earth Station LTD
+56917	ADEX GmbH
+56918	BlueGrace Logistics
+56919	CHSI Georgy Tarlyovski
+56920	TrustZero
+56921	COMET Flight Test Data
+56922	Capella Space Corp
+56923	FA2 Advisors, LLC
+56924	WuXi ANKTech Co.,Ltd
+56925	POMCube Inc
+56926	Causal Sarl
+56927	Dr. Welsch Security
+56928	Changsha Asterfusion Data Technologies  Co.,Ltd
+56929	Securent Solutions, LLC
+56930	Syntonics Corp LLC
+56931	Nabla Prototypes
+56932	USP
+56933	NW Mobile Testing
+56934	x2LAB
+56935	DRG Technologies
+56936	TWS Netz GmbH
+56937	Open mobile platform LLC
+56938	Brad Rubenstein
+56939	Higgstar Information Technology
+56940	WohnMichel
+56941	Prehensile Tales B.V.
+56942	subtubes.io
+56943	Syrex
+56944	VitaNetworks
+56945	Marelcom AG
+56946	Court Grammar School
+56947	Koch IT
+56948	JUSAN
+56949	Bay Path University
+56950	October Swimmer LLC
+56951	Hacom Tech.
+56952	Franklin Electric Co., Inc.
+56953	ROBINSON
+56954	Redexis
+56955	Antelope Valley Transit Authority
+56956	Groupe Canam
+56957	LLC BigDataRu
+56958	CORE|Vision BV
+56959	Cpac Systems AB
+56960	Oberstufen-Kolleg
+56961	VMnic
+56962	Digital Gaming Corporation USA
+56963	WhiteBox Networks
+56964	SteveMilligan.co.uk
+56965	SI Concept LLC
+56966	Bit-Wizards Information Technology Solutions, Inc.
+56967	JaapWeissink
+56968	ClearBlade, Inc.
+56969	HOWLab
+56970	Shanghai ANKTech Co.,Ltd
+56971	AZITA. Co.,Ltd.
+56972	Millabs
+56973	e-intouch company
+56974	Izaac Brånn
+56975	LLC "Helicoid"
+56976	WISE SECURITY GLOBAL S.L.
+56977	ISECO.CZ
+56978	DATALIT S.R.L.
+56979	Luminex Network Intelligence
+56980	kerzinger.at
+56981	BETAMONT s.r.o.
+56982	Namita Mohideen MD Inc
+56983	HORUS-IT
+56984	Astrogator AB
+56985	LTE-X
+56986	my FinTech Inc.
+56987	my FinTech Inc.
+56988	Arrow Powertech Pvt.Ltd
+56989	DDOR Novi Sad a.d.o.
+56990	ZOLA Electric
+56991	Huisman Equipment B.V.
+56992	Dox PSC SPA
+56993	Colectica
+56994	EXIS
+56995	Resnick Digital, LLC
+56996	Opplane Inc.
+56997	National Centre for Nuclear Research (NCBJ)
+56998	Smart Building Solutions Ltd.
+56999	Savills Plc
+57000	Venius Systems AB
+57001	KUBA
+57002	Alan N. Swartz MD
+57003	3Key Company s.r.o.
+57004	ZMS
+57005	developithecus SIA
+57006	Penneo A/S
+57007	Skala Software LLC
+57008	Elisity Inc
+57009	AGMLAB
+57010	Rapaň
+57011	TR7 Siber Savunma AS
+57012	jmlecloud
+57013	jslarraz
+57014	A1 Sprinkler & Systems Integration
+57015	iGEM Foundation
+57016	DTA FS GmbH Goslar
+57017	Isle of Man Post Office
+57018	cerniglia.net, LLC
+57019	Visiana ApS
+57020	University of Pannonia
+57021	Bossard
+57022	KarmaTek
+57023	De Buren Limited Liability Partnership
+57024	Sange Electronic Technology Co., Ltd
+57025	Eng. Antonio Cannavacciuolo
+57026	TWB Company, LLC
+57027	MatreComm Technologies Private Limited
+57028	DigiKite
+57029	Universitas Negeri Yogyakarta
+57030	Link Innovation GmbH
+57031	AutomationDirect.com
+57032	Auger Family
+57033	Nightmare Computers Inc
+57034	Inagora
+57035	MONT International Co., Ltd.
+57036	OOO "Nizhnekamskaya TEC"
+57037	Thales SEC Transportation System Limited Company
+57038	BayCare Health Systems
+57039	Cash Time Title Loans
+57040	Podravska banka d.d.
+57041	Peter Slavik
+57042	Boat Rocker
+57043	Mitsubishi Electric Automotive America, Inc.
+57044	Summit Health
+57045	Softech di Germinara Francesco
+57046	NetNordic Group
+57047	Werktslim
+57048	Volta Networks
+57049	Ownerview Tecnologia

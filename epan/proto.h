@@ -40,9 +40,6 @@
 #include "register.h"
 #include "ws_symbol_export.h"
 #include "ws_attributes.h"
-#ifdef HAVE_PLUGINS
-#include "wsutil/plugins.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -584,6 +581,9 @@ void proto_report_dissector_bug(const char *format, ...)
  *  ENC_TIME_CLASSIC_MAC_OS_SECS - 4-8 bytes, representing a count of seconds
  *  since January 1, 1904, 00:00:00 UTC.
  *
+ *  ENC_TIME_NSECS - 8 bytes, representing a value in nanoseconds.
+ *  If the time is absolute, it's nanoseconds since the UN*X epoch.
+ *
  * The backwards-compatibility names are defined as hex numbers so that
  * the script to generate init.lua will add them as global variables,
  * along with the new names.
@@ -603,6 +603,7 @@ void proto_report_dissector_bug(const char *format, ...)
 #define ENC_TIME_MSEC_NTP            0x00000022
 #define ENC_TIME_MIP6                0x00000024
 #define ENC_TIME_CLASSIC_MAC_OS_SECS 0x00000026
+#define ENC_TIME_NSECS               0x00000028
 
 /*
  * For cases where a string encoding contains a timestamp, use one
@@ -1038,7 +1039,6 @@ extern gboolean proto_tree_traverse_post_order(proto_tree *tree,
 WS_DLL_PUBLIC void proto_tree_children_foreach(proto_tree *tree,
     proto_tree_foreach_func func, gpointer data);
 
-#ifdef HAVE_PLUGINS
 typedef struct {
     void (*register_protoinfo)(void);   /* routine to call to register protocol information */
     void (*register_handoff)(void);     /* routine to call to register dissector handoff */
@@ -1046,7 +1046,6 @@ typedef struct {
 
 /** Register dissector plugin with the plugin system. */
 WS_DLL_PUBLIC void proto_register_plugin(const proto_plugin *plugin);
-#endif
 
 /** Sets up memory used by proto routines. Called at program startup */
 void proto_init(GSList *register_all_plugin_protocols_list,

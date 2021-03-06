@@ -9,6 +9,7 @@ libwiretap.so.0 libwiretap0 #MINVER#
  file_read@Base 1.9.1
  file_seek@Base 1.9.1
  file_tell@Base 1.9.1
+ get_backwards_compatibility_lua_table@Base 3.5.0
  init_open_routines@Base 1.12.0~rc1
  merge_files@Base 1.99.9
  merge_files_to_stdout@Base 2.3.0
@@ -39,6 +40,7 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_block_get_mandatory_data@Base 2.1.2
  wtap_block_get_nth_string_option_value@Base 2.1.2
  wtap_block_get_string_option_value@Base 2.1.2
+ wtap_block_get_type@Base 3.5.0
  wtap_block_get_uint64_option_value@Base 2.1.2
  wtap_block_get_uint8_option_value@Base 2.1.2
  wtap_block_make_copy@Base 3.3.2
@@ -76,7 +78,6 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_dump_file_write@Base 1.12.0~rc1
  wtap_dump_flush@Base 1.9.1
  wtap_dump_get_needs_reload@Base 2.5.0
- wtap_dump_has_name_resolution@Base 1.9.1
  wtap_dump_open@Base 1.9.1
  wtap_dump_open_stdout@Base 2.0.0
  wtap_dump_open_tempfile@Base 2.0.0
@@ -85,7 +86,6 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_dump_params_init@Base 2.9.0
  wtap_dump_params_init_no_idbs@Base 3.3.2
  wtap_dump_set_addrinfo_list@Base 1.9.1
- wtap_dump_supports_comment_types@Base 1.9.1
  wtap_encap_description@Base 2.9.1
  wtap_encap_name@Base 2.9.1
  wtap_encap_requires_phdr@Base 1.9.1
@@ -101,8 +101,10 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_file_size@Base 1.9.1
  wtap_file_tsprec@Base 1.99.0
  wtap_file_type_subtype@Base 1.12.0~rc1
- wtap_file_type_subtype_short_string@Base 1.12.0~rc1
- wtap_file_type_subtype_string@Base 1.12.0~rc1
+ wtap_file_type_subtype_description@Base 3.5.0
+ wtap_file_type_subtype_name@Base 3.5.0
+ wtap_file_type_subtype_supports_block@Base 3.5.0
+ wtap_file_type_subtype_supports_option@Base 3.5.0
  wtap_free_extensions_list@Base 1.9.1
  wtap_free_idb_info@Base 1.99.9
  wtap_fstat@Base 1.9.1
@@ -118,16 +120,20 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_get_next_interface_description@Base 3.3.2
  wtap_get_num_encap_types@Base 1.9.1
  wtap_get_num_file_type_extensions@Base 1.12.0~rc1
- wtap_get_num_file_types_subtypes@Base 1.12.0~rc1
- wtap_get_savable_file_types_subtypes@Base 1.12.0~rc1
+ wtap_get_savable_file_types_subtypes_for_file@Base 3.5.0
+ wtap_get_writable_file_types_subtypes@Base 3.5.0
  wtap_has_open_info@Base 1.12.0~rc1
  wtap_init@Base 2.3.0
  wtap_name_to_encap@Base 2.9.1
+ wtap_name_to_file_type_subtype@Base 3.5.0
  wtap_open_offline@Base 1.9.1
- wtap_opttype_register_custom_block_type@Base 2.1.2
  wtap_opttypes_initialize@Base 2.1.2
  wtap_opttypes_cleanup@Base 2.3.0
  wtap_pcap_encap_to_wtap_encap@Base 1.9.1
+ wtap_pcap_file_type_subtype@Base 3.5.0
+ wtap_pcap_nsec_file_type_subtype@Base 3.5.0
+ wtap_pcapng_file_type_subtype@Base 3.5.0
+ wtap_plugins_supported@Base 3.5.0
  wtap_read@Base 1.9.1
  wtap_read_bytes@Base 1.99.1
  wtap_read_bytes_or_eof@Base 1.99.1
@@ -135,9 +141,10 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_read_so_far@Base 1.9.1
  wtap_rec_cleanup@Base 2.5.1
  wtap_rec_init@Base 2.5.1
+ wtap_register_backwards_compatibility_lua_name@Base 3.5.0
  wtap_register_encap_type@Base 1.9.1
  wtap_register_file_type_extension@Base 1.12.0~rc1
- wtap_register_file_type_subtypes@Base 1.12.0~rc1
+ wtap_register_file_type_subtype@Base 3.5.0
  wtap_register_open_info@Base 1.12.0~rc1
  wtap_register_plugin@Base 2.5.0
  wtap_seek_read@Base 1.9.1
@@ -146,10 +153,8 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_set_cb_new_secrets@Base 2.9.0
  wtap_set_cb_new_ipv4@Base 1.9.1
  wtap_set_cb_new_ipv6@Base 1.9.1
- wtap_short_string_to_file_type_subtype@Base 1.9.1
  wtap_snapshot_length@Base 1.9.1
  wtap_strerror@Base 1.9.1
  wtap_tsprec_string@Base 1.99.9
- wtap_uses_interface_ids@Base 3.3.2
  wtap_write_shb_comment@Base 1.9.1
  wtap_wtap_encap_to_pcap_encap@Base 1.9.1

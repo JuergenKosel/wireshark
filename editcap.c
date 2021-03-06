@@ -40,8 +40,17 @@
 #include <unistd.h>
 #endif
 
-#ifdef HAVE_GETOPT_H
+/*
+ * If we have getopt_long() in the system library, include <getopt.h>.
+ * Otherwise, we're using our own getopt_long() (either because the
+ * system has getopt() but not getopt_long(), as with some UN*Xes,
+ * or because it doesn't even have getopt(), as with Windows), so
+ * include our getopt_long()'s header.
+ */
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
+#else
+#include <wsutil/wsgetopt.h>
 #endif
 
 #include <wiretap/secrets-types.h>
@@ -49,10 +58,6 @@
 
 #include "epan/etypes.h"
 #include "epan/dissectors/packet-ieee80211-radiotap-defs.h"
-
-#ifndef HAVE_GETOPT_LONG
-#include "wsutil/wsgetopt.h"
-#endif
 
 #ifdef _WIN32
 #include <process.h>    /* getpid */
@@ -156,7 +161,7 @@ GPtrArray *capture_comments = NULL;
 static struct select_item     selectfrm[MAX_SELECTIONS];
 static guint                  max_selected              = 0;
 static gboolean               keep_em                   = FALSE;
-static int                    out_file_type_subtype     = WTAP_FILE_TYPE_SUBTYPE_PCAPNG; /* default to pcapng   */
+static int                    out_file_type_subtype     = WTAP_FILE_TYPE_SUBTYPE_UNKNOWN;
 static int                    out_frame_type            = -2; /* Leave frame type alone */
 static gboolean               verbose                   = FALSE; /* Not so verbose         */
 static struct time_adjustment time_adj                  = {NSTIME_INIT_ZERO, 0}; /* no adjustment */
@@ -867,13 +872,6 @@ struct string_elem {
 };
 
 static gint
-string_compare(gconstpointer a, gconstpointer b)
-{
-    return strcmp(((const struct string_elem *)a)->sstr,
-        ((const struct string_elem *)b)->sstr);
-}
-
-static gint
 string_nat_compare(gconstpointer a, gconstpointer b)
 {
     return ws_ascii_strnatcmp(((const struct string_elem *)a)->sstr,
@@ -890,22 +888,16 @@ string_elem_print(gpointer data, gpointer stream_ptr)
 
 static void
 list_capture_types(FILE *stream) {
-    int i;
-    struct string_elem *captypes;
-    GSList *list = NULL;
+    GArray *writable_type_subtypes;
 
-    captypes = g_new(struct string_elem,WTAP_NUM_FILE_TYPES_SUBTYPES);
     fprintf(stream, "editcap: The available capture file types for the \"-F\" flag are:\n");
-    for (i = 0; i < WTAP_NUM_FILE_TYPES_SUBTYPES; i++) {
-        if (wtap_dump_can_open(i)) {
-            captypes[i].sstr = wtap_file_type_subtype_short_string(i);
-            captypes[i].lstr = wtap_file_type_subtype_string(i);
-            list = g_slist_insert_sorted(list, &captypes[i], string_compare);
-        }
+    writable_type_subtypes = wtap_get_writable_file_types_subtypes(FT_SORT_BY_NAME);
+    for (guint i = 0; i < writable_type_subtypes->len; i++) {
+        int ft = g_array_index(writable_type_subtypes, int, i);
+        fprintf(stream, "    %s - %s\n", wtap_file_type_subtype_name(ft),
+                wtap_file_type_subtype_description(ft));
     }
-    g_slist_foreach(list, string_elem_print, stream);
-    g_slist_free(list);
-    g_free(captypes);
+    g_array_free(writable_type_subtypes, TRUE);
 }
 
 static void
@@ -1017,10 +1009,14 @@ editcap_dump_open(const char *filename, const wtap_dump_params *params,
         return NULL;
 
     /*
-     * If the output file requires interface IDs, add all the IDBs we've
-     * seen so far.
+     * If the output file supporst identifying the interfaces on which
+     * packets arrive, add all the IDBs we've seen so far.
+     *
+     * That mean that the abstract interface provided by libwiretap
+     * involves WTAP_BLOCK_IF_ID_AND_INFO blocks.
      */
-    if (wtap_uses_interface_ids(wtap_dump_file_type_subtype(pdh))) {
+    if (wtap_file_type_subtype_supports_block(wtap_dump_file_type_subtype(pdh),
+                                              WTAP_BLOCK_IF_ID_AND_INFO) != BLOCK_NOT_SUPPORTED) {
         for (guint i = 0; i < idbs_seen->len; i++) {
             wtap_block_t if_data = g_array_index(idbs_seen, wtap_block_t, i);
 
@@ -1049,10 +1045,14 @@ process_new_idbs(wtap *wth, wtap_dumper *pdh, GArray *idbs_seen,
 
     while ((if_data = wtap_get_next_interface_description(wth)) != NULL) {
         /*
-         * Only add IDBs if the output file requires interface IDs;
-         * otherwise, it doesn't support writing IDBs.
+         * Only add interface blocks if the output file supports (meaning
+         * *requires*) them.
+         *
+         * That mean that the abstract interface provided by libwiretap
+         * involves WTAP_BLOCK_IF_ID_AND_INFO blocks.
          */
-        if (wtap_uses_interface_ids(wtap_dump_file_type_subtype(pdh))) {
+        if (wtap_file_type_subtype_supports_block(wtap_dump_file_type_subtype(pdh),
+                                                  WTAP_BLOCK_IF_ID_AND_INFO) != BLOCK_NOT_SUPPORTED) {
             wtap_block_t if_data_copy;
 
             /*
@@ -1373,7 +1373,7 @@ main(int argc, char *argv[])
             break;
 
         case 'F':
-            out_file_type_subtype = wtap_short_string_to_file_type_subtype(optarg);
+            out_file_type_subtype = wtap_name_to_file_type_subtype(optarg);
             if (out_file_type_subtype < 0) {
                 fprintf(stderr, "editcap: \"%s\" isn't a valid capture file type\n\n",
                         optarg);
@@ -1512,7 +1512,11 @@ main(int argc, char *argv[])
         print_usage(stderr);
         ret = INVALID_OPTION;
         goto clean_exit;
+    }
 
+    if (out_file_type_subtype == WTAP_FILE_TYPE_SUBTYPE_UNKNOWN) {
+      /* default to pcapng   */
+      out_file_type_subtype = wtap_pcapng_file_type_subtype();
     }
 
     if (err_prob >= 0.0) {
@@ -1550,7 +1554,7 @@ main(int argc, char *argv[])
 
     if (verbose) {
         fprintf(stderr, "File %s is a %s capture file.\n", argv[optind],
-                wtap_file_type_subtype_string(wtap_file_type_subtype(wth)));
+                wtap_file_type_subtype_description(wtap_file_type_subtype(wth)));
     }
 
     if (skip_radiotap) {
@@ -1640,7 +1644,7 @@ main(int argc, char *argv[])
             /* Warn for badly formatted files, but proceed anyway. */
             validate_secrets_file(secrets_filename, secrets_type_id, data);
 
-            block = wtap_block_create(WTAP_BLOCK_DSB);
+            block = wtap_block_create(WTAP_BLOCK_DECRYPTION_SECRETS);
             dsb = (wtapng_dsb_mandatory_t *)wtap_block_get_mandatory_data(block);
             dsb->secrets_type = secrets_type_id;
             dsb->secrets_len = (guint)data_len;

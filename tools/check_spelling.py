@@ -119,7 +119,7 @@ class File:
         return False
 
 
-    # Check the spelling of all the words we have found fir tgus fuke,
+    # Check the spelling of all the words we have found
     def spellCheck(self):
 
         num_values = len(self.values)
@@ -209,7 +209,7 @@ def removeContractions(code_string):
                      "you’d", "developer’s", "doesn’t", "what’s", "let’s", "haven’t", "can’t", "you’ve",
                      "shouldn’t", "didn’t", "wouldn’t", "aren’t", "there’s", "packet’s", "couldn’t", "world’s",
                      "needn’t", "graph’s", "table’s", "parent’s", "entity’s", "server’s", "node’s",
-                     "querier’s", "sender’s", "receiver’s", "computer’s"]
+                     "querier’s", "sender’s", "receiver’s", "computer’s", "frame’s", "vendor’s", "system’s"]
     for c in contractions:
         code_string = code_string.replace(c, "")
         code_string = code_string.replace(c.capitalize(), "")
@@ -220,23 +220,28 @@ def removeContractions(code_string):
 def removeComments(code_string):
     code_string = re.sub(re.compile(r"/\*.*?\*/",re.DOTALL ) ,"" ,code_string) # C-style comment
     # Remove this for now as can get tripped up if see htpps://www.... within a string!
-    #code_string = re.sub(re.compile(r"//.*?\n" ) ,"" ,code_string)             # C++-style comment
+    code_string = re.sub(re.compile(r"^\s*//.*?\n" ) ,"" ,code_string)             # C++-style comment
     return code_string
 
 def removeSingleQuotes(code_string):
+    code_string = code_string.replace('\\\\', " ")        # Separate at \\
     code_string = code_string.replace('\"\\\\\"', "")
     code_string = code_string.replace("\\\"", " ")
     code_string = code_string.replace("'\"'", "")
+    code_string = code_string.replace('…', ' ')
     return code_string
 
 def removeHexSpecifiers(code_string):
-    # TODO: replace with single regexp?
-    code_string = code_string.replace('0x%02X', "")
-    code_string = code_string.replace('0x%02x', "")
-    code_string = code_string.replace('0x%04X', "")
-    code_string = code_string.replace('0x%04x', "")
-    code_string = code_string.replace('0x%08X', "")
-    code_string = code_string.replace('0x%08x', "")
+    # Find all hex numbers
+
+    looking = True
+    while looking:
+        m = re.search(r'(0x[0-9a-fA-F]*)', code_string)
+        if m:
+            code_string = code_string.replace(m.group(0), "")
+        else:
+            looking = False
+
     return code_string
 
 
@@ -418,7 +423,7 @@ for f in files:
 
 
 
-# Show the most commonly not-recognised words. TODO: depend upon a command-line option here?
+# Show the most commonly not-recognised words.
 print('')
 counter = Counter(missing_words).most_common(100)
 if len(counter) > 0:

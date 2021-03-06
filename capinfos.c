@@ -51,8 +51,17 @@
 #include <locale.h>
 #include <errno.h>
 
-#ifdef HAVE_GETOPT_H
+/*
+ * If we have getopt_long() in the system library, include <getopt.h>.
+ * Otherwise, we're using our own getopt_long() (either because the
+ * system has getopt() but not getopt_long(), as with some UN*Xes,
+ * or because it doesn't even have getopt(), as with Windows), so
+ * include our getopt_long()'s header.
+ */
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
+#else
+#include <wsutil/wsgetopt.h>
 #endif
 
 #include <glib.h>
@@ -75,10 +84,6 @@
 #include <wsutil/file_util.h>
 
 #include <wsutil/wsgcrypt.h>
-
-#ifndef HAVE_GETOPT_LONG
-#include "wsutil/wsgetopt.h"
-#endif
 
 #include "ui/failure_message.h"
 
@@ -624,7 +629,7 @@ print_stats(const gchar *filename, capture_info *cf_info)
   gchar                 *size_string;
 
   /* Build printable strings for various stats */
-  file_type_string = wtap_file_type_subtype_string(cf_info->file_type);
+  file_type_string = wtap_file_type_subtype_description(cf_info->file_type);
   file_encap_string = wtap_encap_description(cf_info->file_encap);
 
   if (filename)           printf     ("File name:           %s\n", filename);
@@ -873,7 +878,7 @@ print_stats_table(const gchar *filename, capture_info *cf_info)
   const gchar           *file_type_string, *file_encap_string;
 
   /* Build printable strings for various stats */
-  file_type_string = wtap_file_type_subtype_string(cf_info->file_type);
+  file_type_string = wtap_file_type_subtype_description(cf_info->file_type);
   file_encap_string = wtap_encap_description(cf_info->file_encap);
 
   if (filename) {

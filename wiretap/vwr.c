@@ -802,6 +802,11 @@ static float        get_legacy_rate(guint8);
 static float        get_ht_rate(guint8, guint16);
 static float        get_vht_rate(guint8, guint16, guint8);
 
+static int vwr_80211_file_type_subtype = -1;
+static int vwr_eth_file_type_subtype = -1;
+
+void register_vwr(void);
+
 /* Open a .vwr file for reading */
 /* This does very little, except setting the wiretap header for a VWR file type */
 /*  and setting the timestamp precision to microseconds.                        */
@@ -836,9 +841,9 @@ wtap_open_return_val vwr_open(wtap *wth, int *err, gchar **err_info)
     wth->file_encap = WTAP_ENCAP_IXVERIWAVE;
 
     if (fpgaVer == S2_W_FPGA || fpgaVer == S1_W_FPGA || fpgaVer == S3_W_FPGA)
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_VWR_80211;
+        wth->file_type_subtype = vwr_80211_file_type_subtype;
     else if (fpgaVer == vVW510012_E_FPGA || fpgaVer == vVW510024_E_FPGA)
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_VWR_ETH;
+        wth->file_type_subtype = vwr_eth_file_type_subtype;
 
     /*
      * Add an IDB; we don't know how many interfaces were
@@ -3363,6 +3368,47 @@ vwr_process_rec_data(FILE_T fh, int rec_size,
 
     g_free(rec);
     return ret;
+}
+
+static const struct supported_block_type vwr_80211_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info vwr_80211_info = {
+    "Ixia IxVeriWave .vwr Raw 802.11 Capture", "vwr80211", "vwr", NULL,
+    FALSE, BLOCKS_SUPPORTED(vwr_80211_blocks_supported),
+    NULL, NULL, NULL
+};
+
+static const struct supported_block_type vwr_eth_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info vwr_eth_info = {
+    "Ixia IxVeriWave .vwr Raw Ethernet Capture", "vwreth", "vwr", NULL,
+    FALSE, BLOCKS_SUPPORTED(vwr_eth_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_vwr(void)
+{
+    vwr_80211_file_type_subtype = wtap_register_file_type_subtype(&vwr_80211_info);
+    vwr_eth_file_type_subtype = wtap_register_file_type_subtype(&vwr_eth_info);
+
+    /*
+     * Register names for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("VWR_80211",
+                                                   vwr_80211_file_type_subtype);
+    wtap_register_backwards_compatibility_lua_name("VWR_ETH",
+                                                   vwr_eth_file_type_subtype);
 }
 
 /*

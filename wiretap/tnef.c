@@ -14,6 +14,10 @@
 #include <wsutil/buffer.h>
 #include "tnef.h"
 
+static int tnef_file_type_subtype = -1;
+
+void register_tnef(void);
+
 wtap_open_return_val tnef_open(wtap *wth, int *err, gchar **err_info)
 {
   guint32 magic;
@@ -29,7 +33,7 @@ wtap_open_return_val tnef_open(wtap *wth, int *err, gchar **err_info)
   if (file_seek(wth->fh, 0, SEEK_SET, err) == -1)
     return WTAP_OPEN_ERROR;
 
-  wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_TNEF;
+  wth->file_type_subtype = tnef_file_type_subtype;
   wth->file_encap = WTAP_ENCAP_TNEF;
   wth->snapshot_length = 0;
 
@@ -38,6 +42,33 @@ wtap_open_return_val tnef_open(wtap *wth, int *err, gchar **err_info)
   wth->file_tsprec = WTAP_TSPREC_SEC;
 
   return WTAP_OPEN_MINE;
+}
+
+static const struct supported_block_type tnef_blocks_supported[] = {
+  /*
+   * This is a file format that we dissect, so we provide only one
+   * "packet" with the file's contents, and don't support any
+   * options.
+   */
+  { WTAP_BLOCK_PACKET, ONE_BLOCK_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info tnef_info = {
+  "Transport-Neutral Encapsulation Format", "tnef", NULL, NULL,
+  FALSE, BLOCKS_SUPPORTED(tnef_blocks_supported),
+  NULL, NULL, NULL
+};
+
+void register_tnef(void)
+{
+  tnef_file_type_subtype = wtap_register_file_type_subtype(&tnef_info);
+
+  /*
+   * Register name for backwards compatibility with the
+   * wtap_filetypes table in Lua.
+   */
+  wtap_register_backwards_compatibility_lua_name("TNEF",
+                                                 tnef_file_type_subtype);
 }
 
 /*

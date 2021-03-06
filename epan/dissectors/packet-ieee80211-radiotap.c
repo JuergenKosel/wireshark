@@ -19,7 +19,7 @@
 #include <epan/capture_dissectors.h>
 #include <wsutil/pint.h>
 #include <epan/crc32-tvb.h>
-#include <wsutil/frequency-utils.h>
+#include <wsutil/802_11-utils.h>
 #include <epan/tap.h>
 #include <epan/prefs.h>
 #include <epan/addr_resolv.h>
@@ -2187,7 +2187,6 @@ dissect_s1g_ndp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
                         5, ENC_NA);
   }
 
-  offset += 6;
   return tvb_captured_length(tvb);
 }
 
@@ -5685,7 +5684,7 @@ void proto_register_radiotap(void)
 		  FT_UINT40, BASE_HEX, NULL, 0x0, NULL, HFILL }},
 
 		{&hf_radiotap_s1g_ndp_cf_end_partial_bssid,
-		 {"Patrtial BSSID (TA)", "radiotap.s1g.ndp.cf_end.partial_bssid",
+		 {"Partial BSSID (TA)", "radiotap.s1g.ndp.cf_end.partial_bssid",
 		  FT_UINT40, BASE_HEX, NULL, 0x0000001FF0, NULL, HFILL }},
 
 		{&hf_radiotap_s1g_ndp_cf_end_duration_1m,

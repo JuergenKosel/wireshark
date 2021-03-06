@@ -35,6 +35,10 @@ typedef struct {
 	time_t t0;
 } mpeg_t;
 
+static int mpeg_file_type_subtype = -1;
+
+void register_mpeg(void);
+
 static int
 mpeg_resync(FILE_T fh, int *err)
 {
@@ -245,7 +249,7 @@ good_magic:
 	if (file_seek(wth->fh, 0, SEEK_SET, err) == -1)
 		return WTAP_OPEN_ERROR;
 
-	wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_MPEG;
+	wth->file_type_subtype = mpeg_file_type_subtype;
 	wth->file_encap = WTAP_ENCAP_MPEG;
 	wth->file_tsprec = WTAP_TSPREC_NSEC;
 	wth->subtype_read = mpeg_read;
@@ -259,6 +263,33 @@ good_magic:
 	mpeg->t0 = mpeg->now.secs;
 
 	return WTAP_OPEN_MINE;
+}
+
+static const struct supported_block_type mpeg_blocks_supported[] = {
+	/*
+	 * This is a file format that we dissect, so we provide
+	 * only one "packet" with the file's contents, and don't
+	 * support any options.
+	 */
+	{ WTAP_BLOCK_PACKET, ONE_BLOCK_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info mpeg_info = {
+	"MPEG", "mpeg", "mpeg", "mpg;mp3",
+	FALSE, BLOCKS_SUPPORTED(mpeg_blocks_supported),
+	NULL, NULL, NULL
+};
+
+void register_mpeg(void)
+{
+	mpeg_file_type_subtype = wtap_register_file_type_subtype(&mpeg_info);
+
+	/*
+	 * Register name for backwards compatibility with the
+	 * wtap_filetypes table in Lua.
+	 */
+	wtap_register_backwards_compatibility_lua_name("MPEG",
+	    mpeg_file_type_subtype);
 }
 
 /*

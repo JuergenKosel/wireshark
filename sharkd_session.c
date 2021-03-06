@@ -20,7 +20,6 @@
 #include <glib.h>
 
 #include <wsutil/wsjson.h>
-#include <wsutil/ws_printf.h>
 #include <wsutil/json_dumper.h>
 
 #include <file.h>
@@ -79,6 +78,9 @@ struct sharkd_filter_item
 };
 
 static GHashTable *filter_table = NULL;
+
+static int mode;
+gboolean extended_log = FALSE;
 
 static json_dumper dumper = {0};
 
@@ -704,7 +706,7 @@ sharkd_session_create_columns(column_info *cinfo, const char *buf, const jsmntok
 		char tok_column_name[64];
 		char *custom_sepa;
 
-		ws_snprintf(tok_column_name, sizeof(tok_column_name), "column%d", i);
+		snprintf(tok_column_name, sizeof(tok_column_name), "column%d", i);
 		tok_column = json_find_attr(buf, tokens, count, tok_column_name);
 		if (tok_column == NULL)
 			break;
@@ -2194,7 +2196,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 		const char *tap_filter = "";
 		GString *tap_error = NULL;
 
-		ws_snprintf(tapbuf, sizeof(tapbuf), "tap%d", i);
+		snprintf(tapbuf, sizeof(tapbuf), "tap%d", i);
 		tok_tap = json_find_attr(buf, tokens, count, tapbuf);
 		if (!tok_tap)
 			break;
@@ -3615,7 +3617,7 @@ sharkd_session_process_setconf(char *buf, const jsmntok_t *tokens, int count)
 	if (!tok_name || tok_name[0] == '\0' || !tok_value)
 		return;
 
-	ws_snprintf(pref, sizeof(pref), "%s:%s", tok_name, tok_value);
+	snprintf(pref, sizeof(pref), "%s:%s", tok_name, tok_value);
 
 	ret = prefs_set_pref(pref, &errmsg);
 
@@ -4251,11 +4253,13 @@ sharkd_session_process(char *buf, const jsmntok_t *tokens, int count)
 }
 
 int
-sharkd_session_main(void)
+sharkd_session_main(int mode_setting)
 {
 	char buf[2 * 1024];
 	jsmntok_t *tokens = NULL;
 	int tokens_max = -1;
+
+	mode = mode_setting;
 
 	fprintf(stderr, "Hello in child.\n");
 

@@ -15,6 +15,8 @@
 #ifndef __RTP_MEDIA_H__
 #define __RTP_MEDIA_H__
 
+#include <glib.h>
+
 /** @file
  *  "RTP Player" dialog box common routines.
  *  @ingroup main_ui_group
@@ -24,8 +26,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#include <glib.h>
-
 /****************************************************************************/
 /* INTERFACE */
 /****************************************************************************/
@@ -33,6 +33,7 @@ extern "C" {
 typedef gint16 SAMPLE;
 #define SAMPLE_MAX G_MAXINT16
 #define SAMPLE_MIN G_MININT16
+#define SAMPLE_BYTES (sizeof(SAMPLE) / sizeof(char))
 
 /* Defines an RTP packet */
 typedef struct _rtp_packet {

@@ -13,12 +13,6 @@ add_subdirectory(asn1 EXCLUDE_FROM_ALL)
 add_subdirectory(dcerpc EXCLUDE_FROM_ALL)
 add_subdirectory(pidl EXCLUDE_FROM_ALL)
 
-include_directories(
-	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_SOURCE_DIR}/epan
-)
-
 add_custom_command(
 	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/packet-ncp2222.c
 	COMMAND ${PYTHON_EXECUTABLE}
@@ -260,6 +254,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-ansi_map.h
 	packet-ansi_tcap.h
 	packet-arp.h
+	packet-asap+enrp-common.h
 	packet-atalk.h
 	packet-atm.h
 	packet-atn-ulcs.h
@@ -706,6 +701,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-aruba-papi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ar_drone.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-asap.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-asap+enrp-common.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ascend.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-asf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-asphodel.c
@@ -1551,6 +1547,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-openwire.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-opsi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-optommp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-opus.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-oran.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-osc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-oscore.c
@@ -1893,6 +1890,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vcdu.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vicp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vines.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-vj-comp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vlan.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vmlab.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vnc.c
@@ -2017,7 +2015,7 @@ set(ALL_DISSECTOR_SRC
 )
 
 #
-# We pass the arguments to make-dissectors in a file to avoid limitations
+# We pass the arguments to make-regs.py in a file to avoid limitations
 # with the number of arguments handled by main().
 #
 file(GENERATE
@@ -2056,6 +2054,24 @@ add_library(dissectors OBJECT
 	${DISSECTOR_SUPPORT_SRC}
 )
 
+target_include_directories(dissectors
+	SYSTEM PRIVATE
+		${GCRYPT_INCLUDE_DIRS}
+		${GNUTLS_INCLUDE_DIRS}
+		${KERBEROS_INCLUDE_DIRS}
+		${LIBXML2_INCLUDE_DIRS}
+		${LZ4_INCLUDE_DIRS}
+		${NGHTTP2_INCLUDE_DIRS}
+		${SMI_INCLUDE_DIRS}
+		${SNAPPY_INCLUDE_DIRS}
+		${ZLIB_INCLUDE_DIRS}
+		${ZSTD_INCLUDE_DIRS}
+	PRIVATE
+		${CMAKE_CURRENT_BINARY_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}
+		${CMAKE_SOURCE_DIR}/epan
+)
+
 set_target_properties(dissectors PROPERTIES
 	FOLDER "Libs/epan/dissectors"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
@@ -2072,8 +2088,8 @@ CHECKAPI(
 	NAME
 	  dissectors
 	SWITCHES
-	  --group abort
-	  --group termoutput:5 --summary-group termoutput
+	  --group dissectors-prohibited
+	  --group dissectors-restricted:5 --summary-group dissectors-restricted
 	  --file ${CHECKAPI_FILE_LIST}
 	SOURCES
 	  ${DISSECTOR_SUPPORT_SRC}

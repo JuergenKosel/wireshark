@@ -7,12 +7,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 
-include_directories(
-	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_SOURCE_DIR}/epan
-)
-
 set(FTYPE_PUBLIC_HEADERS
 	ftypes.h
 )
@@ -52,6 +46,13 @@ add_library(ftypes OBJECT
 	${FTYPE_FILES}
 )
 
+target_include_directories(ftypes
+	PRIVATE
+		${CMAKE_CURRENT_BINARY_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}
+		${CMAKE_SOURCE_DIR}/epan
+)
+
 set_target_properties(ftypes PROPERTIES
 	FOLDER "Libs/epan/ftypes"
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
@@ -65,7 +66,6 @@ CHECKAPI(
 	NAME
 	  ftypes
 	SWITCHES
-	  -g termoutput
 	SOURCES
 	  ${FTYPE_FILES}
 )

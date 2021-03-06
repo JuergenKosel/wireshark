@@ -59,9 +59,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  ansi_tsb58_srvc_cat_vals_ext@Base 1.12.0~rc1
  asn1_ctx_init@Base 1.9.1
  attributes_page_vals_ext@Base 1.12.0~rc1
- ber_decode_as@Base 1.9.1
  ber_decode_as_foreach@Base 1.9.1
- ber_set_filename@Base 1.9.1
  bluetooth_company_id_vals_ext@Base 1.99.6
  bluetooth_gatt_has_no_parameter@Base 2.1.0
  bluetooth_uuid_vals@Base 1.99.2
@@ -567,6 +565,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  epan_load_settings@Base 2.3.0
  epan_memmem@Base 1.9.1
  epan_new@Base 1.12.0~rc1
+ epan_plugins_supported@Base 3.5.0
  epan_register_plugin@Base 2.5.0
  epan_strcasestr@Base 1.9.1
  escape_string@Base 1.9.1
@@ -785,6 +784,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  get_data_source_name@Base 1.9.1
  get_data_source_tvb@Base 1.9.1
  get_data_source_tvb_by_name@Base 2.3.0
+ get_dccp_stream_count@Base 3.5.0
  get_dissector_names@Base 1.12.0~rc1
  get_dissector_table_param@Base 1.99.2
  get_dissector_table_selector_type@Base 1.9.1
@@ -1452,6 +1452,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  scsi_ssc_vals_ext@Base 1.12.0~rc1
  scsistat_param@Base 2.5.0
  sctp_port_to_display@Base 1.99.2
+ sctpppid_val_ext@Base 3.5.0
  secrets_get_available_keys@Base 2.9.1
  secrets_rsa_decrypt@Base 2.9.0
  secrets_verify_key@Base 2.9.1
@@ -1709,6 +1710,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  tvb_address_var_to_str@Base 1.99.2
  tvb_ascii_isprint@Base 2.9.0
  tvb_bcd_dig_to_wmem_packet_str@Base 1.12.0~rc1
+ tvb_bcd_dig_to_wmem_packet_str_be@Base 3.5.0
  tvb_bytes_exist@Base 1.9.1
  tvb_bytes_to_str@Base 1.99.2
  tvb_bytes_to_str_punct@Base 1.99.2

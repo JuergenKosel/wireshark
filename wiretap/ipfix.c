@@ -94,6 +94,10 @@ typedef struct ipfix_set_header_s {
 #define IPFIX_SET_HDR_SIZE 4
 
 
+static int ipfix_file_type_subtype = -1;
+
+void register_ipfix(void);
+
 /* Read IPFIX message header from file.  Return true on success.  Set *err to
  * 0 on EOF, any other value for "real" errors (EOF is ok, since return
  * value is still FALSE)
@@ -269,7 +273,7 @@ ipfix_open(wtap *wth, int *err, gchar **err_info)
     wth->file_tsprec = WTAP_TSPREC_SEC;
     wth->subtype_read = ipfix_read;
     wth->subtype_seek_read = ipfix_seek_read;
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_IPFIX;
+    wth->file_type_subtype = ipfix_file_type_subtype;
 
     /*
      * Add an IDB; we don't know how many interfaces were
@@ -322,6 +326,31 @@ ipfix_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec,
         return FALSE;
     }
     return TRUE;
+}
+
+static const struct supported_block_type ipfix_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info ipfix_info = {
+    "IPFIX File Format", "ipfix", "pfx", "ipfix",
+    FALSE, BLOCKS_SUPPORTED(ipfix_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_ipfix(void)
+{
+    ipfix_file_type_subtype = wtap_register_file_type_subtype(&ipfix_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("IPFIX",
+                                                   ipfix_file_type_subtype);
 }
 
 /*

@@ -15,6 +15,7 @@
  * https://tools.ietf.org/html/draft-ietf-quic-transport-33
  * https://tools.ietf.org/html/draft-ietf-quic-tls-33
  * https://tools.ietf.org/html/draft-ietf-quic-invariants-12
+ * https://tools.ietf.org/html/draft-ietf-quic-version-negotiation-03
  *
  * Extension:
  * https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03
@@ -443,51 +444,62 @@ static inline gboolean is_quic_draft_max(guint32 version, guint8 max_version) {
     return draft_version && draft_version <= max_version;
 }
 
-const value_string quic_version_vals[] = {
-    { 0x00000000, "Version Negotiation" },
-    { 0x00000001, "1" },
+const range_string quic_version_vals[] = {
+    { 0x00000000, 0x00000000, "Version Negotiation" },
+    { 0x00000001, 0x00000001, "1" },
+    { 0x45474700, 0x454747ff, "Quant" },
+    { 0x50435130, 0x50435131, "Picoquic internal" },
+    { 0x50524f58, 0x50524f58, "Proxied QUIC (PROX)" },
     /* Versions QXXX < Q050 are dissected by Wireshark as GQUIC and not as QUIC.
        Nonetheless, some implementations report these values in "Version Negotiation"
        packets, so decode these fields */
-    { 0x51303433, "Google Q043" },
-    { 0x51303434, "Google Q044" },
-    { 0x51303436, "Google Q046" },
-    { 0x51303530, "Google Q050" },
-    { 0x54303530, "Google T050" },
-    { 0x54303531, "Google T051" },
-    { 0xfaceb001, "Facebook mvfst (draft-22)" },
-    { 0xfaceb002, "Facebook mvfst (draft-27)" },
-    { 0xfaceb00e, "Facebook mvfst (Experimental)" },
-    { 0xff000004, "draft-04" },
-    { 0xff000005, "draft-05" },
-    { 0xff000006, "draft-06" },
-    { 0xff000007, "draft-07" },
-    { 0xff000008, "draft-08" },
-    { 0xff000009, "draft-09" },
-    { 0xff00000a, "draft-10" },
-    { 0xff00000b, "draft-11" },
-    { 0xff00000c, "draft-12" },
-    { 0xff00000d, "draft-13" },
-    { 0xff00000e, "draft-14" },
-    { 0xff00000f, "draft-15" },
-    { 0xff000010, "draft-16" },
-    { 0xff000011, "draft-17" },
-    { 0xff000012, "draft-18" },
-    { 0xff000013, "draft-19" },
-    { 0xff000014, "draft-20" },
-    { 0xff000015, "draft-21" },
-    { 0xff000016, "draft-22" },
-    { 0xff000017, "draft-23" },
-    { 0xff000018, "draft-24" },
-    { 0xff000019, "draft-25" },
-    { 0xff00001a, "draft-26" },
-    { 0xff00001b, "draft-27" },
-    { 0xff00001c, "draft-28" },
-    { 0xff00001d, "draft-29" },
-    { 0xff00001e, "draft-30" },
-    { 0xff00001f, "draft-31" },
-    { 0xff000020, "draft-32" },
-    { 0, NULL }
+    { 0x51303433, 0x51303433, "Google Q043" },
+    { 0x51303434, 0x51303434, "Google Q044" },
+    { 0x51303436, 0x51303436, "Google Q046" },
+    { 0x51303530, 0x51303530, "Google Q050" },
+    { 0x51474f00, 0x51474fff, "QGO (QUIC GO)" },
+    { 0x54303530, 0x54303530, "Google T050" },
+    { 0x54303531, 0x54303531, "Google T051" },
+    { 0x91c17000, 0x91c170ff, "Quicly" },
+    { 0xabcd0000, 0xabcd000f, "MsQuic" },
+    { 0xf0f0f0f0, 0xf0f0f0ff, "ETH Zürich (Measurability experiments)" },
+    { 0xf0f0f1f0, 0xf0f0f1ff, "Telecom Italia (Measurability experiments)" },
+    { 0xf123f0c0, 0xf123f0cf, "MozQuic" },
+    { 0xfaceb001, 0xfaceb001, "Facebook mvfst (draft-22)" },
+    { 0xfaceb002, 0xfaceb002, "Facebook mvfst (draft-27)" },
+    { 0xfaceb003, 0xfaceb00d, "Facebook mvfst" },
+    { 0xfaceb00e, 0xfaceb00e, "Facebook mvfst (Experimental)" },
+    { 0xfaceb00f, 0xfaceb00f, "Facebook mvfst" },
+    { 0xff000004, 0xff000004, "draft-04" },
+    { 0xff000005, 0xff000005, "draft-05" },
+    { 0xff000006, 0xff000006, "draft-06" },
+    { 0xff000007, 0xff000007, "draft-07" },
+    { 0xff000008, 0xff000008, "draft-08" },
+    { 0xff000009, 0xff000009, "draft-09" },
+    { 0xff00000a, 0xff00000a, "draft-10" },
+    { 0xff00000b, 0xff00000b, "draft-11" },
+    { 0xff00000c, 0xff00000c, "draft-12" },
+    { 0xff00000d, 0xff00000d, "draft-13" },
+    { 0xff00000e, 0xff00000e, "draft-14" },
+    { 0xff00000f, 0xff00000f, "draft-15" },
+    { 0xff000010, 0xff000010, "draft-16" },
+    { 0xff000011, 0xff000011, "draft-17" },
+    { 0xff000012, 0xff000012, "draft-18" },
+    { 0xff000013, 0xff000013, "draft-19" },
+    { 0xff000014, 0xff000014, "draft-20" },
+    { 0xff000015, 0xff000015, "draft-21" },
+    { 0xff000016, 0xff000016, "draft-22" },
+    { 0xff000017, 0xff000017, "draft-23" },
+    { 0xff000018, 0xff000018, "draft-24" },
+    { 0xff000019, 0xff000019, "draft-25" },
+    { 0xff00001a, 0xff00001a, "draft-26" },
+    { 0xff00001b, 0xff00001b, "draft-27" },
+    { 0xff00001c, 0xff00001c, "draft-28" },
+    { 0xff00001d, 0xff00001d, "draft-29" },
+    { 0xff00001e, 0xff00001e, "draft-30" },
+    { 0xff00001f, 0xff00001f, "draft-31" },
+    { 0xff000020, 0xff000020, "draft-32" },
+    { 0, 0, NULL }
 };
 
 static const value_string quic_short_long_header_vals[] = {
@@ -621,6 +633,7 @@ static const range_string quic_transport_error_code_vals[] = {
     { 0x0010, 0x0010, "NO_VIABLE_PATH" },
     { 0x0100, 0x01ff, "CRYPTO_ERROR" },
     /* 0x40 - 0x3fff Assigned via Specification Required policy. */
+    { 0x53F8, 0x53F8, "VERSION_NEGOTIATION_ERROR" },
     { 0, 0, NULL }
 };
 
@@ -3322,13 +3335,23 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
     return offset;
 }
 
+void
+quic_proto_tree_add_version(tvbuff_t *tvb, proto_tree *tree, int hfindex, guint offset)
+{
+    guint32 version;
+    proto_item *ti;
+
+    ti = proto_tree_add_item_ret_uint(tree, hfindex, tvb, offset, 4, ENC_BIG_ENDIAN, &version);
+    if ((version & 0x0F0F0F0F) == 0x0a0a0a0a) {
+        proto_item_append_text(ti, " (GREASE)");
+    }
+}
+
 static int
 dissect_quic_version_negotiation(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree, const quic_packet_info_t *quic_packet)
 {
     guint       offset = 0;
     quic_cid_t  dcid = {.len=0}, scid = {.len=0};
-    guint32 supported_version;
-    proto_item *ti;
 
     col_set_str(pinfo->cinfo, COL_INFO, "Version Negotiation");
 
@@ -3339,10 +3362,7 @@ dissect_quic_version_negotiation(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 
     /* Supported Version */
     while(tvb_reported_length_remaining(tvb, offset) > 0){
-        ti = proto_tree_add_item_ret_uint(quic_tree, hf_quic_supported_version, tvb, offset, 4, ENC_BIG_ENDIAN, &supported_version);
-        if ((supported_version & 0x0F0F0F0F) == 0x0a0a0a0a) {
-            proto_item_append_text(ti, " (GREASE)");
-        }
+        quic_proto_tree_add_version(tvb, quic_tree, hf_quic_supported_version, offset);
         offset += 4;
     }
 
@@ -3858,12 +3878,12 @@ proto_register_quic(void)
         },
         { &hf_quic_version,
           { "Version", "quic.version",
-            FT_UINT32, BASE_HEX, VALS(quic_version_vals), 0x0,
+            FT_UINT32, BASE_RANGE_STRING | BASE_HEX, RVALS(quic_version_vals), 0x0,
             NULL, HFILL }
         },
         { &hf_quic_supported_version,
           { "Supported Version", "quic.supported_version",
-            FT_UINT32, BASE_HEX, VALS(quic_version_vals), 0x0,
+            FT_UINT32, BASE_RANGE_STRING | BASE_HEX, RVALS(quic_version_vals), 0x0,
             NULL, HFILL }
         },
         { &hf_quic_vn_unused,

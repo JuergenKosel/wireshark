@@ -86,6 +86,10 @@ static guchar hex_from_char(gchar c);
 static gboolean get_file_time_stamp(gchar* linebuff, time_t *secs, guint32 *usecs);
 
 
+static int log3gpp_file_type_subtype = -1;
+
+void register_log3gpp(void);
+
 /***************************************************************************/
 /* Free log3gpp-specific capture info from file that was open for reading  */
 /***************************************************************************/
@@ -196,7 +200,7 @@ log3gpp_open(wtap *wth, int *err, gchar **err_info _U_)
     /* File is for us. Fill in details so packets can be read   */
 
     /* Set our file type */
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_LOG_3GPP;
+    wth->file_type_subtype = log3gpp_file_type_subtype;
 
     /* Use our own encapsulation to send all packets to our stub dissector */
     wth->file_encap = WTAP_ENCAP_LOG_3GPP;
@@ -882,6 +886,31 @@ gboolean get_file_time_stamp(gchar* linebuff, time_t *secs, guint32 *usecs)
     return TRUE;
 }
 
+static const struct supported_block_type log3gpp_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info log3gpp_info = {
+    "3GPP Log", "3gpp_log", "*.log", NULL,
+    TRUE, BLOCKS_SUPPORTED(log3gpp_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_log3gpp(void)
+{
+    log3gpp_file_type_subtype = wtap_register_file_type_subtype(&log3gpp_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("LOG_3GPP",
+                                                   log3gpp_file_type_subtype);
+}
+
 #if 0
 /* Register with wtap */
 void wtap_register_phonelog(void) {
@@ -894,9 +923,10 @@ void wtap_register_phonelog(void) {
         wtap_register_open_info(&phonelog_oi, TRUE);
 
         encap_3gpp_log = wtap_register_encap_type("3GPP Log","3gpp_log");
-        wf_3gpp_log =  wtap_register_file_type_subtypes(&fi, WTAP_FILE_TYPE_SUBTYPE_UNKNOWN);
+        wf_3gpp_log =  wtap_register_file_type_subtype(&fi, WTAP_FILE_TYPE_SUBTYPE_UNKNOWN);
 }
 #endif
+
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
  *

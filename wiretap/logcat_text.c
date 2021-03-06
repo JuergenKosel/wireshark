@@ -20,6 +20,16 @@ struct dumper_t {
     int type;
 };
 
+static int logcat_text_brief_file_type_subtype = -1;
+static int logcat_text_process_file_type_subtype = -1;
+static int logcat_text_tag_file_type_subtype = -1;
+static int logcat_text_thread_file_type_subtype = -1;
+static int logcat_text_time_file_type_subtype = -1;
+static int logcat_text_threadtime_file_type_subtype = -1;
+static int logcat_text_long_file_type_subtype = -1;
+
+void register_logcat_text(void);
+
 /* Returns '?' for invalid priorities */
 static gchar get_priority(const guint8 priority) {
     static gchar priorities[] = "??VDIWEFS";
@@ -187,7 +197,7 @@ static gboolean logcat_text_read_packet(FILE_T fh, wtap_rec *rec,
         return FALSE;
     }
 
-    if (WTAP_FILE_TYPE_SUBTYPE_LOGCAT_LONG == file_type &&
+    if (logcat_text_long_file_type_subtype == file_type &&
             !g_regex_match_simple(SPECIAL_STRING, cbuff, (GRegexCompileFlags)(G_REGEX_ANCHORED | G_REGEX_RAW), G_REGEX_MATCH_NOTEMPTY)) {
         gint64 file_off = 0;
         gchar *lbuff;
@@ -219,11 +229,11 @@ static gboolean logcat_text_read_packet(FILE_T fh, wtap_rec *rec,
 
     ws_buffer_assure_space(buf, rec->rec_header.packet_header.caplen + 1);
     pd = ws_buffer_start_ptr(buf);
-    if ((WTAP_FILE_TYPE_SUBTYPE_LOGCAT_TIME == file_type
-            || WTAP_FILE_TYPE_SUBTYPE_LOGCAT_THREADTIME == file_type
-            || WTAP_FILE_TYPE_SUBTYPE_LOGCAT_LONG == file_type)
+    if ((logcat_text_time_file_type_subtype == file_type
+            || logcat_text_threadtime_file_type_subtype == file_type
+            || logcat_text_long_file_type_subtype == file_type)
             && '-' != cbuff[0]) { /* the last part filters out the -- beginning of... lines */
-        if (WTAP_FILE_TYPE_SUBTYPE_LOGCAT_LONG == file_type) {
+        if (logcat_text_long_file_type_subtype == file_type) {
             get_time(cbuff+2, rec);
         } else {
             get_time(cbuff, rec);
@@ -276,31 +286,31 @@ wtap_open_return_val logcat_text_open(wtap *wth, int *err, gchar **err_info _U_)
 
     if (g_regex_match_simple(BRIEF_STRING, cbuff, (GRegexCompileFlags)(G_REGEX_ANCHORED | G_REGEX_RAW),
             G_REGEX_MATCH_NOTEMPTY)) {
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_LOGCAT_BRIEF;
+        wth->file_type_subtype = logcat_text_brief_file_type_subtype;
         wth->file_encap = WTAP_ENCAP_LOGCAT_BRIEF;
     } else if (g_regex_match_simple(TAG_STRING, cbuff, (GRegexCompileFlags)(G_REGEX_ANCHORED | G_REGEX_RAW),
             G_REGEX_MATCH_NOTEMPTY)) {
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_LOGCAT_TAG;
+        wth->file_type_subtype = logcat_text_tag_file_type_subtype;
         wth->file_encap = WTAP_ENCAP_LOGCAT_TAG;
     } else if (g_regex_match_simple(PROCESS_STRING, cbuff, (GRegexCompileFlags)(G_REGEX_ANCHORED | G_REGEX_RAW),
             G_REGEX_MATCH_NOTEMPTY)) {
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_LOGCAT_PROCESS;
+        wth->file_type_subtype = logcat_text_process_file_type_subtype;
         wth->file_encap = WTAP_ENCAP_LOGCAT_PROCESS;
     } else if (g_regex_match_simple(TIME_STRING, cbuff, (GRegexCompileFlags)(G_REGEX_ANCHORED | G_REGEX_RAW),
             G_REGEX_MATCH_NOTEMPTY)) {
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_LOGCAT_TIME;
+        wth->file_type_subtype = logcat_text_time_file_type_subtype;
         wth->file_encap = WTAP_ENCAP_LOGCAT_TIME;
     } else if (g_regex_match_simple(THREAD_STRING, cbuff, (GRegexCompileFlags)(G_REGEX_ANCHORED | G_REGEX_RAW),
             G_REGEX_MATCH_NOTEMPTY)) {
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_LOGCAT_THREAD;
+        wth->file_type_subtype = logcat_text_thread_file_type_subtype;
         wth->file_encap = WTAP_ENCAP_LOGCAT_THREAD;
     } else if (g_regex_match_simple(THREADTIME_STRING, cbuff, (GRegexCompileFlags)(G_REGEX_ANCHORED | G_REGEX_RAW),
             G_REGEX_MATCH_NOTEMPTY)) {
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_LOGCAT_THREADTIME;
+        wth->file_type_subtype = logcat_text_threadtime_file_type_subtype;
         wth->file_encap = WTAP_ENCAP_LOGCAT_THREADTIME;
     } else if (g_regex_match_simple(LONG_STRING, cbuff, (GRegexCompileFlags)(G_REGEX_ANCHORED | G_REGEX_RAW),
             G_REGEX_MATCH_NOTEMPTY)) {
-        wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_LOGCAT_LONG;
+        wth->file_type_subtype = logcat_text_long_file_type_subtype;
         wth->file_encap = WTAP_ENCAP_LOGCAT_LONG;
     } else {
         g_free(cbuff);
@@ -320,7 +330,7 @@ wtap_open_return_val logcat_text_open(wtap *wth, int *err, gchar **err_info _U_)
     return WTAP_OPEN_MINE;
 }
 
-int logcat_text_brief_dump_can_write_encap(int encap) {
+static int logcat_text_brief_dump_can_write_encap(int encap) {
     if (encap == WTAP_ENCAP_PER_PACKET)
         return WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
 
@@ -334,7 +344,7 @@ int logcat_text_brief_dump_can_write_encap(int encap) {
     }
 }
 
-int logcat_text_process_dump_can_write_encap(int encap) {
+static int logcat_text_process_dump_can_write_encap(int encap) {
     if (encap == WTAP_ENCAP_PER_PACKET)
         return WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
 
@@ -348,7 +358,7 @@ int logcat_text_process_dump_can_write_encap(int encap) {
     }
 }
 
-int logcat_text_tag_dump_can_write_encap(int encap) {
+static int logcat_text_tag_dump_can_write_encap(int encap) {
     if (encap == WTAP_ENCAP_PER_PACKET)
         return WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
 
@@ -362,7 +372,7 @@ int logcat_text_tag_dump_can_write_encap(int encap) {
     }
 }
 
-int logcat_text_time_dump_can_write_encap(int encap) {
+static int logcat_text_time_dump_can_write_encap(int encap) {
     if (encap == WTAP_ENCAP_PER_PACKET)
         return WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
 
@@ -376,7 +386,7 @@ int logcat_text_time_dump_can_write_encap(int encap) {
     }
 }
 
-int logcat_text_thread_dump_can_write_encap(int encap) {
+static int logcat_text_thread_dump_can_write_encap(int encap) {
     if (encap == WTAP_ENCAP_PER_PACKET)
         return WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
 
@@ -390,7 +400,7 @@ int logcat_text_thread_dump_can_write_encap(int encap) {
     }
 }
 
-int logcat_text_threadtime_dump_can_write_encap(int encap) {
+static int logcat_text_threadtime_dump_can_write_encap(int encap) {
     if (encap == WTAP_ENCAP_PER_PACKET)
         return WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
 
@@ -404,7 +414,7 @@ int logcat_text_threadtime_dump_can_write_encap(int encap) {
     }
 }
 
-int logcat_text_long_dump_can_write_encap(int encap) {
+static int logcat_text_long_dump_can_write_encap(int encap) {
     if (encap == WTAP_ENCAP_PER_PACKET)
         return WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED;
 
@@ -590,32 +600,153 @@ static gboolean logcat_text_dump_open(wtap_dumper *wdh, guint dump_type) {
     return TRUE;
 }
 
-gboolean logcat_text_brief_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
+static gboolean logcat_text_brief_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
     return logcat_text_dump_open(wdh, WTAP_ENCAP_LOGCAT_BRIEF);
 }
 
-gboolean logcat_text_process_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
+static gboolean logcat_text_process_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
     return logcat_text_dump_open(wdh, WTAP_ENCAP_LOGCAT_PROCESS);
 }
 
-gboolean logcat_text_tag_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
+static gboolean logcat_text_tag_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
     return logcat_text_dump_open(wdh, WTAP_ENCAP_LOGCAT_TAG);
 }
 
-gboolean logcat_text_time_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
+static gboolean logcat_text_time_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
     return logcat_text_dump_open(wdh, WTAP_ENCAP_LOGCAT_TIME);
 }
 
-gboolean logcat_text_thread_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
+static gboolean logcat_text_thread_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
     return logcat_text_dump_open(wdh, WTAP_ENCAP_LOGCAT_THREAD);
 }
 
-gboolean logcat_text_threadtime_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
+static gboolean logcat_text_threadtime_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
     return logcat_text_dump_open(wdh, WTAP_ENCAP_LOGCAT_THREADTIME);
 }
 
-gboolean logcat_text_long_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
+static gboolean logcat_text_long_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_) {
     return logcat_text_dump_open(wdh, WTAP_ENCAP_LOGCAT_LONG);
+}
+
+static const struct supported_block_type logcat_text_brief_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info logcat_text_brief_info = {
+    "Android Logcat Brief text format", "logcat-brief", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(logcat_text_brief_blocks_supported),
+    logcat_text_brief_dump_can_write_encap, logcat_text_brief_dump_open, NULL
+};
+
+static const struct supported_block_type logcat_text_process_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info logcat_text_process_info = {
+    "Android Logcat Process text format", "logcat-process", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(logcat_text_process_blocks_supported),
+    logcat_text_process_dump_can_write_encap, logcat_text_process_dump_open, NULL
+};
+
+static const struct supported_block_type logcat_text_tag_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info logcat_text_tag_info = {
+    "Android Logcat Tag text format", "logcat-tag", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(logcat_text_tag_blocks_supported),
+    logcat_text_tag_dump_can_write_encap, logcat_text_tag_dump_open, NULL
+};
+
+static const struct supported_block_type logcat_text_thread_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info logcat_text_thread_info = {
+    "Android Logcat Thread text format", "logcat-thread", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(logcat_text_thread_blocks_supported),
+    logcat_text_thread_dump_can_write_encap, logcat_text_thread_dump_open, NULL
+};
+
+static const struct supported_block_type logcat_text_time_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info logcat_text_time_info = {
+    "Android Logcat Time text format", "logcat-time", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(logcat_text_time_blocks_supported),
+    logcat_text_time_dump_can_write_encap, logcat_text_time_dump_open, NULL
+};
+
+static const struct supported_block_type logcat_text_threadtime_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info logcat_text_threadtime_info = {
+    "Android Logcat Threadtime text format", "logcat-threadtime", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(logcat_text_threadtime_blocks_supported),
+    logcat_text_threadtime_dump_can_write_encap, logcat_text_threadtime_dump_open, NULL
+};
+
+static const struct supported_block_type logcat_text_long_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info logcat_text_long_info = {
+    "Android Logcat Long text format", "logcat-long", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(logcat_text_long_blocks_supported),
+    logcat_text_long_dump_can_write_encap, logcat_text_long_dump_open, NULL
+};
+
+void register_logcat_text(void)
+{
+    logcat_text_brief_file_type_subtype = wtap_register_file_type_subtype(&logcat_text_brief_info);
+    logcat_text_process_file_type_subtype = wtap_register_file_type_subtype(&logcat_text_process_info);
+    logcat_text_tag_file_type_subtype = wtap_register_file_type_subtype(&logcat_text_tag_info);
+    logcat_text_thread_file_type_subtype = wtap_register_file_type_subtype(&logcat_text_thread_info);
+    logcat_text_time_file_type_subtype = wtap_register_file_type_subtype(&logcat_text_time_info);
+    logcat_text_threadtime_file_type_subtype = wtap_register_file_type_subtype(&logcat_text_threadtime_info);
+    logcat_text_long_file_type_subtype = wtap_register_file_type_subtype(&logcat_text_long_info);
+
+    /*
+     * Register names for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("LOGCAT_BRIEF",
+                                                   logcat_text_brief_file_type_subtype);
+    wtap_register_backwards_compatibility_lua_name("LOGCAT_PROCESS",
+                                                   logcat_text_process_file_type_subtype);
+    wtap_register_backwards_compatibility_lua_name("LOGCAT_TAG",
+                                                   logcat_text_tag_file_type_subtype);
+    wtap_register_backwards_compatibility_lua_name("LOGCAT_THREAD",
+                                                   logcat_text_thread_file_type_subtype);
+    wtap_register_backwards_compatibility_lua_name("LOGCAT_TIME",
+                                                   logcat_text_time_file_type_subtype);
+    wtap_register_backwards_compatibility_lua_name("LOGCAT_THREADTIME",
+                                                   logcat_text_threadtime_file_type_subtype);
+    wtap_register_backwards_compatibility_lua_name("LOGCAT_LONG",
+                                                   logcat_text_long_file_type_subtype);
 }
 
 /*

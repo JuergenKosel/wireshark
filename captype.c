@@ -20,8 +20,17 @@
 #include <locale.h>
 #include <errno.h>
 
-#ifdef HAVE_GETOPT_H
+/*
+ * If we have getopt_long() in the system library, include <getopt.h>.
+ * Otherwise, we're using our own getopt_long() (either because the
+ * system has getopt() but not getopt_long(), as with some UN*Xes,
+ * or because it doesn't even have getopt(), as with Windows), so
+ * include our getopt_long()'s header.
+ */
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
+#else
+#include <wsutil/wsgetopt.h>
 #endif
 
 #include <glib.h>
@@ -41,10 +50,6 @@
 
 #include <wsutil/report_message.h>
 #include <wsutil/str_util.h>
-
-#ifndef HAVE_GETOPT_LONG
-#include "wsutil/wsgetopt.h"
-#endif
 
 #include "ui/failure_message.h"
 
@@ -168,7 +173,7 @@ main(int argc, char *argv[])
     wth = wtap_open_offline(argv[i], WTAP_TYPE_AUTO, &err, &err_info, FALSE);
 
     if(wth) {
-      printf("%s: %s\n", argv[i], wtap_file_type_subtype_short_string(wtap_file_type_subtype(wth)));
+      printf("%s: %s\n", argv[i], wtap_file_type_subtype_name(wtap_file_type_subtype(wth)));
       wtap_close(wth);
     } else {
       if (err == WTAP_ERR_FILE_UNKNOWN_FORMAT)

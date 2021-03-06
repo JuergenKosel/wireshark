@@ -277,7 +277,7 @@ struct _wslua_filehandler {
     struct file_type_subtype_info finfo;
     gboolean is_reader;
     gboolean is_writer;
-    gchar* description;
+    gchar* internal_description; /* XXX - this is redundant; finfo.description should suffice */
     gchar* type;
     gchar* extensions;
     lua_State* L;
@@ -462,6 +462,8 @@ extern int wslua_reg_attributes(lua_State *L, const wslua_attribute_table *t, gb
 #endif
 
 #define WSLUA_FUNCTION extern int
+/* This is for functions intended only to be used in init.lua */
+#define WSLUA_INTERNAL_FUNCTION extern int
 
 #define WSLUA_REGISTER_FUNCTION(name)     { lua_pushcfunction(L, wslua_## name); lua_setglobal(L, #name); }
 

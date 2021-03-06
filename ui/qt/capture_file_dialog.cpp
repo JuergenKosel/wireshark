@@ -106,12 +106,31 @@ CaptureFileDialog::CaptureFileDialog(QWidget *parent, capture_file *cf, QString 
 
 check_savability_t CaptureFileDialog::checkSaveAsWithComments(QWidget *parent, capture_file *cf, int file_type) {
     guint32 comment_types;
+    bool all_comment_types_supported = true;
 
     /* What types of comments do we have? */
     comment_types = cf_comment_types(cf);
 
     /* Does the file's format support all the comments we have? */
-    if (wtap_dump_supports_comment_types(file_type, comment_types)) {
+    if (comment_types & WTAP_COMMENT_PER_SECTION) {
+        if (wtap_file_type_subtype_supports_option(file_type,
+                                                   WTAP_BLOCK_SECTION,
+                                                   OPT_COMMENT) == OPTION_NOT_SUPPORTED)
+            all_comment_types_supported = false;
+    }
+    if (comment_types & WTAP_COMMENT_PER_INTERFACE) {
+        if (wtap_file_type_subtype_supports_option(file_type,
+                                                   WTAP_BLOCK_IF_ID_AND_INFO,
+                                                   OPT_COMMENT) == OPTION_NOT_SUPPORTED)
+            all_comment_types_supported = false;
+    }
+    if (comment_types & WTAP_COMMENT_PER_PACKET) {
+        if (wtap_file_type_subtype_supports_option(file_type,
+                                                   WTAP_BLOCK_PACKET,
+                                                   OPT_COMMENT) == OPTION_NOT_SUPPORTED)
+            all_comment_types_supported = false;
+    }
+    if (all_comment_types_supported) {
         /* Yes.  Let the save happen; we can save all the comments, so
            there's no need to delete them. */
         return SAVE;
@@ -606,7 +625,7 @@ void CaptureFileDialog::addMergeControls(QVBoxLayout &v_box) {
 }
 
 int CaptureFileDialog::selectedFileType() {
-    return type_hash_.value(selectedNameFilter(), -1);
+    return type_hash_.value(selectedNameFilter(), WTAP_FILE_TYPE_SUBTYPE_UNKNOWN);
 }
 
 wtap_compression_type CaptureFileDialog::compressionType() {
@@ -729,8 +748,22 @@ check_savability_t CaptureFileDialog::saveAs(QString &file_name, bool must_suppo
     connect(this, &QFileDialog::filterSelected, this, &CaptureFileDialog::fixFilenameExtension);
 
     if (WiresharkFileDialog::exec() && selectedFiles().length() > 0) {
+        int file_type;
+
         file_name = selectedFiles()[0];
-        return checkSaveAsWithComments(this, cap_file_, selectedFileType());
+        file_type = selectedFileType();
+        /* Is the file type bogus? */
+        if (file_type == WTAP_FILE_TYPE_SUBTYPE_UNKNOWN) {
+            /* This "should not happen". */
+            QMessageBox msg_dialog;
+
+            msg_dialog.setIcon(QMessageBox::Critical);
+            msg_dialog.setText(tr("Unknown file type returned by save as dialog."));
+            msg_dialog.setInformativeText(tr("Please report this as a Wireshark issue at https://gitlab.com/wireshark/wireshark/-/issues."));
+            msg_dialog.exec();
+            return CANCELLED;
+        }
+        return checkSaveAsWithComments(this, cap_file_, file_type);
     }
     return CANCELLED;
 }
@@ -765,8 +798,22 @@ check_savability_t CaptureFileDialog::exportSelectedPackets(QString &file_name, 
     connect(this, &QFileDialog::filterSelected, this, &CaptureFileDialog::fixFilenameExtension);
 
     if (WiresharkFileDialog::exec() && selectedFiles().length() > 0) {
+        int file_type;
+
         file_name = selectedFiles()[0];
-        return checkSaveAsWithComments(this, cap_file_, selectedFileType());
+        file_type = selectedFileType();
+        /* Is the file type bogus? */
+        if (file_type == WTAP_FILE_TYPE_SUBTYPE_UNKNOWN) {
+            /* This "should not happen". */
+            QMessageBox msg_dialog;
+
+            msg_dialog.setIcon(QMessageBox::Critical);
+            msg_dialog.setText(tr("Unknown file type returned by save as dialog."));
+            msg_dialog.setInformativeText(tr("Please report this as a Wireshark issue at https://gitlab.com/wireshark/wireshark/-/issues."));
+            msg_dialog.exec();
+            return CANCELLED;
+        }
+        return checkSaveAsWithComments(this, cap_file_, file_type);
     }
     return CANCELLED;
 }
@@ -813,9 +860,10 @@ QStringList CaptureFileDialog::buildFileSaveAsTypeList(bool must_support_all_com
         required_comment_types = 0; /* none of them */
 
   /* What types of file can we save this file as? */
-    savable_file_types_subtypes = wtap_get_savable_file_types_subtypes(cap_file_->cd_t,
+    savable_file_types_subtypes = wtap_get_savable_file_types_subtypes_for_file(cap_file_->cd_t,
                                                                        cap_file_->linktypes,
-                                                                       required_comment_types);
+                                                                       required_comment_types,
+                                                                       FT_SORT_BY_DESCRIPTION);
 
     if (savable_file_types_subtypes != NULL) {
         int ft;
@@ -826,7 +874,7 @@ QStringList CaptureFileDialog::buildFileSaveAsTypeList(bool must_support_all_com
             ft = g_array_index(savable_file_types_subtypes, int, i);
             if (default_ft_ < 1)
                 default_ft_ = ft; /* first file type is the default */
-            QString type_name(wtap_file_type_subtype_string(ft));
+            QString type_name(wtap_file_type_subtype_description(ft));
             filters << type_name + fileType(ft, type_suffixes_[type_name]);
             type_hash_[type_name] = ft;
         }
@@ -894,7 +942,7 @@ void CaptureFileDialog::preview(const QString & path)
     }
 
     // Format
-    preview_format_.setText(QString::fromUtf8(wtap_file_type_subtype_string(wtap_file_type_subtype(wth))));
+    preview_format_.setText(QString::fromUtf8(wtap_file_type_subtype_description(wtap_file_type_subtype(wth))));
 
     // Size
     gint64 filesize = wtap_file_size(wth, &err);

@@ -1,5 +1,5 @@
-/* dissectors.h
- * Definitions for protocol registration
+/* taps.h
+ * Definitions for tap registration
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -8,14 +8,14 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#ifndef __TAP_REGISTER_H__
-#define __TAP_REGISTER_H__
+#ifndef __TAPS_H__
+#define __TAPS_H__
+
+#include <glib.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-#include <glib.h>
 
 #include <epan/tap.h>
 
@@ -27,7 +27,7 @@ extern const gulong tap_reg_listener_count;
 }
 #endif /* __cplusplus */
 
-#endif /* __TAP_REGISTER_H__ */
+#endif /* __TAPS_H__ */
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html

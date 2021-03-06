@@ -83,6 +83,10 @@ static gboolean ascend_seek_read(wtap *wth, gint64 seek_off,
         wtap_rec *rec, Buffer *buf,
         int *err, gchar **err_info);
 
+static int ascend_file_type_subtype = -1;
+
+void register_ascend(void);
+
 /* Seeks to the beginning of the next packet, and returns the
    byte offset at which the header for that packet begins.
    Returns -1 on failure. */
@@ -261,7 +265,7 @@ wtap_open_return_val ascend_open(wtap *wth, int *err, gchar **err_info)
         return WTAP_OPEN_NOT_MINE;
     }
 
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_ASCEND;
+    wth->file_type_subtype = ascend_file_type_subtype;
     wth->file_encap = WTAP_ENCAP_ASCEND;
 
     wth->snapshot_length = ASCEND_MAX_PKT_LEN;
@@ -451,4 +455,29 @@ static gboolean ascend_seek_read(wtap *wth, gint64 seek_off,
         *err_info = NULL;
     }
     return TRUE;
+}
+
+static const struct supported_block_type ascend_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info ascend_info = {
+    "Lucent/Ascend access server trace", "ascend", "txt", NULL,
+    FALSE, BLOCKS_SUPPORTED(ascend_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_ascend(void)
+{
+    ascend_file_type_subtype = wtap_register_file_type_subtype(&ascend_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("ASCEND",
+                                                   ascend_file_type_subtype);
 }

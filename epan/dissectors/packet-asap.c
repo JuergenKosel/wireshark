@@ -4,18 +4,11 @@
  * RFC 5352
  * RFC 5354
  * RFC 5356
- * https://tools.ietf.org/html/draft-dreibholz-rserpool-asap-hropt-03
- * https://tools.ietf.org/html/draft-dreibholz-rserpool-delay-02
+ * https://tools.ietf.org/html/draft-dreibholz-rserpool-asap-hropt-27
+ * https://tools.ietf.org/html/draft-dreibholz-rserpool-delay-26
  *
- * The code is not as simple as possible for the current protocol
- * but allows to be easily adopted to future versions of the protocol.
- * I will reconsider this after the protocol is an RFC.
- *
- * TODO:
- *   - check message lengths
- *
- * Copyright 2004, 2005, 2006, 2007 Michael Tuexen <tuexen [AT] fh-muenster.de>
- * Copyright 2008 Thomas Dreibholz <dreibh [AT] iem.uni-due.de>
+ * Copyright 2008-2021 Thomas Dreibholz <dreibh [AT] iem.uni-due.de>
+ * Copyright 2004-2007 Michael Tüxen <tuexen [AT] fh-muenster.de>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -33,6 +26,8 @@
 #include <epan/sctpppids.h>
 
 #include <wsutil/str_util.h>
+
+#include "packet-asap+enrp-common.h"
 
 void proto_register_asap(void);
 void proto_reg_handoff_asap(void);
@@ -96,22 +91,11 @@ dissect_parameter(tvbuff_t *, proto_tree *);
 static int
 dissect_asap(tvbuff_t *, packet_info *, proto_tree *, void *);
 
-#define ADD_PADDING(x) ((((x) + 3) >> 2) << 2)
-
 #define ASAP_UDP_PORT  3863
 #define ASAP_TCP_PORT  3863
 #define ASAP_SCTP_PORT 3863
 
 /* Dissectors for error causes. This is common for ASAP and ENRP. */
-
-#define CAUSE_CODE_LENGTH   2
-#define CAUSE_LENGTH_LENGTH 2
-#define CAUSE_HEADER_LENGTH (CAUSE_CODE_LENGTH + CAUSE_LENGTH_LENGTH)
-
-#define CAUSE_HEADER_OFFSET 0
-#define CAUSE_CODE_OFFSET   CAUSE_HEADER_OFFSET
-#define CAUSE_LENGTH_OFFSET (CAUSE_CODE_OFFSET + CAUSE_CODE_LENGTH)
-#define CAUSE_INFO_OFFSET   (CAUSE_LENGTH_OFFSET + CAUSE_LENGTH_LENGTH)
 
 static void
 dissect_unknown_cause(tvbuff_t *cause_tvb, proto_tree *cause_tree, proto_item *cause_item)
@@ -125,30 +109,6 @@ dissect_unknown_cause(tvbuff_t *cause_tvb, proto_tree *cause_tree, proto_item *c
     proto_tree_add_item(cause_tree, hf_cause_info, cause_tvb, CAUSE_INFO_OFFSET, cause_info_length, ENC_NA);
   proto_item_append_text(cause_item, " (code %u and %u byte%s information)", code, cause_info_length, plurality(cause_info_length, "", "s"));
 }
-
-#define UNRECOGNIZED_PARAMETER_CAUSE_CODE                  0x1
-#define UNRECONGNIZED_MESSAGE_CAUSE_CODE                   0x2
-#define INVALID_VALUES                                     0x3
-#define NON_UNIQUE_PE_IDENTIFIER                           0x4
-#define POOLING_POLICY_INCONSISTENT_CAUSE_CODE             0x5
-#define LACK_OF_RESOURCES_CAUSE_CODE                       0x6
-#define INCONSISTENT_TRANSPORT_TYPE_CAUSE_CODE             0x7
-#define INCONSISTENT_DATA_CONTROL_CONFIGURATION_CAUSE_CODE 0x8
-#define UNKNOWN_POOL_HANDLE                                0x9
-#define REJECTION_DUE_TO_SECURITY_CAUSE_CODE               0xa
-
-static const value_string cause_code_values[] = {
-  { UNRECOGNIZED_PARAMETER_CAUSE_CODE,                  "Unrecognized parameter"                  },
-  { UNRECONGNIZED_MESSAGE_CAUSE_CODE,                   "Unrecognized message"                    },
-  { INVALID_VALUES,                                     "Invalid values"                          },
-  { NON_UNIQUE_PE_IDENTIFIER,                           "Non-unique PE identifier"                },
-  { POOLING_POLICY_INCONSISTENT_CAUSE_CODE,             "Pooling policy inconsistent"             },
-  { LACK_OF_RESOURCES_CAUSE_CODE,                       "Lack of resources"                       },
-  { INCONSISTENT_TRANSPORT_TYPE_CAUSE_CODE,             "Inconsistent transport type"             },
-  { INCONSISTENT_DATA_CONTROL_CONFIGURATION_CAUSE_CODE, "Inconsistent data/control type"          },
-  { UNKNOWN_POOL_HANDLE,                                "Unknown pool handle"                     },
-  { REJECTION_DUE_TO_SECURITY_CAUSE_CODE,               "Rejected due to security considerations" },
-  { 0,                                                  NULL                                      } };
 
 static void
 dissect_error_cause(tvbuff_t *cause_tvb, proto_tree *parameter_tree)
@@ -226,18 +186,6 @@ dissect_error_causes(tvbuff_t *error_causes_tvb, proto_tree *parameter_tree)
 
 /* Dissectors for parameters. This is common for ASAP and ENRP. */
 
-#define PARAMETER_TYPE_LENGTH   2
-#define PARAMETER_LENGTH_LENGTH 2
-#define PARAMETER_HEADER_LENGTH (PARAMETER_TYPE_LENGTH + PARAMETER_LENGTH_LENGTH)
-
-#define PARAMETER_HEADER_OFFSET 0
-#define PARAMETER_TYPE_OFFSET   PARAMETER_HEADER_OFFSET
-#define PARAMETER_LENGTH_OFFSET (PARAMETER_TYPE_OFFSET + PARAMETER_TYPE_LENGTH)
-#define PARAMETER_VALUE_OFFSET  (PARAMETER_LENGTH_OFFSET + PARAMETER_LENGTH_LENGTH)
-
-#define IPV4_ADDRESS_LENGTH 4
-#define IPV4_ADDRESS_OFFSET PARAMETER_VALUE_OFFSET
-
 static void
 dissect_ipv4_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item)
 {
@@ -245,23 +193,12 @@ dissect_ipv4_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, prot
   proto_item_append_text(parameter_item, " (%s)", tvb_ip_to_str(parameter_tvb, IPV4_ADDRESS_OFFSET));
 }
 
-#define IPV6_ADDRESS_LENGTH 16
-#define IPV6_ADDRESS_OFFSET PARAMETER_VALUE_OFFSET
-
 static void
 dissect_ipv6_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item)
 {
   proto_tree_add_item(parameter_tree, hf_parameter_ipv6_address, parameter_tvb, IPV6_ADDRESS_OFFSET, IPV6_ADDRESS_LENGTH, ENC_NA);
   proto_item_append_text(parameter_item, " (%s)", tvb_ip6_to_str(parameter_tvb, IPV6_ADDRESS_OFFSET));
 }
-
-#define DCCP_PORT_LENGTH         2
-#define DCCP_RESERVED_LENGTH     2
-#define DCCP_SERVICE_CODE_LENGTH 4
-#define DCCP_PORT_OFFSET         PARAMETER_VALUE_OFFSET
-#define DCCP_RESERVED_OFFSET     (DCCP_PORT_OFFSET + DCCP_PORT_LENGTH)
-#define DCCP_SERVICE_CODE_OFFSET (DCCP_RESERVED_OFFSET + DCCP_RESERVED_LENGTH)
-#define DCCP_ADDRESS_OFFSET      (DCCP_SERVICE_CODE_OFFSET + DCCP_SERVICE_CODE_LENGTH)
 
 static void
 dissect_dccp_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
@@ -276,20 +213,6 @@ dissect_dccp_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_
   dissect_parameters(parameters_tvb, parameter_tree);
 }
 
-#define TRANSPORT_USE_DATA_ONLY         0
-#define TRANSPORT_USE_DATA_PLUS_CONTROL 1
-
-static const value_string transport_use_values[] = {
-  { TRANSPORT_USE_DATA_ONLY,          "Data only"         },
-  { TRANSPORT_USE_DATA_PLUS_CONTROL,  "Data plus control" },
-  { 0,                                NULL                } };
-
-#define SCTP_PORT_LENGTH          2
-#define SCTP_TRANSPORT_USE_LENGTH 2
-#define SCTP_PORT_OFFSET          PARAMETER_VALUE_OFFSET
-#define SCTP_TRANSPORT_USE_OFFSET (SCTP_PORT_OFFSET + SCTP_PORT_LENGTH)
-#define SCTP_ADDRESS_OFFSET       (SCTP_TRANSPORT_USE_OFFSET + SCTP_TRANSPORT_USE_LENGTH)
-
 static void
 dissect_sctp_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
 {
@@ -301,12 +224,6 @@ dissect_sctp_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_
   parameters_tvb = tvb_new_subset_remaining(parameter_tvb, SCTP_ADDRESS_OFFSET);
   dissect_parameters(parameters_tvb, parameter_tree);
 }
-
-#define TCP_PORT_LENGTH          2
-#define TCP_TRANSPORT_USE_LENGTH 2
-#define TCP_PORT_OFFSET          PARAMETER_VALUE_OFFSET
-#define TCP_TRANSPORT_USE_OFFSET (TCP_PORT_OFFSET + TCP_PORT_LENGTH)
-#define TCP_ADDRESS_OFFSET       (TCP_TRANSPORT_USE_OFFSET + TCP_TRANSPORT_USE_LENGTH)
 
 static void
 dissect_tcp_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
@@ -320,12 +237,6 @@ dissect_tcp_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_t
   dissect_parameters(parameters_tvb, parameter_tree);
 }
 
-#define UDP_PORT_LENGTH     2
-#define UDP_RESERVED_LENGTH 2
-#define UDP_PORT_OFFSET     PARAMETER_VALUE_OFFSET
-#define UDP_RESERVED_OFFSET (UDP_PORT_OFFSET + UDP_PORT_LENGTH)
-#define UDP_ADDRESS_OFFSET  (UDP_RESERVED_OFFSET + UDP_RESERVED_LENGTH)
-
 static void
 dissect_udp_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
 {
@@ -338,12 +249,6 @@ dissect_udp_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_t
   dissect_parameters(parameters_tvb, parameter_tree);
 }
 
-#define UDP_LITE_PORT_LENGTH     2
-#define UDP_LITE_RESERVED_LENGTH 2
-#define UDP_LITE_PORT_OFFSET     PARAMETER_VALUE_OFFSET
-#define UDP_LITE_RESERVED_OFFSET (UDP_LITE_PORT_OFFSET + UDP_LITE_PORT_LENGTH)
-#define UDP_LITE_ADDRESS_OFFSET  (UDP_LITE_RESERVED_OFFSET + UDP_LITE_RESERVED_LENGTH)
-
 static void
 dissect_udp_lite_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
 {
@@ -355,58 +260,6 @@ dissect_udp_lite_transport_parameter(tvbuff_t *parameter_tvb, proto_tree *parame
   parameters_tvb = tvb_new_subset_remaining(parameter_tvb, UDP_LITE_ADDRESS_OFFSET);
   dissect_parameters(parameters_tvb, parameter_tree);
 }
-
-#define POLICY_TYPE_LENGTH               4
-#define POLICY_WEIGHT_LENGTH             4
-#define POLICY_PRIORITY_LENGTH           4
-#define POLICY_LOAD_LENGTH               4
-#define POLICY_DEGRADATION_LENGTH        4
-#define POLICY_LUDPF_LOADDPF_LENGTH      4
-#define POLICY_LUDPF_DISTANCE_LENGTH     4
-#define POLICY_WRANDDPF_WEIGHTDPF_LENGTH 4
-#define POLICY_WRANDDPF_DISTANCE_LENGTH  4
-
-#define POLICY_TYPE_OFFSET        PARAMETER_VALUE_OFFSET
-#define POLICY_VALUE_OFFSET       (POLICY_TYPE_OFFSET + POLICY_TYPE_LENGTH)
-#define POLICY_WEIGHT_OFFSET      POLICY_VALUE_OFFSET
-#define POLICY_PRIORITY_OFFSET    POLICY_VALUE_OFFSET
-#define POLICY_LOAD_OFFSET        POLICY_VALUE_OFFSET
-#define POLICY_DEGRADATION_OFFSET (POLICY_LOAD_OFFSET + POLICY_LOAD_LENGTH)
-
-#define POLICY_LUDPF_LOADDPF_OFFSET      (POLICY_LOAD_OFFSET + POLICY_LOAD_LENGTH)
-#define POLICY_LUDPF_DISTANCE_OFFSET     (POLICY_LUDPF_LOADDPF_OFFSET + POLICY_LUDPF_LOADDPF_LENGTH)
-#define POLICY_WRANDDPF_WEIGHTDPF_OFFSET (POLICY_WEIGHT_OFFSET + POLICY_WEIGHT_LENGTH)
-#define POLICY_WRANDDPF_DISTANCE_OFFSET  (POLICY_WRANDDPF_WEIGHTDPF_OFFSET + POLICY_WRANDDPF_WEIGHTDPF_LENGTH)
-
-
-#define ROUND_ROBIN_POLICY           0x00000001
-#define WEIGHTED_ROUND_ROBIN_POLICY  0x00000002
-#define RANDOM_POLICY                0x00000003
-#define WEIGHTED_RANDOM_POLICY       0x00000004
-#define PRIORITY_POLICY              0x00000005
-#define LEAST_USED_POLICY            0x40000001
-#define LEAST_USED_WITH_DEG_POLICY   0x40000002
-#define PRIORITY_LEAST_USED_POLICY   0x40000003
-#define RANDOMIZED_LEAST_USED_POLICY 0x40000004
-
-#define PRIORITY_LEAST_USED_DEG_POLICY 0xb0001003
-#define WEIGHTED_RANDOM_DPF_POLICY     0xb0002001
-#define LEAST_USED_DPF_POLICY          0xb0002002
-
-static const value_string policy_type_values[] = {
-  { ROUND_ROBIN_POLICY,             "Round Robin (RR)" },
-  { WEIGHTED_ROUND_ROBIN_POLICY,    "Weighted Round Robin (WRR)" },
-  { RANDOM_POLICY,                  "Random (RAND)"},
-  { WEIGHTED_RANDOM_POLICY,         "Weighted Random (WRAND)" },
-  { PRIORITY_POLICY,                "Priority (PRI)" },
-  { LEAST_USED_POLICY,              "Least Used (LU)" },
-  { LEAST_USED_WITH_DEG_POLICY,     "Least Used with Degradation (LUD)" },
-  { PRIORITY_LEAST_USED_POLICY,     "Priority Least Used (PLU)" },
-  { PRIORITY_LEAST_USED_DEG_POLICY, "Priority Least Used with Degradation (PLUD)" },
-  { RANDOMIZED_LEAST_USED_POLICY,   "Randomized Least Used (RLU)" },
-  { LEAST_USED_DPF_POLICY,          "Least Used with Delay Penalty Factor (LU-DPF)" },
-  { WEIGHTED_RANDOM_DPF_POLICY,     "Weighted Random with Delay Penalty Factor (WRAND-DPF)" },
-  { 0,                              NULL } };
 
 static void
 dissect_pool_member_selection_policy_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
@@ -467,8 +320,6 @@ dissect_pool_member_selection_policy_parameter(tvbuff_t *parameter_tvb, proto_tr
   }
 }
 
-#define POOL_HANDLE_OFFSET PARAMETER_VALUE_OFFSET
-
 static void
 dissect_pool_handle_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
 {
@@ -481,15 +332,6 @@ dissect_pool_handle_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tre
   proto_item_append_text(pi, " (%s)",
                          tvb_format_text(parameter_tvb, POOL_HANDLE_OFFSET, handle_length));
 }
-
-#define PE_PE_IDENTIFIER_LENGTH         4
-#define HOME_ENRP_INDENTIFIER_LENGTH    4
-#define REGISTRATION_LIFE_LENGTH        4
-
-#define PE_PE_IDENTIFIER_OFFSET         PARAMETER_VALUE_OFFSET
-#define HOME_ENRP_INDENTIFIER_OFFSET    (PE_PE_IDENTIFIER_OFFSET + PE_PE_IDENTIFIER_LENGTH)
-#define REGISTRATION_LIFE_OFFSET        (HOME_ENRP_INDENTIFIER_OFFSET + HOME_ENRP_INDENTIFIER_LENGTH)
-#define USER_TRANSPORT_PARAMETER_OFFSET (REGISTRATION_LIFE_OFFSET + REGISTRATION_LIFE_LENGTH)
 
 static void
 dissect_pool_element_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
@@ -504,10 +346,6 @@ dissect_pool_element_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tr
   dissect_parameters(parameters_tvb, parameter_tree);
 }
 
-#define SERVER_ID_LENGTH         4
-#define SERVER_ID_OFFSET         PARAMETER_VALUE_OFFSET
-#define SERVER_TRANSPORT_OFFSET  (SERVER_ID_OFFSET + SERVER_ID_LENGTH)
-
 static void
 dissect_server_information_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
 {
@@ -519,8 +357,6 @@ dissect_server_information_parameter(tvbuff_t *parameter_tvb, proto_tree *parame
   dissect_parameters(parameters_tvb, parameter_tree);
 }
 
-#define ERROR_CAUSES_OFFSET PARAMETER_VALUE_OFFSET
-
 static void
 dissect_operation_error_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
 {
@@ -529,8 +365,6 @@ dissect_operation_error_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter
   error_causes_tvb = tvb_new_subset_remaining(parameter_tvb, ERROR_CAUSES_OFFSET);
   dissect_error_causes(error_causes_tvb, parameter_tree);
 }
-
-#define COOKIE_OFFSET PARAMETER_VALUE_OFFSET
 
 static void
 dissect_cookie_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item)
@@ -543,9 +377,6 @@ dissect_cookie_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, pr
   proto_item_append_text(parameter_item, " (%u byte%s)", cookie_length, plurality(cookie_length, "", "s"));
 }
 
-#define PE_IDENTIFIER_LENGTH 4
-#define PE_IDENTIFIER_OFFSET PARAMETER_VALUE_OFFSET
-
 static void
 dissect_pe_identifier_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item)
 {
@@ -553,17 +384,12 @@ dissect_pe_identifier_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_t
   proto_item_append_text(parameter_item, " (0x%x)", tvb_get_ntohl(parameter_tvb, PE_IDENTIFIER_OFFSET));
 }
 
-#define PE_CHECKSUM_OFFSET PARAMETER_VALUE_OFFSET
-
 static void
 dissect_pe_checksum_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item)
 {
   proto_tree_add_checksum(parameter_tree, parameter_tvb, PE_CHECKSUM_OFFSET, hf_pe_checksum, -1, NULL, NULL, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
   proto_item_append_text(parameter_item, " (0x%x)", tvb_get_ntohs(parameter_tvb, PE_CHECKSUM_OFFSET));
 }
-
-#define HROPT_ITEMS_LENGTH 4
-#define HROPT_ITEMS_OFFSET PARAMETER_VALUE_OFFSET
 
 static void
 dissect_handle_resolution_option_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree)
@@ -584,43 +410,6 @@ dissect_unknown_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, p
 
   proto_item_append_text(parameter_item, " (type %u and %u byte%s value)", type, parameter_value_length, plurality(parameter_value_length, "", "s"));
 }
-
-#define IPV4_ADDRESS_PARAMETER_TYPE                 0x01
-#define IPV6_ADDRESS_PARAMETER_TYPE                 0x02
-#define DCCP_TRANSPORT_PARAMETER_TYPE               0x03
-#define SCTP_TRANSPORT_PARAMETER_TYPE               0x04
-#define TCP_TRANSPORT_PARAMETER_TYPE                0x05
-#define UDP_TRANSPORT_PARAMETER_TYPE                0x06
-#define UDP_LITE_TRANSPORT_PARAMETER_TYPE           0x07
-#define POOL_MEMBER_SELECTION_POLICY_PARAMETER_TYPE 0x08
-#define POOL_HANDLE_PARAMETER_TYPE                  0x09
-#define POOL_ELEMENT_PARAMETER_TYPE                 0x0a
-#define SERVER_INFORMATION_PARAMETER_TYPE           0x0b
-#define OPERATION_ERROR_PARAMETER_TYPE              0x0c
-#define COOKIE_PARAMETER_TYPE                       0x0d
-#define PE_IDENTIFIER_PARAMETER_TYPE                0x0e
-#define PE_CHECKSUM_PARAMETER_TYPE                  0x0f
-#define HANDLE_RESOLUTION_OPTION_PARAMETER_TYPE     0x803f
-
-static const value_string parameter_type_values[] = {
-  { IPV4_ADDRESS_PARAMETER_TYPE,                 "IPV4 Address Parameter" },
-  { IPV6_ADDRESS_PARAMETER_TYPE,                 "IPV6 Address Parameter" },
-  { DCCP_TRANSPORT_PARAMETER_TYPE,               "DCCP Transport Address Parameter" },
-  { SCTP_TRANSPORT_PARAMETER_TYPE,               "SCTP Transport Address Parameter" },
-  { TCP_TRANSPORT_PARAMETER_TYPE,                "TCP Transport Address Parameter" },
-  { UDP_TRANSPORT_PARAMETER_TYPE,                "UDP Transport Address Parameter" },
-  { UDP_LITE_TRANSPORT_PARAMETER_TYPE,           "UDP-Lite Transport Address Parameter" },
-  { POOL_MEMBER_SELECTION_POLICY_PARAMETER_TYPE, "Pool Member Selection Policy Parameter" },
-  { POOL_HANDLE_PARAMETER_TYPE,                  "Pool Handle Parameter" },
-  { POOL_ELEMENT_PARAMETER_TYPE,                 "Pool Element Parameter" },
-  { SERVER_INFORMATION_PARAMETER_TYPE,           "Server Information Parameter" },
-  { OPERATION_ERROR_PARAMETER_TYPE,              "Operation Error Parameter" },
-  { COOKIE_PARAMETER_TYPE,                       "Cookie Parameter" },
-  { PE_IDENTIFIER_PARAMETER_TYPE,                "Pool Element Identifier Parameter" },
-  { PE_CHECKSUM_PARAMETER_TYPE,                  "PE Checksum Parameter" },
-  { HANDLE_RESOLUTION_OPTION_PARAMETER_TYPE,     "Handle Resolution Option Parameter" },
-  { 0,                                           NULL } };
-
 
 static void
 dissect_parameter(tvbuff_t *parameter_tvb, proto_tree *asap_tree)
@@ -721,15 +510,6 @@ dissect_parameters(tvbuff_t *parameters_tvb, proto_tree *tree)
 }
 
 /* Dissectors for messages. This is specific to ASAP */
-
-#define MESSAGE_TYPE_LENGTH   1
-#define MESSAGE_FLAGS_LENGTH  1
-#define MESSAGE_LENGTH_LENGTH 2
-
-#define MESSAGE_TYPE_OFFSET   0
-#define MESSAGE_FLAGS_OFFSET  (MESSAGE_TYPE_OFFSET   + MESSAGE_TYPE_LENGTH)
-#define MESSAGE_LENGTH_OFFSET (MESSAGE_FLAGS_OFFSET  + MESSAGE_FLAGS_LENGTH)
-#define MESSAGE_VALUE_OFFSET  (MESSAGE_LENGTH_OFFSET + MESSAGE_LENGTH_LENGTH)
 
 #define REGISTRATION_MESSAGE_TYPE               0x01
 #define DEREGISTRATION_MESSAGE_TYPE             0x02

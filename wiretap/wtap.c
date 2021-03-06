@@ -20,17 +20,38 @@
 #include "file_wrappers.h"
 #include <wsutil/file_util.h>
 #include <wsutil/buffer.h>
+#ifdef HAVE_PLUGINS
+#include <wsutil/plugins.h>
+#endif
 
 #ifdef HAVE_PLUGINS
-
-
 static plugins_t *libwiretap_plugins = NULL;
+#endif
+
 static GSList *wtap_plugins = NULL;
 
+#ifdef HAVE_PLUGINS
 void
 wtap_register_plugin(const wtap_plugin *plug)
 {
 	wtap_plugins = g_slist_prepend(wtap_plugins, (wtap_plugin *)plug);
+}
+#else /* HAVE_PLUGINS */
+void
+wtap_register_plugin(const wtap_plugin *plug _U_)
+{
+	wtap_warn("wtap_register_plugin: built without support for binary plugins");
+}
+#endif /* HAVE_PLUGINS */
+
+int
+wtap_plugins_supported(void)
+{
+#ifdef HAVE_PLUGINS
+	return g_module_supported() ? 0 : 1;
+#else
+	return -1;
+#endif
 }
 
 static void
@@ -42,7 +63,6 @@ call_plugin_register_wtap_module(gpointer data, gpointer user_data _U_)
 		plug->register_wtap_module();
 	}
 }
-#endif /* HAVE_PLUGINS */
 
 /*
  * Return the size of the file, as reported by the OS.
@@ -195,7 +215,7 @@ wtap_add_generated_idb(wtap *wth)
 	g_assert(wth->file_tsprec != WTAP_TSPREC_UNKNOWN &&
 	    wth->file_tsprec != WTAP_TSPREC_PER_PACKET);
 
-	idb = wtap_block_create(WTAP_BLOCK_IF_DESCR);
+	idb = wtap_block_create(WTAP_BLOCK_IF_ID_AND_INFO);
 
 	if_descr_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(idb);
 	if_descr_mand->wtap_encap = wth->file_encap;
@@ -1421,6 +1441,8 @@ wtap_close(wtap *wth)
 
 	g_free(wth->priv);
 
+	g_free(wth->pathname);
+
 	if (wth->fast_seek != NULL) {
 		g_ptr_array_foreach(wth->fast_seek, g_fast_seek_item_free, NULL);
 		g_ptr_array_free(wth->fast_seek, TRUE);
@@ -1786,11 +1808,12 @@ wtap_init(gboolean load_wiretap_plugins)
 	init_open_routines();
 	wtap_opttypes_initialize();
 	wtap_init_encap_types();
+	wtap_init_file_type_subtypes();
 	if (load_wiretap_plugins) {
 #ifdef HAVE_PLUGINS
 		libwiretap_plugins = plugins_init(WS_PLUGIN_WIRETAP);
-		g_slist_foreach(wtap_plugins, call_plugin_register_wtap_module, NULL);
 #endif
+		g_slist_foreach(wtap_plugins, call_plugin_register_wtap_module, NULL);
 	}
 }
 
@@ -1804,9 +1827,9 @@ wtap_cleanup(void)
 	wtap_opttypes_cleanup();
 	ws_buffer_cleanup();
 	cleanup_open_routines();
-#ifdef HAVE_PLUGINS
 	g_slist_free(wtap_plugins);
 	wtap_plugins = NULL;
+#ifdef HAVE_PLUGINS
 	plugins_cleanup(libwiretap_plugins);
 	libwiretap_plugins = NULL;
 #endif

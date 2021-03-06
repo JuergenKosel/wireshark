@@ -34,12 +34,12 @@ static gint ett_onoffarray  = -1;
 /* Initialize the protocol and registered fields */
 #define INIT_FIELD(variable, offset, length) \
    static int hf_##variable           = -1;        \
-   static const int offset_##variable = offset;    \
+   static const unsigned int offset_##variable = offset;    \
    static const int length_##variable = length;
 
 #define INIT_FIELD_WITHOUT_LEN(variable, offset) \
    static int hf_##variable           = -1;        \
-   static const int offset_##variable = offset;
+   static const unsigned int offset_##variable = offset;
 
 #define NETPERFMETER_ACKNOWLEDGE    0x01
 #define NETPERFMETER_ADD_FLOW       0x02
@@ -107,6 +107,8 @@ INIT_FIELD(identifyflow_flowid,         4,  4)
 INIT_FIELD(identifyflow_magicnumber,    8,  8)
 INIT_FIELD(identifyflow_measurementid, 16,  8)
 INIT_FIELD(identifyflow_streamid,      24,  2)
+
+#define NETPERFMETER_IDENTIFY_FLOW_MAGIC_NUMBER 0x4bcdf3aa303c6774ULL
 
 INIT_FIELD(data_flowid,           4,  4)
 INIT_FIELD(data_measurementid,    8,  8)
@@ -212,7 +214,7 @@ static hf_register_info hf[] = {
    { &hf_data_frameid,               { "Frame ID",              "npmp.data_frameid",               FT_UINT32,  BASE_DEC,  NULL,                      0x0, NULL, HFILL } },
    { &hf_data_packetseqnumber,       { "Packet Seq Number",     "npmp.data_packetseqnumber",       FT_UINT64,  BASE_DEC,  NULL,                      0x0, NULL, HFILL } },
    { &hf_data_byteseqnumber,         { "Byte Seq Number",       "npmp.data_byteseqnumber",         FT_UINT64,  BASE_DEC,  NULL,                      0x0, NULL, HFILL } },
-   { &hf_data_timestamp,             { "Time Stamp",            "npmp.data_timestamp",             FT_UINT64,  BASE_DEC,  NULL,                      0x0, NULL, HFILL } },
+   { &hf_data_timestamp,             { "Time Stamp",            "npmp.data_timestamp",             FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,        0x0, NULL, HFILL } },
    { &hf_data_payload,               { "Payload",               "npmp.data_payload",               FT_BYTES,   BASE_NONE, NULL,                      0x0, NULL, HFILL } },
 
 #if 0
@@ -326,6 +328,8 @@ static void
 dissect_npmp_data_message(tvbuff_t *message_tvb, proto_tree *message_tree)
 {
   const guint16 message_length = tvb_get_ntohs(message_tvb, offset_message_length);
+  guint64       timestamp;
+  nstime_t      t;
 
   ADD_FIELD_UINT(message_tree, data_flowid);
   ADD_FIELD_UINT(message_tree, data_measurementid);
@@ -334,7 +338,13 @@ dissect_npmp_data_message(tvbuff_t *message_tvb, proto_tree *message_tree)
   ADD_FIELD_UINT(message_tree, data_frameid);
   ADD_FIELD_UINT(message_tree, data_packetseqnumber);
   ADD_FIELD_UINT(message_tree, data_byteseqnumber);
-  ADD_FIELD_UINT(message_tree, data_timestamp);
+
+  timestamp = tvb_get_ntoh64(message_tvb, offset_data_timestamp);
+  t.secs  = (time_t)(timestamp / 1000000);
+  t.nsecs = (int)((timestamp - 1000000 * t.secs) * 1000);
+
+  proto_tree_add_time(message_tree, hf_data_timestamp, message_tvb, offset_data_timestamp, length_data_timestamp, &t);
+
   if (message_length > offset_data_payload) {
     proto_tree_add_item(message_tree, hf_data_payload, message_tvb, offset_data_payload, message_length - offset_data_payload, ENC_NA);
   }
@@ -358,7 +368,7 @@ dissect_npmp_stop_message(tvbuff_t *message_tvb, proto_tree *message_tree)
 static void
 dissect_npmp_results_message(tvbuff_t *message_tvb, proto_tree *message_tree)
 {
-  const guint16 message_length = tvb_get_guint8(message_tvb, offset_message_length);
+  const guint16 message_length = tvb_get_ntohs(message_tvb, offset_message_length);
   if (message_length > offset_results_data) {
     proto_tree_add_item(message_tree, hf_results_data, message_tvb, offset_results_data, message_length - offset_results_data, ENC_NA);
   }
@@ -425,7 +435,46 @@ dissect_npmp(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *tree, void *
   };
   /* dissect the message */
   dissect_npmp_message(message_tvb, pinfo, npmp_tree);
-  return(TRUE);
+  return TRUE;
+}
+
+
+static int
+heur_dissect_npmp(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+  const guint length = tvb_captured_length(message_tvb);
+  if (length < 4)
+    return FALSE;
+
+  /* For TCP, UDP or DCCP:
+      Type must either be NETPERFMETER_DATA or NETPERFMETER_IDENTIFY_FLOW */
+  const guint8 type = tvb_get_guint8(message_tvb, offset_message_type);
+  switch(type) {
+    case NETPERFMETER_DATA:
+      if (length < offset_data_payload + 8)
+        return FALSE;
+      /* Identify NetPerfMeter flow by payload pattern */
+      for(int i = 0; i < 8; i++) {
+        guint8 d = tvb_get_guint8(message_tvb, offset_data_payload + i);
+        if( (d != 30 + i) && (d != 127 - i) )
+          return FALSE;
+      }
+      break;
+    case NETPERFMETER_IDENTIFY_FLOW:
+      if (length < offset_identifyflow_streamid + length_identifyflow_streamid)
+        return FALSE;
+      if (tvb_get_ntoh64(message_tvb, offset_identifyflow_magicnumber) != NETPERFMETER_IDENTIFY_FLOW_MAGIC_NUMBER) {
+        /* Identify NetPerfMeter flow by NETPERFMETER_IDENTIFY_FLOW_MAGIC_NUMBER */
+        return FALSE;
+      }
+      break;
+    default:
+      /* Not a NetPerfMeter packet */
+        return FALSE;
+      break;
+  }
+
+  return dissect_npmp(message_tvb, pinfo, tree, data);
 }
 
 
@@ -440,7 +489,7 @@ proto_register_npmp(void)
   };
 
   /* Register the protocol name and description */
-  proto_npmp = proto_register_protocol("NetPerfMeter Protocol", "NetPerfMeterProtocol",  "npmp");
+  proto_npmp = proto_register_protocol("NetPerfMeter Protocol", "NetPerfMeterProtocol", "npmp");
 
   /* Required function calls to register the header fields and subtrees used */
   proto_register_field_array(proto_npmp, hf, array_length(hf));
@@ -453,11 +502,17 @@ proto_reg_handoff_npmp(void)
 {
   dissector_handle_t npmp_handle;
 
+  /* NetPerfMeterProtocol over SCTP is detected by PPIDs */
   npmp_handle = create_dissector_handle(dissect_npmp, proto_npmp);
   dissector_add_uint("sctp.ppi", PPID_NETPERFMETER_CONTROL_LEGACY, npmp_handle);
   dissector_add_uint("sctp.ppi", PPID_NETPERFMETER_DATA_LEGACY,    npmp_handle);
   dissector_add_uint("sctp.ppi", NPMP_CTRL_PAYLOAD_PROTOCOL_ID,    npmp_handle);
   dissector_add_uint("sctp.ppi", NPMP_DATA_PAYLOAD_PROTOCOL_ID,    npmp_handle);
+
+  /* Heuristic dissector for TCP, UDP and DCCP */
+  heur_dissector_add("tcp",  heur_dissect_npmp, "NetPerfMeter Protocol over TCP",  "npmp_tcp",  proto_npmp, HEURISTIC_ENABLE);
+  heur_dissector_add("udp",  heur_dissect_npmp, "NetPerfMeter Protocol over UDP",  "npmp_udp",  proto_npmp, HEURISTIC_ENABLE);
+  heur_dissector_add("dccp", heur_dissect_npmp, "NetPerfMeter Protocol over DCCP", "npmp_dccp", proto_npmp, HEURISTIC_ENABLE);
 }
 
 /*

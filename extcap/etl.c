@@ -171,13 +171,13 @@ wtap_dumper* etw_dump_open(const char* pcapng_filename, int* err, gchar** err_in
     wtap_dumper* pdh = NULL;
 
     shb_hdrs = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
-    shb_hdr = wtap_block_create(WTAP_BLOCK_NG_SECTION);
+    shb_hdr = wtap_block_create(WTAP_BLOCK_SECTION);
     g_array_append_val(shb_hdrs, shb_hdr);
 
-    /* In the future, may create multiple WTAP_BLOCK_IF_DESCR separately for IP packet */
+    /* In the future, may create multiple WTAP_BLOCK_IF_ID_AND_INFO separately for IP packet */
     idb_info = g_new(wtapng_iface_descriptions_t, 1);
     idb_datas = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
-    idb_data = wtap_block_create(WTAP_BLOCK_IF_DESCR);
+    idb_data = wtap_block_create(WTAP_BLOCK_IF_ID_AND_INFO);
     descr_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(idb_data);
     descr_mand->tsprecision = WTAP_TSPREC_USEC;
     descr_mand->wtap_encap = WTAP_ENCAP_ETW;
@@ -192,7 +192,7 @@ wtap_dumper* etw_dump_open(const char* pcapng_filename, int* err, gchar** err_in
     params.shb_hdrs = shb_hdrs;
     params.idb_inf = idb_info;
 
-    pdh = wtap_dump_open(pcapng_filename, WTAP_FILE_TYPE_SUBTYPE_PCAPNG, WTAP_UNCOMPRESSED, &params, err, err_info);
+    pdh = wtap_dump_open(pcapng_filename, wtap_pcapng_file_type_subtype(), WTAP_UNCOMPRESSED, &params, err, err_info);
 
     if (shb_hdrs)
     {

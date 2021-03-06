@@ -16,6 +16,10 @@
 
 #include "ruby_marshal.h"
 
+static int ruby_marshal_file_type_subtype = -1;
+
+void register_ruby_marshal(void);
+
 static gboolean is_ruby_marshal(const guint8* filebuf)
 {
     if (filebuf[0] != RUBY_MARSHAL_MAJOR)
@@ -70,7 +74,7 @@ wtap_open_return_val ruby_marshal_open(wtap *wth, int *err, gchar **err_info)
         return WTAP_OPEN_ERROR;
     }
 
-    wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_RUBY_MARSHAL;
+    wth->file_type_subtype = ruby_marshal_file_type_subtype;
     wth->file_encap = WTAP_ENCAP_RUBY_MARSHAL;
     wth->file_tsprec = WTAP_TSPREC_SEC;
     wth->subtype_read = wtap_full_file_read;
@@ -78,6 +82,31 @@ wtap_open_return_val ruby_marshal_open(wtap *wth, int *err, gchar **err_info)
     wth->snapshot_length = 0;
 
     return WTAP_OPEN_MINE;
+}
+
+static const struct supported_block_type ruby_marshal_blocks_supported[] = {
+    /*
+     * We support packet blocks, with no comments or other options.
+     */
+    { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info ruby_marshal_info = {
+    "Ruby marshal files", "ruby_marshal", NULL, NULL,
+    FALSE, BLOCKS_SUPPORTED(ruby_marshal_blocks_supported),
+    NULL, NULL, NULL
+};
+
+void register_ruby_marshal(void)
+{
+    ruby_marshal_file_type_subtype = wtap_register_file_type_subtype(&ruby_marshal_info);
+
+    /*
+     * Register name for backwards compatibility with the
+     * wtap_filetypes table in Lua.
+     */
+    wtap_register_backwards_compatibility_lua_name("RUBY_MARSHAL",
+                                                   ruby_marshal_file_type_subtype);
 }
 
 /*

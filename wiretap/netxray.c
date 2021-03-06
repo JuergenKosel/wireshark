@@ -280,11 +280,16 @@ struct netxrayrec_1_x_hdr {
  *
  *	xxx[0]: ATM traffic type and subtype in the low 3 bits of
  *	each nibble, and flags(?) in the upper bit of each nibble.
+ *	Always 0 for 802.11?
+ *
+ *	xxx[1]: Always 0 for 802.11?
  *
  *	xxx[2], xxx[3]: for Ethernet, 802.11, ISDN LAPD, LAPB,
  *	Frame Relay, if both are 0xff, there are 4 bytes of stuff
  *	at the end of the packet data, which might be an FCS or
  *	which might be junk to discard.
+ *
+ *	xxx[4-7]: Always 0 for 802.11?
  *
  *	xxx[8], xxx[9]: 2 bytes of a flag word?  If treated as
  *	a 2-byte little-endian flag word:
@@ -293,11 +298,12 @@ struct netxrayrec_1_x_hdr {
  *		    in one ISDN capture it's set in some B2 channel
  *		    packets of unknown content (as opposed to the B1
  *		    traffic in the capture, which is PPP)
+ *              0x0002: Seen in 802.11 - short preamble?  Bad CRC?
  *		0x0004: Some particular type of error?
  *		0x0008: For (Gigabit?) Ethernet (with special probe?),
  *		    4 bytes at end are junk rather than CRC?
  *		0x0100: CRC error on ATM?  Protected and Not decrypted
- *		    for 802.11?
+ *		    for 802.11?  Bad CRC?  Short preamble?
  *		0x0200: Something for ATM? Something else for 802.11?
  *		0x0400: raw ATM cell
  *		0x0800: OAM cell?
@@ -346,18 +352,30 @@ struct netxrayrec_1_x_hdr {
  *	The field appears to be somewhat random in some captures,
  *	however.
  *
+ *	xxx[10]: for 802.11, always 0?
+ *
  *	xxx[11]: for 802.11, 0x05 if the packet is WEP-encrypted(?).
  *
  *	xxx[12]: for 802.11, channel number.
  *
- *	xxx[13]: for 802.11, data rate.
+ *	xxx[13]: for 802.11, data rate, in 500 Kb/s units.
  *
  *	xxx[14]: for 802.11, signal strength.
  *
  *	xxx[15]: for 802.11, noise level; 0xFF means none reported,
  *	    0x7F means 100%.
  *
+ *	xxx[16-19]: for 802.11, PHY header, at least for {HR/}DSSS,
+ *	            in at least one capture.
+ *	            In another capture, xxx[16] appears to be the
+ *	            data rate in 500 Kb/s units
+ *	            Chip-dependent stuff?
+ *
  *	xxx[20-25]: for 802.11, MAC address of sending machine(?).
+ *
+ *	xxx[26]: for 802.11, one of 0x00, 0x01, 0x03, or 0x0b?
+ *
+ *	xxx[27]: for 802.11, one of 0x00 or 0x30?
  */
 struct netxrayrec_2_x_hdr {
 	guint32	timelo;		/* lower 32 bits of time stamp */
@@ -407,6 +425,13 @@ static gboolean netxray_dump_2_0(wtap_dumper *wdh,
     const guint8 *pd, int *err, gchar **err_info);
 static gboolean netxray_dump_finish_2_0(wtap_dumper *wdh, int *err,
     gchar **err_info);
+
+static int netxray_old_file_type_subtype = -1;
+static int netxray_1_0_file_type_subtype = -1;
+static int netxray_1_1_file_type_subtype = -1;
+static int netxray_2_00x_file_type_subtype = -1;
+
+void register_netxray(void);
 
 wtap_open_return_val
 netxray_open(wtap *wth, int *err, gchar **err_info)
@@ -470,7 +495,7 @@ netxray_open(wtap *wth, int *err, gchar **err_info)
 	if (is_old) {
 		version_major = 0;
 		version_minor = 0;
-		file_type = WTAP_FILE_TYPE_SUBTYPE_NETXRAY_OLD;
+		file_type = netxray_old_file_type_subtype;
 	} else {
 		/* It appears that version 1.1 files (as produced by Windows
 		 * Sniffer Pro 2.0.01) have the time stamp in microseconds,
@@ -482,27 +507,27 @@ netxray_open(wtap *wth, int *err, gchar **err_info)
 		if (memcmp(hdr.version, vers_1_0, sizeof vers_1_0) == 0) {
 			version_major = 1;
 			version_minor = 0;
-			file_type = WTAP_FILE_TYPE_SUBTYPE_NETXRAY_1_0;
+			file_type = netxray_1_0_file_type_subtype;
 		} else if (memcmp(hdr.version, vers_1_1, sizeof vers_1_1) == 0) {
 			version_major = 1;
 			version_minor = 1;
-			file_type = WTAP_FILE_TYPE_SUBTYPE_NETXRAY_1_1;
+			file_type = netxray_1_1_file_type_subtype;
 		} else if (memcmp(hdr.version, vers_2_000, sizeof vers_2_000) == 0) {
 			version_major = 2;
 			version_minor = 0;
-			file_type = WTAP_FILE_TYPE_SUBTYPE_NETXRAY_2_00x;
+			file_type = netxray_2_00x_file_type_subtype;
 		} else if (memcmp(hdr.version, vers_2_001, sizeof vers_2_001) == 0) {
 			version_major = 2;
 			version_minor = 1;
-			file_type = WTAP_FILE_TYPE_SUBTYPE_NETXRAY_2_00x;
+			file_type = netxray_2_00x_file_type_subtype;
 		} else if (memcmp(hdr.version, vers_2_002, sizeof vers_2_002) == 0) {
 			version_major = 2;
 			version_minor = 2;
-			file_type = WTAP_FILE_TYPE_SUBTYPE_NETXRAY_2_00x;
+			file_type = netxray_2_00x_file_type_subtype;
 		} else if (memcmp(hdr.version, vers_2_003, sizeof vers_2_003) == 0) {
 			version_major = 2;
 			version_minor = 3;
-			file_type = WTAP_FILE_TYPE_SUBTYPE_NETXRAY_2_00x;
+			file_type = netxray_2_00x_file_type_subtype;
 		} else {
 			*err = WTAP_ERR_UNSUPPORTED;
 			*err_info = g_strdup_printf("netxray: version \"%.8s\" unsupported", hdr.version);
@@ -551,30 +576,37 @@ netxray_open(wtap *wth, int *err, gchar **err_info)
 	 */
 	start_timestamp = (double)pletoh32(&hdr.timelo)
 	    + (double)pletoh32(&hdr.timehi)*4294967296.0;
-	switch (file_type) {
-
-	case WTAP_FILE_TYPE_SUBTYPE_NETXRAY_OLD:
+	if (is_old) {
 		ticks_per_sec = 1000.0;
 		wth->file_tsprec = WTAP_TSPREC_MSEC;
-		break;
+	} else if (version_major == 1) {
+		switch (version_minor) {
 
-	case WTAP_FILE_TYPE_SUBTYPE_NETXRAY_1_0:
-		ticks_per_sec = 1000.0;
-		wth->file_tsprec = WTAP_TSPREC_MSEC;
-		break;
+		case 0:
+			ticks_per_sec = 1000.0;
+			wth->file_tsprec = WTAP_TSPREC_MSEC;
+			break;
 
-	case WTAP_FILE_TYPE_SUBTYPE_NETXRAY_1_1:
-		/*
-		 * In version 1.1 files (as produced by Windows Sniffer
-		 * Pro 2.0.01), the time stamp is in microseconds,
-		 * rather than the milliseconds time stamps in NetXRay
-		 * and older versions of Windows Sniffer.
-		 */
-		ticks_per_sec = 1000000.0;
-		wth->file_tsprec = WTAP_TSPREC_USEC;
-		break;
+		case 1:
+			/*
+			 * In version 1.1 files (as produced by Windows
+			 * Sniffer Pro 2.0.01), the time stamp is in
+			 * microseconds, rather than the milliseconds
+			 * time stamps in NetXRay and older versions
+			 * of Windows Sniffer.
+			 */
+			ticks_per_sec = 1000000.0;
+			wth->file_tsprec = WTAP_TSPREC_USEC;
+			break;
 
-	case WTAP_FILE_TYPE_SUBTYPE_NETXRAY_2_00x:
+		default:
+			/* "Can't happen" - we rejected that above */
+			*err = WTAP_ERR_INTERNAL;
+			*err_info = g_strdup_printf("netxray: version %d.%d somehow didn't get rejected",
+			                            version_major, version_minor);
+			return WTAP_OPEN_ERROR;
+		}
+	} else if (version_major == 2) {
 		/*
 		 * Get the time stamp units from the appropriate TpS
 		 * table or from the file header.
@@ -731,11 +763,12 @@ netxray_open(wtap *wth, int *err, gchar **err_info)
 			wth->file_tsprec = WTAP_TSPREC_NSEC;
 		else
 			wth->file_tsprec = WTAP_TSPREC_USEC;
-		break;
-
-	default:
-		g_assert_not_reached();
-		ticks_per_sec = 0.0;
+	} else {
+		/* "Can't happen" - we rejected that above */
+		*err = WTAP_ERR_INTERNAL;
+		*err_info = g_strdup_printf("netxray: version %d.%d somehow didn't get rejected",
+		                            version_major, version_minor);
+		return WTAP_OPEN_ERROR;
 	}
 	start_timestamp = start_timestamp/ticks_per_sec;
 
@@ -2078,6 +2111,79 @@ netxray_dump_finish_2_0(wtap_dumper *wdh, int *err, gchar **err_info _U_)
 		return FALSE;
 
 	return TRUE;
+}
+
+static const struct supported_block_type netxray_old_blocks_supported[] = {
+	/*
+	 * We support packet blocks, with no comments or other options.
+	 */
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info netxray_old_info = {
+	"Cinco Networks NetXRay 1.x", "netxray1", "cap", NULL,
+	TRUE, BLOCKS_SUPPORTED(netxray_old_blocks_supported),
+	NULL, NULL, NULL
+};
+
+static const struct supported_block_type netxray_1_0_blocks_supported[] = {
+	/*
+	 * We support packet blocks, with no comments or other options.
+	 */
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info netxray_1_0_info = {
+	"Cinco Networks NetXRay 2.0 or later", "netxray2", "cap", NULL,
+	TRUE, BLOCKS_SUPPORTED(netxray_1_0_blocks_supported),
+	NULL, NULL, NULL
+};
+
+static const struct supported_block_type netxray_1_1_blocks_supported[] = {
+	/*
+	 * We support packet blocks, with no comments or other options.
+	 */
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info netxray_1_1_info = {
+	"NetXray, Sniffer (Windows) 1.1", "ngwsniffer_1_1", "cap", NULL,
+	TRUE, BLOCKS_SUPPORTED(netxray_1_1_blocks_supported),
+	netxray_dump_can_write_encap_1_1, netxray_dump_open_1_1, NULL
+};
+
+static const struct supported_block_type netxray_2_00x_blocks_supported[] = {
+	/*
+	 * We support packet blocks, with no comments or other options.
+	 */
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info netxray_2_00x_info = {
+	"Sniffer (Windows) 2.00x", "ngwsniffer_2_0", "cap", "caz",
+	TRUE, BLOCKS_SUPPORTED(netxray_2_00x_blocks_supported),
+	netxray_dump_can_write_encap_2_0, netxray_dump_open_2_0, NULL
+};
+
+void register_netxray(void)
+{
+	netxray_old_file_type_subtype = wtap_register_file_type_subtype(&netxray_old_info);
+	netxray_1_0_file_type_subtype = wtap_register_file_type_subtype(&netxray_1_0_info);
+	netxray_1_1_file_type_subtype = wtap_register_file_type_subtype(&netxray_1_1_info);
+	netxray_2_00x_file_type_subtype = wtap_register_file_type_subtype(&netxray_2_00x_info);
+
+	/*
+	 * Register names for backwards compatibility with the
+	 * wtap_filetypes table in Lua.
+	 */
+	wtap_register_backwards_compatibility_lua_name("NETXRAY_OLD",
+	    netxray_old_file_type_subtype);
+	wtap_register_backwards_compatibility_lua_name("NETXRAY_1_0",
+	    netxray_1_0_file_type_subtype);
+	wtap_register_backwards_compatibility_lua_name("NETXRAY_1_1",
+	    netxray_1_1_file_type_subtype);
+	wtap_register_backwards_compatibility_lua_name("NETXRAY_2_00x",
+	    netxray_2_00x_file_type_subtype);
 }
 
 /*

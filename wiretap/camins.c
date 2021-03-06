@@ -107,6 +107,10 @@ typedef enum {
 #define DVB_CI_PSEUDO_HDR_HOST_TO_CAM 0xFE
 
 
+static int camins_file_type_subtype = -1;
+
+void register_camins(void);
+
 /* Detect a camins file by looking at the blocks that access the 16bit
    size register. The matching blocks to access the upper and lower 8bit
    must be no further than 5 blocks apart.
@@ -433,7 +437,7 @@ wtap_open_return_val camins_open(wtap *wth, int *err, gchar **err_info _U_)
 
    wth->subtype_read = camins_read;
    wth->subtype_seek_read = camins_seek_read;
-   wth->file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_CAMINS;
+   wth->file_type_subtype = camins_file_type_subtype;
 
    *err = 0;
 
@@ -448,6 +452,30 @@ wtap_open_return_val camins_open(wtap *wth, int *err, gchar **err_info _U_)
    return WTAP_OPEN_MINE;
 }
 
+static const struct supported_block_type camins_blocks_supported[] = {
+   /*
+    * We support packet blocks, with no comments or other options.
+    */
+   { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
+};
+
+static const struct file_type_subtype_info camins_info = {
+   "CAM Inspector file", "camins", "camins", NULL,
+   FALSE, BLOCKS_SUPPORTED(camins_blocks_supported),
+   NULL, NULL, NULL
+};
+
+void register_camins(void)
+{
+   camins_file_type_subtype = wtap_register_file_type_subtype(&camins_info);
+
+   /*
+    * Register name for backwards compatibility with the
+    * wtap_filetypes table in Lua.
+    */
+   wtap_register_backwards_compatibility_lua_name("CAMINS",
+                                                  camins_file_type_subtype);
+}
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
