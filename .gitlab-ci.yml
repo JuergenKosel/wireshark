@@ -85,8 +85,8 @@ clang-11:
     CC: clang-11
     CXX: clang++-11
   rules:
-    - if: '$CI_SERVER_HOST == "gitlab.com"'
-      when: always
+    - when: manual
+  allow_failure: true
 
 build:ubuntu-dist:
   stage: .pre
